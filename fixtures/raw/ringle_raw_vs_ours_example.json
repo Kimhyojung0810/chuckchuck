@@ -1,0 +1,779 @@
+{
+  "note": "Document Parse raw 한 장 vs 채택 스펙 SlideDoc 한 장 (전문)",
+  "file_name": "(최종)RINGLE 마케팅 공모전 PPT_SAIGHT.pdf",
+  "slide_no": 10,
+  "raw_element_count_on_page": 38,
+  "raw_page_elements": [
+    {
+      "id": 85,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0459,
+        "y0": 0.063,
+        "x1": 0.1898,
+        "y1": 0.0888
+      }
+    },
+    {
+      "id": 86,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.919,
+        "y0": 0.0609,
+        "x1": 0.9569,
+        "y1": 0.0835
+      }
+    },
+    {
+      "id": 87,
+      "page": 10,
+      "category": "heading1",
+      "text": "자사 분석\n“일하는 사람을 위한 영어” 슬로건의 링글은 주고객인 ‘커리어 영어가 필요한 직장인’ 맞춤 마케팅을 하고 있는 현황이다.",
+      "bbox": {
+        "x0": 0.0403,
+        "y0": 0.114,
+        "x1": 0.9175,
+        "y1": 0.198
+      }
+    },
+    {
+      "id": 88,
+      "page": 10,
+      "category": "heading1",
+      "text": "링글의 주요 이용 고객",
+      "bbox": {
+        "x0": 0.0918,
+        "y0": 0.2444,
+        "x1": 0.222,
+        "y1": 0.2784
+      }
+    },
+    {
+      "id": 89,
+      "page": 10,
+      "category": "heading1",
+      "text": "링글 유료이용권 보유자",
+      "bbox": {
+        "x0": 0.104,
+        "y0": 0.348,
+        "x1": 0.221,
+        "y1": 0.3752
+      }
+    },
+    {
+      "id": 90,
+      "page": 10,
+      "category": "chart",
+      "text": "![image](/image/placeholder)\n- Pie chart\n- The pie chart displays the distribution of individuals by age group, with the largest segment representing those aged 28 to 45, followed by a smaller segment labeled \"그 외\" (Other).\n| Age Group | Value |\n| --- | --- |\n| 28-45세 직장인 | 75 |\n| 그 외 | 25 |\n",
+      "bbox": {
+        "x0": 0.0733,
+        "y0": 0.4247,
+        "x1": 0.3242,
+        "y1": 0.7417
+      }
+    },
+    {
+      "id": 91,
+      "page": 10,
+      "category": "paragraph",
+      "text": "링글 유료이용권 보유자 중 80%는\n28-45세 직장인으로\n이들이 링글의 주요 이용 고객임",
+      "bbox": {
+        "x0": 0.0701,
+        "y0": 0.8046,
+        "x1": 0.2435,
+        "y1": 0.8887
+      }
+    },
+    {
+      "id": 92,
+      "page": 10,
+      "category": "paragraph",
+      "text": "링글의 마케팅 타겟 및 콘텐츠",
+      "bbox": {
+        "x0": 0.5603,
+        "y0": 0.2446,
+        "x1": 0.7324,
+        "y1": 0.278
+      }
+    },
+    {
+      "id": 93,
+      "page": 10,
+      "category": "table",
+      "text": "| 커리어 영어 고객 타겟 | 직장인 타겟 SNS 콘텐츠 |\n| --- | --- |\n| Ringle 메인 슬로건 \"일하는 사람의 영어\"라는 슬로건을 강조하여 <br>커리어 영어'라는 이미지 확보 공략 | Ringle Youtube <br>Ringle Instagram <br>커리어 속에서 느끼는 영어 갈증을 자극하는 영상콘텐츠 및 비즈니스 내 필요한 영단어 등 비즈니스 상황에서 유용한 정보 업로드 |\n",
+      "bbox": {
+        "x0": 0.3287,
+        "y0": 0.3012,
+        "x1": 0.962,
+        "y1": 0.7748
+      }
+    },
+    {
+      "id": 94,
+      "page": 10,
+      "category": "figure",
+      "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,icon,symbol,graphic</p>\n    <p class=\"figure-description\">A stylized downward-pointing arrow icon rendered in grayscale with a gradient effect, transitioning from light gray at the tip to darker gray at the top. The arrow is set against a dark navy-blue background, creating strong visual contrast. The design is clean and geometric, with sharp edges and a symmetrical shape, commonly used to indicate download, scroll down, or navigation direction in digital interfaces. No text or additional elements are present.</p>\n  </figcaption>\n",
+      "bbox": {
+        "x0": 0.6149,
+        "y0": 0.7919,
+        "x1": 0.677,
+        "y1": 0.8508
+      }
+    },
+    {
+      "id": 95,
+      "page": 10,
+      "category": "paragraph",
+      "text": "현재 운영 중인 링글 SNS 계정을 통해\n직장인 타겟 커리어 영어 이미지 강화",
+      "bbox": {
+        "x0": 0.5373,
+        "y0": 0.8658,
+        "x1": 0.7549,
+        "y1": 0.9362
+      }
+    },
+    {
+      "id": 96,
+      "page": 10,
+      "category": "footer",
+      "text": "10",
+      "bbox": {
+        "x0": 0.9491,
+        "y0": 0.9528,
+        "x1": 0.9623,
+        "y1": 0.9764
+      }
+    },
+    {
+      "id": 106,
+      "page": 10,
+      "category": "figure",
+      "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">logo,handwritten,graphic design</p>\n    <p class=\"figure-description\">A circular logo featuring the word &quot;Qingle&quot; written in a flowing, cursive white script against a solid purple background. The text is centrally positioned and appears to be stylized with a soft, glowing or neon-like outline, giving it a modern and artistic feel. The overall design suggests a brand identity, likely for a digital or creative service, with a minimalist yet expressive aesthetic. The background is dark, enhancing the contrast and visibility of the white text and purple circle.</p>\n  </figcaption>\n",
+      "bbox": {
+        "x0": 0.0428,
+        "y0": 0.0619,
+        "x1": 0.0626,
+        "y1": 0.093
+      }
+    },
+    {
+      "id": 107,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0655,
+        "y0": 0.0647,
+        "x1": 0.1885,
+        "y1": 0.0877
+      }
+    },
+    {
+      "id": 108,
+      "page": 10,
+      "category": "heading1",
+      "text": "메인 메시지\n링글은 중급자 정체기를 돌파할 수 있는 부스터 역할로 고객에게 다가가야 한다.",
+      "bbox": {
+        "x0": 0.0417,
+        "y0": 0.1146,
+        "x1": 0.6281,
+        "y1": 0.1972
+      }
+    },
+    {
+      "id": 109,
+      "page": 10,
+      "category": "list",
+      "text": "• 장애물: 중급자 심리(불안성, 답답성, 조급성, 회피성)\n• 해결 부스트: 링글 AI (결과 분석, 디스커션, 롤플레잉, 전화영어)",
+      "bbox": {
+        "x0": 0.0668,
+        "y0": 0.2287,
+        "x1": 0.3998,
+        "y1": 0.3009
+      }
+    },
+    {
+      "id": 110,
+      "page": 10,
+      "category": "figure",
+      "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,infographic,map,illustration</p>\n    <p class=\"figure-description\">This is a stylized, pixel-art diagram illustrating a 4-lane running track with four runners (labeled 1 to 4) competing in a race. Each lane contains a runner, a colored icon representing an AI-related concept, and a text label describing the AI’s function or behavior. The track is brown with white lane markings and numbered starting positions (1–4). \n\nKey visual elements include:\n- **Runners**: Each runner is depicted in a distinct outfit and pose, with some wearing headbands or caps.\n- **AI Icons**: Each lane features a unique colored icon (e.g., heart, watermelon, apple, cloud) with a corresponding AI label:\n  - Lane 1: AI 결과분석 (AI Result Analysis)\n  - Lane 2: AI 디스커션 (AI Discussion)\n  - Lane 3: AI 룰플레잉 (AI Rule Playing)\n  - Lane 4: AI 전화영어 (AI Phone English)\n- **AI Functions**: Each lane’s label describes an AI capability, such as “AI 디스커션” (AI Discussion) or “AI 전화영어” (AI Phone English), suggesting AI’s role in communication or analysis.\n- **Obstacles and Zones**: Orange-and-white striped hurdles and purple pentagonal zones are placed along the track, possibly indicating strategic or AI-controlled areas.\n- **Text Labels**: All labels are in Korean, describing AI functions or behaviors (e.g., “불안성: 방향 상실” — Instability: Loss of Direction; “조급성: 실전 압박” — Urgency: Real-time Pressure).\n- **Top Banner**: A dark blue banner at the top contains partially visible Korean text, likely describing AI applications in sports or education.\n\nThe overall design functions as an infographic to visually explain AI’s role in sports analytics, communication, and performance monitoring, using a metaphor of a race to represent competition and AI capabilities.</p>\n  </figcaption>\n",
+      "bbox": {
+        "x0": 0,
+        "y0": 0.2858,
+        "x1": 0.9995,
+        "y1": 0.9942
+      }
+    },
+    {
+      "id": 134,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0452,
+        "y0": 0.0624,
+        "x1": 0.1905,
+        "y1": 0.0895
+      }
+    },
+    {
+      "id": 135,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.9194,
+        "y0": 0.0605,
+        "x1": 0.9574,
+        "y1": 0.0839
+      }
+    },
+    {
+      "id": 136,
+      "page": 10,
+      "category": "heading1",
+      "text": "마케팅 전략: 팝업 부스 팝업 부스\n마케팅\n전략:\nPit Stop",
+      "bbox": {
+        "x0": 0.0415,
+        "y0": 0.1158,
+        "x1": 0.2439,
+        "y1": 0.1477
+      }
+    },
+    {
+      "id": 137,
+      "page": 10,
+      "category": "paragraph",
+      "text": "다음을 위한 Stop, Pit Stop S1을 운영하는 광고대행사 인컴이즈 소싱을 통한 효율성 증대\n보장된 유동인구, SPACE",
+      "bbox": {
+        "x0": 0.0574,
+        "y0": 0.1541,
+        "x1": 0.7842,
+        "y1": 0.1989
+      }
+    },
+    {
+      "id": 138,
+      "page": 10,
+      "category": "figure",
+      "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">map,infographic,diagram,screenshot,text block,logo</p>\n    <p class=\"figure-description\">This image is a multi-panel infographic or presentation slide, likely from a business or technology report, featuring Korean and English text, maps, and screenshots. The layout is divided into three main vertical sections:\n\n1. **Left Panel (Map &amp; Location):**  \n   - Displays a stylized map of the Seongsu-dong area in Seoul, highlighting subway stations (e.g., “서울숲역”, “성수역”, “성수역 북단”, “성수역”, “연무장길 상권”, “성수역 상권”) and surrounding districts (“독성역”, “인근 상권”, “성수역 상권”).  \n   - Includes a source credit: “Source: 빅데이터 플랫폼 ‘오판업’” and “Source: https://tnnews.co.kr/archives/189580”.\n\n2. **Middle Panel (Map &amp; Facility):**  \n   - Shows a detailed street map of the “성수역” area, with a green line indicating a subway route and station “2” labeled.  \n   - Features two inset images: one of a glass-fronted building entrance labeled “SPACE-S1”, and another of a long, dimly lit underground tunnel or corridor.  \n   - Labeled “Pit Stop | TRAINING” and “Pit Stop | DIAGNOSTIC” at the top.  \n   - Includes a source credit: “Source: https://tnnews.co.kr/archives/189580”.\n\n3. **Right Panel (Business Metrics &amp; AI Phone):**  \n   - Contains a pink text box with business performance data:  \n     - “SPACE S1 | 카누 팝업” — 1,000+ daily visitors, 30,000+ total visitors.  \n     - “AI Phone English | 아디다스 팝업” — 900+ daily visitors, 20,000+ total visitors.  \n   - A note: “성수동 사업체 매출액은 2014년 24조 2000억 원에서 2023년 51조 2000억 원으로 2배 이상 성장” (Seongsu-dong business revenue grew over 2x from 24 trillion 200 billion KRW in 2014 to 51 trillion 200 billion KRW in 2023).  \n   - Source: “Source: 서울성동구 성수 지역 경제지표 분석 용역 결과” (Seoul Seongsu-gu Seongsu area economic indicator analysis report).  \n   - Includes a faint background image of a person holding a water bottle with a “R” logo and a smartphone displaying “AI Phone English” and “Ringle Tutor”.\n\nAt the bottom, a blue arrow points to a screenshot of a futuristic gaming or simulation interface with text:  \n- “Stop, Pit Stop 팝업 : 핵심 상권인 연무장길 상권에 있는 SPACE S1 (팝업 스토어) 직접매출 3,000만원”  \n  (Translation: “Stop, Pit Stop Pop-up: SPACE S1 (Pop-up Store) located in the core area of Yeonmugang-gil, directly generating 30 million KRW in sales”).\n\nThe slide is numbered “30” in the bottom right corner. The overall theme appears to be about AI-powered pop-up stores in Seoul’s Seongsu-dong district, with emphasis on location, visitor metrics, and business growth.</p>\n  </figcaption>\n",
+      "bbox": {
+        "x0": 0.0183,
+        "y0": 0.212,
+        "x1": 0.9659,
+        "y1": 0.9583
+      }
+    },
+    {
+      "id": 103,
+      "page": 10,
+      "category": "header",
+      "text": "⌀R 링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0456,
+        "y0": 0.0632,
+        "x1": 0.1892,
+        "y1": 0.0885
+      }
+    },
+    {
+      "id": 104,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.9189,
+        "y0": 0.0611,
+        "x1": 0.9559,
+        "y1": 0.0834
+      }
+    },
+    {
+      "id": 105,
+      "page": 10,
+      "category": "paragraph",
+      "text": "마케팅 전략 : 인앱 재화 '가솔링'\n영어 엔진을 움직이는 연료, 가솔링",
+      "bbox": {
+        "x0": 0.0413,
+        "y0": 0.1148,
+        "x1": 0.3107,
+        "y1": 0.1972
+      }
+    },
+    {
+      "id": 106,
+      "page": 10,
+      "category": "heading1",
+      "text": "기획 의도",
+      "bbox": {
+        "x0": 0.0453,
+        "y0": 0.2542,
+        "x1": 0.1029,
+        "y1": 0.2849
+      }
+    },
+    {
+      "id": 107,
+      "page": 10,
+      "category": "list",
+      "text": "게임 속 경험치 시스템처럼 학습 시간을 수치화하여 유저의 효능감을 높이고, 서비스 이탈 시 체감하는 기회비용을 극대화\nAI 대화 및 피드백 학습에 직관적인 리워드를 제공함으로써 AI 영어 학습의 일상적 습관화를 유도\n자발적인 앱 체류 시간 증대를 통해 장기적인 이용자 수(MAU/DAU)를 확보하고 브랜드 로열티를 강화",
+      "bbox": {
+        "x0": 0.0435,
+        "y0": 0.3096,
+        "x1": 0.6522,
+        "y1": 0.4222
+      }
+    },
+    {
+      "id": 108,
+      "page": 10,
+      "category": "heading1",
+      "text": "실행 방안",
+      "bbox": {
+        "x0": 0.0456,
+        "y0": 0.4623,
+        "x1": 0.1032,
+        "y1": 0.4932
+      }
+    },
+    {
+      "id": 109,
+      "page": 10,
+      "category": "list",
+      "text": "게이미피케이션 요소 도입: 유저의 누적 학습 활동에 따라 인앱 재화를 차등 지급하여 서비스 이용의 재미와 명확한 목표 의식 제공\n자기주도적 학습 미션 설계: AI 대화, 교정 확인, 연속 출석 등 일상적 미션 수행 시 '가솔링'을 보상으로 지급하여 영어 노출 빈도 극대화\n구매 선순환 구조 구축: 정규 수강권 결제 금액에 비례한 가솔링 페이백 혜택을 제공하여 재구매 유도 및 서비스 충성도 제고\n다양한 리워드 활용처: 적립된 재화로 인앱 상품 구매 및 실물 경품 응모권 교환이 가능한 전용 스토어를 운영하여 유저의 지속적인 앱 체류 유도",
+      "bbox": {
+        "x0": 0.0452,
+        "y0": 0.5186,
+        "x1": 0.7532,
+        "y1": 0.6701
+      }
+    },
+    {
+      "id": 110,
+      "page": 10,
+      "category": "figure",
+      "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">infographic,diagram,UI element</p>\n    <p class=\"figure-description\">This is a Korean-language user interface (UI) element, likely from a mobile or web application, displaying a gas tank refill or resource replenishment screen. The top section features the English word “Gasoling” in bold black font, accompanied by a red fuel can icon with yellow droplets, symbolizing oil or gas. Below the icon, the text “현재 보유량: 37,250 G” (Current Amount: 37,250 G) indicates the user’s current resource level. Two gray rectangular buttons are displayed beneath: the left button reads “· AI 학습 시간 +5,000 G” (AI Learning Time +5,000 G), and the right button reads “+여벌/여휘성 +4,000 G” (+Extra/Extra Fuel +4,000 G). At the bottom, a dark blue banner contains the text “가솔링 예시 UI” (Gasoling Example UI), suggesting this is a sample or demonstration interface. The overall design uses a clean, flat UI style with soft gradients and dotted horizontal lines, typical of mobile game or simulation interfaces.</p>\n  </figcaption>\n",
+      "bbox": {
+        "x0": 0.7623,
+        "y0": 0.2988,
+        "x1": 0.9643,
+        "y1": 0.6916
+      }
+    },
+    {
+      "id": 111,
+      "page": 10,
+      "category": "paragraph",
+      "text": "기대 효과",
+      "bbox": {
+        "x0": 0.0451,
+        "y0": 0.7091,
+        "x1": 0.1031,
+        "y1": 0.7399
+      }
+    },
+    {
+      "id": 112,
+      "page": 10,
+      "category": "list",
+      "text": "+ 데일리 학습 루틴 형성: 심리적 진입 장벽이 낮은 AI 기능에 직관적인 보상 시스템을 결합하여 유저가 매일 영어를 연습하는 자발적 습관을 구축한다.\n데이터 기반 서비스 고도화: 유저의 활발한 참여로 축적된 방대한 대화 데이터를 활용하여 링글 AI 모델의 정교화 및 개인화된 학습 경험의 선순환 구조를 완성한다.\n운영 효율적 락인 효과: 기존 서비스인 심층 AI 리포트 및 고부가가치 경품(실리콘밸리 티켓 등)을 가솔링 기반 응모 체계로 전환하여 운영 비용을 최적화하고 유저 이탈을 방지한다.",
+      "bbox": {
+        "x0": 0.0441,
+        "y0": 0.7653,
+        "x1": 0.9271,
+        "y1": 0.8786
+      }
+    },
+    {
+      "id": 113,
+      "page": 10,
+      "category": "footer",
+      "text": "40",
+      "bbox": {
+        "x0": 0.9414,
+        "y0": 0.93,
+        "x1": 0.9576,
+        "y1": 0.9516
+      }
+    },
+    {
+      "id": 73,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0444,
+        "y0": 0.0614,
+        "x1": 0.1897,
+        "y1": 0.0895
+      }
+    },
+    {
+      "id": 74,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.9192,
+        "y0": 0.0602,
+        "x1": 0.9566,
+        "y1": 0.084
+      }
+    },
+    {
+      "id": 75,
+      "page": 10,
+      "category": "heading1",
+      "text": "마케팅 방안 통합 추정 수익원",
+      "bbox": {
+        "x0": 0.0406,
+        "y0": 0.1143,
+        "x1": 0.2279,
+        "y1": 0.1493
+      }
+    },
+    {
+      "id": 76,
+      "page": 10,
+      "category": "table",
+      "text": "| 캠페인 항목 | 참여/노출 수 (Reach) | 구매 전환율 (CVR) | 핵심 상품 및 단가 | 목표 판매 수량 (추정) | 예상 매출 기여액 | 비고 (산출 근거) |\n| --- | --- | --- | --- | --- | --- | --- |\n| 오해원 메인 캠 페인 | 20,000,000뷰 | 0.45% | 1개월권/소액권 (3만) | 90,000건 | 27.0억 | 제품의 '정체기 탈출' 메시 지 공감 및 AI 기능 호기심 유입 |\n| 링비티아이 (RING-BTI) | 1,500,000명 | 6.0% | 1개월 이용권 (2만) | 90,000건 | 18.0억 | 초정밀 AI 진단 툴의 객관 적 분석 매력으로 인한 유 료 전환 |\n| 단기 구매 프로 모션 | 300,000명 | 8.0% | 1/3/6개월권 (6.5만) | 24,000건 | 15.6억 | 기존 고가 요금제 대비 제 품 접근성을 높인 단기 패 키지 매력 |\n| 링글X종근당 (선물하기) | 500,000명 | 5.2% | 콜라보 패키지 (5만) | 26,000건 | 13.0억 | 채널 효과 제외, '지적/ 신체적 에너지' 결합 상품 기획의 매력 |\n| Pit-stop (성수 팝업) | 30,000명 | 30.0% | 멤버십 패키지 (10만) | 9,000건 | 9.0억 | AI 리포트 등 핵심 프로덕 트 기술력의 오프라인 직 접 체감 |\n| 인앱 재화 '가솔 링' | 150,000명 | 40.0% | 가솔린 추가 충전 (1만) | 60,000건 | 6.0억 | 게이미피케이션 요소를 통 한 유저들의 자발적 반복 사용 |\n| 링글 주유소 (도심 부스) | 100,000명 | 10.0% | 1개월 이용권 (2만) | 20,000건 | 4.0억 | 직장인 밀집 지역에서 즉 각적인 실력 진단 및 교정 경험 |\n",
+      "bbox": {
+        "x0": 0.0503,
+        "y0": 0.1884,
+        "x1": 0.9585,
+        "y1": 0.8986
+      }
+    },
+    {
+      "id": 77,
+      "page": 10,
+      "category": "footer",
+      "text": "50",
+      "bbox": {
+        "x0": 0.9422,
+        "y0": 0.9284,
+        "x1": 0.9595,
+        "y1": 0.9532
+      }
+    }
+  ],
+  "dropped_as_noise": [
+    {
+      "id": 85,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0459,
+        "y0": 0.063,
+        "x1": 0.1898,
+        "y1": 0.0888
+      }
+    },
+    {
+      "id": 86,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.919,
+        "y0": 0.0609,
+        "x1": 0.9569,
+        "y1": 0.0835
+      }
+    },
+    {
+      "id": 96,
+      "page": 10,
+      "category": "footer",
+      "text": "10",
+      "bbox": {
+        "x0": 0.9491,
+        "y0": 0.9528,
+        "x1": 0.9623,
+        "y1": 0.9764
+      }
+    },
+    {
+      "id": 107,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0655,
+        "y0": 0.0647,
+        "x1": 0.1885,
+        "y1": 0.0877
+      }
+    },
+    {
+      "id": 134,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0452,
+        "y0": 0.0624,
+        "x1": 0.1905,
+        "y1": 0.0895
+      }
+    },
+    {
+      "id": 135,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.9194,
+        "y0": 0.0605,
+        "x1": 0.9574,
+        "y1": 0.0839
+      }
+    },
+    {
+      "id": 103,
+      "page": 10,
+      "category": "header",
+      "text": "⌀R 링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0456,
+        "y0": 0.0632,
+        "x1": 0.1892,
+        "y1": 0.0885
+      }
+    },
+    {
+      "id": 104,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.9189,
+        "y0": 0.0611,
+        "x1": 0.9559,
+        "y1": 0.0834
+      }
+    },
+    {
+      "id": 113,
+      "page": 10,
+      "category": "footer",
+      "text": "40",
+      "bbox": {
+        "x0": 0.9414,
+        "y0": 0.93,
+        "x1": 0.9576,
+        "y1": 0.9516
+      }
+    },
+    {
+      "id": 73,
+      "page": 10,
+      "category": "header",
+      "text": "링글 서비스기획 & 마케팅 공모전",
+      "bbox": {
+        "x0": 0.0444,
+        "y0": 0.0614,
+        "x1": 0.1897,
+        "y1": 0.0895
+      }
+    },
+    {
+      "id": 74,
+      "page": 10,
+      "category": "header",
+      "text": "SAIGHT",
+      "bbox": {
+        "x0": 0.9192,
+        "y0": 0.0602,
+        "x1": 0.9566,
+        "y1": 0.084
+      }
+    },
+    {
+      "id": 77,
+      "page": 10,
+      "category": "footer",
+      "text": "50",
+      "bbox": {
+        "x0": 0.9422,
+        "y0": 0.9284,
+        "x1": 0.9595,
+        "y1": 0.9532
+      }
+    }
+  ],
+  "ours_slide": {
+    "slide_no": 10,
+    "title": "자사 분석\n“일하는 사람을 위한 영어” 슬로건의 링글은 주고객인 ‘커리어 영어가 필요한 직장인’ 맞춤 마케팅을 하고 있는 현황이다.",
+    "blocks": [
+      {
+        "category": "heading1",
+        "text": "자사 분석\n“일하는 사람을 위한 영어” 슬로건의 링글은 주고객인 ‘커리어 영어가 필요한 직장인’ 맞춤 마케팅을 하고 있는 현황이다."
+      },
+      {
+        "category": "heading1",
+        "text": "링글의 주요 이용 고객"
+      },
+      {
+        "category": "heading1",
+        "text": "링글 유료이용권 보유자"
+      },
+      {
+        "category": "chart",
+        "text": "![image](/image/placeholder)\n- Pie chart\n- The pie chart displays the distribution of individuals by age group, with the largest segment representing those aged 28 to 45, followed by a smaller segment labeled \"그 외\" (Other).\n| Age Group | Value |\n| --- | --- |\n| 28-45세 직장인 | 75 |\n| 그 외 | 25 |"
+      },
+      {
+        "category": "paragraph",
+        "text": "링글 유료이용권 보유자 중 80%는\n28-45세 직장인으로\n이들이 링글의 주요 이용 고객임"
+      },
+      {
+        "category": "paragraph",
+        "text": "링글의 마케팅 타겟 및 콘텐츠"
+      },
+      {
+        "category": "table",
+        "text": "| 커리어 영어 고객 타겟 | 직장인 타겟 SNS 콘텐츠 |\n| --- | --- |\n| Ringle 메인 슬로건 \"일하는 사람의 영어\"라는 슬로건을 강조하여 <br>커리어 영어'라는 이미지 확보 공략 | Ringle Youtube <br>Ringle Instagram <br>커리어 속에서 느끼는 영어 갈증을 자극하는 영상콘텐츠 및 비즈니스 내 필요한 영단어 등 비즈니스 상황에서 유용한 정보 업로드 |"
+      },
+      {
+        "category": "figure",
+        "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,icon,symbol,graphic</p>\n    <p class=\"figure-description\">A stylized downward-pointing arrow icon rendered in grayscale with a gradient effect, transitioning from light gray at the tip to darker gray at the top. The arrow is set against a dark navy-blue background, creating strong visual contrast. The design is clean and geometric, with sharp edges and a symmetrical shape, commonly used to indicate download, scroll down, or navigation direction in digital interfaces. No text or additional elements are present.</p>\n  </figcaption>"
+      },
+      {
+        "category": "paragraph",
+        "text": "현재 운영 중인 링글 SNS 계정을 통해\n직장인 타겟 커리어 영어 이미지 강화"
+      },
+      {
+        "category": "figure",
+        "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">logo,handwritten,graphic design</p>\n    <p class=\"figure-description\">A circular logo featuring the word &quot;Qingle&quot; written in a flowing, cursive white script against a solid purple background. The text is centrally positioned and appears to be stylized with a soft, glowing or neon-like outline, giving it a modern and artistic feel. The overall design suggests a brand identity, likely for a digital or creative service, with a minimalist yet expressive aesthetic. The background is dark, enhancing the contrast and visibility of the white text and purple circle.</p>\n  </figcaption>"
+      },
+      {
+        "category": "heading1",
+        "text": "메인 메시지\n링글은 중급자 정체기를 돌파할 수 있는 부스터 역할로 고객에게 다가가야 한다."
+      },
+      {
+        "category": "list",
+        "text": "• 장애물: 중급자 심리(불안성, 답답성, 조급성, 회피성)\n• 해결 부스트: 링글 AI (결과 분석, 디스커션, 롤플레잉, 전화영어)"
+      },
+      {
+        "category": "figure",
+        "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,infographic,map,illustration</p>\n    <p class=\"figure-description\">This is a stylized, pixel-art diagram illustrating a 4-lane running track with four runners (labeled 1 to 4) competing in a race. Each lane contains a runner, a colored icon representing an AI-related concept, and a text label describing the AI’s function or behavior. The track is brown with white lane markings and numbered starting positions (1–4). \n\nKey visual elements include:\n- **Runners**: Each runner is depicted in a distinct outfit and pose, with some wearing headbands or caps.\n- **AI Icons**: Each lane features a unique colored icon (e.g., heart, watermelon, apple, cloud) with a corresponding AI label:\n  - Lane 1: AI 결과분석 (AI Result Analysis)\n  - Lane 2: AI 디스커션 (AI Discussion)\n  - Lane 3: AI 룰플레잉 (AI Rule Playing)\n  - Lane 4: AI 전화영어 (AI Phone English)\n- **AI Functions**: Each lane’s label describes an AI capability, such as “AI 디스커션” (AI Discussion) or “AI 전화영어” (AI Phone English), suggesting AI’s role in communication or analysis.\n- **Obstacles and Zones**: Orange-and-white striped hurdles and purple pentagonal zones are placed along the track, possibly indicating strategic or AI-controlled areas.\n- **Text Labels**: All labels are in Korean, describing AI functions or behaviors (e.g., “불안성: 방향 상실” — Instability: Loss of Direction; “조급성: 실전 압박” — Urgency: Real-time Pressure).\n- **Top Banner**: A dark blue banner at the top contains partially visible Korean text, likely describing AI applications in sports or education.\n\nThe overall design functions as an infographic to visually explain AI’s role in sports analytics, communication, and performance monitoring, using a metaphor of a race to represent competition and AI capabilities.</p>\n  </figcaption>"
+      },
+      {
+        "category": "heading1",
+        "text": "마케팅 전략: 팝업 부스 팝업 부스\n마케팅\n전략:\nPit Stop"
+      },
+      {
+        "category": "paragraph",
+        "text": "다음을 위한 Stop, Pit Stop S1을 운영하는 광고대행사 인컴이즈 소싱을 통한 효율성 증대\n보장된 유동인구, SPACE"
+      },
+      {
+        "category": "figure",
+        "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">map,infographic,diagram,screenshot,text block,logo</p>\n    <p class=\"figure-description\">This image is a multi-panel infographic or presentation slide, likely from a business or technology report, featuring Korean and English text, maps, and screenshots. The layout is divided into three main vertical sections:\n\n1. **Left Panel (Map &amp; Location):**  \n   - Displays a stylized map of the Seongsu-dong area in Seoul, highlighting subway stations (e.g., “서울숲역”, “성수역”, “성수역 북단”, “성수역”, “연무장길 상권”, “성수역 상권”) and surrounding districts (“독성역”, “인근 상권”, “성수역 상권”).  \n   - Includes a source credit: “Source: 빅데이터 플랫폼 ‘오판업’” and “Source: https://tnnews.co.kr/archives/189580”.\n\n2. **Middle Panel (Map &amp; Facility):**  \n   - Shows a detailed street map of the “성수역” area, with a green line indicating a subway route and station “2” labeled.  \n   - Features two inset images: one of a glass-fronted building entrance labeled “SPACE-S1”, and another of a long, dimly lit underground tunnel or corridor.  \n   - Labeled “Pit Stop | TRAINING” and “Pit Stop | DIAGNOSTIC” at the top.  \n   - Includes a source credit: “Source: https://tnnews.co.kr/archives/189580”.\n\n3. **Right Panel (Business Metrics &amp; AI Phone):**  \n   - Contains a pink text box with business performance data:  \n     - “SPACE S1 | 카누 팝업” — 1,000+ daily visitors, 30,000+ total visitors.  \n     - “AI Phone English | 아디다스 팝업” — 900+ daily visitors, 20,000+ total visitors.  \n   - A note: “성수동 사업체 매출액은 2014년 24조 2000억 원에서 2023년 51조 2000억 원으로 2배 이상 성장” (Seongsu-dong business revenue grew over 2x from 24 trillion 200 billion KRW in 2014 to 51 trillion 200 billion KRW in 2023).  \n   - Source: “Source: 서울성동구 성수 지역 경제지표 분석 용역 결과” (Seoul Seongsu-gu Seongsu area economic indicator analysis report).  \n   - Includes a faint background image of a person holding a water bottle with a “R” logo and a smartphone displaying “AI Phone English” and “Ringle Tutor”.\n\nAt the bottom, a blue arrow points to a screenshot of a futuristic gaming or simulation interface with text:  \n- “Stop, Pit Stop 팝업 : 핵심 상권인 연무장길 상권에 있는 SPACE S1 (팝업 스토어) 직접매출 3,000만원”  \n  (Translation: “Stop, Pit Stop Pop-up: SPACE S1 (Pop-up Store) located in the core area of Yeonmugang-gil, directly generating 30 million KRW in sales”).\n\nThe slide is numbered “30” in the bottom right corner. The overall theme appears to be about AI-powered pop-up stores in Seoul’s Seongsu-dong district, with emphasis on location, visitor metrics, and business growth.</p>\n  </figcaption>"
+      },
+      {
+        "category": "paragraph",
+        "text": "마케팅 전략 : 인앱 재화 '가솔링'\n영어 엔진을 움직이는 연료, 가솔링"
+      },
+      {
+        "category": "heading1",
+        "text": "기획 의도"
+      },
+      {
+        "category": "list",
+        "text": "게임 속 경험치 시스템처럼 학습 시간을 수치화하여 유저의 효능감을 높이고, 서비스 이탈 시 체감하는 기회비용을 극대화\nAI 대화 및 피드백 학습에 직관적인 리워드를 제공함으로써 AI 영어 학습의 일상적 습관화를 유도\n자발적인 앱 체류 시간 증대를 통해 장기적인 이용자 수(MAU/DAU)를 확보하고 브랜드 로열티를 강화"
+      },
+      {
+        "category": "heading1",
+        "text": "실행 방안"
+      },
+      {
+        "category": "list",
+        "text": "게이미피케이션 요소 도입: 유저의 누적 학습 활동에 따라 인앱 재화를 차등 지급하여 서비스 이용의 재미와 명확한 목표 의식 제공\n자기주도적 학습 미션 설계: AI 대화, 교정 확인, 연속 출석 등 일상적 미션 수행 시 '가솔링'을 보상으로 지급하여 영어 노출 빈도 극대화\n구매 선순환 구조 구축: 정규 수강권 결제 금액에 비례한 가솔링 페이백 혜택을 제공하여 재구매 유도 및 서비스 충성도 제고\n다양한 리워드 활용처: 적립된 재화로 인앱 상품 구매 및 실물 경품 응모권 교환이 가능한 전용 스토어를 운영하여 유저의 지속적인 앱 체류 유도"
+      },
+      {
+        "category": "figure",
+        "text": "![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">infographic,diagram,UI element</p>\n    <p class=\"figure-description\">This is a Korean-language user interface (UI) element, likely from a mobile or web application, displaying a gas tank refill or resource replenishment screen. The top section features the English word “Gasoling” in bold black font, accompanied by a red fuel can icon with yellow droplets, symbolizing oil or gas. Below the icon, the text “현재 보유량: 37,250 G” (Current Amount: 37,250 G) indicates the user’s current resource level. Two gray rectangular buttons are displayed beneath: the left button reads “· AI 학습 시간 +5,000 G” (AI Learning Time +5,000 G), and the right button reads “+여벌/여휘성 +4,000 G” (+Extra/Extra Fuel +4,000 G). At the bottom, a dark blue banner contains the text “가솔링 예시 UI” (Gasoling Example UI), suggesting this is a sample or demonstration interface. The overall design uses a clean, flat UI style with soft gradients and dotted horizontal lines, typical of mobile game or simulation interfaces.</p>\n  </figcaption>"
+      },
+      {
+        "category": "paragraph",
+        "text": "기대 효과"
+      },
+      {
+        "category": "list",
+        "text": "+ 데일리 학습 루틴 형성: 심리적 진입 장벽이 낮은 AI 기능에 직관적인 보상 시스템을 결합하여 유저가 매일 영어를 연습하는 자발적 습관을 구축한다.\n데이터 기반 서비스 고도화: 유저의 활발한 참여로 축적된 방대한 대화 데이터를 활용하여 링글 AI 모델의 정교화 및 개인화된 학습 경험의 선순환 구조를 완성한다.\n운영 효율적 락인 효과: 기존 서비스인 심층 AI 리포트 및 고부가가치 경품(실리콘밸리 티켓 등)을 가솔링 기반 응모 체계로 전환하여 운영 비용을 최적화하고 유저 이탈을 방지한다."
+      },
+      {
+        "category": "heading1",
+        "text": "마케팅 방안 통합 추정 수익원"
+      },
+      {
+        "category": "table",
+        "text": "| 캠페인 항목 | 참여/노출 수 (Reach) | 구매 전환율 (CVR) | 핵심 상품 및 단가 | 목표 판매 수량 (추정) | 예상 매출 기여액 | 비고 (산출 근거) |\n| --- | --- | --- | --- | --- | --- | --- |\n| 오해원 메인 캠 페인 | 20,000,000뷰 | 0.45% | 1개월권/소액권 (3만) | 90,000건 | 27.0억 | 제품의 '정체기 탈출' 메시 지 공감 및 AI 기능 호기심 유입 |\n| 링비티아이 (RING-BTI) | 1,500,000명 | 6.0% | 1개월 이용권 (2만) | 90,000건 | 18.0억 | 초정밀 AI 진단 툴의 객관 적 분석 매력으로 인한 유 료 전환 |\n| 단기 구매 프로 모션 | 300,000명 | 8.0% | 1/3/6개월권 (6.5만) | 24,000건 | 15.6억 | 기존 고가 요금제 대비 제 품 접근성을 높인 단기 패 키지 매력 |\n| 링글X종근당 (선물하기) | 500,000명 | 5.2% | 콜라보 패키지 (5만) | 26,000건 | 13.0억 | 채널 효과 제외, '지적/ 신체적 에너지' 결합 상품 기획의 매력 |\n| Pit-stop (성수 팝업) | 30,000명 | 30.0% | 멤버십 패키지 (10만) | 9,000건 | 9.0억 | AI 리포트 등 핵심 프로덕 트 기술력의 오프라인 직 접 체감 |\n| 인앱 재화 '가솔 링' | 150,000명 | 40.0% | 가솔린 추가 충전 (1만) | 60,000건 | 6.0억 | 게이미피케이션 요소를 통 한 유저들의 자발적 반복 사용 |\n| 링글 주유소 (도심 부스) | 100,000명 | 10.0% | 1개월 이용권 (2만) | 20,000건 | 4.0억 | 직장인 밀집 지역에서 즉 각적인 실력 진단 및 교정 경험 |"
+      }
+    ],
+    "categories": [
+      "heading1",
+      "chart",
+      "paragraph",
+      "table",
+      "figure",
+      "list"
+    ],
+    "total_char_count": 9439,
+    "line_count": 111,
+    "has_visual": true,
+    "visual_type": [
+      "figure",
+      "chart",
+      "table"
+    ],
+    "alignment": "center",
+    "text_sparse": false,
+    "image_only": false,
+    "raw_text": "자사 분석\n“일하는 사람을 위한 영어” 슬로건의 링글은 주고객인 ‘커리어 영어가 필요한 직장인’ 맞춤 마케팅을 하고 있는 현황이다.\n링글의 주요 이용 고객\n링글 유료이용권 보유자\n![image](/image/placeholder)\n- Pie chart\n- The pie chart displays the distribution of individuals by age group, with the largest segment representing those aged 28 to 45, followed by a smaller segment labeled \"그 외\" (Other).\n| Age Group | Value |\n| --- | --- |\n| 28-45세 직장인 | 75 |\n| 그 외 | 25 |\n링글 유료이용권 보유자 중 80%는\n28-45세 직장인으로\n이들이 링글의 주요 이용 고객임\n링글의 마케팅 타겟 및 콘텐츠\n| 커리어 영어 고객 타겟 | 직장인 타겟 SNS 콘텐츠 |\n| --- | --- |\n| Ringle 메인 슬로건 \"일하는 사람의 영어\"라는 슬로건을 강조하여 <br>커리어 영어'라는 이미지 확보 공략 | Ringle Youtube <br>Ringle Instagram <br>커리어 속에서 느끼는 영어 갈증을 자극하는 영상콘텐츠 및 비즈니스 내 필요한 영단어 등 비즈니스 상황에서 유용한 정보 업로드 |\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,icon,symbol,graphic</p>\n    <p class=\"figure-description\">A stylized downward-pointing arrow icon rendered in grayscale with a gradient effect, transitioning from light gray at the tip to darker gray at the top. The arrow is set against a dark navy-blue background, creating strong visual contrast. The design is clean and geometric, with sharp edges and a symmetrical shape, commonly used to indicate download, scroll down, or navigation direction in digital interfaces. No text or additional elements are present.</p>\n  </figcaption>\n현재 운영 중인 링글 SNS 계정을 통해\n직장인 타겟 커리어 영어 이미지 강화\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">logo,handwritten,graphic design</p>\n    <p class=\"figure-description\">A circular logo featuring the word &quot;Qingle&quot; written in a flowing, cursive white script against a solid purple background. The text is centrally positioned and appears to be stylized with a soft, glowing or neon-like outline, giving it a modern and artistic feel. The overall design suggests a brand identity, likely for a digital or creative service, with a minimalist yet expressive aesthetic. The background is dark, enhancing the contrast and visibility of the white text and purple circle.</p>\n  </figcaption>\n메인 메시지\n링글은 중급자 정체기를 돌파할 수 있는 부스터 역할로 고객에게 다가가야 한다.\n• 장애물: 중급자 심리(불안성, 답답성, 조급성, 회피성)\n• 해결 부스트: 링글 AI (결과 분석, 디스커션, 롤플레잉, 전화영어)\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,infographic,map,illustration</p>\n    <p class=\"figure-description\">This is a stylized, pixel-art diagram illustrating a 4-lane running track with four runners (labeled 1 to 4) competing in a race. Each lane contains a runner, a colored icon representing an AI-related concept, and a text label describing the AI’s function or behavior. The track is brown with white lane markings and numbered starting positions (1–4). \n\nKey visual elements include:\n- **Runners**: Each runner is depicted in a distinct outfit and pose, with some wearing headbands or caps.\n- **AI Icons**: Each lane features a unique colored icon (e.g., heart, watermelon, apple, cloud) with a corresponding AI label:\n  - Lane 1: AI 결과분석 (AI Result Analysis)\n  - Lane 2: AI 디스커션 (AI Discussion)\n  - Lane 3: AI 룰플레잉 (AI Rule Playing)\n  - Lane 4: AI 전화영어 (AI Phone English)\n- **AI Functions**: Each lane’s label describes an AI capability, such as “AI 디스커션” (AI Discussion) or “AI 전화영어” (AI Phone English), suggesting AI’s role in communication or analysis.\n- **Obstacles and Zones**: Orange-and-white striped hurdles and purple pentagonal zones are placed along the track, possibly indicating strategic or AI-controlled areas.\n- **Text Labels**: All labels are in Korean, describing AI functions or behaviors (e.g., “불안성: 방향 상실” — Instability: Loss of Direction; “조급성: 실전 압박” — Urgency: Real-time Pressure).\n- **Top Banner**: A dark blue banner at the top contains partially visible Korean text, likely describing AI applications in sports or education.\n\nThe overall design functions as an infographic to visually explain AI’s role in sports analytics, communication, and performance monitoring, using a metaphor of a race to represent competition and AI capabilities.</p>\n  </figcaption>\n마케팅 전략: 팝업 부스 팝업 부스\n마케팅\n전략:\nPit Stop\n다음을 위한 Stop, Pit Stop S1을 운영하는 광고대행사 인컴이즈 소싱을 통한 효율성 증대\n보장된 유동인구, SPACE\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">map,infographic,diagram,screenshot,text block,logo</p>\n    <p class=\"figure-description\">This image is a multi-panel infographic or presentation slide, likely from a business or technology report, featuring Korean and English text, maps, and screenshots. The layout is divided into three main vertical sections:\n\n1. **Left Panel (Map &amp; Location):**  \n   - Displays a stylized map of the Seongsu-dong area in Seoul, highlighting subway stations (e.g., “서울숲역”, “성수역”, “성수역 북단”, “성수역”, “연무장길 상권”, “성수역 상권”) and surrounding districts (“독성역”, “인근 상권”, “성수역 상권”).  \n   - Includes a source credit: “Source: 빅데이터 플랫폼 ‘오판업’” and “Source: https://tnnews.co.kr/archives/189580”.\n\n2. **Middle Panel (Map &amp; Facility):**  \n   - Shows a detailed street map of the “성수역” area, with a green line indicating a subway route and station “2” labeled.  \n   - Features two inset images: one of a glass-fronted building entrance labeled “SPACE-S1”, and another of a long, dimly lit underground tunnel or corridor.  \n   - Labeled “Pit Stop | TRAINING” and “Pit Stop | DIAGNOSTIC” at the top.  \n   - Includes a source credit: “Source: https://tnnews.co.kr/archives/189580”.\n\n3. **Right Panel (Business Metrics &amp; AI Phone):**  \n   - Contains a pink text box with business performance data:  \n     - “SPACE S1 | 카누 팝업” — 1,000+ daily visitors, 30,000+ total visitors.  \n     - “AI Phone English | 아디다스 팝업” — 900+ daily visitors, 20,000+ total visitors.  \n   - A note: “성수동 사업체 매출액은 2014년 24조 2000억 원에서 2023년 51조 2000억 원으로 2배 이상 성장” (Seongsu-dong business revenue grew over 2x from 24 trillion 200 billion KRW in 2014 to 51 trillion 200 billion KRW in 2023).  \n   - Source: “Source: 서울성동구 성수 지역 경제지표 분석 용역 결과” (Seoul Seongsu-gu Seongsu area economic indicator analysis report).  \n   - Includes a faint background image of a person holding a water bottle with a “R” logo and a smartphone displaying “AI Phone English” and “Ringle Tutor”.\n\nAt the bottom, a blue arrow points to a screenshot of a futuristic gaming or simulation interface with text:  \n- “Stop, Pit Stop 팝업 : 핵심 상권인 연무장길 상권에 있는 SPACE S1 (팝업 스토어) 직접매출 3,000만원”  \n  (Translation: “Stop, Pit Stop Pop-up: SPACE S1 (Pop-up Store) located in the core area of Yeonmugang-gil, directly generating 30 million KRW in sales”).\n\nThe slide is numbered “30” in the bottom right corner. The overall theme appears to be about AI-powered pop-up stores in Seoul’s Seongsu-dong district, with emphasis on location, visitor metrics, and business growth.</p>\n  </figcaption>\n마케팅 전략 : 인앱 재화 '가솔링'\n영어 엔진을 움직이는 연료, 가솔링\n기획 의도\n게임 속 경험치 시스템처럼 학습 시간을 수치화하여 유저의 효능감을 높이고, 서비스 이탈 시 체감하는 기회비용을 극대화\nAI 대화 및 피드백 학습에 직관적인 리워드를 제공함으로써 AI 영어 학습의 일상적 습관화를 유도\n자발적인 앱 체류 시간 증대를 통해 장기적인 이용자 수(MAU/DAU)를 확보하고 브랜드 로열티를 강화\n실행 방안\n게이미피케이션 요소 도입: 유저의 누적 학습 활동에 따라 인앱 재화를 차등 지급하여 서비스 이용의 재미와 명확한 목표 의식 제공\n자기주도적 학습 미션 설계: AI 대화, 교정 확인, 연속 출석 등 일상적 미션 수행 시 '가솔링'을 보상으로 지급하여 영어 노출 빈도 극대화\n구매 선순환 구조 구축: 정규 수강권 결제 금액에 비례한 가솔링 페이백 혜택을 제공하여 재구매 유도 및 서비스 충성도 제고\n다양한 리워드 활용처: 적립된 재화로 인앱 상품 구매 및 실물 경품 응모권 교환이 가능한 전용 스토어를 운영하여 유저의 지속적인 앱 체류 유도\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">infographic,diagram,UI element</p>\n    <p class=\"figure-description\">This is a Korean-language user interface (UI) element, likely from a mobile or web application, displaying a gas tank refill or resource replenishment screen. The top section features the English word “Gasoling” in bold black font, accompanied by a red fuel can icon with yellow droplets, symbolizing oil or gas. Below the icon, the text “현재 보유량: 37,250 G” (Current Amount: 37,250 G) indicates the user’s current resource level. Two gray rectangular buttons are displayed beneath: the left button reads “· AI 학습 시간 +5,000 G” (AI Learning Time +5,000 G), and the right button reads “+여벌/여휘성 +4,000 G” (+Extra/Extra Fuel +4,000 G). At the bottom, a dark blue banner contains the text “가솔링 예시 UI” (Gasoling Example UI), suggesting this is a sample or demonstration interface. The overall design uses a clean, flat UI style with soft gradients and dotted horizontal lines, typical of mobile game or simulation interfaces.</p>\n  </figcaption>\n기대 효과\n+ 데일리 학습 루틴 형성: 심리적 진입 장벽이 낮은 AI 기능에 직관적인 보상 시스템을 결합하여 유저가 매일 영어를 연습하는 자발적 습관을 구축한다.\n데이터 기반 서비스 고도화: 유저의 활발한 참여로 축적된 방대한 대화 데이터를 활용하여 링글 AI 모델의 정교화 및 개인화된 학습 경험의 선순환 구조를 완성한다.\n운영 효율적 락인 효과: 기존 서비스인 심층 AI 리포트 및 고부가가치 경품(실리콘밸리 티켓 등)을 가솔링 기반 응모 체계로 전환하여 운영 비용을 최적화하고 유저 이탈을 방지한다.\n마케팅 방안 통합 추정 수익원\n| 캠페인 항목 | 참여/노출 수 (Reach) | 구매 전환율 (CVR) | 핵심 상품 및 단가 | 목표 판매 수량 (추정) | 예상 매출 기여액 | 비고 (산출 근거) |\n| --- | --- | --- | --- | --- | --- | --- |\n| 오해원 메인 캠 페인 | 20,000,000뷰 | 0.45% | 1개월권/소액권 (3만) | 90,000건 | 27.0억 | 제품의 '정체기 탈출' 메시 지 공감 및 AI 기능 호기심 유입 |\n| 링비티아이 (RING-BTI) | 1,500,000명 | 6.0% | 1개월 이용권 (2만) | 90,000건 | 18.0억 | 초정밀 AI 진단 툴의 객관 적 분석 매력으로 인한 유 료 전환 |\n| 단기 구매 프로 모션 | 300,000명 | 8.0% | 1/3/6개월권 (6.5만) | 24,000건 | 15.6억 | 기존 고가 요금제 대비 제 품 접근성을 높인 단기 패 키지 매력 |\n| 링글X종근당 (선물하기) | 500,000명 | 5.2% | 콜라보 패키지 (5만) | 26,000건 | 13.0억 | 채널 효과 제외, '지적/ 신체적 에너지' 결합 상품 기획의 매력 |\n| Pit-stop (성수 팝업) | 30,000명 | 30.0% | 멤버십 패키지 (10만) | 9,000건 | 9.0억 | AI 리포트 등 핵심 프로덕 트 기술력의 오프라인 직 접 체감 |\n| 인앱 재화 '가솔 링' | 150,000명 | 40.0% | 가솔린 추가 충전 (1만) | 60,000건 | 6.0억 | 게이미피케이션 요소를 통 한 유저들의 자발적 반복 사용 |\n| 링글 주유소 (도심 부스) | 100,000명 | 10.0% | 1개월 이용권 (2만) | 20,000건 | 4.0억 | 직장인 밀집 지역에서 즉 각적인 실력 진단 및 교정 경험 |"
+  },
+  "diff_summary": {
+    "raw_categories": [
+      "chart",
+      "figure",
+      "footer",
+      "header",
+      "heading1",
+      "list",
+      "paragraph",
+      "table"
+    ],
+    "ours_categories": [
+      "heading1",
+      "chart",
+      "paragraph",
+      "table",
+      "figure",
+      "list"
+    ],
+    "removed": [
+      "footer",
+      "header"
+    ],
+    "ours_metrics": {
+      "total_char_count": 9439,
+      "line_count": 111,
+      "has_visual": true,
+      "visual_type": [
+        "figure",
+        "chart",
+        "table"
+      ],
+      "alignment": "center",
+      "text_sparse": false,
+      "image_only": false,
+      "blocks_count": 26
+    }
+  },
+  "full_slidedoc_slide_count": 10
+}

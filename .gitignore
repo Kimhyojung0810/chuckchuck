@@ -1,0 +1,28 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+*.egg-info/
+.pytest_cache/
+_adot_*
+_stt_*
+_service_*
+_chunk*
+_out.txt
+_doc.html
+demo/YEHS_demo/.git/
+
+# logs / local dumps
+*.log
+fixtures/*.log
+_adot_*/
+_stt_*/
+_service_*/
+_chunk*/
+_out.txt
+_doc.html
+
+# editor
+.idea/
+.vscode/

@@ -1,0 +1,53 @@
+{
+  "file_name": "IMU2CLIP_sample.pdf",
+  "total_slides": 5,
+  "slides": [
+    {
+      "slide_no": 1,
+      "title": "IMU2CLIP 논문 리뷰",
+      "blocks": [
+        {"category": "heading1", "text": "IMU2CLIP 논문 리뷰"},
+        {"category": "paragraph", "text": "Video · IMU · Text 를 하나의 표현 공간으로 정렬하는 연구"}
+      ],
+      "text_sparse": false,
+      "image_only": false
+    },
+    {
+      "slide_no": 2,
+      "title": "Self-Supervised Learning",
+      "blocks": [
+        {"category": "heading1", "text": "Self-Supervised Learning"},
+        {"category": "paragraph", "text": "라벨 없이 pretext task로 표현을 먼저 학습한다."}
+      ],
+      "text_sparse": false,
+      "image_only": false
+    },
+    {
+      "slide_no": 3,
+      "title": "Contrastive Learning",
+      "blocks": [
+        {"category": "heading1", "text": "Contrastive Learning"},
+        {"category": "paragraph", "text": "같은 샘플은 가깝게, 다른 샘플은 멀게 만든다."}
+      ],
+      "text_sparse": false,
+      "image_only": false
+    },
+    {
+      "slide_no": 4,
+      "title": "공동 임베딩 정렬",
+      "blocks": [
+        {"category": "heading1", "text": "공동 임베딩 정렬"},
+        {"category": "paragraph", "text": "세 모달리티를 joint space에 올려 상호 검색을 가능하게 한다."}
+      ],
+      "text_sparse": false,
+      "image_only": false
+    },
+    {
+      "slide_no": 5,
+      "title": "아키텍처 도식",
+      "blocks": [],
+      "text_sparse": true,
+      "image_only": true
+    }
+  ]
+}

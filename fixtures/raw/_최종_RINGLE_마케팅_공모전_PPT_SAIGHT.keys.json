@@ -1,0 +1,132 @@
+{
+  "apiVersion": null,
+  "model": "document-parse",
+  "element_count": 548,
+  "element_keys": {
+    "category": 548,
+    "content": 548,
+    "coordinates": 548,
+    "id": 548,
+    "page": 548
+  },
+  "categories": {
+    "paragraph": 187,
+    "header": 90,
+    "heading1": 82,
+    "figure": 60,
+    "footer": 45,
+    "list": 43,
+    "table": 34,
+    "chart": 5,
+    "caption": 2
+  },
+  "nested_keys": {
+    "content": [
+      "html",
+      "markdown",
+      "text"
+    ],
+    "coordinates": [
+      "x",
+      "y"
+    ]
+  },
+  "top_level_keys": [
+    "_chuckchuck_meta",
+    "apiVersion",
+    "content",
+    "elements",
+    "model",
+    "usage"
+  ],
+  "sample_elements": [
+    {
+      "id": 0,
+      "page": 1,
+      "category": "header",
+      "content": {
+        "html": "<header id='0' style='font-size:14px'>링글 서비스기획 &amp; 마케팅 공모전 공모전<br>링글<br>서비스기획<br>&amp;<br>마케팅</header>",
+        "markdown": "링글 서비스기획 & 마케팅 공모전 공모전\n링글\n서비스기획\n&\n마케팅",
+        "text": "링글 서비스기획 & 마케팅 공모전 공모전\n링글\n서비스기획\n&\n마케팅"
+      },
+      "coordinates": [
+        {
+          "x": 0.0466,
+          "y": 0.0639
+        },
+        {
+          "x": 0.1892,
+          "y": 0.0639
+        },
+        {
+          "x": 0.1892,
+          "y": 0.0883
+        },
+        {
+          "x": 0.0466,
+          "y": 0.0883
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "page": 1,
+      "category": "paragraph",
+      "content": {
+        "html": "<p id='1' data-category='paragraph' style='font-size:20px'>거기서 멈출 영어가 아니니까,<br>Ringle 타겟 피보팅 및 마케팅 IMC 전략</p>",
+        "markdown": "거기서 멈출 영어가 아니니까,\nRingle 타겟 피보팅 및 마케팅 IMC 전략",
+        "text": "거기서 멈출 영어가 아니니까,\nRingle 타겟 피보팅 및 마케팅 IMC 전략"
+      },
+      "coordinates": [
+        {
+          "x": 0.0536,
+          "y": 0.38
+        },
+        {
+          "x": 0.8667,
+          "y": 0.38
+        },
+        {
+          "x": 0.8667,
+          "y": 0.582
+        },
+        {
+          "x": 0.0536,
+          "y": 0.582
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "page": 1,
+      "category": "paragraph",
+      "content": {
+        "html": "<p id='2' data-category='paragraph' style='font-size:18px'>TEAM SAIGHT</p>",
+        "markdown": "TEAM SAIGHT",
+        "text": "TEAM SAIGHT"
+      },
+      "coordinates": [
+        {
+          "x": 0.0575,
+          "y": 0.6468
+        },
+        {
+          "x": 0.257,
+          "y": 0.6468
+        },
+        {
+          "x": 0.257,
+          "y": 0.6982
+        },
+        {
+          "x": 0.0575,
+          "y": 0.6982
+        }
+      ]
+    }
+  ],
+  "has_coordinates_any": true,
+  "font_like_keys": [],
+  "source_file": "(최종)RINGLE 마케팅 공모전 PPT_SAIGHT.pdf",
+  "coordinates_requested": true
+}

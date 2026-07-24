@@ -1,0 +1,559 @@
+{
+  "note": "marks는 실버튼 기록이 아니라 균등 배분 데모. 실제 리허설에선 F-04 marks 사용.",
+  "pdf_pages_reported_by_upstage": 52,
+  "slides_with_text_elements": 10,
+  "stt_full_text": "안녕하세요 제 이름은 김효정입니다 오늘은 소리 그래프 빌더에 대해서 간단한 써머리와 발표 진행하도록 하겠습니다 먼저 첫 번째로 소리 그래프 빌더란 무엇인가에 대해 설명드리도록 하겠습니다 소리 그래프 빌더라는 이 어려운 이름은 그래프라는 구조에 기반하여서 다양한 에이전트들이 동작할 수 있게 해주는 바로 그 에이전트를 쉽게 만들어주는 빌더입니다 그래서 사용자에게는 소리 그래프 빌더가 보이지 않습니다 오직 유저는 에이전트의 뼈대가 되는 시나리오만을 수정하면 우리의 백단에서 소리 그래프 빌더가 동작을 하고 이를 하나의 에이전트로서 체험할 수 있게 해줍니다",
+  "by_slide": [
+    {
+      "slide_no": 1,
+      "visit": 1,
+      "start_sec": 0.0,
+      "end_sec": 10.895,
+      "text": "안녕하세요 제 이름은 김효정입니다 오늘은 소리 그래프 빌더에 대해서 간단한 써머리와 발표 진행하도록 하겠습니다",
+      "words": [
+        {
+          "text": "안녕하세요",
+          "start_sec": 1.57098,
+          "end_sec": 2.33306
+        },
+        {
+          "text": "제",
+          "start_sec": 2.37317,
+          "end_sec": 2.57372
+        },
+        {
+          "text": "이름은",
+          "start_sec": 2.61383,
+          "end_sec": 3.09514
+        },
+        {
+          "text": "김효정입니다",
+          "start_sec": 3.13525,
+          "end_sec": 4.49897
+        },
+        {
+          "text": "오늘은",
+          "start_sec": 4.53908,
+          "end_sec": 5.0605
+        },
+        {
+          "text": "소리",
+          "start_sec": 5.10061,
+          "end_sec": 5.34127
+        },
+        {
+          "text": "그래프",
+          "start_sec": 5.38138,
+          "end_sec": 5.62204
+        },
+        {
+          "text": "빌더에",
+          "start_sec": 5.66214,
+          "end_sec": 6.18357
+        },
+        {
+          "text": "대해서",
+          "start_sec": 6.22368,
+          "end_sec": 6.90554
+        },
+        {
+          "text": "간단한",
+          "start_sec": 6.94565,
+          "end_sec": 7.38685
+        },
+        {
+          "text": "써머리와",
+          "start_sec": 7.42696,
+          "end_sec": 7.98849
+        },
+        {
+          "text": "발표",
+          "start_sec": 8.0286,
+          "end_sec": 8.42969
+        },
+        {
+          "text": "진행하도록",
+          "start_sec": 8.4698,
+          "end_sec": 9.3121
+        },
+        {
+          "text": "하겠습니다",
+          "start_sec": 9.35221,
+          "end_sec": 10.8764
+        }
+      ]
+    },
+    {
+      "slide_no": 2,
+      "visit": 1,
+      "start_sec": 10.895,
+      "end_sec": 21.79,
+      "text": "먼저 첫 번째로 소리 그래프 빌더란 무엇인가에 대해 설명드리도록 하겠습니다 소리 그래프 빌더라는 이 어려운 이름은 그래프라는 구조에 기반하여서 다양한 에이전트들이 동작할 수 있게 해주는 바로 그 에이전트를 쉽게 만들어주는 빌더입니다",
+      "words": [
+        {
+          "text": "먼저",
+          "start_sec": 10.9165,
+          "end_sec": 11.2374
+        },
+        {
+          "text": "첫",
+          "start_sec": 11.2775,
+          "end_sec": 11.3978
+        },
+        {
+          "text": "번째로",
+          "start_sec": 11.4379,
+          "end_sec": 11.9192
+        },
+        {
+          "text": "소리",
+          "start_sec": 11.9593,
+          "end_sec": 12.2401
+        },
+        {
+          "text": "그래프",
+          "start_sec": 12.2802,
+          "end_sec": 12.561
+        },
+        {
+          "text": "빌더란",
+          "start_sec": 12.6011,
+          "end_sec": 13.1225
+        },
+        {
+          "text": "무엇인가에",
+          "start_sec": 13.1626,
+          "end_sec": 14.0049
+        },
+        {
+          "text": "대해",
+          "start_sec": 14.045,
+          "end_sec": 14.2857
+        },
+        {
+          "text": "설명드리도록",
+          "start_sec": 14.3258,
+          "end_sec": 15.2884
+        },
+        {
+          "text": "하겠습니다",
+          "start_sec": 15.3285,
+          "end_sec": 16.4115
+        },
+        {
+          "text": "소리",
+          "start_sec": 16.4516,
+          "end_sec": 16.7725
+        },
+        {
+          "text": "그래프",
+          "start_sec": 16.8126,
+          "end_sec": 17.2137
+        },
+        {
+          "text": "빌더라는",
+          "start_sec": 17.2538,
+          "end_sec": 17.9757
+        },
+        {
+          "text": "이",
+          "start_sec": 18.0158,
+          "end_sec": 18.2966
+        },
+        {
+          "text": "어려운",
+          "start_sec": 18.3367,
+          "end_sec": 18.6576
+        },
+        {
+          "text": "이름은",
+          "start_sec": 18.6977,
+          "end_sec": 19.4999
+        },
+        {
+          "text": "그래프라는",
+          "start_sec": 19.6304,
+          "end_sec": 20.4341
+        },
+        {
+          "text": "구조에",
+          "start_sec": 20.4742,
+          "end_sec": 20.9565
+        },
+        {
+          "text": "기반하여서",
+          "start_sec": 20.9966,
+          "end_sec": 22.1218
+        },
+        {
+          "text": "다양한",
+          "start_sec": 22.162,
+          "end_sec": 22.5638
+        },
+        {
+          "text": "에이전트들이",
+          "start_sec": 22.604,
+          "end_sec": 23.2871
+        },
+        {
+          "text": "동작할",
+          "start_sec": 23.3273,
+          "end_sec": 23.8497
+        },
+        {
+          "text": "수",
+          "start_sec": 23.8899,
+          "end_sec": 24.0506
+        },
+        {
+          "text": "있게",
+          "start_sec": 24.0908,
+          "end_sec": 24.2917
+        },
+        {
+          "text": "해주는",
+          "start_sec": 24.3319,
+          "end_sec": 24.9749
+        },
+        {
+          "text": "바로",
+          "start_sec": 25.0151,
+          "end_sec": 25.2562
+        },
+        {
+          "text": "그",
+          "start_sec": 25.2964,
+          "end_sec": 25.3767
+        },
+        {
+          "text": "에이전트를",
+          "start_sec": 25.4169,
+          "end_sec": 26.0197
+        },
+        {
+          "text": "쉽게",
+          "start_sec": 26.0599,
+          "end_sec": 26.3813
+        },
+        {
+          "text": "만들어주는",
+          "start_sec": 26.4215,
+          "end_sec": 27.2654
+        },
+        {
+          "text": "빌더입니다",
+          "start_sec": 27.3056,
+          "end_sec": 28.2298
+        }
+      ]
+    },
+    {
+      "slide_no": 3,
+      "visit": 1,
+      "start_sec": 21.79,
+      "end_sec": 32.685,
+      "text": "그래서 사용자에게는 소리 그래프 빌더가 보이지 않습니다 오직 유저는 에이전트의 뼈대가 되는 시나리오만을 수정하면 우리의 백단에서 소리 그래프 빌더가 동작을 하고 이를 하나의 에이전트로서 체험할 수 있게 해줍니다",
+      "words": [
+        {
+          "text": "그래서",
+          "start_sec": 28.6706,
+          "end_sec": 29.1114
+        },
+        {
+          "text": "사용자에게는",
+          "start_sec": 29.1515,
+          "end_sec": 29.8729
+        },
+        {
+          "text": "소리",
+          "start_sec": 29.913,
+          "end_sec": 30.1134
+        },
+        {
+          "text": "그래프",
+          "start_sec": 30.1535,
+          "end_sec": 30.434
+        },
+        {
+          "text": "빌더가",
+          "start_sec": 30.4741,
+          "end_sec": 30.8749
+        },
+        {
+          "text": "보이지",
+          "start_sec": 30.915,
+          "end_sec": 31.3158
+        },
+        {
+          "text": "않습니다",
+          "start_sec": 31.3558,
+          "end_sec": 32.3578
+        },
+        {
+          "text": "오직",
+          "start_sec": 32.3979,
+          "end_sec": 32.7185
+        },
+        {
+          "text": "유저는",
+          "start_sec": 32.7586,
+          "end_sec": 33.6804
+        },
+        {
+          "text": "에이전트의",
+          "start_sec": 33.7205,
+          "end_sec": 34.3217
+        },
+        {
+          "text": "뼈대가",
+          "start_sec": 34.3618,
+          "end_sec": 34.8026
+        },
+        {
+          "text": "되는",
+          "start_sec": 34.8427,
+          "end_sec": 35.0431
+        },
+        {
+          "text": "시나리오만을",
+          "start_sec": 35.0832,
+          "end_sec": 35.7244
+        },
+        {
+          "text": "수정하면",
+          "start_sec": 35.7645,
+          "end_sec": 36.7264
+        },
+        {
+          "text": "우리의",
+          "start_sec": 36.7665,
+          "end_sec": 37.0471
+        },
+        {
+          "text": "백단에서",
+          "start_sec": 37.0871,
+          "end_sec": 38.1292
+        },
+        {
+          "text": "소리",
+          "start_sec": 38.1693,
+          "end_sec": 38.3697
+        },
+        {
+          "text": "그래프",
+          "start_sec": 38.4097,
+          "end_sec": 38.6101
+        },
+        {
+          "text": "빌더가",
+          "start_sec": 38.6502,
+          "end_sec": 39.051
+        },
+        {
+          "text": "동작을",
+          "start_sec": 39.0911,
+          "end_sec": 39.5319
+        },
+        {
+          "text": "하고",
+          "start_sec": 39.572,
+          "end_sec": 40.1732
+        },
+        {
+          "text": "이를",
+          "start_sec": 40.2133,
+          "end_sec": 40.7343
+        },
+        {
+          "text": "하나의",
+          "start_sec": 40.7744,
+          "end_sec": 41.0149
+        },
+        {
+          "text": "에이전트로서",
+          "start_sec": 41.0549,
+          "end_sec": 41.7363
+        },
+        {
+          "text": "체험할",
+          "start_sec": 41.7764,
+          "end_sec": 42.1371
+        },
+        {
+          "text": "수",
+          "start_sec": 42.1772,
+          "end_sec": 42.3375
+        },
+        {
+          "text": "있게",
+          "start_sec": 42.3776,
+          "end_sec": 42.4577
+        },
+        {
+          "text": "해줍니다",
+          "start_sec": 42.4978,
+          "end_sec": 43.5799
+        }
+      ]
+    },
+    {
+      "slide_no": 4,
+      "visit": 1,
+      "start_sec": 32.685,
+      "end_sec": 43.58,
+      "text": "",
+      "words": []
+    }
+  ],
+  "concepts": {
+    "file_name": "(최종)RINGLE 마케팅 공모전 PPT_SAIGHT.pdf",
+    "total_slides": 5,
+    "model": "solar",
+    "slides": [
+      {
+        "slide_no": 1,
+        "title": "난이도 중심 vs 직군 중심 마케팅",
+        "topic": "경쟁사와 차별화된 링글의 직군 중심 마케팅 전략",
+        "keywords": [
+          "난이도 중심",
+          "직군 중심",
+          "고객 유출",
+          "Ringle 타겟"
+        ],
+        "concepts": [
+          "직군 중심 타겟팅: 직장인 집단 내 초·중·고급 실력 혼재",
+          "난이도 중심 마케팅: 경쟁사 전략",
+          "직군 중심 마케팅: 고객 유출 발생"
+        ],
+        "raw_text": "링글 서비스기획 & 마케팅 공모전 공모전\n링글\n서비스기획\n&\n마케팅\n거기서 멈출 영어가 아니니까,\nRingle 타겟 피보팅 및 마케팅 IMC 전략\nTEAM SAIGHT\n김효정 박수민 손승준 이윤서\n⌀R 링글 서비스기획 & 마케팅 공모전\nSAIGHT\n▶ 자사 분석\n난이도 중심의 마케팅을 전개하는 경쟁사와 달리, 직군 중심 마케팅에 따른 고객 유출이 발생한다.\n| 직군 중심 타겟팅 | 직군 중심 타겟팅 | 직군 중심 타겟팅 | 직군 중심 타겟팅 |\n| --- | --- | --- | --- |\n| 직장인 집단 내에 초·중·고급 실력이 혼재 | Ringle ![image](/image/placeholder)\n<figure>\n  <figcaption>\n    <p class=\"figure-type\">diagram,infographic,logo</p>\n    <p class=\"figure-description\">This image is a stylized diagram or infographic element, likely from a Korean-language educational or instructional material. It features a large purple downward-pointing arrow labeled “분산” (Distributed) in white text, indicating a process or concept. Above the arrow is a purple circular logo with the text “Rinfe” in white, followed by the partial word “Rin...” in white, suggesting a brand or platform name. Below the arrow is a light purple rectangular box labeled “초급” (Beginner) in white, indicating a beginner-level category or stage. Beneath this box is a paragraph of Korean text: “영어 기본표현, 문장구조와 구문을 접하고 영어 두려움을 없애며 자신감을 갖는 단계,” which translates to “A stage where you learn basic English expressions, sentence structure, and grammar, and eliminate English anxiety while building confidence.” The overall design uses a dark background with purple and white accents, suggesting a modern, educational interface. The layout implies a step-by-step progression or learning pathway.</p>\n  </figcaption>\n</figure> | 링글 주요 타겟: 커리어 영어 직장인 | 링글 주",
+        "importance": "core"
+      },
+      {
+        "slide_no": 2,
+        "title": "문제 정의",
+        "topic": "링글의 현상황과 경쟁사 분석을 통한 문제 도출",
+        "keywords": [
+          "문제 정의",
+          "시장 정의",
+          "경쟁사 분석",
+          "자사 분석",
+          "TOEIC 분포"
+        ],
+        "concepts": [
+          "공인어학점수별 분포: 초급 30%, 중급 55%, 고급 15%",
+          "직장인 내 영어 실력 분포",
+          "CEFR/TOEIC 기준 실력 분류"
+        ],
+        "raw_text": "목차\n01. 문제 정의 4p\n• 시장 정의\n• 링글의 현상황\n• 경쟁사 분석\n• 자사 분석\n• 문제 상황 분석\n02. 타겟팅 15p\n• 타겟 솔루션\n• 타겟 리포지셔닝\n• 타겟 분석\n• 타겟 페르소나\n• 브랜드 리포지셔닝 제시\n03. 마케팅 방안 22p\n• 마케팅 플랜\n• 마케팅 방안\n링글 서비스기획 & 마케팅 공모전\nSAIGHT\n자사 분석\n[참고] 직장인 내 초급·중급·고급이 나뉜다는 근거\n근거 1: 공인어학점수별 분포\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">chart,table,infographic</p>\n    <p class=\"figure-description\">This image is a Korean-language infographic combining a pie chart and a data table to illustrate proficiency levels in English, categorized by CEFR and TOEIC scores. The top section features a pie chart titled “영어 수준 분포” (English Proficiency Distribution), centered on “직장인 대상” (Target: Working Adults). The chart is divided into three segments: “초급자” (Beginner, 30%), “중급자” (Intermediate, 55%), and “고급자” (Advanced, 15%). Each segment is labeled with a percentage and a corresponding Korean term.\n\nBelow the chart is a table titled “영어 수준” (English Proficiency Level), “CEFR” (with corresponding score ranges), and “TOEIC” (with corresponding score ranges and proficiency percentages). The table is structured as follows:\n\n| 영어 수준 | CEFR | TOEIC | 응시자 분포 |\n|---|---|---|---|\n| 초급 | A1~A2 | ~550 | 약 25~35% |\n| 중급 | B1~B2 | 550~850 | 약 50~60% |\n| 고급 | C1+ | 850+ | 약 10~20% |\n\nThe table uses light blue and white alternating rows for readability. The overall design uses a clean, corporate aesthetic with blue tones and rounded text boxes. The infographic is intended to communicate the distribution of English proficiency among",
+        "importance": "core"
+      },
+      {
+        "slide_no": 3,
+        "title": "소비자 영어 학습 인식 체계",
+        "topic": "AI 기반 링글의 차별화된 학습 경험",
+        "keywords": [
+          "AI 분석",
+          "문제 파헤치기",
+          "청사진 제시",
+          "소리 그래프 빌더"
+        ],
+        "concepts": [
+          "소리 그래프 빌더: AI 기반 에이전트 생성 도구",
+          "사용자 시나리오 수정: 백단 자동 동작",
+          "에이전트 뼈대: 시나리오 기반 구축"
+        ],
+        "raw_text": "링글 서비스기획 & 마케팅 공모전\nSAIGHT\nSAIGHT: AI로 분석하고 문제를 파헤치고, 청사진을 제시하다\n팀원 소개\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">natural image,logo,trophy,helmet,uniform</p>\n    <p class=\"figure-description\">A young East Asian male, likely a motorsport driver, is pictured in a studio setting against a plain light gray background. He is smiling and wearing a purple racing suit with multiple sponsor logos: “Ringle” on the chest, “adidas” on the right shoulder, “ORANGE” on the left chest, “Pirelli” on the right chest, and “FIA” on the left chest. He holds a large, ornate golden trophy in his right hand, which has a wooden base inscribed with “WINNING 2018” in black capital letters. In his left hand, he holds a black and purple racing helmet with “Ringle” printed in white on the side. The image conveys a sense of achievement and professional motorsport identity, with clear branding and celebratory context.</p>\n  </figcaption>\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">natural image,logo,portrait</p>\n    <p class=\"figure-description\">A high-resolution natural image portrait of a smiling East Asian woman in a professional racing suit. She is giving a thumbs-up gesture with her right hand, conveying confidence and positivity. Her left hand holds a black racing helmet with a clear visor, which prominently displays the white “Ringle” logo on its side. The purple racing suit is adorned with multiple sponsor logos, including “Ringle” printed in w",
+        "importance": "support"
+      },
+      {
+        "slide_no": 4,
+        "title": "마케팅 프로젝트 LTV 매출액",
+        "topic": "타겟 피보팅 마케팅으로 기대되는 매출 효과",
+        "keywords": [
+          "LTV 매출액",
+          "시장 점유율",
+          "91억 추가 확보",
+          "AI 마케팅"
+        ],
+        "concepts": [
+          "타겟 피보팅 마케팅: 91억 추가 매출",
+          "국내 시장 점유율 20% 확보",
+          "AS-IS → TO-BE 전환: +91억/ +104억"
+        ],
+        "raw_text": "링글 서비스기획 & 마케팅 공모전\nSAIGHT\n프로젝트 기대효과\n1년 내, 단숨에 국내 시장 점유율 20% 확보\n마케팅 프로젝트 LTV 매출액\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,infographic,flowchart</p>\n    <p class=\"figure-description\">This is a Korean-language business process diagram illustrating a financial or operational transformation. The diagram features two main directional arrows: a purple arrow labeled “자사 AS-IS” (Our Company AS-IS) pointing to a purple box labeled “자사 TO-BE” (Our Company TO-BE), and a gray arrow labeled “자사 AS-IS” (Our Company AS-IS) pointing to a gray box labeled “자사 TO-BE” (Our Company TO-BE). The purple arrow is annotated with “+ 91억” (plus 9.1 billion) and the gray arrow is annotated with “+ 104억” (plus 10.4 billion). The purple box is labeled “+ 91억” and the gray box is labeled “+ 104억”, suggesting a positive change or improvement in the TO-BE state. The diagram visually represents a before-and-after comparison, likely for performance, cost, or efficiency metrics, with the TO-BE state showing a higher value than the AS-IS state. The layout is clean, using color-coded boxes and directional arrows to convey the relationship between the two states.</p>\n  </figcaption>\n타겟 피보팅 마케팅으로 91억 추가 확보\n국내 AI 영어 학습 서비스 시장 내 자사 점유율\n![image](/image/placeholder)\n- donut chart\n- The chart displays two donut charts comparing the distribution of categories, with the first chart showing a 10.4% segment and the second chart showing a 20% segment, indicating a proportional increase i",
+        "importance": "core"
+      },
+      {
+        "slide_no": 5,
+        "title": "AI 에듀테크 시장 규모",
+        "topic": "AI 에듀테크 시장 성장과 링글의 AI 마케팅 필요성",
+        "keywords": [
+          "AI 에듀테크 시장",
+          "시장 규모",
+          "CAGR 32.7%",
+          "생성형 AI"
+        ],
+        "concepts": [
+          "AI 에듀테크 시장 규모: 2018년 $1 → 2030년 $32.3 (5.5배 성장)",
+          "CAGR 32.7%",
+          "생성형 AI 도입률 83%",
+          "AI 튜터 수용도 60% 이상"
+        ],
+        "raw_text": "링글 서비스기획 & 마케팅 공모전\nSAIGHT\n시장 정의\nAI 에듀테크 시장의 폭발적 성장과 AI 기술 도입 가속화에 따라 링글 역시 AI 마케팅 필요성이 대두되고 있다.\nAI 에듀테크 시장 규모\nAI In Education Market Size (US$B)\n![image](/image/placeholder)\n- Bar chart\n- The chart displays a rising trend over time from 2018 to 2030, with values increasing from approximately $1 to $32.3. The compound annual growth rate (CAGR) is highlighted as +32.7%, indicating strong exponential growth. Specific values are labeled for selected years: $5.9 in 2023, $8.3 in 2024, and $8.3 in 2025, with the final value of $32.3 shown for 2030.\n| Year | Value |\n| --- | --- |\n| 2018 | 1 |\n| 2019 | 1 |\n| 2020 | 1 |\n| 2021 | 2 |\n| 2022 | 3 |\n| 2023 | 5.9 |\n| 2024 | 8.3 |\n| 2025 | 8.3 |\n| 2026 | 12 |\n| 2027 | 16 |\n| 2028 | 21 |\n| 2029 | 26 |\n| 2030 | 32.3 |\n6년간 약 5.5배의 시장 확대에 따라\n생성형 AI 기술의 성숙과 함께 교육 패러다임이 AI 중심으로 완전 재편\nAI 도입률 및 선호도 변화\n| AI 기반 학습 확산 | 에듀테크 기업의 83%가 생성형 AI를 핵심 서비스에 통합했거나 통합할 예정 |\n| --- | --- |\n|  | Adopting and Adapting to Generative AI in Higher Ed Tech, Contractor & Reyes (2025) |\n| AI 튜터 수용도 증가 | 학습자의 60% 이상 \"AI 튜터와의 대화가 인간 튜터보다 심리적 부담이 적다\"고 응답 |\n| Generative AI in Higher Education | Generative AI in Higher Education |\n| AI 기반 학습 수요 증가에 대응하여 링글의 AI 기반 학습 경험을 차별화된 마케팅 메시지로 활용 필요 | AI 기반 학습 수요 증가에 대응하여 링글의 AI 기반 학습 경험을 차별화된 마케팅 메시지로 활용 필요 |\nAI In Education Market (2025 – 2030), EDUCAUSE Review\n5\n링글 서비스기획 & 마케팅 공모전\nSAIGHT\n문제 정의: 타겟 정의의 한계\n영어 학습의 여정은 자신의 수준 인지와 난이도 분류에서 출발한다.\n초급자\n소비자의 영어 학습 인식 체계\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">",
+        "importance": "core"
+      }
+    ]
+  },
+  "slide_titles": [
+    {
+      "slide_no": 1,
+      "title": "난이도 중심의 마케팅을 전개하는 경쟁사와 달리, 직군 중심 마케팅에 따른 고객 유출이 발생한다.",
+      "chars": 39742
+    },
+    {
+      "slide_no": 2,
+      "title": "01. 문제 정의 4p",
+      "chars": 11448
+    },
+    {
+      "slide_no": 3,
+      "title": "소비자의 영어 학습 인식 체계",
+      "chars": 12837
+    },
+    {
+      "slide_no": 4,
+      "title": "마케팅 프로젝트 LTV 매출액",
+      "chars": 14915
+    },
+    {
+      "slide_no": 5,
+      "title": "AI 에듀테크 시장 규모",
+      "chars": 7793
+    },
+    {
+      "slide_no": 6,
+      "title": "데이터 자산을 활용한 기술적 선점",
+      "chars": 11114
+    },
+    {
+      "slide_no": 7,
+      "title": "영어 학습자 분포",
+      "chars": 14284
+    },
+    {
+      "slide_no": 8,
+      "title": "Insight: 타겟 리포지셔닝",
+      "chars": 7127
+    },
+    {
+      "slide_no": 9,
+      "title": "경쟁사 분석",
+      "chars": 23538
+    },
+    {
+      "slide_no": 10,
+      "title": "자사 분석\n“일하는 사람을 위한 영어” 슬로건의 링글은 주고객인 ‘커리어 영어가 필요한 직장인’ 맞춤 마케팅을 하고 있는 현황이다.",
+      "chars": 8621
+    }
+  ]
+}

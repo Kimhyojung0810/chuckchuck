@@ -1,0 +1,311 @@
+/**
+ * 데모 UI와 chuckchuck API/SDK를 연결하는 다리입니다.
+ * 파싱·녹음·STT·개념 추출 요청을 여기서 보냅니다.
+ */
+
+import {
+  RehearsalRecorder,
+  formatMarkLog,
+  PresentationRecorder,
+  SlideMarkTracker,
+} from '/sdk/index.js';
+
+const STORE_KEY = 'cheokcheok:chuckchuck-session';
+
+/** sessionStorage 용량을 넘기지 않도록 단어 배열을 뺀 요약본 */
+function slimTranscript(t) {
+  if (!t || typeof t !== 'object') return t;
+  return {
+    full_text: t.full_text || '',
+    provider: t.provider || '',
+    duration_sec: t.duration_sec || 0,
+    words: Array.isArray(t.words) ? t.words.map((w) => ({
+      text: w.text, start_sec: w.start_sec, end_sec: w.end_sec,
+    })) : [],
+    by_slide: Array.isArray(t.by_slide) ? t.by_slide.map((s) => ({
+      slide_no: s.slide_no,
+      visit: s.visit || 1,
+      start_sec: s.start_sec,
+      end_sec: s.end_sec,
+      text: s.text || '',
+      // words 는 UI에 필수가 아니라 생략 (용량)
+    })) : [],
+  };
+}
+
+export function saveChuckSession(partial) {
+  const prev = loadChuckSession() || {};
+  const next = { ...prev, ...partial, updatedAt: Date.now() };
+  if (next.transcript) next.transcript = slimTranscript(next.transcript);
+  try {
+    sessionStorage.setItem(STORE_KEY, JSON.stringify(next));
+  } catch (_) {
+    // quota — transcript 만 더 줄여 재시도
+    try {
+      const lean = {
+        ...next,
+        transcript: next.transcript
+          ? { ...next.transcript, words: [], by_slide: (next.transcript.by_slide || []).map((s) => ({
+            slide_no: s.slide_no, visit: s.visit, start_sec: s.start_sec, end_sec: s.end_sec, text: s.text,
+          })) }
+          : null,
+      };
+      sessionStorage.setItem(STORE_KEY, JSON.stringify(lean));
+    } catch (__) { /* ignore */ }
+  }
+  return next;
+}
+
+export function loadChuckSession() {
+  try { return JSON.parse(sessionStorage.getItem(STORE_KEY)); }
+  catch (_) { return null; }
+}
+
+export function attachRehearsalRuntime(nf, hooks = {}) {
+  const totalSlides = hooks.totalSlides
+    || (nf.slideTitles && nf.slideTitles.length)
+    || (window.DATA && DATA.slideTitles && DATA.slideTitles.length)
+    || 23;
+
+  if (typeof RehearsalRecorder === 'function') {
+    const rec = new RehearsalRecorder({
+      totalSlides,
+      onTick: (sec) => {
+        nf.sec = Math.floor(sec);
+        if (typeof hooks.onTick === 'function') hooks.onTick(sec);
+      },
+      onSlideChange: () => {},
+      onLevel: hooks.onLevel || null,
+    });
+
+    return {
+      recorder: rec,
+      marks: null,
+
+      async start(slideNo = 1) {
+        rec.currentSlide = slideNo;
+        await rec.start();
+        nf.mic = 'on';
+        nf.sec = 0;
+        nf.visits = { [slideNo]: 1 };
+        nf.log = [{ txt: `00:00 → ${slideNo}번 슬라이드`, re: false }];
+        saveChuckSession({ recording: true, slide: slideNo });
+      },
+
+      goTo(slideNo) {
+        if (rec.state !== 'recording' && rec.state !== 'paused') return null;
+        const before = rec.currentSlide;
+        rec.goTo(slideNo);
+        if (rec.currentSlide === before) return null;
+        const tl = rec.timeline();
+        const last = tl[tl.length - 1];
+        const entry = last
+          ? { txt: last.label, re: !!last.revisit }
+          : { txt: `${String(Math.floor(rec.elapsed() / 60)).padStart(2, '0')}:${String(Math.floor(rec.elapsed() % 60)).padStart(2, '0')} → ${slideNo}번 슬라이드`, re: false };
+        if (!Array.isArray(nf.log)) nf.log = [];
+        const prev = nf.log[nf.log.length - 1];
+        if (!prev || prev.txt !== entry.txt) nf.log.push(entry);
+        nf.visits = { ...rec._visits };
+        return entry;
+      },
+
+      async finish() {
+        const { audioBlob, marks, durationSec } = await rec.stop();
+        const payload = {
+          marks,
+          mimeType: audioBlob.type,
+          durationSec,
+          recording: false,
+          _blob: audioBlob,
+        };
+        saveChuckSession({
+          marks,
+          mimeType: audioBlob.type,
+          durationSec,
+          recording: false,
+        });
+        return payload;
+      },
+    };
+  }
+
+  const recorder = new PresentationRecorder({
+    onTick: (sec) => {
+      nf.sec = Math.floor(sec);
+      if (typeof hooks.onTick === 'function') hooks.onTick(sec);
+    },
+    onState: (s) => {
+      if (typeof hooks.onState === 'function') hooks.onState(s);
+    },
+  });
+  const marksTracker = new SlideMarkTracker({
+    getElapsedSec: () => recorder.elapsedSec,
+  });
+
+  return {
+    recorder,
+    marks: marksTracker,
+
+    async start(slideNo = 1) {
+      await recorder.start();
+      marksTracker.start(slideNo);
+      nf.mic = 'on';
+      nf.sec = 0;
+      nf.visits = { [slideNo]: 1 };
+      nf.log = [{
+        txt: formatMarkLog({ sec: 0, slide: slideNo, visit: 1, back: false }),
+        re: false,
+      }];
+      saveChuckSession({ recording: true, slide: slideNo });
+    },
+
+    goTo(slideNo) {
+      if (recorder.state !== 'recording') return null;
+      marksTracker.goTo(slideNo);
+      const last = marksTracker.log[marksTracker.log.length - 1];
+      const entry = { txt: formatMarkLog(last), re: !!last.back };
+      nf.log.push(entry);
+      nf.visits = { ...marksTracker.visits };
+      return entry;
+    },
+
+    async finish() {
+      const markList = marksTracker.finish();
+      const { blob, mimeType, durationSec } = await recorder.stop();
+      const payload = {
+        marks: markList,
+        mimeType,
+        durationSec,
+        recording: false,
+        _blob: blob,
+      };
+      saveChuckSession({
+        marks: markList,
+        mimeType,
+        durationSec,
+        recording: false,
+      });
+      return payload;
+    },
+  };
+}
+
+/** F-01: 파일 업로드 또는 fixture 샘플 → SlideDoc */
+export async function parseDocument({ file = null, fixture = false } = {}) {
+  let res;
+  if (fixture || !file) {
+    res = await fetch('/api/v1/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fixture: true }),
+    });
+  } else {
+    const fd = new FormData();
+    fd.append('document', file, file.name);
+    res = await fetch('/api/v1/parse', { method: 'POST', body: fd });
+  }
+  const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(data.message || data.error || `parse HTTP ${res.status}`);
+  }
+  saveChuckSession({
+    slideDocMeta: {
+      file_name: data.file_name,
+      total_slides: data.total_slides,
+    },
+  });
+  return data;
+}
+
+/** F-05(+F-06): 녹음 → Transcript, slideDoc 있으면 ConceptDoc */
+export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, context, onProgress }) {
+  const report = (phase, detail = '', extra = {}) => {
+    if (typeof onProgress === 'function') {
+      try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
+    }
+  };
+
+  report('encoding', '오디오 준비 중');
+  const audio_base64 = blob ? await blobToBase64(blob) : null;
+  const ext = (mimeType || '').includes('mp4') ? '.m4a' : '.webm';
+
+  report('stt', 'A.X STT로 음성을 글로 바꾸는 중');
+  const sttRes = await fetch('/api/v1/transcribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      marks: marks || [],
+      audio_base64,
+      ext,
+    }),
+  });
+  const transcript = await sttRes.json();
+  if (!sttRes.ok || transcript.error) {
+    throw new Error(transcript.message || transcript.error || `transcribe HTTP ${sttRes.status}`);
+  }
+  report('stt_done', `단어 ${(transcript.words || []).length}개 · 슬라이드 구간 ${(transcript.by_slide || []).length}개`, { transcript });
+
+  let concepts = null;
+  let conceptsError = null;
+  if (slideDoc) {
+    report('concepts', '발표자료 개념 추출 중 (F-06)', { transcript });
+    try {
+      // concepts 요청에는 단어 배열을 빼 본문 크기를 줄인다
+      const transcriptForConcepts = slimTranscript(transcript);
+      const cRes = await fetch('/api/v1/concepts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slide_doc: slideDoc,
+          context: context || {},
+          transcript: transcriptForConcepts,
+        }),
+      });
+      concepts = await cRes.json();
+      if (!cRes.ok || concepts.error) {
+        throw new Error(concepts.message || concepts.error || `concepts HTTP ${cRes.status}`);
+      }
+      report('concepts_done', `개념 슬라이드 ${(concepts.slides || []).length}장`, { transcript, concepts });
+    } catch (err) {
+      // STT 성공분은 유지. 개념 실패는 부분 결과로 반환 (전체 throw 하지 않음)
+      conceptsError = err.message || String(err);
+      concepts = null;
+      saveChuckSession({ transcript, concepts: null, conceptsError });
+      report('concepts_error', conceptsError, { transcript, concepts: null, conceptsError });
+    }
+  }
+
+  report('done', conceptsError ? 'STT 완료 · 개념 추출 실패' : '준비 완료', {
+    transcript,
+    concepts,
+    conceptsError,
+  });
+  saveChuckSession({ transcript, concepts, conceptsError });
+  return { transcript, concepts, conceptsError };
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result || '');
+      resolve(s.includes(',') ? s.split(',')[1] : s);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+window.ChuckchuckBridge = {
+  attachRehearsalRuntime,
+  parseDocument,
+  runPreparePipeline,
+  saveChuckSession,
+  loadChuckSession,
+  RehearsalRecorder,
+  PresentationRecorder,
+  SlideMarkTracker,
+  formatMarkLog,
+};
+
+console.info('[chuckchuck] SDK bridge ready');

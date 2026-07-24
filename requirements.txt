@@ -1,0 +1,2 @@
+# 파이썬 패키지 의존성 목록입니다. pip install -r requirements.txt 로 설치합니다.
+requests>=2.31.0
