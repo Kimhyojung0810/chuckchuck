@@ -77,6 +77,45 @@ export REASONING_BACKEND=solar
 python -m demo.bridge
 ```
 
+## 개발 환경 (Claude Code · ECC)
+
+이 저장소는 Claude Code 플러그인 **ECC**를 쓴다. 설정은 `.claude/settings.json`에 커밋돼 있어서, 클론 후 Claude Code로 이 폴더를 열면 마켓플레이스 등록과 플러그인 활성화가 자동으로 잡힌다. 플러그인 본체는 저장소에 없으므로 각자 머신에 한 번 받아야 한다.
+
+```bash
+git clone git@github.com:Kimhyojung0810/chuckchuck.git
+cd chuckchuck
+claude          # 첫 실행 시 ecc 플러그인 설치 여부를 묻는다
+
+/plugin         # 설치 상태 확인 (ecc@ecc → enabled)
+```
+
+`.claude/settings.local.json`은 개인 권한 설정이라 git이 무시한다. 팀 전체에 적용할 설정만 `.claude/settings.json`에 넣을 것.
+
+### 팀 공통 규칙
+
+코딩 스타일·테스트·보안 등 ECC 공통 rule 10개를 `.claude/rules/common/`에 커밋해뒀다. 플러그인 시스템은 rule 배포를 지원하지 않아서 저장소에 직접 넣는 방식이다(ECC 문서의 "옵션 B: 프로젝트 레벨 룰"). 클론하면 별도 설치 없이 팀 전원에게 같은 규칙이 적용된다.
+
+| 파일 | 내용 |
+|------|------|
+| `coding-style.md` | 불변성 우선, KISS/DRY/YAGNI, 함수 50줄·파일 800줄 상한 |
+| `testing.md` | TDD(RED→GREEN→REFACTOR), 커버리지 80% |
+| `security.md` | 커밋 전 시크릿 점검, 입력 검증 — 이 프로젝트의 `.env` 정책과 직결 |
+| `code-review.md` | 리뷰 체크리스트, 심각도 등급 |
+| `git-workflow.md` · `development-workflow.md` | 커밋 형식, 기능 개발 순서 |
+| `agents.md` · `hooks.md` · `patterns.md` · `performance.md` | 에이전트 위임, 훅, 공통 패턴 |
+
+ECC 원본을 갱신하려면 `~/.claude/plugins/cache/ecc/ecc/<버전>/rules/common/`에서 다시 복사한다.
+
+### 훅이 명령을 막을 때
+
+ECC는 도구 실행 전에 개입하는 훅을 건다. 예를 들어 GateGuard는 첫 `Bash` 실행이나 파일 편집 전에 "무엇을 검증하는 명령인지" 먼저 밝히라고 요구하며 반려한다. 정상 동작이지만 급할 때는 끌 수 있다.
+
+```bash
+ECC_GATEGUARD=off claude
+# 또는 특정 훅만
+ECC_DISABLED_HOOKS=pre:bash:gateguard-fact-force claude
+```
+
 ## 모듈 사용 예
 
 ```python
