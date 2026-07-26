@@ -48,7 +48,7 @@ def extract_json_object(text: str) -> dict[str, Any]:
     LLM 응답 문자열에서 JSON 객체 하나를 뽑는다.
 
     원문 → 복구본 → 가장 바깥 {...} 순으로 시도한다.
-    끝내 실패하면 ValueError. 도메인 예외(TreeError 등)로는 호출자가 감싼다.
+    끝내 실패하면 ValueError. 도메인 예외(GraphError 등)로는 호출자가 감싼다.
     """
     text = (text or "").strip()
     if not text:

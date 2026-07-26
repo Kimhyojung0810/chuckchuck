@@ -316,38 +316,104 @@ class ConceptDoc:
 
 
 # ---------------------------------------------------------------------------
-# F-07 : 개념 트리 (발표 전체 기준 위계 + 구획)
+# F-07 : 개념 그래프 (발표 전체 기준 우선순위 + 연결선 + 구획)
 # ---------------------------------------------------------------------------
 # F-06 은 한 장 안을 보고, F-07 은 장들이 발표 전체에서 어디에 앉는지를 본다.
-# 이해 판정·confidence·근거 발화는 넣지 않는다. 그건 F-11 이 id 로 붙인다.
+#
+# 트리가 아니라 그래프인 이유: 개념은 부모가 하나라는 보장이 없다.
+# 'CAFP 분석'은 '링글 AI 서비스'와 '데이터 자산' 양쪽에 걸린다.
+# parent 간선만 따라가면 트리 뷰가 나오고, relates 간선이 나머지 연결을 담는다.
+#
+# 발화 축(speech_weight)과 정합 판정(누락·모순)은 넣지 않는다.
+# F-07 은 Transcript 를 받지 않는다. 그건 node.id 로 조인하는 뒤 단계 책임이다.
 
 #: sections[].slide_role 허용값. 이 밖의 값은 SLIDE_ROLE_FALLBACK 으로 떨어진다.
 SLIDE_ROLES = ("cover", "intro", "body", "conclusion", "closing")
 SLIDE_ROLE_FALLBACK = "body"
 
+#: edges[].kind 허용값. parent 는 위계, relates 는 그 밖의 논리 연결.
+EDGE_KINDS = ("parent", "relates")
+EDGE_KIND_FALLBACK = "relates"
+
+#: nodes[].weight_basis.position 허용값. 발표 안에서 개념이 등장하는 위치.
+NODE_POSITIONS = ("early", "middle", "late")
+
+
+@dataclass
+class WeightBasis:
+    """
+    weight 를 그렇게 준 근거. 산점도에서 '왜 이 값인지' 를 설명하려면 필요하다.
+
+    slide_doc 없이 build 하면 char_share·has_visual 은 0/False 로 남는다.
+    """
+    slide_count: int = 0        # 이 개념이 걸친 장 수
+    char_share: float = 0.0     # 그 장들의 본문 글자 수 / 전체 글자 수
+    has_visual: bool = False    # 근거 장에 도식·표·차트가 있나
+    position: str = "middle"    # early | middle | late
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "WeightBasis":
+        pos = d.get("position", "middle")
+        return cls(
+            slide_count=int(d.get("slide_count", 0)),
+            char_share=float(d.get("char_share", 0.0)),
+            has_visual=bool(d.get("has_visual", False)),
+            position=pos if pos in NODE_POSITIONS else "middle",
+        )
+
+
+@dataclass
+class ConceptEdge:
+    """개념 사이의 연결 하나. from 은 파이썬 예약어라 필드명은 from_id 다."""
+    from_id: str
+    to_id: str
+    kind: str = "parent"        # parent | relates
+
+    def to_dict(self) -> dict:
+        return {"from": self.from_id, "to": self.to_id, "kind": self.kind}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptEdge":
+        kind = d.get("kind", "parent")
+        return cls(
+            from_id=str(d["from"]),
+            to_id=str(d["to"]),
+            kind=kind if kind in EDGE_KINDS else EDGE_KIND_FALLBACK,
+        )
+
 
 @dataclass
 class ConceptNode:
-    """트리의 개념 하나. 중첩하지 않고 parent_id 로 평평하게 잇는다."""
+    """
+    그래프의 개념 하나. 중첩하지 않고 평평하게 둔다.
+
+    parent_id / depth 는 parent 간선에서 **파생된 편의 필드**다.
+    진실은 ConceptGraph.edges 이고, 화면이 트리로 그릴 때 쓰라고 실어 준다.
+    """
     id: str
     label: str
-    depth: int = 1                 # 루트=1. parent_id 체인에서 다시 계산한다
-    parent_id: str | None = None
     slide_nos: list[int] = field(default_factory=list)  # 조인 키. 여러 장 가능
     summary: str = ""
     importance: str = "core"       # core | support
-    weight: float = 0.0            # 0.0~1.0
+    weight: float = 0.0            # 0.0~1.0. 그래프 안에서 상대적 (최상위 = 1.0)
+    weight_basis: WeightBasis = field(default_factory=WeightBasis)
+    parent_id: str | None = None   # 파생: 첫 parent 간선
+    depth: int = 1                 # 파생: 루트=1
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "label": self.label,
-            "depth": self.depth,
-            "parent_id": self.parent_id,
             "slide_nos": list(self.slide_nos),
             "summary": self.summary,
             "importance": self.importance,
             "weight": self.weight,
+            "weight_basis": self.weight_basis.to_dict(),
+            "parent_id": self.parent_id,
+            "depth": self.depth,
         }
 
     @classmethod
@@ -355,12 +421,13 @@ class ConceptNode:
         return cls(
             id=str(d["id"]),
             label=d.get("label", ""),
-            depth=int(d.get("depth", 1)),
-            parent_id=d.get("parent_id"),
             slide_nos=[int(n) for n in d.get("slide_nos", [])],
             summary=d.get("summary", ""),
             importance=d.get("importance", "core"),
             weight=float(d.get("weight", 0.0)),
+            weight_basis=WeightBasis.from_dict(d.get("weight_basis") or {}),
+            parent_id=d.get("parent_id"),
+            depth=int(d.get("depth", 1)),
         )
 
 
@@ -389,16 +456,19 @@ class Section:
 
 
 @dataclass
-class ConceptTree:
+class ConceptGraph:
     """
-    F-07 의 산출물. F-08~10(질문 코칭)·F-11(설명 판정)의 입력이 된다.
+    F-07 의 산출물. F-08~10(질문 코칭)·F-11(정합 판정)의 입력이 된다.
 
-    불변식은 f07_tree.build_tree() 가 보장한다:
-    id 유일 · parent_id 는 존재하는 id 나 None · 순환 없음 · depth = 체인 길이.
+    edges 가 진실이고, node.parent_id / node.depth 는 parent 간선에서 파생된 편의 필드다.
+    불변식은 f07_graph.build_graph() 가 보장한다:
+    id 유일 · 간선 양끝이 존재하는 id · 자기 간선 없음 · parent 순환 없음 ·
+    노드당 parent 간선 최대 1개 · depth = 체인 길이.
     """
     file_name: str
     total_slides: int
     nodes: list[ConceptNode] = field(default_factory=list)
+    edges: list[ConceptEdge] = field(default_factory=list)
     sections: list[Section] = field(default_factory=list)
     model: str = ""
 
@@ -408,20 +478,22 @@ class ConceptTree:
             "total_slides": self.total_slides,
             "model": self.model,
             "nodes": [n.to_dict() for n in self.nodes],
+            "edges": [e.to_dict() for e in self.edges],
             "sections": [s.to_dict() for s in self.sections],
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "ConceptTree":
+    def from_dict(cls, d: dict) -> "ConceptGraph":
         return cls(
             file_name=d["file_name"],
             total_slides=int(d["total_slides"]),
             nodes=[ConceptNode.from_dict(n) for n in d.get("nodes", [])],
+            edges=[ConceptEdge.from_dict(e) for e in d.get("edges", [])],
             sections=[Section.from_dict(s) for s in d.get("sections", [])],
             model=d.get("model", ""),
         )
 
-    # --- 조회 헬퍼 (질문 코칭·판정이 id 로 붙일 때 쓴다) -------------------
+    # --- 노드 조회 (질문 코칭·판정이 id 로 붙일 때 쓴다) -------------------
 
     def node(self, node_id: str) -> ConceptNode | None:
         """id 로 노드 하나."""
@@ -429,6 +501,24 @@ class ConceptTree:
             if n.id == node_id:
                 return n
         return None
+
+    def nodes_for_slide(self, slide_no: int) -> list[ConceptNode]:
+        """이 장을 근거로 삼는 개념들."""
+        return [n for n in self.nodes if slide_no in n.slide_nos]
+
+    def section_of(self, slide_no: int) -> Section | None:
+        """이 장이 속한 구획."""
+        for s in self.sections:
+            if slide_no in s.slide_nos:
+                return s
+        return None
+
+    @property
+    def by_weight(self) -> list[ConceptNode]:
+        """중요도 내림차순. 슬라이드 축 우선순위 목록이 그대로 나온다."""
+        return sorted(self.nodes, key=lambda n: -n.weight)
+
+    # --- 트리 뷰 (parent 간선만 따라간 결과) ------------------------------
 
     def children_of(self, node_id: str | None) -> list[ConceptNode]:
         """직속 자식들. None 을 주면 루트 목록."""
@@ -454,16 +544,30 @@ class ConceptTree:
             cur = by_id.get(cur.parent_id) if cur.parent_id else None
         return list(reversed(chain))
 
-    def nodes_for_slide(self, slide_no: int) -> list[ConceptNode]:
-        """이 장을 근거로 삼는 개념들."""
-        return [n for n in self.nodes if slide_no in n.slide_nos]
+    # --- 그래프 뷰 (연결선 전체) -----------------------------------------
 
-    def section_of(self, slide_no: int) -> Section | None:
-        """이 장이 속한 구획."""
-        for s in self.sections:
-            if slide_no in s.slide_nos:
-                return s
-        return None
+    @property
+    def parent_edges(self) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.kind == "parent"]
+
+    @property
+    def relates_edges(self) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.kind == "relates"]
+
+    def edges_from(self, node_id: str) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.from_id == node_id]
+
+    def edges_to(self, node_id: str) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.to_id == node_id]
+
+    def neighbors_of(self, node_id: str) -> list[ConceptNode]:
+        """방향 무시하고 이 개념과 연결된 개념들 (중복 제거)."""
+        ids: list[str] = []
+        for e in self.edges:
+            other = e.to_id if e.from_id == node_id else (e.from_id if e.to_id == node_id else None)
+            if other and other != node_id and other not in ids:
+                ids.append(other)
+        return [n for n in (self.node(i) for i in ids) if n is not None]
 
 
 # ---------------------------------------------------------------------------
@@ -490,8 +594,8 @@ class ConceptError(ChuckchuckError):
     """F-06 개념 추출 실패."""
 
 
-class TreeError(ChuckchuckError):
-    """F-07 개념 트리 생성 실패."""
+class GraphError(ChuckchuckError):
+    """F-07 개념 그래프 생성 실패."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

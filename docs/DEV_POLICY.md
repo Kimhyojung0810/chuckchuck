@@ -42,7 +42,7 @@
 | F-03·04 | 녹음·슬라이드 마크 | ✅     | 마이크+넘김 → audio + `SlideMark[]`      |
 | F-05    | 받아쓰기       | ✅     | audio + marks → `Transcript`        |
 | F-06    | 개념 정리      | ✅     | `SlideDoc`+`Context` → `ConceptDoc` |
-| F-07    | 개념 트리      | ✅     | `ConceptDoc` → `ConceptTree`        |
+| F-07    | 개념 그래프     | ✅     | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` |
 | F-08~10 | 질문 코칭      | 예정    | 계약 확정 후 착수                          |
 | F-11~19 | 발표 진단      | 예정    | 계약 확정 후 착수                          |
 

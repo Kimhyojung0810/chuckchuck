@@ -36,8 +36,8 @@ class MockLLM(LLMProvider):
     name = "mock"
 
     def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096) -> str:
-        if "[TASK] concept-tree" in user:
-            return self._mock_tree(user)
+        if "[TASK] concept-graph" in user:
+            return self._mock_graph(user)
 
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
@@ -68,9 +68,10 @@ class MockLLM(LLMProvider):
         return json.dumps({"slides": slides}, ensure_ascii=False)
 
     @staticmethod
-    def _mock_tree(user: str) -> str:
+    def _mock_graph(user: str) -> str:
         """
-        F-07 용 가짜 트리. 첫 장을 루트로, 나머지를 그 자식으로 매단다.
+        F-07 용 가짜 그래프. 첫 장을 최상위로, 나머지를 그 아래에 매단다.
+        두 번째 하위 개념에는 relates 간선도 하나 붙여 그래프 경로를 태운다.
 
         내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
         """
@@ -83,33 +84,34 @@ class MockLLM(LLMProvider):
         nodes = [{
             "id": root_id,
             "label": root_title or f"슬라이드 {root_no}",
-            "parent_id": None,
             "slide_nos": [root_no],
-            "summary": "모의 루트 개념",
+            "summary": "모의 최상위 개념",
             "importance": "core",
         }]
-        nodes += [
-            {
+        edges: list[dict] = []
+        for no, title in found[1:]:
+            nodes.append({
                 "id": f"s{no}",
                 "label": title or f"슬라이드 {no}",
-                "parent_id": root_id,
                 "slide_nos": [no],
                 "summary": "모의 하위 개념",
                 "importance": "core",
-            }
-            for no, title in found[1:]
-        ]
+            })
+            edges.append({"from": root_id, "to": f"s{no}", "kind": "parent"})
 
-        sections = [{
-            "name": "표지",
-            "slide_role": "cover",
-            "slide_nos": [root_no],
-        }]
+        # 하위 개념이 둘 이상이면 그것들끼리 relates 로 한 번 이어 준다
+        children = [f"s{no}" for no, _ in found[1:]]
+        if len(children) >= 2:
+            edges.append({"from": children[0], "to": children[1], "kind": "relates"})
+
+        sections = [{"name": "표지", "slide_role": "cover", "slide_nos": [root_no]}]
         rest = [no for no, _ in found[1:]]
         if rest:
             sections.append({"name": "본론", "slide_role": "body", "slide_nos": rest})
 
-        return json.dumps({"nodes": nodes, "sections": sections}, ensure_ascii=False)
+        return json.dumps(
+            {"nodes": nodes, "edges": edges, "sections": sections}, ensure_ascii=False
+        )
 
 
 class OpenAICompatLLM(LLMProvider):

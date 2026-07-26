@@ -248,7 +248,7 @@ Upstage raw (elements)
  ConceptDoc
     │  F-07 (예정): section / slide_role / 부모-자식 트리
     ▼
- ConceptTree …
+ ConceptGraph …
 ```
 
 조인: 항상 `slide_no`.  

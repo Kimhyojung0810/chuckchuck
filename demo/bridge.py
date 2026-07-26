@@ -23,7 +23,7 @@ from chuckchuck.config import settings  # noqa: E402
 
 from chuckchuck import (  # noqa: E402
     Context,
-    build_tree,
+    build_graph,
     extract_concepts,
     parse_document,
     transcribe,
@@ -91,8 +91,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_concepts(raw)
             if parsed.path == "/api/v1/transcribe":
                 return self._handle_transcribe(raw)
-            if parsed.path == "/api/v1/tree":
-                return self._handle_tree(raw)
+            if parsed.path == "/api/v1/graph":
+                return self._handle_graph(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -221,8 +221,8 @@ class Handler(SimpleHTTPRequestHandler):
         sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}\n")
         return self._json(200, result.to_dict())
 
-    def _handle_tree(self, raw: bytes):
-        """F-07 · ConceptDoc → ConceptTree."""
+    def _handle_graph(self, raw: bytes):
+        """F-07 · ConceptDoc(+선택 SlideDoc) → ConceptGraph."""
         body = json.loads(raw or b"{}")
         if not body.get("concept_doc"):
             return self._json(
@@ -231,15 +231,19 @@ class Handler(SimpleHTTPRequestHandler):
             )
         doc = ConceptDoc.from_dict(body["concept_doc"])
         ctx = Context.from_dict(body.get("context") or {})
+        # slide_doc 은 선택. 주면 weight 가 글자 수·시각자료까지 반영한다.
+        slide_doc = SlideDoc.from_dict(body["slide_doc"]) if body.get("slide_doc") else None
         llm = "mock" if _mock() else body.get("llm")
         sys.stderr.write(
-            f"[bridge] F-07 tree start slides={doc.total_slides} mock={_mock()}\n"
+            f"[bridge] F-07 graph start slides={doc.total_slides} "
+            f"has_slide_doc={slide_doc is not None} mock={_mock()}\n"
         )
-        tree = build_tree(doc, ctx, llm=llm)
+        graph = build_graph(doc, ctx, slide_doc=slide_doc, llm=llm)
         sys.stderr.write(
-            f"[bridge] F-07 tree done nodes={len(tree.nodes)} sections={len(tree.sections)}\n"
+            f"[bridge] F-07 graph done nodes={len(graph.nodes)} "
+            f"edges={len(graph.edges)} sections={len(graph.sections)}\n"
         )
-        return self._json(200, tree.to_dict())
+        return self._json(200, graph.to_dict())
 
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")
