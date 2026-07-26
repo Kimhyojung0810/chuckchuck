@@ -36,18 +36,29 @@ _DEPTH_PENALTY = 0.05   # 하위 개념일수록 감산
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
 SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
-슬라이드별로 뽑아 둔 개념 목록을 받아, 발표 '전체' 기준의 개념 위계와 구획을 만든다.
+'개념 목록'을 받아, 발표 전체 기준의 개념 위계(트리)와 구획을 만든다.
 
-규칙:
-1. 자료에 없는 개념을 지어내지 마라. 주어진 개념·주제 안에서만 묶어라.
-2. 비슷한 개념이 여러 장에 나오면 하나의 노드로 합치고 slide_nos 에 장 번호를 모두 적어라.
-3. parent_id 로 위계를 만든다. 가장 큰 개념은 parent_id 를 null 로 둔다.
-4. 위계는 3단계를 넘기지 마라. 애매하면 얕게 두어라.
-5. id 는 영소문자·숫자·하이픈만 쓴다. 짧고 의미 있게. 트리 안에서 유일해야 한다.
-6. sections 는 발표를 앞에서 뒤로 훑어 구획으로 나눈 것이다.
+가장 중요한 것 — 노드는 슬라이드가 아니라 '개념'이다:
+- 노드는 반드시 '개념 목록'의 항목에서 만든다.
+- 슬라이드 제목("자사 분석", "경쟁사 분석" 같은 것)을 노드 label 로 쓰지 마라.
+  그건 목차지 개념이 아니다.
+- 노드 개수가 슬라이드 개수와 같으면 슬라이드를 그대로 옮긴 것이므로 잘못 만든 것이다.
+- 같은 개념이 여러 [S번호]에 나오면 하나의 노드로 합치고 slide_nos 에 그 번호를 모두 적어라.
+
+위계 규칙:
+1. 반드시 부모-자식 위계를 만든다. 전부 같은 깊이로 늘어놓으면 잘못 만든 것이다.
+2. 발표를 관통하는 큰 개념 2~4개를 루트(parent_id = null)로 삼는다.
+3. 나머지 개념은 자기가 속하는 상위 개념 아래에 매단다. 깊이는 2~3단계.
+4. 어느 루트에도 속하지 않는 개념만 추가 루트로 둔다.
+
+그 밖:
+5. 자료에 없는 개념을 지어내지 마라. 주어진 개념 안에서만 묶어라.
+6. id 는 영소문자·숫자·하이픈만 쓴다. 짧고 의미 있게. 트리 안에서 유일해야 한다.
+7. label 은 개념 이름만 짧게. summary 에 한 줄 설명을 넣는다.
+8. sections 는 발표를 앞에서 뒤로 훑어 구획으로 나눈 것이다. 모든 장이 어딘가에 들어가야 한다.
    slide_role 은 cover, intro, body, conclusion, closing 중 하나만 쓴다.
-7. 개념이 잘 됐는지 못 됐는지 판정하지 마라. 그건 다음 단계 일이다.
-8. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+9. 개념이 잘 설명됐는지 못 됐는지 판정하지 마라. 그건 다음 단계 일이다.
+10. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마:
 {
@@ -73,26 +84,42 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
 # ---------------------------------------------------------------------------
 
 def _build_user_prompt(doc: ConceptDoc, ctx: Context) -> str:
-    """ConceptDoc 전체를 한 번에 보여 준다. 위계는 전역 시야가 있어야 정해진다."""
+    """
+    ConceptDoc 전체를 한 번에 보여 준다. 위계는 전역 시야가 있어야 정해진다.
+
+    개념 풀을 먼저, 슬라이드 흐름을 나중에 둔다. 슬라이드 단위로 먼저 보여 주면
+    모델이 '슬라이드 1개 = 노드 1개' 로 옮겨 적고 위계를 만들지 않는다.
+    """
+    concept_lines: list[str] = []
+    for s in doc.slides:
+        for c in s.concepts[:MAX_CONCEPTS_PER_SLIDE]:
+            concept_lines.append(f"- [S{s.slide_no}] {c}")
+        for kw in s.keywords:
+            concept_lines.append(f"- [S{s.slide_no}] {kw}")
+
     parts = [
         "[TASK] concept-tree",
         ctx.to_prompt_block(),
         "",
         f"파일명: {doc.file_name}",
         f"총 슬라이드: {doc.total_slides}",
+        f"개념 후보: {len(concept_lines)}개",
         "",
-        "아래는 슬라이드별로 이미 뽑아 둔 개념이다. 이걸 묶어 트리와 구획을 만들어라.",
+        "## 개념 목록 — 노드는 여기서만 만든다",
+        "[S번호] 는 그 개념이 나온 슬라이드다. 같은 개념이 여러 번 나오면 하나로 합쳐라.",
+        "",
+    ]
+    parts += concept_lines
+    parts += [
+        "",
+        "## 발표 흐름 — sections 를 나눌 때만 참고한다 (노드로 쓰지 마라)",
+        "",
     ]
     for s in doc.slides:
-        parts.append(f"### 슬라이드 {s.slide_no}: {s.title or '(제목 없음)'}")
+        head = f"### 슬라이드 {s.slide_no}: {s.title or '(제목 없음)'}"
         if s.topic:
-            parts.append(f"주제: {s.topic}")
-        if s.keywords:
-            parts.append(f"키워드: {', '.join(s.keywords)}")
-        for c in s.concepts[:MAX_CONCEPTS_PER_SLIDE]:
-            parts.append(f"- {c}")
-        parts.append(f"중요도: {s.importance}")
-        parts.append("")
+            head += f" — {s.topic}"
+        parts.append(head)
     return "\n".join(parts)
 
 
