@@ -15,6 +15,7 @@
 마이크+넘김 ──►                   audio + SlideMark[] (F-03·04)
 audio+marks ──► [A.X STT raw] ──► Transcript        (F-05)
 SlideDoc+Context(+Transcript?) ─► ConceptDoc        (F-06)
+ConceptDoc  ──► [LLM raw]     ──► ConceptTree       (F-07)
 ```
 
 ---
@@ -338,7 +339,114 @@ python examples/dump_parse_raw.py /path/to/deck.pdf
 
 ---
 
-## 6. 한눈에 보기
+## 6. F-07 개념 트리
+
+**책임 한 줄:** 장 단위 개념(`ConceptDoc`)을 발표 **전체** 기준으로 묶어 위계(트리)와 구획(section)을 만든다.
+
+F-06과의 경계: F-06은 "이 장 안에 뭐가 있나", F-07은 "장들이 전체에서 어디에 앉나".
+`section` / `slide_role`은 앞뒤 장을 함께 봐야 정해지므로 F-07 책임이다
+([`DOCUMENT_PARSE_POSTPROCESS.md` §3-4](./DOCUMENT_PARSE_POSTPROCESS.md)).
+
+### 6-A. 원본 — LLM (Solar / A.X …)
+
+`ConceptDoc` 전체를 한 번에 보여주고 JSON만 요청한다. 배치로 쪼개지 않는다 —
+위계는 전역 시야가 있어야 정해지고, 배치로 나누면 배치 경계에서 부모를 잃는다.
+
+기대 raw(모델 출력):
+
+```jsonc
+{
+  "nodes": [
+    {
+      "id": "contrast",
+      "label": "Contrastive Learning",
+      "parent_id": null,
+      "slide_nos": [4],
+      "summary": "한 줄 설명",
+      "importance": "core"
+    }
+  ],
+  "sections": [
+    { "name": "서론 — 배경 개념", "slide_role": "intro", "slide_nos": [1, 2, 3] }
+  ]
+}
+```
+
+모델이 준 `depth`는 신뢰하지 않는다. `parent_id` 체인에서 **다시 계산**한다.
+
+### 6-B. 후처리 — `ConceptTree`
+
+입력: `ConceptDoc` (+ 선택 `Context` → 중요도 가중)
+출력:
+
+```jsonc
+{
+  "file_name": "250729 IMU2CLIP_Pulbic.pdf",
+  "total_slides": 23,
+  "model": "solar",
+  "nodes": [
+    {
+      "id": "contrast",
+      "label": "Contrastive Learning",
+      "depth": 1,
+      "parent_id": null,
+      "slide_nos": [4],
+      "summary": "같은 데이터는 가깝게, 다른 데이터는 멀게 학습",
+      "importance": "core",
+      "weight": 0.91
+    },
+    {
+      "id": "joint",
+      "label": "공동 임베딩 정렬",
+      "depth": 2,
+      "parent_id": "contrast",
+      "slide_nos": [7, 8],
+      "summary": "세 모달리티를 하나의 임베딩 공간에 정렬",
+      "importance": "core",
+      "weight": 0.79
+    }
+  ],
+  "sections": [
+    { "name": "서론 — 배경 개념", "slide_role": "intro", "slide_nos": [1, 2, 3, 4, 5] },
+    { "name": "본론 — 제안 방법", "slide_role": "body",  "slide_nos": [6, 7, 8, 9, 10, 11, 12] }
+  ]
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `file_name` | string | ✅ | `ConceptDoc`에서 승계 |
+| `total_slides` | int | ✅ | 同上 |
+| `model` | string | ✅ | 사용한 LLM 이름 |
+| `nodes[].id` | string | ✅ | **안정 키**. 영소문자·숫자·`-`. 트리 안에서 유일 |
+| `nodes[].label` | string | ✅ | 개념 이름 (화면 표시용) |
+| `nodes[].depth` | int | ✅ | 루트=1. `parent_id` 체인에서 계산 |
+| `nodes[].parent_id` | string \| null | ✅ | 루트면 `null`. 없는 id를 가리키면 루트로 강등 |
+| `nodes[].slide_nos` | int[] | ✅ | **조인 키**. 개념 하나가 여러 장에 걸칠 수 있어 배열 |
+| `nodes[].summary` | string | ✅ | 한 줄 설명. 없으면 `""` |
+| `nodes[].importance` | `"core"`\|`"support"` | ✅ | 근거 슬라이드의 `ConceptDoc.importance`에서 승계 |
+| `nodes[].weight` | float | ✅ | 0.0~1.0 중요도. 화면 정렬·질문 우선순위용 |
+| `sections[].name` | string | ✅ | 구획 이름 (예: `"본론 — 제안 방법"`) |
+| `sections[].slide_role` | enum | ✅ | `cover`\|`intro`\|`body`\|`conclusion`\|`closing` |
+| `sections[].slide_nos` | int[] | ✅ | 이 구획에 속한 장 번호 |
+
+**보증(어댑터가 지키는 불변식):**
+
+1. `id`는 유일하다.
+2. `parent_id`는 존재하는 `id`이거나 `null`이다.
+3. 순환이 없다. 순환이 생기면 그 고리의 노드를 루트로 끊는다.
+4. `depth`는 `parent_id` 체인 길이와 항상 일치한다.
+5. `slide_nos`는 `1..total_slides` 안의 값만 남는다.
+6. `sections[].slide_role`은 위 enum 밖이면 `body`로 떨어진다.
+
+**안 함:** 개념별 이해 판정·confidence·근거 발화 → **F-11 책임**.
+F-07은 골격만 만들고, 상태는 뒤 단계가 `id`로 붙인다.
+
+코드: `f07_tree.build_tree()` → `ConceptTree`
+
+---
+
+## 7. 한눈에 보기
 
 | 기능 | 원본(raw) | 후처리(ours) | 변환 위치 |
 |------|-----------|--------------|-----------|
@@ -348,20 +456,22 @@ python examples/dump_parse_raw.py /path/to/deck.pdf
 | F-04 | 클릭 시각 | `SlideMark[]` | 同上 |
 | F-05 | A.X `utterances[].words[]` | `Transcript` | `stt_impl.py` + `f05_stt.py` |
 | F-06 | LLM JSON 문자열 | `ConceptDoc` | `f06_concepts.py` |
+| F-07 | LLM JSON 문자열 | `ConceptTree` | `f07_tree.py` |
 
 ---
 
-## 7. 다음 모듈이 받을 것
+## 8. 다음 모듈이 받을 것
 
 | 다음 | 필요한 ours |
 |------|-------------|
 | F-07 트리 | `ConceptDoc` |
-| F-11 설명 판정 | `ConceptDoc` + `Transcript.by_slide` |
+| F-08~10 질문 코칭 | `ConceptTree` (개념 경로·근거 슬라이드) + `Transcript.by_slide` |
+| F-11 설명 판정 | `ConceptTree` + `Transcript.by_slide` |
 | F-17 말 속도 | `Transcript.words` (+ marks) |
 
 ---
 
-## 8. 구현 파일
+## 9. 구현 파일
 
 | 파일 | 역할 |
 |------|------|
@@ -370,6 +480,7 @@ python examples/dump_parse_raw.py /path/to/deck.pdf
 | `chuckchuck/providers/stt_impl.py` | A.X → Word[] |
 | `chuckchuck/f05_stt.py` | Word[] + SlideMark[] → Transcript |
 | `chuckchuck/f06_concepts.py` | SlideDoc+Context → ConceptDoc |
+| `chuckchuck/f07_tree.py` | ConceptDoc → ConceptTree |
 | `chuckchuck/sdk/rehearsal-recorder.js` | audio + SlideMark[] |
 
 질문·이슈 올릴 때 **ours JSON 예시**만 붙여 주세요. raw는 어댑터 담당자만 보면 됩니다.

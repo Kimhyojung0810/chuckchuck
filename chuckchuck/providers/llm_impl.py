@@ -15,12 +15,30 @@ from ..contracts import ConceptError
 from .llm_base import LLMProvider
 
 
+def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
+    """프롬프트의 '### 슬라이드 N: 제목' 줄에서 (번호, 제목)을 주워 온다."""
+    found: list[tuple[int, str]] = []
+    for line in user.splitlines():
+        if not line.startswith("### 슬라이드 "):
+            continue
+        try:
+            no = int(line.split()[2].rstrip(":"))
+        except (IndexError, ValueError):
+            continue
+        title = line.split(":", 1)[-1].strip() if ":" in line else f"슬라이드 {no}"
+        found.append((no, title))
+    return found
+
+
 class MockLLM(LLMProvider):
-    """키 없이 F-06 파이프라인을 검증하기 위한 가짜 LLM."""
+    """키 없이 F-06 / F-07 파이프라인을 검증하기 위한 가짜 LLM."""
 
     name = "mock"
 
     def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096) -> str:
+        if "[TASK] concept-tree" in user:
+            return self._mock_tree(user)
+
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
         for line in user.splitlines():
@@ -48,6 +66,50 @@ class MockLLM(LLMProvider):
                 "importance": "core",
             }]
         return json.dumps({"slides": slides}, ensure_ascii=False)
+
+    @staticmethod
+    def _mock_tree(user: str) -> str:
+        """
+        F-07 용 가짜 트리. 첫 장을 루트로, 나머지를 그 자식으로 매단다.
+
+        내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
+        """
+        found = _slides_in_prompt(user)
+        if not found:
+            found = [(1, "샘플")]
+
+        root_no, root_title = found[0]
+        root_id = f"s{root_no}"
+        nodes = [{
+            "id": root_id,
+            "label": root_title or f"슬라이드 {root_no}",
+            "parent_id": None,
+            "slide_nos": [root_no],
+            "summary": "모의 루트 개념",
+            "importance": "core",
+        }]
+        nodes += [
+            {
+                "id": f"s{no}",
+                "label": title or f"슬라이드 {no}",
+                "parent_id": root_id,
+                "slide_nos": [no],
+                "summary": "모의 하위 개념",
+                "importance": "core",
+            }
+            for no, title in found[1:]
+        ]
+
+        sections = [{
+            "name": "표지",
+            "slide_role": "cover",
+            "slide_nos": [root_no],
+        }]
+        rest = [no for no, _ in found[1:]]
+        if rest:
+            sections.append({"name": "본론", "slide_role": "body", "slide_nos": rest})
+
+        return json.dumps({"nodes": nodes, "sections": sections}, ensure_ascii=False)
 
 
 class OpenAICompatLLM(LLMProvider):

@@ -12,6 +12,7 @@
 | F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) |
 | F-05 | `chuckchuck/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 |
 | F-06 | `chuckchuck/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 |
+| F-07 | `chuckchuck/f07_tree.py` | `ConceptDoc` → `ConceptTree` | Solar / A.X / 믿음 / 엑사원 |
 
 공통 계약은 `chuckchuck/contracts.py` 하나다. 설정은 `chuckchuck/config.py` (`settings.masked()`).
 
@@ -127,6 +128,7 @@ tests/ examples/
 
 ## 주의
 
-- F-06은 **트리(부모-자식)를 만들지 않는다**. 그건 F-07.
+- F-06은 **트리(부모-자식)를 만들지 않는다**. 그건 F-07(`build_tree`)이 `ConceptDoc`을 받아서 한다.
+- F-07은 **판정하지 않는다**. 이해 상태·confidence·근거 발화는 F-11이 `node.id`로 붙인다.
 - STT 제공자가 단어 시각을 안 주면 `WordTimestampUnsupported` 로 즉시 실패한다 (F-17 말속도 대비).
 - API 키는 `.env`에만 두고 커밋하지 말 것.

@@ -23,11 +23,12 @@ from chuckchuck.config import settings  # noqa: E402
 
 from chuckchuck import (  # noqa: E402
     Context,
+    build_tree,
     extract_concepts,
     parse_document,
     transcribe,
 )
-from chuckchuck.contracts import SlideDoc, SlideMark  # noqa: E402
+from chuckchuck.contracts import ConceptDoc, SlideDoc, SlideMark  # noqa: E402
 
 MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일
 
@@ -90,6 +91,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_concepts(raw)
             if parsed.path == "/api/v1/transcribe":
                 return self._handle_transcribe(raw)
+            if parsed.path == "/api/v1/tree":
+                return self._handle_tree(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -217,6 +220,26 @@ class Handler(SimpleHTTPRequestHandler):
         result = extract_concepts(doc, ctx, transcript=transcript, llm=llm)
         sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}\n")
         return self._json(200, result.to_dict())
+
+    def _handle_tree(self, raw: bytes):
+        """F-07 · ConceptDoc → ConceptTree."""
+        body = json.loads(raw or b"{}")
+        if not body.get("concept_doc"):
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "concept_doc 이 필요합니다. F-06 결과를 보내세요."},
+            )
+        doc = ConceptDoc.from_dict(body["concept_doc"])
+        ctx = Context.from_dict(body.get("context") or {})
+        llm = "mock" if _mock() else body.get("llm")
+        sys.stderr.write(
+            f"[bridge] F-07 tree start slides={doc.total_slides} mock={_mock()}\n"
+        )
+        tree = build_tree(doc, ctx, llm=llm)
+        sys.stderr.write(
+            f"[bridge] F-07 tree done nodes={len(tree.nodes)} sections={len(tree.sections)}\n"
+        )
+        return self._json(200, tree.to_dict())
 
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")

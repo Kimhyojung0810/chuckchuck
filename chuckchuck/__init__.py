@@ -8,28 +8,38 @@ from .config import settings
 from .contracts import (
     ChuckchuckError,
     ConceptDoc,
+    ConceptNode,
+    ConceptTree,
     Context,
     ParseError,
+    Section,
     SlideDoc,
     SlideMark,
     STTError,
     Transcript,
+    TreeError,
     WordTimestampUnsupported,
 )
 from .f01_parse import parse_document, sparse_slide_numbers
 from .f05_stt import speech_for_slide, split_by_slide, transcribe
 from .f06_concepts import extract_concepts
+from .f07_tree import build_tree
 
 __all__ = [
     "ChuckchuckError",
     "ConceptDoc",
+    "ConceptNode",
+    "ConceptTree",
     "Context",
     "ParseError",
     "STTError",
+    "Section",
     "SlideDoc",
     "SlideMark",
     "Transcript",
+    "TreeError",
     "WordTimestampUnsupported",
+    "build_tree",
     "extract_concepts",
     "parse_document",
     "settings",
@@ -39,4 +49,4 @@ __all__ = [
     "transcribe",
 ]
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"

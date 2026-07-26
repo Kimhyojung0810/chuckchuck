@@ -316,6 +316,157 @@ class ConceptDoc:
 
 
 # ---------------------------------------------------------------------------
+# F-07 : 개념 트리 (발표 전체 기준 위계 + 구획)
+# ---------------------------------------------------------------------------
+# F-06 은 한 장 안을 보고, F-07 은 장들이 발표 전체에서 어디에 앉는지를 본다.
+# 이해 판정·confidence·근거 발화는 넣지 않는다. 그건 F-11 이 id 로 붙인다.
+
+#: sections[].slide_role 허용값. 이 밖의 값은 SLIDE_ROLE_FALLBACK 으로 떨어진다.
+SLIDE_ROLES = ("cover", "intro", "body", "conclusion", "closing")
+SLIDE_ROLE_FALLBACK = "body"
+
+
+@dataclass
+class ConceptNode:
+    """트리의 개념 하나. 중첩하지 않고 parent_id 로 평평하게 잇는다."""
+    id: str
+    label: str
+    depth: int = 1                 # 루트=1. parent_id 체인에서 다시 계산한다
+    parent_id: str | None = None
+    slide_nos: list[int] = field(default_factory=list)  # 조인 키. 여러 장 가능
+    summary: str = ""
+    importance: str = "core"       # core | support
+    weight: float = 0.0            # 0.0~1.0
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "depth": self.depth,
+            "parent_id": self.parent_id,
+            "slide_nos": list(self.slide_nos),
+            "summary": self.summary,
+            "importance": self.importance,
+            "weight": self.weight,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptNode":
+        return cls(
+            id=str(d["id"]),
+            label=d.get("label", ""),
+            depth=int(d.get("depth", 1)),
+            parent_id=d.get("parent_id"),
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            summary=d.get("summary", ""),
+            importance=d.get("importance", "core"),
+            weight=float(d.get("weight", 0.0)),
+        )
+
+
+@dataclass
+class Section:
+    """발표 구획 하나. slide_role 은 이 구획이 전체에서 하는 역할."""
+    name: str
+    slide_role: str = SLIDE_ROLE_FALLBACK
+    slide_nos: list[int] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "slide_role": self.slide_role,
+            "slide_nos": list(self.slide_nos),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Section":
+        role = d.get("slide_role", SLIDE_ROLE_FALLBACK)
+        return cls(
+            name=d.get("name", ""),
+            slide_role=role if role in SLIDE_ROLES else SLIDE_ROLE_FALLBACK,
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+        )
+
+
+@dataclass
+class ConceptTree:
+    """
+    F-07 의 산출물. F-08~10(질문 코칭)·F-11(설명 판정)의 입력이 된다.
+
+    불변식은 f07_tree.build_tree() 가 보장한다:
+    id 유일 · parent_id 는 존재하는 id 나 None · 순환 없음 · depth = 체인 길이.
+    """
+    file_name: str
+    total_slides: int
+    nodes: list[ConceptNode] = field(default_factory=list)
+    sections: list[Section] = field(default_factory=list)
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "nodes": [n.to_dict() for n in self.nodes],
+            "sections": [s.to_dict() for s in self.sections],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptTree":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d["total_slides"]),
+            nodes=[ConceptNode.from_dict(n) for n in d.get("nodes", [])],
+            sections=[Section.from_dict(s) for s in d.get("sections", [])],
+            model=d.get("model", ""),
+        )
+
+    # --- 조회 헬퍼 (질문 코칭·판정이 id 로 붙일 때 쓴다) -------------------
+
+    def node(self, node_id: str) -> ConceptNode | None:
+        """id 로 노드 하나."""
+        for n in self.nodes:
+            if n.id == node_id:
+                return n
+        return None
+
+    def children_of(self, node_id: str | None) -> list[ConceptNode]:
+        """직속 자식들. None 을 주면 루트 목록."""
+        return [n for n in self.nodes if n.parent_id == node_id]
+
+    @property
+    def roots(self) -> list[ConceptNode]:
+        return self.children_of(None)
+
+    def path_of(self, node_id: str) -> list[ConceptNode]:
+        """
+        루트에서 해당 노드까지의 경로.
+
+        Q&A 화면의 '개념 경로' 표시용. 없는 id 면 빈 리스트.
+        """
+        by_id = {n.id: n for n in self.nodes}
+        cur = by_id.get(node_id)
+        chain: list[ConceptNode] = []
+        seen: set[str] = set()
+        while cur is not None and cur.id not in seen:
+            seen.add(cur.id)
+            chain.append(cur)
+            cur = by_id.get(cur.parent_id) if cur.parent_id else None
+        return list(reversed(chain))
+
+    def nodes_for_slide(self, slide_no: int) -> list[ConceptNode]:
+        """이 장을 근거로 삼는 개념들."""
+        return [n for n in self.nodes if slide_no in n.slide_nos]
+
+    def section_of(self, slide_no: int) -> Section | None:
+        """이 장이 속한 구획."""
+        for s in self.sections:
+            if slide_no in s.slide_nos:
+                return s
+        return None
+
+
+# ---------------------------------------------------------------------------
 # 예외
 # ---------------------------------------------------------------------------
 
@@ -337,6 +488,10 @@ class WordTimestampUnsupported(STTError):
 
 class ConceptError(ChuckchuckError):
     """F-06 개념 추출 실패."""
+
+
+class TreeError(ChuckchuckError):
+    """F-07 개념 트리 생성 실패."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

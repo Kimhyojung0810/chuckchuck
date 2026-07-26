@@ -219,6 +219,7 @@ export { MyClient } from './my_client.js';
 | F-03·04 | — | (업로드는 transcribe로) | `RehearsalRecorder` | — |
 | F-05 | `transcribe` | `POST /api/v1/transcribe` | `uploadRehearsal` | `STTProvider` / `get_provider` |
 | F-06 | `extract_concepts` | `POST /api/v1/concepts` | — | `LLMProvider` / `get_llm` |
+| F-07 | `build_tree` | `POST /api/v1/tree` | — | `LLMProvider` / `get_llm` |
 
 새 파트(F-07+)는 **이 표에 한 줄을 추가하는 것**이 완료 조건이다, 구현의 시작이다.
 
