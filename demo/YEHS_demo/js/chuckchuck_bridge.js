@@ -275,13 +275,50 @@ export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, cont
     }
   }
 
+  // F-07 그래프 + F-11 정합 판정 — 실패해도 STT·개념까지는 살린다 (부분 결과)
+  let graph = null;
+  let alignment = null;
+  if (concepts) {
+    try {
+      report('graph', '개념 그래프 구성 중 (F-07)', { transcript, concepts });
+      const gRes = await fetch('/api/v1/graph', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
+      });
+      graph = await gRes.json();
+      if (!gRes.ok || graph.error) {
+        throw new Error(graph.message || graph.error || `graph HTTP ${gRes.status}`);
+      }
+      report('graph_done', `개념 ${(graph.nodes || []).length}개 · 연결 ${(graph.edges || []).length}개`, { transcript, concepts, graph });
+
+      report('align', '발표와 자료 대조 중 (F-11)', { transcript, concepts, graph });
+      const aRes = await fetch('/api/v1/alignment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ graph, transcript: slimTranscript(transcript), context: context || {} }),
+      });
+      alignment = await aRes.json();
+      if (!aRes.ok || alignment.error) {
+        throw new Error(alignment.message || alignment.error || `alignment HTTP ${aRes.status}`);
+      }
+      report('align_done', `정합 판정 ${(alignment.items || []).length}개`, { transcript, concepts, graph, alignment });
+    } catch (err) {
+      if (graph && graph.error) graph = null;
+      alignment = null;
+      report('align_error', err.message || String(err), { transcript, concepts, graph });
+    }
+  }
+
   report('done', conceptsError ? 'STT 완료 · 개념 추출 실패' : '준비 완료', {
     transcript,
     concepts,
     conceptsError,
+    graph,
+    alignment,
   });
   saveChuckSession({ transcript, concepts, conceptsError });
-  return { transcript, concepts, conceptsError };
+  return { transcript, concepts, conceptsError, graph, alignment };
 }
 
 function blobToBase64(blob) {

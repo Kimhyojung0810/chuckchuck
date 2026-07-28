@@ -974,6 +974,17 @@ function showF11Reveal() {
     'style="width:100%;height:100%;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   requestAnimationFrame(() => { wrap.style.opacity = '1'; });
+  // 파이프라인이 F-07/F-11 결과를 내면 iframe 에 실데이터를 넘긴다
+  const feed = setInterval(() => {
+    if (!document.getElementById('f11RevealWrap')) { clearInterval(feed); return; }
+    const out = nf.pipelineOut;
+    const iframe = wrap.querySelector('iframe');
+    if (out && out.graph && out.alignment && iframe && iframe.contentWindow) {
+      clearInterval(feed);
+      iframe.contentWindow.postMessage(
+        { type: 'f11Data', graph: out.graph, alignment: out.alignment }, '*');
+    }
+  }, 500);
   const onMsg = (e) => {
     if (e.data && e.data.type === 'f11RevealDone') {
       window.removeEventListener('message', onMsg);

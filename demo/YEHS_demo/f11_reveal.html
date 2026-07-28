@@ -369,7 +369,7 @@
       </div>
       <div class="mini-scatter" id="miniScatter"></div>
       <div class="cta-wrap">
-        <p class="cta-hint">중요도 2위인 <b>타겟 피보팅</b>부터 보완하면<br>발표가 더 탄탄해져요</p>
+        <p class="cta-hint" id="ctaHint">중요도 2위인 <b>타겟 피보팅</b>부터 보완하면<br>발표가 더 탄탄해져요</p>
         <button class="cta" id="ctaBtn">질문 코치 시작하기</button>
         <button class="replay" id="replayBtn">분석 과정 다시 보기</button>
       </div>
@@ -393,7 +393,7 @@
  * mock 데이터 — F-11 계약(AlignmentDoc) 필드명 그대로.
  * 실데이터 연결 시 /api/v1/graph + /api/v1/alignment 응답으로 교체.
  * ------------------------------------------------------------- */
-const NODES = [
+let NODES = [
   { id: "job-target",  label: "직군 중심 타겟팅", x: 190, y: 66,  doc: 1.00, speech: 1.00, verdict: "aligned",  first: 12 },
   { id: "ai-diff",     label: "AI 기능적 난도",   x: 70,  y: 150, doc: 0.78, speech: 0.72, verdict: "aligned",  first: 95 },
   { id: "competitor",  label: "경쟁사 분석",      x: 310, y: 140, doc: 0.74, speech: 0.85, verdict: "aligned",  first: 41 },
@@ -406,7 +406,7 @@ const NODES = [
   { id: "buying",      label: "구매력",           x: 268, y: 340, doc: 0.50, speech: 0.02, verdict: "missing",  first: null },
   { id: "cafp",        label: "CAFP 분석",        x: 336, y: 336, doc: 0.45, speech: 0.30, verdict: "aligned",  first: 75 },
 ];
-const EDGES = [
+let EDGES = [
   { from: "job-target", to: "pivot", kind: "parent" },
   { from: "job-target", to: "mid-level", kind: "parent" },
   { from: "ai-diff", to: "gen-ai", kind: "parent" },
@@ -417,12 +417,12 @@ const EDGES = [
   { from: "market-def", to: "gen-ai", kind: "relates" },
   { from: "pivot", to: "mid-level", kind: "relates" },
 ];
-const SPOKEN_EDGES = [
+let SPOKEN_EDGES = [
   ["competitor", "self-analysis"],
   ["job-target", "mid-level"],
   ["self-analysis", "cafp"],
 ];
-const SUMMARY = { coverage: 71, rank: 0.68, edge: 33 };
+let SUMMARY = { coverage: 71, rank: 0.68, edge: 33, total: 312 };
 const STT_LINES = [
   "안녕하세요, 오늘 발표를 시작할게요",
   "저희가 주목한 건 직군 중심 타겟팅이에요",
@@ -449,6 +449,7 @@ const svgNS = "http://www.w3.org/2000/svg";
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let skipped = false;
 let runToken = 0;
+let dataArrived = false;   // 실데이터(postMessage) 도착 여부 — STT 씬이 이걸 기다린다
 
 const sleep = (ms) => new Promise((r) => {
   if (skipped || REDUCED) return r();
@@ -481,11 +482,19 @@ const axesLayer = el("g", { class: "axes" }, svg);
 const nodeLayer = el("g", {}, svg);
 const tlLayer = el("g", { class: "timeline" }, svg);
 
-const byId = {};
-NODES.forEach((n) => (byId[n.id] = n));
+let byId = {};
+let edgeEls = [];
+let nodeEls = [];
 
-// 간선 — 원 가장자리에서 끊어 노드를 뚫고 지나가지 않게 한다
-const edgeEls = EDGES.map((e) => {
+/** NODES/EDGES 로 그래프 스테이지를 (재)구성한다. 실데이터가 오면 다시 부른다. */
+function buildStage() {
+  edgeLayer.replaceChildren();
+  nodeLayer.replaceChildren();
+  byId = {};
+  NODES.forEach((n) => (byId[n.id] = n));
+
+  // 간선 — 원 가장자리에서 끊어 노드를 뚫고 지나가지 않게 한다
+  edgeEls = EDGES.map((e) => {
   const a = byId[e.from], b = byId[e.to];
   const dx = b.x - a.x, dy = b.y - a.y;
   const full = Math.hypot(dx, dy);
@@ -505,8 +514,8 @@ const edgeEls = EDGES.map((e) => {
   return { e, line, len };
 });
 
-// 노드 (원 + 게이지 링 + 라벨)
-const nodeEls = NODES.map((n) => {
+  // 노드 (원 + 게이지 링 + 라벨)
+  nodeEls = NODES.map((n) => {
   const g = el("g", { class: "node", "data-id": n.id }, nodeLayer);
   g.style.transform = `translate(${n.x}px, ${n.y}px)`;
   const r = radius(n.doc);
@@ -520,6 +529,101 @@ const nodeEls = NODES.map((n) => {
   label.textContent = n.label;
   const badge = el("text", { class: "badge", y: 4.5, "text-anchor": "middle" }, g);
   return { n, g, ring, circ, badge, label, r };
+  });
+}
+buildStage();
+
+/* ---------------------------------------------------------------
+ * 실데이터 — 데모 앱이 postMessage 로 /api/v1/graph + /api/v1/alignment
+ * 응답을 넘기면 mock 을 갈아끼우고 스테이지를 다시 만든다.
+ * ------------------------------------------------------------- */
+const VERDICT_FROM_API = {
+  aligned: "aligned", justified_skip: "skip",
+  missing: "missing", contradiction: "contra",
+};
+const MAX_REVEAL_NODES = 12;   // 폰 캔버스에 담을 상한 — weight 상위만
+
+function layoutNodes(nodes) {
+  const rows = { 1: [], 2: [], 3: [] };
+  nodes.forEach((n) => rows[Math.min(3, Math.max(1, n.depth || 1))].push(n));
+  const Y = { 1: 70, 2: 210, 3: 330 };
+  for (const d of [1, 2, 3]) {
+    const row = rows[d];
+    const step = 340 / (row.length + 1);
+    row.forEach((n, i) => {
+      n.x = 20 + step * (i + 1);
+      n.y = Y[d] + (row.length > 5 && i % 2 ? 26 : 0);  // 붐비면 지그재그
+    });
+  }
+}
+
+function shortLabel(raw) {
+  // "개념 — 부연" / "개념: 설명" 꼴은 앞만, 14자 넘으면 말줄임
+  const s = String(raw || "").split("—")[0].split(":")[0].trim();
+  return s.length > 14 ? s.slice(0, 13) + "…" : s;
+}
+
+function applyRealData(graph, align) {
+  const itemBy = {};
+  (align.items || []).forEach((i) => (itemBy[i.node_id] = i));
+  const nodes = (graph.nodes || []).map((gn) => {
+    const it = itemBy[gn.id] || {};
+    const basis = it.speech_basis || {};
+    return {
+      id: gn.id, label: shortLabel(gn.label || gn.id), depth: gn.depth || 1,
+      doc: gn.weight || 0, speech: it.speech_weight || 0,
+      verdict: VERDICT_FROM_API[it.verdict] || "missing",
+      first: basis.first_mention_sec != null ? basis.first_mention_sec : null,
+      evidence: it.verdict === "contradiction" && it.evidence
+        ? `“${it.evidence}” — 자료와 어긋나요` : undefined,
+    };
+  }).sort((a, b) => b.doc - a.doc).slice(0, MAX_REVEAL_NODES);
+  layoutNodes(nodes);
+  const ids = new Set(nodes.map((n) => n.id));
+
+  NODES = nodes;
+  EDGES = (graph.edges || [])
+    .filter((e) => ids.has(e.from) && ids.has(e.to))
+    .map((e) => ({ from: e.from, to: e.to, kind: e.kind }));
+  SPOKEN_EDGES = (align.speech_edges || [])
+    .filter((e) => ids.has(e.from) && ids.has(e.to))
+    .map((e) => [e.from, e.to]);
+  const s = align.summary || {};
+  SUMMARY = {
+    coverage: Math.round((s.coverage || 0) * 100),
+    rank: s.rank_correlation != null ? s.rank_correlation : null,
+    edge: s.edge_coverage != null ? Math.round(s.edge_coverage * 100) : null,
+    total: s.speech_total_sec || 0,
+  };
+
+  // 화면 문구도 실데이터로
+  CAPTIONS[1].p = `발표 자료에서 개념 ${NODES.length}개와 연결 ${EDGES.length}개를 찾았어요. 큰 원일수록 자료가 힘을 실은 개념이에요`;
+  const counts = s.verdict_counts || {};
+  [["vr1", "aligned"], ["vr2", "missing"], ["vr3", "contradiction"], ["vr4", "justified_skip"]]
+    .forEach(([id, k]) => {
+      const cnt = $(id).querySelector(".cnt");
+      if (cnt) cnt.textContent = `${counts[k] || 0}개`;
+    });
+  const miss = NODES.find((n) => n.verdict === "missing");
+  $("ctaHint").innerHTML = miss
+    ? `자료가 힘준 <b>${miss.label}</b>부터 보완하면<br>발표가 더 탄탄해져요`
+    : "자료의 핵심을 빠짐없이 다뤘어요.<br>이제 질문으로 더 단단하게 만들어봐요";
+  const mini = $("miniScatter");
+  mini.replaceChildren();
+  delete mini.dataset.built;
+
+  buildStage();
+  dataArrived = true;
+}
+
+window.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "f11Data" && e.data.graph && e.data.alignment) {
+    try {
+      applyRealData(e.data.graph, e.data.alignment);
+    } catch (err) {
+      dataArrived = true;   // 변환 실패 시 mock 으로 계속 — 재생을 막지 않는다
+    }
+  }
 });
 
 // 타임라인 바 — 노드·라벨과 안 겹치게 캔버스 맨 아래 전용 줄에 둔다
@@ -559,22 +663,29 @@ async function sceneSTT() {
   setScene(0);
   const wrap = $("sttScene");
   wrap.style.opacity = 1;
-  for (let i = 0; i < STT_LINES.length; i++) {
-    if (skipped) break;
-    const line = document.createElement("div");
-    line.className = "stt-line";
-    line.textContent = STT_LINES[i];
-    wrap.appendChild(line);
-    if (i >= 1 && KEYWORDS[i - 1]) {
-      const kw = document.createElement("span");
-      kw.className = "kw";
-      kw.textContent = KEYWORDS[i - 1];
-      kw.style.left = 20 + (i * 67) % 180 + "px";
-      kw.style.top = 44 + (i * 53) % 120 + "px";
-      wrap.appendChild(kw);
+  // embed 에선 실데이터(F-05~F-11 파이프라인)가 올 때까지 이 씬이 기다린다.
+  // 실 LLM 은 콜당 수십 초라 최대 ~3분까지 순환하고, 그 뒤엔 mock 으로 진행한다.
+  let pass = 0;
+  do {
+    for (let i = 0; i < STT_LINES.length; i++) {
+      if (skipped || (EMBED && dataArrived && i > 1)) break;
+      const line = document.createElement("div");
+      line.className = "stt-line";
+      line.textContent = STT_LINES[i];
+      wrap.appendChild(line);
+      if (i >= 1 && KEYWORDS[i - 1]) {
+        const kw = document.createElement("span");
+        kw.className = "kw";
+        kw.textContent = KEYWORDS[i - 1];
+        kw.style.left = 20 + ((pass + i) * 67) % 180 + "px";
+        kw.style.top = 44 + ((pass + i) * 53) % 120 + "px";
+        wrap.appendChild(kw);
+      }
+      await sleep(760);
     }
-    await sleep(760);
-  }
+    pass += 1;
+    if (wrap.childElementCount > 24) wrap.replaceChildren();
+  } while (EMBED && !dataArrived && !skipped && pass < 40);
   await sleep(500);
   wrap.style.opacity = 0;
   await sleep(300);
@@ -600,7 +711,7 @@ async function sceneGraph() {
 async function sceneSweep() {
   setScene(2);
   tlLayer.classList.add("show");
-  const TOTAL = 312;         // 실제 발화 시간(초)
+  const TOTAL = SUMMARY.total || 312;   // 실제 발화 시간(초)
   const DUR = REDUCED || skipped ? 0 : 5200; // 화면 재생 시간(ms)
   const mentioned = nodeEls.filter((x) => x.n.first !== null)
     .sort((a, b) => a.n.first - b.n.first);
@@ -655,7 +766,7 @@ async function sceneVerdict() {
       (e.from === a && e.to === b) || (e.from === b && e.to === a));
     if (m) { m.line.style.opacity = 1; m.line.classList.add("spoken"); }
   }
-  showToast("연결 9개 중 3개를 말로 이어줬어요");
+  showToast(`연결 ${EDGES.length}개 중 ${SPOKEN_EDGES.length}개를 말로 이어줬어요`);
   await sleep(1900);
   hideToast();
 }
@@ -712,10 +823,12 @@ async function sceneSummary() {
   countUp($("covNum"), SUMMARY.coverage, 1100, (v) => Math.round(v));
   await sleep(500);
   $("mc1").classList.add("show");
-  countUp($("rankNum"), SUMMARY.rank, 900, (v) => v.toFixed(2));
+  if (SUMMARY.rank == null) $("rankNum").textContent = "–";
+  else countUp($("rankNum"), SUMMARY.rank, 900, (v) => v.toFixed(2));
   await sleep(180);
   $("mc2").classList.add("show");
-  countUp($("edgeNum"), SUMMARY.edge, 900, (v) => Math.round(v) + "%");
+  if (SUMMARY.edge == null) $("edgeNum").textContent = "–";
+  else countUp($("edgeNum"), SUMMARY.edge, 900, (v) => Math.round(v) + "%");
   for (const id of ["vr1", "vr2", "vr3", "vr4"]) {
     await sleep(160);
     $(id).classList.add("show");
