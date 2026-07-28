@@ -982,7 +982,8 @@ function showF11Reveal() {
     if (out && out.graph && out.alignment && iframe && iframe.contentWindow) {
       clearInterval(feed);
       iframe.contentWindow.postMessage(
-        { type: 'f11Data', graph: out.graph, alignment: out.alignment, flow: out.flow || null }, '*');
+        { type: 'f11Data', graph: out.graph, alignment: out.alignment, flow: out.flow || null,
+          transcript: out.transcript || null }, '*');
     }
   }, 500);
   const onMsg = (e) => {
@@ -1244,15 +1245,18 @@ function nfStep4() {
         audience: nf.ctx || '',
         duration_min: nf.min,
       },
-      onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr }) => {
+      onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr, graph, alignment, flow }) => {
         nf.pipelinePhase = phase;
         nf.pipelineDetail = detail || '';
-        if (transcript || concepts || cErr) {
+        if (transcript || concepts || cErr || graph || alignment || flow) {
           nf.pipelineOut = {
             ...(nf.pipelineOut || {}),
             ...(transcript ? { transcript } : {}),
             ...(concepts ? { concepts } : {}),
             ...(cErr ? { conceptsError: cErr } : {}),
+            ...(graph ? { graph } : {}),
+            ...(alignment ? { alignment } : {}),
+            ...(flow ? { flow } : {}),
           };
         }
         if (transcript && !transcript.error) nf.transcriptOk = true;
@@ -1598,7 +1602,7 @@ const FLOW_KIND = {
 
 function rLogicRealCards(flow) {
   const cards = (flow.issues || []).map((i) => {
-    const kind = FLOW_KIND[i.kind] || { type: i.kind, good: false };
+    const kind = FLOW_KIND[i.kind] || { type: escapeHtml(i.kind), good: false };
     const slides = i.slide_nos || [];
     const from = slides.length ? `${slides[0]}번` : '—';
     const to = slides.length > 1 ? `${slides[slides.length - 1]}번` : from;
@@ -1613,8 +1617,8 @@ function rLogicRealCards(flow) {
         <span class="flow-line ${kind.good ? 'good' : ''}"><em>${kind.good ? '✓' : '✕'}</em></span>
         <span class="slide-chip">${to} 슬라이드</span>
       </div>
-      <p class="logic-note"><b>${kind.type}</b> — ${i.note || ''}</p>
-      ${i.cue ? `<div class="bubble">“${i.cue}”</div>` : ''}
+      <p class="logic-note"><b>${kind.type}</b> — ${escapeHtml(i.note || '')}</p>
+      ${i.cue ? `<div class="bubble">“${escapeHtml(i.cue)}”</div>` : ''}
     </div>`;
   }).join('');
 

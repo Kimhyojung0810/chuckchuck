@@ -119,6 +119,7 @@
     fill: var(--primary-soft); stroke: var(--primary); stroke-width: 2;
     transition: stroke 0.4s, fill 0.4s, opacity 0.4s;
   }
+  #svg.dense .node text { font-size: 9px; }
   .node text {
     font-size: 10.5px; font-weight: 600; fill: var(--text);
     text-anchor: middle; transition: fill 0.4s, opacity 0.4s;
@@ -433,7 +434,7 @@ const STT_LINES = [
 const KEYWORDS = ["직군 중심 타겟팅", "경쟁사 분석", "자사 분석", "CAFP"];
 
 const CAPTIONS = [
-  { h: "발표를 듣고 있어요", p: "음성을 글로 바꾸고, 어떤 개념을 말했는지 찾고 있어요" },
+  { h: "슬라이드 내용과 발표 음성을 분석하고 있어요", p: "음성을 글로 바꾸고, 자료의 개념과 대조할 준비를 하고 있어요" },
   { h: "자료는 이렇게 짜여 있어요", p: "발표 자료에서 개념 10개와 연결 9개를 찾았어요. 큰 원일수록 자료가 힘을 실은 개념이에요" },
   { h: "발표를 다시 들어볼게요", p: "개념마다 언제, 얼마나 말했는지 재고 있어요. 차오르는 링이 발표에서 쓴 힘이에요" },
   { h: "개념마다 판정을 내렸어요", p: "잘 설명한 개념은 초록, 아직 설명하지 않은 개념은 흐리게, 자료와 다르게 말한 개념은 빨강이에요" },
@@ -450,6 +451,8 @@ const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let skipped = false;
 let runToken = 0;
 let dataArrived = false;   // 실데이터(postMessage) 도착 여부 — STT 씬이 이걸 기다린다
+let REAL_STT = null;       // 실전사 문장들 — 도착하면 STT 씬이 데모 대본 대신 이걸 틀어준다
+let REAL_KEYWORDS = null;  // 실데이터에서 '발표가 실제로 다룬 개념' 라벨 — 키워드 침으로 띄운다
 
 const sleep = (ms) => new Promise((r) => {
   if (skipped || REDUCED) return r();
@@ -471,7 +474,8 @@ function countUp(node, target, dur, fmt) {
     if (p < 1) requestAnimationFrame(tick);
   })(t0);
 }
-function radius(w) { return 13 + w * 19; }
+let RADIUS_SCALE = 1;   // 노드가 많으면 layoutNodes 가 줄인다 — 겹침 방지
+function radius(w) { return (13 + w * 19) * RADIUS_SCALE; }
 
 /* ---------------------------------------------------------------
  * SVG 구성
@@ -515,6 +519,7 @@ function buildStage() {
 });
 
   // 노드 (원 + 게이지 링 + 라벨)
+  svg.classList.toggle("dense", NODES.length > 8);
   nodeEls = NODES.map((n) => {
   const g = el("g", { class: "node", "data-id": n.id }, nodeLayer);
   g.style.transform = `translate(${n.x}px, ${n.y}px)`;
@@ -546,13 +551,23 @@ const MAX_REVEAL_NODES = 12;   // 폰 캔버스에 담을 상한 — weight 상�
 function layoutNodes(nodes) {
   const rows = { 1: [], 2: [], 3: [] };
   nodes.forEach((n) => rows[Math.min(3, Math.max(1, n.depth || 1))].push(n));
-  const Y = { 1: 70, 2: 210, 3: 330 };
+  // 붐빌수록 원을 줄여 라벨 자리를 확보 (viewBox 380px 고정이라 밀도로만 조절 가능)
+  RADIUS_SCALE = nodes.length > 8 ? 0.72 : nodes.length > 5 ? 0.85 : 1;
+  const PER_LINE = 4;   // 한 줄 최대 — 이보다 촘촘하면 라벨끼리 부딪힌다
+  const LINE_H = 58;
+  const Y = { 1: 56, 2: 168, 3: 322 };
   for (const d of [1, 2, 3]) {
     const row = rows[d];
-    const step = 340 / (row.length + 1);
-    row.forEach((n, i) => {
-      n.x = 20 + step * (i + 1);
-      n.y = Y[d] + (row.length > 5 && i % 2 ? 26 : 0);  // 붐비면 지그재그
+    if (!row.length) continue;
+    const lines = [];
+    for (let i = 0; i < row.length; i += PER_LINE) lines.push(row.slice(i, i + PER_LINE));
+    lines.forEach((line, li) => {
+      const step = 340 / (line.length + 1);
+      line.forEach((n, i) => {
+        // 줄마다 반 칸씩 어긋나게 — 윗줄 라벨과 아랫줄 원이 세로로 안 겹치게
+        n.x = Math.min(352, Math.max(28, 20 + step * (i + 1) + (li % 2 ? step / 2 : 0)));
+        n.y = Math.min(348, Y[d] + li * LINE_H);
+      });
     });
   }
 }
@@ -561,6 +576,12 @@ function shortLabel(raw) {
   // "개념 — 부연" / "개념: 설명" 꼴은 앞만, 14자 넘으면 말줄임
   const s = String(raw || "").split("—")[0].split(":")[0].trim();
   return s.length > 14 ? s.slice(0, 13) + "…" : s;
+}
+
+function escHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = String(s == null ? "" : s);
+  return d.innerHTML;
 }
 
 function applyRealData(graph, align) {
@@ -578,6 +599,14 @@ function applyRealData(graph, align) {
         ? `“${it.evidence}” — 자료와 어긋나요` : undefined,
     };
   }).sort((a, b) => b.doc - a.doc).slice(0, MAX_REVEAL_NODES);
+  if (nodes.length > 8) {
+    // 촘촘한 판에서는 14자 라벨이 이웃과 겹친다 — 더 짧게
+    nodes.forEach((n) => {
+      if (n.label.length > 8) n.label = n.label.slice(0, 7) + "…";
+    });
+  }
+  REAL_KEYWORDS = nodes.filter((n) => n.verdict === "aligned").slice(0, 4).map((n) => n.label);
+  if (!REAL_KEYWORDS.length) REAL_KEYWORDS = nodes.slice(0, 3).map((n) => n.label);
   layoutNodes(nodes);
   const ids = new Set(nodes.map((n) => n.id));
 
@@ -606,7 +635,7 @@ function applyRealData(graph, align) {
     });
   const miss = NODES.find((n) => n.verdict === "missing");
   $("ctaHint").innerHTML = miss
-    ? `자료가 힘준 <b>${miss.label}</b>부터 보완하면<br>발표가 더 탄탄해져요`
+    ? `자료가 힘준 <b>${escHtml(miss.label)}</b>부터 보완하면<br>발표가 더 탄탄해져요`
     : "자료의 핵심을 빠짐없이 다뤘어요.<br>이제 질문으로 더 단단하게 만들어봐요";
   const mini = $("miniScatter");
   mini.replaceChildren();
@@ -616,9 +645,26 @@ function applyRealData(graph, align) {
   dataArrived = true;
 }
 
+function realSttLines(t) {
+  // Transcript.by_slide 의 실제 발화를 짧은 자막 문장으로 자른다
+  const texts = (t.by_slide || []).map((s) => String(s.text || "").trim()).filter(Boolean);
+  const src = texts.length ? texts : [String(t.full_text || "").trim()];
+  const lines = [];
+  for (const txt of src) {
+    for (const m of txt.match(/[^.?!…\n]+[.?!…]?/g) || []) {
+      const line = m.trim();
+      if (line.length >= 5) lines.push(line.length > 34 ? line.slice(0, 33) + "…" : line);
+      if (lines.length >= 8) return lines;
+    }
+  }
+  return lines;
+}
+
 window.addEventListener("message", (e) => {
+  if (e.origin !== location.origin) return;
   if (e.data && e.data.type === "f11Data" && e.data.graph && e.data.alignment) {
     try {
+      if (e.data.transcript) REAL_STT = realSttLines(e.data.transcript);
       applyRealData(e.data.graph, e.data.alignment);
     } catch (err) {
       dataArrived = true;   // 변환 실패 시 mock 으로 계속 — 재생을 막지 않는다
@@ -665,15 +711,24 @@ async function sceneSTT() {
   wrap.style.opacity = 1;
   // embed 에선 실데이터(F-05~F-11 파이프라인)가 올 때까지 이 씬이 기다린다.
   // 실 LLM 은 콜당 수십 초라 최대 ~3분까지 순환하고, 그 뒤엔 mock 으로 진행한다.
+  // embed(실제 앱 흐름)에선 아직 안 온 전사 대신 중립 대기 문구를 튼다 —
+  // 데모 대본을 틀면 사용자가 "내가 안 한 말"로 오해한다
+  const WAIT_LINES = [
+    "음성을 글로 바꾸고 있어요…",
+    "발화를 슬라이드별로 나누고 있어요…",
+    "어떤 개념을 말했는지 찾고 있어요…",
+    "자료의 개념과 대조할 준비를 하고 있어요…",
+  ];
+  const playLines = EMBED ? WAIT_LINES : STT_LINES;
   let pass = 0;
   do {
-    for (let i = 0; i < STT_LINES.length; i++) {
+    for (let i = 0; i < playLines.length; i++) {
       if (skipped || (EMBED && dataArrived && i > 1)) break;
       const line = document.createElement("div");
       line.className = "stt-line";
-      line.textContent = STT_LINES[i];
+      line.textContent = playLines[i];
       wrap.appendChild(line);
-      if (i >= 1 && KEYWORDS[i - 1]) {
+      if (!EMBED && i >= 1 && KEYWORDS[i - 1]) {
         const kw = document.createElement("span");
         kw.className = "kw";
         kw.textContent = KEYWORDS[i - 1];
@@ -686,6 +741,28 @@ async function sceneSTT() {
     pass += 1;
     if (wrap.childElementCount > 24) wrap.replaceChildren();
   } while (EMBED && !dataArrived && !skipped && pass < 40);
+  // 실전사가 왔으면 데모 대본을 걷어내고 실제 발화 문장으로 마무리한다.
+  // 키워드 침도 실데이터 — 발표가 실제로 다룬 개념 라벨을 띄운다
+  if (EMBED && REAL_STT && REAL_STT.length && !skipped) {
+    wrap.replaceChildren();
+    let ki = 0;
+    for (const txt of REAL_STT.slice(0, 5)) {
+      const line = document.createElement("div");
+      line.className = "stt-line";
+      line.textContent = txt;
+      wrap.appendChild(line);
+      if (REAL_KEYWORDS && REAL_KEYWORDS[ki]) {
+        const kw = document.createElement("span");
+        kw.className = "kw";
+        kw.textContent = REAL_KEYWORDS[ki];
+        kw.style.left = 20 + (ki * 67) % 180 + "px";
+        kw.style.top = 44 + (ki * 53) % 120 + "px";
+        wrap.appendChild(kw);
+        ki += 1;
+      }
+      await sleep(620);
+    }
+  }
   await sleep(500);
   wrap.style.opacity = 0;
   await sleep(300);
