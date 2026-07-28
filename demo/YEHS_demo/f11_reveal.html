@@ -276,6 +276,17 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%); }
 
+  /* ---- 시작 게이트 ---- */
+  #startScene {
+    position: absolute; inset: 0; z-index: 6; background: var(--bg);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 8px; padding: 0 32px; text-align: center; transition: opacity 0.4s;
+  }
+  #startScene.hide { opacity: 0; pointer-events: none; }
+  #startScene h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.015em; }
+  #startScene p { margin: 0 0 18px; color: var(--sub); font-size: 14.5px; line-height: 1.5; }
+  #startScene .cta { max-width: 280px; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
@@ -320,6 +331,12 @@
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <div id="startScene">
+      <h2>발표 분석이 끝났어요</h2>
+      <p>자료와 발표를 어떻게 비교했는지<br>30초로 보여줄게요</p>
+      <button class="cta" id="startBtn">분석 과정 보기</button>
+    </div>
   </div>
 
   <div class="dots" id="dots"></div>
@@ -683,14 +700,19 @@ function showToast(msg) {
 }
 function hideToast() { $("toast").classList.remove("show"); }
 
-$("skipBtn").addEventListener("click", jumpToEnd);
+$("startBtn").addEventListener("click", () => {
+  $("startScene").classList.add("hide");
+  run();
+});
+$("skipBtn").addEventListener("click", () => {
+  $("startScene").classList.add("hide");
+  jumpToEnd();
+});
 $("replayBtn").addEventListener("click", run);
 $("ctaBtn").addEventListener("click", () => {
   showToast("질문 코치는 F-08에서 만나요");
   setTimeout(hideToast, 1800);
 });
-
-run();
 </script>
 
 </body>
