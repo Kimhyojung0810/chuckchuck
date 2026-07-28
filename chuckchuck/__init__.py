@@ -6,17 +6,24 @@
 
 from .config import settings
 from .contracts import (
+    AlignError,
+    AlignmentDoc,
+    AlignmentItem,
+    AlignmentSummary,
     ChuckchuckError,
     ConceptDoc,
     ConceptEdge,
     ConceptGraph,
     ConceptNode,
     Context,
+    ExtraConcept,
     GraphError,
     ParseError,
     Section,
     SlideDoc,
     SlideMark,
+    SpeechBasis,
+    SpeechEdge,
     STTError,
     Transcript,
     WeightBasis,
@@ -26,23 +33,32 @@ from .f01_parse import parse_document, sparse_slide_numbers
 from .f05_stt import speech_for_slide, split_by_slide, transcribe
 from .f06_concepts import extract_concepts
 from .f07_graph import build_graph
+from .f11_align import align_speech
 
 __all__ = [
+    "AlignError",
+    "AlignmentDoc",
+    "AlignmentItem",
+    "AlignmentSummary",
     "ChuckchuckError",
     "ConceptDoc",
     "ConceptEdge",
     "ConceptGraph",
     "ConceptNode",
     "Context",
+    "ExtraConcept",
     "GraphError",
     "ParseError",
     "STTError",
     "Section",
     "SlideDoc",
     "SlideMark",
+    "SpeechBasis",
+    "SpeechEdge",
     "Transcript",
     "WeightBasis",
     "WordTimestampUnsupported",
+    "align_speech",
     "build_graph",
     "extract_concepts",
     "parse_document",
@@ -53,4 +69,4 @@ __all__ = [
     "transcribe",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

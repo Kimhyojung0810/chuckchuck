@@ -93,6 +93,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_transcribe(raw)
             if parsed.path == "/api/v1/graph":
                 return self._handle_graph(raw)
+            if parsed.path == "/api/v1/alignment":
+                return self._handle_alignment(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -244,6 +246,36 @@ class Handler(SimpleHTTPRequestHandler):
             f"edges={len(graph.edges)} sections={len(graph.sections)}\n"
         )
         return self._json(200, graph.to_dict())
+
+    def _handle_alignment(self, raw: bytes):
+        """F-11 · ConceptGraph + Transcript(+선택 Context) → AlignmentDoc."""
+        from chuckchuck import align_speech
+        from chuckchuck.contracts import ConceptGraph, Transcript
+
+        body = json.loads(raw or b"{}")
+        if not body.get("graph") or not body.get("transcript"):
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": "graph 와 transcript 가 필요합니다. F-07·F-05 결과를 보내세요.",
+                },
+            )
+        graph = ConceptGraph.from_dict(body["graph"])
+        transcript = Transcript.from_dict(body["transcript"])
+        ctx = Context.from_dict(body.get("context") or {})
+        llm = "mock" if _mock() else body.get("llm")
+        sys.stderr.write(
+            f"[bridge] F-11 alignment start nodes={len(graph.nodes)} "
+            f"slides={graph.total_slides} mock={_mock()}\n"
+        )
+        alignment = align_speech(graph, transcript, ctx, llm=llm)
+        s = alignment.summary
+        sys.stderr.write(
+            f"[bridge] F-11 alignment done coverage={s.coverage} "
+            f"verdicts={s.verdict_counts}\n"
+        )
+        return self._json(200, alignment.to_dict())
 
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")

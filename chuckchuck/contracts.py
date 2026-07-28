@@ -237,6 +237,11 @@ class Transcript:
             "duration_sec": self.duration_sec,
         }
 
+    def text_for_slide(self, slide_no: int) -> str:
+        """특정 슬라이드에서 한 말 전부 (재방문 포함). F-11 대조용."""
+        parts = [s.text for s in self.by_slide if s.slide_no == slide_no and s.text.strip()]
+        return " ".join(parts)
+
     @classmethod
     def from_dict(cls, d: dict) -> "Transcript":
         return cls(
@@ -575,6 +580,219 @@ class ConceptGraph:
 
 
 # ---------------------------------------------------------------------------
+# F-11 : 정합 판정 (발화 축 + 4-class)
+# ---------------------------------------------------------------------------
+# F-07 이 만든 슬라이드 축(weight) 옆에 발화 축(speech_weight)을 세우고,
+# 개념마다 발화가 자료와 정합했는지 4-class 로 판정한다. 조인 키는 node_id.
+#
+# 발화 그래프를 독립 추출해 비교하지 않는다 — LLM 추출 분산이 두 배가 되어
+# diff 가 노이즈를 측정하게 된다. 발화 개념 추출은 문서 그래프 노드에 조건화한다.
+
+#: items[].verdict 허용값. 이 밖의 값은 결정적 폴백으로 대체된다.
+ALIGN_VERDICTS = ("aligned", "justified_skip", "missing", "contradiction")
+
+
+@dataclass
+class SpeechBasis:
+    """
+    speech_weight 를 그렇게 준 근거. F-07 WeightBasis 와 대칭이다.
+
+    words 가 없는 Transcript(mock 등)면 first_mention_sec 은 None 으로 남는다.
+    """
+    speech_sec: float = 0.0            # 근거 장 발화 시간 합 (초)
+    time_share: float = 0.0            # / 전체 발화 시간
+    mention_count: int = 0             # 발화 전체에서 label 언급 횟수
+    mentioned_slide_count: int = 0     # 근거 장 중 label 이 실제 언급된 장 수
+    first_mention_sec: float | None = None  # label 이 처음 등장한 시각
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SpeechBasis":
+        first = d.get("first_mention_sec")
+        return cls(
+            speech_sec=float(d.get("speech_sec", 0.0)),
+            time_share=float(d.get("time_share", 0.0)),
+            mention_count=int(d.get("mention_count", 0)),
+            mentioned_slide_count=int(d.get("mentioned_slide_count", 0)),
+            first_mention_sec=None if first is None else float(first),
+        )
+
+
+@dataclass
+class AlignmentItem:
+    """개념 노드 1개의 판정. node_id 로 ConceptGraph.nodes 와 조인한다."""
+    node_id: str
+    verdict: str = "missing"           # aligned | justified_skip | missing | contradiction
+    speech_weight: float = 0.0         # 0.0~1.0. 그래프 안에서 상대적 (최상위 = 1.0)
+    speech_basis: SpeechBasis = field(default_factory=SpeechBasis)
+    doc_weight: float = 0.0            # 파생: 해당 노드의 F-07 weight 복사 (산점도 편의)
+    evidence: str = ""                 # 판정 근거가 된 발화 인용
+    note: str = ""                     # LLM 한 줄 설명
+
+    def to_dict(self) -> dict:
+        return {
+            "node_id": self.node_id,
+            "verdict": self.verdict,
+            "speech_weight": self.speech_weight,
+            "speech_basis": self.speech_basis.to_dict(),
+            "doc_weight": self.doc_weight,
+            "evidence": self.evidence,
+            "note": self.note,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AlignmentItem":
+        verdict = d.get("verdict", "missing")
+        return cls(
+            node_id=str(d["node_id"]),
+            verdict=verdict if verdict in ALIGN_VERDICTS else "missing",
+            speech_weight=float(d.get("speech_weight", 0.0)),
+            speech_basis=SpeechBasis.from_dict(d.get("speech_basis") or {}),
+            doc_weight=float(d.get("doc_weight", 0.0)),
+            evidence=d.get("evidence", ""),
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class SpeechEdge:
+    """발표자가 말로 연결한 개념 쌍. cue 가 그 연결을 보여 준 발화 인용이다."""
+    from_id: str
+    to_id: str
+    cue: str = ""
+    in_graph: bool = False             # 파생: 문서 그래프에도 있는 연결인가 (방향 무시)
+
+    def to_dict(self) -> dict:
+        return {
+            "from": self.from_id,
+            "to": self.to_id,
+            "cue": self.cue,
+            "in_graph": self.in_graph,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SpeechEdge":
+        return cls(
+            from_id=str(d["from"]),
+            to_id=str(d["to"]),
+            cue=d.get("cue", ""),
+            in_graph=bool(d.get("in_graph", False)),
+        )
+
+
+@dataclass
+class ExtraConcept:
+    """발화에는 있는데 문서 그래프에 없는 개념. 보충 설명이거나 삼천포다."""
+    label: str
+    quote: str = ""
+    slide_no: int | None = None        # 언급 시점에 보고 있던 장
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ExtraConcept":
+        slide_no = d.get("slide_no")
+        return cls(
+            label=d.get("label", ""),
+            quote=d.get("quote", ""),
+            slide_no=None if slide_no is None else int(slide_no),
+        )
+
+
+@dataclass
+class AlignmentSummary:
+    """발표 전체 요약 지표. 전부 코드가 계산한다 (LLM 아님)."""
+    coverage: float = 0.0                    # weight 가중 커버리지 (0~1)
+    rank_correlation: float | None = None    # doc_weight vs speech_weight Spearman
+    edge_coverage: float | None = None       # 문서 간선 중 발화로도 연결된 비율
+    verdict_counts: dict = field(default_factory=dict)
+    speech_total_sec: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "coverage": self.coverage,
+            "rank_correlation": self.rank_correlation,
+            "edge_coverage": self.edge_coverage,
+            "verdict_counts": dict(self.verdict_counts),
+            "speech_total_sec": self.speech_total_sec,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AlignmentSummary":
+        rank = d.get("rank_correlation")
+        edge = d.get("edge_coverage")
+        return cls(
+            coverage=float(d.get("coverage", 0.0)),
+            rank_correlation=None if rank is None else float(rank),
+            edge_coverage=None if edge is None else float(edge),
+            verdict_counts=dict(d.get("verdict_counts") or {}),
+            speech_total_sec=float(d.get("speech_total_sec", 0.0)),
+        )
+
+
+@dataclass
+class AlignmentDoc:
+    """
+    F-11 의 산출물. 산점도(doc_weight × speech_weight)와 diff 뷰가 여기서 나온다.
+
+    불변식은 f11_align.align_speech() 가 보장한다:
+    그래프의 모든 노드에 item 정확히 1개 · verdict 는 enum 안 ·
+    speech_edges 양끝이 존재하는 id · extra_concepts 는 그래프에 없는 개념만.
+    """
+    file_name: str
+    total_slides: int
+    items: list[AlignmentItem] = field(default_factory=list)
+    speech_edges: list[SpeechEdge] = field(default_factory=list)
+    extra_concepts: list[ExtraConcept] = field(default_factory=list)
+    summary: AlignmentSummary = field(default_factory=AlignmentSummary)
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "items": [i.to_dict() for i in self.items],
+            "speech_edges": [e.to_dict() for e in self.speech_edges],
+            "extra_concepts": [c.to_dict() for c in self.extra_concepts],
+            "summary": self.summary.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AlignmentDoc":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d["total_slides"]),
+            items=[AlignmentItem.from_dict(i) for i in d.get("items", [])],
+            speech_edges=[SpeechEdge.from_dict(e) for e in d.get("speech_edges", [])],
+            extra_concepts=[ExtraConcept.from_dict(c) for c in d.get("extra_concepts", [])],
+            summary=AlignmentSummary.from_dict(d.get("summary") or {}),
+            model=d.get("model", ""),
+        )
+
+    # --- 조회 (diff 뷰·산점도가 쓴다) -------------------------------------
+
+    def item(self, node_id: str) -> AlignmentItem | None:
+        """node_id 로 판정 하나."""
+        for i in self.items:
+            if i.node_id == node_id:
+                return i
+        return None
+
+    def by_verdict(self, verdict: str) -> list[AlignmentItem]:
+        """특정 판정의 개념들. diff 뷰의 한 칸이 된다."""
+        return [i for i in self.items if i.verdict == verdict]
+
+    @property
+    def scatter_points(self) -> list[tuple[str, float, float]]:
+        """(node_id, doc_weight, speech_weight). 산점도에 바로 꽂는다."""
+        return [(i.node_id, i.doc_weight, i.speech_weight) for i in self.items]
+
+
+# ---------------------------------------------------------------------------
 # 예외
 # ---------------------------------------------------------------------------
 
@@ -600,6 +818,10 @@ class ConceptError(ChuckchuckError):
 
 class GraphError(ChuckchuckError):
     """F-07 개념 그래프 생성 실패."""
+
+
+class AlignError(ChuckchuckError):
+    """F-11 정합 판정 실패."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

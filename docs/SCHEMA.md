@@ -16,6 +16,7 @@
 audio+marks ──► [A.X STT raw] ──► Transcript        (F-05)
 SlideDoc+Context(+Transcript?) ─► ConceptDoc        (F-06)
 ConceptDoc(+SlideDoc) ─[LLM]──► ConceptGraph      (F-07)
+ConceptGraph+Transcript ─[LLM]─► AlignmentDoc     (F-11)
 ```
 
 ---
@@ -358,8 +359,8 @@ F-06과의 경계: F-06은 "이 장 안에 뭐가 있나", F-07은 "장들이 �
 
 ```
 F-07  ConceptDoc(+SlideDoc)      → ConceptGraph    (슬라이드 축 weight + 연결선)
-F-11  ConceptGraph + Transcript  → (정합 판정)      (발화 축 + 4-class)
-                                     ↑ node.id 로 조인
+F-11  ConceptGraph + Transcript  → AlignmentDoc    (발화 축 + 4-class, §7)
+                                     ↑ node_id 로 조인
 ```
 
 ### 6-A. 원본 — LLM (Solar / A.X …)
@@ -520,7 +521,172 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 
 ---
 
-## 7. 한눈에 보기
+## 7. F-11 정합 판정
+
+**책임 한 줄:** 발화(`Transcript`)가 개념 그래프(`ConceptGraph`)의 각 개념을
+얼마나 잘 다뤘는지 **발화 축(speech_weight) + 4-class 판정 + 발화 간선**으로 만든다.
+
+**왜 발화 그래프를 따로 안 뽑나.** 같은 입력으로도 LLM 그래프 추출은 실행마다
+구조가 흔들린다 (F-07 실측: 노드 10/34/21). 발화 그래프를 독립 추출해 문서
+그래프와 비교하면 추출 분산이 두 배가 되어 **diff 가 발표 실력이 아니라 노이즈를
+측정**하게 된다. 그래서 문서 그래프를 기준축으로 두고, 발화 개념 추출을 노드
+목록에 **조건화**한다 — LLM 에 노드 목록을 후보 앵커로 주고 `node_id` 로 조인해
+돌려받는다. 노드 정렬(같은 개념, 다른 이름) 문제가 구조적으로 사라진다.
+
+**역할 분담이 핵심이다:**
+- `speech_weight` 와 그 근거(`speech_basis`)는 **코드가 결정적으로 계산**한다
+  (marks 기반 발화 시간 + 토큰 매칭 언급 횟수). LLM 이 아니라서 실행마다 같다.
+- LLM 은 코드가 못 하는 것만 맡는다: 4-class 판정, 근거 인용, 발화 간선
+  (말로 연결했나), 발화 전용 개념.
+
+### 7-A. 원본 — LLM (Solar / A.X …)
+
+노드 목록을 앞에, 슬라이드별 발화를 뒤에 두고 JSON 만 요청한다
+(F-07 교훈 재적용 — 판정 대상을 앞에 둬야 발화를 개념에 매핑한다).
+
+기대 raw(모델 출력):
+
+```jsonc
+{
+  "items": [
+    { "node_id": "contrast", "verdict": "aligned",
+      "evidence": "그래서 대조 학습으로 두 모달리티를 정렬합니다",
+      "note": "슬라이드 4의 핵심을 그대로 설명" }
+  ],
+  "speech_edges": [
+    { "from": "contrast", "to": "joint", "cue": "이걸 바탕으로 공동 임베딩을 만들면" }
+  ],
+  "extra_concepts": [
+    { "label": "온도 파라미터", "quote": "온도를 낮추면 hard negative 에 민감해지는데", "slide_no": 4 }
+  ]
+}
+```
+
+`verdict` 는 넷 중 하나:
+
+| verdict | 뜻 |
+|---|---|
+| `aligned` | 정합 — 발화가 개념을 설명했고 자료와 부합 |
+| `justified_skip` | 정당생략 — 안 다뤘지만 생략이 합리적 (보조 개념 등) |
+| `missing` | 누락 — 다뤘어야 하는데 발화에 없음 |
+| `contradiction` | 모순 — 발화가 자료와 어긋남 (evidence 필수) |
+
+### 7-B. 후처리 — `AlignmentDoc`
+
+입력: `ConceptGraph` + `Transcript` (+ 선택 `Context`)
+출력:
+
+```jsonc
+{
+  "file_name": "250729 IMU2CLIP_Pulbic.pdf",
+  "total_slides": 23,
+  "model": "solar",
+  "items": [
+    {
+      "node_id": "contrast",
+      "verdict": "aligned",
+      "speech_weight": 1.0,
+      "speech_basis": { "speech_sec": 42.5, "time_share": 0.18,
+                        "mention_count": 4, "mentioned_slide_count": 1,
+                        "first_mention_sec": 61.2 },
+      "doc_weight": 1.0,
+      "evidence": "그래서 대조 학습으로 두 모달리티를 정렬합니다",
+      "note": "슬라이드 4의 핵심을 그대로 설명"
+    }
+  ],
+  "speech_edges": [
+    { "from": "contrast", "to": "joint",
+      "cue": "이걸 바탕으로 공동 임베딩을 만들면", "in_graph": true }
+  ],
+  "extra_concepts": [
+    { "label": "온도 파라미터", "quote": "온도를 낮추면 ...", "slide_no": 4 }
+  ],
+  "summary": {
+    "coverage": 0.84,
+    "rank_correlation": 0.71,
+    "edge_coverage": 0.4,
+    "verdict_counts": { "aligned": 21, "justified_skip": 3, "missing": 3, "contradiction": 1 },
+    "speech_total_sec": 312.4
+  }
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `items[].node_id` | string | ✅ | **조인 키** — `ConceptGraph.nodes[].id` |
+| `items[].verdict` | enum | ✅ | 위 4-class |
+| `items[].speech_weight` | float | ✅ | 0.0~1.0. **그래프 안에서 상대적** — 최상위 = 1.0. 코드 계산 |
+| `items[].speech_basis` | object | ✅ | speech_weight 근거. 아래 7-C |
+| `items[].doc_weight` | float | ✅ | **파생** — 해당 노드의 F-07 `weight` 복사 (산점도 편의) |
+| `items[].evidence` | string | ✅ | 판정 근거 발화 인용. 없으면 `""` |
+| `items[].note` | string | ✅ | LLM 한 줄 설명. 없으면 `""` |
+| `speech_edges[].from` / `to` | string | ✅ | 발표자가 **말로** 연결한 개념 쌍 |
+| `speech_edges[].cue` | string | ✅ | 연결을 보여 준 발화 인용 |
+| `speech_edges[].in_graph` | bool | ✅ | **파생** — 문서 간선에도 있는 연결인가 (방향 무시) |
+| `extra_concepts[].label` | string | ✅ | 발화에만 나온 개념 |
+| `extra_concepts[].quote` | string | ✅ | 발화 인용 |
+| `extra_concepts[].slide_no` | int \| null | ✅ | 언급 시점의 장. 범위 밖이면 null |
+| `summary` | object | ✅ | 아래 7-D. 전부 코드 계산 |
+
+**보증(어댑터가 지키는 불변식):**
+
+1. 그래프의 **모든 노드에 item 이 정확히 1개**다. LLM 이 빠뜨린 노드는 결정적
+   폴백(발화에 언급 있으면 `aligned`, 없으면 `missing`)으로 채운다.
+   같은 `node_id` 가 여러 번 오면 첫 번째만 남는다.
+2. 없는 `node_id` 를 가리키는 판정은 버린다.
+3. `verdict` 가 enum 밖이면 결정적 폴백으로 대체한다.
+4. **`missing` 은 결정적 신호와 모순될 수 없다** — label 이 발화에 실제
+   등장하면(mention_count ≥ 1) `aligned` 로 정정한다.
+5. **evidence 없는 `contradiction` 은 내보내지 않는다** — 결정적 폴백으로 강등.
+   "틀렸다"고 말하는 판정이라 근거 없이는 오탐 비용이 크다.
+6. `speech_edges` 는 양끝이 존재하는 id 만, 자기 간선 금지, 방향 무시 중복 제거.
+   `in_graph` 는 문서 간선과 대조해 파생한다.
+7. `extra_concepts` 는 기존 노드 label 과 토큰 일치하면 버린다(이미 있는 개념).
+   빈 label 은 버리고, `slide_no` 는 범위 검증한다.
+8. `speech_weight` 는 0~1, 그래프 내 최댓값으로 정규화한다.
+9. JSON 파싱 실패는 1회 재요청, 두 번째도 깨지면 `AlignError`.
+10. `items` 가 통째로 비면 1회 재요청, 그래도 비면 전 노드 결정적 폴백으로 간다.
+11. `Transcript` 가 비어 있으면(`by_slide` 없음 + `full_text` 없음) `AlignError`.
+
+### 7-C. `speech_weight` 와 `speech_basis`
+
+`speech_weight` = 발화가 그 개념에 **배분한 양**. F-07 `weight`(슬라이드 축)와
+나란히 놓고 비교하는 축이다. **전부 결정적 계산** — LLM 실행마다 흔들리지 않는다.
+
+배합 (합 1.0, 계산 후 최댓값으로 나눠 정규화):
+
+| 성분 | 비중 | 출처 |
+|------|------|------|
+| 근거 장 발화 시간 / 전체 발화 시간 | 0.45 | `Transcript.by_slide` (marks 기반) |
+| 발화 내 언급 횟수 / 그래프 내 최댓값 | 0.35 | label 토큰 매칭 (F-07 과 동일 규칙) |
+| label 이 언급된 근거 장 수 / 근거 장 수 | 0.20 | `by_slide` 텍스트 |
+
+| `speech_basis` | 타입 | 설명 |
+|------|------|------|
+| `speech_sec` | float | 근거 장 발화 시간 합 (재방문 포함) |
+| `time_share` | float | / 전체 발화 시간 |
+| `mention_count` | int | 발화 전체에서 label 언급 횟수 |
+| `mentioned_slide_count` | int | 근거 장 중 label 이 실제 언급된 장 수 |
+| `first_mention_sec` | float \| null | 첫 언급 시각. `words` 없으면 null |
+
+### 7-D. `summary` — 발표 점수의 재료
+
+| 필드 | 계산 | 읽는 법 |
+|------|------|---------|
+| `coverage` | Σ doc_weight(aligned) / Σ doc_weight(정당생략 제외 전체) | 중요 개념을 빼먹을수록 크게 깎인다 |
+| `rank_correlation` | doc_weight vs speech_weight 의 Spearman. 동률 전부·표본 <2 면 null | 슬라이드가 힘준 순서대로 말했나 (산점도 요약) |
+| `edge_coverage` | 문서 간선 중 발화 간선과 겹치는 비율 (방향 무시). 간선 0 이면 null | 개념을 각각 말했어도 연결을 안 지었으면 낮다 |
+| `verdict_counts` | 4-class 별 개수 | diff 뷰 헤더 |
+| `speech_total_sec` | 전체 발화 시간 | |
+
+**안 함:** 발표 점수 산식(coverage·rank·edge 를 어떻게 합칠지)은 프론트/기획
+결정 사항이라 여기서 정하지 않는다. F-11 은 재료만 만든다.
+
+코드: `f11_align.align_speech()` → `AlignmentDoc`
+
+---
+
+## 8. 한눈에 보기
 
 | 기능 | 원본(raw) | 후처리(ours) | 변환 위치 |
 |------|-----------|--------------|-----------|
@@ -531,21 +697,23 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 | F-05 | A.X `utterances[].words[]` | `Transcript` | `stt_impl.py` + `f05_stt.py` |
 | F-06 | LLM JSON 문자열 | `ConceptDoc` | `f06_concepts.py` |
 | F-07 | LLM JSON 문자열 | `ConceptGraph` | `f07_graph.py` |
+| F-11 | LLM JSON 문자열 | `AlignmentDoc` | `f11_align.py` |
 
 ---
 
-## 8. 다음 모듈이 받을 것
+## 9. 다음 모듈이 받을 것
 
 | 다음 | 필요한 ours |
 |------|-------------|
-| F-07 트리 | `ConceptDoc` |
+| F-07 그래프 | `ConceptDoc` (+ 선택 `SlideDoc`) |
 | F-08~10 질문 코칭 | `ConceptGraph` (개념 경로·근거 슬라이드·우선순위) + `Transcript.by_slide` |
-| F-11 설명 판정 | `ConceptGraph` + `Transcript.by_slide` (발화 축·정합 4-class) |
+| F-11 정합 판정 | `ConceptGraph` + `Transcript` → `AlignmentDoc` (§7) |
+| 산점도·diff 뷰 (프론트) | `AlignmentDoc.items[]` (`doc_weight` × `speech_weight`) + `summary` |
 | F-17 말 속도 | `Transcript.words` (+ marks) |
 
 ---
 
-## 9. 구현 파일
+## 10. 구현 파일
 
 | 파일 | 역할 |
 |------|------|
@@ -555,6 +723,7 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 | `chuckchuck/f05_stt.py` | Word[] + SlideMark[] → Transcript |
 | `chuckchuck/f06_concepts.py` | SlideDoc+Context → ConceptDoc |
 | `chuckchuck/f07_graph.py` | ConceptDoc(+SlideDoc) → ConceptGraph |
+| `chuckchuck/f11_align.py` | ConceptGraph+Transcript → AlignmentDoc |
 | `chuckchuck/sdk/rehearsal-recorder.js` | audio + SlideMark[] |
 
 질문·이슈 올릴 때 **ours JSON 예시**만 붙여 주세요. raw는 어댑터 담당자만 보면 됩니다.

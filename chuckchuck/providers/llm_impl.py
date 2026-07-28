@@ -38,6 +38,8 @@ class MockLLM(LLMProvider):
     def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096) -> str:
         if "[TASK] concept-graph" in user:
             return self._mock_graph(user)
+        if "[TASK] speech-alignment" in user:
+            return self._mock_alignment(user)
 
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
@@ -66,6 +68,43 @@ class MockLLM(LLMProvider):
                 "importance": "core",
             }]
         return json.dumps({"slides": slides}, ensure_ascii=False)
+
+    @staticmethod
+    def _mock_alignment(user: str) -> str:
+        """
+        F-11 용 가짜 판정. 프롬프트의 '- (id) ...' 줄에서 노드 id 를 주워,
+        마지막 하나만 missing, 나머지는 aligned 로 판정한다.
+        노드가 둘 이상이면 앞의 둘을 speech_edge 로 잇고, 추가 개념을 하나 낸다.
+
+        내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
+        """
+        ids = []
+        for line in user.splitlines():
+            if line.startswith("- (") and ")" in line:
+                ids.append(line[3:line.index(")")])
+        if not ids:
+            ids = ["n1"]
+
+        items = [
+            {
+                "node_id": nid,
+                "verdict": "aligned",
+                "evidence": "모의 근거 발화 인용",
+                "note": "모의 판정",
+            }
+            for nid in ids[:-1]
+        ]
+        items.append({"node_id": ids[-1], "verdict": "missing", "evidence": "", "note": ""})
+
+        edges = []
+        if len(ids) >= 2:
+            edges.append({"from": ids[0], "to": ids[1], "cue": "그래서 이어서 설명하면"})
+
+        extras = [{"label": "모의 추가 개념", "quote": "자료에 없는 보충 설명", "slide_no": 1}]
+        return json.dumps(
+            {"items": items, "speech_edges": edges, "extra_concepts": extras},
+            ensure_ascii=False,
+        )
 
     @staticmethod
     def _mock_graph(user: str) -> str:

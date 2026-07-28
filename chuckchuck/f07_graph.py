@@ -18,6 +18,7 @@ import os
 import re
 
 from ._json_text import extract_json_object
+from ._match import contains_tokens, label_tokens, norm_tokens
 from .contracts import (
     EDGE_KIND_FALLBACK,
     EDGE_KINDS,
@@ -53,9 +54,6 @@ _W_MENTION = 0.12
 _W_TITLE = 0.05
 _DEPTH_PENALTY = 0.05
 _IMPORTANCE_SCORE = {"core": 1.0, "support": 0.35}
-
-#: 이보다 짧은 label 은 언급 대조를 하지 않는다 (한 글자는 우연히 다 걸린다).
-_MIN_MATCH_LEN = 2
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
@@ -335,43 +333,6 @@ def _slide_signals(slide_doc: SlideDoc | None) -> tuple[dict[int, int], dict[int
     return char_by, visual_by, sum(char_by.values())
 
 
-#: 영문·숫자 run 과 한글 run 을 토큰으로 자른다. 그 밖의 문자는 경계다.
-_TOKEN_RE = re.compile(r"[a-z0-9]+|[가-힣]+")
-_HANGUL_RE = re.compile(r"^[가-힣]+$")
-
-
-def _norm_tokens(value: str) -> list[str]:
-    """대조용 토큰열. 'AI 기반추천' → ['ai', '기반추천']."""
-    return _TOKEN_RE.findall(str(value or "").lower())
-
-
-def _token_eq(outer_tok: str, inner_tok: str) -> bool:
-    """
-    토큰 하나의 일치 판정.
-
-    영문·숫자는 통째로 같아야 한다 — 'ai' 가 'detail' 안에서 걸리면 오탐이다.
-    한글은 합성어를 붙여 쓰므로('피보팅근거') 포함이면 같은 개념으로 본다.
-    """
-    if outer_tok == inner_tok:
-        return True
-    return bool(
-        _HANGUL_RE.match(inner_tok)
-        and _HANGUL_RE.match(outer_tok)
-        and inner_tok in outer_tok
-    )
-
-
-def _contains_tokens(outer: list[str], inner: list[str]) -> bool:
-    """inner 토큰열이 outer 토큰열의 연속 부분열로 나타나는가."""
-    n = len(inner)
-    if n == 0 or n > len(outer):
-        return False
-    return any(
-        all(_token_eq(outer[i + j], inner[j]) for j in range(n))
-        for i in range(len(outer) - n + 1)
-    )
-
-
 def _concept_signals(doc: ConceptDoc) -> tuple[list[list[str]], dict[int, list[str]]]:
     """
     ConceptDoc 에서 개념 단위 신호의 재료를 토큰열로 뽑는다.
@@ -380,36 +341,30 @@ def _concept_signals(doc: ConceptDoc) -> tuple[list[list[str]], dict[int, list[s
     문서 전체 언급 목록과 장 제목은 개념마다 달라서 동률을 가른다.
     """
     entries = [
-        _norm_tokens(item)
+        norm_tokens(item)
         for s in doc.slides
         for item in list(s.concepts) + list(s.keywords)
     ]
-    titles = {s.slide_no: _norm_tokens(s.title) for s in doc.slides}
+    titles = {s.slide_no: norm_tokens(s.title) for s in doc.slides}
     return [e for e in entries if e], titles
-
-
-def _label_tokens(label: str) -> list[str]:
-    """언급 대조에 쓸 label 토큰열. 너무 짧으면 우연히 다 걸리므로 버린다."""
-    tokens = _norm_tokens(label)
-    return tokens if sum(len(t) for t in tokens) >= _MIN_MATCH_LEN else []
 
 
 def _mention_count(label: str, entries: list[list[str]]) -> int:
     """label 이 개념·키워드 목록에 몇 번 등장하나. 짧은 쪽이 긴 쪽에 안기면 인정."""
-    tokens = _label_tokens(label)
+    tokens = label_tokens(label)
     if not tokens:
         return 0
     return sum(
-        1 for e in entries if _contains_tokens(e, tokens) or _contains_tokens(tokens, e)
+        1 for e in entries if contains_tokens(e, tokens) or contains_tokens(tokens, e)
     )
 
 
 def _title_hit(label: str, slide_nos: list[int], titles: dict[int, list[str]]) -> bool:
     """근거 장 제목에 label 이 등장하나. 제목에 오른 개념은 그 장의 주인공이다."""
-    tokens = _label_tokens(label)
+    tokens = label_tokens(label)
     if not tokens:
         return False
-    return any(_contains_tokens(titles.get(n, []), tokens) for n in slide_nos)
+    return any(contains_tokens(titles.get(n, []), tokens) for n in slide_nos)
 
 
 def _raw_weight(
