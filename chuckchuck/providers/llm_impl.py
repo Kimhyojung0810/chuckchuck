@@ -15,12 +15,34 @@ from ..contracts import ConceptError
 from .llm_base import LLMProvider
 
 
+def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
+    """프롬프트의 '### 슬라이드 N: 제목' 줄에서 (번호, 제목)을 주워 온다."""
+    found: list[tuple[int, str]] = []
+    for line in user.splitlines():
+        if not line.startswith("### 슬라이드 "):
+            continue
+        try:
+            no = int(line.split()[2].rstrip(":"))
+        except (IndexError, ValueError):
+            continue
+        title = line.split(":", 1)[-1].strip() if ":" in line else f"슬라이드 {no}"
+        # F-07 프롬프트는 "제목 — 주제" 꼴 — label 은 제목만 쓴다 (중복 방지)
+        title = title.split("—")[0].strip()
+        found.append((no, title))
+    return found
+
+
 class MockLLM(LLMProvider):
-    """키 없이 F-06 파이프라인을 검증하기 위한 가짜 LLM."""
+    """키 없이 F-06 / F-07 파이프라인을 검증하기 위한 가짜 LLM."""
 
     name = "mock"
 
     def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096) -> str:
+        if "[TASK] concept-graph" in user:
+            return self._mock_graph(user)
+        if "[TASK] speech-alignment" in user:
+            return self._mock_alignment(user)
+
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
         for line in user.splitlines():
@@ -48,6 +70,89 @@ class MockLLM(LLMProvider):
                 "importance": "core",
             }]
         return json.dumps({"slides": slides}, ensure_ascii=False)
+
+    @staticmethod
+    def _mock_alignment(user: str) -> str:
+        """
+        F-11 용 가짜 판정. 프롬프트의 '- (id) ...' 줄에서 노드 id 를 주워,
+        마지막 하나만 missing, 나머지는 aligned 로 판정한다.
+        노드가 둘 이상이면 앞의 둘을 speech_edge 로 잇고, 추가 개념을 하나 낸다.
+
+        내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
+        """
+        ids = []
+        for line in user.splitlines():
+            if line.startswith("- (") and ")" in line:
+                ids.append(line[3:line.index(")")])
+        if not ids:
+            ids = ["n1"]
+
+        items = [
+            {
+                "node_id": nid,
+                "verdict": "aligned",
+                "evidence": "모의 근거 발화 인용",
+                "note": "모의 판정",
+            }
+            for nid in ids[:-1]
+        ]
+        items.append({"node_id": ids[-1], "verdict": "missing", "evidence": "", "note": ""})
+
+        edges = []
+        if len(ids) >= 2:
+            edges.append({"from": ids[0], "to": ids[1], "cue": "그래서 이어서 설명하면"})
+
+        extras = [{"label": "모의 추가 개념", "quote": "자료에 없는 보충 설명", "slide_no": 1}]
+        return json.dumps(
+            {"items": items, "speech_edges": edges, "extra_concepts": extras},
+            ensure_ascii=False,
+        )
+
+    @staticmethod
+    def _mock_graph(user: str) -> str:
+        """
+        F-07 용 가짜 그래프. 첫 장을 최상위로, 나머지를 그 아래에 매단다.
+        두 번째 하위 개념에는 relates 간선도 하나 붙여 그래프 경로를 태운다.
+
+        내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
+        """
+        found = _slides_in_prompt(user)
+        if not found:
+            found = [(1, "샘플")]
+
+        root_no, root_title = found[0]
+        root_id = f"s{root_no}"
+        nodes = [{
+            "id": root_id,
+            "label": root_title or f"슬라이드 {root_no}",
+            "slide_nos": [root_no],
+            "summary": "모의 최상위 개념",
+            "importance": "core",
+        }]
+        edges: list[dict] = []
+        for no, title in found[1:]:
+            nodes.append({
+                "id": f"s{no}",
+                "label": title or f"슬라이드 {no}",
+                "slide_nos": [no],
+                "summary": "모의 하위 개념",
+                "importance": "core",
+            })
+            edges.append({"from": root_id, "to": f"s{no}", "kind": "parent"})
+
+        # 하위 개념이 둘 이상이면 그것들끼리 relates 로 한 번 이어 준다
+        children = [f"s{no}" for no, _ in found[1:]]
+        if len(children) >= 2:
+            edges.append({"from": children[0], "to": children[1], "kind": "relates"})
+
+        sections = [{"name": "표지", "slide_role": "cover", "slide_nos": [root_no]}]
+        rest = [no for no, _ in found[1:]]
+        if rest:
+            sections.append({"name": "본론", "slide_role": "body", "slide_nos": rest})
+
+        return json.dumps(
+            {"nodes": nodes, "edges": edges, "sections": sections}, ensure_ascii=False
+        )
 
 
 class OpenAICompatLLM(LLMProvider):

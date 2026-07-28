@@ -958,6 +958,46 @@ async function finishRecAndPrepare() {
   }
   nf.step = 3;
   renderNew();
+  showF11Reveal();
+}
+
+/* F-11 분석 리빌 — 리허설 종료 → 질문 준비 사이에 전체 화면으로 재생.
+   뒤에서는 파이프라인이 돌고, CTA(질문 코치 시작하기)를 누르면 걷힌다. */
+function showF11Reveal() {
+  if (document.getElementById('f11RevealWrap')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'f11RevealWrap';
+  wrap.style.cssText =
+    'position:fixed;inset:0;z-index:999;opacity:0;transition:opacity .45s ease';
+  wrap.innerHTML =
+    '<iframe src="f11_reveal.html?embed=1" title="발표 분석 과정" ' +
+    'style="width:100%;height:100%;border:0;display:block"></iframe>';
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => { wrap.style.opacity = '1'; });
+  // 파이프라인이 F-07/F-11 결과를 내면 iframe 에 실데이터를 넘긴다
+  const feed = setInterval(() => {
+    if (!document.getElementById('f11RevealWrap')) { clearInterval(feed); return; }
+    const out = nf.pipelineOut;
+    const iframe = wrap.querySelector('iframe');
+    if (out && out.graph && out.alignment && iframe && iframe.contentWindow) {
+      clearInterval(feed);
+      iframe.contentWindow.postMessage(
+        { type: 'f11Data', graph: out.graph, alignment: out.alignment, flow: out.flow || null,
+          transcript: out.transcript || null }, '*');
+    }
+  }, 500);
+  const onMsg = (e) => {
+    if (e.data && e.data.type === 'f11RevealDone') {
+      window.removeEventListener('message', onMsg);
+      wrap.style.opacity = '0';
+      setTimeout(() => {
+        wrap.remove();
+        // 파이프라인이 끝났으면 질문 코치로 바로, 아니면 준비 화면에서 대기
+        if ((nf.pipelinePhase || '') === 'done') location.hash = '#/qa';
+      }, 450);
+    }
+  };
+  window.addEventListener('message', onMsg);
 }
 
 function fmtMarkSec(sec) {
@@ -1205,15 +1245,18 @@ function nfStep4() {
         audience: nf.ctx || '',
         duration_min: nf.min,
       },
-      onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr }) => {
+      onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr, graph, alignment, flow }) => {
         nf.pipelinePhase = phase;
         nf.pipelineDetail = detail || '';
-        if (transcript || concepts || cErr) {
+        if (transcript || concepts || cErr || graph || alignment || flow) {
           nf.pipelineOut = {
             ...(nf.pipelineOut || {}),
             ...(transcript ? { transcript } : {}),
             ...(concepts ? { concepts } : {}),
             ...(cErr ? { conceptsError: cErr } : {}),
+            ...(graph ? { graph } : {}),
+            ...(alignment ? { alignment } : {}),
+            ...(flow ? { flow } : {}),
           };
         }
         if (transcript && !transcript.error) nf.transcriptOk = true;
@@ -1550,8 +1593,51 @@ function jDetail(n) {
     </div>`;
 }
 
-/* 탭 3 — 논리 흐름 */
+/* 탭 3 — 논리 흐름. 파이프라인이 FlowDiff 를 내면 실데이터, 아니면 데모 데이터 */
+const FLOW_KIND = {
+  missing_link: { type: '연결 멘트 없음', good: false },
+  order_jump: { type: '근거 점프', good: false },
+  good_link: { type: '잘된 연결', good: true },
+};
+
+function rLogicRealCards(flow) {
+  const cards = (flow.issues || []).map((i) => {
+    const kind = FLOW_KIND[i.kind] || { type: escapeHtml(i.kind), good: false };
+    const slides = i.slide_nos || [];
+    const from = slides.length ? `${slides[0]}번` : '—';
+    const to = slides.length > 1 ? `${slides[slides.length - 1]}번` : from;
+    return `
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        ${chip(kind.good ? 'ok' : 'no', true)}
+        <span class="note">${kind.type}</span>
+      </div>
+      <div class="flow-vis">
+        <span class="slide-chip">${from} 슬라이드</span>
+        <span class="flow-line ${kind.good ? 'good' : ''}"><em>${kind.good ? '✓' : '✕'}</em></span>
+        <span class="slide-chip">${to} 슬라이드</span>
+      </div>
+      <p class="logic-note"><b>${kind.type}</b> — ${escapeHtml(i.note || '')}</p>
+      ${i.cue ? `<div class="bubble">“${escapeHtml(i.cue)}”</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const tau = flow.order_tau;
+  const tauNote = tau == null
+    ? ''
+    : `<p class="ai-note">자료 순서와 발표 순서 일치도 ${Math.round(((tau + 1) / 2) * 100)}%${
+      (flow.ghost_node_ids || []).length
+        ? ` · 한 번도 언급되지 않은 개념 ${flow.ghost_node_ids.length}개`
+        : ''}</p>`;
+  return cards + tauNote;
+}
+
 function rLogic() {
+  const flow = nf && nf.pipelineOut && nf.pipelineOut.flow;
+  if (flow && Array.isArray(flow.issues) && flow.issues.length) {
+    $('#rbody').innerHTML = rLogicRealCards(flow);
+    return;
+  }
   $('#rbody').innerHTML = `
     ${DATA.logicBreaks.map(l => `
     <div class="card">
