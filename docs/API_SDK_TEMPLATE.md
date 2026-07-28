@@ -220,6 +220,8 @@ export { MyClient } from './my_client.js';
 | F-05 | `transcribe` | `POST /api/v1/transcribe` | `uploadRehearsal` | `STTProvider` / `get_provider` |
 | F-06 | `extract_concepts` | `POST /api/v1/concepts` | — | `LLMProvider` / `get_llm` |
 | F-07 | `build_graph` | `POST /api/v1/graph` | — | `LLMProvider` / `get_llm` |
+| F-11 | `align_speech` | `POST /api/v1/alignment` | — | `LLMProvider` / `get_llm` |
+| F-11 파생 | `build_flow_diff` | `POST /api/v1/flow` | — | — (LLM 없음) |
 
 새 파트(F-07+)는 **이 표에 한 줄을 추가하는 것**이 완료 조건이다, 구현의 시작이다.
 
