@@ -270,6 +270,24 @@ def test_justified_skip_respected():
     assert doc.item("c3").verdict == "justified_skip"
 
 
+def test_justified_skip_demoted_for_heavy_unspoken_concept():
+    # 자료가 힘준 개념(c1, w=1.0)을 한 번도 안 말했는데 LLM 이 정당생략이라 하면 누락으로 강등
+    t = make_transcript({1: "전혀 다른 이야기", 2: "개념2 설명", 3: "개념3 설명"})
+    doc = align_speech(make_graph(), t, llm=ScriptedLLM(payload(items=[
+        {"node_id": "c1", "verdict": "justified_skip", "note": "생략해도 됨"},
+    ])))
+    assert doc.item("c1").verdict == "missing"
+
+
+def test_justified_skip_kept_for_light_unspoken_concept():
+    # 가벼운 개념(c4, w=0.4)은 무언급이어도 정당생략을 존중한다
+    t = make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 설명", 4: "다른 얘기"})
+    doc = align_speech(make_graph(4), t, llm=ScriptedLLM(payload(items=[
+        {"node_id": "c4", "verdict": "justified_skip", "note": "보조 개념"},
+    ])))
+    assert doc.item("c4").verdict == "justified_skip"
+
+
 # ---------------------------------------------------------------------------
 # 불변식 6 : speech_edges
 # ---------------------------------------------------------------------------
@@ -431,8 +449,9 @@ def test_revisit_time_summed():
 # ---------------------------------------------------------------------------
 
 def test_coverage_weighted_and_skip_excluded():
-    # c1(1.0) 정합, c2(0.8) 정당생략, c3(0.6) 누락(발화에 없음)
-    t = make_transcript({1: "개념1 설명", 2: "딴 얘기", 3: "또 딴 얘기"})
+    # c1(1.0) 정합, c2(0.8) 정당생략 — 언급은 했으므로 무언급 가드에 안 걸린다,
+    # c3(0.6) 누락(발화에 없음)
+    t = make_transcript({1: "개념1 설명", 2: "개념2 는 넘어갈게요", 3: "또 딴 얘기"})
     doc = align_speech(make_graph(), t, llm=ScriptedLLM(payload(items=[
         {"node_id": "c1", "verdict": "aligned", "evidence": "개념1 설명"},
         {"node_id": "c2", "verdict": "justified_skip"},

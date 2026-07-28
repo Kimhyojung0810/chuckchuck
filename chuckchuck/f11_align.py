@@ -47,6 +47,11 @@ _S_TIME = 0.45          # 근거 장 발화 시간 / 전체 발화 시간
 _S_MENTION = 0.35       # 발화 내 언급 횟수 / 그래프 내 최댓값
 _S_SLIDE_COVER = 0.20   # label 이 언급된 근거 장 수 / 근거 장 수
 
+# 무언급 '정당생략' 가드. 자료 weight 가 이 값 이상인 개념은 발화에 한 번도
+# 안 나왔으면 justified_skip 을 missing 으로 강등한다 — justified_skip 은
+# coverage 분모에서 빠지는 판정이라, LLM 이 후하게 주면 헤드라인 점수가 부푼다.
+SKIP_GUARD_WEIGHT = float(os.environ.get("CHUCKCHUCK_SKIP_GUARD_WEIGHT", "0.5"))
+
 SYSTEM_PROMPT = """당신은 발표 리허설 평가자다.
 '개념 목록'(발표 자료에서 뽑은 개념들)과 '슬라이드별 발화'를 대조해,
 개념마다 발화가 자료와 정합했는지 판정한다.
@@ -235,6 +240,8 @@ def _normalize_items(
       (토큰 매칭이 프롬프트 널뛰기보다 믿을 만하다)
     - evidence 없는 contradiction 은 결정적 폴백으로 강등
       (사용자에게 "틀렸다"고 말하는 판정이라 근거 없이는 내보내지 않는다)
+    - justified_skip 인데 언급 0회 + doc weight ≥ SKIP_GUARD_WEIGHT 면
+      missing 으로 강등 (자료가 힘준 개념은 무언급이 '정당한 생략'일 수 없다)
     """
     node_ids = {n.id for n in graph.nodes}
     judged: dict[str, dict] = {}
@@ -257,6 +264,12 @@ def _normalize_items(
             verdict = "aligned"
         if verdict == "contradiction" and not evidence:
             verdict = _fallback_verdict(basis)
+        if (
+            verdict == "justified_skip"
+            and basis.mention_count == 0
+            and node.weight >= SKIP_GUARD_WEIGHT
+        ):
+            verdict = "missing"
 
         items.append(AlignmentItem(
             node_id=node.id,
