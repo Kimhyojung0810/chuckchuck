@@ -310,15 +310,37 @@ export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, cont
     }
   }
 
+  // F-11 파생 흐름 비교 — LLM 없는 결정적 계산이라 실패해도 앞 결과는 그대로 살린다
+  let flow = null;
+  if (graph && alignment) {
+    try {
+      report('flow', '자료 흐름과 발표 흐름 대조 중', { transcript, concepts, graph, alignment });
+      const fRes = await fetch('/api/v1/flow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ graph, alignment }),
+      });
+      flow = await fRes.json();
+      if (!fRes.ok || flow.error) {
+        throw new Error(flow.message || flow.error || `flow HTTP ${fRes.status}`);
+      }
+      report('flow_done', `흐름 판정 ${(flow.issues || []).length}개`, { transcript, concepts, graph, alignment, flow });
+    } catch (err) {
+      flow = null;
+      report('flow_error', err.message || String(err), { transcript, concepts, graph, alignment });
+    }
+  }
+
   report('done', conceptsError ? 'STT 완료 · 개념 추출 실패' : '준비 완료', {
     transcript,
     concepts,
     conceptsError,
     graph,
     alignment,
+    flow,
   });
   saveChuckSession({ transcript, concepts, conceptsError });
-  return { transcript, concepts, conceptsError, graph, alignment };
+  return { transcript, concepts, conceptsError, graph, alignment, flow };
 }
 
 function blobToBase64(blob) {

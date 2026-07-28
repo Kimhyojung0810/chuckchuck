@@ -17,6 +17,9 @@ from .contracts import (
     ConceptNode,
     Context,
     ExtraConcept,
+    FlowDiff,
+    FlowIssue,
+    FlowStep,
     GraphError,
     ParseError,
     Section,
@@ -34,6 +37,7 @@ from .f05_stt import speech_for_slide, split_by_slide, transcribe
 from .f06_concepts import extract_concepts
 from .f07_graph import build_graph
 from .f11_align import align_speech
+from .f11_flow import build_flow_diff
 
 __all__ = [
     "AlignError",
@@ -47,6 +51,9 @@ __all__ = [
     "ConceptNode",
     "Context",
     "ExtraConcept",
+    "FlowDiff",
+    "FlowIssue",
+    "FlowStep",
     "GraphError",
     "ParseError",
     "STTError",
@@ -59,6 +66,7 @@ __all__ = [
     "WeightBasis",
     "WordTimestampUnsupported",
     "align_speech",
+    "build_flow_diff",
     "build_graph",
     "extract_concepts",
     "parse_document",

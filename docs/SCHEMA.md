@@ -684,6 +684,52 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 
 코드: `f11_align.align_speech()` → `AlignmentDoc`
 
+### 7-E. FlowDiff — 자료 흐름 vs 발표 흐름 (F-11 파생)
+
+**책임 한 줄:** 자료 흐름(슬라이드 순)과 발표 흐름(첫 언급 순)을 같은 `node_id`
+축에서 비교해 **흐름 차원 판정 3종**을 만든다. `ConceptGraph + AlignmentDoc →
+FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제나 같은 출력.
+
+```jsonc
+{
+  "file_name": "IMU2CLIP_sample.pdf",
+  "steps": [
+    { "node_id": "s1", "doc_order": 1, "speech_order": 2, "first_mention_sec": 8.4 },
+    { "node_id": "s5", "doc_order": 5, "speech_order": null, "first_mention_sec": null }
+  ],
+  "issues": [
+    { "kind": "order_jump", "node_ids": ["s1", "s3"], "cue": "",
+      "slide_nos": [1, 3], "note": "'Contrastive Learning' 을(를) 상위 개념 … 먼저 말했어요" },
+    { "kind": "good_link", "node_ids": ["s1", "s2"], "cue": "그래서 이어서 설명하면",
+      "slide_nos": [1, 2], "note": "… 말로 잘 이었어요" }
+  ],
+  "order_tau": 0.333,
+  "spoken_node_count": 4,
+  "ghost_node_ids": ["s5"],
+  "extra_labels": ["Temperature Parameter"]
+}
+```
+
+| `issues[].kind` | 정의 (전부 결정적 — LLM 아님) |
+|------|------|
+| `missing_link` | 문서 간선의 두 개념을 각각 말했는데(`mention_count ≥ 1`) `speech_edges` 에 그 쌍이 없다 (방향 무시) |
+| `order_jump` | parent 간선에서 자식을 부모보다 먼저 말했다. 문서 순서(`doc_order`)도 부모가 앞일 때만 |
+| `good_link` | `speech_edges` 중 `in_graph=true` — 발화 인용(`cue`)이 있어야 칭찬한다 |
+
+**보증 (불변식):** ① steps 는 그래프의 모든 노드 정확히 1개씩 ② `speech_order` 는
+`first_mention_sec` 있는 노드에만, 그 안에서 1..k 연속 ③ issues 의 node_id 는 전부
+실존, `good_link` 는 `cue` 필수 ④ 순수 함수 — 재실행해도 결과가 같다.
+
+| 요약 필드 | 계산 | 읽는 법 |
+|------|------|---------|
+| `order_tau` | `doc_order` vs `speech_order` Kendall tau (언급된 노드만, <2 면 null) | `rank_correlation` 이 **힘 배분**이라면 이건 **순서** 일치도 |
+| `ghost_node_ids` | 첫 언급을 못 잡은 노드 | 발표 흐름 그림에서 유령 노드로 그린다 |
+| `extra_labels` | `extra_concepts` 의 label | 발표 흐름에만 있는 개념 (점선 노드) |
+
+**안 함:** 발화 그래프 독립 추출(§7 결정 그대로), LLM 재호출, 최종 점수 합산.
+
+코드: `f11_flow.build_flow_diff()` → `FlowDiff` · API: `POST /api/v1/flow`
+
 ---
 
 ## 8. 한눈에 보기
@@ -698,6 +744,7 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 | F-06 | LLM JSON 문자열 | `ConceptDoc` | `f06_concepts.py` |
 | F-07 | LLM JSON 문자열 | `ConceptGraph` | `f07_graph.py` |
 | F-11 | LLM JSON 문자열 | `AlignmentDoc` | `f11_align.py` |
+| F-11 파생 | `ConceptGraph`+`AlignmentDoc` (LLM 없음) | `FlowDiff` | `f11_flow.py` |
 
 ---
 
@@ -708,7 +755,9 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 | F-07 그래프 | `ConceptDoc` (+ 선택 `SlideDoc`) |
 | F-08~10 질문 코칭 | `ConceptGraph` (개념 경로·근거 슬라이드·우선순위) + `Transcript.by_slide` |
 | F-11 정합 판정 | `ConceptGraph` + `Transcript` → `AlignmentDoc` (§7) |
+| 흐름 비교 (F-11 파생) | `ConceptGraph` + `AlignmentDoc` → `FlowDiff` (§7-E) |
 | 산점도·diff 뷰 (프론트) | `AlignmentDoc.items[]` (`doc_weight` × `speech_weight`) + `summary` |
+| 논리 흐름 탭 (프론트) | `FlowDiff.issues[]` + `order_tau` |
 | F-17 말 속도 | `Transcript.words` (+ marks) |
 
 ---
@@ -724,6 +773,7 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 | `chuckchuck/f06_concepts.py` | SlideDoc+Context → ConceptDoc |
 | `chuckchuck/f07_graph.py` | ConceptDoc(+SlideDoc) → ConceptGraph |
 | `chuckchuck/f11_align.py` | ConceptGraph+Transcript → AlignmentDoc |
+| `chuckchuck/f11_flow.py` | ConceptGraph+AlignmentDoc → FlowDiff (LLM 없음) |
 | `chuckchuck/sdk/rehearsal-recorder.js` | audio + SlideMark[] |
 
 질문·이슈 올릴 때 **ours JSON 예시**만 붙여 주세요. raw는 어댑터 담당자만 보면 됩니다.

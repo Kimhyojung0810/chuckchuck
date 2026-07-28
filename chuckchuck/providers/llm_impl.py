@@ -26,6 +26,8 @@ def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
         except (IndexError, ValueError):
             continue
         title = line.split(":", 1)[-1].strip() if ":" in line else f"슬라이드 {no}"
+        # F-07 프롬프트는 "제목 — 주제" 꼴 — label 은 제목만 쓴다 (중복 방지)
+        title = title.split("—")[0].strip()
         found.append((no, title))
     return found
 

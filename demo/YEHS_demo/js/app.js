@@ -982,7 +982,7 @@ function showF11Reveal() {
     if (out && out.graph && out.alignment && iframe && iframe.contentWindow) {
       clearInterval(feed);
       iframe.contentWindow.postMessage(
-        { type: 'f11Data', graph: out.graph, alignment: out.alignment }, '*');
+        { type: 'f11Data', graph: out.graph, alignment: out.alignment, flow: out.flow || null }, '*');
     }
   }, 500);
   const onMsg = (e) => {
@@ -1589,8 +1589,51 @@ function jDetail(n) {
     </div>`;
 }
 
-/* 탭 3 — 논리 흐름 */
+/* 탭 3 — 논리 흐름. 파이프라인이 FlowDiff 를 내면 실데이터, 아니면 데모 데이터 */
+const FLOW_KIND = {
+  missing_link: { type: '연결 멘트 없음', good: false },
+  order_jump: { type: '근거 점프', good: false },
+  good_link: { type: '잘된 연결', good: true },
+};
+
+function rLogicRealCards(flow) {
+  const cards = (flow.issues || []).map((i) => {
+    const kind = FLOW_KIND[i.kind] || { type: i.kind, good: false };
+    const slides = i.slide_nos || [];
+    const from = slides.length ? `${slides[0]}번` : '—';
+    const to = slides.length > 1 ? `${slides[slides.length - 1]}번` : from;
+    return `
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        ${chip(kind.good ? 'ok' : 'no', true)}
+        <span class="note">${kind.type}</span>
+      </div>
+      <div class="flow-vis">
+        <span class="slide-chip">${from} 슬라이드</span>
+        <span class="flow-line ${kind.good ? 'good' : ''}"><em>${kind.good ? '✓' : '✕'}</em></span>
+        <span class="slide-chip">${to} 슬라이드</span>
+      </div>
+      <p class="logic-note"><b>${kind.type}</b> — ${i.note || ''}</p>
+      ${i.cue ? `<div class="bubble">“${i.cue}”</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const tau = flow.order_tau;
+  const tauNote = tau == null
+    ? ''
+    : `<p class="ai-note">자료 순서와 발표 순서 일치도 ${Math.round(((tau + 1) / 2) * 100)}%${
+      (flow.ghost_node_ids || []).length
+        ? ` · 한 번도 언급되지 않은 개념 ${flow.ghost_node_ids.length}개`
+        : ''}</p>`;
+  return cards + tauNote;
+}
+
 function rLogic() {
+  const flow = nf && nf.pipelineOut && nf.pipelineOut.flow;
+  if (flow && Array.isArray(flow.issues) && flow.issues.length) {
+    $('#rbody').innerHTML = rLogicRealCards(flow);
+    return;
+  }
   $('#rbody').innerHTML = `
     ${DATA.logicBreaks.map(l => `
     <div class="card">

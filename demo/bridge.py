@@ -95,6 +95,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_graph(raw)
             if parsed.path == "/api/v1/alignment":
                 return self._handle_alignment(raw)
+            if parsed.path == "/api/v1/flow":
+                return self._handle_flow(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -277,8 +279,41 @@ class Handler(SimpleHTTPRequestHandler):
         )
         return self._json(200, alignment.to_dict())
 
+    def _handle_flow(self, raw: bytes):
+        """F-11 파생 · ConceptGraph + AlignmentDoc → FlowDiff. LLM 호출 없음."""
+        from chuckchuck import build_flow_diff
+
+        body = json.loads(raw or b"{}")
+        if not body.get("graph") or not body.get("alignment"):
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": "graph 와 alignment 가 필요합니다. F-07·F-11 결과를 보내세요.",
+                },
+            )
+        flow = build_flow_diff(body["graph"], body["alignment"])
+        sys.stderr.write(
+            f"[bridge] F-11 flow done issues={len(flow.issues)} "
+            f"tau={flow.order_tau} ghosts={len(flow.ghost_node_ids)}\n"
+        )
+        return self._json(200, flow.to_dict())
+
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")
+
+        # 실데이터 스왑 지점의 더미 — 시나리오가 심긴 Transcript fixture 를 그대로 준다.
+        # 실 녹음이 들어오면 이 분기를 안 타고 아래 provider 경로로 흐른다 (코드 수정 0줄).
+        if body.get("fixture"):
+            fixture = ROOT / "fixtures" / "sample_transcript.json"
+            if not fixture.exists():
+                return self._json(
+                    404,
+                    {"error": "no_fixture", "message": "sample_transcript.json 이 없습니다."},
+                )
+            sys.stderr.write("[bridge] F-05 transcribe → fixture transcript\n")
+            return self._json(200, json.loads(fixture.read_text(encoding="utf-8")))
+
         marks = [SlideMark.from_dict(m) for m in body.get("marks", [])]
         provider = "mock" if _mock() else body.get("provider", "skt-ax")
 

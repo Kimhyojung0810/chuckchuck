@@ -793,6 +793,116 @@ class AlignmentDoc:
 
 
 # ---------------------------------------------------------------------------
+# F-11 파생 : 흐름 비교 (FlowDiff)
+# ---------------------------------------------------------------------------
+# 자료 흐름(슬라이드 순)과 발표 흐름(첫 언급 순)을 같은 node_id 축에서 비교한다.
+# 전부 이미 계산된 결정적 신호(first_mention_sec·mention_count·speech_edges)의
+# 파생이므로 LLM 을 다시 부르지 않는다. 발화 그래프 독립 추출은 하지 않는다.
+
+#: issues[].kind 허용값. missing_link 잇는 멘트 없음 · order_jump 근거 점프 ·
+#: good_link 잘된 연결(칭찬).
+FLOW_ISSUE_KINDS = ("missing_link", "order_jump", "good_link")
+
+
+@dataclass
+class FlowStep:
+    """개념 노드 1개의 흐름 좌표. doc_order 는 자료 축, speech_order 는 발화 축."""
+    node_id: str
+    doc_order: int                          # 1..n — 근거 슬라이드 순
+    speech_order: int | None = None         # 1..k — 첫 언급 시각 순. 못 잡으면 None
+    first_mention_sec: float | None = None  # SpeechBasis 에서 복사 (화면 편의)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FlowStep":
+        speech = d.get("speech_order")
+        first = d.get("first_mention_sec")
+        return cls(
+            node_id=str(d["node_id"]),
+            doc_order=int(d["doc_order"]),
+            speech_order=None if speech is None else int(speech),
+            first_mention_sec=None if first is None else float(first),
+        )
+
+
+@dataclass
+class FlowIssue:
+    """흐름 차원 판정 하나. good_link 는 칭찬이라 cue(발화 인용)가 반드시 있다."""
+    kind: str                               # missing_link | order_jump | good_link
+    node_ids: list[str] = field(default_factory=list)
+    cue: str = ""                           # 근거 발화 인용 (good_link 필수)
+    slide_nos: list[int] = field(default_factory=list)
+    note: str = ""                          # 화면에 그대로 내보낼 한 줄 설명
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "node_ids": list(self.node_ids),
+            "cue": self.cue,
+            "slide_nos": list(self.slide_nos),
+            "note": self.note,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FlowIssue":
+        return cls(
+            kind=d.get("kind", ""),
+            node_ids=[str(x) for x in d.get("node_ids", [])],
+            cue=d.get("cue", ""),
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class FlowDiff:
+    """
+    F-11 파생 산출물. 자료 흐름 vs 발표 흐름의 차이와 플로우 피드백.
+
+    불변식은 f11_flow.build_flow_diff() 가 보장한다:
+    steps 는 그래프의 모든 노드 정확히 1개씩 · speech_order 는 1..k 연속 ·
+    issues 의 node_id 는 전부 실존 · good_link 는 cue 필수 · 순수 함수(결정적).
+    """
+    file_name: str
+    steps: list[FlowStep] = field(default_factory=list)
+    issues: list[FlowIssue] = field(default_factory=list)
+    order_tau: float | None = None          # 문서 순서 vs 발화 순서 Kendall tau
+    spoken_node_count: int = 0              # 발화에서 언급된 노드 수
+    ghost_node_ids: list[str] = field(default_factory=list)  # 첫 언급을 못 잡은 노드
+    extra_labels: list[str] = field(default_factory=list)    # 발화 전용 개념 label
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "steps": [s.to_dict() for s in self.steps],
+            "issues": [i.to_dict() for i in self.issues],
+            "order_tau": self.order_tau,
+            "spoken_node_count": self.spoken_node_count,
+            "ghost_node_ids": list(self.ghost_node_ids),
+            "extra_labels": list(self.extra_labels),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FlowDiff":
+        tau = d.get("order_tau")
+        return cls(
+            file_name=d["file_name"],
+            steps=[FlowStep.from_dict(s) for s in d.get("steps", [])],
+            issues=[FlowIssue.from_dict(i) for i in d.get("issues", [])],
+            order_tau=None if tau is None else float(tau),
+            spoken_node_count=int(d.get("spoken_node_count", 0)),
+            ghost_node_ids=[str(x) for x in d.get("ghost_node_ids", [])],
+            extra_labels=[str(x) for x in d.get("extra_labels", [])],
+        )
+
+    def issues_of(self, kind: str) -> list[FlowIssue]:
+        """특정 종류의 판정들. 리포트 '논리 흐름' 탭의 한 묶음이 된다."""
+        return [i for i in self.issues if i.kind == kind]
+
+
+# ---------------------------------------------------------------------------
 # 예외
 # ---------------------------------------------------------------------------
 
