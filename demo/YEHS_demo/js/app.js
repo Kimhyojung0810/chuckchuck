@@ -958,6 +958,30 @@ async function finishRecAndPrepare() {
   }
   nf.step = 3;
   renderNew();
+  showF11Reveal();
+}
+
+/* F-11 분석 리빌 — 리허설 종료 → 질문 준비 사이에 전체 화면으로 재생.
+   뒤에서는 파이프라인이 돌고, CTA(질문 코치 시작하기)를 누르면 걷힌다. */
+function showF11Reveal() {
+  if (document.getElementById('f11RevealWrap')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'f11RevealWrap';
+  wrap.style.cssText =
+    'position:fixed;inset:0;z-index:999;opacity:0;transition:opacity .45s ease';
+  wrap.innerHTML =
+    '<iframe src="f11_reveal.html?embed=1" title="발표 분석 과정" ' +
+    'style="width:100%;height:100%;border:0;display:block"></iframe>';
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => { wrap.style.opacity = '1'; });
+  const onMsg = (e) => {
+    if (e.data && e.data.type === 'f11RevealDone') {
+      window.removeEventListener('message', onMsg);
+      wrap.style.opacity = '0';
+      setTimeout(() => wrap.remove(), 450);
+    }
+  };
+  window.addEventListener('message', onMsg);
 }
 
 function fmtMarkSec(sec) {

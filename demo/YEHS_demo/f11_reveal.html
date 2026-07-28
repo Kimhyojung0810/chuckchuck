@@ -700,6 +700,10 @@ function showToast(msg) {
 }
 function hideToast() { $("toast").classList.remove("show"); }
 
+/* embed 모드: 데모 앱(app.js)이 iframe 으로 띄운다.
+   시작 게이트 없이 바로 재생하고, CTA 는 부모에게 완료를 알린다. */
+const EMBED = new URLSearchParams(location.search).has("embed");
+
 $("startBtn").addEventListener("click", () => {
   $("startScene").classList.add("hide");
   run();
@@ -710,9 +714,18 @@ $("skipBtn").addEventListener("click", () => {
 });
 $("replayBtn").addEventListener("click", run);
 $("ctaBtn").addEventListener("click", () => {
+  if (EMBED) {
+    parent.postMessage({ type: "f11RevealDone" }, "*");
+    return;
+  }
   showToast("질문 코치는 F-08에서 만나요");
   setTimeout(hideToast, 1800);
 });
+
+if (EMBED) {
+  $("startScene").classList.add("hide");
+  run();
+}
 </script>
 
 </body>
