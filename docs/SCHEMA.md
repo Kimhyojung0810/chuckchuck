@@ -410,7 +410,8 @@ F-11  ConceptGraph + Transcript  → (정합 판정)      (발화 축 + 4-class)
       "importance": "core",
       "weight": 1.0,
       "weight_basis": { "slide_count": 1, "char_share": 0.081,
-                        "has_visual": true, "position": "early" },
+                        "has_visual": true, "position": "early",
+                        "mention_count": 4, "title_hit": true },
       "parent_id": null,
       "depth": 1
     },
@@ -422,7 +423,8 @@ F-11  ConceptGraph + Transcript  → (정합 판정)      (발화 축 + 4-class)
       "importance": "core",
       "weight": 0.79,
       "weight_basis": { "slide_count": 2, "char_share": 0.142,
-                        "has_visual": false, "position": "middle" },
+                        "has_visual": false, "position": "middle",
+                        "mention_count": 2, "title_hit": false },
       "parent_id": "contrast",
       "depth": 2
     }
@@ -472,6 +474,10 @@ F-11  ConceptGraph + Transcript  → (정합 판정)      (발화 축 + 4-class)
 9. `sections[].slide_role`은 enum 밖이면 `body`, `edges[].kind`는 enum 밖이면 `relates`로 떨어진다.
 10. 노드가 2개 이상인데 간선이 0개면 **한 번 재요청**한다(실측: Solar가 이런 응답을 준 실행이 있었다).
     재요청도 비면 1차 결과를 쓴다 — 실패로 만들지 않는다.
+11. 루트(부모 없는 노드)는 **4개를 넘지 않는다**(실측: 28개 중 13개가 루트로 떠서 여전히 평평했다).
+    넘으면 weight 상위만 루트로 남기고, 나머지는 ① relates 이웃 → ② 슬라이드 겹침 →
+    ③ 최고 weight 순으로 고른 루트 밑에 `parent`로 붙인다. 이때 위계로 승격된 쌍과
+    같은 방향의 relates 는 지워 3번(중복 없음)을 지킨다. 붙인 뒤 depth·weight 는 재계산한다.
 
 ### 6-C. `weight` 와 `weight_basis`
 
@@ -481,12 +487,18 @@ F-11  ConceptGraph + Transcript  → (정합 판정)      (발화 축 + 4-class)
 
 | 성분 | 비중 | 출처 |
 |------|------|------|
-| `importance` (core=1.0, support=0.35) | 0.20 | `ConceptDoc` |
-| 걸친 장 수 / `total_slides` | 0.35 | `slide_nos` |
-| 그 장들의 글자 비중 | 0.30 | `SlideDoc.total_char_count` |
-| 시각자료 유무 | 0.15 | `SlideDoc.has_visual` |
+| `importance` (core=1.0, support=0.35) | 0.18 | `ConceptDoc` |
+| 걸친 장 수 / `total_slides` | 0.30 | `slide_nos` |
+| 그 장들의 글자 비중 | 0.25 | `SlideDoc.total_char_count` |
+| 시각자료 유무 | 0.10 | `SlideDoc.has_visual` |
+| 언급 빈도 / 그래프 내 최댓값 | 0.12 | `ConceptDoc` 개념·키워드 목록 |
+| 장 제목 등장 유무 | 0.05 | `ConceptDoc.slides[].title` |
 
 계산 후 **최댓값으로 나눠 정규화**한다. 절대값보다 서열이 목적이라서다.
+
+언급 빈도·제목 등장은 **개념 단위** 신호다. `slide_nos`가 같은 개념들은
+장 수·글자 비중·도식이 전부 같아져 동률이 났는데(실측: 0.779가 4개),
+같은 장 안에서도 개념마다 다른 이 두 신호가 서열을 가른다.
 
 | `weight_basis` | 타입 | 설명 |
 |------|------|------|
@@ -494,6 +506,8 @@ F-11  ConceptGraph + Transcript  → (정합 판정)      (발화 축 + 4-class)
 | `char_share` | float | 근거 장들의 본문 글자 수 / 전체 글자 수 |
 | `has_visual` | bool | 근거 장에 도식·표·차트가 있나 |
 | `position` | `early`\|`middle`\|`late` | 처음 등장하는 위치 |
+| `mention_count` | int | 문서 전체 개념·키워드 목록에서 언급된 횟수 |
+| `title_hit` | bool | 근거 장 제목에 이 개념이 등장하나 |
 
 `slide_doc`을 안 주면 `char_share=0.0`, `has_visual=false`로 남고 weight가 거칠어진다.
 `ConceptDoc`에는 밀도 신호가 없어서 `SlideDoc`이 필요하다 — 형제 모듈 호출이 아니라

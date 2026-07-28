@@ -18,7 +18,7 @@ from chuckchuck.contracts import (
     SlideConcepts,
     SlideDoc,
 )
-from chuckchuck.f07_graph import MAX_GRAPH_DEPTH, build_graph
+from chuckchuck.f07_graph import MAX_GRAPH_DEPTH, MAX_ROOTS, build_graph
 from chuckchuck.providers.llm_base import LLMProvider
 
 
@@ -440,6 +440,230 @@ def test_position_reflects_first_slide():
 
 
 # ---------------------------------------------------------------------------
+# 루트 클램프 — 실측에서 루트 13/28 로 평평했다. 상한을 넘으면 붙인다
+# ---------------------------------------------------------------------------
+
+# 루트 6개. 무게 서열: a·d(3장·core) > b·c·f(2장·core) > e(1장·support).
+# 상한 4개면 a·d 와 (id 순으로) b·c 가 남고 f·e 가 강등된다.
+_MANY_ROOTS_BASE = """
+    {"nodes": [
+      {"id": "a", "label": "가장 큰 개념", "slide_nos": [1, 2, 3]},
+      {"id": "b", "label": "둘째 개념", "slide_nos": [1, 2]},
+      {"id": "c", "label": "셋째 개념", "slide_nos": [2, 3]},
+      {"id": "d", "label": "넷째 개념", "slide_nos": [3, 4, 5]},
+      {"id": "e", "label": "막내 개념", "slide_nos": [5]},
+      {"id": "f", "label": "다섯째 개념", "slide_nos": [1, 3]}
+    ], "edges": [%s], "sections": []}
+"""
+
+
+def test_too_many_roots_are_clamped():
+    payload = _MANY_ROOTS_BASE % '{"from": "a", "to": "b", "kind": "relates"}'
+    graph = graph_of(payload, doc=make_doc(5))
+
+    assert len(graph.roots) <= MAX_ROOTS
+    assert len(graph.parent_edges) >= 2, "강등된 루트는 parent 간선으로 붙는다"
+
+
+def test_few_roots_are_left_alone():
+    graph = graph_of(_NO_EDGES)
+
+    assert len(graph.roots) == 3, "상한 이하면 손대지 않는다"
+    assert graph.edges == []
+
+
+def test_demoted_root_attaches_to_relates_neighbor():
+    """강등된 루트에 relates 이웃이 있으면 남의 밑이 아니라 그 이웃 밑으로 간다."""
+    payload = _MANY_ROOTS_BASE % '{"from": "e", "to": "b", "kind": "relates"}'
+    graph = graph_of(payload, doc=make_doc(5))
+
+    assert graph.node("e").parent_id == "b"
+    assert graph.node("e").depth == 2
+    # relates 간선은 정보 보존을 위해 그대로 남는다
+    assert ("e", "b") in [(x.from_id, x.to_id) for x in graph.relates_edges]
+
+
+def test_demoted_root_attaches_by_slide_overlap():
+    """relates 이웃이 없으면 슬라이드가 겹치는 루트 밑으로 간다. e[5] ∩ d[4,5] = {5}."""
+    payload = _MANY_ROOTS_BASE % '{"from": "a", "to": "b", "kind": "relates"}'
+    graph = graph_of(payload, doc=make_doc(5))
+
+    assert graph.node("e").parent_id == "d"
+
+
+def test_flat_graph_after_failed_retry_is_still_clamped():
+    """재시도까지 평평하게 오면(전부 루트) 후처리가 위계를 만들어 계약을 지킨다."""
+    payload = _MANY_ROOTS_BASE % ""
+    engine = SequenceLLM(payload, payload)
+    graph = build_graph(make_doc(5), llm=engine)
+
+    assert engine.calls == 2
+    assert len(graph.roots) <= MAX_ROOTS
+    assert len(graph.parent_edges) >= 2
+
+
+def test_root_clamp_does_not_duplicate_edge_pairs():
+    """relates 가 b→e 방향으로 있을 때 e 를 b 밑에 붙이면 (b,e) 쌍이 겹치면 안 된다.
+
+    실측(Solar·RINGLE)에서 잡힌 회귀: parent 간선을 새로 만들 때 같은 방향
+    relates 가 남아 (from,to) 중복 불변식이 깨졌다.
+    """
+    payload = _MANY_ROOTS_BASE % '{"from": "b", "to": "e", "kind": "relates"}'
+    graph = graph_of(payload, doc=make_doc(5))
+    pairs = [(x.from_id, x.to_id) for x in graph.edges]
+
+    assert graph.node("e").parent_id == "b"
+    assert len(pairs) == len(set(pairs)), "같은 (from,to) 는 한 번만"
+
+
+def test_root_clamp_keeps_all_invariants():
+    payload = _MANY_ROOTS_BASE % '{"from": "e", "to": "b", "kind": "relates"}'
+    graph = graph_of(payload, doc=make_doc(5))
+    derived = {e.to_id: e.from_id for e in graph.parent_edges}
+
+    assert max(n.weight for n in graph.nodes) == 1.0, "클램프 후에도 weight 재정규화"
+    for node in graph.nodes:
+        assert node.parent_id == derived.get(node.id), "parent_id 는 edges 파생"
+        assert node.depth == len(graph.path_of(node.id))
+        assert node.depth <= MAX_GRAPH_DEPTH
+
+
+# ---------------------------------------------------------------------------
+# weight 동률 해소 — slide_nos 가 같아도 개념 단위 신호로 서열이 갈린다
+# ---------------------------------------------------------------------------
+
+def make_mention_doc() -> ConceptDoc:
+    """'피보팅' 이 세 번 언급되는 문서. 다른 개념은 한 번씩만 나온다."""
+    return ConceptDoc(
+        file_name="mention.pdf",
+        total_slides=2,
+        model="mock",
+        slides=[
+            SlideConcepts(
+                slide_no=1,
+                title="타겟 피보팅",
+                topic="전략",
+                keywords=["피보팅"],
+                concepts=["타겟 피보팅 전략: 직군 중심으로 전환", "구매력: 지불 의사"],
+                importance="core",
+            ),
+            SlideConcepts(
+                slide_no=2,
+                title="근거",
+                topic="근거",
+                keywords=[],
+                concepts=["피보팅 근거: 실측 데이터"],
+                importance="core",
+            ),
+        ],
+    )
+
+
+_TIE_NODES = """
+{"nodes": [
+  {"id": "pivot", "label": "피보팅", "slide_nos": [1, 2]},
+  {"id": "buy", "label": "구매력", "slide_nos": [1, 2]}
+], "edges": [{"from": "pivot", "to": "buy", "kind": "relates"}], "sections": []}
+"""
+
+
+def test_mention_frequency_breaks_weight_tie():
+    """slide_nos 가 같으면 예전엔 무조건 동률이었다. 언급 빈도가 서열을 가른다."""
+    graph = graph_of(_TIE_NODES, doc=make_mention_doc())
+    pivot = graph.node("pivot")
+    buy = graph.node("buy")
+
+    assert pivot.weight_basis.mention_count >= 3
+    assert buy.weight_basis.mention_count == 1
+    assert pivot.weight > buy.weight
+
+
+def test_title_hit_is_recorded_and_boosts_weight():
+    payload = """
+    {"nodes": [
+      {"id": "pivot", "label": "피보팅", "slide_nos": [1]},
+      {"id": "etc", "label": "기타 개념", "slide_nos": [1]}
+    ], "edges": [{"from": "pivot", "to": "etc", "kind": "relates"}], "sections": []}
+    """
+    graph = graph_of(payload, doc=make_mention_doc())
+
+    assert graph.node("pivot").weight_basis.title_hit is True
+    assert graph.node("etc").weight_basis.title_hit is False
+    assert graph.node("pivot").weight > graph.node("etc").weight
+
+
+def test_latin_label_needs_token_boundary():
+    """'AI' 가 'Detail'·'Container' 안의 부분 문자열로 걸리면 안 된다 (리뷰에서 잡힌 오탐).
+
+    영문·숫자는 토큰 단위로 정확히 일치해야 언급으로 친다.
+    한글 합성어(피보팅근거)는 붙여 쓰므로 포함 일치를 유지한다.
+    """
+    doc = ConceptDoc(
+        file_name="ai.pdf",
+        total_slides=1,
+        model="mock",
+        slides=[
+            SlideConcepts(
+                slide_no=1,
+                title="Detail 페이지",
+                topic="개선",
+                keywords=["Container 배포 자동화"],
+                concepts=["Detail 페이지 개선: 이탈 감소", "AI 기반 추천: 개인화"],
+                importance="core",
+            ),
+        ],
+    )
+    payload = """
+    {"nodes": [
+      {"id": "ai", "label": "AI", "slide_nos": [1]},
+      {"id": "detail", "label": "Detail 페이지", "slide_nos": [1]}
+    ], "edges": [{"from": "ai", "to": "detail", "kind": "relates"}], "sections": []}
+    """
+    graph = graph_of(payload, doc=doc)
+
+    assert graph.node("ai").weight_basis.mention_count == 1, "'AI 기반 추천' 만 언급이다"
+    assert graph.node("ai").weight_basis.title_hit is False, "'Detail 페이지' 제목에 AI 없음"
+    assert graph.node("detail").weight_basis.mention_count == 1
+    assert graph.node("detail").weight_basis.title_hit is True
+
+
+def test_hangul_compound_still_matches_by_containment():
+    """한글은 붙여 쓴 합성어가 흔하다 — '피보팅' 은 '피보팅근거' 에 걸려야 한다."""
+    doc = ConceptDoc(
+        file_name="compound.pdf",
+        total_slides=1,
+        model="mock",
+        slides=[
+            SlideConcepts(
+                slide_no=1,
+                title="전략",
+                topic="전략",
+                keywords=["피보팅근거"],
+                concepts=[],
+                importance="core",
+            ),
+        ],
+    )
+    payload = """
+    {"nodes": [{"id": "pivot", "label": "피보팅", "slide_nos": [1]}],
+     "edges": [], "sections": []}
+    """
+    graph = graph_of(payload, doc=doc)
+
+    assert graph.node("pivot").weight_basis.mention_count == 1
+
+
+def test_weight_basis_new_fields_roundtrip():
+    graph = graph_of(_TIE_NODES, doc=make_mention_doc())
+    basis = graph.node("pivot").weight_basis
+    again = type(basis).from_dict(basis.to_dict())
+
+    assert again == basis
+    assert again.mention_count == basis.mention_count
+    assert again.title_hit is basis.title_hit
+
+
+# ---------------------------------------------------------------------------
 # 퇴화 감지 재시도 — 실제 Solar 가 간선 0개를 뱉는 실행이 있었다
 # ---------------------------------------------------------------------------
 
@@ -533,6 +757,24 @@ def test_lookup_by_slide_and_section():
 def test_unparseable_llm_output_raises_graph_error():
     with pytest.raises(GraphError):
         graph_of("이건 JSON 이 아니라 그냥 말입니다")
+
+
+def test_unparseable_first_response_retries_once_and_uses_it():
+    """실측(Solar·RINGLE)에서 복구 불가능한 JSON 이 한 번씩 온다. 한 번은 다시 묻는다."""
+    engine = SequenceLLM("깨진 응답 {no json", _WITH_EDGES)
+    graph = build_graph(make_doc(), llm=engine)
+
+    assert engine.calls == 2
+    assert graph.node("b").parent_id == "a"
+
+
+def test_unparseable_twice_raises_after_two_calls():
+    """재요청도 깨지면 실패다. 무한히 다시 묻지 않는다."""
+    engine = SequenceLLM("깨진 응답 1", "깨진 응답 2")
+    with pytest.raises(GraphError):
+        build_graph(make_doc(), llm=engine)
+
+    assert engine.calls == 2
 
 
 def test_empty_concept_doc_raises_graph_error():

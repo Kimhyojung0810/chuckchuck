@@ -350,6 +350,8 @@ class WeightBasis:
     char_share: float = 0.0     # 그 장들의 본문 글자 수 / 전체 글자 수
     has_visual: bool = False    # 근거 장에 도식·표·차트가 있나
     position: str = "middle"    # early | middle | late
+    mention_count: int = 0      # 문서 전체 개념·키워드에서 이 개념이 언급된 횟수
+    title_hit: bool = False     # 근거 장 제목에 이 개념이 등장하나
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -362,6 +364,8 @@ class WeightBasis:
             char_share=float(d.get("char_share", 0.0)),
             has_visual=bool(d.get("has_visual", False)),
             position=pos if pos in NODE_POSITIONS else "middle",
+            mention_count=int(d.get("mention_count", 0)),
+            title_hit=bool(d.get("title_hit", False)),
         )
 
 

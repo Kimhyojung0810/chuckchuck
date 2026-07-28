@@ -40,14 +40,22 @@ MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_TOKENS", "8192"))
 MAX_CONCEPTS_PER_SLIDE = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_CONCEPTS", "6"))
 #: 계약상 얕은 그래프를 요구한다. 이보다 깊으면 상위로 끌어올린다.
 MAX_GRAPH_DEPTH = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_DEPTH", "3"))
+#: 프롬프트가 요구하는 최상위 개념 상한. 실측에서 13/28 이 루트로 떠서 후처리로 잡는다.
+MAX_ROOTS = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_ROOTS", "4"))
 
 # weight 배합. 합이 1.0 이고, 여기서 깊이 감점을 뺀다.
-_W_IMPORTANCE = 0.20
-_W_SLIDE_SHARE = 0.35
-_W_CHAR_SHARE = 0.30
-_W_VISUAL = 0.15
+# mention·title 은 개념 단위 신호 — slide_nos 가 같은 개념들의 동률을 가른다.
+_W_IMPORTANCE = 0.18
+_W_SLIDE_SHARE = 0.30
+_W_CHAR_SHARE = 0.25
+_W_VISUAL = 0.10
+_W_MENTION = 0.12
+_W_TITLE = 0.05
 _DEPTH_PENALTY = 0.05
 _IMPORTANCE_SCORE = {"core": 1.0, "support": 0.35}
+
+#: 이보다 짧은 label 은 언급 대조를 하지 않는다 (한 글자는 우연히 다 걸린다).
+_MIN_MATCH_LEN = 2
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
@@ -68,6 +76,7 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
 3. kind="relates" 는 위계가 아닌 논리 연결이다. 근거·수단·대조 관계를 여기 적는다.
    한 개념이 여러 개념에 걸칠 때 이걸 쓴다.
 4. 위계 깊이는 3단계를 넘기지 마라. 발표를 관통하는 큰 개념 2~4개를 최상위로 둔다.
+   부모 없는 개념이 5개 이상이면 위계를 안 만든 것이므로 잘못 만든 것이다.
 
 그 밖:
 5. 자료에 없는 개념을 지어내지 마라. 주어진 개념 안에서만 묶어라.
@@ -98,6 +107,12 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
 RETRY_NUDGE = """
 [재요청] 직전 응답의 edges 가 비어 있었다. 개념들이 서로 아무 관계도 없다는 뜻이 되어 쓸 수 없다.
 이번에는 kind="parent" 간선을 반드시 포함해, 큰 개념 아래에 하위 개념을 매달아라.
+"""
+
+#: 응답이 복구 불가능한 JSON 일 때 한 번 더 물어볼 때 덧붙이는 말 (실측: Solar 가 가끔 낸다).
+JSON_RETRY_NUDGE = """
+[재요청] 직전 응답이 완전한 JSON 객체가 아니어서 버렸다.
+코드펜스·주석·말머리·말끝 문장 없이, 출력 스키마 그대로의 JSON 객체 하나만 다시 출력하라.
 """
 
 
@@ -320,12 +335,92 @@ def _slide_signals(slide_doc: SlideDoc | None) -> tuple[dict[int, int], dict[int
     return char_by, visual_by, sum(char_by.values())
 
 
+#: 영문·숫자 run 과 한글 run 을 토큰으로 자른다. 그 밖의 문자는 경계다.
+_TOKEN_RE = re.compile(r"[a-z0-9]+|[가-힣]+")
+_HANGUL_RE = re.compile(r"^[가-힣]+$")
+
+
+def _norm_tokens(value: str) -> list[str]:
+    """대조용 토큰열. 'AI 기반추천' → ['ai', '기반추천']."""
+    return _TOKEN_RE.findall(str(value or "").lower())
+
+
+def _token_eq(outer_tok: str, inner_tok: str) -> bool:
+    """
+    토큰 하나의 일치 판정.
+
+    영문·숫자는 통째로 같아야 한다 — 'ai' 가 'detail' 안에서 걸리면 오탐이다.
+    한글은 합성어를 붙여 쓰므로('피보팅근거') 포함이면 같은 개념으로 본다.
+    """
+    if outer_tok == inner_tok:
+        return True
+    return bool(
+        _HANGUL_RE.match(inner_tok)
+        and _HANGUL_RE.match(outer_tok)
+        and inner_tok in outer_tok
+    )
+
+
+def _contains_tokens(outer: list[str], inner: list[str]) -> bool:
+    """inner 토큰열이 outer 토큰열의 연속 부분열로 나타나는가."""
+    n = len(inner)
+    if n == 0 or n > len(outer):
+        return False
+    return any(
+        all(_token_eq(outer[i + j], inner[j]) for j in range(n))
+        for i in range(len(outer) - n + 1)
+    )
+
+
+def _concept_signals(doc: ConceptDoc) -> tuple[list[list[str]], dict[int, list[str]]]:
+    """
+    ConceptDoc 에서 개념 단위 신호의 재료를 토큰열로 뽑는다.
+
+    slide_nos 가 같으면 char_share·has_visual 이 같아져 weight 동률이 났다 (실측).
+    문서 전체 언급 목록과 장 제목은 개념마다 달라서 동률을 가른다.
+    """
+    entries = [
+        _norm_tokens(item)
+        for s in doc.slides
+        for item in list(s.concepts) + list(s.keywords)
+    ]
+    titles = {s.slide_no: _norm_tokens(s.title) for s in doc.slides}
+    return [e for e in entries if e], titles
+
+
+def _label_tokens(label: str) -> list[str]:
+    """언급 대조에 쓸 label 토큰열. 너무 짧으면 우연히 다 걸리므로 버린다."""
+    tokens = _norm_tokens(label)
+    return tokens if sum(len(t) for t in tokens) >= _MIN_MATCH_LEN else []
+
+
+def _mention_count(label: str, entries: list[list[str]]) -> int:
+    """label 이 개념·키워드 목록에 몇 번 등장하나. 짧은 쪽이 긴 쪽에 안기면 인정."""
+    tokens = _label_tokens(label)
+    if not tokens:
+        return 0
+    return sum(
+        1 for e in entries if _contains_tokens(e, tokens) or _contains_tokens(tokens, e)
+    )
+
+
+def _title_hit(label: str, slide_nos: list[int], titles: dict[int, list[str]]) -> bool:
+    """근거 장 제목에 label 이 등장하나. 제목에 오른 개념은 그 장의 주인공이다."""
+    tokens = _label_tokens(label)
+    if not tokens:
+        return False
+    return any(_contains_tokens(titles.get(n, []), tokens) for n in slide_nos)
+
+
 def _raw_weight(
     node: ConceptNode,
     total_slides: int,
     char_by: dict[int, int],
     visual_by: dict[int, bool],
     total_char: int,
+    mention_count: int,
+    mention_share: float,
+    title_hit: bool,
 ) -> float:
     """정규화 전 점수. weight_basis 도 여기서 채운다."""
     slide_count = len(node.slide_nos)
@@ -339,6 +434,8 @@ def _raw_weight(
         char_share=round(char_share, 4),
         has_visual=has_visual,
         position=_position(node.slide_nos, total_slides),
+        mention_count=mention_count,
+        title_hit=title_hit,
     )
 
     slide_share = slide_count / total_slides if total_slides else 0.0
@@ -347,13 +444,15 @@ def _raw_weight(
         + _W_SLIDE_SHARE * min(1.0, slide_share)
         + _W_CHAR_SHARE * min(1.0, char_share)
         + _W_VISUAL * (1.0 if has_visual else 0.0)
+        + _W_MENTION * min(1.0, mention_share)
+        + _W_TITLE * (1.0 if title_hit else 0.0)
     )
     return max(0.0, score - _DEPTH_PENALTY * (node.depth - 1))
 
 
 def _apply_weights(
     nodes: list[ConceptNode],
-    total_slides: int,
+    doc: ConceptDoc,
     slide_doc: SlideDoc | None,
 ) -> None:
     """
@@ -362,7 +461,23 @@ def _apply_weights(
     우선순위 비교가 목적이므로 절대값보다 서열이 중요하다.
     """
     char_by, visual_by, total_char = _slide_signals(slide_doc)
-    raws = [_raw_weight(n, total_slides, char_by, visual_by, total_char) for n in nodes]
+    entries, titles = _concept_signals(doc)
+    mentions = [_mention_count(n.label, entries) for n in nodes]
+    top_mention = max(mentions, default=0)
+
+    raws = [
+        _raw_weight(
+            n,
+            doc.total_slides,
+            char_by,
+            visual_by,
+            total_char,
+            mention_count=m,
+            mention_share=(m / top_mention) if top_mention else 0.0,
+            title_hit=_title_hit(n.label, n.slide_nos, titles),
+        )
+        for n, m in zip(nodes, mentions)
+    ]
     top = max(raws, default=0.0)
     for node, raw in zip(nodes, raws):
         node.weight = round(min(1.0, raw / top), 3) if top > 0 else 0.0
@@ -419,7 +534,7 @@ def _assemble(
         node.parent_id = parent_of.get(node.id)
         node.depth = _depth_of(node.id, parent_of)
 
-    _apply_weights(nodes, doc.total_slides, slide_doc)
+    _apply_weights(nodes, doc, slide_doc)
 
     # edges 를 parent_of 에서 되짚어 만들어, parent_id/depth 와 어긋날 수 없게 한다
     edges = [
@@ -429,6 +544,79 @@ def _assemble(
     edges += [e for e in relates if e.from_id in node_ids and e.to_id in node_ids]
 
     return nodes, edges, _to_sections(raw_sections, doc.total_slides)
+
+
+# ---------------------------------------------------------------------------
+# 루트 클램프 — 실측에서 28개 중 13개가 루트로 떠서 여전히 평평했다
+# ---------------------------------------------------------------------------
+
+def _attach_target(
+    demoted: ConceptNode,
+    kept: list[ConceptNode],
+    relates: list[ConceptEdge],
+) -> ConceptNode:
+    """
+    강등된 루트를 어느 남은 루트 밑에 붙일지 고른다.
+
+    relates 이웃 > 슬라이드 겹침 > 최고 weight 순. 아무 관련 없는 개념을
+    아무 데나 붙이는 것보다, 모델이 이미 적어 둔 연결을 근거로 쓴다.
+    """
+    linked = {e.from_id for e in relates if e.to_id == demoted.id}
+    linked |= {e.to_id for e in relates if e.from_id == demoted.id}
+    candidates = [k for k in kept if k.id in linked]
+
+    if not candidates:
+        overlaps = [(len(set(demoted.slide_nos) & set(k.slide_nos)), k) for k in kept]
+        best = max((count for count, _ in overlaps), default=0)
+        if best > 0:
+            candidates = [k for count, k in overlaps if count == best]
+
+    if not candidates:
+        candidates = kept
+    return sorted(candidates, key=lambda k: (-k.weight, k.id))[0]
+
+
+def _clamp_roots(
+    nodes: list[ConceptNode],
+    edges: list[ConceptEdge],
+    doc: ConceptDoc,
+    slide_doc: SlideDoc | None,
+) -> list[ConceptEdge]:
+    """
+    루트가 MAX_ROOTS 를 넘으면 weight 상위만 루트로 남기고 나머지를 그 밑에 붙인다.
+
+    nodes 의 parent_id/depth/weight 를 제자리 갱신하고, 새 edges 를 돌려준다.
+    상한 이하면 아무것도 바꾸지 않는다.
+    """
+    if MAX_ROOTS < 1:
+        return edges
+    roots = [n for n in nodes if n.parent_id is None]
+    if len(roots) <= MAX_ROOTS:
+        return edges
+
+    ranked = sorted(roots, key=lambda n: (-n.weight, -len(n.slide_nos), n.id))
+    kept, demoted = ranked[:MAX_ROOTS], ranked[MAX_ROOTS:]
+    relates = [e for e in edges if e.kind == "relates"]
+    parent_of = {e.to_id: e.from_id for e in edges if e.kind == "parent"}
+
+    for node in demoted:
+        parent_of[node.id] = _attach_target(node, kept, relates).id
+
+    node_ids = [n.id for n in nodes]
+    _clamp_depth(parent_of, node_ids, MAX_GRAPH_DEPTH)
+    for node in nodes:
+        node.parent_id = parent_of.get(node.id)
+        node.depth = _depth_of(node.id, parent_of)
+    _apply_weights(nodes, doc, slide_doc)          # 깊이 감점이 바뀌었으니 재계산
+
+    new_edges = [
+        ConceptEdge(from_id=parent, to_id=child, kind="parent")
+        for child, parent in parent_of.items()
+    ]
+    # 강등된 루트를 relates 이웃 밑에 붙이면 같은 방향 relates 와 (from,to) 가
+    # 겹칠 수 있다 (실측에서 발견). 위계로 승격된 쌍의 relates 는 지운다.
+    parent_pairs = {(parent, child) for child, parent in parent_of.items()}
+    return new_edges + [e for e in relates if (e.from_id, e.to_id) not in parent_pairs]
 
 
 def _is_degenerate(nodes: list[ConceptNode], edges: list[ConceptEdge]) -> bool:
@@ -498,7 +686,11 @@ def build_graph(
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
 
-    nodes, edges, sections = _call(engine, doc, ctx, slide_doc)
+    try:
+        nodes, edges, sections = _call(engine, doc, ctx, slide_doc)
+    except GraphError:
+        # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
+        nodes, edges, sections = _call(engine, doc, ctx, slide_doc, extra_system=JSON_RETRY_NUDGE)
     if _is_degenerate(nodes, edges):
         try:
             retry = _call(engine, doc, ctx, slide_doc, extra_system=RETRY_NUDGE)
@@ -506,6 +698,8 @@ def build_graph(
             retry = None                      # 재시도가 깨지면 1차 결과를 쓴다
         if retry and not _is_degenerate(retry[0], retry[1]):
             nodes, edges, sections = retry
+
+    edges = _clamp_roots(nodes, edges, doc, slide_doc)
 
     return ConceptGraph(
         file_name=doc.file_name,
