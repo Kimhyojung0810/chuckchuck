@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>척척발표 · 분석 리빌</title>
+</head>
+<body>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f9fafb;
+    --card: #ffffff;
+    --line: #e5e8eb;
+    --text: #191f28;
+    --sub: #6b7684;
+    --faint: #b0b8c1;
+    --primary: #3182f6;
+    --primary-soft: #e8f3ff;
+    --good: #03b26c;
+    --good-soft: #f0faf6;
+    --bad: #f04452;
+    --bad-soft: #ffeeee;
+    --dim: #d1d6db;
+    --skip-c: #8b95a1;
+    --shadow: 0 6px 24px rgba(0, 23, 51, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101013; --surface: #17171c; --card: #1e1e24; --line: #2c2c35;
+      --text: #ecedee; --sub: #9e9ea8; --faint: #62626d;
+      --primary: #4593fc; --primary-soft: #17263c;
+      --good: #15c47e; --good-soft: #12281f;
+      --bad: #f66570; --bad-soft: #331a1d;
+      --dim: #3b3b46; --skip-c: #7a7a85;
+      --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --surface: #f9fafb; --card: #ffffff; --line: #e5e8eb;
+    --text: #191f28; --sub: #6b7684; --faint: #b0b8c1;
+    --primary: #3182f6; --primary-soft: #e8f3ff;
+    --good: #03b26c; --good-soft: #f0faf6;
+    --bad: #f04452; --bad-soft: #ffeeee;
+    --dim: #d1d6db; --skip-c: #8b95a1;
+    --shadow: 0 6px 24px rgba(0, 23, 51, 0.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #101013; --surface: #17171c; --card: #1e1e24; --line: #2c2c35;
+    --text: #ecedee; --sub: #9e9ea8; --faint: #62626d;
+    --primary: #4593fc; --primary-soft: #17263c;
+    --good: #15c47e; --good-soft: #12281f;
+    --bad: #f66570; --bad-soft: #331a1d;
+    --dim: #3b3b46; --skip-c: #7a7a85;
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--text);
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+      "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .phone {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ---- 상단 바 ---- */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 20px 0;
+  }
+  .topbar .brand { font-size: 13px; font-weight: 600; color: var(--faint); letter-spacing: 0.02em; }
+  #skipBtn {
+    border: 0; background: none; color: var(--skip-c);
+    font: inherit; font-size: 14px; font-weight: 500;
+    padding: 6px 8px; border-radius: 8px; cursor: pointer;
+  }
+  #skipBtn:hover { background: var(--surface); }
+  #skipBtn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  /* ---- 씬 캡션 ---- */
+  .caption { padding: 22px 24px 6px; min-height: 96px; }
+  .caption h1 {
+    margin: 0 0 6px; font-size: 23px; font-weight: 700; line-height: 1.32;
+    letter-spacing: -0.015em; text-wrap: balance;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .caption p {
+    margin: 0; font-size: 14.5px; color: var(--sub); line-height: 1.5;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity 0.45s ease 0.08s, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.08s;
+  }
+  .caption.show h1, .caption.show p { opacity: 1; transform: none; }
+
+  /* ---- 스테이지 ---- */
+  .stage { flex: 1; position: relative; padding: 0 8px; }
+  svg { width: 100%; height: auto; display: block; }
+
+  .node circle.body {
+    fill: var(--card); stroke: var(--primary); stroke-width: 2;
+    transition: stroke 0.4s, fill 0.4s, opacity 0.4s;
+  }
+  .node text {
+    font-size: 10.5px; font-weight: 600; fill: var(--text);
+    text-anchor: middle; transition: fill 0.4s, opacity 0.4s;
+  }
+  .node { opacity: 0; }
+  .node.pop { animation: pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  @keyframes pop {
+    0% { opacity: 0; } 100% { opacity: 1; }
+  }
+  .node .scaler { transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .node.moving { transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  .gauge {
+    fill: none; stroke: var(--primary); stroke-width: 3.5; stroke-linecap: round;
+    transition: stroke-dashoffset 0.7s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s;
+  }
+  .edge {
+    stroke: var(--line); stroke-width: 1.5; fill: none;
+    transition: stroke-dashoffset 0.6s ease, opacity 0.5s, stroke 0.4s;
+  }
+  .edge.relates { stroke-dasharray: 3 4; }
+  .edge.spoken { stroke: var(--primary); stroke-width: 2; }
+
+  .node.v-aligned circle.body { stroke: var(--good); }
+  .node.v-aligned .gauge { stroke: var(--good); }
+  .node.v-missing circle.body { stroke: var(--dim); }
+  .node.v-missing text { fill: var(--faint); }
+  .node.v-missing .gauge { stroke: var(--dim); }
+  .node.v-skip circle.body { stroke: var(--faint); stroke-dasharray: 3 3; }
+  .node.v-skip text { fill: var(--sub); }
+  .node.v-contra circle.body { stroke: var(--bad); animation: pulse 1.1s ease-in-out 2; }
+  .node.v-contra .gauge { stroke: var(--bad); }
+  @keyframes pulse {
+    0%, 100% { stroke-width: 2; } 50% { stroke-width: 5; }
+  }
+  .badge { opacity: 0; transition: opacity 0.35s; font-size: 12px; font-weight: 700; }
+  .badge.show { opacity: 1; }
+
+  /* 타임라인 */
+  .timeline { opacity: 0; transition: opacity 0.4s; }
+  .timeline.show { opacity: 1; }
+
+  /* 산점도 축 */
+  .axes { opacity: 0; transition: opacity 0.6s ease 0.3s; }
+  .axes.show { opacity: 1; }
+  .axes line { stroke: var(--line); stroke-width: 1; }
+  .axes .diag { stroke-dasharray: 4 4; }
+  .axes text { font-size: 10px; fill: var(--faint); font-weight: 500; }
+
+  /* 모순 말풍선 */
+  .quote {
+    position: absolute; max-width: 240px;
+    background: var(--bad-soft); color: var(--bad);
+    border-radius: 14px; padding: 10px 13px;
+    font-size: 12.5px; font-weight: 500; line-height: 1.45;
+    opacity: 0; transform: translateY(8px) scale(0.96);
+    transition: opacity 0.4s, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .quote.show { opacity: 1; transform: none; }
+
+  /* STT 흐름 씬 */
+  #sttScene {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    justify-content: flex-end; align-items: center; overflow: hidden;
+    padding-bottom: 30px; transition: opacity 0.5s;
+  }
+  .stt-line {
+    font-size: 13.5px; color: var(--faint); line-height: 1.6;
+    opacity: 0; animation: sttUp 3.2s ease forwards;
+  }
+  @keyframes sttUp {
+    0% { opacity: 0; transform: translateY(14px); }
+    18% { opacity: 1; } 70% { opacity: 0.55; }
+    100% { opacity: 0; transform: translateY(-52px); }
+  }
+  .kw {
+    position: absolute;
+    background: var(--primary-soft); color: var(--primary);
+    font-size: 13px; font-weight: 700; padding: 7px 13px; border-radius: 999px;
+    opacity: 0; animation: kwFloat 1.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @keyframes kwFloat {
+    0% { opacity: 0; transform: translateY(26px) scale(0.85); }
+    30% { opacity: 1; transform: translateY(0) scale(1.04); }
+    45% { transform: scale(1); }
+    82% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-14px); }
+  }
+
+  /* ---- 요약 씬 ---- */
+  #summaryScene {
+    position: absolute; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; padding: 8px 24px 24px;
+    opacity: 0; pointer-events: none; transition: opacity 0.5s;
+    overflow-y: auto;
+  }
+  #summaryScene.show { opacity: 1; pointer-events: auto; }
+  .big-metric { margin: 4px 0 2px; }
+  .big-metric .num {
+    font-size: 54px; font-weight: 800; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums; color: var(--primary);
+  }
+  .big-metric .unit { font-size: 30px; font-weight: 700; color: var(--primary); }
+  .big-metric .label { font-size: 15px; color: var(--sub); margin-top: 2px; }
+  .metric-row { display: flex; gap: 10px; margin-top: 18px; }
+  .m-card {
+    flex: 1; background: var(--surface); border-radius: 16px; padding: 14px 14px 12px;
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 0.5s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .m-card.show { opacity: 1; transform: none; }
+  .m-card .v { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .m-card .k { font-size: 12px; color: var(--sub); margin-top: 3px; line-height: 1.35; }
+  .verdict-list { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .v-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border-radius: 14px; padding: 12px 14px;
+    font-size: 14px; font-weight: 600;
+    opacity: 0; transform: translateY(14px);
+    transition: opacity 0.5s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .v-row.show { opacity: 1; transform: none; }
+  .v-row .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .v-row .cnt { margin-left: auto; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .cta-wrap { margin-top: auto; padding-top: 18px; }
+  .cta-hint { font-size: 13.5px; color: var(--sub); text-align: center; margin: 0 0 10px; line-height: 1.5; }
+  .cta {
+    width: 100%; border: 0; border-radius: 16px; padding: 17px;
+    background: var(--primary); color: #fff;
+    font: inherit; font-size: 16.5px; font-weight: 700; cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.15s;
+  }
+  .cta:active { transform: scale(0.97); }
+  .cta:focus-visible { outline: 3px solid var(--primary-soft); }
+  .replay {
+    width: 100%; margin-top: 8px; border: 0; background: none;
+    color: var(--sub); font: inherit; font-size: 14px; font-weight: 500;
+    padding: 10px; cursor: pointer; border-radius: 10px;
+  }
+  .replay:hover { background: var(--surface); }
+
+  /* ---- 진행 도트 ---- */
+  .dots {
+    display: flex; gap: 6px; justify-content: center; padding: 14px 0 20px;
+  }
+  .dots i {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--line);
+    transition: background 0.3s, width 0.3s;
+  }
+  .dots i.on { background: var(--primary); width: 18px; border-radius: 3px; }
+
+  .toast {
+    position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(10px);
+    background: var(--text); color: var(--bg);
+    font-size: 14px; font-weight: 600; padding: 12px 18px; border-radius: 999px;
+    opacity: 0; transition: opacity 0.35s, transform 0.35s; box-shadow: var(--shadow);
+    white-space: nowrap; z-index: 5;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+
+<div class="phone">
+  <div class="topbar">
+    <span class="brand">척척발표</span>
+    <button id="skipBtn">건너뛰기</button>
+  </div>
+
+  <div class="caption" id="caption">
+    <h1 id="capH"></h1>
+    <p id="capP"></p>
+  </div>
+
+  <div class="stage">
+    <svg id="svg" viewBox="0 0 380 400" aria-label="개념 그래프 분석 애니메이션"></svg>
+    <div id="sttScene"></div>
+    <div class="quote" id="quoteBubble"></div>
+
+    <div id="summaryScene">
+      <div class="big-metric">
+        <span class="num" id="covNum">0</span><span class="unit">%</span>
+        <div class="label">자료의 핵심을 이만큼 설명했어요</div>
+      </div>
+      <div class="metric-row">
+        <div class="m-card" id="mc1"><div class="v" id="rankNum">0.00</div><div class="k">중요한 순서대로<br>말했는지</div></div>
+        <div class="m-card" id="mc2"><div class="v" id="edgeNum">0%</div><div class="k">개념 사이 연결을<br>말로 이어줬는지</div></div>
+      </div>
+      <div class="verdict-list">
+        <div class="v-row" id="vr1"><span class="dot" style="background:var(--good)"></span>잘 설명했어요<span class="cnt">6개</span></div>
+        <div class="v-row" id="vr2"><span class="dot" style="background:var(--dim)"></span>아직 설명하지 않았어요<span class="cnt">2개</span></div>
+        <div class="v-row" id="vr3"><span class="dot" style="background:var(--bad)"></span>자료와 다르게 말했어요<span class="cnt">1개</span></div>
+        <div class="v-row" id="vr4"><span class="dot" style="background:var(--faint)"></span>생략해도 괜찮았어요<span class="cnt">1개</span></div>
+      </div>
+      <div class="cta-wrap">
+        <p class="cta-hint">중요도 2위인 <b>타겟 피보팅</b>부터 보완하면<br>발표가 더 탄탄해져요</p>
+        <button class="cta" id="ctaBtn">질문 코치 시작하기</button>
+        <button class="replay" id="replayBtn">분석 과정 다시 보기</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <div class="dots" id="dots"></div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+ * mock 데이터 — F-11 계약(AlignmentDoc) 필드명 그대로.
+ * 실데이터 연결 시 /api/v1/graph + /api/v1/alignment 응답으로 교체.
+ * ------------------------------------------------------------- */
+const NODES = [
+  { id: "job-target",  label: "직군 중심 타겟팅", x: 190, y: 66,  doc: 1.00, speech: 1.00, verdict: "aligned",  first: 12 },
+  { id: "ai-diff",     label: "AI 기능적 난도",   x: 70,  y: 150, doc: 0.78, speech: 0.72, verdict: "aligned",  first: 95 },
+  { id: "competitor",  label: "경쟁사 분석",      x: 310, y: 140, doc: 0.74, speech: 0.85, verdict: "aligned",  first: 41 },
+  { id: "pivot",       label: "타겟 피보팅",      x: 128, y: 226, doc: 0.70, speech: 0.05, verdict: "missing",  first: null },
+  { id: "market-def",  label: "시장 정의",        x: 190, y: 342, doc: 0.66, speech: 0.10, verdict: "skip",     first: null },
+  { id: "mid-level",   label: "중급자 타겟",      x: 252, y: 226, doc: 0.62, speech: 0.55, verdict: "aligned",  first: 130 },
+  { id: "self-analysis", label: "자사 분석",      x: 322, y: 250, doc: 0.60, speech: 0.60, verdict: "aligned",  first: 60 },
+  { id: "gen-ai",      label: "생성형 AI 기술",   x: 52,  y: 262, doc: 0.55, speech: 0.40, verdict: "contra",   first: 150,
+    evidence: "“생성형 AI는 저희 기능에서 제외했는데요” — 자료에서는 핵심 기술로 소개했어요" },
+  { id: "buying",      label: "구매력",           x: 268, y: 340, doc: 0.50, speech: 0.02, verdict: "missing",  first: null },
+  { id: "cafp",        label: "CAFP 분석",        x: 336, y: 336, doc: 0.45, speech: 0.30, verdict: "aligned",  first: 75 },
+];
+const EDGES = [
+  { from: "job-target", to: "pivot", kind: "parent" },
+  { from: "job-target", to: "mid-level", kind: "parent" },
+  { from: "ai-diff", to: "gen-ai", kind: "parent" },
+  { from: "competitor", to: "self-analysis", kind: "parent" },
+  { from: "market-def", to: "buying", kind: "parent" },
+  { from: "self-analysis", to: "cafp", kind: "parent" },
+  { from: "self-analysis", to: "ai-diff", kind: "relates" },
+  { from: "market-def", to: "gen-ai", kind: "relates" },
+  { from: "pivot", to: "mid-level", kind: "relates" },
+];
+const SPOKEN_EDGES = [
+  ["competitor", "self-analysis"],
+  ["job-target", "mid-level"],
+  ["self-analysis", "cafp"],
+];
+const SUMMARY = { coverage: 71, rank: 0.68, edge: 33 };
+const STT_LINES = [
+  "안녕하세요, 오늘 발표를 시작할게요",
+  "저희가 주목한 건 직군 중심 타겟팅이에요",
+  "경쟁사 분석을 해보니 난이도 중심이 대부분이었고요",
+  "그래서 저희는 직장인의 직군에 집중했어요",
+  "자사 분석과 CAFP로 강점을 정리하면",
+];
+const KEYWORDS = ["직군 중심 타겟팅", "경쟁사 분석", "자사 분석", "CAFP"];
+
+const CAPTIONS = [
+  { h: "발표를 듣고 있어요", p: "음성을 글로 바꾸고, 어떤 개념을 말했는지 찾고 있어요" },
+  { h: "자료는 이렇게 짜여 있어요", p: "발표 자료에서 개념 10개와 연결 9개를 찾았어요. 큰 원일수록 자료가 힘을 실은 개념이에요" },
+  { h: "발표를 다시 들어볼게요", p: "개념마다 언제, 얼마나 말했는지 재고 있어요. 차오르는 링이 발표에서 쓴 힘이에요" },
+  { h: "개념마다 판정을 내렸어요", p: "잘 설명한 개념은 초록, 아직 설명하지 않은 개념은 흐리게, 자료와 다르게 말한 개념은 빨강이에요" },
+  { h: "자료와 발표를 나란히 놓으면", p: "오른쪽 위일수록 힘준 만큼 말한 개념이에요. 점선에서 멀수록 자료와 발표의 온도차가 커요" },
+  { h: "분석을 마쳤어요", p: "" },
+];
+
+/* ---------------------------------------------------------------
+ * 유틸
+ * ------------------------------------------------------------- */
+const $ = (id) => document.getElementById(id);
+const svgNS = "http://www.w3.org/2000/svg";
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let skipped = false;
+let runToken = 0;
+
+const sleep = (ms) => new Promise((r) => {
+  if (skipped || REDUCED) return r();
+  setTimeout(r, ms);
+});
+function el(tag, attrs, parent) {
+  const n = document.createElementNS(svgNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function countUp(node, target, dur, fmt) {
+  if (skipped || REDUCED) { node.textContent = fmt(target); return; }
+  const t0 = performance.now();
+  (function tick(t) {
+    const p = Math.min(1, (t - t0) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    node.textContent = fmt(target * eased);
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+function radius(w) { return 13 + w * 19; }
+
+/* ---------------------------------------------------------------
+ * SVG 구성
+ * ------------------------------------------------------------- */
+const svg = $("svg");
+const edgeLayer = el("g", {}, svg);
+const axesLayer = el("g", { class: "axes" }, svg);
+const nodeLayer = el("g", {}, svg);
+const tlLayer = el("g", { class: "timeline" }, svg);
+
+const byId = {};
+NODES.forEach((n) => (byId[n.id] = n));
+
+// 간선
+const edgeEls = EDGES.map((e) => {
+  const a = byId[e.from], b = byId[e.to];
+  const line = el("line", {
+    x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+    class: "edge" + (e.kind === "relates" ? " relates" : ""),
+  }, edgeLayer);
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  if (e.kind !== "relates") {
+    line.style.strokeDasharray = len;
+    line.style.strokeDashoffset = len;
+  } else {
+    line.style.opacity = 0;
+  }
+  return { e, line, len };
+});
+
+// 노드 (원 + 게이지 링 + 라벨)
+const nodeEls = NODES.map((n) => {
+  const g = el("g", { class: "node", "data-id": n.id }, nodeLayer);
+  g.style.transform = `translate(${n.x}px, ${n.y}px)`;
+  const r = radius(n.doc);
+  el("circle", { class: "body", r, cx: 0, cy: 0 }, g);
+  const ring = el("circle", { class: "gauge", r: r + 4.5, cx: 0, cy: 0 }, g);
+  const circ = 2 * Math.PI * (r + 4.5);
+  ring.style.strokeDasharray = circ;
+  ring.style.strokeDashoffset = circ;
+  ring.setAttribute("transform", "rotate(-90)");
+  const label = el("text", { y: r + 16 }, g);
+  label.textContent = n.label;
+  const badge = el("text", { class: "badge", y: 4.5, "text-anchor": "middle" }, g);
+  return { n, g, ring, circ, badge, label, r };
+});
+
+// 타임라인 바
+el("rect", { x: 30, y: 386, width: 320, height: 4, rx: 2, fill: "var(--line)" }, tlLayer);
+const tlFill = el("rect", { x: 30, y: 386, width: 0, height: 4, rx: 2, fill: "var(--primary)" }, tlLayer);
+const tlText = el("text", { x: 30, y: 378, "font-size": 10, fill: "var(--faint)", "font-weight": 600 }, tlLayer);
+tlText.textContent = "0:00";
+
+// 산점도 축 (모프 씬에서 표시)
+const AX = { x0: 46, x1: 350, y0: 356, y1: 60 };
+el("line", { x1: AX.x0, y1: AX.y0, x2: AX.x1, y2: AX.y0 }, axesLayer);
+el("line", { x1: AX.x0, y1: AX.y0, x2: AX.x0, y2: AX.y1 }, axesLayer);
+el("line", { class: "diag", x1: AX.x0, y1: AX.y0, x2: AX.x1, y2: AX.y1 }, axesLayer);
+const axl1 = el("text", { x: AX.x1, y: AX.y0 + 16, "text-anchor": "end" }, axesLayer);
+axl1.textContent = "자료가 힘준 정도 →";
+const axl2 = el("text", { x: AX.x0 - 4, y: AX.y1 - 8 }, axesLayer);
+axl2.textContent = "↑ 발표에서 쓴 힘";
+const scatterX = (w) => AX.x0 + 20 + w * (AX.x1 - AX.x0 - 60);
+const scatterY = (w) => AX.y0 - 16 - w * (AX.y0 - AX.y1 - 40);
+
+/* ---------------------------------------------------------------
+ * 씬
+ * ------------------------------------------------------------- */
+const dots = $("dots");
+CAPTIONS.forEach(() => dots.appendChild(document.createElement("i")));
+function setScene(i) {
+  [...dots.children].forEach((d, k) => d.classList.toggle("on", k === i));
+  const cap = $("caption");
+  cap.classList.remove("show");
+  void cap.offsetWidth; // 리플로우로 트랜지션 재시작
+  $("capH").textContent = CAPTIONS[i].h;
+  $("capP").textContent = CAPTIONS[i].p;
+  cap.classList.add("show");
+}
+
+async function sceneSTT() {
+  setScene(0);
+  const wrap = $("sttScene");
+  wrap.style.opacity = 1;
+  for (let i = 0; i < STT_LINES.length; i++) {
+    if (skipped) break;
+    const line = document.createElement("div");
+    line.className = "stt-line";
+    line.textContent = STT_LINES[i];
+    wrap.appendChild(line);
+    if (i >= 1 && KEYWORDS[i - 1]) {
+      const kw = document.createElement("span");
+      kw.className = "kw";
+      kw.textContent = KEYWORDS[i - 1];
+      kw.style.left = 20 + (i * 67) % 180 + "px";
+      kw.style.top = 44 + (i * 53) % 120 + "px";
+      wrap.appendChild(kw);
+    }
+    await sleep(760);
+  }
+  await sleep(500);
+  wrap.style.opacity = 0;
+  await sleep(300);
+  wrap.innerHTML = "";
+}
+
+async function sceneGraph() {
+  setScene(1);
+  const order = [...nodeEls].sort((a, b) => b.n.doc - a.n.doc);
+  for (const ne of order) {
+    ne.g.classList.add("pop");
+    await sleep(130);
+  }
+  await sleep(250);
+  for (const { e, line } of edgeEls) {
+    if (e.kind === "relates") line.style.opacity = 1;
+    else line.style.strokeDashoffset = 0;
+    await sleep(90);
+  }
+  await sleep(1000);
+}
+
+async function sceneSweep() {
+  setScene(2);
+  tlLayer.classList.add("show");
+  const TOTAL = 312;         // 실제 발화 시간(초)
+  const DUR = REDUCED || skipped ? 0 : 5200; // 화면 재생 시간(ms)
+  const mentioned = nodeEls.filter((x) => x.n.first !== null)
+    .sort((a, b) => a.n.first - b.n.first);
+  let mi = 0;
+  const t0 = performance.now();
+  await new Promise((resolve) => {
+    (function tick(t) {
+      const p = DUR === 0 ? 1 : Math.min(1, (t - t0) / DUR);
+      const sec = p * TOTAL;
+      tlFill.setAttribute("width", 320 * p);
+      tlText.textContent = Math.floor(sec / 60) + ":" + String(Math.floor(sec % 60)).padStart(2, "0");
+      while (mi < mentioned.length && mentioned[mi].n.first <= sec) {
+        const ne = mentioned[mi++];
+        ne.ring.style.strokeDashoffset = ne.circ * (1 - ne.n.speech);
+      }
+      if (p < 1) requestAnimationFrame(tick);
+      else resolve();
+    })(t0);
+  });
+  await sleep(800);
+}
+
+async function sceneVerdict() {
+  setScene(3);
+  const marks = { aligned: "✓", contra: "!", missing: "", skip: "" };
+  for (const ne of nodeEls) {
+    const v = ne.n.verdict;
+    ne.g.classList.add("v-" + v);
+    if (marks[v]) {
+      ne.badge.textContent = marks[v];
+      ne.badge.setAttribute("fill", v === "contra" ? "var(--bad)" : "var(--good)");
+      ne.badge.classList.add("show");
+    }
+    if (v === "contra" && ne.n.evidence && !skipped) {
+      const q = $("quoteBubble");
+      q.textContent = ne.n.evidence;
+      q.style.left = "16px";
+      q.style.top = (ne.n.y / 400 * 100 - 24) + "%";
+      q.classList.add("show");
+    }
+    await sleep(240);
+  }
+  await sleep(2400);
+  $("quoteBubble").classList.remove("show");
+  for (const { line } of edgeEls) line.style.opacity = 0;
+  await sleep(350);
+  // 문서 간선 중 말로 이은 것만 다시 켠다
+  for (const [a, b] of SPOKEN_EDGES) {
+    const m = edgeEls.find(({ e }) =>
+      (e.from === a && e.to === b) || (e.from === b && e.to === a));
+    if (m) { m.line.style.opacity = 1; m.line.classList.add("spoken"); }
+  }
+  showToast("연결 9개 중 3개를 말로 이어줬어요");
+  await sleep(1900);
+  hideToast();
+}
+
+async function sceneScatter() {
+  setScene(4);
+  tlLayer.classList.remove("show");
+  for (const { line } of edgeEls) line.style.opacity = 0;
+  axesLayer.classList.add("show");
+  for (const ne of nodeEls) {
+    ne.g.classList.add("moving");
+    ne.g.style.transform =
+      `translate(${scatterX(ne.n.doc)}px, ${scatterY(ne.n.speech)}px)`;
+  }
+  await sleep(2800);
+}
+
+async function sceneSummary() {
+  setScene(5);
+  const s = $("summaryScene");
+  s.classList.add("show");
+  countUp($("covNum"), SUMMARY.coverage, 1100, (v) => Math.round(v));
+  await sleep(500);
+  $("mc1").classList.add("show");
+  countUp($("rankNum"), SUMMARY.rank, 900, (v) => v.toFixed(2));
+  await sleep(180);
+  $("mc2").classList.add("show");
+  countUp($("edgeNum"), SUMMARY.edge, 900, (v) => Math.round(v) + "%");
+  for (const id of ["vr1", "vr2", "vr3", "vr4"]) {
+    await sleep(160);
+    $(id).classList.add("show");
+  }
+  $("skipBtn").style.visibility = "hidden";
+}
+
+/* ---------------------------------------------------------------
+ * 실행 제어
+ * ------------------------------------------------------------- */
+function resetAll() {
+  skipped = false;
+  $("skipBtn").style.visibility = "visible";
+  $("summaryScene").classList.remove("show");
+  $("quoteBubble").classList.remove("show");
+  axesLayer.classList.remove("show");
+  tlLayer.classList.remove("show");
+  tlFill.setAttribute("width", 0);
+  $("covNum").textContent = "0";
+  ["mc1", "mc2", "vr1", "vr2", "vr3", "vr4"].forEach((id) => $(id).classList.remove("show"));
+  for (const ne of nodeEls) {
+    ne.g.setAttribute("class", "node");
+    ne.g.style.transform = `translate(${ne.n.x}px, ${ne.n.y}px)`;
+    ne.ring.style.strokeDashoffset = ne.circ;
+    ne.badge.classList.remove("show");
+  }
+  for (const { e, line, len } of edgeEls) {
+    line.classList.remove("spoken");
+    if (e.kind === "relates") { line.style.opacity = 0; }
+    else { line.style.strokeDashoffset = len; line.style.opacity = 1; }
+  }
+}
+
+async function run() {
+  const token = ++runToken;
+  resetAll();
+  const scenes = [sceneSTT, sceneGraph, sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
+  for (const scene of scenes) {
+    if (token !== runToken) return;
+    await scene();
+  }
+}
+
+function jumpToEnd() {
+  skipped = true;
+  runToken++;
+  $("sttScene").innerHTML = "";
+  $("sttScene").style.opacity = 0;
+  $("quoteBubble").classList.remove("show");
+  tlLayer.classList.remove("show");
+  for (const ne of nodeEls) {
+    ne.g.classList.add("pop", "v-" + ne.n.verdict, "moving");
+    ne.g.style.transform =
+      `translate(${scatterX(ne.n.doc)}px, ${scatterY(ne.n.speech)}px)`;
+    ne.ring.style.strokeDashoffset = ne.circ * (1 - ne.n.speech);
+  }
+  for (const { line } of edgeEls) line.style.opacity = 0;
+  axesLayer.classList.add("show");
+  sceneSummary();
+}
+
+function showToast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+}
+function hideToast() { $("toast").classList.remove("show"); }
+
+$("skipBtn").addEventListener("click", jumpToEnd);
+$("replayBtn").addEventListener("click", run);
+$("ctaBtn").addEventListener("click", () => {
+  showToast("질문 코치는 F-08에서 만나요");
+  setTimeout(hideToast, 1800);
+});
+
+run();
+</script>
+
+</body>
+</html>
