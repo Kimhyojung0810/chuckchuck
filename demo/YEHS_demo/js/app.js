@@ -978,7 +978,11 @@ function showF11Reveal() {
     if (e.data && e.data.type === 'f11RevealDone') {
       window.removeEventListener('message', onMsg);
       wrap.style.opacity = '0';
-      setTimeout(() => wrap.remove(), 450);
+      setTimeout(() => {
+        wrap.remove();
+        // 파이프라인이 끝났으면 질문 코치로 바로, 아니면 준비 화면에서 대기
+        if ((nf.pipelinePhase || '') === 'done') location.hash = '#/qa';
+      }, 450);
     }
   };
   window.addEventListener('message', onMsg);

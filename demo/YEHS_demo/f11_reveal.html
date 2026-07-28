@@ -287,6 +287,14 @@
   #startScene p { margin: 0 0 18px; color: var(--sub); font-size: 14.5px; line-height: 1.5; }
   #startScene .cta { max-width: 280px; }
 
+  /* embed(데모 앱 iframe) — 앱은 라이트 전용이라 테마를 고정하고,
+     페이지 배경(#F2F4F6)과 맞춰 카드처럼 띄운다 */
+  body.embed { background: #f2f4f6; }
+  body.embed .phone {
+    max-width: 440px; min-height: calc(100vh - 36px); margin: 18px auto;
+    border-radius: 20px; box-shadow: 0 6px 24px rgba(0, 23, 51, 0.08);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
@@ -723,6 +731,8 @@ $("ctaBtn").addEventListener("click", () => {
 });
 
 if (EMBED) {
+  document.documentElement.dataset.theme = "light"; // 데모 앱은 라이트 전용
+  document.body.classList.add("embed");
   $("startScene").classList.add("hide");
   run();
 }
