@@ -1211,10 +1211,15 @@ function wireQaModeButtons(rerender) {
     rerender();
   }));
 }
-/* 지난 세션이 남아 있으면 새 코칭으로 초기화한 뒤 #/qa 로 이동 */
+/* 지난 세션이 남아 있으면 새 코칭으로 초기화한 뒤 #/qa 로 이동.
+ * CTA 경로는 이미 모드를 골랐으니 started 를 세워 시작 전 게이트를 건너뛴다. */
 function wireQaStart(root) {
   const cta = root.querySelector('[data-qa-start]');
-  if (cta) cta.addEventListener('click', () => { if (qa.started || qa.ended) resetQa(); });
+  if (cta) cta.addEventListener('click', () => {
+    if (qa.started || qa.ended) resetQa();
+    qa.started = true;
+    saveSession('qa-flow', qa);
+  });
 }
 
 /* 질문 준비 완료 → QA 시간 모드 선택 + 시작 CTA */
@@ -2287,11 +2292,30 @@ function qaLiveEnd() {
   window.scrollTo(0, 0);
 }
 
+/* #/qa 직접 진입: 시작 전에 시간 모드를 고르는 게이트 */
+function qaModeGate() {
+  app.className = 'narrow';
+  app.innerHTML = `
+    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>시작 전 설정</span></div>
+    <div class="card qa-quick">
+      <div class="qm-head"><b>질문 코칭 시간을 골라주세요</b><span>시간에 맞춰 질문 범위를 짜요 — 짧을수록 치명적인 것만 다뤄요</span></div>
+      ${qaModeButtonsHtml()}
+      <button class="btn btn-primary" id="qaGateStart" type="button">이 설정으로 시작하기 · ${qaScope().concepts.length}개 개념 · 약 ${qaScope().min}분</button>
+    </div>`;
+  wireQaModeButtons(qaModeGate);
+  $('#qaGateStart').addEventListener('click', () => {
+    qa.started = true;
+    saveSession('qa-flow', qa);
+    renderQa();
+  });
+}
+
 /* ── 화면 ── */
 function renderQa() {
   app.className = 'narrow';
   if (qaLiveActive()) return renderQaLive();
   if (qa.ended) return qaEnd();
+  if (!qa.started && !qa.turns.length) return qaModeGate();
   qa.started = true;
   // 첫 진입: 첫 질문을 스레드에 올림
   if (!qa.turns.length) { qa.concepts.joint = 'current'; presentQuestion(qaBeatList()[0]); }
