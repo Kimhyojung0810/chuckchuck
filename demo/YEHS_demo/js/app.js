@@ -1212,12 +1212,13 @@ function wireQaModeButtons(rerender) {
   }));
 }
 /* 지난 세션이 남아 있으면 새 코칭으로 초기화한 뒤 #/qa 로 이동.
- * CTA 경로는 이미 모드를 골랐으니 started 를 세워 시작 전 게이트를 건너뛴다. */
-function wireQaStart(root) {
+ * 모드를 이미 고른 경로(홈 카드·4단계)는 started 를 세워 게이트를 건너뛰고,
+ * pickMode 경로(리포트 다시 하기 등)는 게이트에서 1/5/10분을 고르게 둔다. */
+function wireQaStart(root, { pickMode = false } = {}) {
   const cta = root.querySelector('[data-qa-start]');
   if (cta) cta.addEventListener('click', () => {
     if (qa.started || qa.ended) resetQa();
-    qa.started = true;
+    qa.started = !pickMode;
     saveSession('qa-flow', qa);
   });
 }
@@ -1586,7 +1587,7 @@ function rSummary() {
         </div>`).join('')}
       </div>
     </details>`;
-  wireQaStart(app);
+  wireQaStart(app, { pickMode: true });
   $('#trophyStrip').addEventListener('click', () => {
     selectDeckSlide(DATA.session.qa.trophy.slide);
     $('.rep-deck').scrollIntoView({ behavior: 'smooth', block: 'start' });
