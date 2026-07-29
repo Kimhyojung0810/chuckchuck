@@ -5,6 +5,8 @@ __pycache__/
 .DS_Store
 *.egg-info/
 .pytest_cache/
+.coverage
+htmlcov/
 _adot_*
 _stt_*
 _service_*

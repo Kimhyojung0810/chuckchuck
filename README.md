@@ -12,6 +12,8 @@
 | F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) |
 | F-05 | `chuckchuck/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 |
 | F-06 | `chuckchuck/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 |
+| F-07 | `chuckchuck/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 |
+| F-11 | `chuckchuck/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 |
 
 공통 계약은 `chuckchuck/contracts.py` 하나다. 설정은 `chuckchuck/config.py` (`settings.masked()`).
 
@@ -127,6 +129,13 @@ tests/ examples/
 
 ## 주의
 
-- F-06은 **트리(부모-자식)를 만들지 않는다**. 그건 F-07.
+- F-06은 **위계를 만들지 않는다**. 그건 F-07(`build_graph`)이 `ConceptDoc`을 받아서 한다.
+- F-07은 **트리가 아니라 그래프**를 낸다. 개념은 부모가 하나라는 보장이 없어서다.
+  `parent` 간선만 따라가면 트리 뷰, `relates` 간선이 나머지 연결.
+- F-07은 **판정하지 않는다**. 발화 축(`speech_weight`)과 정합 판정(누락·모순)은
+  `Transcript`가 있어야 나오므로 F-11(`align_speech`)이 `node_id`로 붙인다.
+- F-11은 **발화 그래프를 따로 뽑지 않는다**. LLM 추출 분산이 두 배가 되어 diff 가
+  노이즈를 재기 때문이다. 문서 그래프 노드에 조건화해 판정만 받고,
+  `speech_weight` 는 marks·토큰 매칭으로 코드가 결정적으로 계산한다.
 - STT 제공자가 단어 시각을 안 주면 `WordTimestampUnsupported` 로 즉시 실패한다 (F-17 말속도 대비).
 - API 키는 `.env`에만 두고 커밋하지 말 것.

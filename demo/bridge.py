@@ -23,11 +23,12 @@ from chuckchuck.config import settings  # noqa: E402
 
 from chuckchuck import (  # noqa: E402
     Context,
+    build_graph,
     extract_concepts,
     parse_document,
     transcribe,
 )
-from chuckchuck.contracts import SlideDoc, SlideMark  # noqa: E402
+from chuckchuck.contracts import ConceptDoc, SlideDoc, SlideMark  # noqa: E402
 
 MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일
 
@@ -90,6 +91,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_concepts(raw)
             if parsed.path == "/api/v1/transcribe":
                 return self._handle_transcribe(raw)
+            if parsed.path == "/api/v1/graph":
+                return self._handle_graph(raw)
+            if parsed.path == "/api/v1/alignment":
+                return self._handle_alignment(raw)
+            if parsed.path == "/api/v1/flow":
+                return self._handle_flow(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -218,8 +225,95 @@ class Handler(SimpleHTTPRequestHandler):
         sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}\n")
         return self._json(200, result.to_dict())
 
+    def _handle_graph(self, raw: bytes):
+        """F-07 · ConceptDoc(+선택 SlideDoc) → ConceptGraph."""
+        body = json.loads(raw or b"{}")
+        if not body.get("concept_doc"):
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "concept_doc 이 필요합니다. F-06 결과를 보내세요."},
+            )
+        doc = ConceptDoc.from_dict(body["concept_doc"])
+        ctx = Context.from_dict(body.get("context") or {})
+        # slide_doc 은 선택. 주면 weight 가 글자 수·시각자료까지 반영한다.
+        slide_doc = SlideDoc.from_dict(body["slide_doc"]) if body.get("slide_doc") else None
+        llm = "mock" if _mock() else body.get("llm")
+        sys.stderr.write(
+            f"[bridge] F-07 graph start slides={doc.total_slides} "
+            f"has_slide_doc={slide_doc is not None} mock={_mock()}\n"
+        )
+        graph = build_graph(doc, ctx, slide_doc=slide_doc, llm=llm)
+        sys.stderr.write(
+            f"[bridge] F-07 graph done nodes={len(graph.nodes)} "
+            f"edges={len(graph.edges)} sections={len(graph.sections)}\n"
+        )
+        return self._json(200, graph.to_dict())
+
+    def _handle_alignment(self, raw: bytes):
+        """F-11 · ConceptGraph + Transcript(+선택 Context) → AlignmentDoc."""
+        from chuckchuck import align_speech
+        from chuckchuck.contracts import ConceptGraph, Transcript
+
+        body = json.loads(raw or b"{}")
+        if not body.get("graph") or not body.get("transcript"):
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": "graph 와 transcript 가 필요합니다. F-07·F-05 결과를 보내세요.",
+                },
+            )
+        graph = ConceptGraph.from_dict(body["graph"])
+        transcript = Transcript.from_dict(body["transcript"])
+        ctx = Context.from_dict(body.get("context") or {})
+        llm = "mock" if _mock() else body.get("llm")
+        sys.stderr.write(
+            f"[bridge] F-11 alignment start nodes={len(graph.nodes)} "
+            f"slides={graph.total_slides} mock={_mock()}\n"
+        )
+        alignment = align_speech(graph, transcript, ctx, llm=llm)
+        s = alignment.summary
+        sys.stderr.write(
+            f"[bridge] F-11 alignment done coverage={s.coverage} "
+            f"verdicts={s.verdict_counts}\n"
+        )
+        return self._json(200, alignment.to_dict())
+
+    def _handle_flow(self, raw: bytes):
+        """F-11 파생 · ConceptGraph + AlignmentDoc → FlowDiff. LLM 호출 없음."""
+        from chuckchuck import build_flow_diff
+
+        body = json.loads(raw or b"{}")
+        if not body.get("graph") or not body.get("alignment"):
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": "graph 와 alignment 가 필요합니다. F-07·F-11 결과를 보내세요.",
+                },
+            )
+        flow = build_flow_diff(body["graph"], body["alignment"])
+        sys.stderr.write(
+            f"[bridge] F-11 flow done issues={len(flow.issues)} "
+            f"tau={flow.order_tau} ghosts={len(flow.ghost_node_ids)}\n"
+        )
+        return self._json(200, flow.to_dict())
+
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")
+
+        # 실데이터 스왑 지점의 더미 — 시나리오가 심긴 Transcript fixture 를 그대로 준다.
+        # 실 녹음이 들어오면 이 분기를 안 타고 아래 provider 경로로 흐른다 (코드 수정 0줄).
+        if body.get("fixture"):
+            fixture = ROOT / "fixtures" / "sample_transcript.json"
+            if not fixture.exists():
+                return self._json(
+                    404,
+                    {"error": "no_fixture", "message": "sample_transcript.json 이 없습니다."},
+                )
+            sys.stderr.write("[bridge] F-05 transcribe → fixture transcript\n")
+            return self._json(200, json.loads(fixture.read_text(encoding="utf-8")))
+
         marks = [SlideMark.from_dict(m) for m in body.get("marks", [])]
         provider = "mock" if _mock() else body.get("provider", "skt-ax")
 
@@ -253,6 +347,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def end_headers(self):
+        # 데모는 수정이 잦다. 캐시된 옛 app.js 가 새 흐름을 가리는 사고 방지
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")

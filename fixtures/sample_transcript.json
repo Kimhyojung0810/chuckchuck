@@ -1,0 +1,934 @@
+{
+  "full_text": "안녕하세요 오늘은 Contrastive Learning 이야기부터 꺼내면서 시작해 볼게요 발표 주제는 IMU2CLIP 논문 리뷰 입니다 비디오와 IMU 텍스트를 하나의 표현 공간으로 정렬하는 연구예요 먼저 Self Supervised Learning 입니다 라벨 없이 pretext task 로 표현을 먼저 학습하는 방식이죠 라벨을 아주 많이 만들어야 하는 방법입니다 다음으로 Contrastive Learning 을 더 자세히 보면 같은 샘플은 가깝게 다른 샘플은 멀게 만듭니다 그래서 이 손실을 바탕으로 공동 임베딩 정렬 이 가능해집니다 세 모달리티를 joint space 에 올려 상호 검색을 할 수 있어요 여기서 Temperature Parameter 라는 값도 잠깐 언급하고 넘어갈게요 이상으로 발표를 마치겠습니다 감사합니다",
+  "words": [
+    {
+      "text": "안녕하세요",
+      "start_sec": 0.0,
+      "end_sec": 0.4
+    },
+    {
+      "text": "오늘은",
+      "start_sec": 0.4,
+      "end_sec": 0.8
+    },
+    {
+      "text": "Contrastive",
+      "start_sec": 0.8,
+      "end_sec": 1.2
+    },
+    {
+      "text": "Learning",
+      "start_sec": 1.2,
+      "end_sec": 1.6
+    },
+    {
+      "text": "이야기부터",
+      "start_sec": 1.6,
+      "end_sec": 2.0
+    },
+    {
+      "text": "꺼내면서",
+      "start_sec": 2.0,
+      "end_sec": 2.4
+    },
+    {
+      "text": "시작해",
+      "start_sec": 2.4,
+      "end_sec": 2.8
+    },
+    {
+      "text": "볼게요",
+      "start_sec": 2.8,
+      "end_sec": 3.2
+    },
+    {
+      "text": "발표",
+      "start_sec": 3.2,
+      "end_sec": 3.6
+    },
+    {
+      "text": "주제는",
+      "start_sec": 3.6,
+      "end_sec": 4.0
+    },
+    {
+      "text": "IMU2CLIP",
+      "start_sec": 4.0,
+      "end_sec": 4.4
+    },
+    {
+      "text": "논문",
+      "start_sec": 4.4,
+      "end_sec": 4.8
+    },
+    {
+      "text": "리뷰",
+      "start_sec": 4.8,
+      "end_sec": 5.2
+    },
+    {
+      "text": "입니다",
+      "start_sec": 5.2,
+      "end_sec": 5.6
+    },
+    {
+      "text": "비디오와",
+      "start_sec": 5.6,
+      "end_sec": 6.0
+    },
+    {
+      "text": "IMU",
+      "start_sec": 6.0,
+      "end_sec": 6.4
+    },
+    {
+      "text": "텍스트를",
+      "start_sec": 6.4,
+      "end_sec": 6.8
+    },
+    {
+      "text": "하나의",
+      "start_sec": 6.8,
+      "end_sec": 7.2
+    },
+    {
+      "text": "표현",
+      "start_sec": 7.2,
+      "end_sec": 7.6
+    },
+    {
+      "text": "공간으로",
+      "start_sec": 7.6,
+      "end_sec": 8.0
+    },
+    {
+      "text": "정렬하는",
+      "start_sec": 8.0,
+      "end_sec": 8.4
+    },
+    {
+      "text": "연구예요",
+      "start_sec": 8.4,
+      "end_sec": 8.8
+    },
+    {
+      "text": "먼저",
+      "start_sec": 10.0,
+      "end_sec": 10.4
+    },
+    {
+      "text": "Self",
+      "start_sec": 10.4,
+      "end_sec": 10.8
+    },
+    {
+      "text": "Supervised",
+      "start_sec": 10.8,
+      "end_sec": 11.2
+    },
+    {
+      "text": "Learning",
+      "start_sec": 11.2,
+      "end_sec": 11.6
+    },
+    {
+      "text": "입니다",
+      "start_sec": 11.6,
+      "end_sec": 12.0
+    },
+    {
+      "text": "라벨",
+      "start_sec": 12.0,
+      "end_sec": 12.4
+    },
+    {
+      "text": "없이",
+      "start_sec": 12.4,
+      "end_sec": 12.8
+    },
+    {
+      "text": "pretext",
+      "start_sec": 12.8,
+      "end_sec": 13.2
+    },
+    {
+      "text": "task",
+      "start_sec": 13.2,
+      "end_sec": 13.6
+    },
+    {
+      "text": "로",
+      "start_sec": 13.6,
+      "end_sec": 14.0
+    },
+    {
+      "text": "표현을",
+      "start_sec": 14.0,
+      "end_sec": 14.4
+    },
+    {
+      "text": "먼저",
+      "start_sec": 14.4,
+      "end_sec": 14.8
+    },
+    {
+      "text": "학습하는",
+      "start_sec": 14.8,
+      "end_sec": 15.2
+    },
+    {
+      "text": "방식이죠",
+      "start_sec": 15.2,
+      "end_sec": 15.6
+    },
+    {
+      "text": "라벨을",
+      "start_sec": 15.6,
+      "end_sec": 16.0
+    },
+    {
+      "text": "아주",
+      "start_sec": 16.0,
+      "end_sec": 16.4
+    },
+    {
+      "text": "많이",
+      "start_sec": 16.4,
+      "end_sec": 16.8
+    },
+    {
+      "text": "만들어야",
+      "start_sec": 16.8,
+      "end_sec": 17.2
+    },
+    {
+      "text": "하는",
+      "start_sec": 17.2,
+      "end_sec": 17.6
+    },
+    {
+      "text": "방법입니다",
+      "start_sec": 17.6,
+      "end_sec": 18.0
+    },
+    {
+      "text": "다음으로",
+      "start_sec": 19.2,
+      "end_sec": 19.6
+    },
+    {
+      "text": "Contrastive",
+      "start_sec": 19.6,
+      "end_sec": 20.0
+    },
+    {
+      "text": "Learning",
+      "start_sec": 20.0,
+      "end_sec": 20.4
+    },
+    {
+      "text": "을",
+      "start_sec": 20.4,
+      "end_sec": 20.8
+    },
+    {
+      "text": "더",
+      "start_sec": 20.8,
+      "end_sec": 21.2
+    },
+    {
+      "text": "자세히",
+      "start_sec": 21.2,
+      "end_sec": 21.6
+    },
+    {
+      "text": "보면",
+      "start_sec": 21.6,
+      "end_sec": 22.0
+    },
+    {
+      "text": "같은",
+      "start_sec": 22.0,
+      "end_sec": 22.4
+    },
+    {
+      "text": "샘플은",
+      "start_sec": 22.4,
+      "end_sec": 22.8
+    },
+    {
+      "text": "가깝게",
+      "start_sec": 22.8,
+      "end_sec": 23.2
+    },
+    {
+      "text": "다른",
+      "start_sec": 23.2,
+      "end_sec": 23.6
+    },
+    {
+      "text": "샘플은",
+      "start_sec": 23.6,
+      "end_sec": 24.0
+    },
+    {
+      "text": "멀게",
+      "start_sec": 24.0,
+      "end_sec": 24.4
+    },
+    {
+      "text": "만듭니다",
+      "start_sec": 24.4,
+      "end_sec": 24.8
+    },
+    {
+      "text": "그래서",
+      "start_sec": 26.0,
+      "end_sec": 26.4
+    },
+    {
+      "text": "이",
+      "start_sec": 26.4,
+      "end_sec": 26.8
+    },
+    {
+      "text": "손실을",
+      "start_sec": 26.8,
+      "end_sec": 27.2
+    },
+    {
+      "text": "바탕으로",
+      "start_sec": 27.2,
+      "end_sec": 27.6
+    },
+    {
+      "text": "공동",
+      "start_sec": 27.6,
+      "end_sec": 28.0
+    },
+    {
+      "text": "임베딩",
+      "start_sec": 28.0,
+      "end_sec": 28.4
+    },
+    {
+      "text": "정렬",
+      "start_sec": 28.4,
+      "end_sec": 28.8
+    },
+    {
+      "text": "이",
+      "start_sec": 28.8,
+      "end_sec": 29.2
+    },
+    {
+      "text": "가능해집니다",
+      "start_sec": 29.2,
+      "end_sec": 29.6
+    },
+    {
+      "text": "세",
+      "start_sec": 29.6,
+      "end_sec": 30.0
+    },
+    {
+      "text": "모달리티를",
+      "start_sec": 30.0,
+      "end_sec": 30.4
+    },
+    {
+      "text": "joint",
+      "start_sec": 30.4,
+      "end_sec": 30.8
+    },
+    {
+      "text": "space",
+      "start_sec": 30.8,
+      "end_sec": 31.2
+    },
+    {
+      "text": "에",
+      "start_sec": 31.2,
+      "end_sec": 31.6
+    },
+    {
+      "text": "올려",
+      "start_sec": 31.6,
+      "end_sec": 32.0
+    },
+    {
+      "text": "상호",
+      "start_sec": 32.0,
+      "end_sec": 32.4
+    },
+    {
+      "text": "검색을",
+      "start_sec": 32.4,
+      "end_sec": 32.8
+    },
+    {
+      "text": "할",
+      "start_sec": 32.8,
+      "end_sec": 33.2
+    },
+    {
+      "text": "수",
+      "start_sec": 33.2,
+      "end_sec": 33.6
+    },
+    {
+      "text": "있어요",
+      "start_sec": 33.6,
+      "end_sec": 34.0
+    },
+    {
+      "text": "여기서",
+      "start_sec": 34.0,
+      "end_sec": 34.4
+    },
+    {
+      "text": "Temperature",
+      "start_sec": 34.4,
+      "end_sec": 34.8
+    },
+    {
+      "text": "Parameter",
+      "start_sec": 34.8,
+      "end_sec": 35.2
+    },
+    {
+      "text": "라는",
+      "start_sec": 35.2,
+      "end_sec": 35.6
+    },
+    {
+      "text": "값도",
+      "start_sec": 35.6,
+      "end_sec": 36.0
+    },
+    {
+      "text": "잠깐",
+      "start_sec": 36.0,
+      "end_sec": 36.4
+    },
+    {
+      "text": "언급하고",
+      "start_sec": 36.4,
+      "end_sec": 36.8
+    },
+    {
+      "text": "넘어갈게요",
+      "start_sec": 36.8,
+      "end_sec": 37.2
+    },
+    {
+      "text": "이상으로",
+      "start_sec": 38.4,
+      "end_sec": 38.8
+    },
+    {
+      "text": "발표를",
+      "start_sec": 38.8,
+      "end_sec": 39.2
+    },
+    {
+      "text": "마치겠습니다",
+      "start_sec": 39.2,
+      "end_sec": 39.6
+    },
+    {
+      "text": "감사합니다",
+      "start_sec": 39.6,
+      "end_sec": 40.0
+    }
+  ],
+  "by_slide": [
+    {
+      "slide_no": 1,
+      "visit": 1,
+      "start_sec": 0.0,
+      "end_sec": 10.0,
+      "text": "안녕하세요 오늘은 Contrastive Learning 이야기부터 꺼내면서 시작해 볼게요 발표 주제는 IMU2CLIP 논문 리뷰 입니다 비디오와 IMU 텍스트를 하나의 표현 공간으로 정렬하는 연구예요",
+      "words": [
+        {
+          "text": "안녕하세요",
+          "start_sec": 0.0,
+          "end_sec": 0.4
+        },
+        {
+          "text": "오늘은",
+          "start_sec": 0.4,
+          "end_sec": 0.8
+        },
+        {
+          "text": "Contrastive",
+          "start_sec": 0.8,
+          "end_sec": 1.2
+        },
+        {
+          "text": "Learning",
+          "start_sec": 1.2,
+          "end_sec": 1.6
+        },
+        {
+          "text": "이야기부터",
+          "start_sec": 1.6,
+          "end_sec": 2.0
+        },
+        {
+          "text": "꺼내면서",
+          "start_sec": 2.0,
+          "end_sec": 2.4
+        },
+        {
+          "text": "시작해",
+          "start_sec": 2.4,
+          "end_sec": 2.8
+        },
+        {
+          "text": "볼게요",
+          "start_sec": 2.8,
+          "end_sec": 3.2
+        },
+        {
+          "text": "발표",
+          "start_sec": 3.2,
+          "end_sec": 3.6
+        },
+        {
+          "text": "주제는",
+          "start_sec": 3.6,
+          "end_sec": 4.0
+        },
+        {
+          "text": "IMU2CLIP",
+          "start_sec": 4.0,
+          "end_sec": 4.4
+        },
+        {
+          "text": "논문",
+          "start_sec": 4.4,
+          "end_sec": 4.8
+        },
+        {
+          "text": "리뷰",
+          "start_sec": 4.8,
+          "end_sec": 5.2
+        },
+        {
+          "text": "입니다",
+          "start_sec": 5.2,
+          "end_sec": 5.6
+        },
+        {
+          "text": "비디오와",
+          "start_sec": 5.6,
+          "end_sec": 6.0
+        },
+        {
+          "text": "IMU",
+          "start_sec": 6.0,
+          "end_sec": 6.4
+        },
+        {
+          "text": "텍스트를",
+          "start_sec": 6.4,
+          "end_sec": 6.8
+        },
+        {
+          "text": "하나의",
+          "start_sec": 6.8,
+          "end_sec": 7.2
+        },
+        {
+          "text": "표현",
+          "start_sec": 7.2,
+          "end_sec": 7.6
+        },
+        {
+          "text": "공간으로",
+          "start_sec": 7.6,
+          "end_sec": 8.0
+        },
+        {
+          "text": "정렬하는",
+          "start_sec": 8.0,
+          "end_sec": 8.4
+        },
+        {
+          "text": "연구예요",
+          "start_sec": 8.4,
+          "end_sec": 8.8
+        }
+      ]
+    },
+    {
+      "slide_no": 2,
+      "visit": 1,
+      "start_sec": 10.0,
+      "end_sec": 19.2,
+      "text": "먼저 Self Supervised Learning 입니다 라벨 없이 pretext task 로 표현을 먼저 학습하는 방식이죠 라벨을 아주 많이 만들어야 하는 방법입니다",
+      "words": [
+        {
+          "text": "먼저",
+          "start_sec": 10.0,
+          "end_sec": 10.4
+        },
+        {
+          "text": "Self",
+          "start_sec": 10.4,
+          "end_sec": 10.8
+        },
+        {
+          "text": "Supervised",
+          "start_sec": 10.8,
+          "end_sec": 11.2
+        },
+        {
+          "text": "Learning",
+          "start_sec": 11.2,
+          "end_sec": 11.6
+        },
+        {
+          "text": "입니다",
+          "start_sec": 11.6,
+          "end_sec": 12.0
+        },
+        {
+          "text": "라벨",
+          "start_sec": 12.0,
+          "end_sec": 12.4
+        },
+        {
+          "text": "없이",
+          "start_sec": 12.4,
+          "end_sec": 12.8
+        },
+        {
+          "text": "pretext",
+          "start_sec": 12.8,
+          "end_sec": 13.2
+        },
+        {
+          "text": "task",
+          "start_sec": 13.2,
+          "end_sec": 13.6
+        },
+        {
+          "text": "로",
+          "start_sec": 13.6,
+          "end_sec": 14.0
+        },
+        {
+          "text": "표현을",
+          "start_sec": 14.0,
+          "end_sec": 14.4
+        },
+        {
+          "text": "먼저",
+          "start_sec": 14.4,
+          "end_sec": 14.8
+        },
+        {
+          "text": "학습하는",
+          "start_sec": 14.8,
+          "end_sec": 15.2
+        },
+        {
+          "text": "방식이죠",
+          "start_sec": 15.2,
+          "end_sec": 15.6
+        },
+        {
+          "text": "라벨을",
+          "start_sec": 15.6,
+          "end_sec": 16.0
+        },
+        {
+          "text": "아주",
+          "start_sec": 16.0,
+          "end_sec": 16.4
+        },
+        {
+          "text": "많이",
+          "start_sec": 16.4,
+          "end_sec": 16.8
+        },
+        {
+          "text": "만들어야",
+          "start_sec": 16.8,
+          "end_sec": 17.2
+        },
+        {
+          "text": "하는",
+          "start_sec": 17.2,
+          "end_sec": 17.6
+        },
+        {
+          "text": "방법입니다",
+          "start_sec": 17.6,
+          "end_sec": 18.0
+        }
+      ]
+    },
+    {
+      "slide_no": 3,
+      "visit": 1,
+      "start_sec": 19.2,
+      "end_sec": 26.0,
+      "text": "다음으로 Contrastive Learning 을 더 자세히 보면 같은 샘플은 가깝게 다른 샘플은 멀게 만듭니다",
+      "words": [
+        {
+          "text": "다음으로",
+          "start_sec": 19.2,
+          "end_sec": 19.6
+        },
+        {
+          "text": "Contrastive",
+          "start_sec": 19.6,
+          "end_sec": 20.0
+        },
+        {
+          "text": "Learning",
+          "start_sec": 20.0,
+          "end_sec": 20.4
+        },
+        {
+          "text": "을",
+          "start_sec": 20.4,
+          "end_sec": 20.8
+        },
+        {
+          "text": "더",
+          "start_sec": 20.8,
+          "end_sec": 21.2
+        },
+        {
+          "text": "자세히",
+          "start_sec": 21.2,
+          "end_sec": 21.6
+        },
+        {
+          "text": "보면",
+          "start_sec": 21.6,
+          "end_sec": 22.0
+        },
+        {
+          "text": "같은",
+          "start_sec": 22.0,
+          "end_sec": 22.4
+        },
+        {
+          "text": "샘플은",
+          "start_sec": 22.4,
+          "end_sec": 22.8
+        },
+        {
+          "text": "가깝게",
+          "start_sec": 22.8,
+          "end_sec": 23.2
+        },
+        {
+          "text": "다른",
+          "start_sec": 23.2,
+          "end_sec": 23.6
+        },
+        {
+          "text": "샘플은",
+          "start_sec": 23.6,
+          "end_sec": 24.0
+        },
+        {
+          "text": "멀게",
+          "start_sec": 24.0,
+          "end_sec": 24.4
+        },
+        {
+          "text": "만듭니다",
+          "start_sec": 24.4,
+          "end_sec": 24.8
+        }
+      ]
+    },
+    {
+      "slide_no": 4,
+      "visit": 1,
+      "start_sec": 26.0,
+      "end_sec": 38.4,
+      "text": "그래서 이 손실을 바탕으로 공동 임베딩 정렬 이 가능해집니다 세 모달리티를 joint space 에 올려 상호 검색을 할 수 있어요 여기서 Temperature Parameter 라는 값도 잠깐 언급하고 넘어갈게요",
+      "words": [
+        {
+          "text": "그래서",
+          "start_sec": 26.0,
+          "end_sec": 26.4
+        },
+        {
+          "text": "이",
+          "start_sec": 26.4,
+          "end_sec": 26.8
+        },
+        {
+          "text": "손실을",
+          "start_sec": 26.8,
+          "end_sec": 27.2
+        },
+        {
+          "text": "바탕으로",
+          "start_sec": 27.2,
+          "end_sec": 27.6
+        },
+        {
+          "text": "공동",
+          "start_sec": 27.6,
+          "end_sec": 28.0
+        },
+        {
+          "text": "임베딩",
+          "start_sec": 28.0,
+          "end_sec": 28.4
+        },
+        {
+          "text": "정렬",
+          "start_sec": 28.4,
+          "end_sec": 28.8
+        },
+        {
+          "text": "이",
+          "start_sec": 28.8,
+          "end_sec": 29.2
+        },
+        {
+          "text": "가능해집니다",
+          "start_sec": 29.2,
+          "end_sec": 29.6
+        },
+        {
+          "text": "세",
+          "start_sec": 29.6,
+          "end_sec": 30.0
+        },
+        {
+          "text": "모달리티를",
+          "start_sec": 30.0,
+          "end_sec": 30.4
+        },
+        {
+          "text": "joint",
+          "start_sec": 30.4,
+          "end_sec": 30.8
+        },
+        {
+          "text": "space",
+          "start_sec": 30.8,
+          "end_sec": 31.2
+        },
+        {
+          "text": "에",
+          "start_sec": 31.2,
+          "end_sec": 31.6
+        },
+        {
+          "text": "올려",
+          "start_sec": 31.6,
+          "end_sec": 32.0
+        },
+        {
+          "text": "상호",
+          "start_sec": 32.0,
+          "end_sec": 32.4
+        },
+        {
+          "text": "검색을",
+          "start_sec": 32.4,
+          "end_sec": 32.8
+        },
+        {
+          "text": "할",
+          "start_sec": 32.8,
+          "end_sec": 33.2
+        },
+        {
+          "text": "수",
+          "start_sec": 33.2,
+          "end_sec": 33.6
+        },
+        {
+          "text": "있어요",
+          "start_sec": 33.6,
+          "end_sec": 34.0
+        },
+        {
+          "text": "여기서",
+          "start_sec": 34.0,
+          "end_sec": 34.4
+        },
+        {
+          "text": "Temperature",
+          "start_sec": 34.4,
+          "end_sec": 34.8
+        },
+        {
+          "text": "Parameter",
+          "start_sec": 34.8,
+          "end_sec": 35.2
+        },
+        {
+          "text": "라는",
+          "start_sec": 35.2,
+          "end_sec": 35.6
+        },
+        {
+          "text": "값도",
+          "start_sec": 35.6,
+          "end_sec": 36.0
+        },
+        {
+          "text": "잠깐",
+          "start_sec": 36.0,
+          "end_sec": 36.4
+        },
+        {
+          "text": "언급하고",
+          "start_sec": 36.4,
+          "end_sec": 36.8
+        },
+        {
+          "text": "넘어갈게요",
+          "start_sec": 36.8,
+          "end_sec": 37.2
+        }
+      ]
+    },
+    {
+      "slide_no": 5,
+      "visit": 1,
+      "start_sec": 38.4,
+      "end_sec": 41.2,
+      "text": "이상으로 발표를 마치겠습니다 감사합니다",
+      "words": [
+        {
+          "text": "이상으로",
+          "start_sec": 38.4,
+          "end_sec": 38.8
+        },
+        {
+          "text": "발표를",
+          "start_sec": 38.8,
+          "end_sec": 39.2
+        },
+        {
+          "text": "마치겠습니다",
+          "start_sec": 39.2,
+          "end_sec": 39.6
+        },
+        {
+          "text": "감사합니다",
+          "start_sec": 39.6,
+          "end_sec": 40.0
+        }
+      ]
+    }
+  ],
+  "provider": "fixture",
+  "duration_sec": 40.0
+}
