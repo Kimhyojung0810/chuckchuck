@@ -2320,7 +2320,7 @@ function renderQa() {
   // 첫 진입: 첫 질문을 스레드에 올림
   if (!qa.turns.length) { qa.concepts.joint = 'current'; presentQuestion(qaBeatList()[0]); }
   // 새로고침 등으로 중간 상태가 저장돼 있으면 안전한 상태로 되돌림
-  if (qa.sub === 'speaking' || qa.sub === 'thinking' || qa.sub === 'committed')
+  if (qa.sub === 'speaking' || qa.sub === 'thinking' || qa.sub === 'committed' || qa.sub === 'typing')
     qa.sub = beat().kind === 'trap' ? 'choice' : 'answer';
   saveSession('qa-flow', qa);
   app.innerHTML = `
@@ -2364,10 +2364,34 @@ function renderLive() {
       <div class="live-actions">
         <button class="btn btn-primary qa-speak" id="speak"><svg class="mic-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg>말로 답하기</button>
         <button class="btn btn-secondary" id="hint">막혀요, 힌트</button>
+        <button class="btn btn-text" id="typeAns">텍스트로 답하기</button>
       </div>
       <span class="live-tip">답하다 멈추면 ${qa.aud}${josa(qa.aud,'이','가')} 이어받아요</span>`;
     $('#speak').addEventListener('click', qaSpeak);
     $('#hint').addEventListener('click', qaHint);
+    $('#typeAns').addEventListener('click', () => { qa.sub = 'typing'; renderLive(); });
+  } else if (qa.sub === 'typing') {
+    el.innerHTML = `
+      <div class="qa-live-input" style="margin-top:0">
+        <textarea id="typeText" rows="3" placeholder="자기 말로 설명해보세요 (Cmd/Ctrl+Enter 전송)"></textarea>
+        <div class="live-actions">
+          <button class="btn btn-primary" id="typeSend">답변 보내기</button>
+          <button class="btn btn-text" id="typeBack">말로 답할게요</button>
+        </div>
+      </div>`;
+    const sendTyped = () => {
+      const v = ($('#typeText').value || '').trim();
+      if (!v) return;
+      const tb = beat();
+      commitAnswer(escapeHtml(v));
+      qaThink(() => react(tb, tb.verdict, tb.react));
+    };
+    $('#typeSend').addEventListener('click', sendTyped);
+    $('#typeText').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendTyped(); }
+    });
+    $('#typeBack').addEventListener('click', () => { qa.sub = 'answer'; renderLive(); });
+    $('#typeText').focus();
   } else if (qa.sub === 'speaking') {
     const lim = persona().limit;
     el.innerHTML = `<div class="caption"><span class="cap-live">듣는 중</span><p id="capT"></p>${lim ? `<span class="cap-timer" id="capTimer">⏱ ${lim}</span>` : ''}</div>`;
