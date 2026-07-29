@@ -1247,6 +1247,7 @@ function qaLivePanelHtml() {
       <label class="ql-row"><span>API 주소</span><input type="text" id="qlApi" value="${escapeHtml(base)}" spellcheck="false"></label>
       <div class="step-actions">
         <button class="btn btn-secondary" id="qlRun" type="button">실전 질문 만들기 · ${qaScope().short}</button>
+        <button class="btn btn-text" id="qlSample" type="button">샘플 파일로 채우기</button>
       </div>
       <p class="note" id="qlStatus">자료를 올리면 파싱 → (녹음 있으면 STT·정합) → 개념 그래프 → 예상 질문 순서로 준비해요.</p>
     </div>
@@ -1258,6 +1259,27 @@ function wireQaLivePanel() {
   if (!run || run._qaLiveBound) return;
   run._qaLiveBound = true;
   const st = $('#qlStatus');
+  const sampleBtn = $('#qlSample');
+  if (sampleBtn) sampleBtn.addEventListener('click', async () => {
+    st.textContent = '샘플 파일 불러오는 중…';
+    try {
+      const [docRes, audioRes] = await Promise.all([
+        fetch('assets/samples/imu2clip_sample.pdf'),
+        fetch('assets/samples/rehearsal_sample.mp3'),
+      ]);
+      if (!docRes.ok) throw new Error('샘플 PDF를 찾을 수 없어요.');
+      const put = (input, blob, name, type) => {
+        const dt = new DataTransfer();
+        dt.items.add(new File([blob], name, { type }));
+        input.files = dt.files;
+      };
+      put($('#qlDoc'), await docRes.blob(), 'imu2clip_sample.pdf', 'application/pdf');
+      if (audioRes.ok) put($('#qlAudio'), await audioRes.blob(), 'rehearsal_sample.mp3', 'audio/mpeg');
+      st.textContent = '샘플이 채워졌어요 — 「실전 질문 만들기」를 누르면 시작해요. (녹음 샘플에는 일부러 언급만 한 개념과 자료와 모순된 설명이 들어 있어요)';
+    } catch (err) {
+      st.textContent = `샘플 로드 실패: ${err.message || err}`;
+    }
+  });
   run.addEventListener('click', async () => {
     const B = window.ChuckchuckBridge;
     if (!B || !B.runQaLivePipeline) { st.textContent = '브리지 모듈이 아직 로드되지 않았어요. 새로고침 후 다시 시도해 주세요.'; return; }
