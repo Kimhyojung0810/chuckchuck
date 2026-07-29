@@ -1,0 +1,41 @@
+# demo/YEHS_demo 를 GitHub Pages 로 배포합니다.
+# 정적 UI 데모 전용 — 실제 파이프라인(/api/v1/*)은 demo bridge 서버가 필요합니다.
+name: deploy-demo-pages
+
+on:
+  push:
+    branches: [main, feat/f11-alignment]
+    paths:
+      - "demo/YEHS_demo/**"
+      - ".github/workflows/deploy-demo-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pages 가 꺼져 있으면 켠다 (Settings 수동 조작 불필요)
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: demo/YEHS_demo
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
