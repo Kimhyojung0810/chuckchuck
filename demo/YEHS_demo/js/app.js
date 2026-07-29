@@ -23,11 +23,14 @@ const loadSession = key => {
 const saveSession = (key, value) => {
   try {
     // SlideDoc / blob 결과는 용량이 커서 sessionStorage에서 제외
+    // (new-flow 한정 — qa-flow의 concepts는 작은 상태맵이라 지우면 복원이 깨진다)
     const slim = { ...value };
-    delete slim.slideDoc;
-    delete slim.transcript;
-    delete slim.concepts;
-    delete slim._pipelineStarted;
+    if (key === 'new-flow') {
+      delete slim.slideDoc;
+      delete slim.transcript;
+      delete slim.concepts;
+      delete slim._pipelineStarted;
+    }
     if (slim.slideDocMeta == null && value.slideDoc) {
       slim.slideDocMeta = {
         file_name: value.slideDoc.file_name,
@@ -186,6 +189,7 @@ function renderHome() {
       </div>
     </div>
     ${gameStripHtml()}
+    ${qaActive ? '' : qaQuickCardHtml()}
     <div class="card" style="padding:12px 12px">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px">
         <h2 class="section-title" style="margin:0">내 발표</h2>
@@ -206,6 +210,7 @@ function renderHome() {
     </div>
     <a class="about-link" href="#/about">척척발표가 판단하는 방식 →</a>`;
   $$('.sess-row').forEach(r => r.addEventListener('click', () => location.hash = r.dataset.go));
+  if (!qaActive) { wireQaModeButtons(rerenderQaQuick); wireQaStart(app); wireQaLivePanel(); }
   animateViz();
 }
 
@@ -1142,6 +1147,118 @@ function startPipelineElapsedTimer() {
   }, 1000);
 }
 
+/* 시간 모드 라디오 (질문 준비 화면·홈 바로 시작 공용) */
+function qaModeButtonsHtml() {
+  const cur = (qa && qa.mode) || '10';
+  return `<div class="qa-modes" role="radiogroup" aria-label="질문 코칭 시간">
+    ${Object.keys(QA_MODES).map((k) => {
+      const md = QA_MODES[k];
+      return `<button type="button" class="qa-mode ${cur === k ? 'on' : ''}" data-mode="${k}" role="radio" aria-checked="${cur === k}">
+        <b>${md.short}</b><span>${md.desc}</span><em>${md.scopeLabel}</em>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+function qaStartCtaHtml() {
+  const m = QA_MODES[(qa && qa.mode) || '10'];
+  return `<a class="btn btn-primary" href="#/qa" data-qa-start>질문 코칭 시작하기 · ${m.concepts.length}개 개념 · 약 ${m.min}분</a>`;
+}
+function wireQaModeButtons(rerender) {
+  $$('.qa-mode').forEach((btn) => btn.addEventListener('click', () => {
+    resetQa();                                   // 새 코칭 세션 — 이전 대화를 정리하고 모드만 바꾼다
+    qa.mode = btn.dataset.mode;
+    saveSession('qa-flow', qa);
+    rerender();
+  }));
+}
+/* 지난 세션이 남아 있으면 새 코칭으로 초기화한 뒤 #/qa 로 이동 */
+function wireQaStart(root) {
+  const cta = root.querySelector('[data-qa-start]');
+  if (cta) cta.addEventListener('click', () => { if (qa.started || qa.ended) resetQa(); });
+}
+
+/* 질문 준비 완료 → QA 시간 모드 선택 + 시작 CTA */
+function qaModePickHtml() {
+  return `<div class="qa-mode-pick">
+    <div class="qm-head"><b>질문 준비가 끝났어요</b><span>시간을 고르면 질문 범위를 맞춰드려요 — 치명적인 것부터 채워요</span></div>
+    ${qaModeButtonsHtml()}
+    ${qaStartCtaHtml()}
+  </div>`;
+}
+
+/* 홈: 리허설을 건너뛰고 최근 발표 기준으로 바로 질문 코칭 시작 */
+function qaQuickCardHtml() {
+  return `<div class="card qa-quick">
+    <div class="qm-head"><b>질문 코칭 바로 시작</b><span>최근 발표 기준이에요 — 시간을 고르면 질문 범위를 맞춰드려요</span></div>
+    ${qaModeButtonsHtml()}
+    ${qaStartCtaHtml()}
+    ${qaLivePanelHtml()}
+  </div>`;
+}
+
+/* 실전 모드: 내 자료(+임의 녹음 파일)로 서버에서 질문을 만들어 코칭 */
+function qaLivePanelHtml() {
+  const base = (window.ChuckchuckBridge && window.ChuckchuckBridge.qaApiBase()) || 'http://localhost:8789';
+  return `<details class="fold qa-live-fold">
+    <summary>실전 모드 — 내 자료·녹음 파일로 질문 만들기</summary>
+    <div class="fold-body qa-live-body">
+      <label class="ql-row"><span>발표자료 (PDF/PPTX)</span><input type="file" id="qlDoc" accept=".pdf,.pptx"></label>
+      <label class="ql-row"><span>녹음 파일 (선택)</span><input type="file" id="qlAudio" accept=".webm,.m4a,.wav,.mp3,.ogg,audio/*"></label>
+      <label class="ql-row"><span>API 주소</span><input type="text" id="qlApi" value="${escapeHtml(base)}" spellcheck="false"></label>
+      <div class="step-actions">
+        <button class="btn btn-secondary" id="qlRun" type="button">실전 질문 만들기 · ${qaScope().short}</button>
+      </div>
+      <p class="note" id="qlStatus">자료를 올리면 파싱 → (녹음 있으면 STT·정합) → 개념 그래프 → 예상 질문 순서로 준비해요.</p>
+    </div>
+  </details>`;
+}
+
+function wireQaLivePanel() {
+  const run = $('#qlRun');
+  if (!run || run._qaLiveBound) return;
+  run._qaLiveBound = true;
+  const st = $('#qlStatus');
+  run.addEventListener('click', async () => {
+    const B = window.ChuckchuckBridge;
+    if (!B || !B.runQaLivePipeline) { st.textContent = '브리지 모듈이 아직 로드되지 않았어요. 새로고침 후 다시 시도해 주세요.'; return; }
+    const doc = $('#qlDoc').files[0];
+    if (!doc) { st.textContent = '발표자료(PDF/PPTX)를 먼저 선택해 주세요.'; return; }
+    const audio = $('#qlAudio').files[0] || null;
+    B.setQaApiBase($('#qlApi').value);
+    run.disabled = true;
+    st.textContent = '준비 시작…';
+    try {
+      const out = await B.runQaLivePipeline({
+        documentFile: doc,
+        audioFile: audio,
+        mode: (qa && qa.mode) || '10',
+        onProgress: (text) => { st.textContent = text; },
+      });
+      const questions = (out.questionDoc && out.questionDoc.questions) || [];
+      if (!questions.length) {
+        st.textContent = '질문이 만들어지지 않았어요. 자료 내용을 확인해 주세요.';
+        run.disabled = false;
+        return;
+      }
+      resetQa();
+      qa.live = { sessionId: out.sessionId, questions, qi: 0, asked: -1, results: [] };
+      saveSession('qa-flow', qa);
+      location.hash = '#/qa';
+    } catch (err) {
+      st.textContent = `실패: ${err.message || err}`;
+      run.disabled = false;
+    }
+  });
+}
+function rerenderQaQuick() {
+  const el = $('.qa-quick');
+  if (!el) return;
+  el.outerHTML = qaQuickCardHtml();
+  wireQaModeButtons(rerenderQaQuick);
+  wireQaStart(app);
+  wireQaLivePanel();
+}
+
 function nfStep4() {
   app.className = 'narrow';
   const items = [
@@ -1171,17 +1288,17 @@ function nfStep4() {
         }).join('')}
       </ul>
       ${pipelineInspectHtml()}
+      ${nf.conceptsOk && doneN >= items.length ? qaModePickHtml() : ''}
       <div class="step-actions">
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>
-        ${nf.conceptsOk && doneN >= items.length
-          ? `<span style="font-weight:700">질문 준비가 끝났어요</span>
-             <a class="btn btn-primary" href="#/qa">질문 코칭 시작하기</a>`
-          : (nf.transcriptOk && conceptsError
-            ? `<span class="note">STT까지는 성공했어요. 개념 추출만 실패했습니다.</span>`
-            : '')}
+        ${!(nf.conceptsOk && doneN >= items.length) && nf.transcriptOk && conceptsError
+          ? `<span class="note">STT까지는 성공했어요. 개념 추출만 실패했습니다.</span>`
+          : ''}
       </div>
     </div>`;
   wireFreshPracticeButtons(app);
+  wireQaModeButtons(nfStep4);
+  wireQaStart(app);
   startPipelineElapsedTimer();
   paintPipeMapThumbs();
 
@@ -1383,7 +1500,7 @@ function rSummary() {
       <p>Q&A로 두 개념은 설명할 수 있게 됐어요. 발표에서 통째로 빠진 Encoder 구조를 다음 리허설 목표로 가져가세요.</p>
       <div class="step-actions">
         <a class="btn btn-primary" href="#/new">새 발표 연습</a>
-        <a class="btn btn-tint" href="#/qa" style="background:#fff">질문 연습 다시 하기</a>
+        <a class="btn btn-tint" href="#/qa" style="background:#fff" data-qa-start>질문 연습 다시 하기</a>
       </div>
     </div>
 
@@ -1399,6 +1516,7 @@ function rSummary() {
         </div>`).join('')}
       </div>
     </details>`;
+  wireQaStart(app);
   $('#trophyStrip').addEventListener('click', () => {
     selectDeckSlide(DATA.session.qa.trophy.slide);
     $('.rep-deck').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1702,6 +1820,7 @@ let qa = loadSession('qa-flow') || {};
 function resetQa() {
   qa = {
     aud: '교수님', started: false, ended: false,
+    mode: (qa && qa.mode) || '10',
     bi: 0, sub: 'answer', hint: 0,
     turns: [],
     concepts: { joint: 'wait', temp: 'wait', aria: 'wait' },
@@ -1710,7 +1829,7 @@ function resetQa() {
   };
   saveSession('qa-flow', qa);
 }
-if (!Array.isArray(qa.turns)) resetQa();
+if (!Array.isArray(qa.turns) || !qa.mode || !qa.concepts) resetQa();
 let qaTimerId = null;
 
 /* ── 게임 레이어: 설득력 XP · 연속 방어 · 복습 (localStorage, 다크패턴 없이 정직한 상태값) ── */
@@ -1780,6 +1899,29 @@ const PERSONAS = {
 };
 const AUDS = Object.keys(PERSONAS);
 const CONCEPT_LABELS = { joint: '공동 임베딩', temp: 'Temperature', aria: 'Aria 일반화' };
+const CONCEPT_FULL = { joint: '공동 임베딩 정렬', temp: 'Temperature Parameter', aria: 'Aria 데이터셋 해석' };
+
+/* ── QA 시간 모드: 치명도 순으로 질문 범위를 채운다 (질문 준비 화면에서 선택) ── */
+const QA_MODES = {
+  '1':  { min: 1,  short: '1분 · 핵심만',   desc: '가장 치명적인 개념 하나만 빠르게 확인해요. 복습은 생략해요.',
+          scopeLabel: '공동 임베딩 정렬', concepts: ['joint'], review: false },
+  '5':  { min: 5,  short: '5분 · 핵심+α',  desc: '핵심 개념에 함정 검증과 시차 복습까지 붙여 제대로 코칭해요.',
+          scopeLabel: '공동 임베딩 · Temperature', concepts: ['joint', 'temp'], review: true },
+  '10': { min: 10, short: '10분 · 전체 커버', desc: '아쉬운 개념 전부에, 자료와 모순된 설명까지 대조해요.',
+          scopeLabel: '공동 임베딩 · Temperature · Aria', concepts: ['joint', 'temp', 'aria'], review: true },
+};
+const qaScope = () => QA_MODES[qa.mode] || QA_MODES['10'];
+/* 모드 범위에 맞는 비트만 통과 (1분 모드는 시차 복습 비트 제외) */
+function qaBeatList() {
+  const sc = qaScope();
+  return DATA.qaBeats.filter(b => sc.concepts.includes(b.concept) && (sc.review || b.kind !== 'review'));
+}
+/* 개념이 해소되면 총평 문장을 스트림에 실시간으로 적는다 */
+function pushSummary(concept, outcome) {
+  const text = (DATA.qaSummaries[concept] || {})[outcome];
+  if (!text) return;
+  pushTurn({ who: 'sys', kind: 'summary', concept, outcome, label: CONCEPT_FULL[concept], text });
+}
 const persona = () => PERSONAS[qa.aud] || PERSONAS['교수님'];
 const audInit = () => persona().init;
 /* 받침 유무에 따라 한국어 조사 선택 (과/와, 이/가, 을/를) */
@@ -1787,7 +1929,8 @@ const hasBatchim = w => { const c = (w || '').charCodeAt((w || '').length - 1); 
 const josa = (w, withB, noB) => hasBatchim(w) ? withB : noB;
 /* 상대별 대사/행동 오버레이(by)를 기본 비트 위에 병합 */
 const beat = () => {
-  const b = DATA.qaBeats[qa.bi];
+  const list = qaBeatList();
+  const b = list[Math.min(qa.bi, list.length - 1)];
   const ov = b.by && b.by[qa.aud];
   return ov ? { ...b, ...ov } : b;
 };
@@ -1800,13 +1943,15 @@ function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behav
 const TRACK_ICON = { wait: '', current: '', won: '✓', review: '✓', lost: '✕' };
 const TRACK_WORD = { wait: '아직', current: '설득 중', won: '설득 완료', review: '두 번 확인', lost: '미방어' };
 function trackerHTML() {
-  const order = ['joint', 'temp', 'aria'];
+  const sc = qaScope();
+  const order = sc.concepts;
   const won = order.filter(c => qa.concepts[c] === 'won' || qa.concepts[c] === 'review').length;
   const lost = qa.lost.length;
-  const prog = Math.min(100, Math.round(qa.bi / (DATA.qaBeats.length - 1) * 100));
+  const total = qaBeatList().length;
+  const prog = Math.min(100, Math.round(qa.bi / Math.max(1, total - 1) * 100));
   return `<div class="persuade-track" id="ptrack" style="--p:${prog}%">
-    <div class="pt-head"><span>${qa.aud} 설득하기</span>
-      <span class="pt-right">${qa.combo >= 2 ? `<span class="combo-live">🔥 ${qa.combo}연속 방어</span>` : ''}<b>${won}<i>/3 설득</i>${lost ? ` · <em>${lost} 미방어</em>` : ''}</b></span></div>
+    <div class="pt-head"><span>${qa.aud} 설득하기 · ${sc.short}</span>
+      <span class="pt-right">${qa.combo >= 2 ? `<span class="combo-live">🔥 ${qa.combo}연속 방어</span>` : ''}<b>${won}<i>/${order.length} 설득</i>${lost ? ` · <em>${lost} 미방어</em>` : ''}</b></span></div>
     <div class="pt-items">${order.map(c => {
       const s = qa.concepts[c];
       return `<div class="pt ${s}"><i>${TRACK_ICON[s]}</i><span>${CONCEPT_LABELS[c]}</span><small>${TRACK_WORD[s]}</small></div>`;
@@ -1816,6 +1961,13 @@ function updateTracker() { const el = $('#ptrack'); if (el) el.outerHTML = track
 
 /* ── 스트림 한 줄 렌더 ── */
 function streamRow(it) {
+  if (it.who === 'sys' && it.kind === 'summary') {
+    return `<div class="qa-sum">
+      <span class="qs-eyebrow">총평에 적혔어요</span>
+      <b class="qs-name">${it.label}</b>
+      <p class="qs-text" data-full="${escapeHtml(it.text)}">${escapeHtml(it.text)}</p>
+    </div>`;
+  }
   if (it.who === 'sys') return `<div class="qa-flag ${it.kind}"><i>${it.kind === 'won' ? '✓' : it.kind === 'lost' ? '✕' : '🔥'}</i>${it.text}</div>`;
   if (it.who === 'me') {
     const tag = it.kind === 'choice' ? '<span class="mb-tag">내 선택</span>' : '';
@@ -1848,18 +2000,193 @@ function growStream() {
     const wrap = document.createElement('div');
     wrap.innerHTML = streamRow(qa.turns[k]);
     const node = wrap.firstElementChild;
-    if (node) { node.classList.add('enter'); s.appendChild(node); }
+    if (node) {
+      node.classList.add('enter');
+      s.appendChild(node);
+      if (node.classList.contains('qa-sum')) typeSummary(node);
+    }
   }
   scrollDown();
+}
+
+/* 총평 문장이 눈앞에서 작성되는 타자 효과 (새로 붙는 줄에만, 접근성 설정 존중) */
+function typeSummary(node) {
+  const p = node.querySelector('.qs-text'); if (!p) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const full = p.dataset.full || p.textContent;
+  p.textContent = '';
+  let i = 0;
+  const tick = () => {
+    if (!p.isConnected) return;           // 화면 전환 시 중단 — 재렌더는 전체 문장을 그림
+    i += 2;
+    p.textContent = full.slice(0, i);
+    if (i < full.length) later(tick, 22); else scrollDown();
+  };
+  tick();
+}
+
+/* ── 실전 QA(서버 질문 생성·판정) — 스크립트 모드와 별도의 단순 루프 ── */
+const LIVE_VERDICT = {
+  good:    { flag: 'won',  react: 'full',    word: '설득 완료' },
+  partial: { flag: 'won',  react: 'partial', word: '부분 인정' },
+  wrong:   { flag: 'lost', react: 'none',    word: '미방어' },
+  unknown: { flag: 'lost', react: 'none',    word: '판정 보류' },
+};
+const SEVERITY_WORD = { 1: '치명', 2: '보통', 3: '가벼움' };
+
+function qaLiveActive() {
+  return !!(qa.live && Array.isArray(qa.live.questions) && qa.live.questions.length);
+}
+
+function liveHistory() {
+  return (qa.live.results || []).map((r) => ({ 질문: r.question, 답변: r.answer, 판정: r.verdict }));
+}
+
+function presentLiveQuestion() {
+  const L = qa.live;
+  if (L.asked === L.qi) return;
+  L.asked = L.qi;
+  const q = L.questions[L.qi];
+  pushTurn({
+    who: 'ai',
+    kind: q.trap ? 'claim' : 'question',
+    meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · 치명도 ${SEVERITY_WORD[q.severity] || '보통'}`,
+    text: escapeHtml(q.question),
+    basis: q.why ? escapeHtml(q.why) : '',
+  });
+}
+
+function renderQaLive() {
+  const L = qa.live;
+  if (qa.ended || L.qi >= L.questions.length) return qaLiveEnd();
+  qa.started = true;
+  presentLiveQuestion();
+  saveSession('qa-flow', qa);
+  const q = L.questions[L.qi];
+  const won = L.results.filter((r) => r.verdict === 'good' || r.verdict === 'partial').length;
+  const prog = Math.round(L.qi / L.questions.length * 100);
+  app.innerHTML = `
+    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
+    <div class="persuade-track" style="--p:${prog}%">
+      <div class="pt-head"><span>실전 질문 코칭 · 내 자료 기준</span>
+        <span class="pt-right"><b>${won}<i>/${L.questions.length} 설득</i></b></span></div>
+    </div>
+    <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
+    <div class="card qa-live-input">
+      <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
+        placeholder="상대를 설득한다는 생각으로, 자기 말로 답해보세요"></textarea>
+      <div class="step-actions">
+        <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${L.busy ? '판정 중…' : '답변 보내기'}</button>
+        ${q.hint ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 보기</button>` : ''}
+        <button class="btn btn-text" id="liveSkip" type="button" ${L.busy ? 'disabled' : ''}>이 질문 넘기기</button>
+      </div>
+    </div>`;
+  scrollDown();
+
+  const sendBtn = $('#liveSend');
+  if (sendBtn) sendBtn.addEventListener('click', () => submitLiveAnswer());
+  const ta = $('#liveAnswer');
+  if (ta) {
+    ta.focus();
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitLiveAnswer(); }
+    });
+  }
+  const hintBtn = $('#liveHint');
+  if (hintBtn) hintBtn.addEventListener('click', () => {
+    pushTurn({ who: 'ai', kind: 'hint', level: 1, text: escapeHtml(q.hint) });
+    growStream();
+    hintBtn.disabled = true;
+  });
+  const skipBtn = $('#liveSkip');
+  if (skipBtn) skipBtn.addEventListener('click', () => {
+    L.results.push({ id: q.id, label: q.label, question: q.question, answer: '(넘김)', verdict: 'skipped', score: 0, summary: '' });
+    pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 넘겼어요. 리포트에 남겨둘게요` });
+    L.qi++;
+    saveSession('qa-flow', qa);
+    renderQaLive();
+  });
+}
+
+async function submitLiveAnswer() {
+  const L = qa.live;
+  const q = L.questions[L.qi];
+  const ta = $('#liveAnswer');
+  const answer = ((ta && ta.value) || '').trim();
+  if (!answer || L.busy) return;
+  pushTurn({ who: 'me', kind: 'say', text: escapeHtml(answer) });
+  L.busy = true;
+  saveSession('qa-flow', qa);
+  renderQaLive();
+  try {
+    const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
+      questionId: q.id, answer, history: liveHistory(),
+    });
+    const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
+    if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });
+    pushTurn({ who: 'sys', kind: m.flag, text: `${escapeHtml(q.label)} — ${m.word}` });
+    if (v.summary_sentence) {
+      pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
+    }
+    L.results.push({
+      id: q.id, label: q.label, question: q.question, answer,
+      verdict: v.verdict, score: v.score || 0, summary: v.summary_sentence || '',
+    });
+    L.qi++;
+  } catch (err) {
+    pushTurn({ who: 'sys', kind: 'lost', text: `판정 실패: ${err.message || err} — 같은 질문으로 다시 시도할 수 있어요` });
+  }
+  L.busy = false;
+  saveSession('qa-flow', qa);
+  renderQaLive();
+}
+
+function qaLiveEnd() {
+  qa.ended = true;
+  saveSession('qa-flow', qa);
+  const L = qa.live;
+  const won = L.results.filter((r) => r.verdict === 'good').length;
+  const chipCls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' };
+  const chipWord = { good: '설득 완료', partial: '부분 인정', wrong: '미방어', unknown: '보류', skipped: '넘김' };
+  app.innerHTML = `
+    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>코칭 기록 저장됨</span></div>
+    <div class="card cere-card">
+      <div class="cere-row-head">
+        <span class="cere-label">실전 질문 코칭 결과</span>
+        <b class="cere-count num">${won} <i>/</i> ${L.questions.length}</b>
+      </div>
+      <div class="cere-sums">
+        ${L.results.map((r) => `<div class="qsum-row">
+          <b><span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${chipWord[r.verdict] || r.verdict}</span> ${escapeHtml(r.label || '')}</b>
+          <p>${escapeHtml(r.summary || r.question || '')}</p>
+        </div>`).join('') || '<p class="note">기록이 없어요.</p>'}
+      </div>
+      <p class="cere-hint">이 총평은 내 자료 기준으로 생성됐어요 — 발표 전에 미방어 질문부터 다시 보세요</p>
+    </div>
+    <div class="cere-actions">
+      <button class="btn btn-primary" id="liveAgain" type="button">같은 질문으로 다시</button>
+      <a class="btn btn-text" href="#/">홈으로</a>
+    </div>`;
+  const again = $('#liveAgain');
+  if (again) again.addEventListener('click', () => {
+    const keep = qa.live;
+    resetQa();
+    qa.live = { ...keep, qi: 0, asked: -1, results: [], busy: false };
+    qa.started = true;
+    saveSession('qa-flow', qa);
+    renderQaLive();
+  });
+  window.scrollTo(0, 0);
 }
 
 /* ── 화면 ── */
 function renderQa() {
   app.className = 'narrow';
+  if (qaLiveActive()) return renderQaLive();
   if (qa.ended) return qaEnd();
   qa.started = true;
   // 첫 진입: 첫 질문을 스레드에 올림
-  if (!qa.turns.length) { qa.concepts.joint = 'current'; presentQuestion(DATA.qaBeats[0]); }
+  if (!qa.turns.length) { qa.concepts.joint = 'current'; presentQuestion(qaBeatList()[0]); }
   // 새로고침 등으로 중간 상태가 저장돼 있으면 안전한 상태로 되돌림
   if (qa.sub === 'speaking' || qa.sub === 'thinking' || qa.sub === 'committed')
     qa.sub = beat().kind === 'trap' ? 'choice' : 'answer';
@@ -1964,7 +2291,7 @@ function presentQuestion(b) {
 }
 
 function goNextBeat() {
-  if (qa.bi >= DATA.qaBeats.length - 1) { qa.sub = 'ended'; renderLive(); return; }
+  if (qa.bi >= qaBeatList().length - 1) { qa.sub = 'ended'; renderLive(); return; }
   qa.bi++;
   qaThink(() => { presentQuestion(beat()); growStream(); updateTracker(); renderLive(); });
 }
@@ -2036,8 +2363,16 @@ function qaThink(done) {
 /* ── 반응 + 개념 상태 반영 ── */
 function react(b, verdict, text) {
   pushTurn({ who: 'ai', kind: 'react', verdict, text });
-  if (b.mastered) { qa.concepts[b.concept] = 'won'; pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — ${qa.aud}${josa(qa.aud,'을','를')} 설득했어요` }); }
-  if (b.reviewed) { qa.concepts[b.concept] = 'review'; pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — 시간이 지나도 설명했어요` }); }
+  if (b.mastered) {
+    qa.concepts[b.concept] = 'won';
+    pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — ${qa.aud}${josa(qa.aud,'을','를')} 설득했어요` });
+    pushSummary(b.concept, 'won');
+  }
+  if (b.reviewed) {
+    qa.concepts[b.concept] = 'review';
+    pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — 시간이 지나도 설명했어요` });
+    pushSummary(b.concept, 'review');
+  }
   if (verdict === 'full') {
     qa.combo = (qa.combo || 0) + 1;
     qa.comboMax = Math.max(qa.comboMax || 0, qa.combo);
@@ -2078,6 +2413,7 @@ function qaDecide(push) {
         qa.comboMax = Math.max(qa.comboMax || 0, qa.combo);
         pushTurn({ who: 'ai', kind: 'react', verdict: 'full', text: b.onPush });
         pushTurn({ who: 'sys', kind: 'won', text: 'Aria 일반화 — 끝까지 밀어붙여 설득했어요' });
+        pushSummary('aria', 'won');
         growStream(); updateTracker();
         qa.sub = 'ended'; renderLive();
       });
@@ -2089,6 +2425,7 @@ function qaDecide(push) {
       qa.concepts.aria = 'lost'; qa.lost = ['aria'];
       pushTurn({ who: 'ai', kind: 'concede', text: b.onConcede });
       pushTurn({ who: 'sys', kind: 'lost', text: 'Aria 일반화 — 오늘은 방어하지 못했어요. 리포트에 남겨둘게요' });
+      pushSummary('aria', 'lost');
       growStream(); updateTracker();
       qa.sub = 'ended'; renderLive();
     });
@@ -2101,13 +2438,17 @@ function qaEnd() {
   saveSession('qa-flow', qa);
   const tr = DATA.session.qa.trophy;
   const ariaLost = qa.lost.includes('aria');
+  const sc = qaScope();
+  const ariaInScope = sc.concepts.includes('aria');
+  const masteredScoped = sc.concepts.filter(c => qa.concepts[c] === 'won' || qa.concepts[c] === 'review');
+  const afterCount = 3 + masteredScoped.length;
   const concepts = [
     { label: 'Self-Supervised Learning', pre: true },
     { label: 'CLIP', pre: true },
     { label: 'IMU2CLIP의 동기', pre: true },
-    { label: '공동 임베딩 정렬', pre: false },
-    { label: 'Temperature Parameter', pre: false },
+    ...masteredScoped.map(c => ({ label: CONCEPT_FULL[c], pre: false })),
   ];
+  const sums = qa.turns.filter(t => t.kind === 'summary');
   const aw = qa.award || { earned: 0, level: 1, streak: 1, xp: 0 };
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>코칭 기록 저장됨</span></div>
@@ -2130,7 +2471,7 @@ function qaEnd() {
       <div class="card cere-card c2">
         <div class="cere-row-head">
           <span class="cere-label">설명할 수 있는 핵심 개념</span>
-          <b class="cere-count num">3 <i>→</i> 5</b>
+          <b class="cere-count num">3 <i>→</i> ${afterCount}</b>
         </div>
         <ul class="cere-concepts">
           ${concepts.map((c, i) => `
@@ -2138,9 +2479,20 @@ function qaEnd() {
             <i>✓</i><span>${c.label}</span>${c.pre ? '' : '<em>+ 오늘</em>'}
           </li>`).join('')}
         </ul>
-        <p class="cere-sub ${ariaLost ? 'warn' : 'good'}">${ariaLost
-          ? 'Aria 일반화는 오늘 방어하지 못했어요 — 복습으로 다시 만나요'
-          : '자료와 어긋났던 Aria 설명도 대화로 바로잡았어요'}</p>
+        <p class="cere-sub ${ariaInScope && ariaLost ? 'warn' : 'good'}">${ariaInScope
+          ? (ariaLost
+            ? 'Aria 일반화는 오늘 방어하지 못했어요 — 복습으로 다시 만나요'
+            : '자료와 어긋났던 Aria 설명도 대화로 바로잡았어요')
+          : `오늘은 ${sc.short} 범위였어요 — 10분 모드로 Aria 자료 모순까지 확인할 수 있어요`}</p>
+      </div>
+
+      <div class="card cere-card csum">
+        <span class="cere-label">오늘의 총평 — 대화하는 동안 적혔어요</span>
+        <div class="cere-sums">
+          ${sums.map(s => `<div class="qsum-row"><b>${s.label}</b><p>${s.text}</p></div>`).join('')
+            || '<p class="note">기록된 총평이 없어요.</p>'}
+        </div>
+        <p class="cere-hint">이 총평이 상세 리포트의 요약으로 이어져요</p>
       </div>
 
       <div class="card cere-card c3">
@@ -2153,7 +2505,9 @@ function qaEnd() {
             <span>${qa.aud} 보너스 ×${XP_MULT[qa.aud] || 1}</span>
           </div>
         </div>
-        <div class="cere-next"><span>다음 목표</span><b>${ariaLost ? 'Aria 일반화 다시 방어하기' : 'IMU Encoder를 한 문장으로 설명하기'}</b></div>
+        <div class="cere-next"><span>다음 목표</span><b>${ariaInScope
+          ? (ariaLost ? 'Aria 일반화 다시 방어하기' : 'IMU Encoder를 한 문장으로 설명하기')
+          : '10분 모드로 나머지 개념까지 방어하기'}</b></div>
       </div>
 
       <div class="cere-actions">

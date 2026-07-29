@@ -26,3 +26,6 @@ _doc.html
 # editor
 .idea/
 .vscode/
+var/
+__pycache__/
+*.pyc

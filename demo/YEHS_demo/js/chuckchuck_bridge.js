@@ -284,6 +284,148 @@ export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, cont
   return { transcript, concepts, conceptsError };
 }
 
+/* ── server-test(v0.2 · 세션·잡 API) 연동 — QA 실전 모드 ──
+ * 문서 업로드(또는 임의 녹음 파일) → parse → stt → concepts → graph → questions
+ * 판정(judge)은 대화형이라 동기 호출.
+ */
+
+const QA_API_BASE_KEY = 'cheokcheok:qaApiBase';
+const QA_API_DEFAULT = 'http://localhost:8789';
+
+export function qaApiBase() {
+  try {
+    const q = new URLSearchParams(location.search).get('api');
+    if (q) sessionStorage.setItem(QA_API_BASE_KEY, q.replace(/\/+$/, ''));
+    return sessionStorage.getItem(QA_API_BASE_KEY) || QA_API_DEFAULT;
+  } catch (_) { return QA_API_DEFAULT; }
+}
+
+export function setQaApiBase(url) {
+  try { sessionStorage.setItem(QA_API_BASE_KEY, (url || '').replace(/\/+$/, '') || QA_API_DEFAULT); }
+  catch (_) { /* storage unavailable */ }
+}
+
+async function qaApi(path, { method = 'GET', json, form } = {}) {
+  const opts = { method };
+  if (json !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(json);
+  } else if (form) {
+    opts.body = form;
+  }
+  const res = await fetch(qaApiBase() + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) {
+    const d = data.detail && typeof data.detail === 'object' ? data.detail : data;
+    throw new Error(d.message || d.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+async function qaPollJob(jobId, onDetail, { intervalMs = 1500, timeoutMs = 420000 } = {}) {
+  const t0 = Date.now();
+  for (;;) {
+    const job = await qaApi(`/api/v1/jobs/${jobId}`);
+    const detail = (job.progress && job.progress.detail) || '';
+    if (typeof onDetail === 'function' && detail) onDetail(detail);
+    if (job.status === 'done') return job.result;
+    if (job.status === 'error') {
+      const e = job.error || {};
+      throw new Error(e.message || e.error || '작업이 실패했어요.');
+    }
+    if (Date.now() - t0 > timeoutMs) throw new Error('작업이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.');
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+}
+
+/** 업로드한 녹음 파일 길이(초). 못 읽으면 0. */
+export function audioDuration(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const a = new Audio();
+    const done = (sec) => { URL.revokeObjectURL(url); resolve(sec); };
+    a.addEventListener('loadedmetadata', () => done(Number.isFinite(a.duration) ? a.duration : 0));
+    a.addEventListener('error', () => done(0));
+    a.src = url;
+  });
+}
+
+/* 임의 파일에는 슬라이드 마크가 없으니 길이를 슬라이드 수로 균등 분할 */
+function evenMarks(totalSlides, durationSec) {
+  const n = Math.max(1, Math.floor(totalSlides) || 1);
+  const dur = Math.max(1, durationSec || 60);
+  const step = dur / n;
+  return Array.from({ length: n }, (_, i) => ({
+    slide_no: i + 1,
+    start_sec: Math.round(i * step * 10) / 10,
+    end_sec: Math.round((i + 1) * step * 10) / 10,
+    visit: 1,
+  }));
+}
+
+/** 실전 QA 준비 파이프라인: 자료(+선택 녹음 파일) → 예상 질문 세트 */
+export async function runQaLivePipeline({ documentFile, audioFile, mode = '10', onProgress }) {
+  const report = (text) => {
+    if (typeof onProgress === 'function') { try { onProgress(text); } catch (_) { /* UI hook */ } }
+  };
+
+  report('세션 만드는 중');
+  const session = await qaApi('/api/v1/sessions', { method: 'POST', json: {} });
+  const sid = session.id;
+
+  report('발표자료 파싱 중 (F-01)');
+  const fd = new FormData();
+  fd.append('document', documentFile, documentFile.name);
+  const parseJob = await qaApi(`/api/v1/sessions/${sid}/document`, { method: 'POST', form: fd });
+  const slideDoc = await qaPollJob(parseJob.job_id, report);
+
+  if (audioFile) {
+    report('녹음을 글로 바꾸는 중 (F-05)');
+    const durationSec = await audioDuration(audioFile);
+    const marks = evenMarks((slideDoc && slideDoc.total_slides) || 1, durationSec);
+    const af = new FormData();
+    af.append('audio', audioFile, audioFile.name);
+    af.append('marks', JSON.stringify(marks));
+    const sttJob = await qaApi(`/api/v1/sessions/${sid}/rehearsal`, { method: 'POST', form: af });
+    await qaPollJob(sttJob.job_id, report);
+  }
+
+  report('개념 추출 중 (F-06)');
+  const cJob = await qaApi(`/api/v1/sessions/${sid}/concepts`, { method: 'POST', json: {} });
+  await qaPollJob(cJob.job_id, report);
+
+  report('개념 그래프 만드는 중 (F-07)');
+  const gJob = await qaApi(`/api/v1/sessions/${sid}/graph`, { method: 'POST', json: {} });
+  await qaPollJob(gJob.job_id, report);
+
+  if (audioFile) {
+    report('발화-자료 정합 판정 중 (F-11)');
+    try {
+      const aJob = await qaApi(`/api/v1/sessions/${sid}/alignment`, { method: 'POST', json: {} });
+      await qaPollJob(aJob.job_id, report);
+    } catch (err) {
+      // 질문 생성은 그래프만으로도 가능 — 정합 실패는 건너뛴다
+      report(`정합 판정 생략: ${err.message || err}`);
+    }
+  }
+
+  report('예상 질문 만드는 중 (F-12)');
+  const qJob = await qaApi(`/api/v1/sessions/${sid}/questions`, { method: 'POST', json: { mode } });
+  const questionDoc = await qaPollJob(qJob.job_id, report);
+
+  const questions = (questionDoc && questionDoc.questions) || [];
+  report(`질문 ${questions.length}개 준비 완료`);
+  return { sessionId: sid, questionDoc };
+}
+
+/** F-12 답변 판정 (동기) */
+export async function judgeQaAnswer(sessionId, { questionId, answer, history }) {
+  return qaApi(`/api/v1/sessions/${sessionId}/qa/judge`, {
+    method: 'POST',
+    json: { question_id: questionId, answer, history: history || [] },
+  });
+}
+
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -302,6 +444,11 @@ window.ChuckchuckBridge = {
   runPreparePipeline,
   saveChuckSession,
   loadChuckSession,
+  qaApiBase,
+  setQaApiBase,
+  audioDuration,
+  runQaLivePipeline,
+  judgeQaAnswer,
   RehearsalRecorder,
   PresentationRecorder,
   SlideMarkTracker,

@@ -1223,3 +1223,61 @@ table.plain tr:last-child td { border-bottom: 0; }
   .resume-card { padding-right: 24px; }
   .resume-card i { position: static; display: block; margin-top: 12px; transform: none; }
 }
+
+/* ── QA 시간 모드 선택 (질문 준비 완료 화면) ── */
+.qa-mode-pick { margin-top: 22px; display: flex; flex-direction: column; gap: 12px; }
+.qm-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.qm-head b { font-weight: 800; }
+.qm-head span { font-size: 13px; color: var(--text-3); }
+.qa-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.qa-mode {
+  font-family: inherit; text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-btn);
+  padding: 11px 13px; display: flex; flex-direction: column; gap: 3px;
+  transition: border-color .15s, background .15s;
+}
+.qa-mode b { font-size: 14px; font-weight: 800; }
+.qa-mode span { font-size: 12px; color: var(--text-2); line-height: 1.45; }
+.qa-mode em { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--text-3); }
+.qa-mode.on { border-color: var(--blue); background: var(--blue-weak); }
+.qa-mode.on em { color: var(--blue-strong); }
+.qa-mode:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.qa-mode-pick .btn { align-self: flex-start; }
+@media (max-width: 720px) { .qa-modes { grid-template-columns: 1fr; } }
+
+/* ── 홈: 질문 코칭 바로 시작 카드 ── */
+.qa-quick { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; }
+.qa-quick .btn { align-self: flex-start; }
+
+/* ── 실전 모드 패널 + 입력 ── */
+.qa-live-body { display: flex; flex-direction: column; gap: 10px; }
+.ql-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.ql-row > span { flex: 0 0 150px; font-weight: 700; color: var(--text-2); }
+.ql-row input[type="text"] {
+  flex: 1; font: inherit; font-size: 13px; padding: 7px 10px;
+  border: 1px solid var(--border); border-radius: var(--r-btn); color: var(--text);
+}
+.ql-row input[type="text"]:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.qa-live-input { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; margin-top: 14px; }
+.qa-live-input textarea {
+  font: inherit; font-size: 14px; line-height: 1.6; padding: 10px 12px; resize: vertical;
+  border: 1px solid var(--border); border-radius: var(--r-btn); color: var(--text);
+}
+.qa-live-input textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+@media (max-width: 720px) { .ql-row { flex-direction: column; align-items: stretch; gap: 4px; } .ql-row > span { flex: none; } }
+
+/* ── 스트림 안 실시간 총평 카드 ── */
+.qa-sum {
+  align-self: stretch; border: 1px solid var(--border); border-left: 3px solid var(--blue);
+  background: var(--surface); border-radius: var(--r-inner); padding: 11px 14px;
+}
+.qa-sum .qs-eyebrow { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .04em; color: var(--blue-strong); margin-bottom: 3px; }
+.qa-sum .qs-name { font-size: 13px; font-weight: 800; }
+.qa-sum .qs-text { margin: 3px 0 0; font-size: 13px; color: var(--text-2); line-height: 1.55; min-height: 1.4em; }
+
+/* ── 세리머니: 오늘의 총평 ── */
+.cere-sums { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
+.qsum-row { border-top: 1px solid var(--border); padding: 10px 0; font-size: 13.5px; }
+.qsum-row:first-child { border-top: none; padding-top: 0; }
+.qsum-row b { display: block; font-weight: 800; margin-bottom: 2px; }
+.qsum-row p { margin: 0; color: var(--text-2); }
