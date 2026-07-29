@@ -12,16 +12,21 @@ from __future__ import annotations
 
 import json
 import logging
+import tempfile
 import uuid
+from base64 import b64decode
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+from starlette.concurrency import run_in_threadpool
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from chuckchuck import ChuckchuckError, settings
+from chuckchuck import ChuckchuckError, Context, extract_concepts, parse_document, settings, transcribe
+from chuckchuck.contracts import SlideDoc, SlideMark, Transcript
 
 from . import __version__, jobs
 from .store import SLIDE_DOC, store
@@ -214,6 +219,95 @@ def get_job(job_id: str):
     if job is None:
         raise HTTPException(404, {"error": "not_found", "message": "작업이 없습니다."})
     return job.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# 플랫 호환 — demo/bridge.py 와 같은 경로. 프론트 chuckchuck_bridge.js 가
+# 세션 없이 바로 부르는 API 를 이 서버 하나로 처리한다 (동작 계약 동일).
+# ---------------------------------------------------------------------------
+
+FIXTURE_SLIDEDOC = ROOT / "fixtures" / "sample_slidedoc.json"
+
+
+def _fixture_slidedoc() -> SlideDoc:
+    return SlideDoc.from_dict(json.loads(FIXTURE_SLIDEDOC.read_text(encoding="utf-8")))
+
+
+@app.get("/api/health")
+def flat_health():
+    return {"ok": True, "mock": settings.mock_external}
+
+
+@app.post("/api/v1/parse")
+async def flat_parse(request: Request):
+    """F-01 · 파일(멀티파트) 또는 {"fixture": true} → SlideDoc."""
+    ctype = request.headers.get("content-type", "")
+    if "application/json" in ctype:
+        body = await request.json()
+        if settings.mock_external:
+            return _fixture_slidedoc().to_dict()
+        if body.get("fixture"):
+            raise HTTPException(400, {
+                "error": "fixture_disabled",
+                "message": "MOCK_EXTERNAL_APIS=false 입니다. PDF/PPTX 파일을 업로드하세요.",
+            })
+        raise HTTPException(400, {"error": "bad_request", "message": "document 파일이 필요합니다."})
+
+    form = await request.form()
+    upload = form.get("document")
+    if upload is None or isinstance(upload, str):
+        raise HTTPException(400, {"error": "bad_request", "message": "document 필드가 필요합니다."})
+    data = await upload.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, {"error": "too_large", "message": "최대 30MB까지 올릴 수 있어요."})
+    if settings.mock_external:
+        doc = _fixture_slidedoc()
+        doc.file_name = upload.filename or "upload.pdf"
+        return doc.to_dict()
+    suffix = Path(upload.filename or "upload.pdf").suffix or ".pdf"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+    try:
+        log.info("flat parse start file=%r bytes=%d", upload.filename, len(data))
+        doc = await run_in_threadpool(parse_document, tmp_path)
+        log.info("flat parse done slides=%d", doc.total_slides)
+        return doc.to_dict()
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+@app.post("/api/v1/transcribe")
+async def flat_transcribe(payload: dict):
+    """F-05 · {marks, audio_base64, ext} → Transcript."""
+    marks = [SlideMark.from_dict(m) for m in payload.get("marks", [])]
+    provider = "mock" if settings.mock_external else payload.get("provider")
+    audio_b64 = payload.get("audio_base64")
+    if not audio_b64:
+        raise HTTPException(400, {"error": "bad_request", "message": "audio_base64 가 필요합니다."})
+    with tempfile.NamedTemporaryFile(suffix=payload.get("ext", ".webm"), delete=False) as tmp:
+        tmp.write(b64decode(audio_b64))
+        tmp_path = tmp.name
+    try:
+        t = await run_in_threadpool(lambda: transcribe(tmp_path, marks, provider=provider))
+        return t.to_dict()
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+@app.post("/api/v1/concepts")
+async def flat_concepts(payload: dict):
+    """F-06 · {slide_doc, context, transcript?} → ConceptDoc."""
+    if not payload.get("slide_doc"):
+        raise HTTPException(400, {"error": "bad_request", "message": "slide_doc 이 필요합니다."})
+    doc = SlideDoc.from_dict(payload["slide_doc"])
+    ctx = Context.from_dict(payload.get("context") or {})
+    transcript = Transcript.from_dict(payload["transcript"]) if payload.get("transcript") else None
+    llm = "mock" if settings.mock_external else payload.get("llm")
+    result = await run_in_threadpool(
+        lambda: extract_concepts(doc, ctx, transcript=transcript, llm=llm)
+    )
+    return result.to_dict()
 
 
 # ---------------------------------------------------------------------------
