@@ -968,7 +968,61 @@ function startRecClock() {
   }, 1000);
 }
 
+/* ─── 종연 3초 (UI_REDESIGN §3) ─────────────────────────────────────────────
+   발표를 마치는 순간, 분석은 7분 걸리지만 박수칠 이유는 이미 안다: 끝까지 했다.
+   네트워크 없이 즉시 아는 값(슬라이드 수·경과 시간)만 쓴다.
+
+   이 박수는 점수와 무관하게 무조건 나온다 (§6 '두 개의 박수'). 성적을 정직하게
+   따르는 박수는 커튼콜이 따로 맡는다. 둘을 합치면 박수가 성적표가 된다. */
+
+const CURTAIN_CALL_MS = 3000;
+
+function curtainCallCopy(slides, durationSec) {
+  const sec = Math.max(0, Math.round(Number(durationSec) || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const time = m ? `${m}분 ${s}초` : `${s}초`;
+  return `${slides}장, ${time}, <b>완주!</b>`;
+}
+
+/** 3초 뒤(또는 아무 데나 누르면 바로) 해소되는 약속을 돌려준다. */
+function showCurtainCall(slides, durationSec) {
+  // Chatter 가 아직 안 붙었으면 연출을 건너뛴다 — 연출 때문에 흐름이 막히면 안 된다
+  if (!window.Chatter) return Promise.resolve();
+
+  const veil = document.createElement('div');
+  veil.className = 'cc-veil';
+  veil.innerHTML = `
+    <div class="cc-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}" data-mood="happy">
+           ${window.Chatter.chickSvg(s)}
+         </div>`).join('')}
+    </div>
+    <div class="cc-line">${curtainCallCopy(slides, durationSec)}</div>
+    <div class="cc-sub">끝까지 하셨어요. 그동안 넷이서 발표를 뜯어볼게요.</div>
+    <div class="cc-skip">아무 데나 누르면 바로 넘어가요</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 380);
+      resolve();
+    };
+    veil.addEventListener('click', finish);
+    setTimeout(finish, CURTAIN_CALL_MS);
+  });
+}
+
 async function finishRecAndPrepare() {
+  // 완주 박수에 쓸 값은 파이프라인 전에 확정한다. SDK 없이 mock 으로 돈
+  // 테이크에는 durationSec 이 없으므로 화면 시계(nf.sec)가 유일한 사실이다.
+  const slides = rehearsalCount();
   if (ccRuntime) {
     ccLastTake = await ccRuntime.finish();
     nf.marks = (ccLastTake && ccLastTake.marks) || [];
@@ -983,6 +1037,8 @@ async function finishRecAndPrepare() {
     nf._pipelineTickStarted = false;
     saveSession('new-flow', nf);
   }
+  nf.backstage = [];   // 막간 대사는 테이크마다 새로 쌓인다
+  await showCurtainCall(slides, (ccLastTake && ccLastTake.durationSec) || nf.sec);
   nf.step = 3;
   renderNew();
   showF11Reveal();
@@ -1317,6 +1373,80 @@ function pipelineLoadingHtml(kind) {
   </div>`;
 }
 
+/* ─── 막간: 커튼 뒤의 소곤소곤 (UI_REDESIGN §5) ─────────────────────────────
+   "언제 끝나지" 를 "쟤들이 내 얘기를 하고 있다" 로 바꾼다.
+
+   철칙: 한 마디도 지어내지 않는다. 여기 나오는 숫자는 전부 그 단계가 실제로
+   돌려준 값이다 — 실측값이 없으면 그 병아리는 그냥 입을 열지 않는다.
+   진행률·단계 이름·경과 초는 아래에 그대로 남는다 (§14 정직한 상태 유지). */
+
+const BACKSTAGE_NAMES = {
+  midm: '믿:음', solar: '쏠라', exaone: '엑사원', ax: '엑씨', all: '넷이 동시에',
+};
+
+function backstageLine(phase) {
+  const out = nf.pipelineOut || {};
+  if (phase === 'stt_done') {
+    const sec = out.transcript && out.transcript.duration_sec;
+    // 길이를 못 받았으면 말하지 않는다. 엑씨의 대사는 실측이 전부다
+    return sec ? { who: 'ax', text: `${fmtMarkSec(sec)}, 한마디도 안 놓쳤어` } : null;
+  }
+  if (phase === 'concepts_done') {
+    const n = out.concepts && (out.concepts.slides || []).length;
+    return n ? { who: 'solar', text: `${n}장, 다 읽었어` } : null;
+  }
+  if (phase === 'graph_done') {
+    const n = out.graph && (out.graph.nodes || []).length;
+    return n ? { who: 'solar', text: `개념 ${n}개 정리 끝!` } : null;
+  }
+  if (phase === 'align_done') {
+    return { who: 'midm', text: '어? 잠깐, 이거…' };
+  }
+  if (phase === 'score_done') {
+    return { who: 'all', text: '쉿—! 온다!' };
+  }
+  return null;
+}
+
+function backstageLineHtml(line) {
+  return `<li class="bs-line" data-who="${escapeHtml(line.who)}">`
+    + `<b>${escapeHtml(BACKSTAGE_NAMES[line.who] || line.who)}</b>`
+    + `<span>${escapeHtml(line.text)}</span></li>`;
+}
+
+/**
+ * 단계 완료 신호 하나를 커튼 틈으로 흘려보낸다.
+ *
+ * nf 에 쌓아 두는 이유: 파이프라인이 7분 도는 동안 화면이 여러 번 다시 그려지는데,
+ * DOM 에만 넣으면 그때마다 지금까지의 대화가 통째로 사라진다.
+ */
+function pushBackstage(phase) {
+  const line = backstageLine(phase);
+  if (!line) return;
+  if (!Array.isArray(nf.backstage)) nf.backstage = [];
+  if (nf.backstage.some((l) => l.phase === phase)) return;   // 같은 단계는 한 번만
+  nf.backstage.push({ ...line, phase });
+
+  const host = $('#bsLines');
+  if (!host) return;
+  const murmur = host.querySelector('.bs-murmur');
+  if (murmur) murmur.remove();
+  host.insertAdjacentHTML('beforeend', backstageLineHtml(line));
+}
+
+function backstageHtml() {
+  const lines = Array.isArray(nf.backstage) ? nf.backstage : [];
+  const body = lines.length
+    ? lines.map(backstageLineHtml).join('')
+    : '<li class="bs-murmur" aria-label="객석이 웅성거리는 중"><i></i><i></i><i></i></li>';
+  return `
+    <div class="bs-stage">
+      <div class="bs-curtain" aria-hidden="true"><i></i><i></i></div>
+      <p class="bs-hint">막이 내려왔어요. 커튼 뒤에서 뭔가 상의하는 소리가 들립니다.</p>
+      <ul class="bs-lines" id="bsLines">${body}</ul>
+    </div>`;
+}
+
 function pipelineInspectHtml() {
   const marks = (ccLastTake && ccLastTake.marks) || nf.marks || [];
   const chuck = (window.ChuckchuckBridge && ChuckchuckBridge.loadChuckSession()) || {};
@@ -1478,6 +1608,7 @@ function nfStep4() {
     <div class="card">
       <h3 class="section-title">발표를 듣고 질문을 준비하고 있어요</h3>
       <p class="note" style="margin-bottom:14px">최종 분석 전에, 설명이 비어 있던 개념을 질문으로 함께 확인해요.</p>
+      ${backstageHtml()}
       ${pipeErr}
       <ul class="checklist">
         ${items.map((t, i) => {
@@ -1522,6 +1653,7 @@ function nfStep4() {
     nf.pipelineDetail = null;
     nf.transcriptOk = false;
     nf.conceptsOk = false;
+    nf.backstage = [];
     nf.step = 2;
     saveSession('new-flow', nf);
     renderNew();
@@ -1565,6 +1697,8 @@ function nfStep4() {
           };
         }
         if (transcript && !transcript.error) nf.transcriptOk = true;
+        // 커튼 틈으로 한 마디. pipelineOut 을 갱신한 뒤라야 실측값이 들어 있다
+        pushBackstage(phase);
         // STT 완료 직후 전체 화면을 다시 그려 발화 블록이 확실히 보이게
         if (phase === 'stt_done' || phase === 'concepts_error' || phase === 'concepts_done') {
           nf.done = pipelineChecklistDone();

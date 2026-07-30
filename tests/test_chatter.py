@@ -246,7 +246,7 @@ def test_badges_and_names_are_carried(bundle):
     assert doc.speaker_models["midm"] == "KT 믿:음"
     assert doc.speaker_models["ax"] == "SKT A.X"
     assert set(doc.speaker_models) == set(CHATTER_SPEAKERS)
-    assert doc.speaker_names["exaone"] == "엑사"
+    assert doc.speaker_names["exaone"] == "엑사원"
 
 
 # ---------------------------------------------------------------------------

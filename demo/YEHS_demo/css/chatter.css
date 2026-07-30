@@ -27,6 +27,14 @@
   --chick-ax: #ffe3a3;          /* 크림 */
   --chick-beak: #f08a3c;
   --chick-blush: #ff9d9d;
+
+  /* 말풍선 — 화자의 깃털색을 크림 톤으로 눕힌 것. 흰 풍선은 차갑다 (§7-4) */
+  --bub-midm: #fdf3d5;
+  --bub-solar: #fff4dc;
+  --bub-exaone: #fdeed9;
+  --bub-ax: #fff8e6;
+  --bub-ink: #4a3b2c;           /* 따뜻한 잉크색. 검정도 흰색도 아니다 */
+  --bub-ink-2: #9a8672;         /* 잉크색을 흐린 것 — 크림 위에서 회색은 탁하다 */
 }
 
 /* --------------------------------------------------------------------------
@@ -194,38 +202,56 @@
   margin-bottom: 6px;
 }
 
+/* 마시멜로 구름 — 네 모서리 반경이 다 달라야 손으로 그린 것처럼 읽힌다 (§7-4).
+   흰 사각 박스는 알림창이지 대사가 아니다. */
 .ch-bubble {
   position: relative;
   align-self: center;
   max-width: 100%;
-  padding: 9px 12px;
-  border-radius: 14px;
-  background: #fff;
-  color: #191f28;
+  padding: 10px 13px 11px;
+  border-radius: 18px 22px 20px 24px;
+  background: var(--bub, #fff8e6);
+  color: var(--bub-ink);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   text-align: left;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, .35);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .38);
   opacity: 0;
-  transform: translateY(6px) scale(.96);
-  animation: chBubbleIn .34s var(--ease, ease) forwards;
+  transform: translateY(6px) scale(.9);
+  animation:
+    chBubbleIn .42s cubic-bezier(.34, 1.56, .64, 1) forwards,
+    chBubbleFloat 3.4s ease-in-out .42s infinite;
 }
-/* 아래를 향한 꼬리 — 이 말을 한 건 바로 밑에 앉은 청중이다 */
+/* 화자의 깃털색이 풍선 색이 된다 — 누가 말했는지를 색으로도 안다 */
+.ch-seat[data-speaker="midm"]   .ch-bubble { --bub: var(--bub-midm); }
+.ch-seat[data-speaker="solar"]  .ch-bubble { --bub: var(--bub-solar); }
+.ch-seat[data-speaker="exaone"] .ch-bubble { --bub: var(--bub-exaone); }
+.ch-seat[data-speaker="ax"]     .ch-bubble { --bub: var(--bub-ax); }
+
+/* 꼬리는 부리에서 나온다. 좌석이 줄의 어느 쪽인지에 따라 방향이 기운다 */
 .ch-bubble::after {
   content: "";
   position: absolute;
-  bottom: -5px;
+  bottom: -6px;
   left: 50%;
-  width: 12px;
-  height: 12px;
-  margin-left: -6px;
-  background: #fff;
+  width: 15px;
+  height: 15px;
+  margin-left: calc(-7.5px + var(--tail-shift, 0px));
+  background: inherit;          /* 풍선 색을 그대로 — 따로 두면 흰 꼭지가 남는다 */
   transform: rotate(45deg);
-  border-radius: 2px;
+  border-radius: 0 0 3px 0;
 }
-.ch-bubble.faded { opacity: .42; transform: scale(.94); }
+.ch-seat[data-side="left"]  .ch-bubble { --tail-shift: 9px; }
+.ch-seat[data-side="right"] .ch-bubble { --tail-shift: -9px; }
+
+.ch-bubble.faded { opacity: .42; transform: scale(.94); animation: none; }
 @keyframes chBubbleIn {
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* 떠 있는 동안 1px 부유 — 멈춰 있으면 붙여 놓은 스티커로 보인다 */
+@keyframes chBubbleFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1px); }
 }
 
 /* 소곤거림 표시 */
@@ -234,26 +260,90 @@
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: .06em;
-  color: #b0b8c1;
+  color: var(--bub-ink-2);
   margin-bottom: 2px;
 }
+.ch-bubble-body { display: block; }
 
-/* 근거 배지 — 귀엽지만 근거가 있다는 신호 */
+/* 인용 = 발표자가 실제로 한 말. 풍선 안의 대본 조각이다 —
+   "내 말이 저기 있다" 는 순간이 이 화면의 보석이라 따옴표로 흘려보내지 않는다 */
+.ch-quote {
+  display: block;
+  position: relative;
+  margin: 6px 0 2px;
+  padding: 7px 10px 7px 20px;
+  border-radius: 3px 8px 4px 7px;
+  background: #fffaec;
+  border-left: 3px solid var(--chick-beak);
+  box-shadow: 0 2px 5px rgba(74, 59, 44, .14);
+  transform: rotate(-.8deg);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #3b2f23;
+}
+.ch-quote::before {
+  content: "\201C";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--chick-beak);
+  opacity: .55;
+}
+
+/* 근거 배지 = 풍선에 매달린 수하물 태그. 끈은 ::before 다 */
+.ch-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  padding-left: 2px;
+}
 .ch-ref {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 2px 8px;
+  position: relative;
+  padding: 3px 9px;
   border: 0;
-  border-radius: 999px;
-  background: #eef1f5;
-  color: #4e5968;
+  border-radius: 3px 7px 7px 3px;
+  background: #efe4c8;
+  color: #6b5a3f;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   font-family: inherit;
+  transform-origin: 0 -10px;
+  animation: chTagSwing 4.6s ease-in-out infinite;
 }
-.ch-ref:hover { background: #e2e7ee; color: #191f28; }
-.ch-ref:focus-visible { outline: 2px solid #3182f6; outline-offset: 1px; }
+/* 끈 */
+.ch-ref::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: -8px;
+  width: 1.5px;
+  height: 8px;
+  background: var(--bub-ink-2);
+  opacity: .5;
+}
+/* 태그 구멍 */
+.ch-ref::after {
+  content: "";
+  position: absolute;
+  left: 3.2px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: var(--bub, #fff8e6);
+}
+.ch-ref { padding-left: 13px; }
+@keyframes chTagSwing {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50%      { transform: rotate(2.5deg); }
+}
+.ch-ref:hover { background: #e5d6b2; color: #4a3b2c; }
+.ch-ref:focus-visible { outline: 2px solid var(--ch-stage); outline-offset: 2px; }
 
 /* 소곤거리는 중 표시 */
 .ch-typing {
@@ -279,51 +369,99 @@
 }
 
 /* --------------------------------------------------------------------------
-   병아리 — 몽총하게
+   병아리 — 처음 생긴 관객
+   --------------------------------------------------------------------------
+   2.5등신, 또렷한 눈, 늘 숨 쉰다. 눈썹은 없다 — 눈썹이 있으면 인상이 생기고
+   인상은 '멍청함' 이나 '심사' 로 읽힌다. 뾰로통함은 ∧ 눈으로만 만든다 (§10).
+
+   transform 을 두 층으로 나눈다: svg 는 흔들림·몸짓(mood), 안쪽 .ch-figure 는
+   호흡. 한 요소에 몰면 둘 중 하나가 덮인다.
    -------------------------------------------------------------------------- */
 
 .ch-chick {
-  width: clamp(78px, 12vw, 104px);
+  /* 말풍선보다 작으면 대사가 주인공이 된다. 들어주는 건 병아리다 */
+  width: clamp(96px, 15vw, 134px);
   height: auto;
   display: block;
   overflow: visible;
   cursor: pointer;
-  transform-origin: 50% 92%;
-  animation: chSway var(--ch-sway, 3.2s) ease-in-out infinite;
+  transform-origin: 50% 96%;
+  animation: chSway var(--ch-sway, 2.4s) ease-in-out infinite;
 }
-/* 느릿한 좌우 흔들림. 마리마다 주기가 달라야 기계처럼 안 보인다 */
+/* 좌우 흔들림. 마리마다 주기가 달라야 기계처럼 안 보인다 */
 @keyframes chSway {
   0%, 100% { transform: rotate(-1.6deg); }
   50%      { transform: rotate(1.6deg); }
 }
 
-/* 눈: 크고 동그랗되 초점이 없다. 실눈으로 만들면 몽총이 아니라 찡그린 얼굴이 된다 */
-.ch-chick .ch-lid { transform: none; transform-origin: center; }
-.ch-chick .ch-brow { opacity: 0; }
+/* 숨쉬기 — 가장 싼 생명 신호. 위상을 어긋내지 않으면 넷이 한 기계로 보인다 */
+.ch-figure {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: chBreathe 3s ease-in-out infinite;
+  animation-delay: var(--ch-breath-delay, 0s);
+}
+@keyframes chBreathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.015); }
+}
+
+.ch-blush { opacity: .5; }
 .ch-chick .ch-heart { opacity: 0; transform-origin: center; }
 .ch-chick .ch-mark { opacity: 0; }
 
-/* 느린 눈깜빡임 — 가끔, 굼뜨게 */
-.ch-chick .ch-eyes { animation: chBlinkEyes 6.4s infinite; transform-origin: center; }
+/* 표정 곡선은 mood 가 켠다. 평소엔 또렷한 눈동자만 보인다 */
+.ch-eye-line {
+  fill: none;
+  stroke: #2b2f3a;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0;
+}
+.ch-eye-ball, .ch-eye-hi { transform-box: fill-box; transform-origin: center; }
+
+/* 눈깜빡임 — 사람보다 조금 느리게 */
+.ch-chick .ch-eyes { animation: chBlinkEyes 5.6s infinite; transform-origin: center; }
 @keyframes chBlinkEyes {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95%           { transform: scaleY(.15); }
+  0%, 93%, 100% { transform: scaleY(1); }
+  96%           { transform: scaleY(.1); }
 }
 
-/* mood — 표정과 몸짓을 한 클래스로 바꾼다 */
-.ch-seat[data-mood="grumpy"] .ch-brow { opacity: 1; }
+/* 소품 — 반응 연기의 몸이다 (§9). 평소엔 가만히 있는다 */
+.ch-prop { transform-box: fill-box; transform-origin: center; }
+
+/* mood — 표정과 몸짓을 한 속성으로 바꾼다 */
+
+/* 뾰로통 = ∧ 눈. 화남이 아니다 */
+.ch-seat[data-mood="grumpy"] .ch-eye-grumpy { opacity: 1; }
+.ch-seat[data-mood="grumpy"] .ch-eye-ball,
+.ch-seat[data-mood="grumpy"] .ch-eye-hi { opacity: 0; }
 .ch-seat[data-mood="grumpy"] .ch-chick { animation: chTurnAway 1.1s ease-in-out; }
+/* 믿:음이 어긋난 걸 찾았을 때 — 형광펜이 실제로 밑줄을 긋는다 */
+.ch-seat[data-mood="grumpy"] .ch-pen-stroke { animation: chPenDraw 1.5s ease-out forwards; }
 @keyframes chTurnAway {
   0%, 100% { transform: rotate(0); }
   40%      { transform: rotate(-11deg); }
 }
+@keyframes chPenDraw {
+  0%   { opacity: 0;  clip-path: inset(0 100% 0 0); }
+  20%  { opacity: .9; clip-path: inset(0 100% 0 0); }
+  70%  { opacity: .9; clip-path: inset(0 0 0 0); }
+  100% { opacity: .55; clip-path: inset(0 0 0 0); }
+}
 
-.ch-seat[data-mood="happy"] .ch-lid { transform: scaleY(.45) translateY(-2px); }
+/* 신남 = ∪ 눈 */
+.ch-seat[data-mood="happy"] .ch-eye-happy { opacity: 1; }
+.ch-seat[data-mood="happy"] .ch-eye-ball,
+.ch-seat[data-mood="happy"] .ch-eye-hi { opacity: 0; }
 .ch-seat[data-mood="happy"] .ch-heart { opacity: 1; animation: chHeart 1.4s ease-out; }
 .ch-seat[data-mood="happy"] .ch-chick { animation: chHop .62s ease-in-out 2; }
+/* Squash & stretch — 뜨기 전에 눌리고 착지에서 다시 눌린다 */
 @keyframes chHop {
-  0%, 100% { transform: translateY(0); }
-  45%      { transform: translateY(-7px); }
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  18%      { transform: translateY(0) scale(1.06, .94); }
+  50%      { transform: translateY(-7px) scale(.97, 1.03); }
+  82%      { transform: translateY(0) scale(1.06, .94); }
 }
 @keyframes chHeart {
   0%   { opacity: 0; transform: translateY(2px) scale(.7); }
@@ -331,26 +469,45 @@
   100% { opacity: .8; transform: translateY(-6px) scale(1); }
 }
 
-.ch-seat[data-mood="curious"] .ch-lid { transform: scale(1.1); }
+/* 갸웃 — 고개를 기울이고 물음표 */
+.ch-seat[data-mood="curious"] .ch-eye-ball { transform: scale(1.08); }
 .ch-seat[data-mood="curious"] .ch-mark { opacity: 1; animation: chPop .5s ease-out; }
 .ch-seat[data-mood="curious"] .ch-chick { animation: chTilt 1.6s ease-in-out; }
 @keyframes chTilt {
   0%, 100% { transform: rotate(0); }
-  50%      { transform: rotate(9deg); }
+  50%      { transform: rotate(8deg); }
 }
 @keyframes chPop {
   from { opacity: 0; transform: translateY(4px) scale(.6); }
 }
 
-.ch-seat[data-mood="excited"] .ch-lid { transform: scale(1.18); }
+/* 놀람 — 눈이 커진다. Exaggeration 은 0.4초 안에 되돌린다 */
+.ch-seat[data-mood="excited"] .ch-eye-ball { animation: chEyeWide .4s ease-out; }
 .ch-seat[data-mood="excited"] .ch-chick { animation: chShiver .42s ease-in-out 3; }
+@keyframes chEyeWide {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
 @keyframes chShiver {
   0%, 100% { transform: translateX(0) rotate(0); }
   25%      { transform: translateX(-3px) rotate(-3deg); }
   75%      { transform: translateX(3px) rotate(3deg); }
 }
 
-/* 결석(모델 다운) — 조는 청중 */
+/* 말하기 직전 움츠림 (Anticipation) — 풍선이 튀어나오기 전 숨을 들이쉰다 */
+.ch-seat.talking .ch-figure { animation: chAnticipate .9s ease-out; }
+@keyframes chAnticipate {
+  0%   { transform: scale(1); }
+  14%  { transform: scale(.96); }
+  34%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* 결석(모델 다운) — 조는 청중. 눈을 감는다 */
+.ch-seat.dozing .ch-eye-shut { opacity: 1; }
+.ch-seat.dozing .ch-eye-ball,
+.ch-seat.dozing .ch-eye-hi { opacity: 0; }
 .ch-seat.dozing .ch-chick { animation: chDoze 4.2s ease-in-out infinite; }
 @keyframes chDoze {
   0%, 100% { transform: rotate(-6deg) translateY(0); }
@@ -496,10 +653,18 @@
   .ch-actions { transition: none; }
   .ch-chick,
   .ch-chick .ch-eyes,
+  .ch-figure,
+  .ch-seat.talking .ch-figure,
+  .ch-eye-ball,
+  .ch-pen-stroke,
   .ch-doorlight,
   .ch-seat.seated,
   .ch-bubble,
+  .ch-ref,
   .ch-typing i { animation: none !important; }
   .ch-seat { opacity: 1; transform: none; }
+  .ch-figure, .ch-ref { transform: none; }
   .ch-bubble { opacity: 1; transform: none; }
+  /* 밑줄 애니메이션을 껐으니 결과만 그대로 보여준다 (연출이 아니라 정보다) */
+  .ch-seat[data-mood="grumpy"] .ch-pen-stroke { opacity: .55; }
 }
