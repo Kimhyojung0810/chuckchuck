@@ -187,9 +187,38 @@
     justify-content: flex-end; align-items: center; overflow: hidden;
     padding-bottom: 30px; transition: opacity 0.5s;
   }
+  /* 실데이터를 기다리는 동안엔 그래프가 아직 없어 위쪽이 통째로 빈다.
+     자막을 가운데로 모아 빈 화면을 줄인다. */
+  #sttScene.waiting { justify-content: center; padding-bottom: 0; }
   .stt-line {
     font-size: 13.5px; color: var(--faint); line-height: 1.6;
     opacity: 0; animation: sttUp 3.2s ease forwards;
+  }
+  /* 파이프라인 진행률 — 대기가 길어서 '멈춘 건가' 싶지 않게 */
+  #pipeProgress {
+    width: min(320px, 86%); margin: 10px auto 0; flex: none;
+  }
+  #pipeProgress[hidden] { display: none; }
+  .pp-bar {
+    height: 5px; border-radius: 3px; overflow: hidden;
+    background: var(--line, rgba(255, 255, 255, .18));
+  }
+  .pp-bar > i {
+    display: block; height: 100%; width: 0;
+    border-radius: 3px; background: var(--primary);
+    transition: width .6s cubic-bezier(.22, .61, .36, 1);
+  }
+  .pp-meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 6px; font-size: 11.5px; color: var(--faint);
+  }
+  .pp-meta b { font-size: 13px; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .pp-detail {
+    margin-top: 2px; font-size: 10.5px; line-height: 1.45; color: var(--faint);
+    opacity: .75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pp-bar > i { transition: none; }
   }
   @keyframes sttUp {
     0% { opacity: 0; transform: translateY(14px); }
@@ -346,6 +375,14 @@
   <div class="caption" id="caption">
     <h1 id="capH"></h1>
     <p id="capP"></p>
+  </div>
+
+  <!-- 진행률은 캡션 아래 고정 자리에 둔다. stage 안에 절대배치하면
+       STT 자막·타임라인 바와 같은 바닥을 다퉈 겹친다. -->
+  <div id="pipeProgress" hidden>
+    <div class="pp-bar"><i id="ppFill"></i></div>
+    <div class="pp-meta"><span id="ppLabel">준비 중</span><b id="ppPct">0%</b></div>
+    <div class="pp-detail" id="ppDetail"></div>
   </div>
 
   <div class="stage">
@@ -660,9 +697,47 @@ function realSttLines(t) {
   return lines;
 }
 
+/* 파이프라인 진행률 — 부모(app.js)가 0.5초마다 단계·%를 보내준다.
+   단독 데모(embed 아님)에는 진짜 파이프라인이 없으니 띄우지 않는다. */
+/* 파이프라인이 아직 살아서 일하고 있는지. 대기 화면이 언제 포기할지 이걸로 정한다 —
+   고정 횟수로 끊으면 F-06 이 아직 도는데 0% 짜리 빈 요약으로 넘어간다. */
+let lastProgressAt = 0;
+let lastPhase = "";
+const PIPE_STALL_MS = 20000;
+
+function pipelineStillRunning() {
+  if (!lastProgressAt) return false;
+  if (lastPhase === "done" || lastPhase === "error") return false;
+  return Date.now() - lastProgressAt < PIPE_STALL_MS;
+}
+
+function renderPipeProgress(d) {
+  lastProgressAt = Date.now();
+  lastPhase = d.phase || "";
+  if (!EMBED || skipped) return;
+  const box = $("pipeProgress");
+  if (!box) return;
+  const pct = Math.max(0, Math.min(100, Math.round(Number(d.percent) || 0)));
+  box.hidden = false;
+  $("ppFill").style.width = pct + "%";
+  $("ppPct").textContent = pct + "%";
+  $("ppLabel").textContent = d.label || "진행 중";
+  $("ppDetail").textContent = d.detail || "";
+}
+
+function hidePipeProgress() {
+  const box = $("pipeProgress");
+  if (box) box.hidden = true;
+}
+
 window.addEventListener("message", (e) => {
   if (e.origin !== location.origin) return;
+  if (e.data && e.data.type === "f11Progress") {
+    renderPipeProgress(e.data);
+    return;
+  }
   if (e.data && e.data.type === "f11Data" && e.data.graph && e.data.alignment) {
+    hidePipeProgress();   // 실데이터가 왔으면 대기 UI 는 걷는다
     try {
       if (e.data.transcript) REAL_STT = realSttLines(e.data.transcript);
       applyRealData(e.data.graph, e.data.alignment);
@@ -709,6 +784,7 @@ async function sceneSTT() {
   setScene(0);
   const wrap = $("sttScene");
   wrap.style.opacity = 1;
+  wrap.classList.toggle("waiting", EMBED);
   // embed 에선 실데이터(F-05~F-11 파이프라인)가 올 때까지 이 씬이 기다린다.
   // 실 LLM 은 콜당 수십 초라 최대 ~3분까지 순환하고, 그 뒤엔 mock 으로 진행한다.
   // embed(실제 앱 흐름)에선 아직 안 온 전사 대신 중립 대기 문구를 튼다 —
@@ -739,11 +815,16 @@ async function sceneSTT() {
       await sleep(760);
     }
     pass += 1;
-    if (wrap.childElementCount > 24) wrap.replaceChildren();
-  } while (EMBED && !dataArrived && !skipped && pass < 40);
+    // 24줄까지 쌓았다 한 번에 비우면 화면이 글자벽이 됐다가 텅 빈다.
+    // 최근 몇 줄만 남겨 늘 같은 높이로 흐르게 한다.
+    while (wrap.childElementCount > 4) wrap.firstElementChild.remove();
+    // 파이프라인이 아직 돌고 있으면 계속 기다린다. 횟수로 끊으면
+    // F-06 이 진행 중인데 0% 짜리 빈 요약으로 넘어가 버린다.
+  } while (EMBED && !dataArrived && !skipped && (pass < 40 || pipelineStillRunning()));
   // 실전사가 왔으면 데모 대본을 걷어내고 실제 발화 문장으로 마무리한다.
   // 키워드 침도 실데이터 — 발표가 실제로 다룬 개념 라벨을 띄운다
   if (EMBED && REAL_STT && REAL_STT.length && !skipped) {
+    wrap.classList.remove("waiting");   // 실전사부터는 원래 자리(아래에서 위로)
     wrap.replaceChildren();
     let ki = 0;
     for (const txt of REAL_STT.slice(0, 5)) {
@@ -948,8 +1029,25 @@ async function run() {
   const scenes = [sceneSTT, sceneGraph, sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
   for (const scene of scenes) {
     if (token !== runToken) return;
+    // 실데이터가 끝내 안 왔는데 뒷 씬을 틀면 0% 짜리 가짜 요약이 나온다.
+    // 그건 "분석 결과 0점"으로 읽혀서, 아무것도 안 보여주느니만 못하다.
+    if (EMBED && scene !== sceneSTT && !dataArrived && !skipped) {
+      showPipeStalled();
+      return;
+    }
     await scene();
   }
+}
+
+/** 파이프라인이 멎었을 때 — 빈 요약 대신 무슨 일인지 말해준다. */
+function showPipeStalled() {
+  const box = $("pipeProgress");
+  if (box) box.hidden = true;
+  $("capH").textContent = "분석이 아직 안 끝났어요";
+  $("capP").textContent = lastPhase === "error"
+    ? "파이프라인에서 오류가 났어요. 아래 검증 로그에서 어디서 멈췄는지 볼 수 있어요."
+    : "예상보다 오래 걸리고 있어요. 이 화면을 닫고 검증 로그에서 진행 상황을 확인해 주세요.";
+  $("caption").classList.add("show");
 }
 
 function jumpToEnd() {

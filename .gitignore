@@ -28,3 +28,6 @@ _doc.html
 # editor
 .idea/
 .vscode/
+
+# 브리지가 자동 저장하는 SlideDoc 캐시 (재파싱 생략용) — 이미 커밋된 것은 그대로 유지
+fixtures/raw/*.slidedoc.json

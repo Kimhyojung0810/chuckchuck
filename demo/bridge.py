@@ -30,7 +30,52 @@ from chuckchuck import (  # noqa: E402
 )
 from chuckchuck.contracts import ConceptDoc, SlideDoc, SlideMark  # noqa: E402
 
-MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일
+MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일 (원본 파일 기준)
+# JSON 본문은 오디오를 base64 로 실어 4/3 로 부푼다. 원본 30MB 를 그대로 받으려면
+# 본문 한도도 그만큼 키워야 한다 — 안 그러면 정상 크기 녹음이 413 으로 막힌다.
+MAX_BODY_BYTES = MAX_UPLOAD_BYTES * 4 // 3 + 2 * 1024 * 1024
+
+ALLOWED_AUDIO_EXTS = frozenset(
+    {".webm", ".m4a", ".mp4", ".mp3", ".wav", ".ogg", ".oga", ".flac", ".aac"}
+)
+DEFAULT_AUDIO_EXT = ".webm"
+
+
+def _safe_audio_ext(raw: str | None) -> str:
+    """
+    클라이언트가 준 확장자를 임시 파일 suffix 로 쓰기 전에 좁힌다.
+
+    경로 조각이 섞여 들어오면 임시 파일 이름이 오염되므로 화이트리스트만 통과시킨다.
+    모르는 값은 녹음 기본값으로 떨어뜨린다.
+    """
+    ext = (raw or "").strip().lower()
+    if not ext.startswith("."):
+        ext = f".{ext}" if ext else ""
+    return ext if ext in ALLOWED_AUDIO_EXTS else DEFAULT_AUDIO_EXT
+
+
+def _cache_stem(file_name: str) -> str:
+    """캐시 파일 이름으로 쓸 안전한 stem. 경로 조각·구분자를 모두 없앤다."""
+    stem = Path(file_name or "").stem
+    safe = "".join(ch for ch in stem if ch.isalnum() or ch in "-_ ").strip()
+    return safe[:80] or "upload"
+
+
+def _save_slidedoc_cache(doc_dict: dict, file_name: str) -> None:
+    """
+    파싱 결과를 fixtures/raw 에 남긴다.
+
+    같은 자료로 녹음만 바꿔가며 반복 테스트할 때 재파싱(느리고 유료)을 건너뛰기 위한 것.
+    실패해도 파싱 자체는 성공이므로 삼키되 로그는 남긴다.
+    """
+    try:
+        raw_dir = ROOT / "fixtures" / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        path = raw_dir / f"{_cache_stem(file_name)}.slidedoc.json"
+        path.write_text(json.dumps(doc_dict, ensure_ascii=False), encoding="utf-8")
+        sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 {path.name}\n")
+    except OSError as e:
+        sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 실패(무시): {e}\n")
 
 
 def _mock() -> bool:
@@ -81,8 +126,14 @@ class Handler(SimpleHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0) or 0)
             if length < 0:
                 return self._json(400, {"error": "bad content-length"})
-            if length > MAX_UPLOAD_BYTES + 1024 * 1024:
-                return self._json(413, {"error": "too_large", "message": "최대 30MB까지 올릴 수 있어요."})
+            if length > MAX_BODY_BYTES:
+                return self._json(
+                    413,
+                    {
+                        "error": "too_large",
+                        "message": "자료·녹음 모두 원본 기준 최대 30MB까지 올릴 수 있어요.",
+                    },
+                )
             raw = self.rfile.read(length) if length else b""
 
             if parsed.path == "/api/v1/parse":
@@ -97,6 +148,10 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_alignment(raw)
             if parsed.path == "/api/v1/flow":
                 return self._handle_flow(raw)
+            if parsed.path == "/api/v1/chatter":
+                return self._handle_chatter(raw)
+            if parsed.path == "/api/v1/score":
+                return self._handle_score(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -118,14 +173,23 @@ class Handler(SimpleHTTPRequestHandler):
         cands = sorted(raw_dir.glob("*.slidedoc.json"), key=lambda p: p.stat().st_mtime, reverse=True)
         if not cands:
             return self._json(404, {"error": "no_cache", "message": "저장된 SlideDoc이 없습니다."})
-        chosen = cands[0]
         if hint:
-            stem = Path(hint).stem
-            for p in cands:
-                if stem and (stem in p.name or hint in p.name):
-                    chosen = p
-                    break
+            # 이름을 지정했는데 못 찾으면 최신본으로 대체하지 않는다 —
+            # 다른 발표자료가 조용히 붙으면 정합 판정이 통째로 거짓말이 된다.
+            want = _cache_stem(hint)
+            chosen = next((p for p in cands if p.stem == f"{want}.slidedoc" or want in p.name), None)
+            if chosen is None:
+                return self._json(
+                    404,
+                    {
+                        "error": "no_cache_for_file",
+                        "message": f"{hint} 의 파싱 결과가 없습니다. 자료를 다시 올려주세요.",
+                    },
+                )
+        else:
+            chosen = cands[0]
         doc = json.loads(chosen.read_text(encoding="utf-8"))
+        sys.stderr.write(f"[bridge] SlideDoc 캐시 사용 {chosen.name}\n")
         return self._json(200, doc)
 
     def _serve_sdk(self, rel: str, head_only: bool = False):
@@ -194,7 +258,10 @@ class Handler(SimpleHTTPRequestHandler):
             fixture = ROOT / "fixtures" / "sample_slidedoc.json"
             doc = SlideDoc.from_dict(json.loads(fixture.read_text(encoding="utf-8")))
             doc.file_name = filename
-            return self._json(200, doc.to_dict())
+            payload = doc.to_dict()
+            # mock 에서도 캐시를 남겨야 새로고침 후 반복 테스트가 실API 와 똑같이 돈다
+            _save_slidedoc_cache(payload, filename)
+            return self._json(200, payload)
 
         sys.stderr.write(f"[bridge] F-01 parse start file={filename!r} bytes={len(file_bytes)}\n")
         with tempfile.NamedTemporaryFile(suffix=Path(filename).suffix or ".pdf", delete=False) as tmp:
@@ -203,7 +270,9 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             doc = parse_document(tmp_path)
             sys.stderr.write(f"[bridge] F-01 parse done slides={doc.total_slides}\n")
-            return self._json(200, doc.to_dict())
+            payload = doc.to_dict()
+            _save_slidedoc_cache(payload, filename)
+            return self._json(200, payload)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
@@ -299,6 +368,51 @@ class Handler(SimpleHTTPRequestHandler):
         )
         return self._json(200, flow.to_dict())
 
+    def _handle_chatter(self, raw: bytes):
+        """삐약 청중석 · ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc."""
+        from chuckchuck import build_chatter
+
+        body = json.loads(raw or b"{}")
+        missing = [k for k in ("graph", "alignment", "flow") if not body.get(k)]
+        if missing:
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": (
+                        f"{', '.join(missing)} 가 필요합니다. "
+                        "F-07·F-11 결과를 함께 보내세요."
+                    ),
+                },
+            )
+        chatter = build_chatter(body["graph"], body["alignment"], body["flow"])
+        speakers = sorted({t.speaker for t in chatter.turns})
+        sys.stderr.write(
+            f"[bridge] chatter done turns={len(chatter.turns)} "
+            f"speakers={len(speakers)} refs={len(chatter.referenced_node_ids)}\n"
+        )
+        return self._json(200, chatter.to_dict())
+
+    def _handle_score(self, raw: bytes):
+        """F-13 · AlignmentDoc(+선택 FlowDiff) → 0~100 점. LLM 호출 없음."""
+        from chuckchuck import score_presentation
+        from chuckchuck.contracts import AlignmentDoc, FlowDiff
+
+        body = json.loads(raw or b"{}")
+        if not body.get("alignment"):
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "alignment 가 필요합니다. F-11 결과를 보내세요."},
+            )
+        alignment = AlignmentDoc.from_dict(body["alignment"])
+        flow = FlowDiff.from_dict(body["flow"]) if body.get("flow") else None
+        result = score_presentation(alignment, flow)
+        sys.stderr.write(
+            f"[bridge] F-13 score={result.score} basis={result.basis} "
+            f"omitted={result.omitted} contradictions={result.contradiction_count}\n"
+        )
+        return self._json(200, result.to_dict())
+
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")
 
@@ -322,9 +436,20 @@ class Handler(SimpleHTTPRequestHandler):
         if audio_b64:
             import base64
 
-            ext = body.get("ext", ".webm")
+            audio_bytes = base64.b64decode(audio_b64)
+            if len(audio_bytes) > MAX_UPLOAD_BYTES:
+                return self._json(
+                    413,
+                    {
+                        "error": "too_large",
+                        "message": f"녹음은 최대 30MB까지예요. (받은 파일 {len(audio_bytes) / 1024 / 1024:.1f}MB)",
+                    },
+                )
+            # 확장자가 실제 포맷과 다르면 STT 가 파일을 못 읽는다 — 프런트가 파일명에서 뽑아 보낸다
+            ext = _safe_audio_ext(body.get("ext"))
+            sys.stderr.write(f"[bridge] F-05 transcribe audio bytes={len(audio_bytes)} ext={ext}\n")
             with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-                tmp.write(base64.b64decode(audio_b64))
+                tmp.write(audio_bytes)
                 audio_path = tmp.name
         if not audio_path:
             audio_path = str(ROOT / "fixtures" / ".keep")

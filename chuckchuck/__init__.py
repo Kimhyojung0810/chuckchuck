@@ -10,6 +10,10 @@ from .contracts import (
     AlignmentDoc,
     AlignmentItem,
     AlignmentSummary,
+    ChatterDoc,
+    ChatterError,
+    ChatterRef,
+    ChatterTurn,
     ChuckchuckError,
     ConceptDoc,
     ConceptEdge,
@@ -38,12 +42,18 @@ from .f06_concepts import extract_concepts
 from .f07_graph import build_graph
 from .f11_align import align_speech
 from .f11_flow import build_flow_diff
+from .f12_chatter import build_chatter
+from .f13_score import score_presentation
 
 __all__ = [
     "AlignError",
     "AlignmentDoc",
     "AlignmentItem",
     "AlignmentSummary",
+    "ChatterDoc",
+    "ChatterError",
+    "ChatterRef",
+    "ChatterTurn",
     "ChuckchuckError",
     "ConceptDoc",
     "ConceptEdge",
@@ -66,7 +76,9 @@ __all__ = [
     "WeightBasis",
     "WordTimestampUnsupported",
     "align_speech",
+    "build_chatter",
     "build_flow_diff",
+    "score_presentation",
     "build_graph",
     "extract_concepts",
     "parse_document",

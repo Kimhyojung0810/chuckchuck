@@ -903,6 +903,141 @@ class FlowDiff:
 
 
 # ---------------------------------------------------------------------------
+# 삐약 청중석 : 청중 반응 수다 (ChatterDoc)
+# ---------------------------------------------------------------------------
+# 국내 LLM 4개가 병아리 청중을 연기하며 발표에 대해 떠든다. 성격은 임의 배정이
+# 아니라 각 모델이 파이프라인에서 실제로 한 일에서 나온다 (solar=자료를 읽음,
+# ax=발표를 들음, midm=믿음/검증, exaone=전문가 칭찬).
+#
+# 대사 내용은 이미 계산된 AlignmentDoc·FlowDiff 의 사실만 쓴다. 어떤 노드를
+# 언급할지는 코드가 결정적으로 고르고, LLM 은 말투만 입힌다 — F-11 과 같은 철학.
+
+#: speaker id. providers/llm_impl.py REGISTRY 키와 동일해서 별도 매핑이 없다.
+CHATTER_SPEAKERS = ("midm", "solar", "exaone", "ax")
+
+#: 프론트가 아바타 표정·모션을 고르는 키. enum 밖은 neutral 로 떨어진다.
+CHATTER_MOODS = ("grumpy", "happy", "curious", "excited", "neutral")
+
+#: refs[].source — 이 대사의 근거가 어느 산출물에서 왔나.
+CHATTER_REF_SOURCES = ("alignment", "flow", "graph")
+
+#: 화면에 상시 노출하는 모델 배지. "국내 LLM 총출동"을 설명 없이 보이게 하는 장치라
+#: 어느 단계에서도 숨기지 않는다.
+CHATTER_BADGES = {
+    "midm": "KT 믿:음",
+    "solar": "Upstage Solar",
+    "exaone": "LG EXAONE",
+    "ax": "SKT A.X",
+}
+
+#: 병아리 이름 (화면 표시용).
+CHATTER_NAMES = {
+    "midm": "믿음이",
+    "solar": "쏠라",
+    "exaone": "엑사",
+    "ax": "엑씨",
+}
+
+
+@dataclass
+class ChatterRef:
+    """대사 하나의 근거. node_id 로 리포트의 개념 판정과 조인한다."""
+    node_id: str
+    source: str = "alignment"   # alignment | flow | graph
+
+    def to_dict(self) -> dict:
+        return {"node_id": self.node_id, "source": self.source}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterRef":
+        return cls(
+            node_id=str(d["node_id"]),
+            source=str(d.get("source", "alignment")),
+        )
+
+
+@dataclass
+class ChatterTurn:
+    """수다 한 턴. refs 가 비면 근거 없는 스몰토크다 (개수 제한 대상)."""
+    speaker: str                        # CHATTER_SPEAKERS 중 하나
+    text: str
+    mood: str = "neutral"               # CHATTER_MOODS 중 하나
+    refs: list[ChatterRef] = field(default_factory=list)
+
+    @property
+    def is_smalltalk(self) -> bool:
+        return not self.refs
+
+    def to_dict(self) -> dict:
+        return {
+            "speaker": self.speaker,
+            "text": self.text,
+            "mood": self.mood,
+            "refs": [r.to_dict() for r in self.refs],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterTurn":
+        return cls(
+            speaker=str(d["speaker"]),
+            text=str(d.get("text", "")),
+            mood=str(d.get("mood", "neutral")),
+            refs=[ChatterRef.from_dict(r) for r in d.get("refs", [])],
+        )
+
+
+@dataclass
+class ChatterDoc:
+    """
+    청중 반응 수다. 프론트 채팅방이 이걸 그대로 재생한다.
+
+    불변식은 f12_chatter.build_chatter() 가 보장한다:
+    speaker 전원 최소 1턴 · refs 는 그 speaker 에게 배정된 근거만 ·
+    mood 는 enum 안 · 스몰토크 비율 상한 · 전체 턴 수 상한.
+    """
+    file_name: str
+    total_slides: int = 0
+    turns: list[ChatterTurn] = field(default_factory=list)
+    #: speaker → 배지 문자열. 프론트가 CHATTER_BADGES 를 몰라도 되게 같이 실어 보낸다.
+    speaker_models: dict[str, str] = field(default_factory=dict)
+    #: speaker → 병아리 이름.
+    speaker_names: dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "turns": [t.to_dict() for t in self.turns],
+            "speaker_models": dict(self.speaker_models),
+            "speaker_names": dict(self.speaker_names),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterDoc":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            turns=[ChatterTurn.from_dict(t) for t in d.get("turns", [])],
+            speaker_models=dict(d.get("speaker_models", {})),
+            speaker_names=dict(d.get("speaker_names", {})),
+        )
+
+    def turns_of(self, speaker: str) -> list[ChatterTurn]:
+        """특정 병아리의 대사들."""
+        return [t for t in self.turns if t.speaker == speaker]
+
+    @property
+    def referenced_node_ids(self) -> list[str]:
+        """수다가 실제로 언급한 노드들. 리포트와 따로 놀지 않는지 확인용."""
+        seen: list[str] = []
+        for turn in self.turns:
+            for ref in turn.refs:
+                if ref.node_id not in seen:
+                    seen.append(ref.node_id)
+        return seen
+
+
+# ---------------------------------------------------------------------------
 # 예외
 # ---------------------------------------------------------------------------
 
@@ -932,6 +1067,10 @@ class GraphError(ChuckchuckError):
 
 class AlignError(ChuckchuckError):
     """F-11 정합 판정 실패."""
+
+
+class ChatterError(ChuckchuckError):
+    """삐약 청중석 수다 생성 실패."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

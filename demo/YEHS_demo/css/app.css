@@ -357,6 +357,10 @@ main.narrow { max-width: 640px; }
 .rehearsal-control .mic-denied { display: flex; flex: 1; flex-direction: column; padding: 0; background: none; }
 .rehearsal-control .mic-denied b { color: var(--text); }
 .privacy-note { margin-top: 10px; color: var(--text-3); font-size: 12px; text-align: right; }
+/* 마이크 없이 저장해 둔 녹음본으로 돌려보는 입구 */
+.rec-upload { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 2px; max-width: 250px; }
+.rec-upload .btn-text { height: 30px; padding: 0; font-size: 13px; }
+.rec-upload .note { font-size: 11px; line-height: 1.45; text-align: right; }
 
 /* 분석 체크리스트 */
 .checklist { padding: 0; margin: 0; }
@@ -1214,6 +1218,8 @@ table.plain tr:last-child td { border-bottom: 0; }
   .rehearsal-control { position: static; width: auto; transform: none; }
   .rehearsal-shell { padding-bottom: 0; }
   .rehearsal-control > .btn { width: 100%; margin-left: 0; }
+  .rec-upload { align-items: stretch; max-width: none; }
+  .rec-upload .note { text-align: left; }
   .rec-log-fold .trans-log { position: static; width: 100%; box-shadow: none; }
   .qa-top { align-items: stretch; flex-direction: column; }
   .aud-select { justify-content: space-between; }

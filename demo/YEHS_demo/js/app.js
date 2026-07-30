@@ -269,7 +269,7 @@ function resetNf() {
   nf = { step: 0, gate: null, occ: null, ctx: '', min: 10,
          mic: 'idle', sec: 0, slide: 1, visits: { 1: 1 }, log: [], done: 0, completed: false,
          fileName: '', sparseSlides: [], parseError: null, useSample: false,
-         marks: null, pipelineOut: null, pipelineError: null,
+         marks: null, uploadedTake: null, pipelineOut: null, pipelineError: null,
          pipelinePhase: null, pipelineDetail: null, pipelineStartedAt: null,
          _pipelineTickStarted: false };
   nfSlideDoc = null;
@@ -876,18 +876,44 @@ function appendRecLog(entry) {
   log.scrollTop = log.scrollHeight;
 }
 
+/** 마이크 없이 저장해 둔 녹음본으로 돌려보는 입구 (테스트용). */
+function recUploadHtml() {
+  return `
+    <div class="rec-upload">
+      <button class="btn btn-text btn-sm" id="recUploadPick">녹음 파일로 대신하기</button>
+      <p class="note" id="recUploadNote">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB. 슬라이드 구간은 길이를 균등 분할해 채웁니다.</p>
+      <input type="file" id="recUploadFile" accept="audio/*,.webm,.m4a,.mp4,.mp3,.wav,.ogg" hidden>
+    </div>`;
+}
+
+function bindRecUpload() {
+  const pick = $('#recUploadPick');
+  const input = $('#recUploadFile');
+  if (!pick || !input) return;
+  pick.addEventListener('click', () => input.click());
+  input.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    e.target.value = ''; // 같은 파일을 다시 고를 수 있게
+    if (f) useUploadedRecording(f);
+  });
+}
+
 function renderRecPanel() {
   const p = $('#recPanel'); if (!p) return;
   if (nf.mic === 'idle') {
     p.innerHTML = `
       <div class="rec-copy"><span>준비되면 시작하세요</span><p>발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.</p></div>
-      <button class="btn btn-primary" id="recStart">발표 시작하기</button>`;
+      <button class="btn btn-primary" id="recStart">발표 시작하기</button>
+      ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
+    bindRecUpload();
   } else if (nf.mic === 'denied') {
     p.innerHTML = `
       <div class="mic-denied"><b>마이크 권한이 필요해요</b><span>주소창의 권한 설정에서 허용한 뒤 다시 시작해주세요.</span></div>
-      <button class="btn btn-secondary" id="recRetry">다시 시도하기</button>`;
+      <button class="btn btn-secondary" id="recRetry">다시 시도하기</button>
+      ${recUploadHtml()}`;
     $('#recRetry').addEventListener('click', startRec);
+    bindRecUpload();
   } else {
     p.innerHTML = `
       <div class="rec-status">
@@ -946,6 +972,7 @@ async function finishRecAndPrepare() {
   if (ccRuntime) {
     ccLastTake = await ccRuntime.finish();
     nf.marks = (ccLastTake && ccLastTake.marks) || [];
+    nf.uploadedTake = null; // 실연 테이크가 업로드본을 덮는다
     nf.done = 0;
     nf._pipelineStarted = false;
     nf.pipelineOut = null;
@@ -956,6 +983,165 @@ async function finishRecAndPrepare() {
     nf._pipelineTickStarted = false;
     saveSession('new-flow', nf);
   }
+  nf.step = 3;
+  renderNew();
+  showF11Reveal();
+}
+
+/**
+ * F-01 결과를 되살린다.
+ *
+ * nfSlideDoc 은 메모리에만 있어서 새로고침 한 번에 사라지고, 없으면 파이프라인이
+ * F-06 이후(개념·그래프·정합·수다)를 통째로 건너뛴다. 서버가 파싱할 때 남겨 둔
+ * 캐시를 파일 이름으로 찾아 붙여, 같은 자료로 녹음만 바꿔가며 반복 테스트할 수 있게 한다.
+ * 못 찾으면 null — 호출부가 재파싱을 안내한다.
+ */
+async function ensureSlideDoc() {
+  if (nfSlideDoc) return nfSlideDoc;
+  const hint = nf.fileName || '';
+  try {
+    const res = await fetch(`/api/v1/cached-slidedoc?file=${encodeURIComponent(hint)}`);
+    if (!res.ok) return null;
+    const doc = await res.json();
+    if (!doc || doc.error || !Array.isArray(doc.slides)) return null;
+    nfSlideDoc = doc;
+    console.info('[chuckchuck] SlideDoc 캐시 복구', doc.file_name, doc.total_slides);
+    return nfSlideDoc;
+  } catch (err) {
+    console.warn('[chuckchuck] cached-slidedoc', err);
+    return null;
+  }
+}
+
+/* ── 녹음 파일 업로드 (테스트용) ──────────────────────────────────────────
+   마이크로 실연하는 대신 저장해 둔 녹음본을 그대로 파이프라인에 태운다.
+   업로드본에는 슬라이드 전환 기록이 없으므로 marks 를 길이 균등 분할로 합성한다.
+   합성 marks 는 측정값이 아니다 — 화면 곳곳에 그렇게 표시한다. */
+
+const MAX_AUDIO_MB = 30;
+const MAX_AUDIO_BYTES = MAX_AUDIO_MB * 1024 * 1024;
+const AUDIO_EXT_RE = /\.(webm|m4a|mp4|mp3|wav|ogg|oga|flac|aac)$/i;
+const AUDIO_META_TIMEOUT_MS = 4000;
+
+/** 오디오 길이(초). 0 이면 못 읽은 것. */
+async function audioDurationSec(file) {
+  const url = URL.createObjectURL(file);
+  let viaTag = 0;
+  try {
+    viaTag = await new Promise((resolve) => {
+      const el = new Audio();
+      let settled = false;
+      const done = (v) => {
+        if (settled) return;
+        settled = true;
+        el.removeAttribute('src');
+        resolve(Number(v) || 0);
+      };
+      el.preload = 'metadata';
+      el.onloadedmetadata = () => done(el.duration);
+      el.onerror = () => done(0);
+      setTimeout(() => done(0), AUDIO_META_TIMEOUT_MS);
+      el.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  if (Number.isFinite(viaTag) && viaTag > 0) return viaTag;
+
+  // MediaRecorder 가 만든 webm 은 duration 이 Infinity 로 오는 브라우저가 있다.
+  // 우리 SDK 결과물을 다시 올리는 경우가 정확히 여기 걸리므로 디코딩으로 확정한다.
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return 0;
+  const ctx = new Ctx();
+  try {
+    const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+    return buf.duration;
+  } finally {
+    try { ctx.close(); } catch (_) { /* 이미 닫힘 */ }
+  }
+}
+
+/** 길이를 슬라이드 수로 균등 분할한 합성 marks. */
+function evenSlideMarks(durationSec, nPages) {
+  const total = Math.max(0.001, Number(durationSec) || 0);
+  const n = Math.max(1, Number(nPages) || 1);
+  const step = total / n;
+  const round3 = (v) => Math.round(v * 1000) / 1000;
+  return Array.from({ length: n }, (_, i) => ({
+    slide_no: i + 1,
+    start_sec: round3(i * step),
+    end_sec: round3(i === n - 1 ? total : (i + 1) * step),
+    visit: 1,
+  }));
+}
+
+function recUploadFail(message) {
+  const note = $('#recUploadNote');
+  if (note) {
+    note.textContent = message;
+    note.style.color = '#f04452';
+    return;
+  }
+  alert(message);
+}
+
+async function useUploadedRecording(file) {
+  const looksAudio = AUDIO_EXT_RE.test(file.name) || /^audio\//i.test(file.type || '');
+  if (!looksAudio) {
+    return recUploadFail('오디오 파일만 올릴 수 있어요. (webm · m4a · mp3 · wav · ogg)');
+  }
+  if (file.size > MAX_AUDIO_BYTES) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    return recUploadFail(`파일이 ${mb}MB 예요. 최대 ${MAX_AUDIO_MB}MB까지 올릴 수 있어요.`);
+  }
+
+  const note = $('#recUploadNote');
+  if (note) {
+    note.style.color = '';
+    note.textContent = `${file.name} 길이를 읽는 중…`;
+  }
+
+  let durationSec = 0;
+  try {
+    durationSec = await audioDurationSec(file);
+  } catch (err) {
+    console.warn('[chuckchuck] audio duration', err);
+  }
+  if (!Number.isFinite(durationSec) || durationSec <= 0) {
+    return recUploadFail('오디오 길이를 읽지 못했어요. 다른 형식(m4a·mp3·wav)으로 다시 시도해주세요.');
+  }
+
+  const nPages = rehearsalCount();
+  const marks = evenSlideMarks(durationSec, nPages);
+
+  nf.marks = marks;
+  nf.sec = Math.round(durationSec);
+  nf.visits = Object.fromEntries(marks.map((m) => [m.slide_no, 1]));
+  nf.log = marks.map((m) => ({
+    txt: `${fmt(Math.round(m.start_sec))} → ${m.slide_no}번 슬라이드 (균등 분할)`,
+    re: false,
+  }));
+  nf.uploadedTake = { name: file.name, durationSec, syntheticMarks: true };
+
+  ccRuntime = null;
+  ccLastTake = {
+    marks,
+    mimeType: file.type || '',
+    durationSec,
+    fileName: file.name,
+    _blob: file,
+  };
+
+  nf.done = 0;
+  nf._pipelineStarted = false;
+  nf.pipelineOut = null;
+  nf.pipelineError = null;
+  nf.pipelinePhase = 'queued';
+  nf.pipelineDetail = `업로드한 녹음 ${file.name} · 파이프라인 대기`;
+  nf.pipelineStartedAt = Date.now();
+  nf._pipelineTickStarted = false;
+  saveSession('new-flow', nf);
+
   nf.step = 3;
   renderNew();
   showF11Reveal();
@@ -979,11 +1165,21 @@ function showF11Reveal() {
     if (!document.getElementById('f11RevealWrap')) { clearInterval(feed); return; }
     const out = nf.pipelineOut;
     const iframe = wrap.querySelector('iframe');
-    if (out && out.graph && out.alignment && iframe && iframe.contentWindow) {
+    if (!iframe || !iframe.contentWindow) return;
+    // 대기 화면이 몇 %인지 알 수 있게 매 틱 진행률을 넘긴다 (실데이터 도착 전에도)
+    const phase = nf.pipelinePhase || 'queued';
+    iframe.contentWindow.postMessage({
+      type: 'f11Progress',
+      phase,
+      label: pipelinePhaseLabel(phase),
+      detail: nf.pipelineDetail || '',
+      percent: pipelinePercent(phase, phaseElapsedSec()),
+    }, location.origin);
+    if (out && out.graph && out.alignment) {
       clearInterval(feed);
       iframe.contentWindow.postMessage(
         { type: 'f11Data', graph: out.graph, alignment: out.alignment, flow: out.flow || null,
-          transcript: out.transcript || null }, '*');
+          transcript: out.transcript || null }, location.origin);
     }
   }, 500);
   const onMsg = (e) => {
@@ -1005,6 +1201,44 @@ function fmtMarkSec(sec) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
+/* 단계별 진행률 구간 [시작%, 천장%].
+   폭은 그 단계가 보통 잡아먹는 시간에 비례한다 (STT·개념 추출이 압도적으로 길다).
+   단계 안에서는 시간에 따라 천장으로 점근할 뿐 절대 넘지 않는다 —
+   막대가 멈춰 보이지 않으면서도 "다 됐다"고 거짓말하지 않는다. */
+const PIPELINE_MARKS = {
+  queued: [0, 4],
+  encoding: [4, 10],
+  stt: [10, 45],
+  stt_done: [45, 48],
+  concepts: [48, 70],
+  concepts_done: [70, 72],
+  concepts_error: [70, 72],
+  graph: [72, 82],
+  graph_done: [82, 84],
+  align: [84, 95],
+  align_done: [95, 96],
+  align_error: [95, 96],
+  flow: [96, 99],
+  flow_done: [99, 100],
+  done: [100, 100],
+  error: [100, 100],
+};
+/** 이 초 수쯤 지나면 구간 천장의 63% 지점에 닿는다 */
+const PIPELINE_CREEP_TAU_SEC = 25;
+
+function pipelinePercent(phase, phaseElapsedSec) {
+  const [base, ceil] = PIPELINE_MARKS[phase] || PIPELINE_MARKS.queued;
+  if (ceil <= base) return ceil;
+  const k = 1 - Math.exp(-Math.max(0, Number(phaseElapsedSec) || 0) / PIPELINE_CREEP_TAU_SEC);
+  return Math.round(Math.min(ceil, base + (ceil - base) * k));
+}
+
+/** 지금 단계가 시작된 뒤 흐른 초 */
+function phaseElapsedSec() {
+  const t = nf._phaseStartedAt || nf.pipelineStartedAt || Date.now();
+  return Math.max(0, (Date.now() - t) / 1000);
+}
+
 function pipelinePhaseLabel(phase) {
   const map = {
     queued: '대기 중',
@@ -1014,6 +1248,14 @@ function pipelinePhaseLabel(phase) {
     concepts: 'F-06 개념 추출',
     concepts_done: 'F-06 완료',
     concepts_error: 'F-06 실패',
+    graph: 'F-07 개념 그래프',
+    graph_done: 'F-07 완료',
+    align: 'F-11 발표·자료 대조',
+    align_done: 'F-11 완료',
+    align_error: 'F-11 실패',
+    flow: '흐름 비교',
+    flow_done: '흐름 비교 완료',
+    flow_error: '흐름 비교 실패',
     done: '완료',
     error: '오류',
   };
@@ -1090,6 +1332,15 @@ function pipelineInspectHtml() {
     `<li class="${l.re ? 're' : ''}">${escapeHtml(l.txt)}</li>`
   ).join('') || '<li>UI 로그 없음</li>';
 
+  // 업로드본은 전환 기록이 없어 marks 를 합성했다. 측정값처럼 읽히면 안 된다.
+  const up = nf.uploadedTake;
+  const uploadedNote = up
+    ? `<p class="note" style="color:#f59e0b">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
+       (${fmtMarkSec(up.durationSec)})으로 돌렸어요. 아래 marks 는 <b>실제 전환 기록이 아니라
+       길이를 ${marks.length}등분한 합성값</b>이라, 슬라이드별 발화 분할과 F-11 정합 판정은
+       참고용으로만 보세요.</p>`
+    : '';
+
   let speechHtml = '';
   if (transcript && transcript.error) {
     speechHtml = `<p class="note" style="color:#f04452">${escapeHtml(transcript.message || transcript.error)}</p>`;
@@ -1140,6 +1391,7 @@ function pipelineInspectHtml() {
     <div class="pipe-inspect">
       <h4 class="pipe-h">검증 로그 ${statusChip}</h4>
       <p class="note">화살표·하단 필름으로 넘긴 기록이 F-04 marks / F-05 분할에 들어갔는지 여기서 확인하세요.</p>
+      ${uploadedNote}
       <details class="pipe-block" open>
         <summary>F-04 슬라이드 구간 marks (${marks.length})</summary>
         <div class="table-wrap"><table class="pipe-table">
@@ -1213,6 +1465,8 @@ function nfStep4() {
       ${pipelineInspectHtml()}
       <div class="step-actions">
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>
+        <button class="btn btn-secondary btn-sm" type="button" id="againTake">다른 녹음으로 다시</button>
+        <a class="btn btn-text btn-sm skip-qa" href="#/report">질문코치 건너뛰고 상세 리포트</a>
         ${nf.conceptsOk && doneN >= items.length
           ? `<span style="font-weight:700">질문 준비가 끝났어요</span>
              <a class="btn btn-primary" href="#/qa">질문 코칭 시작하기</a>`
@@ -1225,6 +1479,31 @@ function nfStep4() {
   startPipelineElapsedTimer();
   paintPipeMapThumbs();
 
+  const again = $('#againTake');
+  // 자료(nfSlideDoc·uploadedPdf)는 그대로 두고 테이크만 버린다 — resetNf 와 다르다
+  if (again) again.addEventListener('click', () => {
+    ccRuntime = null;
+    ccLastTake = null;
+    chatterCache = null;
+    nf.mic = 'idle';
+    nf.sec = 0;
+    nf.marks = null;
+    nf.uploadedTake = null;
+    nf.log = [];
+    nf.visits = { 1: 1 };
+    nf.done = 0;
+    nf._pipelineStarted = false;
+    nf.pipelineOut = null;
+    nf.pipelineError = null;
+    nf.pipelinePhase = null;
+    nf.pipelineDetail = null;
+    nf.transcriptOk = false;
+    nf.conceptsOk = false;
+    nf.step = 2;
+    saveSession('new-flow', nf);
+    renderNew();
+  });
+
   if (ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted) {
     nf._pipelineStarted = true;
     nf.pipelineError = null;
@@ -1235,17 +1514,20 @@ function nfStep4() {
     nf.conceptsOk = false;
     refreshPipelineInspect();
 
-    window.ChuckchuckBridge.runPreparePipeline({
+    // slideDoc 이 없으면 F-06 이후가 통째로 안 돈다. 캐시에서 먼저 되살린다.
+    ensureSlideDoc().then((slideDoc) => window.ChuckchuckBridge.runPreparePipeline({
       marks: ccLastTake.marks,
       blob: ccLastTake._blob,
       mimeType: ccLastTake.mimeType,
-      slideDoc: nfSlideDoc,
+      fileName: ccLastTake.fileName || '',
+      slideDoc,
       context: {
         situation: nf.occ || '',
         audience: nf.ctx || '',
         duration_min: nf.min,
       },
       onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr, graph, alignment, flow }) => {
+        if (phase !== nf.pipelinePhase) nf._phaseStartedAt = Date.now();
         nf.pipelinePhase = phase;
         nf.pipelineDetail = detail || '';
         if (transcript || concepts || cErr || graph || alignment || flow) {
@@ -1268,7 +1550,7 @@ function nfStep4() {
           refreshPipelineInspect();
         }
       },
-    }).then((out) => {
+    })).then((out) => {
       nf.pipelineOut = out;
       nf.pipelinePhase = out && out.conceptsError ? 'concepts_error' : 'done';
       nf.pipelineDetail = out && out.conceptsError ? out.conceptsError : '준비 완료';
@@ -1362,7 +1644,12 @@ function renderProfileReport(p) {
       <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/">내 발표로 돌아가기</a></div>
     </div>`;
 }
-function goJudge(node) { jSel = node; rTab = 1; renderReport(); }
+function goJudge(node) {
+  jSel = node; rTab = 1; renderReport();
+  // 탭만 바꾸면 긴 목록에서 선택한 개념이 화면 밖에 있을 수 있다
+  const picked = $('#jtree .sel') || $(`#jtree [data-node="${node}"]`);
+  if (picked) picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 /* 탭 1 — 요약 */
 function rSummary() {
@@ -1452,6 +1739,58 @@ function rSummary() {
   });
   $$('.mini-row').forEach(r => r.addEventListener('click', () => goJudge(r.dataset.node)));
   bindDeckPanel();
+  mountAudienceCard();
+}
+
+/* ---------------------------------------------------------------------------
+   삐약 청중석 — 리포트 요약 탭 맨 아래에서 객석으로 들어간다
+   --------------------------------------------------------------------------- */
+
+let chatterCache = null;   // 한 번 받은 수다는 '다시 듣기'에서 재사용한다
+
+function mountAudienceCard() {
+  if (!window.Chatter) return;
+  const body = $('#rbody');
+  if (!body || $('#audCard')) return;
+  body.insertAdjacentHTML('beforeend', window.Chatter.entryCardHtml());
+  $('#audCard').addEventListener('click', openAudience);
+}
+
+function pipelineBundle() {
+  const out = nf && nf.pipelineOut;
+  if (out && out.graph && out.alignment && out.flow) return out;
+  return null;
+}
+
+async function openAudience() {
+  const card = $('#audCard');
+  const bundle = pipelineBundle();
+  if (!bundle) {
+    if (card) card.querySelector('p').textContent =
+      '아직 청중이 도착하지 않았어요. 리허설을 한 번 마치면 들을 수 있어요.';
+    return;
+  }
+
+  // 근거 배지에 슬라이드 번호를 쓰려면 node → slide 매핑이 필요하다
+  const nodeSlides = {};
+  (bundle.graph.nodes || []).forEach(n => {
+    if (n.slide_nos && n.slide_nos.length) nodeSlides[n.id] = Math.min(...n.slide_nos);
+  });
+
+  if (card) card.querySelector('p').textContent = '객석에서 수군거리는 중...';
+  try {
+    if (!chatterCache) {
+      chatterCache = await window.Chatter.fetchChatter(
+        bundle.graph, bundle.alignment, bundle.flow
+      );
+    }
+    window.Chatter.show(chatterCache, { nodeSlides: nodeSlides, onRef: goJudge });
+    if (card) card.querySelector('p').textContent =
+      '발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?';
+  } catch (err) {
+    if (card) card.querySelector('p').textContent =
+      (err && err.message) || '청중들이 아직 도착 안 했어요. 잠시 후 다시 시도해 주세요.';
+  }
 }
 
 function selectDeckSlide(n) {

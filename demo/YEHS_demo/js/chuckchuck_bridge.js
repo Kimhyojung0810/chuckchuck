@@ -217,8 +217,33 @@ export async function parseDocument({ file = null, fixture = false } = {}) {
   return data;
 }
 
+// 순서가 규칙이다. codecs 파라미터에 opus 가 붙는 'audio/webm;codecs=opus'(우리 녹음기
+// 기본 출력)가 ogg 로 새지 않게 컨테이너를 코덱보다 먼저 본다.
+const AUDIO_EXT_BY_MIME = [
+  [/webm/, '.webm'],
+  [/mp4|m4a|aac/, '.m4a'],
+  [/mpeg|mp3/, '.mp3'],
+  [/wav/, '.wav'],
+  [/ogg|opus/, '.ogg'],
+];
+
+/**
+ * 서버가 임시 파일에 붙일 확장자.
+ * 업로드 파일은 이름의 확장자가 가장 정확하고, 없으면 MIME 으로 추정한다.
+ * 둘 다 없을 때만 녹음 기본값(.webm)으로 떨어진다 — 확장자가 거짓말하면 STT 가 파일을 못 읽는다.
+ */
+export function audioExt({ fileName = '', mimeType = '' } = {}) {
+  const m = /\.([a-z0-9]{2,5})$/i.exec(String(fileName || ''));
+  if (m) return `.${m[1].toLowerCase()}`;
+  const mt = String(mimeType || '').toLowerCase();
+  for (const [re, ext] of AUDIO_EXT_BY_MIME) {
+    if (re.test(mt)) return ext;
+  }
+  return '.webm';
+}
+
 /** F-05(+F-06): 녹음 → Transcript, slideDoc 있으면 ConceptDoc */
-export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, context, onProgress }) {
+export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -227,7 +252,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, cont
 
   report('encoding', '오디오 준비 중');
   const audio_base64 = blob ? await blobToBase64(blob) : null;
-  const ext = (mimeType || '').includes('mp4') ? '.m4a' : '.webm';
+  const ext = audioExt({ fileName, mimeType });
 
   report('stt', 'A.X STT로 음성을 글로 바꾸는 중');
   const sttRes = await fetch('/api/v1/transcribe', {
@@ -359,6 +384,7 @@ window.ChuckchuckBridge = {
   attachRehearsalRuntime,
   parseDocument,
   runPreparePipeline,
+  audioExt,
   saveChuckSession,
   loadChuckSession,
   RehearsalRecorder,

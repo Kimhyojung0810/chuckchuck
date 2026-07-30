@@ -732,6 +732,79 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 
 ---
 
+## 7-F. ChatterDoc — 삐약 청중석 (F-12)
+
+**책임 한 줄:** 국내 LLM 4개가 병아리 청중을 연기하며 발표에 대해 소곤거리는
+대사를 만든다. `ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc`.
+
+**성격은 분장이 아니라 실제 역할이다.** 각 병아리의 담당 데이터는 그 모델이
+파이프라인에서 실제로 한 일에서 나온다. 심사위원에게 "국내 LLM 4개를 다 썼다"를
+설명 없이 보이게 하는 장치이기도 하다.
+
+| speaker | 배지 | 파이프라인에서 실제로 한 일 | 담당 데이터 |
+|---|---|---|---|
+| `solar` (쏠라) | Upstage Solar | 자료를 읽었다 (F-01 파싱, F-06/07 추출) | FlowDiff `order_jump`·`missing_link`·`order_tau` |
+| `ax` (엑씨) | SKT A.X | 발표를 들었다 (F-05 STT) | `extra_concepts`, `ghost_node_ids`, 발화 시간 |
+| `midm` (믿음이) | KT 믿:음 | 이름이 곧 신뢰 → 어긋남 검증 | `missing`·`contradiction`, doc−speech 격차 > 0.4 |
+| `exaone` (엑사) | LG EXAONE | 'EXpert AI for everyONE' → 전문가의 인정 | `aligned` 상위, `good_link` |
+
+**LLM 은 말투만 입힌다.** 어떤 노드를 언급할지는 `pick_talking_points()` 가
+결정적으로 정하고, 그 사실 목록(fact)만 프롬프트에 넣는다. 목록 밖 `node_id` 를
+가리키는 대사는 어댑터가 버린다 — 그래서 수다가 리포트와 어긋날 수 없다.
+
+```jsonc
+{
+  "file_name": "발표자료.pdf",
+  "total_slides": 23,
+  "turns": [
+    {
+      "speaker": "midm",
+      "text": "어... 아 맞다. '대조 학습' 얘기 안 했잖아. 흥, 나 계속 기다렸는데.",
+      "mood": "grumpy",                       // grumpy|happy|curious|excited|neutral
+      "refs": [ { "node_id": "contrast", "source": "alignment" } ]
+    }
+  ],
+  "speaker_models": { "midm": "KT 믿:음", "solar": "Upstage Solar",
+                      "exaone": "LG EXAONE", "ax": "SKT A.X" },
+  "speaker_names":  { "midm": "믿음이", "solar": "쏠라",
+                      "exaone": "엑사", "ax": "엑씨" }
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `turns[].speaker` | enum | ✅ | `midm`\|`solar`\|`exaone`\|`ax`. REGISTRY 키와 동일 |
+| `turns[].text` | string | ✅ | 대사. 200자 이하, 이모지 없음 |
+| `turns[].mood` | enum | ✅ | 프론트 표정·모션 키. enum 밖이면 `neutral` |
+| `turns[].refs[]` | `{node_id, source}` | ✅ | 근거. 비면 스몰토크. `source`=`alignment`\|`flow`\|`graph` |
+| `speaker_models` | object | ✅ | 좌석 명패에 찍는 모델 배지. 화면에서 절대 숨기지 않는다 |
+| `speaker_names` | object | ✅ | 병아리 이름 |
+
+**보증(어댑터가 지키는 불변식):**
+
+1. 네 speaker 전원이 **최소 1턴**. 모델이 죽었으면 결정적 대타 대사로 채운다
+   (예: 엑사 → "쿨쿨... (객석에서 졸고 있다)"). 청중석이 안 열리는 것보다 낫다.
+2. `refs[].node_id` 는 그 speaker 에게 **배정된 talking point 안**에만 있을 수 있다.
+   밖을 가리키면 그 ref 만 떼고, 전부 떨어지면 스몰토크로 강등한다.
+3. `mood` 가 enum 밖이면 `neutral`.
+4. 빈 대사·200자 초과·이모지·**발표자 인신 평가 금칙어**(목소리·발음·외모 등)는 버린다.
+   지적은 발표 내용에만 한다.
+5. 스몰토크 비율은 20% 이하, 전체 턴은 16개 이하. 단 **각 speaker 의 마지막 한 턴은
+   절대 지우지 않는다** (1번과 충돌 방지).
+6. JSON 파싱 실패는 1회 재요청, 두 번째도 깨지면 그 speaker 는 대타로 간다.
+7. `ConceptGraph` 에 노드가 없거나 `AlignmentDoc` 에 판정이 없으면 `ChatterError`.
+
+**호출 방식:** 한 라운드 안에서 네 모델을 **병렬** 호출한다(기본 2라운드).
+순차로 부르면 대기가 모델 수만큼 곱해져 시연이 불가능하다. 같은 히스토리를 보고
+각자 반응하는 편이 객석 웅성거림에도 더 가깝다.
+
+`REASONING_BACKEND=mock` 이면 청중도 전부 mock 을 쓴다 — 파이프라인 나머지는 가짜인데
+청중만 실제 엔드포인트로 나가는 사고를 막는다.
+
+코드: `f12_chatter.build_chatter()` → `ChatterDoc` · API: `POST /api/v1/chatter`
+
+---
+
 ## 8. 한눈에 보기
 
 | 기능 | 원본(raw) | 후처리(ours) | 변환 위치 |
@@ -745,6 +818,7 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 | F-07 | LLM JSON 문자열 | `ConceptGraph` | `f07_graph.py` |
 | F-11 | LLM JSON 문자열 | `AlignmentDoc` | `f11_align.py` |
 | F-11 파생 | `ConceptGraph`+`AlignmentDoc` (LLM 없음) | `FlowDiff` | `f11_flow.py` |
+| F-12 | LLM JSON 문자열 ×4 (병렬) | `ChatterDoc` | `f12_chatter.py` |
 
 ---
 
@@ -774,6 +848,7 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 | `chuckchuck/f07_graph.py` | ConceptDoc(+SlideDoc) → ConceptGraph |
 | `chuckchuck/f11_align.py` | ConceptGraph+Transcript → AlignmentDoc |
 | `chuckchuck/f11_flow.py` | ConceptGraph+AlignmentDoc → FlowDiff (LLM 없음) |
+| `chuckchuck/f12_chatter.py` | ConceptGraph+AlignmentDoc+FlowDiff → ChatterDoc (국내 LLM ×4) |
 | `chuckchuck/sdk/rehearsal-recorder.js` | audio + SlideMark[] |
 
 질문·이슈 올릴 때 **ours JSON 예시**만 붙여 주세요. raw는 어댑터 담당자만 보면 됩니다.
