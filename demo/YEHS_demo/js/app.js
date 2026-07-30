@@ -313,7 +313,7 @@ function resetNf() {
          fileName: '', sparseSlides: [], parseError: null, useSample: false,
          marks: null, uploadedTake: null, pipelineOut: null, pipelineError: null,
          pipelinePhase: null, pipelineDetail: null, pipelineStartedAt: null,
-         _pipelineTickStarted: false };
+         backstage: [], _pipelineTickStarted: false };
   nfSlideDoc = null;
   ccRuntime = null;
   ccLastTake = null;
