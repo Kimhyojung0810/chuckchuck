@@ -270,6 +270,9 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             doc = parse_document(tmp_path)
             sys.stderr.write(f"[bridge] F-01 parse done slides={doc.total_slides}\n")
+            # 파서는 임시 경로 이름을 그대로 담는다. 그게 화면·캐시·프롬프트까지
+            # 흘러가 'tmpjdoku5cx.pptx' 로 보인다. mock 분기와 똑같이 원래 이름으로 되돌린다.
+            doc.file_name = filename
             payload = doc.to_dict()
             _save_slidedoc_cache(payload, filename)
             return self._json(200, payload)
