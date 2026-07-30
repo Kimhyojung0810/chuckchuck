@@ -903,6 +903,314 @@ class FlowDiff:
 
 
 # ---------------------------------------------------------------------------
+# F-08 · F-09 : 질문 코칭 (예상 질문 + 답변 판정)
+# ---------------------------------------------------------------------------
+# 발표가 끝난 뒤 "이거 물어보면 답할 수 있나" 를 연습시키는 단계다.
+# 입력은 ConceptGraph(+ 선택 AlignmentDoc·FlowDiff) — 이미 계산된 결정적 신호만 쓴다.
+# 리포트가 "누락" 이라고 말한 개념과 질문이 어긋나면 안 되므로,
+# **어떤 개념을 물을지는 코드가 정하고 LLM 은 문장만 쓴다** (F-11 과 같은 철학).
+#
+#   F-08  ConceptGraph(+AlignmentDoc·FlowDiff) → QaTriage    (질문 가치 심사, 세션 1회)
+#   F-08  QaTriage + track                     → QuestionDoc (트랙별 질문 세트)
+#   F-09  Question + 답변(+history)            → QaJudgement (4-class 판정)
+#
+# LLM 을 두 번 부르는 이유: 개념의 **중요도**는 F-07 weight·F-11 verdict 로 이미
+# 결정적으로 알지만, "이게 심사위원한테 실제로 찔릴 질문인가 · 함정을 팔 수 있나"
+# 는 코드가 모른다. 그 판단만 1차(triage)에 맡기고, 2차는 문장 생성만 맡는다.
+# triage 는 트랙과 무관하므로 세션에 캐시한다 — 1/5/10분을 바꿔도 순위가 안 흔들린다.
+
+#: 질문 세트 트랙. 프론트 QA_MODES 키와 같은 문자열이다 (app.js).
+QA_TRACKS = ("1", "5", "10")
+QA_TRACK_FALLBACK = "10"
+
+#: 트랙 → 질문 개수 상한. 1분=핵심만, 5분=핵심+놓친 것, 10분=정복.
+QA_TRACK_LIMITS = {"1": 1, "5": 3, "10": 8}
+
+#: 트랙 → 함정 질문(자료와 어긋난 주장으로 찔러보기) 허용 개수.
+#: 1분 트랙은 방어 연습할 시간이 없어 함정을 넣지 않는다.
+QA_TRACK_TRAPS = {"1": 0, "5": 1, "10": 3}
+
+#: severity — 1 치명 · 2 보통 · 3 가벼움. 프론트 SEVERITY_WORD 와 같은 값이다.
+QA_SEVERITIES = (1, 2, 3)
+QA_SEVERITY_FALLBACK = 2
+
+#: 이 질문이 뽑힌 **결정적 근거**. 리포트가 "왜 이걸 묻나" 를 설명할 때 쓴다.
+#: 우선순위도 이 순서다 (모순 > 누락 > 흐름 결손 > 자료 비중).
+QA_SOURCES = ("contradiction", "missing", "weak_flow", "core_weight")
+QA_SOURCE_FALLBACK = "core_weight"
+
+#: 답변 판정 4-class. 프론트 LIVE_VERDICT 키와 동일하다.
+#: (`skipped` 는 질문을 넘겼을 때 프론트가 로컬로 붙이는 값이라 여기 없다.)
+QA_VERDICTS = ("good", "partial", "wrong", "unknown")
+QA_VERDICT_FALLBACK = "unknown"
+
+#: verdict 만 오고 score 가 없을 때 채워 넣는 기본 점수 (0~100).
+QA_VERDICT_SCORES = {"good": 85, "partial": 55, "wrong": 20, "unknown": 0}
+
+#: 대사 길이 상한. 화면 말풍선이 감당하는 길이다.
+QA_TEXT_MAX = 200
+
+
+@dataclass
+class TriageMark:
+    """
+    개념 하나의 질문 가치 심사 결과 (F-08 1차).
+
+    node_id·source·rank 는 **코드가 결정적으로** 채우고,
+    severity·trap·angle 만 LLM 이 손댄다. 후보 밖 node_id 는 어댑터가 버린다.
+    """
+    node_id: str
+    severity: int = QA_SEVERITY_FALLBACK   # 1 치명 | 2 보통 | 3 가벼움
+    trap: bool = False                     # 함정 질문을 팔 수 있는 개념인가
+    angle: str = ""                        # 질문 각도 한 줄 (2차 프롬프트 입력)
+    source: str = QA_SOURCE_FALLBACK       # 파생: 뽑힌 결정적 근거
+    rank: int = 0                          # 파생: 결정적 후보 순위 (1부터)
+    doc_weight: float = 0.0                # 파생: F-07 weight 복사
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "TriageMark":
+        try:
+            severity = int(d.get("severity", QA_SEVERITY_FALLBACK))
+        except (TypeError, ValueError):
+            severity = QA_SEVERITY_FALLBACK
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            node_id=str(d["node_id"]),
+            severity=severity if severity in QA_SEVERITIES else QA_SEVERITY_FALLBACK,
+            trap=bool(d.get("trap", False)),
+            angle=str(d.get("angle", "") or ""),
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            rank=int(d.get("rank", 0)),
+            doc_weight=float(d.get("doc_weight", 0.0)),
+        )
+
+
+@dataclass
+class QaTriage:
+    """
+    F-08 1차 산출물. 트랙과 무관해서 **세션에 한 번만** 만들고 재사용한다.
+
+    marks 는 결정적 우선순위(rank) 오름차순이다.
+    """
+    file_name: str
+    total_slides: int = 0
+    marks: list[TriageMark] = field(default_factory=list)
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "marks": [m.to_dict() for m in self.marks],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaTriage":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            marks=[TriageMark.from_dict(m) for m in d.get("marks", [])],
+            model=d.get("model", ""),
+        )
+
+    def mark(self, node_id: str) -> TriageMark | None:
+        for m in self.marks:
+            if m.node_id == node_id:
+                return m
+        return None
+
+
+@dataclass
+class Question:
+    """
+    예상 질문 하나. 필드 이름은 프론트가 이미 소비하는 키와 같다 (app.js 실전 QA).
+
+    node_id 로 ConceptGraph·AlignmentDoc 과 조인해서 "이 질문이 리포트의 어느
+    개념인지" 를 되짚는다.
+    """
+    id: str                                # 질문 안정 키 (프론트 results 조인)
+    node_id: str                           # 조인 키 — ConceptGraph.nodes[].id
+    label: str                             # 개념 이름 (화면 칩)
+    question: str                          # 질문 문장
+    why: str = ""                          # 왜 이걸 묻나 (근거 한 줄)
+    hint: str = ""                         # 막혔을 때 보여 줄 힌트
+    severity: int = QA_SEVERITY_FALLBACK   # 1 치명 | 2 보통 | 3 가벼움
+    trap: bool = False                     # 자료와 어긋난 주장으로 찔러보는 질문인가
+    source: str = QA_SOURCE_FALLBACK       # 파생: 뽑힌 결정적 근거
+    slide_nos: list[int] = field(default_factory=list)  # 근거 장
+    doc_weight: float = 0.0                # 파생: F-07 weight 복사
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "node_id": self.node_id,
+            "label": self.label,
+            "question": self.question,
+            "why": self.why,
+            "hint": self.hint,
+            "severity": self.severity,
+            "trap": self.trap,
+            "source": self.source,
+            "slide_nos": list(self.slide_nos),
+            "doc_weight": self.doc_weight,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Question":
+        try:
+            severity = int(d.get("severity", QA_SEVERITY_FALLBACK))
+        except (TypeError, ValueError):
+            severity = QA_SEVERITY_FALLBACK
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            id=str(d["id"]),
+            node_id=str(d.get("node_id", "") or ""),
+            label=str(d.get("label", "") or ""),
+            question=str(d.get("question", "") or ""),
+            why=str(d.get("why", "") or ""),
+            hint=str(d.get("hint", "") or ""),
+            severity=severity if severity in QA_SEVERITIES else QA_SEVERITY_FALLBACK,
+            trap=bool(d.get("trap", False)),
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            doc_weight=float(d.get("doc_weight", 0.0)),
+        )
+
+
+@dataclass
+class QuestionDoc:
+    """
+    F-08 의 산출물. 프론트 실전 QA 루프가 이 questions[] 를 그대로 재생한다.
+
+    불변식은 f08_questions.build_questions() 가 보장한다:
+    질문 id 유일 · 개념(node_id) 중복 없음 · 트랙 상한 준수 ·
+    severity 는 enum 안 · 1분 트랙에는 함정 없음 · 같은 triage 면 결과가 같다.
+    """
+    file_name: str
+    total_slides: int = 0
+    track: str = QA_TRACK_FALLBACK
+    questions: list[Question] = field(default_factory=list)
+    #: 후보였지만 이번 트랙 상한에서 밀린 개념. "더 길게 하면 이것도 물어요" 안내용.
+    deferred_node_ids: list[str] = field(default_factory=list)
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "track": self.track,
+            "questions": [q.to_dict() for q in self.questions],
+            "deferred_node_ids": list(self.deferred_node_ids),
+            "model": self.model,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QuestionDoc":
+        track = str(d.get("track", QA_TRACK_FALLBACK))
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            track=track if track in QA_TRACKS else QA_TRACK_FALLBACK,
+            questions=[Question.from_dict(q) for q in d.get("questions", [])],
+            deferred_node_ids=[str(x) for x in d.get("deferred_node_ids", [])],
+            model=d.get("model", ""),
+        )
+
+    def question(self, question_id: str) -> Question | None:
+        """id 로 질문 하나. 판정(F-09)이 question_id 로 되찾을 때 쓴다."""
+        for q in self.questions:
+            if q.id == question_id:
+                return q
+        return None
+
+    @property
+    def node_ids(self) -> list[str]:
+        return [q.node_id for q in self.questions]
+
+
+@dataclass
+class QaTurn:
+    """
+    주고받은 질문·답변 한 턴 (F-09 history).
+
+    프론트는 한글 키(`질문`·`답변`·`판정`)로 보낸다 — 이미 굳은 계약이라
+    from_dict 가 한글·영문 양쪽을 받아 준다.
+    """
+    question: str = ""
+    answer: str = ""
+    verdict: str = QA_VERDICT_FALLBACK
+
+    def to_dict(self) -> dict:
+        return {"질문": self.question, "답변": self.answer, "판정": self.verdict}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaTurn":
+        verdict = str(d.get("판정", d.get("verdict", QA_VERDICT_FALLBACK)) or "")
+        return cls(
+            question=str(d.get("질문", d.get("question", "")) or ""),
+            answer=str(d.get("답변", d.get("answer", "")) or ""),
+            # 프론트는 넘긴 질문에 'skipped' 를 붙인다 — enum 밖이라 보류로 떨어진다
+            verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+        )
+
+
+@dataclass
+class QaJudgement:
+    """
+    F-09 의 산출물. 답변 하나의 판정이다.
+
+    최상위 키(`verdict`·`react`·`summary_sentence`·`score`)는 프론트가 이미
+    소비하는 이름이라 바꾸지 않는다.
+
+    불변식은 f09_judge.judge_answer() 가 보장한다:
+    verdict 는 enum 안 · score 0~100 · react·summary_sentence 는 항상 채워짐 ·
+    node_id 는 질문에서 승계(LLM 값 무시).
+    """
+    question_id: str
+    node_id: str = ""
+    verdict: str = QA_VERDICT_FALLBACK     # good | partial | wrong | unknown
+    score: int = 0                         # 0~100. 없으면 verdict 기본값
+    react: str = ""                        # 즉답 반응 한 마디 (말풍선)
+    summary_sentence: str = ""             # 이 개념에 대한 총평 한 문장
+    missing_points: list[str] = field(default_factory=list)  # 답변에서 빠진 포인트
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "question_id": self.question_id,
+            "node_id": self.node_id,
+            "verdict": self.verdict,
+            "score": self.score,
+            "react": self.react,
+            "summary_sentence": self.summary_sentence,
+            "missing_points": list(self.missing_points),
+            "model": self.model,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaJudgement":
+        verdict = str(d.get("verdict", QA_VERDICT_FALLBACK) or "")
+        try:
+            score = int(d.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0
+        return cls(
+            question_id=str(d.get("question_id", "") or ""),
+            node_id=str(d.get("node_id", "") or ""),
+            verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+            score=max(0, min(100, score)),
+            react=str(d.get("react", "") or ""),
+            summary_sentence=str(d.get("summary_sentence", "") or ""),
+            missing_points=[str(x) for x in d.get("missing_points", [])],
+            model=d.get("model", ""),
+        )
+
+
+# ---------------------------------------------------------------------------
 # 예외
 # ---------------------------------------------------------------------------
 
@@ -932,6 +1240,14 @@ class GraphError(ChuckchuckError):
 
 class AlignError(ChuckchuckError):
     """F-11 정합 판정 실패."""
+
+
+class QuestionError(ChuckchuckError):
+    """F-08 예상 질문 생성 실패."""
+
+
+class JudgeError(ChuckchuckError):
+    """F-09 답변 판정 실패."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

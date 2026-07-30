@@ -732,7 +732,209 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 
 ---
 
-## 8. 한눈에 보기
+## 8. F-08 · F-09 질문 코칭
+
+**책임 한 줄:** 발표가 끝난 뒤 "이거 물어보면 답할 수 있나" 를 연습시킨다.
+`ConceptGraph`(+선택 `AlignmentDoc`·`FlowDiff`·`Transcript`) → `QaTriage` → `QuestionDoc`,
+그리고 `Question` + 답변 → `QaJudgement`.
+
+| 입력 | 필수 | 무엇에 쓰나 |
+|------|------|------|
+| `ConceptGraph` | ✅ | 후보·순위·`weight`, 그리고 **`edges` 로 개념의 위치** (아래 8-B) |
+| `AlignmentDoc` | 선택 | `verdict` → `source`(모순·누락), `evidence` → 발화 인용 |
+| `FlowDiff` | 선택 | `issues` → `source`(`weak_flow`) |
+| `Transcript.by_slide` | 선택 | 근거 장에서 **실제로 한 말** (`slide_no` 로 조인) |
+
+선택 입력이 없어도 동작한다 — 녹음 없이 자료만 올린 경로에서도 질문이 나온다.
+
+§7 과 같은 철학이다 — **어떤 개념을 물을지는 코드가 정하고 LLM 은 문장만 쓴다.**
+리포트가 "누락" 이라고 말한 개념과 질문이 어긋나면 두 화면을 같이 믿을 수 없다.
+
+LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict` 로 이미 결정적으로
+알지만, "이게 심사위원한테 실제로 찔릴 질문인가 · 함정을 팔 수 있나" 는 코드가 모른다.
+그 판단만 1차(triage)에 맡기고 2차는 문장 생성만 맡긴다.
+**triage 는 트랙과 무관하므로 세션에 캐시한다** — 1/5/10분을 바꿔도 순위가 안 흔들린다.
+
+### 8-A. 시간 트랙
+
+프론트 `QA_MODES` 키와 같은 문자열이다 (`app.js`).
+
+| `track` | 질문 상한 `QA_TRACK_LIMITS` | 함정 상한 `QA_TRACK_TRAPS` | 뜻 |
+|------|------|------|------|
+| `"1"` | 1 | 0 | 가장 치명적인 개념 하나. 방어 연습할 시간이 없어 함정을 안 넣는다 |
+| `"5"` | 3 | 1 | 핵심 + 놓친 개념 |
+| `"10"` | 8 | 3 | 아쉬운 개념 전부 + 모순 대조 |
+
+> 프론트가 CTA 에 약속하는 개수(`QA_MODES[k].count`)는 이 표와 **같은 값이어야 한다.**
+
+### 8-B. 후보 선정 — 전부 코드 (LLM 아님)
+
+`source` 가 곧 우선순위다. 여러 근거가 겹치면 위쪽이 이긴다.
+
+| `source` | 어디서 오나 |
+|------|------|
+| `contradiction` | `AlignmentDoc.items[].verdict == "contradiction"` |
+| `missing` | 같은 곳 `verdict == "missing"` |
+| `weak_flow` | `FlowDiff.issues` 중 `missing_link`·`order_jump` 에 등장하는 `node_ids` |
+| `core_weight` | 나머지를 `ConceptNode.weight` 내림차순 |
+
+**`AlignmentDoc`·`FlowDiff` 없이 그래프만으로도 동작한다** — 녹음 없이 자료만 올린
+경로에서는 전부 `core_weight` 가 되고, 빈 질문 세트가 나오지 않는다.
+
+#### 최종 순위(`rank`) — 근거가 1순위, 그다음이 1차 LLM 의 치명도
+
+`rank` 가 곧 트랙 상한에 들어갈 순서다. 정렬 키는 이 순서로 본다:
+
+| 순위 키 | 누가 정하나 | 왜 이 자리인가 |
+|------|------|------|
+| 1. `source` | 코드 (`AlignmentDoc`·`FlowDiff`) | 모순·누락은 **확인된 사실**이다 |
+| 2. `severity` | **1차 LLM** | 같은 근거 안에서 무엇이 더 치명적인지는 코드가 모른다 |
+| 3. `weight` 내림차순 | 코드 (F-07) | 동률 |
+| 4. 앞 슬라이드 → `node.id` | 코드 | 동률 |
+
+**2번이 이 단계를 따로 두는 이유다.** 여기서 `severity` 를 안 쓰면 1차 호출은 화면
+표시용 장식이 되고, 1분 트랙이 '가벼움' 개념을 물어보게 된다.
+
+반대로 `severity` 를 1순위로 올리면 안 된다. `severity` 는 LLM 의 짐작이고
+`source` 는 확인된 사실이라, 짐작이 사실을 밀어내면 리포트가 "누락" 이라 말한 개념을
+안 묻게 되어 두 화면이 어긋난다. 그래서 **근거 안에서만** 치명도가 순위를 정한다.
+
+#### 개념을 홀로 주지 않는다 — `edges` 가 진실
+
+심사위원 질문은 "이게 저것과 무슨 관계인가" 로 들어온다. 개념 하나만 던지면 LLM 은
+사전식 정의 질문만 쓰므로, 프롬프트에 **그래프에서의 위치**를 함께 싣는다.
+
+| 프롬프트 항목 | 어디서 | 뜻 |
+|------|------|------|
+| `경로=` | `graph.path_of(node_id)` | **트리 뷰** — `parent` 간선만 따라간 위계 (노드당 parent 최대 1개) |
+| `연결=` | `graph.neighbors_of(node_id)` | **그래프 뷰** — `relates` 까지 포함한 모든 논리 연결 (최대 5개) |
+| `발표에서 한 말` | `Transcript.text_for_slide(no)` | 근거 장의 실제 발화 (없으면 줄 자체가 빠진다) |
+
+**트리는 그래프의 부분집합이다.** 둘째 부모가 생기면 F-07 이 버리지 않고 `relates`
+로 내려 두므로, `연결=` 에는 남고 `경로=` 에는 안 나타난다 — 정보가 사라지지 않는다.
+
+발화는 그 장을 실제로 말했을 때만 붙인다. 누락(`missing`) 개념처럼 발표자가 그 장까지
+못 간 경우, 없는 발화를 '한 말' 로 실으면 판정이 헛돈다.
+
+### 8-C. 원본 — LLM (Solar / A.X …)
+
+1차 `[TASK] qa-triage` — **severity·trap·angle 만** 쓴다:
+
+```json
+{ "marks": [ { "node_id": "s5", "severity": 1, "trap": true,
+               "angle": "왜 다른 정렬 방식 대신 이걸 골랐는지" } ] }
+```
+
+2차 `[TASK] qa-questions` — **question·why·hint 만** 쓴다:
+
+```json
+{ "questions": [ { "node_id": "s5", "question": "질문 한 문장",
+                   "why": "왜 묻는지", "hint": "방향만 주는 힌트" } ] }
+```
+
+판정 `[TASK] qa-judge`:
+
+```json
+{ "verdict": "partial", "score": 55, "react": "심사위원 한 마디",
+  "summary_sentence": "총평 한 문장", "missing_points": ["빠진 포인트"] }
+```
+
+### 8-D. 후처리 — `QaTriage` (F-08 1차)
+
+```jsonc
+{
+  "file_name": "IMU2CLIP_sample.pdf",
+  "total_slides": 12,
+  "model": "solar",
+  "marks": [
+    { "node_id": "s5", "severity": 1, "trap": true, "angle": "왜 이 방식을 골랐는지",
+      "source": "missing", "rank": 1, "doc_weight": 0.92 }
+  ]
+}
+```
+
+`node_id`·`source`·`doc_weight` 는 **코드가 채운다** (LLM 값을 쓰지 않는다).
+`severity`·`trap`·`angle` 은 LLM 이 쓰고, `rank` 는 둘을 합쳐 코드가 계산한다
+(위 8-B 정렬 키). `marks` 는 `rank` 오름차순이고, 후보는 가장 긴 트랙 상한의
+두 배까지만 올린다.
+
+LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 폴백으로 채운다
+(모순·누락 → 1, 흐름 결손 → 2, 자료 비중 → weight ≥ 0.5 면 2 아니면 3).
+
+### 8-E. 후처리 — `QuestionDoc` (F-08 2차)
+
+```jsonc
+{
+  "file_name": "IMU2CLIP_sample.pdf",
+  "total_slides": 12,
+  "track": "5",
+  "model": "solar",
+  "questions": [
+    { "id": "q01-s5", "node_id": "s5", "label": "공동 임베딩 정렬",
+      "question": "공동 임베딩 정렬을 왜 이 방식으로 하셨나요?",
+      "why": "자료에는 있는데 발표에서 설명하지 않은 개념이에요",
+      "hint": "5장에서 이 개념을 어떻게 설명했는지 떠올려 보세요",
+      "severity": 1, "trap": true, "source": "missing",
+      "slide_nos": [5], "doc_weight": 0.92 }
+  ],
+  "deferred_node_ids": ["s7", "s2"]
+}
+```
+
+**보증 (불변식):** ① 질문 `id` 유일 · `node_id` 중복 없음 ② 질문 수 ≤
+`QA_TRACK_LIMITS[track]` ③ `trap=true` 수 ≤ `QA_TRACK_TRAPS[track]` (1분 트랙은 0)
+④ `severity` 는 `QA_SEVERITIES` 안 ⑤ `question`·`why`·`hint` 는 `QA_TEXT_MAX`(200자)
+이내이며 **절대 비지 않는다** (LLM 이 빠뜨리면 결정적 템플릿으로 메운다)
+⑥ **`id` 가 `rank`·`node_id` 에서 결정적으로 나오므로, 같은 triage·같은 track 이면
+결과가 완전히 같다** (uuid 금지) ⑦ `deferred_node_ids` 는 상한에 밀린 후보.
+
+### 8-F. 후처리 — `QaJudgement` (F-09)
+
+```jsonc
+{
+  "question_id": "q01-s5",
+  "node_id": "s5",
+  "verdict": "partial",
+  "score": 55,
+  "react": "그 부분은 맞습니다. 다만 왜 그 값을 골랐는지가 빠졌네요.",
+  "summary_sentence": "공동 임베딩 정렬 — 방향은 맞지만 근거가 얕아요.",
+  "missing_points": ["온도 파라미터를 고른 이유"],
+  "model": "solar"
+}
+```
+
+| `verdict` | 뜻 | 기본 `score` |
+|------|------|------|
+| `good` | 설득 완료 — 자기 말로 정확히 설명했다 | 85 |
+| `partial` | 부분 인정 — 방향은 맞지만 근거가 얕다 | 55 |
+| `wrong` | 미방어 — 자료와 어긋났거나 질문을 빗나갔다 | 20 |
+| `unknown` | 판정 보류 — 판단할 수 없다 | 0 |
+
+> `skipped` 는 프론트가 넘긴 질문에 로컬로 붙이는 값이라 서버 판정에는 없다.
+
+**보증 (불변식):** ① `verdict` 는 4-class 안 (밖이면 `unknown`) ② `score` 는 0~100,
+없으면 verdict 기본값 ③ **`node_id`·`question_id` 는 질문에서 승계** — LLM 이 다른 값을
+줘도 무시한다 (조인 키가 흔들리면 리포트가 엉뚱한 개념에 총평을 붙인다)
+④ `react`·`summary_sentence` 는 항상 채워진다 (프론트가 이 둘로 말풍선을 그린다)
+⑤ 빈 답변은 **LLM 을 부르지 않고** 즉시 `unknown`.
+
+`history` 는 프론트가 한글 키(`질문`·`답변`·`판정`)로 보낸다. 이미 굳은 계약이라
+`QaTurn.from_dict` 가 한글·영문 양쪽을 받는다.
+
+**안 함:** 질문 순위 재정렬(코드가 정한 `rank` 를 LLM 이 못 바꾼다), 말투·발음 평가,
+최종 점수 합산.
+
+코드: `f08_questions.triage_questions()` / `.build_questions()` · `f09_judge.judge_answer()`
+API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/{id}/qa/judge` (동기 200)
+
+> `/qa/judge` 는 **잡이 아니라 동기 라우트**다 — 프론트가 응답 바디를 바로 읽는다.
+> 세션이 사라졌을 때를 대비해 요청 바디의 `question`(=`Question.to_dict()`)을 폴백으로
+> 받는다. 서버 저장소가 인메모리라 재시작하면 세션이 날아가는데, 질문 세트는 브라우저에
+> 남아 있기 때문이다. 세션 아티팩트가 정본이고, 없을 때만 바디를 쓴다.
+
+---
+
+## 9. 한눈에 보기
 
 | 기능 | 원본(raw) | 후처리(ours) | 변환 위치 |
 |------|-----------|--------------|-----------|
@@ -743,17 +945,21 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 | F-05 | A.X `utterances[].words[]` | `Transcript` | `stt_impl.py` + `f05_stt.py` |
 | F-06 | LLM JSON 문자열 | `ConceptDoc` | `f06_concepts.py` |
 | F-07 | LLM JSON 문자열 | `ConceptGraph` | `f07_graph.py` |
+| F-08 | LLM JSON 문자열 ×2 | `QaTriage` → `QuestionDoc` | `f08_questions.py` |
+| F-09 | LLM JSON 문자열 | `QaJudgement` | `f09_judge.py` |
 | F-11 | LLM JSON 문자열 | `AlignmentDoc` | `f11_align.py` |
 | F-11 파생 | `ConceptGraph`+`AlignmentDoc` (LLM 없음) | `FlowDiff` | `f11_flow.py` |
 
 ---
 
-## 9. 다음 모듈이 받을 것
+## 10. 다음 모듈이 받을 것
 
 | 다음 | 필요한 ours |
 |------|-------------|
 | F-07 그래프 | `ConceptDoc` (+ 선택 `SlideDoc`) |
-| F-08~10 질문 코칭 | `ConceptGraph` (개념 경로·근거 슬라이드·우선순위) + `Transcript.by_slide` |
+| F-08 예상 질문 | `ConceptGraph` (+ 선택 `AlignmentDoc`·`FlowDiff`·`Transcript.by_slide`) → `QaTriage` → `QuestionDoc` (§8) |
+| F-09 답변 판정 | `Question` + 답변 (+ 선택 `ConceptGraph`·`AlignmentDoc`·`Transcript.by_slide`·history) → `QaJudgement` (§8) |
+| F-10 질문 코칭 (예정) | `QuestionDoc` + `QaJudgement[]` |
 | F-11 정합 판정 | `ConceptGraph` + `Transcript` → `AlignmentDoc` (§7) |
 | 흐름 비교 (F-11 파생) | `ConceptGraph` + `AlignmentDoc` → `FlowDiff` (§7-E) |
 | 산점도·diff 뷰 (프론트) | `AlignmentDoc.items[]` (`doc_weight` × `speech_weight`) + `summary` |
@@ -762,7 +968,7 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 
 ---
 
-## 10. 구현 파일
+## 11. 구현 파일
 
 | 파일 | 역할 |
 |------|------|
@@ -772,6 +978,8 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 | `chuckchuck/f05_stt.py` | Word[] + SlideMark[] → Transcript |
 | `chuckchuck/f06_concepts.py` | SlideDoc+Context → ConceptDoc |
 | `chuckchuck/f07_graph.py` | ConceptDoc(+SlideDoc) → ConceptGraph |
+| `chuckchuck/f08_questions.py` | ConceptGraph(+AlignmentDoc·FlowDiff) → QaTriage → QuestionDoc |
+| `chuckchuck/f09_judge.py` | Question+답변 → QaJudgement |
 | `chuckchuck/f11_align.py` | ConceptGraph+Transcript → AlignmentDoc |
 | `chuckchuck/f11_flow.py` | ConceptGraph+AlignmentDoc → FlowDiff (LLM 없음) |
 | `chuckchuck/sdk/rehearsal-recorder.js` | audio + SlideMark[] |

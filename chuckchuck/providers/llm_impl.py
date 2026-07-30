@@ -32,6 +32,20 @@ def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
     return found
 
 
+def _ids_in_prompt(user: str) -> list[str]:
+    """
+    프롬프트의 '- (id) ...' 줄에서 후보 id 를 주워 온다.
+
+    F-11·F-08 프롬프트가 공통으로 쓰는 꼴이다. 조인 키를 지어내지 않고
+    실제 후보 안에서만 고르므로, 어댑터의 '후보 밖 id 는 버린다' 경로도 같이 탄다.
+    """
+    ids = []
+    for line in user.splitlines():
+        if line.startswith("- (") and ")" in line:
+            ids.append(line[3:line.index(")")])
+    return ids
+
+
 class MockLLM(LLMProvider):
     """키 없이 F-06 / F-07 파이프라인을 검증하기 위한 가짜 LLM."""
 
@@ -42,6 +56,12 @@ class MockLLM(LLMProvider):
             return self._mock_graph(user)
         if "[TASK] speech-alignment" in user:
             return self._mock_alignment(user)
+        if "[TASK] qa-triage" in user:
+            return self._mock_triage(user)
+        if "[TASK] qa-questions" in user:
+            return self._mock_questions(user)
+        if "[TASK] qa-judge" in user:
+            return self._mock_judge(user)
 
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
@@ -80,12 +100,7 @@ class MockLLM(LLMProvider):
 
         내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
         """
-        ids = []
-        for line in user.splitlines():
-            if line.startswith("- (") and ")" in line:
-                ids.append(line[3:line.index(")")])
-        if not ids:
-            ids = ["n1"]
+        ids = _ids_in_prompt(user) or ["n1"]
 
         items = [
             {
@@ -105,6 +120,59 @@ class MockLLM(LLMProvider):
         extras = [{"label": "모의 추가 개념", "quote": "자료에 없는 보충 설명", "slide_no": 1}]
         return json.dumps(
             {"items": items, "speech_edges": edges, "extra_concepts": extras},
+            ensure_ascii=False,
+        )
+
+    @staticmethod
+    def _mock_triage(user: str) -> str:
+        """
+        F-08 1차용 가짜 심사. 후보 id 를 주워 앞에서부터 치명 → 보통 → 가벼움을 돌려 준다.
+        홀수 번째 후보에는 함정을 세워 트랙별 함정 상한 경로도 태운다.
+
+        내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
+        """
+        ids = _ids_in_prompt(user) or ["n1"]
+        marks = [
+            {
+                "node_id": nid,
+                "severity": (i % 3) + 1,
+                "trap": i % 2 == 0,
+                "angle": f"{nid} 를 그렇게 설계한 근거",
+            }
+            for i, nid in enumerate(ids)
+        ]
+        return json.dumps({"marks": marks}, ensure_ascii=False)
+
+    @staticmethod
+    def _mock_questions(user: str) -> str:
+        """F-08 2차용 가짜 질문. 대상 id 마다 문장 셋을 하나씩 채운다."""
+        ids = _ids_in_prompt(user) or ["n1"]
+        questions = [
+            {
+                "node_id": nid,
+                "question": f"{nid} 개념을 자기 말로 설명해 주시겠어요?",
+                "why": "모의 근거 — 자료가 비중을 둔 개념이에요",
+                "hint": "근거 슬라이드를 떠올려 보세요",
+            }
+            for nid in ids
+        ]
+        return json.dumps({"questions": questions}, ensure_ascii=False)
+
+    @staticmethod
+    def _mock_judge(user: str) -> str:
+        """
+        F-09 용 가짜 판정. 답변 길이로 verdict 를 가른다 —
+        길게 답하면 good, 짧으면 partial. score 는 일부러 비워 폴백 경로를 태운다.
+        """
+        answer = user.split("## 이번 답변 — 이것을 판정하라", 1)[-1].strip()
+        verdict = "good" if len(answer) >= 20 else "partial"
+        return json.dumps(
+            {
+                "verdict": verdict,
+                "react": "모의 반응 — 그렇게 설명하시면 됩니다.",
+                "summary_sentence": "모의 총평 한 문장",
+                "missing_points": [] if verdict == "good" else ["모의 누락 포인트"],
+            },
             ensure_ascii=False,
         )
 
@@ -155,6 +223,12 @@ class MockLLM(LLMProvider):
         )
 
 
+#: 한 번의 LLM 호출을 기다리는 최대 시간(초).
+#: 실측에서 12장짜리 발표자료의 F-07 그래프 호출이 180초를 넘긴 적이 있다 —
+#: 자료가 크거나 모델이 붐빌 때 늘릴 수 있게 환경변수로 뺐다.
+DEFAULT_TIMEOUT_SEC = int(os.environ.get("LLM_TIMEOUT_SEC", "180"))
+
+
 class OpenAICompatLLM(LLMProvider):
     """OpenAI chat completions 호환 엔드포인트 공통 구현."""
 
@@ -167,7 +241,7 @@ class OpenAICompatLLM(LLMProvider):
         base_url: str,
         model: str,
         name: str | None = None,
-        timeout: int = 180,
+        timeout: int | None = None,
         extra_headers: dict[str, str] | None = None,
     ):
         if not api_key:
@@ -175,7 +249,7 @@ class OpenAICompatLLM(LLMProvider):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self.timeout = timeout
+        self.timeout = DEFAULT_TIMEOUT_SEC if timeout is None else timeout
         self.extra_headers = extra_headers or {}
         if name:
             self.name = name
