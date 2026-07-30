@@ -12,3 +12,8 @@ dependencies = ["requests>=2.31.0"]
 
 [tool.setuptools.packages.find]
 include = ["chuckchuck*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "live: 실제 외부 API(Upstage DocParse·LLM)를 호출한다. RUN_LIVE_TESTS=1 일 때만 실행.",
+]
