@@ -349,7 +349,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, cont
  */
 
 const QA_API_BASE_KEY = 'cheokcheok:qaApiBase';
-const QA_API_DEFAULT = 'http://localhost:8789';
+// 실전 QA 는 세션 라우트(/api/v1/sessions/...)가 필요하므로 FastAPI 서버(python -m server)를
+// 가리킨다. 세션 없는 데모 브리지(python -m demo.bridge, 8787)로는 이 흐름이 돌지 않는다.
+const QA_API_DEFAULT = 'http://localhost:8000';
 
 export function qaApiBase() {
   try {
@@ -387,8 +389,9 @@ async function qaPollJob(jobId, onDetail, { intervalMs = 1500, timeoutMs = 42000
     const job = await qaApi(`/api/v1/jobs/${jobId}`);
     const detail = (job.progress && job.progress.detail) || '';
     if (typeof onDetail === 'function' && detail) onDetail(detail);
-    if (job.status === 'done') return job.result;
-    if (job.status === 'error') {
+    // 계약의 정본은 서버다 — server/store.py Job.status = queued|running|succeeded|failed
+    if (job.status === 'succeeded') return job.result;
+    if (job.status === 'failed') {
       const e = job.error || {};
       throw new Error(e.message || e.error || '작업이 실패했어요.');
     }
@@ -468,8 +471,9 @@ export async function runQaLivePipeline({ documentFile, audioFile, mode = '10', 
     }
   }
 
-  report('예상 질문 만드는 중 (F-12)');
-  const qJob = await qaApi(`/api/v1/sessions/${sid}/questions`, { method: 'POST', json: { mode } });
+  report('예상 질문 만드는 중 (F-08)');
+  // 서버 계약의 이름은 track 이다 (contracts.py QA_TRACKS). mode 는 화면 쪽 이름.
+  const qJob = await qaApi(`/api/v1/sessions/${sid}/questions`, { method: 'POST', json: { track: mode } });
   const questionDoc = await qaPollJob(qJob.job_id, report);
 
   const questions = (questionDoc && questionDoc.questions) || [];
@@ -477,11 +481,17 @@ export async function runQaLivePipeline({ documentFile, audioFile, mode = '10', 
   return { sessionId: sid, questionDoc };
 }
 
-/** F-12 답변 판정 (동기) */
-export async function judgeQaAnswer(sessionId, { questionId, answer, history }) {
+/**
+ * F-09 답변 판정 (동기 — 잡이 아니라 응답 바디를 바로 읽는다).
+ *
+ * question 을 같이 보낸다. 서버 저장소가 인메모리라 재시작하면 세션이 날아가는데,
+ * 질문 세트는 이 브라우저에 남아 있다. 세션이 사라졌을 때 서버는 이 값으로 판정한다
+ * — 없으면 저장된 질문으로 답할 때마다 전부 '판정 실패' 가 된다.
+ */
+export async function judgeQaAnswer(sessionId, { questionId, answer, history, question }) {
   return qaApi(`/api/v1/sessions/${sessionId}/qa/judge`, {
     method: 'POST',
-    json: { question_id: questionId, answer, history: history || [] },
+    json: { question_id: questionId, answer, history: history || [], question: question || null },
   });
 }
 

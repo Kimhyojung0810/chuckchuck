@@ -1201,7 +1201,7 @@ function qaModeButtonsHtml() {
 }
 function qaStartCtaHtml() {
   const m = QA_MODES[(qa && qa.mode) || '10'];
-  return `<a class="btn btn-primary" href="#/qa" data-qa-start>질문 코칭 시작하기 · ${m.concepts.length}개 개념 · 약 ${m.min}분</a>`;
+  return `<a class="btn btn-primary" href="#/qa" data-qa-start>질문 코칭 시작하기 · 최대 ${m.count}개 개념 · 약 ${m.min}분</a>`;
 }
 function wireQaModeButtons(rerender) {
   $$('.qa-mode').forEach((btn) => btn.addEventListener('click', () => {
@@ -1244,7 +1244,8 @@ function qaQuickCardHtml() {
 
 /* 실전 모드: 내 자료(+임의 녹음 파일)로 서버에서 질문을 만들어 코칭 */
 function qaLivePanelHtml() {
-  const base = (window.ChuckchuckBridge && window.ChuckchuckBridge.qaApiBase()) || 'http://localhost:8789';
+  // 브리지가 아직 안 붙었을 때만 쓰는 폴백. 브리지의 QA_API_DEFAULT 와 같은 주소여야 한다
+  const base = (window.ChuckchuckBridge && window.ChuckchuckBridge.qaApiBase()) || 'http://localhost:8000';
   return `<details class="fold qa-live-fold">
     <summary>실전 모드 — 내 자료·녹음 파일로 질문 만들기</summary>
     <div class="fold-body qa-live-body">
@@ -2015,20 +2016,25 @@ const AUDS = Object.keys(PERSONAS);
 const CONCEPT_LABELS = { joint: '공동 임베딩', temp: 'Temperature', aria: 'Aria 일반화' };
 const CONCEPT_FULL = { joint: '공동 임베딩 정렬', temp: 'Temperature Parameter', aria: 'Aria 데이터셋 해석' };
 
-/* ── QA 시간 모드: 치명도 순으로 질문 범위를 채운다 (질문 준비 화면에서 선택) ── */
+/* ── QA 시간 모드: 치명도 순으로 질문 범위를 채운다 (질문 준비 화면에서 선택) ──
+ * 키는 서버 계약의 track 과 같은 문자열이다 (contracts.py QA_TRACKS).
+ *   count        실전 QA 질문 개수 상한. contracts.py QA_TRACK_LIMITS 와 같은 값이어야
+ *                한다 — 어긋나면 CTA 가 지키지 못할 개수를 약속하게 된다.
+ *   demoConcepts 대본으로 도는 데모 QA 전용 개념 키. 실전 질문 세트와 무관하다.
+ * 실제로 어떤 개념을 물을지는 서버가 자료에서 정하므로 여기 이름을 박아 두지 않는다. */
 const QA_MODES = {
   '1':  { min: 1,  short: '1분 · 핵심만',   desc: '가장 치명적인 개념 하나만 빠르게 확인해요. 복습은 생략해요.',
-          scopeLabel: '공동 임베딩 정렬', concepts: ['joint'], review: false },
+          scopeLabel: '가장 치명적인 개념 하나', count: 1, demoConcepts: ['joint'], review: false },
   '5':  { min: 5,  short: '5분 · 핵심+α',  desc: '핵심 개념에 함정 검증과 시차 복습까지 붙여 제대로 코칭해요.',
-          scopeLabel: '공동 임베딩 · Temperature', concepts: ['joint', 'temp'], review: true },
+          scopeLabel: '핵심 개념 + 놓친 개념', count: 3, demoConcepts: ['joint', 'temp'], review: true },
   '10': { min: 10, short: '10분 · 전체 커버', desc: '아쉬운 개념 전부에, 자료와 모순된 설명까지 대조해요.',
-          scopeLabel: '공동 임베딩 · Temperature · Aria', concepts: ['joint', 'temp', 'aria'], review: true },
+          scopeLabel: '아쉬운 개념 전부 + 모순 대조', count: 8, demoConcepts: ['joint', 'temp', 'aria'], review: true },
 };
 const qaScope = () => QA_MODES[qa.mode] || QA_MODES['10'];
 /* 모드 범위에 맞는 비트만 통과 (1분 모드는 시차 복습 비트 제외) */
 function qaBeatList() {
   const sc = qaScope();
-  return DATA.qaBeats.filter(b => sc.concepts.includes(b.concept) && (sc.review || b.kind !== 'review'));
+  return DATA.qaBeats.filter(b => sc.demoConcepts.includes(b.concept) && (sc.review || b.kind !== 'review'));
 }
 /* 개념이 해소되면 총평 문장을 스트림에 실시간으로 적는다 */
 function pushSummary(concept, outcome) {
@@ -2058,7 +2064,7 @@ const TRACK_ICON = { wait: '', current: '', won: '✓', review: '✓', lost: '�
 const TRACK_WORD = { wait: '아직', current: '설득 중', won: '설득 완료', review: '두 번 확인', lost: '미방어' };
 function trackerHTML() {
   const sc = qaScope();
-  const order = sc.concepts;
+  const order = sc.demoConcepts;
   const won = order.filter(c => qa.concepts[c] === 'won' || qa.concepts[c] === 'review').length;
   const lost = qa.lost.length;
   const total = qaBeatList().length;
@@ -2234,7 +2240,8 @@ async function submitLiveAnswer() {
   renderQaLive();
   try {
     const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
-      questionId: q.id, answer, history: liveHistory(),
+      // question 을 같이 보낸다 — 서버가 재시작돼 세션이 날아가도 판정이 이어진다
+      questionId: q.id, answer, history: liveHistory(), question: q,
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
     if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });
@@ -2301,7 +2308,7 @@ function qaModeGate() {
     <div class="card qa-quick">
       <div class="qm-head"><b>질문 코칭 시간을 골라주세요</b><span>시간에 맞춰 질문 범위를 짜요 — 짧을수록 치명적인 것만 다뤄요</span></div>
       ${qaModeButtonsHtml()}
-      <button class="btn btn-primary" id="qaGateStart" type="button">이 설정으로 시작하기 · ${qaScope().concepts.length}개 개념 · 약 ${qaScope().min}분</button>
+      <button class="btn btn-primary" id="qaGateStart" type="button">이 설정으로 시작하기 · 최대 ${qaScope().count}개 개념 · 약 ${qaScope().min}분</button>
     </div>`;
   wireQaModeButtons(qaModeGate);
   $('#qaGateStart').addEventListener('click', () => {
@@ -2596,8 +2603,8 @@ function qaEnd() {
   const tr = DATA.session.qa.trophy;
   const ariaLost = qa.lost.includes('aria');
   const sc = qaScope();
-  const ariaInScope = sc.concepts.includes('aria');
-  const masteredScoped = sc.concepts.filter(c => qa.concepts[c] === 'won' || qa.concepts[c] === 'review');
+  const ariaInScope = sc.demoConcepts.includes('aria');
+  const masteredScoped = sc.demoConcepts.filter(c => qa.concepts[c] === 'won' || qa.concepts[c] === 'review');
   const afterCount = 3 + masteredScoped.length;
   const concepts = [
     { label: 'Self-Supervised Learning', pre: true },
