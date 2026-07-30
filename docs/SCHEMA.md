@@ -773,8 +773,9 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
   ],
   "speaker_models": { "midm": "KT 믿:음", "solar": "Upstage Solar",
                       "exaone": "LG EXAONE", "ax": "SKT A.X" },
-  "speaker_names":  { "midm": "믿음이", "solar": "쏠라",
-                      "exaone": "엑사", "ax": "엑씨" }
+  "speaker_names":  { "midm": "믿:음", "solar": "쏠라",
+                      "exaone": "엑사원", "ax": "엑씨" },
+  "absent": ["exaone"]                      // 오늘 못 온 병아리 (모델 다운)
 }
 ```
 
@@ -785,12 +786,21 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 | `turns[].mood` | enum | ✅ | 프론트 표정·모션 키. enum 밖이면 `neutral` |
 | `turns[].refs[]` | `{node_id, source}` | ✅ | 근거. 비면 스몰토크. `source`=`alignment`\|`flow`\|`graph` |
 | `speaker_models` | object | ✅ | 좌석 명패에 찍는 모델 배지. 화면에서 절대 숨기지 않는다 |
-| `speaker_names` | object | ✅ | 병아리 이름 |
+| `speaker_names` | object | ✅ | 병아리 이름. 모델명을 짧게 부른 것이라 명패와 어긋나지 않는다 |
+| `absent` | string[] | ✅ | 오늘 못 온 speaker. 빈 배열이면 전원 출석 |
 
 **보증(어댑터가 지키는 불변식):**
 
 1. 네 speaker 전원이 **최소 1턴**. 모델이 죽었으면 결정적 대타 대사로 채운다
-   (예: 엑사 → "쿨쿨... (객석에서 졸고 있다)"). 청중석이 안 열리는 것보다 낫다.
+   (예: 엑사원 → "엑사원은 오늘 객석에 못 왔어요."). 청중석이 안 열리는 것보다 낫다.
+   대타를 받은 speaker 가 곧 `absent` 다.
+
+   > **`absent` 를 프론트가 추측하면 안 된다.** "refs 가 빈 대사 한 줄뿐이면 결석"
+   > 같은 규칙은 틀린다 — `_ax_points` 의 애드립·발표 시간 사실과 `_solar_points` 의
+   > `order_tau` 는 `node_ids` 가 원래 비어 있고, 그런 턴은 `is_smalltalk` 이라
+   > `_trim` 이 제일 먼저 깎는다. 멀쩡히 일한 병아리가 '정확히 refs 없는 한 턴'만
+   > 남기는 건 흔한 경로다. 결석은 `build_chatter` 만 알 수 있어서 이 필드로 싣는다.
+   > UI 는 결석한 자리를 재우지 않고 **빈 좌석 + 명패**로 그린다 (UI_REDESIGN §12).
 2. `refs[].node_id` 는 그 speaker 에게 **배정된 talking point 안**에만 있을 수 있다.
    밖을 가리키면 그 ref 만 떼고, 전부 떨어지면 스몰토크로 강등한다.
 3. `mood` 가 enum 밖이면 `neutral`.

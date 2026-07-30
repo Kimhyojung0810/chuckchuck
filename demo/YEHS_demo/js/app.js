@@ -258,6 +258,10 @@ let nfSlideDoc = null;
 /** F-03/F-04 마지막 테이크 */
 let ccRuntime = null;
 let ccLastTake = null;
+/* 한 번 받은 수다는 '다시 듣기'에서 재사용한다. 테이크에 딸린 상태라 resetNf()
+   가 지우는데, resetNf() 는 모듈 최상위에서 한 번 실행된다 — 선언이 파일
+   아래쪽에 있으면 그 시점엔 아직 TDZ 라 신규 세션에서 앱이 통째로 죽는다 */
+let chatterCache = null;
 
 /** 업로드한 PDF 원본 (메모리). 리허설 화면에 페이지 렌더용 */
 let uploadedPdf = null; // { file, pdf, pageCount }
@@ -317,6 +321,9 @@ function resetNf() {
   nfSlideDoc = null;
   ccRuntime = null;
   ccLastTake = null;
+  // 수다도 테이크에 딸린 것이다. 안 지우면 자료 A 의 객석이 자료 B 에서 재생되고,
+  // currentShow() 가 A 의 absent 를 B 의 티켓에 빈 도장으로 찍는다
+  chatterCache = null;
   uploadedPdf = null;
   pdfRenderToken += 1;
   saveSession('new-flow', nf);
@@ -1091,11 +1098,16 @@ function showEntranceRitual() {
   document.body.appendChild(veil);
   requestAnimationFrame(() => veil.classList.add('on'));
   return new Promise((resolve) => {
-    setTimeout(() => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
       veil.classList.remove('on');
       setTimeout(() => veil.remove(), 320);
       resolve();
-    }, CUE_MS);
+    };
+    veil.addEventListener('click', finish);   // 모든 연출은 스킵 가능하다 (§14)
+    setTimeout(finish, CUE_MS);
   });
 }
 
@@ -2273,24 +2285,29 @@ function showSendoff() {
  * 실판정이 없으면(샘플 화면) 배웅하지 않는다 — 들어본 적 없는 발표를 배웅하면
  * 그 한 줄이 거짓말이 된다.
  */
-function wireSendoff(root = document) {
-  if (!realTrophy() && !realSummary()) return;
-  $$('a[href="#/new"], a[href="#/"], [data-fresh-practice]', root).forEach((el) => {
-    if (el.dataset.sendoff === '1') return;
-    el.dataset.sendoff = '1';
-    el.addEventListener('click', (e) => {
-      // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
-      if (!/^#\/?report/.test(location.hash || '')) return;
-      if (el.dataset.sendoffDone === '1') return;   // 배웅 후 재클릭은 그대로 통과
-      e.preventDefault();
-      e.stopPropagation();
-      showSendoff().then(() => {
-        el.dataset.sendoffDone = '1';
-        el.click();
-        delete el.dataset.sendoffDone;              // 다음 리포트에서도 배웅한다
-      });
-    }, true);
-  });
+let sendoffWired = false;
+let sendoffPassthrough = null;
+
+function wireSendoff() {
+  if (sendoffWired) return;
+  sendoffWired = true;
+  // 요소마다 붙이면 나중에 그려지는 탭(개념별 판정·논리 흐름·말 속도·연습 도구)의
+  // 링크가 영영 안 잡힌다. §4 는 '요약 탭을 떠날 때'가 아니라 '리포트를 떠날 때'다
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('a[href="#/new"], a[href="#/"], [data-fresh-practice]');
+    if (!el || el === sendoffPassthrough) return;
+    // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
+    if (!/^#\/?report/.test(location.hash || '')) return;
+    // 들어본 적 없는 발표(샘플 화면)를 배웅하면 트로피 문장이 거짓말이 된다
+    if (!realTrophy() && !realSummary()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showSendoff().then(() => {
+      sendoffPassthrough = el;
+      el.click();
+      sendoffPassthrough = null;
+    });
+  }, true);
 }
 
 /**
@@ -2448,7 +2465,6 @@ function rAudience() {
    삐약 청중석 — 리포트 '청중 반응' 탭에서 객석으로 들어간다
    --------------------------------------------------------------------------- */
 
-let chatterCache = null;   // 한 번 받은 수다는 '다시 듣기'에서 재사용한다
 
 function pipelineBundle() {
   const out = nf && nf.pipelineOut;
