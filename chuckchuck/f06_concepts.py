@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from .contracts import (
@@ -24,8 +25,14 @@ from .f05_stt import speech_for_slide
 
 # 한 번에 너무 많은 장을 넣으면 LLM JSON 이 잘려 ConceptError 가 난다.
 BATCH_SIZE = int(os.environ.get("CHUCKCHUCK_CONCEPT_BATCH_SIZE", "8"))
+#: 동시에 띄울 배치 수 상한. 무제한으로 풀면 슬라이드 많은 자료에서 레이트리밋에 걸린다.
+CONCEPT_MAX_WORKERS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_WORKERS", "4"))
 MAX_SLIDE_CHARS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_SLIDE_CHARS", "1200"))
 MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_TOKENS", "8192"))
+
+
+def _max_workers() -> int:
+    return max(1, CONCEPT_MAX_WORKERS)
 
 SYSTEM_PROMPT = """당신은 발표자료 분석가다.
 주어진 슬라이드 원문과 발표 맥락을 보고, 슬라이드별로 핵심 개념만 추출한다.
@@ -231,19 +238,29 @@ def extract_concepts(
     size = batch_size or BATCH_SIZE
     size = max(1, size)
     chunks = [doc.slides[i : i + size] for i in range(0, len(doc.slides), size)]
+
+    # 배치는 서로 독립이다 — 각자 자기 슬라이드만 반환하고 뒤에서 slide_no 로 병합한다.
+    # 순차로 돌리면 LLM 왕복을 줄서서 기다린다 (실측: 12장 2배치 = 150초).
+    # 결과는 chunks 순서대로 모아, 어느 배치가 먼저 끝나든 출력이 같게 유지한다.
     merged: list[dict] = []
-    for i, chunk in enumerate(chunks, start=1):
-        merged.extend(
-            _call_batch(
-                engine,
-                chunk,
-                doc,
-                ctx,
-                transcript,
-                batch_i=i,
-                batch_n=len(chunks),
+    if len(chunks) <= 1:
+        for i, chunk in enumerate(chunks, start=1):
+            merged.extend(
+                _call_batch(engine, chunk, doc, ctx, transcript, batch_i=i, batch_n=1)
             )
-        )
+    else:
+        with ThreadPoolExecutor(max_workers=min(_max_workers(), len(chunks))) as pool:
+            futures = [
+                pool.submit(
+                    _call_batch, engine, chunk, doc, ctx, transcript,
+                    batch_i=i, batch_n=len(chunks),
+                )
+                for i, chunk in enumerate(chunks, start=1)
+            ]
+            # 하나라도 실패하면 그대로 올린다 — 개념이 빠진 채 뒷 단계로 흘러가면
+            # F-07 그래프에 구멍이 나고 F-11 이 그 노드를 '누락'으로 오판한다
+            for fut in futures:
+                merged.extend(fut.result())
 
     by_no = {int(s["slide_no"]): s for s in merged if "slide_no" in s}
 

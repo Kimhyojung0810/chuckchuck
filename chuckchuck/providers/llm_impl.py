@@ -32,6 +32,13 @@ def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
     return found
 
 
+#: LLM 한 번 호출의 읽기 타임아웃(초).
+#: 실측(2026-07-30, 12장 PPTX·실 Solar): F-07 그래프 160초, F-11 정합 147초.
+#: 기존 기본값 180초는 F-07 이 20초 여유로 겨우 통과하던 값이고, 개념이 조금만
+#: 늘어도 ReadTimeout 으로 파이프라인 전체가 죽는다 (실제로 재현됨).
+LLM_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_LLM_TIMEOUT_SEC", "600"))
+
+
 class MockLLM(LLMProvider):
     """키 없이 F-06 / F-07 파이프라인을 검증하기 위한 가짜 LLM."""
 
@@ -223,7 +230,7 @@ class OpenAICompatLLM(LLMProvider):
         base_url: str,
         model: str,
         name: str | None = None,
-        timeout: int = 180,
+        timeout: int | None = None,
         extra_headers: dict[str, str] | None = None,
     ):
         if not api_key:
@@ -231,7 +238,7 @@ class OpenAICompatLLM(LLMProvider):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self.timeout = timeout
+        self.timeout = LLM_TIMEOUT_SEC if timeout is None else timeout
         self.extra_headers = extra_headers or {}
         if name:
             self.name = name
