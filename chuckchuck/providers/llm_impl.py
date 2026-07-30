@@ -32,11 +32,19 @@ def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
     return found
 
 
-#: LLM 한 번 호출의 읽기 타임아웃(초).
-#: 실측(2026-07-30, 12장 PPTX·실 Solar): F-07 그래프 160초, F-11 정합 147초.
-#: 기존 기본값 180초는 F-07 이 20초 여유로 겨우 통과하던 값이고, 개념이 조금만
-#: 늘어도 ReadTimeout 으로 파이프라인 전체가 죽는다 (실제로 재현됨).
-LLM_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_LLM_TIMEOUT_SEC", "600"))
+#: LLM 응답을 기다리는 시간(초). 넉넉하게 잡는다.
+#:
+#: 실측(2026-07-30, 같은 12장 PPTX·같은 발화·실 Solar)에서 F-07 이
+#: 160초 → 180초 초과(사망) → 442초로 흔들렸다. 2.8배 편차다.
+#: 생성 시간은 예측이 안 되므로 여기서 끊는 건 의미가 없다 — 30분을 준다.
+LLM_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_LLM_TIMEOUT_SEC", "1800"))
+
+#: 연결(TCP+TLS)까지만 기다리는 시간(초). 이건 짧아야 한다.
+#:
+#: 타임아웃을 통째로 없애면 안 된다 — 끊긴 연결은 영원히 안 돌아와서
+#: 데모가 아무 피드백 없이 멈춘다. 그래서 둘을 나눈다:
+#: 서버가 죽었으면 10초 안에 알고, 살아서 생성 중이면 30분을 기다린다.
+LLM_CONNECT_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_LLM_CONNECT_TIMEOUT_SEC", "10"))
 
 
 class MockLLM(LLMProvider):
@@ -266,7 +274,11 @@ class OpenAICompatLLM(LLMProvider):
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        res = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+        # (연결, 읽기) — 죽은 서버는 빨리 포기하고, 살아서 생성 중이면 오래 기다린다
+        res = requests.post(
+            url, headers=headers, json=payload,
+            timeout=(LLM_CONNECT_TIMEOUT_SEC, self.timeout),
+        )
         if res.status_code != 200:
             raise ConceptError(
                 f"[{self.name}] LLM 오류 {res.status_code}: {res.text[:300]}"

@@ -15,6 +15,12 @@ from ..contracts import STTError, Word
 from .stt_base import STTProvider
 
 
+#: STT 응답을 기다리는 시간(초). 긴 녹음일수록 오래 걸리므로 넉넉하게 잡는다.
+STT_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_STT_TIMEOUT_SEC", "1800"))
+#: 연결까지만 기다리는 시간(초). 죽은 서버를 30분 기다리지 않기 위해 짧게.
+STT_CONNECT_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_STT_CONNECT_TIMEOUT_SEC", "10"))
+
+
 class MockSTT(STTProvider):
     """API 키 없이 파이프라인 전체를 돌려보기 위한 가짜 제공자."""
 
@@ -82,7 +88,7 @@ class AxSTT(STTProvider):
         base_url: str | None = None,
         model: str | None = None,
         keywords: list[str] | None = None,
-        timeout: int = 300,
+        timeout: int | None = None,
     ):
         self.api_key = (
             api_key
@@ -101,7 +107,7 @@ class AxSTT(STTProvider):
             or "A.X_STT_note_batch"
         )
         self.keywords = keywords or []
-        self.timeout = timeout
+        self.timeout = STT_TIMEOUT_SEC if timeout is None else timeout
 
     def _headers(self) -> dict[str, str]:
         return {"X-API-Key": self.api_key}
@@ -112,7 +118,7 @@ class AxSTT(STTProvider):
             f"{self.base_url}/v1/stt/upload-token",
             params={"fileSize": size},
             headers=self._headers(),
-            timeout=30,
+            timeout=(STT_CONNECT_TIMEOUT_SEC, 60),
         )
         if tok_res.status_code != 200:
             raise STTError(
@@ -131,7 +137,7 @@ class AxSTT(STTProvider):
                     "Content-Length": str(size),
                 },
                 data=f,
-                timeout=self.timeout,
+                timeout=(STT_CONNECT_TIMEOUT_SEC, self.timeout),
             )
         if up_res.status_code != 200:
             raise STTError(
@@ -160,7 +166,7 @@ class AxSTT(STTProvider):
             f"{self.base_url}/v1/stt/transcript",
             headers={**self._headers(), "Content-Type": "application/json"},
             json=payload,
-            timeout=self.timeout,
+            timeout=(STT_CONNECT_TIMEOUT_SEC, self.timeout),
         )
         if res.status_code != 200:
             raise STTError(f"A.X STT transcript 실패 {res.status_code}: {res.text[:300]}")
