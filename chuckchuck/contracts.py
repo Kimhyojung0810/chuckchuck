@@ -1018,6 +1018,12 @@ class ChatterDoc:
     speaker_models: dict[str, str] = field(default_factory=dict)
     #: speaker → 병아리 이름.
     speaker_names: dict[str, str] = field(default_factory=dict)
+    #: 오늘 못 온 병아리 (모델이 죽었거나 쓸 만한 대사를 한 줄도 못 준 경우).
+    #:
+    #: 프론트가 이걸 추측하면 안 된다. "refs 가 비었으면 결석" 같은 규칙은 틀린다 —
+    #: 엑씨의 애드립·발표 시간 사실은 node_ids 가 원래 비어 있어서, 멀쩡히 일한
+    #: 병아리가 결석 처리된다. 결석은 build_chatter 만 알 수 있으므로 여기 싣는다.
+    absent: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -1026,6 +1032,7 @@ class ChatterDoc:
             "turns": [t.to_dict() for t in self.turns],
             "speaker_models": dict(self.speaker_models),
             "speaker_names": dict(self.speaker_names),
+            "absent": list(self.absent),
         }
 
     @classmethod
@@ -1036,6 +1043,7 @@ class ChatterDoc:
             turns=[ChatterTurn.from_dict(t) for t in d.get("turns", [])],
             speaker_models=dict(d.get("speaker_models", {})),
             speaker_names=dict(d.get("speaker_names", {})),
+            absent=list(d.get("absent", [])),
         )
 
     def turns_of(self, speaker: str) -> list[ChatterTurn]:

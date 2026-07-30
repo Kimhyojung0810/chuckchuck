@@ -56,6 +56,15 @@
     catch (_) { /* ignore */ }
   }
 
+  /* 이름 끝 글자의 받침으로 은/는을 고른다. "엑사원은(는)" 은 빈 좌석 앞에서
+     유독 눈에 띈다 — 못 온 자리의 문구는 더더욱 사람 말이어야 한다 */
+  function topicParticle(name) {
+    const ch = String(name || '').trim().slice(-1);
+    const code = ch.charCodeAt(0);
+    if (code >= 0xac00 && code <= 0xd7a3) return (code - 0xac00) % 28 ? '은' : '는';
+    return '은(는)';
+  }
+
   const sleep = ms => new Promise(r => setTimeout(r, REDUCED ? 0 : ms));
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -130,7 +139,6 @@
       <circle class="ch-eye-hi" cx="${cx - 1.7}" cy="31.7" r=".85" fill="#fff" opacity=".75"/>
       <path class="ch-eye-line ch-eye-happy" d="M${cx - 5} 27.5q5 7.5 10 0"/>
       <path class="ch-eye-line ch-eye-grumpy" d="M${cx - 5} 32.5q5 -7.5 10 0"/>
-      <path class="ch-eye-line ch-eye-shut" d="M${cx - 5} 30q5 3.4 10 0"/>
     </g>`;
   }
 
@@ -184,16 +192,27 @@ ${props(speaker)}
   /* 객석 만들기                                                          */
   /* ------------------------------------------------------------------ */
 
+  /**
+   * 좌석 하나.
+   *
+   * 결석은 doc.absent 로만 판단한다 (§12). 예전엔 "refs 가 빈 대사 한 줄뿐이면
+   * 결석"으로 추측했는데 그건 틀린 규칙이다 — 엑씨의 애드립·발표 시간 사실은
+   * 원래 node_ids 가 비어서, 멀쩡히 일한 병아리가 조는 걸로 그려졌다.
+   * 못 온 자리는 재우지 않고 비운다: 빈 좌석 + 명패 + "오늘 못 왔어요".
+   */
   function seatHtml(speaker, doc, index) {
     const name = (doc.speaker_names || {})[speaker] || FALLBACK_NAMES[speaker] || speaker;
     const badge = (doc.speaker_models || {})[speaker] || FALLBACK_BADGES[speaker] || '';
     /* 좌석이 줄의 왼쪽인지 오른쪽인지 — 말풍선 꼬리가 부리 쪽으로 기운다 (§7-4) */
     const side = index < SEATS.length / 2 ? 'left' : 'right';
+    const absent = (doc.absent || []).indexOf(speaker) >= 0;
     return `
       <div class="ch-seat" data-speaker="${esc(speaker)}" data-mood="neutral"
-           data-side="${side}">
+           data-side="${side}"${absent ? ' data-absent="1"' : ''}>
         <div class="ch-bubbles" data-bubbles></div>
-        ${chickSvg(speaker)}
+        ${absent
+          ? `<p class="ch-empty">${esc(name)}${topicParticle(name)}<br>오늘 못 왔어요</p>`
+          : chickSvg(speaker)}
         <div class="ch-seatback">
           <div class="ch-plate"><b>${esc(name)}</b><span>${esc(badge)}</span></div>
         </div>
@@ -412,12 +431,13 @@ ${props(speaker)}
      * 권력이 뒤집히는 이 2초가 화면 전체의 톤을 정한다.
      */
     async function caughtBeat() {
+      const cut = () => closed || skipped;    // 배경을 누르면 바로 본론으로 (§14)
       house.classList.add('caught');          // 뚝 — 정적
       await sleep(500);
-      if (closed) return;
+      if (cut()) return endCaught();
       house.classList.add('spotted');         // 여덟 개의 눈이 이쪽을 본다
       await sleep(700);
-      if (closed) return;
+      if (cut()) return endCaught();
       const ax = seats.ax;
       if (ax) {
         ax.dataset.mood = 'curious';
@@ -426,15 +446,20 @@ ${props(speaker)}
           + `<span class="ch-bubble-body">아! …다 들으셨어요?</span></div>`);
       }
       await sleep(1100);
-      if (closed) return;
+      if (cut()) return endCaught();
       house.classList.add('giggling');        // 킥킥, 다시 수다가 이어진다
       await sleep(600);
+      endCaught();
+    }
+
+    /** 어느 지점에서 잘려도 객석을 평상 상태로 되돌린다. */
+    function endCaught() {
       house.classList.remove('caught', 'spotted', 'giggling');
-      if (ax) {
-        ax.classList.remove('waving');
-        ax.dataset.mood = 'neutral';
-        ax.querySelector('[data-bubbles]').innerHTML = '';
-      }
+      const ax = seats.ax;
+      if (!ax) return;
+      ax.classList.remove('waving');
+      ax.dataset.mood = 'neutral';
+      ax.querySelector('[data-bubbles]').innerHTML = '';
     }
 
     /**
@@ -470,10 +495,11 @@ ${props(speaker)}
       stopListening();
       SEATS.forEach(s => {
         seats[s].querySelector('[data-bubbles]').innerHTML = '';
-        seats[s].classList.remove('seated', 'talking', 'dozing', 'waving');
+        seats[s].classList.remove('seated', 'talking', 'waving');
         seats[s].dataset.mood = 'neutral';
       });
       skipped = false;
+      const away = doc.absent || [];
 
       /* 1단계 — 문지방 (§7-1). 세계에 '들어가는' 감각은 컷이 아니라 문에서 나온다.
          2회차부터는 즉시 입장한다 (§14 모든 연출 스킵 가능) */
@@ -495,17 +521,11 @@ ${props(speaker)}
         if (!skipped && !quick) await sleep(220);
       }
 
-      /* 결석한 청중(근거 없는 대타 한 마디뿐인 자리)은 조는 자세로 둔다 */
-      const turns = doc.turns || [];
-      SEATS.forEach(s => {
-        const mine = turns.filter(t => t.speaker === s);
-        if (mine.length === 1 && (!mine[0].refs || !mine[0].refs.length)) {
-          seats[s].classList.add('dozing');
-        }
-      });
+      /* 못 온 병아리의 대타 대사는 재생하지 않는다 — 빈 좌석이 이미 사실을 말한다 */
+      const turns = (doc.turns || []).filter(t => away.indexOf(t.speaker) < 0);
 
-      /* 3단계 — 들켰다. 첫 입장에서만, 조는 엑씨는 깨우지 않는다 */
-      if (!quick && !skipped && !seats.ax.classList.contains('dozing')) {
+      /* 3단계 — 들켰다. 첫 입장에서만. 엑씨가 결석이면 비트를 건너뛴다 */
+      if (!quick && !skipped && away.indexOf('ax') < 0) {
         await caughtBeat();
         if (closed) return;
       }

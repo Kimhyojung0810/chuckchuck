@@ -659,14 +659,20 @@
   45%, 60% { transform: scaleY(.12); }
 }
 
-/* 결석(모델 다운) — 조는 청중. 눈을 감는다 */
-.ch-seat.dozing .ch-eye-shut { opacity: 1; }
-.ch-seat.dozing .ch-eye-ball,
-.ch-seat.dozing .ch-eye-hi { opacity: 0; }
-.ch-seat.dozing .ch-chick { animation: chDoze 4.2s ease-in-out infinite; }
-@keyframes chDoze {
-  0%, 100% { transform: rotate(-6deg) translateY(0); }
-  50%      { transform: rotate(-6deg) translateY(3px); }
+/* 결석(모델 다운) — 재우지 않고 비운다 (§12).
+   조는 병아리로 그리면 "이 모델은 일했지만 게을렀다"로 읽힌다. 사실은 안 온 것이다.
+   빈 좌석 + 명패가 남아 "국내 LLM 4개" 라는 사실은 그대로 보인다. */
+.ch-seat[data-absent] { filter: brightness(.6) saturate(.4); }
+.ch-empty {
+  display: grid;
+  place-content: center;
+  width: clamp(96px, 15vw, 134px);
+  min-height: 92px;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ch-ink-3);
 }
 
 /* --------------------------------------------------------------------------

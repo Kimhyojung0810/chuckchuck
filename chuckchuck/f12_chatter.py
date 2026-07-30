@@ -328,12 +328,16 @@ JSON_RETRY_NUDGE = """
 """
 
 #: 모델이 죽었거나 쓸 만한 대사를 한 줄도 못 준 병아리의 결정적 대타.
-#: 오류처럼 보이지 않고 귀엽게 — 조는 청중은 데모에서 웃음 포인트가 된다.
+#:
+#: 이 대사가 나온 speaker 는 곧 ChatterDoc.absent 다. 그래서 문구도 결석을
+#: 그대로 말한다 — 예전엔 "쿨쿨... (졸고 있다)" 였는데, 그러면 "일했지만
+#: 게을렀다"로 읽힌다. 사실은 안 온 것이고, UI 는 빈 좌석 + 명패로 그린다 (§12).
+#: 오지 않은 자리를 귀여운 연기로 덮지 않는 것이 정직한 상태 유지다 (§14).
 FALLBACK_LINES = {
-    "midm": ("...흥. 난 잘 들었어. 할 말은 나중에.", "grumpy"),
-    "solar": ("오홍, 대본 다시 넘겨 보는 중이야. 잠깐만.", "curious"),
-    "exaone": ("쿨쿨... (객석에서 졸고 있다)", "neutral"),
-    "ax": ("헐, 나 방금 딴생각했어. 한 번만 더 들려줘.", "curious"),
+    "midm": ("믿:음은 오늘 객석에 못 왔어요.", "neutral"),
+    "solar": ("쏠라는 오늘 객석에 못 왔어요.", "neutral"),
+    "exaone": ("엑사원은 오늘 객석에 못 왔어요.", "neutral"),
+    "ax": ("엑씨는 오늘 객석에 못 왔어요.", "neutral"),
 }
 
 
@@ -596,12 +600,14 @@ def build_chatter(
         finally:
             pool.shutdown(wait=False)
 
-    # 한 마디도 못 얻은 병아리는 결정적 대타로 채운다 — 전원 등장 불변식
+    # 한 마디도 못 얻은 병아리는 결정적 대타로 채운다 — 전원 등장 불변식.
+    # 그리고 그게 곧 '오늘 못 온 병아리'다. 프론트는 이걸 추측할 방법이 없으므로
+    # (refs 가 빈 대사는 멀쩡히 일한 병아리도 만든다) 여기서 명시적으로 실어 보낸다.
     spoke = {t.speaker for t in turns}
-    for speaker in CHATTER_SPEAKERS:
-        if speaker not in spoke:
-            text, mood = FALLBACK_LINES[speaker]
-            turns.append(ChatterTurn(speaker=speaker, text=text, mood=mood))
+    absent = [s for s in CHATTER_SPEAKERS if s not in spoke]
+    for speaker in absent:
+        text, mood = FALLBACK_LINES[speaker]
+        turns.append(ChatterTurn(speaker=speaker, text=text, mood=mood))
 
     return ChatterDoc(
         file_name=graph.file_name,
@@ -609,4 +615,5 @@ def build_chatter(
         turns=_trim(turns),
         speaker_models=dict(CHATTER_BADGES),
         speaker_names=dict(CHATTER_NAMES),
+        absent=absent,
     )

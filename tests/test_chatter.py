@@ -261,9 +261,21 @@ def test_provider_failure_fallback(bundle):
 
     doc = build_chatter(graph, alignment, flow, llm_factory=factory)
     assert len(doc.turns_of("exaone")) == 1
-    assert "쿨쿨" in doc.turns_of("exaone")[0].text
+    assert "못 왔어요" in doc.turns_of("exaone")[0].text
+    # 결석은 프론트가 추측하면 안 된다 — 대타를 받은 speaker 가 곧 absent 다
+    assert doc.absent == ["exaone"]
     for speaker in CHATTER_SPEAKERS:
         assert doc.turns_of(speaker)
+
+
+def test_absent_is_empty_when_every_model_answers(bundle):
+    """refs 가 빈 대사를 냈다고 결석이 아니다. 멀쩡히 답한 병아리는 absent 에 없다."""
+    graph, alignment, flow = bundle
+    doc = build_chatter(graph, alignment, flow, llm_factory=lambda s: MockLLM())
+    assert doc.absent == []
+    # 실제로 refs 없는 턴이 섞여 있어도(엑씨의 애드립·발표 시간은 node_ids 가 없다)
+    # 그것 때문에 결석 처리되면 안 된다
+    assert set(t.speaker for t in doc.turns) == set(CHATTER_SPEAKERS)
 
 
 def test_provider_construction_failure_is_absorbed(bundle):
