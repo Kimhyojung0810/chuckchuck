@@ -21,14 +21,40 @@ from pathlib import Path
 from chuckchuck import (
     ChuckchuckError,
     Context,
+    align_speech,
+    build_flow_diff,
+    build_graph,
+    build_questions,
     extract_concepts,
     parse_document,
     settings,
     transcribe,
+    triage_questions,
 )
-from chuckchuck.contracts import SlideDoc, SlideMark, Transcript
+from chuckchuck.contracts import (
+    QA_TRACK_FALLBACK,
+    QA_TRACKS,
+    AlignmentDoc,
+    ConceptDoc,
+    ConceptGraph,
+    FlowDiff,
+    QaTriage,
+    SlideDoc,
+    SlideMark,
+    Transcript,
+)
 
-from .store import CONCEPT_DOC, SLIDE_DOC, TRANSCRIPT, store
+from .store import (
+    ALIGNMENT_DOC,
+    CONCEPT_DOC,
+    CONCEPT_GRAPH,
+    FLOW_DIFF,
+    QA_TRIAGE,
+    QUESTION_DOC,
+    SLIDE_DOC,
+    TRANSCRIPT,
+    store,
+)
 
 log = logging.getLogger("server.jobs")
 
@@ -135,11 +161,134 @@ def _handle_concepts(job_id: str, session_id: str, params: dict) -> dict:
     return payload
 
 
+def _need_artifact(session_id: str, kind: str, message: str) -> dict:
+    """전제 artifact 를 꺼낸다. 없으면 원인이 분명한 실패로 끝낸다."""
+    session = store.get_session(session_id)
+    payload = (session.artifacts or {}).get(kind) if session else None
+    if payload is None:
+        raise ChuckchuckError(message)
+    return payload
+
+
+def _handle_graph(job_id: str, session_id: str, params: dict) -> dict:
+    """F-07 · ConceptDoc(+선택 SlideDoc) → ConceptGraph."""
+    doc = ConceptDoc.from_dict(
+        _need_artifact(session_id, CONCEPT_DOC, "먼저 개념 추출이 끝나야 합니다.")
+    )
+    session = store.get_session(session_id)
+    raw_slide_doc = session.artifacts.get(SLIDE_DOC) if session else None
+    ctx = Context.from_dict((session.context if session else None) or {})
+
+    _progress(job_id, "graph", "개념 그래프 만드는 중")
+    llm = "mock" if _mock() else params.get("llm")
+    graph = build_graph(
+        doc,
+        ctx,
+        slide_doc=SlideDoc.from_dict(raw_slide_doc) if raw_slide_doc else None,
+        llm=llm,
+    )
+
+    payload = graph.to_dict()
+    store.put_artifact(session_id, CONCEPT_GRAPH, payload)
+    _progress(job_id, "graph_done", f"개념 {len(graph.nodes)}개 · 연결 {len(graph.edges)}개")
+    return payload
+
+
+def _handle_alignment(job_id: str, session_id: str, params: dict) -> dict:
+    """
+    F-11 · ConceptGraph + Transcript → AlignmentDoc, 이어서 파생 FlowDiff 까지.
+
+    FlowDiff 는 LLM 없는 순수 함수라 여기서 같이 계산해 둔다 —
+    F-08 이 weak_flow 근거로 쓰고, 리포트 '논리 흐름' 탭도 이걸 읽는다.
+    """
+    graph = ConceptGraph.from_dict(
+        _need_artifact(session_id, CONCEPT_GRAPH, "먼저 개념 그래프를 만들어야 합니다.")
+    )
+    transcript = Transcript.from_dict(
+        _need_artifact(session_id, TRANSCRIPT, "먼저 녹음을 글로 바꿔야 합니다.")
+    )
+    session = store.get_session(session_id)
+    ctx = Context.from_dict((session.context if session else None) or {})
+
+    _progress(job_id, "alignment", "발화와 자료를 대조하는 중")
+    llm = "mock" if _mock() else params.get("llm")
+    alignment = align_speech(graph, transcript, ctx, llm=llm)
+
+    payload = alignment.to_dict()
+    store.put_artifact(session_id, ALIGNMENT_DOC, payload)
+    store.put_artifact(session_id, FLOW_DIFF, build_flow_diff(graph, alignment).to_dict())
+
+    _progress(
+        job_id,
+        "alignment_done",
+        f"정합률 {alignment.summary.coverage} · 판정 {len(alignment.items)}건",
+    )
+    return payload
+
+
+def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
+    """
+    F-08 · ConceptGraph(+선택 AlignmentDoc·FlowDiff) → QuestionDoc.
+
+    triage 는 트랙과 무관하므로 세션에 캐시한다 — 1/5/10분을 바꿔도 재호출이 없다.
+    (인메모리 저장소라 서버를 재시작하면 캐시가 날아가고 재-triage 1콜이 든다.)
+    alignment 가 없어도 동작한다 — 녹음 없이 자료만 올린 경로다.
+    """
+    graph = ConceptGraph.from_dict(
+        _need_artifact(session_id, CONCEPT_GRAPH, "먼저 개념 그래프를 만들어야 합니다.")
+    )
+    session = store.get_session(session_id)
+    artifacts = (session.artifacts if session else None) or {}
+    ctx = Context.from_dict((session.context if session else None) or {})
+
+    raw_alignment = artifacts.get(ALIGNMENT_DOC)
+    alignment = AlignmentDoc.from_dict(raw_alignment) if raw_alignment else None
+    raw_flow = artifacts.get(FLOW_DIFF)
+    flow = FlowDiff.from_dict(raw_flow) if raw_flow else None
+    raw_transcript = artifacts.get(TRANSCRIPT)
+    transcript = Transcript.from_dict(raw_transcript) if raw_transcript else None
+
+    track = str(params.get("track") or QA_TRACK_FALLBACK)
+    if track not in QA_TRACKS:
+        track = QA_TRACK_FALLBACK
+    llm = "mock" if _mock() else params.get("llm")
+
+    cached = artifacts.get(QA_TRIAGE)
+    if cached:
+        triage = QaTriage.from_dict(cached)
+        _progress(job_id, "questions", "질문 순위 재사용 중")
+    else:
+        _progress(job_id, "triage", "물어볼 개념을 고르는 중")
+        triage = triage_questions(
+            graph, alignment, flow, ctx, transcript=transcript, llm=llm
+        )
+        store.put_artifact(session_id, QA_TRIAGE, triage.to_dict())
+
+    _progress(job_id, "questions", f"{track}분 코스 예상 질문 만드는 중")
+    doc = build_questions(
+        graph,
+        triage,
+        track=track,
+        alignment=alignment,
+        transcript=transcript,
+        context=ctx,
+        llm=llm,
+    )
+
+    payload = doc.to_dict()
+    store.put_artifact(session_id, QUESTION_DOC, payload)
+    _progress(job_id, "questions_done", f"예상 질문 {len(doc.questions)}개")
+    return payload
+
+
 HANDLERS = {
     "parse": _handle_parse,
     "transcribe": _handle_transcribe,
     "concepts": _handle_concepts,
-    # F-07+ 는 여기 한 줄 추가하면 된다.
+    "graph": _handle_graph,
+    "alignment": _handle_alignment,
+    "questions": _handle_questions,
+    # 새 모듈은 여기 한 줄 추가하면 된다.
 }
 
 

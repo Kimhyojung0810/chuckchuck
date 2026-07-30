@@ -25,11 +25,37 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from chuckchuck import ChuckchuckError, Context, extract_concepts, parse_document, settings, transcribe
-from chuckchuck.contracts import SlideDoc, SlideMark, Transcript
+from chuckchuck import (
+    ChuckchuckError,
+    Context,
+    extract_concepts,
+    judge_answer,
+    parse_document,
+    settings,
+    transcribe,
+)
+from chuckchuck.contracts import (
+    QA_TRACK_FALLBACK,
+    QA_TRACKS,
+    AlignmentDoc,
+    ConceptGraph,
+    Question,
+    QuestionDoc,
+    SlideDoc,
+    SlideMark,
+    Transcript,
+)
 
 from . import __version__, jobs
-from .store import SLIDE_DOC, store
+from .store import (
+    ALIGNMENT_DOC,
+    CONCEPT_DOC,
+    CONCEPT_GRAPH,
+    QUESTION_DOC,
+    SLIDE_DOC,
+    TRANSCRIPT,
+    store,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 SDK_DIR = ROOT / "chuckchuck" / "sdk"
@@ -211,6 +237,124 @@ async def start_concepts(session_id: str, payload: dict | None = None):
             {"error": "no_slide_doc", "message": "발표자료 파싱이 먼저 끝나야 해요."},
         )
     return {"job_id": jobs.enqueue(session_id, "concepts", {"llm": (payload or {}).get("llm")})}
+
+
+def _need_artifact(session, kind: str, code: str, message: str) -> dict:
+    """전제 artifact 가 없으면 409. 프론트가 이 message 를 진행 상황 줄에 그대로 띄운다."""
+    payload = (session.artifacts or {}).get(kind)
+    if payload is None:
+        raise HTTPException(409, {"error": code, "message": message})
+    return payload
+
+
+@app.post("/api/v1/sessions/{session_id}/graph", status_code=202)
+async def start_graph(session_id: str, payload: dict | None = None):
+    """F-07 · 개념 그래프 잡. ConceptDoc 이 먼저 있어야 한다."""
+    session = _need_session(session_id)
+    _need_artifact(session, CONCEPT_DOC, "no_concept_doc", "개념 추출이 먼저 끝나야 해요.")
+    return {"job_id": jobs.enqueue(session_id, "graph", {"llm": (payload or {}).get("llm")})}
+
+
+@app.post("/api/v1/sessions/{session_id}/alignment", status_code=202)
+async def start_alignment(session_id: str, payload: dict | None = None):
+    """
+    F-11 · 발화-자료 정합 판정 잡 (파생 FlowDiff 포함).
+
+    녹음이 없으면 409 로 끝난다. 프론트는 이 호출을 건너뛸 수 있게 감싸 두었고
+    실패 message 를 진행 상황 줄에 그대로 보여 주므로, 안내문처럼 읽혀야 한다.
+    """
+    session = _need_session(session_id)
+    _need_artifact(session, CONCEPT_GRAPH, "no_concept_graph", "개념 그래프가 먼저 필요해요.")
+    _need_artifact(
+        session, TRANSCRIPT, "no_transcript", "녹음이 없어 정합 판정은 건너뛰어요."
+    )
+    return {"job_id": jobs.enqueue(session_id, "alignment", {"llm": (payload or {}).get("llm")})}
+
+
+@app.post("/api/v1/sessions/{session_id}/questions", status_code=202)
+async def start_questions(session_id: str, payload: dict | None = None):
+    """
+    F-08 · 예상 질문 잡. ConceptGraph 만 있으면 되고 정합 판정은 선택이다.
+
+    프론트는 시간 트랙을 `mode` 로 보내 왔다. 계약 이름은 `track` 이지만
+    구버전 캐시가 남은 브라우저를 위해 둘 다 받는다.
+    """
+    session = _need_session(session_id)
+    _need_artifact(session, CONCEPT_GRAPH, "no_concept_graph", "개념 그래프가 먼저 필요해요.")
+
+    body = payload or {}
+    track = str(body.get("track") or body.get("mode") or QA_TRACK_FALLBACK)
+    if track not in QA_TRACKS:
+        track = QA_TRACK_FALLBACK
+    return {
+        "job_id": jobs.enqueue(
+            session_id, "questions", {"track": track, "llm": body.get("llm")}
+        )
+    }
+
+
+def _resolve_question(session, question_id: str, fallback: dict | None) -> Question:
+    """
+    판정할 질문을 찾는다. 세션의 QuestionDoc 이 정본이고, 없으면 요청 바디를 믿는다.
+
+    저장소가 인메모리라 서버를 재시작하면 세션이 통째로 날아간다. 반면 프론트는
+    질문 세트를 브라우저에 영속시켜 두므로, 그 상태로 답을 보내면 모든 질문이
+    '판정 실패' 가 된다. 바디 폴백이 그 경로를 살린다 — 판정 자체는 무상태다.
+    """
+    if session is not None:
+        raw_doc = (session.artifacts or {}).get(QUESTION_DOC)
+        if raw_doc:
+            found = QuestionDoc.from_dict(raw_doc).question(question_id)
+            if found is not None:
+                return found
+
+    if fallback:
+        question = Question.from_dict(fallback)
+        if question.question.strip():
+            return question
+
+    raise HTTPException(
+        404,
+        {
+            "error": "question_not_found",
+            "message": "그 질문을 찾을 수 없어요. 질문을 다시 만들어 주세요.",
+        },
+    )
+
+
+@app.post("/api/v1/sessions/{session_id}/qa/judge")
+async def judge_qa_answer(session_id: str, payload: dict):
+    """
+    F-09 · 답변 판정. **잡이 아니라 동기 라우트다** — 프론트가 응답 바디를 바로 읽는다.
+
+    세션이 살아 있으면 그래프·정합 판정을 근거로 함께 넘긴다.
+    """
+    question = _resolve_question(
+        store.get_session(session_id),
+        str(payload.get("question_id", "") or ""),
+        payload.get("question"),
+    )
+
+    session = store.get_session(session_id)
+    artifacts = (session.artifacts if session else None) or {}
+    raw_graph = artifacts.get(CONCEPT_GRAPH)
+    raw_alignment = artifacts.get(ALIGNMENT_DOC)
+    raw_transcript = artifacts.get(TRANSCRIPT)
+
+    llm = "mock" if settings.mock_external else payload.get("llm")
+    judgement = await run_in_threadpool(
+        lambda: judge_answer(
+            question,
+            str(payload.get("answer", "") or ""),
+            graph=ConceptGraph.from_dict(raw_graph) if raw_graph else None,
+            alignment=AlignmentDoc.from_dict(raw_alignment) if raw_alignment else None,
+            transcript=Transcript.from_dict(raw_transcript) if raw_transcript else None,
+            history=payload.get("history") or [],
+            context=Context.from_dict((session.context if session else None) or {}),
+            llm=llm,
+        )
+    )
+    return judgement.to_dict()
 
 
 @app.get("/api/v1/jobs/{job_id}")

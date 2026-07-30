@@ -13,10 +13,15 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-# artifact kind — 모듈 산출물 이름. F-07+ 는 여기 한 줄 추가.
-SLIDE_DOC = "slide_doc"
-TRANSCRIPT = "transcript"
-CONCEPT_DOC = "concept_doc"
+# artifact kind — 모듈 산출물 이름. 새 모듈은 여기 한 줄 추가.
+SLIDE_DOC = "slide_doc"          # F-01
+TRANSCRIPT = "transcript"        # F-05
+CONCEPT_DOC = "concept_doc"      # F-06
+CONCEPT_GRAPH = "concept_graph"  # F-07
+ALIGNMENT_DOC = "alignment_doc"  # F-11
+FLOW_DIFF = "flow_diff"          # F-11 파생
+QA_TRIAGE = "qa_triage"          # F-08 1차 — 트랙과 무관해 세션에 캐시한다
+QUESTION_DOC = "question_doc"    # F-08 2차 — 트랙별 질문 세트
 
 
 def new_id() -> str:
@@ -61,7 +66,7 @@ class Job:
 
     id: str = field(default_factory=new_id)
     session_id: str = ""
-    type: str = ""                       # parse | transcribe | concepts
+    type: str = ""                       # parse | transcribe | concepts | graph | alignment | questions
     status: str = "queued"               # queued | running | succeeded | failed
     phase: str = ""                      # 프론트 onProgress 의 phase 와 같은 이름
     detail: str = ""
