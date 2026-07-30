@@ -45,6 +45,17 @@
     ax: ['헐 깜짝이야.', '나 다 듣고 있었어. 진짜야.', '어? 어어? 뭐?'],
   };
 
+  /* 이 객석에 몇 번째로 들어왔나. 두 번째부터는 빨리 가고 싶은 게 정상이다 (§14) */
+  const VISIT_KEY = 'cheokcheok:house-visits';
+  function visits() {
+    try { return Number(localStorage.getItem(VISIT_KEY)) || 0; }
+    catch (_) { return 0; }   // 시크릿 모드 등 — 연출을 못 건너뛸 뿐 동작엔 지장 없다
+  }
+  function countVisit() {
+    try { localStorage.setItem(VISIT_KEY, String(visits() + 1)); }
+    catch (_) { /* ignore */ }
+  }
+
   const sleep = ms => new Promise(r => setTimeout(r, REDUCED ? 0 : ms));
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -189,24 +200,45 @@ ${props(speaker)}
       </div>`;
   }
 
+  /**
+   * 객석 = 이 제품의 성(城) (§7). 다른 화면의 두 배를 투자하는 자리다.
+   *
+   * 3겹 디오라마로 깊이를 만든다 — 후경(무대 가장자리·비상구), 중경(병아리 넷),
+   * 전경(좌석 등받이). 소품은 팸플릿과 비상구 표지 둘까지다 (§7-3 Staging).
+   */
   function overlayHtml(doc) {
+    const dust = Array.from({ length: 5 }, (_, i) =>
+      `<span class="ch-dust" style="--d:${i}"></span>`).join('');
     return `
       <div class="ch-top">
         <span class="ch-stage-tag"><i></i>무대 쪽 · 발표 방금 끝남</span>
         <button class="ch-close" type="button" data-close>객석 나가기</button>
       </div>
       <div class="ch-house">
-        <div class="ch-row">${SEATS.map((s, i) => seatHtml(s, doc, i)).join('')}</div>
-        <div class="ch-frontrow"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="ch-far" data-layer="far" aria-hidden="true">
+          <div class="ch-stage-edge"></div>
+          <div class="ch-exit"><i></i><b>비상구</b></div>
+        </div>
+        <div class="ch-shaft" data-layer="far" aria-hidden="true">${dust}</div>
+        <div class="ch-row" data-layer="mid">
+          ${SEATS.map((s, i) => seatHtml(s, doc, i)).join('')}
+        </div>
+        <div class="ch-frontrow" data-layer="near" aria-hidden="true">
+          <i></i><i></i><i class="has-pamphlet"><span class="ch-pamphlet"></span></i><i></i><i></i>
+        </div>
       </div>
       <div class="ch-actions">
         <button class="ch-btn ch-btn-ghost" type="button" data-replay>다시 듣기</button>
         <button class="ch-btn ch-btn-primary" type="button" data-close>리포트에서 자세히 보기</button>
       </div>
-      <div class="ch-caption">
-        <div class="ch-doorlight"></div>
-        <b>발표가 끝났습니다</b>
-        <span>객석에서 뭔가 수군거리는 소리가 들린다...</span>
+      <div class="ch-door" data-door>
+        <div class="ch-door-frame">
+          <i class="ch-door-leaf ch-door-l"></i>
+          <i class="ch-door-leaf ch-door-r"></i>
+          <span class="ch-door-slit"></span>
+        </div>
+        <b>무대 뒤 복도</b>
+        <span>문틈으로 웅성거리는 소리가 새어 나온다</span>
       </div>`;
   }
 
@@ -286,21 +318,58 @@ ${props(speaker)}
     const seats = {};
     SEATS.forEach(s => { seats[s] = wrap.querySelector(`.ch-seat[data-speaker="${s}"]`); });
 
+    const door = wrap.querySelector('[data-door]');
+    const house = wrap.querySelector('.ch-house');
+
+    /* 문이 사라지면 카메라도 제자리로. 둘을 같이 풀어야 '들어갔다'가 완성된다 */
+    function openDoor() {
+      door.classList.add('gone');
+      wrap.classList.remove('at-door');
+    }
+
     let skipped = false;
     let closed = false;
 
+    /* 들어온 그 문으로 나간다 (§7-6 수미상응). 문이 닫히며 웅성거림이 멀어진다 */
     function close() {
       if (closed) return;
       closed = true;
-      wrap.classList.remove('on');
       document.removeEventListener('keydown', onKey);
+      stopParallax();
+      if (door && !REDUCED) {
+        door.classList.remove('gone', 'open');
+        door.classList.add('leaving');
+      }
+      const wait = REDUCED ? 0 : 760;
+      setTimeout(() => wrap.classList.remove('on'), wait);
       setTimeout(() => {
         wrap.remove();
         document.body.style.overflow = '';
-      }, REDUCED ? 0 : 380);
+      }, wait + (REDUCED ? 0 : 380));
     }
     function onKey(e) { if (e.key === 'Escape') close(); }
     document.addEventListener('keydown', onKey);
+
+    /* 마우스를 따라 겹마다 2~4px. 시차가 깊이를 만든다 (§7-3) */
+    let onMove = null;
+    function startParallax() {
+      if (REDUCED) return;
+      const depth = { far: -4, mid: -1.5, near: 3 };
+      onMove = (e) => {
+        const dx = (e.clientX / window.innerWidth - .5) * 2;
+        const dy = (e.clientY / window.innerHeight - .5) * 2;
+        wrap.querySelectorAll('[data-layer]').forEach((el) => {
+          const k = depth[el.dataset.layer] || 0;
+          el.style.setProperty('--px', `${(dx * k).toFixed(2)}px`);
+          el.style.setProperty('--py', `${(dy * k * .5).toFixed(2)}px`);
+        });
+      };
+      wrap.addEventListener('mousemove', onMove);
+    }
+    function stopParallax() {
+      if (onMove) wrap.removeEventListener('mousemove', onMove);
+      onMove = null;
+    }
 
     wrap.addEventListener('click', e => {
       const ref = e.target.closest('.ch-ref');
@@ -312,6 +381,13 @@ ${props(speaker)}
       }
       if (e.target.closest('[data-close]')) { close(); return; }
       if (e.target.closest('[data-replay]')) { run(true); return; }
+
+      /* 문을 누르면 즉시 입장. 데모 시연은 시간이 생명이다 */
+      if (e.target.closest('[data-door]')) {
+        openDoor();
+        skipped = true;
+        return;
+      }
 
       const chick = e.target.closest('.ch-chick');
       if (chick) {
@@ -329,31 +405,94 @@ ${props(speaker)}
       skipped = true;
     });
 
+    /**
+     * "들켰다!" — 입장 비트 (§7-2).
+     *
+     * 몰래 엿듣던 발표자가 들킨 게 아니라 수다 떨던 관객이 들킨 것이다.
+     * 권력이 뒤집히는 이 2초가 화면 전체의 톤을 정한다.
+     */
+    async function caughtBeat() {
+      house.classList.add('caught');          // 뚝 — 정적
+      await sleep(500);
+      if (closed) return;
+      house.classList.add('spotted');         // 여덟 개의 눈이 이쪽을 본다
+      await sleep(700);
+      if (closed) return;
+      const ax = seats.ax;
+      if (ax) {
+        ax.dataset.mood = 'curious';
+        ax.classList.add('waving');
+        pushBubble(ax, `<div class="ch-bubble"><span class="ch-whisper">삐약</span>`
+          + `<span class="ch-bubble-body">아! …다 들으셨어요?</span></div>`);
+      }
+      await sleep(1100);
+      if (closed) return;
+      house.classList.add('giggling');        // 킥킥, 다시 수다가 이어진다
+      await sleep(600);
+      house.classList.remove('caught', 'spotted', 'giggling');
+      if (ax) {
+        ax.classList.remove('waving');
+        ax.dataset.mood = 'neutral';
+        ax.querySelector('[data-bubbles]').innerHTML = '';
+      }
+    }
+
+    /**
+     * 서로 듣는 연기 (§7-5). 픽사 규칙: 캐릭터는 서로에게 반응한다.
+     *
+     * 리액션은 미동까지만이다 — 말풍선과 시선을 경쟁하면 화면이 시끄러워진다.
+     */
+    function listenTo(speaker, mood) {
+      const at = SEATS.indexOf(speaker);
+      SEATS.forEach((s, i) => {
+        const seat = seats[s];
+        if (!seat || s === speaker) return;
+        seat.dataset.listening = i < at ? 'right' : 'left';   // 화자 쪽으로 고개
+        // 엑사원이 칭찬하면 다들 같이 짝짝, 믿:음이 지적하면 쏠라가 대본을 뒤적인다
+        seat.classList.toggle('applauding', speaker === 'exaone' && mood === 'happy');
+        seat.classList.toggle('checking',
+          speaker === 'midm' && mood === 'grumpy' && s === 'solar');
+      });
+    }
+    function stopListening() {
+      SEATS.forEach(s => {
+        const seat = seats[s];
+        if (!seat) return;
+        delete seat.dataset.listening;
+        seat.classList.remove('applauding', 'checking');
+      });
+    }
+
     async function run(isReplay) {
-      const caption = wrap.querySelector('.ch-caption');
       const actions = wrap.querySelector('.ch-actions');
       actions.classList.remove('on');
+      house.classList.remove('caught', 'spotted', 'giggling', 'settled');
+      stopListening();
       SEATS.forEach(s => {
         seats[s].querySelector('[data-bubbles]').innerHTML = '';
-        seats[s].classList.remove('seated', 'talking', 'dozing');
+        seats[s].classList.remove('seated', 'talking', 'dozing', 'waving');
         seats[s].dataset.mood = 'neutral';
       });
       skipped = false;
 
-      /* 1단계 — 암전. 다시 듣기일 땐 생략한다 */
-      if (isReplay) {
-        caption.classList.add('gone');
+      /* 1단계 — 문지방 (§7-1). 세계에 '들어가는' 감각은 컷이 아니라 문에서 나온다.
+         2회차부터는 즉시 입장한다 (§14 모든 연출 스킵 가능) */
+      const quick = isReplay || REDUCED || visits() > 1;
+      if (quick) {
+        openDoor();
       } else {
-        caption.classList.remove('gone');
-        await sleep(1500);
-        caption.classList.add('gone');
+        wrap.classList.add('at-door');
+        door.classList.add('open');
+        await sleep(1200);
+        openDoor();
       }
       if (closed) return;
+      startParallax();
 
       /* 2단계 — 청중이 하나씩 자리에 앉는다 */
       for (const s of SEATS) {
         seats[s].classList.add('seated');
-        if (!skipped) await sleep(220);
+        if (!skipped && !quick) await sleep(220);
       }
 
       /* 결석한 청중(근거 없는 대타 한 마디뿐인 자리)은 조는 자세로 둔다 */
@@ -365,13 +504,20 @@ ${props(speaker)}
         }
       });
 
-      /* 3단계 — 소곤거림 */
+      /* 3단계 — 들켰다. 첫 입장에서만, 조는 엑씨는 깨우지 않는다 */
+      if (!quick && !skipped && !seats.ax.classList.contains('dozing')) {
+        await caughtBeat();
+        if (closed) return;
+      }
+
+      /* 4단계 — 소곤거림 */
       for (const turn of turns) {
         if (closed) return;
         const seat = seats[turn.speaker];
         if (!seat) continue;
 
         seat.classList.add('talking');
+        listenTo(turn.speaker, turn.mood);
         if (!skipped) {
           const stop = showTyping(seat);
           await sleep(600 + Math.floor(Math.random() * 300));
@@ -382,13 +528,16 @@ ${props(speaker)}
         if (!skipped) await sleep(1100);
         seat.classList.remove('talking');
       }
+      stopListening();
 
-      /* 4단계 — 엔딩 */
+      /* 5단계 — 퇴장 (§7-6). 조명이 살짝 내려가고 넷이 편히 기대앉는다 */
       if (closed) return;
+      house.classList.add('settled');
       actions.classList.add('on');
     }
 
     requestAnimationFrame(() => wrap.classList.add('on'));
+    countVisit();
     run(false);
     return { close: close, replay: function () { return run(true); } };
   }
