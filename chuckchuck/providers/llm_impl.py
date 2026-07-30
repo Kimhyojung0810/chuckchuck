@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import time
 from typing import Any
 
 import requests
@@ -45,6 +47,32 @@ LLM_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_LLM_TIMEOUT_SEC", "1800"))
 #: 데모가 아무 피드백 없이 멈춘다. 그래서 둘을 나눈다:
 #: 서버가 죽었으면 10초 안에 알고, 살아서 생성 중이면 30분을 기다린다.
 LLM_CONNECT_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_LLM_CONNECT_TIMEOUT_SEC", "10"))
+
+
+#: 호출별 소요·토큰을 stderr 에 남긴다. 끄려면 CHUCKCHUCK_LLM_LOG=0
+LLM_LOG = os.environ.get("CHUCKCHUCK_LLM_LOG", "1") not in ("0", "false", "False")
+
+
+def _log_call(name: str, model: str, elapsed: float, res) -> None:
+    """
+    '왜 느린가' 는 추측으로 답할 게 아니다.
+
+    F-07 이 같은 입력에 160초 → 442초로 흔들렸는데, 그게 재시도 때문인지
+    출력이 길어서인지 서버가 느려서인지 코드가 아무것도 안 남겨 알 수 없었다.
+    호출 한 번마다 소요·입출력 토큰·생성 속도를 찍는다.
+    """
+    if not LLM_LOG:
+        return
+    inp = out = None
+    try:
+        usage = res.json().get("usage") or {}
+        inp = usage.get("prompt_tokens")
+        out = usage.get("completion_tokens")
+    except Exception:  # noqa: BLE001 — 로깅이 본 흐름을 막으면 안 된다
+        pass
+    rate = f" ({out / elapsed:.1f} tok/s)" if out and elapsed > 0 else ""
+    tok = f" in={inp} out={out}" if inp is not None else ""
+    sys.stderr.write(f"[llm] {name}/{model} {elapsed:.1f}s{tok}{rate}\n")
 
 
 class MockLLM(LLMProvider):
@@ -275,10 +303,12 @@ class OpenAICompatLLM(LLMProvider):
             "max_tokens": max_tokens,
         }
         # (연결, 읽기) — 죽은 서버는 빨리 포기하고, 살아서 생성 중이면 오래 기다린다
+        t0 = time.monotonic()
         res = requests.post(
             url, headers=headers, json=payload,
             timeout=(LLM_CONNECT_TIMEOUT_SEC, self.timeout),
         )
+        _log_call(self.name, self.model, time.monotonic() - t0, res)
         if res.status_code != 200:
             raise ConceptError(
                 f"[{self.name}] LLM 오류 {res.status_code}: {res.text[:300]}"
