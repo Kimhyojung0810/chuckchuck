@@ -387,6 +387,23 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     }
   }
 
+  // F-14 말 속도 — 전사만 있으면 계산된다. graph 를 주면 구간 이름·시간 배분까지 나온다.
+  let pace = null;
+  if (transcript && !transcript.error) {
+    try {
+      const pRes = await fetch('/api/v1/pace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: slimTranscript(transcript), graph }),
+      });
+      pace = await pRes.json();
+      if (!pRes.ok || pace.error) throw new Error(pace.message || pace.error);
+    } catch (err) {
+      pace = null;
+      report('pace_error', err.message || String(err), { transcript, concepts, graph, alignment, flow });
+    }
+  }
+
   // 어디서 멈췄는지 한 줄로. '완료' 라고만 말하면 사용자가 오지 않을 결과를 기다린다.
   const firstFailure =
     (conceptsError && ['F-06 개념 추출', conceptsError])
@@ -396,7 +413,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     || null;
   const payload = {
     transcript, concepts, conceptsError,
-    graph, alignment, flow, score,
+    graph, alignment, flow, score, pace,
     graphError, alignError, flowError,
     failedStage: firstFailure ? firstFailure[0] : null,
   };

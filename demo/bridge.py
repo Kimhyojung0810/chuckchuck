@@ -152,6 +152,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_chatter(raw)
             if parsed.path == "/api/v1/score":
                 return self._handle_score(raw)
+            if parsed.path == "/api/v1/pace":
+                return self._handle_pace(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -415,6 +417,26 @@ class Handler(SimpleHTTPRequestHandler):
             f"omitted={result.omitted} contradictions={result.contradiction_count}\n"
         )
         return self._json(200, result.to_dict())
+
+    def _handle_pace(self, raw: bytes):
+        """F-14 · Transcript(+선택 ConceptGraph) → PaceDoc. LLM 호출 없음."""
+        from chuckchuck import analyze_pace
+        from chuckchuck.contracts import ConceptGraph, Transcript
+
+        body = json.loads(raw or b"{}")
+        if not body.get("transcript"):
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "transcript 가 필요합니다. F-05 결과를 보내세요."},
+            )
+        transcript = Transcript.from_dict(body["transcript"])
+        graph = ConceptGraph.from_dict(body["graph"]) if body.get("graph") else None
+        pace = analyze_pace(transcript, graph)
+        sys.stderr.write(
+            f"[bridge] F-14 pace avg={round(pace.avg_cpm)}자/분 "
+            f"segments={len(pace.segments)} allocations={len(pace.allocations)}\n"
+        )
+        return self._json(200, pace.to_dict())
 
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")

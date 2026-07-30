@@ -44,6 +44,7 @@ from .f11_align import align_speech
 from .f11_flow import build_flow_diff
 from .f12_chatter import build_chatter
 from .f13_score import score_presentation
+from .f14_pace import analyze_pace
 
 __all__ = [
     "AlignError",
@@ -79,6 +80,7 @@ __all__ = [
     "build_chatter",
     "build_flow_diff",
     "score_presentation",
+    "analyze_pace",
     "build_graph",
     "extract_concepts",
     "parse_document",

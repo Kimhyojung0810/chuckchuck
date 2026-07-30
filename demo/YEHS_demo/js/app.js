@@ -1679,6 +1679,108 @@ function goJudge(node) {
 }
 
 /* 탭 1 — 요약 */
+
+/** 덱 필름에 그릴 슬라이드 목록. 상태는 실판정이 있으면 그걸, 없으면 샘플을 쓴다. */
+function deckThumbList() {
+  const tree = judgeTree();
+  const isReal = !!(tree[0] && tree[0].real);
+  const total = (nfSlideDoc && nfSlideDoc.total_slides)
+    || (uploadedPdf && uploadedPdf.pageCount)
+    || DATA.slideStatus.length;
+  // 한 장에 여러 개념이 걸리면 가장 나쁜 판정을 그 장의 색으로 쓴다
+  const RANK = { ct: 0, no: 1, mid: 2, om: 3, ok: 4 };
+  const worst = {};
+  if (isReal) {
+    tree.forEach(n => {
+      const no = slideNumber(n.slide);
+      if (!worst[no] || RANK[n.status] < RANK[worst[no]]) worst[no] = n.status;
+    });
+  }
+  const titles = activeTitles();
+  return Array.from({ length: total }, (_, i) => {
+    const no = i + 1;
+    return {
+      no,
+      status: isReal ? (worst[no] || 'om') : (DATA.slideStatus[i] || 'om'),
+      title: titles[i] || DATA.slideTitles[i] || `${no}번 슬라이드`,
+      // 업로드 PDF 가 있으면 렌더가 채운다. 없으면 샘플 이미지로 떨어진다.
+      src: (uploadedPdf && uploadedPdf.pdf) ? '' : (DATA.slideImages[i] || ''),
+    };
+  });
+}
+
+
+/* ── 슬라이드 썸네일 ───────────────────────────────────────────────────────
+   업로드한 PDF 를 pdf.js 로 직접 렌더한다. 리허설 화면이 쓰는 렌더 경로와
+   달리 취소·경합이 없어야 하므로(썸네일은 여러 장을 한 번에 그린다) 별도로 둔다.
+   PPTX 는 브라우저에서 렌더할 방법이 없어 이름표만 남는다. */
+
+const thumbCache = new Map();   // pageNo → dataURL (메모리만)
+const THUMB_WIDTH = 240;
+
+async function slideThumb(pageNo) {
+  if (!uploadedPdf || !uploadedPdf.pdf) return null;
+  if (thumbCache.has(pageNo)) return thumbCache.get(pageNo);
+  try {
+    const page = await uploadedPdf.pdf.getPage(pageNo);
+    const unscaled = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: THUMB_WIDTH / unscaled.width });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const url = canvas.toDataURL('image/jpeg', 0.7);
+    thumbCache.set(pageNo, url);
+    return url;
+  } catch (err) {
+    console.warn('[chuckchuck] thumb', pageNo, err);
+    return null;
+  }
+}
+
+/** 화면에 이미 붙은 썸네일 자리를 실제 PDF 렌더로 채운다 (순차 — 한꺼번에 돌리면 버벅인다). */
+async function paintDeckThumbs(root = document) {
+  if (!uploadedPdf || !uploadedPdf.pdf) return;
+  const slots = [...root.querySelectorAll('img[data-thumb-page]')];
+  for (const img of slots) {
+    const no = Number(img.dataset.thumbPage);
+    if (!no) continue;
+    const url = await slideThumb(no);
+    if (url && img.isConnected) img.src = url;
+  }
+}
+
+/**
+ * "오늘 만든 문장" — 실데이터 출처는 F-11 의 suggestion 이다.
+ *
+ * 자료가 제일 힘줬는데 설명이 비었거나 어긋난 개념의 제안 문장을 고른다.
+ * 그게 다음 리허설에서 실제로 말해볼 한 문장이라 트로피 자리에 맞다.
+ * 전부 잘 설명했으면 aligned 중 가장 무거운 개념의 유지 멘트를 쓴다.
+ */
+function realTrophy() {
+  const out = nf && nf.pipelineOut;
+  const al = out && out.alignment;
+  const graph = out && out.graph;
+  if (!al || !graph) return null;
+  const slideOf = {};
+  (graph.nodes || []).forEach(n => {
+    if (n.slide_nos && n.slide_nos.length) slideOf[n.id] = Math.min(...n.slide_nos);
+  });
+  const withText = (al.items || []).filter(i => (i.suggestion || '').trim() && slideOf[i.node_id]);
+  if (!withText.length) return null;
+  const rank = { contradiction: 0, missing: 1, justified_skip: 2, aligned: 3 };
+  const best = withText.slice().sort((a, b) =>
+    (rank[a.verdict] ?? 9) - (rank[b.verdict] ?? 9) || (b.doc_weight || 0) - (a.doc_weight || 0)
+  )[0];
+  const label = ((graph.nodes || []).find(n => n.id === best.node_id) || {}).label || '';
+  return {
+    text: best.suggestion.trim(),
+    slide: slideOf[best.node_id],
+    verdict: best.verdict,
+    label,
+  };
+}
+
 /**
  * F-13 점수를 히어로 카드가 쓰는 모양으로 옮긴다.
  *
@@ -1700,6 +1802,7 @@ function rSummary() {
   const prio = DATA.priorities[s.occasion];
   const D = s.durationSec;
   const tr = s.qa.trophy;
+  const trophy = realTrophy();
   const real = realSummary();
   const score = real ? real.score : s.score;
   const dims = real ? real.dims : s.dims;
@@ -1727,23 +1830,23 @@ function rSummary() {
     ${real ? '' : `<p class="note" style="color:#f59e0b;margin:-6px 0 12px">
       ⚠️ 아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>`}
 
-    <button class="card trophy-strip" id="trophyStrip">
-      <span class="ts-label">오늘 만든 문장</span>
-      <p class="ts-quote">“${tr.after}”</p>
-      <i class="ts-go">${tr.slide}번 슬라이드에서 보기 →</i>
+    <button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
+      <span class="ts-label">${trophy
+        ? (trophy.verdict === 'aligned' ? '이 흐름을 지키세요' : '다음엔 이렇게 말해보세요')
+        : '오늘 만든 문장'}</span>
+      <p class="ts-quote">“${escapeHtml(trophy ? trophy.text : tr.after)}”</p>
+      <i class="ts-go">${trophy ? trophy.slide : tr.slide}번 슬라이드에서 보기 →</i>
     </button>
 
     <div class="card rep-deck">
       <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르면 그 장에서 있었던 일을 보여줘요</span></h3>
       <div id="deckBody">${deckHtml()}</div>
       <div class="deck-film" id="deckFilm">
-        ${DATA.slideStatus.map((st, i) => {
-          const n = i + 1;
-          return `<button class="slidethumb st-${st} has ${n === repSlide ? 'on' : ''}" data-slide="${n}" title="${n}. ${DATA.slideTitles[i]} · ${STATUS[st]}">
-            <img src="${DATA.slideImages[i]}" alt="${n}번 슬라이드" loading="lazy">
-            <span class="stnum">${n}</span>
-          </button>`;
-        }).join('')}
+        ${deckThumbList().map(t => `
+          <button class="slidethumb st-${t.status} has ${t.no === repSlide ? 'on' : ''}" data-slide="${t.no}" title="${t.no}. ${escapeHtml(t.title)} · ${STATUS[t.status]}">
+            <img ${t.src ? `src="${t.src}"` : ''} data-thumb-page="${t.no}" alt="${t.no}번 슬라이드" loading="lazy">
+            <span class="stnum">${t.no}</span>
+          </button>`).join('')}
       </div>
       <div class="legend">
         <span><i class="dot st-ok"></i>설명함</span>
@@ -1782,8 +1885,8 @@ function rSummary() {
         </div>`).join('')}
       </div>
     </details>`;
-  $('#trophyStrip').addEventListener('click', () => {
-    selectDeckSlide(DATA.session.qa.trophy.slide);
+  $('#trophyStrip').addEventListener('click', (e) => {
+    selectDeckSlide(Number(e.currentTarget.dataset.slide) || DATA.session.qa.trophy.slide);
     $('.rep-deck').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   $('#deckFilm').addEventListener('click', e => {
@@ -1792,6 +1895,7 @@ function rSummary() {
   });
   $$('.mini-row').forEach(r => r.addEventListener('click', () => goJudge(r.dataset.node)));
   bindDeckPanel();
+  paintDeckThumbs();
 }
 
 /** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
@@ -2144,27 +2248,76 @@ function rLogic() {
 }
 
 /* 탭 4 — 말 속도 */
+/** F-14 결과를 말 속도 탭이 쓰는 모양으로. 없으면 null (샘플로 떨어진다). */
+function realPace() {
+  const p = nf && nf.pipelineOut && nf.pipelineOut.pace;
+  if (!p || !p.avg_cpm) return null;
+  // 못 믿는 구간(너무 짧음)은 막대에서 뺀다 — 한두 마디로 자/분이 튄다
+  const segs = (p.segments || []).filter(s => s.reliable);
+  if (!segs.length) return null;
+  return {
+    avg: Math.round(p.avg_cpm),
+    rec: `${p.recommended_min}~${p.recommended_max}`,
+    max: p.fastest ? Math.round(p.fastest.cpm) : Math.round(p.avg_cpm),
+    maxSeg: p.fastest ? p.fastest.label : '—',
+    rows: segs.map(s => [s.label, s.slide_no, Math.round(s.cpm), !!s.is_fast, !!s.is_slow]),
+    allocations: p.allocations || [],
+    dropped: (p.segments || []).length - segs.length,
+  };
+}
+
 function rPace() {
-  const MAX = 460, st = DATA.paceStats;
-  const ratio = (st.avg / MAX);
+  const real = realPace();
+  const st = real
+    ? { avg: real.avg, max: real.max, maxSeg: real.maxSeg, rec: real.rec }
+    : DATA.paceStats;
+  const rows = real
+    ? real.rows
+    : DATA.pace.map(p => [p[0], p[1], p[2], !!p[3], false]);
+  // 시간 배분 — '권장' 은 자료가 배분한 weight 다 (F-14). 임의의 이상적 배분이 아니다.
+  const ALLOC_LABEL = { over: '초과', under: '부족', ok: '적절' };
+  const allocRows = real && real.allocations.length
+    ? real.allocations.map(a => [
+        a.name, a.recommended_pct, a.actual_pct,
+        a.verdict === 'ok' ? '적절' : `${a.gap_pct > 0 ? '+' : ''}${Math.round(a.gap_pct)}%p ${ALLOC_LABEL[a.verdict]}`,
+      ])
+    : DATA.timeAlloc;
+  const allocMax = Math.max(35, ...allocRows.map(r => Math.max(r[1], r[2]))) * 1.05;
+  const under = allocRows.filter(r => String(r[3]).includes('부족'));
+  const allocNote = real && real.allocations.length
+    ? (under.length
+      ? `${under.map(r => escapeHtml(String(r[0]))).join(' · ')} 구획에 자료가 실은 비중보다 시간을 적게 썼어요.`
+      : '자료가 힘을 실은 만큼 시간을 고르게 썼어요.')
+    : '방법론 구간에 권장 시간보다 적게 썼어요. 배경을 조금 줄이고 7~12번 슬라이드의 원리 설명에 시간을 옮겨보세요.';
+  const MAX = Math.max(460, ...rows.map(r => r[2])) * 1.05;
+  const ratio = st.avg / MAX;
+  const fastRows = rows.filter(r => r[3]);
+  const note = real
+    ? (fastRows.length
+      ? `${fastRows.map(r => escapeHtml(r[0])).join(' · ')} 구간이 본인 평균보다 15% 넘게 빨라요. 그 개념의 판정을 함께 확인해 보세요.`
+      : '구간별 속도가 고르게 유지됐어요.')
+      + (real.dropped ? ` (너무 짧은 ${real.dropped}개 구간은 속도를 못 재 제외했어요)` : '')
+    : '수식 설명 구간이 본인 평균보다 24% 빨라요. Temperature Parameter와 loss 모두 설명이 부족하다고 판정된 개념과 겹쳐요.';
   $('#rbody').innerHTML = `
+    ${real ? '' : `<p class="note" style="color:#f59e0b;margin-bottom:10px">
+      ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 실제 발화로 계산됩니다.</p>`}
     <div class="stat-row">
       <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span></div>
-      <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${st.maxSeg}</p></div>
+      <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${escapeHtml(String(st.maxSeg))}</p></div>
       <div class="stat-card"><small>발표 권장 속도</small><strong class="num">${st.rec}</strong><span class="unit">자/분</span></div>
     </div>
     <div class="card">
       <h3 class="section-title">구간별 말 속도<span class="soft">점선이 내 평균이에요</span></h3>
       <div class="pace-rows">
         <span class="pace-base" style="left:calc(122px + (100% - 226px) * ${ratio.toFixed(3)})"><em>내 평균 ${st.avg}</em></span>
-        ${DATA.pace.map(p => `
-        <div class="pace-row ${p[3] ? 'fast' : ''}">
-          <span class="nm">${p[0]}</span>
-          <div class="fill-bar"><i class="${p[3] ? 'red' : ''}" data-w="${(p[2] / MAX * 100).toFixed(1)}%"></i></div>
-          <span class="vl">${p[2]}자/분${p[3] ? ' · 빠름' : ''}</span>
+        ${rows.map(r => `
+        <div class="pace-row ${r[3] ? 'fast' : ''}">
+          <span class="nm">${escapeHtml(String(r[0]))}</span>
+          <div class="fill-bar"><i class="${r[3] ? 'red' : ''}" data-w="${(r[2] / MAX * 100).toFixed(1)}%"></i></div>
+          <span class="vl">${r[2]}자/분${r[3] ? ' · 빠름' : (r[4] ? ' · 느림' : '')}</span>
         </div>`).join('')}
       </div>
-      <p class="note" style="margin-top:14px">수식 설명 구간이 본인 평균보다 24% 빨라요. Temperature Parameter와 loss 모두 설명이 부족하다고 판정된 개념과 겹쳐요.</p>
+      <p class="note" style="margin-top:14px">${note}</p>
     </div>
     <div class="card">
       <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
@@ -2172,16 +2325,16 @@ function rPace() {
         <span><i style="background:#C6CCD3"></i>권장</span>
         <span><i style="background:var(--blue)"></i>실제</span>
       </div>
-      ${DATA.timeAlloc.map(r => `
+      ${allocRows.map(r => `
       <div class="alloc-row">
-        <span class="nm">${r[0]}</span>
+        <span class="nm">${escapeHtml(String(r[0]))}</span>
         <div class="alloc-bars">
-          <div class="fill-bar"><i class="gray" data-w="${(r[1] / 35 * 100).toFixed(0)}%"></i></div>
-          <div class="fill-bar"><i class="${r[3] === '적절' ? '' : 'red'}" data-w="${(r[2] / 35 * 100).toFixed(0)}%"></i></div>
+          <div class="fill-bar"><i class="gray" data-w="${(r[1] / allocMax * 100).toFixed(0)}%"></i></div>
+          <div class="fill-bar"><i class="${r[3] === '적절' ? '' : 'red'}" data-w="${(r[2] / allocMax * 100).toFixed(0)}%"></i></div>
         </div>
         <span class="alloc-st ${r[3] === '적절' ? 'fine' : 'warn'}">${r[3]}</span>
       </div>`).join('')}
-      <p class="note" style="margin-top:12px">방법론 구간에 권장 시간보다 적게 썼어요. 배경을 조금 줄이고 7~12번 슬라이드의 원리 설명에 시간을 옮겨보세요.</p>
+      <p class="note" style="margin-top:12px">${allocNote}</p>
     </div>`;
 }
 
