@@ -365,6 +365,28 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     }
   }
 
+  // F-13 점수 — LLM 없는 결정적 계산이라 빠르고, 실패해도 앞 결과는 그대로 살린다
+  let score = null;
+  if (alignment) {
+    try {
+      report('score', '발표 점수 계산 중', { transcript, concepts, graph, alignment, flow });
+      const sRes = await fetch('/api/v1/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alignment, flow }),
+      });
+      score = await sRes.json();
+      if (!sRes.ok || score.error) {
+        throw new Error(score.message || score.error || `score HTTP ${sRes.status}`);
+      }
+      report('score_done', `${score.score}점 (${score.basis})`,
+        { transcript, concepts, graph, alignment, flow, score });
+    } catch (err) {
+      score = null;
+      report('score_error', err.message || String(err), { transcript, concepts, graph, alignment, flow });
+    }
+  }
+
   // 어디서 멈췄는지 한 줄로. '완료' 라고만 말하면 사용자가 오지 않을 결과를 기다린다.
   const firstFailure =
     (conceptsError && ['F-06 개념 추출', conceptsError])
@@ -374,7 +396,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     || null;
   const payload = {
     transcript, concepts, conceptsError,
-    graph, alignment, flow,
+    graph, alignment, flow, score,
     graphError, alignError, flowError,
     failedStage: firstFailure ? firstFailure[0] : null,
   };

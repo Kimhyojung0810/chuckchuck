@@ -1222,7 +1222,10 @@ const PIPELINE_MARKS = {
   align_done: [97, 98],
   align_error: [97, 98],
   flow: [98, 99],
-  flow_done: [99, 100],
+  flow_done: [99, 99],
+  score: [99, 100],
+  score_done: [100, 100],
+  score_error: [100, 100],
   partial: [100, 100],
   done: [100, 100],
   error: [100, 100],
@@ -1257,6 +1260,9 @@ function pipelinePhaseLabel(phase) {
     align: 'F-11 발표·자료 대조',
     align_done: 'F-11 완료',
     align_error: 'F-11 실패',
+    score: 'F-13 점수 계산',
+    score_done: '점수 완료',
+    score_error: '점수 실패',
     flow: '흐름 비교',
     flow_done: '흐름 비교 완료',
     flow_error: '흐름 비교 실패',
@@ -1673,27 +1679,53 @@ function goJudge(node) {
 }
 
 /* 탭 1 — 요약 */
+/**
+ * F-13 점수를 히어로 카드가 쓰는 모양으로 옮긴다.
+ *
+ * 막대는 항별 raw 값이다 — 가중치가 아니라 원지표를 보여줘야 "무엇을 잘했나" 가 읽힌다.
+ * 결과가 없으면 null (호출부가 샘플로 떨어지고 화면에 그렇게 표시한다).
+ */
+function realSummary() {
+  const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
+  if (!sc || typeof sc.score !== 'number') return null;
+  const dims = (sc.components || []).map(c => [c.label, Math.round((c.raw || 0) * 100)]);
+  const notes = [];
+  if (sc.contradiction_count) notes.push(`자료와 다르게 말한 개념 ${sc.contradiction_count}개`);
+  if (sc.basis !== 'full') notes.push(`지표 일부만 계산됨 (${(sc.omitted || []).join(', ')})`);
+  return { score: sc.score, dims, notes, basis: sc.basis };
+}
+
 function rSummary() {
   const s = DATA.session;
   const prio = DATA.priorities[s.occasion];
   const D = s.durationSec;
   const tr = s.qa.trophy;
+  const real = realSummary();
+  const score = real ? real.score : s.score;
+  const dims = real ? real.dims : s.dims;
+  const headline = real
+    ? (real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요')
+    : s.oneLiner;
   $('#rbody').innerHTML = `
     <div class="card hero-card final-score-card">
-      ${ringSvg(s.score, 132, 11, `<strong class="num" data-count="${s.score}">0</strong><span>점</span>`)}
+      ${ringSvg(score, 132, 11, `<strong class="num" data-count="${score}">0</strong><span>점</span>`)}
       <div class="hero-body">
-        <span class="chip chip-sm chip-up">지난 연습보다 +${s.score - s.prevScore}점</span>
-        <h2>${s.oneLiner}</h2>
+        ${real
+          ? `<span class="chip chip-sm">F-13 실측 · ${escapeHtml(real.basis)}</span>`
+          : `<span class="chip chip-sm chip-up">지난 연습보다 +${s.score - s.prevScore}점</span>`}
+        <h2>${escapeHtml(headline)}</h2>
         <div class="dims">
-          ${s.dims.map(d => `
+          ${dims.map(d => `
           <div class="dim-row">
-            <span class="lb">${d[0]}</span>
+            <span class="lb">${escapeHtml(d[0])}</span>
             <div class="fill-bar"><i data-w="${d[1]}%"></i></div>
             <span class="vl num">${d[1]}</span>
           </div>`).join('')}
         </div>
       </div>
     </div>
+    ${real ? '' : `<p class="note" style="color:#f59e0b;margin:-6px 0 12px">
+      ⚠️ 아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>`}
 
     <button class="card trophy-strip" id="trophyStrip">
       <span class="ts-label">오늘 만든 문장</span>
