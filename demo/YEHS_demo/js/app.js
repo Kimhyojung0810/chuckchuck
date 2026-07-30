@@ -1223,6 +1223,7 @@ const PIPELINE_MARKS = {
   align_error: [97, 98],
   flow: [98, 99],
   flow_done: [99, 100],
+  partial: [100, 100],
   done: [100, 100],
   error: [100, 100],
 };
@@ -1259,6 +1260,7 @@ function pipelinePhaseLabel(phase) {
     flow: '흐름 비교',
     flow_done: '흐름 비교 완료',
     flow_error: '흐름 비교 실패',
+    partial: '일부 실패',
     done: '완료',
     error: '오류',
   };
@@ -1430,7 +1432,7 @@ function startPipelineElapsedTimer() {
   if (nf._pipelineTickStarted) return;
   nf._pipelineTickStarted = true;
   every(() => {
-    if (!nf.pipelineStartedAt || ['done', 'error', 'concepts_error'].includes(nf.pipelinePhase)) {
+    if (!nf.pipelineStartedAt || ['done', 'partial', 'error', 'concepts_error'].includes(nf.pipelinePhase)) {
       return;
     }
     const elapsed = Math.max(0, Math.floor((Date.now() - nf.pipelineStartedAt) / 1000));
@@ -1567,8 +1569,12 @@ function nfStep4() {
       },
     })).then((out) => {
       nf.pipelineOut = out;
-      nf.pipelinePhase = out && out.conceptsError ? 'concepts_error' : 'done';
-      nf.pipelineDetail = out && out.conceptsError ? out.conceptsError : '준비 완료';
+      // 중간 단계가 죽었으면 '완료' 라고 하면 안 된다 — 오지 않을 결과를 기다리게 된다
+      const failed = out && out.failedStage;
+      nf.pipelinePhase = failed ? 'partial' : 'done';
+      nf.pipelineDetail = failed
+        ? `${out.failedStage} 실패`
+        : (out && out.conceptsError ? out.conceptsError : '준비 완료');
       nf.transcriptOk = !!(out && out.transcript && !out.transcript.error);
       nf.conceptsOk = !!(out && out.concepts && !out.concepts.error && !out.conceptsError);
       if (out && out.conceptsError) {
@@ -1787,9 +1793,19 @@ function audienceBlockReason() {
   }
   const missing = ['graph', 'alignment', 'flow'].filter((k) => !out[k]);
   if (!missing.length) return null;
-  const phase = pipelinePhaseLabel(nf.pipelinePhase);
-  const stepName = { graph: 'F-07 개념 그래프', alignment: 'F-11 정합 판정', flow: '흐름 비교' };
-  return `분석이 ${stepName[missing[0]]}까지 못 갔어요 (지금 ${phase}). `
+
+  const err = out.graphError || out.alignError || out.flowError || out.conceptsError;
+  const stage = out.failedStage
+    || { graph: 'F-07 개념 그래프', alignment: 'F-11 정합 판정', flow: '흐름 비교' }[missing[0]];
+
+  // 실패로 끝난 건지 아직 도는 중인지를 구분한다. 끝난 걸 '진행 중' 처럼 말하면
+  // 사용자가 오지 않을 결과를 계속 기다린다.
+  const finished = ['done', 'partial', 'error'].includes(nf.pipelinePhase);
+  if (finished) {
+    return `${stage}에서 실패해서 분석이 멈췄어요${err ? ` (${err})` : ''}. `
+      + '기다려도 진행되지 않아요 — 「다른 녹음으로 다시」로 재시도해 주세요.';
+  }
+  return `아직 ${stage} 단계예요. 실API 는 12장 기준 7분쯤 걸려요. `
     + '청중은 판정 결과를 놓고 수군거리는 거라, 거기까지 끝나야 열려요.';
 }
 

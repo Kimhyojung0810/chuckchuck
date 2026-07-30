@@ -303,6 +303,11 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   // F-07 그래프 + F-11 정합 판정 — 실패해도 STT·개념까지는 살린다 (부분 결과)
   let graph = null;
   let alignment = null;
+  // 단계별 실패를 따로 들고 간다. 예전엔 전부 삼키고 마지막에 'done' 만 보고해서,
+  // F-07 이 타임아웃으로 죽어도 화면엔 "완료" 로 떠 사용자가 하염없이 기다렸다.
+  let graphError = null;
+  let alignError = null;
+  let flowError = null;
   if (concepts) {
     try {
       report('graph', '개념 그래프 구성 중 (F-07)', { transcript, concepts });
@@ -329,9 +334,12 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       }
       report('align_done', `정합 판정 ${(alignment.items || []).length}개`, { transcript, concepts, graph, alignment });
     } catch (err) {
+      const msg = err.message || String(err);
       if (graph && graph.error) graph = null;
+      // 그래프까지 못 만들었는지, 그래프는 됐는데 판정에서 죽었는지를 구분한다
+      if (!graph) graphError = msg; else alignError = msg;
       alignment = null;
-      report('align_error', err.message || String(err), { transcript, concepts, graph });
+      report('align_error', msg, { transcript, concepts, graph });
     }
   }
 
@@ -352,20 +360,31 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       report('flow_done', `흐름 판정 ${(flow.issues || []).length}개`, { transcript, concepts, graph, alignment, flow });
     } catch (err) {
       flow = null;
-      report('flow_error', err.message || String(err), { transcript, concepts, graph, alignment });
+      flowError = err.message || String(err);
+      report('flow_error', flowError, { transcript, concepts, graph, alignment });
     }
   }
 
-  report('done', conceptsError ? 'STT 완료 · 개념 추출 실패' : '준비 완료', {
-    transcript,
-    concepts,
-    conceptsError,
-    graph,
-    alignment,
-    flow,
-  });
+  // 어디서 멈췄는지 한 줄로. '완료' 라고만 말하면 사용자가 오지 않을 결과를 기다린다.
+  const firstFailure =
+    (conceptsError && ['F-06 개념 추출', conceptsError])
+    || (graphError && ['F-07 개념 그래프', graphError])
+    || (alignError && ['F-11 정합 판정', alignError])
+    || (flowError && ['흐름 비교', flowError])
+    || null;
+  const payload = {
+    transcript, concepts, conceptsError,
+    graph, alignment, flow,
+    graphError, alignError, flowError,
+    failedStage: firstFailure ? firstFailure[0] : null,
+  };
+  report(
+    firstFailure ? 'partial' : 'done',
+    firstFailure ? `${firstFailure[0]} 실패 — ${firstFailure[1]}` : '준비 완료',
+    payload,
+  );
   saveChuckSession({ transcript, concepts, conceptsError });
-  return { transcript, concepts, conceptsError, graph, alignment, flow };
+  return payload;
 }
 
 function blobToBase64(blob) {
