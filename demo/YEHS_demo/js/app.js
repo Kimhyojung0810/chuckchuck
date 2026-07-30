@@ -1205,26 +1205,29 @@ function fmtMarkSec(sec) {
    폭은 그 단계가 보통 잡아먹는 시간에 비례한다 (STT·개념 추출이 압도적으로 길다).
    단계 안에서는 시간에 따라 천장으로 점근할 뿐 절대 넘지 않는다 —
    막대가 멈춰 보이지 않으면서도 "다 됐다"고 거짓말하지 않는다. */
+/* 구간 폭은 실측 소요 시간에 비례한다 (2026-07-30, 12장 PPTX + 3분 녹음, 실 Solar):
+     STT 30초 · F-06 1분43초 · F-07 2분40초 · F-11 2분27초 · 흐름 1초 미만 = 총 7분 30초
+   추측으로는 STT 를 제일 무겁게 뒀었는데 실제로는 제일 가볍다. 느린 건 F-07·F-11 이다. */
 const PIPELINE_MARKS = {
-  queued: [0, 4],
-  encoding: [4, 10],
-  stt: [10, 45],
-  stt_done: [45, 48],
-  concepts: [48, 70],
-  concepts_done: [70, 72],
-  concepts_error: [70, 72],
-  graph: [72, 82],
-  graph_done: [82, 84],
-  align: [84, 95],
-  align_done: [95, 96],
-  align_error: [95, 96],
-  flow: [96, 99],
+  queued: [0, 3],
+  encoding: [3, 6],
+  stt: [6, 14],
+  stt_done: [14, 16],
+  concepts: [16, 40],
+  concepts_done: [40, 42],
+  concepts_error: [40, 42],
+  graph: [42, 72],
+  graph_done: [72, 74],
+  align: [74, 97],
+  align_done: [97, 98],
+  align_error: [97, 98],
+  flow: [98, 99],
   flow_done: [99, 100],
   done: [100, 100],
   error: [100, 100],
 };
-/** 이 초 수쯤 지나면 구간 천장의 63% 지점에 닿는다 */
-const PIPELINE_CREEP_TAU_SEC = 25;
+/** 이 초 수쯤 지나면 구간 천장의 63% 지점에 닿는다. 긴 단계가 100~160초라 그에 맞춘다 */
+const PIPELINE_CREEP_TAU_SEC = 70;
 
 function pipelinePercent(phase, phaseElapsedSec) {
   const [base, ceil] = PIPELINE_MARKS[phase] || PIPELINE_MARKS.queued;
@@ -1290,9 +1293,10 @@ function pipelineLoadingHtml(kind) {
     if (!['stt_done', 'concepts'].includes(phase)) return '';
   }
 
+  // 실측(12장·3분 녹음, 실 Solar): 전체 7분 30초. STT 는 30초고 F-07·F-11 이 각 2분 30초다.
   const hint = kind === 'stt'
-    ? '실API STT는 녹음 길이에 따라 수십 초~수 분 걸릴 수 있어요.'
-    : '슬라이드 수에 따라 개념 추출에 시간이 더 걸릴 수 있어요.';
+    ? '실API 전체 분석은 12장 기준 7분 안팎 걸려요. 이 화면을 켜 두셔도 되고, 닫아도 뒤에서 계속 돌아갑니다.'
+    : '개념 그래프(F-07)와 정합 판정(F-11)이 가장 오래 걸려요. 각각 2분 30초쯤입니다.';
 
   return `<div class="pipe-loading" data-pipe-kind="${kind}">
     <div class="progress indeterminate"><i></i></div>
@@ -1434,6 +1438,17 @@ function startPipelineElapsedTimer() {
   }, 1000);
 }
 
+/**
+ * 파이프라인이 끝났을 때만 스텝 4 를 다시 그린다.
+ *
+ * 실 LLM 파이프라인은 7분도 걸린다. 그 사이 사용자가 리포트나 질문코치로 넘어가
+ * 있으면, 완료 콜백이 app.innerHTML 을 덮어써 보던 화면을 통째로 날려버린다.
+ */
+function refreshStep4IfVisible() {
+  const onNewFlow = /^#\/?(new)?(\/|$)/.test(location.hash || '#/');
+  if (onNewFlow && nf.step === 3) nfStep4();
+}
+
 function nfStep4() {
   app.className = 'narrow';
   const items = [
@@ -1545,7 +1560,7 @@ function nfStep4() {
         // STT 완료 직후 전체 화면을 다시 그려 발화 블록이 확실히 보이게
         if (phase === 'stt_done' || phase === 'concepts_error' || phase === 'concepts_done') {
           nf.done = pipelineChecklistDone();
-          nfStep4();
+          refreshStep4IfVisible();
         } else {
           refreshPipelineInspect();
         }
@@ -1561,7 +1576,7 @@ function nfStep4() {
       }
       console.info('[chuckchuck] pipeline ok', out);
       nf.done = pipelineChecklistDone();
-      nfStep4();
+      refreshStep4IfVisible();
     }).catch((err) => {
       console.warn('[chuckchuck] prepare pipeline', err);
       nf.pipelineError = err.message || String(err);
@@ -1569,7 +1584,7 @@ function nfStep4() {
       nf.pipelineDetail = nf.pipelineError;
       // 부분 결과가 있으면 유지
       nf.done = pipelineChecklistDone();
-      nfStep4();
+      refreshStep4IfVisible();
     });
   }
 }
