@@ -10,6 +10,7 @@ import json
 import pytest
 
 from chuckchuck.contracts import (
+    CHECK_AXES,
     ALIGN_VERDICTS,
     AlignError,
     AlignmentDoc,
@@ -524,3 +525,101 @@ def test_accepts_dict_inputs():
         llm=ScriptedLLM(_ALL_ALIGNED),
     )
     assert len(doc.items) == 3
+
+
+# ---------------------------------------------------------------------------
+# 확신도 · 4축 체크 · 제안 문장
+# ---------------------------------------------------------------------------
+
+
+def test_확신도가_그대로_보존된다():
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "aligned", "evidence": "e", "confidence": 0.86},
+    ]))
+    assert doc.item("c1").confidence == pytest.approx(0.86)
+
+
+def test_백분율로_준_확신도를_0에서_1로_받아준다():
+    """모델이 85 로 주는 일이 흔하다. 85.0 이 그대로 새면 화면이 8500% 를 그린다."""
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "aligned", "evidence": "e", "confidence": 85},
+    ]))
+    assert doc.item("c1").confidence == pytest.approx(0.85)
+
+
+@pytest.mark.parametrize("bad", [None, "높음", float("nan"), -1, 999])
+def test_망가진_확신도는_0에서_1_밖으로_안_나간다(bad):
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "aligned", "evidence": "e", "confidence": bad},
+    ]))
+    assert 0.0 <= doc.item("c1").confidence <= 1.0
+
+
+def test_코드가_판정을_뒤집으면_확신도를_낮춘다():
+    """'누락 · 확신도 95%' 는 거짓말이다 — 그 95% 는 다른 판정에 매긴 값이다."""
+    doc = align_of(payload(items=[
+        # evidence 없는 contradiction → 강등된다
+        {"node_id": "c1", "verdict": "contradiction", "confidence": 0.95},
+    ]))
+    item = doc.item("c1")
+    assert item.verdict != "contradiction"
+    assert item.confidence < 0.95
+
+
+def test_판정이_유지되면_확신도도_유지된다():
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "contradiction", "evidence": "자료와 다름",
+         "confidence": 0.95},
+    ]))
+    assert doc.item("c1").verdict == "contradiction"
+    assert doc.item("c1").confidence == pytest.approx(0.95)
+
+
+def test_4축_체크는_알려진_축만_남는다():
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "aligned", "evidence": "e",
+         "checks": {"정의": True, "원리": True, "말투": True}},
+    ]))
+    checks = doc.item("c1").checks
+    assert set(checks) == set(CHECK_AXES)
+    assert checks["정의"] is True and checks["원리"] is True
+    assert checks["관계"] is False and checks["이유"] is False
+
+
+def test_누락_판정에는_체크가_하나도_안_켜진다():
+    """말한 게 없다는 판정인데 '정의는 말했다'가 켜져 있으면 서로 모순이다."""
+    t = make_transcript({1: "딴 얘기", 2: "딴 얘기", 3: "딴 얘기"})
+    doc = align_speech(make_graph(), t, llm=ScriptedLLM(payload(items=[
+        {"node_id": "c1", "verdict": "missing",
+         "checks": {"정의": True, "원리": True, "관계": True, "이유": True}},
+    ])))
+    assert doc.item("c1").verdict == "missing"
+    assert not any(doc.item("c1").checks.values())
+
+
+def test_체크를_안_주면_전부_false_다():
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "aligned", "evidence": "e"},
+    ]))
+    assert doc.item("c1").checks == {axis: False for axis in CHECK_AXES}
+
+
+def test_제안_문장이_보존된다():
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "missing",
+         "suggestion": "  같은 시간의 IMU 와 영상은 같은 행동을 가리킨다고 말해보세요  "},
+    ]))
+    assert doc.item("c1").suggestion == \
+        "같은 시간의 IMU 와 영상은 같은 행동을 가리킨다고 말해보세요"
+
+
+def test_직렬화_왕복에서_새_필드가_살아남는다():
+    doc = align_of(payload(items=[
+        {"node_id": "c1", "verdict": "aligned", "evidence": "e", "confidence": 0.7,
+         "checks": {"정의": True}, "suggestion": "유지하세요"},
+    ]))
+    back = AlignmentDoc.from_dict(doc.to_dict())
+    item = back.item("c1")
+    assert item.confidence == pytest.approx(0.7)
+    assert item.checks["정의"] is True
+    assert item.suggestion == "유지하세요"

@@ -26,6 +26,7 @@ from ._match import (
 )
 from .contracts import (
     ALIGN_VERDICTS,
+    CHECK_AXES,
     AlignError,
     AlignmentDoc,
     AlignmentItem,
@@ -73,13 +74,28 @@ verdict 는 다음 넷 중 하나다:
 4. extra_concepts 는 발화에는 있는데 개념 목록에 없는 **실질적 개념**만 적는다.
    인사말·자기소개·군더더기는 개념이 아니다.
 5. 판정은 내용 기준이다. 말투·발음 같은 스타일 평가를 하지 마라.
-6. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+6. checks 는 발화가 그 개념에 대해 어디까지 말했는지다. 각각 true/false 로만 답한다.
+   - 정의: 이 개념이 무엇인지 말했다
+   - 원리: 어떻게 작동하는지 말했다
+   - 관계: 다른 개념과 어떻게 이어지는지 말했다
+   - 이유: 왜 필요한지·왜 그렇게 하는지 말했다
+   말하지 않은 축을 true 로 적지 마라. 판정이 missing 이면 넷 다 false 다.
+7. confidence 는 네 판정이 얼마나 확실한지다 (0.0~1.0). 발화가 짧거나 애매하면
+   낮춰라. 근거가 분명할 때만 0.9 이상을 써라.
+8. suggestion 은 발표자가 다음에 **그대로 말해볼 한 문장**이다.
+   - missing·contradiction: 이 개념을 어떻게 말했어야 하는지 그 문장
+   - aligned: 지금 방식을 유지하라는 짧은 한마디
+   훈수가 아니라 발표에서 소리 내어 읽을 수 있는 문장으로 써라.
+9. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마:
 {
   "items": [
     { "node_id": "contrast", "verdict": "aligned",
-      "evidence": "발화 인용", "note": "한 줄 설명" }
+      "evidence": "발화 인용", "note": "한 줄 설명",
+      "confidence": 0.86,
+      "checks": { "정의": true, "원리": true, "관계": false, "이유": false },
+      "suggestion": "이 설명 흐름을 그대로 유지하세요" }
   ],
   "speech_edges": [
     { "from": "contrast", "to": "joint", "cue": "그래서 이 손실로 정렬합니다" }
@@ -258,6 +274,7 @@ def _normalize_items(
         note = str((raw or {}).get("note", "") or "").strip()
 
         verdict = str((raw or {}).get("verdict", "") or "")
+        original = verdict
         if verdict not in ALIGN_VERDICTS:
             verdict = _fallback_verdict(basis)
         if verdict == "missing" and basis.mention_count >= 1:
@@ -271,6 +288,7 @@ def _normalize_items(
         ):
             verdict = "missing"
 
+        confidence = _normalize_confidence(raw, verdict, overridden=verdict != original)
         items.append(AlignmentItem(
             node_id=node.id,
             verdict=verdict,
@@ -278,8 +296,51 @@ def _normalize_items(
             doc_weight=node.weight,
             evidence=evidence,
             note=note,
+            confidence=confidence,
+            checks=_normalize_checks(raw, verdict),
+            suggestion=str((raw or {}).get("suggestion", "") or "").strip(),
         ))
     return items
+
+
+#: 코드가 판정을 뒤집었을 때 쓸 확신도. LLM 이 자기 판정에 매긴 값은 더 이상 유효하지 않다.
+OVERRIDDEN_CONFIDENCE = 0.5
+
+
+def _normalize_confidence(raw: dict | None, verdict: str, *, overridden: bool) -> float:
+    """
+    확신도를 0.0~1.0 으로 좁힌다.
+
+    코드가 판정을 뒤집었으면 LLM 이 매긴 확신도는 다른 판정에 대한 값이라 못 쓴다.
+    그걸 그대로 두면 화면에 "누락 · 확신도 95%" 같은 거짓말이 뜬다.
+    """
+    if overridden or raw is None:
+        return OVERRIDDEN_CONFIDENCE
+    try:
+        value = float(raw.get("confidence", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return OVERRIDDEN_CONFIDENCE
+    if value != value:  # NaN
+        return OVERRIDDEN_CONFIDENCE
+    # 백분율로 준 경우(85)를 0~1 로 받아준다
+    if value > 1.0:
+        value = value / 100.0
+    return max(0.0, min(1.0, value))
+
+
+def _normalize_checks(raw: dict | None, verdict: str) -> dict:
+    """
+    4축 체크를 알려진 축으로만 좁힌다.
+
+    missing 은 말한 게 없다는 판정이라 어떤 축도 true 일 수 없다 —
+    모델이 채워 보내도 코드가 지운다 (판정과 근거가 서로 모순되면 안 된다).
+    """
+    if verdict == "missing" or raw is None:
+        return {axis: False for axis in CHECK_AXES}
+    given = raw.get("checks")
+    if not isinstance(given, dict):
+        return {axis: False for axis in CHECK_AXES}
+    return {axis: bool(given.get(axis, False)) for axis in CHECK_AXES}
 
 
 def _undirected_pairs(edges) -> set[frozenset]:

@@ -1882,13 +1882,63 @@ function prioCard(p, num) {
 }
 
 /* 탭 2 — 개념별 판정 */
+/* API verdict → 화면 상태. 'mid'(언급만)는 사람이 쓰던 중간값이라 API 에 대응이 없다. */
+const STATUS_FROM_VERDICT = {
+  aligned: 'ok', missing: 'no', contradiction: 'ct', justified_skip: 'om',
+};
+
+/**
+ * 실제 파이프라인 결과(F-07 그래프 + F-11 판정)를 판정 탭 트리로 옮긴다.
+ * 결과가 없으면 null — 호출부가 DATA 샘플로 떨어지고 화면에 그렇게 표시한다.
+ */
+function realJudgeTree() {
+  const out = nf && nf.pipelineOut;
+  if (!out || !out.graph || !out.alignment) return null;
+  const itemBy = {};
+  (out.alignment.items || []).forEach(i => { itemBy[i.node_id] = i; });
+  const nodes = (out.graph.nodes || []).filter(n => itemBy[n.id]);
+  if (!nodes.length) return null;
+
+  return nodes
+    .slice()
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+    .map((n) => {
+      const it = itemBy[n.id];
+      const basis = it.speech_basis || {};
+      const slideNo = (n.slide_nos && n.slide_nos.length) ? Math.min(...n.slide_nos) : 1;
+      return {
+        id: n.id,
+        label: n.label || n.id,
+        depth: n.depth || 1,
+        parent: n.parent_id || null,
+        w: n.weight || 0,
+        slide: `S${String(slideNo).padStart(2, '0')}`,
+        status: STATUS_FROM_VERDICT[it.verdict] || 'no',
+        conf: Math.round((it.confidence || 0) * 100),
+        checks: it.checks || {},
+        ev: it.evidence || '',
+        evTime: basis.first_mention_sec != null ? fmtMarkSec(basis.first_mention_sec) : '',
+        why: it.note || '',
+        fix: it.suggestion || '',
+        real: true,
+      };
+    });
+}
+
+/** 실데이터가 있으면 그것, 없으면 샘플. real 플래그로 화면이 구분해 표시한다. */
+function judgeTree() {
+  return realJudgeTree() || DATA.tree.map(n => ({ ...n, real: false }));
+}
+
 function rJudge() {
-  const counts = { all: DATA.tree.length };
-  DATA.tree.forEach(n => counts[n.status] = (counts[n.status] || 0) + 1);
+  const tree = judgeTree();
+  const isReal = !!(tree[0] && tree[0].real);
+  const counts = { all: tree.length };
+  tree.forEach(n => counts[n.status] = (counts[n.status] || 0) + 1);
   const filters = [['all', '전체'], ['ok', '설명함'], ['mid', '언급만'], ['no', '안 나옴'], ['ct', '모순'], ['om', '생략']];
-  const items = DATA.tree.filter(n => jFilter === 'all' || n.status === jFilter);
+  const items = tree.filter(n => jFilter === 'all' || n.status === jFilter);
   if (!items.some(n => n.id === jSel) && items.length) jSel = items[0].id;
-  const n = DATA.tree.find(t => t.id === jSel);
+  const n = tree.find(t => t.id === jSel);
   $('#rbody').innerHTML = `
     <div class="filter-chips" id="jf">
       ${filters.map(f => `<button class="${jFilter === f[0] ? 'on' : ''}" data-f="${f[0]}">${f[1]} ${counts[f[0]] || 0}</button>`).join('')}
@@ -1903,9 +1953,11 @@ function rJudge() {
           </button>`).join('')}
         </div>
       </div>
-      <div class="card" id="jdetail">${n ? jDetail(n) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
+      <div class="card" id="jdetail">${n ? jDetail(n, tree) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
     </div>
-    <p class="ai-note">판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.</p>`;
+    <p class="ai-note">${isReal
+      ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
+      : '⚠️ 지금 보시는 건 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 발표 결과로 바뀝니다.'}</p>`;
   $('#jf').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     jFilter = b.dataset.f; rJudge(); animateViz($('#rbody'));
@@ -1916,21 +1968,25 @@ function rJudge() {
   });
 }
 
-function jDetail(n) {
+function jDetail(n, tree = DATA.tree) {
   const slideNum = slideNumber(n.slide);
+  const title = activeTitles()[slideNum - 1] || DATA.slideTitles[slideNum - 1] || `${slideNum}번 슬라이드`;
+  const img = DATA.slideImages[slideNum - 1];
+  // 실데이터는 4축을 checks 로, 샘플은 옛 필드명 check 로 준다
+  const checks = n.checks || n.check || {};
   return `
     <div class="detail-top">
-      <h3>${n.label}</h3>${chip(n.status)}
+      <h3>${escapeHtml(n.label)}</h3>${chip(n.status)}
     </div>
-    <p class="detail-meta">${slideNum}번 슬라이드 · 중요도 ${n.w.toFixed(2)}${n.depth === 2 ? ` · 상위 개념: ${DATA.tree.find(t => t.id === n.parent)?.label || '—'}` : ''}</p>
-    <figure class="judge-slide st-${n.status}">
-      <img src="${DATA.slideImages[slideNum - 1]}" alt="${slideNum}번 슬라이드 · ${DATA.slideTitles[slideNum - 1]}">
-      <figcaption><span class="num">${slideNum}번 슬라이드</span>${DATA.slideTitles[slideNum - 1]}</figcaption>
-    </figure>
-    <div class="confbar">판정 확신도 <span class="fill-bar"><i data-w="${n.conf}%"></i></span><b class="num">${n.conf}%</b></div>
-    <div class="checks">
-      ${Object.entries(n.check).map(([k, v]) => `<span class="${v ? 'y' : ''}">${v ? '✓' : '—'} ${k}</span>`).join('')}
-    </div>
+    <p class="detail-meta">${slideNum}번 슬라이드 · 중요도 ${Number(n.w || 0).toFixed(2)}${n.depth === 2 ? ` · 상위 개념: ${escapeHtml(tree.find(t => t.id === n.parent)?.label || '—')}` : ''}</p>
+    ${img ? `<figure class="judge-slide st-${n.status}">
+      <img src="${img}" alt="${slideNum}번 슬라이드 · ${escapeHtml(title)}">
+      <figcaption><span class="num">${slideNum}번 슬라이드</span>${escapeHtml(title)}</figcaption>
+    </figure>` : ''}
+    ${n.conf ? `<div class="confbar">판정 확신도 <span class="fill-bar"><i data-w="${n.conf}%"></i></span><b class="num">${n.conf}%</b></div>` : ''}
+    ${Object.keys(checks).length ? `<div class="checks">
+      ${Object.entries(checks).map(([k, v]) => `<span class="${v ? 'y' : ''}">${v ? '✓' : '—'} ${escapeHtml(k)}</span>`).join('')}
+    </div>` : ''}
     ${n.status === 'ct' ? `
     <div class="drow"><b>자료와 발화 비교</b>
       <span class="bubble-label" style="margin-top:0">자료에 적힌 것</span>
@@ -1939,10 +1995,10 @@ function jDetail(n) {
       <div class="bubble fixup" style="background:var(--ct-bg)">${n.spokeSays}<time>${n.spokeTime}</time></div>
     </div>` : `
     <div class="drow"><b>근거 발화</b>
-      <div class="bubble">${n.ev}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
+      <div class="bubble">${n.ev ? escapeHtml(n.ev) : '<span class="note">이 개념에 해당하는 발화를 찾지 못했어요.</span>'}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
     </div>`}
-    <div class="drow"><b>판정 이유</b>${n.why}</div>
-    <div class="fixbox"><b>이렇게 말해보세요</b><p>${n.fix}</p></div>
+    ${n.why ? `<div class="drow"><b>판정 이유</b>${escapeHtml(n.why)}</div>` : ''}
+    ${n.fix ? `<div class="fixbox"><b>이렇게 말해보세요</b><p>${escapeHtml(n.fix)}</p></div>` : ''}
     <div class="step-actions">
       <a class="btn btn-tint btn-sm" href="#/qa">이 개념으로 질문 연습</a>
     </div>`;

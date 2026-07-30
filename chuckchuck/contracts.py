@@ -591,6 +591,10 @@ class ConceptGraph:
 #: items[].verdict 허용값. 이 밖의 값은 결정적 폴백으로 대체된다.
 ALIGN_VERDICTS = ("aligned", "justified_skip", "missing", "contradiction")
 
+#: 개념 하나를 '설명했다'고 하려면 무엇까지 말했어야 하는가.
+#: 순서가 곧 화면 표시 순서다 — 정의 → 원리 → 관계 → 이유.
+CHECK_AXES = ("정의", "원리", "관계", "이유")
+
 
 @dataclass
 class SpeechBasis:
@@ -630,6 +634,9 @@ class AlignmentItem:
     doc_weight: float = 0.0            # 파생: 해당 노드의 F-07 weight 복사 (산점도 편의)
     evidence: str = ""                 # 판정 근거가 된 발화 인용
     note: str = ""                     # LLM 한 줄 설명
+    confidence: float = 0.0            # 0.0~1.0. 코드가 판정을 뒤집으면 낮춰진다
+    checks: dict = field(default_factory=dict)  # CHECK_AXES → bool. 무엇까지 설명했나
+    suggestion: str = ""               # "이렇게 말해보세요" 한 문장
 
     def to_dict(self) -> dict:
         return {
@@ -640,11 +647,15 @@ class AlignmentItem:
             "doc_weight": self.doc_weight,
             "evidence": self.evidence,
             "note": self.note,
+            "confidence": self.confidence,
+            "checks": {k: bool(self.checks.get(k, False)) for k in CHECK_AXES},
+            "suggestion": self.suggestion,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "AlignmentItem":
         verdict = d.get("verdict", "missing")
+        raw_checks = d.get("checks") or {}
         return cls(
             node_id=str(d["node_id"]),
             verdict=verdict if verdict in ALIGN_VERDICTS else "missing",
@@ -653,6 +664,9 @@ class AlignmentItem:
             doc_weight=float(d.get("doc_weight", 0.0)),
             evidence=d.get("evidence", ""),
             note=d.get("note", ""),
+            confidence=float(d.get("confidence", 0.0) or 0.0),
+            checks={k: bool(raw_checks.get(k, False)) for k in CHECK_AXES},
+            suggestion=d.get("suggestion", ""),
         )
 
 
