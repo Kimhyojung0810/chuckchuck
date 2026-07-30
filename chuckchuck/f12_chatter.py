@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -495,6 +496,13 @@ def _ask(engine: LLMProvider, system: str, user: str) -> list[dict]:
 # 공개 함수
 # ---------------------------------------------------------------------------
 
+#: 한 라운드에서 병아리 넷을 기다리는 상한(초).
+#: 넷을 동시에 부르므로 이건 '가장 느린 한 명' 을 기다리는 시간이다.
+#: 실측(2026-07-30): A.X 는 게이트웨이 500, EXAONE 은 235초를 태우고 실패한다.
+#: 상한이 없으면 죽은 모델 때문에 객석이 통째로 몇 분씩 멈춘다 —
+#: 못 온 병아리는 FALLBACK_LINES 로 자리를 채우므로 기다릴 이유가 없다.
+CHATTER_SPEAKER_TIMEOUT_SEC = int(os.environ.get("CHUCKCHUCK_CHATTER_TIMEOUT_SEC", "45"))
+
 def build_chatter(
     graph: ConceptGraph | dict,
     alignment: AlignmentDoc | dict,
@@ -554,19 +562,29 @@ def build_chatter(
             system, user = _persona_prompt(speaker, points[speaker], list(snapshot))
             return _ask(engines[speaker], system, user)
 
-        with ThreadPoolExecutor(max_workers=len(live)) as pool:
+        # wait=False 로 내려놔야 느린 병아리를 두고 먼저 진행할 수 있다.
+        # with 블록은 나갈 때 join 하므로 아래 타임아웃이 무의미해진다.
+        pool = ThreadPoolExecutor(max_workers=len(live))
+        try:
             futures = {sp: pool.submit(one, sp) for sp in live}
-
-        for speaker in live:
-            try:
-                raw_turns = futures[speaker].result()
-            except Exception:   # noqa: BLE001 — 이 병아리는 이후 라운드도 결석
-                dead.add(speaker)
-                continue
-            for raw in raw_turns:
-                turn = _normalize_turn(raw, speaker, allowed[speaker], sources[speaker])
-                if turn is not None:
-                    turns.append(turn)
+            deadline = time.monotonic() + CHATTER_SPEAKER_TIMEOUT_SEC
+            for speaker in live:
+                try:
+                    # 남은 시간만큼만 기다린다. 한 모델이 죽어 있으면 (실측: A.X 게이트웨이
+                    # 500, EXAONE 235초 태우고 실패) 객석 전체가 그만큼 멈춘다.
+                    raw_turns = futures[speaker].result(
+                        timeout=max(1.0, deadline - time.monotonic())
+                    )
+                except Exception:   # noqa: BLE001 — 이 병아리는 이후 라운드도 결석
+                    dead.add(speaker)
+                    futures[speaker].cancel()
+                    continue
+                for raw in raw_turns:
+                    turn = _normalize_turn(raw, speaker, allowed[speaker], sources[speaker])
+                    if turn is not None:
+                        turns.append(turn)
+        finally:
+            pool.shutdown(wait=False)
 
     # 한 마디도 못 얻은 병아리는 결정적 대타로 채운다 — 전원 등장 불변식
     spoke = {t.speaker for t in turns}
