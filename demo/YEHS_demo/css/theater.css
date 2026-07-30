@@ -121,6 +121,197 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* 커튼콜 (§6) — 박수의 세기는 정직하게 성적을 따른다.
+   완주 박수(§3)와 달리 여기서는 숫자가 거짓말하지 않는 쪽이 먼저다. */
+
+.cc-ovation .cc-row .ch-seat .ch-chick { animation: ccClap .4s ease-in-out .45s 7; }
+.cc-cheer .cc-row .ch-seat .ch-chick { animation: ccClap .46s ease-in-out .45s 5; }
+.cc-mixed .cc-row .ch-seat .ch-chick { animation: ccClap .52s ease-in-out .45s 3; }
+/* 짝… 짝… 띄엄띄엄 두 번. 없는 열기를 만들지 않는다 */
+.cc-question .cc-row .ch-seat .ch-chick { animation: ccClap .7s ease-in-out .45s 2; }
+
+/* 갸웃하거나 손을 드는 한 마리 — 자기 담당 항목이 가장 낮은 병아리다 */
+.cc-row .ch-seat[data-odd] .ch-chick {
+  animation: ccRaiseHand 1.4s ease-in-out .5s infinite !important;
+}
+@keyframes ccRaiseHand {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  40%      { transform: rotate(-10deg) translateY(-4px); }
+  70%      { transform: rotate(-6deg) translateY(-2px); }
+}
+
+/* 배웅 (§4) — 트로피 문장은 조금 크게. 집에 가져갈 단 하나의 문장이다 */
+.so-veil .cc-line.so-shout {
+  max-width: min(680px, 86vw);
+  font-size: clamp(19px, 3vw, 27px);
+  line-height: 1.4;
+  color: var(--th-gold);
+}
+.so-veil .cc-row .ch-seat .ch-chick { animation: ccWaveBye .8s ease-in-out .4s 3; }
+@keyframes ccWaveBye {
+  0%, 100% { transform: rotate(0); }
+  30%      { transform: rotate(-10deg); }
+  70%      { transform: rotate(8deg); }
+}
+
+/* F-13 막대 옆의 얼굴 — 누가 왜 이 점수를 줬는지 (§6).
+   .dim-row 는 3열 그리드라 얼굴 열을 앞에 하나 더 붙여 준다 */
+.dim-row.has-face { grid-template-columns: 26px 76px 1fr 40px; }
+.dim-face {
+  width: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dim-face .ch-chick { width: 26px; cursor: default; animation: none; }
+.dim-face .ch-figure { animation: none; }
+
+/* --------------------------------------------------------------------------
+   등장 의식 (§1) — 조명이 내려가고 큐 사인
+   --------------------------------------------------------------------------
+   "녹음"은 감시의 언어고 "무대"는 역할의 언어다. 이 1.5초가 불안을 배역으로
+   바꾼다. 2회차부터는 안 나온다 — 매번 보면 의식이 아니라 지연이다.
+   -------------------------------------------------------------------------- */
+
+.cue-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-content: center;
+  gap: 22px;
+  text-align: center;
+  background: #05070e;
+  opacity: 0;
+  transition: opacity .32s ease;
+}
+.cue-veil.on { opacity: 1; }
+
+/* 실루엣 넷이 착석한다. 아직 얼굴은 안 보인다 — 지금은 관객이 아니라 기척이다 */
+.cue-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(4px, 2vw, 18px);
+}
+.cue-row .ch-seat {
+  width: auto;
+  opacity: 0;
+  filter: brightness(0) saturate(0) opacity(.5);
+  transform: translateY(14px);
+  animation: cueSit .38s var(--ease, ease) forwards;
+}
+.cue-row .ch-seat:nth-child(2) { animation-delay: .09s; }
+.cue-row .ch-seat:nth-child(3) { animation-delay: .18s; }
+.cue-row .ch-seat:nth-child(4) { animation-delay: .27s; }
+.cue-row .ch-chick { width: clamp(56px, 8vw, 78px); cursor: default; }
+@keyframes cueSit {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 무대감독의 큐 사인 */
+.cue-word {
+  font-size: clamp(24px, 4vw, 38px);
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: var(--th-gold);
+  opacity: 0;
+  animation: cueIn .4s cubic-bezier(.34, 1.56, .64, 1) .85s forwards;
+}
+@keyframes cueIn {
+  from { opacity: 0; transform: scale(.86); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* --------------------------------------------------------------------------
+   정직한 관객 (§2) — 공연 중 실시간 반응
+   --------------------------------------------------------------------------
+   기본은 어두운 객석의 실루엣이고, 반응은 그 실루엣의 미동이다.
+   발표자의 시선을 뺏는 순간 이 층은 방해물이 된다.
+   -------------------------------------------------------------------------- */
+
+.sf {
+  position: relative;
+  margin: 14px 0 2px;
+  padding: 14px 0 0;
+  border-radius: 14px;
+  /* 무대에서 내려다본 어두운 객석. 위쪽 잔광이 무대 조명이다 */
+  background:
+    radial-gradient(90% 120% at 50% 0%, rgba(255, 233, 184, .1), transparent 62%),
+    linear-gradient(180deg, #1a1f31, #0c1020);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 184, .14);
+  overflow: hidden;
+}
+.sf:empty { display: none; }
+/* 앞줄 좌석 등받이. 병아리 아랫도리가 여기 가려야 '앉아 있다'로 읽힌다 */
+.sf::after {
+  content: "";
+  position: absolute;
+  left: -1%;
+  right: -1%;
+  bottom: 0;
+  height: 16px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, #0f1424, #070a13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.sf-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(6px, 3vw, 30px);
+  transition: transform .35s var(--ease, ease);
+}
+.sf-row .ch-seat {
+  width: auto;
+  opacity: 1;
+  transform: none;
+  /* 실루엣. 얼굴이 보이면 발표 중에 자꾸 쳐다보게 된다 */
+  filter: brightness(.34) saturate(.5);
+  transition: filter .4s ease;
+}
+.sf-row .ch-chick {
+  width: clamp(38px, 5vw, 54px);
+  cursor: default;
+  animation: none;              /* 공연 중엔 흔들리지 않는다 — 호흡만 */
+}
+
+/* 넷이 자세를 고쳐 앉는다 (슬라이드 전환) */
+.sf-row.shifting { transform: translateY(-3px); }
+
+/* 말하는 동안 엑씨가 리듬 타듯 미세하게 끄덕인다 — '들었다'까지만이다.
+   '이해했다'는 아직 아무도 모른다 */
+.sf-row .ch-seat.nodding .ch-head { animation: sfNod .7s ease-in-out; }
+@keyframes sfNod {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  40%      { transform: translateY(1.5px) rotate(2deg); }
+}
+
+/* 쏠라가 대본을 넘긴다 / 재방문이면 앞으로 뒤적인다 */
+.sf-row .ch-seat.flipping .ch-prop-script { animation: sfFlip .9s ease-in-out; }
+.sf-row .ch-seat.rewinding .ch-prop-script { animation: sfRewind .9s ease-in-out; }
+@keyframes sfFlip {
+  0%, 100% { transform: rotate(0); }
+  45%      { transform: rotate(-13deg); }
+}
+@keyframes sfRewind {
+  0%, 100% { transform: rotate(0); }
+  45%      { transform: rotate(13deg); }
+}
+
+/* 믿:음이 형광펜으로 밑줄을 긋는다 (한 장에 오래 머물렀을 때) */
+.sf-row .ch-seat.marking { filter: brightness(.5) saturate(.7); }
+.sf-row .ch-seat.marking .ch-pen-stroke { animation: chPenDraw 1.5s ease-out forwards; }
+
+/* 긴 침묵 — 한 마리가 갸웃. 공연당 1회뿐이라 놀리는 느낌이 안 난다 */
+.sf-row .ch-seat.wondering .ch-chick { animation: sfTilt 1.6s ease-in-out; }
+@keyframes sfTilt {
+  0%, 100% { transform: rotate(0); }
+  45%      { transform: rotate(9deg); }
+}
+
 /* --------------------------------------------------------------------------
    막간 — 커튼 뒤의 소곤소곤
    --------------------------------------------------------------------------
@@ -260,12 +451,24 @@
   .cc-veil { transition: none; }
   .cc-row .ch-seat,
   .cc-row .ch-seat .ch-chick,
+  .cc-row .ch-seat[data-odd] .ch-chick,
   .cc-line,
   .cc-sub,
   .cc-skip,
+  .cue-row .ch-seat,
+  .cue-word,
+  .sf-row .ch-seat.nodding .ch-head,
+  .sf-row .ch-seat.flipping .ch-prop-script,
+  .sf-row .ch-seat.rewinding .ch-prop-script,
+  .sf-row .ch-seat.marking .ch-pen-stroke,
+  .sf-row .ch-seat.wondering .ch-chick,
   .bs-curtain::after,
   .bs-line,
   .bs-murmur i { animation: none !important; }
+  .cue-veil, .sf-row { transition: none; }
   .cc-row .ch-seat { opacity: 1; transform: none; }
-  .cc-line, .cc-sub, .cc-skip { opacity: 1; transform: none; }
+  .cue-row .ch-seat { opacity: 1; transform: none; }
+  .cc-line, .cc-sub, .cc-skip, .cue-word { opacity: 1; transform: none; }
+  /* 밑줄은 연출이 아니라 '오래 머물렀다'는 정보다. 애니메이션만 끄고 결과는 남긴다 */
+  .sf-row .ch-seat.marking .ch-pen-stroke { opacity: .55; }
 }

@@ -781,6 +781,7 @@ function nfStep3() {
       </div>
       <div class="card rehearsal-control" id="recPanel"></div>
     </div>
+    <div class="sf" id="stagefront" aria-hidden="true"></div>
     <p class="privacy-note">녹음은 발표 분석에만 사용돼요.</p>`;
   renderRecPanel();
   bindRehearsalNav();
@@ -826,6 +827,9 @@ function moveSlideTo(next) {
       image.alt = `${next}번 슬라이드 · ${titleAt(next - 1)}`;
     }
     if (nf.mic !== 'on') return;
+
+    // 객석이 자세를 고쳐 앉는다. 방문 기록이 갱신되기 전이라 여기 값이 '직전'이다
+    audienceOnSlide(((nf.visits && nf.visits[next]) || 0) >= 1);
 
     if (ccRuntime) {
       let entry = ccRuntime.goTo(next);
@@ -925,19 +929,147 @@ function renderRecPanel() {
       </div></details>
       <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>`;
     $('#recEnd').addEventListener('click', finishRecAndPrepare);
+    audienceMount();   // 무대에 올랐으면 객석에도 넷이 앉아 있어야 한다
   }
+}
+
+/* ─── 정직한 관객 (UI_REDESIGN §2) ──────────────────────────────────────────
+   공연 중이 타임라인에서 가장 길고 감정이 높은 구간인데 지금까지 아무도 없었다.
+
+   철칙: 거짓 반응 금지. LLM 분석은 발표가 끝나야 시작하므로, 지금 이 순간
+   실제로 아는 신호로만 반응을 만든다 — 마이크 레벨, 슬라이드 전환, 체류 시간,
+   침묵. 내용을 아는 척하는 연기("이해했다는 끄덕임")는 절대 안 된다.
+   허용되는 건 자세·주목·필기뿐이고, 판정 반응은 커튼콜 뒤에만 나온다.
+
+   절제 규칙: 반응은 신호가 온 순간에만, 동시에 움직이는 건 1마리 (Staging).
+   발표자의 시선을 뺏으면 안 되므로 기본은 어두운 실루엣이다. */
+
+const SILENCE_SEC = 7;          // 이만큼 조용하면 한 마리가 갸웃 — 공연당 1회
+const DWELL_SEC = 50;           // 한 장에 이만큼 머물면 믿:음이 밑줄을 긋는다
+const NOD_LEVEL = 0.18;         // 이 위로 올라가야 '말하는 중'으로 본다
+const NOD_GAP_MS = 1400;        // 끄덕임 간격. 매 프레임 끄덕이면 기계다
+
+const aud = { lastNod: 0, silentFrom: 0, tilted: false, dwellFrom: 0, dwellDone: false };
+
+function audienceHtml() {
+  if (!window.Chatter) return '';
+  return `<div class="sf-row">${window.Chatter.SEATS.map(s =>
+    `<div class="ch-seat" data-speaker="${s}">${window.Chatter.chickSvg(s)}</div>`
+  ).join('')}</div>`;
+}
+
+/** 한 마리에게 잠깐 반응을 입힌다. 같은 순간에 둘이 움직이지 않게 짧게 끝낸다. */
+function audienceReact(speaker, cls, ms) {
+  const el = $(`#stagefront .ch-seat[data-speaker="${speaker}"]`);
+  if (!el) return;
+  el.classList.add(cls);
+  later(() => el.classList.remove(cls), ms);
+}
+
+function audienceMount() {
+  const host = $('#stagefront');
+  if (!host || host.dataset.on === '1') return;
+  host.dataset.on = '1';
+  host.innerHTML = audienceHtml();
+  aud.lastNod = 0;
+  aud.silentFrom = 0;
+  aud.tilted = false;
+  aud.dwellFrom = Date.now();
+  aud.dwellDone = false;
+}
+
+/** 마이크 레벨 — 말하는 동안 엑씨(헤드폰)가 리듬 타듯 미세하게 끄덕인다. */
+function audienceOnLevel(level) {
+  const now = Date.now();
+  if (level >= NOD_LEVEL) {
+    aud.silentFrom = 0;
+    if (now - aud.lastNod > NOD_GAP_MS) {
+      aud.lastNod = now;
+      audienceReact('ax', 'nodding', 700);
+    }
+    return;
+  }
+  // 긴 침묵 — 한 마리가 갸웃한다. 공연당 최대 1회 (놀리는 것처럼 보이면 안 된다)
+  if (!aud.silentFrom) aud.silentFrom = now;
+  if (!aud.tilted && now - aud.silentFrom > SILENCE_SEC * 1000) {
+    aud.tilted = true;
+    audienceReact('exaone', 'wondering', 1600);
+  }
+}
+
+/** 슬라이드 전환 — 넷이 자세를 고쳐 앉고, 쏠라가 대본을 한 장 넘긴다. */
+function audienceOnSlide(isRevisit) {
+  const row = $('#stagefront .sf-row');
+  if (!row) return;
+  row.classList.add('shifting');
+  later(() => row.classList.remove('shifting'), 700);
+  // 재방문이면 쏠라가 대본을 '앞으로' 뒤적인다 — 방향이 사실을 따른다
+  audienceReact('solar', isRevisit ? 'rewinding' : 'flipping', 900);
+  aud.dwellFrom = Date.now();
+  aud.dwellDone = false;
+}
+
+/** 한 장에 오래 머묾 — 믿:음이 형광펜으로 밑줄을 긋는다 (메모 중). */
+function audienceOnTick() {
+  if (aud.dwellDone || !aud.dwellFrom) return;
+  if (Date.now() - aud.dwellFrom < DWELL_SEC * 1000) return;
+  aud.dwellDone = true;
+  audienceReact('midm', 'marking', 1800);
+}
+
+/* ─── 등장 의식 (§1) ────────────────────────────────────────────────────────
+   녹음 시작이 이 제품에서 가장 무서운 버튼이다. "녹음"은 감시의 언어고
+   "무대"는 역할의 언어다. 조명이 내려가고 큐 사인이 나는 1.5초가 불안을
+   배역으로 바꾼다 — 사용자는 녹음당하는 게 아니라 무대에 오르는 것이다. */
+
+const CUE_KEY = 'cheokcheok:stage-visits';
+const CUE_MS = 1500;
+
+function stageVisits() {
+  try { return Number(localStorage.getItem(CUE_KEY)) || 0; }
+  catch (_) { return 0; }
+}
+
+function showEntranceRitual() {
+  if (!window.Chatter) return Promise.resolve();
+  let n = stageVisits();
+  try { localStorage.setItem(CUE_KEY, String(n + 1)); } catch (_) { /* ignore */ }
+  // 2회차부터는 스킵. 매번 1.5초를 다시 보게 하면 의식이 아니라 지연이다
+  if (n > 0) return Promise.resolve();
+
+  const veil = document.createElement('div');
+  veil.className = 'cue-veil';
+  veil.innerHTML = `
+    <div class="cue-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}">${window.Chatter.chickSvg(s)}</div>`
+      ).join('')}
+    </div>
+    <div class="cue-word">…큐!</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 320);
+      resolve();
+    }, CUE_MS);
+  });
 }
 
 /* chuckchuck SDK 런타임 (F-03/F-04). bridge 모듈 로드 전엔 null. */
 
-function startRec() {
+async function startRec() {
+  await showEntranceRitual();
   const bridge = window.ChuckchuckBridge;
   if (bridge) {
     ccRuntime = bridge.attachRehearsalRuntime(nf, {
       totalSlides: rehearsalCount(),
+      onLevel: audienceOnLevel,
       onTick: (sec) => {
         nf.sec = Math.floor(sec);
         const c = $('#clock'); if (c) c.textContent = fmt(nf.sec);
+        audienceOnTick();
       },
     });
     ccRuntime.start(nf.slide).then(() => {
@@ -964,6 +1096,7 @@ function startRecClock() {
   every(() => {
     nf.sec++;
     const c = $('#clock'); if (c) c.textContent = fmt(nf.sec);
+    audienceOnTick();
     saveSession('new-flow', nf);
   }, 1000);
 }
@@ -1921,14 +2054,172 @@ function realTrophy() {
  * 막대는 항별 raw 값이다 — 가중치가 아니라 원지표를 보여줘야 "무엇을 잘했나" 가 읽힌다.
  * 결과가 없으면 null (호출부가 샘플로 떨어지고 화면에 그렇게 표시한다).
  */
+/* F-13 항목 4개가 병아리와 1:1 이다. 배정 근거는 §9 와 같다 — 그 모델이
+   파이프라인에서 실제로 본 축. 막대 옆에 얼굴이 붙으면 "누가 왜 이 점수를
+   줬는지"가 보인다 (§6). */
+const SCORE_CHICK = {
+  coverage: 'midm',    // 자료와 발화의 정합 판정 (F-11)
+  rank: 'ax',          // 발화 축 — 어디에 얼마나 시간을 썼나 (F-05)
+  edge: 'exaone',      // 개념을 말로 잘 이었나 (good_link)
+  order: 'solar',      // 자료 순서와 발표 순서 (F-01/06/07)
+};
+
 function realSummary() {
   const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
   if (!sc || typeof sc.score !== 'number') return null;
-  const dims = (sc.components || []).map(c => [c.label, Math.round((c.raw || 0) * 100)]);
+  const dims = (sc.components || []).map(c =>
+    [c.label, Math.round((c.raw || 0) * 100), SCORE_CHICK[c.key] || '']);
   const notes = [];
   if (sc.contradiction_count) notes.push(`자료와 다르게 말한 개념 ${sc.contradiction_count}개`);
   if (sc.basis !== 'full') notes.push(`지표 일부만 계산됨 (${(sc.omitted || []).join(', ')})`);
   return { score: sc.score, dims, notes, basis: sc.basis };
+}
+
+/* ─── 커튼콜 (§6) ───────────────────────────────────────────────────────────
+   막이 오르면 병아리 넷이 박수를 친다. 숫자는 그 다음에 조용히.
+
+   이 박수는 종연 3초의 완주 박수(§3)와 다르다. 저건 시도에 무조건 주는 것이고
+   이건 정직하게 성적을 따른다 (규칙 1 + 토스 규율). 순서를 바꾸거나 합치면
+   박수가 성적표가 되거나 성적이 무뎌진다. */
+
+const CURTAINCALL_KEY = 'cheokcheok:curtaincall-shown';
+const CURTAINCALL_MS = 2800;
+
+/** 점수 구간별 반응. 갸웃/손드는 건 '자기 담당 항목이 가장 낮은' 병아리다. */
+function applauseTier(score, dims) {
+  const weakest = (dims || [])
+    .filter(d => d[2])
+    .slice()
+    .sort((a, b) => a[1] - b[1])[0];
+  const odd = weakest ? weakest[2] : 'midm';
+  if (score >= 90) return { mood: 'ovation', odd: null, line: '기립박수!', sub: '한 마리는 울고 있어요.' };
+  if (score >= 75) return { mood: 'cheer', odd: null, line: '넷 다 신나게 박수!', sub: '' };
+  if (score >= 60) {
+    return {
+      mood: 'mixed', odd,
+      line: '박수 — 그리고 한 마리가 갸웃',
+      sub: `${BACKSTAGE_NAMES[odd] || ''}이 아직 못 들은 게 있대요.`,
+    };
+  }
+  return {
+    mood: 'question', odd,
+    line: '짝… 짝…',
+    sub: `${BACKSTAGE_NAMES[odd] || ''}: "저, 질문 있어요!"`,
+  };
+}
+
+function showCurtainCallApplause(score, dims) {
+  if (!window.Chatter) return Promise.resolve();
+  // 2회차부터 스킵 (§14). 같은 박수를 매번 보면 박수가 아니라 인터스티셜이다
+  try {
+    if (sessionStorage.getItem(CURTAINCALL_KEY) === String(score)) return Promise.resolve();
+    sessionStorage.setItem(CURTAINCALL_KEY, String(score));
+  } catch (_) { /* ignore */ }
+
+  const t = applauseTier(score, dims);
+  const veil = document.createElement('div');
+  veil.className = `cc-veil cc-applause cc-${t.mood}`;
+  veil.innerHTML = `
+    <div class="cc-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}" data-mood="${
+          s === t.odd ? 'curious' : (score >= 75 ? 'happy' : 'neutral')
+        }"${s === t.odd ? ' data-odd="1"' : ''}>${window.Chatter.chickSvg(s)}</div>`
+      ).join('')}
+    </div>
+    <div class="cc-line">${escapeHtml(t.line)}</div>
+    ${t.sub ? `<div class="cc-sub">${escapeHtml(t.sub)}</div>` : ''}
+    <div class="cc-skip">누르면 점수를 볼게요</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 380);
+      resolve();
+    };
+    veil.addEventListener('click', finish);
+    setTimeout(finish, CURTAINCALL_MS);
+  });
+}
+
+/* ─── 배웅 (§4) ─────────────────────────────────────────────────────────────
+   카너먼: 경험의 기억은 피크와 엔드로 결정된다. 피크는 커튼콜이 맡는데,
+   엔드는 지금까지 아무것도 없었다 — 리포트를 보다가 그냥 나갔다.
+
+   외치는 문장은 F-11 트로피 문장 그대로다. 수십 개의 판정 중 사용자가 집에
+   가져갈 단 하나의 문장이라, 리포트를 안 읽었어도 이 한 줄은 남는다. */
+
+const SENDOFF_MS = 2400;
+
+function sendoffLine() {
+  const t = realTrophy();
+  if (t && t.label) {
+    return t.verdict === 'aligned'
+      ? `다음 공연에서도 '${t.label}' 그대로 들려주세요!!`
+      : `다음 공연 땐 '${t.label}' 꼭 들려주세요!!`;
+  }
+  // 데이터가 없으면 지어내지 않는다. 근거 없는 회상 대사 금지와 같은 규칙이다
+  return '오늘 완벽했어요, 또 오세요!';
+}
+
+function showSendoff() {
+  if (!window.Chatter) return Promise.resolve();
+  const veil = document.createElement('div');
+  veil.className = 'cc-veil so-veil';
+  veil.innerHTML = `
+    <div class="cc-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}" data-mood="happy">
+           ${window.Chatter.chickSvg(s)}
+         </div>`).join('')}
+    </div>
+    <div class="cc-line so-shout">${escapeHtml(sendoffLine())}</div>
+    <div class="cc-sub">— 오늘의 관객 넷 드림</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 380);
+      resolve();
+    };
+    veil.addEventListener('click', finish);
+    setTimeout(finish, SENDOFF_MS);
+  });
+}
+
+/**
+ * 리포트를 떠나는 순간을 가로채 배웅을 끼워 넣는다.
+ *
+ * 실판정이 없으면(샘플 화면) 배웅하지 않는다 — 들어본 적 없는 발표를 배웅하면
+ * 그 한 줄이 거짓말이 된다.
+ */
+function wireSendoff(root = document) {
+  if (!realTrophy() && !realSummary()) return;
+  $$('a[href="#/new"], a[href="#/"], [data-fresh-practice]', root).forEach((el) => {
+    if (el.dataset.sendoff === '1') return;
+    el.dataset.sendoff = '1';
+    el.addEventListener('click', (e) => {
+      // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
+      if (!/^#\/?report/.test(location.hash || '')) return;
+      if (el.dataset.sendoffDone === '1') return;   // 배웅 후 재클릭은 그대로 통과
+      e.preventDefault();
+      e.stopPropagation();
+      showSendoff().then(() => {
+        el.dataset.sendoffDone = '1';
+        el.click();
+        delete el.dataset.sendoffDone;              // 다음 리포트에서도 배웅한다
+      });
+    }, true);
+  });
 }
 
 function rSummary() {
@@ -1953,7 +2244,10 @@ function rSummary() {
         <h2>${escapeHtml(headline)}</h2>
         <div class="dims">
           ${dims.map(d => `
-          <div class="dim-row">
+          <div class="dim-row${d[2] && window.Chatter ? ' has-face' : ''}">
+            ${d[2] && window.Chatter
+              ? `<span class="dim-face" title="${escapeHtml(BACKSTAGE_NAMES[d[2]] || '')}">${window.Chatter.chickSvg(d[2])}</span>`
+              : ''}
             <span class="lb">${escapeHtml(d[0])}</span>
             <div class="fill-bar"><i data-w="${d[1]}%"></i></div>
             <span class="vl num">${d[1]}</span>
@@ -2030,6 +2324,9 @@ function rSummary() {
   $$('.mini-row').forEach(r => r.addEventListener('click', () => goJudge(r.dataset.node)));
   bindDeckPanel();
   paintDeckThumbs();
+  wireSendoff();
+  // 박수가 먼저, 숫자는 그 다음 (§6). 박수가 끝난 뒤에 다시 세어 올린다
+  if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
 }
 
 /** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
