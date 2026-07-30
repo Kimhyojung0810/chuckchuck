@@ -105,9 +105,49 @@ function startFreshPractice() {
   }
 }
 
+/* ─── 극장 셸 (§8) ──────────────────────────────────────────────────────────
+   라우팅·데이터는 그대로 두고 전환 문법만 하나로 통일한다. 화면마다 다른
+   전환을 쓰면 세계가 여러 개로 읽힌다 — 이 앱의 장면 전환은 커튼 와이프 하나다. */
+
+const WIPE_MS = 400;
+let wipeEl = null;
+
+function curtainWipe() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!wipeEl) {
+    wipeEl = document.createElement('div');
+    wipeEl.className = 'tw-wipe';
+    wipeEl.innerHTML = '<i></i><i></i>';
+    document.body.appendChild(wipeEl);
+  }
+  wipeEl.classList.remove('on');
+  // 리플로우를 한 번 강제해야 같은 클래스를 다시 붙였을 때 애니메이션이 재시작한다
+  void wipeEl.offsetWidth;
+  wipeEl.classList.add('on');
+}
+
+/**
+ * 무대 사고 — 오류 화면 (§8).
+ *
+ * 무대감독이 헐레벌떡 달려와 사과하되, 기술 원인은 그 아래 그대로 남긴다.
+ * 귀여움이 원인을 가리면 그건 연출이 아니라 은폐다 (§14 정직한 상태 유지).
+ */
+function stageAccidentHtml(message, { title = '죄송해요, 무대 장치가 말썽이에요!' } = {}) {
+  if (!message) return '';
+  return `
+    <div class="accident">
+      <div class="ac-head">
+        <span class="ac-badge">무대감독</span>
+        <b>${escapeHtml(title)}</b>
+      </div>
+      <p class="ac-cause">${escapeHtml(message)}</p>
+    </div>`;
+}
+
 function route() {
   clearTimers();
   unbindRehearsalNav();
+  curtainWipe();
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
   // #/new/reset 또는 completed 후 #/new → 초기화
@@ -185,6 +225,7 @@ function renderHome() {
         </div>
       </div>
     </div>
+    ${window.Playbill ? window.Playbill.wallHtml() : ''}
     ${gameStripHtml()}
     <div class="card" style="padding:12px 12px">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px">
@@ -206,6 +247,7 @@ function renderHome() {
     </div>
     <a class="about-link" href="#/about">척척발표가 판단하는 방식 →</a>`;
   $$('.sess-row').forEach(r => r.addEventListener('click', () => location.hash = r.dataset.go));
+  if (window.Playbill) window.Playbill.paintWall(app);
   animateViz();
 }
 
@@ -594,7 +636,7 @@ function nfStep1() {
     }, 1000);
   } else if (nf.gate === 'fail') {
     box.innerHTML = `
-      <div class="fail-box">${nf.parseError || 'PDF나 PPTX 파일만 분석할 수 있어요. 다른 파일로 올려주세요.'}</div>
+      ${stageAccidentHtml(nf.parseError || 'PDF나 PPTX 파일만 분석할 수 있어요. 다른 파일로 올려주세요.', { title: '죄송해요, 대본을 못 받았어요!' })}
       <div class="step-actions"><button class="btn btn-secondary" id="retry">다시 올리기</button></div>`;
     $('#retry').addEventListener('click', () => { nf.gate = null; nf.parseError = null; nfStep1(); });
   } else {
@@ -1733,9 +1775,9 @@ function nfStep4() {
   nf.done = doneN;
   const conceptsError = (nf.pipelineOut && nf.pipelineOut.conceptsError) || null;
   const pipeErr = conceptsError
-    ? `<p class="note" style="color:#f04452;margin-bottom:12px">개념 추출 실패 (STT는 성공): ${escapeHtml(conceptsError)}</p>`
+    ? stageAccidentHtml(`개념 추출 실패 (STT는 성공): ${conceptsError}`)
     : (nf.pipelineError
-      ? `<p class="note" style="color:#f04452;margin-bottom:12px">연동 오류: ${escapeHtml(nf.pipelineError)}</p>`
+      ? stageAccidentHtml(`연동 오류: ${nf.pipelineError}`)
       : '');
   app.innerHTML = `${nfSteps()}
     <div class="card">
@@ -1854,6 +1896,7 @@ function nfStep4() {
         nf.pipelineError = null; // STT 성공분 유지 — 상단은 conceptsError 로 표시
       }
       console.info('[chuckchuck] pipeline ok', out);
+      recordShow();
       nf.done = pipelineChecklistDone();
       refreshStep4IfVisible();
     }).catch((err) => {
@@ -2075,6 +2118,34 @@ function realSummary() {
   return { score: sc.score, dims, notes, basis: sc.basis };
 }
 
+/* ─── 기억하는 객석 (§13) ───────────────────────────────────────────────────
+   회차가 끝나면 포스터 벽에 티켓 한 장이 붙는다. 이 기록이 있어야 다음 회차에
+   "지난번에 안 했던 X, 오늘은 들었어요" 를 **증명해서** 말할 수 있다. */
+
+/** 이번 회차의 기록. 파이프라인 결과가 없으면 null. */
+function currentShow() {
+  if (!window.Playbill) return null;
+  const out = nf && nf.pipelineOut;
+  if (!out || !out.alignment) return null;
+  const t = realTrophy();
+  return window.Playbill.extract(out, {
+    takeId: nf.pipelineStartedAt || '',
+    title: (out.graph && out.graph.file_name) || nf.fileName || '',
+    slides: (out.graph && out.graph.total_slides) || rehearsalCount(),
+    durationSec: (ccLastTake && ccLastTake.durationSec)
+      || (out.transcript && out.transcript.duration_sec)
+      || nf.sec,
+    trophy: t ? t.label : '',
+    absent: (chatterCache && chatterCache.absent) || [],
+  });
+}
+
+function recordShow() {
+  const show = currentShow();
+  if (show) window.Playbill.record(show);
+  return show;
+}
+
 /* ─── 커튼콜 (§6) ───────────────────────────────────────────────────────────
    막이 오르면 병아리 넷이 박수를 친다. 숫자는 그 다음에 조용히.
 
@@ -2222,6 +2293,27 @@ function wireSendoff(root = document) {
   });
 }
 
+/**
+ * 회상 카드 — diff 가 증명할 때만 나온다 (§13).
+ *
+ * 지난 회차에 비었던 개념이 이번엔 채워졌을 때만 렌더된다. 증명이 없으면
+ * 아예 자리를 만들지 않는다 — 빈 격려 문구는 성장 기록이 아니라 소음이다.
+ */
+function recallCardHtml() {
+  if (!window.Playbill) return '';
+  const line = window.Playbill.recallLine(currentShow());
+  if (!line) return '';
+  return `
+    <div class="card recall-card">
+      <span class="rc-face">${window.Chatter ? window.Chatter.chickSvg(line.who) : ''}</span>
+      <div class="rc-body">
+        <b>${escapeHtml(BACKSTAGE_NAMES[line.who] || '')}</b>
+        <p>${escapeHtml(line.text)}</p>
+        <span class="rc-proof">지난 회차 판정과 대조한 결과예요</span>
+      </div>
+    </div>`;
+}
+
 function rSummary() {
   const s = DATA.session;
   const prio = DATA.priorities[s.occasion];
@@ -2257,6 +2349,7 @@ function rSummary() {
     </div>
     ${real ? '' : `<p class="note" style="color:#f59e0b;margin:-6px 0 12px">
       ⚠️ 아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>`}
+    ${recallCardHtml()}
 
     <button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
       <span class="ts-label">${trophy
@@ -2410,6 +2503,8 @@ async function openAudience() {
       chatterCache = await window.Chatter.fetchChatter(
         bundle.graph, bundle.alignment, bundle.flow
       );
+      // 누가 못 왔는지는 객석을 열어봐야 안다. 티켓의 빈 도장이 여기서 확정된다
+      recordShow();
     }
     window.Chatter.show(chatterCache, { nodeSlides: nodeSlides, onRef: goJudge });
     if (card) card.querySelector('p').textContent =
