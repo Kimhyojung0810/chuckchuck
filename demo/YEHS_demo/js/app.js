@@ -1762,12 +1762,28 @@ function pipelineBundle() {
   return null;
 }
 
+/** 청중이 왜 못 오는지 — '리허설을 마치세요'는 이미 마친 사람에게 거짓말이다. */
+function audienceBlockReason() {
+  const out = (nf && nf.pipelineOut) || null;
+  if (!out) {
+    return nf && nf.transcriptOk
+      ? '발표는 기록됐는데 분석 결과가 없어요. 스텝 4의 검증 로그를 확인해 주세요.'
+      : '아직 청중이 도착하지 않았어요. 리허설을 한 번 마치면 들을 수 있어요.';
+  }
+  const missing = ['graph', 'alignment', 'flow'].filter((k) => !out[k]);
+  if (!missing.length) return null;
+  const phase = pipelinePhaseLabel(nf.pipelinePhase);
+  const stepName = { graph: 'F-07 개념 그래프', alignment: 'F-11 정합 판정', flow: '흐름 비교' };
+  return `분석이 ${stepName[missing[0]]}까지 못 갔어요 (지금 ${phase}). `
+    + '청중은 판정 결과를 놓고 수군거리는 거라, 거기까지 끝나야 열려요.';
+}
+
 async function openAudience() {
   const card = $('#audCard');
   const bundle = pipelineBundle();
   if (!bundle) {
-    if (card) card.querySelector('p').textContent =
-      '아직 청중이 도착하지 않았어요. 리허설을 한 번 마치면 들을 수 있어요.';
+    const reason = audienceBlockReason();
+    if (card && reason) card.querySelector('p').textContent = reason;
     return;
   }
 
