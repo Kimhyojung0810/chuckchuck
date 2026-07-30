@@ -1606,7 +1606,7 @@ function renderReport() {
   }
   app.className = 'wide';
   const s = DATA.session;
-  const tabs = ['요약', '개념별 판정', '논리 흐름', '말 속도', '연습 도구'];
+  const tabs = ['요약', '개념별 판정', '논리 흐름', '말 속도', '청중 반응', '연습 도구'];
   app.innerHTML = `
     <div class="report-head">
       <span class="final-label">발표 + 질문 코칭 최종 분석</span>
@@ -1622,7 +1622,7 @@ function renderReport() {
     rTab = $$('#rtabs button').indexOf(b);
     renderReport();
   });
-  [rSummary, rJudge, rLogic, rPace, rTools][rTab]();
+  [rSummary, rJudge, rLogic, rPace, rAudience, rTools][rTab]();
   animateViz();
 }
 
@@ -1760,22 +1760,35 @@ function rSummary() {
   });
   $$('.mini-row').forEach(r => r.addEventListener('click', () => goJudge(r.dataset.node)));
   bindDeckPanel();
-  mountAudienceCard();
+}
+
+/** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
+function rAudience() {
+  const blocked = audienceBlockReason();
+  $('#rbody').innerHTML = `
+    <div class="card">
+      <h3 class="section-title">삐약 청중석</h3>
+      <p class="note" style="margin-bottom:14px">
+        발표를 들은 네 모델이 판정 결과를 놓고 뭐라고 하는지 엿들어 볼까요?
+      </p>
+      ${blocked ? `<p class="note" style="color:#f04452">${escapeHtml(blocked)}</p>` : ''}
+      <div id="audMount"></div>
+      ${blocked ? '' : '<div class="step-actions"><button class="btn btn-primary" id="audOpen">객석 들어가기</button></div>'}
+    </div>`;
+  if (window.Chatter) {
+    $('#audMount').innerHTML = window.Chatter.entryCardHtml();
+    const card = $('#audCard');
+    if (card && !blocked) card.addEventListener('click', openAudience);
+  }
+  const open = $('#audOpen');
+  if (open) open.addEventListener('click', openAudience);
 }
 
 /* ---------------------------------------------------------------------------
-   삐약 청중석 — 리포트 요약 탭 맨 아래에서 객석으로 들어간다
+   삐약 청중석 — 리포트 '청중 반응' 탭에서 객석으로 들어간다
    --------------------------------------------------------------------------- */
 
 let chatterCache = null;   // 한 번 받은 수다는 '다시 듣기'에서 재사용한다
-
-function mountAudienceCard() {
-  if (!window.Chatter) return;
-  const body = $('#rbody');
-  if (!body || $('#audCard')) return;
-  body.insertAdjacentHTML('beforeend', window.Chatter.entryCardHtml());
-  $('#audCard').addEventListener('click', openAudience);
-}
 
 function pipelineBundle() {
   const out = nf && nf.pipelineOut;
