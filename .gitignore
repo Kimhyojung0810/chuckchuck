@@ -18,6 +18,8 @@ demo/YEHS_demo/.git/
 # logs / local dumps
 *.log
 fixtures/*.log
+# LibreOffice PPTX→PDF 미리보기 캐시 (로컬 생성물)
+fixtures/raw/*.preview.pdf
 _adot_*/
 _stt_*/
 _service_*/

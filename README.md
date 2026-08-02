@@ -54,7 +54,7 @@ python -c "from chuckchuck.config import settings; print(settings.masked())"
 ## 빠른 시작
 
 ```bash
-cd /Users/gimhyojeong/SSA
+cd /path/to/00_chuckchuck
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # 키 채우기. 없으면 MOCK 로 개발
@@ -62,21 +62,107 @@ cp .env.example .env   # 키 채우기. 없으면 MOCK 로 개발
 # API 없이 파이프라인 검증
 python examples/run_pipeline_mock.py
 python -m pytest tests/ -q
-
-# 데모 UI + 모듈 브리지
-export MOCK_EXTERNAL_APIS=true
-python -m demo.bridge
-# http://127.0.0.1:8787/  → 새 발표 연습 → 리허설 녹음
 ```
 
-실 API:
+## 데모 실행 · 테스트 가이드
+
+브리지는 `demo/YEHS_demo` UI와 `/api/v1/*` 를 같이 띄운다.  
+**`.env` 는 깃에 올리지 않는다.** 공유는 `.env.example`(변수명만).
+
+### 1) Mock (키 없이 UI 확인)
 
 ```bash
-export MOCK_EXTERNAL_APIS=false
-export UPSTAGE_API_KEY=...
-export AX_STT_API_KEY=...   # awf_ 키, X-API-Key 로 사용
-export REASONING_BACKEND=solar
+export MOCK_EXTERNAL_APIS=true
 python -m demo.bridge
+# http://127.0.0.1:8787/
+```
+
+샘플 자료로 화면 흐름만 볼 때 쓴다. 실 STT·LLM·LoRA 는 돌지 않는다.
+
+### 2) 실 API (기본 Python · Solar 등)
+
+`.env` 에 키를 채운 뒤:
+
+```bash
+# .env 권장 값
+# MOCK_EXTERNAL_APIS=false
+# UPSTAGE_API_KEY=...
+# AX_STT_API_KEY=...          # awf_ 키, STT 는 X-API-Key
+# REASONING_BACKEND=solar     # solar | ax | midm | exaone
+# HABIT_PROVIDER=heuristic    # 이 환경에 torch/GPU 없으면 heuristic
+# DEMO_PORT=8787
+
+python -m demo.bridge
+# http://127.0.0.1:8787/
+```
+
+이 경로에서는 F-01 파싱 · F-05 STT · F-06~11 LLM · F-08/09 질문 코칭까지 실연동된다.  
+다만 **F-18 LoRA(반복어 태거)는 기본 venv에 torch가 없으면 heuristic으로 떨어진다.**
+
+### 3) 파인튜닝 LoRA 포함 (midm conda + GPU) ← 습관 분석 실사용
+
+F-18 REP LoRA 를 쓰려면 **midm 환경 + CUDA** 로 브리지를 띄운다.
+
+```bash
+# 1) .env
+# MOCK_EXTERNAL_APIS=false
+# 실 API 키들 + (선택) REASONING_BACKEND=midm 등
+# HABIT_PROVIDER=lora
+# CHUCKCHUCK_LORA_PATH=/path/to/lora/adapter   # adapter_config.json 있는 폴더
+# CHUCKCHUCK_LORA_KINDS=REP
+
+# 2) 실행 (권장 스크립트 — 포트 기본 8799)
+chmod +x demo/run_bridge_midm.sh
+DEMO_PORT=8799 ./demo/run_bridge_midm.sh
+# http://127.0.0.1:8799/
+```
+
+스크립트가 하는 일:
+- `MIDM_PY`(기본: conda `midm` 의 python) 으로 `demo.bridge` 실행
+- `HABIT_PROVIDER=lora`, `MOCK_EXTERNAL_APIS=false` 고정
+- `CHUCKCHUCK_LORA_PATH` 미지정 시 팀 서버 기본 adapter 경로를 씀  
+  → 로컬에 어댑터가 없으면 `.env` / 셸에서 경로를 명시할 것
+
+직접 실행하려면:
+
+```bash
+conda activate midm
+export MOCK_EXTERNAL_APIS=false
+export HABIT_PROVIDER=lora
+export CHUCKCHUCK_LORA_PATH=/path/to/lora/adapter
+export DEMO_PORT=8799
+python -m demo.bridge
+```
+
+CUDA 확인:
+
+```bash
+python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else "")'
+```
+
+### 손으로 눌러보는 체크리스트
+
+1. **자료 업로드** — 본인 PDF/PPTX (샘플이 아닌 파일). PPTX는 미리보기 PDF 변환이 필요할 수 있다.
+2. **발표 연습** — 「발표 시작하기」가 제목 바로 아래에 보이는지, 녹음·슬라이드 넘기기.
+3. **분석** — 스텝 4 체크리스트가 STT→개념→정합까지 진행되는지. 실패 시 샘플 그래프로 위장하면 안 된다.
+4. **질문 코칭** — 시작 → 답/넘기기 → 끝나면 **상세 리포트 보기**로 `#/report` 연결.
+5. **리포트** — 제목이 IMU2CLIP 샘플이 아니라 **올린 파일명**인지. 건너뛴 리포트와 동일 분석(`pipelineOut`).
+6. **객석** — 「객석 들어가기」→「객석 나가기」/「리포트에서 자세히 보기」가 리포트로 복귀하는지.
+7. **음성 습관(LoRA)** — midm 브리지에서 리포트「음성 습관」탭. `/api/v1/habits` 응답 `provider` 가 `lora` 인지 확인.
+
+### 단위 테스트
+
+```bash
+python -m pytest tests/ -q
+# 질문 코칭만: python -m pytest tests/test_questions.py tests/test_judge.py -q
+```
+
+### 포트가 이미 쓰일 때
+
+```bash
+DEMO_PORT=8801 ./demo/run_bridge_midm.sh
+# 또는
+DEMO_PORT=8801 python -m demo.bridge
 ```
 
 ## 모듈 사용 예

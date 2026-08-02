@@ -349,25 +349,39 @@ ${props(speaker)}
     let skipped = false;
     let closed = false;
 
-    /* 들어온 그 문으로 나간다 (§7-6 수미상응). 문이 닫히며 웅성거림이 멀어진다 */
-    function close() {
+    /* 들어온 그 문으로 나간다 (§7-6 수미상응). 문이 닫히며 웅성거림이 멀어진다.
+       리포트로 복귀는 애니메이션과 무관하게 즉시 overflow 를 풀고, 실패해도 DOM 을 제거한다. */
+    function close(reason) {
       if (closed) return;
       closed = true;
+      skipped = true;
       document.removeEventListener('keydown', onKey);
       stopParallax();
+      document.body.style.overflow = '';
       if (door && !REDUCED) {
         door.classList.remove('gone', 'open');
         door.classList.add('leaving');
       }
-      const wait = REDUCED ? 0 : 760;
-      setTimeout(() => wrap.classList.remove('on'), wait);
+      wrap.classList.add('is-leaving');
+      const wait = REDUCED ? 0 : 420;
+      setTimeout(() => wrap.classList.remove('on'), Math.min(wait, 120));
       setTimeout(() => {
-        wrap.remove();
+        if (wrap.parentNode) wrap.remove();
         document.body.style.overflow = '';
-      }, wait + (REDUCED ? 0 : 380));
+        try { if (typeof opts.onClose === 'function') opts.onClose(reason || 'close'); } catch (_) { /* ignore */ }
+      }, wait);
     }
-    function onKey(e) { if (e.key === 'Escape') close(); }
+    function onKey(e) { if (e.key === 'Escape') close('escape'); }
     document.addEventListener('keydown', onKey);
+
+    // 위임 클릭이 막혀도 나가기·리포트 복귀가 되도록 버튼에 직접 묶는다
+    wrap.querySelectorAll('[data-close]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        close(btn.classList.contains('ch-btn-primary') ? 'report' : 'exit');
+      });
+    });
 
     /* 마우스를 따라 겹마다 2~4px. 시차가 깊이를 만든다 (§7-3) */
     let onMove = null;
@@ -391,24 +405,26 @@ ${props(speaker)}
     }
 
     wrap.addEventListener('click', e => {
-      const ref = e.target.closest('.ch-ref');
+      const el = e.target && e.target.nodeType === 3 ? e.target.parentElement : e.target;
+      if (!el || !el.closest) return;
+      const ref = el.closest('.ch-ref');
       if (ref) {
         const node = ref.dataset.node;
-        close();
+        close('ref');
         if (opts.onRef) opts.onRef(node);
         return;
       }
-      if (e.target.closest('[data-close]')) { close(); return; }
-      if (e.target.closest('[data-replay]')) { run(true); return; }
+      if (el.closest('[data-close]')) { close('exit'); return; }
+      if (el.closest('[data-replay]')) { run(true); return; }
 
       /* 문을 누르면 즉시 입장. 데모 시연은 시간이 생명이다 */
-      if (e.target.closest('[data-door]')) {
+      if (el.closest('[data-door]')) {
         openDoor();
         skipped = true;
         return;
       }
 
-      const chick = e.target.closest('.ch-chick');
+      const chick = el.closest('.ch-chick');
       if (chick) {
         const seat = chick.closest('.ch-seat');
         const lines = POKES[seat.dataset.speaker] || ['삐약!'];
@@ -513,6 +529,8 @@ ${props(speaker)}
         openDoor();
       }
       if (closed) return;
+      // 연출 중에도 나가기·리포트 복귀는 바로 누를 수 있게
+      actions.classList.add('on');
       startParallax();
 
       /* 2단계 — 청중이 하나씩 자리에 앉는다 */

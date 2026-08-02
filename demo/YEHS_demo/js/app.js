@@ -24,15 +24,40 @@ const saveSession = (key, value) => {
   try {
     // SlideDoc / blob 결과는 용량이 커서 sessionStorage에서 제외
     const slim = { ...value };
-    delete slim.slideDoc;
-    delete slim.transcript;
-    delete slim.concepts;
-    delete slim._pipelineStarted;
-    if (slim.slideDocMeta == null && value.slideDoc) {
-      slim.slideDocMeta = {
-        file_name: value.slideDoc.file_name,
-        total_slides: value.slideDoc.total_slides,
-      };
+    // qa-flow 의 concepts(게임 트래커)는 지우면 안 된다 — 지웠다 새로고침하면 resetQa 가 발동한다
+    if (key === 'new-flow') {
+      delete slim.slideDoc;
+      delete slim.transcript;
+      delete slim.concepts; // ConceptDoc (무거움)
+      delete slim._pipelineStarted;
+      if (slim.slideDocMeta == null && value.slideDoc) {
+        slim.slideDocMeta = {
+          file_name: value.slideDoc.file_name,
+          total_slides: value.slideDoc.total_slides,
+        };
+      }
+      // pipelineOut 전체는 quota 초과로 저장이 통째로 실패할 수 있다 → 리포트용 요약만 남긴다
+      if (slim.pipelineOut) {
+        const po = value.pipelineOut || {};
+        slim.pipelineOut = {
+          graph: po.graph || null,
+          alignment: po.alignment || null,
+          flow: po.flow || null,
+          score: po.score || null,
+          pace: po.pace || null,
+          habits: po.habits || null,
+          report: po.report || null,
+          transcript: po.transcript ? {
+            full_text: po.transcript.full_text || '',
+            duration_sec: po.transcript.duration_sec || 0,
+            provider: po.transcript.provider || '',
+            error: po.transcript.error || null,
+          } : null,
+          conceptsError: po.conceptsError || null,
+          failedStage: po.failedStage || null,
+        };
+      }
+      if (!slim.fileName && value.fileName) slim.fileName = value.fileName;
     }
     sessionStorage.setItem(`cheokcheok:${key}`, JSON.stringify(slim));
   } catch (_) { /* file preview or privacy mode: keep the in-memory state */ }
@@ -294,10 +319,22 @@ function stageAccidentHtml(message, { title = '죄송해요, 무대 장치가 �
     </div>`;
 }
 
+function dismissF11Reveal() {
+  const wrap = document.getElementById('f11RevealWrap');
+  if (!wrap) return;
+  wrap.remove();
+}
+
 function route() {
   clearTimers();
   unbindRehearsalNav();
   curtainWipe();
+  // 분석 오버레이가 남아 있으면 #/qa 가 흰 화면처럼 가려진다
+  {
+    const parts0 = location.hash.replace(/^#\/?/, '').split('/');
+    if (parts0[0] !== 'new') dismissF11Reveal();
+  }
+
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
   // #/new/reset 또는 completed 후 #/new → 초기화
@@ -725,6 +762,10 @@ function slideCardHtml(n, title, body, { compact = false } = {}) {
 function applySlideDoc(doc, { keepDemoImages = false } = {}) {
   nfSlideDoc = doc;
   nf.fileName = doc.file_name || '발표자료';
+  nf.slideDocMeta = {
+    file_name: doc.file_name || nf.fileName,
+    total_slides: doc.total_slides || ((doc.slides || []).length) || 0,
+  };
   nf.slideTitles = (doc.slides || []).map((s) => s.title || `${s.slide_no}번 슬라이드`);
   nf.slideBodies = (doc.slides || []).map(slideBodyFromSlide);
   nf.sparseSlides = (doc.slides || []).filter((s) => s.text_sparse).map((s) => s.slide_no);
@@ -1017,6 +1058,7 @@ function nfStep3() {
       <p>← → 키 · 좌우 버튼 · 아래 필름으로 넘길 수 있어요${usePdf ? ' · 업로드한 PDF 원본' : ''}</p>
     </div>
     <div class="rehearsal-shell">
+      <div class="card rehearsal-control" id="recPanel"></div>
       <div class="card viewer presentation-viewer">
         <div class="viewer-stage ${usePdf ? 'has-pdf' : 'has-slide-doc'}">
           ${stageInner}
@@ -1033,7 +1075,6 @@ function nfStep3() {
         </div>
         <div class="slide-film slide-film-text" id="slideFilm">${film}</div>
       </div>
-      <div class="card rehearsal-control" id="recPanel"></div>
     </div>
     <div class="sf" id="stagefront" aria-hidden="true"></div>
     <p class="privacy-note">녹음은 발표 분석에만 사용돼요.</p>`;
@@ -1158,6 +1199,7 @@ function bindRecUpload() {
 
 function renderRecPanel() {
   const p = $('#recPanel'); if (!p) return;
+  p.classList.toggle('is-live', nf.mic === 'on');
   if (nf.mic === 'idle') {
     p.innerHTML = `
       <div class="rec-copy"><span>준비되면 시작하세요</span><p>발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.</p></div>
@@ -2156,6 +2198,64 @@ function nfStep4() {
 }
 
 /* ══ 리포트 ══ */
+
+/** 업로드·실연동 세션이면 true. 샘플 IMU2CLIP 데모와 구분한다. */
+function isLiveReportSession() {
+  if (!nf) return false;
+  if (nf.useSample) return false;
+  if (nf.fileName) return true;
+  if (nf.pipelineOut) return true;
+  if (nf.pipelinePhase || nf.pipelineError) return true;
+  if (nf.slideDocMeta && nf.slideDocMeta.file_name) return true;
+  return false;
+}
+
+/** 리포트 헤더용 메타 — 실제 올린 자료/파이프라인 기준. 샘플 DATA.session 은 데모 전용. */
+function reportSessionMeta() {
+  const sample = DATA.session;
+  const out = nf && nf.pipelineOut;
+  const graph = out && out.graph;
+  const live = isLiveReportSession();
+  if (!live) {
+    return {
+      live: false,
+      title: sample.title,
+      occasion: sample.occasion,
+      slides: sample.slides,
+      duration: sample.duration,
+      nth: sample.nth,
+    };
+  }
+  const fileName = (graph && graph.file_name)
+    || (nf.slideDocMeta && nf.slideDocMeta.file_name)
+    || nf.fileName
+    || '내 발표자료';
+  // 확장자 뗀 이름을 제목으로
+  const title = String(fileName).replace(/\.(pdf|pptx|ppt|key)$/i, '').trim() || fileName;
+  const slides = (graph && graph.total_slides)
+    || (nf.slideDocMeta && nf.slideDocMeta.total_slides)
+    || (typeof rehearsalCount === 'function' ? rehearsalCount() : 0)
+    || (nf.slideTitles && nf.slideTitles.length)
+    || 0;
+  const durSec = (out && out.transcript && out.transcript.duration_sec)
+    || (typeof ccLastTake !== 'undefined' && ccLastTake && ccLastTake.durationSec)
+    || nf.sec
+    || 0;
+  const duration = durSec
+    ? (durSec >= 60
+      ? `${Math.floor(durSec / 60)}분 ${Math.round(durSec % 60)}초`
+      : `${Math.round(durSec)}초`)
+    : (nf.min ? `목표 ${nf.min}분` : '—');
+  return {
+    live: true,
+    title,
+    occasion: nf.occ || '발표 연습',
+    slides,
+    duration,
+    nth: 1,
+  };
+}
+
 let rTab = 0, jSel = 'contrast', jFilter = 'all', toolSeg = 0, mapWeakOnly = false, repSlide = 7;
 
 async function renderReport() {
@@ -2166,13 +2266,13 @@ async function renderReport() {
     return;
   }
   app.className = 'wide';
-  const s = DATA.session;
+  const s = reportSessionMeta();
   const tabs = ['요약', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
   app.innerHTML = `
     <div class="report-head">
-      <span class="final-label">발표 + 질문 코칭 최종 분석</span>
-      <h1 class="page-title">${s.title}</h1>
-      <p class="report-meta">${s.occasion} · ${s.slides}장 · ${s.duration} · ${s.nth}번째 연습</p>
+      <span class="final-label">${s.live ? '내 발표 분석 리포트' : '발표 + 질문 코칭 최종 분석 (샘플)'}</span>
+      <h1 class="page-title">${escapeHtml(s.title)}</h1>
+      <p class="report-meta">${escapeHtml(s.occasion)}${s.slides ? ` · ${s.slides}장` : ''} · ${escapeHtml(s.duration)}${s.live ? '' : ` · ${s.nth}번째 연습`}</p>
     </div>
     <div class="tabs" id="rtabs">
       ${tabs.map((t, i) => `<button class="${i === rTab ? 'on' : ''}">${t}</button>`).join('')}
@@ -2565,17 +2665,41 @@ function recallCardHtml() {
 }
 
 function rSummary() {
+  const meta = reportSessionMeta();
+  const live = meta.live;
   const s = DATA.session;
-  const prio = DATA.priorities[s.occasion];
-  const D = s.durationSec;
+  const prio = DATA.priorities[s.occasion] || DATA.priorities['범용'] || Object.values(DATA.priorities)[0];
   const tr = s.qa.trophy;
   const trophy = realTrophy();
   const real = realSummary();
+  const tree = judgeTree();
+  const isRealTree = !!(tree[0] && tree[0].real);
+
+  // 올린 자료인데 분석이 없으면 IMU2CLIP 샘플을 절대 보여주지 않는다
+  if (live && !real && !isRealTree) {
+    const why = (nf && nf.pipelineError)
+      || (nf && nf.pipelineOut && nf.pipelineOut.conceptsError)
+      || (nf && nf.pipelineDetail)
+      || '발표 분석 결과가 이 화면에 없어요. 분석이 끝난 뒤 다시 열어주세요.';
+    $('#rbody').innerHTML = `
+      <div class="card">
+        <h2 class="section-title">아직 내 발표 분석이 없어요</h2>
+        <p class="note" style="margin:8px 0 14px">${escapeHtml(String(why))}</p>
+        <p class="note">제목은 <b>${escapeHtml(meta.title)}</b> 기준이에요. 샘플(IMU2CLIP) 리포트로 바꿔 보여주지 않아요.</p>
+        <div class="step-actions">
+          <a class="btn btn-primary" href="#/new">발표 연습으로 돌아가기</a>
+          <a class="btn btn-text" href="#/">홈으로</a>
+        </div>
+      </div>`;
+    return;
+  }
+
   const score = real ? real.score : s.score;
   const dims = real ? real.dims : s.dims;
   const headline = real
     ? (real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요')
     : s.oneLiner;
+  const nextLabel = (trophy && trophy.label) ? trophy.label : '약한 개념';
   $('#rbody').innerHTML = `
     <div class="card hero-card final-score-card">
       ${ringSvg(score, 132, 11, `<strong class="num" data-count="${score}">0</strong><span>점</span>`)}
@@ -2601,13 +2725,13 @@ function rSummary() {
       ⚠️ 아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>`}
     ${recallCardHtml()}
 
-    <button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
+    ${trophy || !live ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
       <span class="ts-label">${trophy
         ? (trophy.verdict === 'aligned' ? '이 흐름을 지키세요' : '다음엔 이렇게 말해보세요')
         : '오늘 만든 문장'}</span>
       <p class="ts-quote">“${escapeHtml(trophy ? trophy.text : tr.after)}”</p>
       <i class="ts-go">${trophy ? trophy.slide : tr.slide}번 슬라이드에서 보기 →</i>
-    </button>
+    </button>` : ''}
 
     <div class="card rep-deck">
       <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르면 그 장에서 있었던 일을 보여줘요</span></h3>
@@ -2628,16 +2752,21 @@ function rSummary() {
       </div>
     </div>
 
+    ${(!live && prio && prio[0]) ? `
     <h2 class="section-title" style="margin:26px 0 12px">이것부터 고치면 돼요<span class="soft">효과가 가장 큰 한 가지</span></h2>
     ${prioCard(prio[0], 1)}
     <details class="fold">
       <summary>보완 2가지 더 보기</summary>
       <div class="fold-body">${prio.slice(1).map((p, i) => prioCard(p, i + 2)).join('')}</div>
-    </details>
+    </details>` : ''}
 
     <div class="card next-card">
-      <h3>다음 연습은 ‘IMU Encoder’ 설명부터 시작해요</h3>
-      <p>Q&A로 두 개념은 설명할 수 있게 됐어요. 발표에서 통째로 빠진 Encoder 구조를 다음 리허설 목표로 가져가세요.</p>
+      <h3>${live
+        ? (trophy ? `다음 연습은 ‘${escapeHtml(nextLabel)}’부터 다듬어 보세요` : '다음엔 같은 자료로 한 번 더 연습해 보세요')
+        : '다음 연습은 ‘IMU Encoder’ 설명부터 시작해요'}</h3>
+      <p>${live
+        ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.'
+        : 'Q&A로 두 개념은 설명할 수 있게 됐어요. 발표에서 통째로 빠진 Encoder 구조를 다음 리허설 목표로 가져가세요.'}</p>
       <div class="step-actions">
         <a class="btn btn-primary" href="#/new">새 발표 연습</a>
         <a class="btn btn-tint" href="#/qa" style="background:#fff">질문 연습 다시 하기</a>
@@ -2647,20 +2776,22 @@ function rSummary() {
     <details class="fold">
       <summary>개념별 판정 전체 보기</summary>
       <div class="fold-body">
-        ${DATA.tree.map(n => `
+        ${(isRealTree ? tree : (live ? [] : DATA.tree)).map(n => `
         <div class="mini-row" data-node="${n.id}">
           <span class="dot st-${n.status}"></span>
-          <span class="lbl" style="${n.depth === 2 ? 'padding-left:16px' : ''}">${n.label}</span>
+          <span class="lbl" style="${n.depth === 2 ? 'padding-left:16px' : ''}">${escapeHtml(n.label)}</span>
           <span class="sl">${slideNumber(n.slide)}번 슬라이드</span>
           ${chip(n.status, true)}
-        </div>`).join('')}
+        </div>`).join('') || '<p class="note">표시할 개념 판정이 없어요.</p>'}
       </div>
     </details>`;
-  $('#trophyStrip').addEventListener('click', (e) => {
-    selectDeckSlide(Number(e.currentTarget.dataset.slide) || DATA.session.qa.trophy.slide);
-    $('.rep-deck').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const trophyEl = $('#trophyStrip');
+  if (trophyEl) trophyEl.addEventListener('click', (e) => {
+    selectDeckSlide(Number(e.currentTarget.dataset.slide) || (trophy && trophy.slide) || 1);
+    const deck = $('.rep-deck'); if (deck) deck.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-  $('#deckFilm').addEventListener('click', e => {
+  const film = $('#deckFilm');
+  if (film) film.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     selectDeckSlide(Number(b.dataset.slide));
   });
@@ -2668,7 +2799,6 @@ function rSummary() {
   bindDeckPanel();
   paintDeckThumbs();
   wireSendoff();
-  // 박수가 먼저, 숫자는 그 다음 (§6). 박수가 끝난 뒤에 다시 세어 올린다
   if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
 }
 
@@ -2755,7 +2885,21 @@ async function openAudience() {
       // 누가 못 왔는지는 객석을 열어봐야 안다. 티켓의 빈 도장이 여기서 확정된다
       recordShow();
     }
-    window.Chatter.show(chatterCache, { nodeSlides: nodeSlides, onRef: goJudge });
+    window.Chatter.show(chatterCache, {
+      nodeSlides: nodeSlides,
+      onRef: (id) => {
+        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        goJudge(id);
+      },
+      onClose: () => {
+        // 객석 나가기 / 리포트에서 자세히 보기 → 리포트 화면이 보여야 한다
+        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        else if (typeof renderReport === 'function') {
+          // 오버레이에 가려졌던 리포트를 다시 그리진 않고, 스크롤만 복구
+          document.body.style.overflow = '';
+        }
+      },
+    });
     if (card) card.querySelector('p').textContent =
       '발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?';
   } catch (err) {
@@ -2880,14 +3024,26 @@ function realJudgeTree() {
     });
 }
 
-/** 실데이터가 있으면 그것, 없으면 샘플. real 플래그로 화면이 구분해 표시한다. */
+/** 실데이터가 있으면 그것. 업로드 세션인데 분석이 없으면 빈 트리(샘플 IMU2CLIP 위장 금지). */
 function judgeTree() {
-  return realJudgeTree() || DATA.tree.map(n => ({ ...n, real: false }));
+  const real = realJudgeTree();
+  if (real) return real;
+  if (isLiveReportSession()) return [];
+  return DATA.tree.map(n => ({ ...n, real: false }));
 }
 
 function rJudge() {
   const tree = judgeTree();
   const isReal = !!(tree[0] && tree[0].real);
+  if (isLiveReportSession() && !tree.length) {
+    $('#rbody').innerHTML = `
+      <div class="card">
+        <h3 class="section-title">개념 판정이 아직 없어요</h3>
+        <p class="note">내 발표 분석(그래프·정합)이 없어 샘플 개념으로 채우지 않았어요.</p>
+        <div class="step-actions"><a class="btn btn-primary" href="#/new">발표 연습으로</a></div>
+      </div>`;
+    return;
+  }
   const counts = { all: tree.length };
   tree.forEach(n => counts[n.status] = (counts[n.status] || 0) + 1);
   const filters = [['all', '전체'], ['ok', '설명함'], ['mid', '언급만'], ['no', '안 나옴'], ['ct', '모순'], ['om', '생략']];
@@ -2912,7 +3068,9 @@ function rJudge() {
     </div>
     <p class="ai-note">${isReal
       ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
-      : '⚠️ 지금 보시는 건 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 발표 결과로 바뀝니다.'}</p>`;
+      : (isLiveReportSession()
+        ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요. 샘플(IMU2CLIP)로 대체하지 않았어요.'
+        : '⚠️ 지금 보시는 건 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 발표 결과로 바뀝니다.')}</p>`;
   $('#jf').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     jFilter = b.dataset.f; rJudge(); animateViz($('#rbody'));
@@ -3712,6 +3870,7 @@ function renderQaLive() {
         ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
         ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 넘어가기</button>` : ''}
         <button class="btn btn-text" id="liveSkip" type="button" ${L.busy ? 'disabled' : ''}>이 질문 넘기기</button>
+        <button class="btn btn-text" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>코칭 끝내고 리포트</button>
       </div>
     </div>`;
   scrollDown();
@@ -3755,6 +3914,24 @@ function renderQaLive() {
     saveSession('qa-flow', qa);
     renderQaLive();
   });
+  const finishBtn = $('#liveFinish');
+  if (finishBtn) finishBtn.addEventListener('click', () => finishLiveQaEarly());
+}
+
+/** 남은 질문을 넘김 처리하고 결과 → 리포트 CTA 화면으로 */
+function finishLiveQaEarly() {
+  const L = qa.live;
+  if (!L || L.busy) return;
+  while (L.qi < L.questions.length) {
+    const q = L.questions[L.qi];
+    pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 넘겼어요. 리포트에 남겨둘게요` });
+    closeLiveQuestion({
+      id: q.id, label: q.label, question: q.question, answer: '(넘김)',
+      verdict: 'skipped', score: 0, summary: '',
+    });
+  }
+  saveSession('qa-flow', qa);
+  qaLiveEnd();
 }
 
 async function submitLiveAnswer({ giveUp = false } = {}) {
@@ -3866,6 +4043,11 @@ function liveHints() {
 
 function qaLiveEnd() {
   qa.ended = true;
+  // 발표 플로우도 끝난 걸로 표시 — 홈/이어하기에서 리포트로 이어지게
+  if (typeof nf !== 'undefined' && nf) {
+    nf.completed = true;
+    saveSession('new-flow', nf);
+  }
   saveSession('qa-flow', qa);
   const L = qa.live;
   const won = L.results.filter((r) => r.verdict === 'good').length;
@@ -3885,10 +4067,11 @@ function qaLiveEnd() {
           ${r.turns ? `<span class="qsum-meta">${r.turns}번 만에 방어${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</span>` : ''}
         </div>`).join('') || '<p class="note">기록이 없어요.</p>'}
       </div>
-      <p class="cere-hint">이 총평은 내 자료 기준으로 생성됐어요 — 발표 전에 미방어 질문부터 다시 보세요</p>
+      <p class="cere-hint">이 총평이 상세 리포트로 이어져요 — 미방어·넘긴 질문부터 다시 보세요</p>
     </div>
     <div class="cere-actions">
-      <button class="btn btn-primary" id="liveAgain" type="button">같은 질문으로 다시</button>
+      <a class="btn btn-primary" href="#/report">상세 리포트 보기</a>
+      <button class="btn btn-text" id="liveAgain" type="button">같은 질문으로 다시</button>
       <a class="btn btn-text" href="#/">홈으로</a>
     </div>`;
   const again = $('#liveAgain');
@@ -3924,6 +4107,8 @@ function qaModeGate() {
 /* ── 화면 ── */
 function renderQa() {
   app.className = 'narrow';
+  dismissF11Reveal();
+  try {
   if (qaLiveActive()) return renderQaLive();
   if (qa.ended) return qaEnd();
   // 시간 트랙(1/5/10분)을 먼저 고르게 한다 — 질문 개수가 트랙에 달려 있다
@@ -3932,7 +4117,17 @@ function renderQa() {
   if (ensureLiveQuestions()) return renderQaBuilding();
   qa.started = true;
   // 첫 진입: 첫 질문을 스레드에 올림 (데모 폴백)
-  if (!qa.turns.length) { qa.concepts.joint = 'current'; presentQuestion(qaBeatList()[0]); }
+  const firstBeat = qaBeatList()[0];
+  if (!qa.turns.length) {
+    if (!firstBeat) {
+      app.innerHTML = `${stageAccidentHtml('질문 목록을 만들지 못했어요. 홈으로 돌아가 다시 시도해 주세요.')}
+        <div class="step-actions"><a class="btn btn-primary" href="#/">홈으로</a></div>`;
+      return;
+    }
+    if (!qa.concepts) qa.concepts = { joint: 'wait', temp: 'wait', aria: 'wait' };
+    qa.concepts.joint = 'current';
+    presentQuestion(firstBeat);
+  }
   // 새로고침 등으로 중간 상태가 저장돼 있으면 안전한 상태로 되돌림
   if (qa.sub === 'speaking' || qa.sub === 'thinking' || qa.sub === 'committed' || qa.sub === 'typing')
     qa.sub = beat().kind === 'trap' ? 'choice' : 'answer';
@@ -3969,6 +4164,14 @@ function renderQa() {
   });
   renderLive();
   scrollDown();
+  } catch (err) {
+    console.warn('[chuckchuck] renderQa', err);
+    app.innerHTML = `${stageAccidentHtml(err.message || String(err), { title: '질문 코칭 화면을 그리지 못했어요' })}
+      <div class="step-actions"><a class="btn btn-primary" href="#/">홈으로</a>
+      <button class="btn btn-text" type="button" id="qaReset">코칭 초기화</button></div>`;
+    const b = document.getElementById('qaReset');
+    if (b) b.addEventListener('click', () => { resetQa(); renderQa(); });
+  }
 }
 
 function renderLive() {

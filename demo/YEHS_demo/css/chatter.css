@@ -75,6 +75,7 @@
 
 .ch-top {
   position: relative;
+  z-index: 20; /* 문 오버레이보다 위 — 객석 나가기는 언제든 눌러야 한다 */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -837,7 +838,7 @@
 
 .ch-actions {
   position: relative;
-  z-index: 3;
+  z-index: 20; /* 문·전경보다 위 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -850,6 +851,7 @@
   pointer-events: none;
 }
 .ch-actions.on { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.ch-overlay.is-leaving { pointer-events: none; }
 
 .ch-btn {
   height: 44px;
