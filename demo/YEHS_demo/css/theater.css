@@ -1,0 +1,642 @@
+/* ==========================================================================
+   척척극장 — 무대와 막간
+   --------------------------------------------------------------------------
+   객석(chatter.css)이 공연이 끝난 뒤라면, 여기는 그 앞뒤다.
+
+   - 종연 3초 (UI_REDESIGN §3): 발표를 마친 순간의 완주 박수. 분석은 7분
+     걸리지만 박수칠 이유는 이미 안다 — 끝까지 했다.
+   - 막간 (§5): 분석을 기다리는 화면. 로딩이 아니라 커튼 뒤의 협의다.
+
+   병아리 SVG 와 색 변수는 chatter.css 것을 그대로 쓴다 (같은 넷이라서).
+   ========================================================================== */
+
+:root {
+  --th-house: #171b2b;
+  --th-house-deep: #0e1120;
+  --th-curtain: #7d2733;
+  --th-curtain-deep: #4d151f;
+  --th-gold: #ffe9b8;
+}
+
+/* --------------------------------------------------------------------------
+   종연 3초 — 무조건 나오는 박수
+   --------------------------------------------------------------------------
+   이 박수는 점수와 무관하다 (§6 '두 개의 박수'). 커튼콜의 박수는 정직하게
+   성적을 따르지만, 완주 박수는 시도 그 자체에 준다. 둘을 합치면 박수가
+   성적표가 되거나 성적이 무뎌진다.
+   -------------------------------------------------------------------------- */
+
+.cc-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  text-align: center;
+  cursor: pointer;
+  background:
+    radial-gradient(120% 70% at 50% 8%, rgba(255, 233, 184, .22), transparent 62%),
+    linear-gradient(180deg, var(--th-house) 0%, var(--th-house-deep) 100%);
+  color: #f7f8fb;
+  opacity: 0;
+  transition: opacity .4s ease;
+}
+.cc-veil.on { opacity: 1; }
+
+/* 무대에서 내려오는 빛기둥 — 지금 서 있는 곳이 무대라는 신호 */
+.cc-veil::before {
+  content: "";
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  width: 70vw;
+  height: 60vh;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 60% at 50% 0%, rgba(255, 233, 184, .18), transparent 70%);
+  pointer-events: none;
+}
+
+.cc-row {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(4px, 2vw, 20px);
+}
+.cc-row .ch-chick {
+  width: clamp(72px, 11vw, 104px);
+  cursor: default;
+}
+/* 일어서는 순서를 어긋내면 '넷이 각자 일어난' 것이 된다 (Staging) */
+.cc-row .ch-seat {
+  /* 객석(.ch-seat)의 좌석 폭·어둠은 여기선 쓰지 않는다. 지금 넷은 앉아서
+     엿듣는 중이 아니라, 일어서서 조명 아래 박수 치는 중이다 */
+  width: auto;
+  filter: none;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: ccStand .42s var(--ease, ease) forwards;
+}
+.cc-row .ch-seat:nth-child(2) { animation-delay: .1s; }
+.cc-row .ch-seat:nth-child(3) { animation-delay: .2s; }
+.cc-row .ch-seat:nth-child(4) { animation-delay: .3s; }
+@keyframes ccStand {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 박수 — 손이 없으니 몸을 통통 튀게 해서 박수로 읽힌다 */
+.cc-row .ch-seat .ch-chick { animation: ccClap .46s ease-in-out .45s 5; }
+@keyframes ccClap {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  30%      { transform: translateY(-5px) scale(.97, 1.03); }
+  60%      { transform: translateY(0) scale(1.05, .95); }
+}
+
+.cc-line {
+  position: relative;
+  font-size: clamp(20px, 3.4vw, 30px);
+  font-weight: 800;
+  letter-spacing: -.02em;
+  opacity: 0;
+  animation: ccLineIn .5s cubic-bezier(.34, 1.56, .64, 1) .55s forwards;
+}
+.cc-line b { color: var(--th-gold); }
+.cc-sub {
+  position: relative;
+  font-size: 14px;
+  color: #a9b1c9;
+  opacity: 0;
+  animation: ccLineIn .5s ease .85s forwards;
+}
+.cc-skip {
+  position: relative;
+  font-size: 12px;
+  color: #6f7896;
+  opacity: 0;
+  animation: ccLineIn .5s ease 1.4s forwards;
+}
+@keyframes ccLineIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 커튼콜 (§6) — 박수의 세기는 정직하게 성적을 따른다.
+   완주 박수(§3)와 달리 여기서는 숫자가 거짓말하지 않는 쪽이 먼저다. */
+
+.cc-ovation .cc-row .ch-seat .ch-chick { animation: ccClap .4s ease-in-out .45s 7; }
+.cc-cheer .cc-row .ch-seat .ch-chick { animation: ccClap .46s ease-in-out .45s 5; }
+.cc-mixed .cc-row .ch-seat .ch-chick { animation: ccClap .52s ease-in-out .45s 3; }
+/* 짝… 짝… 띄엄띄엄 두 번. 없는 열기를 만들지 않는다 */
+.cc-question .cc-row .ch-seat .ch-chick { animation: ccClap .7s ease-in-out .45s 2; }
+
+/* 갸웃하거나 손을 드는 한 마리 — 자기 담당 항목이 가장 낮은 병아리다 */
+.cc-row .ch-seat[data-odd] .ch-chick {
+  animation: ccRaiseHand 1.4s ease-in-out .5s infinite !important;
+}
+@keyframes ccRaiseHand {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  40%      { transform: rotate(-10deg) translateY(-4px); }
+  70%      { transform: rotate(-6deg) translateY(-2px); }
+}
+
+/* 배웅 (§4) — 트로피 문장은 조금 크게. 집에 가져갈 단 하나의 문장이다 */
+.so-veil .cc-line.so-shout {
+  max-width: min(680px, 86vw);
+  font-size: clamp(19px, 3vw, 27px);
+  line-height: 1.4;
+  color: var(--th-gold);
+}
+.so-veil .cc-row .ch-seat .ch-chick { animation: ccWaveBye .8s ease-in-out .4s 3; }
+@keyframes ccWaveBye {
+  0%, 100% { transform: rotate(0); }
+  30%      { transform: rotate(-10deg); }
+  70%      { transform: rotate(8deg); }
+}
+
+/* F-13 막대 옆의 얼굴 — 누가 왜 이 점수를 줬는지 (§6).
+   .dim-row 는 3열 그리드라 얼굴 열을 앞에 하나 더 붙여 준다 */
+.dim-row.has-face { grid-template-columns: 26px 76px 1fr 40px; }
+.dim-face {
+  width: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dim-face .ch-chick { width: 26px; cursor: default; animation: none; }
+.dim-face .ch-figure { animation: none; }
+
+/* --------------------------------------------------------------------------
+   등장 의식 (§1) — 조명이 내려가고 큐 사인
+   --------------------------------------------------------------------------
+   "녹음"은 감시의 언어고 "무대"는 역할의 언어다. 이 1.5초가 불안을 배역으로
+   바꾼다. 2회차부터는 안 나온다 — 매번 보면 의식이 아니라 지연이다.
+   -------------------------------------------------------------------------- */
+
+.cue-veil {
+  cursor: pointer;
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-content: center;
+  gap: 22px;
+  text-align: center;
+  background: #05070e;
+  opacity: 0;
+  transition: opacity .32s ease;
+}
+.cue-veil.on { opacity: 1; }
+
+/* 실루엣 넷이 착석한다. 아직 얼굴은 안 보인다 — 지금은 관객이 아니라 기척이다 */
+.cue-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(4px, 2vw, 18px);
+}
+.cue-row .ch-seat {
+  width: auto;
+  opacity: 0;
+  filter: brightness(0) saturate(0) opacity(.5);
+  transform: translateY(14px);
+  animation: cueSit .38s var(--ease, ease) forwards;
+}
+.cue-row .ch-seat:nth-child(2) { animation-delay: .09s; }
+.cue-row .ch-seat:nth-child(3) { animation-delay: .18s; }
+.cue-row .ch-seat:nth-child(4) { animation-delay: .27s; }
+.cue-row .ch-chick { width: clamp(56px, 8vw, 78px); cursor: default; }
+@keyframes cueSit {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 무대감독의 큐 사인 */
+.cue-word {
+  font-size: clamp(24px, 4vw, 38px);
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: var(--th-gold);
+  opacity: 0;
+  animation: cueIn .4s cubic-bezier(.34, 1.56, .64, 1) .85s forwards;
+}
+@keyframes cueIn {
+  from { opacity: 0; transform: scale(.86); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* --------------------------------------------------------------------------
+   정직한 관객 (§2) — 공연 중 실시간 반응
+   --------------------------------------------------------------------------
+   기본은 어두운 객석의 실루엣이고, 반응은 그 실루엣의 미동이다.
+   발표자의 시선을 뺏는 순간 이 층은 방해물이 된다.
+   -------------------------------------------------------------------------- */
+
+.sf {
+  position: relative;
+  margin: 14px 0 2px;
+  padding: 14px 0 0;
+  border-radius: 14px;
+  /* 무대에서 내려다본 어두운 객석. 위쪽 잔광이 무대 조명이다 */
+  background:
+    radial-gradient(90% 120% at 50% 0%, rgba(255, 233, 184, .1), transparent 62%),
+    linear-gradient(180deg, #1a1f31, #0c1020);
+  box-shadow: inset 0 1px 0 rgba(255, 233, 184, .14);
+  overflow: hidden;
+}
+.sf:empty { display: none; }
+/* 앞줄 좌석 등받이. 병아리 아랫도리가 여기 가려야 '앉아 있다'로 읽힌다 */
+.sf::after {
+  content: "";
+  position: absolute;
+  left: -1%;
+  right: -1%;
+  bottom: 0;
+  height: 16px;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, #0f1424, #070a13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.sf-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(6px, 3vw, 30px);
+  transition: transform .35s var(--ease, ease);
+}
+.sf-row .ch-seat {
+  width: auto;
+  opacity: 1;
+  transform: none;
+  /* 실루엣. 얼굴이 보이면 발표 중에 자꾸 쳐다보게 된다 */
+  filter: brightness(.34) saturate(.5);
+  transition: filter .4s ease;
+}
+.sf-row .ch-chick {
+  width: clamp(38px, 5vw, 54px);
+  cursor: default;
+  animation: none;              /* 공연 중엔 흔들리지 않는다 — 호흡만 */
+}
+
+/* 넷이 자세를 고쳐 앉는다 (슬라이드 전환) */
+.sf-row.shifting { transform: translateY(-3px); }
+
+/* 말하는 동안 엑씨가 리듬 타듯 미세하게 끄덕인다 — '들었다'까지만이다.
+   '이해했다'는 아직 아무도 모른다 */
+.sf-row .ch-seat.nodding .ch-head { animation: sfNod .7s ease-in-out; }
+@keyframes sfNod {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  40%      { transform: translateY(1.5px) rotate(2deg); }
+}
+
+/* 쏠라가 대본을 넘긴다 / 재방문이면 앞으로 뒤적인다 */
+.sf-row .ch-seat.flipping .ch-prop-script { animation: sfFlip .9s ease-in-out; }
+.sf-row .ch-seat.rewinding .ch-prop-script { animation: sfRewind .9s ease-in-out; }
+@keyframes sfFlip {
+  0%, 100% { transform: rotate(0); }
+  45%      { transform: rotate(-13deg); }
+}
+@keyframes sfRewind {
+  0%, 100% { transform: rotate(0); }
+  45%      { transform: rotate(13deg); }
+}
+
+/* 믿:음이 형광펜으로 밑줄을 긋는다 (한 장에 오래 머물렀을 때) */
+.sf-row .ch-seat.marking { filter: brightness(.5) saturate(.7); }
+.sf-row .ch-seat.marking .ch-pen-stroke { animation: chPenDraw 1.5s ease-out forwards; }
+
+/* 긴 침묵 — 한 마리가 갸웃. 공연당 1회뿐이라 놀리는 느낌이 안 난다 */
+.sf-row .ch-seat.wondering .ch-chick { animation: sfTilt 1.6s ease-in-out; }
+@keyframes sfTilt {
+  0%, 100% { transform: rotate(0); }
+  45%      { transform: rotate(9deg); }
+}
+
+/* --------------------------------------------------------------------------
+   막간 — 커튼 뒤의 소곤소곤
+   --------------------------------------------------------------------------
+   여기 나오는 말은 전부 실제 완료 신호다. 새 데이터를 만들지 않는다 —
+   STT 가 끝나야 엑씨가 길이를 말하고, F-07 이 끝나야 쏠라가 개념 수를 말한다.
+   진행률 %와 단계 이름은 아래에 그대로 유지한다 (토스 규율: 정직한 상태).
+   -------------------------------------------------------------------------- */
+
+.bs-stage {
+  position: relative;
+  margin: 0 0 18px;
+  padding: 18px 16px 16px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--th-house) 0%, var(--th-house-deep) 100%);
+}
+
+/* 내려온 커튼. 가운데 틈으로만 빛과 소리가 샌다 */
+.bs-curtain {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.bs-curtain i {
+  width: calc(50% - 5px);
+  height: 100%;
+  background:
+    repeating-linear-gradient(90deg,
+      var(--th-curtain-deep) 0 10px,
+      var(--th-curtain) 10px 22px,
+      var(--th-curtain-deep) 22px 32px);
+  opacity: .5;
+}
+.bs-curtain i:first-child { box-shadow: inset -14px 0 22px rgba(0, 0, 0, .5); }
+.bs-curtain i:last-child { box-shadow: inset 14px 0 22px rgba(0, 0, 0, .5); }
+/* 커튼 틈 — 새어 나오는 빛이 은은하게 흔들린다 */
+.bs-curtain::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 10px;
+  height: 100%;
+  margin-left: -5px;
+  background: linear-gradient(180deg, rgba(255, 233, 184, .34), rgba(255, 233, 184, .06));
+  animation: bsSlit 3.2s ease-in-out infinite;
+}
+@keyframes bsSlit {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: 1; }
+}
+
+.bs-hint {
+  position: relative;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #cfd5e6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+.bs-lines {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 34px;
+}
+.bs-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: 16px 20px 18px 22px;
+  background: var(--bub, #fff8e6);
+  color: var(--bub-ink, #4a3b2c);
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .38);
+  animation: bsLineIn .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+.bs-line[data-who="midm"]   { --bub: var(--bub-midm); }
+.bs-line[data-who="solar"]  { --bub: var(--bub-solar); }
+.bs-line[data-who="exaone"] { --bub: var(--bub-exaone); }
+.bs-line[data-who="ax"]     { --bub: var(--bub-ax); }
+/* 넷이 동시에 — 누구 하나의 색이면 안 된다 */
+.bs-line[data-who="all"] {
+  --bub: #fff3cf;
+  align-self: center;
+  font-weight: 800;
+}
+.bs-line b {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--bub-ink-2, #9a8672);
+}
+@keyframes bsLineIn {
+  from { opacity: 0; transform: translateY(8px) scale(.94); }
+}
+
+/* 아직 아무 단계도 안 끝났을 때 — 웅성거림만 들린다 */
+.bs-murmur {
+  position: relative;
+  display: inline-flex;
+  gap: 4px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+}
+.bs-murmur i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #cfd5e6;
+  animation: bsMurmur 1.4s infinite;
+}
+.bs-murmur i:nth-child(2) { animation-delay: .2s; }
+.bs-murmur i:nth-child(3) { animation-delay: .4s; }
+@keyframes bsMurmur {
+  0%, 60%, 100% { opacity: .3; transform: translateY(0); }
+  30%           { opacity: 1;  transform: translateY(-2px); }
+}
+
+/* --------------------------------------------------------------------------
+   극장 셸 (§8) — 커튼 와이프와 무대 사고
+   --------------------------------------------------------------------------
+   장면 전환은 한 가지로 통일한다. 전환 문법이 하나여야 세계가 하나로 읽힌다.
+   -------------------------------------------------------------------------- */
+
+.tw-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  pointer-events: none;         /* 전환 중에도 조작을 막지 않는다 */
+  visibility: hidden;
+}
+.tw-wipe i {
+  width: 50%;
+  height: 100%;
+  background:
+    repeating-linear-gradient(90deg,
+      var(--th-curtain-deep) 0 10px,
+      var(--th-curtain) 10px 22px,
+      var(--th-curtain-deep) 22px 32px);
+}
+.tw-wipe.on { visibility: visible; }
+.tw-wipe.on i:first-child { animation: twLeft .4s ease-in-out forwards; }
+.tw-wipe.on i:last-child { animation: twRight .4s ease-in-out forwards; }
+/* 닫혔다 열리는 게 아니라, 지나가며 화면을 갈아 끼운다 — 그래서 400ms 로 끝난다 */
+@keyframes twLeft {
+  0%   { transform: translateX(-100%); }
+  45%  { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+@keyframes twRight {
+  0%   { transform: translateX(100%); }
+  45%  { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+
+/* 무대 사고 — 무대감독이 사과하고, 기술 원인은 그 아래 그대로 남는다.
+   귀여움이 원인을 가리면 그건 연출이 아니라 은폐다 (§14) */
+.accident {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff5f5;
+  border: 1px solid #f6d5d5;
+}
+.ac-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ac-badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f04452;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+.ac-head b {
+  font-size: 14px;
+  font-weight: 800;
+  color: #b3242f;
+}
+/* 원인은 개발자용이 아니라 사용자용이다. 접지도 흐리지도 않는다 */
+.ac-cause {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #7a3b3f;
+  word-break: break-word;
+}
+
+/* --------------------------------------------------------------------------
+   기억하는 객석 (§13) — 홈 = 극장 앞의 포스터 벽
+   -------------------------------------------------------------------------- */
+
+.pb-wall { padding: 16px; }
+.pb-head { margin: 0 0 12px; }
+
+.pb-strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+}
+.pb-ticket {
+  flex: none;
+  scroll-snap-align: start;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .16);
+  /* 벽에 붙인 것처럼 회차마다 아주 조금씩 기울어 있다 */
+  transform: rotate(-.7deg);
+  transition: transform .16s var(--ease, ease), box-shadow .16s ease;
+}
+.pb-ticket:nth-child(even) { transform: rotate(.8deg); }
+.pb-ticket:hover {
+  transform: rotate(0) translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .22);
+}
+.pb-ticket canvas { display: block; }
+
+/* 개관 공연 — 첫 방문의 빈 벽. 서로 처음이라는 프레임이 수행 압박을 지운다 */
+.pb-empty {
+  padding: 22px 16px;
+  text-align: center;
+}
+.pb-banner {
+  display: inline-block;
+  padding: 7px 20px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #d9455a, #ab2c3f);
+  color: #fff5e2;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  box-shadow: 0 4px 12px rgba(171, 44, 63, .3);
+  transform: rotate(-1.2deg);
+}
+.pb-openline {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2, #4e5968);
+}
+
+/* 회상 카드 — diff 가 증명했을 때만 렌더된다 */
+.recall-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: -6px 0 12px;
+  background: linear-gradient(180deg, #fffaf0, #fff5e4);
+  border: 1px solid #f0e2c4;
+}
+.rc-face { flex: none; width: 46px; }
+.rc-face .ch-chick { width: 46px; cursor: default; }
+.rc-body b {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #9a8672;
+}
+.rc-body p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #4a3b2c;
+}
+.rc-proof {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: #a2937c;
+}
+
+/* --------------------------------------------------------------------------
+   모션 최소화 — 연출만 끄고 정보는 남긴다
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-veil { transition: none; }
+  .cc-row .ch-seat,
+  .cc-row .ch-seat .ch-chick,
+  .cc-row .ch-seat[data-odd] .ch-chick,
+  .cc-line,
+  .cc-sub,
+  .cc-skip,
+  .cue-row .ch-seat,
+  .cue-word,
+  .sf-row .ch-seat.nodding .ch-head,
+  .sf-row .ch-seat.flipping .ch-prop-script,
+  .sf-row .ch-seat.rewinding .ch-prop-script,
+  .sf-row .ch-seat.marking .ch-pen-stroke,
+  .sf-row .ch-seat.wondering .ch-chick,
+  .bs-curtain::after,
+  .bs-line,
+  .tw-wipe.on i:first-child,
+  .tw-wipe.on i:last-child,
+  .bs-murmur i { animation: none !important; }
+  /* 커튼 와이프는 아예 안 뜬다 — 전환 자체가 모션이라 대체할 정보가 없다 */
+  .tw-wipe { display: none; }
+  .cue-veil, .sf-row, .pb-ticket { transition: none; }
+  .cc-row .ch-seat { opacity: 1; transform: none; }
+  .cue-row .ch-seat { opacity: 1; transform: none; }
+  .cc-line, .cc-sub, .cc-skip, .cue-word { opacity: 1; transform: none; }
+  /* 밑줄은 연출이 아니라 '오래 머물렀다'는 정보다. 애니메이션만 끄고 결과는 남긴다 */
+  .sf-row .ch-seat.marking .ch-pen-stroke { opacity: .55; }
+}

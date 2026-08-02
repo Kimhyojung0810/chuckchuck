@@ -19,5 +19,11 @@ class LLMProvider(ABC):
         user: str,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        json_mode: bool = False,
     ) -> str:
-        """텍스트 completion. JSON 응답을 기대하는 호출자가 파싱한다."""
+        """
+        텍스트 completion. JSON 응답을 기대하는 호출자가 파싱한다.
+
+        json_mode=True 면 제공자에게 JSON 객체만 내라고 **구조적으로** 요구한다.
+        지원하지 않는 제공자는 무시해도 된다 (프롬프트 지시가 폴백이다).
+        """

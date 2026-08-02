@@ -23,14 +23,142 @@ from chuckchuck.config import settings  # noqa: E402
 
 from chuckchuck import (  # noqa: E402
     Context,
+    analyze_pace,
     build_graph,
+    compose_report,
     extract_concepts,
+    extract_habits,
     parse_document,
     transcribe,
 )
-from chuckchuck.contracts import ConceptDoc, SlideDoc, SlideMark  # noqa: E402
+from chuckchuck.contracts import ConceptDoc, HabitDoc, PaceDoc, SlideDoc, SlideMark  # noqa: E402
 
-MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일
+
+MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일 (원본 파일 기준)
+# JSON 본문은 오디오를 base64 로 실어 4/3 로 부푼다. 원본 30MB 를 그대로 받으려면
+# 본문 한도도 그만큼 키워야 한다 — 안 그러면 정상 크기 녹음이 413 으로 막힌다.
+MAX_BODY_BYTES = MAX_UPLOAD_BYTES * 4 // 3 + 2 * 1024 * 1024
+
+ALLOWED_AUDIO_EXTS = frozenset(
+    {".webm", ".m4a", ".mp4", ".mp3", ".wav", ".ogg", ".oga", ".flac", ".aac"}
+)
+DEFAULT_AUDIO_EXT = ".webm"
+
+
+def _safe_audio_ext(raw: str | None) -> str:
+    """
+    클라이언트가 준 확장자를 임시 파일 suffix 로 쓰기 전에 좁힌다.
+
+    경로 조각이 섞여 들어오면 임시 파일 이름이 오염되므로 화이트리스트만 통과시킨다.
+    모르는 값은 녹음 기본값으로 떨어뜨린다.
+    """
+    ext = (raw or "").strip().lower()
+    if not ext.startswith("."):
+        ext = f".{ext}" if ext else ""
+    return ext if ext in ALLOWED_AUDIO_EXTS else DEFAULT_AUDIO_EXT
+
+
+def _cache_stem(file_name: str) -> str:
+    """캐시 파일 이름으로 쓸 안전한 stem. 경로 조각·구분자를 모두 없앤다."""
+    stem = Path(file_name or "").stem
+    safe = "".join(ch for ch in stem if ch.isalnum() or ch in "-_ ").strip()
+    return safe[:80] or "upload"
+
+
+def _save_slidedoc_cache(doc_dict: dict, file_name: str) -> None:
+    """
+    파싱 결과를 fixtures/raw 에 남긴다.
+
+    같은 자료로 녹음만 바꿔가며 반복 테스트할 때 재파싱(느리고 유료)을 건너뛰기 위한 것.
+    실패해도 파싱 자체는 성공이므로 삼키되 로그는 남긴다.
+    """
+    try:
+        raw_dir = ROOT / "fixtures" / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        path = raw_dir / f"{_cache_stem(file_name)}.slidedoc.json"
+        path.write_text(json.dumps(doc_dict, ensure_ascii=False), encoding="utf-8")
+        sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 {path.name}\n")
+    except OSError as e:
+        sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 실패(무시): {e}\n")
+
+
+
+def _soffice_bin() -> str | None:
+    import shutil
+
+    for name in ("soffice", "libreoffice"):
+        found = shutil.which(name)
+        if found:
+            return found
+    return None
+
+
+def _pptx_to_preview_pdf(pptx_path: Path, file_name: str) -> Path | None:
+    """
+    PPTX → PDF (LibreOffice headless). 발표 화면이 원본 슬라이드를 그리도록
+    fixtures/raw/{stem}.preview.pdf 로 저장한다.
+    """
+    import shutil
+    import subprocess
+
+    soffice = _soffice_bin()
+    if not soffice:
+        sys.stderr.write("[bridge] soffice 없음 — PPTX 원본 미리보기 불가\n")
+        return None
+    stem = _cache_stem(file_name)
+    raw_dir = ROOT / "fixtures" / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(tempfile.mkdtemp(prefix="chuckchuck-pdf-"))
+    try:
+        proc = subprocess.run(
+            [
+                soffice,
+                "--headless",
+                "--nologo",
+                "--nofirststartwizard",
+                "--norestore",
+                "--convert-to",
+                "pdf",
+                "--outdir",
+                str(out_dir),
+                str(pptx_path),
+            ],
+            check=False,
+            timeout=240,
+            capture_output=True,
+        )
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or b"").decode(errors="replace")[:400]
+            sys.stderr.write(f"[bridge] pptx→pdf failed rc={proc.returncode}: {err}\n")
+            return None
+        produced = list(out_dir.glob("*.pdf"))
+        if not produced:
+            sys.stderr.write("[bridge] pptx→pdf: 출력 PDF 없음\n")
+            return None
+        dest = raw_dir / f"{stem}.preview.pdf"
+        shutil.copy2(produced[0], dest)
+        sys.stderr.write(f"[bridge] preview PDF 저장 {dest.name} ({dest.stat().st_size} bytes)\n")
+        return dest
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[bridge] pptx→pdf exception: {e!r}\n")
+        return None
+    finally:
+        shutil.rmtree(out_dir, ignore_errors=True)
+
+
+def _save_pdf_preview(pdf_path: Path, file_name: str) -> Path | None:
+    """업로드 PDF 원본을 preview 캐시로 복사 (세션 복구·통일 경로)."""
+    import shutil
+
+    try:
+        raw_dir = ROOT / "fixtures" / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        dest = raw_dir / f"{_cache_stem(file_name)}.preview.pdf"
+        shutil.copy2(pdf_path, dest)
+        return dest
+    except OSError as e:
+        sys.stderr.write(f"[bridge] pdf preview 복사 실패: {e}\n")
+        return None
 
 
 def _mock() -> bool:
@@ -56,6 +184,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(200, {"ok": True, "mock": _mock()})
             if parsed.path == "/api/v1/cached-slidedoc":
                 return self._handle_cached_slidedoc(parsed)
+            if parsed.path == "/api/v1/preview-pdf":
+                return self._handle_preview_pdf(parsed)
             return super().do_GET()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
@@ -81,7 +211,7 @@ class Handler(SimpleHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0) or 0)
             if length < 0:
                 return self._json(400, {"error": "bad content-length"})
-            if length > MAX_UPLOAD_BYTES + 1024 * 1024:
+            if length > MAX_BODY_BYTES:
                 return self._json(413, {"error": "too_large", "message": "최대 30MB까지 올릴 수 있어요."})
             raw = self.rfile.read(length) if length else b""
 
@@ -97,6 +227,23 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_alignment(raw)
             if parsed.path == "/api/v1/flow":
                 return self._handle_flow(raw)
+            if parsed.path == "/api/v1/chatter":
+                return self._handle_chatter(raw)
+            if parsed.path == "/api/v1/score":
+                return self._handle_score(raw)
+            if parsed.path == "/api/v1/pace":
+                return self._handle_pace(raw)
+            if parsed.path == "/api/v1/habits":
+                return self._handle_habits(raw)
+            if parsed.path == "/api/v1/report":
+                return self._handle_report(raw)
+            if parsed.path == "/api/v1/questions":
+                return self._handle_questions(raw)
+            # F-09: /api/v1/sessions/{id}/qa/judge — 세션 없이도 body.question 으로 판정
+            if parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path:
+                return self._handle_qa_judge(raw)
+            if parsed.path == "/api/v1/qa/judge":
+                return self._handle_qa_judge(raw)
             return self._json(404, {"error": "not found"})
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
@@ -118,15 +265,41 @@ class Handler(SimpleHTTPRequestHandler):
         cands = sorted(raw_dir.glob("*.slidedoc.json"), key=lambda p: p.stat().st_mtime, reverse=True)
         if not cands:
             return self._json(404, {"error": "no_cache", "message": "저장된 SlideDoc이 없습니다."})
-        chosen = cands[0]
         if hint:
-            stem = Path(hint).stem
-            for p in cands:
-                if stem and (stem in p.name or hint in p.name):
-                    chosen = p
-                    break
+            # 이름을 지정했는데 못 찾으면 최신본으로 대체하지 않는다 —
+            # 다른 발표자료가 조용히 붙으면 정합 판정이 통째로 거짓말이 된다.
+            want = _cache_stem(hint)
+            chosen = next((p for p in cands if p.stem == f"{want}.slidedoc" or want in p.name), None)
+            if chosen is None:
+                return self._json(
+                    404,
+                    {"error": "no_cache", "message": f"'{hint}' 에 맞는 저장본이 없습니다."},
+                )
+        else:
+            chosen = cands[0]
         doc = json.loads(chosen.read_text(encoding="utf-8"))
         return self._json(200, doc)
+
+
+    def _handle_preview_pdf(self, parsed):
+        """발표 원본 미리보기 PDF (PPTX 변환본 또는 업로드 PDF 캐시)."""
+        from urllib.parse import parse_qs
+
+        qs = parse_qs(parsed.query or "")
+        hint = (qs.get("file") or [""])[0]
+        stem = _cache_stem(hint)
+        path = (ROOT / "fixtures" / "raw" / f"{stem}.preview.pdf").resolve()
+        raw_root = (ROOT / "fixtures" / "raw").resolve()
+        if not str(path).startswith(str(raw_root)) or not path.is_file():
+            return self._json(404, {"error": "no_preview", "message": "원본 미리보기 PDF가 없어요."})
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/pdf")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(data)
 
     def _serve_sdk(self, rel: str, head_only: bool = False):
         path = (SDK_DIR / rel).resolve()
@@ -203,7 +376,20 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             doc = parse_document(tmp_path)
             sys.stderr.write(f"[bridge] F-01 parse done slides={doc.total_slides}\n")
-            return self._json(200, doc.to_dict())
+            # 파서는 임시 경로 이름을 그대로 담는다. 원래 업로드 이름으로 되돌린다.
+            doc.file_name = filename
+            payload = doc.to_dict()
+            # 발표 화면용 원본 미리보기 PDF (PPTX는 LibreOffice 변환)
+            ext = Path(filename).suffix.lower()
+            preview = None
+            if ext == ".pptx":
+                preview = _pptx_to_preview_pdf(Path(tmp_path), filename)
+            elif ext == ".pdf":
+                preview = _save_pdf_preview(Path(tmp_path), filename)
+            if preview is not None:
+                payload["preview_pdf"] = f"/api/v1/preview-pdf?file={_cache_stem(filename)}"
+            _save_slidedoc_cache(payload, filename)
+            return self._json(200, payload)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
@@ -299,19 +485,132 @@ class Handler(SimpleHTTPRequestHandler):
         )
         return self._json(200, flow.to_dict())
 
+
+    def _handle_chatter(self, raw: bytes):
+        """삐약 청중석 · ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc."""
+        from chuckchuck import build_chatter
+
+        body = json.loads(raw or b"{}")
+        missing = [k for k in ("graph", "alignment", "flow") if not body.get(k)]
+        if missing:
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": (
+                        f"{', '.join(missing)} 가 필요합니다. "
+                        "F-07·F-11 결과를 함께 보내세요."
+                    ),
+                },
+            )
+        chatter = build_chatter(body["graph"], body["alignment"], body["flow"])
+        speakers = sorted({t.speaker for t in chatter.turns})
+        sys.stderr.write(
+            f"[bridge] chatter done turns={len(chatter.turns)} "
+            f"speakers={len(speakers)} refs={len(chatter.referenced_node_ids)}\n"
+        )
+        return self._json(200, chatter.to_dict())
+
+    def _handle_score(self, raw: bytes):
+        """F-13 · AlignmentDoc(+선택 FlowDiff) → 0~100 점. LLM 호출 없음."""
+        from chuckchuck import score_presentation
+        from chuckchuck.contracts import AlignmentDoc, FlowDiff
+
+        body = json.loads(raw or b"{}")
+        if not body.get("alignment"):
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "alignment 가 필요합니다. F-11 결과를 보내세요."},
+            )
+        alignment = AlignmentDoc.from_dict(body["alignment"])
+        flow = FlowDiff.from_dict(body["flow"]) if body.get("flow") else None
+        result = score_presentation(alignment, flow)
+        sys.stderr.write(
+            f"[bridge] F-13 score={result.score} basis={result.basis} "
+            f"omitted={result.omitted} contradictions={result.contradiction_count}\n"
+        )
+        return self._json(200, result.to_dict())
+
+    def _handle_pace(self, raw: bytes):
+        """F-17 · Transcript(+ConceptDoc/Context) → PaceDoc. LLM 없음."""
+        from chuckchuck.contracts import Transcript
+
+        body = json.loads(raw or b"{}")
+        if not body.get("transcript"):
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "transcript 가 필요합니다. F-05 결과를 보내세요."},
+            )
+        transcript = Transcript.from_dict(body["transcript"])
+        ctx = Context.from_dict(body.get("context") or {})
+        concept_doc = ConceptDoc.from_dict(body["concept_doc"]) if body.get("concept_doc") else None
+        pace = analyze_pace(transcript, ctx, concept_doc)
+        sys.stderr.write(
+            f"[bridge] F-17 pace done slides={len(pace.slides)} "
+            f"actual={pace.actual_sec}s target={pace.target_sec}s\n"
+        )
+        return self._json(200, pace.to_dict())
+
+    def _handle_habits(self, raw: bytes):
+        """F-18 · Transcript → HabitDoc."""
+        from chuckchuck.contracts import Transcript
+
+        body = json.loads(raw or b"{}")
+        if not body.get("transcript"):
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "transcript 가 필요합니다. F-05 결과를 보내세요."},
+            )
+        transcript = Transcript.from_dict(body["transcript"])
+        # 기본은 LoRA (HABIT_PROVIDER / extract_habits 기본값). mock 이어도 강제하지 않음.
+        provider = body.get("provider")  # None → extract_habits 가 lora 기본
+        spans = body.get("spans")
+        habits = extract_habits(transcript, provider=provider, spans=spans)
+        sys.stderr.write(
+            f"[bridge] F-18 habits done REP={habits.repeat_cnt} FIL={habits.filler_cnt} "
+            f"PAUSE={habits.pause_cnt} provider={habits.provider}\n"
+        )
+        return self._json(200, habits.to_dict())
+
+    def _handle_report(self, raw: bytes):
+        """F-19 · PaceDoc + HabitDoc → ReportDoc (LLM, mock 이면 규칙 폴백)."""
+        body = json.loads(raw or b"{}")
+        if not body.get("pace") or not body.get("habits"):
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": "pace 와 habits 가 필요합니다. F-17·F-18 결과를 보내세요.",
+                },
+            )
+        pace = PaceDoc.from_dict(body["pace"])
+        habits = HabitDoc.from_dict(body["habits"])
+        ctx = Context.from_dict(body.get("context") or {})
+        llm = "mock" if _mock() else body.get("llm")
+        report = compose_report(pace, habits, ctx, llm=llm)
+        sys.stderr.write(
+            f"[bridge] F-19 report done score={report.score} grade={report.grade} "
+            f"model={report.model}\n"
+        )
+        return self._json(200, report.to_dict())
+
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")
 
         # 실데이터 스왑 지점의 더미 — 시나리오가 심긴 Transcript fixture 를 그대로 준다.
         # 실 녹음이 들어오면 이 분기를 안 타고 아래 provider 경로로 흐른다 (코드 수정 0줄).
         if body.get("fixture"):
-            fixture = ROOT / "fixtures" / "sample_transcript.json"
+            name = body.get("fixture_name") or "sample_transcript.json"
+            # 경로 탈출 방지
+            fixture = (ROOT / "fixtures" / Path(name).name).resolve()
+            if not str(fixture).startswith(str((ROOT / "fixtures").resolve())):
+                return self._json(400, {"error": "bad_fixture"})
             if not fixture.exists():
                 return self._json(
                     404,
-                    {"error": "no_fixture", "message": "sample_transcript.json 이 없습니다."},
+                    {"error": "no_fixture", "message": f"{fixture.name} 이 없습니다."},
                 )
-            sys.stderr.write("[bridge] F-05 transcribe → fixture transcript\n")
+            sys.stderr.write(f"[bridge] F-05 transcribe → fixture {fixture.name}\n")
             return self._json(200, json.loads(fixture.read_text(encoding="utf-8")))
 
         marks = [SlideMark.from_dict(m) for m in body.get("marks", [])]
@@ -322,9 +621,20 @@ class Handler(SimpleHTTPRequestHandler):
         if audio_b64:
             import base64
 
-            ext = body.get("ext", ".webm")
+            audio_bytes = base64.b64decode(audio_b64)
+            if len(audio_bytes) > MAX_UPLOAD_BYTES:
+                return self._json(
+                    413,
+                    {
+                        "error": "too_large",
+                        "message": f"녹음은 최대 30MB까지예요. (받은 파일 {len(audio_bytes) / 1024 / 1024:.1f}MB)",
+                    },
+                )
+            # 확장자가 실제 포맷과 다르면 STT 가 파일을 못 읽는다 — 프런트가 파일명에서 뽑아 보낸다
+            ext = _safe_audio_ext(body.get("ext"))
+            sys.stderr.write(f"[bridge] F-05 transcribe audio bytes={len(audio_bytes)} ext={ext}\n")
             with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-                tmp.write(base64.b64decode(audio_b64))
+                tmp.write(audio_bytes)
                 audio_path = tmp.name
         if not audio_path:
             audio_path = str(ROOT / "fixtures" / ".keep")
@@ -333,9 +643,120 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             t = transcribe(audio_path, marks, provider=provider)
             return self._json(200, t.to_dict())
+        except Exception as e:  # noqa: BLE001
+            from chuckchuck.contracts import STTError
+
+            msg = str(e) or e.__class__.__name__
+            sys.stderr.write(f"[bridge] F-05 transcribe failed: {msg}\n")
+            code = 502 if isinstance(e, STTError) else 500
+            return self._json(
+                code,
+                {
+                    "error": "stt_failed",
+                    "message": msg if isinstance(e, STTError) else f"음성 인식에 실패했어요: {msg}",
+                },
+            )
         finally:
             if audio_b64 and audio_path:
                 Path(audio_path).unlink(missing_ok=True)
+
+
+    def _handle_questions(self, raw: bytes):
+        """F-08 · {graph, alignment?, flow?, transcript?, context, track} → QuestionDoc."""
+        from chuckchuck import build_questions, triage_questions
+        from chuckchuck.contracts import (
+            QA_TRACK_FALLBACK,
+            QA_TRACKS,
+            AlignmentDoc,
+            ConceptGraph,
+            FlowDiff,
+            QuestionError,
+            Transcript,
+        )
+
+        body = json.loads(raw or b"{}")
+        if not body.get("graph"):
+            return self._json(400, {"error": "bad_request", "message": "graph 가 필요합니다."})
+        graph = ConceptGraph.from_dict(body["graph"])
+        alignment = AlignmentDoc.from_dict(body["alignment"]) if body.get("alignment") else None
+        flow = FlowDiff.from_dict(body["flow"]) if body.get("flow") else None
+        transcript = Transcript.from_dict(body["transcript"]) if body.get("transcript") else None
+        ctx = Context.from_dict(body.get("context") or {})
+        track = str(body.get("track") or QA_TRACK_FALLBACK)
+        if track not in QA_TRACKS:
+            track = QA_TRACK_FALLBACK
+        llm = "mock" if _mock() else body.get("llm")
+        try:
+            triage = triage_questions(
+                graph, alignment, flow, ctx, transcript=transcript, llm=llm
+            )
+            doc = build_questions(
+                graph,
+                triage,
+                track=track,
+                alignment=alignment,
+                transcript=transcript,
+                context=ctx,
+                llm=llm,
+            )
+        except QuestionError as e:
+            return self._json(502, {"error": "questions_failed", "message": str(e)})
+        sys.stderr.write(
+            f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} model={doc.model}\n"
+        )
+        return self._json(200, doc.to_dict())
+
+    def _handle_qa_judge(self, raw: bytes):
+        """F-09 · {question_id, answer, history?, question, give_up?} → QaJudgement.
+
+        데모 브리지는 세션 저장소가 없다. 프론트가 보낸 question 본문으로 판정한다.
+        """
+        from chuckchuck import judge_answer
+        from chuckchuck.contracts import (
+            AlignmentDoc,
+            ConceptGraph,
+            JudgeError,
+            Question,
+            Transcript,
+        )
+
+        body = json.loads(raw or b"{}")
+        qraw = body.get("question")
+        if not qraw:
+            return self._json(
+                400,
+                {
+                    "error": "bad_request",
+                    "message": "question 이 필요합니다. (데모 브리지는 세션 캐시가 없어요)",
+                },
+            )
+        question = Question.from_dict(qraw)
+        if not question.question.strip():
+            return self._json(400, {"error": "bad_request", "message": "질문 문장이 비어 있어요."})
+        graph = ConceptGraph.from_dict(body["graph"]) if body.get("graph") else None
+        alignment = AlignmentDoc.from_dict(body["alignment"]) if body.get("alignment") else None
+        transcript = Transcript.from_dict(body["transcript"]) if body.get("transcript") else None
+        ctx = Context.from_dict(body.get("context") or {})
+        llm = "mock" if _mock() else body.get("llm")
+        try:
+            judgement = judge_answer(
+                question,
+                str(body.get("answer", "") or ""),
+                graph=graph,
+                alignment=alignment,
+                transcript=transcript,
+                history=body.get("history") or [],
+                context=ctx,
+                give_up=bool(body.get("give_up")),
+                llm=llm,
+            )
+        except JudgeError as e:
+            return self._json(502, {"error": "judge_failed", "message": str(e)})
+        sys.stderr.write(
+            f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
+            f"passed={judgement.passed} stage={judgement.coach_stage!r}\n"
+        )
+        return self._json(200, judgement.to_dict())
 
     def _json(self, code: int, payload: dict):
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")

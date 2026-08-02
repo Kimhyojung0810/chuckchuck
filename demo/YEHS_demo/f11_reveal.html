@@ -451,8 +451,12 @@ const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let skipped = false;
 let runToken = 0;
 let dataArrived = false;   // 실데이터(postMessage) 도착 여부 — STT 씬이 이걸 기다린다
+let dataFailed = false;    // 파이프라인 실패 — mock 그래프를 틀지 않는다
+let FAIL_MESSAGE = "";
 let REAL_STT = null;       // 실전사 문장들 — 도착하면 STT 씬이 데모 대본 대신 이걸 틀어준다
 let REAL_KEYWORDS = null;  // 실데이터에서 '발표가 실제로 다룬 개념' 라벨 — 키워드 침으로 띄운다
+let LIVE_LINES = [];       // 부모 postMessage(f11Progress) 실진행 문구
+let LAST_PROGRESS_KEY = "";
 
 const sleep = (ms) => new Promise((r) => {
   if (skipped || REDUCED) return r();
@@ -662,12 +666,49 @@ function realSttLines(t) {
 
 window.addEventListener("message", (e) => {
   if (e.origin !== location.origin) return;
-  if (e.data && e.data.type === "f11Data" && e.data.graph && e.data.alignment) {
+  if (!e.data || !e.data.type) return;
+  if (e.data.type === "f11Progress") {
+    const label = String(e.data.label || e.data.phase || "").trim();
+    const detail = String(e.data.detail || "").trim();
+    const preview = String(e.data.transcriptPreview || "").trim();
+    const key = label + "|" + detail;
+    if (key && key !== LAST_PROGRESS_KEY) {
+      LAST_PROGRESS_KEY = key;
+      const line = detail || label;
+      if (line) LIVE_LINES.push(line);
+      if (LIVE_LINES.length > 12) LIVE_LINES = LIVE_LINES.slice(-12);
+      if (label || detail) {
+        CAPTIONS[0].h = label || CAPTIONS[0].h;
+        CAPTIONS[0].p = detail || CAPTIONS[0].p;
+        if (document.body.dataset.scene === "0") {
+          const capH = $("capH");
+          const capP = $("capP");
+          if (capH) capH.textContent = CAPTIONS[0].h;
+          if (capP) capP.textContent = CAPTIONS[0].p;
+        }
+      }
+    }
+    if (preview && (!REAL_STT || !REAL_STT.length)) {
+      REAL_STT = [preview.length > 34 ? preview.slice(0, 33) + "…" : preview];
+    }
+    return;
+  }
+  if (e.data.type === "f11Error") {
+    dataFailed = true;
+    dataArrived = true;
+    FAIL_MESSAGE = String(e.data.message || "분석에 실패했어요");
+    CAPTIONS[0].h = "분석을 마치지 못했어요";
+    CAPTIONS[0].p = FAIL_MESSAGE;
+    return;
+  }
+  if (e.data.type === "f11Data" && e.data.graph && e.data.alignment) {
     try {
       if (e.data.transcript) REAL_STT = realSttLines(e.data.transcript);
       applyRealData(e.data.graph, e.data.alignment);
     } catch (err) {
-      dataArrived = true;   // 변환 실패 시 mock 으로 계속 — 재생을 막지 않는다
+      dataFailed = true;
+      dataArrived = true;
+      FAIL_MESSAGE = "결과 화면을 그리다 실패했어요";
     }
   }
 });
@@ -707,42 +748,75 @@ function setScene(i) {
 
 async function sceneSTT() {
   setScene(0);
+  document.body.dataset.scene = "0";
   const wrap = $("sttScene");
   wrap.style.opacity = 1;
-  // embed 에선 실데이터(F-05~F-11 파이프라인)가 올 때까지 이 씬이 기다린다.
-  // 실 LLM 은 콜당 수십 초라 최대 ~3분까지 순환하고, 그 뒤엔 mock 으로 진행한다.
-  // embed(실제 앱 흐름)에선 아직 안 온 전사 대신 중립 대기 문구를 튼다 —
-  // 데모 대본을 틀면 사용자가 "내가 안 한 말"로 오해한다
+  // embed: 부모 f11Progress 실문구를 우선 보여 준다.
+  // 데모 대본/키워드는 standalone 미리보기에서만 쓴다.
   const WAIT_LINES = [
     "음성을 글로 바꾸고 있어요…",
     "발화를 슬라이드별로 나누고 있어요…",
     "어떤 개념을 말했는지 찾고 있어요…",
     "자료의 개념과 대조할 준비를 하고 있어요…",
   ];
-  const playLines = EMBED ? WAIT_LINES : STT_LINES;
   let pass = 0;
-  do {
-    for (let i = 0; i < playLines.length; i++) {
-      if (skipped || (EMBED && dataArrived && i > 1)) break;
+  let shown = 0;
+  if (!EMBED) {
+    for (let i = 0; i < STT_LINES.length; i++) {
+      if (skipped) break;
       const line = document.createElement("div");
       line.className = "stt-line";
-      line.textContent = playLines[i];
+      line.textContent = STT_LINES[i];
       wrap.appendChild(line);
-      if (!EMBED && i >= 1 && KEYWORDS[i - 1]) {
+      if (i >= 1 && KEYWORDS[i - 1]) {
         const kw = document.createElement("span");
         kw.className = "kw";
         kw.textContent = KEYWORDS[i - 1];
-        kw.style.left = 20 + ((pass + i) * 67) % 180 + "px";
-        kw.style.top = 44 + ((pass + i) * 53) % 120 + "px";
+        kw.style.left = 20 + (i * 67) % 180 + "px";
+        kw.style.top = 44 + (i * 53) % 120 + "px";
         wrap.appendChild(kw);
       }
       await sleep(760);
     }
-    pass += 1;
-    if (wrap.childElementCount > 24) wrap.replaceChildren();
-  } while (EMBED && !dataArrived && !skipped && pass < 40);
-  // 실전사가 왔으면 데모 대본을 걷어내고 실제 발화 문장으로 마무리한다.
-  // 키워드 침도 실데이터 — 발표가 실제로 다룬 개념 라벨을 띄운다
+  } else {
+    do {
+      let text = null;
+      if (LIVE_LINES.length > shown) {
+        text = LIVE_LINES[shown];
+        shown += 1;
+      } else if (!dataArrived) {
+        text = WAIT_LINES[pass % WAIT_LINES.length];
+        pass += 1;
+      }
+      if (text) {
+        const line = document.createElement("div");
+        line.className = "stt-line";
+        line.textContent = text;
+        wrap.appendChild(line);
+        if (wrap.childElementCount > 24) {
+          while (wrap.childElementCount > 16) wrap.removeChild(wrap.firstChild);
+        }
+      }
+      await sleep(LIVE_LINES.length > shown ? 480 : 900);
+    } while (!dataArrived && !skipped && pass < 90);
+  }
+
+  if (EMBED && dataFailed) {
+    wrap.replaceChildren();
+    const line = document.createElement("div");
+    line.className = "stt-line";
+    line.textContent = FAIL_MESSAGE || "분석에 실패했어요";
+    wrap.appendChild(line);
+    const capH = $("capH"); const capP = $("capP");
+    if (capH) capH.textContent = "분석을 마치지 못했어요";
+    if (capP) capP.textContent = FAIL_MESSAGE || "";
+    await sleep(1400);
+    wrap.style.opacity = 0;
+    await sleep(300);
+    wrap.innerHTML = "";
+    return;
+  }
+
   if (EMBED && REAL_STT && REAL_STT.length && !skipped) {
     wrap.replaceChildren();
     let ki = 0;
@@ -762,6 +836,20 @@ async function sceneSTT() {
       }
       await sleep(620);
     }
+  } else if (EMBED && !dataArrived) {
+    // 시간 초과: mock 그래프 대신 안내만
+    dataFailed = true;
+    FAIL_MESSAGE = "분석이 아직 끝나지 않았어요. 닫고 준비 화면에서 진행 상황을 봐 주세요.";
+    wrap.replaceChildren();
+    const line = document.createElement("div");
+    line.className = "stt-line";
+    line.textContent = FAIL_MESSAGE;
+    wrap.appendChild(line);
+    await sleep(1200);
+    wrap.style.opacity = 0;
+    await sleep(300);
+    wrap.innerHTML = "";
+    return;
   }
   await sleep(500);
   wrap.style.opacity = 0;
@@ -945,7 +1033,18 @@ function resetAll() {
 async function run() {
   const token = ++runToken;
   resetAll();
-  const scenes = [sceneSTT, sceneGraph, sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
+  await sceneSTT();
+  if (token !== runToken) return;
+  // embed: 실데이터 없이 mock 그래프를 돌리지 않는다
+  if (EMBED && (dataFailed || !dataArrived)) {
+    const capH = $("capH"); const capP = $("capP");
+    if (capH) capH.textContent = "분석을 마치지 못했어요";
+    if (capP) capP.textContent = FAIL_MESSAGE || "준비 화면에서 진행 상황을 확인해 주세요";
+    const cta = $("ctaHint");
+    if (cta) cta.innerHTML = "오류가 있으면 다시 녹음해 주세요.<br>성공하면 질문 코치로 이어져요";
+    return;
+  }
+  const scenes = [sceneGraph, sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
   for (const scene of scenes) {
     if (token !== runToken) return;
     await scene();

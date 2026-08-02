@@ -1,0 +1,430 @@
+{
+  "context": {
+    "situation": "학회·수업 발표",
+    "audience": "일반 청중",
+    "duration_min": 10
+  },
+  "pace": {
+    "target_sec": 600.0,
+    "actual_sec": 590.0,
+    "avg_chars_per_min": 71.1,
+    "avg_syllable_per_sec": 1.11,
+    "max_chars_per_min": 134.8,
+    "max_slide_no": 3,
+    "recommended_cpm": "300~350",
+    "slides": [
+      {
+        "slide_no": 1,
+        "title": "척척발표 데모 용 10분 발표",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 50.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 19.12,
+        "chars_per_min": 70.5,
+        "syllable_per_sec": 1.09,
+        "status": "long",
+        "note": "권장 대비 61% 초과"
+      },
+      {
+        "slide_no": 2,
+        "title": "2번",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 70.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 39.12,
+        "chars_per_min": 52.7,
+        "syllable_per_sec": 0.82,
+        "status": "long",
+        "note": "권장 대비 126% 초과"
+      },
+      {
+        "slide_no": 3,
+        "title": "알림은 눈길만 빼앗는 것이 아니라, 머릿속 작업 상태를 바꾼다.",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 28.0,
+        "recommended_sec": 88.24,
+        "delta_sec": -60.24,
+        "chars_per_min": 134.8,
+        "syllable_per_sec": 2.1,
+        "status": "short",
+        "note": "핵심 · 권장 대비 68% 부족"
+      },
+      {
+        "slide_no": 4,
+        "title": "4번",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 95.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 64.12,
+        "chars_per_min": 62.4,
+        "syllable_per_sec": 0.98,
+        "status": "long",
+        "note": "권장 대비 207% 초과"
+      },
+      {
+        "slide_no": 5,
+        "title": "짧은 알림 자체가 과제와 무관한 생각을 만들 수 있다.",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 25.0,
+        "recommended_sec": 88.24,
+        "delta_sec": -63.24,
+        "chars_per_min": 117.4,
+        "syllable_per_sec": 1.85,
+        "status": "short",
+        "note": "핵심 · 권장 대비 71% 부족"
+      },
+      {
+        "slide_no": 6,
+        "title": "폰이 보이는 것만으로도 인지 자원을 쓴다",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 40.0,
+        "recommended_sec": 88.24,
+        "delta_sec": -48.24,
+        "chars_per_min": 92.2,
+        "syllable_per_sec": 1.47,
+        "status": "short",
+        "note": "핵심 · 권장 대비 54% 부족"
+      },
+      {
+        "slide_no": 7,
+        "title": "끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있다.",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 35.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 4.12,
+        "chars_per_min": 83.9,
+        "syllable_per_sec": 1.32,
+        "status": "ok",
+        "note": "적절"
+      },
+      {
+        "slide_no": 8,
+        "title": "손실은 “시간”보다 “흐름”에서 커진다",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 55.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 24.12,
+        "chars_per_min": 56.5,
+        "syllable_per_sec": 0.89,
+        "status": "long",
+        "note": "권장 대비 78% 초과"
+      },
+      {
+        "slide_no": 9,
+        "title": "집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 한다.",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 32.0,
+        "recommended_sec": 88.24,
+        "delta_sec": -56.24,
+        "chars_per_min": 102.3,
+        "syllable_per_sec": 1.62,
+        "status": "short",
+        "note": "핵심 · 권장 대비 63% 부족"
+      },
+      {
+        "slide_no": 10,
+        "title": "오늘 바로 바꿀 수 있는 집중 루틴",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 80.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 49.12,
+        "chars_per_min": 51.3,
+        "syllable_per_sec": 0.78,
+        "status": "long",
+        "note": "권장 대비 159% 초과"
+      },
+      {
+        "slide_no": 11,
+        "title": "11번",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 40.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 9.12,
+        "chars_per_min": 75.6,
+        "syllable_per_sec": 1.15,
+        "status": "long",
+        "note": "권장 대비 29% 초과"
+      },
+      {
+        "slide_no": 12,
+        "title": "12번",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 40.0,
+        "recommended_sec": 30.88,
+        "delta_sec": 9.12,
+        "chars_per_min": 50.6,
+        "syllable_per_sec": 0.77,
+        "status": "long",
+        "note": "권장 대비 29% 초과"
+      }
+    ],
+    "sections": [
+      {
+        "name": "전반",
+        "slide_nos": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "recommended_sec": 180.9,
+        "actual_sec": 243.0,
+        "status": "long",
+        "label": "+34% 초과"
+      },
+      {
+        "name": "중반",
+        "slide_nos": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "recommended_sec": 238.2,
+        "actual_sec": 155.0,
+        "status": "short",
+        "label": "-34% 부족"
+      },
+      {
+        "name": "후반",
+        "slide_nos": [
+          9,
+          10,
+          11,
+          12
+        ],
+        "recommended_sec": 180.9,
+        "actual_sec": 192.0,
+        "status": "ok",
+        "label": "적절"
+      }
+    ],
+    "tips": [
+      "3번은 핵심인데 권장 88초 중 28초만 썼어요. 여기 시간을 늘리세요.",
+      "5번은 핵심인데 권장 88초 중 25초만 썼어요. 여기 시간을 늘리세요."
+    ]
+  },
+  "habits": {
+    "spans": [
+      {
+        "kind": "REP",
+        "text": "그 그",
+        "start_sec": 178.91,
+        "end_sec": 183.4,
+        "slide_no": 4
+      },
+      {
+        "kind": "REP",
+        "text": "흐름 흐름이",
+        "start_sec": 363.73,
+        "end_sec": 369.52,
+        "slide_no": 8
+      },
+      {
+        "kind": "FIL",
+        "text": "어",
+        "start_sec": 50.0,
+        "end_sec": 52.52,
+        "slide_no": 2
+      },
+      {
+        "kind": "FIL",
+        "text": "음",
+        "start_sec": 80.8,
+        "end_sec": 83.32,
+        "slide_no": 2
+      },
+      {
+        "kind": "FIL",
+        "text": "어",
+        "start_sec": 148.0,
+        "end_sec": 150.12,
+        "slide_no": 4
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 178.91,
+        "end_sec": 181.04,
+        "slide_no": 4
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 181.27,
+        "end_sec": 183.4,
+        "slide_no": 4
+      },
+      {
+        "kind": "FIL",
+        "text": "음",
+        "start_sec": 202.5,
+        "end_sec": 204.62,
+        "slide_no": 4
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 209.58,
+        "end_sec": 211.7,
+        "slide_no": 4
+      },
+      {
+        "kind": "FIL",
+        "text": "어",
+        "start_sec": 458.04,
+        "end_sec": 460.29,
+        "slide_no": 10
+      },
+      {
+        "kind": "FIL",
+        "text": "음",
+        "start_sec": 460.54,
+        "end_sec": 462.8,
+        "slide_no": 10
+      },
+      {
+        "kind": "FIL",
+        "text": "일단",
+        "start_sec": 463.05,
+        "end_sec": 465.3,
+        "slide_no": 10
+      },
+      {
+        "kind": "PAUSE",
+        "text": "5.2s",
+        "start_sec": 157.2,
+        "end_sec": 162.4,
+        "slide_no": 4
+      }
+    ],
+    "by_slide": [
+      {
+        "slide_no": 1,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 2,
+        "repeat_cnt": 0,
+        "filler_cnt": 2,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 3,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 4,
+        "repeat_cnt": 1,
+        "filler_cnt": 5,
+        "pause_cnt": 1,
+        "note": "간투어 5회 · 긴 휴지 1회"
+      },
+      {
+        "slide_no": 5,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 6,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 7,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 8,
+        "repeat_cnt": 1,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 9,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 10,
+        "repeat_cnt": 0,
+        "filler_cnt": 3,
+        "pause_cnt": 0,
+        "note": "간투어 3회"
+      },
+      {
+        "slide_no": 11,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 12,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      }
+    ],
+    "repeat_cnt": 2,
+    "filler_cnt": 10,
+    "pause_cnt": 1,
+    "provider": "lora",
+    "tips": [
+      "4번: 간투어 5회 · 긴 휴지 1회",
+      "10번: 간투어 3회",
+      "5초 이상 긴 쉼이 1번 있어요. 전환 멘트를 미리 정해 보세요."
+    ]
+  },
+  "report": {
+    "one_liner": "3번은 핵심인데 권장 88초 중 28초만 썼어요. 여기 시간을 늘리세요.",
+    "score": 45,
+    "grade": "F",
+    "strengths": [
+      "슬라이드 전환과 발화 기록이 남아 코칭 근거를 만들 수 있습니다."
+    ],
+    "weaknesses": [
+      "3번은 핵심인데 권장 88초 중 28초만 썼어요. 여기 시간을 늘리세요.",
+      "5번은 핵심인데 권장 88초 중 25초만 썼어요. 여기 시간을 늘리세요.",
+      "4번: 간투어 5회 · 긴 휴지 1회"
+    ],
+    "actions": [
+      "1번(보조) 설명을 한 문장으로 줄여 목표 시간을 맞추세요.",
+      "3번(핵심)에 예시 한 줄을 추가해 권장 88초에 가깝게.",
+      "리허설 때 타이머를 켜고 핵심 장 앞에서 3초 쉬어 속도를 조절하세요."
+    ],
+    "pace_summary": "3번은 핵심인데 권장 88초 중 28초만 썼어요. 여기 시간을 늘리세요. 5번은 핵심인데 권장 88초 중 25초만 썼어요. 여기 시간을 늘리세요.",
+    "habit_summary": "4번: 간투어 5회 · 긴 휴지 1회 10번: 간투어 3회",
+    "model": "mock"
+  }
+}
