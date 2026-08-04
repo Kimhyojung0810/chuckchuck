@@ -6,6 +6,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import traceback
@@ -83,13 +84,35 @@ def _save_slidedoc_cache(doc_dict: dict, file_name: str) -> None:
 
 
 
+# LibreOffice 는 macOS 앱 번들·snap 설치에서 PATH 에 링크를 만들지 않는다.
+# PATH 만 보면 설치돼 있어도 못 찾아 PPTX 원본 미리보기가 조용히 텍스트로 떨어진다.
+_SOFFICE_FALLBACK_PATHS = (
+    "/Applications/LibreOffice.app/Contents/MacOS/soffice",  # macOS (brew cask 포함)
+    "/opt/homebrew/bin/soffice",
+    "/usr/local/bin/soffice",
+    "/usr/bin/soffice",
+    "/usr/bin/libreoffice",
+    "/snap/bin/libreoffice",
+)
+
+
 def _soffice_bin() -> str | None:
     import shutil
+
+    override = os.environ.get("SOFFICE_BIN", "").strip()
+    if override:
+        if os.access(override, os.X_OK):
+            return override
+        sys.stderr.write(f"[bridge] SOFFICE_BIN 이 실행 가능하지 않음: {override}\n")
 
     for name in ("soffice", "libreoffice"):
         found = shutil.which(name)
         if found:
             return found
+
+    for path in _SOFFICE_FALLBACK_PATHS:
+        if os.access(path, os.X_OK):
+            return path
     return None
 
 
@@ -103,7 +126,11 @@ def _pptx_to_preview_pdf(pptx_path: Path, file_name: str) -> Path | None:
 
     soffice = _soffice_bin()
     if not soffice:
-        sys.stderr.write("[bridge] soffice 없음 — PPTX 원본 미리보기 불가\n")
+        sys.stderr.write(
+            "[bridge] soffice 없음 — PPTX 원본 슬라이드를 그릴 수 없어 자리표시자로 떨어짐.\n"
+            "[bridge]   설치: brew install --cask libreoffice "
+            "(다른 경로면 SOFFICE_BIN=/path/to/soffice)\n"
+        )
         return None
     stem = _cache_stem(file_name)
     raw_dir = ROOT / "fixtures" / "raw"

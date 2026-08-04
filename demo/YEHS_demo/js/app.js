@@ -456,6 +456,18 @@ let pdfRenderToken = 0;
 let pdfRenderTask = null;
 let rehearsalNavBound = false;
 
+/* 썸네일 캐시는 uploadedPdf 와 수명이 같다. chatterCache 와 같은 이유로 선언이 여기 있다 —
+   resetNf() 가 모듈 최상위에서 불리므로 아래쪽에 두면 TDZ 로 앱이 죽는다. */
+const thumbCache = new Map();   // pageNo → dataURL (메모리만)
+const THUMB_WIDTH = 240;
+
+/** 원본 PDF 교체 창구. 캐시가 페이지 번호로만 키를 잡아서, 같이 안 비우면
+    자료를 바꿔도 이전 자료의 슬라이드가 그대로 보인다. */
+function setUploadedPdf(next) {
+  uploadedPdf = next;
+  thumbCache.clear();
+}
+
 function onRehearsalKeydown(e) {
   if (nf.step !== 2) return;
   const tag = (e.target && e.target.tagName) || '';
@@ -511,7 +523,7 @@ function resetNf() {
   // 수다도 테이크에 딸린 것이다. 안 지우면 자료 A 의 객석이 자료 B 에서 재생되고,
   // currentShow() 가 A 의 absent 를 B 의 티켓에 빈 도장으로 찍는다
   chatterCache = null;
-  uploadedPdf = null;
+  setUploadedPdf(null);
   pdfRenderToken += 1;
   saveSession('new-flow', nf);
 }
@@ -535,7 +547,7 @@ function nfSteps() {
 }
 
 async function loadUploadedPdf(file, nameHint = '') {
-  uploadedPdf = null;
+  setUploadedPdf(null);
   const name = (file && file.name) || nameHint || '';
   const looksPdf = /\.pdf$/i.test(name)
     || (file && (file.type === 'application/pdf' || String(file.type || '').includes('pdf')));
@@ -546,7 +558,7 @@ async function loadUploadedPdf(file, nameHint = '') {
   }
   const data = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data }).promise;
-  uploadedPdf = { file, pdf, pageCount: pdf.numPages };
+  setUploadedPdf({ file, pdf, pageCount: pdf.numPages });
   return uploadedPdf;
 }
 
@@ -769,26 +781,22 @@ function applySlideDoc(doc, { keepDemoImages = false } = {}) {
   nf.slideTitles = (doc.slides || []).map((s) => s.title || `${s.slide_no}번 슬라이드`);
   nf.slideBodies = (doc.slides || []).map(slideBodyFromSlide);
   nf.sparseSlides = (doc.slides || []).filter((s) => s.text_sparse).map((s) => s.slide_no);
-  // 썸네일용: 본문 일부 넣은 SVG (필름/게이트용). 발표 본화면은 HTML 카드 사용.
-  nf.slideImages = nf.slideTitles.map((t, i) => {
-    if (keepDemoImages && DATA.slideImages[i]) return DATA.slideImages[i];
-    return slidePlaceholder(i + 1, t, nf.slideBodies[i]);
-  });
+  // 화면에는 원본 슬라이드(pdf.js 렌더)를 그린다. 파싱된 본문(slideBodies)은 F-06~11
+  // 분석 입력으로만 보관하고 썸네일에 찍지 않는다. 아래 값은 원본 렌더가 도착하기 전과
+  // 렌더 자체가 불가능할 때(PPTX + soffice 없음)만 보이는 자리표시자다.
+  nf.slideImages = nf.slideTitles.map((t, i) => (
+    (keepDemoImages && DATA.slideImages[i]) || slidePlaceholder(i + 1)
+  ));
   nf.slide = 1;
   nf.visits = { 1: 1 };
   nf.log = [];
 }
-function slidePlaceholder(n, title, body) {
-  const safe = escapeHtml(String(title || `${n}번`).slice(0, 40));
-  const preview = escapeHtml(String(body || '').replace(/\s+/g, ' ').slice(0, 90));
+/** 원본 슬라이드 렌더가 붙기 전/불가능할 때 쓰는 빈 판. 파싱 텍스트를 넣지 않는다. */
+function slidePlaceholder(n) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
     <rect width="960" height="540" fill="#f5f7fb"/>
     <rect x="40" y="36" width="880" height="468" rx="14" fill="#fff" stroke="#dbe4f0"/>
-    <text x="72" y="100" font-family="Pretendard,sans-serif" font-size="26" fill="#8b95a1">${n}</text>
-    <text x="72" y="160" font-family="Pretendard,sans-serif" font-size="34" font-weight="700" fill="#191f28">${safe}</text>
-    <foreignObject x="72" y="200" width="800" height="260">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font:500 20px/1.45 Pretendard,sans-serif;color:#4e5968;white-space:pre-wrap">${preview || '텍스트 없음'}</div>
-    </foreignObject>
+    <text x="480" y="290" text-anchor="middle" font-family="Pretendard,sans-serif" font-size="72" font-weight="700" fill="#c6cfdb">${n}</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -889,13 +897,15 @@ function nfStep1() {
         <div class="gate-ok">${titles.length}장에서 핵심 개념 후보를 준비했어요</div>
         <div class="thumbs">
           ${titles.map((t, i) => `
-          <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" alt="${i + 1}번 슬라이드"><span><b>${i + 1}</b>${t}</span></div>`).join('')}
+          <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" data-thumb-page="${i + 1}" alt="${i + 1}번 슬라이드" loading="lazy"><span><b>${i + 1}</b>${escapeHtml(t)}</span></div>`).join('')}
         </div>
         <div class="warn-note">${warnNote}</div>
       </div>
       <div class="step-actions">
         <button class="btn btn-primary" id="next">다음: 발표 정보 입력</button>
       </div>`;
+    // 자리표시자를 원본 슬라이드 렌더로 교체 (리포트 필름과 같은 경로)
+    paintDeckThumbs(box);
     $('#next').addEventListener('click', () => { nf.step = 1; renderNew(); });
   }
 }
@@ -921,7 +931,7 @@ async function startParse({ file = null, fixture = false } = {}) {
     const doc = await b.parseDocument({ file, fixture: nf.useSample });
     if (myGen !== parseGen) return; // 취소됨
     applySlideDoc(doc, { keepDemoImages: nf.useSample });
-    uploadedPdf = null; // 이전 자료 잔상 제거
+    setUploadedPdf(null); // 이전 자료 잔상 제거 (썸네일 캐시까지)
     if (file && /\.pdf$/i.test(file.name || '')) {
       try { await loadUploadedPdf(file); }
       catch (e) { console.warn('[chuckchuck] pdf load', e); }
@@ -2370,8 +2380,7 @@ function deckThumbList() {
    달리 취소·경합이 없어야 하므로(썸네일은 여러 장을 한 번에 그린다) 별도로 둔다.
    PPTX 는 브라우저에서 렌더할 방법이 없어 이름표만 남는다. */
 
-const thumbCache = new Map();   // pageNo → dataURL (메모리만)
-const THUMB_WIDTH = 240;
+/* thumbCache · THUMB_WIDTH 선언은 파일 위쪽(uploadedPdf 옆)에 있다 — setUploadedPdf 참고. */
 
 async function slideThumb(pageNo) {
   if (!uploadedPdf || !uploadedPdf.pdf) return null;
