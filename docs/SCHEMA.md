@@ -763,7 +763,7 @@ LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict
 |------|------|------|------|
 | `"1"` | 1 | 0 | 가장 치명적인 개념 하나. 방어 연습할 시간이 없어 함정을 안 넣는다 |
 | `"5"` | 3 | 1 | 핵심 + 놓친 개념 |
-| `"10"` | 8 | 3 | 아쉬운 개념 전부 + 모순 대조 |
+| `"10"` | 7 | 3 | 아쉬운 개념 전부 + 모순 대조 |
 
 > 프론트가 CTA 에 약속하는 개수(`QA_MODES[k].count`)는 이 표와 **같은 값이어야 한다.**
 
@@ -775,11 +775,19 @@ LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict
 |------|------|
 | `contradiction` | `AlignmentDoc.items[].verdict == "contradiction"` |
 | `missing` | 같은 곳 `verdict == "missing"` |
+| `under_spoken` | `doc_weight − speech_weight > QA_UNDER_SPOKEN_GAP` (정당생략 제외) |
 | `weak_flow` | `FlowDiff.issues` 중 `missing_link`·`order_jump` 에 등장하는 `node_ids` |
+| `extra` | `AlignmentDoc.extra_concepts` — 발화에만 나온 개념 (`extra:` 합성 노드) |
 | `core_weight` | 나머지를 `ConceptNode.weight` 내림차순 |
+| `justified_skip` | `verdict == "justified_skip"` — **강등**. 리포트가 생략을 승인한 개념은 weight 가 커도 서열 맨 뒤다 (모순·누락은 못 덮고, weak_flow 는 덮는다) |
 
 **`AlignmentDoc`·`FlowDiff` 없이 그래프만으로도 동작한다** — 녹음 없이 자료만 올린
 경로에서는 전부 `core_weight` 가 되고, 빈 질문 세트가 나오지 않는다.
+
+`weak_flow` 개념에는 해당 `FlowIssue` 의 상세(`kind`·`note`)가 **프롬프트 재료로**
+붙는다 — `order_jump` 는 "왜 이 순서로 설명했나요?", `missing_link` 는 "두 개념은
+어떤 관계인가요?" 각도가 된다. 순위는 안 바뀐다 (source 가 정한다).
+`build_questions` 에 `flow` 를 넘겨야 질문 단계까지 상세가 전달된다.
 
 #### 최종 순위(`rank`) — 근거가 1순위, 그다음이 1차 LLM 의 치명도
 

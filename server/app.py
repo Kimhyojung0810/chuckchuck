@@ -28,17 +28,24 @@ from fastapi.staticfiles import StaticFiles
 from chuckchuck import (
     ChuckchuckError,
     Context,
+    align_speech,
+    build_flow_diff,
+    build_graph,
+    build_questions,
     extract_concepts,
     judge_answer,
     parse_document,
     settings,
     transcribe,
+    triage_questions,
 )
 from chuckchuck.contracts import (
     QA_TRACK_FALLBACK,
     QA_TRACKS,
     AlignmentDoc,
+    ConceptDoc,
     ConceptGraph,
+    FlowDiff,
     Question,
     QuestionDoc,
     SlideDoc,
@@ -96,6 +103,9 @@ app.add_middleware(
 
 @app.exception_handler(ChuckchuckError)
 async def _chuckchuck_error(request: Request, exc: ChuckchuckError):
+    # 로그가 없으면 접근 로그에 '422' 한 줄만 남아, 무엇이 왜 틀어졌는지
+    # 사용자 화면에 뜬 문구로 역추적해야 한다. 도메인 실패는 반드시 기록한다.
+    log.warning("%s %s -> %s: %s", request.method, request.url.path, type(exc).__name__, exc)
     return JSONResponse(
         status_code=422,
         content={"error": type(exc).__name__, "message": str(exc)},
@@ -351,6 +361,12 @@ async def judge_qa_answer(session_id: str, payload: dict):
             transcript=Transcript.from_dict(raw_transcript) if raw_transcript else None,
             history=payload.get("history") or [],
             context=Context.from_dict((session.context if session else None) or {}),
+            # 「모르겠어요」 버튼. 타이핑으로 포기해도 f09 가 알아서 같은 길로 보낸다
+            give_up=bool(payload.get("give_up")),
+            # 이 질문에 앞서 낸 답변들. 판정은 누적 전체를 본다 (f09._answer_block).
+            prior_answers=[
+                str(a) for a in (payload.get("prior_answers") or []) if str(a).strip()
+            ],
             llm=llm,
         )
     )
@@ -415,6 +431,8 @@ async def flat_parse(request: Request):
     try:
         log.info("flat parse start file=%r bytes=%d", upload.filename, len(data))
         doc = await run_in_threadpool(parse_document, tmp_path)
+        # parse_document 는 임시파일 이름을 넣는다. 화면에는 올린 파일 이름을 보여준다.
+        doc.file_name = upload.filename or doc.file_name
         log.info("flat parse done slides=%d", doc.total_slides)
         return doc.to_dict()
     finally:
@@ -452,6 +470,92 @@ async def flat_concepts(payload: dict):
         lambda: extract_concepts(doc, ctx, transcript=transcript, llm=llm)
     )
     return result.to_dict()
+
+
+@app.post("/api/v1/graph")
+async def flat_graph(payload: dict):
+    """F-07 · {concept_doc, slide_doc?, context} → ConceptGraph."""
+    if not payload.get("concept_doc"):
+        raise HTTPException(400, {"error": "bad_request", "message": "concept_doc 이 필요합니다."})
+    doc = ConceptDoc.from_dict(payload["concept_doc"])
+    ctx = Context.from_dict(payload.get("context") or {})
+    slide_doc = SlideDoc.from_dict(payload["slide_doc"]) if payload.get("slide_doc") else None
+    llm = "mock" if settings.mock_external else payload.get("llm")
+    result = await run_in_threadpool(
+        lambda: build_graph(doc, ctx, slide_doc=slide_doc, llm=llm)
+    )
+    return result.to_dict()
+
+
+@app.post("/api/v1/alignment")
+async def flat_alignment(payload: dict):
+    """F-11 · {graph, transcript, context} → AlignmentDoc."""
+    if not payload.get("graph") or not payload.get("transcript"):
+        raise HTTPException(
+            400, {"error": "bad_request", "message": "graph 와 transcript 가 필요합니다."}
+        )
+    graph = ConceptGraph.from_dict(payload["graph"])
+    transcript = Transcript.from_dict(payload["transcript"])
+    ctx = Context.from_dict(payload.get("context") or {})
+    llm = "mock" if settings.mock_external else payload.get("llm")
+    result = await run_in_threadpool(
+        lambda: align_speech(graph, transcript, ctx, llm=llm)
+    )
+    return result.to_dict()
+
+
+@app.post("/api/v1/questions")
+async def flat_questions(payload: dict):
+    """F-08 · {graph, alignment?, flow?, transcript?, context, track} → QuestionDoc.
+
+    alignment 은 선택이다. 세션 라우트와 같은 규칙 — 개념 그래프만 있으면 만든다.
+    녹음 없이 자료만 올린 경로에는 정합 판정 자체가 없기 때문이다
+    (triage_questions 계약: "그래프만으로도 동작한다").
+    """
+    if not payload.get("graph"):
+        raise HTTPException(
+            400, {"error": "bad_request", "message": "graph 가 필요합니다."}
+        )
+    graph = ConceptGraph.from_dict(payload["graph"])
+    alignment = (
+        AlignmentDoc.from_dict(payload["alignment"]) if payload.get("alignment") else None
+    )
+    flow = FlowDiff.from_dict(payload["flow"]) if payload.get("flow") else None
+    transcript = Transcript.from_dict(payload["transcript"]) if payload.get("transcript") else None
+    ctx = Context.from_dict(payload.get("context") or {})
+
+    track = str(payload.get("track") or QA_TRACK_FALLBACK)
+    if track not in QA_TRACKS:
+        track = QA_TRACK_FALLBACK
+    llm = "mock" if settings.mock_external else payload.get("llm")
+
+    def run() -> QuestionDoc:
+        triage = triage_questions(graph, alignment, flow, ctx, transcript=transcript, llm=llm)
+        return build_questions(
+            graph,
+            triage,
+            track=track,
+            alignment=alignment,
+            flow=flow,
+            transcript=transcript,
+            context=ctx,
+            llm=llm,
+        )
+
+    doc = await run_in_threadpool(run)
+    return doc.to_dict()
+
+
+@app.post("/api/v1/flow")
+async def flat_flow(payload: dict):
+    """F-11 파생 · {graph, alignment} → FlowDiff. LLM 없는 순수 계산."""
+    if not payload.get("graph") or not payload.get("alignment"):
+        raise HTTPException(
+            400, {"error": "bad_request", "message": "graph 와 alignment 가 필요합니다."}
+        )
+    graph = ConceptGraph.from_dict(payload["graph"])
+    alignment = AlignmentDoc.from_dict(payload["alignment"])
+    return build_flow_diff(graph, alignment).to_dict()
 
 
 # ---------------------------------------------------------------------------

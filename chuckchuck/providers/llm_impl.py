@@ -51,7 +51,16 @@ class MockLLM(LLMProvider):
 
     name = "mock"
 
-    def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096) -> str:
+    def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        temperature: float = 0.2,
+        max_tokens: int = 4096,
+        json_mode: bool = False,
+    ) -> str:
+        # 가짜 LLM 은 늘 JSON 만 낸다 — json_mode 는 받기만 하고 무시한다
         if "[TASK] concept-graph" in user:
             return self._mock_graph(user)
         if "[TASK] speech-alignment" in user:
@@ -145,7 +154,7 @@ class MockLLM(LLMProvider):
 
     @staticmethod
     def _mock_questions(user: str) -> str:
-        """F-08 2차용 가짜 질문. 대상 id 마다 문장 셋을 하나씩 채운다."""
+        """F-08 2차용 가짜 질문. 대상 id 마다 문장 넷을 하나씩 채운다."""
         ids = _ids_in_prompt(user) or ["n1"]
         questions = [
             {
@@ -153,6 +162,7 @@ class MockLLM(LLMProvider):
                 "question": f"{nid} 개념을 자기 말로 설명해 주시겠어요?",
                 "why": "모의 근거 — 자료가 비중을 둔 개념이에요",
                 "hint": "근거 슬라이드를 떠올려 보세요",
+                "answer_gist": f"모의 골자 — {nid} 는 이런 이유로 이렇게 동작한다",
             }
             for nid in ids
         ]
@@ -172,6 +182,11 @@ class MockLLM(LLMProvider):
                 "react": "모의 반응 — 그렇게 설명하시면 됩니다.",
                 "summary_sentence": "모의 총평 한 문장",
                 "missing_points": [] if verdict == "good" else ["모의 누락 포인트"],
+                # 짧게 답하면(partial) 되묻는 경로를 타야 한다. good 이면 후처리가 비운다.
+                "followup": (
+                    "" if verdict == "good"
+                    else "모의 후속 질문 — 근거를 하나만 더 들어 주시겠어요?"
+                ),
             },
             ensure_ascii=False,
         )
@@ -261,6 +276,7 @@ class OpenAICompatLLM(LLMProvider):
         user: str,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        json_mode: bool = False,
     ) -> str:
         url = f"{self.base_url}/chat/completions"
         headers = {
@@ -277,6 +293,10 @@ class OpenAICompatLLM(LLMProvider):
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if json_mode:
+            # 프롬프트 지시만으로는 모델이 한 줄 JSON 안에 이스케이프 안 된 따옴표를
+            # 넣어 파싱이 깨진다. OpenAI 호환 제공자는 이 필드로 구조를 강제한다.
+            payload["response_format"] = {"type": "json_object"}
         res = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
         if res.status_code != 200:
             raise ConceptError(

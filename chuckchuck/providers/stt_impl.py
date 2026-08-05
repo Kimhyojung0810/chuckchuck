@@ -106,6 +106,22 @@ class AxSTT(STTProvider):
     def _headers(self) -> dict[str, str]:
         return {"X-API-Key": self.api_key}
 
+    @staticmethod
+    def _json_or_error(res: requests.Response, step: str) -> dict:
+        """게이트웨이가 200 으로 HTML 차단 페이지를 주기도 한다. 본문부터 확인한다."""
+        try:
+            return res.json()
+        except ValueError:
+            hint = (
+                " — 게이트웨이(WAF)가 업로드 본문을 거부했습니다. 오디오를 다시 인코딩해 보세요."
+                if "Request Rejected" in res.text
+                else ""
+            )
+            raise STTError(
+                f"A.X STT {step} 응답이 JSON 이 아닙니다 "
+                f"[{res.status_code} {res.headers.get('content-type', '?')}]{hint}: {res.text[:300]}"
+            ) from None
+
     def _upload(self, audio_path: Path) -> str:
         size = audio_path.stat().st_size
         tok_res = requests.get(
@@ -118,7 +134,7 @@ class AxSTT(STTProvider):
             raise STTError(
                 f"A.X STT upload-token 실패 {tok_res.status_code}: {tok_res.text[:300]}"
             )
-        upload_token = tok_res.json().get("upload_token")
+        upload_token = self._json_or_error(tok_res, "upload-token").get("upload_token")
         if not upload_token:
             raise STTError(f"upload_token 없음: {tok_res.text[:300]}")
 
@@ -137,7 +153,7 @@ class AxSTT(STTProvider):
             raise STTError(
                 f"A.X STT upload 실패 {up_res.status_code}: {up_res.text[:300]}"
             )
-        file_key = up_res.json().get("file_key")
+        file_key = self._json_or_error(up_res, "upload").get("file_key")
         if not file_key:
             raise STTError(f"file_key 없음: {up_res.text[:300]}")
         return file_key
@@ -165,7 +181,7 @@ class AxSTT(STTProvider):
         if res.status_code != 200:
             raise STTError(f"A.X STT transcript 실패 {res.status_code}: {res.text[:300]}")
 
-        return self._parse(res.json())
+        return self._parse(self._json_or_error(res, "transcript"))
 
     @staticmethod
     def _parse(body: dict) -> tuple[str, list[Word]]:

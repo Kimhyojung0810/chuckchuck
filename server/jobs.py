@@ -270,6 +270,7 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
         triage,
         track=track,
         alignment=alignment,
+        flow=flow,
         transcript=transcript,
         context=ctx,
         llm=llm,

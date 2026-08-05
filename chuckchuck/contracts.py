@@ -924,7 +924,7 @@ QA_TRACKS = ("1", "5", "10")
 QA_TRACK_FALLBACK = "10"
 
 #: 트랙 → 질문 개수 상한. 1분=핵심만, 5분=핵심+놓친 것, 10분=정복.
-QA_TRACK_LIMITS = {"1": 1, "5": 3, "10": 8}
+QA_TRACK_LIMITS = {"1": 1, "5": 3, "10": 7}
 
 #: 트랙 → 함정 질문(자료와 어긋난 주장으로 찔러보기) 허용 개수.
 #: 1분 트랙은 방어 연습할 시간이 없어 함정을 넣지 않는다.
@@ -936,8 +936,29 @@ QA_SEVERITY_FALLBACK = 2
 
 #: 이 질문이 뽑힌 **결정적 근거**. 리포트가 "왜 이걸 묻나" 를 설명할 때 쓴다.
 #: 우선순위도 이 순서다 (모순 > 누락 > 흐름 결손 > 자료 비중).
-QA_SOURCES = ("contradiction", "missing", "weak_flow", "core_weight")
+#: 질문 후보가 된 결정적 근거. **순서가 곧 우선순위다** (_SOURCE_RANK 가 이 순서를 쓴다).
+#: 확인된 결손이 앞이고 "그냥 중요하다" 는 맨 뒤다 —
+#: 모순(자료와 어긋남) > 누락(아예 안 다룸) > 얕음(중요한데 설명 부족)
+#: > 흐름 결손(연결을 안 지음) > 즉흥 개념(발화에만 있음) > 자료 비중 > 정당생략.
+#: extra 가 core_weight 보다 앞인 것은 의도된 것이다 — 발표자가 **실제로 입 밖에 낸**
+#: 개념이라 되물을 근거가 확실하고, core_weight 는 크다는 이유뿐이기 때문이다.
+#: justified_skip 이 core_weight 보다도 뒤인 것도 의도된 것이다 — 리포트가
+#: "생략이 합리적" 이라 말한 개념을 자료 weight 가 크다는 이유로 앞세우면
+#: 두 화면이 어긋난다. 버리지는 않는다 — 트랙 상한에 여유가 있으면 여전히 물어본다.
+QA_SOURCES = (
+    "contradiction", "missing", "under_spoken", "weak_flow", "extra",
+    "core_weight", "justified_skip",
+)
 QA_SOURCE_FALLBACK = "core_weight"
+
+#: doc_weight − speech_weight 가 이만큼 벌어지면 '중요도 대비 설명 부족'(under_spoken).
+#: SCHEMA §7-F 가 같은 격차를 쓰고 있어 값을 맞춘다 — 리포트와 질문이 같은 선을 봐야
+#: 사용자가 두 화면을 믿을 수 있다.
+QA_UNDER_SPOKEN_GAP = 0.4
+
+#: extra_concepts 에서 질문 후보로 올릴 최대 개수. 즉흥 발화가 많은 발표에서
+#: 자료 기반 질문이 통째로 밀려나면 안 된다.
+QA_EXTRA_MAX = 3
 
 #: 답변 판정 4-class. 프론트 LIVE_VERDICT 키와 동일하다.
 #: (`skipped` 는 질문을 넘겼을 때 프론트가 로컬로 붙이는 값이라 여기 없다.)
@@ -947,8 +968,40 @@ QA_VERDICT_FALLBACK = "unknown"
 #: verdict 만 오고 score 가 없을 때 채워 넣는 기본 점수 (0~100).
 QA_VERDICT_SCORES = {"good": 85, "partial": 55, "wrong": 20, "unknown": 0}
 
+#: 이 점수 이상이면 '정답 계열' 로 보고 되묻기를 멈춘다.
+#: 실전 코칭은 턴 상한이 없으므로 **이 임계 하나가 대화의 유일한 출구다.**
+#: 너무 높으면 대화가 실제로 안 끝나고, 너무 낮으면 얕은 답이 통과한다.
+#: partial 기본값 55 와 good 기본값 85 사이 — "방향도 맞고 근거도 어느 정도 댔다" 구간.
+QA_PASS_SCORE = 70
+
+
+def qa_passed(verdict: str, score: int) -> bool:
+    """
+    이 답변을 정답 계열로 인정할지. **판정 규칙은 여기 한 곳에만 둔다.**
+
+    프론트가 임계를 따로 계산하면 서버와 어긋나는 순간 화면이 모순된다 —
+    '설득 완료' 칩을 띄워 놓고 되묻는 식으로. 그래서 QaJudgement.to_dict() 가
+    이 결과를 `passed` 로 실어 보내고, 프론트는 그 불리언만 읽는다.
+
+    verdict 가 good 이면 점수와 무관하게 통과다. 등급과 점수가 어긋날 때는
+    등급을 믿는다 — 사용자에게 보이는 것이 등급이기 때문이다.
+    """
+    return verdict == "good" or score >= QA_PASS_SCORE
+
+
 #: 대사 길이 상한. 화면 말풍선이 감당하는 길이다.
 QA_TEXT_MAX = 200
+
+#: 막힘 코칭 단계. verdict 를 4-class 로 유지하기 위해 **별도 축**으로 둔다 —
+#: 5번째 verdict 를 만들면 qa_passed·점수표·프론트 배지 맵이 전부 흔들린다.
+#:   ""        평시 판정
+#:   narrow    1차 포기 — 답을 주지 않고 더 쉬운 되물음으로 한 발 끌어준다
+#:   explain   2차 포기 — 해설하고 이 질문을 닫는다
+QA_COACH_STAGES = ("", "narrow", "explain")
+
+#: 해설 길이 상한. QA_TEXT_MAX 보다 길다 — 해설은 말풍선 한 마디가 아니라
+#: "이렇게 답했어야 한다" 를 근거까지 붙여 설명하는 문단이기 때문이다.
+QA_EXPLAIN_MAX = 500
 
 
 @dataclass
@@ -1043,6 +1096,9 @@ class Question:
     source: str = QA_SOURCE_FALLBACK       # 파생: 뽑힌 결정적 근거
     slide_nos: list[int] = field(default_factory=list)  # 근거 장
     doc_weight: float = 0.0                # 파생: F-07 weight 복사
+    #: 이 질문에 기대하는 답의 골자. 되묻기가 끝날 때 "그래서 뭐라고 답했어야 하나" 를
+    #: 보여 주는 재료다. 대화가 끝났는데 답을 모른 채면 코칭이 실패한 것이므로 비워 두지 않는다.
+    answer_gist: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -1057,6 +1113,7 @@ class Question:
             "source": self.source,
             "slide_nos": list(self.slide_nos),
             "doc_weight": self.doc_weight,
+            "answer_gist": self.answer_gist,
         }
 
     @classmethod
@@ -1078,6 +1135,7 @@ class Question:
             source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
             slide_nos=[int(n) for n in d.get("slide_nos", [])],
             doc_weight=float(d.get("doc_weight", 0.0)),
+            answer_gist=str(d.get("answer_gist", "") or ""),
         )
 
 
@@ -1178,6 +1236,23 @@ class QaJudgement:
     summary_sentence: str = ""             # 이 개념에 대한 총평 한 문장
     missing_points: list[str] = field(default_factory=list)  # 답변에서 빠진 포인트
     model: str = ""
+    #: 정답 계열에 못 미칠 때 되물을 후속 질문. 원래 질문을 반복하지 않고
+    #: 빠진 지점을 겨냥한다. 통과한 답에는 빈 문자열이다.
+    followup: str = ""
+    #: 힌트 사다리 (방향 → 범위 → 근접). f08_questions.build_hint_ladder 가 만든다.
+    #: 판정에 함께 실어 보내 프론트가 추가 왕복 없이 즉시 보여 줄 수 있게 한다.
+    hints: list[str] = field(default_factory=list)
+    #: 막힘 코칭 단계 (QA_COACH_STAGES). "" 면 평시 판정이다.
+    #: **단계는 서버가 history 로 계산한다** — 프론트가 들고 있으면 저장된 옛 세션에서
+    #: 값이 비고, 질문마다 초기화하는 것도 빠뜨리기 쉽다.
+    coach_stage: str = ""
+    #: coach_stage == "explain" 일 때 채우는 해설. 다른 단계에서는 빈 문자열이다.
+    explanation: str = ""
+
+    @property
+    def passed(self) -> bool:
+        """정답 계열인가. 되묻기를 멈출지 정하는 유일한 출구다."""
+        return qa_passed(self.verdict, self.score)
 
     def to_dict(self) -> dict:
         return {
@@ -1189,11 +1264,18 @@ class QaJudgement:
             "summary_sentence": self.summary_sentence,
             "missing_points": list(self.missing_points),
             "model": self.model,
+            "followup": self.followup,
+            "hints": list(self.hints),
+            "coach_stage": self.coach_stage,
+            "explanation": self.explanation,
+            # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다
+            "passed": self.passed,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "QaJudgement":
         verdict = str(d.get("verdict", QA_VERDICT_FALLBACK) or "")
+        coach_stage = str(d.get("coach_stage", "") or "")
         try:
             score = int(d.get("score", 0) or 0)
         except (TypeError, ValueError):
@@ -1207,6 +1289,11 @@ class QaJudgement:
             summary_sentence=str(d.get("summary_sentence", "") or ""),
             missing_points=[str(x) for x in d.get("missing_points", [])],
             model=d.get("model", ""),
+            followup=str(d.get("followup", "") or ""),
+            hints=[str(x) for x in d.get("hints", [])],
+            coach_stage=coach_stage if coach_stage in QA_COACH_STAGES else "",
+            explanation=str(d.get("explanation", "") or ""),
+            # `passed` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다
         )
 
 

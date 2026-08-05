@@ -218,7 +218,7 @@ export async function parseDocument({ file = null, fixture = false } = {}) {
 }
 
 /** F-05(+F-06): 녹음 → Transcript, slideDoc 있으면 ConceptDoc */
-export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, context, onProgress }) {
+export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, slideDoc, context, onProgress }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -227,7 +227,8 @@ export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, cont
 
   report('encoding', '오디오 준비 중');
   const audio_base64 = blob ? await blobToBase64(blob) : null;
-  const ext = (mimeType || '').includes('mp4') ? '.m4a' : '.webm';
+  // 업로드 파일은 실제 확장자를 그대로 쓴다. 라이브 녹음만 MIME 으로 추정한다.
+  const ext = extHint || ((mimeType || '').includes('mp4') ? '.m4a' : '.webm');
 
   report('stt', 'A.X STT로 음성을 글로 바꾸는 중');
   const sttRes = await fetch('/api/v1/transcribe', {
@@ -351,7 +352,14 @@ export async function runPreparePipeline({ marks, blob, mimeType, slideDoc, cont
 const QA_API_BASE_KEY = 'cheokcheok:qaApiBase';
 // 실전 QA 는 세션 라우트(/api/v1/sessions/...)가 필요하므로 FastAPI 서버(python -m server)를
 // 가리킨다. 세션 없는 데모 브리지(python -m demo.bridge, 8787)로는 이 흐름이 돌지 않는다.
-const QA_API_DEFAULT = 'http://localhost:8000';
+// 이 페이지를 띄운 서버가 곧 그 FastAPI 서버이므로 같은 오리진을 기본값으로 쓴다.
+// (8001 로 띄웠을 때 flat 경로만 8001, 세션 경로는 8000 으로 갈라지는 것을 막는다.)
+const QA_API_FALLBACK = 'http://localhost:8000';
+const QA_API_DEFAULT = (() => {
+  try {
+    return location.protocol.startsWith('http') ? location.origin : QA_API_FALLBACK;
+  } catch (_) { return QA_API_FALLBACK; }
+})();
 
 export function qaApiBase() {
   try {
@@ -400,12 +408,62 @@ async function qaPollJob(jobId, onDetail, { intervalMs = 1500, timeoutMs = 42000
   }
 }
 
+/** 질문 생성 한계 시간. 실 LLM 은 보통 10~15초. 포트 포워딩·프록시를 거치면
+ *  요청이 그대로 멈춰 있을 수 있어, 없으면 화면이 영원히 로딩에 갇힌다. */
+const QUESTIONS_TIMEOUT_MS = 60000;
+
+/** F-08: 내 그래프·정합으로 예상 질문을 만든다 (새 발표 플로우용 플랫 경로) */
+export async function buildQuestions({ graph, alignment, flow, transcript, context, track }) {
+  const control = new AbortController();
+  const timer = setTimeout(() => control.abort(), QUESTIONS_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch('/api/v1/questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        graph,
+        alignment,
+        flow: flow || null,
+        transcript: transcript ? slimTranscript(transcript) : null,
+        context: context || {},
+        track: track || '10',
+      }),
+      signal: control.signal,
+    });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`질문 생성이 ${Math.round(QUESTIONS_TIMEOUT_MS / 1000)}초 안에 끝나지 않았어요.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+  const doc = await res.json();
+  if (!res.ok || doc.error) {
+    throw new Error(doc.message || doc.error || `questions HTTP ${res.status}`);
+  }
+  return doc;
+}
+
+/** 오디오 메타데이터를 기다리는 한계 시간 */
+const AUDIO_META_TIMEOUT_MS = 5000;
+
 /** 업로드한 녹음 파일 길이(초). 못 읽으면 0. */
 export function audioDuration(file) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const a = new Audio();
-    const done = (sec) => { URL.revokeObjectURL(url); resolve(sec); };
+    let settled = false;
+    const done = (sec) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      resolve(sec);
+    };
+    // 코덱을 못 읽는 브라우저에선 loadedmetadata·error 둘 다 안 오기도 한다 — 무한 대기 방지
+    const timer = setTimeout(() => done(0), AUDIO_META_TIMEOUT_MS);
     a.addEventListener('loadedmetadata', () => done(Number.isFinite(a.duration) ? a.duration : 0));
     a.addEventListener('error', () => done(0));
     a.src = url;
@@ -413,7 +471,7 @@ export function audioDuration(file) {
 }
 
 /* 임의 파일에는 슬라이드 마크가 없으니 길이를 슬라이드 수로 균등 분할 */
-function evenMarks(totalSlides, durationSec) {
+export function evenMarks(totalSlides, durationSec) {
   const n = Math.max(1, Math.floor(totalSlides) || 1);
   const dur = Math.max(1, durationSec || 60);
   const step = dur / n;
@@ -488,10 +546,24 @@ export async function runQaLivePipeline({ documentFile, audioFile, mode = '10', 
  * 질문 세트는 이 브라우저에 남아 있다. 세션이 사라졌을 때 서버는 이 값으로 판정한다
  * — 없으면 저장된 질문으로 답할 때마다 전부 '판정 실패' 가 된다.
  */
-export async function judgeQaAnswer(sessionId, { questionId, answer, history, question }) {
+export async function judgeQaAnswer(
+  sessionId,
+  { questionId, answer, history, question, giveUp, priorAnswers },
+) {
   return qaApi(`/api/v1/sessions/${sessionId}/qa/judge`, {
     method: 'POST',
-    json: { question_id: questionId, answer, history: history || [], question: question || null },
+    json: {
+      question_id: questionId,
+      answer,
+      history: history || [],
+      question: question || null,
+      // 이 질문에 앞서 낸 답변들. 판정은 마지막 한 마디가 아니라 누적 전체를 본다 —
+      // 되묻기가 증분 답변을 유도해 놓고 증분만 채점하면 좁혀 답한 쪽이 손해다.
+      prior_answers: priorAnswers || [],
+      // 「모르겠어요」 버튼. 몇 번째 막힘인지는 서버가 history 로 센다 —
+      // 여기서 단계를 들고 있으면 질문이 바뀔 때 초기화를 빠뜨린다.
+      give_up: !!giveUp,
+    },
   });
 }
 
@@ -516,6 +588,8 @@ window.ChuckchuckBridge = {
   qaApiBase,
   setQaApiBase,
   audioDuration,
+  buildQuestions,
+  evenMarks,
   runQaLivePipeline,
   judgeQaAnswer,
   RehearsalRecorder,

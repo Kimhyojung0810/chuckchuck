@@ -21,10 +21,13 @@ triage 는 트랙과 무관하므로 **세션에 한 번만** 만들고 재사�
 from __future__ import annotations
 
 import os
+from itertools import groupby
 
 from ._json_text import extract_json_object
 from .contracts import (
+    QA_EXTRA_MAX,
     QA_SEVERITIES,
+    QA_UNDER_SPOKEN_GAP,
     QA_SOURCE_FALLBACK,
     QA_SOURCES,
     QA_TEXT_MAX,
@@ -37,6 +40,8 @@ from .contracts import (
     ConceptNode,
     Context,
     FlowDiff,
+    FlowIssue,
+    QaJudgement,
     QaTriage,
     Question,
     QuestionDoc,
@@ -62,8 +67,51 @@ _SOURCE_RANK = {source: rank for rank, source in enumerate(QA_SOURCES)}
 #: weak_flow 로 볼 FlowDiff 이슈. good_link 는 잘한 것이라 질문 근거가 아니다.
 _WEAK_FLOW_KINDS = ("missing_link", "order_jump")
 
+#: 한 노드에 흐름 이슈가 겹칠 때 프롬프트에 실을 우선순위. 순서 역행이
+#: 연결 누락보다 앞이다 — "왜 이 순서로 설명했나" 가 더 구체적인 각도를 준다.
+_FLOW_KIND_RANK = {"order_jump": 0, "missing_link": 1}
+
+#: FlowIssue.note 가 비었을 때 kind 로 만드는 결정적 폴백 (구버전 산출물 방어).
+_FLOW_NOTE_FALLBACK = {
+    "order_jump": "자료 순서와 다른 순서로 말했어요",
+    "missing_link": "연결된 개념과 잇는 멘트가 없었어요",
+}
+
+#: weak_flow 의 why 폴백을 이슈 종류로 가른다. 순서 역행에 "연결이 안 드러났다"
+#: 를 붙이면 사용자가 질문 의도를 오해한다. flow 가 없어 종류를 모를 때는
+#: _WHY_BY_SOURCE 의 일반 문구가 그대로 쓰인다.
+_WHY_BY_FLOW_KIND = {
+    "order_jump": "자료 순서와 다르게 설명한 지점이라 그 의도를 확인하는 질문이에요",
+    "missing_link": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+}
+
 #: LLM 이 severity 를 안 줬을 때의 결정적 폴백 (source 기반).
-_SEVERITY_BY_SOURCE = {"contradiction": 1, "missing": 1, "weak_flow": 2}
+#: justified_skip 은 3 이다 — 리포트가 생략을 승인한 개념이라 못 답해도 넘어간다.
+_SEVERITY_BY_SOURCE = {
+    "contradiction": 1, "missing": 1, "under_spoken": 1, "weak_flow": 2, "extra": 2,
+    "justified_skip": 3,
+}
+
+#: sections[].slide_role → 질문 가치 순위. 표지·맺음말에만 나오는 개념은 자료가
+#: 아무리 크게 다뤘어도 심사 질문 대상이 아니다 ("감사합니다" 장의 개념을 물을 수 없다).
+#: 본론과 결론이 같은 순위인 것은 의도된 것이다 — 그 안의 서열은 weight 와
+#: triage severity 가 정한다. 여기서 가르는 것은 '물어볼 만한 구획인가' 하나뿐이다.
+_ROLE_RANK = {"body": 0, "conclusion": 0, "intro": 1, "closing": 2, "cover": 3}
+
+#: sections 가 없거나 이 개념의 장이 어느 구획에도 안 들어갈 때. **본론으로 본다** —
+#: 구획 정보가 없다는 이유로 질문 후보에서 밀어내면 F-07 이 sections 를 못 만든
+#: 발표에서 질문이 통째로 이상해진다.
+_ROLE_RANK_FALLBACK = 0
+
+#: 인접 강등에서 면제되는 근거. 모순·누락은 리포트가 이미 "문제" 라고 말한 개념이라,
+#: 옆 개념과 붙어 있다는 이유로 질문에서 밀어내면 두 화면이 어긋난다
+#: (_rerank 가 source 를 severity 위에 두는 것과 같은 이유다).
+_ADJACENCY_EXEMPT = ("contradiction", "missing", "under_spoken")
+
+#: 합성 노드 id 접두사. extra_concepts 는 그래프에 없는 개념이라 조인 키가 없다.
+#: **새 그래프를 만들지 않고** 이 네임스페이스로 기존 node_id 축에 얹는다 —
+#: `extra:` 로 시작하면 그래프 노드가 아니라는 뜻이고, 리포트는 이걸로 구분한다.
+EXTRA_ID_PREFIX = "extra:"
 
 #: 자료가 이만큼 힘준 개념은 근거가 core_weight 여도 '보통' 으로 본다.
 HEAVY_WEIGHT = float(os.environ.get("CHUCKCHUCK_QA_HEAVY_WEIGHT", "0.5"))
@@ -91,8 +139,11 @@ def _quota(total: int, share: float) -> int:
 _WHY_BY_SOURCE = {
     "contradiction": "발표 내용이 자료와 어긋난 지점이라 확인이 필요해요",
     "missing": "자료에는 있는데 발표에서 설명하지 않은 개념이에요",
+    "under_spoken": "자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요",
     "weak_flow": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+    "extra": "자료에는 없는데 발표에서 직접 꺼낸 개념이에요",
     "core_weight": "자료가 가장 큰 비중을 둔 핵심 개념이에요",
+    "justified_skip": "발표에서 생략해도 괜찮았던 개념이지만, 질문이 나올 수 있어요",
 }
 
 TRIAGE_SYSTEM_PROMPT = """당신은 발표 심사위원의 질문을 예측하는 코치다.
@@ -125,7 +176,11 @@ severity=1 을 준 개념 하나만 물어보게 된다. 그러니 severity 는 
 3. **아래 '배분' 에 적힌 개수를 지켜라.** 개념 목록 순서와 무관하게, 전체를 다 본 뒤
    가장 치명적인 것부터 골라 1 을 배정하라.
 4. '근거' 가 모순·누락인 개념은 이미 문제가 확인된 것이다. severity 를 후하게 주지 마라.
-5. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+5. '발표에서 실제로 한 말' 이 (aligned) 인 개념은 이미 잘 설명한 개념이다.
+   정의를 확인하는 각도 대신 **심화·응용·한계**를 파고드는 각도를 잡아라.
+6. '근거' 가 justified_skip 인 개념은 생략이 합리적이라고 이미 판정된 것이다.
+   severity 는 3 이 기본이다 — 못 답해도 넘어갈 개념이다.
+7. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마:
 {
@@ -140,12 +195,15 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
 '질문 대상' 개념마다 실제로 던질 **질문 문장**을 쓴다.
 
 무엇을 물을지는 이미 정해져 있다. 너는 대상을 바꾸지 않는다.
-개념마다 다음 셋만 쓴다:
+개념마다 다음 넷만 쓴다:
 
 - question: 심사위원이 실제로 말할 질문 한 문장. 존댓말. 200자 이내.
   주어진 '각도' 를 살려라. 자료에 없는 사실을 지어내지 마라.
 - why: 왜 이걸 묻는지 한 줄. 발표자에게 보여 줄 설명이다.
 - hint: 막혔을 때 줄 힌트 한 줄. 답을 그대로 말하지 말고 방향만 준다.
+- answer_gist: 이 질문에 기대하는 **답의 골자** 한두 줄. 발표자가 끝내 못 답했을 때
+  "이렇게 답했어야 한다" 로 보여 줄 내용이다. **자료에 있는 내용만** 쓰고 지어내지 마라.
+  질문이 아니라 답을 써라 — 물음표로 끝나면 안 된다.
 
 trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 질문으로 쓴다
 ("~라고 하셨는데, 사실 반대 아닌가요?" 꼴). trap=false 면 그냥 묻는다.
@@ -154,13 +212,16 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
 1. questions 에는 '질문 대상' 의 node_id 만 쓴다. 지어내면 버려진다.
 2. 대상마다 정확히 하나씩. 한 개념에 두 질문을 쓰지 마라.
 3. 발표 태도·말투·발음을 묻지 마라. 내용만 묻는다.
-4. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+4. '발표에서 한 말' 이 (aligned) 인 개념은 이미 설명에 성공한 개념이다.
+   같은 설명을 되풀이하게 하지 말고 **심화·응용·한계**를 묻는 질문을 써라.
+5. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마:
 {
   "questions": [
     { "node_id": "joint", "question": "질문 한 문장",
-      "why": "왜 묻는지 한 줄", "hint": "방향만 주는 힌트" }
+      "why": "왜 묻는지 한 줄", "hint": "방향만 주는 힌트",
+      "answer_gist": "기대하는 답의 골자 한두 줄" }
   ]
 }
 """
@@ -206,8 +267,110 @@ def _source_by_node(
         for item in alignment.items:
             if item.verdict in ("contradiction", "missing"):
                 claim(item.node_id, item.verdict)
+            elif item.verdict == "justified_skip":
+                # 리포트가 "생략이 합리적" 이라 한 개념은 서열 맨 뒤로 보낸다 —
+                # 자료 weight 가 크다는 이유로 잘 설명한 개념보다 먼저 캐물으면
+                # 두 화면이 어긋난다. 승격이 아니라 강등이라 claim 을 못 쓰고
+                # 직접 대입한다. 이미 모순·누락이 붙은 노드는 건드리지 않는다 —
+                # 확인된 문제를 정당생략이 덮을 수 없다. weak_flow 는 덮는다:
+                # 생략이 합리적이면 그 개념의 연결 결손도 캐물을 일이 아니다.
+                if found.get(item.node_id) in ("weak_flow", QA_SOURCE_FALLBACK):
+                    found[item.node_id] = "justified_skip"
+            elif item.doc_weight - item.speech_weight > QA_UNDER_SPOKEN_GAP:
+                # 자료는 크게 다뤘는데 발화가 짧았던 개념. 두 축이 이미 같은 node_id 로
+                # 조인돼 있어 뺄셈 한 번이면 나온다 — LLM 이 필요 없다.
+                # justified_skip 은 위 분기에서 이미 갈라졌다.
+                claim(item.node_id, "under_spoken")
 
     return found
+
+
+def _extra_nodes(alignment: AlignmentDoc | None) -> list[ConceptNode]:
+    """
+    발화에만 나온 개념(extra_concepts)을 질문 후보용 **합성 노드**로 만든다.
+
+    그래프에 없는 개념이라 조인 키가 없다. **새 그래프를 만들지 않고** `extra:`
+    네임스페이스로 기존 node_id 축에 얹는다 — F-11 이 발화 그래프를 따로 뽑지 않고
+    노드 목록에 조건화한 것과 같은 이유다. 여기서 축을 하나 더 만들면 리포트가
+    두 축을 조인해야 하고, 그 순간 추출 분산이 실력을 덮는다.
+
+    weight 는 0.0 이다. 자료가 배분한 양이 실제로 없는 개념이라 그렇게 두는 것이
+    정직하다 — 이 후보의 순위는 근거(source='extra')가 정하지 weight 가 정하지 않는다.
+
+    label 로 중복을 제거하고 QA_EXTRA_MAX 까지만 올린다. 입력 순서를 보존하므로
+    같은 AlignmentDoc 이면 언제나 같은 후보가 나온다.
+    """
+    if alignment is None:
+        return []
+    nodes: list[ConceptNode] = []
+    seen: set[str] = set()
+    for extra in alignment.extra_concepts:
+        label = (extra.label or "").strip()
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        nodes.append(ConceptNode(
+            id=f"{EXTRA_ID_PREFIX}{label}",
+            label=label,
+            slide_nos=[extra.slide_no] if extra.slide_no else [],
+            summary=(extra.quote or "").strip(),
+            weight=0.0,
+        ))
+        if len(nodes) >= QA_EXTRA_MAX:
+            break
+    return nodes
+
+
+def _flow_issue_by_node(flow: FlowDiff | None) -> dict[str, FlowIssue]:
+    """
+    weak_flow 근거가 된 이슈를 노드마다 하나씩. **프롬프트 재료로만** 쓴다 —
+    순위는 여전히 source 가 정하므로 이 맵이 순서를 바꾸지 않는다.
+
+    같은 노드에 이슈가 겹치면 order_jump 가 이긴다 (_FLOW_KIND_RANK).
+    good_link 는 잘한 것이라 여기 들어오지 않는다.
+    """
+    if flow is None:
+        return {}
+    found: dict[str, FlowIssue] = {}
+    for issue in flow.issues:
+        if issue.kind not in _WEAK_FLOW_KINDS:
+            continue
+        for node_id in issue.node_ids:
+            held = found.get(node_id)
+            if held is None or _FLOW_KIND_RANK[issue.kind] < _FLOW_KIND_RANK[held.kind]:
+                found[node_id] = issue
+    return found
+
+
+def _flow_line(issue: FlowIssue) -> str:
+    """
+    프롬프트에 붙일 '흐름:' 한 줄. F-11 이 만든 note 가 곧 사람이 읽을 설명이라
+    ("'B' 을(를) 상위 개념 'A' 보다 먼저 말했어요") 그대로 싣는다 — 여기서
+    문장을 다시 만들면 리포트 화면과 다른 말이 된다.
+    """
+    note = (issue.note or "").strip() or _FLOW_NOTE_FALLBACK[issue.kind]
+    return f"흐름({issue.kind}): {note}"
+
+
+def _role_rank_of(graph: ConceptGraph, node: ConceptNode) -> int:
+    """
+    이 개념이 앉은 구획(sections[].slide_role)의 질문 가치 순위.
+
+    여러 구획에 걸치면 **가장 앞선 것**을 쓴다 — 표지와 본론에 동시에 나오는 개념은
+    본론 개념으로 본다. 한 장이라도 본론에서 다뤘으면 물어볼 거리가 있다는 뜻이다.
+
+    slide_nos 가 조인 키다 (SCHEMA §6-B). sections 를 안 만든 그래프에서는
+    전부 폴백(본론)이 되어 기존 순서와 같아진다.
+    """
+    if not node.slide_nos or not graph.sections:
+        return _ROLE_RANK_FALLBACK
+    covered = set(node.slide_nos)
+    ranks = [
+        _ROLE_RANK.get(section.slide_role, _ROLE_RANK_FALLBACK)
+        for section in graph.sections
+        if covered & set(section.slide_nos)
+    ]
+    return min(ranks) if ranks else _ROLE_RANK_FALLBACK
 
 
 def _ordered_candidates(
@@ -218,20 +381,35 @@ def _ordered_candidates(
     """
     질문 후보를 결정적 우선순위로 정렬해 CANDIDATE_LIMIT 까지 자른다.
 
-    근거 우선순위 → 자료 weight 내림차순 → 앞 슬라이드 → id 순.
-    뒤 두 단계는 동률을 깨려고 있다 — 같은 그래프면 언제나 같은 순서가 나온다.
+    근거 우선순위 → 구획 역할 → 자료 weight 내림차순 → 요약 유무
+    → 앞 슬라이드 → id 순.
+
+    구획 역할이 weight 위에 있는 것은 의도된 것이다. 표지·맺음말에만 나오는 개념은
+    자료가 크게 다뤘어도 심사위원이 물을 대상이 아니라서, 크기보다 **어느 구획에
+    앉았는가**가 먼저다. 본론·결론은 같은 순위라 그 안에서는 weight 가 그대로 정한다.
+
+    요약(summary)이 빈 개념은 뒤로 민다 — 질문 문장을 쓸 재료가 없어 LLM 이
+    사전식 정의 질문밖에 못 쓴다. 버리지는 않는다, 그것뿐인 그래프도 있다.
+
+    마지막 두 단계는 동률을 깨려고 있다 — 같은 그래프면 언제나 같은 순서가 나온다.
     """
     source_of = _source_by_node(graph, alignment, flow)
+    # 발화에만 나온 개념도 같은 축에서 같은 규칙으로 줄 세운다.
+    extras = _extra_nodes(alignment)
+    for extra in extras:
+        source_of[extra.id] = "extra"
 
     def sort_key(node: ConceptNode) -> tuple:
         return (
             _SOURCE_RANK[source_of[node.id]],
+            _role_rank_of(graph, node),
             -node.weight,
+            0 if (node.summary or "").strip() else 1,
             min(node.slide_nos) if node.slide_nos else _NO_SLIDE,
             node.id,
         )
 
-    ranked = sorted(graph.nodes, key=sort_key)[:CANDIDATE_LIMIT]
+    ranked = sorted([*graph.nodes, *extras], key=sort_key)[:CANDIDATE_LIMIT]
     return [(node, source_of[node.id]) for node in ranked]
 
 
@@ -276,7 +454,7 @@ def _engine(llm: str | LLMProvider | None, llm_kwargs: dict | None) -> LLMProvid
 
 def _call(engine: LLMProvider, system: str, user: str) -> dict:
     """LLM 한 번 부르고 JSON 객체로. 파싱 실패는 QuestionError 로 감싼다."""
-    raw = engine.complete(system=system, user=user, temperature=0.3, max_tokens=MAX_TOKENS)
+    raw = engine.complete(system=system, user=user, temperature=0.3, max_tokens=MAX_TOKENS, json_mode=True)
     try:
         return extract_json_object(raw)
     except ValueError as e:
@@ -356,6 +534,7 @@ def _build_triage_prompt(
     alignment: AlignmentDoc | None,
     transcript: Transcript | None,
     ctx: Context,
+    flow: FlowDiff | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-triage",
@@ -373,13 +552,21 @@ def _build_triage_prompt(
         "## 개념 목록 — 심사 대상. marks 에 이 id 가 전부 나와야 한다",
         "(id) 개념이름 [근거 슬라이드] w=자료가 배분한 중요도 · 근거=후보가 된 이유",
         "경로는 위계(parent), 연결은 그 밖의 논리 관계(relates)다.",
+        "흐름은 발표에서 확인된 순서·연결 문제다 — order_jump 는 \"왜 이 순서로",
+        "설명했는지\", missing_link 는 \"두 개념의 관계\" 를 묻는 각도가 된다.",
         "",
     ]
-    for line, (node, _) in zip(_node_lines(pairs), pairs):
+    flow_of = _flow_issue_by_node(flow)
+    for line, (node, source) in zip(_node_lines(pairs), pairs):
         parts.append(line)
         relation = _relation_line(node, graph)
         if relation:
             parts.append(f"    {relation}")
+        # 흐름 상세는 근거가 weak_flow 인 개념에만 붙인다 — 다른 근거로 뽑힌
+        # 개념에 이슈까지 얹으면 LLM 이 근거를 섞어 각도를 잡는다.
+        issue = flow_of.get(node.id)
+        if issue is not None and source == "weak_flow":
+            parts.append(f"    {_flow_line(issue)}")
 
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
     spoken = []
@@ -398,6 +585,7 @@ def _build_triage_prompt(
 def _normalize_marks(
     raw_marks: list[dict],
     pairs: list[tuple[ConceptNode, str]],
+    graph: ConceptGraph | None = None,
 ) -> list[TriageMark]:
     """
     raw 심사를 후보마다 정확히 1개씩으로 정리한다.
@@ -432,12 +620,56 @@ def _normalize_marks(
             rank=0,                      # 아래에서 severity 를 반영해 다시 매긴다
             doc_weight=node.weight,
         ))
-    return _rerank(marks, pairs)
+    return _rerank(marks, pairs, graph)
+
+
+def _spread_adjacent(
+    ordered: list[TriageMark],
+    graph: ConceptGraph | None,
+) -> list[TriageMark]:
+    """
+    앞에서 이미 뽑은 개념과 **그래프에서 바로 붙어 있는** 개념은 뒤로 민다.
+
+    이웃끼리 나란히 물으면 "왜 이걸 골랐나" 와 "이걸 어떻게 쓰나" 처럼 사용자가
+    한 번에 답할 수 있는 질문이 두 개 나온다 — 같은 맥락을 다르게 물어 놓고
+    다른 답을 요구하는 꼴이다. edges 가 그 인접을 이미 알고 있으니 LLM 이 필요 없다.
+
+    인접은 `neighbors_of` 로 본다 — parent·relates 를 방향 무시하고 모두 센다.
+    위계로 붙었든 논리로 붙었든 사용자에게는 똑같이 '한 덩어리' 이기 때문이다.
+
+    **강등은 같은 근거(source) 안에서만 일어난다.** 근거가 다른 두 개념은 서로 다른
+    이유로 뽑힌 것이라 중복이 아니다. 이 울타리가 없으면 별 모양 그래프에서
+    루트가 무너진다 — 루트는 모든 자식과 인접하므로, 자식 하나가 '누락' 으로 먼저
+    뽑히는 순간 **자료에서 가장 무거운 개념이 맨 뒤로 밀린다.**
+    근거 우선순위를 넘지 않는다는 이 모듈의 규칙(_rerank 주석)과도 같은 결이다.
+
+    **제외가 아니라 강등이다.** 트랙 상한에 여유가 있으면 여전히 물어본다.
+    모순·누락 근거는 아예 면제된다 (_ADJACENCY_EXEMPT).
+    """
+    if graph is None or len(ordered) < 2:
+        return ordered
+
+    result: list[TriageMark] = []
+    # ordered 는 이미 근거 우선순위로 정렬돼 있어 groupby 가 그대로 근거 묶음이 된다.
+    for _, group in groupby(ordered, key=lambda m: _SOURCE_RANK[m.source]):
+        kept: list[TriageMark] = []
+        demoted: list[TriageMark] = []
+        chosen: set[str] = set()
+        for mark in group:
+            neighbors = {n.id for n in graph.neighbors_of(mark.node_id)}
+            if mark.source not in _ADJACENCY_EXEMPT and (neighbors & chosen):
+                demoted.append(mark)
+                continue
+            kept.append(mark)
+            chosen.add(mark.node_id)
+        result.extend(kept + demoted)
+    return result
 
 
 def _rerank(
     marks: list[TriageMark],
     pairs: list[tuple[ConceptNode, str]],
+    graph: ConceptGraph | None = None,
 ) -> list[TriageMark]:
     """
     LLM 이 매긴 severity 를 반영해 최종 순위(rank)를 다시 매긴다.
@@ -457,16 +689,34 @@ def _rerank(
         node.id: (min(node.slide_nos) if node.slide_nos else _NO_SLIDE)
         for node, _ in pairs
     }
+    # 구획 역할은 severity 위다 — 표지·맺음말 개념은 LLM 이 '치명' 을 줘도
+    # 물어볼 대상이 아니다. source 를 severity 위에 두는 것과 같은 이유로,
+    # 구조에서 나온 사실이 LLM 의 짐작을 이긴다.
+    role_of = (
+        {node.id: _role_rank_of(graph, node) for node, _ in pairs}
+        if graph is not None
+        else {}
+    )
+    # 요약이 빈 개념은 질문 문장을 쓸 재료가 없다. severity·weight 아래에 둬서
+    # 동률일 때만 갈리게 한다 — 재료가 없다고 중요한 개념을 밀어내면 안 된다.
+    no_summary_of = {
+        node.id: (0 if (node.summary or "").strip() else 1) for node, _ in pairs
+    }
     ordered = sorted(
         marks,
         key=lambda m: (
             _SOURCE_RANK[m.source],
+            role_of.get(m.node_id, _ROLE_RANK_FALLBACK),
             m.severity,
             -m.doc_weight,
+            no_summary_of.get(m.node_id, 0),
             slide_of[m.node_id],
             m.node_id,
         ),
     )
+    # 순위가 정해진 뒤에 인접을 편다. 정렬 키에 섞으면 "누가 먼저 뽑혔나" 를
+    # 알 수 없어 인접 판단이 불가능하다 — 이것은 순서에 의존하는 연산이다.
+    ordered = _spread_adjacent(ordered, graph)
     for rank, mark in enumerate(ordered, start=1):
         mark.rank = rank
     return ordered
@@ -512,14 +762,14 @@ def triage_questions(
     data = _call_with_retry(
         engine,
         TRIAGE_SYSTEM_PROMPT,
-        _build_triage_prompt(graph, pairs, alignment, transcript, ctx),
+        _build_triage_prompt(graph, pairs, alignment, transcript, ctx, flow),
     )
     raw_marks = [m for m in (data.get("marks") or []) if isinstance(m, dict)]
 
     return QaTriage(
         file_name=graph.file_name,
         total_slides=graph.total_slides,
-        marks=_normalize_marks(raw_marks, pairs),
+        marks=_normalize_marks(raw_marks, pairs, graph),
         model=engine.name,
     )
 
@@ -565,6 +815,7 @@ def _build_question_prompt(
     alignment: AlignmentDoc | None,
     transcript: Transcript | None,
     ctx: Context,
+    flow_of: dict[str, FlowIssue] | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-questions",
@@ -577,6 +828,8 @@ def _build_question_prompt(
         "(id) 개념이름 [근거 슬라이드] · 치명도 · 함정여부 · 각도",
         "경로는 위계(parent), 연결은 그 밖의 논리 관계(relates)다.",
         "연결된 개념과의 관계를 파고드는 질문이 정의를 묻는 질문보다 낫다.",
+        "흐름이 붙은 개념은 그 문제를 그대로 묻는다 — order_jump 는 \"왜 이",
+        "순서로 설명했는지\", missing_link 는 \"두 개념이 어떤 관계인지\".",
         "",
     ]
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
@@ -597,6 +850,10 @@ def _build_question_prompt(
         if relation:
             parts.append(f"    {relation}")
 
+        issue = (flow_of or {}).get(node.id)
+        if issue is not None and mark.source == "weak_flow":
+            parts.append(f"    {_flow_line(issue)}")
+
         said = _speech_excerpt(node, transcript)
         item = judged.get(node.id)
         if said or (item is not None and item.evidence.strip()):
@@ -605,14 +862,23 @@ def _build_question_prompt(
     return "\n".join(parts)
 
 
-def _fallback_text(node: ConceptNode, mark: TriageMark) -> tuple[str, str, str]:
+def _fallback_text(
+    node: ConceptNode,
+    mark: TriageMark,
+    flow_issue: FlowIssue | None = None,
+) -> tuple[str, str, str]:
     """LLM 이 이 개념을 빠뜨렸을 때 쓰는 결정적 문장 3종 (question, why, hint)."""
     if mark.angle:
         question = f"{node.label}: {mark.angle} — 설명해 주시겠어요?"
     else:
         question = f"{node.label}: 이 개념의 핵심과 자료에 넣은 근거를 설명해 주시겠어요?"
 
-    why = _WHY_BY_SOURCE.get(mark.source, _WHY_BY_SOURCE[QA_SOURCE_FALLBACK])
+    if mark.source == "weak_flow" and flow_issue is not None:
+        # 이슈 종류를 알면 why 도 그 종류로 말한다 — 순서 역행에 "연결이 안
+        # 드러났다" 를 붙이면 사용자가 질문 의도를 오해한다.
+        why = _WHY_BY_FLOW_KIND[flow_issue.kind]
+    else:
+        why = _WHY_BY_SOURCE.get(mark.source, _WHY_BY_SOURCE[QA_SOURCE_FALLBACK])
 
     if node.slide_nos:
         nos = ", ".join(str(n) for n in node.slide_nos)
@@ -622,10 +888,27 @@ def _fallback_text(node: ConceptNode, mark: TriageMark) -> tuple[str, str, str]:
     return question, why, hint
 
 
+def _fallback_gist(node: ConceptNode) -> str:
+    """
+    LLM 이 골자를 빠뜨렸을 때 자료로 조립하는 결정적 문장.
+
+    비워 두면 되묻기가 끝날 때 "그래서 답이 뭔데" 가 빈칸으로 남는다.
+    개념 요약이 곧 자료가 말하는 답이므로 그것을 근거 장과 함께 돌려준다.
+    """
+    summary = (node.summary or "").strip()
+    if not summary:
+        summary = f"{node.label} 의 핵심"
+    if node.slide_nos:
+        nos = ", ".join(str(n) for n in node.slide_nos)
+        return f"{summary} ({nos}장 근거)"
+    return summary
+
+
 def _normalize_questions(
     raw_questions: list[dict],
     marks: list[TriageMark],
     by_id: dict[str, ConceptNode],
+    flow_of: dict[str, FlowIssue] | None = None,
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
@@ -646,7 +929,9 @@ def _normalize_questions(
     for mark in marks:
         node = by_id[mark.node_id]
         raw = written.get(mark.node_id) or {}
-        fb_question, fb_why, fb_hint = _fallback_text(node, mark)
+        fb_question, fb_why, fb_hint = _fallback_text(
+            node, mark, (flow_of or {}).get(mark.node_id)
+        )
 
         questions.append(Question(
             id=f"q{mark.rank:02d}-{mark.node_id}",
@@ -660,6 +945,9 @@ def _normalize_questions(
             source=mark.source,
             slide_nos=list(node.slide_nos),
             doc_weight=mark.doc_weight,
+            answer_gist=(
+                _clip(str(raw.get("answer_gist", "") or "")) or _fallback_gist(node)
+            ),
         ))
     return questions
 
@@ -670,25 +958,31 @@ def build_questions(
     *,
     track: str = QA_TRACK_FALLBACK,
     alignment: AlignmentDoc | dict | None = None,
+    flow: FlowDiff | dict | None = None,
     transcript: Transcript | dict | None = None,
     context: Context | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QuestionDoc:
     """
-    ConceptGraph + QaTriage (+선택 track·AlignmentDoc·Transcript·Context) → QuestionDoc.
+    ConceptGraph + QaTriage (+선택 track·AlignmentDoc·FlowDiff·Transcript·Context)
+    → QuestionDoc.
 
     무엇을 물을지는 triage 가 이미 정했다. 여기서는 트랙 상한만큼 자르고
     LLM 에 문장만 받아 온다. 같은 triage·같은 track 이면 질문 id 까지 같다.
 
     개념마다 parent 경로·relates 이웃·근거 장 발화를 함께 줘서, 정의를 묻는 질문 대신
-    관계를 파고드는 질문이 나오게 한다.
+    관계를 파고드는 질문이 나오게 한다. flow 를 주면 weak_flow 근거 개념에 이슈
+    상세(순서 역행·연결 누락)가 붙어 "왜 이 순서로 설명했나요?" 류 질문이 가능해진다
+    — 순위는 안 바뀐다, 프롬프트 재료일 뿐이다.
     """
     graph = _as_graph(graph)
     if isinstance(triage, dict):
         triage = QaTriage.from_dict(triage)
     if isinstance(alignment, dict):
         alignment = AlignmentDoc.from_dict(alignment)
+    if isinstance(flow, dict):
+        flow = FlowDiff.from_dict(flow)
     if isinstance(transcript, dict):
         transcript = Transcript.from_dict(transcript)
     ctx = _as_context(context)
@@ -696,7 +990,9 @@ def build_questions(
     if track not in QA_TRACKS:
         track = QA_TRACK_FALLBACK
 
-    by_id = {n.id: n for n in graph.nodes}
+    # 합성 노드(extra:)도 사전에 넣는다. triage 가 후보로 올렸는데 여기서 빠지면
+    # `known` 필터가 조용히 떨어뜨려, 발화 개념 질문이 이유 없이 사라진다.
+    by_id = {n.id: n for n in (*graph.nodes, *_extra_nodes(alignment))}
     known = [m for m in triage.marks if m.node_id in by_id]
     if not known:
         raise QuestionError(
@@ -706,11 +1002,12 @@ def build_questions(
 
     marks, deferred = _pick_marks(known, track)
     engine = _engine(llm, llm_kwargs)
+    flow_of = _flow_issue_by_node(flow)
 
     data = _call_with_retry(
         engine,
         QUESTION_SYSTEM_PROMPT,
-        _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx),
+        _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of),
     )
     raw_questions = [q for q in (data.get("questions") or []) if isinstance(q, dict)]
 
@@ -718,7 +1015,107 @@ def build_questions(
         file_name=graph.file_name,
         total_slides=graph.total_slides,
         track=track,
-        questions=_normalize_questions(raw_questions, marks, by_id),
+        questions=_normalize_questions(raw_questions, marks, by_id, flow_of),
         deferred_node_ids=deferred,
         model=engine.name,
     )
+
+
+# ---------------------------------------------------------------------------
+# 힌트 사다리 — LLM 을 부르지 않는다
+#
+# 실전 코칭에서 사용자가 '힌트 보기' 를 누르면 기다림 없이 나와야 한다. 그래서
+# 여기서는 이미 계산된 신호만 쓴다 — 질문이 들고 온 힌트, 근거 슬라이드,
+# 판정이 짚은 빠진 포인트. 이 모듈의 원칙("무엇을 말할지는 코드가 정하고
+# LLM 은 문장만 쓴다")이 힌트에도 그대로 적용된 것이다.
+# ---------------------------------------------------------------------------
+
+#: 3단계에 나열할 빠진 포인트 최대 개수. 다 늘어놓으면 사실상 정답 공개다.
+HINT_POINT_MAX = 3
+
+#: 2단계에 이름 붙일 근거 슬라이드 최대 개수. 넘으면 개수만 알리고 앞쪽으로 안내한다.
+HINT_SLIDE_MAX = 3
+
+#: 골자 조각을 만들 최소 길이. 이보다 짧으면 잘라 봐야 통째로 노출된다.
+GIST_FRAGMENT_MIN = 4
+
+
+def _hint_direction(question: Question) -> str:
+    """1단계 · 방향. F-08 이 질문과 함께 만든 힌트가 있으면 그것을 쓴다."""
+    hint = (question.hint or "").strip()
+    if hint:
+        return _clip(hint)
+    label = question.label or "이 개념"
+    return _clip(f"{label}: 핵심을 한 문장으로 말하는 것부터 시작해 보세요")
+
+
+def _hint_scope(question: Question) -> str:
+    """
+    2단계 · 범위. 어디를 보면 되는지까지 좁혀 준다.
+
+    근거 장을 전부 나열하지 않는다 — 실측에서 개념 하나가 12장에 걸쳐
+    "1,2,3,…,12장에서" 가 나왔다. 다 나열하면 좁혀 주기는커녕 아무 정보도 없다.
+    """
+    nos = question.slide_nos
+    if not nos:
+        return "자료에서 이 개념을 왜 다뤘는지부터 짚어 보세요"
+    shown = ", ".join(str(n) for n in nos[:HINT_SLIDE_MAX])
+    if len(nos) > HINT_SLIDE_MAX:
+        return _clip(f"{shown}장을 비롯해 {len(nos)}장에 걸쳐 나옵니다 — 앞쪽부터 짚어 보세요")
+    return _clip(f"{shown}장에서 이 개념을 어떻게 설명했는지 떠올려 보세요")
+
+
+def _gist_fragment(gist: str) -> str:
+    """
+    골자의 앞부분만. **통째로 보여 주면 힌트가 아니라 정답 공개다.**
+
+    너무 짧은 골자는 조각을 내도 원문이 그대로 드러나므로 아예 쓰지 않는다.
+    """
+    text = (gist or "").strip()
+    if len(text) < GIST_FRAGMENT_MIN:
+        return ""
+    return text[: max(1, len(text) // 2)].rstrip() + "…"
+
+
+def _hint_close(question: Question, judgement: QaJudgement) -> str:
+    """
+    3단계 · 근접. **사용자가 실제로 빠뜨린 것**에 반응한다.
+
+    판정이 짚은 포인트가 있으면 그것을, 없으면 골자 조각을 준다.
+    둘 다 없으면 빈 문자열 — 억지로 채우면 앞 단계를 되풀이할 뿐이다.
+    """
+    points = [p.strip() for p in judgement.missing_points if str(p).strip()]
+    if points:
+        shown = ", ".join(points[:HINT_POINT_MAX])
+        if len(points) > HINT_POINT_MAX:
+            shown += f" 외 {len(points) - HINT_POINT_MAX}개"
+        return _clip(f"아직 안 나온 것: {shown}")
+
+    fragment = _gist_fragment(question.answer_gist)
+    return _clip(f"이 방향입니다 — {fragment}") if fragment else ""
+
+
+def build_hint_ladder(
+    question: Question | dict,
+    judgement: QaJudgement | dict | None = None,
+) -> list[str]:
+    """
+    Question (+선택 QaJudgement) → 힌트 사다리. **LLM 을 부르지 않는다.**
+
+    단계가 갈수록 구체적이다 — 방향 → 범위 → 근접.
+    어느 단계에서도 답을 그대로 말해 주지 않는다.
+
+    판정이 없으면 2단계까지만 나온다. 아직 답하지도 않은 사람에게
+    "뭘 빠뜨렸다" 고 말할 수 없기 때문이라, 이 제약은 의도된 것이다.
+    """
+    if isinstance(question, dict):
+        question = Question.from_dict(question)
+    if isinstance(judgement, dict):
+        judgement = QaJudgement.from_dict(judgement)
+
+    ladder = [_hint_direction(question), _hint_scope(question)]
+    if judgement is not None:
+        close = _hint_close(question, judgement)
+        if close:
+            ladder.append(close)
+    return ladder

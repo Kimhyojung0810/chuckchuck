@@ -354,6 +354,10 @@ main.narrow { max-width: 640px; }
 .rec-log-fold { flex: 1; min-width: 170px; }
 .rec-log-fold summary { color: var(--text-3); font-size: 12px; font-weight: 700; cursor: pointer; }
 .rec-log-fold .trans-log { position: absolute; z-index: 5; width: 300px; max-height: 160px; margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; box-shadow: 0 8px 24px rgba(2,32,71,.12); }
+/* 리허설 대신 이미 녹음한 파일을 올리는 진입점 */
+.rec-upload { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0; max-width: 240px; }
+.rec-upload .btn-text { height: 30px; padding: 0; }
+.rec-upload .note { margin: 0; color: var(--text-3); font-size: 11px; text-align: right; }
 .rehearsal-control .mic-denied { display: flex; flex: 1; flex-direction: column; padding: 0; background: none; }
 .rehearsal-control .mic-denied b { color: var(--text); }
 .privacy-note { margin-top: 10px; color: var(--text-3); font-size: 12px; text-align: right; }
@@ -754,6 +758,17 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .msg.ai.cut .msg-bubble { background: var(--no-bg); color: var(--text); font-weight: 600; }
 .msg.ai.hint .msg-bubble { background: var(--blue-weak); color: var(--text); font-size: 14px; box-shadow: none; }
 .msg.ai.hint b { display: block; font-size: 11px; color: var(--blue); font-weight: 800; margin-bottom: 2px; }
+
+/* 판정이 짚은 '빠진 지점'. 되물을 때 무엇을 보완해야 하는지 눈에 보이게 한다. */
+.msg.ai.miss .msg-bubble { background: var(--mid-bg, #FFF6E5); box-shadow: none; }
+.miss-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+/* 기대했던 답. 대화가 끝났는데 답을 모른 채면 코칭이 실패한 것이라 눈에 띄게 둔다. */
+.msg.ai.gist .msg-bubble { background: var(--green-bg, #E8F7F0); box-shadow: none; }
+.msg.ai.gist p { margin: 4px 0 0; font-size: 14px; line-height: 1.55; }
+
+/* 리포트 한 줄 요약 아래 붙는 '몇 턴 만에 방어했나'. 취약 개념 신호다. */
+.qsum-meta { display: block; margin-top: 4px; font-size: 12px; color: var(--muted, #8B95A1); font-weight: 600; }
 .msg.ai.react .chip { margin-bottom: 7px; }
 .msg.ai.react p { margin: 0; }
 
@@ -1281,3 +1296,22 @@ table.plain tr:last-child td { border-bottom: 0; }
 .qsum-row:first-child { border-top: none; padding-top: 0; }
 .qsum-row b { display: block; font-weight: 800; margin-bottom: 2px; }
 .qsum-row p { margin: 0; color: var(--text-2); }
+
+/* ── 실전 질문 대신 데모 질문으로 되돌아갔을 때의 안내 ──
+ * 조용히 넘어가면 데모 질문이 내 발표 질문처럼 보인다. 눈에 띄되 막지는 않는다. */
+.qa-notice {
+  margin: 0 0 12px; padding: 10px 13px; font-size: 13px; line-height: 1.55;
+  color: var(--text-2); background: var(--surface);
+  border: 1px solid var(--border); border-left: 3px solid var(--amber, #d98324);
+  border-radius: var(--r-inner);
+}
+
+/* ── 질문 만드는 동안의 대기 화면 ── */
+.qa-building { margin-top: 14px; text-align: center; padding: 26px 18px; }
+.qa-building b { display: block; font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+.qa-building .note { margin: 0 0 16px; }
+.qb-bar { height: 4px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.qb-bar i { display: block; height: 100%; width: 40%; border-radius: 999px; background: var(--blue);
+  animation: qbSlide 1.3s ease-in-out infinite; }
+@keyframes qbSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .qb-bar i { animation: none; width: 100%; } }

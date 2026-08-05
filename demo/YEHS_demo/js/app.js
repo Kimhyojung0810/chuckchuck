@@ -108,14 +108,50 @@ function startFreshPractice() {
   }
 }
 
+/* 저장된 상태를 모두 지우고 처음부터 시작한다.
+ * 손상된 상태로 화면이 비면 DevTools 없이는 빠져나올 수 없어서 길을 열어 둔다. */
+function hardReset() {
+  try {
+    Object.keys(sessionStorage)
+      .filter((k) => k.startsWith('cheokcheok:'))
+      .forEach((k) => sessionStorage.removeItem(k));
+  } catch (_) { /* privacy mode */ }
+  location.hash = '#/';
+  location.reload();
+}
+
+/* 렌더가 죽었을 때 보여줄 복구 화면. 빈 화면으로 두지 않는다. */
+function renderRouteError(err) {
+  app.className = 'narrow';
+  app.innerHTML = `
+    <div class="card qa-building" role="alert">
+      <b>화면을 그리는 중 문제가 생겼어요</b>
+      <p class="note">저장된 연습 상태가 손상됐을 수 있어요. 초기화하면 처음부터 다시 시작할 수 있어요.</p>
+      <p class="note" style="font-size:11px;opacity:.7">${escapeHtml(String((err && err.message) || err))}</p>
+      <div class="step-actions" style="justify-content:center;margin-top:14px">
+        <button class="btn btn-primary" id="routeReset" type="button">초기화하고 다시 시작</button>
+      </div>
+    </div>`;
+  const btn = $('#routeReset');
+  if (btn) btn.addEventListener('click', hardReset);
+}
+
 function route() {
   clearTimers();
   unbindRehearsalNav();
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
+  // #/reset → 저장된 상태를 통째로 비운다 (빈 화면 탈출구)
+  if (key === 'reset') return hardReset();
   // #/new/reset 또는 completed 후 #/new → 초기화
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) resetNf();
-  (routes[key] || renderHome)();
+  // 렌더 중 예외가 나면 #app 이 그대로 비어 빈 화면이 된다 — 복구 화면으로 대체한다
+  try {
+    (routes[key] || renderHome)();
+  } catch (err) {
+    console.error('[chuckchuck] route render failed', err);
+    renderRouteError(err);
+  }
   syncTopbar();
   wireFreshPracticeButtons();
   window.scrollTo(0, 0);
@@ -886,13 +922,17 @@ function renderRecPanel() {
   if (nf.mic === 'idle') {
     p.innerHTML = `
       <div class="rec-copy"><span>준비되면 시작하세요</span><p>발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.</p></div>
-      <button class="btn btn-primary" id="recStart">발표 시작하기</button>`;
+      <button class="btn btn-primary" id="recStart">발표 시작하기</button>
+      ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
+    wireRecUpload();
   } else if (nf.mic === 'denied') {
     p.innerHTML = `
       <div class="mic-denied"><b>마이크 권한이 필요해요</b><span>주소창의 권한 설정에서 허용한 뒤 다시 시작해주세요.</span></div>
-      <button class="btn btn-secondary" id="recRetry">다시 시도하기</button>`;
+      <button class="btn btn-secondary" id="recRetry">다시 시도하기</button>
+      ${recUploadHtml()}`;
     $('#recRetry').addEventListener('click', startRec);
+    wireRecUpload();
   } else {
     p.innerHTML = `
       <div class="rec-status">
@@ -950,20 +990,93 @@ function startRecClock() {
 async function finishRecAndPrepare() {
   if (ccRuntime) {
     ccLastTake = await ccRuntime.finish();
-    nf.marks = (ccLastTake && ccLastTake.marks) || [];
-    nf.done = 0;
-    nf._pipelineStarted = false;
-    nf.pipelineOut = null;
-    nf.pipelineError = null;
-    nf.pipelinePhase = 'queued';
-    nf.pipelineDetail = '파이프라인 대기';
-    nf.pipelineStartedAt = Date.now();
-    nf._pipelineTickStarted = false;
-    saveSession('new-flow', nf);
+    markTakeReady();
   }
+  goToPrepareStep();
+}
+
+/* ccLastTake 를 기준으로 파이프라인 상태를 초기화한다. 라이브·업로드 공통. */
+function markTakeReady() {
+  nf.marks = (ccLastTake && ccLastTake.marks) || [];
+  nf.done = 0;
+  nf._pipelineStarted = false;
+  nf.pipelineOut = null;
+  nf.pipelineError = null;
+  nf.pipelinePhase = 'queued';
+  nf.pipelineDetail = '파이프라인 대기';
+  nf.pipelineStartedAt = Date.now();
+  nf._pipelineTickStarted = false;
+  saveSession('new-flow', nf);
+}
+
+function goToPrepareStep() {
   nf.step = 3;
   renderNew();
   showF11Reveal();
+}
+
+/* 리허설 대신 이미 있는 녹음 파일을 쓰는 경로 (F-03 를 업로드로 대체) */
+const REC_UPLOAD_EXT = ['.webm', '.m4a', '.wav', '.mp3', '.ogg'];
+const REC_UPLOAD_MAX_BYTES = 30 * 1024 * 1024;
+
+function recUploadHtml() {
+  return `<div class="rec-upload">
+    <button class="btn btn-text" id="recUploadPick" type="button">이미 녹음한 파일 올리기</button>
+    <input type="file" id="recUploadFile" accept="${REC_UPLOAD_EXT.join(',')},audio/*" hidden>
+    <p class="note" id="recUploadNote" title="업로드 파일에는 슬라이드 전환 시각이 없어 녹음 길이를 슬라이드 수로 균등 분할합니다.">${REC_UPLOAD_EXT.join(' · ')} · 최대 30MB</p>
+  </div>`;
+}
+
+function wireRecUpload() {
+  const pick = $('#recUploadPick');
+  const input = $('#recUploadFile');
+  if (!pick || !input) return;
+  pick.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const file = input.files && input.files[0];
+    if (file) useUploadedRecording(file);
+  });
+}
+
+async function useUploadedRecording(file) {
+  const note = $('#recUploadNote');
+  const say = (t) => { if (note) note.textContent = t; };
+  const ext = (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
+
+  if (!REC_UPLOAD_EXT.includes(ext)) {
+    say(`${REC_UPLOAD_EXT.join(' · ')} 만 올릴 수 있어요.`);
+    return;
+  }
+  if (file.size > REC_UPLOAD_MAX_BYTES) {
+    say(`파일이 너무 커요 (${(file.size / 1024 / 1024).toFixed(1)}MB) — 30MB 이하로 올려주세요.`);
+    return;
+  }
+
+  const bridge = window.ChuckchuckBridge;
+  if (!bridge || !bridge.runPreparePipeline) {
+    say('브리지 모듈이 아직 로드되지 않았어요. 새로고침 후 다시 시도해 주세요.');
+    return;
+  }
+
+  say(`${file.name} 읽는 중…`);
+  const durationSec = bridge.audioDuration ? await bridge.audioDuration(file) : 0;
+  const marks = bridge.evenMarks
+    ? bridge.evenMarks(rehearsalCount(), durationSec)
+    : [];
+
+  // 라이브 녹음이 돌고 있었다면 정리한다
+  if (ccRuntime) {
+    try { await ccRuntime.finish(); } catch (_) { /* 이미 끝났을 수 있다 */ }
+    ccRuntime = null;
+  }
+  nf.mic = 'idle';
+  nf.sec = Math.round(durationSec);
+  nf.visits = {};
+  nf.log = marks.map((m) => ({ txt: `${fmt(m.start_sec)} → ${m.slide_no}번 슬라이드` }));
+
+  ccLastTake = { marks, _blob: file, mimeType: file.type || '', ext, durationSec };
+  markTakeReady();
+  goToPrepareStep();
 }
 
 /* F-11 분석 리빌 — 리허설 종료 → 질문 준비 사이에 전체 화면으로 재생.
@@ -1211,15 +1324,155 @@ function wireQaModeButtons(rerender) {
     rerender();
   }));
 }
+/* 플랫(세션 없는) 질문 경로가 쓰는 판정용 세션 자리표시자.
+ * 서버에 이 세션은 없다 — 판정은 요청 바디 폴백으로 돈다. 'undefined' 가
+ * URL 에 박히는 것을 막고, 로그에서 이 경로를 알아볼 수 있게 이름을 준다. */
+const FLAT_QA_SESSION_ID = 'flat';
+
+/* 실전 질문을 만들 수 없는 **영구적** 이유. null 이면 만들 수 있다.
+ * 브리지 로드 여부는 여기서 보지 않는다 — 잠깐 기다리면 풀리는 일시 상태라
+ * ensureLiveQuestions() 의 재시도가 따로 다룬다. */
+function qaLiveBlockReason(out) {
+  // alignment 은 요구하지 않는다 — 녹음 없이 자료만 올린 경로에는 정합 판정이 아예 없다.
+  // 서버도 graph 만 요구한다 (server/app.py flat_questions).
+  if (!out || !out.graph) {
+    return '내 발표 분석 결과가 없어 데모 질문으로 진행해요. 「새 발표 연습」에서 준비를 먼저 끝내 주세요.';
+  }
+  return null;
+}
+
+/* 브리지(type="module")는 classic script 인 app.js 보다 늦게 로드된다.
+ * 그래서 페이지 로드 직후 첫 렌더에는 아직 없을 수 있다. 예전에는 그때 바로 포기해서,
+ * 게이트를 안 거치는 사용자(이미 started=true 인 재방문자)는 영원히 데모만 봤다. */
+const QA_BRIDGE_RETRY_MS = 120;
+const QA_BRIDGE_MAX_TRIES = 25;   // 약 3초
+let qaBridgeTries = 0;
+
+/* 지금 화면이 질문 코칭 라우트인지 */
+function onQaRoute() {
+  return location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa';
+}
+
+/* 데모 질문으로 되돌아간 이유를 코칭 화면 위에 남긴다 */
+function qaNoticeHtml() {
+  if (!qa.liveNotice) return '';
+  return `<p class="qa-notice" role="status">${escapeHtml(qa.liveNotice)}</p>`;
+}
+
 /* 지난 세션이 남아 있으면 새 코칭으로 초기화한 뒤 #/qa 로 이동.
  * 모드를 이미 고른 경로(홈 카드·4단계)는 started 를 세워 게이트를 건너뛰고,
  * pickMode 경로(리포트 다시 하기 등)는 게이트에서 1/5/10분을 고르게 둔다. */
 function wireQaStart(root, { pickMode = false } = {}) {
   const cta = root.querySelector('[data-qa-start]');
-  if (cta) cta.addEventListener('click', () => {
+  if (!cta || cta._qaStartBound) return;
+  cta._qaStartBound = true;   // 렌더마다 다시 배선돼도 요청이 두 번 나가지 않게
+  cta.addEventListener('click', () => {
     if (qa.started || qa.ended) resetQa();
     qa.started = !pickMode;
+    qa.liveNotice = '';   // 지난 시도의 안내가 남아 있지 않게
     saveSession('qa-flow', qa);
+    // 질문 생성은 여기서 하지 않는다 — renderQa() 의 ensureLiveQuestions() 가 책임진다.
+    // 링크는 기본 동작으로 #/qa 로 간다.
+  });
+}
+
+/* 실전 질문이 아직 없으면 지금 만든다 — #/qa 로 오는 **모든** 경로의 단일 보장 지점.
+ *
+ * 예전에는 이 로직이 CTA 클릭 핸들러 안에만 있었다. 그래서 버튼을 거치지 않는 경로,
+ * 특히 리허설을 마치면 앱이 스스로 이동하는 주 경로(showF11Reveal 의 자동 이동)는
+ * 서버를 아예 부르지 않고 조용히 데모 질문을 보여줬다. 진입점마다 생성 로직을
+ * 복사하는 대신 렌더 시점에 한 번만 보장한다 — 새 #/qa 링크가 늘어도 안전하다.
+ *
+ * @returns {boolean} true 면 생성이 시작됐다 (호출자는 로딩 화면을 그린다)
+ */
+function ensureLiveQuestions() {
+  // 이미 실패했으면 다시 시도하지 않는다 — 재시도 루프 방지 (qaBuildFailed 주석 참고)
+  if (qaLiveActive() || qaBuilding || qaBuildFailed) return false;
+
+  const out = nf && nf.pipelineOut;
+  const bridge = window.ChuckchuckBridge;
+
+  // 브리지가 아직이면 포기하지 말고 잠깐 기다렸다 다시 본다 (모듈 로드 순서 문제)
+  if (!bridge || !bridge.buildQuestions) {
+    if (qaBridgeTries < QA_BRIDGE_MAX_TRIES) {
+      qaBridgeTries += 1;
+      setTimeout(() => { if (onQaRoute()) renderQa(); }, QA_BRIDGE_RETRY_MS);
+      return true;   // 그동안 대기 화면을 보여준다
+    }
+    qaBuildFailed = true;
+    qa.liveNotice = '질문 생성 모듈을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.';
+    saveSession('qa-flow', qa);
+    return false;
+  }
+
+  const blocked = qaLiveBlockReason(out);
+  if (blocked) {
+    // 못 만드는 이유는 반드시 남긴다. 조용히 넘어가면 데모 질문이 내 질문처럼 보인다.
+    if (qa.liveNotice !== blocked) {
+      qa.liveNotice = blocked;
+      saveSession('qa-flow', qa);
+    }
+    return false;
+  }
+
+  qaBuilding = true;
+  qa.liveNotice = '';
+  bridge.buildQuestions({
+    graph: out.graph,
+    alignment: out.alignment || null,
+    flow: out.flow || null,
+    transcript: out.transcript || null,
+    context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
+    track: (qa && qa.mode) || '10',
+  }).then((doc) => {
+    const questions = (doc && doc.questions) || [];
+    if (questions.length) {
+      // 플랫 경로에는 서버 세션이 없다. 판정은 요청 바디 폴백으로 돌고,
+      // 그때는 그래프·정합 근거 없이 판정된다 (server/app.py _resolve_question 참고).
+      qa.live = newLiveState(FLAT_QA_SESSION_ID, questions);
+      // 데모 대화가 남아 있으면 실전 대화와 한 스레드에 섞인다 — 새 코칭으로 시작한다
+      qa.turns = [];
+      qa.sub = 'answer';
+      qa.ended = false;
+      qa.liveNotice = '';
+    } else {
+      qaBuildFailed = true;
+      qa.liveNotice = '내 발표에서는 질문이 만들어지지 않았어요. 데모 질문으로 진행해요.';
+    }
+  }).catch((err) => {
+    // 생성 실패는 막지 않는다 — 데모 질문으로라도 코칭은 이어간다
+    qaBuildFailed = true;
+    console.warn('[chuckchuck] build questions', err);
+    qa.liveNotice = `내 발표로 질문을 만들지 못했어요 (${err.message || err}). 데모 질문으로 진행해요.`;
+  }).finally(() => {
+    qaBuilding = false;
+    saveSession('qa-flow', qa);
+    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa') renderQa();
+  });
+  return true;
+}
+
+/* 질문 만드는 동안의 대기 화면 */
+function renderQaBuilding() {
+  app.className = 'narrow';
+  app.innerHTML = `
+    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 준비 중</span></div>
+    <div class="card qa-building" role="status" aria-live="polite">
+      <b>내 발표에서 예상 질문을 만들고 있어요</b>
+      <p class="note">개념 그래프와 실제 발화를 대조해 치명적인 것부터 골라요. 10초쯤 걸려요.</p>
+      <div class="qb-bar"><i></i></div>
+      <div class="step-actions" style="justify-content:center;margin-top:14px">
+        <button class="btn btn-text" id="qbSkip" type="button">기다리지 않고 데모 질문으로 진행하기</button>
+      </div>
+    </div>`;
+  // 로딩 화면에 갇히지 않게 항상 빠져나갈 길을 둔다
+  const skip = $('#qbSkip');
+  if (skip) skip.addEventListener('click', () => {
+    qaBuildFailed = true;
+    qaBuilding = false;
+    qa.liveNotice = '질문 생성을 기다리지 않고 데모 질문으로 진행해요.';
+    saveSession('qa-flow', qa);
+    renderQa();
   });
 }
 
@@ -1310,7 +1563,7 @@ function wireQaLivePanel() {
         return;
       }
       resetQa();
-      qa.live = { sessionId: out.sessionId, questions, qi: 0, asked: -1, results: [] };
+      qa.live = newLiveState(out.sessionId, questions);
       saveSession('qa-flow', qa);
       location.hash = '#/qa';
     } catch (err) {
@@ -1385,6 +1638,7 @@ function nfStep4() {
       marks: ccLastTake.marks,
       blob: ccLastTake._blob,
       mimeType: ccLastTake.mimeType,
+      ext: ccLastTake.ext,
       slideDoc: nfSlideDoc,
       context: {
         situation: nf.occ || '',
@@ -1425,6 +1679,9 @@ function nfStep4() {
       }
       console.info('[chuckchuck] pipeline ok', out);
       nf.done = pipelineChecklistDone();
+      // 파이프라인 결과를 반드시 남긴다. 이걸 빼먹으면 graph·alignment 가 메모리에만 남아
+      // 새로고침 한 번에 사라지고, 질문 코칭이 조용히 데모 질문으로 되돌아간다.
+      saveSession('new-flow', nf);
       nfStep4();
     }).catch((err) => {
       console.warn('[chuckchuck] prepare pipeline', err);
@@ -1433,6 +1690,7 @@ function nfStep4() {
       nf.pipelineDetail = nf.pipelineError;
       // 부분 결과가 있으면 유지
       nf.done = pipelineChecklistDone();
+      saveSession('new-flow', nf);
       nfStep4();
     });
   }
@@ -1931,6 +2189,16 @@ function tTerms() {
 }
 
 /* ══ Q&A · 대화형 질문 코칭 ══ */
+/* 질문 생성이 진행 중인지. 일부러 sessionStorage 밖에 둔다 —
+ * 생성 도중 새로고침하면 저장된 true 가 영원히 재생성을 막기 때문이다. */
+let qaBuilding = false;
+/* 이번 코칭에서 생성이 이미 실패했는지.
+ * 생성이 끝나면 renderQa() 를 다시 부르는데, 실패를 기억하지 않으면 renderQa() 가
+ * 또 생성을 시도해 무한 루프가 된다 (실측 8초에 2278 요청, 화면은 '준비 중' 에서 멈춤).
+ * 저장하지 않으므로 새로고침하면 한 번 더 시도한다 — 일시적 실패는 사용자가 되살릴 수 있다.
+ * 선언 위치 주의: 아래 resetQa() 가 모듈 로드 중에 실행되므로 그보다 앞서야 한다 (TDZ). */
+let qaBuildFailed = false;
+
 let qa = loadSession('qa-flow') || {};
 function resetQa() {
   qa = {
@@ -1942,9 +2210,28 @@ function resetQa() {
     lost: [],
     combo: 0, comboMax: 0, awarded: false, award: null,
   };
+  qaBuildFailed = false;   // 새 코칭이면 생성을 다시 시도한다
   saveSession('qa-flow', qa);
 }
 if (!Array.isArray(qa.turns) || !qa.mode || !qa.concepts) resetQa();
+
+/* 구버전 브라우저 상태 복원.
+ *
+ * 다턴 코칭 이전에 저장된 qa.live 에는 turn·turns·hintLevel 이 없다. 그대로 두면
+ * liveStalled() 가 L.turns.length 에서, submitLiveAnswer() 가 L.turns.push 에서
+ * 터진다 — 코칭 화면이 통째로 빈다. 생성(newLiveState)만 통일해선 부족하고
+ * 복원도 같은 모양으로 맞춰야 한다.
+ *
+ * 저장된 값이 우선이고 없는 것만 기본값으로 채운다 — 진행 중이던 코칭을 지우지 않는다. */
+if (qa.live && Array.isArray(qa.live.questions)) {
+  qa.live = { ...newLiveState(qa.live.sessionId, qa.live.questions), ...qa.live };
+  if (!Array.isArray(qa.live.turns)) qa.live.turns = [];
+  if (!Array.isArray(qa.live.results)) qa.live.results = [];
+  if (typeof qa.live.turn !== 'number') qa.live.turn = 0;
+  if (typeof qa.live.hintLevel !== 'number') qa.live.hintLevel = 0;
+  if (typeof qa.live.pendingQuestion !== 'string') qa.live.pendingQuestion = '';
+  qa.live.busy = false;   // 판정 중에 새로고침했으면 버튼이 영영 잠긴다
+}
 let qaTimerId = null;
 
 /* ── 게임 레이어: 설득력 XP · 연속 방어 · 복습 (localStorage, 다크패턴 없이 정직한 상태값) ── */
@@ -2028,7 +2315,7 @@ const QA_MODES = {
   '5':  { min: 5,  short: '5분 · 핵심+α',  desc: '핵심 개념에 함정 검증과 시차 복습까지 붙여 제대로 코칭해요.',
           scopeLabel: '핵심 개념 + 놓친 개념', count: 3, demoConcepts: ['joint', 'temp'], review: true },
   '10': { min: 10, short: '10분 · 전체 커버', desc: '아쉬운 개념 전부에, 자료와 모순된 설명까지 대조해요.',
-          scopeLabel: '아쉬운 개념 전부 + 모순 대조', count: 8, demoConcepts: ['joint', 'temp', 'aria'], review: true },
+          scopeLabel: '아쉬운 개념 전부 + 모순 대조', count: 7, demoConcepts: ['joint', 'temp', 'aria'], review: true },
 };
 const qaScope = () => QA_MODES[qa.mode] || QA_MODES['10'];
 /* 모드 범위에 맞는 비트만 통과 (1분 모드는 시차 복습 비트 제외) */
@@ -2109,6 +2396,20 @@ function streamRow(it) {
     const cls = { full: 'st-ok', partial: 'st-mid', none: 'st-no' }[it.verdict];
     return `<div class="msg ai react">${av}<div class="msg-bubble"><span class="chip chip-sm ${cls}">${lab}</span><p>${it.text}</p></div></div>`;
   }
+  if (it.kind === 'missing') {
+    // 판정이 짚은 '빠진 지점'. 되물을 때 무엇을 보완해야 하는지 눈에 보이게 한다.
+    return `<div class="msg ai miss">${av}<div class="msg-bubble">
+      <span class="msg-meta">아직 안 나온 것</span>
+      <div class="miss-chips">${it.points.map((p) => `<span class="chip chip-sm st-mid">${p}</span>`).join('')}</div>
+    </div></div>`;
+  }
+  if (it.kind === 'gist') {
+    // 기대했던 답. 대화가 끝났는데 답을 모른 채면 코칭이 실패한 것이라 반드시 보여 준다.
+    return `<div class="msg ai gist">${av}<div class="msg-bubble">
+      <span class="msg-meta">이렇게 답하면 좋았어요</span>
+      <p>${it.text}</p>
+    </div></div>`;
+  }
   if (it.kind === 'concede') return `<div class="msg ai">${av}<div class="msg-bubble">${it.text}</div></div>`;
   return '';
 }
@@ -2158,8 +2459,52 @@ function qaLiveActive() {
   return !!(qa.live && Array.isArray(qa.live.questions) && qa.live.questions.length);
 }
 
+/* 실전 코칭 상태의 단일 생성점.
+ * 초기화가 세 군데(플랫 진입·세션 진입·다시 하기)라 모양이 어긋나면
+ * 새로고침 복원에서 turn/hintLevel 이 undefined 가 되어 되묻기가 깨진다. */
+function newLiveState(sessionId, questions) {
+  return {
+    sessionId,
+    questions,
+    qi: 0,            // 지금 몇 번째 질문인가
+    asked: -1,        // 이 질문을 화면에 이미 띄웠는가
+    results: [],      // 끝난 질문들의 최종 기록
+    turn: 0,          // 이 질문에 답변을 보낸 횟수 (힌트·넘기기는 안 센다)
+    turns: [],        // 이 질문 안에서 주고받은 턴 — 판정에 맥락으로 넘긴다
+    hintLevel: 0,     // 이 질문에서 사용한 힌트 단계 (최대 3)
+    // 다음 답변이 대답하게 될 문장. 되묻는 중이면 직전 후속 질문, 아니면 빈 문자열
+    // (= 원래 질문). 이게 없으면 2턴째부터 판정 맥락의 질문이 실제와 어긋난다.
+    pendingQuestion: '',
+    lastJudgement: null,
+    busy: false,
+  };
+}
+
+/* 판정에 넘길 대화 맥락.
+ * 끝난 질문들 + **지금 질문 안에서 주고받은 턴**. 뒤엣것이 빠지면
+ * 되묻는 중에 판정이 직전 답변을 못 봐서 같은 지적을 반복한다.
+ * 서버가 최근 6턴만 쓰므로(f09_judge.HISTORY_TURNS) 길이는 알아서 잘린다. */
 function liveHistory() {
-  return (qa.live.results || []).map((r) => ({ 질문: r.question, 답변: r.answer, 판정: r.verdict }));
+  const L = qa.live;
+  const done = (L.results || []).map((r) => ({ 질문: r.question, 답변: r.answer, 판정: r.verdict }));
+  const q = L.questions[L.qi];
+  const current = (L.turns || []).map((t) => ({
+    질문: t.question || (q && q.question) || '',
+    답변: t.answer,
+    판정: t.verdict,
+  }));
+  return done.concat(current);
+}
+
+/* 3단계까지 오른 힌트를 다 썼는데 점수가 안 오르면 '정체' 로 본다.
+ * 상한이 없는 루프에서 사용자가 갇히지 않도록, 이때만 답을 보고 넘어가길 권한다.
+ * 끊는 것이 아니라 권하는 것이다 — 버튼을 눌러야 넘어간다. */
+function liveStalled() {
+  const L = qa.live;
+  if (L.hintLevel < 3 || L.turns.length < 2) return false;
+  const last = L.turns[L.turns.length - 1];
+  const prev = L.turns[L.turns.length - 2];
+  return (last.score || 0) <= (prev.score || 0);
 }
 
 function presentLiveQuestion() {
@@ -2183,6 +2528,7 @@ function renderQaLive() {
   presentLiveQuestion();
   saveSession('qa-flow', qa);
   const q = L.questions[L.qi];
+  const hints = liveHints();
   const won = L.results.filter((r) => r.verdict === 'good' || r.verdict === 'partial').length;
   const prog = Math.round(L.qi / L.questions.length * 100);
   app.innerHTML = `
@@ -2194,10 +2540,12 @@ function renderQaLive() {
     <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
     <div class="card qa-live-input">
       <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
-        placeholder="상대를 설득한다는 생각으로, 자기 말로 답해보세요"></textarea>
+        placeholder="상대를 설득한다는 생각으로, 자기 말로 답해보세요 (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
       <div class="step-actions">
-        <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${L.busy ? '판정 중…' : '답변 보내기'}</button>
-        ${q.hint ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 보기</button>` : ''}
+        <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${L.busy ? '판정 중…' : (L.turn ? '다시 답해보기' : '답변 보내기')}</button>
+        <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>모르겠어요</button>
+        ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
+        ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 넘어가기</button>` : ''}
         <button class="btn btn-text" id="liveSkip" type="button" ${L.busy ? 'disabled' : ''}>이 질문 넘기기</button>
       </div>
     </div>`;
@@ -2209,30 +2557,53 @@ function renderQaLive() {
   if (ta) {
     ta.focus();
     ta.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitLiveAnswer(); }
+      if (e.key !== 'Enter') return;
+      // Cmd/Ctrl+Enter 는 계속 살려 둔다 — 손에 익은 사람이 있다
+      if (e.metaKey || e.ctrlKey) { e.preventDefault(); submitLiveAnswer(); return; }
+      if (e.shiftKey) return;                       // 줄바꿈
+      // 한글 조합을 확정하는 Enter 는 전송이 아니다. 이 가드가 없으면
+      // '안녕하세' 상태로 답이 날아간다. isComposing 을 안 주는 IME 가 있어 229 도 본다.
+      if (e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      submitLiveAnswer();
     });
   }
+  const stuckBtn = $('#liveStuck');
+  if (stuckBtn) stuckBtn.addEventListener('click', () => submitLiveAnswer({ giveUp: true }));
   const hintBtn = $('#liveHint');
   if (hintBtn) hintBtn.addEventListener('click', () => {
-    pushTurn({ who: 'ai', kind: 'hint', level: 1, text: escapeHtml(q.hint) });
+    const list = liveHints();
+    if (L.hintLevel >= list.length) return;
+    L.hintLevel += 1;
+    pushTurn({ who: 'ai', kind: 'hint', level: L.hintLevel, text: escapeHtml(list[L.hintLevel - 1]) });
     growStream();
-    hintBtn.disabled = true;
+    // 다음 단계가 없으면 버튼을 접는다. 재렌더 없이 갱신해 스트림 재애니메이션을 피한다.
+    if (L.hintLevel >= list.length) hintBtn.remove();
+    else hintBtn.textContent = `힌트 ${L.hintLevel + 1}단계 보기`;
+    saveSession('qa-flow', qa);
   });
+  const revealBtn = $('#liveReveal');
+  if (revealBtn) revealBtn.addEventListener('click', () => revealLiveAnswer());
   const skipBtn = $('#liveSkip');
   if (skipBtn) skipBtn.addEventListener('click', () => {
-    L.results.push({ id: q.id, label: q.label, question: q.question, answer: '(넘김)', verdict: 'skipped', score: 0, summary: '' });
     pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 넘겼어요. 리포트에 남겨둘게요` });
-    L.qi++;
+    closeLiveQuestion({
+      id: q.id, label: q.label, question: q.question, answer: '(넘김)',
+      verdict: 'skipped', score: 0, summary: '',
+    });
     saveSession('qa-flow', qa);
     renderQaLive();
   });
 }
 
-async function submitLiveAnswer() {
+/* 답변 전송. giveUp 이면 「모르겠어요」 버튼 경로다 — 본문이 비어 있어도 보낸다.
+ * 타이핑으로 "모르겠어요" 라고 써도 서버(f09_judge.looks_stuck)가 같은 길로 보낸다. */
+async function submitLiveAnswer({ giveUp = false } = {}) {
   const L = qa.live;
   const q = L.questions[L.qi];
   const ta = $('#liveAnswer');
-  const answer = ((ta && ta.value) || '').trim();
+  const typed = ((ta && ta.value) || '').trim();
+  const answer = giveUp ? (typed || '(모르겠어요)') : typed;
   if (!answer || L.busy) return;
   pushTurn({ who: 'me', kind: 'say', text: escapeHtml(answer) });
   L.busy = true;
@@ -2241,25 +2612,126 @@ async function submitLiveAnswer() {
   try {
     const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
       // question 을 같이 보낸다 — 서버가 재시작돼 세션이 날아가도 판정이 이어진다
-      questionId: q.id, answer, history: liveHistory(), question: q,
+      questionId: q.id, answer, history: liveHistory(), question: q, giveUp,
+      // 이 질문에 앞서 낸 답변들. 판정은 마지막 한 마디가 아니라 누적 전체를 본다.
+      priorAnswers: (L.turns || []).map((t) => t.answer),
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
-    if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });
-    pushTurn({ who: 'sys', kind: m.flag, text: `${escapeHtml(q.label)} — ${m.word}` });
-    if (v.summary_sentence) {
-      pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
-    }
-    L.results.push({
-      id: q.id, label: q.label, question: q.question, answer,
-      verdict: v.verdict, score: v.score || 0, summary: v.summary_sentence || '',
+    L.turn += 1;
+    // 이 턴에 **실제로 던진 문장**을 남긴다. 2턴째부터는 원래 질문이 아니라
+    // 직전 후속 질문이 그것이다 — 원래 질문으로 적으면 판정기가 "넓은 질문에
+    // 빗나간 답" 으로 읽어, 좁혀 물은 쪽이 손해를 본다.
+    L.turns.push({
+      question: L.pendingQuestion || q.question,
+      answer, verdict: v.verdict, score: v.score || 0,
     });
-    L.qi++;
+    L.lastJudgement = v;
+    if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });
+
+    // 판정 결과와 무관하게 넘어가던 자리다. 이제 정답 계열일 때만 넘어간다 —
+    // 임계는 서버가 계산해 `passed` 로 내려준다 (contracts.qa_passed).
+    if (v.coach_stage === 'explain') {
+      closeLiveCoached(q, v, answer);
+    } else if (v.passed) {
+      finishLiveQuestion(q, v, answer);
+    } else {
+      askAgain(v, L.turn);
+    }
   } catch (err) {
     pushTurn({ who: 'sys', kind: 'lost', text: `판정 실패: ${err.message || err} — 같은 질문으로 다시 시도할 수 있어요` });
   }
   L.busy = false;
   saveSession('qa-flow', qa);
   renderQaLive();
+}
+
+/* 정답 계열에 못 미쳤다 — 넘어가지 않고 빠진 지점을 겨냥해 되묻는다.
+ * 원래 질문을 되풀이하지 않는 것이 핵심이다. 같은 말을 다시 들으면
+ * 사용자는 뭘 고쳐야 할지 여전히 모른다. */
+/* 두 번째로 막혔다 — 서버가 해설을 보내왔다. 보여 주고 이 질문을 닫는다.
+ * 계속 되물으면 코칭이 아니라 괴롭힘이 된다. */
+function closeLiveCoached(q, v, answer) {
+  if (v.explanation) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(v.explanation) });
+  closeLiveQuestion({
+    id: q.id, label: q.label, question: q.question, answer,
+    verdict: 'unknown', score: 0,
+    summary: v.summary_sentence || '', revealed: true, coached: true,
+  });
+}
+
+function askAgain(v, turn) {
+  const L = qa.live;
+  // 다음 턴에 판정기가 볼 '던진 질문' 이 이것이다. followup 이 없으면 원래 질문으로
+  // 되돌린다 — 지난 턴 것을 남겨 두면 엉뚱한 질문에 답한 것으로 기록된다.
+  L.pendingQuestion = v.followup || '';
+  const points = (v.missing_points || []).filter(Boolean);
+  if (points.length) {
+    pushTurn({ who: 'ai', kind: 'missing', points: points.map(escapeHtml) });
+  }
+  if (v.followup) {
+    pushTurn({
+      who: 'ai',
+      kind: 'question',
+      meta: `이어서 묻습니다 · ${turn + 1}번째 답변`,
+      text: escapeHtml(v.followup),
+    });
+  }
+}
+
+/* 이 질문을 끝내고 다음으로. 맞혔든 답을 보고 넘어가든 여기 한 곳을 지난다. */
+function closeLiveQuestion(record) {
+  const L = qa.live;
+  L.results.push({ ...record, turns: L.turn, hintLevel: L.hintLevel });
+  L.qi++;
+  L.turn = 0;
+  L.turns = [];
+  L.hintLevel = 0;
+  L.lastJudgement = null;
+  L.pendingQuestion = '';   // 다음 질문은 원래 문장부터 시작한다
+}
+
+/* 정답 계열 도달 — 인정하고, 기대했던 답을 보여 준 뒤 넘어간다.
+ * 완벽한 문장을 받아낼 때까지 붙잡지 않는다. */
+function finishLiveQuestion(q, v, answer) {
+  const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
+  pushTurn({ who: 'sys', kind: m.flag, text: `${escapeHtml(q.label)} — ${m.word}` });
+  if (v.summary_sentence) {
+    pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
+  }
+  if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
+  closeLiveQuestion({
+    id: q.id, label: q.label, question: q.question, answer,
+    verdict: v.verdict, score: v.score || 0, summary: v.summary_sentence || '',
+  });
+}
+
+/* 정체됐을 때 사용자가 '답 보고 넘어가기' 를 누른 경로.
+ * 모른 채 끝내지 않는 것이 이 기능의 존재 이유다. */
+function revealLiveAnswer() {
+  const L = qa.live;
+  const q = L.questions[L.qi];
+  const v = L.lastJudgement || {};
+  const last = L.turns[L.turns.length - 1] || {};
+  pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 여기까지. 답을 보고 넘어갈게요` });
+  if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
+  closeLiveQuestion({
+    id: q.id, label: q.label, question: q.question, answer: last.answer || '',
+    verdict: v.verdict || 'unknown', score: v.score || 0,
+    summary: v.summary_sentence || '', revealed: true,
+  });
+  saveSession('qa-flow', qa);
+  renderQaLive();
+}
+
+/* 이 질문에서 지금 보여 줄 수 있는 힌트들.
+ * 판정 전에는 F-08 이 만든 1단계뿐이다 — 아직 답하지도 않은 사람에게
+ * "뭘 빠뜨렸다" 고 말할 수 없기 때문이다. 판정 뒤에는 서버가 사다리를 실어 준다. */
+function liveHints() {
+  const L = qa.live;
+  const q = L.questions[L.qi];
+  const ladder = (L.lastJudgement && L.lastJudgement.hints) || [];
+  if (ladder.length) return ladder;
+  return q && q.hint ? [q.hint] : [];
 }
 
 function qaLiveEnd() {
@@ -2278,8 +2750,9 @@ function qaLiveEnd() {
       </div>
       <div class="cere-sums">
         ${L.results.map((r) => `<div class="qsum-row">
-          <b><span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${chipWord[r.verdict] || r.verdict}</span> ${escapeHtml(r.label || '')}</b>
+          <b><span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? '답 확인' : (chipWord[r.verdict] || r.verdict)}</span> ${escapeHtml(r.label || '')}</b>
           <p>${escapeHtml(r.summary || r.question || '')}</p>
+          ${r.turns ? `<span class="qsum-meta">${r.turns}번 만에 방어${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</span>` : ''}
         </div>`).join('') || '<p class="note">기록이 없어요.</p>'}
       </div>
       <p class="cere-hint">이 총평은 내 자료 기준으로 생성됐어요 — 발표 전에 미방어 질문부터 다시 보세요</p>
@@ -2292,7 +2765,7 @@ function qaLiveEnd() {
   if (again) again.addEventListener('click', () => {
     const keep = qa.live;
     resetQa();
-    qa.live = { ...keep, qi: 0, asked: -1, results: [], busy: false };
+    qa.live = newLiveState(keep.sessionId, keep.questions);
     qa.started = true;
     saveSession('qa-flow', qa);
     renderQaLive();
@@ -2323,7 +2796,12 @@ function renderQa() {
   app.className = 'narrow';
   if (qaLiveActive()) return renderQaLive();
   if (qa.ended) return qaEnd();
+  // 시간 트랙(1/5/10분)을 먼저 고르게 한다 — 질문 개수가 트랙에 달려 있다
   if (!qa.started && !qa.turns.length) return qaModeGate();
+  // 트랙이 정해졌으면 여기서 실제 질문을 보장한다. 어느 경로로 들어왔든 마찬가지다.
+  // 이전 데모 대화가 남아 있어도 막지 않는다 — 데모 질문을 한 번이라도 눌러본 사용자가
+  // 영원히 데모만 보게 되던 원인이었다 (sessionStorage 에 남아 새로고침으로도 안 풀렸다).
+  if (ensureLiveQuestions()) return renderQaBuilding();
   qa.started = true;
   // 첫 진입: 첫 질문을 스레드에 올림
   if (!qa.turns.length) { qa.concepts.joint = 'current'; presentQuestion(qaBeatList()[0]); }
@@ -2333,6 +2811,7 @@ function renderQa() {
   saveSession('qa-flow', qa);
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
+    ${qaNoticeHtml()}
     <div class="qa-top">
       <div>
         <h1 class="page-title" style="font-size:19px">${qa.aud} 질문 코칭</h1>
@@ -2381,7 +2860,7 @@ function renderLive() {
   } else if (qa.sub === 'typing') {
     el.innerHTML = `
       <div class="qa-live-input" style="margin-top:0">
-        <textarea id="typeText" rows="3" placeholder="자기 말로 설명해보세요 (Cmd/Ctrl+Enter 전송)"></textarea>
+        <textarea id="typeText" rows="3" placeholder="자기 말로 설명해보세요 (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
         <div class="live-actions">
           <button class="btn btn-primary" id="typeSend">답변 보내기</button>
           <button class="btn btn-text" id="typeBack">말로 답할게요</button>
@@ -2396,7 +2875,12 @@ function renderLive() {
     };
     $('#typeSend').addEventListener('click', sendTyped);
     $('#typeText').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendTyped(); }
+      if (e.key !== 'Enter') return;
+      if (e.metaKey || e.ctrlKey) { e.preventDefault(); sendTyped(); return; }
+      if (e.shiftKey) return;                       // 줄바꿈
+      if (e.isComposing || e.keyCode === 229) return;   // 한글 조합 확정 Enter
+      e.preventDefault();
+      sendTyped();
     });
     $('#typeBack').addEventListener('click', () => { qa.sub = 'answer'; renderLive(); });
     $('#typeText').focus();

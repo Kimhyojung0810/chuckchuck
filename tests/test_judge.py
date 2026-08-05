@@ -99,7 +99,7 @@ class ScriptedLLM(LLMProvider):
         self.calls = 0
         self.prompts: list[str] = []
 
-    def complete(self, *, system, user, temperature=0.2, max_tokens=4096) -> str:
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False) -> str:
         self.calls += 1
         self.prompts.append(user)
         return self.payload
@@ -114,7 +114,7 @@ class SequenceLLM(LLMProvider):
         self.payloads = list(payloads)
         self.calls = 0
 
-    def complete(self, *, system, user, temperature=0.2, max_tokens=4096) -> str:
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False) -> str:
         self.calls += 1
         return self.payloads[min(self.calls - 1, len(self.payloads) - 1)]
 
@@ -124,7 +124,7 @@ class ExplodingLLM(LLMProvider):
 
     name = "exploding"
 
-    def complete(self, *, system, user, temperature=0.2, max_tokens=4096) -> str:
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False) -> str:
         raise AssertionError("LLM 을 부르면 안 되는 경로입니다")
 
 
@@ -447,3 +447,211 @@ def test_broken_json_twice_raises():
 def test_empty_question_raises():
     with pytest.raises(JudgeError):
         judge_answer(make_question(question="  "), GOOD_ANSWER, llm=ExplodingLLM())
+
+
+# ---------------------------------------------------------------------------
+# 정답 계열 판정(passed) — 되묻기를 멈출지 정하는 유일한 출구다.
+#
+# 턴 상한이 없으므로 이 임계 하나가 대화의 끝을 결정한다. 임계가 너무 높으면
+# 대화가 실제로 안 끝나고, 너무 낮으면 얕은 답이 통과한다.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("score", [70, 71, 85, 100])
+def test_임계_이상이면_정답_계열(score):
+    assert judge_of(payload(verdict="partial", score=score)).passed
+
+
+@pytest.mark.parametrize("score", [0, 55, 69])
+def test_임계_미만이면_되묻는다(score):
+    assert not judge_of(payload(verdict="partial", score=score)).passed
+
+
+def test_good_은_점수와_무관하게_정답_계열():
+    """
+    verdict 와 score 가 어긋나면 verdict 를 믿는다 —
+    '설득 완료' 라고 판정해 놓고 되묻는 화면은 사용자가 이해할 수 없다.
+    """
+    assert judge_of(payload(verdict="good", score=10)).passed
+
+
+@pytest.mark.parametrize("verdict", ["wrong", "unknown"])
+def test_낮은_등급은_기본_점수로도_통과하지_못한다(verdict):
+    assert not judge_of(payload(verdict=verdict)).passed
+
+
+def test_빈_답변은_정답_계열이_아니다():
+    assert not judge_answer(make_question(), "   ", llm=ExplodingLLM()).passed
+
+
+def test_passed_는_직렬화에_실린다():
+    """프론트가 임계를 다시 계산하지 않도록 서버가 계산해 내려보낸다."""
+    assert judge_of(payload(verdict="partial", score=75)).to_dict()["passed"] is True
+
+
+def test_passed_는_왕복하면_다시_계산된다():
+    """
+    바디에 passed=true 를 실어 보내도 규칙이 흔들리면 안 된다.
+    임계는 계약이 정하는 것이지 요청이 정하는 것이 아니다.
+    """
+    forged = QaJudgement.from_dict(
+        {"question_id": "q01-c1", "verdict": "wrong", "score": 10, "passed": True}
+    )
+    assert not forged.passed
+
+
+# ---------------------------------------------------------------------------
+# 후속 질문(followup) — 되물을 때 원래 질문을 반복하지 않게 하는 재료
+# ---------------------------------------------------------------------------
+
+def test_llm_이_준_후속_질문을_쓴다():
+    judgement = judge_of(
+        payload(verdict="partial", followup="표본 수는 몇 명이었나요?")
+    )
+    assert judgement.followup == "표본 수는 몇 명이었나요?"
+
+
+def test_후속_질문이_비면_빠진_포인트로_채운다():
+    """LLM 이 빠뜨려도 되묻기가 멈추면 안 된다. 근거는 이미 코드가 갖고 있다."""
+    judgement = judge_of(
+        payload(verdict="partial", missing_points=["측정 도구", "표본 수"])
+    )
+    assert "측정 도구" in judgement.followup
+
+
+def test_재료가_없어도_후속_질문이_비지_않는다():
+    judgement = judge_of(payload(verdict="wrong"))
+    assert judgement.followup.strip()
+
+
+def test_정답_계열이면_후속_질문이_없다():
+    """통과한 답에 되묻는 질문을 남기면 프론트가 잘못 이어 붙인다."""
+    judgement = judge_of(payload(verdict="good", followup="그래도 더 물어볼까요?"))
+    assert judgement.followup == ""
+
+
+def test_빈_답변도_후속_질문을_받는다():
+    """LLM 을 안 부르는 경로라 폴백이 유일한 공급원이다."""
+    judgement = judge_answer(make_question(), "", llm=ExplodingLLM())
+    assert judgement.followup.strip()
+
+
+def test_후속_질문도_길이_상한을_지킨다():
+    from chuckchuck.contracts import QA_TEXT_MAX
+
+    judgement = judge_of(payload(verdict="partial", followup="긴 질문 " * 200))
+    assert len(judgement.followup) <= QA_TEXT_MAX
+
+
+# ---------------------------------------------------------------------------
+# 힌트 사다리 — 판정에 함께 실려 나간다 (추가 왕복 없이 즉시 보여 주려고)
+# ---------------------------------------------------------------------------
+
+def test_판정에_힌트_사다리가_실린다():
+    judgement = judge_of(payload(verdict="partial", missing_points=["측정 도구"]))
+    assert len(judgement.hints) == 3
+
+
+def test_힌트_사다리가_직렬화에_실린다():
+    assert "hints" in judge_of(payload(verdict="partial")).to_dict()
+
+
+def test_빈_답변에도_힌트_사다리가_실린다():
+    """첫 답을 못 쓰고 막힌 사람이야말로 힌트가 필요하다."""
+    judgement = judge_answer(make_question(), "", llm=ExplodingLLM())
+    assert len(judgement.hints) >= 2
+
+
+# ---------------------------------------------------------------------------
+# [D2] 누적 판정 — 이 질문에 대한 답변 전체를 함께 본다
+#
+# 되묻기는 "빠진 지점 하나를 콕 집어" 물어 사용자를 증분 답변으로 유도한다.
+# 그런데 판정이 마지막 증분만 채점하면, 1턴에 A·2턴에 B 를 말한 사람은
+# A+B 를 다 말하고도 B 만으로 평가된다. 그래서 누적이 판정 대상이어야 한다.
+# ---------------------------------------------------------------------------
+
+def test_이전_답변이_판정_대상으로_실린다():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(
+        make_question(),
+        "그리고 온도 파라미터는 0.07 을 썼습니다",
+        prior_answers=["두 벡터를 같은 공간에 놓고 정렬합니다"],
+        llm=llm,
+    )
+    prompt = llm.prompts[0]
+    assert "두 벡터를 같은 공간에 놓고 정렬합니다" in prompt
+    assert "그리고 온도 파라미터는 0.07 을 썼습니다" in prompt
+
+
+def test_누적_답변은_판정_대상_블록에_들어간다():
+    """맥락(지난 대화)이 아니라 '판정하라' 블록 안에 있어야 한다."""
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), "이번 답", prior_answers=["앞선 답"], llm=llm)
+    prompt = llm.prompts[0]
+    head = prompt.index("판정하라")
+    assert prompt.index("앞선 답") > head, "앞 답변이 판정 대상 블록 밖에 있다"
+
+
+def test_누적_답변이_없으면_이번_답변만_실린다():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), GOOD_ANSWER, llm=llm)
+    assert GOOD_ANSWER in llm.prompts[0]
+
+
+def test_누적_답변은_상한까지만_실린다():
+    from chuckchuck.f09_judge import PRIOR_ANSWERS_MAX
+
+    llm = ScriptedLLM(payload(verdict="good"))
+    priors = [f"앞선답{i}" for i in range(PRIOR_ANSWERS_MAX + 3)]
+    judge_answer(make_question(), GOOD_ANSWER, prior_answers=priors, llm=llm)
+    assert "앞선답0" not in llm.prompts[0]
+    assert f"앞선답{PRIOR_ANSWERS_MAX + 2}" in llm.prompts[0]
+
+
+def test_빈_누적_답변은_버려진다():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), GOOD_ANSWER, prior_answers=["", "   "], llm=llm)
+    assert "1턴" not in llm.prompts[0]
+
+
+def test_누적이_있어도_빈_이번_답변은_LLM_을_안_부른다():
+    """빈 답변 단축 경로가 누적 때문에 뚫리면 비용이 샌다."""
+    judgement = judge_answer(
+        make_question(), "  ", prior_answers=["앞선 답"], llm=ExplodingLLM()
+    )
+    assert judgement.verdict == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# [D7] 뉘앙스가 맞는 답에 출구를 준다
+#
+# good 은 정의상 근거를 요구하고 partial 기본 점수는 55 인데 통과선은 70 이다.
+# 요지를 맞혀도 나갈 길이 없었다. 밴드를 쪼개 그 모순을 없앤다.
+# ---------------------------------------------------------------------------
+
+def test_점수_밴드가_요지만_맞은_구간을_분리한다():
+    from chuckchuck.contracts import QA_PASS_SCORE
+    from chuckchuck.f09_judge import SYSTEM_PROMPT
+
+    assert "70~79" in SYSTEM_PROMPT, "요지가 맞을 때 통과 가능한 구간이 명시돼야 한다"
+    assert f"{QA_PASS_SCORE}점 이상" in SYSTEM_PROMPT, \
+        "통과선을 프롬프트가 알아야 밴드와 임계가 안 싸운다"
+
+
+def test_결손은_통과를_막는_하나만_요구한다():
+    from chuckchuck.f09_judge import SYSTEM_PROMPT
+
+    assert "하나만" in SYSTEM_PROMPT
+
+
+def test_요지가_맞으면_통과_점수를_받아_넘어간다():
+    """D7 의 목적 — 근거가 얕아도 요지를 맞혔으면 갇히지 않는다."""
+    judgement = judge_of(payload(verdict="partial", score=72))
+    assert judgement.passed
+    assert judgement.followup == "", "통과한 답에 되묻는 질문이 남으면 화면이 모순된다"
+
+
+def test_partial_반응이_절반이라고_깎지_않는다():
+    """요지를 맞힌 사람에게 '절반' 은 과소평가로 읽힌다."""
+    from chuckchuck.f09_judge import _REACT_BY_VERDICT
+
+    assert "절반" not in _REACT_BY_VERDICT["partial"]
