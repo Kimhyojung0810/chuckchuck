@@ -19,11 +19,13 @@ from chuckchuck.contracts import (
     ConceptEdge,
     ConceptGraph,
     ConceptNode,
+    ExtraConcept,
     FlowDiff,
     FlowIssue,
     QaTriage,
     QuestionDoc,
     QuestionError,
+    Section,
     SlideSpeech,
     Transcript,
     TriageMark,
@@ -54,9 +56,21 @@ def make_graph(n: int = 3) -> ConceptGraph:
     return ConceptGraph(file_name="sample.pdf", total_slides=n, nodes=nodes, edges=edges)
 
 
-def make_alignment(verdicts: dict[str, str], graph: ConceptGraph | None = None) -> AlignmentDoc:
-    """node_id → verdict. 안 준 노드는 aligned 로 채운다."""
+def make_alignment(
+    verdicts: dict[str, str],
+    graph: ConceptGraph | None = None,
+    speech_weights: dict[str, float] | None = None,
+    extras: list[tuple[str, str, int | None]] | None = None,
+) -> AlignmentDoc:
+    """
+    node_id → verdict. 안 준 노드는 aligned 로 채운다.
+
+    speech_weight 는 기본으로 doc_weight 를 따라간다 — '정합인데 발화 비중 0' 은
+    F-11 이 만들 수 없는 조합이고, 그대로 두면 모든 노드가 under_spoken 으로 잡힌다.
+    격차를 시험할 때만 speech_weights 로 낮춰 준다.
+    """
     graph = graph or make_graph()
+    speech_weights = speech_weights or {}
     return AlignmentDoc(
         file_name=graph.file_name,
         total_slides=graph.total_slides,
@@ -65,9 +79,14 @@ def make_alignment(verdicts: dict[str, str], graph: ConceptGraph | None = None) 
                 node_id=n.id,
                 verdict=verdicts.get(n.id, "aligned"),
                 doc_weight=n.weight,
+                speech_weight=speech_weights.get(n.id, n.weight),
                 evidence="모의 근거 발화",
             )
             for n in graph.nodes
+        ],
+        extra_concepts=[
+            ExtraConcept(label=label, quote=quote, slide_no=no)
+            for label, quote, no in (extras or [])
         ],
     )
 
@@ -769,3 +788,386 @@ def test_골자_요청이_프롬프트_스키마에_들어간다():
     from chuckchuck.f08_questions import QUESTION_SYSTEM_PROMPT
 
     assert "answer_gist" in QUESTION_SYSTEM_PROMPT
+
+
+# ---------------------------------------------------------------------------
+# 후보 선정이 ConceptGraph 를 실제로 읽는가
+#
+# 조인 키는 slide_nos 다 (SCHEMA §6-B). weight·summary·edges·sections[].slide_role
+# 넷이 순위에 실제로 반영되는지 — 전부 코드가 결정하고 LLM 은 관여하지 않는다.
+# ---------------------------------------------------------------------------
+
+def _roled_graph(roles: dict[int, str], weights: dict[str, float]) -> ConceptGraph:
+    """slide_no → 구획 역할, node_id → weight 로 그래프를 짓는다. 간선은 없다."""
+    nodes = [
+        ConceptNode(id=nid, label=nid, slide_nos=[no], summary=f"{nid} 요약", weight=w)
+        for no, (nid, w) in enumerate(weights.items(), start=1)
+    ]
+    sections = [
+        Section(name=role, slide_role=role, slide_nos=[no])
+        for no, role in roles.items()
+    ]
+    return ConceptGraph(
+        file_name="t.pdf", total_slides=len(nodes), nodes=nodes, sections=sections
+    )
+
+
+def _ids(graph, **kw):
+    return [m.node_id for m in make_triage(graph, **kw).marks]
+
+
+def test_표지_개념은_더_무거워도_본론_개념에_밀린다():
+    """'감사합니다' 장의 개념은 자료가 크게 다뤄도 심사 질문 대상이 아니다."""
+    graph = _roled_graph({1: "cover", 2: "body"}, {"cover_c": 1.0, "body_c": 0.1})
+    assert _ids(graph) == ["body_c", "cover_c"]
+
+
+def test_맺음말은_서론보다_뒤다():
+    graph = _roled_graph({1: "closing", 2: "intro"}, {"close_c": 1.0, "intro_c": 1.0})
+    assert _ids(graph) == ["intro_c", "close_c"]
+
+
+def test_본론과_결론은_같은_순위라_weight_가_정한다():
+    """구획은 '물어볼 만한 구획인가' 만 가른다. 그 안의 서열은 weight 다."""
+    graph = _roled_graph({1: "body", 2: "conclusion"}, {"body_c": 0.2, "concl_c": 0.9})
+    assert _ids(graph) == ["concl_c", "body_c"]
+
+
+def test_구획이_없으면_전부_본론으로_보고_weight_순이다():
+    """F-07 이 sections 를 못 만든 발표에서 질문이 이상해지면 안 된다."""
+    graph = make_graph()          # sections 없음
+    assert _ids(graph) == ["c1", "c2", "c3"]
+
+
+def test_여러_구획에_걸치면_가장_앞선_구획으로_본다():
+    """한 장이라도 본론에서 다뤘으면 물어볼 거리가 있다."""
+    from chuckchuck.f08_questions import _role_rank_of
+
+    node = ConceptNode(id="x", label="x", slide_nos=[1, 2], weight=1.0)
+    graph = ConceptGraph(
+        file_name="t.pdf", total_slides=2, nodes=[node],
+        sections=[
+            Section(name="표지", slide_role="cover", slide_nos=[1]),
+            Section(name="본론", slide_role="body", slide_nos=[2]),
+        ],
+    )
+    assert _role_rank_of(graph, node) == 0
+
+
+def test_요약이_빈_개념은_같은_조건에서_뒤로_밀린다():
+    """질문 문장을 쓸 재료가 없으면 사전식 정의 질문밖에 안 나온다."""
+    graph = ConceptGraph(
+        file_name="t.pdf", total_slides=2,
+        nodes=[
+            ConceptNode(id="empty", label="e", slide_nos=[1], summary="", weight=0.5),
+            ConceptNode(id="full", label="f", slide_nos=[2], summary="한 줄", weight=0.5),
+        ],
+    )
+    assert _ids(graph) == ["full", "empty"]
+
+
+def test_같은_근거_안에서_연결된_개념은_뒤로_밀린다():
+    """edges 가 인접을 안다 — 한 답으로 커버되는 질문을 나란히 내지 않는다."""
+    nodes = [
+        ConceptNode(id="a", label="a", slide_nos=[1], summary="a", weight=0.9),
+        ConceptNode(id="b", label="b", slide_nos=[2], summary="b", weight=0.8),
+        ConceptNode(id="far", label="far", slide_nos=[3], summary="far", weight=0.7),
+    ]
+    graph = ConceptGraph(
+        file_name="t.pdf", total_slides=3, nodes=nodes,
+        edges=[ConceptEdge(from_id="a", to_id="b", kind="relates")],
+    )
+    # a 와 붙은 b 는 far 뒤로 밀린다. weight 만 보면 b 가 far 보다 앞이다.
+    assert _ids(graph) == ["a", "far", "b"]
+
+
+def test_인접_강등은_근거_우선순위를_넘지_않는다():
+    """
+    별 모양 그래프에서 루트가 무너지면 안 된다.
+
+    c1 은 c2·c3 의 부모라 모든 자식과 인접하다. 자식 하나가 '누락' 으로 먼저 뽑혔다고
+    자료에서 가장 무거운 개념이 맨 뒤로 밀리면 리포트와 질문이 어긋난다.
+    """
+    graph = make_graph()
+    ids = _ids(graph, alignment=make_alignment({"c3": "missing"}, graph))
+    assert ids[0] == "c3"          # 누락이 최우선
+    assert ids[1] == "c1"          # 루트가 인접을 이유로 밀리지 않는다
+
+
+def test_모순_누락_근거는_인접해도_강등되지_않는다():
+    graph = make_graph()
+    ids = _ids(
+        graph,
+        alignment=make_alignment({"c2": "missing", "c3": "contradiction"}, graph),
+    )
+    assert ids[:2] == ["c3", "c2"], "모순 > 누락 이고, 둘 다 인접 강등 면제다"
+
+
+def test_같은_그래프면_순위가_언제나_같다():
+    graph = _roled_graph({1: "body", 2: "intro", 3: "cover"},
+                         {"a": 0.9, "b": 0.9, "c": 0.9})
+    assert _ids(graph) == _ids(graph)
+
+
+# ---------------------------------------------------------------------------
+# under_spoken — 자료 축(doc_weight) vs 발화 축(speech_weight) 격차
+#
+# 두 축이 이미 같은 node_id 로 조인돼 있어 뺄셈 한 번이면 나온다. LLM 이 필요 없다.
+# ---------------------------------------------------------------------------
+
+def _sources(graph, **kw) -> dict[str, str]:
+    return {m.node_id: m.source for m in make_triage(graph, **kw).marks}
+
+
+def test_중요한데_설명이_짧았던_개념은_under_spoken():
+    graph = make_graph()
+    src = _sources(
+        graph,
+        alignment=make_alignment({}, graph, speech_weights={"c2": 0.0}),
+    )
+    assert src["c2"] == "under_spoken"
+    assert src["c1"] == "core_weight", "격차가 없는 개념은 그대로다"
+
+
+def test_격차가_임계_이하면_under_spoken_이_아니다():
+    from chuckchuck.contracts import QA_UNDER_SPOKEN_GAP
+
+    graph = make_graph()
+    # doc_weight 는 make_graph 에서 c2=0.99. 임계보다 조금 덜 벌린다.
+    barely = 0.99 - QA_UNDER_SPOKEN_GAP + 0.01
+    src = _sources(graph, alignment=make_alignment({}, graph, speech_weights={"c2": barely}))
+    assert src["c2"] == "core_weight"
+
+
+def test_정당생략은_격차가_커도_under_spoken_이_아니다():
+    """리포트가 '생략이 합리적' 이라 해 놓고 질문에서 캐물으면 두 화면이 어긋난다."""
+    graph = make_graph()
+    src = _sources(
+        graph,
+        alignment=make_alignment(
+            {"c2": "justified_skip"}, graph, speech_weights={"c2": 0.0}
+        ),
+    )
+    assert src["c2"] == "justified_skip"
+
+
+def test_정당생략은_자료_비중이_커도_서열_맨_뒤다():
+    """weight 0.99 인 정당생략이 0.98 인 정합 개념보다 먼저 질문받으면 안 된다."""
+    graph = make_graph()   # c1=1.0 > c2=0.99 > c3=0.98
+    marks = make_triage(
+        graph, alignment=make_alignment({"c2": "justified_skip"}, graph)
+    ).marks
+    order = [m.node_id for m in marks]
+    assert order == ["c1", "c3", "c2"]
+
+
+def test_정당생략은_흐름_결손을_덮는다():
+    """생략이 합리적이면 그 개념의 연결 결손도 캐물을 일이 아니다."""
+    graph = make_graph()
+    src = _sources(
+        graph,
+        alignment=make_alignment({"c2": "justified_skip"}, graph),
+        flow=make_flow(("c1", "c2")),
+    )
+    assert src["c2"] == "justified_skip"
+    assert src["c1"] == "weak_flow"     # 정합 개념의 흐름 결손은 그대로 남는다
+
+
+def test_정당생략은_누락을_덮지_못한다():
+    """확인된 문제(모순·누락)는 정당생략이 강등할 수 없다 — 중복 항목 방어."""
+    graph = make_graph()
+    alignment = make_alignment({"c2": "missing"}, graph)
+    alignment.items.append(
+        AlignmentItem(node_id="c2", verdict="justified_skip",
+                      doc_weight=0.99, speech_weight=0.0)
+    )
+    assert _sources(graph, alignment=alignment)["c2"] == "missing"
+
+
+def test_정당생략이_먼저_와도_누락이_이긴다():
+    """중복 항목의 처리 순서와 무관하게 확인된 문제가 이긴다 (claim 의 rank 최소화)."""
+    graph = make_graph()
+    alignment = make_alignment({"c2": "justified_skip"}, graph)
+    alignment.items.append(
+        AlignmentItem(node_id="c2", verdict="missing",
+                      doc_weight=0.99, speech_weight=0.0)
+    )
+    assert _sources(graph, alignment=alignment)["c2"] == "missing"
+
+
+def test_정당생략의_폴백_severity_는_가벼움이다():
+    graph = make_graph()
+    marks = make_triage(
+        graph, alignment=make_alignment({"c2": "justified_skip"}, graph)
+    ).marks
+    skip = next(m for m in marks if m.node_id == "c2")
+    assert skip.severity == 3
+
+
+def test_누락이_under_spoken_을_이긴다():
+    graph = make_graph()
+    src = _sources(
+        graph,
+        alignment=make_alignment({"c2": "missing"}, graph, speech_weights={"c2": 0.0}),
+    )
+    assert src["c2"] == "missing"
+
+
+def test_under_spoken_은_흐름_결손보다_앞이다():
+    graph = make_graph()
+    marks = make_triage(
+        graph,
+        alignment=make_alignment({}, graph, speech_weights={"c3": 0.0}),
+        flow=make_flow(("c2", "c1")),
+    ).marks
+    order = [m.source for m in marks]
+    assert order.index("under_spoken") < order.index("weak_flow")
+
+
+# ---------------------------------------------------------------------------
+# 흐름 이슈 상세 — 순서·구조 질문의 재료
+# ---------------------------------------------------------------------------
+
+def _order_jump_flow(note: str = "") -> FlowDiff:
+    """c1(부모)보다 c2(자식)를 먼저 말한 order_jump. note 는 F-11 이 만드는 문장."""
+    return FlowDiff(
+        file_name="sample.pdf",
+        issues=[FlowIssue(kind="order_jump", node_ids=["c1", "c2"], note=note)],
+    )
+
+
+def test_순서_역행_상세가_triage_프롬프트에_실린다():
+    graph = make_graph()
+    llm = ScriptedLLM('{"marks": []}')
+    triage_questions(
+        graph,
+        flow=_order_jump_flow(note="'개념2' 을(를) 상위 개념 '개념1' 보다 먼저 말했어요"),
+        llm=llm,
+    )
+    assert "흐름(order_jump)" in llm.prompts[0]
+    assert "먼저 말했어요" in llm.prompts[0]
+
+
+def test_흐름_상세는_weak_flow_근거_개념에만_붙는다():
+    """누락으로 뽑힌 개념에 흐름 이슈까지 얹으면 LLM 이 근거를 섞어 각도를 잡는다."""
+    graph = make_graph()
+    llm = ScriptedLLM('{"marks": []}')
+    triage_questions(
+        graph,
+        alignment=make_alignment({"c2": "missing"}, graph),
+        flow=_order_jump_flow(),   # c1·c2 둘 다 이슈에 걸리지만 c2 는 근거가 missing
+        llm=llm,
+    )
+    prompt = llm.prompts[0]
+    # 개념 줄에 붙는 상세는 c1(weak_flow) 하나뿐이어야 한다 (머리말 설명 제외).
+    assert prompt.count("흐름(order_jump)") == 1
+
+
+def test_질문_프롬프트에도_흐름_상세가_실린다():
+    graph = make_graph()
+    flow = _order_jump_flow(note="'개념2' 을(를) 상위 개념 '개념1' 보다 먼저 말했어요")
+    triage = make_triage(graph, flow=flow)
+    llm = ScriptedLLM('{"questions": []}')
+    build_questions(graph, triage, track="10", flow=flow, llm=llm)
+    assert "흐름(order_jump)" in llm.prompts[0]
+
+
+def test_weak_flow_why_폴백은_이슈_종류를_따른다():
+    """순서 역행에 '연결이 안 드러났다' 를 붙이면 질문 의도를 오해한다."""
+    graph = make_graph()
+    flow = _order_jump_flow()
+    triage = make_triage(graph, flow=flow)
+    doc = doc_of('{"questions": []}', graph=graph, triage=triage, flow=flow)
+    jump = next(q for q in doc.questions if q.source == "weak_flow")
+    assert "순서" in jump.why
+
+
+def test_flow_없이_만든_질문의_why_는_기존_문구다():
+    """flow 를 안 주는 기존 호출 경로는 일반 weak_flow 문구로 그대로 동작한다."""
+    graph = make_graph()
+    flow = _order_jump_flow()
+    triage = make_triage(graph, flow=flow)   # triage 는 flow 로 순위만 잡고
+    doc = doc_of('{"questions": []}', graph=graph, triage=triage)  # 질문은 flow 없이
+    jump = next(q for q in doc.questions if q.source == "weak_flow")
+    assert jump.why == "다른 개념과의 연결이 발표에서 드러나지 않았어요"
+
+
+# ---------------------------------------------------------------------------
+# extra_concepts — 발화에만 나온 개념
+#
+# 새 그래프를 만들지 않는다. `extra:` 네임스페이스로 기존 node_id 축에 얹는다.
+# ---------------------------------------------------------------------------
+
+def test_발화에만_나온_개념도_질문_후보가_된다():
+    graph = make_graph()
+    alignment = make_alignment({}, graph, extras=[("온도 파라미터", "온도를 낮추면…", 4)])
+    ids = _ids(graph, alignment=alignment)
+    assert "extra:온도 파라미터" in ids
+
+
+def test_합성_노드는_접두사로_그래프_노드와_구분된다():
+    """리포트가 이 접두사로 개념 판정과 발화 개념을 갈라 본다."""
+    from chuckchuck.f08_questions import EXTRA_ID_PREFIX
+
+    graph = make_graph()
+    alignment = make_alignment({}, graph, extras=[("온도", "인용", None)])
+    doc = build_questions(
+        graph, make_triage(graph, alignment=alignment), track="10",
+        alignment=alignment, llm="mock",
+    )
+    synth = [q for q in doc.questions if q.node_id.startswith(EXTRA_ID_PREFIX)]
+    assert len(synth) == 1
+    assert synth[0].label == "온도"
+    assert synth[0].source == "extra"
+    assert not any(n.id.startswith(EXTRA_ID_PREFIX) for n in graph.nodes), \
+        "그래프 자체는 오염되지 않는다"
+
+
+def test_발화_개념은_자료_결손보다_뒤다():
+    graph = make_graph()
+    alignment = make_alignment({"c3": "missing"}, graph, extras=[("온도", "인용", None)])
+    ids = _ids(graph, alignment=alignment)
+    assert ids.index("c3") < ids.index("extra:온도")
+
+
+def test_발화_개념은_자료_비중보다_앞이다():
+    """발표자가 실제로 입 밖에 낸 개념이라 되물을 근거가 확실하다."""
+    graph = make_graph()
+    alignment = make_alignment({}, graph, extras=[("온도", "인용", None)])
+    ids = _ids(graph, alignment=alignment)
+    assert ids.index("extra:온도") < ids.index("c1")
+
+
+def test_발화_개념은_상한까지만_올라온다():
+    from chuckchuck.contracts import QA_EXTRA_MAX
+
+    graph = make_graph()
+    alignment = make_alignment(
+        {}, graph, extras=[(f"개념{i}", "인용", None) for i in range(QA_EXTRA_MAX + 3)]
+    )
+    ids = _ids(graph, alignment=alignment)
+    assert len([i for i in ids if i.startswith("extra:")]) == QA_EXTRA_MAX
+
+
+def test_빈_라벨과_중복_발화_개념은_버려진다():
+    graph = make_graph()
+    alignment = make_alignment(
+        {}, graph, extras=[("", "인용", None), ("온도", "a", None), ("온도", "b", None)]
+    )
+    ids = [i for i in _ids(graph, alignment=alignment) if i.startswith("extra:")]
+    assert ids == ["extra:온도"]
+
+
+def test_발화_개념은_인용을_요약으로_들고_온다():
+    """질문 문장을 쓸 재료다. 비면 사전식 정의 질문밖에 안 나온다."""
+    from chuckchuck.f08_questions import _extra_nodes
+
+    alignment = make_alignment({}, make_graph(), extras=[("온도", "온도를 낮추면…", 4)])
+    node = _extra_nodes(alignment)[0]
+    assert node.summary == "온도를 낮추면…"
+    assert node.slide_nos == [4]
+    assert node.weight == 0.0, "자료가 배분한 양이 없는 개념이다"
+
+
+def test_정합_문서가_없으면_발화_개념도_없다():
+    assert _ids(make_graph()) == ["c1", "c2", "c3"]

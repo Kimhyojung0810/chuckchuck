@@ -6,6 +6,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import traceback
@@ -83,13 +84,35 @@ def _save_slidedoc_cache(doc_dict: dict, file_name: str) -> None:
 
 
 
+# LibreOffice 는 macOS 앱 번들·snap 설치에서 PATH 에 링크를 만들지 않는다.
+# PATH 만 보면 설치돼 있어도 못 찾아 PPTX 원본 미리보기가 조용히 텍스트로 떨어진다.
+_SOFFICE_FALLBACK_PATHS = (
+    "/Applications/LibreOffice.app/Contents/MacOS/soffice",  # macOS (brew cask 포함)
+    "/opt/homebrew/bin/soffice",
+    "/usr/local/bin/soffice",
+    "/usr/bin/soffice",
+    "/usr/bin/libreoffice",
+    "/snap/bin/libreoffice",
+)
+
+
 def _soffice_bin() -> str | None:
     import shutil
+
+    override = os.environ.get("SOFFICE_BIN", "").strip()
+    if override:
+        if os.access(override, os.X_OK):
+            return override
+        sys.stderr.write(f"[bridge] SOFFICE_BIN 이 실행 가능하지 않음: {override}\n")
 
     for name in ("soffice", "libreoffice"):
         found = shutil.which(name)
         if found:
             return found
+
+    for path in _SOFFICE_FALLBACK_PATHS:
+        if os.access(path, os.X_OK):
+            return path
     return None
 
 
@@ -103,7 +126,11 @@ def _pptx_to_preview_pdf(pptx_path: Path, file_name: str) -> Path | None:
 
     soffice = _soffice_bin()
     if not soffice:
-        sys.stderr.write("[bridge] soffice 없음 — PPTX 원본 미리보기 불가\n")
+        sys.stderr.write(
+            "[bridge] soffice 없음 — PPTX 원본 슬라이드를 그릴 수 없어 자리표시자로 떨어짐.\n"
+            "[bridge]   설치: brew install --cask libreoffice "
+            "(다른 경로면 SOFFICE_BIN=/path/to/soffice)\n"
+        )
         return None
     stem = _cache_stem(file_name)
     raw_dir = ROOT / "fixtures" / "raw"
@@ -239,6 +266,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_report(raw)
             if parsed.path == "/api/v1/questions":
                 return self._handle_questions(raw)
+            if parsed.path == "/api/v1/strategy":
+                return self._handle_strategy(raw)
             # F-09: /api/v1/sessions/{id}/qa/judge — 세션 없이도 body.question 으로 판정
             if parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path:
                 return self._handle_qa_judge(raw)
@@ -410,6 +439,35 @@ class Handler(SimpleHTTPRequestHandler):
         result = extract_concepts(doc, ctx, transcript=transcript, llm=llm)
         sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}\n")
         return self._json(200, result.to_dict())
+
+    def _handle_strategy(self, raw: bytes):
+        """F-20 · 분석 결과 → 발표 구성 제안 하나 + 대안 요약."""
+        from chuckchuck.contracts import StrategyError
+        from chuckchuck.f20_strategy import suggest_strategy
+
+        body = json.loads(raw or b"{}")
+        analysis = body.get("analysis")
+        if not isinstance(analysis, dict) or not analysis:
+            return self._json(
+                400,
+                {"error": "bad_request", "message": "analysis 가 필요합니다. 리포트 분석 결과를 보내세요."},
+            )
+        llm = "mock" if _mock() else body.get("llm")
+        sys.stderr.write(
+            f"[bridge] F-20 strategy start concepts={len(analysis.get('concepts') or [])} "
+            f"quotes={len(analysis.get('quotes') or [])} mock={_mock()}\n"
+        )
+        try:
+            result = suggest_strategy(analysis, llm=llm)
+        except StrategyError as e:
+            # 환각을 걸러낸 결과 남는 게 없을 수 있다. 그건 500 이 아니라 "이번엔 못 냈다" 다.
+            sys.stderr.write(f"[bridge] F-20 strategy rejected: {e}\n")
+            return self._json(502, {"error": "strategy_failed", "message": str(e)})
+        sys.stderr.write(
+            f"[bridge] F-20 strategy done type={result['chosen']['type']} "
+            f"climax={result['chosen']['climax']}\n"
+        )
+        return self._json(200, result)
 
     def _handle_graph(self, raw: bytes):
         """F-07 · ConceptDoc(+선택 SlideDoc) → ConceptGraph."""

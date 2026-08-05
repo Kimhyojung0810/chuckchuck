@@ -1,0 +1,390 @@
+/*
+"제본된 리포트" 디자인 시스템입니다.
+리포트(#/report)와 홈(#/) 이 같은 .verdict 컴포넌트를 공유합니다.
+프로토타입(prototype-report.html)에서 확정한 규칙을 실제 화면에 옮긴 것입니다.
+
+  ① 면 3단계, 다크 면은 화면당 하나 — 이 화면에서는 판정 헤드가 그 하나다
+  ② 타이포 4단 — Display 56 / Title 23 / Body 15 / Meta 12
+  ③ 장식 대신 데이터가 배경 — 실제 발화 파형과 슬라이드 전환 시각
+  ④ 여백 리듬 2종 — 구역 96px, 요소 24px
+
+app.css 가 이미 1,500줄을 넘어 여기서 따로 관리합니다.
+색은 app.css 의 :root 토큰을 그대로 씁니다.
+*/
+
+:root {
+  /* ② 타이포 4단 — clamp 로 흔들지 않는 고정 단계 */
+  --t-display: 56px;
+  --t-title: 23px;
+  --t-meta: 12px;
+
+  /* ④ 여백 리듬 2종 */
+  --gap-section: 96px;
+  --gap-item: 24px;
+
+  /* 제본된 리포트 — 종이에 인쇄된 느낌이라 모서리를 거의 없앤다 */
+  --r-print: 4px;
+}
+
+/* 에디토리얼 메타 라벨 */
+.eyebrow {
+  font-size: 10.5px; font-weight: 830; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--text-3);
+}
+
+/* ══ ① 다크 판정 헤드 — 이 화면의 유일한 다크 면 ══════════════
+   main.wide 안에 있지만 전면폭으로 빠져나온다. */
+.verdict {
+  position: relative; overflow: hidden; color: #fff;
+  margin-inline: calc(50% - 50vw);
+  padding: 60px max(24px, calc(50vw - 540px)) 0;
+  background: linear-gradient(168deg, #1B4A3E 0%, var(--navy) 46%, var(--navy-deep) 100%);
+}
+
+/* ③ 장식이 아니라 데이터가 배경이다 — 발화 파형 + 슬라이드 전환 시각 */
+.verdict-bg {
+  position: absolute; inset: auto 0 0; height: 190px;
+  display: flex; align-items: flex-end; gap: 3px;
+  padding: 0 24px; opacity: .13; pointer-events: none;
+  mask-image: linear-gradient(to top, #000 10%, transparent 92%);
+  -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 92%);
+}
+/* 판정 헤드가 화면 첫 요소일 때만 main 의 상단 padding 을 상쇄한다.
+   홈처럼 제목 뒤에 오는 경우까지 당기면 앞 요소를 덮는다. */
+main > .verdict:first-child { margin-top: -32px; }
+
+.verdict-bg i { flex: 1 1 0; min-width: 1px; border-radius: 2px 2px 0 0; background: var(--cyan); }
+.verdict-bg b { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--yellow); opacity: .8; }
+
+.verdict-inner { position: relative; z-index: 2; }
+.verdict-meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  color: #9FC9B6; font-size: var(--t-meta); font-weight: 750;
+}
+.verdict-meta i { width: 3px; height: 3px; border-radius: 50%; background: #52796C; flex-shrink: 0; }
+.verdict-title { margin: 14px 0 0; font-size: 26px; font-weight: 830; letter-spacing: -.045em; }
+
+/* 비대칭 그리드 — 점수는 왼쪽 축, 판단은 오른쪽 본문 */
+.verdict-grid {
+  display: grid; grid-template-columns: clamp(150px, 18vw, 220px) 1fr;
+  gap: clamp(32px, 5vw, 72px); align-items: start;
+  margin-top: 40px; padding-bottom: 52px;
+}
+/* 선은 장식이 아니라 '여기서 이 열이 시작된다'는 표시다.
+   위에 라벨이 없으면 목적이 사라지므로 라벨 → 선 → 숫자 순으로 둔다. */
+.verdict-score .vs-label {
+  display: block; margin-bottom: 12px;
+  font-size: 10.5px; font-weight: 830; letter-spacing: .18em;
+  text-transform: uppercase; color: #7FB3A2;
+}
+.verdict-score .vs-body { border-top: 2px solid rgba(255, 255, 255, .9); padding-top: 18px; }
+.verdict-score strong {
+  display: block; font-size: var(--t-display); font-weight: 830;
+  letter-spacing: -.055em; line-height: .96;
+}
+.verdict-score .of { color: #7FB3A2; font-size: 15px; font-weight: 750; margin-left: 4px; letter-spacing: -.02em; }
+.verdict-score .delta {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 14px;
+  font-size: var(--t-meta); font-weight: 830; color: #0B2A22;
+  background: var(--mint); border-radius: 999px; padding: 5px 11px;
+}
+.verdict-score .prev { display: block; margin-top: 10px; color: #7FB3A2; font-size: 11.5px; font-weight: 650; }
+
+.verdict-judgement h2 {
+  margin: 0; font-size: var(--t-title); font-weight: 750;
+  line-height: 1.62; letter-spacing: -.035em; max-width: 34ch;
+}
+.verdict-dims {
+  display: flex; flex-wrap: wrap; gap: 28px;
+  margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .16);
+}
+.verdict-dims .vd { flex: 1 1 104px; min-width: 0; }
+.verdict-dims .lb { display: block; color: #9FC9B6; font-size: 11.5px; font-weight: 750; }
+.verdict-dims .vl { display: block; margin: 3px 0 8px; font-size: 21px; font-weight: 830; letter-spacing: -.03em; }
+.verdict-dims .bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .16); overflow: hidden; }
+.verdict-dims .bar i { display: block; height: 100%; background: var(--cyan); border-radius: 2px; }
+
+/* 분석 결과가 없을 때 — 점수 없이 제목만, 높이를 줄인다 */
+.verdict.is-plain { padding-bottom: 40px; }
+.verdict.is-plain .verdict-bg { display: none; }
+
+/* 샘플 경고는 다크 면 안에서 */
+.verdict-note {
+  position: relative; z-index: 2;
+  margin: 0; padding: 0 0 28px;
+  color: #E8C983; font-size: 12.5px; font-weight: 650; line-height: 1.7;
+}
+.verdict-note b { color: #FFDF9E; font-weight: 830; }
+
+/* ══ ② 밑줄 텍스트 탭 — pill 을 버려 장식을 줄이고 밀도를 올린다 ══
+   #rtabs 로 좁혀서 다른 화면의 .tabs 에는 영향이 없다. */
+/* app.css 의 .tabs 는 sticky 다. 배경만 지우면 아래 카드 글자가 그대로 비쳐
+   겹치므로, 떠 있는 바로 만들고 연둣빛 반투명 면을 깐다. */
+#rtabs.tabs {
+  position: sticky; top: 72px; z-index: 12;
+  display: flex; gap: 28px; overflow-x: auto;
+  padding: 0 20px; border-radius: 999px; border-bottom: 0;
+  margin: 0 0 48px;
+  background: rgba(226, 242, 234, .86);
+  -webkit-backdrop-filter: saturate(1.3) blur(14px);
+  backdrop-filter: saturate(1.3) blur(14px);
+  box-shadow:
+    inset 0 0 0 1px rgba(31, 122, 95, .14),
+    0 10px 28px rgba(18, 54, 45, .14);
+}
+#rtabs.tabs::-webkit-scrollbar { display: none; }
+#rtabs.tabs button {
+  position: relative; flex: 0 0 auto;
+  padding: 16px 0; border-radius: 0; background: none; box-shadow: none;
+  white-space: nowrap; font-size: 14.5px; font-weight: 750; color: var(--text-2);
+  transition: color .16s var(--ease);
+}
+#rtabs.tabs button:hover { color: var(--text); background: none; }
+#rtabs.tabs button.on { color: var(--navy); font-weight: 830; background: none; box-shadow: none; }
+#rtabs.tabs button.on::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 10px;
+  height: 2px; border-radius: 2px; background: var(--brand);
+}
+
+/* ══ 홈 판정 헤드 — 성장 추이가 화면의 앵커가 된다 ══════════════ */
+.home-verdict {
+  /* areaChartSvg 는 stroke·stop-color 를 인라인으로 var(--blue) 로 쓴다.
+     커스텀 프로퍼티만 이 스코프에서 바꾸면 차트 전체가 어두운 면에 맞게 따라온다. */
+  --blue: var(--cyan);
+  margin-top: var(--gap-item);
+  padding-top: 52px;
+}
+.home-verdict .verdict-grid { margin-top: 0; padding-bottom: 44px; align-items: center; }
+.home-verdict .verdict-score .of { font-size: 17px; }
+.home-verdict .verdict-score .prev { margin-top: 12px; font-size: 12.5px; }
+
+.home-verdict .hg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+.home-verdict .hg-head .eyebrow { color: #9FC9B6; }
+.home-verdict .hg-head b { font-size: 15px; font-weight: 830; letter-spacing: -.02em; }
+.home-verdict .growth-svg { width: 100%; height: auto; display: block; }
+.home-verdict .growth-val { fill: #fff; font-size: 13px; font-weight: 830; }
+.home-verdict .growth-dot-last { stroke: var(--navy-deep); }
+
+.home-verdict .hg-foot { display: flex; gap: 36px; margin-top: 14px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, .16); }
+.home-verdict .hg-foot strong { display: block; font-size: 20px; font-weight: 830; letter-spacing: -.03em; }
+.home-verdict .hg-foot small { display: block; margin-top: 2px; color: #9FC9B6; font-size: 11.5px; font-weight: 750; }
+
+/* ══ 블록 제목 — 구역의 시작을 알리는 최소 단위 ══════════════ */
+.block-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: var(--gap-item); }
+.block-head h2 { margin: 0; font-size: 19px; font-weight: 830; letter-spacing: -.035em; }
+.block-head p { margin: 0; color: var(--text-3); font-size: 13px; font-weight: 650; }
+.block-head .btn { margin-left: auto; align-self: center; }
+
+/* ══ 홈 발표 목록 — 카드 더미 대신 표 리듬 ══════════════════════
+   app.css 의 .sess-row 는 남겨두고 .sess-list 안에서만 덮어쓴다. */
+.home-list { margin-top: var(--gap-section); }
+.sess-list { border-top: 2px solid var(--text); }
+.sess-list .sess-row {
+  width: 100%; display: grid; grid-template-columns: 1fr auto 52px 16px;
+  gap: 18px; align-items: center; text-align: left;
+  padding: 20px 4px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+  background: none; font: inherit; color: inherit; cursor: pointer;
+  transition: background .16s var(--ease);
+}
+.sess-list .sess-row + .sess-row { border-top: 0; }
+.sess-list .sess-row:hover { background: var(--paper); }
+.sess-list .sess-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.sess-list .sess-main { min-width: 0; }
+.sess-list .sess-main b { display: block; font-size: 15.5px; font-weight: 750; letter-spacing: -.03em; }
+.sess-list .sess-main small { display: block; margin-top: 5px; color: var(--text-3); font-size: 12.5px; font-weight: 650; }
+.sess-list .sess-score { font-size: 20px; font-weight: 830; letter-spacing: -.03em; }
+.sess-list .sess-score i { font-style: normal; margin-left: 2px; font-size: 12px; font-weight: 750; color: var(--text-3); }
+.sess-list .sess-diff { text-align: right; font-size: 12px; font-weight: 830; color: var(--ok); }
+.sess-list .chev { color: #C9D5CE; font-size: 18px; font-weight: 650; text-align: right; }
+
+/* 홈의 보조 카드(플레이빌·게임)는 목록보다 위계를 낮춘다 */
+main.home .card { border-radius: var(--r-print); box-shadow: var(--shadow); }
+main.home .about-link { margin-top: var(--gap-section); }
+
+/* 제본된 리포트 — 리포트 화면의 카드만 인쇄된 지면처럼 모서리를 줄인다.
+   main.wide 는 renderReport()·renderProfileReport() 에서만 붙으므로
+   다른 화면의 .card 는 기존 20px 를 유지한다. */
+main.wide .card,
+main.wide .trophy-strip { border-radius: var(--r-print); }
+
+@media (max-width: 900px) {
+  :root { --t-display: 46px; --t-title: 20px; --gap-section: 64px; }
+  .verdict { padding-left: 20px; padding-right: 20px; }
+  #rtabs.tabs { gap: 20px; padding: 0 14px; }
+  .verdict-grid { grid-template-columns: 1fr; gap: 32px; }
+  .verdict-title { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #rtabs.tabs button { transition: none; }
+}
+
+/* 좁은 화면 — 숫자는 줄이되 위계는 유지한다 */
+@media (max-width: 640px) {
+  :root { --t-display: 38px; --t-title: 18px; --gap-section: 48px; --gap-item: 16px; }
+  .verdict { padding-top: 40px; }
+  .verdict-dims { gap: 16px 20px; margin-top: 20px; padding-top: 16px; }
+  .verdict-dims .vd { flex: 1 1 84px; }
+  .verdict-dims .vl { font-size: 18px; }
+  .verdict-title { font-size: 19px; }
+  .home-verdict { padding-top: 32px; }
+  .home-verdict .hg-foot { gap: 22px; }
+  .sess-list .sess-row { grid-template-columns: 1fr auto; row-gap: 6px; }
+  .sess-list .sess-diff, .sess-list .chev { display: none; }
+  .block-head { flex-wrap: wrap; }
+  .block-head .btn { margin-left: 0; }
+}
+
+/* ══ 넓은 콘텐츠는 자기 안에서 스크롤한다 ══════════════════════
+   페이지 본문이 가로로 밀리면 모든 카드가 같은 지점에서 잘린다.
+   폭이 큰 스트립·그리드만 개별 스크롤 컨테이너로 만든다. */
+.deck-film,
+.slide-film-text,
+.slides-row,
+.report-product-grid,
+.pb-strip,
+.tabs { overflow-x: auto; }
+
+/* 그리드 자식이 min-content 로 트랙을 밀어내지 못하게 한다 */
+.verdict-grid > *,
+.verdict-judgement,
+.verdict-score { min-width: 0; }
+.verdict-judgement h2 { overflow-wrap: anywhere; }
+
+/* 이미지·캔버스가 컨테이너를 넘지 않게 */
+main img, main canvas, main svg { max-width: 100%; }
+
+/* ══ 질문 코칭 내역 — 접었다 펴는 표 리듬 ══════════════════════ */
+.qa-log { margin-bottom: var(--gap-section); }
+.qa-log-list { border-top: 2px solid var(--text); }
+.qa-log-item { border-bottom: 1px solid var(--border); }
+.qa-log-item > summary {
+  display: grid; grid-template-columns: 78px 1fr auto auto;
+  gap: 14px; align-items: center; padding: 16px 4px;
+  cursor: pointer; list-style: none;
+  transition: background .16s var(--ease);
+}
+.qa-log-item > summary::-webkit-details-marker { display: none; }
+.qa-log-item > summary:hover { background: var(--paper); }
+.qa-log-item > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.qa-log-item .ql-concept { font-size: 15px; font-weight: 750; letter-spacing: -.03em; }
+.qa-log-item .ql-slide { color: var(--text-3); font-size: 12px; font-weight: 750; }
+.qa-log-item .ql-n { color: var(--text-3); font-size: 12px; font-weight: 830; }
+.qa-log-item[open] > summary { background: var(--paper); }
+
+.qa-log-body { padding: 4px 4px 20px; }
+.ql-line { display: grid; grid-template-columns: 62px 1fr; gap: 12px; margin: 0 0 10px; font-size: 14px; line-height: 1.75; }
+.ql-line b { font-size: 11px; font-weight: 830; letter-spacing: .06em; color: var(--text-3); padding-top: 4px; }
+.ql-answer { color: var(--text-2); }
+.ql-note {
+  margin: 12px 0 0 74px; padding: 14px 16px;
+  border-left: 2px solid var(--brand); background: var(--paper);
+  font-size: 13.5px; line-height: 1.75; color: var(--text-2);
+}
+@media (max-width: 640px) {
+  .qa-log-item > summary { grid-template-columns: 72px 1fr auto; }
+  .qa-log-item .ql-n { display: none; }
+  .ql-line { grid-template-columns: 1fr; gap: 2px; }
+  .ql-note { margin-left: 0; }
+}
+
+.ql-empty { font-style: normal; color: var(--text-3); }
+.ql-meta { margin: 10px 0 0 74px; font-size: 12px; font-weight: 750; color: var(--text-3); }
+@media (max-width: 640px) { .ql-meta { margin-left: 0; } }
+
+/* ── F-20 발표 구성 제안 ────────────────────────────────────────────────
+   1순위 하나만 카드로 펼치고, 나머지는 아래 목록 한 줄씩. 위계가 곧 메시지라
+   대안 블록은 절대 카드가 되지 않는다. */
+
+.strat-head {
+  border-bottom: 2px solid var(--text);
+  padding-bottom: 16px; margin-bottom: 18px;
+}
+.strat-badge {
+  display: inline-block; padding: 5px 12px; border-radius: var(--r-pill);
+  background: var(--brand); color: #fff;
+  font-size: 11px; font-weight: 830; letter-spacing: .06em;
+}
+.strat-type {
+  margin: 12px 0 4px; font-size: 26px; font-weight: 830;
+  letter-spacing: -.045em; line-height: 1.25;
+}
+.strat-climax { margin: 0; color: var(--text-3); font-size: 13px; font-weight: 650; }
+.strat-why {
+  margin: 0 0 20px; font-size: 15px; line-height: 1.8; color: var(--text-2);
+}
+
+/* 순서표 — 왼쪽 세로선 하나로 구간을 꿰어 '진행 순서'로 읽히게 한다 */
+.strat-outline {
+  list-style: none; margin: 10px 0 20px; padding: 0 0 0 22px;
+  border-left: 2px solid var(--border);
+}
+.strat-block { position: relative; padding: 0 0 22px; }
+.strat-block:last-child { padding-bottom: 2px; }
+.strat-block::before {
+  content: ''; position: absolute; left: -28px; top: 6px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--brand); box-shadow: 0 0 0 3px var(--paper);
+}
+/* 신설 구간은 속 빈 점 — 자료에 아직 없는 자리라는 뜻 */
+.strat-block.is-new::before { background: var(--paper); box-shadow: inset 0 0 0 2px var(--brand); }
+
+.strat-block-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 6px;
+}
+.strat-no { font-size: 11px; font-weight: 830; color: var(--text-3); }
+.strat-role { font-size: 16px; font-weight: 830; letter-spacing: -.03em; }
+.strat-span { font-size: 12px; font-weight: 750; color: var(--text-3); }
+.strat-slides {
+  margin-left: auto; padding: 3px 9px; border-radius: var(--r-pill);
+  background: var(--paper); box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 11px; font-weight: 830; color: var(--text-2); white-space: nowrap;
+}
+.strat-block.is-new .strat-slides { color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.strat-what { margin: 0; font-size: 14px; line-height: 1.75; color: var(--text-2); }
+.strat-add {
+  display: flex; gap: 8px; margin: 8px 0 0;
+  font-size: 13.5px; line-height: 1.7; color: var(--text);
+}
+.strat-add span {
+  flex: none; padding: 1px 7px; border-radius: var(--r-pill);
+  background: var(--brand); color: #fff;
+  font-size: 10.5px; font-weight: 830; align-self: flex-start; margin-top: 3px;
+}
+
+.strat-tag {
+  display: block; margin-bottom: 8px;
+  font-size: 11px; font-weight: 830; letter-spacing: .06em; color: var(--text-3);
+}
+.strat-keep {
+  padding: 16px 18px; border-left: 2px solid var(--brand);
+  background: var(--paper); border-radius: 0 var(--r-print) var(--r-print) 0;
+}
+.strat-keep { margin-bottom: 12px; }
+.strat-keep blockquote {
+  margin: 0; font-size: 15px; font-weight: 650; line-height: 1.75; color: var(--text);
+}
+.strat-keep small { display: block; margin-top: 8px; font-size: 12px; color: var(--text-3); }
+
+/* 대안 — 카드가 아니라 목록. "이런 것도 있다" 이상으로 읽히면 안 된다. */
+.strat-alts { margin: 20px 0 0; padding: 0 4px; }
+.strat-alts-head {
+  margin: 0 0 10px; font-size: 11px; font-weight: 830;
+  letter-spacing: .06em; color: var(--text-3);
+}
+.strat-alts ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+.strat-alts li {
+  padding: 11px 0; border-bottom: 1px solid var(--border);
+  font-size: 13.5px; line-height: 1.7; color: var(--text-2);
+}
+.strat-alts li b { font-weight: 750; color: var(--text); }
+
+.strat-disclaim { margin-top: 18px; font-size: 12px; line-height: 1.75; }
+.strat-actions { margin-top: 14px; }
+.strat-loading p { margin: 0; }
+
+@media (max-width: 640px) {
+  .strat-type { font-size: 21px; }
+  .strat-outline { padding-left: 16px; }
+  .strat-block::before { left: -22px; }
+  .strat-slides { margin-left: 0; }
+}

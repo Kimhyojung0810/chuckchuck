@@ -16,7 +16,8 @@
 화면 / JS SDK
     │  ours JSON  (또는 multipart 파일)
     ▼
-서버  HTTP  /api/v1/{action}
+서버  HTTP  /api/v1/{action
+
     │  from_dict → 모듈 함수 → to_dict
     ▼
 기능 모듈  chuckchuck/fXX_*.py
@@ -31,7 +32,8 @@
 | 모듈 | `fXX_name.py` | **공개 함수 1개** (+ 순수 헬퍼) |
 | Provider | `providers/*_base.py` + `*_impl.py` | ABC + `get_*()` 팩토리 |
 | HTTP | 서버/브리지 | `POST /api/v1/{action}` → ours JSON |
-| JS SDK | `chuckchuck/sdk/*.js` | 클래스 + `index.js` export |
+| JS SDK | `chuckchuck/sdk/*.js` | 클래스 + `index.js`
+export |
 
 ---
 

@@ -10,17 +10,20 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <title>척척발표</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233182F6'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h12' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/app.css?v=audience-close1">
-<link rel="stylesheet" href="css/chatter.css?v=audience-close1">
-<link rel="stylesheet" href="css/theater.css?v=audience-close1">
+<link rel="stylesheet" href="css/app.css?v=qa4">
+<link rel="stylesheet" href="css/chatter.css?v=qa4">
+<link rel="stylesheet" href="css/theater.css?v=qa4">
+<link rel="stylesheet" href="css/landing.css?v=qa4">
+<link rel="stylesheet" href="css/landing-showcase.css?v=qa4">
+<link rel="stylesheet" href="css/landing-workbench.css?v=qa4">
+<link rel="stylesheet" href="css/design-system.css?v=qa4">
 </head>
 <body>
 
 <header class="topbar">
-  <a class="brand" href="#/"><span class="brand-mark" aria-hidden="true"></span>척척발표</a>
+  <a class="brand" href="#/landing"><span class="brand-mark" aria-hidden="true"></span>척척발표</a>
   <div class="topbar-right">
     <a class="btn btn-primary btn-sm" href="#/new" id="topFresh" data-fresh-practice>새 발표 연습</a>
-    <span class="avatar" title="이선호">이</span>
   </div>
 </header>
 
@@ -33,11 +36,19 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
       'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
   }
 </script>
-<script src="js/data.js?v=audience-close1"></script>
-<script src="js/chatter.js?v=audience-close1"></script>
-<script src="js/playbill.js?v=audience-close1"></script>
-<script src="js/app.js?v=audience-close1"></script>
+<!-- 백엔드 주소. 정적 호스팅에 올릴 때 이 파일만 바꾼다 (module 보다 먼저 실행돼야 한다) -->
+<script src="js/config.js?v=qa4"></script>
+<script src="js/data.js?v=qa4"></script>
+<script src="js/chatter.js?v=qa4"></script>
+<script src="js/playbill.js?v=qa4"></script>
+<!-- 랜딩(#/landing) — landing.js 가 앞의 두 전역을 참조하므로 순서를 지킨다 -->
+<script src="js/landing-motion.js?v=qa4"></script>
+<script src="js/landing-workbench.js?v=qa4"></script>
+<script src="js/landing.js?v=qa4"></script>
+<script src="js/qa-history.js?v=qa4"></script>
+<script src="js/report-strategy.js?v=qa4"></script>
+<script src="js/app.js?v=qa4"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
-<script type="module" src="js/chuckchuck_bridge.js"></script>
+<script type="module" src="js/chuckchuck_bridge.js?v=qa4"></script>
 </body>
 </html>

@@ -1,0 +1,20 @@
+# Netlify 배포 설정입니다. 프론트(demo/YEHS_demo)만 정적으로 올리고,
+# 백엔드(demo.bridge)는 GPU 서버에서 따로 돕니다.
+#
+# 백엔드 주소는 demo/YEHS_demo/js/config.js 의 window.CHUCKCHUCK_API_BASE 에 적습니다.
+# 비워 두면 화면과 같은 오리진을 쓰므로, Netlify 에 올릴 때는 반드시 채워야 합니다.
+
+[build]
+  publish = "demo/YEHS_demo"
+  # chuckchuck_bridge.js 가 '/sdk/index.js' 를 절대경로로 import 한다.
+  # 로컬에서는 demo/bridge.py 가 chuckchuck/sdk 를 /sdk/ 로 서빙하지만,
+  # 정적 호스팅에는 그 라우트가 없으므로 배포물 안에 복사해 둔다.
+  command = "mkdir -p demo/YEHS_demo/sdk && cp -R chuckchuck/sdk/. demo/YEHS_demo/sdk/"
+
+# 해시 라우팅(#/landing)이라 SPA 리라이트가 필요 없다 — index.html 하나가 모든 화면을 그린다.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

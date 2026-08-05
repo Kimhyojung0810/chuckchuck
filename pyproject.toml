@@ -10,5 +10,26 @@ description = "척척발표 마이크로 모듈 (F-01/F-03/F-04/F-05/F-06)"
 requires-python = ">=3.10"
 dependencies = ["requests>=2.31.0"]
 
+# 코어(chuckchuck/)는 requests 하나로 돈다. 서버는 그 위의 선택 계층이라 분리한다.
+# 전체 개발 환경은 requirements.txt 가 한 번에 깔아 준다.
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-multipart>=0.0.9",
+]
+test = [
+    "pytest>=8.0",
+    "httpx>=0.27.0",          # fastapi.testclient 가 요구한다
+]
+
 [tool.setuptools.packages.find]
 include = ["chuckchuck*"]
+
+[tool.pytest.ini_options]
+# server/ 는 설치 패키지가 아니라 저장소 루트에 있다. 이게 없으면 다른 CWD 에서
+# pytest 를 띄웠을 때 tests/test_flat_routes.py 가 ModuleNotFoundError 로 깨진다.
+pythonpath = ["."]
+markers = [
+    "live: 실제 외부 API(Upstage DocParse·LLM)를 호출한다. RUN_LIVE_TESTS=1 일 때만 실행.",
+]

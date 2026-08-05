@@ -1060,6 +1060,243 @@ class ChatterDoc:
 
 
 # ---------------------------------------------------------------------------
+# F-17 : 말 속도 · 시간 배분 (규칙, LLM 없음)
+# ---------------------------------------------------------------------------
+
+#: 슬라이드 시간 배분 판정
+PACE_STATUSES = ("ok", "short", "long", "fast", "slow")
+
+
+@dataclass
+class SlidePace:
+    """한 슬라이드의 실제/권장 시간·속도."""
+    slide_no: int
+    title: str = ""
+    importance: str = "support"   # core | support
+    importance_weight: float = 0.35
+    actual_sec: float = 0.0
+    recommended_sec: float = 0.0
+    delta_sec: float = 0.0          # actual - recommended
+    chars_per_min: float = 0.0
+    syllable_per_sec: float = 0.0
+    status: str = "ok"              # ok | short | long | fast | slow
+    note: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlidePace":
+        st = d.get("status", "ok")
+        return cls(
+            slide_no=int(d["slide_no"]),
+            title=d.get("title", ""),
+            importance=d.get("importance", "support"),
+            importance_weight=float(d.get("importance_weight", 0.35)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            recommended_sec=float(d.get("recommended_sec", 0.0)),
+            delta_sec=float(d.get("delta_sec", 0.0)),
+            chars_per_min=float(d.get("chars_per_min", 0.0)),
+            syllable_per_sec=float(d.get("syllable_per_sec", 0.0)),
+            status=st if st in PACE_STATUSES else "ok",
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class SectionAlloc:
+    """구획(섹션) 단위 권장/실제 시간."""
+    name: str
+    slide_nos: list[int] = field(default_factory=list)
+    recommended_sec: float = 0.0
+    actual_sec: float = 0.0
+    status: str = "ok"              # ok | short | long
+    label: str = ""                 # UI용 "+17% 초과" 등
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SectionAlloc":
+        return cls(
+            name=d.get("name", ""),
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            recommended_sec=float(d.get("recommended_sec", 0.0)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            status=d.get("status", "ok"),
+            label=d.get("label", ""),
+        )
+
+
+@dataclass
+class PaceDoc:
+    """F-17 산출물. 말 속도·시간 배분 표 + 규칙 팁."""
+    target_sec: float = 0.0
+    actual_sec: float = 0.0
+    avg_chars_per_min: float = 0.0
+    avg_syllable_per_sec: float = 0.0
+    max_chars_per_min: float = 0.0
+    max_slide_no: int | None = None
+    recommended_cpm: str = "300~350"
+    slides: list[SlidePace] = field(default_factory=list)
+    sections: list[SectionAlloc] = field(default_factory=list)
+    tips: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "target_sec": self.target_sec,
+            "actual_sec": self.actual_sec,
+            "avg_chars_per_min": self.avg_chars_per_min,
+            "avg_syllable_per_sec": self.avg_syllable_per_sec,
+            "max_chars_per_min": self.max_chars_per_min,
+            "max_slide_no": self.max_slide_no,
+            "recommended_cpm": self.recommended_cpm,
+            "slides": [s.to_dict() for s in self.slides],
+            "sections": [s.to_dict() for s in self.sections],
+            "tips": list(self.tips),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PaceDoc":
+        return cls(
+            target_sec=float(d.get("target_sec", 0.0)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            avg_chars_per_min=float(d.get("avg_chars_per_min", 0.0)),
+            avg_syllable_per_sec=float(d.get("avg_syllable_per_sec", 0.0)),
+            max_chars_per_min=float(d.get("max_chars_per_min", 0.0)),
+            max_slide_no=d.get("max_slide_no"),
+            recommended_cpm=d.get("recommended_cpm", "300~350"),
+            slides=[SlidePace.from_dict(s) for s in d.get("slides", [])],
+            sections=[SectionAlloc.from_dict(s) for s in d.get("sections", [])],
+            tips=list(d.get("tips", [])),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-18 : 음성 습관 신호 (REP/FIL/PAUSE)
+# ---------------------------------------------------------------------------
+
+HABIT_KINDS = ("REP", "FIL", "PAUSE")
+
+
+@dataclass
+class HabitSpan:
+    """습관 스팬 하나. 타임코드로 슬라이드에 붙인다."""
+    kind: str                       # REP | FIL | PAUSE
+    text: str = ""
+    start_sec: float = 0.0
+    end_sec: float = 0.0
+    slide_no: int | None = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "HabitSpan":
+        kind = d.get("kind", "FIL")
+        return cls(
+            kind=kind if kind in HABIT_KINDS else "FIL",
+            text=d.get("text", ""),
+            start_sec=float(d.get("start_sec", 0.0)),
+            end_sec=float(d.get("end_sec", 0.0)),
+            slide_no=d.get("slide_no"),
+        )
+
+
+@dataclass
+class SlideHabits:
+    """슬라이드별 습관 카운트."""
+    slide_no: int
+    repeat_cnt: int = 0
+    filler_cnt: int = 0
+    pause_cnt: int = 0
+    note: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlideHabits":
+        return cls(
+            slide_no=int(d["slide_no"]),
+            repeat_cnt=int(d.get("repeat_cnt", 0)),
+            filler_cnt=int(d.get("filler_cnt", 0)),
+            pause_cnt=int(d.get("pause_cnt", 0)),
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class HabitDoc:
+    """F-18 산출물. 습관 스팬 + 슬라이드별 집계."""
+    spans: list[HabitSpan] = field(default_factory=list)
+    by_slide: list[SlideHabits] = field(default_factory=list)
+    repeat_cnt: int = 0
+    filler_cnt: int = 0
+    pause_cnt: int = 0
+    provider: str = ""              # heuristic | fixture | lora
+    tips: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "spans": [s.to_dict() for s in self.spans],
+            "by_slide": [s.to_dict() for s in self.by_slide],
+            "repeat_cnt": self.repeat_cnt,
+            "filler_cnt": self.filler_cnt,
+            "pause_cnt": self.pause_cnt,
+            "provider": self.provider,
+            "tips": list(self.tips),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "HabitDoc":
+        return cls(
+            spans=[HabitSpan.from_dict(s) for s in d.get("spans", [])],
+            by_slide=[SlideHabits.from_dict(s) for s in d.get("by_slide", [])],
+            repeat_cnt=int(d.get("repeat_cnt", 0)),
+            filler_cnt=int(d.get("filler_cnt", 0)),
+            pause_cnt=int(d.get("pause_cnt", 0)),
+            provider=d.get("provider", ""),
+            tips=list(d.get("tips", [])),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-19 : 종합 진단 리포트 (LLM — F-17·F-18 수치만 해석)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ReportDoc:
+    """F-19 산출물. 요약 탭·코칭 문장의 재료."""
+    one_liner: str = ""
+    score: int = 0                  # 0~100 (UI 링)
+    grade: str = ""                 # A+~F (선택)
+    strengths: list[str] = field(default_factory=list)
+    weaknesses: list[str] = field(default_factory=list)
+    actions: list[str] = field(default_factory=list)
+    pace_summary: str = ""
+    habit_summary: str = ""
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ReportDoc":
+        return cls(
+            one_liner=d.get("one_liner", ""),
+            score=int(d.get("score", 0)),
+            grade=d.get("grade", ""),
+            strengths=list(d.get("strengths", [])),
+            weaknesses=list(d.get("weaknesses", [])),
+            actions=list(d.get("actions", [])),
+            pace_summary=d.get("pace_summary", ""),
+            habit_summary=d.get("habit_summary", ""),
+            model=d.get("model", ""),
+        )
+
+
+# ---------------------------------------------------------------------------
 # F-08 · F-09 : 질문 코칭 (예상 질문 + 답변 판정)
 # ---------------------------------------------------------------------------
 # 발표가 끝난 뒤 "이거 물어보면 답할 수 있나" 를 연습시키는 단계다.
@@ -1093,8 +1330,29 @@ QA_SEVERITY_FALLBACK = 2
 
 #: 이 질문이 뽑힌 **결정적 근거**. 리포트가 "왜 이걸 묻나" 를 설명할 때 쓴다.
 #: 우선순위도 이 순서다 (모순 > 누락 > 흐름 결손 > 자료 비중).
-QA_SOURCES = ("contradiction", "missing", "weak_flow", "core_weight")
+#: 질문 후보가 된 결정적 근거. **순서가 곧 우선순위다** (_SOURCE_RANK 가 이 순서를 쓴다).
+#: 확인된 결손이 앞이고 "그냥 중요하다" 는 맨 뒤다 —
+#: 모순(자료와 어긋남) > 누락(아예 안 다룸) > 얕음(중요한데 설명 부족)
+#: > 흐름 결손(연결을 안 지음) > 즉흥 개념(발화에만 있음) > 자료 비중 > 정당생략.
+#: extra 가 core_weight 보다 앞인 것은 의도된 것이다 — 발표자가 **실제로 입 밖에 낸**
+#: 개념이라 되물을 근거가 확실하고, core_weight 는 크다는 이유뿐이기 때문이다.
+#: justified_skip 이 core_weight 보다도 뒤인 것도 의도된 것이다 — 리포트가
+#: "생략이 합리적" 이라 말한 개념을 자료 weight 가 크다는 이유로 앞세우면
+#: 두 화면이 어긋난다. 버리지는 않는다 — 트랙 상한에 여유가 있으면 여전히 물어본다.
+QA_SOURCES = (
+    "contradiction", "missing", "under_spoken", "weak_flow", "extra",
+    "core_weight", "justified_skip",
+)
 QA_SOURCE_FALLBACK = "core_weight"
+
+#: doc_weight − speech_weight 가 이만큼 벌어지면 '중요도 대비 설명 부족'(under_spoken).
+#: SCHEMA §7-F 가 같은 격차를 쓰고 있어 값을 맞춘다 — 리포트와 질문이 같은 선을 봐야
+#: 사용자가 두 화면을 믿을 수 있다.
+QA_UNDER_SPOKEN_GAP = 0.4
+
+#: extra_concepts 에서 질문 후보로 올릴 최대 개수. 즉흥 발화가 많은 발표에서
+#: 자료 기반 질문이 통째로 밀려나면 안 된다.
+QA_EXTRA_MAX = 3
 
 #: 답변 판정 4-class. 프론트 LIVE_VERDICT 키와 동일하다.
 #: (`skipped` 는 질문을 넘겼을 때 프론트가 로컬로 붙이는 값이라 여기 없다.)
@@ -1333,13 +1591,25 @@ class QaTurn:
 
     프론트는 한글 키(`질문`·`답변`·`판정`)로 보낸다 — 이미 굳은 계약이라
     from_dict 가 한글·영문 양쪽을 받아 준다.
+
+    `question_id` 는 턴을 질문에 잇는 조인 키다. 문면(`question`)으로는 이을 수
+    없다 — 프론트가 2턴째부터 원래 질문이 아니라 **직전 후속 질문**을 그 턴의
+    question 으로 적기 때문이다(app.js submitLiveAnswer). 문면으로 세면 되물은
+    턴이 다른 질문으로 읽혀 막힘 코칭이 explain 단계로 못 올라간다.
+    옛 클라이언트는 이 키 없이 보내므로, 빈 문자열이면 문면 비교로 폴백한다.
     """
     question: str = ""
     answer: str = ""
     verdict: str = QA_VERDICT_FALLBACK
+    question_id: str = ""
 
     def to_dict(self) -> dict:
-        return {"질문": self.question, "답변": self.answer, "판정": self.verdict}
+        return {
+            "질문": self.question,
+            "답변": self.answer,
+            "판정": self.verdict,
+            "question_id": self.question_id,
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> "QaTurn":
@@ -1349,6 +1619,7 @@ class QaTurn:
             answer=str(d.get("답변", d.get("answer", "")) or ""),
             # 프론트는 넘긴 질문에 'skipped' 를 붙인다 — enum 밖이라 보류로 떨어진다
             verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+            question_id=str(d.get("question_id", "") or ""),
         )
 
 
@@ -1437,247 +1708,6 @@ class QaJudgement:
 # 예외
 # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# F-17 : 말 속도 · 시간 배분 (규칙, LLM 없음)
-# ---------------------------------------------------------------------------
-
-#: 슬라이드 시간 배분 판정
-PACE_STATUSES = ("ok", "short", "long", "fast", "slow")
-
-
-@dataclass
-class SlidePace:
-    """한 슬라이드의 실제/권장 시간·속도."""
-    slide_no: int
-    title: str = ""
-    importance: str = "support"   # core | support
-    importance_weight: float = 0.35
-    actual_sec: float = 0.0
-    recommended_sec: float = 0.0
-    delta_sec: float = 0.0          # actual - recommended
-    chars_per_min: float = 0.0
-    syllable_per_sec: float = 0.0
-    status: str = "ok"              # ok | short | long | fast | slow
-    note: str = ""
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "SlidePace":
-        st = d.get("status", "ok")
-        return cls(
-            slide_no=int(d["slide_no"]),
-            title=d.get("title", ""),
-            importance=d.get("importance", "support"),
-            importance_weight=float(d.get("importance_weight", 0.35)),
-            actual_sec=float(d.get("actual_sec", 0.0)),
-            recommended_sec=float(d.get("recommended_sec", 0.0)),
-            delta_sec=float(d.get("delta_sec", 0.0)),
-            chars_per_min=float(d.get("chars_per_min", 0.0)),
-            syllable_per_sec=float(d.get("syllable_per_sec", 0.0)),
-            status=st if st in PACE_STATUSES else "ok",
-            note=d.get("note", ""),
-        )
-
-
-@dataclass
-class SectionAlloc:
-    """구획(섹션) 단위 권장/실제 시간."""
-    name: str
-    slide_nos: list[int] = field(default_factory=list)
-    recommended_sec: float = 0.0
-    actual_sec: float = 0.0
-    status: str = "ok"              # ok | short | long
-    label: str = ""                 # UI용 "+17% 초과" 등
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "SectionAlloc":
-        return cls(
-            name=d.get("name", ""),
-            slide_nos=[int(n) for n in d.get("slide_nos", [])],
-            recommended_sec=float(d.get("recommended_sec", 0.0)),
-            actual_sec=float(d.get("actual_sec", 0.0)),
-            status=d.get("status", "ok"),
-            label=d.get("label", ""),
-        )
-
-
-@dataclass
-class PaceDoc:
-    """F-17 산출물. 말 속도·시간 배분 표 + 규칙 팁."""
-    target_sec: float = 0.0
-    actual_sec: float = 0.0
-    avg_chars_per_min: float = 0.0
-    avg_syllable_per_sec: float = 0.0
-    max_chars_per_min: float = 0.0
-    max_slide_no: int | None = None
-    recommended_cpm: str = "300~350"
-    slides: list[SlidePace] = field(default_factory=list)
-    sections: list[SectionAlloc] = field(default_factory=list)
-    tips: list[str] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {
-            "target_sec": self.target_sec,
-            "actual_sec": self.actual_sec,
-            "avg_chars_per_min": self.avg_chars_per_min,
-            "avg_syllable_per_sec": self.avg_syllable_per_sec,
-            "max_chars_per_min": self.max_chars_per_min,
-            "max_slide_no": self.max_slide_no,
-            "recommended_cpm": self.recommended_cpm,
-            "slides": [s.to_dict() for s in self.slides],
-            "sections": [s.to_dict() for s in self.sections],
-            "tips": list(self.tips),
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "PaceDoc":
-        return cls(
-            target_sec=float(d.get("target_sec", 0.0)),
-            actual_sec=float(d.get("actual_sec", 0.0)),
-            avg_chars_per_min=float(d.get("avg_chars_per_min", 0.0)),
-            avg_syllable_per_sec=float(d.get("avg_syllable_per_sec", 0.0)),
-            max_chars_per_min=float(d.get("max_chars_per_min", 0.0)),
-            max_slide_no=d.get("max_slide_no"),
-            recommended_cpm=d.get("recommended_cpm", "300~350"),
-            slides=[SlidePace.from_dict(s) for s in d.get("slides", [])],
-            sections=[SectionAlloc.from_dict(s) for s in d.get("sections", [])],
-            tips=list(d.get("tips", [])),
-        )
-
-
-# ---------------------------------------------------------------------------
-# F-18 : 음성 습관 신호 (REP/FIL/PAUSE)
-# ---------------------------------------------------------------------------
-
-HABIT_KINDS = ("REP", "FIL", "PAUSE")
-
-
-@dataclass
-class HabitSpan:
-    """습관 스팬 하나. 타임코드로 슬라이드에 붙인다."""
-    kind: str                       # REP | FIL | PAUSE
-    text: str = ""
-    start_sec: float = 0.0
-    end_sec: float = 0.0
-    slide_no: int | None = None
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "HabitSpan":
-        kind = d.get("kind", "FIL")
-        return cls(
-            kind=kind if kind in HABIT_KINDS else "FIL",
-            text=d.get("text", ""),
-            start_sec=float(d.get("start_sec", 0.0)),
-            end_sec=float(d.get("end_sec", 0.0)),
-            slide_no=d.get("slide_no"),
-        )
-
-
-@dataclass
-class SlideHabits:
-    """슬라이드별 습관 카운트."""
-    slide_no: int
-    repeat_cnt: int = 0
-    filler_cnt: int = 0
-    pause_cnt: int = 0
-    note: str = ""
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "SlideHabits":
-        return cls(
-            slide_no=int(d["slide_no"]),
-            repeat_cnt=int(d.get("repeat_cnt", 0)),
-            filler_cnt=int(d.get("filler_cnt", 0)),
-            pause_cnt=int(d.get("pause_cnt", 0)),
-            note=d.get("note", ""),
-        )
-
-
-@dataclass
-class HabitDoc:
-    """F-18 산출물. 습관 스팬 + 슬라이드별 집계."""
-    spans: list[HabitSpan] = field(default_factory=list)
-    by_slide: list[SlideHabits] = field(default_factory=list)
-    repeat_cnt: int = 0
-    filler_cnt: int = 0
-    pause_cnt: int = 0
-    provider: str = ""              # heuristic | fixture | lora
-    tips: list[str] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {
-            "spans": [s.to_dict() for s in self.spans],
-            "by_slide": [s.to_dict() for s in self.by_slide],
-            "repeat_cnt": self.repeat_cnt,
-            "filler_cnt": self.filler_cnt,
-            "pause_cnt": self.pause_cnt,
-            "provider": self.provider,
-            "tips": list(self.tips),
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "HabitDoc":
-        return cls(
-            spans=[HabitSpan.from_dict(s) for s in d.get("spans", [])],
-            by_slide=[SlideHabits.from_dict(s) for s in d.get("by_slide", [])],
-            repeat_cnt=int(d.get("repeat_cnt", 0)),
-            filler_cnt=int(d.get("filler_cnt", 0)),
-            pause_cnt=int(d.get("pause_cnt", 0)),
-            provider=d.get("provider", ""),
-            tips=list(d.get("tips", [])),
-        )
-
-
-# ---------------------------------------------------------------------------
-# F-19 : 종합 진단 리포트 (LLM — F-17·F-18 수치만 해석)
-# ---------------------------------------------------------------------------
-
-@dataclass
-class ReportDoc:
-    """F-19 산출물. 요약 탭·코칭 문장의 재료."""
-    one_liner: str = ""
-    score: int = 0                  # 0~100 (UI 링)
-    grade: str = ""                 # A+~F (선택)
-    strengths: list[str] = field(default_factory=list)
-    weaknesses: list[str] = field(default_factory=list)
-    actions: list[str] = field(default_factory=list)
-    pace_summary: str = ""
-    habit_summary: str = ""
-    model: str = ""
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "ReportDoc":
-        return cls(
-            one_liner=d.get("one_liner", ""),
-            score=int(d.get("score", 0)),
-            grade=d.get("grade", ""),
-            strengths=list(d.get("strengths", [])),
-            weaknesses=list(d.get("weaknesses", [])),
-            actions=list(d.get("actions", [])),
-            pace_summary=d.get("pace_summary", ""),
-            habit_summary=d.get("habit_summary", ""),
-            model=d.get("model", ""),
-        )
-
-
-# ---------------------------------------------------------------------------
-# 예외
-# ---------------------------------------------------------------------------
-
 class ChuckchuckError(Exception):
     """모듈 공통 예외. 프론트는 이것만 잡으면 된다."""
 
@@ -1730,6 +1760,8 @@ class JudgeError(ChuckchuckError):
     """F-09 답변 판정 실패."""
 
 
+class StrategyError(ChuckchuckError):
+    """F-20 발표 전략 제안 실패."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

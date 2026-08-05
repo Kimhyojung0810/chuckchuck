@@ -7,21 +7,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 import requests
 
 from ..contracts import ConceptError
 from .llm_base import LLMProvider
-
-
-def _ids_in_prompt(user: str) -> list[str]:
-    """프롬프트의 '- (id) ...' 줄에서 후보 id 를 주워 온다 (F-08/F-11 공통)."""
-    ids = []
-    for line in user.splitlines():
-        if line.startswith("- (") and ")" in line:
-            ids.append(line[3:line.index(")")])
-    return ids
 
 
 def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
@@ -39,6 +31,20 @@ def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
         title = title.split("—")[0].strip()
         found.append((no, title))
     return found
+
+
+def _ids_in_prompt(user: str) -> list[str]:
+    """
+    프롬프트의 '- (id) ...' 줄에서 후보 id 를 주워 온다.
+
+    F-11·F-08 프롬프트가 공통으로 쓰는 꼴이다. 조인 키를 지어내지 않고
+    실제 후보 안에서만 고르므로, 어댑터의 '후보 밖 id 는 버린다' 경로도 같이 탄다.
+    """
+    ids = []
+    for line in user.splitlines():
+        if line.startswith("- (") and ")" in line:
+            ids.append(line[3:line.index(")")])
+    return ids
 
 
 class MockLLM(LLMProvider):
@@ -68,6 +74,8 @@ class MockLLM(LLMProvider):
             return self._mock_questions(user)
         if "[TASK] qa-judge" in user:
             return self._mock_judge(user)
+        if "[TASK] presentation-strategy" in user:
+            return self._mock_strategy(user)
 
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
@@ -106,12 +114,7 @@ class MockLLM(LLMProvider):
 
         내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
         """
-        ids = []
-        for line in user.splitlines():
-            if line.startswith("- (") and ")" in line:
-                ids.append(line[3:line.index(")")])
-        if not ids:
-            ids = ["n1"]
+        ids = _ids_in_prompt(user) or ["n1"]
 
         items = [
             {
@@ -191,7 +194,12 @@ class MockLLM(LLMProvider):
 
     @staticmethod
     def _mock_triage(user: str) -> str:
-        """F-08 1차용 가짜 심사."""
+        """
+        F-08 1차용 가짜 심사. 후보 id 를 주워 앞에서부터 치명 → 보통 → 가벼움을 돌려 준다.
+        홀수 번째 후보에는 함정을 세워 트랙별 함정 상한 경로도 태운다.
+
+        내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
+        """
         ids = _ids_in_prompt(user) or ["n1"]
         marks = [
             {
@@ -206,7 +214,7 @@ class MockLLM(LLMProvider):
 
     @staticmethod
     def _mock_questions(user: str) -> str:
-        """F-08 2차용 가짜 질문."""
+        """F-08 2차용 가짜 질문. 대상 id 마다 문장 넷을 하나씩 채운다."""
         ids = _ids_in_prompt(user) or ["n1"]
         questions = [
             {
@@ -222,7 +230,10 @@ class MockLLM(LLMProvider):
 
     @staticmethod
     def _mock_judge(user: str) -> str:
-        """F-09 용 가짜 판정. 답변 길이로 verdict 를 가른다."""
+        """
+        F-09 용 가짜 판정. 답변 길이로 verdict 를 가른다 —
+        길게 답하면 good, 짧으면 partial. score 는 일부러 비워 폴백 경로를 태운다.
+        """
         answer = user.split("## 이번 답변 — 이것을 판정하라", 1)[-1].strip()
         verdict = "good" if len(answer) >= 20 else "partial"
         return json.dumps(
@@ -231,10 +242,88 @@ class MockLLM(LLMProvider):
                 "react": "모의 반응 — 그렇게 설명하시면 됩니다.",
                 "summary_sentence": "모의 총평 한 문장",
                 "missing_points": [] if verdict == "good" else ["모의 누락 포인트"],
+                # 짧게 답하면(partial) 되묻는 경로를 타야 한다. good 이면 후처리가 비운다.
                 "followup": (
                     "" if verdict == "good"
                     else "모의 후속 질문 — 근거를 하나만 더 들어 주시겠어요?"
                 ),
+            },
+            ensure_ascii=False,
+        )
+
+    @staticmethod
+    def _mock_strategy(user: str) -> str:
+        """
+        F-20 용 가짜 구성 제안. 프롬프트의 「슬라이드별 시간」 첫 줄에서
+        권장 대 실제를 읽어, 도입을 초과했으면 결론 선행형을 아니면 축 고정형을 고른다.
+
+        keep.quote 는 프롬프트의 「실제 발화」 첫 줄을 그대로 옮긴다 —
+        지어낸 인용을 버리는 검증을 실제로 통과해 봐야 왕복이 확인된다.
+        """
+        def _amount(raw: str) -> int:
+            """'2:24' 도 '18%' 도 크기 비교만 되면 된다. 못 읽으면 -1."""
+            raw = raw.strip().rstrip("%")
+            parts = raw.split(":")
+            try:
+                if len(parts) == 2:
+                    return int(parts[0]) * 60 + int(parts[1])
+                return int(float(raw))
+            except ValueError:
+                return -1
+
+        slide, recommended, actual = "S01", -1, -1
+        for line in user.split("슬라이드별 시간", 1)[-1].splitlines():
+            m = re.search(r"(\S+)\s+.*·\s*권장\s*(\S+)\s*·\s*실제\s*(\S+)", line)
+            if m:
+                slide = m.group(1)
+                recommended, actual = _amount(m.group(2)), _amount(m.group(3))
+                break
+
+        quote, at = "", ""
+        for line in user.split("실제 발화", 1)[-1].splitlines():
+            m = re.match(r"\s*\[(\d+:\d+)\]\s*(.+)", line)
+            if m:
+                at, quote = m.group(1), m.group(2).strip()
+                break
+
+        # 슬라이드 목록에서 실제 번호를 주워 구간에 나눠 담는다.
+        # 지어낸 번호는 검증이 지우므로, 목도 실재하는 번호만 써야 화면이 빈다.
+        nos = [int(m.group(1))
+               for m in re.finditer(r"^\s*(\d+)번\s",
+                                    user.split("슬라이드 목록", 1)[-1].split("개념별 판정")[0],
+                                    re.M)]
+        half = max(1, len(nos) // 2)
+        overran = actual > recommended >= 0
+        chosen = {
+            "type": "베이조스식 결론 선행형" if overran else "잡스식 축 고정형",
+            "why": (
+                f"모의 근거 — {slide} 에 권장보다 오래 머물렀어요."
+                if overran else "모의 근거 — 주장 하나로 묶을 여지가 있어요."
+            ),
+            "outline": [
+                {"role": "한 문장 선언", "from": "0:00", "to": "0:40",
+                 "slides": [], "new": True,
+                 "what": "모의 구간 — 결론을 먼저 못박아요.",
+                 "add": "모의 보완 — 마지막 장의 결론을 여기로 끌어와 주세요."},
+                {"role": "근거", "from": "0:40", "to": "3:00",
+                 "slides": nos[:half],
+                 "what": "모의 구간 — 앞부분을 줄이고 근거만 남겨요.",
+                 "add": ""},
+                {"role": "마무리", "from": "3:00", "to": "5:00",
+                 "slides": nos[half:],
+                 "what": "모의 구간 — 처음 던진 결론으로 되돌아와요.",
+                 "add": "모의 보완 — 수치 하나를 덧붙여 주세요."},
+            ],
+        }
+        if quote:
+            chosen["keep"] = {"quote": quote, "at": at}
+        return json.dumps(
+            {
+                "chosen": chosen,
+                "alternatives": [
+                    {"type": "머스크식 전제 축적형", "one_line": "모의 대안 — 수치부터 쌓아요."},
+                    {"type": "저커버그식 사용자 서사형", "one_line": "모의 대안 — 한 장면에서 시작해요."},
+                ],
             },
             ensure_ascii=False,
         )
@@ -286,6 +375,12 @@ class MockLLM(LLMProvider):
         )
 
 
+#: 한 번의 LLM 호출을 기다리는 최대 시간(초).
+#: 실측에서 12장짜리 발표자료의 F-07 그래프 호출이 180초를 넘긴 적이 있다 —
+#: 자료가 크거나 모델이 붐빌 때 늘릴 수 있게 환경변수로 뺐다.
+DEFAULT_TIMEOUT_SEC = int(os.environ.get("LLM_TIMEOUT_SEC", "180"))
+
+
 class OpenAICompatLLM(LLMProvider):
     """OpenAI chat completions 호환 엔드포인트 공통 구현."""
 
@@ -298,7 +393,7 @@ class OpenAICompatLLM(LLMProvider):
         base_url: str,
         model: str,
         name: str | None = None,
-        timeout: int = 180,
+        timeout: int | None = None,
         extra_headers: dict[str, str] | None = None,
     ):
         if not api_key:
@@ -306,7 +401,7 @@ class OpenAICompatLLM(LLMProvider):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self.timeout = timeout
+        self.timeout = DEFAULT_TIMEOUT_SEC if timeout is None else timeout
         self.extra_headers = extra_headers or {}
         if name:
             self.name = name
@@ -336,6 +431,8 @@ class OpenAICompatLLM(LLMProvider):
             "max_tokens": max_tokens,
         }
         if json_mode:
+            # 프롬프트 지시만으로는 모델이 한 줄 JSON 안에 이스케이프 안 된 따옴표를
+            # 넣어 파싱이 깨진다. OpenAI 호환 제공자는 이 필드로 구조를 강제한다.
             payload["response_format"] = {"type": "json_object"}
         res = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
         if res.status_code != 200:
