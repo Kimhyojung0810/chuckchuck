@@ -434,6 +434,7 @@ def _call(
         user=_build_user_prompt(graph, transcript, ctx),
         temperature=0.2,
         max_tokens=MAX_TOKENS,
+        json_mode=True
     )
     try:
         return extract_json_object(raw)

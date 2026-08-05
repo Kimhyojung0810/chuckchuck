@@ -6,8 +6,11 @@ LLM 이 뱉은 느슨한 JSON 문자열을 복구해 dict 로 만드는 공용 �
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
+
+log = logging.getLogger("chuckchuck.json")
 
 _FENCE_OPEN = re.compile(r"^```(?:json)?\s*", flags=re.I)
 _FENCE_CLOSE = re.compile(r"\s*```$")
@@ -73,4 +76,7 @@ def extract_json_object(text: str) -> dict[str, Any]:
             return data
         last_err = ValueError(f"JSON 최상위가 객체가 아닙니다: {type(data).__name__}")
 
+    # 원문은 **서버 로그로** 남긴다. 예외 메시지는 사용자 화면까지 흘러가므로
+    # 앞부분만 담는다 — 이 실패를 화면 문구만 보고 역추적하느라 고생한 적이 있다.
+    log.warning("JSON 파싱 실패 (%s). 원문 %d자:\n%s", last_err, len(text), text)
     raise ValueError(f"JSON 파싱 실패: {last_err}. preview={text[:200]!r}")

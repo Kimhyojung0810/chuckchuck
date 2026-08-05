@@ -255,8 +255,8 @@ function areaChartSvg(vals, W, H) {
   const dots = pts.slice(0, -1).map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#fff" stroke="var(--blue)" stroke-width="2"/>`).join('');
   return `<svg class="growth-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 ${n}회 완성도 추이">
     <defs><linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3182F6" stop-opacity=".20"/>
-      <stop offset="1" stop-color="#3182F6" stop-opacity="0"/>
+      <stop offset="0" stop-color="var(--blue)" stop-opacity=".20"/>
+      <stop offset="1" stop-color="var(--blue)" stop-opacity="0"/>
     </linearGradient></defs>
     <path class="growth-area" d="${area}" fill="url(#growthFill)"/>
     <path class="growth-line" style="--len:${len.toFixed(0)}" d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -267,7 +267,11 @@ function areaChartSvg(vals, W, H) {
 }
 
 /* ══ 라우팅 ══ */
-const routes = { '': renderHome, 'new': renderNew, 'report': renderReport, 'qa': renderQa, 'about': renderAbout };
+const routes = {
+  '': renderHome, 'new': renderNew, 'report': renderReport, 'qa': renderQa, 'about': renderAbout,
+  // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
+  'landing': () => window.renderLanding(),
+};
 
 /** 진행 중 세션을 버리고 새 연습 시작 */
 function startFreshPractice() {
@@ -281,25 +285,8 @@ function startFreshPractice() {
 }
 
 /* ─── 극장 셸 (§8) ──────────────────────────────────────────────────────────
-   라우팅·데이터는 그대로 두고 전환 문법만 하나로 통일한다. 화면마다 다른
-   전환을 쓰면 세계가 여러 개로 읽힌다 — 이 앱의 장면 전환은 커튼 와이프 하나다. */
-
-const WIPE_MS = 400;
-let wipeEl = null;
-
-function curtainWipe() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  if (!wipeEl) {
-    wipeEl = document.createElement('div');
-    wipeEl.className = 'tw-wipe';
-    wipeEl.innerHTML = '<i></i><i></i>';
-    document.body.appendChild(wipeEl);
-  }
-  wipeEl.classList.remove('on');
-  // 리플로우를 한 번 강제해야 같은 클래스를 다시 붙였을 때 애니메이션이 재시작한다
-  void wipeEl.offsetWidth;
-  wipeEl.classList.add('on');
-}
+   라우팅·데이터는 그대로 두고 전환 문법만 하나로 통일한다. 장면 전환 연출은
+   두지 않는다 — 커튼 와이프는 화면마다 400ms 를 가려서 걷어냈다. */
 
 /**
  * 무대 사고 — 오류 화면 (§8).
@@ -328,7 +315,6 @@ function dismissF11Reveal() {
 function route() {
   clearTimers();
   unbindRehearsalNav();
-  curtainWipe();
   // 분석 오버레이가 남아 있으면 #/qa 가 흰 화면처럼 가려진다
   {
     const parts0 = location.hash.replace(/^#\/?/, '').split('/');
@@ -385,7 +371,7 @@ wireFreshPracticeButtons();
 
 /* ══ 홈 ══ */
 function renderHome() {
-  app.className = '';
+  app.className = 'home';   // 홈 전용 스코프 — 폭은 main 기본값(980px) 그대로
   const g = DATA.growth.scores;
   const totalUp = g[g.length - 1] - g[0];
   const qaActive = qa.started && !qa.ended;
@@ -398,40 +384,48 @@ function renderHome() {
   app.innerHTML = `
     <div class="page-head"><div><h1 class="page-title">내 발표</h1><p class="page-sub">발표와 질문 코칭 결과를 이어서 확인해요.</p></div><a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a></div>
     ${resume ? `<div class="resume-row"><a class="resume-card" href="${resume.href}"><span>${resume.eyebrow}</span><strong>${resume.title}</strong><p>${resume.sub}</p><i>이어하기 →</i></a><a class="btn btn-secondary btn-sm" href="#/new" data-fresh-practice>처음부터 다시</a></div>` : ''}
-    <div class="card home-hero">
-      <div class="hero-gauge">
-        ${ringSvg(DATA.session.score, 128, 11, `<strong class="num" data-count="${DATA.session.score}">0</strong><span>점</span>`)}
-        <div class="hg-cap"><b>최근 발표 완성도</b><span class="chip chip-sm chip-up">지난 연습보다 +${DATA.session.score - DATA.session.prevScore}</span></div>
-      </div>
-      <div class="hero-growth">
-        <div class="hg-head"><span>최근 5회 완성도</span><b class="num">${g[0]} → ${g[g.length - 1]}</b></div>
-        ${areaChartSvg(g, 360, 132)}
-        <div class="hg-foot">
-          <div><strong class="num">+${totalUp}</strong><small>5회 성장</small></div>
-          <div><strong class="num">4 → 1</strong><small>설명 누락</small></div>
+    <section class="verdict home-verdict">
+      <div class="verdict-inner">
+        <div class="verdict-grid">
+          <div class="verdict-score">
+            <span class="vs-label">최근 발표 완성도</span>
+            <div class="vs-body">
+              <strong class="num">${DATA.session.score}<span class="of">점</span></strong>
+              <span class="delta num">▲ ${DATA.session.score - DATA.session.prevScore}</span>
+            </div>
+          </div>
+          <div class="verdict-judgement">
+            <div class="hg-head"><span class="eyebrow">최근 5회 완성도</span><b class="num">${g[0]} → ${g[g.length - 1]}</b></div>
+            ${areaChartSvg(g, 360, 132)}
+            <div class="hg-foot">
+              <div><strong class="num">+${totalUp}</strong><small>5회 성장</small></div>
+              <div><strong class="num">4 → 1</strong><small>설명 누락</small></div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
     ${window.Playbill ? window.Playbill.wallHtml() : ''}
     ${gameStripHtml()}
-    <div class="card" style="padding:12px 12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px">
-        <h2 class="section-title" style="margin:0">내 발표</h2>
+    <section class="home-list">
+      <div class="block-head">
+        <h2>내 발표</h2>
+        <p>발표를 누르면 그 회차의 리포트를 열어요</p>
         <a class="btn btn-tint btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a>
       </div>
-      ${DATA.sessions.map(s => `
-      <div class="sess-row" data-go="#/report/${s.id}">
-        <div class="sess-main">
-          <b>${s.title}</b>
-          <span>${s.occasion}${s.slides ? ` · ${s.slides}장` : ''} · ${s.date} · ${s.nth}번째 연습 · ${s.note}</span>
-        </div>
-        <div class="sess-score">
-          <strong class="num">${s.score}<small>점</small></strong>
-          <span class="up">+${s.diff}</span>
-        </div>
-        <span class="chev">›</span>
-      </div>`).join('')}
-    </div>
+      <div class="sess-list">
+        ${DATA.sessions.map(s => `
+        <button class="sess-row" type="button" data-go="#/report/${s.id}">
+          <span class="sess-main">
+            <b>${s.title}</b>
+            <small>${s.occasion}${s.slides ? ` · ${s.slides}장` : ''} · ${s.date} · ${s.nth}번째 연습 · ${s.note}</small>
+          </span>
+          <span class="sess-score num">${s.score}<i>점</i></span>
+          <span class="sess-diff num">+${s.diff}</span>
+          <span class="chev" aria-hidden="true">›</span>
+        </button>`).join('')}
+      </div>
+    </section>
     <a class="about-link" href="#/about">척척발표가 판단하는 방식 →</a>`;
   $$('.sess-row').forEach(r => r.addEventListener('click', () => location.hash = r.dataset.go));
   if (window.Playbill) window.Playbill.paintWall(app);
@@ -455,6 +449,18 @@ let uploadedPdf = null; // { file, pdf, pageCount }
 let pdfRenderToken = 0;
 let pdfRenderTask = null;
 let rehearsalNavBound = false;
+
+/* 썸네일 캐시는 uploadedPdf 와 수명이 같다. chatterCache 와 같은 이유로 선언이 여기 있다 —
+   resetNf() 가 모듈 최상위에서 불리므로 아래쪽에 두면 TDZ 로 앱이 죽는다. */
+const thumbCache = new Map();   // pageNo → dataURL (메모리만)
+const THUMB_WIDTH = 240;
+
+/** 원본 PDF 교체 창구. 캐시가 페이지 번호로만 키를 잡아서, 같이 안 비우면
+    자료를 바꿔도 이전 자료의 슬라이드가 그대로 보인다. */
+function setUploadedPdf(next) {
+  uploadedPdf = next;
+  thumbCache.clear();
+}
 
 function onRehearsalKeydown(e) {
   if (nf.step !== 2) return;
@@ -511,7 +517,7 @@ function resetNf() {
   // 수다도 테이크에 딸린 것이다. 안 지우면 자료 A 의 객석이 자료 B 에서 재생되고,
   // currentShow() 가 A 의 absent 를 B 의 티켓에 빈 도장으로 찍는다
   chatterCache = null;
-  uploadedPdf = null;
+  setUploadedPdf(null);
   pdfRenderToken += 1;
   saveSession('new-flow', nf);
 }
@@ -535,7 +541,7 @@ function nfSteps() {
 }
 
 async function loadUploadedPdf(file, nameHint = '') {
-  uploadedPdf = null;
+  setUploadedPdf(null);
   const name = (file && file.name) || nameHint || '';
   const looksPdf = /\.pdf$/i.test(name)
     || (file && (file.type === 'application/pdf' || String(file.type || '').includes('pdf')));
@@ -546,7 +552,7 @@ async function loadUploadedPdf(file, nameHint = '') {
   }
   const data = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data }).promise;
-  uploadedPdf = { file, pdf, pageCount: pdf.numPages };
+  setUploadedPdf({ file, pdf, pageCount: pdf.numPages });
   return uploadedPdf;
 }
 
@@ -769,26 +775,22 @@ function applySlideDoc(doc, { keepDemoImages = false } = {}) {
   nf.slideTitles = (doc.slides || []).map((s) => s.title || `${s.slide_no}번 슬라이드`);
   nf.slideBodies = (doc.slides || []).map(slideBodyFromSlide);
   nf.sparseSlides = (doc.slides || []).filter((s) => s.text_sparse).map((s) => s.slide_no);
-  // 썸네일용: 본문 일부 넣은 SVG (필름/게이트용). 발표 본화면은 HTML 카드 사용.
-  nf.slideImages = nf.slideTitles.map((t, i) => {
-    if (keepDemoImages && DATA.slideImages[i]) return DATA.slideImages[i];
-    return slidePlaceholder(i + 1, t, nf.slideBodies[i]);
-  });
+  // 화면에는 원본 슬라이드(pdf.js 렌더)를 그린다. 파싱된 본문(slideBodies)은 F-06~11
+  // 분석 입력으로만 보관하고 썸네일에 찍지 않는다. 아래 값은 원본 렌더가 도착하기 전과
+  // 렌더 자체가 불가능할 때(PPTX + soffice 없음)만 보이는 자리표시자다.
+  nf.slideImages = nf.slideTitles.map((t, i) => (
+    (keepDemoImages && DATA.slideImages[i]) || slidePlaceholder(i + 1)
+  ));
   nf.slide = 1;
   nf.visits = { 1: 1 };
   nf.log = [];
 }
-function slidePlaceholder(n, title, body) {
-  const safe = escapeHtml(String(title || `${n}번`).slice(0, 40));
-  const preview = escapeHtml(String(body || '').replace(/\s+/g, ' ').slice(0, 90));
+/** 원본 슬라이드 렌더가 붙기 전/불가능할 때 쓰는 빈 판. 파싱 텍스트를 넣지 않는다. */
+function slidePlaceholder(n) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
     <rect width="960" height="540" fill="#f5f7fb"/>
-    <rect x="40" y="36" width="880" height="468" rx="14" fill="#fff" stroke="#dbe4f0"/>
-    <text x="72" y="100" font-family="Pretendard,sans-serif" font-size="26" fill="#8b95a1">${n}</text>
-    <text x="72" y="160" font-family="Pretendard,sans-serif" font-size="34" font-weight="700" fill="#191f28">${safe}</text>
-    <foreignObject x="72" y="200" width="800" height="260">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font:500 20px/1.45 Pretendard,sans-serif;color:#4e5968;white-space:pre-wrap">${preview || '텍스트 없음'}</div>
-    </foreignObject>
+    <rect x="40" y="36" width="880" height="468" rx="14" fill="#fff" stroke="#D5E2DA"/>
+    <text x="480" y="290" text-anchor="middle" font-family="Pretendard,sans-serif" font-size="72" font-weight="700" fill="#c6cfdb">${n}</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -889,13 +891,15 @@ function nfStep1() {
         <div class="gate-ok">${titles.length}장에서 핵심 개념 후보를 준비했어요</div>
         <div class="thumbs">
           ${titles.map((t, i) => `
-          <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" alt="${i + 1}번 슬라이드"><span><b>${i + 1}</b>${t}</span></div>`).join('')}
+          <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" data-thumb-page="${i + 1}" alt="${i + 1}번 슬라이드" loading="lazy"><span><b>${i + 1}</b>${escapeHtml(t)}</span></div>`).join('')}
         </div>
         <div class="warn-note">${warnNote}</div>
       </div>
       <div class="step-actions">
         <button class="btn btn-primary" id="next">다음: 발표 정보 입력</button>
       </div>`;
+    // 자리표시자를 원본 슬라이드 렌더로 교체 (리포트 필름과 같은 경로)
+    paintDeckThumbs(box);
     $('#next').addEventListener('click', () => { nf.step = 1; renderNew(); });
   }
 }
@@ -921,7 +925,7 @@ async function startParse({ file = null, fixture = false } = {}) {
     const doc = await b.parseDocument({ file, fixture: nf.useSample });
     if (myGen !== parseGen) return; // 취소됨
     applySlideDoc(doc, { keepDemoImages: nf.useSample });
-    uploadedPdf = null; // 이전 자료 잔상 제거
+    setUploadedPdf(null); // 이전 자료 잔상 제거 (썸네일 캐시까지)
     if (file && /\.pdf$/i.test(file.name || '')) {
       try { await loadUploadedPdf(file); }
       catch (e) { console.warn('[chuckchuck] pdf load', e); }
@@ -2258,6 +2262,64 @@ function reportSessionMeta() {
 
 let rTab = 0, jSel = 'contrast', jFilter = 'all', toolSeg = 0, mapWeakOnly = false, repSlide = 7;
 
+/**
+ * 판정 헤드에 필요한 값만 모은다.
+ *
+ * 점수·차원·한 줄 판단은 원래 rSummary() 안에 있었는데, 판정은 탭이 바뀌어도
+ * 유지돼야 하는 세션의 결론이라 헤드로 끌어올렸다. 계산 자체는 기존
+ * realSummary()·realTrophy() 를 그대로 쓰고 여기서는 조합만 한다.
+ */
+function reportVerdict() {
+  const live = isLiveReportSession();
+  const real = realSummary();
+  const tree = judgeTree();
+  const isRealTree = !!(tree[0] && tree[0].real);
+  const s = DATA.session;
+
+  // 올린 자료인데 분석이 없으면 샘플 점수를 헤드에 띄우지 않는다
+  if (live && !real && !isRealTree) return { hasAnalysis: false, isSample: false };
+
+  if (real) {
+    return {
+      hasAnalysis: true, isSample: false,
+      score: real.score,
+      dims: real.dims,
+      headline: real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요',
+      delta: `<span class="prev num">F-13 실측 · ${escapeHtml(real.basis)}</span>`,
+    };
+  }
+  const diff = s.score - s.prevScore;
+  return {
+    hasAnalysis: true, isSample: true,
+    score: s.score,
+    dims: s.dims,
+    headline: s.oneLiner,
+    delta: `<span class="delta num">▲ ${diff}</span><span class="prev num">지난 연습 ${s.prevScore}점</span>`,
+  };
+}
+
+/**
+ * ③ 장식이 아니라 데이터가 배경이다.
+ * 판정 헤드 바닥에 발화 파형과 슬라이드 전환 시각을 깐다.
+ * 매 로드 같은 모양이 나오도록 결정적으로 생성한다.
+ */
+function paintVerdictBg() {
+  const bg = $('#verdictBg');
+  if (!bg || bg.childElementCount) return;
+  for (let i = 0; i < 150; i++) {
+    const b = document.createElement('i');
+    b.style.height = (12 + Math.abs(Math.sin(i * .37) * Math.cos(i * .11)) * 88).toFixed(1) + '%';
+    bg.appendChild(b);
+  }
+  // 전환 시각을 따로 갖고 있지 않으므로 장수에 맞춰 균등하게 나눈다
+  const total = Math.min(rehearsalCount() || DATA.session.slides || 0, 14);
+  for (let n = 1; n < total; n++) {
+    const m = document.createElement('b');
+    m.style.left = (n / total * 100).toFixed(2) + '%';
+    bg.appendChild(m);
+  }
+}
+
 async function renderReport() {
   await ensureVoicePipelineOut();
   const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || 'imu2clip';
@@ -2267,17 +2329,49 @@ async function renderReport() {
   }
   app.className = 'wide';
   const s = reportSessionMeta();
+  const v = reportVerdict();
   const tabs = ['요약', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
+  const meta = [
+    escapeHtml(s.occasion),
+    s.slides ? `${s.slides}장` : '',
+    escapeHtml(s.duration),
+    s.live ? '' : `${s.nth}번째 연습`,
+  ].filter(Boolean);
   app.innerHTML = `
-    <div class="report-head">
-      <span class="final-label">${s.live ? '내 발표 분석 리포트' : '발표 + 질문 코칭 최종 분석 (샘플)'}</span>
-      <h1 class="page-title">${escapeHtml(s.title)}</h1>
-      <p class="report-meta">${escapeHtml(s.occasion)}${s.slides ? ` · ${s.slides}장` : ''} · ${escapeHtml(s.duration)}${s.live ? '' : ` · ${s.nth}번째 연습`}</p>
-    </div>
+    <section class="verdict${v.hasAnalysis ? '' : ' is-plain'}">
+      <div class="verdict-bg" id="verdictBg" aria-hidden="true"></div>
+      <div class="verdict-inner">
+        <p class="verdict-meta">${meta.map(m => `<span>${m}</span>`).join('<i></i>')}</p>
+        <h1 class="verdict-title">${escapeHtml(s.title)}</h1>
+        ${v.hasAnalysis ? `
+        <div class="verdict-grid">
+          <div class="verdict-score">
+            <span class="vs-label">발표 완성도</span>
+            <div class="vs-body">
+              <strong class="num">${v.score}<span class="of">/100</span></strong>
+              ${v.delta}
+            </div>
+          </div>
+          <div class="verdict-judgement">
+            <h2>${escapeHtml(v.headline)}</h2>
+            <div class="verdict-dims">
+              ${v.dims.map(d => `
+              <div class="vd">
+                <span class="lb">${escapeHtml(d[0])}</span>
+                <span class="vl num">${d[1]}</span>
+                <div class="bar"><i style="width:${d[1]}%"></i></div>
+              </div>`).join('')}
+            </div>
+          </div>
+        </div>` : ''}
+      </div>
+      ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>` : ''}
+    </section>
     <div class="tabs" id="rtabs">
       ${tabs.map((t, i) => `<button class="${i === rTab ? 'on' : ''}">${t}</button>`).join('')}
     </div>
     <div id="rbody"></div>`;
+  paintVerdictBg();
   $('#rtabs').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     rTab = $$('#rtabs button').indexOf(b);
@@ -2370,8 +2464,7 @@ function deckThumbList() {
    달리 취소·경합이 없어야 하므로(썸네일은 여러 장을 한 번에 그린다) 별도로 둔다.
    PPTX 는 브라우저에서 렌더할 방법이 없어 이름표만 남는다. */
 
-const thumbCache = new Map();   // pageNo → dataURL (메모리만)
-const THUMB_WIDTH = 240;
+/* thumbCache · THUMB_WIDTH 선언은 파일 위쪽(uploadedPdf 옆)에 있다 — setUploadedPdf 참고. */
 
 async function slideThumb(pageNo) {
   if (!uploadedPdf || !uploadedPdf.pdf) return null;
@@ -2627,7 +2720,7 @@ function wireSendoff() {
   // 요소마다 붙이면 나중에 그려지는 탭(개념별 판정·논리 흐름·말 속도·연습 도구)의
   // 링크가 영영 안 잡힌다. §4 는 '요약 탭을 떠날 때'가 아니라 '리포트를 떠날 때'다
   document.addEventListener('click', (e) => {
-    const el = e.target.closest('a[href="#/new"], a[href="#/"], [data-fresh-practice]');
+    const el = e.target.closest('a[href="#/new"], a[href="#/"], a[href="#/landing"], [data-fresh-practice]');
     if (!el || el === sendoffPassthrough) return;
     // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
     if (!/^#\/?report/.test(location.hash || '')) return;
@@ -2662,6 +2755,58 @@ function recallCardHtml() {
         <span class="rc-proof">지난 회차 판정과 대조한 결과예요</span>
       </div>
     </div>`;
+}
+
+const QA_VERDICT = {
+  full: { label: '설명함', cls: 'ok' },
+  partial: { label: '부분 이해', cls: 'mid' },
+  none: { label: '설명 못함', cls: 'no' },
+};
+
+/**
+ * 지난 발표의 질문 코칭 내역.
+ * 기록이 없으면(코칭 전) 아무것도 그리지 않는다 — 빈 껍데기를 두지 않는다.
+ */
+function qaHistoryPanelHtml() {
+  if (!window.QaHistory) return '';
+  const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || 'imu2clip';
+  const rec = window.QaHistory.get(reportId);
+  if (!rec || !rec.beats || !rec.beats.length) return '';
+
+  const when = new Date(rec.at);
+  const stamp = `${when.getFullYear()}.${String(when.getMonth() + 1).padStart(2, '0')}.${String(when.getDate()).padStart(2, '0')}`;
+
+  return `
+    <section class="qa-log">
+      <div class="block-head">
+        <h2>질문 코칭 내역</h2>
+        <p>${escapeHtml(rec.aud)}${josa(rec.aud, '과', '와')} 주고받은 ${rec.beats.length}개 질문 · ${stamp}</p>
+      </div>
+      <div class="qa-log-list">
+        ${rec.beats.map((b, i) => {
+          const v = QA_VERDICT[b.verdict] || QA_VERDICT.partial;
+          return `
+          <details class="qa-log-item">
+            <summary>
+              <span class="st ${v.cls}">${v.label}</span>
+              <span class="ql-concept">${escapeHtml(b.label || '')}</span>
+              <span class="ql-slide num">${escapeHtml(b.slide || '')}</span>
+              <span class="ql-n num">${String(i + 1).padStart(2, '0')}</span>
+            </summary>
+            <div class="qa-log-body">
+              <p class="ql-line"><b>질문</b>${escapeHtml(b.q) || '<i class="ql-empty">기록 없음</i>'}</p>
+              <p class="ql-line ql-answer"><b>내 답변</b>${
+                b.skipped ? '<i class="ql-empty">답하지 않고 넘겼어요</i>' : (escapeHtml(b.a) || '<i class="ql-empty">기록 없음</i>')}</p>
+              ${b.note ? `<p class="ql-note">${escapeHtml(b.note)}</p>` : ''}
+              ${(b.turns || b.hint) ? `<p class="ql-meta">${[
+                b.turns ? `${b.turns}번 만에 방어` : '',
+                b.hint ? `힌트 ${b.hint}단계` : '',
+              ].filter(Boolean).join(' · ')}</p>` : ''}
+            </div>
+          </details>`;
+        }).join('')}
+      </div>
+    </section>`;
 }
 
 function rSummary() {
@@ -2700,29 +2845,9 @@ function rSummary() {
     ? (real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요')
     : s.oneLiner;
   const nextLabel = (trophy && trophy.label) ? trophy.label : '약한 개념';
+  // 점수·차원·한 줄 판단은 판정 헤드(renderReport)로 올라갔다 — 여기서 다시 그리지 않는다
   $('#rbody').innerHTML = `
-    <div class="card hero-card final-score-card">
-      ${ringSvg(score, 132, 11, `<strong class="num" data-count="${score}">0</strong><span>점</span>`)}
-      <div class="hero-body">
-        ${real
-          ? `<span class="chip chip-sm">F-13 실측 · ${escapeHtml(real.basis)}</span>`
-          : `<span class="chip chip-sm chip-up">지난 연습보다 +${s.score - s.prevScore}점</span>`}
-        <h2>${escapeHtml(headline)}</h2>
-        <div class="dims">
-          ${dims.map(d => `
-          <div class="dim-row${d[2] && window.Chatter ? ' has-face' : ''}">
-            ${d[2] && window.Chatter
-              ? `<span class="dim-face" title="${escapeHtml(BACKSTAGE_NAMES[d[2]] || '')}">${window.Chatter.chickSvg(d[2])}</span>`
-              : ''}
-            <span class="lb">${escapeHtml(d[0])}</span>
-            <div class="fill-bar"><i data-w="${d[1]}%"></i></div>
-            <span class="vl num">${d[1]}</span>
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>
-    ${real ? '' : `<p class="note" style="color:#f59e0b;margin:-6px 0 12px">
-      ⚠️ 아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>`}
+    ${qaHistoryPanelHtml()}
     ${recallCardHtml()}
 
     ${trophy || !live ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
@@ -3313,7 +3438,7 @@ function rPace() {
     <div class="card">
       <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
       <div class="alloc-lgd">
-        <span><i style="background:#C6CCD3"></i>권장</span>
+        <span><i style="background:#C9D5CE"></i>권장</span>
         <span><i style="background:var(--blue)"></i>실제</span>
       </div>
       ${allocRows.map(r => `
@@ -3331,7 +3456,7 @@ function rPace() {
 
 /* 탭 5 — 연습 도구 */
 function rTools() {
-  const segs = ['개요 이미지', '펀치라인', '용어 카드'];
+  const segs = ['발표 구성', '개요 이미지', '펀치라인', '용어 카드'];
   $('#rbody').innerHTML = `
     <div class="seg-ctl" id="seg">
       ${segs.map((t, i) => `<button class="${i === toolSeg ? 'on' : ''}">${t}</button>`).join('')}
@@ -3341,12 +3466,101 @@ function rTools() {
     const b = e.target.closest('button'); if (!b) return;
     toolSeg = $$('#seg button').indexOf(b); rTools();
   });
-  [tMap, tPunch, tTerms][toolSeg]();
+  [tStrategy, tMap, tPunch, tTerms][toolSeg]();
+}
+
+/**
+ * F-20 구성 제안 캐시 키.
+ * 같은 자료를 같은 길이로 발표했으면 같은 세션으로 본다 — 탭을 오갈 때마다
+ * LLM 을 다시 부르지 않기 위한 키일 뿐이라 이 정도 해상도면 충분하다.
+ */
+function strategySessionKey() {
+  const m = reportSessionMeta();
+  return m.live ? `live:${m.title}|${m.duration}` : 'sample';
+}
+
+/**
+ * F-20 에 보낼 분석 요약.
+ *
+ * 인용은 개념 판정의 근거 발화(evidence)에서 가져온다 — 서버가 keep.quote 를
+ * 실제 발화와 대조해 없으면 버리므로, 진짜 한 말만 넣어야 제안에 살아남는다.
+ */
+function strategyAnalysis() {
+  const meta = reportSessionMeta();
+  const tree = judgeTree();
+  const sections = (nf && nf.pipelineOut && nf.pipelineOut.pace
+    && nf.pipelineOut.pace.sections) || [];
+
+  const concepts = tree.slice(0, 14).map(n => ({
+    label: n.label,
+    slide: n.slide,
+    verdict: STATUS[n.status] || n.status,
+  }));
+
+  const quotes = tree
+    .filter(n => n.ev)
+    .slice(0, 8)
+    .map(n => ({
+      at: n.evTime || '',
+      // 화면용 겹따옴표는 떼고 보낸다 — 대조는 발화 원문끼리 해야 한다
+      text: String(n.ev).replace(/^[“"']+|[”"']+$/g, '').trim(),
+    }));
+
+  const sampleAlloc = DATA.timeAlloc.map(r => ({
+    slide: '', label: r[0], recommended: `${r[1]}%`, actual: `${r[2]}%`,
+  }));
+  const timeAlloc = sections.length
+    ? sections.map(s => ({
+      slide: (s.slide_nos && s.slide_nos.length)
+        ? `S${String(Math.min(...s.slide_nos)).padStart(2, '0')}` : '',
+      label: s.name || '',
+      recommended: fmtMarkSec(s.recommended_sec || 0),
+      actual: fmtMarkSec(s.actual_sec || 0),
+    }))
+    // 실데이터 세션인데 구간 배분이 없으면 비운다. 샘플 수치로 위장하지 않는다.
+    : (meta.live ? [] : sampleAlloc);
+
+  // 순서표가 짚을 슬라이드 목록. F-17 이 있으면 실제 사용 시간까지 함께 넘긴다.
+  const paceSlides = (nf && nf.pipelineOut && nf.pipelineOut.pace
+    && nf.pipelineOut.pace.slides) || [];
+  const titles = (nf && nf.slideTitles && nf.slideTitles.length)
+    ? nf.slideTitles : (meta.live ? [] : DATA.slideTitles);
+  const slides = paceSlides.length
+    ? paceSlides.map(s => ({
+      no: s.slide_no,
+      title: (s.title || '').slice(0, 40),
+      spent: s.actual_sec ? fmtMarkSec(s.actual_sec) : '',
+    }))
+    : titles.map((t, i) => ({ no: i + 1, title: String(t).slice(0, 40) }));
+
+  return {
+    title: meta.title,
+    occasion: meta.occasion,
+    duration: meta.duration,
+    slides,
+    concepts,
+    time_alloc: timeAlloc,
+    quotes,
+  };
+}
+
+function tStrategy() {
+  if (!window.ReportStrategy) {
+    $('#toolBody').innerHTML = `
+      <div class="card"><p class="note">구성 제안 모듈을 불러오지 못했어요.</p></div>`;
+    return;
+  }
+  window.ReportStrategy.render($('#toolBody'), {
+    sessionId: strategySessionKey(),
+    analysis: strategyAnalysis(),
+  });
 }
 
 function mapSvgString() {
-  const FILL = { ok: '#EBF2FF', mid: '#FFF4E5', no: '#FDEDED', ct: '#FAE8FF' };
-  const LINE = { ok: '#1B64DA', mid: '#B25E09', no: '#D93A3A', ct: '#A21CAF' };
+  // 이 SVG는 파일로도 내려받으므로(:root 없음) CSS 토큰 대신 리터럴을 쓴다.
+  // 값은 app.css 의 --ok/--mid/--no/--ct 계열과 같게 유지한다.
+  const FILL = { ok: '#E9F7EF', mid: '#FDF6E3', no: '#FDF0EF', ct: '#F6EDFD' };
+  const LINE = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#9333EA' };
   const nodes = DATA.mapNodes.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
   const POS = {
     r: [440, 36, 200], a: [170, 120, 150], b: [440, 120, 160], c: [710, 120, 140],
@@ -4063,9 +4277,78 @@ function qaDecide(push) {
 }
 
 /* ── 마무리 세리머니: 문장 → 개념 점등 → 보상 ── */
+/**
+ * 이번 코칭을 발표별 내역으로 남긴다.
+ *
+ * qa 상태는 sessionStorage 한 칸이라 새 코칭이 시작되면 덮어써진다.
+ * 지난 발표에서 다시 보려면 세션 id 를 키로 따로 적어두어야 한다.
+ */
+/* 실데이터 판정 코드 → 내역 3단계. 넘김·보류는 '설명 못함'으로 모으되
+   skipped 플래그로 "못 한 것"과 "안 한 것"을 구분해 둔다. */
+const QA_LOG_VERDICT = { good: 'full', partial: 'partial', wrong: 'none', unknown: 'none', skipped: 'none' };
+
+function recordQaHistory() {
+  if (!window.QaHistory) return;
+  const L = qa.live;
+  const s = DATA.session.qa || {};
+
+  // 실데이터 경로 — qa.live.results 가 실제 주고받은 기록이다
+  if (L && Array.isArray(L.results) && L.results.length) {
+    const beats = L.results.map((r, i) => {
+      const src = (L.questions && L.questions[i]) || {};
+      return {
+        concept: src.concept || src.node || '',
+        label: src.label || src.conceptLabel || src.concept || `질문 ${i + 1}`,
+        slide: src.slide || (src.slide_no ? `S${String(src.slide_no).padStart(2, '0')}` : ''),
+        q: r.question || src.question || src.q || '',
+        a: r.summary || '',
+        verdict: QA_LOG_VERDICT[r.verdict] || 'partial',
+        note: '',
+        turns: r.turns || 0,
+        hint: r.hintLevel || 0,
+        skipped: r.verdict === 'skipped' || !!r.revealed,
+      };
+    });
+    window.QaHistory.save(L.sessionId || 'live', {
+      live: true,
+      aud: qa.aud || '청중',
+      mode: qa.mode || 'full',
+      turns: beats.length,
+      before: s.before, after: s.after, total: beats.length,
+      mastered: beats.filter(b => b.verdict === 'full').map(b => b.label),
+      weak: beats.filter(b => b.verdict === 'none').map(b => b.label),
+      beats,
+    });
+    return;
+  }
+
+  // mock 시나리오 경로
+  const played = (DATA.qaBeats || []).filter(b => b.kind === 'ask');
+  if (!played.length) return;
+  window.QaHistory.save('imu2clip', {
+    live: false,
+    aud: qa.aud || '교수님',
+    mode: qa.mode || 'full',
+    turns: qa.turns || played.length,
+    before: s.before, after: s.after, total: s.total,
+    mastered: String(s.mastered || '').split('·').map(x => x.trim()).filter(Boolean),
+    weak: String(s.weak || '').split('·').map(x => x.trim()).filter(Boolean),
+    beats: played.map(b => ({
+      concept: b.concept,
+      label: b.conceptLabel,
+      slide: b.slide,
+      q: (b.q && (b.q[qa.aud] || Object.values(b.q)[0])) || '',
+      a: b.answer || '',
+      verdict: b.verdict || 'partial',
+      note: b.react || '',
+    })),
+  });
+}
+
 function qaEnd() {
   if (!qa.awarded) { qa.award = awardGame(); qa.awarded = true; }
   saveSession('qa-flow', qa);
+  recordQaHistory();
   const tr = DATA.session.qa.trophy;
   const ariaLost = qa.lost.includes('aria');
   const concepts = [

@@ -1,0 +1,490 @@
+<!--
+디자인 프로토타입 — "제본된 리포트" 방향의 리포트 요약 화면입니다.
+
+실제 앱과 완전히 격리돼 있습니다. index.html·app.js·라우터와 연결되지 않고,
+css/app.css 를 불러오지 않으며 토큰을 이 파일 안에 따로 선언합니다.
+채택이 정해지기 전까지 실제 UI에 아무 영향이 없습니다.
+
+비교: http://127.0.0.1:8799/prototype-report.html  vs  http://127.0.0.1:8799/#/report
+
+적용한 규칙 4개
+  ① 면 3단계, 다크 면은 화면당 하나 (여기서는 판정 헤드라인)
+  ② 타이포 4단 — Display 56 / Title 23 / Body 15 / Meta 12
+  ③ 장식 대신 데이터가 배경 (실제 발화 파형 + 슬라이드 전환 마커)
+  ④ 여백 리듬 2종 — 구역 96px, 요소 24px
+
+데이터는 js/data.js 의 IMU2CLIP 세션 값을 옮겨 적은 것입니다(프로토타입이라 하드코딩).
+-->
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>척척발표 — 리포트 디자인 프로토타입</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root {
+  /* ① 면 3단계 */
+  --canvas: #F5F5F5;
+  --paper:  #FAF9F6;
+  --navy:   #12362D;
+  --navy-deep: #0B241E;
+  --surface: #FFFFFF;
+
+  --brand: #1F7A5F;
+  --cyan:  #58C9A2;
+  --mint:  #A8E0C8;
+  --yellow:#F0B429;
+
+  --text:   #16211C;
+  --text-2: #46584F;
+  --text-3: #8AA295;
+  --border: #E2E7E3;
+  --line:   rgba(31, 64, 52, .12);
+
+  --ok: #0A8F68;  --ok-bg: #E9F7EF;
+  --mid:#B45309;  --mid-bg:#FDF6E3;
+  --no: #DC2626;  --no-bg: #FDF0EF;
+  --ct: #9333EA;  --ct-bg: #F6EDFD;
+  --om: #8A6A15;  --om-bg: #F7F1DE;
+
+  /* ② 타이포 4단 — 고정 단계. clamp 로 흔들지 않는다 */
+  --t-display: 56px;
+  --t-title:   23px;
+  --t-body:    15px;
+  --t-meta:    12px;
+
+  /* ④ 여백 리듬 2종 */
+  --gap-section: 96px;
+  --gap-item:    24px;
+
+  --shell: 1180px;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--font);
+  font-size: var(--t-body); line-height: 1.65;
+  color: var(--text); background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+}
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* 에디토리얼 문법: 작은 대문자 메타 라벨 + 헤어라인 */
+.eyebrow {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--text-3);
+}
+
+.shell { width: min(var(--shell), calc(100% - 48px)); margin: 0 auto; }
+
+/* ── 상단 바 ─────────────────────────────────────────── */
+.topbar {
+  height: 60px; display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  padding: 0 24px; position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+.brand-mark { width: 24px; height: 24px; border-radius: 7px; background: var(--brand); position: relative; }
+.brand-mark::after {
+  content: ""; position: absolute; left: 5px; right: 5px; top: 7px;
+  height: 2.5px; background: #fff; border-radius: 2px; box-shadow: 0 5px 0 #fff;
+}
+.proto-tag {
+  font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  color: var(--brand); background: #E9F4EE; border-radius: 6px; padding: 5px 10px;
+}
+
+/* ══ ① 다크 판정 헤드라인 — 이 화면의 유일한 다크 면 ══ */
+.verdict {
+  position: relative; overflow: hidden; color: #fff;
+  background: linear-gradient(168deg, #1B4A3E 0%, var(--navy) 46%, var(--navy-deep) 100%);
+  padding: 64px 0 0;
+}
+
+/* ③ 장식이 아니라 데이터가 배경이다 — 실제 발화 파형과 슬라이드 전환 마커 */
+.verdict-bg {
+  position: absolute; inset: auto 0 0; height: 190px;
+  display: flex; align-items: flex-end; gap: 3px;
+  padding: 0 24px; opacity: .13; pointer-events: none;
+  mask-image: linear-gradient(to top, #000 10%, transparent 92%);
+}
+.verdict-bg i { flex: 1 1 0; min-width: 1px; border-radius: 2px 2px 0 0; background: var(--cyan); }
+.verdict-bg b {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--yellow); opacity: .8;
+}
+
+.verdict-inner { position: relative; z-index: 2; }
+.verdict-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; color: #9FC9B6; font-size: var(--t-meta); font-weight: 700; }
+.verdict-meta i { width: 3px; height: 3px; border-radius: 50%; background: #52796C; }
+.verdict h1 { margin: 14px 0 0; font-size: 26px; font-weight: 820; letter-spacing: -.045em; }
+
+/* 비대칭 그리드 — 점수는 왼쪽 축, 판단은 오른쪽 본문 */
+.verdict-grid {
+  display: grid; grid-template-columns: 220px 1fr;
+  gap: clamp(32px, 5vw, 72px); align-items: start;
+  margin-top: 44px; padding-bottom: 52px;
+}
+.score { border-top: 2px solid rgba(255,255,255,.9); padding-top: 18px; }
+.score strong {
+  display: block; font-size: var(--t-display); font-weight: 830;
+  letter-spacing: -.055em; line-height: .96;
+}
+.score .of { color: #7FB3A2; font-size: 15px; font-weight: 750; margin-left: 4px; letter-spacing: -.02em; }
+.score .delta {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 14px;
+  font-size: var(--t-meta); font-weight: 800; color: #0B2A22;
+  background: var(--mint); border-radius: 999px; padding: 5px 11px;
+}
+.score .prev { display: block; margin-top: 10px; color: #7FB3A2; font-size: 11.5px; font-weight: 650; }
+
+.judgement h2 {
+  font-size: var(--t-title); font-weight: 780; line-height: 1.62;
+  letter-spacing: -.035em; max-width: 30ch;
+}
+.judgement h2 em { font-style: normal; color: var(--cyan); }
+.dims { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.16); }
+.dim { min-width: 128px; flex: 1 1 128px; }
+.dim .lb { display: block; color: #9FC9B6; font-size: 11.5px; font-weight: 700; }
+.dim .vl { display: block; margin: 3px 0 8px; font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
+.dim .bar { height: 3px; border-radius: 2px; background: rgba(255,255,255,.16); overflow: hidden; }
+.dim .bar i { display: block; height: 100%; background: var(--cyan); border-radius: 2px; }
+
+/* 가장 먼저 고칠 3가지 — 다크 면 안, 헤어라인으로 구분 */
+.fixes { border-top: 1px solid rgba(255,255,255,.16); padding: 26px 0 60px; position: relative; z-index: 2; }
+.fixes .eyebrow { color: #7FB3A2; }
+.fixes ol { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin: 16px 0 0; padding: 0; }
+.fixes li { display: flex; gap: 14px; padding: 18px 22px 18px 0; border-right: 1px solid rgba(255,255,255,.12); }
+.fixes li:last-child { border-right: 0; }
+.fixes li + li { padding-left: 22px; }
+.fixes .n { font-size: 12px; font-weight: 850; color: var(--cyan); letter-spacing: .04em; padding-top: 2px; }
+.fixes .t { font-size: 14.5px; font-weight: 730; line-height: 1.6; letter-spacing: -.025em; }
+.fixes .t small { display: block; margin-top: 6px; color: #9FC9B6; font-size: 12px; font-weight: 600; line-height: 1.6; }
+
+/* ══ 라이트 본문 ══ */
+.body-area { padding: 0 0 var(--gap-section); }
+
+/* ② 밑줄 텍스트 탭 — pill 을 버려 장식을 줄이고 밀도를 올린다 */
+.tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--border); margin-bottom: var(--gap-section); overflow-x: auto; }
+.tabs button {
+  position: relative; padding: 20px 0; white-space: nowrap;
+  font-size: 14.5px; font-weight: 700; color: var(--text-3);
+  transition: color .16s var(--ease);
+}
+.tabs button:hover { color: var(--text-2); }
+.tabs button.on { color: var(--text); font-weight: 800; }
+.tabs button.on::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 2px; background: var(--navy);
+}
+
+.block + .block { margin-top: var(--gap-section); }
+.block-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: var(--gap-item); }
+.block-head h3 { font-size: 19px; font-weight: 800; letter-spacing: -.035em; }
+.block-head p { color: var(--text-3); font-size: 13px; font-weight: 600; }
+
+/* Q&A 전후 — 숫자가 주인공이라 카드 대신 헤어라인 위에 얹는다 */
+/* 자식 4개: 질문 전 · 화살표 · 질문 후 · 설명 목록 */
+.qa-shift { display: grid; grid-template-columns: auto auto auto 1fr; gap: clamp(24px, 4vw, 56px); align-items: center; border-top: 2px solid var(--text); padding-top: 26px; }
+.qa-step .eyebrow { display: block; margin-bottom: 8px; }
+.qa-step b { font-size: 40px; font-weight: 830; letter-spacing: -.05em; line-height: 1; }
+.qa-step.after b { color: var(--brand); }
+.qa-arrow { font-size: 20px; color: var(--text-3); padding-top: 18px; }
+.qa-note { border-left: 1px solid var(--border); padding-left: clamp(20px, 3vw, 40px); }
+.qa-note dt { font-size: 11.5px; font-weight: 800; color: var(--text-3); letter-spacing: .04em; }
+.qa-note dd { margin: 4px 0 0; font-size: 15px; font-weight: 750; letter-spacing: -.02em; }
+.qa-note dd + dt { margin-top: 16px; }
+
+/* 슬라이드로 보는 발표 — 비대칭 2컬럼, 슬라이드가 넓다 */
+.slide-view { display: grid; grid-template-columns: 1.35fr 1fr; gap: var(--gap-item); align-items: start; }
+.slide-frame {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  overflow: hidden; box-shadow: 0 1px 2px rgba(18,54,45,.06), 0 18px 40px rgba(18,54,45,.07);
+}
+.slide-canvas {
+  aspect-ratio: 16 / 9; background: linear-gradient(150deg, #F3F6F3, #E7EEE9);
+  display: grid; place-items: center; color: var(--text-3); font-size: 13px; font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+.slide-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; font-size: 12.5px; font-weight: 700; }
+.slide-foot .no { color: var(--text-3); }
+
+.judge-side { background: var(--paper); border-radius: 4px; padding: 26px; }
+.judge-side .st-line { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.quote {
+  margin: 0; padding: 16px 18px; border-left: 2px solid var(--navy);
+  background: var(--surface); font-size: 14px; line-height: 1.75; letter-spacing: -.02em;
+}
+.quote time { display: block; margin-top: 8px; color: var(--text-3); font-size: 12px; font-weight: 700; }
+.suggest { margin-top: 16px; padding: 16px 18px; border-radius: 4px; background: var(--ok-bg); }
+.suggest .eyebrow { color: var(--ok); }
+.suggest p { margin-top: 7px; font-size: 14px; line-height: 1.7; letter-spacing: -.02em; }
+
+/* 판정 칩 — 색은 여기에만 쓴다 */
+.st { font-size: 11.5px; font-weight: 800; border-radius: 4px; padding: 4px 9px; letter-spacing: -.01em; }
+.st.ok  { background: var(--ok-bg);  color: var(--ok); }
+.st.mid { background: var(--mid-bg); color: var(--mid); }
+.st.no  { background: var(--no-bg);  color: var(--no); }
+.st.ct  { background: var(--ct-bg);  color: var(--ct); }
+.st.om  { background: var(--om-bg);  color: var(--om); }
+
+/* 개념별 판정 — 카드 더미 대신 표 리듬 */
+.cov-list { border-top: 2px solid var(--text); }
+.cov {
+  display: grid; grid-template-columns: 108px 1fr auto;
+  gap: 18px; align-items: baseline;
+  padding: 20px 4px; border-bottom: 1px solid var(--border);
+  transition: background .16s var(--ease);
+}
+.cov:hover { background: var(--paper); }
+.cov .cn { font-size: 15.5px; font-weight: 780; letter-spacing: -.03em; }
+.cov .ev { margin-top: 7px; color: var(--text-2); font-size: 13.5px; line-height: 1.75; }
+.cov .ev b { color: var(--text); font-weight: 750; }
+.cov .slide { color: var(--text-3); font-size: 12px; font-weight: 750; white-space: nowrap; }
+
+.foot-note { margin-top: 40px; color: var(--text-3); font-size: 12.5px; line-height: 1.8; }
+
+/* 반응형 */
+@media (max-width: 900px) {
+  :root { --t-display: 46px; --t-title: 20px; --gap-section: 64px; }
+  .verdict-grid { grid-template-columns: 1fr; gap: 32px; }
+  .fixes ol { grid-template-columns: 1fr; }
+  .fixes li { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.12); padding: 16px 0; }
+  .fixes li + li { padding-left: 0; }
+  .fixes li:last-child { border-bottom: 0; }
+  .slide-view { grid-template-columns: 1fr; }
+  .qa-shift { grid-template-columns: auto auto; row-gap: 26px; }
+  .qa-note { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border); padding: 20px 0 0; }
+  .cov { grid-template-columns: 92px 1fr; }
+  .cov .slide { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="#"><span class="brand-mark" aria-hidden="true"></span>척척발표</a>
+  <span class="proto-tag">디자인 프로토타입</span>
+</header>
+
+<!-- ══ 다크 판정 헤드라인 — 이 화면의 유일한 다크 면 ══ -->
+<section class="verdict" aria-labelledby="verdictTitle">
+  <div class="verdict-bg" id="verdictBg" aria-hidden="true"></div>
+
+  <div class="shell verdict-inner">
+    <p class="verdict-meta">
+      <span>학회·수업 발표</span><i></i><span>23장</span><i></i>
+      <span class="num">10분 18초</span><i></i><span>2번째 연습</span>
+    </p>
+    <h1 id="verdictTitle">IMU2CLIP 논문 리뷰</h1>
+
+    <div class="verdict-grid">
+      <div class="score">
+        <strong class="num">86<span class="of">/100</span></strong>
+        <span class="delta num">▲ 10</span>
+        <span class="prev num">지난 연습 76점</span>
+      </div>
+
+      <div class="judgement">
+        <h2>핵심 구조는 전달됐고, 질문을 거치며 <em>공동 임베딩 정렬</em>을 자기 말로 설명할 수 있게 됐어요.</h2>
+        <div class="dims">
+          <div class="dim">
+            <span class="lb">내용 이해</span><span class="vl num">84</span>
+            <div class="bar"><i style="width:84%"></i></div>
+          </div>
+          <div class="dim">
+            <span class="lb">논리 흐름</span><span class="vl num">82</span>
+            <div class="bar"><i style="width:82%"></i></div>
+          </div>
+          <div class="dim">
+            <span class="lb">말 속도</span><span class="vl num">91</span>
+            <div class="bar"><i style="width:91%"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shell fixes">
+    <p class="eyebrow">가장 먼저 고칠 3가지</p>
+    <ol>
+      <li>
+        <span class="n num">01</span>
+        <span class="t">공동 임베딩 정렬을 발표 문장으로 복원하기
+          <small>Q&amp;A에서 만든 문장을 7번 슬라이드에서 그대로 쓰세요.</small></span>
+      </li>
+      <li>
+        <span class="n num">02</span>
+        <span class="t">IMU Encoder 구조를 한 문장으로 준비하기
+          <small>발표에서 통째로 빠진 유일한 핵심 개념이에요.</small></span>
+      </li>
+      <li>
+        <span class="n num">03</span>
+        <span class="t">Aria 데이터셋 설명에서 모순 바로잡기
+          <small>text narration이 있다고 말했지만 자료에는 없어요.</small></span>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ══ 라이트 본문 ══ -->
+<main class="body-area">
+  <div class="shell">
+
+    <nav class="tabs" aria-label="리포트 구역">
+      <button class="on" type="button">요약</button>
+      <button type="button">개념별 판정</button>
+      <button type="button">논리 흐름</button>
+      <button type="button">음성 습관</button>
+      <button type="button">청중 반응</button>
+      <button type="button">연습 도구</button>
+    </nav>
+
+    <section class="block">
+      <div class="block-head">
+        <h3>질문을 거치며 달라진 것</h3>
+        <p>발표 당시 판정은 지우지 않고, 변화만 따로 기록해요</p>
+      </div>
+      <div class="qa-shift">
+        <div class="qa-step">
+          <span class="eyebrow">질문 전 설명 가능</span>
+          <b class="num">3/5</b>
+        </div>
+        <div class="qa-arrow" aria-hidden="true">→</div>
+        <div class="qa-step after">
+          <span class="eyebrow">질문 후 설명 가능</span>
+          <b class="num">5/5</b>
+        </div>
+        <dl class="qa-note">
+          <dt>대화로 이해했어요</dt>
+          <dd>공동 임베딩 정렬 · Temperature Parameter</dd>
+          <dt>다음 발표에서 연습</dt>
+          <dd>IMU Encoder</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <h3>슬라이드로 보는 발표</h3>
+        <p>장을 누르면 그 장에서 있었던 일을 보여줘요</p>
+      </div>
+      <div class="slide-view">
+        <div class="slide-frame">
+          <div class="slide-canvas">실제 슬라이드 이미지 · slide-07.webp</div>
+          <div class="slide-foot">
+            <span class="num no">7 / 23</span>
+            <span>Overall Framework</span>
+            <span class="st mid">언급만 함</span>
+          </div>
+        </div>
+
+        <div class="judge-side">
+          <div class="st-line">
+            <span class="st mid">언급만 함</span>
+            <strong style="font-size:15.5px;font-weight:800;letter-spacing:-.03em">공동 임베딩 정렬</strong>
+          </div>
+          <p class="eyebrow">이 장에서 한 말</p>
+          <blockquote class="quote">
+            “비디오, IMU, 텍스트를 joint space에 정렬합니다.”
+            <time class="num">03:56</time>
+          </blockquote>
+          <div class="suggest">
+            <p class="eyebrow">이렇게 말해보세요</p>
+            <p>같은 시간 구간의 IMU·영상·문장은 같은 행동을 가리키므로 positive pair가 된다고 설명해보세요.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <h3>개념별 판정</h3>
+        <p>모든 판정에 근거 발화와 타임코드가 붙어요</p>
+      </div>
+      <div class="cov-list">
+        <div class="cov">
+          <span class="st ok">설명함</span>
+          <div>
+            <div class="cn">Contrastive Learning</div>
+            <p class="ev">“가까운 것은 가깝게, 먼 것은 멀게 학습하는 방식입니다.” <b>· 02:14</b> — 정의부터 학습 목표까지 흐름대로 설명됐어요.</p>
+          </div>
+          <span class="slide num">SLIDE 04</span>
+        </div>
+        <div class="cov">
+          <span class="st mid">언급만 함</span>
+          <div>
+            <div class="cn">공동 임베딩 정렬</div>
+            <p class="ev">“비디오, IMU, 텍스트를 joint space에 정렬합니다.” <b>· 03:56</b> — 결과는 말했지만 왜 positive pair가 되는지는 빠졌어요. Q&amp;A에서 보완됨.</p>
+          </div>
+          <span class="slide num">SLIDE 07</span>
+        </div>
+        <div class="cov">
+          <span class="st no">안 나옴</span>
+          <div>
+            <div class="cn">IMU Encoder</div>
+            <p class="ev">관련 발화를 찾지 못했어요 — 구조를 한 문장으로 준비해두면 다음 발표에서 바로 쓸 수 있어요.</p>
+          </div>
+          <span class="slide num">SLIDE 10</span>
+        </div>
+        <div class="cov">
+          <span class="st ct">자료와 모순</span>
+          <div>
+            <div class="cn">Aria 데이터셋</div>
+            <p class="ev">“Aria에는 text narration이 함께 들어 있습니다.” <b>· 07:41</b> — 자료에는 없는 내용이에요.</p>
+          </div>
+          <span class="slide num">SLIDE 16</span>
+        </div>
+        <div class="cov">
+          <span class="st om">정당한 생략</span>
+          <div>
+            <div class="cn">Appendix 수식 유도</div>
+            <p class="ev">발화에 없지만 10분 논문 리뷰 맥락에서 합리적인 생략이라 감점하지 않았어요.</p>
+          </div>
+          <span class="slide num">SLIDE 22</span>
+        </div>
+      </div>
+
+      <p class="foot-note">
+        판정은 AI 분석 결과라 오류가 있을 수 있어요 — 근거 발화와 슬라이드를 함께 확인하세요.
+      </p>
+    </section>
+
+  </div>
+</main>
+
+<script>
+/* ③ 장식이 아니라 데이터가 배경이다.
+   실제 발화 파형과 슬라이드 전환 마커를 헤드라인 배경 레이어로 깐다.
+   매 로드 같은 모양이 나오도록 결정적으로 생성한다. */
+(function () {
+  const bg = document.getElementById('verdictBg');
+  const BARS = 150;
+  for (let i = 0; i < BARS; i++) {
+    const b = document.createElement('i');
+    const h = 12 + Math.abs(Math.sin(i * .37) * Math.cos(i * .11)) * 88;
+    b.style.height = h.toFixed(1) + '%';
+    bg.appendChild(b);
+  }
+  /* 슬라이드 전환 시각 — 실제 리허설의 전환 지점 비율 */
+  [.09, .17, .26, .34, .41, .49, .58, .66, .74, .83, .91].forEach(p => {
+    const m = document.createElement('b');
+    m.style.left = (p * 100) + '%';
+    bg.appendChild(m);
+  });
+})();
+</script>
+
+</body>
+</html>

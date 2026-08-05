@@ -194,7 +194,7 @@ export function attachRehearsalRuntime(nf, hooks = {}) {
 export async function parseDocument({ file = null, fixture = false } = {}) {
   let res;
   if (fixture || !file) {
-    res = await fetch('/api/v1/parse', {
+    res = await fetch(apiBase() + '/api/v1/parse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fixture: true }),
@@ -202,7 +202,7 @@ export async function parseDocument({ file = null, fixture = false } = {}) {
   } else {
     const fd = new FormData();
     fd.append('document', file, file.name);
-    res = await fetch('/api/v1/parse', { method: 'POST', body: fd });
+    res = await fetch(apiBase() + '/api/v1/parse', { method: 'POST', body: fd });
   }
   const data = await res.json();
   if (!res.ok || data.error) {
@@ -269,7 +269,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   const ext = audioExt({ fileName, mimeType });
 
   report('stt', 'A.X STT로 음성을 글로 바꾸는 중');
-  const sttRes = await fetch('/api/v1/transcribe', {
+  const sttRes = await fetch(apiBase() + '/api/v1/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -291,7 +291,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     try {
       // concepts 요청에는 단어 배열을 빼 본문 크기를 줄인다
       const transcriptForConcepts = slimTranscript(transcript);
-      const cRes = await fetch('/api/v1/concepts', {
+      const cRes = await fetch(apiBase() + '/api/v1/concepts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -323,7 +323,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   if (concepts) {
     try {
       report('graph', '개념 그래프 구성 중 (F-07)', { transcript, concepts });
-      const gRes = await fetch('/api/v1/graph', {
+      const gRes = await fetch(apiBase() + '/api/v1/graph', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
@@ -335,7 +335,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       report('graph_done', `개념 ${(graph.nodes || []).length}개 · 연결 ${(graph.edges || []).length}개`, { transcript, concepts, graph });
 
       report('align', '발표와 자료 대조 중 (F-11)', { transcript, concepts, graph });
-      const aRes = await fetch('/api/v1/alignment', {
+      const aRes = await fetch(apiBase() + '/api/v1/alignment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ graph, transcript: slimTranscript(transcript), context: context || {} }),
@@ -359,7 +359,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   if (graph && alignment) {
     try {
       report('flow', '자료 흐름과 발표 흐름 대조 중', { transcript, concepts, graph, alignment });
-      const fRes = await fetch('/api/v1/flow', {
+      const fRes = await fetch(apiBase() + '/api/v1/flow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ graph, alignment }),
@@ -382,7 +382,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   if (alignment) {
     try {
       report('score', '발표 점수 계산 중', { transcript, concepts, graph, alignment, flow });
-      const sRes = await fetch('/api/v1/score', {
+      const sRes = await fetch(apiBase() + '/api/v1/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ alignment, flow }),
@@ -407,7 +407,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   const slim = slimTranscript(transcript);
   try {
     report('pace', '말 속도·시간 배분 계산 중 (F-17)', { transcript, concepts, graph, alignment, flow });
-    const pRes = await fetch('/api/v1/pace', {
+    const pRes = await fetch(apiBase() + '/api/v1/pace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -425,7 +425,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     });
 
     report('habits', '음성 습관 신호 추출 중 (F-18)', { transcript, concepts, graph, alignment, flow, pace });
-    const hRes = await fetch('/api/v1/habits', {
+    const hRes = await fetch(apiBase() + '/api/v1/habits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcript: slim }),
@@ -441,7 +441,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     report('voice_report', '종합 진단 리포트 작성 중 (F-19)', {
       transcript, concepts, graph, alignment, flow, pace, habits,
     });
-    const rRes = await fetch('/api/v1/report', {
+    const rRes = await fetch(apiBase() + '/api/v1/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pace, habits, context: context || {} }),
@@ -498,25 +498,54 @@ function blobToBase64(blob) {
  * 세션 파이프라인(runQaLivePipeline)은 FastAPI 전용 — 여기선 쓰지 않는다.
  */
 
+/* ── 백엔드 주소 ───────────────────────────────────────────────────────────
+ * 프론트를 Netlify 같은 정적 호스팅에 올리면 백엔드는 다른 오리진에 있다.
+ * 그때 상대경로로 부르면 정적 호스팅으로 가서 404 가 난다. 모든 API 호출이
+ * 이 한 곳을 지나게 해서 배포 환경만 바꿔 끼울 수 있게 한다.
+ *
+ * 우선순위 (앞이 이긴다):
+ *   1. ?api=https://... 쿼리 — 한 번 주면 sessionStorage 에 남는다 (디버깅용)
+ *   2. window.CHUCKCHUCK_API_BASE — js/config.js 에서 배포마다 지정
+ *   3. 같은 오리진 — 로컬(demo.bridge 가 화면과 API 를 같이 서빙)에서의 기본
+ *
+ * 백엔드는 https 여야 한다. 프론트가 https 인데 백엔드가 http 면 브라우저가
+ * mixed content 로 요청 자체를 막는다.
+ */
 const QA_API_BASE_KEY = 'cheokcheok:qaApiBase';
-const QA_API_FALLBACK = 'http://localhost:8000';
-const QA_API_DEFAULT = (() => {
-  try {
-    return location.protocol.startsWith('http') ? location.origin : QA_API_FALLBACK;
-  } catch (_) { return QA_API_FALLBACK; }
-})();
+const API_FALLBACK = 'http://127.0.0.1:8787';   // demo.bridge 기본 포트
 
-export function qaApiBase() {
+function configuredApiBase() {
+  try {
+    const v = window.CHUCKCHUCK_API_BASE;
+    return typeof v === 'string' && v.trim() ? v.trim().replace(/\/+$/, '') : '';
+  } catch (_) { return ''; }
+}
+
+function defaultApiBase() {
+  try {
+    return location.protocol.startsWith('http') ? location.origin : API_FALLBACK;
+  } catch (_) { return API_FALLBACK; }
+}
+
+/** 모든 /api/v1/* 요청이 붙는 접두사. 끝에 슬래시가 없다. */
+export function apiBase() {
   try {
     const q = new URLSearchParams(location.search).get('api');
     if (q) sessionStorage.setItem(QA_API_BASE_KEY, q.replace(/\/+$/, ''));
-    return sessionStorage.getItem(QA_API_BASE_KEY) || QA_API_DEFAULT;
-  } catch (_) { return QA_API_DEFAULT; }
+    return sessionStorage.getItem(QA_API_BASE_KEY) || configuredApiBase() || defaultApiBase();
+  } catch (_) { return configuredApiBase() || defaultApiBase(); }
 }
 
+/** 예전 이름. QA 전용이었으나 지금은 전체 공통이라 apiBase 와 같다. */
+export const qaApiBase = apiBase;
+
 export function setQaApiBase(url) {
-  try { sessionStorage.setItem(QA_API_BASE_KEY, (url || '').replace(/\/+$/, '') || QA_API_DEFAULT); }
-  catch (_) { /* storage unavailable */ }
+  try {
+    const v = (url || '').replace(/\/+$/, '');
+    // 지우면 config.js / 같은 오리진으로 되돌아간다
+    if (v) sessionStorage.setItem(QA_API_BASE_KEY, v);
+    else sessionStorage.removeItem(QA_API_BASE_KEY);
+  } catch (_) { /* storage unavailable */ }
 }
 
 /** 판정 한계 시간. 없으면 「판정 중…」에서 버튼이 전부 잠긴 채 출구가 없다. */
@@ -589,7 +618,9 @@ export async function registerSessionArtifacts(sessionId, artifacts) {
 
 /** F-08: 내 그래프·정합으로 예상 질문을 만든다 (플랫 경로) */
 export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId }) {
-  const res = await fetchWithTimeout('/api/v1/questions', {
+  // apiBase() 를 빼면 안 된다 — fetchWithTimeout 은 URL 을 그대로 쓴다.
+  // 같은 오리진에서는 멀쩡히 돌지만 프론트/백엔드를 나눠 올리면 404 로 죽는다.
+  const res = await fetchWithTimeout(apiBase() + '/api/v1/questions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

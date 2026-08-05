@@ -104,7 +104,7 @@
   padding: 0 14px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
   font-family: inherit;
 }
@@ -134,7 +134,7 @@
 .ch-door.gone { opacity: 0; visibility: hidden; pointer-events: none; }
 .ch-door b {
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 750;
   letter-spacing: -.01em;
 }
 .ch-door span {
@@ -180,7 +180,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
   background: radial-gradient(120% 80% at 50% 60%, var(--ch-stage), #a9834a 55%, #2a2119);
   animation: chDoorGlow 2.2s ease-in-out infinite;
 }
@@ -286,7 +286,7 @@
   align-self: center;
   max-width: 100%;
   padding: 10px 13px 11px;
-  border-radius: 18px 22px 20px 24px;
+  border-radius: 20px 22px 20px 24px;
   background: var(--bub, #fff8e6);
   color: var(--bub-ink);
   font-size: 13px;
@@ -335,7 +335,7 @@
 .ch-whisper {
   display: block;
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 750;
   letter-spacing: .06em;
   color: var(--bub-ink-2);
   margin-bottom: 2px;
@@ -364,7 +364,7 @@
   left: 6px;
   top: 2px;
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 830;
   color: var(--chick-beak);
   opacity: .55;
 }
@@ -385,7 +385,7 @@
   background: #efe4c8;
   color: #6b5a3f;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 750;
   cursor: pointer;
   font-family: inherit;
   transform-origin: 0 -10px;
@@ -697,7 +697,7 @@
   align-items: center;
   gap: 3px;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
   background: #f5f2e8;                 /* 종이 명패 */
   color: #2b2f3a;
   box-shadow: 0 2px 6px rgba(0, 0, 0, .35);
@@ -705,12 +705,12 @@
 }
 .ch-plate b {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 830;
   letter-spacing: -.01em;
 }
 .ch-plate span {
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 750;
   color: #6b7280;
   white-space: nowrap;
 }
@@ -753,7 +753,7 @@
   background: #0f2a1c;
   box-shadow: 0 0 12px rgba(46, 204, 130, .28);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 830;
   letter-spacing: .06em;
   color: #4fd39a;
   opacity: .72;
@@ -857,14 +857,14 @@
   height: 44px;
   padding: 0 18px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--r-print);
   font-family: inherit;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 750;
   cursor: pointer;
 }
-.ch-btn-primary { background: #3182f6; color: #fff; }
-.ch-btn-primary:hover { background: #1b64da; }
+.ch-btn-primary { background: var(--brand); color: #fff; }
+.ch-btn-primary:hover { background: var(--brand-strong); }
 .ch-btn-ghost { background: rgba(255, 255, 255, .1); color: var(--ch-ink); }
 .ch-btn-ghost:hover { background: rgba(255, 255, 255, .18); }
 .ch-btn:active { transform: scale(.97); }
@@ -875,8 +875,8 @@
    -------------------------------------------------------------------------- */
 
 .aud-card { cursor: pointer; }
-.aud-head h3 { font-size: 16px; font-weight: 800; margin: 0 0 4px; }
-.aud-head p { margin: 0; font-size: 13px; color: var(--text-2, #4e5968); }
+.aud-head h3 { font-size: 16px; font-weight: 830; margin: 0 0 4px; }
+.aud-head p { margin: 0; font-size: 13px; color: var(--text-2, var(--text-2)); }
 .aud-peek {
   display: flex;
   margin-top: 12px;
@@ -897,10 +897,10 @@
 .aud-models span {
   padding: 3px 9px;
   border-radius: 999px;
-  background: var(--fill, #f2f4f6);
-  color: var(--text-2, #4e5968);
+  background: var(--fill, var(--fill));
+  color: var(--text-2, var(--text-2));
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 /* --------------------------------------------------------------------------

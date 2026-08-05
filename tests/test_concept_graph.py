@@ -74,7 +74,7 @@ class ScriptedLLM(LLMProvider):
     def __init__(self, payload: str):
         self.payload = payload
 
-    def complete(self, *, system, user, temperature=0.2, max_tokens=4096) -> str:
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False) -> str:
         return self.payload
 
 
@@ -87,7 +87,7 @@ class SequenceLLM(LLMProvider):
         self.payloads = list(payloads)
         self.calls = 0
 
-    def complete(self, *, system, user, temperature=0.2, max_tokens=4096) -> str:
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False) -> str:
         self.calls += 1
         return self.payloads[min(self.calls - 1, len(self.payloads) - 1)]
 

@@ -192,6 +192,21 @@ def test_missing_verdict_replaced_by_fallback():
     assert judge_of(payload(react="반응만 왔다")).verdict == "unknown"
 
 
+@pytest.mark.parametrize("raw, expected", [
+    ("Good", "good"),
+    ("PARTIAL", "partial"),
+    (" wrong ", "wrong"),
+    ("Unknown", "unknown"),
+])
+def test_verdict_case_and_whitespace_normalized(raw, expected):
+    """표기만 다른 verdict 는 enum 으로 정규화한다.
+
+    안 하면 "Good"+score 85 가 unknown 으로 떨어지는데 score 는 살아 있어,
+    '판정 보류' 배지를 달고 통과하는 모순 화면이 된다 (qa_passed 는 score 도 본다).
+    """
+    assert judge_of(payload(verdict=raw, score=85)).verdict == expected
+
+
 def test_skipped_is_not_a_valid_verdict():
     """'skipped' 는 프론트가 로컬로 붙이는 값이라 서버 판정에는 없다."""
     assert judge_of(payload(verdict="skipped")).verdict == "unknown"
@@ -559,3 +574,99 @@ def test_빈_답변에도_힌트_사다리가_실린다():
     """첫 답을 못 쓰고 막힌 사람이야말로 힌트가 필요하다."""
     judgement = judge_answer(make_question(), "", llm=ExplodingLLM())
     assert len(judgement.hints) >= 2
+
+
+# ---------------------------------------------------------------------------
+# [D2] 누적 판정 — 이 질문에 대한 답변 전체를 함께 본다
+#
+# 되묻기는 "빠진 지점 하나를 콕 집어" 물어 사용자를 증분 답변으로 유도한다.
+# 그런데 판정이 마지막 증분만 채점하면, 1턴에 A·2턴에 B 를 말한 사람은
+# A+B 를 다 말하고도 B 만으로 평가된다. 그래서 누적이 판정 대상이어야 한다.
+# ---------------------------------------------------------------------------
+
+def test_이전_답변이_판정_대상으로_실린다():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(
+        make_question(),
+        "그리고 온도 파라미터는 0.07 을 썼습니다",
+        prior_answers=["두 벡터를 같은 공간에 놓고 정렬합니다"],
+        llm=llm,
+    )
+    prompt = llm.prompts[0]
+    assert "두 벡터를 같은 공간에 놓고 정렬합니다" in prompt
+    assert "그리고 온도 파라미터는 0.07 을 썼습니다" in prompt
+
+
+def test_누적_답변은_판정_대상_블록에_들어간다():
+    """맥락(지난 대화)이 아니라 '판정하라' 블록 안에 있어야 한다."""
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), "이번 답", prior_answers=["앞선 답"], llm=llm)
+    prompt = llm.prompts[0]
+    head = prompt.index("판정하라")
+    assert prompt.index("앞선 답") > head, "앞 답변이 판정 대상 블록 밖에 있다"
+
+
+def test_누적_답변이_없으면_이번_답변만_실린다():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), GOOD_ANSWER, llm=llm)
+    assert GOOD_ANSWER in llm.prompts[0]
+
+
+def test_누적_답변은_상한까지만_실린다():
+    from chuckchuck.f09_judge import PRIOR_ANSWERS_MAX
+
+    llm = ScriptedLLM(payload(verdict="good"))
+    priors = [f"앞선답{i}" for i in range(PRIOR_ANSWERS_MAX + 3)]
+    judge_answer(make_question(), GOOD_ANSWER, prior_answers=priors, llm=llm)
+    assert "앞선답0" not in llm.prompts[0]
+    assert f"앞선답{PRIOR_ANSWERS_MAX + 2}" in llm.prompts[0]
+
+
+def test_빈_누적_답변은_버려진다():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), GOOD_ANSWER, prior_answers=["", "   "], llm=llm)
+    assert "1턴" not in llm.prompts[0]
+
+
+def test_누적이_있어도_빈_이번_답변은_LLM_을_안_부른다():
+    """빈 답변 단축 경로가 누적 때문에 뚫리면 비용이 샌다."""
+    judgement = judge_answer(
+        make_question(), "  ", prior_answers=["앞선 답"], llm=ExplodingLLM()
+    )
+    assert judgement.verdict == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# [D7] 뉘앙스가 맞는 답에 출구를 준다
+#
+# good 은 정의상 근거를 요구하고 partial 기본 점수는 55 인데 통과선은 70 이다.
+# 요지를 맞혀도 나갈 길이 없었다. 밴드를 쪼개 그 모순을 없앤다.
+# ---------------------------------------------------------------------------
+
+def test_점수_밴드가_요지만_맞은_구간을_분리한다():
+    from chuckchuck.contracts import QA_PASS_SCORE
+    from chuckchuck.f09_judge import SYSTEM_PROMPT
+
+    assert "70~79" in SYSTEM_PROMPT, "요지가 맞을 때 통과 가능한 구간이 명시돼야 한다"
+    assert f"{QA_PASS_SCORE}점 이상" in SYSTEM_PROMPT, \
+        "통과선을 프롬프트가 알아야 밴드와 임계가 안 싸운다"
+
+
+def test_결손은_통과를_막는_하나만_요구한다():
+    from chuckchuck.f09_judge import SYSTEM_PROMPT
+
+    assert "하나만" in SYSTEM_PROMPT
+
+
+def test_요지가_맞으면_통과_점수를_받아_넘어간다():
+    """D7 의 목적 — 근거가 얕아도 요지를 맞혔으면 갇히지 않는다."""
+    judgement = judge_of(payload(verdict="partial", score=72))
+    assert judgement.passed
+    assert judgement.followup == "", "통과한 답에 되묻는 질문이 남으면 화면이 모순된다"
+
+
+def test_partial_반응이_절반이라고_깎지_않는다():
+    """요지를 맞힌 사람에게 '절반' 은 과소평가로 읽힌다."""
+    from chuckchuck.f09_judge import _REACT_BY_VERDICT
+
+    assert "절반" not in _REACT_BY_VERDICT["partial"]

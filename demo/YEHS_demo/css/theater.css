@@ -13,8 +13,10 @@
 :root {
   --th-house: #171b2b;
   --th-house-deep: #0e1120;
-  --th-curtain: #7d2733;
-  --th-curtain-deep: #4d151f;
+  /* 크림슨 극장 커튼을 브랜드 딥그린으로 맞췄다.
+     극장 모티브는 유지하되 앱 안에서 다른 세계로 읽히지 않게 한다. */
+  --th-curtain: #1F5A49;
+  --th-curtain-deep: #0E3529;
   --th-gold: #ffe9b8;
 }
 
@@ -96,7 +98,7 @@
 .cc-line {
   position: relative;
   font-size: clamp(20px, 3.4vw, 30px);
-  font-weight: 800;
+  font-weight: 830;
   letter-spacing: -.02em;
   opacity: 0;
   animation: ccLineIn .5s cubic-bezier(.34, 1.56, .64, 1) .55s forwards;
@@ -213,7 +215,7 @@
 /* 무대감독의 큐 사인 */
 .cue-word {
   font-size: clamp(24px, 4vw, 38px);
-  font-weight: 800;
+  font-weight: 830;
   letter-spacing: .04em;
   color: var(--th-gold);
   opacity: 0;
@@ -235,7 +237,7 @@
   position: relative;
   margin: 14px 0 2px;
   padding: 14px 0 0;
-  border-radius: 14px;
+  border-radius: var(--r-print);
   /* 무대에서 내려다본 어두운 객석. 위쪽 잔광이 무대 조명이다 */
   background:
     radial-gradient(90% 120% at 50% 0%, rgba(255, 233, 184, .1), transparent 62%),
@@ -325,7 +327,7 @@
   position: relative;
   margin: 0 0 18px;
   padding: 18px 16px 16px;
-  border-radius: 14px;
+  border-radius: var(--r-print);
   overflow: hidden;
   background: linear-gradient(180deg, var(--th-house) 0%, var(--th-house-deep) 100%);
 }
@@ -371,7 +373,7 @@
   position: relative;
   margin: 0 0 12px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 750;
   color: #cfd5e6;
   text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
 }
@@ -393,7 +395,7 @@
   align-self: flex-start;
   max-width: 100%;
   padding: 7px 12px;
-  border-radius: 16px 20px 18px 22px;
+  border-radius: 18px 20px 18px 22px;
   background: var(--bub, #fff8e6);
   color: var(--bub-ink, #4a3b2c);
   font-size: 13px;
@@ -409,12 +411,12 @@
 .bs-line[data-who="all"] {
   --bub: #fff3cf;
   align-self: center;
-  font-weight: 800;
+  font-weight: 830;
 }
 .bs-line b {
   flex: none;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 830;
   color: var(--bub-ink-2, #9a8672);
 }
 @keyframes bsLineIn {
@@ -445,49 +447,17 @@
 }
 
 /* --------------------------------------------------------------------------
-   극장 셸 (§8) — 커튼 와이프와 무대 사고
+   극장 셸 (§8) — 무대 사고
    --------------------------------------------------------------------------
-   장면 전환은 한 가지로 통일한다. 전환 문법이 하나여야 세계가 하나로 읽힌다.
+   장면 전환 연출은 두지 않는다. 라우팅마다 화면을 가리면 이동이 느리게 읽힌다.
    -------------------------------------------------------------------------- */
-
-.tw-wipe {
-  position: fixed;
-  inset: 0;
-  z-index: 900;
-  display: flex;
-  pointer-events: none;         /* 전환 중에도 조작을 막지 않는다 */
-  visibility: hidden;
-}
-.tw-wipe i {
-  width: 50%;
-  height: 100%;
-  background:
-    repeating-linear-gradient(90deg,
-      var(--th-curtain-deep) 0 10px,
-      var(--th-curtain) 10px 22px,
-      var(--th-curtain-deep) 22px 32px);
-}
-.tw-wipe.on { visibility: visible; }
-.tw-wipe.on i:first-child { animation: twLeft .4s ease-in-out forwards; }
-.tw-wipe.on i:last-child { animation: twRight .4s ease-in-out forwards; }
-/* 닫혔다 열리는 게 아니라, 지나가며 화면을 갈아 끼운다 — 그래서 400ms 로 끝난다 */
-@keyframes twLeft {
-  0%   { transform: translateX(-100%); }
-  45%  { transform: translateX(0); }
-  100% { transform: translateX(-100%); }
-}
-@keyframes twRight {
-  0%   { transform: translateX(100%); }
-  45%  { transform: translateX(0); }
-  100% { transform: translateX(100%); }
-}
 
 /* 무대 사고 — 무대감독이 사과하고, 기술 원인은 그 아래 그대로 남는다.
    귀여움이 원인을 가리면 그건 연출이 아니라 은폐다 (§14) */
 .accident {
   margin: 0 0 12px;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: var(--r-print);
   background: #fff5f5;
   border: 1px solid #f6d5d5;
 }
@@ -504,11 +474,11 @@
   background: #f04452;
   color: #fff;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 830;
 }
 .ac-head b {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 830;
   color: #b3242f;
 }
 /* 원인은 개발자용이 아니라 사용자용이다. 접지도 흐리지도 않는다 */
@@ -560,10 +530,10 @@
   display: inline-block;
   padding: 7px 20px;
   border-radius: 4px;
-  background: linear-gradient(180deg, #d9455a, #ab2c3f);
-  color: #fff5e2;
+  background: linear-gradient(180deg, #1C5747, #0E352A);
+  color: #E9F7EF;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 830;
   letter-spacing: .04em;
   box-shadow: 0 4px 12px rgba(171, 44, 63, .3);
   transform: rotate(-1.2deg);
@@ -572,7 +542,7 @@
   margin: 14px 0 0;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-2, #4e5968);
+  color: var(--text-2, var(--text-2));
 }
 
 /* 회상 카드 — diff 가 증명했을 때만 렌더된다 */
@@ -590,13 +560,13 @@
 .rc-body b {
   display: block;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 830;
   color: #9a8672;
 }
 .rc-body p {
   margin: 2px 0 0;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 750;
   line-height: 1.45;
   color: #4a3b2c;
 }
@@ -628,11 +598,7 @@
   .sf-row .ch-seat.wondering .ch-chick,
   .bs-curtain::after,
   .bs-line,
-  .tw-wipe.on i:first-child,
-  .tw-wipe.on i:last-child,
   .bs-murmur i { animation: none !important; }
-  /* 커튼 와이프는 아예 안 뜬다 — 전환 자체가 모션이라 대체할 정보가 없다 */
-  .tw-wipe { display: none; }
   .cue-veil, .sf-row, .pb-ticket { transition: none; }
   .cc-row .ch-seat { opacity: 1; transform: none; }
   .cue-row .ch-seat { opacity: 1; transform: none; }

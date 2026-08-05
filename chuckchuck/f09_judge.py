@@ -46,6 +46,11 @@ MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_JUDGE_MAX_TOKENS", "2048"))
 #: 토큰만 먹는다 — 최근 대화만 맥락으로 준다.
 HISTORY_TURNS = int(os.environ.get("CHUCKCHUCK_JUDGE_HISTORY_TURNS", "6"))
 
+#: 같은 질문에 대해 앞서 낸 답변을 몇 개까지 판정 대상에 실을지.
+#: 되묻기는 턴 상한이 없어 무한정 쌓일 수 있는데, 프롬프트가 길어지면 정작
+#: 마지막 답변이 묻힌다. 최근 것부터 이만큼만 싣는다.
+PRIOR_ANSWERS_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_PRIOR_ANSWERS", "5"))
+
 #: 프롬프트에 실을 발화 발췌 길이. 이 개념의 근거 장 발화만 붙인다.
 SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_SPEECH_EXCERPT_MAX", "300"))
 
@@ -56,7 +61,9 @@ NEIGHBOR_MAX = 5
 #: 프론트가 이걸로 말풍선을 그리므로 비워 둘 수 없다.
 _REACT_BY_VERDICT = {
     "good": "네, 그 설명이면 충분합니다.",
-    "partial": "절반은 이해했습니다. 나머지가 아직 비어 있어요.",
+    # '절반' 은 요지를 맞힌 사람에게 과소평가로 읽힌다. 되묻기의 목적은 채점이 아니라
+    # 한 걸음 더 끌어내는 것이라, 인정할 것은 인정하고 남은 하나를 가리킨다.
+    "partial": "요지는 잡으셨습니다. 한 가지만 더 짚어 주세요.",
     "wrong": "그 부분은 자료와 맞지 않습니다.",
     "unknown": "지금 답변만으로는 판단하기 어렵습니다.",
 }
@@ -81,6 +88,10 @@ _FOLLOWUP_GENERIC = "{label} 를 뒷받침할 근거를 하나만 더 들어 주
 SYSTEM_PROMPT = """당신은 발표 심사위원이다.
 방금 던진 질문에 발표자가 답했다. 그 답이 개념을 **실제로 방어했는지** 판정한다.
 
+되묻기로 여러 번에 나눠 답했다면 **그 답변들을 합쳐서** 본다.
+앞 턴에서 이미 말한 것을 다시 빠졌다고 하지 마라 — 마지막 한 마디만 채점하면
+좁혀 물은 쪽이 손해를 본다.
+
 verdict 는 다음 넷 중 하나다:
 - "good" (설득 완료): 개념을 자기 말로 정확히 설명했다. 근거도 댔다.
 - "partial" (부분 인정): 방향은 맞지만 핵심 근거가 빠졌거나 얕다.
@@ -93,8 +104,16 @@ verdict 는 다음 넷 중 하나다:
    함정에 그대로 동의했으면 wrong 이다.
 3. react 는 심사위원이 그 자리에서 할 한 마디다. 존댓말, 한 문장.
 4. summary_sentence 는 이 개념에 대한 총평 한 문장이다. 리포트에 남는다.
-5. missing_points 는 답변에서 빠진 포인트만 적는다. 없으면 빈 배열.
-6. score 는 0~100. good 80 이상, partial 40~79, wrong 39 이하가 기준이다.
+5. missing_points 에는 **통과를 막는 결정적 결손 하나만** 적는다.
+   "있으면 더 좋을" 수준은 적지 마라. 부족한 데가 없으면 빈 배열이다.
+   여러 개를 늘어놓으면 발표자는 뭘 고쳐야 할지 도리어 모른다.
+6. score 는 0~100. **70점 이상이면 통과로 처리된다.**
+   - good: 80 이상
+   - partial 중 **요지는 맞고 근거만 얕다**: 70~79 — 통과 구간이다
+   - partial 중 방향만 겨우 맞다: 40~59
+   - wrong: 39 이하
+   표현이나 용어가 자료와 달라도 **요지가 같으면 70~79 를 줘라.**
+   완벽한 문장을 받아내는 것이 목적이 아니다.
 7. followup 은 **이 답으로는 부족할 때 이어서 던질 질문 한 문장**이다.
    - 원래 질문을 **다시 말하지 마라.** 빠진 지점 하나를 콕 집어 물어라.
    - 발표자를 몰아세우지 말고, 답할 수 있게 좁혀 주는 질문이어야 한다.
@@ -174,6 +193,7 @@ def _build_user_prompt(
     alignment: AlignmentDoc | None,
     transcript: Transcript | None,
     ctx: Context,
+    prior_answers: list[str] | None = None,
 ) -> str:
     """
     질문 → 자료 근거 → 지난 대화 → 이번 답변 순.
@@ -213,8 +233,30 @@ def _build_user_prompt(
             parts.append(f"- Q: {turn.question}")
             parts.append(f"  A: {turn.answer}  → {turn.verdict}")
 
-    parts += ["", "## 이번 답변 — 이것을 판정하라", answer.strip()]
+    parts += _answer_block(answer, prior_answers)
     return "\n".join(parts)
+
+
+def _answer_block(answer: str, prior_answers: list[str] | None) -> list[str]:
+    """
+    판정 대상 블록. 되묻기로 나눠 말한 답변을 **합쳐서** 판정하게 한다.
+
+    후속 질문 규칙(SYSTEM_PROMPT 7)은 "빠진 지점 하나를 콕 집어" 물어 발표자를
+    증분 답변으로 유도한다. 그런데 마지막 증분만 채점하면 1턴에 A, 2턴에 B 를 말한
+    사람이 A+B 를 다 말하고도 B 만으로 평가된다 — 좁혀 물은 쪽이 손해를 본다.
+
+    앞 답변이 없으면 예전과 같은 한 줄짜리 블록이다. 빈 문자열은 버린다.
+    """
+    prior = [text.strip() for text in (prior_answers or []) if (text or "").strip()]
+    if not prior:
+        return ["", "## 이번 답변 — 이것을 판정하라", answer.strip()]
+
+    prior = prior[-PRIOR_ANSWERS_MAX:]
+    lines = ["", "## 이 질문에 대한 답변 (누적) — 전체를 합쳐서 판정하라"]
+    for turn_no, text in enumerate(prior, start=1):
+        lines.append(f"{turn_no}턴: {text}")
+    lines.append(f"{len(prior) + 1}턴 (이번): {answer.strip()}")
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +280,9 @@ def _normalize(data: dict, question: Question, model: str) -> QaJudgement:
       (조인 키가 흔들리면 리포트가 엉뚱한 개념에 총평을 붙인다)
     - react·summary_sentence 는 비면 결정적 문구로 채운다
     """
-    verdict = str(data.get("verdict", "") or "")
+    # 표기 정규화 — "Good"·" partial " 을 그대로 enum 대조하면 unknown 으로
+    # 떨어지는데 score 는 살아 있어 '판정 보류' 배지를 달고 통과하는 모순이 된다.
+    verdict = str(data.get("verdict", "") or "").strip().lower()
     if verdict not in QA_VERDICTS:
         verdict = QA_VERDICT_FALLBACK
 
@@ -355,9 +399,25 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
     history 전체를 본다 (HISTORY_TURNS 로 자르기 전) — 앞 단계를 잊으면
     같은 되물음을 반복하게 된다.
     """
+    # 조인 키는 question_id 다. 문면으로 세면 안 된다 — 프론트가 2턴째부터
+    # 원래 질문이 아니라 직전 후속 질문을 그 턴의 question 으로 적기 때문에
+    # (app.js submitLiveAnswer), 한 번 답을 시도한 뒤 막힌 사람은 prior 가
+    # 영영 0 이 되어 되물음만 무한히 받는다.
+    # id 를 안 보내는 옛 클라이언트만 문면 비교(strip)로 폴백한다.
+    asked_id = (question.id or "").strip()
+    asked = question.question.strip()
+
+    def _same_question(turn: QaTurn) -> bool:
+        turn_id = (turn.question_id or "").strip()
+        if asked_id and turn_id:
+            return turn_id == asked_id
+        return turn.question.strip() == asked
+
+    # 포기는 **의사**다. 답변 글에서 역추정(looks_stuck)만 하면 뭔가 써 놓고
+    # 「모르겠어요」를 누른 턴을 놓쳐 explain 단계로 못 올라간다.
     prior = sum(
         1 for t in turns
-        if t.question == question.question and (t.gave_up or looks_stuck(t.answer))
+        if _same_question(t) and (t.gave_up or looks_stuck(t.answer))
     )
     return "explain" if prior >= 1 else "narrow"
 
@@ -527,6 +587,7 @@ def judge_answer(
     history: list[QaTurn] | list[dict] | None = None,
     context: Context | dict | None = None,
     give_up: bool = False,
+    prior_answers: list[str] | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QaJudgement:
@@ -588,7 +649,9 @@ def judge_answer(
         ctx = context
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
-    user = _build_user_prompt(question, answer, turns, graph, alignment, transcript, ctx)
+    user = _build_user_prompt(
+        question, answer, turns, graph, alignment, transcript, ctx, prior_answers
+    )
 
     try:
         data = _call(engine, user)
