@@ -12,6 +12,30 @@
 
 ---
 
+## 0부. 시작 전 전제 확인 — **건너뛰지 말 것**
+
+이 문서는 **`feat/qalogic` 브랜치**를 대상으로 한다. `main` 에는 F-08·F-09 구현도
+`server/` 디렉터리도 없다. 아래를 먼저 실행해 올바른 트리 위에 있는지 확인하라.
+
+```bash
+git fetch origin && git checkout feat/qalogic
+git rev-parse --short HEAD          # 이 문서와 함께 전달받은 기준 커밋과 일치해야 한다
+
+# 이 셋 중 하나라도 어긋나면 잘못된 체크아웃이다 — 검증을 중단하고 보고하라
+grep -c "_spread_adjacent" chuckchuck/f08_questions.py     # ≥ 1
+grep -c "_answer_block" chuckchuck/f09_judge.py            # ≥ 1
+ls server/app.py tests/test_flat_routes.py                 # 둘 다 존재
+```
+
+**규칙**: 문서에 적힌 심볼이 grep 0건으로 나오면 "구현되지 않았다"고 결론짓지 말고
+**먼저 체크아웃을 의심하라.** 실제로 이전 리뷰가 `main` 을 검증하는 바람에 판정
+18건이 무효가 됐다. 파일 하나가 통째로 없으면 그것은 코드 결함이 아니라 환경 문제다.
+
+**좌표 표기**: 결함을 보고할 때는 라인 번호만 쓰지 말고 **함수·심볼 이름**을 함께
+적어 달라. 라인은 커밋마다 밀리지만 심볼은 밀리지 않는다.
+
+---
+
 ## 1부. 설계 — QA 로직의 흐름과 원칙
 
 ### 1.1 전체 파이프라인에서의 위치
@@ -207,15 +231,21 @@ F-01 parse (PDF/PPTX → SlideDoc)
 
 ### F. 테스트 커버리지
 
-- [ ] F1. 위 A~E 의 각 계약에 대응하는 테스트가 존재한다:
-      `tests/test_questions.py`(93개) · `test_judge.py`(66개) ·
-      `test_hints.py`(17개) · `test_stuck_coaching.py`(14개) ·
-      `test_flat_routes.py`(7개) · `test_qa_entry_e2e.py`(Playwright 3개)
+- [ ] F1. 위 A~E 의 각 계약에 대응하는 테스트가 존재한다. **개수는 문서를 믿지 말고
+      직접 세어라** (parametrize 때문에 `grep -c "def test"` 는 실제보다 적게 나온다):
+      ```bash
+      python -m pytest tests/test_questions.py tests/test_judge.py tests/test_hints.py \
+        tests/test_stuck_coaching.py tests/test_flat_routes.py --collect-only -q | tail -1
+      ```
 - [ ] F2. 테스트가 구현 세부가 아니라 **계약(불변식)** 을 검증한다
       — 예: "통과면 followup 이 빈다", "같은 입력이면 같은 사다리".
-- [ ] F3. 커버리지 빈틈 후보를 리뷰어가 직접 제안해 달라. 특히:
-      triage 재사용(트랙 전환) 경로, `_spread_adjacent` 별 모양 그래프,
-      세션 만료 후 judge 바디 폴백.
+- [ ] F3. 커버리지 빈틈 후보를 리뷰어가 직접 제안해 달라. 아래는 이미 지목된 것들이니
+      **여전히 비어 있는지 확인하고, 그 밖의 빈틈을 추가로 찾아 달라**:
+      - Context 전파: QA 경로 전체에서 `context` 인자가 실제로 프롬프트까지 닿는지
+      - `QA_EXPLAIN_MAX`: 다른 텍스트 필드는 상한 검증이 있는데 `explanation` 만 누락
+      - triage 재사용(트랙 전환) 경로, `_spread_adjacent` 별 모양 그래프,
+        세션 만료 후 judge 바디 폴백
+      - 브리지/서버 QA 라우트: 400 안내 문구, track 폴백, 잡 폴링 종료 조건
 
 ---
 
@@ -225,7 +255,8 @@ F-01 parse (PDF/PPTX → SlideDoc)
 # 1) QA 로직 단위·통합 테스트 (mock LLM, 네트워크 불필요 — 전부 통과해야 함)
 python -m pytest tests/test_questions.py tests/test_judge.py \
   tests/test_hints.py tests/test_stuck_coaching.py tests/test_flat_routes.py -q
-# 기준: 2026-08-05 시점 232 passed
+# 기대: 실패 0. 개수는 커밋마다 늘어나므로 고정값과 대조하지 말 것 —
+# 전체 스위트(python -m pytest tests/ -q)도 실패 0 이어야 한다.
 
 # 2) 서버 기동 + 플랫 경로 스모크 (mock 모드)
 CHUCKCHUCK_MOCK_EXTERNAL=1 python -m server &

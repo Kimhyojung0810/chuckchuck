@@ -135,6 +135,23 @@ def test_second_give_up_explains_and_closes():
     assert j.passed is False
 
 
+def test_second_give_up_with_whitespace_variant_still_explains():
+    """질문 문면에 공백 변형이 있어도 같은 질문의 포기로 센다.
+
+    단계 판정이 문면 완전일치면, 질문을 trim 해 보내는 외부 클라이언트에서
+    prior=0 이 되어 explain 단계로 영영 못 올라간다.
+    """
+    history = [QaTurn(
+        question="  " + make_question().question + " ",
+        answer="모르겠어요",
+        verdict="unknown",
+    )]
+    llm = CoachLLM({"react": "여기까지 같이 볼게요.", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
+    j = coach_stuck(make_question(), history=history, llm=llm)
+
+    assert j.coach_stage == "explain"
+
+
 def test_coach_stage_is_always_in_enum():
     llm = CoachLLM({"react": "네", "followup": "다시 볼까요?"})
     assert coach_stuck(make_question(), llm=llm).coach_stage in QA_COACH_STAGES

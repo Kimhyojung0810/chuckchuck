@@ -1383,11 +1383,14 @@ function wireQaStart(root, { pickMode = false } = {}) {
  * 서버를 아예 부르지 않고 조용히 데모 질문을 보여줬다. 진입점마다 생성 로직을
  * 복사하는 대신 렌더 시점에 한 번만 보장한다 — 새 #/qa 링크가 늘어도 안전하다.
  *
- * @returns {boolean} true 면 생성이 시작됐다 (호출자는 로딩 화면을 그린다)
+ * @returns {boolean} true 면 생성이 진행 중이다 (호출자는 로딩 화면을 그린다)
  */
 function ensureLiveQuestions() {
+  // 생성 중에 다시 들어오면 대기 화면을 유지한다. false 를 주면 호출자가 데모 질문을
+  // 그리고, 거기 답하는 사이 생성이 끝나면 성공 콜백의 qa.turns=[] 가 그 답변을 지운다.
+  if (qaBuilding) return true;
   // 이미 실패했으면 다시 시도하지 않는다 — 재시도 루프 방지 (qaBuildFailed 주석 참고)
-  if (qaLiveActive() || qaBuilding || qaBuildFailed) return false;
+  if (qaLiveActive() || qaBuildFailed) return false;
 
   const out = nf && nf.pipelineOut;
   const bridge = window.ChuckchuckBridge;

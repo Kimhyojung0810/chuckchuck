@@ -280,7 +280,9 @@ def _normalize(data: dict, question: Question, model: str) -> QaJudgement:
       (조인 키가 흔들리면 리포트가 엉뚱한 개념에 총평을 붙인다)
     - react·summary_sentence 는 비면 결정적 문구로 채운다
     """
-    verdict = str(data.get("verdict", "") or "")
+    # 표기 정규화 — "Good"·" partial " 을 그대로 enum 대조하면 unknown 으로
+    # 떨어지는데 score 는 살아 있어 '판정 보류' 배지를 달고 통과하는 모순이 된다.
+    verdict = str(data.get("verdict", "") or "").strip().lower()
     if verdict not in QA_VERDICTS:
         verdict = QA_VERDICT_FALLBACK
 
@@ -397,9 +399,12 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
     history 전체를 본다 (HISTORY_TURNS 로 자르기 전) — 앞 단계를 잊으면
     같은 되물음을 반복하게 된다.
     """
+    # 문면 완전일치가 아니라 strip 비교다 — 질문을 trim 해 보내는 클라이언트에서
+    # prior 가 영영 0 이 되어 explain 단계로 못 올라가는 것을 막는다.
+    asked = question.question.strip()
     prior = sum(
         1 for t in turns
-        if t.question == question.question and looks_stuck(t.answer)
+        if t.question.strip() == asked and looks_stuck(t.answer)
     )
     return "explain" if prior >= 1 else "narrow"
 

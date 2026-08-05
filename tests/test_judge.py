@@ -192,6 +192,21 @@ def test_missing_verdict_replaced_by_fallback():
     assert judge_of(payload(react="반응만 왔다")).verdict == "unknown"
 
 
+@pytest.mark.parametrize("raw, expected", [
+    ("Good", "good"),
+    ("PARTIAL", "partial"),
+    (" wrong ", "wrong"),
+    ("Unknown", "unknown"),
+])
+def test_verdict_case_and_whitespace_normalized(raw, expected):
+    """표기만 다른 verdict 는 enum 으로 정규화한다.
+
+    안 하면 "Good"+score 85 가 unknown 으로 떨어지는데 score 는 살아 있어,
+    '판정 보류' 배지를 달고 통과하는 모순 화면이 된다 (qa_passed 는 score 도 본다).
+    """
+    assert judge_of(payload(verdict=raw, score=85)).verdict == expected
+
+
 def test_skipped_is_not_a_valid_verdict():
     """'skipped' 는 프론트가 로컬로 붙이는 값이라 서버 판정에는 없다."""
     assert judge_of(payload(verdict="skipped")).verdict == "unknown"
