@@ -278,7 +278,7 @@
     }
     return `
       <section class="card pb-wall">
-        <h2 class="section-title pb-head">지난 공연<span class="soft">회차마다 티켓이 한 장씩 남아요</span></h2>
+        <h2 class="section-title pb-head">지난 발표<span class="soft">연습할 때마다 기록이 한 장씩 쌓여요</span></h2>
         <div class="pb-strip">
           ${shows.map((s, i) => `
             <div class="pb-ticket" data-show="${shows.length - 1 - i}"

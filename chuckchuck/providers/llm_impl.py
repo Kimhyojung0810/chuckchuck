@@ -286,6 +286,13 @@ class MockLLM(LLMProvider):
                 at, quote = m.group(1), m.group(2).strip()
                 break
 
+        # 슬라이드 목록에서 실제 번호를 주워 구간에 나눠 담는다.
+        # 지어낸 번호는 검증이 지우므로, 목도 실재하는 번호만 써야 화면이 빈다.
+        nos = [int(m.group(1))
+               for m in re.finditer(r"^\s*(\d+)번\s",
+                                    user.split("슬라이드 목록", 1)[-1].split("개념별 판정")[0],
+                                    re.M)]
+        half = max(1, len(nos) // 2)
         overran = actual > recommended >= 0
         chosen = {
             "type": "베이조스식 결론 선행형" if overran else "잡스식 축 고정형",
@@ -293,8 +300,20 @@ class MockLLM(LLMProvider):
                 f"모의 근거 — {slide} 에 권장보다 오래 머물렀어요."
                 if overran else "모의 근거 — 주장 하나로 묶을 여지가 있어요."
             ),
-            "moves": [{"slide": slide, "action": "압축" if overran else "앞으로 이동"}],
-            "fill": "모의 보완 — 첫 30초에 결론 한 문장을 넣어 보세요.",
+            "outline": [
+                {"role": "한 문장 선언", "from": "0:00", "to": "0:40",
+                 "slides": [], "new": True,
+                 "what": "모의 구간 — 결론을 먼저 못박아요.",
+                 "add": "모의 보완 — 마지막 장의 결론을 여기로 끌어와 주세요."},
+                {"role": "근거", "from": "0:40", "to": "3:00",
+                 "slides": nos[:half],
+                 "what": "모의 구간 — 앞부분을 줄이고 근거만 남겨요.",
+                 "add": ""},
+                {"role": "마무리", "from": "3:00", "to": "5:00",
+                 "slides": nos[half:],
+                 "what": "모의 구간 — 처음 던진 결론으로 되돌아와요.",
+                 "add": "모의 보완 — 수치 하나를 덧붙여 주세요."},
+            ],
         }
         if quote:
             chosen["keep"] = {"quote": quote, "at": at}

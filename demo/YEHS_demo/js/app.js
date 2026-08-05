@@ -388,9 +388,11 @@ function renderHome() {
       <div class="verdict-inner">
         <div class="verdict-grid">
           <div class="verdict-score">
-            <strong class="num">${DATA.session.score}<span class="of">점</span></strong>
-            <span class="delta num">▲ ${DATA.session.score - DATA.session.prevScore}</span>
-            <span class="prev">최근 발표 완성도</span>
+            <span class="vs-label">최근 발표 완성도</span>
+            <div class="vs-body">
+              <strong class="num">${DATA.session.score}<span class="of">점</span></strong>
+              <span class="delta num">▲ ${DATA.session.score - DATA.session.prevScore}</span>
+            </div>
           </div>
           <div class="verdict-judgement">
             <div class="hg-head"><span class="eyebrow">최근 5회 완성도</span><b class="num">${g[0]} → ${g[g.length - 1]}</b></div>
@@ -2344,8 +2346,11 @@ async function renderReport() {
         ${v.hasAnalysis ? `
         <div class="verdict-grid">
           <div class="verdict-score">
-            <strong class="num">${v.score}<span class="of">/100</span></strong>
-            ${v.delta}
+            <span class="vs-label">발표 완성도</span>
+            <div class="vs-body">
+              <strong class="num">${v.score}<span class="of">/100</span></strong>
+              ${v.delta}
+            </div>
           </div>
           <div class="verdict-judgement">
             <h2>${escapeHtml(v.headline)}</h2>
@@ -2752,6 +2757,58 @@ function recallCardHtml() {
     </div>`;
 }
 
+const QA_VERDICT = {
+  full: { label: '설명함', cls: 'ok' },
+  partial: { label: '부분 이해', cls: 'mid' },
+  none: { label: '설명 못함', cls: 'no' },
+};
+
+/**
+ * 지난 발표의 질문 코칭 내역.
+ * 기록이 없으면(코칭 전) 아무것도 그리지 않는다 — 빈 껍데기를 두지 않는다.
+ */
+function qaHistoryPanelHtml() {
+  if (!window.QaHistory) return '';
+  const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || 'imu2clip';
+  const rec = window.QaHistory.get(reportId);
+  if (!rec || !rec.beats || !rec.beats.length) return '';
+
+  const when = new Date(rec.at);
+  const stamp = `${when.getFullYear()}.${String(when.getMonth() + 1).padStart(2, '0')}.${String(when.getDate()).padStart(2, '0')}`;
+
+  return `
+    <section class="qa-log">
+      <div class="block-head">
+        <h2>질문 코칭 내역</h2>
+        <p>${escapeHtml(rec.aud)}${josa(rec.aud, '과', '와')} 주고받은 ${rec.beats.length}개 질문 · ${stamp}</p>
+      </div>
+      <div class="qa-log-list">
+        ${rec.beats.map((b, i) => {
+          const v = QA_VERDICT[b.verdict] || QA_VERDICT.partial;
+          return `
+          <details class="qa-log-item">
+            <summary>
+              <span class="st ${v.cls}">${v.label}</span>
+              <span class="ql-concept">${escapeHtml(b.label || '')}</span>
+              <span class="ql-slide num">${escapeHtml(b.slide || '')}</span>
+              <span class="ql-n num">${String(i + 1).padStart(2, '0')}</span>
+            </summary>
+            <div class="qa-log-body">
+              <p class="ql-line"><b>질문</b>${escapeHtml(b.q) || '<i class="ql-empty">기록 없음</i>'}</p>
+              <p class="ql-line ql-answer"><b>내 답변</b>${
+                b.skipped ? '<i class="ql-empty">답하지 않고 넘겼어요</i>' : (escapeHtml(b.a) || '<i class="ql-empty">기록 없음</i>')}</p>
+              ${b.note ? `<p class="ql-note">${escapeHtml(b.note)}</p>` : ''}
+              ${(b.turns || b.hint) ? `<p class="ql-meta">${[
+                b.turns ? `${b.turns}번 만에 방어` : '',
+                b.hint ? `힌트 ${b.hint}단계` : '',
+              ].filter(Boolean).join(' · ')}</p>` : ''}
+            </div>
+          </details>`;
+        }).join('')}
+      </div>
+    </section>`;
+}
+
 function rSummary() {
   const meta = reportSessionMeta();
   const live = meta.live;
@@ -2790,6 +2847,7 @@ function rSummary() {
   const nextLabel = (trophy && trophy.label) ? trophy.label : '약한 개념';
   // 점수·차원·한 줄 판단은 판정 헤드(renderReport)로 올라갔다 — 여기서 다시 그리지 않는다
   $('#rbody').innerHTML = `
+    ${qaHistoryPanelHtml()}
     ${recallCardHtml()}
 
     ${trophy || !live ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
@@ -3398,7 +3456,7 @@ function rPace() {
 
 /* 탭 5 — 연습 도구 */
 function rTools() {
-  const segs = ['개요 이미지', '펀치라인', '용어 카드'];
+  const segs = ['발표 구성', '개요 이미지', '펀치라인', '용어 카드'];
   $('#rbody').innerHTML = `
     <div class="seg-ctl" id="seg">
       ${segs.map((t, i) => `<button class="${i === toolSeg ? 'on' : ''}">${t}</button>`).join('')}
@@ -3408,7 +3466,94 @@ function rTools() {
     const b = e.target.closest('button'); if (!b) return;
     toolSeg = $$('#seg button').indexOf(b); rTools();
   });
-  [tMap, tPunch, tTerms][toolSeg]();
+  [tStrategy, tMap, tPunch, tTerms][toolSeg]();
+}
+
+/**
+ * F-20 구성 제안 캐시 키.
+ * 같은 자료를 같은 길이로 발표했으면 같은 세션으로 본다 — 탭을 오갈 때마다
+ * LLM 을 다시 부르지 않기 위한 키일 뿐이라 이 정도 해상도면 충분하다.
+ */
+function strategySessionKey() {
+  const m = reportSessionMeta();
+  return m.live ? `live:${m.title}|${m.duration}` : 'sample';
+}
+
+/**
+ * F-20 에 보낼 분석 요약.
+ *
+ * 인용은 개념 판정의 근거 발화(evidence)에서 가져온다 — 서버가 keep.quote 를
+ * 실제 발화와 대조해 없으면 버리므로, 진짜 한 말만 넣어야 제안에 살아남는다.
+ */
+function strategyAnalysis() {
+  const meta = reportSessionMeta();
+  const tree = judgeTree();
+  const sections = (nf && nf.pipelineOut && nf.pipelineOut.pace
+    && nf.pipelineOut.pace.sections) || [];
+
+  const concepts = tree.slice(0, 14).map(n => ({
+    label: n.label,
+    slide: n.slide,
+    verdict: STATUS[n.status] || n.status,
+  }));
+
+  const quotes = tree
+    .filter(n => n.ev)
+    .slice(0, 8)
+    .map(n => ({
+      at: n.evTime || '',
+      // 화면용 겹따옴표는 떼고 보낸다 — 대조는 발화 원문끼리 해야 한다
+      text: String(n.ev).replace(/^[“"']+|[”"']+$/g, '').trim(),
+    }));
+
+  const sampleAlloc = DATA.timeAlloc.map(r => ({
+    slide: '', label: r[0], recommended: `${r[1]}%`, actual: `${r[2]}%`,
+  }));
+  const timeAlloc = sections.length
+    ? sections.map(s => ({
+      slide: (s.slide_nos && s.slide_nos.length)
+        ? `S${String(Math.min(...s.slide_nos)).padStart(2, '0')}` : '',
+      label: s.name || '',
+      recommended: fmtMarkSec(s.recommended_sec || 0),
+      actual: fmtMarkSec(s.actual_sec || 0),
+    }))
+    // 실데이터 세션인데 구간 배분이 없으면 비운다. 샘플 수치로 위장하지 않는다.
+    : (meta.live ? [] : sampleAlloc);
+
+  // 순서표가 짚을 슬라이드 목록. F-17 이 있으면 실제 사용 시간까지 함께 넘긴다.
+  const paceSlides = (nf && nf.pipelineOut && nf.pipelineOut.pace
+    && nf.pipelineOut.pace.slides) || [];
+  const titles = (nf && nf.slideTitles && nf.slideTitles.length)
+    ? nf.slideTitles : (meta.live ? [] : DATA.slideTitles);
+  const slides = paceSlides.length
+    ? paceSlides.map(s => ({
+      no: s.slide_no,
+      title: (s.title || '').slice(0, 40),
+      spent: s.actual_sec ? fmtMarkSec(s.actual_sec) : '',
+    }))
+    : titles.map((t, i) => ({ no: i + 1, title: String(t).slice(0, 40) }));
+
+  return {
+    title: meta.title,
+    occasion: meta.occasion,
+    duration: meta.duration,
+    slides,
+    concepts,
+    time_alloc: timeAlloc,
+    quotes,
+  };
+}
+
+function tStrategy() {
+  if (!window.ReportStrategy) {
+    $('#toolBody').innerHTML = `
+      <div class="card"><p class="note">구성 제안 모듈을 불러오지 못했어요.</p></div>`;
+    return;
+  }
+  window.ReportStrategy.render($('#toolBody'), {
+    sessionId: strategySessionKey(),
+    analysis: strategyAnalysis(),
+  });
 }
 
 function mapSvgString() {
@@ -4118,6 +4263,7 @@ function qaLiveEnd() {
     saveSession('new-flow', nf);
   }
   saveSession('qa-flow', qa);
+  recordQaHistory();
   const L = qa.live;
   const won = L.results.filter((r) => r.verdict === 'good').length;
   const chipCls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' };
@@ -4442,9 +4588,78 @@ function qaDecide(push) {
 }
 
 /* ── 마무리 세리머니: 문장 → 개념 점등 → 보상 ── */
+/**
+ * 이번 코칭을 발표별 내역으로 남긴다.
+ *
+ * qa 상태는 sessionStorage 한 칸이라 새 코칭이 시작되면 덮어써진다.
+ * 지난 발표에서 다시 보려면 세션 id 를 키로 따로 적어두어야 한다.
+ */
+/* 실데이터 판정 코드 → 내역 3단계. 넘김·보류는 '설명 못함'으로 모으되
+   skipped 플래그로 "못 한 것"과 "안 한 것"을 구분해 둔다. */
+const QA_LOG_VERDICT = { good: 'full', partial: 'partial', wrong: 'none', unknown: 'none', skipped: 'none' };
+
+function recordQaHistory() {
+  if (!window.QaHistory) return;
+  const L = qa.live;
+  const s = DATA.session.qa || {};
+
+  // 실데이터 경로 — qa.live.results 가 실제 주고받은 기록이다
+  if (L && Array.isArray(L.results) && L.results.length) {
+    const beats = L.results.map((r, i) => {
+      const src = (L.questions && L.questions[i]) || {};
+      return {
+        concept: src.concept || src.node || '',
+        label: src.label || src.conceptLabel || src.concept || `질문 ${i + 1}`,
+        slide: src.slide || (src.slide_no ? `S${String(src.slide_no).padStart(2, '0')}` : ''),
+        q: r.question || src.question || src.q || '',
+        a: r.summary || '',
+        verdict: QA_LOG_VERDICT[r.verdict] || 'partial',
+        note: '',
+        turns: r.turns || 0,
+        hint: r.hintLevel || 0,
+        skipped: r.verdict === 'skipped' || !!r.revealed,
+      };
+    });
+    window.QaHistory.save(L.sessionId || 'live', {
+      live: true,
+      aud: qa.aud || '청중',
+      mode: qa.mode || 'full',
+      turns: beats.length,
+      before: s.before, after: s.after, total: beats.length,
+      mastered: beats.filter(b => b.verdict === 'full').map(b => b.label),
+      weak: beats.filter(b => b.verdict === 'none').map(b => b.label),
+      beats,
+    });
+    return;
+  }
+
+  // mock 시나리오 경로
+  const played = (DATA.qaBeats || []).filter(b => b.kind === 'ask');
+  if (!played.length) return;
+  window.QaHistory.save('imu2clip', {
+    live: false,
+    aud: qa.aud || '교수님',
+    mode: qa.mode || 'full',
+    turns: qa.turns || played.length,
+    before: s.before, after: s.after, total: s.total,
+    mastered: String(s.mastered || '').split('·').map(x => x.trim()).filter(Boolean),
+    weak: String(s.weak || '').split('·').map(x => x.trim()).filter(Boolean),
+    beats: played.map(b => ({
+      concept: b.concept,
+      label: b.conceptLabel,
+      slide: b.slide,
+      q: (b.q && (b.q[qa.aud] || Object.values(b.q)[0])) || '',
+      a: b.answer || '',
+      verdict: b.verdict || 'partial',
+      note: b.react || '',
+    })),
+  });
+}
+
 function qaEnd() {
   if (!qa.awarded) { qa.award = awardGame(); qa.awarded = true; }
   saveSession('qa-flow', qa);
+  recordQaHistory();
   const tr = DATA.session.qa.trophy;
   const ariaLost = qa.lost.includes('aria');
   const concepts = [
