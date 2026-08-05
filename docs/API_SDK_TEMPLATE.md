@@ -224,6 +224,9 @@ export { MyClient } from './my_client.js';
 | F-07 | `build_graph` | `POST /api/v1/graph` | — | `LLMProvider` / `get_llm` |
 | F-11 | `align_speech` | `POST /api/v1/alignment` | — | `LLMProvider` / `get_llm` |
 | F-11 파생 | `build_flow_diff` | `POST /api/v1/flow` | — | — (LLM 없음) |
+| F-17 | `analyze_pace` | `POST /api/v1/pace` | — | — (규칙) |
+| F-18 | `extract_habits` | `POST /api/v1/habits` | — | **LoRA(기본)** + heuristic 보강 |
+| F-19 | `compose_report` | `POST /api/v1/report` | — | `LLMProvider` / `get_llm` |
 
 새 파트(F-07+)는 **이 표에 한 줄을 추가하는 것**이 완료 조건이다, 구현의 시작이다.
 

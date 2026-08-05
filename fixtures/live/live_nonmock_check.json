@@ -1,0 +1,109 @@
+{
+  "health": {
+    "ok": true,
+    "mock": false
+  },
+  "stages": [
+    {
+      "stage": "/api/v1/concepts",
+      "ok": true,
+      "sec": 6.6,
+      "code": 200,
+      "model": "solar"
+    },
+    {
+      "stage": "/api/v1/graph",
+      "ok": true,
+      "sec": 12.1,
+      "code": 200,
+      "model": "solar"
+    },
+    {
+      "stage": "/api/v1/alignment",
+      "ok": true,
+      "sec": 8.2,
+      "code": 200,
+      "model": "solar"
+    },
+    {
+      "stage": "/api/v1/flow",
+      "ok": true,
+      "sec": 0.0,
+      "code": 200
+    },
+    {
+      "stage": "/api/v1/score",
+      "ok": true,
+      "sec": 0.0,
+      "code": 200,
+      "score": 82,
+      "basis": "full"
+    },
+    {
+      "stage": "/api/v1/chatter",
+      "ok": true,
+      "sec": 48.2,
+      "code": 200
+    },
+    {
+      "stage": "/api/v1/pace",
+      "ok": true,
+      "sec": 0.0,
+      "code": 200
+    },
+    {
+      "stage": "/api/v1/habits",
+      "ok": true,
+      "sec": 87.8,
+      "code": 200,
+      "provider": "lora"
+    },
+    {
+      "stage": "/api/v1/report",
+      "ok": true,
+      "sec": 2.8,
+      "code": 200,
+      "model": "solar",
+      "score": 68,
+      "grade": "C+"
+    }
+  ],
+  "mock_hits": [],
+  "summary": {
+    "concepts_model": "solar",
+    "graph_nodes": 10,
+    "align_items": 10,
+    "flow_issues": 5,
+    "score": 82,
+    "chatter_turns": 4,
+    "chatter_absent": [
+      "exaone"
+    ],
+    "habits_provider": "lora",
+    "habits_counts": {
+      "repeat_cnt": 3,
+      "filler_cnt": 6,
+      "pause_cnt": 0
+    },
+    "pace_actual": 344.0,
+    "report_model": "solar",
+    "report_grade": "C+",
+    "report_one_liner": "핵심 슬라이드를 짧게 말하고, 긴 슬라이드는 권장 시간을 크게 초과했어요. 간투어를 줄이고 말 속도를 일정하게 유지해보세요."
+  },
+  "stt_live_verified_earlier": {
+    "provider": "skt-ax",
+    "words": 547,
+    "duration_sec": 347.159,
+    "note": "same m4a re-transcribed successfully before Word fix"
+  },
+  "bridge": {
+    "port": 8801,
+    "mock": false,
+    "python": "midm",
+    "habit_provider": "lora"
+  },
+  "notes": [
+    "exaone absent in chatter = provider down, not mock fallback of whole stage",
+    "default :8799 bridge uses base python without torch → LoRA needs midm env"
+  ]
+}

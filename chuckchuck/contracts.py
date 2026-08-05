@@ -198,6 +198,19 @@ class Word:
     def to_dict(self) -> dict:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, d: dict) -> "Word":
+        """알 수 없는 키(slide_no 등)는 무시 — 프런트·캐시 JSON 이 섞여도 깨지지 않게.
+        callers: Transcript.from_dict ← bridge /api/v1/concepts|pace|habits|alignment
+        schema: {text, start_sec, end_sec}; extra keys dropped
+        user: "목업으로 작동하는거 없이 다 제대로 작동하는지 체크"
+        """
+        return cls(
+            text=str(d.get("text", "")),
+            start_sec=float(d.get("start_sec", 0.0) or 0.0),
+            end_sec=float(d.get("end_sec", 0.0) or 0.0),
+        )
+
 
 @dataclass
 class SlideSpeech:
@@ -246,7 +259,7 @@ class Transcript:
     def from_dict(cls, d: dict) -> "Transcript":
         return cls(
             full_text=d.get("full_text", ""),
-            words=[Word(**w) for w in d.get("words", [])],
+            words=[Word.from_dict(w) for w in d.get("words", [])],
             by_slide=[
                 SlideSpeech(
                     slide_no=s["slide_no"],
@@ -254,7 +267,7 @@ class Transcript:
                     start_sec=float(s["start_sec"]),
                     end_sec=float(s["end_sec"]),
                     text=s.get("text", ""),
-                    words=[Word(**w) for w in s.get("words", [])],
+                    words=[Word.from_dict(w) for w in s.get("words", [])],
                 )
                 for s in d.get("by_slide", [])
             ],
@@ -902,6 +915,765 @@ class FlowDiff:
         return [i for i in self.issues if i.kind == kind]
 
 
+# 삐약 청중석 : 청중 반응 수다 (ChatterDoc)
+# ---------------------------------------------------------------------------
+# 국내 LLM 4개가 병아리 청중을 연기하며 발표에 대해 떠든다. 성격은 임의 배정이
+# 아니라 각 모델이 파이프라인에서 실제로 한 일에서 나온다 (solar=자료를 읽음,
+# ax=발표를 들음, midm=믿음/검증, exaone=전문가 칭찬).
+#
+# 대사 내용은 이미 계산된 AlignmentDoc·FlowDiff 의 사실만 쓴다. 어떤 노드를
+# 언급할지는 코드가 결정적으로 고르고, LLM 은 말투만 입힌다 — F-11 과 같은 철학.
+
+#: speaker id. providers/llm_impl.py REGISTRY 키와 동일해서 별도 매핑이 없다.
+CHATTER_SPEAKERS = ("midm", "solar", "exaone", "ax")
+
+#: 프론트가 아바타 표정·모션을 고르는 키. enum 밖은 neutral 로 떨어진다.
+CHATTER_MOODS = ("grumpy", "happy", "curious", "excited", "neutral")
+
+#: refs[].source — 이 대사의 근거가 어느 산출물에서 왔나.
+CHATTER_REF_SOURCES = ("alignment", "flow", "graph")
+
+#: 화면에 상시 노출하는 모델 배지. "국내 LLM 총출동"을 설명 없이 보이게 하는 장치라
+#: 어느 단계에서도 숨기지 않는다.
+CHATTER_BADGES = {
+    "midm": "KT 믿:음",
+    "solar": "Upstage Solar",
+    "exaone": "LG EXAONE",
+    "ax": "SKT A.X",
+}
+
+#: 병아리 이름 (화면 표시용).
+#: 이름은 모델명을 그대로 짧게 부른 것이다. 별명을 따로 지으면 좌석 명패
+#: (= 모델 배지)와 어긋나 "국내 LLM 4개가 듣고 있다"는 사실이 흐려진다.
+CHATTER_NAMES = {
+    "midm": "믿:음",
+    "solar": "쏠라",
+    "exaone": "엑사원",
+    "ax": "엑씨",
+}
+
+
+@dataclass
+class ChatterRef:
+    """대사 하나의 근거. node_id 로 리포트의 개념 판정과 조인한다."""
+    node_id: str
+    source: str = "alignment"   # alignment | flow | graph
+
+    def to_dict(self) -> dict:
+        return {"node_id": self.node_id, "source": self.source}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterRef":
+        return cls(
+            node_id=str(d["node_id"]),
+            source=str(d.get("source", "alignment")),
+        )
+
+
+@dataclass
+class ChatterTurn:
+    """수다 한 턴. refs 가 비면 근거 없는 스몰토크다 (개수 제한 대상)."""
+    speaker: str                        # CHATTER_SPEAKERS 중 하나
+    text: str
+    mood: str = "neutral"               # CHATTER_MOODS 중 하나
+    refs: list[ChatterRef] = field(default_factory=list)
+
+    @property
+    def is_smalltalk(self) -> bool:
+        return not self.refs
+
+    def to_dict(self) -> dict:
+        return {
+            "speaker": self.speaker,
+            "text": self.text,
+            "mood": self.mood,
+            "refs": [r.to_dict() for r in self.refs],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterTurn":
+        return cls(
+            speaker=str(d["speaker"]),
+            text=str(d.get("text", "")),
+            mood=str(d.get("mood", "neutral")),
+            refs=[ChatterRef.from_dict(r) for r in d.get("refs", [])],
+        )
+
+
+@dataclass
+class ChatterDoc:
+    """
+    청중 반응 수다. 프론트 채팅방이 이걸 그대로 재생한다.
+
+    불변식은 f12_chatter.build_chatter() 가 보장한다:
+    speaker 전원 최소 1턴 · refs 는 그 speaker 에게 배정된 근거만 ·
+    mood 는 enum 안 · 스몰토크 비율 상한 · 전체 턴 수 상한.
+    """
+    file_name: str
+    total_slides: int = 0
+    turns: list[ChatterTurn] = field(default_factory=list)
+    #: speaker → 배지 문자열. 프론트가 CHATTER_BADGES 를 몰라도 되게 같이 실어 보낸다.
+    speaker_models: dict[str, str] = field(default_factory=dict)
+    #: speaker → 병아리 이름.
+    speaker_names: dict[str, str] = field(default_factory=dict)
+    #: 오늘 못 온 병아리 (모델이 죽었거나 쓸 만한 대사를 한 줄도 못 준 경우).
+    #:
+    #: 프론트가 이걸 추측하면 안 된다. "refs 가 비었으면 결석" 같은 규칙은 틀린다 —
+    #: 엑씨의 애드립·발표 시간 사실은 node_ids 가 원래 비어 있어서, 멀쩡히 일한
+    #: 병아리가 결석 처리된다. 결석은 build_chatter 만 알 수 있으므로 여기 싣는다.
+    absent: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "turns": [t.to_dict() for t in self.turns],
+            "speaker_models": dict(self.speaker_models),
+            "speaker_names": dict(self.speaker_names),
+            "absent": list(self.absent),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterDoc":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            turns=[ChatterTurn.from_dict(t) for t in d.get("turns", [])],
+            speaker_models=dict(d.get("speaker_models", {})),
+            speaker_names=dict(d.get("speaker_names", {})),
+            absent=list(d.get("absent", [])),
+        )
+
+    def turns_of(self, speaker: str) -> list[ChatterTurn]:
+        """특정 병아리의 대사들."""
+        return [t for t in self.turns if t.speaker == speaker]
+
+    @property
+    def referenced_node_ids(self) -> list[str]:
+        """수다가 실제로 언급한 노드들. 리포트와 따로 놀지 않는지 확인용."""
+        seen: list[str] = []
+        for turn in self.turns:
+            for ref in turn.refs:
+                if ref.node_id not in seen:
+                    seen.append(ref.node_id)
+        return seen
+
+
+# ---------------------------------------------------------------------------
+# F-08 · F-09 : 질문 코칭 (예상 질문 + 답변 판정)
+# ---------------------------------------------------------------------------
+# 발표가 끝난 뒤 "이거 물어보면 답할 수 있나" 를 연습시키는 단계다.
+# 입력은 ConceptGraph(+ 선택 AlignmentDoc·FlowDiff) — 이미 계산된 결정적 신호만 쓴다.
+# 리포트가 "누락" 이라고 말한 개념과 질문이 어긋나면 안 되므로,
+# **어떤 개념을 물을지는 코드가 정하고 LLM 은 문장만 쓴다** (F-11 과 같은 철학).
+#
+#   F-08  ConceptGraph(+AlignmentDoc·FlowDiff) → QaTriage    (질문 가치 심사, 세션 1회)
+#   F-08  QaTriage + track                     → QuestionDoc (트랙별 질문 세트)
+#   F-09  Question + 답변(+history)            → QaJudgement (4-class 판정)
+#
+# LLM 을 두 번 부르는 이유: 개념의 **중요도**는 F-07 weight·F-11 verdict 로 이미
+# 결정적으로 알지만, "이게 심사위원한테 실제로 찔릴 질문인가 · 함정을 팔 수 있나"
+# 는 코드가 모른다. 그 판단만 1차(triage)에 맡기고, 2차는 문장 생성만 맡는다.
+# triage 는 트랙과 무관하므로 세션에 캐시한다 — 1/5/10분을 바꿔도 순위가 안 흔들린다.
+
+#: 질문 세트 트랙. 프론트 QA_MODES 키와 같은 문자열이다 (app.js).
+QA_TRACKS = ("1", "5", "10")
+QA_TRACK_FALLBACK = "10"
+
+#: 트랙 → 질문 개수 상한. 1분=핵심만, 5분=핵심+놓친 것, 10분=정복.
+QA_TRACK_LIMITS = {"1": 1, "5": 3, "10": 7}
+
+#: 트랙 → 함정 질문(자료와 어긋난 주장으로 찔러보기) 허용 개수.
+#: 1분 트랙은 방어 연습할 시간이 없어 함정을 넣지 않는다.
+QA_TRACK_TRAPS = {"1": 0, "5": 1, "10": 3}
+
+#: severity — 1 치명 · 2 보통 · 3 가벼움. 프론트 SEVERITY_WORD 와 같은 값이다.
+QA_SEVERITIES = (1, 2, 3)
+QA_SEVERITY_FALLBACK = 2
+
+#: 이 질문이 뽑힌 **결정적 근거**. 리포트가 "왜 이걸 묻나" 를 설명할 때 쓴다.
+#: 우선순위도 이 순서다 (모순 > 누락 > 흐름 결손 > 자료 비중).
+QA_SOURCES = ("contradiction", "missing", "weak_flow", "core_weight")
+QA_SOURCE_FALLBACK = "core_weight"
+
+#: 답변 판정 4-class. 프론트 LIVE_VERDICT 키와 동일하다.
+#: (`skipped` 는 질문을 넘겼을 때 프론트가 로컬로 붙이는 값이라 여기 없다.)
+QA_VERDICTS = ("good", "partial", "wrong", "unknown")
+QA_VERDICT_FALLBACK = "unknown"
+
+#: verdict 만 오고 score 가 없을 때 채워 넣는 기본 점수 (0~100).
+QA_VERDICT_SCORES = {"good": 85, "partial": 55, "wrong": 20, "unknown": 0}
+
+#: 이 점수 이상이면 '정답 계열' 로 보고 되묻기를 멈춘다.
+#: 실전 코칭은 턴 상한이 없으므로 **이 임계 하나가 대화의 유일한 출구다.**
+#: 너무 높으면 대화가 실제로 안 끝나고, 너무 낮으면 얕은 답이 통과한다.
+#: partial 기본값 55 와 good 기본값 85 사이 — "방향도 맞고 근거도 어느 정도 댔다" 구간.
+QA_PASS_SCORE = 70
+
+
+def qa_passed(verdict: str, score: int) -> bool:
+    """
+    이 답변을 정답 계열로 인정할지. **판정 규칙은 여기 한 곳에만 둔다.**
+
+    프론트가 임계를 따로 계산하면 서버와 어긋나는 순간 화면이 모순된다 —
+    '설득 완료' 칩을 띄워 놓고 되묻는 식으로. 그래서 QaJudgement.to_dict() 가
+    이 결과를 `passed` 로 실어 보내고, 프론트는 그 불리언만 읽는다.
+
+    verdict 가 good 이면 점수와 무관하게 통과다. 등급과 점수가 어긋날 때는
+    등급을 믿는다 — 사용자에게 보이는 것이 등급이기 때문이다.
+    """
+    return verdict == "good" or score >= QA_PASS_SCORE
+
+
+#: 대사 길이 상한. 화면 말풍선이 감당하는 길이다.
+QA_TEXT_MAX = 200
+
+#: 막힘 코칭 단계. verdict 를 4-class 로 유지하기 위해 **별도 축**으로 둔다 —
+#: 5번째 verdict 를 만들면 qa_passed·점수표·프론트 배지 맵이 전부 흔들린다.
+#:   ""        평시 판정
+#:   narrow    1차 포기 — 답을 주지 않고 더 쉬운 되물음으로 한 발 끌어준다
+#:   explain   2차 포기 — 해설하고 이 질문을 닫는다
+QA_COACH_STAGES = ("", "narrow", "explain")
+
+#: 해설 길이 상한. QA_TEXT_MAX 보다 길다 — 해설은 말풍선 한 마디가 아니라
+#: "이렇게 답했어야 한다" 를 근거까지 붙여 설명하는 문단이기 때문이다.
+QA_EXPLAIN_MAX = 500
+
+
+@dataclass
+class TriageMark:
+    """
+    개념 하나의 질문 가치 심사 결과 (F-08 1차).
+
+    node_id·source·rank 는 **코드가 결정적으로** 채우고,
+    severity·trap·angle 만 LLM 이 손댄다. 후보 밖 node_id 는 어댑터가 버린다.
+    """
+    node_id: str
+    severity: int = QA_SEVERITY_FALLBACK   # 1 치명 | 2 보통 | 3 가벼움
+    trap: bool = False                     # 함정 질문을 팔 수 있는 개념인가
+    angle: str = ""                        # 질문 각도 한 줄 (2차 프롬프트 입력)
+    source: str = QA_SOURCE_FALLBACK       # 파생: 뽑힌 결정적 근거
+    rank: int = 0                          # 파생: 결정적 후보 순위 (1부터)
+    doc_weight: float = 0.0                # 파생: F-07 weight 복사
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "TriageMark":
+        try:
+            severity = int(d.get("severity", QA_SEVERITY_FALLBACK))
+        except (TypeError, ValueError):
+            severity = QA_SEVERITY_FALLBACK
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            node_id=str(d["node_id"]),
+            severity=severity if severity in QA_SEVERITIES else QA_SEVERITY_FALLBACK,
+            trap=bool(d.get("trap", False)),
+            angle=str(d.get("angle", "") or ""),
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            rank=int(d.get("rank", 0)),
+            doc_weight=float(d.get("doc_weight", 0.0)),
+        )
+
+
+@dataclass
+class QaTriage:
+    """
+    F-08 1차 산출물. 트랙과 무관해서 **세션에 한 번만** 만들고 재사용한다.
+
+    marks 는 결정적 우선순위(rank) 오름차순이다.
+    """
+    file_name: str
+    total_slides: int = 0
+    marks: list[TriageMark] = field(default_factory=list)
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "marks": [m.to_dict() for m in self.marks],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaTriage":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            marks=[TriageMark.from_dict(m) for m in d.get("marks", [])],
+            model=d.get("model", ""),
+        )
+
+    def mark(self, node_id: str) -> TriageMark | None:
+        for m in self.marks:
+            if m.node_id == node_id:
+                return m
+        return None
+
+
+@dataclass
+class Question:
+    """
+    예상 질문 하나. 필드 이름은 프론트가 이미 소비하는 키와 같다 (app.js 실전 QA).
+
+    node_id 로 ConceptGraph·AlignmentDoc 과 조인해서 "이 질문이 리포트의 어느
+    개념인지" 를 되짚는다.
+    """
+    id: str                                # 질문 안정 키 (프론트 results 조인)
+    node_id: str                           # 조인 키 — ConceptGraph.nodes[].id
+    label: str                             # 개념 이름 (화면 칩)
+    question: str                          # 질문 문장
+    why: str = ""                          # 왜 이걸 묻나 (근거 한 줄)
+    hint: str = ""                         # 막혔을 때 보여 줄 힌트
+    severity: int = QA_SEVERITY_FALLBACK   # 1 치명 | 2 보통 | 3 가벼움
+    trap: bool = False                     # 자료와 어긋난 주장으로 찔러보는 질문인가
+    source: str = QA_SOURCE_FALLBACK       # 파생: 뽑힌 결정적 근거
+    slide_nos: list[int] = field(default_factory=list)  # 근거 장
+    doc_weight: float = 0.0                # 파생: F-07 weight 복사
+    #: 이 질문에 기대하는 답의 골자. 되묻기가 끝날 때 "그래서 뭐라고 답했어야 하나" 를
+    #: 보여 주는 재료다. 대화가 끝났는데 답을 모른 채면 코칭이 실패한 것이므로 비워 두지 않는다.
+    answer_gist: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "node_id": self.node_id,
+            "label": self.label,
+            "question": self.question,
+            "why": self.why,
+            "hint": self.hint,
+            "severity": self.severity,
+            "trap": self.trap,
+            "source": self.source,
+            "slide_nos": list(self.slide_nos),
+            "doc_weight": self.doc_weight,
+            "answer_gist": self.answer_gist,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Question":
+        try:
+            severity = int(d.get("severity", QA_SEVERITY_FALLBACK))
+        except (TypeError, ValueError):
+            severity = QA_SEVERITY_FALLBACK
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            id=str(d["id"]),
+            node_id=str(d.get("node_id", "") or ""),
+            label=str(d.get("label", "") or ""),
+            question=str(d.get("question", "") or ""),
+            why=str(d.get("why", "") or ""),
+            hint=str(d.get("hint", "") or ""),
+            severity=severity if severity in QA_SEVERITIES else QA_SEVERITY_FALLBACK,
+            trap=bool(d.get("trap", False)),
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            doc_weight=float(d.get("doc_weight", 0.0)),
+            answer_gist=str(d.get("answer_gist", "") or ""),
+        )
+
+
+@dataclass
+class QuestionDoc:
+    """
+    F-08 의 산출물. 프론트 실전 QA 루프가 이 questions[] 를 그대로 재생한다.
+
+    불변식은 f08_questions.build_questions() 가 보장한다:
+    질문 id 유일 · 개념(node_id) 중복 없음 · 트랙 상한 준수 ·
+    severity 는 enum 안 · 1분 트랙에는 함정 없음 · 같은 triage 면 결과가 같다.
+    """
+    file_name: str
+    total_slides: int = 0
+    track: str = QA_TRACK_FALLBACK
+    questions: list[Question] = field(default_factory=list)
+    #: 후보였지만 이번 트랙 상한에서 밀린 개념. "더 길게 하면 이것도 물어요" 안내용.
+    deferred_node_ids: list[str] = field(default_factory=list)
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "track": self.track,
+            "questions": [q.to_dict() for q in self.questions],
+            "deferred_node_ids": list(self.deferred_node_ids),
+            "model": self.model,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QuestionDoc":
+        track = str(d.get("track", QA_TRACK_FALLBACK))
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            track=track if track in QA_TRACKS else QA_TRACK_FALLBACK,
+            questions=[Question.from_dict(q) for q in d.get("questions", [])],
+            deferred_node_ids=[str(x) for x in d.get("deferred_node_ids", [])],
+            model=d.get("model", ""),
+        )
+
+    def question(self, question_id: str) -> Question | None:
+        """id 로 질문 하나. 판정(F-09)이 question_id 로 되찾을 때 쓴다."""
+        for q in self.questions:
+            if q.id == question_id:
+                return q
+        return None
+
+    @property
+    def node_ids(self) -> list[str]:
+        return [q.node_id for q in self.questions]
+
+
+@dataclass
+class QaTurn:
+    """
+    주고받은 질문·답변 한 턴 (F-09 history).
+
+    프론트는 한글 키(`질문`·`답변`·`판정`)로 보낸다 — 이미 굳은 계약이라
+    from_dict 가 한글·영문 양쪽을 받아 준다.
+    """
+    question: str = ""
+    answer: str = ""
+    verdict: str = QA_VERDICT_FALLBACK
+
+    def to_dict(self) -> dict:
+        return {"질문": self.question, "답변": self.answer, "판정": self.verdict}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaTurn":
+        verdict = str(d.get("판정", d.get("verdict", QA_VERDICT_FALLBACK)) or "")
+        return cls(
+            question=str(d.get("질문", d.get("question", "")) or ""),
+            answer=str(d.get("답변", d.get("answer", "")) or ""),
+            # 프론트는 넘긴 질문에 'skipped' 를 붙인다 — enum 밖이라 보류로 떨어진다
+            verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+        )
+
+
+@dataclass
+class QaJudgement:
+    """
+    F-09 의 산출물. 답변 하나의 판정이다.
+
+    최상위 키(`verdict`·`react`·`summary_sentence`·`score`)는 프론트가 이미
+    소비하는 이름이라 바꾸지 않는다.
+
+    불변식은 f09_judge.judge_answer() 가 보장한다:
+    verdict 는 enum 안 · score 0~100 · react·summary_sentence 는 항상 채워짐 ·
+    node_id 는 질문에서 승계(LLM 값 무시).
+    """
+    question_id: str
+    node_id: str = ""
+    verdict: str = QA_VERDICT_FALLBACK     # good | partial | wrong | unknown
+    score: int = 0                         # 0~100. 없으면 verdict 기본값
+    react: str = ""                        # 즉답 반응 한 마디 (말풍선)
+    summary_sentence: str = ""             # 이 개념에 대한 총평 한 문장
+    missing_points: list[str] = field(default_factory=list)  # 답변에서 빠진 포인트
+    model: str = ""
+    #: 정답 계열에 못 미칠 때 되물을 후속 질문. 원래 질문을 반복하지 않고
+    #: 빠진 지점을 겨냥한다. 통과한 답에는 빈 문자열이다.
+    followup: str = ""
+    #: 힌트 사다리 (방향 → 범위 → 근접). f08_questions.build_hint_ladder 가 만든다.
+    #: 판정에 함께 실어 보내 프론트가 추가 왕복 없이 즉시 보여 줄 수 있게 한다.
+    hints: list[str] = field(default_factory=list)
+    #: 막힘 코칭 단계 (QA_COACH_STAGES). "" 면 평시 판정이다.
+    #: **단계는 서버가 history 로 계산한다** — 프론트가 들고 있으면 저장된 옛 세션에서
+    #: 값이 비고, 질문마다 초기화하는 것도 빠뜨리기 쉽다.
+    coach_stage: str = ""
+    #: coach_stage == "explain" 일 때 채우는 해설. 다른 단계에서는 빈 문자열이다.
+    explanation: str = ""
+
+    @property
+    def passed(self) -> bool:
+        """정답 계열인가. 되묻기를 멈출지 정하는 유일한 출구다."""
+        return qa_passed(self.verdict, self.score)
+
+    def to_dict(self) -> dict:
+        return {
+            "question_id": self.question_id,
+            "node_id": self.node_id,
+            "verdict": self.verdict,
+            "score": self.score,
+            "react": self.react,
+            "summary_sentence": self.summary_sentence,
+            "missing_points": list(self.missing_points),
+            "model": self.model,
+            "followup": self.followup,
+            "hints": list(self.hints),
+            "coach_stage": self.coach_stage,
+            "explanation": self.explanation,
+            # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다
+            "passed": self.passed,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaJudgement":
+        verdict = str(d.get("verdict", QA_VERDICT_FALLBACK) or "")
+        coach_stage = str(d.get("coach_stage", "") or "")
+        try:
+            score = int(d.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0
+        return cls(
+            question_id=str(d.get("question_id", "") or ""),
+            node_id=str(d.get("node_id", "") or ""),
+            verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+            score=max(0, min(100, score)),
+            react=str(d.get("react", "") or ""),
+            summary_sentence=str(d.get("summary_sentence", "") or ""),
+            missing_points=[str(x) for x in d.get("missing_points", [])],
+            model=d.get("model", ""),
+            followup=str(d.get("followup", "") or ""),
+            hints=[str(x) for x in d.get("hints", [])],
+            coach_stage=coach_stage if coach_stage in QA_COACH_STAGES else "",
+            explanation=str(d.get("explanation", "") or ""),
+            # `passed` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다
+        )
+
+
+# ---------------------------------------------------------------------------
+# 예외
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# F-17 : 말 속도 · 시간 배분 (규칙, LLM 없음)
+# ---------------------------------------------------------------------------
+
+#: 슬라이드 시간 배분 판정
+PACE_STATUSES = ("ok", "short", "long", "fast", "slow")
+
+
+@dataclass
+class SlidePace:
+    """한 슬라이드의 실제/권장 시간·속도."""
+    slide_no: int
+    title: str = ""
+    importance: str = "support"   # core | support
+    importance_weight: float = 0.35
+    actual_sec: float = 0.0
+    recommended_sec: float = 0.0
+    delta_sec: float = 0.0          # actual - recommended
+    chars_per_min: float = 0.0
+    syllable_per_sec: float = 0.0
+    status: str = "ok"              # ok | short | long | fast | slow
+    note: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlidePace":
+        st = d.get("status", "ok")
+        return cls(
+            slide_no=int(d["slide_no"]),
+            title=d.get("title", ""),
+            importance=d.get("importance", "support"),
+            importance_weight=float(d.get("importance_weight", 0.35)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            recommended_sec=float(d.get("recommended_sec", 0.0)),
+            delta_sec=float(d.get("delta_sec", 0.0)),
+            chars_per_min=float(d.get("chars_per_min", 0.0)),
+            syllable_per_sec=float(d.get("syllable_per_sec", 0.0)),
+            status=st if st in PACE_STATUSES else "ok",
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class SectionAlloc:
+    """구획(섹션) 단위 권장/실제 시간."""
+    name: str
+    slide_nos: list[int] = field(default_factory=list)
+    recommended_sec: float = 0.0
+    actual_sec: float = 0.0
+    status: str = "ok"              # ok | short | long
+    label: str = ""                 # UI용 "+17% 초과" 등
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SectionAlloc":
+        return cls(
+            name=d.get("name", ""),
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            recommended_sec=float(d.get("recommended_sec", 0.0)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            status=d.get("status", "ok"),
+            label=d.get("label", ""),
+        )
+
+
+@dataclass
+class PaceDoc:
+    """F-17 산출물. 말 속도·시간 배분 표 + 규칙 팁."""
+    target_sec: float = 0.0
+    actual_sec: float = 0.0
+    avg_chars_per_min: float = 0.0
+    avg_syllable_per_sec: float = 0.0
+    max_chars_per_min: float = 0.0
+    max_slide_no: int | None = None
+    recommended_cpm: str = "300~350"
+    slides: list[SlidePace] = field(default_factory=list)
+    sections: list[SectionAlloc] = field(default_factory=list)
+    tips: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "target_sec": self.target_sec,
+            "actual_sec": self.actual_sec,
+            "avg_chars_per_min": self.avg_chars_per_min,
+            "avg_syllable_per_sec": self.avg_syllable_per_sec,
+            "max_chars_per_min": self.max_chars_per_min,
+            "max_slide_no": self.max_slide_no,
+            "recommended_cpm": self.recommended_cpm,
+            "slides": [s.to_dict() for s in self.slides],
+            "sections": [s.to_dict() for s in self.sections],
+            "tips": list(self.tips),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PaceDoc":
+        return cls(
+            target_sec=float(d.get("target_sec", 0.0)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            avg_chars_per_min=float(d.get("avg_chars_per_min", 0.0)),
+            avg_syllable_per_sec=float(d.get("avg_syllable_per_sec", 0.0)),
+            max_chars_per_min=float(d.get("max_chars_per_min", 0.0)),
+            max_slide_no=d.get("max_slide_no"),
+            recommended_cpm=d.get("recommended_cpm", "300~350"),
+            slides=[SlidePace.from_dict(s) for s in d.get("slides", [])],
+            sections=[SectionAlloc.from_dict(s) for s in d.get("sections", [])],
+            tips=list(d.get("tips", [])),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-18 : 음성 습관 신호 (REP/FIL/PAUSE)
+# ---------------------------------------------------------------------------
+
+HABIT_KINDS = ("REP", "FIL", "PAUSE")
+
+
+@dataclass
+class HabitSpan:
+    """습관 스팬 하나. 타임코드로 슬라이드에 붙인다."""
+    kind: str                       # REP | FIL | PAUSE
+    text: str = ""
+    start_sec: float = 0.0
+    end_sec: float = 0.0
+    slide_no: int | None = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "HabitSpan":
+        kind = d.get("kind", "FIL")
+        return cls(
+            kind=kind if kind in HABIT_KINDS else "FIL",
+            text=d.get("text", ""),
+            start_sec=float(d.get("start_sec", 0.0)),
+            end_sec=float(d.get("end_sec", 0.0)),
+            slide_no=d.get("slide_no"),
+        )
+
+
+@dataclass
+class SlideHabits:
+    """슬라이드별 습관 카운트."""
+    slide_no: int
+    repeat_cnt: int = 0
+    filler_cnt: int = 0
+    pause_cnt: int = 0
+    note: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlideHabits":
+        return cls(
+            slide_no=int(d["slide_no"]),
+            repeat_cnt=int(d.get("repeat_cnt", 0)),
+            filler_cnt=int(d.get("filler_cnt", 0)),
+            pause_cnt=int(d.get("pause_cnt", 0)),
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class HabitDoc:
+    """F-18 산출물. 습관 스팬 + 슬라이드별 집계."""
+    spans: list[HabitSpan] = field(default_factory=list)
+    by_slide: list[SlideHabits] = field(default_factory=list)
+    repeat_cnt: int = 0
+    filler_cnt: int = 0
+    pause_cnt: int = 0
+    provider: str = ""              # heuristic | fixture | lora
+    tips: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "spans": [s.to_dict() for s in self.spans],
+            "by_slide": [s.to_dict() for s in self.by_slide],
+            "repeat_cnt": self.repeat_cnt,
+            "filler_cnt": self.filler_cnt,
+            "pause_cnt": self.pause_cnt,
+            "provider": self.provider,
+            "tips": list(self.tips),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "HabitDoc":
+        return cls(
+            spans=[HabitSpan.from_dict(s) for s in d.get("spans", [])],
+            by_slide=[SlideHabits.from_dict(s) for s in d.get("by_slide", [])],
+            repeat_cnt=int(d.get("repeat_cnt", 0)),
+            filler_cnt=int(d.get("filler_cnt", 0)),
+            pause_cnt=int(d.get("pause_cnt", 0)),
+            provider=d.get("provider", ""),
+            tips=list(d.get("tips", [])),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-19 : 종합 진단 리포트 (LLM — F-17·F-18 수치만 해석)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ReportDoc:
+    """F-19 산출물. 요약 탭·코칭 문장의 재료."""
+    one_liner: str = ""
+    score: int = 0                  # 0~100 (UI 링)
+    grade: str = ""                 # A+~F (선택)
+    strengths: list[str] = field(default_factory=list)
+    weaknesses: list[str] = field(default_factory=list)
+    actions: list[str] = field(default_factory=list)
+    pace_summary: str = ""
+    habit_summary: str = ""
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ReportDoc":
+        return cls(
+            one_liner=d.get("one_liner", ""),
+            score=int(d.get("score", 0)),
+            grade=d.get("grade", ""),
+            strengths=list(d.get("strengths", [])),
+            weaknesses=list(d.get("weaknesses", [])),
+            actions=list(d.get("actions", [])),
+            pace_summary=d.get("pace_summary", ""),
+            habit_summary=d.get("habit_summary", ""),
+            model=d.get("model", ""),
+        )
+
+
 # ---------------------------------------------------------------------------
 # F-08 · F-09 : 질문 코칭 (예상 질문 + 답변 판정)
 # ---------------------------------------------------------------------------
@@ -1340,6 +2112,22 @@ class GraphError(ChuckchuckError):
 
 class AlignError(ChuckchuckError):
     """F-11 정합 판정 실패."""
+
+
+class PaceError(ChuckchuckError):
+    """F-17 말 속도·시간 배분 실패."""
+
+
+class HabitError(ChuckchuckError):
+    """F-18 음성 습관 추출 실패."""
+
+
+class ReportError(ChuckchuckError):
+    """F-19 종합 리포트 생성 실패."""
+
+
+class ChatterError(ChuckchuckError):
+    """삐약 청중석 수다 생성 실패."""
 
 
 class QuestionError(ChuckchuckError):

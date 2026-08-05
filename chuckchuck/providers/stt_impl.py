@@ -107,56 +107,74 @@ class AxSTT(STTProvider):
         return {"X-API-Key": self.api_key}
 
     @staticmethod
-    def _json_or_error(res: requests.Response, step: str) -> dict:
-        """게이트웨이가 200 으로 HTML 차단 페이지를 주기도 한다. 본문부터 확인한다."""
-        try:
-            return res.json()
-        except ValueError:
-            hint = (
-                " — 게이트웨이(WAF)가 업로드 본문을 거부했습니다. 오디오를 다시 인코딩해 보세요."
-                if "Request Rejected" in res.text
-                else ""
-            )
+    def _response_json(res: requests.Response, step: str) -> dict:
+        """빈 본문·HTML 응답을 JSONDecodeError 대신 읽기 쉬운 STTError 로 바꾼다."""
+        text = (res.text or "").strip()
+        if not text:
             raise STTError(
-                f"A.X STT {step} 응답이 JSON 이 아닙니다 "
-                f"[{res.status_code} {res.headers.get('content-type', '?')}]{hint}: {res.text[:300]}"
-            ) from None
+                f"A.X STT {step} 응답이 비어 있어요 (HTTP {res.status_code}). "
+                "잠시 후 다시 녹음·업로드해 주세요."
+            )
+        try:
+            data = res.json()
+        except ValueError as e:
+            raise STTError(
+                f"A.X STT {step} 응답을 읽지 못했어요 (HTTP {res.status_code}): "
+                f"{text[:240]}"
+            ) from e
+        if not isinstance(data, dict):
+            raise STTError(f"A.X STT {step} 응답 형식이 이상해요: {text[:240]}")
+        return data
 
     def _upload(self, audio_path: Path) -> str:
         size = audio_path.stat().st_size
-        tok_res = requests.get(
-            f"{self.base_url}/v1/stt/upload-token",
-            params={"fileSize": size},
-            headers=self._headers(),
-            timeout=30,
-        )
-        if tok_res.status_code != 200:
-            raise STTError(
-                f"A.X STT upload-token 실패 {tok_res.status_code}: {tok_res.text[:300]}"
-            )
-        upload_token = self._json_or_error(tok_res, "upload-token").get("upload_token")
-        if not upload_token:
-            raise STTError(f"upload_token 없음: {tok_res.text[:300]}")
+        last_err: Exception | None = None
+        # 간헐적 빈 200 응답이 있어 한 번 더 시도한다
+        for attempt in range(1, 3):
+            try:
+                tok_res = requests.get(
+                    f"{self.base_url}/v1/stt/upload-token",
+                    params={"fileSize": size},
+                    headers=self._headers(),
+                    timeout=30,
+                )
+                if tok_res.status_code != 200:
+                    raise STTError(
+                        f"A.X STT upload-token 실패 {tok_res.status_code}: {tok_res.text[:300]}"
+                    )
+                upload_token = self._response_json(tok_res, "upload-token").get("upload_token")
+                if not upload_token:
+                    raise STTError(f"upload_token 없음: {(tok_res.text or '')[:300]}")
 
-        with audio_path.open("rb") as f:
-            up_res = requests.put(
-                f"{self.base_url}/v1/stt/upload/{upload_token}",
-                headers={
-                    **self._headers(),
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(size),
-                },
-                data=f,
-                timeout=self.timeout,
-            )
-        if up_res.status_code != 200:
-            raise STTError(
-                f"A.X STT upload 실패 {up_res.status_code}: {up_res.text[:300]}"
-            )
-        file_key = self._json_or_error(up_res, "upload").get("file_key")
-        if not file_key:
-            raise STTError(f"file_key 없음: {up_res.text[:300]}")
-        return file_key
+                with audio_path.open("rb") as f:
+                    up_res = requests.put(
+                        f"{self.base_url}/v1/stt/upload/{upload_token}",
+                        headers={
+                            **self._headers(),
+                            "Content-Type": "application/octet-stream",
+                            "Content-Length": str(size),
+                        },
+                        data=f,
+                        timeout=self.timeout,
+                    )
+                if up_res.status_code != 200:
+                    raise STTError(
+                        f"A.X STT upload 실패 {up_res.status_code}: {up_res.text[:300]}"
+                    )
+                file_key = self._response_json(up_res, "upload").get("file_key")
+                if not file_key:
+                    raise STTError(f"file_key 없음: {(up_res.text or '')[:300]}")
+                return file_key
+            except STTError as e:
+                last_err = e
+                if attempt >= 2:
+                    break
+                # 빈 응답/일시 오류만 재시도
+                msg = str(e)
+                if "비어" not in msg and "읽지 못" not in msg and "실패 5" not in msg:
+                    raise
+        assert last_err is not None
+        raise last_err
 
     def transcribe(self, audio_path: str | Path) -> tuple[str, list[Word]]:
         path = Path(audio_path)
@@ -181,7 +199,7 @@ class AxSTT(STTProvider):
         if res.status_code != 200:
             raise STTError(f"A.X STT transcript 실패 {res.status_code}: {res.text[:300]}")
 
-        return self._parse(self._json_or_error(res, "transcript"))
+        return self._parse(self._response_json(res, "transcript"))
 
     @staticmethod
     def _parse(body: dict) -> tuple[str, list[Word]]:

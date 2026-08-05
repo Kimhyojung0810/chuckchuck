@@ -1,0 +1,2057 @@
+{
+  "full_text": "안녕하세요. 오늘은 집중과 알림이 어떻게 작업을 깨는지 이야기하겠습니다. 열 분만 들어주세요. 어 문제를 먼저 정리하면, 알림은 단순히 시끄러운 소리가 아닙니다. 음 우리는 하루에 수십 번 끊깁니다. 핵심입니다. 알림은 눈길만 빼앗는 것이 아니라 머릿속 작업 상태 자체를 바꿉니다. 주의가 재설정됩니다. 어 배경을 조금 더 말씀드리면, 예전부터 여러 실험이 있었습니다. 그 그 연구들을 보면 과제가 달라도 비슷한 패턴이 반복됩니다. 음 그래서 오늘은 그 공통점만 추려서 말씀드릴게요. 짧은 알림 자체가 과제와 무관한 생각을 만들 수 있습니다. 이게 두 번째 핵심입니다. 폰이 보이는 것만으로도 인지 자원을 씁니다. 책상 위 폰만 있어도 집중 용량이 깎인다는 결과가 있습니다. 끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있습니다. 잔여 주의가 남습니다. 손실은 시간보다 흐름에서 커집니다. 흐름 흐름이 끊기면 복구 비용이 생각보다 큽니다. 따라서 집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 합니다. 루틴이 먼저입니다. 오늘 바로 바꿀 수 있는 집중 루틴을 말씀드릴게요. 어 음 일단 알림을 끄고, 폰은 서랍에 넣고, 시작 의식을 만드세요. 정리하면 환경이 먼저이고, 의지는 그다음입니다. 작은 설계가 큰 집중을 만듭니다. 경청해 주셔서 감사합니다. 질문 있으시면 받겠습니다.",
+  "words": [
+    {
+      "text": "안녕하세요",
+      "start_sec": 0.0,
+      "end_sec": 2.31
+    },
+    {
+      "text": ".",
+      "start_sec": 2.57,
+      "end_sec": 4.89
+    },
+    {
+      "text": "오늘은",
+      "start_sec": 5.14,
+      "end_sec": 7.46
+    },
+    {
+      "text": "집중과",
+      "start_sec": 7.71,
+      "end_sec": 10.03
+    },
+    {
+      "text": "알림이",
+      "start_sec": 10.29,
+      "end_sec": 12.6
+    },
+    {
+      "text": "어떻게",
+      "start_sec": 12.86,
+      "end_sec": 15.17
+    },
+    {
+      "text": "작업을",
+      "start_sec": 15.43,
+      "end_sec": 17.74
+    },
+    {
+      "text": "깨는지",
+      "start_sec": 18.0,
+      "end_sec": 20.31
+    },
+    {
+      "text": "이야기하겠습니다",
+      "start_sec": 20.57,
+      "end_sec": 22.89
+    },
+    {
+      "text": ".",
+      "start_sec": 23.14,
+      "end_sec": 25.46
+    },
+    {
+      "text": "열",
+      "start_sec": 25.71,
+      "end_sec": 28.03
+    },
+    {
+      "text": "분만",
+      "start_sec": 28.29,
+      "end_sec": 30.6
+    },
+    {
+      "text": "들어주세요",
+      "start_sec": 30.86,
+      "end_sec": 33.17
+    },
+    {
+      "text": ".",
+      "start_sec": 33.43,
+      "end_sec": 35.74
+    },
+    {
+      "text": "어",
+      "start_sec": 50.0,
+      "end_sec": 52.52
+    },
+    {
+      "text": "문제를",
+      "start_sec": 52.8,
+      "end_sec": 55.32
+    },
+    {
+      "text": "먼저",
+      "start_sec": 55.6,
+      "end_sec": 58.12
+    },
+    {
+      "text": "정리하면",
+      "start_sec": 58.4,
+      "end_sec": 60.92
+    },
+    {
+      "text": ",",
+      "start_sec": 61.2,
+      "end_sec": 63.72
+    },
+    {
+      "text": "알림은",
+      "start_sec": 64.0,
+      "end_sec": 66.52
+    },
+    {
+      "text": "단순히",
+      "start_sec": 66.8,
+      "end_sec": 69.32
+    },
+    {
+      "text": "시끄러운",
+      "start_sec": 69.6,
+      "end_sec": 72.12
+    },
+    {
+      "text": "소리가",
+      "start_sec": 72.4,
+      "end_sec": 74.92
+    },
+    {
+      "text": "아닙니다",
+      "start_sec": 75.2,
+      "end_sec": 77.72
+    },
+    {
+      "text": ".",
+      "start_sec": 78.0,
+      "end_sec": 80.52
+    },
+    {
+      "text": "음",
+      "start_sec": 80.8,
+      "end_sec": 83.32
+    },
+    {
+      "text": "우리는",
+      "start_sec": 83.6,
+      "end_sec": 86.12
+    },
+    {
+      "text": "하루에",
+      "start_sec": 86.4,
+      "end_sec": 88.92
+    },
+    {
+      "text": "수십",
+      "start_sec": 89.2,
+      "end_sec": 91.72
+    },
+    {
+      "text": "번",
+      "start_sec": 92.0,
+      "end_sec": 94.52
+    },
+    {
+      "text": "끊깁니다",
+      "start_sec": 94.8,
+      "end_sec": 97.32
+    },
+    {
+      "text": ".",
+      "start_sec": 97.6,
+      "end_sec": 100.12
+    },
+    {
+      "text": "핵심입니다",
+      "start_sec": 120.0,
+      "end_sec": 121.13
+    },
+    {
+      "text": ".",
+      "start_sec": 121.26,
+      "end_sec": 122.39
+    },
+    {
+      "text": "알림은",
+      "start_sec": 122.52,
+      "end_sec": 123.65
+    },
+    {
+      "text": "눈길만",
+      "start_sec": 123.78,
+      "end_sec": 124.91
+    },
+    {
+      "text": "빼앗는",
+      "start_sec": 125.04,
+      "end_sec": 126.17
+    },
+    {
+      "text": "것이",
+      "start_sec": 126.3,
+      "end_sec": 127.43
+    },
+    {
+      "text": "아니라",
+      "start_sec": 127.56,
+      "end_sec": 128.69
+    },
+    {
+      "text": "머릿속",
+      "start_sec": 128.82,
+      "end_sec": 129.95
+    },
+    {
+      "text": "작업",
+      "start_sec": 130.08,
+      "end_sec": 131.21
+    },
+    {
+      "text": "상태",
+      "start_sec": 131.34,
+      "end_sec": 132.47
+    },
+    {
+      "text": "자체를",
+      "start_sec": 132.6,
+      "end_sec": 133.73
+    },
+    {
+      "text": "바꿉니다",
+      "start_sec": 133.86,
+      "end_sec": 134.99
+    },
+    {
+      "text": ".",
+      "start_sec": 135.12,
+      "end_sec": 136.25
+    },
+    {
+      "text": "주의가",
+      "start_sec": 136.38,
+      "end_sec": 137.51
+    },
+    {
+      "text": "재설정됩니다",
+      "start_sec": 137.64,
+      "end_sec": 138.77
+    },
+    {
+      "text": ".",
+      "start_sec": 138.9,
+      "end_sec": 140.03
+    },
+    {
+      "text": "어",
+      "start_sec": 148.0,
+      "end_sec": 150.12
+    },
+    {
+      "text": "배경을",
+      "start_sec": 150.36,
+      "end_sec": 152.48
+    },
+    {
+      "text": "조금",
+      "start_sec": 152.72,
+      "end_sec": 154.84
+    },
+    {
+      "text": "더",
+      "start_sec": 155.08,
+      "end_sec": 157.2
+    },
+    {
+      "text": "말씀드리면",
+      "start_sec": 162.4,
+      "end_sec": 164.53
+    },
+    {
+      "text": ",",
+      "start_sec": 164.76,
+      "end_sec": 166.89
+    },
+    {
+      "text": "예전부터",
+      "start_sec": 167.12,
+      "end_sec": 169.24
+    },
+    {
+      "text": "여러",
+      "start_sec": 169.48,
+      "end_sec": 171.6
+    },
+    {
+      "text": "실험이",
+      "start_sec": 171.84,
+      "end_sec": 173.96
+    },
+    {
+      "text": "있었습니다",
+      "start_sec": 174.2,
+      "end_sec": 176.32
+    },
+    {
+      "text": ".",
+      "start_sec": 176.56,
+      "end_sec": 178.68
+    },
+    {
+      "text": "그",
+      "start_sec": 178.91,
+      "end_sec": 181.04
+    },
+    {
+      "text": "그",
+      "start_sec": 181.27,
+      "end_sec": 183.4
+    },
+    {
+      "text": "연구들을",
+      "start_sec": 183.63,
+      "end_sec": 185.75
+    },
+    {
+      "text": "보면",
+      "start_sec": 185.99,
+      "end_sec": 188.11
+    },
+    {
+      "text": "과제가",
+      "start_sec": 188.35,
+      "end_sec": 190.47
+    },
+    {
+      "text": "달라도",
+      "start_sec": 190.71,
+      "end_sec": 192.83
+    },
+    {
+      "text": "비슷한",
+      "start_sec": 193.07,
+      "end_sec": 195.19
+    },
+    {
+      "text": "패턴이",
+      "start_sec": 195.43,
+      "end_sec": 197.55
+    },
+    {
+      "text": "반복됩니다",
+      "start_sec": 197.78,
+      "end_sec": 199.91
+    },
+    {
+      "text": ".",
+      "start_sec": 200.14,
+      "end_sec": 202.27
+    },
+    {
+      "text": "음",
+      "start_sec": 202.5,
+      "end_sec": 204.62
+    },
+    {
+      "text": "그래서",
+      "start_sec": 204.86,
+      "end_sec": 206.98
+    },
+    {
+      "text": "오늘은",
+      "start_sec": 207.22,
+      "end_sec": 209.34
+    },
+    {
+      "text": "그",
+      "start_sec": 209.58,
+      "end_sec": 211.7
+    },
+    {
+      "text": "공통점만",
+      "start_sec": 211.94,
+      "end_sec": 214.06
+    },
+    {
+      "text": "추려서",
+      "start_sec": 214.29,
+      "end_sec": 216.42
+    },
+    {
+      "text": "말씀드릴게요",
+      "start_sec": 216.65,
+      "end_sec": 218.78
+    },
+    {
+      "text": ".",
+      "start_sec": 219.01,
+      "end_sec": 221.13
+    },
+    {
+      "text": "짧은",
+      "start_sec": 248.5,
+      "end_sec": 249.58
+    },
+    {
+      "text": "알림",
+      "start_sec": 249.7,
+      "end_sec": 250.78
+    },
+    {
+      "text": "자체가",
+      "start_sec": 250.9,
+      "end_sec": 251.98
+    },
+    {
+      "text": "과제와",
+      "start_sec": 252.1,
+      "end_sec": 253.18
+    },
+    {
+      "text": "무관한",
+      "start_sec": 253.3,
+      "end_sec": 254.38
+    },
+    {
+      "text": "생각을",
+      "start_sec": 254.5,
+      "end_sec": 255.58
+    },
+    {
+      "text": "만들",
+      "start_sec": 255.7,
+      "end_sec": 256.78
+    },
+    {
+      "text": "수",
+      "start_sec": 256.9,
+      "end_sec": 257.98
+    },
+    {
+      "text": "있습니다",
+      "start_sec": 258.1,
+      "end_sec": 259.18
+    },
+    {
+      "text": ".",
+      "start_sec": 259.3,
+      "end_sec": 260.38
+    },
+    {
+      "text": "이게",
+      "start_sec": 260.5,
+      "end_sec": 261.58
+    },
+    {
+      "text": "두",
+      "start_sec": 261.7,
+      "end_sec": 262.78
+    },
+    {
+      "text": "번째",
+      "start_sec": 262.9,
+      "end_sec": 263.98
+    },
+    {
+      "text": "핵심입니다",
+      "start_sec": 264.1,
+      "end_sec": 265.18
+    },
+    {
+      "text": ".",
+      "start_sec": 265.3,
+      "end_sec": 266.38
+    },
+    {
+      "text": "폰이",
+      "start_sec": 273.5,
+      "end_sec": 275.02
+    },
+    {
+      "text": "보이는",
+      "start_sec": 275.19,
+      "end_sec": 276.72
+    },
+    {
+      "text": "것만으로도",
+      "start_sec": 276.89,
+      "end_sec": 278.41
+    },
+    {
+      "text": "인지",
+      "start_sec": 278.58,
+      "end_sec": 280.11
+    },
+    {
+      "text": "자원을",
+      "start_sec": 280.28,
+      "end_sec": 281.8
+    },
+    {
+      "text": "씁니다",
+      "start_sec": 281.97,
+      "end_sec": 283.5
+    },
+    {
+      "text": ".",
+      "start_sec": 283.66,
+      "end_sec": 285.19
+    },
+    {
+      "text": "책상",
+      "start_sec": 285.36,
+      "end_sec": 286.88
+    },
+    {
+      "text": "위",
+      "start_sec": 287.05,
+      "end_sec": 288.58
+    },
+    {
+      "text": "폰만",
+      "start_sec": 288.75,
+      "end_sec": 290.27
+    },
+    {
+      "text": "있어도",
+      "start_sec": 290.44,
+      "end_sec": 291.97
+    },
+    {
+      "text": "집중",
+      "start_sec": 292.14,
+      "end_sec": 293.66
+    },
+    {
+      "text": "용량이",
+      "start_sec": 293.83,
+      "end_sec": 295.35
+    },
+    {
+      "text": "깎인다는",
+      "start_sec": 295.52,
+      "end_sec": 297.05
+    },
+    {
+      "text": "결과가",
+      "start_sec": 297.22,
+      "end_sec": 298.74
+    },
+    {
+      "text": "있습니다",
+      "start_sec": 298.91,
+      "end_sec": 300.44
+    },
+    {
+      "text": ".",
+      "start_sec": 300.61,
+      "end_sec": 302.13
+    },
+    {
+      "text": "끝나지",
+      "start_sec": 313.5,
+      "end_sec": 315.12
+    },
+    {
+      "text": "않은",
+      "start_sec": 315.3,
+      "end_sec": 316.92
+    },
+    {
+      "text": "생각은",
+      "start_sec": 317.1,
+      "end_sec": 318.72
+    },
+    {
+      "text": "작업을",
+      "start_sec": 318.9,
+      "end_sec": 320.52
+    },
+    {
+      "text": "바꾼",
+      "start_sec": 320.7,
+      "end_sec": 322.32
+    },
+    {
+      "text": "뒤에도",
+      "start_sec": 322.5,
+      "end_sec": 324.12
+    },
+    {
+      "text": "일부",
+      "start_sec": 324.3,
+      "end_sec": 325.92
+    },
+    {
+      "text": "남아",
+      "start_sec": 326.1,
+      "end_sec": 327.72
+    },
+    {
+      "text": "있습니다",
+      "start_sec": 327.9,
+      "end_sec": 329.52
+    },
+    {
+      "text": ".",
+      "start_sec": 329.7,
+      "end_sec": 331.32
+    },
+    {
+      "text": "잔여",
+      "start_sec": 331.5,
+      "end_sec": 333.12
+    },
+    {
+      "text": "주의가",
+      "start_sec": 333.3,
+      "end_sec": 334.92
+    },
+    {
+      "text": "남습니다",
+      "start_sec": 335.1,
+      "end_sec": 336.72
+    },
+    {
+      "text": ".",
+      "start_sec": 336.9,
+      "end_sec": 338.52
+    },
+    {
+      "text": "손실은",
+      "start_sec": 348.5,
+      "end_sec": 351.24
+    },
+    {
+      "text": "시간보다",
+      "start_sec": 351.55,
+      "end_sec": 354.29
+    },
+    {
+      "text": "흐름에서",
+      "start_sec": 354.59,
+      "end_sec": 357.33
+    },
+    {
+      "text": "커집니다",
+      "start_sec": 357.64,
+      "end_sec": 360.38
+    },
+    {
+      "text": ".",
+      "start_sec": 360.68,
+      "end_sec": 363.43
+    },
+    {
+      "text": "흐름",
+      "start_sec": 363.73,
+      "end_sec": 366.47
+    },
+    {
+      "text": "흐름이",
+      "start_sec": 366.78,
+      "end_sec": 369.52
+    },
+    {
+      "text": "끊기면",
+      "start_sec": 369.82,
+      "end_sec": 372.56
+    },
+    {
+      "text": "복구",
+      "start_sec": 372.87,
+      "end_sec": 375.61
+    },
+    {
+      "text": "비용이",
+      "start_sec": 375.92,
+      "end_sec": 378.66
+    },
+    {
+      "text": "생각보다",
+      "start_sec": 378.96,
+      "end_sec": 381.7
+    },
+    {
+      "text": "큽니다",
+      "start_sec": 382.01,
+      "end_sec": 384.75
+    },
+    {
+      "text": ".",
+      "start_sec": 385.05,
+      "end_sec": 387.8
+    },
+    {
+      "text": "따라서",
+      "start_sec": 403.5,
+      "end_sec": 404.98
+    },
+    {
+      "text": "집중을",
+      "start_sec": 405.15,
+      "end_sec": 406.63
+    },
+    {
+      "text": "의지의",
+      "start_sec": 406.79,
+      "end_sec": 408.27
+    },
+    {
+      "text": "문제가",
+      "start_sec": 408.44,
+      "end_sec": 409.92
+    },
+    {
+      "text": "아니라",
+      "start_sec": 410.08,
+      "end_sec": 411.56
+    },
+    {
+      "text": "환경",
+      "start_sec": 411.73,
+      "end_sec": 413.21
+    },
+    {
+      "text": "설계의",
+      "start_sec": 413.37,
+      "end_sec": 414.86
+    },
+    {
+      "text": "문제로",
+      "start_sec": 415.02,
+      "end_sec": 416.5
+    },
+    {
+      "text": "바꿔야",
+      "start_sec": 416.67,
+      "end_sec": 418.15
+    },
+    {
+      "text": "합니다",
+      "start_sec": 418.31,
+      "end_sec": 419.79
+    },
+    {
+      "text": ".",
+      "start_sec": 419.96,
+      "end_sec": 421.44
+    },
+    {
+      "text": "루틴이",
+      "start_sec": 421.6,
+      "end_sec": 423.08
+    },
+    {
+      "text": "먼저입니다",
+      "start_sec": 423.25,
+      "end_sec": 424.73
+    },
+    {
+      "text": ".",
+      "start_sec": 424.89,
+      "end_sec": 426.38
+    },
+    {
+      "text": "오늘",
+      "start_sec": 435.5,
+      "end_sec": 437.75
+    },
+    {
+      "text": "바로",
+      "start_sec": 438.0,
+      "end_sec": 440.26
+    },
+    {
+      "text": "바꿀",
+      "start_sec": 440.51,
+      "end_sec": 442.76
+    },
+    {
+      "text": "수",
+      "start_sec": 443.01,
+      "end_sec": 445.27
+    },
+    {
+      "text": "있는",
+      "start_sec": 445.52,
+      "end_sec": 447.77
+    },
+    {
+      "text": "집중",
+      "start_sec": 448.02,
+      "end_sec": 450.28
+    },
+    {
+      "text": "루틴을",
+      "start_sec": 450.53,
+      "end_sec": 452.78
+    },
+    {
+      "text": "말씀드릴게요",
+      "start_sec": 453.03,
+      "end_sec": 455.28
+    },
+    {
+      "text": ".",
+      "start_sec": 455.53,
+      "end_sec": 457.79
+    },
+    {
+      "text": "어",
+      "start_sec": 458.04,
+      "end_sec": 460.29
+    },
+    {
+      "text": "음",
+      "start_sec": 460.54,
+      "end_sec": 462.8
+    },
+    {
+      "text": "일단",
+      "start_sec": 463.05,
+      "end_sec": 465.3
+    },
+    {
+      "text": "알림을",
+      "start_sec": 465.55,
+      "end_sec": 467.81
+    },
+    {
+      "text": "끄고",
+      "start_sec": 468.06,
+      "end_sec": 470.31
+    },
+    {
+      "text": ",",
+      "start_sec": 470.56,
+      "end_sec": 472.81
+    },
+    {
+      "text": "폰은",
+      "start_sec": 473.07,
+      "end_sec": 475.32
+    },
+    {
+      "text": "서랍에",
+      "start_sec": 475.57,
+      "end_sec": 477.82
+    },
+    {
+      "text": "넣고",
+      "start_sec": 478.07,
+      "end_sec": 480.33
+    },
+    {
+      "text": ",",
+      "start_sec": 480.58,
+      "end_sec": 482.83
+    },
+    {
+      "text": "시작",
+      "start_sec": 483.08,
+      "end_sec": 485.34
+    },
+    {
+      "text": "의식을",
+      "start_sec": 485.59,
+      "end_sec": 487.84
+    },
+    {
+      "text": "만드세요",
+      "start_sec": 488.09,
+      "end_sec": 490.35
+    },
+    {
+      "text": ".",
+      "start_sec": 490.6,
+      "end_sec": 492.85
+    },
+    {
+      "text": "정리하면",
+      "start_sec": 515.5,
+      "end_sec": 517.49
+    },
+    {
+      "text": "환경이",
+      "start_sec": 517.72,
+      "end_sec": 519.71
+    },
+    {
+      "text": "먼저이고",
+      "start_sec": 519.93,
+      "end_sec": 521.92
+    },
+    {
+      "text": ",",
+      "start_sec": 522.15,
+      "end_sec": 524.14
+    },
+    {
+      "text": "의지는",
+      "start_sec": 524.36,
+      "end_sec": 526.36
+    },
+    {
+      "text": "그다음입니다",
+      "start_sec": 526.58,
+      "end_sec": 528.57
+    },
+    {
+      "text": ".",
+      "start_sec": 528.79,
+      "end_sec": 530.79
+    },
+    {
+      "text": "작은",
+      "start_sec": 531.01,
+      "end_sec": 533.0
+    },
+    {
+      "text": "설계가",
+      "start_sec": 533.22,
+      "end_sec": 535.22
+    },
+    {
+      "text": "큰",
+      "start_sec": 535.44,
+      "end_sec": 537.43
+    },
+    {
+      "text": "집중을",
+      "start_sec": 537.65,
+      "end_sec": 539.65
+    },
+    {
+      "text": "만듭니다",
+      "start_sec": 539.87,
+      "end_sec": 541.86
+    },
+    {
+      "text": ".",
+      "start_sec": 542.08,
+      "end_sec": 544.08
+    },
+    {
+      "text": "경청해",
+      "start_sec": 555.5,
+      "end_sec": 558.74
+    },
+    {
+      "text": "주셔서",
+      "start_sec": 559.1,
+      "end_sec": 562.34
+    },
+    {
+      "text": "감사합니다",
+      "start_sec": 562.7,
+      "end_sec": 565.94
+    },
+    {
+      "text": ".",
+      "start_sec": 566.3,
+      "end_sec": 569.54
+    },
+    {
+      "text": "질문",
+      "start_sec": 569.9,
+      "end_sec": 573.14
+    },
+    {
+      "text": "있으시면",
+      "start_sec": 573.5,
+      "end_sec": 576.74
+    },
+    {
+      "text": "받겠습니다",
+      "start_sec": 577.1,
+      "end_sec": 580.34
+    },
+    {
+      "text": ".",
+      "start_sec": 580.7,
+      "end_sec": 583.94
+    }
+  ],
+  "by_slide": [
+    {
+      "slide_no": 1,
+      "visit": 1,
+      "start_sec": 0.0,
+      "end_sec": 50.0,
+      "text": "안녕하세요. 오늘은 집중과 알림이 어떻게 작업을 깨는지 이야기하겠습니다. 열 분만 들어주세요.",
+      "words": [
+        {
+          "text": "안녕하세요",
+          "start_sec": 0.0,
+          "end_sec": 2.31
+        },
+        {
+          "text": ".",
+          "start_sec": 2.57,
+          "end_sec": 4.89
+        },
+        {
+          "text": "오늘은",
+          "start_sec": 5.14,
+          "end_sec": 7.46
+        },
+        {
+          "text": "집중과",
+          "start_sec": 7.71,
+          "end_sec": 10.03
+        },
+        {
+          "text": "알림이",
+          "start_sec": 10.29,
+          "end_sec": 12.6
+        },
+        {
+          "text": "어떻게",
+          "start_sec": 12.86,
+          "end_sec": 15.17
+        },
+        {
+          "text": "작업을",
+          "start_sec": 15.43,
+          "end_sec": 17.74
+        },
+        {
+          "text": "깨는지",
+          "start_sec": 18.0,
+          "end_sec": 20.31
+        },
+        {
+          "text": "이야기하겠습니다",
+          "start_sec": 20.57,
+          "end_sec": 22.89
+        },
+        {
+          "text": ".",
+          "start_sec": 23.14,
+          "end_sec": 25.46
+        },
+        {
+          "text": "열",
+          "start_sec": 25.71,
+          "end_sec": 28.03
+        },
+        {
+          "text": "분만",
+          "start_sec": 28.29,
+          "end_sec": 30.6
+        },
+        {
+          "text": "들어주세요",
+          "start_sec": 30.86,
+          "end_sec": 33.17
+        },
+        {
+          "text": ".",
+          "start_sec": 33.43,
+          "end_sec": 35.74
+        }
+      ]
+    },
+    {
+      "slide_no": 2,
+      "visit": 1,
+      "start_sec": 50.0,
+      "end_sec": 120.0,
+      "text": "어 문제를 먼저 정리하면, 알림은 단순히 시끄러운 소리가 아닙니다. 음 우리는 하루에 수십 번 끊깁니다.",
+      "words": [
+        {
+          "text": "어",
+          "start_sec": 50.0,
+          "end_sec": 52.52
+        },
+        {
+          "text": "문제를",
+          "start_sec": 52.8,
+          "end_sec": 55.32
+        },
+        {
+          "text": "먼저",
+          "start_sec": 55.6,
+          "end_sec": 58.12
+        },
+        {
+          "text": "정리하면",
+          "start_sec": 58.4,
+          "end_sec": 60.92
+        },
+        {
+          "text": ",",
+          "start_sec": 61.2,
+          "end_sec": 63.72
+        },
+        {
+          "text": "알림은",
+          "start_sec": 64.0,
+          "end_sec": 66.52
+        },
+        {
+          "text": "단순히",
+          "start_sec": 66.8,
+          "end_sec": 69.32
+        },
+        {
+          "text": "시끄러운",
+          "start_sec": 69.6,
+          "end_sec": 72.12
+        },
+        {
+          "text": "소리가",
+          "start_sec": 72.4,
+          "end_sec": 74.92
+        },
+        {
+          "text": "아닙니다",
+          "start_sec": 75.2,
+          "end_sec": 77.72
+        },
+        {
+          "text": ".",
+          "start_sec": 78.0,
+          "end_sec": 80.52
+        },
+        {
+          "text": "음",
+          "start_sec": 80.8,
+          "end_sec": 83.32
+        },
+        {
+          "text": "우리는",
+          "start_sec": 83.6,
+          "end_sec": 86.12
+        },
+        {
+          "text": "하루에",
+          "start_sec": 86.4,
+          "end_sec": 88.92
+        },
+        {
+          "text": "수십",
+          "start_sec": 89.2,
+          "end_sec": 91.72
+        },
+        {
+          "text": "번",
+          "start_sec": 92.0,
+          "end_sec": 94.52
+        },
+        {
+          "text": "끊깁니다",
+          "start_sec": 94.8,
+          "end_sec": 97.32
+        },
+        {
+          "text": ".",
+          "start_sec": 97.6,
+          "end_sec": 100.12
+        }
+      ]
+    },
+    {
+      "slide_no": 3,
+      "visit": 1,
+      "start_sec": 120.0,
+      "end_sec": 148.0,
+      "text": "핵심입니다. 알림은 눈길만 빼앗는 것이 아니라 머릿속 작업 상태 자체를 바꿉니다. 주의가 재설정됩니다.",
+      "words": [
+        {
+          "text": "핵심입니다",
+          "start_sec": 120.0,
+          "end_sec": 121.13
+        },
+        {
+          "text": ".",
+          "start_sec": 121.26,
+          "end_sec": 122.39
+        },
+        {
+          "text": "알림은",
+          "start_sec": 122.52,
+          "end_sec": 123.65
+        },
+        {
+          "text": "눈길만",
+          "start_sec": 123.78,
+          "end_sec": 124.91
+        },
+        {
+          "text": "빼앗는",
+          "start_sec": 125.04,
+          "end_sec": 126.17
+        },
+        {
+          "text": "것이",
+          "start_sec": 126.3,
+          "end_sec": 127.43
+        },
+        {
+          "text": "아니라",
+          "start_sec": 127.56,
+          "end_sec": 128.69
+        },
+        {
+          "text": "머릿속",
+          "start_sec": 128.82,
+          "end_sec": 129.95
+        },
+        {
+          "text": "작업",
+          "start_sec": 130.08,
+          "end_sec": 131.21
+        },
+        {
+          "text": "상태",
+          "start_sec": 131.34,
+          "end_sec": 132.47
+        },
+        {
+          "text": "자체를",
+          "start_sec": 132.6,
+          "end_sec": 133.73
+        },
+        {
+          "text": "바꿉니다",
+          "start_sec": 133.86,
+          "end_sec": 134.99
+        },
+        {
+          "text": ".",
+          "start_sec": 135.12,
+          "end_sec": 136.25
+        },
+        {
+          "text": "주의가",
+          "start_sec": 136.38,
+          "end_sec": 137.51
+        },
+        {
+          "text": "재설정됩니다",
+          "start_sec": 137.64,
+          "end_sec": 138.77
+        },
+        {
+          "text": ".",
+          "start_sec": 138.9,
+          "end_sec": 140.03
+        }
+      ]
+    },
+    {
+      "slide_no": 4,
+      "visit": 1,
+      "start_sec": 148.0,
+      "end_sec": 243.0,
+      "text": "어 배경을 조금 더 말씀드리면, 예전부터 여러 실험이 있었습니다. 그 그 연구들을 보면 과제가 달라도 비슷한 패턴이 반복됩니다. 음 그래서 오늘은 그 공통점만 추려서 말씀드릴게요.",
+      "words": [
+        {
+          "text": "어",
+          "start_sec": 148.0,
+          "end_sec": 150.12
+        },
+        {
+          "text": "배경을",
+          "start_sec": 150.36,
+          "end_sec": 152.48
+        },
+        {
+          "text": "조금",
+          "start_sec": 152.72,
+          "end_sec": 154.84
+        },
+        {
+          "text": "더",
+          "start_sec": 155.08,
+          "end_sec": 157.2
+        },
+        {
+          "text": "말씀드리면",
+          "start_sec": 162.4,
+          "end_sec": 164.53
+        },
+        {
+          "text": ",",
+          "start_sec": 164.76,
+          "end_sec": 166.89
+        },
+        {
+          "text": "예전부터",
+          "start_sec": 167.12,
+          "end_sec": 169.24
+        },
+        {
+          "text": "여러",
+          "start_sec": 169.48,
+          "end_sec": 171.6
+        },
+        {
+          "text": "실험이",
+          "start_sec": 171.84,
+          "end_sec": 173.96
+        },
+        {
+          "text": "있었습니다",
+          "start_sec": 174.2,
+          "end_sec": 176.32
+        },
+        {
+          "text": ".",
+          "start_sec": 176.56,
+          "end_sec": 178.68
+        },
+        {
+          "text": "그",
+          "start_sec": 178.91,
+          "end_sec": 181.04
+        },
+        {
+          "text": "그",
+          "start_sec": 181.27,
+          "end_sec": 183.4
+        },
+        {
+          "text": "연구들을",
+          "start_sec": 183.63,
+          "end_sec": 185.75
+        },
+        {
+          "text": "보면",
+          "start_sec": 185.99,
+          "end_sec": 188.11
+        },
+        {
+          "text": "과제가",
+          "start_sec": 188.35,
+          "end_sec": 190.47
+        },
+        {
+          "text": "달라도",
+          "start_sec": 190.71,
+          "end_sec": 192.83
+        },
+        {
+          "text": "비슷한",
+          "start_sec": 193.07,
+          "end_sec": 195.19
+        },
+        {
+          "text": "패턴이",
+          "start_sec": 195.43,
+          "end_sec": 197.55
+        },
+        {
+          "text": "반복됩니다",
+          "start_sec": 197.78,
+          "end_sec": 199.91
+        },
+        {
+          "text": ".",
+          "start_sec": 200.14,
+          "end_sec": 202.27
+        },
+        {
+          "text": "음",
+          "start_sec": 202.5,
+          "end_sec": 204.62
+        },
+        {
+          "text": "그래서",
+          "start_sec": 204.86,
+          "end_sec": 206.98
+        },
+        {
+          "text": "오늘은",
+          "start_sec": 207.22,
+          "end_sec": 209.34
+        },
+        {
+          "text": "그",
+          "start_sec": 209.58,
+          "end_sec": 211.7
+        },
+        {
+          "text": "공통점만",
+          "start_sec": 211.94,
+          "end_sec": 214.06
+        },
+        {
+          "text": "추려서",
+          "start_sec": 214.29,
+          "end_sec": 216.42
+        },
+        {
+          "text": "말씀드릴게요",
+          "start_sec": 216.65,
+          "end_sec": 218.78
+        },
+        {
+          "text": ".",
+          "start_sec": 219.01,
+          "end_sec": 221.13
+        }
+      ]
+    },
+    {
+      "slide_no": 5,
+      "visit": 1,
+      "start_sec": 248.5,
+      "end_sec": 273.5,
+      "text": "짧은 알림 자체가 과제와 무관한 생각을 만들 수 있습니다. 이게 두 번째 핵심입니다.",
+      "words": [
+        {
+          "text": "짧은",
+          "start_sec": 248.5,
+          "end_sec": 249.58
+        },
+        {
+          "text": "알림",
+          "start_sec": 249.7,
+          "end_sec": 250.78
+        },
+        {
+          "text": "자체가",
+          "start_sec": 250.9,
+          "end_sec": 251.98
+        },
+        {
+          "text": "과제와",
+          "start_sec": 252.1,
+          "end_sec": 253.18
+        },
+        {
+          "text": "무관한",
+          "start_sec": 253.3,
+          "end_sec": 254.38
+        },
+        {
+          "text": "생각을",
+          "start_sec": 254.5,
+          "end_sec": 255.58
+        },
+        {
+          "text": "만들",
+          "start_sec": 255.7,
+          "end_sec": 256.78
+        },
+        {
+          "text": "수",
+          "start_sec": 256.9,
+          "end_sec": 257.98
+        },
+        {
+          "text": "있습니다",
+          "start_sec": 258.1,
+          "end_sec": 259.18
+        },
+        {
+          "text": ".",
+          "start_sec": 259.3,
+          "end_sec": 260.38
+        },
+        {
+          "text": "이게",
+          "start_sec": 260.5,
+          "end_sec": 261.58
+        },
+        {
+          "text": "두",
+          "start_sec": 261.7,
+          "end_sec": 262.78
+        },
+        {
+          "text": "번째",
+          "start_sec": 262.9,
+          "end_sec": 263.98
+        },
+        {
+          "text": "핵심입니다",
+          "start_sec": 264.1,
+          "end_sec": 265.18
+        },
+        {
+          "text": ".",
+          "start_sec": 265.3,
+          "end_sec": 266.38
+        }
+      ]
+    },
+    {
+      "slide_no": 6,
+      "visit": 1,
+      "start_sec": 273.5,
+      "end_sec": 313.5,
+      "text": "폰이 보이는 것만으로도 인지 자원을 씁니다. 책상 위 폰만 있어도 집중 용량이 깎인다는 결과가 있습니다.",
+      "words": [
+        {
+          "text": "폰이",
+          "start_sec": 273.5,
+          "end_sec": 275.02
+        },
+        {
+          "text": "보이는",
+          "start_sec": 275.19,
+          "end_sec": 276.72
+        },
+        {
+          "text": "것만으로도",
+          "start_sec": 276.89,
+          "end_sec": 278.41
+        },
+        {
+          "text": "인지",
+          "start_sec": 278.58,
+          "end_sec": 280.11
+        },
+        {
+          "text": "자원을",
+          "start_sec": 280.28,
+          "end_sec": 281.8
+        },
+        {
+          "text": "씁니다",
+          "start_sec": 281.97,
+          "end_sec": 283.5
+        },
+        {
+          "text": ".",
+          "start_sec": 283.66,
+          "end_sec": 285.19
+        },
+        {
+          "text": "책상",
+          "start_sec": 285.36,
+          "end_sec": 286.88
+        },
+        {
+          "text": "위",
+          "start_sec": 287.05,
+          "end_sec": 288.58
+        },
+        {
+          "text": "폰만",
+          "start_sec": 288.75,
+          "end_sec": 290.27
+        },
+        {
+          "text": "있어도",
+          "start_sec": 290.44,
+          "end_sec": 291.97
+        },
+        {
+          "text": "집중",
+          "start_sec": 292.14,
+          "end_sec": 293.66
+        },
+        {
+          "text": "용량이",
+          "start_sec": 293.83,
+          "end_sec": 295.35
+        },
+        {
+          "text": "깎인다는",
+          "start_sec": 295.52,
+          "end_sec": 297.05
+        },
+        {
+          "text": "결과가",
+          "start_sec": 297.22,
+          "end_sec": 298.74
+        },
+        {
+          "text": "있습니다",
+          "start_sec": 298.91,
+          "end_sec": 300.44
+        },
+        {
+          "text": ".",
+          "start_sec": 300.61,
+          "end_sec": 302.13
+        }
+      ]
+    },
+    {
+      "slide_no": 7,
+      "visit": 1,
+      "start_sec": 313.5,
+      "end_sec": 348.5,
+      "text": "끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있습니다. 잔여 주의가 남습니다.",
+      "words": [
+        {
+          "text": "끝나지",
+          "start_sec": 313.5,
+          "end_sec": 315.12
+        },
+        {
+          "text": "않은",
+          "start_sec": 315.3,
+          "end_sec": 316.92
+        },
+        {
+          "text": "생각은",
+          "start_sec": 317.1,
+          "end_sec": 318.72
+        },
+        {
+          "text": "작업을",
+          "start_sec": 318.9,
+          "end_sec": 320.52
+        },
+        {
+          "text": "바꾼",
+          "start_sec": 320.7,
+          "end_sec": 322.32
+        },
+        {
+          "text": "뒤에도",
+          "start_sec": 322.5,
+          "end_sec": 324.12
+        },
+        {
+          "text": "일부",
+          "start_sec": 324.3,
+          "end_sec": 325.92
+        },
+        {
+          "text": "남아",
+          "start_sec": 326.1,
+          "end_sec": 327.72
+        },
+        {
+          "text": "있습니다",
+          "start_sec": 327.9,
+          "end_sec": 329.52
+        },
+        {
+          "text": ".",
+          "start_sec": 329.7,
+          "end_sec": 331.32
+        },
+        {
+          "text": "잔여",
+          "start_sec": 331.5,
+          "end_sec": 333.12
+        },
+        {
+          "text": "주의가",
+          "start_sec": 333.3,
+          "end_sec": 334.92
+        },
+        {
+          "text": "남습니다",
+          "start_sec": 335.1,
+          "end_sec": 336.72
+        },
+        {
+          "text": ".",
+          "start_sec": 336.9,
+          "end_sec": 338.52
+        }
+      ]
+    },
+    {
+      "slide_no": 8,
+      "visit": 1,
+      "start_sec": 348.5,
+      "end_sec": 403.5,
+      "text": "손실은 시간보다 흐름에서 커집니다. 흐름 흐름이 끊기면 복구 비용이 생각보다 큽니다.",
+      "words": [
+        {
+          "text": "손실은",
+          "start_sec": 348.5,
+          "end_sec": 351.24
+        },
+        {
+          "text": "시간보다",
+          "start_sec": 351.55,
+          "end_sec": 354.29
+        },
+        {
+          "text": "흐름에서",
+          "start_sec": 354.59,
+          "end_sec": 357.33
+        },
+        {
+          "text": "커집니다",
+          "start_sec": 357.64,
+          "end_sec": 360.38
+        },
+        {
+          "text": ".",
+          "start_sec": 360.68,
+          "end_sec": 363.43
+        },
+        {
+          "text": "흐름",
+          "start_sec": 363.73,
+          "end_sec": 366.47
+        },
+        {
+          "text": "흐름이",
+          "start_sec": 366.78,
+          "end_sec": 369.52
+        },
+        {
+          "text": "끊기면",
+          "start_sec": 369.82,
+          "end_sec": 372.56
+        },
+        {
+          "text": "복구",
+          "start_sec": 372.87,
+          "end_sec": 375.61
+        },
+        {
+          "text": "비용이",
+          "start_sec": 375.92,
+          "end_sec": 378.66
+        },
+        {
+          "text": "생각보다",
+          "start_sec": 378.96,
+          "end_sec": 381.7
+        },
+        {
+          "text": "큽니다",
+          "start_sec": 382.01,
+          "end_sec": 384.75
+        },
+        {
+          "text": ".",
+          "start_sec": 385.05,
+          "end_sec": 387.8
+        }
+      ]
+    },
+    {
+      "slide_no": 9,
+      "visit": 1,
+      "start_sec": 403.5,
+      "end_sec": 435.5,
+      "text": "따라서 집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 합니다. 루틴이 먼저입니다.",
+      "words": [
+        {
+          "text": "따라서",
+          "start_sec": 403.5,
+          "end_sec": 404.98
+        },
+        {
+          "text": "집중을",
+          "start_sec": 405.15,
+          "end_sec": 406.63
+        },
+        {
+          "text": "의지의",
+          "start_sec": 406.79,
+          "end_sec": 408.27
+        },
+        {
+          "text": "문제가",
+          "start_sec": 408.44,
+          "end_sec": 409.92
+        },
+        {
+          "text": "아니라",
+          "start_sec": 410.08,
+          "end_sec": 411.56
+        },
+        {
+          "text": "환경",
+          "start_sec": 411.73,
+          "end_sec": 413.21
+        },
+        {
+          "text": "설계의",
+          "start_sec": 413.37,
+          "end_sec": 414.86
+        },
+        {
+          "text": "문제로",
+          "start_sec": 415.02,
+          "end_sec": 416.5
+        },
+        {
+          "text": "바꿔야",
+          "start_sec": 416.67,
+          "end_sec": 418.15
+        },
+        {
+          "text": "합니다",
+          "start_sec": 418.31,
+          "end_sec": 419.79
+        },
+        {
+          "text": ".",
+          "start_sec": 419.96,
+          "end_sec": 421.44
+        },
+        {
+          "text": "루틴이",
+          "start_sec": 421.6,
+          "end_sec": 423.08
+        },
+        {
+          "text": "먼저입니다",
+          "start_sec": 423.25,
+          "end_sec": 424.73
+        },
+        {
+          "text": ".",
+          "start_sec": 424.89,
+          "end_sec": 426.38
+        }
+      ]
+    },
+    {
+      "slide_no": 10,
+      "visit": 1,
+      "start_sec": 435.5,
+      "end_sec": 515.5,
+      "text": "오늘 바로 바꿀 수 있는 집중 루틴을 말씀드릴게요. 어 음 일단 알림을 끄고, 폰은 서랍에 넣고, 시작 의식을 만드세요.",
+      "words": [
+        {
+          "text": "오늘",
+          "start_sec": 435.5,
+          "end_sec": 437.75
+        },
+        {
+          "text": "바로",
+          "start_sec": 438.0,
+          "end_sec": 440.26
+        },
+        {
+          "text": "바꿀",
+          "start_sec": 440.51,
+          "end_sec": 442.76
+        },
+        {
+          "text": "수",
+          "start_sec": 443.01,
+          "end_sec": 445.27
+        },
+        {
+          "text": "있는",
+          "start_sec": 445.52,
+          "end_sec": 447.77
+        },
+        {
+          "text": "집중",
+          "start_sec": 448.02,
+          "end_sec": 450.28
+        },
+        {
+          "text": "루틴을",
+          "start_sec": 450.53,
+          "end_sec": 452.78
+        },
+        {
+          "text": "말씀드릴게요",
+          "start_sec": 453.03,
+          "end_sec": 455.28
+        },
+        {
+          "text": ".",
+          "start_sec": 455.53,
+          "end_sec": 457.79
+        },
+        {
+          "text": "어",
+          "start_sec": 458.04,
+          "end_sec": 460.29
+        },
+        {
+          "text": "음",
+          "start_sec": 460.54,
+          "end_sec": 462.8
+        },
+        {
+          "text": "일단",
+          "start_sec": 463.05,
+          "end_sec": 465.3
+        },
+        {
+          "text": "알림을",
+          "start_sec": 465.55,
+          "end_sec": 467.81
+        },
+        {
+          "text": "끄고",
+          "start_sec": 468.06,
+          "end_sec": 470.31
+        },
+        {
+          "text": ",",
+          "start_sec": 470.56,
+          "end_sec": 472.81
+        },
+        {
+          "text": "폰은",
+          "start_sec": 473.07,
+          "end_sec": 475.32
+        },
+        {
+          "text": "서랍에",
+          "start_sec": 475.57,
+          "end_sec": 477.82
+        },
+        {
+          "text": "넣고",
+          "start_sec": 478.07,
+          "end_sec": 480.33
+        },
+        {
+          "text": ",",
+          "start_sec": 480.58,
+          "end_sec": 482.83
+        },
+        {
+          "text": "시작",
+          "start_sec": 483.08,
+          "end_sec": 485.34
+        },
+        {
+          "text": "의식을",
+          "start_sec": 485.59,
+          "end_sec": 487.84
+        },
+        {
+          "text": "만드세요",
+          "start_sec": 488.09,
+          "end_sec": 490.35
+        },
+        {
+          "text": ".",
+          "start_sec": 490.6,
+          "end_sec": 492.85
+        }
+      ]
+    },
+    {
+      "slide_no": 11,
+      "visit": 1,
+      "start_sec": 515.5,
+      "end_sec": 555.5,
+      "text": "정리하면 환경이 먼저이고, 의지는 그다음입니다. 작은 설계가 큰 집중을 만듭니다.",
+      "words": [
+        {
+          "text": "정리하면",
+          "start_sec": 515.5,
+          "end_sec": 517.49
+        },
+        {
+          "text": "환경이",
+          "start_sec": 517.72,
+          "end_sec": 519.71
+        },
+        {
+          "text": "먼저이고",
+          "start_sec": 519.93,
+          "end_sec": 521.92
+        },
+        {
+          "text": ",",
+          "start_sec": 522.15,
+          "end_sec": 524.14
+        },
+        {
+          "text": "의지는",
+          "start_sec": 524.36,
+          "end_sec": 526.36
+        },
+        {
+          "text": "그다음입니다",
+          "start_sec": 526.58,
+          "end_sec": 528.57
+        },
+        {
+          "text": ".",
+          "start_sec": 528.79,
+          "end_sec": 530.79
+        },
+        {
+          "text": "작은",
+          "start_sec": 531.01,
+          "end_sec": 533.0
+        },
+        {
+          "text": "설계가",
+          "start_sec": 533.22,
+          "end_sec": 535.22
+        },
+        {
+          "text": "큰",
+          "start_sec": 535.44,
+          "end_sec": 537.43
+        },
+        {
+          "text": "집중을",
+          "start_sec": 537.65,
+          "end_sec": 539.65
+        },
+        {
+          "text": "만듭니다",
+          "start_sec": 539.87,
+          "end_sec": 541.86
+        },
+        {
+          "text": ".",
+          "start_sec": 542.08,
+          "end_sec": 544.08
+        }
+      ]
+    },
+    {
+      "slide_no": 12,
+      "visit": 1,
+      "start_sec": 555.5,
+      "end_sec": 595.5,
+      "text": "경청해 주셔서 감사합니다. 질문 있으시면 받겠습니다.",
+      "words": [
+        {
+          "text": "경청해",
+          "start_sec": 555.5,
+          "end_sec": 558.74
+        },
+        {
+          "text": "주셔서",
+          "start_sec": 559.1,
+          "end_sec": 562.34
+        },
+        {
+          "text": "감사합니다",
+          "start_sec": 562.7,
+          "end_sec": 565.94
+        },
+        {
+          "text": ".",
+          "start_sec": 566.3,
+          "end_sec": 569.54
+        },
+        {
+          "text": "질문",
+          "start_sec": 569.9,
+          "end_sec": 573.14
+        },
+        {
+          "text": "있으시면",
+          "start_sec": 573.5,
+          "end_sec": 576.74
+        },
+        {
+          "text": "받겠습니다",
+          "start_sec": 577.1,
+          "end_sec": 580.34
+        },
+        {
+          "text": ".",
+          "start_sec": 580.7,
+          "end_sec": 583.94
+        }
+      ]
+    }
+  ],
+  "provider": "fixture-focus",
+  "duration_sec": 583.94
+}

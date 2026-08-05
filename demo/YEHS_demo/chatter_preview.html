@@ -1,0 +1,67 @@
+<!--
+삐약 청중석만 바로 보는 미리보기 페이지입니다.
+리허설 없이 객석 연출을 확인하려고 만든 화면이라, 발표 데이터는 아래에 박아 뒀습니다.
+실제 서비스 진입점은 리포트 요약 탭의 '청중 반응 몰래 보기' 카드입니다.
+-->
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>삐약 청중석 미리보기</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/chatter.css">
+<style>
+  body { font-family: var(--font); background: var(--canvas); margin: 0; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 40px 20px; }
+  .wrap h1 { font-size: 20px; margin: 0 0 6px; }
+  .wrap p { color: var(--text-2); font-size: 14px; margin: 0 0 18px; }
+  .again { margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>삐약 청중석 미리보기</h1>
+  <p>발표가 끝난 객석입니다. 병아리를 콕 찌르면 한마디 하고, 말풍선의
+     '슬라이드 N' 배지는 리포트의 해당 개념으로 가는 버튼입니다.</p>
+  <div id="mount"></div>
+  <button class="btn btn-primary again" id="again" type="button">다시 들어가기</button>
+</div>
+
+<script src="js/chatter.js"></script>
+<script>
+const BUNDLE = {"graph": {"file_name": "sample.pdf", "total_slides": 4, "model": "", "nodes": [{"id": "c1", "label": "대조 학습", "slide_nos": [1], "summary": "", "importance": "core", "weight": 1.0, "weight_basis": {"slide_count": 0, "char_share": 0.0, "has_visual": false, "position": "middle", "mention_count": 0, "title_hit": false}, "parent_id": null, "depth": 1}, {"id": "c2", "label": "공동 임베딩", "slide_nos": [2], "summary": "", "importance": "core", "weight": 0.8, "weight_basis": {"slide_count": 0, "char_share": 0.0, "has_visual": false, "position": "middle", "mention_count": 0, "title_hit": false}, "parent_id": "c1", "depth": 2}, {"id": "c3", "label": "온도 파라미터", "slide_nos": [3], "summary": "", "importance": "core", "weight": 0.6, "weight_basis": {"slide_count": 0, "char_share": 0.0, "has_visual": false, "position": "middle", "mention_count": 0, "title_hit": false}, "parent_id": "c1", "depth": 2}, {"id": "c4", "label": "평가 지표", "slide_nos": [4], "summary": "", "importance": "core", "weight": 0.4, "weight_basis": {"slide_count": 0, "char_share": 0.0, "has_visual": false, "position": "middle", "mention_count": 0, "title_hit": false}, "parent_id": "c1", "depth": 2}], "edges": [{"from": "c1", "to": "c2", "kind": "parent"}, {"from": "c1", "to": "c3", "kind": "parent"}, {"from": "c1", "to": "c4", "kind": "parent"}], "sections": []}, "alignment": {"file_name": "sample.pdf", "total_slides": 4, "model": "", "items": [{"node_id": "c1", "verdict": "aligned", "speech_weight": 1.0, "speech_basis": {"speech_sec": 10.0, "time_share": 0.25, "mention_count": 3, "mentioned_slide_count": 1, "first_mention_sec": 2.0}, "doc_weight": 1.0, "evidence": "그래서 대조 학습으로 정렬합니다", "note": ""}, {"node_id": "c2", "verdict": "aligned", "speech_weight": 0.7, "speech_basis": {"speech_sec": 10.0, "time_share": 0.25, "mention_count": 2, "mentioned_slide_count": 1, "first_mention_sec": 12.0}, "doc_weight": 0.8, "evidence": "공동 임베딩 공간을 만듭니다", "note": ""}, {"node_id": "c3", "verdict": "missing", "speech_weight": 0.0, "speech_basis": {"speech_sec": 10.0, "time_share": 0.25, "mention_count": 0, "mentioned_slide_count": 0, "first_mention_sec": null}, "doc_weight": 0.6, "evidence": "", "note": ""}, {"node_id": "c4", "verdict": "contradiction", "speech_weight": 0.2, "speech_basis": {"speech_sec": 10.0, "time_share": 0.25, "mention_count": 1, "mentioned_slide_count": 1, "first_mention_sec": 30.0}, "doc_weight": 0.4, "evidence": "평가 지표는 정확도 하나만 봤습니다", "note": ""}], "speech_edges": [{"from": "c1", "to": "c2", "cue": "이걸 바탕으로", "in_graph": true}], "extra_concepts": [{"label": "하드 네거티브", "quote": "하드 네거티브가 중요한데", "slide_no": 2}], "summary": {"coverage": 0.5, "rank_correlation": null, "edge_coverage": null, "verdict_counts": {}, "speech_total_sec": 185.0}}, "flow": {"file_name": "sample.pdf", "steps": [{"node_id": "c1", "doc_order": 1, "speech_order": 1, "first_mention_sec": 2.0}, {"node_id": "c2", "doc_order": 2, "speech_order": 2, "first_mention_sec": 12.0}, {"node_id": "c3", "doc_order": 3, "speech_order": null, "first_mention_sec": null}, {"node_id": "c4", "doc_order": 4, "speech_order": 3, "first_mention_sec": 30.0}], "issues": [{"kind": "missing_link", "node_ids": ["c1", "c4"], "cue": "", "slide_nos": [1, 4], "note": "'대조 학습' 와(과) '평가 지표' 를 각각 말했지만 둘을 잇는 멘트가 없었어요"}, {"kind": "good_link", "node_ids": ["c1", "c2"], "cue": "이걸 바탕으로", "slide_nos": [1, 2], "note": "'대조 학습' 와(과) '공동 임베딩' 를 말로 잘 이었어요"}], "order_tau": 1.0, "spoken_node_count": 3, "ghost_node_ids": ["c3"], "extra_labels": ["하드 네거티브"]}};
+
+const slides = {};
+(BUNDLE.graph.nodes || []).forEach(n => {
+  if (n.slide_nos && n.slide_nos.length) slides[n.id] = Math.min.apply(null, n.slide_nos);
+});
+
+document.getElementById('mount').innerHTML = window.Chatter.entryCardHtml();
+
+let cached = null;
+async function open_() {
+  const card = document.querySelector('#audCard p');
+  if (card) card.textContent = '객석에서 수군거리는 중...';
+  try {
+    if (!cached) {
+      cached = await window.Chatter.fetchChatter(BUNDLE.graph, BUNDLE.alignment, BUNDLE.flow);
+    }
+    window.Chatter.show(cached, {
+      nodeSlides: slides,
+      onRef: id => alert('리포트의 개념 판정 탭으로 이동합니다: ' + id),
+    });
+  } catch (e) {
+    if (card) card.textContent = e.message;
+    return;
+  }
+  if (card) card.textContent = '발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?';
+}
+
+document.getElementById('audCard').addEventListener('click', open_);
+document.getElementById('again').addEventListener('click', open_);
+open_();
+</script>
+</body>
+</html>

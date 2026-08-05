@@ -217,8 +217,47 @@ export async function parseDocument({ file = null, fixture = false } = {}) {
   return data;
 }
 
+
+// 순서가 규칙이다. codecs 파라미터에 opus 가 붙는 'audio/webm;codecs=opus'(우리 녹음기
+// 기본 출력)가 ogg 로 새지 않게 컨테이너를 코덱보다 먼저 본다.
+const AUDIO_EXT_BY_MIME = [
+  [/webm/, '.webm'],
+  [/mp4|m4a|aac/, '.m4a'],
+  [/mpeg|mp3/, '.mp3'],
+  [/wav/, '.wav'],
+  [/ogg|opus/, '.ogg'],
+];
+
+/**
+ * 서버가 임시 파일에 붙일 확장자.
+ * 업로드 파일은 이름의 확장자가 가장 정확하고, 없으면 MIME 으로 추정한다.
+ * 둘 다 없을 때만 녹음 기본값(.webm)으로 떨어진다 — 확장자가 거짓말하면 STT 가 파일을 못 읽는다.
+ */
+export function audioExt({ fileName = '', mimeType = '' } = {}) {
+  const m = /\.([a-z0-9]{2,5})$/i.exec(String(fileName || ''));
+  if (m) return `.${m[1].toLowerCase()}`;
+  const mt = String(mimeType || '').toLowerCase();
+  for (const [re, ext] of AUDIO_EXT_BY_MIME) {
+    if (re.test(mt)) return ext;
+  }
+  return '.webm';
+}
+
+
+async function readJson(res, label) {
+  const text = await res.text();
+  if (!text || !String(text).trim()) {
+    throw new Error(`${label} 응답이 비어 있어요 (HTTP ${res.status})`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`${label} 응답을 읽지 못했어요 (HTTP ${res.status}): ${String(text).slice(0, 180)}`);
+  }
+}
+
 /** F-05(+F-06): 녹음 → Transcript, slideDoc 있으면 ConceptDoc */
-export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, slideDoc, context, onProgress }) {
+export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -227,8 +266,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, 
 
   report('encoding', '오디오 준비 중');
   const audio_base64 = blob ? await blobToBase64(blob) : null;
-  // 업로드 파일은 실제 확장자를 그대로 쓴다. 라이브 녹음만 MIME 으로 추정한다.
-  const ext = extHint || ((mimeType || '').includes('mp4') ? '.m4a' : '.webm');
+  const ext = audioExt({ fileName, mimeType });
 
   report('stt', 'A.X STT로 음성을 글로 바꾸는 중');
   const sttRes = await fetch('/api/v1/transcribe', {
@@ -240,7 +278,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, 
       ext,
     }),
   });
-  const transcript = await sttRes.json();
+  const transcript = await readJson(sttRes, "STT");
   if (!sttRes.ok || transcript.error) {
     throw new Error(transcript.message || transcript.error || `transcribe HTTP ${sttRes.status}`);
   }
@@ -262,7 +300,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, 
           transcript: transcriptForConcepts,
         }),
       });
-      concepts = await cRes.json();
+      concepts = await readJson(cRes, "concepts");
       if (!cRes.ok || concepts.error) {
         throw new Error(concepts.message || concepts.error || `concepts HTTP ${cRes.status}`);
       }
@@ -279,6 +317,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, 
   // F-07 그래프 + F-11 정합 판정 — 실패해도 STT·개념까지는 살린다 (부분 결과)
   let graph = null;
   let alignment = null;
+  let graphError = null;
+  let alignError = null;
+  let flowError = null;
   if (concepts) {
     try {
       report('graph', '개념 그래프 구성 중 (F-07)', { transcript, concepts });
@@ -287,7 +328,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
       });
-      graph = await gRes.json();
+      graph = await readJson(gRes, "graph");
       if (!gRes.ok || graph.error) {
         throw new Error(graph.message || graph.error || `graph HTTP ${gRes.status}`);
       }
@@ -299,15 +340,17 @@ export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ graph, transcript: slimTranscript(transcript), context: context || {} }),
       });
-      alignment = await aRes.json();
+      alignment = await readJson(aRes, "alignment");
       if (!aRes.ok || alignment.error) {
         throw new Error(alignment.message || alignment.error || `alignment HTTP ${aRes.status}`);
       }
       report('align_done', `정합 판정 ${(alignment.items || []).length}개`, { transcript, concepts, graph, alignment });
     } catch (err) {
-      if (graph && graph.error) graph = null;
+      const msg = err.message || String(err);
+      if (!graph || graph.error) { graph = null; graphError = msg; }
+      else { alignError = msg; }
       alignment = null;
-      report('align_error', err.message || String(err), { transcript, concepts, graph });
+      report('align_error', msg, { transcript, concepts, graph });
     }
   }
 
@@ -321,39 +364,141 @@ export async function runPreparePipeline({ marks, blob, mimeType, ext: extHint, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ graph, alignment }),
       });
-      flow = await fRes.json();
+      flow = await readJson(fRes, "flow");
       if (!fRes.ok || flow.error) {
         throw new Error(flow.message || flow.error || `flow HTTP ${fRes.status}`);
       }
       report('flow_done', `흐름 판정 ${(flow.issues || []).length}개`, { transcript, concepts, graph, alignment, flow });
     } catch (err) {
       flow = null;
-      report('flow_error', err.message || String(err), { transcript, concepts, graph, alignment });
+      flowError = err.message || String(err);
+      report('flow_error', flowError, { transcript, concepts, graph, alignment });
     }
   }
 
-  report('done', conceptsError ? 'STT 완료 · 개념 추출 실패' : '준비 완료', {
-    transcript,
-    concepts,
-    conceptsError,
-    graph,
-    alignment,
-    flow,
-  });
+
+  // F-13 점수 — LLM 없는 결정적 계산
+  let score = null;
+  if (alignment) {
+    try {
+      report('score', '발표 점수 계산 중', { transcript, concepts, graph, alignment, flow });
+      const sRes = await fetch('/api/v1/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alignment, flow }),
+      });
+      score = await readJson(sRes, "score");
+      if (!sRes.ok || score.error) {
+        throw new Error(score.message || score.error || `score HTTP ${sRes.status}`);
+      }
+      report('score_done', `${score.score}점 (${score.basis})`,
+        { transcript, concepts, graph, alignment, flow, score });
+    } catch (err) {
+      score = null;
+      report('score_error', err.message || String(err), { transcript, concepts, graph, alignment, flow });
+    }
+  }
+
+  // F-17·18·19 — 음성 습관·시간 배분·종합 리포트 (실패해도 STT까지는 유지)
+  // callers: app.js runPreparePipeline onProgress / then; APIs /api/v1/pace|habits|report
+  let pace = null;
+  let habits = null;
+  let voiceReport = null;
+  const slim = slimTranscript(transcript);
+  try {
+    report('pace', '말 속도·시간 배분 계산 중 (F-17)', { transcript, concepts, graph, alignment, flow });
+    const pRes = await fetch('/api/v1/pace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcript: slim,
+        context: context || {},
+        concept_doc: concepts || null,
+      }),
+    });
+    pace = await readJson(pRes, "pace");
+    if (!pRes.ok || pace.error) {
+      throw new Error(pace.message || pace.error || `pace HTTP ${pRes.status}`);
+    }
+    report('pace_done', `배분 ${(pace.slides || []).length}장 · 실제 ${Math.round(pace.actual_sec || 0)}초`, {
+      transcript, concepts, graph, alignment, flow, pace,
+    });
+
+    report('habits', '음성 습관 신호 추출 중 (F-18)', { transcript, concepts, graph, alignment, flow, pace });
+    const hRes = await fetch('/api/v1/habits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: slim }),
+    });
+    habits = await readJson(hRes, "habits");
+    if (!hRes.ok || habits.error) {
+      throw new Error(habits.message || habits.error || `habits HTTP ${hRes.status}`);
+    }
+    report('habits_done', `REP ${habits.repeat_cnt || 0} · FIL ${habits.filler_cnt || 0} · PAUSE ${habits.pause_cnt || 0}`, {
+      transcript, concepts, graph, alignment, flow, pace, habits,
+    });
+
+    report('voice_report', '종합 진단 리포트 작성 중 (F-19)', {
+      transcript, concepts, graph, alignment, flow, pace, habits,
+    });
+    const rRes = await fetch('/api/v1/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pace, habits, context: context || {} }),
+    });
+    voiceReport = await readJson(rRes, "report");
+    if (!rRes.ok || voiceReport.error) {
+      throw new Error(voiceReport.message || voiceReport.error || `report HTTP ${rRes.status}`);
+    }
+    report('voice_report_done', voiceReport.one_liner || `점수 ${voiceReport.score}`, {
+      transcript, concepts, graph, alignment, flow, pace, habits, report: voiceReport,
+    });
+  } catch (err) {
+    report('voice_report_error', err.message || String(err), {
+      transcript, concepts, graph, alignment, flow, pace, habits,
+    });
+  }
+
+  // 어디서 멈췄는지 한 줄로. '완료' 라고만 말하면 사용자가 오지 않을 결과를 기다린다.
+  const firstFailure =
+    (conceptsError && ['F-06 개념 추출', conceptsError])
+    || (graphError && ['F-07 개념 그래프', graphError])
+    || (alignError && ['F-11 정합 판정', alignError])
+    || (flowError && ['흐름 비교', flowError])
+    || null;
+  const payload = {
+    transcript, concepts, conceptsError,
+    graph, alignment, flow, score, pace, habits, report: voiceReport,
+    graphError, alignError, flowError,
+    failedStage: firstFailure ? firstFailure[0] : null,
+  };
+  report(
+    firstFailure ? 'partial' : 'done',
+    firstFailure ? `${firstFailure[0]} 실패 — ${firstFailure[1]}` : '준비 완료',
+    payload,
+  );
   saveChuckSession({ transcript, concepts, conceptsError });
-  return { transcript, concepts, conceptsError, graph, alignment, flow };
+  return payload;
 }
 
-/* ── server-test(v0.2 · 세션·잡 API) 연동 — QA 실전 모드 ──
- * 문서 업로드(또는 임의 녹음 파일) → parse → stt → concepts → graph → questions
- * 판정(judge)은 대화형이라 동기 호출.
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result || '');
+      resolve(s.includes(',') ? s.split(',')[1] : s);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/* ── F-08/F-09 실전 QA (플랫 질문 생성 + 판정) ──
+ * 데모 브리지(demo.bridge)는 /api/v1/questions 와 body.question 폴백 판정을 제공한다.
+ * 세션 파이프라인(runQaLivePipeline)은 FastAPI 전용 — 여기선 쓰지 않는다.
  */
 
 const QA_API_BASE_KEY = 'cheokcheok:qaApiBase';
-// 실전 QA 는 세션 라우트(/api/v1/sessions/...)가 필요하므로 FastAPI 서버(python -m server)를
-// 가리킨다. 세션 없는 데모 브리지(python -m demo.bridge, 8787)로는 이 흐름이 돌지 않는다.
-// 이 페이지를 띄운 서버가 곧 그 FastAPI 서버이므로 같은 오리진을 기본값으로 쓴다.
-// (8001 로 띄웠을 때 flat 경로만 8001, 세션 경로는 8000 으로 갈라지는 것을 막는다.)
 const QA_API_FALLBACK = 'http://localhost:8000';
 const QA_API_DEFAULT = (() => {
   try {
@@ -391,28 +536,10 @@ async function qaApi(path, { method = 'GET', json, form } = {}) {
   return data;
 }
 
-async function qaPollJob(jobId, onDetail, { intervalMs = 1500, timeoutMs = 420000 } = {}) {
-  const t0 = Date.now();
-  for (;;) {
-    const job = await qaApi(`/api/v1/jobs/${jobId}`);
-    const detail = (job.progress && job.progress.detail) || '';
-    if (typeof onDetail === 'function' && detail) onDetail(detail);
-    // 계약의 정본은 서버다 — server/store.py Job.status = queued|running|succeeded|failed
-    if (job.status === 'succeeded') return job.result;
-    if (job.status === 'failed') {
-      const e = job.error || {};
-      throw new Error(e.message || e.error || '작업이 실패했어요.');
-    }
-    if (Date.now() - t0 > timeoutMs) throw new Error('작업이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.');
-    await new Promise((r) => setTimeout(r, intervalMs));
-  }
-}
-
-/** 질문 생성 한계 시간. 실 LLM 은 보통 10~15초. 포트 포워딩·프록시를 거치면
- *  요청이 그대로 멈춰 있을 수 있어, 없으면 화면이 영원히 로딩에 갇힌다. */
+/** 질문 생성 한계 시간. 없으면 화면이 영원히 로딩에 갇힌다. */
 const QUESTIONS_TIMEOUT_MS = 60000;
 
-/** F-08: 내 그래프·정합으로 예상 질문을 만든다 (새 발표 플로우용 플랫 경로) */
+/** F-08: 내 그래프·정합으로 예상 질문을 만든다 (플랫 경로) */
 export async function buildQuestions({ graph, alignment, flow, transcript, context, track }) {
   const control = new AbortController();
   const timer = setTimeout(() => control.abort(), QUESTIONS_TIMEOUT_MS);
@@ -446,136 +573,20 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
   return doc;
 }
 
-/** 오디오 메타데이터를 기다리는 한계 시간 */
-const AUDIO_META_TIMEOUT_MS = 5000;
-
-/** 업로드한 녹음 파일 길이(초). 못 읽으면 0. */
-export function audioDuration(file) {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const a = new Audio();
-    let settled = false;
-    const done = (sec) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      URL.revokeObjectURL(url);
-      resolve(sec);
-    };
-    // 코덱을 못 읽는 브라우저에선 loadedmetadata·error 둘 다 안 오기도 한다 — 무한 대기 방지
-    const timer = setTimeout(() => done(0), AUDIO_META_TIMEOUT_MS);
-    a.addEventListener('loadedmetadata', () => done(Number.isFinite(a.duration) ? a.duration : 0));
-    a.addEventListener('error', () => done(0));
-    a.src = url;
-  });
-}
-
-/* 임의 파일에는 슬라이드 마크가 없으니 길이를 슬라이드 수로 균등 분할 */
-export function evenMarks(totalSlides, durationSec) {
-  const n = Math.max(1, Math.floor(totalSlides) || 1);
-  const dur = Math.max(1, durationSec || 60);
-  const step = dur / n;
-  return Array.from({ length: n }, (_, i) => ({
-    slide_no: i + 1,
-    start_sec: Math.round(i * step * 10) / 10,
-    end_sec: Math.round((i + 1) * step * 10) / 10,
-    visit: 1,
-  }));
-}
-
-/** 실전 QA 준비 파이프라인: 자료(+선택 녹음 파일) → 예상 질문 세트 */
-export async function runQaLivePipeline({ documentFile, audioFile, mode = '10', onProgress }) {
-  const report = (text) => {
-    if (typeof onProgress === 'function') { try { onProgress(text); } catch (_) { /* UI hook */ } }
-  };
-
-  report('세션 만드는 중');
-  const session = await qaApi('/api/v1/sessions', { method: 'POST', json: {} });
-  const sid = session.id;
-
-  report('발표자료 파싱 중 (F-01)');
-  const fd = new FormData();
-  fd.append('document', documentFile, documentFile.name);
-  const parseJob = await qaApi(`/api/v1/sessions/${sid}/document`, { method: 'POST', form: fd });
-  const slideDoc = await qaPollJob(parseJob.job_id, report);
-
-  if (audioFile) {
-    report('녹음을 글로 바꾸는 중 (F-05)');
-    const durationSec = await audioDuration(audioFile);
-    const marks = evenMarks((slideDoc && slideDoc.total_slides) || 1, durationSec);
-    const af = new FormData();
-    af.append('audio', audioFile, audioFile.name);
-    af.append('marks', JSON.stringify(marks));
-    const sttJob = await qaApi(`/api/v1/sessions/${sid}/rehearsal`, { method: 'POST', form: af });
-    await qaPollJob(sttJob.job_id, report);
-  }
-
-  report('개념 추출 중 (F-06)');
-  const cJob = await qaApi(`/api/v1/sessions/${sid}/concepts`, { method: 'POST', json: {} });
-  await qaPollJob(cJob.job_id, report);
-
-  report('개념 그래프 만드는 중 (F-07)');
-  const gJob = await qaApi(`/api/v1/sessions/${sid}/graph`, { method: 'POST', json: {} });
-  await qaPollJob(gJob.job_id, report);
-
-  if (audioFile) {
-    report('발화-자료 정합 판정 중 (F-11)');
-    try {
-      const aJob = await qaApi(`/api/v1/sessions/${sid}/alignment`, { method: 'POST', json: {} });
-      await qaPollJob(aJob.job_id, report);
-    } catch (err) {
-      // 질문 생성은 그래프만으로도 가능 — 정합 실패는 건너뛴다
-      report(`정합 판정 생략: ${err.message || err}`);
-    }
-  }
-
-  report('예상 질문 만드는 중 (F-08)');
-  // 서버 계약의 이름은 track 이다 (contracts.py QA_TRACKS). mode 는 화면 쪽 이름.
-  const qJob = await qaApi(`/api/v1/sessions/${sid}/questions`, { method: 'POST', json: { track: mode } });
-  const questionDoc = await qaPollJob(qJob.job_id, report);
-
-  const questions = (questionDoc && questionDoc.questions) || [];
-  report(`질문 ${questions.length}개 준비 완료`);
-  return { sessionId: sid, questionDoc };
-}
-
 /**
- * F-09 답변 판정 (동기 — 잡이 아니라 응답 바디를 바로 읽는다).
- *
- * question 을 같이 보낸다. 서버 저장소가 인메모리라 재시작하면 세션이 날아가는데,
- * 질문 세트는 이 브라우저에 남아 있다. 세션이 사라졌을 때 서버는 이 값으로 판정한다
- * — 없으면 저장된 질문으로 답할 때마다 전부 '판정 실패' 가 된다.
+ * F-09 답변 판정.
+ * question 을 같이 보낸다 — 데모 브리지는 세션 저장소가 없어 body.question 폴백으로 판정한다.
  */
-export async function judgeQaAnswer(
-  sessionId,
-  { questionId, answer, history, question, giveUp, priorAnswers },
-) {
-  return qaApi(`/api/v1/sessions/${sessionId}/qa/judge`, {
+export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp }) {
+  return qaApi(`/api/v1/sessions/${sessionId || 'flat'}/qa/judge`, {
     method: 'POST',
     json: {
       question_id: questionId,
       answer,
       history: history || [],
       question: question || null,
-      // 이 질문에 앞서 낸 답변들. 판정은 마지막 한 마디가 아니라 누적 전체를 본다 —
-      // 되묻기가 증분 답변을 유도해 놓고 증분만 채점하면 좁혀 답한 쪽이 손해다.
-      prior_answers: priorAnswers || [],
-      // 「모르겠어요」 버튼. 몇 번째 막힘인지는 서버가 history 로 센다 —
-      // 여기서 단계를 들고 있으면 질문이 바뀔 때 초기화를 빠뜨린다.
       give_up: !!giveUp,
     },
-  });
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const s = String(reader.result || '');
-      resolve(s.includes(',') ? s.split(',')[1] : s);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
   });
 }
 
@@ -583,14 +594,12 @@ window.ChuckchuckBridge = {
   attachRehearsalRuntime,
   parseDocument,
   runPreparePipeline,
+  audioExt,
   saveChuckSession,
   loadChuckSession,
   qaApiBase,
   setQaApiBase,
-  audioDuration,
   buildQuestions,
-  evenMarks,
-  runQaLivePipeline,
   judgeQaAnswer,
   RehearsalRecorder,
   PresentationRecorder,

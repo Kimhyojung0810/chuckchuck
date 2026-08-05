@@ -23,19 +23,41 @@ const loadSession = key => {
 const saveSession = (key, value) => {
   try {
     // SlideDoc / blob 결과는 용량이 커서 sessionStorage에서 제외
-    // (new-flow 한정 — qa-flow의 concepts는 작은 상태맵이라 지우면 복원이 깨진다)
     const slim = { ...value };
+    // qa-flow 의 concepts(게임 트래커)는 지우면 안 된다 — 지웠다 새로고침하면 resetQa 가 발동한다
     if (key === 'new-flow') {
       delete slim.slideDoc;
       delete slim.transcript;
-      delete slim.concepts;
+      delete slim.concepts; // ConceptDoc (무거움)
       delete slim._pipelineStarted;
-    }
-    if (slim.slideDocMeta == null && value.slideDoc) {
-      slim.slideDocMeta = {
-        file_name: value.slideDoc.file_name,
-        total_slides: value.slideDoc.total_slides,
-      };
+      if (slim.slideDocMeta == null && value.slideDoc) {
+        slim.slideDocMeta = {
+          file_name: value.slideDoc.file_name,
+          total_slides: value.slideDoc.total_slides,
+        };
+      }
+      // pipelineOut 전체는 quota 초과로 저장이 통째로 실패할 수 있다 → 리포트용 요약만 남긴다
+      if (slim.pipelineOut) {
+        const po = value.pipelineOut || {};
+        slim.pipelineOut = {
+          graph: po.graph || null,
+          alignment: po.alignment || null,
+          flow: po.flow || null,
+          score: po.score || null,
+          pace: po.pace || null,
+          habits: po.habits || null,
+          report: po.report || null,
+          transcript: po.transcript ? {
+            full_text: po.transcript.full_text || '',
+            duration_sec: po.transcript.duration_sec || 0,
+            provider: po.transcript.provider || '',
+            error: po.transcript.error || null,
+          } : null,
+          conceptsError: po.conceptsError || null,
+          failedStage: po.failedStage || null,
+        };
+      }
+      if (!slim.fileName && value.fileName) slim.fileName = value.fileName;
     }
     sessionStorage.setItem(`cheokcheok:${key}`, JSON.stringify(slim));
   } catch (_) { /* file preview or privacy mode: keep the in-memory state */ }
@@ -54,7 +76,157 @@ function animateViz(root = document) {
   $$('.fill-bar i[data-w]', root).forEach(i => i.style.width = i.dataset.w);
   $$('.ring-fg[data-off]', root).forEach(r => r.style.strokeDashoffset = r.dataset.off);
   $$('[data-count]', root).forEach(el => el.textContent = el.dataset.count);
+  // callers: renderReport tabs; data: /data/voice_report_live.json (pace/habits/report)
+  // user: 쉬운 설명 + 권장/실제 시간 그래프 애니메이션 + 간투어 키워드 상자
+  requestAnimationFrame(() => {
+    $$('.voice-chart', root).forEach(el => el.classList.add('is-on'));
+    $$('.filler-chip', root).forEach(el => el.classList.add('is-on'));
+    $$('.slide-pill', root).forEach(el => el.classList.add('is-on'));
+  });
 }
+
+/** 샘플 모드에서만 voice_report_live.json 폴백. 실발표 실패 시 목업을 덮어쓰지 않는다. */
+let _voiceLiveCache = null;
+async function ensureVoicePipelineOut() {
+  if (nf && nf.pipelineOut && nf.pipelineOut.pace && (nf.pipelineOut.pace.slides || []).length) {
+    return nf.pipelineOut;
+  }
+  // 실제 파이프라인이 돌다 깨졌거나 진행 중이면 fixture 목업을 끼워 넣지 않는다
+  const phase = nf && nf.pipelinePhase;
+  const realAttempt = !!(nf && (nf._pipelineStarted || nf.pipelineError || phase));
+  const allowFixture = !!(nf && nf.useSample) && !realAttempt;
+  if (!allowFixture) return nf && nf.pipelineOut;
+  if (_voiceLiveCache) {
+    nf = nf || {};
+    nf.pipelineOut = { ...(nf.pipelineOut || {}), ..._voiceLiveCache };
+    return nf.pipelineOut;
+  }
+  try {
+    const res = await fetch('/data/voice_report_live.json', { cache: 'no-store' });
+    if (!res.ok) return nf && nf.pipelineOut;
+    const d = await res.json();
+    _voiceLiveCache = {
+      pace: d.pace,
+      habits: d.habits,
+      report: d.report,
+      transcript: {
+        full_text: d.transcript_preview || '',
+        duration_sec: (d.transcript_stats && d.transcript_stats.duration_sec) || 0,
+        provider: (d.transcript_stats && d.transcript_stats.provider) || '',
+      },
+    };
+    nf = nf || {};
+    nf.pipelineOut = { ...(nf.pipelineOut || {}), ..._voiceLiveCache };
+    return nf.pipelineOut;
+  } catch (_) {
+    return nf && nf.pipelineOut;
+  }
+}
+
+function fmtSec(sec) {
+  const s = Math.max(0, Math.round(sec || 0));
+  if (s < 60) return `${s}초`;
+  return `${Math.floor(s / 60)}분 ${s % 60}초`;
+}
+
+function fillerKeywordStats(habits) {
+  const spans = (habits && (habits.spans || habits.spans_sample)) || [];
+  const count = {};
+  spans.filter(s => s.kind === 'FIL').forEach(s => {
+    const t = String(s.text || '').trim();
+    if (!t) return;
+    count[t] = (count[t] || 0) + 1;
+  });
+  return Object.entries(count)
+    .map(([text, n]) => ({ text, n }))
+    .sort((a, b) => b.n - a.n || a.text.localeCompare(b.text, 'ko'));
+}
+
+function voiceEasyBlocks(pace, habits, report) {
+  const slides = (pace && pace.slides) || [];
+  const shortCore = slides.filter(s => s.importance === 'core' && s.status === 'short');
+  const longOnes = slides.filter(s => s.status === 'long');
+  const okCore = slides.filter(s => s.importance === 'core' && s.status === 'ok');
+  const fillers = fillerKeywordStats(habits);
+  const target = fmtSec(pace.target_sec);
+  const actual = fmtSec(pace.actual_sec);
+  let headline = '시간 배분이랑 말하는 습관을 함께 살펴봤어요.';
+  if (shortCore.length && longOnes.length) {
+    headline = '중요한 장은 짧게 지나갔고, 어떤 장은 생각보다 길게 말했어요.';
+  } else if (shortCore.length) {
+    headline = '중요한 장에 시간을 조금 더 쓰면 전달력이 살아나요.';
+  } else if (longOnes.length) {
+    headline = '긴 장을 조금 줄이면 목표 시간에 더 잘 맞춰져요.';
+  } else if (report && report.one_liner) {
+    headline = report.one_liner;
+  }
+  const lead = `목표 ${target} 중에 실제로 약 ${actual} 말했어요. 평균 속도는 ${Math.round(pace.avg_chars_per_min || 0)}자/분이에요.`;
+  const actions = [];
+  if (shortCore.length) {
+    actions.push(`핵심인 ${shortCore.map(s => `${s.slide_no}번`).join(', ')} 장에 시간을 더 써 보세요. 아래 상자를 눌러 각 장 시간을 확인해요.`);
+  }
+  if (longOnes.length) {
+    const top = [...longOnes].sort((a, b) => (b.delta_sec || 0) - (a.delta_sec || 0)).slice(0, 3);
+    actions.push(`${top.map(s => `${s.slide_no}번`).join(', ')} 장은 길게 말했어요. 세부 설명을 줄이면 좋아요.`);
+  }
+  if (fillers.length) {
+    const topF = fillers.slice(0, 2).map(f => `「${f.text}」`).join(', ');
+    actions.push(`자주 나온 간투어 ${topF} 를 줄이려면, 발표 전에 한 번 소리 내어 읽어보세요.`);
+  }
+  if (!actions.length && Array.isArray(report && report.actions)) {
+    actions.push(...report.actions.slice(0, 3));
+  }
+  return { slides, shortCore, longOnes, okCore, fillers, headline, lead, target, actual, actions };
+}
+
+function slidePillHtml(slides, tone) {
+  if (!slides.length) return '<span class="note">해당 없음</span>';
+  return slides.map((s, i) => `
+    <button type="button" class="slide-pill tone-${tone}" style="--i:${i}" title="${escapeHtml(s.title || '')}">
+      <span class="sp-no">${s.slide_no}</span>
+      <span class="sp-body">
+        <b>${s.importance === 'core' ? '핵심' : '보조'}</b>
+        <em>${fmtSec(s.actual_sec)} <i>/</i> 권장 ${fmtSec(s.recommended_sec)}</em>
+      </span>
+    </button>`).join('');
+}
+
+function voiceTimeChartHtml(pace) {
+  const slides = pace.slides || [];
+  const maxSec = Math.max(1, ...slides.map(s => Math.max(s.actual_sec || 0, s.recommended_sec || 0)));
+  const cols = slides.map((s, i) => {
+    const ah = Math.max(2, (s.actual_sec / maxSec) * 100);
+    const rh = Math.max(2, (s.recommended_sec / maxSec) * 100);
+    const tip = `${s.slide_no}번 · ${s.importance === 'core' ? '핵심' : '보조'} / 실제 ${fmtSec(s.actual_sec)} / 권장 ${fmtSec(s.recommended_sec)} / ${s.note || ''}`;
+    return `<div class="voice-col status-${s.status} ${s.importance === 'core' ? 'is-core' : ''}" style="--i:${i}" title="${escapeHtml(tip)}">
+      <div class="voice-bars" aria-hidden="true">
+        <div class="vbar rec" style="--h:${rh.toFixed(1)}%"></div>
+        <div class="vbar act" style="--h:${ah.toFixed(1)}%"></div>
+      </div>
+      <span class="vx">S${s.slide_no}</span>
+      ${s.importance === 'core' ? '<span class="vcore">핵심</span>' : '<span class="vcore v-hide">·</span>'}
+    </div>`;
+  }).join('');
+  return `
+    <div class="voice-chart" role="img" aria-label="슬라이드별 권장 시간과 실제 시간 비교 그래프">
+      <div class="voice-chart-head">
+        <div>
+          <h3 class="section-title">슬라이드별 시간<span class="soft">X축 슬라이드 · Y축 초</span></h3>
+          <p class="note">회색은 권장, 파랑은 내가 쓴 시간이에요. 핵심 장은 위에 표시돼요.</p>
+        </div>
+        <div class="voice-lgd">
+          <span><i class="rec"></i>권장</span>
+          <span><i class="act"></i>실제</span>
+        </div>
+      </div>
+      <div class="voice-plot-wrap">
+        <div class="voice-y"><span>${Math.round(maxSec)}초</span><span>${Math.round(maxSec / 2)}초</span><span>0</span></div>
+        <div class="voice-plot">${cols}</div>
+      </div>
+    </div>`;
+}
+
+
 function ringSvg(pct, size, sw, inner) {
   const r = size / 2 - sw, C = 2 * Math.PI * r;
   return `<div class="ring-wrap" style="width:${size}px;height:${size}px">
@@ -83,8 +255,8 @@ function areaChartSvg(vals, W, H) {
   const dots = pts.slice(0, -1).map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#fff" stroke="var(--blue)" stroke-width="2"/>`).join('');
   return `<svg class="growth-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 ${n}회 완성도 추이">
     <defs><linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3182F6" stop-opacity=".20"/>
-      <stop offset="1" stop-color="#3182F6" stop-opacity="0"/>
+      <stop offset="0" stop-color="var(--blue)" stop-opacity=".20"/>
+      <stop offset="1" stop-color="var(--blue)" stop-opacity="0"/>
     </linearGradient></defs>
     <path class="growth-area" d="${area}" fill="url(#growthFill)"/>
     <path class="growth-line" style="--len:${len.toFixed(0)}" d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -95,7 +267,11 @@ function areaChartSvg(vals, W, H) {
 }
 
 /* ══ 라우팅 ══ */
-const routes = { '': renderHome, 'new': renderNew, 'report': renderReport, 'qa': renderQa, 'about': renderAbout };
+const routes = {
+  '': renderHome, 'new': renderNew, 'report': renderReport, 'qa': renderQa, 'about': renderAbout,
+  // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
+  'landing': () => window.renderLanding(),
+};
 
 /** 진행 중 세션을 버리고 새 연습 시작 */
 function startFreshPractice() {
@@ -108,50 +284,48 @@ function startFreshPractice() {
   }
 }
 
-/* 저장된 상태를 모두 지우고 처음부터 시작한다.
- * 손상된 상태로 화면이 비면 DevTools 없이는 빠져나올 수 없어서 길을 열어 둔다. */
-function hardReset() {
-  try {
-    Object.keys(sessionStorage)
-      .filter((k) => k.startsWith('cheokcheok:'))
-      .forEach((k) => sessionStorage.removeItem(k));
-  } catch (_) { /* privacy mode */ }
-  location.hash = '#/';
-  location.reload();
+/* ─── 극장 셸 (§8) ──────────────────────────────────────────────────────────
+   라우팅·데이터는 그대로 두고 전환 문법만 하나로 통일한다. 장면 전환 연출은
+   두지 않는다 — 커튼 와이프는 화면마다 400ms 를 가려서 걷어냈다. */
+
+/**
+ * 무대 사고 — 오류 화면 (§8).
+ *
+ * 무대감독이 헐레벌떡 달려와 사과하되, 기술 원인은 그 아래 그대로 남긴다.
+ * 귀여움이 원인을 가리면 그건 연출이 아니라 은폐다 (§14 정직한 상태 유지).
+ */
+function stageAccidentHtml(message, { title = '죄송해요, 무대 장치가 말썽이에요!' } = {}) {
+  if (!message) return '';
+  return `
+    <div class="accident">
+      <div class="ac-head">
+        <span class="ac-badge">무대감독</span>
+        <b>${escapeHtml(title)}</b>
+      </div>
+      <p class="ac-cause">${escapeHtml(message)}</p>
+    </div>`;
 }
 
-/* 렌더가 죽었을 때 보여줄 복구 화면. 빈 화면으로 두지 않는다. */
-function renderRouteError(err) {
-  app.className = 'narrow';
-  app.innerHTML = `
-    <div class="card qa-building" role="alert">
-      <b>화면을 그리는 중 문제가 생겼어요</b>
-      <p class="note">저장된 연습 상태가 손상됐을 수 있어요. 초기화하면 처음부터 다시 시작할 수 있어요.</p>
-      <p class="note" style="font-size:11px;opacity:.7">${escapeHtml(String((err && err.message) || err))}</p>
-      <div class="step-actions" style="justify-content:center;margin-top:14px">
-        <button class="btn btn-primary" id="routeReset" type="button">초기화하고 다시 시작</button>
-      </div>
-    </div>`;
-  const btn = $('#routeReset');
-  if (btn) btn.addEventListener('click', hardReset);
+function dismissF11Reveal() {
+  const wrap = document.getElementById('f11RevealWrap');
+  if (!wrap) return;
+  wrap.remove();
 }
 
 function route() {
   clearTimers();
   unbindRehearsalNav();
+  // 분석 오버레이가 남아 있으면 #/qa 가 흰 화면처럼 가려진다
+  {
+    const parts0 = location.hash.replace(/^#\/?/, '').split('/');
+    if (parts0[0] !== 'new') dismissF11Reveal();
+  }
+
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
-  // #/reset → 저장된 상태를 통째로 비운다 (빈 화면 탈출구)
-  if (key === 'reset') return hardReset();
   // #/new/reset 또는 completed 후 #/new → 초기화
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) resetNf();
-  // 렌더 중 예외가 나면 #app 이 그대로 비어 빈 화면이 된다 — 복구 화면으로 대체한다
-  try {
-    (routes[key] || renderHome)();
-  } catch (err) {
-    console.error('[chuckchuck] route render failed', err);
-    renderRouteError(err);
-  }
+  (routes[key] || renderHome)();
   syncTopbar();
   wireFreshPracticeButtons();
   window.scrollTo(0, 0);
@@ -197,7 +371,7 @@ wireFreshPracticeButtons();
 
 /* ══ 홈 ══ */
 function renderHome() {
-  app.className = '';
+  app.className = 'home';   // 홈 전용 스코프 — 폭은 main 기본값(980px) 그대로
   const g = DATA.growth.scores;
   const totalUp = g[g.length - 1] - g[0];
   const qaActive = qa.started && !qa.ended;
@@ -210,43 +384,49 @@ function renderHome() {
   app.innerHTML = `
     <div class="page-head"><div><h1 class="page-title">내 발표</h1><p class="page-sub">발표와 질문 코칭 결과를 이어서 확인해요.</p></div><a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a></div>
     ${resume ? `<div class="resume-row"><a class="resume-card" href="${resume.href}"><span>${resume.eyebrow}</span><strong>${resume.title}</strong><p>${resume.sub}</p><i>이어하기 →</i></a><a class="btn btn-secondary btn-sm" href="#/new" data-fresh-practice>처음부터 다시</a></div>` : ''}
-    <div class="card home-hero">
-      <div class="hero-gauge">
-        ${ringSvg(DATA.session.score, 128, 11, `<strong class="num" data-count="${DATA.session.score}">0</strong><span>점</span>`)}
-        <div class="hg-cap"><b>최근 발표 완성도</b><span class="chip chip-sm chip-up">지난 연습보다 +${DATA.session.score - DATA.session.prevScore}</span></div>
-      </div>
-      <div class="hero-growth">
-        <div class="hg-head"><span>최근 5회 완성도</span><b class="num">${g[0]} → ${g[g.length - 1]}</b></div>
-        ${areaChartSvg(g, 360, 132)}
-        <div class="hg-foot">
-          <div><strong class="num">+${totalUp}</strong><small>5회 성장</small></div>
-          <div><strong class="num">4 → 1</strong><small>설명 누락</small></div>
+    <section class="verdict home-verdict">
+      <div class="verdict-inner">
+        <div class="verdict-grid">
+          <div class="verdict-score">
+            <strong class="num">${DATA.session.score}<span class="of">점</span></strong>
+            <span class="delta num">▲ ${DATA.session.score - DATA.session.prevScore}</span>
+            <span class="prev">최근 발표 완성도</span>
+          </div>
+          <div class="verdict-judgement">
+            <div class="hg-head"><span class="eyebrow">최근 5회 완성도</span><b class="num">${g[0]} → ${g[g.length - 1]}</b></div>
+            ${areaChartSvg(g, 360, 132)}
+            <div class="hg-foot">
+              <div><strong class="num">+${totalUp}</strong><small>5회 성장</small></div>
+              <div><strong class="num">4 → 1</strong><small>설명 누락</small></div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
+    ${window.Playbill ? window.Playbill.wallHtml() : ''}
     ${gameStripHtml()}
-    ${qaActive ? '' : qaQuickCardHtml()}
-    <div class="card" style="padding:12px 12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 6px">
-        <h2 class="section-title" style="margin:0">내 발표</h2>
+    <section class="home-list">
+      <div class="block-head">
+        <h2>내 발표</h2>
+        <p>발표를 누르면 그 회차의 리포트를 열어요</p>
         <a class="btn btn-tint btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a>
       </div>
-      ${DATA.sessions.map(s => `
-      <div class="sess-row" data-go="#/report/${s.id}">
-        <div class="sess-main">
-          <b>${s.title}</b>
-          <span>${s.occasion}${s.slides ? ` · ${s.slides}장` : ''} · ${s.date} · ${s.nth}번째 연습 · ${s.note}</span>
-        </div>
-        <div class="sess-score">
-          <strong class="num">${s.score}<small>점</small></strong>
-          <span class="up">+${s.diff}</span>
-        </div>
-        <span class="chev">›</span>
-      </div>`).join('')}
-    </div>
+      <div class="sess-list">
+        ${DATA.sessions.map(s => `
+        <button class="sess-row" type="button" data-go="#/report/${s.id}">
+          <span class="sess-main">
+            <b>${s.title}</b>
+            <small>${s.occasion}${s.slides ? ` · ${s.slides}장` : ''} · ${s.date} · ${s.nth}번째 연습 · ${s.note}</small>
+          </span>
+          <span class="sess-score num">${s.score}<i>점</i></span>
+          <span class="sess-diff num">+${s.diff}</span>
+          <span class="chev" aria-hidden="true">›</span>
+        </button>`).join('')}
+      </div>
+    </section>
     <a class="about-link" href="#/about">척척발표가 판단하는 방식 →</a>`;
   $$('.sess-row').forEach(r => r.addEventListener('click', () => location.hash = r.dataset.go));
-  if (!qaActive) { wireQaModeButtons(rerenderQaQuick); wireQaStart(app); wireQaLivePanel(); }
+  if (window.Playbill) window.Playbill.paintWall(app);
   animateViz();
 }
 
@@ -257,12 +437,28 @@ let nfSlideDoc = null;
 /** F-03/F-04 마지막 테이크 */
 let ccRuntime = null;
 let ccLastTake = null;
+/* 한 번 받은 수다는 '다시 듣기'에서 재사용한다. 테이크에 딸린 상태라 resetNf()
+   가 지우는데, resetNf() 는 모듈 최상위에서 한 번 실행된다 — 선언이 파일
+   아래쪽에 있으면 그 시점엔 아직 TDZ 라 신규 세션에서 앱이 통째로 죽는다 */
+let chatterCache = null;
 
-/** 업로드한 PDF 원본 (메모리). 리허설 화면에 페이지 렌더용 */
+/** 업로드한 원본 슬라이드 (메모리). 리허설 화면에 페이지 렌더용 */
 let uploadedPdf = null; // { file, pdf, pageCount }
 let pdfRenderToken = 0;
 let pdfRenderTask = null;
 let rehearsalNavBound = false;
+
+/* 썸네일 캐시는 uploadedPdf 와 수명이 같다. chatterCache 와 같은 이유로 선언이 여기 있다 —
+   resetNf() 가 모듈 최상위에서 불리므로 아래쪽에 두면 TDZ 로 앱이 죽는다. */
+const thumbCache = new Map();   // pageNo → dataURL (메모리만)
+const THUMB_WIDTH = 240;
+
+/** 원본 PDF 교체 창구. 캐시가 페이지 번호로만 키를 잡아서, 같이 안 비우면
+    자료를 바꿔도 이전 자료의 슬라이드가 그대로 보인다. */
+function setUploadedPdf(next) {
+  uploadedPdf = next;
+  thumbCache.clear();
+}
 
 function onRehearsalKeydown(e) {
   if (nf.step !== 2) return;
@@ -310,13 +506,16 @@ function resetNf() {
   nf = { step: 0, gate: null, occ: null, ctx: '', min: 10,
          mic: 'idle', sec: 0, slide: 1, visits: { 1: 1 }, log: [], done: 0, completed: false,
          fileName: '', sparseSlides: [], parseError: null, useSample: false,
-         marks: null, pipelineOut: null, pipelineError: null,
+         marks: null, uploadedTake: null, pipelineOut: null, pipelineError: null,
          pipelinePhase: null, pipelineDetail: null, pipelineStartedAt: null,
-         _pipelineTickStarted: false };
+         backstage: [], _pipelineTickStarted: false };
   nfSlideDoc = null;
   ccRuntime = null;
   ccLastTake = null;
-  uploadedPdf = null;
+  // 수다도 테이크에 딸린 것이다. 안 지우면 자료 A 의 객석이 자료 B 에서 재생되고,
+  // currentShow() 가 A 의 absent 를 B 의 티켓에 빈 도장으로 찍는다
+  chatterCache = null;
+  setUploadedPdf(null);
   pdfRenderToken += 1;
   saveSession('new-flow', nf);
 }
@@ -339,17 +538,57 @@ function nfSteps() {
   </div>`;
 }
 
-async function loadUploadedPdf(file) {
-  uploadedPdf = null;
-  if (!file || !/\.pdf$/i.test(file.name || '')) return null;
+async function loadUploadedPdf(file, nameHint = '') {
+  setUploadedPdf(null);
+  const name = (file && file.name) || nameHint || '';
+  const looksPdf = /\.pdf$/i.test(name)
+    || (file && (file.type === 'application/pdf' || String(file.type || '').includes('pdf')));
+  if (!file || !looksPdf) return null;
   if (!window.pdfjsLib) {
     console.warn('[chuckchuck] pdf.js 미로드');
     return null;
   }
   const data = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data }).promise;
-  uploadedPdf = { file, pdf, pageCount: pdf.numPages };
+  setUploadedPdf({ file, pdf, pageCount: pdf.numPages });
   return uploadedPdf;
+}
+
+/** 브리지가 PPTX→PDF 변환해 둔 원본 미리보기를 발표 화면에 붙인다. */
+async function loadPreviewPdf(url, fileName = '') {
+  if (!url) return null;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`미리보기 PDF HTTP ${res.status}`);
+  const blob = await res.blob();
+  const pdfName = String(fileName || 'preview.pptx').replace(/\.pptx$/i, '.pdf');
+  const file = new File([blob], /\.pdf$/i.test(pdfName) ? pdfName : `${pdfName}.pdf`, {
+    type: 'application/pdf',
+  });
+  return loadUploadedPdf(file, file.name);
+}
+
+function previewPdfUrlFor(docOrName) {
+  if (docOrName && typeof docOrName === 'object' && docOrName.preview_pdf) {
+    return docOrName.preview_pdf;
+  }
+  const hint = typeof docOrName === 'string'
+    ? docOrName
+    : (docOrName && (docOrName.file_name || docOrName.fileName)) || nf.fileName || '';
+  if (!hint) return null;
+  return `/api/v1/preview-pdf?file=${encodeURIComponent(hint)}`;
+}
+
+async function ensurePreviewPdf(doc = null) {
+  if (uploadedPdf) return uploadedPdf;
+  const url = previewPdfUrlFor(doc || nfSlideDoc || nf.fileName);
+  if (!url) return null;
+  try {
+    await loadPreviewPdf(url, (doc && doc.file_name) || nf.fileName || 'preview.pdf');
+    return uploadedPdf;
+  } catch (err) {
+    console.warn('[chuckchuck] preview pdf', err);
+    return null;
+  }
 }
 
 async function renderPdfToCanvas(pageNo, canvas, { maxWidth = 960 } = {}) {
@@ -527,29 +766,29 @@ function slideCardHtml(n, title, body, { compact = false } = {}) {
 function applySlideDoc(doc, { keepDemoImages = false } = {}) {
   nfSlideDoc = doc;
   nf.fileName = doc.file_name || '발표자료';
+  nf.slideDocMeta = {
+    file_name: doc.file_name || nf.fileName,
+    total_slides: doc.total_slides || ((doc.slides || []).length) || 0,
+  };
   nf.slideTitles = (doc.slides || []).map((s) => s.title || `${s.slide_no}번 슬라이드`);
   nf.slideBodies = (doc.slides || []).map(slideBodyFromSlide);
   nf.sparseSlides = (doc.slides || []).filter((s) => s.text_sparse).map((s) => s.slide_no);
-  // 썸네일용: 본문 일부 넣은 SVG (필름/게이트용). 발표 본화면은 HTML 카드 사용.
-  nf.slideImages = nf.slideTitles.map((t, i) => {
-    if (keepDemoImages && DATA.slideImages[i]) return DATA.slideImages[i];
-    return slidePlaceholder(i + 1, t, nf.slideBodies[i]);
-  });
+  // 화면에는 원본 슬라이드(pdf.js 렌더)를 그린다. 파싱된 본문(slideBodies)은 F-06~11
+  // 분석 입력으로만 보관하고 썸네일에 찍지 않는다. 아래 값은 원본 렌더가 도착하기 전과
+  // 렌더 자체가 불가능할 때(PPTX + soffice 없음)만 보이는 자리표시자다.
+  nf.slideImages = nf.slideTitles.map((t, i) => (
+    (keepDemoImages && DATA.slideImages[i]) || slidePlaceholder(i + 1)
+  ));
   nf.slide = 1;
   nf.visits = { 1: 1 };
   nf.log = [];
 }
-function slidePlaceholder(n, title, body) {
-  const safe = escapeHtml(String(title || `${n}번`).slice(0, 40));
-  const preview = escapeHtml(String(body || '').replace(/\s+/g, ' ').slice(0, 90));
+/** 원본 슬라이드 렌더가 붙기 전/불가능할 때 쓰는 빈 판. 파싱 텍스트를 넣지 않는다. */
+function slidePlaceholder(n) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
     <rect width="960" height="540" fill="#f5f7fb"/>
-    <rect x="40" y="36" width="880" height="468" rx="14" fill="#fff" stroke="#dbe4f0"/>
-    <text x="72" y="100" font-family="Pretendard,sans-serif" font-size="26" fill="#8b95a1">${n}</text>
-    <text x="72" y="160" font-family="Pretendard,sans-serif" font-size="34" font-weight="700" fill="#191f28">${safe}</text>
-    <foreignObject x="72" y="200" width="800" height="260">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font:500 20px/1.45 Pretendard,sans-serif;color:#4e5968;white-space:pre-wrap">${preview || '텍스트 없음'}</div>
-    </foreignObject>
+    <rect x="40" y="36" width="880" height="468" rx="14" fill="#fff" stroke="#D5E2DA"/>
+    <text x="480" y="290" text-anchor="middle" font-family="Pretendard,sans-serif" font-size="72" font-weight="700" fill="#c6cfdb">${n}</text>
   </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -635,7 +874,7 @@ function nfStep1() {
     }, 1000);
   } else if (nf.gate === 'fail') {
     box.innerHTML = `
-      <div class="fail-box">${nf.parseError || 'PDF나 PPTX 파일만 분석할 수 있어요. 다른 파일로 올려주세요.'}</div>
+      ${stageAccidentHtml(nf.parseError || 'PDF나 PPTX 파일만 분석할 수 있어요. 다른 파일로 올려주세요.', { title: '죄송해요, 대본을 못 받았어요!' })}
       <div class="step-actions"><button class="btn btn-secondary" id="retry">다시 올리기</button></div>`;
     $('#retry').addEventListener('click', () => { nf.gate = null; nf.parseError = null; nfStep1(); });
   } else {
@@ -650,13 +889,15 @@ function nfStep1() {
         <div class="gate-ok">${titles.length}장에서 핵심 개념 후보를 준비했어요</div>
         <div class="thumbs">
           ${titles.map((t, i) => `
-          <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" alt="${i + 1}번 슬라이드"><span><b>${i + 1}</b>${t}</span></div>`).join('')}
+          <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" data-thumb-page="${i + 1}" alt="${i + 1}번 슬라이드" loading="lazy"><span><b>${i + 1}</b>${escapeHtml(t)}</span></div>`).join('')}
         </div>
         <div class="warn-note">${warnNote}</div>
       </div>
       <div class="step-actions">
         <button class="btn btn-primary" id="next">다음: 발표 정보 입력</button>
       </div>`;
+    // 자리표시자를 원본 슬라이드 렌더로 교체 (리포트 필름과 같은 경로)
+    paintDeckThumbs(box);
     $('#next').addEventListener('click', () => { nf.step = 1; renderNew(); });
   }
 }
@@ -682,9 +923,16 @@ async function startParse({ file = null, fixture = false } = {}) {
     const doc = await b.parseDocument({ file, fixture: nf.useSample });
     if (myGen !== parseGen) return; // 취소됨
     applySlideDoc(doc, { keepDemoImages: nf.useSample });
+    setUploadedPdf(null); // 이전 자료 잔상 제거 (썸네일 캐시까지)
     if (file && /\.pdf$/i.test(file.name || '')) {
       try { await loadUploadedPdf(file); }
       catch (e) { console.warn('[chuckchuck] pdf load', e); }
+    } else if (doc.preview_pdf || (file && /\.pptx$/i.test(file.name || ''))) {
+      // PPTX는 텍스트만 파싱되므로, 변환된 PDF 원본으로 발표 화면을 그린다
+      try {
+        await ensurePreviewPdf(doc);
+        if (uploadedPdf) nf.previewPdf = doc.preview_pdf || previewPdfUrlFor(doc);
+      } catch (e) { console.warn('[chuckchuck] pptx preview', e); }
     }
     nf.gate = 'done';
     nf._parseStartedAt = null;
@@ -777,6 +1025,14 @@ function rehearsalCount() {
 }
 
 function nfStep3() {
+  // 새로고침 후 PPTX 원본 미리보기가 비면 서버 캐시 PDF를 비동기로 붙인 뒤 다시 그린다
+  if (!uploadedPdf && (nf.previewPdf || nf.fileName) && !nf._previewLoading) {
+    nf._previewLoading = true;
+    ensurePreviewPdf(nfSlideDoc).then((pdf) => {
+      nf._previewLoading = false;
+      if (pdf && nf.step === 2) nfStep3();
+    }).catch(() => { nf._previewLoading = false; });
+  }
   const nPages = rehearsalCount();
   if (!nf.slide || nf.slide < 1) nf.slide = 1;
   if (nf.slide > nPages) nf.slide = nPages;
@@ -804,6 +1060,7 @@ function nfStep3() {
       <p>← → 키 · 좌우 버튼 · 아래 필름으로 넘길 수 있어요${usePdf ? ' · 업로드한 PDF 원본' : ''}</p>
     </div>
     <div class="rehearsal-shell">
+      <div class="card rehearsal-control" id="recPanel"></div>
       <div class="card viewer presentation-viewer">
         <div class="viewer-stage ${usePdf ? 'has-pdf' : 'has-slide-doc'}">
           ${stageInner}
@@ -820,8 +1077,8 @@ function nfStep3() {
         </div>
         <div class="slide-film slide-film-text" id="slideFilm">${film}</div>
       </div>
-      <div class="card rehearsal-control" id="recPanel"></div>
     </div>
+    <div class="sf" id="stagefront" aria-hidden="true"></div>
     <p class="privacy-note">녹음은 발표 분석에만 사용돼요.</p>`;
   renderRecPanel();
   bindRehearsalNav();
@@ -867,6 +1124,9 @@ function moveSlideTo(next) {
       image.alt = `${next}번 슬라이드 · ${titleAt(next - 1)}`;
     }
     if (nf.mic !== 'on') return;
+
+    // 객석이 자세를 고쳐 앉는다. 방문 기록이 갱신되기 전이라 여기 값이 '직전'이다
+    audienceOnSlide(((nf.visits && nf.visits[next]) || 0) >= 1);
 
     if (ccRuntime) {
       let entry = ccRuntime.goTo(next);
@@ -917,22 +1177,45 @@ function appendRecLog(entry) {
   log.scrollTop = log.scrollHeight;
 }
 
+/** 마이크 없이 저장해 둔 녹음본으로 돌려보는 입구 (테스트용). */
+function recUploadHtml() {
+  return `
+    <div class="rec-upload">
+      <button class="btn btn-text btn-sm" id="recUploadPick">녹음 파일로 대신하기</button>
+      <p class="note" id="recUploadNote">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB. 슬라이드 구간은 길이를 균등 분할해 채웁니다.</p>
+      <input type="file" id="recUploadFile" accept="audio/*,.webm,.m4a,.mp4,.mp3,.wav,.ogg" hidden>
+    </div>`;
+}
+
+function bindRecUpload() {
+  const pick = $('#recUploadPick');
+  const input = $('#recUploadFile');
+  if (!pick || !input) return;
+  pick.addEventListener('click', () => input.click());
+  input.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    e.target.value = ''; // 같은 파일을 다시 고를 수 있게
+    if (f) useUploadedRecording(f);
+  });
+}
+
 function renderRecPanel() {
   const p = $('#recPanel'); if (!p) return;
+  p.classList.toggle('is-live', nf.mic === 'on');
   if (nf.mic === 'idle') {
     p.innerHTML = `
       <div class="rec-copy"><span>준비되면 시작하세요</span><p>발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.</p></div>
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
       ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
-    wireRecUpload();
+    bindRecUpload();
   } else if (nf.mic === 'denied') {
     p.innerHTML = `
       <div class="mic-denied"><b>마이크 권한이 필요해요</b><span>주소창의 권한 설정에서 허용한 뒤 다시 시작해주세요.</span></div>
       <button class="btn btn-secondary" id="recRetry">다시 시도하기</button>
       ${recUploadHtml()}`;
     $('#recRetry').addEventListener('click', startRec);
-    wireRecUpload();
+    bindRecUpload();
   } else {
     p.innerHTML = `
       <div class="rec-status">
@@ -944,19 +1227,152 @@ function renderRecPanel() {
       </div></details>
       <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>`;
     $('#recEnd').addEventListener('click', finishRecAndPrepare);
+    audienceMount();   // 무대에 올랐으면 객석에도 넷이 앉아 있어야 한다
   }
+}
+
+/* ─── 정직한 관객 (UI_REDESIGN §2) ──────────────────────────────────────────
+   공연 중이 타임라인에서 가장 길고 감정이 높은 구간인데 지금까지 아무도 없었다.
+
+   철칙: 거짓 반응 금지. LLM 분석은 발표가 끝나야 시작하므로, 지금 이 순간
+   실제로 아는 신호로만 반응을 만든다 — 마이크 레벨, 슬라이드 전환, 체류 시간,
+   침묵. 내용을 아는 척하는 연기("이해했다는 끄덕임")는 절대 안 된다.
+   허용되는 건 자세·주목·필기뿐이고, 판정 반응은 커튼콜 뒤에만 나온다.
+
+   절제 규칙: 반응은 신호가 온 순간에만, 동시에 움직이는 건 1마리 (Staging).
+   발표자의 시선을 뺏으면 안 되므로 기본은 어두운 실루엣이다. */
+
+const SILENCE_SEC = 7;          // 이만큼 조용하면 한 마리가 갸웃 — 공연당 1회
+const DWELL_SEC = 50;           // 한 장에 이만큼 머물면 믿:음이 밑줄을 긋는다
+const NOD_LEVEL = 0.18;         // 이 위로 올라가야 '말하는 중'으로 본다
+const NOD_GAP_MS = 1400;        // 끄덕임 간격. 매 프레임 끄덕이면 기계다
+
+const aud = { lastNod: 0, silentFrom: 0, tilted: false, dwellFrom: 0, dwellDone: false };
+
+function audienceHtml() {
+  if (!window.Chatter) return '';
+  return `<div class="sf-row">${window.Chatter.SEATS.map(s =>
+    `<div class="ch-seat" data-speaker="${s}">${window.Chatter.chickSvg(s)}</div>`
+  ).join('')}</div>`;
+}
+
+/** 한 마리에게 잠깐 반응을 입힌다. 같은 순간에 둘이 움직이지 않게 짧게 끝낸다. */
+function audienceReact(speaker, cls, ms) {
+  const el = $(`#stagefront .ch-seat[data-speaker="${speaker}"]`);
+  if (!el) return;
+  el.classList.add(cls);
+  later(() => el.classList.remove(cls), ms);
+}
+
+function audienceMount() {
+  const host = $('#stagefront');
+  if (!host || host.dataset.on === '1') return;
+  host.dataset.on = '1';
+  host.innerHTML = audienceHtml();
+  aud.lastNod = 0;
+  aud.silentFrom = 0;
+  aud.tilted = false;
+  aud.dwellFrom = Date.now();
+  aud.dwellDone = false;
+}
+
+/** 마이크 레벨 — 말하는 동안 엑씨(헤드폰)가 리듬 타듯 미세하게 끄덕인다. */
+function audienceOnLevel(level) {
+  const now = Date.now();
+  if (level >= NOD_LEVEL) {
+    aud.silentFrom = 0;
+    if (now - aud.lastNod > NOD_GAP_MS) {
+      aud.lastNod = now;
+      audienceReact('ax', 'nodding', 700);
+    }
+    return;
+  }
+  // 긴 침묵 — 한 마리가 갸웃한다. 공연당 최대 1회 (놀리는 것처럼 보이면 안 된다)
+  if (!aud.silentFrom) aud.silentFrom = now;
+  if (!aud.tilted && now - aud.silentFrom > SILENCE_SEC * 1000) {
+    aud.tilted = true;
+    audienceReact('exaone', 'wondering', 1600);
+  }
+}
+
+/** 슬라이드 전환 — 넷이 자세를 고쳐 앉고, 쏠라가 대본을 한 장 넘긴다. */
+function audienceOnSlide(isRevisit) {
+  const row = $('#stagefront .sf-row');
+  if (!row) return;
+  row.classList.add('shifting');
+  later(() => row.classList.remove('shifting'), 700);
+  // 재방문이면 쏠라가 대본을 '앞으로' 뒤적인다 — 방향이 사실을 따른다
+  audienceReact('solar', isRevisit ? 'rewinding' : 'flipping', 900);
+  aud.dwellFrom = Date.now();
+  aud.dwellDone = false;
+}
+
+/** 한 장에 오래 머묾 — 믿:음이 형광펜으로 밑줄을 긋는다 (메모 중). */
+function audienceOnTick() {
+  if (aud.dwellDone || !aud.dwellFrom) return;
+  if (Date.now() - aud.dwellFrom < DWELL_SEC * 1000) return;
+  aud.dwellDone = true;
+  audienceReact('midm', 'marking', 1800);
+}
+
+/* ─── 등장 의식 (§1) ────────────────────────────────────────────────────────
+   녹음 시작이 이 제품에서 가장 무서운 버튼이다. "녹음"은 감시의 언어고
+   "무대"는 역할의 언어다. 조명이 내려가고 큐 사인이 나는 1.5초가 불안을
+   배역으로 바꾼다 — 사용자는 녹음당하는 게 아니라 무대에 오르는 것이다. */
+
+const CUE_KEY = 'cheokcheok:stage-visits';
+const CUE_MS = 1500;
+
+function stageVisits() {
+  try { return Number(localStorage.getItem(CUE_KEY)) || 0; }
+  catch (_) { return 0; }
+}
+
+function showEntranceRitual() {
+  if (!window.Chatter) return Promise.resolve();
+  let n = stageVisits();
+  try { localStorage.setItem(CUE_KEY, String(n + 1)); } catch (_) { /* ignore */ }
+  // 2회차부터는 스킵. 매번 1.5초를 다시 보게 하면 의식이 아니라 지연이다
+  if (n > 0) return Promise.resolve();
+
+  const veil = document.createElement('div');
+  veil.className = 'cue-veil';
+  veil.innerHTML = `
+    <div class="cue-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}">${window.Chatter.chickSvg(s)}</div>`
+      ).join('')}
+    </div>
+    <div class="cue-word">…큐!</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 320);
+      resolve();
+    };
+    veil.addEventListener('click', finish);   // 모든 연출은 스킵 가능하다 (§14)
+    setTimeout(finish, CUE_MS);
+  });
 }
 
 /* chuckchuck SDK 런타임 (F-03/F-04). bridge 모듈 로드 전엔 null. */
 
-function startRec() {
+async function startRec() {
+  await showEntranceRitual();
   const bridge = window.ChuckchuckBridge;
   if (bridge) {
     ccRuntime = bridge.attachRehearsalRuntime(nf, {
       totalSlides: rehearsalCount(),
+      onLevel: audienceOnLevel,
       onTick: (sec) => {
         nf.sec = Math.floor(sec);
         const c = $('#clock'); if (c) c.textContent = fmt(nf.sec);
+        audienceOnTick();
       },
     });
     ccRuntime.start(nf.slide).then(() => {
@@ -983,100 +1399,248 @@ function startRecClock() {
   every(() => {
     nf.sec++;
     const c = $('#clock'); if (c) c.textContent = fmt(nf.sec);
+    audienceOnTick();
     saveSession('new-flow', nf);
   }, 1000);
 }
 
+/* ─── 종연 3초 (UI_REDESIGN §3) ─────────────────────────────────────────────
+   발표를 마치는 순간, 분석은 7분 걸리지만 박수칠 이유는 이미 안다: 끝까지 했다.
+   네트워크 없이 즉시 아는 값(슬라이드 수·경과 시간)만 쓴다.
+
+   이 박수는 점수와 무관하게 무조건 나온다 (§6 '두 개의 박수'). 성적을 정직하게
+   따르는 박수는 커튼콜이 따로 맡는다. 둘을 합치면 박수가 성적표가 된다. */
+
+const CURTAIN_CALL_MS = 3000;
+
+function curtainCallCopy(slides, durationSec) {
+  const sec = Math.max(0, Math.round(Number(durationSec) || 0));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const time = m ? `${m}분 ${s}초` : `${s}초`;
+  return `${slides}장, ${time}, <b>완주!</b>`;
+}
+
+/** 3초 뒤(또는 아무 데나 누르면 바로) 해소되는 약속을 돌려준다. */
+function showCurtainCall(slides, durationSec) {
+  // Chatter 가 아직 안 붙었으면 연출을 건너뛴다 — 연출 때문에 흐름이 막히면 안 된다
+  if (!window.Chatter) return Promise.resolve();
+
+  const veil = document.createElement('div');
+  veil.className = 'cc-veil';
+  veil.innerHTML = `
+    <div class="cc-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}" data-mood="happy">
+           ${window.Chatter.chickSvg(s)}
+         </div>`).join('')}
+    </div>
+    <div class="cc-line">${curtainCallCopy(slides, durationSec)}</div>
+    <div class="cc-sub">끝까지 하셨어요. 그동안 넷이서 발표를 뜯어볼게요.</div>
+    <div class="cc-skip">아무 데나 누르면 바로 넘어가요</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 380);
+      resolve();
+    };
+    veil.addEventListener('click', finish);
+    setTimeout(finish, CURTAIN_CALL_MS);
+  });
+}
+
 async function finishRecAndPrepare() {
+  // 완주 박수에 쓸 값은 파이프라인 전에 확정한다. SDK 없이 mock 으로 돈
+  // 테이크에는 durationSec 이 없으므로 화면 시계(nf.sec)가 유일한 사실이다.
+  const slides = rehearsalCount();
   if (ccRuntime) {
     ccLastTake = await ccRuntime.finish();
-    markTakeReady();
+    nf.marks = (ccLastTake && ccLastTake.marks) || [];
+    nf.uploadedTake = null; // 실연 테이크가 업로드본을 덮는다
+    nf.done = 0;
+    nf._pipelineStarted = false;
+    nf.pipelineOut = null;
+    nf.pipelineError = null;
+    nf.pipelinePhase = 'queued';
+    nf.pipelineDetail = '파이프라인 대기';
+    nf.pipelineStartedAt = Date.now();
+    nf._pipelineTickStarted = false;
+    saveSession('new-flow', nf);
   }
-  goToPrepareStep();
-}
-
-/* ccLastTake 를 기준으로 파이프라인 상태를 초기화한다. 라이브·업로드 공통. */
-function markTakeReady() {
-  nf.marks = (ccLastTake && ccLastTake.marks) || [];
-  nf.done = 0;
-  nf._pipelineStarted = false;
-  nf.pipelineOut = null;
-  nf.pipelineError = null;
-  nf.pipelinePhase = 'queued';
-  nf.pipelineDetail = '파이프라인 대기';
-  nf.pipelineStartedAt = Date.now();
-  nf._pipelineTickStarted = false;
-  saveSession('new-flow', nf);
-}
-
-function goToPrepareStep() {
+  nf.backstage = [];   // 막간 대사는 테이크마다 새로 쌓인다
+  await showCurtainCall(slides, (ccLastTake && ccLastTake.durationSec) || nf.sec);
   nf.step = 3;
   renderNew();
   showF11Reveal();
 }
 
-/* 리허설 대신 이미 있는 녹음 파일을 쓰는 경로 (F-03 를 업로드로 대체) */
-const REC_UPLOAD_EXT = ['.webm', '.m4a', '.wav', '.mp3', '.ogg'];
-const REC_UPLOAD_MAX_BYTES = 30 * 1024 * 1024;
-
-function recUploadHtml() {
-  return `<div class="rec-upload">
-    <button class="btn btn-text" id="recUploadPick" type="button">이미 녹음한 파일 올리기</button>
-    <input type="file" id="recUploadFile" accept="${REC_UPLOAD_EXT.join(',')},audio/*" hidden>
-    <p class="note" id="recUploadNote" title="업로드 파일에는 슬라이드 전환 시각이 없어 녹음 길이를 슬라이드 수로 균등 분할합니다.">${REC_UPLOAD_EXT.join(' · ')} · 최대 30MB</p>
-  </div>`;
+/**
+ * F-01 결과를 되살린다.
+ *
+ * nfSlideDoc 은 메모리에만 있어서 새로고침 한 번에 사라지고, 없으면 파이프라인이
+ * F-06 이후(개념·그래프·정합·수다)를 통째로 건너뛴다. 서버가 파싱할 때 남겨 둔
+ * 캐시를 파일 이름으로 찾아 붙여, 같은 자료로 녹음만 바꿔가며 반복 테스트할 수 있게 한다.
+ * 못 찾으면 null — 호출부가 재파싱을 안내한다.
+ */
+async function ensureSlideDoc() {
+  if (nfSlideDoc) {
+    if (!uploadedPdf) await ensurePreviewPdf(nfSlideDoc);
+    return nfSlideDoc;
+  }
+  const hint = nf.fileName || '';
+  try {
+    const res = await fetch(`/api/v1/cached-slidedoc?file=${encodeURIComponent(hint)}`);
+    if (!res.ok) return null;
+    const doc = await res.json();
+    if (!doc || doc.error || !Array.isArray(doc.slides)) return null;
+    nfSlideDoc = doc;
+    console.info('[chuckchuck] SlideDoc 캐시 복구', doc.file_name, doc.total_slides);
+    if (!uploadedPdf) await ensurePreviewPdf(doc);
+    return nfSlideDoc;
+  } catch (err) {
+    console.warn('[chuckchuck] cached-slidedoc', err);
+  }
+  return null;
 }
 
-function wireRecUpload() {
-  const pick = $('#recUploadPick');
-  const input = $('#recUploadFile');
-  if (!pick || !input) return;
-  pick.addEventListener('click', () => input.click());
-  input.addEventListener('change', () => {
-    const file = input.files && input.files[0];
-    if (file) useUploadedRecording(file);
-  });
+/* ── 녹음 파일 업로드 (테스트용) ──────────────────────────────────────────
+   마이크로 실연하는 대신 저장해 둔 녹음본을 그대로 파이프라인에 태운다.
+   업로드본에는 슬라이드 전환 기록이 없으므로 marks 를 길이 균등 분할로 합성한다.
+   합성 marks 는 측정값이 아니다 — 화면 곳곳에 그렇게 표시한다. */
+
+const MAX_AUDIO_MB = 30;
+const MAX_AUDIO_BYTES = MAX_AUDIO_MB * 1024 * 1024;
+const AUDIO_EXT_RE = /\.(webm|m4a|mp4|mp3|wav|ogg|oga|flac|aac)$/i;
+const AUDIO_META_TIMEOUT_MS = 4000;
+
+/** 오디오 길이(초). 0 이면 못 읽은 것. */
+async function audioDurationSec(file) {
+  const url = URL.createObjectURL(file);
+  let viaTag = 0;
+  try {
+    viaTag = await new Promise((resolve) => {
+      const el = new Audio();
+      let settled = false;
+      const done = (v) => {
+        if (settled) return;
+        settled = true;
+        el.removeAttribute('src');
+        resolve(Number(v) || 0);
+      };
+      el.preload = 'metadata';
+      el.onloadedmetadata = () => done(el.duration);
+      el.onerror = () => done(0);
+      setTimeout(() => done(0), AUDIO_META_TIMEOUT_MS);
+      el.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  if (Number.isFinite(viaTag) && viaTag > 0) return viaTag;
+
+  // MediaRecorder 가 만든 webm 은 duration 이 Infinity 로 오는 브라우저가 있다.
+  // 우리 SDK 결과물을 다시 올리는 경우가 정확히 여기 걸리므로 디코딩으로 확정한다.
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return 0;
+  const ctx = new Ctx();
+  try {
+    const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+    return buf.duration;
+  } finally {
+    try { ctx.close(); } catch (_) { /* 이미 닫힘 */ }
+  }
+}
+
+/** 길이를 슬라이드 수로 균등 분할한 합성 marks. */
+function evenSlideMarks(durationSec, nPages) {
+  const total = Math.max(0.001, Number(durationSec) || 0);
+  const n = Math.max(1, Number(nPages) || 1);
+  const step = total / n;
+  const round3 = (v) => Math.round(v * 1000) / 1000;
+  return Array.from({ length: n }, (_, i) => ({
+    slide_no: i + 1,
+    start_sec: round3(i * step),
+    end_sec: round3(i === n - 1 ? total : (i + 1) * step),
+    visit: 1,
+  }));
+}
+
+function recUploadFail(message) {
+  const note = $('#recUploadNote');
+  if (note) {
+    note.textContent = message;
+    note.style.color = '#f04452';
+    return;
+  }
+  alert(message);
 }
 
 async function useUploadedRecording(file) {
+  const looksAudio = AUDIO_EXT_RE.test(file.name) || /^audio\//i.test(file.type || '');
+  if (!looksAudio) {
+    return recUploadFail('오디오 파일만 올릴 수 있어요. (webm · m4a · mp3 · wav · ogg)');
+  }
+  if (file.size > MAX_AUDIO_BYTES) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    return recUploadFail(`파일이 ${mb}MB 예요. 최대 ${MAX_AUDIO_MB}MB까지 올릴 수 있어요.`);
+  }
+
   const note = $('#recUploadNote');
-  const say = (t) => { if (note) note.textContent = t; };
-  const ext = (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
-
-  if (!REC_UPLOAD_EXT.includes(ext)) {
-    say(`${REC_UPLOAD_EXT.join(' · ')} 만 올릴 수 있어요.`);
-    return;
-  }
-  if (file.size > REC_UPLOAD_MAX_BYTES) {
-    say(`파일이 너무 커요 (${(file.size / 1024 / 1024).toFixed(1)}MB) — 30MB 이하로 올려주세요.`);
-    return;
+  if (note) {
+    note.style.color = '';
+    note.textContent = `${file.name} 길이를 읽는 중…`;
   }
 
-  const bridge = window.ChuckchuckBridge;
-  if (!bridge || !bridge.runPreparePipeline) {
-    say('브리지 모듈이 아직 로드되지 않았어요. 새로고침 후 다시 시도해 주세요.');
-    return;
+  let durationSec = 0;
+  try {
+    durationSec = await audioDurationSec(file);
+  } catch (err) {
+    console.warn('[chuckchuck] audio duration', err);
+  }
+  if (!Number.isFinite(durationSec) || durationSec <= 0) {
+    return recUploadFail('오디오 길이를 읽지 못했어요. 다른 형식(m4a·mp3·wav)으로 다시 시도해주세요.');
   }
 
-  say(`${file.name} 읽는 중…`);
-  const durationSec = bridge.audioDuration ? await bridge.audioDuration(file) : 0;
-  const marks = bridge.evenMarks
-    ? bridge.evenMarks(rehearsalCount(), durationSec)
-    : [];
+  const nPages = rehearsalCount();
+  const marks = evenSlideMarks(durationSec, nPages);
 
-  // 라이브 녹음이 돌고 있었다면 정리한다
-  if (ccRuntime) {
-    try { await ccRuntime.finish(); } catch (_) { /* 이미 끝났을 수 있다 */ }
-    ccRuntime = null;
-  }
-  nf.mic = 'idle';
+  nf.marks = marks;
   nf.sec = Math.round(durationSec);
-  nf.visits = {};
-  nf.log = marks.map((m) => ({ txt: `${fmt(m.start_sec)} → ${m.slide_no}번 슬라이드` }));
+  nf.visits = Object.fromEntries(marks.map((m) => [m.slide_no, 1]));
+  nf.log = marks.map((m) => ({
+    txt: `${fmt(Math.round(m.start_sec))} → ${m.slide_no}번 슬라이드 (균등 분할)`,
+    re: false,
+  }));
+  nf.uploadedTake = { name: file.name, durationSec, syntheticMarks: true };
 
-  ccLastTake = { marks, _blob: file, mimeType: file.type || '', ext, durationSec };
-  markTakeReady();
-  goToPrepareStep();
+  ccRuntime = null;
+  ccLastTake = {
+    marks,
+    mimeType: file.type || '',
+    durationSec,
+    fileName: file.name,
+    _blob: file,
+  };
+
+  nf.done = 0;
+  nf._pipelineStarted = false;
+  nf.pipelineOut = null;
+  nf.pipelineError = null;
+  nf.pipelinePhase = 'queued';
+  nf.pipelineDetail = `업로드한 녹음 ${file.name} · 파이프라인 대기`;
+  nf.pipelineStartedAt = Date.now();
+  nf._pipelineTickStarted = false;
+  saveSession('new-flow', nf);
+
+  nf.step = 3;
+  renderNew();
+  showF11Reveal();
 }
 
 /* F-11 분석 리빌 — 리허설 종료 → 질문 준비 사이에 전체 화면으로 재생.
@@ -1097,11 +1661,33 @@ function showF11Reveal() {
     if (!document.getElementById('f11RevealWrap')) { clearInterval(feed); return; }
     const out = nf.pipelineOut;
     const iframe = wrap.querySelector('iframe');
-    if (out && out.graph && out.alignment && iframe && iframe.contentWindow) {
+    if (!iframe || !iframe.contentWindow) return;
+    // 대기 화면이 몇 %인지 알 수 있게 매 틱 진행률을 넘긴다 (실데이터 도착 전에도)
+    const phase = nf.pipelinePhase || 'queued';
+    iframe.contentWindow.postMessage({
+      type: 'f11Progress',
+      phase,
+      label: pipelinePhaseLabel(phase),
+      detail: nf.pipelineDetail || '',
+      percent: pipelinePercent(phase, phaseElapsedSec()),
+      transcriptPreview: out && out.transcript
+        ? String(out.transcript.full_text || '').slice(0, 120)
+        : '',
+    }, location.origin);
+    if (phase === 'error' || (nf.pipelineError && !out?.graph)) {
+      clearInterval(feed);
+      iframe.contentWindow.postMessage({
+        type: 'f11Error',
+        message: nf.pipelineError || nf.pipelineDetail || '분석에 실패했어요',
+        phase,
+      }, location.origin);
+      return;
+    }
+    if (out && out.graph && out.alignment) {
       clearInterval(feed);
       iframe.contentWindow.postMessage(
         { type: 'f11Data', graph: out.graph, alignment: out.alignment, flow: out.flow || null,
-          transcript: out.transcript || null }, '*');
+          transcript: out.transcript || null }, location.origin);
     }
   }, 500);
   const onMsg = (e) => {
@@ -1123,6 +1709,51 @@ function fmtMarkSec(sec) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
+/* 단계별 진행률 구간 [시작%, 천장%].
+   폭은 그 단계가 보통 잡아먹는 시간에 비례한다 (STT·개념 추출이 압도적으로 길다).
+   단계 안에서는 시간에 따라 천장으로 점근할 뿐 절대 넘지 않는다 —
+   막대가 멈춰 보이지 않으면서도 "다 됐다"고 거짓말하지 않는다. */
+/* 구간 폭은 실측 소요 시간에 비례한다 (2026-07-30, 12장 PPTX + 3분 녹음, 실 Solar):
+     STT 30초 · F-06 1분43초 · F-07 2분40초 · F-11 2분27초 · 흐름 1초 미만 = 총 7분 30초
+   추측으로는 STT 를 제일 무겁게 뒀었는데 실제로는 제일 가볍다. 느린 건 F-07·F-11 이다. */
+const PIPELINE_MARKS = {
+  queued: [0, 3],
+  encoding: [3, 6],
+  stt: [6, 14],
+  stt_done: [14, 16],
+  concepts: [16, 40],
+  concepts_done: [40, 42],
+  concepts_error: [40, 42],
+  graph: [42, 72],
+  graph_done: [72, 74],
+  align: [74, 97],
+  align_done: [97, 98],
+  align_error: [97, 98],
+  flow: [98, 99],
+  flow_done: [99, 99],
+  score: [99, 100],
+  score_done: [100, 100],
+  score_error: [100, 100],
+  partial: [100, 100],
+  done: [100, 100],
+  error: [100, 100],
+};
+/** 이 초 수쯤 지나면 구간 천장의 63% 지점에 닿는다. 긴 단계가 100~160초라 그에 맞춘다 */
+const PIPELINE_CREEP_TAU_SEC = 70;
+
+function pipelinePercent(phase, phaseElapsedSec) {
+  const [base, ceil] = PIPELINE_MARKS[phase] || PIPELINE_MARKS.queued;
+  if (ceil <= base) return ceil;
+  const k = 1 - Math.exp(-Math.max(0, Number(phaseElapsedSec) || 0) / PIPELINE_CREEP_TAU_SEC);
+  return Math.round(Math.min(ceil, base + (ceil - base) * k));
+}
+
+/** 지금 단계가 시작된 뒤 흐른 초 */
+function phaseElapsedSec() {
+  const t = nf._phaseStartedAt || nf.pipelineStartedAt || Date.now();
+  return Math.max(0, (Date.now() - t) / 1000);
+}
+
 function pipelinePhaseLabel(phase) {
   const map = {
     queued: '대기 중',
@@ -1132,6 +1763,25 @@ function pipelinePhaseLabel(phase) {
     concepts: 'F-06 개념 추출',
     concepts_done: 'F-06 완료',
     concepts_error: 'F-06 실패',
+    graph: 'F-07 개념 그래프',
+    graph_done: 'F-07 완료',
+    align: 'F-11 발표·자료 대조',
+    align_done: 'F-11 완료',
+    align_error: 'F-11 실패',
+    score: 'F-13 점수 계산',
+    score_done: '점수 완료',
+    score_error: '점수 실패',
+    flow: '흐름 비교',
+    flow_done: '흐름 비교 완료',
+    flow_error: '흐름 비교 실패',
+    pace: '말 속도·시간 배분',
+    pace_done: '시간 배분 완료',
+    habits: '음성 습관 분석',
+    habits_done: '음성 습관 완료',
+    voice_report: '종합 리포트 작성',
+    voice_report_done: '리포트 완료',
+    voice_report_error: '리포트 실패',
+    partial: '일부 실패',
     done: '완료',
     error: '오류',
   };
@@ -1166,9 +1816,10 @@ function pipelineLoadingHtml(kind) {
     if (!['stt_done', 'concepts'].includes(phase)) return '';
   }
 
+  // 실측(12장·3분 녹음, 실 Solar): 전체 7분 30초. STT 는 30초고 F-07·F-11 이 각 2분 30초다.
   const hint = kind === 'stt'
-    ? '실API STT는 녹음 길이에 따라 수십 초~수 분 걸릴 수 있어요.'
-    : '슬라이드 수에 따라 개념 추출에 시간이 더 걸릴 수 있어요.';
+    ? '실API 전체 분석은 12장 기준 7분 안팎 걸려요. 이 화면을 켜 두셔도 되고, 닫아도 뒤에서 계속 돌아갑니다.'
+    : '개념 그래프(F-07)와 정합 판정(F-11)이 가장 오래 걸려요. 각각 2분 30초쯤입니다.';
 
   return `<div class="pipe-loading" data-pipe-kind="${kind}">
     <div class="progress indeterminate"><i></i></div>
@@ -1179,6 +1830,80 @@ function pipelineLoadingHtml(kind) {
       <br>${hint}
     </p>
   </div>`;
+}
+
+/* ─── 막간: 커튼 뒤의 소곤소곤 (UI_REDESIGN §5) ─────────────────────────────
+   "언제 끝나지" 를 "쟤들이 내 얘기를 하고 있다" 로 바꾼다.
+
+   철칙: 한 마디도 지어내지 않는다. 여기 나오는 숫자는 전부 그 단계가 실제로
+   돌려준 값이다 — 실측값이 없으면 그 병아리는 그냥 입을 열지 않는다.
+   진행률·단계 이름·경과 초는 아래에 그대로 남는다 (§14 정직한 상태 유지). */
+
+const BACKSTAGE_NAMES = {
+  midm: '믿:음', solar: '쏠라', exaone: '엑사원', ax: '엑씨', all: '넷이 동시에',
+};
+
+function backstageLine(phase) {
+  const out = nf.pipelineOut || {};
+  if (phase === 'stt_done') {
+    const sec = out.transcript && out.transcript.duration_sec;
+    // 길이를 못 받았으면 말하지 않는다. 엑씨의 대사는 실측이 전부다
+    return sec ? { who: 'ax', text: `${fmtMarkSec(sec)}, 한마디도 안 놓쳤어` } : null;
+  }
+  if (phase === 'concepts_done') {
+    const n = out.concepts && (out.concepts.slides || []).length;
+    return n ? { who: 'solar', text: `${n}장, 다 읽었어` } : null;
+  }
+  if (phase === 'graph_done') {
+    const n = out.graph && (out.graph.nodes || []).length;
+    return n ? { who: 'solar', text: `개념 ${n}개 정리 끝!` } : null;
+  }
+  if (phase === 'align_done') {
+    return { who: 'midm', text: '어? 잠깐, 이거…' };
+  }
+  if (phase === 'score_done') {
+    return { who: 'all', text: '쉿—! 온다!' };
+  }
+  return null;
+}
+
+function backstageLineHtml(line) {
+  return `<li class="bs-line" data-who="${escapeHtml(line.who)}">`
+    + `<b>${escapeHtml(BACKSTAGE_NAMES[line.who] || line.who)}</b>`
+    + `<span>${escapeHtml(line.text)}</span></li>`;
+}
+
+/**
+ * 단계 완료 신호 하나를 커튼 틈으로 흘려보낸다.
+ *
+ * nf 에 쌓아 두는 이유: 파이프라인이 7분 도는 동안 화면이 여러 번 다시 그려지는데,
+ * DOM 에만 넣으면 그때마다 지금까지의 대화가 통째로 사라진다.
+ */
+function pushBackstage(phase) {
+  const line = backstageLine(phase);
+  if (!line) return;
+  if (!Array.isArray(nf.backstage)) nf.backstage = [];
+  if (nf.backstage.some((l) => l.phase === phase)) return;   // 같은 단계는 한 번만
+  nf.backstage.push({ ...line, phase });
+
+  const host = $('#bsLines');
+  if (!host) return;
+  const murmur = host.querySelector('.bs-murmur');
+  if (murmur) murmur.remove();
+  host.insertAdjacentHTML('beforeend', backstageLineHtml(line));
+}
+
+function backstageHtml() {
+  const lines = Array.isArray(nf.backstage) ? nf.backstage : [];
+  const body = lines.length
+    ? lines.map(backstageLineHtml).join('')
+    : '<li class="bs-murmur" aria-label="객석이 웅성거리는 중"><i></i><i></i><i></i></li>';
+  return `
+    <div class="bs-stage">
+      <div class="bs-curtain" aria-hidden="true"><i></i><i></i></div>
+      <p class="bs-hint">막이 내려왔어요. 커튼 뒤에서 뭔가 상의하는 소리가 들립니다.</p>
+      <ul class="bs-lines" id="bsLines">${body}</ul>
+    </div>`;
 }
 
 function pipelineInspectHtml() {
@@ -1207,6 +1932,15 @@ function pipelineInspectHtml() {
   const uiLog = (nf.log || []).map((l) =>
     `<li class="${l.re ? 're' : ''}">${escapeHtml(l.txt)}</li>`
   ).join('') || '<li>UI 로그 없음</li>';
+
+  // 업로드본은 전환 기록이 없어 marks 를 합성했다. 측정값처럼 읽히면 안 된다.
+  const up = nf.uploadedTake;
+  const uploadedNote = up
+    ? `<p class="note" style="color:#f59e0b">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
+       (${fmtMarkSec(up.durationSec)})으로 돌렸어요. 아래 marks 는 <b>실제 전환 기록이 아니라
+       길이를 ${marks.length}등분한 합성값</b>이라, 슬라이드별 발화 분할과 F-11 정합 판정은
+       참고용으로만 보세요.</p>`
+    : '';
 
   let speechHtml = '';
   if (transcript && transcript.error) {
@@ -1258,6 +1992,7 @@ function pipelineInspectHtml() {
     <div class="pipe-inspect">
       <h4 class="pipe-h">검증 로그 ${statusChip}</h4>
       <p class="note">화살표·하단 필름으로 넘긴 기록이 F-04 marks / F-05 분할에 들어갔는지 여기서 확인하세요.</p>
+      ${uploadedNote}
       <details class="pipe-block" open>
         <summary>F-04 슬라이드 구간 marks (${marks.length})</summary>
         <div class="table-wrap"><table class="pipe-table">
@@ -1292,7 +2027,7 @@ function startPipelineElapsedTimer() {
   if (nf._pipelineTickStarted) return;
   nf._pipelineTickStarted = true;
   every(() => {
-    if (!nf.pipelineStartedAt || ['done', 'error', 'concepts_error'].includes(nf.pipelinePhase)) {
+    if (!nf.pipelineStartedAt || ['done', 'partial', 'error', 'concepts_error'].includes(nf.pipelinePhase)) {
       return;
     }
     const elapsed = Math.max(0, Math.floor((Date.now() - nf.pipelineStartedAt) / 1000));
@@ -1300,288 +2035,15 @@ function startPipelineElapsedTimer() {
   }, 1000);
 }
 
-/* 시간 모드 라디오 (질문 준비 화면·홈 바로 시작 공용) */
-function qaModeButtonsHtml() {
-  const cur = (qa && qa.mode) || '10';
-  return `<div class="qa-modes" role="radiogroup" aria-label="질문 코칭 시간">
-    ${Object.keys(QA_MODES).map((k) => {
-      const md = QA_MODES[k];
-      return `<button type="button" class="qa-mode ${cur === k ? 'on' : ''}" data-mode="${k}" role="radio" aria-checked="${cur === k}">
-        <b>${md.short}</b><span>${md.desc}</span><em>${md.scopeLabel}</em>
-      </button>`;
-    }).join('')}
-  </div>`;
-}
-function qaStartCtaHtml() {
-  const m = QA_MODES[(qa && qa.mode) || '10'];
-  return `<a class="btn btn-primary" href="#/qa" data-qa-start>질문 코칭 시작하기 · 최대 ${m.count}개 개념 · 약 ${m.min}분</a>`;
-}
-function wireQaModeButtons(rerender) {
-  $$('.qa-mode').forEach((btn) => btn.addEventListener('click', () => {
-    resetQa();                                   // 새 코칭 세션 — 이전 대화를 정리하고 모드만 바꾼다
-    qa.mode = btn.dataset.mode;
-    saveSession('qa-flow', qa);
-    rerender();
-  }));
-}
-/* 플랫(세션 없는) 질문 경로가 쓰는 판정용 세션 자리표시자.
- * 서버에 이 세션은 없다 — 판정은 요청 바디 폴백으로 돈다. 'undefined' 가
- * URL 에 박히는 것을 막고, 로그에서 이 경로를 알아볼 수 있게 이름을 준다. */
-const FLAT_QA_SESSION_ID = 'flat';
-
-/* 실전 질문을 만들 수 없는 **영구적** 이유. null 이면 만들 수 있다.
- * 브리지 로드 여부는 여기서 보지 않는다 — 잠깐 기다리면 풀리는 일시 상태라
- * ensureLiveQuestions() 의 재시도가 따로 다룬다. */
-function qaLiveBlockReason(out) {
-  // alignment 은 요구하지 않는다 — 녹음 없이 자료만 올린 경로에는 정합 판정이 아예 없다.
-  // 서버도 graph 만 요구한다 (server/app.py flat_questions).
-  if (!out || !out.graph) {
-    return '내 발표 분석 결과가 없어 데모 질문으로 진행해요. 「새 발표 연습」에서 준비를 먼저 끝내 주세요.';
-  }
-  return null;
-}
-
-/* 브리지(type="module")는 classic script 인 app.js 보다 늦게 로드된다.
- * 그래서 페이지 로드 직후 첫 렌더에는 아직 없을 수 있다. 예전에는 그때 바로 포기해서,
- * 게이트를 안 거치는 사용자(이미 started=true 인 재방문자)는 영원히 데모만 봤다. */
-const QA_BRIDGE_RETRY_MS = 120;
-const QA_BRIDGE_MAX_TRIES = 25;   // 약 3초
-let qaBridgeTries = 0;
-
-/* 지금 화면이 질문 코칭 라우트인지 */
-function onQaRoute() {
-  return location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa';
-}
-
-/* 데모 질문으로 되돌아간 이유를 코칭 화면 위에 남긴다 */
-function qaNoticeHtml() {
-  if (!qa.liveNotice) return '';
-  return `<p class="qa-notice" role="status">${escapeHtml(qa.liveNotice)}</p>`;
-}
-
-/* 지난 세션이 남아 있으면 새 코칭으로 초기화한 뒤 #/qa 로 이동.
- * 모드를 이미 고른 경로(홈 카드·4단계)는 started 를 세워 게이트를 건너뛰고,
- * pickMode 경로(리포트 다시 하기 등)는 게이트에서 1/5/10분을 고르게 둔다. */
-function wireQaStart(root, { pickMode = false } = {}) {
-  const cta = root.querySelector('[data-qa-start]');
-  if (!cta || cta._qaStartBound) return;
-  cta._qaStartBound = true;   // 렌더마다 다시 배선돼도 요청이 두 번 나가지 않게
-  cta.addEventListener('click', () => {
-    if (qa.started || qa.ended) resetQa();
-    qa.started = !pickMode;
-    qa.liveNotice = '';   // 지난 시도의 안내가 남아 있지 않게
-    saveSession('qa-flow', qa);
-    // 질문 생성은 여기서 하지 않는다 — renderQa() 의 ensureLiveQuestions() 가 책임진다.
-    // 링크는 기본 동작으로 #/qa 로 간다.
-  });
-}
-
-/* 실전 질문이 아직 없으면 지금 만든다 — #/qa 로 오는 **모든** 경로의 단일 보장 지점.
+/**
+ * 파이프라인이 끝났을 때만 스텝 4 를 다시 그린다.
  *
- * 예전에는 이 로직이 CTA 클릭 핸들러 안에만 있었다. 그래서 버튼을 거치지 않는 경로,
- * 특히 리허설을 마치면 앱이 스스로 이동하는 주 경로(showF11Reveal 의 자동 이동)는
- * 서버를 아예 부르지 않고 조용히 데모 질문을 보여줬다. 진입점마다 생성 로직을
- * 복사하는 대신 렌더 시점에 한 번만 보장한다 — 새 #/qa 링크가 늘어도 안전하다.
- *
- * @returns {boolean} true 면 생성이 진행 중이다 (호출자는 로딩 화면을 그린다)
+ * 실 LLM 파이프라인은 7분도 걸린다. 그 사이 사용자가 리포트나 질문코치로 넘어가
+ * 있으면, 완료 콜백이 app.innerHTML 을 덮어써 보던 화면을 통째로 날려버린다.
  */
-function ensureLiveQuestions() {
-  // 생성 중에 다시 들어오면 대기 화면을 유지한다. false 를 주면 호출자가 데모 질문을
-  // 그리고, 거기 답하는 사이 생성이 끝나면 성공 콜백의 qa.turns=[] 가 그 답변을 지운다.
-  if (qaBuilding) return true;
-  // 이미 실패했으면 다시 시도하지 않는다 — 재시도 루프 방지 (qaBuildFailed 주석 참고)
-  if (qaLiveActive() || qaBuildFailed) return false;
-
-  const out = nf && nf.pipelineOut;
-  const bridge = window.ChuckchuckBridge;
-
-  // 브리지가 아직이면 포기하지 말고 잠깐 기다렸다 다시 본다 (모듈 로드 순서 문제)
-  if (!bridge || !bridge.buildQuestions) {
-    if (qaBridgeTries < QA_BRIDGE_MAX_TRIES) {
-      qaBridgeTries += 1;
-      setTimeout(() => { if (onQaRoute()) renderQa(); }, QA_BRIDGE_RETRY_MS);
-      return true;   // 그동안 대기 화면을 보여준다
-    }
-    qaBuildFailed = true;
-    qa.liveNotice = '질문 생성 모듈을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.';
-    saveSession('qa-flow', qa);
-    return false;
-  }
-
-  const blocked = qaLiveBlockReason(out);
-  if (blocked) {
-    // 못 만드는 이유는 반드시 남긴다. 조용히 넘어가면 데모 질문이 내 질문처럼 보인다.
-    if (qa.liveNotice !== blocked) {
-      qa.liveNotice = blocked;
-      saveSession('qa-flow', qa);
-    }
-    return false;
-  }
-
-  qaBuilding = true;
-  qa.liveNotice = '';
-  bridge.buildQuestions({
-    graph: out.graph,
-    alignment: out.alignment || null,
-    flow: out.flow || null,
-    transcript: out.transcript || null,
-    context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
-    track: (qa && qa.mode) || '10',
-  }).then((doc) => {
-    const questions = (doc && doc.questions) || [];
-    if (questions.length) {
-      // 플랫 경로에는 서버 세션이 없다. 판정은 요청 바디 폴백으로 돌고,
-      // 그때는 그래프·정합 근거 없이 판정된다 (server/app.py _resolve_question 참고).
-      qa.live = newLiveState(FLAT_QA_SESSION_ID, questions);
-      // 데모 대화가 남아 있으면 실전 대화와 한 스레드에 섞인다 — 새 코칭으로 시작한다
-      qa.turns = [];
-      qa.sub = 'answer';
-      qa.ended = false;
-      qa.liveNotice = '';
-    } else {
-      qaBuildFailed = true;
-      qa.liveNotice = '내 발표에서는 질문이 만들어지지 않았어요. 데모 질문으로 진행해요.';
-    }
-  }).catch((err) => {
-    // 생성 실패는 막지 않는다 — 데모 질문으로라도 코칭은 이어간다
-    qaBuildFailed = true;
-    console.warn('[chuckchuck] build questions', err);
-    qa.liveNotice = `내 발표로 질문을 만들지 못했어요 (${err.message || err}). 데모 질문으로 진행해요.`;
-  }).finally(() => {
-    qaBuilding = false;
-    saveSession('qa-flow', qa);
-    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa') renderQa();
-  });
-  return true;
-}
-
-/* 질문 만드는 동안의 대기 화면 */
-function renderQaBuilding() {
-  app.className = 'narrow';
-  app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 준비 중</span></div>
-    <div class="card qa-building" role="status" aria-live="polite">
-      <b>내 발표에서 예상 질문을 만들고 있어요</b>
-      <p class="note">개념 그래프와 실제 발화를 대조해 치명적인 것부터 골라요. 10초쯤 걸려요.</p>
-      <div class="qb-bar"><i></i></div>
-      <div class="step-actions" style="justify-content:center;margin-top:14px">
-        <button class="btn btn-text" id="qbSkip" type="button">기다리지 않고 데모 질문으로 진행하기</button>
-      </div>
-    </div>`;
-  // 로딩 화면에 갇히지 않게 항상 빠져나갈 길을 둔다
-  const skip = $('#qbSkip');
-  if (skip) skip.addEventListener('click', () => {
-    qaBuildFailed = true;
-    qaBuilding = false;
-    qa.liveNotice = '질문 생성을 기다리지 않고 데모 질문으로 진행해요.';
-    saveSession('qa-flow', qa);
-    renderQa();
-  });
-}
-
-/* 질문 준비 완료 → QA 시간 모드 선택 + 시작 CTA */
-function qaModePickHtml() {
-  return `<div class="qa-mode-pick">
-    <div class="qm-head"><b>질문 준비가 끝났어요</b><span>시간을 고르면 질문 범위를 맞춰드려요 — 치명적인 것부터 채워요</span></div>
-    ${qaModeButtonsHtml()}
-    ${qaStartCtaHtml()}
-  </div>`;
-}
-
-/* 홈: 리허설을 건너뛰고 최근 발표 기준으로 바로 질문 코칭 시작 */
-function qaQuickCardHtml() {
-  return `<div class="card qa-quick">
-    <div class="qm-head"><b>질문 코칭 바로 시작</b><span>최근 발표 기준이에요 — 시간을 고르면 질문 범위를 맞춰드려요</span></div>
-    ${qaModeButtonsHtml()}
-    ${qaStartCtaHtml()}
-    ${qaLivePanelHtml()}
-  </div>`;
-}
-
-/* 실전 모드: 내 자료(+임의 녹음 파일)로 서버에서 질문을 만들어 코칭 */
-function qaLivePanelHtml() {
-  // 브리지가 아직 안 붙었을 때만 쓰는 폴백. 브리지의 QA_API_DEFAULT 와 같은 주소여야 한다
-  const base = (window.ChuckchuckBridge && window.ChuckchuckBridge.qaApiBase()) || 'http://localhost:8000';
-  return `<details class="fold qa-live-fold">
-    <summary>실전 모드 — 내 자료·녹음 파일로 질문 만들기</summary>
-    <div class="fold-body qa-live-body">
-      <label class="ql-row"><span>발표자료 (PDF/PPTX)</span><input type="file" id="qlDoc" accept=".pdf,.pptx"></label>
-      <label class="ql-row"><span>녹음 파일 (선택)</span><input type="file" id="qlAudio" accept=".webm,.m4a,.wav,.mp3,.ogg,audio/*"></label>
-      <label class="ql-row"><span>API 주소</span><input type="text" id="qlApi" value="${escapeHtml(base)}" spellcheck="false"></label>
-      <div class="step-actions">
-        <button class="btn btn-secondary" id="qlRun" type="button">실전 질문 만들기 · ${qaScope().short}</button>
-        <button class="btn btn-text" id="qlSample" type="button">샘플 파일로 채우기</button>
-      </div>
-      <p class="note" id="qlStatus">자료를 올리면 파싱 → (녹음 있으면 STT·정합) → 개념 그래프 → 예상 질문 순서로 준비해요.</p>
-    </div>
-  </details>`;
-}
-
-function wireQaLivePanel() {
-  const run = $('#qlRun');
-  if (!run || run._qaLiveBound) return;
-  run._qaLiveBound = true;
-  const st = $('#qlStatus');
-  const sampleBtn = $('#qlSample');
-  if (sampleBtn) sampleBtn.addEventListener('click', async () => {
-    st.textContent = '샘플 파일 불러오는 중…';
-    try {
-      const [docRes, audioRes] = await Promise.all([
-        fetch('assets/samples/imu2clip_sample.pdf'),
-        fetch('assets/samples/rehearsal_sample.mp3'),
-      ]);
-      if (!docRes.ok) throw new Error('샘플 PDF를 찾을 수 없어요.');
-      const put = (input, blob, name, type) => {
-        const dt = new DataTransfer();
-        dt.items.add(new File([blob], name, { type }));
-        input.files = dt.files;
-      };
-      put($('#qlDoc'), await docRes.blob(), 'imu2clip_sample.pdf', 'application/pdf');
-      if (audioRes.ok) put($('#qlAudio'), await audioRes.blob(), 'rehearsal_sample.mp3', 'audio/mpeg');
-      st.textContent = '샘플이 채워졌어요 — 「실전 질문 만들기」를 누르면 시작해요. (녹음 샘플에는 일부러 언급만 한 개념과 자료와 모순된 설명이 들어 있어요)';
-    } catch (err) {
-      st.textContent = `샘플 로드 실패: ${err.message || err}`;
-    }
-  });
-  run.addEventListener('click', async () => {
-    const B = window.ChuckchuckBridge;
-    if (!B || !B.runQaLivePipeline) { st.textContent = '브리지 모듈이 아직 로드되지 않았어요. 새로고침 후 다시 시도해 주세요.'; return; }
-    const doc = $('#qlDoc').files[0];
-    if (!doc) { st.textContent = '발표자료(PDF/PPTX)를 먼저 선택해 주세요.'; return; }
-    const audio = $('#qlAudio').files[0] || null;
-    B.setQaApiBase($('#qlApi').value);
-    run.disabled = true;
-    st.textContent = '준비 시작…';
-    try {
-      const out = await B.runQaLivePipeline({
-        documentFile: doc,
-        audioFile: audio,
-        mode: (qa && qa.mode) || '10',
-        onProgress: (text) => { st.textContent = text; },
-      });
-      const questions = (out.questionDoc && out.questionDoc.questions) || [];
-      if (!questions.length) {
-        st.textContent = '질문이 만들어지지 않았어요. 자료 내용을 확인해 주세요.';
-        run.disabled = false;
-        return;
-      }
-      resetQa();
-      qa.live = newLiveState(out.sessionId, questions);
-      saveSession('qa-flow', qa);
-      location.hash = '#/qa';
-    } catch (err) {
-      st.textContent = `실패: ${err.message || err}`;
-      run.disabled = false;
-    }
-  });
-}
-function rerenderQaQuick() {
-  const el = $('.qa-quick');
-  if (!el) return;
-  el.outerHTML = qaQuickCardHtml();
-  wireQaModeButtons(rerenderQaQuick);
-  wireQaStart(app);
-  wireQaLivePanel();
+function refreshStep4IfVisible() {
+  const onNewFlow = /^#\/?(new)?(\/|$)/.test(location.hash || '#/');
+  if (onNewFlow && nf.step === 3) nfStep4();
 }
 
 function nfStep4() {
@@ -1597,14 +2059,15 @@ function nfStep4() {
   nf.done = doneN;
   const conceptsError = (nf.pipelineOut && nf.pipelineOut.conceptsError) || null;
   const pipeErr = conceptsError
-    ? `<p class="note" style="color:#f04452;margin-bottom:12px">개념 추출 실패 (STT는 성공): ${escapeHtml(conceptsError)}</p>`
+    ? stageAccidentHtml(`개념 추출 실패 (STT는 성공): ${conceptsError}`)
     : (nf.pipelineError
-      ? `<p class="note" style="color:#f04452;margin-bottom:12px">연동 오류: ${escapeHtml(nf.pipelineError)}</p>`
+      ? stageAccidentHtml(`연동 오류: ${nf.pipelineError}`)
       : '');
   app.innerHTML = `${nfSteps()}
     <div class="card">
       <h3 class="section-title">발표를 듣고 질문을 준비하고 있어요</h3>
       <p class="note" style="margin-bottom:14px">최종 분석 전에, 설명이 비어 있던 개념을 질문으로 함께 확인해요.</p>
+      ${backstageHtml()}
       ${pipeErr}
       <ul class="checklist">
         ${items.map((t, i) => {
@@ -1613,19 +2076,47 @@ function nfStep4() {
         }).join('')}
       </ul>
       ${pipelineInspectHtml()}
-      ${nf.conceptsOk && doneN >= items.length ? qaModePickHtml() : ''}
       <div class="step-actions">
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>
-        ${!(nf.conceptsOk && doneN >= items.length) && nf.transcriptOk && conceptsError
-          ? `<span class="note">STT까지는 성공했어요. 개념 추출만 실패했습니다.</span>`
-          : ''}
+        <button class="btn btn-secondary btn-sm" type="button" id="againTake">다른 녹음으로 다시</button>
+        <a class="btn btn-text btn-sm skip-qa" href="#/report">질문코치 건너뛰고 상세 리포트</a>
+        ${nf.conceptsOk && doneN >= items.length
+          ? `<span style="font-weight:700">질문 준비가 끝났어요</span>
+             <a class="btn btn-primary" href="#/qa">질문 코칭 시작하기</a>`
+          : (nf.transcriptOk && conceptsError
+            ? `<span class="note">STT까지는 성공했어요. 개념 추출만 실패했습니다.</span>`
+            : '')}
       </div>
     </div>`;
   wireFreshPracticeButtons(app);
-  wireQaModeButtons(nfStep4);
-  wireQaStart(app);
   startPipelineElapsedTimer();
   paintPipeMapThumbs();
+
+  const again = $('#againTake');
+  // 자료(nfSlideDoc·uploadedPdf)는 그대로 두고 테이크만 버린다 — resetNf 와 다르다
+  if (again) again.addEventListener('click', () => {
+    ccRuntime = null;
+    ccLastTake = null;
+    chatterCache = null;
+    nf.mic = 'idle';
+    nf.sec = 0;
+    nf.marks = null;
+    nf.uploadedTake = null;
+    nf.log = [];
+    nf.visits = { 1: 1 };
+    nf.done = 0;
+    nf._pipelineStarted = false;
+    nf.pipelineOut = null;
+    nf.pipelineError = null;
+    nf.pipelinePhase = null;
+    nf.pipelineDetail = null;
+    nf.transcriptOk = false;
+    nf.conceptsOk = false;
+    nf.backstage = [];
+    nf.step = 2;
+    saveSession('new-flow', nf);
+    renderNew();
+  });
 
   if (ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted) {
     nf._pipelineStarted = true;
@@ -1637,21 +2128,23 @@ function nfStep4() {
     nf.conceptsOk = false;
     refreshPipelineInspect();
 
-    window.ChuckchuckBridge.runPreparePipeline({
+    // slideDoc 이 없으면 F-06 이후가 통째로 안 돈다. 캐시에서 먼저 되살린다.
+    ensureSlideDoc().then((slideDoc) => window.ChuckchuckBridge.runPreparePipeline({
       marks: ccLastTake.marks,
       blob: ccLastTake._blob,
       mimeType: ccLastTake.mimeType,
-      ext: ccLastTake.ext,
-      slideDoc: nfSlideDoc,
+      fileName: ccLastTake.fileName || '',
+      slideDoc,
       context: {
         situation: nf.occ || '',
         audience: nf.ctx || '',
         duration_min: nf.min,
       },
-      onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr, graph, alignment, flow }) => {
+      onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr, graph, alignment, flow, pace, habits, voiceReport, score }) => {
+        if (phase !== nf.pipelinePhase) nf._phaseStartedAt = Date.now();
         nf.pipelinePhase = phase;
         nf.pipelineDetail = detail || '';
-        if (transcript || concepts || cErr || graph || alignment || flow) {
+        if (transcript || concepts || cErr || graph || alignment || flow || pace || habits || voiceReport || score) {
           nf.pipelineOut = {
             ...(nf.pipelineOut || {}),
             ...(transcript ? { transcript } : {}),
@@ -1660,32 +2153,40 @@ function nfStep4() {
             ...(graph ? { graph } : {}),
             ...(alignment ? { alignment } : {}),
             ...(flow ? { flow } : {}),
+            ...(pace ? { pace } : {}),
+            ...(habits ? { habits } : {}),
+            ...(voiceReport ? { report: voiceReport } : {}),
+            ...(score ? { score } : {}),
           };
         }
         if (transcript && !transcript.error) nf.transcriptOk = true;
+        // 커튼 틈으로 한 마디. pipelineOut 을 갱신한 뒤라야 실측값이 들어 있다
+        pushBackstage(phase);
         // STT 완료 직후 전체 화면을 다시 그려 발화 블록이 확실히 보이게
         if (phase === 'stt_done' || phase === 'concepts_error' || phase === 'concepts_done') {
           nf.done = pipelineChecklistDone();
-          nfStep4();
+          refreshStep4IfVisible();
         } else {
           refreshPipelineInspect();
         }
       },
-    }).then((out) => {
+    })).then((out) => {
       nf.pipelineOut = out;
-      nf.pipelinePhase = out && out.conceptsError ? 'concepts_error' : 'done';
-      nf.pipelineDetail = out && out.conceptsError ? out.conceptsError : '준비 완료';
+      // 중간 단계가 죽었으면 '완료' 라고 하면 안 된다 — 오지 않을 결과를 기다리게 된다
+      const failed = out && out.failedStage;
+      nf.pipelinePhase = failed ? 'partial' : 'done';
+      nf.pipelineDetail = failed
+        ? `${out.failedStage} 실패`
+        : (out && out.conceptsError ? out.conceptsError : '준비 완료');
       nf.transcriptOk = !!(out && out.transcript && !out.transcript.error);
       nf.conceptsOk = !!(out && out.concepts && !out.concepts.error && !out.conceptsError);
       if (out && out.conceptsError) {
         nf.pipelineError = null; // STT 성공분 유지 — 상단은 conceptsError 로 표시
       }
       console.info('[chuckchuck] pipeline ok', out);
+      recordShow();
       nf.done = pipelineChecklistDone();
-      // 파이프라인 결과를 반드시 남긴다. 이걸 빼먹으면 graph·alignment 가 메모리에만 남아
-      // 새로고침 한 번에 사라지고, 질문 코칭이 조용히 데모 질문으로 되돌아간다.
-      saveSession('new-flow', nf);
-      nfStep4();
+      refreshStep4IfVisible();
     }).catch((err) => {
       console.warn('[chuckchuck] prepare pipeline', err);
       nf.pipelineError = err.message || String(err);
@@ -1693,40 +2194,185 @@ function nfStep4() {
       nf.pipelineDetail = nf.pipelineError;
       // 부분 결과가 있으면 유지
       nf.done = pipelineChecklistDone();
-      saveSession('new-flow', nf);
-      nfStep4();
+      refreshStep4IfVisible();
     });
   }
 }
 
 /* ══ 리포트 ══ */
+
+/** 업로드·실연동 세션이면 true. 샘플 IMU2CLIP 데모와 구분한다. */
+function isLiveReportSession() {
+  if (!nf) return false;
+  if (nf.useSample) return false;
+  if (nf.fileName) return true;
+  if (nf.pipelineOut) return true;
+  if (nf.pipelinePhase || nf.pipelineError) return true;
+  if (nf.slideDocMeta && nf.slideDocMeta.file_name) return true;
+  return false;
+}
+
+/** 리포트 헤더용 메타 — 실제 올린 자료/파이프라인 기준. 샘플 DATA.session 은 데모 전용. */
+function reportSessionMeta() {
+  const sample = DATA.session;
+  const out = nf && nf.pipelineOut;
+  const graph = out && out.graph;
+  const live = isLiveReportSession();
+  if (!live) {
+    return {
+      live: false,
+      title: sample.title,
+      occasion: sample.occasion,
+      slides: sample.slides,
+      duration: sample.duration,
+      nth: sample.nth,
+    };
+  }
+  const fileName = (graph && graph.file_name)
+    || (nf.slideDocMeta && nf.slideDocMeta.file_name)
+    || nf.fileName
+    || '내 발표자료';
+  // 확장자 뗀 이름을 제목으로
+  const title = String(fileName).replace(/\.(pdf|pptx|ppt|key)$/i, '').trim() || fileName;
+  const slides = (graph && graph.total_slides)
+    || (nf.slideDocMeta && nf.slideDocMeta.total_slides)
+    || (typeof rehearsalCount === 'function' ? rehearsalCount() : 0)
+    || (nf.slideTitles && nf.slideTitles.length)
+    || 0;
+  const durSec = (out && out.transcript && out.transcript.duration_sec)
+    || (typeof ccLastTake !== 'undefined' && ccLastTake && ccLastTake.durationSec)
+    || nf.sec
+    || 0;
+  const duration = durSec
+    ? (durSec >= 60
+      ? `${Math.floor(durSec / 60)}분 ${Math.round(durSec % 60)}초`
+      : `${Math.round(durSec)}초`)
+    : (nf.min ? `목표 ${nf.min}분` : '—');
+  return {
+    live: true,
+    title,
+    occasion: nf.occ || '발표 연습',
+    slides,
+    duration,
+    nth: 1,
+  };
+}
+
 let rTab = 0, jSel = 'contrast', jFilter = 'all', toolSeg = 0, mapWeakOnly = false, repSlide = 7;
 
-function renderReport() {
+/**
+ * 판정 헤드에 필요한 값만 모은다.
+ *
+ * 점수·차원·한 줄 판단은 원래 rSummary() 안에 있었는데, 판정은 탭이 바뀌어도
+ * 유지돼야 하는 세션의 결론이라 헤드로 끌어올렸다. 계산 자체는 기존
+ * realSummary()·realTrophy() 를 그대로 쓰고 여기서는 조합만 한다.
+ */
+function reportVerdict() {
+  const live = isLiveReportSession();
+  const real = realSummary();
+  const tree = judgeTree();
+  const isRealTree = !!(tree[0] && tree[0].real);
+  const s = DATA.session;
+
+  // 올린 자료인데 분석이 없으면 샘플 점수를 헤드에 띄우지 않는다
+  if (live && !real && !isRealTree) return { hasAnalysis: false, isSample: false };
+
+  if (real) {
+    return {
+      hasAnalysis: true, isSample: false,
+      score: real.score,
+      dims: real.dims,
+      headline: real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요',
+      delta: `<span class="prev num">F-13 실측 · ${escapeHtml(real.basis)}</span>`,
+    };
+  }
+  const diff = s.score - s.prevScore;
+  return {
+    hasAnalysis: true, isSample: true,
+    score: s.score,
+    dims: s.dims,
+    headline: s.oneLiner,
+    delta: `<span class="delta num">▲ ${diff}</span><span class="prev num">지난 연습 ${s.prevScore}점</span>`,
+  };
+}
+
+/**
+ * ③ 장식이 아니라 데이터가 배경이다.
+ * 판정 헤드 바닥에 발화 파형과 슬라이드 전환 시각을 깐다.
+ * 매 로드 같은 모양이 나오도록 결정적으로 생성한다.
+ */
+function paintVerdictBg() {
+  const bg = $('#verdictBg');
+  if (!bg || bg.childElementCount) return;
+  for (let i = 0; i < 150; i++) {
+    const b = document.createElement('i');
+    b.style.height = (12 + Math.abs(Math.sin(i * .37) * Math.cos(i * .11)) * 88).toFixed(1) + '%';
+    bg.appendChild(b);
+  }
+  // 전환 시각을 따로 갖고 있지 않으므로 장수에 맞춰 균등하게 나눈다
+  const total = Math.min(rehearsalCount() || DATA.session.slides || 0, 14);
+  for (let n = 1; n < total; n++) {
+    const m = document.createElement('b');
+    m.style.left = (n / total * 100).toFixed(2) + '%';
+    bg.appendChild(m);
+  }
+}
+
+async function renderReport() {
+  await ensureVoicePipelineOut();
   const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || 'imu2clip';
   if (reportId !== 'imu2clip' && DATA.reportProfiles[reportId]) {
     renderProfileReport(DATA.reportProfiles[reportId]);
     return;
   }
   app.className = 'wide';
-  const s = DATA.session;
-  const tabs = ['요약', '개념별 판정', '논리 흐름', '말 속도', '연습 도구'];
+  const s = reportSessionMeta();
+  const v = reportVerdict();
+  const tabs = ['요약', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
+  const meta = [
+    escapeHtml(s.occasion),
+    s.slides ? `${s.slides}장` : '',
+    escapeHtml(s.duration),
+    s.live ? '' : `${s.nth}번째 연습`,
+  ].filter(Boolean);
   app.innerHTML = `
-    <div class="report-head">
-      <span class="final-label">발표 + 질문 코칭 최종 분석</span>
-      <h1 class="page-title">${s.title}</h1>
-      <p class="report-meta">${s.occasion} · ${s.slides}장 · ${s.duration} · ${s.nth}번째 연습</p>
-    </div>
+    <section class="verdict${v.hasAnalysis ? '' : ' is-plain'}">
+      <div class="verdict-bg" id="verdictBg" aria-hidden="true"></div>
+      <div class="verdict-inner">
+        <p class="verdict-meta">${meta.map(m => `<span>${m}</span>`).join('<i></i>')}</p>
+        <h1 class="verdict-title">${escapeHtml(s.title)}</h1>
+        ${v.hasAnalysis ? `
+        <div class="verdict-grid">
+          <div class="verdict-score">
+            <strong class="num">${v.score}<span class="of">/100</span></strong>
+            ${v.delta}
+          </div>
+          <div class="verdict-judgement">
+            <h2>${escapeHtml(v.headline)}</h2>
+            <div class="verdict-dims">
+              ${v.dims.map(d => `
+              <div class="vd">
+                <span class="lb">${escapeHtml(d[0])}</span>
+                <span class="vl num">${d[1]}</span>
+                <div class="bar"><i style="width:${d[1]}%"></i></div>
+              </div>`).join('')}
+            </div>
+          </div>
+        </div>` : ''}
+      </div>
+      ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>` : ''}
+    </section>
     <div class="tabs" id="rtabs">
       ${tabs.map((t, i) => `<button class="${i === rTab ? 'on' : ''}">${t}</button>`).join('')}
     </div>
     <div id="rbody"></div>`;
+  paintVerdictBg();
   $('#rtabs').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     rTab = $$('#rtabs button').indexOf(b);
     renderReport();
   });
-  [rSummary, rJudge, rLogic, rPace, rTools][rTab]();
+  [rSummary, rJudge, rLogic, rPace, rAudience, rTools][rTab]();
   animateViz();
 }
 
@@ -1769,48 +2415,400 @@ function renderProfileReport(p) {
       <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/">내 발표로 돌아가기</a></div>
     </div>`;
 }
-function goJudge(node) { jSel = node; rTab = 1; renderReport(); }
+function goJudge(node) {
+  jSel = node; rTab = 1; renderReport();
+  // 탭만 바꾸면 긴 목록에서 선택한 개념이 화면 밖에 있을 수 있다
+  const picked = $('#jtree .sel') || $(`#jtree [data-node="${node}"]`);
+  if (picked) picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 /* 탭 1 — 요약 */
-function rSummary() {
-  const s = DATA.session;
-  const prio = DATA.priorities[s.occasion];
-  const D = s.durationSec;
-  const tr = s.qa.trophy;
-  $('#rbody').innerHTML = `
-    <div class="card hero-card final-score-card">
-      ${ringSvg(s.score, 132, 11, `<strong class="num" data-count="${s.score}">0</strong><span>점</span>`)}
-      <div class="hero-body">
-        <span class="chip chip-sm chip-up">지난 연습보다 +${s.score - s.prevScore}점</span>
-        <h2>${s.oneLiner}</h2>
-        <div class="dims">
-          ${s.dims.map(d => `
-          <div class="dim-row">
-            <span class="lb">${d[0]}</span>
-            <div class="fill-bar"><i data-w="${d[1]}%"></i></div>
-            <span class="vl num">${d[1]}</span>
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>
 
-    <button class="card trophy-strip" id="trophyStrip">
-      <span class="ts-label">오늘 만든 문장</span>
-      <p class="ts-quote">“${tr.after}”</p>
-      <i class="ts-go">${tr.slide}번 슬라이드에서 보기 →</i>
-    </button>
+/** 덱 필름에 그릴 슬라이드 목록. 상태는 실판정이 있으면 그걸, 없으면 샘플을 쓴다. */
+function deckThumbList() {
+  const tree = judgeTree();
+  const isReal = !!(tree[0] && tree[0].real);
+  const total = (nfSlideDoc && nfSlideDoc.total_slides)
+    || (uploadedPdf && uploadedPdf.pageCount)
+    || DATA.slideStatus.length;
+  // 한 장에 여러 개념이 걸리면 가장 나쁜 판정을 그 장의 색으로 쓴다
+  const RANK = { ct: 0, no: 1, mid: 2, om: 3, ok: 4 };
+  const worst = {};
+  if (isReal) {
+    tree.forEach(n => {
+      const no = slideNumber(n.slide);
+      if (!worst[no] || RANK[n.status] < RANK[worst[no]]) worst[no] = n.status;
+    });
+  }
+  const titles = activeTitles();
+  return Array.from({ length: total }, (_, i) => {
+    const no = i + 1;
+    return {
+      no,
+      status: isReal ? (worst[no] || 'om') : (DATA.slideStatus[i] || 'om'),
+      title: titles[i] || DATA.slideTitles[i] || `${no}번 슬라이드`,
+      // 업로드 PDF 가 있으면 렌더가 채운다. 없으면 샘플 이미지로 떨어진다.
+      src: (uploadedPdf && uploadedPdf.pdf) ? '' : (DATA.slideImages[i] || ''),
+    };
+  });
+}
+
+
+/* ── 슬라이드 썸네일 ───────────────────────────────────────────────────────
+   업로드한 PDF 를 pdf.js 로 직접 렌더한다. 리허설 화면이 쓰는 렌더 경로와
+   달리 취소·경합이 없어야 하므로(썸네일은 여러 장을 한 번에 그린다) 별도로 둔다.
+   PPTX 는 브라우저에서 렌더할 방법이 없어 이름표만 남는다. */
+
+/* thumbCache · THUMB_WIDTH 선언은 파일 위쪽(uploadedPdf 옆)에 있다 — setUploadedPdf 참고. */
+
+async function slideThumb(pageNo) {
+  if (!uploadedPdf || !uploadedPdf.pdf) return null;
+  if (thumbCache.has(pageNo)) return thumbCache.get(pageNo);
+  try {
+    const page = await uploadedPdf.pdf.getPage(pageNo);
+    const unscaled = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: THUMB_WIDTH / unscaled.width });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const url = canvas.toDataURL('image/jpeg', 0.7);
+    thumbCache.set(pageNo, url);
+    return url;
+  } catch (err) {
+    console.warn('[chuckchuck] thumb', pageNo, err);
+    return null;
+  }
+}
+
+/** 화면에 이미 붙은 썸네일 자리를 실제 PDF 렌더로 채운다 (순차 — 한꺼번에 돌리면 버벅인다). */
+async function paintDeckThumbs(root = document) {
+  if (!uploadedPdf || !uploadedPdf.pdf) return;
+  const slots = [...root.querySelectorAll('img[data-thumb-page]')];
+  for (const img of slots) {
+    const no = Number(img.dataset.thumbPage);
+    if (!no) continue;
+    const url = await slideThumb(no);
+    if (url && img.isConnected) img.src = url;
+  }
+}
+
+/**
+ * "오늘 만든 문장" — 실데이터 출처는 F-11 의 suggestion 이다.
+ *
+ * 자료가 제일 힘줬는데 설명이 비었거나 어긋난 개념의 제안 문장을 고른다.
+ * 그게 다음 리허설에서 실제로 말해볼 한 문장이라 트로피 자리에 맞다.
+ * 전부 잘 설명했으면 aligned 중 가장 무거운 개념의 유지 멘트를 쓴다.
+ */
+function realTrophy() {
+  const out = nf && nf.pipelineOut;
+  const al = out && out.alignment;
+  const graph = out && out.graph;
+  if (!al || !graph) return null;
+  const slideOf = {};
+  (graph.nodes || []).forEach(n => {
+    if (n.slide_nos && n.slide_nos.length) slideOf[n.id] = Math.min(...n.slide_nos);
+  });
+  const withText = (al.items || []).filter(i => (i.suggestion || '').trim() && slideOf[i.node_id]);
+  if (!withText.length) return null;
+  const rank = { contradiction: 0, missing: 1, justified_skip: 2, aligned: 3 };
+  const best = withText.slice().sort((a, b) =>
+    (rank[a.verdict] ?? 9) - (rank[b.verdict] ?? 9) || (b.doc_weight || 0) - (a.doc_weight || 0)
+  )[0];
+  const label = ((graph.nodes || []).find(n => n.id === best.node_id) || {}).label || '';
+  return {
+    text: best.suggestion.trim(),
+    slide: slideOf[best.node_id],
+    verdict: best.verdict,
+    label,
+  };
+}
+
+/**
+ * F-13 점수를 히어로 카드가 쓰는 모양으로 옮긴다.
+ *
+ * 막대는 항별 raw 값이다 — 가중치가 아니라 원지표를 보여줘야 "무엇을 잘했나" 가 읽힌다.
+ * 결과가 없으면 null (호출부가 샘플로 떨어지고 화면에 그렇게 표시한다).
+ */
+/* F-13 항목 4개가 병아리와 1:1 이다. 배정 근거는 §9 와 같다 — 그 모델이
+   파이프라인에서 실제로 본 축. 막대 옆에 얼굴이 붙으면 "누가 왜 이 점수를
+   줬는지"가 보인다 (§6). */
+const SCORE_CHICK = {
+  coverage: 'midm',    // 자료와 발화의 정합 판정 (F-11)
+  rank: 'ax',          // 발화 축 — 어디에 얼마나 시간을 썼나 (F-05)
+  edge: 'exaone',      // 개념을 말로 잘 이었나 (good_link)
+  order: 'solar',      // 자료 순서와 발표 순서 (F-01/06/07)
+};
+
+function realSummary() {
+  const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
+  if (!sc || typeof sc.score !== 'number') return null;
+  const dims = (sc.components || []).map(c =>
+    [c.label, Math.round((c.raw || 0) * 100), SCORE_CHICK[c.key] || '']);
+  const notes = [];
+  if (sc.contradiction_count) notes.push(`자료와 다르게 말한 개념 ${sc.contradiction_count}개`);
+  if (sc.basis !== 'full') notes.push(`지표 일부만 계산됨 (${(sc.omitted || []).join(', ')})`);
+  return { score: sc.score, dims, notes, basis: sc.basis };
+}
+
+/* ─── 기억하는 객석 (§13) ───────────────────────────────────────────────────
+   회차가 끝나면 포스터 벽에 티켓 한 장이 붙는다. 이 기록이 있어야 다음 회차에
+   "지난번에 안 했던 X, 오늘은 들었어요" 를 **증명해서** 말할 수 있다. */
+
+/** 이번 회차의 기록. 파이프라인 결과가 없으면 null. */
+function currentShow() {
+  if (!window.Playbill) return null;
+  const out = nf && nf.pipelineOut;
+  if (!out || !out.alignment) return null;
+  const t = realTrophy();
+  return window.Playbill.extract(out, {
+    takeId: nf.pipelineStartedAt || '',
+    title: (out.graph && out.graph.file_name) || nf.fileName || '',
+    slides: (out.graph && out.graph.total_slides) || rehearsalCount(),
+    durationSec: (ccLastTake && ccLastTake.durationSec)
+      || (out.transcript && out.transcript.duration_sec)
+      || nf.sec,
+    trophy: t ? t.label : '',
+    absent: (chatterCache && chatterCache.absent) || [],
+  });
+}
+
+function recordShow() {
+  const show = currentShow();
+  if (show) window.Playbill.record(show);
+  return show;
+}
+
+/* ─── 커튼콜 (§6) ───────────────────────────────────────────────────────────
+   막이 오르면 병아리 넷이 박수를 친다. 숫자는 그 다음에 조용히.
+
+   이 박수는 종연 3초의 완주 박수(§3)와 다르다. 저건 시도에 무조건 주는 것이고
+   이건 정직하게 성적을 따른다 (규칙 1 + 토스 규율). 순서를 바꾸거나 합치면
+   박수가 성적표가 되거나 성적이 무뎌진다. */
+
+const CURTAINCALL_KEY = 'cheokcheok:curtaincall-shown';
+const CURTAINCALL_MS = 2800;
+
+/** 점수 구간별 반응. 갸웃/손드는 건 '자기 담당 항목이 가장 낮은' 병아리다. */
+function applauseTier(score, dims) {
+  const weakest = (dims || [])
+    .filter(d => d[2])
+    .slice()
+    .sort((a, b) => a[1] - b[1])[0];
+  const odd = weakest ? weakest[2] : 'midm';
+  if (score >= 90) return { mood: 'ovation', odd: null, line: '기립박수!', sub: '한 마리는 울고 있어요.' };
+  if (score >= 75) return { mood: 'cheer', odd: null, line: '넷 다 신나게 박수!', sub: '' };
+  if (score >= 60) {
+    return {
+      mood: 'mixed', odd,
+      line: '박수 — 그리고 한 마리가 갸웃',
+      sub: `${BACKSTAGE_NAMES[odd] || ''}이 아직 못 들은 게 있대요.`,
+    };
+  }
+  return {
+    mood: 'question', odd,
+    line: '짝… 짝…',
+    sub: `${BACKSTAGE_NAMES[odd] || ''}: "저, 질문 있어요!"`,
+  };
+}
+
+function showCurtainCallApplause(score, dims) {
+  if (!window.Chatter) return Promise.resolve();
+  // 2회차부터 스킵 (§14). 같은 박수를 매번 보면 박수가 아니라 인터스티셜이다
+  try {
+    if (sessionStorage.getItem(CURTAINCALL_KEY) === String(score)) return Promise.resolve();
+    sessionStorage.setItem(CURTAINCALL_KEY, String(score));
+  } catch (_) { /* ignore */ }
+
+  const t = applauseTier(score, dims);
+  const veil = document.createElement('div');
+  veil.className = `cc-veil cc-applause cc-${t.mood}`;
+  veil.innerHTML = `
+    <div class="cc-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}" data-mood="${
+          s === t.odd ? 'curious' : (score >= 75 ? 'happy' : 'neutral')
+        }"${s === t.odd ? ' data-odd="1"' : ''}>${window.Chatter.chickSvg(s)}</div>`
+      ).join('')}
+    </div>
+    <div class="cc-line">${escapeHtml(t.line)}</div>
+    ${t.sub ? `<div class="cc-sub">${escapeHtml(t.sub)}</div>` : ''}
+    <div class="cc-skip">누르면 점수를 볼게요</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 380);
+      resolve();
+    };
+    veil.addEventListener('click', finish);
+    setTimeout(finish, CURTAINCALL_MS);
+  });
+}
+
+/* ─── 배웅 (§4) ─────────────────────────────────────────────────────────────
+   카너먼: 경험의 기억은 피크와 엔드로 결정된다. 피크는 커튼콜이 맡는데,
+   엔드는 지금까지 아무것도 없었다 — 리포트를 보다가 그냥 나갔다.
+
+   외치는 문장은 F-11 트로피 문장 그대로다. 수십 개의 판정 중 사용자가 집에
+   가져갈 단 하나의 문장이라, 리포트를 안 읽었어도 이 한 줄은 남는다. */
+
+const SENDOFF_MS = 2400;
+
+function sendoffLine() {
+  const t = realTrophy();
+  if (t && t.label) {
+    return t.verdict === 'aligned'
+      ? `다음 공연에서도 '${t.label}' 그대로 들려주세요!!`
+      : `다음 공연 땐 '${t.label}' 꼭 들려주세요!!`;
+  }
+  // 데이터가 없으면 지어내지 않는다. 근거 없는 회상 대사 금지와 같은 규칙이다
+  return '오늘 완벽했어요, 또 오세요!';
+}
+
+function showSendoff() {
+  if (!window.Chatter) return Promise.resolve();
+  const veil = document.createElement('div');
+  veil.className = 'cc-veil so-veil';
+  veil.innerHTML = `
+    <div class="cc-row">
+      ${window.Chatter.SEATS.map(s =>
+        `<div class="ch-seat" data-speaker="${s}" data-mood="happy">
+           ${window.Chatter.chickSvg(s)}
+         </div>`).join('')}
+    </div>
+    <div class="cc-line so-shout">${escapeHtml(sendoffLine())}</div>
+    <div class="cc-sub">— 오늘의 관객 넷 드림</div>`;
+  document.body.appendChild(veil);
+  requestAnimationFrame(() => veil.classList.add('on'));
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      veil.classList.remove('on');
+      setTimeout(() => veil.remove(), 380);
+      resolve();
+    };
+    veil.addEventListener('click', finish);
+    setTimeout(finish, SENDOFF_MS);
+  });
+}
+
+/**
+ * 리포트를 떠나는 순간을 가로채 배웅을 끼워 넣는다.
+ *
+ * 실판정이 없으면(샘플 화면) 배웅하지 않는다 — 들어본 적 없는 발표를 배웅하면
+ * 그 한 줄이 거짓말이 된다.
+ */
+let sendoffWired = false;
+let sendoffPassthrough = null;
+
+function wireSendoff() {
+  if (sendoffWired) return;
+  sendoffWired = true;
+  // 요소마다 붙이면 나중에 그려지는 탭(개념별 판정·논리 흐름·말 속도·연습 도구)의
+  // 링크가 영영 안 잡힌다. §4 는 '요약 탭을 떠날 때'가 아니라 '리포트를 떠날 때'다
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('a[href="#/new"], a[href="#/"], a[href="#/landing"], [data-fresh-practice]');
+    if (!el || el === sendoffPassthrough) return;
+    // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
+    if (!/^#\/?report/.test(location.hash || '')) return;
+    // 들어본 적 없는 발표(샘플 화면)를 배웅하면 트로피 문장이 거짓말이 된다
+    if (!realTrophy() && !realSummary()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showSendoff().then(() => {
+      sendoffPassthrough = el;
+      el.click();
+      sendoffPassthrough = null;
+    });
+  }, true);
+}
+
+/**
+ * 회상 카드 — diff 가 증명할 때만 나온다 (§13).
+ *
+ * 지난 회차에 비었던 개념이 이번엔 채워졌을 때만 렌더된다. 증명이 없으면
+ * 아예 자리를 만들지 않는다 — 빈 격려 문구는 성장 기록이 아니라 소음이다.
+ */
+function recallCardHtml() {
+  if (!window.Playbill) return '';
+  const line = window.Playbill.recallLine(currentShow());
+  if (!line) return '';
+  return `
+    <div class="card recall-card">
+      <span class="rc-face">${window.Chatter ? window.Chatter.chickSvg(line.who) : ''}</span>
+      <div class="rc-body">
+        <b>${escapeHtml(BACKSTAGE_NAMES[line.who] || '')}</b>
+        <p>${escapeHtml(line.text)}</p>
+        <span class="rc-proof">지난 회차 판정과 대조한 결과예요</span>
+      </div>
+    </div>`;
+}
+
+function rSummary() {
+  const meta = reportSessionMeta();
+  const live = meta.live;
+  const s = DATA.session;
+  const prio = DATA.priorities[s.occasion] || DATA.priorities['범용'] || Object.values(DATA.priorities)[0];
+  const tr = s.qa.trophy;
+  const trophy = realTrophy();
+  const real = realSummary();
+  const tree = judgeTree();
+  const isRealTree = !!(tree[0] && tree[0].real);
+
+  // 올린 자료인데 분석이 없으면 IMU2CLIP 샘플을 절대 보여주지 않는다
+  if (live && !real && !isRealTree) {
+    const why = (nf && nf.pipelineError)
+      || (nf && nf.pipelineOut && nf.pipelineOut.conceptsError)
+      || (nf && nf.pipelineDetail)
+      || '발표 분석 결과가 이 화면에 없어요. 분석이 끝난 뒤 다시 열어주세요.';
+    $('#rbody').innerHTML = `
+      <div class="card">
+        <h2 class="section-title">아직 내 발표 분석이 없어요</h2>
+        <p class="note" style="margin:8px 0 14px">${escapeHtml(String(why))}</p>
+        <p class="note">제목은 <b>${escapeHtml(meta.title)}</b> 기준이에요. 샘플(IMU2CLIP) 리포트로 바꿔 보여주지 않아요.</p>
+        <div class="step-actions">
+          <a class="btn btn-primary" href="#/new">발표 연습으로 돌아가기</a>
+          <a class="btn btn-text" href="#/">홈으로</a>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const score = real ? real.score : s.score;
+  const dims = real ? real.dims : s.dims;
+  const headline = real
+    ? (real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요')
+    : s.oneLiner;
+  const nextLabel = (trophy && trophy.label) ? trophy.label : '약한 개념';
+  // 점수·차원·한 줄 판단은 판정 헤드(renderReport)로 올라갔다 — 여기서 다시 그리지 않는다
+  $('#rbody').innerHTML = `
+    ${recallCardHtml()}
+
+    ${trophy || !live ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
+      <span class="ts-label">${trophy
+        ? (trophy.verdict === 'aligned' ? '이 흐름을 지키세요' : '다음엔 이렇게 말해보세요')
+        : '오늘 만든 문장'}</span>
+      <p class="ts-quote">“${escapeHtml(trophy ? trophy.text : tr.after)}”</p>
+      <i class="ts-go">${trophy ? trophy.slide : tr.slide}번 슬라이드에서 보기 →</i>
+    </button>` : ''}
 
     <div class="card rep-deck">
       <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르면 그 장에서 있었던 일을 보여줘요</span></h3>
       <div id="deckBody">${deckHtml()}</div>
       <div class="deck-film" id="deckFilm">
-        ${DATA.slideStatus.map((st, i) => {
-          const n = i + 1;
-          return `<button class="slidethumb st-${st} has ${n === repSlide ? 'on' : ''}" data-slide="${n}" title="${n}. ${DATA.slideTitles[i]} · ${STATUS[st]}">
-            <img src="${DATA.slideImages[i]}" alt="${n}번 슬라이드" loading="lazy">
-            <span class="stnum">${n}</span>
-          </button>`;
-        }).join('')}
+        ${deckThumbList().map(t => `
+          <button class="slidethumb st-${t.status} has ${t.no === repSlide ? 'on' : ''}" data-slide="${t.no}" title="${t.no}. ${escapeHtml(t.title)} · ${STATUS[t.status]}">
+            <img ${t.src ? `src="${t.src}"` : ''} data-thumb-page="${t.no}" alt="${t.no}번 슬라이드" loading="lazy">
+            <span class="stnum">${t.no}</span>
+          </button>`).join('')}
       </div>
       <div class="legend">
         <span><i class="dot st-ok"></i>설명함</span>
@@ -1821,45 +2819,160 @@ function rSummary() {
       </div>
     </div>
 
+    ${(!live && prio && prio[0]) ? `
     <h2 class="section-title" style="margin:26px 0 12px">이것부터 고치면 돼요<span class="soft">효과가 가장 큰 한 가지</span></h2>
     ${prioCard(prio[0], 1)}
     <details class="fold">
       <summary>보완 2가지 더 보기</summary>
       <div class="fold-body">${prio.slice(1).map((p, i) => prioCard(p, i + 2)).join('')}</div>
-    </details>
+    </details>` : ''}
 
     <div class="card next-card">
-      <h3>다음 연습은 ‘IMU Encoder’ 설명부터 시작해요</h3>
-      <p>Q&A로 두 개념은 설명할 수 있게 됐어요. 발표에서 통째로 빠진 Encoder 구조를 다음 리허설 목표로 가져가세요.</p>
+      <h3>${live
+        ? (trophy ? `다음 연습은 ‘${escapeHtml(nextLabel)}’부터 다듬어 보세요` : '다음엔 같은 자료로 한 번 더 연습해 보세요')
+        : '다음 연습은 ‘IMU Encoder’ 설명부터 시작해요'}</h3>
+      <p>${live
+        ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.'
+        : 'Q&A로 두 개념은 설명할 수 있게 됐어요. 발표에서 통째로 빠진 Encoder 구조를 다음 리허설 목표로 가져가세요.'}</p>
       <div class="step-actions">
         <a class="btn btn-primary" href="#/new">새 발표 연습</a>
-        <a class="btn btn-tint" href="#/qa" style="background:#fff" data-qa-start>질문 연습 다시 하기</a>
+        <a class="btn btn-tint" href="#/qa" style="background:#fff">질문 연습 다시 하기</a>
       </div>
     </div>
 
     <details class="fold">
       <summary>개념별 판정 전체 보기</summary>
       <div class="fold-body">
-        ${DATA.tree.map(n => `
+        ${(isRealTree ? tree : (live ? [] : DATA.tree)).map(n => `
         <div class="mini-row" data-node="${n.id}">
           <span class="dot st-${n.status}"></span>
-          <span class="lbl" style="${n.depth === 2 ? 'padding-left:16px' : ''}">${n.label}</span>
+          <span class="lbl" style="${n.depth === 2 ? 'padding-left:16px' : ''}">${escapeHtml(n.label)}</span>
           <span class="sl">${slideNumber(n.slide)}번 슬라이드</span>
           ${chip(n.status, true)}
-        </div>`).join('')}
+        </div>`).join('') || '<p class="note">표시할 개념 판정이 없어요.</p>'}
       </div>
     </details>`;
-  wireQaStart(app, { pickMode: true });
-  $('#trophyStrip').addEventListener('click', () => {
-    selectDeckSlide(DATA.session.qa.trophy.slide);
-    $('.rep-deck').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const trophyEl = $('#trophyStrip');
+  if (trophyEl) trophyEl.addEventListener('click', (e) => {
+    selectDeckSlide(Number(e.currentTarget.dataset.slide) || (trophy && trophy.slide) || 1);
+    const deck = $('.rep-deck'); if (deck) deck.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-  $('#deckFilm').addEventListener('click', e => {
+  const film = $('#deckFilm');
+  if (film) film.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     selectDeckSlide(Number(b.dataset.slide));
   });
   $$('.mini-row').forEach(r => r.addEventListener('click', () => goJudge(r.dataset.node)));
   bindDeckPanel();
+  paintDeckThumbs();
+  wireSendoff();
+  if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
+}
+
+/** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
+function rAudience() {
+  const blocked = audienceBlockReason();
+  $('#rbody').innerHTML = `
+    <div class="card">
+      <h3 class="section-title">삐약 청중석</h3>
+      <p class="note" style="margin-bottom:14px">
+        발표를 들은 네 모델이 판정 결과를 놓고 뭐라고 하는지 엿들어 볼까요?
+      </p>
+      ${blocked ? `<p class="note" style="color:#f04452">${escapeHtml(blocked)}</p>` : ''}
+      <div id="audMount"></div>
+      ${blocked ? '' : '<div class="step-actions"><button class="btn btn-primary" id="audOpen">객석 들어가기</button></div>'}
+    </div>`;
+  if (window.Chatter) {
+    $('#audMount').innerHTML = window.Chatter.entryCardHtml();
+    const card = $('#audCard');
+    if (card && !blocked) card.addEventListener('click', openAudience);
+  }
+  const open = $('#audOpen');
+  if (open) open.addEventListener('click', openAudience);
+}
+
+/* ---------------------------------------------------------------------------
+   삐약 청중석 — 리포트 '청중 반응' 탭에서 객석으로 들어간다
+   --------------------------------------------------------------------------- */
+
+
+function pipelineBundle() {
+  const out = nf && nf.pipelineOut;
+  if (out && out.graph && out.alignment && out.flow) return out;
+  return null;
+}
+
+/** 청중이 왜 못 오는지 — '리허설을 마치세요'는 이미 마친 사람에게 거짓말이다. */
+function audienceBlockReason() {
+  const out = (nf && nf.pipelineOut) || null;
+  if (!out) {
+    return nf && nf.transcriptOk
+      ? '발표는 기록됐는데 분석 결과가 없어요. 스텝 4의 검증 로그를 확인해 주세요.'
+      : '아직 청중이 도착하지 않았어요. 리허설을 한 번 마치면 들을 수 있어요.';
+  }
+  const missing = ['graph', 'alignment', 'flow'].filter((k) => !out[k]);
+  if (!missing.length) return null;
+
+  const err = out.graphError || out.alignError || out.flowError || out.conceptsError;
+  const stage = out.failedStage
+    || { graph: 'F-07 개념 그래프', alignment: 'F-11 정합 판정', flow: '흐름 비교' }[missing[0]];
+
+  // 실패로 끝난 건지 아직 도는 중인지를 구분한다. 끝난 걸 '진행 중' 처럼 말하면
+  // 사용자가 오지 않을 결과를 계속 기다린다.
+  const finished = ['done', 'partial', 'error'].includes(nf.pipelinePhase);
+  if (finished) {
+    return `${stage}에서 실패해서 분석이 멈췄어요${err ? ` (${err})` : ''}. `
+      + '기다려도 진행되지 않아요 — 「다른 녹음으로 다시」로 재시도해 주세요.';
+  }
+  return `아직 ${stage} 단계예요. 실API 는 12장 기준 7분쯤 걸려요. `
+    + '청중은 판정 결과를 놓고 수군거리는 거라, 거기까지 끝나야 열려요.';
+}
+
+async function openAudience() {
+  const card = $('#audCard');
+  const bundle = pipelineBundle();
+  if (!bundle) {
+    const reason = audienceBlockReason();
+    if (card && reason) card.querySelector('p').textContent = reason;
+    return;
+  }
+
+  // 근거 배지에 슬라이드 번호를 쓰려면 node → slide 매핑이 필요하다
+  const nodeSlides = {};
+  (bundle.graph.nodes || []).forEach(n => {
+    if (n.slide_nos && n.slide_nos.length) nodeSlides[n.id] = Math.min(...n.slide_nos);
+  });
+
+  if (card) card.querySelector('p').textContent = '객석에서 수군거리는 중...';
+  try {
+    if (!chatterCache) {
+      chatterCache = await window.Chatter.fetchChatter(
+        bundle.graph, bundle.alignment, bundle.flow
+      );
+      // 누가 못 왔는지는 객석을 열어봐야 안다. 티켓의 빈 도장이 여기서 확정된다
+      recordShow();
+    }
+    window.Chatter.show(chatterCache, {
+      nodeSlides: nodeSlides,
+      onRef: (id) => {
+        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        goJudge(id);
+      },
+      onClose: () => {
+        // 객석 나가기 / 리포트에서 자세히 보기 → 리포트 화면이 보여야 한다
+        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        else if (typeof renderReport === 'function') {
+          // 오버레이에 가려졌던 리포트를 다시 그리진 않고, 스크롤만 복구
+          document.body.style.overflow = '';
+        }
+      },
+    });
+    if (card) card.querySelector('p').textContent =
+      '발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?';
+  } catch (err) {
+    if (card) card.querySelector('p').textContent =
+      (err && err.message) || '청중들이 아직 도착 안 했어요. 잠시 후 다시 시도해 주세요.';
+  }
 }
 
 function selectDeckSlide(n) {
@@ -1935,13 +3048,75 @@ function prioCard(p, num) {
 }
 
 /* 탭 2 — 개념별 판정 */
+/* API verdict → 화면 상태. 'mid'(언급만)는 사람이 쓰던 중간값이라 API 에 대응이 없다. */
+const STATUS_FROM_VERDICT = {
+  aligned: 'ok', missing: 'no', contradiction: 'ct', justified_skip: 'om',
+};
+
+/**
+ * 실제 파이프라인 결과(F-07 그래프 + F-11 판정)를 판정 탭 트리로 옮긴다.
+ * 결과가 없으면 null — 호출부가 DATA 샘플로 떨어지고 화면에 그렇게 표시한다.
+ */
+function realJudgeTree() {
+  const out = nf && nf.pipelineOut;
+  if (!out || !out.graph || !out.alignment) return null;
+  const itemBy = {};
+  (out.alignment.items || []).forEach(i => { itemBy[i.node_id] = i; });
+  const nodes = (out.graph.nodes || []).filter(n => itemBy[n.id]);
+  if (!nodes.length) return null;
+
+  return nodes
+    .slice()
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+    .map((n) => {
+      const it = itemBy[n.id];
+      const basis = it.speech_basis || {};
+      const slideNo = (n.slide_nos && n.slide_nos.length) ? Math.min(...n.slide_nos) : 1;
+      return {
+        id: n.id,
+        label: n.label || n.id,
+        depth: n.depth || 1,
+        parent: n.parent_id || null,
+        w: n.weight || 0,
+        slide: `S${String(slideNo).padStart(2, '0')}`,
+        status: STATUS_FROM_VERDICT[it.verdict] || 'no',
+        conf: Math.round((it.confidence || 0) * 100),
+        checks: it.checks || {},
+        ev: it.evidence || '',
+        evTime: basis.first_mention_sec != null ? fmtMarkSec(basis.first_mention_sec) : '',
+        why: it.note || '',
+        fix: it.suggestion || '',
+        real: true,
+      };
+    });
+}
+
+/** 실데이터가 있으면 그것. 업로드 세션인데 분석이 없으면 빈 트리(샘플 IMU2CLIP 위장 금지). */
+function judgeTree() {
+  const real = realJudgeTree();
+  if (real) return real;
+  if (isLiveReportSession()) return [];
+  return DATA.tree.map(n => ({ ...n, real: false }));
+}
+
 function rJudge() {
-  const counts = { all: DATA.tree.length };
-  DATA.tree.forEach(n => counts[n.status] = (counts[n.status] || 0) + 1);
+  const tree = judgeTree();
+  const isReal = !!(tree[0] && tree[0].real);
+  if (isLiveReportSession() && !tree.length) {
+    $('#rbody').innerHTML = `
+      <div class="card">
+        <h3 class="section-title">개념 판정이 아직 없어요</h3>
+        <p class="note">내 발표 분석(그래프·정합)이 없어 샘플 개념으로 채우지 않았어요.</p>
+        <div class="step-actions"><a class="btn btn-primary" href="#/new">발표 연습으로</a></div>
+      </div>`;
+    return;
+  }
+  const counts = { all: tree.length };
+  tree.forEach(n => counts[n.status] = (counts[n.status] || 0) + 1);
   const filters = [['all', '전체'], ['ok', '설명함'], ['mid', '언급만'], ['no', '안 나옴'], ['ct', '모순'], ['om', '생략']];
-  const items = DATA.tree.filter(n => jFilter === 'all' || n.status === jFilter);
+  const items = tree.filter(n => jFilter === 'all' || n.status === jFilter);
   if (!items.some(n => n.id === jSel) && items.length) jSel = items[0].id;
-  const n = DATA.tree.find(t => t.id === jSel);
+  const n = tree.find(t => t.id === jSel);
   $('#rbody').innerHTML = `
     <div class="filter-chips" id="jf">
       ${filters.map(f => `<button class="${jFilter === f[0] ? 'on' : ''}" data-f="${f[0]}">${f[1]} ${counts[f[0]] || 0}</button>`).join('')}
@@ -1956,9 +3131,13 @@ function rJudge() {
           </button>`).join('')}
         </div>
       </div>
-      <div class="card" id="jdetail">${n ? jDetail(n) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
+      <div class="card" id="jdetail">${n ? jDetail(n, tree) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
     </div>
-    <p class="ai-note">판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.</p>`;
+    <p class="ai-note">${isReal
+      ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
+      : (isLiveReportSession()
+        ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요. 샘플(IMU2CLIP)로 대체하지 않았어요.'
+        : '⚠️ 지금 보시는 건 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 발표 결과로 바뀝니다.')}</p>`;
   $('#jf').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     jFilter = b.dataset.f; rJudge(); animateViz($('#rbody'));
@@ -1969,21 +3148,25 @@ function rJudge() {
   });
 }
 
-function jDetail(n) {
+function jDetail(n, tree = DATA.tree) {
   const slideNum = slideNumber(n.slide);
+  const title = activeTitles()[slideNum - 1] || DATA.slideTitles[slideNum - 1] || `${slideNum}번 슬라이드`;
+  const img = DATA.slideImages[slideNum - 1];
+  // 실데이터는 4축을 checks 로, 샘플은 옛 필드명 check 로 준다
+  const checks = n.checks || n.check || {};
   return `
     <div class="detail-top">
-      <h3>${n.label}</h3>${chip(n.status)}
+      <h3>${escapeHtml(n.label)}</h3>${chip(n.status)}
     </div>
-    <p class="detail-meta">${slideNum}번 슬라이드 · 중요도 ${n.w.toFixed(2)}${n.depth === 2 ? ` · 상위 개념: ${DATA.tree.find(t => t.id === n.parent)?.label || '—'}` : ''}</p>
-    <figure class="judge-slide st-${n.status}">
-      <img src="${DATA.slideImages[slideNum - 1]}" alt="${slideNum}번 슬라이드 · ${DATA.slideTitles[slideNum - 1]}">
-      <figcaption><span class="num">${slideNum}번 슬라이드</span>${DATA.slideTitles[slideNum - 1]}</figcaption>
-    </figure>
-    <div class="confbar">판정 확신도 <span class="fill-bar"><i data-w="${n.conf}%"></i></span><b class="num">${n.conf}%</b></div>
-    <div class="checks">
-      ${Object.entries(n.check).map(([k, v]) => `<span class="${v ? 'y' : ''}">${v ? '✓' : '—'} ${k}</span>`).join('')}
-    </div>
+    <p class="detail-meta">${slideNum}번 슬라이드 · 중요도 ${Number(n.w || 0).toFixed(2)}${n.depth === 2 ? ` · 상위 개념: ${escapeHtml(tree.find(t => t.id === n.parent)?.label || '—')}` : ''}</p>
+    ${img ? `<figure class="judge-slide st-${n.status}">
+      <img src="${img}" alt="${slideNum}번 슬라이드 · ${escapeHtml(title)}">
+      <figcaption><span class="num">${slideNum}번 슬라이드</span>${escapeHtml(title)}</figcaption>
+    </figure>` : ''}
+    ${n.conf ? `<div class="confbar">판정 확신도 <span class="fill-bar"><i data-w="${n.conf}%"></i></span><b class="num">${n.conf}%</b></div>` : ''}
+    ${Object.keys(checks).length ? `<div class="checks">
+      ${Object.entries(checks).map(([k, v]) => `<span class="${v ? 'y' : ''}">${v ? '✓' : '—'} ${escapeHtml(k)}</span>`).join('')}
+    </div>` : ''}
     ${n.status === 'ct' ? `
     <div class="drow"><b>자료와 발화 비교</b>
       <span class="bubble-label" style="margin-top:0">자료에 적힌 것</span>
@@ -1992,10 +3175,10 @@ function jDetail(n) {
       <div class="bubble fixup" style="background:var(--ct-bg)">${n.spokeSays}<time>${n.spokeTime}</time></div>
     </div>` : `
     <div class="drow"><b>근거 발화</b>
-      <div class="bubble">${n.ev}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
+      <div class="bubble">${n.ev ? escapeHtml(n.ev) : '<span class="note">이 개념에 해당하는 발화를 찾지 못했어요.</span>'}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
     </div>`}
-    <div class="drow"><b>판정 이유</b>${n.why}</div>
-    <div class="fixbox"><b>이렇게 말해보세요</b><p>${n.fix}</p></div>
+    ${n.why ? `<div class="drow"><b>판정 이유</b>${escapeHtml(n.why)}</div>` : ''}
+    ${n.fix ? `<div class="fixbox"><b>이렇게 말해보세요</b><p>${escapeHtml(n.fix)}</p></div>` : ''}
     <div class="step-actions">
       <a class="btn btn-tint btn-sm" href="#/qa">이 개념으로 질문 연습</a>
     </div>`;
@@ -2065,44 +3248,151 @@ function rLogic() {
 }
 
 /* 탭 4 — 말 속도 */
+/** F-14/F-17 결과를 말 속도·음성 습관 탭이 쓰는 모양으로. */
+function realPace() {
+  const p = nf && nf.pipelineOut && nf.pipelineOut.pace;
+  if (!p) return null;
+  if (Array.isArray(p.slides) && p.slides.length && (p.avg_chars_per_min != null || p.slides[0].actual_sec != null)) {
+    const avg = Math.round(p.avg_chars_per_min || 0);
+    const ranked = [...p.slides].sort((a, b) => (b.chars_per_min || 0) - (a.chars_per_min || 0));
+    const fastest = ranked[0] || {};
+    const rows = p.slides.map(s => [
+      `${s.slide_no}번`,
+      (s.title || '').slice(0, 18) || `${s.slide_no}번`,
+      Math.round(s.chars_per_min || 0),
+      s.status === 'fast' || (avg && s.chars_per_min >= avg * 1.15),
+      s.importance === 'core',
+    ]);
+    const allocations = (p.sections || []).map(a => ({
+      name: a.name,
+      recommended_pct: p.target_sec ? Math.round((a.recommended_sec || 0) / p.target_sec * 100) : 0,
+      actual_pct: (p.actual_sec || p.target_sec) ? Math.round((a.actual_sec || 0) / Math.max(1, p.actual_sec || p.target_sec) * 100) : 0,
+      gap_pct: 0,
+      verdict: a.status === 'ok' ? 'ok' : (a.status === 'long' ? 'over' : 'under'),
+    }));
+    return {
+      avg,
+      max: Math.round(fastest.chars_per_min || avg),
+      maxSeg: fastest.slide_no ? `${fastest.slide_no}번 슬라이드` : '—',
+      rec: p.recommended_cpm || '300~350',
+      rows,
+      allocations,
+      dropped: 0,
+      f17: p,
+    };
+  }
+  if (!p.avg_cpm) return null;
+  // 못 믿는 구간(너무 짧음)은 막대에서 뺀다 — 한두 마디로 자/분이 튄다
+  const segs = (p.segments || []).filter(s => s.reliable);
+  if (!segs.length) return null;
+  return {
+    avg: Math.round(p.avg_cpm),
+    rec: `${p.recommended_min}~${p.recommended_max}`,
+    max: p.fastest ? Math.round(p.fastest.cpm) : Math.round(p.avg_cpm),
+    maxSeg: p.fastest ? p.fastest.label : '—',
+    rows: segs.map(s => [s.label, s.slide_no, Math.round(s.cpm), !!s.is_fast, !!s.is_slow]),
+    allocations: p.allocations || [],
+    dropped: (p.segments || []).length - segs.length,
+  };
+}
+
 function rPace() {
-  const MAX = 460, st = DATA.paceStats;
-  const ratio = (st.avg / MAX);
+  const livePace = nf && nf.pipelineOut && nf.pipelineOut.pace;
+  const liveHabits = nf && nf.pipelineOut && nf.pipelineOut.habits;
+  const liveReport = nf && nf.pipelineOut && nf.pipelineOut.report;
+  if (livePace && Array.isArray(livePace.slides) && livePace.slides.length && livePace.slides[0].actual_sec != null && typeof voiceTimeChartHtml === 'function') {
+    const avg = livePace.avg_chars_per_min || 0;
+    const easy = voiceEasyBlocks(livePace, liveHabits, liveReport || {});
+    const fillers = easy.fillers;
+    const tip = (easy.actions && easy.actions[0]) || (livePace.tips && livePace.tips[0]) || '핵심 장은 조금 더, 긴 장은 조금 덜 말해 보세요.';
+    $('#rbody').innerHTML = `
+      <div class="stat-row voice-stat-row">
+        <div class="stat-card pop-in" style="--i:0"><small>목표 시간</small><strong>${easy.target}</strong></div>
+        <div class="stat-card pop-in" style="--i:1"><small>내가 쓴 시간</small><strong>${easy.actual}</strong></div>
+        <div class="stat-card pop-in" style="--i:2"><small>평균 말 속도</small><strong class="num" data-count="${Math.round(avg)}">0</strong><span class="unit">자/분</span></div>
+      </div>
+      <div class="card voice-chart-card">${voiceTimeChartHtml(livePace)}<p class="voice-tip">${escapeHtml(tip)}</p></div>
+      <div class="card">
+        <h3 class="section-title">짧게 말한 핵심 장<span class="soft">여기 시간을 늘려보세요</span></h3>
+        <div class="slide-pill-row">${slidePillHtml(easy.shortCore, 'short')}</div>
+        <h3 class="section-title" style="margin-top:18px">길게 말한 장<span class="soft">여기를 줄이면 목표에 더 가까워져요</span></h3>
+        <div class="slide-pill-row">${slidePillHtml(easy.longOnes, 'long')}</div>
+      </div>
+      <div class="card">
+        <h3 class="section-title">자주 쓴 간투어<span class="soft">같은 말 반복 ${(liveHabits && liveHabits.repeat_cnt) || 0}회 · 긴 쉼 ${(liveHabits && liveHabits.pause_cnt) || 0}회</span></h3>
+        ${fillers.length ? `<div class="filler-cloud">${fillers.map((f, i) => `<span class="filler-chip size-${Math.min(4, Math.max(1, f.n))}" style="--i:${i}"><b>${escapeHtml(f.text)}</b><small>${f.n}회</small></span>`).join('')}</div>
+          <p class="note" style="margin-top:12px">박스가 클수록 더 자주 나왔어요.</p>` : `<p class="note">눈에 띄는 간투어는 거의 없었어요. 좋아요!</p>`}
+      </div>`;
+    return;
+  }
+  const real = realPace();
+  const st = real
+    ? { avg: real.avg, max: real.max, maxSeg: real.maxSeg, rec: real.rec }
+    : DATA.paceStats;
+  const rows = real
+    ? real.rows
+    : DATA.pace.map(p => [p[0], p[1], p[2], !!p[3], false]);
+  // 시간 배분 — '권장' 은 자료가 배분한 weight 다 (F-14). 임의의 이상적 배분이 아니다.
+  const ALLOC_LABEL = { over: '초과', under: '부족', ok: '적절' };
+  const allocRows = real && real.allocations.length
+    ? real.allocations.map(a => [
+        a.name, a.recommended_pct, a.actual_pct,
+        a.verdict === 'ok' ? '적절' : `${a.gap_pct > 0 ? '+' : ''}${Math.round(a.gap_pct)}%p ${ALLOC_LABEL[a.verdict]}`,
+      ])
+    : DATA.timeAlloc;
+  const allocMax = Math.max(35, ...allocRows.map(r => Math.max(r[1], r[2]))) * 1.05;
+  const under = allocRows.filter(r => String(r[3]).includes('부족'));
+  const allocNote = real && real.allocations.length
+    ? (under.length
+      ? `${under.map(r => escapeHtml(String(r[0]))).join(' · ')} 구획에 자료가 실은 비중보다 시간을 적게 썼어요.`
+      : '자료가 힘을 실은 만큼 시간을 고르게 썼어요.')
+    : '방법론 구간에 권장 시간보다 적게 썼어요. 배경을 조금 줄이고 7~12번 슬라이드의 원리 설명에 시간을 옮겨보세요.';
+  const MAX = Math.max(460, ...rows.map(r => r[2])) * 1.05;
+  const ratio = st.avg / MAX;
+  const fastRows = rows.filter(r => r[3]);
+  const note = real
+    ? (fastRows.length
+      ? `${fastRows.map(r => escapeHtml(r[0])).join(' · ')} 구간이 본인 평균보다 15% 넘게 빨라요. 그 개념의 판정을 함께 확인해 보세요.`
+      : '구간별 속도가 고르게 유지됐어요.')
+      + (real.dropped ? ` (너무 짧은 ${real.dropped}개 구간은 속도를 못 재 제외했어요)` : '')
+    : '수식 설명 구간이 본인 평균보다 24% 빨라요. Temperature Parameter와 loss 모두 설명이 부족하다고 판정된 개념과 겹쳐요.';
   $('#rbody').innerHTML = `
+    ${real ? '' : `<p class="note" style="color:#f59e0b;margin-bottom:10px">
+      ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 실제 발화로 계산됩니다.</p>`}
     <div class="stat-row">
       <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span></div>
-      <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${st.maxSeg}</p></div>
+      <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${escapeHtml(String(st.maxSeg))}</p></div>
       <div class="stat-card"><small>발표 권장 속도</small><strong class="num">${st.rec}</strong><span class="unit">자/분</span></div>
     </div>
     <div class="card">
       <h3 class="section-title">구간별 말 속도<span class="soft">점선이 내 평균이에요</span></h3>
       <div class="pace-rows">
         <span class="pace-base" style="left:calc(122px + (100% - 226px) * ${ratio.toFixed(3)})"><em>내 평균 ${st.avg}</em></span>
-        ${DATA.pace.map(p => `
-        <div class="pace-row ${p[3] ? 'fast' : ''}">
-          <span class="nm">${p[0]}</span>
-          <div class="fill-bar"><i class="${p[3] ? 'red' : ''}" data-w="${(p[2] / MAX * 100).toFixed(1)}%"></i></div>
-          <span class="vl">${p[2]}자/분${p[3] ? ' · 빠름' : ''}</span>
+        ${rows.map(r => `
+        <div class="pace-row ${r[3] ? 'fast' : ''}">
+          <span class="nm">${escapeHtml(String(r[0]))}</span>
+          <div class="fill-bar"><i class="${r[3] ? 'red' : ''}" data-w="${(r[2] / MAX * 100).toFixed(1)}%"></i></div>
+          <span class="vl">${r[2]}자/분${r[3] ? ' · 빠름' : (r[4] ? ' · 느림' : '')}</span>
         </div>`).join('')}
       </div>
-      <p class="note" style="margin-top:14px">수식 설명 구간이 본인 평균보다 24% 빨라요. Temperature Parameter와 loss 모두 설명이 부족하다고 판정된 개념과 겹쳐요.</p>
+      <p class="note" style="margin-top:14px">${note}</p>
     </div>
     <div class="card">
       <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
       <div class="alloc-lgd">
-        <span><i style="background:#C6CCD3"></i>권장</span>
+        <span><i style="background:#C9D5CE"></i>권장</span>
         <span><i style="background:var(--blue)"></i>실제</span>
       </div>
-      ${DATA.timeAlloc.map(r => `
+      ${allocRows.map(r => `
       <div class="alloc-row">
-        <span class="nm">${r[0]}</span>
+        <span class="nm">${escapeHtml(String(r[0]))}</span>
         <div class="alloc-bars">
-          <div class="fill-bar"><i class="gray" data-w="${(r[1] / 35 * 100).toFixed(0)}%"></i></div>
-          <div class="fill-bar"><i class="${r[3] === '적절' ? '' : 'red'}" data-w="${(r[2] / 35 * 100).toFixed(0)}%"></i></div>
+          <div class="fill-bar"><i class="gray" data-w="${(r[1] / allocMax * 100).toFixed(0)}%"></i></div>
+          <div class="fill-bar"><i class="${r[3] === '적절' ? '' : 'red'}" data-w="${(r[2] / allocMax * 100).toFixed(0)}%"></i></div>
         </div>
         <span class="alloc-st ${r[3] === '적절' ? 'fine' : 'warn'}">${r[3]}</span>
       </div>`).join('')}
-      <p class="note" style="margin-top:12px">방법론 구간에 권장 시간보다 적게 썼어요. 배경을 조금 줄이고 7~12번 슬라이드의 원리 설명에 시간을 옮겨보세요.</p>
+      <p class="note" style="margin-top:12px">${allocNote}</p>
     </div>`;
 }
 
@@ -2122,8 +3412,10 @@ function rTools() {
 }
 
 function mapSvgString() {
-  const FILL = { ok: '#EBF2FF', mid: '#FFF4E5', no: '#FDEDED', ct: '#FAE8FF' };
-  const LINE = { ok: '#1B64DA', mid: '#B25E09', no: '#D93A3A', ct: '#A21CAF' };
+  // 이 SVG는 파일로도 내려받으므로(:root 없음) CSS 토큰 대신 리터럴을 쓴다.
+  // 값은 app.css 의 --ok/--mid/--no/--ct 계열과 같게 유지한다.
+  const FILL = { ok: '#E9F7EF', mid: '#FDF6E3', no: '#FDF0EF', ct: '#F6EDFD' };
+  const LINE = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#9333EA' };
   const nodes = DATA.mapNodes.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
   const POS = {
     r: [440, 36, 200], a: [170, 120, 150], b: [440, 120, 160], c: [710, 120, 140],
@@ -2192,14 +3484,138 @@ function tTerms() {
 }
 
 /* ══ Q&A · 대화형 질문 코칭 ══ */
-/* 질문 생성이 진행 중인지. 일부러 sessionStorage 밖에 둔다 —
+/* 시간 모드 라디오 (질문 코칭 게이트 공용) */
+function qaModeButtonsHtml() {
+  const cur = (qa && qa.mode) || '10';
+  return `<div class="qa-modes" role="radiogroup" aria-label="질문 코칭 시간">
+    ${Object.keys(QA_MODES).map((k) => {
+      const md = QA_MODES[k];
+      return `<button type="button" class="qa-mode ${cur === k ? 'on' : ''}" data-mode="${k}" role="radio" aria-checked="${cur === k}">
+        <b>${md.short}</b><span>${md.desc}</span><em>${md.scopeLabel}</em>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+function wireQaModeButtons(rerender) {
+  $$('.qa-mode').forEach((btn) => btn.addEventListener('click', () => {
+    resetQa();
+    qa.mode = btn.dataset.mode;
+    saveSession('qa-flow', qa);
+    rerender();
+  }));
+}
+/* 플랫(세션 없는) 질문 경로가 쓰는 판정용 세션 자리표시자. */
+const FLAT_QA_SESSION_ID = 'flat';
+
+/* 실전 질문을 만들 수 없는 **영구적** 이유. null 이면 만들 수 있다. */
+function qaLiveBlockReason(out) {
+  if (!out || !out.graph) {
+    return '내 발표 분석 결과가 없어 데모 질문으로 진행해요. 「새 발표 연습」에서 준비를 먼저 끝내 주세요.';
+  }
+  return null;
+}
+
+const QA_BRIDGE_RETRY_MS = 120;
+const QA_BRIDGE_MAX_TRIES = 25;   // 약 3초
+let qaBridgeTries = 0;
+
+function onQaRoute() {
+  return location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa';
+}
+
+function qaNoticeHtml() {
+  if (!qa.liveNotice) return '';
+  return `<p class="qa-notice" role="status">${escapeHtml(qa.liveNotice)}</p>`;
+}
+
+/* 실전 질문이 아직 없으면 지금 만든다 — #/qa 로 오는 모든 경로의 단일 보장 지점.
+ * @returns {boolean} true 면 생성이 시작됐다 (호출자는 로딩 화면을 그린다) */
+function ensureLiveQuestions() {
+  if (qaLiveActive() || qaBuilding || qaBuildFailed) return false;
+
+  const out = nf && nf.pipelineOut;
+  const bridge = window.ChuckchuckBridge;
+
+  if (!bridge || !bridge.buildQuestions) {
+    if (qaBridgeTries < QA_BRIDGE_MAX_TRIES) {
+      qaBridgeTries += 1;
+      setTimeout(() => { if (onQaRoute()) renderQa(); }, QA_BRIDGE_RETRY_MS);
+      return true;
+    }
+    qaBuildFailed = true;
+    qa.liveNotice = '질문 생성 모듈을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.';
+    saveSession('qa-flow', qa);
+    return false;
+  }
+
+  const blocked = qaLiveBlockReason(out);
+  if (blocked) {
+    if (qa.liveNotice !== blocked) {
+      qa.liveNotice = blocked;
+      saveSession('qa-flow', qa);
+    }
+    return false;
+  }
+
+  qaBuilding = true;
+  qa.liveNotice = '';
+  bridge.buildQuestions({
+    graph: out.graph,
+    alignment: out.alignment || null,
+    flow: out.flow || null,
+    transcript: out.transcript || null,
+    context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
+    track: (qa && qa.mode) || '10',
+  }).then((doc) => {
+    const questions = (doc && doc.questions) || [];
+    if (questions.length) {
+      qa.live = newLiveState(FLAT_QA_SESSION_ID, questions);
+      qa.turns = [];
+      qa.sub = 'answer';
+      qa.ended = false;
+      qa.liveNotice = '';
+    } else {
+      qaBuildFailed = true;
+      qa.liveNotice = '내 발표에서는 질문이 만들어지지 않았어요. 데모 질문으로 진행해요.';
+    }
+  }).catch((err) => {
+    qaBuildFailed = true;
+    console.warn('[chuckchuck] build questions', err);
+    qa.liveNotice = `내 발표로 질문을 만들지 못했어요 (${err.message || err}). 데모 질문으로 진행해요.`;
+  }).finally(() => {
+    qaBuilding = false;
+    saveSession('qa-flow', qa);
+    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa') renderQa();
+  });
+  return true;
+}
+
+function renderQaBuilding() {
+  app.className = 'narrow';
+  app.innerHTML = `
+    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 준비 중</span></div>
+    <div class="card qa-building" role="status" aria-live="polite">
+      <b>내 발표에서 예상 질문을 만들고 있어요</b>
+      <p class="note">개념 그래프와 실제 발화를 대조해 치명적인 것부터 골라요. 10초쯤 걸려요.</p>
+      <div class="qb-bar"><i></i></div>
+      <div class="step-actions" style="justify-content:center;margin-top:14px">
+        <button class="btn btn-text" id="qbSkip" type="button">기다리지 않고 데모 질문으로 진행하기</button>
+      </div>
+    </div>`;
+  const skip = $('#qbSkip');
+  if (skip) skip.addEventListener('click', () => {
+    qaBuildFailed = true;
+    qaBuilding = false;
+    qa.liveNotice = '질문 생성을 기다리지 않고 데모 질문으로 진행해요.';
+    saveSession('qa-flow', qa);
+    renderQa();
+  });
+}
+
+/* 질문 생성이 진행 중인지. sessionStorage 밖에 둔다 —
  * 생성 도중 새로고침하면 저장된 true 가 영원히 재생성을 막기 때문이다. */
 let qaBuilding = false;
-/* 이번 코칭에서 생성이 이미 실패했는지.
- * 생성이 끝나면 renderQa() 를 다시 부르는데, 실패를 기억하지 않으면 renderQa() 가
- * 또 생성을 시도해 무한 루프가 된다 (실측 8초에 2278 요청, 화면은 '준비 중' 에서 멈춤).
- * 저장하지 않으므로 새로고침하면 한 번 더 시도한다 — 일시적 실패는 사용자가 되살릴 수 있다.
- * 선언 위치 주의: 아래 resetQa() 가 모듈 로드 중에 실행되므로 그보다 앞서야 한다 (TDZ). */
+/* 이번 코칭에서 생성이 이미 실패했는지 — 무한 재시도 루프 방지. */
 let qaBuildFailed = false;
 
 let qa = loadSession('qa-flow') || {};
@@ -2212,28 +3628,21 @@ function resetQa() {
     concepts: { joint: 'wait', temp: 'wait', aria: 'wait' },
     lost: [],
     combo: 0, comboMax: 0, awarded: false, award: null,
+    liveNotice: '',
   };
-  qaBuildFailed = false;   // 새 코칭이면 생성을 다시 시도한다
+  qaBuildFailed = false;
   saveSession('qa-flow', qa);
 }
 if (!Array.isArray(qa.turns) || !qa.mode || !qa.concepts) resetQa();
 
-/* 구버전 브라우저 상태 복원.
- *
- * 다턴 코칭 이전에 저장된 qa.live 에는 turn·turns·hintLevel 이 없다. 그대로 두면
- * liveStalled() 가 L.turns.length 에서, submitLiveAnswer() 가 L.turns.push 에서
- * 터진다 — 코칭 화면이 통째로 빈다. 생성(newLiveState)만 통일해선 부족하고
- * 복원도 같은 모양으로 맞춰야 한다.
- *
- * 저장된 값이 우선이고 없는 것만 기본값으로 채운다 — 진행 중이던 코칭을 지우지 않는다. */
+/* 구버전 브라우저 상태 복원 — turn/turns/hintLevel 이 없으면 실전 코칭이 빈다. */
 if (qa.live && Array.isArray(qa.live.questions)) {
   qa.live = { ...newLiveState(qa.live.sessionId, qa.live.questions), ...qa.live };
   if (!Array.isArray(qa.live.turns)) qa.live.turns = [];
   if (!Array.isArray(qa.live.results)) qa.live.results = [];
   if (typeof qa.live.turn !== 'number') qa.live.turn = 0;
   if (typeof qa.live.hintLevel !== 'number') qa.live.hintLevel = 0;
-  if (typeof qa.live.pendingQuestion !== 'string') qa.live.pendingQuestion = '';
-  qa.live.busy = false;   // 판정 중에 새로고침했으면 버튼이 영영 잠긴다
+  qa.live.busy = false;
 }
 let qaTimerId = null;
 
@@ -2306,12 +3715,8 @@ const AUDS = Object.keys(PERSONAS);
 const CONCEPT_LABELS = { joint: '공동 임베딩', temp: 'Temperature', aria: 'Aria 일반화' };
 const CONCEPT_FULL = { joint: '공동 임베딩 정렬', temp: 'Temperature Parameter', aria: 'Aria 데이터셋 해석' };
 
-/* ── QA 시간 모드: 치명도 순으로 질문 범위를 채운다 (질문 준비 화면에서 선택) ──
- * 키는 서버 계약의 track 과 같은 문자열이다 (contracts.py QA_TRACKS).
- *   count        실전 QA 질문 개수 상한. contracts.py QA_TRACK_LIMITS 와 같은 값이어야
- *                한다 — 어긋나면 CTA 가 지키지 못할 개수를 약속하게 된다.
- *   demoConcepts 대본으로 도는 데모 QA 전용 개념 키. 실전 질문 세트와 무관하다.
- * 실제로 어떤 개념을 물을지는 서버가 자료에서 정하므로 여기 이름을 박아 두지 않는다. */
+/* ── QA 시간 모드: 치명도 순으로 질문 범위를 채운다 ──
+ * 키는 서버 계약의 track 과 같은 문자열이다. */
 const QA_MODES = {
   '1':  { min: 1,  short: '1분 · 핵심만',   desc: '가장 치명적인 개념 하나만 빠르게 확인해요. 복습은 생략해요.',
           scopeLabel: '가장 치명적인 개념 하나', count: 1, demoConcepts: ['joint'], review: false },
@@ -2326,9 +3731,8 @@ function qaBeatList() {
   const sc = qaScope();
   return DATA.qaBeats.filter(b => sc.demoConcepts.includes(b.concept) && (sc.review || b.kind !== 'review'));
 }
-/* 개념이 해소되면 총평 문장을 스트림에 실시간으로 적는다 */
 function pushSummary(concept, outcome) {
-  const text = (DATA.qaSummaries[concept] || {})[outcome];
+  const text = (DATA.qaSummaries && DATA.qaSummaries[concept] || {})[outcome];
   if (!text) return;
   pushTurn({ who: 'sys', kind: 'summary', concept, outcome, label: CONCEPT_FULL[concept], text });
 }
@@ -2400,14 +3804,12 @@ function streamRow(it) {
     return `<div class="msg ai react">${av}<div class="msg-bubble"><span class="chip chip-sm ${cls}">${lab}</span><p>${it.text}</p></div></div>`;
   }
   if (it.kind === 'missing') {
-    // 판정이 짚은 '빠진 지점'. 되물을 때 무엇을 보완해야 하는지 눈에 보이게 한다.
     return `<div class="msg ai miss">${av}<div class="msg-bubble">
       <span class="msg-meta">아직 안 나온 것</span>
       <div class="miss-chips">${it.points.map((p) => `<span class="chip chip-sm st-mid">${p}</span>`).join('')}</div>
     </div></div>`;
   }
   if (it.kind === 'gist') {
-    // 기대했던 답. 대화가 끝났는데 답을 모른 채면 코칭이 실패한 것이라 반드시 보여 준다.
     return `<div class="msg ai gist">${av}<div class="msg-bubble">
       <span class="msg-meta">이렇게 답하면 좋았어요</span>
       <p>${it.text}</p>
@@ -2433,7 +3835,7 @@ function growStream() {
   scrollDown();
 }
 
-/* 총평 문장이 눈앞에서 작성되는 타자 효과 (새로 붙는 줄에만, 접근성 설정 존중) */
+/* 총평 문장이 눈앞에서 작성되는 타자 효과 */
 function typeSummary(node) {
   const p = node.querySelector('.qs-text'); if (!p) return;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -2441,7 +3843,7 @@ function typeSummary(node) {
   p.textContent = '';
   let i = 0;
   const tick = () => {
-    if (!p.isConnected) return;           // 화면 전환 시 중단 — 재렌더는 전체 문장을 그림
+    if (!p.isConnected) return;
     i += 2;
     p.textContent = full.slice(0, i);
     if (i < full.length) later(tick, 22); else scrollDown();
@@ -2462,41 +3864,26 @@ function qaLiveActive() {
   return !!(qa.live && Array.isArray(qa.live.questions) && qa.live.questions.length);
 }
 
-/* 실전 코칭 상태의 단일 생성점.
- * 초기화가 세 군데(플랫 진입·세션 진입·다시 하기)라 모양이 어긋나면
- * 새로고침 복원에서 turn/hintLevel 이 undefined 가 되어 되묻기가 깨진다. */
 function newLiveState(sessionId, questions) {
   return {
     sessionId,
     questions,
-    qi: 0,            // 지금 몇 번째 질문인가
-    asked: -1,        // 이 질문을 화면에 이미 띄웠는가
-    results: [],      // 끝난 질문들의 최종 기록
-    turn: 0,          // 이 질문에 답변을 보낸 횟수 (힌트·넘기기는 안 센다)
-    turns: [],        // 이 질문 안에서 주고받은 턴 — 판정에 맥락으로 넘긴다
-    hintLevel: 0,     // 이 질문에서 사용한 힌트 단계 (최대 3)
-    // 다음 답변이 대답하게 될 문장. 되묻는 중이면 직전 후속 질문, 아니면 빈 문자열
-    // (= 원래 질문). 이게 없으면 2턴째부터 판정 맥락의 질문이 실제와 어긋난다.
-    pendingQuestion: '',
+    qi: 0,
+    asked: -1,
+    results: [],
+    turn: 0,
+    turns: [],
+    hintLevel: 0,
     lastJudgement: null,
     busy: false,
   };
 }
 
-/* 판정에 넘길 대화 맥락.
- * 끝난 질문들 + **지금 질문 안에서 주고받은 턴**. 뒤엣것이 빠지면
- * 되묻는 중에 판정이 직전 답변을 못 봐서 같은 지적을 반복한다.
- * 서버가 최근 6턴만 쓰므로(f09_judge.HISTORY_TURNS) 길이는 알아서 잘린다. */
 function liveHistory() {
   const L = qa.live;
-  const done = (L.results || []).map((r) => ({
-    question_id: r.question_id || r.id || '',
-    질문: r.question, 답변: r.answer, 판정: r.verdict,
-  }));
+  const done = (L.results || []).map((r) => ({ 질문: r.question, 답변: r.answer, 판정: r.verdict }));
   const q = L.questions[L.qi];
   const current = (L.turns || []).map((t) => ({
-    // 조인 키를 같이 보낸다 — 서버가 문면 대신 이 id 로 같은 질문의 포기를 센다
-    question_id: t.question_id || (q && q.id) || '',
     질문: t.question || (q && q.question) || '',
     답변: t.answer,
     판정: t.verdict,
@@ -2504,9 +3891,6 @@ function liveHistory() {
   return done.concat(current);
 }
 
-/* 3단계까지 오른 힌트를 다 썼는데 점수가 안 오르면 '정체' 로 본다.
- * 상한이 없는 루프에서 사용자가 갇히지 않도록, 이때만 답을 보고 넘어가길 권한다.
- * 끊는 것이 아니라 권하는 것이다 — 버튼을 눌러야 넘어간다. */
 function liveStalled() {
   const L = qa.live;
   if (L.hintLevel < 3 || L.turns.length < 2) return false;
@@ -2555,6 +3939,7 @@ function renderQaLive() {
         ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
         ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 넘어가기</button>` : ''}
         <button class="btn btn-text" id="liveSkip" type="button" ${L.busy ? 'disabled' : ''}>이 질문 넘기기</button>
+        <button class="btn btn-text" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>코칭 끝내고 리포트</button>
       </div>
     </div>`;
   scrollDown();
@@ -2566,11 +3951,8 @@ function renderQaLive() {
     ta.focus();
     ta.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
-      // Cmd/Ctrl+Enter 는 계속 살려 둔다 — 손에 익은 사람이 있다
       if (e.metaKey || e.ctrlKey) { e.preventDefault(); submitLiveAnswer(); return; }
-      if (e.shiftKey) return;                       // 줄바꿈
-      // 한글 조합을 확정하는 Enter 는 전송이 아니다. 이 가드가 없으면
-      // '안녕하세' 상태로 답이 날아간다. isComposing 을 안 주는 IME 가 있어 229 도 본다.
+      if (e.shiftKey) return;
       if (e.isComposing || e.keyCode === 229) return;
       e.preventDefault();
       submitLiveAnswer();
@@ -2585,7 +3967,6 @@ function renderQaLive() {
     L.hintLevel += 1;
     pushTurn({ who: 'ai', kind: 'hint', level: L.hintLevel, text: escapeHtml(list[L.hintLevel - 1]) });
     growStream();
-    // 다음 단계가 없으면 버튼을 접는다. 재렌더 없이 갱신해 스트림 재애니메이션을 피한다.
     if (L.hintLevel >= list.length) hintBtn.remove();
     else hintBtn.textContent = `힌트 ${L.hintLevel + 1}단계 보기`;
     saveSession('qa-flow', qa);
@@ -2602,10 +3983,26 @@ function renderQaLive() {
     saveSession('qa-flow', qa);
     renderQaLive();
   });
+  const finishBtn = $('#liveFinish');
+  if (finishBtn) finishBtn.addEventListener('click', () => finishLiveQaEarly());
 }
 
-/* 답변 전송. giveUp 이면 「모르겠어요」 버튼 경로다 — 본문이 비어 있어도 보낸다.
- * 타이핑으로 "모르겠어요" 라고 써도 서버(f09_judge.looks_stuck)가 같은 길로 보낸다. */
+/** 남은 질문을 넘김 처리하고 결과 → 리포트 CTA 화면으로 */
+function finishLiveQaEarly() {
+  const L = qa.live;
+  if (!L || L.busy) return;
+  while (L.qi < L.questions.length) {
+    const q = L.questions[L.qi];
+    pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 넘겼어요. 리포트에 남겨둘게요` });
+    closeLiveQuestion({
+      id: q.id, label: q.label, question: q.question, answer: '(넘김)',
+      verdict: 'skipped', score: 0, summary: '',
+    });
+  }
+  saveSession('qa-flow', qa);
+  qaLiveEnd();
+}
+
 async function submitLiveAnswer({ giveUp = false } = {}) {
   const L = qa.live;
   const q = L.questions[L.qi];
@@ -2619,28 +4016,14 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   renderQaLive();
   try {
     const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
-      // question 을 같이 보낸다 — 서버가 재시작돼 세션이 날아가도 판정이 이어진다
       questionId: q.id, answer, history: liveHistory(), question: q, giveUp,
-      // 이 질문에 앞서 낸 답변들. 판정은 마지막 한 마디가 아니라 누적 전체를 본다.
-      priorAnswers: (L.turns || []).map((t) => t.answer),
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
     L.turn += 1;
-    // 이 턴에 **실제로 던진 문장**을 남긴다. 2턴째부터는 원래 질문이 아니라
-    // 직전 후속 질문이 그것이다 — 원래 질문으로 적으면 판정기가 "넓은 질문에
-    // 빗나간 답" 으로 읽어, 좁혀 물은 쪽이 손해를 본다.
-    L.turns.push({
-      // 문면은 되물음마다 바뀌므로 조인 키를 따로 싣는다 — 서버(_coach_stage)가
-      // 이 id 로 같은 질문의 포기 횟수를 세서 2차에 해설로 넘어간다.
-      question_id: q.id || '',
-      question: L.pendingQuestion || q.question,
-      answer, verdict: v.verdict, score: v.score || 0,
-    });
+    L.turns.push({ question: q.question, answer, verdict: v.verdict, score: v.score || 0 });
     L.lastJudgement = v;
     if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });
 
-    // 판정 결과와 무관하게 넘어가던 자리다. 이제 정답 계열일 때만 넘어간다 —
-    // 임계는 서버가 계산해 `passed` 로 내려준다 (contracts.qa_passed).
     if (v.coach_stage === 'explain') {
       closeLiveCoached(q, v, answer);
     } else if (v.passed) {
@@ -2656,11 +4039,6 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   renderQaLive();
 }
 
-/* 정답 계열에 못 미쳤다 — 넘어가지 않고 빠진 지점을 겨냥해 되묻는다.
- * 원래 질문을 되풀이하지 않는 것이 핵심이다. 같은 말을 다시 들으면
- * 사용자는 뭘 고쳐야 할지 여전히 모른다. */
-/* 두 번째로 막혔다 — 서버가 해설을 보내왔다. 보여 주고 이 질문을 닫는다.
- * 계속 되물으면 코칭이 아니라 괴롭힘이 된다. */
 function closeLiveCoached(q, v, answer) {
   if (v.explanation) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(v.explanation) });
   closeLiveQuestion({
@@ -2671,10 +4049,6 @@ function closeLiveCoached(q, v, answer) {
 }
 
 function askAgain(v, turn) {
-  const L = qa.live;
-  // 다음 턴에 판정기가 볼 '던진 질문' 이 이것이다. followup 이 없으면 원래 질문으로
-  // 되돌린다 — 지난 턴 것을 남겨 두면 엉뚱한 질문에 답한 것으로 기록된다.
-  L.pendingQuestion = v.followup || '';
   const points = (v.missing_points || []).filter(Boolean);
   if (points.length) {
     pushTurn({ who: 'ai', kind: 'missing', points: points.map(escapeHtml) });
@@ -2689,7 +4063,6 @@ function askAgain(v, turn) {
   }
 }
 
-/* 이 질문을 끝내고 다음으로. 맞혔든 답을 보고 넘어가든 여기 한 곳을 지난다. */
 function closeLiveQuestion(record) {
   const L = qa.live;
   L.results.push({ ...record, turns: L.turn, hintLevel: L.hintLevel });
@@ -2698,11 +4071,8 @@ function closeLiveQuestion(record) {
   L.turns = [];
   L.hintLevel = 0;
   L.lastJudgement = null;
-  L.pendingQuestion = '';   // 다음 질문은 원래 문장부터 시작한다
 }
 
-/* 정답 계열 도달 — 인정하고, 기대했던 답을 보여 준 뒤 넘어간다.
- * 완벽한 문장을 받아낼 때까지 붙잡지 않는다. */
 function finishLiveQuestion(q, v, answer) {
   const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
   pushTurn({ who: 'sys', kind: m.flag, text: `${escapeHtml(q.label)} — ${m.word}` });
@@ -2716,8 +4086,6 @@ function finishLiveQuestion(q, v, answer) {
   });
 }
 
-/* 정체됐을 때 사용자가 '답 보고 넘어가기' 를 누른 경로.
- * 모른 채 끝내지 않는 것이 이 기능의 존재 이유다. */
 function revealLiveAnswer() {
   const L = qa.live;
   const q = L.questions[L.qi];
@@ -2734,9 +4102,6 @@ function revealLiveAnswer() {
   renderQaLive();
 }
 
-/* 이 질문에서 지금 보여 줄 수 있는 힌트들.
- * 판정 전에는 F-08 이 만든 1단계뿐이다 — 아직 답하지도 않은 사람에게
- * "뭘 빠뜨렸다" 고 말할 수 없기 때문이다. 판정 뒤에는 서버가 사다리를 실어 준다. */
 function liveHints() {
   const L = qa.live;
   const q = L.questions[L.qi];
@@ -2747,6 +4112,11 @@ function liveHints() {
 
 function qaLiveEnd() {
   qa.ended = true;
+  // 발표 플로우도 끝난 걸로 표시 — 홈/이어하기에서 리포트로 이어지게
+  if (typeof nf !== 'undefined' && nf) {
+    nf.completed = true;
+    saveSession('new-flow', nf);
+  }
   saveSession('qa-flow', qa);
   const L = qa.live;
   const won = L.results.filter((r) => r.verdict === 'good').length;
@@ -2766,10 +4136,11 @@ function qaLiveEnd() {
           ${r.turns ? `<span class="qsum-meta">${r.turns}번 만에 방어${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</span>` : ''}
         </div>`).join('') || '<p class="note">기록이 없어요.</p>'}
       </div>
-      <p class="cere-hint">이 총평은 내 자료 기준으로 생성됐어요 — 발표 전에 미방어 질문부터 다시 보세요</p>
+      <p class="cere-hint">이 총평이 상세 리포트로 이어져요 — 미방어·넘긴 질문부터 다시 보세요</p>
     </div>
     <div class="cere-actions">
-      <button class="btn btn-primary" id="liveAgain" type="button">같은 질문으로 다시</button>
+      <a class="btn btn-primary" href="#/report">상세 리포트 보기</a>
+      <button class="btn btn-text" id="liveAgain" type="button">같은 질문으로 다시</button>
       <a class="btn btn-text" href="#/">홈으로</a>
     </div>`;
   const again = $('#liveAgain');
@@ -2805,17 +4176,27 @@ function qaModeGate() {
 /* ── 화면 ── */
 function renderQa() {
   app.className = 'narrow';
+  dismissF11Reveal();
+  try {
   if (qaLiveActive()) return renderQaLive();
   if (qa.ended) return qaEnd();
   // 시간 트랙(1/5/10분)을 먼저 고르게 한다 — 질문 개수가 트랙에 달려 있다
   if (!qa.started && !qa.turns.length) return qaModeGate();
-  // 트랙이 정해졌으면 여기서 실제 질문을 보장한다. 어느 경로로 들어왔든 마찬가지다.
-  // 이전 데모 대화가 남아 있어도 막지 않는다 — 데모 질문을 한 번이라도 눌러본 사용자가
-  // 영원히 데모만 보게 되던 원인이었다 (sessionStorage 에 남아 새로고침으로도 안 풀렸다).
+  // 트랙이 정해졌으면 여기서 실제 질문을 보장한다
   if (ensureLiveQuestions()) return renderQaBuilding();
   qa.started = true;
-  // 첫 진입: 첫 질문을 스레드에 올림
-  if (!qa.turns.length) { qa.concepts.joint = 'current'; presentQuestion(qaBeatList()[0]); }
+  // 첫 진입: 첫 질문을 스레드에 올림 (데모 폴백)
+  const firstBeat = qaBeatList()[0];
+  if (!qa.turns.length) {
+    if (!firstBeat) {
+      app.innerHTML = `${stageAccidentHtml('질문 목록을 만들지 못했어요. 홈으로 돌아가 다시 시도해 주세요.')}
+        <div class="step-actions"><a class="btn btn-primary" href="#/">홈으로</a></div>`;
+      return;
+    }
+    if (!qa.concepts) qa.concepts = { joint: 'wait', temp: 'wait', aria: 'wait' };
+    qa.concepts.joint = 'current';
+    presentQuestion(firstBeat);
+  }
   // 새로고침 등으로 중간 상태가 저장돼 있으면 안전한 상태로 되돌림
   if (qa.sub === 'speaking' || qa.sub === 'thinking' || qa.sub === 'committed' || qa.sub === 'typing')
     qa.sub = beat().kind === 'trap' ? 'choice' : 'answer';
@@ -2852,6 +4233,14 @@ function renderQa() {
   });
   renderLive();
   scrollDown();
+  } catch (err) {
+    console.warn('[chuckchuck] renderQa', err);
+    app.innerHTML = `${stageAccidentHtml(err.message || String(err), { title: '질문 코칭 화면을 그리지 못했어요' })}
+      <div class="step-actions"><a class="btn btn-primary" href="#/">홈으로</a>
+      <button class="btn btn-text" type="button" id="qaReset">코칭 초기화</button></div>`;
+    const b = document.getElementById('qaReset');
+    if (b) b.addEventListener('click', () => { resetQa(); renderQa(); });
+  }
 }
 
 function renderLive() {
@@ -2862,39 +4251,10 @@ function renderLive() {
       <div class="live-actions">
         <button class="btn btn-primary qa-speak" id="speak"><svg class="mic-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg>말로 답하기</button>
         <button class="btn btn-secondary" id="hint">막혀요, 힌트</button>
-        <button class="btn btn-text" id="typeAns">텍스트로 답하기</button>
       </div>
       <span class="live-tip">답하다 멈추면 ${qa.aud}${josa(qa.aud,'이','가')} 이어받아요</span>`;
     $('#speak').addEventListener('click', qaSpeak);
     $('#hint').addEventListener('click', qaHint);
-    $('#typeAns').addEventListener('click', () => { qa.sub = 'typing'; renderLive(); });
-  } else if (qa.sub === 'typing') {
-    el.innerHTML = `
-      <div class="qa-live-input" style="margin-top:0">
-        <textarea id="typeText" rows="3" placeholder="자기 말로 설명해보세요 (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
-        <div class="live-actions">
-          <button class="btn btn-primary" id="typeSend">답변 보내기</button>
-          <button class="btn btn-text" id="typeBack">말로 답할게요</button>
-        </div>
-      </div>`;
-    const sendTyped = () => {
-      const v = ($('#typeText').value || '').trim();
-      if (!v) return;
-      const tb = beat();
-      commitAnswer(escapeHtml(v));
-      qaThink(() => react(tb, tb.verdict, tb.react));
-    };
-    $('#typeSend').addEventListener('click', sendTyped);
-    $('#typeText').addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      if (e.metaKey || e.ctrlKey) { e.preventDefault(); sendTyped(); return; }
-      if (e.shiftKey) return;                       // 줄바꿈
-      if (e.isComposing || e.keyCode === 229) return;   // 한글 조합 확정 Enter
-      e.preventDefault();
-      sendTyped();
-    });
-    $('#typeBack').addEventListener('click', () => { qa.sub = 'answer'; renderLive(); });
-    $('#typeText').focus();
   } else if (qa.sub === 'speaking') {
     const lim = persona().limit;
     el.innerHTML = `<div class="caption"><span class="cap-live">듣는 중</span><p id="capT"></p>${lim ? `<span class="cap-timer" id="capTimer">⏱ ${lim}</span>` : ''}</div>`;
@@ -3022,16 +4382,8 @@ function qaThink(done) {
 /* ── 반응 + 개념 상태 반영 ── */
 function react(b, verdict, text) {
   pushTurn({ who: 'ai', kind: 'react', verdict, text });
-  if (b.mastered) {
-    qa.concepts[b.concept] = 'won';
-    pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — ${qa.aud}${josa(qa.aud,'을','를')} 설득했어요` });
-    pushSummary(b.concept, 'won');
-  }
-  if (b.reviewed) {
-    qa.concepts[b.concept] = 'review';
-    pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — 시간이 지나도 설명했어요` });
-    pushSummary(b.concept, 'review');
-  }
+  if (b.mastered) { qa.concepts[b.concept] = 'won'; pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — ${qa.aud}${josa(qa.aud,'을','를')} 설득했어요` }); }
+  if (b.reviewed) { qa.concepts[b.concept] = 'review'; pushTurn({ who: 'sys', kind: 'won', text: `${b.conceptLabel} — 시간이 지나도 설명했어요` }); }
   if (verdict === 'full') {
     qa.combo = (qa.combo || 0) + 1;
     qa.comboMax = Math.max(qa.comboMax || 0, qa.combo);
@@ -3072,7 +4424,6 @@ function qaDecide(push) {
         qa.comboMax = Math.max(qa.comboMax || 0, qa.combo);
         pushTurn({ who: 'ai', kind: 'react', verdict: 'full', text: b.onPush });
         pushTurn({ who: 'sys', kind: 'won', text: 'Aria 일반화 — 끝까지 밀어붙여 설득했어요' });
-        pushSummary('aria', 'won');
         growStream(); updateTracker();
         qa.sub = 'ended'; renderLive();
       });
@@ -3084,7 +4435,6 @@ function qaDecide(push) {
       qa.concepts.aria = 'lost'; qa.lost = ['aria'];
       pushTurn({ who: 'ai', kind: 'concede', text: b.onConcede });
       pushTurn({ who: 'sys', kind: 'lost', text: 'Aria 일반화 — 오늘은 방어하지 못했어요. 리포트에 남겨둘게요' });
-      pushSummary('aria', 'lost');
       growStream(); updateTracker();
       qa.sub = 'ended'; renderLive();
     });
@@ -3097,17 +4447,13 @@ function qaEnd() {
   saveSession('qa-flow', qa);
   const tr = DATA.session.qa.trophy;
   const ariaLost = qa.lost.includes('aria');
-  const sc = qaScope();
-  const ariaInScope = sc.demoConcepts.includes('aria');
-  const masteredScoped = sc.demoConcepts.filter(c => qa.concepts[c] === 'won' || qa.concepts[c] === 'review');
-  const afterCount = 3 + masteredScoped.length;
   const concepts = [
     { label: 'Self-Supervised Learning', pre: true },
     { label: 'CLIP', pre: true },
     { label: 'IMU2CLIP의 동기', pre: true },
-    ...masteredScoped.map(c => ({ label: CONCEPT_FULL[c], pre: false })),
+    { label: '공동 임베딩 정렬', pre: false },
+    { label: 'Temperature Parameter', pre: false },
   ];
-  const sums = qa.turns.filter(t => t.kind === 'summary');
   const aw = qa.award || { earned: 0, level: 1, streak: 1, xp: 0 };
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>코칭 기록 저장됨</span></div>
@@ -3130,7 +4476,7 @@ function qaEnd() {
       <div class="card cere-card c2">
         <div class="cere-row-head">
           <span class="cere-label">설명할 수 있는 핵심 개념</span>
-          <b class="cere-count num">3 <i>→</i> ${afterCount}</b>
+          <b class="cere-count num">3 <i>→</i> 5</b>
         </div>
         <ul class="cere-concepts">
           ${concepts.map((c, i) => `
@@ -3138,20 +4484,9 @@ function qaEnd() {
             <i>✓</i><span>${c.label}</span>${c.pre ? '' : '<em>+ 오늘</em>'}
           </li>`).join('')}
         </ul>
-        <p class="cere-sub ${ariaInScope && ariaLost ? 'warn' : 'good'}">${ariaInScope
-          ? (ariaLost
-            ? 'Aria 일반화는 오늘 방어하지 못했어요 — 복습으로 다시 만나요'
-            : '자료와 어긋났던 Aria 설명도 대화로 바로잡았어요')
-          : `오늘은 ${sc.short} 범위였어요 — 10분 모드로 Aria 자료 모순까지 확인할 수 있어요`}</p>
-      </div>
-
-      <div class="card cere-card csum">
-        <span class="cere-label">오늘의 총평 — 대화하는 동안 적혔어요</span>
-        <div class="cere-sums">
-          ${sums.map(s => `<div class="qsum-row"><b>${s.label}</b><p>${s.text}</p></div>`).join('')
-            || '<p class="note">기록된 총평이 없어요.</p>'}
-        </div>
-        <p class="cere-hint">이 총평이 상세 리포트의 요약으로 이어져요</p>
+        <p class="cere-sub ${ariaLost ? 'warn' : 'good'}">${ariaLost
+          ? 'Aria 일반화는 오늘 방어하지 못했어요 — 복습으로 다시 만나요'
+          : '자료와 어긋났던 Aria 설명도 대화로 바로잡았어요'}</p>
       </div>
 
       <div class="card cere-card c3">
@@ -3164,9 +4499,7 @@ function qaEnd() {
             <span>${qa.aud} 보너스 ×${XP_MULT[qa.aud] || 1}</span>
           </div>
         </div>
-        <div class="cere-next"><span>다음 목표</span><b>${ariaInScope
-          ? (ariaLost ? 'Aria 일반화 다시 방어하기' : 'IMU Encoder를 한 문장으로 설명하기')
-          : '10분 모드로 나머지 개념까지 방어하기'}</b></div>
+        <div class="cere-next"><span>다음 목표</span><b>${ariaLost ? 'Aria 일반화 다시 방어하기' : 'IMU Encoder를 한 문장으로 설명하기'}</b></div>
       </div>
 
       <div class="cere-actions">

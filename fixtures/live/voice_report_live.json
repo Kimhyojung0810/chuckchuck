@@ -1,0 +1,399 @@
+{
+  "audio": "/home/ubuntu/workspace/00_chuckchuck/fixtures/live/chuckchuck_rehearsal.m4a",
+  "marks_note": "char-weighted estimate (no F-04 recorder marks)",
+  "context": {
+    "situation": "학회·수업 발표",
+    "audience": "일반 청중",
+    "duration_min": 6
+  },
+  "transcript_preview": "안녕하세요 오늘은 스마트 알림 하나가 왜 우리의 집중을 크게 방해하는지 이야기해보겠습니다 우리는 보통 알림을 잠깐 확인하는 정도는 별문제 아니라고 생각합니다 하지만 실제로는 그 잠깐의 행동 뒤에 더 큰 집중 손실이 따라옵니다 오늘 발표에서는 알리미 집중을 끊는 과정을 살펴보고 왜 다시 집중하기가 어려운지 그리고 어떤 방식으로 환경을 바꾸면 좋을지 정리해보겠습니다 네 앞서 볼 수 있듯이 많은 사람들은 알림을 잠깐 보는 정도는 큰 문제가 아니라고 생각을 합니다 예를 들어서 메시지를 5 초 정도 확인을 하면 그냥 오초만 손해 본 것처럼 느껴집니다 그런데 실제로는 그 이후에 다시 원래 작업으로 돌아오는데 시간이 더 걸립니다 그래서 알림의 문제는 단순히 화면을 본 시간이 아니라 우리가 하던 일의 흐름을 끊는다는 점에 있습니다 집중은 단순히 화면을 보고 있는 상태가 아닙니다. 집중한다는 것은 지금 하고 있는 일의 목표와 순서가 머릿속에 올라와 있는 상태입니다 예를 들어 글을 쓰고 있다면 지금 ",
+  "transcript_stats": {
+    "duration_sec": 347.159,
+    "n_words": 547,
+    "n_by_slide": 12,
+    "provider": "skt-ax"
+  },
+  "pace": {
+    "target_sec": 360.0,
+    "actual_sec": 344.0,
+    "avg_chars_per_min": 288.6,
+    "avg_syllable_per_sec": 4.78,
+    "max_chars_per_min": 397.6,
+    "max_slide_no": 7,
+    "recommended_cpm": "300~350",
+    "slides": [
+      {
+        "slide_no": 1,
+        "title": "척척발표 데모 용 10분 발표",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 4.58,
+        "recommended_sec": 34.78,
+        "delta_sec": -30.2,
+        "chars_per_min": 326.1,
+        "syllable_per_sec": 5.43,
+        "status": "short",
+        "note": "핵심 · 권장 대비 86% 부족"
+      },
+      {
+        "slide_no": 2,
+        "title": "(제목 없음)",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 6.04,
+        "recommended_sec": 34.78,
+        "delta_sec": -28.74,
+        "chars_per_min": 297.3,
+        "syllable_per_sec": 4.95,
+        "status": "short",
+        "note": "핵심 · 권장 대비 82% 부족"
+      },
+      {
+        "slide_no": 3,
+        "title": "알림은 눈길만 빼앗는 것이 아니라, 머릿속 작업 상태를 바꾼다.",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 48.49,
+        "recommended_sec": 34.78,
+        "delta_sec": 13.71,
+        "chars_per_min": 286.8,
+        "syllable_per_sec": 4.76,
+        "status": "long",
+        "note": "권장 대비 39% 초과"
+      },
+      {
+        "slide_no": 4,
+        "title": "(제목 없음)",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 76.48,
+        "recommended_sec": 34.78,
+        "delta_sec": 41.7,
+        "chars_per_min": 281.0,
+        "syllable_per_sec": 4.62,
+        "status": "long",
+        "note": "권장 대비 119% 초과"
+      },
+      {
+        "slide_no": 5,
+        "title": "(제목 없음)",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 45.45,
+        "recommended_sec": 34.78,
+        "delta_sec": 10.66,
+        "chars_per_min": 295.7,
+        "syllable_per_sec": 4.91,
+        "status": "long",
+        "note": "권장 대비 30% 초과"
+      },
+      {
+        "slide_no": 6,
+        "title": "(제목 없음)",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 56.53,
+        "recommended_sec": 34.78,
+        "delta_sec": 21.75,
+        "chars_per_min": 270.4,
+        "syllable_per_sec": 4.49,
+        "status": "long",
+        "note": "권장 대비 62% 초과"
+      },
+      {
+        "slide_no": 7,
+        "title": "(제목 없음)",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 6.58,
+        "recommended_sec": 34.78,
+        "delta_sec": -28.2,
+        "chars_per_min": 397.6,
+        "syllable_per_sec": 6.3,
+        "status": "short",
+        "note": "핵심 · 권장 대비 81% 부족"
+      },
+      {
+        "slide_no": 8,
+        "title": "(제목 없음)",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 7.16,
+        "recommended_sec": 34.78,
+        "delta_sec": -27.62,
+        "chars_per_min": 348.3,
+        "syllable_per_sec": 5.63,
+        "status": "short",
+        "note": "핵심 · 권장 대비 79% 부족"
+      },
+      {
+        "slide_no": 9,
+        "title": "집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 한다.",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 56.19,
+        "recommended_sec": 34.78,
+        "delta_sec": 21.41,
+        "chars_per_min": 288.5,
+        "syllable_per_sec": 4.81,
+        "status": "long",
+        "note": "권장 대비 61% 초과"
+      },
+      {
+        "slide_no": 11,
+        "title": "알림과 집중 방해의 핵심 메커니즘",
+        "importance": "core",
+        "importance_weight": 1.0,
+        "actual_sec": 7.5,
+        "recommended_sec": 34.78,
+        "delta_sec": -27.28,
+        "chars_per_min": 299.8,
+        "syllable_per_sec": 5.0,
+        "status": "short",
+        "note": "핵심 · 권장 대비 78% 부족"
+      },
+      {
+        "slide_no": 12,
+        "title": "참고 연구",
+        "importance": "support",
+        "importance_weight": 0.35,
+        "actual_sec": 29.03,
+        "recommended_sec": 12.17,
+        "delta_sec": 16.86,
+        "chars_per_min": 294.8,
+        "syllable_per_sec": 4.86,
+        "status": "long",
+        "note": "권장 대비 138% 초과"
+      }
+    ],
+    "sections": [
+      {
+        "name": "전반",
+        "slide_nos": [
+          1,
+          2,
+          3
+        ],
+        "recommended_sec": 104.3,
+        "actual_sec": 59.1,
+        "status": "short",
+        "label": "-43% 부족"
+      },
+      {
+        "name": "중반",
+        "slide_nos": [
+          4,
+          5,
+          6,
+          7
+        ],
+        "recommended_sec": 139.1,
+        "actual_sec": 185.0,
+        "status": "long",
+        "label": "+33% 초과"
+      },
+      {
+        "name": "후반",
+        "slide_nos": [
+          8,
+          9,
+          11,
+          12
+        ],
+        "recommended_sec": 116.5,
+        "actual_sec": 99.9,
+        "status": "ok",
+        "label": "적절"
+      }
+    ],
+    "tips": [
+      "1번은 핵심인데 권장 35초 중 5초만 썼어요. 여기 시간을 늘리세요.",
+      "2번은 핵심인데 권장 35초 중 6초만 썼어요. 여기 시간을 늘리세요."
+    ]
+  },
+  "habits": {
+    "by_slide": [
+      {
+        "slide_no": 1,
+        "repeat_cnt": 1,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 2,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 3,
+        "repeat_cnt": 0,
+        "filler_cnt": 3,
+        "pause_cnt": 0,
+        "note": "간투어 3회"
+      },
+      {
+        "slide_no": 4,
+        "repeat_cnt": 0,
+        "filler_cnt": 2,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 5,
+        "repeat_cnt": 0,
+        "filler_cnt": 1,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 6,
+        "repeat_cnt": 1,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 7,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 8,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 9,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 10,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 11,
+        "repeat_cnt": 1,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      },
+      {
+        "slide_no": 12,
+        "repeat_cnt": 0,
+        "filler_cnt": 0,
+        "pause_cnt": 0,
+        "note": ""
+      }
+    ],
+    "repeat_cnt": 3,
+    "filler_cnt": 6,
+    "pause_cnt": 0,
+    "provider": "lora",
+    "tips": [
+      "3번: 간투어 3회"
+    ],
+    "n_spans": 9,
+    "spans_sample": [
+      {
+        "kind": "REP",
+        "text": "돌아왔쓰 돌아왔을",
+        "start_sec": 0.0,
+        "end_sec": 0.0,
+        "slide_no": 1
+      },
+      {
+        "kind": "REP",
+        "text": "메세지로 확인을",
+        "start_sec": 203.023,
+        "end_sec": 203.905,
+        "slide_no": 6
+      },
+      {
+        "kind": "REP",
+        "text": "전할 전환할",
+        "start_sec": 320.923,
+        "end_sec": 322.088,
+        "slide_no": 11
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 16.6241,
+        "end_sec": 16.7845,
+        "slide_no": 3
+      },
+      {
+        "kind": "FIL",
+        "text": "그냥",
+        "start_sec": 47.6746,
+        "end_sec": 47.9181,
+        "slide_no": 3
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 52.0819,
+        "end_sec": 52.243,
+        "slide_no": 3
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 106.665,
+        "end_sec": 106.826,
+        "slide_no": 4
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 109.692,
+        "end_sec": 109.853,
+        "slide_no": 4
+      },
+      {
+        "kind": "FIL",
+        "text": "그",
+        "start_sec": 146.568,
+        "end_sec": 146.769,
+        "slide_no": 5
+      }
+    ]
+  },
+  "report": {
+    "one_liner": "중요한 장은 짧게 지나갔고, 어떤 장은 생각보다 길게 말했어요.",
+    "score": 68,
+    "grade": "C+",
+    "strengths": [
+      "전체 시간은 목표 6분에 거의 맞췄어요",
+      "긴 쉼 없이 발표 흐름을 이어갔어요",
+      "말 속도는 평균적으로 적당했어요"
+    ],
+    "weaknesses": [
+      "핵심인 앞장·중간 장을 너무 짧게 지나갔어요",
+      "설명 장에 시간을 많이 써서 배분이 들쭉날쭉했어요",
+      "「그」「그냥」 같은 간투어가 몇 번 나왔어요"
+    ],
+    "actions": [
+      "핵심 장에는 한 문장 더 덧붙여 시간을 늘려 보세요",
+      "길게 말한 장은 세부 설명을 줄이고 핵심만 남겨 보세요",
+      "간투어가 나오기 전에 잠깐 멈추고 다음 문장을 떠올려 보세요"
+    ],
+    "pace_summary": "목표 6분 중 약 5분 44초 말했어요. 핵심 장은 짧게, 설명 장은 길게 나와서 배분을 손보면 좋아요.",
+    "habit_summary": "같은 말 반복 3회, 간투어 6회, 긴 쉼 0회예요. 「그」가 가장 자주 나왔어요.",
+    "model": "solar"
+  },
+  "elapsed_sec": 136.7
+}

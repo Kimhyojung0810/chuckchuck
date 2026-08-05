@@ -15,6 +15,15 @@ from ..contracts import ConceptError
 from .llm_base import LLMProvider
 
 
+def _ids_in_prompt(user: str) -> list[str]:
+    """프롬프트의 '- (id) ...' 줄에서 후보 id 를 주워 온다 (F-08/F-11 공통)."""
+    ids = []
+    for line in user.splitlines():
+        if line.startswith("- (") and ")" in line:
+            ids.append(line[3:line.index(")")])
+    return ids
+
+
 def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
     """프롬프트의 '### 슬라이드 N: 제목' 줄에서 (번호, 제목)을 주워 온다."""
     found: list[tuple[int, str]] = []
@@ -63,6 +72,8 @@ class MockLLM(LLMProvider):
         # 가짜 LLM 은 늘 JSON 만 낸다 — json_mode 는 받기만 하고 무시한다
         if "[TASK] concept-graph" in user:
             return self._mock_graph(user)
+        if "[TASK] audience-chatter" in user:
+            return self._mock_chatter(user)
         if "[TASK] speech-alignment" in user:
             return self._mock_alignment(user)
         if "[TASK] qa-triage" in user:
@@ -131,6 +142,61 @@ class MockLLM(LLMProvider):
             {"items": items, "speech_edges": edges, "extra_concepts": extras},
             ensure_ascii=False,
         )
+
+    @staticmethod
+    def _mock_chatter(user: str) -> str:
+        """
+        삐약 청중석용 가짜 수다. 프롬프트의 '발화자:' 줄에서 누구인지 알아내고,
+        '- (id) ...' 사실 줄에서 첫 node_id 를 주워 근거로 단다.
+
+        대사는 몽총한 톤의 고정 대본이다 — 키 없이 데모를 돌릴 때 그대로 화면에
+        나가므로, 후처리 경로 검증뿐 아니라 톤 확인용으로도 쓰인다.
+        """
+        speaker = "midm"
+        ids: list[str] = []
+        for line in user.splitlines():
+            if line.startswith("발화자:"):
+                speaker = line.split(":", 1)[-1].strip() or speaker
+            elif line.startswith("- (") and ")" in line:
+                ids.append(line[3:line.index(")")])
+
+        # 라운드마다 같은 대사를 주면 화면에 똑같은 말풍선이 두 개 뜬다.
+        # 히스토리가 비어 있는 첫 라운드인지 보고 대본을 갈아 끼운다.
+        first_round = "아직 아무도 입을 열지 않았다" in user
+        scripts = {
+            "midm": [
+                [("어... 아 맞다. 그거 얘기 안 했잖아. 흥, 나 계속 기다렸는데.", "grumpy"),
+                 ("뭐였더라, 아까 그 개념... 아무튼 안 나왔어. 흥.", "grumpy")],
+                [("아니 근데 그거 진짜 중요한 거였는데... 흥. 나만 신경 쓰였나.", "grumpy"),
+                 ("...뭐, 나머지는 그럭저럭. 흥.", "neutral")],
+            ],
+            "solar": [
+                [("오홍, 나 자료 다 읽었는데 순서가 좀... 어? 뭐였지.", "curious"),
+                 ("아 맞다, 그 부분 앞뒤가 바뀐 것 같았어. 오홍.", "curious")],
+                [("근데 그 두 개를 이어서 말했으면 더 좋았을 텐데. 오홍.", "curious"),
+                 ("내가 유인물을 잘못 봤나? 아닌 것 같은데.", "neutral")],
+            ],
+            "exaone": [
+                [("그거 설명할 때 되게 좋았어... 히히. 나 고개 끄덕였잖아.", "happy"),
+                 ("전문가로서 말하자면... 음. 좋았어. 히히.", "happy")],
+                [("아 그리고 그 부분도 괜찮았어. 뭐더라... 아무튼 좋았어. 히히.", "happy"),
+                 ("나 박수 칠 뻔했잖아. 히히.", "happy")],
+            ],
+            "ax": [
+                [("헐 나 그거 들었어. 자료에 없던 거 아니야? 아닌가?", "excited"),
+                 ("헐, 근데 내가 무슨 얘기 하고 있었지.", "curious")],
+                [("아 맞다, 그건 한 번도 안 나왔어. 내가 다 들었는데. 헐.", "excited"),
+                 ("시간은 딱 맞았던 것 같아... 아마도?", "neutral")],
+            ],
+        }
+        pair = scripts.get(speaker, scripts["midm"])[0 if first_round else 1]
+        refs = [ids[0]] if ids else []
+        turns = [
+            {"text": pair[0][0], "mood": pair[0][1], "ref_node_ids": refs},
+            {"text": pair[1][0], "mood": pair[1][1], "ref_node_ids": []},
+        ]
+        return json.dumps({"turns": turns}, ensure_ascii=False)
+
 
     @staticmethod
     def _mock_triage(user: str) -> str:
