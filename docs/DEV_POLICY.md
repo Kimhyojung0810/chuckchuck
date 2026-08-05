@@ -43,9 +43,13 @@
 | F-05    | 받아쓰기       | ✅     | audio + marks → `Transcript`        |
 | F-06    | 개념 정리      | ✅     | `SlideDoc`+`Context` → `ConceptDoc` |
 | F-07    | 개념 그래프     | ✅     | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` |
-| F-08~10 | 질문 코칭      | 예정    | 계약 확정 후 착수                          |
+| F-08    | 예상 질문       | ✅     | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` |
+| F-09    | 답변 판정·막힘 코칭 | ✅     | `Question`+답변(+`QaTurn[]`) → `QaJudgement` |
+| F-10    | 질문 코칭 확장    | 예정    | 계약 확정 후 착수                          |
 | F-11    | 발표-자료 정합  | ✅     | `ConceptGraph`+`Transcript` → `AlignmentDoc` (+파생 `FlowDiff`) |
-| F-12~16 | 발표 진단      | 예정    | 계약 확정 후 착수                          |
+| F-12    | 청중 수다       | ✅     | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` (국내 LLM 4개) |
+| F-13    | 발표 점수       | ✅     | `AlignmentDoc`+`FlowDiff` → `PresentationScore` (순수 함수) |
+| F-14~16 | 발표 진단      | 예정    | 계약 확정 후 착수                          |
 | F-17    | 말 속도·시간 배분 | ✅     | `Transcript`+`Context`(+`ConceptDoc`) → `PaceDoc` (규칙) |
 | F-18    | 음성 습관      | ✅     | `Transcript` → `HabitDoc` (기본 LoRA REP + heuristic FIL/PAUSE) |
 | F-19    | 음성 종합 리포트 | ✅     | `PaceDoc`+`HabitDoc` → `ReportDoc` (LLM) |

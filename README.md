@@ -4,16 +4,24 @@
 
 팀원 데모([YEHS_demo](https://whilethis00.github.io/YEHS_demo/)) 화면에 맞춰, 담당 기능을 **독립 모듈**로 분리한 패키지다. 나중에 프론트만 API/SDK에 연결하면 된다.
 
-| ID | 모듈 | I/O | 기술 |
-|----|------|-----|------|
-| F-01 | `chuckchuck/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse |
-| F-03·04 | `sdk/rehearsal-recorder.js` | 마이크+슬라이드 → audio + `SlideMark[]` | 브라우저 (통합 SDK) |
-| F-03 | `sdk/recorder.js` | 마이크 → audio blob | MediaRecorder (분리) |
-| F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) |
-| F-05 | `chuckchuck/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 |
-| F-06 | `chuckchuck/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 |
-| F-07 | `chuckchuck/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 |
-| F-11 | `chuckchuck/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 |
+| ID | 모듈 | I/O | 기술 | API |
+|----|------|-----|------|-----|
+| F-01 | `chuckchuck/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
+| F-03·04 | `sdk/rehearsal-recorder.js` | 마이크+슬라이드 → audio + `SlideMark[]` | 브라우저 (통합 SDK) | — (브라우저) |
+| F-03 | `sdk/recorder.js` | 마이크 → audio blob | MediaRecorder (분리) | — (브라우저) |
+| F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) | — (브라우저) |
+| F-05 | `chuckchuck/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
+| F-06 | `chuckchuck/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
+| F-07 | `chuckchuck/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
+| F-08 | `chuckchuck/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
+| F-09 | `chuckchuck/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
+| F-11 | `chuckchuck/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
+| F-11 파생 | `chuckchuck/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
+| F-12 | `chuckchuck/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
+| F-13 | `chuckchuck/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
+| F-17 | `chuckchuck/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
+| F-18 | `chuckchuck/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
+| F-19 | `chuckchuck/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
 공통 계약은 `chuckchuck/contracts.py` 하나다. 설정은 `chuckchuck/config.py` (`settings.masked()`).
 
