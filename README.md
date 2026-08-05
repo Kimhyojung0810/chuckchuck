@@ -4,16 +4,24 @@
 
 팀원 데모([YEHS_demo](https://whilethis00.github.io/YEHS_demo/)) 화면에 맞춰, 담당 기능을 **독립 모듈**로 분리한 패키지다. 나중에 프론트만 API/SDK에 연결하면 된다.
 
-| ID | 모듈 | I/O | 기술 |
-|----|------|-----|------|
-| F-01 | `chuckchuck/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse |
-| F-03·04 | `sdk/rehearsal-recorder.js` | 마이크+슬라이드 → audio + `SlideMark[]` | 브라우저 (통합 SDK) |
-| F-03 | `sdk/recorder.js` | 마이크 → audio blob | MediaRecorder (분리) |
-| F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) |
-| F-05 | `chuckchuck/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 |
-| F-06 | `chuckchuck/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 |
-| F-07 | `chuckchuck/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 |
-| F-11 | `chuckchuck/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 |
+| ID | 모듈 | I/O | 기술 | API |
+|----|------|-----|------|-----|
+| F-01 | `chuckchuck/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
+| F-03·04 | `sdk/rehearsal-recorder.js` | 마이크+슬라이드 → audio + `SlideMark[]` | 브라우저 (통합 SDK) | — (브라우저) |
+| F-03 | `sdk/recorder.js` | 마이크 → audio blob | MediaRecorder (분리) | — (브라우저) |
+| F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) | — (브라우저) |
+| F-05 | `chuckchuck/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
+| F-06 | `chuckchuck/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
+| F-07 | `chuckchuck/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
+| F-08 | `chuckchuck/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
+| F-09 | `chuckchuck/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
+| F-11 | `chuckchuck/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
+| F-11 파생 | `chuckchuck/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
+| F-12 | `chuckchuck/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
+| F-13 | `chuckchuck/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
+| F-17 | `chuckchuck/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
+| F-18 | `chuckchuck/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
+| F-19 | `chuckchuck/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
 공통 계약은 `chuckchuck/contracts.py` 하나다. 설정은 `chuckchuck/config.py` (`settings.masked()`).
 
@@ -163,6 +171,45 @@ python -m pytest tests/ -q
 DEMO_PORT=8801 ./demo/run_bridge_midm.sh
 # 또는
 DEMO_PORT=8801 python -m demo.bridge
+```
+
+## 개발 환경 (Claude Code · ECC)
+
+이 저장소는 Claude Code 플러그인 **ECC**를 쓴다. 설정은 `.claude/settings.json`에 커밋돼 있어서, 클론 후 Claude Code로 이 폴더를 열면 마켓플레이스 등록과 플러그인 활성화가 자동으로 잡힌다. 플러그인 본체는 저장소에 없으므로 각자 머신에 한 번 받아야 한다.
+
+```bash
+git clone git@github.com:Kimhyojung0810/chuckchuck.git
+cd chuckchuck
+claude          # 첫 실행 시 ecc 플러그인 설치 여부를 묻는다
+
+/plugin         # 설치 상태 확인 (ecc@ecc → enabled)
+```
+
+`.claude/settings.local.json`은 개인 권한 설정이라 git이 무시한다. 팀 전체에 적용할 설정만 `.claude/settings.json`에 넣을 것.
+
+### 팀 공통 규칙
+
+코딩 스타일·테스트·보안 등 ECC 공통 rule 10개를 `.claude/rules/common/`에 커밋해뒀다. 플러그인 시스템은 rule 배포를 지원하지 않아서 저장소에 직접 넣는 방식이다(ECC 문서의 "옵션 B: 프로젝트 레벨 룰"). 클론하면 별도 설치 없이 팀 전원에게 같은 규칙이 적용된다.
+
+| 파일 | 내용 |
+|------|------|
+| `coding-style.md` | 불변성 우선, KISS/DRY/YAGNI, 함수 50줄·파일 800줄 상한 |
+| `testing.md` | TDD(RED→GREEN→REFACTOR), 커버리지 80% |
+| `security.md` | 커밋 전 시크릿 점검, 입력 검증 — 이 프로젝트의 `.env` 정책과 직결 |
+| `code-review.md` | 리뷰 체크리스트, 심각도 등급 |
+| `git-workflow.md` · `development-workflow.md` | 커밋 형식, 기능 개발 순서 |
+| `agents.md` · `hooks.md` · `patterns.md` · `performance.md` | 에이전트 위임, 훅, 공통 패턴 |
+
+ECC 원본을 갱신하려면 `~/.claude/plugins/cache/ecc/ecc/<버전>/rules/common/`에서 다시 복사한다.
+
+### 훅이 명령을 막을 때
+
+ECC는 도구 실행 전에 개입하는 훅을 건다. 예를 들어 GateGuard는 첫 `Bash` 실행이나 파일 편집 전에 "무엇을 검증하는 명령인지" 먼저 밝히라고 요구하며 반려한다. 정상 동작이지만 급할 때는 끌 수 있다.
+
+```bash
+ECC_GATEGUARD=off claude
+# 또는 특정 훅만
+ECC_DISABLED_HOOKS=pre:bash:gateguard-fact-force claude
 ```
 
 ## 모듈 사용 예

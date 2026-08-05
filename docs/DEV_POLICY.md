@@ -47,7 +47,9 @@
 | F-09    | 답변 판정      | ✅     | `Question`+답변(+선택 `ConceptGraph`·`AlignmentDoc`·`Transcript`·history) → `QaJudgement` |
 | F-10    | 질문 코칭 종합  | 예정    | 계약 확정 후 착수                          |
 | F-11    | 발표-자료 정합  | ✅     | `ConceptGraph`+`Transcript` → `AlignmentDoc` (+파생 `FlowDiff`) |
-| F-12~16 | 발표 진단      | 예정    | 계약 확정 후 착수                          |
+| F-12    | 청중 수다       | ✅     | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` (국내 LLM 4개) |
+| F-13    | 발표 점수       | ✅     | `AlignmentDoc`+`FlowDiff` → `PresentationScore` (순수 함수) |
+| F-14~16 | 발표 진단      | 예정    | 계약 확정 후 착수                          |
 | F-17    | 말 속도·시간 배분 | ✅     | `Transcript`+`Context`(+`ConceptDoc`) → `PaceDoc` (규칙) |
 | F-18    | 음성 습관      | ✅     | `Transcript` → `HabitDoc` (기본 LoRA REP + heuristic FIL/PAUSE) |
 | F-19    | 음성 종합 리포트 | ✅     | `PaceDoc`+`HabitDoc` → `ReportDoc` (LLM) |
