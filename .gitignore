@@ -33,3 +33,6 @@ _doc.html
 var/
 __pycache__/
 *.pyc
+
+# Netlify 빌드가 chuckchuck/sdk 에서 복사해 만드는 사본 (netlify.toml 참고)
+demo/YEHS_demo/sdk/

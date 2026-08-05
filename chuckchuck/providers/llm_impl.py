@@ -7,21 +7,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 import requests
 
 from ..contracts import ConceptError
 from .llm_base import LLMProvider
-
-
-def _ids_in_prompt(user: str) -> list[str]:
-    """프롬프트의 '- (id) ...' 줄에서 후보 id 를 주워 온다 (F-08/F-11 공통)."""
-    ids = []
-    for line in user.splitlines():
-        if line.startswith("- (") and ")" in line:
-            ids.append(line[3:line.index(")")])
-    return ids
 
 
 def _slides_in_prompt(user: str) -> list[tuple[int, str]]:
@@ -82,6 +74,8 @@ class MockLLM(LLMProvider):
             return self._mock_questions(user)
         if "[TASK] qa-judge" in user:
             return self._mock_judge(user)
+        if "[TASK] presentation-strategy" in user:
+            return self._mock_strategy(user)
 
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
@@ -253,6 +247,64 @@ class MockLLM(LLMProvider):
                     "" if verdict == "good"
                     else "모의 후속 질문 — 근거를 하나만 더 들어 주시겠어요?"
                 ),
+            },
+            ensure_ascii=False,
+        )
+
+    @staticmethod
+    def _mock_strategy(user: str) -> str:
+        """
+        F-20 용 가짜 구성 제안. 프롬프트의 「슬라이드별 시간」 첫 줄에서
+        권장 대 실제를 읽어, 도입을 초과했으면 결론 선행형을 아니면 축 고정형을 고른다.
+
+        keep.quote 는 프롬프트의 「실제 발화」 첫 줄을 그대로 옮긴다 —
+        지어낸 인용을 버리는 검증을 실제로 통과해 봐야 왕복이 확인된다.
+        """
+        def _amount(raw: str) -> int:
+            """'2:24' 도 '18%' 도 크기 비교만 되면 된다. 못 읽으면 -1."""
+            raw = raw.strip().rstrip("%")
+            parts = raw.split(":")
+            try:
+                if len(parts) == 2:
+                    return int(parts[0]) * 60 + int(parts[1])
+                return int(float(raw))
+            except ValueError:
+                return -1
+
+        slide, recommended, actual = "S01", -1, -1
+        for line in user.split("슬라이드별 시간", 1)[-1].splitlines():
+            m = re.search(r"(\S+)\s+.*·\s*권장\s*(\S+)\s*·\s*실제\s*(\S+)", line)
+            if m:
+                slide = m.group(1)
+                recommended, actual = _amount(m.group(2)), _amount(m.group(3))
+                break
+
+        quote, at = "", ""
+        for line in user.split("실제 발화", 1)[-1].splitlines():
+            m = re.match(r"\s*\[(\d+:\d+)\]\s*(.+)", line)
+            if m:
+                at, quote = m.group(1), m.group(2).strip()
+                break
+
+        overran = actual > recommended >= 0
+        chosen = {
+            "type": "베이조스식 결론 선행형" if overran else "잡스식 축 고정형",
+            "why": (
+                f"모의 근거 — {slide} 에 권장보다 오래 머물렀어요."
+                if overran else "모의 근거 — 주장 하나로 묶을 여지가 있어요."
+            ),
+            "moves": [{"slide": slide, "action": "압축" if overran else "앞으로 이동"}],
+            "fill": "모의 보완 — 첫 30초에 결론 한 문장을 넣어 보세요.",
+        }
+        if quote:
+            chosen["keep"] = {"quote": quote, "at": at}
+        return json.dumps(
+            {
+                "chosen": chosen,
+                "alternatives": [
+                    {"type": "머스크식 전제 축적형", "one_line": "모의 대안 — 수치부터 쌓아요."},
+                    {"type": "저커버그식 사용자 서사형", "one_line": "모의 대안 — 한 장면에서 시작해요."},
+                ],
             },
             ensure_ascii=False,
         )
