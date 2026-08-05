@@ -863,8 +863,8 @@
   font-weight: 700;
   cursor: pointer;
 }
-.ch-btn-primary { background: #3182f6; color: #fff; }
-.ch-btn-primary:hover { background: #1b64da; }
+.ch-btn-primary { background: var(--brand); color: #fff; }
+.ch-btn-primary:hover { background: var(--brand-strong); }
 .ch-btn-ghost { background: rgba(255, 255, 255, .1); color: var(--ch-ink); }
 .ch-btn-ghost:hover { background: rgba(255, 255, 255, .18); }
 .ch-btn:active { transform: scale(.97); }

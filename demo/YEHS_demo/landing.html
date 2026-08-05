@@ -1,0 +1,270 @@
+<!--
+랜딩 페이지 조각입니다. js/landing.js 가 fetch 해서 #app 에 넣습니다.
+디자인 원본: 척척발표통합.html (1570-1803행) — 정렬 쇼케이스는 스크롤 구동을 빼고
+완성 상태로 한 화면에 고정했습니다.
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="jjMark" viewBox="0 0 96 96">
+      <rect x="6" y="6" width="84" height="84" rx="24" fill="#12362d"/>
+      <path d="M26 20h42a6 6 0 0 1 6 6v20a6 6 0 0 1-6 6H45l-10 8.5V52h-9a6 6 0 0 1-6-6V26a6 6 0 0 1 6-6z" fill="#faf9f6"/>
+      <rect x="28" y="27" width="32" height="5.6" rx="2.8" fill="#12362d"/>
+      <rect x="28" y="38" width="12" height="5.6" rx="2.8" fill="#12362d"/>
+      <rect x="56" y="38" width="9" height="5.6" rx="2.8" fill="#12362d"/>
+      <rect x="43" y="35.4" width="10.6" height="10.6" rx="3" fill="#f0b429" transform="rotate(8 48.3 40.7)"/>
+      <rect x="42" y="58" width="40" height="22" rx="11" fill="#58c9a2"/>
+      <rect x="49" y="65" width="3.6" height="8" rx="1.8" fill="#0b241e"/>
+      <rect x="55.5" y="62" width="3.6" height="14" rx="1.8" fill="#0b241e"/>
+      <rect x="62" y="60.5" width="3.6" height="17" rx="1.8" fill="#0b241e"/>
+      <rect x="68.5" y="63.5" width="3.6" height="11" rx="1.8" fill="#0b241e"/>
+      <rect x="75" y="66" width="3.6" height="6" rx="1.8" fill="#0b241e"/>
+    </symbol>
+    <symbol id="icMap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></symbol>
+    <symbol id="icQuote" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 12a2 2 0 0 0 2-2V8H8"/><path d="M14 12a2 2 0 0 0 2-2V8h-2"/></symbol>
+    <symbol id="icCards" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="icPace" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+    <symbol id="icReport" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></symbol>
+    <symbol id="icPlay" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></symbol>
+    <symbol id="icCheck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="icX" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="icPlus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="icMic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+    <symbol id="icAlert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 20h16a2 2 0 0 0 1.73-2Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="icPlaySolid" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86a1 1 0 0 0-1.5.86Z"/></symbol>
+  </defs>
+</svg>
+<div class="landing-main">
+
+<nav class="land-progress" id="landProgress" aria-label="랜딩 섹션 이동">
+  <button data-sec="hero" class="on" aria-label="히어로"><i></i><span>시작</span></button>
+  <button data-sec="exampleSec" aria-label="자료와 발화의 차이"><i></i><span>차이</span></button>
+  <button data-sec="alignTrack" aria-label="시간 정렬"><i></i><span>정렬</span></button>
+  <button data-sec="judgeSec" aria-label="개념 판정"><i></i><span>판정</span></button>
+  <button data-sec="demoSec" aria-label="다음 연습 도구"><i></i><span>연습 도구</span></button>
+  <button data-sec="start" aria-label="시작하기"><i></i><span>시작하기</span></button>
+</nav>
+<section class="hero" id="hero">
+  <div class="hero-glow glow-a"></div><div class="hero-glow glow-b"></div>
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <p class="eyebrow"><span>AI PRESENTATION COACH</span></p>
+      <h1>발표자료는 완성됐는데,<br><em>정말 설명할 수</em> 있나요?</h1>
+      <p class="hero-lead">AI가 만든 슬라이드와 실제 발화를 비교해,<br class="desktop-only"> 설명하지 못한 부분을 찾아드려요.</p>
+      <div class="hero-actions">
+        <a class="primary-button" href="#/practice">내 발표 점검하기 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"></path></svg></a>
+        <a class="soft-link" href="#/report">샘플 분석 보기 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"></path></svg></a>
+      </div>
+      <div class="hero-trust"><span>자료–발화 정합성 분석</span><i></i><span>근거 발화 제공</span><i></i><span>예상 질문 훈련</span></div>
+    </div>
+    <div class="hero-visual" id="heroVisual" aria-label="발표자료의 빈칸에 실제 설명이 퍼즐처럼 맞춰지는 애니메이션">
+      <div class="slide-card">
+        <div class="slide-meta"><span>실제 데모 · 수면의 질</span><b>SLIDE 04</b></div>
+        <h3>충분히 자도 피곤한<br>진짜 이유</h3>
+        <div class="slide-lines"><i></i><i></i><i></i></div>
+        <div class="missing-slot"><span>설명 근거</span></div>
+        <div class="puzzle-piece"><span>왜?</span></div>
+      </div>
+      <div class="speech-card">
+        <div class="speech-head"><span class="live-dot"></span> 실제 발화 · 04:33</div>
+        <div class="waveform" data-wave="28"></div>
+        <p>“침대에 오래 누워 있었다고 해서 실제로 회복한 시간이 반드시 같은 것은 아닙니다.”</p>
+      </div>
+      <div class="match-chip"><span><svg class="ic-i" viewBox="0 0 24 24" aria-hidden="true"><use href="#icCheck"/></svg></span> 설명 근거를 찾았어요</div>
+    </div>
+  </div>
+  <button class="scroll-cue" id="scrollCue" aria-label="다음 섹션으로 이동"><span>SCROLL</span><i></i></button>
+</section>
+
+
+
+
+
+<section class="example-section" id="exampleSec">
+  <div class="section-shell">
+    <div class="section-heading split" data-reveal>
+      <div>
+        <p class="section-label"><span>02</span> 자료와 발화의 차이</p>
+        <h2>같은 단어를 말했다고,<br>설명한 것은 아닙니다.</h2>
+      </div>
+      <p>실제 데모 발표(교양 수업 · <b>수면의 질</b> · 2026.08.04 녹음)의 분석 장면 — 어떤 주제든 이렇게 비교합니다.</p>
+    </div>
+    <div class="compare-stage" data-reveal>
+      <div class="ppt-window">
+        <div class="window-top"><span></span><span></span><span></span><b>수면의질_왜피곤할까.pptx · 실제 데모</b></div>
+        <div class="ppt-content">
+          <div class="ppt-index">04 / 08</div>
+          <h3>충분히 자도 피곤한<br>진짜 이유</h3>
+          <div class="risk-list">
+            <div><span>01</span><b>시간</b><p>얼마나 잤는가 — 필요한 수면량의 확보.</p></div>
+            <div><span>02</span><b>연속성</b><p>얼마나 끊기지 않았는가 — 주기의 이어짐.</p></div>
+            <div><span>03</span><b>규칙성</b><p>언제 자고 일어났는가 — 리듬의 안정.</p></div>
+          </div>
+        </div>
+      </div>
+      <div class="speech-analysis">
+        <div class="analysis-top"><span class="live-dot"></span> 실제 발표에서 한 말</div>
+        <blockquote>“여기서는 수면의 질을 <mark>시간, 연속성, 규칙성</mark>으로 나누어 볼 수 있습니다.”</blockquote>
+        <div class="analysis-result">
+          <span class="result-badge">설명 부족</span>
+          <div><b>세 요소의 ‘관계’가 빠졌어요.</b><p>이름은 정확히 읽었지만, 세 요소가 왜 곱으로 작동하는지 — 하나만 무너져도 피곤한 이유 — 는 설명하지 않았어요. 발표의 중심 주장인데 39초 만에 지나갔습니다.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+<div id="alignTrack">
+  <div class="align-stage">
+    <div class="align-cap">
+      <p class="section-label"><span>03</span> 슬라이드-발화 시간 정렬</p>
+      <h2>슬라이드를 넘긴 시각과 단어별 시간을 맞춰,<br>어떤 자료를 설명하던 순간인지 찾습니다.</h2>
+      <p>스크롤을 내리면 발표가 재생돼요 — <b>2026.08.04 실제 녹음 세션</b>이에요.</p>
+    </div>
+    <div class="slides-row" id="scrubSlides">
+      <div class="sl"><b>01</b><span>도입 · 질문</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:78%"></i><i style="width:60%"></i></div></div>
+      <div class="sl"><b>02</b><span>수면 주기</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:82%"></i><i style="width:58%"></i></div></div>
+      <div class="sl"><b>03</b><span>깊은 수면·REM</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:74%"></i><i style="width:64%"></i></div></div>
+      <div class="sl"><b>04</b><span>질의 3요소</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:80%"></i><i style="width:52%"></i></div></div>
+      <div class="sl"><b>05</b><span>각성 원인</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:70%"></i><i style="width:60%"></i></div></div>
+      <div class="sl"><b>06</b><span>사회적 시차</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:76%"></i><i style="width:55%"></i></div></div>
+      <div class="sl"><b>07</b><span>개선 방법</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:84%"></i><i style="width:62%"></i></div></div>
+      <div class="sl"><b>08</b><span>결론</span><div class="sl-time"><div class="sl-track"><i class="v1"></i><i class="v2"></i></div><em class="sl-sec num">0:00</em></div><div class="mini"><i style="width:72%"></i><i style="width:58%"></i></div></div>
+    </div>
+    <div class="scrub-timeline" id="scrubTimeline">
+      <div class="trace-layer" id="traceLayer"></div>
+      <div class="seg-band" id="segBand"></div>
+      <div class="marker" data-l="→ S2" style="left:28.77%"></div>
+      <div class="marker" data-l="→ S3" style="left:39.73%"></div>
+      <div class="marker" data-l="→ S4" style="left:51.44%"></div>
+      <div class="marker" data-l="→ S5" style="left:58.69%"></div>
+      <div class="marker" data-l="→ S6" style="left:64.27%"></div>
+      <div class="marker" data-l="→ S7" style="left:69.47%"></div>
+      <div class="marker" data-l="→ S8" style="left:87.32%"></div>
+      <div class="playhead" id="playHead"><i data-t="0:00"></i></div>
+    </div>
+    <div class="bind-sentence" id="bindSentence"></div>
+    <div class="align-summary" id="alignSummary" aria-hidden="true">
+      <small>슬라이드별 발화 정렬 결과</small>
+      <div>
+        <span>S01 <b>0:00–2:24</b></span><span>S02 <b>2:24–3:23</b></span><span>S03 <b>3:23–4:26</b></span><span>S04 <b>4:26–5:05</b></span>
+        <span>S05 <b>5:05–5:35</b></span><span>S06 <b>5:35–6:03</b></span><span>S07 <b>6:03–7:39</b></span><span>S08 <b>7:39–8:15</b></span>
+      </div>
+      <div class="align-verdicts" id="alignVerdicts">
+        <small>이 정렬 위에서 개념별 판정이 시작돼요</small>
+        <div>
+          <span class="av ok"><svg class="ic-i" viewBox="0 0 24 24"><use href="#icCheck"/></svg> 수면 주기 · 설명함</span>
+          <span class="av mid">질의 3요소 · 설명 부족</span>
+          <span class="av no"><svg class="ic-i" viewBox="0 0 24 24"><use href="#icX"/></svg> 4–5회 반복 · 누락</span>
+          <button type="button" class="av go" data-scrollto="judgeSec">판정 근거 보기 ↓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="judge-section" id="judgeSec">
+  <div class="section-shell wide">
+    <div class="section-heading split" data-reveal>
+      <div>
+        <p class="section-label"><span>04</span> 개념 판정</p>
+        <h2>개념마다, 실제로 설명했는지<br>근거 발화로 판정합니다.</h2>
+      </div>
+      <p>개념을 고르면 슬라이드 원문 · 근거 발화 · 판정이 함께 열려요.</p>
+    </div>
+  </div>
+  <div class="product-showcase-shell" data-reveal>
+    <div class="app-frame">
+      <div class="app-bar">
+        <b>개념 판정 워크벤치</b>
+        <span class="ab-file">수면의질_왜피곤할까.pptx · 실제 데모 세션 · 8 SLIDES</span>
+        <div class="ab-filters" id="judgeFilter" role="group" aria-label="판정 상태 필터">
+          <button class="active" data-f="all">전체 <i>9</i></button>
+          <button data-f="ok">설명함 <i>4</i></button>
+          <button data-f="mid">설명 부족 <i>3</i></button>
+          <button data-f="no">누락 <i>1</i></button>
+          <button data-f="om">정당한 생략 <i>1</i></button>
+        </div>
+      </div>
+      <div class="product-workspace">
+        <aside class="ws-rail" aria-label="개념 목록">
+          <small class="ws-rail-title">개념 트리 · 중요도순</small>
+          <div id="judgeRail"></div>
+        </aside>
+        <div class="workspace-canvas" id="judgeCanvas"></div>
+        <aside class="ws-inspector" id="judgeInspector" aria-live="polite"></aside>
+      </div>
+      <div class="ws-timeline" id="judgeTimeline" aria-hidden="true"></div>
+    </div>
+  </div>
+</section>
+
+
+
+<section class="demo-section" id="demoSec">
+  <div class="section-shell wide">
+    <div class="section-heading centered" data-reveal>
+      <p class="section-label"><span>05</span> 다음 연습</p>
+      <h2>분석이 끝나면, 연습 도구가 준비됩니다.</h2>
+      <p>샘플 세션 기준의 실제 작업 화면 — 리포트와 Q&amp;A는 전용 페이지에서 이어져요.</p>
+    </div>
+<div class="demo-panel demo-panel-full" id="demoPanel1" data-reveal>
+      <div class="app-frame">
+        <div class="app-bar">
+          <b>다음 연습 도구</b>
+          <span class="ab-file">분명 잤는데 왜 피곤할까 · 실제 데모 세션</span>
+          <span class="ab-current" id="toolTitle">개요 이미지</span>
+        </div>
+        <div class="product-workspace">
+          <aside class="ws-rail tool-rail" id="toolRail" aria-label="연습 도구">
+            <small class="ws-rail-title">연습 도구</small>
+          </aside>
+          <div class="workspace-canvas" id="toolCanvas"></div>
+          <aside class="ws-inspector" id="toolInspector"></aside>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-links" data-reveal>
+      <a class="demo-link-card" href="#/report">
+        <div><b>분석 리포트</b><p>판정 근거 · 흐름 비교 · 시간 배분이 담긴 전체 리포트</p></div>
+        <span>샘플 리포트 열기 →</span>
+      </a>
+      <a class="demo-link-card" href="#/qa">
+        <div><b>예상 질문 훈련</b><p>놓친 개념부터 묻는 트리 순회 Q&amp;A · 답 수준에 따라 깊이 조절</p></div>
+        <span>Q&amp;A 코칭 열기 →</span>
+      </a>
+    </div>
+  
+  </section>
+
+
+
+
+
+
+
+<section class="start-section" id="start">
+  <div class="start-glow"></div>
+  <div class="section-shell start-shell">
+    <div class="start-copy" data-reveal>
+      <p class="section-label"><span>06</span> 시작하기</p>
+      <h2>발표자료를 올리면,<br><em>약 3분 뒤 첫 리포트</em>가 나옵니다.</h2>
+      <p>슬라이드의 핵심 개념을 추출하고, 그 슬라이드가 떠 있던 동안의 발화와 비교합니다.</p>
+      <div class="start-points"><span><svg class="ic-i" viewBox="0 0 24 24" aria-hidden="true"><use href="#icCheck"/></svg> 자료·녹음은 분석에만 사용돼요</span><span class="warn"><svg class="ic-i" viewBox="0 0 24 24" aria-hidden="true"><use href="#icAlert"/></svg> 원본 보존·폐기 정책: 확정 필요(TBD)</span></div>
+    </div>
+    <div class="upload-card" id="uploadCard" data-reveal>
+      <div class="upload-steps"><span class="active">1</span><i></i><span>2</span><i></i><span>3</span></div>
+      <div class="upload-drop">
+        <div class="upload-icon">↑</div>
+        <h3>발표자료를 올려주세요</h3>
+        <p>PDF, PPTX · 최대 100MB</p>
+        <button type="button" id="uploadStart">샘플 파일로 체험하기</button>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ═══════════════ 발표 준비 ═══════════════ -->
