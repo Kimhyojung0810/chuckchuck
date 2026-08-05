@@ -2489,9 +2489,14 @@ function newLiveState(sessionId, questions) {
  * 서버가 최근 6턴만 쓰므로(f09_judge.HISTORY_TURNS) 길이는 알아서 잘린다. */
 function liveHistory() {
   const L = qa.live;
-  const done = (L.results || []).map((r) => ({ 질문: r.question, 답변: r.answer, 판정: r.verdict }));
+  const done = (L.results || []).map((r) => ({
+    question_id: r.question_id || r.id || '',
+    질문: r.question, 답변: r.answer, 판정: r.verdict,
+  }));
   const q = L.questions[L.qi];
   const current = (L.turns || []).map((t) => ({
+    // 조인 키를 같이 보낸다 — 서버가 문면 대신 이 id 로 같은 질문의 포기를 센다
+    question_id: t.question_id || (q && q.id) || '',
     질문: t.question || (q && q.question) || '',
     답변: t.answer,
     판정: t.verdict,
@@ -2625,6 +2630,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 직전 후속 질문이 그것이다 — 원래 질문으로 적으면 판정기가 "넓은 질문에
     // 빗나간 답" 으로 읽어, 좁혀 물은 쪽이 손해를 본다.
     L.turns.push({
+      // 문면은 되물음마다 바뀌므로 조인 키를 따로 싣는다 — 서버(_coach_stage)가
+      // 이 id 로 같은 질문의 포기 횟수를 세서 2차에 해설로 넘어간다.
+      question_id: q.id || '',
       question: L.pendingQuestion || q.question,
       answer, verdict: v.verdict, score: v.score || 0,
     });

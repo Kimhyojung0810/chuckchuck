@@ -259,7 +259,7 @@ python -m pytest tests/test_questions.py tests/test_judge.py \
 # 전체 스위트(python -m pytest tests/ -q)도 실패 0 이어야 한다.
 
 # 2) 서버 기동 + 플랫 경로 스모크 (mock 모드)
-CHUCKCHUCK_MOCK_EXTERNAL=1 python -m server &
+MOCK_EXTERNAL_APIS=1 python -m server &
 curl -s localhost:8000/api/health          # {"ok": true, "mock": true}
 
 # 3) E2E (Playwright — 브라우저 실제 경로)

@@ -1197,13 +1197,25 @@ class QaTurn:
 
     프론트는 한글 키(`질문`·`답변`·`판정`)로 보낸다 — 이미 굳은 계약이라
     from_dict 가 한글·영문 양쪽을 받아 준다.
+
+    `question_id` 는 턴을 질문에 잇는 조인 키다. 문면(`question`)으로는 이을 수
+    없다 — 프론트가 2턴째부터 원래 질문이 아니라 **직전 후속 질문**을 그 턴의
+    question 으로 적기 때문이다(app.js submitLiveAnswer). 문면으로 세면 되물은
+    턴이 다른 질문으로 읽혀 막힘 코칭이 explain 단계로 못 올라간다.
+    옛 클라이언트는 이 키 없이 보내므로, 빈 문자열이면 문면 비교로 폴백한다.
     """
     question: str = ""
     answer: str = ""
     verdict: str = QA_VERDICT_FALLBACK
+    question_id: str = ""
 
     def to_dict(self) -> dict:
-        return {"질문": self.question, "답변": self.answer, "판정": self.verdict}
+        return {
+            "질문": self.question,
+            "답변": self.answer,
+            "판정": self.verdict,
+            "question_id": self.question_id,
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> "QaTurn":
@@ -1213,6 +1225,7 @@ class QaTurn:
             answer=str(d.get("답변", d.get("answer", "")) or ""),
             # 프론트는 넘긴 질문에 'skipped' 를 붙인다 — enum 밖이라 보류로 떨어진다
             verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+            question_id=str(d.get("question_id", "") or ""),
         )
 
 

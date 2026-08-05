@@ -236,3 +236,45 @@ def test_empty_answer_still_skips_llm():
 
     assert j.verdict == "unknown"
     assert j.coach_stage == ""
+
+
+def test_second_give_up_explains_when_history_carries_followup_text():
+    """프론트가 실제로 보내는 모양에서도 explain 으로 오른다.
+
+    app.js(submitLiveAnswer)는 2턴째부터 원래 질문이 아니라 **직전 후속 질문**을
+    그 턴의 question 으로 적는다 — 좁혀 물은 쪽이 손해 보지 않게 하려는 의도다.
+    단계 판정이 문면 비교면 이 턴은 다른 질문으로 읽혀 prior=0 이 되고,
+    한 번이라도 답을 시도한 뒤 막힌 사용자는 되물음만 무한히 받는다.
+    문면이 아니라 질문 id 로 세야 한다.
+    """
+    q = make_question()
+    history = [
+        # 1턴: 정상 답변 (원래 질문 문면)
+        QaTurn(question_id=q.id, question=q.question, answer="지연이 늘면 사용자가 떠납니다", verdict="partial"),
+        # 2턴: 되물음에 포기 — question 은 followup 문면이다
+        QaTurn(question_id=q.id, question="3장에서 응답이 느리면 사용자는 어떻게 하죠?",
+               answer="모르겠어요", verdict="unknown"),
+    ]
+    llm = CoachLLM({"react": "여기까지 같이 볼게요.", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
+    j = coach_stuck(q, history=history, llm=llm)
+
+    assert j.coach_stage == "explain"
+    assert j.followup == ""
+
+
+def test_other_question_give_up_does_not_count():
+    """다른 질문에서 포기한 것은 이 질문의 단계를 올리지 않는다."""
+    q = make_question()
+    history = [QaTurn(question_id="q02-c2", question="다른 질문입니다", answer="모르겠어요", verdict="unknown")]
+    llm = CoachLLM({"react": "괜찮아요.", "followup": "3장을 떠올려 볼까요?"})
+    j = coach_stuck(q, history=history, llm=llm)
+
+    assert j.coach_stage == "narrow"
+
+
+def test_qaturn_roundtrips_question_id():
+    """조인 키가 to_dict/from_dict 를 왕복해야 프론트가 보낸 id 가 살아남는다."""
+    t = QaTurn(question_id="q01-c1", question="질문", answer="답", verdict="partial")
+    assert QaTurn.from_dict(t.to_dict()).question_id == "q01-c1"
+    # 옛 클라이언트(한글 3키)는 id 없이 온다 — 빈 문자열로 떨어지고 문면 비교로 폴백한다
+    assert QaTurn.from_dict({"질문": "질문", "답변": "답", "판정": "partial"}).question_id == ""

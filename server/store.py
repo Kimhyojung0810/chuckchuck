@@ -128,6 +128,21 @@ class Store:
             if s is not None:
                 s.artifacts[kind] = payload
 
+    def drop_artifact(self, session_id: str, *kinds: str) -> None:
+        """
+        파생 산출물을 버린다. 상류가 바뀌면 하류는 무효이기 때문이다.
+
+        예: 자료를 다시 올려 ConceptGraph 가 교체되면 그 그래프로 만든
+        QA_TRIAGE·QUESTION_DOC 은 옛 덱의 node_id 만 들고 있어 쓸 수 없다.
+        지우지 않으면 캐시 히트로 집어 들어 질문 생성이 영구 실패한다.
+        """
+        with self._lock:
+            s = self._sessions.get(session_id)
+            if s is None:
+                return
+            for kind in kinds:
+                s.artifacts.pop(kind, None)
+
     def put_upload(self, session_id: str, kind: str, path: str) -> None:
         with self._lock:
             s = self._sessions.get(session_id)

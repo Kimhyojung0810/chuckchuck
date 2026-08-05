@@ -190,6 +190,9 @@ def _handle_graph(job_id: str, session_id: str, params: dict) -> dict:
 
     payload = graph.to_dict()
     store.put_artifact(session_id, CONCEPT_GRAPH, payload)
+    # 그래프가 바뀌면 그 아래 QA 산출물은 옛 덱의 node_id 만 들고 있어 무효다.
+    # 남겨 두면 다음 질문 생성이 캐시 히트로 집어 들어 영구 실패한다.
+    store.drop_artifact(session_id, QA_TRIAGE, QUESTION_DOC)
     _progress(job_id, "graph_done", f"개념 {len(graph.nodes)}개 · 연결 {len(graph.edges)}개")
     return payload
 
@@ -226,6 +229,27 @@ def _handle_alignment(job_id: str, session_id: str, params: dict) -> dict:
     return payload
 
 
+def _triage_fits(cached: dict, graph: ConceptGraph) -> bool:
+    """
+    캐시된 triage 가 이 그래프에서 나온 것인지 본다.
+
+    triage 는 트랙과 무관하지만 **그래프에는 매인다**. 자료를 다시 올려 덱이
+    바뀌면 옛 node_id 만 든 triage 가 남고, build_questions 가 그걸 받으면
+    "QaTriage 에 이 그래프의 개념이 없습니다" 로 죽는다.
+    합성 노드(`extra:` 접두)는 그래프에 없는 것이 정상이라 대조에서 뺀다.
+    """
+    node_ids = {n.id for n in graph.nodes}
+    marked = {
+        str(m.get("node_id", ""))
+        for m in (cached.get("marks") or [])
+        if not str(m.get("node_id", "")).startswith("extra:")
+    }
+    marked.discard("")
+    if not marked:
+        return False
+    return bool(marked & node_ids)
+
+
 def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
     """
     F-08 · ConceptGraph(+선택 AlignmentDoc·FlowDiff) → QuestionDoc.
@@ -254,6 +278,14 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
     llm = "mock" if _mock() else params.get("llm")
 
     cached = artifacts.get(QA_TRIAGE)
+    if cached and not _triage_fits(cached, graph):
+        # _handle_graph 가 지우고 지나가는 것이 정상 경로다. 여기 가드는 그 밖으로
+        # 그래프가 교체된 세션(직접 put, 예전 버전이 남긴 캐시)을 위한 자가 복구다.
+        # 이걸 안 하면 그 세션은 재시도해도 영영 QuestionError 로 죽는다.
+        log.info("triage 캐시가 현재 그래프와 맞지 않아 다시 만듭니다 (session=%s)", session_id)
+        store.drop_artifact(session_id, QA_TRIAGE, QUESTION_DOC)
+        cached = None
+
     if cached:
         triage = QaTriage.from_dict(cached)
         _progress(job_id, "questions", "질문 순위 재사용 중")

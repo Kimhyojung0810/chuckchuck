@@ -399,13 +399,21 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
     history 전체를 본다 (HISTORY_TURNS 로 자르기 전) — 앞 단계를 잊으면
     같은 되물음을 반복하게 된다.
     """
-    # 문면 완전일치가 아니라 strip 비교다 — 질문을 trim 해 보내는 클라이언트에서
-    # prior 가 영영 0 이 되어 explain 단계로 못 올라가는 것을 막는다.
+    # 조인 키는 question_id 다. 문면으로 세면 안 된다 — 프론트가 2턴째부터
+    # 원래 질문이 아니라 직전 후속 질문을 그 턴의 question 으로 적기 때문에
+    # (app.js submitLiveAnswer), 한 번 답을 시도한 뒤 막힌 사람은 prior 가
+    # 영영 0 이 되어 되물음만 무한히 받는다.
+    # id 를 안 보내는 옛 클라이언트만 문면 비교(strip)로 폴백한다.
+    asked_id = (question.id or "").strip()
     asked = question.question.strip()
-    prior = sum(
-        1 for t in turns
-        if t.question.strip() == asked and looks_stuck(t.answer)
-    )
+
+    def _same_question(turn: QaTurn) -> bool:
+        turn_id = (turn.question_id or "").strip()
+        if asked_id and turn_id:
+            return turn_id == asked_id
+        return turn.question.strip() == asked
+
+    prior = sum(1 for t in turns if _same_question(t) and looks_stuck(t.answer))
     return "explain" if prior >= 1 else "narrow"
 
 
