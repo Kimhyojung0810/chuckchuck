@@ -6,6 +6,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import traceback
@@ -32,6 +33,40 @@ from chuckchuck import (  # noqa: E402
     transcribe,
 )
 from chuckchuck.contracts import ConceptDoc, HabitDoc, PaceDoc, SlideDoc, SlideMark  # noqa: E402
+
+from demo.rate_limit import RateLimiter  # noqa: E402
+from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
+
+
+#: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
+#: 클라이언트는 session_missing 을 받으면 다시 등록하고 재시도한다.
+STORE = SessionStore()
+
+#: 과금 호출(파싱·STT·LLM)이 붙은 엔드포인트의 IP당 분당 상한.
+#: 0 이하면 제한을 끈다 (오프라인 시연·자동화).
+PAID_RATE_LIMIT = int(os.environ.get("DEMO_RATE_LIMIT_PER_MIN", "30"))
+LIMITER = RateLimiter(limit=PAID_RATE_LIMIT, window_sec=60.0)
+
+#: 제한을 거는 경로. 전부 외부 API 를 부르거나 GPU 를 태운다.
+PAID_PATHS = frozenset({
+    "/api/v1/parse",
+    "/api/v1/concepts",
+    "/api/v1/transcribe",
+    "/api/v1/graph",
+    "/api/v1/alignment",
+    "/api/v1/chatter",
+    "/api/v1/habits",
+    "/api/v1/report",
+    "/api/v1/questions",
+})
+
+#: CORS 허용 origin. 기본은 브리지 자신(같은 출처)이라 헤더가 필요 없고,
+#: 다른 포트에서 UI 를 띄울 때만 DEMO_ALLOWED_ORIGINS 로 열어 준다 (쉼표 구분).
+ALLOWED_ORIGINS = frozenset(
+    o.strip().rstrip("/")
+    for o in os.environ.get("DEMO_ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+)
 
 
 MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일 (원본 파일 기준)
@@ -215,6 +250,18 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(413, {"error": "too_large", "message": "최대 30MB까지 올릴 수 있어요."})
             raw = self.rfile.read(length) if length else b""
 
+            # 과금 경로는 IP당 분당 상한을 건다. 본문을 다 읽은 뒤에 막는다 —
+            # 안 읽고 끊으면 클라이언트가 응답 대신 연결 오류를 본다.
+            if parsed.path in PAID_PATHS and not LIMITER.allow(self._client_key()):
+                wait = LIMITER.retry_after(self._client_key())
+                return self._json(429, {
+                    "error": "rate_limited",
+                    "message": f"요청이 너무 잦아요. {wait}초 뒤에 다시 시도해 주세요.",
+                    "retry_after": wait,
+                })
+
+            if parsed.path == "/api/v1/session/artifacts":
+                return self._handle_session_artifacts(raw)
             if parsed.path == "/api/v1/parse":
                 return self._handle_parse(raw)
             if parsed.path == "/api/v1/concepts":
@@ -661,6 +708,44 @@ class Handler(SimpleHTTPRequestHandler):
                 Path(audio_path).unlink(missing_ok=True)
 
 
+    def _client_key(self) -> str:
+        """요청 제한을 셀 단위. 데모는 인증이 없으니 IP 가 최선이다."""
+        try:
+            return str(self.client_address[0])
+        except Exception:  # noqa: BLE001
+            return "unknown"
+
+    def _handle_session_artifacts(self, raw: bytes):
+        """
+        세션 아티팩트 등록 · {session_id, graph?, alignment?, flow?, transcript?, context?}.
+
+        한 번 올려 두면 이후 질문 생성·판정은 session_id 만 보내면 된다.
+        판정마다 그래프·발화를 통째로 재업로드하던 것을 없애는 자리다.
+        """
+        body = json.loads(raw or b"{}")
+        session_id = str(body.get("session_id") or "").strip()
+        if not session_id:
+            return self._json(400, {"error": "bad_request", "message": "session_id 가 필요합니다."})
+
+        stored = STORE.put_artifacts(session_id, {k: body.get(k) for k in ARTIFACT_KEYS})
+        sys.stderr.write(f"[bridge] session artifacts sid={session_id} stored={stored}\n")
+        return self._json(200, {"session_id": session_id, "stored": stored})
+
+    def _resolve(self, body: dict, *keys: str) -> dict:
+        """
+        본문에 없는 아티팩트를 세션 저장소에서 채운다.
+
+        본문이 이긴다 — 방금 만든 결과를 들고 온 요청이 오래된 캐시에 밀리면 안 된다.
+        """
+        found = {k: body.get(k) for k in keys}
+        missing = [k for k in keys if not found[k]]
+        if not missing:
+            return found
+        stored = STORE.artifacts(str(body.get("session_id") or ""))
+        for key in missing:
+            found[key] = stored.get(key)
+        return found
+
     def _handle_questions(self, raw: bytes):
         """F-08 · {graph, alignment?, flow?, transcript?, context, track} → QuestionDoc."""
         from chuckchuck import build_questions, triage_questions
@@ -675,21 +760,37 @@ class Handler(SimpleHTTPRequestHandler):
         )
 
         body = json.loads(raw or b"{}")
-        if not body.get("graph"):
+        found = self._resolve(body, "graph", "alignment", "flow", "transcript", "context")
+        if not found["graph"]:
+            if body.get("session_id"):
+                return self._json(409, {
+                    "error": "session_missing",
+                    "message": "세션 아티팩트가 없어요. 다시 등록하고 시도해 주세요.",
+                })
             return self._json(400, {"error": "bad_request", "message": "graph 가 필요합니다."})
-        graph = ConceptGraph.from_dict(body["graph"])
-        alignment = AlignmentDoc.from_dict(body["alignment"]) if body.get("alignment") else None
-        flow = FlowDiff.from_dict(body["flow"]) if body.get("flow") else None
-        transcript = Transcript.from_dict(body["transcript"]) if body.get("transcript") else None
-        ctx = Context.from_dict(body.get("context") or {})
+        graph = ConceptGraph.from_dict(found["graph"])
+        alignment = AlignmentDoc.from_dict(found["alignment"]) if found["alignment"] else None
+        flow = FlowDiff.from_dict(found["flow"]) if found["flow"] else None
+        transcript = Transcript.from_dict(found["transcript"]) if found["transcript"] else None
+        ctx = Context.from_dict(found["context"] or body.get("context") or {})
         track = str(body.get("track") or QA_TRACK_FALLBACK)
         if track not in QA_TRACKS:
             track = QA_TRACK_FALLBACK
         llm = "mock" if _mock() else body.get("llm")
+
+        # triage 는 트랙과 무관하다 (f08_questions 모듈 주석). 같은 입력이면 1차 심사를
+        # 재사용해 트랙만 바꾼 재요청이 LLM 1콜로 끝나게 한다 — 매번 다시 돌리면
+        # temperature 탓에 1분 트랙 질문이 5분 트랙의 부분집합이라는 보장도 깨진다.
+        cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm))
         try:
-            triage = triage_questions(
-                graph, alignment, flow, ctx, transcript=transcript, llm=llm
-            )
+            triage = STORE.get_triage(cache_key)
+            if triage is None:
+                triage = triage_questions(
+                    graph, alignment, flow, ctx, transcript=transcript, llm=llm
+                )
+                STORE.set_triage(cache_key, triage)
+            else:
+                sys.stderr.write("[bridge] F-08 triage cache hit\n")
             doc = build_questions(
                 graph,
                 triage,
@@ -733,10 +834,20 @@ class Handler(SimpleHTTPRequestHandler):
         question = Question.from_dict(qraw)
         if not question.question.strip():
             return self._json(400, {"error": "bad_request", "message": "질문 문장이 비어 있어요."})
-        graph = ConceptGraph.from_dict(body["graph"]) if body.get("graph") else None
-        alignment = AlignmentDoc.from_dict(body["alignment"]) if body.get("alignment") else None
-        transcript = Transcript.from_dict(body["transcript"]) if body.get("transcript") else None
-        ctx = Context.from_dict(body.get("context") or {})
+        # 자료 근거 없이 판정하면 '자료와 어긋난다'(wrong)를 대조할 원본이 없고
+        # 함정 질문의 핵심 규칙도 짐작이 된다. 본문에 없으면 세션에서 끌어온다.
+        found = self._resolve(body, "graph", "alignment", "transcript", "context")
+        # session_id 를 들고 왔는데 근거가 통째로 비었다면 세션이 날아간 것이다
+        # (브리지 재시작). 조용히 근거 없이 판정하지 말고 다시 등록하게 알린다.
+        if body.get("session_id") and not any(found[k] for k in ("graph", "alignment", "transcript")):
+            return self._json(409, {
+                "error": "session_missing",
+                "message": "세션 아티팩트가 없어요. 다시 등록하고 시도해 주세요.",
+            })
+        graph = ConceptGraph.from_dict(found["graph"]) if found["graph"] else None
+        alignment = AlignmentDoc.from_dict(found["alignment"]) if found["alignment"] else None
+        transcript = Transcript.from_dict(found["transcript"]) if found["transcript"] else None
+        ctx = Context.from_dict(found["context"] or body.get("context") or {})
         llm = "mock" if _mock() else body.get("llm")
         try:
             judgement = judge_answer(
@@ -754,7 +865,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(502, {"error": "judge_failed", "message": str(e)})
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
-            f"passed={judgement.passed} stage={judgement.coach_stage!r}\n"
+            f"passed={judgement.passed} stage={judgement.coach_stage!r} "
+            f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
+            f"/{'stt' if transcript else '-'}\n"
         )
         return self._json(200, judgement.to_dict())
 
@@ -770,9 +883,15 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         # 데모는 수정이 잦다. 캐시된 옛 app.js 가 새 흐름을 가리는 사고 방지
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        # CORS 는 허용 목록에 있는 origin 에만 연다. 브리지가 UI 를 같이 서빙하므로
+        # 기본 경로는 같은 출처라 헤더가 아예 필요 없다 — '*' 는 브리지를 외부에
+        # 노출했을 때 아무 페이지나 과금 API 를 부를 수 있게 하는 문이었다.
+        origin = (self.headers.get("Origin") or "").rstrip("/")
+        if origin and origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -791,6 +910,13 @@ def main():
     print(f"척척발표 demo bridge → http://{host}:{port}/", flush=True)
     print(f"  SDK:  http://{host}:{port}/sdk/index.js", flush=True)
     print(f"  MOCK_EXTERNAL_APIS={_mock()}", flush=True)
+    print(f"  요청 제한: IP당 {PAID_RATE_LIMIT}회/분 (0=끔) · CORS 허용={sorted(ALLOWED_ORIGINS) or '없음(같은 출처만)'}", flush=True)
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        print(
+            f"  ⚠ {host} 로 열려 있습니다. 브리지에는 인증이 없어 같은 망의 누구든 "
+            "과금 API(파싱·STT·LLM)를 부를 수 있어요. 시연이 끝나면 DEMO_HOST 를 되돌리세요.",
+            flush=True,
+        )
     print(settings.masked(), flush=True)
     server = ReusableThreadingHTTPServer((host, port), Handler)
     try:

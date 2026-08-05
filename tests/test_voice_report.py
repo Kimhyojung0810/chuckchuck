@@ -7,8 +7,33 @@ from pathlib import Path
 
 from chuckchuck import Context, analyze_pace, compose_report, extract_habits
 from chuckchuck.contracts import ConceptDoc, Transcript
+from chuckchuck.f19_report import _grade_from_score, _rule_score
+from chuckchuck.providers.llm_base import LLMProvider
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+class ScriptedLLM(LLMProvider):
+    """정해 둔 문자열만 돌려주는 가짜 LLM. 후처리 로직만 시험한다 (test_judge 와 같은 패턴)."""
+
+    name = "scripted"
+
+    def __init__(self, payload: str):
+        self.payload = payload
+
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False) -> str:
+        return self.payload
+
+
+def _pace_and_habits():
+    transcript = Transcript.from_dict(
+        json.loads((ROOT / "fixtures/focus_transcript.json").read_text(encoding="utf-8"))
+    )
+    concepts = ConceptDoc.from_dict(
+        json.loads((ROOT / "fixtures/focus_concepts.json").read_text(encoding="utf-8"))
+    )
+    ctx = Context(situation="학회·수업 발표", audience="일반 청중", duration_min=10)
+    return analyze_pace(transcript, ctx, concepts), extract_habits(transcript, provider="heuristic")
 
 
 def test_focus_dummy_voice_pipeline():
@@ -43,3 +68,45 @@ def test_sample_transcript_pace_without_concepts():
     pace = analyze_pace(transcript, Context(duration_min=1), None)
     assert pace.actual_sec > 0
     assert pace.slides
+
+
+# ---------------------------------------------------------------------------
+# S-1 · 점수·등급은 규칙이 진실이다 — LLM 이 덮어쓸 수 없다
+# ---------------------------------------------------------------------------
+
+def test_llm_score_and_grade_cannot_override_rule():
+    """LLM 이 score=99 · grade='S급' 을 줘도 규칙 점수·등급이 이긴다."""
+    pace, habits = _pace_and_habits()
+    llm = ScriptedLLM(json.dumps({
+        "one_liner": "정말 잘했어요!",
+        "score": 99,
+        "grade": "S급",
+        "strengths": ["좋아요"],
+        "weaknesses": [],
+        "actions": ["연습해보세요"],
+        "pace_summary": "빠르지 않았어요",
+        "habit_summary": "간투어가 적었어요",
+    }, ensure_ascii=False))
+
+    report = compose_report(pace, habits, llm=llm)
+
+    expected = _rule_score(pace, habits)
+    assert report.score == expected
+    assert report.grade == _grade_from_score(expected)
+    assert report.one_liner == "정말 잘했어요!"   # 서술은 LLM 몫 그대로
+
+
+def test_non_numeric_llm_score_does_not_crash():
+    """LLM 이 score='85점' 처럼 줘도 리포트가 터지지 않는다 (기존: int() ValueError)."""
+    pace, habits = _pace_and_habits()
+    llm = ScriptedLLM(json.dumps({
+        "one_liner": "수고했어요",
+        "score": "85점",
+        "grade": "B+",
+    }, ensure_ascii=False))
+
+    report = compose_report(pace, habits, llm=llm)
+
+    expected = _rule_score(pace, habits)
+    assert report.score == expected
+    assert report.grade == _grade_from_score(expected)

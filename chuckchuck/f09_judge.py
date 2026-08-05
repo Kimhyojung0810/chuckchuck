@@ -357,7 +357,7 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
     """
     prior = sum(
         1 for t in turns
-        if t.question == question.question and looks_stuck(t.answer)
+        if t.question == question.question and (t.gave_up or looks_stuck(t.answer))
     )
     return "explain" if prior >= 1 else "narrow"
 
@@ -433,9 +433,9 @@ def coach_stuck(
     ])
 
     try:
-        data = _call(engine, user, extra_system="\n\n" + COACH_SYSTEM_PROMPT)
+        data = _call_coach(engine, user)
     except JudgeError:
-        data = _call(engine, user, extra_system="\n\n" + COACH_SYSTEM_PROMPT + JSON_RETRY_NUDGE)
+        data = _call_coach(engine, user, extra_system=JSON_RETRY_NUDGE)
 
     react = _clip(str(data.get("react", "") or "")) or _COACH_REACT_FALLBACK
     # 폴백은 F-08 이 이미 만들어 둔 것을 쓴다 — 코칭이 빈손으로 끝나면 안 된다
@@ -483,9 +483,9 @@ def _empty_answer(question: Question) -> QaJudgement:
 # LLM 호출
 # ---------------------------------------------------------------------------
 
-def _call(engine: LLMProvider, user: str, *, extra_system: str = "") -> dict:
+def _complete_json(engine: LLMProvider, system: str, user: str) -> dict:
     raw = engine.complete(
-        system=SYSTEM_PROMPT + extra_system,
+        system=system,
         user=user,
         temperature=0.2,
         max_tokens=MAX_TOKENS,
@@ -495,6 +495,22 @@ def _call(engine: LLMProvider, user: str, *, extra_system: str = "") -> dict:
         return extract_json_object(raw)
     except ValueError as e:
         raise JudgeError(f"LLM 응답에서 판정 JSON 을 찾지 못했습니다: {e}") from e
+
+
+def _call(engine: LLMProvider, user: str, *, extra_system: str = "") -> dict:
+    """판정 호출. system 은 판정 스키마 하나뿐이다."""
+    return _complete_json(engine, SYSTEM_PROMPT + extra_system, user)
+
+
+def _call_coach(engine: LLMProvider, user: str, *, extra_system: str = "") -> dict:
+    """
+    막힘 코칭 호출. **판정 시스템 프롬프트를 이고 가지 않는다.**
+
+    둘을 붙이면 system 에 출력 스키마가 두 개(verdict/score · react/followup/explanation)
+    실려 모델이 어느 쪽으로 답할지 모호해진다. 판정 스키마로 답해 오면 코칭 문장이
+    전부 비어 조용히 F-08 폴백으로 대체되고, 화면은 멀쩡해 보여서 알아채기 어렵다.
+    """
+    return _complete_json(engine, COACH_SYSTEM_PROMPT + extra_system, user)
 
 
 # ---------------------------------------------------------------------------

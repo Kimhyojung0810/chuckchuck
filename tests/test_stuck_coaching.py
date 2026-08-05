@@ -122,6 +122,50 @@ def test_second_give_up_explains_and_closes():
     assert j.passed is False
 
 
+def test_typed_text_with_give_up_button_still_reaches_explain():
+    """
+    입력창에 뭔가 써 놓고 「모르겠어요」를 눌렀어도 두 번째엔 해설로 넘어간다.
+
+    포기는 **의사**지 텍스트가 아니다. 답변 글로만 역추정하면(looks_stuck) 이 경우를
+    놓쳐 narrow 만 반복하고 사용자가 같은 질문에 갇힌다.
+    """
+    typed = "음… 지연 시간이 뭔가 사용자한테 영향을 준다는 건 알겠는데 그 이상은 설명을 못 하겠어요"
+    assert looks_stuck(typed) is False          # 텍스트만 보면 포기가 아니다
+    history = [QaTurn(question=make_question().question, answer=typed, gave_up=True)]
+
+    llm = CoachLLM({"react": "괜찮아요", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
+    j = coach_stuck(make_question(), history=history, llm=llm)
+
+    assert j.coach_stage == "explain"
+    assert j.explanation == "핵심은 지연이 이탈로 이어진다는 점입니다."
+
+
+def test_give_up_flag_survives_dict_roundtrip():
+    """프론트는 한글 키로 보낸다 — 포기 플래그도 같은 계약을 탄다."""
+    turn = QaTurn(question="Q", answer="A", verdict="wrong", gave_up=True)
+    assert turn.to_dict()["포기"] is True
+    assert QaTurn.from_dict(turn.to_dict()).gave_up is True
+    assert QaTurn.from_dict({"question": "Q", "gave_up": True}).gave_up is True
+    assert QaTurn.from_dict({"질문": "Q"}).gave_up is False   # 옛 세션 호환
+
+
+def test_coach_prompt_does_not_carry_judge_schema():
+    """
+    코칭 호출의 system 에 판정 스키마가 섞이면 안 된다.
+
+    둘이 붙으면 모델이 verdict/score 로 답해 코칭 문장이 통째로 폴백으로 떨어지는데,
+    화면은 멀쩡해 보여서 알아채기 어렵다.
+    """
+    llm = CoachLLM({"react": "괜찮아요", "followup": "3장부터 볼까요?"})
+    coach_stuck(make_question(), llm=llm)
+
+    system, _user = llm.calls[0]
+    assert "단계=narrow" in system            # 코칭 스키마는 있고
+    assert "explanation" in system
+    assert "verdict" not in system            # 판정 스키마는 없다
+    assert "summary_sentence" not in system
+
+
 def test_coach_stage_is_always_in_enum():
     llm = CoachLLM({"react": "네", "followup": "다시 볼까요?"})
     assert coach_stuck(make_question(), llm=llm).coach_stage in QA_COACH_STAGES

@@ -519,7 +519,32 @@ export function setQaApiBase(url) {
   catch (_) { /* storage unavailable */ }
 }
 
-async function qaApi(path, { method = 'GET', json, form } = {}) {
+/** 판정 한계 시간. 없으면 「판정 중…」에서 버튼이 전부 잠긴 채 출구가 없다. */
+const QA_TIMEOUT_MS = 30000;
+
+/** 질문 생성 한계 시간. 없으면 화면이 영원히 로딩에 갇힌다. */
+const QUESTIONS_TIMEOUT_MS = 60000;
+
+/**
+ * 타임아웃이 있는 fetch. 응답이 안 오는 경우를 **반드시** 오류로 끝낸다 —
+ * 매달린 요청은 화면의 busy 플래그를 영영 안 풀어 준다.
+ */
+async function fetchWithTimeout(url, opts, timeoutMs, label) {
+  const control = new AbortController();
+  const timer = setTimeout(() => control.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: control.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`${label}이(가) ${Math.round(timeoutMs / 1000)}초 안에 끝나지 않았어요.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function qaApi(path, { method = 'GET', json, form, timeoutMs = QA_TIMEOUT_MS } = {}) {
   const opts = { method };
   if (json !== undefined) {
     opts.headers = { 'Content-Type': 'application/json' };
@@ -527,45 +552,56 @@ async function qaApi(path, { method = 'GET', json, form } = {}) {
   } else if (form) {
     opts.body = form;
   }
-  const res = await fetch(qaApiBase() + path, opts);
+  const res = await fetchWithTimeout(qaApiBase() + path, opts, timeoutMs, '요청');
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) {
     const d = data.detail && typeof data.detail === 'object' ? data.detail : data;
-    throw new Error(d.message || d.error || `HTTP ${res.status}`);
+    const err = new Error(d.message || d.error || `HTTP ${res.status}`);
+    err.code = d.error || '';
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
 
-/** 질문 생성 한계 시간. 없으면 화면이 영원히 로딩에 갇힌다. */
-const QUESTIONS_TIMEOUT_MS = 60000;
+/**
+ * 세션 아티팩트를 브리지에 한 번 등록한다.
+ *
+ * 등록해 두면 질문 생성·판정이 `session_id` 만 보내면 된다. 판정마다 그래프·발화를
+ * 통째로 다시 올리던 것을 없애는 자리다. 브리지를 재시작하면 사라지므로,
+ * 호출부는 `session_missing` 을 받으면 다시 등록하고 재시도한다.
+ */
+export async function registerSessionArtifacts(sessionId, artifacts) {
+  if (!sessionId) throw new Error('session_id 가 필요해요.');
+  const { graph, alignment, flow, transcript, context } = artifacts || {};
+  return qaApi('/api/v1/session/artifacts', {
+    method: 'POST',
+    json: {
+      session_id: sessionId,
+      graph: graph || null,
+      alignment: alignment || null,
+      flow: flow || null,
+      transcript: transcript ? slimTranscript(transcript) : null,
+      context: context || null,
+    },
+  });
+}
 
 /** F-08: 내 그래프·정합으로 예상 질문을 만든다 (플랫 경로) */
-export async function buildQuestions({ graph, alignment, flow, transcript, context, track }) {
-  const control = new AbortController();
-  const timer = setTimeout(() => control.abort(), QUESTIONS_TIMEOUT_MS);
-  let res;
-  try {
-    res = await fetch('/api/v1/questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        graph,
-        alignment,
-        flow: flow || null,
-        transcript: transcript ? slimTranscript(transcript) : null,
-        context: context || {},
-        track: track || '10',
-      }),
-      signal: control.signal,
-    });
-  } catch (err) {
-    if (err && err.name === 'AbortError') {
-      throw new Error(`질문 생성이 ${Math.round(QUESTIONS_TIMEOUT_MS / 1000)}초 안에 끝나지 않았어요.`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
+export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId }) {
+  const res = await fetchWithTimeout('/api/v1/questions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId || null,
+      graph,
+      alignment,
+      flow: flow || null,
+      transcript: transcript ? slimTranscript(transcript) : null,
+      context: context || {},
+      track: track || '10',
+    }),
+  }, QUESTIONS_TIMEOUT_MS, '질문 생성');
   const doc = await res.json();
   if (!res.ok || doc.error) {
     throw new Error(doc.message || doc.error || `questions HTTP ${res.status}`);
@@ -575,19 +611,32 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
 
 /**
  * F-09 답변 판정.
- * question 을 같이 보낸다 — 데모 브리지는 세션 저장소가 없어 body.question 폴백으로 판정한다.
+ *
+ * question 을 같이 보낸다 — 브리지가 질문 본문으로 판정하기 때문이다.
+ * **자료 근거(graph·alignment·transcript)도 반드시 실린다.** 없으면 "자료와 어긋난다"를
+ * 대조할 원본이 없고 함정 질문의 핵심 규칙(잘못된 전제를 바로잡았는가)이 짐작이 된다.
+ * 평소에는 session_id 로만 보내고, 세션이 날아갔으면(브리지 재시작) 다시 등록하고 재시도한다.
  */
-export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp }) {
-  return qaApi(`/api/v1/sessions/${sessionId || 'flat'}/qa/judge`, {
-    method: 'POST',
-    json: {
-      question_id: questionId,
-      answer,
-      history: history || [],
-      question: question || null,
-      give_up: !!giveUp,
-    },
-  });
+export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp, artifacts }) {
+  const sid = sessionId || 'flat';
+  const body = {
+    session_id: sid,
+    question_id: questionId,
+    answer,
+    history: history || [],
+    question: question || null,
+    give_up: !!giveUp,
+  };
+  const path = `/api/v1/sessions/${sid}/qa/judge`;
+  try {
+    return await qaApi(path, { method: 'POST', json: body });
+  } catch (err) {
+    // 세션이 비었을 때만 재등록한다. 아티팩트가 아예 없으면 그대로 올린다 —
+    // 근거 없이 조용히 판정하느니 실패가 낫다.
+    if (err.code !== 'session_missing' || !artifacts) throw err;
+    await registerSessionArtifacts(sid, artifacts);
+    return qaApi(path, { method: 'POST', json: body });
+  }
 }
 
 window.ChuckchuckBridge = {
@@ -601,6 +650,7 @@ window.ChuckchuckBridge = {
   setQaApiBase,
   buildQuestions,
   judgeQaAnswer,
+  registerSessionArtifacts,
   RehearsalRecorder,
   PresentationRecorder,
   SlideMarkTracker,

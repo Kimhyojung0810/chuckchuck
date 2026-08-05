@@ -1333,13 +1333,23 @@ class QaTurn:
 
     프론트는 한글 키(`질문`·`답변`·`판정`)로 보낸다 — 이미 굳은 계약이라
     from_dict 가 한글·영문 양쪽을 받아 준다.
+
+    `gave_up` 은 **의사**지 텍스트가 아니다. 「모르겠어요」 버튼을 누른 사실을
+    답변 글에서 역추정하면(`looks_stuck`) 사용자가 뭔가 써 놓고 눌렀을 때 놓친다 —
+    그러면 F-09 막힘 코칭이 explain 단계로 못 올라가 같은 질문에 갇힌다.
     """
     question: str = ""
     answer: str = ""
     verdict: str = QA_VERDICT_FALLBACK
+    gave_up: bool = False
 
     def to_dict(self) -> dict:
-        return {"질문": self.question, "답변": self.answer, "판정": self.verdict}
+        return {
+            "질문": self.question,
+            "답변": self.answer,
+            "판정": self.verdict,
+            "포기": self.gave_up,
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> "QaTurn":
@@ -1349,6 +1359,7 @@ class QaTurn:
             answer=str(d.get("답변", d.get("answer", "")) or ""),
             # 프론트는 넘긴 질문에 'skipped' 를 붙인다 — enum 밖이라 보류로 떨어진다
             verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+            gave_up=bool(d.get("포기", d.get("gave_up", False))),
         )
 
 

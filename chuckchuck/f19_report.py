@@ -22,11 +22,11 @@ _SYSTEM = (
     "슬라이드 번호를 나열만 하지 말고, '짧게 말한 핵심 장', '길게 말한 장'처럼 "
     "상황을 먼저 설명하세요. 전문 용어(SPS, REP, FIL) 대신 "
     "'말 속도', '같은 말 반복', '간투어(어, 그, 음)'를 쓰세요. "
-    "JSON 키: one_liner(한 줄 총평, 친근한 해요체), score(0-100 정수), "
-    "grade(A+|A0|B+|B0|C+|C0|D+|D0|F), "
+    "JSON 키: one_liner(한 줄 총평, 친근한 해요체), "
     "strengths(쉬운 문장 배열), weaknesses(쉬운 문장 배열), "
     "actions(바로 연습할 행동 3개, '~해보세요' 체), "
-    "pace_summary, habit_summary."
+    "pace_summary, habit_summary. "
+    "점수·등급은 쓰지 마세요 — 코드가 수치로 계산합니다."
 )
 
 
@@ -195,12 +195,14 @@ def compose_report(
             raise ReportError(str(e)) from e
         return doc
 
-    score = int(data.get("score") or _rule_score(pace, habits))
-    score = max(0, min(100, score))
+    # 점수·등급은 규칙이 진실이다 — 모듈 원칙("숫자는 다시 짐작하지 않습니다")대로
+    # LLM 이 준 score/grade 는 무시한다. LLM 값을 받으면 같은 수치 입력인데
+    # 실행마다 점수가 흔들리고, "85점" 같은 문자열이 오면 int() 가 터진다.
+    score = _rule_score(pace, habits)
     return ReportDoc(
         one_liner=str(data.get("one_liner") or ""),
         score=score,
-        grade=str(data.get("grade") or _grade_from_score(score)),
+        grade=_grade_from_score(score),
         strengths=[str(x) for x in data.get("strengths") or []][:5],
         weaknesses=[str(x) for x in data.get("weaknesses") or []][:5],
         actions=[str(x) for x in data.get("actions") or []][:5],
