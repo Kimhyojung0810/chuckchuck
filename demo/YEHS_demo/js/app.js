@@ -5092,8 +5092,8 @@ function renderAbout() {
           <tr><td>1</td><td>발표자료(PPT·PDF)를 슬라이드별 텍스트·구조로 변환</td><td>Upstage Document Parse</td><td><span class="chip chip-sm st-ok">확정</span></td></tr>
           <tr><td>2</td><td>녹음을 단어별 시간과 함께 글로 변환, 슬라이드 구간으로 분할</td><td>SKT A.X 계열</td><td><span class="chip chip-sm chip-plain">검증 중</span></td></tr>
           <tr><td>3</td><td>핵심 개념 추출과 중요도 순 개념 트리 구성</td><td>메인 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>4</td><td>자료·발표 내용·앞선 답변 기반 질문 생성과 소크라테스식 코칭</td><td>판정 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>5</td><td>개념별 설명 여부 판정 (근거 발화 포함)</td><td>문장 유사도 검색 + KT 믿:음</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
+          <tr><td>4</td><td>개념별 설명 여부 판정 (근거 발화 포함)</td><td>문장 유사도 검색 + KT 믿:음</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
+          <tr><td>5</td><td>자료·발표 내용·앞선 답변 기반 질문 생성과 소크라테스식 코칭</td><td>판정 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
           <tr><td>6</td><td>논리가 끊긴 곳 탐지 (최대 5곳)</td><td>LG EXAONE / SKT A.X</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
           <tr><td>7</td><td>발표자 맞춤 방향 제안 (실제 발화 인용 필수)</td><td>SKT A.X / LG EXAONE</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
           <tr><td>8</td><td>발표 판정과 Q&A 전후 이해 변화를 하나의 결과로 통합</td><td>규칙 계산 + 판정 결과 결합</td><td><span class="chip chip-sm chip-plain">준비 중</span></td></tr>
