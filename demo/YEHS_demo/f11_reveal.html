@@ -315,10 +315,12 @@
 
   /* embed(데모 앱 iframe) — 앱은 라이트 전용이라 테마를 고정하고,
      페이지 배경(#F2F4F6)과 맞춰 카드처럼 띄운다 */
-  body.embed { background: #f2f4f6; }
+  /* 앱 배경(크림)이 그대로 비쳐야 한 화면으로 읽힌다. #f2f4f6 은 앱이 쓰지
+     않는 회색이라 iframe 만 다른 사이트처럼 떠 보였다 */
+  body.embed { background: transparent; }
   body.embed .phone {
     max-width: 440px; min-height: calc(100vh - 36px); margin: 18px auto;
-    border-radius: 20px; box-shadow: 0 6px 24px rgba(0, 23, 51, 0.08);
+    border-radius: 20px; box-shadow: 0 6px 24px rgba(28, 82, 61, 0.08);
   }
 
   /* 데스크톱: 데모 앱(콘텐츠 폭 ~930px)과 맞춰 캡션-좌 / 그래프-우 2단.
@@ -329,6 +331,14 @@
     .caption { flex: 0 0 280px; min-height: 0; padding: 0 0 40px 4px; }
     .stage { align-self: stretch; }
     #summaryScene { padding: 8px 40px 24px; }
+  }
+
+  /* 아이패드 가로(1366x1024). 100vh 를 채우라고 하면 캡션은 가운데 왼쪽,
+     자막은 아래 오른쪽으로 흩어져 같은 화면의 요소로 안 읽힌다.
+     높이를 내용만큼만 주고 위에서부터 쌓는다 */
+  @media (min-width: 1100px) {
+    .phone, body.embed .phone { max-width: 1040px; }
+    body.embed .phone { min-height: 0; margin: 12px auto; }
   }
 
   @media (prefers-reduced-motion: reduce) {
