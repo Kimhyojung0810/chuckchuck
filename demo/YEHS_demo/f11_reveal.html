@@ -338,6 +338,10 @@
      높이를 내용만큼만 주고 위에서부터 쌓는다 */
   @media (min-width: 1100px) {
     .phone, body.embed .phone { max-width: 1040px; }
+    /* body 가 display:flex 라 align-items 기본값 stretch 가 .phone 을 화면
+       높이만큼 늘렸다. min-height:0 을 줘도 stretch 가 이겨서, 캡션은 가운데
+       왼쪽 / 자막은 아래 오른쪽으로 흩어졌다. 내용 높이만 쓰게 한다 */
+    body.embed { align-items: flex-start; }
     body.embed .phone { min-height: 0; margin: 12px auto; }
   }
 
