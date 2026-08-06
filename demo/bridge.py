@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import tempfile
 import traceback
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -249,6 +250,32 @@ def _mock() -> bool:
     return settings.mock_external
 
 
+#: mock 모드에서 각 분석 단계에 끼워 넣는 인위 지연(초). 0 이면 끈다.
+#:
+#: mock 은 모든 단계가 즉시 끝나서 **대기 화면을 검증할 수 없다** — 실 API 로만 확인하면
+#: 한 번에 7분과 과금이 든다. 이 노브로 실 API 를 태우지 않고 진행률·리빌 대기 씬을
+#: 반복해서 볼 수 있다. 실 API 경로에는 절대 걸리지 않는다 (_mock() 일 때만 잔다).
+FAKE_STAGE_DELAY_SEC = float(os.environ.get("DEMO_FAKE_STAGE_DELAY_SEC", "0") or 0)
+
+#: 단계별 상대 무게 — 실측 비율 그대로다 (STT 30초 · F-06 1분43초 · F-07 2분40초 · F-11 2분27초).
+#: 지연 1초를 주면 이 비율대로 나눠 잔다. 어느 단계가 긴지까지 재현해야 대기 화면이 진짜처럼 보인다.
+FAKE_DELAY_WEIGHT = {
+    "/api/v1/transcribe": 0.30,
+    "/api/v1/concepts": 1.03,
+    "/api/v1/graph": 1.60,
+    "/api/v1/alignment": 1.47,
+}
+
+
+def _fake_delay(path: str) -> None:
+    if not FAKE_STAGE_DELAY_SEC or not _mock():
+        return
+    weight = FAKE_DELAY_WEIGHT.get(path)
+    if not weight:
+        return
+    time.sleep(FAKE_STAGE_DELAY_SEC * weight)
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -308,6 +335,9 @@ class Handler(SimpleHTTPRequestHandler):
                     "message": f"요청이 너무 잦아요. {wait}초 뒤에 다시 시도해 주세요.",
                     "retry_after": wait,
                 })
+
+            # mock 검증용 인위 지연 (실 API 경로에는 안 걸린다)
+            _fake_delay(parsed.path)
 
             if parsed.path == "/api/v1/session/artifacts":
                 return self._handle_session_artifacts(raw)
