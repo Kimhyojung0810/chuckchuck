@@ -245,6 +245,36 @@ def test_missing_corrected_when_label_actually_spoken():
     assert doc.item("c1").verdict == "aligned"
 
 
+def test_aligned_without_evidence_is_demoted():
+    """근거 없이 '잘했다'고 도장 찍은 판정은 버린다.
+
+    프롬프트는 aligned 에 evidence 를 필수로 요구하는데 코드가 contradiction 만
+    검사하고 있었다. 그 구멍으로 실제 발표에서 17개 개념이 전부 aligned 로
+    나왔다 (coverage 1.0). 언급이 MENTION_MIN 미만이면 근거 없는 aligned 는
+    missing 으로 떨어진다.
+    """
+    doc = align_of(
+        payload(items=[{"node_id": "c1", "verdict": "aligned"}]),  # evidence 없음
+        transcript=make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 설명"}),
+    )
+    assert doc.item("c1").verdict == "missing"
+
+
+def test_aligned_with_evidence_survives():
+    """근거가 붙은 aligned 는 언급 횟수가 적어도 살린다.
+
+    개념을 다른 말로 풀어 제대로 설명하면 라벨이 한 번만 나올 수 있다.
+    토큰 수만으로 강등하면 그쪽이 억울한 거짓말이 된다 — evidence 가 더 센 신호다.
+    """
+    doc = align_of(
+        payload(items=[
+            {"node_id": "c1", "verdict": "aligned", "evidence": "개념1 은 이런 뜻입니다"},
+        ]),
+        transcript=make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 설명"}),
+    )
+    assert doc.item("c1").verdict == "aligned"
+
+
 def test_single_mention_does_not_override_missing():
     """한 번 스친 언급으로는 LLM 의 '누락' 판정을 뒤집지 않는다.
 

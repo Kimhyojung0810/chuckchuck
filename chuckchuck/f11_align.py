@@ -251,6 +251,9 @@ def _normalize_items(
        설명한 것이 아니라서, 그 한 번으로 LLM 의 '누락' 판정을 뒤집지 않는다)
     - evidence 없는 contradiction 은 결정적 폴백으로 강등
       (사용자에게 "틀렸다"고 말하는 판정이라 근거 없이는 내보내지 않는다)
+    - evidence 없는 aligned 도 같은 이유로 강등
+      ("잘했다"도 근거가 있어야 한다. 이걸 안 걸러서 모델이 전부 aligned 로
+       도장 찍은 리포트가 나갔다 — 17/17 초록, coverage 1.0)
     - justified_skip 인데 언급 0회 + doc weight ≥ SKIP_GUARD_WEIGHT 면
       missing 으로 강등 (자료가 힘준 개념은 무언급이 '정당한 생략'일 수 없다)
     """
@@ -274,6 +277,13 @@ def _normalize_items(
         if verdict == "missing" and basis.mention_count >= MENTION_MIN:
             verdict = "aligned"
         if verdict == "contradiction" and not evidence:
+            verdict = _fallback_verdict(basis)
+        # 근거 없는 aligned 도 버린다. 프롬프트는 aligned 에 evidence 를 필수로
+        # 요구하는데(SYSTEM_PROMPT) 코드는 contradiction 만 검사하고 있었다.
+        # 그래서 모델이 근거 없이 전부 '잘했다'로 도장 찍으면 그대로 통과했다 —
+        # 실측으로 17개 개념이 전부 aligned, coverage 1.0 이 나왔다.
+        # "틀렸다"를 근거 없이 말하지 않는다면 "잘했다"도 마찬가지여야 한다.
+        if verdict == "aligned" and not evidence:
             verdict = _fallback_verdict(basis)
         if (
             verdict == "justified_skip"
