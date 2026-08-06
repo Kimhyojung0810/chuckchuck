@@ -1850,6 +1850,23 @@ async function useUploadedRecording(file) {
   showF11Reveal();
 }
 
+/**
+ * 벤더 오류 문자열을 사람이 읽을 한 줄로 줄인다.
+ *
+ * 실제로 A.X STT 게이트웨이가 막혔을 때 이런 게 통째로 화면에 나왔다:
+ *   「A.X STT upload 응답을 읽지 못했어요 (HTTP 200): <html><head><title>Request
+ *    Rejected</title>…Your support ID is: 2165213351621314081…」
+ * 태그가 그대로 보이는 건 정직한 게 아니라 그냥 못 읽는 것이다. 원문은 검증 로그에
+ * 그대로 남기고(nf.pipelineError), 화면에는 앞부분만 태그 없이 보여준다.
+ */
+function humanErrorText(msg) {
+  const raw = String(msg == null ? '' : msg);
+  const cut = raw.indexOf('<');
+  const head = (cut > 20 ? raw.slice(0, cut) : raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!head) return '분석에 실패했어요';
+  return head.length > 110 ? `${head.slice(0, 109)}…` : head;
+}
+
 /* F-11 분석 리빌 — 리허설 종료 → 질문 준비 사이에 전체 화면으로 재생.
    뒤에서는 파이프라인이 돌고, CTA(질문 코치 시작하기)를 누르면 걷힌다.
 
@@ -1894,7 +1911,7 @@ function showF11Reveal() {
       clearInterval(feed);
       post({
         type: 'f11Error',
-        message: nf.pipelineError || nf.pipelineDetail || '분석에 실패했어요',
+        message: humanErrorText(nf.pipelineError || nf.pipelineDetail),
         phase,
       });
       return;
@@ -2478,7 +2495,7 @@ function nfStep4() {
   const pipeErr = conceptsError
     ? stageAccidentHtml(`개념 추출 실패 (STT는 성공): ${conceptsError}`)
     : (nf.pipelineError
-      ? stageAccidentHtml(`연동 오류: ${nf.pipelineError}`)
+      ? stageAccidentHtml(`연동 오류: ${humanErrorText(nf.pipelineError)}`)
       : '');
   /* 질문 코칭은 그래프·정합·흐름만 있으면 열린다. 리포트 축(채점·속도·습관·리포트)이
      아직 도는 중이면 그 사실을 숨기지 않고 한 줄 남긴다 — "다 끝났어요" 라고만 하면
