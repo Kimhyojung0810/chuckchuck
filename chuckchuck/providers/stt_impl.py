@@ -104,7 +104,11 @@ class AxSTT(STTProvider):
         self.timeout = timeout
 
     def _headers(self) -> dict[str, str]:
-        return {"X-API-Key": self.api_key}
+        # User-Agent 를 안 주면 requests 가 "python-requests/2.x" 를 보낸다.
+        # A.X 게이트웨이 앞단의 WAF(F5 BIG-IP)가 그걸 보고 업로드를 막았다 —
+        # HTTP 200 에 JSON 대신 "Request Rejected" HTML 을 돌려준다.
+        # 우리 앱 이름을 밝히는 게 정상적인 API 클라이언트 동작이다.
+        return {"X-API-Key": self.api_key, "User-Agent": "chuckchuck/1.0"}
 
     @staticmethod
     def _response_json(res: requests.Response, step: str) -> dict:
