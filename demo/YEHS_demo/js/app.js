@@ -401,6 +401,8 @@ function renderHome() {
       <span class="t-chev" aria-hidden="true">›</span>
     </a>` : ''}
 
+    <h2 class="t-sec-head t-lhead">내 기록</h2>
+
     <section class="t-card t-score-card" aria-label="최근 발표 완성도">
       <p class="t-label">최근 발표 완성도</p>
       <div class="t-score">
@@ -609,6 +611,42 @@ function startPrecompute() {
 
   precompute = { key, conceptsP, graphP, startedAt: Date.now(), state };
   console.info('[chuckchuck] precompute started', key);
+}
+
+/**
+ * 녹음 화면 구석의 선분석 상태 한 줄.
+ *
+ * 연출이 아니라 기대치 설정이다. 발표가 끝나자마자 개념 그래프가 뜨는 이유를 안 알려주면
+ * "덜 분석한 거 아닌가"로 읽힌다. 녹음 화면의 주인공은 슬라이드니까 작게 둔다
+ * (MVP_SPEC §3 절제 규율 — 한 화면의 주인공은 하나).
+ * 선분석이 안 걸렸으면 아무 말도 안 한다.
+ */
+function precomputeNoteHtml() {
+  if (!precompute || precompute.key !== precomputeKey()) return '';
+  const s = precompute.state || {};
+  let text;
+  if (s.failed) text = '자료를 미리 읽다가 멈췄어요. 발표가 끝난 뒤에 다시 해볼게요';
+  else if (s.graphReady) text = '발표하는 동안 자료를 다 읽어 뒀어요';
+  else if (s.conceptsReady) text = '자료의 개념을 찾았어요. 개념끼리 어떻게 이어지는지 보고 있어요';
+  else text = '발표하는 동안 자료를 먼저 읽고 있어요';
+  return `<p class="pre-note${s.graphReady ? ' is-done' : ''}">${escapeHtml(text)}</p>`;
+}
+
+let preNoteTickStarted = false;
+/** 선분석은 몇 분 걸린다. 단계가 바뀌면 화면을 다시 안 그리고 그 줄만 갈아끼운다 */
+function startPrecomputeNoteTimer() {
+  if (preNoteTickStarted) return;
+  preNoteTickStarted = true;
+  every(paintPrecomputeNote, 1500);
+}
+
+function paintPrecomputeNote() {
+  const host = $('.pre-note');
+  if (!host) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = precomputeNoteHtml();
+  const next = tmp.firstElementChild;
+  if (next && next.textContent !== host.textContent) host.replaceWith(next);
 }
 
 /** 파이프라인에 넘길 promise 묶음. 조건이 바뀌었으면 아무것도 안 넘긴다 */
@@ -1210,6 +1248,7 @@ function nfStep3() {
     <div class="rehearsal-head">
       <div><span class="mode-label">발표 모드</span><h1>슬라이드를 보며 실제처럼 발표해보세요</h1></div>
       <p>← → 키나 슬라이드 목록으로 넘길 수 있어요${usePdf ? ' · 업로드한 PDF 원본' : ''}</p>
+      ${precomputeNoteHtml()}
     </div>
     <div class="rehearsal-shell">
       <div class="card rehearsal-control" id="recPanel"></div>
@@ -1237,6 +1276,7 @@ function nfStep3() {
   paintRehearsalSlide(nf.slide);
   // 무대가 먼저다. 필름 썸네일은 그 뒤에 순차로 채워진다(캐시라 두 번째부터는 즉시)
   if (usePdf) paintDeckThumbs(app);
+  startPrecomputeNoteTimer();
   if (nf.mic === 'on' && !ccRuntime) startRecClock();
   wireFreshPracticeButtons(app);
 }

@@ -316,6 +316,18 @@ main.narrow { max-width: 640px; }
 .psb-meta { margin: 8px 0 0; font-size: 13px; color: var(--text-3); }
 .psb-meta b { color: var(--text-2); font-variant-numeric: tabular-nums; }
 .pipe-status-bar.is-final .psb-pct { color: var(--text-2); }
+
+/* 녹음 화면의 선분석 한 줄 — 주인공은 슬라이드다. 눈에 안 띄게 둔다 */
+.pre-note {
+  margin: 6px 0 0; font-size: 12.5px; color: var(--text-3);
+  display: flex; align-items: center; gap: 6px;
+}
+.pre-note::before {
+  content: ''; width: 6px; height: 6px; border-radius: var(--r-dot);
+  background: var(--text-3); flex: none;
+}
+.pre-note.is-done { color: var(--brand); }
+.pre-note.is-done::before { background: var(--brand); }
 .progress.indeterminate i {
   width: 40%;
   animation: progress-slide 1.2s ease-in-out infinite;

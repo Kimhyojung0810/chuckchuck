@@ -371,6 +371,47 @@
   /* 정합을 기다리는 동안 노드 하나씩 짚어 본다 — 숫자를 주장하지 않는 순수 연출 */
   .node.scanning circle.body { stroke: var(--primary); }
 
+  /* ── 작업대 — 기다리는 화면이 아니라 내 발표가 해부되는 걸 구경하는 화면 ──
+     왼쪽은 지금 일하는 발표새(단계마다 소품이 바뀐다), 오른쪽은 실제로
+     도착한 것들이 한 줄씩 쌓인다. 둘 다 지어낸 게 아니라 부모가 보낸
+     f11Progress 그대로다 — 연출이 데이터를 앞지르지 않는다 */
+  .workbench { display: none; gap: 18px; padding: 4px 20px 10px; align-items: flex-start; }
+  .workbench.on { display: flex; }
+  .wb-bird { flex: none; width: 104px; text-align: center; }
+  .wb-bird svg { width: 92px; height: 92px; display: block; margin: 0 auto; }
+  .wb-bird .who { margin-top: 2px; font-size: 11px; font-weight: 700; color: var(--sub); }
+  /* 일하는 티 — 아주 작게. 연출은 10% 다 */
+  .wb-bird.busy svg { animation: wbBob 1.9s ease-in-out infinite; }
+  @keyframes wbBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+  .wb-feed { flex: 1; min-width: 0; }
+  .wb-feed .ttl {
+    font-size: 11px; font-weight: 700; color: var(--sub);
+    letter-spacing: .02em; margin: 2px 0 6px;
+  }
+  .wb-feed ul { list-style: none; margin: 0; padding: 0; }
+  .wb-feed li {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 5px 0; font-size: 13px; line-height: 1.45; color: var(--text);
+    border-bottom: 1px solid var(--line);
+    animation: wbIn .32s ease both;
+  }
+  .wb-feed li:last-child { border-bottom: 0; }
+  .wb-feed li i {
+    flex: none; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--primary); opacity: .55; transform: translateY(-2px);
+  }
+  .wb-feed li.now { font-weight: 700; }
+  .wb-feed li.now i { opacity: 1; }
+  @keyframes wbIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  /* 받아쓴 문장은 결과가 아니라 지나가는 재료다 — 인용으로 낮춘다 */
+  .wb-said {
+    margin: 8px 0 0; padding: 8px 12px; border-radius: 12px;
+    background: var(--surface); color: var(--sub);
+    font-size: 12.5px; line-height: 1.5;
+  }
+  .wb-said[hidden] { display: none; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
@@ -392,6 +433,19 @@
   <div class="waitbar" id="waitBar" hidden>
     <div class="wb-track"><i id="wbFill"></i></div>
     <p class="wb-meta"><span id="wbLabel"></span><b id="wbPct"></b></p>
+  </div>
+
+  <!-- 작업대 — 지금 누가 무엇을 하는지 + 실제로 도착한 것들 -->
+  <div class="workbench" id="workbench">
+    <div class="wb-bird" id="wbBird">
+      <div id="wbBirdArt"></div>
+      <p class="who" id="wbWho"></p>
+    </div>
+    <div class="wb-feed">
+      <p class="ttl">지금까지 한 일</p>
+      <ul id="wbList"></ul>
+      <p class="wb-said" id="wbSaid" hidden></p>
+    </div>
   </div>
 
   <div class="stage">
@@ -508,6 +562,7 @@ let LAST_PROGRESS_KEY = "";
 let graphArrived = false;  // 개념 그래프(F-07)만 먼저 도착 — 정합(F-11)은 아직
 let LIVE_PERCENT = null;   // 부모가 계산한 실제 진행률. 여기서 지어내지 않는다
 let LIVE_LABEL = "";
+let LIVE_PHASE = "";       // 작업대가 담당 병아리·소품을 고르는 기준
 
 const sleep = (ms) => new Promise((r) => {
   if (skipped || REDUCED) return r();
@@ -759,7 +814,9 @@ window.addEventListener("message", (e) => {
     // 진행률은 부모가 실측표로 계산한 값이다. 여기서 다시 만들지 않는다
     if (typeof e.data.percent === "number") LIVE_PERCENT = e.data.percent;
     LIVE_LABEL = label;
+    LIVE_PHASE = String(e.data.phase || "");
     paintWaitBar();
+    paintWorkbench();
     const key = label + "|" + detail;
     if (key && key !== LAST_PROGRESS_KEY) {
       LAST_PROGRESS_KEY = key;
@@ -779,6 +836,7 @@ window.addEventListener("message", (e) => {
     }
     if (preview && (!REAL_STT || !REAL_STT.length)) {
       REAL_STT = [preview.length > 34 ? preview.slice(0, 33) + "…" : preview];
+      paintWorkbench();   // 받아쓴 문장이 방금 도착했다 — 작업대에 바로 얹는다
     }
     return;
   }
@@ -855,6 +913,93 @@ function showWaitBar(on) {
   bar.hidden = !on;
   if (on) paintWaitBar();
 }
+/* ── 작업대 ──────────────────────────────────────────────────
+   단계마다 담당 병아리와 소품이 바뀐다. 소품은 그 모델이 파이프라인에서
+   실제로 하는 일이다 (docs/design_improvement/01_character.md 의 매핑을 따른다).
+   chatter.js 를 못 쓴다 — 여기는 iframe 이라 앱 스크립트가 없다. 같은 문법으로
+   따로 그리되 몸·외곽선·홍조 값은 같게 맞춘다 */
+const WB_STAGES = [
+  { key: "encoding", who: "", prop: "none",  text: "녹음을 정리했어요" },
+  { key: "stt",      who: "엑씨",   prop: "phones", text: "말한 내용을 글로 옮겼어요" },
+  { key: "concepts", who: "쏠라",   prop: "slides", text: "자료에서 핵심 개념을 찾았어요" },
+  { key: "graph",    who: "쏠라",   prop: "slides", text: "개념끼리 어떻게 이어지는지 정리했어요" },
+  { key: "align",    who: "믿:음",  prop: "pen",    text: "자료와 발표를 하나씩 대조했어요" },
+  { key: "flow",     who: "믿:음",  prop: "pen",    text: "말한 순서와 자료 흐름을 맞춰봤어요" },
+];
+
+function wbBirdSvg(prop) {
+  const props = {
+    phones: '<path d="M22 46a28 28 0 0 1 56 0" fill="none" stroke="#356B59" stroke-width="4"/>'
+      + '<rect x="14" y="44" width="14" height="20" rx="7" fill="#9BD9C4" stroke="#356B59" stroke-width="3"/>'
+      + '<rect x="72" y="44" width="14" height="20" rx="7" fill="#9BD9C4" stroke="#356B59" stroke-width="3"/>',
+    slides: '<rect x="60" y="60" width="26" height="20" rx="4" fill="#FFFFFF" stroke="#356B59" stroke-width="3"/>'
+      + '<path d="M64 66h18M64 71h18M64 76h11" stroke="#9BD9C4" stroke-width="2.5" stroke-linecap="round"/>',
+    pen: '<rect x="62" y="52" width="8" height="30" rx="4" fill="#FFD96A" stroke="#356B59" stroke-width="3"'
+      + ' transform="rotate(24 66 67)"/>'
+      + '<path d="M20 74h30" stroke="#F7E08A" stroke-width="7" stroke-linecap="round"/>',
+    none: "",
+  };
+  return '<svg viewBox="0 0 100 100" role="img" aria-hidden="true">'
+    + '<ellipse cx="50" cy="66" rx="27" ry="24" fill="#FFD96A" stroke="#356B59" stroke-width="3.5"/>'
+    + '<circle cx="50" cy="40" r="27" fill="#FFD96A" stroke="#356B59" stroke-width="3.5"/>'
+    + '<path d="M50 13c0-6 4-9 8-9-1 5-3 8-8 9z" fill="#9BD9C4" stroke="#356B59" stroke-width="2.5"/>'
+    + '<circle cx="40" cy="39" r="4.6" fill="#26372F"/><circle cx="60" cy="39" r="4.6" fill="#26372F"/>'
+    + '<circle cx="41.6" cy="37.4" r="1.5" fill="#fff"/><circle cx="61.6" cy="37.4" r="1.5" fill="#fff"/>'
+    + '<path d="M46 49h8l-4 5z" fill="#F0A93C"/>'
+    + '<ellipse cx="30" cy="47" rx="5" ry="3.4" fill="#F7B6A8" opacity=".75"/>'
+    + '<ellipse cx="70" cy="47" rx="5" ry="3.4" fill="#F7B6A8" opacity=".75"/>'
+    + (props[prop] || "") + "</svg>";
+}
+
+let WB_DONE = [];          // 끝난 단계 key — 진행률이 아니라 도착한 사실만 쌓는다
+let WB_PROP = null;
+
+function paintWorkbench() {
+  const box = $("workbench");
+  if (!box) return;
+  const stage = String(LIVE_PHASE || "").replace(/_(done|error)$/, "");
+  const idx = WB_STAGES.findIndex((s) => s.key === stage);
+  if (idx < 0 && !WB_DONE.length) return;
+  box.classList.add("on");
+
+  // 지금 단계 앞의 것들은 끝난 것이다 (부모가 단계를 순서대로 보낸다)
+  for (let i = 0; i < idx; i += 1) {
+    if (!WB_DONE.includes(WB_STAGES[i].key)) WB_DONE.push(WB_STAGES[i].key);
+  }
+  if (/_done$/.test(LIVE_PHASE || "") && idx >= 0 && !WB_DONE.includes(stage)) {
+    WB_DONE.push(stage);
+  }
+
+  const cur = idx >= 0 ? WB_STAGES[idx] : null;
+  if (cur && cur.prop !== WB_PROP) {
+    WB_PROP = cur.prop;
+    const art = $("wbBirdArt");
+    if (art) art.innerHTML = wbBirdSvg(cur.prop);
+    $("wbBird").classList.add("busy");
+    const who = $("wbWho");
+    if (who) who.textContent = cur.who;
+  }
+
+  const list = $("wbList");
+  if (list) {
+    const rows = WB_DONE
+      .map((k) => WB_STAGES.find((s) => s.key === k))
+      .filter(Boolean)
+      .map((s) => `<li><i></i>${s.text}</li>`);
+    if (cur && !WB_DONE.includes(cur.key)) {
+      rows.push(`<li class="now"><i></i>${LIVE_LABEL || cur.text}</li>`);
+    }
+    const html = rows.join("");
+    if (list.dataset.html !== html) { list.dataset.html = html; list.innerHTML = html; }
+  }
+
+  const said = $("wbSaid");
+  if (said && REAL_STT && REAL_STT.length) {
+    said.hidden = false;
+    said.textContent = `“${REAL_STT[REAL_STT.length - 1]}”`;
+  }
+}
+
 function paintWaitBar() {
   const bar = $("waitBar");
   if (!bar || bar.hidden) return;
