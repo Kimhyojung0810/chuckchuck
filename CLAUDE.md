@@ -20,20 +20,40 @@
 
 ## 2. 실행
 
+### 🚫 mock 으로 띄우지 않는다 (2026-08-07 지시)
+
+**브리지는 언제나 실 API + 실 LoRA 로 띄운다.** `MOCK_EXTERNAL_APIS=true` 를 쓰지 않는다.
+
 ```bash
-# 키 없이 화면만 확인 (기본 경로)
-MOCK_EXTERNAL_APIS=true python -m demo.bridge      # http://127.0.0.1:8787/
-
-# 실 API (.env 채운 뒤)
-python -m demo.bridge
-
-# F-18 LoRA 습관 분석 (conda midm + CUDA 필요, 없으면 heuristic 폴백)
-DEMO_PORT=8799 ./demo/run_bridge_midm.sh
-
-python -m pytest tests/ -q                          # 회귀 스모크
+DEMO_PORT=8799 ./demo/run_bridge_midm.sh      # ← 이것만 쓴다
 ```
 
+이 스크립트가 `MOCK_EXTERNAL_APIS=false` · `HABIT_PROVIDER=lora` · midm python 을 셸에서 고정한다.
+그냥 `python -m demo.bridge` 로 띄우면 torch 가 없어서 F-18 이 조용히 heuristic 으로 떨어진다.
+
+**mock 이 만드는 착시가 실제로 사람을 태웠다.** `demo/bridge.py` 의 `_handle_parse` 는
+mock 이면 업로드한 파일을 버리고 `fixtures/sample_slidedoc.json`(IMU2CLIP) 을 돌려주면서
+**파일 이름만 업로드한 것으로 바꿔치기한다.** 그래서 화면에는 내가 올린 자료로 보이는데
+개념 그래프·「슬라이드로 보는 발표」에는 남의 자료가 나온다.
+"내 자료로 제대로 도는가" 를 mock 으로 확인하는 것은 불가능하다.
+
+과금이 아까우면 띄우지 않는 것으로 아끼고, **띄울 거면 실 API 로 띄운다.**
+
+```bash
+# 첫 요청은 22GB 베이스 모델 로드로 2~3분 걸린다. 시연 전에 반드시 예열한다.
+curl -sS -X POST http://127.0.0.1:8799/api/v1/habits -H 'Content-Type: application/json' \
+  -d '{"transcript":{"by_slide":[{"slide_no":1,"start_sec":0,"end_sec":3,"words":[
+      {"text":"지도","start_sec":0,"end_sec":0.4},{"text":"지도력은","start_sec":0.4,"end_sec":1}]}]}}'
+# 응답에 "provider":"lora" 가 있어야 한다. heuristic(lora-fallback) 이면 python 을 잘못 쓴 것이다.
+
+python -m pytest tests/ -q                    # 회귀 스모크
+```
+
+예열 뒤 습관 분석은 ~1.2초. GPU 는 23.6GB 를 문다.
 포트가 물려 있으면 `DEMO_PORT=8801` 처럼 바꾼다. 자세한 절차는 [`README.md`](README.md).
+
+**외부에 열지 않는다.** `DEMO_HOST=0.0.0.0` 은 실 API 모드에서 금지 —
+IP 만 알면 아무나 눌러서 팀 계정으로 과금된다. 원격에서 볼 일이 있으면 SSH 터널을 쓴다.
 
 ### ⚠️ 캐시 버전 — 데모 날 20분 날리는 함정
 
