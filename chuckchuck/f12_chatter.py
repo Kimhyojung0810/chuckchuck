@@ -495,8 +495,18 @@ def default_llm_factory(speaker: str) -> LLMProvider:
 def _ask(engine: LLMProvider, system: str, user: str) -> list[dict]:
     """한 병아리에게 다음 대사를 묻는다. JSON 이 깨지면 한 번만 다시 묻는다."""
     for nudge in ("", JSON_RETRY_NUDGE):
+        # 엑사원만 늘 객석에 못 오던 이유 (2026-08-06 실측):
+        #  · 엑사원은 추론 모델이라 사고 과정을 content 에 그대로 쓴다.
+        #    Friendli 엔드포인트는 response_format=json_object 를 무시한다 —
+        #    json_mode 를 켜도 "Okay, let's see…" 로 시작하는 산문이 온다.
+        #  · max_tokens=1024 는 그 사고 과정만으로 차서 JSON 에 닿지도 못했다.
+        #    extract_json_object 실패 → 재시도도 같은 이유로 실패 → absent.
+        #  · 3000 이면 캡이 사고를 끊고 답을 뱉게 만든다 (9.5초, 62자).
+        #    6000 은 오히려 30초 — 사고할 여유를 더 주기 때문이라 늘리면 안 된다.
+        # 나머지 셋(solar·ax·midm)은 짧은 JSON 만 내므로 캡을 올려도 비용이 늘지 않는다.
         raw = engine.complete(
-            system=system + nudge, user=user, temperature=0.8, max_tokens=1024
+            system=system + nudge, user=user, temperature=0.8,
+            max_tokens=3000, json_mode=True,
         )
         try:
             data = extract_json_object(raw)

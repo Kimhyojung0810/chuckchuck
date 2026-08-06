@@ -389,7 +389,10 @@ main.narrow { max-width: 640px; }
   position: relative; z-index: 5; left: auto; bottom: auto; width: 100%; max-width: none;
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap; min-height: 86px; padding: 18px 20px;
   transform: none; border: 1px solid rgba(229,232,235,.9); box-shadow: 0 8px 24px rgba(2,32,71,.08);
-  order: -1; /* 혹시 DOM 순서가 바뀌어도 셸 안에서 위로 */
+  /* 이 화면의 주인공은 슬라이드다. 녹음 컨트롤은 그 아래 얇은 띠로 둔다
+     (MVP_SPEC §5.2 "녹음은 아래의 얇은 발표 컨트롤로 둔다").
+     DOM 은 컨트롤이 먼저라 order 로 뒤로 보낸다 */
+  order: 1;
 }
 .rehearsal-control > .btn { margin-left: auto; flex: none; }
 /* 발표 중에는 화면 하단에 고정해 슬라이드를 보며 타이머를 본다 */

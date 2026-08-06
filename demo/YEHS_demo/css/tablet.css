@@ -164,7 +164,8 @@
     position: relative; left: auto; bottom: auto; transform: none;
     width: 100%; max-width: none;
     padding: 12px 18px; gap: 14px;
-    order: -1;
+    /* 슬라이드 아래 (MVP_SPEC §5.2). app.css 와 같은 값을 유지한다 */
+    order: 1;
     /* flex:none 이 빠지면 안 된다. 셸이 flex 컬럼이고 뷰어가 1 1 auto 라
        컨트롤은 기본 flex-shrink:1 로 눌린다 — 91px 짜리 내용이 49px 상자에
        갇혀 「발표 시작하기」가 슬라이드 캔버스 뒤로 깔렸다 (1180×820 실측) */

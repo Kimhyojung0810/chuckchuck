@@ -121,7 +121,11 @@ class ScriptedLLM:
     def __init__(self, payload: str):
         self.payload = payload
 
-    def complete(self, *, system, user, temperature=0.2, max_tokens=4096) -> str:
+    # json_mode 는 실제 LLMProvider.complete() 에 있는 인자다 (llm_impl.py:451).
+    # 스텁이 빠뜨리면 f12 가 json_mode=True 로 부르는 순간 TypeError 가 나고,
+    # f12 는 그 예외를 '결석' 으로 삼켜서 엉뚱한 단언에서 깨진다.
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096,
+                 json_mode=False) -> str:
         return self.payload
 
 
@@ -130,7 +134,11 @@ class DeadLLM:
 
     name = "dead"
 
-    def complete(self, *, system, user, temperature=0.2, max_tokens=4096) -> str:
+    # json_mode 는 실제 LLMProvider.complete() 에 있는 인자다 (llm_impl.py:451).
+    # 스텁이 빠뜨리면 f12 가 json_mode=True 로 부르는 순간 TypeError 가 나고,
+    # f12 는 그 예외를 '결석' 으로 삼켜서 엉뚱한 단언에서 깨진다.
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096,
+                 json_mode=False) -> str:
         raise RuntimeError("endpoint down")
 
 
