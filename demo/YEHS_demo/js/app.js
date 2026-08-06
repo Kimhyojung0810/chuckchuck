@@ -463,6 +463,11 @@ let ccLastTake = null;
    가 지우는데, resetNf() 는 모듈 최상위에서 한 번 실행된다 — 선언이 파일
    아래쪽에 있으면 그 시점엔 아직 TDZ 라 신규 세션에서 앱이 통째로 죽는다 */
 let chatterCache = null;
+/* 받는 중인 수다의 promise. 객석은 네 모델이 차례로 말하는 거라 목업으로도
+   70초 넘게 걸린다 — 누른 뒤에 받기 시작하면 부스에서 그만큼 멈춰 있다.
+   청중 반응 탭을 열 때 미리 받아 두고, 누르면 이 약속을 기다린다.
+   두 번 부르지 않으려고 cache 와 따로 둔다 */
+let chatterPending = null;
 
 /** 업로드한 원본 슬라이드 (메모리). 리허설 화면에 페이지 렌더용 */
 let uploadedPdf = null; // { file, pdf, pageCount }
@@ -537,6 +542,7 @@ function resetNf() {
   // 수다도 테이크에 딸린 것이다. 안 지우면 자료 A 의 객석이 자료 B 에서 재생되고,
   // currentShow() 가 A 의 absent 를 B 의 티켓에 빈 도장으로 찍는다
   chatterCache = null;
+  chatterPending = null;
   setUploadedPdf(null);
   pdfRenderToken += 1;
   saveSession('new-flow', nf);
@@ -2199,6 +2205,7 @@ function nfStep4() {
     ccRuntime = null;
     ccLastTake = null;
     chatterCache = null;
+  chatterPending = null;
     nf.mic = 'idle';
     nf.sec = 0;
     nf.marks = null;
@@ -2439,6 +2446,8 @@ async function renderReport() {
     return;
   }
   app.className = 'wide';
+  // 객석 수다는 70초쯤 걸린다. 여기서부터 받아 두면 요약·판정을 보는 동안 채워진다
+  prefetchChatter();
   const s = reportSessionMeta();
   const v = reportVerdict();
   const tabs = ['요약', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
@@ -3110,6 +3119,22 @@ function rAudience() {
   }
   const open = $('#audOpen');
   if (open) open.addEventListener('click', openAudience);
+  if (!blocked) prefetchChatter();
+}
+
+/**
+ * 객석 수다를 미리 받아 둔다. 네 모델이 차례로 말하는 거라 목업으로도 70초가
+ * 넘게 걸려서, 「객석 들어가기」를 누른 뒤에 받기 시작하면 그동안 화면이 멈춘다.
+ * 리포트를 열 때부터 받아 두면 사람이 요약·판정을 보는 동안 채워진다.
+ * 실패는 삼키지 않고 pending 만 풀어 준다 — 누를 때 openAudience 가 다시 부르고,
+ * 그때 실패 문구를 판정 색으로 보여준다 (CLAUDE.md 4)
+ */
+function prefetchChatter() {
+  if (chatterCache || chatterPending || !window.Chatter) return;
+  const b = pipelineBundle();
+  if (!b) return;
+  chatterPending = window.Chatter.fetchChatter(b.graph, b.alignment, b.flow);
+  chatterPending.catch(() => { chatterPending = null; });
 }
 
 /* ---------------------------------------------------------------------------
@@ -3148,7 +3173,11 @@ function audienceBlockReason() {
     + '청중은 판정 결과를 놓고 수군거리는 거라, 거기까지 끝나야 열려요.';
 }
 
+/* 여는 동안 한 번 더 누르면 70초짜리 요청이 두 번 나간다 */
+let audienceOpening = false;
+
 async function openAudience() {
+  if (audienceOpening) return;
   const card = $('#audCard');
   const bundle = pipelineBundle();
   if (!bundle) {
@@ -3178,11 +3207,14 @@ async function openAudience() {
     el.classList.toggle('is-failed', !!failed);
   };
   say('객석에서 수군거리는 중...', false);
+  audienceOpening = true;
   try {
     if (!chatterCache) {
-      chatterCache = await window.Chatter.fetchChatter(
+      // 탭을 열 때 미리 받기 시작했으면 그 약속을 기다린다 (두 번 부르지 않는다)
+      chatterCache = await (chatterPending || window.Chatter.fetchChatter(
         bundle.graph, bundle.alignment, bundle.flow
-      );
+      ));
+      chatterPending = null;
       // 누가 못 왔는지는 객석을 열어봐야 안다. 티켓의 빈 도장이 여기서 확정된다
       recordShow();
     }
@@ -3204,6 +3236,8 @@ async function openAudience() {
     say('발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?', false);
   } catch (err) {
     say((err && err.message) || '객석을 여는 데 실패했어요. 잠시 뒤에 다시 누르면 열 수 있어요.', true);
+  } finally {
+    audienceOpening = false;
   }
 }
 

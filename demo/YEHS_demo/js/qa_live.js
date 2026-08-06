@@ -65,6 +65,9 @@ function newLiveState(sessionId, questions) {
     turns: [],
     hintLevel: 0,
     lastJudgement: null,
+    // 판정 직후 곧바로 다음 질문으로 넘기지 않는다. 사용자가 자기 답과
+    // 완성 답의 차이를 한 화면에서 확인한 뒤 직접 다음으로 간다.
+    checkpoint: null,
     busy: false,
     // 직전 판정 요청이 실패했는가. 참이면 서버 없이 넘어갈 출구를 연다.
     judgeFailed: false,
@@ -155,34 +158,44 @@ function presentLiveQuestion() {
 function renderQaLive() {
   const L = qa.live;
   if (qa.ended || L.qi >= L.questions.length) return qaLiveEnd();
+  if (L.checkpoint) return renderLiveCheckpoint();
   qa.started = true;
   presentLiveQuestion();
   saveSession('qa-flow', qa);
   const q = L.questions[L.qi];
   const hints = liveHints();
   const won = liveWonCount(L.results);
-  const prog = Math.round(L.qi / L.questions.length * 100);
+  const prog = Math.round((L.qi + .35) / L.questions.length * 100);
+  const learningStep = L.turn ? 3 : (L.hintLevel ? 2 : 1);
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
     <div class="qa-shell">
       <aside class="qa-context">
-    <div class="persuade-track" style="--p:${prog}%">
-      <div class="pt-head"><span>실전 질문 코칭 · 내 자료 기준</span>
-        <span class="pt-right"><b>${won}<i>/${L.questions.length} 설득</i></b></span></div>
-    </div>
+        <div class="qa-loop-card">
+          <span class="qa-loop-kicker">질문 ${L.qi + 1} · ${L.questions.length}개 중</span>
+          <h2>${L.qi + 1}개만 끝내도<br><b>답변 하나가 완성돼요</b></h2>
+          <div class="qa-loop-steps" aria-label="학습 단계">
+            <div class="${learningStep >= 1 ? 'on' : ''}"><i>${learningStep > 1 ? '✓' : '1'}</i><span><b>질문 이해</b><small>핵심을 잡아요</small></span></div>
+            <div class="${learningStep >= 2 ? 'on' : ''}"><i>${learningStep > 2 ? '✓' : '2'}</i><span><b>힌트로 정리</b><small>막히면 한 칸만</small></span></div>
+            <div class="${learningStep >= 3 ? 'on' : ''}"><i>3</i><span><b>내 말로 답하기</b><small>코치가 바로 다듬어요</small></span></div>
+          </div>
+          <div class="qa-loop-score"><span>지금까지 완성한 답</span><b>${won}개</b></div>
+        </div>
+        <div class="persuade-track" style="--p:${prog}%"><i></i></div>
       </aside>
       <section class="qa-dialog">
     <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
     <div class="card qa-live-input">
+      <div class="qa-input-label"><b>내 말로 답해보세요</b><span>한 문장만 말해도 괜찮아요</span></div>
       <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
-        placeholder="상대를 설득한다는 생각으로, 자기 말로 답해보세요 (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
+        placeholder="예: 이 방법의 핵심은 …이에요"></textarea>
       <div class="step-actions">
-        <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${L.busy ? '판정 중…' : (L.turn ? '다시 답해보기' : '답변 보내기')}</button>
+        <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${L.busy ? '답변 살펴보는 중…' : (L.turn ? '보완해서 다시 답하기' : '이 답변 확인하기')}</button>
         ${micBtnHTML(L.busy)}
         <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>${stuckLabel()}</button>
         ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
         ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 넘어가기</button>` : ''}
-        <button class="btn btn-text" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>코칭 끝내고 리포트</button>
+        <button class="btn btn-text qa-exit-action" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>여기까지 하고 저장</button>
       </div>
     </div>
       </section>
@@ -222,6 +235,64 @@ function renderQaLive() {
   if (revealBtn) revealBtn.addEventListener('click', () => revealLiveAnswer());
   const finishBtn = $('#liveFinish');
   if (finishBtn) finishBtn.addEventListener('click', () => finishLiveQaEarly());
+}
+
+/** 판정 직후의 학습 화면. 대화 로그 대신 변화 하나만 크게 보여 준다. */
+function renderLiveCheckpoint() {
+  const L = qa.live;
+  const C = L.checkpoint;
+  const q = L.questions[L.qi];
+  const v = C.verdict || {};
+  const passed = !!C.record.passed;
+  const score = Math.max(0, Math.min(100, Math.round(v.score || 0)));
+  const missing = (v.missing_points || []).filter(Boolean).slice(0, 2);
+  const modelAnswer = q.answer_gist || v.explanation || v.summary_sentence || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
+  const nextLabel = L.qi + 1 >= L.questions.length ? '결과 확인하기' : `다음 질문으로 · ${L.qi + 2}/${L.questions.length}`;
+  app.innerHTML = `
+    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 ${L.qi + 1}/${L.questions.length}</span></div>
+    <main class="qa-checkpoint">
+      <div class="qa-check-hero ${passed ? 'is-pass' : 'is-learn'}">
+        <span class="qa-check-icon">${passed ? '✓' : '↑'}</span>
+        <p>${passed ? '내 말로 지켜냈어요' : '이 한 조각만 챙기면 돼요'}</p>
+        <h1>${passed ? escapeHtml(q.label || '답변 완성') : escapeHtml(missing[0] || q.label || '핵심 근거 보완')}</h1>
+        ${score ? `<div class="qa-score-pill">답변 완성도 <b>${score}%</b></div>` : ''}
+      </div>
+      <section class="qa-compare-card">
+        <div class="qa-compare-row mine">
+          <span>내가 한 답</span>
+          <p>${escapeHtml(C.answer || '(답을 확인했어요)')}</p>
+        </div>
+        <div class="qa-compare-arrow" aria-hidden="true">↓</div>
+        <div class="qa-compare-row coach">
+          <span>${passed ? '기억할 한 문장' : '이렇게 말하면 완성'}</span>
+          <p>${escapeHtml(modelAnswer)}</p>
+        </div>
+        ${missing.length ? `<div class="qa-memory-chips">${missing.map((x) => `<span># ${escapeHtml(x)}</span>`).join('')}</div>` : ''}
+      </section>
+      <p class="qa-check-note">외우지 않아도 괜찮아요. 다음 질문에서 다시 꺼내게 해드려요.</p>
+      <div class="qa-check-actions">
+        <button class="btn btn-primary" id="liveNext" type="button">${nextLabel}</button>
+        ${passed ? '' : '<button class="btn btn-text" id="liveRetry" type="button">이 질문 한 번 더 답하기</button>'}
+      </div>
+    </main>`;
+  $('#liveNext').addEventListener('click', completeLiveCheckpoint);
+  const retry = $('#liveRetry');
+  if (retry) retry.addEventListener('click', () => {
+    L.checkpoint = null;
+    saveSession('qa-flow', qa);
+    renderQaLive();
+  });
+  window.scrollTo(0, 0);
+}
+
+function completeLiveCheckpoint() {
+  const L = qa.live;
+  if (!L || !L.checkpoint) return;
+  const record = L.checkpoint.record;
+  L.checkpoint = null;
+  closeLiveQuestion(record);
+  saveSession('qa-flow', qa);
+  renderQaLive();
 }
 
 /** 남은 질문을 넘김 처리하고 결과 → 리포트 CTA 화면으로 */
@@ -449,11 +520,14 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
 
 function closeLiveCoached(q, v, answer) {
   if (v.explanation) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(v.explanation) });
-  closeLiveQuestion({
-    id: q.id, label: q.label, question: q.question, answer,
-    verdict: 'unknown', score: 0, passed: false, gaveUp: true,
-    summary: v.summary_sentence || '', revealed: true, coached: true,
-  });
+  qa.live.checkpoint = {
+    answer, verdict: v,
+    record: {
+      id: q.id, label: q.label, question: q.question, answer,
+      verdict: 'unknown', score: 0, passed: false, gaveUp: true,
+      summary: v.summary_sentence || '', revealed: true, coached: true,
+    },
+  };
 }
 
 /**
@@ -498,11 +572,14 @@ function finishLiveQuestion(q, v, answer) {
     pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
   }
   if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  closeLiveQuestion({
-    id: q.id, label: q.label, question: q.question, answer,
-    verdict: v.verdict, score: v.score || 0, passed: !!v.passed,
-    summary: v.summary_sentence || '',
-  });
+  qa.live.checkpoint = {
+    answer, verdict: v,
+    record: {
+      id: q.id, label: q.label, question: q.question, answer,
+      verdict: v.verdict, score: v.score || 0, passed: !!v.passed,
+      summary: v.summary_sentence || '',
+    },
+  };
 }
 
 function revealLiveAnswer() {
@@ -512,11 +589,14 @@ function revealLiveAnswer() {
   const last = L.turns[L.turns.length - 1] || {};
   pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 여기까지. 답을 보고 넘어갈게요` });
   if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  closeLiveQuestion({
-    id: q.id, label: q.label, question: q.question, answer: last.answer || '',
-    verdict: v.verdict || 'unknown', score: v.score || 0, passed: !!v.passed,
-    summary: v.summary_sentence || '', revealed: true,
-  });
+  L.checkpoint = {
+    answer: last.answer || '', verdict: v,
+    record: {
+      id: q.id, label: q.label, question: q.question, answer: last.answer || '',
+      verdict: v.verdict || 'unknown', score: v.score || 0, passed: !!v.passed,
+      summary: v.summary_sentence || '', revealed: true,
+    },
+  };
   saveSession('qa-flow', qa);
   renderQaLive();
 }

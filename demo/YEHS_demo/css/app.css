@@ -1759,6 +1759,96 @@ table.plain tr:last-child td { border-bottom: 0; }
 /* 3열 그리드로는 left/contents/right 가 안 읽힌다. 한 줄에 하나씩 쌓는다 */
 .qa-modes { grid-template-columns: 1fr; gap: 8px; }
 
+/* ── 질문 코치 학습 루프 ──────────────────────────────────────
+   대화창의 기능 목록을 보여 주는 대신, 지금 무엇을 배우는지 한눈에 보이게 한다. */
+.qa-loop-card {
+  padding: 24px; border-radius: 24px; background: var(--surface);
+  box-shadow: 0 10px 34px rgba(20, 33, 61, .08);
+}
+.qa-loop-kicker {
+  display: block; margin-bottom: 10px; color: var(--brand);
+  font-size: 13px; font-weight: 700;
+}
+.qa-loop-card h2 { margin: 0; font-size: 22px; line-height: 1.42; letter-spacing: -.03em; }
+.qa-loop-card h2 b { color: var(--brand); }
+.qa-loop-steps { display: flex; flex-direction: column; gap: 6px; margin-top: 24px; }
+.qa-loop-steps > div {
+  display: flex; align-items: center; gap: 12px; padding: 11px 10px;
+  border-radius: 14px; color: var(--text-3); transition: .2s ease;
+}
+.qa-loop-steps i {
+  display: grid; place-items: center; width: 28px; height: 28px; flex: none;
+  border-radius: 50%; background: var(--fill); font-size: 12px; font-style: normal; font-weight: 700;
+}
+.qa-loop-steps span { display: flex; flex-direction: column; }
+.qa-loop-steps b { font-size: 14px; }
+.qa-loop-steps small { margin-top: 1px; font-size: 12px; }
+.qa-loop-steps > .on { background: var(--blue-weak); color: var(--text); }
+.qa-loop-steps > .on i { background: var(--brand); color: #fff; }
+.qa-loop-steps > .on small { color: var(--blue-strong); }
+.qa-loop-score {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
+  color: var(--text-2); font-size: 13px;
+}
+.qa-loop-score b { color: var(--text); font-size: 17px; }
+.qa-context > .persuade-track { height: 6px; padding: 0; overflow: hidden; background: var(--fill); border-radius: 999px; }
+.qa-context > .persuade-track > i { display: block; width: var(--p); height: 100%; background: var(--brand); border-radius: inherit; transition: width .35s ease; }
+.qa-input-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.qa-input-label b { font-size: 15px; }
+.qa-input-label span { color: var(--text-3); font-size: 12px; }
+.qa-live-input textarea { min-height: 82px; background: #F8F9FA; border-color: transparent; }
+.qa-live-input textarea:focus { background: var(--surface); border-color: var(--brand); }
+.qa-live-input .step-actions .qa-exit-action { margin-left: auto; color: var(--text-3); }
+
+/* 한 문제를 끝낼 때마다 멈추는 변화 확인 화면. */
+.qa-checkpoint { width: min(680px, calc(100% - 32px)); margin: 18px auto 44px; }
+.qa-check-hero { text-align: center; padding: 24px 12px 20px; }
+.qa-check-icon {
+  display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 14px;
+  border-radius: 50%; background: #E8F7F0; color: #0B8A55; font-size: 24px; font-weight: 800;
+  animation: qaCheckPop .35s cubic-bezier(.2, .8, .2, 1);
+}
+.qa-check-hero.is-learn .qa-check-icon { background: var(--blue-weak); color: var(--brand); }
+.qa-check-hero p { margin: 0 0 5px; color: var(--text-2); font-size: 14px; font-weight: 600; }
+.qa-check-hero h1 { margin: 0; font-size: clamp(24px, 4vw, 34px); line-height: 1.3; letter-spacing: -.04em; }
+.qa-score-pill {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 13px; padding: 7px 12px;
+  border-radius: 999px; background: var(--fill); color: var(--text-2); font-size: 13px;
+}
+.qa-score-pill b { color: var(--brand); }
+.qa-compare-card {
+  padding: 22px; border-radius: 24px; background: var(--surface);
+  box-shadow: 0 12px 38px rgba(20, 33, 61, .09);
+}
+.qa-compare-row > span {
+  display: block; margin-bottom: 7px; color: var(--text-3);
+  font-size: 12px; font-weight: 700;
+}
+.qa-compare-row p { margin: 0; font-size: 16px; line-height: 1.65; word-break: keep-all; }
+.qa-compare-row.mine p { color: var(--text-2); }
+.qa-compare-row.coach {
+  padding: 17px 18px; border-radius: 16px; background: var(--blue-weak);
+}
+.qa-compare-row.coach > span { color: var(--blue-strong); }
+.qa-compare-row.coach p { color: var(--text); font-weight: 650; }
+.qa-compare-arrow { padding: 10px 0; color: var(--brand); text-align: center; font-size: 20px; }
+.qa-memory-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.qa-memory-chips span { padding: 6px 9px; border-radius: 8px; background: var(--fill); color: var(--text-2); font-size: 12px; }
+.qa-check-note { margin: 14px 0 0; color: var(--text-3); text-align: center; font-size: 13px; }
+.qa-check-actions { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; }
+.qa-check-actions .btn-primary { width: 100%; }
+@keyframes qaCheckPop { from { opacity: 0; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }
+
+@media (max-width: 760px) {
+  .qa-loop-card { padding: 18px; }
+  .qa-loop-card h2 { font-size: 19px; }
+  .qa-input-label { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .qa-live-input .step-actions .qa-exit-action { margin-left: 0; }
+  .qa-checkpoint { width: calc(100% - 24px); }
+  .qa-compare-card { padding: 16px; border-radius: 20px; }
+}
+
 /* ── 버튼 위계 ────────────────────────────────────────────────
    TDS 는 size 4단(small·medium·large·xlarge)이다 (TDS.md:2412).
    우리는 3단이면 충분한데, 지금까지 .btn(46) 과 .btn-sm(44) 뿐이라
