@@ -509,3 +509,18 @@
 @media (prefers-reduced-motion: reduce) {
   .home-list, .qa-dialog .qa-stream, .slide-film { scroll-behavior: auto; }
 }
+
+/* 실전 질문 코칭 결과 — 가로형에서 한 화면에 담는다.
+   여섯 행 + 세 묶음이면 세로 예산을 넘겨서, 내용은 두고 여백만 조인다 */
+@media (min-width: 900px) {
+  main.narrow:has(.qres) { display: flex; flex-direction: column; }
+  .qres { margin-block: auto; }
+  .qres-head { font-size: 20px; line-height: 1.4; }
+  .qres-head b { font-size: 26px; }
+  .qres-sub { margin-top: 6px; font-size: 13.5px; }
+  .qres-group { margin-top: 12px; }
+  .qres-gh { padding-bottom: 6px; }
+  .qres-row { padding: 8px 4px; min-height: 44px; }
+  .qres-main small { margin-top: 1px; }
+  .cere-actions { margin-top: 12px; }
+}

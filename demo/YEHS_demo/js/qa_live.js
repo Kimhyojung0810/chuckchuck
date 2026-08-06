@@ -560,27 +560,64 @@ function qaLiveEnd() {
   const won = liveWonCount(L.results);
   const chipCls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' };
   const chipWord = { good: '설득 완료', partial: '부분 인정', wrong: '미방어', unknown: '보류', skipped: '넘김' };
+  /* 결과를 상태로 묶는다. 섞어 두면 "어디부터 손대야 하는지" 가 안 보인다.
+     순서는 사용자가 다음에 할 일 순 — 다시 볼 것 → 넘긴 것 → 이미 지킨 것 */
+  const bucketOf = (r) => {
+    if (r.revealed || r.verdict === 'skipped') return 'skipped';
+    if (r.verdict === 'good' || r.verdict === 'partial') return 'won';
+    return 'redo';
+  };
+  const GROUPS = [
+    { key: 'redo', title: '다시 볼 질문', hint: '자료엔 있는데 말로 못 지킨 것' },
+    { key: 'skipped', title: '넘긴 질문', hint: '답을 보거나 건너뛴 것' },
+    { key: 'won', title: '지켜낸 질문', hint: '자기 말로 방어한 것' },
+  ];
+  const grouped = { redo: [], skipped: [], won: [] };
+  (L.results || []).forEach((r, i) => grouped[bucketOf(r)].push({ r, i }));
+  const redoCount = grouped.redo.length + grouped.skipped.length;
+
+  /* 질문 원문은 길고 여섯 개가 다 "…설명해 주시겠어요?" 로 끝나 벽처럼 읽힌다.
+     제목은 개념 이름으로, 질문은 한 줄로 줄여 보조 텍스트에 둔다 (TDS ListRow 2RowTypeA) */
+  const oneLine = (s) => {
+    const t = String(s || '').replace(/\s+/g, ' ').trim();
+    return t.length > 62 ? `${t.slice(0, 61)}…` : t;
+  };
+  const rowHtml = ({ r, i }) => `
+    <button class="qres-row" type="button" data-qi="${i}">
+      <span class="qres-main">
+        <b>${escapeHtml(r.label || `질문 ${i + 1}`)}</b>
+        <small>${escapeHtml(oneLine(r.summary || r.question))}</small>
+      </span>
+      <span class="qres-side">
+        <span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? '답 확인' : (chipWord[r.verdict] || r.verdict)}</span>
+        ${r.turns ? `<em class="qres-meta">${r.turns}번 만에${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</em>` : ''}
+      </span>
+      <span class="qres-chev" aria-hidden="true">›</span>
+    </button>`;
+
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>코칭 기록 저장됨</span></div>
-    <div class="card cere-card">
-      <div class="cere-row-head">
-        <span class="cere-label">실전 질문 코칭 결과</span>
-        <b class="cere-count num">${won} <i>/</i> ${L.questions.length}</b>
-      </div>
-      <div class="cere-sums">
-        ${L.results.map((r) => `<div class="qsum-row">
-          <b><span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? '답 확인' : (chipWord[r.verdict] || r.verdict)}</span> ${escapeHtml(r.label || '')}</b>
-          <p>${escapeHtml(r.summary || r.question || '')}</p>
-          ${r.turns ? `<span class="qsum-meta">${r.turns}번 만에 방어${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</span>` : ''}
-        </div>`).join('') || '<p class="note">기록이 없어요.</p>'}
-      </div>
-      <p class="cere-hint">이 총평이 상세 리포트로 이어져요 — 미방어·넘긴 질문부터 다시 보세요</p>
+    <div class="card cere-card qres">
+      <p class="qres-eyebrow">실전 질문 코칭 결과</p>
+      <!-- 숫자는 아래 묶음과 반드시 같아야 한다. liveWonCount 는 부분 인정을
+           빼고 세기 때문에 화면의 「지켜낸 질문」 개수와 어긋난다 -->
+      <h1 class="qres-head"><b class="num">${grouped.won.length}</b>개를 자기 말로 지켰고,
+        <b class="num qres-redo">${redoCount}</b>개가 남았어요</h1>
+      <p class="qres-sub">남은 질문은 상세 리포트에서 근거 발화와 함께 다시 볼 수 있어요.</p>
+      ${L.results.length ? GROUPS.map((g) => (grouped[g.key].length ? `
+        <div class="qres-group">
+          <div class="qres-gh"><b>${g.title}</b><span class="num">${grouped[g.key].length}</span><small>${g.hint}</small></div>
+          ${grouped[g.key].map(rowHtml).join('')}
+        </div>` : '')).join('')
+        : '<p class="note">첫 질문에 답하면 여기에 쌓여요.</p>'}
     </div>
     <div class="cere-actions">
       <a class="btn btn-primary" href="#/report">상세 리포트 보기</a>
       <button class="btn btn-text" id="liveAgain" type="button">같은 질문으로 다시</button>
       <a class="btn btn-text" href="#/">홈으로</a>
     </div>`;
+  /* 행 전체가 눌린다 — TDS ListRow 는 누를 수 있으면 화살표와 터치 효과를 준다 */
+  $$('.qres-row').forEach((el) => el.addEventListener('click', () => { location.hash = '#/report'; }));
   const again = $('#liveAgain');
   if (again) again.addEventListener('click', () => {
     const keep = qa.live;
