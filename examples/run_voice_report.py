@@ -96,7 +96,8 @@ def main() -> int:
     print("--- Habits ---")
     print(f"REP={habits.repeat_cnt} FIL={habits.filler_cnt} PAUSE={habits.pause_cnt} ({habits.provider})")
     print("--- Report ---")
-    print(f"[{report.grade}] {report.score} · {report.one_liner}")
+    # 점수는 채점표(F-14)가 매긴다. 여기서는 rubric 을 안 넘기므로 0 이 정상이다.
+    print(report.one_liner)
     for a in report.actions:
         print(f"  · {a}")
     print("wrote", args.out)

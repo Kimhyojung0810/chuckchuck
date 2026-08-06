@@ -40,6 +40,10 @@ from .contracts import (
     QuestionError,
     ReportDoc,
     ReportError,
+    RubricClusterScore,
+    RubricError,
+    RubricItemScore,
+    RubricScore,
     STTError,
     Section,
     SlideDoc,
@@ -62,6 +66,7 @@ from .f11_align import align_speech
 from .f11_flow import build_flow_diff
 from .f12_chatter import build_chatter
 from .f13_score import score_presentation
+from .f14_rubric import from_legacy_score, score_rubric
 from .f17_pace import analyze_pace
 from .f18_habits import extract_habits
 from .f19_report import compose_report
@@ -101,6 +106,10 @@ __all__ = [
     "QuestionError",
     "ReportDoc",
     "ReportError",
+    "RubricClusterScore",
+    "RubricError",
+    "RubricItemScore",
+    "RubricScore",
     "STTError",
     "Section",
     "SlideDoc",
@@ -127,6 +136,8 @@ __all__ = [
     "parse_document",
     "qa_passed",
     "score_presentation",
+    "score_rubric",
+    "from_legacy_score",
     "settings",
     "sparse_slide_numbers",
     "speech_for_slide",

@@ -377,27 +377,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   }
 
 
-  // F-13 점수 — LLM 없는 결정적 계산
+  // 점수는 F-14 채점표가 매긴다. 말 속도·습관까지 있어야 39개 항목이 다 채워지므로
+  // F-17·18 뒤로 옮겼다 (아래 참조).
   let score = null;
-  if (alignment) {
-    try {
-      report('score', '발표 점수 계산 중', { transcript, concepts, graph, alignment, flow });
-      const sRes = await fetch(apiBase() + '/api/v1/score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alignment, flow }),
-      });
-      score = await readJson(sRes, "score");
-      if (!sRes.ok || score.error) {
-        throw new Error(score.message || score.error || `score HTTP ${sRes.status}`);
-      }
-      report('score_done', `${score.score}점 (${score.basis})`,
-        { transcript, concepts, graph, alignment, flow, score });
-    } catch (err) {
-      score = null;
-      report('score_error', err.message || String(err), { transcript, concepts, graph, alignment, flow });
-    }
-  }
 
   // F-17·18·19 — 음성 습관·시간 배분·종합 리포트 (실패해도 STT까지는 유지)
   // callers: app.js runPreparePipeline onProgress / then; APIs /api/v1/pace|habits|report
@@ -438,13 +420,46 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       transcript, concepts, graph, alignment, flow, pace, habits,
     });
 
+    // F-14 채점표 v3 — 39개 항목·7개 클러스터를 발표 상황 가중치로 묶는다.
+    // 앞 단계가 일부 실패해도 부른다. 없는 자료에 기대는 항목만 '못 쟀다'가 되고
+    // 나머지는 정상 채점되므로, 여기서 미리 막으면 오히려 점수가 안 뜬다.
+    try {
+      report('score', '채점표로 점수 매기는 중 (F-14)', {
+        transcript, concepts, graph, alignment, flow, pace, habits,
+      });
+      const sRes = await fetch(apiBase() + '/api/v1/rubric', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          situation: (context || {}).situation || '',
+          context: context || {},
+          slides: slideDoc || null,
+          concepts, graph, transcript: slim, alignment, flow, pace, habits,
+        }),
+      });
+      score = await readJson(sRes, "rubric");
+      if (!sRes.ok || score.error) {
+        throw new Error(score.message || score.error || `rubric HTTP ${sRes.status}`);
+      }
+      report('score_done', `${score.score}점 · ${score.situation_label}`, {
+        transcript, concepts, graph, alignment, flow, pace, habits, score,
+      });
+    } catch (err) {
+      // 점수가 없어도 나머지 화면은 살린다 — 치명적이지 않다
+      score = null;
+      report('score_error', err.message || String(err), {
+        transcript, concepts, graph, alignment, flow, pace, habits,
+      });
+    }
+
     report('voice_report', '종합 진단 리포트 작성 중 (F-19)', {
-      transcript, concepts, graph, alignment, flow, pace, habits,
+      transcript, concepts, graph, alignment, flow, pace, habits, score,
     });
     const rRes = await fetch(apiBase() + '/api/v1/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pace, habits, context: context || {} }),
+      // 점수는 채점표가 진실이다 — F-19 가 두 번째 점수를 만들지 않게 같이 보낸다
+      body: JSON.stringify({ pace, habits, rubric: score, context: context || {} }),
     });
     voiceReport = await readJson(rRes, "report");
     if (!rRes.ok || voiceReport.error) {
@@ -548,7 +563,41 @@ export function setQaApiBase(url) {
   } catch (_) { /* storage unavailable */ }
 }
 
-async function qaApi(path, { method = 'GET', json, form } = {}) {
+/** 판정 한계 시간. 없으면 「판정 중…」에서 버튼이 전부 잠긴 채 출구가 없다. */
+const QA_TIMEOUT_MS = 30000;
+
+/** 질문 생성 한계 시간. 없으면 화면이 영원히 로딩에 갇힌다. */
+const QUESTIONS_TIMEOUT_MS = 60000;
+
+/** 받아쓰기 한계 시간. 없으면 마이크 버튼이 「받아쓰는 중…」에 갇힌다. */
+const TRANSCRIBE_TIMEOUT_MS = 60000;
+
+/**
+ * 답변 녹음 최대 길이. 답변 하나는 원래 짧다 — 무한정 녹음하다 업로드 한도(30MB)에
+ * 부딪혀 413 으로 죽는 것보다, 스스로 끊고 받아쓰는 편이 낫다.
+ */
+const ANSWER_RECORD_MAX_MS = 90000;
+
+/**
+ * 타임아웃이 있는 fetch. 응답이 안 오는 경우를 **반드시** 오류로 끝낸다 —
+ * 매달린 요청은 화면의 busy 플래그를 영영 안 풀어 준다.
+ */
+async function fetchWithTimeout(url, opts, timeoutMs, label) {
+  const control = new AbortController();
+  const timer = setTimeout(() => control.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: control.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`${label}이(가) ${Math.round(timeoutMs / 1000)}초 안에 끝나지 않았어요.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function qaApi(path, { method = 'GET', json, form, timeoutMs = QA_TIMEOUT_MS } = {}) {
   const opts = { method };
   if (json !== undefined) {
     opts.headers = { 'Content-Type': 'application/json' };
@@ -556,45 +605,58 @@ async function qaApi(path, { method = 'GET', json, form } = {}) {
   } else if (form) {
     opts.body = form;
   }
-  const res = await fetch(qaApiBase() + path, opts);
+  const res = await fetchWithTimeout(qaApiBase() + path, opts, timeoutMs, '요청');
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) {
     const d = data.detail && typeof data.detail === 'object' ? data.detail : data;
-    throw new Error(d.message || d.error || `HTTP ${res.status}`);
+    const err = new Error(d.message || d.error || `HTTP ${res.status}`);
+    err.code = d.error || '';
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
 
-/** 질문 생성 한계 시간. 없으면 화면이 영원히 로딩에 갇힌다. */
-const QUESTIONS_TIMEOUT_MS = 60000;
+/**
+ * 세션 아티팩트를 브리지에 한 번 등록한다.
+ *
+ * 등록해 두면 질문 생성·판정이 `session_id` 만 보내면 된다. 판정마다 그래프·발화를
+ * 통째로 다시 올리던 것을 없애는 자리다. 브리지를 재시작하면 사라지므로,
+ * 호출부는 `session_missing` 을 받으면 다시 등록하고 재시도한다.
+ */
+export async function registerSessionArtifacts(sessionId, artifacts) {
+  if (!sessionId) throw new Error('session_id 가 필요해요.');
+  const { graph, alignment, flow, transcript, context } = artifacts || {};
+  return qaApi('/api/v1/session/artifacts', {
+    method: 'POST',
+    json: {
+      session_id: sessionId,
+      graph: graph || null,
+      alignment: alignment || null,
+      flow: flow || null,
+      transcript: transcript ? slimTranscript(transcript) : null,
+      context: context || null,
+    },
+  });
+}
 
 /** F-08: 내 그래프·정합으로 예상 질문을 만든다 (플랫 경로) */
-export async function buildQuestions({ graph, alignment, flow, transcript, context, track }) {
-  const control = new AbortController();
-  const timer = setTimeout(() => control.abort(), QUESTIONS_TIMEOUT_MS);
-  let res;
-  try {
-    res = await fetch(apiBase() + '/api/v1/questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        graph,
-        alignment,
-        flow: flow || null,
-        transcript: transcript ? slimTranscript(transcript) : null,
-        context: context || {},
-        track: track || '10',
-      }),
-      signal: control.signal,
-    });
-  } catch (err) {
-    if (err && err.name === 'AbortError') {
-      throw new Error(`질문 생성이 ${Math.round(QUESTIONS_TIMEOUT_MS / 1000)}초 안에 끝나지 않았어요.`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
+export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId }) {
+  // apiBase() 를 빼면 안 된다 — fetchWithTimeout 은 URL 을 그대로 쓴다.
+  // 같은 오리진에서는 멀쩡히 돌지만 프론트/백엔드를 나눠 올리면 404 로 죽는다.
+  const res = await fetchWithTimeout(apiBase() + '/api/v1/questions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId || null,
+      graph,
+      alignment,
+      flow: flow || null,
+      transcript: transcript ? slimTranscript(transcript) : null,
+      context: context || {},
+      track: track || '10',
+    }),
+  }, QUESTIONS_TIMEOUT_MS, '질문 생성');
   const doc = await res.json();
   if (!res.ok || doc.error) {
     throw new Error(doc.message || doc.error || `questions HTTP ${res.status}`);
@@ -604,23 +666,194 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
 
 /**
  * F-09 답변 판정.
- * question 을 같이 보낸다 — 데모 브리지는 세션 저장소가 없어 body.question 폴백으로 판정한다.
+ *
+ * question 을 같이 보낸다 — 브리지가 질문 본문으로 판정하기 때문이다.
+ * **자료 근거(graph·alignment·transcript)도 반드시 실린다.** 없으면 "자료와 어긋난다"를
+ * 대조할 원본이 없고 함정 질문의 핵심 규칙(잘못된 전제를 바로잡았는가)이 짐작이 된다.
+ * 평소에는 session_id 로만 보내고, 세션이 날아갔으면(브리지 재시작) 다시 등록하고 재시도한다.
  */
-export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp }) {
-  return qaApi(`/api/v1/sessions/${sessionId || 'flat'}/qa/judge`, {
-    method: 'POST',
-    json: {
-      question_id: questionId,
-      answer,
-      history: history || [],
-      question: question || null,
-      give_up: !!giveUp,
+export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp, artifacts }) {
+  const sid = sessionId || 'flat';
+  const body = {
+    session_id: sid,
+    question_id: questionId,
+    answer,
+    history: history || [],
+    question: question || null,
+    give_up: !!giveUp,
+  };
+  const path = `/api/v1/sessions/${sid}/qa/judge`;
+  try {
+    return await qaApi(path, { method: 'POST', json: body });
+  } catch (err) {
+    // 세션이 비었을 때만 재등록한다. 아티팩트가 아예 없으면 그대로 올린다 —
+    // 근거 없이 조용히 판정하느니 실패가 낫다.
+    if (err.code !== 'session_missing' || !artifacts) throw err;
+    await registerSessionArtifacts(sid, artifacts);
+    return qaApi(path, { method: 'POST', json: body });
+  }
+}
+
+/** 실시간 받아쓰기 언어. 발표는 한국어라 고정한다. */
+const DICTATION_LANG = 'ko-KR';
+
+/** Web Speech API 오류 코드 → 사람 말. 코드를 그대로 보여 주면 뭘 하라는 건지 모른다. */
+const DICTATION_ERRORS = {
+  'not-allowed': '마이크 권한이 없어요.',
+  'service-not-allowed': '브라우저가 받아쓰기를 막았어요.',
+  'audio-capture': '마이크를 찾지 못했어요.',
+  network: '받아쓰기 서버에 닿지 못했어요.',
+};
+
+/** 브라우저가 실시간 받아쓰기를 해 주는가. Chrome·Edge 는 되고 Safari·Firefox 는 안 된다. */
+export function hasLiveDictation() {
+  return typeof (window.SpeechRecognition || window.webkitSpeechRecognition) === 'function';
+}
+
+/**
+ * 말하는 대로 글자가 나오는 실시간 받아쓰기 (Web Speech API).
+ *
+ * `startAnswerRecording` 은 다 말한 뒤 파일을 통째로 올려 STT 를 돌리므로 구조상
+ * 실시간이 안 된다. 이쪽은 브라우저가 확정 전 조각(interim)까지 흘려 주므로
+ * 말하는 중에 글자가 뜬다.
+ *
+ * **대신 브라우저 기능이라 지원이 갈리고, 크롬은 음성을 구글 서버로 보낸다.**
+ * 못 쓰는 브라우저에서는 호출부가 녹음 + 자체 STT 로 되돌아간다.
+ *
+ * @param {{ onText: (parts: {final: string, interim: string}) => void,
+ *           onError: (message: string) => void }} handlers
+ * @returns {{ stop: () => string }} stop 은 확정된 전문을 준다
+ */
+export function startLiveDictation({ onText, onError }) {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (typeof Recognition !== 'function') {
+    throw new Error('이 브라우저는 실시간 받아쓰기를 지원하지 않아요.');
+  }
+  const rec = new Recognition();
+  rec.lang = DICTATION_LANG;
+  rec.continuous = true;       // 한 문장 끝났다고 멈추지 않는다
+  rec.interimResults = true;   // 확정 전 글자도 준다 — 이게 「실시간」의 핵심이다
+
+  let stopped = false;
+  let settled = '';
+
+  rec.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const chunk = e.results[i][0].transcript;
+      if (e.results[i].isFinal) settled += chunk;
+      else interim += chunk;
+    }
+    onText({ final: settled, interim });
+  };
+  rec.onerror = (e) => {
+    // no-speech·aborted 는 알릴 일이 아니다 — 잠깐 말이 없었을 뿐, 곧 이어서 말한다.
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    // 나머지(권한 거부·마이크 없음·네트워크)는 다시 시작해도 같은 오류가 난다.
+    // **여기서 안 끊으면** 크롬이 onerror 뒤에 onend 를 쏘고, onend 가 다시
+    // start() 를 불러 onerror 로 돌아오는 고리가 끝없이 돈다.
+    stopped = true;
+    onError(DICTATION_ERRORS[e.error] || `받아쓰기 오류: ${e.error}`);
+  };
+  rec.onend = () => {
+    // 크롬은 조용하면 제풀에 끊는다. 사용자가 멈춘 게 아니면 다시 잇는다.
+    if (stopped) return;
+    try { rec.start(); } catch (_) { /* 이미 도는 중 */ }
+  };
+  rec.start();
+
+  return {
+    stop() {
+      stopped = true;
+      try { rec.stop(); } catch (_) { /* 이미 멈춤 */ }
+      return settled.trim();
     },
+  };
+}
+
+/**
+ * QA 답변용 마이크 녹음. 리허설 녹음과 달리 슬라이드 구간이 없다 — 짧은 음성
+ * 한 덩이만 받으므로 `RehearsalRecorder` 는 포맷 고르기만 물려 쓴다.
+ *
+ * 반환한 `stop()` 은 녹음이 실제로 끝난 뒤의 Blob 을 준다. `MediaRecorder.stop()`
+ * 은 비동기라 바로 chunks 를 읽으면 마지막 조각이 빠진다.
+ *
+ * @param {{ onAutoStop?: () => void }} [opts]
+ * @returns {Promise<{ maxMs: number, stop: () => Promise<Blob> }>}
+ */
+export async function startAnswerRecording({ onAutoStop } = {}) {
+  if (!navigator.mediaDevices || typeof window.MediaRecorder !== 'function') {
+    throw new Error('이 브라우저는 녹음을 지원하지 않아요.');
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mimeType = (typeof RehearsalRecorder === 'function' && RehearsalRecorder.pickMimeType)
+    ? RehearsalRecorder.pickMimeType()
+    : '';
+  const rec = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const chunks = [];
+  rec.addEventListener('dataavailable', (e) => {
+    if (e.data && e.data.size) chunks.push(e.data);
   });
+
+  let settle = null;
+  const done = new Promise((resolve) => { settle = resolve; });
+  rec.addEventListener('stop', () => {
+    // 트랙을 안 끄면 탭의 「녹음 중」 표시가 계속 켜져 있다
+    stream.getTracks().forEach((t) => t.stop());
+    settle(new Blob(chunks, { type: rec.mimeType || mimeType || 'audio/webm' }));
+  });
+  rec.start();
+
+  const halt = () => {
+    if (rec.state !== 'inactive') {
+      try { rec.stop(); } catch (_) { /* 이미 멈춘 뒤 */ }
+    }
+  };
+  const auto = setTimeout(() => {
+    halt();
+    if (typeof onAutoStop === 'function') onAutoStop();
+  }, ANSWER_RECORD_MAX_MS);
+
+  return {
+    maxMs: ANSWER_RECORD_MAX_MS,
+    stop() {
+      clearTimeout(auto);
+      halt();
+      return done;
+    },
+  };
+}
+
+/**
+ * 답변 녹음 한 덩이 → 텍스트 (F-05). 슬라이드 마크 없이 전문만 쓴다.
+ *
+ * **여기서 답을 보내지 않는다.** 잘못 알아들은 문장을 고칠 틈 없이 판정으로
+ * 넘어가면, 마이크가 타이핑보다 못한 입력이 된다.
+ */
+export async function transcribeAnswer(blob) {
+  if (!blob || !blob.size) throw new Error('녹음된 소리가 없어요.');
+  const res = await fetchWithTimeout(apiBase() + '/api/v1/transcribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      marks: [],
+      audio_base64: await blobToBase64(blob),
+      ext: audioExt({ mimeType: blob.type }),
+    }),
+  }, TRANSCRIBE_TIMEOUT_MS, '받아쓰기');
+  const t = await readJson(res, '받아쓰기');
+  if (!res.ok || t.error) {
+    throw new Error(t.message || t.error || `transcribe HTTP ${res.status}`);
+  }
+  return String(t.full_text || '').trim();
 }
 
 window.ChuckchuckBridge = {
   attachRehearsalRuntime,
+  startAnswerRecording,
+  transcribeAnswer,
+  hasLiveDictation,
+  startLiveDictation,
   parseDocument,
   runPreparePipeline,
   audioExt,
@@ -630,6 +863,7 @@ window.ChuckchuckBridge = {
   setQaApiBase,
   buildQuestions,
   judgeQaAnswer,
+  registerSessionArtifacts,
   RehearsalRecorder,
   PresentationRecorder,
   SlideMarkTracker,

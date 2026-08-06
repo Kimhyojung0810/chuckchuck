@@ -28,8 +28,13 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  /* F-13 항목 ↔ 병아리. app.js 의 SCORE_CHICK 과 같은 배정이다 (§6·§9) */
-  const STAMP_OWNER = { coverage: 'midm', rank: 'ax', edge: 'exaone', order: 'solar' };
+  /* 채점표 클러스터 ↔ 병아리. app.js 의 SCORE_CHICK 과 같은 배정이다 (§6·§9) */
+  const STAMP_OWNER = {
+    content: 'midm', logic: 'midm',
+    audience: 'ax', clarity: 'ax',
+    delivery: 'solar', time: 'solar',
+    visual: 'exaone',
+  };
   const SEAT_ORDER = ['midm', 'solar', 'exaone', 'ax'];
   const NAMES = { midm: '믿:음', solar: '쏠라', exaone: '엑사원', ax: '엑씨' };
   const STAMP_COLOR = {
@@ -85,14 +90,17 @@
 
     const sc = out.score || null;
     const stamps = {};
-    ((sc && sc.components) || []).forEach((c) => {
+    // 채점표는 0~100 이다 (예전 F-13 은 0~1 이었다). 병아리 하나가 클러스터 둘을
+    // 맡으므로 더 낮은 쪽이 이긴다 — 한쪽이 나쁜데 웃는 도장이 찍히면 안 된다.
+    ((sc && sc.clusters) || []).forEach((c) => {
       const who = STAMP_OWNER[c.key];
-      if (!who) return;
-      const raw = Number(c.raw) || 0;
-      // 도장은 그 병아리가 담당한 실지표에서 나온다. 기분을 지어내지 않는다
-      stamps[who] = raw >= 0.75 ? 'happy'
-        : raw >= 0.5 ? 'neutral'
-          : raw >= 0.25 ? 'curious' : 'grumpy';
+      if (!who || c.status !== 'scored') return;
+      const avg = Number(c.average) || 0;
+      const mood = avg >= 75 ? 'happy'
+        : avg >= 50 ? 'neutral'
+          : avg >= 25 ? 'curious' : 'grumpy';
+      const rank = { grumpy: 0, curious: 1, neutral: 2, happy: 3 };
+      if (!(who in stamps) || rank[mood] < rank[stamps[who]]) stamps[who] = mood;
     });
 
     return {
@@ -176,7 +184,7 @@
   }
 
   /**
-   * 회차 티켓. 도장 4개는 그 병아리가 담당한 F-13 실지표에서 나온다.
+   * 회차 티켓. 도장 4개는 그 병아리가 맡은 채점표 클러스터 평균에서 나온다.
    * @returns {HTMLCanvasElement}
    */
   function ticketCanvas(show, { width = 300, scale = 2 } = {}) {
@@ -272,8 +280,8 @@
       return `
         <section class="card pb-wall pb-empty">
           <div class="pb-banner">오늘 개관!</div>
-          <p class="pb-openline">아직 포스터가 한 장도 없어요.<br>
-             병아리 넷도 오늘이 첫 출근이라 두리번거리는 중입니다.</p>
+          <p class="pb-openline">첫 발표를 연습하면 포스터가 한 장 붙어요.<br>
+             병아리 넷도 오늘이 첫 출근이라 두리번거리고 있어요.</p>
         </section>`;
     }
     return `

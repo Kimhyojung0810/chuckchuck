@@ -1597,11 +1597,16 @@ class QaTurn:
     question 으로 적기 때문이다(app.js submitLiveAnswer). 문면으로 세면 되물은
     턴이 다른 질문으로 읽혀 막힘 코칭이 explain 단계로 못 올라간다.
     옛 클라이언트는 이 키 없이 보내므로, 빈 문자열이면 문면 비교로 폴백한다.
+
+    `gave_up` 은 **의사**지 텍스트가 아니다. 「모르겠어요」 버튼을 누른 사실을
+    답변 글에서 역추정하면(`looks_stuck`) 사용자가 뭔가 써 놓고 눌렀을 때 놓친다 —
+    그러면 F-09 막힘 코칭이 explain 단계로 못 올라가 같은 질문에 갇힌다.
     """
     question: str = ""
     answer: str = ""
     verdict: str = QA_VERDICT_FALLBACK
     question_id: str = ""
+    gave_up: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -1609,6 +1614,7 @@ class QaTurn:
             "답변": self.answer,
             "판정": self.verdict,
             "question_id": self.question_id,
+            "포기": self.gave_up,
         }
 
     @classmethod
@@ -1620,6 +1626,7 @@ class QaTurn:
             # 프론트는 넘긴 질문에 'skipped' 를 붙인다 — enum 밖이라 보류로 떨어진다
             verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
             question_id=str(d.get("question_id", "") or ""),
+            gave_up=bool(d.get("포기", d.get("gave_up", False))),
         )
 
 
@@ -1705,6 +1712,194 @@ class QaJudgement:
 
 
 # ---------------------------------------------------------------------------
+# F-14 채점표 채점 (rubric v3)
+# ---------------------------------------------------------------------------
+
+#: 항목 하나의 상태.
+#: - scored: 실제로 매겼다
+#: - situation_excluded: 이 발표 상황에서는 평가하지 않는 항목이다 (채점표 가중치 0)
+#: - unmeasured: 평가해야 할 항목인데 이번 실행에서 못 쟀다 (자료 없음·LLM 실패·음향 없음)
+#:
+#: 뒤의 둘을 한 필드로 합치지 않는다. 화면 문구가 다르다 —
+#: "이 상황에서는 평가하지 않아요" 와 "이번엔 측정할 수 없었어요" 는 다른 말이다.
+RUBRIC_ITEM_STATUSES = ("scored", "situation_excluded", "unmeasured")
+RUBRIC_ITEM_STATUS_FALLBACK = "unmeasured"
+
+#: 클러스터 상태. omitted 면 그 클러스터 가중치를 남은 클러스터에 재분배한다.
+RUBRIC_CLUSTER_STATUSES = ("scored", "omitted")
+
+#: 채점의 완결성.
+#: - full: 잴 수 있는 항목은 다 쟀다 (영구 측정 불가 항목은 계산에서 제외한다)
+#: - partial: 잴 수 있었어야 할 항목을 못 쟀다
+#:
+#: 음량 안정성(25)·핵심 구간 강조(26)는 음향 특징이 없어 언제나 못 잰다. 이 둘까지
+#: partial 로 치면 basis 가 영영 full 이 못 되고, 늘 켜진 경고는 아무도 안 읽는다.
+RUBRIC_BASES = ("full", "partial")
+
+
+@dataclass
+class RubricItemScore:
+    """채점표 항목 하나의 결과. 점수 한 자리를 끝까지 역추적하게 해 주는 단위다."""
+
+    no: int
+    cluster: str = ""
+    name: str = ""
+    status: str = "scored"     # RUBRIC_ITEM_STATUSES
+    score: int = 0             # 0~100. status == "scored" 일 때만 뜻이 있다
+    weight: int = 0            # 이 상황의 내부 가중치 (재분배 전 원본)
+    source: str = ""           # det | llm | na
+    evidence: str = ""         # 발화 인용 또는 수치 근거 한 줄. 비면 점수를 안 쓴다
+    note: str = ""             # 왜 이 점수인지 / 왜 못 쟀는지
+
+    def to_dict(self) -> dict:
+        return {
+            "no": self.no,
+            "cluster": self.cluster,
+            "name": self.name,
+            "status": self.status,
+            "score": self.score,
+            "weight": self.weight,
+            "source": self.source,
+            "evidence": self.evidence,
+            "note": self.note,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricItemScore":
+        status = str(d.get("status", "scored") or "")
+        try:
+            score = int(d.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0
+        try:
+            weight = int(d.get("weight", 0) or 0)
+        except (TypeError, ValueError):
+            weight = 0
+        return cls(
+            no=int(d.get("no", 0) or 0),
+            cluster=str(d.get("cluster", "") or ""),
+            name=str(d.get("name", "") or ""),
+            status=status if status in RUBRIC_ITEM_STATUSES else RUBRIC_ITEM_STATUS_FALLBACK,
+            score=max(0, min(100, score)),
+            weight=max(0, weight),
+            source=str(d.get("source", "") or ""),
+            evidence=str(d.get("evidence", "") or ""),
+            note=str(d.get("note", "") or ""),
+        )
+
+
+@dataclass
+class RubricClusterScore:
+    """클러스터 하나의 가중평균. 리포트 막대 한 줄이 이것이다."""
+
+    key: str
+    name: str = ""
+    weight: int = 0                  # 채점표의 클러스터 가중치(%)
+    effective_weight: float = 0.0    # 재분배 후 실제 적용 비중. 살아 있는 것들의 합이 1.0
+    average: float = 0.0             # 0~100
+    contribution: float = 0.0        # average * effective_weight
+    item_nos: list[int] = field(default_factory=list)   # 평균에 실제로 들어간 항목
+    status: str = "scored"           # RUBRIC_CLUSTER_STATUSES
+
+    def to_dict(self) -> dict:
+        return {
+            "key": self.key,
+            "name": self.name,
+            "weight": self.weight,
+            "effective_weight": round(self.effective_weight, 4),
+            "average": round(self.average, 2),
+            "contribution": round(self.contribution, 2),
+            "item_nos": list(self.item_nos),
+            "status": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricClusterScore":
+        status = str(d.get("status", "scored") or "")
+        return cls(
+            key=str(d.get("key", "") or ""),
+            name=str(d.get("name", "") or ""),
+            weight=int(d.get("weight", 0) or 0),
+            effective_weight=float(d.get("effective_weight", 0.0) or 0.0),
+            average=float(d.get("average", 0.0) or 0.0),
+            contribution=float(d.get("contribution", 0.0) or 0.0),
+            item_nos=[int(x) for x in d.get("item_nos", [])],
+            status=status if status in RUBRIC_CLUSTER_STATUSES else "omitted",
+        )
+
+
+@dataclass
+class RubricScore:
+    """
+    F-14 산출물. 발표 하나의 최종 점수와 그 근거 전부다.
+
+    불변식은 f14_rubric.score_rubric() 이 보장한다:
+    살아 있는 클러스터의 effective_weight 합이 1.0 · score == round(Σ contribution) ·
+    excluded 와 unmeasured 는 서로 섞이지 않음 · 근거(evidence) 없는 점수는 채택하지 않음.
+    """
+
+    score: int = 0
+    situation: str = ""            # 채점 기준이 된 상황 key
+    situation_label: str = ""      # 화면에 그대로 나가는 한글 라벨
+    rubric_version: str = "v3"     # "v3-fallback" 이면 채점표가 아니라 예전 방식으로 매긴 것
+    clusters: list[RubricClusterScore] = field(default_factory=list)
+    items: list[RubricItemScore] = field(default_factory=list)
+    excluded: list[int] = field(default_factory=list)     # 이 상황에서 평가하지 않는 항목 번호
+    unmeasured: list[int] = field(default_factory=list)   # 이번에 못 잰 항목 번호
+    basis: str = "full"            # RUBRIC_BASES
+    model: str = ""
+    note: str = ""                 # 사용자에게 보일 한 줄 (상황 추정·폴백·전부 못 잼 등)
+
+    def item(self, no: int) -> "RubricItemScore | None":
+        for it in self.items:
+            if it.no == no:
+                return it
+        return None
+
+    def cluster(self, key: str) -> "RubricClusterScore | None":
+        for c in self.clusters:
+            if c.key == key:
+                return c
+        return None
+
+    def to_dict(self) -> dict:
+        return {
+            "score": self.score,
+            "situation": self.situation,
+            "situation_label": self.situation_label,
+            "rubric_version": self.rubric_version,
+            "clusters": [c.to_dict() for c in self.clusters],
+            "items": [i.to_dict() for i in self.items],
+            "excluded": list(self.excluded),
+            "unmeasured": list(self.unmeasured),
+            "basis": self.basis,
+            "model": self.model,
+            "note": self.note,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricScore":
+        basis = str(d.get("basis", "full") or "")
+        try:
+            score = int(d.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0
+        return cls(
+            score=max(0, min(100, score)),
+            situation=str(d.get("situation", "") or ""),
+            situation_label=str(d.get("situation_label", "") or ""),
+            rubric_version=str(d.get("rubric_version", "v3") or "v3"),
+            clusters=ensure_dict_list(d.get("clusters", []), RubricClusterScore.from_dict),
+            items=ensure_dict_list(d.get("items", []), RubricItemScore.from_dict),
+            excluded=[int(x) for x in d.get("excluded", [])],
+            unmeasured=[int(x) for x in d.get("unmeasured", [])],
+            basis=basis if basis in RUBRIC_BASES else "partial",
+            model=str(d.get("model", "") or ""),
+            note=str(d.get("note", "") or ""),
+        )
+
+
+# ---------------------------------------------------------------------------
 # 예외
 # ---------------------------------------------------------------------------
 
@@ -1762,6 +1957,10 @@ class JudgeError(ChuckchuckError):
 
 class StrategyError(ChuckchuckError):
     """F-20 발표 전략 제안 실패."""
+
+
+class RubricError(ChuckchuckError):
+    """F-14 채점표 채점 실패."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

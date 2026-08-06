@@ -1077,9 +1077,23 @@ def _gist_fragment(gist: str) -> str:
     return text[: max(1, len(text) // 2)].rstrip() + "…"
 
 
+def _hint_gist(question: Question) -> str:
+    """
+    3단계 · 접근. 기대 답의 앞 조각으로 방향을 잡아 준다.
+
+    **판정 없이 만들 수 있는 마지막 단계다.** 아직 답을 안 한 사람에게 "뭘
+    빠뜨렸다" 는 못 해도 "이쪽입니다" 까지는 짚어 줄 수 있다. 이게 없으면
+    답하기 전 힌트가 방향·범위 둘뿐이라 사다리가 금방 끝난다.
+
+    골자가 짧으면 조각을 내도 원문이 드러나므로 빈 문자열이 된다.
+    """
+    fragment = _gist_fragment(question.answer_gist)
+    return _clip(f"이 방향입니다 — {fragment}") if fragment else ""
+
+
 def _hint_close(question: Question, judgement: QaJudgement) -> str:
     """
-    3단계 · 근접. **사용자가 실제로 빠뜨린 것**에 반응한다.
+    4단계 · 근접. **사용자가 실제로 빠뜨린 것**에 반응한다.
 
     판정이 짚은 포인트가 있으면 그것을, 없으면 골자 조각을 준다.
     둘 다 없으면 빈 문자열 — 억지로 채우면 앞 단계를 되풀이할 뿐이다.
@@ -1102,20 +1116,27 @@ def build_hint_ladder(
     """
     Question (+선택 QaJudgement) → 힌트 사다리. **LLM 을 부르지 않는다.**
 
-    단계가 갈수록 구체적이다 — 방향 → 범위 → 근접.
+    단계가 갈수록 구체적이다 — 방향 → 범위 → 접근 → 근접.
     어느 단계에서도 답을 그대로 말해 주지 않는다.
 
-    판정이 없으면 2단계까지만 나온다. 아직 답하지도 않은 사람에게
-    "뭘 빠뜨렸다" 고 말할 수 없기 때문이라, 이 제약은 의도된 것이다.
+    판정이 없으면 3단계까지다. 4단계는 아직 답하지도 않은 사람에게
+    "뭘 빠뜨렸다" 고 말할 수 없어 성립하지 않는다.
+
+    재료가 없는 단계는 빈 문자열로 나오고, 여기서 걷어낸다. 중복도 마찬가지다 —
+    빠뜨린 포인트가 없으면 4단계가 3단계와 같은 골자 조각으로 떨어지는데,
+    같은 말을 두 번 하면 사다리가 아니다.
     """
     if isinstance(question, dict):
         question = Question.from_dict(question)
     if isinstance(judgement, dict):
         judgement = QaJudgement.from_dict(judgement)
 
-    ladder = [_hint_direction(question), _hint_scope(question)]
+    steps = [_hint_direction(question), _hint_scope(question), _hint_gist(question)]
     if judgement is not None:
-        close = _hint_close(question, judgement)
-        if close:
-            ladder.append(close)
+        steps.append(_hint_close(question, judgement))
+
+    ladder: list[str] = []
+    for step in steps:
+        if step and step not in ladder:
+            ladder.append(step)
     return ladder

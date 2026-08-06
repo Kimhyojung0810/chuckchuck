@@ -37,7 +37,8 @@
   --bub-exaone: #fdeed9;
   --bub-ax: #fff8e6;
   --bub-ink: #4a3b2c;           /* 따뜻한 잉크색. 검정도 흰색도 아니다 */
-  --bub-ink-2: #9a8672;         /* 잉크색을 흐린 것 — 크림 위에서 회색은 탁하다 */
+  /* 크림 위 대비 5.2:1. #9a8672 는 2.9:1 이라 「소곤」 라벨이 읽히지 않았다 */
+  --bub-ink-2: #6f5b45;
 }
 
 /* --------------------------------------------------------------------------
@@ -203,8 +204,9 @@
   pointer-events: none;
 }
 .ch-door.leaving .ch-door-frame {
-  width: 100vw;
-  height: 100vh;
+  /* iPad Safari 는 100vh 가 실제 보이는 높이보다 커서 문이 화면을 넘친다. dvh/dvw 로 맞춘다 */
+  width: 100dvw;
+  height: 100dvh;
   margin: 0;
 }
 .ch-door.leaving .ch-door-l { animation: chDoorShutL .7s cubic-bezier(.4, 0, .2, 1) forwards; }
@@ -289,8 +291,9 @@
   border-radius: 20px 22px 20px 24px;
   background: var(--bub, #fff8e6);
   color: var(--bub-ink);
-  font-size: 13px;
-  line-height: 1.55;
+  /* 아이패드를 세워 두고 조금 떨어져서 보는 화면이다. 13px 은 작았다 */
+  font-size: 15px;
+  line-height: 1.6;
   text-align: left;
   box-shadow: 0 10px 24px rgba(0, 0, 0, .38);
   opacity: 0;
@@ -321,7 +324,15 @@
 .ch-seat[data-side="left"]  .ch-bubble { --tail-shift: 9px; }
 .ch-seat[data-side="right"] .ch-bubble { --tail-shift: -9px; }
 
-.ch-bubble.faded { opacity: .42; transform: scale(.94); animation: none; }
+/* 지난 대사는 뒤로 물러나되 읽히기는 해야 한다.
+   opacity .42 는 어두운 객석 위에서 글자 대비가 3.2:1 까지 떨어져 안 읽혔다 —
+   물러남은 투명도 대신 크기와 그림자로 표현한다 */
+.ch-bubble.faded {
+  opacity: .88;
+  transform: scale(.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
+  animation: none;
+}
 @keyframes chBubbleIn {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
@@ -334,7 +345,7 @@
 /* 소곤거림 표시 */
 .ch-whisper {
   display: block;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 750;
   letter-spacing: .06em;
   color: var(--bub-ink-2);
@@ -354,8 +365,8 @@
   border-left: 3px solid var(--chick-beak);
   box-shadow: 0 2px 5px rgba(74, 59, 44, .14);
   transform: rotate(-.8deg);
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   color: #3b2f23;
 }
 .ch-quote::before {
@@ -663,7 +674,9 @@
 /* 결석(모델 다운) — 재우지 않고 비운다 (§12).
    조는 병아리로 그리면 "이 모델은 일했지만 게을렀다"로 읽힌다. 사실은 안 온 것이다.
    빈 좌석 + 명패가 남아 "국내 LLM 4개" 라는 사실은 그대로 보인다. */
-.ch-seat[data-absent] { filter: brightness(.6) saturate(.4); }
+/* 어둡게 눌러 두되, 이 자리가 왜 비었는지는 읽혀야 한다.
+   brightness(.6) + --ch-ink-3 이 겹쳐서 "오늘 못 왔어요" 가 배경에 묻혔다 */
+.ch-seat[data-absent] { filter: brightness(.78) saturate(.55); }
 .ch-empty {
   display: grid;
   place-content: center;
@@ -671,9 +684,9 @@
   min-height: 92px;
   margin: 0;
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--ch-ink-3);
+  color: var(--ch-ink-2);
 }
 
 /* --------------------------------------------------------------------------
@@ -875,33 +888,43 @@
    -------------------------------------------------------------------------- */
 
 .aud-card { cursor: pointer; }
-.aud-head h3 { font-size: 16px; font-weight: 830; margin: 0 0 4px; }
-.aud-head p { margin: 0; font-size: 13px; color: var(--text-2, var(--text-2)); }
-.aud-peek {
-  display: flex;
-  margin-top: 12px;
-  align-items: flex-end;
-  gap: 2px;
+.aud-status { margin: 0 0 16px; font-size: 14px; color: var(--text-2); }
+
+/* 병아리 · 이름 · 모델 · 한 일을 한 칸에 묶는다.
+   예전엔 46px 병아리 넷이 한 줄, 모델 이름 넷이 그 아래 다른 줄이라
+   누가 누구인지 짝지을 방법이 없었다 */
+.aud-seats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0; padding: 0;
+  list-style: none;
 }
-.aud-peek .ch-chick {
-  width: 46px;
+.aud-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 10px 12px;
+  border-radius: var(--r-print, 4px);
+  background: var(--fill);
+  text-align: center;
+}
+/* 소품(헤드폰·대본·형광펜·배지)이 읽혀야 넷이 구분된다 — 토스 「디테일이 많은
+   그래픽은 충분히 크게」 */
+.aud-seat .ch-chick {
+  width: 76px;
   cursor: default;
   animation-duration: 4s;
 }
-.aud-models {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-}
-.aud-models span {
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--fill, var(--fill));
-  color: var(--text-2, var(--text-2));
-  font-size: 11.5px;
-  font-weight: 750;
-}
+.aud-name { margin-top: 6px; font-size: 14px; font-weight: 830; color: var(--text); }
+.aud-model { font-size: 11.5px; font-weight: 750; color: var(--text-3); }
+.aud-role { margin-top: 6px; font-size: 12px; line-height: 1.45; color: var(--text-2); }
+
+/* 아직 안 온 것과 실패한 것은 다르게 보인다 */
+.aud-block { margin: 0 0 14px; font-size: 13.5px; font-weight: 650; }
+.aud-block.is-waiting { color: var(--text-2); }
+.aud-block.is-failed { color: var(--no); }
 
 /* --------------------------------------------------------------------------
    모션 최소화 — 연출을 전부 끄고 내용만 남긴다

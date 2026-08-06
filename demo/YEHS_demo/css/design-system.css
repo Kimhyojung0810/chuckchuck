@@ -99,7 +99,9 @@ main > .verdict:first-child { margin-top: -32px; }
   margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .16);
 }
 .verdict-dims .vd { flex: 1 1 104px; min-width: 0; }
-.verdict-dims .lb { display: block; color: #9FC9B6; font-size: 11.5px; font-weight: 750; }
+/* 채점표 클러스터 7개가 여기 들어온다 (예전 F-13 은 4개였다). flex-wrap 이 줄을
+   접어 주고, keep-all 이 '목적·청중 적합성' 을 글자 중간에서 끊지 않게 막는다. */
+.verdict-dims .lb { display: block; color: #9FC9B6; font-size: 11.5px; font-weight: 750; word-break: keep-all; }
 .verdict-dims .vl { display: block; margin: 3px 0 8px; font-size: 21px; font-weight: 830; letter-spacing: -.03em; }
 .verdict-dims .bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .16); overflow: hidden; }
 .verdict-dims .bar i { display: block; height: 100%; background: var(--cyan); border-radius: 2px; }

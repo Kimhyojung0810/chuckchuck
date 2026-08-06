@@ -76,6 +76,8 @@ class MockLLM(LLMProvider):
             return self._mock_judge(user)
         if "[TASK] presentation-strategy" in user:
             return self._mock_strategy(user)
+        if "[TASK] rubric-score" in user:
+            return self._mock_rubric(user)
 
         # user 안에 슬라이드 번호가 있으면 최소한의 JSON을 만들어 낸다
         slides = []
@@ -104,6 +106,39 @@ class MockLLM(LLMProvider):
                 "importance": "core",
             }]
         return json.dumps({"slides": slides}, ensure_ascii=False)
+
+    @staticmethod
+    def _mock_rubric(user: str) -> str:
+        """
+        F-14 용 가짜 채점. 프롬프트의 '- (번호) 항목명: 설명' 줄에서 번호를 주워
+        요청받은 항목만 매긴다.
+
+        점수는 번호로 정하는 결정값이다 — 랜덤을 쓰면 같은 발표인데 데모를 돌릴 때마다
+        점수가 달라져서 부스에서 설명할 수 없다. 근거(evidence)는 반드시 채운다.
+        f14 의 정규화가 근거 없는 항목을 버리므로, 비우면 mock 모드에서 전부
+        '못 쟀다' 가 되어 화면이 텅 빈다.
+        """
+        nos = [int(x) for x in _ids_in_prompt(user) if x.isdigit()]
+        if not nos:
+            return json.dumps({"items": []}, ensure_ascii=False)
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "no": no,
+                        # 42~93 을 번호로 훑는다. 좁은 구간(65~85)을 쓰면 클러스터
+                        # 평균이 전부 70 언저리로 뭉개져서, 발표 상황을 바꿔도 최종
+                        # 점수가 안 움직인다 — 가중치가 붙어 있는데도 안 붙은 것처럼
+                        # 보인다. 부스에서 상황을 바꿔 보여 주려면 벌어져 있어야 한다.
+                        "score": 42 + (no * 23) % 52,
+                        "evidence": f"모의 근거 — {no}번 항목을 판단한 발화 인용",
+                        "note": "모의 채점이라 실제 발표 내용을 보지 않았어요",
+                    }
+                    for no in nos
+                ]
+            },
+            ensure_ascii=False,
+        )
 
     @staticmethod
     def _mock_alignment(user: str) -> str:

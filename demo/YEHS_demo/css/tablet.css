@@ -1,0 +1,510 @@
+/*
+아이패드 가로형 레이아웃 레이어입니다.
+
+기준 해상도는 1180 × 820 (아이패드 11" 가로) 하나이고,
+1024 × 768 ~ 1366 × 1024 는 기기별 레이아웃이 아니라 스케일로 대응합니다.
+— 토스 해상도 가이드 "하나의 기준 해상도를 정하고 스케일링으로 대응한다"
+
+이 파일은 app.css 뒤에 마지막으로 불러옵니다.
+좁은 화면(max-width) 규칙은 건드리지 않고, 넓은 화면에만 얹습니다.
+
+세로 예산이 이 파일의 핵심입니다.
+820px 에서 상단 바를 뺀 764px 안에 각 화면의 주인공과 다음 버튼이 들어가야 합니다.
+— 토스 그래픽 가이드 "핵심 정보가 아래로 밀려 불필요한 스크롤이 생기지 않게 한다"
+*/
+
+:root {
+  --topbar-h: 56px;
+  /* 화면 좌우 여백. 1024 에서 20px, 1366 에서 38px 언저리로 자란다 */
+  --gutter: clamp(20px, 2.8vw, 40px);
+  /* 본문 최대 폭. 1180 에서 1112px */
+  --shell: min(1320px, 100% - var(--gutter) * 2);
+  /* 상단 바를 뺀 실제 사용 가능한 높이. iPad Safari 주소창까지 반영하려고 dvh 를 쓴다 */
+  --app-h: calc(100dvh - var(--topbar-h));
+  --pane-gap: clamp(14px, 1.6vw, 24px);
+}
+
+@media (min-width: 900px) {
+
+  /* ══ 1. 셸 ══════════════════════════════════════════════════ */
+
+  .topbar { height: var(--topbar-h); padding: 0 var(--gutter); }
+
+  main {
+    width: var(--shell);
+    max-width: none;
+    /* 96px 이던 하단 여백은 세로가 넉넉한 데스크톱 기준이었다 */
+    padding: 18px 0 24px;
+  }
+  main.wide { max-width: none; }
+  main.narrow { width: min(880px, 100% - var(--gutter) * 2); max-width: none; }
+  /* 랜딩만 전면폭이다(MVP_SPEC §4). landing.css 는 max-width 만 풀어 놨으므로
+     위의 main { width: var(--shell) } 을 여기서 되돌려 준다 */
+  main.landing { width: 100%; padding: 0; }
+
+  /* 세로 스크롤이 필요 없는 화면은 높이를 예산으로 고정한다 */
+  main.home,
+  main.narrow { min-height: var(--app-h); }
+
+  .card { padding: 20px 22px; }
+  .page-head { margin-bottom: 16px; }
+  .page-title { font-size: 22px; }
+
+  /* 패널 안에서만 스크롤이 생기므로 스크롤바를 얇게 둔다 */
+  .home-list, .qa-dialog .qa-stream, .slide-film, #jdetail { scrollbar-width: thin; }
+  /* 태블릿은 관성 스크롤이 기본 기대치다 */
+  .home-list, .qa-dialog .qa-stream, .slide-film { -webkit-overflow-scrolling: touch; }
+
+
+  /* ══ 2. 홈 — 왼쪽 성장 기록 · 오른쪽 발표 목록 ══════════════
+     980px 한 줄에 세로로 쌓으면 정작 주인공인 "내 발표" 목록이
+     화면 밖으로 밀린다. 가로형에서는 두 단으로 나눠 한 화면에 같이 둔다.
+
+     grid-template-areas 로 배치하는 이유:
+     .resume-row 는 진행 중인 연습이 있을 때만 그려진다.
+     행 번호로 배치하면 그때마다 한 칸씩 밀리므로 이름으로 고정한다. */
+
+  main.home {
+    display: grid;
+    grid-template-columns: minmax(360px, 4.6fr) minmax(0, 6fr);
+    grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "head   head"
+      "resume resume"
+      "score  list"
+      "wall   list"
+      "game   list"
+      "about  list";
+    gap: 0 var(--pane-gap);
+    /* height 로 못 박으면 세로가 짧은 기기에서 왼쪽 칸이 잘린다.
+       min-height 로 두면 남을 때는 한 화면에 맞추고, 모자랄 때만 조금 늘어난다 */
+    min-height: var(--app-h);
+    align-content: start;
+    /* 왼쪽 칸이 세로 예산을 다 쓰므로 아래 여백을 최소로 둔다 */
+    padding-bottom: 6px;
+  }
+  main.home > .page-head  { grid-area: head; }
+  main.home > .resume-row { grid-area: resume; margin-bottom: 12px; }
+  main.home > .verdict    { grid-area: score; }
+  main.home > .pb-wall    { grid-area: wall; margin-top: 12px; padding: 14px 16px; }
+  main.home > .game-card  { grid-area: game; margin-top: 12px; padding: 12px 16px; }
+  /* 세로로 쌓을 때 쓰던 구역 간 여백(96px)은 두 단에서는 빈 칸만 만든다 */
+  main.home > .home-list  { grid-area: list; min-height: 0; overflow-y: auto; margin-top: 0; }
+  main.home > .about-link { grid-area: about; align-self: end; margin-top: 0; padding: 14px 0 0; }
+
+  /* 홈의 판정 헤드는 전면폭에서 빠져나오지 않고 왼쪽 칸 안에 앉는다.
+     선택자를 main.home 으로 좁혀서 같은 컴포넌트를 쓰는 리포트를 건드리지 않는다 */
+  main.home > .verdict {
+    margin-inline: 0;
+    margin-top: 0;
+    padding: 18px 20px 16px;
+    border-radius: var(--r-print);
+  }
+  main.home > .verdict .verdict-grid { grid-template-columns: 1fr; gap: 12px; padding-bottom: 0; }
+  main.home > .verdict .verdict-score .vs-body { padding-top: 10px; }
+  main.home > .verdict .verdict-score strong { font-size: 40px; }
+  main.home > .verdict .verdict-score .delta { margin-top: 6px; }
+  main.home > .verdict .hg-head { margin-bottom: 4px; }
+  main.home > .verdict .hg-foot { margin-top: 8px; padding-top: 10px; }
+  main.home > .verdict .hg-foot strong { font-size: 17px; }
+  /* .growth-svg 는 overflow:visible 로 마지막 점과 값을 박스 밖에 그린다.
+     max-height 로 누르면 .verdict 의 overflow:hidden 에 잘리므로,
+     높이를 직접 정하고 폭을 비율로 따라오게 한다 */
+  main.home > .verdict .growth-svg { height: 112px; width: auto; max-width: 100%; }
+
+  main.home > .home-list .block-head {
+    position: sticky; top: 0; z-index: 2;
+    margin: 0; padding: 0 0 12px;
+    background: var(--canvas);
+  }
+
+
+  /* ══ 3. 새 발표 연습 ════════════════════════════════════════ */
+
+  /* 1·2·4 단계는 폼 한 장이다. 위쪽에 몰아두면 아래 절반이 빈다 —
+     단계 표시줄은 위에 두고 폼만 남은 높이의 가운데에 놓는다 */
+  main.narrow:has(#nf) { display: flex; flex-direction: column; }
+  /* 정중앙에 두면 자료를 올리는 첫 화면이 접힌 선 근처까지 내려간다.
+     위에서 한 뼘만 띄우고 남는 세로는 아래에 몰아준다 */
+  main.narrow:has(#nf) > #nf { margin-block: clamp(8px, 4vh, 44px) auto; }
+
+  /* 단계 표시줄과 저장 안내를 한 줄에 붙여 세로 30px 을 슬라이드에 돌려준다 */
+  .flow-toolbar {
+    display: flex; align-items: center; gap: 18px;
+    margin-bottom: 10px;
+  }
+  .flow-toolbar .steps { flex: 1 1 auto; min-width: 0; margin-bottom: 0; gap: 8px; }
+  .flow-toolbar .flow-save { flex: none; }
+
+  /* ── 3단계 리허설 — 이 화면의 주인공은 슬라이드다 ──────────
+     아래에 깔려 있던 필름을 슬라이드 오른쪽으로 옮겨서
+     16:9 슬라이드가 남은 높이를 전부 쓰게 한다 */
+
+  main:has(.rehearsal-shell) {
+    height: var(--app-h);
+    display: flex; flex-direction: column;
+    padding-bottom: 14px;
+  }
+  .rehearsal-head { align-items: center; margin: 0 0 8px; }
+  .rehearsal-head .mode-label { font-size: 11px; }
+  .rehearsal-head h1 { margin-top: 0; font-size: 18px; line-height: 1.3; }
+
+  .rehearsal-shell { flex: 1 1 auto; min-height: 0; gap: 10px; padding-bottom: 0; }
+  /* 셸이 이미 gap 을 주므로 카드끼리 붙는 기본 여백은 뺀다 */
+  .rehearsal-shell > .card + .card { margin-top: 0; }
+  .privacy-note { margin-top: 6px; }
+
+  /* 녹음이 시작돼도 컨트롤을 같은 자리에 둔다.
+     화면 하단으로 띄우면 그만큼 슬라이드가 작아진다 */
+  /* position 은 relative 를 유지한다 — .rec-log-fold 의 받아쓰기 팝오버가
+     이 카드를 기준으로 붙고, z-index:5 로 필름(z-index:3) 위에 서기 때문이다.
+     is-live 가 걸어 두는 fixed 좌표만 되돌린다 */
+  .rehearsal-control,
+  .rehearsal-control.is-live {
+    position: relative; left: auto; bottom: auto; transform: none;
+    width: 100%; max-width: none;
+    padding: 12px 18px; gap: 14px;
+    order: -1;
+    /* flex:none 이 빠지면 안 된다. 셸이 flex 컬럼이고 뷰어가 1 1 auto 라
+       컨트롤은 기본 flex-shrink:1 로 눌린다 — 91px 짜리 내용이 49px 상자에
+       갇혀 「발표 시작하기」가 슬라이드 캔버스 뒤로 깔렸다 (1180×820 실측) */
+    flex: none;
+    min-height: 0;
+  }
+  .rehearsal-shell:has(.rehearsal-control.is-live) { padding-bottom: 0; }
+  .rehearsal-control .rec-clock { font-size: 20px; }
+  /* 안내 문구가 두 줄로 접히면 컨트롤이 그만큼 두꺼워진다 */
+  .rec-upload { max-width: 340px; }
+  .rec-upload .note { font-size: 11px; }
+  /* 30px 이던 유일한 손가락 미달 버튼 */
+  .rec-upload .btn-text { height: 44px; }
+
+  .presentation-viewer {
+    flex: 1 1 auto; min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(112px, 11vw, 148px);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "stage film"
+      "caption film";
+    gap: 0 12px;
+    padding: 0; overflow: hidden; background: none; box-shadow: none;
+  }
+  .presentation-viewer .viewer-stage {
+    grid-area: stage;
+    /* 행 높이가 확정된 그리드 안이라 높이에서 폭을 되짚을 수 있다 */
+    height: 100%; width: auto; max-width: 100%;
+    aspect-ratio: 16 / 9;
+    justify-self: center;
+    border-radius: var(--r-print);
+  }
+  .presentation-viewer .viewer-caption {
+    grid-area: caption;
+    padding: 8px 4px 0; border-top: 0;
+  }
+  .presentation-viewer .slide-film {
+    grid-area: film;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 0; overflow-y: auto; overflow-x: hidden;
+    padding: 2px; margin: 0;
+  }
+  .presentation-viewer .slide-film > button { flex: none; width: 100%; }
+
+  /* PDF 를 올린 경우 캔버스가 스테이지보다 커지면 안쪽에서 스크롤이 생긴다 */
+  .viewer-stage.has-pdf .slide-pdf-canvas { max-height: 100%; width: auto; }
+
+
+  /* ══ 4. 질문 코칭 ═══════════════════════════════════════════ */
+
+  /* 시작 전 설정 카드도 남은 높이의 가운데에 둔다 */
+  main.narrow:has(.qa-quick) { display: flex; flex-direction: column; }
+  main.narrow:has(.qa-quick) > .qa-quick { margin-block: auto; }
+
+  /* 코칭 중 — 왼쪽에 상대와 개념 진행, 오른쪽에 대화.
+     대화가 길어져도 개념 진행 상태가 화면에서 사라지지 않는다 */
+  main:has(.qa-shell) {
+    width: var(--shell);
+    height: var(--app-h);
+    display: flex; flex-direction: column;
+    padding-bottom: 14px;
+  }
+  .qa-shell {
+    flex: 1 1 auto; min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+    gap: var(--pane-gap);
+  }
+  .qa-context {
+    min-height: 0; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .qa-dialog {
+    min-height: 0;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .qa-dialog .qa-stream {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding-right: 4px;
+  }
+  .qa-dialog .qa-live,
+  .qa-dialog .qa-live-input { flex: none; }
+  .qa-dialog .msg-bubble { max-width: 88%; }
+  .qa-context .persuade-track { margin: 0; }
+  .qa-context .pt-items { flex-direction: column; }
+
+
+  /* ══ 5. 최종 분석 ═══════════════════════════════════════════ */
+
+  /* 판정 헤드가 화면을 거의 다 먹어서 정작 5개 탭이 접힌 아래에 있었다.
+     헤드를 줄이고 탭을 상단 바 밑에 붙여 항상 손이 닿게 한다 */
+  /* 본문이 안에서 스크롤하게 된 뒤로 판정 헤드는 그만큼 순수 오버헤드다.
+     지우는 것 없이 여백과 글자만 조여 25px 을 본문에 돌려준다 */
+  main.wide > .verdict { padding: 16px max(var(--gutter), calc(50vw - 556px)) 0; }
+  main.wide > .verdict:first-child { margin-top: -18px; }
+  .verdict-title { font-size: 21px; margin-top: 6px; }
+  .verdict-grid { margin-top: 10px; }
+  .verdict-score .vs-body { padding-top: 10px; }
+  .verdict-score strong { font-size: 42px; }
+  .verdict-score .prev { margin-top: 6px; }
+  .verdict-judgement h2 { font-size: 19px; }
+  .verdict-dims { margin-top: 12px; }
+  /* 채점 항목이 7개다. 기본 flex-basis 로는 6 + 1 로 접혀 마지막 항목만
+     전체 폭을 차지한다 — 가로형에서는 한 줄에 나란히 세운다 */
+  .verdict-dims .vd { flex: 1 1 0; min-width: 78px; }
+  .verdict-dims .vl { margin: 2px 0 5px; font-size: 17px; }
+  .verdict-bg { height: 74px; }
+  .verdict-note { padding: 6px 0 10px; font-size: 12px; }
+
+  /* 리포트는 요약 탭 본문만 1264px 이다. 내용을 덜어내지 않고 한 화면에 담으려면
+     페이지가 아니라 본문이 안에서 움직여야 한다 — 점수와 5개 탭은 늘 붙어 있고
+     스크롤은 카드 묶음 안에서만 생긴다. 홈 목록·코칭 대화와 같은 방식이다 */
+  main.wide:has(#rbody) {
+    height: var(--app-h);
+    display: flex; flex-direction: column;
+    padding-bottom: 12px;
+  }
+  main.wide:has(#rbody) > .verdict { flex: none; }
+  main.wide:has(#rbody) > #rbody {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding-right: 4px; scrollbar-width: thin;
+  }
+  /* 본문이 스크롤을 맡으므로 탭은 더 이상 떠 있을 필요가 없다.
+     선택자를 #rtabs.tabs 로 맞춰야 design-system.css 의 sticky 규칙을 이긴다 */
+  main.wide > #rtabs.tabs { flex: none; position: static; top: auto; margin: 0 0 14px; }
+
+  /* 리포트 본문은 서로 독립적인 카드 묶음이라 두 단으로 나눌 수 있다.
+     넓은 시각 요소만 전체 폭을 쓴다 */
+  #rbody {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+  #rbody > * { margin-top: 0 !important; }
+  #rbody > h2,
+  #rbody > .section-title,
+  #rbody > .rep-deck,
+  #rbody > .judge-grid,
+  #rbody > .stat-row,
+  #rbody > .trophy-strip,
+  #rbody > .seg-ctl,
+  #rbody > #toolBody,
+  #rbody > .ai-note { grid-column: 1 / -1; }
+  /* 카드가 하나뿐인 탭(청중 반응 등)은 한 단에만 앉으면 오른쪽이 통째로 빈다 */
+  #rbody > *:only-child { grid-column: 1 / -1; }
+
+  .judge-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; }
+  #jdetail { max-height: calc(var(--app-h) - 140px); overflow-y: auto; }
+
+
+  /* ══ 6. 판단 방식(#/about) ══════════════════════════════════ */
+
+  /* 카드 셋 중 파이프라인 표 하나만 길다. 셋을 세로로 쌓으면 표 뒤의 두 카드가
+     화면 밖으로 나간다 — 표를 왼쪽 한 칸에 세우고 짧은 둘을 오른쪽에 쌓는다.
+     카드가 정확히 셋이라(app.js 4494·4512·4521) 자리를 이름 대신 좌표로 박는다 */
+  main:has(.about-sec) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    /* 남는 높이를 마지막 행이 먹어야 오른쪽 두 카드가 위에 붙어 있는다.
+       1fr 이 가운데 행이면 둘 사이가 화면 절반만큼 벌어진다 */
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 14px;
+    height: var(--app-h);
+    padding-bottom: 12px;
+  }
+  main:has(.about-sec) > .page-title { grid-area: 1 / 1 / 2 / 3; }
+  /* 표 카드가 남은 높이를 받고, 넘치면 페이지 대신 카드 안에서 스크롤한다 */
+  main:has(.about-sec) > .about-sec:nth-of-type(1) {
+    grid-area: 2 / 1 / 4 / 2;
+    min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  }
+  main:has(.about-sec) > .about-sec:nth-of-type(2) { grid-area: 2 / 2 / 3 / 3; align-self: start; }
+  main:has(.about-sec) > .about-sec:nth-of-type(3) { grid-area: 3 / 2 / 4 / 3; align-self: start; }
+  main:has(.about-sec) > * { margin-top: 0 !important; }
+  /* 8행짜리 표의 행 여백이 그대로면 카드가 세로 예산을 혼자 다 쓴다 */
+  main:has(.about-sec) .card { padding: 16px 18px; }
+  main:has(.about-sec) table.plain th,
+  main:has(.about-sec) table.plain td { padding: 8px 10px; }
+  main:has(.about-sec) .principles li { margin-bottom: 5px; }
+
+
+  /* ══ 6-2. 랜딩 — 세로로 8화면이던 것을 옆으로 넘기는 덱으로 ══
+     구역 여섯이 각각 1.0~1.8화면이라 여백만 조여서 될 규모가 아니었다.
+     한 구역 = 한 화면으로 두고 가로로 민다. 페이지 세로 스크롤은 0 이 되고,
+     아직 긴 구역만 그 구역 안에서 스크롤한다.
+     .land-progress 는 원래 position:fixed 라 트랙 밖에 그대로 떠 있는다 */
+
+  main.landing { height: var(--app-h); overflow: hidden; }
+
+  .landing-main {
+    height: 100%;
+    display: flex;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .landing-main::-webkit-scrollbar { display: none; }
+
+  .landing-main > #hero,
+  .landing-main > #exampleSec,
+  .landing-main > #alignTrack,
+  .landing-main > #judgeSec,
+  .landing-main > #demoSec,
+  .landing-main > #start {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-snap-align: start;
+    scrollbar-width: thin;
+  }
+  /* 히어로는 min-height 로 760px 을 잡고 있어서 덱 칸을 넘긴다 */
+  .landing-main > #hero,
+  .landing-main > #hero .hero-inner { min-height: 0; }
+  .landing-main > section,
+  .landing-main > #alignTrack { margin: 0; }
+
+  /* 세로로 이어붙일 때 쓰던 100~150px 구역 여백은 덱에선 낭비다.
+     히어로는 자체 여백 체계를 쓰므로 따로 둔다 */
+  .landing-main > #exampleSec,
+  .landing-main > #judgeSec,
+  .landing-main > #demoSec,
+  .landing-main > #start {
+    padding-top: clamp(14px, 2.6vh, 32px);
+    padding-bottom: clamp(14px, 2.6vh, 32px);
+  }
+  .landing-main .hero-inner { padding: clamp(16px, 3vh, 40px) 0; }
+  .landing-main .align-stage { padding-block: clamp(10px, 2vh, 24px); }
+  .landing-main .section-heading { margin-bottom: 6px; }
+  .landing-main .align-cap { margin-bottom: 8px; }
+  .landing-main .compare-stage { gap: 10px; }
+  /* 750px 짜리 장식 글로우가 흐름 안에 있어서 시작 구역만 혼자 1461px 이었다 */
+  .landing-main .start-glow { position: absolute; }
+
+  /* 제품 목업 둘은 여백을 다 걷어도 칸을 넘는다. 잘라내는 대신 통째로 줄인다.
+     transform: scale 은 레이아웃 크기를 그대로 둬서 목업이 stretch 로 눌린 뒤
+     축소돼 내용의 절반이 잘렸다(1180×820 실측). zoom 은 레이아웃까지 줄인다 */
+  .landing-main > #judgeSec .product-showcase-shell {
+    margin-top: 0; min-height: 0; width: auto;
+  }
+  .landing-main > #judgeSec .app-frame { zoom: .66; }
+  .landing-main > #demoSec .demo-panel { zoom: .72; }
+
+
+  /* ══ 7. 척척극장 객석 ══════════════════════════════════════
+     좌석이 178px 로 고정돼 있어 말풍선도 178px 였다.
+     대사가 다섯 줄로 접히는 동안 1180px 중 400px 이 양옆에서 놀았다 */
+
+  .ch-row .ch-seat { width: clamp(180px, 23vw, 264px); }
+  .ch-row .ch-empty { width: clamp(150px, 20vw, 230px); }
+  /* 좌석 폭 안에 머물러야 옆자리 말풍선과 겹치지 않는다 */
+  .ch-bubble { max-width: 100%; padding: 12px 15px 13px; }
+  .ch-bubbles { gap: 10px; }
+
+
+  /* ══ 8. 터치 ════════════════════════════════════════════════ */
+
+  /* 슬라이드 넘김 버튼은 손가락 기준으로 키운다 */
+  .stage-nav { width: 52px; height: 88px; }
+  .sess-row, .pt, .qa-modes > * { min-height: 44px; }
+  select, .aud-select select { min-height: 44px; }
+}
+
+/* 세로가 특히 짧은 기기(1024 × 768 등)에서 한 번 더 줄인다 */
+/* 홈 왼쪽 칸(성장 기록 · 포스터 벽 · 연속 연습)의 자연 높이는 820px 언저리다.
+   그보다 세로가 짧은 기기에서는 카드 사이 여백만 깎는다 — 내용은 그대로 두고
+   공기만 뺀다. 810px 같은 어중간한 높이가 이 구간에 들어온다 */
+@media (min-width: 900px) and (max-height: 860px) {
+  main.home { padding-top: 14px; }
+  main.home > .page-head { margin-bottom: 10px; }
+  main.home > .pb-wall,
+  main.home > .game-card { margin-top: 8px; }
+  main.home > .about-link { padding-top: 4px; }
+}
+
+/* 여백만으로 부족한 구간(1080 × 810 · 1024 × 768 등)에서는 숫자와 그래프도 줄인다.
+   경계는 815px — 820px(아이패드 11" 가로)은 줄이지 않아도 들어간다 */
+@media (min-width: 900px) and (max-height: 815px) {
+  main.home > .verdict { padding: 14px 18px 12px; }
+  main.home > .verdict .growth-svg { height: 88px; }
+  main.home > .verdict .verdict-score strong { font-size: 34px; }
+  main.home > .pb-wall,
+  main.home > .game-card { padding: 10px 14px; }
+  main.wide > .verdict { padding-top: 18px; }
+  .verdict-score strong { font-size: 46px; }
+  .verdict-title { font-size: 20px; }
+  .rehearsal-head { margin-bottom: 6px; }
+  .rehearsal-head h1 { font-size: 17px; }
+  .rehearsal-control, .rehearsal-control.is-live { padding: 9px 16px; }
+}
+
+/* 세로 760px 아래(창을 줄인 브라우저 등)에서는 성장 그래프까지 낮춘다.
+   숫자와 항목은 그대로 남는다 — 줄이는 건 그래프 높이뿐이다 */
+@media (min-width: 900px) and (max-height: 760px) {
+  main.home > .verdict .growth-svg { height: 70px; }
+  main.home > .verdict { padding: 12px 16px 10px; }
+}
+
+/* 랜딩 덱: 세로가 줄면 시연 무대와 제품 목업을 단계로 더 줄인다.
+   내용은 그대로 있고 크기만 작아진다 */
+/* 경계가 825px 인 이유: 1180×820 에서 대조 카드가 딱 4px 넘친다.
+   기준 해상도가 이 구간 안에 있어야 해서 815 가 아니라 825 다 */
+@media (min-width: 900px) and (max-height: 825px) {
+  .landing-main .compare-stage,
+  .landing-main .align-stage { zoom: .94; }
+  .landing-main > #demoSec .demo-panel { zoom: .68; }
+}
+@media (min-width: 900px) and (max-height: 780px) {
+  .landing-main .compare-stage,
+  .landing-main .align-stage { zoom: .88; }
+  .landing-main > #judgeSec .app-frame { zoom: .62; }
+  .landing-main > #demoSec .demo-panel { zoom: .63; }
+}
+@media (min-width: 900px) and (max-height: 740px) {
+  .landing-main .compare-stage,
+  .landing-main .align-stage { zoom: .81; }
+  .landing-main > #judgeSec .app-frame { zoom: .57; }
+  .landing-main > #demoSec .demo-panel { zoom: .57; }
+}
+
+/* 세로 740px 아래. 여기서도 지우는 건 없다 —
+   제목 글자와 남은 여백을 마지막으로 조인다 */
+@media (min-width: 900px) and (max-height: 740px) {
+  main.home { padding-top: 10px; padding-bottom: 4px; }
+  main.home > .page-head { margin-bottom: 8px; }
+  main.home > .page-head .page-title { font-size: 19px; }
+  main.home > .page-head .page-sub { font-size: 13.5px; line-height: 1.5; }
+  main.home > .verdict .verdict-score strong { font-size: 28px; }
+  main.home > .verdict .hg-foot { margin-top: 4px; padding-top: 6px; }
+  main.home > .pb-wall,
+  main.home > .game-card { padding: 8px 12px; margin-top: 6px; }
+  main.home > .about-link { padding-top: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-list, .qa-dialog .qa-stream, .slide-film { scroll-behavior: auto; }
+}

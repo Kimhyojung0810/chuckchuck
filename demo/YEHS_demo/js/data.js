@@ -14,7 +14,14 @@ const DATA = {
     nth: 2,
     score: 86,
     prevScore: 76,
-    dims: [['내용 이해', 84], ['논리 흐름', 82], ['말 속도', 91]],
+    /* 채점표 v3 의 7개 클러스터다. 실측(realSummary)이 내는 모양과 같아야 한다 —
+       [클러스터 이름, 0~100, 병아리 키]. 어긋나면 샘플과 실측이 서로 다른 말을 한다. */
+    dims: [
+      ['내용 충실도', 84, 'midm'], ['논리 구조', 82, 'midm'],
+      ['목적·청중 적합성', 79, 'ax'], ['언어적 명료성', 88, 'ax'],
+      ['음성적 전달', 91, 'solar'], ['시각자료 활용', 83, 'exaone'],
+      ['시간 관리', 90, 'solar'],
+    ],
     avgCpm: 326,
     oneLiner: '핵심 구조는 전달됐고, 질문을 거치며 공동 임베딩 정렬을 자기 말로 설명할 수 있게 됐어요.',
     qa: { before: 3, after: 5, total: 5, mastered: '공동 임베딩 정렬 · Temperature Parameter', weak: 'IMU Encoder 설명',
@@ -35,7 +42,7 @@ const DATA = {
   reportProfiles: {
     vla: {
       title:'Hierarchical VLA 논문 리뷰', occasion:'학회·수업 발표', slides:35, duration:'12분 06초', nth:1, score:79, diff:8,
-      dims:[['내용 이해',81],['논리 흐름',75],['말 속도',83]], before:3, after:4, total:5,
+      dims:[['내용 충실도',81,'midm'],['논리 구조',75,'midm'],['목적·청중 적합성',77,'ax'],['언어적 명료성',80,'ax'],['음성적 전달',83,'solar'],['시각자료 활용',78,'exaone'],['시간 관리',82,'solar']], before:3, after:4, total:5,
       mastered:'실패 데이터가 필요한 이유', weak:'Weight Merging + LoRA',
       oneLiner:'VINE의 큰 구조는 전달됐지만, 두 시스템이 실제로 학습되는 연결 과정은 더 설명해야 해요.',
       evidence:[
@@ -47,7 +54,7 @@ const DATA = {
     },
     pitch: {
       title:'척척발표 서비스 피치', occasion:'대회·IR 피칭', slides:12, duration:'6분 34초', nth:3, score:91, diff:14,
-      dims:[['내용 이해',94],['논리 흐름',90],['말 속도',88]], before:4, after:5, total:5,
+      dims:[['내용 충실도',94,'midm'],['논리 구조',90,'midm'],['목적·청중 적합성',92,'ax'],['언어적 명료성',91,'ax'],['음성적 전달',88,'solar'],['시각자료 활용',89,'exaone'],['시간 관리',93,'solar']], before:4, after:5, total:5,
       mastered:'근거 기반 판정의 차별점', weak:'초기 고객 확보 전략',
       oneLiner:'문제와 해결책은 선명했고, Q&A에서 “왜 기존 발표 코치와 다른가”까지 근거로 방어했어요.',
       evidence:[
@@ -59,7 +66,7 @@ const DATA = {
     },
     'q2-report': {
       title:'2분기 제품 성과 보고', occasion:'사내 보고', slides:14, duration:'9분 22초', nth:5, score:87, diff:11,
-      dims:[['내용 이해',89],['논리 흐름',86],['말 속도',85]], before:4, after:5, total:5,
+      dims:[['내용 충실도',89,'midm'],['논리 구조',86,'midm'],['목적·청중 적합성',87,'ax'],['언어적 명료성',88,'ax'],['음성적 전달',85,'solar'],['시각자료 활용',84,'exaone'],['시간 관리',88,'solar']], before:4, after:5, total:5,
       mastered:'전환율 상승의 원인', weak:'3분기 리텐션 리스크',
       oneLiner:'성과 수치는 명확했고, Q&A에서 전환율 상승이 어떤 실험에서 왔는지까지 연결했어요.',
       evidence:[
@@ -71,7 +78,7 @@ const DATA = {
     },
     trend: {
       title:'소비 트렌드 세미나', occasion:'학회·수업 발표', slides:18, duration:'11분 40초', nth:6, score:68, diff:7,
-      dims:[['내용 이해',72],['논리 흐름',64],['말 속도',70]], before:2, after:4, total:5,
+      dims:[['내용 충실도',72,'midm'],['논리 구조',64,'midm'],['목적·청중 적합성',68,'ax'],['언어적 명료성',71,'ax'],['음성적 전달',70,'solar'],['시각자료 활용',66,'exaone'],['시간 관리',69,'solar']], before:2, after:4, total:5,
       mastered:'가성비와 가치소비의 차이', weak:'설문 표본 편향',
       oneLiner:'트렌드 사례는 풍부했지만, 조사 표본에서 전체 소비자로 일반화하는 근거가 약했어요.',
       evidence:[

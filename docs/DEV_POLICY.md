@@ -48,11 +48,12 @@
 | F-10    | 질문 코칭 종합  | 예정    | 계약 확정 후 착수                          |
 | F-11    | 발표-자료 정합  | ✅     | `ConceptGraph`+`Transcript` → `AlignmentDoc` (+파생 `FlowDiff`) |
 | F-12    | 청중 수다       | ✅     | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` (국내 LLM 4개) |
-| F-13    | 발표 점수       | ✅     | `AlignmentDoc`+`FlowDiff` → `PresentationScore` (순수 함수) |
+| F-13    | 발표 점수       | ⚠️ 폴백 | `AlignmentDoc`+`FlowDiff` → `PresentationScore` (순수 함수). F-14 로 대체됨 |
+| F-14    | 채점표 채점     | ✅     | 파이프라인 산출물 → `RubricScore` (채점표 v3 · 39항목 7클러스터) |
 | F-14~16 | 발표 진단      | 예정    | 계약 확정 후 착수                          |
 | F-17    | 말 속도·시간 배분 | ✅     | `Transcript`+`Context`(+`ConceptDoc`) → `PaceDoc` (규칙) |
 | F-18    | 음성 습관      | ✅     | `Transcript` → `HabitDoc` (기본 LoRA REP + heuristic FIL/PAUSE) |
-| F-19    | 음성 종합 리포트 | ✅     | `PaceDoc`+`HabitDoc` → `ReportDoc` (LLM) |
+| F-19    | 음성 종합 리포트 | ✅     | `PaceDoc`+`HabitDoc`+`RubricScore` → `ReportDoc` (LLM. 점수는 F-14 것을 싣는다) |
 
 
 상세 필드·벤더 매핑은 `**[SCHEMA.md](./SCHEMA.md)`** / 코드 `**chuckchuck/contracts.py**` 가 단일 출처다.

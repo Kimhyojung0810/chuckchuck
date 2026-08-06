@@ -382,7 +382,9 @@ function renderHome() {
       ? {href:'#/new', eyebrow:'발표 연습 진행 중', title:`${NF_STEPS[nf.step]}부터 이어서 할까요?`, sub:`${nf.slide || 1}번 슬라이드와 입력한 발표 정보를 저장했어요.`}
       : null;
   app.innerHTML = `
-    <div class="page-head"><div><h1 class="page-title">내 발표</h1><p class="page-sub">발표와 질문 코칭 결과를 이어서 확인해요.</p></div><a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a></div>
+    <!-- 「새 발표 연습」은 상단 바에 항상 있다. 한 화면에 같은 버튼을 셋 두면
+         어느 것이 이 화면의 행동인지 흐려진다 (MVP_SPEC §5.1 · 토스 CTA 규칙) -->
+    <div class="page-head"><div><h1 class="page-title">내 발표</h1><p class="page-sub">발표와 질문 코칭 결과를 이어서 확인해요.</p></div></div>
     ${resume ? `<div class="resume-row"><a class="resume-card" href="${resume.href}"><span>${resume.eyebrow}</span><strong>${resume.title}</strong><p>${resume.sub}</p><i>이어하기 →</i></a><a class="btn btn-secondary btn-sm" href="#/new" data-fresh-practice>처음부터 다시</a></div>` : ''}
     <section class="verdict home-verdict">
       <div class="verdict-inner">
@@ -411,7 +413,6 @@ function renderHome() {
       <div class="block-head">
         <h2>내 발표</h2>
         <p>발표를 누르면 그 회차의 리포트를 열어요</p>
-        <a class="btn btn-tint btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a>
       </div>
       <div class="sess-list">
         ${DATA.sessions.map(s => `
@@ -532,12 +533,56 @@ if (nf.gate === 'parsing') {
 const NF_STEPS = ['자료 올리기', '발표 정보', '리허설 녹음', '질문 준비'];
 let parseTimer = null;
 let parseGen = 0; // 취소/중복 요청 구분
+/** 지나온 단계로 되돌아가도 잃을 게 없는 상태인가.
+    녹음이 돌고 있거나 파싱·분석이 진행 중이면 되돌아가는 순간 그 작업이 사라진다 */
+function canJumpBack() {
+  if (nf.mic === 'on') return false;                    // 녹음 중
+  if (nf.gate === 'parsing') return false;              // 자료 분석 중
+  if (nf.pipelinePhase && !nf.pipelineOut && !nf.pipelineError) return false; // 파이프라인 중
+  return true;
+}
+
+function stepsHtml() {
+  const back = canJumpBack();
+  return NF_STEPS.map((n, i) => {
+    const cls = i < nf.step ? 'done' : i === nf.step ? 'cur' : '';
+    const mark = i < nf.step ? '✓' : i + 1;
+    // 지나온 단계만 누를 수 있다. 앞 단계는 아직 채울 내용이 없어서 열지 않는다
+    if (back && i < nf.step) {
+      return `<button type="button" class="${cls}" data-nf-step="${i}" title="${n} 단계로 돌아가기"><i>${mark}</i>${n}</button>`;
+    }
+    return `<span class="${cls}"><i>${mark}</i>${n}</span>`;
+  }).join('');
+}
+
+/** 녹음이 시작·종료되면 되돌아갈 수 있는지가 바뀐다. 표시줄만 다시 그린다 */
+function refreshStepBar() {
+  const bar = document.querySelector('.steps');
+  if (bar) bar.innerHTML = stepsHtml();
+}
+
 function nfSteps() {
   return `<div class="flow-toolbar">
-    <div class="steps">${NF_STEPS.map((n, i) =>
-      `<span class="${i < nf.step ? 'done' : i === nf.step ? 'cur' : ''}"><i>${i < nf.step ? '✓' : i + 1}</i>${n}</span>`).join('')}</div>
+    <div class="steps">${stepsHtml()}</div>
     <div class="flow-save"><span>자동 저장됨</span><a href="#/new" data-fresh-practice>처음부터</a><a href="#/">나가기</a></div>
   </div>`;
+}
+
+let stepNavBound = false;
+/** 단계 표시줄은 화면마다 다시 그려지므로 document 에 한 번만 위임해서 듣는다 */
+function bindStepNav() {
+  if (stepNavBound) return;
+  stepNavBound = true;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-nf-step]');
+    if (!btn) return;
+    e.preventDefault();
+    const to = Number(btn.dataset.nfStep);
+    if (!Number.isInteger(to) || to >= nf.step || !canJumpBack()) return;
+    nf.step = to;
+    saveSession('new-flow', nf);
+    renderNew();
+  });
 }
 
 async function loadUploadedPdf(file, nameHint = '') {
@@ -797,6 +842,7 @@ function slidePlaceholder(n) {
 
 function renderNew() {
   saveSession('new-flow', nf);
+  bindStepNav();
   app.className = 'narrow';
   app.innerHTML = `${nfSteps()}<div id="nf"></div>`;
   [nfStep1, nfStep2, nfStep3, nfStep4][nf.step]();
@@ -961,7 +1007,15 @@ function failParse(msg) {
 
 /* 스텝 2 — 발표 정보 (선택) */
 function nfStep2() {
-  const occs = ['사내 보고', '학회·수업 발표', '대회·IR 피칭', '범용'];
+  /* 채점표 v3 의 상황 4열 그대로다. 라벨을 그대로 보내면 서버(rubric_v3.resolve_situation)가
+     상황 key 로 옮긴다 — 프론트가 key 를 따로 들고 있지 않아도 되고, 이 문장이 F-06·07·11
+     프롬프트에도 그대로 들어가서 한국어로 읽힌다. 문구를 바꾸면 가중치가 바뀐다. */
+  const occs = [
+    '학교 프로젝트 (교수 대상)',
+    '신제품 설명 (대중 대상)',
+    '업무 보고 (상사 대상)',
+    '동료 간 캐주얼 PR',
+  ];
   const times = [3, 5, 10, 15, 20, 30];
   const titles = activeTitles();
   const perSlide = Math.round(nf.min * 60 / titles.length);
@@ -1016,7 +1070,9 @@ function nfStep2() {
   $('#minus').addEventListener('click', () => moveTime(-1));
   $('#plus').addEventListener('click', () => moveTime(1));
   $('#go').addEventListener('click', () => { nf.step = 2; renderNew(); });
-  $('#skip').addEventListener('click', () => { nf.occ = '범용'; nf.step = 2; renderNew(); });
+  // 건너뛰면 상황을 비운다. 서버가 기본 기준으로 매기고 "안 골라서 …" 안내를 남긴다 —
+  // 없는 상황을 지어내 보내면 어느 가중치로 매겼는지 알 수 없게 된다.
+  $('#skip').addEventListener('click', () => { nf.occ = ''; nf.step = 2; renderNew(); });
 }
 
 /* 스텝 3 — 리허설 녹음 */
@@ -1050,9 +1106,20 @@ function nfStep3() {
       ? `<div id="slideCardWrap" class="slide-doc-wrap">${slideCardHtml(nf.slide, titleAt(nf.slide - 1), bodies[nf.slide - 1])}</div>`
       : `<img id="slideImage" src="${activeImages()[nf.slide - 1] || ''}" alt="">`);
 
+  /* 필름은 "몇 번을 고를까"가 아니라 "어느 그림으로 갈까"를 고르는 자리다.
+     원본 PDF 가 있으면 그 페이지를 그려 넣고(paintDeckThumbs 가 채운다),
+     없으면 번호·제목만 남긴다 — 파싱 텍스트를 그림인 척 넣지 않는다 */
   const film = Array.from({ length: nPages }, (_, i) => {
     const on = i + 1 === nf.slide ? 'on' : '';
-    return `<button type="button" class="${on}" data-slide="${i + 1}" aria-label="${i + 1}번 슬라이드"><span class="film-no">${i + 1}</span><span class="film-title">${escapeHtml(String(titleAt(i)).slice(0, 28))}</span></button>`;
+    const no = i + 1;
+    const title = escapeHtml(String(titleAt(i)).slice(0, 28));
+    if (!usePdf) {
+      return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드"><span class="film-no">${no}</span><span class="film-title">${title}</span></button>`;
+    }
+    return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드">
+      <img class="film-thumb" data-thumb-page="${no}" src="${slidePlaceholder(no)}" alt="">
+      <span class="film-cap"><span class="film-no">${no}</span><span class="film-title">${title}</span></span>
+    </button>`;
   }).join('');
 
   app.className = '';
@@ -1077,7 +1144,7 @@ function nfStep3() {
           <strong id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</strong>
           <small id="slideNo" class="num">${nf.slide} / ${nPages}</small>
         </div>
-        <div class="slide-film slide-film-text" id="slideFilm">${film}</div>
+        <div class="slide-film ${usePdf ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
       </div>
     </div>
     <div class="sf" id="stagefront" aria-hidden="true"></div>
@@ -1085,6 +1152,8 @@ function nfStep3() {
   renderRecPanel();
   bindRehearsalNav();
   paintRehearsalSlide(nf.slide);
+  // 무대가 먼저다. 필름 썸네일은 그 뒤에 순차로 채워진다(캐시라 두 번째부터는 즉시)
+  if (usePdf) paintDeckThumbs(app);
   if (nf.mic === 'on' && !ccRuntime) startRecClock();
   wireFreshPracticeButtons(app);
 }
@@ -1204,12 +1273,22 @@ function bindRecUpload() {
 function renderRecPanel() {
   const p = $('#recPanel'); if (!p) return;
   p.classList.toggle('is-live', nf.mic === 'on');
+  refreshStepBar(); // 녹음 중에는 지나온 단계 버튼을 닫는다
   if (nf.mic === 'idle') {
+    /* 단계 표시줄로 질문 준비에서 돌아온 경우다. nf.step=3 은 녹음을 마쳐야만
+       세워지므로 길을 안 열어 주면 이미 끝난 분석으로 다시 갈 수가 없다 */
+    const hasTake = !!(nf.pipelineOut || nf.pipelineError);
     p.innerHTML = `
-      <div class="rec-copy"><span>준비되면 시작하세요</span><p>발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.</p></div>
+      <div class="rec-copy"><span>준비되면 시작하세요</span><p>${hasTake
+        ? '다시 발표해도 되고, 아까 발표한 결과로 바로 넘어가도 돼요.'
+        : '발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.'}</p></div>
+      ${hasTake ? '<button class="btn btn-secondary" id="recResume">아까 발표로 질문 준비하기</button>' : ''}
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
       ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
+    if (hasTake) {
+      $('#recResume').addEventListener('click', () => { nf.step = 3; renderNew(); });
+    }
     bindRecUpload();
   } else if (nf.mic === 'denied') {
     p.innerHTML = `
@@ -1476,6 +1555,9 @@ async function finishRecAndPrepare() {
     saveSession('new-flow', nf);
   }
   nf.backstage = [];   // 막간 대사는 테이크마다 새로 쌓인다
+  // 녹음은 여기서 끝났다. 'on' 으로 두면 리허설로 돌아왔을 때 이미 끝난 발표가
+  // 「발표 중」 시계로 다시 그려지고, 단계 표시줄도 녹음 중인 줄 알고 잠긴다
+  nf.mic = 'idle';
   await showCurtainCall(slides, (ccLastTake && ccLastTake.durationSec) || nf.sec);
   nf.step = 3;
   renderNew();
@@ -2285,7 +2367,10 @@ function reportVerdict() {
       score: real.score,
       dims: real.dims,
       headline: real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요',
-      delta: `<span class="prev num">F-13 실측 · ${escapeHtml(real.basis)}</span>`,
+      // 어느 기준으로 매겼는지 숨기지 않는다. 폴백이면 폴백이라고 쓴다
+      delta: `<span class="prev num">${
+        real.isFallback ? '예전 방식' : '채점표 v3'
+      } · ${escapeHtml(real.situationLabel || real.basis)}</span>`,
     };
   }
   const diff = s.score - s.prevScore;
@@ -2539,21 +2624,35 @@ function realTrophy() {
    파이프라인에서 실제로 본 축. 막대 옆에 얼굴이 붙으면 "누가 왜 이 점수를
    줬는지"가 보인다 (§6). */
 const SCORE_CHICK = {
-  coverage: 'midm',    // 자료와 발화의 정합 판정 (F-11)
-  rank: 'ax',          // 발화 축 — 어디에 얼마나 시간을 썼나 (F-05)
-  edge: 'exaone',      // 개념을 말로 잘 이었나 (good_link)
-  order: 'solar',      // 자료 순서와 발표 순서 (F-01/06/07)
+  content: 'midm',     // 자료와 발화의 정합 판정 (F-11)
+  logic: 'midm',       // 같은 축 — 자료가 말한 것과 발화의 관계
+  audience: 'ax',      // 발화 축 — 누구에게 어떻게 말했나 (F-05)
+  clarity: 'ax',       // 같은 축 — 말 자체의 결
+  delivery: 'solar',   // 시간·소리 축 (F-17/18)
+  time: 'solar',
+  visual: 'exaone',    // 자료 축 (F-01/06/07)
 };
 
 function realSummary() {
   const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
   if (!sc || typeof sc.score !== 'number') return null;
-  const dims = (sc.components || []).map(c =>
-    [c.label, Math.round((c.raw || 0) * 100), SCORE_CHICK[c.key] || '']);
+  const dims = (sc.clusters || [])
+    .filter(c => c.status === 'scored')
+    .map(c => [c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '']);
   const notes = [];
-  if (sc.contradiction_count) notes.push(`자료와 다르게 말한 개념 ${sc.contradiction_count}개`);
-  if (sc.basis !== 'full') notes.push(`지표 일부만 계산됨 (${(sc.omitted || []).join(', ')})`);
-  return { score: sc.score, dims, notes, basis: sc.basis };
+  // 두 안내를 합치지 않는다 — '이 상황에서 안 봄'과 '이번에 못 잼'은 다른 말이다
+  if ((sc.excluded || []).length) {
+    notes.push(`이 상황에서는 평가하지 않는 항목 ${sc.excluded.length}개`);
+  }
+  if ((sc.unmeasured || []).length) {
+    notes.push(`이번엔 측정할 수 없었던 항목 ${sc.unmeasured.length}개`);
+  }
+  if (sc.note) notes.push(sc.note);
+  return {
+    score: sc.score, dims, notes, basis: sc.basis,
+    situationLabel: sc.situation_label || '',
+    isFallback: String(sc.rubric_version || '').endsWith('-fallback'),
+  };
 }
 
 /* ─── 기억하는 객석 (§13) ───────────────────────────────────────────────────
@@ -2930,13 +3029,13 @@ function rSummary() {
 /** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
 function rAudience() {
   const blocked = audienceBlockReason();
+  // '아직 안 왔다' 와 '분석이 실패했다' 는 다른 일이다. 둘 다 빨갛게 칠하면
+  // 진짜 실패가 친절한 안내로 읽힌다 (CLAUDE.md §4 "실패하면 실패로 보여준다")
+  const notYet = !(nf && (nf.pipelineOut || nf.transcriptOk));
   $('#rbody').innerHTML = `
     <div class="card">
       <h3 class="section-title">삐약 청중석</h3>
-      <p class="note" style="margin-bottom:14px">
-        발표를 들은 네 모델이 판정 결과를 놓고 뭐라고 하는지 엿들어 볼까요?
-      </p>
-      ${blocked ? `<p class="note" style="color:#f04452">${escapeHtml(blocked)}</p>` : ''}
+      ${blocked ? `<p class="aud-block ${notYet ? 'is-waiting' : 'is-failed'}">${escapeHtml(blocked)}</p>` : ''}
       <div id="audMount"></div>
       ${blocked ? '' : '<div class="step-actions"><button class="btn btn-primary" id="audOpen">객석 들어가기</button></div>'}
     </div>`;
@@ -2990,8 +3089,14 @@ async function openAudience() {
   const card = $('#audCard');
   const bundle = pipelineBundle();
   if (!bundle) {
+    // 그릴 때는 멀쩡했는데 누를 때 결과가 사라진 경우다. 실패 문구를 평범한
+    // 안내 글씨로 흘리면 실패가 안 보인다 (CLAUDE.md §4)
     const reason = audienceBlockReason();
-    if (card && reason) card.querySelector('p').textContent = reason;
+    const status = card && card.querySelector('.aud-status');
+    if (status && reason) {
+      status.textContent = reason;
+      status.classList.add('aud-block', 'is-failed');
+    }
     return;
   }
 
@@ -3001,7 +3106,15 @@ async function openAudience() {
     if (n.slide_nos && n.slide_nos.length) nodeSlides[n.id] = Math.min(...n.slide_nos);
   });
 
-  if (card) card.querySelector('p').textContent = '객석에서 수군거리는 중...';
+  /** 진입 카드의 상태 한 줄. 실패일 때만 판정 색을 입힌다 */
+  const say = (text, failed) => {
+    const el = card && card.querySelector('.aud-status');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('aud-block', !!failed);
+    el.classList.toggle('is-failed', !!failed);
+  };
+  say('객석에서 수군거리는 중...', false);
   try {
     if (!chatterCache) {
       chatterCache = await window.Chatter.fetchChatter(
@@ -3025,11 +3138,9 @@ async function openAudience() {
         }
       },
     });
-    if (card) card.querySelector('p').textContent =
-      '발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?';
+    say('발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?', false);
   } catch (err) {
-    if (card) card.querySelector('p').textContent =
-      (err && err.message) || '청중들이 아직 도착 안 했어요. 잠시 후 다시 시도해 주세요.';
+    say((err && err.message) || '객석을 여는 데 실패했어요. 잠시 뒤에 다시 누르면 열 수 있어요.', true);
   }
 }
 
@@ -3704,14 +3815,24 @@ function ensureLiveQuestions() {
 
   qaBuilding = true;
   qa.liveNotice = '';
-  bridge.buildQuestions({
+  // 아티팩트를 세션에 먼저 등록해 둔다 — 이후 판정은 session_id 만 보내면 되고,
+  // 실패해도 아래 요청이 본문으로 그대로 싣고 가므로 흐름이 막히지 않는다.
+  const artifacts = liveArtifacts();
+  const registered = artifacts && bridge.registerSessionArtifacts
+    ? bridge.registerSessionArtifacts(FLAT_QA_SESSION_ID, artifacts).catch((err) => {
+        console.warn('[chuckchuck] register session artifacts', err);
+      })
+    : Promise.resolve();
+
+  registered.then(() => bridge.buildQuestions({
+    sessionId: FLAT_QA_SESSION_ID,
     graph: out.graph,
     alignment: out.alignment || null,
     flow: out.flow || null,
     transcript: out.transcript || null,
     context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
     track: (qa && qa.mode) || '10',
-  }).then((doc) => {
+  })).then((doc) => {
     const questions = (doc && doc.questions) || [];
     if (questions.length) {
       qa.live = newLiveState(FLAT_QA_SESSION_ID, questions);
@@ -3896,7 +4017,16 @@ const beat = () => {
 const qText = b => (b.q && (b.q[qa.aud] || b.q['공통'])) || '';
 
 function pushTurn(item) { qa.turns.push(item); saveSession('qa-flow', qa); }
-function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' }); }
+/* 가로형에서는 대화가 #stream 안에서만 스크롤된다(css/tablet.css).
+   그때 창을 내리면 아무 일도 일어나지 않아 새 질문이 화면 밖에 남는다. */
+function scrollDown() {
+  const stream = document.getElementById('stream');
+  if (stream && stream.scrollHeight > stream.clientHeight + 1) {
+    stream.scrollTop = stream.scrollHeight;
+    return;
+  }
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
+}
 
 /* ── 설득 트래커 ── */
 const TRACK_ICON = { wait: '', current: '', won: '✓', review: '✓', lost: '✕' };
@@ -3996,328 +4126,7 @@ function typeSummary(node) {
   tick();
 }
 
-/* ── 실전 QA(서버 질문 생성·판정) — 스크립트 모드와 별도의 단순 루프 ── */
-const LIVE_VERDICT = {
-  good:    { flag: 'won',  react: 'full',    word: '설득 완료' },
-  partial: { flag: 'won',  react: 'partial', word: '부분 인정' },
-  wrong:   { flag: 'lost', react: 'none',    word: '미방어' },
-  unknown: { flag: 'lost', react: 'none',    word: '판정 보류' },
-};
-const SEVERITY_WORD = { 1: '치명', 2: '보통', 3: '가벼움' };
-
-function qaLiveActive() {
-  return !!(qa.live && Array.isArray(qa.live.questions) && qa.live.questions.length);
-}
-
-function newLiveState(sessionId, questions) {
-  return {
-    sessionId,
-    questions,
-    qi: 0,
-    asked: -1,
-    results: [],
-    turn: 0,
-    turns: [],
-    hintLevel: 0,
-    lastJudgement: null,
-    busy: false,
-  };
-}
-
-function liveHistory() {
-  const L = qa.live;
-  const done = (L.results || []).map((r) => ({ 질문: r.question, 답변: r.answer, 판정: r.verdict }));
-  const q = L.questions[L.qi];
-  const current = (L.turns || []).map((t) => ({
-    질문: t.question || (q && q.question) || '',
-    답변: t.answer,
-    판정: t.verdict,
-  }));
-  return done.concat(current);
-}
-
-function liveStalled() {
-  const L = qa.live;
-  if (L.hintLevel < 3 || L.turns.length < 2) return false;
-  const last = L.turns[L.turns.length - 1];
-  const prev = L.turns[L.turns.length - 2];
-  return (last.score || 0) <= (prev.score || 0);
-}
-
-function presentLiveQuestion() {
-  const L = qa.live;
-  if (L.asked === L.qi) return;
-  L.asked = L.qi;
-  const q = L.questions[L.qi];
-  pushTurn({
-    who: 'ai',
-    kind: q.trap ? 'claim' : 'question',
-    meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · 치명도 ${SEVERITY_WORD[q.severity] || '보통'}`,
-    text: escapeHtml(q.question),
-    basis: q.why ? escapeHtml(q.why) : '',
-  });
-}
-
-function renderQaLive() {
-  const L = qa.live;
-  if (qa.ended || L.qi >= L.questions.length) return qaLiveEnd();
-  qa.started = true;
-  presentLiveQuestion();
-  saveSession('qa-flow', qa);
-  const q = L.questions[L.qi];
-  const hints = liveHints();
-  const won = L.results.filter((r) => r.verdict === 'good' || r.verdict === 'partial').length;
-  const prog = Math.round(L.qi / L.questions.length * 100);
-  app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
-    <div class="persuade-track" style="--p:${prog}%">
-      <div class="pt-head"><span>실전 질문 코칭 · 내 자료 기준</span>
-        <span class="pt-right"><b>${won}<i>/${L.questions.length} 설득</i></b></span></div>
-    </div>
-    <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
-    <div class="card qa-live-input">
-      <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
-        placeholder="상대를 설득한다는 생각으로, 자기 말로 답해보세요 (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
-      <div class="step-actions">
-        <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${L.busy ? '판정 중…' : (L.turn ? '다시 답해보기' : '답변 보내기')}</button>
-        <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>모르겠어요</button>
-        ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
-        ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 넘어가기</button>` : ''}
-        <button class="btn btn-text" id="liveSkip" type="button" ${L.busy ? 'disabled' : ''}>이 질문 넘기기</button>
-        <button class="btn btn-text" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>코칭 끝내고 리포트</button>
-      </div>
-    </div>`;
-  scrollDown();
-
-  const sendBtn = $('#liveSend');
-  if (sendBtn) sendBtn.addEventListener('click', () => submitLiveAnswer());
-  const ta = $('#liveAnswer');
-  if (ta) {
-    ta.focus();
-    ta.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      if (e.metaKey || e.ctrlKey) { e.preventDefault(); submitLiveAnswer(); return; }
-      if (e.shiftKey) return;
-      if (e.isComposing || e.keyCode === 229) return;
-      e.preventDefault();
-      submitLiveAnswer();
-    });
-  }
-  const stuckBtn = $('#liveStuck');
-  if (stuckBtn) stuckBtn.addEventListener('click', () => submitLiveAnswer({ giveUp: true }));
-  const hintBtn = $('#liveHint');
-  if (hintBtn) hintBtn.addEventListener('click', () => {
-    const list = liveHints();
-    if (L.hintLevel >= list.length) return;
-    L.hintLevel += 1;
-    pushTurn({ who: 'ai', kind: 'hint', level: L.hintLevel, text: escapeHtml(list[L.hintLevel - 1]) });
-    growStream();
-    if (L.hintLevel >= list.length) hintBtn.remove();
-    else hintBtn.textContent = `힌트 ${L.hintLevel + 1}단계 보기`;
-    saveSession('qa-flow', qa);
-  });
-  const revealBtn = $('#liveReveal');
-  if (revealBtn) revealBtn.addEventListener('click', () => revealLiveAnswer());
-  const skipBtn = $('#liveSkip');
-  if (skipBtn) skipBtn.addEventListener('click', () => {
-    pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 넘겼어요. 리포트에 남겨둘게요` });
-    closeLiveQuestion({
-      id: q.id, label: q.label, question: q.question, answer: '(넘김)',
-      verdict: 'skipped', score: 0, summary: '',
-    });
-    saveSession('qa-flow', qa);
-    renderQaLive();
-  });
-  const finishBtn = $('#liveFinish');
-  if (finishBtn) finishBtn.addEventListener('click', () => finishLiveQaEarly());
-}
-
-/** 남은 질문을 넘김 처리하고 결과 → 리포트 CTA 화면으로 */
-function finishLiveQaEarly() {
-  const L = qa.live;
-  if (!L || L.busy) return;
-  while (L.qi < L.questions.length) {
-    const q = L.questions[L.qi];
-    pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 넘겼어요. 리포트에 남겨둘게요` });
-    closeLiveQuestion({
-      id: q.id, label: q.label, question: q.question, answer: '(넘김)',
-      verdict: 'skipped', score: 0, summary: '',
-    });
-  }
-  saveSession('qa-flow', qa);
-  qaLiveEnd();
-}
-
-async function submitLiveAnswer({ giveUp = false } = {}) {
-  const L = qa.live;
-  const q = L.questions[L.qi];
-  const ta = $('#liveAnswer');
-  const typed = ((ta && ta.value) || '').trim();
-  const answer = giveUp ? (typed || '(모르겠어요)') : typed;
-  if (!answer || L.busy) return;
-  pushTurn({ who: 'me', kind: 'say', text: escapeHtml(answer) });
-  L.busy = true;
-  saveSession('qa-flow', qa);
-  renderQaLive();
-  try {
-    const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
-      questionId: q.id, answer, history: liveHistory(), question: q, giveUp,
-    });
-    const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
-    L.turn += 1;
-    L.turns.push({ question: q.question, answer, verdict: v.verdict, score: v.score || 0 });
-    L.lastJudgement = v;
-    if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });
-
-    if (v.coach_stage === 'explain') {
-      closeLiveCoached(q, v, answer);
-    } else if (v.passed) {
-      finishLiveQuestion(q, v, answer);
-    } else {
-      askAgain(v, L.turn);
-    }
-  } catch (err) {
-    pushTurn({ who: 'sys', kind: 'lost', text: `판정 실패: ${err.message || err} — 같은 질문으로 다시 시도할 수 있어요` });
-  }
-  L.busy = false;
-  saveSession('qa-flow', qa);
-  renderQaLive();
-}
-
-function closeLiveCoached(q, v, answer) {
-  if (v.explanation) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(v.explanation) });
-  closeLiveQuestion({
-    id: q.id, label: q.label, question: q.question, answer,
-    verdict: 'unknown', score: 0,
-    summary: v.summary_sentence || '', revealed: true, coached: true,
-  });
-}
-
-function askAgain(v, turn) {
-  const points = (v.missing_points || []).filter(Boolean);
-  if (points.length) {
-    pushTurn({ who: 'ai', kind: 'missing', points: points.map(escapeHtml) });
-  }
-  if (v.followup) {
-    pushTurn({
-      who: 'ai',
-      kind: 'question',
-      meta: `이어서 묻습니다 · ${turn + 1}번째 답변`,
-      text: escapeHtml(v.followup),
-    });
-  }
-}
-
-function closeLiveQuestion(record) {
-  const L = qa.live;
-  L.results.push({ ...record, turns: L.turn, hintLevel: L.hintLevel });
-  L.qi++;
-  L.turn = 0;
-  L.turns = [];
-  L.hintLevel = 0;
-  L.lastJudgement = null;
-}
-
-function finishLiveQuestion(q, v, answer) {
-  const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
-  pushTurn({ who: 'sys', kind: m.flag, text: `${escapeHtml(q.label)} — ${m.word}` });
-  if (v.summary_sentence) {
-    pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
-  }
-  if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  closeLiveQuestion({
-    id: q.id, label: q.label, question: q.question, answer,
-    verdict: v.verdict, score: v.score || 0, summary: v.summary_sentence || '',
-  });
-}
-
-function revealLiveAnswer() {
-  const L = qa.live;
-  const q = L.questions[L.qi];
-  const v = L.lastJudgement || {};
-  const last = L.turns[L.turns.length - 1] || {};
-  pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 여기까지. 답을 보고 넘어갈게요` });
-  if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  closeLiveQuestion({
-    id: q.id, label: q.label, question: q.question, answer: last.answer || '',
-    verdict: v.verdict || 'unknown', score: v.score || 0,
-    summary: v.summary_sentence || '', revealed: true,
-  });
-  saveSession('qa-flow', qa);
-  renderQaLive();
-}
-
-function liveHints() {
-  const L = qa.live;
-  const q = L.questions[L.qi];
-  const ladder = (L.lastJudgement && L.lastJudgement.hints) || [];
-  if (ladder.length) return ladder;
-  return q && q.hint ? [q.hint] : [];
-}
-
-function qaLiveEnd() {
-  qa.ended = true;
-  // 발표 플로우도 끝난 걸로 표시 — 홈/이어하기에서 리포트로 이어지게
-  if (typeof nf !== 'undefined' && nf) {
-    nf.completed = true;
-    saveSession('new-flow', nf);
-  }
-  saveSession('qa-flow', qa);
-  recordQaHistory();
-  const L = qa.live;
-  const won = L.results.filter((r) => r.verdict === 'good').length;
-  const chipCls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' };
-  const chipWord = { good: '설득 완료', partial: '부분 인정', wrong: '미방어', unknown: '보류', skipped: '넘김' };
-  app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>코칭 기록 저장됨</span></div>
-    <div class="card cere-card">
-      <div class="cere-row-head">
-        <span class="cere-label">실전 질문 코칭 결과</span>
-        <b class="cere-count num">${won} <i>/</i> ${L.questions.length}</b>
-      </div>
-      <div class="cere-sums">
-        ${L.results.map((r) => `<div class="qsum-row">
-          <b><span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? '답 확인' : (chipWord[r.verdict] || r.verdict)}</span> ${escapeHtml(r.label || '')}</b>
-          <p>${escapeHtml(r.summary || r.question || '')}</p>
-          ${r.turns ? `<span class="qsum-meta">${r.turns}번 만에 방어${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</span>` : ''}
-        </div>`).join('') || '<p class="note">기록이 없어요.</p>'}
-      </div>
-      <p class="cere-hint">이 총평이 상세 리포트로 이어져요 — 미방어·넘긴 질문부터 다시 보세요</p>
-    </div>
-    <div class="cere-actions">
-      <a class="btn btn-primary" href="#/report">상세 리포트 보기</a>
-      <button class="btn btn-text" id="liveAgain" type="button">같은 질문으로 다시</button>
-      <a class="btn btn-text" href="#/">홈으로</a>
-    </div>`;
-  const again = $('#liveAgain');
-  if (again) again.addEventListener('click', () => {
-    const keep = qa.live;
-    resetQa();
-    qa.live = newLiveState(keep.sessionId, keep.questions);
-    qa.started = true;
-    saveSession('qa-flow', qa);
-    renderQaLive();
-  });
-  window.scrollTo(0, 0);
-}
-
-/* #/qa 직접 진입: 시작 전에 시간 모드를 고르는 게이트 */
-function qaModeGate() {
-  app.className = 'narrow';
-  app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>시작 전 설정</span></div>
-    <div class="card qa-quick">
-      <div class="qm-head"><b>질문 코칭 시간을 골라주세요</b><span>시간에 맞춰 질문 범위를 짜요 — 짧을수록 치명적인 것만 다뤄요</span></div>
-      ${qaModeButtonsHtml()}
-      <button class="btn btn-primary" id="qaGateStart" type="button">이 설정으로 시작하기 · 최대 ${qaScope().count}개 개념 · 약 ${qaScope().min}분</button>
-    </div>`;
-  wireQaModeButtons(qaModeGate);
-  $('#qaGateStart').addEventListener('click', () => {
-    qa.started = true;
-    saveSession('qa-flow', qa);
-    renderQa();
-  });
-}
+/* 실전 QA(서버 질문 생성·판정) 화면은 js/qa_live.js 로 분리했습니다. */
 
 /* ── 화면 ── */
 function renderQa() {
@@ -4349,6 +4158,8 @@ function renderQa() {
   saveSession('qa-flow', qa);
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
+    <div class="qa-shell">
+      <aside class="qa-context">
     ${qaNoticeHtml()}
     <div class="qa-top">
       <div>
@@ -4365,8 +4176,12 @@ function renderQa() {
       <div class="pc-pass"><span>통과 조건</span><b>${persona().pass}${persona().limit ? ` · ${persona().limit}초` : ''}</b></div>
     </div>
     ${trackerHTML()}
+      </aside>
+      <section class="qa-dialog">
     <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
-    <div class="qa-live" id="live"></div>`;
+    <div class="qa-live" id="live"></div>
+      </section>
+    </div>`;
   $('#aud').addEventListener('change', e => {
     qa.aud = e.target.value;
     const last = qa.turns[qa.turns.length - 1];
