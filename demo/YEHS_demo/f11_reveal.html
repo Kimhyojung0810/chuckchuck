@@ -218,13 +218,20 @@
     overflow-y: auto;
   }
   #summaryScene.show { opacity: 1; pointer-events: auto; }
+  /* 결론 한 문장이 주인공. 커버리지 %는 그 아래 근거로 내려간다 —
+     대기 직후의 초대형 100%는 진행률로 읽히고, 무엇보다 다음에 할 일을 안 남긴다 */
+  .finding {
+    margin: 2px 0 14px; font-size: 19px; font-weight: 700; line-height: 1.45;
+    letter-spacing: -0.02em; color: var(--text);
+  }
+  .finding b { color: var(--primary); }
   .big-metric { margin: 4px 0 2px; }
   .big-metric .num {
-    font-size: 54px; font-weight: 800; letter-spacing: -0.03em;
+    font-size: 38px; font-weight: 800; letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums; color: var(--primary);
   }
-  .big-metric .unit { font-size: 30px; font-weight: 700; color: var(--primary); }
-  .big-metric .label { font-size: 15px; color: var(--sub); margin-top: 2px; }
+  .big-metric .unit { font-size: 22px; font-weight: 700; color: var(--primary); }
+  .big-metric .label { font-size: 14px; color: var(--sub); margin-top: 2px; }
   .metric-row { display: flex; gap: 10px; margin-top: 18px; }
   .m-card {
     flex: 1; background: var(--surface); border-radius: 16px; padding: 14px 14px 12px;
@@ -288,7 +295,8 @@
   @media (max-width: 480px) {
     .caption { min-height: 80px; padding: 12px 20px 4px; }
     .caption h1 { font-size: 20px; }
-    .big-metric .num { font-size: 44px; }
+    .big-metric .num { font-size: 32px; }
+    .finding { font-size: 17px; }
     #summaryScene { padding: 4px 18px 14px; }
     .cta { padding: 15px; font-size: 15.5px; }
   }
@@ -345,6 +353,16 @@
     body.embed .phone { min-height: 0; margin: 12px auto; }
   }
 
+  /* 대기 막대 — 연출이 아니라 상태다. 결과를 기다리는 내내 여기만 움직인다 */
+  .waitbar { padding: 0 20px; margin: 2px 0 6px; }
+  .waitbar[hidden] { display: none; }
+  .wb-track { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .wb-track i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--primary); transition: width .6s linear; }
+  .wb-meta { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0 0; font-size: 12px; color: var(--sub); }
+  .wb-meta b { color: var(--primary); font-variant-numeric: tabular-nums; }
+  /* 정합을 기다리는 동안 노드 하나씩 짚어 본다 — 숫자를 주장하지 않는 순수 연출 */
+  .node.scanning circle.body { stroke: var(--primary); }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
@@ -362,15 +380,23 @@
     <p id="capP"></p>
   </div>
 
+  <!-- 대기 막대 — 부모가 넘겨준 실제 진행률만 그린다. 결과가 다 오면 사라진다 -->
+  <div class="waitbar" id="waitBar" hidden>
+    <div class="wb-track"><i id="wbFill"></i></div>
+    <p class="wb-meta"><span id="wbLabel"></span><b id="wbPct"></b></p>
+  </div>
+
   <div class="stage">
     <svg id="svg" viewBox="0 0 380 418" aria-label="개념 그래프 분석 애니메이션"></svg>
     <div id="sttScene"></div>
     <div class="quote" id="quoteBubble"></div>
 
     <div id="summaryScene">
+      <!-- 7분 기다린 사람이 첫 줄에서 읽어야 할 건 점수가 아니라 다음에 할 일이다 -->
+      <p class="finding" id="finding"></p>
       <div class="big-metric">
         <span class="num" id="covNum">0</span><span class="unit">%</span>
-        <div class="label">자료의 핵심을 이만큼 설명했어요</div>
+        <div class="label">자료의 핵심 중 실제로 설명한 비중이에요</div>
       </div>
       <div class="metric-row">
         <div class="m-card" id="mc1"><div class="v" id="rankNum">0.00</div><div class="k">중요한 순서대로<br>말했는지</div></div>
@@ -453,7 +479,7 @@ const CAPTIONS = [
   { h: "발표를 다시 들어볼게요", p: "개념마다 언제, 얼마나 말했는지 재고 있어요. 차오르는 링이 발표에서 쓴 힘이에요" },
   { h: "개념마다 판정을 내렸어요", p: "잘 설명한 개념은 초록, 아직 설명하지 않은 개념은 흐리게, 자료와 다르게 말한 개념은 빨강이에요" },
   { h: "자료와 발표를 나란히 놓으면", p: "오른쪽 위일수록 힘준 만큼 말한 개념이에요. 점선에서 멀수록 자료와 발표의 온도차가 커요" },
-  { h: "분석을 마쳤어요", p: "" },
+  { h: "분석을 마쳤어요", p: "자료와 발표를 개념 단위로 맞춰 봤어요" },
 ];
 
 /* ---------------------------------------------------------------
@@ -471,11 +497,17 @@ let REAL_STT = null;       // 실전사 문장들 — 도착하면 STT 씬이 �
 let REAL_KEYWORDS = null;  // 실데이터에서 '발표가 실제로 다룬 개념' 라벨 — 키워드 침으로 띄운다
 let LIVE_LINES = [];       // 부모 postMessage(f11Progress) 실진행 문구
 let LAST_PROGRESS_KEY = "";
+let graphArrived = false;  // 개념 그래프(F-07)만 먼저 도착 — 정합(F-11)은 아직
+let LIVE_PERCENT = null;   // 부모가 계산한 실제 진행률. 여기서 지어내지 않는다
+let LIVE_LABEL = "";
 
 const sleep = (ms) => new Promise((r) => {
   if (skipped || REDUCED) return r();
   setTimeout(r, ms);
 });
+/* 연출용 sleep 은 모션 감소·건너뛰기에서 즉시 끝난다. 결과를 기다리는 폴링에 그걸 쓰면
+   루프가 그 자리에서 다 돌아버려 "시간 초과" 로 떨어진다 — 대기는 진짜로 기다린다 */
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function el(tag, attrs, parent) {
   const n = document.createElementNS(svgNS, tag);
   for (const k in attrs) n.setAttribute(k, attrs[k]);
@@ -602,29 +634,31 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
-function applyRealData(graph, align) {
-  const itemBy = {};
-  (align.items || []).forEach((i) => (itemBy[i.node_id] = i));
-  const nodes = (graph.nodes || []).map((gn) => {
-    const it = itemBy[gn.id] || {};
-    const basis = it.speech_basis || {};
-    return {
-      id: gn.id, label: shortLabel(gn.label || gn.id), depth: gn.depth || 1,
-      doc: gn.weight || 0, speech: it.speech_weight || 0,
-      verdict: VERDICT_FROM_API[it.verdict] || "missing",
-      first: basis.first_mention_sec != null ? basis.first_mention_sec : null,
-      evidence: it.verdict === "contradiction" && it.evidence
-        ? `“${it.evidence}” — 자료와 어긋나요` : undefined,
-    };
-  }).sort((a, b) => b.doc - a.doc).slice(0, MAX_REVEAL_NODES);
+/**
+ * 개념 그래프(F-07)만 먼저 반영한다 — 정합(F-11)은 아직 없다.
+ *
+ * 선분석 덕에 그래프는 발표가 끝나는 순간 이미 있다. 정합이 올 때까지 빈 화면을 보여줄
+ * 이유가 없다: 아는 것부터 그린다. 여기서는 자료 축(doc weight)만 쓴다 —
+ * 발화 축(speech)과 판정은 아직 측정 안 됐고, 없는 값을 0 으로 그려 넣으면
+ * "하나도 안 말했다"는 거짓말이 된다. 게이지와 판정색은 applyAlignment 가 켠다.
+ */
+function applyGraphOnly(graph) {
+  if (graphArrived) return;
+  const nodes = (graph.nodes || []).map((gn) => ({
+    id: gn.id,
+    label: shortLabel(gn.label || gn.id),
+    depth: gn.depth || 1,
+    doc: gn.weight || 0,
+    speech: 0,
+    verdict: null,          // 아직 판정 전 — sceneVerdict 가 켤 때까지 색을 안 준다
+    first: null,
+  })).sort((a, b) => b.doc - a.doc).slice(0, MAX_REVEAL_NODES);
   if (nodes.length > 8) {
     // 촘촘한 판에서는 14자 라벨이 이웃과 겹친다 — 더 짧게
     nodes.forEach((n) => {
       if (n.label.length > 8) n.label = n.label.slice(0, 7) + "…";
     });
   }
-  REAL_KEYWORDS = nodes.filter((n) => n.verdict === "aligned").slice(0, 4).map((n) => n.label);
-  if (!REAL_KEYWORDS.length) REAL_KEYWORDS = nodes.slice(0, 3).map((n) => n.label);
   layoutNodes(nodes);
   const ids = new Set(nodes.map((n) => n.id));
 
@@ -632,34 +666,63 @@ function applyRealData(graph, align) {
   EDGES = (graph.edges || [])
     .filter((e) => ids.has(e.from) && ids.has(e.to))
     .map((e) => ({ from: e.from, to: e.to, kind: e.kind }));
+  SPOKEN_EDGES = [];
+  CAPTIONS[1].p = `발표 자료에서 개념 ${NODES.length}개와 연결 ${EDGES.length}개를 찾았어요. 큰 원일수록 자료가 힘을 실은 개념이에요`;
+
+  buildStage();
+  graphArrived = true;
+}
+
+/**
+ * 정합 판정(F-11)을 이미 떠 있는 그래프 위에 얹는다.
+ *
+ * 스테이지를 다시 만들지 않는다 — buildStage() 는 노드를 새로 그리고 `.node { opacity: 0 }`
+ * 로 되돌리기 때문에, 이미 피어난 그래프가 정합이 도착하는 순간 통째로 사라진다.
+ * 노드 객체를 그 자리에서 갱신하면 nodeEls 가 같은 참조를 들고 있어서 조용히 반영된다.
+ */
+function applyAlignment(align) {
+  const itemBy = {};
+  (align.items || []).forEach((i) => (itemBy[i.node_id] = i));
+  for (const n of NODES) {
+    const it = itemBy[n.id] || {};
+    const basis = it.speech_basis || {};
+    n.speech = it.speech_weight || 0;
+    n.verdict = VERDICT_FROM_API[it.verdict] || "missing";
+    n.first = basis.first_mention_sec != null ? basis.first_mention_sec : null;
+    n.evidence = it.verdict === "contradiction" && it.evidence
+      ? `“${it.evidence}” — 자료와 어긋나요` : undefined;
+  }
+  REAL_KEYWORDS = NODES.filter((n) => n.verdict === "aligned").slice(0, 4).map((n) => n.label);
+  if (!REAL_KEYWORDS.length) REAL_KEYWORDS = NODES.slice(0, 3).map((n) => n.label);
+
+  const ids = new Set(NODES.map((n) => n.id));
   SPOKEN_EDGES = (align.speech_edges || [])
     .filter((e) => ids.has(e.from) && ids.has(e.to))
     .map((e) => [e.from, e.to]);
+
   const s = align.summary || {};
   SUMMARY = {
     coverage: Math.round((s.coverage || 0) * 100),
     rank: s.rank_correlation != null ? s.rank_correlation : null,
     edge: s.edge_coverage != null ? Math.round(s.edge_coverage * 100) : null,
     total: s.speech_total_sec || 0,
+    counts: s.verdict_counts || {},
   };
 
-  // 화면 문구도 실데이터로
-  CAPTIONS[1].p = `발표 자료에서 개념 ${NODES.length}개와 연결 ${EDGES.length}개를 찾았어요. 큰 원일수록 자료가 힘을 실은 개념이에요`;
   const counts = s.verdict_counts || {};
   [["vr1", "aligned"], ["vr2", "missing"], ["vr3", "contradiction"], ["vr4", "justified_skip"]]
     .forEach(([id, k]) => {
       const cnt = $(id).querySelector(".cnt");
       if (cnt) cnt.textContent = `${counts[k] || 0}개`;
     });
-  const miss = NODES.find((n) => n.verdict === "missing");
-  $("ctaHint").innerHTML = miss
-    ? `자료가 힘준 <b>${escHtml(miss.label)}</b>부터 보완하면<br>발표가 더 탄탄해져요`
-    : "자료의 핵심을 빠짐없이 다뤘어요.<br>이제 질문으로 더 단단하게 만들어봐요";
   const mini = $("miniScatter");
   mini.replaceChildren();
   delete mini.dataset.built;
+}
 
-  buildStage();
+function applyRealData(graph, align) {
+  applyGraphOnly(graph);
+  applyAlignment(align);
   dataArrived = true;
 }
 
@@ -685,6 +748,10 @@ window.addEventListener("message", (e) => {
     const label = String(e.data.label || e.data.phase || "").trim();
     const detail = String(e.data.detail || "").trim();
     const preview = String(e.data.transcriptPreview || "").trim();
+    // 진행률은 부모가 실측표로 계산한 값이다. 여기서 다시 만들지 않는다
+    if (typeof e.data.percent === "number") LIVE_PERCENT = e.data.percent;
+    LIVE_LABEL = label;
+    paintWaitBar();
     const key = label + "|" + detail;
     if (key && key !== LAST_PROGRESS_KEY) {
       LAST_PROGRESS_KEY = key;
@@ -713,6 +780,18 @@ window.addEventListener("message", (e) => {
     FAIL_MESSAGE = String(e.data.message || "분석에 실패했어요");
     CAPTIONS[0].h = "분석을 마치지 못했어요";
     CAPTIONS[0].p = FAIL_MESSAGE;
+    return;
+  }
+  /* 그래프만 먼저 온다. 발표하는 동안 미리 돌려 둔 F-07 결과라, 보통 발표가 끝나는
+     순간 이미 도착해 있다 — 여기서부터 화면이 살아 있다 */
+  if (e.data.type === "f11Graph" && e.data.graph) {
+    try {
+      applyGraphOnly(e.data.graph);
+    } catch (err) {
+      dataFailed = true;
+      dataArrived = true;
+      FAIL_MESSAGE = "개념 그래프를 그리다 실패했어요";
+    }
     return;
   }
   if (e.data.type === "f11Data" && e.data.graph && e.data.alignment) {
@@ -760,6 +839,29 @@ function setScene(i) {
   cap.classList.add("show");
 }
 
+/* 대기 막대 — 부모가 준 percent 만 그린다. 값이 안 왔으면 아무것도 안 그린다.
+   여기서 시간으로 지어낸 막대를 채우면 그건 진행률이 아니라 위로다 (UI_REDESIGN §14) */
+function showWaitBar(on) {
+  const bar = $("waitBar");
+  if (!bar) return;
+  bar.hidden = !on;
+  if (on) paintWaitBar();
+}
+function paintWaitBar() {
+  const bar = $("waitBar");
+  if (!bar || bar.hidden) return;
+  const fill = $("wbFill");
+  const pct = $("wbPct");
+  const label = $("wbLabel");
+  if (label) label.textContent = LIVE_LABEL || "분석하고 있어요";
+  if (LIVE_PERCENT == null) {
+    if (pct) pct.textContent = "";
+    return;
+  }
+  if (fill) fill.style.width = `${Math.max(0, Math.min(100, LIVE_PERCENT))}%`;
+  if (pct) pct.textContent = `${LIVE_PERCENT}%`;
+}
+
 async function sceneSTT() {
   setScene(0);
   document.body.dataset.scene = "0";
@@ -773,7 +875,13 @@ async function sceneSTT() {
     "어떤 개념을 말했는지 찾고 있어요…",
     "자료의 개념과 대조할 준비를 하고 있어요…",
   ];
-  let pass = 0;
+  /* 여기서 기다리는 건 **개념 그래프(F-07)** 하나다.
+     예전엔 정합(F-11)까지 둘 다 기다렸고 그건 실 API 로 450초쯤인데 루프 상한이 90초라,
+     개념그래프도 산점도도 실전에서는 한 번도 안 나왔다. 선분석 덕에 그래프는 보통
+     발표가 끝나는 순간 이미 와 있어서 이 루프는 몇 초 만에 빠져나온다.
+     상한은 그래프까지의 최악(F-06 + F-07 ≈ 4분 23초)에 여유를 얹어 8분으로 둔다. */
+  const GRAPH_WAIT_MAX_SEC = 480;
+  let waited = 0;
   let shown = 0;
   if (!EMBED) {
     for (let i = 0; i < STT_LINES.length; i++) {
@@ -793,26 +901,28 @@ async function sceneSTT() {
       await sleep(760);
     }
   } else {
-    do {
+    showWaitBar(true);
+    let filler = 0;
+    while (!graphArrived && !dataFailed && !skipped && waited < GRAPH_WAIT_MAX_SEC) {
       let text = null;
       if (LIVE_LINES.length > shown) {
         text = LIVE_LINES[shown];
         shown += 1;
-      } else if (!dataArrived) {
-        text = WAIT_LINES[pass % WAIT_LINES.length];
-        pass += 1;
+      } else {
+        text = WAIT_LINES[filler % WAIT_LINES.length];
+        filler += 1;
       }
-      if (text) {
-        const line = document.createElement("div");
-        line.className = "stt-line";
-        line.textContent = text;
-        wrap.appendChild(line);
-        if (wrap.childElementCount > 24) {
-          while (wrap.childElementCount > 16) wrap.removeChild(wrap.firstChild);
-        }
+      const line = document.createElement("div");
+      line.className = "stt-line";
+      line.textContent = text;
+      wrap.appendChild(line);
+      if (wrap.childElementCount > 24) {
+        while (wrap.childElementCount > 16) wrap.removeChild(wrap.firstChild);
       }
-      await sleep(LIVE_LINES.length > shown ? 480 : 900);
-    } while (!dataArrived && !skipped && pass < 90);
+      const step = LIVE_LINES.length > shown ? 480 : 900;
+      await wait(step);
+      waited += step / 1000;
+    }
   }
 
   if (EMBED && dataFailed) {
@@ -850,10 +960,10 @@ async function sceneSTT() {
       }
       await sleep(620);
     }
-  } else if (EMBED && !dataArrived) {
-    // 시간 초과: mock 그래프 대신 안내만
+  } else if (EMBED && !graphArrived) {
+    // 시간 초과: mock 그래프 대신 안내만 (CLAUDE.md §4 — 실패는 실패로 보여준다)
     dataFailed = true;
-    FAIL_MESSAGE = "분석이 아직 끝나지 않았어요. 닫고 준비 화면에서 진행 상황을 봐 주세요.";
+    FAIL_MESSAGE = "개념 그래프가 아직 안 나왔어요. 닫고 준비 화면에서 진행 상황을 볼 수 있어요.";
     wrap.replaceChildren();
     const line = document.createElement("div");
     line.className = "stt-line";
@@ -869,6 +979,46 @@ async function sceneSTT() {
   wrap.style.opacity = 0;
   await sleep(300);
   wrap.innerHTML = "";
+}
+
+/**
+ * 정합(F-11)을 기다리는 유일한 진짜 대기 구간.
+ *
+ * 예전엔 이 시간이 「빈 화면」이었다 — 준비 화면에서도 리빌에서도 움직이는 게 없었다.
+ * 이제 그래프는 이미 떠 있고, 여기서는 (1) 실제 진행률 막대와 (2) 노드를 하나씩 짚는
+ * 스캔 연출만 돈다. 스캔은 숫자를 주장하지 않는다 — 게이지와 판정색은 정합이 와야 켜진다.
+ *
+ * 상한을 20분으로 크게 잡는다. 예전 90초 상한이 이 데모의 킬러 씬을 통째로 못 보게 만들었다.
+ * 그래도 무한은 아니다 — 넘으면 정직하게 못 끝냈다고 말한다.
+ */
+const ALIGN_WAIT_MAX_SEC = 1200;
+
+async function sceneListening() {
+  setScene(2);
+  document.body.dataset.scene = "2";
+  $("capH").textContent = "발표를 다시 들어볼게요";
+  $("capP").textContent = "개념마다 언제, 얼마나 말했는지 재고 있어요. 다 재면 원마다 판정이 찍혀요";
+  showWaitBar(true);
+
+  let waited = 0;
+  let i = 0;
+  while (!dataArrived && !dataFailed && !skipped && waited < ALIGN_WAIT_MAX_SEC) {
+    if (nodeEls.length) {
+      const cur = nodeEls[i % nodeEls.length];
+      cur.g.classList.add("scanning");
+      await wait(520);
+      cur.g.classList.remove("scanning");
+      waited += 0.52;
+      i += 1;
+    } else {
+      await wait(700);
+      waited += 0.7;
+    }
+  }
+  if (!dataArrived && !dataFailed) {
+    dataFailed = true;
+    FAIL_MESSAGE = "자료와 발표를 대조하는 데 예상보다 오래 걸리고 있어요. 닫고 준비 화면에서 진행 상황을 볼 수 있어요.";
+  }
 }
 
 async function sceneGraph() {
@@ -995,10 +1145,58 @@ function buildMiniScatter() {
   }
 }
 
+/**
+ * 결론 한 문장과 다음 행동을 고른다.
+ *
+ * 예전에는 커버리지 %가 결론이었다. 그런데 F-11 coverage 는 정당생략을 분모에서 빼기
+ * 때문에(f11_align.py) 판정이 후하면 100% 가 나오고, 그러면 「빠짐없이 다뤘어요」로 끝나
+ * 7분 기다린 대가가 "잘했어요" 한 줄이 된다.
+ *
+ * 100% 여도 데이터에 남아 있는 건 있다 — 힘준 만큼 말했는지(doc−speech), 중요한 순서대로
+ * 말했는지(rank), 개념 사이 연결을 말로 이었는지(edge). 아래 순서로 하나만 고른다.
+ * 근거가 하나도 없으면 없다고 말한다. 지어내지 않는다.
+ */
+function summaryFinding() {
+  const byDoc = [...NODES].sort((a, b) => b.doc - a.doc);
+  const rankOf = (n) => byDoc.findIndex((x) => x.id === n.id) + 1;
+  const line = (head, n) =>
+    `${head}<br><b>${escHtml(n.label)}</b> · 자료에서 ${rankOf(n)}번째로 힘준 개념이에요`;
+
+  const contra = byDoc.find((n) => n.verdict === "contra");
+  if (contra) {
+    return { finding: line("자료와 다르게 말한 개념이 있어요", contra), target: contra };
+  }
+  const missing = byDoc.find((n) => n.verdict === "missing");
+  if (missing) {
+    return { finding: line("아직 설명하지 않은 개념이 있어요", missing), target: missing };
+  }
+  /* 여기부터가 커버리지 100% 인 경우다. 판정은 다 붙었어도 "힘준 만큼" 말했는지는 별개다 */
+  const gap = [...NODES].sort((a, b) => (b.doc - b.speech) - (a.doc - a.speech))[0];
+  if (gap && gap.doc - gap.speech >= 0.1) {
+    return { finding: line("힘준 만큼 말하지 않은 개념이 있어요", gap), target: gap };
+  }
+  if (SUMMARY.edge != null && SUMMARY.edge < 100) {
+    return {
+      finding: `개념 사이 연결 중 <b>${SUMMARY.edge}%</b>만<br>말로 이어줬어요`,
+      target: null,
+    };
+  }
+  if (SUMMARY.rank != null && SUMMARY.rank < 0.9) {
+    return { finding: "중요한 순서와 말한 순서가<br>조금 달랐어요", target: null };
+  }
+  return { finding: "자료의 핵심을 힘준 만큼 말했어요", target: null };
+}
+
 async function sceneSummary() {
   setScene(5);
   const s = $("summaryScene");
   s.classList.add("show");
+  const { finding, target } = summaryFinding();
+  $("finding").innerHTML = finding;
+  /* CTA 힌트는 항상 다음 행동으로 끝난다 — 짚을 개념이 없어도 질문이 남아 있다 */
+  $("ctaHint").innerHTML = target
+    ? `<b>${escHtml(target.label)}</b>부터 보완하면<br>발표가 더 탄탄해져요`
+    : "이제 질문으로 더 단단하게 만들어봐요";
   countUp($("covNum"), SUMMARY.coverage, 1100, (v) => Math.round(v));
   await sleep(500);
   $("mc1").classList.add("show");
@@ -1030,6 +1228,8 @@ function resetAll() {
   tlLayer.classList.remove("show");
   tlFill.setAttribute("width", 0);
   $("covNum").textContent = "0";
+  $("finding").innerHTML = "";
+  showWaitBar(false);
   ["mc1", "mc2", "vr1", "vr2", "vr3", "vr4"].forEach((id) => $(id).classList.remove("show"));
   for (const ne of nodeEls) {
     ne.g.setAttribute("class", "node");
@@ -1044,26 +1244,46 @@ function resetAll() {
   }
 }
 
+/* 못 끝냈을 때의 마무리. mock 그래프로 위장하지 않는다 (CLAUDE.md §4).
+   요약 패널만 열어 부모 오버레이를 닫을 길을 남긴다 — 나갈 곳 없는 화면은 만들지 않는다 */
+function showFailEnding() {
+  showWaitBar(false);
+  const capH = $("capH"); const capP = $("capP");
+  if (capH) capH.textContent = "분석을 마치지 못했어요";
+  if (capP) capP.textContent = FAIL_MESSAGE || "준비 화면에서 진행 상황을 볼 수 있어요";
+  const cta = $("ctaHint");
+  if (cta) cta.innerHTML = "이 화면을 닫고 질문 코칭·준비 화면으로 이동할 수 있어요";
+  const btn = $("ctaBtn");
+  if (btn) btn.textContent = "화면 닫고 계속하기";
+  $("skipBtn").style.visibility = "hidden";
+  $("summaryScene").classList.add("show");
+}
+
+/**
+ * 씬 순서가 데이터 도착 순서를 따라간다.
+ *
+ * 예전엔 graph 와 alignment 가 **둘 다** 와야 첫 씬이 시작됐다. 그래서 실 API 에서는
+ * 90초 상한에 걸려 아무 씬도 못 봤다. 이제 그래프가 오면 바로 그리고(sceneGraph),
+ * 정합은 그래프를 띄워 둔 채 기다린다(sceneListening).
+ */
 async function run() {
   const token = ++runToken;
   resetAll();
-  await sceneSTT();
+  await sceneSTT();                       // 개념 그래프가 올 때까지
   if (token !== runToken) return;
-  // embed: 실데이터 없이 mock 그래프를 돌리지 않는다
-  if (EMBED && (dataFailed || !dataArrived)) {
-    const capH = $("capH"); const capP = $("capP");
-    if (capH) capH.textContent = "분석을 마치지 못했어요";
-    if (capP) capP.textContent = FAIL_MESSAGE || "준비 화면에서 진행 상황을 확인해 주세요";
-    const cta = $("ctaHint");
-    if (cta) cta.innerHTML = "이 화면을 닫고 질문 코칭·준비 화면으로 이동할 수 있어요";
-    const btn = $("ctaBtn");
-    if (btn) btn.textContent = "화면 닫고 계속하기";
-    $("skipBtn").style.visibility = "hidden";
-    // 요약 패널+CTA 를 열어 부모 iframe 오버레이를 닫을 수 있게 한다
-    $("summaryScene").classList.add("show");
-    return;
+  if (EMBED && (dataFailed || !graphArrived)) { showFailEnding(); return; }
+
+  await sceneGraph();
+  if (token !== runToken) return;
+
+  if (EMBED && !dataArrived) {
+    await sceneListening();               // 정합이 올 때까지 — 유일한 진짜 대기
+    if (token !== runToken) return;
+    if (dataFailed || !dataArrived) { showFailEnding(); return; }
   }
-  const scenes = [sceneGraph, sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
+  showWaitBar(false);
+
+  const scenes = [sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
   for (const scene of scenes) {
     if (token !== runToken) return;
     await scene();
@@ -1105,6 +1325,12 @@ $("startBtn").addEventListener("click", () => {
 });
 $("skipBtn").addEventListener("click", () => {
   $("startScene").classList.add("hide");
+  /* 정합이 아직 안 왔으면 건너뛸 결과가 없다. 없는 요약을 띄우는 대신 화면을 닫는다 —
+     mock 으로 위장하지 않는다 (CLAUDE.md §4) */
+  if (EMBED && !dataArrived) {
+    parent.postMessage({ type: "f11RevealDone" }, "*");
+    return;
+  }
   jumpToEnd();
 });
 $("replayBtn").addEventListener("click", run);

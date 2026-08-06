@@ -36,3 +36,9 @@ __pycache__/
 
 # Netlify 빌드가 chuckchuck/sdk 에서 복사해 만드는 사본 (netlify.toml 참고)
 demo/YEHS_demo/sdk/
+
+# 데모 입력 녹음 (11MB). 이력에 들어가면 되돌리기 어렵다 — PDF 만 넣는다
+ppt/*.m4a
+ppt/*.mp3
+ppt/*.wav
+ppt/*.webm
