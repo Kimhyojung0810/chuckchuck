@@ -358,7 +358,29 @@
        높이만큼 늘렸다. min-height:0 을 줘도 stretch 가 이겨서, 캡션은 가운데
        왼쪽 / 자막은 아래 오른쪽으로 흩어졌다. 내용 높이만 쓰게 한다 */
     body.embed { align-items: flex-start; }
-    body.embed .phone { min-height: 0; margin: 12px auto; }
+
+    /* .main 이 flex-row 라 캡션·막대·작업대·무대가 전부 나란한 형제였다.
+       그래서 제목은 왼쪽 / 막대는 가운데 / 작업대는 오른쪽으로 흩어졌다.
+       2단 그리드로 묶는다 — 왼쪽은 "무엇을 하는 중인가"(제목+막대),
+       오른쪽은 "무엇이 도착했나"(작업대+무대). 읽는 순서가 곧 배치다 */
+    body.embed .phone { min-height: calc(100vh - 24px); margin: 12px auto; }
+    body.embed .main {
+      display: grid; align-items: start;
+      grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr;
+      grid-template-areas: "cap work" "bar work" "bar stage";
+      gap: 4px 32px; padding: 8px 28px 0;
+    }
+    body.embed .caption { grid-area: cap; flex: none; padding: 0; min-height: 0; }
+    body.embed .waitbar { grid-area: bar; align-self: start; padding: 0; margin: 14px 0 0; }
+    body.embed .workbench { grid-area: work; padding: 0; }
+    body.embed .stage { grid-area: stage; align-self: stretch; min-height: 0; }
+    /* 요약이 뜨면 대기 배치는 걷고 한 장으로 되돌린다 */
+    body.embed .main:has(#summaryScene.show) {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: "cap" "bar" "stage";
+    }
+    body.embed .main:has(#summaryScene.show) .workbench { display: none; }
   }
 
   /* 대기 막대 — 연출이 아니라 상태다. 결과를 기다리는 내내 여기만 움직인다 */
