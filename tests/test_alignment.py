@@ -214,7 +214,8 @@ def test_fallback_when_llm_omits_node():
     ])))
     assert doc.item("c3").verdict == "missing"
 
-    t2 = make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 도 말했다"})
+    # MENTION_MIN=2 — 한 번 스친 것은 설명이 아니다. 두 번 말해야 정합이다
+    t2 = make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 도 말했다 개념3 은 이렇다"})
     doc2 = align_speech(make_graph(), t2, llm=ScriptedLLM(payload(items=[
         {"node_id": "c1", "verdict": "aligned", "evidence": "e"},
         {"node_id": "c2", "verdict": "aligned", "evidence": "e"},
@@ -234,11 +235,27 @@ def test_invalid_verdict_replaced_by_fallback():
 # ---------------------------------------------------------------------------
 
 def test_missing_corrected_when_label_actually_spoken():
-    # 발화에 '개념1' 이 있는데 LLM 이 missing 이라고 우기면 aligned 로 정정
-    doc = align_of(payload(items=[
-        {"node_id": "c1", "verdict": "missing"},
-    ]))
+    # 발화에 '개념1' 이 MENTION_MIN(2)회 이상 있는데 LLM 이 missing 이라고 우기면 aligned 로 정정
+    doc = align_of(
+        payload(items=[{"node_id": "c1", "verdict": "missing"}]),
+        transcript=make_transcript({
+            1: "개념1 설명 개념1 은 이런 것이다", 2: "개념2 설명", 3: "개념3 설명",
+        }),
+    )
     assert doc.item("c1").verdict == "aligned"
+
+
+def test_single_mention_does_not_override_missing():
+    """한 번 스친 언급으로는 LLM 의 '누락' 판정을 뒤집지 않는다.
+
+    이게 빠져 있어서 리포트가 전부 초록으로 떴다 — 슬라이드 제목 낱말을
+    한 번 말한 것만으로 "설명했다"가 됐다 (2026-08-07 지시로 조임).
+    """
+    doc = align_of(
+        payload(items=[{"node_id": "c1", "verdict": "missing"}]),
+        transcript=make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 설명"}),
+    )
+    assert doc.item("c1").verdict == "missing"
 
 
 def test_missing_kept_when_label_not_spoken():
@@ -280,12 +297,26 @@ def test_justified_skip_demoted_for_heavy_unspoken_concept():
 
 
 def test_justified_skip_kept_for_light_unspoken_concept():
-    # 가벼운 개념(c4, w=0.4)은 무언급이어도 정당생략을 존중한다
+    # 가벼운 개념(c5, w=0.2 < SKIP_GUARD_WEIGHT 0.35)은 무언급이어도 정당생략을 존중한다
+    t = make_transcript({
+        1: "개념1 설명", 2: "개념2 설명", 3: "개념3 설명", 4: "개념4 설명", 5: "다른 얘기",
+    })
+    doc = align_speech(make_graph(5), t, llm=ScriptedLLM(payload(items=[
+        {"node_id": "c5", "verdict": "justified_skip", "note": "보조 개념"},
+    ])))
+    assert doc.item("c5").verdict == "justified_skip"
+
+
+def test_justified_skip_demoted_at_tightened_guard():
+    """w=0.4 는 예전 기준(0.5)에서는 정당생략이었지만 조인 기준(0.35)에서는 누락이다.
+
+    이 경계가 움직였다는 사실 자체를 못 박아 둔다 — 기준을 되돌리면 여기서 걸린다.
+    """
     t = make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 설명", 4: "다른 얘기"})
     doc = align_speech(make_graph(4), t, llm=ScriptedLLM(payload(items=[
         {"node_id": "c4", "verdict": "justified_skip", "note": "보조 개념"},
     ])))
-    assert doc.item("c4").verdict == "justified_skip"
+    assert doc.item("c4").verdict == "missing"
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +406,10 @@ def test_empty_items_retried_then_used():
 
 def test_empty_items_twice_falls_back_deterministically():
     llm = SequenceLLM(payload(), payload())
-    t = make_transcript({1: "개념1 설명", 2: "딴 얘기", 3: "개념3 설명"})
+    # MENTION_MIN=2 — 정합을 기대하는 개념은 두 번 말한 것으로 둔다
+    t = make_transcript({
+        1: "개념1 설명 개념1 정리", 2: "딴 얘기", 3: "개념3 설명 개념3 정리",
+    })
     doc = align_speech(make_graph(), t, llm=llm)
     assert doc.item("c1").verdict == "aligned"
     assert doc.item("c2").verdict == "missing"

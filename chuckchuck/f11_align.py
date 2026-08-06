@@ -50,7 +50,17 @@ _S_SLIDE_COVER = 0.20   # label 이 언급된 근거 장 수 / 근거 장 수
 # 무언급 '정당생략' 가드. 자료 weight 가 이 값 이상인 개념은 발화에 한 번도
 # 안 나왔으면 justified_skip 을 missing 으로 강등한다 — justified_skip 은
 # coverage 분모에서 빠지는 판정이라, LLM 이 후하게 주면 헤드라인 점수가 부푼다.
-SKIP_GUARD_WEIGHT = float(os.environ.get("CHUCKCHUCK_SKIP_GUARD_WEIGHT", "0.5"))
+SKIP_GUARD_WEIGHT = float(os.environ.get("CHUCKCHUCK_SKIP_GUARD_WEIGHT", "0.35"))
+
+# 정합으로 인정할 최소 언급 횟수.
+#
+# 1 이면 슬라이드 제목 낱말을 스치듯 한 번 말한 것도 "설명했다"가 된다. 실제로
+# 리포트가 전부 초록으로 떠서 못한 발표도 잘한 것처럼 보였다 (2026-08-07 지시).
+# 2 는 "한 번은 우연, 두 번은 설명" 이라는 기준이다.
+#
+# 시연 직전에도 조일 수 있게 환경변수로 뺐다 — 심사위원이 후한 판정을 눈치채면
+# 리포트 전체의 신뢰가 같이 무너진다.
+MENTION_MIN = max(1, int(os.environ.get("CHUCKCHUCK_ALIGN_MENTION_MIN", "2")))
 
 SYSTEM_PROMPT = """당신은 발표 리허설 평가자다.
 '개념 목록'(발표 자료에서 뽑은 개념들)과 '슬라이드별 발화'를 대조해,
@@ -222,8 +232,8 @@ def _apply_speech_weights(items: list[AlignmentItem], graph: ConceptGraph) -> No
 # ---------------------------------------------------------------------------
 
 def _fallback_verdict(basis: SpeechBasis) -> str:
-    """LLM 판정이 없거나 못 믿을 때: 발화에 언급이 있으면 정합, 없으면 누락."""
-    return "aligned" if basis.mention_count >= 1 else "missing"
+    """LLM 판정이 없거나 못 믿을 때: 충분히 언급했으면 정합, 아니면 누락."""
+    return "aligned" if basis.mention_count >= MENTION_MIN else "missing"
 
 
 def _normalize_items(
@@ -236,8 +246,9 @@ def _normalize_items(
 
     - 없는 node_id 를 가리키는 판정은 버린다. 같은 node_id 가 여러 번 오면 첫 번째만
     - verdict 가 enum 밖이면 결정적 폴백으로 대체
-    - missing 인데 label 이 발화에 실제 등장하면 aligned 로 정정
-      (토큰 매칭이 프롬프트 널뛰기보다 믿을 만하다)
+    - missing 인데 label 이 발화에 MENTION_MIN 회 이상 등장하면 aligned 로 정정
+      (토큰 매칭이 프롬프트 널뛰기보다 믿을 만하다. 단 1회는 스친 것이지
+       설명한 것이 아니라서, 그 한 번으로 LLM 의 '누락' 판정을 뒤집지 않는다)
     - evidence 없는 contradiction 은 결정적 폴백으로 강등
       (사용자에게 "틀렸다"고 말하는 판정이라 근거 없이는 내보내지 않는다)
     - justified_skip 인데 언급 0회 + doc weight ≥ SKIP_GUARD_WEIGHT 면
@@ -260,7 +271,7 @@ def _normalize_items(
         verdict = str((raw or {}).get("verdict", "") or "")
         if verdict not in ALIGN_VERDICTS:
             verdict = _fallback_verdict(basis)
-        if verdict == "missing" and basis.mention_count >= 1:
+        if verdict == "missing" and basis.mention_count >= MENTION_MIN:
             verdict = "aligned"
         if verdict == "contradiction" and not evidence:
             verdict = _fallback_verdict(basis)
