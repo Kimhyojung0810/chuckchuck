@@ -7,6 +7,8 @@
 window.LandingWorkbench = (function () {
   'use strict';
 
+/* 'S04' 는 노드 매칭 키다(308행). 화면에는 우리 말로 바꿔 쓴다 */
+  const slideNo = (s) => String(parseInt(String(s).slice(1), 10));
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const { M, mIn, mPop, mCount, reduceMotion } = window.LandingMotion;
@@ -261,7 +263,7 @@ window.LandingWorkbench = (function () {
       rail.innerHTML = items.map(n => `
         <button class="jnode ${n.id === jSel ? 'sel' : ''} ${n.depth === 2 ? 'child' : ''}" data-j="${n.id}">
           <span class="dot ${n.st}"></span>
-          <span class="jl"><b>${n.label}</b><small>${n.slide} · ${n.stName}</small></span>
+          <span class="jl"><b>${n.label}</b><small>${slideNo(n.slide)}번 슬라이드 · ${n.stName}</small></span>
         </button>`).join('') || '<p class="jempty">이 상태의 개념이 없어요.</p>';
       $$('#judgeRail [data-j]').forEach(btn => btn.addEventListener('click', () => { jSel = btn.dataset.j; renderJudgeAll(); }));
     }
@@ -269,7 +271,7 @@ window.LandingWorkbench = (function () {
       const n = TREE.find(t => t.id === jSel), d = JUDGE[jSel];
       $('#judgeCanvas').innerHTML = `
         <div class="jslide">
-          <div class="jslide-top"><span>발표자료 원문</span><b>SLIDE ${n.slide.slice(1)} / 09</b></div>
+          <div class="jslide-top"><span>발표자료 원문</span><b>${slideNo(n.slide)}번 슬라이드 · 전체 9장</b></div>
           <h3>${n.label}</h3>
           <ul>${d.bullets.map(x => `<li>${x}</li>`).join('')}</ul>
         </div>
@@ -456,7 +458,7 @@ window.LandingWorkbench = (function () {
         canvas.innerHTML = `<div class="tcards">${view.map(i => {
           const c = TERMS[i], fl = termFlip[i];
           return `<article class="tcard ${fl ? 'flip' : ''} ${termDone[i] ? 'done' : ''}">
-            <div class="tc-top"><span class="st ${c.st}">${c.stName}</span><b>${c.slide}</b></div>
+            <div class="tc-top"><span class="st ${c.st}">${c.stName}</span><b>${slideNo(c.slide)}번</b></div>
             ${fl
               ? `<small class="tc-k">예상 질문</small><h4>“${c.q}”</h4>
                  <small class="tc-k">답변 골격</small><p>${c.frame}</p>`
