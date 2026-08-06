@@ -847,7 +847,7 @@ function slideMetaForPipe(slideNo) {
 /** 검증 로그의 슬라이드↔발화 매핑 카드 */
 function pipeSpeechMapHtml(segments) {
   return `<div class="pipe-map">
-    <p class="pipe-map-lead">핵심: <b>몇 번 슬라이드를 보고 있을 때</b> 무엇을 말했는지 (F-04 marks × F-05 STT)</p>
+    <p class="pipe-map-lead">핵심: <b>몇 번 슬라이드를 보고 있을 때</b> 무엇을 말했는지 (슬라이드 전환 기록 × 받아쓰기)</p>
     ${segments.map((s) => {
       const meta = slideMetaForPipe(s.slide_no);
       const speech = (s.text || '').trim();
@@ -1023,7 +1023,7 @@ function nfStep1() {
     box.innerHTML = `
       <div class="card">
         <b style="font-size:15px">${label}</b>
-        <p class="note" style="margin-top:2px">Upstage Document Parse로 슬라이드 구조를 만드는 중 (F-01)</p>
+        <p class="note" style="margin-top:2px">Upstage Document Parse로 슬라이드 구조를 만드는 중</p>
         <div class="progress indeterminate"><i></i></div>
         <p class="parse-meta">경과 <b id="parseElapsed">${elapsed}</b>초 · 장수가 많으면 1~5분 걸릴 수 있어요. 진행 바가 가득 차 보여도 정상입니다.</p>
       </div>
@@ -2213,7 +2213,7 @@ function pipelinePhaseLabel(phase) {
     done: '다 끝났어요',
     error: '중간에 멈췄어요',
   };
-  return map[phase] || phase || '진행 중';
+  return map[phase] || '진행 중';
 }
 
 /**
@@ -2383,7 +2383,7 @@ function pipelineInspectHtml() {
   const uploadedNote = up
     ? `<p class="note" style="color:#f59e0b">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
        (${fmtMarkSec(up.durationSec)})으로 돌렸어요. 슬라이드 구간은 <b>실제 전환 기록이 아니라
-       길이를 ${marks.length}등분한 합성값</b>이라, 슬라이드별 발화 분할과 F-11 정합 판정은
+       길이를 ${marks.length}등분한 합성값</b>이라, 슬라이드별 발화 분할과 정합 판정은
        참고용으로만 보세요.</p>`
     : '';
 
@@ -2401,27 +2401,27 @@ function pipelineInspectHtml() {
       speechHtml += `<details class="pipe-full"><summary>전체 전사문만 보기 (${(transcript.words || []).length}단어)</summary><p>${escapeHtml(transcript.full_text)}</p></details>`;
     }
   } else if (phase === 'error' && nf.pipelineError) {
-    speechHtml = `<p class="note" style="color:#f04452">STT까지 도달하지 못했어요: ${escapeHtml(nf.pipelineError)}</p>`;
+    speechHtml = `<p class="note" style="color:#f04452">받아쓰기까지 도달하지 못했어요: ${escapeHtml(nf.pipelineError)}</p>`;
   } else {
-    speechHtml = pipelineLoadingHtml('stt') || '<p class="note">STT 결과 대기 중…</p>';
+    speechHtml = pipelineLoadingHtml('stt') || '<p class="note">받아쓴 내용을 기다리는 중…</p>';
   }
 
   let conceptHtml = '';
   if (concepts && !concepts.error && Array.isArray(concepts.slides)) {
-    conceptHtml = `<details class="pipe-block" open><summary>F-06 개념 추출 (${concepts.slides.length}장)</summary>
+    conceptHtml = `<details class="pipe-block" open><summary>개념 추출 (${concepts.slides.length}장)</summary>
       <ul class="pipe-concepts">${concepts.slides.slice(0, 12).map((s) =>
         `<li><b>${s.slide_no}.</b> ${escapeHtml(s.topic || s.title || '')}
          <span>${escapeHtml((s.concepts || []).slice(0, 3).join(' · '))}</span></li>`
       ).join('')}</ul></details>`;
   } else if (conceptsError) {
-    conceptHtml = `<details class="pipe-block" open><summary>F-06 개념 추출 (실패)</summary>
+    conceptHtml = `<details class="pipe-block" open><summary>개념 추출 (실패)</summary>
       <p class="note" style="color:#f04452">${escapeHtml(conceptsError)}</p>
-      <p class="note">STT 결과는 위에 그대로 남아 있어요.</p>
+      <p class="note">받아쓴 내용은 위에 그대로 남아 있어요.</p>
     </details>`;
   } else if (nfSlideDoc || ['stt_done', 'concepts', 'queued', 'encoding', 'stt'].includes(phase)) {
     const loading = pipelineLoadingHtml('concepts');
     if (loading || ['stt_done', 'concepts'].includes(phase)) {
-      conceptHtml = `<details class="pipe-block" open><summary>F-06 개념 추출</summary>${loading || '<p class="note">STT 이후 개념 추출을 시작해요.</p>'}</details>`;
+      conceptHtml = `<details class="pipe-block" open><summary>개념 추출</summary>${loading || '<p class="note">받아쓰기 이후 개념 추출을 시작해요.</p>'}</details>`;
     }
   }
 
@@ -2439,7 +2439,7 @@ function pipelineInspectHtml() {
       <p class="note">발표한 말이 슬라이드별로 제대로 나뉘었는지 여기서 확인하세요.</p>
       ${uploadedNote}
       <details class="pipe-block" open>
-        <summary>F-05 슬라이드 ↔ 발화 매핑 (${(transcript && Array.isArray(transcript.by_slide)) ? transcript.by_slide.length : 0}구간)</summary>
+        <summary>슬라이드 ↔ 발화 매핑 (${(transcript && Array.isArray(transcript.by_slide)) ? transcript.by_slide.length : 0}구간)</summary>
         ${speechHtml}
       </details>
       ${conceptHtml}
@@ -2493,7 +2493,7 @@ function nfStep4() {
   nf.done = doneN;
   const conceptsError = (nf.pipelineOut && nf.pipelineOut.conceptsError) || null;
   const pipeErr = conceptsError
-    ? stageAccidentHtml(`개념 추출 실패 (STT는 성공): ${conceptsError}`)
+    ? stageAccidentHtml(`개념 추출 실패 (받아쓰기는 성공): ${conceptsError}`)
     : (nf.pipelineError
       ? stageAccidentHtml(`연동 오류: ${humanErrorText(nf.pipelineError)}`)
       : '');
@@ -2853,7 +2853,7 @@ async function renderReport() {
           </div>
         </div>` : ''}
       </div>
-      ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>` : ''}
+      ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>` : ''}
     </section>
     <div class="tabs" id="rtabs">
       ${tabs.map((t, i) => `<button class="${i === rTab ? 'on' : ''}">${t}</button>`).join('')}
@@ -3591,7 +3591,7 @@ function audienceBlockReason() {
 
   const err = out.graphError || out.alignError || out.flowError || out.conceptsError;
   const stage = out.failedStage
-    || { graph: 'F-07 개념 그래프', alignment: 'F-11 정합 판정', flow: '흐름 비교' }[missing[0]];
+    || { graph: '개념 그래프', alignment: '정합 판정', flow: '흐름 비교' }[missing[0]];
 
   // 실패로 끝난 건지 아직 도는 중인지를 구분한다. 끝난 걸 '진행 중' 처럼 말하면
   // 사용자가 오지 않을 결과를 계속 기다린다.
@@ -3833,7 +3833,7 @@ function rJudge() {
       ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
       : (isLiveReportSession()
         ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요. 샘플(IMU2CLIP)로 대체하지 않았어요.'
-        : '⚠️ 지금 보시는 건 <b>샘플 데이터</b>예요. 리허설을 마쳐 F-11 정합 판정까지 끝나면 실제 발표 결과로 바뀝니다.')}</p>`;
+        : '⚠️ 지금 보시는 건 <b>샘플 데이터</b>예요. 리허설을 마쳐 정합 판정까지 끝나면 실제 발표 결과로 바뀝니다.')}</p>`;
   $('#jf').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     jFilter = b.dataset.f; rJudge(); animateViz($('#rbody'));
@@ -5089,14 +5089,14 @@ function renderAbout() {
       <table class="plain">
         <thead><tr><th style="width:90px">단계</th><th>하는 일</th><th>쓰는 기술</th><th style="width:110px">상태</th></tr></thead>
         <tbody>
-          <tr><td>F-01</td><td>발표자료(PPT·PDF)를 슬라이드별 텍스트·구조로 변환</td><td>Upstage Document Parse</td><td><span class="chip chip-sm st-ok">확정</span></td></tr>
-          <tr><td>F-05</td><td>녹음을 단어별 시간과 함께 글로 변환, 슬라이드 구간으로 분할</td><td>SKT A.X 계열</td><td><span class="chip chip-sm chip-plain">검증 중</span></td></tr>
-          <tr><td>F-06·07</td><td>핵심 개념 추출과 중요도 순 개념 트리 구성</td><td>메인 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>F-08~10</td><td>자료·발표 STT·앞선 답변 기반 질문 생성과 소크라테스식 코칭</td><td>판정 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>F-11</td><td>개념별 설명 여부 판정 (근거 발화 포함)</td><td>문장 유사도 검색 + KT 믿:음</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>F-12</td><td>논리가 끊긴 곳 탐지 (최대 5곳)</td><td>LG EXAONE / SKT A.X</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>F-13</td><td>발표자 맞춤 방향 제안 (실제 발화 인용 필수)</td><td>SKT A.X / LG EXAONE</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>최종 분석</td><td>발표 판정과 Q&A 전후 이해 변화를 하나의 결과로 통합</td><td>규칙 계산 + 판정 결과 결합</td><td><span class="chip chip-sm chip-plain">mock</span></td></tr>
+          <tr><td>1</td><td>발표자료(PPT·PDF)를 슬라이드별 텍스트·구조로 변환</td><td>Upstage Document Parse</td><td><span class="chip chip-sm st-ok">확정</span></td></tr>
+          <tr><td>2</td><td>녹음을 단어별 시간과 함께 글로 변환, 슬라이드 구간으로 분할</td><td>SKT A.X 계열</td><td><span class="chip chip-sm chip-plain">검증 중</span></td></tr>
+          <tr><td>3</td><td>핵심 개념 추출과 중요도 순 개념 트리 구성</td><td>메인 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
+          <tr><td>4</td><td>자료·발표 내용·앞선 답변 기반 질문 생성과 소크라테스식 코칭</td><td>판정 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
+          <tr><td>5</td><td>개념별 설명 여부 판정 (근거 발화 포함)</td><td>문장 유사도 검색 + KT 믿:음</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
+          <tr><td>6</td><td>논리가 끊긴 곳 탐지 (최대 5곳)</td><td>LG EXAONE / SKT A.X</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
+          <tr><td>7</td><td>발표자 맞춤 방향 제안 (실제 발화 인용 필수)</td><td>SKT A.X / LG EXAONE</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
+          <tr><td>8</td><td>발표 판정과 Q&A 전후 이해 변화를 하나의 결과로 통합</td><td>규칙 계산 + 판정 결과 결합</td><td><span class="chip chip-sm chip-plain">준비 중</span></td></tr>
         </tbody>
       </table>
     </div>

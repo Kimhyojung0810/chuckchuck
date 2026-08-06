@@ -274,7 +274,7 @@ export async function extractConcepts({ slideDoc, context, transcript = null }) 
       transcript: transcript ? slimTranscript(transcript) : null,
     }),
   });
-  const concepts = await readJson(res, 'concepts');
+  const concepts = await readJson(res, '개념 추출');
   if (!res.ok || concepts.error) {
     throw new Error(concepts.message || concepts.error || `concepts HTTP ${res.status}`);
   }
@@ -288,7 +288,7 @@ export async function buildGraph({ concepts, slideDoc, context }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
   });
-  const graph = await readJson(res, 'graph');
+  const graph = await readJson(res, '개념 그래프');
   if (!res.ok || graph.error) {
     throw new Error(graph.message || graph.error || `graph HTTP ${res.status}`);
   }
@@ -312,7 +312,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   const audio_base64 = blob ? await blobToBase64(blob) : null;
   const ext = audioExt({ fileName, mimeType });
 
-  report('stt', 'A.X STT로 음성을 글로 바꾸는 중');
+  report('stt', 'A.X 모델로 음성을 글로 바꾸는 중');
   const sttRes = await fetch(apiBase() + '/api/v1/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -325,7 +325,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       slidedoc: slideDoc || null,
     }),
   });
-  const transcript = await readJson(sttRes, "STT");
+  const transcript = await readJson(sttRes, '받아쓰기');
   if (!sttRes.ok || transcript.error) {
     throw new Error(transcript.message || transcript.error || `transcribe HTTP ${sttRes.status}`);
   }
@@ -340,7 +340,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   if (slideDoc) {
     report(
       'concepts',
-      pre.conceptsP ? '발표하는 동안 미리 읽어 둔 개념을 가져오는 중 (F-06)' : '발표자료 개념 추출 중 (F-06)',
+      pre.conceptsP ? '발표하는 동안 미리 읽어 둔 개념을 가져오는 중' : '발표자료 개념 추출 중',
       { transcript },
     );
     try {
@@ -372,7 +372,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     try {
       report(
         'graph',
-        pre.graphP && usedPreConcepts ? '미리 만들어 둔 개념 그래프를 가져오는 중 (F-07)' : '개념 그래프 구성 중 (F-07)',
+        pre.graphP && usedPreConcepts ? '미리 만들어 둔 개념 그래프를 가져오는 중' : '개념 그래프 구성 중',
         { transcript, concepts },
       );
       /* 선분석 그래프는 선분석 개념 위에 세워졌다. 개념이 폴백으로 다시 뽑혔으면
@@ -386,13 +386,13 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       }
       report('graph_done', `개념 ${(graph.nodes || []).length}개 · 연결 ${(graph.edges || []).length}개`, { transcript, concepts, graph });
 
-      report('align', '발표와 자료 대조 중 (F-11)', { transcript, concepts, graph });
+      report('align', '발표와 자료 대조 중', { transcript, concepts, graph });
       const aRes = await fetch(apiBase() + '/api/v1/alignment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ graph, transcript: slimTranscript(transcript), context: context || {} }),
       });
-      alignment = await readJson(aRes, "alignment");
+      alignment = await readJson(aRes, '정합 판정');
       if (!aRes.ok || alignment.error) {
         throw new Error(alignment.message || alignment.error || `alignment HTTP ${aRes.status}`);
       }
@@ -416,7 +416,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ graph, alignment }),
       });
-      flow = await readJson(fRes, "flow");
+      flow = await readJson(fRes, '흐름 비교');
       if (!fRes.ok || flow.error) {
         throw new Error(flow.message || flow.error || `flow HTTP ${fRes.status}`);
       }
@@ -440,7 +440,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   let voiceReport = null;
   const slim = slimTranscript(transcript);
   try {
-    report('pace', '말 속도·시간 배분 계산 중 (F-17)', { transcript, concepts, graph, alignment, flow });
+    report('pace', '말 속도·시간 배분 계산 중', { transcript, concepts, graph, alignment, flow });
     const pRes = await fetch(apiBase() + '/api/v1/pace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -450,7 +450,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
         concept_doc: concepts || null,
       }),
     });
-    pace = await readJson(pRes, "pace");
+    pace = await readJson(pRes, '말 속도');
     if (!pRes.ok || pace.error) {
       throw new Error(pace.message || pace.error || `pace HTTP ${pRes.status}`);
     }
@@ -458,13 +458,13 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       transcript, concepts, graph, alignment, flow, pace,
     });
 
-    report('habits', '음성 습관 신호 추출 중 (F-18)', { transcript, concepts, graph, alignment, flow, pace });
+    report('habits', '음성 습관 신호 추출 중', { transcript, concepts, graph, alignment, flow, pace });
     const hRes = await fetch(apiBase() + '/api/v1/habits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transcript: slim }),
     });
-    habits = await readJson(hRes, "habits");
+    habits = await readJson(hRes, '말버릇 분석');
     if (!hRes.ok || habits.error) {
       throw new Error(habits.message || habits.error || `habits HTTP ${hRes.status}`);
     }
@@ -476,7 +476,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     // 앞 단계가 일부 실패해도 부른다. 없는 자료에 기대는 항목만 '못 쟀다'가 되고
     // 나머지는 정상 채점되므로, 여기서 미리 막으면 오히려 점수가 안 뜬다.
     try {
-      report('score', '채점표로 점수 매기는 중 (F-14)', {
+      report('score', '채점표로 점수 매기는 중', {
         transcript, concepts, graph, alignment, flow, pace, habits,
       });
       const sRes = await fetch(apiBase() + '/api/v1/rubric', {
@@ -489,7 +489,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
           concepts, graph, transcript: slim, alignment, flow, pace, habits,
         }),
       });
-      score = await readJson(sRes, "rubric");
+      score = await readJson(sRes, '채점');
       if (!sRes.ok || score.error) {
         throw new Error(score.message || score.error || `rubric HTTP ${sRes.status}`);
       }
@@ -504,7 +504,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       });
     }
 
-    report('voice_report', '종합 진단 리포트 작성 중 (F-19)', {
+    report('voice_report', '종합 진단 리포트 작성 중', {
       transcript, concepts, graph, alignment, flow, pace, habits, score,
     });
     const rRes = await fetch(apiBase() + '/api/v1/report', {
@@ -513,7 +513,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       // 점수는 채점표가 진실이다 — F-19 가 두 번째 점수를 만들지 않게 같이 보낸다
       body: JSON.stringify({ pace, habits, rubric: score, context: context || {} }),
     });
-    voiceReport = await readJson(rRes, "report");
+    voiceReport = await readJson(rRes, '리포트');
     if (!rRes.ok || voiceReport.error) {
       throw new Error(voiceReport.message || voiceReport.error || `report HTTP ${rRes.status}`);
     }
@@ -528,9 +528,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
 
   // 어디서 멈췄는지 한 줄로. '완료' 라고만 말하면 사용자가 오지 않을 결과를 기다린다.
   const firstFailure =
-    (conceptsError && ['F-06 개념 추출', conceptsError])
-    || (graphError && ['F-07 개념 그래프', graphError])
-    || (alignError && ['F-11 정합 판정', alignError])
+    (conceptsError && ['개념 추출', conceptsError])
+    || (graphError && ['개념 그래프', graphError])
+    || (alignError && ['정합 판정', alignError])
     || (flowError && ['흐름 비교', flowError])
     || null;
   const payload = {
