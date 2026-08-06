@@ -533,12 +533,56 @@ if (nf.gate === 'parsing') {
 const NF_STEPS = ['자료 올리기', '발표 정보', '리허설 녹음', '질문 준비'];
 let parseTimer = null;
 let parseGen = 0; // 취소/중복 요청 구분
+/** 지나온 단계로 되돌아가도 잃을 게 없는 상태인가.
+    녹음이 돌고 있거나 파싱·분석이 진행 중이면 되돌아가는 순간 그 작업이 사라진다 */
+function canJumpBack() {
+  if (nf.mic === 'on') return false;                    // 녹음 중
+  if (nf.gate === 'parsing') return false;              // 자료 분석 중
+  if (nf.pipelinePhase && !nf.pipelineOut && !nf.pipelineError) return false; // 파이프라인 중
+  return true;
+}
+
+function stepsHtml() {
+  const back = canJumpBack();
+  return NF_STEPS.map((n, i) => {
+    const cls = i < nf.step ? 'done' : i === nf.step ? 'cur' : '';
+    const mark = i < nf.step ? '✓' : i + 1;
+    // 지나온 단계만 누를 수 있다. 앞 단계는 아직 채울 내용이 없어서 열지 않는다
+    if (back && i < nf.step) {
+      return `<button type="button" class="${cls}" data-nf-step="${i}" title="${n} 단계로 돌아가기"><i>${mark}</i>${n}</button>`;
+    }
+    return `<span class="${cls}"><i>${mark}</i>${n}</span>`;
+  }).join('');
+}
+
+/** 녹음이 시작·종료되면 되돌아갈 수 있는지가 바뀐다. 표시줄만 다시 그린다 */
+function refreshStepBar() {
+  const bar = document.querySelector('.steps');
+  if (bar) bar.innerHTML = stepsHtml();
+}
+
 function nfSteps() {
   return `<div class="flow-toolbar">
-    <div class="steps">${NF_STEPS.map((n, i) =>
-      `<span class="${i < nf.step ? 'done' : i === nf.step ? 'cur' : ''}"><i>${i < nf.step ? '✓' : i + 1}</i>${n}</span>`).join('')}</div>
+    <div class="steps">${stepsHtml()}</div>
     <div class="flow-save"><span>자동 저장됨</span><a href="#/new" data-fresh-practice>처음부터</a><a href="#/">나가기</a></div>
   </div>`;
+}
+
+let stepNavBound = false;
+/** 단계 표시줄은 화면마다 다시 그려지므로 document 에 한 번만 위임해서 듣는다 */
+function bindStepNav() {
+  if (stepNavBound) return;
+  stepNavBound = true;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-nf-step]');
+    if (!btn) return;
+    e.preventDefault();
+    const to = Number(btn.dataset.nfStep);
+    if (!Number.isInteger(to) || to >= nf.step || !canJumpBack()) return;
+    nf.step = to;
+    saveSession('new-flow', nf);
+    renderNew();
+  });
 }
 
 async function loadUploadedPdf(file, nameHint = '') {
@@ -798,6 +842,7 @@ function slidePlaceholder(n) {
 
 function renderNew() {
   saveSession('new-flow', nf);
+  bindStepNav();
   app.className = 'narrow';
   app.innerHTML = `${nfSteps()}<div id="nf"></div>`;
   [nfStep1, nfStep2, nfStep3, nfStep4][nf.step]();
@@ -1228,6 +1273,7 @@ function bindRecUpload() {
 function renderRecPanel() {
   const p = $('#recPanel'); if (!p) return;
   p.classList.toggle('is-live', nf.mic === 'on');
+  refreshStepBar(); // 녹음 중에는 지나온 단계 버튼을 닫는다
   if (nf.mic === 'idle') {
     p.innerHTML = `
       <div class="rec-copy"><span>준비되면 시작하세요</span><p>발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.</p></div>

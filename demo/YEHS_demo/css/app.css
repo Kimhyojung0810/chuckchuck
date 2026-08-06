@@ -240,22 +240,30 @@ main.narrow { max-width: 640px; }
 /* ── 새 발표: 스텝 ── */
 .flow-toolbar { margin-bottom: 26px; }
 .steps { display: flex; gap: 6px; margin-bottom: 10px; }
-.steps span {
+/* 지나온 단계는 <button> 으로 그려서 눌러 되돌아갈 수 있다.
+   생김새는 <span> 과 같아야 한다 — 되돌아갈 수 있다는 신호는 커서와 hover 다 */
+.steps span,
+.steps button {
   flex: 1; display: flex; align-items: center; gap: 8px;
+  font-family: inherit; text-align: left; border: 0;
   font-size: 13px; font-weight: 650; color: var(--text-3);
   padding: 10px 12px; border-radius: var(--r-print); background: var(--surface);
   box-shadow: var(--shadow);
 }
-.steps span i {
+.steps span i,
+.steps button i {
   font-style: normal; width: 20px; height: 20px; border-radius: 50%; flex: none;
   background: var(--fill);
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 750;
 }
-.steps span.done { color: var(--blue); }
-.steps span.done i { background: var(--blue-weak); color: var(--blue); }
+.steps span.done, .steps button.done { color: var(--blue); }
+.steps span.done i, .steps button.done i { background: var(--blue-weak); color: var(--blue); }
 .steps span.cur { color: var(--text); }
 .steps span.cur i { background: var(--blue); color: #fff; }
+.steps button { cursor: pointer; transition: background .15s ease, box-shadow .15s ease; }
+.steps button:hover { background: var(--blue-weak); }
+.steps button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .flow-save { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-height: 22px; font-size: 12px; }
 .flow-save span { color: var(--text-3); }
 .flow-save a { color: var(--text-2); font-weight: 750; }
@@ -1548,8 +1556,8 @@ table.plain tr:last-child td { border-bottom: 0; }
 @media (max-width: 680px) {
   .thumbs { grid-template-columns: repeat(2, 1fr); }
   .slide-film button { flex-basis: 74px; }
-  .steps span { justify-content: center; padding: 9px 4px; font-size: 0; }
-  .steps span i { margin: 0; }
+  .steps span, .steps button { justify-content: center; padding: 9px 4px; font-size: 0; }
+  .steps span i, .steps button i { margin: 0; }
   .time-presets { grid-template-columns: repeat(3, 1fr); }
   .time-detail { align-items: flex-start; flex-direction: column; }
   .rehearsal-head { align-items: flex-start; flex-direction: column; gap: 4px; }
