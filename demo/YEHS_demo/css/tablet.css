@@ -533,3 +533,38 @@
   .landing-main > section button:not(.app-frame button):not(.demo-panel button),
   .landing-main .av.go { min-height: 44px; }
 }
+
+/* 포스터 벽이 재디자인되며 114 → 204px 로 커져 홈이 55px 넘쳤다 (2026-08-06 실측).
+   포스터는 척척극장의 얼굴이라 내용을 덜어내지 않고, 둘레 여백과 그래프만 조인다 */
+@media (min-width: 900px) {
+  main.home > .verdict { padding: 14px 18px 12px; }
+  main.home > .verdict .growth-svg { height: 92px; }
+  main.home > .verdict .verdict-score strong { font-size: 34px; }
+  main.home > .pb-wall { padding: 10px 14px; margin-top: 6px; }
+  main.home > .game-card { padding: 10px 14px; margin-top: 6px; }
+}
+/* 세로가 짧을수록 포스터 벽과 그래프를 더 조인다 (내용은 그대로) */
+@media (min-width: 900px) and (max-height: 825px) {
+  main.home > .verdict .growth-svg { height: 76px; }
+  main.home > .pb-wall { padding: 8px 12px; }
+  main.home > .page-head { margin-bottom: 8px; }
+}
+@media (min-width: 900px) and (max-height: 790px) {
+  main.home > .verdict { padding: 12px 16px 10px; }
+  main.home > .verdict .growth-svg { height: 62px; }
+  main.home > .verdict .verdict-score strong { font-size: 30px; }
+  main.home > .game-card { padding: 8px 12px; }
+}
+/* 1024 폭은 왼쪽 칸이 좁아 포스터 문구가 더 접힌다. 한 단 더 */
+@media (min-width: 900px) and (max-height: 775px) {
+  main.home { padding-top: 12px; }
+  main.home > .page-head { margin-bottom: 6px; }
+  main.home > .verdict .growth-svg { height: 54px; }
+  main.home > .verdict .hg-foot { margin-top: 4px; padding-top: 6px; }
+  main.home > .pb-wall, main.home > .game-card { padding: 7px 12px; margin-top: 5px; }
+  main.home > .about-link { padding-top: 2px; }
+}
+@media (min-width: 900px) and (max-height: 740px) {
+  main.home > .pb-wall .pb-openline { font-size: 12px; line-height: 1.45; }
+  main.home > .verdict .growth-svg { height: 46px; }
+}

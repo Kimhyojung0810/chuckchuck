@@ -76,3 +76,36 @@ feat: 청중 좌석 카드 — 틴트 4장 + 역할 pill (docs/design_improvemen
 | playbill 이 `window.Chatter` 이전에 돌 수 있음 | 04 §5 — 로드 순서 확인 (`index.html` 에서 playbill.js 가 chatter.js 뒤인지) |
 | 이 문서들의 행 번호 드리프트 | 이름으로 grep. 행 번호는 참고용 |
 | 캐릭터가 데이터 가림 | "연출이 데이터를 가리면 연출을 버린다" (CLAUDE.md §3-4) |
+
+---
+
+## 5. 구현 기록 (2026-08-06 적용 완료)
+
+9단계 전부 적용했다. 계획과 달랐던 것과 실제 결과:
+
+| 항목 | 계획 | 실제 |
+|---|---|---|
+| 캐시 버전 | qa13 → qa14 (문서 작성 시점) | **qa27 → qa28** — 그 사이 다른 작업이 여러 번 올렸다. 숫자를 외우지 말고 grep 할 것 |
+| `design-system.css` `--r-print` | 제거 | 제거 완료 + verdict 그라디언트 시작색 `#1B4A3E` → `#1F6B52` |
+| 홈 판정 헤드 점수 옆 캐릭터 | 미지정 | **넣지 않았다** — 홈은 세로 예산 764px 에 성장 그래프가 이미 주인공이다. 리포트 헤드에만 |
+| `.aud-role` | 역할 pill 로 교체 | 클래스명 `.aud-role-pill` 로 신설, `SEAT_ROLE` 값은 짧은 명사형으로 교체 |
+| playbill 빈 상태 | 캐릭터 추가 | 추가 + `.pb-banner` radius/색을 새 토큰으로 |
+
+**검증 결과**
+- `python -m pytest tests/ -q` → **552 passed · 7 skipped** (변경 전과 동일 — 파이썬 무접촉 확인)
+- `node --check` 7개 JS 파일 전부 통과
+- 새 SVG 를 소품 4종 각각으로 XML 파싱 → 4/4 통과
+- 판정 5색 `--ok/--mid/--no/--ct/--om` 불변 확인
+- 데모 기동 후 `curl /css/app.css` 로 새 토큰 서빙 확인, `index.html` 캐시 버전 20곳 전부 qa28
+- 옛 값 잔존 0건 (옛 브랜드 hex·옛 병아리 4색·옛 `.aud-role`)
+
+**클래스 계약 보존 확인** — `chickSvg` 교체 후에도 20개 클래스가 전부 살아 있다:
+`ch-figure / ch-legs / ch-tailfeather / ch-torso / ch-wing ×2 / ch-head / ch-tuft / ch-blush ×2 /
+ch-eyes / ch-eye-ball / ch-eye-hi ×2 / ch-eye-happy / ch-eye-grumpy / ch-beak / ch-prop ×4 /
+ch-pen-stroke / ch-sparkle / ch-emote / ch-heart / ch-mark`
+
+**아직 사람 눈으로 확인 못 한 것 (이 환경에 Chrome 이 없다)** — 부스 태블릿에서
+`04_screens.md` §7 체크리스트를 돌려야 한다. 특히:
+- 실루엣 `brightness(.52)` 에서 넷이 실제로 갈리는지 (안 갈리면 이 값만 조정)
+- 7개 클러스터 막대 끝 흰 점이 과하지 않은지
+- 청중 카드 4색 틴트의 대비 (흰 알약 위 `--bub-ink` 글자)
