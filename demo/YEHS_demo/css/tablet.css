@@ -67,10 +67,13 @@
   main.home {
     display: grid;
     grid-template-columns: minmax(360px, 4.6fr) minmax(0, 6fr);
-    grid-template-rows: auto auto auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+    /* lhead 행은 왼쪽 칸의 구역 제목 자리다. 이 행이 없으면 오른쪽 칸만
+       「지난 발표」 제목 높이(31px)만큼 카드가 밀려 두 칸의 카드 윗선이 어긋난다. */
     grid-template-areas:
       "head   head"
       "resume resume"
+      "lhead  list"
       "score  list"
       "record list"
       "wall   list"
@@ -84,6 +87,7 @@
     padding-bottom: 6px;
   }
   main.home > .t-head        { grid-area: head; }
+  main.home > .t-lhead       { grid-area: lhead; }
   main.home > .t-resume      { grid-area: resume; margin-bottom: 12px; }
   main.home > .t-score-card  { grid-area: score; }
   main.home > .t-record-card { grid-area: record; margin-top: 12px; }

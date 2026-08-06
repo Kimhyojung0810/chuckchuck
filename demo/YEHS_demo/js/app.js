@@ -1902,7 +1902,14 @@ function showF11Reveal() {
 
     /* 그래프는 선분석이 끝나 있으면 파이프라인보다 먼저 온다. 먼저 온 걸 먼저 보여준다 —
        기다리는 화면이 아니라 이미 아는 것부터 보여주는 화면이 된다. */
-    const graph = out.graph || (precompute && precompute.state && precompute.state.graph) || null;
+    /* 선분석 그래프를 앞질러 보낼 때는 **지금 조건의 것인지** 확인한다.
+       발표 정보가 바뀐 뒤의 그래프를 먼저 그려 두면, 나중에 온 정합의 node.id 가
+       안 맞아서 전부 「아직 설명하지 않았어요」로 찍힌다 — 오류가 아니라
+       그럴듯하게 낮은 점수로 보여서 더 나쁘다. */
+    const preGraph = precompute && precompute.key === precomputeKey()
+      ? (precompute.state && precompute.state.graph) || null
+      : null;
+    const graph = out.graph || preGraph;
     if (graph && !graphSent) {
       graphSent = true;
       post({ type: 'f11Graph', graph });
@@ -2291,28 +2298,13 @@ function pipelineInspectHtml() {
     || null;
   const phase = nf.pipelinePhase || 'queued';
 
-  const markRows = marks.length
-    ? marks.map((m, i) => {
-      const next = marks[i + 1];
-      const end = m.end_sec != null ? m.end_sec : (next ? next.start_sec : m.start_sec);
-      return `<tr>
-        <td>${i + 1}</td>
-        <td>${fmtMarkSec(m.start_sec)} – ${fmtMarkSec(end)}</td>
-        <td><b>${m.slide_no}</b>번</td>
-        <td>${m.visit || 1}번째</td>
-      </tr>`;
-    }).join('')
-    : '<tr><td colspan="4">아직 전환 기록이 없어요. 리허설에서 슬라이드를 넘겨 보세요.</td></tr>';
-
-  const uiLog = (nf.log || []).map((l) =>
-    `<li class="${l.re ? 're' : ''}">${escapeHtml(l.txt)}</li>`
-  ).join('') || '<li>UI 로그 없음</li>';
-
   // 업로드본은 전환 기록이 없어 marks 를 합성했다. 측정값처럼 읽히면 안 된다.
+  // 전환 기록 표 자체는 뺐지만(사용자 지시), 합성값이라는 사실은 계속 알려야 한다 —
+  // 아래 슬라이드↔발화 매핑이 그 합성 marks 위에 서 있기 때문이다.
   const up = nf.uploadedTake;
   const uploadedNote = up
     ? `<p class="note" style="color:#f59e0b">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
-       (${fmtMarkSec(up.durationSec)})으로 돌렸어요. 아래 marks 는 <b>실제 전환 기록이 아니라
+       (${fmtMarkSec(up.durationSec)})으로 돌렸어요. 슬라이드 구간은 <b>실제 전환 기록이 아니라
        길이를 ${marks.length}등분한 합성값</b>이라, 슬라이드별 발화 분할과 F-11 정합 판정은
        참고용으로만 보세요.</p>`
     : '';
@@ -2366,19 +2358,8 @@ function pipelineInspectHtml() {
   return `
     <div class="pipe-inspect">
       <h4 class="pipe-h">검증 로그 ${statusChip}</h4>
-      <p class="note">화살표·하단 필름으로 넘긴 기록이 F-04 marks / F-05 분할에 들어갔는지 여기서 확인하세요.</p>
+      <p class="note">발표한 말이 슬라이드별로 제대로 나뉘었는지 여기서 확인하세요.</p>
       ${uploadedNote}
-      <details class="pipe-block" open>
-        <summary>F-04 슬라이드 구간 marks (${marks.length})</summary>
-        <div class="table-wrap"><table class="pipe-table">
-          <thead><tr><th>#</th><th>시간</th><th>슬라이드</th><th>방문</th></tr></thead>
-          <tbody>${markRows}</tbody>
-        </table></div>
-      </details>
-      <details class="pipe-block">
-        <summary>화면 전환 로그 (${(nf.log || []).length})</summary>
-        <ul class="pipe-uilog">${uiLog}</ul>
-      </details>
       <details class="pipe-block" open>
         <summary>F-05 슬라이드 ↔ 발화 매핑 (${(transcript && Array.isArray(transcript.by_slide)) ? transcript.by_slide.length : 0}구간)</summary>
         ${speechHtml}
