@@ -81,27 +81,29 @@
    */
   function props(speaker) {
     if (speaker === 'ax') {
-      /* 헤드폰 — 발표를 귀로 들은 유일한 청중 (F-05 STT) */
+      /* 헤드폰 — 발표를 귀로 들은 유일한 청중 (F-05 STT).
+         컵이 몸 밖으로 나와야 어두운 무대 실루엣에서도 엑씨로 읽힌다 (01_character §6-1) */
       return `
   <g class="ch-prop ch-prop-phones">
-    <path d="M31 27a19 19 0 0 1 38 0" fill="none" stroke="#59617a" stroke-width="3.6"
-          stroke-linecap="round"/>
-    <rect x="26" y="24" width="8.5" height="14" rx="4.25" fill="#59617a"/>
-    <rect x="65.5" y="24" width="8.5" height="14" rx="4.25" fill="#59617a"/>
+    <path d="M18.5 35a31.5 31.5 0 0 1 63 0" fill="none" stroke="var(--chick-line)"
+          stroke-width="3.6" stroke-linecap="round"/>
+    <rect x="11.5" y="29" width="12" height="17" rx="5.5"
+          fill="var(--chick-mint)" stroke="var(--chick-line)" stroke-width="2"/>
+    <rect x="76.5" y="29" width="12" height="17" rx="5.5"
+          fill="var(--chick-mint)" stroke="var(--chick-line)" stroke-width="2"/>
   </g>`;
     }
     if (speaker === 'solar') {
-      /* 펼쳐 든 대본 — 자료를 통독한 유일한 청중 (F-01/06/07).
-         위아래로 말린 끝이 보여야 '두루마리'로 읽힌다. 원통만 그리면 물병이 된다 */
+      /* 슬라이드 몇 장 — 자료를 통독한 유일한 청중 (F-01/06/07).
+         겹친 두 장이어야 '자료 묶음'으로 읽힌다. 한 장이면 그냥 종이다 */
       return `
-  <g class="ch-prop ch-prop-script">
-    <g transform="rotate(-10 74 66)">
-      <rect x="66" y="54" width="16" height="24" fill="#f4ecd6"/>
-      <path d="M66 54h16a3.2 3.2 0 0 0 0-6.4H66a3.2 3.2 0 0 1 0 6.4z" fill="#e0d2ae"/>
-      <path d="M66 78h16a3.2 3.2 0 0 1 0 6.4H66a3.2 3.2 0 0 0 0-6.4z" fill="#e0d2ae"/>
-      <path d="M69 60.5h10M69 66h10M69 71.5h7" stroke="#bfb192" stroke-width="1.3"
-            stroke-linecap="round"/>
-    </g>
+  <g class="ch-prop ch-prop-script" transform="translate(4 -2) rotate(-8 76 68)">
+    <rect x="71.5" y="56.5" width="17" height="12.5" rx="2.5"
+          fill="#F2FBF6" stroke="var(--chick-line)" stroke-width="2"/>
+    <rect x="68.5" y="59.5" width="17" height="12.5" rx="2.5"
+          fill="#FFFFFF" stroke="var(--chick-line)" stroke-width="2"/>
+    <rect x="71" y="62" width="5.5" height="3.2" rx="1" fill="var(--chick-mint)"/>
+    <path d="M71 67.5h12M71 69.8h8.5" stroke="#BFD9CB" stroke-width="1.4" stroke-linecap="round"/>
   </g>`;
     }
     if (speaker === 'midm') {
@@ -109,80 +111,101 @@
          ch-pen-stroke 는 방금 그은 밑줄. 어긋난 걸 찾았을 때만 나타난다 */
       return `
   <g class="ch-prop ch-prop-pen">
-    <path class="ch-pen-stroke" d="M73 85h23" stroke="#ffe14d" stroke-width="6"
+    <path class="ch-pen-stroke" d="M72 90h22" stroke="#FFE14D" stroke-width="6"
           stroke-linecap="round" opacity="0"/>
-    <g transform="rotate(26 77 66)">
-      <rect x="73" y="53" width="8" height="19" rx="2.4" fill="#ffe14d"/>
-      <rect x="73" y="53" width="8" height="5.5" rx="2.4" fill="#efb01f"/>
-      <path d="M73 72h8l-4 5.5z" fill="#e4dcc7"/>
+    <g transform="translate(3 -1) rotate(34 79 68)">
+      <rect x="75" y="56" width="8.5" height="18" rx="3.5"
+            fill="#FFE14D" stroke="var(--chick-line)" stroke-width="2"/>
+      <rect x="75" y="56" width="8.5" height="6" rx="3"
+            fill="var(--chick-beak)" stroke="var(--chick-line)" stroke-width="2"/>
+      <path d="M75.8 74h7l-3.5 5z" fill="#F7E9B8" stroke="var(--chick-line)" stroke-width="1.6"
+            stroke-linejoin="round"/>
     </g>
   </g>`;
     }
-    /* 엑사원 — 가슴에 단 반짝 배지. 전문가의 인정 담당 (aligned) */
+    /* 엑사원 — 가슴의 별 로제트. 전문가의 인정 담당 (aligned).
+       로제트는 몸 안이라 실루엣에서 사라진다 — 어깨 밖에 뜬 별이 실루엣 표식이다 */
     return `
   <g class="ch-prop ch-prop-badge">
-    <circle cx="50" cy="70" r="7.4" fill="#f2d47c" stroke="#d6ab38" stroke-width="1.5"/>
-    <path d="M50 65.2l1.7 3.5 3.9.5-2.8 2.7.7 3.8-3.5-1.8-3.5 1.8.7-3.8-2.8-2.7 3.9-.5z"
-          fill="#fff7dd"/>
-    <g class="ch-sparkle" fill="#fff2c4">
-      <path d="M61 59l1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1z"/>
+    <path d="M46.4 78.2l-2.6 5.2 3.6-.9 1.7 3.1 2.2-5.6z" fill="var(--chick-mint)"
+          stroke="var(--chick-line)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M53.6 78.2l2.6 5.2-3.6-.9-1.7 3.1-2.2-5.6z" fill="var(--chick-mint)"
+          stroke="var(--chick-line)" stroke-width="1.4" stroke-linejoin="round"/>
+    <circle cx="50" cy="71" r="8" fill="var(--chick-mint)"
+            stroke="var(--chick-line)" stroke-width="2"/>
+    <circle cx="50" cy="71" r="5" fill="#FFFFFF"/>
+    <path d="M50 67.4l1.2 2.4 2.7.4-2 1.9.5 2.7-2.4-1.3-2.4 1.3.5-2.7-2-1.9 2.7-.4z"
+          fill="var(--chick-body, #FFD96A)" stroke="var(--chick-line)" stroke-width=".8"/>
+    <g class="ch-sparkle" fill="#FFF2C4" stroke="var(--chick-line)" stroke-width=".9">
+      <path d="M90.5 43.5l1.1 2.9 2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z"/>
     </g>
   </g>`;
   }
 
-  /** 눈 한 짝. 또렷한 눈동자 + 하이라이트 2개, 표정 곡선은 mood 가 켠다 (§10) */
+  /** 눈 한 짝. 크고 또렷한 눈동자 + 하이라이트 2개, 표정 곡선은 mood 가 켠다 (§10) */
   function eye(cx) {
     return `
     <g class="ch-eye">
-      <ellipse class="ch-eye-ball" cx="${cx}" cy="30" rx="4.3" ry="4.9" fill="#2b2f3a"/>
-      <circle class="ch-eye-hi" cx="${cx + 1.5}" cy="28.2" r="1.6" fill="#fff"/>
-      <circle class="ch-eye-hi" cx="${cx - 1.7}" cy="31.7" r=".85" fill="#fff" opacity=".75"/>
-      <path class="ch-eye-line ch-eye-happy" d="M${cx - 5} 27.5q5 7.5 10 0"/>
-      <path class="ch-eye-line ch-eye-grumpy" d="M${cx - 5} 32.5q5 -7.5 10 0"/>
+      <ellipse class="ch-eye-ball" cx="${cx}" cy="42" rx="5.2" ry="5.8" fill="#2F3B33"/>
+      <circle class="ch-eye-hi" cx="${cx + 1.8}" cy="39.6" r="2" fill="#fff"/>
+      <circle class="ch-eye-hi" cx="${cx - 2}" cy="44.2" r="1" fill="#fff" opacity=".75"/>
+      <path class="ch-eye-line ch-eye-happy" d="M${cx - 5.5} 40q5.5 7.5 11 0"/>
+      <path class="ch-eye-line ch-eye-grumpy" d="M${cx - 5.5} 45.5q5.5 -7.5 11 0"/>
     </g>`;
   }
 
   /**
-   * 병아리 한 마리.
+   * 발표새 한 마리 — "말랑한 발표새" (docs/design_improvement/01_character.md).
    *
-   * 2.5등신 — 머리 지름 36 / 전체 높이 ~90. 2등신이면 아기라 '들어주는 관객'
-   * 으로 안 읽히고, 3등신을 넘기면 심사위원처럼 보인다.
+   * 머리+몸이 한 덩어리 달걀 블롭이다 (얼굴 영역이 전체의 ~64%). 갈라 그리면
+   * 외곽선이 교차해서 지저분해진다. 외곽선은 검정이 아니라 브랜드 초록
+   * (--chick-line) — 이게 부드러움의 핵심이다.
    *
-   * 몸통은 머리보다 좁은 달걀꼴이다. 몸이 머리보다 넓어지는 순간 눈사람이 된다.
-   * 날개는 몸통 옆선 밖으로 나와 있어야 어두운 객석의 실루엣에서도 보인다 (§9).
+   * 클래스 구조는 옛 병아리와 같다. mood CSS·keyframes 27종·렌더 지점 9곳이
+   * 전부 이 클래스에 걸려 있어서, 이름을 지키면 연출이 그대로 산다.
    */
   function chickSvg(speaker) {
-    const body = `var(--chick-${speaker}, #ffd76e)`;
+    const body = `var(--chick-${speaker}, #FFD96A)`;
     return `
 <svg class="ch-chick" viewBox="0 0 100 100" role="img"
      aria-label="${esc(FALLBACK_NAMES[speaker] || speaker)} 병아리"
      style="--ch-sway:${SWAY[speaker] || '2.4s'};--ch-breath-delay:${BREATH[speaker] || '0s'}">
   <g class="ch-figure">
-    <g class="ch-legs" stroke="var(--chick-beak)" stroke-width="2.4" stroke-linecap="round"
-       fill="none">
-      <path d="M45 89v5"/><path d="M41 95h7.5"/>
-      <path d="M55 89v5"/><path d="M51.5 95H59"/>
+    <g class="ch-legs" fill="var(--chick-beak)" stroke="var(--chick-line)"
+       stroke-width="1.8" stroke-linejoin="round">
+      <path d="M41 85.5c-2.8 3.2-1.6 6.5 1.6 6.5 2.6 0 4.4-1.8 4.2-5.4z"/>
+      <path d="M59 85.5c2.8 3.2 1.6 6.5-1.6 6.5-2.6 0-4.4-1.8-4.2-5.4z"/>
     </g>
-    <path class="ch-tailfeather" d="M33 74c-9 .5-13.5 3.5-15 7.5 5 .5 9.5-.5 15-2.5z"
-          fill="${body}"/>
-    <ellipse class="ch-torso" cx="50" cy="69" rx="19.5" ry="22" fill="${body}"/>
-    <ellipse class="ch-wing" cx="29.5" cy="69" rx="5.5" ry="10.5" fill="${body}"/>
-    <ellipse class="ch-wing" cx="70.5" cy="69" rx="5.5" ry="10.5" fill="${body}"/>
+    <path class="ch-tailfeather" d="M20 62c-5.5-1-9 1.5-9.5 5.5 4 1.2 7.5.3 10-1.8z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="2.4" stroke-linejoin="round"/>
+    <path class="ch-torso" d="M50 9C30 9 16 24 16 45c0 13 5 22 9 28 5 7 14 13 25 13s20-6 25-13c4-6 9-15 9-28C84 24 70 9 50 9z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="3" stroke-linejoin="round"/>
+    <ellipse class="ch-belly" cx="50" cy="72" rx="13" ry="9.5" fill="var(--chick-belly)"/>
+    <path class="ch-wing" d="M17 50c-5 .8-8 4.4-7.4 9 4.4 1 8.6-.7 11-4z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="2.4" stroke-linejoin="round"/>
+    <path class="ch-wing" d="M83 50c5 .8 8 4.4 7.4 9-4.4 1-8.6-.7-11-4z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="2.4" stroke-linejoin="round"/>
     <g class="ch-head">
-      <path class="ch-tuft" d="M50 12.5c-1.4-5 2.6-8 5.6-6-3 2-3.2 4.2-2.2 7"
-            fill="none" stroke="${body}" stroke-width="3.2" stroke-linecap="round"/>
-      <circle cx="50" cy="30" r="18" fill="${body}"/>
-      <ellipse class="ch-blush" cx="36.5" cy="36" rx="4.8" ry="3" fill="var(--chick-blush)"/>
-      <ellipse class="ch-blush" cx="63.5" cy="36" rx="4.8" ry="3" fill="var(--chick-blush)"/>
-      <g class="ch-eyes">${eye(42)}${eye(58)}</g>
-      <path class="ch-beak" d="M46 38.5h8l-4 6z" fill="var(--chick-beak)"/>
+      <g class="ch-tuft">
+        <path d="M50 9V4.5" fill="none" stroke="var(--chick-line)" stroke-width="2"
+              stroke-linecap="round"/>
+        <path d="M50 5C49 1.8 46.2.6 43.8 1.6c.5 2.7 3 4 6.2 3.4z" fill="var(--chick-mint)"
+              stroke="var(--chick-line)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M50 5c1-3.2 3.8-4.4 6.2-3.4-.5 2.7-3 4-6.2 3.4z" fill="var(--chick-mint)"
+              stroke="var(--chick-line)" stroke-width="1.6" stroke-linejoin="round"/>
+      </g>
+      <ellipse class="ch-blush" cx="29.5" cy="50" rx="4.6" ry="2.7" fill="var(--chick-blush)"/>
+      <ellipse class="ch-blush" cx="70.5" cy="50" rx="4.6" ry="2.7" fill="var(--chick-blush)"/>
+      <g class="ch-eyes">${eye(38.5)}${eye(61.5)}</g>
+      <path class="ch-beak" d="M50 47c2.7 0 4.3 1.3 4.3 2.8 0 1.8-1.9 3.2-4.3 3.2s-4.3-1.4-4.3-3.2c0-1.5 1.6-2.8 4.3-2.8z"
+            fill="var(--chick-beak)" stroke="var(--chick-line)" stroke-width="1.6"/>
     </g>
 ${props(speaker)}
     <g class="ch-emote">
-      <path class="ch-heart" d="M74 14c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z"
-            fill="#ff7b8a"/>
-      <text class="ch-mark" x="72" y="17" font-size="19" font-weight="800"
-            fill="#ffe9b8">?</text>
+      <path class="ch-heart" d="M78 13c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z"
+            fill="#FF8FA3"/>
+      <text class="ch-mark" x="75" y="17" font-size="19" font-weight="800"
+            fill="#4C8A74">?</text>
     </g>
   </g>
 </svg>`;

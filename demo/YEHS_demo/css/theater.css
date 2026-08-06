@@ -272,7 +272,10 @@
   opacity: 1;
   transform: none;
   /* 실루엣. 얼굴이 보이면 발표 중에 자꾸 쳐다보게 된다 */
-  filter: brightness(.34) saturate(.5);
+  /* 새 발표새는 몸이 넓어 .34 에서는 넷이 안 갈린다. 배경감은 유지하면서
+     윤곽만 살린다 — 완전히 밝히지는 않는다, 주인공은 슬라이드다
+     (docs/design_improvement/01_character.md §6-1) */
+  filter: brightness(.52) saturate(.55);
   transition: filter .4s ease;
 }
 .sf-row .ch-chick {

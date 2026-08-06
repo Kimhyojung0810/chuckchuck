@@ -3746,11 +3746,16 @@ function tTerms() {
 /* 시간 모드 라디오 (질문 코칭 게이트 공용) */
 function qaModeButtonsHtml() {
   const cur = (qa && qa.mode) || '10';
+  /* TDS ListRow 구조 — left(시간) / contents(무엇을 하는지) / right(범위·선택).
+     예전엔 세 장이 다 같은 무게의 네모라 무엇이 골라져 있는지 안 보였다 */
   return `<div class="qa-modes" role="radiogroup" aria-label="질문 코칭 시간">
     ${Object.keys(QA_MODES).map((k) => {
       const md = QA_MODES[k];
-      return `<button type="button" class="qa-mode ${cur === k ? 'on' : ''}" data-mode="${k}" role="radio" aria-checked="${cur === k}">
-        <b>${md.short}</b><span>${md.desc}</span><em>${md.scopeLabel}</em>
+      const on = cur === k;
+      return `<button type="button" class="qa-mode ${on ? 'on' : ''}" data-mode="${k}" role="radio" aria-checked="${on}">
+        <span class="qm-time">${escapeHtml(String(md.short).split('·')[0].trim())}</span>
+        <span class="qm-body"><b>${escapeHtml(String(md.short).split('·').slice(1).join('·').trim() || md.short)}</b><span>${escapeHtml(md.desc)}</span></span>
+        <span class="qm-right"><em>${escapeHtml(md.scopeLabel)}</em><i class="qm-check" aria-hidden="true">${on ? '✓' : ''}</i></span>
       </button>`;
     }).join('')}
   </div>`;

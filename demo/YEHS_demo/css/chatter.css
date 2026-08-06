@@ -507,15 +507,19 @@
 /* 표정 곡선은 mood 가 켠다. 평소엔 또렷한 눈동자만 보인다 */
 .ch-eye-line {
   fill: none;
-  stroke: #2b2f3a;
+  stroke: #2F3B33;              /* 눈동자와 같은 잉크 */
   stroke-width: 2.6;
   stroke-linecap: round;
   opacity: 0;
 }
 .ch-eye-ball, .ch-eye-hi { transform-box: fill-box; transform-origin: center; }
 
-/* 눈깜빡임 — 사람보다 조금 느리게 */
-.ch-chick .ch-eyes { animation: chBlinkEyes 5.6s infinite; transform-origin: center; }
+/* 눈깜빡임 — 사람보다 조금 느리게.
+   transform-box: fill-box 가 없으면 원점이 viewBox 기준이라 눈이 얼굴 밖으로 찌그러진다 */
+.ch-chick .ch-eyes {
+  animation: chBlinkEyes 5.6s infinite;
+  transform-box: fill-box; transform-origin: center;
+}
 @keyframes chBlinkEyes {
   0%, 93%, 100% { transform: scaleY(1); }
   96%           { transform: scaleY(.1); }

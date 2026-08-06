@@ -1699,3 +1699,26 @@ table.plain tr:last-child td { border-bottom: 0; }
 .qres-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .qres-meta { font-style: normal; font-size: 11.5px; color: var(--text-3); }
 .qres-chev { flex: none; color: var(--text-3); font-size: 20px; }
+
+/* ── 질문 코칭 시간 고르기 — TDS ListRow 3영역 ─────────────────
+   예전엔 세 장이 같은 무게의 네모라 무엇이 골라져 있는지 안 보였다.
+   left(시간) / contents(무엇을 하는지) / right(범위·선택) 으로 나눈다 */
+.qa-mode { display: flex; flex-direction: row; align-items: center; gap: 14px; text-align: left; min-height: 44px; padding: 12px 14px; }
+.qm-time {
+  flex: none; min-width: 52px; text-align: center;
+  font-size: 17px; font-weight: 830; color: var(--text-2); letter-spacing: -.02em;
+}
+.qa-mode.on .qm-time { color: var(--brand); }
+.qm-body { flex: 1; min-width: 0; }
+.qm-body b { display: block; font-size: 14.5px; font-weight: 750; }
+.qm-body > span { display: block; margin-top: 2px; font-size: 13px; color: var(--text-3); line-height: 1.5; }
+.qm-right { flex: none; display: flex; align-items: center; gap: 10px; }
+.qm-right em { font-style: normal; font-size: 12px; font-weight: 650; color: var(--text-3); }
+.qm-check {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  font-style: normal; font-size: 12px; font-weight: 830;
+  border: 1.5px solid var(--border); color: transparent;
+}
+.qa-mode.on .qm-check { background: var(--brand); border-color: var(--brand); color: #fff; }
+/* 3열 그리드로는 left/contents/right 가 안 읽힌다. 한 줄에 하나씩 쌓는다 */
+.qa-modes { grid-template-columns: 1fr; gap: 8px; }

@@ -638,7 +638,9 @@ function qaModeGate() {
     <div class="card qa-quick">
       <div class="qm-head"><b>질문 코칭 시간을 골라주세요</b><span>시간에 맞춰 질문 범위를 짜요 — 짧을수록 치명적인 것만 다뤄요</span></div>
       ${qaModeButtonsHtml()}
-      <button class="btn btn-primary" id="qaGateStart" type="button">이 설정으로 시작하기 · 최대 ${qaScope().count}개 개념 · 약 ${qaScope().min}분</button>
+      <!-- 범위·시간은 위 카드가 이미 말한다. CTA 에 또 붙이면 버튼의 역할이
+           흐려진다 — 토스 다크패턴 §5 "CTA 위에 중복된 보조 설명" -->
+      <button class="btn btn-primary" id="qaGateStart" type="button">질문 코칭 시작하기</button>
     </div>`;
   wireQaModeButtons(qaModeGate);
   $('#qaGateStart').addEventListener('click', () => {
