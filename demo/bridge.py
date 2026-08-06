@@ -5,6 +5,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -276,6 +277,50 @@ def _fake_delay(path: str) -> None:
     time.sleep(FAKE_STAGE_DELAY_SEC * weight)
 
 
+# ─── 단계 결과 디스크 캐시 (F-06 · F-07) ──────────────────────────────────────
+#
+# 실측 7분 30초 중 F-06(1분43초) + F-07(2분40초) = 4분 23초는 **발표자료만** 보고 만든다.
+# 부스에서 같은 자료로 열 번 시연하면 그 4분 23초를 열 번 다시 태운다.
+#
+# 파일 이름이 아니라 **내용 해시**로 건다. SlideDoc 캐시는 파일명 stem 을 쓰는데,
+# 이름이 같은 다른 자료가 조용히 붙을 수 있어서 그쪽은 근사 매치 폴백을 금지해 뒀다.
+# 여기서는 아예 내용이 1비트라도 다르면 다른 키가 되게 한다 — 근사 매치가 존재할 수 없다.
+STAGE_CACHE_ON = os.environ.get("DEMO_STAGE_CACHE", "1").lower() not in ("0", "false", "off")
+STAGE_CACHE_DIR = ROOT / "fixtures" / "raw" / "stage_cache"
+
+
+def _stage_key(*parts) -> str:
+    """출력에 영향을 주는 것 전부를 넣은 내용 해시. 하나라도 빠지면 캐시가 거짓말을 한다."""
+    h = hashlib.sha1()
+    for p in parts:
+        h.update(json.dumps(p, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8"))
+        h.update(b"\x00")
+    return h.hexdigest()[:20]
+
+
+def _stage_cache_get(stage: str, key: str):
+    if not STAGE_CACHE_ON:
+        return None
+    try:
+        raw = (STAGE_CACHE_DIR / f"{stage}-{key}.json").read_text(encoding="utf-8")
+        return json.loads(raw)
+    except (OSError, ValueError):
+        return None
+
+
+def _stage_cache_put(stage: str, key: str, payload: dict) -> None:
+    if not STAGE_CACHE_ON:
+        return
+    try:
+        STAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        (STAGE_CACHE_DIR / f"{stage}-{key}.json").write_text(
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+        )
+    except OSError as e:
+        # 캐시 저장 실패는 분석 실패가 아니다. 삼키되 조용히는 안 한다
+        sys.stderr.write(f"[bridge] {stage} 캐시 저장 실패(무시): {e}\n")
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -335,9 +380,6 @@ class Handler(SimpleHTTPRequestHandler):
                     "message": f"요청이 너무 잦아요. {wait}초 뒤에 다시 시도해 주세요.",
                     "retry_after": wait,
                 })
-
-            # mock 검증용 인위 지연 (실 API 경로에는 안 걸린다)
-            _fake_delay(parsed.path)
 
             if parsed.path == "/api/v1/session/artifacts":
                 return self._handle_session_artifacts(raw)
@@ -533,13 +575,24 @@ class Handler(SimpleHTTPRequestHandler):
         transcript = None
         if body.get("transcript"):
             transcript = Transcript.from_dict(body["transcript"])
+        # 같은 자료·같은 발표 정보면 결과가 같다. 부스 2회차부터 1분 43초를 안 태운다
+        key = _stage_key("f06", body["slide_doc"], body.get("context") or {}, llm,
+                         body.get("transcript") or None)
+        cached = _stage_cache_get("concepts", key)
+        if cached is not None:
+            sys.stderr.write(f"[bridge] F-06 concepts 캐시 적중 {key}\n")
+            return self._json(200, cached)
+
         sys.stderr.write(
             f"[bridge] F-06 concepts start slides={doc.total_slides} "
             f"has_transcript={transcript is not None} mock={_mock()}\n"
         )
+        _fake_delay("/api/v1/concepts")
         result = extract_concepts(doc, ctx, transcript=transcript, llm=llm)
         sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}\n")
-        return self._json(200, result.to_dict())
+        payload = result.to_dict()
+        _stage_cache_put("concepts", key, payload)
+        return self._json(200, payload)
 
     def _handle_strategy(self, raw: bytes):
         """F-20 · 분석 결과 → 발표 구성 제안 하나 + 대안 요약."""
@@ -583,16 +636,28 @@ class Handler(SimpleHTTPRequestHandler):
         # slide_doc 은 선택. 주면 weight 가 글자 수·시각자료까지 반영한다.
         slide_doc = SlideDoc.from_dict(body["slide_doc"]) if body.get("slide_doc") else None
         llm = "mock" if _mock() else body.get("llm")
+        # F-07 은 Transcript 를 안 받는다 — 입력이 concept_doc·slide_doc·context 뿐이라
+        # 같은 자료면 결과가 같다. 실측 2분 40초로 파이프라인에서 가장 긴 단계다
+        key = _stage_key("f07", body["concept_doc"], body.get("slide_doc") or None,
+                         body.get("context") or {}, llm)
+        cached = _stage_cache_get("graph", key)
+        if cached is not None:
+            sys.stderr.write(f"[bridge] F-07 graph 캐시 적중 {key}\n")
+            return self._json(200, cached)
+
         sys.stderr.write(
             f"[bridge] F-07 graph start slides={doc.total_slides} "
             f"has_slide_doc={slide_doc is not None} mock={_mock()}\n"
         )
+        _fake_delay("/api/v1/graph")
         graph = build_graph(doc, ctx, slide_doc=slide_doc, llm=llm)
         sys.stderr.write(
             f"[bridge] F-07 graph done nodes={len(graph.nodes)} "
             f"edges={len(graph.edges)} sections={len(graph.sections)}\n"
         )
-        return self._json(200, graph.to_dict())
+        payload = graph.to_dict()
+        _stage_cache_put("graph", key, payload)
+        return self._json(200, payload)
 
     def _handle_alignment(self, raw: bytes):
         """F-11 · ConceptGraph + Transcript(+선택 Context) → AlignmentDoc."""
@@ -616,6 +681,7 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-11 alignment start nodes={len(graph.nodes)} "
             f"slides={graph.total_slides} mock={_mock()}\n"
         )
+        _fake_delay("/api/v1/alignment")
         alignment = align_speech(graph, transcript, ctx, llm=llm)
         s = alignment.summary
         sys.stderr.write(
@@ -822,6 +888,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         marks = [SlideMark.from_dict(m) for m in body.get("marks", [])]
         provider = "mock" if _mock() else body.get("provider", "skt-ax")
+        _fake_delay("/api/v1/transcribe")
 
         audio_b64 = body.get("audio_base64")
         audio_path = body.get("audio_path")
