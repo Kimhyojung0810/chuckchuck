@@ -367,8 +367,8 @@ window.LandingWorkbench = (function () {
         links += `<path d="M${from.x} ${from.y + 26} C ${from.x} ${(from.y + n.y) / 2 + 20}, ${n.x} ${(from.y + n.y) / 2}, ${n.x} ${n.y - 4}" fill="none" stroke="#c3d0c5" stroke-width="1.6"/>`;
       });
       const boxes = nodes.map(n => {
-        const fill = n.root ? '#12362d' : MAP_FILL[n.st];
-        const line = n.root ? '#12362d' : MAP_LINE[n.st];
+        const fill = n.root ? '#0a3d2a' : MAP_FILL[n.st];
+        const line = n.root ? '#0a3d2a' : MAP_LINE[n.st];
         const txt = n.root ? '#ffffff' : '#16211c';
         return `<g>
           <rect x="${n.x - n.w / 2}" y="${n.y - 4}" width="${n.w}" height="${n.root ? 40 : 52}" rx="11" fill="${fill}" stroke="${line}" stroke-width="1.6"/>

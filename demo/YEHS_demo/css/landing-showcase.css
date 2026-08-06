@@ -47,7 +47,7 @@
   background:
     radial-gradient(820px 420px at 18% 28%,rgba(63,160,128,.26),transparent 62%),
     radial-gradient(700px 470px at 86% 74%,rgba(214,164,54,.14),transparent 60%),
-    linear-gradient(180deg,#0b241e,#12362d)}
+    linear-gradient(180deg,#052a1c,#0a3d2a)}
 
 #alignTrack:before{content:"";position:absolute;inset:0;opacity:.15;pointer-events:none;
   background-image:radial-gradient(rgba(255,255,255,.4) .7px,transparent .7px);background-size:26px 26px}
@@ -86,8 +86,8 @@
   font-size:12px;font-weight: 750;color:#a9cabb;background:rgba(255,255,255,.05);
   border:1.5px solid rgba(255,255,255,.14);transition:all .35s}
 
-.slides-row .sl.on{border-color:#58c9a2;background:rgba(88,201,162,.13);color:#fff;transform:translateY(-5px);
-  box-shadow:0 0 26px rgba(88,201,162,.28),inset 0 1px 0 rgba(255,255,255,.14)}
+.slides-row .sl.on{border-color:#3fd599;background:rgba(63,213,153,.13);color:#fff;transform:translateY(-5px);
+  box-shadow:0 0 26px rgba(63,213,153,.28),inset 0 1px 0 rgba(255,255,255,.14)}
 
 .scrub-timeline{position:relative;width:min(84vw,800px);height:102px;border-radius: var(--r-print);
   display:flex;align-items:center;gap:2.5px;padding:0 20px;
@@ -96,7 +96,7 @@
 
 .scrub-timeline i{display:block;flex:1 1 0;min-width:2px;border-radius:2px;background:#274d40;transition:background .1s}
 
-.scrub-timeline i.lit{background:linear-gradient(180deg,#8ce9c8,#58c9a2);box-shadow:0 0 7px rgba(88,201,162,.6)}
+.scrub-timeline i.lit{background:linear-gradient(180deg,#76e4b8,#3fd599);box-shadow:0 0 7px rgba(63,213,153,.6)}
 
 .scrub-timeline .marker{position:absolute;top:-11px;bottom:-11px;width:2px;background:#f0b429;opacity:0;
   transition:opacity .3s;box-shadow:0 0 10px rgba(240,180,41,.55)}
@@ -104,15 +104,15 @@
 .scrub-timeline .marker:after{content:attr(data-l);position:absolute;top:-24px;left:50%;transform:translateX(-50%);
   font-size:10px;font-weight: 830;color:#ffd35c;white-space:nowrap;letter-spacing:.02em}
 
-.scrub-timeline .marker.revisit{background:#8ce9c8;box-shadow:0 0 10px rgba(140,233,200,.55)}
+.scrub-timeline .marker.revisit{background:#76e4b8;box-shadow:0 0 10px rgba(118,228,184,.55)}
 
-.scrub-timeline .marker.revisit:after{color:#a8e0c8}
+.scrub-timeline .marker.revisit:after{color:#aeefd5}
 
 .bind-sentence{margin-top:30px;min-height:56px;text-align:center;max-width:760px}
 
 .bind-sentence .s{display:none;color:#d7e8de;font-size:14.5px;line-height:1.75}
 
-.bind-sentence .s b{color:#8ce9c8}
+.bind-sentence .s b{color:#76e4b8}
 
 .bind-sentence .s.on{display:block;animation:demoIn .4s ease both}
 @media(max-width:760px){
@@ -132,7 +132,7 @@
   radial-gradient(820px 420px at 18% 28%,rgba(120,196,166,.24),transparent 62%),
   radial-gradient(700px 470px at 86% 74%,rgba(233,201,120,.16),transparent 60%),#f5f5f5}
 
-#alignTrack:before{background-image:radial-gradient(rgba(18,54,45,.14) .7px,transparent .7px)}
+#alignTrack:before{background-image:radial-gradient(rgba(10,61,42,.14) .7px,transparent .7px)}
 
 .align-stage{color:var(--ink)}
 
@@ -143,9 +143,9 @@
 .align-cap p{color:#5f6f66}
 
 .slides-row .sl{background:#fff;border-color:var(--line);color:#5f6f66;
-  box-shadow:0 1px 2px rgba(18,54,45,.06)}
+  box-shadow:0 1px 2px rgba(10,61,42,.06)}
 
-.slides-row .sl.on{border-color:#1c5747;background:linear-gradient(180deg,#1c5747,#0e352a);color:#fff;
+.slides-row .sl.on{border-color:#02a262;background:linear-gradient(180deg,#02a262,#029359);color:#fff;
   box-shadow:0 14px 28px rgba(14,53,42,.3)}
 
 .bind-sentence .s{color:#46584f}
@@ -205,7 +205,7 @@
 
 .bind-sentence .w.said{opacity:1}
 
-.bind-sentence .w.now{opacity:1;color:#0a8f68;box-shadow:inset 0 -2px 0 #58c9a2}
+.bind-sentence .w.now{opacity:1;color:#0a8f68;box-shadow:inset 0 -2px 0 #3fd599}
 
 .bind-sentence small{display:block;margin-top:12px;font-size:14.5px;font-weight: 750;color:#5f6f66}
 
@@ -230,8 +230,8 @@
 .align-summary span.re b{color:#6b5210}
 
 /* ═══ 정렬 스크럽: 현재 구간 밴드 + 재생헤드 ═══ */
-.seg-band{position:absolute;top:6px;bottom:6px;border-radius: var(--r-ctl);background:rgba(88,201,162,.16);
-  box-shadow:inset 0 0 0 1.5px rgba(88,201,162,.55);opacity:0;transition:opacity .2s;pointer-events:none}
+.seg-band{position:absolute;top:6px;bottom:6px;border-radius: var(--r-ctl);background:rgba(63,213,153,.16);
+  box-shadow:inset 0 0 0 1.5px rgba(63,213,153,.55);opacity:0;transition:opacity .2s;pointer-events:none}
 
 .seg-band.re{background:rgba(240,180,41,.14);box-shadow:inset 0 0 0 1.5px rgba(240,180,41,.6)}
 
@@ -240,7 +240,7 @@
 
 .playhead i{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%)}
 
-.playhead i:after{content:attr(data-t);font-size:12px;font-weight: 830;color:#12362d;background:#faf9f6;
+.playhead i:after{content:attr(data-t);font-size:12px;font-weight: 830;color:#0a3d2a;background:#faf9f6;
   border-radius:7px;padding:3px 9px;white-space:nowrap;box-shadow:0 2px 8px rgba(11,36,30,.2)}
 
 .slides-row .sl.revisit{background:linear-gradient(180deg,#8a6a15,#5f4a0e)}
@@ -250,7 +250,7 @@
 .slides-row .sl.on{position:relative}
 
 .slides-row .sl.on:after{content:"";position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);
-  border:7px solid transparent;border-top-color:#12362d}
+  border:7px solid transparent;border-top-color:#0a3d2a}
 
 .slides-row .sl.revisit:after{border-top-color:#8a6a15}
 
@@ -260,11 +260,11 @@
 /* A① 슬라이드 카드 누적 발화시간 바 */
 .sl-time{display:flex;align-items:center;gap:7px;margin:7px 0 6px}
 
-.sl-track{position:relative;flex:1;height:4px;border-radius:3px;background:rgba(18,54,45,.1);overflow:hidden;display:flex}
+.sl-track{position:relative;flex:1;height:4px;border-radius:3px;background:rgba(10,61,42,.1);overflow:hidden;display:flex}
 
 .sl-track i{display:block;height:100%;width:0}
 
-.sl-track .v1{background:#58c9a2}
+.sl-track .v1{background:#3fd599}
 
 .sl-track .v2{background:#f0b429}
 
@@ -278,7 +278,7 @@
 .trace-layer{position:absolute;inset:5px 0;pointer-events:none}
 
 .scrub-timeline .trace-layer i.trace{position:absolute;top:0;bottom:0;flex:none;min-width:0;
-  border-radius: var(--r-ctl);background:transparent;border:1.5px solid rgba(140,233,200,.28);
+  border-radius: var(--r-ctl);background:transparent;border:1.5px solid rgba(118,228,184,.28);
   border-top-width:2.5px;opacity:0;transform:scaleY(.55);transform-origin:top;
   transition:opacity .45s ease,transform .45s cubic-bezier(.22,1,.36,1)}
 

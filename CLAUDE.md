@@ -68,7 +68,7 @@ python -m pytest tests/ -q                          # 회귀 스모크
 
 **단일 원본은 `demo/YEHS_demo/css/app.css` 의 `:root` 다.** 토스의 `blue500` 을 가져오지 않는다.
 
-- 브랜드 딥그린 `--brand:#1F7A5F`, 다크 면 `--navy:#12362D`
+- 브랜드 딥그린 `--brand:#03B26C`, 다크 면 `--navy:#0A3D2A`
 - 판정 색 5종(`--ok/--mid/--no/--ct/--om`)은 **불변**. 의미가 붙어 있어서 바꾸면 리포트가 거짓말이 된다.
 - radius 4종(`--r-print/--r-ctl/--r-pill/--r-dot`) · weight 4단(`--w-body/--w-med/--w-bold/--w-display`) 밖의 값은 쓰지 않는다.
 - 서체는 Pretendard 하나.

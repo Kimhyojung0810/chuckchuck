@@ -5,13 +5,13 @@
 
 :root {
   /* ── 브랜드 팔레트 (딥그린) ── */
-  --navy: #12362D;          /* 가장 진한 브랜드 면 */
-  --navy-deep: #0B241E;
-  --brand: #1F7A5F;         /* 주 액션 */
-  --brand-strong: #0E352A;  /* 주 액션 hover·active */
-  --brand-weak: #E9F4EE;    /* 주 액션 배경 */
-  --cyan: #58C9A2;          /* 어두운 면 위 강조 */
-  --mint: #A8E0C8;
+  --navy: #0a3d2a;          /* 가장 진한 브랜드 면 */
+  --navy-deep: #052a1c;
+  --brand: #03b26c;         /* 주 액션 */
+  --brand-strong: #029359;  /* 주 액션 hover·active */
+  --brand-weak: #f0faf6;    /* 주 액션 배경 */
+  --cyan: #3fd599;          /* 어두운 면 위 강조 */
+  --mint: #aeefd5;
   --yellow: #F0B429;        /* 주의·초과 */
 
   /* ── 레거시 별칭: 기존 규칙이 --blue* 를 참조하므로 이름 유지 ── */
@@ -46,8 +46,8 @@
 
   /* font-weight 4단 — 미세 차이는 의미를 만들지 않는다 */
   --w-body: 500; --w-med: 650; --w-bold: 750; --w-display: 830;
-  --shadow: 0 1px 2px rgba(18, 54, 45, .08);
-  --shadow-panel: 0 1px 2px rgba(18, 54, 45, .08), 0 12px 30px rgba(18, 54, 45, .09);
+  --shadow: 0 1px 2px rgba(10, 61, 42, .08);
+  --shadow-panel: 0 1px 2px rgba(10, 61, 42, .08), 0 12px 30px rgba(10, 61, 42, .09);
   --ease: cubic-bezier(.22, 1, .36, 1);
   --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
@@ -659,8 +659,8 @@ details.fold .fold-body { padding: 0 24px 20px; }
    user: "레포트에서 잘 시각적으로도 보여줘야지 … 뾰로롱 애니메이션도 넣고 … 간투어까지 키워드 상자로"
 ── */
 .voice-easy-card { background:
-  radial-gradient(120% 80% at 0% 0%, rgba(31, 122, 95, .08), transparent 55%),
-  radial-gradient(90% 70% at 100% 20%, rgba(88, 201, 162, .10), transparent 50%),
+  radial-gradient(120% 80% at 0% 0%, rgba(3, 178, 108, .08), transparent 55%),
+  radial-gradient(90% 70% at 100% 20%, rgba(63, 213, 153, .10), transparent 50%),
   var(--surface);
 }
 .voice-lead { font-size: 15px; color: var(--text-2); margin: -4px 0 16px; line-height: 1.65; }
@@ -767,7 +767,7 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .vbar.rec { background: #B9DCC9; }
 .vbar.act {
   background: linear-gradient(180deg, var(--cyan) 0%, var(--blue) 70%, var(--blue-strong) 100%);
-  box-shadow: 0 4px 10px rgba(31, 122, 95, .28);
+  box-shadow: 0 4px 10px rgba(3, 178, 108, .28);
 }
 .voice-chart.is-on .vbar {
   height: var(--h);
@@ -1348,7 +1348,7 @@ table.plain tr:last-child td { border-bottom: 0; }
   display: flex; flex-direction: column; gap: 4px;
   text-align: left; cursor: pointer;
 }
-.slide-film-text button.on { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(31, 122, 95, .25); }
+.slide-film-text button.on { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(3, 178, 108, .25); }
 .slide-film-text .film-no { font-size: 11px; font-weight: 750; color: var(--text-3); }
 .slide-film-text .film-title {
   font-size: 12px; font-weight: 650; color: var(--text);
@@ -1370,7 +1370,7 @@ table.plain tr:last-child td { border-bottom: 0; }
   background: #fff; display: flex; flex-direction: column;
   text-align: left; cursor: pointer;
 }
-.slide-film-deck button.on { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(31, 122, 95, .25); }
+.slide-film-deck button.on { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(3, 178, 108, .25); }
 .slide-film-deck .film-thumb {
   display: block; width: 100%; aspect-ratio: 16 / 9;
   object-fit: contain; border-radius: 0; background: var(--fill);
