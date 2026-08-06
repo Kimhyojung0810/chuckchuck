@@ -4,12 +4,12 @@
 */
 
 :root {
-  /* ── 브랜드 팔레트 (딥그린) ── */
-  --navy: #0a3d2a;          /* 가장 진한 브랜드 면 */
-  --navy-deep: #052a1c;
-  --brand: #03b26c;         /* 주 액션 */
-  --brand-strong: #029359;  /* 주 액션 hover·active */
-  --brand-weak: #f0faf6;    /* 주 액션 배경 */
+  /* ── 브랜드 팔레트 (딥그린) — docs/design_improvement/02_tokens.md ── */
+  --navy: #155C46;          /* 메인 초록. 가장 진한 브랜드 면 */
+  --navy-deep: #0C3D2E;
+  --brand: #08B879;         /* 주 액션 */
+  --brand-strong: #069E67;  /* 주 액션 hover·active */
+  --brand-weak: #E7F7EF;    /* 연한 민트 — 주 액션 배경 */
   --cyan: #3fd599;          /* 어두운 면 위 강조 */
   --mint: #aeefd5;
   --yellow: #F0B429;        /* 주의·초과 */
@@ -19,13 +19,15 @@
   --blue-strong: var(--brand-strong);
   --blue-weak: var(--brand-weak);
 
-  --canvas: #F5F5F5;        /* 페이지 배경 */
+  /* 배경이 크림, 카드가 순백이다. 회색 배경 위 크림 카드였던 관계를 뒤집었다 —
+     크림 위에 밝은 카드가 떠 있어야 따뜻하면서 위계가 산다 (02_tokens §1) */
+  --canvas: #FFFDF7;        /* 페이지 배경 (크림) */
   --surface: #FFFFFF;       /* 카드 */
-  --paper: #FAF9F6;         /* 리포트 패널 */
-  --fill: #F0F3F0;          /* 카드 안 회색 면 */
-  --border: #E2E7E3;
+  --paper: #FFFFFF;         /* 리포트 패널 */
+  --fill: #EFF6F1;          /* 카드 안 면 — 초록기 살짝 */
+  --border: #D8EEE3;        /* 카드 1.5px 보더 */
   --line: rgba(31, 64, 52, .12);
-  --text: #16211C;
+  --text: #26372F;          /* 본문 — 순검정 대신 진초록 잉크 */
   --text-2: #46584F;
   --text-3: #8AA295;
 
@@ -37,17 +39,18 @@
   --green: #0A8F68; --green-bg: #E9F7EF;
 
   /* radius 4종 — 지면 / 컨트롤 / 알약 / 원. 이 밖의 값은 쓰지 않는다 */
-  --r-print: 4px;      /* 카드·패널 (제본된 리포트) */
-  --r-ctl: 10px;       /* 버튼·입력 */
+  --r-print: 20px;     /* 카드·패널 (부드러운 노트) */
+  --r-inner: 16px;     /* 카드 안의 작은 카드 — 바깥보다 살짝 작아야 자연스럽다 */
+  --r-ctl: 12px;       /* 버튼·입력 */
   --r-pill: 999px;     /* 칩·탭 */
   --r-dot: 50%;        /* 아바타·상태 점 */
-  /* 레거시 별칭 — 기존 var(--r-card|inner|btn) 사용처가 따라온다 */
-  --r-card: var(--r-print); --r-inner: var(--r-print); --r-btn: var(--r-ctl);
+  /* 레거시 별칭 — 기존 var(--r-card|btn) 사용처가 따라온다 */
+  --r-card: var(--r-print); --r-btn: var(--r-ctl);
 
   /* font-weight 4단 — 미세 차이는 의미를 만들지 않는다 */
   --w-body: 500; --w-med: 650; --w-bold: 750; --w-display: 830;
-  --shadow: 0 1px 2px rgba(10, 61, 42, .08);
-  --shadow-panel: 0 1px 2px rgba(10, 61, 42, .08), 0 12px 30px rgba(10, 61, 42, .09);
+  --shadow: 0 2px 8px rgba(28, 82, 61, .06);
+  --shadow-panel: 0 8px 24px rgba(28, 82, 61, .08);
   --ease: cubic-bezier(.22, 1, .36, 1);
   --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
@@ -123,9 +126,9 @@ main.narrow { max-width: 640px; }
 .btn:active { transform: scale(.97); }
 .btn-primary { background: var(--blue); color: #fff; }
 .btn-primary:hover { background: var(--blue-strong); }
-.btn-primary:disabled { background: #DFE3E8; color: var(--text-3); cursor: not-allowed; transform: none; }
+.btn-primary:disabled { background: #E3EDE6; color: var(--text-3); cursor: not-allowed; transform: none; }
 .btn-secondary { background: var(--fill); color: var(--text); }
-.btn-secondary:hover { background: #E4EAE5; }
+.btn-secondary:hover { background: #E2EFE7; }
 .btn-tint { background: var(--blue-weak); color: var(--blue); }
 .btn-tint:hover { background: #C4E2D2; }
 /* 손가락으로 누르는 화면이라 모든 버튼의 최소 높이를 44px 로 맞춘다 */
@@ -134,13 +137,16 @@ main.narrow { max-width: 640px; }
 .btn-sm { height: 44px; padding: 0 16px; font-size: 14px; border-radius: var(--r-ctl); }
 
 /* ── 카드 ── */
+/* 보더 1.5px 은 장식이 아니라 크림 배경(--canvas) 위에서 흰 카드의 경계를 잡아 준다.
+   그림자만으로는 두 밝은 면이 뭉개진다 (docs/design_improvement/03_components.md §1) */
 .card {
   background: var(--paper); border-radius: var(--r-card);
+  border: 1.5px solid var(--border);
   padding: 24px; box-shadow: var(--shadow-panel);
 }
 .card + .card, .card + details.fold, details.fold + .card, details.fold + details.fold { margin-top: 14px; }
 .clickable { cursor: pointer; transition: transform .15s var(--ease), box-shadow .15s ease; }
-.clickable:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(2, 32, 71, .07); }
+.clickable:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(28, 82, 61, .1); }
 .note { font-size: 13px; color: var(--text-3); }
 
 /* 말풍선 */

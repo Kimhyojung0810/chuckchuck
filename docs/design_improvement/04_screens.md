@@ -47,7 +47,7 @@
 | 지점 | 파일 | 확인 |
 |---|---|---|
 | 객석 3겹 디오라마 | `chatter.js` `overlayHtml()`(228~) | 새 캐릭터가 96-134px 에서 소품·새싹까지 보이는지 |
-| 무대 실루엣 | `app.js` `audienceHtml()`(1333-1337), `theater.css:261-312` | `brightness(.34)` 실루엣에서 넷 구분 (01_character §6) |
+| 무대 실루엣 | `app.js` `audienceHtml()`(1333-1337), `theater.css:261-312` | **필터 완화: `brightness(.34) saturate(.5)` → `brightness(.52) saturate(.55)`** (01_character §6-1 — 새 캐릭터는 .34 에서 넷이 안 갈린다. 완전히 밝히지는 않는다 — 주인공은 슬라이드) + 실루엣에서 헤드폰·슬라이드·펜·별 구분 확인 |
 | 등장 의식·종연·커튼콜·배웅 | `app.js:1412-1443, 1506-1533, 2719-2758, 2778-2803` | mood 하드코딩(happy/curious/neutral)이 새 표정 레이어로 동작 |
 | 회상 카드 | `app.js` `recallCardHtml()`(2844-2857), 46px | 얼굴 가독 |
 | 명패·좌석 등받이 | `chatter.css:696-729` | 어두운 좌석 톤과 새 크림 몸의 대비 |

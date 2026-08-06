@@ -22,8 +22,9 @@ app.css 가 이미 1,500줄을 넘어 여기서 따로 관리합니다.
   --gap-section: 96px;
   --gap-item: 24px;
 
-  /* 제본된 리포트 — 종이에 인쇄된 느낌이라 모서리를 거의 없앤다 */
-  --r-print: 4px;
+  /* --r-print 는 여기서 재선언하지 않는다. app.css 의 :root 가 단일 원본이고,
+     여기 두면 캐스케이드에서 덮어써서 카드가 도로 각져 버린다
+     (docs/design_improvement/02_tokens.md §2) */
 }
 
 /* 에디토리얼 메타 라벨 */
@@ -38,7 +39,7 @@ app.css 가 이미 1,500줄을 넘어 여기서 따로 관리합니다.
   position: relative; overflow: hidden; color: #fff;
   margin-inline: calc(50% - 50vw);
   padding: 60px max(24px, calc(50vw - 540px)) 0;
-  background: linear-gradient(168deg, #1B4A3E 0%, var(--navy) 46%, var(--navy-deep) 100%);
+  background: linear-gradient(168deg, #1F6B52 0%, var(--navy) 46%, var(--navy-deep) 100%);
 }
 
 /* ③ 장식이 아니라 데이터가 배경이다 — 발화 파형 + 슬라이드 전환 시각 */

@@ -23,19 +23,25 @@
   --ch-ink-2: #a9b1c9;
   --ch-ink-3: #6f7896;
 
-  /* 병아리 노랑 4변주. 브랜드 컬러 흉내가 아니라 개체 구분용이다 */
-  --chick-midm: #f6c945;        /* 레몬 */
-  --chick-solar: #ffd76e;       /* 병아리 */
-  --chick-exaone: #f7b96b;      /* 살구 */
-  --chick-ax: #ffe3a3;          /* 크림 */
-  --chick-beak: #f08a3c;
-  --chick-blush: #ff9d9d;
+  /* 발표새 — 몸은 하나다. 넷을 가르는 건 색이 아니라 소품이다.
+     색으로 가르면 팀이 아니라 랜덤 스티커 모음으로 보인다
+     (docs/design_improvement/01_character.md) */
+  --chick-body: #FFD96A;        /* 캐릭터 노랑 — 단일 원본 */
+  --chick-midm: var(--chick-body);    /* 별칭 유지: chickSvg 가 var(--chick-${speaker}) 를 쓴다 */
+  --chick-solar: var(--chick-body);
+  --chick-exaone: var(--chick-body);
+  --chick-ax: var(--chick-body);
+  --chick-line: #356B59;        /* 외곽선 — 검정 대신 브랜드 초록. 부드러움의 핵심 */
+  --chick-belly: #FFF3CF;       /* 배의 밝은 크림 패치 */
+  --chick-mint: #9ADBC0;        /* 소품(헤드폰·로제트·새싹) */
+  --chick-beak: #F0A93C;
+  --chick-blush: #F7B6A8;
 
-  /* 말풍선 — 화자의 깃털색을 크림 톤으로 눕힌 것. 흰 풍선은 차갑다 (§7-4) */
-  --bub-midm: #fdf3d5;
-  --bub-solar: #fff4dc;
-  --bub-exaone: #fdeed9;
-  --bub-ax: #fff8e6;
+  /* 말풍선 겸 청중 카드 틴트. 파스텔 4색이 카드를 가르고, 몸은 하나로 둔다 (§7-4) */
+  --bub-midm: #E9F6EF;          /* 민트 */
+  --bub-solar: #FFF6E0;         /* 노랑 */
+  --bub-exaone: #FDEEEA;        /* 핑크 */
+  --bub-ax: #EAF2FB;            /* 블루 */
   --bub-ink: #4a3b2c;           /* 따뜻한 잉크색. 검정도 흰색도 아니다 */
   /* 크림 위 대비 5.2:1. #9a8672 는 2.9:1 이라 「소곤」 라벨이 읽히지 않았다 */
   --bub-ink-2: #6f5b45;
