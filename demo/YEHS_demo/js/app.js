@@ -2292,6 +2292,11 @@ function nfStep4() {
         nf.pipelineError = null; // STT 성공분 유지 — 상단은 conceptsError 로 표시
       }
       console.info('[chuckchuck] pipeline ok', out);
+      // 발표가 끝난 이 순간부터 객석 수다를 받아 둔다. 질문 코칭 내용은 섞지
+      // 않는다 — 수다는 F-07/F-11 결과만 보고 만들어지므로 여기서 확정된다.
+      // 사람이 질문 준비를 보고 리포트를 넘기는 동안 채워져, 「객석 들어가기」가
+      // 곧바로 열린다 (예전엔 누른 뒤에 받기 시작해 실측 74초를 서 있었다)
+      prefetchChatter();
       recordShow();
       nf.done = pipelineChecklistDone();
       refreshStep4IfVisible();

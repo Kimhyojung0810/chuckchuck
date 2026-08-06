@@ -489,7 +489,14 @@ def default_llm_factory(speaker: str) -> LLMProvider:
     파이프라인 나머지는 가짜인데 청중만 진짜 네트워크를 타는 일이 생긴다.
     """
     backend = (os.environ.get("REASONING_BACKEND") or "").lower()
-    return get_llm("mock" if backend == "mock" else speaker)
+    # MOCK_EXTERNAL_APIS 로 띄운 데모도 여기 해당한다. 예전엔 REASONING_BACKEND
+    # 만 봐서, 목업으로 띄운 데모인데 청중석만 실제 엔드포인트로 나갔다
+    # (실측: 「객석 들어가기」 뒤 74초). config 를 import 하지 않고 같은 이름의
+    # 환경변수를 같은 규칙으로 읽는다 — 모듈끼리 import 하지 않는다(DEV_POLICY 4)
+    mock_external = (os.environ.get("MOCK_EXTERNAL_APIS") or "").strip().lower() in (
+        "1", "true", "yes",
+    )
+    return get_llm("mock" if backend == "mock" or mock_external else speaker)
 
 
 def _ask(engine: LLMProvider, system: str, user: str) -> list[dict]:
