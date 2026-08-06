@@ -1992,13 +1992,26 @@ function buildPipelineMarks({ conceptsReady = false, graphReady = false } = {}) 
 /** 이 초 수쯤 지나면 구간 천장의 63% 지점에 닿는다. 긴 단계가 100~160초라 그에 맞춘다 */
 const PIPELINE_CREEP_TAU_SEC = 70;
 
+/**
+ * 지금 단계에서 막대가 천장으로 다가가는 속도(초).
+ *
+ * 고정 70초는 한 단계가 100~160초일 때 맞춘 값이다. 지금 실측은 STT 30초 · F-11 6초라
+ * 그대로 두면 6초짜리 단계에서 막대가 10%도 못 움직이고 다음 단계로 넘어간다 —
+ * 멈춘 화면으로 보인다. 그 단계가 실제로 걸리는 시간에 비례해서 잡는다.
+ */
+function pipelineCreepTau(phase) {
+  const stage = pipelineStageOf(phase);
+  const sec = (pipelineStageSec[stage] || 0) * pipelineSpeedFactor();
+  return sec > 0 ? Math.max(3, sec * 0.7) : PIPELINE_CREEP_TAU_SEC;
+}
+
 /* 단계 안에서는 시간에 따라 천장으로 점근할 뿐 절대 넘지 않는다 —
    막대가 멈춰 보이지 않으면서도 "다 됐다"고 거짓말하지 않는다. */
 function pipelinePercent(phase, phaseElapsedSec) {
   const marks = pipelineMarks || buildPipelineMarks();
   const [base, ceil] = marks[phase] || marks.queued;
   if (ceil <= base) return ceil;
-  const k = 1 - Math.exp(-Math.max(0, Number(phaseElapsedSec) || 0) / PIPELINE_CREEP_TAU_SEC);
+  const k = 1 - Math.exp(-Math.max(0, Number(phaseElapsedSec) || 0) / pipelineCreepTau(phase));
   return Math.round(Math.min(ceil, base + (ceil - base) * k));
 }
 
@@ -2013,8 +2026,16 @@ function phaseElapsedSec() {
    그 뒤 단계(채점·속도·습관·리포트)는 리포트 화면 몫이고 실측이 없어서 여기 안 넣는다 —
    모르는 시간을 남은 시간에 더하면 그 순간부터 화면이 거짓말을 한다.
    encoding 만 브라우저 로컬이라 실측이 아니지만 3초라 오차로 남는다. */
+/* 2026-08-07 실 API 실측 (12장 PDF + 5분 51초 녹음, solar-pro3 · A.X STT):
+     인코딩 2초 · STT 30초 · F-06 7초 · F-07 12초 · F-11 6초 · 흐름 1초 미만 = 총 58초
+   2026-07-30 값(F-06 1분43초 · F-07 2분40초 · F-11 2분27초 = 총 7분30초)과 크게 다르다.
+   STT 만 그대로고 LLM 단계가 10~25배 빨라졌다 — 자료가 더 가볍고 모델도 바뀌었다.
+
+   그래서 이 표는 **시작 추정치일 뿐**이다. 무거운 자료에서 이 값만 믿으면
+   「곧 끝나요」라고 해 놓고 5분을 세우게 된다. pipelineSpeedFactor() 가 이미 끝난
+   단계의 실제 소요로 남은 단계를 다시 잰다 — 표가 틀렸으면 한 단계 만에 따라잡는다. */
 const PIPELINE_STAGE_SEC_BASE = {
-  encoding: 3, stt: 30, concepts: 103, graph: 160, align: 147, flow: 1,
+  encoding: 2, stt: 30, concepts: 7, graph: 12, align: 6, flow: 1,
 };
 const PIPELINE_STAGE_ORDER = ['encoding', 'stt', 'concepts', 'graph', 'align', 'flow'];
 
@@ -2032,19 +2053,55 @@ function pipelineStageOf(phase) {
  * 근거는 위 실측표뿐이다. 추측한 값을 더하지 않고, 예상을 넘기면 넘겼다고 말한다 —
  * 남은 시간을 슬쩍 늘려 잡으면 그 순간부터 막대와 문구가 따로 논다.
  */
+/**
+ * 이번 실행이 표보다 몇 배 느린가(빠른가).
+ *
+ * 실측표는 특정 자료·특정 모델에서 잰 값이라, 자료가 두 배 무거우면 통째로 어긋난다.
+ * 실제로 2026-07-30 과 08-07 사이에 LLM 단계가 10~25배 차이 났다. 고정 표만 믿으면
+ * 「곧 끝나요」라고 해 놓고 몇 분을 세우게 된다 — 지금 화면에서 제일 하면 안 되는 짓이다.
+ *
+ * 그래서 이미 끝난 단계의 **실제 소요**로 남은 단계를 다시 잰다. 같은 백엔드·같은 자료라
+ * 한 단계가 3배 느렸으면 다음 단계도 그쯤 느리다. 한 단계만 끝나면 바로 따라잡는다.
+ * 표본이 없으면 1 (표를 그대로 믿는다). 배율은 극단으로 튀지 않게 묶는다.
+ */
+function pipelineSpeedFactor() {
+  const actual = nf._stageActual || {};
+  let got = 0;
+  let want = 0;
+  for (const stage of PIPELINE_STAGE_ORDER) {
+    const base = PIPELINE_STAGE_SEC_BASE[stage] || 0;
+    // 선분석으로 임계경로에서 빠진 단계는 표본이 아니다 — 0 초로 끝난 게 아니라 딴 데서 돌았다
+    if (actual[stage] == null || base <= 0 || (pipelineStageSec[stage] || 0) <= 0) continue;
+    got += actual[stage];
+    want += base;
+  }
+  if (want <= 0) return 1;
+  return Math.max(0.2, Math.min(8, got / want));
+}
+
 function pipelineEtaSec() {
   const phase = nf.pipelinePhase || 'queued';
   if (['done', 'partial', 'error'].includes(phase)) return 0;
   const stage = pipelineStageOf(phase);
   const settled = /_(done|error)$/.test(phase);
+  const factor = pipelineSpeedFactor();
   let i = PIPELINE_STAGE_ORDER.indexOf(stage);
   if (i < 0) i = 0;                       // queued — 처음부터 다 남았다
   let remain = 0;
   for (let k = settled ? i + 1 : i; k < PIPELINE_STAGE_ORDER.length; k++) {
-    remain += pipelineStageSec[PIPELINE_STAGE_ORDER[k]] || 0;
+    remain += (pipelineStageSec[PIPELINE_STAGE_ORDER[k]] || 0) * factor;
   }
-  if (!settled) remain -= Math.min(pipelineStageSec[stage] || 0, phaseElapsedSec());
+  if (!settled) remain -= Math.min((pipelineStageSec[stage] || 0) * factor, phaseElapsedSec());
   return Math.round(remain);
+}
+
+/** 지금 단계가 예상 시간을 넘겼나. 넘겼으면 남은 시간을 말할 자격이 없다 */
+function pipelineStageOverrun() {
+  const phase = nf.pipelinePhase || 'queued';
+  if (/_(done|error)$/.test(phase)) return false;
+  const stage = pipelineStageOf(phase);
+  const budget = (pipelineStageSec[stage] || 0) * pipelineSpeedFactor();
+  return budget > 0 && phaseElapsedSec() > budget;
 }
 
 function pipelineEtaText() {
@@ -2052,8 +2109,12 @@ function pipelineEtaText() {
   if (phase === 'done') return '분석을 마쳤어요';
   if (phase === 'partial') return '일부 단계를 건너뛰고 끝냈어요';
   if (phase === 'error') return '중간에 멈췄어요';
+  /* 이 단계가 예상을 넘겼으면 남은 시간을 말하지 않는다. 뒤 단계 몫만 남아서
+     「곧 끝나요」가 나오는데, 정작 지금 단계가 언제 끝날지는 모르는 상태다 —
+     그 상태에서 곧 끝난다고 하면 5분을 더 세워 놓고 거짓말한 게 된다. */
+  if (pipelineStageOverrun()) return '예상보다 오래 걸리고 있어요';
   const sec = pipelineEtaSec();
-  if (sec <= 0) return '예상보다 조금 더 걸리고 있어요';
+  if (sec <= 0) return '예상보다 오래 걸리고 있어요';
   if (sec < 45) return '곧 끝나요';
   const min = Math.round(sec / 60);
   return min <= 1 ? '남은 예상 1분쯤' : `남은 예상 ${min}분쯤`;
@@ -2487,6 +2548,7 @@ function nfStep4() {
     nf.pipelinePhase = 'queued';
     nf.pipelineDetail = '파이프라인 시작';
     nf.pipelineStartedAt = Date.now();
+    nf._stageActual = null;   // 지난 테이크의 실측이 남아 있으면 이번 추정이 그걸 따라간다
     nf.transcriptOk = false;
     nf.conceptsOk = false;
 
@@ -2511,7 +2573,15 @@ function nfStep4() {
         duration_min: nf.min,
       },
       onProgress: ({ phase, detail, transcript, concepts, conceptsError: cErr, graph, alignment, flow, pace, habits, voiceReport, score }) => {
-        if (phase !== nf.pipelinePhase) nf._phaseStartedAt = Date.now();
+        if (phase !== nf.pipelinePhase) {
+          /* 단계가 끝난 순간 그 단계가 실제로 몇 초 걸렸는지 적어 둔다.
+             표가 틀렸을 때 남은 시간을 다시 재는 유일한 근거다 (pipelineSpeedFactor). */
+          const prev = pipelineStageOf(nf.pipelinePhase || '');
+          if (prev && PIPELINE_STAGE_ORDER.includes(prev) && !/_(done|error)$/.test(nf.pipelinePhase || '')) {
+            nf._stageActual = { ...(nf._stageActual || {}), [prev]: phaseElapsedSec() };
+          }
+          nf._phaseStartedAt = Date.now();
+        }
         nf.pipelinePhase = phase;
         nf.pipelineDetail = detail || '';
         if (transcript || concepts || cErr || graph || alignment || flow || pace || habits || voiceReport || score) {
@@ -2724,7 +2794,7 @@ async function renderReport() {
   prefetchChatter();
   const s = reportSessionMeta();
   const v = reportVerdict();
-  const tabs = ['요약', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
+  const tabs = ['요약', '채점표', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
   const meta = [
     escapeHtml(s.occasion),
     s.slides ? `${s.slides}장` : '',
@@ -2778,7 +2848,7 @@ async function renderReport() {
     rTab = $$('#rtabs button').indexOf(b);
     renderReport();
   });
-  [rSummary, rJudge, rLogic, rPace, rAudience, rTools][rTab]();
+  [rSummary, rRubric, rJudge, rLogic, rPace, rAudience, rTools][rTab]();
   animateViz();
 }
 
@@ -2948,6 +3018,75 @@ const SCORE_CHICK = {
   time: 'solar',
   visual: 'exaone',    // 자료 축 (F-01/06/07)
 };
+
+/* ── 채점표 탭 ────────────────────────────────────────────────
+   이 프로젝트의 출발점은 "평가 로직이 블랙박스다" 였다. 채점표 v3 로 로직은
+   바꿨지만, 화면에 클러스터 7개 숫자만 나가면 밖에서 보기엔 여전히 블랙박스다.
+   39개 항목을 근거와 함께 펴서 82점이 왜 82점인지 끝까지 되짚게 한다.
+
+   히트맵을 쓰지 않는다. 색칸은 크기만 말하고 근거를 못 싣는다. 무엇보다
+   '낮은 점수'와 '이 상황에서는 안 봄'과 '못 쟀음'을 한 색면에 넣으면
+   세 가지가 한 가지로 읽힌다 — 우리가 안 뭉개기로 한 바로 그 셋이다. */
+const RUBRIC_STATUS = {
+  scored:             { t: '',              c: '' },
+  situation_excluded: { t: '이번 상황에서는 안 봐요', c: 'var(--om)' },
+  unmeasured:         { t: '이번엔 못 쟀어요',        c: 'var(--ct)' },
+};
+const RUBRIC_SOURCE = { det: '계산', llm: 'AI 판단', na: '' };
+
+function rRubric() {
+  const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
+  const items = (sc && sc.items) || [];
+  if (!items.length) {
+    $('#rbody').innerHTML = `
+      <div class="card">
+        <h3 class="section-title">채점표</h3>
+        <p class="note">아직 채점 결과가 없어요. 리허설을 한 번 마치면 항목별로 볼 수 있어요.</p>
+      </div>`;
+    return;
+  }
+  const byCluster = {};
+  items.forEach((it) => { (byCluster[it.cluster] = byCluster[it.cluster] || []).push(it); });
+  const clusters = (sc.clusters || []);
+  const nScored = items.filter((i) => i.status === 'scored').length;
+
+  const rowHtml = (it) => {
+    const st = RUBRIC_STATUS[it.status] || RUBRIC_STATUS.scored;
+    const right = it.status === 'scored'
+      ? `<b class="num">${Math.round(it.score)}</b>`
+      : `<span class="rb-flag" style="color:${st.c}">${st.t}</span>`;
+    const why = it.evidence || it.note || '';
+    return `<li class="rb-item is-${it.status}">
+      <div class="rb-line"><span class="rb-no num">${it.no}</span>
+        <span class="rb-name">${escapeHtml(it.name)}</span>
+        ${it.source && RUBRIC_SOURCE[it.source] ? `<span class="rb-src">${RUBRIC_SOURCE[it.source]}</span>` : ''}
+        ${right}</div>
+      ${why ? `<p class="rb-why">${escapeHtml(why)}</p>` : ''}
+    </li>`;
+  };
+
+  const blocks = clusters.map((c) => {
+    const rows = (byCluster[c.key] || []);
+    if (!rows.length) return '';
+    const head = c.status === 'scored'
+      ? `<b class="num">${Math.round(c.average || 0)}</b>`
+      : `<span class="rb-flag" style="color:var(--ct)">이번엔 못 쟀어요</span>`;
+    return `<section class="rb-cluster">
+      <h4>${escapeHtml(c.name)}${head}</h4>
+      <ol class="rb-list">${rows.map(rowHtml).join('')}</ol>
+    </section>`;
+  }).join('');
+
+  $('#rbody').innerHTML = `
+    <div class="card">
+      <h3 class="section-title">채점표</h3>
+      <p class="note" style="margin-bottom:14px">
+        ${escapeHtml(sc.situation_label || '기본 기준')} 기준으로 ${items.length}개 항목 중
+        ${nScored}개를 채점했어요. 항목마다 왜 그 점수인지 근거를 남겨요.
+      </p>
+      ${blocks}
+    </div>`;
+}
 
 function realSummary() {
   const sc = nf && nf.pipelineOut && nf.pipelineOut.score;

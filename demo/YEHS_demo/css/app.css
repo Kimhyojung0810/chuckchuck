@@ -1890,3 +1890,37 @@ table.plain tr:last-child td { border-bottom: 0; }
    #/new · #/qa · #/report 각 1개, 홈은 상단 바, 판단 방식은 CTA 없음 */
 .btn { height: 48px; }
 .btn-primary:not(.btn-sm) { height: 52px; padding: 0 24px; font-size: 15px; }
+
+/* ── 채점표 탭 — 39개 항목을 근거와 함께 편다 ──────────────────
+   히트맵을 안 쓰는 이유는 js/app.js 의 rRubric() 주석에 적어 뒀다.
+   상태 3종은 색이 아니라 말로 구분한다 — 색만으로는 '낮은 점수'와
+   '안 봄'이 같은 회색으로 읽힌다 */
+.rb-cluster { margin-top: 18px; }
+.rb-cluster:first-of-type { margin-top: 8px; }
+.rb-cluster h4 {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 0 8px; padding-bottom: 8px;
+  font-size: 15px; font-weight: 700;
+  border-bottom: 1.5px solid var(--border);
+}
+.rb-cluster h4 b { margin-left: auto; font-size: 17px; color: var(--brand-strong); }
+.rb-list { list-style: none; margin: 0; padding: 0; }
+.rb-item { padding: 9px 0; border-bottom: 1px solid var(--border); }
+.rb-item:last-child { border-bottom: 0; }
+.rb-line { display: flex; align-items: baseline; gap: 10px; }
+.rb-no { flex: none; width: 22px; font-size: 12px; color: var(--text-3); }
+.rb-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; }
+.rb-src {
+  flex: none; padding: 2px 8px; border-radius: var(--r-pill);
+  background: var(--fill); font-size: 11px; font-weight: 600; color: var(--text-3);
+}
+.rb-line b { flex: none; font-size: 15px; font-weight: 700; }
+.rb-flag { flex: none; font-size: 12px; font-weight: 600; }
+/* 근거가 이 탭의 본체다. 점수보다 읽기 편해야 한다 */
+.rb-why {
+  margin: 5px 0 0 32px; font-size: 12.5px; line-height: 1.5; color: var(--text-2);
+  overflow-wrap: break-word;
+}
+/* 채점 못 한 항목은 흐리게 두되 지우지 않는다 — 있었다는 사실이 정보다 */
+.rb-item.is-situation_excluded .rb-name,
+.rb-item.is-unmeasured .rb-name { color: var(--text-3); font-weight: 500; }
