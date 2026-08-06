@@ -161,8 +161,13 @@
   .rehearsal-control.is-live {
     position: relative; left: auto; bottom: auto; transform: none;
     width: 100%; max-width: none;
-    min-height: 0; padding: 12px 18px; gap: 14px;
+    padding: 12px 18px; gap: 14px;
     order: -1;
+    /* flex:none 이 빠지면 안 된다. 셸이 flex 컬럼이고 뷰어가 1 1 auto 라
+       컨트롤은 기본 flex-shrink:1 로 눌린다 — 91px 짜리 내용이 49px 상자에
+       갇혀 「발표 시작하기」가 슬라이드 캔버스 뒤로 깔렸다 (1180×820 실측) */
+    flex: none;
+    min-height: 0;
   }
   .rehearsal-shell:has(.rehearsal-control.is-live) { padding-bottom: 0; }
   .rehearsal-control .rec-clock { font-size: 20px; }
@@ -362,6 +367,20 @@
 @media (min-width: 900px) and (max-height: 760px) {
   main.home > .verdict .growth-svg { height: 70px; }
   main.home > .verdict { padding: 12px 16px 10px; }
+}
+
+/* 세로 740px 아래. 여기서도 지우는 건 없다 —
+   제목 글자와 남은 여백을 마지막으로 조인다 */
+@media (min-width: 900px) and (max-height: 740px) {
+  main.home { padding-top: 10px; padding-bottom: 4px; }
+  main.home > .page-head { margin-bottom: 8px; }
+  main.home > .page-head .page-title { font-size: 19px; }
+  main.home > .page-head .page-sub { font-size: 13.5px; line-height: 1.5; }
+  main.home > .verdict .verdict-score strong { font-size: 28px; }
+  main.home > .verdict .hg-foot { margin-top: 4px; padding-top: 6px; }
+  main.home > .pb-wall,
+  main.home > .game-card { padding: 8px 12px; margin-top: 6px; }
+  main.home > .about-link { padding-top: 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

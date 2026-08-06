@@ -88,13 +88,21 @@ _LLM_FAILED_NOTE = "채점을 마치지 못해서 이번엔 못 쟀어요"
 SYSTEM_PROMPT = (
     "당신은 발표 평가자입니다. 아래 [자료] 에 실제로 있는 내용만 근거로 "
     "[채점 항목] 을 각각 0~100 점으로 매기세요.\n"
+    "\n"
+    "점수의 뜻 (이 구간을 지키세요):\n"
+    "- 90~100 충분히 했다 · 70~89 했지만 아쉽다 · 40~69 부분적으로만 했다\n"
+    "- 1~39 거의 못했다 · 0 아예 하지 않았다\n"
+    "\n"
     "규칙:\n"
+    "- **판단할 근거가 자료에 없으면 그 번호를 결과에서 아예 빼세요.**\n"
+    "  0점은 '자료를 보니 안 했다'는 판정입니다. '모르겠다'를 0점으로 적지 마세요.\n"
+    "- evidence 에는 [발화 전문] 이나 [슬라이드] 에서 **그대로 복사한 문장**을 넣으세요.\n"
+    "  요약하거나, 항목 설명을 되풀이하거나, 비워 두면 그 항목은 버려집니다.\n"
+    "- 항목마다 **서로 다른** 근거를 고르세요. 같은 문장을 모든 항목에 붙이지 마세요.\n"
     "- 자료에 없는 내용을 지어내지 마세요.\n"
-    "- evidence 에는 발화나 슬라이드에서 그대로 가져온 문장을 넣으세요. 요약하지 마세요.\n"
-    "- 근거를 댈 수 없는 항목은 결과에서 빼세요. 억지로 점수를 매기지 마세요.\n"
     "- note 는 왜 그 점수인지 한 문장으로 씁니다. 해요체를 씁니다.\n"
     "- 요청한 번호만 채점하세요. 다른 번호를 만들지 마세요.\n"
-    'JSON 만 출력: {"items":[{"no":정수,"score":0~100,"evidence":"근거 인용","note":"한 문장"}]}'
+    'JSON 만 출력: {"items":[{"no":정수,"score":0~100,"evidence":"자료에서 복사한 문장","note":"한 문장"}]}'
 )
 
 JSON_RETRY_NUDGE = (
@@ -319,6 +327,10 @@ def _build_prompt(ev: Evidence, nos: list[int]) -> str:
         "[TASK] rubric-score",
         "[자료]",
         f"발표 상황: {rubric_v3.situation_label(ev.situation)}",
+        # 청중을 안 알려 주면 모델이 13·14 번을 근거 없이 0점 처리한다.
+        # 모른다는 사실 자체를 알려 줘야 '상황으로 미루어 판단' 한다.
+        f"청중: {ev.audience or '따로 안 알려 줬어요 — 발표 상황으로 미루어 판단하세요'}",
+        f"목표 시간: {f'{ev.duration_min}분' if ev.duration_min else '따로 안 알려 줬어요'}",
     ]
     for block in (_concepts_block(ev), _slides_block(ev), _flow_block(ev), _speech_block(ev)):
         if block:
@@ -332,14 +344,30 @@ def _build_prompt(ev: Evidence, nos: list[int]) -> str:
     return "\n".join(ctx)
 
 
+#: 근거로 인정하는 최소 길이. 이보다 짧으면 인용이 아니라 얼버무림이다.
+MIN_EVIDENCE_CHARS = 8
+
+
 def _normalize_llm(data: dict, asked: list[int]) -> dict[int, tuple[int, str, str]]:
     """
     LLM 응답을 계약으로 눌러 담는다.
 
-    요청하지 않은 번호는 버리고, 점수는 0~100 으로 자르고,
-    **근거가 비면 그 항목을 통째로 버린다** — 근거 없는 숫자는 안 매긴 것만 못하다.
+    버리는 것 넷 — 전부 실 API 응답에서 실제로 나온 것들이다:
+
+    1. 요청하지 않은 번호
+    2. `score` 키가 아예 없는 항목. 예전에는 0 으로 채웠는데, 그러면 모델이
+       판단을 안 한 항목이 "0점 = 아예 안 했다" 로 둔갑한다.
+    3. 근거가 비었거나 너무 짧은 항목. 근거 없는 숫자는 안 매긴 것만 못하다.
+    4. **근거가 우리가 준 항목 설명을 그대로 되뱉은 항목.** solar 가
+       "핵심 주장 제시 시점: 발표 목적과 핵심 주장이…" 처럼 프롬프트를 복사해
+       근거 자리에 넣고 0점을 준 적이 있다. 그건 채점이 아니라 메아리다.
     """
     allowed = set(asked)
+    # 되뱉음 판별용. 채점표 문구는 발표에 나올 수 없는 말이라, 근거 안에 이게 들어 있으면
+    # 모델이 프롬프트를 복사한 것이다. 물어본 항목만이 아니라 39개 전부를 본다 —
+    # 옆 항목 설명을 가져다 붙이는 경우도 있다.
+    _RUBRIC_WORDING = {i.description for i in rubric_v3.ITEMS} | {i.name for i in rubric_v3.ITEMS}
+
     out: dict[int, tuple[int, str, str]] = {}
     for row in data.get("items") or []:
         if not isinstance(row, dict):
@@ -348,15 +376,19 @@ def _normalize_llm(data: dict, asked: list[int]) -> dict[int, tuple[int, str, st
             no = int(row.get("no"))
         except (TypeError, ValueError):
             continue
-        if no not in allowed:
-            continue
-        evidence = " ".join(str(row.get("evidence") or "").split())
-        if not evidence:
+        if no not in allowed or "score" not in row:
             continue
         try:
-            score = int(float(row.get("score", 0)))
+            score = int(float(row.get("score")))
         except (TypeError, ValueError):
             continue
+
+        evidence = " ".join(str(row.get("evidence") or "").split())
+        if len(evidence) < MIN_EVIDENCE_CHARS:
+            continue
+        if any(wording in evidence for wording in _RUBRIC_WORDING):
+            continue
+
         note = " ".join(str(row.get("note") or "").split())
         out[no] = (max(0, min(100, score)), evidence, note)
     return out
@@ -473,6 +505,8 @@ def score_rubric(
 
     ev = Evidence(
         situation=resolved,
+        audience=(context.audience if context else "") or "",
+        duration_min=(context.duration_min if context else None),
         slides=_coerce(slides, SlideDoc),
         graph=_coerce(graph, ConceptGraph),
         transcript=_coerce(transcript, Transcript),

@@ -194,6 +194,11 @@ class Evidence:
     """
 
     situation: str = ""
+    #: 청중과 목표 시간. 13번(청중 수준 맞춤)·14번(목적에 맞는 강조점)이 이걸 봐야
+    #: 판단할 수 있다. 없으면 프롬프트에서 "안 알려 줬다" 고 밝힌다 — 그냥 비워 두면
+    #: 모델이 근거 없이 0점을 준다 (실제로 solar 가 그랬다).
+    audience: str = ""
+    duration_min: int | None = None
     slides: SlideDoc | None = None
     graph: ConceptGraph | None = None
     transcript: Transcript | None = None

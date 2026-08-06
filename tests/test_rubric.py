@@ -234,7 +234,7 @@ def test_상황을_못_알아들으면_결과_note_에_남는다():
 def test_근거_없는_LLM_점수는_버려진다():
     got = _normalize_llm({"items": [
         {"no": 2, "score": 90, "evidence": "", "note": "근거 없음"},
-        {"no": 3, "score": 80, "evidence": "실제 발화 인용", "note": "좋아요"},
+        {"no": 3, "score": 80, "evidence": "실제 발화에서 가져온 문장이에요", "note": "좋아요"},
     ]}, [2, 3])
     assert 2 not in got, "근거 없는 숫자는 안 매긴 것만 못하다"
     assert got[3][0] == 80
@@ -242,16 +242,16 @@ def test_근거_없는_LLM_점수는_버려진다():
 
 def test_범위_밖_점수는_클램프된다():
     got = _normalize_llm({"items": [
-        {"no": 2, "score": 150, "evidence": "인용"},
-        {"no": 3, "score": -20, "evidence": "인용"},
+        {"no": 2, "score": 150, "evidence": "발표에서 그대로 가져온 문장이에요"},
+        {"no": 3, "score": -20, "evidence": "발표에서 그대로 가져온 문장이에요"},
     ]}, [2, 3])
     assert got[2][0] == 100 and got[3][0] == 0
 
 
 def test_모르는_항목번호는_버려진다():
     got = _normalize_llm({"items": [
-        {"no": 99, "score": 100, "evidence": "인용"},
-        {"no": 2, "score": 70, "evidence": "인용"},
+        {"no": 99, "score": 100, "evidence": "발표에서 그대로 가져온 문장이에요"},
+        {"no": 2, "score": 70, "evidence": "발표에서 그대로 가져온 문장이에요"},
     ]}, [2, 3])
     assert set(got) == {2}
 
@@ -259,8 +259,8 @@ def test_모르는_항목번호는_버려진다():
 def test_망가진_응답은_조용히_버린다():
     assert _normalize_llm({}, [2]) == {}
     assert _normalize_llm({"items": ["문자열"]}, [2]) == {}
-    assert _normalize_llm({"items": [{"no": "둘", "score": 70, "evidence": "인용"}]}, [2]) == {}
-    assert _normalize_llm({"items": [{"no": 2, "score": "높음", "evidence": "인용"}]}, [2]) == {}
+    assert _normalize_llm({"items": [{"no": "둘", "score": 70, "evidence": "발표에서 그대로 가져온 문장이에요"}]}, [2]) == {}
+    assert _normalize_llm({"items": [{"no": 2, "score": "높음", "evidence": "발표에서 그대로 가져온 문장이에요"}]}, [2]) == {}
 
 
 # ---------------------------------------------------------------------------
@@ -343,3 +343,39 @@ def test_폴백_변환이_프론트_계약을_지킨다():
     assert set(got.unmeasured) == set(range(1, 40))
     assert got.basis == "partial"
     assert got.note
+
+
+# ---------------------------------------------------------------------------
+# 실 LLM(solar) 응답에서 실제로 나온 실패 모양들
+# ---------------------------------------------------------------------------
+
+def test_score_키가_없으면_버린다():
+    """
+    예전에는 없는 score 를 0 으로 채웠다. 그러면 모델이 판단조차 안 한 항목이
+    '0점 = 아예 안 했다' 로 둔갑해서, 안 매긴 것보다 나쁜 거짓말이 된다.
+    """
+    got = _normalize_llm({"items": [
+        {"no": 2, "evidence": "발표에서 그대로 가져온 문장이에요", "note": "판단 못 함"},
+        {"no": 3, "score": 0, "evidence": "발표에서 그대로 가져온 문장이에요"},
+    ]}, [2, 3])
+    assert 2 not in got, "score 가 없으면 채점한 게 아니다"
+    assert got[3][0] == 0, "0점은 '안 했다'는 진짜 판정이라 살려 둔다"
+
+
+def test_항목_설명을_되뱉은_근거는_버린다():
+    """solar 가 프롬프트의 항목 설명을 근거 자리에 복사하고 0점을 준 적이 있다."""
+    item = rubric_v3.ITEM_BY_NO[7]
+    got = _normalize_llm({"items": [
+        {"no": 7, "score": 0, "evidence": f"{item.name}: {item.description}"},
+        {"no": 8, "score": 85, "evidence": "안녕하세요 오늘은 IMU2CLIP 논문 리뷰를 시작하겠습니다"},
+    ]}, [7, 8])
+    assert 7 not in got, "프롬프트 메아리는 근거가 아니다"
+    assert got[8][0] == 85
+
+
+def test_너무_짧은_근거는_버린다():
+    got = _normalize_llm({"items": [
+        {"no": 2, "score": 90, "evidence": "좋음"},
+        {"no": 3, "score": 90, "evidence": "발표에서 그대로 가져온 문장이에요"},
+    ]}, [2, 3])
+    assert set(got) == {3}

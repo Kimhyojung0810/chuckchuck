@@ -1061,9 +1061,20 @@ function nfStep3() {
       ? `<div id="slideCardWrap" class="slide-doc-wrap">${slideCardHtml(nf.slide, titleAt(nf.slide - 1), bodies[nf.slide - 1])}</div>`
       : `<img id="slideImage" src="${activeImages()[nf.slide - 1] || ''}" alt="">`);
 
+  /* 필름은 "몇 번을 고를까"가 아니라 "어느 그림으로 갈까"를 고르는 자리다.
+     원본 PDF 가 있으면 그 페이지를 그려 넣고(paintDeckThumbs 가 채운다),
+     없으면 번호·제목만 남긴다 — 파싱 텍스트를 그림인 척 넣지 않는다 */
   const film = Array.from({ length: nPages }, (_, i) => {
     const on = i + 1 === nf.slide ? 'on' : '';
-    return `<button type="button" class="${on}" data-slide="${i + 1}" aria-label="${i + 1}번 슬라이드"><span class="film-no">${i + 1}</span><span class="film-title">${escapeHtml(String(titleAt(i)).slice(0, 28))}</span></button>`;
+    const no = i + 1;
+    const title = escapeHtml(String(titleAt(i)).slice(0, 28));
+    if (!usePdf) {
+      return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드"><span class="film-no">${no}</span><span class="film-title">${title}</span></button>`;
+    }
+    return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드">
+      <img class="film-thumb" data-thumb-page="${no}" src="${slidePlaceholder(no)}" alt="">
+      <span class="film-cap"><span class="film-no">${no}</span><span class="film-title">${title}</span></span>
+    </button>`;
   }).join('');
 
   app.className = '';
@@ -1088,7 +1099,7 @@ function nfStep3() {
           <strong id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</strong>
           <small id="slideNo" class="num">${nf.slide} / ${nPages}</small>
         </div>
-        <div class="slide-film slide-film-text" id="slideFilm">${film}</div>
+        <div class="slide-film ${usePdf ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
       </div>
     </div>
     <div class="sf" id="stagefront" aria-hidden="true"></div>
@@ -1096,6 +1107,8 @@ function nfStep3() {
   renderRecPanel();
   bindRehearsalNav();
   paintRehearsalSlide(nf.slide);
+  // 무대가 먼저다. 필름 썸네일은 그 뒤에 순차로 채워진다(캐시라 두 번째부터는 즉시)
+  if (usePdf) paintDeckThumbs(app);
   if (nf.mic === 'on' && !ccRuntime) startRecClock();
   wireFreshPracticeButtons(app);
 }

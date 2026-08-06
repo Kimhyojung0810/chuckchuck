@@ -54,9 +54,11 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
   background:var(--surface);border-bottom:1px solid rgba(31,64,52,.12);padding:0 24px;
   position:sticky;top:0;z-index:20}
 .brand{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:800;letter-spacing:-.02em}
-.brand-mark{width:24px;height:24px;border-radius:7px;background:var(--brand);position:relative}
-.brand-mark::after{content:"";position:absolute;left:5px;right:5px;top:7px;height:2.5px;
-  background:#fff;border-radius:2px;box-shadow:0 5px 0 #fff}
+/* 말풍선 + 체크 — index.html 의 브랜드 마크와 같은 그림 */
+.brand-mark{width:24px;height:24px;display:block;flex:none}
+.brand-mark .bm-bg{fill:var(--brand)}
+.brand-mark .bm-bubble{fill:#fff}
+.brand-mark .bm-tick{stroke:var(--brand)}
 .proto-tag{font-size:11px;font-weight:800;color:var(--brand);background:#E9F4EE;border-radius:6px;padding:5px 10px}
 
 /* ══ 히어로 — 이 페이지의 유일한 다크 면 ══════════════════════ */
@@ -190,7 +192,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 <body>
 
 <header class="topbar">
-  <a class="brand" href="#"><span class="brand-mark" aria-hidden="true"></span>척척발표</a>
+  <a class="brand" href="#"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect class="bm-bg" width="24" height="24" rx="7"/><path class="bm-bubble" d="M4.5 8A2.5 2.5 0 0 1 7 5.5h10A2.5 2.5 0 0 1 19.5 8v5a2.5 2.5 0 0 1-2.5 2.5h-5.5l-3.5 3V15.5H7A2.5 2.5 0 0 1 4.5 13z"/><path class="bm-tick" d="M8.6 10.6l2.2 2.2 4-4.2" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>척척발표</a>
   <span class="proto-tag">랜딩 디자인 프로토타입</span>
 </header>
 
