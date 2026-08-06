@@ -765,3 +765,10 @@ h1,h2,h3,h4,blockquote,.hero-lead,.sub-lead{word-break:keep-all;overflow-wrap:br
 
 .land-progress{display:none}
 }
+
+/* 히어로의 blur(70px) 글로우 오브 두 개를 끈다.
+   토스는 면을 그라디언트로 칠하지 않고 빛나는 원을 깔지 않는다 —
+   이 장식이 "AI 스타트업 랜딩" 인상의 큰 지분이었다.
+   마크업과 landing-motion 의 --hero-glow-* 는 그대로 두고 표시만 끈다
+   (되돌리려면 이 규칙 한 줄만 지우면 된다) */
+.hero-glow { display: none; }
