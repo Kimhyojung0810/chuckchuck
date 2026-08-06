@@ -305,6 +305,7 @@ function qaLiveEnd() {
     saveSession('new-flow', nf);
   }
   saveSession('qa-flow', qa);
+  recordQaHistory();
   const L = qa.live;
   const won = liveWonCount(L.results);
   const chipCls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' };
