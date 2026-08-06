@@ -257,7 +257,51 @@ async function readJson(res, label) {
 }
 
 /** F-05(+F-06): 녹음 → Transcript, slideDoc 있으면 ConceptDoc */
-export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress }) {
+/**
+ * F-06 개념 추출 한 번. 녹음 중 선분석과 파이프라인이 같은 함수를 쓴다.
+ *
+ * `transcript` 는 선택이다 — F-06 은 글자가 거의 없는 슬라이드에서만 speech_hint 로 쓴다.
+ * 선분석은 녹음이 끝나기 전에 도는 경로라 transcript 없이 부른다. 공짜는 아니다:
+ * 글자 없는 슬라이드의 topic 추정이 그만큼 약해진다.
+ */
+export async function extractConcepts({ slideDoc, context, transcript = null }) {
+  const res = await fetch(apiBase() + '/api/v1/concepts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      slide_doc: slideDoc,
+      context: context || {},
+      transcript: transcript ? slimTranscript(transcript) : null,
+    }),
+  });
+  const concepts = await readJson(res, 'concepts');
+  if (!res.ok || concepts.error) {
+    throw new Error(concepts.message || concepts.error || `concepts HTTP ${res.status}`);
+  }
+  return concepts;
+}
+
+/** F-07 개념 그래프 한 번. Transcript 를 받지 않는다 (f07_graph.py 계약) */
+export async function buildGraph({ concepts, slideDoc, context }) {
+  const res = await fetch(apiBase() + '/api/v1/graph', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
+  });
+  const graph = await readJson(res, 'graph');
+  if (!res.ok || graph.error) {
+    throw new Error(graph.message || graph.error || `graph HTTP ${res.status}`);
+  }
+  return graph;
+}
+
+/**
+ * @param {object} [precomputed] 녹음 중에 미리 걸어 둔 `{ conceptsP, graphP }` promise.
+ *   캐시가 아니라 promise 다 — 짧은 녹음이면 아직 도는 중이고, 그때 캐시를 조회했다면
+ *   "없음"으로 읽고 같은 호출을 한 번 더 결제했을 것이다. await 하면 진행 중인 호출에 붙는다.
+ *   reject 되면 조용히 원래 경로로 되돌아간다.
+ */
+export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -289,25 +333,24 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   const markNote = transcript.marks_reason ? ` · ${transcript.marks_reason}` : '';
   report('stt_done', `단어 ${(transcript.words || []).length}개 · 슬라이드 구간 ${(transcript.by_slide || []).length}개${markNote}`, { transcript });
 
+  const pre = precomputed || {};
+  let usedPreConcepts = false;
   let concepts = null;
   let conceptsError = null;
   if (slideDoc) {
-    report('concepts', '발표자료 개념 추출 중 (F-06)', { transcript });
+    report(
+      'concepts',
+      pre.conceptsP ? '발표하는 동안 미리 읽어 둔 개념을 가져오는 중 (F-06)' : '발표자료 개념 추출 중 (F-06)',
+      { transcript },
+    );
     try {
-      // concepts 요청에는 단어 배열을 빼 본문 크기를 줄인다
-      const transcriptForConcepts = slimTranscript(transcript);
-      const cRes = await fetch(apiBase() + '/api/v1/concepts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slide_doc: slideDoc,
-          context: context || {},
-          transcript: transcriptForConcepts,
-        }),
-      });
-      concepts = await readJson(cRes, "concepts");
-      if (!cRes.ok || concepts.error) {
-        throw new Error(concepts.message || concepts.error || `concepts HTTP ${cRes.status}`);
+      // 선분석이 걸려 있으면 그 promise 에 붙는다. 실패했으면 조용히 원래 경로로 되돌아간다
+      if (pre.conceptsP) {
+        concepts = await pre.conceptsP.catch(() => null);
+        usedPreConcepts = !!concepts;
+      }
+      if (!concepts) {
+        concepts = await extractConcepts({ slideDoc, context, transcript });
       }
       report('concepts_done', `개념 슬라이드 ${(concepts.slides || []).length}장`, { transcript, concepts });
     } catch (err) {
@@ -327,15 +370,19 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   let flowError = null;
   if (concepts) {
     try {
-      report('graph', '개념 그래프 구성 중 (F-07)', { transcript, concepts });
-      const gRes = await fetch(apiBase() + '/api/v1/graph', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
-      });
-      graph = await readJson(gRes, "graph");
-      if (!gRes.ok || graph.error) {
-        throw new Error(graph.message || graph.error || `graph HTTP ${gRes.status}`);
+      report(
+        'graph',
+        pre.graphP && usedPreConcepts ? '미리 만들어 둔 개념 그래프를 가져오는 중 (F-07)' : '개념 그래프 구성 중 (F-07)',
+        { transcript, concepts },
+      );
+      /* 선분석 그래프는 선분석 개념 위에 세워졌다. 개념이 폴백으로 다시 뽑혔으면
+         그 그래프는 다른 개념의 그래프라 쓰면 안 된다 — node.id 가 어긋나면 F-11 정합이
+         통째로 거짓말이 된다. */
+      if (pre.graphP && usedPreConcepts) {
+        graph = await pre.graphP.catch(() => null);
+      }
+      if (!graph) {
+        graph = await buildGraph({ concepts, slideDoc, context });
       }
       report('graph_done', `개념 ${(graph.nodes || []).length}개 · 연결 ${(graph.edges || []).length}개`, { transcript, concepts, graph });
 
@@ -861,6 +908,8 @@ window.ChuckchuckBridge = {
   startLiveDictation,
   parseDocument,
   runPreparePipeline,
+  extractConcepts,
+  buildGraph,
   audioExt,
   saveChuckSession,
   loadChuckSession,

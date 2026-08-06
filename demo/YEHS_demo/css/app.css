@@ -300,6 +300,22 @@ main.narrow { max-width: 640px; }
 .dz-actions { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .progress { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; margin-top: 16px; position: relative; }
 .progress i { display: block; width: 100%; height: 100%; background: var(--blue); border-radius: 4px; }
+/* 결정론적 막대는 1초마다 폭이 바뀐다. 전환이 없으면 뚝뚝 끊기고,
+   길면 실제 진행보다 늦게 도착해 옆 숫자와 어긋난다 — 1초 틱과 같은 길이로 맞춘다 */
+.pipe-status-bar .progress i { transition: width 1s linear; }
+
+/* 파이프라인 상태 줄 — 단계와 무관하게 항상 떠 있다 (UI_REDESIGN §14 정직한 상태 유지) */
+.pipe-status-bar {
+  margin: 0 0 14px; padding: 14px 16px;
+  border-radius: var(--r-inner); background: var(--fill); border: 1px solid var(--border);
+}
+.pipe-status-bar .progress { margin-top: 10px; background: rgba(255, 255, 255, .7); }
+.psb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.psb-head .pipe-phase { font-size: 15px; font-weight: var(--w-med); color: var(--text); }
+.psb-pct { font-size: 19px; font-weight: var(--w-bold); color: var(--brand); font-variant-numeric: tabular-nums; }
+.psb-meta { margin: 8px 0 0; font-size: 13px; color: var(--text-3); }
+.psb-meta b { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pipe-status-bar.is-final .psb-pct { color: var(--text-2); }
 .progress.indeterminate i {
   width: 40%;
   animation: progress-slide 1.2s ease-in-out infinite;

@@ -558,6 +558,69 @@ if (nf.gate === 'parsing') {
 const NF_STEPS = ['자료 올리기', '발표 정보', '리허설 녹음', '질문 준비'];
 let parseTimer = null;
 let parseGen = 0; // 취소/중복 요청 구분
+
+/* ─── 선분석: 발표하는 동안 자료를 먼저 읽어 둔다 ────────────────────────────
+   F-06 개념 추출(1분43초)과 F-07 개념 그래프(2분40초)는 녹음이 전혀 필요 없다
+   (f07_graph.py 는 Transcript 를 아예 받지 않는다). 그런데 예전엔 STT 뒤에 줄을 세워
+   실측 7분 30초 중 4분 23초를 녹음이 끝난 뒤에 태웠다. 사용자가 발표하는 3~20분 동안
+   서버는 놀고 있었다.
+
+   캐시가 아니라 promise 로 들고 있는다. 1분짜리 짧은 녹음이면 발표가 끝날 때 아직
+   도는 중인데, 그때 "캐시에 없네" 하고 다시 부르면 같은 호출을 두 번 결제한다.
+   보관하는 건 promise 라 sessionStorage 에 못 넣는다 — 새로고침하면 버리고 원래 경로로 간다. */
+let precompute = null;   // { key, conceptsP, graphP, startedAt, state }
+
+/** 이 조합이 바뀌면 먼저 뽑아 둔 개념은 다른 발표의 것이다. context 가 개념 중요도를 바꾼다 */
+function precomputeKey() {
+  return [nf.fileName || '', nf.occ || '', nf.ctx || '', nf.min || ''].join('|');
+}
+
+/**
+ * 녹음 화면으로 들어갈 때 자료 축을 먼저 돌린다.
+ *
+ * 발화 지점이 업로드 직후가 아니라 여기인 이유: `situation`·`audience` 는 F-06 프롬프트에
+ * 그대로 들어가 개념 중요도를 바꾼다. 업로드 시점엔 아직 안 정해져 있어서, 그때 돌리면
+ * 사용자가 발표 정보를 채우는 순간 버려야 한다.
+ */
+function startPrecompute() {
+  const bridge = window.ChuckchuckBridge;
+  if (!bridge || typeof bridge.extractConcepts !== 'function') return;
+  if (!nfSlideDoc) return;                       // 자료 없이는 F-06 이 돌 게 없다
+  const key = precomputeKey();
+  if (precompute && precompute.key === key) return;   // 이미 같은 조건으로 돌고 있다
+
+  const context = { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min };
+  const slideDoc = nfSlideDoc;
+  const state = { conceptsReady: false, graphReady: false, failed: false, graph: null };
+
+  // transcript 없이 부른다 — 아직 녹음이 시작도 안 했다 (§F-06 speech_hint 는 선택)
+  const conceptsP = bridge.extractConcepts({ slideDoc, context })
+    .then((c) => { state.conceptsReady = true; return c; })
+    .catch((err) => { state.failed = true; console.warn('[chuckchuck] precompute concepts', err); throw err; });
+
+  const graphP = conceptsP
+    .then((concepts) => bridge.buildGraph({ concepts, slideDoc, context }))
+    .then((g) => { state.graphReady = true; state.graph = g; return g; })
+    .catch((err) => { state.failed = true; console.warn('[chuckchuck] precompute graph', err); throw err; });
+
+  // 아무도 안 붙은 promise 가 reject 되면 콘솔이 unhandled 로 시끄럽다. 소비는 아래에서 한다
+  conceptsP.catch(() => {});
+  graphP.catch(() => {});
+
+  precompute = { key, conceptsP, graphP, startedAt: Date.now(), state };
+  console.info('[chuckchuck] precompute started', key);
+}
+
+/** 파이프라인에 넘길 promise 묶음. 조건이 바뀌었으면 아무것도 안 넘긴다 */
+function precomputeHandles() {
+  if (!precompute) return null;
+  if (precompute.key !== precomputeKey()) {
+    console.info('[chuckchuck] precompute discarded — 발표 정보가 바뀌었어요');
+    precompute = null;
+    return null;
+  }
+  return { conceptsP: precompute.conceptsP, graphP: precompute.graphP };
+}
 /** 지나온 단계로 되돌아가도 잃을 게 없는 상태인가.
     녹음이 돌고 있거나 파싱·분석이 진행 중이면 되돌아가는 순간 그 작업이 사라진다 */
 function canJumpBack() {
@@ -1083,10 +1146,16 @@ function nfStep2() {
     const b = e.target.closest('button'); if (!b) return;
     nf.min = Number(b.dataset.min); nfStep2(); saveSession('new-flow', nf);
   });
-  $('#go').addEventListener('click', () => { nf.step = 2; renderNew(); });
+  // 녹음 화면으로 넘어가는 순간 자료 축(F-06·F-07)을 먼저 건다 — 발표하는 동안 돈다
+  $('#go').addEventListener('click', () => { startPrecompute(); nf.step = 2; renderNew(); });
   // 건너뛰면 상황을 비운다. 서버가 기본 기준으로 매기고 "안 골라서 …" 안내를 남긴다 —
   // 없는 상황을 지어내 보내면 어느 가중치로 매겼는지 알 수 없게 된다.
-  $('#skip').addEventListener('click', () => { nf.occ = ''; nf.step = 2; renderNew(); });
+  $('#skip').addEventListener('click', () => {
+    nf.occ = '';
+    startPrecompute();   // occ 를 비운 뒤에 걸어야 그 조건 그대로 개념을 뽑는다
+    nf.step = 2;
+    renderNew();
+  });
 }
 
 /* 스텝 3 — 리허설 녹음 */
@@ -1742,7 +1811,12 @@ async function useUploadedRecording(file) {
 }
 
 /* F-11 분석 리빌 — 리허설 종료 → 질문 준비 사이에 전체 화면으로 재생.
-   뒤에서는 파이프라인이 돌고, CTA(질문 코치 시작하기)를 누르면 걷힌다. */
+   뒤에서는 파이프라인이 돌고, CTA(질문 코치 시작하기)를 누르면 걷힌다.
+
+   순서가 바뀌었다. 예전엔 graph 와 alignment 가 **둘 다** 와야 화면이 움직였고,
+   그건 실 API 로 450초쯤이라 90초에 포기하는 대기 루프에 매번 걸렸다 — 개념그래프도
+   산점도도 실전에서는 한 번도 안 나왔다. 이제 선분석 덕에 그래프가 발표가 끝나는 순간
+   이미 있으므로, 그래프부터 먼저 넘기고(f11Graph) 정합은 도착하는 대로 얹는다(f11Data). */
 function showF11Reveal() {
   if (document.getElementById('f11RevealWrap')) return;
   const wrap = document.createElement('div');
@@ -1754,48 +1828,66 @@ function showF11Reveal() {
     'style="width:100%;height:100%;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   requestAnimationFrame(() => { wrap.style.opacity = '1'; });
-  // 파이프라인이 F-07/F-11 결과를 내면 iframe 에 실데이터를 넘긴다
+
+  let graphSent = false;
   const feed = setInterval(() => {
     if (!document.getElementById('f11RevealWrap')) { clearInterval(feed); return; }
-    const out = nf.pipelineOut;
+    const out = nf.pipelineOut || {};
     const iframe = wrap.querySelector('iframe');
     if (!iframe || !iframe.contentWindow) return;
+    const post = (msg) => iframe.contentWindow.postMessage(msg, location.origin);
+
     // 대기 화면이 몇 %인지 알 수 있게 매 틱 진행률을 넘긴다 (실데이터 도착 전에도)
     const phase = nf.pipelinePhase || 'queued';
-    iframe.contentWindow.postMessage({
+    post({
       type: 'f11Progress',
       phase,
       label: pipelinePhaseLabel(phase),
       detail: nf.pipelineDetail || '',
       percent: pipelinePercent(phase, phaseElapsedSec()),
-      transcriptPreview: out && out.transcript
+      transcriptPreview: out.transcript
         ? String(out.transcript.full_text || '').slice(0, 120)
         : '',
-    }, location.origin);
-    if (phase === 'error' || (nf.pipelineError && !out?.graph)) {
+    });
+
+    if (phase === 'error' || (nf.pipelineError && !out.graph)) {
       clearInterval(feed);
-      iframe.contentWindow.postMessage({
+      post({
         type: 'f11Error',
         message: nf.pipelineError || nf.pipelineDetail || '분석에 실패했어요',
         phase,
-      }, location.origin);
+      });
       return;
     }
-    if (out && out.graph && out.alignment) {
+
+    /* 그래프는 선분석이 끝나 있으면 파이프라인보다 먼저 온다. 먼저 온 걸 먼저 보여준다 —
+       기다리는 화면이 아니라 이미 아는 것부터 보여주는 화면이 된다. */
+    const graph = out.graph || (precompute && precompute.state && precompute.state.graph) || null;
+    if (graph && !graphSent) {
+      graphSent = true;
+      post({ type: 'f11Graph', graph });
+    }
+    if (out.graph && out.alignment) {
       clearInterval(feed);
-      iframe.contentWindow.postMessage(
-        { type: 'f11Data', graph: out.graph, alignment: out.alignment, flow: out.flow || null,
-          transcript: out.transcript || null }, location.origin);
+      post({
+        type: 'f11Data',
+        graph: out.graph,
+        alignment: out.alignment,
+        flow: out.flow || null,
+        transcript: out.transcript || null,
+      });
     }
   }, 500);
+
   const onMsg = (e) => {
     if (e.data && e.data.type === 'f11RevealDone') {
       window.removeEventListener('message', onMsg);
       wrap.style.opacity = '0';
       setTimeout(() => {
         wrap.remove();
-        // 파이프라인이 끝났으면 질문 코치로 바로, 아니면 준비 화면에서 대기
-        if ((nf.pipelinePhase || '') === 'done') location.hash = '#/qa';
+        /* 질문 코칭은 그래프·정합·흐름만 있으면 열린다. 예전엔 phase 가 'done' 이라야
+           넘어갔는데, 그건 채점·속도·습관·리포트까지 끝난 시점이라 4분을 더 세웠다. */
+        if (pipelineQaReady()) location.hash = '#/qa';
       }, 450);
     }
   };
@@ -1814,33 +1906,50 @@ function fmtMarkSec(sec) {
 /* 구간 폭은 실측 소요 시간에 비례한다 (2026-07-30, 12장 PPTX + 3분 녹음, 실 Solar):
      STT 30초 · F-06 1분43초 · F-07 2분40초 · F-11 2분27초 · 흐름 1초 미만 = 총 7분 30초
    추측으로는 STT 를 제일 무겁게 뒀었는데 실제로는 제일 가볍다. 느린 건 F-07·F-11 이다. */
-const PIPELINE_MARKS = {
-  queued: [0, 3],
-  encoding: [3, 6],
-  stt: [6, 14],
-  stt_done: [14, 16],
-  concepts: [16, 40],
-  concepts_done: [40, 42],
-  concepts_error: [40, 42],
-  graph: [42, 72],
-  graph_done: [72, 74],
-  align: [74, 97],
-  align_done: [97, 98],
-  align_error: [97, 98],
-  flow: [98, 99],
-  flow_done: [99, 99],
-  score: [99, 100],
-  score_done: [100, 100],
-  score_error: [100, 100],
-  partial: [100, 100],
-  done: [100, 100],
-  error: [100, 100],
-};
+/* 이 막대가 재는 건 「질문 코칭이 열릴 때까지」다. 그래서 flow_done 이 100% 고,
+   그 뒤 리포트 축(채점·속도·습관·리포트)은 전부 100 에 눕는다 — 재는 대상이 아니다.
+   손으로 적은 표를 두지 않고 실측 초에서 만든다. 선분석으로 이미 끝난 단계는 폭이 0 이 되고
+   남은 폭이 자동으로 넓어진다 (안 그러면 막대가 6%→74% 로 튄 뒤 2분 27초를 기어간다). */
+let pipelineMarks = null;
+
+/** 질문 코칭 뒤에 도는 단계들 — 이 막대의 관심 밖이라 100 에 눕힌다 */
+const PIPELINE_AFTER_QA_PHASES = [
+  'pace', 'pace_done', 'habits', 'habits_done',
+  'score', 'score_done', 'score_error',
+  'voice_report', 'voice_report_done', 'voice_report_error',
+  'partial', 'done', 'error',
+];
+
+function buildPipelineMarks({ conceptsReady = false, graphReady = false } = {}) {
+  const secs = { ...PIPELINE_STAGE_SEC_BASE };
+  if (conceptsReady) secs.concepts = 0;
+  if (graphReady) secs.graph = 0;
+  pipelineStageSec = secs;
+
+  const total = PIPELINE_STAGE_ORDER.reduce((s, k) => s + (secs[k] || 0), 0) || 1;
+  const marks = { queued: [0, 1] };
+  let run = 0;
+  for (const stage of PIPELINE_STAGE_ORDER) {
+    const from = Math.round((run / total) * 100);
+    run += secs[stage] || 0;
+    const to = Math.max(from, Math.round((run / total) * 100));
+    marks[stage] = [from, to];
+    marks[`${stage}_done`] = [to, to];
+    marks[`${stage}_error`] = [to, to];
+  }
+  for (const p of PIPELINE_AFTER_QA_PHASES) marks[p] = [100, 100];
+  pipelineMarks = marks;
+  return marks;
+}
+
 /** 이 초 수쯤 지나면 구간 천장의 63% 지점에 닿는다. 긴 단계가 100~160초라 그에 맞춘다 */
 const PIPELINE_CREEP_TAU_SEC = 70;
 
+/* 단계 안에서는 시간에 따라 천장으로 점근할 뿐 절대 넘지 않는다 —
+   막대가 멈춰 보이지 않으면서도 "다 됐다"고 거짓말하지 않는다. */
 function pipelinePercent(phase, phaseElapsedSec) {
-  const [base, ceil] = PIPELINE_MARKS[phase] || PIPELINE_MARKS.queued;
+  const marks = pipelineMarks || buildPipelineMarks();
+  const [base, ceil] = marks[phase] || marks.queued;
   if (ceil <= base) return ceil;
   const k = 1 - Math.exp(-Math.max(0, Number(phaseElapsedSec) || 0) / PIPELINE_CREEP_TAU_SEC);
   return Math.round(Math.min(ceil, base + (ceil - base) * k));
@@ -1850,6 +1959,99 @@ function pipelinePercent(phase, phaseElapsedSec) {
 function phaseElapsedSec() {
   const t = nf._phaseStartedAt || nf.pipelineStartedAt || Date.now();
   return Math.max(0, (Date.now() - t) / 1000);
+}
+
+/* 질문 코칭이 열리는 flow_done 까지의 단계별 실측 소요(초).
+   PIPELINE_MARKS 의 구간 폭과 같은 출처다 (2026-07-30, 12장 PPTX + 3분 녹음, 실 Solar).
+   그 뒤 단계(채점·속도·습관·리포트)는 리포트 화면 몫이고 실측이 없어서 여기 안 넣는다 —
+   모르는 시간을 남은 시간에 더하면 그 순간부터 화면이 거짓말을 한다.
+   encoding 만 브라우저 로컬이라 실측이 아니지만 3초라 오차로 남는다. */
+const PIPELINE_STAGE_SEC_BASE = {
+  encoding: 3, stt: 30, concepts: 103, graph: 160, align: 147, flow: 1,
+};
+const PIPELINE_STAGE_ORDER = ['encoding', 'stt', 'concepts', 'graph', 'align', 'flow'];
+
+/** 이번 실행에서 임계경로에 실제로 남아 있는 단계별 초. 선분석이 끝난 단계는 0 이 된다 */
+let pipelineStageSec = { ...PIPELINE_STAGE_SEC_BASE };
+
+/** 지금 phase 의 기본 단계 이름 (`graph_done` → `graph`) */
+function pipelineStageOf(phase) {
+  return String(phase || '').replace(/_(done|error)$/, '');
+}
+
+/**
+ * 질문 코칭이 열릴 때까지 남은 예상 초.
+ *
+ * 근거는 위 실측표뿐이다. 추측한 값을 더하지 않고, 예상을 넘기면 넘겼다고 말한다 —
+ * 남은 시간을 슬쩍 늘려 잡으면 그 순간부터 막대와 문구가 따로 논다.
+ */
+function pipelineEtaSec() {
+  const phase = nf.pipelinePhase || 'queued';
+  if (['done', 'partial', 'error'].includes(phase)) return 0;
+  const stage = pipelineStageOf(phase);
+  const settled = /_(done|error)$/.test(phase);
+  let i = PIPELINE_STAGE_ORDER.indexOf(stage);
+  if (i < 0) i = 0;                       // queued — 처음부터 다 남았다
+  let remain = 0;
+  for (let k = settled ? i + 1 : i; k < PIPELINE_STAGE_ORDER.length; k++) {
+    remain += pipelineStageSec[PIPELINE_STAGE_ORDER[k]] || 0;
+  }
+  if (!settled) remain -= Math.min(pipelineStageSec[stage] || 0, phaseElapsedSec());
+  return Math.round(remain);
+}
+
+function pipelineEtaText() {
+  const phase = nf.pipelinePhase || 'queued';
+  if (phase === 'done') return '분석을 마쳤어요';
+  if (phase === 'partial') return '일부 단계를 건너뛰고 끝냈어요';
+  if (phase === 'error') return '중간에 멈췄어요';
+  const sec = pipelineEtaSec();
+  if (sec <= 0) return '예상보다 조금 더 걸리고 있어요';
+  if (sec < 45) return '곧 끝나요';
+  const min = Math.round(sec / 60);
+  return min <= 1 ? '남은 예상 1분쯤' : `남은 예상 ${min}분쯤`;
+}
+
+/**
+ * 파이프라인 상태 줄 — phase 와 상관없이 **항상** 떠 있다.
+ *
+ * pipelineLoadingHtml 은 특정 phase 에서만 나와서, 제일 긴 F-07·F-11 구간(합쳐 5분)에
+ * 화면에서 통째로 사라졌다. 그동안 움직이는 게 하나도 없으니 멈춘 화면으로 읽힌다.
+ * 진행률·단계 이름·경과 초는 연출과 무관하게 남긴다 (UI_REDESIGN §14 정직한 상태 유지).
+ */
+function pipelineStatusBarHtml() {
+  const phase = nf.pipelinePhase || 'queued';
+  const pct = pipelinePercent(phase, phaseElapsedSec());
+  const started = nf.pipelineStartedAt || Date.now();
+  const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
+  const final = ['done', 'partial', 'error'].includes(phase);
+  return `<div class="pipe-status-bar${final ? ' is-final' : ''}">
+    <div class="psb-head">
+      <span class="pipe-phase">${escapeHtml(pipelinePhaseLabel(phase))}</span>
+      <b class="psb-pct">${pct}%</b>
+    </div>
+    <div class="progress"><i style="width:${pct}%"></i></div>
+    <p class="psb-meta">
+      경과 <b class="pipe-elapsed">${elapsed}</b>초 · <span class="psb-eta">${escapeHtml(pipelineEtaText())}</span>
+    </p>
+  </div>`;
+}
+
+/** 1초 틱이 상태 줄을 다시 그리지 않고 숫자만 갈아끼운다 (전체 렌더는 보던 화면을 날린다) */
+function paintPipelineStatusBar() {
+  const host = $('.pipe-status-bar');
+  if (!host) return;
+  const phase = nf.pipelinePhase || 'queued';
+  const pct = pipelinePercent(phase, phaseElapsedSec());
+  const label = host.querySelector('.pipe-phase');
+  const pctEl = host.querySelector('.psb-pct');
+  const fill = host.querySelector('.progress i');
+  const eta = host.querySelector('.psb-eta');
+  if (label) label.textContent = pipelinePhaseLabel(phase);
+  if (pctEl) pctEl.textContent = `${pct}%`;
+  if (fill) fill.style.width = `${pct}%`;
+  if (eta) eta.textContent = pipelineEtaText();
+  host.classList.toggle('is-final', ['done', 'partial', 'error'].includes(phase));
 }
 
 function pipelinePhaseLabel(phase) {
@@ -1889,26 +2091,54 @@ function pipelinePhaseLabel(phase) {
   return map[phase] || phase || '진행 중';
 }
 
-/** 체크리스트 진행도 0..4 — 실제 파이프라인 phase 기준 */
+/**
+ * 체크리스트 항목 — 각 줄이 자기 산출물을 직접 보고 상태를 정한다.
+ *
+ * phase 로 세던 옛 방식은 `concepts_done` 에서 4개를 한꺼번에 ✓ 로 바꿨다. 그 시점에
+ * F-11 정합은 시작도 안 했고 질문(F-08)은 이 파이프라인에서 돌지도 않는다 —
+ * 다 됐다고 표시해 놓고 5분 동안 버튼이 안 생기니, 오지 않을 결과를 기다리게 된다.
+ *
+ * 산출물 기준으로 세면 선분석(녹음 중 F-06·F-07)처럼 순서가 뒤바뀌어 끝나도 정직하게 찍힌다.
+ */
+function pipelineChecklistItems() {
+  const out = nf.pipelineOut || {};
+  const t = out.transcript && !out.transcript.error ? out.transcript : null;
+  return [
+    { text: '말한 내용을 글로 옮겼어요', stage: 'stt', ok: !!t },
+    {
+      text: '슬라이드별로 발화를 나눴어요',
+      stage: 'stt',
+      ok: !!(t && Array.isArray(t.by_slide) && t.by_slide.length),
+    },
+    {
+      text: '자료에서 핵심 개념을 찾았어요',
+      stage: 'concepts',
+      ok: !!(out.concepts && !out.concepts.error && !out.conceptsError),
+    },
+    { text: '개념끼리 어떻게 이어지는지 정리했어요', stage: 'graph', ok: !!out.graph },
+    { text: '자료와 발표를 하나씩 대조했어요', stage: 'align', ok: !!out.alignment },
+  ];
+}
+
+/** 실제로 끝난 항목 수 (0..5) */
 function pipelineChecklistDone() {
-  const phase = nf.pipelinePhase || 'queued';
-  if (nf.conceptsOk || phase === 'concepts_done') return 4;
-  if (phase === 'done' && !nf.pipelineOut?.conceptsError) return 4;
-  if (['concepts', 'concepts_error', 'done'].includes(phase) || nf.transcriptOk) {
-    if (phase === 'concepts_error' || (phase === 'done' && nf.pipelineOut?.conceptsError)) return 3;
-    if (phase === 'concepts') return 2;
-    if (nf.transcriptOk || phase === 'stt_done' || phase === 'done') return 2;
-  }
-  if (phase === 'stt_done') return 2;
-  if (phase === 'stt' || phase === 'encoding') return 1;
-  return Math.min(nf.done || 0, 1);
+  return pipelineChecklistItems().filter((i) => i.ok).length;
+}
+
+/**
+ * 질문 코칭에 필요한 게 다 모였나 — 그래프·정합·흐름 셋뿐이다.
+ *
+ * F-08 질문 생성이 쓰는 입력이 정확히 이것이다. 채점(F-14)·속도(F-17)·습관(F-18)·
+ * 리포트(F-19)는 리포트 화면 몫인데, 지금은 그것까지 다 기다리느라 4분을 더 세운다.
+ */
+function pipelineQaReady() {
+  const out = nf.pipelineOut || {};
+  return !!(out.graph && out.alignment && out.flow);
 }
 
 function pipelineLoadingHtml(kind) {
   const phase = nf.pipelinePhase || 'queued';
   const detail = nf.pipelineDetail || '';
-  const started = nf.pipelineStartedAt || Date.now();
-  const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
 
   if (kind === 'stt') {
     if (['stt_done', 'concepts', 'concepts_done', 'concepts_error', 'done', 'error'].includes(phase)) return '';
@@ -1917,24 +2147,22 @@ function pipelineLoadingHtml(kind) {
     if (!['stt_done', 'concepts'].includes(phase)) return '';
   }
 
-  // 실측(12장·3분 녹음, 실 Solar): 전체 7분 30초. STT 는 30초고 F-07·F-11 이 각 2분 30초다.
+  /* 진행률·단계 이름·경과 초는 위 pipeline-status-bar 가 항상 들고 있다.
+     여기서 또 그리면 같은 숫자가 두 벌 돌아다니고, 그러다 한쪽만 멈추면 어느 쪽이 참인지 모른다.
+     이 블록은 그 단계가 무엇을 기다리는지만 한 줄로 말한다.
+     캐릭터는 얹는 층이다 (UI_REDESIGN §14 · 03_components.md §6). */
   const hint = kind === 'stt'
-    ? '실API 전체 분석은 12장 기준 7분 안팎 걸려요. 이 화면을 켜 두셔도 되고, 닫아도 뒤에서 계속 돌아갑니다.'
-    : '개념 그래프(F-07)와 정합 판정(F-11)이 가장 오래 걸려요. 각각 2분 30초쯤입니다.';
+    ? '말한 내용을 글로 옮기는 데 30초쯤 걸려요. 이 화면을 닫아도 뒤에서 계속 돌아갑니다.'
+    : '자료의 개념을 정리하는 중이에요. 발표하는 동안 미리 돌려 뒀으면 금방 끝나요.';
 
-  /* 캐릭터는 얹는 층이다 — 진행률·단계 이름·경과 초는 아래에 그대로 남는다
-     (§14 정직한 상태 유지 · 03_components.md §6) */
   return `<div class="pipe-loading" data-pipe-kind="${kind}">
     <div class="pipe-bird-row">
       ${emptyBirdHtml('ax', 'neutral')}
       <span class="pipe-bird-line">발표를 듣고 있어요…</span>
     </div>
-    <div class="progress indeterminate"><i></i></div>
     <p class="parse-meta">
-      <span class="pipe-phase">${escapeHtml(pipelinePhaseLabel(phase))}</span>
-      · 경과 <b class="pipe-elapsed">${elapsed}</b>초
-      ${detail ? `<br><span class="pipe-detail">${escapeHtml(detail)}</span>` : ''}
-      <br>${hint}
+      ${detail ? `<span class="pipe-detail">${escapeHtml(detail)}</span><br>` : ''}
+      ${hint}
     </p>
   </div>`;
 }
@@ -2130,15 +2358,20 @@ function refreshPipelineInspect() {
   paintPipeMapThumbs();
 }
 
+/* 1초마다 상태 줄을 갈아끼운다. 단계가 안 바뀌어도 막대·경과 초·남은 시간은 움직여야 한다 —
+   F-07·F-11 은 한 단계가 2분 30초라, 단계 전환 때만 그리면 화면이 멈춘 걸로 보인다.
+   concepts_error 는 끝이 아니다. 개념 추출이 실패해도 그래프·정합은 계속 돈다 —
+   여기서 시계를 멈추면 남은 5분 동안 경과 초가 얼어붙는다. */
 function startPipelineElapsedTimer() {
   if (nf._pipelineTickStarted) return;
   nf._pipelineTickStarted = true;
   every(() => {
-    if (!nf.pipelineStartedAt || ['done', 'partial', 'error', 'concepts_error'].includes(nf.pipelinePhase)) {
+    if (!nf.pipelineStartedAt || ['done', 'partial', 'error'].includes(nf.pipelinePhase)) {
       return;
     }
     const elapsed = Math.max(0, Math.floor((Date.now() - nf.pipelineStartedAt) / 1000));
     $$('.pipe-elapsed').forEach((el) => { el.textContent = String(elapsed); });
+    paintPipelineStatusBar();
   }, 1000);
 }
 
@@ -2155,14 +2388,9 @@ function refreshStep4IfVisible() {
 
 function nfStep4() {
   app.className = 'narrow';
-  const items = [
-    '음성을 글로 바꿨어요 (단어별 시간 포함)',
-    '슬라이드별로 발화를 나눴어요',
-    '발표자료의 개념과 실제 발화를 대조했어요',
-    '먼저 확인할 질문을 만들었어요',
-  ];
-  // 가짜 타이머 대신 실제 파이프라인 진행도로 체크리스트 표시
-  const doneN = Math.max(nf.done || 0, pipelineChecklistDone());
+  const items = pipelineChecklistItems();
+  const stage = pipelineStageOf(nf.pipelinePhase || 'queued');
+  const doneN = items.filter((i) => i.ok).length;
   nf.done = doneN;
   const conceptsError = (nf.pipelineOut && nf.pipelineOut.conceptsError) || null;
   const pipeErr = conceptsError
@@ -2170,16 +2398,22 @@ function nfStep4() {
     : (nf.pipelineError
       ? stageAccidentHtml(`연동 오류: ${nf.pipelineError}`)
       : '');
+  /* 질문 코칭은 그래프·정합·흐름만 있으면 열린다. 리포트 축(채점·속도·습관·리포트)이
+     아직 도는 중이면 그 사실을 숨기지 않고 한 줄 남긴다 — "다 끝났어요" 라고만 하면
+     리포트 화면에서 왜 비어 있는지 알 수 없다. */
+  const qaReady = pipelineQaReady();
+  const reportPending = qaReady && !['done', 'partial', 'error'].includes(nf.pipelinePhase || '');
   app.innerHTML = `${nfSteps()}
     <div class="card">
-      <h3 class="section-title">발표를 듣고 질문을 준비하고 있어요</h3>
+      <h3 class="section-title">${qaReady ? '질문 준비가 끝났어요' : '발표를 듣고 질문을 준비하고 있어요'}</h3>
       <p class="note" style="margin-bottom:14px">최종 분석 전에, 설명이 비어 있던 개념을 질문으로 함께 확인해요.</p>
+      ${pipelineStatusBarHtml()}
       ${backstageHtml()}
       ${pipeErr}
       <ul class="checklist">
-        ${items.map((t, i) => {
-          const st = i < doneN ? 'done' : i === doneN ? 'doing' : 'todo';
-          return `<li class="${st}"><i>${i < doneN ? '✓' : i + 1}</i>${t}</li>`;
+        ${items.map((it, i) => {
+          const st = it.ok ? 'done' : (it.stage === stage ? 'doing' : 'todo');
+          return `<li class="${st}"><i>${it.ok ? '✓' : i + 1}</i>${it.text}</li>`;
         }).join('')}
       </ul>
       ${pipelineInspectHtml()}
@@ -2187,11 +2421,11 @@ function nfStep4() {
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>
         <button class="btn btn-secondary btn-sm" type="button" id="againTake">다른 녹음으로 다시</button>
         <a class="btn btn-text btn-sm skip-qa" href="#/report">질문코치 건너뛰고 상세 리포트</a>
-        ${nf.conceptsOk && doneN >= items.length
-          ? `<span style="font-weight:700">질문 준비가 끝났어요</span>
-             <a class="btn btn-primary" href="#/qa">질문 코칭 시작하기</a>`
+        ${qaReady
+          ? `<a class="btn btn-primary" href="#/qa">질문 코칭 시작하기</a>
+             ${reportPending ? '<span class="note">상세 리포트는 뒤에서 마저 만들고 있어요.</span>' : ''}`
           : (nf.transcriptOk && conceptsError
-            ? `<span class="note">STT까지는 성공했어요. 개념 추출만 실패했습니다.</span>`
+            ? `<span class="note">말한 내용까지는 옮겼어요. 개념 추출만 실패했습니다.</span>`
             : '')}
       </div>
     </div>`;
@@ -2234,6 +2468,12 @@ function nfStep4() {
     nf.pipelineStartedAt = Date.now();
     nf.transcriptOk = false;
     nf.conceptsOk = false;
+
+    /* 진행률 표는 여기서 한 번만 만든다. 발표하는 동안 F-06·F-07 이 이미 끝났으면
+       그 구간은 폭이 0 이 되고 남은 폭이 넓어진다. 중간에 다시 만들면 막대가 뒤로 간다 —
+       한 번 지나온 %가 줄어드는 건 진행률이 아니라 소음이다. */
+    const preState = (precompute && precompute.key === precomputeKey() && precompute.state) || {};
+    buildPipelineMarks(preState);
     refreshPipelineInspect();
 
     // slideDoc 이 없으면 F-06 이후가 통째로 안 돈다. 캐시에서 먼저 되살린다.
@@ -2243,6 +2483,7 @@ function nfStep4() {
       mimeType: ccLastTake.mimeType,
       fileName: ccLastTake.fileName || '',
       slideDoc,
+      precomputed: precomputeHandles(),
       context: {
         situation: nf.occ || '',
         audience: nf.ctx || '',
@@ -2270,12 +2511,19 @@ function nfStep4() {
         if (transcript && !transcript.error) nf.transcriptOk = true;
         // 커튼 틈으로 한 마디. pipelineOut 을 갱신한 뒤라야 실측값이 들어 있다
         pushBackstage(phase);
-        // STT 완료 직후 전체 화면을 다시 그려 발화 블록이 확실히 보이게
-        if (phase === 'stt_done' || phase === 'concepts_error' || phase === 'concepts_done') {
+        /* 산출물이 하나 늘어난 순간에만 전체를 다시 그린다 — 체크리스트 한 줄이 켜지고,
+           flow_done 에서는 「질문 코칭 시작하기」가 열린다. 나머지 틱은 검증 로그만 갈아끼운다
+           (7분짜리 파이프라인이라 매번 전체를 그리면 보던 화면이 계속 튄다). */
+        const RERENDER_PHASES = [
+          'stt_done', 'concepts_done', 'concepts_error',
+          'graph_done', 'align_done', 'align_error', 'flow_done',
+        ];
+        if (RERENDER_PHASES.includes(phase)) {
           nf.done = pipelineChecklistDone();
           refreshStep4IfVisible();
         } else {
           refreshPipelineInspect();
+          paintPipelineStatusBar();
         }
       },
     })).then((out) => {

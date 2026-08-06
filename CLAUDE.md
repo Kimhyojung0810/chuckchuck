@@ -134,3 +134,4 @@ python -m pytest tests/ -q                          # 회귀 스모크
 | [`docs/SCHEMA.md`](docs/SCHEMA.md) · `chuckchuck/contracts.py` | 스키마 단일 출처 |
 | [`demo/YEHS_demo/MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) | 화면 스펙·정보 구조·디자인 토큰 |
 | [`docs/UI_REDESIGN.md`](docs/UI_REDESIGN.md) | 척척극장 연출 규율 |
+| [`docs/ANALYSIS_WAIT_REDESIGN.md`](docs/ANALYSIS_WAIT_REDESIGN.md) | 발표 종료 → 질문 코칭 대기 구간 재설계 (선분석·진행률·리빌) |
