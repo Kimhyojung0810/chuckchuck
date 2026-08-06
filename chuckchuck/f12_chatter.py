@@ -74,6 +74,21 @@ def _labels(graph: ConceptGraph) -> dict[str, str]:
     return {n.id: n.label for n in graph.nodes}
 
 
+def _weight_word(weight: float) -> str:
+    """자료 비중을 말로 옮긴다.
+
+    사실 문자열에 0.8 같은 원시 수치를 넣으면 병아리가 그걸 그대로 읊는다.
+    점수처럼 들리는 숫자는 객석에서 말하지 않기로 했고(TONE_GUIDE), 애초에
+    "자료 중요도 0.8" 은 발표자에게 아무 의미가 없다. 서열은 정렬이 이미 했으니
+    여기서는 사람이 말할 수 있는 말로만 남긴다.
+    """
+    if weight >= 0.7:
+        return "자료가 크게 힘준"
+    if weight >= 0.4:
+        return "자료가 한 자리 내준"
+    return "자료가 가볍게 스친"
+
+
 def _slide_hint(node: ConceptNode | None) -> str:
     if node is None or not node.slide_nos:
         return ""
@@ -96,8 +111,8 @@ def _midm_points(graph: ConceptGraph, alignment: AlignmentDoc) -> list[TalkingPo
         label = node.label if node else item.node_id
         if item.verdict == "missing":
             fact = (
-                f"'{label}' {_slide_hint(node)}은(는) 자료 중요도 {item.doc_weight}"
-                "인데 발표에서 한 번도 다루지 않았다"
+                f"'{label}' {_slide_hint(node)}은(는) {_weight_word(item.doc_weight)} "
+                "개념인데 발표에서 한 번도 다루지 않았다"
             )
         else:
             quote = f' 발표자는 "{item.evidence}"라고 말했다' if item.evidence else ""
@@ -115,8 +130,8 @@ def _midm_points(graph: ConceptGraph, alignment: AlignmentDoc) -> list[TalkingPo
         node = by_id.get(item.node_id)
         label = node.label if node else item.node_id
         fact = (
-            f"'{label}' {_slide_hint(node)}은(는) 자료 비중 {item.doc_weight}에 비해 "
-            f"발표 비중이 {item.speech_weight}로 한참 낮다"
+            f"'{label}' {_slide_hint(node)}은(는) {_weight_word(item.doc_weight)} "
+            "개념인데 발표에서는 스치듯 지나갔다"
         )
         out.append(TalkingPoint(fact=" ".join(fact.split()), source="alignment",
                                 node_ids=(item.node_id,)))
@@ -167,7 +182,7 @@ def _exaone_points(
         label = node.label if node else item.node_id
         quote = f' 근거 발화: "{item.evidence}"' if item.evidence else ""
         fact = (
-            f"'{label}' {_slide_hint(node)}은(는) 자료 중요도 {item.doc_weight}의 "
+            f"'{label}' {_slide_hint(node)}은(는) {_weight_word(item.doc_weight)} "
             f"핵심 개념인데 발표에서 제대로 설명했다.{quote}"
         )
         out.append(TalkingPoint(fact=" ".join(fact.split()), source="alignment",
@@ -287,19 +302,35 @@ TONE_GUIDE = """
 2. 지적은 **발표 내용**에 대해서만 하라. 발표자의 목소리·발음·외모·성격·재능을
    평가하는 말은 절대 금지다. 그런 대사는 버려진다.
 3. 이모지·이모티콘을 쓰지 마라. 표정은 mood 값으로만 표현한다.
-4. 개념을 지적하거나 칭찬할 때는 그 개념 이름을 반드시 말해라.
+4. 개념을 지적하거나 칭찬할 때는 **개념 이름과 슬라이드 번호를 둘 다** 말해라.
+   "그거", "그 부분", "아까 그 얘기" 처럼 뭉뚱그린 대사는 버려진다 —
+   발표자는 자기가 어느 장에서 뭘 놓쳤는지 알아야 고칠 수 있다.
+   (슬라이드 번호는 위치 정보라 말해도 된다. 금지된 숫자는 점수·등급·확신도다.)
 5. 발표자의 실제 발화를 인용할 때는 큰따옴표로 감싸라. 화면이 그 부분을
    '대본 조각'으로 떼어 보여 준다 — 발표자가 자기 말을 알아보는 순간이다.
 6. 아래 '내가 아는 사실'에 없는 내용을 지어내지 마라. 아는 것만 말한다.
 
-[제일 중요 — 판정하지 말고 원해라]
+[제일 중요 — 관객의 말투로, 그러나 손에 잡히게]
 너는 평가자가 아니다. 방금 이 발표를 끝까지 들어준, 이 사람에게 처음 생긴 관객이다.
-그러니 진단서가 아니라 **관객의 바람**으로 말해라. 같은 사실도 이렇게 바뀐다:
-- "아직 설명하지 않았어요"  ->  "그거 더 듣고 싶었는데!"
-- "자료와 다르게 말했어요"  ->  "어? 자료엔 이렇게 적혀 있던데... 내가 잘못 봤나?"
-- "판정 확신도 92%"         ->  "이건 확실해" / "음... 좀 애매했어"
+그러니 진단서가 아니라 **관객의 바람**으로 말한다. 다만 바람이 두루뭉술하면
+발표자는 뭘 고쳐야 할지 모른다. **말투는 관객, 내용은 구체적으로.**
+
+한 대사에 이 셋이 다 들어가야 한다:
+  (1) 어느 개념인지 — 이름 그대로
+  (2) 어느 장인지   — 슬라이드 번호
+  (3) 뭐가 아쉬웠는지 / 다음에 뭘 하면 되는지 — 한 마디로
+
+같은 사실이 이렇게 바뀐다:
+- 너무 뭉뚱그림(버려짐): "그거 더 듣고 싶었는데!"
+  좋음: "3번 장 'Contrastive Learning', 왜 쓰는지가 안 나왔어. 한 줄만 붙여줘도 확 붙을 텐데!"
+- 너무 뭉뚱그림(버려짐): "어? 자료랑 좀 다른 것 같은데?"
+  좋음: "5번 장 '공동 임베딩', 자료엔 정렬한다고 적혀 있는데 방금 나눈다고 했어. 내가 잘못 들었나?"
+- 칭찬도 마찬가지. "잘했어!" 말고
+  "2번 장 'Self-Supervised Learning' 정의부터 깔고 간 거, 그거 덕에 뒤가 다 따라왔어."
+
 빠진 얘기는 '결함'이 아니라 '내가 못 들은 것'이다. 아쉬워하되 나무라지 마라.
-점수·등급·확신도 같은 숫자를 입에 올리지 마라. 그건 리포트가 할 일이다.
+점수·등급·확신도·비중 같은 평가 숫자는 입에 올리지 마라 — 그건 리포트가 할 일이다.
+(슬라이드 번호는 예외다. 위치를 알려주는 것이지 점수를 매기는 게 아니다.)
 
 [너에게는 의견이 있다]
 넷은 서로 다른 데이터를 봤으니 의견이 갈리는 게 당연하다.
@@ -375,7 +406,12 @@ def _persona_prompt(
     else:
         parts.append("(아직 아무도 입을 열지 않았다. 네가 먼저 말한다.)")
 
-    parts += ["", "위 사실 중 아직 아무도 말하지 않은 것을 골라 1~2 마디 하라."]
+    parts += [
+        "",
+        "위 사실 중 아직 아무도 말하지 않은 것을 **하나만** 골라 1~2 마디 하라.",
+        "고른 사실에 적힌 개념 이름과 슬라이드 번호를 대사에 그대로 넣어라 —"
+        " 발표자가 어디를 펴야 할지 바로 알 수 있어야 한다.",
+    ]
     return system, "\n".join(parts)
 
 
