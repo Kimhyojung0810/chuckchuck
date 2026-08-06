@@ -1265,6 +1265,16 @@ table.plain tr:last-child td { border-bottom: 0; }
 .pipe-status.err { background: var(--no-bg); color: var(--no); }
 .pipe-loading { margin-top: 10px; padding: 12px; border-radius: var(--r-print); background: var(--fill); border: 1px dashed var(--border); }
 .pipe-loading .progress { margin-top: 0; margin-bottom: 10px; }
+
+/* 기다리는 동안 얹는 층. 아래 진행률·경과 초가 주인공이라 캐릭터는 작게 둔다
+   (docs/design_improvement/03_components.md §6) */
+.pipe-bird-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pipe-bird-row .ch-chick { width: 44px; display: block; cursor: default; }
+.pipe-bird-line { font-size: 13px; font-weight: 750; color: var(--text-2); }
+
+/* 빈 화면 — 캐릭터 한 마리 + 해요체 한 줄 + 다음 행동 */
+.empty-card .empty-bird { display: block; margin-bottom: 10px; }
+.empty-card .empty-bird .ch-chick { width: 72px; display: block; cursor: default; }
 .pipe-phase { font-weight: 750; color: var(--text); }
 .pipe-detail { color: var(--text-2); }
 .pipe-block { margin: 12px 0; border: 1px solid var(--line, var(--border)); border-radius: var(--r-print); padding: 10px 12px; background: #fafbfc; }
@@ -1722,3 +1732,17 @@ table.plain tr:last-child td { border-bottom: 0; }
 .qa-mode.on .qm-check { background: var(--brand); border-color: var(--brand); color: #fff; }
 /* 3열 그리드로는 left/contents/right 가 안 읽힌다. 한 줄에 하나씩 쌓는다 */
 .qa-modes { grid-template-columns: 1fr; gap: 8px; }
+
+/* ── 버튼 위계 ────────────────────────────────────────────────
+   TDS 는 size 4단(small·medium·large·xlarge)이다 (TDS.md:2412).
+   우리는 3단이면 충분한데, 지금까지 .btn(46) 과 .btn-sm(44) 뿐이라
+   2px 차이여서 위계가 아예 없었다. 44 는 손가락 최소값이라 못 내린다.
+
+     44px  small   보조 액션 · 상단 바
+     48px  medium  기본
+     52px  주요    화면에 하나뿐인 fill (TDS "한 화면에 fill 은 하나")
+
+   fill 이 화면당 하나라는 건 실측으로 확인했다 —
+   #/new · #/qa · #/report 각 1개, 홈은 상단 바, 판단 방식은 CTA 없음 */
+.btn { height: 48px; }
+.btn-primary:not(.btn-sm) { height: 52px; padding: 0 24px; font-size: 15.5px; }

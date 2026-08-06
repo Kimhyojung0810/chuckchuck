@@ -58,12 +58,13 @@ MVP 기본 자료는 `250729 IMU2CLIP_Pulbic.pdf`다.
 
 ```css
 :root {
-  --navy:#0A3D2A; --navy-deep:#052A1C;
-  --brand:#03B26C; --brand-strong:#029359; --brand-weak:#F0FAF6;
+  --navy:#155C46; --navy-deep:#0C3D2E;
+  --brand:#08B879; --brand-strong:#069E67; --brand-weak:#E7F7EF;
   --cyan:#3FD599; --mint:#AEEFD5; --yellow:#F0B429;
-  --canvas:#F5F5F5; --surface:#FFFFFF; --paper:#FAF9F6;
-  --fill:#F0F3F0; --border:#E2E7E3; --line:rgba(31,64,52,.12);
-  --text:#16211C; --text-2:#46584F; --text-3:#8AA295;
+  --canvas:#FFFDF7; --surface:#FFFFFF; --paper:#FFFFFF;
+  --fill:#EFF6F1; --border:#D8EEE3; --line:rgba(31,64,52,.12);
+  --text:#26372F; --text-2:#46584F; --text-3:#8AA295;
+  --r-print:20px; --r-inner:16px; --r-ctl:12px; --r-pill:999px; --r-dot:50%;
   --ok:#0A8F68; --ok-bg:#E9F7EF;
   --mid:#B45309; --mid-bg:#FDF6E3;
   --no:#DC2626; --no-bg:#FDF0EF;

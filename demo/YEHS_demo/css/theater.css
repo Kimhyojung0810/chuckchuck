@@ -529,11 +529,14 @@
   padding: 22px 16px;
   text-align: center;
 }
+/* 첫 방문의 두리번거리는 한 마리 (docs/design_improvement/03_components.md §6) */
+.pb-bird { display: block; margin: 0 auto 8px; width: 72px; }
+.pb-bird .ch-chick { width: 72px; display: block; cursor: default; }
 .pb-banner {
   display: inline-block;
   padding: 7px 20px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #02a262, #029359);
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, var(--brand), var(--brand-strong));
   color: #E9F7EF;
   font-size: 15px;
   font-weight: 830;

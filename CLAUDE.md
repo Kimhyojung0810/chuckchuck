@@ -68,9 +68,10 @@ python -m pytest tests/ -q                          # 회귀 스모크
 
 **단일 원본은 `demo/YEHS_demo/css/app.css` 의 `:root` 다.** 토스의 `blue500` 을 가져오지 않는다.
 
-- 브랜드 딥그린 `--brand:#03B26C`, 다크 면 `--navy:#0A3D2A`
+- 브랜드 딥그린 `--brand:#08B879`, 다크 면 `--navy:#155C46`, 크림 배경 `--canvas:#FFFDF7`
 - 판정 색 5종(`--ok/--mid/--no/--ct/--om`)은 **불변**. 의미가 붙어 있어서 바꾸면 리포트가 거짓말이 된다.
-- radius 4종(`--r-print/--r-ctl/--r-pill/--r-dot`) · weight 4단(`--w-body/--w-med/--w-bold/--w-display`) 밖의 값은 쓰지 않는다.
+- radius(`--r-print:20px`/`--r-inner:16px`/`--r-ctl:12px`/`--r-pill`/`--r-dot`) · weight 4단(`--w-body/--w-med/--w-bold/--w-display`) 밖의 값은 쓰지 않는다.
+- **캐릭터 시각 스펙은 [`docs/design_improvement/`](docs/design_improvement/README.md) 가 원본이다** (UI_REDESIGN §9·§10 의 수치를 대체). 연출·카피 규율(§11~§14)은 그대로.
 - 서체는 Pretendard 하나.
 - 토큰 표가 문서와 어긋나면 **코드가 맞고 문서를 고친다** ([`MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) §디자인 토큰).
 

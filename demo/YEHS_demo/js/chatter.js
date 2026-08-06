@@ -635,10 +635,19 @@ ${props(speaker)}
    * 병아리'로 읽혔다 — 크기를 키우고 이름·역할을 같은 칸에 붙인다.
    */
   const SEAT_ROLE = {
-    midm: '자료와 발화를 대조했어요',
-    solar: '발표자료를 통독했어요',
-    exaone: '설명한 개념을 인정했어요',
-    ax: '발표를 귀로 들었어요',
+    midm: '대조 담당',
+    solar: '자료 담당',
+    exaone: '인정 담당',
+    ax: '듣기 담당',
+  };
+
+  /* 카드 안 한 줄은 판정이 아니라 역할 소개다 — 판정은 객석을 열어야 나온다.
+     고정 카피고 LLM 이 아니다 (03_components.md §4) */
+  const SEAT_LINE = {
+    midm: '자료랑 발표를 나란히 봤어요!',
+    solar: '슬라이드를 처음부터 끝까지 읽었어요!',
+    exaone: '잘 설명한 개념에 도장을 찍었어요!',
+    ax: '한마디도 놓치지 않고 들었어요!',
   };
 
   /** 리포트 '청중 반응' 탭에 넣을 진입 카드. */
@@ -648,11 +657,14 @@ ${props(speaker)}
         <p class="aud-status">발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?</p>
         <ul class="aud-seats">
           ${SEATS.map(s => `
-            <li class="aud-seat">
+            <li class="aud-seat" data-speaker="${esc(s)}">
               <span class="aud-chick">${chickSvg(s)}</span>
-              <b class="aud-name">${esc(FALLBACK_NAMES[s])}</b>
+              <span class="aud-line">${esc(SEAT_LINE[s])}</span>
+              <span class="aud-id">
+                <b class="aud-name">${esc(FALLBACK_NAMES[s])}</b>
+                <span class="aud-role-pill">${esc(SEAT_ROLE[s])}</span>
+              </span>
               <span class="aud-model">${esc(FALLBACK_BADGES[s])}</span>
-              <span class="aud-role">${esc(SEAT_ROLE[s])}</span>
             </li>`).join('')}
         </ul>
       </div>`;

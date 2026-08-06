@@ -1908,7 +1908,13 @@ function pipelineLoadingHtml(kind) {
     ? '실API 전체 분석은 12장 기준 7분 안팎 걸려요. 이 화면을 켜 두셔도 되고, 닫아도 뒤에서 계속 돌아갑니다.'
     : '개념 그래프(F-07)와 정합 판정(F-11)이 가장 오래 걸려요. 각각 2분 30초쯤입니다.';
 
+  /* 캐릭터는 얹는 층이다 — 진행률·단계 이름·경과 초는 아래에 그대로 남는다
+     (§14 정직한 상태 유지 · 03_components.md §6) */
   return `<div class="pipe-loading" data-pipe-kind="${kind}">
+    <div class="pipe-bird-row">
+      ${emptyBirdHtml('ax', 'neutral')}
+      <span class="pipe-bird-line">발표를 듣고 있어요…</span>
+    </div>
     <div class="progress indeterminate"><i></i></div>
     <p class="parse-meta">
       <span class="pipe-phase">${escapeHtml(pipelinePhaseLabel(phase))}</span>
@@ -2369,6 +2375,7 @@ function reportVerdict() {
       hasAnalysis: true, isSample: false,
       score: real.score,
       dims: real.dims,
+      mood: real.mood,
       headline: real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요',
       // 어느 기준으로 매겼는지 숨기지 않는다. 폴백이면 폴백이라고 쓴다
       delta: `<span class="prev num">${
@@ -2379,6 +2386,7 @@ function reportVerdict() {
   const diff = s.score - s.prevScore;
   return {
     hasAnalysis: true, isSample: true,
+    mood: s.score >= 90 ? 'excited' : s.score >= 75 ? 'happy' : 'neutral',
     score: s.score,
     dims: s.dims,
     headline: s.oneLiner,
@@ -2436,7 +2444,10 @@ async function renderReport() {
           <div class="verdict-score">
             <span class="vs-label">발표 완성도</span>
             <div class="vs-body">
-              <strong class="num">${v.score}<span class="of">/100</span></strong>
+              <div class="vs-num">
+                <strong class="num">${v.score}<span class="of">/100</span></strong>
+                ${scoreBirdHtml(v.mood)}
+              </div>
               ${v.delta}
             </div>
           </div>
@@ -2643,19 +2654,42 @@ function realSummary() {
     .filter(c => c.status === 'scored')
     .map(c => [c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '']);
   const notes = [];
-  // 두 안내를 합치지 않는다 — '이 상황에서 안 봄'과 '이번에 못 잼'은 다른 말이다
+  // 두 안내를 합치지 않는다 — '이 상황에서 안 봄'과 '이번에 못 잼'은 다른 말이다.
+  // 문구는 부드럽게 바꾸되 개수는 그대로 — 못 잰 걸 숨기면 리포트가 거짓말이 된다
   if ((sc.excluded || []).length) {
-    notes.push(`이 상황에서는 평가하지 않는 항목 ${sc.excluded.length}개`);
+    notes.push(`이번 발표 상황에서는 평가하지 않는 항목이 ${sc.excluded.length}개 있어요`);
   }
   if ((sc.unmeasured || []).length) {
-    notes.push(`이번엔 측정할 수 없었던 항목 ${sc.unmeasured.length}개`);
+    notes.push(
+      `이번엔 측정하지 못한 항목이 ${sc.unmeasured.length}개 있어요. `
+      + '다음 발표에서는 더 많은 피드백을 받아봐요!'
+    );
   }
   if (sc.note) notes.push(sc.note);
   return {
     score: sc.score, dims, notes, basis: sc.basis,
     situationLabel: sc.situation_label || '',
     isFallback: String(sc.rubric_version || '').endsWith('-fallback'),
+    // 점수는 판결이 아니라 박수다 — 낮아도 응원(neutral)이지 우는 표정은 없다
+    mood: sc.score >= 90 ? 'excited' : sc.score >= 75 ? 'happy' : 'neutral',
   };
+}
+
+/* 점수 옆에 앉는 한 마리. 엑씨(헤드폰)는 발표를 귀로 들은 관객이라
+   점수 옆에서 "들었다"고 말할 자격이 있다 (04_screens.md §2).
+   좌석 래퍼가 있어야 data-mood 로 표정이 걸린다 */
+function scoreBirdHtml(mood) {
+  if (!window.Chatter || !Chatter.chickSvg) return '';
+  return `<span class="verdict-bird ch-seat" data-mood="${mood || 'neutral'}"
+                aria-hidden="true">${Chatter.chickSvg('ax')}</span>`;
+}
+
+/* 빈 화면·로딩에 세우는 한 마리. 캐릭터는 얹는 층이라 실패해도 화면은 살아야 하므로
+   Chatter 가 아직 안 붙었으면 조용히 빈 문자열을 낸다 (03_components.md §6) */
+function emptyBirdHtml(speaker, mood) {
+  if (!window.Chatter || !Chatter.chickSvg) return '';
+  return `<span class="empty-bird ch-seat" data-mood="${mood || 'neutral'}"
+                aria-hidden="true">${Chatter.chickSvg(speaker || 'solar')}</span>`;
 }
 
 /* ─── 기억하는 객석 (§13) ───────────────────────────────────────────────────
@@ -2929,7 +2963,8 @@ function rSummary() {
       || (nf && nf.pipelineDetail)
       || '발표 분석 결과가 이 화면에 없어요. 분석이 끝난 뒤 다시 열어주세요.';
     $('#rbody').innerHTML = `
-      <div class="card">
+      <div class="card empty-card">
+        ${emptyBirdHtml('solar', 'neutral')}
         <h2 class="section-title">아직 내 발표 분석이 없어요</h2>
         <p class="note" style="margin:8px 0 14px">${escapeHtml(String(why))}</p>
         <p class="note">제목은 <b>${escapeHtml(meta.title)}</b> 기준이에요. 샘플(IMU2CLIP) 리포트로 바꿔 보여주지 않아요.</p>

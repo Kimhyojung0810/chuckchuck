@@ -910,15 +910,40 @@
   margin: 0; padding: 0;
   list-style: none;
 }
+/* 카드마다 배경 틴트가 다르다. 몸 색이 하나가 됐으니 넷을 가르는 건
+   소품과 이 틴트다 (docs/design_improvement/03_components.md §4) */
 .aud-seat {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 14px 10px 12px;
-  border-radius: var(--r-print, 4px);
-  background: var(--fill);
+  padding: 16px 12px 14px;
+  border-radius: var(--r-inner);
+  border: 1.5px solid rgba(255, 255, 255, .9);
+  background: var(--seat-tint, var(--fill));
   text-align: center;
+}
+.aud-seat[data-speaker="midm"]   { --seat-tint: var(--bub-midm); }
+.aud-seat[data-speaker="solar"]  { --seat-tint: var(--bub-solar); }
+.aud-seat[data-speaker="exaone"] { --seat-tint: var(--bub-exaone); }
+.aud-seat[data-speaker="ax"]     { --seat-tint: var(--bub-ax); }
+
+/* 말풍선 한 줄 — 판정이 아니라 역할 소개다. 판정은 객석을 열어야 나온다 */
+.aud-line {
+  margin-top: 4px;
+  padding: 5px 10px;
+  border-radius: 12px 14px 12px 4px;
+  background: rgba(255, 255, 255, .8);
+  color: var(--bub-ink);
+  font-size: 12.5px; font-weight: 650; line-height: 1.45;
+}
+.aud-id { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+.aud-role-pill {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .75);
+  border: 1px solid var(--border);
+  font-size: 11px; font-weight: 750; color: var(--text-2);
 }
 /* 소품(헤드폰·대본·형광펜·배지)이 읽혀야 넷이 구분된다 — 토스 「디테일이 많은
    그래픽은 충분히 크게」 */
@@ -927,9 +952,10 @@
   cursor: default;
   animation-duration: 4s;
 }
-.aud-name { margin-top: 6px; font-size: 14px; font-weight: 830; color: var(--text); }
-.aud-model { font-size: 11.5px; font-weight: 750; color: var(--text-3); }
-.aud-role { margin-top: 6px; font-size: 12px; line-height: 1.45; color: var(--text-2); }
+.aud-name { font-size: 14px; font-weight: 830; color: var(--text); }
+/* 후원사 표기 — 4개 국산 LLM 정체성이라 텍스트로 유지한다.
+   로고는 허가·에셋 확보 시 이 줄 왼쪽에 12px 단색으로만 (03_components.md §8) */
+.aud-model { margin-top: 4px; font-size: 11.5px; font-weight: 750; color: var(--text-3); }
 
 /* 아직 안 온 것과 실패한 것은 다르게 보인다 */
 .aud-block { margin: 0 0 14px; font-size: 13.5px; font-weight: 650; }

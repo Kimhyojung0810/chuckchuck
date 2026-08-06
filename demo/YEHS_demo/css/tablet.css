@@ -524,3 +524,12 @@
   .qres-main small { margin-top: 1px; }
   .cere-actions { margin-top: 12px; }
 }
+
+/* 랜딩의 진행 점·구역 버튼은 보이는 크기가 7~13px 이라 손가락으로 못 누른다.
+   점은 그대로 두고 히트 영역만 44px 로 키운다 (보이는 모양은 안 바뀐다).
+   축소된 제품 목업(.app-frame·.demo-panel) 안의 요소는 장식이라 건드리지 않는다 */
+@media (min-width: 900px) {
+  .land-progress button { padding: 0; min-width: 44px; min-height: 44px; }
+  .landing-main > section button:not(.app-frame button):not(.demo-panel button),
+  .landing-main .av.go { min-height: 44px; }
+}

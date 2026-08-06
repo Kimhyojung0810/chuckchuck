@@ -37,8 +37,10 @@
   };
   const SEAT_ORDER = ['midm', 'solar', 'exaone', 'ax'];
   const NAMES = { midm: '믿:음', solar: '쏠라', exaone: '엑사원', ax: '엑씨' };
+  /* 도장 잉크. 판정 색이 아니라 자유 색이라 새 팔레트를 따라간다
+     (docs/design_improvement/04_screens.md §6) */
   const STAMP_COLOR = {
-    happy: '#3aa76d', neutral: '#8b93a7', curious: '#d99b2b', grumpy: '#d1584f',
+    happy: '#08B879', neutral: '#8AA295', curious: '#F0A93C', grumpy: '#D1584F',
   };
 
   /* ------------------------------------------------------------------ */
@@ -277,8 +279,13 @@
   function wallHtml() {
     const shows = load().slice().reverse();
     if (!shows.length) {
+      /* 캐릭터는 얹는 층이라, Chatter 가 아직 안 붙었으면 문구만 나온다 */
+      const bird = (window.Chatter && Chatter.chickSvg)
+        ? `<span class="pb-bird ch-seat" data-mood="curious" aria-hidden="true">${Chatter.chickSvg('exaone')}</span>`
+        : '';
       return `
         <section class="card pb-wall pb-empty">
+          ${bird}
           <div class="pb-banner">오늘 개관!</div>
           <p class="pb-openline">첫 발표를 연습하면 포스터가 한 장 붙어요.<br>
              병아리 넷도 오늘이 첫 출근이라 두리번거리고 있어요.</p>
