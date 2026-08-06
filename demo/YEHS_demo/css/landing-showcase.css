@@ -6,11 +6,11 @@
 */
 
 
-.speech-card{position:absolute;z-index:3;right:0;bottom:7%;width:min(500px,66%);padding:22px 24px 21px;border:1px solid rgba(108,213,164,.34);border-radius: 24px 24px 8px;background:#10362ee0;box-shadow:0 28px 70px #061e197a,inset 0 1px #ffffff14;backdrop-filter:blur(16px);transform:rotate(2deg) translate(16px,12px);transition:transform 1.2s .18s cubic-bezier(.16,.9,.23,1)}
+.speech-card{position:absolute;z-index:3;right:0;bottom:7%;width:min(500px,66%);padding:22px 24px 21px;border:1px solid rgba(108,213,164,.34);border-radius: 24px 24px 8px;background:#10362ee0;box-shadow:0 28px 70px #061e197a,inset 0 1px #ffffff14;transform:rotate(2deg) translate(16px,12px);transition:transform 1.2s .18s cubic-bezier(.16,.9,.23,1)}
 
 .hero-ready .speech-card{transform:rotate(.5deg) translate(0)}
 
-.speech-head{display:flex;align-items:center;gap:8px;color:#a2d2c8;font-size:10px;font-weight: 750;letter-spacing:.08em}
+.speech-head{display:flex;align-items:center;gap:8px;color:#a2d2c8;font-size: 11px;font-weight: 600;letter-spacing:.08em}
 
 .speech-card p{margin:0;color:#e1faf5;font-size:clamp(12px,1vw,15px);line-height:1.65}
 
@@ -22,9 +22,9 @@
 
 .ppt-content{position:relative;min-height:455px;padding:48px 52px;color:#fff;background:radial-gradient(440px 300px at 100% 0%,rgba(114,215,195,.35),transparent 70%),linear-gradient(145deg,#255d52,#153e36)}
 
-.ppt-index{color:#99d2c7;font-size:10px;font-weight: 750;letter-spacing:.15em}
+.ppt-index{color:#99d2c7;font-size: 11px;font-weight: 600;letter-spacing:.15em}
 
-.ppt-content h3{margin:17px 0 38px;font-size:clamp(27px,2.4vw,38px);line-height:1.26;letter-spacing:-.04em}
+.ppt-content h3{margin:17px 0 38px;font-size:clamp(27px,2.4vw,38px);line-height:1.26;letter-spacing: -.02em}
 @media(max-width:760px){
 
 .speech-card{width:68%;bottom:1%;padding:15px;border-radius:17px 17px 6px}
@@ -73,17 +73,17 @@
 
 .align-cap .section-label{justify-content:center;color:#9fc9b6}
 
-.align-cap h2{margin:0;font-size:clamp(23px,2.9vw,32px);font-weight: 750;line-height:1.58;letter-spacing:-.4px;
+.align-cap h2{margin:0;font-size:clamp(23px,2.9vw,32px);font-weight: 600;line-height:1.58;letter-spacing:-.4px;
   text-shadow:0 2px 26px #04120d99}
 
-.align-cap p{margin:12px 0 0;color:#9fc9b6;font-size:13.5px;line-height:1.7}
+.align-cap p{margin:12px 0 0;color:#9fc9b6;font-size: 13px;line-height:1.7}
 
 /* 칸 너비 = 그 슬라이드에 실제로 쓴 시간. 규칙이 아니라 데이터가 레이아웃을 만든다 */
 .slides-row{display:flex;gap:13px;margin-bottom:34px;align-items:stretch}
 .slides-row .sl{flex:0 1 0;min-width:74px}
 
 .slides-row .sl{width:126px;height:80px;border-radius: var(--r-print);display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight: 750;color:#a9cabb;background:rgba(255,255,255,.05);
+  font-size: 12px;font-weight: 600;color:#a9cabb;background:rgba(255,255,255,.05);
   border:1.5px solid rgba(255,255,255,.14);transition:all .35s}
 
 .slides-row .sl.on{border-color:#3fd599;background:rgba(63,213,153,.13);color:#fff;transform:translateY(-5px);
@@ -102,7 +102,7 @@
   transition:opacity .3s;box-shadow:0 0 10px rgba(240,180,41,.55)}
 
 .scrub-timeline .marker:after{content:attr(data-l);position:absolute;top:-24px;left:50%;transform:translateX(-50%);
-  font-size:10px;font-weight: 830;color:#ffd35c;white-space:nowrap;letter-spacing:.02em}
+  font-size: 11px;font-weight: 700;color:#ffd35c;white-space:nowrap;letter-spacing:.02em}
 
 .scrub-timeline .marker.revisit{background:#76e4b8;box-shadow:0 0 10px rgba(118,228,184,.55)}
 
@@ -110,18 +110,18 @@
 
 .bind-sentence{margin-top:30px;min-height:56px;text-align:center;max-width:760px}
 
-.bind-sentence .s{display:none;color:#d7e8de;font-size:14.5px;line-height:1.75}
+.bind-sentence .s{display:none;color:#d7e8de;font-size: 15px;line-height:1.75}
 
 .bind-sentence .s b{color:#76e4b8}
 
 .bind-sentence .s.on{display:block;animation:demoIn .4s ease both}
 @media(max-width:760px){
 
-.slides-row .sl{width:64px;height:52px;font-size:9px;border-radius: var(--r-ctl)}
+.slides-row .sl{width:64px;height:52px;font-size: 11px;border-radius: var(--r-ctl)}
 
 .scrub-timeline{height:84px;padding:0 12px}
 
-.bind-sentence .s{font-size:12.5px}
+.bind-sentence .s{font-size: 13px}
 }
 
 .example-section{background:
@@ -158,21 +158,21 @@
 
 .align-cap h2{font-size:clamp(27px,3.4vw,42px);line-height:1.5}
 
-.align-cap p{font-size:15.5px}
+.align-cap p{font-size: 15px}
 
 .slides-row{gap:16px;margin-bottom:44px}
 
-.slides-row .sl{width:176px;height:110px;border-radius: var(--r-print);font-size:15px}
+.slides-row .sl{width:176px;height:110px;border-radius: var(--r-print);font-size: 15px}
 
 .scrub-timeline{width:min(88vw,1080px);height:132px;border-radius: var(--r-print);gap:3.5px;padding:0 24px}
 
 .scrub-timeline i{flex:1 1 0;min-width:2.5px}
 
-.scrub-timeline .marker:after{font-size:12.5px;top:-28px}
+.scrub-timeline .marker:after{font-size: 13px;top:-28px}
 
 .bind-sentence{margin-top:38px;min-height:66px;max-width:900px}
 
-.bind-sentence .s{font-size:17.5px}
+.bind-sentence .s{font-size: 17px}
 
 .speech-card{box-shadow:0 2px 4px rgba(11,36,30,.14),0 30px 70px rgba(11,36,30,.22)}
 
@@ -180,9 +180,9 @@
 .slides-row .sl{flex-direction:column;align-items:flex-start;justify-content:flex-start;
   padding:16px 18px;width:196px;height:126px;gap:8px;display:flex}
 
-.slides-row .sl>b{font-size:12.5px;font-weight: 830;color:#8aa295;letter-spacing:.06em}
+.slides-row .sl>b{font-size: 13px;font-weight: 700;color:#8aa295;letter-spacing:.06em}
 
-.slides-row .sl>span{font-size:16px;font-weight: 750;color:var(--navy);line-height:1.3}
+.slides-row .sl>span{font-size: 16px;font-weight: 600;color:var(--navy);line-height:1.3}
 
 .slides-row .sl .mini{margin-top:auto;display:flex;flex-direction:column;gap:4px;width:100%}
 
@@ -198,7 +198,7 @@
 
 .bind-sentence{min-height:96px}
 
-.bind-sentence .line{margin:0;font-size:clamp(19px,1.9vw,26px);font-weight: 750;color:var(--navy);
+.bind-sentence .line{margin:0;font-size:clamp(19px,1.9vw,26px);font-weight: 600;color:var(--navy);
   line-height:1.6;word-break:keep-all}
 
 .bind-sentence .w{opacity:.28;transition:opacity .12s}
@@ -207,7 +207,7 @@
 
 .bind-sentence .w.now{opacity:1;color:#0a8f68;box-shadow:inset 0 -2px 0 #3fd599}
 
-.bind-sentence small{display:block;margin-top:12px;font-size:14.5px;font-weight: 750;color:#5f6f66}
+.bind-sentence small{display:block;margin-top:12px;font-size: 15px;font-weight: 600;color:#5f6f66}
 
 .bind-sentence small.re{color:#9a6a08}
 
@@ -216,11 +216,11 @@
 
 .align-summary.on{opacity:1;transform:none}
 
-.align-summary small{display:block;font-size:12.5px;font-weight: 830;letter-spacing:.08em;color:#8aa295;margin-bottom:12px}
+.align-summary small{display:block;font-size: 13px;font-weight: 700;letter-spacing:.08em;color:#8aa295;margin-bottom:12px}
 
 .align-summary div{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
 
-.align-summary span{font-size:14px;font-weight: 750;color:#46584f;background:#fff;border-radius: var(--r-ctl);
+.align-summary span{font-size: 14px;font-weight: 600;color:#46584f;background:#fff;border-radius: var(--r-ctl);
   padding:10px 15px;box-shadow:inset 0 0 0 1px #dfe4de}
 
 .align-summary span b{color:var(--navy);margin-left:4px}
@@ -240,7 +240,7 @@
 
 .playhead i{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%)}
 
-.playhead i:after{content:attr(data-t);font-size:12px;font-weight: 830;color:#0a3d2a;background:#faf9f6;
+.playhead i:after{content:attr(data-t);font-size: 12px;font-weight: 700;color:#0a3d2a;background:#faf9f6;
   border-radius:7px;padding:3px 9px;white-space:nowrap;box-shadow:0 2px 8px rgba(11,36,30,.2)}
 
 .slides-row .sl.revisit{background:linear-gradient(180deg,#8a6a15,#5f4a0e)}
@@ -268,7 +268,7 @@
 
 .sl-track .v2{background:#f0b429}
 
-.sl-sec{font-size:10px;color:#5f6f66;font-style:normal;min-width:26px;text-align:right}
+.sl-sec{font-size: 11px;color:#5f6f66;font-style:normal;min-width:26px;text-align:right}
 
 .slides-row .sl.on .sl-track{background:rgba(255,255,255,.22)}
 
@@ -289,7 +289,7 @@
 /* A③ 종료 판정 칩 */
 .align-verdicts{margin-top:18px}
 
-.align-verdicts small{display:block;font-size:11px;font-weight: 750;letter-spacing:.14em;color:#70978f;margin-bottom:9px}
+.align-verdicts small{display:block;font-size: 11px;font-weight: 600;letter-spacing:.14em;color:#70978f;margin-bottom:9px}
 
 .align-verdicts>div{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 
@@ -298,12 +298,12 @@
 
 .slides-row .sl{flex:1 1 0;min-width:0;padding:13px 12px 11px}
 
-.slides-row .sl b{font-size:11px}
+.slides-row .sl b{font-size: 11px}
 
-.slides-row .sl>span{font-size:13.2px;letter-spacing:-.02em;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slides-row .sl>span{font-size: 13px;letter-spacing:-.02em;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .slides-row .sl .mini i:last-child{display:none}
 @media (max-width:1500px){
 
-.slides-row .sl>span{font-size:12.4px}
+.slides-row .sl>span{font-size: 12px}
 }

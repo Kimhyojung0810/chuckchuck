@@ -2376,7 +2376,14 @@ function reportVerdict() {
       score: real.score,
       dims: real.dims,
       mood: real.mood,
-      headline: real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요',
+      /* 큰 글씨는 한 줄이다. 예전엔 안내 문구를 전부 ' · ' 로 이어 붙여
+         22px 굵은 글씨로 3~4줄을 쌓았다 — 결과 화면에서 가장 먼저 읽는 자리에
+         가장 안 중요한 말이 가장 크게 있었다. 판단은 헤드, 단서는 아래 작은 줄. */
+      headline: real.score >= 90 ? '아주 잘 전달했어요'
+        : real.score >= 75 ? '핵심은 잘 전달됐어요'
+          : real.score >= 60 ? '전달은 됐고, 보완할 곳이 보여요'
+            : '다음 발표에서 더 좋아질 수 있어요',
+      subnotes: real.notes,
       // 어느 기준으로 매겼는지 숨기지 않는다. 폴백이면 폴백이라고 쓴다
       delta: `<span class="prev num">${
         real.isFallback ? '예전 방식' : '채점표 v3'
@@ -2453,6 +2460,10 @@ async function renderReport() {
           </div>
           <div class="verdict-judgement">
             <h2>${escapeHtml(v.headline)}</h2>
+            ${(v.subnotes || []).length
+              ? `<ul class="verdict-subnotes">${v.subnotes
+                  .map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
+              : ''}
             <div class="verdict-dims">
               ${v.dims.map(d => `
               <div class="vd">
