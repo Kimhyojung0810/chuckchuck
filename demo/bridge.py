@@ -58,6 +58,8 @@ PAID_PATHS = frozenset({
     "/api/v1/habits",
     "/api/v1/report",
     "/api/v1/questions",
+    # F-14 는 묶음마다 LLM 을 부른다 (최대 4콜) — 레이트 리밋 대상이다
+    "/api/v1/rubric",
 })
 
 #: CORS 허용 origin. 기본은 브리지 자신(같은 출처)이라 헤더가 필요 없고,
@@ -78,6 +80,27 @@ ALLOWED_AUDIO_EXTS = frozenset(
     {".webm", ".m4a", ".mp4", ".mp3", ".wav", ".ogg", ".oga", ".flac", ".aac"}
 )
 DEFAULT_AUDIO_EXT = ".webm"
+
+
+def with_hint_ladders(payload: dict, questions: list) -> dict:
+    """
+    QuestionDoc 직렬화 결과에 질문별 힌트 사다리를 얹은 **새 dict** 를 준다.
+
+    Question 이 들고 있는 힌트는 `hint` 문자열 하나뿐이라, 이걸 안 실으면 화면은
+    첫 판정을 받기 전까지 1단계밖에 못 보여 준다 — 3단계로 만든 사다리가
+    첫 칸에서 끝난다. `build_hint_ladder` 는 LLM 을 부르지 않으니 공짜다.
+
+    판정이 없는 시점이라 사다리는 3단계(방향·범위·접근)까지다. 4단계(근접)는
+    답을 받아 본 뒤에야 F-09 가 판정과 함께 채운다.
+    """
+    from chuckchuck.f08_questions import build_hint_ladder
+
+    by_id = {q.id: q for q in questions}
+    items = []
+    for item in payload.get("questions") or []:
+        q = by_id.get(item.get("id"))
+        items.append({**item, "hints": build_hint_ladder(q)} if q else item)
+    return {**payload, "questions": items}
 
 
 def _safe_audio_ext(raw: str | None) -> str:
@@ -304,6 +327,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_chatter(raw)
             if parsed.path == "/api/v1/score":
                 return self._handle_score(raw)
+            if parsed.path == "/api/v1/rubric":
+                return self._handle_rubric(raw)
             if parsed.path == "/api/v1/pace":
                 return self._handle_pace(raw)
             if parsed.path == "/api/v1/habits":
@@ -635,6 +660,53 @@ class Handler(SimpleHTTPRequestHandler):
         )
         return self._json(200, result.to_dict())
 
+    def _handle_rubric(self, raw: bytes):
+        """
+        F-14 · 채점표 v3 로 0~100 점. 파이프라인 산출물을 모아서 보낸다.
+
+        **바디가 전부 optional 이다.** 없는 자료에 기대는 항목만 '못 쟀다'가 되고
+        나머지는 정상 채점된다 — 부스에서 앞 단계 하나가 죽어도 점수는 뜬다.
+        """
+        from chuckchuck import from_legacy_score, score_presentation, score_rubric
+        from chuckchuck.contracts import AlignmentDoc, FlowDiff
+
+        body = json.loads(raw or b"{}")
+        llm = "mock" if _mock() else body.get("llm")
+        try:
+            result = score_rubric(
+                situation=body.get("situation"),
+                context=body.get("context"),
+                slides=body.get("slides"),
+                concepts=body.get("concepts"),
+                graph=body.get("graph"),
+                transcript=body.get("transcript"),
+                alignment=body.get("alignment"),
+                flow=body.get("flow"),
+                pace=body.get("pace"),
+                habits=body.get("habits"),
+                llm=llm,
+            )
+        except Exception as e:  # noqa: BLE001
+            # 채점표가 죽었을 때 마지막 방어선 — 정합 판정이 있으면 예전 방식으로라도 매긴다.
+            # 부스에서 점수가 아예 안 뜨는 것보다 낫고, 폴백인 건 숨기지 않는다.
+            sys.stderr.write(f"[bridge] F-14 실패, F-13 폴백: {e}\n")
+            if not body.get("alignment"):
+                return self._json(
+                    502,
+                    {"error": "rubric_failed", "message": "채점표로 매기지 못했어요. 잠시 뒤 다시 해 주세요."},
+                )
+            legacy = score_presentation(
+                AlignmentDoc.from_dict(body["alignment"]),
+                FlowDiff.from_dict(body["flow"]) if body.get("flow") else None,
+            )
+            result = from_legacy_score(legacy, body.get("situation"))
+
+        sys.stderr.write(
+            f"[bridge] F-14 score={result.score} situation={result.situation} "
+            f"basis={result.basis} 제외={result.excluded} 못잼={result.unmeasured}\n"
+        )
+        return self._json(200, result.to_dict())
+
     def _handle_pace(self, raw: bytes):
         """F-17 · Transcript(+ConceptDoc/Context) → PaceDoc. LLM 없음."""
         from chuckchuck.contracts import Transcript
@@ -691,10 +763,11 @@ class Handler(SimpleHTTPRequestHandler):
         habits = HabitDoc.from_dict(body["habits"])
         ctx = Context.from_dict(body.get("context") or {})
         llm = "mock" if _mock() else body.get("llm")
-        report = compose_report(pace, habits, ctx, llm=llm)
+        # 점수는 채점표(F-14)가 진실이다. rubric 을 같이 보내면 그 점수를 싣고,
+        # 안 보내면 0 으로 둔다 — 여기서 두 번째 점수를 만들지 않는다.
+        report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), llm=llm)
         sys.stderr.write(
-            f"[bridge] F-19 report done score={report.score} grade={report.grade} "
-            f"model={report.model}\n"
+            f"[bridge] F-19 report done score={report.score} model={report.model}\n"
         )
         return self._json(200, report.to_dict())
 
@@ -862,7 +935,7 @@ class Handler(SimpleHTTPRequestHandler):
         sys.stderr.write(
             f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} model={doc.model}\n"
         )
-        return self._json(200, doc.to_dict())
+        return self._json(200, with_hint_ladders(doc.to_dict(), doc.questions))
 
     def _handle_qa_judge(self, raw: bytes):
         """F-09 · {question_id, answer, history?, question, give_up?} → QaJudgement.

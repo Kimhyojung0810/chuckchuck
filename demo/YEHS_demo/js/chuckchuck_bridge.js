@@ -377,27 +377,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   }
 
 
-  // F-13 점수 — LLM 없는 결정적 계산
+  // 점수는 F-14 채점표가 매긴다. 말 속도·습관까지 있어야 39개 항목이 다 채워지므로
+  // F-17·18 뒤로 옮겼다 (아래 참조).
   let score = null;
-  if (alignment) {
-    try {
-      report('score', '발표 점수 계산 중', { transcript, concepts, graph, alignment, flow });
-      const sRes = await fetch(apiBase() + '/api/v1/score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alignment, flow }),
-      });
-      score = await readJson(sRes, "score");
-      if (!sRes.ok || score.error) {
-        throw new Error(score.message || score.error || `score HTTP ${sRes.status}`);
-      }
-      report('score_done', `${score.score}점 (${score.basis})`,
-        { transcript, concepts, graph, alignment, flow, score });
-    } catch (err) {
-      score = null;
-      report('score_error', err.message || String(err), { transcript, concepts, graph, alignment, flow });
-    }
-  }
 
   // F-17·18·19 — 음성 습관·시간 배분·종합 리포트 (실패해도 STT까지는 유지)
   // callers: app.js runPreparePipeline onProgress / then; APIs /api/v1/pace|habits|report
@@ -438,13 +420,46 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       transcript, concepts, graph, alignment, flow, pace, habits,
     });
 
+    // F-14 채점표 v3 — 39개 항목·7개 클러스터를 발표 상황 가중치로 묶는다.
+    // 앞 단계가 일부 실패해도 부른다. 없는 자료에 기대는 항목만 '못 쟀다'가 되고
+    // 나머지는 정상 채점되므로, 여기서 미리 막으면 오히려 점수가 안 뜬다.
+    try {
+      report('score', '채점표로 점수 매기는 중 (F-14)', {
+        transcript, concepts, graph, alignment, flow, pace, habits,
+      });
+      const sRes = await fetch(apiBase() + '/api/v1/rubric', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          situation: (context || {}).situation || '',
+          context: context || {},
+          slides: slideDoc || null,
+          concepts, graph, transcript: slim, alignment, flow, pace, habits,
+        }),
+      });
+      score = await readJson(sRes, "rubric");
+      if (!sRes.ok || score.error) {
+        throw new Error(score.message || score.error || `rubric HTTP ${sRes.status}`);
+      }
+      report('score_done', `${score.score}점 · ${score.situation_label}`, {
+        transcript, concepts, graph, alignment, flow, pace, habits, score,
+      });
+    } catch (err) {
+      // 점수가 없어도 나머지 화면은 살린다 — 치명적이지 않다
+      score = null;
+      report('score_error', err.message || String(err), {
+        transcript, concepts, graph, alignment, flow, pace, habits,
+      });
+    }
+
     report('voice_report', '종합 진단 리포트 작성 중 (F-19)', {
-      transcript, concepts, graph, alignment, flow, pace, habits,
+      transcript, concepts, graph, alignment, flow, pace, habits, score,
     });
     const rRes = await fetch(apiBase() + '/api/v1/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pace, habits, context: context || {} }),
+      // 점수는 채점표가 진실이다 — F-19 가 두 번째 점수를 만들지 않게 같이 보낸다
+      body: JSON.stringify({ pace, habits, rubric: score, context: context || {} }),
     });
     voiceReport = await readJson(rRes, "report");
     if (!rRes.ok || voiceReport.error) {
@@ -553,6 +568,15 @@ const QA_TIMEOUT_MS = 30000;
 
 /** 질문 생성 한계 시간. 없으면 화면이 영원히 로딩에 갇힌다. */
 const QUESTIONS_TIMEOUT_MS = 60000;
+
+/** 받아쓰기 한계 시간. 없으면 마이크 버튼이 「받아쓰는 중…」에 갇힌다. */
+const TRANSCRIBE_TIMEOUT_MS = 60000;
+
+/**
+ * 답변 녹음 최대 길이. 답변 하나는 원래 짧다 — 무한정 녹음하다 업로드 한도(30MB)에
+ * 부딪혀 413 으로 죽는 것보다, 스스로 끊고 받아쓰는 편이 낫다.
+ */
+const ANSWER_RECORD_MAX_MS = 90000;
 
 /**
  * 타임아웃이 있는 fetch. 응답이 안 오는 경우를 **반드시** 오류로 끝낸다 —
@@ -670,8 +694,166 @@ export async function judgeQaAnswer(sessionId, { questionId, answer, history, qu
   }
 }
 
+/** 실시간 받아쓰기 언어. 발표는 한국어라 고정한다. */
+const DICTATION_LANG = 'ko-KR';
+
+/** Web Speech API 오류 코드 → 사람 말. 코드를 그대로 보여 주면 뭘 하라는 건지 모른다. */
+const DICTATION_ERRORS = {
+  'not-allowed': '마이크 권한이 없어요.',
+  'service-not-allowed': '브라우저가 받아쓰기를 막았어요.',
+  'audio-capture': '마이크를 찾지 못했어요.',
+  network: '받아쓰기 서버에 닿지 못했어요.',
+};
+
+/** 브라우저가 실시간 받아쓰기를 해 주는가. Chrome·Edge 는 되고 Safari·Firefox 는 안 된다. */
+export function hasLiveDictation() {
+  return typeof (window.SpeechRecognition || window.webkitSpeechRecognition) === 'function';
+}
+
+/**
+ * 말하는 대로 글자가 나오는 실시간 받아쓰기 (Web Speech API).
+ *
+ * `startAnswerRecording` 은 다 말한 뒤 파일을 통째로 올려 STT 를 돌리므로 구조상
+ * 실시간이 안 된다. 이쪽은 브라우저가 확정 전 조각(interim)까지 흘려 주므로
+ * 말하는 중에 글자가 뜬다.
+ *
+ * **대신 브라우저 기능이라 지원이 갈리고, 크롬은 음성을 구글 서버로 보낸다.**
+ * 못 쓰는 브라우저에서는 호출부가 녹음 + 자체 STT 로 되돌아간다.
+ *
+ * @param {{ onText: (parts: {final: string, interim: string}) => void,
+ *           onError: (message: string) => void }} handlers
+ * @returns {{ stop: () => string }} stop 은 확정된 전문을 준다
+ */
+export function startLiveDictation({ onText, onError }) {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (typeof Recognition !== 'function') {
+    throw new Error('이 브라우저는 실시간 받아쓰기를 지원하지 않아요.');
+  }
+  const rec = new Recognition();
+  rec.lang = DICTATION_LANG;
+  rec.continuous = true;       // 한 문장 끝났다고 멈추지 않는다
+  rec.interimResults = true;   // 확정 전 글자도 준다 — 이게 「실시간」의 핵심이다
+
+  let stopped = false;
+  let settled = '';
+
+  rec.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const chunk = e.results[i][0].transcript;
+      if (e.results[i].isFinal) settled += chunk;
+      else interim += chunk;
+    }
+    onText({ final: settled, interim });
+  };
+  rec.onerror = (e) => {
+    // no-speech·aborted 는 알릴 일이 아니다 — 잠깐 말이 없었을 뿐, 곧 이어서 말한다.
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    // 나머지(권한 거부·마이크 없음·네트워크)는 다시 시작해도 같은 오류가 난다.
+    // **여기서 안 끊으면** 크롬이 onerror 뒤에 onend 를 쏘고, onend 가 다시
+    // start() 를 불러 onerror 로 돌아오는 고리가 끝없이 돈다.
+    stopped = true;
+    onError(DICTATION_ERRORS[e.error] || `받아쓰기 오류: ${e.error}`);
+  };
+  rec.onend = () => {
+    // 크롬은 조용하면 제풀에 끊는다. 사용자가 멈춘 게 아니면 다시 잇는다.
+    if (stopped) return;
+    try { rec.start(); } catch (_) { /* 이미 도는 중 */ }
+  };
+  rec.start();
+
+  return {
+    stop() {
+      stopped = true;
+      try { rec.stop(); } catch (_) { /* 이미 멈춤 */ }
+      return settled.trim();
+    },
+  };
+}
+
+/**
+ * QA 답변용 마이크 녹음. 리허설 녹음과 달리 슬라이드 구간이 없다 — 짧은 음성
+ * 한 덩이만 받으므로 `RehearsalRecorder` 는 포맷 고르기만 물려 쓴다.
+ *
+ * 반환한 `stop()` 은 녹음이 실제로 끝난 뒤의 Blob 을 준다. `MediaRecorder.stop()`
+ * 은 비동기라 바로 chunks 를 읽으면 마지막 조각이 빠진다.
+ *
+ * @param {{ onAutoStop?: () => void }} [opts]
+ * @returns {Promise<{ maxMs: number, stop: () => Promise<Blob> }>}
+ */
+export async function startAnswerRecording({ onAutoStop } = {}) {
+  if (!navigator.mediaDevices || typeof window.MediaRecorder !== 'function') {
+    throw new Error('이 브라우저는 녹음을 지원하지 않아요.');
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mimeType = (typeof RehearsalRecorder === 'function' && RehearsalRecorder.pickMimeType)
+    ? RehearsalRecorder.pickMimeType()
+    : '';
+  const rec = new window.MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const chunks = [];
+  rec.addEventListener('dataavailable', (e) => {
+    if (e.data && e.data.size) chunks.push(e.data);
+  });
+
+  let settle = null;
+  const done = new Promise((resolve) => { settle = resolve; });
+  rec.addEventListener('stop', () => {
+    // 트랙을 안 끄면 탭의 「녹음 중」 표시가 계속 켜져 있다
+    stream.getTracks().forEach((t) => t.stop());
+    settle(new Blob(chunks, { type: rec.mimeType || mimeType || 'audio/webm' }));
+  });
+  rec.start();
+
+  const halt = () => {
+    if (rec.state !== 'inactive') {
+      try { rec.stop(); } catch (_) { /* 이미 멈춘 뒤 */ }
+    }
+  };
+  const auto = setTimeout(() => {
+    halt();
+    if (typeof onAutoStop === 'function') onAutoStop();
+  }, ANSWER_RECORD_MAX_MS);
+
+  return {
+    maxMs: ANSWER_RECORD_MAX_MS,
+    stop() {
+      clearTimeout(auto);
+      halt();
+      return done;
+    },
+  };
+}
+
+/**
+ * 답변 녹음 한 덩이 → 텍스트 (F-05). 슬라이드 마크 없이 전문만 쓴다.
+ *
+ * **여기서 답을 보내지 않는다.** 잘못 알아들은 문장을 고칠 틈 없이 판정으로
+ * 넘어가면, 마이크가 타이핑보다 못한 입력이 된다.
+ */
+export async function transcribeAnswer(blob) {
+  if (!blob || !blob.size) throw new Error('녹음된 소리가 없어요.');
+  const res = await fetchWithTimeout(apiBase() + '/api/v1/transcribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      marks: [],
+      audio_base64: await blobToBase64(blob),
+      ext: audioExt({ mimeType: blob.type }),
+    }),
+  }, TRANSCRIBE_TIMEOUT_MS, '받아쓰기');
+  const t = await readJson(res, '받아쓰기');
+  if (!res.ok || t.error) {
+    throw new Error(t.message || t.error || `transcribe HTTP ${res.status}`);
+  }
+  return String(t.full_text || '').trim();
+}
+
 window.ChuckchuckBridge = {
   attachRehearsalRuntime,
+  startAnswerRecording,
+  transcribeAnswer,
+  hasLiveDictation,
+  startLiveDictation,
   parseDocument,
   runPreparePipeline,
   audioExt,

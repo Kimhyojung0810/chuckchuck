@@ -1056,10 +1056,95 @@ API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/
 | 산점도·diff 뷰 (프론트) | `AlignmentDoc.items[]` (`doc_weight` × `speech_weight`) + `summary` |
 | 논리 흐름 탭 (프론트) | `FlowDiff.issues[]` + `order_tau` |
 | F-12 삐약 청중석 | `ConceptGraph` + `AlignmentDoc` + `FlowDiff` → `ChatterDoc` |
-| F-13 발표 점수 | `AlignmentDoc` (+ `FlowDiff`) → `PresentationScore` |
+| F-13 발표 점수 (폴백) | `AlignmentDoc` (+ `FlowDiff`) → `PresentationScore` |
+| **F-14 채점표 채점** | 파이프라인 산출물 전부(선택) → `RubricScore` |
 | F-17 말 속도·시간 배분 | `Transcript` + `Context` (+ `ConceptDoc`) → `PaceDoc` |
 | F-18 음성 습관 | `Transcript` → `HabitDoc` (REP/FIL/PAUSE) |
-| F-19 음성 종합 리포트 | `PaceDoc` + `HabitDoc` → `ReportDoc` |
+| F-19 음성 종합 리포트 | `PaceDoc` + `HabitDoc` (+ `RubricScore`) → `ReportDoc` |
+
+---
+
+## 10-A. F-14 채점표 채점 — `RubricScore`
+
+기준 원본은 `docs/발표평가_상황별_채점표_v3.xlsx`, **코드가 읽는 원본은
+`chuckchuck/rubric_v3.py`** 다 (런타임에 xlsx 를 읽지 않는다 — openpyxl 이 없고
+파일명이 NFD 라 리터럴 경로 open 이 실패한다). 실행 계획은
+[`RUBRIC_SCORING_PLAN.md`](RUBRIC_SCORING_PLAN.md).
+
+### 구조
+
+- **상황 4종** `school_project` · `product_launch` · `work_report` · `casual_peer`
+- **클러스터 7종** `content` 내용 충실도 · `logic` 논리 구조 · `audience` 목적·청중 적합성 ·
+  `clarity` 언어적 명료성 · `delivery` 음성적 전달 · `visual` 시각자료 활용 · `time` 시간 관리
+- **세부 항목 39종** — 결정 채점 19 · LLM 채점 18 · 측정 불가 2 (25 음량 안정성, 26 핵심 구간 강조)
+
+### 집계 (채점표 `점수산정` 시트와 같은 식)
+
+```
+클러스터 평균  avg_c = Σ(항목점수 × 내부가중치) / Σ(내부가중치)     # scored 항목만
+유효 가중치    eff_c = W_c(상황) / Σ(살아있는 클러스터의 W)          # 빠진 몫을 재분배
+최종          score = round(Σ(avg_c × eff_c))
+```
+
+**불변식** — 살아 있는 클러스터의 `effective_weight` 합은 1.0 · `score == round(Σ contribution)` ·
+빠진 게 없으면 `effective_weight == weight/100` 으로 채점표 시트와 자릿수까지 같다.
+
+### 항목 상태 — 셋을 절대 섞지 않는다
+
+| `status` | 뜻 | 화면 문구 |
+|---|---|---|
+| `scored` | 실제로 매겼다 | 점수와 근거를 보여 준다 |
+| `situation_excluded` | 이 상황에서는 평가하지 않는 항목 (채점표 가중치 0) | "이 상황에서는 평가하지 않아요" |
+| `unmeasured` | 평가해야 하는데 이번에 못 쟀다 | "이번엔 측정할 수 없었어요" |
+
+`unmeasured` 는 **0점이 아니다.** 가중치에서 빠지고 남은 항목에 다시 나뉜다.
+뒤의 둘을 한 필드에 담으면 이번 개편이 걷어낸 그 블랙박스가 그대로 다시 생긴다.
+
+`basis` 는 `full` | `partial` 이고, **영구 측정 불가 항목(25·26)은 계산에서 뺀다** —
+이 둘까지 세면 `full` 이 영영 안 나오고 늘 켜진 경고는 아무도 안 읽는다.
+
+### 응답 예시
+
+```jsonc
+{
+  "score": 67,
+  "situation": "school_project",
+  "situation_label": "학교 프로젝트 (교수 대상)",
+  "rubric_version": "v3",              // "v3-fallback" 이면 F-13 으로 매긴 것
+  "clusters": [
+    { "key": "content", "name": "내용 충실도", "weight": 26,
+      "effective_weight": 0.26, "average": 70.4, "contribution": 18.3,
+      "item_nos": [2, 3, 6], "status": "scored" }
+  ],
+  "items": [
+    { "no": 1, "cluster": "content", "name": "핵심 개념 커버리지", "status": "scored",
+      "score": 75, "weight": 9, "source": "det",
+      "evidence": "핵심 개념 12개 중 9개를 실제로 설명했어요 (비중 반영 커버리지 75%)",
+      "note": "" }
+  ],
+  "excluded": [12, 15, 16],
+  "unmeasured": [25, 26],
+  "basis": "full",
+  "model": "solar",
+  "note": ""
+}
+```
+
+**보증 (불변식):** ① 입력은 **전부 optional** — 없는 자료에 기대는 항목만 빠지고
+나머지는 정상 채점된다 ② 아무것도 못 재면 0점 + `note`, 예외를 던지지 않는다
+③ **`evidence` 가 빈 LLM 점수는 채택하지 않는다** — 근거 없는 숫자는 안 매긴 것만 못하다
+④ 요청하지 않은 항목 번호는 버리고 점수는 0~100 으로 자른다
+⑤ LLM 묶음 하나가 죽어도 그 항목만 `unmeasured` 가 되고 나머지는 살아남는다
+⑥ 모의 STT 에서는 22·23·24 를 강제로 `unmeasured` 로 둔다 (균등 간격이라 침묵이
+구조적으로 0 이고 말속도가 상수라, 그대로 채점하면 음성 전달이 가짜 만점이 된다).
+
+### LLM 계약
+
+`[TASK] rubric-score` — 묶음(클러스터)별로 한 번씩, 최대 4콜을 병렬로 부른다.
+
+```json
+{ "items": [ { "no": 2, "score": 78, "evidence": "발화에서 그대로 가져온 문장", "note": "한 문장 설명" } ] }
+```
 
 ---
 

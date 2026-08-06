@@ -19,9 +19,10 @@
 | F-11 파생 | `chuckchuck/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
 | F-12 | `chuckchuck/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
 | F-13 | `chuckchuck/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
+| **F-14** | `chuckchuck/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
 | F-17 | `chuckchuck/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
 | F-18 | `chuckchuck/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
-| F-19 | `chuckchuck/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
+| F-19 | `chuckchuck/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
 공통 계약은 `chuckchuck/contracts.py` 하나다. 설정은 `chuckchuck/config.py` (`settings.masked()`).
 

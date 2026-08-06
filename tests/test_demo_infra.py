@@ -11,6 +11,24 @@ from demo.rate_limit import RateLimiter
 from demo.session_store import SessionStore, fingerprint
 
 
+def _question(**over):
+    """힌트 사다리 검사용 질문 하나. F-08 이 실제로 채우는 필드만 채운다."""
+    from chuckchuck.contracts import Question
+
+    base = dict(
+        id="q1",
+        node_id="n1",
+        label="대조학습",
+        question="대조학습으로 정렬했다는 근거가 무엇인가요?",
+        why="자료가 근거 장을 갖고 있다",
+        hint="핵심을 한 문장으로 먼저 말해 보세요",
+        slide_nos=[3, 4],
+        answer_gist="영상·텍스트와 같은 공간에 IMU 를 맞춘다",
+    )
+    base.update(over)
+    return Question(**base)
+
+
 class FakeClock:
     """수동으로 감는 시계."""
 
@@ -199,3 +217,53 @@ def test_retry_after_counts_down():
 
     clock.advance(20)
     assert 1 <= limiter.retry_after("ip") <= 41
+
+
+# ---------------------------------------------------------------------------
+# 힌트 사다리 (F-08 → /api/v1/questions 응답)
+# ---------------------------------------------------------------------------
+
+
+def test_questions_payload_carries_multi_step_hints():
+    """
+    판정 전에도 힌트가 2단계 이상 실려야 한다.
+
+    하나만 실리면 화면(qa_live.js)이 1단계를 보여 준 뒤 버튼을 지운다 —
+    3단계로 설계한 사다리가 첫 칸에서 끝나 버린다.
+    """
+    from demo.bridge import with_hint_ladders
+
+    q = _question()
+    out = with_hint_ladders({"questions": [{"id": q.id}]}, [q])
+
+    assert len(out["questions"][0]["hints"]) >= 2
+
+
+def test_hint_ladder_starts_with_the_questions_own_hint():
+    """1단계는 F-08 이 질문과 함께 만든 힌트다 — 사다리가 딴 데서 시작하면 안 된다."""
+    from demo.bridge import with_hint_ladders
+
+    q = _question(hint="근거로 삼은 장부터 짚어 보세요")
+    out = with_hint_ladders({"questions": [{"id": q.id}]}, [q])
+
+    assert out["questions"][0]["hints"][0] == "근거로 삼은 장부터 짚어 보세요"
+
+
+def test_with_hint_ladders_does_not_mutate_the_input_payload():
+    """doc.to_dict() 를 제자리에서 고치면 호출자가 쥔 문서까지 같이 바뀐다."""
+    from demo.bridge import with_hint_ladders
+
+    payload = {"questions": [{"id": "q1"}]}
+    with_hint_ladders(payload, [_question()])
+
+    assert "hints" not in payload["questions"][0]
+
+
+def test_questions_without_a_matching_object_are_left_alone():
+    """짝이 없으면 힌트만 빠진다 — 목록이 어긋났다고 응답 전체를 죽이지 않는다."""
+    from demo.bridge import with_hint_ladders
+
+    out = with_hint_ladders({"questions": [{"id": "q1"}, {"id": "q9"}]}, [_question()])
+
+    assert out["questions"][0]["hints"]
+    assert "hints" not in out["questions"][1]

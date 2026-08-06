@@ -5,8 +5,10 @@
 판정이 짚은 빠진 포인트)만 재료로 쓰기 때문에, 사용자가 힌트를 눌렀을 때
 기다림 없이 나와야 합니다. 그래서 이 파일에는 가짜 LLM 조차 없습니다.
 
-단계는 갈수록 구체적입니다 — 방향 → 범위 → 근접.
+단계는 갈수록 구체적입니다 — 방향 → 범위 → 접근 → 근접.
 어느 단계에서도 답을 그대로 말해 주지 않습니다.
+
+앞의 세 단계는 질문만으로 만들어지고, 마지막 근접 단계만 판정을 필요로 합니다.
 """
 
 from __future__ import annotations
@@ -54,16 +56,28 @@ def make_judgement(**kwargs) -> QaJudgement:
 # 단계 구성
 # ---------------------------------------------------------------------------
 
-def test_판정_전에는_두_단계까지만():
+def test_판정_전에도_세_단계가_나온다():
     """
-    아직 답하지도 않은 사람에게 '뭘 빠뜨렸다' 고 말할 수 없다.
-    3단계는 판정이 있어야 성립한다.
+    방향 · 범위 · 접근은 질문만으로 만들 수 있다. 답하기 전에 두 단계에서
+    끊기면 화면의 힌트 버튼이 금방 사라져 사다리 구실을 못 한다.
     """
-    assert len(build_hint_ladder(make_question())) == 2
+    assert len(build_hint_ladder(make_question())) == 3
 
 
-def test_판정이_있으면_세_단계():
-    assert len(build_hint_ladder(make_question(), make_judgement())) == 3
+def test_판정이_있으면_네_단계():
+    """
+    4단계(근접)만 판정이 있어야 성립한다 — 아직 답하지도 않은 사람에게
+    '뭘 빠뜨렸다' 고 말할 수 없다.
+    """
+    assert len(build_hint_ladder(make_question(), make_judgement())) == 4
+
+
+def test_삼단계는_기대_답의_앞_조각():
+    """판정 없이 만들 수 있는 마지막 단계. 골자를 통째로 노출하지 않는다."""
+    question = make_question()
+    ladder = build_hint_ladder(question)
+    assert ladder[2].startswith("이 방향입니다")
+    assert question.answer_gist not in ladder[2]
 
 
 def test_일단계는_질문이_들고_온_힌트():
@@ -86,13 +100,13 @@ def test_근거_슬라이드가_많으면_다_나열하지_않는다():
     assert ladder[1].count(",") <= 2
 
 
-def test_삼단계는_빠진_포인트를_짚는다():
+def test_사단계는_빠진_포인트를_짚는다():
     ladder = build_hint_ladder(make_question(), make_judgement())
-    assert "측정 도구" in ladder[2] and "표본 수" in ladder[2]
+    assert "측정 도구" in ladder[3] and "표본 수" in ladder[3]
 
 
 def test_단계가_갈수록_구체적이다():
-    """방향 → 범위 → 근접. 뒤 단계가 앞 단계를 그대로 반복하면 사다리가 아니다."""
+    """방향 → 범위 → 접근 → 근접. 뒤 단계가 앞을 그대로 반복하면 사다리가 아니다."""
     ladder = build_hint_ladder(make_question(), make_judgement())
     assert len(set(ladder)) == len(ladder)
 
@@ -111,14 +125,18 @@ def test_근거_슬라이드가_없어도_이단계가_빈칸이_아니다():
     assert ladder[1].strip()
 
 
-def test_빠진_포인트가_없으면_기대_답_조각으로_대체():
+def test_빠진_포인트가_없으면_사단계가_삼단계를_되풀이하지_않는다():
+    """
+    포인트가 없을 때 4단계는 골자 조각으로 떨어지는데, 그건 이미 3단계다.
+    같은 말을 두 번 하면 사다리가 아니라 제자리걸음이다.
+    """
     ladder = build_hint_ladder(make_question(), make_judgement(missing_points=[]))
     assert len(ladder) == 3
-    assert ladder[2].strip()
+    assert len(set(ladder)) == 3
 
 
 def test_기대_답_조각은_골자_전체를_노출하지_않는다():
-    """3단계도 방향만 준다. 골자를 통째로 보여 주면 그건 힌트가 아니라 정답 공개다."""
+    """조각도 방향만 준다. 골자를 통째로 보여 주면 그건 힌트가 아니라 정답 공개다."""
     question = make_question()
     ladder = build_hint_ladder(question, make_judgement(missing_points=[]))
     assert question.answer_gist not in ladder[2]
@@ -149,7 +167,7 @@ def test_dict_입력도_받는다():
     ladder = build_hint_ladder(
         make_question().to_dict(), make_judgement().to_dict()
     )
-    assert len(ladder) == 3
+    assert len(ladder) == 4
 
 
 def test_같은_입력이면_같은_사다리():
@@ -166,5 +184,5 @@ def test_빈_문자열_단계는_나오지_않는다():
 @pytest.mark.parametrize("points", [["측정 도구"], ["a", "b", "c", "d", "e", "f"]])
 def test_빠진_포인트_개수가_달라도_한_줄로_묶인다(points):
     ladder = build_hint_ladder(make_question(), make_judgement(missing_points=points))
-    assert len(ladder) == 3
-    assert "\n" not in ladder[2]
+    assert len(ladder) == 4
+    assert "\n" not in ladder[3]

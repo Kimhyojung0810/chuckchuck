@@ -606,18 +606,32 @@ ${props(speaker)}
     return res.json();
   }
 
-  /** 리포트 요약 탭에 넣을 진입 카드. */
+  /**
+   * 좌석마다 붙는 한 줄. 소품이 곧 그 모델이 파이프라인에서 실제로 한 일이다
+   * (UI_REDESIGN §9 실루엣 테스트). 46px 로는 소품이 안 보여서 넷이 '색만 다른
+   * 병아리'로 읽혔다 — 크기를 키우고 이름·역할을 같은 칸에 붙인다.
+   */
+  const SEAT_ROLE = {
+    midm: '자료와 발화를 대조했어요',
+    solar: '발표자료를 통독했어요',
+    exaone: '설명한 개념을 인정했어요',
+    ax: '발표를 귀로 들었어요',
+  };
+
+  /** 리포트 '청중 반응' 탭에 넣을 진입 카드. */
   function entryCardHtml() {
     return `
       <div class="card aud-card" id="audCard">
-        <div class="aud-head">
-          <h3>청중 반응 몰래 보기</h3>
-          <p>발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?</p>
-        </div>
-        <div class="aud-peek">${SEATS.map(chickSvg).join('')}</div>
-        <div class="aud-models">
-          ${SEATS.map(s => `<span>${esc(FALLBACK_BADGES[s])}</span>`).join('')}
-        </div>
+        <p class="aud-status">발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?</p>
+        <ul class="aud-seats">
+          ${SEATS.map(s => `
+            <li class="aud-seat">
+              <span class="aud-chick">${chickSvg(s)}</span>
+              <b class="aud-name">${esc(FALLBACK_NAMES[s])}</b>
+              <span class="aud-model">${esc(FALLBACK_BADGES[s])}</span>
+              <span class="aud-role">${esc(SEAT_ROLE[s])}</span>
+            </li>`).join('')}
+        </ul>
       </div>`;
   }
 

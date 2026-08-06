@@ -382,7 +382,9 @@ function renderHome() {
       ? {href:'#/new', eyebrow:'발표 연습 진행 중', title:`${NF_STEPS[nf.step]}부터 이어서 할까요?`, sub:`${nf.slide || 1}번 슬라이드와 입력한 발표 정보를 저장했어요.`}
       : null;
   app.innerHTML = `
-    <div class="page-head"><div><h1 class="page-title">내 발표</h1><p class="page-sub">발표와 질문 코칭 결과를 이어서 확인해요.</p></div><a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a></div>
+    <!-- 「새 발표 연습」은 상단 바에 항상 있다. 한 화면에 같은 버튼을 셋 두면
+         어느 것이 이 화면의 행동인지 흐려진다 (MVP_SPEC §5.1 · 토스 CTA 규칙) -->
+    <div class="page-head"><div><h1 class="page-title">내 발표</h1><p class="page-sub">발표와 질문 코칭 결과를 이어서 확인해요.</p></div></div>
     ${resume ? `<div class="resume-row"><a class="resume-card" href="${resume.href}"><span>${resume.eyebrow}</span><strong>${resume.title}</strong><p>${resume.sub}</p><i>이어하기 →</i></a><a class="btn btn-secondary btn-sm" href="#/new" data-fresh-practice>처음부터 다시</a></div>` : ''}
     <section class="verdict home-verdict">
       <div class="verdict-inner">
@@ -411,7 +413,6 @@ function renderHome() {
       <div class="block-head">
         <h2>내 발표</h2>
         <p>발표를 누르면 그 회차의 리포트를 열어요</p>
-        <a class="btn btn-tint btn-sm" href="#/new" data-fresh-practice>새 발표 연습</a>
       </div>
       <div class="sess-list">
         ${DATA.sessions.map(s => `
@@ -961,7 +962,15 @@ function failParse(msg) {
 
 /* 스텝 2 — 발표 정보 (선택) */
 function nfStep2() {
-  const occs = ['사내 보고', '학회·수업 발표', '대회·IR 피칭', '범용'];
+  /* 채점표 v3 의 상황 4열 그대로다. 라벨을 그대로 보내면 서버(rubric_v3.resolve_situation)가
+     상황 key 로 옮긴다 — 프론트가 key 를 따로 들고 있지 않아도 되고, 이 문장이 F-06·07·11
+     프롬프트에도 그대로 들어가서 한국어로 읽힌다. 문구를 바꾸면 가중치가 바뀐다. */
+  const occs = [
+    '학교 프로젝트 (교수 대상)',
+    '신제품 설명 (대중 대상)',
+    '업무 보고 (상사 대상)',
+    '동료 간 캐주얼 PR',
+  ];
   const times = [3, 5, 10, 15, 20, 30];
   const titles = activeTitles();
   const perSlide = Math.round(nf.min * 60 / titles.length);
@@ -1016,7 +1025,9 @@ function nfStep2() {
   $('#minus').addEventListener('click', () => moveTime(-1));
   $('#plus').addEventListener('click', () => moveTime(1));
   $('#go').addEventListener('click', () => { nf.step = 2; renderNew(); });
-  $('#skip').addEventListener('click', () => { nf.occ = '범용'; nf.step = 2; renderNew(); });
+  // 건너뛰면 상황을 비운다. 서버가 기본 기준으로 매기고 "안 골라서 …" 안내를 남긴다 —
+  // 없는 상황을 지어내 보내면 어느 가중치로 매겼는지 알 수 없게 된다.
+  $('#skip').addEventListener('click', () => { nf.occ = ''; nf.step = 2; renderNew(); });
 }
 
 /* 스텝 3 — 리허설 녹음 */
@@ -2285,7 +2296,10 @@ function reportVerdict() {
       score: real.score,
       dims: real.dims,
       headline: real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요',
-      delta: `<span class="prev num">F-13 실측 · ${escapeHtml(real.basis)}</span>`,
+      // 어느 기준으로 매겼는지 숨기지 않는다. 폴백이면 폴백이라고 쓴다
+      delta: `<span class="prev num">${
+        real.isFallback ? '예전 방식' : '채점표 v3'
+      } · ${escapeHtml(real.situationLabel || real.basis)}</span>`,
     };
   }
   const diff = s.score - s.prevScore;
@@ -2539,21 +2553,35 @@ function realTrophy() {
    파이프라인에서 실제로 본 축. 막대 옆에 얼굴이 붙으면 "누가 왜 이 점수를
    줬는지"가 보인다 (§6). */
 const SCORE_CHICK = {
-  coverage: 'midm',    // 자료와 발화의 정합 판정 (F-11)
-  rank: 'ax',          // 발화 축 — 어디에 얼마나 시간을 썼나 (F-05)
-  edge: 'exaone',      // 개념을 말로 잘 이었나 (good_link)
-  order: 'solar',      // 자료 순서와 발표 순서 (F-01/06/07)
+  content: 'midm',     // 자료와 발화의 정합 판정 (F-11)
+  logic: 'midm',       // 같은 축 — 자료가 말한 것과 발화의 관계
+  audience: 'ax',      // 발화 축 — 누구에게 어떻게 말했나 (F-05)
+  clarity: 'ax',       // 같은 축 — 말 자체의 결
+  delivery: 'solar',   // 시간·소리 축 (F-17/18)
+  time: 'solar',
+  visual: 'exaone',    // 자료 축 (F-01/06/07)
 };
 
 function realSummary() {
   const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
   if (!sc || typeof sc.score !== 'number') return null;
-  const dims = (sc.components || []).map(c =>
-    [c.label, Math.round((c.raw || 0) * 100), SCORE_CHICK[c.key] || '']);
+  const dims = (sc.clusters || [])
+    .filter(c => c.status === 'scored')
+    .map(c => [c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '']);
   const notes = [];
-  if (sc.contradiction_count) notes.push(`자료와 다르게 말한 개념 ${sc.contradiction_count}개`);
-  if (sc.basis !== 'full') notes.push(`지표 일부만 계산됨 (${(sc.omitted || []).join(', ')})`);
-  return { score: sc.score, dims, notes, basis: sc.basis };
+  // 두 안내를 합치지 않는다 — '이 상황에서 안 봄'과 '이번에 못 잼'은 다른 말이다
+  if ((sc.excluded || []).length) {
+    notes.push(`이 상황에서는 평가하지 않는 항목 ${sc.excluded.length}개`);
+  }
+  if ((sc.unmeasured || []).length) {
+    notes.push(`이번엔 측정할 수 없었던 항목 ${sc.unmeasured.length}개`);
+  }
+  if (sc.note) notes.push(sc.note);
+  return {
+    score: sc.score, dims, notes, basis: sc.basis,
+    situationLabel: sc.situation_label || '',
+    isFallback: String(sc.rubric_version || '').endsWith('-fallback'),
+  };
 }
 
 /* ─── 기억하는 객석 (§13) ───────────────────────────────────────────────────
@@ -2930,13 +2958,13 @@ function rSummary() {
 /** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
 function rAudience() {
   const blocked = audienceBlockReason();
+  // '아직 안 왔다' 와 '분석이 실패했다' 는 다른 일이다. 둘 다 빨갛게 칠하면
+  // 진짜 실패가 친절한 안내로 읽힌다 (CLAUDE.md §4 "실패하면 실패로 보여준다")
+  const notYet = !(nf && (nf.pipelineOut || nf.transcriptOk));
   $('#rbody').innerHTML = `
     <div class="card">
       <h3 class="section-title">삐약 청중석</h3>
-      <p class="note" style="margin-bottom:14px">
-        발표를 들은 네 모델이 판정 결과를 놓고 뭐라고 하는지 엿들어 볼까요?
-      </p>
-      ${blocked ? `<p class="note" style="color:#f04452">${escapeHtml(blocked)}</p>` : ''}
+      ${blocked ? `<p class="aud-block ${notYet ? 'is-waiting' : 'is-failed'}">${escapeHtml(blocked)}</p>` : ''}
       <div id="audMount"></div>
       ${blocked ? '' : '<div class="step-actions"><button class="btn btn-primary" id="audOpen">객석 들어가기</button></div>'}
     </div>`;
@@ -2990,8 +3018,14 @@ async function openAudience() {
   const card = $('#audCard');
   const bundle = pipelineBundle();
   if (!bundle) {
+    // 그릴 때는 멀쩡했는데 누를 때 결과가 사라진 경우다. 실패 문구를 평범한
+    // 안내 글씨로 흘리면 실패가 안 보인다 (CLAUDE.md §4)
     const reason = audienceBlockReason();
-    if (card && reason) card.querySelector('p').textContent = reason;
+    const status = card && card.querySelector('.aud-status');
+    if (status && reason) {
+      status.textContent = reason;
+      status.classList.add('aud-block', 'is-failed');
+    }
     return;
   }
 
@@ -3001,7 +3035,15 @@ async function openAudience() {
     if (n.slide_nos && n.slide_nos.length) nodeSlides[n.id] = Math.min(...n.slide_nos);
   });
 
-  if (card) card.querySelector('p').textContent = '객석에서 수군거리는 중...';
+  /** 진입 카드의 상태 한 줄. 실패일 때만 판정 색을 입힌다 */
+  const say = (text, failed) => {
+    const el = card && card.querySelector('.aud-status');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('aud-block', !!failed);
+    el.classList.toggle('is-failed', !!failed);
+  };
+  say('객석에서 수군거리는 중...', false);
   try {
     if (!chatterCache) {
       chatterCache = await window.Chatter.fetchChatter(
@@ -3025,11 +3067,9 @@ async function openAudience() {
         }
       },
     });
-    if (card) card.querySelector('p').textContent =
-      '발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?';
+    say('발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?', false);
   } catch (err) {
-    if (card) card.querySelector('p').textContent =
-      (err && err.message) || '청중들이 아직 도착 안 했어요. 잠시 후 다시 시도해 주세요.';
+    say((err && err.message) || '객석을 여는 데 실패했어요. 잠시 뒤에 다시 누르면 열 수 있어요.', true);
   }
 }
 
@@ -3906,7 +3946,16 @@ const beat = () => {
 const qText = b => (b.q && (b.q[qa.aud] || b.q['공통'])) || '';
 
 function pushTurn(item) { qa.turns.push(item); saveSession('qa-flow', qa); }
-function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' }); }
+/* 가로형에서는 대화가 #stream 안에서만 스크롤된다(css/tablet.css).
+   그때 창을 내리면 아무 일도 일어나지 않아 새 질문이 화면 밖에 남는다. */
+function scrollDown() {
+  const stream = document.getElementById('stream');
+  if (stream && stream.scrollHeight > stream.clientHeight + 1) {
+    stream.scrollTop = stream.scrollHeight;
+    return;
+  }
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
+}
 
 /* ── 설득 트래커 ── */
 const TRACK_ICON = { wait: '', current: '', won: '✓', review: '✓', lost: '✕' };
@@ -4038,6 +4087,8 @@ function renderQa() {
   saveSession('qa-flow', qa);
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
+    <div class="qa-shell">
+      <aside class="qa-context">
     ${qaNoticeHtml()}
     <div class="qa-top">
       <div>
@@ -4054,8 +4105,12 @@ function renderQa() {
       <div class="pc-pass"><span>통과 조건</span><b>${persona().pass}${persona().limit ? ` · ${persona().limit}초` : ''}</b></div>
     </div>
     ${trackerHTML()}
+      </aside>
+      <section class="qa-dialog">
     <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
-    <div class="qa-live" id="live"></div>`;
+    <div class="qa-live" id="live"></div>
+      </section>
+    </div>`;
   $('#aud').addEventListener('change', e => {
     qa.aud = e.target.value;
     const last = qa.turns[qa.turns.length - 1];

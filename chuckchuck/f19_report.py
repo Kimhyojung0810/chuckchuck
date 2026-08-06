@@ -9,7 +9,7 @@ import json
 import os
 import re
 
-from .contracts import Context, HabitDoc, PaceDoc, ReportDoc, ReportError
+from .contracts import Context, HabitDoc, PaceDoc, ReportDoc, ReportError, RubricScore
 from .providers.llm_base import LLMProvider
 from .providers.llm_impl import get_llm
 
@@ -30,8 +30,34 @@ _SYSTEM = (
 )
 
 
-def _facts_block(pace: PaceDoc, habits: HabitDoc, context: Context | None) -> str:
+def _rubric_block(rubric: RubricScore) -> list[str]:
+    """
+    채점표 결과를 사실 블록으로. 코칭 문장이 **채점표 항목 이름으로** 나오게 한다.
+
+    점수 자체는 넣되 다시 쓰지 말라고 시스템 프롬프트가 막는다. 여기 넣는 이유는
+    LLM 이 "무엇이 약했는지"를 우리 기준의 언어로 말하게 하기 위해서다.
+    """
+    lines = [f"채점 기준: {rubric.situation_label} (총점 {rubric.score}점)"]
+    live = [c for c in rubric.clusters if c.status == "scored"]
+    if live:
+        lines.append("영역별: " + " / ".join(f"{c.name} {c.average:.0f}점" for c in live))
+    weak = sorted(
+        (i for i in rubric.items if i.status == "scored"), key=lambda i: i.score
+    )[:3]
+    for i in weak:
+        lines.append(f"- 약한 항목: {i.name} {i.score}점 — {i.evidence}")
+    if rubric.unmeasured:
+        lines.append(f"측정 못 한 항목 번호: {rubric.unmeasured} (없는 걸 있는 척하지 마세요)")
+    return lines
+
+
+def _facts_block(
+    pace: PaceDoc, habits: HabitDoc, context: Context | None,
+    rubric: RubricScore | None = None,
+) -> str:
     lines = ["[TASK] voice-comprehensive-report", "[FACTS]"]
+    if rubric:
+        lines += _rubric_block(rubric)
     if context:
         lines.append(
             f"상황={context.situation or '-'} / 청중={context.audience or '-'} / "
@@ -67,41 +93,7 @@ def _facts_block(pace: PaceDoc, habits: HabitDoc, context: Context | None) -> st
     return "\n".join(lines)
 
 
-def _rule_score(pace: PaceDoc, habits: HabitDoc) -> int:
-    score = 78
-    if pace.target_sec > 0:
-        drift = abs(pace.actual_sec - pace.target_sec) / pace.target_sec
-        score -= int(min(20, drift * 40))
-    short_core = sum(1 for s in pace.slides if s.importance == "core" and s.status == "short")
-    score -= short_core * 6
-    long_sup = sum(1 for s in pace.slides if s.importance != "core" and s.status == "long")
-    score -= long_sup * 3
-    score -= min(15, habits.repeat_cnt * 2 + habits.filler_cnt + habits.pause_cnt * 3)
-    return int(max(45, min(92, score)))
-
-
-def _grade_from_score(score: int) -> str:
-    if score >= 93:
-        return "A+"
-    if score >= 88:
-        return "A0"
-    if score >= 83:
-        return "B+"
-    if score >= 78:
-        return "B0"
-    if score >= 73:
-        return "C+"
-    if score >= 68:
-        return "C0"
-    if score >= 60:
-        return "D+"
-    if score >= 50:
-        return "D0"
-    return "F"
-
-
-def _fallback_report(pace: PaceDoc, habits: HabitDoc, model: str) -> ReportDoc:
-    score = _rule_score(pace, habits)
+def _fallback_report(pace: PaceDoc, habits: HabitDoc, model: str, score: int = 0) -> ReportDoc:
     strengths = []
     weaknesses = []
     if pace.avg_chars_per_min and 280 <= pace.avg_chars_per_min <= 360:
@@ -139,7 +131,7 @@ def _fallback_report(pace: PaceDoc, habits: HabitDoc, model: str) -> ReportDoc:
     return ReportDoc(
         one_liner=pace.tips[0] if pace.tips else "시간 배분과 음성 습관을 함께 점검했어요.",
         score=score,
-        grade=_grade_from_score(score),
+        grade="",
         strengths=strengths[:3],
         weaknesses=weaknesses[:3],
         actions=actions[:3],
@@ -168,41 +160,53 @@ def compose_report(
     habits: HabitDoc | dict,
     context: Context | dict | None = None,
     *,
+    rubric: RubricScore | dict | None = None,
     llm: str | LLMProvider | None = None,
 ) -> ReportDoc:
-    """F-17·F-18 결과를 종합 서술로 묶는다."""
+    """
+    F-17·F-18 결과를 종합 서술로 묶는다.
+
+    **점수는 여기서 만들지 않는다.** 채점표(F-14)가 매긴 점수를 받아 그대로 싣는다.
+    예전에는 이 모듈이 45~92 로 클램프된 두 번째 점수를 따로 계산했는데, 화면에
+    보이는 F-13 점수와 서로 달랐고 프론트는 그걸 아예 읽지도 않았다.
+    `rubric` 이 없으면 0 을 싣는다 — 짐작하지 않는다.
+    """
     if isinstance(pace, dict):
         pace = PaceDoc.from_dict(pace)
     if isinstance(habits, dict):
         habits = HabitDoc.from_dict(habits)
     if isinstance(context, dict):
         context = Context.from_dict(context)
+    if isinstance(rubric, dict):
+        rubric = RubricScore.from_dict(rubric)
+    score = rubric.score if rubric else 0
 
     if llm is None:
         llm = os.environ.get("REASONING_BACKEND", "solar")
     engine = llm if isinstance(llm, LLMProvider) else get_llm(str(llm))
 
     if getattr(engine, "name", "") == "mock":
-        return _fallback_report(pace, habits, model="mock")
+        return _fallback_report(pace, habits, model="mock", score=score)
 
-    user = _facts_block(pace, habits, context)
+    user = _facts_block(pace, habits, context, rubric)
     try:
         raw = engine.complete(system=_SYSTEM, user=user, temperature=0.2, max_tokens=1200)
         data = _parse_json(raw)
     except Exception as e:  # noqa: BLE001
-        doc = _fallback_report(pace, habits, model=f"{getattr(engine, 'name', 'llm')}-fallback")
+        doc = _fallback_report(
+            pace, habits, model=f"{getattr(engine, 'name', 'llm')}-fallback", score=score
+        )
         if not doc.one_liner:
             raise ReportError(str(e)) from e
         return doc
 
-    # 점수·등급은 규칙이 진실이다 — 모듈 원칙("숫자는 다시 짐작하지 않습니다")대로
+    # 점수는 채점표가 진실이다 — 모듈 원칙("숫자는 다시 짐작하지 않습니다")대로
     # LLM 이 준 score/grade 는 무시한다. LLM 값을 받으면 같은 수치 입력인데
     # 실행마다 점수가 흔들리고, "85점" 같은 문자열이 오면 int() 가 터진다.
-    score = _rule_score(pace, habits)
     return ReportDoc(
         one_liner=str(data.get("one_liner") or ""),
         score=score,
-        grade=_grade_from_score(score),
+        grade="",
         strengths=[str(x) for x in data.get("strengths") or []][:5],
         weaknesses=[str(x) for x in data.get("weaknesses") or []][:5],
         actions=[str(x) for x in data.get("actions") or []][:5],
