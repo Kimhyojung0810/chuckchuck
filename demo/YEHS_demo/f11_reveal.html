@@ -438,6 +438,25 @@
   .workbench.on ~ .stage #sttScene,
   .workbench.on ~ .stage .quote { display: none; }
 
+  /* ── 개념 목록 — 아래 60% 를 채우는 건 오락이 아니라 내 자료다 ──
+     선분석 덕에 그래프가 발표 끝나는 순간 이미 있다. 그래서 개념은 곧바로
+     뜨고, 정합(F-11)이 오면 판정이 채워진다. 아직 안 온 판정은 빈 칸으로
+     둔다 — 회색으로라도 미리 칠하면 그 순간 화면이 거짓말을 시작한다 */
+  .crail { display: none; padding: 10px 0 0; }
+  .crail.on { display: block; }
+  .crail .ttl { font-size: 11px; font-weight: 700; color: var(--sub); margin: 0 0 6px; }
+  .crail ol { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 26px; }
+  .crail li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; font-size: 13px; break-inside: avoid;
+    border-bottom: 1px solid var(--line);
+  }
+  .crail .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crail .vd { flex: none; font-size: 12px; font-weight: 700; }
+  /* 아직 안 온 판정 — 값이 아니라 자리다. 점 세 개로만 둔다 */
+  .crail .vd.wait { color: var(--faint); font-weight: 500; letter-spacing: .12em; }
+  .crail li.filled { animation: wbIn .3s ease both; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
@@ -471,6 +490,11 @@
       <p class="ttl">지금까지 한 일</p>
       <ul id="wbList"></ul>
       <p class="wb-said" id="wbSaid" hidden></p>
+      <!-- 개념 목록 — 그래프가 오면 뜨고, 정합이 오면 판정이 채워진다 -->
+      <div class="crail" id="crail">
+        <p class="ttl" id="crailTtl"></p>
+        <ol id="crailList"></ol>
+      </div>
     </div>
   </div>
 
@@ -760,6 +784,7 @@ function applyGraphOnly(graph) {
 
   buildStage();
   graphArrived = true;
+  paintCrail();   // 개념 이름은 지금 다 안다. 판정만 아직 비어 있다
 }
 
 /**
@@ -781,6 +806,7 @@ function applyAlignment(align) {
     n.evidence = it.verdict === "contradiction" && it.evidence
       ? `“${it.evidence}” — 자료와 어긋나요` : undefined;
   }
+  paintCrail();   // 판정이 도착했다 — 빈 칸을 채운다
   REAL_KEYWORDS = NODES.filter((n) => n.verdict === "aligned").slice(0, 4).map((n) => n.label);
   if (!REAL_KEYWORDS.length) REAL_KEYWORDS = NODES.slice(0, 3).map((n) => n.label);
 
@@ -975,6 +1001,45 @@ function wbBirdSvg(prop) {
     + '<ellipse cx="30" cy="47" rx="5" ry="3.4" fill="#F7B6A8" opacity=".75"/>'
     + '<ellipse cx="70" cy="47" rx="5" ry="3.4" fill="#F7B6A8" opacity=".75"/>'
     + (props[prop] || "") + "</svg>";
+}
+
+/* 판정 이름은 리포트와 같은 말을 써야 한다 — 같은 판정을 두 화면이 다르게
+   부르면 사람이 다른 일로 읽는다. 색은 판정 5색(불변)을 따른다 */
+const CRAIL_VERDICT = {
+  aligned:       { t: "설명했어요",       c: "var(--good)" },
+  partial:       { t: "언급만 했어요",     c: "var(--mid, #C88A2E)" },
+  missing:       { t: "안 나왔어요",       c: "var(--dim)" },
+  contradiction: { t: "자료와 달라요",     c: "var(--bad)" },
+  skip:          { t: "생략해도 괜찮아요", c: "var(--faint)" },
+};
+
+/**
+ * 개념 목록. 그래프가 오면 이름만 뜨고, 정합이 오면 판정이 채워진다.
+ *
+ * 판정이 아직 없는 줄은 빈 자리(···)로 둔다. 없는 값을 회색으로라도 칠하면
+ * 그 순간부터 화면이 아는 척을 한다 (CLAUDE.md 4).
+ */
+function paintCrail() {
+  const box = $("crail");
+  if (!box || !NODES || !NODES.length) return;
+  box.classList.add("on");
+  const done = NODES.filter((n) => n.verdict).length;
+  const ttl = $("crailTtl");
+  if (ttl) {
+    ttl.textContent = done
+      ? `내 자료의 핵심 개념 ${NODES.length}개 · ${done}개 판정했어요`
+      : `내 자료의 핵심 개념 ${NODES.length}개를 찾았어요`;
+  }
+  const list = $("crailList");
+  if (!list) return;
+  const html = NODES.map((n) => {
+    const v = n.verdict ? CRAIL_VERDICT[n.verdict] : null;
+    const cell = v
+      ? `<span class="vd" style="color:${v.c}">${v.t}</span>`
+      : '<span class="vd wait">···</span>';
+    return `<li class="${v ? "filled" : ""}"><span class="nm">${n.label}</span>${cell}</li>`;
+  }).join("");
+  if (list.dataset.html !== html) { list.dataset.html = html; list.innerHTML = html; }
 }
 
 let WB_DONE = [];          // 끝난 단계 key — 진행률이 아니라 도착한 사실만 쌓는다
