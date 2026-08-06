@@ -398,7 +398,11 @@
      아직 긴 구역만 그 구역 안에서 스크롤한다.
      .land-progress 는 원래 position:fixed 라 트랙 밖에 그대로 떠 있는다 */
 
-  main.landing { height: var(--app-h); overflow: hidden; }
+  /* v1 랜딩(가로 스냅 덱) 전용이던 높이 잠금은 걷어냈다. v2 는 그냥 스크롤되는
+     문서라 화면 높이에 가두면 내용이 잘린다 — 실측 #app scrollHeight 2772px 을
+     844px 로 잘라 먹고 있었다 (2026-08-07). 아래 .landing-main 규칙들은 v2 에
+     그 요소가 없어 죽은 코드지만, v1 로 되돌릴 여지를 남겨 두고 손대지 않는다. */
+  main.landing { width: 100%; padding: 0; }
 
   .landing-main {
     height: 100%;

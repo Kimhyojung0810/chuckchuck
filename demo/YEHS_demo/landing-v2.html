@@ -1,0 +1,106 @@
+<!--
+  척척발표 랜딩 v2 — 토스식 규율로 다시 만든 것 (2026-08-07 지시)
+
+  v1 을 버린 이유:
+    body.scrollHeight 가 900 에 고정된 5칸 스크롤 스냅 덱이었다. 오른쪽 점
+    인디케이터로 화면을 가로채고, 히어로에 가짜 목업을 얹고, CSS 만 74KB 였다.
+    CLAUDE.md §3-4 가 금지한 것들이다 — 스크롤 하이재킹·마케팅 데코·한 화면 여러 주인공.
+
+  v2 의 규율:
+    - 그냥 스크롤되는 긴 문서다. 스냅도 인디케이터도 없다.
+    - 한 섹션에 메시지 하나. 여백으로 끊는다.
+    - 딥그린 토큰만 쓴다 (app.css :root 가 단일 원본).
+    - 해요체. 능동형·긍정형. 장식 이모지 없음.
+    - CTA 는 「내 발표 점검하기」 하나. 문구만 보고 다음 행동이 예측돼야 한다.
+
+  숫자는 신성하다 (§14). 이 페이지의 판정 예시는 실제 F-11 판정 종류를 그대로
+  쓴 것이고, 지어낸 성능 지표는 한 줄도 없다.
+-->
+<section class="lv-hero">
+  <div class="lv-wrap">
+    <h1 class="lv-h1">자료에는 있는데<br><em>말로 안 한 것</em>을 찾아요</h1>
+    <p class="lv-lead">
+      슬라이드와 실제 발표를 하나씩 대조해서, 설명이 빠진 개념을 짚어드려요.
+    </p>
+    <div class="lv-cta">
+      <a class="lv-btn" href="#/new">내 발표 점검하기</a>
+    </div>
+  </div>
+</section>
+
+<section class="lv-sec">
+  <div class="lv-wrap">
+    <p class="lv-eyebrow">왜 어려운가</p>
+    <h2 class="lv-h2">연습할 때는 다 말한 것 같은데,<br>끝나고 나면 뭘 빠뜨렸는지 모르겠어요.</h2>
+    <p class="lv-body">
+      혼자 연습하면 내가 한 말만 기억에 남아요. 정작 자료에 적어 둔 개념을
+      입 밖으로 안 냈다는 건, 질문을 받고 나서야 알게 돼요.
+    </p>
+  </div>
+</section>
+
+<section class="lv-sec lv-sec-fill">
+  <div class="lv-wrap">
+    <p class="lv-eyebrow">무엇을 하나</p>
+    <h2 class="lv-h2">세 가지를 해요.</h2>
+    <ol class="lv-steps">
+      <li>
+        <b>대조해요</b>
+        <span>발표 자료에서 뽑은 개념과, 실제로 말한 문장을 하나씩 맞춰 봐요.</span>
+      </li>
+      <li>
+        <b>근거를 보여줘요</b>
+        <span>판정마다 그 근거가 된 발화를 그대로 붙여요. 근거가 없으면 판정하지 않아요.</span>
+      </li>
+      <li>
+        <b>질문을 미리 연습해요</b>
+        <span>설명이 빈 개념부터 물어봐요. 실제로 나올 질문에 가까운 것부터요.</span>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="lv-sec">
+  <div class="lv-wrap">
+    <p class="lv-eyebrow">이렇게 나와요</p>
+    <h2 class="lv-h2">개념마다 판정이 붙고,<br>그 옆에 내가 한 말이 남아요.</h2>
+
+    <ul class="lv-verdicts" aria-label="판정 예시">
+      <li class="lv-v lv-v-ok">
+        <span class="lv-dot" aria-hidden="true"></span>
+        <span class="lv-vmain">
+          <b>대조 학습</b>
+          <small>제대로 설명했어요</small>
+          <q>그래서 대조 학습으로 정렬합니다</q>
+        </span>
+      </li>
+      <li class="lv-v lv-v-no">
+        <span class="lv-dot" aria-hidden="true"></span>
+        <span class="lv-vmain">
+          <b>온도 파라미터</b>
+          <small>3번 장에 있는데 한 번도 안 나왔어요</small>
+        </span>
+      </li>
+      <li class="lv-v lv-v-ct">
+        <span class="lv-dot" aria-hidden="true"></span>
+        <span class="lv-vmain">
+          <b>평가 지표</b>
+          <small>자료와 다르게 설명했어요</small>
+          <q>평가 지표는 정확도 하나만 봤습니다</q>
+        </span>
+      </li>
+    </ul>
+
+    <p class="lv-note">근거가 되는 발화를 못 찾으면 「제대로 설명했어요」를 붙이지 않아요.</p>
+  </div>
+</section>
+
+<section class="lv-sec lv-sec-end">
+  <div class="lv-wrap">
+    <h2 class="lv-h2">발표 자료와 녹음만 있으면 돼요.</h2>
+    <p class="lv-body">PDF 나 PPTX 를 올리고, 연습한 녹음을 붙이면 분석이 시작돼요.</p>
+    <div class="lv-cta">
+      <a class="lv-btn" href="#/new">내 발표 점검하기</a>
+    </div>
+  </div>
+</section>

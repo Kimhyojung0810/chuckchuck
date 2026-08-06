@@ -227,8 +227,10 @@ landing.html 조각을 받아 #app 에 넣고 각 구역의 동작을 붙입니�
 
   function teardown() {
     if (!mount) return;
-    mount.ctrl.abort();
-    mount.io.disconnect();
+    // v2 는 옵저버를 안 붙여서 둘 다 null 이다. v1 마운트가 남아 있을 수도 있으니
+    // 있으면 정리하고 없으면 넘어간다 — 여기서 던지면 랜딩을 두 번 못 연다.
+    if (mount.ctrl) mount.ctrl.abort();
+    if (mount.io) mount.io.disconnect();
     mount = null;
   }
 
@@ -239,7 +241,7 @@ landing.html 조각을 받아 #app 에 넣고 각 구역의 동작을 붙입니�
     app.innerHTML = '<p class="landing-loading">랜딩을 불러오는 중이에요…</p>';
 
     try {
-      const res = await fetch('landing.html?v=landing1');
+      const res = await fetch('landing-v2.html?v=landing2');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       app.innerHTML = await res.text();
     } catch (err) {
@@ -252,10 +254,10 @@ landing.html 조각을 받아 #app 에 넣고 각 구역의 동작을 붙입니�
       return;
     }
 
-    const ctrl = new AbortController();
-    const io = initShell(ctrl.signal);
-    window.LandingWorkbench();
-    mount = { ctrl, io };
+    // v2 는 얹을 게 없다. v1 은 여기서 initShell(스크롤 스냅 옵저버)과
+    // LandingWorkbench(히어로 목업 애니메이션)를 붙였는데, 둘 다 화면을
+    // 가로채는 장치였다 (CLAUDE.md §3-4). 마크업과 CSS 만으로 끝난다.
+    mount = { ctrl: null, io: null };
   }
 
   window.renderLanding = renderLanding;

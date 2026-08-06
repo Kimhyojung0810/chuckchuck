@@ -1,0 +1,221 @@
+/* 척척발표 랜딩 v2 — 토스식 규율 (2026-08-07 지시)
+ *
+ * v1(landing.css 33KB + showcase 13KB + workbench 28KB = 74KB)를 대체한다.
+ * 그 셋은 스크롤 스냅 덱을 그리느라 커진 것이고, v2 는 그냥 스크롤되는 문서라
+ * 이 파일 하나로 끝난다.
+ *
+ * 색·radius·weight 는 app.css :root 가 단일 원본이다 (CLAUDE.md §3-3).
+ * 여기서 새 색을 만들지 않는다 — var() 로 참조만 한다.
+ */
+
+main.landing {
+  background: var(--canvas);
+  color: var(--text);
+  /* v1 은 여기에 height/scroll-snap 을 걸어 화면을 가로챘다. v2 는 안 건다. */
+}
+
+.lv-wrap {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── 섹션 리듬 ─────────────────────────────────────────────
+   한 섹션에 메시지 하나. 끊는 것은 선이 아니라 여백이다. */
+.lv-sec { padding: 112px 0; }
+.lv-sec-fill { background: var(--fill); }
+.lv-sec-end { padding-bottom: 128px; }
+
+.lv-hero {
+  padding: 128px 0 112px;
+  /* 히어로에 목업·글래스·그라데이션을 얹지 않는다. 문장이 주인공이다. */
+}
+
+/* ── 타이포 ───────────────────────────────────────────── */
+.lv-h1 {
+  margin: 0;
+  font-size: 52px;
+  line-height: 1.24;
+  font-weight: var(--w-display, 800);
+  letter-spacing: -0.03em;
+}
+.lv-h1 em { font-style: normal; color: var(--brand); }
+
+.lv-h2 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.42;
+  font-weight: var(--w-bold, 700);
+  letter-spacing: -0.02em;
+}
+
+.lv-eyebrow {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: var(--w-med, 600);
+  color: var(--text-3);
+}
+
+.lv-lead {
+  margin: 24px 0 0;
+  font-size: 18px;
+  line-height: 1.66;
+  color: var(--text-2);
+}
+
+.lv-body {
+  margin: 20px 0 0;
+  font-size: 17px;
+  line-height: 1.72;
+  color: var(--text-2);
+}
+
+.lv-note {
+  margin: 28px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-3);
+}
+
+/* ── CTA ──────────────────────────────────────────────
+   버튼은 하나다. 문구만 보고 다음 행동이 예측돼야 한다. */
+.lv-cta { margin-top: 36px; }
+
+.lv-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 28px;
+  border-radius: var(--r-ctl, 12px);
+  background: var(--brand);
+  color: #fff;
+  font-size: 17px;
+  font-weight: var(--w-bold, 700);
+  text-decoration: none;
+  transition: background .12s ease;
+}
+.lv-btn:hover { background: var(--brand-strong); }
+.lv-btn:active { background: var(--brand-strong); opacity: .86; }
+.lv-btn:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
+
+/* ── 세 단계 ──────────────────────────────────────────
+   장식 번호 원 대신 카운터를 쓴다. 눈이 아니라 순서가 정보다. */
+.lv-steps {
+  counter-reset: lv;
+  list-style: none;
+  margin: 40px 0 0;
+  padding: 0;
+}
+.lv-steps li {
+  counter-increment: lv;
+  position: relative;
+  padding: 0 0 0 44px;
+}
+.lv-steps li + li { margin-top: 32px; }
+.lv-steps li::before {
+  content: counter(lv);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--brand-weak);
+  color: var(--brand-strong);
+  font-size: 14px;
+  font-weight: var(--w-bold, 700);
+  font-variant-numeric: tabular-nums;
+  display: grid;
+  place-items: center;
+}
+.lv-steps b {
+  display: block;
+  font-size: 18px;
+  font-weight: var(--w-bold, 700);
+}
+.lv-steps span {
+  display: block;
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.68;
+  color: var(--text-2);
+}
+
+/* ── 판정 예시 ────────────────────────────────────────
+   판정 색 5종은 의미가 붙어 있어 바꾸지 않는다 (§3-3).
+   여기서는 리포트가 쓰는 --ok / --no / --ct 를 그대로 참조한다. */
+.lv-verdicts {
+  list-style: none;
+  margin: 36px 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-print, 20px);
+  background: var(--surface);
+  overflow: hidden;
+}
+.lv-v {
+  display: flex;
+  gap: 14px;
+  padding: 22px 24px;
+}
+.lv-v + .lv-v { border-top: 1px solid var(--border); }
+
+.lv-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--text-3);
+}
+.lv-v-ok .lv-dot { background: var(--ok); }
+.lv-v-no .lv-dot { background: var(--no); }
+.lv-v-ct .lv-dot { background: var(--ct); }
+
+.lv-vmain { min-width: 0; }
+.lv-vmain b {
+  display: block;
+  font-size: 17px;
+  font-weight: var(--w-bold, 700);
+}
+.lv-vmain small {
+  display: block;
+  margin-top: 3px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.lv-v-ok .lv-vmain small { color: var(--ok); }
+.lv-v-no .lv-vmain small { color: var(--no); }
+.lv-v-ct .lv-vmain small { color: var(--ct); }
+
+/* 발표자가 자기 말을 알아보는 자리. 인용은 조용히 둔다 */
+.lv-vmain q {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r-ctl, 12px);
+  background: var(--fill);
+  font-size: 15px;
+  line-height: 1.62;
+  color: var(--text-2);
+  quotes: "\201C" "\201D";
+}
+
+/* ── 좁은 화면 ────────────────────────────────────────
+   타이포만 줄인다. 구조는 그대로 — 한 단이라 무너질 게 없다. */
+@media (max-width: 720px) {
+  .lv-hero { padding: 88px 0 76px; }
+  .lv-sec { padding: 76px 0; }
+  .lv-h1 { font-size: 38px; }
+  .lv-h2 { font-size: 25px; }
+  .lv-lead { font-size: 17px; }
+  .lv-btn { width: 100%; justify-content: center; }
+  .lv-v { padding: 20px; }
+}
+
+/* 모션을 줄여 달라는 설정을 존중한다 — 이 페이지엔 애니메이션이 없어서
+   지금은 할 일이 없지만, 나중에 무엇을 얹든 이 규칙 아래에 얹는다. */
+@media (prefers-reduced-motion: reduce) {
+  .lv-btn { transition: none; }
+}
