@@ -411,6 +411,10 @@
     font-size: 12.5px; line-height: 1.5;
   }
   .wb-said[hidden] { display: none; }
+  /* 받아쓴 문장을 작업대가 인용으로 들고 있다. 뒤에 깔린 자막 씬까지 같이
+     돌면 글자가 겹쳐 세로 잔해로 보인다 — 작업대가 켜지면 그쪽은 접는다 */
+  .workbench.on ~ .stage #sttScene,
+  .workbench.on ~ .stage .quote { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
