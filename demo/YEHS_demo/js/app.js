@@ -1275,11 +1275,20 @@ function renderRecPanel() {
   p.classList.toggle('is-live', nf.mic === 'on');
   refreshStepBar(); // 녹음 중에는 지나온 단계 버튼을 닫는다
   if (nf.mic === 'idle') {
+    /* 단계 표시줄로 질문 준비에서 돌아온 경우다. nf.step=3 은 녹음을 마쳐야만
+       세워지므로 길을 안 열어 주면 이미 끝난 분석으로 다시 갈 수가 없다 */
+    const hasTake = !!(nf.pipelineOut || nf.pipelineError);
     p.innerHTML = `
-      <div class="rec-copy"><span>준비되면 시작하세요</span><p>발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.</p></div>
+      <div class="rec-copy"><span>준비되면 시작하세요</span><p>${hasTake
+        ? '다시 발표해도 되고, 아까 발표한 결과로 바로 넘어가도 돼요.'
+        : '발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.'}</p></div>
+      ${hasTake ? '<button class="btn btn-secondary" id="recResume">아까 발표로 질문 준비하기</button>' : ''}
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
       ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
+    if (hasTake) {
+      $('#recResume').addEventListener('click', () => { nf.step = 3; renderNew(); });
+    }
     bindRecUpload();
   } else if (nf.mic === 'denied') {
     p.innerHTML = `
@@ -1546,6 +1555,9 @@ async function finishRecAndPrepare() {
     saveSession('new-flow', nf);
   }
   nf.backstage = [];   // 막간 대사는 테이크마다 새로 쌓인다
+  // 녹음은 여기서 끝났다. 'on' 으로 두면 리허설로 돌아왔을 때 이미 끝난 발표가
+  // 「발표 중」 시계로 다시 그려지고, 단계 표시줄도 녹음 중인 줄 알고 잠긴다
+  nf.mic = 'idle';
   await showCurtainCall(slides, (ccLastTake && ccLastTake.durationSec) || nf.sec);
   nf.step = 3;
   renderNew();

@@ -124,7 +124,9 @@
   /* 1·2·4 단계는 폼 한 장이다. 위쪽에 몰아두면 아래 절반이 빈다 —
      단계 표시줄은 위에 두고 폼만 남은 높이의 가운데에 놓는다 */
   main.narrow:has(#nf) { display: flex; flex-direction: column; }
-  main.narrow:has(#nf) > #nf { margin-block: auto; }
+  /* 정중앙에 두면 자료를 올리는 첫 화면이 접힌 선 근처까지 내려간다.
+     위에서 한 뼘만 띄우고 남는 세로는 아래에 몰아준다 */
+  main.narrow:has(#nf) > #nf { margin-block: clamp(8px, 4vh, 44px) auto; }
 
   /* 단계 표시줄과 저장 안내를 한 줄에 붙여 세로 30px 을 슬라이드에 돌려준다 */
   .flow-toolbar {
