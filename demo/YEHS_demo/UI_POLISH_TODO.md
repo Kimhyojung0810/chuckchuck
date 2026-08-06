@@ -183,7 +183,12 @@ raw = engine.complete(
 - [x] F-01 파싱 정상(12장·8,397자) · F-06 개념 추출도 정상. 자료 쪽 문제가 아니었다
 - [x] 원인은 업로드 경로의 `evenSlideMarks()` — 재생 길이를 장수로 균등 분할한다 (`js/app.js:1644`)
 - [x] `chuckchuck/f04_infer_marks.py` 신규 — 발화 내용을 자료와 맞춰 구간을 되짚는다 (IDF + 단조 DP, LLM 없음)
-- [ ] **남음**: bridge 업로드 경로를 새 추정기에 연결 + 화면에 「추정값」 정직하게 표시
+- [x] bridge `/api/v1/transcribe` 가 `slidedoc` 을 받으면 재추정 + 재분할 (STT 재호출 없음)
+- [x] 응답에 `marks_estimated`·`marks_confidence`·`marks_reason` — 추정값인지 숨기지 않는다
+- [x] 클라이언트가 `slideDoc` 을 함께 보내고 진행 로그에 사유를 남긴다
+- [ ] **남음**: 실제 음성(`ppt/척척발표 1.m4a`)으로 종단 확인. STT 실행이 필요하다
+- [ ] **확인 필요**: `split_by_slide` 는 문장이 끝나야 버킷을 옮긴다(`_sentence_end`).
+      STT 출력에 문장 부호가 드물면 구간이 뭉갤 수 있다 — 실음성으로 봐야 안다
 
 ---
 

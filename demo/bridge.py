@@ -819,7 +819,32 @@ class Handler(SimpleHTTPRequestHandler):
 
         try:
             t = transcribe(audio_path, marks, provider=provider)
-            return self._json(200, t.to_dict())
+            out = t.to_dict()
+
+            # 업로드본에는 슬라이드 전환 기록이 없어 프런트가 균등 분할 marks 를
+            # 보낸다. 그대로 두면 엉뚱한 발화가 엉뚱한 슬라이드에 붙는다.
+            # 자료를 같이 받았으면 발화 내용으로 구간을 되짚는다 (F-04 파생).
+            # STT 는 이미 끝났으므로 재분할만 한다 — 과금 호출이 늘지 않는다.
+            slidedoc = body.get("slidedoc")
+            if slidedoc and t.words:
+                from chuckchuck.contracts import SlideDoc
+                from chuckchuck.f04_infer_marks import infer_slide_marks
+                from chuckchuck.f05_stt import split_by_slide
+
+                doc = SlideDoc.from_dict(slidedoc) if isinstance(slidedoc, dict) else slidedoc
+                got = infer_slide_marks(doc, t.words, t.duration_sec)
+                if got.estimated:
+                    out["by_slide"] = [s.to_dict() for s in split_by_slide(t.words, got.marks)]
+                    out["marks"] = [m.to_dict() for m in got.marks]
+                # 추정했든 물러섰든 사실대로 알린다 — 화면이 「추정값」을 표시해야 한다
+                out["marks_estimated"] = got.estimated
+                out["marks_confidence"] = got.confidence
+                out["marks_reason"] = got.reason
+                sys.stderr.write(
+                    f"[bridge] F-04 구간 추정 estimated={got.estimated} "
+                    f"confidence={got.confidence}\n"
+                )
+            return self._json(200, out)
         except Exception as e:  # noqa: BLE001
             from chuckchuck.contracts import STTError
 

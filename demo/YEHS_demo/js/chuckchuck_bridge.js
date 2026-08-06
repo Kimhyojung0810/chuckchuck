@@ -276,13 +276,18 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       marks: marks || [],
       audio_base64,
       ext,
+      // 자료를 같이 보내면 서버가 발화 내용으로 슬라이드 구간을 되짚는다 (F-04 파생).
+      // 업로드본은 전환 기록이 없어 marks 가 균등 분할이라, 그대로 두면 어긋난다.
+      slidedoc: slideDoc || null,
     }),
   });
   const transcript = await readJson(sttRes, "STT");
   if (!sttRes.ok || transcript.error) {
     throw new Error(transcript.message || transcript.error || `transcribe HTTP ${sttRes.status}`);
   }
-  report('stt_done', `단어 ${(transcript.words || []).length}개 · 슬라이드 구간 ${(transcript.by_slide || []).length}개`, { transcript });
+  /* 추정값인지 균등 분할인지 숨기지 않는다 — 진행 로그에 그대로 남긴다 */
+  const markNote = transcript.marks_reason ? ` · ${transcript.marks_reason}` : '';
+  report('stt_done', `단어 ${(transcript.words || []).length}개 · 슬라이드 구간 ${(transcript.by_slide || []).length}개${markNote}`, { transcript });
 
   let concepts = null;
   let conceptsError = null;
