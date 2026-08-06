@@ -381,54 +381,73 @@ function renderHome() {
     : nfActive
       ? {href:'#/new', eyebrow:'발표 연습 진행 중', title:`${NF_STEPS[nf.step]}부터 이어서 할까요?`, sub:`${nf.slide || 1}번 슬라이드와 입력한 발표 정보를 저장했어요.`}
       : null;
+  /* 토스 홈의 문법: 제목 → 핵심 숫자 한 장 → 목록 → 다음 행동.
+     히어로 배너도, 면적 차트 옆 통계 타일도, 96px 공백으로 가른 블록 일곱 개도
+     없다. 그건 대시보드 문법이지 앱 문법이 아니다.
+     「새 발표 연습」은 상단 바에만 둔다 — 화면 안에 CTA 를 또 두면 어느 것이
+     이 화면의 행동인지 흐려진다 (MVP_SPEC §5.1 · 토스 CTA 규칙) */
+  const gm = loadGame();
+  const streak = dayStreak(gm.days), lvl = gameLevel(gm.xp), inLvl = (gm.xp || 0) % 100;
+
   app.innerHTML = `
-    <!-- 「새 발표 연습」은 상단 바에 항상 있다. 한 화면에 같은 버튼을 셋 두면
-         어느 것이 이 화면의 행동인지 흐려진다 (MVP_SPEC §5.1 · 토스 CTA 규칙) -->
-    <div class="page-head"><div><h1 class="page-title">내 발표</h1><p class="page-sub">발표와 질문 코칭 결과를 이어서 확인해요.</p></div></div>
-    ${resume ? `<div class="resume-row"><a class="resume-card" href="${resume.href}"><span>${resume.eyebrow}</span><strong>${resume.title}</strong><p>${resume.sub}</p><i>이어하기 →</i></a><a class="btn btn-secondary btn-sm" href="#/new" data-fresh-practice>처음부터 다시</a></div>` : ''}
-    <section class="verdict home-verdict">
-      <div class="verdict-inner">
-        <div class="verdict-grid">
-          <div class="verdict-score">
-            <span class="vs-label">최근 발표 완성도</span>
-            <div class="vs-body">
-              <strong class="num">${DATA.session.score}<span class="of">점</span></strong>
-              <span class="delta num">▲ ${DATA.session.score - DATA.session.prevScore}</span>
-            </div>
-          </div>
-          <div class="verdict-judgement">
-            <div class="hg-head"><span class="eyebrow">최근 5회 완성도</span><b class="num">${g[0]} → ${g[g.length - 1]}</b></div>
-            ${areaChartSvg(g, 360, 132)}
-            <div class="hg-foot">
-              <div><strong class="num">+${totalUp}</strong><small>5회 성장</small></div>
-              <div><strong class="num">4 → 1</strong><small>설명 누락</small></div>
-            </div>
-          </div>
-        </div>
+    <header class="t-head"><h1>내 발표</h1></header>
+
+    ${resume ? `
+    <a class="t-resume" href="${resume.href}">
+      <span class="t-resume-main">
+        <span class="t-resume-tag">${resume.eyebrow}</span>
+        <b>${resume.title}</b>
+      </span>
+      <span class="t-chev" aria-hidden="true">›</span>
+    </a>` : ''}
+
+    <section class="t-card t-score-card" aria-label="최근 발표 완성도">
+      <p class="t-label">최근 발표 완성도</p>
+      <div class="t-score">
+        <strong class="num">${DATA.session.score}</strong><span class="t-unit">점</span>
+        <span class="t-delta num">▲ ${DATA.session.score - DATA.session.prevScore}</span>
       </div>
+      <div class="t-spark">${areaChartSvg(g, 360, 84)}</div>
+      <p class="t-caption">최근 5회 ${g[0]} → ${g[g.length - 1]} · 5회 동안 ${totalUp} 올랐어요</p>
     </section>
-    ${window.Playbill ? window.Playbill.wallHtml() : ''}
-    ${gameStripHtml()}
-    <section class="home-list">
-      <div class="block-head">
-        <h2>내 발표</h2>
-        <p>발표를 누르면 그 회차의 리포트를 열어요</p>
+
+    <section class="t-card t-record-card" aria-label="연습 기록">
+      <div class="t-stats">
+        <div class="t-stat"><b class="num">${streak}일</b><small>연속 연습</small></div>
+        <div class="t-stat"><b class="num">레벨 ${lvl}</b><small>설득력</small></div>
       </div>
-      <div class="sess-list">
+      <div class="t-bar"><i style="width:${inLvl}%"></i></div>
+      <p class="t-caption">다음 레벨까지 ${100 - inLvl} · 어려운 상대일수록 더 많이 쌓여요</p>
+    </section>
+
+    <div class="t-band" aria-hidden="true"></div>
+
+    <section class="t-sec">
+      <h2 class="t-sec-head">지난 발표</h2>
+      <div class="t-card t-list">
         ${DATA.sessions.map(s => `
-        <button class="sess-row" type="button" data-go="#/report/${s.id}">
-          <span class="sess-main">
+        <button class="t-row" type="button" data-go="#/report/${s.id}">
+          <span class="t-row-main">
             <b>${s.title}</b>
-            <small>${s.occasion}${s.slides ? ` · ${s.slides}장` : ''} · ${s.date} · ${s.nth}번째 연습 · ${s.note}</small>
+            <small>${s.occasion} · ${s.date} · ${s.nth}번째 연습</small>
           </span>
-          <span class="sess-score num">${s.score}<i>점</i></span>
-          <span class="sess-diff num">+${s.diff}</span>
-          <span class="chev" aria-hidden="true">›</span>
+          <span class="t-row-val num">${s.score}<i>점</i></span>
+          <span class="t-chev" aria-hidden="true">›</span>
         </button>`).join('')}
       </div>
     </section>
-    <a class="about-link" href="#/about">척척발표가 판단하는 방식 →</a>`;
-  $$('.sess-row').forEach(r => r.addEventListener('click', () => location.hash = r.dataset.go));
+
+    ${window.Playbill ? window.Playbill.wallHtml() : ''}
+
+    <div class="t-band" aria-hidden="true"></div>
+
+    <div class="t-card t-list">
+      <button class="t-row" type="button" data-go="#/about">
+        <span class="t-row-main"><b>척척발표가 판단하는 방식</b></span>
+        <span class="t-chev" aria-hidden="true">›</span>
+      </button>
+    </div>`;
+  $$('.t-row[data-go]').forEach(r => r.addEventListener('click', () => location.hash = r.dataset.go));
   if (window.Playbill) window.Playbill.paintWall(app);
   animateViz();
 }
@@ -1039,9 +1058,6 @@ function nfStep2() {
           ${times.map(t => `<button class="${nf.min === t ? 'on' : ''}" data-min="${t}">${t}분</button>`).join('')}
         </div>
         <div class="time-detail">
-          <div class="stepper">
-            <button id="minus" aria-label="이전 시간">−</button><b id="min">${nf.min}분</b><button id="plus" aria-label="다음 시간">＋</button>
-          </div>
           <p><b>23장 기준 장당 약 ${perSlide}초</b><span>질문 시간을 포함하면 1~2분 여유를 두는 게 좋아요.</span></p>
         </div>
       </div>
@@ -1061,14 +1077,6 @@ function nfStep2() {
     const b = e.target.closest('button'); if (!b) return;
     nf.min = Number(b.dataset.min); nfStep2(); saveSession('new-flow', nf);
   });
-  const moveTime = d => {
-    const exact = times.indexOf(nf.min);
-    const pos = exact >= 0 ? exact : times.reduce((best, t, i) => Math.abs(t - nf.min) < Math.abs(times[best] - nf.min) ? i : best, 0);
-    nf.min = times[Math.min(times.length - 1, Math.max(0, pos + d))];
-    nfStep2(); saveSession('new-flow', nf);
-  };
-  $('#minus').addEventListener('click', () => moveTime(-1));
-  $('#plus').addEventListener('click', () => moveTime(1));
   $('#go').addEventListener('click', () => { nf.step = 2; renderNew(); });
   // 건너뛰면 상황을 비운다. 서버가 기본 기준으로 매기고 "안 골라서 …" 안내를 남긴다 —
   // 없는 상황을 지어내 보내면 어느 가중치로 매겼는지 알 수 없게 된다.
@@ -1126,7 +1134,7 @@ function nfStep3() {
   app.innerHTML = `${nfSteps()}
     <div class="rehearsal-head">
       <div><span class="mode-label">발표 모드</span><h1>슬라이드를 보며 실제처럼 발표해보세요</h1></div>
-      <p>← → 키 · 좌우 버튼 · 아래 필름으로 넘길 수 있어요${usePdf ? ' · 업로드한 PDF 원본' : ''}</p>
+      <p>← → 키나 슬라이드 목록으로 넘길 수 있어요${usePdf ? ' · 업로드한 PDF 원본' : ''}</p>
     </div>
     <div class="rehearsal-shell">
       <div class="card rehearsal-control" id="recPanel"></div>
@@ -1253,7 +1261,7 @@ function recUploadHtml() {
   return `
     <div class="rec-upload">
       <button class="btn btn-text btn-sm" id="recUploadPick">녹음 파일로 대신하기</button>
-      <p class="note" id="recUploadNote">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB. 슬라이드 구간은 길이를 균등 분할해 채웁니다.</p>
+      <p class="note" id="recUploadNote">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB. 슬라이드 구간은 길이를 균등하게 나눠 채워요.</p>
       <input type="file" id="recUploadFile" accept="audio/*,.webm,.m4a,.mp4,.mp3,.wav,.ogg" hidden>
     </div>`;
 }
@@ -3801,7 +3809,9 @@ function qaModeButtonsHtml() {
       return `<button type="button" class="qa-mode ${on ? 'on' : ''}" data-mode="${k}" role="radio" aria-checked="${on}">
         <span class="qm-time">${escapeHtml(String(md.short).split('·')[0].trim())}</span>
         <span class="qm-body"><b>${escapeHtml(String(md.short).split('·').slice(1).join('·').trim() || md.short)}</b><span>${escapeHtml(md.desc)}</span></span>
-        <span class="qm-right"><em>${escapeHtml(md.scopeLabel)}</em><i class="qm-check" aria-hidden="true">${on ? '✓' : ''}</i></span>
+        <!-- scopeLabel 은 바로 왼쪽 desc 를 줄여 쓴 말이라 한 줄에 같은 말이 두 번 나왔다.
+             ListRow 의 right 슬롯에는 고른 상태만 남긴다 -->
+        <span class="qm-right"><i class="qm-check" aria-hidden="true">${on ? '✓' : ''}</i></span>
       </button>`;
     }).join('')}
   </div>`;

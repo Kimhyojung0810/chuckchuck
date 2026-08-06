@@ -423,3 +423,102 @@ main img, main canvas, main svg { max-width: 100%; }
   .strat-block::before { left: -22px; }
   .strat-slides { margin-left: 0; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   홈 — 토스 문법으로 다시 지은 것
+
+   버린 것: 다크 그라디언트 히어로, 면적 차트 + 통계 타일 4개, 96px 공백으로
+   가른 블록 7개. 그건 대시보드 문법이지 앱 문법이 아니다.
+
+   가져온 것 (TDS):
+     · ListRow 가 기본 단위다. 항목은 왼쪽 텍스트 + 오른쪽 값 + 꺾쇠.
+     · 구역은 공백이 아니라 16px 회색 띠로 가른다 (Border variant="height16").
+     · 카드는 radius 20 흰 면. 안쪽 여백 20px.
+     · 큰 숫자는 하나만. 나머지는 전부 13~17px 본문이다.
+     · 주 액션은 상단 바에 하나뿐 (화면 안에 CTA 를 또 두지 않는다).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.t-head { margin: 4px 0 16px; }
+.t-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+
+/* 구역 띠 — 전면폭으로 빠져나가 화면을 가른다 */
+.t-band { height: 16px; margin: 20px calc(50% - 50vw); background: var(--fill); }
+
+.t-card {
+  background: var(--surface); border-radius: var(--r-print);
+  border: 1.5px solid var(--border); padding: 20px;
+}
+.t-label { font-size: 13px; font-weight: 600; color: var(--text-3); }
+.t-caption { margin-top: 8px; font-size: 13px; color: var(--text-3); }
+
+/* 이 화면에서 큰 숫자는 이것 하나다 */
+.t-score { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; }
+.t-score strong { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+.t-score .t-unit { font-size: 17px; font-weight: 600; color: var(--text-2); }
+.t-score .t-delta {
+  margin-left: auto; padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--brand-weak); color: var(--brand-strong);
+  font-size: 13px; font-weight: 700;
+}
+.t-spark { margin-top: 14px; }
+.t-spark svg { display: block; width: 100%; height: auto; }
+
+/* ListRow */
+.t-list { padding: 4px 20px; }
+.t-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px 0; background: none; border: 0; border-radius: 0;
+  text-align: left; font: inherit; color: inherit; cursor: pointer;
+  transition: background .12s ease;
+}
+.t-row + .t-row { border-top: 1px solid var(--border); }
+.t-row:hover { background: transparent; }
+.t-row:active { opacity: .6; }
+.t-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 8px; }
+.t-row-main { flex: 1; min-width: 0; }
+.t-row-main b { display: block; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.t-row-main small {
+  display: block; margin-top: 2px; font-size: 13px; color: var(--text-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.t-row-val { flex: none; font-size: 17px; font-weight: 700; }
+.t-row-val i { font-style: normal; font-size: 13px; font-weight: 600; color: var(--text-3); margin-left: 1px; }
+.t-chev { flex: none; color: var(--text-3); font-size: 20px; line-height: 1; }
+
+/* 구역 제목 — 회색 띠 바로 아래 붙는다 */
+.t-sec-head { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+
+/* 이어하기 — 브랜드 색은 이 한 줄에만 쓴다 */
+.t-resume {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px; border-radius: var(--r-print);
+  background: var(--brand-weak); border: 1.5px solid #C9E9DA;
+}
+.t-resume-main { flex: 1; min-width: 0; }
+.t-resume-tag { display: block; font-size: 13px; font-weight: 700; color: var(--brand-strong); }
+.t-resume-main b { display: block; margin-top: 2px; font-size: 15px; font-weight: 600; }
+.t-resume .t-chev { color: var(--brand-strong); }
+
+/* 연습 기록 — 통계 타일 대신 한 줄 */
+.t-stats { display: flex; gap: 24px; }
+.t-stat b { display: block; font-size: 20px; font-weight: 700; }
+.t-stat small { display: block; margin-top: 2px; font-size: 13px; color: var(--text-3); }
+.t-bar { margin-top: 14px; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
+.t-bar i { display: block; height: 100%; border-radius: 3px; background: var(--brand); }
+
+/* ══ 앱 화면에 앉는 발표새 ══════════════════════════════════════════
+   .ch-seat 은 객석 입장 연출용이라 opacity:0 · translateY(14px) 로 시작하고
+   .seated 가 붙어야 나타난다. 앱 화면(점수 옆·빈 화면·로딩·포스터 벽)은 그
+   연출을 타지 않으므로 그대로 쓰면 캐릭터가 아예 안 보인다.
+   좌석 폭(clamp 124~178px)도 여기선 필요 없다. */
+.verdict-bird, .empty-bird, .pipe-bird-row .ch-seat, .pb-bird {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  animation: none;
+}
+/* 좌석 폭(clamp 124~178px)은 앱 화면에서 필요 없다. 다만 폭을 auto 로 풀면
+   margin:0 auto 가 안 먹어 가운데 정렬이 깨진다 — 각자 제 폭을 갖는다 */
+.verdict-bird { width: 52px; }
+.empty-bird { width: 72px; }
+.pipe-bird-row .ch-seat { width: 44px; }

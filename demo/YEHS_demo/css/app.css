@@ -291,8 +291,8 @@ main.narrow { max-width: 640px; }
 
 .dropzone {
   background: var(--surface); border-radius: var(--r-card);
-  border: 1.5px dashed #D1D6DB;
-  padding: 48px 20px; text-align: center;
+  border: 1.5px dashed var(--border);
+  padding: 40px 20px; text-align: center;
   transition: border-color .15s ease, background .15s ease;
 }
 .dropzone.hover { border-color: var(--blue); background: #FBFCFE; }
@@ -351,7 +351,9 @@ main.narrow { max-width: 640px; }
   color: var(--text-2); font-size: 14px; font-weight: 600; cursor: pointer;
 }
 .time-presets button.on { background: var(--blue); color: #fff; }
-.time-detail { display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 14px; border-radius: var(--r-print); background: #F8F9FA; }
+/* 안내 줄의 면은 위 입력창과 같은 --fill 을 쓴다.
+   여기만 파르스름한 #F8F9FA 였어서 입력창만 초록기가 도는 것처럼 보였다 */
+.time-detail { display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 14px; border-radius: var(--r-print); background: var(--fill); }
 .time-detail p { display: flex; min-width: 0; flex-direction: column; font-size: 13px; }
 .time-detail p b { color: var(--text-2); }
 .time-detail p span { color: var(--text-3); font-size: 12px; }
@@ -385,16 +387,20 @@ main.narrow { max-width: 640px; }
 .presentation-viewer { width: 100%; }
 .presentation-viewer .viewer-stage { position: relative; }
 .stage-nav {
-  position: absolute; top: 50%; width: 44px; height: 72px; transform: translateY(-50%);
-  border: 0; border-radius: var(--r-print); background: rgba(25,31,40,.72); color: #fff;
-  font-size: 26px; line-height: 1; cursor: pointer; opacity: .92; transition: opacity .15s ease, background .15s ease;
+  /* 진회색 큰 알약이 슬라이드 위에 얹혀 있으면 자료보다 버튼이 먼저 읽힌다.
+     흰 원 + 옅은 그림자로 낮춰서 슬라이드가 주인공을 되찾게 한다 */
+  position: absolute; top: 50%; width: 44px; height: 44px; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: var(--r-pill); background: var(--surface); color: var(--text-2);
+  box-shadow: 0 2px 10px rgba(28,82,61,.16);
+  font-size: 20px; line-height: 1; cursor: pointer; opacity: .9; transition: opacity .15s ease, background .15s ease;
   z-index: 6; pointer-events: auto;
 }
 .stage-nav:focus-visible { opacity: 1; }
 /* 터치 화면에는 hover 가 없다. 마우스가 있는 환경에서만 hover 로 강조한다 */
 @media (hover: hover) {
   .viewer-stage:hover .stage-nav { opacity: 1; }
-  .stage-nav:hover { background: rgba(25,31,40,.9); }
+  .stage-nav:hover { background: var(--fill); }
 }
 .stage-prev { left: 14px; } .stage-next { right: 14px; }
 .viewer-caption {
@@ -1151,7 +1157,8 @@ details.fold .fold-body { padding: 0 24px 20px; }
 
 /* ── QA 시간 모드 선택 ── */
 .qa-mode-pick { margin-top: 22px; display: flex; flex-direction: column; gap: 12px; }
-.qm-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* 제목과 설명을 한 줄에 나란히 두면 어디까지가 제목인지 안 읽힌다. 위아래로 쌓는다 */
+.qm-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 2px; }
 .qm-head b { font-weight: 700; }
 .qm-head span { font-size: 13px; color: var(--text-3); }
 .qa-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -1171,7 +1178,9 @@ details.fold .fold-body { padding: 0 24px 20px; }
 @media (max-width: 720px) { .qa-modes { grid-template-columns: 1fr; } }
 
 .qa-quick { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; }
-.qa-quick .btn { align-self: flex-start; }
+/* 왼쪽 아래 구석의 작은 버튼이 이 화면의 유일한 다음 행동이었다.
+   카드 폭을 다 쓰는 CTA 로 세운다 (TDS BottomCTA) */
+.qa-quick .btn { align-self: stretch; margin-top: 4px; }
 
 /* ── 실전 모드 입력 ── */
 .qa-live-input { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; margin-top: 14px; }
@@ -1611,7 +1620,8 @@ table.plain tr:last-child td { border-bottom: 0; }
 
 /* ── QA 시간 모드 선택 (질문 준비 완료 화면) ── */
 .qa-mode-pick { margin-top: 22px; display: flex; flex-direction: column; gap: 12px; }
-.qm-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* 제목과 설명을 한 줄에 나란히 두면 어디까지가 제목인지 안 읽힌다. 위아래로 쌓는다 */
+.qm-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 2px; }
 .qm-head b { font-weight: 700; }
 .qm-head span { font-size: 13px; color: var(--text-3); }
 .qa-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -1632,7 +1642,9 @@ table.plain tr:last-child td { border-bottom: 0; }
 
 /* ── 홈: 질문 코칭 바로 시작 카드 ── */
 .qa-quick { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; }
-.qa-quick .btn { align-self: flex-start; }
+/* 왼쪽 아래 구석의 작은 버튼이 이 화면의 유일한 다음 행동이었다.
+   카드 폭을 다 쓰는 CTA 로 세운다 (TDS BottomCTA) */
+.qa-quick .btn { align-self: stretch; margin-top: 4px; }
 
 /* ── 실전 모드 패널 + 입력 ── */
 .qa-live-body { display: flex; flex-direction: column; gap: 10px; }
