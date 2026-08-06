@@ -348,6 +348,73 @@
   main:has(.about-sec) .principles li { margin-bottom: 5px; }
 
 
+  /* ══ 6-2. 랜딩 — 세로로 8화면이던 것을 옆으로 넘기는 덱으로 ══
+     구역 여섯이 각각 1.0~1.8화면이라 여백만 조여서 될 규모가 아니었다.
+     한 구역 = 한 화면으로 두고 가로로 민다. 페이지 세로 스크롤은 0 이 되고,
+     아직 긴 구역만 그 구역 안에서 스크롤한다.
+     .land-progress 는 원래 position:fixed 라 트랙 밖에 그대로 떠 있는다 */
+
+  main.landing { height: var(--app-h); overflow: hidden; }
+
+  .landing-main {
+    height: 100%;
+    display: flex;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .landing-main::-webkit-scrollbar { display: none; }
+
+  .landing-main > #hero,
+  .landing-main > #exampleSec,
+  .landing-main > #alignTrack,
+  .landing-main > #judgeSec,
+  .landing-main > #demoSec,
+  .landing-main > #start {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-snap-align: start;
+    scrollbar-width: thin;
+  }
+  /* 히어로는 min-height 로 760px 을 잡고 있어서 덱 칸을 넘긴다 */
+  .landing-main > #hero,
+  .landing-main > #hero .hero-inner { min-height: 0; }
+  .landing-main > section,
+  .landing-main > #alignTrack { margin: 0; }
+
+  /* 세로로 이어붙일 때 쓰던 100~150px 구역 여백은 덱에선 낭비다.
+     히어로는 자체 여백 체계를 쓰므로 따로 둔다 */
+  .landing-main > #exampleSec,
+  .landing-main > #judgeSec,
+  .landing-main > #demoSec,
+  .landing-main > #start {
+    padding-top: clamp(14px, 2.6vh, 32px);
+    padding-bottom: clamp(14px, 2.6vh, 32px);
+  }
+  .landing-main .hero-inner { padding: clamp(16px, 3vh, 40px) 0; }
+  .landing-main .align-stage { padding-block: clamp(10px, 2vh, 24px); }
+  .landing-main .section-heading { margin-bottom: 6px; }
+  .landing-main .align-cap { margin-bottom: 8px; }
+  .landing-main .compare-stage { gap: 10px; }
+  /* 750px 짜리 장식 글로우가 흐름 안에 있어서 시작 구역만 혼자 1461px 이었다 */
+  .landing-main .start-glow { position: absolute; }
+
+  /* 제품 목업 둘은 여백을 다 걷어도 칸을 넘는다. 잘라내는 대신 통째로 줄인다.
+     transform: scale 은 레이아웃 크기를 그대로 둬서 목업이 stretch 로 눌린 뒤
+     축소돼 내용의 절반이 잘렸다(1180×820 실측). zoom 은 레이아웃까지 줄인다 */
+  .landing-main > #judgeSec .product-showcase-shell {
+    margin-top: 0; min-height: 0; width: auto;
+  }
+  .landing-main > #judgeSec .app-frame { zoom: .66; }
+  .landing-main > #demoSec .demo-panel { zoom: .72; }
+
+
   /* ══ 7. 척척극장 객석 ══════════════════════════════════════
      좌석이 178px 로 고정돼 있어 말풍선도 178px 였다.
      대사가 다섯 줄로 접히는 동안 1180px 중 400px 이 양옆에서 놀았다 */
@@ -400,6 +467,28 @@
 @media (min-width: 900px) and (max-height: 760px) {
   main.home > .verdict .growth-svg { height: 70px; }
   main.home > .verdict { padding: 12px 16px 10px; }
+}
+
+/* 랜딩 덱: 세로가 줄면 시연 무대와 제품 목업을 단계로 더 줄인다.
+   내용은 그대로 있고 크기만 작아진다 */
+/* 경계가 825px 인 이유: 1180×820 에서 대조 카드가 딱 4px 넘친다.
+   기준 해상도가 이 구간 안에 있어야 해서 815 가 아니라 825 다 */
+@media (min-width: 900px) and (max-height: 825px) {
+  .landing-main .compare-stage,
+  .landing-main .align-stage { zoom: .94; }
+  .landing-main > #demoSec .demo-panel { zoom: .68; }
+}
+@media (min-width: 900px) and (max-height: 780px) {
+  .landing-main .compare-stage,
+  .landing-main .align-stage { zoom: .88; }
+  .landing-main > #judgeSec .app-frame { zoom: .62; }
+  .landing-main > #demoSec .demo-panel { zoom: .63; }
+}
+@media (min-width: 900px) and (max-height: 740px) {
+  .landing-main .compare-stage,
+  .landing-main .align-stage { zoom: .81; }
+  .landing-main > #judgeSec .app-frame { zoom: .57; }
+  .landing-main > #demoSec .demo-panel { zoom: .57; }
 }
 
 /* 세로 740px 아래. 여기서도 지우는 건 없다 —

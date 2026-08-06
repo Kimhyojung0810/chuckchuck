@@ -42,8 +42,23 @@ landing.html 조각을 받아 #app 에 넣고 각 구역의 동작을 붙입니�
     if (M && !$('main[data-page="home"]').hidden)
       mIn($$('.hero-copy > *'), { delay: M.stagger(.08, { startDelay: .05 }), duration: .6 });
 
-    $('#scrollCue').addEventListener('click', () =>
-      $('.example-section').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' }));
+    /* 가로형(≥900px)에서 랜딩은 옆으로 넘기는 덱이다 — css/tablet.css 가
+       .landing-main 을 가로 스크롤 트랙으로 바꾼다. 그때는 창을 세로로 굴리는
+       대신 트랙을 옆으로 밀어야 한다. 좁은 화면에서는 예전 그대로 세로로 간다. */
+    const deckTrack = () => {
+      const t = $('.landing-main');
+      return t && getComputedStyle(t).overflowX !== 'visible' && t.scrollWidth > t.clientWidth + 1
+        ? t : null;
+    };
+    const goSection = (el) => {
+      if (!el) return;
+      const track = deckTrack();
+      const behavior = reduceMotion ? 'auto' : 'smooth';
+      if (track) track.scrollTo({ left: el.offsetLeft, behavior });
+      else el.scrollIntoView({ behavior });
+    };
+
+    $('#scrollCue').addEventListener('click', () => goSection($('.example-section')));
 
     const arrowSvg = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4"></path></svg>';
 
@@ -174,22 +189,34 @@ landing.html 조각을 받아 #app 에 넣고 각 구역의 동작을 붙입니�
       const btns = $$('#landProgress button');
       landProg.addEventListener('click', e => {
         const btn = e.target.closest('button'); if (!btn) return;
-        const el = document.getElementById(btn.dataset.sec);
-        if (el) scrollTo({ top: el.offsetTop + 2, behavior: reduceMotion ? 'auto' : 'smooth' });
+        goSection(document.getElementById(btn.dataset.sec));
       });
       let lpTick = false;
-      addEventListener('scroll', () => {
+      /* 덱이면 지나온 칸을 가로 위치로, 아니면 예전처럼 세로 위치로 센다 */
+      const paintDots = () => {
+        lpTick = false;
+        const track = deckTrack();
+        let cur = 0;
+        if (track) {
+          const x = track.scrollLeft + track.clientWidth * .4;
+          secs.forEach((s, i) => { if (x >= s.offsetLeft) cur = i; });
+        } else {
+          const y = scrollY + innerHeight * .4;
+          secs.forEach((s, i) => { if (y >= s.offsetTop) cur = i; });
+        }
+        btns.forEach((b2, i) => b2.classList.toggle('on', i === cur));
+        landProg.classList.toggle('lp-dark', cur === 5);
+      };
+      const onMove = () => {
         if (!document.querySelector('.landing-main') || lpTick) return;
         lpTick = true;
-        requestAnimationFrame(() => {
-          lpTick = false;
-          const y = scrollY + innerHeight * .4;
-          let cur = 0;
-          secs.forEach((s, i) => { if (y >= s.offsetTop) cur = i; });
-          btns.forEach((b2, i) => b2.classList.toggle('on', i === cur));
-          landProg.classList.toggle('lp-dark', cur === 5);
-        });
-      }, { passive: true, signal });
+        requestAnimationFrame(paintDots);
+      };
+      addEventListener('scroll', onMove, { passive: true, signal });
+      /* 트랙 자체의 스크롤은 창까지 올라오지 않으므로 따로 듣는다 */
+      const track0 = $('.landing-main');
+      if (track0) track0.addEventListener('scroll', onMove, { passive: true, signal });
+      paintDots();
     }
 
     return io;
