@@ -255,26 +255,40 @@
 
   /* 판정 헤드가 화면을 거의 다 먹어서 정작 5개 탭이 접힌 아래에 있었다.
      헤드를 줄이고 탭을 상단 바 밑에 붙여 항상 손이 닿게 한다 */
-  main.wide > .verdict { padding: 20px max(var(--gutter), calc(50vw - 556px)) 0; }
+  /* 본문이 안에서 스크롤하게 된 뒤로 판정 헤드는 그만큼 순수 오버헤드다.
+     지우는 것 없이 여백과 글자만 조여 25px 을 본문에 돌려준다 */
+  main.wide > .verdict { padding: 16px max(var(--gutter), calc(50vw - 556px)) 0; }
   main.wide > .verdict:first-child { margin-top: -18px; }
-  .verdict-title { font-size: 22px; margin-top: 8px; }
-  .verdict-grid { margin-top: 14px; }
-  .verdict-score .vs-body { padding-top: 12px; }
-  .verdict-score strong { font-size: 48px; }
+  .verdict-title { font-size: 21px; margin-top: 6px; }
+  .verdict-grid { margin-top: 10px; }
+  .verdict-score .vs-body { padding-top: 10px; }
+  .verdict-score strong { font-size: 42px; }
   .verdict-score .prev { margin-top: 6px; }
   .verdict-judgement h2 { font-size: 19px; }
-  .verdict-dims { margin-top: 14px; }
+  .verdict-dims { margin-top: 12px; }
   /* 채점 항목이 7개다. 기본 flex-basis 로는 6 + 1 로 접혀 마지막 항목만
      전체 폭을 차지한다 — 가로형에서는 한 줄에 나란히 세운다 */
   .verdict-dims .vd { flex: 1 1 0; min-width: 78px; }
-  .verdict-dims .vl { margin: 2px 0 6px; font-size: 18px; }
-  .verdict-bg { height: 104px; }
-  .verdict-note { padding: 10px 0 14px; font-size: 12.5px; }
+  .verdict-dims .vl { margin: 2px 0 5px; font-size: 17px; }
+  .verdict-bg { height: 74px; }
+  .verdict-note { padding: 6px 0 10px; font-size: 12px; }
 
-  /* design-system.css 의 떠 있는 탭 바를 그대로 두고 기준점만 새 상단 바에 맞춘다.
-     선택자를 #rtabs.tabs 로 맞춰야 원래 규칙을 이긴다.
-     48px 이던 아래 여백은 세로 예산에서 가장 값싼 28px 이다 */
-  #rtabs.tabs { top: calc(var(--topbar-h) + 8px); margin: 0 0 20px; }
+  /* 리포트는 요약 탭 본문만 1264px 이다. 내용을 덜어내지 않고 한 화면에 담으려면
+     페이지가 아니라 본문이 안에서 움직여야 한다 — 점수와 5개 탭은 늘 붙어 있고
+     스크롤은 카드 묶음 안에서만 생긴다. 홈 목록·코칭 대화와 같은 방식이다 */
+  main.wide:has(#rbody) {
+    height: var(--app-h);
+    display: flex; flex-direction: column;
+    padding-bottom: 12px;
+  }
+  main.wide:has(#rbody) > .verdict { flex: none; }
+  main.wide:has(#rbody) > #rbody {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding-right: 4px; scrollbar-width: thin;
+  }
+  /* 본문이 스크롤을 맡으므로 탭은 더 이상 떠 있을 필요가 없다.
+     선택자를 #rtabs.tabs 로 맞춰야 design-system.css 의 sticky 규칙을 이긴다 */
+  main.wide > #rtabs.tabs { flex: none; position: static; top: auto; margin: 0 0 14px; }
 
   /* 리포트 본문은 서로 독립적인 카드 묶음이라 두 단으로 나눌 수 있다.
      넓은 시각 요소만 전체 폭을 쓴다 */
@@ -303,16 +317,33 @@
 
   /* ══ 6. 판단 방식(#/about) ══════════════════════════════════ */
 
+  /* 카드 셋 중 파이프라인 표 하나만 길다. 셋을 세로로 쌓으면 표 뒤의 두 카드가
+     화면 밖으로 나간다 — 표를 왼쪽 한 칸에 세우고 짧은 둘을 오른쪽에 쌓는다.
+     카드가 정확히 셋이라(app.js 4494·4512·4521) 자리를 이름 대신 좌표로 박는다 */
   main:has(.about-sec) {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    /* 남는 높이를 마지막 행이 먹어야 오른쪽 두 카드가 위에 붙어 있는다.
+       1fr 이 가운데 행이면 둘 사이가 화면 절반만큼 벌어진다 */
+    grid-template-rows: auto auto minmax(0, 1fr);
     gap: 14px;
-    align-items: start;
+    height: var(--app-h);
+    padding-bottom: 12px;
   }
-  main:has(.about-sec) > .page-title { grid-column: 1 / -1; }
-  /* 첫 카드는 넓은 표라서 한 줄을 다 쓴다 */
-  main:has(.about-sec) > .about-sec:first-of-type { grid-column: 1 / -1; }
+  main:has(.about-sec) > .page-title { grid-area: 1 / 1 / 2 / 3; }
+  /* 표 카드가 남은 높이를 받고, 넘치면 페이지 대신 카드 안에서 스크롤한다 */
+  main:has(.about-sec) > .about-sec:nth-of-type(1) {
+    grid-area: 2 / 1 / 4 / 2;
+    min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  }
+  main:has(.about-sec) > .about-sec:nth-of-type(2) { grid-area: 2 / 2 / 3 / 3; align-self: start; }
+  main:has(.about-sec) > .about-sec:nth-of-type(3) { grid-area: 3 / 2 / 4 / 3; align-self: start; }
   main:has(.about-sec) > * { margin-top: 0 !important; }
+  /* 8행짜리 표의 행 여백이 그대로면 카드가 세로 예산을 혼자 다 쓴다 */
+  main:has(.about-sec) .card { padding: 16px 18px; }
+  main:has(.about-sec) table.plain th,
+  main:has(.about-sec) table.plain td { padding: 8px 10px; }
+  main:has(.about-sec) .principles li { margin-bottom: 5px; }
 
 
   /* ══ 7. 척척극장 객석 ══════════════════════════════════════
