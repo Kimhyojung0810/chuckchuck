@@ -103,18 +103,18 @@ viewBox `0 0 100 100` 유지 (transform-origin·좌석 CSS 가 이 좌표계를 
       /* 헤드폰 — 발표를 귀로 들은 유일한 청중 (F-05 STT) */
       return `
   <g class="ch-prop ch-prop-phones">
-    <path d="M21 34a29 29 0 0 1 58 0" fill="none" stroke="var(--chick-line)"
-          stroke-width="3.4" stroke-linecap="round"/>
-    <rect x="14" y="30" width="10.5" height="15.5" rx="5"
+    <path d="M18.5 35a31.5 31.5 0 0 1 63 0" fill="none" stroke="var(--chick-line)"
+          stroke-width="3.6" stroke-linecap="round"/>
+    <rect x="11.5" y="29" width="12" height="17" rx="5.5"
           fill="var(--chick-mint)" stroke="var(--chick-line)" stroke-width="2"/>
-    <rect x="75.5" y="30" width="10.5" height="15.5" rx="5"
+    <rect x="76.5" y="29" width="12" height="17" rx="5.5"
           fill="var(--chick-mint)" stroke="var(--chick-line)" stroke-width="2"/>
   </g>`;
     }
     if (speaker === 'solar') {
       /* 슬라이드 몇 장 — 자료를 통독한 청중 (F-01/06/07). 겹친 두 장이어야 '자료 묶음'으로 읽힌다 */
       return `
-  <g class="ch-prop ch-prop-script" transform="rotate(-8 76 68)">
+  <g class="ch-prop ch-prop-script" transform="translate(4 -2) rotate(-8 76 68)">
     <rect x="71.5" y="56.5" width="17" height="12.5" rx="2.5"
           fill="#F2FBF6" stroke="var(--chick-line)" stroke-width="2"/>
     <rect x="68.5" y="59.5" width="17" height="12.5" rx="2.5"
@@ -129,7 +129,7 @@ viewBox `0 0 100 100` 유지 (transform-origin·좌석 CSS 가 이 좌표계를 
   <g class="ch-prop ch-prop-pen">
     <path class="ch-pen-stroke" d="M72 90h22" stroke="#FFE14D" stroke-width="6"
           stroke-linecap="round" opacity="0"/>
-    <g transform="rotate(28 79 68)">
+    <g transform="translate(3 -1) rotate(34 79 68)">
       <rect x="75" y="56" width="8.5" height="18" rx="3.5"
             fill="#FFE14D" stroke="var(--chick-line)" stroke-width="2"/>
       <rect x="75" y="56" width="8.5" height="6" rx="3"
@@ -151,8 +151,8 @@ viewBox `0 0 100 100` 유지 (transform-origin·좌석 CSS 가 이 좌표계를 
     <circle cx="50" cy="71" r="5" fill="#FFFFFF"/>
     <path d="M50 67.4l1.2 2.4 2.7.4-2 1.9.5 2.7-2.4-1.3-2.4 1.3.5-2.7-2-1.9 2.7-.4z"
           fill="var(--chick-body, #FFD96A)" stroke="var(--chick-line)" stroke-width=".8"/>
-    <g class="ch-sparkle" fill="#FFF2C4">
-      <path d="M63 58l1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1z"/>
+    <g class="ch-sparkle" fill="#FFF2C4" stroke="var(--chick-line)" stroke-width=".9">
+      <path d="M90.5 43.5l1.1 2.9 2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z"/>
     </g>
   </g>`;
   }
@@ -256,6 +256,24 @@ ${props(speaker)}
 
 38px 실루엣에서 넷이 구분 안 되면 소품 크기를 키우지 말고 **소품의 바깥 돌출량**을 키운다
 (실루엣 테스트는 윤곽 밖으로 나온 모양으로 판가름난다).
+
+### 6-1. 실루엣 대책 (preview 확인 결과 반영)
+
+새 몸이 옛 병아리보다 넓어져 소품 돌출이 줄었고, 특히 배지는 몸 안쪽이라 실루엣에서
+아예 안 보였다. §4 코드에 이미 반영된 대책:
+
+| 자리 | 돌출 장치 |
+|---|---|
+| 엑씨 | 헤드폰 컵을 키우고 몸 밖으로 ~4.5px 돌출 (x11.5/76.5, 12×17) |
+| 쏠라 | 슬라이드 묶음을 `translate(4 -2)` 로 오른쪽 어깨 밖으로 |
+| 믿:음 | 형광펜을 `translate(3 -1) rotate(34°)` 로 더 뉘어 오른쪽 아래로 돌출 |
+| 엑사원 | 로제트는 몸 안(밝은 화면용) + **오른쪽 어깨 밖에 뜬 별**(`.ch-sparkle`, x87~94)이 실루엣 표식 |
+
+**무대 실루엣 필터도 완화한다** — `theater.css` 의 `brightness(.34) saturate(.5)` 를
+**`brightness(.52) saturate(.55)`** 로. 배경감은 유지하면서 크림 몸이 따뜻한 회갈색으로
+읽혀 윤곽이 산다. 아예 밝게("맨 앞으로") 두는 선택지도 있지만 **비추천** — 리허설 화면의
+주인공은 슬라이드다 (MVP_SPEC §3 "한 화면의 주인공은 하나"). 최종 판단은
+`components/preview.html` §2 의 두 필터 비교(.34 vs .52)를 눈으로 보고 한다.
 
 ## 7. 금지
 

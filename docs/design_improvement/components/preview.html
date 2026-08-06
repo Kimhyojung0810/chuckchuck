@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>발표새 미리보기 — docs/design_improvement</title>
+<!--
+  자체 완결 미리보기. 외부 리소스 0 — 파일을 브라우저로 열면 끝.
+  캐릭터 코드의 단일 원본은 ../01_character.md §4 다. 이 파일은 그 사본이며,
+  둘이 어긋나면 01_character.md 가 맞다.
+  앱 CSS(chatter.css)의 mood·애니메이션 전체가 아니라, 확인에 필요한 최소 부분만 담았다.
+-->
+<style>
+  :root {
+    /* 02_tokens.md 의 새 값 */
+    --navy: #155C46; --navy-deep: #0C3D2E;
+    --brand: #08B879; --brand-strong: #069E67; --brand-weak: #E7F7EF;
+    --canvas: #FFFDF7; --paper: #FFFFFF;
+    --fill: #EFF6F1; --border: #D8EEE3;
+    --text: #26372F; --text-2: #46584F; --text-3: #8AA295;
+    --r-print: 20px; --r-inner: 16px; --r-ctl: 12px; --r-pill: 999px;
+    --shadow-panel: 0 8px 24px rgba(28, 82, 61, .08);
+    /* 캐릭터 */
+    --chick-body: #FFD96A;
+    --chick-midm: var(--chick-body); --chick-solar: var(--chick-body);
+    --chick-exaone: var(--chick-body); --chick-ax: var(--chick-body);
+    --chick-line: #356B59; --chick-belly: #FFF3CF;
+    --chick-mint: #9ADBC0; --chick-beak: #F0A93C; --chick-blush: #F7B6A8;
+    /* 카드 틴트 */
+    --bub-midm: #E9F6EF; --bub-solar: #FFF6E0; --bub-exaone: #FDEEEA; --bub-ax: #EAF2FB;
+    --bub-ink: #4a3b2c;
+  }
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    font-family: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", system-ui, sans-serif;
+    background: var(--canvas); color: var(--text);
+    padding: 32px 24px 80px; line-height: 1.6; word-break: keep-all;
+  }
+  h1 { font-size: 22px; font-weight: 830; letter-spacing: -.03em; }
+  h2 { font-size: 15px; font-weight: 830; margin: 40px 0 14px; color: var(--text-2); }
+  p.note { color: var(--text-3); font-size: 13px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-end; }
+
+  .card {
+    background: var(--paper); border-radius: var(--r-print);
+    border: 1.5px solid var(--border); padding: 24px; box-shadow: var(--shadow-panel);
+  }
+
+  /* ── 캐릭터 최소 CSS (앱 chatter.css 의 축약 사본) ─────────────── */
+  .ch-seat { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
+  .ch-chick { width: var(--w, 134px); display: block; overflow: visible;
+              transform-origin: 50% 96%; animation: chSway var(--ch-sway, 2.4s) ease-in-out infinite; }
+  .ch-figure { transform-box: fill-box; transform-origin: 50% 100%;
+               animation: chBreathe 3s ease-in-out infinite;
+               animation-delay: var(--ch-breath-delay, 0s); }
+  .ch-eyes { transform-box: fill-box; transform-origin: center; animation: chBlink 5.6s infinite; }
+  .ch-eye-line { stroke: #2F3B33; stroke-width: 2.6; fill: none; stroke-linecap: round; opacity: 0; }
+  .ch-heart, .ch-mark { opacity: 0; }
+  @keyframes chSway { 0%,100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
+  @keyframes chBreathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.015); } }
+  @keyframes chBlink { 0%,93%,100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  @keyframes chHop {
+    0%,100% { transform: translateY(0) scale(1,1); } 18% { transform: translateY(0) scale(1.06,.94); }
+    50% { transform: translateY(-7px) scale(.97,1.03); } 82% { transform: translateY(0) scale(1.06,.94); } }
+  /* mood — 앱과 같은 data-mood 축 */
+  [data-mood="happy"] .ch-eye-ball, [data-mood="happy"] .ch-eye-hi,
+  [data-mood="grumpy"] .ch-eye-ball, [data-mood="grumpy"] .ch-eye-hi { opacity: 0; }
+  [data-mood="happy"] .ch-eye-happy { opacity: 1; }
+  [data-mood="grumpy"] .ch-eye-grumpy { opacity: 1; }
+  [data-mood="happy"] .ch-heart { opacity: 1; }
+  [data-mood="happy"] .ch-chick { animation: chSway 2.4s ease-in-out infinite, chHop .62s ease-in-out 2; }
+  [data-mood="curious"] .ch-mark { opacity: 1; }
+  [data-mood="curious"] .ch-eye-ball { transform: scale(1.08); transform-box: fill-box; transform-origin: center; }
+  [data-mood="excited"] .ch-eye-ball { transform: scale(1.18); transform-box: fill-box; transform-origin: center; }
+  [data-mood="grumpy"] .ch-pen-stroke { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .ch-chick, .ch-figure, .ch-eyes { animation: none !important; } }
+
+  /* ── 청중 좌석 카드 (03_components §4) ─────────────────────────── */
+  .aud-seats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; list-style: none; padding: 0; }
+  .aud-seat { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+              border-radius: var(--r-inner); border: 1.5px solid rgba(255,255,255,.9);
+              padding: 16px 12px 14px; background: var(--seat-tint, var(--fill)); }
+  .aud-seat[data-speaker="midm"]   { --seat-tint: var(--bub-midm); }
+  .aud-seat[data-speaker="solar"]  { --seat-tint: var(--bub-solar); }
+  .aud-seat[data-speaker="exaone"] { --seat-tint: var(--bub-exaone); }
+  .aud-seat[data-speaker="ax"]     { --seat-tint: var(--bub-ax); }
+  .aud-seat .ch-chick { --w: 76px; }
+  .aud-line { margin-top: 4px; font-size: 12.5px; font-weight: 650; color: var(--bub-ink);
+              background: rgba(255,255,255,.8); border-radius: 12px 14px 12px 4px; padding: 5px 10px; }
+  .aud-id { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .aud-name { font-size: 14px; font-weight: 830; }
+  .aud-role-pill { display: inline-flex; padding: 3px 10px; border-radius: var(--r-pill);
+                   background: rgba(255,255,255,.75); border: 1px solid var(--border);
+                   font-size: 11px; font-weight: 750; color: var(--text-2); }
+  .aud-model { font-size: 11.5px; font-weight: 750; color: var(--text-3); }
+
+  /* ── 다크 헤드 샘플 (04_screens §2) ────────────────────────────── */
+  .verdict-sample { border-radius: var(--r-print); color: #fff; padding: 28px 32px;
+                    background: linear-gradient(168deg, #1F6B52 0%, var(--navy) 46%, var(--navy-deep) 100%);
+                    display: flex; align-items: center; gap: 24px; }
+  .verdict-sample strong { font-size: 56px; font-weight: 830; letter-spacing: -.055em; line-height: .96; }
+  .verdict-sample .of { color: #7FB3A2; font-size: 15px; font-weight: 750; }
+  .verdict-sample .ch-chick { --w: 52px; }
+  .verdict-sample p { font-size: 12.5px; color: #E8F5EE; max-width: 34ch; }
+
+  /* ── 컨트롤 ─────────────────────────────────────────────────────── */
+  .moods { display: flex; gap: 8px; margin: 10px 0 18px; }
+  .moods button { border: 1.5px solid var(--border); background: var(--paper); color: var(--text-2);
+                  border-radius: var(--r-pill); padding: 7px 16px; font: inherit; font-size: 13px;
+                  font-weight: 750; cursor: pointer; }
+  .moods button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .sizes span { display: block; text-align: center; font-size: 11px; color: var(--text-3); margin-top: 4px; }
+  .dark, .dark2 { background: #171b2b; border-radius: var(--r-inner); padding: 18px 22px;
+                  display: inline-flex; gap: 14px; align-items: flex-end; }
+  .dark .ch-chick { filter: brightness(.34) saturate(.5); }    /* 현재 theater.css 값 */
+  .dark2 .ch-chick { filter: brightness(.52) saturate(.55); }  /* 01_character §6-1 권장값 */
+  .dark p, .dark2 p { color: #8b93a7; font-size: 11px; align-self: center; writing-mode: vertical-rl; margin: 0; }
+</style>
+</head>
+<body>
+  <h1>말랑한 발표새 — 미리보기</h1>
+  <p class="note">원본 스펙: <code>../01_character.md</code> · 토큰: <code>../02_tokens.md</code> ·
+  이 페이지는 외부 리소스 없이 단독으로 열린다.</p>
+
+  <h2>1. 표정 5종 (data-mood — 앱과 같은 축)</h2>
+  <div class="moods" id="moods">
+    <button data-m="neutral" class="on">neutral</button>
+    <button data-m="happy">happy</button>
+    <button data-m="curious">curious</button>
+    <button data-m="excited">excited</button>
+    <button data-m="grumpy">grumpy</button>
+  </div>
+  <div class="row" id="stage"></div>
+
+  <h2>2. 크기 사다리 (01_character §6)</h2>
+  <div class="row" id="sizes"></div>
+  <p class="note" style="margin-top:8px">맨 오른쪽 어두운 상자 = 무대 실루엣(brightness .34).
+  실루엣만으로 헤드폰·새싹·펜이 구분돼야 한다.</p>
+
+  <h2>3. 청중 좌석 카드 (03_components §4 — 레퍼런스 528b 문법)</h2>
+  <div class="card">
+    <p style="font-size:13.5px;font-weight:650;color:var(--text-2);margin-bottom:14px">
+      발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?</p>
+    <ul class="aud-seats" id="seats"></ul>
+  </div>
+
+  <h2>4. 점수 헤드 샘플 (04_screens §2 — 다크 면 위 발표새)</h2>
+  <div class="verdict-sample">
+    <div><strong>86<span class="of">/100</span></strong></div>
+    <span class="ch-seat" data-mood="happy" id="scorebird"></span>
+    <p>이번엔 측정하지 못한 항목이 2개 있어요.<br>다음 발표에서는 더 많은 피드백을 받아봐요!</p>
+  </div>
+
+<script>
+'use strict';
+/* ── 01_character.md §4 의 사본 — 어긋나면 01 이 맞다 ─────────────── */
+const FALLBACK_NAMES = { midm: '믿:음', solar: '쏠라', exaone: '엑사원', ax: '엑씨' };
+const FALLBACK_BADGES = { midm: 'KT 믿:음', solar: 'Upstage Solar', exaone: 'LG EXAONE', ax: 'SKT A.X' };
+const SWAY = { midm: '2.4s', solar: '2.2s', exaone: '2.7s', ax: '2.0s' };
+const BREATH = { midm: '-0.3s', solar: '-1.7s', exaone: '-2.4s', ax: '-1.1s' };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function props(speaker) {
+  if (speaker === 'ax') {
+    return `
+  <g class="ch-prop ch-prop-phones">
+    <path d="M18.5 35a31.5 31.5 0 0 1 63 0" fill="none" stroke="var(--chick-line)"
+          stroke-width="3.6" stroke-linecap="round"/>
+    <rect x="11.5" y="29" width="12" height="17" rx="5.5"
+          fill="var(--chick-mint)" stroke="var(--chick-line)" stroke-width="2"/>
+    <rect x="76.5" y="29" width="12" height="17" rx="5.5"
+          fill="var(--chick-mint)" stroke="var(--chick-line)" stroke-width="2"/>
+  </g>`;
+  }
+  if (speaker === 'solar') {
+    return `
+  <g class="ch-prop ch-prop-script" transform="translate(4 -2) rotate(-8 76 68)">
+    <rect x="71.5" y="56.5" width="17" height="12.5" rx="2.5"
+          fill="#F2FBF6" stroke="var(--chick-line)" stroke-width="2"/>
+    <rect x="68.5" y="59.5" width="17" height="12.5" rx="2.5"
+          fill="#FFFFFF" stroke="var(--chick-line)" stroke-width="2"/>
+    <rect x="71" y="62" width="5.5" height="3.2" rx="1" fill="var(--chick-mint)"/>
+    <path d="M71 67.5h12M71 69.8h8.5" stroke="#BFD9CB" stroke-width="1.4" stroke-linecap="round"/>
+  </g>`;
+  }
+  if (speaker === 'midm') {
+    return `
+  <g class="ch-prop ch-prop-pen">
+    <path class="ch-pen-stroke" d="M72 90h22" stroke="#FFE14D" stroke-width="6"
+          stroke-linecap="round" opacity="0"/>
+    <g transform="translate(3 -1) rotate(34 79 68)">
+      <rect x="75" y="56" width="8.5" height="18" rx="3.5"
+            fill="#FFE14D" stroke="var(--chick-line)" stroke-width="2"/>
+      <rect x="75" y="56" width="8.5" height="6" rx="3"
+            fill="var(--chick-beak)" stroke="var(--chick-line)" stroke-width="2"/>
+      <path d="M75.8 74h7l-3.5 5z" fill="#F7E9B8" stroke="var(--chick-line)" stroke-width="1.6"
+            stroke-linejoin="round"/>
+    </g>
+  </g>`;
+  }
+  return `
+  <g class="ch-prop ch-prop-badge">
+    <path d="M46.4 78.2l-2.6 5.2 3.6-.9 1.7 3.1 2.2-5.6z" fill="var(--chick-mint)"
+          stroke="var(--chick-line)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M53.6 78.2l2.6 5.2-3.6-.9-1.7 3.1-2.2-5.6z" fill="var(--chick-mint)"
+          stroke="var(--chick-line)" stroke-width="1.4" stroke-linejoin="round"/>
+    <circle cx="50" cy="71" r="8" fill="var(--chick-mint)"
+            stroke="var(--chick-line)" stroke-width="2"/>
+    <circle cx="50" cy="71" r="5" fill="#FFFFFF"/>
+    <path d="M50 67.4l1.2 2.4 2.7.4-2 1.9.5 2.7-2.4-1.3-2.4 1.3.5-2.7-2-1.9 2.7-.4z"
+          fill="var(--chick-body, #FFD96A)" stroke="var(--chick-line)" stroke-width=".8"/>
+    <g class="ch-sparkle" fill="#FFF2C4" stroke="var(--chick-line)" stroke-width=".9">
+      <path d="M90.5 43.5l1.1 2.9 2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z"/>
+    </g>
+  </g>`;
+}
+
+function eye(cx) {
+  return `
+    <g class="ch-eye">
+      <ellipse class="ch-eye-ball" cx="${cx}" cy="42" rx="5.2" ry="5.8" fill="#2F3B33"/>
+      <circle class="ch-eye-hi" cx="${cx + 1.8}" cy="39.6" r="2" fill="#fff"/>
+      <circle class="ch-eye-hi" cx="${cx - 2}" cy="44.2" r="1" fill="#fff" opacity=".75"/>
+      <path class="ch-eye-line ch-eye-happy" d="M${cx - 5.5} 40q5.5 7.5 11 0"/>
+      <path class="ch-eye-line ch-eye-grumpy" d="M${cx - 5.5} 45.5q5.5 -7.5 11 0"/>
+    </g>`;
+}
+
+function chickSvg(speaker) {
+  const body = `var(--chick-${speaker}, #FFD96A)`;
+  return `
+<svg class="ch-chick" viewBox="0 0 100 100" role="img"
+     aria-label="${esc(FALLBACK_NAMES[speaker] || speaker)} 병아리"
+     style="--ch-sway:${SWAY[speaker] || '2.4s'};--ch-breath-delay:${BREATH[speaker] || '0s'}">
+  <g class="ch-figure">
+    <g class="ch-legs" fill="var(--chick-beak)" stroke="var(--chick-line)"
+       stroke-width="1.8" stroke-linejoin="round">
+      <path d="M41 85.5c-2.8 3.2-1.6 6.5 1.6 6.5 2.6 0 4.4-1.8 4.2-5.4z"/>
+      <path d="M59 85.5c2.8 3.2 1.6 6.5-1.6 6.5-2.6 0-4.4-1.8-4.2-5.4z"/>
+    </g>
+    <path class="ch-tailfeather" d="M20 62c-5.5-1-9 1.5-9.5 5.5 4 1.2 7.5.3 10-1.8z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="2.4" stroke-linejoin="round"/>
+    <path class="ch-torso" d="M50 9C30 9 16 24 16 45c0 13 5 22 9 28 5 7 14 13 25 13s20-6 25-13c4-6 9-15 9-28C84 24 70 9 50 9z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="3" stroke-linejoin="round"/>
+    <ellipse class="ch-belly" cx="50" cy="72" rx="13" ry="9.5" fill="var(--chick-belly)"/>
+    <path class="ch-wing" d="M17 50c-5 .8-8 4.4-7.4 9 4.4 1 8.6-.7 11-4z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="2.4" stroke-linejoin="round"/>
+    <path class="ch-wing" d="M83 50c5 .8 8 4.4 7.4 9-4.4 1-8.6-.7-11-4z"
+          fill="${body}" stroke="var(--chick-line)" stroke-width="2.4" stroke-linejoin="round"/>
+    <g class="ch-head">
+      <g class="ch-tuft">
+        <path d="M50 9V4.5" fill="none" stroke="var(--chick-line)" stroke-width="2"
+              stroke-linecap="round"/>
+        <path d="M50 5C49 1.8 46.2.6 43.8 1.6c.5 2.7 3 4 6.2 3.4z" fill="var(--chick-mint)"
+              stroke="var(--chick-line)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M50 5c1-3.2 3.8-4.4 6.2-3.4-.5 2.7-3 4-6.2 3.4z" fill="var(--chick-mint)"
+              stroke="var(--chick-line)" stroke-width="1.6" stroke-linejoin="round"/>
+      </g>
+      <ellipse class="ch-blush" cx="29.5" cy="50" rx="4.6" ry="2.7" fill="var(--chick-blush)"/>
+      <ellipse class="ch-blush" cx="70.5" cy="50" rx="4.6" ry="2.7" fill="var(--chick-blush)"/>
+      <g class="ch-eyes">${eye(38.5)}${eye(61.5)}</g>
+      <path class="ch-beak" d="M50 47c2.7 0 4.3 1.3 4.3 2.8 0 1.8-1.9 3.2-4.3 3.2s-4.3-1.4-4.3-3.2c0-1.5 1.6-2.8 4.3-2.8z"
+            fill="var(--chick-beak)" stroke="var(--chick-line)" stroke-width="1.6"/>
+    </g>
+${props(speaker)}
+    <g class="ch-emote">
+      <path class="ch-heart" d="M78 13c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z"
+            fill="#FF8FA3"/>
+      <text class="ch-mark" x="75" y="17" font-size="19" font-weight="800"
+            fill="#4C8A74">?</text>
+    </g>
+  </g>
+</svg>`;
+}
+
+/* ── 페이지 조립 ─────────────────────────────────────────────────── */
+const SEATS = ['midm', 'solar', 'exaone', 'ax'];
+const ROLE_PILL = { midm: '대조 담당', solar: '자료 담당', exaone: '인정 담당', ax: '듣기 담당' };
+const AUD_LINE = {
+  midm: '자료랑 발표를 나란히 봤어요!',
+  solar: '슬라이드를 처음부터 끝까지 읽었어요!',
+  exaone: '잘 설명한 개념에 도장을 찍었어요!',
+  ax: '한마디도 놓치지 않고 들었어요!',
+};
+
+document.getElementById('stage').innerHTML = SEATS.map(s =>
+  `<span class="ch-seat" data-speaker="${s}" data-mood="neutral" style="--w:134px">
+     ${chickSvg(s)}<span style="font-size:12px;font-weight:750">${FALLBACK_NAMES[s]}</span>
+   </span>`).join('');
+
+const four54 = SEATS.map(s =>
+  `<span class="ch-seat" data-mood="neutral" style="--w:54px">${chickSvg(s)}</span>`).join('');
+document.getElementById('sizes').innerHTML =
+  [134, 76, 54, 46].map(w =>
+    `<span class="ch-seat" data-mood="neutral" style="--w:${w}px">${chickSvg('ax')}<span>${w}px</span></span>`
+  ).join('') +
+  `<span class="dark"><p>현재 .34</p>${four54}</span>` +
+  `<span class="dark2"><p>권장 .52</p>${four54}</span>`;
+
+document.getElementById('seats').innerHTML = SEATS.map(s => `
+  <li class="aud-seat" data-speaker="${s}" data-mood="neutral">
+    <span class="aud-chick">${chickSvg(s)}</span>
+    <span class="aud-line">${AUD_LINE[s]}</span>
+    <span class="aud-id"><b class="aud-name">${FALLBACK_NAMES[s]}</b>
+      <span class="aud-role-pill">${ROLE_PILL[s]}</span></span>
+    <span class="aud-model">${FALLBACK_BADGES[s]}</span>
+  </li>`).join('');
+
+document.getElementById('scorebird').innerHTML = chickSvg('ax');
+
+document.getElementById('moods').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#moods button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('#stage .ch-seat').forEach(seat =>
+    seat.setAttribute('data-mood', b.dataset.m));
+});
+</script>
+</body>
+</html>
