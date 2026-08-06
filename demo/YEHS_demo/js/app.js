@@ -3083,12 +3083,19 @@ function rSummary() {
   if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
 }
 
+/** 파이프라인이 더 돌지 않는 상태인가. 문구와 색이 같은 답을 봐야 해서 한 곳에 둔다. */
+function pipelineFinished() {
+  return ['done', 'partial', 'error'].includes(nf && nf.pipelinePhase);
+}
+
 /** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
 function rAudience() {
   const blocked = audienceBlockReason();
   // '아직 안 왔다' 와 '분석이 실패했다' 는 다른 일이다. 둘 다 빨갛게 칠하면
   // 진짜 실패가 친절한 안내로 읽힌다 (CLAUDE.md §4 "실패하면 실패로 보여준다")
-  const notYet = !(nf && (nf.pipelineOut || nf.transcriptOk));
+  // 색과 문구가 같은 신호를 봐야 한다. 예전엔 문구는 pipelinePhase 로,
+  // 색은 pipelineOut 유무로 갈라서 "아직 …단계예요" 가 빨갛게 떴다
+  const notYet = !pipelineFinished();
   $('#rbody').innerHTML = `
     <div class="card">
       <h3 class="section-title">삐약 청중석</h3>
@@ -3133,8 +3140,7 @@ function audienceBlockReason() {
 
   // 실패로 끝난 건지 아직 도는 중인지를 구분한다. 끝난 걸 '진행 중' 처럼 말하면
   // 사용자가 오지 않을 결과를 계속 기다린다.
-  const finished = ['done', 'partial', 'error'].includes(nf.pipelinePhase);
-  if (finished) {
+  if (pipelineFinished()) {
     return `${stage}에서 실패해서 분석이 멈췄어요${err ? ` (${err})` : ''}. `
       + '기다려도 진행되지 않아요 — 「다른 녹음으로 다시」로 재시도해 주세요.';
   }

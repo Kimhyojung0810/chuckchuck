@@ -152,6 +152,14 @@
   }
   main.narrow:has(#nf) > #nf .step-actions .btn:first-child { flex: 1 1 auto; }
 
+  /* ── 리포트 판정 헤드 ────────────────────────────────
+     세로 1024px 에서 헤드가 435px(42%)을 먹어, 어느 탭을 눌러도 본문이
+     접힌 선 아래에서 시작했다. 내용은 그대로 두고 여백만 조인다 */
+  .verdict { padding-top: 22px; }
+  .verdict-title { font-size: 20px; }
+  .verdict-grid { margin-top: 14px; padding-bottom: 18px; }
+  .verdict-bg { height: 140px; }
+
   /* 단계 표시줄과 저장 안내를 한 줄에 붙여 세로 30px 을 슬라이드에 돌려준다 */
   .flow-toolbar {
     display: flex; align-items: center; gap: 18px;
