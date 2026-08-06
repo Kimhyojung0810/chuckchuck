@@ -252,7 +252,13 @@
   .v-row.show { opacity: 1; transform: none; }
   .v-row .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   .v-row .cnt { margin-left: auto; color: var(--sub); font-variant-numeric: tabular-nums; }
-  .cta-wrap { margin-top: auto; padding-top: 18px; }
+  /* 결론 한 줄이 늘어난 만큼 요약이 길어졌다. CTA 가 접히면 오버레이를 닫을 길이 사라진다 —
+     아래에 붙여 둔다 (나갈 선택지 없는 화면 금지, consumer-ux-guide 다크패턴 방지) */
+  .cta-wrap {
+    margin-top: auto; padding-top: 18px;
+    position: sticky; bottom: 0; background: var(--bg);
+    box-shadow: 0 -12px 16px -8px var(--bg);
+  }
   .cta-hint { font-size: 13.5px; color: var(--sub); text-align: center; margin: 0 0 10px; line-height: 1.5; }
   .cta {
     width: 100%; border: 0; border-radius: 16px; padding: 17px;
@@ -323,9 +329,11 @@
 
   /* embed(데모 앱 iframe) — 앱은 라이트 전용이라 테마를 고정하고,
      페이지 배경(#F2F4F6)과 맞춰 카드처럼 띄운다 */
-  /* 앱 배경(크림)이 그대로 비쳐야 한 화면으로 읽힌다. #f2f4f6 은 앱이 쓰지
-     않는 회색이라 iframe 만 다른 사이트처럼 떠 보였다 */
-  body.embed { background: transparent; }
+  /* 이 페이지는 position:fixed; inset:0 오버레이 안에서 뜬다(app.js showF11Reveal).
+     투명으로 두면 덮개가 뚫려서 아래 체크리스트 카드가 비쳐 두 화면이 겹친다.
+     그렇다고 #f2f4f6 은 앱이 안 쓰는 회색이라 iframe 만 남의 사이트처럼 보였다.
+     앱의 크림(--canvas)과 같은 값으로 불투명하게 덮는다 */
+  body.embed { background: #FFFDF7; }
   body.embed .phone {
     max-width: 440px; min-height: calc(100vh - 36px); margin: 18px auto;
     border-radius: 20px; box-shadow: 0 6px 24px rgba(28, 82, 61, 0.08);
@@ -979,6 +987,7 @@ async function sceneSTT() {
   wrap.style.opacity = 0;
   await sleep(300);
   wrap.innerHTML = "";
+  return waited;
 }
 
 /**
@@ -1269,10 +1278,15 @@ function showFailEnding() {
 async function run() {
   const token = ++runToken;
   resetAll();
-  await sceneSTT();                       // 개념 그래프가 올 때까지
+  const waitedForGraph = await sceneSTT();   // 개념 그래프가 올 때까지
   if (token !== runToken) return;
   if (EMBED && (dataFailed || !graphArrived)) { showFailEnding(); return; }
 
+  /* 그래프가 몇 초 만에 왔으면 발표하는 동안 미리 돌려 둔 것이다 — 그렇다고 말해 준다.
+     왜 이렇게 빠른지 설명이 없으면 "덜 분석한 거 아닌가" 로 읽힌다 */
+  if (EMBED && waitedForGraph != null && waitedForGraph < 3) {
+    CAPTIONS[1].h = "발표하는 동안 자료를 먼저 읽어 뒀어요";
+  }
   await sceneGraph();
   if (token !== runToken) return;
 

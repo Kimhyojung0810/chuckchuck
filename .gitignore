@@ -42,3 +42,6 @@ ppt/*.m4a
 ppt/*.mp3
 ppt/*.wav
 ppt/*.webm
+
+# 화면 확인용 스크린샷 (로컬 산출물)
+screenshots/
