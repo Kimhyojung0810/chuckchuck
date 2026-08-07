@@ -171,9 +171,16 @@
     margin-top: auto; padding: 12px 0 4px; align-self: end;
     background: linear-gradient(to top, var(--surface) 72%, transparent);
   }
-  /* 오른쪽 칸이 길어지면 그 안에서만 스크롤한다 — 페이지는 그대로 */
+  /* 오른쪽 칸이 길어지면 그 안에서만 스크롤한다 — 페이지는 그대로.
+     ── 190px 이 왜 안 먹었나 (2026-08-07 실측, 1180x820) ──
+     이 뺄셈은 검증 로그 위에 타임라인만 있던 시절 값이다. 그 뒤 커튼 뒤(.bs-stage
+     196px)와 진행 피드(.pipe-feed 50px)가 같은 칸에 들어왔는데 뺄셈은 그대로라
+     상한이 566px 로 남았고, 실제 높이 263px 는 거기에 안 걸렸다. 그래서 오른쪽 칸이
+     683px 까지 자라 카드가 793px 이 되고 예산(727px)을 118px 넘겼다.
+     ── 상한을 같은 칸의 위쪽(타임라인+커튼+피드 ≈ 420px)까지 빼고 잡는다.
+     이 칸에 무엇을 더 넣으면 이 숫자도 같이 커져야 한다 */
   main.narrow > .card:has(.pipe-inspect) > .pipe-inspect {
-    max-height: calc(var(--app-h) - 190px); overflow-y: auto; scrollbar-width: thin;
+    max-height: calc(var(--app-h) - 615px); overflow-y: auto; scrollbar-width: thin;
   }
 
   /* 패널 안에서만 스크롤이 생기므로 스크롤바를 얇게 둔다 */
@@ -551,8 +558,9 @@
   #rbody > .judge-grid,
   #rbody > .stat-row,
   #rbody > .trophy-strip,
-  #rbody > .seg-ctl,
-  #rbody > #toolBody,
+  /* 음성 습관·연습 도구는 스스로 세로 한 줄이다 — 두 단으로 쪼개면 순서가 흐트러진다 */
+  #rbody > .voice-stack,
+  #rbody > .tool-sec,
   #rbody > .ai-note { grid-column: 1 / -1; }
   /* 카드가 하나뿐인 탭(청중 반응 등)은 한 단에만 앉으면 오른쪽이 통째로 빈다 */
   #rbody > *:only-child { grid-column: 1 / -1; }
