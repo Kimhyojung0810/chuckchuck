@@ -330,7 +330,13 @@ function route() {
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
   // #/new/reset 또는 completed 후 #/new → 초기화
-  if (key === 'new' && (parts[1] === 'reset' || nf.completed)) resetNf();
+  // 질문 코칭도 같이 지운다 (startFreshPractice 와 같은 이유). 리포트의
+  // 「새 발표 연습」처럼 data-fresh-practice 없이 #/new 로 오는 링크는 여기로만
+  // 들어오는데, qa.live 를 남겨 두면 새 발표를 분석해도 renderQa()·
+  // ensureLiveQuestions() 가 qaLiveActive() 만 보고 지난 발표의 질문·대화를
+  // 그대로 보여준다. nf.completed 는 QA 를 끝내야 서므로 진행 중인 코칭이
+  // 여기서 지워질 일은 없고, 끝난 코칭 기록은 qa-history(localStorage)에 남아 있다.
+  if (key === 'new' && (parts[1] === 'reset' || nf.completed)) { resetNf(); resetQa(); }
   (routes[key] || renderHome)();
   syncTopbar();
   wireFreshPracticeButtons();
@@ -2549,6 +2555,9 @@ function nfStep4() {
     nf.conceptsOk = false;
     nf.backstage = [];
     nf.step = 2;
+    // 질문 코칭은 버리는 테이크의 발화로 만든 것이라 같이 버린다 — 남겨 두면
+    // 새 녹음 분석이 끝나도 qaLiveActive() 가 참이라 지난 녹음의 질문이 그대로 나온다.
+    resetQa();
     saveSession('new-flow', nf);
     renderNew();
   });
