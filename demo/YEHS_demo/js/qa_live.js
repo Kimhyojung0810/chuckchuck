@@ -779,14 +779,23 @@ function qaLiveEnd() {
   const hinted = wonRs.filter((r) => r.hintLevel).length;
   const allWon = redoCount === 0 && wonRs.length > 0;
   // 「1개 전부」는 한국어가 안 된다. 하나일 때만 말을 바꾼다
+  /* 「0개를 지켰고 1개가 남았어요」로 끝나면, 방금 질문을 끝까지 받아 낸 사람이
+     0 이라는 숫자부터 본다. 실패 통보가 아니라 연습 결과다 — 한 일을 먼저 말하고
+     남은 것은 「찾은 것」으로 말한다 (UI_REDESIGN §6: 박수가 먼저, 숫자는 그 뒤).
+     숫자를 줄이거나 부풀리지는 않는다. 순서와 이름만 바꾼다. */
+  const total = (L.results || []).length;
   const headHtml = allWon
     ? (wonRs.length === 1
         ? '질문 하나를 자기 말로 지켰어요'
-        : `<b class="num">${wonRs.length}</b>개를 모두 자기 말로 지켰어요`)
-    : `<b class="num">${grouped.won.length}</b>개를 자기 말로 지켰고,
-       <b class="num qres-redo">${redoCount}</b>개가 남았어요`;
+        : `<b class="num" data-count="${wonRs.length}">${wonRs.length}</b>개를 모두 자기 말로 지켰어요`)
+    : `질문 <b class="num" data-count="${total}">${total}</b>개를 끝까지 받아 냈어요`;
+  const statHtml = allWon ? '' : `
+    <div class="qres-stats">
+      <div><b class="num" data-count="${grouped.won.length}">${grouped.won.length}</b><span>자기 말로 지킨 질문</span></div>
+      <div><b class="num qres-redo" data-count="${redoCount}">${redoCount}</b><span>다시 볼 곳을 찾았어요</span></div>
+    </div>`;
   const subText = !allWon
-    ? '남은 질문은 상세 리포트에서 근거 발화와 함께 다시 볼 수 있어요.'
+    ? '다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.'
     : hinted
       ? `힌트를 받은 질문이 ${hinted}개 있어요. 상세 리포트에서 근거 발화와 같이 다시 보면 좋아요.`
       : '힌트 없이 전부 지켰어요. 같은 질문으로 한 번 더 하면 답이 더 짧아져요.';
@@ -798,6 +807,7 @@ function qaLiveEnd() {
       <!-- 숫자는 아래 묶음과 반드시 같아야 한다. liveWonCount 는 부분 인정을
            빼고 세기 때문에 화면의 「지켜낸 질문」 개수와 어긋난다 -->
       <h1 class="qres-head">${headHtml}</h1>
+      ${statHtml}
       <p class="qres-sub">${subText}</p>
       ${L.results.length ? GROUPS.map((g) => (grouped[g.key].length ? `
         <div class="qres-group">
@@ -815,6 +825,15 @@ function qaLiveEnd() {
      goJudge 는 app.js 의 전역이고 이 파일보다 뒤에 실린다(index.html 64 < 68).
      그래서 파싱 때가 아니라 클릭 때 찾는다. 해시를 먼저 바꿔 리포트를 그린 뒤
      goJudge 가 탭과 개념을 고르고 그 행으로 스크롤한다. */
+  /* 끝난 화면이 그냥 툭 떠 있으면 방금 여섯 번 답한 일이 아무 일도 아닌 게 된다.
+     숫자는 굴러 올라가고 묶음은 차례로 들어온다 (app.js 전역, 없으면 그냥 건너뛴다) */
+  if (typeof countUp === 'function') {
+    $$('.qres .num[data-count]').forEach((el) => countUp(el, Number(el.dataset.count) || 0, 700));
+  }
+  if (typeof staggerIn === 'function') {
+    staggerIn($$('.qres-head, .qres-stats, .qres-sub, .qres-group, .cere-actions'));
+  }
+
   $$('.qres-row:not(.is-flat)').forEach((el) => el.addEventListener('click', () => {
     const node = el.dataset.node || '';
     location.hash = '#/report';
