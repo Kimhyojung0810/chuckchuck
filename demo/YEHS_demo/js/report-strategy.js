@@ -256,7 +256,8 @@ window.ReportStrategy = (function () {
   function introHtml() {
     return `
       <div class="card strat-intro">
-        <h3 class="section-title">순서를 바꾸면 어떻게 될까요</h3>
+        <!-- 제목을 두지 않는다. 바로 위 섹션 제목(발표 구성)과 그 밑 한 줄이
+             이미 같은 말을 하고 있어서, 버튼 앞에 같은 뜻이 세 번 나왔다 -->
         <p class="note">
           개념 판정과 구간별 시간, 실제로 한 말을 같이 읽어서
           <b>핵심을 앞에 둘지 뒤에 남길지</b>부터 정하고 새 순서표를 드려요.

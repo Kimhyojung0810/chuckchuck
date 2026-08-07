@@ -5532,13 +5532,15 @@ function mapSvgString() {
       <text x="${x}" y="${y + 13}" text-anchor="middle" font-size="13" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${n.label}</text>
       <text x="${x}" y="${y + 31}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${LINE[n.status]}" font-family="Pretendard,sans-serif">${STATUS[n.status]} · ${slideNumber(n.slide)}번</text></g>`;
   }).join('');
-  return `<svg viewBox="0 0 880 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개념 지도"><rect width="880" height="280" fill="#FFFFFF"/>${links}${boxes}</svg>`;
+  return `<svg viewBox="0 0 880 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지"><rect width="880" height="280" fill="#FFFFFF"/>${links}${boxes}</svg>`;
 }
 
 function tMap(host = $('#toolMap')) {
   if (!host) return;
   if (isLiveReportSession() && !liveMapNodes()) {
-    host.innerHTML = toolEmptyHtml('개념 지도를');
+    // 도구 이름은 「개요 이미지」 하나다. 여기만 '개념 지도' 라고 부르면
+    // 같은 화면에서 이름이 둘이 된다
+    host.innerHTML = toolEmptyHtml('개요 이미지를');
     return;
   }
   host.innerHTML = `
