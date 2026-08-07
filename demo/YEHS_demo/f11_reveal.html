@@ -564,6 +564,10 @@
   <div class="dots" id="dots"></div>
 </div>
 
+<!-- GSAP — 이 화면은 제품에서 제일 오래 보게 되는 연출이라 타임라인 엔진을 쓴다.
+     부스 네트워크를 믿지 않으므로 CDN 이 아니라 로컬. 없으면 아래 fx 가 전부
+     no-op 이 되고 기존 CSS 전환으로 그대로 돌아간다 -->
+<script src="js/vendor/gsap.min.js?v=qd2"></script>
 <script>
 /* ---------------------------------------------------------------
  * mock 데이터 — F-11 계약(AlignmentDoc) 필드명 그대로.
@@ -723,6 +727,138 @@ function buildStage() {
   });
 }
 buildStage();
+
+/* ═══════════════════════════════════════════════════════════════
+ * fx — GSAP 모션 레이어
+ *
+ * 이 화면은 제품이 보여 주는 것 중 사람이 제일 오래 들여다보는 자리다.
+ * 그래서 여기만 타임라인 엔진을 쓴다. 다만 규칙 셋을 지킨다:
+ *
+ *  1) 데이터를 만들지 않는다. 모션은 이미 정해진 값에 리듬만 붙인다.
+ *  2) SVG 그룹의 transform 은 건드리지 않는다 — 노드 자리(translate)가 거기
+ *     들어 있어서, 스케일을 얹으면 좌표가 무너진다. 대신 반지름·링·라벨·배지
+ *     처럼 자기 축을 가진 것만 움직인다.
+ *  3) gsap 이 없거나 모션을 줄인 환경이거나 건너뛰었으면 전부 no-op 이고,
+ *     기존 CSS 전환이 그대로 화면을 만든다.
+ * ═════════════════════════════════════════════════════════════ */
+const fx = (() => {
+  const on = () => !!(window.gsap && !REDUCED && !skipped);
+  const g = () => window.gsap;
+
+  return {
+    on,
+
+    /** 노드가 무게 순으로 부풀어 오른다. 원이 커지는 축이라 좌표를 안 건드린다 */
+    nodesIn(list) {
+      if (!on() || !list.length) return false;
+      const tl = g().timeline();
+      tl.from(list.map((x) => x.g.querySelector("circle.body")), {
+        attr: { r: 0 }, duration: 0.72, ease: "elastic.out(1, 0.55)", stagger: 0.075,
+      });
+      tl.from(list.map((x) => x.label), {
+        opacity: 0, y: 6, duration: 0.34, ease: "power2.out", stagger: 0.075,
+      }, 0.12);
+      return true;
+    },
+
+    /** 선이 그려진다. 한 번에 다 켜면 「이미 있던 그림」이고, 그려지면 「지금 잇는 중」이다 */
+    edgesDraw(edges) {
+      if (!on() || !edges.length) return false;
+      const solid = edges.filter((x) => x.e.kind !== "relates").map((x) => x.line);
+      const soft = edges.filter((x) => x.e.kind === "relates").map((x) => x.line);
+      const tl = g().timeline();
+      if (solid.length) tl.to(solid, { strokeDashoffset: 0, duration: 0.5, ease: "power2.inOut", stagger: 0.07 });
+      if (soft.length) tl.to(soft, { opacity: 1, duration: 0.4, stagger: 0.06 }, "-=0.3");
+      return true;
+    },
+
+    /** 기다리는 동안의 숨. 멈춘 화면과 도는 화면을 가르는 건 이 1px 이다 */
+    breathe(list) {
+      if (!on() || !list.length) return null;
+      return g().to(list.map((x) => x.g.querySelector("circle.body")), {
+        attr: { r: "+=2" }, duration: 1.3, ease: "sine.inOut",
+        yoyo: true, repeat: -1, stagger: { each: 0.09, from: "random" },
+      });
+    },
+
+    stopBreathe(tw) { if (tw) tw.kill(); },
+
+    /** 판정이 찍히는 순간. 도장처럼 한 번 눌렀다 돌아온다 */
+    stamp(ne, i) {
+      if (!on()) return;
+      const body = ne.g.querySelector("circle.body");
+      const tl = g().timeline({ delay: i * 0.06 });
+      tl.to(body, { attr: { r: ne.r * 1.28 }, duration: 0.16, ease: "power3.out" })
+        .to(body, { attr: { r: ne.r }, duration: 0.55, ease: "elastic.out(1, 0.4)" });
+      if (ne.badge) {
+        tl.from(ne.badge, { opacity: 0, duration: 0.3, ease: "back.out(3)" }, "-=0.45");
+      }
+    },
+
+    /** 마우스를 따라 무대가 살짝 기운다. 평면이 입체로 읽히는 값싼 방법 */
+    tilt(host) {
+      if (!on() || !host) return;
+      host.style.transformStyle = "preserve-3d";
+      host.style.perspective = "900px";
+      const rx = g().quickTo(host, "rotationX", { duration: 0.6, ease: "power3.out" });
+      const ry = g().quickTo(host, "rotationY", { duration: 0.6, ease: "power3.out" });
+      const move = (e) => {
+        const b = host.getBoundingClientRect();
+        rx(((e.clientY - b.top) / b.height - 0.5) * -5);
+        ry(((e.clientX - b.left) / b.width - 0.5) * 7);
+      };
+      host.addEventListener("pointermove", move);
+      host.addEventListener("pointerleave", () => { rx(0); ry(0); });
+    },
+
+    /** CTA 가 손가락을 향해 조금 다가온다 — 누르고 싶어지는 만큼만 */
+    magnetic(btn) {
+      if (!on() || !btn) return;
+      const x = g().quickTo(btn, "x", { duration: 0.4, ease: "power3.out" });
+      const y = g().quickTo(btn, "y", { duration: 0.4, ease: "power3.out" });
+      const s = g().quickTo(btn, "scale", { duration: 0.3, ease: "power2.out" });
+      btn.addEventListener("pointermove", (e) => {
+        const b = btn.getBoundingClientRect();
+        x((e.clientX - (b.left + b.width / 2)) * 0.22);
+        y((e.clientY - (b.top + b.height / 2)) * 0.32);
+        s(1.04);
+      });
+      btn.addEventListener("pointerleave", () => { x(0); y(0); s(1); });
+    },
+
+    /** 한 글자씩 찍힌다. 문장이 통째로 튀어나오면 읽기 전에 지나간다 */
+    type(el, text) {
+      if (!el) return false;
+      if (!on()) { el.textContent = text; return false; }
+      const obj = { i: 0 };
+      el.textContent = "";
+      g().to(obj, {
+        i: text.length, duration: Math.min(1.1, 0.03 * text.length), ease: "none",
+        onUpdate() { el.textContent = text.slice(0, Math.round(obj.i)); },
+      });
+      return true;
+    },
+
+    /** 숫자는 굴러 올라간다 */
+    count(el, to, suffix = "") {
+      if (!el) return;
+      if (!on()) { el.textContent = to + suffix; return; }
+      const obj = { v: 0 };
+      g().to(obj, {
+        v: to, duration: 1.1, ease: "power2.out",
+        onUpdate() { el.textContent = Math.round(obj.v) + suffix; },
+      });
+    },
+
+    /** 씬이 바뀔 때 캡션이 아래에서 올라온다 */
+    captionIn(nodes) {
+      if (!on()) return;
+      g().from(nodes.filter(Boolean), {
+        opacity: 0, y: 12, duration: 0.42, ease: "power3.out", stagger: 0.07, overwrite: true,
+      });
+    },
+  };
+})();
 
 /* ---------------------------------------------------------------
  * 실데이터 — 데모 앱이 postMessage 로 /api/v1/graph + /api/v1/alignment
@@ -1265,8 +1401,11 @@ async function sceneListening() {
   setScene(2);
   document.body.dataset.scene = "2";
   $("capH").textContent = "발표를 다시 들어볼게요";
-  $("capP").textContent = "개념마다 언제, 얼마나 말했는지 재고 있어요. 다 재면 원마다 판정이 찍혀요";
+  fx.type($("capP"), "개념마다 언제, 얼마나 말했는지 재고 있어요. 다 재면 원마다 판정이 찍혀요");
   showWaitBar(true);
+  /* 기다리는 내내 그래프가 숨 쉰다. 정합을 기다리는 이 구간이 제일 길어서,
+     여기가 멈춰 보이면 화면 전체가 멈춘 걸로 읽힌다 */
+  const breath = fx.breathe(nodeEls);
 
   let waited = 0;
   let i = 0;
@@ -1283,6 +1422,7 @@ async function sceneListening() {
       waited += 0.7;
     }
   }
+  fx.stopBreathe(breath);   // 판정 씬이 같은 원을 다시 움직이므로 여기서 멈춘다
   if (!dataArrived && !dataFailed) {
     dataFailed = true;
     FAIL_MESSAGE = "자료와 발표를 대조하는 데 예상보다 오래 걸리고 있어요. 닫고 준비 화면에서 진행 상황을 볼 수 있어요.";
@@ -1292,17 +1432,27 @@ async function sceneListening() {
 async function sceneGraph() {
   setScene(1);
   const order = [...nodeEls].sort((a, b) => b.n.doc - a.n.doc);
-  for (const ne of order) {
-    ne.g.classList.add("pop");
-    await sleep(130);
+  order.forEach((ne) => ne.g.classList.add("pop"));   // 최종 상태는 CSS 가 잡는다
+  if (fx.nodesIn(order)) {
+    await sleep(160 + order.length * 75);
+  } else {
+    // gsap 이 없거나 모션을 줄인 환경 — 원래대로 한 개씩
+    for (const ne of order) await sleep(130);
   }
-  await sleep(250);
-  for (const { e, line } of edgeEls) {
-    if (e.kind === "relates") line.style.opacity = 1;
-    else line.style.strokeDashoffset = 0;
-    await sleep(90);
+  await sleep(200);
+  if (fx.edgesDraw(edgeEls)) {
+    edgeEls.forEach(({ e, line }) => {
+      if (e.kind !== "relates") line.style.strokeDashoffset = 0; else line.style.opacity = 1;
+    });
+    await sleep(300 + edgeEls.length * 70);
+  } else {
+    for (const { e, line } of edgeEls) {
+      if (e.kind === "relates") line.style.opacity = 1;
+      else line.style.strokeDashoffset = 0;
+      await sleep(90);
+    }
   }
-  await sleep(1000);
+  await sleep(800);
 }
 
 async function sceneSweep() {
@@ -1336,9 +1486,12 @@ async function sceneSweep() {
 async function sceneVerdict() {
   setScene(3);
   const marks = { aligned: "✓", contra: "!", missing: "", skip: "" };
+  let stampIdx = 0;
   for (const ne of nodeEls) {
     const v = ne.n.verdict;
     ne.g.classList.add("v-" + v);
+    fx.stamp(ne, 0);           // 판정이 도장처럼 한 번 눌렸다 돌아온다
+    stampIdx += 1;
     if (marks[v]) {
       ne.badge.textContent = marks[v];
       ne.badge.setAttribute("fill", v === "contra" ? "var(--bad)" : "var(--good)");
@@ -1684,6 +1837,10 @@ if (EMBED) {
   document.documentElement.dataset.theme = "light"; // 데모 앱은 라이트 전용
   document.body.classList.add("embed");
   $("startScene").classList.add("hide");
+  /* 손이 닿는 곳에만 반응을 붙인다 — 무대는 포인터를 따라 기울고,
+     마지막 CTA 는 손가락 쪽으로 조금 다가온다 */
+  fx.tilt(document.querySelector(".stage"));
+  fx.magnetic($("ctaBtn"));
   run();
 }
 </script>

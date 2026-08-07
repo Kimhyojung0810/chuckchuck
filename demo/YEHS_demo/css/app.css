@@ -2053,6 +2053,19 @@ table.plain tr:last-child td { border-bottom: 0; }
 }
 .parse-peek .parse-peek-unit { margin-left: 3px; font-size: 14px; color: var(--text-2); }
 .parse-peek p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--text-3); }
+
+/* 대기 막대에 빛이 한 번씩 지나간다. 흐르는 막대만으로는 「멈춘 건지」가
+   구분이 안 되는데, 이 빛이 지나가면 살아 있다는 신호가 된다 */
+.progress.indeterminate::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .75) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: cc-shimmer 1.9s ease-in-out infinite;
+}
+@keyframes cc-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .progress.indeterminate::after { animation: none; opacity: 0; }
+}
 .qres-sub { margin: 8px 0 0; font-size: 14px; color: var(--text-2); }
 
 .qres-group { margin-top: 22px; }
