@@ -2399,3 +2399,154 @@ table.plain tr:last-child td { border-bottom: 0; }
 .cere-next { margin-top: 10px; padding-top: 10px; }
 .cere-head { margin-bottom: 10px; }
 .cere-eyebrow { margin-bottom: 2px; }
+
+/* ── 5. 리포트 ─────────────────────────────────────────────────
+   홈·연습·코칭을 전부 이 문법으로 옮기고 나니 리포트만 카드로 남았다.
+   내비의 마지막 칸이라, 여기서 톤이 끊기면 「앞의 셋만 새로 만든 제품」이 된다.
+
+   여기는 특히 카드를 벗겨야 하는 화면이다. 판정 헤드가 이미 왼쪽에 면을 하나
+   깔고 있어서, 오른쪽 본문의 흰 카드는 면 위의 면이 아니라 「면 옆의 면」으로
+   경쟁한다 — 어느 쪽이 결론인지 흐려진다. 결론은 헤드다.
+
+   면이 뜻을 갖는 둘은 색만 남기고 테두리·그림자만 걷는다(.cere-card.c1 과 같은
+   판단): trophy-strip 은 「오늘 만든 문장」이고 next-card 는 「다음에 할 일」이라
+   본문 흐름에서 떠 있어야 한다. */
+#rbody > .card,
+#rbody .fold-body > .card {
+  background: none; border: 0; box-shadow: none;
+  border-radius: 0; padding: 0;
+}
+/* 카드를 벗기면 구역이 서로 붙는다. 구분은 머리카락 선과 여백으로 한다.
+   색면이 남는 둘(trophy-strip·next-card)은 제 색으로 이미 구분되므로 선을 긋지
+   않는다 — :not() 으로 애초에 빼 둔다. 뒤에서 덮으려 하면 같은 명시도끼리
+   순서 다툼이 되고, 실제로 next-card 에 선이 하나 남아 있었다 */
+#rbody > .card + .card:not(.trophy-strip):not(.next-card),
+#rbody > details.fold + .card:not(.trophy-strip):not(.next-card) {
+  margin-top: 0; padding-top: 18px; border-top: 1px solid var(--border);
+}
+#rbody > .card + details.fold {
+  margin-top: 0; padding-top: 18px; border-top: 1px solid var(--border);
+}
+/* 뜻을 가진 면 둘 — 색은 지키고 테두리만 걷는다 */
+#rbody > .card.trophy-strip,
+#rbody > .card.next-card {
+  border: 0; box-shadow: none;
+  padding: 14px 16px; border-radius: var(--r-inner);
+  border-top: 0;
+}
+#rbody > .card.trophy-strip { background: var(--brand-weak); }
+#rbody > .card.next-card { background: var(--blue-weak); }
+/* 면이 남은 칸 다음 줄에 선을 또 그으면 테두리가 둘로 보인다 */
+#rbody > .card.trophy-strip + .card,
+#rbody > .card.next-card + .card { border-top: 0; padding-top: 0; }
+/* 누를 수 있다는 신호는 면이 아니라 움직임으로 남긴다 */
+#rbody > .card.trophy-strip:hover { transform: translateY(-1px); box-shadow: none; }
+/* 슬라이드 묶음은 안에 필름·범례를 담는 컨테이너다. 면은 걷되 묶음은 유지한다 */
+#rbody > .card.rep-deck > .section-title { margin-bottom: 12px; }
+
+/* ── 6. 좁은 화면의 리포트 판정 헤드 ───────────────────────────
+   tablet.css 가 리포트를 두 기둥으로 세우는 건 @media (min-width:900px) 안이다.
+   그 아래에서는 예전 세로 한 줄 배치가 그대로 남아, 820 높이에서 헤드가 801px 을
+   깔고 탭 7개가 y=865 — 접힌 선 아래에서 시작한다. 본문은 945 다.
+   두 기둥을 여기까지 내리면 오른쪽 칸이 490px 로 눌려 개념 이름이 줄마다 접힌다.
+   배치는 그대로 두고 헤드만 접힌 선 위로 들어오게 깎는다.
+
+   무엇을 깎는가: 숫자 7개와 막대는 전부 남긴다(§14 — 숫자는 신성하다).
+   항목마다 붙던 설명 한 줄만 접는다. 그건 측정값이 아니라 고정 안내문이고,
+   「제일 낮은 항목」에는 그대로 남으므로 무엇부터 볼지는 여전히 읽힌다. */
+@media (max-width: 899px) {
+  main.wide:has(#rbody) > .verdict { padding-top: 16px; }
+  /* 설명 줄은 최약 항목에만 남긴다 — 나머지 여섯은 숫자와 막대로 말한다 */
+  main.wide:has(#rbody) > .verdict .verdict-dims .vd:not(.vd-weak) .hint { display: none; }
+  main.wide:has(#rbody) > .verdict .verdict-dims {
+    gap: 12px 18px; margin-top: 14px; padding-top: 12px;
+  }
+  main.wide:has(#rbody) > .verdict .verdict-dims .vl { margin: 2px 0 6px; }
+  main.wide:has(#rbody) > .verdict .verdict-grid { gap: 12px; margin-top: 12px; }
+  main.wide:has(#rbody) > .verdict .verdict-title { margin-top: 4px; }
+  /* 파형은 절대 배치라 높이를 안 먹지만, 헤드가 얕아지면 아래로 흘러 넘친다 */
+  main.wide:has(#rbody) > .verdict .verdict-bg { height: 120px; }
+  /* 탭이 접힌 선 바로 위에 오면 「더 있다」가 안 읽힌다. 붙여 둔다 */
+  main.wide > #rtabs.tabs { position: sticky; top: 0; z-index: 5; background: var(--canvas); }
+  /* 여기까지 깎으면 탭은 들어오는데 본문 첫 줄이 25px 모자란다. 탭과 본문
+     사이 여백에서 마저 걷는다 — 접힌 선 위에 본문이 한 줄이라도 보여야
+     「탭을 누르면 여기가 바뀐다」가 읽힌다 */
+  main.wide > #rtabs.tabs { margin-bottom: 10px; }
+  main.wide:has(#rbody) > .verdict .verdict-note { padding-bottom: 12px; }
+  main.wide:has(#rbody) > .verdict .verdict-score .vs-body { padding-top: 6px; }
+}
+
+/* ═══ 질문 코칭 진입 두 화면 — 색으로 말하지 않고 크기로 말한다 ═════════
+   왼쪽에 세로 색 기둥을 세우고 줄 전체를 민트로 칠하던 방식을 버린다.
+   TDS ListRow 는 고른 줄을 면으로 칠하지 않는다 — 오른쪽 체크 하나로 말하고,
+   나머지는 여백과 글씨 크기로 위계를 만든다. 면을 칠하면 고르기 전부터
+   화면이 시끄럽고, 세로 기둥은 어느 디자인 시스템에도 없는 장식이다.
+   이 절은 파일 끝이라 위쪽 세 벌(1393·1916·2081·2348)을 모두 이긴다. */
+
+/* ── 시간 고르기 ─────────────────────────────────────────────── */
+.qa-quick .qa-modes { gap: 0; }
+.qa-mode {
+  gap: 18px;
+  min-height: 76px; padding: 18px 4px;
+  border-bottom: 1px solid var(--border);
+  background: none; box-shadow: none; border-radius: 0;
+}
+.qa-mode:last-child { border-bottom: 0; }
+.qa-mode:hover { background: var(--hover); }
+/* 고른 줄: 면도 기둥도 없다. 시간 숫자가 진해지고 체크가 채워질 뿐이다 */
+.qa-mode.on { background: none; box-shadow: none; }
+.qa-mode.on .qm-body b { font-weight: var(--w-bold); }
+
+/* `.qa-mode span` (1406·1929행) 이 클래스1+타입1 로 `.qm-time` 하나를 이긴다.
+   그래서 22px 를 적어도 12px 로 그려졌다 — 클래스 둘로 올려 확실히 이긴다 */
+.qa-mode .qm-time {
+  min-width: 78px;
+  font-size: 22px; font-weight: var(--w-bold); color: var(--text-3);
+  line-height: 1.2;
+}
+.qa-mode.on .qm-time { color: var(--text); }
+
+.qa-mode .qm-body b { font-size: 17px; font-weight: var(--w-med); }
+.qa-mode .qm-body > span { margin-top: 5px; font-size: 14px; line-height: 1.55; color: var(--text-3); }
+
+/* 화면의 주인공은 질문이지만, 물어보는 문장이 본문과 같은 크기면 화면에 주인이 없다 */
+.qa-quick .qm-head { gap: 6px; margin-bottom: 10px; }
+.qa-quick .qm-head b { font-size: 24px; font-weight: var(--w-bold); line-height: 1.35; letter-spacing: -.02em; }
+.qa-quick .qm-head span { font-size: 15px; line-height: 1.55; }
+.qa-quick .btn-primary { margin-top: 22px; min-height: 56px; font-size: 17px; }
+
+.qm-check {
+  width: 26px; height: 26px; font-size: 14px;
+  border-width: 2px;
+}
+
+/* ── 준비 중 ─────────────────────────────────────────────────── */
+.qa-building { padding: 30px 26px; }
+.qa-building b { font-size: 22px; line-height: 1.4; margin-bottom: 8px; }
+.qa-building .note { font-size: 15px; line-height: 1.6; margin: 0 0 20px; }
+.qb-elapsed { margin-top: 12px; font-size: 14px; }
+
+/* 숫자 셋을 각각 테두리 상자에 넣으면 카드 안에 카드가 셋이다.
+   상자를 벗기고 숫자를 키운다 — 구분은 사이의 머리카락 선 하나면 된다 */
+.qb-facts { gap: 0; margin-top: 22px; }
+.qb-facts > div {
+  padding: 4px 16px;
+  border: 0; border-radius: 0; background: none;
+  border-left: 1px solid var(--border);
+}
+.qb-facts > div:first-child { border-left: 0; padding-left: 0; }
+.qb-facts b { font-size: 30px; }
+.qb-facts span { margin-top: 6px; font-size: 14px; }
+
+.qb-pool { margin-top: 26px; padding-top: 20px; }
+.qb-pool-head { margin-bottom: 4px; font-size: 15px; }
+.qb-pool-head span { font-size: 14px; }
+.qb-pool li { min-height: 56px; padding: 10px 0; gap: 12px; }
+.qb-pool li b { font-size: 17px; }
+.qb-pool-more { margin-top: 12px; font-size: 14px; }
+.qb-actions { margin-top: 24px; }
+
+/* 17px 줄 옆에 12px 배지를 달면 배지가 주석처럼 보인다 — 줄과 같은 무게로 올린다 */
+.qb-pool li .chip { font-size: 13px; padding: 5px 10px; }
+/* 빠져나가는 길은 왼쪽 세로선을 본문과 맞춘다 — btn-text 의 좌우 여백이 혼자 들여쓰기를 만들었다 */
+.qb-actions .btn-text { padding-left: 0; padding-right: 0; font-size: 15px; }
