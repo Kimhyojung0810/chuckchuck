@@ -1937,17 +1937,29 @@ function showF11Reveal() {
   if (document.getElementById('f11RevealWrap')) return;
   const wrap = document.createElement('div');
   wrap.id = 'f11RevealWrap';
+  // 연출이 화면 전체를 먹으면 단계 표시줄이 사라졌다가 연출이 끝나야 돌아온다.
+  // 어디쯤 왔는지가 제일 궁금한 구간에서 그 표지를 치우는 셈이라, 바와
+  // 체크리스트를 연출 위에 남기고 나머지 자리를 연출에 준다 (2026-08-07 지적).
   wrap.style.cssText =
-    'position:fixed;inset:0;z-index:999;opacity:0;transition:opacity .45s ease';
+    'position:fixed;inset:0;z-index:999;opacity:0;transition:opacity .45s ease;'
+    + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
-    '<iframe src="f11_reveal.html?embed=1" title="발표 분석 과정" ' +
-    'style="width:100%;height:100%;border:0;display:block"></iframe>';
+    '<div id="f11Chrome" class="f11-chrome"></div>'
+    + '<iframe src="f11_reveal.html?embed=1" title="발표 분석 과정" '
+    + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
+  // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
+  const chrome0 = wrap.querySelector('#f11Chrome');
+  if (chrome0) chrome0.innerHTML = nfSteps() + pipelineChecklistHtml();
   requestAnimationFrame(() => { wrap.style.opacity = '1'; });
 
   let graphSent = false;
   const feed = setInterval(() => {
     if (!document.getElementById('f11RevealWrap')) { clearInterval(feed); return; }
+    // 바와 체크리스트만 다시 그린다. iframe 은 건드리지 않는다 —
+    // 여기서 같이 갈아끼우면 연출이 매 틱 처음부터 다시 시작한다.
+    const chrome = document.getElementById('f11Chrome');
+    if (chrome) chrome.innerHTML = nfSteps() + pipelineChecklistHtml();
     const out = nf.pipelineOut || {};
     const iframe = wrap.querySelector('iframe');
     if (!iframe || !iframe.contentWindow) return;
@@ -2284,6 +2296,20 @@ function pipelinePhaseLabel(phase) {
  *
  * 산출물 기준으로 세면 선분석(녹음 중 F-06·F-07)처럼 순서가 뒤바뀌어 끝나도 정직하게 찍힌다.
  */
+/** 진행 체크리스트 마크업.
+ *
+ * nfStep4 와 F-11 연출 오버레이가 같이 쓴다. 연출이 화면을 덮는 동안에도
+ * "지금 어디까지 됐나"는 계속 보여야 한다 — 덮어 놓고 숨기면 사용자는
+ * 진행이 멈춘 줄 안다 (2026-08-07 지적). */
+function pipelineChecklistHtml() {
+  const items = pipelineChecklistItems();
+  const stage = pipelineStageOf(nf.pipelinePhase || 'queued');
+  return `<ul class="checklist">${items.map((it, i) => {
+    const st = it.ok ? 'done' : (it.stage === stage ? 'doing' : 'todo');
+    return `<li class="${st}"><i>${it.ok ? '✓' : i + 1}</i>${it.text}</li>`;
+  }).join('')}</ul>`;
+}
+
 function pipelineChecklistItems() {
   const out = nf.pipelineOut || {};
   const t = out.transcript && !out.transcript.error ? out.transcript : null;
@@ -2547,7 +2573,6 @@ function refreshStep4IfVisible() {
 function nfStep4() {
   app.className = 'narrow';
   const items = pipelineChecklistItems();
-  const stage = pipelineStageOf(nf.pipelinePhase || 'queued');
   const doneN = items.filter((i) => i.ok).length;
   nf.done = doneN;
   const conceptsError = (nf.pipelineOut && nf.pipelineOut.conceptsError) || null;
@@ -2568,12 +2593,7 @@ function nfStep4() {
       ${pipelineStatusBarHtml()}
       ${backstageHtml()}
       ${pipeErr}
-      <ul class="checklist">
-        ${items.map((it, i) => {
-          const st = it.ok ? 'done' : (it.stage === stage ? 'doing' : 'todo');
-          return `<li class="${st}"><i>${it.ok ? '✓' : i + 1}</i>${it.text}</li>`;
-        }).join('')}
-      </ul>
+      ${pipelineChecklistHtml()}
       ${pipelineInspectHtml()}
       <div class="step-actions">
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>

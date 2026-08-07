@@ -1178,6 +1178,23 @@ details.fold .fold-body { padding: 0 24px 20px; }
 /* 답변을 끊는 버튼. 자막 아래 오른쪽에 둔다 — 자막을 가리지 않으면서
    말을 마친 순간 손이 가는 자리다 */
 .cap-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+/* F-11 연출 위에 남기는 띠 — 단계 표시줄 + 진행 체크리스트.
+   연출이 화면을 다 먹으면 "어디까지 됐나"가 사라진다. 제일 궁금한 구간에서
+   그 표지를 치우면 안 된다. 연출은 남은 자리를 쓴다 (§14 — 연출은 얹는 층이다). */
+.f11-chrome {
+  flex: none;
+  padding: 14px max(20px, calc(50vw - 490px)) 12px;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--border);
+}
+.f11-chrome .flow-toolbar { margin-bottom: 10px; }
+.f11-chrome .checklist { margin: 0; }
+/* 세로가 짧으면 연출이 눌린다. 체크리스트를 한 줄로 눕혀 띠를 얇게 만든다 */
+@media (max-height: 780px) {
+  .f11-chrome .checklist { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .f11-chrome .checklist li { margin: 0; font-size: 13px; }
+}
 .cap-live { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--blue); padding-top: 2px; }
 .cap-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: pulse 1s infinite; }
 .caption p { flex: 1; margin: 0; font-size: 15px; color: var(--text); min-height: 24px; }
