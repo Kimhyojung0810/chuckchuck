@@ -291,31 +291,41 @@ main.narrow { max-width: 640px; }
 
 /* ── 새 발표: 스텝 ── */
 .flow-toolbar { margin-bottom: 26px; }
-.steps { display: flex; gap: 6px; margin-bottom: 10px; }
+/* 단계 표시. 알약 카드 넷을 나란히 두면 화면의 주인공이 「진행 표시」가 된다 —
+   여기서 봐야 할 건 지금 할 일이지 몇 단계인지가 아니다. 면·그림자를 걷고
+   현재 칸 아래 밑줄 하나로만 말한다 (홈의 표 문법과 같은 규율) */
+.steps {
+  display: flex; gap: 2px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
 /* 지나온 단계는 <button> 으로 그려서 눌러 되돌아갈 수 있다.
    생김새는 <span> 과 같아야 한다 — 되돌아갈 수 있다는 신호는 커서와 hover 다 */
 .steps span,
 .steps button {
-  flex: 1; display: flex; align-items: center; gap: 8px;
-  font-family: inherit; text-align: left; border: 0;
-  font-size: 13px; font-weight: 500; color: var(--text-3);
-  padding: 10px 12px; border-radius: var(--r-print); background: var(--surface);
-  box-shadow: var(--shadow);
+  position: relative; display: flex; align-items: center; gap: 7px;
+  font-family: inherit; text-align: left; border: 0; background: none;
+  font-size: var(--t-meta); font-weight: 500; color: var(--text-3);
+  padding: 0 14px 10px; border-radius: 0; box-shadow: none;
 }
 .steps span i,
 .steps button i {
-  font-style: normal; width: 20px; height: 20px; border-radius: 50%; flex: none;
-  background: var(--fill);
+  font-style: normal; width: 17px; height: 17px; border-radius: 50%; flex: none;
+  background: var(--fill); color: var(--text-3);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 600;
+  font-size: 10px; font-weight: 600;
 }
-.steps span.done, .steps button.done { color: var(--blue); }
-.steps span.done i, .steps button.done i { background: var(--blue-weak); color: var(--blue); }
-.steps span.cur { color: var(--text); }
-.steps span.cur i { background: var(--blue); color: #fff; }
-.steps button { cursor: pointer; transition: background .15s ease, box-shadow .15s ease; }
-.steps button:hover { background: var(--blue-weak); }
-.steps button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.steps span.done, .steps button.done { color: var(--text-2); }
+.steps span.done i, .steps button.done i { background: var(--brand-weak); color: var(--brand-strong); }
+.steps span.cur { color: var(--text); font-weight: 650; }
+.steps span.cur i { background: var(--brand); color: #fff; }
+/* 지금 칸에만 밑줄. 리포트 탭(#rtabs)과 같은 문법이라 화면끼리 말이 맞는다 */
+.steps span.cur::after {
+  content: ""; position: absolute; left: 14px; right: 14px; bottom: -1px;
+  height: 2px; background: var(--brand); border-radius: 1px;
+}
+.steps button { cursor: pointer; transition: color .15s ease; }
+.steps button:hover { color: var(--text); }
+.steps button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
 .flow-save { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-height: 22px; font-size: 12px; }
 .flow-save span { color: var(--text-3); }
 .flow-save a { color: var(--text-2); font-weight: 600; }
@@ -2104,3 +2114,50 @@ table.plain tr:last-child td { border-bottom: 0; }
    기본은 숨김이고 tablet.css 가 >=900px 에서만 켠다 — 좁은 화면의
    흐름(탑바 + 세로 스택)은 한 픽셀도 안 바뀐다. */
 .sidenav { display: none; }
+
+/* ══ 질문 준비 중 — 10초를 비워 두지 않는다 ═══════════════════════════
+   ⚠️ .qa-building · .qb-bar 규칙은 이 파일 안에 두 벌 있다(1418·1898).
+   새로 얹는 건 여기 한 번만 둔다 — 위쪽 두 벌을 고치면 어느 쪽이 이기는지
+   헷갈린다. 파일 끝이라 둘 다 이긴다.
+
+   가운데 정렬을 푼 이유: 굵은 글씨 한 줄 · 설명 한 줄 · 막대 하나를 가운데
+   모아 두면 카드가 넓을수록 더 비어 보인다. 왼쪽 정렬이면 읽는 눈이 한 축에
+   머물러서 같은 내용이 덜 허전하다. */
+.qa-building { text-align: left; padding: 24px 22px; }
+.qa-building b { font-size: 18px; line-height: 1.45; margin-bottom: 4px; }
+.qa-building .note { margin: 0 0 14px; }
+
+/* 남은 시간을 지어내지 않는다. 지난 시간만 센다 (§14 진행률은 정직하게) */
+.qb-elapsed {
+  margin: 8px 0 0; color: var(--text-3);
+  font-size: 12px; font-variant-numeric: tabular-nums;
+}
+
+/* 지금 질문 후보에 올라 있는 개념. 연출이 아니라 F-08 이 받는 그 목록이다 */
+.qb-pool { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.qb-pool-head {
+  display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px;
+  color: var(--text-2); font-size: 13px; font-weight: 600;
+}
+.qb-pool-head span { color: var(--text-3); font-size: 12px; font-weight: 500; }
+.qb-pool ul { margin: 0; padding: 0; list-style: none; }
+.qb-pool li {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 40px; padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.qb-pool li:last-child { border-bottom: 0; }
+/* 개념 이름이 길어도 배지를 밀어내지 않는다 */
+.qb-pool li b {
+  flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.qb-pool li .chip { flex: none; }
+.qb-pool-more { margin: 8px 0 0; color: var(--text-3); font-size: 12px; }
+
+/* 「기다리지 않고」는 빠져나가는 길이지 주인공이 아니다. 왼쪽 아래에 둔다 */
+.qb-actions { justify-content: flex-start; margin-top: 16px; }
+
+/* 코칭 결과 — 리포트에서 짚어 줄 개념을 못 찾은 행은 누를 수 없다.
+   화살표만 달아 두고 같은 곳으로 보내면 그게 거짓말이다 */
+.qres-row.is-flat { cursor: default; }

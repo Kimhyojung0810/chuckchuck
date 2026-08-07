@@ -65,7 +65,13 @@
 
   /* 브랜드는 내비가 갖는다. 탑바에 또 두면 로고가 둘이다 */
   .topbar > .brand { display: none; }
-  .topbar { justify-content: flex-end; }
+  /* 브랜드를 내비로 옮기고 나니 탑바가 버튼 하나만 든 빈 흰 띠가 됐다.
+     면과 선을 걷어내면 띠가 아니라 「본문 위에 뜬 버튼」으로 읽힌다 —
+     sticky·높이는 그대로라 #rtabs 의 sticky top 계산이 안 흔들린다 */
+  .topbar {
+    justify-content: flex-end;
+    background: none; border-bottom: 0;
+  }
 
   /* 랜딩은 마케팅 화면이라 앱 크롬을 걸치지 않는다 (MVP_SPEC §4) */
   body:has(main.landing) { padding-left: 0; }
