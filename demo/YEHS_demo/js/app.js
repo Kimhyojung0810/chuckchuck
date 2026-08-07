@@ -276,6 +276,12 @@ const routes = {
 /** 진행 중 세션을 버리고 새 연습 시작 */
 function startFreshPractice() {
   resetNf();
+  // 질문 코칭도 같이 지운다. 안 지우면 이전 발표의 qa.started 가 살아남는데,
+  // syncTopbar()·renderHome() 은 qaActive 를 nf 보다 먼저 보므로 새 자료를 올려도
+  // 상단이 「연습 이어하기」로 남아 지난 세션의 질문·대화로 데려간다.
+  // (2026-08-07 사용자: "업로드 한 뒤에 연습 이어가기 누르면 이전 데이터가 남아있네")
+  // mode 는 resetQa 가 보존한다 — 코칭 길이는 자료가 아니라 사용자의 선택이다.
+  resetQa();
   try { sessionStorage.removeItem('cheokcheok:chuckchuck-session'); } catch (_) {}
   if (location.hash === '#/new' || location.hash === '#/new/') {
     route();
