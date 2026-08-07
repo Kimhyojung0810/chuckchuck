@@ -392,10 +392,107 @@ const HOME_CREW = [
   { id: 'exaone', name: '엑사원', role: '인정', by: 'LG',      does: '잘 설명한 개념을 짚어줘요' },
 ];
 
-function crewCardHtml() {
-  // 캐릭터는 얹는 층이다. Chatter 가 아직 안 붙었으면 카드를 통째로 접는다
-  if (!window.Chatter || !Chatter.chickSvg) return '';
-  const seats = HOME_CREW.map(c => `
+/* ══ 홈의 주인공: 다음에 고칠 것 하나 ═══════════════════════════════════
+   홈이 「지난 발표 목록」이면 아카이브다. 부스에서 처음 보는 사람에게 필요한 건
+   기록이 아니라 다음 행동이다 — 이 카드가 그 자리를 맡는다.
+
+   지어내지 않는 것이 이 카드의 전부다. 「+8점 기대」·「지난 연습 대비 평균 +8」
+   같은 숫자는 근거가 없다 (상황별 채점 가중치가 달라 발표 간 비교가 성립하지
+   않는다 — 홈에서 점수 카드를 지운 이유가 그것이다). 그래서 새 문장을 만들지
+   않고, 이미 실데이터로 처방을 만들고 있는 두 곳(F-12 흐름 · F-17/18 음성)의
+   문장을 그대로 승격한다. 둘 다 조용하면 채점표에서 근거만 조립한다.
+
+   카드에 「믿:음이 찾았어요」 같은 주어를 쓰지 않는다. SCORE_CHICK 과
+   HOME_CREW 의 역할 배정이 서로 어긋나 있어서(쏠라=자료 / delivery=solar),
+   말로 주장하면 둘 중 하나가 거짓이 된다. 얼굴만 리포트와 같은 것으로 맞춘다. */
+
+/** 카드가 그릴 네 상태. 어느 상태에서도 카드 크기는 같고 안이 실데이터로 찬다 */
+function homeStage() {
+  const out = (nf && nf.pipelineOut) || null;
+  // 부분 성공이 정상이다. 흐름·음성·채점표 중 하나만 살아도 고칠 것을 말할 수 있다
+  if (out && (out.flow || out.pace || out.score)) return 'analyzed';
+  if (nf && (nf.pipelineError || (pipelineFinished() && out))) return 'failed';
+  if (nf && (nf.fileName || nf.slideDocMeta)) return 'uploaded';
+  return 'empty';
+}
+
+/** 채점표에서 「먼저 볼 축」 하나. 처방 문장이 없으므로 지어내지 않고 근거만 편다 */
+function rubricWeakest(sc) {
+  const live = ((sc && sc.clusters) || []).filter(c => c.status === 'scored');
+  if (!live.length) return null;
+  /* 회복 여지 = 남은 점수 × 이 발표에서의 실제 비중. contracts 가 「살아 있는
+     클러스터의 effective_weight 합 = 1.0」을 보증하므로 총점과 같은 단위다.
+     정렬에만 쓰고 화면에는 내지 않는다 — 흐름·음성에는 대응 수치가 없어서
+     소스마다 카드 모양이 달라지고, 숫자를 내면 주인공이 둘이 된다 */
+  const room = c => (c.effective_weight || 0) * (100 - (c.average || 0));
+  const top = [...live].sort((a, b) => room(b) - room(a))[0];
+  if (!top || room(top) <= 0) return null;
+  // 그 축에서 제일 낮은 항목의 근거 한 줄. 없으면 근거 줄을 안 그린다
+  const nos = new Set(top.item_nos || []);
+  const worst = ((sc && sc.items) || [])
+    .filter(it => nos.has(it.no) && it.status === 'scored' && (it.evidence || it.note))
+    .sort((a, b) => (a.score || 0) - (b.score || 0))[0];
+  return {
+    source: 'rubric', who: SCORE_CHICK[top.key] || 'solar', tab: 1, label: '채점표',
+    headline: `「${top.name}」부터 보면 좋아요`,
+    action: '',
+    hint: DIM_HINT[top.name] || '',
+    evidence: (worst && (worst.evidence || worst.note)) || '',
+  };
+}
+
+/**
+ * 다음에 고칠 것 하나를 고른다.
+ *
+ * 순서가 자의적이지 않다. 흐름과 음성은 `{headline, action}` 을 **이미 실데이터로
+ * 반환하고**, 채점표는 처방이 없고 DIM_HINT 라는 *질문*만 있다. 「다음에 고칠 것」이
+ * 되려면 「이렇게 하세요」가 있어야 하므로 처방을 가진 쪽이 앞선다.
+ */
+function nextFix() {
+  const out = (nf && nf.pipelineOut) || null;
+  if (!out) return null;
+
+  // 1) 논리 흐름 — flowVerdict 가 FLOW_PRIORITY 로 이미 1건을 뽑고 위치 문장까지 만든다
+  const flowBad = ((out.flow && out.flow.issues) || [])
+    .some(i => flowIssueRank(i.kind) < FLOW_PRIORITY.length);
+  if (flowBad) {
+    const v = flowVerdict(out.flow);
+    if (v) return { source: 'flow', who: 'midm', tab: 3, label: '논리 흐름', ...v };
+  }
+
+  // 2) 음성 습관 — voiceEasyBlocks 는 pace 없이 못 돈다(target_sec 를 읽는다)
+  if (out.pace) {
+    const easy = voiceEasyBlocks(out.pace, out.habits, out.report);
+    const v = voiceVerdict(easy, out.pace);
+    // 마지막 가지는 「모두 안정적이었어요」 칭찬이라 고칠 것이 아니다 — 4번으로 넘긴다
+    if (v && !/안정적이었어요/.test(v.headline)) {
+      return { source: 'voice', who: 'solar', tab: 4, label: '음성 습관', ...v };
+    }
+  }
+
+  // 3) 채점표 — 처방은 없고 근거만 있다
+  const weak = rubricWeakest(out.score);
+  if (weak) return weak;
+
+  // 4) 고칠 것이 없다. 「고칠 것」이라 부르면 그게 거짓말이라 라벨을 바꾼다
+  const keep = (out.flow && flowVerdict(out.flow))
+    || (out.pace && voiceVerdict(voiceEasyBlocks(out.pace, out.habits, out.report), out.pace));
+  return keep ? { source: 'keep', who: 'exaone', tab: 0, label: '', ...keep } : null;
+}
+
+/** 분석이 통째로 실패했을 때 원인 한 줄. 실패를 성공처럼 그리지 않는다 */
+function homeFailNote() {
+  const out = (nf && nf.pipelineOut) || {};
+  const STAGE = { graph: '개념 그래프', alignment: '정합 판정', flow: '흐름 비교', score: '채점' };
+  const where = STAGE[out.failedStage] || '';
+  const why = nf.pipelineError || out.conceptsError || nf.pipelineDetail || '';
+  if (where && why) return `${where}에서 멈췄어요 — ${why}`;
+  return why || (where ? `${where}에서 멈췄어요.` : '분석을 끝내지 못했어요.');
+}
+
+/** 네 모델 좌석. 발표 전에는 이 넷이 카드를 채운다 */
+function crewSeatsHtml() {
+  return HOME_CREW.map(c => `
     <li class="t-crew-one">
       <span class="t-crew-bird ch-seat" data-mood="happy" aria-hidden="true">${Chatter.chickSvg(c.id)}</span>
       <b>${c.name}</b>
@@ -403,17 +500,63 @@ function crewCardHtml() {
       <small>${escapeHtml(c.does)}</small>
       <span class="t-crew-by">${c.by}</span>
     </li>`).join('');
+}
+
+function nextCardHtml() {
+  // 캐릭터는 얹는 층이다. Chatter 가 아직 안 붙었으면 카드를 통째로 접는다
+  if (!window.Chatter || !Chatter.chickSvg) return '';
+  const stage = homeStage();
+
+  if (stage === 'empty' || stage === 'uploaded') {
+    /* 진단이 아니라 예고다. 둘 다 실데이터로 찬다 —
+       ①은 제품 사실(네 모델), ②는 사용자 사실(방금 올린 내 파일) */
+    const meta = (nf && nf.slideDocMeta) || {};
+    const name = meta.file_name || (nf && nf.fileName) || '';
+    const lead = stage === 'uploaded' && name
+      ? `${escapeHtml(name)}${meta.total_slides ? ` · ${meta.total_slides}장` : ''}`
+      : '네 모델이 각자 맡은 일로 발표를 봐요';
+    const tail = stage === 'uploaded'
+      ? '연습을 마치면 이 넷이 본 것 중 제일 급한 하나를 여기 띄워요'
+      : '발표를 마치면 이 자리에 오늘 고칠 것 하나가 떠요';
+    return `
+      <section class="t-card t-next-card is-empty" aria-label="발표를 보는 네 모델">
+        <p class="t-label">${lead}</p>
+        <ul class="t-crew">${crewSeatsHtml()}</ul>
+        <p class="t-caption">${tail}</p>
+      </section>`;
+  }
+
+  const fix = nextFix();
+  if (stage === 'failed' || !fix) {
+    return `
+      <section class="t-card t-next-card is-failed" aria-label="분석 결과">
+        ${stageAccidentHtml(homeFailNote())}
+      </section>`;
+  }
+
+  const keep = fix.source === 'keep';
+  const label = keep ? '이번엔 지킬 것' : `다음에 고칠 것${fix.label ? ` · ${fix.label}` : ''}`;
+  // 부분 실패면 살아남은 것으로 카드를 그리되 사고를 숨기지 않는다
+  const partial = (nf.pipelineOut && nf.pipelineOut.failedStage) ? homeFailNote() : '';
   return `
-    <section class="t-card t-crew-card" aria-label="발표를 보는 네 모델">
-      <p class="t-label">네 모델이 각자 맡은 일로 발표를 봐요</p>
-      <ul class="t-crew">${seats}</ul>
+    <section class="t-card t-next-card" data-go="#/report" data-tab="${fix.tab}"
+             role="button" tabindex="0" aria-label="${escapeHtml(label)}">
+      <p class="t-label">
+        <span class="t-next-who ch-seat" data-mood="${keep ? 'happy' : 'curious'}"
+              aria-hidden="true">${Chatter.chickSvg(fix.who)}</span>
+        ${label}
+      </p>
+      <b class="t-next-head">${escapeHtml(fix.headline)}</b>
+      ${fix.action ? `<p class="t-next-act">${escapeHtml(fix.action)}</p>` : ''}
+      ${fix.hint ? `<p class="t-next-hint">${escapeHtml(fix.hint)}</p>` : ''}
+      ${fix.evidence ? `<p class="t-next-ev">“${escapeHtml(fix.evidence)}”</p>` : ''}
+      ${partial ? `<p class="t-caption">${escapeHtml(partial)}</p>` : ''}
+      <span class="t-chev" aria-hidden="true">›</span>
     </section>`;
 }
 
 function renderHome() {
   app.className = 'home';   // 홈 전용 스코프 — 폭은 main 기본값(980px) 그대로
-  const g = DATA.growth.scores;
-  const totalUp = g[g.length - 1] - g[0];
   const qaActive = qa.started && !qa.ended;
   const nfActive = !nf.completed && (nf.step > 0 || nf.gate);
   const resume = qaActive
@@ -441,7 +584,7 @@ function renderHome() {
       <span class="t-chev" aria-hidden="true">›</span>
     </a>` : ''}
 
-    ${crewCardHtml()}
+    ${nextCardHtml()}
 
     <h2 class="t-sec-head t-lhead">내 기록</h2>
 
@@ -459,14 +602,18 @@ function renderHome() {
 
     <div class="t-band" aria-hidden="true"></div>
 
+    <!-- 실기록은 왼쪽 포스터 벽에만 쌓인다. 여기는 전부 샘플이므로 그렇게 쓴다.
+         「지난 발표」라는 이름은 진짜(포스터 벽)가 갖는다 — 홈에 같은 제목이
+         두 개였고 하나는 가짜였다. 날짜는 안 그린다: 「오늘 개관!」
+         바로 옆에서 「오늘 86점」이라고 말하던 자리다 -->
     <section class="t-sec">
-      <h2 class="t-sec-head">지난 발표</h2>
+      <h2 class="t-sec-head">샘플 발표<span class="t-soft">열어 보라고 넣어 둔 발표예요 · 실제 리포트와 같은 화면이 나와요</span></h2>
       <div class="t-list">
         ${DATA.sessions.map(s => `
         <button class="t-row" type="button" data-go="#/report/${s.id}">
           <span class="t-row-main">
-            <b>${s.title}</b>
-            <small>${s.occasion} · ${s.date} · ${s.nth}번째 연습</small>
+            <b>${s.title}<span class="t-tag">샘플</span></b>
+            <small>${s.occasion} · ${s.slides}장 · ${s.nth}번째 연습</small>
           </span>
           <span class="t-row-val num">${s.score}<i>점</i></span>
           <span class="t-chev" aria-hidden="true">›</span>
@@ -476,13 +623,26 @@ function renderHome() {
 
     <div class="t-band" aria-hidden="true"></div>
 
-    <div class="t-card t-list">
+    <div class="t-card t-list t-about-card">
       <button class="t-row" type="button" data-go="#/about">
         <span class="t-row-main"><b>척척발표가 판단하는 방식</b></span>
         <span class="t-chev" aria-hidden="true">›</span>
       </button>
     </div>`;
-  $$('.t-row[data-go]').forEach(r => r.addEventListener('click', () => location.hash = r.dataset.go));
+  /* 「다음에 고칠 것」 카드는 눌러서 근거로 들어간다. #/qa 는 개념 인자를 안 받으므로
+     리포트의 해당 탭으로 보낸다 — rTab 은 같은 모듈 스코프라 renderReport 가 읽는다 */
+  $$('[data-go]').forEach(r => {
+    const go = () => {
+      if (r.dataset.tab) rTab = Number(r.dataset.tab) || 0;
+      location.hash = r.dataset.go;
+    };
+    r.addEventListener('click', go);
+    if (r.tagName !== 'BUTTON') {
+      r.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+      });
+    }
+  });
   if (window.Playbill) window.Playbill.paintWall(app);
   animateViz();
 }
@@ -3208,7 +3368,12 @@ function nfStep4() {
 /* ══ 리포트 ══ */
 
 /** 업로드·실연동 세션이면 true. 샘플 IMU2CLIP 데모와 구분한다. */
+/* 「샘플」이라고 써 붙인 리포트를 보는 중인가. 홈에서 샘플 행을 눌러 들어왔는데
+   내 실제 분석이 그 밑에 뜨면 라벨이 거짓말이 된다 — 방향만 반대인 같은 병이다 */
+let rSampleMode = false;
+
 function isLiveReportSession() {
+  if (rSampleMode) return false;
   if (!nf) return false;
   if (nf.useSample) return false;
   if (nf.fileName) return true;
@@ -3338,8 +3503,13 @@ function paintVerdictBg() {
 
 async function renderReport() {
   await ensureVoicePipelineOut();
-  const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || 'imu2clip';
-  if (reportId !== 'imu2clip' && DATA.reportProfiles[reportId]) {
+  /* id 없는 #/report 는 실측이다 — 질문 코칭 끝의 「상세 리포트 보기」를 비롯해
+     진입점 여덟 곳이 이 형태를 쓴다. 예전엔 기본값이 'imu2clip' 이라 샘플
+     행과 실측이 같은 주소를 나눠 쓰고 있었다: 자료를 한 번이라도 올리면
+     라벨은 「IMU2CLIP 86점」인데 열면 내 발표 리포트가 떴다 */
+  const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
+  rSampleMode = reportId === 'sample-imu2clip';
+  if (reportId && !rSampleMode && DATA.reportProfiles[reportId]) {
     renderProfileReport(DATA.reportProfiles[reportId]);
     return;
   }
@@ -3385,7 +3555,7 @@ async function renderReport() {
           </div>
         </div>` : ''}
       </div>
-      ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마쳐 정합 판정까지 끝나면 실제 결과로 바뀝니다.</p>` : ''}
+      ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마치고 자료와 발화를 맞춰 보면 내 결과로 바뀌어요.</p>` : ''}
     </section>
     <div class="tabs" id="rtabs">
       ${tabs.map((t, i) => `<button class="${i === rTab ? 'on' : ''}">${t}</button>`).join('')}
@@ -3414,6 +3584,10 @@ function renderProfileReport(p) {
       <span class="final-label">발표 + 질문 코칭 최종 분석</span>
       <h1 class="page-title">${p.title}</h1>
       <p class="report-meta">${p.occasion} · ${p.slides}장 · ${p.duration} · ${p.nth}번째 연습</p>
+      <!-- 여기엔 표시가 아예 없었다. 홈에서 「샘플」이라고 써 놓고 열면 아무 말이
+           없으면 라벨만 붙인 것보다 나쁘다. 전체 리포트의 배너와 문구가 다른
+           이유: 이 프로필들은 리허설을 마쳐도 실데이터로 바뀌지 않는다 -->
+      <p class="sample-note">이 발표는 <b>샘플 데이터</b>예요. 화면 구성을 미리 볼 수 있게 넣어 뒀어요.</p>
     </div>
 
     <div class="final-insight">
@@ -3643,7 +3817,8 @@ function rRubric() {
 }
 
 function realSummary() {
-  const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
+  // isLiveReportSession() 을 안 거치고 nf 를 직접 읽는다 — 여기서 따로 막는다
+  const sc = !rSampleMode && nf && nf.pipelineOut && nf.pipelineOut.score;
   if (!sc || typeof sc.score !== 'number') return null;
   const dims = (sc.clusters || [])
     .filter(c => c.status === 'scored')
@@ -4335,7 +4510,8 @@ const STATUS_FROM_VERDICT = {
  * 결과가 없으면 null — 호출부가 DATA 샘플로 떨어지고 화면에 그렇게 표시한다.
  */
 function realJudgeTree() {
-  const out = nf && nf.pipelineOut;
+  // realSummary() 와 같은 이유 — nf 를 직접 읽으므로 샘플 모드를 여기서도 막는다
+  const out = !rSampleMode && nf && nf.pipelineOut;
   if (!out || !out.graph || !out.alignment) return null;
   const itemBy = {};
   (out.alignment.items || []).forEach(i => { itemBy[i.node_id] = i; });
@@ -4414,7 +4590,7 @@ function rJudge() {
       ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
       : (isLiveReportSession()
         ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요. 샘플(IMU2CLIP)로 대체하지 않았어요.'
-        : '⚠️ 지금 보시는 건 <b>샘플 데이터</b>예요. 리허설을 마쳐 정합 판정까지 끝나면 실제 발표 결과로 바뀝니다.')}</p>`;
+        : '⚠️ 지금 보는 건 <b>샘플 데이터</b>예요. 리허설을 마치면 내 발표 결과로 바뀌어요.')}</p>`;
   $('#jf').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     jFilter = b.dataset.f; rJudge(); animateViz($('#rbody'));
@@ -4802,7 +4978,7 @@ function rPace() {
   const fbSpeedLabel = cpmJudge(st.avg, st.rec);
   $('#rbody').innerHTML = `
     ${real ? '' : `<p class="note" style="color:#f59e0b;margin-bottom:10px">
-      ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 실제 발화로 계산됩니다.</p>`}
+      ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
     ${tabVerdictHtml(fbVerdict)}
     <div class="stat-row">
       <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span>${fbSpeedLabel ? `<p class="note" style="margin-top:4px">${fbSpeedLabel}</p>` : ''}</div>

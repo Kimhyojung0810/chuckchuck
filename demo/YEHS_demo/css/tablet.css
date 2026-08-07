@@ -160,13 +160,15 @@
   main.home > .t-resume      { grid-area: resume; margin-bottom: 12px; }
   /* 예전 점수 카드 자리다. 카드가 「네 모델」로 바뀐 뒤로 이 칸에 이름이 없어서
      자동 배치에 맡겨져 있었다 — 격자에 이름을 붙여 자리를 못 박는다 */
-  main.home > .t-crew-card   { grid-area: crew; }
+  main.home > .t-next-card   { grid-area: crew; }
   main.home > .t-record-card { grid-area: record; margin-top: 12px; }
   main.home > .pb-wall { grid-area: wall; margin-top: 12px; padding: 14px 16px;
                          display: flex; flex-direction: column; align-items: center; }
   main.home > .t-sec { grid-area: list; min-height: 0; display: flex; flex-direction: column; }
   main.home > .t-sec .t-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-  main.home > .t-card:last-child { grid-area: about; align-self: start; margin-top: 12px; }
+  /* :last-child 로 잡으면 홈 맨 끝에 카드를 하나만 더해도 이 칸이 그 카드에게
+     넘어간다. 이름을 잃은 카드는 자동 배치로 흘러가 고정 행을 깬다 */
+  main.home > .t-about-card { grid-area: about; align-self: start; margin-top: 12px; }
   /* 병아리 포스터는 남는 행을 다 먹지 않는다 — 제 크기로 위에 붙는다 */
   main.home > .pb-wall { align-self: start; }
   /* h1 을 걷어내 생긴 46px 중 일부를 상단 숨통에 돌려준다.

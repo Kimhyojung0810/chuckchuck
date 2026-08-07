@@ -31,7 +31,7 @@ const DATA = {
   },
 
   sessions: [
-    { id:'imu2clip', title: 'IMU2CLIP 논문 리뷰', occasion: '학회·수업 발표', slides: 23, date: '오늘', nth: 2, score: 86, diff: 10, note: 'Q&A로 공동 임베딩 정렬 이해' },
+    { id:'sample-imu2clip', title: 'IMU2CLIP 논문 리뷰', occasion: '학회·수업 발표', slides: 23, date: '오늘', nth: 2, score: 86, diff: 10, note: 'Q&A로 공동 임베딩 정렬 이해' },
     { id:'vla', title: 'Hierarchical VLA 논문 리뷰', occasion: '학회·수업 발표', slides:35, date: '1월 13일', nth: 1, score: 79, diff: 8, note: '실패 데이터의 역할 보완' },
     { id:'pitch', title: '척척발표 서비스 피치', occasion: '대회·IR 피칭', slides:12, date: '1월 8일', nth: 3, score: 91, diff: 14, note: 'Q&A 5/5 통과' },
     { id:'q2-report', title: '2분기 제품 성과 보고', occasion: '사내 보고', slides:14, date: '12월 28일', nth: 5, score: 87, diff: 11, note: '시간 배분 안정적' },

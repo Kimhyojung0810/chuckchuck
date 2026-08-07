@@ -584,9 +584,67 @@ main img, main canvas, main svg { max-width: 100%; }
 .empty-bird { width: 72px; }
 .pipe-bird-row .ch-seat { width: 44px; }
 
-/* ── 홈 첫 카드: 네 모델이 각자 맡은 일 (04_screens.md) ─────────────
+/* ══ 홈 첫 카드: 다음에 고칠 것 하나 ══════════════════════════════
+   한 카드가 네 상태를 다 그린다 — 발표 0건(네 모델 소개) · 자료만 올림 ·
+   분석 완료(진단) · 실패(사고 안내). 크기가 같아야 화면이 안 흔들린다.
+   .is-empty 안에서는 .t-crew 격자가 그대로 살아야 하므로 아래 규칙 대부분을
+   :not(.is-empty) 로 좁힌다 */
+.t-next-card { position: relative; }
+.t-next-card:not(.is-empty) { padding-right: 40px; }
+.t-next-card:not(.is-empty)[data-go] { cursor: pointer; }
+.t-next-card > .t-chev { position: absolute; top: 20px; right: 18px; }
+.t-next-card[data-go]:hover { background: var(--hover); }
+.t-next-card[data-go]:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* 라벨 줄에 얼굴 하나. 「누가 찾았어요」라고 말하지 않는다 — 얼굴은 리포트에서
+   그 축 옆에 앉는 것과 같은 것으로만 맞춘다 (SCORE_CHICK) */
+.t-next-card .t-label { display: flex; align-items: center; gap: 7px; }
+.t-next-who.ch-seat {
+  width: 28px; flex: none; opacity: 1; transform: none; filter: none; animation: none;
+}
+.t-next-head {
+  display: block; margin-top: 10px;
+  font-size: 18px; font-weight: 700; line-height: 1.45; letter-spacing: -.01em;
+  word-break: keep-all;
+}
+.t-next-act { margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: var(--text-2); word-break: keep-all; }
+.t-next-hint { margin: 8px 0 0; font-size: 13px; color: var(--text-3); }
+/* 실제로 한 말. 진단 옆에 근거가 있어야 판정이 주장이 아니라 관찰이 된다 */
+.t-next-ev {
+  margin: 10px 0 0; padding: 10px 12px;
+  border-radius: var(--r-ctl); background: var(--fill);
+  font-size: 13px; line-height: 1.6; color: var(--text-2);
+}
+.t-next-card.is-failed { padding: 20px; }
+.t-next-card.is-failed .accident { margin: 0; }
+/* 빈 상태의 꼬리말 — 진단이 아니라 예고다 */
+.t-next-card.is-empty .t-caption { margin-top: 14px; }
+
+/* 샘플 프로필 리포트의 안내 줄. .verdict-note 는 다크 면 위 앰버색이라
+   밝은 .history-head 위에서 안 읽힌다 — 밝은 면용으로 따로 둔다 */
+.sample-note {
+  margin: 10px 0 0; padding: 8px 12px; display: inline-block;
+  border-radius: var(--r-ctl); background: var(--mid-bg);
+  color: var(--mid); font-size: 13px; font-weight: 500;
+}
+.sample-note b { font-weight: 700; }
+
+/* 구역 제목 옆 부제. .section-title .soft 는 리포트 전용이라 홈에선 안 먹는다 */
+.t-sec-head .t-soft {
+  display: block; margin-top: 3px;
+  font-size: 13px; font-weight: 500; color: var(--text-3);
+}
+/* 「샘플」 배지. 우측 칸 목록은 overflow-y:auto 라 스크롤하면 구역 제목이
+   위로 사라진다 — 행 자체가 자기가 샘플이라고 말해야 한다 */
+.t-tag {
+  margin-left: 7px; padding: 2px 7px; border-radius: var(--r-pill);
+  background: var(--fill); color: var(--text-3);
+  font-size: 11px; font-weight: 600; vertical-align: 2px;
+}
+
+/* ── 네 모델 좌석 (빈 상태 안) ───────────────────────────────────
    설명하는 카드지 연출이 아니다. 캐릭터는 읽는 걸 돕는 크기까지만 쓴다 */
-.t-crew-card .t-label { margin-bottom: 12px; }
+.t-next-card .t-label { margin-bottom: 12px; }
 .t-crew { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; list-style: none; margin: 0; padding: 0; }
 .t-crew-one { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
 .t-crew-one b { font-size: 14px; font-weight: 700; }
