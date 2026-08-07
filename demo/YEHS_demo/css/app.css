@@ -1449,6 +1449,11 @@ details.fold .fold-body { padding: 0 24px 20px; }
 }
 
 /* ── 서비스 정보 ── */
+/* 제목 아래 한 줄 — 이 화면이 왜 있는지 먼저 말한다 */
+.about-lead {
+  margin: -14px 0 22px; max-width: 62ch;
+  font-size: 15px; line-height: 1.65; color: var(--text-2);
+}
 .about-sec { margin-bottom: 16px; }
 .about-sec p.lead { font-size: 14px; color: var(--text-2); margin-bottom: 14px; }
 table.plain { width: 100%; border-collapse: collapse; font-size: 14px; }

@@ -527,26 +527,37 @@
   main:has(.about-sec) {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    /* 남는 높이를 마지막 행이 먹어야 오른쪽 두 카드가 위에 붙어 있는다.
-       1fr 이 가운데 행이면 둘 사이가 화면 절반만큼 벌어진다 */
+    /* 남는 높이를 마지막 행이 먹어야 오른쪽 카드들이 위에 붙어 있는다.
+       1fr 이 가운데 행이면 사이가 화면 절반만큼 벌어진다.
+       행: 제목 · 리드 · 오른쪽 카드 셋 (왼쪽 단계 카드가 아래로 관통한다) */
     grid-template-rows: auto auto minmax(0, 1fr);
     gap: 14px;
     height: var(--app-h);
     padding-bottom: 12px;
   }
   main:has(.about-sec) > .page-title { grid-area: 1 / 1 / 2 / 3; }
-  /* 표 카드가 남은 높이를 받고, 넘치면 페이지 대신 카드 안에서 스크롤한다 */
-  main:has(.about-sec) > .about-sec:nth-of-type(1) {
-    grid-area: 2 / 1 / 4 / 2;
+  main:has(.about-sec) > .about-lead { grid-area: 2 / 1 / 3 / 3; }
+  /* 두 칸 다 남은 높이를 받고, 넘치면 페이지 대신 자기 안에서 스크롤한다.
+     오른쪽은 카드 셋을 한 묶음으로 굴린다 — 카드마다 행을 주면 문구가 한 줄
+     늘 때마다 세로 예산을 넘겨서 페이지가 통째로 밀린다 (실측 777 > 675) */
+  main:has(.about-sec) > .about-sec:nth-of-type(1),
+  main:has(.about-sec) > .about-side {
     min-height: 0; overflow-y: auto; scrollbar-width: thin;
   }
-  main:has(.about-sec) > .about-sec:nth-of-type(2) { grid-area: 2 / 2 / 3 / 3; align-self: start; }
-  main:has(.about-sec) > .about-sec:nth-of-type(3) { grid-area: 3 / 2 / 4 / 3; align-self: start; }
+  main:has(.about-sec) > .about-sec:nth-of-type(1) { grid-area: 3 / 1 / 4 / 2; }
+  main:has(.about-sec) > .about-side {
+    grid-area: 3 / 2 / 4 / 3;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  main:has(.about-sec) > .about-side > .about-sec { margin-bottom: 0; flex: none; }
   main:has(.about-sec) > * { margin-top: 0 !important; }
   /* 8행짜리 목록의 행 여백이 그대로면 카드가 세로 예산을 혼자 다 쓴다 */
   main:has(.about-sec) .card { padding: 16px 18px; }
   main:has(.about-sec) .about-steps li { padding: 8px 0; }
-  main:has(.about-sec) .principles li { padding: 8px 0; }
+  main:has(.about-sec) .principles li { padding: 7px 0; }
+  main:has(.about-sec) .about-lead { margin: -8px 0 0; font-size: 14px; }
+  main:has(.about-sec) .about-sec p.lead { margin-bottom: 10px; }
+  main:has(.about-sec) .section-title { margin-bottom: 8px; }
 
 
   /* ══ 6-2. 랜딩 — 세로로 8화면이던 것을 옆으로 넘기는 덱으로 ══

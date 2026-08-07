@@ -6349,29 +6349,42 @@ function aboutStepsHtml() {
 function renderAbout() {
   app.className = '';
   app.innerHTML = `
-    <h1 class="page-title" style="margin-bottom:24px">척척발표가 판단하는 방식</h1>
+    <h1 class="page-title">척척발표가 판단하는 방식</h1>
+    <p class="about-lead">리포트의 판정이 어디서 나왔는지 숨기지 않고 적어 뒀어요.</p>
 
     <div class="card about-sec">
-      <h2 class="section-title">분석 파이프라인</h2>
-      <p class="lead note">발표자료와 실제 발화가 리포트가 되기까지 거치는 단계예요.</p>
+      <h2 class="section-title">발표를 이렇게 읽어요</h2>
+      <p class="lead note">올린 자료와 녹음이 리포트가 되기까지 여덟 단계를 거쳐요.</p>
       ${aboutStepsHtml()}
     </div>
 
+    <div class="about-side">
     <div class="card about-sec">
       <h2 class="section-title">판단 원칙</h2>
       <ul class="principles">
-        <li><b>모든 판정에 근거 발화를 붙여요.</b> 근거 없는 총평은 하지 않아요.</li>
-        <li><b>계산으로 되는 건 AI를 쓰지 않아요.</b> 말 속도와 시간 배분은 수식으로 계산해 결과가 늘 같아요.</li>
+        <li><b>모든 판정에 실제로 한 말을 붙여요.</b> 어디를 듣고 그렇게 봤는지 같이 보여줘요. 근거 없는 총평은 하지 않아요.</li>
+        <li><b>계산으로 되는 건 AI를 쓰지 않아요.</b> 말 속도와 시간 배분은 수식으로 세니, 같은 녹음이면 결과가 늘 같아요.</li>
         <li><b>사람 판단과 열 번에 여덟 번은 맞아야 내보내요.</b> ‘설명 안 함’ 판정에 두는 기준이에요.</li>
       </ul>
     </div>
 
     <div class="card about-sec">
-      <h2 class="section-title">데이터 정책</h2>
+      <h2 class="section-title">이건 판단하지 않아요</h2>
+      <p class="lead note">못 하는 것도 알고 쓰시는 게 맞다고 봐요.</p>
       <ul class="principles">
-        <li><b>자료와 녹음은 분석에만 써요.</b> 다른 곳에 넘기지 않아요.</li>
-        <li><b>보관 기간은 아직 정하는 중이에요.</b> 정해지면 여기에 적어요.</li>
+        <li><b>말한 내용이 사실인지는 확인하지 않아요.</b> 자료와 발표가 서로 맞는지만 봐요.</li>
+        <li><b>목소리가 좋은지는 판단하지 않아요.</b> 반복·간투어·긴 침묵처럼 셀 수 있는 것만 세요.</li>
+        <li><b>슬라이드 디자인은 보지 않아요.</b> 글과 구조만 읽어요.</li>
       </ul>
+    </div>
+
+    <div class="card about-sec">
+      <h2 class="section-title">자료와 녹음은 이렇게 다뤄요</h2>
+      <ul class="principles">
+        <li><b>분석에만 써요.</b> 다른 곳에 넘기지 않아요.</li>
+        <li><b>1년 동안 보관한 뒤 지워요.</b> 그동안은 다시 듣고 지난 발표와 견줘 볼 수 있어요.</li>
+      </ul>
+    </div>
     </div>`;
 }
 
