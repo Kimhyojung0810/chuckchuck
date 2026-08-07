@@ -344,23 +344,18 @@ function route() {
 }
 
 function syncTopbar() {
-  const link = $('.topbar-right a'); if (!link) return;
+  const wrap = $('.topbar-right'); if (!wrap) return;
   const qaActive = qa.started && !qa.ended;
   const nfActive = !nf.completed && (nf.step > 0 || nf.gate);
-  if (qaActive) {
-    link.href = '#/qa';
-    link.textContent = '연습 이어하기';
-    link.removeAttribute('data-fresh-practice');
-  } else if (nfActive) {
-    // 진행 중이면 이어하기, 옆에 새 시작은 홈에서
-    link.href = '#/new';
-    link.textContent = '연습 이어하기';
-    link.removeAttribute('data-fresh-practice');
-  } else {
-    link.href = '#/new';
-    link.textContent = '새 발표 연습';
-    link.setAttribute('data-fresh-practice', '');
-  }
+  // 진행 중 세션이 주 버튼을 뺏지 않는다 — 예전엔 진행 중이면 유일한 버튼이
+  // 「연습 이어하기」로 바뀌어 새 발표를 시작할 길이 없었다 (2026-08-07 사용자:
+  // "연습 이어하기 때문에 처음부터 발표를 할 수가 없네"). 새 발표 연습은 항상
+  // 있고, 이어하기는 진행 중일 때 그 옆에 하나 더 생기는 버튼이다.
+  const resumeHref = qaActive ? '#/qa' : '#/new';
+  wrap.innerHTML = `
+    ${qaActive || nfActive ? `<a class="btn btn-secondary btn-sm" href="${resumeHref}">연습 이어하기</a>` : ''}
+    <a class="btn btn-primary btn-sm" href="#/new" id="topFresh" data-fresh-practice>새 발표 연습</a>`;
+  wireFreshPracticeButtons(wrap);
 }
 
 function wireFreshPracticeButtons(root = document) {
