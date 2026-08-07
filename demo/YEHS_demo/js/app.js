@@ -3485,7 +3485,11 @@ const QA_VERDICT = {
  */
 function qaHistoryPanelHtml() {
   if (!window.QaHistory) return '';
-  const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || 'imu2clip';
+  // 해시에 id 가 없으면 **가장 최근 기록**을 보여준다. 실전 코칭은 'flat' 키로
+  // 저장되는데 예전 기본값 'imu2clip'(목 데모 키)만 읽어서, 방금 끝낸 코칭이
+  // 리포트에 안 뜨거나 목 시나리오가 내 기록인 양 떴다.
+  const hashId = location.hash.replace(/^#\/?/, '').split('/')[1];
+  const reportId = hashId || (window.QaHistory.list()[0] || {}).id || 'imu2clip';
   const rec = window.QaHistory.get(reportId);
   if (!rec || !rec.beats || !rec.beats.length) return '';
 
@@ -4009,36 +4013,188 @@ const FLOW_KIND = {
   good_link: { type: '잘된 연결', good: true },
 };
 
+/* ── 탭 진단 블록 ─────────────────────────────────────────────
+   "판단은 헤드, 단서는 아래 작은 줄" — 판정 헤드(reportVerdict)와 같은 규율.
+   verdict 가 null 이면 블록째 그리지 않는다: 근거 없는 헤드라인은 지어내지 않는다. */
+function tabVerdictHtml(v) {
+  if (!v || !v.headline) return '';
+  return `
+  <div class="tab-verdict">
+    <h2>${escapeHtml(v.headline)}</h2>
+    ${v.action ? `<p class="tv-action">${escapeHtml(v.action)}</p>` : ''}
+    ${v.evidence ? `<div class="bubble">“${escapeHtml(v.evidence)}”</div>` : ''}
+  </div>`;
+}
+
+/* 문제가 여럿이면 이 순서로 "가장 큰 문제" 하나를 고른다 —
+   잇는 말이 아예 없는 단절이 순서 점프보다 청중을 먼저 잃는다 */
+const FLOW_PRIORITY = ['missing_link', 'order_jump'];
+
+function flowIssueRank(kind) {
+  const i = FLOW_PRIORITY.indexOf(kind);
+  return i === -1 ? FLOW_PRIORITY.length : i;
+}
+
+function flowWhere(slides) {
+  if (!slides || !slides.length) return '슬라이드를 넘길 때';
+  if (slides.length > 1) return `${slides[0]}번에서 ${slides[slides.length - 1]}번으로 넘어갈 때`;
+  return `${slides[0]}번 슬라이드에서`;
+}
+
+function flowVerdict(flow) {
+  const issues = (flow && flow.issues) || [];
+  if (!issues.length) return null;
+  const bad = issues.filter(i => flowIssueRank(i.kind) < FLOW_PRIORITY.length)
+    .sort((a, b) => flowIssueRank(a.kind) - flowIssueRank(b.kind));
+  if (!bad.length) {
+    return {
+      headline: '연결이 매끄러웠어요 — 이 흐름을 지키세요',
+      action: '지금 쓴 연결 멘트를 다음 발표에서도 그대로 쓰면 좋아요.',
+    };
+  }
+  const top = bad[0];
+  const where = flowWhere(top.slide_nos);
+  if (top.kind === 'missing_link') {
+    return {
+      headline: `${where} 잇는 말 없이 화제가 바뀌었어요`,
+      action: '「그래서」「이걸 확인하려고」처럼 앞 장과 잇는 한 문장을 넣으면 흐름이 살아나요.',
+      evidence: top.cue || '',
+    };
+  }
+  return {
+    headline: `${where} 근거보다 결론이 먼저 나왔어요`,
+    action: '자료 순서대로 근거를 먼저 말하고 결론으로 넘어가면 따라가기 쉬워요.',
+    evidence: top.cue || '',
+  };
+}
+
+/* ── 숫자 해석 라벨 — 숫자는 유지하고 옆에 판정 말을 붙인다 (§14 숫자는 신성하다) ── */
+function tauJudge(pct) {
+  if (pct >= 85) return '자료 순서를 잘 따랐어요';
+  if (pct >= 60) return '순서가 몇 번 엇갈렸어요';
+  return '자료 순서와 많이 달랐어요';
+}
+
+const CPM_REC = { min: 300, max: 350 }; // F-17 이 권장을 안 주면 쓰는 화면 기본값(자/분)
+
+function cpmJudge(avg, rec) {
+  if (!avg) return '';
+  const nums = String(rec || '').match(/\d+/g) || [];
+  const lo = Number(nums[0]) || CPM_REC.min;
+  const hi = Number(nums[1]) || CPM_REC.max;
+  if (avg > hi * 1.15) return '권장보다 많이 빨라요';
+  if (avg > hi) return '권장보다 조금 빨라요';
+  if (avg < lo * 0.85) return '권장보다 많이 느려요';
+  if (avg < lo) return '권장보다 조금 느려요';
+  return '권장 범위예요';
+}
+
+function timeDiffJudge(targetSec, actualSec) {
+  if (!targetSec || !actualSec) return '';
+  const d = Math.round(actualSec - targetSec);
+  if (Math.abs(d) <= Math.max(15, targetSec * 0.05)) return '목표와 거의 맞았어요';
+  return d > 0 ? `목표보다 ${fmtSec(d)} 길었어요` : `목표보다 ${fmtSec(-d)} 짧았어요`;
+}
+
+/* 간투어는 어떤 말이 올지 모른다 — 받침에 맞는 조사를 고른다 (「음」을 / 「어」를) */
+function josaEulReul(word) {
+  const c = String(word).charCodeAt(String(word).length - 1);
+  if (c < 0xAC00 || c > 0xD7A3) return '를';
+  return (c - 0xAC00) % 28 ? '을' : '를';
+}
+
+/* 음성 습관 우선순위: 핵심 장 시간 부족·초과 > 속도 > 간투어.
+   voiceEasyBlocks 가 이미 만드는 headline/actions 를 승격해 재사용한다. */
+function voiceVerdict(easy, pace) {
+  if (!easy) return null;
+  if (easy.shortCore.length || easy.longOnes.length) {
+    return { headline: easy.headline, action: easy.actions[0] || '' };
+  }
+  const avg = Math.round((pace && pace.avg_chars_per_min) || 0);
+  const speed = cpmJudge(avg, pace && pace.recommended_cpm);
+  if (speed && speed !== '권장 범위예요') {
+    const isFast = speed.includes('빨라요');
+    return {
+      headline: isFast ? '전체적으로 권장보다 빠르게 말했어요' : '전체적으로 권장보다 천천히 말했어요',
+      action: isFast
+        ? '문장이 끝날 때 반 박자 쉬어 가면 듣는 사람이 따라와요.'
+        : '설명 구간에서 속도를 조금만 올리면 늘어지지 않아요.',
+    };
+  }
+  const totalFillers = easy.fillers.reduce((sum, f) => sum + f.n, 0);
+  if (totalFillers >= 3) {
+    const topF = easy.fillers[0];
+    return {
+      headline: `「${topF.text}」${josaEulReul(topF.text)} ${topF.n}번 말했어요 — 간투어를 줄여 보세요`,
+      action: easy.actions[0] || '발표 전에 한 번 소리 내어 읽어보면 간투어가 줄어요.',
+    };
+  }
+  // 시간·속도·간투어 모두 무난 — 칭찬으로 마무리하고 유지 처방을 준다
+  return {
+    headline: '시간·속도·말버릇 모두 안정적이었어요',
+    action: '이 페이스를 유지하면서 내용 전달에 집중하면 돼요.',
+  };
+}
+
+function flowIssueCardHtml(i) {
+  const kind = FLOW_KIND[i.kind] || { type: escapeHtml(i.kind), good: false };
+  const slides = i.slide_nos || [];
+  const from = slides.length ? `${slides[0]}번` : '—';
+  const to = slides.length > 1 ? `${slides[slides.length - 1]}번` : from;
+  return `
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      ${chip(kind.good ? 'ok' : 'no', true)}
+      <span class="note">${kind.type}</span>
+    </div>
+    <div class="flow-vis">
+      <span class="slide-chip">${from} 슬라이드</span>
+      <span class="flow-line ${kind.good ? 'good' : ''}"><em>${kind.good ? '✓' : '✕'}</em></span>
+      <span class="slide-chip">${to} 슬라이드</span>
+    </div>
+    <p class="logic-note"><b>${kind.type}</b> — ${escapeHtml(i.note || '')}</p>
+    ${i.cue ? `<div class="bubble">“${escapeHtml(i.cue)}”</div>` : ''}
+  </div>`;
+}
+
 function rLogicRealCards(flow) {
-  const cards = (flow.issues || []).map((i) => {
-    const kind = FLOW_KIND[i.kind] || { type: escapeHtml(i.kind), good: false };
-    const slides = i.slide_nos || [];
-    const from = slides.length ? `${slides[0]}번` : '—';
-    const to = slides.length > 1 ? `${slides[slides.length - 1]}번` : from;
-    return `
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        ${chip(kind.good ? 'ok' : 'no', true)}
-        <span class="note">${kind.type}</span>
-      </div>
-      <div class="flow-vis">
-        <span class="slide-chip">${from} 슬라이드</span>
-        <span class="flow-line ${kind.good ? 'good' : ''}"><em>${kind.good ? '✓' : '✕'}</em></span>
-        <span class="slide-chip">${to} 슬라이드</span>
-      </div>
-      <p class="logic-note"><b>${kind.type}</b> — ${escapeHtml(i.note || '')}</p>
-      ${i.cue ? `<div class="bubble">“${escapeHtml(i.cue)}”</div>` : ''}
-    </div>`;
-  }).join('');
+  // 가장 큰 문제(진단 블록과 같은 기준)를 맨 앞에 펼치고 나머지는 접는다
+  const issues = [...(flow.issues || [])]
+    .sort((a, b) => flowIssueRank(a.kind) - flowIssueRank(b.kind));
+  const [first, ...rest] = issues;
 
   const tau = flow.order_tau;
-  const tauNote = tau == null
-    ? ''
-    : `<p class="ai-note">자료 순서와 발표 순서 일치도 ${Math.round(((tau + 1) / 2) * 100)}%${
+  let tauNote = '';
+  if (tau != null) {
+    const pct = Math.round(((tau + 1) / 2) * 100);
+    tauNote = `<p class="ai-note">자료 순서와 발표 순서 일치도 <b class="num">${pct}%</b> — ${tauJudge(pct)}${
       (flow.ghost_node_ids || []).length
         ? ` · 한 번도 언급되지 않은 개념 ${flow.ghost_node_ids.length}개`
         : ''}</p>`;
-  return cards + tauNote;
+  }
+  return `
+    ${tabVerdictHtml(flowVerdict(flow))}
+    ${first ? flowIssueCardHtml(first) : ''}
+    ${rest.length ? `<details class="fold"><summary>나머지 ${rest.length}곳 더 보기</summary>
+      <div class="fold-body">${rest.map(flowIssueCardHtml).join('')}</div></details>` : ''}
+    ${tauNote}`;
+}
+
+function logicBreakCardHtml(l) {
+  return `
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      ${chip(l.good ? 'ok' : 'no', true)}
+      <span class="note num">${l.time}</span>
+    </div>
+    <div class="flow-vis">
+      <span class="slide-chip">${l.from} 슬라이드</span>
+      <span class="flow-line ${l.good ? 'good' : ''}"><em>${l.good ? '✓' : '✕'}</em></span>
+      <span class="slide-chip">${l.to} 슬라이드</span>
+    </div>
+    <p class="logic-note"><b>${l.type}</b> — ${l.note}</p>
+    <div class="bubble">${l.ev}<time>${l.time}</time></div>
+  </div>`;
 }
 
 function rLogic() {
@@ -4047,21 +4203,19 @@ function rLogic() {
     $('#rbody').innerHTML = rLogicRealCards(flow);
     return;
   }
+  // 샘플 경로도 같은 구조 — 끊긴 곳을 앞으로, 잘된 연결은 접는다 (샘플 배지는 판정 헤드가 단다)
+  const breaks = [...DATA.logicBreaks].sort((a, b) => (a.good ? 1 : 0) - (b.good ? 1 : 0));
+  const [first, ...rest] = breaks;
+  const bad = breaks.filter(l => !l.good);
+  const verdict = bad.length ? {
+    headline: `${bad[0].from}번에서 ${bad[0].to}번으로 넘어갈 때 논리가 끊겼어요`,
+    action: '앞 장과 잇는 한 문장을 넣으면 흐름이 살아나요. 아래 실제 발화를 확인해 보세요.',
+  } : null;
   $('#rbody').innerHTML = `
-    ${DATA.logicBreaks.map(l => `
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        ${chip(l.good ? 'ok' : 'no', true)}
-        <span class="note num">${l.time}</span>
-      </div>
-      <div class="flow-vis">
-        <span class="slide-chip">${l.from} 슬라이드</span>
-        <span class="flow-line ${l.good ? 'good' : ''}"><em>${l.good ? '✓' : '✕'}</em></span>
-        <span class="slide-chip">${l.to} 슬라이드</span>
-      </div>
-      <p class="logic-note"><b>${l.type}</b> — ${l.note}</p>
-      <div class="bubble">${l.ev}<time>${l.time}</time></div>
-    </div>`).join('')}
+    ${tabVerdictHtml(verdict)}
+    ${first ? logicBreakCardHtml(first) : ''}
+    ${rest.length ? `<details class="fold"><summary>나머지 ${rest.length}곳 더 보기</summary>
+      <div class="fold-body">${rest.map(logicBreakCardHtml).join('')}</div></details>` : ''}
     <p class="ai-note">논리가 끊긴 곳은 최대 5곳까지만 짚어요 — 위치와 실제 발화를 함께 확인하세요.</p>`;
 }
 
@@ -4122,25 +4276,35 @@ function rPace() {
     const avg = livePace.avg_chars_per_min || 0;
     const easy = voiceEasyBlocks(livePace, liveHabits, liveReport || {});
     const fillers = easy.fillers;
-    const tip = (easy.actions && easy.actions[0]) || (livePace.tips && livePace.tips[0]) || '핵심 장은 조금 더, 긴 장은 조금 덜 말해 보세요.';
-    $('#rbody').innerHTML = `
-      <div class="stat-row voice-stat-row">
-        <div class="stat-card pop-in" style="--i:0"><small>목표 시간</small><strong>${easy.target}</strong></div>
-        <div class="stat-card pop-in" style="--i:1"><small>내가 쓴 시간</small><strong>${easy.actual}</strong></div>
-        <div class="stat-card pop-in" style="--i:2"><small>평균 말 속도</small><strong class="num" data-count="${Math.round(avg)}">0</strong><span class="unit">자/분</span></div>
-      </div>
-      <div class="card voice-chart-card">${voiceTimeChartHtml(livePace)}<p class="voice-tip">${escapeHtml(tip)}</p></div>
+    // 처방 문구는 진단 블록이 한 번만 말한다 — 예전 voice-tip 과 중복이었다
+    const diffLabel = timeDiffJudge(livePace.target_sec, livePace.actual_sec);
+    const speedLabel = cpmJudge(Math.round(avg), livePace.recommended_cpm);
+    const timeCards = `
+      <div class="card voice-chart-card">${voiceTimeChartHtml(livePace)}</div>
       <div class="card">
         <h3 class="section-title">짧게 말한 핵심 장<span class="soft">여기 시간을 늘려보세요</span></h3>
         <div class="slide-pill-row">${slidePillHtml(easy.shortCore, 'short')}</div>
         <h3 class="section-title" style="margin-top:18px">길게 말한 장<span class="soft">여기를 줄이면 목표에 더 가까워져요</span></h3>
         <div class="slide-pill-row">${slidePillHtml(easy.longOnes, 'long')}</div>
-      </div>
+      </div>`;
+    const fillerCard = `
       <div class="card">
         <h3 class="section-title">자주 쓴 간투어<span class="soft">같은 말 반복 ${(liveHabits && liveHabits.repeat_cnt) || 0}회 · 긴 쉼 ${(liveHabits && liveHabits.pause_cnt) || 0}회</span></h3>
         ${fillers.length ? `<div class="filler-cloud">${fillers.map((f, i) => `<span class="filler-chip size-${Math.min(4, Math.max(1, f.n))}" style="--i:${i}"><b>${escapeHtml(f.text)}</b><small>${f.n}회</small></span>`).join('')}</div>
           <p class="note" style="margin-top:12px">박스가 클수록 더 자주 나왔어요.</p>` : `<p class="note">눈에 띄는 간투어는 거의 없었어요. 좋아요!</p>`}
       </div>`;
+    // 진단이 시간 문제면 시간 카드를 펼치고 간투어를 접는다 — 반대면 그 반대
+    const timeFirst = !!(easy.shortCore.length || easy.longOnes.length) || !fillers.length;
+    $('#rbody').innerHTML = `
+      ${tabVerdictHtml(voiceVerdict(easy, livePace))}
+      <div class="stat-row voice-stat-row">
+        <div class="stat-card pop-in" style="--i:0"><small>목표 시간</small><strong>${easy.target}</strong></div>
+        <div class="stat-card pop-in" style="--i:1"><small>내가 쓴 시간</small><strong>${easy.actual}</strong>${diffLabel ? `<p class="note" style="margin-top:4px">${diffLabel}</p>` : ''}</div>
+        <div class="stat-card pop-in" style="--i:2"><small>평균 말 속도</small><strong class="num" data-count="${Math.round(avg)}">0</strong><span class="unit">자/분</span>${speedLabel ? `<p class="note" style="margin-top:4px">${speedLabel}</p>` : ''}</div>
+      </div>
+      ${timeFirst ? timeCards : fillerCard}
+      <details class="fold"><summary>${timeFirst ? '간투어·말버릇 더 보기' : '장별 시간 더 보기'}</summary>
+        <div class="fold-body">${timeFirst ? fillerCard : timeCards}</div></details>`;
     return;
   }
   const real = realPace();
@@ -4174,11 +4338,19 @@ function rPace() {
       : '구간별 속도가 고르게 유지됐어요.')
       + (real.dropped ? ` (너무 짧은 ${real.dropped}개 구간은 속도를 못 재 제외했어요)` : '')
     : '수식 설명 구간이 본인 평균보다 24% 빨라요. Temperature Parameter와 loss 모두 설명이 부족하다고 판정된 개념과 겹쳐요.';
+  // 폴백 경로도 진단→근거→처방 구조를 따른다 — 헤드라인은 이미 계산된 판정에서만 만든다
+  const fbVerdict = fastRows.length
+    ? { headline: `${fastRows.length}개 구간에서 평균보다 훨씬 빨랐어요`,
+        action: '빠른 구간의 개념 판정을 함께 확인하고, 그 장에서 한 박자 쉬어 보세요.' }
+    : { headline: '구간별 말 속도가 고르게 유지됐어요',
+        action: '이 속도를 유지하면서 아래 시간 배분만 살펴보세요.' };
+  const fbSpeedLabel = cpmJudge(st.avg, st.rec);
   $('#rbody').innerHTML = `
     ${real ? '' : `<p class="note" style="color:#f59e0b;margin-bottom:10px">
       ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 실제 발화로 계산됩니다.</p>`}
+    ${tabVerdictHtml(fbVerdict)}
     <div class="stat-row">
-      <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span></div>
+      <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span>${fbSpeedLabel ? `<p class="note" style="margin-top:4px">${fbSpeedLabel}</p>` : ''}</div>
       <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${escapeHtml(String(st.maxSeg))}</p></div>
       <div class="stat-card"><small>발표 권장 속도</small><strong class="num">${st.rec}</strong><span class="unit">자/분</span></div>
     </div>
@@ -4195,23 +4367,26 @@ function rPace() {
       </div>
       <p class="note" style="margin-top:14px">${note}</p>
     </div>
-    <div class="card">
-      <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
-      <div class="alloc-lgd">
-        <span><i style="background:#C9D5CE"></i>권장</span>
-        <span><i style="background:var(--blue)"></i>실제</span>
-      </div>
-      ${allocRows.map(r => `
-      <div class="alloc-row">
-        <span class="nm">${escapeHtml(String(r[0]))}</span>
-        <div class="alloc-bars">
-          <div class="fill-bar"><i class="gray" data-w="${(r[1] / allocMax * 100).toFixed(0)}%"></i></div>
-          <div class="fill-bar"><i class="${r[3] === '적절' ? '' : 'red'}" data-w="${(r[2] / allocMax * 100).toFixed(0)}%"></i></div>
+    <details class="fold"><summary>시간 배분 더 보기</summary>
+      <div class="fold-body">
+      <div class="card">
+        <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
+        <div class="alloc-lgd">
+          <span><i style="background:#C9D5CE"></i>권장</span>
+          <span><i style="background:var(--blue)"></i>실제</span>
         </div>
-        <span class="alloc-st ${r[3] === '적절' ? 'fine' : 'warn'}">${r[3]}</span>
-      </div>`).join('')}
-      <p class="note" style="margin-top:12px">${allocNote}</p>
-    </div>`;
+        ${allocRows.map(r => `
+        <div class="alloc-row">
+          <span class="nm">${escapeHtml(String(r[0]))}</span>
+          <div class="alloc-bars">
+            <div class="fill-bar"><i class="gray" data-w="${(r[1] / allocMax * 100).toFixed(0)}%"></i></div>
+            <div class="fill-bar"><i class="${r[3] === '적절' ? '' : 'red'}" data-w="${(r[2] / allocMax * 100).toFixed(0)}%"></i></div>
+          </div>
+          <span class="alloc-st ${r[3] === '적절' ? 'fine' : 'warn'}">${r[3]}</span>
+        </div>`).join('')}
+        <p class="note" style="margin-top:12px">${allocNote}</p>
+      </div>
+      </div></details>`;
 }
 
 /* 탭 5 — 연습 도구 */
@@ -4443,7 +4618,11 @@ function qaNoticeHtml() {
 /* 실전 질문이 아직 없으면 지금 만든다 — #/qa 로 오는 모든 경로의 단일 보장 지점.
  * @returns {boolean} true 면 생성이 시작됐다 (호출자는 로딩 화면을 그린다) */
 function ensureLiveQuestions() {
-  if (qaLiveActive() || qaBuilding || qaBuildFailed) return false;
+  if (qaLiveActive() || qaBuildFailed) return false;
+  // 생성이 이미 돌고 있으면 "준비 중" 이 맞다. false 를 돌리면 renderQa 가
+  // 데모 질문을 띄우고, 몇 초 뒤 생성이 끝나는 순간 그 대화가 통째로
+  // 갈아치워진다 — 화면을 벗어났다 돌아온 경우가 정확히 이 경로였다.
+  if (qaBuilding) return true;
 
   const out = nf && nf.pipelineOut;
   const bridge = window.ChuckchuckBridge;
@@ -4489,6 +4668,9 @@ function ensureLiveQuestions() {
     context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
     track: (qa && qa.mode) || '10',
   })).then((doc) => {
+    // 「기다리지 않고 데모 질문으로 진행」을 눌렀으면 늦게 도착한 결과를 버린다.
+    // 여기서 안 버리면 데모 질문에 답하던 대화가 통째로 갈아치워진다.
+    if (qaBuildFailed) return;
     const questions = (doc && doc.questions) || [];
     if (questions.length) {
       qa.live = newLiveState(FLAT_QA_SESSION_ID, questions);
@@ -4567,6 +4749,19 @@ if (qa.live && Array.isArray(qa.live.questions)) {
   if (!Array.isArray(qa.live.results)) qa.live.results = [];
   if (typeof qa.live.turn !== 'number') qa.live.turn = 0;
   if (typeof qa.live.hintLevel !== 'number') qa.live.hintLevel = 0;
+  if (qa.live.busy) {
+    // 판정을 기다리다 새로고침한 것이다. 답변 말풍선(qa.turns)은 전송 즉시
+    // 저장되지만 상태(L.turns·priorAnswers)는 응답 후에만 갱신되므로, 그대로
+    // 두면 화면에는 내 답이 있는데 판정에는 없는 답이 된다. 말풍선을 걷어
+    // 입력창 초안으로 되살린다 — 다시 보내기만 하면 된다.
+    while (qa.turns.length && qa.turns[qa.turns.length - 1].who === 'me') {
+      const popped = qa.turns.pop();
+      qa.live.pendingAnswer = String(popped.text || '')
+        .replace(/&quot;/g, '"').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    }
+    saveSession('qa-flow', qa);
+  }
   qa.live.busy = false;
 }
 let qaTimerId = null;

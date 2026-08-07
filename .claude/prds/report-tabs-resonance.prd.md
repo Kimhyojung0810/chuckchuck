@@ -50,9 +50,9 @@ We'll know we're right when **탭을 처음 보는 사람이 3초 안에 그 발
 
 | # | Milestone | Outcome | Status | Plan |
 |---|---|---|---|---|
-| 1 | 논리 흐름 탭 재편 | 탭 진입 3초 안에 「논리가 끊긴 가장 큰 지점 + 연결 멘트 처방」이 읽힘 | pending | — |
-| 2 | 음성 습관 탭 재편 | 탭 진입 3초 안에 「가장 큰 말 습관 문제 + 처방」이 읽힘 | pending | — |
-| 3 | 숫자 해석 라벨 일괄 적용 | 두 탭의 모든 숫자에 판정 말이 붙어 맥락 없이도 좋고 나쁨이 읽힘 | pending | — |
+| 1 | 논리 흐름 탭 재편 | 탭 진입 3초 안에 「논리가 끊긴 가장 큰 지점 + 연결 멘트 처방」이 읽힘 | in-progress | `.claude/plans/report-tabs-resonance.plan.md` |
+| 2 | 음성 습관 탭 재편 | 탭 진입 3초 안에 「가장 큰 말 습관 문제 + 처방」이 읽힘 | in-progress | `.claude/plans/report-tabs-resonance.plan.md` |
+| 3 | 숫자 해석 라벨 일괄 적용 | 두 탭의 모든 숫자에 판정 말이 붙어 맥락 없이도 좋고 나쁨이 읽힘 | in-progress | `.claude/plans/report-tabs-resonance.plan.md` |
 | 4 | 부스 리허설 3초 테스트 | 처음 보는 3명이 헤드라인만으로 문제+처방을 재현 → 가설 판정 | pending | — |
 
 ## Open Questions

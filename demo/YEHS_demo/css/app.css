@@ -626,6 +626,16 @@ details.fold summary::-webkit-details-marker { display: none; }
 details.fold summary::after { content: "＋"; color: var(--text-3); font-weight: 400; font-size: 17px; }
 details.fold[open] summary::after { content: "－"; }
 details.fold .fold-body { padding: 0 24px 20px; }
+
+/* 탭 진단 블록 — 가장 큰 문제 한 줄 + 처방 한 줄. 판정 헤드와 같은 규율로
+   "판단은 헤드, 단서는 아래 작은 줄". 근거가 없으면 JS 가 블록째 생략한다 */
+.tab-verdict {
+  background: var(--surface); border-radius: var(--r-card);
+  box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 14px;
+}
+.tab-verdict h2 { font-size: 18px; font-weight: var(--w-bold); letter-spacing: -.3px; margin: 0 0 6px; }
+.tab-verdict .tv-action { font-size: 14px; color: var(--text-2); line-height: 1.6; margin: 0; }
+.tab-verdict .bubble { margin-top: 12px; }
 .mini-row { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-radius: var(--r-ctl); font-size: 14px; cursor: pointer; }
 .mini-row:hover { background: #F7F8FA; }
 .mini-row .lbl { font-weight: 500; flex: 1; }
