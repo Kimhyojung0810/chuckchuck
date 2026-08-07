@@ -93,14 +93,20 @@ function liveHistory() {
 
 /** 판정에 실어 보낼 자료 근거. 없으면 판정이 "자료와 어긋난다"를 대조할 원본을 잃는다. */
 function liveArtifacts() {
-  const out = (nf && nf.pipelineOut) || null;
+  // nf 는 app.js 의 전역이다. 새로고침한 직후나 QA 화면으로 바로 들어온 경우엔
+  // 아직 안 채워져 있을 수 있는데, 그때 null 을 돌려주면 judgeQaAnswer 의 409
+  // 자가 복구(세션 재등록)가 아예 안 돌아 이 질문에 영영 갇힌다.
+  // 2026-08-07 실측: 브리지를 재시작한 뒤 모든 답변이 409 로 죽었고, 재등록
+  // 요청은 로그에 한 번도 안 찍혔다. 세션에 남겨 둔 요약에서 한 번 더 찾는다.
+  const src = (nf && nf.pipelineOut) ? nf : (loadSession('new-flow') || {});
+  const out = src.pipelineOut || null;
   if (!out || !out.graph) return null;
   return {
     graph: out.graph,
     alignment: out.alignment || null,
     flow: out.flow || null,
     transcript: out.transcript || null,
-    context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
+    context: { situation: src.occ || '', audience: src.ctx || '', duration_min: src.min },
   };
 }
 
@@ -521,7 +527,15 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 「모르겠어요」도 판정을 타므로, 서버가 죽으면 이 질문에 갇힌다.
     // 아래 렌더에서 「답 보고 넘어가기」가 열려 서버 없이 다음 질문으로 간다.
     L.judgeFailed = true;
-    pushTurn({ who: 'sys', kind: 'lost', text: `판정 실패: ${escapeHtml(err.message || String(err))} — 다시 시도하거나 「답 보고 넘어가기」로 다음 질문에 갈 수 있어요` });
+    // 자료 정보가 통째로 사라진 경우는 다시 눌러도 똑같이 실패한다. 「다시
+    // 시도」로 유도하면 같은 자리를 맴돌 뿐이라, 원인과 빠져나갈 길을 따로 낸다.
+    pushTurn({
+      who: 'sys',
+      kind: 'lost',
+      text: err.code === 'session_missing'
+        ? '자료 정보가 사라져서 판정할 수 없어요. <a href="#/new">자료를 다시 올리면</a> 이어서 할 수 있어요 — 지금은 「답 보고 넘어가기」로 다음 질문에 갈 수 있어요'
+        : `판정 실패: ${escapeHtml(err.message || String(err))} — 다시 시도하거나 「답 보고 넘어가기」로 다음 질문에 갈 수 있어요`,
+    });
   }
   L.busy = false;
   saveSession('qa-flow', qa);
