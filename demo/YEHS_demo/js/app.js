@@ -450,6 +450,7 @@ function renderHome() {
 
     ${crewCardHtml()}
 
+    ${(gm.days || []).length ? `
     <section class="t-card t-record-card" aria-label="연습 기록">
       <div class="t-stats">
         <div class="t-stat"><b class="num">${streak}일</b><small>연속 연습</small></div>
@@ -457,7 +458,7 @@ function renderHome() {
       </div>
       <div class="t-bar"><i style="width:${inLvl}%"></i></div>
       <p class="t-caption">다음 레벨까지 ${100 - inLvl} · 어려운 상대일수록 더 많이 쌓여요</p>
-    </section>
+    </section>` : ''}
 
     <div class="t-band" aria-hidden="true"></div>
 
@@ -4553,9 +4554,11 @@ function loadGame() { try { return JSON.parse(localStorage.getItem(GAME_KEY)) ||
 function saveGame(g) { try { localStorage.setItem(GAME_KEY, JSON.stringify(g)); } catch (_) { /* privacy mode */ } }
 function isoDay(d) { return d.toISOString().slice(0, 10); }
 function defaultGame() {
-  const t = new Date(), d1 = new Date(t), d2 = new Date(t);
-  d1.setDate(t.getDate() - 1); d2.setDate(t.getDate() - 2);
-  return { xp: 80, days: [isoDay(d2), isoDay(d1)] };
+  /* 처음 온 사람에게는 기록이 없다. 예전엔 xp 80 에 어제·그저께 연습한 것으로
+     날짜 두 개를 박아 둬서, 한 번도 안 써 본 사람 화면에 「2일 연속 연습 ·
+     레벨 1」이 떴다. 없는 기록을 지어내면 그 화면의 다른 숫자도 못 믿는다
+     (CLAUDE.md 4 · 04_screens.md 「홈 첫 화면」과 같은 이유). */
+  return { xp: 0, days: [] };
 }
 function gameLevel(xp) { return Math.floor((xp || 0) / 100) + 1; }
 function dayStreak(days) {
@@ -4855,7 +4858,11 @@ function renderLive() {
     $('#hint').addEventListener('click', qaHint);
   } else if (qa.sub === 'speaking') {
     const lim = persona().limit;
-    el.innerHTML = `<div class="caption"><span class="cap-live">듣는 중</span><p id="capT"></p>${lim ? `<span class="cap-timer" id="capTimer">⏱ ${lim}</span>` : ''}</div>`;
+    el.innerHTML = `<div class="caption"><span class="cap-live">듣는 중</span><p id="capT"></p>${lim ? `<span class="cap-timer" id="capTimer">⏱ ${lim}</span>` : ''}</div>
+      <div class="cap-actions"><button class="btn btn-secondary btn-sm" type="button" id="capStop">답변 끝내기</button></div>`;
+    // 말을 마쳤으면 끊을 수 있어야 한다. 대본이 다 흐를 때까지 기다리게 하면
+    // 사용자는 화면이 멈춘 줄 안다 (2026-08-07 지적).
+    $('#capStop').addEventListener('click', qaStopSpeaking);
     if (lim) {
       if (qaTimerId) clearInterval(qaTimerId);
       let t = lim;
@@ -4918,8 +4925,8 @@ function qaSpeak() {
   const b = beat();
   qa.sub = 'speaking'; renderLive();
   if (b.kind === 'interrupt') return speakInterrupt(b);
-  streamCaption(b.answer, () => {
-    commitAnswer(b.answer);
+  streamCaption(b.answer, (spoken, early) => {
+    commitAnswer(spoken, early);
     qaThink(() => react(b, b.verdict, b.react));
   });
 }
@@ -4928,31 +4935,66 @@ function speakInterrupt(b) {
   const words = b.answer.split(' ');
   const cut = Math.max(1, Math.round(words.length * (b.cutAt || 0.6)));
   let i = 0;
-  const step = () => {
-    const el = $('#capT'); if (!el) return;
-    i++; el.textContent = words.slice(0, i).join(' ') + ' …'; scrollDown();
-    if (i < cut) { later(step, 120); return; }
-    commitAnswer(words.slice(0, cut).join(' ') + ' …');
+  let ended = false;
+  // 끼어들기 구간에서도 끊을 수 있어야 한다 — 버튼은 떠 있는데 안 먹으면
+  // 눌러 본 사람은 화면이 멈춘 줄 안다.
+  const goOn = () => {
+    if (ended) return;
+    ended = true;
+    qaFinishNow = null;
+    if (qaTimerId) { clearInterval(qaTimerId); qaTimerId = null; }
+    commitAnswer(words.slice(0, Math.max(1, Math.min(i, cut))).join(' ') + ' …', true);
     qaThink(() => {
       pushTurn({ who: 'ai', kind: 'interject', text: b.interject }); growStream();
       qa.sub = 'speaking'; renderLive();
-      streamCaption(b.answerAfter, () => {
-        commitAnswer(b.answerAfter);
+      streamCaption(b.answerAfter, (spoken, early) => {
+        commitAnswer(spoken, early);
         qaThink(() => react(b, b.verdict, b.react));
       });
     });
   };
+  qaFinishNow = goOn;
+  const step = () => {
+    const el = $('#capT'); if (!el) return;
+    i++; el.textContent = words.slice(0, i).join(' ') + ' …'; scrollDown();
+    if (i < cut) { later(step, 120); return; }
+    goOn();
+  };
   step();
+}
+
+/** 지금 말하는 중인 답변을 끊는 함수. 스트리밍이 도는 동안에만 채워져 있다.
+ *
+ *  예전엔 「말로 답하기」를 누르면 대본이 다 흐를 때까지 끊을 방법이 없었다.
+ *  말을 마쳤는데 화면이 계속 떠드는 걸 지켜봐야 했다 (2026-08-07 지적). */
+let qaFinishNow = null;
+
+/** 답변을 지금 확정한다. 화면에 나온 데까지가 그가 한 말이다 — 아직 안 나온
+ *  대본까지 확정하면 하지도 않은 말을 기록으로 남기게 된다 (CLAUDE.md §4). */
+function qaStopSpeaking() {
+  if (qa.sub !== 'speaking') return;
+  if (qaFinishNow) qaFinishNow();
 }
 
 function streamCaption(text, done) {
   const words = text.split(' ');
   let i = 0;
+  let ended = false;
+  //: early=true 면 사용자가 끊은 것. 그때까지 나온 낱말만 넘긴다.
+  const finish = (early) => {
+    if (ended) return;
+    ended = true;
+    qaFinishNow = null;
+    if (qaTimerId) { clearInterval(qaTimerId); qaTimerId = null; }
+    const spoken = early ? words.slice(0, Math.max(1, i)).join(' ') : text;
+    done(spoken, early);
+  };
+  qaFinishNow = () => finish(true);
   const tick = () => {
-    const el = $('#capT'); if (!el) { done(); return; }
+    const el = $('#capT'); if (!el) { finish(false); return; }
     i++; el.textContent = words.slice(0, i).join(' '); scrollDown();
     if (i < words.length) later(tick, 95 + Math.min(130, words[i - 1].length * 20));
-    else later(done, 950); // 침묵 후 자동 제출
+    else later(() => finish(false), 950); // 침묵 후 자동 제출
   };
   tick();
 }

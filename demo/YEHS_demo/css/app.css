@@ -1175,6 +1175,9 @@ details.fold .fold-body { padding: 0 24px 20px; }
 
 .qa-live { margin-top: 16px; }
 .caption { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--r-print); background: var(--fill); }
+/* 답변을 끊는 버튼. 자막 아래 오른쪽에 둔다 — 자막을 가리지 않으면서
+   말을 마친 순간 손이 가는 자리다 */
+.cap-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
 .cap-live { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--blue); padding-top: 2px; }
 .cap-live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: pulse 1s infinite; }
 .caption p { flex: 1; margin: 0; font-size: 15px; color: var(--text); min-height: 24px; }
