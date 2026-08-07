@@ -48,6 +48,7 @@
 | 5 | [`03_components.md`](03_components.md) | 카드·말풍선·pill·청중 좌석 카드·빈/로딩 상태 스펙 |
 | 6 | [`04_screens.md`](04_screens.md) | 화면별 적용표 (파일:라인 대상 지도) |
 | 7 | [`05_implementation.md`](05_implementation.md) | **구현 순서·제약·검증 명령·수동 체크리스트** |
+| 8 | [`06_saas_shift.md`](06_saas_shift.md) | **미니멀 AI SaaS 로 방향 전환 (2026-08-07)** — 토큰·카드 구조·타이포 위계·홈 구조. 70/20/10 을 90/10 으로 바꾸고, `02_tokens.md` 의 크림·민트 값을 대체한다 |
 
 ## 3. 다른 디자인 문서와의 우선순위
 
