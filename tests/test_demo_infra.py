@@ -74,14 +74,31 @@ def test_put_and_get_artifacts():
     assert store.artifacts("s1")["graph"] == {"nodes": []}
 
 
-def test_none_does_not_erase_registered_artifact():
-    """나중 요청의 빈 값이 이미 등록된 근거를 지우면 판정이 근거를 잃는다."""
+def test_absent_key_keeps_registered_artifact():
+    """본문에 아예 없는 키는 등록된 근거를 지우지 않는다 — 부분 재등록 보호."""
     store = SessionStore()
     store.put_artifacts("s1", {"graph": {"nodes": [1]}})
-    store.put_artifacts("s1", {"graph": None, "transcript": {"words": []}})
+    store.put_artifacts("s1", {"transcript": {"words": []}})
 
     assert store.artifacts("s1")["graph"] == {"nodes": [1]}
     assert "transcript" in store.artifacts("s1")
+
+
+def test_explicit_none_clears_stale_artifact():
+    """
+    명시적 None 은 "이번 발표에는 이게 없다" 는 선언이라 옛 값을 지운다.
+
+    예전엔 None 을 건너뛰어 유지했는데, 세션 키가 'flat' 하나뿐인 데모에서
+    발표 A 의 flow 가 발표 B 의 질문·판정 근거로 섞여 들어갔다 — 프론트는
+    현재 발표의 전체 진실(flow: null 포함)을 항상 같이 보내므로, null 을
+    지움으로 다뤄야 자료를 바꿨을 때 이전 발표가 따라오지 않는다.
+    """
+    store = SessionStore()
+    store.put_artifacts("s1", {"graph": {"nodes": [1]}, "flow": {"issues": ["A"]}})
+    store.put_artifacts("s1", {"graph": {"nodes": [2]}, "flow": None})
+
+    assert store.artifacts("s1")["graph"] == {"nodes": [2]}
+    assert "flow" not in store.artifacts("s1")
 
 
 def test_unknown_keys_are_not_stored():

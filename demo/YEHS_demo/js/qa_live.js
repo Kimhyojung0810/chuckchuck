@@ -215,7 +215,14 @@ function renderQaLive() {
   if (sendBtn) sendBtn.addEventListener('click', () => submitLiveAnswer());
   const ta = $('#liveAnswer');
   if (ta) {
+    // 판정 대기 중 새로고침으로 걷어 둔 답(초안)이 있으면 되살린다 (app.js 복원 블록).
+    if (L.pendingAnswer) {
+      ta.value = L.pendingAnswer;
+      delete L.pendingAnswer;
+      saveSession('qa-flow', qa);
+    }
     ta.focus();
+    ta.selectionStart = ta.selectionEnd = ta.value.length;
     ta.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
       if (e.metaKey || e.ctrlKey) { e.preventDefault(); submitLiveAnswer(); return; }

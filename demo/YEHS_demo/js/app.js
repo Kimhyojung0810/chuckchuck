@@ -5325,9 +5325,11 @@ function recordQaHistory() {
         label: src.label || src.conceptLabel || src.concept || `질문 ${i + 1}`,
         slide: src.slide || (src.slide_no ? `S${String(src.slide_no).padStart(2, '0')}` : ''),
         q: r.question || src.question || src.q || '',
-        a: r.summary || '',
+        // a 는 「내 답변」 칸이다. summary 는 코치의 총평이라 사용자 발화가 아니다 —
+        // 실제로 친 답(r.answer)을 싣고, 총평은 note 줄로 따로 남긴다.
+        a: r.answer || '',
         verdict: QA_LOG_VERDICT[r.verdict] || 'partial',
-        note: '',
+        note: r.summary || '',
         turns: r.turns || 0,
         hint: r.hintLevel || 0,
         skipped: r.verdict === 'skipped' || !!r.revealed,

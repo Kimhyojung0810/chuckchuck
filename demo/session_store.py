@@ -83,8 +83,12 @@ class SessionStore:
         """
         아티팩트를 등록하고 실제로 저장한 키를 돌려준다.
 
-        None 은 저장하지 않는다 — 이미 등록된 값을 나중 요청의 빈 값이 지우면
-        판정이 근거를 잃는다 (한 번 등록하면 세션이 끝날 때까지 유지되어야 한다).
+        - 본문에 없는 키는 그대로 둔다 — 부분 재등록이 이미 등록된 근거를 지우면
+          판정이 근거를 잃는다.
+        - **명시적 None 은 지운다.** "이번 발표에는 이게 없다" 는 선언이다.
+          예전엔 None 도 건너뛰었는데, 세션 키가 'flat' 하나뿐인 데모에서
+          발표 A 의 flow 가 발표 B 의 질문·판정 근거로 섞여 들어갔다 —
+          프론트는 현재 발표의 전체 진실(flow: null 포함)을 항상 같이 보낸다.
         """
         if not session_id:
             return []
@@ -94,8 +98,11 @@ class SessionStore:
             entry = self._sessions.get(session_id) or {"data": {}}
             data = entry["data"]
             for key in ARTIFACT_KEYS:
+                if key not in artifacts:
+                    continue
                 value = artifacts.get(key)
                 if value is None:
+                    data.pop(key, None)
                     continue
                 data[key] = value
                 stored.append(key)

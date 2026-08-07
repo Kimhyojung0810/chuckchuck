@@ -991,7 +991,9 @@ class Handler(SimpleHTTPRequestHandler):
         if not session_id:
             return self._json(400, {"error": "bad_request", "message": "session_id 가 필요합니다."})
 
-        stored = STORE.put_artifacts(session_id, {k: body.get(k) for k in ARTIFACT_KEYS})
+        # 본문에 있는 키만 넘긴다 — body.get() 으로 전부 채우면 "안 보낸 키" 와
+        # "null 로 지우겠다는 키" 가 구분되지 않는다 (put_artifacts 의 계약).
+        stored = STORE.put_artifacts(session_id, {k: body[k] for k in ARTIFACT_KEYS if k in body})
         sys.stderr.write(f"[bridge] session artifacts sid={session_id} stored={stored}\n")
         return self._json(200, {"session_id": session_id, "stored": stored})
 
@@ -1060,6 +1062,10 @@ class Handler(SimpleHTTPRequestHandler):
                 triage,
                 track=track,
                 alignment=alignment,
+                # flow 를 빼면 order_jump 개념의 질문이 missing_link 문구를 쓴다
+                # (f08 _fallback_text 의 flow_issue 분기가 죽는다). 서버 라우트
+                # (server/app.py)는 넘기는데 브리지만 빠져 있었다.
+                flow=flow,
                 transcript=transcript,
                 context=ctx,
                 llm=llm,
