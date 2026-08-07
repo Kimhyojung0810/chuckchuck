@@ -1097,7 +1097,10 @@ details.fold .fold-body { padding: 0 24px 20px; }
 /* 연습 도구 — 안쪽 세그먼트 메뉴를 없앤 뒤로 네 도구가 한 화면에 세로로 이어진다.
    제목이 구분선을 겸해야 어디서 도구가 바뀌는지 보인다 */
 .tool-sec + .tool-sec { margin-top: 28px; padding-top: 26px; border-top: 1px solid var(--border); }
-.tool-sec-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
+.tool-sec-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+/* 무엇에 쓰는 도구인지는 제목 바로 밑에서 말한다. 예전엔 카드 꼬리에 달려 있어서
+   다 읽고 나서야 용도를 알았다 (토스 Predictable hint) */
+.tool-sec-sub { font-size: 13.5px; color: var(--text-2); margin-bottom: 14px; }
 .map-tools { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; user-select: none; }
 .map-box { background: var(--surface); border-radius: var(--r-inner); overflow: hidden; box-shadow: var(--shadow); }

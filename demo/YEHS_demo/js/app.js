@@ -2253,7 +2253,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qd1" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qd2" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -3636,9 +3636,11 @@ function reportVerdict() {
       /* 큰 글씨는 한 줄이다. 예전엔 안내 문구를 전부 ' · ' 로 이어 붙여
          22px 굵은 글씨로 3~4줄을 쌓았다 — 결과 화면에서 가장 먼저 읽는 자리에
          가장 안 중요한 말이 가장 크게 있었다. 판단은 헤드, 단서는 아래 작은 줄. */
+      /* '전달됐어요' 를 '전달했어요' 로 바꾼 이유: 발표를 한 사람은 사용자다.
+         피동으로 쓰면 잘한 게 누구 덕인지 흐려진다 (토스 능동적 말하기) */
       headline: real.score >= 90 ? '아주 잘 전달했어요'
-        : real.score >= 75 ? '핵심은 잘 전달됐어요'
-          : real.score >= 60 ? '전달은 됐고, 보완할 곳이 보여요'
+        : real.score >= 75 ? '핵심은 잘 전달했어요'
+          : real.score >= 60 ? '핵심은 전했고, 다듬을 곳이 보여요'
             : '다음 발표에서 더 좋아질 수 있어요',
       subnotes: real.notes,
       // 어느 기준으로 매겼는지 숨기지 않는다. 폴백이면 폴백이라고 쓴다
@@ -4047,12 +4049,12 @@ function realSummary() {
   // 두 안내를 합치지 않는다 — '이 상황에서 안 봄'과 '이번에 못 잼'은 다른 말이다.
   // 문구는 부드럽게 바꾸되 개수는 그대로 — 못 잰 걸 숨기면 리포트가 거짓말이 된다
   if ((sc.excluded || []).length) {
-    notes.push(`이번 발표 상황에서는 평가하지 않는 항목이 ${sc.excluded.length}개 있어요`);
+    notes.push(`이 자리에서 안 보는 항목 ${sc.excluded.length}개는 빼고 봤어요`);
   }
   if ((sc.unmeasured || []).length) {
     notes.push(
-      `이번엔 측정하지 못한 항목이 ${sc.unmeasured.length}개 있어요. `
-      + '다음 발표에서는 더 많은 피드백을 받아봐요!'
+      `${sc.unmeasured.length}개 항목은 이번엔 재지 못했어요. `
+      + '다음 연습에선 더 많이 알려드릴게요.'
     );
   }
   if (sc.note) notes.push(sc.note);
@@ -4068,13 +4070,13 @@ function realSummary() {
 /** 지표가 무엇을 보는 것인지 한 줄. 이름만으로는 안 읽힌다 —
  *  "목적·청중 적합성 68" 을 보고 뭘 고쳐야 할지 아는 사람은 없다. */
 const DIM_HINT = {
-  '내용 충실도': '다뤄야 할 개념을 실제로 설명했나',
-  '논리 구조': '앞뒤가 이어지게 말했나',
-  '목적·청중 적합성': '이 자리에 맞는 말이었나',
-  '언어적 명료성': '알아듣기 쉽게 말했나',
-  '음성적 전달': '속도·쉼·말버릇이 방해하지 않았나',
-  '시각자료 활용': '슬라이드를 말로 살렸나',
-  '시간 관리': '정한 시간 안에 들어왔나',
+  '내용 충실도': '다뤄야 할 개념을 빠짐없이 설명했나요',
+  '논리 구조': '앞뒤가 이어지게 말했나요',
+  '목적·청중 적합성': '이 자리, 이 청중에 맞는 말이었나요',
+  '언어적 명료성': '한 번에 알아듣게 말했나요',
+  '음성적 전달': '속도·쉼·말버릇이 편하게 들렸나요',
+  '시각자료 활용': '슬라이드를 말로 살렸나요',
+  '시간 관리': '정한 시간 안에 들어왔나요',
 };
 
 /**
@@ -5291,18 +5293,26 @@ function rPace() {
 /* 탭 5 — 연습 도구.
    안쪽 세그먼트 메뉴를 없애고 네 도구를 한 번에 세로로 편다. 탭 안에 탭이 있어서
    「발표 구성」 말고 세 개가 있다는 걸 모르고 지나가는 사람이 많았다.
-   도구마다 host 를 따로 주는 이유: 넷이 다 같은 #toolBody 에 쓰면 서로 지웠다. */
+   도구마다 host 를 따로 주는 이유: 넷이 다 같은 #toolBody 에 쓰면 서로 지웠다.
+
+   순서는 발표 직전에 손이 가는 차례다 (2026-08-07 지시). 그림 한 장 → 그대로
+   말할 문장 → 질문 대비 → 순서 다시 짜기. 「발표 구성」은 지금 당장 쓰는 게
+   아니라 다음 연습에서 고칠 것이라 맨 아래다.
+
+   sub 는 도구마다 꼬리에 달려 있던 설명을 제목 밑으로 올린 것이다 — 무엇에 쓰는
+   물건인지 다 읽고 나서야 알려 주면 늦다 (토스 Predictable hint). */
 const TOOL_SECTIONS = [
-  { label: '발표 구성', id: 'toolStrategy', render: (host) => tStrategy(host) },
-  { label: '개요 이미지', id: 'toolMap', render: (host) => tMap(host) },
-  { label: '펀치라인', id: 'toolPunch', render: (host) => tPunch(host) },
-  { label: '용어 카드', id: 'toolTerms', render: (host) => tTerms(host) },
+  { label: '개요 이미지', sub: '발표 직전에 이 한 장으로 전체 구조를 훑어요', id: 'toolMap', render: (host) => tMap(host) },
+  { label: '펀치라인', sub: '이 문장은 그대로 말해도 좋아요', id: 'toolPunch', render: (host) => tPunch(host) },
+  { label: '용어 카드', sub: '질문이 올 개념과 답하는 순서예요', id: 'toolTerms', render: (host) => tTerms(host) },
+  { label: '발표 구성', sub: '다음 연습에서 순서를 이렇게 바꿔 봐요', id: 'toolStrategy', render: (host) => tStrategy(host) },
 ];
 
 function rTools() {
   $('#rbody').innerHTML = TOOL_SECTIONS.map(s => `
     <section class="tool-sec">
       <h2 class="section-title tool-sec-title">${s.label}</h2>
+      <p class="tool-sec-sub">${s.sub}</p>
       <div id="${s.id}"></div>
     </section>`).join('');
   TOOL_SECTIONS.forEach(s => {
@@ -5410,8 +5420,8 @@ function tStrategy(host = $('#toolStrategy')) {
 function toolEmptyHtml(what) {
   return `<div class="card">
       <h3 class="section-title">${what} 만들 재료가 아직 없어요</h3>
-      <p class="note">내 발표 분석(그래프·정합)이 끝나면 발표자료 기반으로 채워져요. 샘플로 채우지 않아요.</p>
-      <div class="step-actions"><a class="btn btn-primary" href="#/new">발표 연습으로</a></div>
+      <p class="note">한 번 연습하면 올린 자료에서 뽑아 채워드려요. 샘플로 대신 채우지 않아요.</p>
+      <div class="step-actions"><a class="btn btn-primary" href="#/new">연습 시작하기</a></div>
     </div>`;
 }
 
@@ -5457,7 +5467,7 @@ function livePunchlines() {
     return qs.slice(0, 3).map((q) => ({
       pos: `${(q.slide_nos && q.slide_nos[0]) || 1}번 슬라이드 · ${q.label}`,
       main: q.answer_gist,
-      why: '예상 질문의 모범답이에요 — 발표에서 먼저 말하면 그 질문이 줄어요.',
+      why: '예상 질문의 모범답이에요. 발표에서 먼저 말해 두면 이 질문이 덜 나와요.',
     }));
   }
   const sumBy = graphSummaryById();
@@ -5465,7 +5475,7 @@ function livePunchlines() {
   return picked.length ? picked.map((n) => ({
     pos: `${slideNumber(n.slide)}번 슬라이드 · ${n.label}`,
     main: sumBy[n.id],
-    why: '자료가 가장 힘을 실은 개념의 핵심 문장이에요.',
+    why: '자료에서 가장 힘을 실은 개념이에요. 이 한 문장이면 충분해요.',
   })) : null;
 }
 
@@ -5479,8 +5489,8 @@ function liveTerms() {
     const q = qBy[n.id];
     return {
       term: n.label, status: n.status, slide: n.slide, def: sumBy[n.id],
-      q: (q && q.question) || `${n.label} — 왜 이 발표에 필요했는지 설명해 주시겠어요?`,
-      frame: (q && q.answer_gist) || `① 정의(${slideNumber(n.slide)}번 슬라이드) → ② 근거 → ③ 발표 주장과의 연결`,
+      q: (q && q.question) || `${n.label}, 이 발표에 왜 필요했나요?`,
+      frame: (q && q.answer_gist) || `① ${slideNumber(n.slide)}번 슬라이드의 정의 → ② 근거 → ③ 내 주장과 잇기`,
     };
   }) : null;
 }
@@ -5533,11 +5543,11 @@ function tMap(host = $('#toolMap')) {
   }
   host.innerHTML = `
     <div class="map-tools">
-      <label class="toggle"><input type="checkbox" id="weakOnly" ${mapWeakOnly ? 'checked' : ''}> 취약 개념만 보기</label>
+      <label class="toggle"><input type="checkbox" id="weakOnly" ${mapWeakOnly ? 'checked' : ''}> 챙길 개념만 보기</label>
       <button class="btn btn-secondary btn-sm" id="dl">SVG로 저장</button>
     </div>
     <div class="map-box">${mapSvgString()}</div>
-    <p class="note" style="margin-top:10px">발표 직전에 이 그림 한 장으로 전체 구조와 신경 쓸 개념을 확인하세요.</p>`;
+    <p class="note" style="margin-top:10px">네모 아래 색 글씨가 그 개념을 얼마나 설명했는지예요.</p>`;
   $('#weakOnly', host).addEventListener('change', e => { mapWeakOnly = e.target.checked; tMap(host); });
   $('#dl', host).addEventListener('click', () => {
     const blob = new Blob([mapSvgString()], { type: 'image/svg+xml' });
@@ -5564,8 +5574,8 @@ function tPunch(host = $('#toolPunch')) {
       <p class="why">${escapeHtml(p.why)}</p>
     </div>`).join('')}
     <p class="note" style="margin-top:10px">${live
-      ? '발표자료의 핵심 문장과 예상 질문의 모범답에서 뽑았어요.'
-      : '내 말투 기반으로 만들었어요 · 실제 발화의 “~구조입니다” 패턴 반영'}</p>`;
+      ? '자료의 핵심 문장과 예상 질문의 모범답에서 뽑았어요.'
+      : '실제로 한 말의 말투를 살려서 다듬었어요.'}</p>`;
 }
 
 function tTerms(host = $('#toolTerms')) {
@@ -5581,10 +5591,10 @@ function tTerms(host = $('#toolTerms')) {
     <div class="card">
       <div class="term-top"><h3>${escapeHtml(t.term)}</h3>${chip(t.status, true)}<span class="sl">근거: ${slideNumber(t.slide)}번 슬라이드</span></div>
       <p class="term-def">${escapeHtml(t.def)}</p>
-      <p class="term-q"><b>예상 질문</b> — ${escapeHtml(t.q)}</p>
-      <p class="term-f"><b>답변 프레임</b> — ${escapeHtml(t.frame)}</p>
+      <p class="term-q"><b>이런 질문이 와요</b> — ${escapeHtml(t.q)}</p>
+      <p class="term-f"><b>이 순서로 답해요</b> — ${escapeHtml(t.frame)}</p>
     </div>`).join('')}
-    <p class="note" style="margin-top:10px">정의는 발표자료에 있는 내용으로만 만들어요.</p>`;
+    <p class="note" style="margin-top:10px">정의는 올린 자료에 있는 말로만 만들어요.</p>`;
 }
 
 /* ══ Q&A · 대화형 질문 코칭 ══ */

@@ -16,14 +16,16 @@
 window.ReportStrategy = (function () {
   'use strict';
 
-  const CACHE_KEY = 'cheokcheok:strategy';
+  /* 말투 규칙을 프롬프트에 넣은 날 키를 올렸다 (2026-08-07). 카드 본문은 서버가
+     채우므로, 키를 그대로 두면 예전 말투로 받아 둔 제안이 계속 나온다. */
+  const CACHE_KEY = 'cheokcheok:strategy2';
   const ENDPOINT = '/api/v1/strategy';
 
   /** 핵심을 어디에 두는 구성인가 — 서버가 유형 표에서 채워 준 값을 사람 말로. */
   const CLIMAX = {
-    early: { label: '핵심을 앞에', desc: '결론을 먼저 던지고 나머지를 근거로 씁니다.' },
-    late: { label: '핵심을 뒤에', desc: '쌓아 올리다 마지막 한 방으로 남깁니다.' },
-    throughline: { label: '축 하나로 관통', desc: '주장 하나를 세우고 전부 거기에 종속시킵니다.' },
+    early: { label: '핵심을 앞에', desc: '결론을 먼저 말하고 나머지를 근거로 써요.' },
+    late: { label: '핵심을 뒤에', desc: '차곡차곡 쌓다가 마지막 한 방으로 남겨요.' },
+    throughline: { label: '축 하나로 관통', desc: '주장 하나를 세우고 나머지가 그 주장을 받치게 해요.' },
   };
 
   function esc(value) {
@@ -203,7 +205,7 @@ window.ReportStrategy = (function () {
       <div class="strat-keep">
         <span class="strat-tag">그대로 살릴 문장</span>
         <blockquote>“${esc(keep.quote)}”</blockquote>
-        ${keep.at ? `<small>${esc(keep.at)}에 실제로 하신 말이에요.</small>` : ''}
+        ${keep.at ? `<small>${esc(keep.at)}에 실제로 한 말이에요.</small>` : ''}
       </div>`;
   }
 
@@ -243,8 +245,8 @@ window.ReportStrategy = (function () {
       </div>
       ${altsHtml(data.alternatives)}
       <p class="note strat-disclaim">
-        유형 이름의 인물은 <b>구성 방식을 가리키는 수식어</b>예요.
-        그분들이 한 말을 옮기거나 지어내지 않아요 — 제안은 전부 이 발표의 실제 수치와 발화에서 나옵니다.
+        유형에 붙은 사람 이름은 <b>구성 방식을 가리키는 말</b>이에요.
+        그 사람이 한 말을 옮기거나 지어내지 않아요. 제안은 전부 이 발표의 실제 시간과 발화에서 나와요.
       </p>
       <div class="strat-actions">
         <button class="btn btn-secondary btn-sm" data-strat="retry">다시 제안받기</button>
@@ -254,10 +256,10 @@ window.ReportStrategy = (function () {
   function introHtml() {
     return `
       <div class="card strat-intro">
-        <h3 class="section-title">이 발표, 순서를 바꾼다면</h3>
+        <h3 class="section-title">순서를 바꾸면 어떻게 될까요</h3>
         <p class="note">
-          개념 판정과 구간별 시간, 실제 발화를 함께 읽어서
-          <b>핵심을 앞에 둘지 뒤에 남길지</b>부터 정하고 재배치를 제안해요.
+          개념 판정과 구간별 시간, 실제로 한 말을 같이 읽어서
+          <b>핵심을 앞에 둘지 뒤에 남길지</b>부터 정하고 새 순서표를 드려요.
         </p>
         <div class="step-actions">
           <button class="btn btn-primary" data-strat="go">구성 제안받기</button>
@@ -269,16 +271,16 @@ window.ReportStrategy = (function () {
     return `
       <div class="card">
         <h3 class="section-title">아직 제안할 재료가 없어요</h3>
-        <p class="note">개념 판정이나 실제 발화가 있어야 구성을 다시 짤 수 있어요.
-          리허설을 마치고 분석이 끝나면 여기에 제안이 생깁니다.</p>
-        <div class="step-actions"><a class="btn btn-primary" href="#/new">발표 연습으로</a></div>
+        <p class="note">개념 판정이나 실제로 한 말이 있어야 순서를 다시 짤 수 있어요.
+          한 번 연습하고 분석이 끝나면 여기에 제안이 생겨요.</p>
+        <div class="step-actions"><a class="btn btn-primary" href="#/new">연습 시작하기</a></div>
       </div>`;
   }
 
   function loadingHtml() {
     return `
       <div class="card strat-loading">
-        <p class="note">발표 내용을 읽고 어떤 구성이 맞을지 고르는 중이에요…</p>
+        <p class="note">발표를 읽고 어떤 구성이 맞을지 고르고 있어요…</p>
       </div>`;
   }
 
@@ -288,7 +290,7 @@ window.ReportStrategy = (function () {
         <h3 class="section-title">구성을 제안하지 못했어요</h3>
         <p class="note">${esc(message)}</p>
         <div class="step-actions">
-          <button class="btn btn-secondary" data-strat="retry">다시 시도</button>
+          <button class="btn btn-secondary" data-strat="retry">다시 제안받기</button>
         </div>
       </div>`;
   }

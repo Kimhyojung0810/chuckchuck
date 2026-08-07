@@ -868,10 +868,12 @@ def _fallback_text(
     flow_issue: FlowIssue | None = None,
 ) -> tuple[str, str, str]:
     """LLM 이 이 개념을 빠뜨렸을 때 쓰는 결정적 문장 3종 (question, why, hint)."""
+    # '~시겠어요' 는 쓰지 않는다 (CLAUDE.md §3-1). 이 문장은 용어 카드의
+    # 「이런 질문이 와요」로도 그대로 나가므로 제품 말투를 따른다.
     if mark.angle:
-        question = f"{node.label}: {mark.angle} — 설명해 주시겠어요?"
+        question = f"{node.label}: {mark.angle} — 설명해 주세요."
     else:
-        question = f"{node.label}: 이 개념의 핵심과 자료에 넣은 근거를 설명해 주시겠어요?"
+        question = f"{node.label}: 이 개념의 핵심과 자료에 넣은 근거를 설명해 주세요."
 
     if mark.source == "weak_flow" and flow_issue is not None:
         # 이슈 종류를 알면 why 도 그 종류로 말한다 — 순서 역행에 "연결이 안
