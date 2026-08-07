@@ -501,16 +501,22 @@ main img, main canvas, main svg { max-width: 100%; }
 .t-spark { margin-top: 14px; }
 .t-spark svg { display: block; width: 100%; height: auto; }
 
-/* ListRow */
-.t-list { padding: 4px 20px; }
+/* ListRow — 목록의 기본은 「테두리 없는 리스트」다 (06_saas_shift §2).
+   상자에 담고 싶으면 .t-card 를 같이 붙인다. 그때만 좌우 여백이 생긴다.
+   지난 발표를 상자에 넣었더니 5줄짜리 목록이 707px 짜리 빈 상자가 됐다 —
+   행을 나누는 건 상자가 아니라 행 사이의 선이다 */
+.t-list { padding: 4px 0; }
+.t-card.t-list { padding: 4px 20px; }
 .t-row {
-  display: flex; align-items: center; gap: 12px; width: 100%;
-  padding: 14px 0; background: none; border: 0; border-radius: 0;
+  display: flex; align-items: center; gap: 12px;
+  /* 글자는 구역 제목과 같은 선에 두고, 손이 닿는 면만 좌우로 10px 넓힌다 */
+  width: calc(100% + 20px); margin-inline: -10px;
+  padding: 14px 10px; background: none; border: 0; border-radius: 0;
   text-align: left; font: inherit; color: inherit; cursor: pointer;
   transition: background .12s ease;
 }
 .t-row + .t-row { border-top: 1px solid var(--border); }
-.t-row:hover { background: transparent; }
+.t-row:hover { background: var(--hover); }
 .t-row:active { opacity: .6; }
 .t-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 8px; }
 .t-row-main { flex: 1; min-width: 0; }

@@ -446,9 +446,9 @@ function renderHome() {
       <span class="t-chev" aria-hidden="true">›</span>
     </a>` : ''}
 
-    <h2 class="t-sec-head t-lhead">내 기록</h2>
-
     ${crewCardHtml()}
+
+    <h2 class="t-sec-head t-lhead">내 기록</h2>
 
     ${(gm.days || []).length ? `
     <section class="t-card t-record-card" aria-label="연습 기록">
@@ -460,11 +460,13 @@ function renderHome() {
       <p class="t-caption">다음 레벨까지 ${100 - inLvl} · 어려운 상대일수록 더 많이 쌓여요</p>
     </section>` : ''}
 
+    ${window.Playbill ? window.Playbill.wallHtml() : ''}
+
     <div class="t-band" aria-hidden="true"></div>
 
     <section class="t-sec">
       <h2 class="t-sec-head">지난 발표</h2>
-      <div class="t-card t-list">
+      <div class="t-list">
         ${DATA.sessions.map(s => `
         <button class="t-row" type="button" data-go="#/report/${s.id}">
           <span class="t-row-main">
@@ -476,8 +478,6 @@ function renderHome() {
         </button>`).join('')}
       </div>
     </section>
-
-    ${window.Playbill ? window.Playbill.wallHtml() : ''}
 
     <div class="t-band" aria-hidden="true"></div>
 

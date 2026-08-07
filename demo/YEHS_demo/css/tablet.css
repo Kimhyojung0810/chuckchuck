@@ -127,10 +127,13 @@
        「판단하는 방식」은 왼쪽 아래 그대로 둔다. 오른쪽으로 옮겨 봤더니 목록 카드와의
        사이에 247px 틈이 생겨 더 어색했다. 목록이 칸을 채우는 건 낭비가 아니다 —
        실제 사용에서 발표가 쌓이면 그 자리를 쓴다. */
+    /* 「내 기록」 제목이 크루 카드 위에 있었다. 크루 카드는 기록이 아니라 제품
+       설명이고, 제목 아래에 실제로 놓이는 건 연습 기록과 포스터 벽이다.
+       세로에서는 DOM 순서가, 가로에서는 이 격자가 순서를 정하므로 둘을 맞춘다 */
     grid-template-areas:
       "resume resume"
+      "crew   list"
       "lhead  list"
-      "score  list"
       "record list"
       "wall   list"
       "about  list";
@@ -148,9 +151,11 @@
     position: absolute; width: 1px; height: 1px; overflow: hidden;
     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
   }
-  main.home > .t-lhead       { grid-area: lhead; }
+  main.home > .t-lhead       { grid-area: lhead; margin-top: 20px; }
   main.home > .t-resume      { grid-area: resume; margin-bottom: 12px; }
-  main.home > .t-score-card  { grid-area: score; }
+  /* 예전 점수 카드 자리다. 카드가 「네 모델」로 바뀐 뒤로 이 칸에 이름이 없어서
+     자동 배치에 맡겨져 있었다 — 격자에 이름을 붙여 자리를 못 박는다 */
+  main.home > .t-crew-card   { grid-area: crew; }
   main.home > .t-record-card { grid-area: record; margin-top: 12px; }
   main.home > .pb-wall { grid-area: wall; margin-top: 12px; padding: 14px 16px;
                          display: flex; flex-direction: column; align-items: center; }
