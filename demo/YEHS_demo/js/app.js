@@ -3539,6 +3539,18 @@ function reportOut() {
   return (nf && nf.pipelineOut) || null;
 }
 
+/**
+ * 업로드 세션 자체(nf)를 리포트가 읽어도 되는가.
+ *
+ * reportOut() 은 pipelineOut 만 막는다. 그런데 내 자료에서 온 값이 그 밖에도
+ * 있다 — slideTitles·transcriptOk 처럼 파이프라인을 안 거치고 nf 에 바로 붙는
+ * 것들이다. 이걸 빼먹으면 「샘플」 리포트의 순서표에 내 발표 슬라이드 제목이
+ * 그대로 뜬다. 같은 병이라 같은 모양으로 막는다.
+ */
+function reportNf() {
+  return rSampleMode ? null : (nf || null);
+}
+
 function isLiveReportSession() {
   if (rSampleMode) return false;
   if (!nf) return false;
@@ -4547,7 +4559,10 @@ function pipelineBundle() {
 function audienceBlockReason() {
   const out = reportOut();
   if (!out) {
-    return nf && nf.transcriptOk
+    /* 샘플을 보는 중이면 내 리허설 상태로 말하지 않는다 — 샘플 리포트에서
+       「스텝 4의 검증 로그를 확인해 주세요」가 뜨면 있지도 않은 내 실패를 말한다 */
+    const upl = reportNf();
+    return upl && upl.transcriptOk
       ? '발표는 기록됐는데 분석 결과가 없어요. 스텝 4의 검증 로그를 확인해 주세요.'
       : '아직 청중이 도착하지 않았어요. 리허설을 한 번 마치면 들을 수 있어요.';
   }
@@ -5348,8 +5363,11 @@ function strategyAnalysis() {
 
   // 순서표가 짚을 슬라이드 목록. F-17 이 있으면 실제 사용 시간까지 함께 넘긴다.
   const paceSlides = (((reportOut() || {}).pace) || {}).slides || [];
-  const titles = (nf && nf.slideTitles && nf.slideTitles.length)
-    ? nf.slideTitles : (meta.live ? [] : DATA.slideTitles);
+  /* 샘플 리포트에서는 내 자료의 장 제목을 쓰지 않는다 — 여기가 pipelineOut
+     밖이라 reportOut() 이 못 막던 자리다 */
+  const upl = reportNf();
+  const titles = (upl && upl.slideTitles && upl.slideTitles.length)
+    ? upl.slideTitles : (meta.live ? [] : DATA.slideTitles);
   const slides = paceSlides.length
     ? paceSlides.map(s => ({
       no: s.slide_no,
