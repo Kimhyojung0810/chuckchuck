@@ -744,8 +744,22 @@ function qaLiveEnd() {
     const t = String(s || '').replace(/\s+/g, ' ').trim();
     return t.length > 62 ? `${t.slice(0, 61)}…` : t;
   };
-  const rowHtml = ({ r, i }) => `
-    <button class="qres-row" type="button" data-qi="${i}">
+  /* 행의 화살표는 "이 질문의 근거를 보여준다"는 약속이다. 예전에는 모든 행이
+     #/report 맨 위로만 갔다 — 여섯 행에 화살표 여섯 개, 목적지는 하나.
+     개념 이름이 그래프 노드와 맞으면 그 개념의 판정으로 데려가고,
+     못 맞추면 화살표를 안 단다. 못 지킬 약속은 하지 않는다. */
+  const nodeIdOf = (label) => {
+    const g = (typeof nf !== 'undefined' && nf && nf.pipelineOut && nf.pipelineOut.graph) || null;
+    const key = String(label || '').trim();
+    if (!g || !key) return '';
+    const hit = (g.nodes || []).find((n) => String(n.label || '').trim() === key);
+    return hit ? hit.id : '';
+  };
+  const rowHtml = ({ r, i }) => {
+    const node = nodeIdOf(r.label);
+    return `
+    <button class="qres-row${node ? '' : ' is-flat'}" type="button" data-qi="${i}"
+            data-node="${escapeHtml(node)}"${node ? '' : ' disabled'}>
       <span class="qres-main">
         <b>${escapeHtml(r.label || `질문 ${i + 1}`)}</b>
         <small>${escapeHtml(oneLine(r.summary || r.question))}</small>
@@ -754,8 +768,28 @@ function qaLiveEnd() {
         <span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? '답 확인' : (chipWord[r.verdict] || r.verdict)}</span>
         ${r.turns ? `<em class="qres-meta">${r.turns}번 만에${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</em>` : ''}
       </span>
-      <span class="qres-chev" aria-hidden="true">›</span>
+      ${node ? '<span class="qres-chev" aria-hidden="true">›</span>' : ''}
     </button>`;
+  };
+
+  /* 남은 게 0개일 때 「0개가 남았어요」 + 「남은 질문은 리포트에서 보세요」는
+     없는 것을 가리킨다. 숫자가 문제가 아니라 다음에 할 일이 안 남는 게 문제다
+     (2026-08-07 사용자, 리포트 100% 건과 같은 지적). 이길 때 쓴 힌트로 잇는다. */
+  const wonRs = grouped.won.map((x) => x.r);
+  const hinted = wonRs.filter((r) => r.hintLevel).length;
+  const allWon = redoCount === 0 && wonRs.length > 0;
+  // 「1개 전부」는 한국어가 안 된다. 하나일 때만 말을 바꾼다
+  const headHtml = allWon
+    ? (wonRs.length === 1
+        ? '질문 하나를 자기 말로 지켰어요'
+        : `<b class="num">${wonRs.length}</b>개를 모두 자기 말로 지켰어요`)
+    : `<b class="num">${grouped.won.length}</b>개를 자기 말로 지켰고,
+       <b class="num qres-redo">${redoCount}</b>개가 남았어요`;
+  const subText = !allWon
+    ? '남은 질문은 상세 리포트에서 근거 발화와 함께 다시 볼 수 있어요.'
+    : hinted
+      ? `힌트를 받은 질문이 ${hinted}개 있어요. 상세 리포트에서 근거 발화와 같이 다시 보면 좋아요.`
+      : '힌트 없이 전부 지켰어요. 같은 질문으로 한 번 더 하면 답이 더 짧아져요.';
 
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
@@ -763,9 +797,8 @@ function qaLiveEnd() {
       <p class="qres-eyebrow">실전 질문 코칭 결과</p>
       <!-- 숫자는 아래 묶음과 반드시 같아야 한다. liveWonCount 는 부분 인정을
            빼고 세기 때문에 화면의 「지켜낸 질문」 개수와 어긋난다 -->
-      <h1 class="qres-head"><b class="num">${grouped.won.length}</b>개를 자기 말로 지켰고,
-        <b class="num qres-redo">${redoCount}</b>개가 남았어요</h1>
-      <p class="qres-sub">남은 질문은 상세 리포트에서 근거 발화와 함께 다시 볼 수 있어요.</p>
+      <h1 class="qres-head">${headHtml}</h1>
+      <p class="qres-sub">${subText}</p>
       ${L.results.length ? GROUPS.map((g) => (grouped[g.key].length ? `
         <div class="qres-group">
           <div class="qres-gh"><b>${g.title}</b><span class="num">${grouped[g.key].length}</span><small>${g.hint}</small></div>
@@ -778,8 +811,17 @@ function qaLiveEnd() {
       <button class="btn btn-text" id="liveAgain" type="button">같은 질문으로 다시</button>
       <a class="btn btn-text" href="#/">홈으로</a>
     </div>`;
-  /* 행 전체가 눌린다 — TDS ListRow 는 누를 수 있으면 화살표와 터치 효과를 준다 */
-  $$('.qres-row').forEach((el) => el.addEventListener('click', () => { location.hash = '#/report'; }));
+  /* 행 전체가 눌린다 — TDS ListRow 는 누를 수 있으면 화살표와 터치 효과를 준다.
+     goJudge 는 app.js 의 전역이고 이 파일보다 뒤에 실린다(index.html 64 < 68).
+     그래서 파싱 때가 아니라 클릭 때 찾는다. 해시를 먼저 바꿔 리포트를 그린 뒤
+     goJudge 가 탭과 개념을 고르고 그 행으로 스크롤한다. */
+  $$('.qres-row:not(.is-flat)').forEach((el) => el.addEventListener('click', () => {
+    const node = el.dataset.node || '';
+    location.hash = '#/report';
+    if (node && typeof window.goJudge === 'function') {
+      requestAnimationFrame(() => window.goJudge(node));
+    }
+  }));
   const again = $('#liveAgain');
   if (again) again.addEventListener('click', () => {
     const keep = qa.live;
