@@ -70,16 +70,21 @@
     column-gap: 22px;
     align-content: start;
   }
-  /* 왼쪽: 기다리는 동안 눈이 가는 것 */
-  main.narrow > .card:has(.pipe-inspect) > .section-title,
-  main.narrow > .card:has(.pipe-inspect) > .note,
-  main.narrow > .card:has(.pipe-inspect) > .pipe-status-bar,
-  main.narrow > .card:has(.pipe-inspect) > .checklist,
-  main.narrow > .card:has(.pipe-inspect) > .stage-accident,
-  main.narrow > .card:has(.pipe-inspect) > .step-actions { grid-column: 1; }
-  /* 오른쪽: 확인하러 들어가는 것 */
+  /* 왼쪽: 기다리는 동안 눈이 가는 것. 행을 명시해 두 칸의 짝을 고정한다 —
+     한 그리드의 행 높이는 두 칸이 공유하므로, 자동 배치에 맡기면 오른쪽에
+     항목이 하나 늘 때마다 왼쪽 체크리스트가 하단 고정 버튼 밑으로 밀린다 */
+  main.narrow > .card:has(.pipe-inspect) > .section-title { grid-area: 1 / 1; }
+  main.narrow > .card:has(.pipe-inspect) > .note { grid-area: 2 / 1; }
+  main.narrow > .card:has(.pipe-inspect) > .pipe-status-bar { grid-area: 3 / 1; }
+  main.narrow > .card:has(.pipe-inspect) > .checklist { grid-area: 4 / 1; }
+  main.narrow > .card:has(.pipe-inspect) > .stage-accident { grid-area: 5 / 1; }
+  main.narrow > .card:has(.pipe-inspect) > .step-actions { grid-area: 6 / 1; }
+  /* 오른쪽: 확인하러 들어가는 것 — 타임라인·커튼·피드·검증 로그 */
+  main.narrow > .card:has(.pipe-inspect) > .pipe-tl { grid-area: 1 / 2 / 4; }
   main.narrow > .card:has(.pipe-inspect) > .backstage,
-  main.narrow > .card:has(.pipe-inspect) > .pipe-inspect { grid-column: 2; }
+  main.narrow > .card:has(.pipe-inspect) > .bs-stage { grid-area: 4 / 2; }
+  main.narrow > .card:has(.pipe-inspect) > .pipe-feed { grid-area: 5 / 2; }
+  main.narrow > .card:has(.pipe-inspect) > .pipe-inspect { grid-area: 6 / 2; }
   /* 왼쪽 칸이 679px 에서 끝나 버튼줄이 가림 영역에 23px 걸쳤다.
      항목 다섯 줄에서 조금씩 덜어 656 위로 올린다 */
   main.narrow > .card:has(.pipe-inspect) > .checklist li { padding-top: 9px; padding-bottom: 9px; }

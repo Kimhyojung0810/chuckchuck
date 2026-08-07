@@ -1949,17 +1949,19 @@ function showF11Reveal() {
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
+  // 이후 갱신은 통째 innerHTML 재작성이 아니라 1초 틱의 in-place 페인터가 한다 —
+  // 매 틱 다시 쓰면 타임라인의 폭 전이가 처음부터 되감겨 모션이 전부 죽는다.
   const chrome0 = wrap.querySelector('#f11Chrome');
-  if (chrome0) chrome0.innerHTML = nfSteps() + pipelineChecklistHtml();
+  if (chrome0) {
+    chrome0.innerHTML = nfSteps() + pipelineStatusBarHtml()
+      + pipelineTimelineHtml('compact') + pipelineChecklistHtml();
+    paintPipelineTimeline();
+  }
   requestAnimationFrame(() => { wrap.style.opacity = '1'; });
 
   let graphSent = false;
   const feed = setInterval(() => {
     if (!document.getElementById('f11RevealWrap')) { clearInterval(feed); return; }
-    // 바와 체크리스트만 다시 그린다. iframe 은 건드리지 않는다 —
-    // 여기서 같이 갈아끼우면 연출이 매 틱 처음부터 다시 시작한다.
-    const chrome = document.getElementById('f11Chrome');
-    if (chrome) chrome.innerHTML = nfSteps() + pipelineChecklistHtml();
     const out = nf.pipelineOut || {};
     const iframe = wrap.querySelector('iframe');
     if (!iframe || !iframe.contentWindow) return;
@@ -2093,9 +2095,20 @@ function pipelineCreepTau(phase) {
   return sec > 0 ? Math.max(3, sec * 0.7) : PIPELINE_CREEP_TAU_SEC;
 }
 
+/** 산출물이 실제로 나온 단계들의 시간 비중(%). 실패로 멈춘 화면의 정직한 진행률이다 */
+function pipelineDonePercent() {
+  const total = PIPELINE_STAGE_ORDER.reduce((a, k) => a + (pipelineStageSec[k] || 0), 0) || 1;
+  const done = PIPELINE_STAGE_ORDER.reduce(
+    (a, k) => a + (pipelineStageDone(k) ? (pipelineStageSec[k] || 0) : 0), 0);
+  return Math.round((done / total) * 100);
+}
+
 /* 단계 안에서는 시간에 따라 천장으로 점근할 뿐 절대 넘지 않는다 —
    막대가 멈춰 보이지 않으면서도 "다 됐다"고 거짓말하지 않는다. */
 function pipelinePercent(phase, phaseElapsedSec) {
+  /* 표는 error·partial 을 100 에 눕혀 놨다(질문 코칭 축의 관심 밖이라서). 그대로 쓰면
+     「중간에 멈췄어요 · 100%」가 된다 — 멈춘 화면에는 실제로 끝난 만큼만 말한다. */
+  if (phase === 'error' || phase === 'partial') return pipelineDonePercent();
   const marks = pipelineMarks || buildPipelineMarks();
   const [base, ceil] = marks[phase] || marks.queued;
   if (ceil <= base) return ceil;
@@ -2233,21 +2246,22 @@ function pipelineStatusBarHtml() {
   </div>`;
 }
 
-/** 1초 틱이 상태 줄을 다시 그리지 않고 숫자만 갈아끼운다 (전체 렌더는 보던 화면을 날린다) */
+/** 1초 틱이 상태 줄을 다시 그리지 않고 숫자만 갈아끼운다 (전체 렌더는 보던 화면을 날린다).
+    스텝 4 와 F-11 띠에 하나씩, 두 개가 떠 있을 수 있어 전부 돈다. */
 function paintPipelineStatusBar() {
-  const host = $('.pipe-status-bar');
-  if (!host) return;
   const phase = nf.pipelinePhase || 'queued';
   const pct = pipelinePercent(phase, phaseElapsedSec());
-  const label = host.querySelector('.pipe-phase');
-  const pctEl = host.querySelector('.psb-pct');
-  const fill = host.querySelector('.progress i');
-  const eta = host.querySelector('.psb-eta');
-  if (label) label.textContent = pipelinePhaseLabel(phase);
-  if (pctEl) pctEl.textContent = `${pct}%`;
-  if (fill) fill.style.width = `${pct}%`;
-  if (eta) eta.textContent = pipelineEtaText();
-  host.classList.toggle('is-final', ['done', 'partial', 'error'].includes(phase));
+  $$('.pipe-status-bar').forEach((host) => {
+    const label = host.querySelector('.pipe-phase');
+    const pctEl = host.querySelector('.psb-pct');
+    const fill = host.querySelector('.progress i');
+    const eta = host.querySelector('.psb-eta');
+    if (label) label.textContent = pipelinePhaseLabel(phase);
+    if (pctEl) pctEl.textContent = `${pct}%`;
+    if (fill) fill.style.width = `${pct}%`;
+    if (eta) eta.textContent = pipelineEtaText();
+    host.classList.toggle('is-final', ['done', 'partial', 'error'].includes(phase));
+  });
 }
 
 function pipelinePhaseLabel(phase) {
@@ -2344,6 +2358,401 @@ function pipelineChecklistDone() {
 function pipelineQaReady() {
   const out = nf.pipelineOut || {};
   return !!(out.graph && out.alignment && out.flow);
+}
+
+/* ─── 분석 타임라인 + 라이브 피드 ──────────────────────────────────────────
+   영상 편집기의 타임라인처럼 단계가 시간축 위에 놓인다 — 언제 시작해서 몇 초
+   걸렸는지가 폭으로 보인다. 막대는 실측으로만 움직인다: 완료 구간은 실제 걸린 초,
+   진행 구간은 흐른 초, 앞으로 구간은 빗금 「예상」 (§14 — 숫자는 신성하다).
+   정합(F-11)은 단일 호출이라 안쪽 진행을 모른다. 아는 척하지 않는다. */
+
+const PIPELINE_STAGE_NAME = {
+  encoding: '녹음 정리', stt: '받아쓰기', concepts: '개념 찾기',
+  graph: '개념 연결', align: '발표 대조', flow: '흐름 비교',
+};
+
+/** 이번 페이지 로드에서 파이프라인 프라미스가 실제로 살아 있는가.
+    새로고침으로 복원된 세션은 phase 만 남고 프라미스는 죽어 있다 —
+    이 구분 없이 초를 계속 세면 「곧 끝나요」가 거짓말이 된다. */
+let pipelineRunLive = false;
+
+/** 타임라인 입장 연출을 이미 튼 실행(pipelineStartedAt). 재렌더마다 되풀이하지 않는다 */
+let tlIntroPlayedAt = null;
+
+/** 단계별 완료 판정 — 체크리스트와 같은 근거(산출물)를 본다. phase 로 세지 않는다 */
+function pipelineStageDone(stage) {
+  const out = nf.pipelineOut || {};
+  const t = out.transcript && !out.transcript.error ? out.transcript : null;
+  const actual = nf._stageActual || {};
+  if (stage === 'encoding') return actual.encoding != null || !!t;
+  if (stage === 'stt') return !!t;
+  if (stage === 'concepts') return !!(out.concepts && !out.concepts.error && !out.conceptsError);
+  if (stage === 'graph') return !!out.graph;
+  if (stage === 'align') return !!out.alignment;
+  if (stage === 'flow') return !!out.flow;
+  return false;
+}
+
+/**
+ * 타임라인의 순수 모델 — 단계마다 상태와 초만 계산하고 DOM 은 모른다.
+ *
+ *  - pre     선분석으로 임계경로에서 빠졌다. 이 축의 시간이 아니라 칩으로 뺀다
+ *  - instant 1초 미만에 끝났다(대부분 저장해 둔 결과). 축에 그리면 0px 라 칩으로 뺀다
+ *  - done    실측 초만큼의 폭. 실측이 없으면(복원) 표의 초로 폭만 잡고 라벨은 비운다
+ *  - active  흐른 초 + 남은 예상(빗금). 예상을 넘기면 빗금이 사라지고 전진이 멈춘다
+ *  - est     아직 안 온 단계 — 전부 빗금
+ *  - idle    파이프라인이 죽은 뒤라 시작할 수 없는 단계 — 예상을 말하지 않는다
+ *  - error   실패한 단계
+ */
+function pipelineTimelineModel() {
+  const out = nf.pipelineOut || {};
+  const phase = nf.pipelinePhase || 'queued';
+  const curStage = pipelineStageOf(phase);
+  const running = !/_(done|error)$/.test(phase)
+    && !['queued', 'done', 'partial', 'error'].includes(phase);
+  const dead = ['error', 'partial'].includes(phase);
+  const factor = pipelineSpeedFactor();
+  const actual = nf._stageActual || {};
+  const stageErr = {
+    concepts: !!out.conceptsError, graph: !!out.graphError,
+    align: !!out.alignError, flow: !!out.flowError,
+  };
+  let hardErrorMarked = false;
+  return PIPELINE_STAGE_ORDER.map((stage) => {
+    const name = PIPELINE_STAGE_NAME[stage] || stage;
+    const done = pipelineStageDone(stage);
+    const sec = actual[stage];
+    /* 선분석이 임계경로에서 뺀 단계(buildPipelineMarks 가 0폭 처리)는 산출물이
+       아직 안 넘어왔어도 축 밖이다 — 여기서 BASE 로 다시 그리면 진행률 막대와
+       타임라인이 서로 다른 말을 한다. 0폭 = 이미 끝난 선분석 결과다. */
+    if ((pipelineStageSec[stage] || 0) <= 0 && (PIPELINE_STAGE_SEC_BASE[stage] || 0) > 0) {
+      return { stage, name, state: 'pre', sec: null, ghostSec: 0 };
+    }
+    if (done && sec != null && sec < 1) {
+      return { stage, name, state: 'instant', sec, ghostSec: 0 };
+    }
+    if (stageErr[stage] || phase === `${stage}_error`) {
+      return { stage, name, state: 'error', sec: sec != null ? sec : phaseElapsedSec(), ghostSec: 0 };
+    }
+    if (done) {
+      return {
+        stage, name, state: 'done', ghostSec: 0,
+        sec: sec != null ? sec : (PIPELINE_STAGE_SEC_BASE[stage] || 1),
+        measured: sec != null,
+      };
+    }
+    if (phase === 'error' && !hardErrorMarked) {
+      hardErrorMarked = true;
+      return { stage, name, state: 'error', sec: sec != null ? sec : phaseElapsedSec(), ghostSec: 0 };
+    }
+    const budget = (pipelineStageSec[stage] || PIPELINE_STAGE_SEC_BASE[stage] || 1) * factor;
+    if (running && stage === curStage) {
+      const el = phaseElapsedSec();
+      return { stage, name, state: 'active', sec: el, ghostSec: Math.max(0, budget - el) };
+    }
+    if (dead) return { stage, name, state: 'idle', sec: 0, ghostSec: budget };
+    return { stage, name, state: 'est', sec: 0, ghostSec: budget };
+  });
+}
+
+/**
+ * 초 → px 배치. 폭은 실측 초에 비례하고, 라벨이 들어갈 최소폭만 보장한다.
+ * 최소폭 클램프로 축이 살짝 늘어난 자리는 눈금도 같은 매핑(secToPx)을 지나므로
+ * 눈금과 막대가 서로 다른 말을 하지 않는다. 로그 스케일은 쓰지 않는다 — 비율을 속인다.
+ */
+function pipelineTimelineLayout(model, trackW, minW) {
+  const axis = model.filter((m) => !['pre', 'instant'].includes(m.state));
+  const spans = axis.map((m) => Math.max(0.5, (m.sec || 0) + (m.ghostSec || 0)));
+  const totalSec = spans.reduce((a, b) => a + b, 0) || 1;
+  let widths = spans.map((s) => (s / totalSec) * trackW);
+  for (let pass = 0; pass < 2; pass += 1) {
+    const clamped = widths.map((w) => w < minW);
+    const fixed = clamped.reduce((a, c) => a + (c ? minW : 0), 0);
+    const rawFree = widths.reduce((a, w, i) => a + (clamped[i] ? 0 : w), 0);
+    const scale = rawFree > 0 ? Math.max(0, trackW - fixed) / rawFree : 0;
+    widths = widths.map((w, i) => (clamped[i] ? minW : w * scale));
+  }
+  let secAt = 0;
+  let pxAt = 0;
+  const pieces = axis.map((m, i) => {
+    const p = { stage: m.stage, sec0: secAt, px0: pxAt, secLen: spans[i], pxLen: widths[i] };
+    secAt += spans[i];
+    pxAt += widths[i];
+    return p;
+  });
+  const secToPx = (s) => {
+    for (let i = 0; i < pieces.length; i += 1) {
+      const p = pieces[i];
+      if (s <= p.sec0 + p.secLen || i === pieces.length - 1) {
+        const f = p.secLen > 0 ? Math.min(1, Math.max(0, (s - p.sec0) / p.secLen)) : 0;
+        return p.px0 + p.pxLen * f;
+      }
+    }
+    return 0;
+  };
+  return { pieces, totalSec, secToPx };
+}
+
+/** 타임라인 뼈대 — 마운트마다 한 번만 그린다. 이후엔 페인터가 폭·상태만 갈아끼운다 */
+function pipelineTimelineHtml(variant) {
+  const compact = variant === 'compact';
+  const segs = PIPELINE_STAGE_ORDER.map((stage) =>
+    `<div class="tl-seg" data-stage="${stage}" data-state="est">`
+    + '<i class="tl-fill"></i><i class="tl-ghost"></i>'
+    + `<span class="tl-name">${escapeHtml(PIPELINE_STAGE_NAME[stage] || stage)}</span>`
+    + '<span class="tl-sec"></span></div>').join('');
+  return `<div class="pipe-tl" data-variant="${compact ? 'compact' : 'full'}">
+    <div class="tl-pre-chips"></div>
+    <div class="tl-ruler" aria-hidden="true"></div>
+    <div class="tl-band">
+      <div class="tl-track">${segs}</div>
+      <div class="tl-playhead" aria-hidden="true"></div>
+    </div>
+    ${compact ? '<p class="tl-after note" hidden>질문 코칭은 준비됐어요. 상세 리포트는 뒤에서 마저 만들고 있어요.</p>' : ''}
+  </div>`;
+}
+
+/** 눈금 라벨 — 1분 밑에서는 「30초」가 「00:30」보다 한눈에 읽힌다 */
+function tlTickLabel(sec) {
+  return sec < 60 ? `${sec}초` : fmtMarkSec(sec);
+}
+
+function tlSecText(m) {
+  const fmt1 = (s) => (s < 10 ? s.toFixed(1) : String(Math.round(s)));
+  if (m.state === 'done') return m.measured ? `${fmt1(m.sec)}초` : '';
+  if (m.state === 'error') return `${fmt1(m.sec)}초에 멈췄어요`;
+  if (m.state === 'active') {
+    return m.ghostSec > 0
+      ? `${Math.round(m.sec)}초 · 예상 ${Math.max(1, Math.round(m.sec + m.ghostSec))}초`
+      : `${Math.round(m.sec)}초 · 예상을 넘겼어요`;
+  }
+  // 1초 미만 추정을 0초로 적으면 「0초 예상」이라는 이상한 말이 된다 — 최소 1초
+  if (m.state === 'est') return `예상 ${Math.max(1, Math.round(m.ghostSec))}초`;
+  return '';
+}
+
+const PIPELINE_TL_MIN_PX = { full: 44, compact: 30 };
+
+/** 새 행·칩의 등장 한 번. Motion 스프링이 있으면 쓰고, 없거나 모션 최소화면 그냥 보여준다 */
+function motionPop(el) {
+  if (!el || !window.Motion || !window.Motion.animate) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  window.Motion.animate(el, { y: [8, 0], opacity: [0, 1] }, { type: 'spring', stiffness: 340, damping: 26 });
+}
+
+/** 마운트 직후 구간들이 왼쪽부터 차례로 자리를 잡는다 — 한 번뿐인 입장 연출 */
+function motionTimelineIntro(host) {
+  if (!host || !window.Motion || !window.Motion.animate) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const segs = host.querySelectorAll('.tl-seg');
+  if (segs.length) {
+    window.Motion.animate(segs, { opacity: [0, 1], y: [5, 0] },
+      { delay: window.Motion.stagger(0.05), duration: 0.35, ease: 'easeOut' });
+  }
+}
+
+/** in-place 페인터. 스텝 4 와 F-11 띠의 타임라인을 한 번에 갱신한다 — 자식을
+    다시 만들지 않고 폭·상태·문구만 바꿔서 CSS 전이가 모션을 만들게 한다 */
+function paintPipelineTimeline() {
+  const hosts = $$('.pipe-tl');
+  if (!hosts.length) return;
+  const model = pipelineTimelineModel();
+  const phase = nf.pipelinePhase || 'queued';
+  hosts.forEach((host) => {
+    const track = host.querySelector('.tl-track');
+    if (!track || !track.clientWidth) return;
+    const minW = PIPELINE_TL_MIN_PX[host.dataset.variant] || 44;
+    const layout = pipelineTimelineLayout(model, track.clientWidth, minW);
+
+    // 축 밖 칩 — 발표 중에 미리 끝났거나 1초 미만에 끝난 단계
+    const chipHost = host.querySelector('.tl-pre-chips');
+    model.filter((m) => m.state === 'pre' || m.state === 'instant').forEach((m) => {
+      const text = m.state === 'pre'
+        ? `${m.name} · 발표하는 동안 미리 끝냈어요`
+        : `${m.name} · ${m.sec.toFixed(1)}초 만에 끝났어요`;
+      let tlChip = chipHost && chipHost.querySelector(`.tl-chip[data-stage="${m.stage}"]`);
+      if (!tlChip && chipHost) {
+        tlChip = document.createElement('span');
+        tlChip.className = 'tl-chip';
+        tlChip.dataset.stage = m.stage;
+        chipHost.appendChild(tlChip);
+        motionPop(tlChip);
+      }
+      if (tlChip && tlChip.textContent !== text) tlChip.textContent = text;
+    });
+
+    // 축 위 구간
+    let playheadPx = 0;
+    model.forEach((m) => {
+      const seg = track.querySelector(`.tl-seg[data-stage="${m.stage}"]`);
+      if (!seg) return;
+      const off = m.state === 'pre' || m.state === 'instant';
+      seg.dataset.state = off ? 'off' : m.state;
+      if (off) return;
+      const piece = layout.pieces.find((p) => p.stage === m.stage);
+      if (!piece) return;
+      seg.style.width = `${Math.round(piece.pxLen)}px`;
+      const fillFrac = (m.state === 'done' || m.state === 'error') ? 1
+        : (m.state === 'active'
+          ? (m.ghostSec > 0 ? Math.min(1, m.sec / piece.secLen) : 1)
+          : 0);
+      const fill = seg.querySelector('.tl-fill');
+      const ghost = seg.querySelector('.tl-ghost');
+      if (fill) fill.style.width = `${Math.round(fillFrac * 100)}%`;
+      if (ghost) ghost.style.width = m.state === 'idle' || m.state === 'est' || m.state === 'active'
+        ? `${Math.round((1 - fillFrac) * 100)}%` : '0%';
+      seg.classList.toggle('is-overrun', m.state === 'active' && m.ghostSec <= 0);
+      const secEl = seg.querySelector('.tl-sec');
+      const secText = tlSecText(m);
+      if (secEl && secEl.textContent !== secText) secEl.textContent = secText;
+      if (host.dataset.variant === 'compact') seg.title = `${m.name}${secText ? ` · ${secText}` : ''}`;
+      if (['done', 'error'].includes(m.state)) playheadPx = piece.px0 + piece.pxLen;
+      else if (m.state === 'active') playheadPx = piece.px0 + piece.pxLen * fillFrac;
+    });
+
+    // 재생 헤드 — 완료 폭의 끝 = 실제로 지나온 지점. 예상 위로는 절대 앞서가지 않는다
+    const ph = host.querySelector('.tl-playhead');
+    if (ph) ph.style.transform = `translateX(${Math.round(playheadPx)}px)`;
+
+    // 눈금 — 막대와 같은 secToPx 를 지나므로 서로 어긋나지 않는다
+    const ruler = host.querySelector('.tl-ruler');
+    if (ruler) {
+      const iv = [1, 2, 5, 10, 15, 30, 60, 120].find((s) => layout.totalSec / s <= 8) || 300;
+      const want = [];
+      for (let s = iv; s < layout.totalSec; s += iv) want.push(s);
+      const seen = new Set(want.map(String));
+      Array.from(ruler.querySelectorAll('.tl-tick')).forEach((t) => {
+        if (!seen.has(t.dataset.sec)) t.remove();
+      });
+      want.forEach((s) => {
+        let tick = ruler.querySelector(`.tl-tick[data-sec="${s}"]`);
+        if (!tick) {
+          tick = document.createElement('span');
+          tick.className = 'tl-tick';
+          tick.dataset.sec = String(s);
+          tick.textContent = tlTickLabel(s);
+          ruler.appendChild(tick);
+        }
+        tick.style.left = `${Math.round(layout.secToPx(s))}px`;
+      });
+    }
+
+    const after = host.querySelector('.tl-after');
+    if (after) {
+      after.hidden = !(pipelineQaReady() && !['done', 'partial', 'error'].includes(phase));
+    }
+  });
+}
+
+/** 파이프라인 실측 이벤트 한 줄. 만들 수 없는 phase 면 null — 지어내지 않는다 */
+function pipelineLogLine(phase) {
+  const out = nf.pipelineOut || {};
+  const detail = String(nf.pipelineDetail || '');
+  if (phase === 'queued') {
+    // 선분석 여부는 buildPipelineMarks 가 임계경로에서 0폭으로 뺀 결과가 근거다
+    const preDone = (pipelineStageSec.concepts || 0) <= 0 || (pipelineStageSec.graph || 0) <= 0;
+    return preDone
+      ? { kind: 'pre', text: '발표하는 동안 자료의 개념을 미리 정리해 뒀어요' }
+      : { kind: 'start', text: '녹음을 넘겨받았어요' };
+  }
+  if (phase === 'graph_done' && out.graph && Array.isArray(out.graph.nodes) && out.graph.nodes.length) {
+    const nodes = out.graph.nodes;
+    const names = nodes.slice(0, 2).map((n) => `'${n.label}'`).join(' · ');
+    return { kind: 'done', text: `${names} 등 개념 ${nodes.length}개를 발표와 대조할 준비를 했어요` };
+  }
+  if (phase === 'done') {
+    const total = Math.max(0, Math.floor((Date.now() - (nf.pipelineStartedAt || Date.now())) / 1000));
+    return { kind: 'done', text: `상세 리포트까지 다 만들었어요 · 총 ${total}초` };
+  }
+  if (phase === 'partial') {
+    return { kind: 'error', text: `일부만 끝났어요 · ${humanErrorText(detail)}` };
+  }
+  if (phase === 'error') {
+    return { kind: 'error', text: humanErrorText(nf.pipelineError || detail) };
+  }
+  if (/_error$/.test(phase)) {
+    return { kind: 'error', text: `${pipelinePhaseLabel(phase)} · ${humanErrorText(detail)}` };
+  }
+  if (/_done$/.test(phase)) {
+    return { kind: 'done', text: detail ? `${pipelinePhaseLabel(phase)} · ${detail}` : pipelinePhaseLabel(phase) };
+  }
+  return null;
+}
+
+function pipelineFeedRowHtml(entry) {
+  return `<li class="feed-row" data-kind="${escapeHtml(entry.kind || 'done')}">`
+    + `<span class="feed-time">${fmtMarkSec(entry.sec || 0)}</span>`
+    + `<span>${escapeHtml(entry.text || '')}</span></li>`;
+}
+
+/**
+ * 라이브 피드에 한 줄 쌓는다. nf._pipelineLog 가 원본이고 DOM 은 투영이다 —
+ * 화면이 다시 그려져도 기록이 사라지지 않는 건 backstage 와 같은 이유다.
+ * 기록은 절대 소급 수정하지 않는다. 실패 줄도 이전 줄을 지우지 않는다.
+ */
+function pushPipelineLog(phase) {
+  const line = pipelineLogLine(phase);
+  if (!line) return;
+  if (!Array.isArray(nf._pipelineLog)) nf._pipelineLog = [];
+  if (nf._pipelineLog.some((l) => l.phase === phase)) return;   // 같은 단계는 한 번만
+  const sec = Math.max(0, Math.floor((Date.now() - (nf.pipelineStartedAt || Date.now())) / 1000));
+  const entry = { ...line, phase, sec };
+  nf._pipelineLog.push(entry);
+  $$('.pipe-feed .feed-live').forEach((ul) => {
+    ul.insertAdjacentHTML('beforeend', pipelineFeedRowHtml(entry));
+    motionPop(ul.lastElementChild);
+  });
+}
+
+const PIPELINE_FEED_MAX_ROWS = 8;
+
+/** 라이브 피드 마크업 — 지난 기록은 접고 최근 몇 줄과 「지금 하는 일」만 편다 */
+function pipelineFeedHtml() {
+  const log = Array.isArray(nf._pipelineLog) ? nf._pipelineLog : [];
+  const recent = log.slice(-PIPELINE_FEED_MAX_ROWS);
+  const older = log.slice(0, -PIPELINE_FEED_MAX_ROWS);
+  const phase = nf.pipelinePhase || 'queued';
+  const final = ['done', 'partial', 'error'].includes(phase);
+  return `<div class="pipe-feed">
+    ${older.length ? `<details class="feed-old"><summary>이전 기록 ${older.length}줄</summary>
+      <ul class="feed-list">${older.map(pipelineFeedRowHtml).join('')}</ul></details>` : ''}
+    <ul class="feed-list feed-live">${recent.map(pipelineFeedRowHtml).join('')}</ul>
+    <div class="feed-now${final ? ' is-final' : ''}"><i></i>
+      <span class="feed-now-label">${escapeHtml(pipelinePhaseLabel(phase))}</span>
+      <span class="feed-now-sec"></span>
+    </div>
+  </div>`;
+}
+
+/** 「지금 하는 일」 줄 — 단계 라벨과 그 단계에서 흐른 초 */
+function paintPipelineFeedNow() {
+  const phase = nf.pipelinePhase || 'queued';
+  const final = ['done', 'partial', 'error'].includes(phase);
+  $$('.pipe-feed .feed-now').forEach((el) => {
+    el.classList.toggle('is-final', final);
+    const label = el.querySelector('.feed-now-label');
+    const sec = el.querySelector('.feed-now-sec');
+    if (label) label.textContent = pipelinePhaseLabel(phase);
+    if (sec) sec.textContent = final ? '' : `${Math.floor(phaseElapsedSec())}초째`;
+  });
+}
+
+/** F-11 띠의 체크리스트를 통째로 다시 그리지 않고 상태만 갈아끼운다 —
+    innerHTML 재작성은 띠 안 타임라인의 폭 전이를 매 틱 처음으로 되감는다 */
+function paintPipelineChecklist() {
+  $$('.f11-chrome .checklist').forEach((ul) => {
+    const items = pipelineChecklistItems();
+    const stage = pipelineStageOf(nf.pipelinePhase || 'queued');
+    if (ul.children.length !== items.length) return;
+    items.forEach((it, i) => {
+      const st = it.ok ? 'done' : (it.stage === stage ? 'doing' : 'todo');
+      const li = ul.children[i];
+      if (li.className !== st) li.className = st;
+      const icon = li.querySelector('i');
+      const want = it.ok ? '✓' : String(i + 1);
+      if (icon && icon.textContent !== want) icon.textContent = want;
+    });
+  });
 }
 
 function pipelineLoadingHtml(kind) {
@@ -2556,6 +2965,9 @@ function startPipelineElapsedTimer() {
     const elapsed = Math.max(0, Math.floor((Date.now() - nf.pipelineStartedAt) / 1000));
     $$('.pipe-elapsed').forEach((el) => { el.textContent = String(elapsed); });
     paintPipelineStatusBar();
+    paintPipelineTimeline();
+    paintPipelineFeedNow();
+    paintPipelineChecklist();
   }, 1000);
 }
 
@@ -2572,6 +2984,22 @@ function refreshStep4IfVisible() {
 
 function nfStep4() {
   app.className = 'narrow';
+  /* 새로고침으로 복원된 세션이면 파이프라인 프라미스는 이미 죽어 있다. 살아 있는 척
+     초를 계속 세면 문구 전부가 거짓말이 된다 — 끊겼다고 말하고 멈춘다. */
+  const willStart = !!(ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted);
+  if (!willStart && !pipelineRunLive && nf.pipelinePhase
+      && !['done', 'partial', 'error'].includes(nf.pipelinePhase)) {
+    if (pipelineQaReady()) {
+      nf.pipelinePhase = 'partial';
+      nf.pipelineDetail = '화면을 새로 고치면서 상세 리포트 만들기가 끊겼어요';
+    } else {
+      nf.pipelineError = nf.pipelineError
+        || '화면을 새로 고치면서 분석이 끊겼어요. 다른 녹음으로 다시 시작하면 돼요';
+      nf.pipelinePhase = 'error';
+      nf.pipelineDetail = nf.pipelineError;
+    }
+    pushPipelineLog(nf.pipelinePhase);   // 끊겼다는 사실도 기록의 한 줄이다
+  }
   const items = pipelineChecklistItems();
   const doneN = items.filter((i) => i.ok).length;
   nf.done = doneN;
@@ -2591,8 +3019,10 @@ function nfStep4() {
       <h3 class="section-title">${qaReady ? '질문 준비가 끝났어요' : '발표를 듣고 질문을 준비하고 있어요'}</h3>
       <p class="note" style="margin-bottom:14px">최종 분석 전에, 설명이 비어 있던 개념을 질문으로 함께 확인해요.</p>
       ${pipelineStatusBarHtml()}
+      ${pipelineTimelineHtml('full')}
       ${backstageHtml()}
       ${pipeErr}
+      ${pipelineFeedHtml()}
       ${pipelineChecklistHtml()}
       ${pipelineInspectHtml()}
       <div class="step-actions">
@@ -2610,6 +3040,15 @@ function nfStep4() {
   wireFreshPracticeButtons(app);
   startPipelineElapsedTimer();
   paintPipeMapThumbs();
+  // 첫 틱(1초)을 기다리면 타임라인이 빈 뼈대로 보인다. 붙이자마자 한 번 칠한다.
+  paintPipelineTimeline();
+  paintPipelineFeedNow();
+  // 입장 연출은 실행당 한 번 — 산출물이 올 때마다 화면을 다시 그리는데 그때마다
+  // 구간이 다시 날아들면 연출이 데이터 읽기를 방해한다
+  if (tlIntroPlayedAt !== nf.pipelineStartedAt) {
+    tlIntroPlayedAt = nf.pipelineStartedAt || 0;
+    motionTimelineIntro($('.pipe-tl[data-variant="full"]'));
+  }
 
   const again = $('#againTake');
   // 자료(nfSlideDoc·uploadedPdf)는 그대로 두고 테이크만 버린다 — resetNf 와 다르다
@@ -2633,6 +3072,8 @@ function nfStep4() {
     nf.transcriptOk = false;
     nf.conceptsOk = false;
     nf.backstage = [];
+    nf._pipelineLog = [];
+    nf._stageActual = null;   // 남겨 두면 스텝 2·3 로 돌아간 화면에 지난 테이크의 칩이 뜬다
     nf.step = 2;
     // 질문 코칭은 버리는 테이크의 발화로 만든 것이라 같이 버린다 — 남겨 두면
     // 새 녹음 분석이 끝나도 qaLiveActive() 가 참이라 지난 녹음의 질문이 그대로 나온다.
@@ -2648,6 +3089,8 @@ function nfStep4() {
     nf.pipelineDetail = '파이프라인 시작';
     nf.pipelineStartedAt = Date.now();
     nf._stageActual = null;   // 지난 테이크의 실측이 남아 있으면 이번 추정이 그걸 따라간다
+    nf._pipelineLog = [];     // 피드도 이번 실행의 기록만 — 지난 테이크 줄이 섞이면 안 된다
+    pipelineRunLive = true;
     nf.transcriptOk = false;
     nf.conceptsOk = false;
 
@@ -2656,6 +3099,7 @@ function nfStep4() {
        한 번 지나온 %가 줄어드는 건 진행률이 아니라 소음이다. */
     const preState = (precompute && precompute.key === precomputeKey() && precompute.state) || {};
     buildPipelineMarks(preState);
+    pushPipelineLog('queued');   // 첫 줄 — 선분석을 미리 끝냈으면 그 사실이 0초 기록으로 남는다
     refreshPipelineInspect();
 
     // slideDoc 이 없으면 F-06 이후가 통째로 안 돈다. 캐시에서 먼저 되살린다.
@@ -2701,6 +3145,8 @@ function nfStep4() {
         if (transcript && !transcript.error) nf.transcriptOk = true;
         // 커튼 틈으로 한 마디. pipelineOut 을 갱신한 뒤라야 실측값이 들어 있다
         pushBackstage(phase);
+        // 라이브 피드에도 같은 시점의 실측 한 줄 — 병아리 대사와 달리 기술 기록이다
+        pushPipelineLog(phase);
         /* 산출물이 하나 늘어난 순간에만 전체를 다시 그린다 — 체크리스트 한 줄이 켜지고,
            flow_done 에서는 「질문 코칭 시작하기」가 열린다. 나머지 틱은 검증 로그만 갈아끼운다
            (7분짜리 파이프라인이라 매번 전체를 그리면 보던 화면이 계속 튄다). */
@@ -2711,9 +3157,15 @@ function nfStep4() {
         if (RERENDER_PHASES.includes(phase)) {
           nf.done = pipelineChecklistDone();
           refreshStep4IfVisible();
+          /* 산출물이 하나 늘 때마다 저장한다 — 새로고침해도 타임라인 실측·피드 기록이
+             남아, 죽은 실행을 「어디까지는 했다」로 정직하게 보여줄 수 있다 */
+          saveSession('new-flow', nf);
         } else {
           refreshPipelineInspect();
           paintPipelineStatusBar();
+          // 단계가 막 시작된 순간이다. 다음 1초 틱을 기다리지 않고 바로 옮겨 칠한다
+          paintPipelineTimeline();
+          paintPipelineFeedNow();
         }
       },
     })).then((out) => {
@@ -2737,7 +3189,9 @@ function nfStep4() {
       prefetchChatter();
       recordShow();
       nf.done = pipelineChecklistDone();
+      pushPipelineLog(nf.pipelinePhase);   // 총 소요 실측이 피드의 마지막 줄이 된다
       refreshStep4IfVisible();
+      saveSession('new-flow', nf);
     }).catch((err) => {
       console.warn('[chuckchuck] prepare pipeline', err);
       nf.pipelineError = err.message || String(err);
@@ -2745,7 +3199,9 @@ function nfStep4() {
       nf.pipelineDetail = nf.pipelineError;
       // 부분 결과가 있으면 유지
       nf.done = pipelineChecklistDone();
+      pushPipelineLog('error');
       refreshStep4IfVisible();
+      saveSession('new-flow', nf);
     });
   }
 }
