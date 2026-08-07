@@ -2253,7 +2253,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qd4" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qd7" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -2266,6 +2266,29 @@ function showF11Reveal() {
     paintPipelineTimeline();
   }
   requestAnimationFrame(() => { wrap.style.opacity = '1'; });
+
+  /**
+   * 리빌 필름 스트립에 넘길 장 목록.
+   *
+   * 그래프가 오기 전 오른쪽 무대는 비어 있다. 그 시점에 이미 손에 있는 건
+   * **내가 올린 자료의 장 제목**이다 (업로드 파싱에서 nf.slideTitles 로 붙는다).
+   * 개념 수는 F-06 이 도착하는 대로 장마다 채워져, 어느 장을 읽는 중인지가 보인다.
+   * 없는 값을 0 으로 위장하지 않는다 — 아직 안 온 장은 found 가 undefined 다.
+   */
+  function revealSlideStrip(out) {
+    const titles = (nf && nf.slideTitles) || [];
+    if (!titles.length) return [];
+    const conceptSlides = ((out.concepts || {}).slides) || [];
+    const found = {};
+    conceptSlides.forEach((s) => { found[s.slide_no] = (s.concepts || []).length; });
+    const any = conceptSlides.length > 0;
+    // 24장을 넘기면 칩이 글자보다 작아진다. 넘는 만큼은 스트립이 «+N장» 으로 말한다
+    return titles.slice(0, 24).map((t, i) => ({
+      no: i + 1,
+      title: String(t || '').slice(0, 30),
+      found: any ? (found[i + 1] || 0) : null,
+    }));
+  }
 
   let graphSent = false;
   const feed = setInterval(() => {
@@ -2286,6 +2309,8 @@ function showF11Reveal() {
       transcriptPreview: out.transcript
         ? String(out.transcript.full_text || '').slice(0, 120)
         : '',
+      slides: revealSlideStrip(out),
+      slidesTotal: ((nf && nf.slideTitles) || []).length,
     });
 
     if (phase === 'error' || (nf.pipelineError && !out.graph)) {
@@ -4381,19 +4406,38 @@ function qaHistoryPanelHtml() {
   const when = new Date(rec.at);
   const stamp = `${when.getFullYear()}.${String(when.getMonth() + 1).padStart(2, '0')}.${String(when.getDate()).padStart(2, '0')}`;
 
+  /* 코칭의 결론은 「몇 개를 주고받았나」가 아니라 「대화로 몇 개가 늘었나」다.
+     before/after/total 은 기록에 이미 있는데 화면에는 개수와 날짜만 나가고 있었다 —
+     제일 중요한 값이 저장만 되고 안 보이던 셈이다. 프로필 리포트의 final-insight 가
+     같은 값을 이미 이렇게 말한다 */
+  const hasGain = typeof rec.before === 'number' && typeof rec.after === 'number' && rec.total;
+  const gained = hasGain ? rec.after - rec.before : 0;
+
   return `
     <section class="qa-log">
       <div class="block-head">
         <h2>질문 코칭 내역</h2>
         <p>${escapeHtml(rec.aud)}${josa(rec.aud, '과', '와')} 주고받은 ${rec.beats.length}개 질문 · ${stamp}</p>
       </div>
+      ${hasGain ? `
+      <p class="qa-log-gain">
+        <span class="qg-step"><i>질문 전</i><b class="num">${rec.before}</b></span>
+        <em class="qg-arrow" aria-hidden="true">→</em>
+        <span class="qg-step qg-after"><i>질문 후</i><b class="num">${rec.after}</b></span>
+        <span class="qg-note">${rec.total}개 개념 중 설명할 수 있게 된 개수예요${
+          gained > 0 ? ` · 대화로 <b>${gained}개</b> 늘었어요` : ''}</span>
+      </p>` : ''}
       <div class="qa-log-list">
         ${rec.beats.map((b, i) => {
           const v = QA_VERDICT[b.verdict] || QA_VERDICT.partial;
           return `
           <details class="qa-log-item">
             <summary>
-              <span class="st ${v.cls}">${v.label}</span>
+              <!-- 여기는 class="st ok" 였다. CSS 에 있는 건 .st-ok (하이픈)이라 어느
+                   규칙에도 안 걸려서, 판정 셋이 전부 같은 회색 글씨로 떨어졌다 —
+                   리포트에서 제일 먼저 읽어야 할 신호가 색을 잃고 있었다. 앱이 다른
+                   데서 쓰는 chip 관용구를 그대로 쓴다 (판정 색 5종은 §3-3 불변) -->
+              <span class="chip chip-sm st-${v.cls}">${v.label}</span>
               <span class="ql-concept">${escapeHtml(b.label || '')}</span>
               <span class="ql-slide num">${escapeHtml(b.slide || '')}</span>
               <span class="ql-n num">${String(i + 1).padStart(2, '0')}</span>
@@ -4452,8 +4496,10 @@ function rSummary() {
     : s.oneLiner;
   const nextLabel = (trophy && trophy.label) ? trophy.label : '약한 개념';
   // 점수·차원·한 줄 판단은 판정 헤드(renderReport)로 올라갔다 — 여기서 다시 그리지 않는다
+  /* 질문 코칭 내역이 맨 위에 있었다. 요약 탭의 주인공은 이번 발표 자체인데,
+     열면 코칭 기록 다섯 줄(332px)을 지나야 내 발표가 나왔다 — 코칭은 발표
+     뒤에 한 일이라 순서로도 뒤가 맞다. 슬라이드로 보는 발표를 위로 올린다. */
   $('#rbody').innerHTML = `
-    ${qaHistoryPanelHtml()}
     ${recallCardHtml()}
 
     ${trophy || !live ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
@@ -4482,6 +4528,8 @@ function rSummary() {
         <span><i class="dot st-om"></i>정당한 생략</span>
       </div>
     </div>
+
+    ${qaHistoryPanelHtml()}
 
     ${(!live && prio && prio[0]) ? `
     <h2 class="section-title" style="margin:26px 0 12px">이것부터 고치면 돼요<span class="soft">효과가 가장 큰 한 가지</span></h2>
