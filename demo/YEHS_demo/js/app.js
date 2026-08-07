@@ -1997,7 +1997,7 @@ function recUploadFail(message) {
   const note = $('#recUploadNote');
   if (note) {
     note.textContent = message;
-    note.style.color = '#f04452';
+    note.style.color = 'var(--no)';
     return;
   }
   alert(message);
@@ -3031,7 +3031,7 @@ function pipelineInspectHtml() {
   // 아래 슬라이드↔발화 매핑이 그 합성 marks 위에 서 있기 때문이다.
   const up = nf.uploadedTake;
   const uploadedNote = up
-    ? `<p class="note" style="color:#f59e0b">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
+    ? `<p class="note" style="color:var(--mid)">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
        (${fmtMarkSec(up.durationSec)})으로 돌렸어요. 슬라이드 구간은 <b>실제 전환 기록이 아니라
        길이를 ${marks.length}등분한 합성값</b>이라, 슬라이드별 발화 분할과 정합 판정은
        참고용으로만 보세요.</p>`
@@ -3039,7 +3039,7 @@ function pipelineInspectHtml() {
 
   let speechHtml = '';
   if (transcript && transcript.error) {
-    speechHtml = `<p class="note" style="color:#f04452">${escapeHtml(transcript.message || transcript.error)}</p>`;
+    speechHtml = `<p class="note" style="color:var(--no)">${escapeHtml(transcript.message || transcript.error)}</p>`;
   } else if (transcript && (Array.isArray(transcript.by_slide) || transcript.full_text)) {
     const slides = Array.isArray(transcript.by_slide) ? transcript.by_slide : [];
     if (slides.length) {
@@ -3051,7 +3051,7 @@ function pipelineInspectHtml() {
       speechHtml += `<details class="pipe-full"><summary>전체 전사문만 보기 (${(transcript.words || []).length}단어)</summary><p>${escapeHtml(transcript.full_text)}</p></details>`;
     }
   } else if (phase === 'error' && nf.pipelineError) {
-    speechHtml = `<p class="note" style="color:#f04452">받아쓰기까지 도달하지 못했어요: ${escapeHtml(nf.pipelineError)}</p>`;
+    speechHtml = `<p class="note" style="color:var(--no)">받아쓰기까지 도달하지 못했어요: ${escapeHtml(nf.pipelineError)}</p>`;
   } else {
     speechHtml = pipelineLoadingHtml('stt') || '<p class="note">받아쓴 내용을 기다리는 중…</p>';
   }
@@ -3065,7 +3065,7 @@ function pipelineInspectHtml() {
       ).join('')}</ul></details>`;
   } else if (conceptsError) {
     conceptHtml = `<details class="pipe-block" open><summary>개념 추출 (실패)</summary>
-      <p class="note" style="color:#f04452">${escapeHtml(conceptsError)}</p>
+      <p class="note" style="color:var(--no)">${escapeHtml(conceptsError)}</p>
       <p class="note">받아쓴 내용은 위에 그대로 남아 있어요.</p>
     </details>`;
   } else if (nfSlideDoc || ['stt_done', 'concepts', 'queued', 'encoding', 'stt'].includes(phase)) {
@@ -4978,7 +4978,7 @@ function rPace() {
         action: '이 속도를 유지하면서 아래 시간 배분만 살펴보세요.' };
   const fbSpeedLabel = cpmJudge(st.avg, st.rec);
   $('#rbody').innerHTML = `
-    ${real ? '' : `<p class="note" style="color:#f59e0b;margin-bottom:10px">
+    ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
       ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
     ${tabVerdictHtml(fbVerdict)}
     <div class="stat-row">
@@ -5004,7 +5004,7 @@ function rPace() {
       <div class="card">
         <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
         <div class="alloc-lgd">
-          <span><i style="background:#C9D5CE"></i>권장</span>
+          <span><i style="background:var(--border)"></i>권장</span>
           <span><i style="background:var(--blue)"></i>실제</span>
         </div>
         ${allocRows.map(r => `
