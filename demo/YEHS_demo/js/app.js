@@ -6385,7 +6385,13 @@ function renderAbout() {
         <li><b>1년 동안 보관한 뒤 지워요.</b> 그동안은 다시 듣고 지난 발표와 견줘 볼 수 있어요.</li>
       </ul>
     </div>
+    </div>
+
+    <div class="about-cta">
+      <p>읽어 보니 어떠세요? 이 방식으로 한 번 봐 드릴게요.</p>
+      <a class="btn btn-primary" href="#/new" data-fresh-practice>새 발표 연습하기</a>
     </div>`;
+  wireFreshPracticeButtons(app);
 }
 
 /* ── 시작 ── */
