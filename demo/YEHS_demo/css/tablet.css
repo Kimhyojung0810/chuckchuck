@@ -22,6 +22,11 @@
   /* 상단 바를 뺀 실제 사용 가능한 높이. iPad Safari 주소창까지 반영하려고 dvh 를 쓴다 */
   --app-h: calc(100dvh - var(--topbar-h));
   --pane-gap: clamp(14px, 1.6vw, 24px);
+  /* 부스에서 관람객 머리가 화면 아래를 가린다. 거치대에 세운 아이패드라
+     하단 20%에 놓인 것은 사실상 안 보인다 — 하단 고정 CTA 가 딱 그 자리에 있었다(726~796).
+     px 로 박으면 세로가 큰 기기(1366x1024)에서 다시 걸린다. 비율로 잡는다.
+     실제 가림 정도가 다르면 이 값 하나만 바꾸면 모든 화면이 따라온다. */
+  --safe-bottom: 20dvh;
 }
 
 @media (min-width: 900px) {
@@ -75,6 +80,19 @@
   /* 오른쪽: 확인하러 들어가는 것 */
   main.narrow > .card:has(.pipe-inspect) > .backstage,
   main.narrow > .card:has(.pipe-inspect) > .pipe-inspect { grid-column: 2; }
+  /* 왼쪽 칸이 679px 에서 끝나 버튼줄이 가림 영역에 23px 걸쳤다.
+     항목 다섯 줄에서 조금씩 덜어 656 위로 올린다 */
+  main.narrow > .card:has(.pipe-inspect) > .checklist li { padding-top: 9px; padding-bottom: 9px; }
+  /* 버튼줄을 흐름에 두면 내용 길이에 따라 가림 영역에 걸친다(실측 670~690).
+     스텝 1·2 와 같은 하단 고정 CTA 로 통일한다 — 왼쪽 칸을 예산만큼 세워야
+     sticky 가 걸린다 */
+  main.narrow:has(.pipe-inspect) { min-height: var(--app-h); }
+  main.narrow > .card:has(.pipe-inspect) { min-height: calc(var(--app-h) - 96px); }
+  main.narrow > .card:has(.pipe-inspect) > .step-actions {
+    position: sticky; bottom: var(--safe-bottom); z-index: 5;
+    margin-top: auto; padding: 12px 0 4px; align-self: end;
+    background: linear-gradient(to top, var(--surface) 72%, transparent);
+  }
   /* 오른쪽 칸이 길어지면 그 안에서만 스크롤한다 — 페이지는 그대로 */
   main.narrow > .card:has(.pipe-inspect) > .pipe-inspect {
     max-height: calc(var(--app-h) - 190px); overflow-y: auto; scrollbar-width: thin;
@@ -198,7 +216,7 @@
   /* 다음 단계 버튼은 하단 고정 CTA 다 (TDS BottomCTA).
      왼쪽 아래에 회색 상자로 떠 있으면 다음 행동이 안 읽힌다 */
   main.narrow:has(#nf) > #nf .step-actions {
-    position: sticky; bottom: 0; z-index: 5;
+    position: sticky; bottom: var(--safe-bottom); z-index: 5;
     margin-top: auto; padding: 14px 0 4px;
     background: linear-gradient(to top, var(--canvas) 72%, transparent);
   }
@@ -227,7 +245,9 @@
   main:has(.rehearsal-shell) {
     height: var(--app-h);
     display: flex; flex-direction: column;
-    padding-bottom: 14px;
+    /* 「발표 시작하기」가 든 녹음 패널이 화면 맨 아래(679~782)에 있었다.
+       바닥을 가림 높이만큼 올리면 슬라이드도 같이 올라와 다 보인다 */
+    padding-bottom: calc(14px + var(--safe-bottom));
   }
   .rehearsal-head { align-items: center; margin: 0 0 8px; }
   .rehearsal-head .mode-label { font-size: 11px; }
