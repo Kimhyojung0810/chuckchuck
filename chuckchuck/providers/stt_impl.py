@@ -116,29 +116,7 @@ def _ffprobe_duration(path: Path) -> float:
         return 0.0
 
 
-def widen_for_waf(src: Path, out_dir: Path) -> Path | None:
-    """업로드 본문이 WAF 검사 상한을 넘도록 PCM WAV 로 다시 뽑는다.
-
-    ffmpeg 이 없거나 어떤 이유로든 실패하면 None — 호출부는 원본을 그대로 올리고
-    실패하면 실패로 보여준다. 조용히 다른 소리를 올리는 일은 만들지 않는다.
-    """
-    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
-        return None
-    duration = _ffprobe_duration(src)
-    if duration <= 0:
-        return None
-
-    rate, channels = _WAV_PROFILES[-1]
-    for cand_rate, cand_ch in _WAV_PROFILES:
-        if duration * _bytes_per_sec(cand_rate, cand_ch) >= WAF_TARGET_BYTES:
-            rate, channels = cand_rate, cand_ch
-            break
-
-    # 그래도 모자라면 부족한 만큼만 뒤에 무음을 붙인다 (48kHz 스테레오 기준 최대 55초)
-    need_sec = WAF_TARGET_BYTES / _bytes_per_sec(rate, channels)
-    pad_sec = max(0.0, need_sec - duration)
-
-    dst = out_dir / "waf_widened.wav"
+def _to_wav(src: Path, dst: Path, rate: int, channels: int, pad_sec: float = 0.0) -> bool:
     cmd = ["ffmpeg", "-v", "error", "-y", "-i", str(src)]
     if pad_sec > 0:
         cmd += [
@@ -148,10 +126,43 @@ def widen_for_waf(src: Path, out_dir: Path) -> Path | None:
         ]
     cmd += ["-ac", str(channels), "-ar", str(rate), "-c:a", "pcm_s16le", str(dst)]
     try:
-        subprocess.run(cmd, capture_output=True, timeout=600, check=True)
+        subprocess.run(cmd, capture_output=True, timeout=900, check=True)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+    return dst.exists() and dst.stat().st_size > 44      # WAV 헤더만 있는 건 실패로 본다
+
+
+def widen_for_waf(src: Path, out_dir: Path) -> Path | None:
+    """업로드 본문이 WAF 검사 상한을 넘도록 PCM WAV 로 다시 뽑는다.
+
+    길이는 **컨테이너 메타데이터가 아니라 뽑아낸 WAV 의 실제 크기**로 잰다.
+    브라우저 MediaRecorder 가 만드는 webm 은 헤더에 길이가 없어서(`duration=N/A`)
+    ffprobe 로 재면 0 이 나온다 — 실제 마이크 녹음이 전부 그렇고, 그걸 믿고
+    포기하는 바람에 원본이 그대로 올라가 이 우회가 실전에서 한 번도 안 걸렸다
+    (2026-08-07 실측: 1.67MB webm 두 건 모두 WAF 거부).
+
+    ffmpeg 이 없거나 어떤 이유로든 실패하면 None — 호출부는 원본을 그대로 올리고
+    실패하면 실패로 보여준다. 조용히 다른 소리를 올리는 일은 만들지 않는다.
+    """
+    if not shutil.which("ffmpeg"):
         return None
-    if not dst.exists() or dst.stat().st_size < WAF_INSPECT_LIMIT:
+
+    # 1) 가장 가벼운 프로필로 먼저 뽑는다. 여기서 상한을 넘으면 그걸로 끝 (긴 녹음)
+    rate, channels = _WAV_PROFILES[0]
+    dst = out_dir / "waf_widened.wav"
+    if not _to_wav(src, dst, rate, channels):
+        return None
+    if dst.stat().st_size >= WAF_TARGET_BYTES:
+        return dst
+
+    # 2) 모자라면 실제 길이를 이 WAV 크기에서 되짚어 무거운 프로필로 다시 뽑는다
+    duration = dst.stat().st_size / _bytes_per_sec(rate, channels)
+    rate, channels = _WAV_PROFILES[-1]
+    need_sec = WAF_TARGET_BYTES / _bytes_per_sec(rate, channels)
+    pad_sec = max(0.0, need_sec - duration)
+    if not _to_wav(src, dst, rate, channels, pad_sec):
+        return None
+    if dst.stat().st_size < WAF_TARGET_BYTES:
         return None
     return dst
 
