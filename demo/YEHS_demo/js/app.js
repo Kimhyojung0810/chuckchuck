@@ -2973,8 +2973,12 @@ function startPipelineElapsedTimer() {
  * 있으면, 완료 콜백이 app.innerHTML 을 덮어써 보던 화면을 통째로 날려버린다.
  */
 function refreshStep4IfVisible() {
-  const onNewFlow = /^#\/?(new)?(\/|$)/.test(location.hash || '#/');
-  if (onNewFlow && nf.step === 3) nfStep4();
+  // 라우트 키가 정확히 'new' 일 때만 다시 그린다. 예전 정규식(/^#\/?(new)?(\/|$)/)은
+  // '#' 뒤 어디서든 '/' 하나만 있으면 참이라 #/qa·#/report·홈까지 전부 통과했다 —
+  // 파이프라인 후반부 완료 틱이 질문 코칭 화면을 스텝4로 덮어썼고, 해시는 이미
+  // #/qa 라 「질문 코칭 시작하기」(href="#/qa")를 눌러도 아무 일도 안 일어났다.
+  const key = (location.hash || '#/').replace(/^#\/?/, '').split('/')[0];
+  if (key === 'new' && nf.step === 3) nfStep4();
 }
 
 function nfStep4() {
