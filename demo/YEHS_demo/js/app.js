@@ -329,6 +329,10 @@ function route() {
 
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
+  /* 샘플 모드는 renderReport() 안에서만 켜져서, 샘플 리포트를 보고 #/qa 로 나가면
+     켜진 채로 남았다. reportOut() 이 이 값을 보고 결과를 가리므로 리포트를
+     벗어나는 순간 꺼 준다 — 안 그러면 질문 코칭이 제 데이터를 못 읽는다 */
+  if (key !== 'report') rSampleMode = false;
   // #/new/reset 또는 completed 후 #/new → 초기화
   // 질문 코칭도 같이 지운다 (startFreshPractice 와 같은 이유). 리포트의
   // 「새 발표 연습」처럼 data-fresh-practice 없이 #/new 로 오는 링크는 여기로만
@@ -2249,7 +2253,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qd1" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -3521,6 +3525,20 @@ function nfStep4() {
    내 실제 분석이 그 밑에 뜨면 라벨이 거짓말이 된다 — 방향만 반대인 같은 병이다 */
 let rSampleMode = false;
 
+/**
+ * 리포트 탭이 읽어도 되는 파이프라인 결과.
+ *
+ * 탭들이 저마다 `nf && nf.pipelineOut` 을 직접 읽고 있었다. isLiveReportSession()
+ * 은 rSampleMode 를 보는데 이 직독들은 안 봐서, 「샘플」 딱지를 붙인 리포트
+ * 밑에 내 실제 발표 데이터가 섞여 떴다 — 라벨이 거짓말을 한다(§4 정직성).
+ * 열다섯 곳에 가드를 흩는 대신 통로를 하나로 만든다. 샘플을 보는 중이면
+ * 결과가 없는 것으로 친다: 호출부는 이미 전부 「없으면 DATA 샘플」 분기를 갖고 있다.
+ */
+function reportOut() {
+  if (rSampleMode) return null;
+  return (nf && nf.pipelineOut) || null;
+}
+
 function isLiveReportSession() {
   if (rSampleMode) return false;
   if (!nf) return false;
@@ -3535,7 +3553,7 @@ function isLiveReportSession() {
 /** 리포트 헤더용 메타 — 실제 올린 자료/파이프라인 기준. 샘플 DATA.session 은 데모 전용. */
 function reportSessionMeta() {
   const sample = DATA.session;
-  const out = nf && nf.pipelineOut;
+  const out = reportOut();
   const graph = out && out.graph;
   const live = isLiveReportSession();
   if (!live) {
@@ -3896,7 +3914,7 @@ async function paintDeckThumbs(root = document) {
  * 전부 잘 설명했으면 aligned 중 가장 무거운 개념의 유지 멘트를 쓴다.
  */
 function realTrophy() {
-  const out = nf && nf.pipelineOut;
+  const out = reportOut();
   const al = out && out.alignment;
   const graph = out && out.graph;
   if (!al || !graph) return null;
@@ -3954,7 +3972,7 @@ const RUBRIC_STATUS = {
 const RUBRIC_SOURCE = { det: '계산', llm: 'AI 판단', na: '' };
 
 function rRubric() {
-  const sc = nf && nf.pipelineOut && nf.pipelineOut.score;
+  const sc = (reportOut() || {}).score;
   const items = (sc && sc.items) || [];
   if (!items.length) {
     $('#rbody').innerHTML = `
@@ -4008,8 +4026,7 @@ function rRubric() {
 }
 
 function realSummary() {
-  // isLiveReportSession() 을 안 거치고 nf 를 직접 읽는다 — 여기서 따로 막는다
-  const sc = !rSampleMode && nf && nf.pipelineOut && nf.pipelineOut.score;
+  const sc = (reportOut() || {}).score;
   if (!sc || typeof sc.score !== 'number') return null;
   const dims = (sc.clusters || [])
     .filter(c => c.status === 'scored')
@@ -4100,7 +4117,7 @@ function emptyBirdHtml(speaker, mood) {
 /** 이번 회차의 기록. 파이프라인 결과가 없으면 null. */
 function currentShow() {
   if (!window.Playbill) return null;
-  const out = nf && nf.pipelineOut;
+  const out = reportOut();
   if (!out || !out.alignment) return null;
   const t = realTrophy();
   return window.Playbill.extract(out, {
@@ -4364,7 +4381,7 @@ function rSummary() {
   // 올린 자료인데 분석이 없으면 IMU2CLIP 샘플을 절대 보여주지 않는다
   if (live && !real && !isRealTree) {
     const why = (nf && nf.pipelineError)
-      || (nf && nf.pipelineOut && nf.pipelineOut.conceptsError)
+      || ((reportOut() || {}).conceptsError)
       || (nf && nf.pipelineDetail)
       || '발표 분석 결과가 이 화면에 없어요. 분석이 끝난 뒤 다시 열어주세요.';
     $('#rbody').innerHTML = `
@@ -4521,14 +4538,14 @@ function prefetchChatter() {
 
 
 function pipelineBundle() {
-  const out = nf && nf.pipelineOut;
+  const out = reportOut();
   if (out && out.graph && out.alignment && out.flow) return out;
   return null;
 }
 
 /** 청중이 왜 못 오는지 — '리허설을 마치세요'는 이미 마친 사람에게 거짓말이다. */
 function audienceBlockReason() {
-  const out = (nf && nf.pipelineOut) || null;
+  const out = reportOut();
   if (!out) {
     return nf && nf.transcriptOk
       ? '발표는 기록됐는데 분석 결과가 없어요. 스텝 4의 검증 로그를 확인해 주세요.'
@@ -4742,8 +4759,7 @@ const STATUS_FROM_VERDICT = {
  * 결과가 없으면 null — 호출부가 DATA 샘플로 떨어지고 화면에 그렇게 표시한다.
  */
 function realJudgeTree() {
-  // realSummary() 와 같은 이유 — nf 를 직접 읽으므로 샘플 모드를 여기서도 막는다
-  const out = !rSampleMode && nf && nf.pipelineOut;
+  const out = reportOut();
   if (!out || !out.graph || !out.alignment) return null;
   const itemBy = {};
   (out.alignment.items || []).forEach(i => { itemBy[i.node_id] = i; });
@@ -5067,7 +5083,7 @@ function logicBreakCardHtml(l) {
 }
 
 function rLogic() {
-  const flow = nf && nf.pipelineOut && nf.pipelineOut.flow;
+  const flow = (reportOut() || {}).flow;
   if (flow && Array.isArray(flow.issues) && flow.issues.length) {
     $('#rbody').innerHTML = rLogicRealCards(flow);
     return;
@@ -5091,7 +5107,7 @@ function rLogic() {
 /* 탭 4 — 말 속도 */
 /** F-14/F-17 결과를 말 속도·음성 습관 탭이 쓰는 모양으로. */
 function realPace() {
-  const p = nf && nf.pipelineOut && nf.pipelineOut.pace;
+  const p = (reportOut() || {}).pace;
   if (!p) return null;
   if (Array.isArray(p.slides) && p.slides.length && (p.avg_chars_per_min != null || p.slides[0].actual_sec != null)) {
     const avg = Math.round(p.avg_chars_per_min || 0);
@@ -5138,9 +5154,9 @@ function realPace() {
 }
 
 function rPace() {
-  const livePace = nf && nf.pipelineOut && nf.pipelineOut.pace;
-  const liveHabits = nf && nf.pipelineOut && nf.pipelineOut.habits;
-  const liveReport = nf && nf.pipelineOut && nf.pipelineOut.report;
+  const livePace = (reportOut() || {}).pace;
+  const liveHabits = (reportOut() || {}).habits;
+  const liveReport = (reportOut() || {}).report;
   if (livePace && Array.isArray(livePace.slides) && livePace.slides.length && livePace.slides[0].actual_sec != null && typeof voiceTimeChartHtml === 'function') {
     const avg = livePace.avg_chars_per_min || 0;
     const easy = voiceEasyBlocks(livePace, liveHabits, liveReport || {});
@@ -5299,8 +5315,7 @@ function strategySessionKey() {
 function strategyAnalysis() {
   const meta = reportSessionMeta();
   const tree = judgeTree();
-  const sections = (nf && nf.pipelineOut && nf.pipelineOut.pace
-    && nf.pipelineOut.pace.sections) || [];
+  const sections = (((reportOut() || {}).pace) || {}).sections || [];
 
   const concepts = tree.slice(0, 14).map(n => ({
     label: n.label,
@@ -5332,8 +5347,7 @@ function strategyAnalysis() {
     : (meta.live ? [] : sampleAlloc);
 
   // 순서표가 짚을 슬라이드 목록. F-17 이 있으면 실제 사용 시간까지 함께 넘긴다.
-  const paceSlides = (nf && nf.pipelineOut && nf.pipelineOut.pace
-    && nf.pipelineOut.pace.slides) || [];
+  const paceSlides = (((reportOut() || {}).pace) || {}).slides || [];
   const titles = (nf && nf.slideTitles && nf.slideTitles.length)
     ? nf.slideTitles : (meta.live ? [] : DATA.slideTitles);
   const slides = paceSlides.length
@@ -5385,7 +5399,7 @@ function toolEmptyHtml(what) {
 
 /** 그래프 노드 id → 자료 요약. 용어 정의·펀치라인의 원천이다. */
 function graphSummaryById() {
-  const out = nf && nf.pipelineOut;
+  const out = reportOut();
   const by = {};
   ((out && out.graph && out.graph.nodes) || []).forEach((n) => {
     by[n.id] = String(n.summary || '').trim();
