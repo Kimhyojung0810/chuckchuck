@@ -202,11 +202,17 @@ main.narrow { max-width: 640px; }
 /* 선택형 칩 */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button {
-  height: 40px; padding: 0 16px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 40px; padding: 0 16px 0 13px; border-radius: 999px;
   border: 0; background: var(--fill);
   font-size: 14px; font-weight: 500; color: var(--text-2); cursor: pointer;
   transition: all .15s ease;
 }
+/* 상황을 갈라 주는 표식이다. currentColor 라 칩이 선택되면 글자와 같이 물든다.
+   토스 그래픽 가이드는 24~40px 을 권하는데, 칩 높이가 40 이라 글자와 균형이
+   맞는 18 로 두고 선 두께로 또렷함을 지킨다 (항목당 하나만 쓴다) */
+.chips .chip-ico { flex: none; width: 18px; height: 18px; opacity: .85; }
+.chips button.on .chip-ico { opacity: 1; }
 .chips button:active { transform: scale(.96); }
 .chips button.on { background: var(--blue-weak); color: var(--blue); }
 

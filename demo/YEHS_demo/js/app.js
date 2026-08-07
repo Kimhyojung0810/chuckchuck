@@ -1132,6 +1132,36 @@ function failParse(msg) {
 }
 
 /* 스텝 2 — 발표 정보 (선택) */
+/** 발표 상황 칩 아이콘.
+ *
+ * 네 상황은 글자만으로는 한눈에 안 갈린다 — 앞 두 글자가 다 다른 명사라
+ * 읽어야 구분된다. 아이콘은 장식이 아니라 그 구분을 대신하는 표식이다.
+ *
+ * 토스 그래픽 가이드(consumer-ux-guide §그래픽) 기준을 지킨다:
+ *   - 24~40px 로 쓴다 (여기선 18px 박스에 24 뷰박스를 축소해 칩 높이 40 에 맞춘다)
+ *   - 한 항목에 아이콘 하나. 둘 이상 병렬 조합은 지양한다
+ *   - 토스가 제공하는 자산은 쓰지 않는다 — 앱인토스 제휴 환경 밖에서는
+ *     복제·배포가 금지돼 있어서, 우리 선 두께로 직접 그렸다
+ *
+ * currentColor 를 쓰므로 칩이 선택되면(.on) 글자와 같이 브랜드색으로 바뀐다.
+ */
+function occIcon(occ) {
+  const paths = {
+    // 학사모 — 학교
+    '학교 프로젝트 (교수 대상)': '<path d="M3 9l9-4 9 4-9 4-9-4z"/><path d="M7 11v4c0 1.1 2.2 2 5 2s5-.9 5-2v-4"/>',
+    // 확성기 — 대중에게 알리는 자리
+    '신제품 설명 (대중 대상)': '<path d="M4 9v6h3l6 4V5L7 9H4z"/><path d="M17 9a4 4 0 0 1 0 6"/>',
+    // 막대 그래프 문서 — 숫자로 보고하는 자리
+    '업무 보고 (상사 대상)': '<path d="M6 3h8l4 4v14H6z"/><path d="M9 17v-3M12 17v-6M15 17v-4"/>',
+    // 말풍선 — 편하게 주고받는 자리
+    '동료 간 캐주얼 PR': '<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4V6z"/>',
+  };
+  const d = paths[occ];
+  if (!d) return '';
+  return `<svg class="chip-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+}
+
 function nfStep2() {
   /* 채점표 v3 의 상황 4열 그대로다. 라벨을 그대로 보내면 서버(rubric_v3.resolve_situation)가
      상황 key 로 옮긴다 — 프론트가 key 를 따로 들고 있지 않아도 되고, 이 문장이 F-06·07·11
@@ -1152,7 +1182,7 @@ function nfStep2() {
       <div class="field">
         <label>발표 상황</label>
         <div class="chips" id="occ">
-          ${occs.map(o => `<button class="${nf.occ === o ? 'on' : ''}">${o}</button>`).join('')}
+          ${occs.map(o => `<button class="${nf.occ === o ? 'on' : ''}" data-occ="${o}">${occIcon(o)}<span>${o}</span></button>`).join('')}
         </div>
       </div>
       <div class="field">
@@ -1175,7 +1205,10 @@ function nfStep2() {
     </div>`;
   $('#occ').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    nf.occ = b.textContent;
+    // data-occ 로 읽는다. textContent 로 읽으면 버튼 안에 아이콘·부가 문구를
+    // 넣는 순간 값이 오염되고, rubric_v3.py 는 이 한국어 문자열로 상황을
+    // 매핑하므로(school_project 등) 조용히 기본 가중치로 떨어진다.
+    nf.occ = b.dataset.occ || b.textContent.trim();
     $$('#occ button').forEach(x => x.classList.toggle('on', x === b));
     saveSession('new-flow', nf);
   });
