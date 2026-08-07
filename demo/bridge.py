@@ -105,6 +105,18 @@ def with_hint_ladders(payload: dict, questions: list) -> dict:
     return {**payload, "questions": items}
 
 
+def prior_answers_from(body: dict) -> list[str]:
+    """
+    이 질문에 앞서 낸 답변들. 비거나 공백뿐인 항목은 버린다.
+
+    f09 는 되묻기로 나눠 낸 답을 합쳐 판정하는 기능(_answer_block)을 갖고 있고
+    FastAPI 서버(server/app.py)도 이 필드를 넘긴다. 브리지만 버리면 되묻기에
+    증분("네, 지연 시간이요")으로 답한 사용자가 그 조각만으로 판정받아
+    unknown 에 갇힌다 — 2026-08-07 사용자 실측.
+    """
+    return [str(a) for a in (body.get("prior_answers") or []) if str(a).strip()]
+
+
 def _safe_audio_ext(raw: str | None) -> str:
     """
     클라이언트가 준 확장자를 임시 파일 suffix 로 쓰기 전에 좁힌다.
@@ -1111,6 +1123,8 @@ class Handler(SimpleHTTPRequestHandler):
                 history=body.get("history") or [],
                 context=ctx,
                 give_up=bool(body.get("give_up")),
+                # 이 질문에 앞서 낸 답변들. 판정은 누적 전체를 본다 (f09._answer_block).
+                prior_answers=prior_answers_from(body),
                 llm=llm,
             )
         except JudgeError as e:

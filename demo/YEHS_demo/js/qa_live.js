@@ -87,6 +87,9 @@ function liveHistory() {
     답변: t.answer,
     판정: t.verdict,
     포기: !!t.gaveUp,
+    // 조인 키. 문면은 2턴째부터 되물음이 들어가 원래 질문과 달라지므로,
+    // 서버(_coach_stage)가 이 id 로 "같은 질문에 몇 번 막혔는지" 를 센다.
+    question_id: t.questionId || (q && q.id) || '',
   }));
   return done.concat(current);
 }
@@ -231,7 +234,9 @@ function renderQaLive() {
     const list = liveHints();
     if (L.hintLevel >= list.length) return;
     L.hintLevel += 1;
-    pushTurn({ who: 'ai', kind: 'hint', level: L.hintLevel, text: escapeHtml(list[L.hintLevel - 1]) });
+    // total 을 같이 싣는다 — 말풍선의 "힌트 N/3" 이 하드코딩이라, 판정 후
+    // 사다리가 4단으로 길어지면 "힌트 4/3" 이라는 거짓 숫자가 떴다.
+    pushTurn({ who: 'ai', kind: 'hint', level: L.hintLevel, total: list.length, text: escapeHtml(list[L.hintLevel - 1]) });
     growStream();
     if (L.hintLevel >= list.length) hintBtn.remove();
     else hintBtn.textContent = `힌트 ${L.hintLevel + 1}단계 보기`;
@@ -500,6 +505,10 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   const typed = ((ta && ta.value) || '').trim();
   const answer = giveUp ? (typed || '(모르겠어요)') : typed;
   if (!answer || L.busy) return;
+  // 이번에 실제로 답하고 있는 질문 — 되물음이 떠 있으면 그것이다. 원래 질문만
+  // 기록하면 판정 히스토리에 되물음이 안 남아, "네" 같은 증분 답이 무엇에 대한
+  // 답인지 서버가 알 길이 없다 (그래서 정답을 말해도 unknown 이 반복됐다).
+  const askedNow = (L.turn && L.lastJudgement && L.lastJudgement.followup) || q.question;
   pushTurn({ who: 'me', kind: 'say', text: escapeHtml(answer) });
   L.busy = true;
   saveSession('qa-flow', qa);
@@ -507,11 +516,14 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   try {
     const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
       questionId: q.id, answer, history: liveHistory(), question: q, giveUp,
+      // 이 질문에 앞서 낸 답들. 판정은 누적 전체를 본다 (f09 "합쳐서 판정하라").
+      // 포기 턴의 "(모르겠어요)" 자리표시자는 답이 아니라 뺀다.
+      priorAnswers: (L.turns || []).filter((t) => !t.gaveUp).map((t) => t.answer),
       artifacts: liveArtifacts(),
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
     L.turn += 1;
-    L.turns.push({ question: q.question, answer, verdict: v.verdict, score: v.score || 0, gaveUp: giveUp });
+    L.turns.push({ question: askedNow, questionId: q.id, answer, verdict: v.verdict, score: v.score || 0, gaveUp: giveUp });
     L.lastJudgement = v;
     L.judgeFailed = false;
     if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });

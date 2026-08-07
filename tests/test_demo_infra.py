@@ -267,3 +267,27 @@ def test_questions_without_a_matching_object_are_left_alone():
 
     assert out["questions"][0]["hints"]
     assert "hints" not in out["questions"][1]
+
+
+# ---------------------------------------------------------------------------
+# F-09 판정 요청 — 누적 답변(prior_answers)
+#
+# f09 는 되묻기로 나눠 낸 답을 합쳐 판정하는 기능(_answer_block)을 갖고 있고
+# FastAPI 서버(server/app.py)는 prior_answers 를 넘긴다. 데모 브리지만 이 필드를
+# 버려서, 되묻기에 증분("네, 지연 시간이요")으로 답한 사용자가 그 조각만으로
+# 판정받아 unknown 에 갇혔다 — 2026-08-07 사용자 실측.
+# ---------------------------------------------------------------------------
+
+def test_prior_answers_are_extracted_from_body():
+    from demo.bridge import prior_answers_from
+
+    body = {"prior_answers": ["첫 답", "  ", "", "둘째 답", 3]}
+
+    assert prior_answers_from(body) == ["첫 답", "둘째 답", "3"]
+
+
+def test_prior_answers_default_to_empty():
+    from demo.bridge import prior_answers_from
+
+    assert prior_answers_from({}) == []
+    assert prior_answers_from({"prior_answers": None}) == []

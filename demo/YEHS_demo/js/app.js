@@ -382,6 +382,39 @@ document.addEventListener('DOMContentLoaded', () => wireFreshPracticeButtons());
 wireFreshPracticeButtons();
 
 /* ══ 홈 ══ */
+/* 홈 첫 카드 — 네 모델이 각자 맡은 일 (04_screens.md 「홈 첫 화면」).
+   예전엔 여기가 「최근 발표 완성도 86점 · 5회 동안 25 올랐어요」였다. 처음 온
+   사람은 발표를 한 번도 안 했는데 샘플 점수가 자기 기록인 척했고, 서로 다른
+   발표의 점수를 한 선으로 이어 "올랐다"고 말했다. 상황별로 가중치가 다르니
+   애초에 비교 가능한 숫자가 아니다.
+
+   대신 제품 구성을 보여준다 — 사용자 데이터가 아니라서 첫날에도 꽉 차고,
+   비어 있을 수가 없다. 역할 문구는 파이프라인의 실제 담당과 1:1 이다. */
+const HOME_CREW = [
+  { id: 'midm',   name: '믿:음',  role: '대조', by: 'KT',      does: '자료와 어긋난 곳을 찾아요' },
+  { id: 'solar',  name: '쏠라',   role: '자료', by: 'Upstage', does: '자료를 처음부터 끝까지 읽어요' },
+  { id: 'ax',     name: '엑씨',   role: '듣기', by: 'SKT',     does: '발표를 귀로 들어요' },
+  { id: 'exaone', name: '엑사원', role: '인정', by: 'LG',      does: '잘 설명한 개념을 짚어줘요' },
+];
+
+function crewCardHtml() {
+  // 캐릭터는 얹는 층이다. Chatter 가 아직 안 붙었으면 카드를 통째로 접는다
+  if (!window.Chatter || !Chatter.chickSvg) return '';
+  const seats = HOME_CREW.map(c => `
+    <li class="t-crew-one">
+      <span class="t-crew-bird ch-seat" data-mood="happy" aria-hidden="true">${Chatter.chickSvg(c.id)}</span>
+      <b>${c.name}</b>
+      <span class="t-crew-role">${c.role}</span>
+      <small>${escapeHtml(c.does)}</small>
+      <span class="t-crew-by">${c.by}</span>
+    </li>`).join('');
+  return `
+    <section class="t-card t-crew-card" aria-label="발표를 보는 네 모델">
+      <p class="t-label">네 모델이 각자 맡은 일로 발표를 봐요</p>
+      <ul class="t-crew">${seats}</ul>
+    </section>`;
+}
+
 function renderHome() {
   app.className = 'home';   // 홈 전용 스코프 — 폭은 main 기본값(980px) 그대로
   const g = DATA.growth.scores;
@@ -415,15 +448,7 @@ function renderHome() {
 
     <h2 class="t-sec-head t-lhead">내 기록</h2>
 
-    <section class="t-card t-score-card" aria-label="최근 발표 완성도">
-      <p class="t-label">최근 발표 완성도</p>
-      <div class="t-score">
-        <strong class="num">${DATA.session.score}</strong><span class="t-unit">점</span>
-        <span class="t-delta num">▲ ${DATA.session.score - DATA.session.prevScore}</span>
-      </div>
-      <div class="t-spark">${areaChartSvg(g, 360, 84)}</div>
-      <p class="t-caption">최근 5회 ${g[0]} → ${g[g.length - 1]} · 5회 동안 ${totalUp} 올랐어요</p>
-    </section>
+    ${crewCardHtml()}
 
     <section class="t-card t-record-card" aria-label="연습 기록">
       <div class="t-stats">
@@ -4682,10 +4707,12 @@ function streamRow(it) {
       </div></div>`;
   }
   if (it.kind === 'interject') return `<div class="msg ai cut">${av}<div class="msg-bubble">${it.text}</div></div>`;
-  if (it.kind === 'hint') return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/3</b>${it.text}</div></div>`;
+  // total 폴백 3: 판정 전 사다리 길이. 옛 세션 턴에는 total 이 없다.
+  if (it.kind === 'hint') return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}</b>${it.text}</div></div>`;
   if (it.kind === 'react') {
-    const lab = { full: '제대로 설명했어요', partial: '절반쯤', none: '아직' }[it.verdict];
-    const cls = { full: 'st-ok', partial: 'st-mid', none: 'st-no' }[it.verdict];
+    // 맵 밖 값이면 칩에 문자 그대로 "undefined" 가 그려진다 — 보류 쪽으로 떨어뜨린다.
+    const lab = { full: '제대로 설명했어요', partial: '절반쯤', none: '아직' }[it.verdict] || '아직';
+    const cls = { full: 'st-ok', partial: 'st-mid', none: 'st-no' }[it.verdict] || 'st-om';
     return `<div class="msg ai react">${av}<div class="msg-bubble"><span class="chip chip-sm ${cls}">${lab}</span><p>${it.text}</p></div></div>`;
   }
   if (it.kind === 'missing') {
