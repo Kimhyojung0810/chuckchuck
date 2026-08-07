@@ -3681,7 +3681,10 @@ function renderProfileReport(p) {
     </div>`;
 }
 function goJudge(node) {
-  jSel = node; rTab = 1; renderReport();
+  // rTab 은 renderReport 의 [rSummary, rRubric, rJudge, …][rTab] 순서다(3636).
+  // 개념별 판정은 2번인데 1(채점표)로 박혀 있었다 — 탭이 5개에서 7개로 늘 때
+  // 같이 안 옮긴 자리다. 개념을 눌렀는데 채점표가 열리고 있었다.
+  jSel = node; rTab = 2; renderReport();
   // 탭만 바꾸면 긴 목록에서 선택한 개념이 화면 밖에 있을 수 있다
   const picked = $('#jtree .sel') || $(`#jtree [data-node="${node}"]`);
   if (picked) picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -5453,6 +5456,7 @@ function ensureLiveQuestions() {
   }
 
   qaBuilding = true;
+  qaBuildStartedAt = Date.now();
   qa.liveNotice = '';
   // 아티팩트를 세션에 먼저 등록해 둔다 — 이후 판정은 session_id 만 보내면 되고,
   // 실패해도 아래 요청이 본문으로 그대로 싣고 가므로 흐름이 막히지 않는다.
@@ -5498,20 +5502,85 @@ function ensureLiveQuestions() {
   return true;
 }
 
+/* ══ 질문 준비 중 화면 ═════════════════════════════════════════
+   10초 동안 굵은 글씨 한 줄과 흐르는 막대만 있었다. 화면이 비어서가 아니라
+   **아무것도 안 알려줘서** 허전했다 — 무엇을 고르는 중인지가 없었다.
+
+   채울 것은 지어낸 연출이 아니라 지금 실제로 후보에 올라 있는 개념이다.
+   F-08 은 이 F-11 판정을 그대로 받아 고르므로, 여기 뜨는 이름이 곧 잠시 뒤
+   질문이 될 자리다. 판정이 없으면(데모 질문 경로·생성 중 새로고침)
+   후보 블록을 아예 안 그린다 — 없는 걸 지어내지 않는다(§4). */
+const QA_BUILD_VERDICT_WORD = { contradiction: '자료와 다르게 말했어요', missing: '한 번도 안 나왔어요' };
+const QA_BUILD_VERDICT_CLS = { contradiction: 'st-ct', missing: 'st-no' };
+/** 화면에 세울 후보 수. 넘는 건 「외 N개」로 접는다 — 목록이 카드를 넘기면 안 된다 */
+const QA_BUILD_POOL_MAX = 4;
+/** 이 초를 넘으면 문구를 바꾼다. 「10초쯤」이라 해 놓고 침묵하지 않는다 */
+const QA_BUILD_OVERRUN_SEC = 25;
+
+/** 질문이 나올 자리 — 안 나온 개념과 자료와 어긋난 개념을 무게순으로 */
+function qaBuildCandidates() {
+  const out = nf && nf.pipelineOut;
+  const al = out && out.alignment;
+  const graph = out && out.graph;
+  if (!al || !graph) return [];
+  const labelOf = {};
+  (graph.nodes || []).forEach((n) => { labelOf[n.id] = n.label || ''; });
+  // 모순이 먼저다. 안 한 말보다 틀린 말이 질문으로 더 아프다
+  const rank = { contradiction: 0, missing: 1 };
+  return (al.items || [])
+    .filter((i) => i.verdict === 'contradiction' || i.verdict === 'missing')
+    .sort((a, b) => (rank[a.verdict] - rank[b.verdict])
+      || ((b.doc_weight || 0) - (a.doc_weight || 0)))
+    .map((i) => ({ label: labelOf[i.node_id] || '', verdict: i.verdict }))
+    .filter((c) => c.label);
+}
+
+let qaBuildTimer = null;
+
+/** 경과 초. 남은 시간을 지어내지 않고 지난 시간만 정직하게 센다 */
+function paintQaBuildElapsed() {
+  const el = $('#qbElapsed');
+  if (!el) { clearInterval(qaBuildTimer); qaBuildTimer = null; return; }
+  const sec = Math.max(0, Math.round((Date.now() - (qaBuildStartedAt || Date.now())) / 1000));
+  el.textContent = sec >= QA_BUILD_OVERRUN_SEC
+    ? `${sec}초 지났어요 — 예상보다 오래 걸리고 있어요`
+    : `${sec}초 지났어요`;
+}
+
 function renderQaBuilding() {
   app.className = 'narrow';
+  const pool = qaBuildCandidates();
+  const shown = pool.slice(0, QA_BUILD_POOL_MAX);
+  const rest = pool.length - shown.length;
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 준비 중</span></div>
     <div class="card qa-building" role="status" aria-live="polite">
       <b>내 발표에서 예상 질문을 만들고 있어요</b>
       <p class="note">개념 그래프와 실제 발화를 대조해 치명적인 것부터 골라요. 10초쯤 걸려요.</p>
       <div class="qb-bar"><i></i></div>
-      <div class="step-actions" style="justify-content:center;margin-top:14px">
+      <p class="qb-elapsed" id="qbElapsed">0초 지났어요</p>
+      ${shown.length ? `
+      <div class="qb-pool">
+        <p class="qb-pool-head">여기서 고르고 있어요<span>${pool.length}개 후보</span></p>
+        <ul>${shown.map((c) => `
+          <li>
+            <b>${escapeHtml(c.label)}</b>
+            <span class="chip chip-sm ${QA_BUILD_VERDICT_CLS[c.verdict]}">${QA_BUILD_VERDICT_WORD[c.verdict]}</span>
+          </li>`).join('')}</ul>
+        ${rest > 0 ? `<p class="qb-pool-more">외 ${rest}개를 더 보고 있어요</p>` : ''}
+      </div>` : ''}
+      <div class="step-actions qb-actions">
         <button class="btn btn-text" id="qbSkip" type="button">기다리지 않고 데모 질문으로 진행하기</button>
       </div>
     </div>`;
+  clearInterval(qaBuildTimer);
+  paintQaBuildElapsed();
+  qaBuildTimer = setInterval(paintQaBuildElapsed, 1000);
   const skip = $('#qbSkip');
   if (skip) skip.addEventListener('click', () => {
+    // 화면을 떠나면 시계도 멈춘다. 안 멈추면 다음 화면에서 1초마다 죽은
+    // 노드를 찾는 타이머가 남는다
+    clearInterval(qaBuildTimer); qaBuildTimer = null;
     qaBuildFailed = true;
     qaBuilding = false;
     qa.liveNotice = '질문 생성을 기다리지 않고 데모 질문으로 진행해요.';
@@ -5523,6 +5592,9 @@ function renderQaBuilding() {
 /* 질문 생성이 진행 중인지. sessionStorage 밖에 둔다 —
  * 생성 도중 새로고침하면 저장된 true 가 영원히 재생성을 막기 때문이다. */
 let qaBuilding = false;
+/* 생성을 시작한 시각. 경과 초를 화면에 그대로 보여 주려고 둔다.
+ * qaBuilding 과 같이 sessionStorage 밖이다 — 새로고침하면 생성도 새로 시작한다. */
+let qaBuildStartedAt = 0;
 /* 이번 코칭에서 생성이 이미 실패했는지 — 무한 재시도 루프 방지. */
 let qaBuildFailed = false;
 
@@ -6251,6 +6323,29 @@ function qaEnd() {
 }
 
 /* ══ 서비스 정보 ══ */
+/* 분석 파이프라인 8단계 — 무엇을 하고 무엇으로 하는지 두 가지만 말한다.
+   「확정 / 검증 중 / 후보 테스트 / 준비 중」 상태 칩은 뺐다. 개발 진행 상황은
+   우리 사정이지 이 화면을 보는 사람이 궁금한 것이 아니고, 표의 절반을 그
+   라벨이 먹고 있었다 (토스 절제 규율 — 한 화면의 주인공은 하나). */
+const ABOUT_STEPS = [
+  ['발표자료를 슬라이드별 텍스트와 구조로 바꿔요', 'Upstage Document Parse'],
+  ['녹음을 단어별 시간과 함께 글로 옮기고, 슬라이드 구간으로 나눠요', 'SKT A.X'],
+  ['자료에서 핵심 개념을 뽑아 중요한 순서로 엮어요', '메인 LLM'],
+  ['개념마다 실제로 설명했는지 근거 발화와 함께 판정해요', '문장 유사도 검색 + KT 믿:음'],
+  ['자료와 발표, 앞선 답변을 보고 질문을 만들어 되물어요', '판정 LLM'],
+  ['논리가 끊긴 곳을 최대 다섯 곳까지 찾아요', 'LG EXAONE · SKT A.X'],
+  ['발표자에게 맞는 다음 방향을 실제 발화를 인용해 제안해요', 'SKT A.X · LG EXAONE'],
+  ['발표 판정과 질문 전후의 이해 변화를 하나로 묶어요', '규칙 계산 + 판정 결과'],
+];
+
+function aboutStepsHtml() {
+  return `<ol class="about-steps">${ABOUT_STEPS.map(([what, tech], i) => `
+    <li>
+      <i>${i + 1}</i>
+      <div><p>${escapeHtml(what)}</p><span>${escapeHtml(tech)}</span></div>
+    </li>`).join('')}</ol>`;
+}
+
 function renderAbout() {
   app.className = '';
   app.innerHTML = `
@@ -6258,34 +6353,25 @@ function renderAbout() {
 
     <div class="card about-sec">
       <h2 class="section-title">분석 파이프라인</h2>
-      <p class="lead note">발표자료와 실제 발화가 리포트가 되기까지의 단계예요. 아직 확정하지 않은 기술은 후보로 표기해요.</p>
-      <table class="plain">
-        <thead><tr><th style="width:90px">단계</th><th>하는 일</th><th>쓰는 기술</th><th style="width:110px">상태</th></tr></thead>
-        <tbody>
-          <tr><td>1</td><td>발표자료(PPT·PDF)를 슬라이드별 텍스트·구조로 변환</td><td>Upstage Document Parse</td><td><span class="chip chip-sm st-ok">확정</span></td></tr>
-          <tr><td>2</td><td>녹음을 단어별 시간과 함께 글로 변환, 슬라이드 구간으로 분할</td><td>SKT A.X 계열</td><td><span class="chip chip-sm chip-plain">검증 중</span></td></tr>
-          <tr><td>3</td><td>핵심 개념 추출과 중요도 순 개념 트리 구성</td><td>메인 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>4</td><td>개념별 설명 여부 판정 (근거 발화 포함)</td><td>문장 유사도 검색 + KT 믿:음</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>5</td><td>자료·발표 내용·앞선 답변 기반 질문 생성과 소크라테스식 코칭</td><td>판정 LLM</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>6</td><td>논리가 끊긴 곳 탐지 (최대 5곳)</td><td>LG EXAONE / SKT A.X</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>7</td><td>발표자 맞춤 방향 제안 (실제 발화 인용 필수)</td><td>SKT A.X / LG EXAONE</td><td><span class="chip chip-sm chip-plain">후보 테스트</span></td></tr>
-          <tr><td>8</td><td>발표 판정과 Q&A 전후 이해 변화를 하나의 결과로 통합</td><td>규칙 계산 + 판정 결과 결합</td><td><span class="chip chip-sm chip-plain">준비 중</span></td></tr>
-        </tbody>
-      </table>
+      <p class="lead note">발표자료와 실제 발화가 리포트가 되기까지 거치는 단계예요.</p>
+      ${aboutStepsHtml()}
     </div>
 
     <div class="card about-sec">
       <h2 class="section-title">판단 원칙</h2>
       <ul class="principles">
-        <li>모든 판정에 근거 발화를 붙여요. 근거 없는 총평은 하지 않아요.</li>
-        <li>계산으로 되는 건 AI를 쓰지 않아요. 말 속도·시간 배분은 수식으로 계산해 결과가 늘 같아요.</li>
-        <li>‘설명 안 함’ 판정은 사람 판단과 10번 중 8번 이상 일치해야 출시해요.</li>
+        <li><b>모든 판정에 근거 발화를 붙여요.</b> 근거 없는 총평은 하지 않아요.</li>
+        <li><b>계산으로 되는 건 AI를 쓰지 않아요.</b> 말 속도와 시간 배분은 수식으로 계산해 결과가 늘 같아요.</li>
+        <li><b>사람 판단과 열 번에 여덟 번은 맞아야 내보내요.</b> ‘설명 안 함’ 판정에 두는 기준이에요.</li>
       </ul>
     </div>
 
     <div class="card about-sec">
       <h2 class="section-title">데이터 정책</h2>
-      <p class="lead note" style="margin:0">자료와 녹음은 분석에만 사용해요. 원본 보존·폐기 주기는 정책 확정 전이에요.</p>
+      <ul class="principles">
+        <li><b>자료와 녹음은 분석에만 써요.</b> 다른 곳에 넘기지 않아요.</li>
+        <li><b>보관 기간은 아직 정하는 중이에요.</b> 정해지면 여기에 적어요.</li>
+      </ul>
     </div>`;
 }
 
