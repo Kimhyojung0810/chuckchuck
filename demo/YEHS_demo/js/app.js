@@ -950,7 +950,7 @@ function refreshStepBar() {
 function nfSteps() {
   return `<div class="flow-toolbar">
     <div class="steps">${stepsHtml()}</div>
-    <div class="flow-save"><span>자동 저장됨</span><a href="#/new" data-fresh-practice>처음부터</a><a href="#/">나가기</a></div>
+    <div class="flow-save"><span>자동으로 저장하고 있어요</span><a href="#/new" data-fresh-practice>처음부터</a><a href="#/">나가기</a></div>
   </div>`;
 }
 
@@ -6180,7 +6180,7 @@ function renderQa() {
     qa.sub = beat().kind === 'trap' ? 'choice' : 'answer';
   saveSession('qa-flow', qa);
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
+    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
     <div class="qa-shell">
       <aside class="qa-context">
     ${qaNoticeHtml()}

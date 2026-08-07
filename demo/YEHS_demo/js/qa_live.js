@@ -38,9 +38,9 @@ const STOP_ICON = `<svg ${IC_ATTRS}><rect x="6" y="6" width="12" height="12" rx=
  * 버튼인지 알 길이 없다.
  */
 const MIC_STATE = {
-  idle: { icon: MIC_ICON, label: '음성 입력' },
+  idle: { icon: MIC_ICON, label: '말해서 답하기' },
   opening: { icon: MIC_ICON, label: '마이크 여는 중' },
-  dictating: { icon: STOP_ICON, label: '음성 입력 멈추기' },
+  dictating: { icon: STOP_ICON, label: '그만 말하기' },
   recording: { icon: STOP_ICON, label: '녹음 멈추고 받아쓰기' },
   transcribing: { icon: MIC_ICON, label: '받아쓰는 중' },
 };
@@ -254,7 +254,7 @@ function renderQaLive() {
   // 두 곳에서 계산하게 되고, 실제로 진행률 정의가 갈렸다(+.35 보정 vs 지나온 수)
   const learningStep = L.turn ? 3 : (L.hintLevel ? 2 : 1);
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
+    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
     <div class="qa-shell">
       <aside class="qa-context">
         ${liveQuestHtml()}
