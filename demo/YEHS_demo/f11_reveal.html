@@ -347,6 +347,24 @@
     .caption { flex: 0 0 280px; min-height: 0; padding: 0 0 40px 4px; }
     .stage { align-self: stretch; }
     #summaryScene { padding: 8px 40px 24px; }
+    /* 결과를 세로로 쌓으면 발견·비중·판정·산점도·CTA 가 한 화면을 넘겨서
+       정작 「분석을 마쳤어요」가 스크롤 밖으로 밀렸다. 읽는 것은 왼쪽,
+       보는 것(산점도)과 다음 행동(CTA)은 오른쪽에 둬 한 장에 담는다 */
+    body.embed #summaryScene {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+      /* CTA 를 오른쪽 아래 칸에 두면 왼쪽 판정 목록 높이에 밀려 화면 밖으로
+         나간다(실측 top 1004 > 760). 산점도 바로 밑에 붙여 위로 당긴다 */
+      grid-template-areas: "find scat" "big scat" "row cta" "verd cta";
+      column-gap: 32px; align-content: start;
+    }
+    body.embed #summaryScene .finding { grid-area: find; }
+    body.embed #summaryScene .big-metric { grid-area: big; }
+    body.embed #summaryScene .metric-row { grid-area: row; }
+    body.embed #summaryScene .verdict-list { grid-area: verd; align-self: start; }
+    body.embed #summaryScene .mini-scatter { grid-area: scat; align-self: start; margin-top: 4px; }
+    body.embed #summaryScene .cta-wrap { grid-area: cta; align-self: start; margin-top: 18px; }
   }
 
   /* 아이패드 가로(1366x1024). 100vh 를 채우라고 하면 캡션은 가운데 왼쪽,
@@ -368,14 +386,19 @@
       display: grid; align-items: start;
       grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
       grid-template-rows: auto auto 1fr;
-      grid-template-areas: "cap work" "bar work" "bar stage";
+      /* 「지금까지 한 일」을 왼쪽 아래로 내렸다. 오른쪽 위에 있으면 그래프가
+         자라는 자리를 위에서 눌러서, 정작 주인공인 개념 그래프가 아래쪽
+         한 조각만 쓰게 된다 — 왼쪽 기둥은 읽는 것, 오른쪽은 보는 것 */
+      grid-template-areas: "cap stage" "bar stage" "work stage";
       gap: 4px 32px; padding: 8px 28px 0;
     }
     body.embed .caption { grid-area: cap; flex: none; padding: 0; min-height: 0; }
     body.embed .waitbar { grid-area: bar; align-self: start; padding: 0; margin: 14px 0 0; }
-    body.embed .workbench { grid-area: work; padding: 0; }
+    body.embed .workbench { grid-area: work; padding: 14px 0 0; align-self: start; }
     body.embed .stage { grid-area: stage; align-self: stretch; min-height: 0; }
-    /* 요약이 뜨면 대기 배치는 걷고 한 장으로 되돌린다 */
+    /* 요약이 뜨면 바깥 두 기둥은 걷는다. 그래야 아래 #summaryScene 안쪽의
+       좌우 분할이 화면 폭을 온전히 나눠 쓴다 — 바깥·안쪽이 둘 다 쪼개면
+       네 조각이 되어 글자가 두 줄씩 접힌다 */
     body.embed .main:has(#summaryScene.show) {
       grid-template-columns: minmax(0, 1fr);
       grid-template-areas: "cap" "bar" "stage";
@@ -1514,6 +1537,55 @@ function showFailEnding() {
     if (el) el.style.display = "none";
   }
   $("summaryScene").classList.add("show");
+  celebrate();
+}
+
+/**
+ * 결과가 뜨는 순간의 축포.
+ *
+ * 7분을 기다린 사람에게 결과가 툭 나타나면 그건 통보다. 한 번, 1.4초, 그 순간에만
+ * 터진다 — 반복하거나 화면을 가리지 않는다 (UI_REDESIGN §14: 연출은 얹는 층이다).
+ * 모션을 줄인 환경에서는 아무 일도 일어나지 않고 결과만 그대로 뜬다.
+ */
+function celebrate() {
+  if (REDUCED || skipped) return;
+  const host = document.querySelector(".phone") || document.body;
+  const cv = document.createElement("canvas");
+  const r = host.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:60";
+  host.appendChild(cv);
+  const g = cv.getContext("2d");
+  g.scale(dpr, dpr);
+  const COLORS = ["#0E8850", "#3fd599", "#F0B429", "#9333EA", "#0A8F68"];
+  const bits = Array.from({ length: 90 }, () => ({
+    x: r.width * (0.25 + Math.random() * 0.5),
+    y: r.height * 0.42 + Math.random() * 30,
+    vx: (Math.random() - 0.5) * 9,
+    vy: -6 - Math.random() * 8,
+    rot: Math.random() * Math.PI,
+    vr: (Math.random() - 0.5) * 0.32,
+    w: 5 + Math.random() * 5,
+    h: 8 + Math.random() * 7,
+    c: COLORS[Math.floor(Math.random() * COLORS.length)],
+  }));
+  const t0 = performance.now();
+  (function frame(now) {
+    const t = (now - t0) / 1400;
+    if (t >= 1) { cv.remove(); return; }
+    g.clearRect(0, 0, r.width, r.height);
+    g.globalAlpha = t > 0.72 ? (1 - t) / 0.28 : 1;
+    for (const b of bits) {
+      b.x += b.vx; b.y += b.vy; b.vy += 0.42; b.vx *= 0.995; b.rot += b.vr;
+      g.save();
+      g.translate(b.x, b.y); g.rotate(b.rot);
+      g.fillStyle = b.c;
+      g.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+      g.restore();
+    }
+    requestAnimationFrame(frame);
+  })(t0);
 }
 
 /**
