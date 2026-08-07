@@ -239,8 +239,25 @@ main.narrow { max-width: 640px; }
    맞는 18 로 두고 선 두께로 또렷함을 지킨다 (항목당 하나만 쓴다) */
 .chips .chip-ico { flex: none; width: 18px; height: 18px; opacity: .85; }
 .chips button.on .chip-ico { opacity: 1; }
+/* 고른 것은 확실히 골라 보여야 한다. 연한 민트 면에 초록 글씨는 「눌렀나?」를
+   한 번 더 확인하게 만들었다 — 고른 칩은 브랜드 면을 통째로 입는다.
+   (시간 프리셋이 이미 그렇게 하고 있어서 둘의 말이 서로 달랐다) */
+.chips button:hover { background: var(--border); }
 .chips button:active { transform: scale(.96); }
-.chips button.on { background: var(--blue-weak); color: var(--blue); }
+.chips button.on,
+.chips button.on:hover {
+  background: var(--brand); color: #fff;
+  box-shadow: 0 2px 10px rgba(10, 132, 89, .28);
+}
+/* 카운트업이 굴리는 숫자. em 은 의미상 강조라 쓰되 기울이지는 않는다 */
+.time-detail em { font-style: normal; font-variant-numeric: tabular-nums; }
+.time-presets button { transition: transform .12s var(--ease), background .15s ease, color .15s ease; }
+.time-presets button:hover { background: var(--border); }
+.time-presets button.on:hover { background: var(--brand-strong); }
+.time-presets button:active { transform: scale(.94); }
+/* 주 버튼은 눌리는 게 손끝에 잡혀야 한다 */
+.btn-primary { transition: transform .12s var(--ease), background .15s ease, box-shadow .15s ease; }
+.btn-primary:active { transform: scale(.985); }
 
 /* ── 채움 바 (애니메이션 공용) ── */
 .fill-bar { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; }
@@ -805,7 +822,8 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .detail-meta { font-size: 13px; color: var(--text-3); margin-bottom: 14px; }
 /* 판정 상세: 해당 슬라이드 크게 */
 .judge-slide { margin: 0 0 18px; border: 2px solid var(--border); border-radius: var(--r-print); overflow: hidden; }
-.judge-slide img { width: 100%; display: block; }
+/* 캔버스는 올린 PDF 원본 렌더다 — 썸네일을 늘리면 부스 화면에서 뭉갠다 */
+.judge-slide img, .judge-slide canvas { width: 100%; height: auto; display: block; }
 .judge-slide figcaption { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; font-weight: 500; color: var(--text-2); background: var(--fill); }
 .judge-slide figcaption .num { color: var(--text-3); }
 .judge-slide.st-ok { border-color: var(--ok); }
@@ -906,6 +924,10 @@ details.fold .fold-body { padding: 0 24px 20px; }
 }
 
 .slide-pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 음성 습관 탭은 세로 한 줄이다 — 접어 둔 칸 없이 위에서 아래로 읽힌다 */
+.voice-stack { display: flex; flex-direction: column; gap: 14px; }
+/* gap 이 간격을 맡으므로 .card + .card 의 14px 를 여기서만 끈다 (안 그러면 28px 가 된다) */
+.voice-stack > *, .voice-stack > .card + .card { margin-top: 0; }
 .slide-pill {
   display: inline-flex; align-items: center; gap: 10px;
   border: 0; cursor: pointer; text-align: left;
@@ -1068,13 +1090,10 @@ details.fold .fold-body { padding: 0 24px 20px; }
   .voice-plot-wrap { min-height: 180px; }
 }
 
-/* 연습 도구 */
-.seg-ctl { display: inline-flex; gap: 2px; padding: 4px; background: var(--fill); border-radius: var(--r-print); margin-bottom: 16px; }
-.seg-ctl button {
-  padding: 7px 14px; border: 0; border-radius: var(--r-ctl); background: none; cursor: pointer;
-  font-size: 13px; font-weight: 500; color: var(--text-2); transition: all .15s ease;
-}
-.seg-ctl button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(24, 24, 27, .08); }
+/* 연습 도구 — 안쪽 세그먼트 메뉴를 없앤 뒤로 네 도구가 한 화면에 세로로 이어진다.
+   제목이 구분선을 겸해야 어디서 도구가 바뀌는지 보인다 */
+.tool-sec + .tool-sec { margin-top: 28px; padding-top: 26px; border-top: 1px solid var(--border); }
+.tool-sec-title { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
 .map-tools { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; user-select: none; }
 .map-box { background: var(--surface); border-radius: var(--r-inner); overflow: hidden; box-shadow: var(--shadow); }
@@ -1797,7 +1816,7 @@ table.plain tr:last-child td { border-bottom: 0; }
 /* ── 리포트: 슬라이드 덱 뷰 ── */
 .deck-main { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; align-items: start; }
 .deck-stage { margin: 0; border: 2px solid var(--border); border-radius: var(--r-print); overflow: hidden; }
-.deck-stage img { width: 100%; display: block; }
+.deck-stage img, .deck-stage canvas { width: 100%; height: auto; display: block; }
 .deck-stage figcaption { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 12px; font-weight: 500; color: var(--text-2); background: var(--fill); }
 .deck-stage figcaption .num { color: var(--text-3); }
 .deck-stage figcaption em { margin-left: auto; font-style: normal; font-weight: 700; }

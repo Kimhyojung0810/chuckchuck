@@ -1304,7 +1304,7 @@ function nfStep1() {
       : '슬라이드 텍스트를 기준으로 개념을 추출할 준비가 됐어요.';
     box.innerHTML = `
       <div class="card">
-        <div class="gate-ok">${titles.length}장에서 핵심 개념 후보를 준비했어요</div>
+        <div class="gate-ok">${titles.length}장을 슬라이드별로 읽었어요</div>
         <div class="thumbs">
           ${titles.map((t, i) => `
           <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" data-thumb-page="${i + 1}" alt="${i + 1}번 슬라이드" loading="lazy"><span><b>${i + 1}</b>${escapeHtml(t)}</span></div>`).join('')}
@@ -1406,15 +1406,41 @@ function occIcon(occ) {
     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 }
 
+/* ─── 고른 순간의 손맛 ────────────────────────────────────────────────
+   모션은 예뻐 보이려고 넣는 게 아니라 「내가 눌렀고, 그게 먹혔다」를 몸이 알게
+   하려고 넣는다. 스프링이 살짝 넘쳤다 돌아오는 0.4초가 그 신호다.
+   Motion 이 없거나 모션 최소화면 아무 일도 안 일어나고 기능은 그대로다. */
+function motionOn() {
+  return !!(window.Motion && window.Motion.animate)
+    && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+function springPick(el) {
+  if (!el || !motionOn()) return;
+  window.Motion.animate(el, { scale: [0.94, 1] },
+    { type: 'spring', stiffness: 520, damping: 17 });
+}
+
+/** 화면이 한꺼번에 나타나면 어디부터 볼지 모른다. 위에서부터 차례로 들어온다 */
+function staggerIn(nodes) {
+  const list = Array.from(nodes || []).filter(Boolean);
+  if (!list.length || !motionOn()) return;
+  window.Motion.animate(list, { opacity: [0, 1], y: [10, 0] },
+    { delay: window.Motion.stagger(0.055), duration: 0.34, ease: [0.22, 1, 0.36, 1] });
+}
+
 function nfStep2() {
   /* 채점표 v3 의 상황 4열 그대로다. 라벨을 그대로 보내면 서버(rubric_v3.resolve_situation)가
      상황 key 로 옮긴다 — 프론트가 key 를 따로 들고 있지 않아도 되고, 이 문장이 F-06·07·11
      프롬프트에도 그대로 들어가서 한국어로 읽힌다. 문구를 바꾸면 가중치가 바뀐다. */
+  /* 보내는 값은 위 계약 문자열 그대로, 화면에 보이는 말만 바꾼다.
+     「교수 대상」·「상사 대상」은 사람이 쓰는 말이 아니다 — 누구 앞에서
+     무엇을 하는지 한 문장으로 말한다 (해요체·능동형, CLAUDE.md §3-1) */
   const occs = [
-    '학교 프로젝트 (교수 대상)',
-    '신제품 설명 (대중 대상)',
-    '업무 보고 (상사 대상)',
-    '동료 간 캐주얼 PR',
+    ['학교 프로젝트 (교수 대상)', '수업에서 발표해요'],
+    ['신제품 설명 (대중 대상)', '제품을 소개해요'],
+    ['업무 보고 (상사 대상)', '팀에 보고해요'],
+    ['동료 간 캐주얼 PR', '동료에게 공유해요'],
   ];
   const times = [3, 5, 10, 15, 20, 30];
   const titles = activeTitles();
@@ -1426,7 +1452,7 @@ function nfStep2() {
       <div class="field">
         <label>발표 상황</label>
         <div class="chips" id="occ">
-          ${occs.map(o => `<button class="${nf.occ === o ? 'on' : ''}" data-occ="${o}">${occIcon(o)}<span>${o}</span></button>`).join('')}
+          ${occs.map(([val, label]) => `<button class="${nf.occ === val ? 'on' : ''}" data-occ="${val}">${occIcon(val)}<span>${label}</span></button>`).join('')}
         </div>
       </div>
       <div class="field">
@@ -1439,7 +1465,7 @@ function nfStep2() {
           ${times.map(t => `<button class="${nf.min === t ? 'on' : ''}" data-min="${t}">${t}분</button>`).join('')}
         </div>
         <div class="time-detail">
-          <p><b>${titles.length}장 기준 장당 약 ${perSlide}초</b><span>질문 시간을 포함하면 1~2분 여유를 두는 게 좋아요.</span></p>
+          <p><b>${titles.length}장 기준 장당 약 <em id="perSlide">${perSlide}</em>초</b><span>질문 시간을 포함하면 1~2분 여유를 두는 게 좋아요.</span></p>
         </div>
       </div>
     </div>
@@ -1447,6 +1473,8 @@ function nfStep2() {
       <button class="btn btn-primary" id="go">녹음하러 가기</button>
       <button class="btn btn-text" id="skip">건너뛰기</button>
     </div>`;
+  staggerIn($$('#nf .nf-head, #nf .nf-head-sub, #nf .field, #nf .step-actions'));
+
   $('#occ').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     // data-occ 로 읽는다. textContent 로 읽으면 버튼 안에 아이콘·부가 문구를
@@ -1454,12 +1482,22 @@ function nfStep2() {
     // 매핑하므로(school_project 등) 조용히 기본 가중치로 떨어진다.
     nf.occ = b.dataset.occ || b.textContent.trim();
     $$('#occ button').forEach(x => x.classList.toggle('on', x === b));
+    springPick(b);
     saveSession('new-flow', nf);
   });
   $('#ctx').addEventListener('input', e => { nf.ctx = e.target.value; saveSession('new-flow', nf); });
+  /* 예전엔 여기서 nfStep2() 를 통째로 다시 그렸다. 화면이 한 번 깜빡이면서
+     방금 누른 버튼이 새 노드로 갈리니 눌린 느낌이 사라지고, 바뀐 숫자도
+     그냥 다른 값으로 교체돼 무엇이 변했는지 안 보였다. 제자리에서 고친다 */
   $('#timePresets').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    nf.min = Number(b.dataset.min); nfStep2(); saveSession('new-flow', nf);
+    nf.min = Number(b.dataset.min);
+    $$('#timePresets button').forEach(x => x.classList.toggle('on', x === b));
+    springPick(b);
+    const per = $('#perSlide');
+    const next = Math.round(nf.min * 60 / activeTitles().length);
+    if (per) countUp(per, next, 420);      // 숫자가 굴러가면 무엇이 바뀌었는지 눈이 따라간다
+    saveSession('new-flow', nf);
   });
   // 녹음 화면으로 넘어가는 순간 자료 축(F-06·F-07)을 먼저 건다 — 발표하는 동안 돈다
   $('#go').addEventListener('click', () => { startPrecompute(); nf.step = 2; renderNew(); });
@@ -3491,7 +3529,7 @@ function reportSessionMeta() {
   };
 }
 
-let rTab = 0, jSel = 'contrast', jFilter = 'all', toolSeg = 0, mapWeakOnly = false, repSlide = 7;
+let rTab = 0, jSel = 'contrast', jFilter = 'all', mapWeakOnly = false, repSlide = 7;
 
 /**
  * 판정 헤드에 필요한 값만 모은다.
@@ -4728,6 +4766,7 @@ function rJudge() {
       : (isLiveReportSession()
         ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요. 샘플(IMU2CLIP)로 대체하지 않았어요.'
         : '⚠️ 지금 보는 건 <b>샘플 데이터</b>예요. 리허설을 마치면 내 발표 결과로 바뀌어요.')}</p>`;
+  paintDeckStage($('#rbody'));   // 판정 화면의 슬라이드도 올린 자료 원본으로 그린다
   $('#jf').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     jFilter = b.dataset.f; rJudge(); animateViz($('#rbody'));
@@ -4762,7 +4801,7 @@ function jDetail(n, tree = DATA.tree) {
     ${Object.keys(checks).length ? `<div class="checks">
       ${Object.entries(checks).map(([k, v]) => `<span class="${v ? 'y' : ''}">${v ? '✓' : '—'} ${escapeHtml(k)}</span>`).join('')}
     </div>` : ''}
-    ${n.status === 'ct' ? `
+    ${n.status === 'ct' && n.docSays ? `
     <div class="drow"><b>자료와 발화 비교</b>
       <span class="bubble-label" style="margin-top:0">자료에 적힌 것</span>
       <div class="bubble">“${n.docSays}”</div>
@@ -5052,12 +5091,13 @@ function rPace() {
     // 처방 문구는 진단 블록이 한 번만 말한다 — 예전 voice-tip 과 중복이었다
     const diffLabel = timeDiffJudge(livePace.target_sec, livePace.actual_sec);
     const speedLabel = cpmJudge(Math.round(avg), livePace.recommended_cpm);
+    /* 「짧게 말한 핵심 장」 상자는 뺐다 — 같은 사실을 위 그래프가 이미 말한다
+       (핵심 장은 S번호가 파랑, 짧은 장은 막대 색이 다르다). 판정 헤드의 처방과
+       상자 제목까지 세 번 반복돼서 화면이 길어지기만 했다. */
     const timeCards = `
       <div class="card voice-chart-card">${voiceTimeChartHtml(livePace)}</div>
       <div class="card">
-        <h3 class="section-title">짧게 말한 핵심 장<span class="soft">여기 시간을 늘려보세요</span></h3>
-        <div class="slide-pill-row">${slidePillHtml(easy.shortCore, 'short')}</div>
-        <h3 class="section-title" style="margin-top:18px">길게 말한 장<span class="soft">여기를 줄이면 목표에 더 가까워져요</span></h3>
+        <h3 class="section-title">길게 말한 장<span class="soft">여기를 줄이면 목표에 더 가까워져요</span></h3>
         <div class="slide-pill-row">${slidePillHtml(easy.longOnes, 'long')}</div>
       </div>`;
     const fillerCard = `
@@ -5066,18 +5106,19 @@ function rPace() {
         ${fillers.length ? `<div class="filler-cloud">${fillers.map((f, i) => `<span class="filler-chip size-${Math.min(4, Math.max(1, f.n))}" style="--i:${i}"><b>${escapeHtml(f.text)}</b><small>${f.n}회</small></span>`).join('')}</div>
           <p class="note" style="margin-top:12px">박스가 클수록 더 자주 나왔어요.</p>` : `<p class="note">눈에 띄는 간투어는 거의 없었어요. 좋아요!</p>`}
       </div>`;
-    // 진단이 시간 문제면 시간 카드를 펼치고 간투어를 접는다 — 반대면 그 반대
-    const timeFirst = !!(easy.shortCore.length || easy.longOnes.length) || !fillers.length;
+    /* 세로 한 줄로 편다. 예전엔 진단에 따라 시간·간투어 중 하나를 접어 뒀는데,
+       접힌 쪽은 있는 줄도 모르고 지나갔다 — 둘 다 이 탭의 본문이다. */
     $('#rbody').innerHTML = `
-      ${tabVerdictHtml(voiceVerdict(easy, livePace))}
-      <div class="stat-row voice-stat-row">
-        <div class="stat-card pop-in" style="--i:0"><small>목표 시간</small><strong>${easy.target}</strong></div>
-        <div class="stat-card pop-in" style="--i:1"><small>내가 쓴 시간</small><strong>${easy.actual}</strong>${diffLabel ? `<p class="note" style="margin-top:4px">${diffLabel}</p>` : ''}</div>
-        <div class="stat-card pop-in" style="--i:2"><small>평균 말 속도</small><strong class="num" data-count="${Math.round(avg)}">0</strong><span class="unit">자/분</span>${speedLabel ? `<p class="note" style="margin-top:4px">${speedLabel}</p>` : ''}</div>
-      </div>
-      ${timeFirst ? timeCards : fillerCard}
-      <details class="fold"><summary>${timeFirst ? '간투어·말버릇 더 보기' : '장별 시간 더 보기'}</summary>
-        <div class="fold-body">${timeFirst ? fillerCard : timeCards}</div></details>`;
+      <div class="voice-stack">
+        ${tabVerdictHtml(voiceVerdict(easy, livePace))}
+        <div class="stat-row voice-stat-row">
+          <div class="stat-card pop-in" style="--i:0"><small>목표 시간</small><strong>${easy.target}</strong></div>
+          <div class="stat-card pop-in" style="--i:1"><small>내가 쓴 시간</small><strong>${easy.actual}</strong>${diffLabel ? `<p class="note" style="margin-top:4px">${diffLabel}</p>` : ''}</div>
+          <div class="stat-card pop-in" style="--i:2"><small>평균 말 속도</small><strong class="num" data-count="${Math.round(avg)}">0</strong><span class="unit">자/분</span>${speedLabel ? `<p class="note" style="margin-top:4px">${speedLabel}</p>` : ''}</div>
+        </div>
+        ${timeCards}
+        ${fillerCard}
+      </div>`;
     return;
   }
   const real = realPace();
@@ -5162,19 +5203,27 @@ function rPace() {
       </div></details>`;
 }
 
-/* 탭 5 — 연습 도구 */
+/* 탭 5 — 연습 도구.
+   안쪽 세그먼트 메뉴를 없애고 네 도구를 한 번에 세로로 편다. 탭 안에 탭이 있어서
+   「발표 구성」 말고 세 개가 있다는 걸 모르고 지나가는 사람이 많았다.
+   도구마다 host 를 따로 주는 이유: 넷이 다 같은 #toolBody 에 쓰면 서로 지웠다. */
+const TOOL_SECTIONS = [
+  { label: '발표 구성', id: 'toolStrategy', render: (host) => tStrategy(host) },
+  { label: '개요 이미지', id: 'toolMap', render: (host) => tMap(host) },
+  { label: '펀치라인', id: 'toolPunch', render: (host) => tPunch(host) },
+  { label: '용어 카드', id: 'toolTerms', render: (host) => tTerms(host) },
+];
+
 function rTools() {
-  const segs = ['발표 구성', '개요 이미지', '펀치라인', '용어 카드'];
-  $('#rbody').innerHTML = `
-    <div class="seg-ctl" id="seg">
-      ${segs.map((t, i) => `<button class="${i === toolSeg ? 'on' : ''}">${t}</button>`).join('')}
-    </div>
-    <div id="toolBody"></div>`;
-  $('#seg').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    toolSeg = $$('#seg button').indexOf(b); rTools();
+  $('#rbody').innerHTML = TOOL_SECTIONS.map(s => `
+    <section class="tool-sec">
+      <h2 class="section-title tool-sec-title">${s.label}</h2>
+      <div id="${s.id}"></div>
+    </section>`).join('');
+  TOOL_SECTIONS.forEach(s => {
+    const host = $(`#${s.id}`);
+    if (host) s.render(host);
   });
-  [tStrategy, tMap, tPunch, tTerms][toolSeg]();
 }
 
 /**
@@ -5252,13 +5301,14 @@ function strategyAnalysis() {
   };
 }
 
-function tStrategy() {
+function tStrategy(host = $('#toolStrategy')) {
+  if (!host) return;
   if (!window.ReportStrategy) {
-    $('#toolBody').innerHTML = `
+    host.innerHTML = `
       <div class="card"><p class="note">구성 제안 모듈을 불러오지 못했어요.</p></div>`;
     return;
   }
-  window.ReportStrategy.render($('#toolBody'), {
+  window.ReportStrategy.render(host, {
     sessionId: strategySessionKey(),
     analysis: strategyAnalysis(),
     // 실데이터면 버튼 없이 바로 제안 (샘플은 눌러야 — 구경만 해도 LLM 이 돌면 안 된다)
@@ -5389,20 +5439,21 @@ function mapSvgString() {
   return `<svg viewBox="0 0 880 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개념 지도"><rect width="880" height="280" fill="#FFFFFF"/>${links}${boxes}</svg>`;
 }
 
-function tMap() {
+function tMap(host = $('#toolMap')) {
+  if (!host) return;
   if (isLiveReportSession() && !liveMapNodes()) {
-    $('#toolBody').innerHTML = toolEmptyHtml('개념 지도를');
+    host.innerHTML = toolEmptyHtml('개념 지도를');
     return;
   }
-  $('#toolBody').innerHTML = `
+  host.innerHTML = `
     <div class="map-tools">
       <label class="toggle"><input type="checkbox" id="weakOnly" ${mapWeakOnly ? 'checked' : ''}> 취약 개념만 보기</label>
       <button class="btn btn-secondary btn-sm" id="dl">SVG로 저장</button>
     </div>
     <div class="map-box">${mapSvgString()}</div>
     <p class="note" style="margin-top:10px">발표 직전에 이 그림 한 장으로 전체 구조와 신경 쓸 개념을 확인하세요.</p>`;
-  $('#weakOnly').addEventListener('change', e => { mapWeakOnly = e.target.checked; tMap(); });
-  $('#dl').addEventListener('click', () => {
+  $('#weakOnly', host).addEventListener('change', e => { mapWeakOnly = e.target.checked; tMap(host); });
+  $('#dl', host).addEventListener('click', () => {
     const blob = new Blob([mapSvgString()], { type: 'image/svg+xml' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -5411,14 +5462,15 @@ function tMap() {
   });
 }
 
-function tPunch() {
+function tPunch(host = $('#toolPunch')) {
+  if (!host) return;
   const live = isLiveReportSession();
   const list = live ? livePunchlines() : DATA.punchlines;
   if (live && (!list || !list.length)) {
-    $('#toolBody').innerHTML = toolEmptyHtml('펀치라인을');
+    host.innerHTML = toolEmptyHtml('펀치라인을');
     return;
   }
-  $('#toolBody').innerHTML = `
+  host.innerHTML = `
     ${list.map(p => `
     <div class="card punch-card">
       <p class="phrase">“${escapeHtml(p.main)}”</p>
@@ -5430,14 +5482,15 @@ function tPunch() {
       : '내 말투 기반으로 만들었어요 · 실제 발화의 “~구조입니다” 패턴 반영'}</p>`;
 }
 
-function tTerms() {
+function tTerms(host = $('#toolTerms')) {
+  if (!host) return;
   const live = isLiveReportSession();
   const list = live ? liveTerms() : DATA.terms;
   if (live && (!list || !list.length)) {
-    $('#toolBody').innerHTML = toolEmptyHtml('용어 카드를');
+    host.innerHTML = toolEmptyHtml('용어 카드를');
     return;
   }
-  $('#toolBody').innerHTML = `
+  host.innerHTML = `
     ${list.map(t => `
     <div class="card">
       <div class="term-top"><h3>${escapeHtml(t.term)}</h3>${chip(t.status, true)}<span class="sl">근거: ${slideNumber(t.slide)}번 슬라이드</span></div>
