@@ -2772,12 +2772,19 @@ function pipelineTimelineLayout(model, trackW, minW) {
   const axis = model.filter((m) => !['pre', 'instant'].includes(m.state));
   const spans = axis.map((m) => Math.max(0.5, (m.sec || 0) + (m.ghostSec || 0)));
   const totalSec = spans.reduce((a, b) => a + b, 0) || 1;
-  let widths = spans.map((s) => (s / totalSec) * trackW);
+  /* 축의 최소 길이. 캐시가 다 맞아 전체가 10초쯤이면 축이 그 10초에 맞춰 늘어나
+     눈금이 촘촘해지고 「다 끝났는데 왜 이러지」 싶게 답답해 보인다. 30초를
+     바닥으로 두면 짧은 실행은 축의 앞부분만 쓰고 뒤가 남는다 — 남은 자리는
+     아무것도 주장하지 않는 빈 트랙이라 거짓말이 아니다.
+     실행이 30초를 넘으면 이 바닥은 아무 일도 하지 않는다. */
+  const axisSec = Math.max(totalSec, PIPELINE_TL_MIN_AXIS_SEC);
+  const usableW = trackW * (totalSec / axisSec);
+  let widths = spans.map((s) => (s / totalSec) * usableW);
   for (let pass = 0; pass < 2; pass += 1) {
     const clamped = widths.map((w) => w < minW);
     const fixed = clamped.reduce((a, c) => a + (c ? minW : 0), 0);
     const rawFree = widths.reduce((a, w, i) => a + (clamped[i] ? 0 : w), 0);
-    const scale = rawFree > 0 ? Math.max(0, trackW - fixed) / rawFree : 0;
+    const scale = rawFree > 0 ? Math.max(0, usableW - fixed) / rawFree : 0;
     widths = widths.map((w, i) => (clamped[i] ? minW : w * scale));
   }
   let secAt = 0;
@@ -2788,17 +2795,22 @@ function pipelineTimelineLayout(model, trackW, minW) {
     pxAt += widths[i];
     return p;
   });
+  const usedPx = pxAt;
   const secToPx = (s) => {
     for (let i = 0; i < pieces.length; i += 1) {
       const p = pieces[i];
-      if (s <= p.sec0 + p.secLen || i === pieces.length - 1) {
+      if (s <= p.sec0 + p.secLen) {
         const f = p.secLen > 0 ? Math.min(1, Math.max(0, (s - p.sec0) / p.secLen)) : 0;
         return p.px0 + p.pxLen * f;
       }
     }
-    return 0;
+    /* 단계가 끝난 뒤 남은 축(30초 바닥이 만든 꼬리)은 균등하게 편다 —
+       눈금이 여기 놓일 수 있으므로 매핑이 끊기면 안 된다 */
+    const tailSec = Math.max(0.001, axisSec - totalSec);
+    const k = Math.min(1, Math.max(0, (s - totalSec) / tailSec));
+    return usedPx + (trackW - usedPx) * k;
   };
-  return { pieces, totalSec, secToPx };
+  return { pieces, totalSec, axisSec, secToPx };
 }
 
 /** 타임라인 뼈대 — 마운트마다 한 번만 그린다. 이후엔 페인터가 폭·상태만 갈아끼운다 */
@@ -2840,6 +2852,9 @@ function tlSecText(m) {
 }
 
 const PIPELINE_TL_MIN_PX = { full: 44, compact: 30 };
+/* 축이 이보다 짧아지지는 않는다 — 캐시가 다 맞아 10초에 끝나면 눈금이 촘촘해져
+   답답해 보인다 (2026-08-07 사용자 요청) */
+const PIPELINE_TL_MIN_AXIS_SEC = 30;
 
 /** 새 행·칩의 등장 한 번. Motion 스프링이 있으면 쓰고, 없거나 모션 최소화면 그냥 보여준다 */
 function motionPop(el) {
@@ -2937,10 +2952,10 @@ function paintPipelineTimeline() {
       const TICK_MIN_PX = 62;
       const maxTicks = Math.max(2, Math.floor(trackW / TICK_MIN_PX));
       const iv = [1, 2, 5, 10, 15, 30, 60, 120, 300].find(
-        (s) => layout.totalSec / s <= maxTicks) || 600;
+        (s) => layout.axisSec / s <= maxTicks) || 600;
       const want = [];
       /* 마지막 눈금이 오른쪽 끝에 딱 붙으면 잘린 것처럼 보인다. 한 칸 앞에서 멈춘다 */
-      for (let s = iv; s < layout.totalSec - iv * 0.35; s += iv) want.push(s);
+      for (let s = iv; s < layout.axisSec - iv * 0.35; s += iv) want.push(s);
       const seen = new Set(want.map(String));
       Array.from(ruler.querySelectorAll('.tl-tick')).forEach((t) => {
         if (!seen.has(t.dataset.sec)) t.remove();
