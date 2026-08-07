@@ -24,6 +24,15 @@ window.QaHistory = (function () {
       return raw ? JSON.parse(raw) : {};
     } catch (err) {
       console.error('QA 내역을 읽지 못했어요:', err);
+      // 손상 원본을 백업으로 옮긴다 — 그대로 두면 다음 save 가 {} 위에
+      // 덮어써 30건이 통째로 사라진다. 백업이면 복구 여지가 남는다.
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) {
+          localStorage.setItem(KEY + ':corrupt', raw);
+          localStorage.removeItem(KEY);
+        }
+      } catch (_) { /* privacy mode */ }
       return {};
     }
   }

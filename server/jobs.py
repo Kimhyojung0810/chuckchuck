@@ -308,7 +308,9 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
         llm=llm,
     )
 
-    payload = doc.to_dict()
+    # 힌트 사다리를 얹는다 — 브리지·동기 라우트와 같은 응답이어야 한다.
+    from chuckchuck.f08_questions import with_hint_ladders
+    payload = with_hint_ladders(doc.to_dict(), doc.questions)
     store.put_artifact(session_id, QUESTION_DOC, payload)
     _progress(job_id, "questions_done", f"예상 질문 {len(doc.questions)}개")
     return payload

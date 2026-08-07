@@ -273,7 +273,10 @@ function renderLiveCheckpoint() {
   const passed = !!C.record.passed;
   const score = Math.max(0, Math.min(100, Math.round(v.score || 0)));
   const missing = (v.missing_points || []).filter(Boolean).slice(0, 2);
-  const modelAnswer = q.answer_gist || v.explanation || v.summary_sentence || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
+  // explanation 이 먼저다 — 「모르겠어요」 2회로 받은 맞춤 해설인데, gist 를
+  // 앞세우면 F-08 폴백이 항상 차 있어 이 분기가 영영 죽는다. explanation 은
+  // explain 코칭에서만 채워지므로 일반 경로의 표시는 변하지 않는다.
+  const modelAnswer = v.explanation || q.answer_gist || v.summary_sentence || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
   const nextLabel = L.qi + 1 >= L.questions.length ? '결과 확인하기' : `다음 질문으로 · ${L.qi + 2}/${L.questions.length}`;
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 ${L.qi + 1}/${L.questions.length}</span></div>
@@ -713,7 +716,9 @@ function qaLiveEnd() {
     saveSession('new-flow', nf);
   }
   saveSession('qa-flow', qa);
-  recordQaHistory();
+  // 저장 성공 여부를 상단 라벨이 그대로 말한다 — 실패했는데 "저장됨" 이라고
+  // 하면 사용자는 기록이 있는 줄 알고 떠난다 (§14 정직한 상태 유지).
+  const historySaved = recordQaHistory();
   const L = qa.live;
   const chipCls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' };
   const chipWord = { good: '설득 완료', partial: '부분 인정', wrong: '미방어', unknown: '보류', skipped: '넘김' };
@@ -753,7 +758,7 @@ function qaLiveEnd() {
     </button>`;
 
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>코칭 기록 저장됨</span></div>
+    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
     <div class="card cere-card qres">
       <p class="qres-eyebrow">실전 질문 코칭 결과</p>
       <!-- 숫자는 아래 묶음과 반드시 같아야 한다. liveWonCount 는 부분 인정을

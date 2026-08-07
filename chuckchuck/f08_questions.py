@@ -881,23 +881,33 @@ def _fallback_text(
         why = _WHY_BY_SOURCE.get(mark.source, _WHY_BY_SOURCE[QA_SOURCE_FALLBACK])
 
     if node.slide_nos:
-        nos = ", ".join(str(n) for n in node.slide_nos)
-        hint = f"{nos}장에서 이 개념을 어떻게 설명했는지 떠올려 보세요"
+        # 사다리 2단(_hint_scope)과 같은 절단 — 12장을 다 나열하면 좁혀 주기는커녕
+        # 아무 정보도 없다. 문구는 2단과 다르게 둔다: 같으면 build_hint_ladder 의
+        # 중복 제거가 2단을 지워 사다리가 한 칸 짧아진다.
+        shown = node.slide_nos[:HINT_SLIDE_MAX]
+        nos = ", ".join(str(n) for n in shown)
+        extra = f" 외 {len(node.slide_nos) - len(shown)}장" if len(node.slide_nos) > len(shown) else ""
+        hint = f"{nos}장{extra}에 이 개념을 둔 이유부터 떠올려 보세요"
     else:
         hint = "자료에서 이 개념을 왜 다뤘는지부터 짚어 보세요"
     return question, why, hint
 
 
-def _fallback_gist(node: ConceptNode) -> str:
+def _fallback_gist(node: ConceptNode, *, trap: bool = False) -> str:
     """
     LLM 이 골자를 빠뜨렸을 때 자료로 조립하는 결정적 문장.
 
     비워 두면 되묻기가 끝날 때 "그래서 답이 뭔데" 가 빈칸으로 남는다.
     개념 요약이 곧 자료가 말하는 답이므로 그것을 근거 장과 함께 돌려준다.
+
+    trap 질문은 거짓 전제를 **바로잡는 것**이 정답이다 — 요약만 돌려주면
+    "이렇게 말하면 완성" 칸에 전제 반박이 없는 답이 실려 질문과 어긋난다.
     """
     summary = (node.summary or "").strip()
     if not summary:
         summary = f"{node.label} 의 핵심"
+    if trap:
+        summary = f"질문의 전제가 자료와 달라요 — 자료가 말하는 것: {summary}"
     if node.slide_nos:
         nos = ", ".join(str(n) for n in node.slide_nos)
         return f"{summary} ({nos}장 근거)"
@@ -946,7 +956,8 @@ def _normalize_questions(
             slide_nos=list(node.slide_nos),
             doc_weight=mark.doc_weight,
             answer_gist=(
-                _clip(str(raw.get("answer_gist", "") or "")) or _fallback_gist(node)
+                _clip(str(raw.get("answer_gist", "") or ""))
+                or _fallback_gist(node, trap=mark.trap)
             ),
         ))
     return questions
@@ -1140,3 +1151,26 @@ def build_hint_ladder(
         if step and step not in ladder:
             ladder.append(step)
     return ladder
+
+
+def with_hint_ladders(payload: dict, questions: list) -> dict:
+    """
+    QuestionDoc 직렬화 결과에 질문별 힌트 사다리를 얹은 **새 dict** 를 준다.
+
+    Question 이 들고 있는 힌트는 `hint` 문자열 하나뿐이라, 이걸 안 실으면 화면은
+    첫 판정을 받기 전까지 1단계밖에 못 보여 준다 — 3단계로 만든 사다리가
+    첫 칸에서 끝난다. `build_hint_ladder` 는 LLM 을 부르지 않으니 공짜다.
+
+    판정이 없는 시점이라 사다리는 3단계(방향·범위·접근)까지다. 4단계(근접)는
+    답을 받아 본 뒤에야 F-09 가 판정과 함께 채운다.
+
+    원래 demo/bridge.py 에 있었는데, 브리지만 붙이니 FastAPI 라우트로 직결하면
+    사다리가 1칸으로 무너지고 「답 보고 넘어가기」가 조기에 열렸다 — 질문을
+    주는 모든 백엔드가 같은 응답을 내도록 여기(단일 출처)로 옮겼다.
+    """
+    by_id = {q.id: q for q in questions}
+    items = []
+    for item in payload.get("questions") or []:
+        q = by_id.get(item.get("id"))
+        items.append({**item, "hints": build_hint_ladder(q)} if q else item)
+    return {**payload, "questions": items}

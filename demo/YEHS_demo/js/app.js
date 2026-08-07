@@ -5767,8 +5767,10 @@ function qaDecide(push) {
    skipped 플래그로 "못 한 것"과 "안 한 것"을 구분해 둔다. */
 const QA_LOG_VERDICT = { good: 'full', partial: 'partial', wrong: 'none', unknown: 'none', skipped: 'none' };
 
+/** 코칭 기록을 저장한다. @returns {boolean} 저장 성공 여부 — 종료 화면이
+ *  "저장됨"이라고 말해도 되는지 이 값으로 정한다 (실패를 성공으로 표시하지 않기). */
 function recordQaHistory() {
-  if (!window.QaHistory) return;
+  if (!window.QaHistory) return false;
   const L = qa.live;
   const s = DATA.session.qa || {};
 
@@ -5791,7 +5793,7 @@ function recordQaHistory() {
         skipped: r.verdict === 'skipped' || !!r.revealed,
       };
     });
-    window.QaHistory.save(L.sessionId || 'live', {
+    return window.QaHistory.save(L.sessionId || 'live', {
       live: true,
       aud: qa.aud || '청중',
       mode: qa.mode || 'full',
@@ -5801,17 +5803,18 @@ function recordQaHistory() {
       weak: beats.filter(b => b.verdict === 'none').map(b => b.label),
       beats,
     });
-    return;
   }
 
   // mock 시나리오 경로
   const played = (DATA.qaBeats || []).filter(b => b.kind === 'ask');
-  if (!played.length) return;
-  window.QaHistory.save('imu2clip', {
+  if (!played.length) return false;
+  return window.QaHistory.save('imu2clip', {
     live: false,
     aud: qa.aud || '교수님',
     mode: qa.mode || 'full',
-    turns: qa.turns || played.length,
+    // qa.turns 는 말풍선 배열이다 — 턴 수 필드에 배열을 넣으면 항상 truthy 라
+    // 리포트의 숫자 자리가 깨진다. 실제로 답한 질문 수를 센다.
+    turns: played.length,
     before: s.before, after: s.after, total: s.total,
     mastered: String(s.mastered || '').split('·').map(x => x.trim()).filter(Boolean),
     weak: String(s.weak || '').split('·').map(x => x.trim()).filter(Boolean),
@@ -5830,7 +5833,7 @@ function recordQaHistory() {
 function qaEnd() {
   if (!qa.awarded) { qa.award = awardGame(); qa.awarded = true; }
   saveSession('qa-flow', qa);
-  recordQaHistory();
+  const historySaved = recordQaHistory();
   const tr = DATA.session.qa.trophy;
   const ariaLost = qa.lost.includes('aria');
   const concepts = [
@@ -5842,7 +5845,7 @@ function qaEnd() {
   ];
   const aw = qa.award || { earned: 0, level: 1, streak: 1, xp: 0 };
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>코칭 기록 저장됨</span></div>
+    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
     <div class="cere">
       <div class="cere-head">
         <span class="cere-eyebrow">${qa.aud} 질문 코칭 완료</span>

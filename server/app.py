@@ -543,7 +543,10 @@ async def flat_questions(payload: dict):
         )
 
     doc = await run_in_threadpool(run)
-    return doc.to_dict()
+    # 힌트 사다리를 얹는다 — 브리지만 얹으면 이 라우트로 직결한 화면은 힌트가
+    # 1칸으로 무너지고 「답 보고 넘어가기」가 조기에 열린다 (qa_live liveStalled).
+    from chuckchuck.f08_questions import with_hint_ladders
+    return with_hint_ladders(doc.to_dict(), doc.questions)
 
 
 @app.post("/api/v1/flow")

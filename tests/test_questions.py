@@ -1171,3 +1171,32 @@ def test_발화_개념은_인용을_요약으로_들고_온다():
 
 def test_정합_문서가_없으면_발화_개념도_없다():
     assert _ids(make_graph()) == ["c1", "c2", "c3"]
+
+
+# ---------------------------------------------------------------------------
+# 폴백 문장 — 힌트 절단 · trap 골자
+# ---------------------------------------------------------------------------
+
+def test_fallback_hint_truncates_long_slide_list():
+    """12장을 다 나열하면 좁혀 주기는커녕 아무 정보도 없다 — 2단(_hint_scope)과 같은 절단."""
+    from chuckchuck.contracts import ConceptNode, TriageMark
+    from chuckchuck.f08_questions import HINT_SLIDE_MAX, _fallback_text
+
+    node = ConceptNode(id="c1", label="개념", slide_nos=list(range(1, 13)),
+                       summary="요약", weight=1.0, parent_id=None, depth=1)
+    _, _, hint = _fallback_text(node, TriageMark(node_id="c1"), None)
+
+    assert hint.split("장")[0].count(",") <= HINT_SLIDE_MAX - 1
+    assert "외 9장" in hint
+
+
+def test_trap_fallback_gist_corrects_the_premise():
+    """trap 질문의 정답은 전제를 바로잡는 것 — 요약만 돌려주면 질문과 어긋난다."""
+    from chuckchuck.contracts import ConceptNode
+    from chuckchuck.f08_questions import _fallback_gist
+
+    node = ConceptNode(id="c1", label="개념", slide_nos=[3], summary="자료 요약",
+                       weight=1.0, parent_id=None, depth=1)
+
+    assert "전제" in _fallback_gist(node, trap=True)
+    assert "전제" not in _fallback_gist(node)

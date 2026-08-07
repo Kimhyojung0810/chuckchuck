@@ -62,6 +62,11 @@ PAID_PATHS = frozenset({
     "/api/v1/questions",
     # F-14 는 묶음마다 LLM 을 부른다 (최대 4콜) — 레이트 리밋 대상이다
     "/api/v1/rubric",
+    # F-09 판정·F-20 전략도 턴마다 LLM 을 부른다 — 무제한이면 rubric 만 막는
+    # 비대칭이 된다. 사람이 분당 30턴을 못 넘으므로 정상 사용엔 안 걸린다.
+    # (세션 경로 /api/v1/sessions/{id}/qa/judge 는 아래 endswith 검사가 잡는다)
+    "/api/v1/qa/judge",
+    "/api/v1/strategy",
 })
 
 #: CORS 허용 origin. 기본은 브리지 자신(같은 출처)이라 헤더가 필요 없고,
@@ -84,25 +89,9 @@ ALLOWED_AUDIO_EXTS = frozenset(
 DEFAULT_AUDIO_EXT = ".webm"
 
 
-def with_hint_ladders(payload: dict, questions: list) -> dict:
-    """
-    QuestionDoc 직렬화 결과에 질문별 힌트 사다리를 얹은 **새 dict** 를 준다.
-
-    Question 이 들고 있는 힌트는 `hint` 문자열 하나뿐이라, 이걸 안 실으면 화면은
-    첫 판정을 받기 전까지 1단계밖에 못 보여 준다 — 3단계로 만든 사다리가
-    첫 칸에서 끝난다. `build_hint_ladder` 는 LLM 을 부르지 않으니 공짜다.
-
-    판정이 없는 시점이라 사다리는 3단계(방향·범위·접근)까지다. 4단계(근접)는
-    답을 받아 본 뒤에야 F-09 가 판정과 함께 채운다.
-    """
-    from chuckchuck.f08_questions import build_hint_ladder
-
-    by_id = {q.id: q for q in questions}
-    items = []
-    for item in payload.get("questions") or []:
-        q = by_id.get(item.get("id"))
-        items.append({**item, "hints": build_hint_ladder(q)} if q else item)
-    return {**payload, "questions": items}
+# f08 로 옮겼다 (FastAPI 라우트도 같은 사다리를 실어야 해서 단일 출처화).
+# 테스트·기존 코드가 demo.bridge 에서 import 하므로 재수출로 남긴다.
+from chuckchuck.f08_questions import with_hint_ladders  # noqa: E402, F401
 
 
 def prior_answers_from(body: dict) -> list[str]:
@@ -385,7 +374,9 @@ class Handler(SimpleHTTPRequestHandler):
 
             # 과금 경로는 IP당 분당 상한을 건다. 본문을 다 읽은 뒤에 막는다 —
             # 안 읽고 끊으면 클라이언트가 응답 대신 연결 오류를 본다.
-            if parsed.path in PAID_PATHS and not LIMITER.allow(self._client_key()):
+            if ((parsed.path in PAID_PATHS
+                 or (parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path))
+                    and not LIMITER.allow(self._client_key())):
                 wait = LIMITER.retry_after(self._client_key())
                 return self._json(429, {
                     "error": "rate_limited",

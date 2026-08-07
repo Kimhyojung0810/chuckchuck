@@ -62,6 +62,9 @@ def test_questions_returns_questions_for_real_graph(client, artifacts):
     first = doc["questions"][0]
     for key in ("id", "node_id", "label", "question", "severity"):
         assert key in first, f"프론트가 소비하는 키 누락: {key}"
+    # 힌트 사다리는 백엔드 불문 실려야 한다 — 브리지만 얹던 시절엔 이 라우트로
+    # 직결하면 사다리가 1칸으로 무너지고 「답 보고 넘어가기」가 조기에 열렸다.
+    assert len(first.get("hints") or []) >= 2, "힌트 사다리가 안 실렸다"
 
 
 def test_questions_works_without_alignment(client, artifacts):
