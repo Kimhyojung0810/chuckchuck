@@ -2020,6 +2020,18 @@ table.plain tr:last-child td { border-bottom: 0; }
 }
 .qres-stats b.qres-redo { color: var(--mid); }
 .qres-stats span { display: block; margin-top: 4px; font-size: 13px; color: var(--text-3); }
+
+/* 질문을 고르는 동안 이미 손에 쥔 숫자 — 후보 목록이 못 뜰 때 화면을 메운다 */
+.qb-facts { display: flex; gap: 10px; margin: 14px 0 0; }
+.qb-facts > div {
+  flex: 1 1 0; padding: 12px 14px; text-align: center;
+  border: 1px solid var(--border); border-radius: var(--r-inner); background: var(--surface);
+}
+.qb-facts b {
+  display: block; font-size: 22px; line-height: 1.15; color: var(--text);
+  font-weight: var(--w-bold); font-variant-numeric: tabular-nums;
+}
+.qb-facts span { display: block; margin-top: 3px; font-size: 12px; color: var(--text-3); }
 .qres-sub { margin: 8px 0 0; font-size: 14px; color: var(--text-2); }
 
 .qres-group { margin-top: 22px; }

@@ -5671,6 +5671,27 @@ function qaBuildCandidates() {
     .filter((c) => c.label);
 }
 
+/**
+ * 「지금까지 아는 것」 — 후보 목록이 못 뜰 때 화면이 통째로 비는 걸 메운다.
+ *
+ * 정합 판정이 없으면(데모 질문 경로·생성 중 새로고침) 위 후보 블록이 안 그려지고,
+ * 그러면 굵은 글씨 한 줄과 막대만 남아 10초를 세운다. 그렇다고 없는 후보를
+ * 지어낼 수는 없으니, 이미 손에 쥔 실측 숫자를 대신 보여준다 —
+ * 값이 없는 항목은 아예 빼서 0 을 늘어놓지 않는다.
+ */
+function qaBuildFactsHtml() {
+  const out = (nf && nf.pipelineOut) || {};
+  const facts = [
+    ['슬라이드', (out.concepts && (out.concepts.slides || []).length)
+      || (nf && nf.slideDocMeta && nf.slideDocMeta.total_slides) || 0, '장'],
+    ['찾은 개념', (out.graph && (out.graph.nodes || []).length) || 0, '개'],
+    ['옮긴 말', (out.transcript && (out.transcript.words || []).length) || 0, '단어'],
+  ].filter(([, n]) => n > 0);
+  if (!facts.length) return '';
+  return `<div class="qb-facts">${facts.map(([k, n, unit]) => `
+    <div><b class="num" data-count="${n}">${n}</b><span>${k} ${unit}</span></div>`).join('')}</div>`;
+}
+
 let qaBuildTimer = null;
 
 /** 경과 초. 남은 시간을 지어내지 않고 지난 시간만 정직하게 센다 */
@@ -5695,6 +5716,7 @@ function renderQaBuilding() {
       <p class="note">개념 그래프와 실제 발화를 대조해 치명적인 것부터 골라요. 10초쯤 걸려요.</p>
       <div class="qb-bar"><i></i></div>
       <p class="qb-elapsed" id="qbElapsed">0초 지났어요</p>
+      ${qaBuildFactsHtml()}
       ${shown.length ? `
       <div class="qb-pool">
         <p class="qb-pool-head">여기서 고르고 있어요<span>${pool.length}개 후보</span></p>
@@ -5712,6 +5734,8 @@ function renderQaBuilding() {
   clearInterval(qaBuildTimer);
   paintQaBuildElapsed();
   qaBuildTimer = setInterval(paintQaBuildElapsed, 1000);
+  $$('.qb-facts .num[data-count]').forEach((el) => countUp(el, Number(el.dataset.count) || 0, 600));
+  staggerIn($$('.qa-building > *'));
   const skip = $('#qbSkip');
   if (skip) skip.addEventListener('click', () => {
     // 화면을 떠나면 시계도 멈춘다. 안 멈추면 다음 화면에서 1초마다 죽은

@@ -300,10 +300,15 @@
   .rehearsal-head .mode-label { font-size: 11px; }
   .rehearsal-head h1 { margin-top: 0; font-size: 18px; line-height: 1.3; }
 
-  .rehearsal-shell { flex: 1 1 auto; min-height: 0; gap: 10px; padding-bottom: 0; }
+  /* 10px 은 무대·캡션·컨트롤 셋이 한 덩어리로 뭉쳐 보였다. 셋은 하는 일이
+     다르니 사이가 보여야 한다 — 아래 바가 특히 캡션에 붙어 있었다 */
+  .rehearsal-shell { flex: 1 1 auto; min-height: 0; gap: 16px; padding-bottom: 0; }
   /* 셸이 이미 gap 을 주므로 카드끼리 붙는 기본 여백은 뺀다 */
   .rehearsal-shell > .card + .card { margin-top: 0; }
-  .privacy-note { margin-top: 6px; }
+  .privacy-note { margin-top: 12px; }
+  /* 캡션 줄(이전·다음·제목·N/M)이 슬라이드와 필름 사이에 끼여 눌려 있었다 */
+  .presentation-viewer .viewer-caption { padding-top: 12px; padding-bottom: 12px; }
+  .rehearsal-control, .rehearsal-control.is-live { padding: 16px 20px; }
 
   /* 녹음이 시작돼도 컨트롤을 같은 자리에 둔다.
      화면 하단으로 띄우면 그만큼 슬라이드가 작아진다 */
