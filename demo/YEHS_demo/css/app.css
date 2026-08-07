@@ -2063,8 +2063,25 @@ table.plain tr:last-child td { border-bottom: 0; }
   color: var(--text-2); font-size: 13px;
 }
 .qa-loop-score b { color: var(--text); font-size: 16px; }
-.qa-context > .persuade-track { height: 6px; padding: 0; overflow: hidden; background: var(--fill); border-radius: 999px; }
-.qa-context > .persuade-track > i { display: block; width: var(--p); height: 100%; background: var(--brand); border-radius: inherit; transition: width .35s ease; }
+/* 코칭 중 왼쪽 칸의 개념 진행 표시. 얇은 막대(`> i`)를 의도한 규칙이었는데
+   trackerHTML() 은 .pt-head 와 .pt-items 를 그린다 — 직접 자식 i 가 없어서
+   막대는 한 번도 안 그려졌고, height:6px + overflow:hidden 만 남아 117px 짜리
+   내용을 6px 로 눌러 「잘린 줄 하나」로 만들고 있었다.
+   왼쪽 칸이 있는 이유가 이 표시라서(대화가 길어져도 안 사라진다) 블록으로 되돌리고,
+   진행률은 머리줄 아래 가로선으로 그린다 — 마크업은 그대로 둔다 */
+.qa-context > .persuade-track {
+  height: auto; padding: 0; overflow: visible; background: none; border-radius: 0;
+}
+.qa-context > .persuade-track > .pt-head { position: relative; padding-bottom: 11px; }
+.qa-context > .persuade-track > .pt-head::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0;
+  height: 3px; border-radius: 999px; background: var(--fill);
+}
+.qa-context > .persuade-track > .pt-head::before {
+  content: ""; position: absolute; left: 0; bottom: 0; z-index: 1;
+  width: var(--p); height: 3px; border-radius: 999px; background: var(--brand);
+  transition: width .35s ease;
+}
 .qa-input-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .qa-input-label b { font-size: 15px; }
 .qa-input-label span { color: var(--text-3); font-size: 12px; }
@@ -2221,3 +2238,66 @@ table.plain tr:last-child td { border-bottom: 0; }
 /* 코칭 결과 — 리포트에서 짚어 줄 개념을 못 찾은 행은 누를 수 없다.
    화살표만 달아 두고 같은 곳으로 보내면 그게 거짓말이다 */
 .qres-row.is-flat { cursor: default; }
+
+/* ═══ 연습·코칭 화면을 홈의 문법으로 ═══════════════════════════════
+   홈을 「할 일 한 줄 + 표」로 갈아엎고 나니 나머지 화면만 카드 문법으로 남아,
+   내비를 눌러 옮길 때마다 다른 제품처럼 보였다. 여기서 맞춘다.
+
+   원칙 하나: 면 위에 면을 얹지 않는다. 상자 안의 상자는 「무엇이 주인공인가」를
+   지운다 — 테두리가 둘이면 눈은 바깥 테두리를 먼저 읽는다. 구분이 필요하면
+   면이 아니라 머리카락 선 하나와 여백으로 한다. */
+
+/* ── 1. 새 발표 연습 ──────────────────────────────────────────
+   1·2단계와 파싱·완료 상태가 전부 흰 카드에 담겨 있었다. 카드를 벗기면
+   폼이 바탕 위에 바로 눕는다.
+   4단계(.pipe-inspect)는 다른 세션이 두 단 격자로 만들어 둔 화면이고
+   카드가 그 격자의 컨테이너다 — 건드리면 배치가 무너지므로 제외한다 */
+#nf > .card:not(:has(.pipe-inspect)) {
+  background: none; border: 0; box-shadow: none; padding: 0;
+}
+
+/* 카드를 벗기면 제목이 기댈 데가 없어진다. 홈의 h1 과 같은 무게를 준다 */
+.nf-head {
+  font-size: var(--t-h1); font-weight: 700; letter-spacing: -.02em; color: var(--text);
+}
+.nf-head-sub { margin: 6px 0 24px; }
+
+/* 드롭존 — 점선 상자가 화면 한가운데 떠 있고 글 폭보다 좁아, 위의 단계 표시줄과
+   왼쪽 끝이 안 맞았다. 읽는 칸에 맞춰 눕히고 점선을 얇게 한다 */
+.dropzone {
+  border-width: 1px; padding: 56px 24px;
+}
+
+/* 자료를 다 읽은 뒤의 상태도 카드가 아니라 구역이다 */
+.gate-ok { font-size: var(--t-card); }
+
+/* ── 2. 질문 코칭 시간 고르기 ──────────────────────────────────
+   흰 카드 안에 테두리 있는 선택지가 셋 — 상자 안의 상자였다.
+   카드를 벗기고, 선택지는 머리카락 선으로만 나눈다 */
+.card.qa-quick {
+  background: none; border: 0; box-shadow: none; padding: 0;
+}
+.qa-quick .qa-modes { gap: 0; }
+.qa-mode {
+  border: 0; border-radius: 0; background: none; box-shadow: none;
+  border-bottom: 1px solid var(--border);
+  padding: 15px 6px; transition: background .14s ease;
+}
+.qa-mode:hover { background: var(--hover); }
+/* 골라 둔 줄은 테두리가 아니라 옅은 면과 왼쪽 기둥으로 말한다.
+   테두리로 말하면 옆 줄과 높이가 1.5px 씩 어긋나 목록이 떨린다 */
+.qa-mode.on { background: var(--brand-weak); box-shadow: inset 2px 0 0 var(--brand); }
+.qa-mode:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.qa-quick .qa-mode-pick .btn { align-self: stretch; }
+
+/* ── 3. 코칭 중 ────────────────────────────────────────────────
+   왼쪽 칸의 상대 소개가 또 흰 카드였다. 대화(오른쪽)가 주인공인 화면에서
+   보조 칸이 면을 갖고 있으면 무게가 뒤집힌다 */
+.persona-card {
+  background: none; box-shadow: none; padding: 14px 0;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-radius: 0; margin-bottom: 0;
+}
+/* 제목은 인라인 크기를 걷어냈으니 여기서 준다 */
+.qa-top .page-title { font-size: var(--t-card); font-weight: 700; letter-spacing: -.02em; }
+.qa-top .page-sub { font-size: var(--t-meta); color: var(--text-3); margin-top: 3px; }

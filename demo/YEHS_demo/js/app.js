@@ -4377,6 +4377,7 @@ function rSummary() {
   });
   $$('.mini-row').forEach(r => r.addEventListener('click', () => goJudge(r.dataset.node)));
   bindDeckPanel();
+  paintDeckStage();
   paintDeckThumbs();
   wireSendoff();
   if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
@@ -4540,6 +4541,7 @@ function selectDeckSlide(n) {
   if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   animateViz(body);
   bindDeckPanel();
+  paintDeckStage(body);   // 다시 그린 무대는 비어 있다 — 원본 렌더를 새로 붙인다
 }
 
 function bindDeckPanel() {
@@ -4547,15 +4549,40 @@ function bindDeckPanel() {
   if (go) go.addEventListener('click', () => goJudge(go.dataset.node));
 }
 
-/* 선택된 슬라이드의 무대 + 그 장에서 있었던 일 */
+/* 선택된 슬라이드의 무대 + 그 장에서 있었던 일.
+   실데이터 세션에서는 판정 트리·올린 자료만 본다 — DATA.* 샘플은 샘플 모드 전용이다. */
 function deckHtml() {
-  const n = repSlide;
-  const st = DATA.slideStatus[n - 1];
-  const nodeId = DATA.slideMainNode[n];
-  const node = nodeId ? DATA.tree.find(t => t.id === nodeId) : null;
-  const moments = DATA.timeline.filter(e => e.onSlide === n);
+  const live = isLiveReportSession();
+  const total = deckTotalSlides();
+  // 기본값(7)이 샘플 23장 기준이라 짧은 자료에서는 범위를 벗어난다
+  const n = Math.min(Math.max(1, repSlide), Math.max(1, total));
+  repSlide = n;
+  const tree = judgeTree();
+  const nodes = slideJudgeNodes(n, tree);          // 실데이터가 없으면 null
+  const isReal = !!nodes;
+  const node = isReal
+    ? (nodes[0] || null)
+    : (DATA.slideMainNode[n] ? DATA.tree.find(t => t.id === DATA.slideMainNode[n]) : null);
+  const st = isReal ? (node ? node.status : 'om') : (DATA.slideStatus[n - 1] || 'none');
+  const title = deckTitle(n, live);
+  /* "그 장에서 있었던 일" — 실데이터는 같은 장의 나머지 개념 판정으로 채운다.
+     DATA.timeline 은 IMU2CLIP 고정 타임라인이라 실데이터에 대응이 없다. */
+  const moments = isReal
+    ? nodes.slice(1).map(x => ({ time: x.evTime || '', type: x.status, label: x.label }))
+    : (live ? [] : DATA.timeline.filter(e => e.onSlide === n));
   let panel = '';
-  if (node) {
+  if (node && node.real) {
+    // 라벨·근거·제안은 모두 LLM 산출물이다 — innerHTML 에 넣기 전에 이스케이프한다
+    panel = `
+      <div class="dp-top">${chip(node.status, true)}<b>${escapeHtml(node.label)}</b></div>
+      <span class="bubble-label" style="margin-top:0">이 장에서 한 말</span>
+      <div class="bubble">${node.ev
+        ? escapeHtml(node.ev)
+        : '<span class="note">이 개념에 해당하는 발화를 찾지 못했어요.</span>'}${node.evTime ? `<time>${escapeHtml(node.evTime)}</time>` : ''}</div>
+      ${node.why ? `<p class="note" style="margin-top:10px">${escapeHtml(node.why)}</p>` : ''}
+      ${node.fix ? `<div class="dp-fix"><b>이렇게 말해보세요</b><p>${escapeHtml(node.fix)}</p></div>` : ''}
+      <button class="btn btn-tint btn-sm" id="deckJudgeGo" data-node="${escapeHtml(node.id)}">판정 근거 자세히 보기</button>`;
+  } else if (node) {
     panel = `
       <div class="dp-top">${chip(node.status, true)}<b>${node.label}</b></div>
       ${node.status === 'ct' ? `
@@ -4569,17 +4596,23 @@ function deckHtml() {
       <div class="dp-fix"><b>이렇게 말해보세요</b><p>${node.fix}</p></div>
       <button class="btn btn-tint btn-sm" id="deckJudgeGo" data-node="${node.id}">판정 근거 자세히 보기</button>`;
   } else {
-    panel = `<p class="dp-none">이 장은 핵심 개념 판정 대상이 아니에요.</p>`;
+    panel = `<p class="dp-none">${live
+      ? '이 장에 걸린 개념 판정이 없어요.'
+      : '이 장은 핵심 개념 판정 대상이 아니에요.'}</p>`;
   }
   if (moments.length) {
     panel += `<div class="dp-moments">${moments.map(m =>
-      `<div class="dp-moment"><time class="num">${m.time}</time>${chip(m.type, true)}<span>${m.label}</span></div>`).join('')}</div>`;
+      `<div class="dp-moment"><time class="num">${escapeHtml(m.time)}</time>${chip(m.type, true)}<span>${escapeHtml(m.label)}</span></div>`).join('')}</div>`;
   }
+  // PDF 가 있으면 캔버스에 원본을 크게 그리고, 없으면 자리표시자를 쓴다
+  const stage = (uploadedPdf && uploadedPdf.pdf)
+    ? `<canvas class="deck-canvas" data-stage-page="${n}" role="img" aria-label="${n}번 슬라이드 · ${escapeHtml(title)}"></canvas>`
+    : `<img src="${deckImageSrc(n, live)}" alt="${n}번 슬라이드 · ${escapeHtml(title)}">`;
   return `
     <div class="deck-main">
       <figure class="deck-stage st-${st}">
-        <img src="${DATA.slideImages[n - 1]}" alt="${n}번 슬라이드 · ${DATA.slideTitles[n - 1]}">
-        <figcaption><span class="num">${n} / ${DATA.slideTitles.length}</span>${DATA.slideTitles[n - 1]}<em>${STATUS[st]}</em></figcaption>
+        ${stage}
+        <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}<em>${STATUS[st] || ''}</em></figcaption>
       </figure>
       <div class="deck-panel">${panel}</div>
     </div>`;
@@ -4707,8 +4740,13 @@ function rJudge() {
 
 function jDetail(n, tree = DATA.tree) {
   const slideNum = slideNumber(n.slide);
-  const title = activeTitles()[slideNum - 1] || DATA.slideTitles[slideNum - 1] || `${slideNum}번 슬라이드`;
-  const img = DATA.slideImages[slideNum - 1];
+  const live = isLiveReportSession();
+  const title = deckTitle(slideNum, live);
+  /* 무대(rSummary)와 같은 규율 — PDF 가 있으면 원본을 크게 그리고,
+     없으면 자리표시자. 업로드 세션에 샘플 슬라이드 이미지를 끼워 넣지 않는다. */
+  const stage = (uploadedPdf && uploadedPdf.pdf)
+    ? `<canvas class="deck-canvas" data-stage-page="${slideNum}" role="img" aria-label="${slideNum}번 슬라이드 · ${escapeHtml(title)}"></canvas>`
+    : `<img src="${deckImageSrc(slideNum, live)}" alt="${slideNum}번 슬라이드 · ${escapeHtml(title)}">`;
   // 실데이터는 4축을 checks 로, 샘플은 옛 필드명 check 로 준다
   const checks = n.checks || n.check || {};
   return `
@@ -4716,10 +4754,10 @@ function jDetail(n, tree = DATA.tree) {
       <h3>${escapeHtml(n.label)}</h3>${chip(n.status)}
     </div>
     <p class="detail-meta">${slideNum}번 슬라이드 · 중요도 ${Number(n.w || 0).toFixed(2)}${n.depth === 2 ? ` · 상위 개념: ${escapeHtml(tree.find(t => t.id === n.parent)?.label || '—')}` : ''}</p>
-    ${img ? `<figure class="judge-slide st-${n.status}">
-      <img src="${img}" alt="${slideNum}번 슬라이드 · ${escapeHtml(title)}">
+    <figure class="judge-slide st-${n.status}">
+      ${stage}
       <figcaption><span class="num">${slideNum}번 슬라이드</span>${escapeHtml(title)}</figcaption>
-    </figure>` : ''}
+    </figure>
     ${n.conf ? `<div class="confbar">판정 확신도 <span class="fill-bar"><i data-w="${n.conf}%"></i></span><b class="num">${n.conf}%</b></div>` : ''}
     ${Object.keys(checks).length ? `<div class="checks">
       ${Object.entries(checks).map(([k, v]) => `<span class="${v ? 'y' : ''}">${v ? '✓' : '—'} ${escapeHtml(k)}</span>`).join('')}
