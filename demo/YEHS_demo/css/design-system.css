@@ -560,3 +560,28 @@ main img, main canvas, main svg { max-width: 100%; }
 .verdict-bird { width: 52px; }
 .empty-bird { width: 72px; }
 .pipe-bird-row .ch-seat { width: 44px; }
+
+/* ── 홈 첫 카드: 네 모델이 각자 맡은 일 (04_screens.md) ─────────────
+   설명하는 카드지 연출이 아니다. 캐릭터는 읽는 걸 돕는 크기까지만 쓴다 */
+.t-crew-card .t-label { margin-bottom: 12px; }
+.t-crew { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; list-style: none; margin: 0; padding: 0; }
+.t-crew-one { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
+.t-crew-one b { font-size: 14px; font-weight: 700; }
+.t-crew-one small { font-size: 11px; line-height: 1.4; color: var(--text-3); overflow-wrap: break-word; }
+.t-crew-role {
+  padding: 1px 8px; border-radius: var(--r-pill); background: var(--fill);
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+}
+/* 후원사는 텍스트로만 쓴다 — 로고 이미지를 넣지 않기로 했다 (04_screens.md 결정 1) */
+.t-crew-by { margin-top: 2px; font-size: 10px; font-weight: 600; color: var(--text-3); letter-spacing: .01em; }
+/* .ch-seat 은 객석 연출용이라 opacity:0 으로 시작해 .seated 를 기다린다.
+   앱 화면에서 그대로 쓰면 새가 통째로 안 보인다 — 여기서 되돌린다
+   (.verdict-bird · .empty-bird 와 같은 처리) */
+.t-crew-bird.ch-seat {
+  width: 56px; opacity: 1; transform: none; filter: none; animation: none;
+}
+@media (max-width: 720px) { .t-crew { grid-template-columns: repeat(2, 1fr); row-gap: 16px; } }
+/* 설명이 한 줄인 칸과 두 줄인 칸이 섞여 후원사 이름의 밑선이 어긋났다.
+   칸을 같은 높이로 늘리고 후원사만 바닥에 붙인다 */
+.t-crew-one { height: 100%; }
+.t-crew-by { margin-top: auto; padding-top: 2px; }

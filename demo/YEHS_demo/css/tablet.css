@@ -50,6 +50,36 @@
   .page-head { margin-bottom: 16px; }
   .page-title { font-size: 22px; }
 
+  /* ══ 스텝 4(질문 준비) — 한 줄로 쌓으면 넘친다 ═══════════════
+     실측(1180x820): 내용이 976px 인데 예산은 764px 라 275px 가 넘쳤다.
+     그런데 이 화면은 main.narrow(880px) 한 줄만 쓰고 좌우가 비어 있었다.
+
+     기다리는 사람이 보는 것(상태 줄·체크리스트·다음 버튼)을 왼쪽에,
+     확인하러 들어가는 것(커튼 뒤·검증 로그)을 오른쪽에 둔다.
+     :has() 로 스텝 4 카드만 집는다 — app.js 를 안 건드리려는 것이고,
+     :has() 를 못 읽는 브라우저는 지금처럼 한 줄로 쌓인다(깨지지 않는다). */
+  main.narrow:has(.pipe-inspect) { width: min(1120px, 100% - var(--gutter) * 2); }
+  main.narrow > .card:has(.pipe-inspect) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 22px;
+    align-content: start;
+  }
+  /* 왼쪽: 기다리는 동안 눈이 가는 것 */
+  main.narrow > .card:has(.pipe-inspect) > .section-title,
+  main.narrow > .card:has(.pipe-inspect) > .note,
+  main.narrow > .card:has(.pipe-inspect) > .pipe-status-bar,
+  main.narrow > .card:has(.pipe-inspect) > .checklist,
+  main.narrow > .card:has(.pipe-inspect) > .stage-accident,
+  main.narrow > .card:has(.pipe-inspect) > .step-actions { grid-column: 1; }
+  /* 오른쪽: 확인하러 들어가는 것 */
+  main.narrow > .card:has(.pipe-inspect) > .backstage,
+  main.narrow > .card:has(.pipe-inspect) > .pipe-inspect { grid-column: 2; }
+  /* 오른쪽 칸이 길어지면 그 안에서만 스크롤한다 — 페이지는 그대로 */
+  main.narrow > .card:has(.pipe-inspect) > .pipe-inspect {
+    max-height: calc(var(--app-h) - 190px); overflow-y: auto; scrollbar-width: thin;
+  }
+
   /* 패널 안에서만 스크롤이 생기므로 스크롤바를 얇게 둔다 */
   .home-list, .qa-dialog .qa-stream, .slide-film, #jdetail { scrollbar-width: thin; }
   /* 태블릿은 관성 스크롤이 기본 기대치다 */
