@@ -443,6 +443,41 @@ def test_works_without_graph_or_transcript():
     assert judge_of(payload(verdict="good")).verdict == "good"
 
 
+def test_prompt_includes_answer_gist_as_judging_key():
+    """
+    F-08 이 만든 정답 골자가 판정 프롬프트에 실린다.
+
+    이게 빠져 있으면 이지선다 질문에 정답 단답("얕은 수면이야")이 와도 모델이
+    자료 발췌에서 확신을 못 얻고 unknown 으로 도망간다 — 2026-08-07 실측.
+    """
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(
+        make_question(answer_gist="N1·N2 는 얕은 수면 단계다"),
+        "얕은 수면이야",
+        llm=llm,
+    )
+    assert "기대하는 답의 골자" in llm.prompts[0]
+    assert "N1·N2 는 얕은 수면 단계다" in llm.prompts[0]
+
+
+def test_prompt_omits_gist_block_when_question_has_none():
+    """골자가 빈 질문에서는 빈 채점 기준 블록을 싣지 않는다."""
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), GOOD_ANSWER, llm=llm)
+    assert "기대하는 답의 골자" not in llm.prompts[0]
+
+
+def test_system_prompt_does_not_blame_length_for_unknown():
+    """
+    unknown 정의가 '너무 짧거나' 를 이유로 들면 규칙 1(짧아도 맞으면 good)과
+    프롬프트 안에서 충돌하고, 모델이 길이 쪽 정의를 이긴다.
+    """
+    from chuckchuck.f09_judge import SYSTEM_PROMPT
+
+    assert "너무 짧거나" not in SYSTEM_PROMPT
+    assert "선택형" in SYSTEM_PROMPT  # 맞는 선택 자체가 완전한 답이라는 규칙
+
+
 # ---------------------------------------------------------------------------
 # 재시도 · 실패
 # ---------------------------------------------------------------------------
