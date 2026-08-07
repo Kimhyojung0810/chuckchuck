@@ -57,9 +57,20 @@ IP 만 알면 아무나 눌러서 팀 계정으로 과금된다. 원격에서 �
 
 ### ⚠️ 캐시 버전 — 데모 날 20분 날리는 함정
 
-`demo/YEHS_demo/index.html` 은 CSS/JS 를 `?v=qa4` · `?v=qa7` 로 물고 있다.
+`demo/YEHS_demo/index.html` 은 CSS/JS 를 `?v=…` 로 물고 있다 (값은 계속 올라간다).
 **`css/*.css` 나 `js/*.js` 를 고쳤으면 `index.html` 의 해당 `?v=` 를 같이 올린다.**
 안 올리면 브라우저가 옛 파일을 그대로 서빙해서 "고쳤는데 안 바뀐다"가 된다.
+
+**⚠️ `?v=` 는 `index.html` 만이 아니다.** `f11_reveal.html`(분석 연출)은 index.html 이
+아니라 `js/app.js` 의 `showF11Reveal()` 안에 `f11_reveal.html?embed=1&v=…` 로 따로
+박혀 있다. **리빌을 고쳤으면 이 값도 같이 올린다** — index.html 만 올리면 연출은
+안 바뀐다. 2026-08-07 에 실제로 걸렸다: 리빌 레이아웃을 고쳐 커밋했는데 iframe 이
+옛 값을 물고 있어서 하드 리로드해도 옛 화면이 나왔다.
+
+```bash
+grep -o 'v=q[a-z0-9]*' demo/YEHS_demo/index.html | sort -u   # 지금 값 확인
+grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — 위와 같아야 한다
+```
 
 ## 3. UI 는 무조건 토스처럼
 
