@@ -5189,9 +5189,7 @@ function rPace() {
       </div>
       <p class="note" style="margin-top:14px">${note}</p>
     </div>
-    <details class="fold"><summary>시간 배분 더 보기</summary>
-      <div class="fold-body">
-      <div class="card">
+    <div class="card">
         <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
         <div class="alloc-lgd">
           <span><i style="background:var(--border)"></i>권장</span>
@@ -5207,8 +5205,7 @@ function rPace() {
           <span class="alloc-st ${r[3] === '적절' ? 'fine' : 'warn'}">${r[3]}</span>
         </div>`).join('')}
         <p class="note" style="margin-top:12px">${allocNote}</p>
-      </div>
-      </div></details>`;
+    </div>`;
 }
 
 /* 탭 5 — 연습 도구.
