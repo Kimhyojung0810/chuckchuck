@@ -128,12 +128,43 @@ window.ReportStrategy = (function () {
     return runs.map(([a, b]) => (a === b ? pad(a) : `${pad(a)}-${pad(b)}`)).join(', ');
   }
 
+  /** 'M:SS'·'MM:SS' → 초. 그 형식이 아니면 null. */
+  function parseMarkSec(text) {
+    const m = /^(\d+):(\d{2})$/.exec(String(text || '').trim());
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  }
+
+  function fmtMin(sec) {
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+
+  /**
+   * 구간별 「지금 → 제안」 시간 대비. 제안이 내 실측에서 나왔음을 구간마다 증명한다.
+   * 실측이 없는 장이 하나라도 섞이면 만들지 않는다 — 반쪽 합계는 거짓말이다.
+   */
+  function blockDelta(b, spentBySlide) {
+    const from = parseMarkSec(b.from);
+    const to = parseMarkSec(b.to);
+    const proposed = from != null && to != null && to > from ? to - from : null;
+    if (b.new) return proposed != null ? `새로 ${fmtMin(proposed)}` : '';
+    if (!b.slides || !b.slides.length) return '';
+    let sum = 0;
+    for (const n of b.slides) {
+      const sec = spentBySlide[n];
+      if (sec == null) return '';
+      sum += sec;
+    }
+    return proposed != null ? `지금 ${fmtMin(sum)} → 제안 ${fmtMin(proposed)}` : `지금 ${fmtMin(sum)}`;
+  }
+
   /** 재구성한 발표 순서표. 이게 이 화면의 본문이다. */
-  function outlineHtml(outline) {
+  function outlineHtml(outline, spentBySlide) {
     if (!outline || !outline.length) return '';
     return `
       <ol class="strat-outline">
-        ${outline.map((b, i) => `
+        ${outline.map((b, i) => {
+          const delta = blockDelta(b, spentBySlide || {});
+          return `
         <li class="strat-block${b.new ? ' is-new' : ''}">
           <div class="strat-block-head">
             <span class="strat-no">${String(i + 1).padStart(2, '0')}</span>
@@ -142,9 +173,24 @@ window.ReportStrategy = (function () {
             <span class="strat-slides">${b.new ? '새로 만들기' : esc(slideRange(b.slides))}</span>
           </div>
           <p class="strat-what">${esc(b.what)}</p>
+          ${delta ? `<p class="strat-delta">${esc(delta)}</p>` : ''}
           ${b.add ? `<p class="strat-add"><span>추가</span>${esc(b.add)}</p>` : ''}
-        </li>`).join('')}
+        </li>`;
+        }).join('')}
       </ol>`;
+  }
+
+  /** 왜 바꿔야 하는가 — 서버가 입력 값 대조로 걸러낸 근거만 온다. 없으면 그리지 않는다. */
+  function gainsHtml(gains) {
+    if (!gains || !gains.length) return '';
+    return `
+      <div class="strat-gains">
+        <span class="strat-tag">이 순서로 바꾸면</span>
+        <ul>
+          ${gains.map(g => `
+          <li><b>${esc(g.claim)}</b><small>${esc(g.evidence)}</small></li>`).join('')}
+        </ul>
+      </div>`;
   }
 
   function keepHtml(keep) {
@@ -169,9 +215,15 @@ window.ReportStrategy = (function () {
       </div>`;
   }
 
-  function resultHtml(data) {
+  function resultHtml(data, analysis) {
     const c = data.chosen || {};
     const climax = CLIMAX[c.climax] || { label: '구성 제안', desc: '' };
+    // 순서표 델타 계산용 — 슬라이드별 실측 사용 시간
+    const spentBySlide = {};
+    (((analysis || {}).slides) || []).forEach((s) => {
+      const sec = parseMarkSec(s.spent);
+      if (s.no != null && sec != null) spentBySlide[s.no] = sec;
+    });
     return `
       <div class="card strat-card">
         <div class="strat-head">
@@ -180,8 +232,9 @@ window.ReportStrategy = (function () {
           <p class="strat-climax">${esc(climax.desc)}</p>
         </div>
         ${c.why ? `<p class="strat-why">${esc(c.why)}</p>` : ''}
+        ${gainsHtml(c.gains)}
         <span class="strat-tag">이 순서로 다시 짜 보세요</span>
-        ${outlineHtml(c.outline)}
+        ${outlineHtml(c.outline, spentBySlide)}
         ${keepHtml(c.keep)}
       </div>
       ${altsHtml(data.alternatives)}
@@ -265,7 +318,7 @@ window.ReportStrategy = (function () {
       try {
         const data = await requestStrategy(analysis);
         cacheSet(sessionId, data);
-        paint(resultHtml(data));
+        paint(resultHtml(data, analysis));
       } catch (err) {
         console.error('구성 제안 실패:', err);
         paint(errorHtml(err.message || '알 수 없는 이유로 실패했어요.'));
@@ -273,7 +326,7 @@ window.ReportStrategy = (function () {
     }
 
     const hit = cacheGet(sessionId);
-    paint(hit ? resultHtml(hit) : introHtml());
+    paint(hit ? resultHtml(hit, analysis) : introHtml());
   }
 
   return { render, invalidate };

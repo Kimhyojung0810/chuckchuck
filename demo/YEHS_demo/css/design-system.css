@@ -428,6 +428,23 @@ main img, main canvas, main svg { max-width: 100%; }
   display: block; margin-bottom: 8px;
   font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--text-3);
 }
+
+/* 왜 바꿔야 하는가 — claim 은 진하게, evidence(실측 근거)는 그 아래 작은 줄.
+   서버가 입력 값 대조로 걸러낸 근거만 오므로 여기 오는 문장은 전부 실측이다 */
+.strat-gains { margin: 0 0 20px; }
+.strat-gains ul { margin: 0; padding: 0; list-style: none; }
+.strat-gains li { padding: 9px 0; border-bottom: 1px solid var(--border); }
+.strat-gains li:last-child { border-bottom: 0; }
+.strat-gains b { display: block; font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
+.strat-gains small { display: block; margin-top: 3px; font-size: 12px; line-height: 1.6; color: var(--text-3); }
+
+/* 구간별 「지금 → 제안」 실측 대비 — 제안이 내 발표에서 나왔음을 구간마다 증명 */
+.strat-delta {
+  display: inline-block; margin: 6px 0 0; padding: 2px 9px;
+  border-radius: var(--r-pill); background: var(--fill);
+  font-size: 12px; font-weight: 600; color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
 .strat-keep {
   padding: 16px 18px; border-left: 2px solid var(--brand);
   background: var(--paper); border-radius: 0 var(--r-print) var(--r-print) 0;

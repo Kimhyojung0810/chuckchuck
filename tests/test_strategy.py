@@ -391,3 +391,36 @@ def test_system_prompt_forbids_fabricating_real_people(analysis):
     suggest_strategy(analysis, llm=llm)
     assert "지어내지 않는다" in llm.seen_system
     assert "당신의 발표를" in llm.seen_system
+
+
+# ---------------------------------------------------------------------------
+# ⓔ gains — "왜 바꿔야 하는가" 근거. keep.quote 와 같은 규율로 걸러진다
+# ---------------------------------------------------------------------------
+
+def test_grounded_gains_survive_and_cap_at_three(analysis):
+    gains = [
+        {"claim": "결론을 먼저 듣게 돼요.", "evidence": "도입에 2:24 를 써서 권장 0:40 의 세 배예요."},
+        {"claim": "빠진 개념이 자리를 얻어요.", "evidence": "카페인 반감기가 missing 판정이에요."},
+        {"claim": "핵심이 초반에 나와요.", "evidence": "실천법 장에 0:35 만 썼어요."},
+        {"claim": "네 번째는 상한에서 잘려요.", "evidence": "수면 부채를 축으로 세워요."},
+    ]
+    out = run(analysis, payload_of(gains=gains))
+    kept = out["chosen"]["gains"]
+    assert len(kept) == 3
+    assert kept[0]["claim"] == "결론을 먼저 듣게 돼요."
+
+
+def test_ungrounded_gain_is_dropped(analysis):
+    """입력의 수치·개념을 하나도 못 짚는 덕담은 버린다."""
+    gains = [
+        {"claim": "청중 몰입이 두 배가 돼요.", "evidence": "널리 알려진 연구 결과가 그래요."},
+        {"claim": "결론이 앞으로 와요.", "evidence": "도입 구간에 2:24 를 썼어요."},
+    ]
+    out = run(analysis, payload_of(gains=gains))
+    assert [g["claim"] for g in out["chosen"]["gains"]] == ["결론이 앞으로 와요."]
+
+
+def test_missing_gains_yield_empty_list(analysis):
+    """구버전 응답(gains 없음)도 화면이 빈 배열로 안전하게 받는다."""
+    out = run(analysis, payload_of())
+    assert out["chosen"]["gains"] == []

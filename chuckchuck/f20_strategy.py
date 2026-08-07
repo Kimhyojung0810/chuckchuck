@@ -92,6 +92,10 @@ SYSTEM_PROMPT = """당신은 발표 구성 코치다.
 - 실제 발화가 하나라도 주어졌으면 그 중 가장 강한 문장 하나를 골라 keep 에 반드시 넣는다.
   글자 하나 바꾸지 말고 그대로 옮긴다. 발화가 아예 없을 때만 keep 을 생략한다.
 - 고른 이유(why)는 이 발표의 구체적인 수치를 근거로 한두 문장으로 쓴다.
+- gains 에는 이 순서로 바꾸면 무엇이 좋아지는지 2~3개를 쓴다. claim 은 좋아지는 것
+  한 문장, evidence 는 그 근거다. evidence 에는 위 입력에 실제로 있는 시각·수치·개념
+  이름을 그대로 짚는다. 입력에 없는 근거를 지어내지 않는다. 근거를 못 대면 그 항목을
+  만들지 않는다.
 - 아래 예시의 문장을 그대로 가져다 쓰지 않는다. 이 발표의 개념 이름과 수치로 새로 쓴다.
 - 모든 문장을 해요체로 끝낸다. '한다' '이다' '있다' 로 끝내지 않는다.
   (X) 종속시키는 방식과 일치한다  →  (O) 종속시키면 훨씬 선명해져요
@@ -112,7 +116,13 @@ JSON 만 출력한다. 아래는 전혀 다른 발표(물류 비용 보고)의 �
        "what": "적재 알고리즘을 축으로 세우고 나머지를 그 증거로 붙여요.",
        "add": "적재율 개선 수치를 한 줄 넣어 주세요."}
     ],
-    "keep": {"quote": "<입력에 있는 발화 그대로>", "at": "04:33"}
+    "keep": {"quote": "<입력에 있는 발화 그대로>", "at": "04:33"},
+    "gains": [
+      {"claim": "절감액 결론을 시작 40초 안에 듣게 돼요.",
+       "evidence": "지금은 마지막 장에서 4:50 에 처음 나와요."},
+      {"claim": "창고 이야기가 절반으로 줄어요.",
+       "evidence": "S07 창고 이야기에 4:10 을 써서 권장 1:30 의 세 배를 넘겼어요."}
+    ]
   },
   "alternatives": [
     {"type": "베이조스식 결론 선행형", "one_line": "결론을 먼저 말하고 근거를 뒤로 미뤄요."}
@@ -243,6 +253,7 @@ def _build_user_prompt(analysis: dict) -> str:
 {quotes or '  (없음)'}
 
 가장 잘 맞는 유형 하나를 고르고, 그 유형대로 다시 짠 구간 순서표(outline)를 4~7개로 만들어줘.
+왜 바꿔야 하는지(gains)도 2~3개 써줘 — 근거(evidence)는 위 입력의 실제 시각·수치·개념에서만 가져와.
 나머지 유형 중 둘은 alternatives 로 한 줄씩만 설명해줘."""
 
 
@@ -335,6 +346,65 @@ def _clean_outline(raw: Any, analysis: dict) -> list[dict]:
     return blocks
 
 
+#: 근거 불릿 상한. 셋이면 설득되고, 넘치면 나열이 된다.
+MAX_GAINS = 3
+
+
+def _times_of(text: str) -> set[tuple[int, int]]:
+    """'4:10' 과 '04:10' 을 같은 시각으로 본다."""
+    return {(int(m.group(1)), int(m.group(2)))
+            for m in re.finditer(r"(\d+):(\d{2})", str(text or ""))}
+
+
+def _clean_gains(raw: Any, analysis: dict) -> list[dict]:
+    """
+    '왜 바꿔야 하는가' 근거를 다듬는다.
+
+    keep.quote 와 같은 규율이다 — evidence 가 입력의 실제 값(개념·구간 이름,
+    슬라이드 제목, 시각)을 하나도 짚지 못하면 그 항목을 버린다. 근거 없는
+    좋은 말은 피드백이 아니라 덕담이고, 덕담은 신뢰를 깎는다.
+    """
+    if not isinstance(raw, list):
+        return []
+
+    names = (
+        [str(c.get("label") or "") for c in (analysis.get("concepts") or [])]
+        + [str(t.get("label") or "") for t in (analysis.get("time_alloc") or [])]
+        + [str(s.get("title") or "") for s in (analysis.get("slides") or [])]
+    )
+    names = [re.sub(r"\s+", "", n) for n in names]
+    names = [n for n in names if len(n) >= 2]
+
+    time_parts = [str(analysis.get("duration") or "")]
+    for t in analysis.get("time_alloc") or []:
+        time_parts += [str(t.get("recommended") or ""), str(t.get("actual") or "")]
+    for s in analysis.get("slides") or []:
+        time_parts.append(str(s.get("spent") or ""))
+    for q in analysis.get("quotes") or []:
+        time_parts.append(str(q.get("at") or ""))
+    known_times = _times_of(" ".join(time_parts))
+
+    cleaned: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        claim = str(item.get("claim") or "").strip()
+        evidence = str(item.get("evidence") or "").strip()
+        if not claim or not evidence:
+            continue
+        squashed = re.sub(r"\s+", "", evidence)
+        grounded = (
+            any(n in squashed for n in names)
+            or bool(_times_of(evidence) & known_times)
+        )
+        if not grounded:
+            continue
+        cleaned.append({"claim": claim, "evidence": evidence})
+        if len(cleaned) == MAX_GAINS:
+            break
+    return cleaned
+
+
 def _validate(data: dict, analysis: dict) -> dict:
     """LLM 이 지어낸 값을 걸러낸다. 환각은 여기서 죽인다."""
     chosen = data.get("chosen")
@@ -358,6 +428,7 @@ def _validate(data: dict, analysis: dict) -> dict:
     chosen["outline"] = _clean_outline(chosen.get("outline"), analysis)
     if not chosen["outline"]:
         raise StrategyError("구간 순서표(outline)가 없습니다.")
+    chosen["gains"] = _clean_gains(chosen.get("gains"), analysis)
     chosen.pop("moves", None)   # 구버전 키가 섞여 와도 화면으로 새지 않게 한다
 
     kept: list[dict] = []
