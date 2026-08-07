@@ -51,10 +51,12 @@
   --mint-line: #C4E2D2;
   --green: #0A8F68; --green-bg: #E9F7EF;
 
-  /* radius 4종 — 지면 / 컨트롤 / 알약 / 원. 이 밖의 값은 쓰지 않는다 */
-  --r-print: 20px;     /* 카드·패널 (부드러운 노트) */
-  --r-inner: 16px;     /* 카드 안의 작은 카드 — 바깥보다 살짝 작아야 자연스럽다 */
-  --r-ctl: 12px;       /* 버튼·입력 */
+  /* radius 4종 — 지면 / 컨트롤 / 알약 / 원. 이 밖의 값은 쓰지 않는다.
+     20/16/12 은 「부드러운 노트」를 노린 값이었는데 그게 소비자 앱 문법이다.
+     도구는 모서리를 세우고 테두리로 면을 나눈다 (Linear·Vercel 계열) */
+  --r-print: 10px;     /* 카드·패널 */
+  --r-inner: 8px;      /* 카드 안의 작은 면 */
+  --r-ctl: 8px;        /* 버튼·입력 */
   --r-pill: 999px;     /* 칩·탭 */
   --r-dot: 50%;        /* 아바타·상태 점 */
   /* 레거시 별칭 — 기존 var(--r-card|btn) 사용처가 따라온다 */
@@ -62,8 +64,12 @@
 
   /* font-weight 4단 — 미세 차이는 의미를 만들지 않는다 */
   --w-body: 500; --w-med: 650; --w-bold: 750; --w-display: 830;
-  --shadow: 0 2px 8px rgba(24, 24, 27, .06);
-  --shadow-panel: 0 8px 24px rgba(24, 24, 27, .08);
+  /* 타이포 스케일 — 위계가 없으면 어디부터 읽을지 정해지지 않는다.
+     화면 제목 / 구역 / 카드 제목 / 본문 / 메타 다섯 단만 쓴다 */
+  --t-h1: 24px; --t-h2: 15px; --t-card: 17px; --t-body: 14px; --t-meta: 12px;
+  /* 도구는 그림자보다 테두리로 면을 나눈다. 그림자는 떠 있는 것에만 */
+  --shadow: 0 1px 2px rgba(24, 24, 27, .04);
+  --shadow-panel: 0 4px 16px rgba(24, 24, 27, .06);
   --ease: cubic-bezier(.22, 1, .36, 1);
   --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
@@ -170,7 +176,7 @@ main.narrow { max-width: 640px; }
    그림자만으로는 두 밝은 면이 뭉개진다 (docs/design_improvement/03_components.md §1) */
 .card {
   background: var(--paper); border-radius: var(--r-card);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   padding: 24px; box-shadow: var(--shadow-panel);
 }
 .card + .card, .card + details.fold, details.fold + .card, details.fold + details.fold { margin-top: 14px; }

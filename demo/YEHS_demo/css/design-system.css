@@ -494,14 +494,14 @@ main img, main canvas, main svg { max-width: 100%; }
    ══════════════════════════════════════════════════════════════════════════ */
 
 .t-head { margin: 4px 0 16px; }
-.t-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.t-head h1 { font-size: var(--t-h1); font-weight: 700; letter-spacing: -.024em; }
 
 /* 구역 띠 — 전면폭으로 빠져나가 화면을 가른다 */
 .t-band { height: 16px; margin: 20px calc(50% - 50vw); background: var(--fill); }
 
 .t-card {
   background: var(--surface); border-radius: var(--r-print);
-  border: 1.5px solid var(--border); padding: 20px;
+  border: 1px solid var(--border); padding: 16px;
 }
 .t-label { font-size: 13px; font-weight: 600; color: var(--text-3); }
 .t-caption { margin-top: 8px; font-size: 13px; color: var(--text-3); }
@@ -523,12 +523,12 @@ main img, main canvas, main svg { max-width: 100%; }
    지난 발표를 상자에 넣었더니 5줄짜리 목록이 707px 짜리 빈 상자가 됐다 —
    행을 나누는 건 상자가 아니라 행 사이의 선이다 */
 .t-list { padding: 4px 0; }
-.t-card.t-list { padding: 4px 20px; }
+.t-card.t-list { padding: 4px 16px; }
 .t-row {
   display: flex; align-items: center; gap: 12px;
   /* 글자는 구역 제목과 같은 선에 두고, 손이 닿는 면만 좌우로 10px 넓힌다 */
   width: calc(100% + 20px); margin-inline: -10px;
-  padding: 14px 10px; background: none; border: 0; border-radius: 0;
+  padding: 9px 10px; background: none; border: 0; border-radius: 0;
   text-align: left; font: inherit; color: inherit; cursor: pointer;
   transition: background .12s ease;
 }
@@ -537,23 +537,28 @@ main img, main canvas, main svg { max-width: 100%; }
 .t-row:active { opacity: .6; }
 .t-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 8px; }
 .t-row-main { flex: 1; min-width: 0; }
-.t-row-main b { display: block; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.t-row-main b { display: block; font-size: var(--t-body); font-weight: 600; letter-spacing: -.01em; }
 .t-row-main small {
-  display: block; margin-top: 2px; font-size: 13px; color: var(--text-3);
+  display: block; margin-top: 2px; font-size: var(--t-meta); color: var(--text-3);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.t-row-val { flex: none; font-size: 17px; font-weight: 700; }
+.t-row-val { flex: none; font-size: var(--t-body); font-weight: 650; font-variant-numeric: tabular-nums; }
 .t-row-val i { font-style: normal; font-size: 13px; font-weight: 600; color: var(--text-3); margin-left: 1px; }
-.t-chev { flex: none; color: var(--text-3); font-size: 20px; line-height: 1; }
+.t-chev { flex: none; color: var(--text-3); font-size: 15px; line-height: 1; }
 
 /* 구역 제목 — 회색 띠 바로 아래 붙는다 */
-.t-sec-head { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+/* 구역 제목은 「읽는 문장」이 아니라 「칸 이름」이다. 본문보다 작고 흐리게
+   두면 목록이 앞으로 나온다 — 정보가 주인공이 되는 자리 */
+.t-sec-head {
+  margin: 0 0 10px; font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: .02em; color: var(--text-3);
+}
 
 /* 이어하기 — 브랜드 색은 이 한 줄에만 쓴다 */
 .t-resume {
   display: flex; align-items: center; gap: 12px;
-  padding: 16px 20px; border-radius: var(--r-print);
-  background: var(--brand-weak); border: 1.5px solid #BBF7DE;
+  padding: 12px 16px; border-radius: var(--r-print);
+  background: var(--brand-weak); border: 1px solid #BBF7DE;
 }
 .t-resume-main { flex: 1; min-width: 0; }
 .t-resume-tag { display: block; font-size: 13px; font-weight: 700; color: var(--brand-strong); }
@@ -645,10 +650,10 @@ main img, main canvas, main svg { max-width: 100%; }
 /* ── 네 모델 좌석 (빈 상태 안) ───────────────────────────────────
    설명하는 카드지 연출이 아니다. 캐릭터는 읽는 걸 돕는 크기까지만 쓴다 */
 .t-next-card .t-label { margin-bottom: 12px; }
-.t-crew { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; list-style: none; margin: 0; padding: 0; }
+.t-crew { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; list-style: none; margin: 0; padding: 0; }
 .t-crew-one { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
-.t-crew-one b { font-size: 14px; font-weight: 700; }
-.t-crew-one small { font-size: 11px; line-height: 1.4; color: var(--text-3); overflow-wrap: break-word; }
+.t-crew-one b { font-size: var(--t-meta); font-weight: 650; }
+.t-crew-one small { font-size: 11px; line-height: 1.45; color: var(--text-3); overflow-wrap: break-word; }
 .t-crew-role {
   padding: 1px 8px; border-radius: var(--r-pill); background: var(--fill);
   font-size: 11px; font-weight: 600; color: var(--text-2);
@@ -659,7 +664,7 @@ main img, main canvas, main svg { max-width: 100%; }
    앱 화면에서 그대로 쓰면 새가 통째로 안 보인다 — 여기서 되돌린다
    (.verdict-bird · .empty-bird 와 같은 처리) */
 .t-crew-bird.ch-seat {
-  width: 56px; opacity: 1; transform: none; filter: none; animation: none;
+  width: 34px; opacity: 1; transform: none; filter: none; animation: none;
 }
 @media (max-width: 720px) { .t-crew { grid-template-columns: repeat(2, 1fr); row-gap: 16px; } }
 /* 설명이 한 줄인 칸과 두 줄인 칸이 섞여 후원사 이름의 밑선이 어긋났다.
