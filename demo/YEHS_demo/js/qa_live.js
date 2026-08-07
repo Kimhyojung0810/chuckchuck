@@ -37,9 +37,9 @@ const STOP_ICON = `<svg ${IC_ATTRS}><rect x="6" y="6" width="12" height="12" rx=
  * 버튼인지 알 길이 없다.
  */
 const MIC_STATE = {
-  idle: { icon: MIC_ICON, label: '마이크로 답하기' },
+  idle: { icon: MIC_ICON, label: '음성 입력' },
   opening: { icon: MIC_ICON, label: '마이크 여는 중' },
-  dictating: { icon: STOP_ICON, label: '받아쓰기 멈추기' },
+  dictating: { icon: STOP_ICON, label: '음성 입력 멈추기' },
   recording: { icon: STOP_ICON, label: '녹음 멈추고 받아쓰기' },
   transcribing: { icon: MIC_ICON, label: '받아쓰는 중' },
 };
@@ -321,12 +321,22 @@ function micSay(html) {
   saveSession('qa-flow', qa);
 }
 
+/**
+ * 버튼 속을 채운다. **아이콘 옆에 이름을 글자로 같이 낸다** — 마이크 그림만
+ * 두었더니 무슨 버튼인지 못 알아봐서 아무도 누르지 않았다 (2026-08-07 사용자).
+ */
+function micBtnInner(state) {
+  return `${state.icon}<span>${state.label}</span>`;
+}
+
 /** 마이크 버튼을 상태 하나로 갈아 끼운다 (아이콘 · 이름 · 잠금이 늘 같이 움직인다). */
 function setMicBtn(state, disabled = false) {
   const btn = $('#liveMic');
   if (!btn) return;
   const s = MIC_STATE[state] || MIC_STATE.idle;
-  btn.innerHTML = s.icon;
+  btn.innerHTML = micBtnInner(s);
+  // 눈에 보이는 글자와 접근성 이름이 어긋나면 음성 제어 사용자가 화면에 보이는
+  // 대로 말해도 안 먹는다. 둘 다 같은 label 에서 뽑는다.
   btn.setAttribute('aria-label', s.label);
   btn.title = s.label;
   btn.disabled = !!disabled;
@@ -335,11 +345,11 @@ function setMicBtn(state, disabled = false) {
 
 /** 화면을 새로 그릴 때의 마이크 버튼. 듣는 중이면 정지 아이콘으로 나온다. */
 function micBtnHTML(busy) {
-  const s = liveMic
-    ? MIC_STATE[liveMic.dictation ? 'dictating' : 'recording']
-    : MIC_STATE.idle;
-  return `<button class="btn btn-text btn-icon${liveMic ? ' is-rec' : ''}" id="liveMic" type="button"
-        aria-label="${s.label}" title="${s.label}" ${busy ? 'disabled' : ''}>${s.icon}</button>`;
+  const state = liveMic ? (liveMic.dictation ? 'dictating' : 'recording') : 'idle';
+  const s = MIC_STATE[state];
+  // is-rec 조건은 setMicBtn 과 같아야 한다 — 다르면 다시 그릴 때만 색이 튄다.
+  return `<button class="btn btn-text btn-voice${state === 'recording' ? ' is-rec' : ''}" id="liveMic" type="button"
+        aria-label="${s.label}" title="${s.label}" ${busy ? 'disabled' : ''}>${micBtnInner(s)}</button>`;
 }
 
 /**
