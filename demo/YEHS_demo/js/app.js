@@ -5120,23 +5120,117 @@ function tStrategy() {
   window.ReportStrategy.render($('#toolBody'), {
     sessionId: strategySessionKey(),
     analysis: strategyAnalysis(),
+    // 실데이터면 버튼 없이 바로 제안 (샘플은 눌러야 — 구경만 해도 LLM 이 돌면 안 된다)
+    auto: strategySessionKey() !== 'sample',
   });
+}
+
+/* ── 연습 도구의 실데이터 도출 ─────────────────────────────────────────────
+   개요 이미지·펀치라인·용어 카드가 데모 고정값(DATA.*)만 보여주던 것을,
+   실데이터 세션에서는 개념 그래프(요약·슬라이드)·판정·예상 질문(F-08)에서
+   결정적으로 뽑는다. 재료가 없으면 샘플로 위장하지 않고 빈 상태를 말한다. */
+
+function toolEmptyHtml(what) {
+  return `<div class="card">
+      <h3 class="section-title">${what} 만들 재료가 아직 없어요</h3>
+      <p class="note">내 발표 분석(그래프·정합)이 끝나면 발표자료 기반으로 채워져요. 샘플로 채우지 않아요.</p>
+      <div class="step-actions"><a class="btn btn-primary" href="#/new">발표 연습으로</a></div>
+    </div>`;
+}
+
+/** 그래프 노드 id → 자료 요약. 용어 정의·펀치라인의 원천이다. */
+function graphSummaryById() {
+  const out = nf && nf.pipelineOut;
+  const by = {};
+  ((out && out.graph && out.graph.nodes) || []).forEach((n) => {
+    by[n.id] = String(n.summary || '').trim();
+  });
+  return by;
+}
+
+/** 실전 코칭 질문(F-08). 남아 있으면 용어 카드의 예상 질문·답변 프레임이 된다. */
+function liveQuestionsByNode() {
+  const by = {};
+  ((qa && qa.live && qa.live.questions) || []).forEach((q) => { by[q.node_id] = q; });
+  return by;
+}
+
+function liveMapNodes() {
+  const tree = judgeTree();
+  if (!(tree[0] && tree[0].real)) return null;
+  const meta = reportSessionMeta();
+  const tops = tree.filter((n) => !n.parent).slice(0, 3);
+  if (!tops.length) return null;
+  // SVG 텍스트에 그대로 박히므로 이스케이프한다 (그래프 라벨은 LLM 산출물이다)
+  const nodes = [{ id: 'r', label: escapeHtml(String(meta.title || '내 발표').slice(0, 22)), root: true }];
+  tops.forEach((t) => {
+    nodes.push({ id: t.id, label: escapeHtml(String(t.label).slice(0, 16)), status: t.status, slide: t.slide });
+    tree.filter((c) => c.parent === t.id).slice(0, 2).forEach((c) => {
+      nodes.push({ id: c.id, label: escapeHtml(String(c.label).slice(0, 14)), status: c.status, slide: c.slide, p: t.id });
+    });
+  });
+  return nodes;
+}
+
+function livePunchlines() {
+  const tree = judgeTree();
+  if (!(tree[0] && tree[0].real)) return null;
+  const qs = ((qa && qa.live && qa.live.questions) || []).filter((q) => q.answer_gist);
+  if (qs.length) {
+    return qs.slice(0, 3).map((q) => ({
+      pos: `${(q.slide_nos && q.slide_nos[0]) || 1}번 슬라이드 · ${q.label}`,
+      main: q.answer_gist,
+      why: '예상 질문의 모범답이에요 — 발표에서 먼저 말하면 그 질문이 줄어요.',
+    }));
+  }
+  const sumBy = graphSummaryById();
+  const picked = tree.filter((n) => sumBy[n.id]).slice(0, 3);
+  return picked.length ? picked.map((n) => ({
+    pos: `${slideNumber(n.slide)}번 슬라이드 · ${n.label}`,
+    main: sumBy[n.id],
+    why: '자료가 가장 힘을 실은 개념의 핵심 문장이에요.',
+  })) : null;
+}
+
+function liveTerms() {
+  const tree = judgeTree();
+  if (!(tree[0] && tree[0].real)) return null;
+  const sumBy = graphSummaryById();
+  const qBy = liveQuestionsByNode();
+  const picked = tree.filter((n) => sumBy[n.id]).slice(0, 4);
+  return picked.length ? picked.map((n) => {
+    const q = qBy[n.id];
+    return {
+      term: n.label, status: n.status, slide: n.slide, def: sumBy[n.id],
+      q: (q && q.question) || `${n.label} — 왜 이 발표에 필요했는지 설명해 주시겠어요?`,
+      frame: (q && q.answer_gist) || `① 정의(${slideNumber(n.slide)}번 슬라이드) → ② 근거 → ③ 발표 주장과의 연결`,
+    };
+  }) : null;
 }
 
 function mapSvgString() {
   // 이 SVG는 파일로도 내려받으므로(:root 없음) CSS 토큰 대신 리터럴을 쓴다.
   // 값은 app.css 의 --ok/--mid/--no/--ct 계열과 같게 유지한다.
-  const FILL = { ok: '#E9F7EF', mid: '#FDF6E3', no: '#FDF0EF', ct: '#F6EDFD' };
-  const LINE = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#9333EA' };
-  const nodes = DATA.mapNodes.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
-  const POS = {
-    r: [440, 36, 200], a: [170, 120, 150], b: [440, 120, 160], c: [710, 120, 140],
-    a1: [170, 210, 150], b1: [360, 210, 140], b2: [520, 210, 130], c1: [640, 210, 140], c2: [790, 210, 100],
+  const FILL = { ok: '#E9F7EF', mid: '#FDF6E3', no: '#FDF0EF', ct: '#F6EDFD', om: '#F1F3F5' };
+  const LINE = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#9333EA', om: '#6B7684' };
+  // 실데이터 세션이면 개념 그래프·판정에서 만든 노드, 아니면 샘플.
+  const all = liveMapNodes() || DATA.mapNodes;
+  const nodes = all.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
+  // 자리는 노드 수에서 계산한다 — 고정 좌표표는 샘플 9칸에만 맞았다.
+  const POS = {};
+  const rootNode = all.find(n => n.root);
+  if (rootNode) POS[rootNode.id] = [440, 36, 200];
+  const row = (list, y) => {
+    const w = Math.max(100, Math.min(190, Math.round(880 / (list.length + 1)) - 26));
+    list.forEach((n, i) => { POS[n.id] = [Math.round(880 * (i + 1) / (list.length + 1)), y, w]; });
   };
+  row(all.filter(n => !n.root && !n.p), 120);
+  row(all.filter(n => n.p), 210);
   const has = id => nodes.some(n => n.id === id);
   let links = '';
-  DATA.mapNodes.filter(n => !n.root).forEach(n => {
-    const pid = n.p || 'r';
+  all.filter(n => !n.root).forEach(n => {
+    const pid = n.p || (rootNode && rootNode.id);
+    if (!POS[pid] || !POS[n.id]) return;
     if (!has(n.id) || !has(pid)) return;
     const [x1, y1] = POS[pid], [x2, y2] = POS[n.id];
     links += `<path d="M${x1} ${y1 + 24} C ${x1} ${(y1 + y2) / 2 + 14}, ${x2} ${(y1 + y2) / 2 - 6}, ${x2} ${y2 - 6}" fill="none" stroke="#D6DAE0" stroke-width="1.4"/>`;
@@ -5155,6 +5249,10 @@ function mapSvgString() {
 }
 
 function tMap() {
+  if (isLiveReportSession() && !liveMapNodes()) {
+    $('#toolBody').innerHTML = toolEmptyHtml('개념 지도를');
+    return;
+  }
   $('#toolBody').innerHTML = `
     <div class="map-tools">
       <label class="toggle"><input type="checkbox" id="weakOnly" ${mapWeakOnly ? 'checked' : ''}> 취약 개념만 보기</label>
@@ -5167,30 +5265,44 @@ function tMap() {
     const blob = new Blob([mapSvgString()], { type: 'image/svg+xml' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'IMU2CLIP_발표개요.svg';
+    a.download = `${String(reportSessionMeta().title || 'IMU2CLIP').replace(/\s+/g, '_').slice(0, 40)}_발표개요.svg`;
     a.click(); URL.revokeObjectURL(a.href);
   });
 }
 
 function tPunch() {
+  const live = isLiveReportSession();
+  const list = live ? livePunchlines() : DATA.punchlines;
+  if (live && (!list || !list.length)) {
+    $('#toolBody').innerHTML = toolEmptyHtml('펀치라인을');
+    return;
+  }
   $('#toolBody').innerHTML = `
-    ${DATA.punchlines.map(p => `
+    ${list.map(p => `
     <div class="card punch-card">
-      <p class="phrase">“${p.main}”</p>
-      <p class="pos">${p.time} · ${p.pos}</p>
-      <p class="why">${p.why}</p>
+      <p class="phrase">“${escapeHtml(p.main)}”</p>
+      <p class="pos">${escapeHtml([p.time, p.pos].filter(Boolean).join(' · '))}</p>
+      <p class="why">${escapeHtml(p.why)}</p>
     </div>`).join('')}
-    <p class="note" style="margin-top:10px">내 말투 기반으로 만들었어요 · 실제 발화의 “~구조입니다” 패턴 반영</p>`;
+    <p class="note" style="margin-top:10px">${live
+      ? '발표자료의 핵심 문장과 예상 질문의 모범답에서 뽑았어요.'
+      : '내 말투 기반으로 만들었어요 · 실제 발화의 “~구조입니다” 패턴 반영'}</p>`;
 }
 
 function tTerms() {
+  const live = isLiveReportSession();
+  const list = live ? liveTerms() : DATA.terms;
+  if (live && (!list || !list.length)) {
+    $('#toolBody').innerHTML = toolEmptyHtml('용어 카드를');
+    return;
+  }
   $('#toolBody').innerHTML = `
-    ${DATA.terms.map(t => `
+    ${list.map(t => `
     <div class="card">
-      <div class="term-top"><h3>${t.term}</h3>${chip(t.status, true)}<span class="sl">근거: ${slideNumber(t.slide)}번 슬라이드</span></div>
-      <p class="term-def">${t.def}</p>
-      <p class="term-q"><b>예상 질문</b> — ${t.q}</p>
-      <p class="term-f"><b>답변 프레임</b> — ${t.frame}</p>
+      <div class="term-top"><h3>${escapeHtml(t.term)}</h3>${chip(t.status, true)}<span class="sl">근거: ${slideNumber(t.slide)}번 슬라이드</span></div>
+      <p class="term-def">${escapeHtml(t.def)}</p>
+      <p class="term-q"><b>예상 질문</b> — ${escapeHtml(t.q)}</p>
+      <p class="term-f"><b>답변 프레임</b> — ${escapeHtml(t.frame)}</p>
     </div>`).join('')}
     <p class="note" style="margin-top:10px">정의는 발표자료에 있는 내용으로만 만들어요.</p>`;
 }

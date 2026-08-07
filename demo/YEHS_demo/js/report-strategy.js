@@ -35,6 +35,10 @@ window.ReportStrategy = (function () {
   // ── 캐시 ─────────────────────────────────────────────────────────────
   // 탭을 오갈 때마다 LLM 을 다시 부르면 느리고 비싸다. 같은 세션이면 재사용한다.
 
+  /* 자동 요청을 페이지 수명당 세션별 1회로 묶는다 — 실패 시 자동 재시도가
+     과금 루프가 되는 것을 막는다 (재시도는 사용자의 버튼 클릭만). */
+  const autoTried = {};
+
   function readCache() {
     try {
       const raw = sessionStorage.getItem(CACHE_KEY);
@@ -326,7 +330,16 @@ window.ReportStrategy = (function () {
     }
 
     const hit = cacheGet(sessionId);
-    paint(hit ? resultHtml(hit, analysis) : introHtml());
+    if (hit) { paint(resultHtml(hit, analysis)); return; }
+    // 실데이터 세션은 버튼 없이 바로 제안을 만든다 (2026-08-07 사용자: "제안 받기가
+    // 아니라 자동으로 나오면 좋겠어"). 페이지 수명에서 한 번만 자동 시도 —
+    // 실패가 반복되면 과금만 쌓이므로 그 다음은 「다시 제안받기」 버튼에 맡긴다.
+    if (opts.auto && !autoTried[sessionId]) {
+      autoTried[sessionId] = true;
+      load();
+      return;
+    }
+    paint(introHtml());
   }
 
   return { render, invalidate };
