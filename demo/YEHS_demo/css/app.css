@@ -93,7 +93,9 @@ h1, h2, h3, p { margin: 0; }
 /* ── 상단 바 ── */
 .topbar {
   position: sticky; top: 0; z-index: 20;
-  height: 56px; padding: 0 24px;
+  /* 64px — 44px 버튼 기준 위아래 10px. 56px 일 땐 6px 뿐이라 버튼이 바를 꽉
+     채워 보였다. #rtabs sticky top · tablet.css --topbar-h 와 같이 움직인다 */
+  height: 64px; padding: 0 24px;
   display: flex; align-items: center; justify-content: space-between;
   background: var(--surface); border-bottom: 1px solid rgba(0, 0, 0, .04);
 }

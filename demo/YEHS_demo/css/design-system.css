@@ -197,7 +197,7 @@ main > .verdict:first-child { margin-top: -24px; }
 /* 토스 탭은 떠 있는 알약이 아니라 면에 붙은 밑줄 탭이다.
    glassmorphism(backdrop-filter)은 MVP_SPEC §3 이 금지하는데 여기만 남아 있었다. */
 #rtabs.tabs {
-  position: sticky; top: 56px; z-index: 12;
+  position: sticky; top: 64px; z-index: 12;   /* = .topbar 높이 */
   display: flex; gap: 28px; overflow-x: auto;
   padding: 0; border-radius: 0;
   margin: 0 0 24px;
