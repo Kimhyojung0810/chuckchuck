@@ -1122,6 +1122,8 @@ class Handler(SimpleHTTPRequestHandler):
                 give_up=bool(body.get("give_up")),
                 # 이 질문에 앞서 낸 답변들. 판정은 누적 전체를 본다 (f09._answer_block).
                 prior_answers=prior_answers_from(body),
+                # 보여준 힌트 — 안 실으면 힌트를 따라온 답에 코치가 맥락 없이 반응한다
+                hints_shown=[str(h) for h in (body.get("hints_shown") or []) if str(h).strip()],
                 llm=llm,
             )
         except JudgeError as e:

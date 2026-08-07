@@ -705,3 +705,26 @@ def test_partial_반응이_절반이라고_깎지_않는다():
     from chuckchuck.f09_judge import _REACT_BY_VERDICT
 
     assert "절반" not in _REACT_BY_VERDICT["partial"]
+
+
+def test_prompt_includes_hints_the_user_has_seen():
+    """
+    보여준 힌트가 판정 프롬프트에 실린다.
+
+    안 실리면 힌트를 따라온 답("복귀 실험이요")에 코치가 맥락 없이 반응한다 —
+    화면은 대화처럼 보이는데 판정은 일방향이 된다 (2026-08-07 사용자).
+    """
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(
+        make_question(), "복귀 실험이 근거예요",
+        hints_shown=["복귀 시간 실험을 떠올려 보세요"],
+        llm=llm,
+    )
+    assert "보여준 힌트" in llm.prompts[0]
+    assert "복귀 시간 실험을 떠올려 보세요" in llm.prompts[0]
+
+
+def test_prompt_omits_hint_block_when_none_shown():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), GOOD_ANSWER, llm=llm)
+    assert "보여준 힌트" not in llm.prompts[0]

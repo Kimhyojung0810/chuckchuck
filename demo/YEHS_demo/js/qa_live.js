@@ -558,6 +558,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       // 이 질문에 앞서 낸 답들. 판정은 누적 전체를 본다 (f09 "합쳐서 판정하라").
       // 포기 턴의 "(모르겠어요)" 자리표시자는 답이 아니라 뺀다.
       priorAnswers: (L.turns || []).filter((t) => !t.gaveUp).map((t) => t.answer),
+      // 지금까지 펼쳐 본 힌트. 코치가 힌트와 이어지는 말로 반응한다.
+      hintsShown: liveHints().slice(0, L.hintLevel || 0),
       artifacts: liveArtifacts(),
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;

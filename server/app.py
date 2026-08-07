@@ -367,6 +367,10 @@ async def judge_qa_answer(session_id: str, payload: dict):
             prior_answers=[
                 str(a) for a in (payload.get("prior_answers") or []) if str(a).strip()
             ],
+            # 보여준 힌트 — 코치가 힌트와 이어지는 말로 반응하게 한다 (브리지와 동일 계약)
+            hints_shown=[
+                str(h) for h in (payload.get("hints_shown") or []) if str(h).strip()
+            ],
             llm=llm,
         )
     )

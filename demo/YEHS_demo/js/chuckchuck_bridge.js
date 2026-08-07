@@ -727,7 +727,7 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
  * 대조할 원본이 없고 함정 질문의 핵심 규칙(잘못된 전제를 바로잡았는가)이 짐작이 된다.
  * 평소에는 session_id 로만 보내고, 세션이 날아갔으면(브리지 재시작) 다시 등록하고 재시도한다.
  */
-export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp, priorAnswers, artifacts }) {
+export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp, priorAnswers, hintsShown, artifacts }) {
   const sid = sessionId || 'flat';
   const body = {
     session_id: sid,
@@ -739,6 +739,8 @@ export async function judgeQaAnswer(sessionId, { questionId, answer, history, qu
     // 이 질문에 앞서 낸 답들. 안 실으면 되묻기에 증분으로 답한 사용자가
     // 그 조각만으로 판정받는다 (f09 는 누적 전체를 합쳐 본다).
     prior_answers: priorAnswers || [],
+    // 보여준 힌트 — 코치가 힌트와 이어지는 말로 반응한다 (일방향 힌트 방지)
+    hints_shown: hintsShown || [],
   };
   const path = `/api/v1/sessions/${sid}/qa/judge`;
   try {

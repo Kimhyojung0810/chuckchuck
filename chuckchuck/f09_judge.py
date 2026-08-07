@@ -597,6 +597,7 @@ def judge_answer(
     context: Context | dict | None = None,
     give_up: bool = False,
     prior_answers: list[str] | None = None,
+    hints_shown: list[str] | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QaJudgement:
@@ -669,6 +670,16 @@ def judge_answer(
     gist = (question.answer_gist or "").strip()
     if gist:
         user += f"\n\n## 기대하는 답의 골자 (채점 기준 — 발표자에게는 보이지 않는다)\n{gist}"
+
+    # 힌트는 화면에만 뜨고 판정이 모르면, 힌트를 따라온 답에 코치가 맥락 없이
+    # 반응한다 — 화면은 대화처럼 보이는데 판정은 일방향이 된다 (2026-08-07 사용자).
+    shown = [str(h).strip() for h in (hints_shown or []) if str(h).strip()]
+    if shown:
+        user += (
+            "\n\n## 발표자에게 보여준 힌트\n"
+            + "\n".join(f"- {h}" for h in shown)
+            + "\n힌트를 따라온 답이면 그 진전을 인정하고, react 는 힌트와 이어지는 말로 하라."
+        )
 
     try:
         data = _call(engine, user)
