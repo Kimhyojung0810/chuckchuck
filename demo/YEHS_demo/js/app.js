@@ -1241,10 +1241,10 @@ function nfStep1() {
           <button class="btn btn-secondary" id="pick">파일 선택</button>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
-      </div>
-      <div class="step-actions">
-        <button class="btn btn-primary" disabled>다음: 발표 정보 입력</button>
       </div>`;
+    /* 여기에 비활성 「다음」 버튼을 두지 않는다. 화면에서 제일 큰 물건이
+       아무것도 안 하는 버튼이면 눈이 거기 먼저 가고, 정작 할 일(자료 올리기)이
+       뒤로 밀린다. 이 단계의 CTA 는 드롭존 자체다 */
     const dz = $('#dz');
     $('#pick').addEventListener('click', () => $('#file').click());
     $('#file').addEventListener('change', e => {
@@ -1420,8 +1420,8 @@ function nfStep2() {
   const perSlide = Math.round(nf.min * 60 / titles.length);
   $('#nf').innerHTML = `
     <div class="card">
-      <h2 style="font-size:19px;font-weight:800;letter-spacing:-.2px">어떤 발표인가요?</h2>
-      <p class="note" style="margin:4px 0 22px">건너뛰어도 돼요. 입력하면 개념 중요도를 더 정확하게 정할 수 있어요.</p>
+      <h2 class="nf-head">어떤 발표인가요?</h2>
+      <p class="note nf-head-sub">건너뛰어도 돼요. 입력하면 개념 중요도를 더 정확하게 정할 수 있어요.</p>
       <div class="field">
         <label>발표 상황</label>
         <div class="chips" id="occ">
@@ -1438,7 +1438,7 @@ function nfStep2() {
           ${times.map(t => `<button class="${nf.min === t ? 'on' : ''}" data-min="${t}">${t}분</button>`).join('')}
         </div>
         <div class="time-detail">
-          <p><b>23장 기준 장당 약 ${perSlide}초</b><span>질문 시간을 포함하면 1~2분 여유를 두는 게 좋아요.</span></p>
+          <p><b>${titles.length}장 기준 장당 약 ${perSlide}초</b><span>질문 시간을 포함하면 1~2분 여유를 두는 게 좋아요.</span></p>
         </div>
       </div>
     </div>
@@ -5898,8 +5898,8 @@ function renderQa() {
     ${qaNoticeHtml()}
     <div class="qa-top">
       <div>
-        <h1 class="page-title" style="font-size:19px">${qa.aud} 질문 코칭</h1>
-        <p class="page-sub" style="font-size:13px">${DATA.session.title} · 슬라이드를 사이에 두고 실제처럼 주고받아요</p>
+        <h1 class="page-title">${qa.aud} 질문 코칭</h1>
+        <p class="page-sub">${DATA.session.title} · 슬라이드를 사이에 두고 실제처럼 주고받아요</p>
       </div>
       <label class="aud-select">상대
         <select id="aud">${AUDS.map(a => `<option ${a === qa.aud ? 'selected' : ''}>${a}</option>`).join('')}</select>
@@ -6350,7 +6350,7 @@ function renderAbout() {
   app.className = '';
   app.innerHTML = `
     <h1 class="page-title">척척발표가 판단하는 방식</h1>
-    <p class="about-lead">리포트의 판정이 어디서 나왔는지 숨기지 않고 적어 뒀어요.</p>
+    <p class="about-lead">무엇을 보고 무엇은 보지 않는지 그대로 적었어요.</p>
 
     <div class="card about-sec">
       <h2 class="section-title">발표를 이렇게 읽어요</h2>
@@ -6372,7 +6372,6 @@ function renderAbout() {
       <h2 class="section-title">이건 판단하지 않아요</h2>
       <p class="lead note">못 하는 것도 알고 쓰시는 게 맞다고 봐요.</p>
       <ul class="principles">
-        <li><b>말한 내용이 사실인지는 확인하지 않아요.</b> 자료와 발표가 서로 맞는지만 봐요.</li>
         <li><b>목소리가 좋은지는 판단하지 않아요.</b> 반복·간투어·긴 침묵처럼 셀 수 있는 것만 세요.</li>
         <li><b>슬라이드 디자인은 보지 않아요.</b> 글과 구조만 읽어요.</li>
       </ul>
