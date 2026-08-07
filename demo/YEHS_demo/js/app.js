@@ -984,7 +984,6 @@ function nfStep1() {
         <p class="note">PDF, PPTX · 최대 30MB, 100장까지 (25장 안팎을 권장해요)</p>
         <div class="dz-actions">
           <button class="btn btn-secondary" id="pick">파일 선택</button>
-          <button class="btn btn-text" id="sample">샘플 자료로 체험하기</button>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
       </div>
@@ -993,17 +992,6 @@ function nfStep1() {
       </div>`;
     const dz = $('#dz');
     $('#pick').addEventListener('click', () => $('#file').click());
-    $('#sample').addEventListener('click', async () => {
-      // 실API 모드에서는 fixture 금지 — PDF 업로드로 유도
-      try {
-        const h = await fetch('/api/health').then((r) => r.json());
-        if (h && h.mock === false) {
-          failParse('실API 모드입니다. PDF/PPTX를 「파일 선택」으로 올려주세요. (샘플 fixture 비활성)');
-          return;
-        }
-      } catch (_) { /* health 실패 시에도 파일 업로드 유도 */ }
-      startParse({ fixture: true });
-    });
     $('#file').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       /\.(pdf|pptx)$/i.test(f.name) ? startParse({ file: f }) : failParse('PDF나 PPTX 파일만 분석할 수 있어요.');
