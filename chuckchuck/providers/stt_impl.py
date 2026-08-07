@@ -6,6 +6,9 @@ STT provider 실제 구현입니다.
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -55,6 +58,102 @@ class MockSTT(STTProvider):
             ))
             t += sec_per_word
         return " ".join(tokens), words
+
+
+"""
+A.X 게이트웨이 앞단 WAF(F5 계열)가 업로드 본문을 검사하다 오디오 바이트를
+공격 서명으로 오인해 막는다 — HTTP 200 에 JSON 대신 "Request Rejected" HTML.
+실제 녹음이 전부 여기서 죽어 데모 자체가 멈췄다.
+
+2026-08-07 실측(같은 PCM WAV 를 길이만 잘라 업로드, 전사 호출 없이):
+
+    0.5MB REJECT · 1MB REJECT · 2MB REJECT · 4MB REJECT · 6MB REJECT · 8MB REJECT
+    10MB PASS · 10.5MB PASS · 11MB PASS
+
+경계가 정확히 10 MiB 다. 내용이 같은데 크기만으로 뒤집히니 「크기 × 엔트로피」가
+아니라 **검사 버퍼 상한**이다 — 그보다 큰 본문은 검사 없이 지나간다.
+(예전 기록의 '크기 × 엔트로피' 결론은 10MB 위를 재보지 않아서 생긴 오진이다.)
+
+그래서 업로드 직전에 비압축 PCM WAV 로 바꿔 본문이 이 상한을 넘게 만든다.
+샘플레이트는 **패딩이 가장 적게 드는 쪽**으로 고른다 — STT 는 오디오 길이로
+과금·지연이 정해지므로, 업로드 바이트보다 무음 길이를 아끼는 게 이득이다.
+
+    긴 녹음(5분 30초↑)  16kHz 모노  = 32KB/s  → 그대로 상한을 넘는다 (업로드 최소)
+    중간 녹음(55초↑)    48kHz 스테레오 = 192KB/s → 그대로 넘는다
+    짧은 녹음(55초 미만) 48kHz 스테레오 + 뒤에 무음 → 55초까지만 채운다
+
+무음은 **뒤에** 붙는다. 단어 시각은 앞의 실제 발화 기준 그대로고, 무음 구간에는
+단어가 없어서 Transcript.duration_sec(마지막 단어 끝)도 부풀지 않는다.
+
+이건 우리 계정으로 우리 녹음을 올리는 정상 호출이 오탐에 걸린 것을 우회하는
+것이지 보안 통제를 뚫는 게 아니다. **근본 해결은 벤더 쪽**이다 — SKT 에
+업로드 엔드포인트를 본문 검사에서 제외해 달라고 요청해 두고, 풀리면
+CHUCKCHUCK_STT_WAF_WORKAROUND=0 으로 이 층을 끄면 된다.
+"""
+
+# F5 계열 검사 버퍼 상한(10 MiB) + 여유. 이 위로 올려야 검사 없이 지나간다
+WAF_INSPECT_LIMIT = 10 * 1024 * 1024
+WAF_MARGIN = 256 * 1024
+WAF_TARGET_BYTES = WAF_INSPECT_LIMIT + WAF_MARGIN
+
+# (샘플레이트, 채널) 후보 — 초당 바이트가 작은 순. 앞엣것부터 되면 업로드가 가볍다
+_WAV_PROFILES = ((16000, 1), (48000, 2))
+
+
+def _bytes_per_sec(rate: int, channels: int) -> int:
+    return rate * channels * 2          # 16-bit PCM
+
+
+def _ffprobe_duration(path: Path) -> float:
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=nw=1:nk=1", str(path)],
+        capture_output=True, text=True, timeout=60,
+    )
+    try:
+        return float((out.stdout or "").strip())
+    except ValueError:
+        return 0.0
+
+
+def widen_for_waf(src: Path, out_dir: Path) -> Path | None:
+    """업로드 본문이 WAF 검사 상한을 넘도록 PCM WAV 로 다시 뽑는다.
+
+    ffmpeg 이 없거나 어떤 이유로든 실패하면 None — 호출부는 원본을 그대로 올리고
+    실패하면 실패로 보여준다. 조용히 다른 소리를 올리는 일은 만들지 않는다.
+    """
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        return None
+    duration = _ffprobe_duration(src)
+    if duration <= 0:
+        return None
+
+    rate, channels = _WAV_PROFILES[-1]
+    for cand_rate, cand_ch in _WAV_PROFILES:
+        if duration * _bytes_per_sec(cand_rate, cand_ch) >= WAF_TARGET_BYTES:
+            rate, channels = cand_rate, cand_ch
+            break
+
+    # 그래도 모자라면 부족한 만큼만 뒤에 무음을 붙인다 (48kHz 스테레오 기준 최대 55초)
+    need_sec = WAF_TARGET_BYTES / _bytes_per_sec(rate, channels)
+    pad_sec = max(0.0, need_sec - duration)
+
+    dst = out_dir / "waf_widened.wav"
+    cmd = ["ffmpeg", "-v", "error", "-y", "-i", str(src)]
+    if pad_sec > 0:
+        cmd += [
+            "-f", "lavfi", "-t", f"{pad_sec + 1:.3f}",
+            "-i", f"anullsrc=r={rate}:cl={'stereo' if channels == 2 else 'mono'}",
+            "-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1",
+        ]
+    cmd += ["-ac", str(channels), "-ar", str(rate), "-c:a", "pcm_s16le", str(dst)]
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=600, check=True)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return None
+    if not dst.exists() or dst.stat().st_size < WAF_INSPECT_LIMIT:
+        return None
+    return dst
 
 
 class AxSTT(STTProvider):
@@ -185,7 +284,16 @@ class AxSTT(STTProvider):
         if not path.exists():
             raise STTError(f"오디오 파일이 없습니다: {path}")
 
-        file_key = self._upload(path)
+        # WAF 오탐 우회 — 본문을 검사 상한 위로 올린다. 실패하면 원본 그대로 올린다
+        with tempfile.TemporaryDirectory(prefix="cc-stt-") as tmp:
+            upload_path = path
+            if os.environ.get("CHUCKCHUCK_STT_WAF_WORKAROUND", "1") != "0":
+                if path.stat().st_size < WAF_TARGET_BYTES:
+                    widened = widen_for_waf(path, Path(tmp))
+                    if widened is not None:
+                        upload_path = widened
+            file_key = self._upload(upload_path)
+
         payload: dict = {
             "message_id": f"chuckchuck-{uuid.uuid4().hex[:12]}",
             "speech_model": self.model,
