@@ -2913,6 +2913,10 @@ function paintPipelineTimeline() {
       const secEl = seg.querySelector('.tl-sec');
       const secText = tlSecText(m);
       if (secEl && secEl.textContent !== secText) secEl.textContent = secText;
+      /* 칸이 글자보다 좁으면 이름을 지운다. 「흐름 비」처럼 잘린 채로 두면
+         화면이 깨진 것으로 읽힌다 — 이름은 title 로 남아 손을 올리면 보인다 */
+      seg.classList.toggle('is-tight', piece.pxLen < 68);
+      seg.title = `${m.name}${secText ? ` · ${secText}` : ''}`;
       if (host.dataset.variant === 'compact') seg.title = `${m.name}${secText ? ` · ${secText}` : ''}`;
       if (['done', 'error'].includes(m.state)) playheadPx = piece.px0 + piece.pxLen;
       else if (m.state === 'active') playheadPx = piece.px0 + piece.pxLen * fillFrac;
@@ -2925,9 +2929,18 @@ function paintPipelineTimeline() {
     // 눈금 — 막대와 같은 secToPx 를 지나므로 서로 어긋나지 않는다
     const ruler = host.querySelector('.tl-ruler');
     if (ruler) {
-      const iv = [1, 2, 5, 10, 15, 30, 60, 120].find((s) => layout.totalSec / s <= 8) || 300;
+      /* 눈금 간격은 개수가 아니라 **글자가 안 겹칠 폭**으로 정한다.
+         「≤8개」로만 잡았더니 축이 14초일 때 2초 간격 일곱 개가 60px 안에 들어가
+         「10초2초4초6초8초12초」처럼 붙어 버렸다 — 라벨 하나가 34px 쯤 되니
+         최소 62px 을 띄운다 (2026-08-07 사용자 지적). */
+      const trackW = track.clientWidth || 1;
+      const TICK_MIN_PX = 62;
+      const maxTicks = Math.max(2, Math.floor(trackW / TICK_MIN_PX));
+      const iv = [1, 2, 5, 10, 15, 30, 60, 120, 300].find(
+        (s) => layout.totalSec / s <= maxTicks) || 600;
       const want = [];
-      for (let s = iv; s < layout.totalSec; s += iv) want.push(s);
+      /* 마지막 눈금이 오른쪽 끝에 딱 붙으면 잘린 것처럼 보인다. 한 칸 앞에서 멈춘다 */
+      for (let s = iv; s < layout.totalSec - iv * 0.35; s += iv) want.push(s);
       const seen = new Set(want.map(String));
       Array.from(ruler.querySelectorAll('.tl-tick')).forEach((t) => {
         if (!seen.has(t.dataset.sec)) t.remove();
