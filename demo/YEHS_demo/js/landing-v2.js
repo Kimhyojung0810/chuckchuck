@@ -17,7 +17,7 @@ v1 파일들(landing.js · landing-motion.js · landing-workbench.js · landing*
   'use strict';
 
   //: 조각을 매번 새로 받지 않게 캐시 버전을 붙인다. 마크업을 고치면 올린다.
-  const FRAGMENT = 'landing-v2.html?v=landing2';
+  const FRAGMENT = 'landing-v2.html?v=landing3';
 
   async function renderLanding() {
     const app = document.getElementById('app');

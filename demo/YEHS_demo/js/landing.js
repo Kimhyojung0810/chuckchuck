@@ -241,7 +241,7 @@ landing.html 조각을 받아 #app 에 넣고 각 구역의 동작을 붙입니�
     app.innerHTML = '<p class="landing-loading">랜딩을 불러오는 중이에요…</p>';
 
     try {
-      const res = await fetch('landing-v2.html?v=landing2');
+      const res = await fetch('landing-v2.html?v=landing3');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       app.innerHTML = await res.text();
     } catch (err) {
