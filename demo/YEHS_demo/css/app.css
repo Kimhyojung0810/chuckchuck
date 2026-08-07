@@ -592,6 +592,8 @@ main.narrow { max-width: 640px; }
 .rec-log-fold summary { color: var(--text-3); font-size: 12px; font-weight: 600; cursor: pointer; }
 .rec-log-fold .trans-log { position: absolute; z-index: 5; width: 300px; max-height: 160px; margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-print); background: #fff; box-shadow: 0 8px 24px rgba(24, 24, 27, .12); }
 /* 리허설 대신 이미 녹음한 파일을 올리는 진입점 */
+/* 제목과 무대(슬라이드) 사이 숨통 — 붙어 있으면 제목이 무대 캡션처럼 읽힌다 */
+.rehearsal-head { margin-bottom: 20px; }
 .rec-upload { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0; max-width: 240px; }
 .rec-upload .btn-text { height: 44px; padding: 0; }
 /* 형식 안내는 화면 하단으로 갔다 — 이 줄은 업로드 상태가 생길 때만 보인다 */

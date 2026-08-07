@@ -261,7 +261,8 @@
        바닥을 가림 높이만큼 올리면 슬라이드도 같이 올라와 다 보인다 */
     padding-bottom: calc(14px + var(--safe-bottom));
   }
-  .rehearsal-head { align-items: center; margin: 0 0 8px; }
+  /* 세로 예산이 빠듯해도 8px 는 제목이 무대에 붙어 보였다 — 16px 가 하한 */
+  .rehearsal-head { align-items: center; margin: 0 0 16px; }
   .rehearsal-head .mode-label { font-size: 11px; }
   .rehearsal-head h1 { margin-top: 0; font-size: 18px; line-height: 1.3; }
 
