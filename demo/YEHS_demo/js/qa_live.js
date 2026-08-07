@@ -176,7 +176,9 @@ function presentLiveQuestion() {
 function renderQaLive() {
   const L = qa.live;
   if (qa.ended || L.qi >= L.questions.length) return qaLiveEnd();
-  if (L.checkpoint) return renderLiveCheckpoint();
+  // 체크포인트(전체 화면 학습 카드)는 걷어냈다 — 대화 스트림이 유지된다.
+  // 이 변경 전에 저장된 세션이 checkpoint 를 들고 있으면 기록만 닫고 이어간다.
+  if (L.checkpoint) return completeLiveCheckpoint();
   qa.started = true;
   presentLiveQuestion();
   saveSession('qa-flow', qa);
@@ -601,14 +603,13 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
 
 function closeLiveCoached(q, v, answer) {
   if (v.explanation) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(v.explanation) });
-  qa.live.checkpoint = {
-    answer, verdict: v,
-    record: {
-      id: q.id, label: q.label, question: q.question, answer,
-      verdict: 'unknown', score: 0, passed: false, gaveUp: true,
-      summary: v.summary_sentence || '', revealed: true, coached: true,
-    },
-  };
+  // 전체 화면 체크포인트를 거치지 않는다 — 해설·다음 질문이 같은 대화 안에서
+  // 이어진다 (2026-08-07 사용자: "팝업으로 넘어가는 ux 는 별로, 대화가 유지되면 좋겠어").
+  closeLiveQuestion({
+    id: q.id, label: q.label, question: q.question, answer,
+    verdict: 'unknown', score: 0, passed: false, gaveUp: true,
+    summary: v.summary_sentence || '', revealed: true, coached: true,
+  });
 }
 
 /**
@@ -653,14 +654,13 @@ function finishLiveQuestion(q, v, answer) {
     pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
   }
   if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  qa.live.checkpoint = {
-    answer, verdict: v,
-    record: {
-      id: q.id, label: q.label, question: q.question, answer,
-      verdict: v.verdict, score: v.score || 0, passed: !!v.passed,
-      summary: v.summary_sentence || '',
-    },
-  };
+  // 통과 직후 전체 화면으로 갈아타지 않는다 — 방어 표식·총평·모범답이 말풍선으로
+  // 남고, 다음 질문이 같은 스트림에 이어진다 (대화 유지 — 2026-08-07 사용자 요청).
+  closeLiveQuestion({
+    id: q.id, label: q.label, question: q.question, answer,
+    verdict: v.verdict, score: v.score || 0, passed: !!v.passed,
+    summary: v.summary_sentence || '',
+  });
 }
 
 function revealLiveAnswer() {
@@ -670,14 +670,12 @@ function revealLiveAnswer() {
   const last = L.turns[L.turns.length - 1] || {};
   pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 여기까지. 답을 보고 넘어갈게요` });
   if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  L.checkpoint = {
-    answer: last.answer || '', verdict: v,
-    record: {
-      id: q.id, label: q.label, question: q.question, answer: last.answer || '',
-      verdict: v.verdict || 'unknown', score: v.score || 0, passed: !!v.passed,
-      summary: v.summary_sentence || '', revealed: true,
-    },
-  };
+  // 답 공개도 대화 안에서 닫는다 — 체크포인트 화면 없이 다음 질문으로.
+  closeLiveQuestion({
+    id: q.id, label: q.label, question: q.question, answer: last.answer || '',
+    verdict: v.verdict || 'unknown', score: v.score || 0, passed: !!v.passed,
+    summary: v.summary_sentence || '', revealed: true,
+  });
   saveSession('qa-flow', qa);
   renderQaLive();
 }
