@@ -570,81 +570,70 @@ function nextCardHtml() {
 }
 
 function renderHome() {
-  app.className = 'home';   // 홈 전용 스코프 — 폭은 main 기본값(980px) 그대로
+  app.className = 'home';
   const qaActive = qa.started && !qa.ended;
   const nfActive = !nf.completed && (nf.step > 0 || nf.gate);
   const resume = qaActive
-    ? {href:'#/qa', eyebrow:'질문 코칭 진행 중', title:`${qa.aud || '교수님'}${josa(qa.aud || '교수님','과','와')} 하던 질문 코칭을 이어서 할까요?`, sub:'지금까지 주고받은 대화를 이 브라우저에 저장했어요.'}
+    ? { href: '#/qa', tag: '질문 코칭', title: `${qa.aud || '교수님'}${josa(qa.aud || '교수님', '과', '와')} 하던 질문 코칭을 이어서 할까요?` }
     : nfActive
-      ? {href:'#/new', eyebrow:'발표 연습 진행 중', title:`${NF_STEPS[nf.step]}부터 이어서 할까요?`, sub:`${nf.slide || 1}번 슬라이드와 입력한 발표 정보를 저장했어요.`}
+      ? { href: '#/new', tag: '발표 연습', title: `${NF_STEPS[nf.step]}부터 이어서 할까요?` }
       : null;
-  /* 토스 홈의 문법: 제목 → 핵심 숫자 한 장 → 목록 → 다음 행동.
-     히어로 배너도, 면적 차트 옆 통계 타일도, 96px 공백으로 가른 블록 일곱 개도
-     없다. 그건 대시보드 문법이지 앱 문법이 아니다.
-     「새 발표 연습」은 상단 바에만 둔다 — 화면 안에 CTA 를 또 두면 어느 것이
-     이 화면의 행동인지 흐려진다 (MVP_SPEC §5.1 · 토스 CTA 규칙) */
+
+  /* 카드를 늘어놓지 않는다. 도구의 홈은 「지금 할 일 한 줄 + 표」다.
+     2단 대시보드도 버렸다 — 발표가 5건뿐인데 칸을 둘로 가르면 양쪽 다 빈다.
+     세로 예산 764px 안에서 표가 화면의 주인공이 되게 한다 (MVP_SPEC §5.1) */
   const gm = loadGame();
-  const streak = dayStreak(gm.days), lvl = gameLevel(gm.xp), inLvl = (gm.xp || 0) % 100;
+  const shows = (window.Playbill && Playbill.load) ? Playbill.load() : [];
 
   app.innerHTML = `
-    <header class="t-head"><h1>내 발표</h1></header>
+    <header class="h-head">
+      <h1>내 발표</h1>
+      ${(gm.days || []).length ? `<span class="h-sub">${dayStreak(gm.days)}일 연속 · 레벨 ${gameLevel(gm.xp)}</span>` : ''}
+    </header>
 
     ${resume ? `
-    <a class="t-resume" href="${resume.href}">
-      <span class="t-resume-main">
-        <span class="t-resume-tag">${resume.eyebrow}</span>
-        <b>${resume.title}</b>
-      </span>
+    <a class="h-resume" href="${resume.href}">
+      <span class="h-resume-tag">${resume.tag}</span>
+      <b>${escapeHtml(resume.title)}</b>
       <span class="t-chev" aria-hidden="true">›</span>
     </a>` : ''}
 
-    ${nextCardHtml()}
+    ${nextBandHtml()}
 
-    <h2 class="t-sec-head t-lhead">내 기록</h2>
-
-    ${(gm.days || []).length ? `
-    <section class="t-card t-record-card" aria-label="연습 기록">
-      <div class="t-stats">
-        <div class="t-stat"><b class="num">${streak}일</b><small>연속 연습</small></div>
-        <div class="t-stat"><b class="num">레벨 ${lvl}</b><small>설득력</small></div>
-      </div>
-      <div class="t-bar"><i style="width:${inLvl}%"></i></div>
-      <p class="t-caption">다음 레벨까지 ${100 - inLvl} · 어려운 상대일수록 더 많이 쌓여요</p>
+    ${shows.length ? `
+    <section class="h-sec">
+      <div class="h-sec-head"><h2>지난 발표</h2><span>${shows.length}건</span></div>
+      <div class="h-wall">${window.Playbill.wallHtml()}</div>
     </section>` : ''}
 
-    ${window.Playbill ? window.Playbill.wallHtml() : ''}
-
-    <div class="t-band" aria-hidden="true"></div>
-
-    <!-- 실기록은 왼쪽 포스터 벽에만 쌓인다. 여기는 전부 샘플이므로 그렇게 쓴다.
-         「지난 발표」라는 이름은 진짜(포스터 벽)가 갖는다 — 홈에 같은 제목이
-         두 개였고 하나는 가짜였다. 날짜는 안 그린다: 「오늘 개관!」
-         바로 옆에서 「오늘 86점」이라고 말하던 자리다 -->
-    <section class="t-sec">
-      <h2 class="t-sec-head">샘플 발표<span class="t-soft">열어 보라고 넣어 둔 발표예요 · 실제 리포트와 같은 화면이 나와요</span></h2>
-      <div class="t-list">
-        ${DATA.sessions.map(s => `
-        <button class="t-row" type="button" data-go="#/report/${s.id}">
-          <span class="t-row-main">
-            <b>${s.title}<span class="t-tag">샘플</span></b>
-            <small>${s.occasion} · ${s.slides}장 · ${s.nth}번째 연습</small>
-          </span>
-          <span class="t-row-val num">${s.score}<i>점</i></span>
-          <span class="t-chev" aria-hidden="true">›</span>
-        </button>`).join('')}
+    <section class="h-sec">
+      <div class="h-sec-head">
+        <h2>샘플 발표</h2><span>${DATA.sessions.length}건</span>
       </div>
+      <p class="h-sec-note">열어 보라고 넣어 둔 발표예요. 실제 리포트와 같은 화면이 나와요.</p>
+      <table class="h-table">
+        <thead>
+          <tr><th>제목</th><th>상황</th><th class="num">장</th><th class="num">완성도</th><th></th></tr>
+        </thead>
+        <tbody>
+          ${DATA.sessions.map(s => `
+          <tr tabindex="0" role="link" data-go="#/report/${s.id}">
+            <td class="h-t-title">${escapeHtml(s.title)}<span class="t-tag">샘플</span></td>
+            <td class="h-t-occ">${escapeHtml(s.occasion)}</td>
+            <td class="num h-t-dim">${s.slides}</td>
+            <td class="num h-t-score">${s.score}</td>
+            <td class="h-t-go" aria-hidden="true">›</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
     </section>
 
-    <div class="t-band" aria-hidden="true"></div>
+    <a class="h-crew" href="#/about">
+      <span class="h-crew-birds" aria-hidden="true">${crewFacesHtml()}</span>
+      <span class="h-crew-txt"><b>믿:음 · 쏠라 · 엑씨 · 엑사원</b>이 각자 맡은 일로 발표를 봐요</span>
+      <span class="h-crew-go">판단하는 방식 →</span>
+    </a>`;
 
-    <div class="t-card t-list t-about-card">
-      <button class="t-row" type="button" data-go="#/about">
-        <span class="t-row-main"><b>척척발표가 판단하는 방식</b></span>
-        <span class="t-chev" aria-hidden="true">›</span>
-      </button>
-    </div>`;
-  /* 「다음에 고칠 것」 카드는 눌러서 근거로 들어간다. #/qa 는 개념 인자를 안 받으므로
-     리포트의 해당 탭으로 보낸다 — rTab 은 같은 모듈 스코프라 renderReport 가 읽는다 */
   $$('[data-go]').forEach(r => {
     const go = () => {
       if (r.dataset.tab) rTab = Number(r.dataset.tab) || 0;
@@ -658,7 +647,64 @@ function renderHome() {
     }
   });
   if (window.Playbill) window.Playbill.paintWall(app);
-  animateViz();
+}
+
+/** 크루 얼굴만 한 줄. 4열 격자 카드는 홈의 절반을 먹어서 마스코트가 주인공이 됐다 */
+function crewFacesHtml() {
+  if (!window.Chatter || !Chatter.chickSvg) return '';
+  return HOME_CREW.map(c =>
+    `<span class="h-crew-bird ch-seat" data-mood="happy">${Chatter.chickSvg(c.id)}</span>`).join('');
+}
+
+/* 홈 맨 위 한 줄. 카드가 아니라 띠다 — 「지금 할 일」은 화면에 하나뿐이어야 한다 */
+function nextBandHtml() {
+  const stage = homeStage();
+
+  if (stage === 'empty') {
+    return `
+      <section class="h-start">
+        <b>발표 자료를 올리면 시작해요</b>
+        <p>자료에 있는 개념과 실제로 말한 것을 하나씩 대조해서, 설명이 빠진 곳을 짚어줘요.</p>
+        <span class="h-start-act">
+          <a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>자료 올리기</a>
+          <a class="h-start-alt" href="#/report/sample-imu2clip">샘플 리포트 먼저 보기 →</a>
+        </span>
+      </section>`;
+  }
+
+  if (stage === 'uploaded') {
+    const meta = (nf && nf.slideDocMeta) || {};
+    const name = meta.file_name || (nf && nf.fileName) || '올린 자료';
+    return `
+      <section class="h-start">
+        <b>${escapeHtml(name)}${meta.total_slides ? ` · ${meta.total_slides}장` : ''}</b>
+        <p>연습을 마치면 네 모델이 본 것 중 제일 급한 하나를 여기에 띄워요.</p>
+        <span class="h-start-act"><a class="btn btn-primary btn-sm" href="#/new">이어서 연습하기</a></span>
+      </section>`;
+  }
+
+  const fix = nextFix();
+  if (stage === 'failed' || !fix) {
+    return `<section class="h-start is-failed">${stageAccidentHtml(homeFailNote())}</section>`;
+  }
+
+  const keep = fix.source === 'keep';
+  const partial = (nf.pipelineOut && nf.pipelineOut.failedStage) ? homeFailNote() : '';
+  return `
+    <section class="h-next${keep ? ' is-keep' : ''}" data-go="#/report" data-tab="${fix.tab}"
+             role="link" tabindex="0">
+      <span class="h-next-label">
+        <span class="h-next-who ch-seat" data-mood="${keep ? 'happy' : 'curious'}"
+              aria-hidden="true">${Chatter && Chatter.chickSvg ? Chatter.chickSvg(fix.who) : ''}</span>
+        ${keep ? '이번엔 지킬 것' : '다음에 고칠 것'}${fix.label ? ` · ${fix.label}` : ''}
+      </span>
+      <b class="h-next-head">${escapeHtml(fix.headline)}</b>
+      ${fix.action ? `<p class="h-next-act">${escapeHtml(fix.action)}</p>` : ''}
+      ${fix.hint ? `<p class="h-next-hint">${escapeHtml(fix.hint)}</p>` : ''}
+      ${fix.evidence ? `<p class="h-next-ev">“${escapeHtml(fix.evidence)}”</p>` : ''}
+      ${partial ? `<p class="h-next-hint">${escapeHtml(partial)}</p>` : ''}
+      <span class="t-chev" aria-hidden="true">›</span>
+    </section>`;
 }
 
 /* ══ 새 발표 연습 ══ */

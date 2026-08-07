@@ -671,3 +671,114 @@ main img, main canvas, main svg { max-width: 100%; }
    칸을 같은 높이로 늘리고 후원사만 바닥에 붙인다 */
 .t-crew-one { height: 100%; }
 .t-crew-by { margin-top: auto; padding-top: 2px; }
+
+
+/* ══ 홈 — 도구의 홈은 카드 모음이 아니라 「할 일 한 줄 + 표」다 ═════════
+   카드를 늘어놓으면 어디부터 볼지 정해지지 않는다. 면을 최소로 쓰고
+   구분은 얇은 선으로만 한다 (06_saas_shift §2) */
+
+.h-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 20px; }
+.h-head h1 { margin: 0; font-size: var(--t-h1); font-weight: 700; letter-spacing: -.024em; }
+.h-head .h-sub { font-size: var(--t-meta); color: var(--text-3); }
+
+/* 이어하기 — 브랜드 색을 쓰는 유일한 줄 */
+.h-resume {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px; padding: 10px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-print);
+  background: var(--brand-weak); text-decoration: none; color: inherit;
+}
+.h-resume-tag { font-size: var(--t-meta); font-weight: 650; color: var(--brand-strong); }
+.h-resume b { flex: 1; font-size: var(--t-body); font-weight: 600; }
+
+/* 시작 띠 / 다음에 고칠 것 — 화면에 「지금 할 일」은 하나뿐이다 */
+.h-start, .h-next {
+  position: relative; display: block;
+  padding: 18px 20px; margin-bottom: 28px;
+  border: 1px solid var(--border); border-radius: var(--r-print);
+  background: var(--surface); text-decoration: none; color: inherit;
+}
+.h-start b { display: block; font-size: var(--t-card); font-weight: 650; letter-spacing: -.01em; }
+.h-start p { margin: 6px 0 0; font-size: var(--t-body); line-height: 1.6; color: var(--text-2); }
+.h-start-act { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+.h-start-alt { font-size: var(--t-body); font-weight: 500; color: var(--text-2); text-decoration: none; }
+.h-start-alt:hover { color: var(--text); }
+.h-start.is-failed { padding: 16px; }
+.h-start.is-failed .accident { margin: 0; }
+
+.h-next { padding-right: 40px; cursor: pointer; }
+.h-next:hover { background: var(--hover); }
+.h-next:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.h-next > .t-chev { position: absolute; top: 18px; right: 16px; }
+.h-next-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: var(--t-meta); font-weight: 600; color: var(--text-3);
+}
+.h-next-who.ch-seat { width: 24px; flex: none; opacity: 1; transform: none; filter: none; animation: none; }
+.h-next-head {
+  display: block; margin-top: 8px;
+  font-size: var(--t-card); font-weight: 650; line-height: 1.5;
+  letter-spacing: -.01em; word-break: keep-all;
+}
+.h-next-act { margin: 6px 0 0; font-size: var(--t-body); line-height: 1.6; color: var(--text-2); word-break: keep-all; }
+.h-next-hint { margin: 6px 0 0; font-size: var(--t-meta); color: var(--text-3); }
+.h-next-ev {
+  margin: 10px 0 0; padding: 9px 11px;
+  border-radius: var(--r-inner); background: var(--fill);
+  font-size: var(--t-meta); line-height: 1.6; color: var(--text-2);
+}
+
+/* 구역 — 제목은 칸 이름이라 작고 흐리게, 개수는 오른쪽 끝에 */
+.h-sec { margin-bottom: 28px; }
+.h-sec-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.h-sec-head h2 {
+  margin: 0; font-size: var(--t-meta); font-weight: 600;
+  letter-spacing: .02em; color: var(--text-3);
+}
+.h-sec-head span { font-size: var(--t-meta); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.h-sec-note { margin: 8px 0 0; font-size: var(--t-meta); color: var(--text-3); }
+.h-wall { margin-top: 10px; }
+.h-wall .pb-wall { border: 0; padding: 0; background: none; }
+
+/* 표 — 목록을 카드에 담지 않는다. 열이 있어야 훑어진다 */
+.h-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.h-table th {
+  padding: 10px 8px 8px; text-align: left;
+  font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: .02em;
+  border-bottom: 1px solid var(--border);
+}
+.h-table th.num, .h-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.h-table td {
+  padding: 10px 8px; border-bottom: 1px solid var(--border);
+  font-size: var(--t-body); color: var(--text-2); vertical-align: middle;
+}
+.h-table tbody tr { cursor: pointer; transition: background .12s ease; }
+.h-table tbody tr:hover td { background: var(--hover); }
+.h-table tbody tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.h-t-title { font-weight: 600; color: var(--text); }
+.h-t-occ, .h-t-dim { white-space: nowrap; }
+.h-t-score { font-weight: 650; color: var(--text); }
+.h-t-go { width: 18px; color: var(--text-3); text-align: right; }
+@media (max-width: 620px) {
+  .h-table .h-t-occ, .h-table thead th:nth-child(2),
+  .h-table .h-t-dim, .h-table thead th:nth-child(3) { display: none; }
+}
+
+/* 네 모델 — 4열 격자 카드가 홈의 절반을 먹어서 마스코트가 주인공이었다.
+   한 줄로 눕히고 「판단하는 방식」으로 가는 길만 남긴다 */
+.h-crew {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-print);
+  text-decoration: none; color: inherit; background: var(--surface);
+}
+.h-crew:hover { background: var(--hover); }
+.h-crew-birds { display: flex; flex: none; }
+.h-crew-bird.ch-seat {
+  width: 26px; margin-right: -7px; opacity: 1; transform: none; filter: none; animation: none;
+}
+.h-crew-txt { flex: 1; font-size: var(--t-meta); color: var(--text-2); }
+.h-crew-txt b { font-weight: 650; color: var(--text); }
+.h-crew-go { flex: none; font-size: var(--t-meta); font-weight: 600; color: var(--text-3); }
