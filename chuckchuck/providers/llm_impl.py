@@ -469,6 +469,11 @@ class OpenAICompatLLM(LLMProvider):
             # 프롬프트 지시만으로는 모델이 한 줄 JSON 안에 이스케이프 안 된 따옴표를
             # 넣어 파싱이 깨진다. OpenAI 호환 제공자는 이 필드로 구조를 강제한다.
             payload["response_format"] = {"type": "json_object"}
+            # Upstage 는 여기에 더해 messages 안에 'json' 이라는 낱말이 실제로 있기를
+            # 요구한다. 없으면 400 이다 — 출력 형식을 프롬프트에 안 적은 호출자는
+            # 실행해 보기 전까지 모르는 지뢰를 밟는다 (F-09 「모르겠어요」가 그랬다).
+            if "json" not in f"{system}\n{user}".lower():
+                payload["messages"][0]["content"] += "\n\n출력은 JSON 객체 하나로만 한다."
         res = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
         if res.status_code != 200:
             raise ConceptError(
