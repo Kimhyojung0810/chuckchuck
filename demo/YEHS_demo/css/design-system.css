@@ -536,7 +536,7 @@ main img, main canvas, main svg { max-width: 100%; }
 .t-resume {
   display: flex; align-items: center; gap: 12px;
   padding: 16px 20px; border-radius: var(--r-print);
-  background: var(--brand-weak); border: 1.5px solid #C9E9DA;
+  background: var(--brand-weak); border: 1.5px solid #BBF7DE;
 }
 .t-resume-main { flex: 1; min-width: 0; }
 .t-resume-tag { display: block; font-size: 13px; font-weight: 700; color: var(--brand-strong); }

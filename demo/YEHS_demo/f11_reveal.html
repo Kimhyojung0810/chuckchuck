@@ -332,8 +332,8 @@
   /* 이 페이지는 position:fixed; inset:0 오버레이 안에서 뜬다(app.js showF11Reveal).
      투명으로 두면 덮개가 뚫려서 아래 체크리스트 카드가 비쳐 두 화면이 겹친다.
      그렇다고 #f2f4f6 은 앱이 안 쓰는 회색이라 iframe 만 남의 사이트처럼 보였다.
-     앱의 크림(--canvas)과 같은 값으로 불투명하게 덮는다 */
-  body.embed { background: #FFFDF7; }
+     앱 배경(--canvas)과 같은 값으로 불투명하게 덮는다 */
+  body.embed { background: #FAFAF9; }
   body.embed .phone {
     max-width: 440px; min-height: calc(100vh - 36px); margin: 18px auto;
     border-radius: 20px; box-shadow: 0 6px 24px rgba(28, 82, 61, 0.08);
@@ -995,7 +995,7 @@ function wbBirdSvg(prop) {
     + '<ellipse cx="50" cy="66" rx="27" ry="24" fill="#FFD96A" stroke="#356B59" stroke-width="3.5"/>'
     + '<circle cx="50" cy="40" r="27" fill="#FFD96A" stroke="#356B59" stroke-width="3.5"/>'
     + '<path d="M50 13c0-6 4-9 8-9-1 5-3 8-8 9z" fill="#9BD9C4" stroke="#356B59" stroke-width="2.5"/>'
-    + '<circle cx="40" cy="39" r="4.6" fill="#26372F"/><circle cx="60" cy="39" r="4.6" fill="#26372F"/>'
+    + '<circle cx="40" cy="39" r="4.6" fill="#2F3B33"/><circle cx="60" cy="39" r="4.6" fill="#2F3B33"/>'
     + '<circle cx="41.6" cy="37.4" r="1.5" fill="#fff"/><circle cx="61.6" cy="37.4" r="1.5" fill="#fff"/>'
     + '<path d="M46 49h8l-4 5z" fill="#F0A93C"/>'
     + '<ellipse cx="30" cy="47" rx="5" ry="3.4" fill="#F7B6A8" opacity=".75"/>'

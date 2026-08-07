@@ -40,7 +40,7 @@
   /* 도장 잉크. 판정 색이 아니라 자유 색이라 새 팔레트를 따라간다
      (docs/design_improvement/04_screens.md §6) */
   const STAMP_COLOR = {
-    happy: '#08B879', neutral: '#8AA295', curious: '#F0A93C', grumpy: '#D1584F',
+    happy: '#0A8459', neutral: '#71717A', curious: '#F0A93C', grumpy: '#D1584F',
   };
 
   /* ------------------------------------------------------------------ */

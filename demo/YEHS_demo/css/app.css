@@ -4,12 +4,17 @@
 */
 
 :root {
-  /* ── 브랜드 팔레트 (딥그린) — docs/design_improvement/02_tokens.md ── */
-  --navy: #155C46;          /* 메인 초록. 가장 진한 브랜드 면 */
-  --navy-deep: #0C3D2E;
-  --brand: #08B879;         /* 주 액션 */
-  --brand-strong: #069E67;  /* 주 액션 hover·active */
-  --brand-weak: #E7F7EF;    /* 연한 민트 — 주 액션 배경 */
+  /* ── 브랜드 팔레트 (딥그린) — docs/design_improvement/06_saas_shift.md §1 ──
+     초록은 「주 액션」과 「판정 상태」에만 쓴다. 테두리·칩·연한 면에서는 뺐다.
+     그전까지 초록이 브랜드색이 아니라 배경색처럼 화면에 깔려 있었다 */
+  --navy: #064E3B;          /* 메인 초록. 가장 진한 브랜드 면 */
+  --navy-deep: #043027;
+  /* 06 §1 은 #0D9F6E 였는데 한 칸 내렸다. 흰 글씨를 얹으면 3.39:1 로 WCAG AA
+     (4.5:1) 에 못 미친다 — 부스 조명 아래 태블릿에서 CTA 글씨가 제일 먼저
+     날아가는 대비다. #0A8459 는 4.71:1 로 통과하면서 딥에메랄드는 그대로다 */
+  --brand: #0A8459;         /* 주 액션 */
+  --brand-strong: #08704B;  /* 주 액션 hover·active */
+  --brand-weak: #ECFDF5;    /* 연한 민트 — 주 액션 배경 */
   --cyan: #3fd599;          /* 어두운 면 위 강조 */
   --mint: #aeefd5;
   --yellow: #F0B429;        /* 주의·초과 */
@@ -19,20 +24,21 @@
   --blue-strong: var(--brand-strong);
   --blue-weak: var(--brand-weak);
 
-  /* 배경이 크림, 카드가 순백이다. 회색 배경 위 크림 카드였던 관계를 뒤집었다 —
-     크림 위에 밝은 카드가 떠 있어야 따뜻하면서 위계가 산다 (02_tokens §1) */
-  --canvas: #FFFDF7;        /* 페이지 배경 (크림) */
+  /* 배경보다 카드가 밝다. 그 관계는 유지하되 크림을 뺐다 — 크림이 「유아교육」
+     인상의 큰 지분이었다. 거의 흰색이되 순백은 아닌 회색으로 간다 (06 §1) */
+  --canvas: #FAFAF9;        /* 페이지 배경 */
   --surface: #FFFFFF;       /* 카드 */
   --paper: #FFFFFF;         /* 리포트 패널 */
-  --fill: #EFF6F1;          /* 카드 안 면 — 초록기 살짝 */
-  --border: #D8EEE3;        /* 카드 1.5px 보더 */
-  --line: rgba(31, 64, 52, .12);
+  --fill: #F4F4F5;          /* 카드 안 면 · 칩 배경 */
+  /* 화면 전체에 초록을 깔고 있던 민트 테두리다. 여기 한 줄이 가장 큰 변화다 */
+  --border: #E4E4E7;        /* 카드 1.5px 보더 */
+  --line: rgba(24, 24, 27, .10);
   /* 행에 손이 닿았을 때. 색이 아니라 농도라서 크림 배경 위에서도, 흰 카드
      위에서도 같은 세기로 보인다 — 배경 토큰을 바꿔도 따라 움직인다 */
   --hover: rgba(24, 24, 27, .045);
-  --text: #26372F;          /* 본문 — 순검정 대신 진초록 잉크 */
-  --text-2: #46584F;
-  --text-3: #8AA295;
+  --text: #18181B;          /* 본문 — 초록기 뺀 중립 먹색 */
+  --text-2: #52525B;
+  --text-3: #71717A;        /* 메타데이터 */
 
   --ok: #0A8F68;   --ok-bg: #E9F7EF;
   --mid: #B45309;  --mid-bg: #FDF6E3;
@@ -52,8 +58,8 @@
 
   /* font-weight 4단 — 미세 차이는 의미를 만들지 않는다 */
   --w-body: 500; --w-med: 650; --w-bold: 750; --w-display: 830;
-  --shadow: 0 2px 8px rgba(28, 82, 61, .06);
-  --shadow-panel: 0 8px 24px rgba(28, 82, 61, .08);
+  --shadow: 0 2px 8px rgba(24, 24, 27, .06);
+  --shadow-panel: 0 8px 24px rgba(24, 24, 27, .08);
   --ease: cubic-bezier(.22, 1, .36, 1);
   --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 }
@@ -163,7 +169,7 @@ main.narrow { max-width: 640px; }
 }
 .card + .card, .card + details.fold, details.fold + .card, details.fold + details.fold { margin-top: 14px; }
 .clickable { cursor: pointer; transition: transform .15s var(--ease), box-shadow .15s ease; }
-.clickable:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(28, 82, 61, .1); }
+.clickable:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(24, 24, 27, .1); }
 .note { font-size: 13px; color: var(--text-3); }
 
 /* 말풍선 */
@@ -429,7 +435,7 @@ main.narrow { max-width: 640px; }
   position: absolute; top: 50%; width: 44px; height: 44px; transform: translateY(-50%);
   display: flex; align-items: center; justify-content: center;
   border: 0; border-radius: var(--r-pill); background: var(--surface); color: var(--text-2);
-  box-shadow: 0 2px 10px rgba(28,82,61,.16);
+  box-shadow: 0 2px 10px rgba(24, 24, 27,.16);
   font-size: 20px; line-height: 1; cursor: pointer; opacity: .9; transition: opacity .15s ease, background .15s ease;
   z-index: 6; pointer-events: auto;
 }
@@ -451,7 +457,7 @@ main.narrow { max-width: 640px; }
 .rehearsal-control {
   position: relative; z-index: 5; left: auto; bottom: auto; width: 100%; max-width: none;
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap; min-height: 86px; padding: 18px 20px;
-  transform: none; border: 1px solid rgba(229,232,235,.9); box-shadow: 0 8px 24px rgba(28, 82, 61, .08);
+  transform: none; border: 1px solid rgba(229,232,235,.9); box-shadow: 0 8px 24px rgba(24, 24, 27, .08);
   /* 이 화면의 주인공은 슬라이드다. 녹음 컨트롤은 그 아래 얇은 띠로 둔다
      (MVP_SPEC §5.2 "녹음은 아래의 얇은 발표 컨트롤로 둔다").
      DOM 은 컨트롤이 먼저라 order 로 뒤로 보낸다 */
@@ -462,7 +468,7 @@ main.narrow { max-width: 640px; }
 .rehearsal-control.is-live {
   position: fixed; z-index: 12; left: 50%; bottom: 16px; width: calc(100% - 48px); max-width: 932px;
   transform: translateX(-50%); order: 0;
-  box-shadow: 0 12px 36px rgba(28, 82, 61, .15);
+  box-shadow: 0 12px 36px rgba(24, 24, 27, .15);
 }
 .rehearsal-shell:has(.rehearsal-control.is-live) { padding-bottom: 104px; }
 .rec-copy { min-width: 0; }
@@ -473,7 +479,7 @@ main.narrow { max-width: 640px; }
 .rehearsal-control .rec-clock { font-size: 22px; }
 .rec-log-fold { flex: 1; min-width: 170px; }
 .rec-log-fold summary { color: var(--text-3); font-size: 12px; font-weight: 600; cursor: pointer; }
-.rec-log-fold .trans-log { position: absolute; z-index: 5; width: 300px; max-height: 160px; margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-print); background: #fff; box-shadow: 0 8px 24px rgba(28, 82, 61, .12); }
+.rec-log-fold .trans-log { position: absolute; z-index: 5; width: 300px; max-height: 160px; margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-print); background: #fff; box-shadow: 0 8px 24px rgba(24, 24, 27, .12); }
 /* 리허설 대신 이미 녹음한 파일을 올리는 진입점 */
 .rec-upload { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0; max-width: 240px; }
 .rec-upload .btn-text { height: 44px; padding: 0; }
@@ -513,7 +519,7 @@ main.narrow { max-width: 640px; }
   font-size: 14px; font-weight: 500; color: var(--text-2);
   transition: all .15s ease;
 }
-.tabs button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(28, 82, 61, .08); }
+.tabs button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(24, 24, 27, .08); }
 
 /* 요약: 히어로 */
 .hero-card { display: flex; gap: 32px; align-items: center; }
@@ -556,7 +562,7 @@ main.narrow { max-width: 640px; }
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 6px; background: rgba(255, 255, 255, .92);
   font-size: 11px; font-weight: 700; color: var(--text);
-  box-shadow: 0 1px 2px rgba(28, 82, 61, .12);
+  box-shadow: 0 1px 2px rgba(24, 24, 27, .12);
 }
 .slidethumb.st-ok { border-color: var(--ok); }
 .slidethumb.st-mid { border-color: var(--mid); }
@@ -565,7 +571,7 @@ main.narrow { max-width: 640px; }
 .slidethumb.st-om { border-color: #B3C0B8; }
 .slidethumb.st-none { border-color: var(--border); }
 .slidethumb.has { cursor: pointer; }
-.slidethumb.has:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(28, 82, 61, .12); }
+.slidethumb.has:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(24, 24, 27, .12); }
 .slidethumb.has::after {
   content: ""; position: absolute; inset: 0;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .5); border-radius: var(--r-ctl); pointer-events: none;
@@ -762,7 +768,7 @@ details.fold .fold-body { padding: 0 24px 20px; }
   animation: voicePop .55s var(--ease) forwards;
   animation-delay: calc(var(--i, 0) * 55ms);
 }
-.slide-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(28, 82, 61, .08); }
+.slide-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(24, 24, 27, .08); }
 .slide-pill .sp-no {
   width: 32px; height: 32px; border-radius: var(--r-ctl);
   display: inline-flex; align-items: center; justify-content: center;
@@ -918,7 +924,7 @@ details.fold .fold-body { padding: 0 24px 20px; }
   padding: 7px 14px; border: 0; border-radius: var(--r-ctl); background: none; cursor: pointer;
   font-size: 13px; font-weight: 500; color: var(--text-2); transition: all .15s ease;
 }
-.seg-ctl button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(28, 82, 61, .08); }
+.seg-ctl button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(24, 24, 27, .08); }
 .map-tools { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; user-select: none; }
 .map-box { background: var(--surface); border-radius: var(--r-inner); overflow: hidden; box-shadow: var(--shadow); }
@@ -1575,7 +1581,7 @@ table.plain tr:last-child td { border-bottom: 0; }
 
 /* ── 리포트: 오늘 만든 문장 스트립 ── */
 .trophy-strip { width: 100%; text-align: left; border: 1px solid #C4E2D2; background: var(--brand-weak); cursor: pointer; transition: transform .12s var(--ease), box-shadow .12s ease; }
-.trophy-strip:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(28, 82, 61, .08); }
+.trophy-strip:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(24, 24, 27, .08); }
 .ts-label { display: block; font-size: 12px; font-weight: 700; color: var(--blue); margin-bottom: 8px; }
 .ts-quote { font-size: 18px; font-weight: 700; line-height: 1.5; letter-spacing: -.2px; }
 .ts-go { display: inline-block; margin-top: 12px; font-style: normal; font-size: 13px; font-weight: 600; color: var(--text-3); }

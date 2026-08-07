@@ -592,7 +592,7 @@ time,.num,.time-chip,.jev time,.transition-log span,.player-words span b,.pl-tim
   padding:20px 24px;border-radius: var(--r-print);background:#fff;border:1.5px solid #d8e6dd;text-decoration:none;
   transition:border-color .2s,box-shadow .25s,transform .2s}
 
-.demo-link-card:hover{border-color:#3fd599;box-shadow:0 12px 28px rgba(24,84,63,.12);transform:translateY(-2px)}
+.demo-link-card:hover{border-color:#3fd599;box-shadow:0 12px 28px rgba(24, 24, 27, .10);transform:translateY(-2px)}
 
 .demo-link-card b{display:block;font-size: 17px;font-weight: 600;color:#0a3d2a;letter-spacing:-.02em}
 
