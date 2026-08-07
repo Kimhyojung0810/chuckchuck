@@ -594,6 +594,8 @@ main.narrow { max-width: 640px; }
 /* 리허설 대신 이미 녹음한 파일을 올리는 진입점 */
 .rec-upload { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0; max-width: 240px; }
 .rec-upload .btn-text { height: 44px; padding: 0; }
+/* 형식 안내는 화면 하단으로 갔다 — 이 줄은 업로드 상태가 생길 때만 보인다 */
+#recUploadNote:empty { display: none; }
 .rec-upload .note { margin: 0; color: var(--text-3); font-size: 11px; text-align: right; }
 .rehearsal-control .mic-denied { display: flex; flex: 1; flex-direction: column; padding: 0; background: none; }
 .rehearsal-control .mic-denied b { color: var(--text); }

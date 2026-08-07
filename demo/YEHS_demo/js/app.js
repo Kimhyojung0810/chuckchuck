@@ -819,10 +819,11 @@ function precomputeNoteHtml() {
   const s = precompute.state || {};
   let text;
   if (s.failed) text = '자료를 미리 읽다가 멈췄어요. 발표가 끝난 뒤에 다시 해볼게요';
-  else if (s.graphReady) text = '발표하는 동안 자료를 다 읽어 뒀어요';
+  // 다 읽었으면 아무 말도 안 한다 — 완료 안내까지 띄우면 문구가 화면을 어지럽힌다
+  else if (s.graphReady) return '';
   else if (s.conceptsReady) text = '자료의 개념을 찾았어요. 개념끼리 어떻게 이어지는지 보고 있어요';
   else text = '발표하는 동안 자료를 먼저 읽고 있어요';
-  return `<p class="pre-note${s.graphReady ? ' is-done' : ''}">${escapeHtml(text)}</p>`;
+  return `<p class="pre-note">${escapeHtml(text)}</p>`;
 }
 
 let preNoteTickStarted = false;
@@ -839,7 +840,8 @@ function paintPrecomputeNote() {
   const tmp = document.createElement('div');
   tmp.innerHTML = precomputeNoteHtml();
   const next = tmp.firstElementChild;
-  if (next && next.textContent !== host.textContent) host.replaceWith(next);
+  if (!next) { host.remove(); return; }   // 다 읽었으면 줄 자체를 거둔다
+  if (next.textContent !== host.textContent) host.replaceWith(next);
 }
 
 /** 파이프라인에 넘길 promise 묶음. 조건이 바뀌었으면 아무것도 안 넘긴다 */
@@ -1461,7 +1463,6 @@ function nfStep3() {
   app.innerHTML = `${nfSteps()}
     <div class="rehearsal-head">
       <div><span class="mode-label">발표 모드</span><h1>슬라이드를 보며 실제처럼 발표해보세요</h1></div>
-      <p>← → 키나 슬라이드 목록으로 넘길 수 있어요${usePdf ? ' · 업로드한 PDF 원본' : ''}</p>
       ${precomputeNoteHtml()}
     </div>
     <div class="rehearsal-shell">
@@ -1484,7 +1485,7 @@ function nfStep3() {
       </div>
     </div>
     <div class="sf" id="stagefront" aria-hidden="true"></div>
-    <p class="privacy-note">녹음은 발표 분석에만 사용돼요.</p>`;
+    <p class="privacy-note">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB · 슬라이드 구간은 길이를 균등하게 나눠 채워요</p>`;
   renderRecPanel();
   bindRehearsalNav();
   paintRehearsalSlide(nf.slide);
@@ -1590,7 +1591,9 @@ function recUploadHtml() {
   return `
     <div class="rec-upload">
       <button class="btn btn-text btn-sm" id="recUploadPick">녹음 파일로 대신하기</button>
-      <p class="note" id="recUploadNote">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB. 슬라이드 구간은 길이를 균등하게 나눠 채워요.</p>
+      <!-- 형식 안내는 화면 하단 privacy-note 자리로 갔다. 이 줄은 업로드
+           진행·오류 상태가 생길 때만 채워진다 (recUploadFail·길이 읽는 중) -->
+      <p class="note" id="recUploadNote"></p>
       <input type="file" id="recUploadFile" accept="audio/*,.webm,.m4a,.mp4,.mp3,.wav,.ogg" hidden>
     </div>`;
 }
@@ -1616,9 +1619,7 @@ function renderRecPanel() {
        세워지므로 길을 안 열어 주면 이미 끝난 분석으로 다시 갈 수가 없다 */
     const hasTake = !!(nf.pipelineOut || nf.pipelineError);
     p.innerHTML = `
-      <div class="rec-copy"><span>준비되면 시작하세요</span><p>${hasTake
-        ? '다시 발표해도 되고, 아까 발표한 결과로 바로 넘어가도 돼요.'
-        : '발표하면서 넘긴 슬라이드와 말한 내용을 함께 기록해요.'}</p></div>
+      <div class="rec-copy"><span>준비되면 시작하세요</span></div>
       ${hasTake ? '<button class="btn btn-secondary" id="recResume">아까 발표로 질문 준비하기</button>' : ''}
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
       ${recUploadHtml()}`;
