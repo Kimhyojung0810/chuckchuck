@@ -31,6 +31,47 @@
 
 @media (min-width: 900px) {
 
+  /* ══ 0. 앱 셸 ═══════════════════════════════════════════════
+     내비는 고정이고 본문은 그만큼 밀린다. 폭을 --nav-w 로 두는 이유:
+     .verdict·.t-band 의 전면폭 계산(calc(50% - 50vw + var(--nav-w)/2))이
+     같은 값을 타야 가로 스크롤이 안 난다. */
+  :root { --nav-w: 216px; }
+  body { padding-left: var(--nav-w); }
+
+  .sidenav {
+    display: flex; flex-direction: column; gap: 4px;
+    position: fixed; inset: 0 auto 0 0; z-index: 60;
+    width: var(--nav-w); padding: 14px 12px 16px;
+    background: var(--surface); border-right: 1px solid var(--border);
+  }
+  .sidenav-brand {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px 14px; font-size: 15px; font-weight: 700;
+    color: var(--text); text-decoration: none; letter-spacing: -.02em;
+  }
+  .sidenav-brand .brand-mark { width: 22px; height: 22px; flex: none; }
+  .sidenav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .sidenav-list a, .sidenav-foot {
+    display: block; padding: 7px 10px; border-radius: var(--r-ctl);
+    font-size: var(--t-body); font-weight: 500; color: var(--text-2);
+    text-decoration: none; transition: background .12s ease;
+  }
+  .sidenav-list a:hover, .sidenav-foot:hover { background: var(--hover); color: var(--text); }
+  /* 지금 보는 칸. aria-current 는 route() 가 붙인다 — 색만으로 말하지 않는다 */
+  .sidenav-list a[aria-current="page"] {
+    background: var(--fill); color: var(--text); font-weight: 650;
+  }
+  .sidenav-foot { margin-top: auto; font-size: var(--t-meta); color: var(--text-3); }
+
+  /* 브랜드는 내비가 갖는다. 탑바에 또 두면 로고가 둘이다 */
+  .topbar > .brand { display: none; }
+  .topbar { justify-content: flex-end; }
+
+  /* 랜딩은 마케팅 화면이라 앱 크롬을 걸치지 않는다 (MVP_SPEC §4) */
+  body:has(main.landing) { padding-left: 0; }
+  body:has(main.landing) .sidenav { display: none; }
+  body:has(main.landing) .topbar > .brand { display: flex; }
+
   /* ══ 1. 셸 ══════════════════════════════════════════════════ */
 
   .topbar { height: var(--topbar-h); padding: 0 var(--gutter); }

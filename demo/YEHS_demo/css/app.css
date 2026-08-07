@@ -59,6 +59,11 @@
   --r-ctl: 8px;        /* 버튼·입력 */
   --r-pill: 999px;     /* 칩·탭 */
   --r-dot: 50%;        /* 아바타·상태 점 */
+
+  /* 앱 셸의 좌측 내비 폭. 기본이 0 이라 좁은 화면은 지금과 완전히 같다.
+     tablet.css 가 >=900px 에서만 값을 준다 — 전면폭 요소(.verdict·.t-band)가
+     이 값을 타고 따라오므로 사이드바가 생겨도 가로 스크롤이 안 난다 */
+  --nav-w: 0px;
   /* 레거시 별칭 — 기존 var(--r-card|btn) 사용처가 따라온다 */
   --r-card: var(--r-print); --r-btn: var(--r-ctl);
 
@@ -2092,3 +2097,10 @@ table.plain tr:last-child td { border-bottom: 0; }
 /* 채점 못 한 항목은 흐리게 두되 지우지 않는다 — 있었다는 사실이 정보다 */
 .rb-item.is-situation_excluded .rb-name,
 .rb-item.is-unmeasured .rb-name { color: var(--text-3); font-weight: 500; }
+
+
+/* ══ 앱 셸: 좌측 내비 ═══════════════════════════════════════════════
+   좌측 내비 없이 탑바 하나뿐이면 "제품"이 아니라 "페이지"로 보인다.
+   기본은 숨김이고 tablet.css 가 >=900px 에서만 켠다 — 좁은 화면의
+   흐름(탑바 + 세로 스택)은 한 픽셀도 안 바뀐다. */
+.sidenav { display: none; }

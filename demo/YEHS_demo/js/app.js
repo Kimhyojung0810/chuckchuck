@@ -339,8 +339,22 @@ function route() {
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) { resetNf(); resetQa(); }
   (routes[key] || renderHome)();
   syncTopbar();
+  syncSideNav(key);
   wireFreshPracticeButtons();
   window.scrollTo(0, 0);
+}
+
+/* 지금 어느 칸에 있는지 좌측 내비에 표시한다. 색만으로 말하지 않으려고
+   aria-current 를 쓰고 CSS 가 그걸 따라간다 — 스크린리더도 같은 걸 읽는다.
+   질문 코칭(#/qa)은 내비에 칸이 없다. 진행 중일 때만 의미가 있어서 링크로
+   두면 죽은 칸이 되고, 이어하기는 탑바가 이미 맡는다 — 그동안은 「연습하기」를
+   켜 둔다 (같은 발표 흐름 안이다) */
+function syncSideNav(key) {
+  const here = key === 'qa' ? 'new' : key;
+  $$('.sidenav [data-nav]').forEach(a => {
+    if (a.dataset.nav === here) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
 }
 
 function syncTopbar() {
