@@ -4592,10 +4592,18 @@ function bindDeckPanel() {
 function deckHtml() {
   const live = isLiveReportSession();
   const total = deckTotalSlides();
-  // 기본값(7)이 샘플 23장 기준이라 짧은 자료에서는 범위를 벗어난다
-  const n = Math.min(Math.max(1, repSlide), Math.max(1, total));
-  repSlide = n;
   const tree = judgeTree();
+  /* 기본값(7)은 샘플 23장 기준이라 짧은 자료에서는 범위를 벗어난다.
+     범위 밖이면 마지막 장으로 밀지 않고 판정이 걸린 첫 장을 연다 —
+     처음 열자마자 「이 장에 걸린 개념 판정이 없어요」를 보여줄 이유가 없다. */
+  let n = repSlide;
+  if (n < 1 || n > total) {
+    const judged = (tree[0] && tree[0].real)
+      ? tree.map(x => slideNumber(x.slide)).filter(no => no >= 1 && no <= total).sort((a, b) => a - b)[0]
+      : 0;
+    n = judged || 1;
+  }
+  repSlide = n;
   const nodes = slideJudgeNodes(n, tree);          // 실데이터가 없으면 null
   const isReal = !!nodes;
   const node = isReal
@@ -4754,7 +4762,7 @@ function rJudge() {
         <div class="tree" id="jtree">
           ${items.map(t => `
           <button class="${t.id === jSel ? 'sel' : ''} ${t.depth === 2 ? 'child' : ''}" data-id="${t.id}">
-            <span class="dot st-${t.status}"></span>${t.label}
+            <span class="dot st-${t.status}"></span>${escapeHtml(t.label)}
             <small>${slideNumber(t.slide)}번</small>
           </button>`).join('')}
         </div>
