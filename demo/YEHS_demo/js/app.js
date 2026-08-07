@@ -350,6 +350,11 @@ function route() {
    두면 죽은 칸이 되고, 이어하기는 탑바가 이미 맡는다 — 그동안은 「연습하기」를
    켜 둔다 (같은 발표 흐름 안이다) */
 function syncSideNav(key) {
+  /* 병아리 넷은 화면마다 바뀌지 않으니 사이드바에 한 번만 심는다.
+     홈 본문에 있던 띠를 여기로 옮겼다 — 그 자리에선 화면마다 사라졌다 나타났고,
+     왼쪽 칸은 아래쪽이 통째로 비어 있었다 */
+  const crew = $('.sidenav-crew');
+  if (crew && !crew.childElementCount) crew.innerHTML = crewFacesHtml();
   const here = key === 'qa' ? 'new' : key;
   $$('.sidenav [data-nav]').forEach(a => {
     if (a.dataset.nav === here) a.setAttribute('aria-current', 'page');
@@ -628,11 +633,7 @@ function renderHome() {
       </table>
     </section>
 
-    <a class="h-crew" href="#/about">
-      <span class="h-crew-birds" aria-hidden="true">${crewFacesHtml()}</span>
-      <span class="h-crew-txt"><b>믿:음 · 쏠라 · 엑씨 · 엑사원</b>이 각자 맡은 일로 발표를 봐요</span>
-      <span class="h-crew-go">판단하는 방식 →</span>
-    </a>`;
+`;
 
   $$('[data-go]').forEach(r => {
     const go = () => {
@@ -3693,30 +3694,54 @@ function goJudge(node) {
 /* 탭 1 — 요약 */
 
 /** 덱 필름에 그릴 슬라이드 목록. 상태는 실판정이 있으면 그걸, 없으면 샘플을 쓴다. */
+/* 한 장에 여러 개념이 걸리면 가장 나쁜 판정을 그 장의 색으로 쓴다.
+   필름 스트립·무대·개념 판정이 같은 장을 다른 색으로 칠하면 리포트가 거짓말이 된다 —
+   그래서 세 곳이 이 한 함수만 본다. */
+const JUDGE_RANK = { ct: 0, no: 1, mid: 2, om: 3, ok: 4 };
+
+/** 그 장에 걸린 실제 개념 판정 — 나쁜 순 · 무거운 순. 실데이터가 없으면 null. */
+function slideJudgeNodes(no, tree = judgeTree()) {
+  if (!(tree[0] && tree[0].real)) return null;
+  return tree
+    .filter(n => slideNumber(n.slide) === no)
+    .sort((a, b) => (JUDGE_RANK[a.status] - JUDGE_RANK[b.status]) || ((b.w || 0) - (a.w || 0)));
+}
+
+/** 리포트가 그릴 장 수 — 올린 자료가 있으면 그 자료 기준이다. */
+function deckTotalSlides() {
+  return (nfSlideDoc && nfSlideDoc.total_slides)
+    || (uploadedPdf && uploadedPdf.pageCount)
+    || ((nf && nf.slideTitles && nf.slideTitles.length) || 0)
+    || DATA.slideStatus.length;
+}
+
+/** 장 제목. 업로드 세션에서는 샘플(IMU2CLIP) 제목으로 떨어지지 않는다. */
+function deckTitle(no, live = isLiveReportSession()) {
+  const own = (nf && nf.slideTitles) || [];
+  return own[no - 1] || (live ? '' : DATA.slideTitles[no - 1]) || `${no}번 슬라이드`;
+}
+
+/** 장 이미지. PDF 렌더가 붙기 전/불가능할 때도 남의 자료를 보여주지 않는다 (CLAUDE.md §2). */
+function deckImageSrc(no, live = isLiveReportSession()) {
+  const own = (nf && nf.slideImages) || [];
+  if (live) return own[no - 1] || slidePlaceholder(no);
+  return DATA.slideImages[no - 1] || slidePlaceholder(no);
+}
+
 function deckThumbList() {
   const tree = judgeTree();
   const isReal = !!(tree[0] && tree[0].real);
-  const total = (nfSlideDoc && nfSlideDoc.total_slides)
-    || (uploadedPdf && uploadedPdf.pageCount)
-    || DATA.slideStatus.length;
-  // 한 장에 여러 개념이 걸리면 가장 나쁜 판정을 그 장의 색으로 쓴다
-  const RANK = { ct: 0, no: 1, mid: 2, om: 3, ok: 4 };
-  const worst = {};
-  if (isReal) {
-    tree.forEach(n => {
-      const no = slideNumber(n.slide);
-      if (!worst[no] || RANK[n.status] < RANK[worst[no]]) worst[no] = n.status;
-    });
-  }
-  const titles = activeTitles();
+  const live = isLiveReportSession();
+  const total = deckTotalSlides();
   return Array.from({ length: total }, (_, i) => {
     const no = i + 1;
+    const nodes = isReal ? slideJudgeNodes(no, tree) : null;
     return {
       no,
-      status: isReal ? (worst[no] || 'om') : (DATA.slideStatus[i] || 'om'),
-      title: titles[i] || DATA.slideTitles[i] || `${no}번 슬라이드`,
-      // 업로드 PDF 가 있으면 렌더가 채운다. 없으면 샘플 이미지로 떨어진다.
-      src: (uploadedPdf && uploadedPdf.pdf) ? '' : (DATA.slideImages[i] || ''),
+      status: isReal ? ((nodes[0] && nodes[0].status) || 'om') : (DATA.slideStatus[i] || 'om'),
+      title: deckTitle(no, live),
+      // 업로드 PDF 가 있으면 렌더가 채운다.
+      src: (uploadedPdf && uploadedPdf.pdf) ? '' : deckImageSrc(no, live),
     };
   });
 }
@@ -3746,6 +3771,21 @@ async function slideThumb(pageNo) {
   } catch (err) {
     console.warn('[chuckchuck] thumb', pageNo, err);
     return null;
+  }
+}
+
+/**
+ * 무대·판정 화면의 큰 슬라이드를 원본 PDF 렌더로 채운다.
+ * 썸네일(240px)을 늘리면 부스 화면에서 뭉개지므로 여기만 별도로 크게 그린다.
+ */
+async function paintDeckStage(root = document) {
+  const canvas = root.querySelector('canvas[data-stage-page]');
+  if (!canvas || !uploadedPdf || !uploadedPdf.pdf) return;
+  const page = Number(canvas.dataset.stagePage) || 1;
+  try {
+    await renderPdfToCanvas(page, canvas, { maxWidth: (canvas.parentElement && canvas.parentElement.clientWidth) || 960 });
+  } catch (err) {
+    console.warn('[chuckchuck] deck stage', page, err);
   }
 }
 

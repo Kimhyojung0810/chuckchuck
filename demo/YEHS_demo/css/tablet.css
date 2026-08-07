@@ -61,10 +61,36 @@
   .sidenav-list a[aria-current="page"] {
     background: var(--fill); color: var(--text); font-weight: 650;
   }
-  .sidenav-foot { margin-top: auto; font-size: var(--t-meta); color: var(--text-3); }
+  /* 이 앱에서 제일 자주 누를 버튼. 탑바 오른쪽 구석에 떠 있던 걸 내비 맨 위로
+     올렸다 — 왼쪽 칸이 이름 셋만 얹은 채 세로로 텅 비어 있었고, 주 액션은
+     화면마다 찾아 헤매지 않아도 되는 자리에 있어야 한다 */
+  .sidenav-cta {
+    display: flex; justify-content: center;
+    margin: 0 0 14px; padding: 10px 12px; font-size: var(--t-body);
+  }
+  /* 맨 아래 병아리 넷 — 홈 본문에 있던 띠를 옮겼다. 화면마다 사라지지 않고
+     「누가 보고 있는지」를 계속 알려 주면서 아래 여백을 메운다 */
+  .sidenav-foot {
+    margin-top: auto; font-size: var(--t-meta); color: var(--text-3);
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    padding: 12px 10px;
+  }
+  /* .ch-seat 은 객석 입장 연출용이라 opacity:0 에 좌석 폭(clamp 124~178px)을 들고 온다.
+     여기는 그 연출을 타지 않으므로 design-system.css 의 앱 화면 규칙과 같이 풀어 준다 */
+  .sidenav-crew { display: flex; align-items: flex-end; }
+  .sidenav-crew .ch-seat {
+    width: 30px; flex: none; margin-right: -8px;
+    opacity: 1; transform: none; filter: none; animation: none;
+    transition: transform .18s var(--ease);
+  }
+  .sidenav-crew .ch-seat:last-child { margin-right: 0; }
+  .sidenav-crew .ch-seat svg { width: 100%; height: auto; display: block; }
+  .sidenav-foot:hover .sidenav-crew .ch-seat { transform: translateY(-2px); }
 
-  /* 브랜드는 내비가 갖는다. 탑바에 또 두면 로고가 둘이다 */
+  /* 브랜드는 내비가 갖는다. 탑바에 또 두면 로고가 둘이다.
+     「새 발표 연습」도 내비로 내려갔으므로 탑바에 남는 건 이어하기뿐이다 */
   .topbar > .brand { display: none; }
+  .topbar-right #topFresh { display: none; }
   /* 브랜드를 내비로 옮기고 나니 탑바가 버튼 하나만 든 빈 흰 띠가 됐다.
      면과 선을 걷어내면 띠가 아니라 「본문 위에 뜬 버튼」으로 읽힌다 —
      sticky·높이는 그대로라 #rtabs 의 sticky top 계산이 안 흔들린다 */
@@ -214,9 +240,17 @@
     flex: 1 1 auto; min-height: 0;
   }
 
-  /* 자료 올리기 — 아이패드 가로에서 드롭존이 1290px 까지 늘어나 상자만 넓고
-     안은 텅 빈 화면이 됐다. 읽는 폭으로 묶고 세로 가운데에 둔다 */
-  main.narrow:has(#nf) .dropzone { max-width: 640px; margin-inline: auto; }
+  /* 자료 올리기 — 640px 상자로 묶어 가운데 띄웠더니 위의 단계 표시줄과 왼쪽 끝이
+     어긋나고 아래로 700px 이 비었다. 게다가 비활성 「다음」 버튼을 걷어내고 나니
+     화면에 상자 하나만 덩그러니 남았다.
+     상자를 읽는 칸 전체로 넓히고 남는 세로도 받게 한다 — 그러면 작업 면 자체가
+     과녁이 되고, 「여기 말고 저기에 떨어뜨려야 하나」를 고민할 자리가 없어진다 */
+  main.narrow:has(#nf) .dropzone {
+    max-width: none; margin-inline: 0;
+    flex: 1 1 auto;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
 
   /* 다음 단계 버튼은 하단 고정 CTA 다 (TDS BottomCTA).
      왼쪽 아래에 회색 상자로 떠 있으면 다음 행동이 안 읽힌다 */
