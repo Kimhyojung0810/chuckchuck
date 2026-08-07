@@ -1273,7 +1273,7 @@ function nfStep1() {
         <b style="font-size:15px">${label}</b>
         <p class="note" style="margin-top:2px">Upstage Document Parse로 슬라이드 구조를 만드는 중</p>
         <div class="progress indeterminate"><i></i></div>
-        <p class="parse-meta">경과 <b id="parseElapsed">${elapsed}</b>초 · 자료가 길면 1~5분까지 걸려요</p>
+        <p class="parse-meta"><b id="parseElapsed">${elapsed}</b>초 지났어요 · 자료가 길면 1~5분까지 걸려요</p>
         ${parsePreview ? `
         <div class="parse-peek">
           <img src="${parsePreview.thumb}" alt="">
@@ -2253,7 +2253,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qd3" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qd4" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -2521,9 +2521,9 @@ function pipelineEtaText() {
   /* 이 단계가 예상을 넘겼으면 남은 시간을 말하지 않는다. 뒤 단계 몫만 남아서
      「곧 끝나요」가 나오는데, 정작 지금 단계가 언제 끝날지는 모르는 상태다 —
      그 상태에서 곧 끝난다고 하면 5분을 더 세워 놓고 거짓말한 게 된다. */
-  if (pipelineStageOverrun()) return '예상보다 오래 걸리고 있어요';
+  if (pipelineStageOverrun()) return '생각보다 조금 더 걸리고 있어요';
   const sec = pipelineEtaSec();
-  if (sec <= 0) return '예상보다 오래 걸리고 있어요';
+  if (sec <= 0) return '생각보다 조금 더 걸리고 있어요';
   if (sec < 45) return '곧 끝나요';
   const min = Math.round(sec / 60);
   return min <= 1 ? '남은 예상 1분쯤' : `남은 예상 ${min}분쯤`;
@@ -2549,7 +2549,8 @@ function pipelineStatusBarHtml() {
     </div>
     <div class="progress"><i style="width:${pct}%"></i></div>
     <p class="psb-meta">
-      경과 <b class="pipe-elapsed">${elapsed}</b>초 · <span class="psb-eta">${escapeHtml(pipelineEtaText())}</span>
+      <!-- 「경과 46초」는 계기판 말이다. 사람은 «46초 지났어요» 라고 말한다 -->
+      <b class="pipe-elapsed">${elapsed}</b>초 지났어요 · <span class="psb-eta">${escapeHtml(pipelineEtaText())}</span>
     </p>
   </div>`;
 }
@@ -2599,7 +2600,7 @@ function pipelinePhaseLabel(phase) {
     pace_done: '시간 배분을 다 쟀어요',
     habits: '말버릇을 찾고 있어요',
     habits_done: '말버릇을 다 찾았어요',
-    voice_report: '결과를 하나로 묶고 있어요',
+    voice_report: '리포트로 정리하고 있어요',
     voice_report_done: '리포트를 다 썼어요',
     voice_report_error: '리포트를 쓰지 못했어요',
     partial: '일부만 끝났어요',
@@ -2828,7 +2829,7 @@ function pipelineTimelineHtml(variant) {
       <div class="tl-track">${segs}</div>
       <div class="tl-playhead" aria-hidden="true"></div>
     </div>
-    ${compact ? '<p class="tl-after note" hidden>질문 코칭은 준비됐어요. 상세 리포트는 뒤에서 마저 만들고 있어요.</p>' : ''}
+    ${compact ? '<p class="tl-after note" hidden>이제 질문 코칭을 시작할 수 있어요. 상세 리포트는 뒤에서 계속 만들고 있어요.</p>' : ''}
   </div>`;
 }
 
@@ -2852,6 +2853,7 @@ function tlSecText(m) {
 }
 
 const PIPELINE_TL_MIN_PX = { full: 44, compact: 30 };
+
 /* 축이 이보다 짧아지지는 않는다 — 캐시가 다 맞아 10초에 끝나면 눈금이 촘촘해져
    답답해 보인다 (2026-08-07 사용자 요청) */
 const PIPELINE_TL_MIN_AXIS_SEC = 30;
@@ -2890,9 +2892,12 @@ function paintPipelineTimeline() {
     // 축 밖 칩 — 발표 중에 미리 끝났거나 1초 미만에 끝난 단계
     const chipHost = host.querySelector('.tl-pre-chips');
     model.filter((m) => m.state === 'pre' || m.state === 'instant').forEach((m) => {
+      /* 0.05초짜리를 반올림해 「0.0초 만에 끝났어요」라고 쓰면 숫자가 고장으로
+         읽힌다. 사람은 그 구간을 «바로» 라고 부른다 (2026-08-07 지적) */
       const text = m.state === 'pre'
         ? `${m.name} · 발표하는 동안 미리 끝냈어요`
-        : `${m.name} · ${m.sec.toFixed(1)}초 만에 끝났어요`;
+        : m.sec < 0.05 ? `${m.name} · 바로 끝났어요`
+          : `${m.name} · ${m.sec.toFixed(1)}초 만에 끝났어요`;
       let tlChip = chipHost && chipHost.querySelector(`.tl-chip[data-stage="${m.stage}"]`);
       if (!tlChip && chipHost) {
         tlChip = document.createElement('span');
@@ -6043,7 +6048,9 @@ function scrollDown() {
 
 /* ── 설득 트래커 ── */
 const TRACK_ICON = { wait: '', current: '', won: '✓', review: '✓', lost: '✕' };
-const TRACK_WORD = { wait: '아직', current: '설득 중', won: '설득 완료', review: '두 번 확인', lost: '미방어' };
+/* 실전 트래커(qa_live.js QUEST_WORD)와 같은 낱말을 쓴다 — 한 화면에서 같은 일이 두 이름이면
+   무엇이 끝난 건지 사람이 못 맞춘다 */
+const TRACK_WORD = { wait: '아직이에요', current: '지금 답하고 있어요', won: '설득했어요', review: '한 번 더 봐요', lost: '다시 설명해요' };
 function trackerHTML() {
   const sc = qaScope();
   const order = sc.demoConcepts;
@@ -6053,7 +6060,7 @@ function trackerHTML() {
   const prog = Math.min(100, Math.round(qa.bi / Math.max(1, total - 1) * 100));
   return `<div class="persuade-track" id="ptrack" style="--p:${prog}%">
     <div class="pt-head"><span>${qa.aud} 설득하기 · ${sc.short}</span>
-      <span class="pt-right">${qa.combo >= 2 ? `<span class="combo-live">🔥 ${qa.combo}연속 방어</span>` : ''}<b>${won}<i>/${order.length} 설득</i>${lost ? ` · <em>${lost} 미방어</em>` : ''}</b></span></div>
+      <span class="pt-right">${qa.combo >= 2 ? `<span class="combo-live">🔥 ${qa.combo}연속 방어</span>` : ''}<b>${won}<i>/${order.length}</i>${lost ? ` · <em>${lost}개는 다시 설명해요</em>` : ''}</b></span></div>
     <div class="pt-items">${order.map(c => {
       const s = qa.concepts[c];
       return `<div class="pt ${s}"><i>${TRACK_ICON[s]}</i><span>${CONCEPT_LABELS[c]}</span><small>${TRACK_WORD[s]}</small></div>`;

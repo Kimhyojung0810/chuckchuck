@@ -16,7 +16,8 @@ const LIVE_VERDICT = {
   wrong:   { flag: 'lost', react: 'none',    word: '미방어' },
   unknown: { flag: 'lost', react: 'none',    word: '판정 보류' },
 };
-const SEVERITY_WORD = { 1: '치명', 2: '보통', 3: '가벼움' };
+/* 등급을 낱말로 부르면 「치명도 치명」처럼 명사가 겹친다 — 한 줄로 말한다 */
+const SEVERITY_LINE = { 1: '꼭 넘어야 해요', 2: '보통이에요', 3: '가벼워요' };
 
 /*
  * 마이크 버튼 아이콘.
@@ -168,12 +169,14 @@ function stuckLabel() {
    말하는데 여기서 «정복» 이라고 부르면 한 화면에서 같은 일이 두 이름이 된다.
    게임 느낌은 낱말이 아니라 **줄 세우기·현재 표식·남은 줄 흐리기**로 낸다. */
 const QUEST_WORD = {
-  won: '설득 완료',
-  part: '부분 인정',
-  lost: '미방어',
+  won: '설득했어요',
+  part: '절반만 설득했어요',
+  /* 「미방어」는 한자어에 부정형이다. 지나간 일을 이름 붙이는 대신
+     지금 할 수 있는 일로 말한다 (토스 UX 라이팅 §3 긍정적 말하기) */
+  lost: '다시 설명해요',
   skip: '넘겼어요',
-  now: '지금 답하는 중',
-  next: '다음 차례',
+  now: '지금 답하고 있어요',
+  next: '곧 물어봐요',
 };
 const QUEST_MARK = { won: '✓', part: '✓', lost: '✕', skip: '—', now: '▶', next: '' };
 
@@ -199,8 +202,8 @@ function liveQuestHtml() {
   const prog = Math.round(won / Math.max(1, total) * 100);
   return `<div class="quest">
       <div class="quest-head">
-        <span class="quest-title">오늘 채울 개념</span>
-        <b class="quest-count num">${won}<i>/${total} 설득</i></b>
+        <span class="quest-title">오늘 설득할 개념</span>
+        <b class="quest-count num">${won}<i>/${total}</i></b>
       </div>
       <div class="quest-bar" style="--p:${prog}%" role="progressbar"
            aria-valuenow="${won}" aria-valuemin="0" aria-valuemax="${total}"
@@ -209,12 +212,12 @@ function liveQuestHtml() {
         ${L.questions.map((q, i) => {
           const st = questState(q, i);
           const label = q.label || `질문 ${i + 1}`;
-          const sev = SEVERITY_WORD[q.severity] || '';
+          const sev = SEVERITY_LINE[q.severity] || '';
           return `<li class="qrow is-${st}"${st === 'now' ? ' aria-current="step"' : ''}>
             <i class="qrow-mark" aria-hidden="true">${QUEST_MARK[st] || i + 1}</i>
             <span class="qrow-body">
               <b>${escapeHtml(label)}</b>
-              <small>${QUEST_WORD[st]}${sev && st === 'next' ? ` · ${sev}` : ''}</small>
+              <small>${st === 'next' && sev ? sev : QUEST_WORD[st]}</small>
             </span>
           </li>`;
         }).join('')}
@@ -230,7 +233,7 @@ function presentLiveQuestion() {
   pushTurn({
     who: 'ai',
     kind: q.trap ? 'claim' : 'question',
-    meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · 치명도 ${SEVERITY_WORD[q.severity] || '보통'}`,
+    meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · ${SEVERITY_LINE[q.severity] || '보통이에요'}`,
     text: escapeHtml(q.question),
     basis: q.why ? escapeHtml(q.why) : '',
   });
@@ -260,11 +263,11 @@ function renderQaLive() {
                위 퀘스트 목록이 자리로도 숫자로도 이미 말한다 — 걷어냈다.
                제목은 «N개만 끝내도» 였는데 두 번째 질문부터 «3개만 끝내도 답변
                하나가 완성돼요» 처럼 말이 안 됐다. 지금 무슨 개념 차례인지로 바꾼다. -->
-          <h2>지금은 <b>${escapeHtml(q.label || `질문 ${L.qi + 1}`)}</b> 차례예요</h2>
-          <div class="qa-loop-steps" aria-label="학습 단계">
-            <div class="${learningStep >= 1 ? 'on' : ''}"><i>${learningStep > 1 ? '✓' : '1'}</i><span><b>질문 이해</b><small>핵심을 잡아요</small></span></div>
-            <div class="${learningStep >= 2 ? 'on' : ''}"><i>${learningStep > 2 ? '✓' : '2'}</i><span><b>힌트로 정리</b><small>막히면 한 칸만</small></span></div>
-            <div class="${learningStep >= 3 ? 'on' : ''}"><i>3</i><span><b>내 말로 답하기</b><small>코치가 바로 다듬어요</small></span></div>
+          <h2>이번엔 <b>${escapeHtml(q.label || `질문 ${L.qi + 1}`)}</b>${josaEulReul(q.label || '질문')} 설명해요</h2>
+          <div class="qa-loop-steps" aria-label="답하는 순서">
+            <div class="${learningStep >= 1 ? 'on' : ''}"><i>${learningStep > 1 ? '✓' : '1'}</i><span><b>질문을 읽어요</b><small>무엇을 묻는지 봐요</small></span></div>
+            <div class="${learningStep >= 2 ? 'on' : ''}"><i>${learningStep > 2 ? '✓' : '2'}</i><span><b>힌트를 봐요</b><small>막히면 한 칸만 열어요</small></span></div>
+            <div class="${learningStep >= 3 ? 'on' : ''}"><i>3</i><span><b>내 말로 답해요</b><small>코치가 바로 다듬어요</small></span></div>
           </div>
         </div>
       </aside>
