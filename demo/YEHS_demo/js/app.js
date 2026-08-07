@@ -1269,7 +1269,15 @@ function nfStep1() {
         <b style="font-size:15px">${label}</b>
         <p class="note" style="margin-top:2px">Upstage Document Parse로 슬라이드 구조를 만드는 중</p>
         <div class="progress indeterminate"><i></i></div>
-        <p class="parse-meta">경과 <b id="parseElapsed">${elapsed}</b>초 · 장수가 많으면 1~5분 걸릴 수 있어요. 진행 바가 가득 차 보여도 정상입니다.</p>
+        <p class="parse-meta">경과 <b id="parseElapsed">${elapsed}</b>초 · 자료가 길면 1~5분까지 걸려요</p>
+        ${parsePreview ? `
+        <div class="parse-peek">
+          <img src="${parsePreview.thumb}" alt="">
+          <div>
+            <b class="num" data-count="${parsePreview.pages}">${parsePreview.pages}</b><span class="parse-peek-unit">장짜리 자료예요</span>
+            <p>기다리는 동안 브라우저에서 먼저 열어 봤어요. 슬라이드별 개념은 위 분석이 끝나면 이어서 보여줄게요.</p>
+          </div>
+        </div>` : ''}
       </div>
       <div class="step-actions">
         <button class="btn btn-secondary" id="cancelParse">취소하고 다시 올리기</button>
@@ -1284,6 +1292,11 @@ function nfStep1() {
       saveSession('new-flow', nf);
       nfStep1();
     });
+    if (parsePreview) {
+      const n = $('.parse-peek .num');
+      if (n && !n.dataset.counted) { n.dataset.counted = '1'; countUp(n, parsePreview.pages, 500); }
+      staggerIn($$('.parse-peek'));
+    }
     if (parseTimer) { clearInterval(parseTimer); parseTimer = null; }
     parseTimer = every(() => {
       const el = $('#parseElapsed');
@@ -1320,6 +1333,40 @@ function nfStep1() {
   }
 }
 
+/* 파싱을 기다리는 동안 보여줄 로컬 미리보기.
+   nf 에 넣지 않는다 — saveSession 이 sessionStorage 로 밀어 넣는데 dataURL 이
+   수십 KB 라 다른 세션 값까지 통째로 저장에 실패할 수 있다 */
+let parsePreview = null;
+
+/**
+ * 서버가 자료를 읽는 동안 브라우저가 같은 파일을 직접 열어 본다.
+ *
+ * 이 화면은 「1~5분 걸려요」와 흐르는 막대만 놓고 사람을 세워 뒀다. 서버 진행률은
+ * 알 방법이 없지만(한 번의 동기 호출이다), **몇 장짜리인지와 첫 장이 어떻게
+ * 생겼는지는 여기서 바로 알 수 있다.** 서버 응답을 기다려 얻은 척하는 게 아니라
+ * 브라우저가 방금 연 사실이라 「먼저 열어 봤어요」라고 그대로 말한다.
+ */
+async function probeParsePreview(file, gen) {
+  if (!file || !window.pdfjsLib || !/\.pdf$/i.test(file.name || '')) return;
+  const alive = () => gen === parseGen && nf.gate === 'parsing';
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    if (!alive()) return;
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: 240 / base.width });
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(vp.width);
+    cv.height = Math.round(vp.height);
+    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+    if (!alive()) return;
+    parsePreview = { pages: pdf.numPages, thumb: cv.toDataURL('image/jpeg', 0.72) };
+    nfStep1();
+  } catch (e) {
+    console.warn('[chuckchuck] parse preview', e);   // 미리보기는 실패해도 파싱은 그대로 간다
+  }
+}
+
 async function startParse({ file = null, fixture = false } = {}) {
   const myGen = ++parseGen;
   nf.gate = 'parsing';
@@ -1327,7 +1374,9 @@ async function startParse({ file = null, fixture = false } = {}) {
   nf.useSample = !!fixture || !file;
   nf.fileName = file ? file.name : '샘플 발표자료';
   nf._parseStartedAt = Date.now();
+  parsePreview = null;
   nfStep1();
+  probeParsePreview(file, myGen);   // 기다리게 두지 않는다 — 되는 대로 화면에 얹는다
 
   const bridge = window.ChuckchuckBridge;
   if (!bridge || typeof bridge.parseDocument !== 'function') {
