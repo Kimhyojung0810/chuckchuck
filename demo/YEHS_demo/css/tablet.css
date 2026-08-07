@@ -14,7 +14,7 @@
 */
 
 :root {
-  --topbar-h: 56px;
+  --topbar-h: 64px;
   /* 화면 좌우 여백. 1024 에서 20px, 1366 에서 38px 언저리로 자란다 */
   --gutter: clamp(20px, 2.8vw, 40px);
   /* 본문 최대 폭. 1180 에서 1112px */
@@ -398,27 +398,97 @@
   .verdict-note { padding: 6px 0 10px; font-size: 12px; }
 
   /* 리포트는 요약 탭 본문만 1264px 이다. 내용을 덜어내지 않고 한 화면에 담으려면
-     페이지가 아니라 본문이 안에서 움직여야 한다 — 점수와 5개 탭은 늘 붙어 있고
-     스크롤은 카드 묶음 안에서만 생긴다. 홈 목록·코칭 대화와 같은 방식이다 */
+     페이지가 아니라 본문이 안에서 움직여야 한다 — 점수와 7개 탭은 늘 붙어 있고
+     스크롤은 카드 묶음 안에서만 생긴다. 홈 목록·코칭 대화와 같은 방식이다.
+
+     ── 왜 세로 한 줄에서 두 단으로 바꿨나 (2026-08-07 실측) ──
+     판정 헤드를 위에 통째로 눕히면 세로 예산 764px 중 430px(56%)을 헤드가 먹고,
+     탭줄 56px 을 더 빼면 본문에 252px 만 남았다. 그 안에 1253px 이 들어 있었다.
+     부스 가림선(하단 20%)까지 얹으면 본문의 보이는 높이는 이렇게 된다:
+
+       1180×820  100px    1366×1024  263px
+       1180×760   52px    1024×768     0px   ← 탭을 눌러도 아무것도 안 보인다
+
+     헤드를 깎아도 부스에서는 여전히 100px 대다 — 가림선이 세로로 내려오는 한
+     세로로 쌓는 배치 자체가 답이 아니다. 헤드를 왼쪽 기둥으로 세우면 헤드는
+     제 높이를 그대로 쓰면서 본문이 예산 전체를 받는다. 홈 화면이 이미 같은
+     컴포넌트를 왼쪽 칸에 앉히고 있어(182~198줄) 낯선 모양도 아니다. */
   main.wide:has(#rbody) {
     height: var(--app-h);
-    display: flex; flex-direction: column;
+    display: grid;
+    /* 왼쪽 기둥은 1024 에서 300px, 1366 에서 374px */
+    grid-template-columns: clamp(300px, 29%, 400px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "head tabs"
+      "head body";
+    column-gap: var(--pane-gap);
     padding-bottom: 12px;
   }
-  main.wide:has(#rbody) > .verdict { flex: none; }
+  /* 전면폭 초록 띠를 기둥 안으로 들인다. 좌우 패딩이 50vw 기준이라
+     그대로 두면 1366 에서 한 쪽에만 127px 이 붙어 내용이 76px 로 눌린다 */
+  main.wide:has(#rbody) > .verdict,
+  main.wide:has(#rbody) > .verdict:first-child {
+    grid-area: head;
+    align-self: start;
+    margin: 0;
+    padding: 18px 20px 14px;
+    border-radius: var(--r-print);
+    /* 채점 항목 7개에 각각 설명 한 줄이 붙어 기둥은 970px 을 원한다.
+       예산은 764px 다 — 잘라내면 아래 항목이 소리 없이 사라진다(§4).
+       기둥 안에서 스크롤하게 두면 스크롤바가 "아래 더 있다"를 말해 준다.
+       읽는 순서가 이미 맞다: 점수 → 한 줄 판정 → 제일 낮은 항목 카드
+       (design-system.css:143 이 order:-1 로 앞에 뺀다) → 나머지 여섯 개.
+       부스에서 스크롤 없이 보이는 세 가지가 곧 이 화면의 결론이다 */
+    max-height: 100%;
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  }
+  /* 점수와 판정을 좌우로 놓던 격자는 기둥 안에서 한 줄로 세운다 */
+  main.wide:has(#rbody) > .verdict .verdict-grid {
+    grid-template-columns: 1fr; gap: 14px; margin-top: 12px; padding-bottom: 0;
+  }
+  /* 28px 이던 항목 간격은 한 줄에 다섯 개가 서던 전면폭 기준이다.
+     기둥에서는 두 개씩 서므로 그만큼이 그대로 세로 낭비가 된다 */
+  main.wide:has(#rbody) > .verdict .verdict-dims {
+    gap: 14px 20px; margin-top: 16px; padding-top: 14px;
+  }
+  main.wide:has(#rbody) > .verdict .verdict-dims .vd { flex: 1 1 96px; }
+  main.wide:has(#rbody) > .verdict .verdict-dims .hint { margin-top: 5px; }
+  /* 제일 낮은 항목 카드는 기둥 한 줄을 통째로 쓴다 — 옆에 세울 자리가 없다 */
+  main.wide:has(#rbody) > .verdict .verdict-dims .vd.vd-weak {
+    flex: 1 1 100%; margin-bottom: 0; padding: 13px 15px 15px;
+  }
+  /* 샘플 표시는 스크롤 밖으로도, 접힌 선 아래로도 밀려나면 안 된다 —
+     둘 중 하나라도 걸리면 샘플 숫자만 남고 "샘플"이라는 말이 사라진다(§4 정직성).
+     마크업상 맨 끝(app.js:3384)이라 바닥에 붙이면 786px 에 앉아 부스 가림선
+     아래로 들어간다. 기둥을 세로 flex 로 만들고 order 로 맨 위에 올려 붙인다.
+     읽는 순서로도 이게 맞다 — 86점을 보기 전에 샘플이라는 걸 알아야 한다 */
+  main.wide:has(#rbody) > .verdict { display: flex; flex-direction: column; }
+  main.wide:has(#rbody) > .verdict .verdict-note {
+    order: -1; position: sticky; top: -18px; z-index: 3;
+    margin: -18px -20px 12px; padding: 12px 20px 10px;
+    background: var(--navy);
+  }
   main.wide:has(#rbody) > #rbody {
-    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    grid-area: body;
+    min-height: 0; overflow-y: auto;
     padding-right: 4px; scrollbar-width: thin;
   }
   /* 본문이 스크롤을 맡으므로 탭은 더 이상 떠 있을 필요가 없다.
      선택자를 #rtabs.tabs 로 맞춰야 design-system.css 의 sticky 규칙을 이긴다 */
-  main.wide > #rtabs.tabs { flex: none; position: static; top: auto; margin: 0 0 14px; }
+  main.wide > #rtabs.tabs {
+    grid-area: tabs; align-self: start;
+    flex: none; position: static; top: auto; margin: 0 0 14px;
+  }
 
   /* 리포트 본문은 서로 독립적인 카드 묶음이라 두 단으로 나눌 수 있다.
+     다만 오른쪽 칸은 1024 에서 651px 까지 좁아진다 — 거기서도 두 단을 고집하면
+     세로 답답함을 가로 답답함으로 바꾸는 것뿐이다. auto-fit 으로 칸이 좁으면
+     스스로 한 단이 되게 둔다 (654px 부근에서 갈린다).
      넓은 시각 요소만 전체 폭을 쓴다 */
   #rbody {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 14px;
     align-items: start;
   }
@@ -435,8 +505,22 @@
   /* 카드가 하나뿐인 탭(청중 반응 등)은 한 단에만 앉으면 오른쪽이 통째로 빈다 */
   #rbody > *:only-child { grid-column: 1 / -1; }
 
+  /* 오른쪽 칸이 1024 에서 651px 이라 두 단으로 쪼개면 개념 이름이 줄마다 접힌다.
+     칸이 넓을 때만 좌우로 나누고, 좁으면 목록 위 · 상세 아래로 쌓는다 */
   .judge-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; }
-  #jdetail { max-height: calc(var(--app-h) - 140px); overflow-y: auto; }
+  /* -140 은 헤드가 위에 486px 을 깔고 있던 시절의 보정이다. 이제 #rbody 자신이
+     예산 전체를 쓰는 스크롤러라, 비슷한 높이의 스크롤러를 안에 또 두면
+     바깥쪽이 안 움직이는 것처럼 보인다 — 흐름에 맡기고 바깥에서만 스크롤한다 */
+  #jdetail { max-height: none; overflow-y: visible; }
+}
+
+/* 리포트 오른쪽 칸이 700px 아래로 내려가는 구간(≈1075px 폭 이하, 1024×768 포함).
+   개념 목록과 상세를 좌우로 쪼개면 개념 이름이 줄마다 접힌다 — 위아래로 쌓는다 */
+@media (min-width: 900px) and (max-width: 1100px) {
+  .judge-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 900px) {
 
 
   /* ══ 6. 판단 방식(#/about) ══════════════════════════════════ */
