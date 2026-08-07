@@ -2879,12 +2879,7 @@ async function renderReport() {
                   .map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
               : ''}
             <div class="verdict-dims">
-              ${v.dims.map(d => `
-              <div class="vd">
-                <span class="lb">${escapeHtml(d[0])}</span>
-                <span class="vl num">${d[1]}</span>
-                <div class="bar"><i style="width:${d[1]}%"></i></div>
-              </div>`).join('')}
+              ${dimsHtml(v.dims)}
             </div>
           </div>
         </div>` : ''}
@@ -2896,6 +2891,11 @@ async function renderReport() {
     </div>
     <div id="rbody"></div>`;
   paintVerdictBg();
+  // 막대는 0 에서 차오른다. 숫자를 바꾸지 않고 읽는 순서만 만드는 연출이라
+  // 데이터를 가리지 않는다 (§14 — 연출이 데이터를 가리면 연출을 버린다).
+  requestAnimationFrame(() => {
+    $$('.verdict-dims .bar i[data-w]').forEach(i => { i.style.width = i.dataset.w; });
+  });
   $('#rtabs').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     rTab = $$('#rtabs button').indexOf(b);
@@ -3167,6 +3167,46 @@ function realSummary() {
     // 점수는 판결이 아니라 박수다 — 낮아도 응원(neutral)이지 우는 표정은 없다
     mood: sc.score >= 90 ? 'excited' : sc.score >= 75 ? 'happy' : 'neutral',
   };
+}
+
+/** 지표가 무엇을 보는 것인지 한 줄. 이름만으로는 안 읽힌다 —
+ *  "목적·청중 적합성 68" 을 보고 뭘 고쳐야 할지 아는 사람은 없다. */
+const DIM_HINT = {
+  '내용 충실도': '다뤄야 할 개념을 실제로 설명했나',
+  '논리 구조': '앞뒤가 이어지게 말했나',
+  '목적·청중 적합성': '이 자리에 맞는 말이었나',
+  '언어적 명료성': '알아듣기 쉽게 말했나',
+  '음성적 전달': '속도·쉼·말버릇이 방해하지 않았나',
+  '시각자료 활용': '슬라이드를 말로 살렸나',
+  '시간 관리': '정한 시간 안에 들어왔나',
+};
+
+/**
+ * 채점표 클러스터를 그린다.
+ *
+ * 예전엔 7개를 같은 크기로 늘어놨다. 다 똑같이 생겨서 어디부터 봐야 할지 알 수
+ * 없고, 이름만 있고 뜻이 없어서 숫자가 무슨 뜻인지도 안 읽혔다 (2026-08-07 지적).
+ *
+ * 오늘 고칠 것은 하나다. 제일 낮은 축을 앞으로 빼서 크게 두고, 나머지는 그대로
+ * 둔다. 낮은 축이 여럿이면 첫 번째만 표시한다 — 둘을 강조하면 강조가 아니다.
+ */
+function dimsHtml(dims) {
+  if (!dims || !dims.length) return '';
+  const weakest = Math.min(...dims.map(d => d[1]));
+  let tagged = false;
+  return dims.map((d) => {
+    const isWeak = !tagged && d[1] === weakest;
+    if (isWeak) tagged = true;
+    const hint = DIM_HINT[d[0]] || '';
+    return `
+      <div class="vd${isWeak ? ' vd-weak' : ''}">
+        ${isWeak ? '<span class="vd-tag">여기부터 보세요</span>' : ''}
+        <span class="lb">${escapeHtml(d[0])}</span>
+        <span class="vl num">${d[1]}</span>
+        <div class="bar"><i style="width:0" data-w="${d[1]}%"></i></div>
+        ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
+      </div>`;
+  }).join('');
 }
 
 /* 점수 옆에 앉는 한 마리. 엑씨(헤드폰)는 발표를 귀로 들은 관객이라

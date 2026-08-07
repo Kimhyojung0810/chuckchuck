@@ -129,10 +129,48 @@ main > .verdict:first-child { margin-top: -24px; }
 .verdict-dims .lb { display: block; color: #9FC9B6; font-size: 12px; font-weight: 600; word-break: keep-all; }
 .verdict-dims .vl { display: block; margin: 3px 0 8px; font-size: 20px; font-weight: 700; }
 .verdict-dims .bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .16); }
+
+/* 지표가 뭘 보는 건지 한 줄. 이름만 있으면 숫자가 무슨 뜻인지 안 읽힌다 */
+.verdict-dims .hint {
+  display: block; margin-top: 8px;
+  color: #8FBCA9; font-size: 11px; line-height: 1.5; word-break: keep-all;
+}
+
+/* 오늘 고칠 것 하나 — 제일 낮은 축을 앞으로 빼서 한 줄 전체를 준다.
+   order 로만 옮기므로 마크업의 클러스터 순서는 그대로다 (읽는 순서만 바뀐다) */
+/* .vd.vd-weak 로 붙이는 이유: tablet.css 가 뒤에 실리면서 같은 무게의
+   `.verdict-dims .vd { flex: 1 1 84px }` 로 폭을 덮어썼다. 한 칸 더 얹어 이긴다. */
+.verdict-dims .vd.vd-weak {
+  order: -1; flex: 0 0 clamp(148px, 16%, 200px);
+  position: relative;
+  margin-bottom: 4px; padding: 16px 18px 18px;
+  border-radius: var(--r-inner, 16px);
+  background: rgba(255, 255, 255, .08);
+}
+.verdict-dims .vd-weak .lb { color: #CBEBDC; font-size: 13px; }
+.verdict-dims .vd-weak .vl { margin: 4px 0 10px; font-size: 30px; }
+.verdict-dims .vd-weak .bar { height: 5px; border-radius: 3px; }
+.verdict-dims .vd-weak .hint { margin-top: 10px; color: #BEE3D2; font-size: 13px; }
+.verdict-dims .vd-tag {
+  display: inline-block; margin-bottom: 10px;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--brand); color: #fff;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+/* 좁은 화면에서는 옆에 세울 자리가 없다. 한 줄을 통째로 준다 */
+@media (max-width: 720px) {
+  .verdict-dims .vd.vd-weak { flex: 1 1 100%; }
+}
 /* 채운 끝에 점 하나. 막대가 7개라 별·잎을 달면 소음이 된다 — 점이 상한이다 */
 .verdict-dims .bar i {
   position: relative; display: block; height: 100%;
   background: var(--cyan); border-radius: 2px;
+  /* 0 에서 차오른다. 숫자는 이미 적혀 있고 이건 읽는 순서를 만드는 연출이라
+     끝나기 전에 봐도 틀린 값을 보여주지 않는다 */
+  transition: width .9s cubic-bezier(.22, .61, .36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .verdict-dims .bar i { transition: none; }
 }
 .verdict-dims .bar i::after {
   content: ""; position: absolute; right: -1px; top: 50%;
