@@ -159,6 +159,69 @@ function stuckLabel() {
     : '모르겠어요';
 }
 
+/* ── 개념 퀘스트 (왼쪽 칸) ──────────────────────────────────────────────────
+   질문 하나 = 개념 하나다 (F-08 규칙 2: "대상마다 정확히 하나씩"). 그래서 질문
+   목록을 그대로 세우면 «오늘 채워야 할 개념 목록»이 된다. 지나온 것·지금 것·
+   남은 것이 한눈에 보여야 대화가 길어져도 어디쯤인지 안 잃는다.
+
+   판정 낱말은 새로 짓지 않는다. 바로 오른쪽 스트림이 `${label} — 설득 완료` 라고
+   말하는데 여기서 «정복» 이라고 부르면 한 화면에서 같은 일이 두 이름이 된다.
+   게임 느낌은 낱말이 아니라 **줄 세우기·현재 표식·남은 줄 흐리기**로 낸다. */
+const QUEST_WORD = {
+  won: '설득 완료',
+  part: '부분 인정',
+  lost: '미방어',
+  skip: '넘겼어요',
+  now: '지금 답하는 중',
+  next: '다음 차례',
+};
+const QUEST_MARK = { won: '✓', part: '✓', lost: '✕', skip: '—', now: '▶', next: '' };
+
+/** 질문 하나의 지금 상태. results 는 닫힌 순서대로 쌓이지만 id 로 맞춘다. */
+function questState(q, i) {
+  const L = qa.live;
+  if (i > L.qi) return 'next';
+  if (i === L.qi) return 'now';
+  const byId = q.id != null && (L.results || []).find((r) => r.id === q.id);
+  const r = byId || (L.results || [])[i] || {};
+  if (r.gaveUp || r.revealed) return 'skip';
+  if (r.passed) return r.verdict === 'partial' ? 'part' : 'won';
+  return 'lost';
+}
+
+function liveQuestHtml() {
+  const L = qa.live;
+  const total = L.questions.length;
+  const won = liveWonCount(L.results);
+  /* 막대는 «설득한 수» 로 잰다 — 머리줄 숫자와 같은 것을 재야 한다.
+     지나온 질문 수로 재면 2/5 라고 써 놓고 막대는 60% 인 화면이 된다.
+     어디까지 왔는지는 목록의 «지금» 표식과 흐린 줄이 이미 말한다. */
+  const prog = Math.round(won / Math.max(1, total) * 100);
+  return `<div class="quest">
+      <div class="quest-head">
+        <span class="quest-title">오늘 채울 개념</span>
+        <b class="quest-count num">${won}<i>/${total} 설득</i></b>
+      </div>
+      <div class="quest-bar" style="--p:${prog}%" role="progressbar"
+           aria-valuenow="${won}" aria-valuemin="0" aria-valuemax="${total}"
+           aria-label="설득한 개념"><i></i></div>
+      <ol class="quest-list">
+        ${L.questions.map((q, i) => {
+          const st = questState(q, i);
+          const label = q.label || `질문 ${i + 1}`;
+          const sev = SEVERITY_WORD[q.severity] || '';
+          return `<li class="qrow is-${st}"${st === 'now' ? ' aria-current="step"' : ''}>
+            <i class="qrow-mark" aria-hidden="true">${QUEST_MARK[st] || i + 1}</i>
+            <span class="qrow-body">
+              <b>${escapeHtml(label)}</b>
+              <small>${QUEST_WORD[st]}${sev && st === 'next' ? ` · ${sev}` : ''}</small>
+            </span>
+          </li>`;
+        }).join('')}
+      </ol>
+    </div>`;
+}
+
 function presentLiveQuestion() {
   const L = qa.live;
   if (L.asked === L.qi) return;
@@ -184,24 +247,26 @@ function renderQaLive() {
   saveSession('qa-flow', qa);
   const q = L.questions[L.qi];
   const hints = liveHints();
-  const won = liveWonCount(L.results);
-  const prog = Math.round((L.qi + .35) / L.questions.length * 100);
+  // won·prog 는 퀘스트 목록(liveQuestHtml)이 직접 센다 — 여기 두면 같은 숫자를
+  // 두 곳에서 계산하게 되고, 실제로 진행률 정의가 갈렸다(+.35 보정 vs 지나온 수)
   const learningStep = L.turn ? 3 : (L.hintLevel ? 2 : 1);
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동 저장됨</span></div>
     <div class="qa-shell">
       <aside class="qa-context">
+        ${liveQuestHtml()}
         <div class="qa-loop-card">
-          <span class="qa-loop-kicker">질문 ${L.qi + 1} · ${L.questions.length}개 중</span>
-          <h2>${L.qi + 1}개만 끝내도<br><b>답변 하나가 완성돼요</b></h2>
+          <!-- 머리줄의 「질문 N · M개 중」과 꼬리의 「지금까지 완성한 답 N개」는
+               위 퀘스트 목록이 자리로도 숫자로도 이미 말한다 — 걷어냈다.
+               제목은 «N개만 끝내도» 였는데 두 번째 질문부터 «3개만 끝내도 답변
+               하나가 완성돼요» 처럼 말이 안 됐다. 지금 무슨 개념 차례인지로 바꾼다. -->
+          <h2>지금은 <b>${escapeHtml(q.label || `질문 ${L.qi + 1}`)}</b> 차례예요</h2>
           <div class="qa-loop-steps" aria-label="학습 단계">
             <div class="${learningStep >= 1 ? 'on' : ''}"><i>${learningStep > 1 ? '✓' : '1'}</i><span><b>질문 이해</b><small>핵심을 잡아요</small></span></div>
             <div class="${learningStep >= 2 ? 'on' : ''}"><i>${learningStep > 2 ? '✓' : '2'}</i><span><b>힌트로 정리</b><small>막히면 한 칸만</small></span></div>
             <div class="${learningStep >= 3 ? 'on' : ''}"><i>3</i><span><b>내 말로 답하기</b><small>코치가 바로 다듬어요</small></span></div>
           </div>
-          <div class="qa-loop-score"><span>지금까지 완성한 답</span><b>${won}개</b></div>
         </div>
-        <div class="persuade-track" style="--p:${prog}%"><i></i></div>
       </aside>
       <section class="qa-dialog">
     <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
