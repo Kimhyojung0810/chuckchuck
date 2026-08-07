@@ -67,11 +67,19 @@
   main.home {
     display: grid;
     grid-template-columns: minmax(360px, 4.6fr) minmax(0, 6fr);
-    grid-template-rows: auto auto auto auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto auto 1fr;
     /* lhead 행은 왼쪽 칸의 구역 제목 자리다. 이 행이 없으면 오른쪽 칸만
-       「지난 발표」 제목 높이(31px)만큼 카드가 밀려 두 칸의 카드 윗선이 어긋난다. */
+       「지난 발표」 제목 높이(31px)만큼 카드가 밀려 두 칸의 카드 윗선이 어긋난다.
+
+       가로 부스판에서 「내 발표」 h1(head) 행을 뺐다. 실측하면 그 행이 46px 를 먹는데,
+       세로 예산은 764px 뿐이고 왼쪽 칸이 그걸 100% 쓰고 있었다(하단 여백 6px).
+       무엇보다 부스에서 처음 보는 사람에게 「내 발표」는 아무것도 알려주지 않는다 —
+       화면 이름은 상단 바 로고가 이미 말한다. 회수한 높이는 카드와 상단 숨통에 준다.
+
+       「판단하는 방식」은 왼쪽 아래 그대로 둔다. 오른쪽으로 옮겨 봤더니 목록 카드와의
+       사이에 247px 틈이 생겨 더 어색했다. 목록이 칸을 채우는 건 낭비가 아니다 —
+       실제 사용에서 발표가 쌓이면 그 자리를 쓴다. */
     grid-template-areas:
-      "head   head"
       "resume resume"
       "lhead  list"
       "score  list"
@@ -86,7 +94,12 @@
     /* 왼쪽 칸이 세로 예산을 다 쓰므로 아래 여백을 최소로 둔다 */
     padding-bottom: 6px;
   }
-  main.home > .t-head        { grid-area: head; }
+  /* h1 은 눈에서만 걷어낸다. display:none 은 접근성 트리에서도 지워서 화면에
+     제목이 없는 페이지가 된다 — 보이지 않게만 하고 스크린리더에는 남긴다 */
+  main.home > .t-head {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
   main.home > .t-lhead       { grid-area: lhead; }
   main.home > .t-resume      { grid-area: resume; margin-bottom: 12px; }
   main.home > .t-score-card  { grid-area: score; }
@@ -96,6 +109,11 @@
   main.home > .t-sec { grid-area: list; min-height: 0; display: flex; flex-direction: column; }
   main.home > .t-sec .t-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   main.home > .t-card:last-child { grid-area: about; align-self: start; margin-top: 12px; }
+  /* 병아리 포스터는 남는 행을 다 먹지 않는다 — 제 크기로 위에 붙는다 */
+  main.home > .pb-wall { align-self: start; }
+  /* h1 을 걷어내 생긴 46px 중 일부를 상단 숨통에 돌려준다.
+     남는 건 카드가 가져간다 (아이패드 가로는 세로가 빠듯하다) */
+  main.home { padding-top: 30px; }
   /* 두 단에서는 구역 띠가 칸을 가로지르지 않는다 — 칸 자체가 이미 구역이다 */
   main.home > .t-band { display: none; }
   /* 목록이 길면 오른쪽 칸 안에서만 스크롤한다 (페이지는 그대로) */
@@ -487,7 +505,10 @@
    그보다 세로가 짧은 기기에서는 카드 사이 여백만 깎는다 — 내용은 그대로 두고
    공기만 뺀다. 810px 같은 어중간한 높이가 이 구간에 들어온다 */
 @media (min-width: 900px) and (max-height: 860px) {
-  main.home { padding-top: 14px; }
+  /* 14px 였다. 그건 「내 발표」 h1 행이 46px 를 먹던 시절의 보상이다 —
+     그 행을 걷어낸 뒤로는 아이패드 가로(820)에서 조일 이유가 없다.
+     상단 바 바로 밑에 소제목이 붙으면 답답하다. 더 짧은 화면은 아래 규칙들이 계속 조인다 */
+  main.home { padding-top: 28px; }
   main.home > .page-head { margin-bottom: 10px; }
   main.home > .pb-wall,
   main.home > .game-card { margin-top: 8px; }
