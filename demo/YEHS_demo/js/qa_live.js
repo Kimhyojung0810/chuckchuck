@@ -50,6 +50,15 @@ const MIC_STATE = {
  */
 let liveMic = null;
 
+/**
+ * 마이크가 여닫는 중인가 ('' | 'opening' | 'transcribing').
+ *
+ * 여는 중(권한 팝업 대기)에는 liveMic 이 아직 null 이고, 받아쓰는 중에는 이미
+ * null 이라 `if (liveMic)` 가드가 양쪽 가장자리를 못 막는다 — 그 틈에 제출하면
+ * 녹음이 아무도 안 멈추는 채 남거나, 받아쓴 문장이 재렌더에 지워진다.
+ */
+let liveMicPending = '';
+
 function qaLiveActive() {
   return !!(qa.live && Array.isArray(qa.live.questions) && qa.live.questions.length);
 }
@@ -389,6 +398,7 @@ async function toggleLiveMic() {
     setMicBtn('idle');
     return;
   }
+  liveMicPending = 'opening';
   setMicBtn('opening', true);
   if (window.ChuckchuckBridge.hasLiveDictation()) return startDictationMic();
   return startRecordingMic();
@@ -415,10 +425,12 @@ function startDictationMic() {
       }),
     };
   } catch (err) {
+    liveMicPending = '';
     micSay(`받아쓰기를 시작하지 못했어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답하셔도 됩니다`);
     setMicBtn('idle');
     return;
   }
+  liveMicPending = '';
   setMicBtn('dictating');
 }
 
@@ -435,11 +447,13 @@ async function startRecordingMic() {
       }),
     };
   } catch (err) {
+    liveMicPending = '';
     // 권한 거부·미지원. 삼키면 사용자는 버튼이 왜 안 먹는지 알 수 없다.
     micSay(`마이크를 못 열었어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답하셔도 됩니다`);
     setMicBtn('idle');
     return;
   }
+  liveMicPending = '';
   setMicBtn('recording');
 }
 
@@ -464,6 +478,7 @@ async function stopLiveMic() {
     return;
   }
 
+  liveMicPending = 'transcribing';
   setMicBtn('transcribing', true);
   try {
     const text = await window.ChuckchuckBridge.transcribeAnswer(await mic.session.stop());
@@ -472,6 +487,7 @@ async function stopLiveMic() {
   } catch (err) {
     micSay(`받아쓰기에 실패했어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답하셔도 됩니다`);
   }
+  liveMicPending = '';
   idle();
 }
 
@@ -505,6 +521,14 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   // 녹음은 아무도 안 멈추는 채로 남는다.
   if (liveMic) {
     micSay('녹음 중이에요 — 먼저 멈추고 받아쓴 뒤에 보내 주세요');
+    return;
+  }
+  // 여닫는 가장자리도 막는다 — 여는 중에 보내면 녹음이 아무도 안 멈추는 채
+  // 남고, 받아쓰는 중에 보내면 받아쓴 문장이 재렌더에 지워진다.
+  if (liveMicPending) {
+    micSay(liveMicPending === 'transcribing'
+      ? '받아쓰는 중이에요 — 문장이 입력창에 담기면 보내 주세요'
+      : '마이크를 여는 중이에요 — 잠시 뒤에 보내 주세요');
     return;
   }
   const q = L.questions[L.qi];
