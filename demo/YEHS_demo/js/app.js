@@ -4533,6 +4533,9 @@ function resetQa() {
     liveNotice: '',
   };
   qaBuildFailed = false;
+  // 질문 생성 모듈 폴링 카운터도 새 코칭에서 다시 센다 — 안 그러면 한 번
+  // 소진된 뒤로는 새 코칭에서도 재시도 없이 곧장 실패로 떨어진다.
+  qaBridgeTries = 0;
   saveSession('qa-flow', qa);
 }
 if (!Array.isArray(qa.turns) || !qa.mode || !qa.concepts) resetQa();
@@ -4721,7 +4724,8 @@ function streamRow(it) {
   if (it.kind === 'missing') {
     return `<div class="msg ai miss">${av}<div class="msg-bubble">
       <span class="msg-meta">아직 안 나온 것</span>
-      <div class="miss-chips">${it.points.map((p) => `<span class="chip chip-sm st-mid">${p}</span>`).join('')}</div>
+      <!-- points 가드: 구버전 저장 세션이 이 필드 없이 복원되면 렌더 전체가 죽는다 -->
+      <div class="miss-chips">${(it.points || []).map((p) => `<span class="chip chip-sm st-mid">${p}</span>`).join('')}</div>
     </div></div>`;
   }
   if (it.kind === 'gist') {

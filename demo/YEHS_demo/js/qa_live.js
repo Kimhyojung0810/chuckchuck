@@ -513,6 +513,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   L.busy = true;
   saveSession('qa-flow', qa);
   renderQaLive();
+  // 판정이 실패하면 입력창에 답을 되살린다 — 전송 즉시 화면을 다시 그려 창이
+  // 비워지므로, 안 되살리면 「다시 시도」가 처음부터 다시 타이핑하기가 된다.
+  let failedAnswer = '';
   try {
     const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
       questionId: q.id, answer, history: liveHistory(), question: q, giveUp,
@@ -539,6 +542,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 「모르겠어요」도 판정을 타므로, 서버가 죽으면 이 질문에 갇힌다.
     // 아래 렌더에서 「답 보고 넘어가기」가 열려 서버 없이 다음 질문으로 간다.
     L.judgeFailed = true;
+    failedAnswer = giveUp ? '' : answer;   // 포기 자리표시자는 되살릴 답이 아니다
     // 자료 정보가 통째로 사라진 경우는 다시 눌러도 똑같이 실패한다. 「다시
     // 시도」로 유도하면 같은 자리를 맴돌 뿐이라, 원인과 빠져나갈 길을 따로 낸다.
     pushTurn({
@@ -552,6 +556,13 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   L.busy = false;
   saveSession('qa-flow', qa);
   renderQaLive();
+  if (failedAnswer) {
+    const retryTa = $('#liveAnswer');
+    if (retryTa) {
+      retryTa.value = failedAnswer;
+      retryTa.selectionStart = retryTa.selectionEnd = retryTa.value.length;
+    }
+  }
 }
 
 function closeLiveCoached(q, v, answer) {
@@ -673,7 +684,6 @@ function qaLiveEnd() {
   saveSession('qa-flow', qa);
   recordQaHistory();
   const L = qa.live;
-  const won = liveWonCount(L.results);
   const chipCls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' };
   const chipWord = { good: '설득 완료', partial: '부분 인정', wrong: '미방어', unknown: '보류', skipped: '넘김' };
   /* 결과를 상태로 묶는다. 섞어 두면 "어디부터 손대야 하는지" 가 안 보인다.

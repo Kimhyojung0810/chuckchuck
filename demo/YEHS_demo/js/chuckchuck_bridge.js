@@ -617,6 +617,9 @@ export function setQaApiBase(url) {
 
 /** 판정 한계 시간. 없으면 「판정 중…」에서 버튼이 전부 잠긴 채 출구가 없다. */
 const QA_TIMEOUT_MS = 30000;
+/* 판정은 따로 늘린다. F-09 는 LLM 응답 JSON 이 깨지면 한 번 더 부르므로(재시도)
+   느린 날은 2회 왕복이다 — 공용 30초면 멀쩡히 진행 중인 판정이 실패로 떨어진다. */
+const JUDGE_TIMEOUT_MS = 60000;
 
 /** 질문 생성 한계 시간. 없으면 화면이 영원히 로딩에 갇힌다. */
 const QUESTIONS_TIMEOUT_MS = 60000;
@@ -739,13 +742,13 @@ export async function judgeQaAnswer(sessionId, { questionId, answer, history, qu
   };
   const path = `/api/v1/sessions/${sid}/qa/judge`;
   try {
-    return await qaApi(path, { method: 'POST', json: body });
+    return await qaApi(path, { method: 'POST', json: body, timeoutMs: JUDGE_TIMEOUT_MS });
   } catch (err) {
     // 세션이 비었을 때만 재등록한다. 아티팩트가 아예 없으면 그대로 올린다 —
     // 근거 없이 조용히 판정하느니 실패가 낫다.
     if (err.code !== 'session_missing' || !artifacts) throw err;
     await registerSessionArtifacts(sid, artifacts);
-    return qaApi(path, { method: 'POST', json: body });
+    return qaApi(path, { method: 'POST', json: body, timeoutMs: JUDGE_TIMEOUT_MS });
   }
 }
 
