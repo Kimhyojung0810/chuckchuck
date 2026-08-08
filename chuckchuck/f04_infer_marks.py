@@ -43,6 +43,22 @@ WINDOW_SEC = 6.0
 #: 자료를 잘못 올렸거나 발화가 자료와 아예 다른 주제일 때 걸린다.
 MIN_CONFIDENCE = 0.12
 
+#: 폭 0 인 장(= 발화가 한 낱말도 안 붙는 장)의 허용 비율.
+#:
+#: DP 경로가 안 들른 장은 0초 구간으로 남고(아래 `a = b = cursor`), `split_by_slide`
+#: 가 거기에 단어를 하나도 안 넣는다. 그러면 F-11 정합은 그 개념들을 "말한 적 없음"
+#: 으로 보고 화면이 통째로 빈다 — 사용자에게는 **분석이 아예 안 된 것으로 보인다.**
+#:
+#: 개수 가드(`len(used)`)로는 이걸 못 잡는다. 2026-08-08 실측: 수면 자료 8장에
+#: 집중·알림 녹음을 붙였더니 confidence 0.1931 로 MIN_CONFIDENCE 를 넘고
+#: 쓰인 장도 5개라 `max(2, 8//2)=4` 를 통과했는데, **2·3·4 장이 폭 0** 이었다.
+#: 쓰인 장이 몇 개인지가 아니라 **빈 장이 몇 개인지**를 따로 봐야 걸린다.
+#:
+#: 값은 1/4 이다. 발표자가 부록 몇 장을 실제로 건너뛰는 일은 흔하지만
+#: (33장 중 4장이면 12%), 넷 중 하나가 통째로 비었다면 건너뛴 것이 아니라
+#: 못 맞춘 것이다.
+MAX_EMPTY_RATIO = 0.25
+
 #: 조사·접속어는 어느 슬라이드인지 못 가린다.
 _STOP = {
     "그리고", "그래서", "하지만", "그런데", "이것", "저것", "그것", "이거", "저거",
@@ -214,6 +230,21 @@ def infer_slide_marks(
             marks=even_slide_marks(total, n_slides), estimated=False,
             confidence=confidence,
             reason="발화와 자료가 잘 맞지 않아 길이를 균등하게 나눴어요.",
+        )
+
+    # 경로가 안 들른 장은 아래에서 폭 0 이 된다 — 그 장에는 발화가 한 낱말도
+    # 안 붙어 F-11 이 "말한 적 없음" 으로 읽는다. 넷 중 하나 넘게 비면 맞춘 것이
+    # 아니라 못 맞춘 것이므로, 점수가 임계를 넘었더라도 추정을 버린다.
+    empty_ratio = (n_slides - len(used)) / n_slides
+    if empty_ratio > MAX_EMPTY_RATIO:
+        return InferredMarks(
+            marks=even_slide_marks(total, n_slides), estimated=False,
+            confidence=confidence,
+            reason=(
+                f"녹음 내용이 자료와 맞지 않아 슬라이드 구간을 알 수 없어요 "
+                f"({n_slides}장 중 {n_slides - len(used)}장에 맞는 발화가 없어요). "
+                f"길이를 균등하게 나눴으니 슬라이드별 결과는 참고만 해 주세요."
+            ),
         )
 
     # 경로를 구간으로 접는다

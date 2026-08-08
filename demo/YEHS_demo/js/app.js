@@ -3255,15 +3255,23 @@ function pipelineInspectHtml() {
     || null;
   const phase = nf.pipelinePhase || 'queued';
 
-  // 업로드본은 전환 기록이 없어 marks 를 합성했다. 측정값처럼 읽히면 안 된다.
-  // 전환 기록 표 자체는 뺐지만(사용자 지시), 합성값이라는 사실은 계속 알려야 한다 —
-  // 아래 슬라이드↔발화 매핑이 그 합성 marks 위에 서 있기 때문이다.
+  // 업로드본은 전환 기록이 없어 서버(F-04 파생)가 구간을 되짚는다. 그 결과가
+  // 측정값처럼 읽히면 안 된다 — 아래 슬라이드↔발화 매핑이 이 값 위에 서 있다.
+  //
+  // 예전엔 늘 "길이를 N등분한 합성값" 이라고 썼는데, 되짚기가 성공한 경우엔 그게
+  // 거짓말이었다 (균등 분할이 아니라 내용으로 맞춘 구간이다). 반대로 녹음이 자료와
+  // 아예 다른 경우엔 **왜** 못 맞췄는지가 사용자에게 가장 중요한 정보인데, 그 문장이
+  // 진행 로그에만 남고 화면에는 안 보였다 (2026-08-08 제보: "PPT 와 다른 내용의
+  // 녹음본을 올리면 아예 인식을 못 한다"). 서버의 marks_reason 이 두 경우를 이미
+  // 구분해 말하므로 그대로 싣는다 (§14 정직한 상태 유지).
   const up = nf.uploadedTake;
+  const markReason = (transcript && transcript.marks_reason) || '';
+  const markFallback = `슬라이드 구간은 <b>실제 전환 기록이 아니라 길이를 ${marks.length}등분한 합성값</b>이에요.`;
   const uploadedNote = up
     ? `<p class="note" style="color:var(--mid)">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
-       (${fmtMarkSec(up.durationSec)})으로 돌렸어요. 슬라이드 구간은 <b>실제 전환 기록이 아니라
-       길이를 ${marks.length}등분한 합성값</b>이라, 슬라이드별 발화 분할과 정합 판정은
-       참고용으로만 보세요.</p>`
+       (${fmtMarkSec(up.durationSec)})으로 돌렸어요.
+       ${markReason ? escapeHtml(markReason) : markFallback}
+       슬라이드별 발화 분할과 정합 판정은 참고용으로만 보세요.</p>`
     : '';
 
   let speechHtml = '';
