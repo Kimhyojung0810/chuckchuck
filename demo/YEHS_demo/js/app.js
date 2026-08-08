@@ -4737,11 +4737,16 @@ function rSummary() {
     </button>` : ''}
 
     <div class="card rep-deck">
-      <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르면 그 장에서 있었던 일을 보여줘요</span></h3>
+      <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르거나 <kbd>←</kbd><kbd>→</kbd> 로 넘겨요</span></h3>
       <div id="deckBody">${deckHtml()}</div>
-      <div class="deck-film" id="deckFilm">
+      <!-- 탭 이동은 한 번만 멈춘다(선택된 장만 tabindex=0). 23장짜리 자료에서
+           칸마다 멈추면 필름을 지나가는 데만 탭을 23번 눌러야 한다 —
+           들어와서 ←→ 로 넘기고 탭으로 빠져나가는 게 맞는 흐름이다 -->
+      <div class="deck-film" id="deckFilm" role="group" aria-label="슬라이드 목록 (좌우 화살표로 넘겨요)">
         ${deckThumbList().map(t => `
-          <button class="slidethumb st-${t.status} has ${t.no === repSlide ? 'on' : ''}" data-slide="${t.no}" title="${t.no}. ${escapeHtml(t.title)} · ${STATUS[t.status]}">
+          <button class="slidethumb st-${t.status} has ${t.no === repSlide ? 'on' : ''}" data-slide="${t.no}"
+                  tabindex="${t.no === repSlide ? 0 : -1}" aria-current="${t.no === repSlide ? 'true' : 'false'}"
+                  title="${t.no}. ${escapeHtml(t.title)} · ${STATUS[t.status]}">
             <img ${t.src ? `src="${t.src}"` : ''} data-thumb-page="${t.no}" alt="${t.no}번 슬라이드" loading="lazy">
             <span class="stnum">${t.no}</span>
           </button>`).join('')}
@@ -4791,10 +4796,30 @@ function rSummary() {
     const deck = $('.rep-deck'); if (deck) deck.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   const film = $('#deckFilm');
-  if (film) film.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    selectDeckSlide(Number(b.dataset.slide));
-  });
+  if (film) {
+    film.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      selectDeckSlide(Number(b.dataset.slide));
+    });
+    /* 좌우로 넘기기. 33장짜리 자료를 마우스로 하나씩 집어 가는 건 일이다 —
+       필름에 들어와서 ←→ 로 훑는 게 이 묶음을 보는 자연스러운 방법이다.
+       Home·End 도 받는다(첫 장·마지막 장). 브라우저 기본 가로 스크롤을
+       막아야 우리가 옮긴 자리와 스크롤이 따로 놀지 않는다. */
+    film.addEventListener('keydown', e => {
+      const total = deckTotalSlides();
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      let next = step ? repSlide + step
+        : e.key === 'Home' ? 1
+          : e.key === 'End' ? total : null;
+      if (next == null) return;
+      next = Math.min(total, Math.max(1, next));
+      e.preventDefault();
+      if (next === repSlide) return;
+      selectDeckSlide(next);
+      const btn = $(`#deckFilm button[data-slide="${next}"]`);
+      if (btn) btn.focus();
+    });
+  }
   $$('.mini-row').forEach(r => r.addEventListener('click', () => goJudge(r.dataset.node)));
   bindDeckPanel();
   paintDeckStage();
@@ -4959,7 +4984,14 @@ function selectDeckSlide(n) {
   repSlide = n;
   const body = $('#deckBody'); if (!body) return;
   body.innerHTML = deckHtml();
-  $$('#deckFilm button').forEach(b => b.classList.toggle('on', Number(b.dataset.slide) === n));
+  /* 선택 표시와 함께 탭 정지점(tabindex)도 같이 옮긴다. 안 옮기면 ←→ 로
+     넘긴 뒤 탭을 눌렀을 때 «예전에 선택했던 장» 으로 초점이 돌아간다 */
+  $$('#deckFilm button').forEach(b => {
+    const on = Number(b.dataset.slide) === n;
+    b.classList.toggle('on', on);
+    b.tabIndex = on ? 0 : -1;
+    b.setAttribute('aria-current', on ? 'true' : 'false');
+  });
   const cur = $(`#deckFilm button[data-slide="${n}"]`);
   if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   animateViz(body);
