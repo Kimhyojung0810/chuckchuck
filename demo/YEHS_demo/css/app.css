@@ -1920,7 +1920,7 @@ table.plain tr:last-child td { border-bottom: 0; }
    같은 색이라 두 줄의 「같은 색 폭 차이」가 곧 결론이다. */
 .tsplit-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-bottom: 16px; }
 .tsplit-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-2); }
-.tsplit-legend i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.tsplit-legend i { width: 9px; height: 9px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.06); }
 .tsplit-row { display: grid; grid-template-columns: 78px minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 10px; }
 .tsplit-lb { font-size: 12px; font-weight: 600; color: var(--text-3); word-break: keep-all; }
 /* 내가 한 발표가 주인공이다 — 이상적인 배분은 대조군이라 한 단계 낮춘다 */
@@ -1932,7 +1932,10 @@ table.plain tr:last-child td { border-bottom: 0; }
   min-width: 0; background: var(--c);
   transition: width .7s cubic-bezier(.22, .61, .36, 1);
 }
-.tsplit-seg b { font-size: 11px; font-weight: 700; color: #fff; letter-spacing: -.02em; }
+/* 글자색은 칸이 들고 온다 — 옅은 칸에 흰 글씨를 얹으면 %가 안 읽힌다 */
+.tsplit-seg b { font-size: 11px; font-weight: 700; color: var(--tc, #fff); letter-spacing: -.02em; }
+/* 단색 계조라 칸 경계가 인접색끼리 붙어 보인다. 머리카락만큼만 띄운다 */
+.tsplit-seg + .tsplit-seg { box-shadow: inset 1px 0 0 rgba(255, 255, 255, .5); }
 .tsplit-row.is-mine .tsplit-seg b { font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .tsplit-seg { transition: none; } }
 .tsplit-say { margin-top: 14px; }

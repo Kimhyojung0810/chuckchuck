@@ -5574,10 +5574,21 @@ function realPace() {
    100% 고 같은 구간은 같은 색이라, 눈이 두 줄의 「같은 색 폭 차이」를 그냥 본다.
    파이 차트를 펴서 위아래로 겹쳐 놓은 것과 같다 — 비교가 목적이면 파이보다
    가로 막대가 낫다(각도보다 길이를 정확히 읽는다). */
-/* 구간 식별용 색이다 — 판정 5색(--ok/--mid/--no/--ct/--om)과 겹치면 안 된다.
-   그 다섯은 뜻이 박혀 있어서 여기 쓰면 리포트가 거짓말이 된다 (CLAUDE.md §3-3).
-   전부 흰 글자가 얹히는 어두운 값으로 골랐다 — 조각 안에 %를 적어야 해서다. */
-const TSPLIT_COLORS = ['#1F7A5F', '#2563EB', '#B45309', '#9D174D', '#5B21B6', '#0E7490', '#4D7C0F'];
+/* 구간 색 — 브랜드 딥그린 한 색의 계조다.
+   처음엔 초록·파랑·자홍·보라를 돌려 썼는데, 초록 하나로 세운 앱에서 무지개는
+   그 자리만 다른 제품처럼 보인다. 게다가 인코딩이 틀렸다: 구간은
+   「배경 → 동기·구조 → 방법론 → 실험 → 결론」으로 **시간 순서**를 갖는다.
+   순서가 있는 값에 순서 없는 범주형 색을 쓰면, 눈이 색에서 순서를 못 읽는다.
+   진한 데서 옅은 데로 흐르게 두면 색 자체가 발표의 진행을 말한다.
+
+   판정 5색(--ok/--mid/--no/--ct/--om)과는 겹치지 않는다 — 그 다섯은 뜻이
+   박혀 있어서 여기 쓰면 리포트가 거짓말이 된다 (CLAUDE.md §3-3).
+   각 칸은 [면색, 그 위에 얹을 글자색]이다. 옅은 칸에 흰 글씨를 얹으면 %가
+   안 읽혀서, 밝기가 넘어가는 지점부터 글자를 딥그린으로 뒤집는다. */
+const TSPLIT_COLORS = [
+  ['#063B2C', '#fff'], ['#0A5C41', '#fff'], ['#0E8850', '#fff'], ['#23A26A', '#fff'],
+  ['#5CC194', '#06301F'], ['#96D9B7', '#06301F'], ['#C9EBDA', '#06301F'],
+];
 
 /** rows: [{ name, rec, act }] — 단위는 상관없다(초·%). 각 줄에서 제 합으로 나눈다. */
 function timeSplitHtml(rows) {
@@ -5589,7 +5600,8 @@ function timeSplitHtml(rows) {
   const bar = (k, total) => `<div class="tsplit-bar">${clean.map((r, i) => {
     const pct = Math.max(0, r[k] || 0) / total * 100;
     if (pct <= 0) return '';
-    return `<span class="tsplit-seg" style="width:${pct.toFixed(2)}%;--c:${TSPLIT_COLORS[i % TSPLIT_COLORS.length]}"
+    const [bg, fg] = TSPLIT_COLORS[i % TSPLIT_COLORS.length];
+    return `<span class="tsplit-seg" style="width:${pct.toFixed(2)}%;--c:${bg};--tc:${fg}"
                  title="${escapeHtml(r.name)} · ${Math.round(pct)}%">${
       /* 좁은 조각에 숫자를 우겨넣으면 글자가 잘려 나온다. 9% 아래는 색만 남기고
          숫자는 범례와 title 이 맡는다 */
@@ -5608,7 +5620,7 @@ function timeSplitHtml(rows) {
   return `
     <div class="tsplit">
       <div class="tsplit-legend">${clean.map((r, i) =>
-        `<span><i style="background:${TSPLIT_COLORS[i % TSPLIT_COLORS.length]}"></i>${escapeHtml(r.name)}</span>`).join('')}</div>
+        `<span><i style="background:${TSPLIT_COLORS[i % TSPLIT_COLORS.length][0]}"></i>${escapeHtml(r.name)}</span>`).join('')}</div>
       <div class="tsplit-row">
         <span class="tsplit-lb">이상적인 배분</span>
         ${bar('rec', recTotal)}
