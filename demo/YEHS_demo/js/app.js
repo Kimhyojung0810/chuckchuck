@@ -3888,7 +3888,13 @@ async function renderReport() {
      저장본을 다시 열었을 때(restoredAt) 또 저장하면 시각만 계속 갱신돼서
      "언제 한 발표인지" 가 거짓말이 된다 — 그때는 저장하지 않는다. */
   if (!rSampleMode && !restoredAt && s.live && v.hasAnalysis && !v.isSample) saveLastReport();
-  const tabs = ['요약', '채점표', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
+  /* 순서가 곧 우선순위다. 예전 2번은 「채점표」였다 — 39개 항목의 점수표는
+     어느 발표 도구에나 있는 것이고, 우리만 하는 일이 아니다. 우리만 하는 일은
+     «자료가 약속한 개념을 실제로 설명했는가» 를 발화 증거와 함께 대조하는
+     것이라, 그게 요약 바로 다음에 와야 한다. 채점 근거는 그 판단이 미덥지
+     않을 때 열어 보는 자리라 뒤로 보낸다.
+     이름도 산출물이 아니라 «무엇을 답해 주는 화면인가» 로 바꿨다. */
+  const tabs = ['요약', '개념 전달', '흐름', '채점 근거', '말하기', '연습 도구'];
   const meta = [
     escapeHtml(s.occasion),
     s.slides ? `${s.slides}장` : '',
@@ -3946,7 +3952,7 @@ async function renderReport() {
     rTab = $$('#rtabs button').indexOf(b);
     renderReport();
   });
-  [rSummary, rRubric, rJudge, rLogic, rPace, rAudience, rTools][rTab]();
+  [rSummary, rJudge, rLogic, rRubric, rDelivery, rTools][rTab]();
   animateViz();
 }
 
@@ -3998,10 +4004,10 @@ function renderProfileReport(p) {
  *
  * 「목적·청중 적합성 30」만 보여주고 끝나면 「그래서 왜 30점인데」에 답할 데가
  * 없다. 채점표 탭이 항목별 근거를 이미 갖고 있으므로 그리로 데려간다.
- * rTab 1 은 renderReport 의 [rSummary, rRubric, …] 순서다.
+ * rTab 3 은 renderReport 의 [rSummary, rJudge, rLogic, rRubric, …] 순서다.
  */
 function goRubric(key) {
-  rTab = 1;
+  rTab = 3;
   renderReport();
   // 탭만 바꾸면 7개 묶음 중 어디를 보라는 건지 알 수 없다.
   // 묶음은 접혀 있으므로 열어 준다 — 눌러서 왔는데 접힌 줄만 보이면 헛걸음이다
@@ -4012,10 +4018,10 @@ function goRubric(key) {
 }
 
 function goJudge(node) {
-  // rTab 은 renderReport 의 [rSummary, rRubric, rJudge, …][rTab] 순서다(3636).
-  // 개념별 판정은 2번인데 1(채점표)로 박혀 있었다 — 탭이 5개에서 7개로 늘 때
-  // 같이 안 옮긴 자리다. 개념을 눌렀는데 채점표가 열리고 있었다.
-  jSel = node; rTab = 2; renderReport();
+  // rTab 은 renderReport 의 [rSummary, rJudge, …][rTab] 순서다.
+  // 탭을 재배치할 때마다 여기가 어긋났다(예전엔 개념을 눌렀는데 채점표가 열렸다).
+  // 개념 전달은 이제 1번이다.
+  jSel = node; rTab = 1; renderReport();
   // 탭만 바꾸면 긴 목록에서 선택한 개념이 화면 밖에 있을 수 있다
   const picked = $('#jtree .sel') || $(`#jtree [data-node="${node}"]`);
   if (picked) picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -4892,14 +4898,14 @@ function pipelineFinished() {
 }
 
 /** 청중 반응 탭 — 예전엔 요약 탭 맨 아래에 묻혀 있어 찾기 어려웠다. */
-function rAudience() {
+function rAudience(host = $('#rbody')) {
   const blocked = audienceBlockReason();
   // '아직 안 왔다' 와 '분석이 실패했다' 는 다른 일이다. 둘 다 빨갛게 칠하면
   // 진짜 실패가 친절한 안내로 읽힌다 (CLAUDE.md §4 "실패하면 실패로 보여준다")
   // 색과 문구가 같은 신호를 봐야 한다. 예전엔 문구는 pipelinePhase 로,
   // 색은 pipelineOut 유무로 갈라서 "아직 …단계예요" 가 빨갛게 떴다
   const notYet = !pipelineFinished();
-  $('#rbody').innerHTML = `
+  host.innerHTML = `
     <div class="card">
       <h3 class="section-title">삐약 청중석</h3>
       ${blocked ? `<p class="aud-block ${notYet ? 'is-waiting' : 'is-failed'}">${escapeHtml(blocked)}</p>` : ''}
@@ -5506,7 +5512,9 @@ function rLogic() {
   const [first, ...rest] = breaks;
   const bad = breaks.filter(l => !l.good);
   const verdict = bad.length ? {
-    headline: `${bad[0].from}번에서 ${bad[0].to}번으로 넘어갈 때 논리가 끊겼어요`,
+    /* DATA.logicBreaks 의 from·to 는 이미 '5번' 처럼 번을 달고 있다.
+       여기서 또 붙여서 「5번번에서 7번번으로」가 나가고 있었다 (샘플 경로). */
+    headline: `${bad[0].from}에서 ${bad[0].to}으로 넘어갈 때 논리가 끊겼어요`,
     action: '앞 장과 잇는 한 문장을 넣으면 흐름이 살아나요. 아래 실제 발화를 확인해 보세요.',
   } : null;
   $('#rbody').innerHTML = `
@@ -5648,7 +5656,7 @@ function timeSplitCard(pace) {
     </div>`;
 }
 
-function rPace() {
+function rPace(host = $('#rbody')) {
   const livePace = (reportOut() || {}).pace;
   const liveHabits = (reportOut() || {}).habits;
   const liveReport = (reportOut() || {}).report;
@@ -5678,7 +5686,7 @@ function rPace() {
       </div>`;
     /* 세로 한 줄로 편다. 예전엔 진단에 따라 시간·간투어 중 하나를 접어 뒀는데,
        접힌 쪽은 있는 줄도 모르고 지나갔다 — 둘 다 이 탭의 본문이다. */
-    $('#rbody').innerHTML = `
+    host.innerHTML = `
       <div class="voice-stack">
         ${tabVerdictHtml(voiceVerdict(easy, livePace))}
         <div class="stat-row voice-stat-row">
@@ -5729,7 +5737,7 @@ function rPace() {
     : { headline: '구간별 말 속도가 고르게 유지됐어요',
         action: '이 속도를 유지하면서 아래 시간 배분만 살펴보세요.' };
   const fbSpeedLabel = cpmJudge(st.avg, st.rec);
-  $('#rbody').innerHTML = `
+  host.innerHTML = `
     ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
       ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
     ${tabVerdictHtml(fbVerdict)}
@@ -5754,7 +5762,24 @@ function rPace() {
     ${timeSplitCard(null)}`;
 }
 
-/* 탭 5 — 연습 도구.
+/**
+ * 「말하기」 — 음성 습관과 청중 반응을 한 탭으로 합친다.
+ *
+ * 둘은 같은 질문의 앞뒤다: 어떻게 말했나(속도·시간·말버릇) / 그래서 어떻게
+ * 들렸나(객석 반응). 탭을 나눠 두면 「청중 반응」은 이름만 봐서는 무슨 화면인지
+ * 알 수 없어 아무도 안 열었다 — 일곱 개 중 하나로 묻히던 자리다.
+ *
+ * display:contents 로 두 host 를 투명하게 만든다. #rbody 는 격자라, 감싸는
+ * div 가 격자 칸을 차지해 버리면 안쪽 카드들이 배치를 못 탄다.
+ */
+function rDelivery() {
+  const body = $('#rbody');
+  body.innerHTML = '<div id="dlvPace"></div><div id="dlvAud"></div>';
+  rPace($('#dlvPace'));
+  rAudience($('#dlvAud'));
+}
+
+/* 탭 6 — 연습 도구.
    안쪽 세그먼트 메뉴를 없애고 네 도구를 한 번에 세로로 편다. 탭 안에 탭이 있어서
    「발표 구성」 말고 세 개가 있다는 걸 모르고 지나가는 사람이 많았다.
    도구마다 host 를 따로 주는 이유: 넷이 다 같은 #toolBody 에 쓰면 서로 지웠다.
