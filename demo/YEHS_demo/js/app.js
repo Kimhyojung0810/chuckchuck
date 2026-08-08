@@ -252,16 +252,16 @@ function areaChartSvg(vals, W, H) {
   const area = `${line} L${X(n - 1).toFixed(1)} ${H - padB} L${X(0).toFixed(1)} ${H - padB} Z`;
   let len = 0; for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
   const last = pts[n - 1];
-  const dots = pts.slice(0, -1).map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#fff" stroke="var(--blue)" stroke-width="2"/>`).join('');
+  const dots = pts.slice(0, -1).map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#fff" stroke="var(--accent)" stroke-width="2"/>`).join('');
   return `<svg class="growth-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 ${n}회 완성도 추이">
     <defs><linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="var(--blue)" stop-opacity=".20"/>
-      <stop offset="1" stop-color="var(--blue)" stop-opacity="0"/>
+      <stop offset="0" stop-color="var(--accent)" stop-opacity=".20"/>
+      <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
     </linearGradient></defs>
     <path class="growth-area" d="${area}" fill="url(#growthFill)"/>
-    <path class="growth-line" style="--len:${len.toFixed(0)}" d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="growth-line" style="--len:${len.toFixed(0)}" d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
     ${dots}
-    <circle class="growth-dot-last" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5.5" fill="var(--blue)" stroke="#fff" stroke-width="2.5"/>
+    <circle class="growth-dot-last" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5.5" fill="var(--accent)" stroke="#fff" stroke-width="2.5"/>
     <text class="growth-val" x="${last[0].toFixed(1)}" y="${(last[1] - 12).toFixed(1)}" text-anchor="middle">${vals[n - 1]}</text>
   </svg>`;
 }

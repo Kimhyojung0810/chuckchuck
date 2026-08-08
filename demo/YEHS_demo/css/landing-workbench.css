@@ -261,11 +261,11 @@
 
 .start-copy h2{color:var(--ink)}
 
-.start-copy h2 em{color:var(--blue)}
+.start-copy h2 em{color:var(--accent)}
 
 .start-copy>p{color:#5a6b62}
 
-.start-copy .section-label{color:var(--blue)}
+.start-copy .section-label{color:var(--accent)}
 
 .start-points span{color:#46584f}
 

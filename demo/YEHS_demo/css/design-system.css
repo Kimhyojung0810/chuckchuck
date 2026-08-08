@@ -158,10 +158,8 @@ main > .verdict:first-child { margin-top: -24px; }
   font-size: 11px; font-weight: 700; white-space: nowrap;
 }
 
-/* ── 나머지 여섯: 이름과 숫자를 한 줄에, 막대는 그 아래 실선 한 겹 ──
-   숫자를 오른쪽 끝에 모아 세로로 정렬시킨다. 눈이 한 번에 훑고 지나가라고
-   만든 줄이지, 하나씩 읽으라고 만든 줄이 아니다. */
-/* 나머지 여섯은 「이름 · 값 · 다음」 한 줄씩이다 (토스의 줄 문법).
+/* ── 나머지 여섯: 「이름 · 값 · 다음」 한 줄씩 ──────────────────────
+   나머지 여섯은 「이름 · 값 · 다음」 한 줄씩이다 (토스의 줄 문법).
    두 칸 격자에 막대까지 달던 배치를 걷었다: 막대 여섯 개가 나란히 차 있으면
    어느 것도 눈에 안 들어오고, 옆의 숫자가 이미 같은 말을 더 정확하게 한다.
    줄 사이는 여백이 아니라 머리카락 선으로 나눈다 — 여백으로 띄우면 여섯 개가
@@ -280,9 +278,9 @@ main > .verdict:first-child { margin-top: -24px; }
 
 /* ══ 홈 판정 헤드 — 성장 추이가 화면의 앵커가 된다 ══════════════ */
 .home-verdict {
-  /* areaChartSvg 는 stroke·stop-color 를 인라인으로 var(--blue) 로 쓴다.
+  /* areaChartSvg 는 stroke·stop-color 를 인라인으로 var(--accent) 로 쓴다.
      커스텀 프로퍼티만 이 스코프에서 바꾸면 차트 전체가 어두운 면에 맞게 따라온다. */
-  --blue: var(--cyan);
+  --accent: var(--cyan);
   margin-top: var(--gap-item);
   padding-top: 52px;
 }
