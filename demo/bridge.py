@@ -1029,6 +1029,20 @@ class Handler(SimpleHTTPRequestHandler):
                 tmp.write(audio_bytes)
                 audio_path = tmp.name
         if not audio_path:
+            # 예전에는 빈 파일을 만들어 그대로 STT 에 올렸다. 그러면 "녹음이 비었다"
+            # 라는 사실이 벤더 오류로 번역돼 화면에 뜬다 — 2026-08-08 실제로
+            # `A.X STT upload-token 실패 400: fileSize parameter empty` 가 502 로
+            # 올라왔고, 마이크가 안 잡힌 것을 STT 장애처럼 읽게 만들었다.
+            # 유료 호출도 한 번 나간다. 여기서 끊고 사실대로 말한다.
+            if not _mock():
+                sys.stderr.write("[bridge] F-05 transcribe 거절: 오디오가 없음\n")
+                return self._json(
+                    400,
+                    {
+                        "error": "no_audio",
+                        "message": "녹음이 비어 있어요. 마이크 권한을 허용했는지 확인하고 다시 녹음해주세요.",
+                    },
+                )
             audio_path = str(ROOT / "fixtures" / ".keep")
             Path(audio_path).write_text("", encoding="utf-8")
 
