@@ -75,6 +75,10 @@ function newLiveState(sessionId, questions) {
     turns: [],
     hintLevel: 0,
     lastJudgement: null,
+    // 답을 보고 나서 내 말로 다시 해보는 중인가. 「답 보고 다시 말해보기」는 예전엔
+    // 질문을 바로 닫았는데, 그러면 답을 읽기만 하고 한 번도 말해 보지 않은 채
+    // 넘어간다 — 읽은 것은 다음 질문에서 안 나온다. 보고 나서 한 번 말해야 남는다.
+    retell: null,
     // 판정 직후 곧바로 다음 질문으로 넘기지 않는다. 사용자가 자기 답과
     // 완성 답의 차이를 한 화면에서 확인한 뒤 직접 다음으로 간다.
     checkpoint: null,
@@ -124,7 +128,7 @@ function liveArtifacts() {
 }
 
 /**
- * 힌트를 다 쓰고도 점수가 안 오르면 "답 보고 넘어가기" 를 연다.
+ * 막혔을 때 「답 보고 다시 말해보기」 를 연다.
  *
  * 예전 조건은 `hintLevel < 3` 이었는데 사다리가 실제로 3단계까지 온 적이 없어
  * 이 버튼이 한 번도 뜨지 않았다. 3단계(근접)는 빠뜨린 게 없으면 서버가 아예
@@ -135,13 +139,51 @@ function liveStalled() {
   // 판정이 실패하면 이 질문을 넘길 길이 서버 말고는 없다. 「모르겠어요」도
   // 판정을 타므로, 여기서 안 열어 주면 사용자는 코칭 전체를 끝내는 수밖에 없다.
   if (L.judgeFailed) return true;
+  // 답을 보고 다시 말하는 중에는 출구를 또 열지 않는다 — 그게 이미 출구다.
+  if (L.retell) return false;
   if (L.turns.length < 2) return false;
-  // 기준은 **질문이 들고 온 사다리**다. 판정이 붙으면 사다리가 한 칸 길어지는데,
-  // 그걸 기준으로 삼으면 3단계까지 다 쓴 사람의 출구가 판정 직후에 다시 닫힌다.
-  if (L.hintLevel < liveQuestionHints().length) return false;
+  // 예전엔 셋을 **모두** 만족해야 열렸다 (2턴 이상 · 사다리 소진 · 점수 정체).
+  // 그래서 힌트를 안 누른 사람에게는 영영 안 떴다 — 정작 막힌 사람이 힌트를
+  // 안 누르는 사람인데. 이제 하나만 걸려도 연다. 출구는 넉넉해야 안심하고 문다.
+  if (L.hintLevel >= liveQuestionHints().length) return true;
   const last = L.turns[L.turns.length - 1];
   const prev = L.turns[L.turns.length - 2];
   return (last.score || 0) <= (prev.score || 0);
+}
+
+/* ── 라운드 사다리 ──────────────────────────────────────────────────────────
+   서버가 라운드마다 질문의 넓이를 좁힌다 (probe → focus → converge).
+   화면도 그걸 그대로 보여 준다 — 「또 물어보네」와 「한 칸 좁아졌네」는
+   같은 사건인데 표시가 없으면 전자로만 읽힌다.
+
+   칸이 셋인 것은 서버 QA_PROBE_TIERS 가 셋이기 때문이지 라운드 상한이 셋이라서가
+   아니다 (converge 는 3라운드 이상 전부). 상한을 여기 베껴 두면 서버가 바뀔 때
+   조용히 어긋나므로, **서버가 보내는 단계 이름만 읽는다.** */
+const PROBE_STEPS = [
+  { key: 'probe', title: '내 말로 답해요', note: '아는 만큼만 말해도 돼요' },
+  { key: 'focus', title: '좁혀서 다시 물어요', note: '한 단어로 답해도 돼요' },
+  { key: 'converge', title: '마지막 한 걸음', note: '고개만 끄덕이면 돼요' },
+];
+
+/** 지금 서 있는 라운드 칸. 판정 전에는 첫 칸이다. */
+function liveProbeIndex() {
+  const tier = (qa.live.lastJudgement && qa.live.lastJudgement.probe_tier) || '';
+  const at = PROBE_STEPS.findIndex((s) => s.key === tier);
+  return at < 0 ? 0 : at;
+}
+
+/**
+ * 연속으로 정복한 개념 수. **도파민은 진짜 숫자에서 온다** — XP 를 지어내지 않는다
+ * (UI_REDESIGN §14 「숫자는 신성하다」). 답을 보고 넘어간 것은 연속을 끊는다.
+ */
+function liveStreak() {
+  const rs = qa.live.results || [];
+  let n = 0;
+  for (let i = rs.length - 1; i >= 0; i--) {
+    if (!rs[i].mastered || rs[i].revealed) break;
+    n += 1;
+  }
+  return n;
 }
 
 /**
@@ -188,7 +230,9 @@ function questState(q, i) {
   const byId = q.id != null && (L.results || []).find((r) => r.id === q.id);
   const r = byId || (L.results || [])[i] || {};
   if (r.gaveUp || r.revealed) return 'skip';
-  if (r.passed) return r.verdict === 'partial' ? 'part' : 'won';
+  // mastered 가 없는 옛 세션은 passed 로 읽는다 — 그때는 그게 닫는 기준이었다.
+  const closed = r.mastered === undefined ? r.passed : r.mastered;
+  if (closed) return r.verdict === 'partial' ? 'part' : 'won';
   return 'lost';
 }
 
@@ -196,6 +240,7 @@ function liveQuestHtml() {
   const L = qa.live;
   const total = L.questions.length;
   const won = liveWonCount(L.results);
+  const streak = liveStreak();
   /* 막대는 «설득한 수» 로 잰다 — 머리줄 숫자와 같은 것을 재야 한다.
      지나온 질문 수로 재면 2/5 라고 써 놓고 막대는 60% 인 화면이 된다.
      어디까지 왔는지는 목록의 «지금» 표식과 흐린 줄이 이미 말한다. */
@@ -208,16 +253,21 @@ function liveQuestHtml() {
       <div class="quest-bar" style="--p:${prog}%" role="progressbar"
            aria-valuenow="${won}" aria-valuemin="0" aria-valuemax="${total}"
            aria-label="설득한 개념"><i></i></div>
+      ${streak >= 2 ? `<p class="quest-streak"><b>${streak}개 연속</b>으로 지켰어요</p>` : ''}
       <ol class="quest-list">
         ${L.questions.map((q, i) => {
           const st = questState(q, i);
           const label = q.label || `질문 ${i + 1}`;
           const sev = SEVERITY_LINE[q.severity] || '';
+          /* 「힌트 없이」는 지어낸 배지가 아니라 우리가 이미 기록하는 사실이다
+             (results[].hintLevel). 없는 것을 상으로 주지 않는다 */
+          const r = (L.results || []).find((x) => x.id === q.id) || {};
+          const clean = st === 'won' && !r.hintLevel ? '<em class="qrow-clean">힌트 없이</em>' : '';
           return `<li class="qrow is-${st}"${st === 'now' ? ' aria-current="step"' : ''}>
             <i class="qrow-mark" aria-hidden="true">${QUEST_MARK[st] || i + 1}</i>
             <span class="qrow-body">
               <b>${escapeHtml(label)}</b>
-              <small>${st === 'next' && sev ? sev : QUEST_WORD[st]}</small>
+              <small>${st === 'next' && sev ? sev : QUEST_WORD[st]}${clean}</small>
             </span>
           </li>`;
         }).join('')}
@@ -248,90 +298,181 @@ function renderQaLive() {
   qa.started = true;
   presentLiveQuestion();
   saveSession('qa-flow', qa);
-  const q = L.questions[L.qi];
-  const hints = liveHints();
-  // won·prog 는 퀘스트 목록(liveQuestHtml)이 직접 센다 — 여기 두면 같은 숫자를
-  // 두 곳에서 계산하게 되고, 실제로 진행률 정의가 갈렸다(+.35 보정 vs 지나온 수)
-  const learningStep = L.turn ? 3 : (L.hintLevel ? 2 : 1);
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
     <div class="qa-shell">
-      <aside class="qa-context">
-        ${liveQuestHtml()}
-        <div class="qa-loop-card">
-          <!-- 머리줄의 「질문 N · M개 중」과 꼬리의 「지금까지 완성한 답 N개」는
-               위 퀘스트 목록이 자리로도 숫자로도 이미 말한다 — 걷어냈다.
-               제목은 «N개만 끝내도» 였는데 두 번째 질문부터 «3개만 끝내도 답변
-               하나가 완성돼요» 처럼 말이 안 됐다. 지금 무슨 개념 차례인지로 바꾼다. -->
-          <h2>이번엔 <b>${escapeHtml(q.label || `질문 ${L.qi + 1}`)}</b>${josaEulReul(q.label || '질문')} 설명해요</h2>
-          <div class="qa-loop-steps" aria-label="답하는 순서">
-            <div class="${learningStep >= 1 ? 'on' : ''}"><i>${learningStep > 1 ? '✓' : '1'}</i><span><b>질문을 읽어요</b><small>무엇을 묻는지 봐요</small></span></div>
-            <div class="${learningStep >= 2 ? 'on' : ''}"><i>${learningStep > 2 ? '✓' : '2'}</i><span><b>힌트를 봐요</b><small>막히면 한 칸만 열어요</small></span></div>
-            <div class="${learningStep >= 3 ? 'on' : ''}"><i>3</i><span><b>내 말로 답해요</b><small>코치가 바로 다듬어요</small></span></div>
-          </div>
-        </div>
-      </aside>
+      <aside class="qa-context" id="qaContext">${liveContextHtml()}</aside>
       <section class="qa-dialog">
-    <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
-    <div class="card qa-live-input">
-      <div class="qa-input-label"><b>내 말로 답해보세요</b><span>한 문장만 말해도 괜찮아요</span></div>
-      <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
-        placeholder="예: 이 방법의 핵심은 …이에요"></textarea>
-      <div class="step-actions">
-        <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${L.busy ? '답변 살펴보는 중…' : (L.turn ? '보완해서 다시 답하기' : '이 답변 확인하기')}</button>
-        ${micBtnHTML(L.busy)}
-        <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>${stuckLabel()}</button>
-        ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
-        ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 넘어가기</button>` : ''}
-        <button class="btn btn-text qa-exit-action" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>여기까지 하고 저장</button>
-      </div>
-    </div>
+        <div class="qa-stream" id="stream">${qa.turns.map(streamRow).join('')}</div>
+        <div class="card qa-live-input">${liveInputHtml()}</div>
       </section>
     </div>`;
   scrollDown();
+  wireLiveInput();
+}
 
-  const sendBtn = $('#liveSend');
-  if (sendBtn) sendBtn.addEventListener('click', () => submitLiveAnswer());
-  const ta = $('#liveAnswer');
-  if (ta) {
-    // 판정 대기 중 새로고침으로 걷어 둔 답(초안)이 있으면 되살린다 (app.js 복원 블록).
-    if (L.pendingAnswer) {
-      ta.value = L.pendingAnswer;
-      delete L.pendingAnswer;
-      saveSession('qa-flow', qa);
-    }
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = ta.value.length;
-    ta.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      if (e.metaKey || e.ctrlKey) { e.preventDefault(); submitLiveAnswer(); return; }
-      if (e.shiftKey) return;
-      if (e.isComposing || e.keyCode === 229) return;
-      e.preventDefault();
-      submitLiveAnswer();
-    });
+/** 왼쪽 칸 — 퀘스트 목록 + 지금 라운드. 판정 뒤 이것만 갈아 끼운다. */
+function liveContextHtml() {
+  const L = qa.live;
+  const q = L.questions[L.qi];
+  const at = liveProbeIndex();
+  return `${liveQuestHtml()}
+    <div class="qa-loop-card">
+      <h2>이번엔 <b>${escapeHtml(q.label || `질문 ${L.qi + 1}`)}</b>${josaEulReul(q.label || '질문')} 설명해요</h2>
+      <!-- 예전 3단계는 「질문을 읽어요 → 힌트를 봐요 → 내 말로 답해요」 라는
+           고정 안내였다. 세 칸이 늘 같은 말을 해서 두 번째 질문부터는 아무도
+           안 봤다. 이제 **서버가 좁혀 온 라운드**를 그대로 비춘다 — 되물음이
+           올 때마다 칸이 하나씩 차서, 「또 물어보네」가 「한 칸 좁아졌네」로 읽힌다. -->
+      <div class="qa-loop-steps" aria-label="되묻기 단계">
+        ${PROBE_STEPS.map((s, i) => `
+          <div class="${i <= at ? 'on' : ''}${i === at ? ' at' : ''}">
+            <i>${i < at ? '✓' : i + 1}</i>
+            <span><b>${s.title}</b><small>${s.note}</small></span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+/**
+ * 입력 카드 속. 답을 보고 다시 말하는 중이면 **다른 카드가 된다** —
+ * 같은 자리에 같은 문구를 두면 방금 답을 본 사람이 무엇을 해야 하는지 모른다.
+ */
+function liveInputHtml() {
+  const L = qa.live;
+  if (L.retell) {
+    return `
+      <div class="qa-input-label is-retell">
+        <b>이제 내 말로 다시 해볼까요</b><span>답을 그대로 옮기지 않아도 돼요 — 기억나는 만큼만</span>
+      </div>
+      <textarea id="liveAnswer" rows="3" placeholder="예: 핵심은 …이고, 그래서 …이에요"></textarea>
+      <div class="step-actions">
+        <button class="btn btn-primary" id="liveSend" type="button">내 말로 말했어요</button>
+        ${micBtnHTML(false)}
+        <button class="btn btn-text" id="liveSkipRetell" type="button">이건 건너뛰고 다음 질문</button>
+        <button class="btn btn-text qa-exit-action" id="liveFinish" type="button">여기까지 하고 저장</button>
+      </div>`;
   }
-  const micBtn = $('#liveMic');
-  if (micBtn) micBtn.addEventListener('click', () => toggleLiveMic());
-  const stuckBtn = $('#liveStuck');
-  if (stuckBtn) stuckBtn.addEventListener('click', () => submitLiveAnswer({ giveUp: true }));
-  const hintBtn = $('#liveHint');
-  if (hintBtn) hintBtn.addEventListener('click', () => {
-    const list = liveHints();
-    if (L.hintLevel >= list.length) return;
-    L.hintLevel += 1;
-    // total 을 같이 싣는다 — 말풍선의 "힌트 N/3" 이 하드코딩이라, 판정 후
-    // 사다리가 4단으로 길어지면 "힌트 4/3" 이라는 거짓 숫자가 떴다.
-    pushTurn({ who: 'ai', kind: 'hint', level: L.hintLevel, total: list.length, text: escapeHtml(list[L.hintLevel - 1]) });
-    growStream();
-    if (L.hintLevel >= list.length) hintBtn.remove();
-    else hintBtn.textContent = `힌트 ${L.hintLevel + 1}단계 보기`;
+  const hints = liveHints();
+  return `
+    <div class="qa-input-label"><b>내 말로 답해보세요</b><span>한 문장만 말해도 괜찮아요</span></div>
+    <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
+      placeholder="예: 이 방법의 핵심은 …이에요"></textarea>
+    <div class="step-actions">
+      <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${liveSendLabel()}</button>
+      ${micBtnHTML(L.busy)}
+      <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>${stuckLabel()}</button>
+      ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
+      ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 다시 말해보기</button>` : ''}
+      <button class="btn btn-text qa-exit-action" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>여기까지 하고 저장</button>
+    </div>`;
+}
+
+function liveSendLabel() {
+  const L = qa.live;
+  if (L.busy) return '답변 살펴보는 중…';
+  return L.turn ? '보완해서 다시 답하기' : '이 답변 확인하기';
+}
+
+/** 입력 카드의 버튼·단축키를 다시 묶는다. innerHTML 을 갈아 끼울 때마다 부른다. */
+function wireLiveInput() {
+  const L = qa.live;
+  const on = (sel, fn) => { const el = $(sel); if (el) el.addEventListener('click', fn); };
+  on('#liveSend', () => submitLiveAnswer());
+  on('#liveMic', () => toggleLiveMic());
+  on('#liveStuck', () => submitLiveAnswer({ giveUp: true }));
+  on('#liveReveal', () => revealLiveAnswer());
+  on('#liveSkipRetell', () => closeRetell(''));
+  on('#liveFinish', () => finishLiveQaEarly());
+  // 힌트는 말풍선으로 붙고(growStream), 버튼은 남은 칸 수에 맞춰 다시 그려진다
+  on('#liveHint', () => { if (openNextHint()) { growStream(); refreshLiveChrome(); } });
+
+  const ta = $('#liveAnswer');
+  if (!ta) return;
+  // 판정 대기 중 새로고침으로 걷어 둔 답(초안)이 있으면 되살린다 (app.js 복원 블록).
+  if (L.pendingAnswer) {
+    ta.value = L.pendingAnswer;
+    delete L.pendingAnswer;
     saveSession('qa-flow', qa);
+  }
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = ta.value.length;
+  ta.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (e.metaKey || e.ctrlKey) { e.preventDefault(); submitLiveAnswer(); return; }
+    if (e.shiftKey) return;
+    if (e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    submitLiveAnswer();
   });
-  const revealBtn = $('#liveReveal');
-  if (revealBtn) revealBtn.addEventListener('click', () => revealLiveAnswer());
-  const finishBtn = $('#liveFinish');
-  if (finishBtn) finishBtn.addEventListener('click', () => finishLiveQaEarly());
+}
+
+/** 힌트 한 칸 열기. 사용자가 눌러도, 라운드가 올라 자동으로 열려도 여기로 온다. */
+function openNextHint({ auto = false } = {}) {
+  const L = qa.live;
+  const list = liveHints();
+  if (L.hintLevel >= list.length) return false;
+  L.hintLevel += 1;
+  // total 을 같이 싣는다 — 말풍선의 "힌트 N/3" 이 하드코딩이라, 판정 후
+  // 사다리가 4단으로 길어지면 "힌트 4/3" 이라는 거짓 숫자가 떴다.
+  pushTurn({
+    who: 'ai', kind: 'hint', level: L.hintLevel, total: list.length,
+    auto, text: escapeHtml(list[L.hintLevel - 1]),
+  });
+  saveSession('qa-flow', qa);
+  return true;
+}
+
+/**
+ * 판정 뒤에 **주변 UI 만** 갈아 끼운다. 화면 전체를 다시 그리면 방금 애니메이션과
+ * 함께 올라온 말풍선이 통째로 새로고침되어 깜빡인다 — 대화가 이어진다는 느낌이 깨진다.
+ */
+function refreshLiveChrome() {
+  const ctx = $('#qaContext');
+  if (ctx) ctx.innerHTML = liveContextHtml();
+  const card = $('.qa-live-input');
+  if (!card) return;
+  // 카드를 갈아 끼우면 쳐 놓은 글이 날아간다. 힌트 한 칸 보려고 눌렀다가
+  // 쓰던 답이 사라지면 그 다음부터는 아무도 힌트를 안 누른다.
+  const prev = $('#liveAnswer');
+  const draft = (prev && prev.value) || '';
+  card.innerHTML = liveInputHtml();
+  wireLiveInput();
+  const next = $('#liveAnswer');
+  if (next && draft && !next.value) {
+    next.value = draft;
+    next.selectionStart = next.selectionEnd = draft.length;
+  }
+}
+
+/** 답을 보내는 동안 입력만 잠근다 (재렌더 금지 — 쳐 놓은 글과 스트림을 지키려고). */
+function setLiveBusy(on) {
+  const ta = $('#liveAnswer');
+  if (ta) ta.disabled = on;
+  $$('.qa-live-input .step-actions button').forEach((b) => { b.disabled = on; });
+  const send = $('#liveSend');
+  if (send) send.textContent = liveSendLabel();
+}
+
+/**
+ * 「듣고 있어요」 표시. **말할 때마다 즉시 반응이 있어야 한다** — 예전에는 답을
+ * 보내면 버튼이 잠긴 채 몇 초간 아무 일도 안 일어났고, 그 침묵이 대화를 끊었다.
+ */
+function showCoachThinking() {
+  const s = $('#stream');
+  if (!s || $('#coachThinking')) return;
+  const el = document.createElement('div');
+  el.id = 'coachThinking';
+  el.className = 'msg ai thinking enter';
+  el.setAttribute('aria-live', 'polite');
+  el.innerHTML = `<span class="msg-avatar av-${persona().accent}">${audInit()}</span>
+    <div class="msg-bubble"><i class="dots" aria-hidden="true"><b></b><b></b><b></b></i><span>듣고 있어요</span></div>`;
+  s.appendChild(el);
+  scrollDown();
+}
+
+function hideCoachThinking() {
+  const el = $('#coachThinking');
+  if (el) el.remove();
 }
 
 /** 판정 직후의 학습 화면. 대화 로그 대신 변화 하나만 크게 보여 준다. */
@@ -404,7 +545,7 @@ function finishLiveQaEarly() {
     pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 넘겼어요. 리포트에 남겨둘게요` });
     closeLiveQuestion({
       id: q.id, label: q.label, question: q.question, answer: '(넘김)',
-      verdict: 'skipped', score: 0, passed: false, summary: '',
+      verdict: 'skipped', score: 0, passed: false, mastered: false, summary: '',
     });
   }
   saveSession('qa-flow', qa);
@@ -607,6 +748,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   const q = L.questions[L.qi];
   const ta = $('#liveAnswer');
   const typed = ((ta && ta.value) || '').trim();
+  // 답을 보고 다시 말하는 중이면 판정하지 않는다 — 아래 closeRetell 참고.
+  if (L.retell) return closeRetell(typed);
   const answer = giveUp ? (typed || '(모르겠어요)') : typed;
   if (!answer || L.busy) return;
   // 이번에 실제로 답하고 있는 질문 — 되물음이 떠 있으면 그것이다. 원래 질문만
@@ -616,10 +759,18 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   pushTurn({ who: 'me', kind: 'say', text: escapeHtml(answer) });
   L.busy = true;
   saveSession('qa-flow', qa);
-  renderQaLive();
-  // 판정이 실패하면 입력창에 답을 되살린다 — 전송 즉시 화면을 다시 그려 창이
-  // 비워지므로, 안 되살리면 「다시 시도」가 처음부터 다시 타이핑하기가 된다.
+  // **재렌더하지 않는다.** 예전엔 여기서 화면을 통째로 다시 그려 스트림이 깜빡이고
+  // 버튼만 잠긴 채 몇 초가 흘렀다 — 말한 직후가 반응이 가장 필요한 순간인데
+  // 그 순간이 정적이었다. 내 말풍선을 붙이고, 코치가 듣고 있다고 바로 알린다.
+  if (ta) ta.value = '';
+  growStream();
+  setLiveBusy(true);
+  showCoachThinking();
+  // 판정이 실패하면 입력창에 답을 되살린다 — 창을 비웠으므로, 안 되살리면
+  // 「다시 시도」가 처음부터 다시 타이핑하기가 된다.
   let failedAnswer = '';
+  let closed = false;
+  const before = liveLastScore();
   try {
     const v = await window.ChuckchuckBridge.judgeQaAnswer(L.sessionId, {
       questionId: q.id, answer, history: liveHistory(), question: q, giveUp,
@@ -635,18 +786,32 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     L.turns.push({ question: askedNow, questionId: q.id, answer, verdict: v.verdict, score: v.score || 0, gaveUp: giveUp });
     L.lastJudgement = v;
     L.judgeFailed = false;
-    if (v.react) pushTurn({ who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react) });
+    hideCoachThinking();
+    if (v.react) {
+      // 점수를 같이 싣는다. 「좋아지고 있다」는 말보다 62 → 78 이라는 진짜 숫자가
+      // 세다 (UI_REDESIGN §14 — 숫자는 신성하다, 지어내지 않는다).
+      pushTurn({
+        who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react),
+        score: v.score || 0, before,
+      });
+    }
 
+    // 닫는 기준은 **서버의 mastered 하나**다. passed 로 닫으면 요지만 맞힌 72점
+    // 답이 곧바로 넘어가 되묻기가 아예 안 돈다 — 그게 이 화면이 밋밋했던 이유다.
+    const done = v.mastered === undefined ? v.passed : v.mastered;
     if (v.coach_stage === 'explain') {
       closeLiveCoached(q, v, answer);
-    } else if (v.passed) {
+      closed = true;
+    } else if (done) {
       finishLiveQuestion(q, v, answer);
+      closed = true;
     } else {
       askAgain(v, L.turn);
     }
   } catch (err) {
+    hideCoachThinking();
     // 「모르겠어요」도 판정을 타므로, 서버가 죽으면 이 질문에 갇힌다.
-    // 아래 렌더에서 「답 보고 넘어가기」가 열려 서버 없이 다음 질문으로 간다.
+    // 아래 렌더에서 「답 보고 다시 말해보기」가 열려 서버 없이 다음 질문으로 간다.
     L.judgeFailed = true;
     failedAnswer = giveUp ? '' : answer;   // 포기 자리표시자는 되살릴 답이 아니다
     // 자료 정보가 통째로 사라진 경우는 다시 눌러도 똑같이 실패한다. 「다시
@@ -655,13 +820,14 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       who: 'sys',
       kind: 'lost',
       text: err.code === 'session_missing'
-        ? '자료 정보가 사라져서 판정할 수 없어요. <a href="#/new">자료를 다시 올리면</a> 이어서 할 수 있어요 — 지금은 「답 보고 넘어가기」로 다음 질문에 갈 수 있어요'
-        : `판정 실패: ${escapeHtml(err.message || String(err))} — 다시 시도하거나 「답 보고 넘어가기」로 다음 질문에 갈 수 있어요`,
+        ? '자료 정보가 사라져서 판정할 수 없어요. <a href="#/new">자료를 다시 올리면</a> 이어서 할 수 있어요 — 지금은 「답 보고 다시 말해보기」로 다음 질문에 갈 수 있어요'
+        : `판정 실패: ${escapeHtml(err.message || String(err))} — 다시 시도하거나 「답 보고 다시 말해보기」로 다음 질문에 갈 수 있어요`,
     });
   }
   L.busy = false;
   saveSession('qa-flow', qa);
-  renderQaLive();
+  if (closed) advanceLiveStream();
+  else { growStream(); refreshLiveChrome(); }
   if (failedAnswer) {
     const retryTa = $('#liveAnswer');
     if (retryTa) {
@@ -671,39 +837,99 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   }
 }
 
+/**
+ * 질문을 닫은 뒤 다음 질문으로 잇는다. **스트림을 다시 그리지 않는다.**
+ *
+ * 전체 재렌더는 방금 올라온 「설득 완료」 표식과 총평을 통째로 새로고침해서,
+ * 정복하는 순간의 연출이 그대로 날아간다 — 하필 이 화면에서 가장 기분 좋아야 할
+ * 한 박자다. 이긴 줄과 다음 질문을 이어 붙이고 왼쪽 칸(막대·연속)만 갱신한다.
+ *
+ * 마지막 질문이었으면 결과 화면으로 가야 하므로 그때만 renderQaLive 에 넘긴다.
+ */
+function advanceLiveStream() {
+  const L = qa.live;
+  if (qa.ended || L.qi >= L.questions.length) return renderQaLive();
+  presentLiveQuestion();
+  saveSession('qa-flow', qa);
+  growStream();
+  refreshLiveChrome();
+}
+
+/** 이 질문에서 직전에 받은 점수. 없으면 0 — 첫 답에는 「올랐다」가 성립하지 않는다. */
+function liveLastScore() {
+  const turns = qa.live.turns || [];
+  return turns.length ? (turns[turns.length - 1].score || 0) : 0;
+}
+
 function closeLiveCoached(q, v, answer) {
   if (v.explanation) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(v.explanation) });
   // 전체 화면 체크포인트를 거치지 않는다 — 해설·다음 질문이 같은 대화 안에서
   // 이어진다 (2026-08-07 사용자: "팝업으로 넘어가는 ux 는 별로, 대화가 유지되면 좋겠어").
   closeLiveQuestion({
     id: q.id, label: q.label, question: q.question, answer,
-    verdict: 'unknown', score: 0, passed: false, gaveUp: true,
+    verdict: 'unknown', score: 0, passed: false, mastered: false, gaveUp: true,
     summary: v.summary_sentence || '', revealed: true, coached: true,
   });
 }
 
 /**
- * 설득으로 셀 결과인지. **기준은 서버 하나뿐이다** (`contracts.qa_passed`).
- * 프론트가 임계를 따로 계산하면 화면마다 다른 수가 나온다 — 실제로 진행 중 헤더는
- * good|partial, 결과 화면은 good 만 세어 3/3 이 1/3 으로 떨어졌다.
+ * 퀘스트 막대가 세는 「설득한 개념」 수. **임계는 서버 것을 그대로 쓴다** —
+ * 프론트가 따로 계산하면 화면마다 다른 수가 나온다 (진행 중 헤더는 good|partial,
+ * 결과 화면은 good 만 세어 3/3 이 1/3 으로 떨어진 적이 있다).
+ *
+ * 다만 **답을 보고 넘어간 것은 빼야 한다.** 예전엔 `passed` 만 봐서, 답을 펼쳐
+ * 보고 넘어간 질문도 「설득했어요」로 세었다 — 왼쪽 막대는 2/2 인데 결과 화면은
+ * 「1개 지킴 · 1개 다시 볼 곳」 이라고 말했다 (결과 화면 `bucketOf` 는 revealed 를
+ * 넘긴 것으로 친다). 여기 조건을 `questState` 의 won·part 분기와 같게 맞춘다 —
+ * 목록과 그 위의 숫자가 같은 것을 세야 한다.
  */
 function liveWonCount(results) {
-  return (results || []).filter((r) => r.passed).length;
+  return (results || []).filter((r) => {
+    if (r.gaveUp || r.revealed) return false;
+    return r.mastered === undefined ? !!r.passed : !!r.mastered;
+  }).length;
 }
+
+/* 되묻기 머리말. 서버가 좁혀 온 단계를 말로 옮긴다 — 같은 「이어서 묻습니다」를
+   세 번 붙이면 사용자는 질문이 좁아진 걸 못 알아채고 벽에 세 번 부딪힌 걸로 읽는다. */
+const TIER_META = {
+  probe: '이어서 묻습니다',
+  focus: '좁혀서 다시 묻습니다',
+  converge: '마지막 한 걸음이에요',
+};
 
 function askAgain(v, turn) {
   const points = (v.missing_points || []).filter(Boolean);
   if (points.length) {
     pushTurn({ who: 'ai', kind: 'missing', points: points.map(escapeHtml) });
   }
+  const tier = v.probe_tier || 'probe';
   if (v.followup) {
     pushTurn({
       who: 'ai',
       kind: 'question',
-      meta: `이어서 묻습니다 · ${turn + 1}번째 답변`,
+      meta: `${TIER_META[tier] || TIER_META.probe} · ${turn + 1}번째 답변`,
       text: escapeHtml(v.followup),
     });
   }
+  autoHint(tier);
+}
+
+/**
+ * 라운드가 오르면 힌트를 **한 칸 알아서 연다.**
+ *
+ * 예전에는 사용자가 「힌트 보기」를 눌러야만 열렸다. 그런데 정작 막힌 사람이
+ * 그 버튼을 안 누른다 — 누르면 지는 것 같아서다. 그래서 힌트를 다 가진 채로
+ * 같은 질문에 세 번 막히는 일이 벌어졌다. 좁혀 물을 때 재료도 같이 준다.
+ *
+ * 이미 스스로 열어 둔 칸이 라운드보다 많으면 아무것도 안 한다 — 앞서 나간
+ * 사람에게서 힌트를 빼앗지도, 두 칸씩 건너뛰지도 않는다.
+ */
+function autoHint(tier) {
+  const L = qa.live;
+  const want = tier === 'converge' ? 2 : (tier === 'focus' ? 1 : 0);
+  if (L.hintLevel >= want) return;
+  openNextHint({ auto: true });
 }
 
 function closeLiveQuestion(record) {
@@ -715,6 +941,9 @@ function closeLiveQuestion(record) {
   L.hintLevel = 0;
   L.lastJudgement = null;
   L.judgeFailed = false;
+  // 다시 말하기 모드는 질문에 딸린 상태다. 안 지우면 다음 질문이 「이제 내 말로」
+  // 카드로 열려 사용자가 보지도 않은 답을 다시 말하라는 화면이 된다.
+  L.retell = null;
 }
 
 function finishLiveQuestion(q, v, answer) {
@@ -729,22 +958,73 @@ function finishLiveQuestion(q, v, answer) {
   closeLiveQuestion({
     id: q.id, label: q.label, question: q.question, answer,
     verdict: v.verdict, score: v.score || 0, passed: !!v.passed,
+    // 「연속 정복」·퀘스트 표식이 이 값을 센다. passed 로 세면 답을 보고 넘어간
+    // 질문까지 연속에 들어가 숫자가 거짓말을 한다.
+    mastered: true,
     summary: v.summary_sentence || '',
   });
 }
 
+/**
+ * 「답 보고 다시 말해보기」 — **답만 보여 주고 질문을 닫지 않는다.**
+ *
+ * 예전에는 답을 띄우고 곧바로 다음 질문으로 넘어갔다. 그러면 사용자는 답을
+ * **읽기만 하고 한 번도 말해 보지 않은 채** 그 개념을 지나친다. 읽은 것은
+ * 다음에 안 나온다 — 자기 입으로 한 번 나와야 남는다. 그래서 답을 펼친 뒤
+ * 「이제 내 말로」 입력창을 그대로 열어 둔다.
+ */
 function revealLiveAnswer() {
   const L = qa.live;
   const q = L.questions[L.qi];
   const v = L.lastJudgement || {};
+  // 해설(explain 코칭)이 있으면 그게 낫다 — 이 사람이 실제로 막힌 지점에 맞춰
+  // 쓴 글이라서다. 없으면 F-08 이 미리 만들어 둔 골자를 쓴다.
+  const model = v.explanation || q.answer_gist || v.summary_sentence
+    || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
+  pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답을 펼쳐 볼게요` });
+  pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(model) });
+  pushTurn({
+    who: 'ai', kind: 'question', meta: '이제 내 말로',
+    text: '지금 본 걸 안 보고 다시 말해 보세요. 그대로 안 옮겨도 괜찮아요.',
+  });
+  L.retell = { model };
+  // 막혀서 쓰다 만 글은 지운다 — 방금 답을 봤으니 처음부터 다시 말하는 자리다.
+  const ta = $('#liveAnswer');
+  if (ta) ta.value = '';
+  saveSession('qa-flow', qa);
+  growStream();
+  refreshLiveChrome();
+}
+
+/**
+ * 다시 말한 답으로 질문을 닫는다. **판정하지 않는다** — 답을 본 뒤에 말한 것을
+ * 채점하면 스스로 방어한 것과 구분이 안 되어 리포트가 부풀려진다. 그래서
+ * passed 는 거짓으로 두고 `revealed`·`retold` 로 남긴다. 대신 왕복이 없어
+ * 반응이 즉시 온다 — 답한 보람은 기다림 없이 오는 것이 맞다.
+ */
+function closeRetell(text) {
+  const L = qa.live;
+  if (!L || !L.retell) return;
+  const q = L.questions[L.qi];
+  const v = L.lastJudgement || {};
+  const said = (text || '').trim();
+  if (said) {
+    pushTurn({ who: 'me', kind: 'say', text: escapeHtml(said) });
+    pushTurn({
+      who: 'sys', kind: 'won',
+      text: `${escapeHtml(q.label)} — 한 번 말해 봤어요. 리포트에서 같이 다시 볼게요`,
+    });
+  } else {
+    pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답만 보고 넘어갔어요` });
+  }
   const last = L.turns[L.turns.length - 1] || {};
-  pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 오늘은 여기까지. 답을 보고 넘어갈게요` });
-  if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  // 답 공개도 대화 안에서 닫는다 — 체크포인트 화면 없이 다음 질문으로.
+  L.retell = null;
   closeLiveQuestion({
-    id: q.id, label: q.label, question: q.question, answer: last.answer || '',
-    verdict: v.verdict || 'unknown', score: v.score || 0, passed: !!v.passed,
-    summary: v.summary_sentence || '', revealed: true,
+    id: q.id, label: q.label, question: q.question,
+    answer: said || last.answer || '',
+    verdict: v.verdict || 'unknown', score: v.score || 0,
+    passed: !!v.passed, mastered: false,
+    summary: v.summary_sentence || '', revealed: true, retold: !!said,
   });
   saveSession('qa-flow', qa);
   renderQaLive();
@@ -872,8 +1152,8 @@ function qaLiveEnd() {
     <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
     <div class="card cere-card qres">
       <p class="qres-eyebrow">실전 질문 코칭 결과</p>
-      <!-- 숫자는 아래 묶음과 반드시 같아야 한다. liveWonCount 는 부분 인정을
-           빼고 세기 때문에 화면의 「지켜낸 질문」 개수와 어긋난다 -->
+      <!-- 숫자는 아래 묶음과 반드시 같아야 한다. liveWonCount(퀘스트 막대)와
+           여기 bucketOf 는 이제 같은 것을 센다 — 답을 본 질문은 양쪽 다 뺀다 -->
       <h1 class="qres-head">${headHtml}</h1>
       ${statHtml}
       <p class="qres-sub">${subText}</p>

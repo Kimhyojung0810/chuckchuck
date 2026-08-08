@@ -1257,6 +1257,31 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .msg.ai.cut .msg-avatar { background: var(--no-bg); color: var(--no); }
 .msg.ai.cut .msg-bubble { background: var(--no-bg); color: var(--text); font-weight: 500; }
 .msg.ai.hint .msg-bubble { background: var(--blue-weak); color: var(--text); font-size: 14px; box-shadow: none; }
+
+/* ── 판정 말풍선의 점수 ─────────────────────────────────────────────────────
+   되묻기가 길어질 때 버티게 하는 건 격려가 아니라 오르는 숫자다. 여기 뜨는 값은
+   전부 서버가 실제로 매긴 것이고, 진전이 없으면 델타를 아예 안 그린다. */
+.react-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+.react-head .msg-score { margin-left: auto; font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
+.react-head small { font-size: 11px; font-weight: 600; color: var(--text-3); }
+.msg-delta { font-style: normal; font-size: 12px; font-weight: 700; }
+.msg-delta.up { color: var(--ok); }
+.msg-delta.dn { color: var(--text-3); }
+
+/* ── 「듣고 있어요」 ────────────────────────────────────────────────────────
+   답을 보낸 직후가 반응이 가장 필요한 순간인데 예전엔 그 몇 초가 완전히
+   정적이었다. 대화가 끊긴 것처럼 보이면 사용자는 다음 답을 준비하지 않는다. */
+.msg.ai.thinking .msg-bubble { display: flex; align-items: center; gap: 8px; background: var(--fill); box-shadow: none; font-size: 13px; color: var(--text-3); }
+.msg.ai.thinking .dots { display: inline-flex; gap: 3px; font-style: normal; }
+.msg.ai.thinking .dots b { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); animation: coachDot 1.1s var(--ease) infinite; }
+.msg.ai.thinking .dots b:nth-child(2) { animation-delay: .15s; }
+.msg.ai.thinking .dots b:nth-child(3) { animation-delay: .3s; }
+@keyframes coachDot { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .msg.ai.thinking .dots b { animation: none; opacity: .6; } }
+
+/* 답을 보고 다시 말하는 카드. 같은 자리에 같은 문구를 두면 방금 답을 본 사람이
+   무엇을 해야 하는지 모른다 — 라벨만으로 다음 행동이 예측돼야 한다 (§3-1) */
+.qa-input-label.is-retell b { color: var(--brand); }
 .msg.ai.hint b { display: block; font-size: 11px; color: var(--blue); font-weight: 700; margin-bottom: 2px; }
 
 /* 판정이 짚은 '빠진 지점'. 되물을 때 무엇을 보완해야 하는지 눈에 보이게 한다. */
@@ -2148,6 +2173,9 @@ table.plain tr:last-child td { border-bottom: 0; }
 .qa-loop-steps > .on { background: var(--blue-weak); color: var(--text); }
 .qa-loop-steps > .on i { background: var(--brand); color: #fff; }
 .qa-loop-steps > .on small { color: var(--blue-strong); }
+/* 지금 서 있는 칸. 지나온 칸(.on)과 구분이 없으면 «어디까지 좁혀졌나» 가 안 읽힌다.
+   테두리 하나로만 가른다 — 한 화면의 주인공은 스트림이지 이 목록이 아니다 */
+.qa-loop-steps > .at { box-shadow: inset 0 0 0 1.5px var(--brand); }
 /* ── 개념 퀘스트 ──────────────────────────────────────────────
    왼쪽 칸의 주인공. 오늘 채울 개념을 순서대로 세우고 지나온 줄·지금 줄·남은
    줄을 무게로 가른다. 판정 색 다섯은 뜻이 붙어 있어 그대로 쓴다 (CLAUDE.md §3-3).
@@ -2163,7 +2191,12 @@ table.plain tr:last-child td { border-bottom: 0; }
 .quest-count i { margin-left: 2px; font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-3); }
 .quest-bar { height: 3px; margin: 12px 0 14px; border-radius: 999px; background: var(--fill); overflow: hidden; }
 .quest-bar > i { display: block; width: var(--p); height: 100%; border-radius: 999px; background: var(--brand); transition: width .35s var(--ease); }
+/* 연속 정복. 진짜로 센 수만 띄운다 — 2개 미만이면 아예 안 그린다 (§14 숫자는 신성) */
+.quest-streak { margin: -6px 0 12px; font-size: 12px; font-weight: 600; color: var(--text-3); }
+.quest-streak b { color: var(--brand); font-weight: 700; }
 .quest-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+/* 「힌트 없이」는 results[].hintLevel 이 0일 때만 붙는 사실 표식이다 */
+.qrow-clean { margin-left: 6px; font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--brand); }
 .qrow { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 12px; transition: background .2s var(--ease); }
 .qrow-mark {
   display: grid; place-items: center; width: 22px; height: 22px; flex: none;

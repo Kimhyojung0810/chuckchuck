@@ -2253,7 +2253,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qd8" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qd9" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -6141,12 +6141,21 @@ function streamRow(it) {
   }
   if (it.kind === 'interject') return `<div class="msg ai cut">${av}<div class="msg-bubble">${it.text}</div></div>`;
   // total 폴백 3: 판정 전 사다리 길이. 옛 세션 턴에는 total 이 없다.
-  if (it.kind === 'hint') return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}</b>${it.text}</div></div>`;
+  // auto: 라운드가 올라 코치가 알아서 연 힌트. 안 눌렀는데 열렸으니 왜 열렸는지 말한다.
+  if (it.kind === 'hint') return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}${it.auto ? ' · 좁혀 물으면서 같이 열었어요' : ''}</b>${it.text}</div></div>`;
   if (it.kind === 'react') {
     // 맵 밖 값이면 칩에 문자 그대로 "undefined" 가 그려진다 — 보류 쪽으로 떨어뜨린다.
     const lab = { full: '제대로 설명했어요', partial: '절반쯤', none: '아직' }[it.verdict] || '아직';
     const cls = { full: 'st-ok', partial: 'st-mid', none: 'st-no' }[it.verdict] || 'st-om';
-    return `<div class="msg ai react">${av}<div class="msg-bubble"><span class="chip chip-sm ${cls}">${lab}</span><p>${it.text}</p></div></div>`;
+    /* 되묻기가 길어질 때 버티게 하는 것은 격려가 아니라 **오르는 숫자**다.
+       62 → 78 은 우리가 이미 재고 있는 값이라 지어낸 점수가 아니다 (§14 숫자는 신성).
+       첫 답에는 before 가 0이라 델타를 안 붙인다 — 「+62」는 거짓 진전이다. */
+    const d = (it.before > 0 && typeof it.score === 'number') ? it.score - it.before : 0;
+    const delta = d ? `<em class="msg-delta ${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</em>` : '';
+    const meter = it.score ? `<b class="msg-score num">${it.score}</b><small>완성도</small>${delta}` : '';
+    return `<div class="msg ai react">${av}<div class="msg-bubble">
+      <span class="react-head"><span class="chip chip-sm ${cls}">${lab}</span>${meter}</span>
+      <p>${it.text}</p></div></div>`;
   }
   if (it.kind === 'missing') {
     return `<div class="msg ai miss">${av}<div class="msg-bubble">
@@ -6168,6 +6177,11 @@ function streamRow(it) {
 /* 스트림에 새로 쌓인 줄만 append (기존 줄 재애니메이션 방지) */
 function growStream() {
   const s = $('#stream'); if (!s) return;
+  /* 「듣고 있어요」 표시는 qa.turns 에 없는 임시 줄이다. 스트림 안에 그대로 두면
+     children.length 가 turns.length 보다 커져 **아래 루프가 통째로 안 돈다** —
+     새 말풍선이 하나도 안 붙는다. 잠깐 떼었다가 맨 끝에 도로 붙인다. */
+  const thinking = s.querySelector('#coachThinking');
+  if (thinking) thinking.remove();
   for (let k = s.children.length; k < qa.turns.length; k++) {
     const wrap = document.createElement('div');
     wrap.innerHTML = streamRow(qa.turns[k]);
@@ -6178,6 +6192,7 @@ function growStream() {
       if (node.classList.contains('qa-sum')) typeSummary(node);
     }
   }
+  if (thinking) s.appendChild(thinking);
   scrollDown();
 }
 
