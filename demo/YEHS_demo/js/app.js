@@ -269,6 +269,9 @@ function areaChartSvg(vals, W, H) {
 /* ══ 라우팅 ══ */
 const routes = {
   '': renderHome, 'new': renderNew, 'report': renderReport, 'qa': renderQa, 'about': renderAbout,
+  // 저장된 발표로 이어서 (개발용). 어디에도 링크를 걸지 않는다 — 부스 방문객이
+  // 흘러 들어오면 남의 발표 기록을 보게 된다. 주소를 아는 사람만 들어온다.
+  'replay': renderReplay,
   // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
   'landing': () => window.renderLanding(),
 };
@@ -1482,6 +1485,27 @@ function staggerIn(nodes) {
     { delay: window.Motion.stagger(0.055), duration: 0.34, ease: [0.22, 1, 0.36, 1] });
 }
 
+/**
+ * 발표 상황 — 계약 문자열 → 사람이 쓰는 말.
+ *
+ * 왼쪽(키)은 채점표 v3 의 상황 4열이라 **한 글자도 바꾸면 안 된다**. 서버
+ * (rubric_v3.resolve_situation)가 이 문자열로 가중치를 고르고, F-06·07·11
+ * 프롬프트에도 그대로 들어간다. 오른쪽만 화면에 나간다.
+ *
+ * 선택 화면에서만 이 표를 쓰고 리포트는 계약 문자열을 그대로 뿌리고 있었다 —
+ * 고를 땐 「수업에서 발표해요」였는데 결과에선 「학교 프로젝트 (교수 대상)」이
+ * 떴다. 같은 걸 두 이름으로 부르면 사용자는 다른 것으로 읽는다. 화면에 나가는
+ * 자리는 전부 occLabel() 을 거친다.
+ */
+const OCC_LABEL = {
+  '학교 프로젝트 (교수 대상)': '수업에서 발표해요',
+  '신제품 설명 (대중 대상)': '제품을 소개해요',
+  '업무 보고 (상사 대상)': '팀에 보고해요',
+  '동료 간 캐주얼 PR': '동료에게 공유해요',
+};
+/** 모르는 값이면 온 그대로 낸다 — 빈칸보다 낫고, 새 상황이 생겨도 화면은 산다 */
+const occLabel = v => OCC_LABEL[String(v || '').trim()] || String(v || '');
+
 function nfStep2() {
   /* 채점표 v3 의 상황 4열 그대로다. 라벨을 그대로 보내면 서버(rubric_v3.resolve_situation)가
      상황 key 로 옮긴다 — 프론트가 key 를 따로 들고 있지 않아도 되고, 이 문장이 F-06·07·11
@@ -1489,12 +1513,7 @@ function nfStep2() {
   /* 보내는 값은 위 계약 문자열 그대로, 화면에 보이는 말만 바꾼다.
      「교수 대상」·「상사 대상」은 사람이 쓰는 말이 아니다 — 누구 앞에서
      무엇을 하는지 한 문장으로 말한다 (해요체·능동형, CLAUDE.md §3-1) */
-  const occs = [
-    ['학교 프로젝트 (교수 대상)', '수업에서 발표해요'],
-    ['신제품 설명 (대중 대상)', '제품을 소개해요'],
-    ['업무 보고 (상사 대상)', '팀에 보고해요'],
-    ['동료 간 캐주얼 PR', '동료에게 공유해요'],
-  ];
+  const occs = Object.entries(OCC_LABEL);
   const times = [3, 5, 10, 15, 20, 30];
   const titles = activeTitles();
   const perSlide = Math.round(nf.min * 60 / titles.length);
@@ -3479,6 +3498,8 @@ function nfStep4() {
       mimeType: ccLastTake.mimeType,
       fileName: ccLastTake.fileName || '',
       slideDoc,
+      // #/replay 로 들어온 테이크는 저장된 받아쓰기를 그대로 쓴다 (재녹음·재과금 없음)
+      reuse: !!ccLastTake.reuse,
       precomputed: precomputeHandles(),
       context: {
         situation: nf.occ || '',
@@ -3659,7 +3680,7 @@ function reportSessionMeta() {
   return {
     live: true,
     title,
-    occasion: nf.occ || '발표 연습',
+    occasion: occLabel(nf.occ) || '발표 연습',
     slides,
     duration,
     nth: 1,
@@ -3707,8 +3728,12 @@ function reportVerdict() {
          다만 자리가 바뀌었다 — 점수 바로 아래(.prev)가 아니라 기둥 맨 아래
          접힌 줄이다. 근거는 점수를 읽은 다음에 궁금해지는 것이지, 점수보다
          먼저 읽어야 하는 게 아니다 (verdictBasisHtml). */
-      basis: `${real.isFallback ? '예전 방식' : '채점표 v3'} · ${
-        real.situationLabel || real.basis}`,
+      /* 「채점표 v3 · 학교 프로젝트 (교수 대상)」이었다. 버전 번호는 사용자의 말이
+         아니고, 상황 이름은 고를 때 쓴 말과 달랐다. 고른 말을 그대로 따옴표로
+         묶어 되돌려준다 — 내가 고른 그것으로 봤다는 게 한 줄로 읽힌다.
+         폴백은 여전히 폴백이라고 쓴다 (숨기지 않는다). */
+      basis: `‘${occLabel(real.situationLabel) || '기본 기준'}’에 맞춰 봤어요${
+        real.isFallback ? ' · 예전 방식' : ''}`,
       delta: '',
     };
   }
@@ -4109,7 +4134,7 @@ function rRubric() {
     <div class="card">
       <h3 class="section-title">채점표</h3>
       <p class="note" style="margin-bottom:14px">
-        ${escapeHtml(sc.situation_label || '기본 기준')} 기준으로 ${items.length}개 항목 중
+        ${escapeHtml(occLabel(sc.situation_label) || '기본 기준')} 기준으로 ${items.length}개 항목 중
         ${nScored}개를 채점했어요. 항목마다 왜 그 점수인지 근거를 남겨요.
       </p>
       ${blocks}
@@ -6846,6 +6871,91 @@ function renderAbout() {
       <a class="btn btn-primary" href="#/new" data-fresh-practice>새 발표 연습하기</a>
     </div>`;
   wireFreshPracticeButtons(app);
+}
+
+/* ── #/replay — 저장해 둔 발표로 이어서 (개발용) ──────────────────────────
+   화면을 고쳐 가며 확인하려면 그때마다 자료를 다시 올리고 발표를 처음부터 다시
+   말해야 했다. 그게 실제로 반복 테스트를 막고 있었다 (2026-08-08 사용자).
+
+   브리지가 파싱본(`*.slidedoc.json`)과 받아쓰기(`*.transcript.json`)를
+   fixtures/raw 에 남기므로, 그 둘로 4단계(분석)부터 바로 시작한다.
+   유료 호출은 STT 만 건너뛴다 — 개념·그래프·정합은 그대로 돈다. 그 결과를
+   보려고 들어오는 화면이라 거기까지 아끼면 볼 것이 없다.
+
+   어느 화면에도 링크를 걸지 않는다. 부스 방문객이 흘러 들어오면 남의 발표
+   기록을 보게 된다 — 주소를 아는 사람만 들어온다. */
+
+async function renderReplay() {
+  app.className = 'narrow';
+  app.innerHTML = `<main>
+    <h1 class="section-title">저장된 발표로 이어서</h1>
+    <p class="sub">저장해 둔 자료 파싱본과 받아쓰기로 분석부터 시작해요. 다시 말하지 않아도 되고, 받아쓰기는 다시 결제되지 않아요.</p>
+    <div id="replayList" class="stack">불러오고 있어요…</div>
+  </main>`;
+  const box = $('#replayList');
+  let takes = [];
+  try {
+    const res = await fetch('/api/v1/cached-takes');
+    takes = ((await res.json()) || {}).takes || [];
+  } catch (err) {
+    // 실패를 성공처럼 보이게 두지 않는다 — 빈 목록과 못 불러온 것은 다른 일이다
+    box.innerHTML = `<div class="qa-flag lost"><i>✕</i>목록을 못 불러왔어요: ${escapeHtml(String(err.message || err))}</div>`;
+    return;
+  }
+  if (!takes.length) {
+    box.innerHTML = '<p class="sub">아직 저장된 발표가 없어요. 자료를 올리고 한 번 말하면 여기에 쌓여요.</p>';
+    return;
+  }
+  box.innerHTML = takes.map((t) => {
+    // 슬라이드만 있고 받아쓰기가 없으면 이어갈 수 없다. 왜 못 쓰는지 줄에 남긴다.
+    const ready = t.slides && t.transcript;
+    const marks = [
+      `<span class="chip chip-sm ${t.slides ? 'st-ok' : 'st-no'}">자료 ${t.slides ? '있어요' : '없어요'}</span>`,
+      `<span class="chip chip-sm ${t.transcript ? 'st-ok' : 'st-no'}">받아쓰기 ${t.transcript ? '있어요' : '없어요'}</span>`,
+      `<span class="chip chip-sm ${t.preview ? 'st-ok' : 'st-om'}">원본 화면 ${t.preview ? '있어요' : '없어요'}</span>`,
+    ].join('');
+    return `<div class="qa-sum">
+      <b class="qs-name">${escapeHtml(t.stem)}</b>
+      <p class="qs-text">${marks}</p>
+      <button class="btn ${ready ? 'btn-primary' : 'btn-secondary'}" data-replay="${escapeHtml(t.stem)}"
+        ${ready ? '' : 'disabled'} type="button">${ready ? '이 발표로 이어서' : '한 번은 말해야 저장돼요'}</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-replay]').forEach((btn) => {
+    btn.addEventListener('click', () => startReplay(btn.dataset.replay, btn));
+  });
+}
+
+/**
+ * 저장본으로 4단계(분석)부터 시작한다.
+ *
+ * 슬라이드 복구는 `ensureSlideDoc()` 이 이미 하는 일이다 — 캐시에서 SlideDoc 을
+ * 되살리고 원본 미리보기 PDF 까지 메모리에 올린다. PDF 를 같이 올리는 게 중요한데,
+ * 그게 없으면 힌트에 붙는 슬라이드가 회색 자리표시자로 떨어진다 (hasRealSlideImage).
+ */
+async function startReplay(stem, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '불러오는 중이에요…'; }
+  resetNf();
+  resetQa();
+  nf.fileName = stem;               // ensureSlideDoc 이 이 이름으로 캐시를 찾는다
+  const doc = await ensureSlideDoc();
+  if (!doc) {
+    if (btn) { btn.disabled = false; btn.textContent = '이 발표로 이어서'; }
+    const box = $('#replayList');
+    if (box) box.insertAdjacentHTML('afterbegin',
+      `<div class="qa-flag lost"><i>✕</i>'${escapeHtml(stem)}' 의 자료 파싱본을 못 찾았어요</div>`);
+    return;
+  }
+  applySlideDoc(doc, { keepDemoImages: false });
+  nf.fileName = doc.file_name || stem;
+  nf.gate = 'done';
+  nf.step = 3;                      // [nfStep1, nfStep2, nfStep3, nfStep4][3]
+  // 녹음 대신 저장본을 태운다. _blob 이 없어도 reuse 가 서버에서 먼저 걸린다.
+  ccLastTake = { marks: [], _blob: null, mimeType: '', fileName: stem, reuse: true };
+  saveSession('new-flow', nf);
+  // 해시가 이미 #/new 면 hashchange 가 안 떠서 화면이 안 바뀐다 — 직접 그린다.
+  if (location.hash === '#/new') route();
+  else location.hash = '#/new';
 }
 
 /* ── 시작 ── */
