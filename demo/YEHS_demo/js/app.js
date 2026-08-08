@@ -3689,6 +3689,82 @@ function reportSessionMeta() {
 
 let rTab = 0, jSel = 'contrast', jFilter = 'all', mapWeakOnly = false, repSlide = 7;
 
+/* ─── 저장해 둔 마지막 리포트 (#/report/last) ──────────────────────────────
+   개발·시연 준비용이다. 화면 한 장 보려고 매번 녹음하고 질문 코칭까지 할 수는
+   없다. 세션(sessionStorage)은 탭을 닫으면 날아가므로, 마지막으로 **성공한**
+   분석 한 벌만 localStorage 에 따로 남겨 두고 주소로 다시 연다.
+
+   데모 흐름에는 링크를 걸지 않는다 — 주소를 직접 쳐야 열린다. 심사 중에
+   「지난 리포트」가 화면에 보이면 방금 한 발표의 결과와 헷갈린다.
+   열었을 때는 저장본이라는 것과 저장 시각을 띠로 남긴다 (CLAUDE.md §4:
+   샘플·과거 데이터를 지금 것인 양 보여주지 않는다). */
+const LAST_REPORT_KEY = 'cheokcheok:last-report';
+
+/** 2026.08.08 15:04 — 며칠 전 것을 오늘 것으로 읽지 않게 시각까지 적는다 */
+function stampText(ms) {
+  const d = new Date(ms || 0);
+  if (!ms || Number.isNaN(d.getTime())) return '언젠가';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} `
+    + `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function saveLastReport() {
+  try {
+    const out = nf.pipelineOut || {};
+    localStorage.setItem(LAST_REPORT_KEY, JSON.stringify({
+      at: Date.now(),
+      fileName: nf.fileName || '',
+      occ: nf.occ || '', ctx: nf.ctx || '',
+      min: nf.min || 0, sec: nf.sec || 0,
+      slideTitles: nf.slideTitles || null,
+      slideDocMeta: nf.slideDocMeta || null,
+      pipelinePhase: nf.pipelinePhase || 'done',
+      /* 슬라이드 이미지(base64)는 뺀다. localStorage 는 5MB 라 몇 장만 넣어도
+         quota 를 넘고, 넘으면 저장이 **통째로** 실패한다 — 썸네일 하나 살리려다
+         리포트를 통째로 잃는다. 다시 열면 썸네일만 자리표시자로 뜬다. */
+      pipelineOut: {
+        graph: out.graph || null,
+        alignment: out.alignment || null,
+        flow: out.flow || null,
+        score: out.score || null,
+        pace: out.pace || null,
+        habits: out.habits || null,
+        report: out.report || null,
+        transcript: out.transcript ? {
+          full_text: out.transcript.full_text || '',
+          duration_sec: out.transcript.duration_sec || 0,
+          provider: out.transcript.provider || '',
+        } : null,
+      },
+    }));
+  } catch (_) { /* quota·프라이빗 모드: 편의 기능이라 실패해도 화면은 그대로 */ }
+}
+
+/** 저장본을 nf 에 얹는다. 성공하면 저장 시각(ms), 없으면 0. */
+function restoreLastReport() {
+  let snap = null;
+  try { snap = JSON.parse(localStorage.getItem(LAST_REPORT_KEY)); }
+  catch (_) { return 0; }
+  if (!snap || !snap.pipelineOut || !snap.pipelineOut.score) return 0;
+  Object.assign(nf, {
+    fileName: snap.fileName, occ: snap.occ, ctx: snap.ctx,
+    min: snap.min, sec: snap.sec,
+    slideTitles: snap.slideTitles, slideDocMeta: snap.slideDocMeta,
+    pipelinePhase: snap.pipelinePhase, pipelineOut: snap.pipelineOut,
+    // 저장본은 실측이다. 남아 있던 샘플 플래그·옛 오류를 같이 걷지 않으면
+    // 복원해 놓고 「샘플이에요」나 지난 오류 배너가 뜬다
+    useSample: false, pipelineError: null, pipelineDetail: '',
+  });
+  return snap.at || 0;
+}
+
+/** 저장본이 있나 — 없으면 #/report/last 가 빈 화면을 열지 않게 미리 본다 */
+function hasLastReport() {
+  try { return !!JSON.parse(localStorage.getItem(LAST_REPORT_KEY) || 'null'); }
+  catch (_) { return false; }
+}
+
 /**
  * 판정 헤드에 필요한 값만 모은다.
  *
@@ -3778,7 +3854,27 @@ async function renderReport() {
      라벨은 「IMU2CLIP 86점」인데 열면 내 발표 리포트가 떴다 */
   const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
   rSampleMode = reportId === 'sample-imu2clip';
-  if (reportId && !rSampleMode && DATA.reportProfiles[reportId]) {
+  /* #/report/last — 저장해 둔 마지막 분석으로 연다 (개발용, 링크 없음).
+     복원은 그리기 **전에** 끝나야 한다. reportSessionMeta·reportVerdict 가
+     이미 nf 를 읽은 뒤면 옛 화면이 한 번 깜빡이고 덮인다. */
+  const restoredAt = reportId === 'last' ? restoreLastReport() : 0;
+  if (reportId === 'last' && !restoredAt) {
+    app.className = 'narrow';
+    app.innerHTML = `
+      <div class="card empty-card">
+        ${emptyBirdHtml('solar', 'neutral')}
+        <h2 class="section-title">저장해 둔 리포트가 없어요</h2>
+        <p class="note" style="margin:8px 0 14px">
+          발표 분석을 한 번 끝내면 그 결과가 여기 남아요. 그 뒤로는 이 주소로 바로 열 수 있어요.
+        </p>
+        <div class="step-actions">
+          <a class="btn btn-primary" href="#/new">발표 연습 시작하기</a>
+          <a class="btn btn-text" href="#/report/sample-imu2clip">샘플 리포트 보기</a>
+        </div>
+      </div>`;
+    return;
+  }
+  if (reportId && !rSampleMode && reportId !== 'last' && DATA.reportProfiles[reportId]) {
     renderProfileReport(DATA.reportProfiles[reportId]);
     return;
   }
@@ -3787,6 +3883,11 @@ async function renderReport() {
   prefetchChatter();
   const s = reportSessionMeta();
   const v = reportVerdict();
+  /* 저장은 여기 한 곳에서만 한다. 파이프라인 안쪽(완료 콜백이 여러 갈래다)이
+     아니라 「리포트가 실제로 그려진 순간」이 데이터가 온전하다는 유일한 증거다.
+     저장본을 다시 열었을 때(restoredAt) 또 저장하면 시각만 계속 갱신돼서
+     "언제 한 발표인지" 가 거짓말이 된다 — 그때는 저장하지 않는다. */
+  if (!rSampleMode && !restoredAt && s.live && v.hasAnalysis && !v.isSample) saveLastReport();
   const tabs = ['요약', '채점표', '개념별 판정', '논리 흐름', '음성 습관', '청중 반응', '연습 도구'];
   const meta = [
     escapeHtml(s.occasion),
@@ -3821,7 +3922,11 @@ async function renderReport() {
         </div>
         ${verdictBasisHtml(v)}` : ''}
       </div>
-      ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마치고 자료와 발화를 맞춰 보면 내 결과로 바뀌어요.</p>` : ''}
+      ${v.isSample
+        ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마치고 자료와 발화를 맞춰 보면 내 결과로 바뀌어요.</p>`
+        : (restoredAt
+          ? `<p class="verdict-note"><b>저장해 둔 리포트</b>예요 · ${escapeHtml(stampText(restoredAt))}에 분석했어요. 방금 한 발표가 아니에요.</p>`
+          : '')}
     </section>
     <div class="tabs" id="rtabs">
       ${tabs.map((t, i) => `<button class="${i === rTab ? 'on' : ''}">${t}</button>`).join('')}
