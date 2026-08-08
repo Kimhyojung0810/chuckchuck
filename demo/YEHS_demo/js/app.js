@@ -5545,6 +5545,76 @@ function realPace() {
   };
 }
 
+/* ─── 시간 분배 (음성 습관) ─────────────────────────────────────────────────
+   장마다 막대를 그리면 「각 장이 몇 초였나」는 알 수 있어도 「어디를 줄이고
+   어디를 늘려야 하나」는 안 읽힌다 — 33개를 눈으로 빼기 때문이다.
+
+   그래서 줄을 둘로 줄인다: 이상적인 배분 한 줄, 내가 한 발표 한 줄. 둘 다 폭이
+   100% 고 같은 구간은 같은 색이라, 눈이 두 줄의 「같은 색 폭 차이」를 그냥 본다.
+   파이 차트를 펴서 위아래로 겹쳐 놓은 것과 같다 — 비교가 목적이면 파이보다
+   가로 막대가 낫다(각도보다 길이를 정확히 읽는다). */
+/* 구간 식별용 색이다 — 판정 5색(--ok/--mid/--no/--ct/--om)과 겹치면 안 된다.
+   그 다섯은 뜻이 박혀 있어서 여기 쓰면 리포트가 거짓말이 된다 (CLAUDE.md §3-3).
+   전부 흰 글자가 얹히는 어두운 값으로 골랐다 — 조각 안에 %를 적어야 해서다. */
+const TSPLIT_COLORS = ['#1F7A5F', '#2563EB', '#B45309', '#9D174D', '#5B21B6', '#0E7490', '#4D7C0F'];
+
+/** rows: [{ name, rec, act }] — 단위는 상관없다(초·%). 각 줄에서 제 합으로 나눈다. */
+function timeSplitHtml(rows) {
+  const clean = (rows || []).filter(r => r && (r.rec > 0 || r.act > 0));
+  if (clean.length < 2) return '';
+  const sum = k => clean.reduce((s, r) => s + Math.max(0, r[k] || 0), 0) || 1;
+  const recTotal = sum('rec'), actTotal = sum('act');
+
+  const bar = (k, total) => `<div class="tsplit-bar">${clean.map((r, i) => {
+    const pct = Math.max(0, r[k] || 0) / total * 100;
+    if (pct <= 0) return '';
+    return `<span class="tsplit-seg" style="width:${pct.toFixed(2)}%;--c:${TSPLIT_COLORS[i % TSPLIT_COLORS.length]}"
+                 title="${escapeHtml(r.name)} · ${Math.round(pct)}%">${
+      /* 좁은 조각에 숫자를 우겨넣으면 글자가 잘려 나온다. 9% 아래는 색만 남기고
+         숫자는 범례와 title 이 맡는다 */
+      pct >= 9 ? `<b>${Math.round(pct)}%</b>` : ''}</span>`;
+  }).join('')}</div>`;
+
+  /* 한 줄 결론. 가장 크게 어긋난 구간 둘만 말한다 — 다섯 구간을 다 늘어놓으면
+     그래프를 두 줄로 줄인 뜻이 없다 */
+  const gaps = clean.map(r => ({
+    name: r.name,
+    gap: Math.round((r.act / actTotal * 100) - (r.rec / recTotal * 100)),
+  })).filter(g => Math.abs(g.gap) >= 3).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+  const say = gaps.slice(0, 2).map(g => `<b>${escapeHtml(g.name)}</b>에 ${
+    g.gap > 0 ? `${g.gap}%p 더` : `${-g.gap}%p 적게`} 썼어요`).join(' · ');
+
+  return `
+    <div class="tsplit">
+      <div class="tsplit-legend">${clean.map((r, i) =>
+        `<span><i style="background:${TSPLIT_COLORS[i % TSPLIT_COLORS.length]}"></i>${escapeHtml(r.name)}</span>`).join('')}</div>
+      <div class="tsplit-row">
+        <span class="tsplit-lb">이상적인 배분</span>
+        ${bar('rec', recTotal)}
+      </div>
+      <div class="tsplit-row is-mine">
+        <span class="tsplit-lb">내가 한 발표</span>
+        ${bar('act', actTotal)}
+      </div>
+      <p class="note tsplit-say">${say || '이상적인 배분과 거의 같게 썼어요.'}</p>
+    </div>`;
+}
+
+/** 시간 분배 카드 — 실측이면 pace.sections, 샘플이면 DATA.timeAlloc 을 쓴다. */
+function timeSplitCard(pace) {
+  const secs = (pace && pace.sections) || [];
+  const rows = secs.length
+    ? secs.map(s => ({ name: s.name, rec: s.recommended_sec || 0, act: s.actual_sec || 0 }))
+    : (DATA.timeAlloc || []).map(r => ({ name: r[0], rec: r[1], act: r[2] }));
+  const body = timeSplitHtml(rows);
+  if (!body) return '';
+  return `
+    <div class="card">
+      <h3 class="section-title">시간 분배<span class="soft">이상적인 배분과 나란히 놓고 봐요</span></h3>
+      ${body}
+    </div>`;
+}
+
 function rPace() {
   const livePace = (reportOut() || {}).pace;
   const liveHabits = (reportOut() || {}).habits;
@@ -5559,8 +5629,10 @@ function rPace() {
     /* 「짧게 말한 핵심 장」 상자는 뺐다 — 같은 사실을 위 그래프가 이미 말한다
        (핵심 장은 S번호가 파랑, 짧은 장은 막대 색이 다르다). 판정 헤드의 처방과
        상자 제목까지 세 번 반복돼서 화면이 길어지기만 했다. */
+    /* 장별 차트(voiceTimeChartHtml)가 여기 있었다. 33장이면 막대가 33개라
+       「어디를 줄이나」가 안 읽혔다 — 구간 두 줄로 바꾼다 (timeSplitCard). */
     const timeCards = `
-      <div class="card voice-chart-card">${voiceTimeChartHtml(livePace)}</div>
+      ${timeSplitCard(livePace)}
       <div class="card">
         <h3 class="section-title">길게 말한 장<span class="soft">여기를 줄이면 목표에 더 가까워져요</span></h3>
         <div class="slide-pill-row">${slidePillHtml(easy.longOnes, 'long')}</div>
@@ -5646,23 +5718,7 @@ function rPace() {
       </div>
       <p class="note" style="margin-top:14px">${note}</p>
     </div>
-    <div class="card">
-        <h3 class="section-title">시간 배분<span class="soft">보조 분석 · 권장 대비 실제</span></h3>
-        <div class="alloc-lgd">
-          <span><i style="background:var(--border)"></i>권장</span>
-          <span><i style="background:var(--blue)"></i>실제</span>
-        </div>
-        ${allocRows.map(r => `
-        <div class="alloc-row">
-          <span class="nm">${escapeHtml(String(r[0]))}</span>
-          <div class="alloc-bars">
-            <div class="fill-bar"><i class="gray" data-w="${(r[1] / allocMax * 100).toFixed(0)}%"></i></div>
-            <div class="fill-bar"><i class="${r[3] === '적절' ? '' : 'red'}" data-w="${(r[2] / allocMax * 100).toFixed(0)}%"></i></div>
-          </div>
-          <span class="alloc-st ${r[3] === '적절' ? 'fine' : 'warn'}">${r[3]}</span>
-        </div>`).join('')}
-        <p class="note" style="margin-top:12px">${allocNote}</p>
-    </div>`;
+    ${timeSplitCard(null)}`;
 }
 
 /* 탭 5 — 연습 도구.

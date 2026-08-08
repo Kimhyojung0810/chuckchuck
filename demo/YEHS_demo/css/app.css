@@ -1910,6 +1910,28 @@ table.plain tr:last-child td { border-bottom: 0; }
   font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1.6;
   color: var(--text-2); text-align: center;
 }
+/* ── 시간 분배: 이상 vs 실제 가로 100% 막대 ────────────────────────────
+   장별 막대 33개를 두 줄로 줄인 자리다 (app.js timeSplitHtml). 같은 구간이
+   같은 색이라 두 줄의 「같은 색 폭 차이」가 곧 결론이다. */
+.tsplit-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-bottom: 16px; }
+.tsplit-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+.tsplit-legend i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.tsplit-row { display: grid; grid-template-columns: 78px minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 10px; }
+.tsplit-lb { font-size: 12px; font-weight: 600; color: var(--text-3); word-break: keep-all; }
+/* 내가 한 발표가 주인공이다 — 이상적인 배분은 대조군이라 한 단계 낮춘다 */
+.tsplit-row.is-mine .tsplit-lb { color: var(--text); font-weight: 700; }
+.tsplit-bar { display: flex; height: 30px; border-radius: 9px; overflow: hidden; background: var(--fill); }
+.tsplit-row.is-mine .tsplit-bar { height: 42px; border-radius: 11px; }
+.tsplit-seg {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 0; background: var(--c);
+  transition: width .7s cubic-bezier(.22, .61, .36, 1);
+}
+.tsplit-seg b { font-size: 11px; font-weight: 700; color: #fff; letter-spacing: -.02em; }
+.tsplit-row.is-mine .tsplit-seg b { font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .tsplit-seg { transition: none; } }
+.tsplit-say { margin-top: 14px; }
+.tsplit-say b { color: var(--text); font-weight: 700; }
 .deck-film { display: flex; gap: 8px; overflow-x: auto; padding: 16px 2px 6px; scrollbar-width: thin; }
 /* 필름은 키보드로 드나드는 자리다 — 초점이 어디 있는지 보여야 한다 */
 .deck-film .slidethumb:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
