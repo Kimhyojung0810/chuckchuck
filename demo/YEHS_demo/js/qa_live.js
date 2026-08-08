@@ -409,17 +409,40 @@ function wireLiveInput() {
   });
 }
 
+/** 힌트에 보여줄 슬라이드 최대 장수. 넷을 넘기면 말풍선이 자료 뷰어가 된다. */
+const HINT_SLIDE_SHOW_MAX = 3;
+
+/**
+ * 힌트 문장이 부르는 장 번호. "27, 28장에서 …" · "27, 28장 외 3장에 …" 를 읽는다.
+ *
+ * 서버가 장 번호를 따로 안 실어 준다. 사다리 어느 칸이 장을 부르는지도 질문마다
+ * 달라서(폴백 힌트도 장을 부른다) 칸 번호로 재면 어긋난다 — **문장이 실제로 부른
+ * 번호**를 읽는 게 어긋날 여지가 없다. 못 읽으면 그림 없이 글자만 남는다.
+ *
+ * 진짜 렌더가 있는 장만 남긴다 — 회색 자리표시자를 띄우면 "27장을 떠올려 보세요"
+ * 를 빈 사각형으로 다시 내는 꼴이다 (app.js hasRealSlideImage).
+ */
+function hintSlideNos(text) {
+  const m = String(text || '').match(/(\d+(?:\s*,\s*\d+)*)\s*장/);
+  if (!m) return [];
+  return m[1].split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => n > 0 && (typeof hasRealSlideImage !== 'function' || hasRealSlideImage(n)))
+    .slice(0, HINT_SLIDE_SHOW_MAX);
+}
+
 /** 힌트 한 칸 열기. 사용자가 눌러도, 라운드가 올라 자동으로 열려도 여기로 온다. */
 function openNextHint({ auto = false } = {}) {
   const L = qa.live;
   const list = liveHints();
   if (L.hintLevel >= list.length) return false;
   L.hintLevel += 1;
+  const text = list[L.hintLevel - 1];
   // total 을 같이 싣는다 — 말풍선의 "힌트 N/3" 이 하드코딩이라, 판정 후
   // 사다리가 4단으로 길어지면 "힌트 4/3" 이라는 거짓 숫자가 떴다.
   pushTurn({
     who: 'ai', kind: 'hint', level: L.hintLevel, total: list.length,
-    auto, text: escapeHtml(list[L.hintLevel - 1]),
+    auto, text: escapeHtml(text), slides: hintSlideNos(text),
   });
   saveSession('qa-flow', qa);
   return true;
@@ -809,6 +832,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       finishLiveQuestion(q, v, answer);
       closed = true;
     } else {
+      // 절반은 맞혔는데 또 물으면 뭘 더 말해야 하는지 모른 채 같은 답을 낸다.
+      // 빠진 절반을 펼쳐 주고 되묻기는 그대로 이어 간다 (2026-08-08 사용자 요청).
+      if (v.verdict === 'partial') revealHalf(q, v);
       askAgain(v, L.turn);
     }
   } catch (err) {
@@ -964,6 +990,31 @@ function autoHint(tier) {
   openNextHint({ auto: true });
 }
 
+/**
+ * 「절반만 설득했어요」 자리에서 **빠진 절반과 완성 문장을 펼친다.**
+ *
+ * 절반을 맞힌 사람에게 빈손으로 또 물으면, 뭘 더 말해야 하는지 모르는 채 방금 쓴
+ * 답을 조금 고쳐 다시 낸다 — 그게 되묻기가 지루해지는 지점이다. 모자란 쪽을
+ * 이름 붙여 주고 완성 문장을 보여 주되, **질문은 닫지 않는다.** 보고 나서 자기
+ * 말로 한 번은 해 봐야 남는다 (mastered 게이트를 그대로 지킨다).
+ *
+ * 한 질문에 한 번만 연다. 라운드마다 같은 완성 문장을 다시 띄우면 스트림이 답으로
+ * 도배되고, 세 번째쯤엔 읽지 않고 넘긴다.
+ */
+function revealHalf(q, v) {
+  const L = qa.live;
+  if (L.halfShown) return;
+  const points = (v.missing_points || []).filter(Boolean).slice(0, 3);
+  const answer = v.explanation || q.answer_gist || v.summary_sentence || '';
+  // 둘 다 비면 열 것이 없다. 빈 카드를 띄우느니 되묻기만 이어 간다.
+  if (!points.length && !answer) return;
+  L.halfShown = true;
+  // 닫을 때 같은 문장을 또 띄우지 않기 위해 원문을 남긴다 (finishLiveQuestion).
+  L.halfGist = answer;
+  if (points.length) pushTurn({ who: 'ai', kind: 'missing', points: points.map(escapeHtml) });
+  if (answer) pushTurn({ who: 'ai', kind: 'gist', mid: true, text: escapeHtml(answer) });
+}
+
 function closeLiveQuestion(record) {
   const L = qa.live;
   L.results.push({ ...record, turns: L.turn, hintLevel: L.hintLevel });
@@ -971,6 +1022,8 @@ function closeLiveQuestion(record) {
   L.turn = 0;
   L.turns = [];
   L.hintLevel = 0;
+  L.halfShown = false;
+  L.halfGist = '';
   L.lastJudgement = null;
   L.judgeFailed = false;
   // 다시 말하기 모드는 질문에 딸린 상태다. 안 지우면 다음 질문이 「이제 내 말로」
@@ -984,7 +1037,11 @@ function finishLiveQuestion(q, v, answer) {
   if (v.summary_sentence) {
     pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
   }
-  if (q.answer_gist) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
+  // 되묻기 도중 이미 펼친 문장이면 다시 띄우지 않는다 — 한 질문의 스트림에 같은
+  // 완성 문장이 두 번 뜨면 두 번째는 안 읽는다 (revealHalf 가 halfGist 를 남긴다).
+  if (q.answer_gist && q.answer_gist !== qa.live.halfGist) {
+    pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
+  }
   // 통과 직후 전체 화면으로 갈아타지 않는다 — 방어 표식·총평·모범답이 말풍선으로
   // 남고, 다음 질문이 같은 스트림에 이어진다 (대화 유지 — 2026-08-07 사용자 요청).
   closeLiveQuestion({

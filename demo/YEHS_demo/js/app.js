@@ -3905,6 +3905,23 @@ function deckImageSrc(no, live = isLiveReportSession()) {
   return DATA.slideImages[no - 1] || slidePlaceholder(no);
 }
 
+/**
+ * 이 장의 **진짜** 그림을 띄울 수 있는가.
+ *
+ * 힌트에 슬라이드를 같이 보여줄 때만 쓴다. 자리표시자(회색 판에 숫자만)를 띄우면
+ * "27장을 떠올려 보세요" 라는 원래 문제를 빈 사각형으로 다시 내는 꼴이라,
+ * 진짜 렌더가 없으면 아예 안 붙이고 글자 힌트로 남긴다.
+ *
+ * 두 갈래로 진짜가 된다 — 업로드 PDF 가 메모리에 있으면 paintDeckThumbs 가 곧
+ * 채워 주고(PPTX 는 브라우저 렌더가 없어 여기서 걸러진다), 샘플 세션이면
+ * assets 의 webp 가 이미 진짜다. 자리표시자는 svg data URL 이라 그것으로 가른다.
+ */
+function hasRealSlideImage(no) {
+  if (!no || no < 1) return false;
+  if (uploadedPdf && uploadedPdf.pdf) return no <= (uploadedPdf.pageCount || 0);
+  return !String(deckImageSrc(no) || '').startsWith('data:image/svg+xml');
+}
+
 function deckThumbList() {
   const tree = judgeTree();
   const isReal = !!(tree[0] && tree[0].real);
@@ -6142,7 +6159,14 @@ function streamRow(it) {
   if (it.kind === 'interject') return `<div class="msg ai cut">${av}<div class="msg-bubble">${it.text}</div></div>`;
   // total 폴백 3: 판정 전 사다리 길이. 옛 세션 턴에는 total 이 없다.
   // auto: 라운드가 올라 코치가 알아서 연 힌트. 안 눌렀는데 열렸으니 왜 열렸는지 말한다.
-  if (it.kind === 'hint') return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}${it.auto ? ' · 좁혀 물으면서 같이 열었어요' : ''}</b>${it.text}</div></div>`;
+  if (it.kind === 'hint') {
+    /* 장 번호만 부르는 힌트는 힌트가 아니다 — "27, 28장을 떠올려 보세요" 는 그 장에
+       뭐가 있는지 아는 사람에게만 힌트다. 그래서 부르는 장을 조그맣게 같이 띄운다.
+       slides 는 openNextHint 가 진짜 렌더가 있는 장만 골라 실어 준다. */
+    const slides = (it.slides || []).length ? `<div class="hint-slides">${it.slides.map((no) => `
+      <figure><img data-thumb-page="${no}" src="${deckImageSrc(no)}" alt="${no}번 슬라이드" loading="lazy"><figcaption>${no}장</figcaption></figure>`).join('')}</div>` : '';
+    return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}${it.auto ? ' · 좁혀 물으면서 같이 열었어요' : ''}</b>${it.text}${slides}</div></div>`;
+  }
   if (it.kind === 'react') {
     // 맵 밖 값이면 칩에 문자 그대로 "undefined" 가 그려진다 — 보류 쪽으로 떨어뜨린다.
     const lab = { full: '제대로 설명했어요', partial: '절반쯤', none: '아직' }[it.verdict] || '아직';
@@ -6165,8 +6189,10 @@ function streamRow(it) {
     </div></div>`;
   }
   if (it.kind === 'gist') {
-    return `<div class="msg ai gist">${av}<div class="msg-bubble">
-      <span class="msg-meta">이렇게 답하면 좋았어요</span>
+    /* mid: 되묻기 도중에 펼친 답(절반만 설득한 자리). 아직 이 질문이 안 끝났는데
+       "좋았어요" 라고 하면 지나간 일로 읽혀서 다시 말할 차례라는 게 안 보인다. */
+    return `<div class="msg ai gist${it.mid ? ' mid' : ''}">${av}<div class="msg-bubble">
+      <span class="msg-meta">${it.mid ? '이렇게 말하면 완성이에요' : '이렇게 답하면 좋았어요'}</span>
       <p>${it.text}</p>
     </div></div>`;
   }
@@ -6190,6 +6216,8 @@ function growStream() {
       node.classList.add('enter');
       s.appendChild(node);
       if (node.classList.contains('qa-sum')) typeSummary(node);
+      // 힌트에 붙은 슬라이드 자리를 원본 PDF 렌더로 채운다 (업로드 세션일 때만 돈다).
+      if (node.querySelector('img[data-thumb-page]')) paintDeckThumbs(node);
     }
   }
   if (thinking) s.appendChild(thinking);

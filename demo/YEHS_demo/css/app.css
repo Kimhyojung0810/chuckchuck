@@ -1284,6 +1284,16 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .qa-input-label.is-retell b { color: var(--brand); }
 .msg.ai.hint b { display: block; font-size: 11px; color: var(--blue); font-weight: 700; margin-bottom: 2px; }
 
+/* 힌트가 부르는 장을 조그맣게 같이 띄운다 — 장 번호만 부르면 그 장에 뭐가 있는지
+   아는 사람에게만 힌트다. 말풍선 안이라 작게 두고, 넘치면 가로로 민다. */
+.hint-slides { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; padding-bottom: 2px; }
+.hint-slides figure { margin: 0; flex: 0 0 auto; width: 116px; }
+.hint-slides img {
+  display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+  border-radius: var(--r-ctl); border: 1px solid var(--line, #D5E2DA); background: #fff;
+}
+.hint-slides figcaption { margin-top: 3px; font-size: 11px; font-weight: 600; color: var(--text-3, var(--muted)); text-align: center; }
+
 /* 판정이 짚은 '빠진 지점'. 되물을 때 무엇을 보완해야 하는지 눈에 보이게 한다. */
 .msg.ai.miss .msg-bubble { background: var(--mid-bg, #FFF6E5); box-shadow: none; }
 .miss-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }

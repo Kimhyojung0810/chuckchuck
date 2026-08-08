@@ -1071,6 +1071,11 @@ def _hint_scope(question: Question) -> str:
 
     근거 장을 전부 나열하지 않는다 — 실측에서 개념 하나가 12장에 걸쳐
     "1,2,3,…,12장에서" 가 나왔다. 다 나열하면 좁혀 주기는커녕 아무 정보도 없다.
+
+    **기억을 요구하지 않는다.** 예전 문구는 "27, 28장에서 이 개념을 어떻게
+    설명했는지 떠올려 보세요" 였는데, 몇 장에 뭐가 있는지는 발표자도 모른다 —
+    아는 사람에게만 힌트인 문장이었다. 화면이 이 번호를 읽어 그 장을 조그맣게
+    같이 띄우므로 (qa_live.js `hintSlideNos`), 문구도 **보고 짚는 말**로 둔다.
     """
     nos = question.slide_nos
     if not nos:
@@ -1078,7 +1083,7 @@ def _hint_scope(question: Question) -> str:
     shown = ", ".join(str(n) for n in nos[:HINT_SLIDE_MAX])
     if len(nos) > HINT_SLIDE_MAX:
         return _clip(f"{shown}장을 비롯해 {len(nos)}장에 걸쳐 나옵니다 — 앞쪽부터 짚어 보세요")
-    return _clip(f"{shown}장에서 이 개념을 어떻게 설명했는지 떠올려 보세요")
+    return _clip(f"{shown}장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요")
 
 
 def _gist_fragment(gist: str) -> str:
