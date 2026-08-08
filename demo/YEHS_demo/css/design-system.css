@@ -49,20 +49,10 @@ app.css 가 이미 1,500줄을 넘어 여기서 따로 관리합니다.
   background: var(--navy);
 }
 
-/* ③ 장식이 아니라 데이터가 배경이다 — 발화 파형 + 슬라이드 전환 시각 */
-.verdict-bg {
-  position: absolute; inset: auto 0 0; height: 190px;
-  display: flex; align-items: flex-end; gap: 3px;
-  padding: 0 24px; opacity: .13; pointer-events: none;
-  mask-image: linear-gradient(to top, #000 10%, transparent 92%);
-  -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 92%);
-}
 /* 판정 헤드가 화면 첫 요소일 때만 main 의 상단 padding 을 상쇄한다.
    홈처럼 제목 뒤에 오는 경우까지 당기면 앞 요소를 덮는다. */
 main > .verdict:first-child { margin-top: -24px; }
 
-.verdict-bg i { flex: 1 1 0; min-width: 1px; border-radius: 2px 2px 0 0; background: var(--cyan); }
-.verdict-bg b { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--yellow); opacity: .8; }
 
 .verdict-inner { position: relative; z-index: 2; }
 .verdict-meta {
@@ -237,7 +227,6 @@ main > .verdict:first-child { margin-top: -24px; }
 
 /* 분석 결과가 없을 때 — 점수 없이 제목만, 높이를 줄인다 */
 .verdict.is-plain { padding-bottom: 40px; }
-.verdict.is-plain .verdict-bg { display: none; }
 
 /* 샘플 경고는 다크 면 안에서 */
 .verdict-note {

@@ -2654,7 +2654,6 @@ table.plain tr:last-child td { border-bottom: 0; }
   main.wide:has(#rbody) > .verdict .verdict-grid { gap: 12px; margin-top: 12px; }
   main.wide:has(#rbody) > .verdict .verdict-title { margin-top: 4px; }
   /* 파형은 절대 배치라 높이를 안 먹지만, 헤드가 얕아지면 아래로 흘러 넘친다 */
-  main.wide:has(#rbody) > .verdict .verdict-bg { height: 120px; }
   /* 탭이 접힌 선 바로 위에 오면 「더 있다」가 안 읽힌다. 붙여 둔다 */
   main.wide > #rtabs.tabs { position: sticky; top: 0; z-index: 5; background: var(--canvas); }
   /* 여기까지 깎으면 탭은 들어오는데 본문 첫 줄이 25px 모자란다. 탭과 본문
@@ -2764,3 +2763,29 @@ table.plain tr:last-child td { border-bottom: 0; }
 .jsplit-row:first-child { border-top: 0; }
 .jsplit-name { font-size: 14px; font-weight: 500; color: var(--text-2); }
 .jsplit-row b { font-size: 16px; font-weight: 700; color: var(--text); }
+
+/* ── 말하기: 숫자는 지키고 무게만 뺀 한 줄 ────────────────────────────
+   카드 세 장이었다. 바로 위 시간 분배 막대가 같은 이야기를 그림으로 하고 있어서
+   카드까지 세우면 비슷한 크기의 그래픽이 둘이 된다 (토스 그래픽 3번). */
+.voice-facts {
+  display: flex; flex-wrap: wrap; gap: 8px 28px;
+  margin: 0 0 4px; padding: 14px 2px;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.voice-facts span {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -.02em;
+}
+.voice-facts i { font-style: normal; font-size: 12px; font-weight: 500; color: var(--text-3); }
+.voice-facts em { font-style: normal; font-size: 12px; font-weight: 500; color: var(--text-3); }
+
+/* ── 간투어: 구름 대신 목록 ──────────────────────────────────────────
+   크기로 빈도를 말하면 몇 배인지 못 읽는다 — 옆의 숫자가 더 정확하다 */
+.filler-list { margin-top: 4px; }
+.filler-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 2px; border-top: 1px solid var(--border);
+}
+.filler-row:first-child { border-top: 0; }
+.filler-row span { font-size: 15px; font-weight: 600; color: var(--text); }
+.filler-row b { font-size: 15px; font-weight: 700; color: var(--text-2); }

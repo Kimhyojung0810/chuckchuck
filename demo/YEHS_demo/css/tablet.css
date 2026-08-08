@@ -291,7 +291,6 @@
   .verdict { padding-top: 22px; }
   .verdict-title { font-size: 20px; }
   .verdict-grid { margin-top: 14px; padding-bottom: 18px; }
-  .verdict-bg { height: 140px; }
 
   /* 단계 표시줄과 저장 안내를 한 줄에 붙여 세로 30px 을 슬라이드에 돌려준다 */
   .flow-toolbar {
@@ -489,7 +488,6 @@
      전체 폭을 차지한다 — 가로형에서는 한 줄에 나란히 세운다 */
   .verdict-dims .vd { flex: 1 1 0; min-width: 78px; }
   .verdict-dims .vl { margin: 2px 0 5px; font-size: 17px; }
-  .verdict-bg { height: 74px; }
   .verdict-note { padding: 6px 0 10px; font-size: 12px; }
 
   /* 리포트는 요약 탭 본문만 1264px 이다. 내용을 덜어내지 않고 한 화면에 담으려면

@@ -3824,27 +3824,11 @@ function reportVerdict() {
   };
 }
 
-/**
- * ③ 장식이 아니라 데이터가 배경이다.
- * 판정 헤드 바닥에 발화 파형과 슬라이드 전환 시각을 깐다.
- * 매 로드 같은 모양이 나오도록 결정적으로 생성한다.
- */
-function paintVerdictBg() {
-  const bg = $('#verdictBg');
-  if (!bg || bg.childElementCount) return;
-  for (let i = 0; i < 150; i++) {
-    const b = document.createElement('i');
-    b.style.height = (12 + Math.abs(Math.sin(i * .37) * Math.cos(i * .11)) * 88).toFixed(1) + '%';
-    bg.appendChild(b);
-  }
-  // 전환 시각을 따로 갖고 있지 않으므로 장수에 맞춰 균등하게 나눈다
-  const total = Math.min(rehearsalCount() || DATA.session.slides || 0, 14);
-  for (let n = 1; n < total; n++) {
-    const m = document.createElement('b');
-    m.style.left = (n / total * 100).toFixed(2) + '%';
-    bg.appendChild(m);
-  }
-}
+/* 판정 헤드 뒤에 발화 파형 150개를 깔던 paintVerdictBg() 가 여기 있었다.
+   「장식이 아니라 데이터가 배경」이라는 뜻으로 넣었지만, 읽을 수 없는 파형은
+   데이터가 아니라 텍스처다. 토스 그래픽 가이드 6번이 그대로 짚는다 —
+   「의미 없는 묘사, 파티클, 과한 그라데이션 같은 요소는 화면을 복잡하게 만들고
+   정보 전달을 방해해요」. 기둥은 조용한 초록 면 한 장이면 된다. */
 
 async function renderReport() {
   await ensureVoicePipelineOut();
@@ -3903,7 +3887,6 @@ async function renderReport() {
   ].filter(Boolean);
   app.innerHTML = `
     <section class="verdict${v.hasAnalysis ? '' : ' is-plain'}">
-      <div class="verdict-bg" id="verdictBg" aria-hidden="true"></div>
       <div class="verdict-inner">
         <p class="verdict-meta">${meta.map(m => `<span>${m}</span>`).join('<i></i>')}</p>
         <h1 class="verdict-title">${escapeHtml(s.title)}</h1>
@@ -3938,7 +3921,6 @@ async function renderReport() {
       ${tabs.map((t, i) => `<button class="${i === rTab ? 'on' : ''}">${t}</button>`).join('')}
     </div>
     <div id="rbody"></div>`;
-  paintVerdictBg();
   // 막대는 0 에서 차오른다. 숫자를 바꾸지 않고 읽는 순서만 만드는 연출이라
   // 데이터를 가리지 않는다 (§14 — 연출이 데이터를 가리면 연출을 버린다).
   requestAnimationFrame(() => {
@@ -5726,8 +5708,12 @@ function rPace(host = $('#rbody')) {
     const fillerCard = `
       <div class="card">
         <h3 class="section-title">자주 쓴 간투어<span class="soft">같은 말 반복 ${(liveHabits && liveHabits.repeat_cnt) || 0}회 · 긴 쉼 ${(liveHabits && liveHabits.pause_cnt) || 0}회</span></h3>
-        ${fillers.length ? `<div class="filler-cloud">${fillers.map((f, i) => `<span class="filler-chip size-${Math.min(4, Math.max(1, f.n))}" style="--i:${i}"><b>${escapeHtml(f.text)}</b><small>${f.n}회</small></span>`).join('')}</div>
-          <p class="note" style="margin-top:12px">박스가 클수록 더 자주 나왔어요.</p>` : `<p class="note">눈에 띄는 간투어는 거의 없었어요. 좋아요!</p>`}
+        <!-- 빈도에 따라 상자가 4단계로 커지던 워드클라우드였다. 세 줄이면 될 것을
+             그래픽으로 만든 자리다 — 크기로 빈도를 말하면 정확히 몇 배인지 못 읽고,
+             옆의 숫자가 이미 더 정확하게 말한다 (토스 그래픽 2·3번). -->
+        ${fillers.length ? `<div class="filler-list">${fillers.map(f => `
+          <div class="filler-row"><span>${escapeHtml(f.text)}</span><b class="num">${f.n}회</b></div>`).join('')}</div>`
+          : `<p class="note">눈에 띄는 간투어는 거의 없었어요. 좋아요!</p>`}
       </div>`;
     /* 세로 한 줄로 편다. 예전엔 진단에 따라 시간·간투어 중 하나를 접어 뒀는데,
        접힌 쪽은 있는 줄도 모르고 지나갔다 — 둘 다 이 탭의 본문이다. */
@@ -5736,11 +5722,14 @@ function rPace(host = $('#rbody')) {
         ${tabVerdictHtml(voiceVerdict(easy, livePace))}
         ${splitCard}
         <div id="dlvAud"></div>
-        <div class="stat-row voice-stat-row">
-          <div class="stat-card pop-in" style="--i:0"><small>목표 시간</small><strong>${easy.target}</strong></div>
-          <div class="stat-card pop-in" style="--i:1"><small>내가 쓴 시간</small><strong>${easy.actual}</strong>${diffLabel ? `<p class="note" style="margin-top:4px">${diffLabel}</p>` : ''}</div>
-          <div class="stat-card pop-in" style="--i:2"><small>평균 말 속도</small><strong class="num" data-count="${Math.round(avg)}">0</strong><span class="unit">자/분</span>${speedLabel ? `<p class="note" style="margin-top:4px">${speedLabel}</p>` : ''}</div>
-        </div>
+        <!-- 카드 세 장이었다. 시간 분배 막대가 바로 위에서 같은 이야기를 그림으로
+             하고 있어서, 카드까지 세우면 비슷한 크기의 그래픽이 둘이 된다
+             (토스 그래픽 3번). 숫자는 지키고 무게만 뺀다 -->
+        <p class="voice-facts">
+          <span><i>목표</i>${escapeHtml(easy.target)}</span>
+          <span><i>내가 쓴 시간</i>${escapeHtml(easy.actual)}${diffLabel ? `<em>${escapeHtml(diffLabel)}</em>` : ''}</span>
+          <span><i>평균 말 속도</i>${Math.round(avg)}자/분${speedLabel ? `<em>${escapeHtml(speedLabel)}</em>` : ''}</span>
+        </p>
         ${longCard}
         ${fillerCard}
       </div>`;
