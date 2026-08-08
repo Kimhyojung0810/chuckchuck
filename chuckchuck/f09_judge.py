@@ -22,6 +22,7 @@ from ._json_text import extract_json_object
 from .contracts import (
     QA_COACH_STAGES,
     QA_EXPLAIN_MAX,
+    QA_MAX_ROUNDS,
     QA_TEXT_MAX,
     QA_VERDICT_FALLBACK,
     QA_VERDICT_SCORES,
@@ -34,7 +35,8 @@ from .contracts import (
     QaTurn,
     Question,
     Transcript,
-    qa_passed,
+    qa_mastered,
+    qa_probe_tier,
 )
 from .f08_questions import build_hint_ladder
 from .providers.llm_base import LLMProvider
@@ -85,6 +87,32 @@ EMPTY_ANSWER_REACT = "아직 답변이 없습니다. 짧아도 좋으니 자기 
 _FOLLOWUP_BY_POINT = "{point} 에 대해서는 어떻게 보시나요?"
 _FOLLOWUP_GENERIC = "{label} 를 뒷받침할 근거를 하나만 더 들어 주시겠어요?"
 
+#: 되묻기 단계별 지시. **질문의 넓이는 코드가 정하고 LLM 은 그 넓이의 문장만 쓴다.**
+#: 단계가 안 좁혀지면 사용자는 같은 벽을 세 번 만나고, 세 번째에 창을 닫는다.
+_PROBE_TIER_BRIEF = {
+    "probe": (
+        "1라운드다. 빠진 지점 하나를 **열린 질문**으로 짚어라. "
+        "발표자가 자기 말로 한 문단을 더 붙일 여지를 남겨 둔다."
+    ),
+    "focus": (
+        "2라운드다. 같은 넓이로 또 물으면 안 된다. **예/아니오나 둘 중 하나, "
+        "혹은 한 단어**로 답할 수 있을 만큼 좁혀라. 선택지를 질문 안에 넣어도 좋다. "
+        "발표자가 첫 발을 떼는 것이 목적이지 완결된 답을 받는 것이 목적이 아니다."
+    ),
+    "converge": (
+        "3라운드 이상이다. 여기서도 막히면 발표자는 지친다. **답을 거의 품은 확인 "
+        "질문**을 던져 마지막 한 걸음만 남겨라 — \"…때문이라고 보면 될까요?\" 처럼 "
+        "고개만 끄덕이면 되는 형태다. 그래도 정답 문장을 그대로 읽어 주지는 마라."
+    ),
+}
+
+#: 단계별 결정적 폴백 질문. LLM 이 followup 을 빠뜨려도 되묻기는 반드시 나와야 한다 —
+#: 실전 코칭은 턴 상한이 없어서, 질문이 멈추면 사용자가 그 자리에 갇힌다.
+_FOLLOWUP_BY_TIER = {
+    "focus": "{point} — 이건 자료에 있었나요, 없었나요?",
+    "converge": "{point} 때문이라고 보면 될까요?",
+}
+
 SYSTEM_PROMPT = """당신은 발표 심사위원이다.
 방금 던진 질문에 발표자가 답했다. 그 답이 개념을 **실제로 방어했는지** 판정한다.
 
@@ -110,6 +138,9 @@ verdict 는 다음 넷 중 하나다:
 4. 이 질문이 '함정' 이라면, 발표자가 그 잘못된 전제를 **바로잡았을 때** good 이다.
    함정에 그대로 동의했으면 wrong 이다.
 5. react 는 심사위원이 그 자리에서 할 한 마디다. 존댓말, 한 문장.
+   **맞힌 것을 먼저 이름 붙이고 나서** 남은 것을 가리켜라 — "…까지는 정확합니다.
+   그럼 …은요?" 처럼. 틀린 데부터 말하면 발표자는 다음 답을 시도하지 않는다.
+   앞 턴보다 나아졌으면 그 진전을 짚어라. 빈말 칭찬은 하지 마라.
 6. summary_sentence 는 이 개념에 대한 총평 한 문장이다. 리포트에 남는다.
 7. missing_points 에는 **통과를 막는 결정적 결손 하나만** 적는다.
    "있으면 더 좋을" 수준은 적지 마라. 부족한 데가 없으면 빈 배열이다.
@@ -121,10 +152,13 @@ verdict 는 다음 넷 중 하나다:
    - wrong: 39 이하
    표현이나 용어가 자료와 달라도 **요지가 같으면 70~79 를 줘라.**
    완벽한 문장을 받아내는 것이 목적이 아니다.
-9. followup 은 **이 답으로는 부족할 때 이어서 던질 질문 한 문장**이다.
+9. followup 은 **이어서 던질 질문 한 문장**이다. verdict 가 good 이 아니면
+   **반드시 쓴다.** 요지를 맞힌 답에도 쓴다 — 절반 맞힌 사람을 거기서 놓아 주면
+   스스로 깨우칠 기회를 뺏는 것이다. good 일 때만 빈 문자열이다.
    - 원래 질문을 **다시 말하지 마라.** 빠진 지점 하나를 콕 집어 물어라.
    - 발표자를 몰아세우지 말고, 답할 수 있게 좁혀 주는 질문이어야 한다.
-   - 답이 충분하면 빈 문자열로 둬라.
+   - **[되묻기 단계] 가 주어지면 그 단계의 넓이로 물어라.** 같은 넓이로 세 번
+     물으면 압박이 아니라 반복이다. 단계마다 한 칸씩 좁혀 답에 다가가게 한다.
 10. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마 — **아래 값은 자리 표시자다. 그대로 베끼지 말고 이번 답변을 보고 새로 써라.**
@@ -279,13 +313,20 @@ def _clamp_score(raw: object, verdict: str) -> int:
     return max(0, min(100, score))
 
 
-def _normalize(data: dict, question: Question, model: str) -> QaJudgement:
+def _normalize(
+    data: dict,
+    question: Question,
+    model: str,
+    round_no: int = 1,
+) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
     - score 없으면 verdict 기본값, 있으면 clamp
     - node_id 는 **질문에서 승계** — LLM 이 다른 값을 줘도 무시한다
       (조인 키가 흔들리면 리포트가 엉뚱한 개념에 총평을 붙인다)
     - react·summary_sentence 는 비면 결정적 문구로 채운다
+    - round_no·probe_tier 는 **코드가 정한다** — LLM 이 보낸 값은 읽지 않는다.
+      대화의 출구(mastered)가 여기 달려 있어서, 모델이 흔들면 루프가 흔들린다.
     """
     # 표기 정규화 — "Good"·" partial " 을 그대로 enum 대조하면 unknown 으로
     # 떨어지는데 score 는 살아 있어 '판정 보류' 배지를 달고 통과하는 모순이 된다.
@@ -309,6 +350,8 @@ def _normalize(data: dict, question: Question, model: str) -> QaJudgement:
         if str(p).strip()
     ]
 
+    round_no = max(1, int(round_no or 1))
+    mastered = qa_mastered(verdict, score, round_no)
     judgement = QaJudgement(
         question_id=question.id,
         node_id=question.node_id,
@@ -318,7 +361,11 @@ def _normalize(data: dict, question: Question, model: str) -> QaJudgement:
         summary_sentence=summary,
         missing_points=points,
         model=model,
-        followup=_followup(data, question, points, verdict, score),
+        round_no=round_no,
+        # 정복했으면 되물을 일이 없다. 단계를 남겨 두면 화면이 「3차 확인」 이라고
+        # 써 놓고 다음 질문으로 넘어가는 모순이 된다.
+        probe_tier="" if mastered else qa_probe_tier(round_no),
+        followup=_followup(data, question, points, mastered, qa_probe_tier(round_no)),
     )
     # 힌트는 판정을 보고 만든다 — 사용자가 실제로 빠뜨린 것에 반응해야 하기 때문이다.
     # 판정에 함께 실어 보내면 프론트가 추가 왕복 없이 즉시 보여 줄 수 있다.
@@ -338,21 +385,34 @@ def _followup(
     data: dict,
     question: Question,
     points: list[str],
-    verdict: str,
-    score: int,
+    mastered: bool,
+    tier: str,
 ) -> str:
     """
-    되물을 후속 질문. 정답 계열이면 비운다.
+    되물을 후속 질문. **정복(mastered)했을 때만 비운다.**
 
-    통과한 답에 되묻는 질문을 남겨 두면 프론트가 그것을 이어 붙여
-    "설득 완료" 라고 해 놓고 또 묻는 화면이 된다.
+    예전에는 `qa_passed` 로 잘랐다. 그런데 판정 규칙 8 이 "요지는 맞고 근거만
+    얕다" 를 70~79 로 매기게 하고 그 구간이 곧 통과라, **가장 흔한 답변이
+    되묻기를 통째로 건너뛰었다.** 절반 맞힌 사람에게 한 걸음 더 묻는 것이
+    이 서비스의 핵심 로직인데 그 로직이 실행되지 않고 있었던 것이다.
+
+    정복한 답에까지 질문을 남기면 반대 방향의 모순이 된다 — "설득 완료" 라고
+    해 놓고 또 묻는 화면. 그래서 자르는 기준을 없앤 게 아니라 옮겼다.
+
+    폴백도 단계를 따른다. LLM 이 빠뜨렸다고 1라운드짜리 열린 질문을 3라운드에
+    내면, 좁혀 주겠다고 해 놓고 같은 벽을 다시 세우는 셈이다.
     """
-    if qa_passed(verdict, score):
+    if mastered:
         return ""
 
     written = _clip(str(data.get("followup", "") or ""))
     if written:
         return written
+
+    point = points[0] if points else (question.label or "이 개념")
+    shaped = _FOLLOWUP_BY_TIER.get(tier)
+    if shaped:
+        return _clip(shaped.format(point=point))
     if points:
         return _clip(_FOLLOWUP_BY_POINT.format(point=points[0]))
     return _clip(_FOLLOWUP_GENERIC.format(label=question.label or "이 개념"))
@@ -534,7 +594,7 @@ def coach_stuck(
     )
 
 
-def _empty_answer(question: Question) -> QaJudgement:
+def _empty_answer(question: Question, round_no: int = 1) -> QaJudgement:
     """
     빈 답변은 LLM 을 부르지 않는다. 판정할 내용이 없는데 비용을 태울 이유가 없다.
 
@@ -545,7 +605,19 @@ def _empty_answer(question: Question) -> QaJudgement:
         {"verdict": QA_VERDICT_FALLBACK, "react": EMPTY_ANSWER_REACT},
         question,
         model="",
+        round_no=round_no,
     )
+
+
+def _round_no(prior_answers: list[str] | None) -> int:
+    """
+    이번이 이 질문의 몇 번째 답변인지 (1부터).
+
+    프론트가 보내 주는 '앞서 낸 답들' 을 세면 상태 없이 같은 답이 나온다
+    (`_coach_stage` 와 같은 규율). 포기 턴의 자리 표시자는 프론트가 이미
+    걸러서 보내지만, 빈 문자열은 여기서도 한 번 더 버린다.
+    """
+    return 1 + sum(1 for text in (prior_answers or []) if (text or "").strip())
 
 
 # ---------------------------------------------------------------------------
@@ -623,8 +695,11 @@ def judge_answer(
     if not question.question.strip():
         raise JudgeError("판정할 질문이 비어 있습니다. F-08 결과를 먼저 확인하세요.")
 
+    # 이 질문의 몇 번째 답변인가. 되묻기 단계와 대화의 출구(mastered)가 여기 달렸다.
+    round_no = _round_no(prior_answers)
+
     if not (answer or "").strip():
-        return _empty_answer(question)
+        return _empty_answer(question, round_no)
 
     # 포기는 판정하지 않는다. 버튼(give_up)이든 타이핑(looks_stuck)이든 같은 곳으로 간다.
     if give_up or looks_stuck(answer):
@@ -681,10 +756,18 @@ def judge_answer(
             + "\n힌트를 따라온 답이면 그 진전을 인정하고, react 는 힌트와 이어지는 말로 하라."
         )
 
+    # 되묻기 단계. 라운드가 오를수록 질문이 좁아져야 스스로 답에 닿는다 —
+    # 같은 넓이로 세 번 물으면 압박이 아니라 반복이고, 사용자는 세 번째에 창을 닫는다.
+    tier = qa_probe_tier(round_no)
+    user += (
+        f"\n\n## 되묻기 단계 — {tier} ({round_no}번째 답변 / 최대 {QA_MAX_ROUNDS}라운드)\n"
+        f"{_PROBE_TIER_BRIEF[tier]}"
+    )
+
     try:
         data = _call(engine, user)
     except JudgeError:
         # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
         data = _call(engine, user, extra_system=JSON_RETRY_NUDGE)
 
-    return _normalize(data, question, engine.name)
+    return _normalize(data, question, engine.name, round_no)

@@ -10,6 +10,7 @@ import json
 import pytest
 
 from chuckchuck.contracts import (
+    QA_MAX_ROUNDS,
     QA_VERDICT_SCORES,
     QA_VERDICTS,
     AlignmentDoc,
@@ -693,11 +694,86 @@ def test_결손은_통과를_막는_하나만_요구한다():
     assert "하나만" in SYSTEM_PROMPT
 
 
-def test_요지가_맞으면_통과_점수를_받아_넘어간다():
-    """D7 의 목적 — 근거가 얕아도 요지를 맞혔으면 갇히지 않는다."""
+def test_요지가_맞으면_통과_점수를_받는다():
+    """D7 의 목적 — 근거가 얕아도 요지를 맞혔으면 리포트가 방어로 센다."""
     judgement = judge_of(payload(verdict="partial", score=72))
-    assert judgement.passed
-    assert judgement.followup == "", "통과한 답에 되묻는 질문이 남으면 화면이 모순된다"
+    assert judgement.passed, "리포트가 세는 방어 판정은 그대로다"
+
+
+# ---------------------------------------------------------------------------
+# 되묻기 루프 — 절반 맞힌 답을 거기서 놓아 주지 않는다
+#
+# D7 이 준 출구(passed)를 대화의 출구로도 쓰던 것이 문제였다. 판정 규칙 8 이
+# "요지는 맞고 근거만 얕다" 를 70~79 로 매기게 하고 그 구간이 곧 통과라서,
+# **가장 흔한 답변이 되묻기를 통째로 건너뛰었다.** 출구를 둘로 나눈다 —
+# passed 는 리포트가 세고, mastered 는 대화가 닫는다.
+# ---------------------------------------------------------------------------
+
+def test_절반만_맞힌_답은_질문을_닫지_않는다():
+    judgement = judge_of(payload(verdict="partial", score=72))
+    assert judgement.passed, "리포트 셈은 그대로 통과다"
+    assert not judgement.mastered, "그래도 대화는 안 닫는다 — 한 걸음 더 묻는다"
+    assert judgement.followup.strip(), "되물을 질문이 없으면 루프가 서지 않는다"
+
+
+def test_good_은_라운드와_무관하게_질문을_닫는다():
+    judgement = judge_of(payload(verdict="good", score=88))
+    assert judgement.mastered
+    assert judgement.followup == "", "정복한 답에 되묻는 질문이 남으면 화면이 모순된다"
+    assert judgement.probe_tier == "", "닫은 질문에 단계가 남으면 화면이 모순된다"
+
+
+def test_최대_라운드까지_가면_통과_수준에서_닫아_준다():
+    """압박이 목적이지 고문이 목적이 아니다 — 지치면 이탈한다."""
+    priors = ["앞선 답"] * (QA_MAX_ROUNDS - 1)
+    judgement = judge_of(payload(verdict="partial", score=72), prior_answers=priors)
+    assert judgement.round_no == QA_MAX_ROUNDS
+    assert judgement.mastered, "상한 라운드에서 통과 수준이면 닫는다"
+    assert judgement.followup == ""
+
+
+def test_상한_라운드라도_통과_못_하면_계속_묻는다():
+    priors = ["앞선 답"] * QA_MAX_ROUNDS
+    judgement = judge_of(payload(verdict="wrong", score=20), prior_answers=priors)
+    assert not judgement.mastered
+    assert judgement.followup.strip()
+
+
+def test_라운드가_오를수록_되묻기_단계가_좁아진다():
+    """같은 넓이로 세 번 물으면 압박이 아니라 반복이다."""
+    tiers = [
+        judge_of(
+            payload(verdict="partial", score=60), prior_answers=["앞선 답"] * n
+        ).probe_tier
+        for n in range(3)
+    ]
+    assert tiers == ["probe", "focus", "converge"]
+
+
+def test_되묻기_단계가_프롬프트에_실린다():
+    llm = ScriptedLLM(payload(verdict="partial", score=60))
+    judge_answer(make_question(), GOOD_ANSWER, prior_answers=["앞선 답"], llm=llm)
+    assert "되묻기 단계 — focus" in llm.prompts[0]
+    assert "예/아니오" in llm.prompts[0], "단계 지시가 없으면 LLM 이 넓이를 못 맞춘다"
+
+
+def test_단계별_폴백_질문이_LLM_없이도_좁혀진다():
+    """LLM 이 followup 을 빠뜨려도 되묻기는 반드시 나온다 — 턴 상한이 없어서다."""
+    judgement = judge_of(
+        payload(verdict="partial", score=60, followup="", missing_points=["근거 수치"]),
+        prior_answers=["답1", "답2"],
+    )
+    assert judgement.followup == "근거 수치 때문이라고 보면 될까요?"
+
+
+def test_mastered_는_요청_바디로_뒤집을_수_없다():
+    """passed 와 같은 규율 — 임계는 서버만 정한다."""
+    restored = QaJudgement.from_dict({
+        "question_id": "q1", "verdict": "partial", "score": 60,
+        "mastered": True, "passed": True, "round_no": 1,
+    })
+    assert not restored.mastered
+    assert not restored.passed
 
 
 def test_partial_반응이_절반이라고_깎지_않는다():

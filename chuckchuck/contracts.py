@@ -1383,6 +1383,55 @@ def qa_passed(verdict: str, score: int) -> bool:
     return verdict == "good" or score >= QA_PASS_SCORE
 
 
+#: 한 질문을 붙들 최대 라운드. 넘어가면 통과 수준(qa_passed)에서 닫아 준다 —
+#: 소크라테스식 압박이 목적이지 고문이 목적이 아니다. 지치면 이탈한다.
+QA_MAX_ROUNDS = 3
+
+
+def qa_mastered(verdict: str, score: int, round_no: int) -> bool:
+    """
+    이 답변으로 질문을 닫을지. **되묻기를 멈추는 유일한 출구다.**
+
+    `qa_passed` 와 일부러 나눠 둔다. 둘을 하나로 두면 요지만 맞힌 72점 답이
+    곧바로 질문을 닫아 **되묻기가 아예 안 돈다** — 실제로 그랬다. 절반 맞힌
+    사람에게 한 걸음 더 묻는 것이 이 서비스의 핵심 로직인데, 가장 흔한 답변
+    구간(70~79)이 통째로 그 루프를 건너뛰고 있었다.
+
+      passed    리포트가 "이 개념을 방어했는가" 를 셀 때 쓴다. 기준을 안 건드린다.
+      mastered  대화가 "이제 넘어가도 되는가" 를 정할 때 쓴다. 더 엄격하다.
+
+    verdict 가 good 이면 라운드와 무관하게 닫는다 — "자기 말로 정확히 설명했다"
+    가 곧 정복이다. 그 아래는 QA_MAX_ROUNDS 라운드까지 계속 되묻고, 거기서도
+    못 올라오면 통과 수준에서 닫아 준다.
+
+    round_no 는 이 질문에 낸 답변의 순번(1부터)이다. **서버가 누적 답변 수로 센다** —
+    프론트가 보내면 옛 세션에서 비고, 질문마다 초기화하는 것도 빠뜨리기 쉽다
+    (f09_judge `_coach_stage` 와 같은 이유).
+    """
+    if verdict == "good":
+        return True
+    return round_no >= QA_MAX_ROUNDS and qa_passed(verdict, score)
+
+
+#: 되묻기 압박 단계. 라운드가 오를수록 질문이 좁아진다 — 같은 넓이로 세 번
+#: 물으면 압박이 아니라 반복이다. **무엇을 물을지는 코드가 정하고 LLM 은
+#: 문장만 쓴다** (F-08·F-09 공통 원칙).
+#:   ""         되물을 일이 없다 (정복했거나 막힘 코칭 경로다)
+#:   probe      1라운드 — 빠진 지점 하나를 열린 질문으로 짚는다
+#:   focus      2라운드 — 예/아니오·둘 중 하나로 답할 만큼 좁힌다
+#:   converge   3라운드+ — 답을 거의 품은 확인 질문으로 마지막 한 걸음만 남긴다
+QA_PROBE_TIERS = ("", "probe", "focus", "converge")
+
+
+def qa_probe_tier(round_no: int) -> str:
+    """라운드 번호 → 압박 단계. 상한을 넘으면 계속 converge 다."""
+    if round_no <= 1:
+        return "probe"
+    if round_no == 2:
+        return "focus"
+    return "converge"
+
+
 #: 대사 길이 상한. 화면 말풍선이 감당하는 길이다.
 QA_TEXT_MAX = 200
 
@@ -1662,11 +1711,27 @@ class QaJudgement:
     coach_stage: str = ""
     #: coach_stage == "explain" 일 때 채우는 해설. 다른 단계에서는 빈 문자열이다.
     explanation: str = ""
+    #: 이 질문에 낸 답변의 순번 (1부터). 서버가 누적 답변 수로 센다.
+    #: 화면이 「1차 방어 → 2차 압박 → 3차 확인」 을 표시하는 근거이자,
+    #: mastered·probe_tier 를 계산하는 입력이다.
+    round_no: int = 1
+    #: 되묻기 압박 단계 (QA_PROBE_TIERS). 정복했으면 빈 문자열이다.
+    probe_tier: str = ""
 
     @property
     def passed(self) -> bool:
-        """정답 계열인가. 되묻기를 멈출지 정하는 유일한 출구다."""
+        """정답 계열인가. **리포트가 방어 여부를 셀 때 쓰는 값이다.**"""
         return qa_passed(self.verdict, self.score)
+
+    @property
+    def mastered(self) -> bool:
+        """
+        이 질문을 닫아도 되는가. **되묻기를 멈추는 유일한 출구다.**
+
+        passed 보다 엄격하다 — 절반만 맞힌 답에 한 걸음 더 묻기 위해서다.
+        자세한 이유는 `qa_mastered` 를 보라.
+        """
+        return qa_mastered(self.verdict, self.score, self.round_no)
 
     def to_dict(self) -> dict:
         return {
@@ -1682,18 +1747,27 @@ class QaJudgement:
             "hints": list(self.hints),
             "coach_stage": self.coach_stage,
             "explanation": self.explanation,
-            # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다
+            "round_no": self.round_no,
+            "probe_tier": self.probe_tier,
+            # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다.
+            # 둘을 다 보낸다: passed 는 리포트가 세는 값, mastered 는 대화가 닫는 값.
             "passed": self.passed,
+            "mastered": self.mastered,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "QaJudgement":
         verdict = str(d.get("verdict", QA_VERDICT_FALLBACK) or "")
         coach_stage = str(d.get("coach_stage", "") or "")
+        probe_tier = str(d.get("probe_tier", "") or "")
         try:
             score = int(d.get("score", 0) or 0)
         except (TypeError, ValueError):
             score = 0
+        try:
+            round_no = int(d.get("round_no", 1) or 1)
+        except (TypeError, ValueError):
+            round_no = 1
         return cls(
             question_id=str(d.get("question_id", "") or ""),
             node_id=str(d.get("node_id", "") or ""),
@@ -1707,7 +1781,11 @@ class QaJudgement:
             hints=[str(x) for x in d.get("hints", [])],
             coach_stage=coach_stage if coach_stage in QA_COACH_STAGES else "",
             explanation=str(d.get("explanation", "") or ""),
-            # `passed` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다
+            round_no=max(1, round_no),
+            probe_tier=probe_tier if probe_tier in QA_PROBE_TIERS else "",
+            # `passed`·`mastered` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
+            # round_no 는 읽는다: 파생값이 아니라 서버가 센 사실이고, 판정을 저장했다가
+            # 다시 읽을 때(옛 세션 복원) 이 값이 없으면 mastered 가 1라운드로 되돌아간다.
         )
 
 

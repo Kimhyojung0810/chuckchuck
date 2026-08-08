@@ -54,7 +54,9 @@ from .contracts import (
     TriageMark,
     WeightBasis,
     WordTimestampUnsupported,
+    qa_mastered,
     qa_passed,
+    qa_probe_tier,
 )
 from .f01_parse import parse_document, sparse_slide_numbers
 from .f05_stt import speech_for_slide, split_by_slide, transcribe
@@ -134,7 +136,9 @@ __all__ = [
     "judge_answer",
     "looks_stuck",
     "parse_document",
+    "qa_mastered",
     "qa_passed",
+    "qa_probe_tier",
     "score_presentation",
     "score_rubric",
     "from_legacy_score",

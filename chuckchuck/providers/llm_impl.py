@@ -269,7 +269,11 @@ class MockLLM(LLMProvider):
         F-09 용 가짜 판정. 답변 길이로 verdict 를 가른다 —
         길게 답하면 good, 짧으면 partial. score 는 일부러 비워 폴백 경로를 태운다.
         """
-        answer = user.split("## 이번 답변 — 이것을 판정하라", 1)[-1].strip()
+        # 답변 블록만 떼어 낸다. 뒤에는 골자·힌트·되묻기 단계 같은 다른 절이 더
+        # 붙으므로, 마커 뒤를 통째로 세면 프롬프트에 절을 하나 더할 때마다
+        # "짧은 답" 이 저절로 길어져 mock 이 조용히 good 으로 돌아선다.
+        tail = user.split("## 이번 답변 — 이것을 판정하라", 1)[-1]
+        answer = tail.split("\n##", 1)[0].strip()
         verdict = "good" if len(answer) >= 20 else "partial"
         return json.dumps(
             {
