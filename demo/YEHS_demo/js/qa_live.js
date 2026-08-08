@@ -197,8 +197,11 @@ function liveStreak() {
  */
 function stuckLabel() {
   const L = qa.live;
+  // 두 번째 「모르겠어요」는 이제 넘어가기가 아니라 **답 보기**다 — 서버가 해설을
+  // 풀어 주고, 그걸 보고 한 번 말해 본 뒤에 닫힌다 (coachedRetell).
+  // CTA 문구만 보고 다음에 무슨 일이 벌어질지 예측돼야 한다 (CLAUDE.md §3-1).
   return (L.turns || []).some((t) => t.gaveUp)
-    ? '그래도 모르겠어요 · 넘어가기'
+    ? '그래도 모르겠어요 · 답 보기'
     : '모르겠어요';
 }
 
@@ -800,8 +803,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 답이 곧바로 넘어가 되묻기가 아예 안 돈다 — 그게 이 화면이 밋밋했던 이유다.
     const done = v.mastered === undefined ? v.passed : v.mastered;
     if (v.coach_stage === 'explain') {
-      closeLiveCoached(q, v, answer);
-      closed = true;
+      // 해설을 받았다고 닫지 않는다 — 답을 봤으니 이제 한 번 말해 볼 차례다.
+      coachedRetell(q, v, answer);
     } else if (done) {
       finishLiveQuestion(q, v, answer);
       closed = true;
@@ -861,15 +864,44 @@ function liveLastScore() {
   return turns.length ? (turns[turns.length - 1].score || 0) : 0;
 }
 
-function closeLiveCoached(q, v, answer) {
-  if (v.explanation) pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(v.explanation) });
-  // 전체 화면 체크포인트를 거치지 않는다 — 해설·다음 질문이 같은 대화 안에서
-  // 이어진다 (2026-08-07 사용자: "팝업으로 넘어가는 ux 는 별로, 대화가 유지되면 좋겠어").
-  closeLiveQuestion({
+/**
+ * 「모르겠어요」 2회 — 서버가 해설(explain)로 답을 풀어 준 자리.
+ *
+ * **이것도 곧 「답 확인하기」다.** 예전에는 해설만 띄우고 질문을 닫았는데,
+ * 그러면 이 사람은 그 개념에 대해 **한 마디도 하지 않은 채** 넘어간다.
+ * 정작 두 번이나 막혔던 개념이라 가장 말해 봐야 하는 자리인데.
+ * 「답 보고 다시 말해보기」와 같은 곳으로 보낸다 — 출구가 둘인데 뒤처리가
+ * 다르면 어느 문으로 나갔느냐가 결과를 바꾼다.
+ */
+function coachedRetell(q, v, answer) {
+  enterRetell(v.explanation || q.answer_gist || v.summary_sentence, {
     id: q.id, label: q.label, question: q.question, answer,
     verdict: 'unknown', score: 0, passed: false, mastered: false, gaveUp: true,
     summary: v.summary_sentence || '', revealed: true, coached: true,
   });
+}
+
+/**
+ * 재현 모드로 들어간다. 답을 펼쳐 놓고 **질문은 열어 둔다.**
+ *
+ * record 를 여기서 들고 있는 이유: 재현을 끝낼 때 질문을 닫아야 하는데, 어느
+ * 문으로 들어왔느냐(막힘 해설 · 답 공개)에 따라 남길 기록이 다르다. closeRetell
+ * 이 그때 가서 짐작하게 하면 gaveUp·coached 같은 플래그가 조용히 사라진다.
+ */
+function enterRetell(model, record) {
+  const L = qa.live;
+  const text = (model || '').trim()
+    || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
+  pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(text) });
+  pushTurn({
+    who: 'ai', kind: 'question', meta: '이제 내 말로',
+    text: '지금 본 걸 안 보고 다시 말해 보세요. 그대로 안 옮겨도 괜찮아요.',
+  });
+  L.retell = { model: text, record };
+  // 막혀서 쓰다 만 글은 지운다 — 방금 답을 봤으니 처음부터 다시 말하는 자리다.
+  const ta = $('#liveAnswer');
+  if (ta) ta.value = '';
+  saveSession('qa-flow', qa);
 }
 
 /**
@@ -977,21 +1009,16 @@ function revealLiveAnswer() {
   const L = qa.live;
   const q = L.questions[L.qi];
   const v = L.lastJudgement || {};
+  const last = L.turns[L.turns.length - 1] || {};
+  pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답을 펼쳐 볼게요` });
   // 해설(explain 코칭)이 있으면 그게 낫다 — 이 사람이 실제로 막힌 지점에 맞춰
   // 쓴 글이라서다. 없으면 F-08 이 미리 만들어 둔 골자를 쓴다.
-  const model = v.explanation || q.answer_gist || v.summary_sentence
-    || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
-  pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답을 펼쳐 볼게요` });
-  pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(model) });
-  pushTurn({
-    who: 'ai', kind: 'question', meta: '이제 내 말로',
-    text: '지금 본 걸 안 보고 다시 말해 보세요. 그대로 안 옮겨도 괜찮아요.',
+  enterRetell(v.explanation || q.answer_gist || v.summary_sentence, {
+    id: q.id, label: q.label, question: q.question, answer: last.answer || '',
+    verdict: v.verdict || 'unknown', score: v.score || 0,
+    passed: !!v.passed, mastered: false,
+    summary: v.summary_sentence || '', revealed: true,
   });
-  L.retell = { model };
-  // 막혀서 쓰다 만 글은 지운다 — 방금 답을 봤으니 처음부터 다시 말하는 자리다.
-  const ta = $('#liveAnswer');
-  if (ta) ta.value = '';
-  saveSession('qa-flow', qa);
   growStream();
   refreshLiveChrome();
 }
@@ -1006,7 +1033,6 @@ function closeRetell(text) {
   const L = qa.live;
   if (!L || !L.retell) return;
   const q = L.questions[L.qi];
-  const v = L.lastJudgement || {};
   const said = (text || '').trim();
   if (said) {
     pushTurn({ who: 'me', kind: 'say', text: escapeHtml(said) });
@@ -1017,17 +1043,17 @@ function closeRetell(text) {
   } else {
     pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답만 보고 넘어갔어요` });
   }
-  const last = L.turns[L.turns.length - 1] || {};
-  L.retell = null;
-  closeLiveQuestion({
+  // 들어올 때 만들어 둔 기록을 그대로 닫는다 (enterRetell 참고). 옛 세션이
+  // record 없이 복원됐으면 최소한으로 채워 — 여기서 죽으면 질문에 갇힌다.
+  const base = L.retell.record || {
     id: q.id, label: q.label, question: q.question,
-    answer: said || last.answer || '',
-    verdict: v.verdict || 'unknown', score: v.score || 0,
-    passed: !!v.passed, mastered: false,
-    summary: v.summary_sentence || '', revealed: true, retold: !!said,
-  });
+    verdict: 'unknown', score: 0, passed: false, mastered: false,
+    summary: '', revealed: true,
+  };
+  L.retell = null;
+  closeLiveQuestion({ ...base, answer: said || base.answer || '', retold: !!said });
   saveSession('qa-flow', qa);
-  renderQaLive();
+  advanceLiveStream();
 }
 
 /**
@@ -1113,7 +1139,9 @@ function qaLiveEnd() {
         <small>${escapeHtml(oneLine(r.summary || r.question))}</small>
       </span>
       <span class="qres-side">
-        <span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? '답 확인' : (chipWord[r.verdict] || r.verdict)}</span>
+        <!-- 답을 본 질문도 둘로 갈린다. 보고 나서 한 번 말해 본 것과 보기만 한 것은
+             다음에 할 일이 다르다 — 뭉뚱그려 「답 확인」 이라고 하면 그게 안 보인다 -->
+        <span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? (r.retold ? '다시 말했어요' : '답만 봤어요') : (chipWord[r.verdict] || r.verdict)}</span>
         ${r.turns ? `<em class="qres-meta">${r.turns}번 만에${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</em>` : ''}
       </span>
       ${node ? '<span class="qres-chev" aria-hidden="true">›</span>' : ''}
