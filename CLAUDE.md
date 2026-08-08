@@ -124,7 +124,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 
 한 덩어리의 기준은 *검증까지 끝난 변경* 이다. 커밋 전에 이것만 지킨다.
 
-1. `python -m pytest tests/ -q` 초록 (기준 552 passed · 7 skipped)
+1. `python -m pytest tests/ -q` 초록 (기준 591 passed · 7 skipped)
 2. `css/*.css` · `js/*.js` 를 고쳤으면 `index.html` 의 `?v=` 를 올린다 (§2 함정)
 3. 커밋 대상에 키가 없는지 훑는다 (§4 보안은 예외 없음)
 4. 커밋 메시지에 **왜** 를 적는다 — 무엇을 고쳤는지는 diff 가 말한다
@@ -149,7 +149,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 - **보안은 예외 없다** (`.claude/rules/common/security.md`). `.env` 에는 실키가 들어 있다.
   키를 코드·문서·채팅·커밋에 넣지 않는다. 공유는 `.env.example`(변수명만).
   노출되면 Upstage / A.X / Friendli 전부 재발급이고 Friendli dedicated 는 과금된다.
-- **`python -m pytest tests/ -q` 는 초록으로 유지한다.** 2026-08-06 기준 **498 passed · 7 skipped** 가 기준선이다.
+- **`python -m pytest tests/ -q` 는 초록으로 유지한다.** 2026-08-09 기준 **591 passed · 7 skipped** 가 기준선이다.
   순수 함수 모듈(`test_flow_diff.py`·`test_score.py`)과 `test_voice_report.py` 가 파이프라인 회귀를 잡아 준다.
   새 기능에 테스트를 안 붙이는 건 괜찮지만, 있는 걸 깨고 넘어가지 않는다.
 - **모듈 계약**([`docs/DEV_POLICY.md`](docs/DEV_POLICY.md) §4). 모듈끼리 import 하지 않고, 교환은 `contracts.py` 타입으로만.
