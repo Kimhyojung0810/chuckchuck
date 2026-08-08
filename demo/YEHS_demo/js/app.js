@@ -4014,11 +4014,10 @@ async function renderReport() {
     b.addEventListener('click', () => goRubric(b.dataset.cluster)));
   $('#rtabs').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    rTab = $$('#rtabs button').indexOf(b);
-    renderReport();
+    switchReportTab($$('#rtabs button').indexOf(b));
   });
-  [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools][rTab]();
-  animateViz();
+  R_TAB_VIEWS[rTab]();
+  animateViz($('#rbody'));
 }
 
 function renderProfileReport(p) {
@@ -4064,16 +4063,37 @@ function renderProfileReport(p) {
       <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/">내 발표로 돌아가기</a></div>
     </div>`;
 }
+/* 탭 순서의 단일 원본. renderReport 의 tabs 라벨 배열과 순서가 같아야 한다. */
+const R_TAB_VIEWS = [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools];
+
+/**
+ * 탭 전환은 본문(#rbody)만 다시 그린다.
+ *
+ * 예전엔 renderReport() 전체를 다시 불러서, 탭이 바뀔 때마다 판정 헤드
+ * (발표 완성도 점수·차원 막대)까지 통째로 재렌더·재애니메이션됐다 — 헤드는
+ * 탭이 바뀌어도 유지되는 세션의 결론이라 다시 그릴 이유가 없다.
+ * renderReport 가 async(파이프라인 확인)라 goRubric·goJudge 가 렌더 직후
+ * DOM 을 짚는 것도 사실은 경주였다 — 이 함수는 동기라 그 경주도 없앤다.
+ * 리포트 껍데기가 아직 없으면(다른 화면에서 진입) 전체 렌더로 돌아간다.
+ */
+function switchReportTab(i) {
+  const btns = $$('#rtabs button');
+  if (!btns.length || !$('#rbody')) { rTab = i; renderReport(); return; }
+  rTab = i;
+  btns.forEach((b, k) => b.classList.toggle('on', k === i));
+  R_TAB_VIEWS[i]();
+  animateViz($('#rbody'));
+}
+
 /**
  * 기둥의 항목 줄 → 채점표 탭의 그 클러스터.
  *
  * 「목적·청중 적합성 30」만 보여주고 끝나면 「그래서 왜 30점인데」에 답할 데가
  * 없다. 채점표 탭이 항목별 근거를 이미 갖고 있으므로 그리로 데려간다.
- * rTab 4 는 renderReport 의 [rSummary, rDelivery, rJudge, rLogic, rRubric, …] 순서다.
+ * rTab 4 는 R_TAB_VIEWS 의 [rSummary, rDelivery, rJudge, rLogic, rRubric, …] 순서다.
  */
 function goRubric(key) {
-  rTab = 4;
-  renderReport();
+  switchReportTab(4);
   // 탭만 바꾸면 7개 묶음 중 어디를 보라는 건지 알 수 없다.
   // 묶음은 접혀 있으므로 열어 준다 — 눌러서 왔는데 접힌 줄만 보이면 헛걸음이다
   const block = key && $(`#rb-${CSS.escape(key)}`);
@@ -4083,10 +4103,10 @@ function goRubric(key) {
 }
 
 function goJudge(node) {
-  // rTab 은 renderReport 의 [rSummary, rJudge, …][rTab] 순서다.
+  // rTab 은 R_TAB_VIEWS 의 [rSummary, rJudge, …][rTab] 순서다.
   // 탭을 재배치할 때마다 여기가 어긋났다(예전엔 개념을 눌렀는데 채점표가 열렸다).
   // 개념 전달은 이제 2번이다.
-  jSel = node; rTab = 2; renderReport();
+  jSel = node; switchReportTab(2);
   // 탭만 바꾸면 긴 목록에서 선택한 개념이 화면 밖에 있을 수 있다
   const picked = $('#jtree .sel') || $(`#jtree [data-node="${node}"]`);
   if (picked) picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -4732,9 +4752,16 @@ function qaHistoryPanelHtml() {
   // 해시에 id 가 없으면 **가장 최근 기록**을 보여준다. 실전 코칭은 'flat' 키로
   // 저장되는데 예전 기본값 'imu2clip'(목 데모 키)만 읽어서, 방금 끝낸 코칭이
   // 리포트에 안 뜨거나 목 시나리오가 내 기록인 양 떴다.
+  /* 'last'(저장 리포트)·'sample-imu2clip'(샘플 리포트)은 QaHistory 의 키가
+     아니라 리포트 주소다 — 그대로 get() 에 넣으면 항상 빈손이라, 저장 리포트를
+     열면 방금 한 코칭 내역이 소리 없이 사라졌다. 저장 리포트는 가장 최근 기록,
+     샘플은 목 시나리오 키('imu2clip')로 조회한다. */
   const hashId = location.hash.replace(/^#\/?/, '').split('/')[1];
-  const reportId = hashId || (window.QaHistory.list()[0] || {}).id || 'imu2clip';
-  const rec = window.QaHistory.get(reportId);
+  const latestId = (window.QaHistory.list()[0] || {}).id;
+  const reportId = hashId === 'last' ? latestId
+    : hashId === 'sample-imu2clip' ? 'imu2clip'
+      : (hashId || latestId || 'imu2clip');
+  const rec = reportId ? window.QaHistory.get(reportId) : null;
   if (!rec || !rec.beats || !rec.beats.length) return '';
 
   const when = new Date(rec.at);
@@ -4747,12 +4774,19 @@ function qaHistoryPanelHtml() {
   const hasGain = typeof rec.before === 'number' && typeof rec.after === 'number' && rec.total;
   const gained = hasGain ? rec.after - rec.before : 0;
 
+  /* 리포트가 「정보의 바다」가 된 자리라 통째로 예고형 접기로 둔다.
+     접힌 줄이 결론(대화로 몇 개 늘었나)과 다시 볼 곳 유무를 먼저 말해야
+     열지 말지를 정할 수 있다 — judge-fold 와 같은 규율. */
+  const weakCount = rec.beats.filter(b => b.verdict === 'none').length;
   return `
+    <details class="fold qa-log-fold">
+      <summary>
+        <span>질문 코칭 내역</span>
+        <span class="fold-meta">${weakCount ? '<i class="dot st-no"></i> ' : ''}${escapeHtml(rec.aud)}${josa(rec.aud, '과', '와')} 주고받은 ${rec.beats.length}개 질문${
+          hasGain && gained > 0 ? ` · 대화로 <b class="num">${gained}</b>개 늘었어요` : ''} · ${stamp}</span>
+      </summary>
+      <div class="fold-body">
     <section class="qa-log">
-      <div class="block-head">
-        <h2>질문 코칭 내역</h2>
-        <p>${escapeHtml(rec.aud)}${josa(rec.aud, '과', '와')} 주고받은 ${rec.beats.length}개 질문 · ${stamp}</p>
-      </div>
       ${hasGain ? `
       <p class="qa-log-gain">
         <span class="qg-step"><i>질문 전</i><b class="num">${rec.before}</b></span>
@@ -4789,7 +4823,9 @@ function qaHistoryPanelHtml() {
           </details>`;
         }).join('')}
       </div>
-    </section>`;
+    </section>
+      </div>
+    </details>`;
 }
 
 function rSummary() {
@@ -4840,7 +4876,7 @@ function rSummary() {
     <details class="fold judge-fold">
       <summary>
         <span>개념별 판정 전체 보기</span>
-        ${judgeMeta ? `<span class="fold-meta num">${judgeMeta}</span>` : ''}
+        ${judgeMeta ? `<span class="fold-meta num">${judgeRedo ? '<i class="dot st-no"></i> ' : ''}${judgeMeta}</span>` : ''}
       </summary>
       <div class="fold-body">
         ${judgeRows.map(n => `
@@ -4856,9 +4892,11 @@ function rSummary() {
   /* 질문 코칭 내역이 맨 위에 있었다. 요약 탭의 주인공은 이번 발표 자체인데,
      열면 코칭 기록 다섯 줄(332px)을 지나야 내 발표가 나왔다 — 코칭은 발표
      뒤에 한 일이라 순서로도 뒤가 맞다. 슬라이드로 보는 발표를 위로 올린다. */
+  /* 복습 한 마디는 맨 위에서 개념 판정·코칭 내역과 함께 「더 보고 싶으면」
+     층으로 내렸다. 열자마자 말을 거는 목소리가 여덟이던 화면이라(정보의 바다),
+     기본 노출은 결론 층(판정 헤드·오늘의 문장·슬라이드 덱·보완 1가지)만 남긴다. */
+  const recall = recallCardHtml();
   $('#rbody').innerHTML = `
-    ${recallCardHtml()}
-
     ${trophy ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy.slide}">
       <span class="ts-label">${trophy.verdict === 'aligned' ? '이 흐름을 지키세요' : '다음엔 이렇게 말해보세요'}</span>
       <p class="ts-quote">“${escapeHtml(trophy.text)}”</p>
@@ -4892,6 +4930,11 @@ function rSummary() {
     ${judgeFold}
 
     ${qaHistoryPanelHtml()}
+
+    ${recall ? `<details class="fold recall-fold">
+      <summary><span>복습 한 마디</span><span class="fold-meta">지난 회차 판정과 대조했어요</span></summary>
+      <div class="fold-body">${recall}</div>
+    </details>` : ''}
 
     ${(!live && prio && prio[0]) ? `
     <h2 class="section-title" style="margin:26px 0 12px">이것부터 고치면 돼요<span class="soft">효과가 가장 큰 한 가지</span></h2>
@@ -7108,12 +7151,18 @@ function recordQaHistory() {
         skipped: r.verdict === 'skipped' || !!r.revealed,
       };
     });
+    /* before/after 를 샘플(DATA.session.qa)의 3/5 로 적으면 실전 기록이
+       거짓말을 한다 — 질문이 4개면 「4개 중 5개 늘었어요」도 가능했다.
+       실기록에서 센다: 질문 후 = 최종적으로 설명해낸 것(full),
+       질문 전 = 그중 힌트·재시도 없이 첫 답에 설명한 것. */
+    const fullBeats = beats.filter(b => b.verdict === 'full');
+    const firstTryFull = fullBeats.filter(b => !b.hint && (!b.turns || b.turns <= 1));
     return window.QaHistory.save(L.sessionId || 'live', {
       live: true,
       aud: qa.aud || '청중',
       mode: qa.mode || 'full',
       turns: beats.length,
-      before: s.before, after: s.after, total: beats.length,
+      before: firstTryFull.length, after: fullBeats.length, total: beats.length,
       mastered: beats.filter(b => b.verdict === 'full').map(b => b.label),
       weak: beats.filter(b => b.verdict === 'none').map(b => b.label),
       beats,
