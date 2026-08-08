@@ -2741,8 +2741,9 @@ table.plain tr:last-child td { border-bottom: 0; }
 .qb-actions .btn-text { padding-left: 0; padding-right: 0; font-size: 15px; }
 
 /* ── 개념 전달 한눈에 ──────────────────────────────────────────────────
-   시간 분배와 같은 문법(가로 100% 누적)이라 두 번째 배울 게 없다. 색만
-   판정 5색을 쓴다 — 이 막대가 그 다섯의 뜻을 비율로 보여주는 자리라서다. */
+   누적 막대였다가 목록으로 내렸다. 판정 5색을 큰 면에 채우니 무지개가 되고
+   화면에서 제일 튀는 게 그 막대가 됐다 — 토스 그래픽 가이드 3·4번 위반.
+   색은 점으로만 남기고 비율은 숫자로 읽는다. */
 .jsplit-card { grid-column: 1 / -1; }
 .jsplit-head { font-size: 17px; font-weight: 600; letter-spacing: -.02em; color: var(--text); }
 .jsplit-head b { font-weight: 700; }
@@ -2753,26 +2754,13 @@ table.plain tr:last-child td { border-bottom: 0; }
   background: var(--no-bg); color: var(--no);
   font-size: 12px; font-weight: 700; white-space: nowrap;
 }
-.jsplit-bar { display: flex; height: 38px; margin-top: 14px; border-radius: 10px; overflow: hidden; background: var(--fill); }
-.jsplit-seg {
-  display: flex; align-items: center; justify-content: center; min-width: 0;
-  transition: width .7s cubic-bezier(.22, .61, .36, 1);
+/* 기둥의 항목 줄과 같은 문법 — 머리카락 선으로 묶고 값은 오른쪽 끝에 모은다 */
+.jsplit-rows { margin-top: 12px; }
+.jsplit-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center; gap: 10px;
+  padding: 10px 2px; border-top: 1px solid var(--border);
 }
-.jsplit-seg + .jsplit-seg { box-shadow: inset 1px 0 0 rgba(255, 255, 255, .55); }
-.jsplit-seg b { font-size: 12px; font-weight: 700; color: #fff; }
-.jsplit-seg.st-ok { background: var(--ok); }
-.jsplit-seg.st-mid { background: var(--mid); }
-.jsplit-seg.st-no { background: var(--no); }
-.jsplit-seg.st-ct { background: var(--ct); }
-.jsplit-seg.st-om { background: var(--om); }
-@media (prefers-reduced-motion: reduce) { .jsplit-seg { transition: none; } }
-.jsplit-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; }
-.jsplit-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); }
-.jsplit-legend b { color: var(--text); font-weight: 700; }
-/* 범례 점은 막대와 같은 색이어야 한다. .dot.st-om 은 덱 범례에서 회색을 쓰는데,
-   같은 카드 안에서 같은 판정이 두 색이면 그 자체가 오독을 만든다 */
-.jsplit-legend .dot.st-ok { background: var(--ok); }
-.jsplit-legend .dot.st-mid { background: var(--mid); }
-.jsplit-legend .dot.st-no { background: var(--no); }
-.jsplit-legend .dot.st-ct { background: var(--ct); }
-.jsplit-legend .dot.st-om { background: var(--om); }
+.jsplit-row:first-child { border-top: 0; }
+.jsplit-name { font-size: 14px; font-weight: 500; color: var(--text-2); }
+.jsplit-row b { font-size: 16px; font-weight: 700; color: var(--text); }

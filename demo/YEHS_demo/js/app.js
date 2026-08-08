@@ -5224,10 +5224,16 @@ function judgeTree() {
    배워야** 읽혔다. 필터 칩에 개수가 있긴 했지만 그건 «걸러 보는 도구» 지
    «결론» 이 아니라, 열자마자 「그래서 몇 개를 설명한 건데」에 답하는 게 없었다.
 
-   그 답을 맨 위에 한 줄과 막대 하나로 놓는다. 막대는 시간 분배와 같은 문법
-   (가로 100% 누적)이라 리포트 안에서 두 번째 배울 게 없다. 다만 색은 여기서만
-   판정 5색을 쓴다 — 그 다섯은 뜻이 박힌 색이고, 이 막대가 바로 그 뜻을
-   비율로 보여주는 자리라 여기가 제 집이다 (CLAUDE.md §3-3). */
+   그 답을 맨 위에 한 줄과 목록으로 놓는다.
+
+   ⚠ 처음엔 가로 100% 누적 막대로 만들었다가 걷어냈다. 판정 5색(초록·갈색·빨강·
+   보라·올리브)을 큰 면에 채우니 무지개가 됐고, 화면에서 제일 튀는 게 CTA 도
+   결론도 아닌 그 막대가 됐다. 토스 그래픽 가이드가 그대로 짚는 자리다:
+   「비슷한 크기의 그래픽이 많아질수록 시선이 분산된다 — 핵심 하나만 쓰고
+   나머지는 아이콘으로」, 「그래픽이 텍스트나 CTA보다 튀지 않게」.
+
+   판정 5색은 애초에 점·칩 크기로 쓰라고 정한 불변 색이다(§3-3). 색은 점으로만
+   남기고 비율은 숫자로 읽힌다 — 이 탭에서 핵심 그래픽 하나는 아래 개념 목록이다. */
 const JUDGE_SPLIT = [
   ['ok', '설명함'], ['mid', '언급만 함'], ['no', '안 나옴'],
   ['ct', '자료와 모순'], ['om', '정당한 생략'],
@@ -5238,9 +5244,9 @@ function judgeSplitHtml(tree) {
   if (!total) return '';
   const n = {};
   tree.forEach(t => { n[t.status] = (n[t.status] || 0) + 1; });
-  const segs = JUDGE_SPLIT.filter(([k]) => n[k]);
-  /* 짚어야 할 것 = 안 나옴 + 자료와 모순. 「설명함 12개」만 크게 쓰면 잘한
-     것만 말하는 리포트가 된다 — 못 한 쪽도 같은 크기로 적는다 (§4) */
+  const rows = JUDGE_SPLIT.filter(([k]) => n[k]);
+  /* 짚어야 할 것 = 안 나옴 + 자료와 모순. 「설명함 3개」만 크게 쓰면 잘한 것만
+     말하는 리포트가 된다 — 못 한 쪽도 같은 줄에 적는다 (§4) */
   const redo = (n.no || 0) + (n.ct || 0);
   return `
     <div class="card jsplit-card">
@@ -5248,13 +5254,12 @@ function judgeSplitHtml(tree) {
         개념 <b class="num">${total}</b>개 중 <b class="num jsplit-ok">${n.ok || 0}</b>개를 설명했어요${
         redo ? `<span class="jsplit-redo">다시 볼 곳 ${redo}개</span>` : ''}
       </p>
-      <div class="jsplit-bar">${segs.map(([k, label]) => {
-        const pct = n[k] / total * 100;
-        return `<span class="jsplit-seg st-${k}" style="width:${pct.toFixed(2)}%"
-                     title="${label} ${n[k]}개">${pct >= 12 ? `<b>${n[k]}</b>` : ''}</span>`;
-      }).join('')}</div>
-      <div class="jsplit-legend">${segs.map(([k, label]) =>
-        `<span><i class="dot st-${k}"></i>${label} <b class="num">${n[k]}</b></span>`).join('')}</div>
+      <div class="jsplit-rows">${rows.map(([k, label]) => `
+        <div class="jsplit-row">
+          <i class="dot st-${k}"></i>
+          <span class="jsplit-name">${label}</span>
+          <b class="num">${n[k]}</b>
+        </div>`).join('')}</div>
     </div>`;
 }
 
