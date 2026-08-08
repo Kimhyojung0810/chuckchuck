@@ -143,6 +143,41 @@ def _save_slidedoc_cache(doc_dict: dict, file_name: str) -> None:
         sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 실패(무시): {e}\n")
 
 
+def _take_stem(body: dict) -> str:
+    """
+    이 녹음이 어느 자료의 것인지. 자료 이름으로 슬라이드 캐시와 짝을 맞춘다.
+
+    짝이 어긋나면 남의 발표 녹음이 내 자료에 붙어 정합 판정이 통째로 거짓말이 된다
+    (`_handle_cached_slidedoc` 가 이름을 못 찾을 때 최신본으로 대체하지 않는 것과 같은 이유).
+    """
+    doc = body.get("slidedoc") or {}
+    name = ""
+    if isinstance(doc, dict):
+        name = str(doc.get("file_name") or "")
+    return _cache_stem(name or str(body.get("file_name") or "") or "take")
+
+
+def _save_transcript_cache(out: dict, stem: str) -> None:
+    """
+    STT 결과를 fixtures/raw 에 남긴다.
+
+    같은 발표를 고쳐 가며 반복 테스트할 때 **다시 녹음하지 않기 위한 것**이다
+    (2026-08-08 사용자 요청). STT 는 느리고 유료라 재호출이 곧 비용이기도 하다.
+    슬라이드 캐시(`_save_slidedoc_cache`)와 대칭으로 두어 한 자료의 파싱본과
+    녹음본이 같은 이름으로 나란히 남는다.
+
+    실패해도 STT 자체는 성공이므로 삼키되 로그는 남긴다.
+    """
+    try:
+        raw_dir = ROOT / "fixtures" / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        path = raw_dir / f"{stem}.transcript.json"
+        path.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+        sys.stderr.write(f"[bridge] Transcript 캐시 저장 {path.name}\n")
+    except OSError as e:
+        sys.stderr.write(f"[bridge] Transcript 캐시 저장 실패(무시): {e}\n")
+
+
 
 # LibreOffice 는 macOS 앱 번들·snap 설치에서 PATH 에 링크를 만들지 않는다.
 # PATH 만 보면 설치돼 있어도 못 찾아 PPTX 원본 미리보기가 조용히 텍스트로 떨어진다.
@@ -341,6 +376,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(200, {"ok": True, "mock": _mock()})
             if parsed.path == "/api/v1/cached-slidedoc":
                 return self._handle_cached_slidedoc(parsed)
+            if parsed.path == "/api/v1/cached-transcript":
+                return self._handle_cached_transcript(parsed)
             if parsed.path == "/api/v1/preview-pdf":
                 return self._handle_preview_pdf(parsed)
             return super().do_GET()
@@ -455,6 +492,34 @@ class Handler(SimpleHTTPRequestHandler):
         doc = json.loads(chosen.read_text(encoding="utf-8"))
         return self._json(200, doc)
 
+
+    def _handle_cached_transcript(self, parsed):
+        """
+        fixtures/raw 에 저장된 *.transcript.json 을 돌려준다 (재녹음·재과금 없이 이어서).
+
+        이름을 지정했는데 못 찾으면 최신본으로 대체하지 않는다 — 다른 발표 녹음이
+        조용히 붙으면 정합 판정이 통째로 거짓말이 된다 (`_handle_cached_slidedoc` 와 같은 규율).
+        """
+        from urllib.parse import parse_qs
+
+        qs = parse_qs(parsed.query or "")
+        hint = (qs.get("file") or [""])[0]
+        raw_dir = ROOT / "fixtures" / "raw"
+        cands = sorted(raw_dir.glob("*.transcript.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if not cands:
+            return self._json(404, {"error": "no_cache", "message": "저장된 녹음이 없습니다."})
+        if hint:
+            want = _cache_stem(hint)
+            chosen = next((p for p in cands if p.stem == f"{want}.transcript" or want in p.name), None)
+            if chosen is None:
+                return self._json(
+                    404,
+                    {"error": "no_cache", "message": f"'{hint}' 에 맞는 저장된 녹음이 없습니다."},
+                )
+        else:
+            chosen = cands[0]
+        sys.stderr.write(f"[bridge] Transcript 캐시 사용 {chosen.name}\n")
+        return self._json(200, json.loads(chosen.read_text(encoding="utf-8")))
 
     def _handle_preview_pdf(self, parsed):
         """발표 원본 미리보기 PDF (PPTX 변환본 또는 업로드 PDF 캐시)."""
@@ -889,6 +954,23 @@ class Handler(SimpleHTTPRequestHandler):
             sys.stderr.write(f"[bridge] F-05 transcribe → fixture {fixture.name}\n")
             return self._json(200, json.loads(fixture.read_text(encoding="utf-8")))
 
+        # 저장해 둔 녹음으로 이어서 — 화면을 고쳐 가며 반복 테스트할 때 매번 다시
+        # 말하지 않기 위한 길이다 (2026-08-08 사용자 요청). 없으면 404 로 분명히
+        # 알린다. 조용히 실 STT 로 흘리면 아낀 줄 알았던 과금이 그대로 나간다.
+        if body.get("reuse"):
+            stem = _take_stem(body)
+            path = ROOT / "fixtures" / "raw" / f"{stem}.transcript.json"
+            if not path.is_file():
+                return self._json(
+                    404,
+                    {
+                        "error": "no_cache",
+                        "message": f"'{stem}' 으로 저장된 녹음이 없어요. 한 번은 실제로 말해야 저장됩니다.",
+                    },
+                )
+            sys.stderr.write(f"[bridge] F-05 transcribe → 저장본 재사용 {path.name}\n")
+            return self._json(200, json.loads(path.read_text(encoding="utf-8")))
+
         marks = [SlideMark.from_dict(m) for m in body.get("marks", [])]
         provider = "mock" if _mock() else body.get("provider", "skt-ax")
         _fake_delay("/api/v1/transcribe")
@@ -944,6 +1026,11 @@ class Handler(SimpleHTTPRequestHandler):
                     f"[bridge] F-04 구간 추정 estimated={got.estimated} "
                     f"confidence={got.confidence}\n"
                 )
+            # 재분할까지 끝난 뒤에 저장한다 — 저장본을 그대로 다시 쓸 때 화면이
+            # 방금 본 것과 같아야 한다. mock 결과는 남기지 않는다 (남의 자료를
+            # 내 녹음으로 착각하게 만드는 것과 같은 종류의 거짓이다).
+            if not _mock():
+                _save_transcript_cache(out, _take_stem(body))
             return self._json(200, out)
         except Exception as e:  # noqa: BLE001
             from chuckchuck.contracts import STTError
