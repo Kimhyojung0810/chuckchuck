@@ -1890,9 +1890,18 @@ table.plain tr:last-child td { border-bottom: 0; }
 .deck-panel .btn { margin-top: 12px; }
 .dp-none { font-size: 14px; color: var(--text-3); }
 .dp-moments { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-.dp-moment { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
-.dp-moment time { color: var(--text-3); font-weight: 600; flex: none; }
-.dp-moment span { min-width: 0; }
+/* align-items:center 였다. 라벨이 두 줄로 접히면 시각·칩이 두 줄의 **가운데**에
+   떠서, 시작점이 어긋난 것처럼 보였다 (좁은 칸에서 늘 접힌다).
+   격자로 자리를 고정한다: 시각·칩은 폭이 정해진 칸, 라벨은 남는 칸 전부.
+   셋 다 첫 줄에 맞춰 서고(start), line-height 를 맞춰 밑줄이 같이 간다. */
+.dp-moment {
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start; gap: 8px;
+  font-size: 13px; line-height: 1.55; color: var(--text-2);
+}
+.dp-moment time { color: var(--text-3); font-weight: 600; line-height: inherit; }
+/* chip 은 제 line-height 를 들고 오므로 첫 줄에 맞춰 세운다 */
+.dp-moment .chip { align-self: start; }
 .deck-film { display: flex; gap: 8px; overflow-x: auto; padding: 16px 2px 6px; scrollbar-width: thin; }
 .deck-film .slidethumb { width: 80px; flex: none; }
 .slidethumb.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--blue); }
