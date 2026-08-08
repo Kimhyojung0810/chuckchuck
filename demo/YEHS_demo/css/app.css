@@ -2789,3 +2789,21 @@ table.plain tr:last-child td { border-bottom: 0; }
 .filler-row:first-child { border-top: 0; }
 .filler-row span { font-size: 15px; font-weight: 600; color: var(--text); }
 .filler-row b { font-size: 15px; font-weight: 700; color: var(--text-2); }
+
+/* ── 필름: 컬러 테두리 23개 → 중립 테두리 + 모서리 점 ──────────────────
+   저마다 2px 컬러 테두리를 두르고 있었다. 정보는 맞지만 비슷한 크기의 그래픽
+   23개가 한 줄에 서는 셈이라 시선이 갈 곳을 잃는다 (토스 그래픽 3번).
+   판정은 점 하나로 남기고, 테두리는 «지금 보는 칸» 하나만 쓴다 —
+   선택 표시와 판정 표시가 같은 채널(테두리 색)을 다투고 있었다. */
+.deck-film .slidethumb { border-color: var(--border); }
+.deck-film .slidethumb::before {
+  content: ""; position: absolute; right: 5px; bottom: 5px; z-index: 2;
+  width: 8px; height: 8px; border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .9);
+}
+.deck-film .slidethumb.st-ok::before { background: var(--ok); }
+.deck-film .slidethumb.st-mid::before { background: var(--mid); }
+.deck-film .slidethumb.st-no::before { background: var(--no); }
+.deck-film .slidethumb.st-ct::before { background: var(--ct); }
+.deck-film .slidethumb.st-om::before { background: var(--om); }
+.deck-film .slidethumb.st-none::before { display: none; }
