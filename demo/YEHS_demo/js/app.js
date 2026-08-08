@@ -3938,6 +3938,9 @@ async function renderReport() {
   requestAnimationFrame(() => {
     $$('.verdict-dims .bar i[data-w]').forEach(i => { i.style.width = i.dataset.w; });
   });
+  // 기둥의 항목 줄 → 그 항목의 채점 근거
+  $$('.vd-rest .vd[data-cluster]').forEach(b =>
+    b.addEventListener('click', () => goRubric(b.dataset.cluster)));
   $('#rtabs').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     rTab = $$('#rtabs button').indexOf(b);
@@ -3990,6 +3993,21 @@ function renderProfileReport(p) {
       <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/">내 발표로 돌아가기</a></div>
     </div>`;
 }
+/**
+ * 기둥의 항목 줄 → 채점표 탭의 그 클러스터.
+ *
+ * 「목적·청중 적합성 30」만 보여주고 끝나면 「그래서 왜 30점인데」에 답할 데가
+ * 없다. 채점표 탭이 항목별 근거를 이미 갖고 있으므로 그리로 데려간다.
+ * rTab 1 은 renderReport 의 [rSummary, rRubric, …] 순서다.
+ */
+function goRubric(key) {
+  rTab = 1;
+  renderReport();
+  // 탭만 바꾸면 7개 묶음 중 어디를 보라는 건지 알 수 없다
+  const block = key && $(`#rb-${CSS.escape(key)}`);
+  if (block) block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function goJudge(node) {
   // rTab 은 renderReport 의 [rSummary, rRubric, rJudge, …][rTab] 순서다(3636).
   // 개념별 판정은 2번인데 1(채점표)로 박혀 있었다 — 탭이 5개에서 7개로 늘 때
@@ -4229,7 +4247,7 @@ function rRubric() {
     const head = c.status === 'scored'
       ? `<b class="num">${Math.round(c.average || 0)}</b>`
       : `<span class="rb-flag" style="color:var(--ct)">이번엔 못 쟀어요</span>`;
-    return `<section class="rb-cluster">
+    return `<section class="rb-cluster" id="rb-${escapeHtml(c.key)}">
       <h4>${escapeHtml(c.name)}${head}</h4>
       <ol class="rb-list">${rows.map(rowHtml).join('')}</ol>
     </section>`;
@@ -4253,7 +4271,7 @@ function realSummary() {
      배열 순서 대신 이걸로 고른다 (dimsHtml 주석). 화면에는 나오지 않는다 */
   const dims = (sc.clusters || [])
     .filter(c => c.status === 'scored')
-    .map(c => [c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '', c.weight || 0]);
+    .map(c => [c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '', c.weight || 0, c.key]);
   const notes = [];
   // 두 안내를 합치지 않는다 — '이 상황에서 안 봄'과 '이번에 못 잼'은 다른 말이다.
   // 문구는 부드럽게 바꾸되 개수는 그대로 — 못 잰 걸 숨기면 리포트가 거짓말이 된다
@@ -4323,21 +4341,40 @@ function dimsHtml(dims) {
     return best;
   }, 0);
 
-  const cell = (d, isWeak) => {
+  /* 주인공 한 칸 — 카드로 서고 설명 한 줄과 막대를 갖는다 */
+  const weakCard = (d) => {
     const hint = DIM_HINT[d[0]] || '';
     return `
-      <div class="vd${isWeak ? ' vd-weak' : ''}"${hint && !isWeak ? ` title="${escapeHtml(hint)}"` : ''}>
-        ${isWeak ? '<span class="vd-tag">여기부터 보세요</span>' : ''}
+      <div class="vd vd-weak">
+        <span class="vd-tag">여기부터 보세요</span>
         <span class="lb">${escapeHtml(d[0])}</span>
         <span class="vl num">${d[1]}</span>
         <div class="bar"><i style="width:0" data-w="${d[1]}%"></i></div>
-        ${isWeak && hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
+        ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
       </div>`;
   };
 
+  /* 나머지 여섯 — 「이름 · 값 · 다음」 한 줄씩. 막대는 뺐다: 여섯 개가 나란히
+     차 있으면 어느 것도 눈에 안 들어오고, 어차피 옆의 숫자가 같은 말을 더
+     정확하게 한다. 누르면 그 항목의 채점 근거(채점표 탭)로 간다 —
+     값만 보여주고 끝나면 «그래서 왜 30점인데» 에 답할 데가 없다.
+     클러스터 키가 없는 샘플 데이터는 누를 곳이 없으므로 div 로 낸다. */
+  const restRow = (d) => {
+    const key = d[4] || '';
+    const hint = DIM_HINT[d[0]] || '';
+    const attrs = `class="vd"${hint ? ` title="${escapeHtml(hint)}"` : ''}`;
+    const inner = `
+        <span class="lb">${escapeHtml(d[0])}</span>
+        <span class="vl num">${d[1]}</span>
+        ${key ? '<span class="vd-go" aria-hidden="true">›</span>' : ''}`;
+    return key
+      ? `<button type="button" ${attrs} data-cluster="${escapeHtml(key)}">${inner}</button>`
+      : `<div ${attrs}>${inner}</div>`;
+  };
+
   const rest = dims.filter((_, i) => i !== weakIdx);
-  return cell(dims[weakIdx], true)
-    + (rest.length ? `<div class="vd-rest">${rest.map(d => cell(d, false)).join('')}</div>` : '');
+  return weakCard(dims[weakIdx])
+    + (rest.length ? `<div class="vd-rest">${rest.map(restRow).join('')}</div>` : '');
 }
 
 /**

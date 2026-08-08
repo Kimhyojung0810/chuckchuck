@@ -2604,7 +2604,8 @@ table.plain tr:last-child td { border-bottom: 0; }
   main.wide:has(#rbody) > .verdict .verdict-dims {
     gap: 11px; margin-top: 14px; padding-top: 12px;
   }
-  main.wide:has(#rbody) > .verdict .vd-rest { gap: 10px 16px; }
+  main.wide:has(#rbody) > .verdict .vd-rest { gap: 0; }
+  main.wide:has(#rbody) > .verdict .vd-rest .vd { padding: 9px 2px; }
   main.wide:has(#rbody) > .verdict .verdict-dims .vd-weak .vl { margin: 2px 0 8px; }
   main.wide:has(#rbody) > .verdict .verdict-basis { margin-top: 12px; padding-bottom: 16px; }
   main.wide:has(#rbody) > .verdict .verdict-grid { gap: 12px; margin-top: 12px; }

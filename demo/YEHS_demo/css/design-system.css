@@ -161,28 +161,31 @@ main > .verdict:first-child { margin-top: -24px; }
 /* ── 나머지 여섯: 이름과 숫자를 한 줄에, 막대는 그 아래 실선 한 겹 ──
    숫자를 오른쪽 끝에 모아 세로로 정렬시킨다. 눈이 한 번에 훑고 지나가라고
    만든 줄이지, 하나씩 읽으라고 만든 줄이 아니다. */
-.vd-rest { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
-/* 이름·숫자는 한 줄(baseline 맞춤), 막대는 그 아래 두 칸을 가로지른다.
-   .lb 와 .vl 은 형제라 .lb 를 flex 로 만들어도 둘이 한 줄에 서지 않는다 —
-   줄을 만드는 건 .vd 쪽이다 */
+/* 나머지 여섯은 「이름 · 값 · 다음」 한 줄씩이다 (토스의 줄 문법).
+   두 칸 격자에 막대까지 달던 배치를 걷었다: 막대 여섯 개가 나란히 차 있으면
+   어느 것도 눈에 안 들어오고, 옆의 숫자가 이미 같은 말을 더 정확하게 한다.
+   줄 사이는 여백이 아니라 머리카락 선으로 나눈다 — 여백으로 띄우면 여섯 개가
+   각각 떠 있는 카드처럼 보이고, 선으로 묶으면 한 벌의 목록으로 읽힌다. */
+.vd-rest { display: flex; flex-direction: column; }
 .vd-rest .vd {
-  min-width: 0;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline; column-gap: 8px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center; gap: 10px;
+  width: 100%; margin: 0; padding: 11px 2px;
+  border: 0; border-top: 1px solid rgba(255, 255, 255, .1);
+  background: none; color: inherit; font: inherit; text-align: left;
+  border-radius: 8px;
 }
-.vd-rest .vd .lb { font-size: 12px; }
+.vd-rest .vd:first-child { border-top: 0; }
+.vd-rest button.vd { cursor: pointer; transition: background .12s ease; }
+.vd-rest button.vd:hover { background: rgba(255, 255, 255, .07); }
+.vd-rest button.vd:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.vd-rest .vd .lb { font-size: 13px; }
 .vd-rest .vd .vl {
   text-align: right; color: #fff;
-  font-size: 15px; font-weight: 700; letter-spacing: -.02em;
+  font-size: 16px; font-weight: 700; letter-spacing: -.02em;
 }
-.vd-rest .vd .bar { grid-column: 1 / -1; margin-top: 6px; height: 2px; }
-/* 조용한 줄이라 막대 끝 점도 뺀다 — 여섯 개가 전부 점을 달면 소음이 된다 */
-.vd-rest .vd .bar i::after { display: none; }
-
-/* 기둥이 좁으면 두 칸이 이름을 글자 중간에서 끊는다. 한 칸으로 내린다 */
-@media (max-width: 400px) {
-  .vd-rest { grid-template-columns: 1fr; gap: 10px; }
-}
+/* 「누르면 더 있다」는 신호. 값과 붙어 다녀야 한 줄로 읽힌다 */
+.vd-rest .vd-go { color: #5E9683; font-size: 16px; line-height: 1; }
 
 /* ── 채점 근거·못 잰 항목 ──────────────────────────────────────────────
    결론이 아니라 단서다. 예전엔 「채점표 v3 · 학교 프로젝트(교수 대상)」가 점수
