@@ -792,7 +792,31 @@ function unbindRehearsalNav() {
   document.removeEventListener('click', onRehearsalClick, true);
 }
 
+/**
+ * 돌아가고 있는 리허설 녹음을 **실제로 멈춘다.**
+ *
+ * 여태 `resetNf()` 는 `ccRuntime = null` 로 **참조만 버렸다.** 그런데 그 객체가
+ * MediaRecorder 와 마이크 스트림과 자기 타이머를 들고 있어서, 참조를 버려도
+ * 녹음은 계속 돈다 — 마이크가 안 꺼지고(탭의 녹음 표시가 켜진 채 남는다),
+ * onTick 이 1초마다 방금 초기화한 nf 에 `nf.sec` 를 도로 써 넣는다. 그래서
+ * 발표 중에 「처음부터」를 눌러도 처음으로 돌아간 것처럼 동작하지 않았다
+ * (2026-08-08 사용자 제보).
+ *
+ * `finish()` 가 `RehearsalRecorder.stop()` 을 타고 트랙까지 놓아 준다
+ * (`chuckchuck/sdk/rehearsal-recorder.js`). 결과 Blob 은 버린다 — 버리는 테이크다.
+ */
+function stopLiveRehearsal() {
+  const rt = ccRuntime;
+  if (!rt || typeof rt.finish !== 'function') return;
+  ccRuntime = null;   // 먼저 끊는다 — finish() 를 기다리는 사이 또 부르지 않게
+  try {
+    Promise.resolve(rt.finish()).catch(() => { /* 이미 멈춘 뒤 */ });
+  } catch (_) { /* 이미 멈춘 뒤 */ }
+}
+
 function resetNf() {
+  // 참조를 버리기 전에 멈춘다. 순서가 바뀌면 멈출 대상을 잃는다.
+  stopLiveRehearsal();
   nf = { step: 0, gate: null, occ: null, ctx: '', min: 10,
          mic: 'idle', sec: 0, slide: 1, visits: { 1: 1 }, log: [], done: 0, completed: false,
          fileName: '', sparseSlides: [], parseError: null, useSample: false,
@@ -2242,7 +2266,8 @@ async function useUploadedRecording(file) {
   }));
   nf.uploadedTake = { name: file.name, durationSec, syntheticMarks: true };
 
-  ccRuntime = null;
+  // 녹음이 돌고 있었다면 멈추고 버린다 (참조만 버리면 마이크가 안 꺼진다)
+  stopLiveRehearsal();
   ccLastTake = {
     marks,
     mimeType: file.type || '',
@@ -3480,7 +3505,7 @@ function nfStep4() {
   const again = $('#againTake');
   // 자료(nfSlideDoc·uploadedPdf)는 그대로 두고 테이크만 버린다 — resetNf 와 다르다
   if (again) again.addEventListener('click', () => {
-    ccRuntime = null;
+    stopLiveRehearsal();
     ccLastTake = null;
     chatterCache = null;
   chatterPending = null;
