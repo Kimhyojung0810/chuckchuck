@@ -74,6 +74,12 @@ function newLiveState(sessionId, questions) {
     turn: 0,
     turns: [],
     hintLevel: 0,
+    // 이 질문에서 「빠진 절반」을 이미 펼쳤는가, 그때 보여준 완성 문장은 무엇인가.
+    // 라운드마다 같은 문장을 다시 띄우지 않고, 닫을 때도 겹쳐 내지 않기 위해 둔다.
+    // 옛 저장 세션엔 없어서 undefined 로 복원되는데, 그러면 다음 절반 판정에서
+    // 한 번 열린다 — 그게 맞는 동작이라 폴백을 따로 두지 않는다.
+    halfShown: false,
+    halfGist: '',
     lastJudgement: null,
     // 답을 보고 나서 내 말로 다시 해보는 중인가. 「답 보고 다시 말해보기」는 예전엔
     // 질문을 바로 닫았는데, 그러면 답을 읽기만 하고 한 번도 말해 보지 않은 채
