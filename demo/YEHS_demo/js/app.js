@@ -4668,7 +4668,6 @@ function rSummary() {
   const live = meta.live;
   const s = DATA.session;
   const prio = DATA.priorities[s.occasion] || DATA.priorities['범용'] || Object.values(DATA.priorities)[0];
-  const tr = s.qa.trophy;
   const trophy = realTrophy();
   const real = realSummary();
   const tree = judgeTree();
@@ -4699,7 +4698,6 @@ function rSummary() {
   const headline = real
     ? (real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요')
     : s.oneLiner;
-  const nextLabel = (trophy && trophy.label) ? trophy.label : '약한 개념';
 
   /* 접힌 줄이 「개념별 판정 전체 보기」 다섯 글자뿐이라, 열어 볼 값어치가 있는지
      알 수가 없었다. 몇 개가 들어 있고 그중 다시 볼 게 몇 개인지를 접힌 채로
@@ -4732,12 +4730,10 @@ function rSummary() {
   $('#rbody').innerHTML = `
     ${recallCardHtml()}
 
-    ${trophy || !live ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy ? trophy.slide : tr.slide}">
-      <span class="ts-label">${trophy
-        ? (trophy.verdict === 'aligned' ? '이 흐름을 지키세요' : '다음엔 이렇게 말해보세요')
-        : '오늘 만든 문장'}</span>
-      <p class="ts-quote">“${escapeHtml(trophy ? trophy.text : tr.after)}”</p>
-      <i class="ts-go">${trophy ? trophy.slide : tr.slide}번 슬라이드에서 보기 →</i>
+    ${trophy ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy.slide}">
+      <span class="ts-label">${trophy.verdict === 'aligned' ? '이 흐름을 지키세요' : '다음엔 이렇게 말해보세요'}</span>
+      <p class="ts-quote">“${escapeHtml(trophy.text)}”</p>
+      <i class="ts-go">${trophy.slide}번 슬라이드에서 보기 →</i>
     </button>` : ''}
 
     <div class="card rep-deck">
@@ -4771,13 +4767,15 @@ function rSummary() {
       <div class="fold-body">${prio.slice(1).map((p, i) => prioCard(p, i + 2)).join('')}</div>
     </details>` : ''}
 
+    <!-- 「다음에 뭘 할지」를 말하는 덩어리가 셋이었다: 오늘 만든 문장(트로피),
+         이것부터 고치면 돼요(우선순위), 그리고 여기. 셋이 각자 제목을 달고 서
+         있으니 어느 게 결론인지 알 수 없었다 — 정신없다는 말이 나온 자리다.
+         무엇을 고칠지는 기둥의 「여기부터 보세요」와 위의 두 덩어리가 이미
+         말했다. 여기는 마침표만 찍는다: 한 줄 안내와 버튼 둘. -->
     <div class="card next-card">
-      <h3>${live
-        ? (trophy ? `다음 연습은 ‘${escapeHtml(nextLabel)}’부터 다듬어 보세요` : '다음엔 같은 자료로 한 번 더 연습해 보세요')
-        : '다음 연습은 ‘IMU Encoder’ 설명부터 시작해요'}</h3>
       <p>${live
         ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.'
-        : 'Q&A로 두 개념은 설명할 수 있게 됐어요. 발표에서 통째로 빠진 Encoder 구조를 다음 리허설 목표로 가져가세요.'}</p>
+        : '같은 자료로 한 번 더 연습하면 무엇이 달라졌는지 나란히 볼 수 있어요.'}</p>
       <div class="step-actions">
         <a class="btn btn-primary" href="#/new">새 발표 연습</a>
         <a class="btn btn-tint" href="#/qa" style="background:#fff">질문 연습 다시 하기</a>
@@ -5045,7 +5043,11 @@ function deckHtml() {
     <div class="deck-main">
       <figure class="deck-stage st-${st}">
         ${stage}
-        <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}<em>${STATUS[st] || ''}</em></figcaption>
+        <!-- 판정 이름(<em>${'${STATUS[st]}'}</em>)이 여기 또 있었다. 한 패널 안에서
+             「언급만 함」이 세 번 나왔다 — 이 자막, 오른쪽 dp-top 의 칩, 그리고
+             아래 순간 목록. 무대 테두리가 이미 판정 색(st-*)을 입고 있고, 판정을
+             **말로** 하는 건 오른쪽 칩 하나면 된다. 자막은 몇 번째 장인지만 말한다. -->
+        <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}</figcaption>
       </figure>
       <div class="deck-panel">${panel}</div>
     </div>`;
