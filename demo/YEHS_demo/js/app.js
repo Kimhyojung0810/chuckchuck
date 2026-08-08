@@ -4003,9 +4003,12 @@ function renderProfileReport(p) {
 function goRubric(key) {
   rTab = 1;
   renderReport();
-  // 탭만 바꾸면 7개 묶음 중 어디를 보라는 건지 알 수 없다
+  // 탭만 바꾸면 7개 묶음 중 어디를 보라는 건지 알 수 없다.
+  // 묶음은 접혀 있으므로 열어 준다 — 눌러서 왔는데 접힌 줄만 보이면 헛걸음이다
   const block = key && $(`#rb-${CSS.escape(key)}`);
-  if (block) block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!block) return;
+  block.open = true;
+  block.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function goJudge(node) {
@@ -4225,6 +4228,11 @@ function rRubric() {
   items.forEach((it) => { (byCluster[it.cluster] = byCluster[it.cluster] || []).push(it); });
   const clusters = (sc.clusters || []);
   const nScored = items.filter((i) => i.status === 'scored').length;
+  /* 펼쳐 둘 묶음 하나 — 기둥의 「여기부터 보세요」와 같은 기준으로 고른다.
+     둘이 다른 묶음을 가리키면 같은 리포트가 두 곳에서 다른 말을 하는 셈이다. */
+  const weakest = clusters.filter(c => c.status === 'scored')
+    .sort((a, b) => (a.average - b.average) || ((b.weight || 0) - (a.weight || 0)))[0];
+  const weakestKey = weakest ? weakest.key : '';
 
   const rowHtml = (it) => {
     const st = RUBRIC_STATUS[it.status] || RUBRIC_STATUS.scored;
@@ -4247,10 +4255,23 @@ function rRubric() {
     const head = c.status === 'scored'
       ? `<b class="num">${Math.round(c.average || 0)}</b>`
       : `<span class="rb-flag" style="color:var(--ct)">이번엔 못 쟀어요</span>`;
-    return `<section class="rb-cluster" id="rb-${escapeHtml(c.key)}">
-      <h4>${escapeHtml(c.name)}${head}</h4>
+    /* 예전엔 7묶음 39항목이 전부 펼쳐져 있었다. 근거를 남긴다는 뜻은 좋았지만,
+       열자마자 39개 항목과 39줄의 근거가 한꺼번에 쏟아져서 「내 점수가 왜
+       42인가」를 찾을 수가 없었다.
+
+       묶음을 접는다. 접힌 줄이 곧 결론이다 — 이름 · 점수 · 항목 수. 궁금한
+       묶음만 펼치면 근거가 나온다. 제일 낮은 묶음 하나는 펼쳐 둔다: 이 화면에
+       들어온 사람이 제일 먼저 볼 곳이고, 전부 접혀 있으면 「아무것도 없는 화면」
+       처럼 보인다. 기둥에서 줄을 눌러 들어온 경우엔 goRubric 이 그 묶음을 연다. */
+    const scored = rows.filter(r => r.status === 'scored').length;
+    return `<details class="rb-cluster" id="rb-${escapeHtml(c.key)}"${c.key === weakestKey ? ' open' : ''}>
+      <summary>
+        <span class="rb-cname">${escapeHtml(c.name)}</span>
+        <span class="rb-cmeta">${scored}/${rows.length}개 항목</span>
+        ${head}
+      </summary>
       <ol class="rb-list">${rows.map(rowHtml).join('')}</ol>
-    </section>`;
+    </details>`;
   }).join('');
 
   $('#rbody').innerHTML = `

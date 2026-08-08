@@ -2387,15 +2387,28 @@ table.plain tr:last-child td { border-bottom: 0; }
    히트맵을 안 쓰는 이유는 js/app.js 의 rRubric() 주석에 적어 뒀다.
    상태 3종은 색이 아니라 말로 구분한다 — 색만으로는 '낮은 점수'와
    '안 봄'이 같은 회색으로 읽힌다 */
-.rb-cluster { margin-top: 18px; }
-.rb-cluster:first-of-type { margin-top: 8px; }
-.rb-cluster h4 {
-  display: flex; align-items: baseline; gap: 10px;
-  margin: 0 0 8px; padding-bottom: 8px;
+/* 묶음은 접힌다 (app.js rRubric). 접힌 줄 하나가 결론이고, 펼치면 근거다 —
+   39개 항목과 39줄의 근거를 한꺼번에 펴 두면 「내 점수가 왜 42인가」를 찾을 수 없다. */
+.rb-cluster { margin-top: 0; border-bottom: 1px solid var(--border); }
+.rb-cluster:last-of-type { border-bottom: 0; }
+.rb-cluster > summary {
+  display: flex; align-items: center; gap: 10px;
+  padding: 15px 2px; cursor: pointer; list-style: none;
   font-size: 15px; font-weight: 700;
-  border-bottom: 1.5px solid var(--border);
 }
-.rb-cluster h4 b { margin-left: auto; font-size: 16px; color: var(--brand-strong); }
+.rb-cluster > summary::-webkit-details-marker { display: none; }
+.rb-cluster > summary:hover .rb-cname { color: var(--blue); }
+.rb-cname { min-width: 0; }
+/* 몇 개를 실제로 쟀는지 — 접힌 채로도 「다 못 쟀다」가 보여야 한다 (§4) */
+.rb-cmeta { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-3); }
+.rb-cluster > summary b { flex: none; font-size: 17px; color: var(--brand-strong); }
+.rb-cluster > summary::after {
+  content: "＋"; flex: none; width: 14px; text-align: center;
+  color: var(--text-3); font-size: 14px; font-weight: 400;
+}
+.rb-cluster[open] > summary::after { content: "－"; }
+.rb-cluster[open] > summary { border-bottom: 1px solid var(--border); }
+.rb-cluster .rb-list { padding: 4px 0 14px; }
 .rb-list { list-style: none; margin: 0; padding: 0; }
 .rb-item { padding: 9px 0; border-bottom: 1px solid var(--border); }
 .rb-item:last-child { border-bottom: 0; }
