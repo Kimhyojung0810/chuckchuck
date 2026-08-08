@@ -177,6 +177,47 @@ def test_good_match_still_survives_the_empty_guard():
     assert infer_slide_marks(DOC, words, duration_sec=120).estimated is True
 
 
+# ---------------------------------------------------------------------------
+# 「아예 다른 내용」 판정 (match)
+#
+# 2026-08-08 제보: 자료와 무관한 녹음을 올리면 "잘 맞지 않아요" 만 나와서
+# 애매한 분석 결과를 붙잡고 원인을 찾게 된다. 구간을 못 맞춘 것(weak)과
+# 다른 파일을 올린 것(unrelated)을 갈라 말해야 한다. 임계는 실측으로 정했다
+# (f04 UNRELATED_* 주석의 표) — 겹침·커버 둘 다 낮을 때만 단정한다.
+# ---------------------------------------------------------------------------
+
+
+def test_unrelated_speech_gets_a_decisive_verdict():
+    """자료 어휘와 거의 안 겹치는 발화는 「아예 다른 내용」으로 판정한다."""
+    words = speak([("김치찌개 레시피 돼지고기 두부 파", 0, 120)])
+    got = infer_slide_marks(DOC, words, duration_sec=120)
+    assert got.match == "unrelated"
+    assert "다른 내용" in got.reason, "판정을 화면 문장에도 담아야 한다"
+    assert got.estimated is False
+
+
+def test_partial_match_stays_weak_not_unrelated():
+    """자료 일부와는 또렷이 겹치면 단정하지 않는다 — 기존 안내로 남는다."""
+    got = infer_slide_marks(PARTIAL_DOC, speak(PARTIAL_SPEECH), duration_sec=120)
+    assert got.estimated is False, "구간 추정은 여전히 버려야 한다"
+    assert got.match == "weak"
+    assert "다른 내용" not in got.reason
+
+
+def test_good_match_is_labeled_matched():
+    words = speak([
+        ("알림이 작업 맥락을 끊는다", 0, 40),
+        ("깊은 수면과 렘수면 주기", 40, 80),
+        ("의지가 아니라 환경 설계", 80, 120),
+    ])
+    assert infer_slide_marks(DOC, words, duration_sec=120).match == "matched"
+
+
+def test_no_speech_is_unknown_not_unrelated():
+    """발화가 없으면 판정 자체가 불가능하다 — 없는 근거로 단정하지 않는다."""
+    assert infer_slide_marks(DOC, [], duration_sec=90).match == "unknown"
+
+
 def test_deterministic():
     """같은 입력이면 늘 같은 결과다 — LLM 을 쓰지 않는 이유."""
     words = speak([

@@ -3321,11 +3321,15 @@ function pipelineInspectHtml() {
   // 구분해 말하므로 그대로 싣는다 (§14 정직한 상태 유지).
   const up = nf.uploadedTake;
   const markReason = (transcript && transcript.marks_reason) || '';
+  // 'unrelated' 는 구간을 못 맞춘 것이 아니라 다른 발표의 파일을 올렸다는
+  // 판정이다 (f04 실측 임계). 안내가 아니라 경고로 세운다 — 이 경우 아래
+  // 슬라이드↔발화 매핑 전체가 균등 분할 위의 허수다.
+  const markUnrelated = !!(transcript && transcript.marks_match === 'unrelated');
   const markFallback = `슬라이드 구간은 <b>실제 전환 기록이 아니라 길이를 ${marks.length}등분한 합성값</b>이에요.`;
   const uploadedNote = up
-    ? `<p class="note" style="color:var(--mid)">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
+    ? `<p class="note" style="color:${markUnrelated ? 'var(--no)' : 'var(--mid)'}">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
        (${fmtMarkSec(up.durationSec)})으로 돌렸어요.
-       ${markReason ? escapeHtml(markReason) : markFallback}
+       ${markReason ? (markUnrelated ? `<b>${escapeHtml(markReason)}</b>` : escapeHtml(markReason)) : markFallback}
        슬라이드별 발화 분할과 정합 판정은 참고용으로만 보세요.</p>`
     : '';
 
@@ -3798,6 +3802,10 @@ function saveLastReport() {
           full_text: out.transcript.full_text || '',
           duration_sec: out.transcript.duration_sec || 0,
           provider: out.transcript.provider || '',
+          // 「아예 다른 내용」 경고가 복원한 리포트에서도 서야 한다 —
+          // 판정 없이 점수만 남으면 그 점수가 허수라는 사실이 사라진다
+          marks_match: out.transcript.marks_match || '',
+          marks_reason: out.transcript.marks_reason || '',
         } : null,
       },
     }));
@@ -3930,6 +3938,15 @@ async function renderReport() {
   prefetchChatter();
   const s = reportSessionMeta();
   const v = reportVerdict();
+  /* 녹음이 자료와 아예 다른 내용이라는 판정(f04)이 있으면 리포트 맨 위에서
+     말한다. 검증 로그에만 두면 점수·정합을 다 읽고 나서야 원인을 알게 된다 —
+     아래 판정 전체가 균등 분할 위에 서 있다는 사실이 숫자보다 먼저다. */
+  const outForNote = reportOut();
+  const unrelatedNote = (!rSampleMode && outForNote && outForNote.transcript
+    && outForNote.transcript.marks_match === 'unrelated')
+    ? (outForNote.transcript.marks_reason
+      || '녹음이 이 발표 자료와 아예 다른 내용으로 보여요.')
+    : '';
   /* 저장은 여기 한 곳에서만 한다. 파이프라인 안쪽(완료 콜백이 여러 갈래다)이
      아니라 「리포트가 실제로 그려진 순간」이 데이터가 온전하다는 유일한 증거다.
      저장본을 다시 열었을 때(restoredAt) 또 저장하면 시각만 계속 갱신돼서
@@ -3974,6 +3991,9 @@ async function renderReport() {
         </div>
         ${verdictBasisHtml(v)}` : ''}
       </div>
+      ${unrelatedNote
+        ? `<p class="verdict-note" style="color:var(--no)"><b>${escapeHtml(unrelatedNote)}</b> 아래 정합·개념 판정은 참고만 해 주세요.</p>`
+        : ''}
       ${v.isSample
         ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마치고 자료와 발화를 맞춰 보면 내 결과로 바뀌어요.</p>`
         : (restoredAt

@@ -59,6 +59,28 @@ MIN_CONFIDENCE = 0.12
 #: 못 맞춘 것이다.
 MAX_EMPTY_RATIO = 0.25
 
+#: 「아예 다른 내용」 판정 — 아래 두 신호가 **모두** 이 값 아래일 때만 내린다.
+#:
+#: "잘 맞지 않아요" 는 구간을 못 맞췄다는 말이지 왜 못 맞췄는지가 아니다.
+#: 자료와 무관한 녹음을 올린 사용자에게 가장 필요한 정보는 "다른 파일을 올렸다"
+#: 이고, 그걸 뭉개면 애매한 분석 결과를 붙잡고 원인을 찾게 된다 (2026-08-08 제보).
+#:
+#: 2026-08-08 실측 — 실녹음 2종(집중·알림 547단어, 수면 728단어)을 서로의
+#: 자료와 무관 자료에 교차로 붙였다 (겹침 · 커버 순):
+#:   집중 녹음 ↔ 집중 자료 12장   0.403 · 0.966   ← 맞음. 판정하면 안 됨
+#:   수면 녹음 ↔ 수면 자료 8장    0.293 · 0.867   ← 맞음. 판정하면 안 됨
+#:   집중 녹음 ↔ 수면 자료(실사고) 0.131 · 0.431   ← 판정해야 함
+#:   수면 녹음 ↔ 집중 자료        0.122 · 0.518   ← 판정해야 함
+#:   집중 녹음 ↔ RINGLE 마케팅    0.258 · 0.828   ← 경계 — 안 내린다
+#:   녹음 불문 ↔ 영어 자료 2종    0.000~0.003     ← 판정해야 함
+#:
+#: 한국어끼리는 흔한 낱말이 겹쳐서(RINGLE 0.258 > 수면 맞음 0.293 코앞) 겹침
+#: 하나로는 못 가른다. 둘을 AND 로 묶으면 틀린 조합 넷은 다 잡히고, 맞는 조합
+#: 최솟값(0.293·0.867)과는 두 신호 모두 1.4배 이상 여유가 있다. 경계 사례
+#: (RINGLE)는 기존 "맞지 않아요" 문구로 남는다 — 확신 없는 단정은 안 한다.
+UNRELATED_MAX_OVERLAP = 0.2   # IDF 가중: 발화 어휘 중 자료에도 있는 비중
+UNRELATED_MAX_COVER = 0.6     # 발화가 있는 창 중 어느 슬라이드와든 겹친 비율
+
 #: 조사·접속어는 어느 슬라이드인지 못 가린다.
 _STOP = {
     "그리고", "그래서", "하지만", "그런데", "이것", "저것", "그것", "이거", "저거",
@@ -114,12 +136,18 @@ class InferredMarks:
     estimated  : True 면 내용 정합으로 추정, False 면 균등 분할
     confidence : 0~1. 낮을수록 근거가 약하다
     reason     : 화면에 그대로 보여도 되는 한 줄 설명
+    match      : 녹음과 자료의 관계 판정.
+                 "matched"   — 내용으로 구간을 맞췄다
+                 "weak"      — 구간은 못 맞췄지만 다른 내용이라 단정할 근거는 없다
+                 "unrelated" — 아예 다른 내용이다 (겹침·커버 둘 다 임계 아래)
+                 "unknown"   — 발화나 자료 텍스트가 없어 판정 자체가 불가능하다
     """
 
     marks: list[SlideMark]
     estimated: bool
     confidence: float
     reason: str
+    match: str = "unknown"
 
 
 def even_slide_marks(duration_sec: float, n_slides: int) -> list[SlideMark]:
@@ -224,11 +252,33 @@ def infer_slide_marks(
     covered = sum(1 for row in score if any(row)) / n_win
     confidence = round((matched / ceiling) * covered, 4)
 
+    # ── 6. 아예 다른 내용인가 — 정렬과 무관한 전역 겹침 두 가지 ──────
+    # 구간을 못 맞춘 것(아래 가드들)과 다른 파일을 올린 것은 다른 사실이고,
+    # 사용자에게 필요한 안내도 다르다. 단정은 두 신호가 모두 낮을 때만 한다.
+    speech_vocab = {t for toks in win_tokens for t in toks}
+    deck_vocab = set().union(*per_slide)
+    hit_vocab = speech_vocab & deck_vocab
+    idf_all = sum(idf.get(t, 1.0) for t in speech_vocab) or 1.0
+    overlap = sum(idf.get(t, 1.0) for t in hit_vocab) / idf_all
+    spoken = [i for i, toks in enumerate(win_tokens) if toks]
+    cover = (sum(1 for i in spoken if any(score[i])) / len(spoken)) if spoken else 0.0
+    if overlap < UNRELATED_MAX_OVERLAP and cover < UNRELATED_MAX_COVER:
+        pct = round(100 * len(hit_vocab) / max(1, len(speech_vocab)))
+        return InferredMarks(
+            marks=even_slide_marks(total, n_slides), estimated=False,
+            confidence=confidence, match="unrelated",
+            reason=(
+                f"녹음이 이 발표 자료와 아예 다른 내용으로 보여요 — 발화에 나온 "
+                f"낱말 중 자료에도 있는 낱말이 {pct}%뿐이에요. 다른 발표의 자료나 "
+                f"녹음을 올렸는지 확인해 주세요. 슬라이드 구간은 길이를 균등하게 나눴어요."
+            ),
+        )
+
     used = sorted({path[i] for i in range(n_win)})
     if confidence < MIN_CONFIDENCE or len(used) < max(2, n_slides // 2):
         return InferredMarks(
             marks=even_slide_marks(total, n_slides), estimated=False,
-            confidence=confidence,
+            confidence=confidence, match="weak",
             reason="발화와 자료가 잘 맞지 않아 길이를 균등하게 나눴어요.",
         )
 
@@ -239,7 +289,7 @@ def infer_slide_marks(
     if empty_ratio > MAX_EMPTY_RATIO:
         return InferredMarks(
             marks=even_slide_marks(total, n_slides), estimated=False,
-            confidence=confidence,
+            confidence=confidence, match="weak",
             reason=(
                 f"녹음 내용이 자료와 맞지 않아 슬라이드 구간을 알 수 없어요 "
                 f"({n_slides}장 중 {n_slides - len(used)}장에 맞는 발화가 없어요). "
@@ -269,6 +319,6 @@ def infer_slide_marks(
                                end_sec=round(b, 2), visit=1))
 
     return InferredMarks(
-        marks=marks, estimated=True, confidence=confidence,
+        marks=marks, estimated=True, confidence=confidence, match="matched",
         reason="발화 내용을 자료와 맞춰 슬라이드 구간을 추정했어요.",
     )

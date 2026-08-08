@@ -1069,6 +1069,9 @@ class Handler(SimpleHTTPRequestHandler):
                 out["marks_estimated"] = got.estimated
                 out["marks_confidence"] = got.confidence
                 out["marks_reason"] = got.reason
+                # "구간을 못 맞췄다" 와 "아예 다른 파일을 올렸다" 는 다른 사실이다.
+                # 화면이 후자를 경고로 세우려면 문장이 아니라 판정값이 필요하다.
+                out["marks_match"] = got.match
                 sys.stderr.write(
                     f"[bridge] F-04 구간 추정 estimated={got.estimated} "
                     f"confidence={got.confidence}\n"
