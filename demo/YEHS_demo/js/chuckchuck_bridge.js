@@ -301,7 +301,7 @@ export async function buildGraph({ concepts, slideDoc, context }) {
  *   "없음"으로 읽고 같은 호출을 한 번 더 결제했을 것이다. await 하면 진행 중인 호출에 붙는다.
  *   reject 되면 조용히 원래 경로로 되돌아간다.
  */
-export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null }) {
+export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null, reuse = false }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -312,7 +312,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   const audio_base64 = blob ? await blobToBase64(blob) : null;
   const ext = audioExt({ fileName, mimeType });
 
-  report('stt', 'A.X 모델로 음성을 글로 바꾸는 중');
+  report('stt', reuse ? '저장해 둔 받아쓰기를 불러오는 중' : 'A.X 모델로 음성을 글로 바꾸는 중');
   const sttRes = await fetch(apiBase() + '/api/v1/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -320,6 +320,10 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       marks: marks || [],
       audio_base64,
       ext,
+      // 화면을 고쳐 가며 볼 때 매번 다시 말하지 않기 위한 길 (#/replay).
+      // 저장본이 없으면 서버가 404 로 말한다 — 조용히 실 STT 로 흐르지 않는다.
+      reuse,
+      file_name: fileName || '',
       // 자료를 같이 보내면 서버가 발화 내용으로 슬라이드 구간을 되짚는다 (F-04 파생).
       // 업로드본은 전환 기록이 없어 marks 가 균등 분할이라, 그대로 두면 어긋난다.
       slidedoc: slideDoc || null,

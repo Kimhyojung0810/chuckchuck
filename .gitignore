@@ -48,3 +48,7 @@ screenshots/
 
 # 단계 결과 디스크 캐시 (F-06·F-07). 로컬 산출물이라 이력에 넣지 않는다
 fixtures/raw/stage_cache/
+
+# 녹음 받아쓰기는 발표자 음성 전문이라 로컬에만 둔다 (2026-08-08 지시).
+# 재사용은 fixtures/raw 에 그대로 있으면 되고, 저장소에 올릴 이유는 없다.
+fixtures/raw/*.transcript.json

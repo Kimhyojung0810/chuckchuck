@@ -378,6 +378,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_cached_slidedoc(parsed)
             if parsed.path == "/api/v1/cached-transcript":
                 return self._handle_cached_transcript(parsed)
+            if parsed.path == "/api/v1/cached-takes":
+                return self._handle_cached_takes()
             if parsed.path == "/api/v1/preview-pdf":
                 return self._handle_preview_pdf(parsed)
             return super().do_GET()
@@ -520,6 +522,30 @@ class Handler(SimpleHTTPRequestHandler):
             chosen = cands[0]
         sys.stderr.write(f"[bridge] Transcript 캐시 사용 {chosen.name}\n")
         return self._json(200, json.loads(chosen.read_text(encoding="utf-8")))
+
+    def _handle_cached_takes(self):
+        """
+        저장된 발표 목록. #/replay 가 「무엇으로 이어갈 수 있나」를 그리는 재료다.
+
+        녹음까지 있는 것만 주지 않는다 — 슬라이드만 있는 자료도 보여줘야
+        "이건 한 번 말해야 저장된다"를 화면에서 알 수 있다.
+        """
+        raw_dir = ROOT / "fixtures" / "raw"
+        takes: dict[str, dict] = {}
+        for path in raw_dir.glob("*.slidedoc.json"):
+            stem = path.name[: -len(".slidedoc.json")]
+            takes[stem] = {"stem": stem, "slides": True, "transcript": False, "preview": False,
+                           "at": int(path.stat().st_mtime)}
+        for path in raw_dir.glob("*.transcript.json"):
+            stem = path.name[: -len(".transcript.json")]
+            t = takes.setdefault(stem, {"stem": stem, "slides": False, "transcript": False,
+                                        "preview": False, "at": 0})
+            t["transcript"] = True
+            t["at"] = max(t["at"], int(path.stat().st_mtime))
+        for stem, t in takes.items():
+            t["preview"] = (raw_dir / f"{stem}.preview.pdf").is_file()
+        items = sorted(takes.values(), key=lambda t: t["at"], reverse=True)
+        return self._json(200, {"takes": items})
 
     def _handle_preview_pdf(self, parsed):
         """발표 원본 미리보기 PDF (PPTX 변환본 또는 업로드 PDF 캐시)."""
@@ -958,14 +984,21 @@ class Handler(SimpleHTTPRequestHandler):
         # 말하지 않기 위한 길이다 (2026-08-08 사용자 요청). 없으면 404 로 분명히
         # 알린다. 조용히 실 STT 로 흘리면 아낀 줄 알았던 과금이 그대로 나간다.
         if body.get("reuse"):
-            stem = _take_stem(body)
-            path = ROOT / "fixtures" / "raw" / f"{stem}.transcript.json"
-            if not path.is_file():
+            # 저장할 때는 자료 이름으로 짝을 맞추지만(_take_stem), 꺼낼 때는 **부른
+            # 이름이 먼저다.** #/replay 는 "이 테이크" 를 콕 집어 부르는데, 자료
+            # 이름을 앞세우면 자료명과 테이크명이 다를 때 엉뚱하게 못 찾는다.
+            named = _cache_stem(str(body.get("file_name") or "")) if body.get("file_name") else ""
+            tried = [s for s in (named, _take_stem(body)) if s]
+            path = next(
+                (p for p in ((ROOT / "fixtures" / "raw" / f"{s}.transcript.json") for s in tried) if p.is_file()),
+                None,
+            )
+            if path is None:
                 return self._json(
                     404,
                     {
                         "error": "no_cache",
-                        "message": f"'{stem}' 으로 저장된 녹음이 없어요. 한 번은 실제로 말해야 저장됩니다.",
+                        "message": f"'{tried[0] if tried else '이 발표'}' 로 저장된 녹음이 없어요. 한 번은 실제로 말해야 저장됩니다.",
                     },
                 )
             sys.stderr.write(f"[bridge] F-05 transcribe → 저장본 재사용 {path.name}\n")
