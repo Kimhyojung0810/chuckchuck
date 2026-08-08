@@ -3894,7 +3894,7 @@ async function renderReport() {
      것이라, 그게 요약 바로 다음에 와야 한다. 채점 근거는 그 판단이 미덥지
      않을 때 열어 보는 자리라 뒤로 보낸다.
      이름도 산출물이 아니라 «무엇을 답해 주는 화면인가» 로 바꿨다. */
-  const tabs = ['요약', '개념 전달', '흐름', '채점 근거', '말하기', '연습 도구'];
+  const tabs = ['요약', '말하기', '개념 전달', '흐름', '채점 근거', '연습 도구'];
   const meta = [
     escapeHtml(s.occasion),
     s.slides ? `${s.slides}장` : '',
@@ -3952,7 +3952,7 @@ async function renderReport() {
     rTab = $$('#rtabs button').indexOf(b);
     renderReport();
   });
-  [rSummary, rJudge, rLogic, rRubric, rDelivery, rTools][rTab]();
+  [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools][rTab]();
   animateViz();
 }
 
@@ -4004,10 +4004,10 @@ function renderProfileReport(p) {
  *
  * 「목적·청중 적합성 30」만 보여주고 끝나면 「그래서 왜 30점인데」에 답할 데가
  * 없다. 채점표 탭이 항목별 근거를 이미 갖고 있으므로 그리로 데려간다.
- * rTab 3 은 renderReport 의 [rSummary, rJudge, rLogic, rRubric, …] 순서다.
+ * rTab 4 는 renderReport 의 [rSummary, rDelivery, rJudge, rLogic, rRubric, …] 순서다.
  */
 function goRubric(key) {
-  rTab = 3;
+  rTab = 4;
   renderReport();
   // 탭만 바꾸면 7개 묶음 중 어디를 보라는 건지 알 수 없다.
   // 묶음은 접혀 있으므로 열어 준다 — 눌러서 왔는데 접힌 줄만 보이면 헛걸음이다
@@ -4020,8 +4020,8 @@ function goRubric(key) {
 function goJudge(node) {
   // rTab 은 renderReport 의 [rSummary, rJudge, …][rTab] 순서다.
   // 탭을 재배치할 때마다 여기가 어긋났다(예전엔 개념을 눌렀는데 채점표가 열렸다).
-  // 개념 전달은 이제 1번이다.
-  jSel = node; rTab = 1; renderReport();
+  // 개념 전달은 이제 2번이다.
+  jSel = node; rTab = 2; renderReport();
   // 탭만 바꾸면 긴 목록에서 선택한 개념이 화면 밖에 있을 수 있다
   const picked = $('#jtree .sel') || $(`#jtree [data-node="${node}"]`);
   if (picked) picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -5219,6 +5219,45 @@ function judgeTree() {
   return DATA.tree.map(n => ({ ...n, real: false }));
 }
 
+/* ─── 개념 전달 한눈에 ────────────────────────────────────────────────────
+   이 탭은 판정 5종(설명함·언급만·안 나옴·자료와 모순·정당한 생략)을 **먼저
+   배워야** 읽혔다. 필터 칩에 개수가 있긴 했지만 그건 «걸러 보는 도구» 지
+   «결론» 이 아니라, 열자마자 「그래서 몇 개를 설명한 건데」에 답하는 게 없었다.
+
+   그 답을 맨 위에 한 줄과 막대 하나로 놓는다. 막대는 시간 분배와 같은 문법
+   (가로 100% 누적)이라 리포트 안에서 두 번째 배울 게 없다. 다만 색은 여기서만
+   판정 5색을 쓴다 — 그 다섯은 뜻이 박힌 색이고, 이 막대가 바로 그 뜻을
+   비율로 보여주는 자리라 여기가 제 집이다 (CLAUDE.md §3-3). */
+const JUDGE_SPLIT = [
+  ['ok', '설명함'], ['mid', '언급만 함'], ['no', '안 나옴'],
+  ['ct', '자료와 모순'], ['om', '정당한 생략'],
+];
+
+function judgeSplitHtml(tree) {
+  const total = tree.length;
+  if (!total) return '';
+  const n = {};
+  tree.forEach(t => { n[t.status] = (n[t.status] || 0) + 1; });
+  const segs = JUDGE_SPLIT.filter(([k]) => n[k]);
+  /* 짚어야 할 것 = 안 나옴 + 자료와 모순. 「설명함 12개」만 크게 쓰면 잘한
+     것만 말하는 리포트가 된다 — 못 한 쪽도 같은 크기로 적는다 (§4) */
+  const redo = (n.no || 0) + (n.ct || 0);
+  return `
+    <div class="card jsplit-card">
+      <p class="jsplit-head">
+        개념 <b class="num">${total}</b>개 중 <b class="num jsplit-ok">${n.ok || 0}</b>개를 설명했어요${
+        redo ? `<span class="jsplit-redo">다시 볼 곳 ${redo}개</span>` : ''}
+      </p>
+      <div class="jsplit-bar">${segs.map(([k, label]) => {
+        const pct = n[k] / total * 100;
+        return `<span class="jsplit-seg st-${k}" style="width:${pct.toFixed(2)}%"
+                     title="${label} ${n[k]}개">${pct >= 12 ? `<b>${n[k]}</b>` : ''}</span>`;
+      }).join('')}</div>
+      <div class="jsplit-legend">${segs.map(([k, label]) =>
+        `<span><i class="dot st-${k}"></i>${label} <b class="num">${n[k]}</b></span>`).join('')}</div>
+    </div>`;
+}
+
 function rJudge() {
   const tree = judgeTree();
   const isReal = !!(tree[0] && tree[0].real);
@@ -5238,6 +5277,7 @@ function rJudge() {
   if (!items.some(n => n.id === jSel) && items.length) jSel = items[0].id;
   const n = tree.find(t => t.id === jSel);
   $('#rbody').innerHTML = `
+    ${judgeSplitHtml(tree)}
     <div class="filter-chips" id="jf">
       ${filters.map(f => `<button class="${jFilter === f[0] ? 'on' : ''}" data-f="${f[0]}">${f[1]} ${counts[f[0]] || 0}</button>`).join('')}
     </div>
@@ -5672,8 +5712,8 @@ function rPace(host = $('#rbody')) {
        상자 제목까지 세 번 반복돼서 화면이 길어지기만 했다. */
     /* 장별 차트(voiceTimeChartHtml)가 여기 있었다. 33장이면 막대가 33개라
        「어디를 줄이나」가 안 읽혔다 — 구간 두 줄로 바꾼다 (timeSplitCard). */
-    const timeCards = `
-      ${timeSplitCard(livePace)}
+    const splitCard = timeSplitCard(livePace);
+    const longCard = `
       <div class="card">
         <h3 class="section-title">길게 말한 장<span class="soft">여기를 줄이면 목표에 더 가까워져요</span></h3>
         <div class="slide-pill-row">${slidePillHtml(easy.longOnes, 'long')}</div>
@@ -5689,12 +5729,14 @@ function rPace(host = $('#rbody')) {
     host.innerHTML = `
       <div class="voice-stack">
         ${tabVerdictHtml(voiceVerdict(easy, livePace))}
+        ${splitCard}
+        <div id="dlvAud"></div>
         <div class="stat-row voice-stat-row">
           <div class="stat-card pop-in" style="--i:0"><small>목표 시간</small><strong>${easy.target}</strong></div>
           <div class="stat-card pop-in" style="--i:1"><small>내가 쓴 시간</small><strong>${easy.actual}</strong>${diffLabel ? `<p class="note" style="margin-top:4px">${diffLabel}</p>` : ''}</div>
           <div class="stat-card pop-in" style="--i:2"><small>평균 말 속도</small><strong class="num" data-count="${Math.round(avg)}">0</strong><span class="unit">자/분</span>${speedLabel ? `<p class="note" style="margin-top:4px">${speedLabel}</p>` : ''}</div>
         </div>
-        ${timeCards}
+        ${longCard}
         ${fillerCard}
       </div>`;
     return;
@@ -5741,6 +5783,8 @@ function rPace(host = $('#rbody')) {
     ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
       ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
     ${tabVerdictHtml(fbVerdict)}
+    ${timeSplitCard(null)}
+    <div id="dlvAud"></div>
     <div class="stat-row">
       <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span>${fbSpeedLabel ? `<p class="note" style="margin-top:4px">${fbSpeedLabel}</p>` : ''}</div>
       <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${escapeHtml(String(st.maxSeg))}</p></div>
@@ -5759,7 +5803,7 @@ function rPace(host = $('#rbody')) {
       </div>
       <p class="note" style="margin-top:14px">${note}</p>
     </div>
-    ${timeSplitCard(null)}`;
+`;
 }
 
 /**
@@ -5774,9 +5818,12 @@ function rPace(host = $('#rbody')) {
  */
 function rDelivery() {
   const body = $('#rbody');
-  body.innerHTML = '<div id="dlvPace"></div><div id="dlvAud"></div>';
-  rPace($('#dlvPace'));
-  rAudience($('#dlvAud'));
+  rPace(body);
+  /* 청중석은 rPace 가 심어 둔 자리(#dlvAud)에 들어간다 — 맨 뒤가 아니라
+     시간 분배 바로 아래다. 부스에서 30초 안에 보여지는 건 이 둘이라
+     탭에서 제일 위여야 한다 (2026-08-08 지시). */
+  const slot = $('#dlvAud');
+  if (slot) rAudience(slot);
 }
 
 /* 탭 6 — 연습 도구.

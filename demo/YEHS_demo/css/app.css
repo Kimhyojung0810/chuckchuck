@@ -2739,3 +2739,40 @@ table.plain tr:last-child td { border-bottom: 0; }
 .qb-pool li .chip { font-size: 13px; padding: 5px 10px; }
 /* 빠져나가는 길은 왼쪽 세로선을 본문과 맞춘다 — btn-text 의 좌우 여백이 혼자 들여쓰기를 만들었다 */
 .qb-actions .btn-text { padding-left: 0; padding-right: 0; font-size: 15px; }
+
+/* ── 개념 전달 한눈에 ──────────────────────────────────────────────────
+   시간 분배와 같은 문법(가로 100% 누적)이라 두 번째 배울 게 없다. 색만
+   판정 5색을 쓴다 — 이 막대가 그 다섯의 뜻을 비율로 보여주는 자리라서다. */
+.jsplit-card { grid-column: 1 / -1; }
+.jsplit-head { font-size: 17px; font-weight: 600; letter-spacing: -.02em; color: var(--text); }
+.jsplit-head b { font-weight: 700; }
+.jsplit-head .jsplit-ok { color: var(--ok); }
+/* 잘한 쪽만 크게 쓰지 않는다 — 못 한 쪽도 같은 줄에 적는다 (§4) */
+.jsplit-redo {
+  margin-left: 10px; padding: 4px 10px; border-radius: 999px;
+  background: var(--no-bg); color: var(--no);
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.jsplit-bar { display: flex; height: 38px; margin-top: 14px; border-radius: 10px; overflow: hidden; background: var(--fill); }
+.jsplit-seg {
+  display: flex; align-items: center; justify-content: center; min-width: 0;
+  transition: width .7s cubic-bezier(.22, .61, .36, 1);
+}
+.jsplit-seg + .jsplit-seg { box-shadow: inset 1px 0 0 rgba(255, 255, 255, .55); }
+.jsplit-seg b { font-size: 12px; font-weight: 700; color: #fff; }
+.jsplit-seg.st-ok { background: var(--ok); }
+.jsplit-seg.st-mid { background: var(--mid); }
+.jsplit-seg.st-no { background: var(--no); }
+.jsplit-seg.st-ct { background: var(--ct); }
+.jsplit-seg.st-om { background: var(--om); }
+@media (prefers-reduced-motion: reduce) { .jsplit-seg { transition: none; } }
+.jsplit-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; }
+.jsplit-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+.jsplit-legend b { color: var(--text); font-weight: 700; }
+/* 범례 점은 막대와 같은 색이어야 한다. .dot.st-om 은 덱 범례에서 회색을 쓰는데,
+   같은 카드 안에서 같은 판정이 두 색이면 그 자체가 오독을 만든다 */
+.jsplit-legend .dot.st-ok { background: var(--ok); }
+.jsplit-legend .dot.st-mid { background: var(--mid); }
+.jsplit-legend .dot.st-no { background: var(--no); }
+.jsplit-legend .dot.st-ct { background: var(--ct); }
+.jsplit-legend .dot.st-om { background: var(--om); }
