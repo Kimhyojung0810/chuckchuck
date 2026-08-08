@@ -1200,3 +1200,51 @@ def test_trap_fallback_gist_corrects_the_premise():
 
     assert "전제" in _fallback_gist(node, trap=True)
     assert "전제" not in _fallback_gist(node)
+
+
+# ---------------------------------------------------------------------------
+# 프롬프트 발판이 답의 근거로 새는 것
+#
+# 2026-08-08 실측: 수면 자료를 올렸는데 "왜 다른 정렬 방식 대신 이 방식을
+# 선택했는지" 라는 질문이 나왔고, 모범답이 "경로(위계)에서 '수면의 질 > 회복'으로
+# 표시되어 있습니다" 를 근거로 들었다. 그 위계는 F-07 이 추론한 것이라 발표자는
+# 본 적이 없다 — 원리적으로 답할 수 없는 답이 된다.
+# ---------------------------------------------------------------------------
+
+def test_gist_citing_our_scaffold_falls_back_to_material():
+    """발판을 근거로 인용한 모범답은 버리고 자료로 만든 문장으로 내린다."""
+    doc = doc_of(questions_payload({
+        "node_id": "c1",
+        "question": "회복이 무엇을 포함하는지 설명해 주세요.",
+        "why": "핵심 개념이라서",
+        "hint": "자료를 보세요",
+        "answer_gist": "경로(위계)에서 '수면의 질 > 회복'으로 표시되어 있습니다.",
+    }))
+    q = next(x for x in doc.questions if x.node_id == "c1")
+
+    assert "경로(위계)" not in q.answer_gist
+    assert q.answer_gist, "버리기만 하고 비워 두면 「답 보고 넘어가기」가 빈 카드가 된다"
+    # 질문 문장은 멀쩡했으므로 그대로 살아야 한다 — 통째로 버리지 않는다
+    assert q.question == "회복이 무엇을 포함하는지 설명해 주세요."
+
+
+def test_question_asking_about_our_arrangement_falls_back():
+    """배치를 방어하라는 질문도 버린다 — 발표자가 하지 않은 선택이다."""
+    doc = doc_of(questions_payload({
+        "node_id": "c1",
+        "question": "연결=A, B 로 묶으셨는데 왜 이렇게 하셨나요?",
+        "answer_gist": "자료에 나온 대로 설명하면 됩니다.",
+    }))
+    q = next(x for x in doc.questions if x.node_id == "c1")
+
+    assert "연결=" not in q.question
+    assert q.question, "질문이 비면 그 개념을 아예 못 묻는다"
+
+
+def test_material_words_that_look_like_scaffold_survive():
+    """자료가 실제로 쓰는 말('정렬'·'경로')까지 막으면 안 된다 — 인용 꼴만 잡는다."""
+    from chuckchuck.f08_questions import _cites_scaffold
+
+    assert not _cites_scaffold("정렬 방식이 표현 학습에 어떤 영향을 주나요?")
+    assert not _cites_scaffold("최단 경로 알고리즘을 왜 골랐나요?")
+    assert _cites_scaffold("경로(위계)에서 상위로 표시되어 있습니다")

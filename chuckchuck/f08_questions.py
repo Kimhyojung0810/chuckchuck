@@ -937,6 +937,35 @@ def _fallback_gist(node: ConceptNode, *, trap: bool = False) -> str:
     return summary
 
 
+#: 프롬프트 발판을 **인용한** 자리를 잡는 표지.
+#:
+#: `_build_question_prompt` 이 개념마다 "경로=A > B · 연결=C, D" 를 넣는데, 그건
+#: 우리가 자료를 읽고 추론한 것이지 자료에 그려진 것도 발표자가 고른 것도 아니다.
+#: LLM 이 그걸 자료인 줄 알고 근거로 옮기면 **발표자가 본 적 없는 것을 근거로 든
+#: 답**이 된다 (2026-08-08: "경로(위계)에서 '수면의 질 > 회복'으로 표시되어
+#: 있습니다"). 프롬프트로 금지했지만 부탁일 뿐이라, 새어 나온 것은 여기서 버린다.
+#:
+#: **낱말이 아니라 인용 꼴로 잡는다.** '정렬'·'경로'·'연결' 은 자료가 실제로 쓰는
+#: 말일 수 있다 (IMU2CLIP 의 '정렬', 네트워크 발표의 '경로'). 우리 발판을 가리킬
+#: 때만 나오는 모양새여야 오검출이 없다.
+_SCAFFOLD_CITED = (
+    "경로(위계)",
+    "경로=",
+    "연결=",
+    "경로에서",
+    "경로에 표시",
+    "위계에서",
+    "위계로 표시",
+    "그래프에서 표시",
+)
+
+
+def _cites_scaffold(text: str) -> bool:
+    """이 문장이 우리 프롬프트 발판을 근거로 인용했는가."""
+    t = (text or "").replace(" ", "")
+    return any(mark.replace(" ", "") in t for mark in _SCAFFOLD_CITED)
+
+
 def _normalize_questions(
     raw_questions: list[dict],
     marks: list[TriageMark],
@@ -966,11 +995,20 @@ def _normalize_questions(
             node, mark, (flow_of or {}).get(mark.node_id)
         )
 
+        # 발판을 근거로 인용한 문장은 없는 것으로 친다 — 아래 `or` 가 결정적
+        # 템플릿으로 떨어뜨린다. 자료로 만든 문장이 발판 인용보다 언제나 낫다.
+        written_q = _clip(str(raw.get("question", "") or ""))
+        written_gist = _clip(str(raw.get("answer_gist", "") or ""))
+        if _cites_scaffold(written_q):
+            written_q = ""
+        if _cites_scaffold(written_gist):
+            written_gist = ""
+
         questions.append(Question(
             id=f"q{mark.rank:02d}-{mark.node_id}",
             node_id=mark.node_id,
             label=node.label,
-            question=_clip(str(raw.get("question", "") or "")) or fb_question,
+            question=written_q or fb_question,
             why=_clip(str(raw.get("why", "") or "")) or fb_why,
             hint=_clip(str(raw.get("hint", "") or "")) or fb_hint,
             severity=mark.severity,
@@ -978,10 +1016,7 @@ def _normalize_questions(
             source=mark.source,
             slide_nos=list(node.slide_nos),
             doc_weight=mark.doc_weight,
-            answer_gist=(
-                _clip(str(raw.get("answer_gist", "") or ""))
-                or _fallback_gist(node, trap=mark.trap)
-            ),
+            answer_gist=written_gist or _fallback_gist(node, trap=mark.trap),
         ))
     return questions
 
