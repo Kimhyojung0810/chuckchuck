@@ -99,10 +99,13 @@ class ScriptedLLM(LLMProvider):
         self.payload = payload
         self.calls = 0
         self.prompts: list[str] = []
+        #: 되묻기 단계는 system 으로 간다 (규칙 9 와 같은 층위여야 실 LLM 이 따른다)
+        self.systems: list[str] = []
 
     def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False) -> str:
         self.calls += 1
         self.prompts.append(user)
+        self.systems.append(system)
         return self.payload
 
 
@@ -753,8 +756,44 @@ def test_라운드가_오를수록_되묻기_단계가_좁아진다():
 def test_되묻기_단계가_프롬프트에_실린다():
     llm = ScriptedLLM(payload(verdict="partial", score=60))
     judge_answer(make_question(), GOOD_ANSWER, prior_answers=["앞선 답"], llm=llm)
-    assert "되묻기 단계 — focus" in llm.prompts[0]
-    assert "예/아니오" in llm.prompts[0], "단계 지시가 없으면 LLM 이 넓이를 못 맞춘다"
+    # user 꼬리에 붙였더니 실 LLM 이 무시했다 — system 에서 규칙 9 와 같은 층위여야 한다
+    assert "[되묻기 단계 — focus]" in llm.systems[0]
+    assert "예/아니오" in llm.systems[0], "단계 지시가 없으면 LLM 이 넓이를 못 맞춘다"
+    assert "규칙 9 보다 우선한다" in llm.systems[0]
+
+
+def test_단계를_안_지킨_되묻기는_코드가_좁힌다():
+    """
+    프롬프트로 부탁만 해서는 안 좁혀진다 — 실 LLM(solar-pro3)이 2라운드에도
+    "…어떤 점에서 더 유리한가요?" 처럼 1라운드 넓이로 되물었다 (2026-08-08).
+    verdict·score 처럼 followup 의 **모양도 코드가 계약 안으로 밀어 넣는다.**
+    """
+    open_q = "대조 손실이 회귀 손실과 달리 어떤 점에서 더 유리한가요?"
+    focus = judge_of(
+        payload(verdict="partial", score=60, followup=open_q, missing_points=["근거 수치"]),
+        prior_answers=["답1"],
+    )
+    assert focus.probe_tier == "focus"
+    assert focus.followup != open_q, "열린 질문이 2라운드에 그대로 나가면 사다리가 안 좁혀진다"
+    assert focus.followup == "근거 수치 — 이건 자료에 있었나요, 없었나요?"
+
+
+def test_좁힌_질문은_LLM_문장을_그대로_쓴다():
+    """코드가 모양만 지킨다 — 계약을 지킨 문장까지 템플릿으로 덮으면 말이 딱딱해진다."""
+    narrow = "그건 자료에 있었나요, 없었나요?"
+    j = judge_of(
+        payload(verdict="partial", score=60, followup=narrow, missing_points=["근거 수치"]),
+        prior_answers=["답1"],
+    )
+    assert j.followup == narrow
+
+
+def test_1라운드_열린_질문은_그대로_둔다():
+    """probe 단계는 열린 질문이 맞는 모양이다 — 여기까지 좁히면 생각할 여지가 없다."""
+    open_q = "왜 그 방법을 고르셨는지 설명해 주시겠어요?"
+    j = judge_of(payload(verdict="partial", score=60, followup=open_q))
+    assert j.probe_tier == "probe"
+    assert j.followup == open_q
 
 
 def test_단계별_폴백_질문이_LLM_없이도_좁혀진다():

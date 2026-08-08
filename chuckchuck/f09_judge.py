@@ -95,14 +95,19 @@ _PROBE_TIER_BRIEF = {
         "발표자가 자기 말로 한 문단을 더 붙일 여지를 남겨 둔다."
     ),
     "focus": (
-        "2라운드다. 같은 넓이로 또 물으면 안 된다. **예/아니오나 둘 중 하나, "
-        "혹은 한 단어**로 답할 수 있을 만큼 좁혀라. 선택지를 질문 안에 넣어도 좋다. "
-        "발표자가 첫 발을 떼는 것이 목적이지 완결된 답을 받는 것이 목적이 아니다."
+        "2라운드다. 같은 넓이로 또 물으면 안 된다. followup 은 **예/아니오나 둘 중 "
+        "하나, 혹은 한 단어**로 답할 수 있어야 한다. **선택지를 질문 안에 넣어라.**\n"
+        "  쓸 수 있는 모양: \"A인가요, B인가요?\" · \"자료에 있었나요, 없었나요?\" · "
+        "\"한 단어로 말하면 무엇인가요?\"\n"
+        "  쓰면 안 되는 모양: \"왜 …인가요?\" · \"…는 무엇인가요?\" · \"설명해 주시겠어요?\"\n"
+        "  — 이건 1라운드의 넓이다. 좁혀 준다고 해 놓고 같은 벽을 다시 세우는 셈이다.\n"
+        "  발표자가 첫 발을 떼는 것이 목적이지 완결된 답을 받는 것이 목적이 아니다."
     ),
     "converge": (
-        "3라운드 이상이다. 여기서도 막히면 발표자는 지친다. **답을 거의 품은 확인 "
-        "질문**을 던져 마지막 한 걸음만 남겨라 — \"…때문이라고 보면 될까요?\" 처럼 "
-        "고개만 끄덕이면 되는 형태다. 그래도 정답 문장을 그대로 읽어 주지는 마라."
+        "3라운드 이상이다. 여기서도 막히면 발표자는 지친다. followup 은 **답을 거의 "
+        "품은 확인 질문**이어야 한다 — 고개만 끄덕이면 되게 마지막 한 걸음만 남겨라.\n"
+        "  쓸 수 있는 모양: \"…때문이라고 보면 될까요?\" · \"…라고 이해하면 맞을까요?\"\n"
+        "  쓰면 안 되는 모양: 열린 질문 전부. 정답 문장을 그대로 읽어 주지도 마라."
     ),
 }
 
@@ -113,12 +118,40 @@ _FOLLOWUP_BY_TIER = {
     "converge": "{point} 때문이라고 보면 될까요?",
 }
 
+#: 열린 질문의 표지. focus·converge 인데 이게 보이면 **단계를 안 지킨 문장**이다.
+#: 실측(2026-08-08, solar-pro3): 단계 지시를 user 꼬리에 붙여도, system 으로 올려도
+#: 2라운드에 "…어떤 점에서 더 유리한가요?" 처럼 1라운드와 같은 넓이로 되물었다.
+#: 프롬프트로 부탁만 해서는 사다리가 안 좁혀진다.
+_OPEN_QUESTION_RE = re.compile(r"왜\s|무엇|어떤\s|어떻게\s|설명해|말씀해\s*주|이유는")
+
+
+def _is_narrow(text: str) -> bool:
+    """
+    좁힌 질문인가 — 예/아니오·둘 중 하나·한 단어로 답할 수 있는 모양인가.
+
+    "한 단어로 말하면 무엇인가요?" 는 «무엇» 을 품지만 좁은 질문이다.
+    이 한 가지만 예외로 두고, 나머지는 열린 표지가 없으면 좁은 것으로 본다.
+    """
+    if "한 단어" in text:
+        return True
+    return not _OPEN_QUESTION_RE.search(text)
+
 SYSTEM_PROMPT = """당신은 발표 심사위원이다.
 방금 던진 질문에 발표자가 답했다. 그 답이 개념을 **실제로 방어했는지** 판정한다.
 
 되묻기로 여러 번에 나눠 답했다면 **그 답변들을 합쳐서** 본다.
 앞 턴에서 이미 말한 것을 다시 빠졌다고 하지 마라 — 마지막 한 마디만 채점하면
 좁혀 물은 쪽이 손해를 본다.
+
+**아래는 누적 답변이 있을 때(2턴 이상)만 적용한다.**
+여러 턴에 나눠서 골자의 요소를 **전부** 말했으면 good 이다. 한 턴에 다 담지
+못했다고 깎지 마라 — 되묻기의 목적은 발표자가 스스로 나머지를 꺼내게 하는
+것이고, 꺼냈으면 성공한 것이다. 끝내 good 을 못 받으면 아무리 답해도 못 이기는
+대화가 되고, 그러면 다음부터 시도하지 않는다.
+
+**첫 턴에는 이 규칙이 없다.** 아직 나눠 말한 것이 없으므로 평소대로 엄격히
+매겨라 — 첫 답에 무르면 되묻기가 시작조차 안 된다. 누적이든 아니든 골자의
+요소가 하나라도 안 나왔으면 partial 이다.
 
 verdict 는 다음 넷 중 하나다:
 - "good" (설득 완료): 개념을 자기 말로 정확히 설명했다. 근거도 댔다.
@@ -401,15 +434,21 @@ def _followup(
 
     폴백도 단계를 따른다. LLM 이 빠뜨렸다고 1라운드짜리 열린 질문을 3라운드에
     내면, 좁혀 주겠다고 해 놓고 같은 벽을 다시 세우는 셈이다.
+
+    그리고 **LLM 이 쓴 문장도 단계에 안 맞으면 버린다.** 프롬프트로 부탁만
+    해서는 안 좁혀지는 것을 실측으로 확인했다 (_OPEN_QUESTION_RE 주석 참고).
+    무엇을 물을지는 코드가 정하고 LLM 은 문장만 쓴다 — 문장이 계약을 안 지키면
+    코드가 쓴다. 이 모듈이 verdict·score 에 하는 것과 같은 일이다.
     """
     if mastered:
         return ""
 
+    point = points[0] if points else (question.label or "이 개념")
     written = _clip(str(data.get("followup", "") or ""))
-    if written:
+    # probe(1라운드)는 열린 질문이 맞는 모양이라 그대로 쓴다.
+    if written and (tier == "probe" or _is_narrow(written)):
         return written
 
-    point = points[0] if points else (question.label or "이 개념")
     shaped = _FOLLOWUP_BY_TIER.get(tier)
     if shaped:
         return _clip(shaped.format(point=point))
@@ -758,16 +797,22 @@ def judge_answer(
 
     # 되묻기 단계. 라운드가 오를수록 질문이 좁아져야 스스로 답에 닿는다 —
     # 같은 넓이로 세 번 물으면 압박이 아니라 반복이고, 사용자는 세 번째에 창을 닫는다.
+    #
+    # **system 에 싣는다.** 처음엔 user 프롬프트 꼬리에 붙였는데 실 LLM(solar-pro3)이
+    # 무시했다 — 2라운드 followup 이 "…유리한 점은 무엇인가요?" 로 나와 1라운드보다
+    # 오히려 넓어졌다(2026-08-08 실측). 규칙 9 가 system 에서 "빠진 지점 하나를 콕
+    # 집어" 라고 말하는데 단계 지시는 user 꼬리에 있으니, 같은 층위로 안 읽힌 것이다.
     tier = qa_probe_tier(round_no)
-    user += (
-        f"\n\n## 되묻기 단계 — {tier} ({round_no}번째 답변 / 최대 {QA_MAX_ROUNDS}라운드)\n"
-        f"{_PROBE_TIER_BRIEF[tier]}"
+    tier_brief = (
+        f"\n\n[되묻기 단계 — {tier}] ({round_no}번째 답변 / 최대 {QA_MAX_ROUNDS}라운드)\n"
+        f"{_PROBE_TIER_BRIEF[tier]}\n"
+        "이 단계 지시는 규칙 9 보다 우선한다. followup 의 넓이는 여기서 정한다."
     )
 
     try:
-        data = _call(engine, user)
+        data = _call(engine, user, extra_system=tier_brief)
     except JudgeError:
         # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
-        data = _call(engine, user, extra_system=JSON_RETRY_NUDGE)
+        data = _call(engine, user, extra_system=tier_brief + JSON_RETRY_NUDGE)
 
     return _normalize(data, question, engine.name, round_no)
