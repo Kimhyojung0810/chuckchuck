@@ -119,48 +119,104 @@ main > .verdict:first-child { margin-top: -24px; }
   width: 3px; height: 3px; border-radius: 50%; background: #52796C;
 }
 
+/* 7개를 똑같이 늘어놓던 자리다. 「이름 + 큰 숫자 + 막대 + 설명 한 줄」이 일곱 벌
+   서면서 기둥의 절반을 설명이 먹었고, 정작 결론(점수·한 줄 판정)이 스크롤 위로
+   밀려났다 (2026-08-08 지적). 주인공 하나(제일 낮은 축)만 카드로 세우고 나머지
+   여섯은 조용한 두 칸 목록으로 내린다 — 지우는 게 아니라 크기를 뺀다.
+   세로 한 줄짜리 흐름이라 flex-wrap 이 아니라 column 이다 (app.js dimsHtml). */
 .verdict-dims {
-  display: flex; flex-wrap: wrap; gap: 28px;
-  margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .16);
+  display: flex; flex-direction: column; gap: 14px;
+  margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, .16);
 }
-.verdict-dims .vd { flex: 1 1 104px; min-width: 0; }
-/* 채점표 클러스터 7개가 여기 들어온다 (예전 F-13 은 4개였다). flex-wrap 이 줄을
-   접어 주고, keep-all 이 '목적·청중 적합성' 을 글자 중간에서 끊지 않게 막는다. */
+/* keep-all 이 '목적·청중 적합성' 을 글자 중간에서 끊지 않게 막는다 */
 .verdict-dims .lb { display: block; color: #9FC9B6; font-size: 12px; font-weight: 600; word-break: keep-all; }
-.verdict-dims .vl { display: block; margin: 3px 0 8px; font-size: 20px; font-weight: 700; }
 .verdict-dims .bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .16); }
 
-/* 지표가 뭘 보는 건지 한 줄. 이름만 있으면 숫자가 무슨 뜻인지 안 읽힌다 */
+/* 지표가 뭘 보는 건지 한 줄. 이제 주인공 카드에만 붙는다 —
+   나머지 여섯은 같은 문장을 title 로 갖고 있다 (app.js dimsHtml) */
 .verdict-dims .hint {
-  display: block; margin-top: 8px;
-  color: #8FBCA9; font-size: 11px; line-height: 1.5; word-break: keep-all;
+  display: block; margin-top: 10px;
+  color: #BEE3D2; font-size: 13px; line-height: 1.5; word-break: keep-all;
 }
 
-/* 오늘 고칠 것 하나 — 제일 낮은 축을 앞으로 빼서 한 줄 전체를 준다.
-   order 로만 옮기므로 마크업의 클러스터 순서는 그대로다 (읽는 순서만 바뀐다) */
-/* .vd.vd-weak 로 붙이는 이유: tablet.css 가 뒤에 실리면서 같은 무게의
-   `.verdict-dims .vd { flex: 1 1 84px }` 로 폭을 덮어썼다. 한 칸 더 얹어 이긴다. */
+/* ── 주인공: 오늘 고칠 것 하나 ────────────────────────────────────────
+   마크업에서 이미 첫 번째라 order 가 필요 없다 (예전엔 order:-1 로 끌어올렸다).
+   tablet.css 가 뒤에 실리므로 거기서도 flex 값을 같이 걷어냈다. */
 .verdict-dims .vd.vd-weak {
-  order: -1; flex: 0 0 clamp(148px, 16%, 200px);
   position: relative;
-  margin-bottom: 4px; padding: 16px 18px 18px;
+  padding: 16px 18px 18px;
   border-radius: var(--r-inner, 16px);
   background: rgba(255, 255, 255, .08);
 }
 .verdict-dims .vd-weak .lb { color: #CBEBDC; font-size: 13px; }
-.verdict-dims .vd-weak .vl { margin: 4px 0 10px; font-size: 30px; }
+.verdict-dims .vd-weak .vl { display: block; margin: 4px 0 10px; font-size: 30px; font-weight: 700; }
 .verdict-dims .vd-weak .bar { height: 5px; border-radius: 3px; }
-.verdict-dims .vd-weak .hint { margin-top: 10px; color: #BEE3D2; font-size: 13px; }
 .verdict-dims .vd-tag {
   display: inline-block; margin-bottom: 10px;
   padding: 4px 10px; border-radius: 999px;
   background: var(--brand); color: #fff;
   font-size: 11px; font-weight: 700; white-space: nowrap;
 }
-/* 좁은 화면에서는 옆에 세울 자리가 없다. 한 줄을 통째로 준다 */
-@media (max-width: 720px) {
-  .verdict-dims .vd.vd-weak { flex: 1 1 100%; }
+
+/* ── 나머지 여섯: 이름과 숫자를 한 줄에, 막대는 그 아래 실선 한 겹 ──
+   숫자를 오른쪽 끝에 모아 세로로 정렬시킨다. 눈이 한 번에 훑고 지나가라고
+   만든 줄이지, 하나씩 읽으라고 만든 줄이 아니다. */
+.vd-rest { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+/* 이름·숫자는 한 줄(baseline 맞춤), 막대는 그 아래 두 칸을 가로지른다.
+   .lb 와 .vl 은 형제라 .lb 를 flex 로 만들어도 둘이 한 줄에 서지 않는다 —
+   줄을 만드는 건 .vd 쪽이다 */
+.vd-rest .vd {
+  min-width: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline; column-gap: 8px;
 }
+.vd-rest .vd .lb { font-size: 12px; }
+.vd-rest .vd .vl {
+  text-align: right; color: #fff;
+  font-size: 15px; font-weight: 700; letter-spacing: -.02em;
+}
+.vd-rest .vd .bar { grid-column: 1 / -1; margin-top: 6px; height: 2px; }
+/* 조용한 줄이라 막대 끝 점도 뺀다 — 여섯 개가 전부 점을 달면 소음이 된다 */
+.vd-rest .vd .bar i::after { display: none; }
+
+/* 기둥이 좁으면 두 칸이 이름을 글자 중간에서 끊는다. 한 칸으로 내린다 */
+@media (max-width: 400px) {
+  .vd-rest { grid-template-columns: 1fr; gap: 10px; }
+}
+
+/* ── 채점 근거·못 잰 항목 ──────────────────────────────────────────────
+   결론이 아니라 단서다. 예전엔 「채점표 v3 · 학교 프로젝트(교수 대상)」가 점수
+   바로 아래에, 안내 두 줄이 한 줄 판정 바로 아래에 같은 무게로 있어서 점수를
+   읽기 전에 먼저 읽혔다. 접어서 기둥 맨 아래로 내리되 **개수는 접힌 줄에 남긴다** —
+   못 잰 걸 안 보이게 치우면 리포트가 거짓말이 된다 (CLAUDE.md §4). 오히려 목록
+   안에 묻혀 있던 개수가 접힌 줄로 올라오면서 늘 보이게 됐다. */
+/* 근거 줄이 뒤에 붙으면 격자 바닥 여백(28px)은 그 줄이 대신한다.
+   안 걷으면 막대와 근거 사이가 44px 로 벌어져 남남처럼 보인다 */
+.verdict-grid:has(+ .verdict-basis) { padding-bottom: 0; }
+.verdict-basis {
+  position: relative; z-index: 2;
+  margin-top: 16px; padding-bottom: 24px;
+  color: #7FB3A2; font-size: 12px; font-weight: 500;
+}
+.verdict-basis.is-flat { margin: 16px 0 0; padding-bottom: 24px; }
+.verdict-basis summary {
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+}
+.verdict-basis summary::-webkit-details-marker { display: none; }
+.verdict-basis summary::after {
+  content: "＋"; margin-left: auto; color: #5E9683; font-size: 13px; font-weight: 400;
+}
+.verdict-basis[open] summary::after { content: "－"; }
+.verdict-basis summary:hover { color: #9FC9B6; }
+/* 개수는 접혀 있어도 읽힌다. 노랑은 샘플 경고(.verdict-note)와 같은 계열 —
+   "여기 아직 못 채운 게 있다" 는 같은 종류의 말이라 같은 색을 쓴다 */
+.verdict-basis .vb-count {
+  padding: 3px 9px; border-radius: 999px;
+  background: rgba(232, 201, 131, .16); color: #E8C983;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.verdict-basis .verdict-subnotes { margin-top: 10px; }
 /* 채운 끝에 점 하나. 막대가 7개라 별·잎을 달면 소음이 된다 — 점이 상한이다 */
 .verdict-dims .bar i {
   position: relative; display: block; height: 100%;

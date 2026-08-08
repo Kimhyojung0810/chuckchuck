@@ -3701,10 +3701,15 @@ function reportVerdict() {
           : real.score >= 60 ? '핵심은 전했고, 다듬을 곳이 보여요'
             : '다음 발표에서 더 좋아질 수 있어요',
       subnotes: real.notes,
-      // 어느 기준으로 매겼는지 숨기지 않는다. 폴백이면 폴백이라고 쓴다
-      delta: `<span class="prev num">${
-        real.isFallback ? '예전 방식' : '채점표 v3'
-      } · ${escapeHtml(real.situationLabel || real.basis)}</span>`,
+      excludedCount: real.excludedCount,
+      unmeasuredCount: real.unmeasuredCount,
+      /* 어느 기준으로 매겼는지 숨기지 않는다. 폴백이면 폴백이라고 쓴다.
+         다만 자리가 바뀌었다 — 점수 바로 아래(.prev)가 아니라 기둥 맨 아래
+         접힌 줄이다. 근거는 점수를 읽은 다음에 궁금해지는 것이지, 점수보다
+         먼저 읽어야 하는 게 아니다 (verdictBasisHtml). */
+      basis: `${real.isFallback ? '예전 방식' : '채점표 v3'} · ${
+        real.situationLabel || real.basis}`,
+      delta: '',
     };
   }
   const diff = s.score - s.prevScore;
@@ -3784,15 +3789,12 @@ async function renderReport() {
           </div>
           <div class="verdict-judgement">
             <h2>${escapeHtml(v.headline)}</h2>
-            ${(v.subnotes || []).length
-              ? `<ul class="verdict-subnotes">${v.subnotes
-                  .map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
-              : ''}
             <div class="verdict-dims">
               ${dimsHtml(v.dims)}
             </div>
           </div>
-        </div>` : ''}
+        </div>
+        ${verdictBasisHtml(v)}` : ''}
       </div>
       ${v.isSample ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마치고 자료와 발화를 맞춰 보면 내 결과로 바뀌어요.</p>` : ''}
     </section>
@@ -4117,9 +4119,11 @@ function rRubric() {
 function realSummary() {
   const sc = (reportOut() || {}).score;
   if (!sc || typeof sc.score !== 'number') return null;
+  /* 4번째 칸은 채점표의 클러스터 가중치(%)다. 「여기부터 보세요」가 동점을 만났을 때
+     배열 순서 대신 이걸로 고른다 (dimsHtml 주석). 화면에는 나오지 않는다 */
   const dims = (sc.clusters || [])
     .filter(c => c.status === 'scored')
-    .map(c => [c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '']);
+    .map(c => [c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '', c.weight || 0]);
   const notes = [];
   // 두 안내를 합치지 않는다 — '이 상황에서 안 봄'과 '이번에 못 잼'은 다른 말이다.
   // 문구는 부드럽게 바꾸되 개수는 그대로 — 못 잰 걸 숨기면 리포트가 거짓말이 된다
@@ -4135,6 +4139,10 @@ function realSummary() {
   if (sc.note) notes.push(sc.note);
   return {
     score: sc.score, dims, notes, basis: sc.basis,
+    // 접힌 줄에 개수를 남기려고 따로 센다 — 안내를 접어도 「못 잰 게 있다」는
+    // 사실은 접히면 안 된다 (CLAUDE.md §4 정직성)
+    excludedCount: (sc.excluded || []).length,
+    unmeasuredCount: (sc.unmeasured || []).length,
     situationLabel: sc.situation_label || '',
     isFallback: String(sc.rubric_version || '').endsWith('-fallback'),
     // 점수는 판결이 아니라 박수다 — 낮아도 응원(neutral)이지 우는 표정은 없다
@@ -4162,24 +4170,74 @@ const DIM_HINT = {
  *
  * 오늘 고칠 것은 하나다. 제일 낮은 축을 앞으로 빼서 크게 두고, 나머지는 그대로
  * 둔다. 낮은 축이 여럿이면 첫 번째만 표시한다 — 둘을 강조하면 강조가 아니다.
+ *
+ * 2026-08-08 — 기둥이 안 읽힌다는 지적. 원인은 7개가 전부 「이름 + 큰 숫자 + 막대
+ * + 설명 한 줄」로 똑같이 서 있던 것이다. 설명 일곱 줄이 기둥 높이의 절반을
+ * 먹으면서, 정작 결론(점수 · 한 줄 판정)이 스크롤 위로 밀려났다.
+ *
+ * 주인공은 하나다 (토스). 제일 낮은 축만 설명을 달고 카드로 서고, 나머지 여섯은
+ * 두 칸짜리 조용한 목록으로 내린다 — 지우는 게 아니라 크기를 뺀다. 설명은
+ * title 로 남겨서 눌러보지 않아도 마우스로 확인할 수 있다.
  */
 function dimsHtml(dims) {
   if (!dims || !dims.length) return '';
-  const weakest = Math.min(...dims.map(d => d[1]));
-  let tagged = false;
-  return dims.map((d) => {
-    const isWeak = !tagged && d[1] === weakest;
-    if (isWeak) tagged = true;
+  /* 동점이면 예전엔 배열 순서(=클러스터 정의 순서)로 앞의 것이 이겼다. 학교
+     프로젝트에서 논리 구조(23%)와 시간 관리(13%)가 나란히 0 이면 「여기부터
+     보세요」가 사실상 아무거나 골라진다는 뜻이다. 같은 점수면 채점 비중이 큰
+     쪽이 고칠 값어치도 크다 — 순서가 아니라 비중으로 고른다. */
+  const weakIdx = dims.reduce((best, d, i) => {
+    const [, score, , weight = 0] = d;
+    const [, bestScore, , bestWeight = 0] = dims[best];
+    if (score < bestScore) return i;
+    if (score === bestScore && weight > bestWeight) return i;
+    return best;
+  }, 0);
+
+  const cell = (d, isWeak) => {
     const hint = DIM_HINT[d[0]] || '';
     return `
-      <div class="vd${isWeak ? ' vd-weak' : ''}">
+      <div class="vd${isWeak ? ' vd-weak' : ''}"${hint && !isWeak ? ` title="${escapeHtml(hint)}"` : ''}>
         ${isWeak ? '<span class="vd-tag">여기부터 보세요</span>' : ''}
         <span class="lb">${escapeHtml(d[0])}</span>
         <span class="vl num">${d[1]}</span>
         <div class="bar"><i style="width:0" data-w="${d[1]}%"></i></div>
-        ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
+        ${isWeak && hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
       </div>`;
-  }).join('');
+  };
+
+  const rest = dims.filter((_, i) => i !== weakIdx);
+  return cell(dims[weakIdx], true)
+    + (rest.length ? `<div class="vd-rest">${rest.map(d => cell(d, false)).join('')}</div>` : '');
+}
+
+/**
+ * 채점 근거와 못 잰 항목.
+ *
+ * 이건 결론이 아니라 단서다. 「채점표 v3 · 학교 프로젝트(교수 대상)」와 안내 두
+ * 줄이 42점 바로 옆·아래에 같은 무게로 서 있어서, 점수를 읽기 전에 먼저 읽혔다.
+ * 접어 두되 **개수는 접힌 줄에 남긴다** — 못 잰 걸 안 보이게 치우면 리포트가
+ * 거짓말이 된다 (CLAUDE.md §4). 오히려 지금까지 목록 안에 묻혀 있던 개수가
+ * 접힌 줄로 올라오면서 늘 보이게 된다.
+ */
+function verdictBasisHtml(v) {
+  if (!v.basis) return '';
+  const notes = v.subnotes || [];
+  if (!notes.length) {
+    return `<p class="verdict-basis is-flat">${escapeHtml(v.basis)}</p>`;
+  }
+  const missed = [
+    v.excludedCount ? `안 본 항목 ${v.excludedCount}개` : '',
+    v.unmeasuredCount ? `못 잰 항목 ${v.unmeasuredCount}개` : '',
+  ].filter(Boolean).join(' · ');
+  return `
+    <details class="verdict-basis">
+      <summary>
+        <span class="vb-basis">${escapeHtml(v.basis)}</span>
+        ${missed ? `<span class="vb-count">${escapeHtml(missed)}</span>` : ''}
+      </summary>
+      <ul class="verdict-subnotes">${notes
+        .map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>
+    </details>`;
 }
 
 /* 점수 옆에 앉는 한 마리. 엑씨(헤드폰)는 발표를 귀로 들은 관객이라
@@ -4512,6 +4570,31 @@ function rSummary() {
     ? (real.notes.length ? real.notes.join(' · ') : '자료와 발표를 대조한 결과예요')
     : s.oneLiner;
   const nextLabel = (trophy && trophy.label) ? trophy.label : '약한 개념';
+
+  /* 접힌 줄이 「개념별 판정 전체 보기」 다섯 글자뿐이라, 열어 볼 값어치가 있는지
+     알 수가 없었다. 몇 개가 들어 있고 그중 다시 볼 게 몇 개인지를 접힌 채로
+     보여준다 — 여는 수고를 하기 전에 열지 말지를 정할 수 있어야 한다. */
+  const judgeRows = isRealTree ? tree : (live ? [] : DATA.tree);
+  const judgeRedo = judgeRows.filter(n => n.status === 'no' || n.status === 'ct').length;
+  const judgeMeta = judgeRows.length
+    ? `${judgeRows.length}개${judgeRedo ? ` · 다시 볼 곳 ${judgeRedo}개` : ''}`
+    : '';
+  const judgeFold = `
+    <details class="fold judge-fold">
+      <summary>
+        <span>개념별 판정 전체 보기</span>
+        ${judgeMeta ? `<span class="fold-meta num">${judgeMeta}</span>` : ''}
+      </summary>
+      <div class="fold-body">
+        ${judgeRows.map(n => `
+        <div class="mini-row" data-node="${n.id}">
+          <span class="dot st-${n.status}"></span>
+          <span class="lbl" style="${n.depth === 2 ? 'padding-left:16px' : ''}">${escapeHtml(n.label)}</span>
+          <span class="sl">${slideNumber(n.slide)}번 슬라이드</span>
+          ${chip(n.status, true)}
+        </div>`).join('') || '<p class="note">표시할 개념 판정이 없어요.</p>'}
+      </div>
+    </details>`;
   // 점수·차원·한 줄 판단은 판정 헤드(renderReport)로 올라갔다 — 여기서 다시 그리지 않는다
   /* 질문 코칭 내역이 맨 위에 있었다. 요약 탭의 주인공은 이번 발표 자체인데,
      열면 코칭 기록 다섯 줄(332px)을 지나야 내 발표가 나왔다 — 코칭은 발표
@@ -4546,6 +4629,8 @@ function rSummary() {
       </div>
     </div>
 
+    ${judgeFold}
+
     ${qaHistoryPanelHtml()}
 
     ${(!live && prio && prio[0]) ? `
@@ -4567,20 +4652,11 @@ function rSummary() {
         <a class="btn btn-primary" href="#/new">새 발표 연습</a>
         <a class="btn btn-tint" href="#/qa" style="background:#fff">질문 연습 다시 하기</a>
       </div>
-    </div>
-
-    <details class="fold">
-      <summary>개념별 판정 전체 보기</summary>
-      <div class="fold-body">
-        ${(isRealTree ? tree : (live ? [] : DATA.tree)).map(n => `
-        <div class="mini-row" data-node="${n.id}">
-          <span class="dot st-${n.status}"></span>
-          <span class="lbl" style="${n.depth === 2 ? 'padding-left:16px' : ''}">${escapeHtml(n.label)}</span>
-          <span class="sl">${slideNumber(n.slide)}번 슬라이드</span>
-          ${chip(n.status, true)}
-        </div>`).join('') || '<p class="note">표시할 개념 판정이 없어요.</p>'}
-      </div>
-    </details>`;
+    </div>`;
+  /* 개념별 판정 묶음은 next-card 아래에 있었다. 「새 발표 연습」 버튼이 페이지의
+     끝처럼 읽히는 자리라, 그 밑에 뭘 두든 안 열린다. 다루는 내용도 바로 위
+     「슬라이드로 보는 발표」와 같은 것(이 발표의 개념들)이라 붙여 두는 게 맞다 —
+     범례가 설명한 판정 5종의 전체 목록이 곧 이 묶음이다. CTA 는 맨 뒤로 보낸다. */
   const trophyEl = $('#trophyStrip');
   if (trophyEl) trophyEl.addEventListener('click', (e) => {
     selectDeckSlide(Number(e.currentTarget.dataset.slide) || (trophy && trophy.slide) || 1);

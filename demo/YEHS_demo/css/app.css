@@ -785,6 +785,12 @@ details.fold summary {
   cursor: pointer; padding: 18px 24px; font-size: 15px; font-weight: 600;
   list-style: none; display: flex; justify-content: space-between; align-items: center;
 }
+/* 접힌 채로 "안에 뭐가 몇 개 있는지" 를 말하는 줄. 열어 볼 값어치를
+   열어 보기 전에 알 수 있어야 한다 (app.js rSummary judgeMeta) */
+details.fold summary .fold-meta {
+  margin-left: auto; margin-right: 12px;
+  color: var(--text-3); font-size: 13px; font-weight: 500;
+}
 details.fold summary::-webkit-details-marker { display: none; }
 details.fold summary::after { content: "＋"; color: var(--text-3); font-weight: 400; font-size: 16px; }
 details.fold[open] summary::after { content: "－"; }
@@ -2570,15 +2576,18 @@ table.plain tr:last-child td { border-bottom: 0; }
 
    무엇을 깎는가: 숫자 7개와 막대는 전부 남긴다(§14 — 숫자는 신성하다).
    항목마다 붙던 설명 한 줄만 접는다. 그건 측정값이 아니라 고정 안내문이고,
-   「제일 낮은 항목」에는 그대로 남으므로 무엇부터 볼지는 여전히 읽힌다. */
+   「제일 낮은 항목」에는 그대로 남으므로 무엇부터 볼지는 여전히 읽힌다.
+
+   2026-08-08 — 설명 줄을 접는 일은 이제 마크업이 한다 (app.js dimsHtml 이
+   최약 항목에만 .hint 를 낸다). 여기 남은 건 간격을 깎는 몫뿐이다. */
 @media (max-width: 899px) {
   main.wide:has(#rbody) > .verdict { padding-top: 16px; }
-  /* 설명 줄은 최약 항목에만 남긴다 — 나머지 여섯은 숫자와 막대로 말한다 */
-  main.wide:has(#rbody) > .verdict .verdict-dims .vd:not(.vd-weak) .hint { display: none; }
   main.wide:has(#rbody) > .verdict .verdict-dims {
-    gap: 12px 18px; margin-top: 14px; padding-top: 12px;
+    gap: 11px; margin-top: 14px; padding-top: 12px;
   }
-  main.wide:has(#rbody) > .verdict .verdict-dims .vl { margin: 2px 0 6px; }
+  main.wide:has(#rbody) > .verdict .vd-rest { gap: 10px 16px; }
+  main.wide:has(#rbody) > .verdict .verdict-dims .vd-weak .vl { margin: 2px 0 8px; }
+  main.wide:has(#rbody) > .verdict .verdict-basis { margin-top: 12px; padding-bottom: 16px; }
   main.wide:has(#rbody) > .verdict .verdict-grid { gap: 12px; margin-top: 12px; }
   main.wide:has(#rbody) > .verdict .verdict-title { margin-top: 4px; }
   /* 파형은 절대 배치라 높이를 안 먹지만, 헤드가 얕아지면 아래로 흘러 넘친다 */

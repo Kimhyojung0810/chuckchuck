@@ -516,7 +516,7 @@
        예산은 764px 다 — 잘라내면 아래 항목이 소리 없이 사라진다(§4).
        기둥 안에서 스크롤하게 두면 스크롤바가 "아래 더 있다"를 말해 준다.
        읽는 순서가 이미 맞다: 점수 → 한 줄 판정 → 제일 낮은 항목 카드
-       (design-system.css:143 이 order:-1 로 앞에 뺀다) → 나머지 여섯 개.
+       (app.js dimsHtml 이 마크업에서 먼저 낸다) → 나머지 여섯 개 → 채점 근거.
        부스에서 스크롤 없이 보이는 세 가지가 곧 이 화면의 결론이다 */
     max-height: 100%;
     overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
@@ -526,16 +526,28 @@
     grid-template-columns: 1fr; gap: 14px; margin-top: 12px; padding-bottom: 0;
   }
   /* 28px 이던 항목 간격은 한 줄에 다섯 개가 서던 전면폭 기준이다.
-     기둥에서는 두 개씩 서므로 그만큼이 그대로 세로 낭비가 된다 */
+     기둥에서는 세로로 쌓이므로 그만큼이 그대로 세로 낭비가 된다.
+     ⚠ 예전 이 자리에는 `.vd { flex: 1 1 96px }` 과 `.vd-weak { flex: 1 1 100% }`
+     이 있었다. .verdict-dims 가 flex-wrap 에서 column 으로 바뀌었으므로 그대로
+     두면 flex-basis 100% 가 **높이** 100% 로 읽혀 카드 하나가 기둥을 다 먹는다.
+     지금 폭을 정하는 건 .vd-rest 의 grid 다 (design-system.css). */
   main.wide:has(#rbody) > .verdict .verdict-dims {
-    gap: 14px 20px; margin-top: 16px; padding-top: 14px;
+    gap: 12px; margin-top: 16px; padding-top: 14px;
   }
-  main.wide:has(#rbody) > .verdict .verdict-dims .vd { flex: 1 1 96px; }
-  main.wide:has(#rbody) > .verdict .verdict-dims .hint { margin-top: 5px; }
   /* 제일 낮은 항목 카드는 기둥 한 줄을 통째로 쓴다 — 옆에 세울 자리가 없다 */
   main.wide:has(#rbody) > .verdict .verdict-dims .vd.vd-weak {
-    flex: 1 1 100%; margin-bottom: 0; padding: 13px 15px 15px;
+    padding: 13px 15px 15px;
   }
+  main.wide:has(#rbody) > .verdict .verdict-dims .vd-weak .hint { margin-top: 8px; }
+  main.wide:has(#rbody) > .verdict .vd-rest { gap: 10px 16px; }
+  /* 1024 에서 기둥은 300px 까지 좁아진다. 두 칸이면 '목적·청중 적합성' 이
+     세 줄로 접혀서 줄인 높이를 도로 토해낸다 — 한 칸으로 내린다 */
+  @media (max-width: 1180px) {
+    main.wide:has(#rbody) > .verdict .vd-rest { grid-template-columns: 1fr; gap: 9px; }
+  }
+  /* 근거는 기둥 스크롤 맨 아래다. 바닥 여백을 줄여 한 화면에 더 들어오게 한다 */
+  main.wide:has(#rbody) > .verdict .verdict-basis,
+  main.wide:has(#rbody) > .verdict .verdict-basis.is-flat { padding-bottom: 6px; }
   /* 샘플 표시는 스크롤 밖으로도, 접힌 선 아래로도 밀려나면 안 된다 —
      둘 중 하나라도 걸리면 샘플 숫자만 남고 "샘플"이라는 말이 사라진다(§4 정직성).
      마크업상 맨 끝(app.js:3384)이라 바닥에 붙이면 786px 에 앉아 부스 가림선
