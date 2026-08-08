@@ -539,12 +539,10 @@
     padding: 13px 15px 15px;
   }
   main.wide:has(#rbody) > .verdict .verdict-dims .vd-weak .hint { margin-top: 8px; }
-  main.wide:has(#rbody) > .verdict .vd-rest { gap: 10px 16px; }
-  /* 1024 에서 기둥은 300px 까지 좁아진다. 두 칸이면 '목적·청중 적합성' 이
-     세 줄로 접혀서 줄인 높이를 도로 토해낸다 — 한 칸으로 내린다 */
-  @media (max-width: 1180px) {
-    main.wide:has(#rbody) > .verdict .vd-rest { grid-template-columns: 1fr; gap: 9px; }
-  }
+  /* 1024 에서 기둥은 300px 까지 좁아진다. 한때 여기서 한 칸으로 내렸는데,
+     그러면 여섯 줄이 세로로 쌓여 기둥이 도로 길어졌다 — 이름이 두 줄로 접혀도
+     두 칸(세 줄)이 한 칸(여섯 줄)보다 낮다. 칸 사이만 좁혀서 이름에 자리를 준다 */
+  main.wide:has(#rbody) > .verdict .vd-rest { gap: 10px 12px; }
   /* 근거는 기둥 스크롤 맨 아래다. 바닥 여백을 줄여 한 화면에 더 들어오게 한다 */
   main.wide:has(#rbody) > .verdict .verdict-basis,
   main.wide:has(#rbody) > .verdict .verdict-basis.is-flat { padding-bottom: 6px; }
