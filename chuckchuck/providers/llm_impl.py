@@ -264,16 +264,42 @@ class MockLLM(LLMProvider):
         return json.dumps({"questions": questions}, ensure_ascii=False)
 
     @staticmethod
+    def _judged_answer(user: str) -> str:
+        """
+        프롬프트에서 **이번에 판정할 답변**만 떼어 낸다.
+
+        두 가지를 놓치기 쉽다.
+
+        1. `_answer_block` 은 앞선 답이 있으면 머리글을 통째로 바꾼다
+           (단발 「이번 답변」 → 누적 「이 질문에 대한 답변 (누적)」). 단발만 찾으면
+           되묻기 2턴째부터 마커를 못 만나 **프롬프트 전체**를 답변으로 세고,
+           길이 판정이 늘 good 으로 떨어진다 — 되묻기 경로가 전부 조용히 통과한다.
+        2. 답변 블록 뒤에는 골자·힌트·되묻기 단계 같은 절이 더 붙는다. 마커 뒤를
+           통째로 세면 프롬프트에 절을 하나 더할 때마다 "짧은 답" 이 저절로 길어진다.
+
+        그래서 **다음 절 머리에서 끊고**, 누적 블록이면 마지막 턴 줄만 읽는다.
+        """
+        solo = "## 이번 답변 — 이것을 판정하라"
+        if solo in user:
+            return user.split(solo, 1)[-1].split("\n##", 1)[0].strip()
+
+        accumulated = "## 이 질문에 대한 답변 (누적)"
+        if accumulated in user:
+            block = user.split(accumulated, 1)[-1].split("\n##", 1)[0]
+            lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+            # 첫 줄은 머리글 꼬리(「— 전체를 합쳐서 판정하라」), 그 뒤가 「N턴: …」 이다.
+            last = lines[-1] if lines else ""
+            return last.split(":", 1)[-1].strip() if ":" in last else last
+
+        return ""
+
+    @staticmethod
     def _mock_judge(user: str) -> str:
         """
         F-09 용 가짜 판정. 답변 길이로 verdict 를 가른다 —
         길게 답하면 good, 짧으면 partial. score 는 일부러 비워 폴백 경로를 태운다.
         """
-        # 답변 블록만 떼어 낸다. 뒤에는 골자·힌트·되묻기 단계 같은 다른 절이 더
-        # 붙으므로, 마커 뒤를 통째로 세면 프롬프트에 절을 하나 더할 때마다
-        # "짧은 답" 이 저절로 길어져 mock 이 조용히 good 으로 돌아선다.
-        tail = user.split("## 이번 답변 — 이것을 판정하라", 1)[-1]
-        answer = tail.split("\n##", 1)[0].strip()
+        answer = MockLLM._judged_answer(user)
         verdict = "good" if len(answer) >= 20 else "partial"
         return json.dumps(
             {

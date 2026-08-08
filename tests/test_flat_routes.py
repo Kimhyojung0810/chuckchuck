@@ -179,3 +179,45 @@ def test_judge_response_carries_multiturn_fields(client, artifacts):
     assert body["passed"] is False, "짧은 답이 통과하면 되묻기가 영영 안 걸린다"
     assert body["followup"].strip(), "되물을 질문이 없으면 사용자가 갇힌다"
     assert len(body["hints"]) >= 2
+
+
+def test_judge_escalates_probe_tier_across_rounds(client, artifacts):
+    """
+    라운드가 HTTP 를 건너 서버까지 도달하는지.
+
+    되묻기 사다리 전체가 `prior_answers` 하나에 걸려 있다. 프론트는 camelCase
+    (`priorAnswers`)로 부르고 SDK 가 snake_case 로 바꿔 보내는데, 이 연결이
+    끊기면 `round_no` 가 영원히 1 로 굳는다. 그러면 단계는 늘 probe 라 질문이
+    안 좁혀지고, 자동 힌트도 안 열리고, 무엇보다 **QA_MAX_ROUNDS 안전판이
+    죽어서** partial 답변이 무한히 되묻힌다.
+
+    화면만 봐서는 못 잡는다 — 프론트가 `mastered` 가 없으면 `passed` 로
+    되돌아가게 짜여 있어서, 계약이 끊겨도 옛날처럼 멀쩡히 도는 것처럼 보인다.
+    그래서 판정 내용이 아니라 **필드가 왕복하는지**를 여기서 못 박는다.
+    """
+    question = artifacts["question_doc"]["questions"][0]
+
+    def judge(prior):
+        res = client.post(
+            "/api/v1/sessions/flat/qa/judge",
+            json={
+                "question_id": question["id"],
+                "question": question,
+                "answer": "짧게",          # mock 은 짧은 답을 partial 로 본다 → 되묻는 경로
+                "history": [],
+                "prior_answers": prior,
+                "llm": "mock",
+            },
+        )
+        assert res.status_code == 200, res.text
+        return res.json()
+
+    first = judge([])
+    assert first["round_no"] == 1
+    assert first["probe_tier"] == "probe", "첫 답은 열린 질문으로 되묻는다"
+    assert first["mastered"] is False, "절반 맞힌 답에서 대화가 닫히면 루프가 안 돈다"
+
+    second = judge(["앞선 답"])
+    assert second["round_no"] == 2
+    assert second["probe_tier"] == "focus", "2라운드는 좁혀 물어야 한다"
+    assert second["followup"].strip()
