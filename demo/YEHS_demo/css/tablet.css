@@ -494,8 +494,13 @@
   main.wide:has(#rbody) {
     height: var(--app-h);
     display: grid;
-    /* 왼쪽 기둥은 1024 에서 300px, 1366 에서 374px */
-    grid-template-columns: clamp(300px, 29%, 400px) minmax(0, 1fr);
+    /* 왼쪽 기둥은 1024 에서 300px, 1366 에서 374px.
+       ⚠ % 의 기준은 뷰포트가 아니라 main 의 폭이다. 1366 짜리 아이패드에서
+       왼쪽 내비(254px)를 빼면 main 은 1074px 이라 29% 는 311px — 기둥이 늘
+       바닥값(300px)에 붙어 있었다. 주석이 말하는 374px 이 한 번도 안 나왔다.
+       34% 로 올리면 1074×.34 = 365px 로 의도대로 선다. 좁은 쪽은 clamp 의
+       바닥이 그대로 막아 주므로 1024 에서는 달라지지 않는다. */
+    grid-template-columns: clamp(300px, 34%, 400px) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       "head tabs"
@@ -508,7 +513,11 @@
   main.wide:has(#rbody) > .verdict,
   main.wide:has(#rbody) > .verdict:first-child {
     grid-area: head;
-    align-self: start;
+    /* start 였다. 1366×1024 에서 기둥 내용이 678px 인데 칸은 960px 이라 아래쪽
+       282px 이 통째로 빈 배경이었다 — 화면이 "만들다 만" 것처럼 보였다.
+       면을 칸 높이만큼 채운다. 내용은 위에 붙어 있고 아래는 조용한 여백이 된다.
+       내용이 칸보다 길면 max-height:100% + overflow-y 가 그대로 스크롤을 맡는다. */
+    align-self: stretch;
     margin: 0;
     padding: 18px 20px 14px;
     border-radius: var(--r-print);
@@ -543,9 +552,18 @@
      그러면 여섯 줄이 세로로 쌓여 기둥이 도로 길어졌다 — 이름이 두 줄로 접혀도
      두 칸(세 줄)이 한 칸(여섯 줄)보다 낮다. 칸 사이만 좁혀서 이름에 자리를 준다 */
   main.wide:has(#rbody) > .verdict .vd-rest { gap: 10px 12px; }
-  /* 근거는 기둥 스크롤 맨 아래다. 바닥 여백을 줄여 한 화면에 더 들어오게 한다 */
+  /* 기둥이 칸 높이만큼 늘어났으니(align-self:stretch) 남는 높이를 어디에 둘지
+     정해야 한다. 결론(점수·판정·항목)은 위에 붙이고 근거는 바닥에 붙인다 —
+     빈자리가 둘 사이의 여백이 되어, 남은 공간이 "덜 만든 자리"가 아니라
+     "머리말과 꼬리말 사이"로 읽힌다. 내용이 칸보다 길면 auto 는 밀 자리가
+     없으므로 아무 일도 안 일어나고 그대로 스크롤한다. */
+  main.wide:has(#rbody) > .verdict .verdict-inner {
+    display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;
+  }
   main.wide:has(#rbody) > .verdict .verdict-basis,
-  main.wide:has(#rbody) > .verdict .verdict-basis.is-flat { padding-bottom: 6px; }
+  main.wide:has(#rbody) > .verdict .verdict-basis.is-flat {
+    margin-top: auto; padding-top: 14px; padding-bottom: 2px;
+  }
   /* 샘플 표시는 스크롤 밖으로도, 접힌 선 아래로도 밀려나면 안 된다 —
      둘 중 하나라도 걸리면 샘플 숫자만 남고 "샘플"이라는 말이 사라진다(§4 정직성).
      마크업상 맨 끝(app.js:3384)이라 바닥에 붙이면 786px 에 앉아 부스 가림선
@@ -576,9 +594,25 @@
      넓은 시각 요소만 전체 폭을 쓴다 */
   #rbody {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    /* 320px 이던 최소폭. 1366×1024(아이패드 프로 가로)에서 오른쪽 칸은 687px 이라
+       320 기준으로는 두 단이 **간신히** 서고, 한 단이 334px 로 눌린다. 거기서
+       두 단은 이득이 아니다: 줄 높이는 둘 중 큰 카드가 정하는데, 질문 코칭
+       내역(599px) 옆에 개념 판정 묶음(79px)이 서면 왼쪽 칸에 566px 짜리 구멍이
+       뚫리고 그 아래에 CTA 가 앉는다 — 스크롤로 빈 화면을 지나가게 된다.
+       380 으로 올리면 687px 에서는 스스로 한 단이 되어 읽는 순서(슬라이드 →
+       개념 판정 → 질문 코칭 → CTA)가 그대로 세로로 선다. 더 넓은 화면에서는
+       여전히 두 단이다. */
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
     gap: 14px;
     align-items: start;
+    /* ⚠ 이 한 줄이 없으면 카드 사이에 빈 띠가 생긴다.
+       #rbody 는 높이가 고정된 스크롤러(grid-area:body, minmax(0,1fr))다. 격자의
+       align-content 기본값은 stretch 라, 내용이 칸보다 짧으면 남는 높이를 **줄들이
+       나눠 갖는다**. 거기에 align-items:start 가 카드를 줄 위쪽에 붙이니, 카드
+       아래마다 남은 높이만큼 빈자리가 남았다 — 1366×1024 에서 슬라이드 묶음과
+       아래 카드 사이가 14px 이 아니라 139px 이었다. 줄은 내용만큼만 차지하고,
+       남는 높이는 맨 아래에 한 번에 둔다. */
+    align-content: start;
   }
   #rbody > * { margin-top: 0 !important; }
   #rbody > h2,
@@ -590,6 +624,10 @@
   /* 음성 습관·연습 도구는 스스로 세로 한 줄이다 — 두 단으로 쪼개면 순서가 흐트러진다 */
   #rbody > .voice-stack,
   #rbody > .tool-sec,
+  /* 질문 코칭 내역은 7줄짜리 긴 목록이다. 좁은 한 단에 넣으면 옆 카드와 높이가
+     크게 어긋나 반대쪽 칸에 구멍이 남는다 — 두 단이 서는 넓은 화면에서도
+     이건 통째로 한 줄을 쓴다 */
+  #rbody > .qa-log,
   #rbody > .ai-note { grid-column: 1 / -1; }
   /* 카드가 하나뿐인 탭(청중 반응 등)은 한 단에만 앉으면 오른쪽이 통째로 빈다 */
   #rbody > *:only-child { grid-column: 1 / -1; }
