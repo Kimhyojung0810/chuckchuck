@@ -1199,7 +1199,33 @@ function slideCardHtml(n, title, body, { compact = false } = {}) {
     <div class="slide-doc-body">${bodyHtml}</div>
   </article>`;
 }
+/**
+ * 지금 올라와 있는 자료의 지문. 질문 코칭이 "이 질문들이 어느 자료 것인가" 를
+ * 이 값으로 기억한다.
+ *
+ * 자료 이름만으로는 부족하다 — 같은 이름으로 다시 뽑은 자료는 같은 자료가 맞고,
+ * 장수가 달라졌으면 다른 자료다. 둘을 같이 본다.
+ *
+ * 자료가 아직 없으면 빈 문자열이다. **빈 값은 판단에 쓰지 않는다** — 새로고침
+ * 직후처럼 nf 가 아직 안 찬 순간에 진행 중인 코칭을 지워 버리면 안 된다.
+ */
+function qaDocKey() {
+  const meta = (typeof nf !== 'undefined' && nf && nf.slideDocMeta) || null;
+  if (!meta || !meta.file_name) return '';
+  return `${meta.file_name}|${meta.total_slides || 0}`;
+}
+
 function applySlideDoc(doc, { keepDemoImages = false } = {}) {
+  /* 자료가 바뀌면 지난 발표의 질문 코칭을 버린다.
+     resetQa() 는 여태 「새 발표 연습」 버튼과 route() 의 nf.completed 가드에만
+     걸려 있었다. 그런데 nf.completed 는 qaLiveEnd() 만 세우므로, **코칭을 끝내지
+     않고** 새 자료를 올리면 아무 가드에도 안 걸렸다 — 새 분석이 끝나고 #/qa 로
+     가면 ensureLiveQuestions() 가 qaLiveActive() 만 보고 지난 발표의 질문·대화를
+     그대로 보여줬다 (2026-08-08 사용자 지적).
+     여기가 자료의 정체성이 바뀌는 유일한 지점이라, 업로드든 캐시 재사용이든
+     모든 경로가 이 한 곳을 지난다. */
+  const prevKey = qaDocKey();
+
   nfSlideDoc = doc;
   nf.fileName = doc.file_name || '발표자료';
   nf.slideDocMeta = {
@@ -1218,6 +1244,10 @@ function applySlideDoc(doc, { keepDemoImages = false } = {}) {
   nf.slide = 1;
   nf.visits = { 1: 1 };
   nf.log = [];
+
+  // 처음 올리는 자료(prevKey 없음)는 지울 것이 없다. 같은 자료를 다시 파싱한
+  // 경우도 지문이 같아 그냥 지나간다 — 캐시 재사용이 진행 중인 코칭을 날리면 안 된다.
+  if (prevKey && qaDocKey() !== prevKey) resetQa();
 }
 /** 원본 슬라이드 렌더가 붙기 전/불가능할 때 쓰는 빈 판. 파싱 텍스트를 넣지 않는다. */
 function slidePlaceholder(n) {
@@ -6248,7 +6278,8 @@ function ensureLiveQuestions() {
     if (qaBuildFailed) return;
     const questions = (doc && doc.questions) || [];
     if (questions.length) {
-      qa.live = newLiveState(FLAT_QA_SESSION_ID, questions);
+      // 어느 자료로 만든 질문인지 같이 새긴다 — 자료가 바뀌면 낡은 것이 된다.
+      qa.live = newLiveState(FLAT_QA_SESSION_ID, questions, qaDocKey());
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;

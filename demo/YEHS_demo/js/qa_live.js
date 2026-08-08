@@ -60,14 +60,40 @@ let liveMic = null;
  */
 let liveMicPending = '';
 
+/**
+ * 실시간 받아쓰기가 이 세션에서 이미 죽었는가.
+ *
+ * `hasLiveDictation()` 은 **생성자가 있는지만** 본다. 크롬은 그 생성자를 늘
+ * 노출하지만 실제 인식은 구글 서버로 나가므로, 망이 막히면 `onerror('network')`
+ * 로 죽는다. 그런데 다음에 마이크를 다시 눌러도 `hasLiveDictation()` 은 여전히
+ * true 라 **같은 길로 다시 들어가 똑같이 죽는다** — 부스에서 이게 걸리면 마이크가
+ * 통째로 못 쓰게 된다 (2026-08-07 "지금 녹음이 잘 안되는듯" 의 유력한 원인).
+ *
+ * 한 번 죽으면 이 세션 동안은 녹음 + 서버 STT 로 간다. 새로고침하면 다시 시도한다 —
+ * 망이 돌아왔을 수 있는데 영영 막아 둘 이유는 없다.
+ */
+let liveDictationDead = false;
+
 function qaLiveActive() {
-  return !!(qa.live && Array.isArray(qa.live.questions) && qa.live.questions.length);
+  const L = qa.live;
+  if (!L || !Array.isArray(L.questions) || !L.questions.length) return false;
+  /* 이 질문들이 지금 올라와 있는 자료의 것인가.
+     applySlideDoc 의 resetQa() 가 업로드 경로를 이미 막지만, 그 한 곳만 믿기엔
+     #/new 로 들어오는 길이 많다(뒤로가기·주소 직타·리포트 링크). 지문을 질문에
+     같이 붙여 두면 어느 길로 들어오든, 새로고침을 하든 같은 판단이 선다.
+     옛 세션엔 docKey 가 없다 — 그때는 안 따진다. 없는 값을 낡음으로 치면
+     진행 중인 코칭이 새로고침 한 번에 날아간다. */
+  const now = typeof qaDocKey === 'function' ? qaDocKey() : '';
+  if (L.docKey && now && L.docKey !== now) return false;
+  return true;
 }
 
-function newLiveState(sessionId, questions) {
+function newLiveState(sessionId, questions, docKey = '') {
   return {
     sessionId,
     questions,
+    // 이 질문을 만든 자료의 지문 (app.js qaDocKey). 자료가 바뀌면 낡은 것이 된다.
+    docKey,
     qi: 0,
     asked: -1,
     results: [],
@@ -646,33 +672,48 @@ async function toggleLiveMic() {
   }
   liveMicPending = 'opening';
   setMicBtn('opening', true);
-  if (window.ChuckchuckBridge.hasLiveDictation()) return startDictationMic();
+  // 받아쓰기가 이미 죽었으면 다시 시도하지 않는다 — 같은 오류로 또 죽고,
+  // 사용자는 마이크가 고장 난 줄 안다 (liveDictationDead 주석 참고).
+  if (!liveDictationDead && window.ChuckchuckBridge.hasLiveDictation()) {
+    return startDictationMic();
+  }
   return startRecordingMic();
 }
 
 /** 실시간 받아쓰기 — 말하는 중에 입력창이 채워진다. */
 function startDictationMic() {
   const ta = $('#liveAnswer');
-  // 이미 쳐 놓은 글은 기준선으로 잡아 둔다. 중간 결과가 올 때마다 통째로
-  // 다시 쓰기 때문에, 기준선을 안 두면 사용자가 친 글이 매번 지워진다.
-  const base = ((ta && ta.value) || '').trim();
+  /* 이미 쳐 놓은 글은 기준선으로 잡아 둔다. 중간 결과가 올 때마다 입력창을 통째로
+     다시 쓰기 때문에, 기준선을 안 두면 사용자가 친 글이 매번 지워진다.
+
+     기준선을 시작할 때 한 번만 잡으면 **말하는 도중에 타이핑한 글자**가 다음
+     중간 결과에 지워진다. 우리가 마지막으로 쓴 값을 같이 들고 있다가, 입력창이
+     그것과 다르면 사용자가 손댄 것으로 보고 기준선을 다시 잡는다. */
+  const pen = { base: ((ta && ta.value) || '').trim(), painted: null };
   try {
     liveMic = {
       dictation: true,
       session: window.ChuckchuckBridge.startLiveDictation({
-        onText: ({ final, interim }) => paintLiveAnswer(base, final + interim),
+        onText: ({ final, interim }) => paintLiveAnswer(pen, final + interim),
         onError: (msg) => {
           // 오류가 나면 인식기는 거기서 끝난다. 버튼을 안 되돌리면 이미 죽은
           // 세션에 「받아쓰기 멈추기」가 남아 사용자가 헛클릭한다.
           liveMic = null;
-          micSay(`${escapeHtml(msg)} — 타이핑으로 답하셔도 됩니다`);
+          // 여기 오는 오류(권한 거부·마이크 없음·망)는 다시 시작해도 같은 결과다.
+          // 표시해 두지 않으면 다음에 눌러도 같은 길로 들어가 똑같이 죽는다.
+          // 여기서 곧바로 녹음을 시작하지는 않는다 — onError 는 비동기라 사용자
+          // 조작 권한이 이미 풀렸을 수 있고, 그러면 getUserMedia 가 막힌다.
+          liveDictationDead = true;
+          micSay(`${escapeHtml(msg)} — 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 타이핑으로 답하셔도 됩니다`);
           setMicBtn('idle', !!(qa.live && qa.live.busy));
         },
       }),
     };
   } catch (err) {
     liveMicPending = '';
-    micSay(`받아쓰기를 시작하지 못했어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답하셔도 됩니다`);
+    // 시작조차 못 했으면 이 브라우저에서는 안 되는 것이다. 다음부터는 녹음으로 간다.
+    liveDictationDead = true;
+    micSay(`받아쓰기를 시작하지 못했어요: ${escapeHtml(err.message || String(err))} — 마이크를 한 번 더 누르면 녹음해서 받아쓸게요`);
     setMicBtn('idle');
     return;
   }
@@ -741,10 +782,17 @@ async function stopLiveMic() {
  * 실시간 받아쓰기가 입력창을 다시 그린다. 확정 전 조각까지 그대로 보여 줘야
  * "말하는 대로 나온다" 는 느낌이 산다 — 확정된 것만 그리면 뚝뚝 끊겨 보인다.
  */
-function paintLiveAnswer(base, spoken) {
+function paintLiveAnswer(pen, spoken) {
   const ta = $('#liveAnswer');
   if (!ta) return;
-  ta.value = base && spoken ? `${base} ${spoken}` : (base || spoken);
+  // 우리가 마지막으로 쓴 값과 다르면 그 사이에 사용자가 타이핑한 것이다.
+  // 그 글자를 새 기준선으로 삼는다 — 안 그러면 말하는 도중에 친 글이 지워진다.
+  if (pen.painted !== null && ta.value !== pen.painted) {
+    pen.base = ta.value.trim();
+  }
+  const next = pen.base && spoken ? `${pen.base} ${spoken}` : (pen.base || spoken);
+  ta.value = next;
+  pen.painted = next;
   ta.scrollTop = ta.scrollHeight;
 }
 
@@ -840,8 +888,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     } else {
       // 절반은 맞혔는데 또 물으면 뭘 더 말해야 하는지 모른 채 같은 답을 낸다.
       // 빠진 절반을 펼쳐 주고 되묻기는 그대로 이어 간다 (2026-08-08 사용자 요청).
-      if (v.verdict === 'partial') revealHalf(q, v);
-      askAgain(v, L.turn);
+      const shownMissing = v.verdict === 'partial' ? revealHalf(q, v) : false;
+      askAgain(v, L.turn, { skipMissing: shownMissing });
     }
   } catch (err) {
     hideCoachThinking();
@@ -962,9 +1010,11 @@ const TIER_META = {
   converge: '마지막 한 걸음이에요',
 };
 
-function askAgain(v, turn) {
+function askAgain(v, turn, { skipMissing = false } = {}) {
   const points = (v.missing_points || []).filter(Boolean);
-  if (points.length) {
+  // revealHalf 가 방금 같은 points 로 같은 말풍선을 붙였으면 또 붙이지 않는다 —
+  // 한 판정에 「빠진 것」이 연달아 두 번 뜨면 두 번째는 안 읽는다.
+  if (points.length && !skipMissing) {
     pushTurn({ who: 'ai', kind: 'missing', points: points.map(escapeHtml) });
   }
   const tier = v.probe_tier || 'probe';
@@ -1006,19 +1056,25 @@ function autoHint(tier) {
  *
  * 한 질문에 한 번만 연다. 라운드마다 같은 완성 문장을 다시 띄우면 스트림이 답으로
  * 도배되고, 세 번째쯤엔 읽지 않고 넘긴다.
+ *
+ * @returns {boolean} 「빠진 것」 말풍선을 여기서 이미 붙였는가.
+ *   바로 뒤에 오는 askAgain 이 같은 points 로 같은 말풍선을 한 번 더 밀어 넣어,
+ *   partial 판정마다 「빠진 것」이 연달아 두 번 떴다 (2026-08-08 revealHalf 를
+ *   넣으면서 생겼다). 누가 붙였는지는 호출자가 알 수 없으므로 여기서 알려 준다.
  */
 function revealHalf(q, v) {
   const L = qa.live;
-  if (L.halfShown) return;
+  if (L.halfShown) return false;
   const points = (v.missing_points || []).filter(Boolean).slice(0, 3);
   const answer = v.explanation || q.answer_gist || v.summary_sentence || '';
   // 둘 다 비면 열 것이 없다. 빈 카드를 띄우느니 되묻기만 이어 간다.
-  if (!points.length && !answer) return;
+  if (!points.length && !answer) return false;
   L.halfShown = true;
   // 닫을 때 같은 문장을 또 띄우지 않기 위해 원문을 남긴다 (finishLiveQuestion).
   L.halfGist = answer;
   if (points.length) pushTurn({ who: 'ai', kind: 'missing', points: points.map(escapeHtml) });
   if (answer) pushTurn({ who: 'ai', kind: 'gist', mid: true, text: escapeHtml(answer) });
+  return points.length > 0;
 }
 
 function closeLiveQuestion(record) {
@@ -1284,7 +1340,8 @@ function qaLiveEnd() {
   if (again) again.addEventListener('click', () => {
     const keep = qa.live;
     resetQa();
-    qa.live = newLiveState(keep.sessionId, keep.questions);
+    // 같은 자료의 같은 질문을 다시 푸는 것이라 지문도 그대로 물려받는다.
+    qa.live = newLiveState(keep.sessionId, keep.questions, keep.docKey || '');
     qa.started = true;
     saveSession('qa-flow', qa);
     renderQaLive();
