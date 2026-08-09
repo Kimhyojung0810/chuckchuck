@@ -2355,6 +2355,16 @@ table.plain tr:last-child td { border-bottom: 0; }
 .qa-live-input textarea:focus { background: var(--surface); border-color: var(--brand); }
 .qa-live-input .step-actions .qa-exit-action { margin-left: auto; color: var(--text-3); }
 
+/* 입력 카드는 줄이 둘이다 — 주 행동(답 보내기·마이크)과 보조(모르겠어요·힌트·
+   답 보기·여기까지). 예전엔 여섯이 한 줄에 섰는데, .step-actions 에 flex-wrap 이
+   없어 좁은 화면에서 서로를 눌러 버렸다. 무엇이 주인공인지 사라지고 실제로
+   마이크가 안 눌렸다 (MVP_SPEC §3 「한 화면의 주인공은 하나」).
+
+   보조 줄도 step-actions 클래스를 그대로 다는 이유: 판정 중 잠금이
+   `.qa-live-input .step-actions button` 으로 걸린다 (qa_live.js setLiveBusy).
+   떼면 판정 중에 「모르겠어요」·힌트가 계속 눌린다. */
+.qa-live-input .step-actions-sub { margin-top: 10px; flex-wrap: wrap; }
+
 /* 한 문제를 끝낼 때마다 멈추는 변화 확인 화면. */
 .qa-checkpoint { width: min(680px, calc(100% - 32px)); margin: 18px auto 44px; }
 .qa-check-hero { text-align: center; padding: 24px 12px 20px; }

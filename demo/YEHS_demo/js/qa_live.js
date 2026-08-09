@@ -432,6 +432,14 @@ function liveContextHtml() {
 /**
  * 입력 카드 속. 답을 보고 다시 말하는 중이면 **다른 카드가 된다** —
  * 같은 자리에 같은 문구를 두면 방금 답을 본 사람이 무엇을 해야 하는지 모른다.
+ *
+ * 버튼은 **두 줄**이다. 주 행동(답 보내기 · 마이크)만 첫 줄에 두고, 나머지
+ * (모르겠어요 · 힌트 · 답 보기 · 여기까지)는 보조 줄로 내린다. 한 줄에 여섯이
+ * 서면 주인공이 사라진다 (MVP_SPEC §3).
+ *
+ * **보조 줄에도 `step-actions` 를 남겨 둔다.** 판정 중 잠금이
+ * `.qa-live-input .step-actions button` 으로 걸려서(`setLiveBusy`), 클래스를
+ * 떼면 판정을 기다리는 동안 「모르겠어요」·힌트가 계속 눌린다.
  */
 function liveInputHtml() {
   const L = qa.live;
@@ -444,6 +452,8 @@ function liveInputHtml() {
       <div class="step-actions">
         <button class="btn btn-primary" id="liveSend" type="button">내 말로 말했어요</button>
         ${micBtnHTML(false)}
+      </div>
+      <div class="step-actions step-actions-sub">
         <button class="btn btn-text" id="liveSkipRetell" type="button">이건 건너뛰고 다음 질문</button>
         <button class="btn btn-text qa-exit-action" id="liveFinish" type="button">여기까지 하고 저장</button>
       </div>`;
@@ -456,6 +466,8 @@ function liveInputHtml() {
     <div class="step-actions">
       <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${liveSendLabel()}</button>
       ${micBtnHTML(L.busy)}
+    </div>
+    <div class="step-actions step-actions-sub">
       <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>${stuckLabel()}</button>
       ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
       ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 다시 말해보기</button>` : ''}
