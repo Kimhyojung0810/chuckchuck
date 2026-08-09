@@ -465,9 +465,12 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     const controls = g.controls();
     if (controls) {
       const wants = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-      // 한 바퀴에 40초쯤. 0.45 로 뒀더니 2.5초에 2px 라 멈춰 있는 것과 구별이
-      // 안 됐다 — 「돈다」가 눈에 보이되 읽는 걸 방해하지 않는 선이 이 근처다.
-      const base = compact ? 1.1 : 1.6;
+      /* 「돈다」가 눈에 보이되 읽는 걸 방해하지 않는 선.
+         작은 카드는 각속도가 같아도 화면에서 움직이는 픽셀이 훨씬 적다 —
+         1.1 로 뒀더니 2초에 2.5~4.6px 라 멈춘 것과 구별이 안 됐다. 그래서
+         compact 쪽을 오히려 더 빠르게 둔다(한 바퀴 ~20초). 전체 화면은
+         그림이 커서 1.6 으로도 충분히 보인다(~40초). */
+      const base = compact ? 3.0 : 1.6;
       controls.autoRotate = wants;
       controls.autoRotateSpeed = base;
       let idleAt = 0;
