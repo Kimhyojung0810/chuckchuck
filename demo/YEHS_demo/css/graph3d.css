@@ -130,3 +130,14 @@
    흐리게만 둔다. 사라지면 「연결이 없다」로 읽힌다. */
 .g3d-label.is-dim { opacity: .18 !important; }
 .g3d-clip { color: var(--text-3, #5b6b64); font-weight: 500; }
+
+/* 질문 생성 대기 화면의 개념 지도. 카드 안이 아니라 이미 카드인 화면에 얹는 거라
+   자체 테두리만 두고 여백은 위아래로만 준다. */
+.qb-graph { margin: 14px 0 4px; }
+.qb-graph .rep-graph-stage { height: 320px; margin-top: 10px; }
+/* 칩과 문장을 한 줄에 우겨넣지 않는다. 이 화면은 본문 글자가 커서 넷이 나란히
+   서면 문장이 칩 사이를 비집고 들어가 두 조각으로 끊긴다 — 「작업 맥락」과
+   「이 아직 말로 안 나왔어요」가 따로 놀았다. */
+.qb-graph .g3d-summary { padding: 0; }
+.qb-graph .g3d-lead,
+.qb-graph .g3d-clip { flex: 1 0 100%; font-size: 12.5px; }

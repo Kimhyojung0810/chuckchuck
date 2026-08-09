@@ -537,20 +537,6 @@ function mountReportGraph() {
   return mountGraphCard('repGraph');
 }
 
-/**
- * 분석 대기 화면(#/new 4단계)의 개념 지도.
- *
- * 「질문 코치로 넘어가기 전 로딩 화면에서 같이 보여주자」 (2026-08-10 지시).
- * 그 자리가 좋은 이유가 하나 더 있다 — 그래프와 정합이 **둘 다 끝난 뒤**라
- * 판정색까지 온전하다. 리포트 카드와 같은 무대를 쓴다.
- *
- * 그래프가 아직 없으면 아무것도 안 만든다. 분석 중에는 없는 게 정상이고,
- * 빈 판을 띄워 두면 「분석이 실패했나」로 읽힌다.
- */
-function mountWaitGraph() {
-  return mountGraphCard('waitGraph');
-}
-
 /** 두 자리가 같은 무대를 쓴다. 갈라지면 한쪽만 고쳐져 같은 그래프가 두 얼굴이 된다. */
 function mountGraphCard(prefix) {
   const stage = document.getElementById(`${prefix}Stage`);
@@ -592,6 +578,7 @@ function mountGraphCard(prefix) {
 
 window.renderGraph3D = renderGraph3D;
 window.mountReportGraph = mountReportGraph;
-window.mountWaitGraph = mountWaitGraph;
+/** 질문 생성 대기 화면(#/qa)의 개념 지도. 대기 화면과 같은 무대를 쓴다. */
+window.mountQaBuildGraph = () => mountGraphCard('qbGraph');
 /** 그래프가 있는가 — 대기 화면이 카드를 그릴지 말지 여기로 묻는다. */
 window.hasConceptGraph = () => !!graph3dSource();
