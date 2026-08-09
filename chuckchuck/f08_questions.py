@@ -21,6 +21,7 @@ triage 는 트랙과 무관하므로 **세션에 한 번만** 만들고 재사�
 from __future__ import annotations
 
 import os
+import re
 from itertools import groupby
 
 from ._json_text import extract_json_object
@@ -794,6 +795,103 @@ def triage_questions(
 # 2차 · 질문 문장
 # ---------------------------------------------------------------------------
 
+#: 골자가 이만큼 겹치면 「사실상 같은 질문」으로 본다 (토큰 Jaccard).
+#:
+#: 왜 필요한가 — 2026-08-08 실측(qa_judge_probe). 5분 트랙 질문 3개의 골자가
+#: 사실상 같아서, 한 번 제대로 답하면 **셋이 전부 good 85 로 닫혔다.** 사용자가
+#: "정답 판정이 너무 광범위하다" 고 느낀 실체가 이것이다 — 판정이 무른 게 아니라
+#: 질문이 같아서 아무 답이나 맞는 것처럼 보인다.
+#:
+#: 왜 0.20 인가 — **여기 쓰는 토크나이저로 직접 쟀다.** 측정 도구(qa_judge_probe)가
+#: 낸 0.40 은 그쪽 토크나이저의 값이라 그대로 옮기면 안 된다. 실제로 옮겼다가
+#: 쌍둥이 셋 중 둘을 놓쳤다:
+#:
+#:   실제 쌍둥이 (5분 트랙에서 셋이 다 닫히던 골자)   0.24 · 0.26 · 0.43
+#:   서로 다른 골자 6쌍                              0.00 ~ 0.04
+#:
+#: 진짜 쌍둥이와 무관한 골자 사이가 5배 넘게 벌어져 있어 0.20 이 안전하다.
+#: 오탐이 나도 손해가 작다 — `_drop_twin_questions` 가 개수를 안 줄이므로
+#: 다음 후보 질문(역시 멀쩡한 질문)으로 바뀔 뿐이다. 반대로 놓치면 버그가 남는다.
+QA_TWIN_GIST_MAX = 0.20
+
+#: 쌍둥이를 빼도 **개수가 안 줄도록** 미리 더 골라 두는 여유분.
+#:
+#: 짧은 트랙에만 준다. 5분은 후보 13개 중 가장 중심적인(= 서로 답이 겹치는)
+#: 상위 3개만 뽑아서 중복이 생긴다. 10분은 뒤쪽 후보까지 내려가 골자가 흩어지므로
+#: 여유분이 0이고, 그래서 **기본 시연 경로는 프롬프트 길이도 과금도 안 바뀐다.**
+#: 여유분이 0이면 쌍둥이를 찾아도 되채워 넣게 되어 결과가 종전과 완전히 같다.
+QA_TWIN_SLACK = 2
+QA_TWIN_SLACK_MAX_LIMIT = 3
+
+#: 조사·서술어는 어느 개념인지 못 가린다. 겹침을 재기 전에 턴다.
+_GIST_STOP = {
+    "그리고", "그래서", "하지만", "때문", "통해", "대한", "위해", "이것", "그것",
+    "있다", "없다", "한다", "된다", "하는", "되는", "이다", "라는", "면서",
+    "수도", "정도", "경우", "가지", "부분", "이런", "그런", "저런", "매우",
+}
+#: 토큰 끝에 붙은 조사 한 겹만 턴다. 형태소 분석기를 붙일 자리가 아니다 —
+#: 같은 개념이 "회복은/회복이/회복을" 로 갈리는 것만 막으면 충분하다.
+_GIST_JOSA = ("으로써", "으로서", "에서는", "에게서", "이라는", "라는", "으로", "에서",
+              "에게", "에는", "과는", "와는", "은", "는", "이", "가", "을", "를",
+              "의", "에", "도", "로", "와", "과", "만")
+
+
+def _twin_slack(limit: int) -> int:
+    """쌍둥이를 바꿔 넣을 여유분. 질문이 1개인 트랙엔 바꿔 넣을 자리가 없다."""
+    return QA_TWIN_SLACK if 1 < limit <= QA_TWIN_SLACK_MAX_LIMIT else 0
+
+
+def _gist_tokens(text: str) -> set[str]:
+    """골자 문장을 겹침 비교용 토큰 집합으로. LLM 을 부르지 않는다."""
+    out: set[str] = set()
+    for raw in re.findall(r"[가-힣A-Za-z0-9]+", str(text or "")):
+        tok = raw.lower()
+        for josa in _GIST_JOSA:
+            if len(tok) > len(josa) + 1 and tok.endswith(josa):
+                tok = tok[: -len(josa)]
+                break
+        if len(tok) >= 2 and tok not in _GIST_STOP:
+            out.add(tok)
+    return out
+
+
+def _gist_overlap(a: str, b: str) -> float:
+    """두 골자의 토큰 Jaccard. 한쪽이라도 비면 0 — 없는 근거로 안 버린다."""
+    ta, tb = _gist_tokens(a), _gist_tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def _drop_twin_questions(
+    questions: list[Question], limit: int
+) -> tuple[list[Question], list[str]]:
+    """
+    골자가 사실상 같은 질문을 뒤로 밀고, 상한만큼 돌려준다.
+
+    **개수는 절대 줄이지 않는다.** 쌍둥이를 빼서 상한에 못 미치면 밀어 둔 것을
+    도로 채운다. 여유분 없이 뺐다가는 10분 트랙 질문이 7개에서 6개가 되는데,
+    중복을 없애자고 기본 시연 경로의 내용을 깎는 것은 남는 장사가 아니다.
+    (여유분이 0인 트랙에서는 이 되채우기 때문에 결과가 종전과 완전히 같아진다.)
+
+    앞선 것을 남긴다 — marks 는 rank 순이라 앞이 더 중요한 개념이다.
+    """
+    kept: list[Question] = []
+    spare: list[Question] = []
+    for q in questions:
+        twin = any(
+            _gist_overlap(q.answer_gist, k.answer_gist) > QA_TWIN_GIST_MAX for k in kept
+        )
+        (spare if twin else kept).append(q)
+
+    while len(kept) < limit and spare:
+        kept.append(spare.pop(0))
+
+    keep_ids = {q.id for q in kept[:limit]}
+    dropped = [q.node_id for q in questions if q.id not in keep_ids]
+    return kept[:limit], dropped
+
+
 def _pick_marks(marks: list[TriageMark], track: str) -> tuple[list[TriageMark], list[str]]:
     """
     트랙 상한만큼 rank 순으로 고르고, 함정 개수를 트랙 허용치로 깎는다.
@@ -803,7 +901,8 @@ def _pick_marks(marks: list[TriageMark], track: str) -> tuple[list[TriageMark], 
     """
     ordered = sorted(marks, key=lambda m: (m.rank, m.node_id))
     limit = QA_TRACK_LIMITS[track]
-    picked, deferred = ordered[:limit], [m.node_id for m in ordered[limit:]]
+    take = limit + _twin_slack(limit)
+    picked, deferred = ordered[:take], [m.node_id for m in ordered[take:]]
 
     trap_budget = QA_TRACK_TRAPS[track]
     capped: list[TriageMark] = []
@@ -1080,12 +1179,19 @@ def build_questions(
     )
     raw_questions = [q for q in (data.get("questions") or []) if isinstance(q, dict)]
 
+    # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의
+    # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.
+    questions, twins = _drop_twin_questions(
+        _normalize_questions(raw_questions, marks, by_id, flow_of),
+        QA_TRACK_LIMITS[track],
+    )
+
     return QuestionDoc(
         file_name=graph.file_name,
         total_slides=graph.total_slides,
         track=track,
-        questions=_normalize_questions(raw_questions, marks, by_id, flow_of),
-        deferred_node_ids=deferred,
+        questions=questions,
+        deferred_node_ids=twins + deferred,
         model=engine.name,
     )
 

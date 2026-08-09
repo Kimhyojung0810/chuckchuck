@@ -23,6 +23,7 @@ from chuckchuck.contracts import (
     FlowDiff,
     FlowIssue,
     QaTriage,
+    Question,
     QuestionDoc,
     QuestionError,
     Section,
@@ -30,7 +31,14 @@ from chuckchuck.contracts import (
     Transcript,
     TriageMark,
 )
-from chuckchuck.f08_questions import build_questions, triage_questions
+from chuckchuck.f08_questions import (
+    QA_TWIN_GIST_MAX,
+    _drop_twin_questions,
+    _gist_overlap,
+    _twin_slack,
+    build_questions,
+    triage_questions,
+)
 from chuckchuck.providers.llm_base import LLMProvider
 
 
@@ -1248,3 +1256,73 @@ def test_material_words_that_look_like_scaffold_survive():
     assert not _cites_scaffold("정렬 방식이 표현 학습에 어떤 영향을 주나요?")
     assert not _cites_scaffold("최단 경로 알고리즘을 왜 골랐나요?")
     assert _cites_scaffold("경로(위계)에서 상위로 표시되어 있습니다")
+
+
+# ---------------------------------------------------------------------------
+# 골자가 사실상 같은 질문 걸러내기 (QA_TWIN_GIST_MAX)
+#
+# 2026-08-08 측정: 5분 트랙 질문 3개의 골자가 사실상 같아서 한 번 제대로 답하면
+# 셋이 전부 good 85 로 닫혔다. "정답 판정이 광범위하다"의 실체가 이것이다 —
+# 판정이 무른 게 아니라 질문이 같아서 아무 답이나 맞는 것처럼 보인 것.
+# ---------------------------------------------------------------------------
+
+# 그때 실제로 나온 골자 세 개
+TWIN_A = ("알림 확인은 작업 맥락과 목표를 머릿속에서 재구성해야 하므로 "
+          "인지 자원이 소모되고, 이는 비가시적 집중 손실로 이어진다")
+TWIN_B = ("알림 확인 후 작업 복귀 시 머릿속 작업 상태를 재구성해야 하며, "
+          "이 과정에서 주의 잔여물이 발생해 인지 비용이 증가한다")
+TWIN_C = ("머릿속 작업 상태를 재구성해야 하므로 알림 방해 후 복귀가 어렵고, "
+          "이는 비가시적 집중 손실을 가중시킨다")
+FAR_A = "수면은 약 90분 주기로 얕은 잠과 깊은 잠을 반복하며, 새벽으로 갈수록 렘수면 비중이 커진다"
+FAR_B = "의지에 기대지 않고 알림을 끄는 환경을 먼저 만들어야 행동이 유지된다"
+
+
+def _q(no: int, gist: str) -> Question:
+    return Question(
+        id=f"q{no:02d}-n{no}", node_id=f"n{no}", label=f"개념{no}",
+        question=f"개념{no} 을 설명해 주세요", answer_gist=gist,
+    )
+
+
+def test_실제로_겹쳤던_골자_셋은_전부_쌍둥이로_걸린다():
+    """임계는 이 토크나이저로 직접 잰 값이어야 한다 — 남의 값을 옮기면 놓친다."""
+    for a, b in ((TWIN_A, TWIN_B), (TWIN_A, TWIN_C), (TWIN_B, TWIN_C)):
+        assert _gist_overlap(a, b) > QA_TWIN_GIST_MAX
+
+
+def test_서로_다른_골자는_쌍둥이가_아니다():
+    for a in (TWIN_A, TWIN_B, TWIN_C):
+        for b in (FAR_A, FAR_B):
+            assert _gist_overlap(a, b) <= QA_TWIN_GIST_MAX
+    assert _gist_overlap(FAR_A, FAR_B) <= QA_TWIN_GIST_MAX
+
+
+def test_골자가_비면_쌍둥이로_치지_않는다():
+    """없는 근거로 질문을 버리지 않는다."""
+    assert _gist_overlap("", TWIN_A) == 0.0
+    assert _gist_overlap(TWIN_A, "") == 0.0
+
+
+def test_쌍둥이를_빼도_질문_개수는_안_줄어든다():
+    """여유분에서 바꿔 넣는다. 중복을 없애자고 내용을 깎지 않는다."""
+    picked = [_q(1, TWIN_A), _q(2, TWIN_B), _q(3, TWIN_C), _q(4, FAR_A), _q(5, FAR_B)]
+    kept, dropped = _drop_twin_questions(picked, limit=3)
+    assert len(kept) == 3
+    gists = [q.answer_gist for q in kept]
+    assert gists.count(TWIN_B) + gists.count(TWIN_C) == 0, "쌍둥이는 밀려나야 한다"
+    assert FAR_A in gists and FAR_B in gists, "여유분에서 다른 개념이 올라와야 한다"
+    assert set(dropped) == {"n2", "n3"}
+
+
+def test_여유분이_없으면_결과가_종전과_같다():
+    """10분 트랙(여유분 0)은 되채우기 때문에 무영향이다 — 기본 시연 경로를 안 건드린다."""
+    picked = [_q(1, TWIN_A), _q(2, TWIN_B), _q(3, TWIN_C)]
+    kept, dropped = _drop_twin_questions(picked, limit=3)
+    assert [q.id for q in kept] == ["q01-n1", "q02-n2", "q03-n3"]
+    assert dropped == []
+
+
+def test_여유분은_짧은_트랙에만_준다():
+    assert _twin_slack(QA_TRACK_LIMITS["10"]) == 0, "기본 트랙은 과금·프롬프트가 그대로다"
+    assert _twin_slack(QA_TRACK_LIMITS["5"]) > 0
+    assert _twin_slack(QA_TRACK_LIMITS["1"]) == 0, "질문 1개는 바꿔 넣을 자리가 없다"
