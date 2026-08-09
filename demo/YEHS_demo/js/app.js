@@ -4373,17 +4373,22 @@ function rRubric() {
     .sort((a, b) => (a.average - b.average) || ((b.weight || 0) - (a.weight || 0)))[0];
   const weakestKey = weakest ? weakest.key : '';
 
+  /* 못 잰 항목은 줄로 그리지 않는다.
+     예전엔 한 항목이 같은 말을 두 번 했다 — 오른쪽에 「이번엔 못 쟀어요」(플래그),
+     아래에 「채점을 마치지 못해서 이번엔 못 쟀어요」(근거). 시각자료 활용처럼
+     못 잰 게 4개면 그 반복이 묶음의 절반을 먹는다. 점수도 근거도 없는 줄은
+     읽을 것이 없다.
+
+     대신 개수는 남긴다 — 묶음 머리의 「6/10개 항목」과 묶음 끝의 한 줄이
+     그 일을 한다. 못 잰 걸 안 보이게 치우면 리포트가 거짓말이 된다 (§4).
+     지우는 건 «반복» 이지 «사실» 이 아니다. */
   const rowHtml = (it) => {
-    const st = RUBRIC_STATUS[it.status] || RUBRIC_STATUS.scored;
-    const right = it.status === 'scored'
-      ? `<b class="num">${Math.round(it.score)}</b>`
-      : `<span class="rb-flag" style="color:${st.c}">${st.t}</span>`;
     const why = it.evidence || it.note || '';
     return `<li class="rb-item is-${it.status}">
       <div class="rb-line"><span class="rb-no num">${it.no}</span>
         <span class="rb-name">${escapeHtml(it.name)}</span>
         ${it.source && RUBRIC_SOURCE[it.source] ? `<span class="rb-src">${RUBRIC_SOURCE[it.source]}</span>` : ''}
-        ${right}</div>
+        <b class="num">${Math.round(it.score)}</b></div>
       ${why ? `<p class="rb-why">${escapeHtml(why)}</p>` : ''}
     </li>`;
   };
@@ -4402,14 +4407,17 @@ function rRubric() {
        묶음만 펼치면 근거가 나온다. 제일 낮은 묶음 하나는 펼쳐 둔다: 이 화면에
        들어온 사람이 제일 먼저 볼 곳이고, 전부 접혀 있으면 「아무것도 없는 화면」
        처럼 보인다. 기둥에서 줄을 눌러 들어온 경우엔 goRubric 이 그 묶음을 연다. */
-    const scored = rows.filter(r => r.status === 'scored').length;
+    const done = rows.filter(r => r.status === 'scored');
+    const scored = done.length;
+    const unmeasured = rows.length - scored;
     return `<details class="rb-cluster" id="rb-${escapeHtml(c.key)}"${c.key === weakestKey ? ' open' : ''}>
       <summary>
         <span class="rb-cname">${escapeHtml(c.name)}</span>
         <span class="rb-cmeta">${scored}/${rows.length}개 항목</span>
         ${head}
       </summary>
-      <ol class="rb-list">${rows.map(rowHtml).join('')}</ol>
+      <ol class="rb-list">${done.map(rowHtml).join('')}</ol>
+      ${unmeasured ? `<p class="rb-unmeasured">${unmeasured}개 항목은 채점을 마치지 못해 이번엔 못 쟀어요</p>` : ''}
     </details>`;
   }).join('');
 
