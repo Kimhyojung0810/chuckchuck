@@ -2807,3 +2807,60 @@ table.plain tr:last-child td { border-bottom: 0; }
 .deck-film .slidethumb.st-ct::before { background: var(--ct); }
 .deck-film .slidethumb.st-om::before { background: var(--om); }
 .deck-film .slidethumb.st-none::before { display: none; }
+
+/* ══ 누르는 느낌 — 터치 피드백 ═══════════════════════════════════════════
+   시연은 아이패드에서 한다. 그런데 아이패드에는 hover 가 없다. 지금 누를 수
+   있는 줄들(기둥 항목·필름·채점 묶음·접기·개념 행)은 hover 상태만 갖고 있어서,
+   손가락으로 누르면 화면이 아무 답을 하지 않는다.
+
+   토스 인터랙션 글이 「가장 작은 공수로 가장 큰 반응」으로 꼽는 자리가 정확히
+   여기다 — 「유저가 화면을 누를 때 회색 배경만 나오는 것이 아니라 더욱 눌리는
+   느낌이 나도록」. 그리고 이건 장식이 아니라 **피드백**이다: 눌렸는지 아닌지를
+   화면이 답해 준다. 같은 글의 기준 — 「정적인 UI 로도 전달할 수 있는 가치라면
+   인터랙션은 Good to have」 — 에서 이건 Good to have 가 아니라 없으면 안 되는
+   쪽이다.
+
+   값은 하나로 통일한다. 누르는 느낌이 자리마다 다르면 그 자체가 소음이다. */
+:root { --press: 90ms cubic-bezier(.2, .9, .3, 1); }
+
+.vd-rest button.vd,
+.rb-cluster > summary,
+details.fold summary,
+.mini-row,
+.jsplit-row,
+.filter-chips button,
+.tree button,
+#rbody > .card.trophy-strip {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--press), background-color .12s ease, box-shadow .12s ease;
+}
+.vd-rest button.vd:active,
+.rb-cluster > summary:active,
+details.fold summary:active,
+.mini-row:active,
+.jsplit-row:active,
+.filter-chips button:active,
+.tree button:active { transform: scale(.985); }
+/* 색면이 남은 카드는 살짝 더 눌린다 — 면적이 클수록 같은 배율이 덜 느껴진다 */
+#rbody > .card.trophy-strip:active { transform: scale(.99); }
+/* 필름은 hover 에서 이미 떠 있다. 누를 때는 그 반대로 «내려앉게» 한다 */
+.deck-film .slidethumb.has { -webkit-tap-highlight-color: transparent; }
+.deck-film .slidethumb.has:active { transform: translateY(0) scale(.96); box-shadow: none; }
+
+/* 모션을 원치 않는 사용자에게는 크기 변화를 주지 않는다. 다만 «눌렸다» 는
+   사실은 남겨야 하므로 면 색으로만 답한다 (피드백은 취향이 아니다) */
+@media (prefers-reduced-motion: reduce) {
+  .vd-rest button.vd:active,
+  .rb-cluster > summary:active,
+  details.fold summary:active,
+  .mini-row:active,
+  .jsplit-row:active,
+  .filter-chips button:active,
+  .tree button:active,
+  #rbody > .card.trophy-strip:active,
+  .deck-film .slidethumb.has:active { transform: none; }
+  .rb-cluster > summary:active,
+  details.fold summary:active,
+  .mini-row:active,
+  .jsplit-row:active { background: var(--hover); }
+}
