@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qi1" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qi2" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -4916,6 +4916,16 @@ function rSummary() {
       <i class="ts-go">${trophy.slide}번 슬라이드에서 보기 →</i>
     </button>` : ''}
 
+    <!-- 개념 지도. 리포트는 개념마다 판정을 늘어놓는 화면이고 이 그래프는 그
+         판정들의 지도라, 슬라이드 목록 바로 위가 제자리다 (2026-08-10 사용자).
+         무대는 js/graph3d.js 가 세운다 — 화면에 들어올 때만 라이브러리를 문다. -->
+    <div class="card rep-graph">
+      <h3 class="section-title">내 자료의 개념 지도<span class="soft">개념을 누르면 판정을 보여줘요 · 끌어서 돌려볼 수 있어요</span></h3>
+      <div class="rep-graph-stage" id="repGraphStage"><p class="g3d-loading">개념 지도를 세우고 있어요…</p></div>
+      <aside class="g3d-card in-report" id="repGraphCard" hidden></aside>
+      <p class="note"><a href="#/graph">크게 보기 →</a></p>
+    </div>
+
     <div class="card rep-deck">
       <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르거나 <kbd>←</kbd><kbd>→</kbd> 로 넘겨요</span></h3>
       <div id="deckBody">${deckHtml()}</div>
@@ -5009,6 +5019,8 @@ function rSummary() {
   bindDeckPanel();
   paintDeckStage();
   paintDeckThumbs();
+  // 개념 지도. 카드가 화면에 들어올 때만 3D 라이브러리를 문다 (graph3d.js).
+  if (typeof window.mountReportGraph === 'function') window.mountReportGraph();
   wireSendoff();
   if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
 }
@@ -5340,6 +5352,138 @@ function judgeTree() {
   return DATA.tree.map(n => ({ ...n, real: false }));
 }
 
+/* ─── 개념 성좌 (3D) ──────────────────────────────────────────────────────
+   개념 그래프는 노드 17 · 엣지 31 인데 그중 18개가 위계를 가로지르는 relates 다.
+   2D 로 그리면 교차선이 엉켜 「무엇이 무엇과 이어지는가」가 안 읽힌다 — 공간이
+   장식이 아니라 가독성인 드문 경우라 여기만 3D 를 쓴다.
+
+   크기는 자료가 실은 비중(weight), 색은 판정이다. 그래서 「크고 빨간 노드」가
+   곧 «자료의 핵심인데 안 말한 것» 이 되어 한눈에 읽힌다 — 이 화면의 값어치는
+   예쁨이 아니라 그 한 문장이다.
+
+   기본은 목록이다. 성좌는 눌러야 열린다: 라이브러리가 2.2MB 라 늘 싣고 다닐
+   물건이 아니고, 평소에 필요한 답(몇 개를 설명했나)은 목록이 더 빨리 준다. */
+let jView = 'list';
+let _g3dReady = null;
+
+/** 3D 라이브러리를 «누를 때» 받는다. 두 번 눌러도 한 번만 받는다. */
+function ensureGraph3d() {
+  if (_g3dReady) return _g3dReady;
+  const once = (src) => new Promise((res, rej) => {
+    const el = document.createElement('script');
+    el.src = src; el.onload = res; el.onerror = () => rej(new Error(src));
+    document.head.appendChild(el);
+  });
+  _g3dReady = once('js/vendor/3d-force-graph.min.js?v=g1')
+    /* SpriteText 는 ESM 이다. import map 이 three 를 로컬로 가리킨다 (index.html).
+       ⚠ 경로를 document 기준으로 못박는다. app.js 는 클래식 스크립트고, 그 안의
+       동적 import() 는 문서가 아니라 **스크립트 URL** 기준으로 풀린다 —
+       './js/vendor/…' 라고 쓰면 /js/js/vendor/… 가 돼서 404 다. 실제로 겪었다. */
+    .then(() => import(new URL('js/vendor/three-spritetext.mjs', document.baseURI).href))
+    .then(m => ({ SpriteText: m.default }))
+    .catch((e) => { _g3dReady = null; throw e; });
+  return _g3dReady;
+}
+
+/** 이 기기가 3D 를 그릴 수 있나. 못 그리면 목록으로 남는다 (§4 실패는 실패로) */
+function canWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch (_) { return false; }
+}
+
+/** 판정 색 — 성좌의 노드는 큰 면이 아니라 «점» 이다. 여기서는 색이 곧 정보다. */
+const JUDGE_HEX = { ok: '#3fd599', mid: '#E0A32E', no: '#F05252', ct: '#B87BF0', om: '#8FA79B' };
+
+async function paintConstellation(host) {
+  const out = reportOut() || {};
+  const graph = out.graph || {};
+  const tree = judgeTree();
+  const statusBy = {};
+  tree.forEach(n => { statusBy[n.id] = n.status; });
+
+  const rawNodes = graph.nodes || [];
+  const rawEdges = graph.edges || [];
+  if (rawNodes.length < 2 || !rawEdges.length) {
+    host.innerHTML = '<p class="note g3d-msg">이 발표에서는 개념 사이 연결을 찾지 못했어요. 위 목록으로 봐 주세요.</p>';
+    return;
+  }
+  if (!canWebGL()) {
+    host.innerHTML = '<p class="note g3d-msg">이 기기에서는 성좌를 그릴 수 없어요. 위 목록으로 봐 주세요.</p>';
+    return;
+  }
+
+  host.innerHTML = '<p class="note g3d-msg">성좌를 그리는 중이에요…</p>';
+  let lib;
+  try { lib = await ensureGraph3d(); }
+  catch (_) {
+    host.innerHTML = '<p class="note g3d-msg">성좌를 불러오지 못했어요. 위 목록으로 봐 주세요.</p>';
+    return;
+  }
+  const { SpriteText } = lib;
+  host.innerHTML = '';
+
+  const data = {
+    nodes: rawNodes.map(n => ({
+      id: n.id, label: n.label || n.id,
+      st: statusBy[n.id] || 'om',
+      slides: n.slide_nos || [],
+      core: n.importance === 'core',
+      val: 2 + (n.weight || 0) * 10,
+    })),
+    links: rawEdges
+      .filter(e => e.from && e.to)
+      .map(e => ({ source: e.from, target: e.to, kind: e.kind })),
+  };
+
+  const G = ForceGraph3D()(host)
+    .graphData(data)
+    .backgroundColor('#064E3B')
+    .width(host.clientWidth)
+    .height(host.clientHeight)
+    .nodeLabel(n => `${escapeHtml(n.label)} · ${STATUS[n.st] || ''}`)
+    .nodeVal('val')
+    .nodeColor(n => JUDGE_HEX[n.st] || JUDGE_HEX.om)
+    .nodeOpacity(.95)
+    /* 이름을 상시로 띄운다. hover 툴팁만 두면 구슬 열몇 개가 되는데 그건 장식이고,
+       아이패드에는 hover 가 없어서 누르기 전엔 아무것도 못 읽는다 */
+    .nodeThreeObjectExtend(true)
+    .nodeThreeObject(n => {
+      const t = new SpriteText(n.label);
+      t.color = n.st === 'ok' ? '#EAFBF3' : '#DDF2E8';
+      t.textHeight = n.core ? 4.4 : 3.3;
+      t.fontFace = 'Pretendard, sans-serif';
+      t.fontWeight = n.core ? '700' : '500';
+      t.material.depthWrite = false;
+      t.position.set(0, Math.cbrt(n.val) * 3.2 + 3, 0);
+      return t;
+    })
+    .linkColor(l => l.kind === 'parent' ? 'rgba(255,255,255,.5)' : 'rgba(63,213,153,.3)')
+    .linkWidth(l => l.kind === 'parent' ? 1.1 : 0.4)
+    // relates 는 방향이 뜻을 갖지 않는다 — 위계에만 화살표를 준다
+    .linkDirectionalArrowLength(l => l.kind === 'parent' ? 3 : 0)
+    .linkDirectionalArrowRelPos(1)
+    .onNodeClick(n => goJudge(n.id));
+
+  // 칸이 바뀌면 따라간다 (탭·회전)
+  const ro = new ResizeObserver(() => G.width(host.clientWidth).height(host.clientHeight));
+  ro.observe(host);
+
+  /* 천천히 돌면서 시작한다 — 부스에서 가만히 둬도 살아 있어 보인다.
+     손을 대면 멈춘다: 연출이 조작을 이기면 안 된다 (§14). */
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let a = 0; const d = 260;
+    G.cameraPosition({ z: d });
+    const spin = setInterval(() => {
+      a += Math.PI / 900;
+      G.cameraPosition({ x: d * Math.sin(a), z: d * Math.cos(a) });
+    }, 30);
+    ['mousedown', 'touchstart', 'wheel'].forEach(ev =>
+      host.addEventListener(ev, () => clearInterval(spin), { once: true }));
+  }
+}
+
 /* ─── 개념 전달 한눈에 ────────────────────────────────────────────────────
    이 탭은 판정 5종(설명함·언급만·안 나옴·자료와 모순·정당한 생략)을 **먼저
    배워야** 읽혔다. 필터 칩에 개수가 있긴 했지만 그건 «걸러 보는 도구» 지
@@ -5402,8 +5546,17 @@ function rJudge() {
   const items = tree.filter(n => jFilter === 'all' || n.status === jFilter);
   if (!items.some(n => n.id === jSel) && items.length) jSel = items[0].id;
   const n = tree.find(t => t.id === jSel);
+  /* 성좌는 실측 그래프가 있을 때만 권한다 — 샘플에는 엣지가 없어서 빈 화면이 된다 */
+  const canConst = !!((reportOut() || {}).graph || {}).edges?.length;
   $('#rbody').innerHTML = `
     ${judgeSplitHtml(tree)}
+    ${canConst ? `
+    <div class="jview" id="jview">
+      <button class="${jView === 'list' ? 'on' : ''}" data-v="list">목록</button>
+      <button class="${jView === 'graph' ? 'on' : ''}" data-v="graph">성좌</button>
+      <span class="jview-hint">개념이 서로 어떻게 이어지는지 봐요</span>
+    </div>` : ''}
+    ${jView === 'graph' && canConst ? '<div class="g3d" id="g3d"></div>' : `
     <div class="filter-chips" id="jf">
       ${filters.map(f => `<button class="${jFilter === f[0] ? 'on' : ''}" data-f="${f[0]}">${f[1]} ${counts[f[0]] || 0}</button>`).join('')}
     </div>
@@ -5419,12 +5572,19 @@ function rJudge() {
       </div>
       <div class="card" id="jdetail">${n ? jDetail(n, tree) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
     </div>
+    `}
     <p class="ai-note">${isReal
       ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
       : (isLiveReportSession()
         ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요. 샘플(IMU2CLIP)로 대체하지 않았어요.'
         : '⚠️ 지금 보는 건 <b>샘플 데이터</b>예요. 리허설을 마치면 내 발표 결과로 바뀌어요.')}</p>`;
   paintDeckStage($('#rbody'));   // 판정 화면의 슬라이드도 올린 자료 원본으로 그린다
+  const jv = $('#jview');
+  if (jv) jv.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    jView = b.dataset.v; rJudge(); animateViz($('#rbody'));
+  });
+  if (jView === 'graph' && $('#g3d')) { paintConstellation($('#g3d')); return; }
   $('#jf').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     jFilter = b.dataset.f; rJudge(); animateViz($('#rbody'));
