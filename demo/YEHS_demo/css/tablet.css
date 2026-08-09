@@ -623,12 +623,20 @@
      − 기둥 400 − 여백). 그보다 넓으면 좌우로 두는 편이 낫다. */
   @media (max-width: 1450px) {
     .deck-main { grid-template-columns: 1fr; gap: 14px; }
-    /* 폭을 다 주면 4:3 슬라이드가 512px 까지 큰다 — 한 장이 화면을 먹는다.
-       높이를 묶고 contain 으로 담는다. 슬라이드는 잘리면 안 되므로 cover 가
-       아니라 contain 이고, 남는 자리는 조용한 회색 면으로 채운다.
-       300 → 220: 읽히는 크기는 유지하면서 요약 탭 높이를 80px 되돌린다. */
+    /* 폭을 다 주면 4:3 슬라이드가 512px 까지 커서 한 장이 화면을 먹는다.
+       그래서 높이를 220px 으로 묶는다.
+
+       ⚠ 예전엔 여기에 object-fit:contain + 회색 배경을 줬다. 자르지 않으려는
+       뜻은 맞았지만, 액자를 칸 폭(747px)에 고정해 둔 채 그림만 줄이니 슬라이드
+       양옆에 회색 여백이 남았다 — 「발표자료를 딱 보여줘야지」가 안 됐다.
+
+       고칠 곳은 그림이 아니라 액자다. 높이를 정하고 폭은 그림이 정하게 두면,
+       액자가 슬라이드에 딱 맞아서 자르지도 남기지도 않는다. */
+    .deck-stage {
+      width: fit-content; max-width: 100%; margin-inline: auto;
+    }
     .deck-stage img, .deck-stage canvas {
-      max-height: 220px; object-fit: contain; background: var(--fill);
+      height: 220px; width: auto; max-width: 100%; object-fit: contain;
     }
   }
 
