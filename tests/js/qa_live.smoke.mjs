@@ -35,7 +35,7 @@ const APP_SRC = readFileSync(path.join(JS_DIR, 'app.js'), 'utf8');
 const EXPORT_LINE = `
 ;globalThis.__api = {
   qaLiveActive, newLiveState, liveStalled, hintSlideNos,
-  liveHints, liveQuestionHints, openNextHint, HINT_SLIDE_SHOW_MAX,
+  liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
 };`;
 
 /**
@@ -79,6 +79,7 @@ function newContext({ nf = null, hasRealSlideImage = () => true } = {}) {
     nf,
     pushTurn: (t) => turns.push(t),
     saveSession: () => {},
+    loadSession: () => null,
     escapeHtml: (s) => String(s),
     hasRealSlideImage,
   };
@@ -260,6 +261,44 @@ test('옛 저장 세션(hintList 없음)은 질문이 들고 온 사다리로 �
   ctx.qa.live = liveState(api, [{ hints: ['b1', 'b2', 'b3'] }], { hintList: undefined });
   api.openNextHint();
   eq(turns[0].total, 3, '폴백 분모');
+});
+
+/* ── 세션 아티팩트 계약 — 발표 A 의 근거가 발표 B 로 새지 않게 하는 자리 ────── */
+
+/* 데모의 서버 세션 키는 'flat' 하나뿐이라 새 발표도 같은 칸에 쓴다. 그래서
+   `put_artifacts` 는 **명시적 null 을 지우기로** 계약했다 (session_store.py) —
+   프론트가 "이번 발표엔 flow 가 없다" 를 null 로 말해 줘야 지난 발표의 flow 가
+   판정 근거로 안 섞인다. 그 계약은 **프론트가 다섯 키를 전부 보낼 때만** 성립한다.
+   키가 하나 늘고 프론트가 안 따라오면 누수는 조용히 돌아온다. 여기서 잠근다. */
+const ARTIFACT_KEYS = (() => {
+  const py = readFileSync(path.join(ROOT, 'demo/session_store.py'), 'utf8');
+  const m = py.match(/^ARTIFACT_KEYS\s*=\s*\(([^)]*)\)/m);
+  if (!m) throw new Error('demo/session_store.py 에서 ARTIFACT_KEYS 를 못 찾았어요.');
+  return m[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+})();
+
+test('프론트가 서버 아티팩트 키를 하나도 빠뜨리지 않는다', () => {
+  const { api } = newContext({ nf: { pipelineOut: { graph: { nodes: [] } } } });
+  const sent = api.liveArtifacts();
+  if (!sent) throw new Error('그래프가 있는데 아티팩트를 안 보냈어요');
+  const missing = ARTIFACT_KEYS.filter((k) => !(k in sent));
+  if (missing.length) {
+    throw new Error(`서버가 보관하는 키인데 프론트가 안 보내요: ${missing.join(', ')}. `
+      + '안 보낸 키는 지난 발표 값이 그대로 남아 판정 근거로 섞여요.');
+  }
+});
+
+test('없는 값은 빼지 않고 null 로 보낸다', () => {
+  // 키를 빼면 서버는 "안 보냈다" 로 읽고 지난 발표 값을 남긴다. null 이어야 지운다.
+  const { api } = newContext({ nf: { pipelineOut: { graph: { nodes: [] } } } });
+  const sent = api.liveArtifacts();
+  eq([sent.alignment, sent.flow, sent.transcript], [null, null, null], '빈 값의 표현');
+});
+
+test('그래프가 아직 없으면 아무것도 안 보낸다', () => {
+  // 절반만 올리면 나머지 칸에 지난 발표가 남는다. 그럴 바엔 안 올리는 게 맞다.
+  const { api } = newContext({ nf: { pipelineOut: {} } });
+  eq(api.liveArtifacts(), null, '그래프 없는 상태');
 });
 
 /* ── 하네스가 진짜로 회귀를 잡는지 ─────────────────────────────────────────── */
