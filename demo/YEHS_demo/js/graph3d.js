@@ -330,7 +330,10 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     stage.innerHTML = '';
     const showCard = (n) => { if (onPick) onPick(n); };
 
-    const g = ForceGraph3D()(stage)
+    /* controlType 을 orbit 으로 고정한다. 이 라이브러리의 기본은 trackball 인데
+       TrackballControls 에는 autoRotate 가 아예 없어서, 켠 줄 알았던 자동 회전이
+       조용히 아무 일도 안 했다 (실측: 5초 동안 이름표가 0.7px 움직였다). */
+    const g = ForceGraph3D({ controlType: 'orbit' })(stage)
       .graphData(data)
       /* 앱의 크림 면 그대로. 처음엔 「무대」라고 어두운 딥그린을 깔았는데, 밝은
          화면 한가운데 검은 판이 박혀서 화면을 뚫어 놓은 것처럼 보였다
@@ -390,11 +393,35 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
       });
 
     // 천천히 도는 무대. 손을 대면 멈춘다 — 보고 있는 걸 계속 돌리면 멀미가 난다.
+    /* 아무도 안 건드려도 **스스로 천천히 떠다닌다** (2026-08-10 지시).
+       예전엔 손을 대면 회전이 영영 멈췄다 — 한 번 돌려 본 사람에게는 그 뒤로
+       죽은 그림이 됐다. 이제 손을 떼고 잠깐 지나면 알아서 다시 돈다.
+
+       속도를 사인으로 흔드는 이유: 일정한 속도로 도는 건 회전판이라 기계처럼
+       보인다. 느려졌다 빨라졌다 해야 «떠다닌다»로 읽힌다. 모션을 줄이겠다고
+       한 사람에게는 아무것도 안 움직인다 (prefers-reduced-motion). */
     const controls = g.controls();
     if (controls) {
-      controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-      controls.autoRotateSpeed = compact ? 0.35 : 0.55;
-      controls.addEventListener('start', () => { controls.autoRotate = false; });
+      const wants = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // 한 바퀴에 40초쯤. 0.45 로 뒀더니 2.5초에 2px 라 멈춰 있는 것과 구별이
+      // 안 됐다 — 「돈다」가 눈에 보이되 읽는 걸 방해하지 않는 선이 이 근처다.
+      const base = compact ? 1.1 : 1.6;
+      controls.autoRotate = wants;
+      controls.autoRotateSpeed = base;
+      let idleAt = 0;
+      controls.addEventListener('start', () => { controls.autoRotate = false; idleAt = 0; });
+      controls.addEventListener('end', () => { idleAt = performance.now(); });
+      const drift = (t) => {
+        if (!stage.isConnected) return;
+        if (wants) {
+          // 손을 뗀 뒤 4초가 지나면 다시 돈다. 바로 돌면 놓자마자 화면이 달아난다.
+          if (!controls.autoRotate && idleAt && t - idleAt > 4000) controls.autoRotate = true;
+          // 26초 주기로 0.45배~1.55배 사이를 오간다
+          controls.autoRotateSpeed = base * (1 + Math.sin(t / 4200) * 0.55);
+        }
+        requestAnimationFrame(drift);
+      };
+      requestAnimationFrame(drift);
     }
 
     const fit = () => {
