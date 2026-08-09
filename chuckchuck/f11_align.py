@@ -60,7 +60,10 @@ SKIP_GUARD_WEIGHT = float(os.environ.get("CHUCKCHUCK_SKIP_GUARD_WEIGHT", "0.35")
 #
 # 시연 직전에도 조일 수 있게 환경변수로 뺐다 — 심사위원이 후한 판정을 눈치채면
 # 리포트 전체의 신뢰가 같이 무너진다.
-MENTION_MIN = max(1, int(os.environ.get("CHUCKCHUCK_ALIGN_MENTION_MIN", "2")))
+# 2 → 5. 단어가 두 번 나왔다고 개념을 설명한 것은 아니다. 이 값이 낮으면
+# LLM 이 '누락' 이라 판정해도 코드가 '설명함' 으로 뒤집어서, 리포트가 실제보다
+# 후해진다 (2026-08-10: 개념 18개 중 누락 0개가 나온 원인).
+MENTION_MIN = max(1, int(os.environ.get("CHUCKCHUCK_ALIGN_MENTION_MIN", "5")))
 
 SYSTEM_PROMPT = """당신은 발표 리허설 평가자다.
 '개념 목록'(발표 자료에서 뽑은 개념들)과 '슬라이드별 발화'를 대조해,
@@ -276,8 +279,12 @@ def _normalize_items(
             verdict = _fallback_verdict(basis)
         if verdict == "missing" and basis.mention_count >= MENTION_MIN:
             verdict = "aligned"
+        # 근거 없는 모순은 그대로 둘 수 없다(계약). 다만 폴백으로 보내면 언급
+        # 횟수만 보고 'aligned' 로 떨어져서, **모델이 문제를 봤는데 화면에는
+        # 「잘했어요」가 뜬다.** 문제를 본 판정을 칭찬으로 바꾸지 않는다 —
+        # 근거를 못 댔을 뿐 제대로 설명된 것은 아니므로 missing 으로 내린다.
         if verdict == "contradiction" and not evidence:
-            verdict = _fallback_verdict(basis)
+            verdict = "missing"
         # 근거 없는 aligned 도 버린다. 프롬프트는 aligned 에 evidence 를 필수로
         # 요구하는데(SYSTEM_PROMPT) 코드는 contradiction 만 검사하고 있었다.
         # 그래서 모델이 근거 없이 전부 '잘했다'로 도장 찍으면 그대로 통과했다 —

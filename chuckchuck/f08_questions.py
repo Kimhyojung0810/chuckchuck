@@ -117,6 +117,12 @@ EXTRA_ID_PREFIX = "extra:"
 #: 자료가 이만큼 힘준 개념은 근거가 core_weight 여도 '보통' 으로 본다.
 HEAVY_WEIGHT = float(os.environ.get("CHUCKCHUCK_QA_HEAVY_WEIGHT", "0.5"))
 
+#: 자료가 이만큼도 안 실은 개념은 '누락' 이어도 치명이 아니다.
+#: 우리가 재는 것은 «자료가 약속한 것을 말로 지켰는가» 다. 자료가 스치듯 둔 개념을
+#: 안 말한 것은 약속을 어긴 게 아니라 자료가 원래 안 중요하게 본 것이다 —
+#: 그걸 치명으로 두면 질문 코치가 사소한 것부터 캐묻는다 (2026-08-10 지시).
+MINOR_WEIGHT = float(os.environ.get("CHUCKCHUCK_QA_MINOR_WEIGHT", "0.2"))
+
 #: 개념 하나당 프롬프트에 실을 발화 발췌 길이. 전체 발화를 다 실으면 개념이 묻힌다.
 SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_QA_SPEECH_EXCERPT_MAX", "300"))
 
@@ -431,7 +437,18 @@ def _ordered_candidates(
 
 
 def _fallback_severity(source: str, weight: float) -> int:
-    """LLM 이 severity 를 안 줬을 때. 이미 문제가 확인된 근거일수록 치명으로 본다."""
+    """
+    LLM 이 severity 를 안 줬을 때. 이미 문제가 확인된 근거일수록 치명으로 본다.
+
+    다만 '안 말했다' 의 무게는 **자료가 그 개념에 실은 비중** 에 비례한다.
+    자료가 스치듯 둔 개념을 안 말한 것은 약속을 어긴 게 아니다 — 예전엔 weight 와
+    무관하게 missing 이면 전부 치명(1)이라, 질문 코치가 사소한 개념부터 캐물었다.
+
+    contradiction 은 비중과 무관하게 치명으로 둔다. 안 말한 것과 **틀리게 말한 것**
+    은 다르다 — 사소한 개념이라도 자료와 어긋나게 말했으면 그건 바로잡아야 한다.
+    """
+    if source in ("missing", "under_spoken") and weight < MINOR_WEIGHT:
+        return 2
     if source in _SEVERITY_BY_SOURCE:
         return _SEVERITY_BY_SOURCE[source]
     return 2 if weight >= HEAVY_WEIGHT else 3

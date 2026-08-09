@@ -1326,3 +1326,19 @@ def test_여유분은_짧은_트랙에만_준다():
     assert _twin_slack(QA_TRACK_LIMITS["10"]) == 0, "기본 트랙은 과금·프롬프트가 그대로다"
     assert _twin_slack(QA_TRACK_LIMITS["5"]) > 0
     assert _twin_slack(QA_TRACK_LIMITS["1"]) == 0, "질문 1개는 바꿔 넣을 자리가 없다"
+
+
+def test_missing_severity_follows_doc_weight():
+    """«안 말했다» 의 무게는 자료가 그 개념에 실은 비중에 비례한다.
+
+    예전엔 weight 와 무관하게 missing 이면 전부 치명(1)이라, 자료가 스치듯 둔
+    개념을 안 말한 것도 핵심을 안 말한 것과 같은 등급이었다 — 질문 코치가
+    사소한 개념부터 캐물었다.
+    """
+    from chuckchuck.f08_questions import _fallback_severity, MINOR_WEIGHT
+
+    assert _fallback_severity("missing", 0.9) == 1                   # 자료의 핵심
+    assert _fallback_severity("missing", MINOR_WEIGHT - 0.01) == 2   # 자료가 스친 개념
+    assert _fallback_severity("under_spoken", MINOR_WEIGHT - 0.01) == 2
+    # 틀리게 말한 것은 사소해도 바로잡아야 한다 — 안 말한 것과 다르다
+    assert _fallback_severity("contradiction", 0.01) == 1

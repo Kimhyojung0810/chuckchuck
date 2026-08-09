@@ -9,6 +9,7 @@ import json
 
 import pytest
 
+from chuckchuck.f11_align import MENTION_MIN
 from chuckchuck.contracts import (
     ALIGN_VERDICTS,
     AlignError,
@@ -214,8 +215,10 @@ def test_fallback_when_llm_omits_node():
     ])))
     assert doc.item("c3").verdict == "missing"
 
-    # MENTION_MIN=2 — 한 번 스친 것은 설명이 아니다. 두 번 말해야 정합이다
-    t2 = make_transcript({1: "개념1 설명", 2: "개념2 설명", 3: "개념3 도 말했다 개념3 은 이렇다"})
+    # 한 번 스친 것은 설명이 아니다. MENTION_MIN 회는 말해야 정합으로 본다
+    # (숫자를 박지 않는다 — 임계값이 바뀌면 이 테스트의 뜻이 아니라 숫자만 썩는다)
+    t2 = make_transcript({1: "개념1 설명", 2: "개념2 설명",
+                          3: " ".join(["개념3 은 이렇다"] * MENTION_MIN)})
     doc2 = align_speech(make_graph(), t2, llm=ScriptedLLM(payload(items=[
         {"node_id": "c1", "verdict": "aligned", "evidence": "e"},
         {"node_id": "c2", "verdict": "aligned", "evidence": "e"},
@@ -235,11 +238,12 @@ def test_invalid_verdict_replaced_by_fallback():
 # ---------------------------------------------------------------------------
 
 def test_missing_corrected_when_label_actually_spoken():
-    # 발화에 '개념1' 이 MENTION_MIN(2)회 이상 있는데 LLM 이 missing 이라고 우기면 aligned 로 정정
+    # 발화에 '개념1' 이 MENTION_MIN 회 이상 있는데 LLM 이 missing 이라고 우기면 aligned 로 정정
     doc = align_of(
         payload(items=[{"node_id": "c1", "verdict": "missing"}]),
         transcript=make_transcript({
-            1: "개념1 설명 개념1 은 이런 것이다", 2: "개념2 설명", 3: "개념3 설명",
+            1: " ".join(["개념1 은 이런 것이다"] * MENTION_MIN),
+            2: "개념2 설명", 3: "개념3 설명",
         }),
     )
     assert doc.item("c1").verdict == "aligned"
@@ -436,9 +440,10 @@ def test_empty_items_retried_then_used():
 
 def test_empty_items_twice_falls_back_deterministically():
     llm = SequenceLLM(payload(), payload())
-    # MENTION_MIN=2 — 정합을 기대하는 개념은 두 번 말한 것으로 둔다
+    # 정합을 기대하는 개념은 MENTION_MIN 회 말한 것으로 둔다
     t = make_transcript({
-        1: "개념1 설명 개념1 정리", 2: "딴 얘기", 3: "개념3 설명 개념3 정리",
+        1: " ".join(["개념1 설명"] * MENTION_MIN), 2: "딴 얘기",
+        3: " ".join(["개념3 설명"] * MENTION_MIN),
     })
     doc = align_speech(make_graph(), t, llm=llm)
     assert doc.item("c1").verdict == "aligned"
@@ -588,3 +593,28 @@ def test_accepts_dict_inputs():
         llm=ScriptedLLM(_ALL_ALIGNED),
     )
     assert len(doc.items) == 3
+
+
+def test_contradiction_without_evidence_never_becomes_praise():
+    """모델이 «자료와 어긋난다» 고 본 판정을 «잘했어요» 로 바꾸지 않는다.
+
+    예전엔 근거 없는 contradiction 을 언급 횟수 폴백으로 보냈다. 그런데 그 폴백은
+    충분히 언급됐으면 aligned 를 준다 — 모델이 문제를 봤는데 화면에는 「설명함」이
+    떴다. 근거를 못 댔을 뿐 제대로 설명된 것은 아니므로 missing 으로 내린다.
+    """
+    spoken = " ".join(["개념1 은 이렇다"] * (MENTION_MIN + 3))
+    doc = align_of(
+        payload(items=[{"node_id": "c1", "verdict": "contradiction"}]),   # evidence 없음
+        transcript=make_transcript({1: spoken, 2: "개념2 설명", 3: "개념3 설명"}),
+    )
+    assert doc.item("c1").verdict == "missing"
+
+
+def test_mention_alone_does_not_overturn_missing():
+    """언급 ≠ 설명. MENTION_MIN 미만이면 LLM 의 '누락' 을 뒤집지 않는다."""
+    spoken = " ".join(["개념1"] * (MENTION_MIN - 1))
+    doc = align_of(
+        payload(items=[{"node_id": "c1", "verdict": "missing"}]),
+        transcript=make_transcript({1: spoken, 2: "개념2 설명", 3: "개념3 설명"}),
+    )
+    assert doc.item("c1").verdict == "missing"
