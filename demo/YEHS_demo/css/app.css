@@ -2883,3 +2883,59 @@ details.fold summary:active,
   .mini-row:active,
   .jsplit-row:active { background: var(--hover); }
 }
+
+/* ══ 연출 (Good to have) ═══════════════════════════════════════════════
+   앞의 「누르는 느낌」은 정적 UI 가 답할 수 없는 피드백이라 넣었고, 여기부터는
+   토스 기준으로 Good to have 다 — 없어도 정보는 다 전달된다. 그래서 규칙을
+   세 개 건다 (UI_REDESIGN §14):
+
+     1. 짧다. 정보를 기다리게 만들면 연출이 아니라 지연이다.
+     2. 데이터를 가리지 않는다. 숫자는 처음부터 제자리에 적혀 있고 움직이는 건
+        면과 위치뿐이다 — 차오르는 중에 봐도 틀린 값을 보여주지 않는다.
+     3. prefers-reduced-motion 이면 전부 꺼진다. 하나도 남기지 않는다.
+
+   그래서 이 블록 전체가 no-preference 안에 있다. */
+@media (prefers-reduced-motion: no-preference) {
+
+  /* ── 탭을 바꾸면 본문이 촤라락 들어온다 ──────────────────────────
+     지금은 내용이 즉시 갈려서 «바뀌었다» 는 사실을 눈이 놓친다. 카드가 차례로
+     들어오면 어디부터 읽어야 하는지가 순서로 보인다.
+     #rbody 자체가 아니라 자식에게 건다 — 스크롤 컨테이너에 transform 을 걸면
+     안쪽 sticky 가 기준을 잃는다. */
+  #rbody > * { animation: rb-card-in .26s var(--ease) both; }
+  #rbody > *:nth-child(2) { animation-delay: .045s; }
+  #rbody > *:nth-child(3) { animation-delay: .09s; }
+  #rbody > *:nth-child(4) { animation-delay: .13s; }
+  #rbody > *:nth-child(5) { animation-delay: .165s; }
+  #rbody > *:nth-child(n+6) { animation-delay: .195s; }
+
+  /* ── 시간 분배 막대가 왼쪽에서 드러난다 ──────────────────────────
+     width 를 키우지 않고 clip-path 로 «덮개를 걷는다». 폭을 키우면 조각과 숫자가
+     같이 늘어나 읽는 동안 값이 틀려 보인다 — 이건 규칙 2를 어긴다.
+     이상적인 배분이 먼저, 내가 한 발표가 뒤에 드러나서 비교 순서가 만들어진다. */
+  .tsplit-bar { animation: bar-reveal .7s var(--ease) both; }
+  .tsplit-row.is-mine .tsplit-bar { animation-delay: .14s; }
+
+  /* ── 슬라이드를 넘기면 무대가 갈아 끼워진다 ──────────────────────
+     ←→ 로 넘길 때 그림이 즉시 바뀌어서 «넘어갔다» 가 안 읽혔다. 아주 짧게
+     겹쳐 주면 넘어간 사실이 보인다 (selectDeckSlide 가 매번 다시 그린다). */
+  .deck-main { animation: stage-in .22s var(--ease) both; }
+
+  /* ── 기둥 항목·개념 줄도 차례로 ──────────────────────────────── */
+  .vd-rest .vd { animation: rb-card-in .3s var(--ease) both; }
+  .vd-rest .vd:nth-child(2) { animation-delay: .04s; }
+  .vd-rest .vd:nth-child(3) { animation-delay: .08s; }
+  .vd-rest .vd:nth-child(4) { animation-delay: .12s; }
+  .vd-rest .vd:nth-child(5) { animation-delay: .16s; }
+  .vd-rest .vd:nth-child(6) { animation-delay: .2s; }
+  .jsplit-row { animation: rb-row-in .28s var(--ease) both; }
+  .jsplit-row:nth-child(2) { animation-delay: .05s; }
+  .jsplit-row:nth-child(3) { animation-delay: .1s; }
+  .jsplit-row:nth-child(4) { animation-delay: .15s; }
+  .jsplit-row:nth-child(5) { animation-delay: .2s; }
+}
+
+@keyframes rb-card-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes rb-row-in  { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes bar-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes stage-in   { from { opacity: 0; } to { opacity: 1; } }
