@@ -169,11 +169,16 @@
   main.narrow > .card:has(.pipe-inspect) > .checklist { grid-area: 4 / 1; }
   main.narrow > .card:has(.pipe-inspect) > .stage-accident { grid-area: 5 / 1; }
   main.narrow > .card:has(.pipe-inspect) > .step-actions { grid-area: 6 / 1; }
-  /* 오른쪽: 확인하러 들어가는 것 — 타임라인·커튼·피드·검증 로그 */
+  /* 오른쪽: 확인하러 들어가는 것 — 타임라인·커튼·개념 지도·검증 로그 */
   main.narrow > .card:has(.pipe-inspect) > .pipe-tl { grid-area: 1 / 2 / 4; }
   main.narrow > .card:has(.pipe-inspect) > .backstage,
   main.narrow > .card:has(.pipe-inspect) > .bs-stage { grid-area: 4 / 2; }
+  /* 개념 지도(wait-graph)는 피드가 빠진 5/2 자리에 들어간다. 배치 규칙이 없으면
+     자동 배치로 왼쪽 열에 흘러들어, 하단 고정 버튼줄(sticky + --safe-bottom)이
+     그래프 한복판을 덮는다 — 1366×1024 실측으로 확인 (2026-08-10).
+     피드(pipe-feed)를 화면에 되살리면 이 자리를 두고 부딪히니 행을 다시 나눠야 한다 */
   main.narrow > .card:has(.pipe-inspect) > .pipe-feed { grid-area: 5 / 2; }
+  main.narrow > .card:has(.pipe-inspect) > .wait-graph { grid-area: 5 / 2; margin: 0; }
   main.narrow > .card:has(.pipe-inspect) > .pipe-inspect { grid-area: 6 / 2; }
   /* 왼쪽 칸이 679px 에서 끝나 버튼줄이 가림 영역에 23px 걸쳤다.
      항목 다섯 줄에서 조금씩 덜어 656 위로 올린다 */
