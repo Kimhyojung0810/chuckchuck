@@ -2327,7 +2327,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qg9" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qh1" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -3147,6 +3147,18 @@ function pushPipelineLog(phase) {
 const PIPELINE_FEED_MAX_ROWS = 8;
 
 /** 라이브 피드 마크업 — 지난 기록은 접고 최근 몇 줄과 「지금 하는 일」만 편다 */
+/**
+ * 라이브 피드. **지금은 화면에 안 붙인다** (2026-08-09 사용자 지적).
+ *
+ * 바로 아래 체크리스트와 「지금까지 한 일」을 두 번 말하고 있었다. 남긴 쪽이
+ * 체크리스트인 이유: 다섯 단계가 고정 목록이라 **남은 일까지** 보이는데,
+ * 피드는 끝난 것만 쌓여서 얼마나 남았는지가 안 보인다.
+ *
+ * 사라지는 정보는 없다 — 실측 수치(단어 수·슬라이드 구간 수)는 아래 검증 로그가
+ * 그대로 들고 있고, 지금 무엇을 하는 중인지는 위 상태 막대가 말한다.
+ * 함수는 지우지 않는다. 마감 전이라 되돌릴 여지를 남긴다 (CLAUDE.md §4).
+ * 원본 기록(nf._pipelineLog)도 계속 쌓인다 — 죽은 실행을 되짚는 근거다.
+ */
 function pipelineFeedHtml() {
   const log = Array.isArray(nf._pipelineLog) ? nf._pipelineLog : [];
   const recent = log.slice(-PIPELINE_FEED_MAX_ROWS);
@@ -3478,7 +3490,6 @@ function nfStep4() {
       ${pipelineTimelineHtml('full')}
       ${backstageHtml()}
       ${pipeErr}
-      ${pipelineFeedHtml()}
       ${pipelineChecklistHtml()}
       ${pipelineInspectHtml()}
       <div class="step-actions">
