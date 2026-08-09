@@ -55,7 +55,7 @@ function g3dAttachLabels(stage, g, nodes, compact) {
     el.className = 'g3d-label';
     // 판정 점 + 이름 + 말한 정도 막대. 이름만 있으면 「무슨 개념이 있다」까지만
     // 읽히고, 이 발표에서 그 개념이 어떻게 됐는지는 공 색을 눈으로 되짚어야 한다.
-    el.innerHTML = `<i style="background:${n.color}"></i>${escapeHtml(n.label)}`
+    el.innerHTML = `<i style="background:${n.dot || n.color}"></i>${escapeHtml(n.label)}`
       + (n.verdict ? `<b style="--sp:${Math.round((n.speech || 0) * 100)}%"></b>` : '');
     layer.appendChild(el);
     return el;
@@ -163,12 +163,37 @@ function g3dColor(name, fallback) {
  * 실었는데 말로는 거의 안 나온 개념 — 그게 이 발표에서 제일 먼저 봐야 할 것이다.
  * 아예 0 으로 두지 않는 이유: 안 말한 개념이 사라지면 «빠진 것»이 안 보인다.
  */
-function g3dRgba(hex, speech) {
+function g3dRgba(hex, alpha) {
   const h = String(hex || '').replace('#', '');
   if (h.length !== 6) return hex;
   const n = parseInt(h, 16);
-  const a = 0.3 + Math.max(0, Math.min(1, speech || 0)) * 0.7;
+  const a = Math.max(0, Math.min(1, alpha));
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(2)})`;
+}
+
+/**
+ * 판정 → 이 개념이 화면에서 낼 «소리 크기».
+ *
+ * 넷을 대등한 채도로 칠했더니 초록·빨강·보라·올리브가 동시에 소리쳐서 어느
+ * 것도 안 들렸다 — 강조가 넷이면 강조가 0이다 (2026-08-10 사용자: "색을 어쩌면
+ * 좋지").
+ *
+ * 토스 문서에서 답을 가져왔다. Bubble 은 두 상태를 구분하는 데 색을 둘 쓰지
+ * 않는다 — 「blue 는 나, grey 는 상대방」, 즉 의미 있는 쪽만 색을 갖고 나머지는
+ * 무채색이다 (TDS.md:2254). 주력 팔레트도 greyOpacity 9단계다.
+ *
+ * 그래서 **색상은 안 바꾸고 세기만 바꾼다.** 잘한 것(설명함·넘어가도 됨)은
+ * 뒤로 물러나고, 봐야 할 것(아직·다르게)만 앞으로 나온다. 색상을 바꾸면
+ * 같은 개념이 리포트에서 빨강, 지도에서 회색이 되어 둘 중 하나가 거짓말이
+ * 되는데, 세기만 바꾸면 그 일은 안 생긴다.
+ *
+ * 말한 정도(speech)는 이제 «잘한 쪽»에서만 쓴다. 문제는 얼마나 말했든 문제다.
+ */
+function g3dStrength(verdict, speech) {
+  if (verdict === 'missing' || verdict === 'contradiction') return 0.95;
+  if (verdict === 'aligned') return 0.22 + Math.max(0, Math.min(1, speech || 0)) * 0.20;
+  if (verdict === 'justified_skip') return 0.18;
+  return 0.16;   // 판정 전
 }
 
 /**
@@ -203,9 +228,15 @@ function g3dData(src) {
       color: v ? g3dColor(G3D_VERDICT_VAR[v] || '--om', pending) : pending,
     };
   });
-  // 진하기 = 말한 정도. 판정 전(색 없음)에는 손대지 않는다 — 안 잰 값을 그리면
-  // 「말 안 했다」로 읽힌다.
-  nodes.forEach((n) => { if (n.verdict) n.color = g3dRgba(n.color, n.speech); });
+  // 세기 = 지금 봐야 할 정도. 판정 전이면 가장 조용하게 둔다 — 안 잰 것을
+  // 앞으로 내밀면 「판정이 끝났다」로 읽힌다.
+  nodes.forEach((n) => {
+    // 이름표의 점은 **원래 채도 그대로** 둔다. 6px 짜리라 소리치지 않으면서도
+    // 「이 개념이 어떤 판정인지」는 알려줘야 하는데, 공과 같이 흐려 놓으면
+    // 크림색 칩 위에서 아예 안 보인다.
+    n.dot = n.color;
+    n.color = g3dRgba(n.color, g3dStrength(n.verdict, n.speech));
+  });
   /* **자료가 힘을 실은 상위 12개만 그린다.** 열일곱 개에 한글 이름표를 다 붙이면
      서로를 덮어 아무것도 안 읽힌다 (실측 48쌍 겹침). 리빌도 같은 상한을 쓴다.
      열둘이면 이름표를 전부 달 수 있어서 「골라 단다」는 군더더기도 사라진다.
@@ -224,6 +255,20 @@ function g3dData(src) {
   });
   shown.forEach((n) => { n.kin = kin[n.id] || new Set(); });
   return { nodes: shown, links, total: nodes.length, totalLinks: (src.graph.edges || []).length };
+}
+
+
+/**
+ * 개념 이름 뒤에 붙일 주격 조사. 받침이 있으면 «이», 없으면 «가».
+ *
+ * 「작업 맥락가」 처럼 나오면 문장이 아니라 템플릿으로 읽힌다. 개념 이름은
+ * 자료에서 그대로 오는 값이라 어떤 글자로 끝날지 우리가 못 고른다.
+ */
+function g3dSubject(word) {
+  const ch = String(word || '').trim().slice(-1);
+  const code = ch.charCodeAt(0);
+  if (Number.isNaN(code) || code < 0xAC00 || code > 0xD7A3) return '가';
+  return (code - 0xAC00) % 28 ? '이' : '가';
 }
 
 /**
@@ -247,7 +292,8 @@ function g3dSummaryHtml(nodes) {
     ${by('justified_skip') ? `<b class="g3d-k om">넘어가도 됨 ${by('justified_skip')}</b>` : ''}
     ${heavyMissing.length
       ? `<span class="g3d-lead">자료가 힘준 개념 중 <b>${escapeHtml(heavyMissing[0].label)}</b>${
-          heavyMissing.length > 1 ? ` 외 ${heavyMissing.length - 1}개` : ''}가 아직 말로 안 나왔어요</span>`
+          heavyMissing.length > 1 ? ` 외 ${heavyMissing.length - 1}개가` : g3dSubject(heavyMissing[0].label)
+        } 아직 말로 안 나왔어요</span>`
       : '<span class="g3d-lead">자료가 힘준 개념은 모두 말로 나왔어요</span>'}`;
 }
 
@@ -295,7 +341,7 @@ function renderGraph3D() {
         <span><i style="background:${g3dColor('--no', '#DC2626')}"></i>아직 설명 안 했어요</span>
         <span><i style="background:${g3dColor('--ct', '#9333EA')}"></i>자료와 다르게 말했어요</span>
         <span><i style="background:${g3dColor('--om', '#8A6A15')}"></i>넘어가도 돼요</span>
-        <span class="g3d-hint">진할수록 발표에서 많이 말한 개념이에요 · 크기는 자료가 실은 비중이에요</span>
+        <span class="g3d-hint">잘 설명한 개념은 조용히, 아직 못 한 개념만 진하게 뒀어요 · 크기는 자료가 실은 비중이에요</span>
       </div>
       <aside class="g3d-card" id="g3dCard" hidden></aside>
     </div>`;
