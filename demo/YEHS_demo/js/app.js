@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qk3" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qk5" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -3698,6 +3698,7 @@ function nfStep4() {
       pushPipelineLog(nf.pipelinePhase);   // 총 소요 실측이 피드의 마지막 줄이 된다
       refreshStep4IfVisible();
       saveSession('new-flow', nf);
+      if (!failed) autoAdvanceToQa();
     }).catch((err) => {
       console.warn('[chuckchuck] prepare pipeline', err);
       nf.pipelineError = err.message || String(err);
@@ -5059,6 +5060,42 @@ function rSummary() {
   paintDeckThumbs();
   wireSendoff();
   if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
+}
+
+
+/**
+ * 분석이 끝나면 질문 코칭으로 알아서 넘어간다 (2026-08-10 지시).
+ *
+ * 다 끝난 뒤의 4단계 화면은 사실상 통과 지점이다 — 진행 막대 100%, 타임라인,
+ * 체크리스트 전부 ✓ 는 이미 끝난 일의 기록이고, 남는 일은 「질문 코칭
+ * 시작하기」를 누르는 것뿐이다. 그 한 번을 사람이 눌러야 할 이유가 없다.
+ *
+ * 지키는 것 넷.
+ * - **실패했으면 안 넘긴다.** 호출부에서 걸러진다. 실패를 스쳐 지나가게 하면
+ *   「분석이 됐는데 질문이 이상하다」로 읽힌다 (CLAUDE.md §4).
+ * - **리빌이 떠 있으면 기다린다.** 지금 넘기면 route() 가 dismissF11Reveal() 을
+ *   불러 30초짜리 분석 연출이 중간에 잘린다. 닫힐 때까지 지켜보다 넘어간다.
+ * - **4단계를 보고 있을 때만 넘긴다.** 사용자가 리포트나 다른 데로 옮겨 갔으면
+ *   화면을 빼앗지 않는다.
+ * - **한 실행에 한 번만.** 재렌더마다 부르지 않게 pipelineStartedAt 으로 잠근다.
+ *
+ * 검증 로그와 「다른 녹음으로 다시」는 이 화면에만 있는데, #/new 로 돌아오면
+ * 그대로 있다 (nf.step 이 4단계로 남는다).
+ */
+function autoAdvanceToQa() {
+  if (!nf || nf._autoAdvancedFor === nf.pipelineStartedAt) return;
+  if (!pipelineQaReady()) return;
+  nf._autoAdvancedFor = nf.pipelineStartedAt;
+  const go = () => {
+    // 리빌이 닫힐 때까지 기다린다 — 연출이 끝나야 다음 화면이 의미가 있다
+    if (document.getElementById('f11RevealWrap')) return setTimeout(go, 600);
+    // 그 사이 다른 화면으로 갔으면 손대지 않는다
+    if (!location.hash.startsWith('#/new')) return;
+    location.hash = '#/qa';
+  };
+  // 「끝났어요」를 한 박자 보여주고 넘어간다. 즉시 바꾸면 무슨 일이 일어난 건지
+  // 모른 채 화면만 갈린다.
+  setTimeout(go, 1200);
 }
 
 /** 파이프라인이 더 돌지 않는 상태인가. 문구와 색이 같은 답을 봐야 해서 한 곳에 둔다. */
