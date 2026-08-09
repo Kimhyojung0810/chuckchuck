@@ -515,7 +515,12 @@
        바닥값(300px)에 붙어 있었다. 주석이 말하는 374px 이 한 번도 안 나왔다.
        34% 로 올리면 1074×.34 = 365px 로 의도대로 선다. 좁은 쪽은 clamp 의
        바닥이 그대로 막아 주므로 1024 에서는 달라지지 않는다. */
-    grid-template-columns: clamp(300px, 34%, 400px) minmax(0, 1fr);
+    /* 34% → 28%. 1366 에서 365px 이던 기둥이 300px 이 된다.
+       기둥은 탭을 옮겨도 남는 앵커라 없애지 않되, 본문 폭의 34% 를 요약이
+       쓰고 있던 건 과했다. 항목 줄이 두 칸 격자에서 한 줄씩으로 바뀐 뒤로
+       좁은 폭을 견딘다 — 2열이던 시절에는 300px 에서 이름이 접혔다.
+       바닥값 300px 은 그대로: 그 아래로는 '목적·청중 적합성' 이 접힌다. */
+    grid-template-columns: clamp(300px, 28%, 360px) minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       "head tabs"
