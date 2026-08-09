@@ -392,6 +392,9 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js
 
 테스트 **591 passed · 7 skipped** (계획 시작 시 581). 전부 `main` 에 푸시됨.
 
+> **다음에 무엇을 어떻게 시작하는지는 [qa-followups.plan.md](qa-followups.plan.md) 에 있다.**
+> 이 문서는 *왜 안 했는지*(판단 근거)를 남기고, 그쪽은 *진입점·검증법·함정*을 남긴다.
+
 ### 나간 것
 
 | 커밋 | 무엇 |
