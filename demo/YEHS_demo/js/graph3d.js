@@ -191,9 +191,27 @@ function g3dRgba(hex, alpha) {
  */
 function g3dStrength(verdict, speech) {
   if (verdict === 'missing' || verdict === 'contradiction') return 0.95;
-  if (verdict === 'aligned') return 0.22 + Math.max(0, Math.min(1, speech || 0)) * 0.20;
-  if (verdict === 'justified_skip') return 0.18;
-  return 0.16;   // 판정 전
+  if (verdict === 'aligned') return 0.20 + Math.max(0, Math.min(1, speech || 0)) * 0.25;
+  if (verdict === 'justified_skip') return 0.16;
+  return 0.14;   // 판정 전
+}
+
+/**
+ * 공이 쓸 색. **두 가지뿐이다** — 괜찮은 것은 브랜드 그린, 봐야 할 것은 빨강.
+ *
+ * 판정은 넷인데 색을 넷 주면 화면이 넷을 동시에 주장한다. 지도가 할 일은
+ * 「어디를 봐야 하나」 하나이고, 「어떤 종류의 문제인가」는 그 다음 질문이다.
+ * 그래서 공은 둘로 줄이고, 넷의 구분은 **이름표의 6px 점**이 그대로 들고 있다
+ * (점은 작아서 소리치지 않으면서 알려 준다). 눌러서 나오는 카드가 문장으로
+ * 다시 말해 주므로 잃는 정보는 없다.
+ *
+ * 색을 바꿔도 된다는 허락을 받고 고른 답이다 (2026-08-10). 토스의 Bubble 이
+ * 두 상태를 blue·grey 로 가르는 것과 같은 구조다 (TDS.md:2254).
+ */
+function g3dBallHue(verdict) {
+  return (verdict === 'missing' || verdict === 'contradiction')
+    ? g3dColor('--no', '#DC2626')
+    : g3dColor('--brand', '#08B879');
 }
 
 /**
@@ -234,8 +252,8 @@ function g3dData(src) {
     // 이름표의 점은 **원래 채도 그대로** 둔다. 6px 짜리라 소리치지 않으면서도
     // 「이 개념이 어떤 판정인지」는 알려줘야 하는데, 공과 같이 흐려 놓으면
     // 크림색 칩 위에서 아예 안 보인다.
-    n.dot = n.color;
-    n.color = g3dRgba(n.color, g3dStrength(n.verdict, n.speech));
+    n.dot = n.color;                        // 판정 4종 — 이름표의 점이 들고 간다
+    n.color = g3dRgba(g3dBallHue(n.verdict), g3dStrength(n.verdict, n.speech));
   });
   /* **자료가 힘을 실은 상위 12개만 그린다.** 열일곱 개에 한글 이름표를 다 붙이면
      서로를 덮어 아무것도 안 읽힌다 (실측 48쌍 겹침). 리빌도 같은 상한을 쓴다.
@@ -337,11 +355,9 @@ function renderGraph3D() {
       </div>
       <div class="g3d-stage" id="g3dStage"><p class="g3d-loading">무대를 세우고 있어요…</p></div>
       <div class="g3d-legend">
-        <span><i style="background:${g3dColor('--ok', '#0A8F68')}"></i>설명했어요</span>
-        <span><i style="background:${g3dColor('--no', '#DC2626')}"></i>아직 설명 안 했어요</span>
-        <span><i style="background:${g3dColor('--ct', '#9333EA')}"></i>자료와 다르게 말했어요</span>
-        <span><i style="background:${g3dColor('--om', '#8A6A15')}"></i>넘어가도 돼요</span>
-        <span class="g3d-hint">잘 설명한 개념은 조용히, 아직 못 한 개념만 진하게 뒀어요 · 크기는 자료가 실은 비중이에요</span>
+        <span><i style="background:${g3dRgba(g3dColor('--brand', '#08B879'), 0.4)}"></i>자기 말로 설명했어요</span>
+        <span><i style="background:${g3dColor('--no', '#DC2626')}"></i>아직 못 했거나 다르게 말했어요</span>
+        <span class="g3d-hint">크기는 자료가 실은 비중이에요 · 이름표 앞의 점이 판정 네 가지를 나눠요 · 개념을 누르면 이어진 것만 남아요</span>
       </div>
       <aside class="g3d-card" id="g3dCard" hidden></aside>
     </div>`;
