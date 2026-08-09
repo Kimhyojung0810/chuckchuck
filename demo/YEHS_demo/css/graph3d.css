@@ -125,3 +125,8 @@
   .g3d-card { right: 12px; left: 12px; width: auto; top: auto; bottom: 84px; }
   .g3d-legend { gap: 10px; font-size: 11px; }
 }
+
+/* 이웃 강조. 누른 개념과 이어진 것만 남기고 나머지는 죽인다 — 지우지 않고
+   흐리게만 둔다. 사라지면 「연결이 없다」로 읽힌다. */
+.g3d-label.is-dim { opacity: .18 !important; }
+.g3d-clip { color: var(--text-3, #5b6b64); font-weight: 500; }

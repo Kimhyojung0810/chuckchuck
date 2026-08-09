@@ -44,14 +44,11 @@ function g3dAttachLabels(stage, g, nodes, compact) {
   layer.className = 'g3d-labels';
   stage.appendChild(layer);
 
-  /* **모두에게 이름표를 달지 않는다.** 한 층에 열 개가 서면 이름표 폭만으로도
-     자리가 없어서 서로를 덮는다 — 튜닝으로 풀리는 문제가 아니다 (실측 48쌍 겹침).
-     그래서 지금 봐야 할 것만 단다: 자료가 힘을 실은 상위 개념과, 아직 말로
-     안 나왔거나 자료와 다르게 말한 개념. 나머지는 올려놓으면 이름이 뜬다
-     (nodeLabel). 덜어낸 게 아니라, 이름표 자체가 «여기를 보라»가 된 것이다. */
-  const TOP = compact ? 5 : 8;
-  const heavy = new Set([...nodes].sort((a, b) => b.weight - a.weight).slice(0, TOP).map((n) => n.id));
-  const named = nodes.filter((n) => heavy.has(n.id) || n.verdict === 'missing' || n.verdict === 'contradiction');
+  /* 열두 개면 **전부** 이름표를 단다. 한때 상위 몇 개만 골라 달았는데, 그건
+     노드가 열일곱이라 서로 덮여서 어쩔 수 없던 것이었다 (실측 48쌍 겹침).
+     상한이 생기면서 그 군더더기가 사라졌다 — 그래프에 이름 없는 점이 섞여
+     있으면 「연결되어 있다」를 읽는 눈이 그 점에서 걸린다. */
+  const named = nodes;
 
   const els = named.map((n) => {
     const el = document.createElement('span');
@@ -84,6 +81,13 @@ function g3dAttachLabels(stage, g, nodes, compact) {
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
+
+  return (focus) => {
+    named.forEach((n, i) => {
+      const on = !focus || n.id === focus.id || (focus.kin && focus.kin.has(n.id));
+      els[i].classList.toggle('is-dim', !on);
+    });
+  };
 }
 
 /** 지금 세션의 그래프·정합. 없으면 null — 없는 그래프를 지어내지 않는다. */
@@ -116,6 +120,32 @@ const G3D_VERDICT_WORD = {
   missing: '아직 설명하지 않았어요',
   contradiction: '자료와 다르게 말했어요',
 };
+
+
+/** 링크가 이 개념에 닿는가. source/target 은 문자열이거나 노드 객체다. */
+function g3dLinkTouches(l, id) {
+  const s = typeof l.source === 'object' ? l.source.id : l.source;
+  const t = typeof l.target === 'object' ? l.target.id : l.target;
+  return s === id || t === id;
+}
+/** 이 개념의 이웃 집합 (g3dData 가 미리 만들어 둔 것). */
+function g3dKinOf(data, id) {
+  const n = data.nodes.find((x) => x.id === id);
+  return (n && n.kin) || new Set();
+}
+/** 죽여 둘 색. 지우지 않고 흐리게만 둔다 — 사라지면 «연결이 없다»로 읽힌다. */
+function g3dFade(color) {
+  const m = /^rgba?\(([^)]+)\)$/.exec(String(color || ''));
+  if (m) { const p = m[1].split(',').map((x) => x.trim()); return `rgba(${p[0]},${p[1]},${p[2]},.10)`; }
+  const h = String(color || '').replace('#', '');
+  if (h.length !== 6) return color;
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},.10)`;
+}
+
+/** 무대에 세울 개념 수 상한. 리빌(MAX_REVEAL_NODES)과 같은 값이다 —
+ *  한 자료를 두 화면이 다른 개수로 보여주면 어느 쪽이 맞는지 알 수 없다. */
+const G3D_MAX_NODES = 12;
 
 function g3dColor(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -176,11 +206,24 @@ function g3dData(src) {
   // 진하기 = 말한 정도. 판정 전(색 없음)에는 손대지 않는다 — 안 잰 값을 그리면
   // 「말 안 했다」로 읽힌다.
   nodes.forEach((n) => { if (n.verdict) n.color = g3dRgba(n.color, n.speech); });
-  const ids = new Set(nodes.map((n) => n.id));
+  /* **자료가 힘을 실은 상위 12개만 그린다.** 열일곱 개에 한글 이름표를 다 붙이면
+     서로를 덮어 아무것도 안 읽힌다 (실측 48쌍 겹침). 리빌도 같은 상한을 쓴다.
+     열둘이면 이름표를 전부 달 수 있어서 「골라 단다」는 군더더기도 사라진다.
+     자른 사실은 화면이 말한다 — 안 그러면 «자료에 개념이 12개뿐» 으로 읽힌다. */
+  const shown = [...nodes].sort((a, b) => b.weight - a.weight).slice(0, G3D_MAX_NODES);
+  const ids = new Set(shown.map((n) => n.id));
   const links = (src.graph.edges || [])
     .filter((e) => e && ids.has(e.from) && ids.has(e.to))
     .map((e) => ({ source: e.from, target: e.to, kind: e.kind || 'parent' }));
-  return { nodes, links };
+  // 이웃 표. 누른 개념의 연결을 밝히고 나머지를 죽일 때 쓴다 — 「이어져 있다」를
+  // 말로 하지 않고 눈으로 보여주는 유일한 방법이다.
+  const kin = {};
+  links.forEach((l) => {
+    (kin[l.source] || (kin[l.source] = new Set())).add(l.target);
+    (kin[l.target] || (kin[l.target] = new Set())).add(l.source);
+  });
+  shown.forEach((n) => { n.kin = kin[n.id] || new Set(); });
+  return { nodes: shown, links, total: nodes.length, totalLinks: (src.graph.edges || []).length };
 }
 
 /**
@@ -240,7 +283,9 @@ function renderGraph3D() {
         <a class="g3d-back" href="#/report">← 리포트로</a>
         <div class="g3d-title">
           <b>내 자료는 이렇게 짜여 있어요</b>
-          <span>개념 ${data.nodes.length}개 · 연결 ${data.links.length}개</span>
+          <span>${data.total > data.nodes.length
+            ? `개념 ${data.total}개 중 자료가 힘준 ${data.nodes.length}개 · 그 사이 연결 ${data.links.length}개`
+            : `개념 ${data.nodes.length}개 · 연결 ${data.links.length}개`}</span>
         </div>
         <div class="g3d-summary">${g3dSummaryHtml(data.nodes)}</div>
       </div>
@@ -273,11 +318,14 @@ function renderGraph3D() {
  */
 function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
   if (!stage) return;
-  /* 층을 고정한다. 큰 개념이 위, 하위 개념이 아래 — 「자료가 이렇게 짜여
-     있다」가 한눈에 온다. y 만 묶고 x·z 는 force 에 맡기므로 형제들은 알아서
-     넓게 퍼지고, 돌려 봐도 층은 유지된다. 순수 force 는 이걸 공으로 뭉갠다. */
-  const layer = compact ? 46 : 62;
-  data.nodes.forEach((n) => { n.fy = (2 - n.depth) * layer; });
+  /* **층으로 묶지 않는다.** 한때 depth 로 y 를 고정해 트리처럼 세웠는데,
+     이 자료가 말하는 것은 위계가 아니라 «개념들이 서로 얽혀 있다» 이다
+     (2026-08-10 지시: 트리 말고 그래프인 걸 보여줘야 한다). 층을 묶으면
+     가로줄 몇 개로 보여서 그 얽힘이 통째로 사라진다. force 에 맡기고
+     대신 연결을 굵고 밝게 그린다. */
+  let focusId = null;
+  /** 이름표도 같이 죽인다 — 공만 흐려지고 글자가 또렷하면 초점이 안 생긴다. */
+  let layerFocus = () => {};
   return loadForceGraph3D().then(() => {
     stage.innerHTML = '';
     const showCard = (n) => { if (onPick) onPick(n); };
@@ -294,22 +342,46 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
          계층 계산이 무너지고, 열일곱 개가 한 줄로 뭉쳐 아무것도 안 읽혔다.
          우리는 f07 이 준 depth 를 이미 들고 있으니 그걸 쓰면 순환과 무관하다. */
       .nodeLabel((n) => n.label)
-      .nodeColor((n) => n.color)
+      .nodeColor((n) => (focusId && n.id !== focusId && !g3dKinOf(data, focusId).has(n.id)
+        ? g3dFade(n.color) : n.color))
       // 자료가 힘을 실은 개념일수록 크다. weight 는 0~1 이라 그대로 쓰면 다 비슷해진다.
-      .nodeVal((n) => 1 + n.weight * 14)
+      /* weight 를 넓게 벌린다. 1~15 로는 눈이 차이를 못 잡아 다 비슷한 공이 됐다.
+         부피는 반지름의 세제곱이라 nodeVal 을 크게 벌려야 지름이 눈에 띈다. */
+      .nodeVal((n) => 2 + Math.pow(n.weight, 1.4) * 60)
       .nodeOpacity(0.92)
       .nodeResolution(16)
       // 밝은 면이라 선은 흰색이 아니라 딥그린 계열로 어둡게 — 흰 선은 안 보인다
-      .linkColor((l) => (l.kind === 'relates' ? 'rgba(21,92,70,.20)' : 'rgba(21,92,70,.42)'))
-      .linkWidth((l) => (l.kind === 'relates' ? 0.4 : 1.1))
+      .linkColor((l) => {
+        const on = !focusId || g3dLinkTouches(l, focusId);
+        if (!on) return 'rgba(21,92,70,.06)';
+        return l.kind === 'relates' ? 'rgba(21,92,70,.28)' : 'rgba(21,92,70,.52)';
+      })
+      /* 연결이 주인공이다. 가늘고 흐린 선은 「점들이 떠 있다」로 읽힌다 —
+         relates 까지 또렷하게 그려야 «얽혀 있다» 가 보인다. */
+      .linkWidth((l) => {
+        const w = l.kind === 'relates' ? 0.9 : 1.8;
+        return (focusId && g3dLinkTouches(l, focusId)) ? w * 2.2 : w;
+      })
       // parent 간선에만 입자를 흘린다 — 자료의 뼈대가 어디로 흐르는지가 보인다
-      .linkDirectionalParticles((l) => (l.kind === 'relates' ? 0 : 2))
+      // 입자는 모든 연결에 흘린다. 멈춰 있는 선은 그림이고, 흐르는 선은 관계다.
+      .linkDirectionalParticles(2)
       .linkDirectionalParticleWidth(1.6)
       .linkDirectionalParticleSpeed(0.006)
       .onNodeClick((n) => {
+        /* 누른 개념과 **이어진 것만** 남기고 나머지를 죽인다. 이 화면이 하려는
+           말이 「개념들이 서로 얽혀 있다」인데, 색색 공이 떠 있는 그림만으로는
+           그게 안 읽힌다 — 하나를 누를 때마다 실이 몇 가닥 딸려 나와야 한다.
+           같은 개념을 다시 누르면 원래대로 돌아온다. */
+        focusId = (focusId === n.id) ? null : n.id;
+        g.nodeColor(g.nodeColor()).linkColor(g.linkColor()).linkWidth(g.linkWidth());
+        stage.classList.toggle('is-focused', !!focusId);
+        if (focusId) layerFocus(n); else layerFocus(null);
         showCard(n);
         // 누른 개념 앞으로 카메라를 옮긴다 — 「눌렀다」가 눈에 보여야 한다
-        const dist = 130;
+        // 공이 클수록 멀리서 잡는다. 고정 거리로 두면 큰 개념을 눌렀을 때
+        // 화면을 꽉 채우다 못해 잘려 나간다 — 이웃을 보여주려던 클릭인데
+        // 정작 이웃이 화면 밖으로 밀린다.
+        const dist = 150 + n.weight * 260;
         const r = Math.hypot(n.x, n.y, n.z) || 1;
         g.cameraPosition(
           { x: n.x * (1 + dist / r), y: n.y * (1 + dist / r), z: n.z * (1 + dist / r) },
@@ -357,7 +429,7 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
       });
     }
     setTimeout(() => g.zoomToFit(800, compact ? 70 : 50), 3200);
-    g3dAttachLabels(stage, g, data.nodes, compact);
+    layerFocus = g3dAttachLabels(stage, g, data.nodes, compact) || (() => {});
     return g;
   }).catch((err) => {
     // 못 불러왔으면 빈 무대를 두지 않고 이유를 적는다
@@ -398,7 +470,12 @@ function mountGraphCard(prefix) {
   if (!src) { stage.innerHTML = '<p class="g3d-loading">개념 그래프가 아직 없어요</p>'; return; }
   const data = g3dData(src);
   const sum = document.getElementById(`${prefix}Summary`);
-  if (sum) sum.innerHTML = g3dSummaryHtml(data.nodes);
+  if (sum) {
+    // 자른 사실을 여기서도 말한다 — 안 그러면 «자료에 개념이 12개뿐» 으로 읽힌다
+    const clip = data.total > data.nodes.length
+      ? `<span class="g3d-clip">개념 ${data.total}개 중 자료가 힘준 ${data.nodes.length}개예요</span>` : '';
+    sum.innerHTML = g3dSummaryHtml(data.nodes) + clip;
+  }
   const card = document.getElementById(`${prefix}Card`);
   const start = () => {
     if (stage.dataset.mounted) return;
