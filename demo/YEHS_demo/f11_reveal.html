@@ -473,7 +473,7 @@
   .waitbar[hidden] { display: none; }
   .wb-track { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .wb-track i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--primary); transition: width .6s linear; }
-  .wb-meta { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0 0; font-size: 12px; color: var(--sub); }
+  .wb-meta { display: flex; justify-content: flex-end; gap: 10px; margin: 6px 0 0; font-size: 12px; color: var(--sub); }
   .wb-meta b { color: var(--primary); font-variant-numeric: tabular-nums; }
   /* 정합을 기다리는 동안 노드 하나씩 짚어 본다 — 숫자를 주장하지 않는 순수 연출 */
   .node.scanning circle.body { stroke: var(--primary); }
@@ -482,19 +482,24 @@
      왼쪽은 지금 일하는 발표새(단계마다 소품이 바뀐다), 오른쪽은 실제로
      도착한 것들이 한 줄씩 쌓인다. 둘 다 지어낸 게 아니라 부모가 보낸
      f11Progress 그대로다 — 연출이 데이터를 앞지르지 않는다 */
-  .workbench { display: none; gap: 18px; padding: 4px 20px 10px; align-items: flex-start; }
-  .workbench.on { display: flex; }
-  .wb-bird { flex: none; width: 104px; text-align: center; }
-  .wb-bird svg { width: 92px; height: 92px; display: block; margin: 0 auto; }
-  .wb-bird .who { margin-top: 2px; font-size: 11px; font-weight: 700; color: var(--sub); }
+  /* 병아리는 목록 제목 줄 안에 있다 (마크업 참고). 옆 기둥에 세워 두면 그 폭만큼
+     빈 여백이 생기고 이름표가 허공에 뜬다 — 「누가 이걸 하고 있다」는 말이라
+     그 목록 바로 옆이 제자리다. */
+  .workbench { display: none; padding: 4px 20px 10px; }
+  .workbench.on { display: block; }
+  .wb-bird { flex: none; width: 34px; height: 34px; display: inline-block; }
+  .wb-bird svg { width: 34px; height: 34px; display: block; }
+  .wb-feed .ttl .who { font-weight: 700; color: var(--primary); }
+  .wb-feed .ttl .who:not(:empty)::before { content: "·\00a0"; color: var(--sub); }
   /* 일하는 티 — 아주 작게. 연출은 10% 다 */
   .wb-bird.busy svg { animation: wbBob 1.9s ease-in-out infinite; }
   @keyframes wbBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
-  .wb-feed { flex: 1; min-width: 0; }
+  .wb-feed { min-width: 0; }
   .wb-feed .ttl {
+    display: flex; align-items: center; gap: 8px;
     font-size: 11px; font-weight: 700; color: var(--sub);
-    letter-spacing: .02em; margin: 2px 0 6px;
+    letter-spacing: .02em; margin: 2px 0 8px;
   }
   .wb-feed ul { list-style: none; margin: 0; padding: 0; }
   .wb-feed li {
@@ -572,17 +577,23 @@
   <!-- 대기 막대 — 부모가 넘겨준 실제 진행률만 그린다. 결과가 다 오면 사라진다 -->
   <div class="waitbar" id="waitBar" hidden>
     <div class="wb-track"><i id="wbFill"></i></div>
-    <p class="wb-meta"><span id="wbLabel"></span><b id="wbPct"></b></p>
+    <!-- 단계 이름을 여기 또 쓰지 않는다. 위 큰 제목과 아래 「지금까지 한 일」의
+         굵은 줄이 이미 같은 문장이라, 한 화면에 같은 말이 셋이었다
+         (2026-08-09 사용자). 막대가 말할 것은 얼마나 왔느냐 하나다.
+         paintWaitBar 의 wbLabel 대입은 `if (label)` 가드가 있어 그대로 둬도 된다. -->
+    <p class="wb-meta"><b id="wbPct"></b></p>
   </div>
 
   <!-- 작업대 — 지금 누가 무엇을 하는지 + 실제로 도착한 것들 -->
   <div class="workbench" id="workbench">
-    <div class="wb-bird" id="wbBird">
-      <div id="wbBirdArt"></div>
-      <p class="who" id="wbWho"></p>
-    </div>
     <div class="wb-feed">
-      <p class="ttl">지금까지 한 일</p>
+      <!-- 병아리를 목록 제목 줄로 들여왔다. 왼쪽 104px 기둥에 혼자 세워 두니
+           빈 여백만 넓고 이름표가 허공에 뜬 것처럼 보였다 (2026-08-09 사용자).
+           「누가 지금 이걸 하고 있다」는 말이라 그 목록 옆에 있는 게 맞다. -->
+      <p class="ttl">
+        <span class="wb-bird" id="wbBird"><span id="wbBirdArt"></span></span>
+        지금까지 한 일<span class="who" id="wbWho"></span>
+      </p>
       <ul id="wbList"></ul>
       <p class="wb-said" id="wbSaid" hidden></p>
       <!-- 개념 목록 — 그래프가 오면 뜨고, 정합이 오면 판정이 채워진다 -->
