@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qi8" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qi9" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -2725,6 +2725,24 @@ function pipelinePhaseLabel(phase) {
  * nfStep4 와 F-11 연출 오버레이가 같이 쓴다. 연출이 화면을 덮는 동안에도
  * "지금 어디까지 됐나"는 계속 보여야 한다 — 덮어 놓고 숨기면 사용자는
  * 진행이 멈춘 줄 안다 (2026-08-07 지적). */
+/**
+ * 대기 화면의 개념 지도 (js/graph3d.js 가 무대를 세운다).
+ *
+ * 그래프가 아직 없으면 **칸 자체를 안 만든다.** 분석 중에는 없는 게 정상인데
+ * 빈 판을 띄워 두면 「분석이 실패했나」로 읽힌다 — 이 화면은 7분을 기다리는
+ * 자리라 그 오해가 특히 비싸다.
+ */
+function waitGraphHtml() {
+  if (typeof window.hasConceptGraph !== 'function' || !window.hasConceptGraph()) return '';
+  return `
+    <div class="card rep-graph wait-graph">
+      <h3 class="section-title">여기까지 읽어낸 개념 지도<span class="soft">개념을 누르면 판정을 보여줘요</span></h3>
+      <div class="g3d-summary" id="waitGraphSummary"></div>
+      <div class="rep-graph-stage" id="waitGraphStage"><p class="g3d-loading">개념 지도를 세우고 있어요…</p></div>
+      <aside class="g3d-card in-report" id="waitGraphCard" hidden></aside>
+    </div>`;
+}
+
 function pipelineChecklistHtml() {
   const items = pipelineChecklistItems();
   const stage = pipelineStageOf(nf.pipelinePhase || 'queued');
@@ -3493,6 +3511,7 @@ function nfStep4() {
       ${backstageHtml()}
       ${pipeErr}
       ${pipelineChecklistHtml()}
+      ${waitGraphHtml()}
       ${pipelineInspectHtml()}
       <div class="step-actions">
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>
@@ -3509,6 +3528,8 @@ function nfStep4() {
   wireFreshPracticeButtons(app);
   startPipelineElapsedTimer();
   paintPipeMapThumbs();
+  // 개념 지도. 칸이 없으면(그래프 전) 아무 일도 안 한다.
+  if (typeof window.mountWaitGraph === 'function') window.mountWaitGraph();
   // 첫 틱(1초)을 기다리면 타임라인이 빈 뼈대로 보인다. 붙이자마자 한 번 칠한다.
   paintPipelineTimeline();
   paintPipelineFeedNow();

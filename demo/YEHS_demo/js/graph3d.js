@@ -369,14 +369,33 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
  * 무거운 것을 리포트를 열자마자 물지 않는다. 카드가 화면에 들어올 때 세운다.
  */
 function mountReportGraph() {
-  const stage = document.getElementById('repGraphStage');
+  return mountGraphCard('repGraph');
+}
+
+/**
+ * 분석 대기 화면(#/new 4단계)의 개념 지도.
+ *
+ * 「질문 코치로 넘어가기 전 로딩 화면에서 같이 보여주자」 (2026-08-10 지시).
+ * 그 자리가 좋은 이유가 하나 더 있다 — 그래프와 정합이 **둘 다 끝난 뒤**라
+ * 판정색까지 온전하다. 리포트 카드와 같은 무대를 쓴다.
+ *
+ * 그래프가 아직 없으면 아무것도 안 만든다. 분석 중에는 없는 게 정상이고,
+ * 빈 판을 띄워 두면 「분석이 실패했나」로 읽힌다.
+ */
+function mountWaitGraph() {
+  return mountGraphCard('waitGraph');
+}
+
+/** 두 자리가 같은 무대를 쓴다. 갈라지면 한쪽만 고쳐져 같은 그래프가 두 얼굴이 된다. */
+function mountGraphCard(prefix) {
+  const stage = document.getElementById(`${prefix}Stage`);
   if (!stage || stage.dataset.mounted) return;
   const src = graph3dSource();
   if (!src) { stage.innerHTML = '<p class="g3d-loading">개념 그래프가 아직 없어요</p>'; return; }
   const data = g3dData(src);
-  const sum = document.getElementById('repGraphSummary');
+  const sum = document.getElementById(`${prefix}Summary`);
   if (sum) sum.innerHTML = g3dSummaryHtml(data.nodes);
-  const card = document.getElementById('repGraphCard');
+  const card = document.getElementById(`${prefix}Card`);
   const start = () => {
     if (stage.dataset.mounted) return;
     stage.dataset.mounted = '1';
@@ -403,3 +422,6 @@ function mountReportGraph() {
 
 window.renderGraph3D = renderGraph3D;
 window.mountReportGraph = mountReportGraph;
+window.mountWaitGraph = mountWaitGraph;
+/** 그래프가 있는가 — 대기 화면이 카드를 그릴지 말지 여기로 묻는다. */
+window.hasConceptGraph = () => !!graph3dSource();
