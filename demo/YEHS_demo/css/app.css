@@ -2957,27 +2957,4 @@ details.fold summary:active,
 @keyframes bar-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes stage-in   { from { opacity: 0; } to { opacity: 1; } }
 
-/* ── 개념 전달: 목록 ↔ 성좌 ────────────────────────────────────────────
-   기본은 목록이다. 성좌는 «개념이 서로 어떻게 이어지는가» 를 물을 때만 연다 —
-   평소에 필요한 답(몇 개를 설명했나)은 목록이 더 빨리 준다. */
-.jview { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
-.jview button {
-  padding: 7px 14px; border: 1px solid var(--border); border-radius: 999px;
-  background: var(--surface); color: var(--text-2);
-  font-size: 13px; font-weight: 600; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform var(--press), background-color .12s ease, color .12s ease;
-}
-.jview button:active { transform: scale(.985); }
-.jview button.on { background: var(--brand-weak); border-color: transparent; color: var(--navy); }
-.jview-hint { margin-left: 6px; font-size: 12px; color: var(--text-3); }
 
-/* 성좌가 앉는 자리. 높이를 고정하지 않으면 캔버스가 0px 으로 접힌다 */
-.g3d {
-  grid-column: 1 / -1; position: relative;
-  height: clamp(360px, 52vh, 560px);
-  border-radius: var(--r-print); overflow: hidden; background: var(--navy);
-}
-/* 라이브러리가 심는 영문 조작 안내 — 우리 안내가 이미 있다 */
-.g3d .scene-nav-info { display: none !important; }
-.g3d-msg { padding: 28px 20px; color: #BEE3D2; text-align: center; }
