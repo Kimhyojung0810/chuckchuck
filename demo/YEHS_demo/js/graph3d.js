@@ -29,6 +29,50 @@ function loadForceGraph3D() {
   return graph3dLibP;
 }
 
+/**
+ * 노드 이름표를 **HTML 로** 얹는다 (3D 스프라이트가 아니라).
+ *
+ * three-spritetext 로 가려다 접었다. 그건 자기 three 를 import 하는데
+ * 3d-force-graph 는 자기 three 를 품고 있어서, 한 화면에 three 가 두 벌 뜬다 —
+ * 다른 인스턴스로 만든 객체는 씬에 넣어도 안 그려질 수 있다 (실제로 안 나왔다).
+ *
+ * HTML 이면 그 위험이 아예 없고, Pretendard 를 그대로 써서 작은 카드에서도
+ * 또렷하다. 좌표는 라이브러리가 주는 graph2ScreenCoords 로 매 프레임 옮긴다.
+ */
+function g3dAttachLabels(stage, g, nodes, compact) {
+  const layer = document.createElement('div');
+  layer.className = 'g3d-labels';
+  stage.appendChild(layer);
+  const els = nodes.map((n) => {
+    const el = document.createElement('span');
+    el.className = 'g3d-label';
+    el.textContent = n.label;
+    layer.appendChild(el);
+    return el;
+  });
+  if (compact) layer.classList.add('is-compact');
+
+  let alive = true;
+  const tick = () => {
+    if (!alive || !stage.isConnected) { alive = false; return; }
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      const el = els[i];
+      if (n.x == null) { el.style.opacity = '0'; continue; }
+      const p = g.graph2ScreenCoords(n.x, n.y, n.z);
+      // 화면 밖이면 감춘다 — 가장자리에 눌어붙은 이름표는 그래프를 지저분하게 만든다
+      if (!p || p.x < -40 || p.y < -20 || p.x > stage.clientWidth + 40 || p.y > stage.clientHeight + 20) {
+        el.style.opacity = '0';
+      } else {
+        el.style.opacity = '1';
+        el.style.transform = `translate(-50%, 0) translate(${p.x}px, ${p.y}px)`;
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 /** 지금 세션의 그래프·정합. 없으면 null — 없는 그래프를 지어내지 않는다. */
 function graph3dSource() {
   const src = (typeof nf !== 'undefined' && nf && nf.pipelineOut)
@@ -151,16 +195,27 @@ function renderGraph3D() {
       <aside class="g3d-card" id="g3dCard" hidden></aside>
     </div>`;
 
-  const stage = $('#g3dStage');
-  loadForceGraph3D().then(() => {
-    stage.innerHTML = '';
+  mountGraph3D($('#g3dStage'), data, { onPick: (n) => {
     const card = $('#g3dCard');
-    const showCard = (n) => {
-      card.innerHTML = g3dCardHtml(n);
-      card.hidden = false;
-      const close = $('#g3dClose');
-      if (close) close.addEventListener('click', () => { card.hidden = true; });
-    };
+    card.innerHTML = g3dCardHtml(n);
+    card.hidden = false;
+    const close = $('#g3dClose');
+    if (close) close.addEventListener('click', () => { card.hidden = true; });
+  } });
+}
+
+/**
+ * 무대를 아무 칸에나 세운다.
+ *
+ * 전용 화면(#/graph)과 리포트 안의 카드가 **같은 함수를 쓴다** — 둘이 갈라지면
+ * 한쪽만 고쳐져서 같은 그래프가 두 얼굴이 된다. compact 는 리포트용으로
+ * 회전을 늦추고 이름표를 조금 줄인다.
+ */
+function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
+  if (!stage) return;
+  return loadForceGraph3D().then(() => {
+    stage.innerHTML = '';
+    const showCard = (n) => { if (onPick) onPick(n); };
 
     const g = ForceGraph3D()(stage)
       .graphData(data)
@@ -193,7 +248,7 @@ function renderGraph3D() {
     const controls = g.controls();
     if (controls) {
       controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-      controls.autoRotateSpeed = 0.55;
+      controls.autoRotateSpeed = compact ? 0.35 : 0.55;
       controls.addEventListener('start', () => { controls.autoRotate = false; });
     }
 
@@ -203,11 +258,52 @@ function renderGraph3D() {
     };
     fit();
     window.addEventListener('resize', fit);
-    setTimeout(() => g.zoomToFit(900, 60), 700);
+    setTimeout(() => g.zoomToFit(900, compact ? 90 : 60), 700);
+    g3dAttachLabels(stage, g, data.nodes, compact);
+    return g;
   }).catch((err) => {
     // 못 불러왔으면 빈 무대를 두지 않고 이유를 적는다
     stage.innerHTML = `<p class="g3d-loading">3D 무대를 못 띄웠어요 — ${escapeHtml(String(err.message || err))}</p>`;
   });
 }
 
+/**
+ * 리포트 안의 개념 지도. **전용 화면이 아니라 여기가 제자리다** — 리포트는
+ * 개념마다 판정을 늘어놓는 화면이고, 이 그래프는 그 판정들의 지도다
+ * (2026-08-10 사용자: "서비스 내부에 자연스럽게 삽입되면 좋겠다").
+ *
+ * 무거운 것을 리포트를 열자마자 물지 않는다. 카드가 화면에 들어올 때 세운다.
+ */
+function mountReportGraph() {
+  const stage = document.getElementById('repGraphStage');
+  if (!stage || stage.dataset.mounted) return;
+  const src = graph3dSource();
+  if (!src) { stage.innerHTML = '<p class="g3d-loading">개념 그래프가 아직 없어요</p>'; return; }
+  const data = g3dData(src);
+  const card = document.getElementById('repGraphCard');
+  const start = () => {
+    if (stage.dataset.mounted) return;
+    stage.dataset.mounted = '1';
+    mountGraph3D(stage, data, {
+      compact: true,
+      onPick: (n) => {
+        if (!card) return;
+        card.innerHTML = g3dCardHtml(n);
+        card.hidden = false;
+        const close = document.getElementById('g3dClose');
+        if (close) close.addEventListener('click', () => { card.hidden = true; });
+      },
+    });
+  };
+  if (typeof IntersectionObserver === 'function') {
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) { io.disconnect(); start(); }
+    }, { rootMargin: '200px' });
+    io.observe(stage);
+  } else {
+    start();
+  }
+}
+
 window.renderGraph3D = renderGraph3D;
+window.mountReportGraph = mountReportGraph;
