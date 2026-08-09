@@ -2269,6 +2269,13 @@ table.plain tr:last-child td { border-bottom: 0; }
    따로 패널을 만들지 않는 이유: 노드는 이 목록이 이미 보여주고 있어서, 새로
    얻는 정보는 위계뿐이다. 대화가 주인공인 화면에 그림을 하나 더 얹지 않는다. */
 .quest-list .qrow { position: relative; margin-left: calc(var(--d, 0) * 15px); }
+/* 부모가 목록 밖일 때 그 이름. 「무엇 아래 개념인지」는 자료 구조에서 온 사실이고,
+   질문이 걸러져 부모 줄이 없어도 그 사실은 남는다 — 들여쓰기로는 못 하는 말이다. */
+.qrow-up {
+  display: block; font-style: normal; font-size: 10.5px; font-weight: 700;
+  color: var(--text-3); letter-spacing: -.01em; margin-bottom: 1px;
+}
+.qrow.is-now .qrow-up { color: var(--brand); }
 .quest-list .qrow[data-d="1"]::before,
 .quest-list .qrow[data-d="2"]::before {
   content: ''; position: absolute; left: -9px; top: 9px; bottom: 9px;

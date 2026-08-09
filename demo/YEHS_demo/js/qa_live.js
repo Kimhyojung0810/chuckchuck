@@ -279,10 +279,15 @@ function questState(q, i) {
 /**
  * 개념 그래프의 위계를 목록에 입힌다.
  *
- * 계산하지 않는다 — `ConceptNode.depth`·`parent_id` 는 f07 이 parent 간선에서
- * 파생해 실어 주는 값이다 (contracts.py "화면이 트리로 그릴 때 쓰라고 실어 준다").
- * 실측 그래프 30건에서 깊이는 1~3, parent 간선 수가 노드 수와 거의 같다 —
- * 사실상 트리라서 들여쓰기 두 칸이면 헤어볼 없이 구조가 다 보인다.
+ * 계산하지 않는다 — `parent_id` 는 f07 이 parent 간선에서 파생해 실어 주는
+ * 값이다 (contracts.py "화면이 트리로 그릴 때 쓰라고 실어 준다").
+ *
+ * **절대 depth 로 들여쓰지 않는다.** 처음엔 그렇게 했는데 화면에서 아무 구조도
+ * 안 보였다 (2026-08-09 사용자). 이 목록에는 **질문이 붙은 개념만** 들어간다 —
+ * 실측에서 개념 17개 중 3개다. 그 셋이 같은 깊이면 다 같이 밀려서 평평한 것과
+ * 구별이 안 되고, 부모가 목록에 없으면 «무엇 아래로» 들여쓴 건지도 알 수 없다.
+ * 그래서 부모가 이 목록에 실제로 있을 때만 들여쓰고, 없으면 부모 이름을 글자로
+ * 말한다. 그게 평평한 목록이 못 가진 정보이면서 걸러내도 살아남는 정보다.
  *
  * relates 는 **지금 묻고 있는 개념의 것만** 표시한다. 전부 그리면 실측 최대
  * 112개 선이 겹쳐 아무것도 안 읽힌다.
@@ -293,9 +298,14 @@ function questState(q, i) {
 function liveConceptTree() {
   const art = liveArtifacts();
   const g = art && art.graph;
-  if (!g || !Array.isArray(g.nodes)) return { depth: {}, kin: new Set() };
-  const depth = {};
-  g.nodes.forEach((n) => { if (n && n.id) depth[n.id] = n.depth || 1; });
+  if (!g || !Array.isArray(g.nodes)) return { parentOf: {}, labelOf: {}, kin: new Set() };
+  const parentOf = {};
+  const labelOf = {};
+  g.nodes.forEach((n) => {
+    if (!n || !n.id) return;
+    parentOf[n.id] = n.parent_id || null;
+    labelOf[n.id] = n.label || '';
+  });
   const cur = ((qa.live.questions || [])[qa.live.qi] || {}).node_id;
   const kin = new Set();
   if (cur) {
@@ -305,7 +315,7 @@ function liveConceptTree() {
       else if (e.to === cur) kin.add(e.from);
     });
   }
-  return { depth, kin };
+  return { parentOf, labelOf, kin };
 }
 
 function liveQuestHtml() {
@@ -327,12 +337,20 @@ function liveQuestHtml() {
            aria-label="설득한 개념"><i></i></div>
       ${streak >= 2 ? `<p class="quest-streak"><b>${streak}개 연속</b>으로 지켰어요</p>` : ''}
       <ol class="quest-list">
-        ${(() => { const tree = liveConceptTree(); return L.questions.map((q, i) => {
+        ${(() => {
+          const tree = liveConceptTree();
+          /* 이 목록에 실제로 서 있는 개념들. 부모가 여기 있어야 들여쓰기가 뜻을 가진다. */
+          const listed = new Set(L.questions.map((x) => x.node_id).filter(Boolean));
+          return L.questions.map((q, i) => {
           const st = questState(q, i);
           /* 순서는 질문 순서 그대로 둔다. 트리 순으로 다시 세우면 「지금」 표식이
-             위아래로 튀어서 어디까지 왔는지가 안 읽힌다 — 세로축은 진행이고,
-             구조는 들여쓰기로 말한다. */
-          const d = Math.min(Math.max((tree.depth[q.node_id] || 1) - 1, 0), 2);
+             위아래로 튀어서 어디까지 왔는지가 안 읽힌다 — 세로축은 진행이다. */
+          const pid = tree.parentOf[q.node_id] || null;
+          const d = pid && listed.has(pid) ? 1 : 0;
+          // 부모가 목록 밖이면 이름으로 말한다 — 「무엇 아래 개념인지」는 평평한
+          // 목록이 못 가진 정보이고, 질문이 걸러져도 그 사실은 그대로 남는다.
+          const upper = (!d && pid && tree.labelOf[pid])
+            ? `<em class="qrow-up">${escapeHtml(tree.labelOf[pid])} 아래</em>` : '';
           const kin = tree.kin.has(q.node_id) ? ' is-kin' : '';
           const label = q.label || `질문 ${i + 1}`;
           const sev = SEVERITY_LINE[q.severity] || '';
@@ -343,6 +361,7 @@ function liveQuestHtml() {
           return `<li class="qrow is-${st}${kin}" data-d="${d}" style="--d:${d}"${st === 'now' ? ' aria-current="step"' : ''}>
             <i class="qrow-mark" aria-hidden="true">${QUEST_MARK[st] || i + 1}</i>
             <span class="qrow-body">
+              ${upper}
               <b>${escapeHtml(label)}</b>
               <small>${st === 'next' && sev ? sev : QUEST_WORD[st]}${clean}</small>
             </span>
