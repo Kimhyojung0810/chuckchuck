@@ -274,6 +274,8 @@ const routes = {
   'replay': renderReplay,
   // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
   'landing': () => window.renderLanding(),
+  // 개념 그래프 3D 무대 (js/graph3d.js). 데모 경로 밖이라 여기가 죽어도 시연은 돈다.
+  'graph': () => window.renderGraph3D(),
 };
 
 /** 진행 중 세션을 버리고 새 연습 시작 */
@@ -2327,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qh2" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qi0" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.

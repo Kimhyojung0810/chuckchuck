@@ -1,0 +1,66 @@
+/* #/graph — 개념 그래프 3D 무대 (js/graph3d.js 전용)
+   별도 파일로 둔 이유: 마감 당일에 들어온 새 화면이라 app.css(94KB)를 안 건드린다.
+   여기가 통째로 사라져도 데모 경로의 어떤 화면도 달라지지 않는다. */
+
+/* 좌측 내비를 덮지 않는다. inset:0 으로 두면 무대가 내비 아래로 깔려 머리줄과
+   범례가 통째로 가려진다 (실제로 그랬다). --nav-w 는 좁은 화면에서 0 이라
+   그때는 화면 전체를 쓴다 — 같은 규칙 하나로 두 경우가 다 맞는다. */
+.g3d-wrap {
+  position: fixed; top: 0; right: 0; bottom: 0; left: var(--nav-w, 0px); z-index: 40;
+  display: flex; flex-direction: column;
+  background: #0A1F17; color: #EAF5EF;
+}
+
+.g3d-top {
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 20px; flex: 0 0 auto;
+}
+.g3d-back {
+  color: #9FC9B6; font-size: 13px; font-weight: 600; text-decoration: none;
+  padding: 6px 10px; border-radius: var(--r-ctl, 12px);
+}
+.g3d-back:hover { background: rgba(255, 255, 255, .08); }
+.g3d-title b { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.g3d-title span { display: block; margin-top: 2px; font-size: 12px; color: #8FBCA9; font-weight: 500; }
+
+/* 무대. 남는 높이를 전부 먹는다 — 3D 는 좁으면 아무것도 안 보인다 */
+.g3d-stage { flex: 1 1 auto; min-height: 0; position: relative; }
+.g3d-stage canvas { display: block; }
+.g3d-loading {
+  position: absolute; inset: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #8FBCA9; font-size: 13px; font-weight: 600;
+}
+
+.g3d-legend {
+  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 12px 20px 16px; font-size: 12px; font-weight: 600; color: #BEE3D2;
+}
+.g3d-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.g3d-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.g3d-hint { color: #6F9B88; font-weight: 500; }
+
+/* 개념 카드. 무대를 가리지 않게 오른쪽에 붙이고, 좁은 화면에서는 아래로 내린다 */
+.g3d-card {
+  position: absolute; right: 20px; top: 76px; width: 300px; max-width: calc(100vw - 40px);
+  padding: 18px 18px 16px; border-radius: var(--r-print, 20px);
+  background: rgba(10, 31, 23, .92); border: 1px solid rgba(255, 255, 255, .14);
+  backdrop-filter: blur(8px);
+}
+.g3d-card[hidden] { display: none; }
+.g3d-card h3 { margin: 2px 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.g3d-verdict { font-size: 11px; font-weight: 700; }
+.g3d-sum { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: #D6ECE1; word-break: keep-all; }
+.g3d-note { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: #9FC9B6; word-break: keep-all; }
+.g3d-slides { margin: 0; font-size: 11.5px; font-weight: 600; color: #6F9B88; }
+.g3d-close {
+  position: absolute; right: 10px; top: 10px; width: 26px; height: 26px;
+  border: 0; border-radius: 50%; cursor: pointer;
+  background: rgba(255, 255, 255, .1); color: #BEE3D2; font-size: 12px;
+}
+.g3d-close:hover { background: rgba(255, 255, 255, .18); }
+
+@media (max-width: 720px) {
+  .g3d-card { right: 12px; left: 12px; width: auto; top: auto; bottom: 84px; }
+  .g3d-legend { gap: 10px; font-size: 11px; }
+}
