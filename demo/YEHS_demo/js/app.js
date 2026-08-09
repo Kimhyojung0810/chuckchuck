@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qj2" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qj4" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -5798,12 +5798,23 @@ function realPace() {
 
    판정 5색(--ok/--mid/--no/--ct/--om)과는 겹치지 않는다 — 그 다섯은 뜻이
    박혀 있어서 여기 쓰면 리포트가 거짓말이 된다 (CLAUDE.md §3-3).
-   각 칸은 [면색, 그 위에 얹을 글자색]이다. 옅은 칸에 흰 글씨를 얹으면 %가
-   안 읽혀서, 밝기가 넘어가는 지점부터 글자를 딥그린으로 뒤집는다. */
-const TSPLIT_COLORS = [
-  ['#063B2C', '#fff'], ['#0A5C41', '#fff'], ['#0E8850', '#fff'], ['#23A26A', '#fff'],
-  ['#5CC194', '#06301F'], ['#96D9B7', '#06301F'], ['#C9EBDA', '#06301F'],
-];
+   ⚠ 예전엔 7단 고정 목록이었다. 구간이 8개가 되면 `i % 7` 로 돌아 두 구간이
+   같은 색이 됐다 — 그래프가 거짓말을 하는 자리다. 지금 파이프라인은 3개까지만
+   만들지만(f17 전반·중반·후반) 샘플은 이미 5개고, 백엔드가 늘면 바로 걸린다.
+   개수에서 뽑으면 3개든 12개든 늘 고르게 나뉘고 겹치지 않는다. */
+const TSPLIT_FROM = [6, 59, 44];     // #063B2C 가장 진한 딥그린
+const TSPLIT_TO = [150, 217, 183];   // #96D9B7 연한 민트
+
+/** n 개의 [면색, 글자색]. 글자색은 손으로 짝짓지 않고 면의 밝기에서 정한다 —
+ *  단계 수가 바뀌면 손으로 맞춘 짝은 반드시 어긋난다. */
+function tsplitRamp(n) {
+  return Array.from({ length: n }, (_, i) => {
+    const t = n <= 1 ? 0 : i / (n - 1);
+    const rgb = TSPLIT_FROM.map((v, k) => Math.round(v + (TSPLIT_TO[k] - v) * t));
+    const lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+    return [`rgb(${rgb.join(',')})`, lum > 0.55 ? '#06301F' : '#fff'];
+  });
+}
 
 /** rows: [{ name, rec, act }] — 단위는 상관없다(초·%). 각 줄에서 제 합으로 나눈다. */
 function timeSplitHtml(rows) {
@@ -5812,10 +5823,11 @@ function timeSplitHtml(rows) {
   const sum = k => clean.reduce((s, r) => s + Math.max(0, r[k] || 0), 0) || 1;
   const recTotal = sum('rec'), actTotal = sum('act');
 
+  const ramp = tsplitRamp(clean.length);
   const bar = (k, total) => `<div class="tsplit-bar">${clean.map((r, i) => {
     const pct = Math.max(0, r[k] || 0) / total * 100;
     if (pct <= 0) return '';
-    const [bg, fg] = TSPLIT_COLORS[i % TSPLIT_COLORS.length];
+    const [bg, fg] = ramp[i];
     return `<span class="tsplit-seg" style="width:${pct.toFixed(2)}%;--c:${bg};--tc:${fg}"
                  title="${escapeHtml(r.name)} · ${Math.round(pct)}%">${
       /* 좁은 조각에 숫자를 우겨넣으면 글자가 잘려 나온다. 9% 아래는 색만 남기고
@@ -5835,7 +5847,7 @@ function timeSplitHtml(rows) {
   return `
     <div class="tsplit">
       <div class="tsplit-legend">${clean.map((r, i) =>
-        `<span><i style="background:${TSPLIT_COLORS[i % TSPLIT_COLORS.length][0]}"></i>${escapeHtml(r.name)}</span>`).join('')}</div>
+        `<span><i style="background:${ramp[i][0]}"></i>${escapeHtml(r.name)}</span>`).join('')}</div>
       <div class="tsplit-row">
         <span class="tsplit-lb">이상적인 배분</span>
         ${bar('rec', recTotal)}
