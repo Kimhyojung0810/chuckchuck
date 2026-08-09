@@ -43,10 +43,23 @@ function g3dAttachLabels(stage, g, nodes, compact) {
   const layer = document.createElement('div');
   layer.className = 'g3d-labels';
   stage.appendChild(layer);
-  const els = nodes.map((n) => {
+
+  /* **모두에게 이름표를 달지 않는다.** 한 층에 열 개가 서면 이름표 폭만으로도
+     자리가 없어서 서로를 덮는다 — 튜닝으로 풀리는 문제가 아니다 (실측 48쌍 겹침).
+     그래서 지금 봐야 할 것만 단다: 자료가 힘을 실은 상위 개념과, 아직 말로
+     안 나왔거나 자료와 다르게 말한 개념. 나머지는 올려놓으면 이름이 뜬다
+     (nodeLabel). 덜어낸 게 아니라, 이름표 자체가 «여기를 보라»가 된 것이다. */
+  const TOP = compact ? 5 : 8;
+  const heavy = new Set([...nodes].sort((a, b) => b.weight - a.weight).slice(0, TOP).map((n) => n.id));
+  const named = nodes.filter((n) => heavy.has(n.id) || n.verdict === 'missing' || n.verdict === 'contradiction');
+
+  const els = named.map((n) => {
     const el = document.createElement('span');
     el.className = 'g3d-label';
-    el.textContent = n.label;
+    // 판정 점 + 이름 + 말한 정도 막대. 이름만 있으면 「무슨 개념이 있다」까지만
+    // 읽히고, 이 발표에서 그 개념이 어떻게 됐는지는 공 색을 눈으로 되짚어야 한다.
+    el.innerHTML = `<i style="background:${n.color}"></i>${escapeHtml(n.label)}`
+      + (n.verdict ? `<b style="--sp:${Math.round((n.speech || 0) * 100)}%"></b>` : '');
     layer.appendChild(el);
     return el;
   });
@@ -55,8 +68,8 @@ function g3dAttachLabels(stage, g, nodes, compact) {
   let alive = true;
   const tick = () => {
     if (!alive || !stage.isConnected) { alive = false; return; }
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
+    for (let i = 0; i < named.length; i++) {
+      const n = named[i];
       const el = els[i];
       if (n.x == null) { el.style.opacity = '0'; continue; }
       const p = g.graph2ScreenCoords(n.x, n.y, n.z);
@@ -110,6 +123,25 @@ function g3dColor(name, fallback) {
 }
 
 /**
+ * 판정색 + 발화량 → rgba.
+ *
+ * **이 화면이 말해야 할 것은 「자료 vs 발표」다.** 크기(자료가 실은 비중)만
+ * 쓰고 speech_weight 를 안 쓰면, 개념 그래프이긴 해도 우리 제품의 발견은
+ * 하나도 안 보인다 (2026-08-10 사용자: "정보가 없다").
+ *
+ * 그래서 진하기로 «실제로 말한 정도»를 싣는다. 크고 흐린 공 = 자료는 힘을
+ * 실었는데 말로는 거의 안 나온 개념 — 그게 이 발표에서 제일 먼저 봐야 할 것이다.
+ * 아예 0 으로 두지 않는 이유: 안 말한 개념이 사라지면 «빠진 것»이 안 보인다.
+ */
+function g3dRgba(hex, speech) {
+  const h = String(hex || '').replace('#', '');
+  if (h.length !== 6) return hex;
+  const n = parseInt(h, 16);
+  const a = 0.3 + Math.max(0, Math.min(1, speech || 0)) * 0.7;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(2)})`;
+}
+
+/**
  * 그래프 + 정합을 3D 무대가 먹는 모양으로 바꾼다.
  *
  * 판정이 아직 없으면 색을 주지 않는다 — 정합 전에 판정색을 칠하면
@@ -134,17 +166,46 @@ function g3dData(src) {
       summary: n.summary || '',
       slides: n.slide_nos || [],
       weight: n.weight || 0,
+      depth: Math.min(Math.max(n.depth || 1, 1), 4),
       verdict: v,
       note: noteOf[n.id] || '',
       speech: speechOf[n.id] || 0,
       color: v ? g3dColor(G3D_VERDICT_VAR[v] || '--om', pending) : pending,
     };
   });
+  // 진하기 = 말한 정도. 판정 전(색 없음)에는 손대지 않는다 — 안 잰 값을 그리면
+  // 「말 안 했다」로 읽힌다.
+  nodes.forEach((n) => { if (n.verdict) n.color = g3dRgba(n.color, n.speech); });
   const ids = new Set(nodes.map((n) => n.id));
   const links = (src.graph.edges || [])
     .filter((e) => e && ids.has(e.from) && ids.has(e.to))
     .map((e) => ({ source: e.from, target: e.to, kind: e.kind || 'parent' }));
   return { nodes, links };
+}
+
+/**
+ * 무대가 말하는 한 줄 요약.
+ *
+ * 그림만 두면 「그래프가 있다」로 끝난다. 이 발표에서 **무엇이 문제인지**는
+ * 숫자가 말해야 한다 — 특히 «자료가 힘줬는데 아직 말 안 한 개념»이 몇 개인가.
+ * 전부 코드가 세는 값이라 지어낸 숫자가 아니다 (UI_REDESIGN §14).
+ */
+function g3dSummaryHtml(nodes) {
+  const judged = nodes.filter((n) => n.verdict);
+  if (!judged.length) return '<span class="g3d-sum-pending">판정은 아직이에요</span>';
+  const by = (v) => judged.filter((n) => n.verdict === v).length;
+  // 자료가 힘을 실었는데(상위 절반) 아직 안 말한 개념 — 제일 먼저 봐야 할 것
+  const heavy = [...judged].sort((a, b) => b.weight - a.weight).slice(0, Math.ceil(judged.length / 2));
+  const heavyMissing = heavy.filter((n) => n.verdict === 'missing');
+  return `
+    <b class="g3d-k ok">설명함 ${by('aligned')}</b>
+    <b class="g3d-k no">아직 ${by('missing')}</b>
+    ${by('contradiction') ? `<b class="g3d-k ct">다르게 ${by('contradiction')}</b>` : ''}
+    ${by('justified_skip') ? `<b class="g3d-k om">넘어가도 됨 ${by('justified_skip')}</b>` : ''}
+    ${heavyMissing.length
+      ? `<span class="g3d-lead">자료가 힘준 개념 중 <b>${escapeHtml(heavyMissing[0].label)}</b>${
+          heavyMissing.length > 1 ? ` 외 ${heavyMissing.length - 1}개` : ''}가 아직 말로 안 나왔어요</span>`
+      : '<span class="g3d-lead">자료가 힘준 개념은 모두 말로 나왔어요</span>'}`;
 }
 
 /** 무대 위 개념 카드. 클릭한 개념의 사실만 싣는다 — 없는 값은 줄을 안 만든다. */
@@ -174,15 +235,14 @@ function renderGraph3D() {
   }
 
   const data = g3dData(src);
-  const judged = data.nodes.filter((n) => n.verdict).length;
   app.innerHTML = `<div class="g3d-wrap">
       <div class="g3d-top">
         <a class="g3d-back" href="#/report">← 리포트로</a>
         <div class="g3d-title">
           <b>내 자료는 이렇게 짜여 있어요</b>
-          <span>개념 ${data.nodes.length}개 · 연결 ${data.links.length}개${
-            judged ? ` · 판정 ${judged}개` : ' · 판정은 아직이에요'}</span>
+          <span>개념 ${data.nodes.length}개 · 연결 ${data.links.length}개</span>
         </div>
+        <div class="g3d-summary">${g3dSummaryHtml(data.nodes)}</div>
       </div>
       <div class="g3d-stage" id="g3dStage"><p class="g3d-loading">무대를 세우고 있어요…</p></div>
       <div class="g3d-legend">
@@ -190,7 +250,7 @@ function renderGraph3D() {
         <span><i style="background:${g3dColor('--no', '#DC2626')}"></i>아직 설명 안 했어요</span>
         <span><i style="background:${g3dColor('--ct', '#9333EA')}"></i>자료와 다르게 말했어요</span>
         <span><i style="background:${g3dColor('--om', '#8A6A15')}"></i>넘어가도 돼요</span>
-        <span class="g3d-hint">개념을 누르면 자세히 보여줘요 · 끌어서 돌려볼 수 있어요</span>
+        <span class="g3d-hint">진할수록 발표에서 많이 말한 개념이에요 · 크기는 자료가 실은 비중이에요</span>
       </div>
       <aside class="g3d-card" id="g3dCard" hidden></aside>
     </div>`;
@@ -213,6 +273,11 @@ function renderGraph3D() {
  */
 function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
   if (!stage) return;
+  /* 층을 고정한다. 큰 개념이 위, 하위 개념이 아래 — 「자료가 이렇게 짜여
+     있다」가 한눈에 온다. y 만 묶고 x·z 는 force 에 맡기므로 형제들은 알아서
+     넓게 퍼지고, 돌려 봐도 층은 유지된다. 순수 force 는 이걸 공으로 뭉갠다. */
+  const layer = compact ? 46 : 62;
+  data.nodes.forEach((n) => { n.fy = (2 - n.depth) * layer; });
   return loadForceGraph3D().then(() => {
     stage.innerHTML = '';
     const showCard = (n) => { if (onPick) onPick(n); };
@@ -221,6 +286,10 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
       .graphData(data)
       .backgroundColor('#0A1F17')          // 딥그린 계열 어두운 면 — 무대라 밝게 두지 않는다
       .showNavInfo(false)
+      /* 위계는 **우리가 직접 층으로 세운다** (아래 fy 고정 참고).
+         라이브러리의 dagMode 를 먼저 써 봤는데 relates 간선이 순환을 만들어
+         계층 계산이 무너지고, 열일곱 개가 한 줄로 뭉쳐 아무것도 안 읽혔다.
+         우리는 f07 이 준 depth 를 이미 들고 있으니 그걸 쓰면 순환과 무관하다. */
       .nodeLabel((n) => n.label)
       .nodeColor((n) => n.color)
       // 자료가 힘을 실은 개념일수록 크다. weight 는 0~1 이라 그대로 쓰면 다 비슷해진다.
@@ -258,7 +327,32 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     };
     fit();
     window.addEventListener('resize', fit);
-    setTimeout(() => g.zoomToFit(900, compact ? 90 : 60), 700);
+
+    /* 형제들을 넓게 민다. 기본 반발력으로는 한 층에 열 개가 서면 공이 겹치고
+       이름표가 서로를 덮어 아무것도 안 읽힌다 — 층을 세워 놓고 그 안에서
+       뭉개지면 위계를 보여준 보람이 없다.
+
+       **d3ReheatSimulation 은 부르지 않는다**: 이 시점에 시뮬레이션을 다시
+       데우면 tick 이 undefined 라 렌더 루프가 통째로 죽는다 — 실제로 그래프가
+       한 점으로 뭉쳤다. 힘만 바꾸고 나머지는 라이브러리에 맡긴다. */
+    try {
+      const charge = g.d3Force('charge');
+      if (charge && charge.strength) charge.strength(compact ? -180 : -300);
+      const linkF = g.d3Force('link');
+      if (linkF && linkF.distance) linkF.distance(compact ? 40 : 55);
+    } catch (err) { console.warn('[chuckchuck] graph force', err); }
+
+    /* 자리가 잡힌 뒤에 화면에 맞춘다. 예전엔 0.7초에 맞춰서, 아직 퍼지는 중인
+       그래프를 기준으로 잡아 놓고 정작 다 퍼진 뒤엔 화면 한가운데 작게 남았다. */
+    if (typeof g.onEngineStop === 'function') {
+      let fitted = false;
+      g.onEngineStop(() => {
+        if (fitted) return;
+        fitted = true;
+        g.zoomToFit(800, compact ? 70 : 50);
+      });
+    }
+    setTimeout(() => g.zoomToFit(800, compact ? 70 : 50), 3200);
     g3dAttachLabels(stage, g, data.nodes, compact);
     return g;
   }).catch((err) => {
@@ -280,6 +374,8 @@ function mountReportGraph() {
   const src = graph3dSource();
   if (!src) { stage.innerHTML = '<p class="g3d-loading">개념 그래프가 아직 없어요</p>'; return; }
   const data = g3dData(src);
+  const sum = document.getElementById('repGraphSummary');
+  if (sum) sum.innerHTML = g3dSummaryHtml(data.nodes);
   const card = document.getElementById('repGraphCard');
   const start = () => {
     if (stage.dataset.mounted) return;

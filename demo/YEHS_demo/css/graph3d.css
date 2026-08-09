@@ -32,11 +32,42 @@
 .g3d-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .g3d-label {
   position: absolute; top: 0; left: 0; will-change: transform;
-  padding: 1px 6px; border-radius: 999px;
-  background: rgba(6, 20, 15, .62);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(6, 20, 15, .72);
   color: #EAF5EF; font-size: 11.5px; font-weight: 700; letter-spacing: -.01em;
   white-space: nowrap; transition: opacity .2s;
 }
+/* 판정 점 — 공 색을 눈으로 되짚지 않아도 이름 옆에서 바로 읽힌다 */
+.g3d-label i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+/* 말한 정도 막대. 채워진 만큼이 speech_weight 다 — 없는 값은 아예 안 그린다 */
+.g3d-label b {
+  position: relative; width: 22px; height: 3px; border-radius: 2px; flex: none;
+  background: rgba(255, 255, 255, .18);
+}
+.g3d-label b::after {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: var(--sp, 0%);
+  border-radius: 2px; background: #BEE3D2;
+}
+
+/* 무대가 말하는 한 줄 요약 — 그림만 두면 「그래프가 있다」로 끝난다 */
+.g3d-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 20px 4px; font-size: 12px; }
+.g3d-k { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.g3d-k.ok { background: rgba(10, 143, 104, .18); color: #6EE7B7; }
+.g3d-k.no { background: rgba(220, 38, 38, .18); color: #FCA5A5; }
+.g3d-k.ct { background: rgba(147, 51, 234, .18); color: #D8B4FE; }
+.g3d-k.om { background: rgba(138, 106, 21, .22); color: #E4CE8A; }
+.g3d-lead { color: #BEE3D2; font-weight: 500; }
+.g3d-lead b { color: #fff; font-weight: 700; }
+.g3d-sum-pending { color: #8FBCA9; font-weight: 600; }
+/* 리포트 카드 안에서는 밝은 면 위라 색을 뒤집는다 */
+.rep-graph .g3d-summary { padding: 8px 0 0; }
+.rep-graph .g3d-lead { color: var(--text-2, #4b5563); }
+.rep-graph .g3d-lead b { color: var(--text, #111); }
+.rep-graph .g3d-k.ok { background: var(--ok-bg); color: var(--ok); }
+.rep-graph .g3d-k.no { background: var(--no-bg); color: var(--no); }
+.rep-graph .g3d-k.ct { background: var(--ct-bg); color: var(--ct); }
+.rep-graph .g3d-k.om { background: var(--om-bg); color: var(--om); }
 .g3d-labels.is-compact .g3d-label { font-size: 10.5px; padding: 1px 5px; }
 
 .g3d-loading {

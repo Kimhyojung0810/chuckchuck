@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qi3" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qi8" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -4921,6 +4921,7 @@ function rSummary() {
          무대는 js/graph3d.js 가 세운다 — 화면에 들어올 때만 라이브러리를 문다. -->
     <div class="card rep-graph">
       <h3 class="section-title">내 자료의 개념 지도<span class="soft">개념을 누르면 판정을 보여줘요 · 끌어서 돌려볼 수 있어요</span></h3>
+      <div class="g3d-summary" id="repGraphSummary"></div>
       <div class="rep-graph-stage" id="repGraphStage"><p class="g3d-loading">개념 지도를 세우고 있어요…</p></div>
       <aside class="g3d-card in-report" id="repGraphCard" hidden></aside>
       <p class="note"><a href="#/graph">크게 보기 →</a></p>
