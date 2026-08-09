@@ -284,7 +284,10 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
 
     const g = ForceGraph3D()(stage)
       .graphData(data)
-      .backgroundColor('#0A1F17')          // 딥그린 계열 어두운 면 — 무대라 밝게 두지 않는다
+      /* 앱의 크림 면 그대로. 처음엔 「무대」라고 어두운 딥그린을 깔았는데, 밝은
+         화면 한가운데 검은 판이 박혀서 화면을 뚫어 놓은 것처럼 보였다
+         (2026-08-10 사용자). 판정 5색은 밝은 면에서 오히려 더 또렷하다. */
+      .backgroundColor(g3dColor('--canvas', '#FFFDF7'))
       .showNavInfo(false)
       /* 위계는 **우리가 직접 층으로 세운다** (아래 fy 고정 참고).
          라이브러리의 dagMode 를 먼저 써 봤는데 relates 간선이 순환을 만들어
@@ -296,7 +299,8 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
       .nodeVal((n) => 1 + n.weight * 14)
       .nodeOpacity(0.92)
       .nodeResolution(16)
-      .linkColor((l) => (l.kind === 'relates' ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.45)'))
+      // 밝은 면이라 선은 흰색이 아니라 딥그린 계열로 어둡게 — 흰 선은 안 보인다
+      .linkColor((l) => (l.kind === 'relates' ? 'rgba(21,92,70,.20)' : 'rgba(21,92,70,.42)'))
       .linkWidth((l) => (l.kind === 'relates' ? 0.4 : 1.1))
       // parent 간선에만 입자를 흘린다 — 자료의 뼈대가 어디로 흐르는지가 보인다
       .linkDirectionalParticles((l) => (l.kind === 'relates' ? 0 : 2))

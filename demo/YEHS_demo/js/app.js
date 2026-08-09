@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qi9" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qj0" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -4937,16 +4937,10 @@ function rSummary() {
       <i class="ts-go">${trophy.slide}번 슬라이드에서 보기 →</i>
     </button>` : ''}
 
-    <!-- 개념 지도. 리포트는 개념마다 판정을 늘어놓는 화면이고 이 그래프는 그
-         판정들의 지도라, 슬라이드 목록 바로 위가 제자리다 (2026-08-10 사용자).
-         무대는 js/graph3d.js 가 세운다 — 화면에 들어올 때만 라이브러리를 문다. -->
-    <div class="card rep-graph">
-      <h3 class="section-title">내 자료의 개념 지도<span class="soft">개념을 누르면 판정을 보여줘요 · 끌어서 돌려볼 수 있어요</span></h3>
-      <div class="g3d-summary" id="repGraphSummary"></div>
-      <div class="rep-graph-stage" id="repGraphStage"><p class="g3d-loading">개념 지도를 세우고 있어요…</p></div>
-      <aside class="g3d-card in-report" id="repGraphCard" hidden></aside>
-      <p class="note"><a href="#/graph">크게 보기 →</a></p>
-    </div>
+    <!-- 개념 지도는 여기 두지 않는다. 질문 생성을 기다리는 대기 화면으로 옮겼다
+         (2026-08-10 지시) — 리포트에는 개념 전달 탭의 성좌가 이미 있어서 한
+         화면에 같은 그림이 둘이었다. 무대를 세우는 코드는 js/graph3d.js 에
+         그대로 있고 #/graph 와 대기 화면이 같이 쓴다. -->
 
     <div class="card rep-deck">
       <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르거나 <kbd>←</kbd><kbd>→</kbd> 로 넘겨요</span></h3>
@@ -5041,8 +5035,6 @@ function rSummary() {
   bindDeckPanel();
   paintDeckStage();
   paintDeckThumbs();
-  // 개념 지도. 카드가 화면에 들어올 때만 3D 라이브러리를 문다 (graph3d.js).
-  if (typeof window.mountReportGraph === 'function') window.mountReportGraph();
   wireSendoff();
   if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
 }
