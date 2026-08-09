@@ -46,8 +46,14 @@ curl -sS -X POST http://127.0.0.1:8799/api/v1/habits -H 'Content-Type: applicati
       {"text":"지도","start_sec":0,"end_sec":0.4},{"text":"지도력은","start_sec":0.4,"end_sec":1}]}]}}'
 # 응답에 "provider":"lora" 가 있어야 한다. heuristic(lora-fallback) 이면 python 을 잘못 쓴 것이다.
 
-python -m pytest tests/ -q                    # 회귀 스모크
+python -m pytest tests/ -q                    # 회귀 스모크 (파이썬)
+node tests/js/qa_live.smoke.mjs               # 질문 코칭 프론트 순수 함수 (브라우저 없이)
 ```
+
+`tests/` 는 파이썬만 모은다. **프론트 JS 를 고쳤으면 위 노드 스모크도 같이 돌린다** —
+질문 코칭의 세션 초기화(`qaDocKey`·`qaLiveActive`)·출구 조건(`liveStalled`)·힌트
+분모를 브라우저 없이 잡아 준다. 마지막 케이스는 **하네스가 진짜로 회귀를 잡는지**
+스스로 검사하므로, `liveHints()` 를 고치면 그 케이스도 같이 고쳐야 한다.
 
 예열 뒤 습관 분석은 ~1.2초. GPU 는 23.6GB 를 문다.
 포트가 물려 있으면 `DEMO_PORT=8801` 처럼 바꾼다. 자세한 절차는 [`README.md`](README.md).
