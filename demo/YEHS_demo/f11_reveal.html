@@ -1120,7 +1120,15 @@ function applyGraphOnly(graph) {
     .filter((e) => ids.has(e.from) && ids.has(e.to))
     .map((e) => ({ from: e.from, to: e.to, kind: e.kind }));
   SPOKEN_EDGES = [];
-  CAPTIONS[1].p = `발표 자료에서 개념 ${NODES.length}개와 연결 ${EDGES.length}개를 찾았어요. 큰 원일수록 자료가 힘을 실은 개념이에요`;
+  /* **찾은 수와 그린 수를 구분해서 말한다.** 예전에는 자른 뒤의 NODES.length 를
+     그대로 "찾았어요" 에 넣어서, 개념 28개짜리 자료에 "개념 12개를 찾았어요" 라고
+     썼다 — 침묵이 아니라 틀린 숫자다. 화면이 못 담는 것과 분석이 못 찾은 것은
+     다른 일이고, 숫자는 지어내지 않는다 (UI_REDESIGN §14). */
+  const foundNodes = (graph.nodes || []).length;
+  const foundEdges = (graph.edges || []).length;
+  CAPTIONS[1].p = foundNodes > NODES.length
+    ? `발표 자료에서 개념 ${foundNodes}개와 연결 ${foundEdges}개를 찾았어요. 화면에는 자료가 힘을 실은 ${NODES.length}개만 그렸어요`
+    : `발표 자료에서 개념 ${foundNodes}개와 연결 ${foundEdges}개를 찾았어요. 큰 원일수록 자료가 힘을 실은 개념이에요`;
 
   buildStage();
   graphArrived = true;
