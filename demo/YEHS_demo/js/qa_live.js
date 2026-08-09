@@ -100,6 +100,11 @@ function newLiveState(sessionId, questions, docKey = '') {
     turn: 0,
     turns: [],
     hintLevel: 0,
+    // 이 질문에서 지금까지 본 **가장 긴** 힌트 사다리. 판정이 붙여 주는 사다리는
+    // 턴마다 길이가 달라서, 그때그때 고르면 분모가 줄어든다 ("힌트 2/4" 다음에
+    // "힌트 3/3"). 한 번 4단을 봤으면 그 4단을 질문이 끝날 때까지 들고 간다.
+    // 옛 저장 세션엔 없어 undefined 로 복원되는데, liveHints() 가 폴백을 갖고 있다.
+    hintList: [],
     // 이 질문에서 「빠진 절반」을 이미 펼쳤는가, 그때 보여준 완성 문장은 무엇인가.
     // 라운드마다 같은 문장을 다시 띄우지 않고, 닫을 때도 겹쳐 내지 않기 위해 둔다.
     // 옛 저장 세션엔 없어서 undefined 로 복원되는데, 그러면 다음 절반 판정에서
@@ -271,6 +276,38 @@ function questState(q, i) {
   return 'lost';
 }
 
+/**
+ * 개념 그래프의 위계를 목록에 입힌다.
+ *
+ * 계산하지 않는다 — `ConceptNode.depth`·`parent_id` 는 f07 이 parent 간선에서
+ * 파생해 실어 주는 값이다 (contracts.py "화면이 트리로 그릴 때 쓰라고 실어 준다").
+ * 실측 그래프 30건에서 깊이는 1~3, parent 간선 수가 노드 수와 거의 같다 —
+ * 사실상 트리라서 들여쓰기 두 칸이면 헤어볼 없이 구조가 다 보인다.
+ *
+ * relates 는 **지금 묻고 있는 개념의 것만** 표시한다. 전부 그리면 실측 최대
+ * 112개 선이 겹쳐 아무것도 안 읽힌다.
+ *
+ * 분석 결과가 없는 세션(샘플·새로고침 직후)에서는 빈 표를 돌려준다 —
+ * 그러면 목록이 지금까지처럼 평평하게 나오고, 없는 구조를 지어내지 않는다.
+ */
+function liveConceptTree() {
+  const art = liveArtifacts();
+  const g = art && art.graph;
+  if (!g || !Array.isArray(g.nodes)) return { depth: {}, kin: new Set() };
+  const depth = {};
+  g.nodes.forEach((n) => { if (n && n.id) depth[n.id] = n.depth || 1; });
+  const cur = ((qa.live.questions || [])[qa.live.qi] || {}).node_id;
+  const kin = new Set();
+  if (cur) {
+    (g.edges || []).forEach((e) => {
+      if (!e || e.kind !== 'relates') return;
+      if (e.from === cur) kin.add(e.to);
+      else if (e.to === cur) kin.add(e.from);
+    });
+  }
+  return { depth, kin };
+}
+
 function liveQuestHtml() {
   const L = qa.live;
   const total = L.questions.length;
@@ -290,22 +327,27 @@ function liveQuestHtml() {
            aria-label="설득한 개념"><i></i></div>
       ${streak >= 2 ? `<p class="quest-streak"><b>${streak}개 연속</b>으로 지켰어요</p>` : ''}
       <ol class="quest-list">
-        ${L.questions.map((q, i) => {
+        ${(() => { const tree = liveConceptTree(); return L.questions.map((q, i) => {
           const st = questState(q, i);
+          /* 순서는 질문 순서 그대로 둔다. 트리 순으로 다시 세우면 「지금」 표식이
+             위아래로 튀어서 어디까지 왔는지가 안 읽힌다 — 세로축은 진행이고,
+             구조는 들여쓰기로 말한다. */
+          const d = Math.min(Math.max((tree.depth[q.node_id] || 1) - 1, 0), 2);
+          const kin = tree.kin.has(q.node_id) ? ' is-kin' : '';
           const label = q.label || `질문 ${i + 1}`;
           const sev = SEVERITY_LINE[q.severity] || '';
           /* 「힌트 없이」는 지어낸 배지가 아니라 우리가 이미 기록하는 사실이다
              (results[].hintLevel). 없는 것을 상으로 주지 않는다 */
           const r = (L.results || []).find((x) => x.id === q.id) || {};
           const clean = st === 'won' && !r.hintLevel ? '<em class="qrow-clean">힌트 없이</em>' : '';
-          return `<li class="qrow is-${st}"${st === 'now' ? ' aria-current="step"' : ''}>
+          return `<li class="qrow is-${st}${kin}" data-d="${d}" style="--d:${d}"${st === 'now' ? ' aria-current="step"' : ''}>
             <i class="qrow-mark" aria-hidden="true">${QUEST_MARK[st] || i + 1}</i>
             <span class="qrow-body">
               <b>${escapeHtml(label)}</b>
               <small>${st === 'next' && sev ? sev : QUEST_WORD[st]}${clean}</small>
             </span>
           </li>`;
-        }).join('')}
+        }).join(''); })()}
       </ol>
     </div>`;
 }
@@ -865,6 +907,10 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     L.turn += 1;
     L.turns.push({ question: askedNow, questionId: q.id, answer, verdict: v.verdict, score: v.score || 0, gaveUp: giveUp });
     L.lastJudgement = v;
+    // 판정 사다리가 지금 들고 있는 것보다 길면 그걸로 갈아탄다. **짧아져도 안 버린다** —
+    // 버리면 다음 말풍선의 분모가 줄어 "힌트 2/4" 뒤에 "힌트 3/3" 이 뜬다.
+    const judgedHints = Array.isArray(v.hints) ? v.hints : [];
+    if (judgedHints.length > ((L.hintList || []).length)) L.hintList = judgedHints;
     L.judgeFailed = false;
     hideCoachThinking();
     if (v.react) {
@@ -1084,6 +1130,8 @@ function closeLiveQuestion(record) {
   L.turn = 0;
   L.turns = [];
   L.hintLevel = 0;
+  // 사다리는 질문에 딸린 상태다. 안 비우면 다음 질문이 지난 질문의 분모를 물려받는다.
+  L.hintList = [];
   L.halfShown = false;
   L.halfGist = '';
   L.lastJudgement = null;
@@ -1182,11 +1230,18 @@ function closeRetell(text) {
  * 둘 다 서버의 같은 `build_hint_ladder` 에서 나와 앞 세 칸이 일치하므로,
  * 이미 본 단계 번호가 사다리를 갈아타도 어긋나지 않는다. 길이로 고르는 이유는
  * 짧은 쪽으로 내려가면 소비한 인덱스가 무효가 되기 때문이다.
+ *
+ * **판정본을 그때그때 읽지 않고 `L.hintList` 에 쌓아 둔 것을 읽는다.** 판정 사다리는
+ * 턴마다 길이가 달라서(중복 제거가 4단을 3단으로 만든다) 직접 읽으면 한 질문 안에서
+ * 분모가 줄었다 — "힌트 2/4" 다음에 "힌트 3/3". 위 문단이 막으려던 것이 바로 그건데,
+ * 비교 대상이 **직전에 보여준 길이가 아니라 `built`** 여서 못 막고 있었다.
+ * 이제 `submitLiveAnswer` 가 더 긴 것만 채택하고, 질문이 끝날 때 비운다.
  */
 function liveHints() {
-  const judged = (qa.live.lastJudgement && qa.live.lastJudgement.hints) || [];
+  const L = qa.live;
+  const kept = (L && L.hintList) || [];   // 옛 저장 세션엔 없다 → built 로 떨어진다
   const built = liveQuestionHints();
-  return judged.length >= built.length ? judged : built;
+  return kept.length >= built.length ? kept : built;
 }
 
 /**

@@ -2263,6 +2263,25 @@ table.plain tr:last-child td { border-bottom: 0; }
 /* 「힌트 없이」는 results[].hintLevel 이 0일 때만 붙는 사실 표식이다 */
 .qrow-clean { margin-left: 6px; font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--brand); }
 .qrow { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 12px; transition: background .2s var(--ease); }
+
+/* 개념 그래프의 위계를 목록에 그대로 입힌다 (ConceptNode.depth — f07 이 parent
+   간선에서 파생해 실어 준다). 실측 깊이가 1~3 이라 두 칸이면 다 담긴다.
+   따로 패널을 만들지 않는 이유: 노드는 이 목록이 이미 보여주고 있어서, 새로
+   얻는 정보는 위계뿐이다. 대화가 주인공인 화면에 그림을 하나 더 얹지 않는다. */
+.quest-list .qrow { position: relative; margin-left: calc(var(--d, 0) * 15px); }
+.quest-list .qrow[data-d="1"]::before,
+.quest-list .qrow[data-d="2"]::before {
+  content: ''; position: absolute; left: -9px; top: 9px; bottom: 9px;
+  border-left: 1px solid var(--line, #D5E2DA); border-bottom-left-radius: 2px;
+}
+/* 지금 묻는 개념과 relates 로 이어진 줄. 자료에서 옆에 붙어 있던 개념이라
+   「아까 그거랑 연결돼 있구나」가 보인다. 전부 그리면 실측 최대 112개 선이
+   겹쳐 아무것도 안 읽히므로 현재 것만 표시한다. */
+.quest-list .qrow.is-kin .qrow-body b::after {
+  content: '관련'; margin-left: 6px; padding: 1px 5px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; color: var(--brand);
+  background: var(--accent-weak); vertical-align: middle;
+}
 .qrow-mark {
   display: grid; place-items: center; width: 22px; height: 22px; flex: none;
   border-radius: 50%; background: var(--fill); color: var(--text-3);
