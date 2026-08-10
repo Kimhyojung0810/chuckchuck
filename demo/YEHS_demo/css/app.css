@@ -1490,6 +1490,41 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .qa-sum .qs-name { font-size: 13px; font-weight: 700; }
 .qa-sum .qs-text { margin: 3px 0 0; font-size: 13px; color: var(--text-2); line-height: 1.55; min-height: 1.4em; }
 
+/* ── 질문 하나가 닫히는 마무리 카드 ──
+   말풍선이 아니다. 아바타를 안 달고 스트림 폭을 꽉 채워서, 대화가 이어지는 게
+   아니라 «여기서 한 덩어리가 끝났다» 로 읽히게 한다. 위아래 여백을 말풍선 간격
+   (14px)보다 넓혀 다음 질문과 시각적으로 끊는다. */
+.qa-done {
+  align-self: stretch; margin: 6px 0; padding: 14px 16px 12px;
+  border: 1px solid var(--border); border-radius: var(--r-inner);
+  background: var(--surface); border-left: 3px solid var(--ok);
+}
+.qa-done.is-lost { border-left-color: var(--no); }
+.qa-done .qd-head { display: flex; align-items: center; gap: 8px; }
+.qa-done .qd-head i {
+  width: 18px; height: 18px; flex: none; border-radius: 50%; background: var(--ok);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-style: normal; font-size: 11px; color: #fff;
+}
+.qa-done.is-lost .qd-head i { background: var(--no); }
+.qa-done .qd-head b { font-size: 14px; font-weight: 700; }
+.qa-done .qd-sec { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.qa-done .qd-sec h4 {
+  margin: 0 0 3px; font-size: 12px; font-weight: 700; letter-spacing: .02em; color: var(--text-3);
+}
+.qa-done .qd-sec p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-2); }
+.qa-done .qd-foot { margin: 10px 0 0; font-size: 12px; color: var(--text-3); }
+
+/* 질문을 다 마친 자리. 다음 행동은 아래 입력 카드의 버튼이 맡으므로 여기선 조용히 선다. */
+.qa-finale {
+  align-self: center; max-width: 92%; margin: 10px 0 2px; padding: 12px 18px;
+  border-radius: var(--r-inner); background: var(--fill); text-align: center;
+}
+.qa-finale b { display: block; font-size: 14px; font-weight: 700; }
+.qa-finale p { margin: 3px 0 0; font-size: 12px; color: var(--text-3); }
+.qa-input-label.is-end b { color: var(--brand); }
+.qa-end-note { margin: 8px 0 0; font-size: 13px; color: var(--text-2); line-height: 1.55; }
+
 .cere-sums { display: flex; flex-direction: column; gap: 0; margin-top: 10px; }
 .qsum-row { border-top: 1px solid var(--border); padding: 10px 0; font-size: 13px; }
 .qsum-row:first-child { border-top: none; padding-top: 0; }

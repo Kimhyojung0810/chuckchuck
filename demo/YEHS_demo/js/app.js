@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qk5" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qk6" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -6814,6 +6814,32 @@ function streamRow(it) {
       <b class="qs-name">${it.label}</b>
       <p class="qs-text" data-full="${escapeHtml(it.text)}">${escapeHtml(it.text)}</p>
     </div>`;
+  }
+  /* 질문 하나가 닫히는 자리 (qa_live.js finishLiveQuestion).
+     표식·총평·모범답을 **아바타 없는 카드 한 장**으로 묶는다. 아바타가 없다는 것
+     자체가 «이건 상대의 말이 아니라 정리다» 라는 신호다 — 예전엔 모범답이 상대
+     아바타를 달고 맨 끝에 서서 대화가 다시 열린 것처럼 보였다 (2026-08-10 사용자). */
+  if (it.who === 'sys' && it.kind === 'done') {
+    const cls = { good: 'st-ok', partial: 'st-mid', wrong: 'st-no', unknown: 'st-om', skipped: 'st-om' }[it.outcome] || 'st-om';
+    const lost = it.flag === 'lost';
+    const foot = it.idx < it.total
+      ? `질문 ${it.idx}/${it.total} 마무리 — 다음 질문으로 이어가요`
+      : `질문 ${it.idx}/${it.total} 마무리 — 마지막 질문이었어요`;
+    return `<div class="qa-done${lost ? ' is-lost' : ''}">
+      <div class="qd-head">
+        <i aria-hidden="true">${lost ? '✕' : '✓'}</i>
+        <b>${it.label}</b>
+        <span class="chip chip-sm ${cls}">${it.word}</span>
+      </div>
+      ${it.gist ? `<div class="qd-sec"><h4>이렇게 답하면 좋았어요</h4><p>${it.gist}</p></div>` : ''}
+      ${it.summary ? `<div class="qd-sec"><h4>총평에 적었어요</h4><p>${escapeHtml(it.summary)}</p></div>` : ''}
+      <p class="qd-foot">${foot}</p>
+    </div>`;
+  }
+  /* 질문을 다 마친 자리. 결과 화면으로 바로 갈아치우지 않고 여기 서서
+     사용자가 「결과 확인하기」를 누를 때까지 기다린다 (qa_live.js enterLiveFinale). */
+  if (it.who === 'sys' && it.kind === 'finale') {
+    return `<div class="qa-finale"><b>${it.text}</b><p>주고받은 내용을 위로 올려 다시 볼 수 있어요.</p></div>`;
   }
   if (it.who === 'sys') return `<div class="qa-flag ${it.kind}"><i>${it.kind === 'won' ? '✓' : it.kind === 'lost' ? '✕' : '🔥'}</i>${it.text}</div>`;
   if (it.who === 'me') {

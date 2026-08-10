@@ -119,6 +119,10 @@ function newLiveState(sessionId, questions, docKey = '') {
     // 판정 직후 곧바로 다음 질문으로 넘기지 않는다. 사용자가 자기 답과
     // 완성 답의 차이를 한 화면에서 확인한 뒤 직접 다음으로 간다.
     checkpoint: null,
+    // 마지막 질문까지 닫혔지만 아직 결과 화면으로 안 넘어간 상태. 답하자마자
+    // 화면이 결과로 갈아치워지면 방금 닫힌 질문의 마무리를 한 글자도 못 읽는다.
+    // 사용자가 「결과 확인하기」를 누를 때까지 스트림에 그대로 선다.
+    awaitEnd: false,
     busy: false,
     // 직전 판정 요청이 실패했는가. 참이면 서버 없이 넘어갈 출구를 연다.
     judgeFailed: false,
@@ -387,12 +391,15 @@ function presentLiveQuestion() {
 
 function renderQaLive() {
   const L = qa.live;
-  if (qa.ended || L.qi >= L.questions.length) return qaLiveEnd();
+  if (qa.ended) return qaLiveEnd();
+  // 마지막 질문까지 닫혔으면 결과로 바로 넘기지 않고 마무리 자리에 선다.
+  // 새로고침으로 돌아와도 같은 자리다 — 여기서 결과로 튀면 읽던 것이 날아간다.
+  if (L.qi >= L.questions.length) markLiveFinale();
   // 체크포인트(전체 화면 학습 카드)는 걷어냈다 — 대화 스트림이 유지된다.
   // 이 변경 전에 저장된 세션이 checkpoint 를 들고 있으면 기록만 닫고 이어간다.
   if (L.checkpoint) return completeLiveCheckpoint();
   qa.started = true;
-  presentLiveQuestion();
+  if (!L.awaitEnd) presentLiveQuestion();
   saveSession('qa-flow', qa);
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
@@ -411,6 +418,9 @@ function renderQaLive() {
 function liveContextHtml() {
   const L = qa.live;
   const q = L.questions[L.qi];
+  // 마무리 자리에는 진행 중인 질문이 없다. 되묻기 단계 칸은 지금 답할 질문을
+  // 비추는 것이라 다 끝난 화면에 남아 있으면 아직 할 일이 있는 것처럼 읽힌다.
+  if (!q) return liveQuestHtml();
   const at = liveProbeIndex();
   return `${liveQuestHtml()}
     <div class="qa-loop-card">
@@ -443,6 +453,7 @@ function liveContextHtml() {
  */
 function liveInputHtml() {
   const L = qa.live;
+  if (L.awaitEnd) return liveEndCardHtml();
   if (L.retell) {
     return `
       <div class="qa-input-label is-retell">
@@ -475,6 +486,28 @@ function liveInputHtml() {
     </div>`;
 }
 
+/**
+ * 질문이 다 끝난 자리의 입력 카드. **답 쓰는 칸을 없앤다** — 더 받을 답이
+ * 없는데 빈 칸이 남아 있으면 아직 뭔가 해야 하는 화면으로 읽힌다.
+ *
+ * 버튼은 하나만 둔다. 여기서 리포트로 바로 가는 길을 같이 열면 기록을 닫는
+ * 경로가 둘이 되고, 한쪽으로 나가면 코칭 기록이 안 남는다. 결과 화면에
+ * 「상세 리포트 보기」가 이미 있으니 거기서 고르면 된다 (한 화면에 주인공 하나).
+ */
+function liveEndCardHtml() {
+  const L = qa.live;
+  const won = liveWonCount(L.results);
+  return `
+    <div class="qa-input-label is-end">
+      <b>오늘 질문은 여기까지예요</b>
+      <span>${L.questions.length}개 중 ${won}개를 자기 말로 지켰어요</span>
+    </div>
+    <p class="qa-end-note">위로 올리면 방금 주고받은 내용을 다시 볼 수 있어요. 다 봤으면 결과를 확인해요.</p>
+    <div class="step-actions">
+      <button class="btn btn-primary" id="liveSeeResult" type="button">결과 확인하기</button>
+    </div>`;
+}
+
 function liveSendLabel() {
   const L = qa.live;
   if (L.busy) return '답변 살펴보는 중…';
@@ -491,6 +524,7 @@ function wireLiveInput() {
   on('#liveReveal', () => revealLiveAnswer());
   on('#liveSkipRetell', () => closeRetell(''));
   on('#liveFinish', () => finishLiveQaEarly());
+  on('#liveSeeResult', () => { qaLiveEnd(); window.scrollTo(0, 0); });
   // 힌트는 말풍선으로 붙고(growStream), 버튼은 남은 칸 수에 맞춰 다시 그려진다
   on('#liveHint', () => { if (openNextHint()) { growStream(); refreshLiveChrome(); } });
 
@@ -1008,11 +1042,41 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
  */
 function advanceLiveStream() {
   const L = qa.live;
-  if (qa.ended || L.qi >= L.questions.length) return renderQaLive();
+  if (qa.ended) return renderQaLive();
+  if (L.qi >= L.questions.length) return enterLiveFinale();
   presentLiveQuestion();
   saveSession('qa-flow', qa);
   growStream();
   refreshLiveChrome();
+}
+
+/**
+ * 마지막 질문이 닫혔다는 표시만 세운다. 화면은 건드리지 않는다 —
+ * 새로고침 복원(renderQaLive)과 진행 중 전환(enterLiveFinale)이 같이 쓴다.
+ */
+function markLiveFinale() {
+  const L = qa.live;
+  if (L.awaitEnd) return false;
+  L.awaitEnd = true;
+  pushTurn({ who: 'sys', kind: 'finale', text: `질문 ${L.questions.length}개를 모두 마쳤어요` });
+  return true;
+}
+
+/**
+ * 마지막 질문이 닫혔다. **결과 화면으로 곧바로 갈아치우지 않는다.**
+ *
+ * 예전에는 마지막 답을 보내는 순간 스트림이 통째로 결과 화면으로 바뀌었다.
+ * 그래서 방금 닫힌 질문의 판정도 마무리 카드도 한 글자 못 읽고 끝났다 —
+ * 여섯 번 답한 사람이 마지막 한 번만 못 보고 나가는 셈이다 (2026-08-10 사용자).
+ * 이제 마무리 알림을 스트림에 얹고, 입력칸 자리를 「결과 확인하기」 로 바꾼다.
+ * 넘어가는 시점은 사용자가 고른다.
+ */
+function enterLiveFinale() {
+  markLiveFinale();
+  saveSession('qa-flow', qa);
+  growStream();
+  refreshLiveChrome();
+  scrollDown();
 }
 
 /** 이 질문에서 직전에 받은 점수. 없으면 0 — 첫 답에는 「올랐다」가 성립하지 않는다. */
@@ -1172,19 +1236,37 @@ function closeLiveQuestion(record) {
   L.retell = null;
 }
 
+/**
+ * 질문 하나를 닫는다. **끝났다는 말은 한 번만 한다.**
+ *
+ * 예전에는 닫는 자리에 네 덩어리가 따로 쌓였다 — 판정 말풍선(「제대로
+ * 설명했어요」) · 표식(「수면 주기 — 설득 완료」) · 총평 카드(「총평에
+ * 적혔어요」) · 모범답 말풍선(「이렇게 답하면 좋았어요」). 앞의 셋은 어휘만
+ * 다르지 같은 뜻이라 세 번째는 아무도 안 읽었고, 넷째는 하필 **상대 아바타를
+ * 달고** 맨 끝에 서서 «교수가 아직 말을 걸고 있다» 로 읽혔다. 대화는 이미
+ * 판정에서 닫혔는데 UI 만 계속 이어지는 모양이었다 (2026-08-10 사용자).
+ *
+ * 그래서 표식·총평·모범답을 **아바타 없는 마무리 카드 한 장**으로 묶는다.
+ * 아바타가 없다는 것 자체가 «이건 발화가 아니라 정리다» 라는 신호다.
+ * 판정 말풍선은 그대로 둔다 — 실제로 대화가 닫히는 순간이 거기라서다.
+ *
+ * 전체 화면 학습 카드로 갈아타지 않는 것은 그대로다 (2026-08-07 사용자 요청).
+ */
 function finishLiveQuestion(q, v, answer) {
+  const L = qa.live;
   const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
-  pushTurn({ who: 'sys', kind: m.flag, text: `${escapeHtml(q.label)} — ${m.word}` });
-  if (v.summary_sentence) {
-    pushTurn({ who: 'sys', kind: 'summary', concept: q.node_id, outcome: v.verdict, label: escapeHtml(q.label), text: v.summary_sentence });
-  }
-  // 되묻기 도중 이미 펼친 문장이면 다시 띄우지 않는다 — 한 질문의 스트림에 같은
-  // 완성 문장이 두 번 뜨면 두 번째는 안 읽는다 (revealHalf 가 halfGist 를 남긴다).
-  if (q.answer_gist && q.answer_gist !== qa.live.halfGist) {
-    pushTurn({ who: 'ai', kind: 'gist', text: escapeHtml(q.answer_gist) });
-  }
-  // 통과 직후 전체 화면으로 갈아타지 않는다 — 방어 표식·총평·모범답이 말풍선으로
-  // 남고, 다음 질문이 같은 스트림에 이어진다 (대화 유지 — 2026-08-07 사용자 요청).
+  pushTurn({
+    who: 'sys', kind: 'done',
+    flag: m.flag, outcome: v.verdict, word: m.word,
+    concept: q.node_id, label: escapeHtml(q.label),
+    summary: v.summary_sentence || '',
+    // 되묻기 도중 이미 펼친 문장이면 다시 싣지 않는다 — 한 질문의 스트림에 같은
+    // 완성 문장이 두 번 뜨면 두 번째는 안 읽는다 (revealHalf 가 halfGist 를 남긴다).
+    gist: (q.answer_gist && q.answer_gist !== L.halfGist) ? escapeHtml(q.answer_gist) : '',
+    // 카드 발치에 «몇 번째가 닫혔고 다음이 있는가» 를 적는다. 끝이 보이지 않으면
+    // 사용자는 이 카드가 마무리인지 중간 안내인지 구분할 수 없다.
+    idx: L.qi + 1, total: L.questions.length,
+  });
   closeLiveQuestion({
     id: q.id, label: q.label, question: q.question, answer,
     verdict: v.verdict, score: v.score || 0, passed: !!v.passed,
