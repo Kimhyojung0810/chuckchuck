@@ -6571,15 +6571,15 @@ function mapSvgString() {
     (sum, ch) => sum + (/[^\u0000-\u00ff]/.test(ch) ? px : px * .58), 0);
   const nodeWidth = (n, level) => {
     if (n.root) return Math.max(184, Math.min(260, Math.ceil(textWidth(n.label, 14) + 48)));
-    const min = level === 1 ? 146 : 104;
-    const max = level === 1 ? 210 : 158;
+    const min = level === 1 ? 154 : 112;
+    const max = level === 1 ? 216 : 164;
     const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
-    return Math.max(min, Math.min(max, Math.ceil(Math.max(textWidth(n.label), textWidth(meta, 10.5)) + 34)));
+    return Math.max(min, Math.min(max, Math.ceil(Math.max(textWidth(n.label, 13.5), textWidth(meta, 11)) + 38)));
   };
-  if (rootNode) POS[rootNode.id] = [440, 28, nodeWidth(rootNode, 0)];
+  if (rootNode) POS[rootNode.id] = [440, 30, nodeWidth(rootNode, 0)];
   const row = (list, y, level) => {
     if (!list.length) return;
-    const gap = level === 1 ? 30 : 18;
+    const gap = level === 1 ? 32 : 20;
     const widths = list.map(n => nodeWidth(n, level));
     const total = widths.reduce((s, w) => s + w, 0) + gap * (list.length - 1);
     let cursor = (880 - total) / 2;
@@ -6588,8 +6588,8 @@ function mapSvgString() {
       cursor += widths[i] + gap;
     });
   };
-  row(all.filter(n => !n.root && !n.p), 116, 1);
-  row(all.filter(n => n.p), 214, 2);
+  row(all.filter(n => !n.root && !n.p), 124, 1);
+  row(all.filter(n => n.p), 226, 2);
   const has = id => nodes.some(n => n.id === id);
   let links = '';
   all.filter(n => !n.root).forEach(n => {
@@ -6598,29 +6598,29 @@ function mapSvgString() {
     if (!has(n.id) || !has(pid)) return;
     const [x1, y1] = POS[pid], [x2, y2] = POS[n.id];
     const parent = all.find(x => x.id === pid);
-    const fromY = y1 + (parent && parent.root ? 34 : 48);
+    const fromY = y1 + (parent && parent.root ? 36 : 52);
     const toY = y2 - 8;
     const midY = Math.round((fromY + toY) / 2);
-    links += `<path d="M${x1} ${fromY} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${toY}" fill="none" stroke="#CAD4CF" stroke-width="1.5" stroke-linecap="round"/>`;
+    links += `<path d="M${x1} ${fromY} V${midY} H${x2} V${toY}" fill="none" stroke="#BDD0C6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`;
   });
   const boxes = nodes.map(n => {
     const [x, y, w] = POS[n.id];
     if (n.root) return `<g>
-      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="40" rx="11" fill="url(#mapRoot)"/>
-      <text x="${x}" y="${y + 19}" text-anchor="middle" font-size="14" font-weight="750" fill="#fff" font-family="Pretendard,sans-serif">${n.label}</text></g>`;
+      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="42" rx="11" fill="url(#mapRoot)"/>
+      <text x="${x}" y="${y + 20}" text-anchor="middle" font-size="14.5" font-weight="750" fill="#fff" font-family="Pretendard,sans-serif">${n.label}</text></g>`;
     const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
-    const metaW = Math.ceil(textWidth(meta, 10.5));
+    const metaW = Math.ceil(textWidth(meta, 11));
     return `<g>
-      <rect x="${x - w / 2}" y="${y - 8}" width="${w}" height="56" rx="11" fill="${NODE_FILL}" stroke="${NODE_LINE}" stroke-width="1.25"/>
-      <text x="${x}" y="${y + 13}" text-anchor="middle" font-size="13" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${n.label}</text>
-      <circle cx="${x - metaW / 2 - 7}" cy="${y + 32}" r="2.5" fill="${ACCENT[n.status]}"/>
-      <text x="${x + 4}" y="${y + 35}" text-anchor="middle" font-size="10.5" font-weight="650" fill="${ACCENT[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
+      <rect x="${x - w / 2}" y="${y - 8}" width="${w}" height="60" rx="11" fill="${NODE_FILL}" stroke="${NODE_LINE}" stroke-width="1.25"/>
+      <text x="${x}" y="${y + 14}" text-anchor="middle" font-size="13.5" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${n.label}</text>
+      <circle cx="${x - metaW / 2 - 7}" cy="${y + 34}" r="2.6" fill="${ACCENT[n.status]}"/>
+      <text x="${x + 4}" y="${y + 37}" text-anchor="middle" font-size="11" font-weight="650" fill="${ACCENT[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
   }).join('');
-  return `<svg viewBox="0 0 880 286" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지">
+  return `<svg viewBox="0 0 880 304" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지">
     <defs>
       <linearGradient id="mapRoot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#064E3B"/><stop offset="1" stop-color="#0A6B50"/></linearGradient>
     </defs>
-    <rect width="880" height="286" fill="#FFFFFF"/>${links}${boxes}</svg>`;
+    <rect width="880" height="304" fill="#FBFCFB"/>${links}${boxes}</svg>`;
 }
 
 function tMap(host = $('#toolMap')) {
