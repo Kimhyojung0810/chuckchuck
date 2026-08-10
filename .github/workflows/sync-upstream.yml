@@ -1,0 +1,32 @@
+name: Sync upstream main
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure upstream
+        run: |
+          git remote add upstream https://github.com/Kimhyojung0810/chuckchuck.git
+          git fetch upstream main
+
+      - name: Mirror upstream main into upstream-main
+        run: |
+          git push origin upstream/main:refs/heads/upstream-main --force
