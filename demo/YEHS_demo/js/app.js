@@ -102,7 +102,7 @@ async function ensureVoicePipelineOut() {
     return nf.pipelineOut;
   }
   try {
-    const res = await fetch('/data/voice_report_live.json', { cache: 'no-store' });
+    const res = await fetch('data/voice_report_live.json', { cache: 'no-store' });
     if (!res.ok) return nf && nf.pipelineOut;
     const d = await res.json();
     _voiceLiveCache = {
@@ -1309,6 +1309,11 @@ function nfStep1() {
         <div class="dz-actions">
           <button class="btn btn-primary" id="pick">내 컴퓨터에서 선택</button>
           <span class="dz-or">또는 이 화면에 파일을 끌어다 놓으세요</span>
+          <div class="sample-demo-entry">
+            <span class="sample-demo-badge">샘플 데모</span>
+            <button class="btn btn-secondary" id="sampleDemo" type="button">더미 발표자료로 전체 과정 보기</button>
+            <small>실제 분석이 아니라 준비된 IMU2CLIP 예시로 녹음과 결과 화면을 체험해요.</small>
+          </div>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
       </div>`;
@@ -1317,6 +1322,7 @@ function nfStep1() {
        뒤로 밀린다. 이 단계의 CTA 는 드롭존 자체다 */
     const dz = $('#dz');
     $('#pick').addEventListener('click', () => $('#file').click());
+    $('#sampleDemo').addEventListener('click', () => startParse({ fixture: true }));
     $('#file').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       /\.(pdf|pptx)$/i.test(f.name) ? startParse({ file: f }) : failParse('PDF나 PPTX 파일만 분석할 수 있어요.');
@@ -1375,8 +1381,9 @@ function nfStep1() {
   } else if (nf.gate === 'fail') {
     box.innerHTML = `
       ${stageAccidentHtml(nf.parseError || 'PDF나 PPTX 파일만 분석할 수 있어요. 다른 파일로 올려주세요.', { title: '죄송해요, 대본을 못 받았어요!' })}
-      <div class="step-actions"><button class="btn btn-secondary" id="retry">다시 올리기</button></div>`;
+      <div class="step-actions"><button class="btn btn-secondary" id="retry">다시 올리기</button><button class="btn btn-primary" id="sampleDemo">샘플 데모로 계속하기</button></div>`;
     $('#retry').addEventListener('click', () => { nf.gate = null; nf.parseError = null; nfStep1(); });
+    $('#sampleDemo').addEventListener('click', () => startParse({ fixture: true }));
   } else {
     const titles = activeTitles();
     const images = activeImages();
@@ -1386,7 +1393,7 @@ function nfStep1() {
       : '슬라이드 텍스트를 기준으로 개념을 추출할 준비가 됐어요.';
     box.innerHTML = `
       <div class="card">
-        <div class="gate-ok">${titles.length}장을 슬라이드별로 읽었어요</div>
+        <div class="gate-ok">${nf.useSample ? '샘플 자료 · ' : ''}${titles.length}장을 슬라이드별로 읽었어요</div>
         <div class="thumbs">
           ${titles.map((t, i) => `
           <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" data-thumb-page="${i + 1}" alt="${i + 1}번 슬라이드" loading="lazy"><span><b>${i + 1}</b>${escapeHtml(t)}</span></div>`).join('')}
@@ -1406,6 +1413,33 @@ function nfStep1() {
    nf 에 넣지 않는다 — saveSession 이 sessionStorage 로 밀어 넣는데 dataURL 이
    수십 KB 라 다른 세션 값까지 통째로 저장에 실패할 수 있다 */
 let parsePreview = null;
+
+/** GitHub Pages에서도 서버 없이 제품의 전체 흐름을 확인하는 명시적 샘플 자료. */
+function clientSampleSlideDoc() {
+  const topicBySlide = Object.fromEntries((DATA.tree || []).map((node) => [slideNumber(node.slide), node]));
+  const slides = DATA.slideTitles.map((title, index) => {
+    const no = index + 1;
+    const topic = topicBySlide[no];
+    const lines = [
+      title,
+      topic && topic.ev,
+      topic && topic.why,
+    ].filter(Boolean);
+    return {
+      slide_no: no,
+      title,
+      raw_text: lines.join('\n'),
+      blocks: lines.map((text) => ({ text })),
+      text_sparse: lines.length < 2,
+    };
+  });
+  return {
+    file_name: 'IMU2CLIP_샘플_발표자료.pdf',
+    total_slides: slides.length,
+    slides,
+    sample: true,
+  };
+}
 
 /**
  * 서버가 자료를 읽는 동안 브라우저가 같은 파일을 직접 열어 본다.
@@ -1452,6 +1486,21 @@ async function startParse({ file = null, fixture = false } = {}) {
     await new Promise((r) => setTimeout(r, 300));
   }
   try {
+    if (nf.useSample) {
+      // 정적 배포에는 Python API가 없다. 샘플 버튼만 브라우저 내 fixture를 쓰고,
+      // 실제 파일 업로드는 계속 실 API 계약을 타게 해 둘을 섞지 않는다.
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      if (myGen !== parseGen) return;
+      const doc = clientSampleSlideDoc();
+      applySlideDoc(doc, { keepDemoImages: true });
+      setUploadedPdf(null);
+      nf.gate = 'done';
+      nf._parseStartedAt = null;
+      if (parseTimer) { clearInterval(parseTimer); parseTimer = null; }
+      saveSession('new-flow', nf);
+      nfStep1();
+      return;
+    }
     const b = window.ChuckchuckBridge;
     if (!b || typeof b.parseDocument !== 'function') {
       throw new Error('SDK bridge가 아직 준비되지 않았어요. 페이지를 새로고침 해주세요.');
@@ -1477,7 +1526,10 @@ async function startParse({ file = null, fixture = false } = {}) {
   } catch (err) {
     if (myGen !== parseGen) return;
     console.warn('[chuckchuck] parse', err);
-    nf.parseError = err.message || String(err);
+    const rawMessage = err.message || String(err);
+    nf.parseError = /Unexpected token|not valid JSON|parse HTTP 40[45]/i.test(rawMessage)
+      ? '현재 배포본에는 실제 파일 분석 서버가 연결되지 않았어요. 샘플 데모로 전체 흐름을 먼저 확인해보세요.'
+      : rawMessage;
     nf.gate = 'fail';
     nf._parseStartedAt = null;
     if (parseTimer) { clearInterval(parseTimer); parseTimer = null; }
@@ -1634,12 +1686,12 @@ function nfStep2() {
     saveSession('new-flow', nf);
   });
   // 녹음 화면으로 넘어가는 순간 자료 축(F-06·F-07)을 먼저 건다 — 발표하는 동안 돈다
-  $('#go').addEventListener('click', () => { startPrecompute(); nf.step = 2; renderNew(); });
+  $('#go').addEventListener('click', () => { if (!nf.useSample) startPrecompute(); nf.step = 2; renderNew(); });
   // 건너뛰면 상황을 비운다. 서버가 기본 기준으로 매기고 "안 골라서 …" 안내를 남긴다 —
   // 없는 상황을 지어내 보내면 어느 가중치로 매겼는지 알 수 없게 된다.
   $('#skip').addEventListener('click', () => {
     nf.occ = '';
-    startPrecompute();   // occ 를 비운 뒤에 걸어야 그 조건 그대로 개념을 뽑는다
+    if (!nf.useSample) startPrecompute();   // 샘플은 브라우저 fixture를 쓰고 API를 호출하지 않는다
     nf.step = 2;
     renderNew();
   });
@@ -1863,21 +1915,25 @@ function renderRecPanel() {
        세워지므로 길을 안 열어 주면 이미 끝난 분석으로 다시 갈 수가 없다 */
     const hasTake = !!(nf.pipelineOut || nf.pipelineError);
     p.innerHTML = `
-      <div class="rec-copy"><span>준비되면 시작하세요</span></div>
+      <div class="rec-copy"><span>${nf.useSample ? '샘플 발표를 직접 녹음해보세요' : '준비되면 시작하세요'}</span>${nf.useSample ? '<p>녹음은 실제로 진행되고, 분석 결과만 준비된 샘플을 사용해요.</p>' : ''}</div>
       ${hasTake ? '<button class="btn btn-secondary" id="recResume">아까 발표로 질문 준비하기</button>' : ''}
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
+      ${nf.useSample ? '<button class="btn btn-text btn-sm" id="sampleNoMic">마이크 없이 분석 화면만 보기</button>' : ''}
       ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
     if (hasTake) {
       $('#recResume').addEventListener('click', () => { nf.step = 3; renderNew(); });
     }
+    if (nf.useSample) $('#sampleNoMic').addEventListener('click', startSampleWithoutRecording);
     bindRecUpload();
   } else if (nf.mic === 'denied') {
     p.innerHTML = `
       <div class="mic-denied"><b>마이크 권한이 필요해요</b><span>주소창의 권한 설정에서 허용한 뒤 다시 시작해주세요.</span></div>
       <button class="btn btn-secondary" id="recRetry">다시 시도하기</button>
+      ${nf.useSample ? '<button class="btn btn-text" id="sampleNoMic">마이크 없이 분석 화면만 보기</button>' : ''}
       ${recUploadHtml()}`;
     $('#recRetry').addEventListener('click', startRec);
+    if (nf.useSample) $('#sampleNoMic').addEventListener('click', startSampleWithoutRecording);
     bindRecUpload();
   } else {
     p.innerHTML = `
@@ -2067,6 +2123,45 @@ function startRecClock() {
   }, 1000);
 }
 
+function sampleTake(durationSec = 180) {
+  const duration = Math.max(30, Number(durationSec) || 180);
+  const marks = evenSlideMarks(duration, rehearsalCount());
+  return {
+    marks,
+    mimeType: 'audio/webm',
+    durationSec: duration,
+    fileName: 'sample-demo.webm',
+    _blob: new Blob([], { type: 'audio/webm' }),
+    sample: true,
+  };
+}
+
+function queueSampleAnalysis(take) {
+  stopLiveRehearsal();
+  ccLastTake = take || sampleTake(nf.sec);
+  nf.marks = ccLastTake.marks || [];
+  nf.sec = Math.round(ccLastTake.durationSec || nf.sec || 0);
+  nf.mic = 'idle';
+  nf.done = 0;
+  nf._pipelineStarted = false;
+  nf._samplePipelineStarted = false;
+  nf.pipelineOut = null;
+  nf.pipelineError = null;
+  nf.pipelinePhase = 'queued';
+  nf.pipelineDetail = '샘플 분석을 준비하고 있어요';
+  nf.pipelineStartedAt = Date.now();
+  nf._pipelineTickStarted = false;
+  nf.backstage = [];
+  nf._pipelineLog = [];
+  nf.step = 3;
+  saveSession('new-flow', nf);
+  renderNew();
+}
+
+function startSampleWithoutRecording() {
+  queueSampleAnalysis(sampleTake(180));
+}
+
 /* ─── 종연 3초 (UI_REDESIGN §3) ─────────────────────────────────────────────
    발표를 마치는 순간, 분석은 7분 걸리지만 박수칠 이유는 이미 안다: 끝까지 했다.
    네트워크 없이 즉시 아는 값(슬라이드 수·경과 시간)만 쓴다.
@@ -2136,6 +2231,14 @@ async function finishRecAndPrepare() {
     nf._pipelineTickStarted = false;
     saveSession('new-flow', nf);
   }
+  if (nf.useSample && !ccLastTake) {
+    ccLastTake = sampleTake(nf.sec);
+    nf.marks = ccLastTake.marks;
+    nf.pipelinePhase = 'queued';
+    nf.pipelineDetail = '샘플 분석을 준비하고 있어요';
+    nf.pipelineStartedAt = Date.now();
+  }
+  if (nf.useSample) nf._samplePipelineStarted = false;
   nf.backstage = [];   // 막간 대사는 테이크마다 새로 쌓인다
   // 녹음은 여기서 끝났다. 'on' 으로 두면 리허설로 돌아왔을 때 이미 끝난 발표가
   // 「발표 중」 시계로 다시 그려지고, 단계 표시줄도 녹음 중인 줄 알고 잠긴다
@@ -2143,7 +2246,7 @@ async function finishRecAndPrepare() {
   await showCurtainCall(slides, (ccLastTake && ccLastTake.durationSec) || nf.sec);
   nf.step = 3;
   renderNew();
-  showF11Reveal();
+  if (!nf.useSample) showF11Reveal();
 }
 
 /**
@@ -3504,11 +3607,127 @@ function refreshStep4IfVisible() {
   if (key === 'new' && nf.step === 3) nfStep4();
 }
 
+function clientSamplePipelineData() {
+  const duration = Math.max(180, Number((ccLastTake && ccLastTake.durationSec) || nf.sec) || 180);
+  const marks = (ccLastTake && ccLastTake.marks && ccLastTake.marks.length)
+    ? ccLastTake.marks
+    : evenSlideMarks(duration, rehearsalCount());
+  const topicBySlide = Object.fromEntries((DATA.tree || []).map((node) => [slideNumber(node.slide), node]));
+  const bySlide = marks.map((mark) => {
+    const no = Number(mark.slide_no) || 1;
+    const topic = topicBySlide[no];
+    return {
+      slide_no: no,
+      visit: mark.visit || 1,
+      start_sec: Number(mark.start_sec) || 0,
+      end_sec: Number(mark.end_sec) || 0,
+      text: (topic && topic.ev) || `${DATA.slideTitles[no - 1] || `${no}번 슬라이드`}의 핵심 내용을 설명했습니다.`,
+    };
+  });
+  const concepts = {
+    slides: DATA.slideTitles.map((title, index) => {
+      const node = topicBySlide[index + 1];
+      return { slide_no: index + 1, title, topic: title, concepts: node ? [node.label] : [] };
+    }),
+  };
+  const nodes = (DATA.tree || []).map((node) => ({
+    id: node.id,
+    label: node.label,
+    slide_no: slideNumber(node.slide),
+    status: node.status,
+    importance: node.w,
+  }));
+  const graph = {
+    nodes,
+    edges: (DATA.tree || []).filter((node) => node.parent).map((node) => ({ source: node.parent, target: node.id })),
+  };
+  const alignment = {
+    items: (DATA.tree || []).map((node) => ({
+      node_id: node.id,
+      slide_no: slideNumber(node.slide),
+      status: node.status,
+      confidence: node.conf,
+      evidence: node.ev || node.spokeSays || '',
+      reason: node.why || '',
+    })),
+  };
+  const flow = {
+    order_tau: 0.82,
+    ghost_node_ids: (DATA.tree || []).filter((node) => ['no', 'om'].includes(node.status)).map((node) => node.id),
+    issues: (DATA.logicBreaks || []).map((issue) => ({
+      type: issue.type,
+      from_slide: Number(String(issue.from || '').replace(/\D/g, '')) || null,
+      to_slide: Number(String(issue.to || '').replace(/\D/g, '')) || null,
+      evidence: issue.ev || '',
+      suggestion: issue.note || '',
+      good: !!issue.good,
+    })),
+  };
+  return {
+    transcript: {
+      full_text: bySlide.map((part) => part.text).join(' '),
+      duration_sec: duration,
+      provider: 'sample-demo',
+      by_slide: bySlide,
+      words: [],
+    },
+    concepts,
+    graph,
+    alignment,
+    flow,
+    score: { total: DATA.session.score, dimensions: DATA.session.dims },
+  };
+}
+
+function runClientSamplePipeline() {
+  if (nf._samplePipelineStarted) return;
+  nf._samplePipelineStarted = true;
+  nf._pipelineStarted = true;
+  nf.pipelineError = null;
+  nf.pipelineStartedAt = Date.now();
+  nf._phaseStartedAt = Date.now();
+  nf._pipelineLog = [];
+  nf.backstage = [];
+  pipelineRunLive = true;
+  buildPipelineMarks({ conceptsReady: false, graphReady: false });
+  const sample = clientSamplePipelineData();
+  const stages = [
+    { delay: 100, phase: 'encoding', detail: '샘플 녹음을 정리하고 있어요' },
+    { delay: 800, phase: 'stt_done', detail: '샘플 전사문을 슬라이드별로 나눴어요', data: { transcript: sample.transcript } },
+    { delay: 1500, phase: 'concepts_done', detail: '발표자료의 핵심 개념을 찾았어요', data: { concepts: sample.concepts } },
+    { delay: 2300, phase: 'graph_done', detail: '개념 사이 연결을 정리했어요', data: { graph: sample.graph } },
+    { delay: 3100, phase: 'align_done', detail: '자료와 샘플 발화를 대조했어요', data: { alignment: sample.alignment } },
+    { delay: 3900, phase: 'flow_done', detail: '발표 흐름을 비교했어요', data: { flow: sample.flow } },
+    { delay: 4700, phase: 'done', detail: '샘플 분석이 끝났어요', data: { score: sample.score } },
+  ];
+  stages.forEach((stage) => later(() => {
+    nf.pipelinePhase = stage.phase;
+    nf.pipelineDetail = stage.detail;
+    nf._phaseStartedAt = Date.now();
+    if (stage.data) nf.pipelineOut = { ...(nf.pipelineOut || {}), ...stage.data };
+    if (stage.phase === 'stt_done') nf.transcriptOk = true;
+    if (stage.phase === 'concepts_done') nf.conceptsOk = true;
+    pushBackstage(stage.phase);
+    pushPipelineLog(stage.phase);
+    nf.done = pipelineChecklistDone();
+    if (stage.phase === 'done') pipelineRunLive = false;
+    saveSession('new-flow', nf);
+    refreshStep4IfVisible();
+    if (stage.phase === 'done') {
+      later(() => {
+        if (location.hash.startsWith('#/new')) location.hash = '#/report/sample-imu2clip';
+      }, 1600);
+    }
+  }, stage.delay));
+}
+
 function nfStep4() {
   app.className = 'narrow';
+  const sampleRun = !!(nf.useSample && ccLastTake);
+  if (sampleRun && !['done', 'partial', 'error'].includes(nf.pipelinePhase || '')) pipelineRunLive = true;
   /* 새로고침으로 복원된 세션이면 파이프라인 프라미스는 이미 죽어 있다. 살아 있는 척
      초를 계속 세면 문구 전부가 거짓말이 된다 — 끊겼다고 말하고 멈춘다. */
-  const willStart = !!(ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted);
+  const willStart = !!(!sampleRun && ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted);
   if (!willStart && !pipelineRunLive && nf.pipelinePhase
       && !['done', 'partial', 'error'].includes(nf.pipelinePhase)) {
     if (pipelineQaReady()) {
@@ -3540,6 +3759,7 @@ function nfStep4() {
     <div class="card">
       <h3 class="section-title">${qaReady ? '질문 준비가 끝났어요' : '발표를 듣고 질문을 준비하고 있어요'}</h3>
       <p class="note" style="margin-bottom:14px">최종 분석 전에, 설명이 비어 있던 개념을 질문으로 함께 확인해요.</p>
+      ${nf.useSample ? '<p class="sample-analysis-note"><b>샘플 데모 분석</b> · 녹음 과정은 실제지만 아래 판정과 리포트는 준비된 예시 데이터예요.</p>' : ''}
       ${pipelineStatusBarHtml()}
       ${pipelineTimelineHtml('full')}
       ${backstageHtml()}
@@ -3586,6 +3806,7 @@ function nfStep4() {
     nf.visits = { 1: 1 };
     nf.done = 0;
     nf._pipelineStarted = false;
+    nf._samplePipelineStarted = false;
     nf.pipelineOut = null;
     nf.pipelineError = null;
     nf.pipelinePhase = null;
@@ -3603,7 +3824,9 @@ function nfStep4() {
     renderNew();
   });
 
-  if (ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted) {
+  if (sampleRun && !nf._samplePipelineStarted) runClientSamplePipeline();
+
+  if (!sampleRun && ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted) {
     nf._pipelineStarted = true;
     nf.pipelineError = null;
     nf.pipelinePhase = 'queued';

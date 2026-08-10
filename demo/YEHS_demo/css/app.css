@@ -384,6 +384,28 @@ main.narrow { max-width: 640px; }
   color: var(--text-2); font-size: var(--t-body); line-height: 1.65;
 }
 .dz-or { color: var(--text-3); font-size: var(--t-meta); line-height: 1.5; }
+.sample-demo-entry {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  width: min(100%, 360px);
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.sample-demo-entry .btn { width: 100%; min-height: 48px; background: linear-gradient(145deg, #f4faf7, #e8f5ee); }
+.sample-demo-entry small { max-width: 34ch; color: var(--text-3); font-size: 11px; line-height: 1.5; text-align: center; }
+.sample-demo-badge { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.sample-analysis-note {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #cfe9db;
+  border-radius: var(--r-print);
+  background: linear-gradient(145deg, #f4fbf7, #edf8f2);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.sample-analysis-note b { color: var(--accent); }
 .progress { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; margin-top: 16px; position: relative; }
 .progress i { display: block; width: 100%; height: 100%; background: var(--accent); border-radius: 4px; }
 /* 결정론적 막대는 1초마다 폭이 바뀐다. 전환이 없으면 뚝뚝 끊기고,
