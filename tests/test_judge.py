@@ -966,3 +966,97 @@ def test_prompt_omits_the_checklist_for_single_element_questions():
     llm = ScriptedLLM(payload(verdict="good"))
     judge_answer(make_question(), GOOD_ANSWER, llm=llm)
     assert "골자의 요소" not in llm.prompts[0]
+
+
+# ---------------------------------------------------------------------------
+# B · 부분 포기 — «X 는 모르겠고 Y 는 …»
+#
+# looks_stuck 은 통째로 포기한 짧은 답만 잡는다. 반쯤 답한 사람은 판정 경로로
+# 가는데, 판정이 이미 모른다고 밝힌 것을 또 비슷하게 되물었다. 여기서 검사하는
+# 것은 «과녁과 넓이를 코드가 정하는가» 다.
+# ---------------------------------------------------------------------------
+
+from chuckchuck.f09_judge import (                              # noqa: E402
+    GIVE_UP_REMAINDER_MIN,
+    partial_giveup_topic,
+)
+
+HALF_GIVE_UP = "지연 시간은 잘 모르겠고, 정확도는 3% 올랐어요"
+
+
+def test_partial_giveup_names_the_piece_the_speaker_gave_up_on():
+    assert partial_giveup_topic(HALF_GIVE_UP) == "지연 시간"
+    assert partial_giveup_topic("정확도는 3% 올랐는데 지연 시간은 잘 모르겠어요") == "지연 시간"
+    assert partial_giveup_topic("대조 손실로 정렬합니다. 뇌파 쪽은 모르겠습니다") == "뇌파"
+
+
+def test_a_whole_giveup_is_left_to_the_coaching_path():
+    """통째 포기는 coach_stuck 이 이미 받는다. 여기서 두 번 잡으면 안 된다."""
+    assert partial_giveup_topic("모르겠어요") == ""
+    assert partial_giveup_topic("이건 잘 모르겠어요, 저건 잘 모르겠어요") == ""
+    # 포기 절을 빼면 답한 것이 없다 — «부분» 이 아니다
+    assert len("그런데") < GIVE_UP_REMAINDER_MIN
+    assert partial_giveup_topic("그런데 지연 시간은 잘 모르겠어요") == ""
+
+
+def test_a_hedged_attempt_is_not_a_giveup():
+    """_ATTEMPT_RE 가 지키던 경계 그대로 — 시도한 답을 포기로 읽으면 채점이 사라진다."""
+    assert partial_giveup_topic("잘 모르겠는데 지연 시간 아닐까요?") == ""
+    assert partial_giveup_topic(GOOD_ANSWER) == ""
+
+
+def test_a_demonstrative_is_not_a_usable_target():
+    """«아직 안 나온 것: 이건» 은 아무것도 안 알려 주는 힌트다."""
+    assert partial_giveup_topic("이건 잘 모르겠고, 정확도는 3% 올랐어요") == ""
+
+
+def test_the_given_up_piece_becomes_the_first_missing_point():
+    v = judge_of(payload(verdict="partial", score=60, missing_points=["근거가 얕아요"]),
+                 answer=HALF_GIVE_UP)
+    assert v.missing_points[0] == "지연 시간"
+    assert "지연 시간" in " ".join(v.hints)      # 힌트 4단이 그 조각을 연다
+
+
+def test_the_answered_half_is_still_scored():
+    """모른다고 밝혔다고 답한 쪽까지 버리지 않는다 — 코칭 경로로 새지 않는다."""
+    v = judge_of(payload(verdict="partial", score=72), answer=HALF_GIVE_UP)
+    assert v.verdict == "partial" and v.score == 72 and v.passed
+    assert v.coach_stage == ""                  # 코칭이 아니라 판정이다
+
+
+def test_the_followup_narrows_one_more_notch_for_the_given_up_piece():
+    """
+    1라운드의 넓이(열린 질문)로 다시 물으면 방금 못 넘은 벽을 그대로 세우는 것이다.
+    LLM 이 열린 질문을 써 보내도 코드가 좁힌 모양으로 바꾼다.
+    """
+    v = judge_of(payload(verdict="partial", score=60,
+                         followup="지연 시간은 왜 중요한가요?"),
+                 answer=HALF_GIVE_UP)
+    assert "왜" not in v.followup
+    assert "지연 시간" in v.followup
+
+
+def test_the_round_counter_is_untouched_by_the_narrowing():
+    """좁히는 것은 followup 의 모양뿐이다. 화면이 세는 「n차 확인」 은 라운드 그대로다."""
+    v = judge_of(payload(verdict="partial", score=60), answer=HALF_GIVE_UP)
+    assert v.round_no == 1 and v.probe_tier == "probe"
+
+
+def test_a_plain_answer_keeps_the_round_shaped_followup():
+    v = judge_of(payload(verdict="partial", score=60,
+                         followup="왜 그렇게 보시나요?"), answer=GOOD_ANSWER)
+    assert v.followup == "왜 그렇게 보시나요?"     # 1라운드는 열린 질문이 맞는 모양
+
+
+def test_prompt_tells_the_judge_not_to_re_ask_the_given_up_piece():
+    llm = ScriptedLLM(payload(verdict="partial", score=60))
+    judge_answer(make_question(), HALF_GIVE_UP, llm=llm)
+    assert "모른다고 밝힌 부분" in llm.prompts[0]
+    assert "지연 시간" in llm.prompts[0]
+    assert "한 칸 더 좁혔다" in llm.systems[0]
+
+
+def test_prompt_omits_the_giveup_block_for_a_plain_answer():
+    llm = ScriptedLLM(payload(verdict="partial", score=60))
+    judge_answer(make_question(), GOOD_ANSWER, llm=llm)
+    assert "모른다고 밝힌 부분" not in llm.prompts[0]

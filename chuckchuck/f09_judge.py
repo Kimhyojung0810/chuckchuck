@@ -441,11 +441,19 @@ def _enforce_good(
     return "partial", min(score, GIST_MISS_SCORE_MAX), merged
 
 
+#: 한 칸 더 좁힌 단계. 발표자가 스스로 «이건 모르겠다» 고 밝힌 조각을 그 단계의
+#: 넓이로 다시 물으면, 좁혀 주겠다고 해 놓고 같은 벽을 세우는 셈이다.
+_TIER_NARROWER = {"probe": "focus", "focus": "converge", "converge": "converge"}
+
+
 def _normalize(
     data: dict,
     question: Question,
     model: str,
     round_no: int = 1,
+    *,
+    followup_tier: str = "",
+    forced_point: str = "",
 ) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
@@ -470,6 +478,11 @@ def _normalize(
         for p in (data.get("missing_points") or [])
         if str(p).strip()
     ]
+    # 스스로 «이건 모르겠다» 고 밝힌 조각은 **반드시** 결손 목록에 오른다.
+    # 여기 없으면 힌트 사다리 4단이 그걸 열어 주지 못해서, 모른다고 말한 보람이
+    # 없는 대화가 된다. LLM 이 알아서 적었으면 그 자리를 맨 앞으로 올리기만 한다.
+    if forced_point:
+        points = [forced_point] + [p for p in points if p != forced_point]
 
     # 무른 통과는 여기서 잘린다. **등급·점수·결손만** 코드가 되돌린다 —
     # 문장은 LLM, 계약은 코드 (모듈 원칙). react·summary 폴백보다 앞에 둬야
@@ -497,8 +510,13 @@ def _normalize(
         round_no=round_no,
         # 정복했으면 되물을 일이 없다. 단계를 남겨 두면 화면이 「3차 확인」 이라고
         # 써 놓고 다음 질문으로 넘어가는 모순이 된다.
+        # probe_tier 는 **라운드 그대로** 둔다 — 화면이 「2차 확인」 을 세는 축이다.
+        # 좁히는 것은 followup 의 모양뿐이라 그 인자만 따로 받는다.
         probe_tier="" if mastered else qa_probe_tier(round_no),
-        followup=_followup(data, question, points, mastered, qa_probe_tier(round_no)),
+        followup=_followup(
+            data, question, points, mastered,
+            followup_tier or qa_probe_tier(round_no),
+        ),
     )
     # 힌트는 판정을 보고 만든다 — 사용자가 실제로 빠뜨린 것에 반응해야 하기 때문이다.
     # 판정에 함께 실어 보내면 프론트가 추가 왕복 없이 즉시 보여 줄 수 있다.
@@ -594,6 +612,84 @@ def looks_stuck(answer: str | None) -> bool:
     if _ATTEMPT_RE.search(text):
         return False
     return bool(_GIVE_UP_RE.search(text))
+
+
+#: 부분 포기 절을 가르는 구분자. 한국어 답변은 «X는 모르겠고, Y는 …» 처럼
+#: 연결어미로 이어 붙는다 — 문장 부호만 보면 한 덩어리로 뭉쳐서 못 가른다.
+_CLAUSE_SPLIT_RE = re.compile(
+    r"(?<=[고요다지만은])\s*[,·]\s*|\s*[.?!]\s+|\n+|(?<=는데)\s+|(?<=지만)\s+"
+)
+
+#: 포기 절을 뺀 나머지가 이만큼은 돼야 «부분» 포기다. 이보다 짧으면 답한 것이
+#: 없다는 뜻이라 통째 포기와 같다 — 그쪽은 「모르겠어요」 버튼과 코칭 경로가 받는다.
+GIVE_UP_REMAINDER_MIN = 8
+
+#: 과녁이 될 수 없는 지시어. 「이건」 을 결손 목록에 올리면 화면이 «아직 안 나온 것:
+#: 이건» 이라고 쓴다 — 무엇을 열어 주는지 아무도 모르는 힌트가 된다.
+_VAGUE_TOPICS = frozenset({
+    "이건", "그건", "저건", "이거", "그거", "저거", "이것", "그것", "저것",
+    "이 부분", "그 부분", "나머지", "뒤", "앞", "거기",
+})
+
+#: 포기 표현에서 **주제만** 남기기 위해 걷어 내는 꼬리.
+_GIVE_UP_TAIL_RE = re.compile(
+    # 긴 조사부터. 짧은 「는」 이 먼저 걸리면 "…에 대해서" 가 주제에 남는다.
+    r"(에\s*대해서?는?|에\s*대한|쪽은|부분은|까지는|은|는|이|가|을|를)?\s*"
+    r"(잘\s*)?(모르겠|모름|몰라|생각\s*안\s*나|기억\s*안\s*나)[가-힣\s]*$"
+)
+
+
+def partial_giveup_topic(answer: str | None) -> str:
+    """
+    '**X 는 모르겠고** Y 는 …' 에서 스스로 모른다고 밝힌 **X** 를 뽑는다. 없으면 "".
+
+    `looks_stuck` 은 통째로 포기한 짧은 답만 잡는다. 그런데 실제 답변은 «한쪽은
+    모르겠고 한쪽은 이렇다» 로 온다 — 그러면 판정 경로로 가서, 판정은 발표자가
+    이미 모른다고 밝힌 것을 **또 비슷하게 되묻는다.** 그게 이번에 지적받은 자리다.
+
+    **규칙은 코드가 정한다** (이 모듈의 원칙). 절로 갈라서, 포기 표현이 있고
+    시도한 흔적이 없는 절만 포기로 보고 그 절의 주제를 남긴다. 나머지 절은
+    그대로 채점 대상이다 — 모른다고 밝혔다는 이유로 답한 부분까지 버리지 않는다.
+
+    통째 포기(`looks_stuck`)는 여기서 잡지 않는다. 그쪽은 코칭 경로가 이미 받는다.
+    """
+    text = (answer or "").strip()
+    if not text or looks_stuck(text):
+        return ""
+
+    clauses = [c.strip(" ,·") for c in _CLAUSE_SPLIT_RE.split(text) if c and c.strip(" ,·")]
+    # 절이 하나뿐이면 «나머지» 가 없다 — 부분 포기가 아니라 통째 포기이거나 답변이다.
+    if len(clauses) < 2:
+        return ""
+
+    given_up = [c for c in clauses if _GIVE_UP_RE.search(c)]
+    # 남은 절이 답변 구실을 못 하면 «부분» 이 아니라 통째 포기다. 그걸 여기서
+    # 잡으면 채점할 것도 없는 답에 과녁만 세우게 된다.
+    remainder = " ".join(c for c in clauses if c not in given_up)
+    if not given_up or len(remainder) < GIVE_UP_REMAINDER_MIN:
+        return ""
+
+    for clause in given_up:
+        topic = _GIVE_UP_TAIL_RE.sub("", clause).strip(" ,·")
+        # 주제를 못 건지거나 지시어뿐이면 «무엇을» 모르는지 알 수 없다. 그때는
+        # 안 잡는 편이 낫다 — 빈 과녁을 세우면 되묻기가 도리어 막연해진다.
+        if topic and topic != clause and topic not in _VAGUE_TOPICS:
+            return _clip(topic)
+    return ""
+
+
+def _giveup_block(topic: str) -> str:
+    """부분 포기가 있을 때 판정 프롬프트에 붙는 블록."""
+    if not topic:
+        return ""
+    return (
+        "\n\n## 발표자가 스스로 모른다고 밝힌 부분\n"
+        f"「{topic}」\n"
+        "- **이걸 그대로 되묻지 마라.** 이미 모른다고 했다. 같은 걸 또 물으면 대화가 멈춘다.\n"
+        "- 나머지 답변은 평소대로 채점하라. 솔직히 밝힌 것 자체로 깎지 마라.\n"
+        "- react 는 답한 쪽을 먼저 인정하고, 모른다고 한 쪽은 방향을 짚어 준다.\n"
+        f"- missing_points 에는 「{topic}」 를 적어라 — 화면이 그걸로 힌트를 열어 준다."
+    )
 
 
 def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
@@ -886,6 +982,11 @@ def judge_answer(
         user += f"\n\n## 기대하는 답의 골자 (채점 기준 — 발표자에게는 보이지 않는다)\n{gist}"
     user += _gist_parts_block(question)
 
+    # 부분 포기 — «X 는 모르겠고 Y 는 …». 판정은 그대로 하되, 스스로 모른다고
+    # 밝힌 조각을 또 비슷하게 되묻지 않게 과녁과 넓이를 코드가 정한다.
+    giveup_topic = partial_giveup_topic(answer)
+    user += _giveup_block(giveup_topic)
+
     # 힌트는 화면에만 뜨고 판정이 모르면, 힌트를 따라온 답에 코치가 맥락 없이
     # 반응한다 — 화면은 대화처럼 보이는데 판정은 일방향이 된다 (2026-08-07 사용자).
     shown = [str(h).strip() for h in (hints_shown or []) if str(h).strip()]
@@ -903,11 +1004,17 @@ def judge_answer(
     # 무시했다 — 2라운드 followup 이 "…유리한 점은 무엇인가요?" 로 나와 1라운드보다
     # 오히려 넓어졌다(2026-08-08 실측). 규칙 9 가 system 에서 "빠진 지점 하나를 콕
     # 집어" 라고 말하는데 단계 지시는 user 꼬리에 있으니, 같은 층위로 안 읽힌 것이다.
+    # 모른다고 밝힌 조각은 **한 칸 더 좁혀** 묻는다. 같은 넓이로 다시 물으면
+    # 발표자가 방금 못 넘은 벽을 그대로 다시 세우는 것이다.
     tier = qa_probe_tier(round_no)
+    if giveup_topic:
+        tier = _TIER_NARROWER[tier]
     tier_brief = (
         f"\n\n[되묻기 단계 — {tier}] ({round_no}번째 답변 / 최대 {QA_MAX_ROUNDS}라운드)\n"
-        f"{_PROBE_TIER_BRIEF[tier]}\n"
-        "이 단계 지시는 규칙 9 보다 우선한다. followup 의 넓이는 여기서 정한다."
+        + ("발표자가 일부를 «모르겠다» 고 밝혀서 한 칸 더 좁혔다. 라운드 번호가 아니라"
+           " 아래 넓이를 따르라.\n" if giveup_topic else "")
+        + f"{_PROBE_TIER_BRIEF[tier]}\n"
+        + "이 단계 지시는 규칙 9 보다 우선한다. followup 의 넓이는 여기서 정한다."
     )
 
     try:
@@ -916,4 +1023,8 @@ def judge_answer(
         # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
         data = _call(engine, user, extra_system=tier_brief + JSON_RETRY_NUDGE)
 
-    return _normalize(data, question, engine.name, round_no)
+    return _normalize(
+        data, question, engine.name, round_no,
+        followup_tier=tier,
+        forced_point=giveup_topic,
+    )
