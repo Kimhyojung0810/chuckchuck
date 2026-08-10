@@ -6139,8 +6139,11 @@ function timeSplitHtml(rows, totals = {}) {
 
   return `
     <div class="tsplit">
-      <div class="tsplit-legend">${clean.map((r, i) =>
-        `<span><i style="background:${ramp[i][0]}"></i>${escapeHtml(r.name)}</span>`).join('')}</div>
+      <div class="tsplit-legend">${clean.map((r, i) => {
+        const gap = Math.round((r.act / actTotal * 100) - (r.rec / recTotal * 100));
+        const delta = gap === 0 ? '' : `<small class="${gap > 0 ? 'is-more' : 'is-less'}">${gap > 0 ? '+' : '−'}${Math.abs(gap)}%p</small>`;
+        return `<span><i style="background:${ramp[i][0]}"></i>${escapeHtml(r.name)}${delta}</span>`;
+      }).join('')}</div>
       <div class="tsplit-row">
         <span class="tsplit-lb">이상적인 배분</span>
         ${bar('rec', recTotal)}
@@ -6537,16 +6540,33 @@ function mapSvgString() {
   // 실데이터 세션이면 개념 그래프·판정에서 만든 노드, 아니면 샘플.
   const all = liveMapNodes() || DATA.mapNodes;
   const nodes = all.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
-  // 자리는 노드 수에서 계산한다 — 고정 좌표표는 샘플 9칸에만 맞았다.
+  // 같은 계층은 최소 폭과 높이를 맞추되 긴 제목만 자연스럽게 늘린다.
+  // 모두 내용 폭으로 만들면 트리가 들쭉날쭉하고, 모두 같은 폭이면 짧은 제목이 헐겁다.
   const POS = {};
   const rootNode = all.find(n => n.root);
-  if (rootNode) POS[rootNode.id] = [440, 36, 200];
-  const row = (list, y) => {
-    const w = Math.max(100, Math.min(190, Math.round(880 / (list.length + 1)) - 26));
-    list.forEach((n, i) => { POS[n.id] = [Math.round(880 * (i + 1) / (list.length + 1)), y, w]; });
+  const textWidth = (value, px = 13) => Array.from(String(value || '')).reduce(
+    (sum, ch) => sum + (/[^\u0000-\u00ff]/.test(ch) ? px : px * .58), 0);
+  const nodeWidth = (n, level) => {
+    if (n.root) return Math.max(184, Math.min(260, Math.ceil(textWidth(n.label, 14) + 48)));
+    const min = level === 1 ? 146 : 104;
+    const max = level === 1 ? 210 : 158;
+    const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
+    return Math.max(min, Math.min(max, Math.ceil(Math.max(textWidth(n.label), textWidth(meta, 10.5)) + 34)));
   };
-  row(all.filter(n => !n.root && !n.p), 120);
-  row(all.filter(n => n.p), 210);
+  if (rootNode) POS[rootNode.id] = [440, 28, nodeWidth(rootNode, 0)];
+  const row = (list, y, level) => {
+    if (!list.length) return;
+    const gap = level === 1 ? 30 : 18;
+    const widths = list.map(n => nodeWidth(n, level));
+    const total = widths.reduce((s, w) => s + w, 0) + gap * (list.length - 1);
+    let cursor = (880 - total) / 2;
+    list.forEach((n, i) => {
+      POS[n.id] = [Math.round(cursor + widths[i] / 2), y, widths[i]];
+      cursor += widths[i] + gap;
+    });
+  };
+  row(all.filter(n => !n.root && !n.p), 116, 1);
+  row(all.filter(n => n.p), 214, 2);
   const has = id => nodes.some(n => n.id === id);
   let links = '';
   all.filter(n => !n.root).forEach(n => {
@@ -6554,19 +6574,30 @@ function mapSvgString() {
     if (!POS[pid] || !POS[n.id]) return;
     if (!has(n.id) || !has(pid)) return;
     const [x1, y1] = POS[pid], [x2, y2] = POS[n.id];
-    links += `<path d="M${x1} ${y1 + 24} C ${x1} ${(y1 + y2) / 2 + 14}, ${x2} ${(y1 + y2) / 2 - 6}, ${x2} ${y2 - 6}" fill="none" stroke="#D6DAE0" stroke-width="1.4"/>`;
+    const parent = all.find(x => x.id === pid);
+    const fromY = y1 + (parent && parent.root ? 34 : 48);
+    const toY = y2 - 8;
+    const midY = Math.round((fromY + toY) / 2);
+    links += `<path d="M${x1} ${fromY} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${toY}" fill="none" stroke="#CAD4CF" stroke-width="1.5" stroke-linecap="round"/>`;
   });
   const boxes = nodes.map(n => {
     const [x, y, w] = POS[n.id];
     if (n.root) return `<g>
-      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="36" rx="10" fill="#191F28"/>
-      <text x="${x}" y="${y + 17}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="Pretendard,sans-serif">${n.label}</text></g>`;
+      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="40" rx="11" fill="url(#mapRoot)"/>
+      <text x="${x}" y="${y + 19}" text-anchor="middle" font-size="14" font-weight="750" fill="#fff" font-family="Pretendard,sans-serif">${n.label}</text></g>`;
+    const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
+    const metaW = Math.ceil(textWidth(meta, 10.5));
     return `<g>
-      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="48" rx="10" fill="${FILL[n.status]}" stroke="${LINE[n.status]}" stroke-width="1.4"/>
+      <rect x="${x - w / 2}" y="${y - 8}" width="${w}" height="56" rx="11" fill="${FILL[n.status]}" stroke="${LINE[n.status]}" stroke-width="1.35"/>
       <text x="${x}" y="${y + 13}" text-anchor="middle" font-size="13" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${n.label}</text>
-      <text x="${x}" y="${y + 31}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${LINE[n.status]}" font-family="Pretendard,sans-serif">${STATUS[n.status]} · ${slideNumber(n.slide)}번</text></g>`;
+      <circle cx="${x - metaW / 2 - 7}" cy="${y + 32}" r="2.5" fill="${LINE[n.status]}"/>
+      <text x="${x + 4}" y="${y + 35}" text-anchor="middle" font-size="10.5" font-weight="650" fill="${LINE[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
   }).join('');
-  return `<svg viewBox="0 0 880 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지"><rect width="880" height="280" fill="#FFFFFF"/>${links}${boxes}</svg>`;
+  return `<svg viewBox="0 0 880 286" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지">
+    <defs>
+      <linearGradient id="mapRoot" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#202936"/><stop offset="1" stop-color="#121923"/></linearGradient>
+    </defs>
+    <rect width="880" height="286" fill="#FFFFFF"/>${links}${boxes}</svg>`;
 }
 
 function tMap(host = $('#toolMap')) {
