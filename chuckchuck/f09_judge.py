@@ -423,12 +423,18 @@ def _enforce_good(
        근거 없이 깎으면 맞힌 사람이 이유 없이 진다.
     2. **자기모순** — good 인데 missing_points 를 적어 왔다. 규칙 7 이 거기에는
        "통과를 막는 결정적 결손" 만 적으라고 했으므로 둘이 동시에 참일 수 없다.
-       요소 목록이 없는 질문에서도 무른 통과를 잡는, 항상 켜진 그물이다.
+
+    **둘 다 요소 목록이 있는 질문에만 건다.** 2번을 모든 질문에 걸어 봤는데,
+    그건 코드로 검증할 수 없는 «모델 습관» 에 걸린 규칙이었다 — 실 LLM 이 멀쩡한
+    답에도 「있으면 더 좋을」 결손을 적으면 모든 질문이 3라운드까지 가서 대화
+    호흡이 늘어진다. 요소를 못박은 질문 안에서는 규칙 7 위반이 분명하지만,
+    밖에서는 그게 위반인지 조언인지 코드가 가릴 수 없다. 무른 통과를 막으려다
+    대화를 망치지 않는다.
 
     막을 때도 점수는 GIST_MISS_SCORE_MAX 로만 내린다. 되묻기를 한 바퀴 더 돌리는
     것이 목적이고, 3라운드에 닿으면 통과 수준에서 닫힌다 (`qa_mastered`).
     """
-    if verdict != "good":
+    if verdict != "good" or not question.answer_gist_parts:
         return verdict, score, points
 
     uncovered = _uncovered_parts(data, question)

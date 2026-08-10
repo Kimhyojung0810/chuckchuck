@@ -928,12 +928,29 @@ def test_question_without_elements_is_untouched_by_the_checklist():
 def test_good_with_missing_points_is_self_contradictory_and_demoted():
     """
     규칙 7 은 missing_points 에 «통과를 막는 결정적 결손» 만 적으라고 했다.
-    good 과 동시에 참일 수 없다 — 요소 목록이 없는 질문에서도 무른 통과를 잡는다.
+    요소를 못박은 질문 안에서는 good 과 동시에 참일 수 없다 — 요소는 다 나왔다고
+    해 놓고 통과를 막는 결손을 적은 판정은 둘 중 하나가 거짓이다.
     """
-    v = judge_of(payload(verdict="good", score=92, missing_points=["근거를 안 댔어요"]))
+    v = judge_of(
+        payload(verdict="good", score=92, covered_parts=[True, True],
+                missing_points=["근거를 안 댔어요"]),
+        question=two_part_question(),
+    )
     assert v.verdict == "partial"
     assert v.score == GIST_MISS_SCORE_MAX
     assert v.followup                       # 되묻기가 살아난다
+
+
+def test_a_single_element_question_keeps_good_despite_advisory_missing_points():
+    """
+    **이 그물의 경계다.** 요소를 안 쪼갠 질문에서는 missing_points 를 「있으면 더
+    좋을」 수준으로 적는 모델이 흔하고, 코드는 그게 위반인지 조언인지 못 가린다.
+    여기까지 되돌리면 멀쩡한 답이 전부 79 로 내려가 모든 질문이 3라운드까지 간다 —
+    무른 통과를 막으려다 대화 호흡을 망치는 것이다.
+    """
+    v = judge_of(payload(verdict="good", score=92,
+                         missing_points=["수치를 덧붙이면 더 좋아요"]))
+    assert v.verdict == "good" and v.score == 92 and v.mastered
 
 
 def test_demoted_verdict_does_not_get_the_good_react_fallback():
@@ -941,7 +958,11 @@ def test_demoted_verdict_does_not_get_the_good_react_fallback():
     react 를 안 써 보낸 판정에 good 폴백("충분합니다")이 붙으면, 화면이
     「충분합니다」 라고 말하면서 되묻는 모순이 된다.
     """
-    v = judge_of(payload(verdict="good", score=90, missing_points=["뒷받침이 없어요"]))
+    v = judge_of(
+        payload(verdict="good", score=90, covered_parts=[True, True],
+                missing_points=["뒷받침이 없어요"]),
+        question=two_part_question(),
+    )
     assert v.react == _REACT_FALLBACK["partial"]
 
 
