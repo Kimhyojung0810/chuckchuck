@@ -8,10 +8,13 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>척척발표</title>
-<!-- 탭 아이콘은 상단 브랜드 마크와 같은 그림이어야 한다 (말풍선 + 체크) -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='7' fill='%231F7A5F'/%3E%3Cpath d='M4.5 8A2.5 2.5 0 0 1 7 5.5h10A2.5 2.5 0 0 1 19.5 8v5a2.5 2.5 0 0 1-2.5 2.5h-5.5l-3.5 3V15.5H7A2.5 2.5 0 0 1 4.5 13z' fill='%23fff'/%3E%3Cpath d='M8.6 10.6l2.2 2.2 4-4.2' fill='none' stroke='%231F7A5F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<!-- 앱 아이콘은 브라우저·아이패드 홈 화면·앱 셸에서 같은 원본을 쓴다. -->
+<meta name="theme-color" content="#064E3B">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/chuckchuck-app-icon-64.png?v=qk10">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/chuckchuck-app-icon-512.png?v=qk10">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/chuckchuck-app-icon-180.png?v=qk10">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/app.css?v=qk9">
+<link rel="stylesheet" href="css/app.css?v=qk10">
 <!-- #/graph 3D 무대 전용. 데모 경로 밖 화면이라 app.css 를 안 건드리고 따로 둔다 -->
 <link rel="stylesheet" href="css/graph3d.css?v=qk5">
 <link rel="stylesheet" href="css/chatter.css?v=qk5">
@@ -39,7 +42,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      좁은 화면(<900px)에서는 통째로 숨기고 기존 탑바 흐름을 그대로 쓴다 —
      --nav-w 가 0 이라 아무것도 안 바뀐다 -->
 <nav class="sidenav" aria-label="주요 메뉴">
-  <a class="sidenav-brand" href="#/"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect class="bm-bg" width="24" height="24" rx="7"/><path class="bm-bubble" d="M4.5 8A2.5 2.5 0 0 1 7 5.5h10A2.5 2.5 0 0 1 19.5 8v5a2.5 2.5 0 0 1-2.5 2.5h-5.5l-3.5 3V15.5H7A2.5 2.5 0 0 1 4.5 13z"/><path class="bm-tick" d="M8.6 10.6l2.2 2.2 4-4.2" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>척척발표</a>
+  <a class="sidenav-brand" href="#/"><img class="brand-app-icon" src="assets/chuckchuck-app-icon-64.png?v=qk10" alt="">척척발표</a>
   <a class="btn btn-primary sidenav-cta" href="#/new" data-fresh-practice>새 발표 연습</a>
   <!-- 아이콘은 이름 옆의 장식이 아니라 자리표다. 글자 셋만 세로로 세워 두면
        사이트맵처럼 읽히고, 지금 어디인지도 글자 무게로만 말하게 된다.
@@ -67,7 +70,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 </nav>
 
 <header class="topbar">
-  <a class="brand" href="#/"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect class="bm-bg" width="24" height="24" rx="7"/><path class="bm-bubble" d="M4.5 8A2.5 2.5 0 0 1 7 5.5h10A2.5 2.5 0 0 1 19.5 8v5a2.5 2.5 0 0 1-2.5 2.5h-5.5l-3.5 3V15.5H7A2.5 2.5 0 0 1 4.5 13z"/><path class="bm-tick" d="M8.6 10.6l2.2 2.2 4-4.2" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>척척발표</a>
+  <a class="brand" href="#/"><img class="brand-app-icon" src="assets/chuckchuck-app-icon-64.png?v=qk10" alt="">척척발표</a>
   <div class="topbar-right">
     <a class="btn btn-primary btn-sm" href="#/new" id="topFresh" data-fresh-practice>새 발표 연습</a>
   </div>
