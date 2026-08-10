@@ -603,6 +603,7 @@ function renderHome() {
     <header class="h-head">
       <h1>내 발표</h1>
       ${(gm.days || []).length ? `<span class="h-sub">${dayStreak(gm.days)}일 연속 · 레벨 ${gameLevel(gm.xp)}</span>` : ''}
+      <p class="h-lead">발표 자료와 실제로 말한 내용을 함께 보고, 다음 연습에서 고칠 곳을 찾아요.</p>
     </header>
 
     ${resume ? `
@@ -1299,10 +1300,15 @@ function nfStep1() {
   if (nf.gate === null) {
     box.innerHTML = `
       <div class="dropzone" id="dz">
-        <h3>발표자료를 올려주세요</h3>
-        <p class="note">PDF, PPTX · 최대 30MB, 100장까지 (25장 안팎을 권장해요)</p>
+        <div class="dz-copy">
+          <span class="dz-kicker">새 발표 연습</span>
+          <h1>발표자료를<br>여기에 놓아주세요</h1>
+          <p class="dz-note">자료를 읽은 뒤 발표 정보와 리허설 설정을 이어서 진행해요.</p>
+          <p class="note">PDF, PPTX · 최대 30MB · 100장까지</p>
+        </div>
         <div class="dz-actions">
-          <button class="btn btn-secondary" id="pick">파일 선택</button>
+          <button class="btn btn-primary" id="pick">내 컴퓨터에서 선택</button>
+          <span class="dz-or">또는 이 화면에 파일을 끌어다 놓으세요</span>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
       </div>`;

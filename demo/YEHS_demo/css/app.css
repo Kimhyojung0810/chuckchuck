@@ -366,6 +366,20 @@ main.narrow { max-width: 640px; }
 .dropzone.hover { border-color: var(--accent); background: #FBFCFE; }
 .dropzone h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .dz-actions { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dz-copy { min-width: 0; }
+.dz-kicker {
+  display: block; margin-bottom: 10px;
+  color: var(--brand); font-size: var(--t-meta); font-weight: 700;
+}
+.dropzone .dz-copy h1 {
+  margin: 0; font-size: clamp(24px, 4vw, 34px); line-height: 1.28;
+  font-weight: 700; letter-spacing: -.035em;
+}
+.dz-note {
+  max-width: 34ch; margin: 14px 0 8px;
+  color: var(--text-2); font-size: var(--t-body); line-height: 1.65;
+}
+.dz-or { color: var(--text-3); font-size: var(--t-meta); line-height: 1.5; }
 .progress { height: 8px; border-radius: 4px; background: var(--fill); overflow: hidden; margin-top: 16px; position: relative; }
 .progress i { display: block; width: 100%; height: 100%; background: var(--accent); border-radius: 4px; }
 /* 결정론적 막대는 1초마다 폭이 바뀐다. 전환이 없으면 뚝뚝 끊기고,

@@ -1011,3 +1011,80 @@
   main.home > .pb-wall .pb-openline { font-size: 12px; line-height: 1.45; }
   main.home > .verdict .growth-svg { height: 46px; }
 }
+
+/* ══ P0 데스크톱 작업면 정리 (2026-08-10) ═════════════════════════════
+   1366px 화면에서 홈은 880px 한 기둥만 써서 오른쪽 340px가 비었고, 업로드는
+   남은 높이를 전부 점선 상자로 채워 행동보다 빈 공간이 먼저 보였다. 데이터와
+   이벤트는 그대로 두고, 넓은 화면에서만 정보의 자리를 다시 배분한다. */
+@media (min-width: 1200px) {
+  main.home {
+    display: grid;
+    width: min(1320px, 100% - var(--gutter) * 2);
+    grid-template-columns: minmax(320px, .82fr) minmax(0, 1.45fr);
+    column-gap: clamp(42px, 4.5vw, 68px);
+    align-content: start; align-items: start;
+  }
+  main.home > .h-head,
+  main.home > .h-resume { grid-column: 1 / -1; }
+  main.home > .h-head { flex-wrap: wrap; margin-bottom: 26px; }
+  main.home > .h-head h1 { font-size: 30px; }
+  main.home > .h-lead { max-width: 54ch; font-size: 15px; }
+
+  /* 시작 안내는 또 하나의 카드가 아니라 왼쪽 작업 지시문이다. */
+  main.home > .h-start,
+  main.home > .h-next {
+    grid-column: 1; min-height: 280px; margin: 0;
+    padding: 24px 0 28px;
+    border: 0; border-top: 2px solid var(--brand); border-radius: 0;
+    background: transparent;
+  }
+  main.home > .h-start b,
+  main.home > .h-next .h-next-head { font-size: 22px; line-height: 1.45; }
+  main.home > .h-start p,
+  main.home > .h-next .h-next-act { max-width: 34ch; font-size: 15px; }
+  main.home > .h-start .h-start-act { align-items: flex-start; flex-direction: column; gap: 10px; margin-top: 24px; }
+
+  main.home > .h-sec { grid-column: 2; margin: 0 0 28px; }
+  main.home > .h-sec-head { padding-bottom: 11px; }
+  main.home > .h-sec-head h2 { color: var(--text-2); font-size: 13px; }
+  main.home > .h-sec-note { margin-top: 10px; font-size: 13px; }
+  main.home > .h-sec .h-table th { padding-top: 14px; }
+  main.home > .h-sec .h-table td { padding-top: 13px; padding-bottom: 13px; }
+}
+
+@media (min-width: 900px) {
+  /* 첫 단계만 쓰는 규칙이다. 파싱·완료·리허설 상태의 높이 계약은 건드리지 않는다. */
+  main.narrow:has(#nf) > #nf > .dropzone {
+    flex: 0 1 auto;
+    min-height: clamp(520px, 62vh, 640px);
+    max-height: calc(var(--app-h) - 150px);
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .72fr);
+    align-items: center; justify-content: stretch; column-gap: clamp(36px, 5vw, 72px);
+    padding: clamp(42px, 5vw, 68px); text-align: left;
+    border-color: #D4D4D8; background: var(--surface);
+  }
+  main.narrow:has(#nf) > #nf > .dropzone.hover {
+    border-color: var(--brand); background: var(--brand-weak);
+  }
+  main.narrow:has(#nf) > #nf > .dropzone .dz-actions {
+    align-items: flex-start; justify-content: center;
+    min-height: 180px; margin: 0; padding-left: clamp(28px, 4vw, 52px);
+    border-left: 1px solid var(--border);
+  }
+  main.narrow:has(#nf) > #nf > .dropzone .dz-actions .btn { min-width: 196px; }
+  main.narrow:has(#nf) > #nf > .dropzone .dz-or { max-width: 24ch; }
+
+  /* 오른쪽 분석 본문의 주인공은 실제 슬라이드다. 220px 고정 높이를 풀어
+     1366×768에서도 약 260px, 1440×900에서는 약 300px까지 쓴다. */
+  .rep-deck > .section-title {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    font-size: 18px;
+  }
+  .rep-deck > .section-title .soft { flex: none; font-size: 12px; }
+}
+
+@media (min-width: 900px) and (max-width: 1450px) {
+  .deck-stage img, .deck-stage canvas {
+    height: clamp(260px, 34vh, 320px); width: auto; max-width: 100%; object-fit: contain;
+  }
+}

@@ -767,6 +767,10 @@ main img, main canvas, main svg { max-width: 100%; }
 .h-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 20px; }
 .h-head h1 { margin: 0; font-size: var(--t-h1); font-weight: 700; letter-spacing: -.024em; }
 .h-head .h-sub { font-size: var(--t-meta); color: var(--text-3); }
+.h-lead {
+  flex-basis: 100%; margin: 5px 0 0;
+  color: var(--text-2); font-size: var(--t-body); line-height: 1.6;
+}
 
 /* 이어하기 — 브랜드 색을 쓰는 유일한 줄 */
 .h-resume {
