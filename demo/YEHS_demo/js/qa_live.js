@@ -129,6 +129,20 @@ function newLiveState(sessionId, questions, docKey = '') {
   };
 }
 
+/**
+ * 이 질문에 **채점된** 답들. 서버가 이 개수로 라운드를 센다 (f09 `_round_no`).
+ *
+ * 포기 턴의 자리표시자는 답이 아니라 뺀다. 되물음 턴(「질문이 무슨 뜻인가요?」)도
+ * 뺀다 — 서버가 채점하지 않은 말인데 여기 남기면 두 가지가 어긋난다.
+ * ① 라운드가 한 칸 올라 되묻기가 이유 없이 좁아지고,
+ * ② 누적 답변 블록에 「1턴: 질문이 무슨 뜻인가요?」 가 실려 판정이 그걸 답으로 읽는다.
+ */
+function liveScoredAnswers() {
+  return ((qa.live || {}).turns || [])
+    .filter((t) => !t.gaveUp && !t.clarify)
+    .map((t) => t.answer);
+}
+
 function liveHistory() {
   const L = qa.live;
   const done = (L.results || []).map((r) => ({
@@ -963,14 +977,20 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       questionId: q.id, answer, history: liveHistory(), question: q, giveUp,
       // 이 질문에 앞서 낸 답들. 판정은 누적 전체를 본다 (f09 "합쳐서 판정하라").
       // 포기 턴의 "(모르겠어요)" 자리표시자는 답이 아니라 뺀다.
-      priorAnswers: (L.turns || []).filter((t) => !t.gaveUp).map((t) => t.answer),
+      priorAnswers: liveScoredAnswers(),
       // 지금까지 펼쳐 본 힌트. 코치가 힌트와 이어지는 말로 반응한다.
       hintsShown: liveHints().slice(0, L.hintLevel || 0),
       artifacts: liveArtifacts(),
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
     L.turn += 1;
-    L.turns.push({ question: askedNow, questionId: q.id, answer, verdict: v.verdict, score: v.score || 0, gaveUp: giveUp });
+    // clarify 는 «질문을 못 알아들어 되물었다» 는 뜻이라 채점된 답이 아니다.
+    // 대화에는 남기되 라운드에서는 뺀다 (liveScoredAnswers).
+    L.turns.push({
+      question: askedNow, questionId: q.id, answer,
+      verdict: v.verdict, score: v.score || 0, gaveUp: giveUp,
+      clarify: v.coach_stage === 'clarify',
+    });
     L.lastJudgement = v;
     // 판정 사다리가 지금 들고 있는 것보다 길면 그걸로 갈아탄다. **짧아져도 안 버린다** —
     // 버리면 다음 말풍선의 분모가 줄어 "힌트 2/4" 뒤에 "힌트 3/3" 이 뜬다.

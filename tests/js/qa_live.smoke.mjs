@@ -36,6 +36,7 @@ const EXPORT_LINE = `
 ;globalThis.__api = {
   qaLiveActive, newLiveState, liveStalled, hintSlideNos,
   liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
+  liveScoredAnswers,
 };`;
 
 /**
@@ -328,6 +329,47 @@ test('고치기 전 코드로 돌리면 힌트 분모 시험이 깨진다', () =
     threw = true;
   }
   if (!threw) throw new Error('고치기 전 코드도 통과했어요 — 이 시험은 회귀를 못 잡아요');
+});
+
+/* ── liveScoredAnswers — 라운드를 세는 분모 ────────────────────────────────────
+   서버(f09 `_round_no`)가 이 배열의 길이로 되묻기 라운드를 센다. 채점 안 된 턴이
+   섞이면 ① 라운드가 이유 없이 올라 되묻기가 좁아지고 ② 누적 답변 블록에 그 말이
+   답으로 실린다. ─────────────────────────────────────────────────────────── */
+
+function withTurns(api, ctx, turns) {
+  ctx.qa.live = liveState(api, [{ id: 'q1', node_id: 'c1', question: '왜요?' }], { turns });
+  return api.liveScoredAnswers();
+}
+
+test('채점된 답만 라운드에 센다', () => {
+  const { ctx, api } = newContext();
+  eq(withTurns(api, ctx, [{ answer: '첫 답' }, { answer: '둘째 답' }]),
+     ['첫 답', '둘째 답'], '채점된 답');
+});
+
+test('포기 자리표시자는 답이 아니라 뺀다', () => {
+  const { ctx, api } = newContext();
+  eq(withTurns(api, ctx, [{ answer: '첫 답' }, { answer: '(모르겠어요)', gaveUp: true }]),
+     ['첫 답'], '포기를 뺀 답');
+});
+
+test('되물음 턴은 라운드를 태우지 않는다', () => {
+  const { ctx, api } = newContext();
+  eq(withTurns(api, ctx, [
+    { answer: '질문이 무슨 뜻인가요?', clarify: true },
+    { answer: '깊은 수면이요' },
+  ]), ['깊은 수면이요'], '되물음을 뺀 답');
+});
+
+test('옛 세션(clarify 없음)은 예전 그대로 센다', () => {
+  const { ctx, api } = newContext();
+  eq(withTurns(api, ctx, [{ answer: '첫 답' }, { answer: '둘째 답', gaveUp: false }]),
+     ['첫 답', '둘째 답'], '옛 세션의 답');
+});
+
+test('턴이 없으면 1라운드다 (빈 배열)', () => {
+  const { ctx, api } = newContext();
+  eq(withTurns(api, ctx, []), [], '빈 턴');
 });
 
 /* ── 실행 ──────────────────────────────────────────────────────────────────── */

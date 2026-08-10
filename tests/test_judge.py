@@ -1060,3 +1060,82 @@ def test_prompt_omits_the_giveup_block_for_a_plain_answer():
     llm = ScriptedLLM(payload(verdict="partial", score=60))
     judge_answer(make_question(), GOOD_ANSWER, llm=llm)
     assert "모른다고 밝힌 부분" not in llm.prompts[0]
+
+
+# ---------------------------------------------------------------------------
+# C · 되물음 — 질문형 답변을 질문으로 받는다
+#
+# 「질문이 무슨 뜻인가요?」 를 채점하면 못 알아들었다고 말한 사람이 오답으로
+# 기록되고, 화면은 답을 안 준 채 되묻기만 한 칸 더 간다. 여기서 검사하는 것은
+# «되묻기와 자신 없는 답을 가르는가» 다 — 오탐이 제일 위험하다.
+# ---------------------------------------------------------------------------
+
+from chuckchuck.f09_judge import ASKS_BACK_MAX_CHARS, asks_back   # noqa: E402
+
+
+def test_asking_about_the_question_is_a_question_not_an_answer():
+    assert asks_back("질문이 무슨 뜻인가요?")
+    assert asks_back("다시 한 번 말씀해 주세요")
+    assert asks_back("뭘 물어보시는 건가요?")
+    assert asks_back("이해가 잘 안 돼요")
+
+
+def test_an_unconfident_answer_is_still_an_answer():
+    """
+    물음표로 가르면 안 된다 — "깊은 수면 아닐까요?" 는 채점받아야 할 **답**이다.
+    오탐하면 맞는 답을 채점하지 않고 질문만 다시 쓴다.
+    """
+    assert not asks_back("깊은 수면 아닐까요?")
+    assert not asks_back("수면 주기가 뭔가요?")
+    assert not asks_back(GOOD_ANSWER)
+    assert not asks_back("")
+
+
+def test_a_long_reply_is_read_as_an_answer_even_if_it_asks_something():
+    """길면 «답하면서 덧붙여 물은 것» 이다 — 채점할 내용이 들어 있다."""
+    long_reply = "대조 손실로 두 벡터를 정렬합니다. " * 3 + "그런데 무슨 뜻인가요?"
+    assert len(long_reply) > ASKS_BACK_MAX_CHARS
+    assert not asks_back(long_reply)
+
+
+def test_asking_back_is_not_scored_and_gets_the_question_rewritten():
+    v = judge_of(
+        json.dumps({"react": "제가 어렵게 물었어요", "followup": "3장 그림 이야기예요 — 왜 필요했나요?"},
+                   ensure_ascii=False),
+        answer="질문이 무슨 뜻인가요?",
+    )
+    assert v.coach_stage == "clarify"
+    assert v.verdict == "unknown" and v.score == 0 and not v.passed
+    assert v.followup == "3장 그림 이야기예요 — 왜 필요했나요?"
+    assert not v.explanation
+
+
+def test_the_clarify_fallback_is_the_original_question_not_a_hint():
+    """
+    폴백이 힌트로 갈아타면 묻는 대상이 바뀐다 — 못 알아들었다고 말한 사람이
+    엉뚱한 질문을 받는다.
+    """
+    q = make_question(question="개념1의 한계는 무엇인가요?", hint="1장을 보세요")
+    v = judge_of(payload(react="제가 어렵게 물었어요"), answer="무슨 뜻이죠?", question=q)
+    assert v.followup == q.question
+
+
+def test_the_give_up_button_wins_over_the_ask_back_guess():
+    """누른 사람의 의사가 글에서 읽은 짐작보다 세다."""
+    v = judge_of(payload(followup="더 쉬운 질문"), answer="무슨 뜻이죠?", give_up=True)
+    assert v.coach_stage == "narrow"
+
+
+def test_the_clarify_prompt_says_not_to_change_what_is_asked():
+    llm = ScriptedLLM(payload(react="제가 어렵게 물었어요", followup="다시 쓴 질문"))
+    judge_answer(make_question(), "질문이 무슨 뜻인가요?", llm=llm)
+    assert "[단계] clarify" in llm.prompts[0]
+    assert "묻는 대상을 바꾸지 마라" in llm.systems[0]
+
+
+def test_asking_back_never_reaches_the_judging_prompt():
+    """되물음은 판정 스키마로 가면 안 된다 — 코칭 프롬프트 하나만 탄다."""
+    llm = ScriptedLLM(payload(react="네"))
+    judge_answer(make_question(), "질문이 무슨 뜻인가요?", llm=llm)
+    assert llm.calls == 1
+    assert "발표 심사위원" not in llm.systems[0]

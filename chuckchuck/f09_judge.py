@@ -692,6 +692,36 @@ def _giveup_block(topic: str) -> str:
     )
 
 
+#: 되물음의 표지 — **질문 자체**를 못 알아들었다는 말. 답의 내용이 아니라
+#: 질문에 대해 말하고 있는 모양만 잡는다.
+_ASKS_BACK_RE = re.compile(
+    r"무슨\s*(뜻|말|의미|말씀)|어떤\s*(뜻|의미)|"
+    r"질문(이|을)?\s*(무엇|뭐|무슨|이해|잘|다시)|"
+    r"다시\s*(한\s*번\s*)?(말씀|설명|여쭤|물어|얘기|이야기|짚어)|"
+    r"(뭘|무엇을|어떤\s*걸)\s*(물어|묻는|여쭤)|"
+    r"이해(가|를)?\s*(잘\s*)?(안|못)"
+)
+
+#: 되물음으로 볼 답변의 최대 길이. 이보다 길면 «답하면서 덧붙여 물은 것» 이라
+#: 채점할 내용이 들어 있다. **놓치는 쪽이 안전하다** — 오탐하면 맞는 답을
+#: 채점하지 않고 질문만 다시 쓴다 (_ATTEMPT_RE 가 지키던 경계와 같은 규율).
+ASKS_BACK_MAX_CHARS = 40
+
+
+def asks_back(answer: str | None) -> bool:
+    """
+    답이 아니라 **질문 자체를 되묻는** 말인가. 규칙은 코드가 정한다.
+
+    "깊은 수면 아닐까요?" 는 자신 없는 **답**이지 되물음이 아니다 — 물음표가
+    아니라 «질문에 대해 말하고 있는가» 로 가른다. 되물음이면 채점하지 않고
+    같은 질문을 더 쉬운 말로 다시 쓴다 (coach_stuck 의 clarify 단계).
+    """
+    text = (answer or "").strip()
+    if not text or len(text) > ASKS_BACK_MAX_CHARS:
+        return False
+    return bool(_ASKS_BACK_RE.search(text))
+
+
 def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
     """
     이번 막힘에 몇 번째로 응할지. **프론트가 보내지 않는다** — 저장된 옛 세션에는
@@ -724,7 +754,7 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
     return "explain" if prior >= 1 else "narrow"
 
 
-COACH_SYSTEM_PROMPT = """당신은 발표 코치다. 발표자가 방금 "모르겠다" 고 했다.
+COACH_SYSTEM_PROMPT = """당신은 발표 코치다. 발표자가 방금 막혔다.
 
 절대 나무라지 마라. 한 문장으로 안심시키고 바로 도움으로 넘어간다.
 
@@ -736,12 +766,18 @@ COACH_SYSTEM_PROMPT = """당신은 발표 코치다. 발표자가 방금 "모르
 발표 때 실제로 한 말을 엮어 "이렇게 답했으면 됐다" 를 설명한다. 자료에 없는
 사실을 지어내지 마라. 다음 질문으로 넘어갈 것이므로 되물음은 쓰지 않는다.
 
+[단계=clarify] 발표자는 **포기한 것이 아니라 질문을 못 알아들었다.** 답을 알려
+주지 말고, **같은 것을 묻는 같은 질문**을 더 쉬운 말로 다시 써라.
+- 묻는 대상을 바꾸지 마라. 쉬운 질문으로 갈아타는 것이 아니라 같은 질문을 푸는 것이다.
+- 전문 용어와 겹문장을 걷어내고, 자료의 어느 대목 이야기인지 한 마디로 짚어 준다.
+- react 는 "제가 어렵게 물었어요" 쪽이다. 발표자 탓으로 돌리지 마라.
+
 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마 (단계에 해당하는 키만 채운다):
 {
   "react": "안심시키는 한 마디",
-  "followup": "narrow 단계에서 쓸 더 쉬운 되물음 한 문장",
+  "followup": "narrow 단계에서 쓸 더 쉬운 되물음 · clarify 단계에서 쓸 다시 쓴 질문 한 문장",
   "explanation": "explain 단계에서 쓸 해설 두세 문장"
 }"""
 
@@ -766,12 +802,16 @@ def coach_stuck(
     context: Context | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
+    stage: str = "",
 ) -> QaJudgement:
     """
     막힌 발표자에게 응한다. 1차는 쉬운 되물음(narrow), 2차는 해설(explain).
 
     판정이 아니므로 verdict 는 항상 'unknown' · score 0 이고 passed 는 거짓이다.
     단계는 history 로 서버가 정한다 (_coach_stage).
+
+    `stage` 를 주면 그 단계로 고정한다. 되물음(clarify)이 그 경우다 — 포기가
+    아니라 질문을 못 알아들은 것이라, 앞선 포기 횟수로 셀 수 있는 상태가 아니다.
     """
     if isinstance(question, dict):
         question = Question.from_dict(question)
@@ -786,12 +826,13 @@ def coach_stuck(
     ctx = Context() if context is None else (
         Context.from_dict(context) if isinstance(context, dict) else context
     )
-    stage = _coach_stage(question, turns)
+    stage = stage if stage in QA_COACH_STAGES and stage else _coach_stage(question, turns)
+    said = "(질문을 못 알아들어 되물었다)" if stage == "clarify" else "(모르겠다고 했다)"
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
     user = "\n".join([
         f"[단계] {stage}",
-        _build_user_prompt(question, "(모르겠다고 했다)", turns, graph, alignment, transcript, ctx),
+        _build_user_prompt(question, said, turns, graph, alignment, transcript, ctx),
         "",
         f"기대하는 답의 골자: {question.answer_gist or '(없음)'}",
     ])
@@ -808,19 +849,30 @@ def coach_stuck(
         explanation = _clip_explain(str(data.get("explanation", "") or "")) or _clip_explain(
             question.answer_gist or f"{question.label or '이 개념'} 은 자료의 근거 장을 다시 보면 좋아요."
         )
+    elif stage == "clarify":
+        # 폴백은 **원래 질문 그대로**다. 여기서 힌트로 갈아타면 묻는 대상이 바뀌어,
+        # 못 알아들었다고 말한 사람이 다른 질문을 받게 된다.
+        followup = _clip(str(data.get("followup", "") or "")) or _clip(question.question)
+        explanation = ""
     else:
         followup = _clip(str(data.get("followup", "") or "")) or _clip(
             question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?"
         )
         explanation = ""
 
+    label = question.label or "이 개념"
+    summary = (
+        f"{label} — 질문을 다시 풀어 드렸어요."
+        if stage == "clarify"
+        else f"{label} — 막힌 지점을 같이 짚었어요."
+    )
     return QaJudgement(
         question_id=question.id,
         node_id=question.node_id,
         verdict=QA_VERDICT_FALLBACK,   # 판정이 아니다 — 점수를 매기지 않는다
         score=0,
         react=react,
-        summary_sentence=_clip(f"{question.label or '이 개념'} — 막힌 지점을 같이 짚었어요."),
+        summary_sentence=_clip(summary),
         model=engine.name,
         followup=followup,
         hints=build_hint_ladder(question, None),
@@ -937,6 +989,9 @@ def judge_answer(
         return _empty_answer(question, round_no)
 
     # 포기는 판정하지 않는다. 버튼(give_up)이든 타이핑(looks_stuck)이든 같은 곳으로 간다.
+    # 되물음도 판정하지 않는다 — 「질문이 무슨 뜻인가요?」 를 채점하면 못 알아들었다고
+    # 말한 사람이 오답으로 기록되고, 화면은 답을 안 준 채 되묻기만 한 칸 더 간다.
+    # **버튼(give_up)이 먼저다.** 누른 사람의 의사가 글에서 읽은 짐작보다 세다.
     if give_up or looks_stuck(answer):
         return coach_stuck(
             question,
@@ -947,6 +1002,18 @@ def judge_answer(
             context=context,
             llm=llm,
             llm_kwargs=llm_kwargs,
+        )
+    if asks_back(answer):
+        return coach_stuck(
+            question,
+            graph=graph,
+            alignment=alignment,
+            transcript=transcript,
+            history=history,
+            context=context,
+            llm=llm,
+            llm_kwargs=llm_kwargs,
+            stage="clarify",
         )
 
     if isinstance(graph, dict):

@@ -1463,7 +1463,8 @@ def _gist_parts_of(raw: object) -> list[str]:
 #:   ""        평시 판정
 #:   narrow    1차 포기 — 답을 주지 않고 더 쉬운 되물음으로 한 발 끌어준다
 #:   explain   2차 포기 — 해설하고 이 질문을 닫는다
-QA_COACH_STAGES = ("", "narrow", "explain")
+#:   clarify   되물음 — 질문 자체를 못 알아들었다. 채점하지 않고 질문을 다시 쓴다
+QA_COACH_STAGES = ("", "narrow", "explain", "clarify")
 
 #: 해설 길이 상한. QA_TEXT_MAX 보다 길다 — 해설은 말풍선 한 마디가 아니라
 #: "이렇게 답했어야 한다" 를 근거까지 붙여 설명하는 문단이기 때문이다.

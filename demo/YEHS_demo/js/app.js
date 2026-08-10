@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qk7" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qk8" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -6873,7 +6873,8 @@ function streamRow(it) {
        다음에 무슨 일이 일어나는지는 어디에도 안 적혀 있었다 (2026-08-10 사용자).
        칩을 빼고, 코치가 지금 무엇을 하려는지를 그 자리에 적는다. */
     if (it.coach) {
-      const line = it.coach === 'explain' ? '답을 같이 풀어 볼게요' : '더 쉬운 걸로 바꿔 물을게요';
+      const line = { explain: '답을 같이 풀어 볼게요', clarify: '질문을 다시 풀어 드릴게요' }[it.coach]
+        || '더 쉬운 걸로 바꿔 물을게요';
       return `<div class="msg ai react is-coach">${av}<div class="msg-bubble">
         <span class="msg-meta">${line}</span>
         <p>${it.text}</p></div></div>`;
