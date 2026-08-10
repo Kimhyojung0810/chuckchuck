@@ -947,10 +947,11 @@ details.fold .fold-body { padding: 0 24px 20px; }
 
 /* 말 속도 */
 .pace-rows { padding-top: 26px; position: relative; }
-.pace-row { display: grid; grid-template-columns: 110px 1fr 92px; align-items: center; gap: 12px; padding: 5px 0; font-size: 13px; }
+.pace-row { display: grid; grid-template-columns: 110px 1fr 132px; align-items: center; gap: 12px; padding: 5px 0; font-size: 13px; }
 .pace-row .nm { color: var(--text-2); font-weight: 500; }
 .pace-row .vl { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
 .pace-row.fast .vl { color: var(--no); }
+.speech-stat-row .pace-word { font-size: 23px; letter-spacing: -.035em; }
 .pace-row .fill-bar { height: 14px; border-radius: 7px; }
 .pace-row .fill-bar i { border-radius: 7px; background: #C9DDFC; }
 .pace-row.fast .fill-bar i { background: var(--no); opacity: .75; }

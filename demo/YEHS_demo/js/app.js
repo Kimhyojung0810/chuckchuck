@@ -160,7 +160,8 @@ function voiceEasyBlocks(pace, habits, report) {
   } else if (report && report.one_liner) {
     headline = report.one_liner;
   }
-  const lead = `목표 ${target} 중에 실제로 약 ${actual} 말했어요. 평균 속도는 ${Math.round(pace.avg_chars_per_min || 0)}자/분이에요.`;
+  const paceLabel = humanPaceLabel(Math.round(pace.avg_chars_per_min || 0), pace.recommended_cpm);
+  const lead = `목표 ${target} 중에 실제로 약 ${actual} 말했어요. 전체 말 속도는 ${paceLabel.short}였어요.`;
   const actions = [];
   if (shortCore.length) {
     actions.push(`핵심인 ${shortCore.map(s => `${s.slide_no}번`).join(', ')} 장에 시간을 더 써 보세요. 아래 상자를 눌러 각 장 시간을 확인해요.`);
@@ -5884,6 +5885,24 @@ function cpmJudge(avg, rec) {
   return '권장 범위예요';
 }
 
+/** 분석 단위(자/분)를 사람이 바로 이해하는 말로 바꾼다. 원값은 계산에만 쓴다. */
+function humanPaceLabel(avg, rec) {
+  const judged = cpmJudge(avg, rec);
+  if (judged.includes('많이 빨라요')) return { short: '매우 빠름', detail: '듣는 사람이 따라가기 어려울 수 있어요' };
+  if (judged.includes('조금 빨라요')) return { short: '조금 빠름', detail: '문장 끝에서 한 박자 쉬어 보세요' };
+  if (judged.includes('많이 느려요')) return { short: '매우 느림', detail: '설명이 늘어지지 않게 호흡을 줄여 보세요' };
+  if (judged.includes('조금 느려요')) return { short: '조금 느림', detail: '조금만 템포를 올려도 좋아요' };
+  return { short: '적정 속도', detail: '듣기 편한 범위로 말했어요' };
+}
+
+function paceRatioText(value, baseline) {
+  if (!value || !baseline) return '측정 전';
+  const ratio = value / baseline;
+  if (ratio >= 1.15) return `평소의 ${ratio.toFixed(1)}배 · 빠름`;
+  if (ratio <= .85) return `평소의 ${ratio.toFixed(1)}배 · 천천히`;
+  return '평소와 비슷';
+}
+
 function timeDiffJudge(targetSec, actualSec) {
   if (!targetSec || !actualSec) return '';
   const d = Math.round(actualSec - targetSec);
@@ -6200,7 +6219,7 @@ function rPace(host = $('#rbody')) {
     const fillers = easy.fillers;
     // 처방 문구는 진단 블록이 한 번만 말한다 — 예전 voice-tip 과 중복이었다
     const diffLabel = timeDiffJudge(livePace.target_sec, livePace.actual_sec);
-    const speedLabel = cpmJudge(Math.round(avg), livePace.recommended_cpm);
+    const speedPace = humanPaceLabel(Math.round(avg), livePace.recommended_cpm);
     /* 「짧게 말한 핵심 장」 상자는 뺐다 — 같은 사실을 위 그래프가 이미 말한다
        (핵심 장은 S번호가 파랑, 짧은 장은 막대 색이 다르다). 판정 헤드의 처방과
        상자 제목까지 세 번 반복돼서 화면이 길어지기만 했다. */
@@ -6226,17 +6245,17 @@ function rPace(host = $('#rbody')) {
        접힌 쪽은 있는 줄도 모르고 지나갔다 — 둘 다 이 탭의 본문이다. */
     host.innerHTML = `
       <div class="voice-stack">
-        ${tabVerdictHtml(voiceVerdict(easy, livePace))}
         ${splitCard}
-        <div id="dlvAud"></div>
+        ${tabVerdictHtml(voiceVerdict(easy, livePace))}
         <!-- 카드 세 장이었다. 시간 분배 막대가 바로 위에서 같은 이야기를 그림으로
              하고 있어서, 카드까지 세우면 비슷한 크기의 그래픽이 둘이 된다
              (토스 그래픽 3번). 숫자는 지키고 무게만 뺀다 -->
         <p class="voice-facts">
           <span><i>목표</i>${escapeHtml(easy.target)}</span>
           <span><i>내가 쓴 시간</i>${escapeHtml(easy.actual)}${diffLabel ? `<em>${escapeHtml(diffLabel)}</em>` : ''}</span>
-          <span><i>평균 말 속도</i>${Math.round(avg)}자/분${speedLabel ? `<em>${escapeHtml(speedLabel)}</em>` : ''}</span>
+          <span><i>전체 말 속도</i>${escapeHtml(speedPace.short)}<em>${escapeHtml(speedPace.detail)}</em></span>
         </p>
+        <div id="dlvAud"></div>
         ${longCard}
         ${fillerCard}
       </div>`;
@@ -6279,30 +6298,33 @@ function rPace(host = $('#rbody')) {
         action: '빠른 구간의 개념 판정을 함께 확인하고, 그 장에서 한 박자 쉬어 보세요.' }
     : { headline: '구간별 말 속도가 고르게 유지됐어요',
         action: '이 속도를 유지하면서 아래 시간 배분만 살펴보세요.' };
-  const fbSpeedLabel = cpmJudge(st.avg, st.rec);
+  const fbPace = humanPaceLabel(st.avg, st.rec);
+  const fastestRatio = st.avg ? st.max / st.avg : 0;
   host.innerHTML = `
-    ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
-      ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
-    ${tabVerdictHtml(fbVerdict)}
-    ${timeSplitCard(null)}
-    <div id="dlvAud"></div>
-    <div class="stat-row">
-      <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span>${fbSpeedLabel ? `<p class="note" style="margin-top:4px">${fbSpeedLabel}</p>` : ''}</div>
-      <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${escapeHtml(String(st.maxSeg))}</p></div>
-      <div class="stat-card"><small>발표 권장 속도</small><strong class="num">${st.rec}</strong><span class="unit">자/분</span></div>
-    </div>
-    <div class="card">
-      <h3 class="section-title">구간별 말 속도<span class="soft">점선이 내 평균이에요</span></h3>
-      <div class="pace-rows">
-        <span class="pace-base" style="left:calc(122px + (100% - 226px) * ${ratio.toFixed(3)})"><em>내 평균 ${st.avg}</em></span>
-        ${rows.map(r => `
-        <div class="pace-row ${r[3] ? 'fast' : ''}">
-          <span class="nm">${escapeHtml(String(r[0]))}</span>
-          <div class="fill-bar"><i class="${r[3] ? 'red' : ''}" data-w="${(r[2] / MAX * 100).toFixed(1)}%"></i></div>
-          <span class="vl">${r[2]}자/분${r[3] ? ' · 빠름' : (r[4] ? ' · 느림' : '')}</span>
-        </div>`).join('')}
+    <div class="voice-stack">
+      ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:0">
+        ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
+      ${timeSplitCard(null)}
+      ${tabVerdictHtml(fbVerdict)}
+      <div class="stat-row speech-stat-row">
+        <div class="stat-card"><small>전체 말 속도</small><strong class="pace-word">${escapeHtml(fbPace.short)}</strong><p class="note" style="margin-top:4px">${escapeHtml(fbPace.detail)}</p></div>
+        <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${fastestRatio.toFixed(1)}</strong><span class="unit">배</span><p class="note" style="margin-top:4px">평소 대비 · ${escapeHtml(String(st.maxSeg))}</p></div>
+        <div class="stat-card"><small>빠르게 말한 구간</small><strong class="num">${fastRows.length}</strong><span class="unit">개</span><p class="note" style="margin-top:4px">평소보다 15% 이상 빨랐어요</p></div>
       </div>
-      <p class="note" style="margin-top:14px">${note}</p>
+      <div class="card">
+        <h3 class="section-title">구간별 말 속도<span class="soft">내 평소 속도와 비교해요</span></h3>
+        <div class="pace-rows">
+          <span class="pace-base" style="left:calc(122px + (100% - 266px) * ${ratio.toFixed(3)})"><em>내 평소 속도</em></span>
+          ${rows.map(r => `
+          <div class="pace-row ${r[3] ? 'fast' : ''}" title="분석값 ${r[2]}자/분">
+            <span class="nm">${escapeHtml(String(r[0]))}</span>
+            <div class="fill-bar"><i class="${r[3] ? 'red' : ''}" data-w="${(r[2] / MAX * 100).toFixed(1)}%"></i></div>
+            <span class="vl">${paceRatioText(r[2], st.avg)}</span>
+          </div>`).join('')}
+        </div>
+        <p class="note" style="margin-top:14px">${note}</p>
+      </div>
+      <div id="dlvAud"></div>
     </div>
 `;
 }
@@ -6320,9 +6342,8 @@ function rPace(host = $('#rbody')) {
 function rDelivery() {
   const body = $('#rbody');
   rPace(body);
-  /* 청중석은 rPace 가 심어 둔 자리(#dlvAud)에 들어간다 — 맨 뒤가 아니라
-     시간 분배 바로 아래다. 부스에서 30초 안에 보여지는 건 이 둘이라
-     탭에서 제일 위여야 한다 (2026-08-08 지시). */
+  /* 청중석은 시간·속도 해석 뒤의 자리(#dlvAud)에 들어간다.
+     먼저 내 발표 사실을 읽고, 그다음 객석 반응을 보는 순서다. */
   const slot = $('#dlvAud');
   if (slot) rAudience(slot);
 }
@@ -6534,9 +6555,11 @@ function liveTerms() {
 
 function mapSvgString() {
   // 이 SVG는 파일로도 내려받으므로(:root 없음) CSS 토큰 대신 리터럴을 쓴다.
-  // 값은 app.css 의 --ok/--mid/--no/--ct 계열과 같게 유지한다.
-  const FILL = { ok: '#E9F7EF', mid: '#FDF6E3', no: '#FDF0EF', ct: '#F6EDFD', om: '#F1F3F5' };
-  const LINE = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#9333EA', om: '#6B7684' };
+  // 노드 면과 외곽선은 중립으로 통일한다. 상태색은 작은 점과 보조 문구만 맡는다.
+  // 면·선·글자를 모두 상태색으로 칠하면 개요보다 AI 생성 다이어그램처럼 보인다.
+  const NODE_FILL = '#FFFFFF';
+  const NODE_LINE = '#D8E2DD';
+  const ACCENT = { ok: '#0A8F68', mid: '#A16207', no: '#C2413A', ct: '#526B61', om: '#6B7684' };
   // 실데이터 세션이면 개념 그래프·판정에서 만든 노드, 아니면 샘플.
   const all = liveMapNodes() || DATA.mapNodes;
   const nodes = all.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
@@ -6588,14 +6611,14 @@ function mapSvgString() {
     const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
     const metaW = Math.ceil(textWidth(meta, 10.5));
     return `<g>
-      <rect x="${x - w / 2}" y="${y - 8}" width="${w}" height="56" rx="11" fill="${FILL[n.status]}" stroke="${LINE[n.status]}" stroke-width="1.35"/>
+      <rect x="${x - w / 2}" y="${y - 8}" width="${w}" height="56" rx="11" fill="${NODE_FILL}" stroke="${NODE_LINE}" stroke-width="1.25"/>
       <text x="${x}" y="${y + 13}" text-anchor="middle" font-size="13" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${n.label}</text>
-      <circle cx="${x - metaW / 2 - 7}" cy="${y + 32}" r="2.5" fill="${LINE[n.status]}"/>
-      <text x="${x + 4}" y="${y + 35}" text-anchor="middle" font-size="10.5" font-weight="650" fill="${LINE[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
+      <circle cx="${x - metaW / 2 - 7}" cy="${y + 32}" r="2.5" fill="${ACCENT[n.status]}"/>
+      <text x="${x + 4}" y="${y + 35}" text-anchor="middle" font-size="10.5" font-weight="650" fill="${ACCENT[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
   }).join('');
   return `<svg viewBox="0 0 880 286" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지">
     <defs>
-      <linearGradient id="mapRoot" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#202936"/><stop offset="1" stop-color="#121923"/></linearGradient>
+      <linearGradient id="mapRoot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#064E3B"/><stop offset="1" stop-color="#0A6B50"/></linearGradient>
     </defs>
     <rect width="880" height="286" fill="#FFFFFF"/>${links}${boxes}</svg>`;
 }
