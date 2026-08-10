@@ -173,8 +173,12 @@ main.narrow { max-width: 640px; }
 .btn:active { transform: scale(.97); }
 /* 키보드로 탐색할 때 지금 어디인지 보여야 한다. 예전엔 일부 버튼에만 있었다 */
 .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-strong); }
+.btn-primary {
+  background: linear-gradient(180deg, #13965c 0%, var(--accent) 58%, #087647 100%);
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(12, 137, 81, .18), inset 0 1px rgba(255, 255, 255, .2);
+}
+.btn-primary:hover { background: linear-gradient(180deg, #118e57 0%, var(--accent-strong) 100%); box-shadow: 0 7px 18px rgba(12, 137, 81, .24); }
 .btn-primary:disabled { background: #E3EDE6; color: var(--text-3); cursor: not-allowed; transform: none; }
 .btn-secondary { background: var(--fill); color: var(--text); }
 .btn-secondary:hover { background: #E2EFE7; }
@@ -596,6 +600,12 @@ main.narrow { max-width: 640px; }
 .meter i:nth-child(1) { height: 8px; } .meter i:nth-child(2) { height: 15px; }
 .meter i:nth-child(3) { height: 11px; } .meter i:nth-child(4) { height: 17px; }
 .meter i:nth-child(5) { height: 9px; }
+.rehearsal-control.is-live .meter i { transform-origin: center bottom; animation: rec-wave .88s ease-in-out infinite alternate; }
+.rehearsal-control.is-live .meter i:nth-child(2) { animation-delay: -.42s; }
+.rehearsal-control.is-live .meter i:nth-child(3) { animation-delay: -.68s; }
+.rehearsal-control.is-live .meter i:nth-child(4) { animation-delay: -.22s; }
+.rehearsal-control.is-live .meter i:nth-child(5) { animation-delay: -.55s; }
+@keyframes rec-wave { from { transform: scaleY(.45); opacity: .62; } to { transform: scaleY(1.08); opacity: 1; } }
 .trans-log { margin-top: 14px; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 .trans-log span { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .trans-log span.re { color: var(--mid); }
@@ -605,8 +615,19 @@ main.narrow { max-width: 640px; }
 .rehearsal-head h1 { margin-top: 2px; font-size: 21px; line-height: 1.4; }
 .rehearsal-head > p { color: var(--text-3); font-size: 12px; }
 .rehearsal-shell { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+.rehearsal-side { display: flex; flex-direction: column; gap: 12px; }
+.rehearsal-nav { display: flex; align-items: stretch; gap: 10px; padding: 12px; }
+.rehearsal-nav .btn { flex: 1 1 0; }
+.rehearsal-nav .btn[hidden], .stage-nav[hidden] { display: none !important; }
+.rehearsal-slide-meta { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 92px; }
+.rehearsal-slide-meta span { color: var(--text-3); font-size: 11px; font-weight: 600; }
+.rehearsal-slide-meta strong { margin-top: 2px; font-size: 16px; }
 .presentation-viewer { width: 100%; }
 .presentation-viewer .viewer-stage { position: relative; }
+.presentation-viewer .viewer-stage {
+  border: 1px solid rgba(25, 37, 31, .09);
+  box-shadow: 0 14px 34px rgba(24, 36, 30, .11), 0 2px 8px rgba(24, 36, 30, .06);
+}
 .stage-nav {
   /* 진회색 큰 알약이 슬라이드 위에 얹혀 있으면 자료보다 버튼이 먼저 읽힌다.
      흰 원 + 옅은 그림자로 낮춰서 슬라이드가 주인공을 되찾게 한다 */

@@ -1699,7 +1699,15 @@ function nfStep3() {
       ${precomputeNoteHtml()}
     </div>
     <div class="rehearsal-shell">
-      <div class="card rehearsal-control" id="recPanel"></div>
+      <aside class="rehearsal-side" aria-label="발표 컨트롤">
+        <div class="card rehearsal-control" id="recPanel"></div>
+        <div class="card rehearsal-nav" aria-label="슬라이드 이동">
+          <button type="button" class="btn btn-secondary rehearsal-nav-prev" data-slide-nav="-1">이전 슬라이드</button>
+          <div class="rehearsal-slide-meta"><span>현재 슬라이드</span><strong id="slideNo" class="num">${nf.slide} / ${nPages}</strong></div>
+          <button type="button" class="btn btn-primary rehearsal-nav-next" data-slide-nav="1">다음 슬라이드</button>
+        </div>
+        <div class="sf" id="stagefront" aria-hidden="true"></div>
+      </aside>
       <div class="card viewer presentation-viewer">
         <div class="viewer-stage ${usePdf ? 'has-pdf' : 'has-slide-doc'}">
           ${stageInner}
@@ -1707,20 +1715,15 @@ function nfStep3() {
           <button type="button" class="stage-nav stage-next" data-slide-nav="1" aria-label="다음 슬라이드">›</button>
         </div>
         <div class="viewer-caption">
-          <div class="caption-nav">
-            <button type="button" class="btn btn-secondary btn-sm" data-slide-nav="-1">이전</button>
-            <button type="button" class="btn btn-secondary btn-sm" data-slide-nav="1">다음</button>
-          </div>
           <strong id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</strong>
-          <small id="slideNo" class="num">${nf.slide} / ${nPages}</small>
         </div>
         <div class="slide-film ${usePdf ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
       </div>
     </div>
-    <div class="sf" id="stagefront" aria-hidden="true"></div>
     <p class="privacy-note">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB · 슬라이드 구간은 길이를 균등하게 나눠 채워요</p>`;
   renderRecPanel();
   bindRehearsalNav();
+  syncRehearsalNav();
   paintRehearsalSlide(nf.slide);
   // 무대가 먼저다. 필름 썸네일은 그 뒤에 순차로 채워진다(캐시라 두 번째부터는 즉시)
   if (usePdf) paintDeckThumbs(app);
@@ -1732,6 +1735,13 @@ function nfStep3() {
 function moveSlide(d) {
   const n = rehearsalCount();
   moveSlideTo(Math.min(n, Math.max(1, (Number(nf.slide) || 1) + Number(d || 0))));
+}
+
+function syncRehearsalNav() {
+  const current = Number(nf.slide) || 1;
+  const last = rehearsalCount();
+  $$('[data-slide-nav="-1"]').forEach((button) => { button.hidden = current <= 1; });
+  $$('[data-slide-nav="1"]').forEach((button) => { button.hidden = current >= last; });
 }
 
 function moveSlideTo(next) {
@@ -1754,6 +1764,7 @@ function moveSlideTo(next) {
     $$('#slideFilm button').forEach((b) => b.classList.toggle('on', Number(b.dataset.slide) === next));
     const currentThumb = $(`#slideFilm button[data-slide="${next}"]`);
     if (currentThumb) currentThumb.scrollIntoView({ block: 'nearest', inline: 'center' });
+    syncRehearsalNav();
     paintRehearsalSlide(next);
     const wrap = $('#slideCardWrap');
     if (wrap && wrap.style.display !== 'none' && bodies) {
@@ -1874,7 +1885,7 @@ function renderRecPanel() {
         <div><span class="rec-live">발표 중</span><strong class="rec-clock" id="clock">${fmt(nf.sec)}</strong></div>
         <span class="meter" aria-label="마이크 입력 감지 중"><i></i><i></i><i></i><i></i><i></i></span>
       </div>
-      <details class="rec-log-fold" open><summary>슬라이드 전환 <b id="recSwitchCount">${slideSwitchCount()}</b>회 기록</summary><div class="trans-log" id="tlog">
+      <details class="rec-log-fold"><summary>슬라이드 전환 <b id="recSwitchCount">${slideSwitchCount()}</b>회 기록</summary><div class="trans-log" id="tlog">
         ${(nf.log || []).map(l => `<span class="${l.re ? 're' : ''}">${l.txt}</span>`).join('')}
       </div></details>
       <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>`;
