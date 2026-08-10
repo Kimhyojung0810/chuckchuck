@@ -1342,3 +1342,84 @@ def test_missing_severity_follows_doc_weight():
     assert _fallback_severity("under_spoken", MINOR_WEIGHT - 0.01) == 2
     # 틀리게 말한 것은 사소해도 바로잡아야 한다 — 안 말한 것과 다르다
     assert _fallback_severity("contradiction", 0.01) == 1
+
+
+# ---------------------------------------------------------------------------
+# A · 골자 요소 쪼개기 — F-09 가 요소별로 채점할 체크리스트를 여기서 만든다
+# ---------------------------------------------------------------------------
+
+from chuckchuck.contracts import QA_GIST_PARTS_MAX               # noqa: E402
+from chuckchuck.f08_questions import QUESTION_SYSTEM_PROMPT      # noqa: E402
+
+
+def _first(doc: QuestionDoc):
+    return next(q for q in doc.questions if q.node_id == "c1")
+
+
+def test_written_gist_parts_survive_to_the_question():
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "무엇이고 왜 그런가요?",
+        "answer_gist": "A 이고 B 때문이다",
+        "answer_gist_parts": ["A 이다", "B 때문이다"],
+    }))
+    assert _first(doc).answer_gist_parts == ["A 이다", "B 때문이다"]
+
+
+def test_a_single_element_is_dropped_because_it_is_not_a_checklist():
+    """요소가 하나면 골자와 같은 말이다 — 「비었거나 2개 이상」 불변식."""
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "개념1을 설명해 주세요.",
+        "answer_gist": "A 이다", "answer_gist_parts": ["A 이다"],
+    }))
+    assert _first(doc).answer_gist_parts == []
+
+
+def test_code_splits_the_gist_when_the_question_asks_for_two_and_the_llm_forgot():
+    """프롬프트로 부탁만 해서는 안 지켜진다 — 문면이 둘을 물으면 코드가 가른다."""
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "원인과 결과를 각각 말해 주세요.",
+        "answer_gist": "수면 부족이 원인이다 그리고 집중력이 떨어진다",
+    }))
+    assert len(_first(doc).answer_gist_parts) == 2
+
+
+def test_a_single_ask_is_never_split_even_when_the_gist_has_separators():
+    """
+    오검출이 제일 위험하다 — 하나만 물은 질문에 없는 요소를 요구하면
+    good 을 받을 수 없는 질문이 된다.
+    """
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "개념1의 핵심을 설명해 주세요.",
+        "answer_gist": "신체가 회복된다 그리고 초반에 몰려 있다",
+    }))
+    assert _first(doc).answer_gist_parts == []
+
+
+def test_gist_parts_never_exceed_the_cap():
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "셋을 각각 말해 주세요.",
+        "answer_gist": "가나다", "answer_gist_parts": ["가나다", "라마바", "사아자", "차카타"],
+    }))
+    assert len(_first(doc).answer_gist_parts) == QA_GIST_PARTS_MAX
+
+
+def test_scaffold_citing_parts_are_thrown_away_like_the_gist_itself():
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "둘 다 말해 주세요.",
+        "answer_gist": "신체 회복",
+        "answer_gist_parts": ["경로(위계)에 그렇게 표시되어 있다", "신체가 회복된다"],
+    }))
+    # 남은 하나로는 체크리스트가 성립하지 않고, 골자도 안 갈라진다
+    assert _first(doc).answer_gist_parts == []
+
+
+def test_gist_parts_are_deterministic_for_the_same_triage():
+    p = questions_payload({
+        "node_id": "c1", "question": "원인과 결과를 각각 말해 주세요.",
+        "answer_gist": "수면 부족이 원인이다 그리고 집중력이 떨어진다",
+    })
+    assert _first(doc_of(p)).answer_gist_parts == _first(doc_of(p)).answer_gist_parts
+
+
+def test_prompt_asks_for_gist_parts():
+    assert "answer_gist_parts" in QUESTION_SYSTEM_PROMPT

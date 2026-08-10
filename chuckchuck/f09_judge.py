@@ -201,8 +201,12 @@ verdict 는 다음 넷 중 하나다:
   "react": "<심사위원이 그 자리에서 할 한 마디>",
   "summary_sentence": "<이 개념에 대한 총평 한 문장>",
   "missing_points": ["<답변에서 빠진 포인트>"],
-  "followup": "<빠진 지점을 겨냥한 후속 질문 한 문장. 충분하면 빈 문자열>"
+  "followup": "<빠진 지점을 겨냥한 후속 질문 한 문장. 충분하면 빈 문자열>",
+  "covered_parts": [true, false]
 }
+
+covered_parts 는 '골자의 요소' 가 주어졌을 때만 쓴다 (없으면 빈 배열).
+요소와 **같은 순서·같은 개수**로 참/거짓만 적는다. 개수가 어긋나면 통째로 버려진다.
 """
 
 #: 응답이 복구 불가능한 JSON 일 때 한 번 더 물어볼 때 덧붙이는 말.
@@ -311,6 +315,32 @@ def _build_user_prompt(
     return "\n".join(parts)
 
 
+def _gist_parts_block(question: Question) -> str:
+    """
+    요소별 채점 체크리스트. 요소가 없는 질문에서는 빈 문자열이라 프롬프트가 안 는다.
+
+    **결정은 코드가 한다** (`_enforce_good`). 여기서 받는 것은 요소마다
+    「나왔는가」 하나뿐이고, good 을 줄지 말지는 그 답을 보고 코드가 정한다.
+    체크리스트를 안 주고 판정만 맡기면 둘 중 하나만 답해도 good 이 나온다.
+    """
+    parts = question.answer_gist_parts
+    if not parts:
+        return ""
+    lines = [
+        "",
+        "",
+        "## 골자의 요소 — 이 질문은 둘 이상을 묻는다",
+        "누적 답변 전체를 합쳐, 요소마다 나왔는지 본다.",
+    ]
+    lines += [f"{i}. {part}" for i, part in enumerate(parts, start=1)]
+    lines += [
+        f"covered_parts 에 이 {len(parts)}개의 참/거짓을 **같은 순서로** 적어라.",
+        "표현이 달라도 뜻이 같으면 나온 것이다 (규칙 3).",
+        "**하나라도 안 나왔으면 good 이 아니다.**",
+    ]
+    return "\n".join(lines)
+
+
 def _answer_block(answer: str, prior_answers: list[str] | None) -> list[str]:
     """
     판정 대상 블록. 되묻기로 나눠 말한 답변을 **합쳐서** 판정하게 한다.
@@ -346,6 +376,71 @@ def _clamp_score(raw: object, verdict: str) -> int:
     return max(0, min(100, score))
 
 
+#: 'good' 으로 인정하는 최저 점수 (SYSTEM_PROMPT 규칙 8 과 같은 값).
+GOOD_SCORE_MIN = 80
+
+#: good 을 막을 때 남기는 최고 점수. **통과선(QA_PASS_SCORE=70) 위, good 선 아래**다.
+#: 70 밑으로 떨어뜨리면 `qa_mastered` 의 3라운드 출구까지 닫혀서 그 질문에 갇힌다 —
+#: 우리가 막으려는 것은 «무른 통과» 지 «출구» 가 아니다.
+GIST_MISS_SCORE_MAX = GOOD_SCORE_MIN - 1
+
+
+def _uncovered_parts(data: dict, question: Question) -> list[str]:
+    """
+    판정이 보고한 요소별 커버리지에서 **안 나온 요소**만 추린다.
+
+    `covered_parts` 는 요소와 **같은 순서·같은 개수**의 참/거짓 배열이다.
+    길이가 어긋나면 어느 요소를 가리키는지 알 수 없으므로 통째로 버린다 —
+    짐작해서 맞추면 엉뚱한 요소를 빠졌다고 말하게 된다.
+    """
+    parts = question.answer_gist_parts
+    raw = data.get("covered_parts")
+    if not parts or not isinstance(raw, (list, tuple)) or len(raw) != len(parts):
+        return []
+    return [part for part, covered in zip(parts, raw) if not bool(covered)]
+
+
+def _enforce_good(
+    data: dict,
+    question: Question,
+    verdict: str,
+    score: int,
+    points: list[str],
+) -> tuple[str, int, list[str]]:
+    """
+    good 을 **코드가** 막는다. 골자의 요소가 남았으면 통과시키지 않는다.
+
+    SYSTEM_PROMPT 는 이미 "골자의 요소가 하나라도 안 나왔으면 partial 이다" 라고
+    적어 두었는데, 실 LLM 이 지키지 않는 것이 이번에 지적받은 무른 통과다.
+    프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는 자리는 이 모듈에 이미
+    있다 — `_followup` 이 단계에 안 맞는 문장을 버리는 것과 같은 규율이다.
+
+    두 가지를 본다.
+
+    1. **요소 미달** — `answer_gist_parts` 가 있으면 판정에 `covered_parts`
+       (요소 순서대로 true/false)를 함께 받아, 하나라도 false 면 good 을 막는다.
+       개수가 안 맞거나 아예 없으면 **판단 근거가 없는 것**이라 손대지 않는다 —
+       근거 없이 깎으면 맞힌 사람이 이유 없이 진다.
+    2. **자기모순** — good 인데 missing_points 를 적어 왔다. 규칙 7 이 거기에는
+       "통과를 막는 결정적 결손" 만 적으라고 했으므로 둘이 동시에 참일 수 없다.
+       요소 목록이 없는 질문에서도 무른 통과를 잡는, 항상 켜진 그물이다.
+
+    막을 때도 점수는 GIST_MISS_SCORE_MAX 로만 내린다. 되묻기를 한 바퀴 더 돌리는
+    것이 목적이고, 3라운드에 닿으면 통과 수준에서 닫힌다 (`qa_mastered`).
+    """
+    if verdict != "good":
+        return verdict, score, points
+
+    uncovered = _uncovered_parts(data, question)
+    if not uncovered and not points:
+        return verdict, score, points
+
+    # 빠진 요소를 결손 목록 맨 앞에 세운다 — `_followup` 이 물을 지점이 되고,
+    # 힌트 사다리 4단(`_hint_close`)이 "아직 안 나온 것" 으로 열어 준다.
+    merged = uncovered + [p for p in points if p not in uncovered]
+    return "partial", min(score, GIST_MISS_SCORE_MAX), merged
+
+
 def _normalize(
     data: dict,
     question: Question,
@@ -370,18 +465,23 @@ def _normalize(
     raw_score = data.get("score")
     score = QA_VERDICT_SCORES[verdict] if raw_score is None else _clamp_score(raw_score, verdict)
 
+    points = [
+        str(p).strip()
+        for p in (data.get("missing_points") or [])
+        if str(p).strip()
+    ]
+
+    # 무른 통과는 여기서 잘린다. **등급·점수·결손만** 코드가 되돌린다 —
+    # 문장은 LLM, 계약은 코드 (모듈 원칙). react·summary 폴백보다 앞에 둬야
+    # 등급이 뒤집힌 판정에 "충분합니다" 라는 good 폴백이 붙지 않는다.
+    verdict, score, points = _enforce_good(data, question, verdict, score, points)
+
     react = str(data.get("react", "") or "").strip() or _REACT_BY_VERDICT[verdict]
     summary = str(data.get("summary_sentence", "") or "").strip()
     if not summary:
         summary = _SUMMARY_BY_VERDICT[verdict].format(
             label=question.label or question.node_id or "이 개념"
         )
-
-    points = [
-        str(p).strip()
-        for p in (data.get("missing_points") or [])
-        if str(p).strip()
-    ]
 
     round_no = max(1, int(round_no or 1))
     mastered = qa_mastered(verdict, score, round_no)
@@ -784,6 +884,7 @@ def judge_answer(
     gist = (question.answer_gist or "").strip()
     if gist:
         user += f"\n\n## 기대하는 답의 골자 (채점 기준 — 발표자에게는 보이지 않는다)\n{gist}"
+    user += _gist_parts_block(question)
 
     # 힌트는 화면에만 뜨고 판정이 모르면, 힌트를 따라온 답에 코치가 맥락 없이
     # 반응한다 — 화면은 대화처럼 보이는데 판정은 일방향이 된다 (2026-08-07 사용자).

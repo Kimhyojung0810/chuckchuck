@@ -216,6 +216,10 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
   **근거는 자료 본문이나 발표에서 한 말에서만 든다.** "경로에 …로 표시되어 있다"
   처럼 우리가 준 배경을 근거로 인용하지 마라 — 발표자는 그걸 본 적이 없어서
   그 답은 애초에 쓸 수 없는 답이 된다.
+- answer_gist_parts: 질문이 **둘 이상**을 묻는다면 (「A와 B를 각각」·「무엇이고 왜인지」)
+  골자를 그 요소대로 쪼개 배열로 적는다. 채점이 요소별로 이뤄져서, 하나만 답하고
+  넘어가는 것을 막는다. **하나만 묻는 질문이면 빈 배열이다** — 억지로 쪼개면
+  answer 하나로는 이길 수 없는 질문이 된다. 최대 3개, 각 요소는 answer_gist 안의 내용이다.
 
 trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 질문으로 쓴다
 ("~라고 했는데, 사실 반대 아닌가요?" 꼴). trap=false 면 그냥 묻는다.
@@ -244,7 +248,8 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
   "questions": [
     { "node_id": "joint", "question": "질문 한 문장",
       "why": "왜 묻는지 한 줄", "hint": "방향만 주는 힌트",
-      "answer_gist": "기대하는 답의 골자 한두 줄" }
+      "answer_gist": "기대하는 답의 골자 한두 줄",
+      "answer_gist_parts": ["둘 이상을 묻는 질문일 때만 요소별로. 아니면 []"] }
   ]
 }
 """
@@ -1082,6 +1087,44 @@ def _cites_scaffold(text: str) -> bool:
     return any(mark.replace(" ", "") in t for mark in _SCAFFOLD_CITED)
 
 
+#: 한 질문이 **둘 이상**을 묻는다는 표지. 여기 걸릴 때만 코드가 골자를 쪼갠다.
+#: 오검출하면 하나만 묻는 질문에도 없는 요소를 요구해서 이길 수 없는 질문이 된다 —
+#: 그래서 «묻는 것이 둘» 이 문면에 드러나는 모양만 잡는다.
+_MULTI_ASK_RE = re.compile(
+    r"각각|둘\s*다|두\s*가지|세\s*가지|무엇이고|무엇이며|무엇인지와|"
+    r"[와과]\s*그\s*이유|이유(까지|도)\s*(함께|같이)|"
+    r"(함께|같이|모두)\s*(말해|설명|말씀|짚어)"
+)
+
+#: 골자를 요소로 가르는 구분자. **쉼표는 넣지 않는다** — 한 요소 안의 수식절까지
+#: 잘라 내서, 하나를 물은 질문이 두 요소짜리로 둔갑한다.
+_GIST_SPLIT_RE = re.compile(r"\s*[·;]\s*|\s*,?\s*그리고\s+|\s+또한\s+|\s+및\s+")
+
+#: 쪼갠 조각의 최소 길이. 이보다 짧으면 요소가 아니라 잘린 꼬리다.
+GIST_PART_MIN = 4
+
+
+def _asks_multiple(question_text: str) -> bool:
+    """질문 문면이 둘 이상을 묻고 있는가 (코드 백스톱의 발동 조건)."""
+    return bool(_MULTI_ASK_RE.search(question_text or ""))
+
+
+def _split_gist_parts(gist: str) -> list[str]:
+    """
+    골자를 요소로 쪼갠다. **LLM 이 빠뜨렸을 때만 쓰는 결정적 백스톱이다.**
+
+    쪼개지지 않으면 빈 배열이다 — 억지로 반 토막 내면 뜻이 없는 조각이 채점
+    기준이 된다. `Question.answer_gist_parts` 의 「비었거나 2개 이상」 불변식은
+    `contracts._gist_parts_of` 가 마지막으로 지킨다.
+    """
+    parts = [
+        p.strip(" .·,")
+        for p in _GIST_SPLIT_RE.split((gist or "").strip())
+        if len(p.strip(" .·,")) >= GIST_PART_MIN
+    ]
+    return parts if len(parts) >= 2 else []
+
+
 def _normalize_questions(
     raw_questions: list[dict],
     marks: list[TriageMark],
@@ -1120,11 +1163,25 @@ def _normalize_questions(
         if _cites_scaffold(written_gist):
             written_gist = ""
 
+        question_text = written_q or fb_question
+        gist = written_gist or _fallback_gist(node, trap=mark.trap)
+        # 요소 쪼개기. LLM 이 쓴 것을 먼저 믿고, 안 썼는데 문면이 둘 이상을 묻고
+        # 있으면 코드가 골자를 갈라 백스톱을 세운다 (_followup·_OPEN_QUESTION_RE 와
+        # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
+        parts = [
+            p for p in (
+                _clip(str(p) or "") for p in (raw.get("answer_gist_parts") or [])
+            )
+            if p and not _cites_scaffold(p)
+        ]
+        if len(parts) < 2 and _asks_multiple(question_text):
+            parts = _split_gist_parts(gist)
+
         questions.append(Question(
             id=f"q{mark.rank:02d}-{mark.node_id}",
             node_id=mark.node_id,
             label=node.label,
-            question=written_q or fb_question,
+            question=question_text,
             why=_clip(str(raw.get("why", "") or "")) or fb_why,
             hint=_clip(str(raw.get("hint", "") or "")) or fb_hint,
             severity=mark.severity,
@@ -1132,7 +1189,9 @@ def _normalize_questions(
             source=mark.source,
             slide_nos=list(node.slide_nos),
             doc_weight=mark.doc_weight,
-            answer_gist=written_gist or _fallback_gist(node, trap=mark.trap),
+            answer_gist=gist,
+            # 「비었거나 2개 이상」 불변식은 Question 이 지킨다 (contracts._gist_parts_of).
+            answer_gist_parts=parts,
         ))
     return questions
 

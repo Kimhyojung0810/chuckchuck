@@ -843,3 +843,126 @@ def test_prompt_omits_hint_block_when_none_shown():
     llm = ScriptedLLM(payload(verdict="good"))
     judge_answer(make_question(), GOOD_ANSWER, llm=llm)
     assert "보여준 힌트" not in llm.prompts[0]
+
+
+# ---------------------------------------------------------------------------
+# A · 요소별 채점 — 골자의 요소가 남으면 코드가 good 을 막는다
+#
+# SYSTEM_PROMPT 는 이미 "요소가 하나라도 안 나왔으면 partial" 이라고 적어 뒀는데
+# 실 LLM 이 지키지 않았다. 여기서 검사하는 것은 **코드가 되돌리는가** 하나다.
+# ---------------------------------------------------------------------------
+
+from chuckchuck.contracts import QA_PASS_SCORE, qa_mastered   # noqa: E402
+from chuckchuck.f09_judge import (                            # noqa: E402
+    GIST_MISS_SCORE_MAX,
+    _REACT_BY_VERDICT as _REACT_FALLBACK,
+)
+
+TWO_PART = ["깊은 수면이 신체를 회복시킨다", "초반 주기에 몰려 있다"]
+
+
+def two_part_question(**kwargs) -> Question:
+    return make_question(answer_gist_parts=TWO_PART, **kwargs)
+
+
+def test_good_is_blocked_when_a_gist_element_is_missing():
+    v = judge_of(
+        payload(verdict="good", score=90, covered_parts=[True, False]),
+        question=two_part_question(),
+    )
+    assert v.verdict == "partial"
+    assert v.score == GIST_MISS_SCORE_MAX
+
+
+def test_blocked_good_still_passes_and_can_close_at_the_last_round():
+    """
+    막되 **가두지는 않는다.** 70 밑으로 떨어뜨리면 3라운드 출구(qa_mastered)까지
+    닫혀서 그 질문에 영영 갇힌다 — 막으려는 것은 무른 통과지 출구가 아니다.
+    """
+    v = judge_of(
+        payload(verdict="good", score=95, covered_parts=[True, False]),
+        question=two_part_question(),
+    )
+    assert v.score >= QA_PASS_SCORE and v.passed
+    assert not v.mastered                                   # 1라운드에서는 안 닫힌다
+    assert qa_mastered(v.verdict, v.score, QA_MAX_ROUNDS)   # 3라운드에서는 닫힌다
+
+
+def test_missing_element_becomes_the_first_missing_point():
+    """빠진 요소가 되묻기의 과녁이 되고 힌트 4단이 그걸 열어 준다."""
+    v = judge_of(
+        payload(verdict="good", score=90, covered_parts=[False, True],
+                missing_points=["근거가 얕아요"]),
+        question=two_part_question(),
+    )
+    assert v.missing_points[0] == TWO_PART[0]
+    assert "근거가 얕아요" in v.missing_points
+    assert TWO_PART[0] in " ".join(v.hints)
+
+
+def test_all_elements_covered_keeps_good():
+    v = judge_of(
+        payload(verdict="good", score=90, covered_parts=[True, True]),
+        question=two_part_question(),
+    )
+    assert v.verdict == "good" and v.score == 90 and v.mastered
+
+
+def test_coverage_of_wrong_length_is_ignored_rather_than_guessed():
+    """
+    어느 요소를 가리키는지 모르는 배열로 깎으면 맞힌 사람이 이유 없이 진다.
+    근거가 없으면 손대지 않는 것이 이 함수의 계약이다.
+    """
+    v = judge_of(
+        payload(verdict="good", score=90, covered_parts=[False]),
+        question=two_part_question(),
+    )
+    assert v.verdict == "good" and v.score == 90
+
+
+def test_question_without_elements_is_untouched_by_the_checklist():
+    v = judge_of(payload(verdict="good", score=88), question=make_question())
+    assert v.verdict == "good" and v.score == 88
+
+
+def test_good_with_missing_points_is_self_contradictory_and_demoted():
+    """
+    규칙 7 은 missing_points 에 «통과를 막는 결정적 결손» 만 적으라고 했다.
+    good 과 동시에 참일 수 없다 — 요소 목록이 없는 질문에서도 무른 통과를 잡는다.
+    """
+    v = judge_of(payload(verdict="good", score=92, missing_points=["근거를 안 댔어요"]))
+    assert v.verdict == "partial"
+    assert v.score == GIST_MISS_SCORE_MAX
+    assert v.followup                       # 되묻기가 살아난다
+
+
+def test_demoted_verdict_does_not_get_the_good_react_fallback():
+    """
+    react 를 안 써 보낸 판정에 good 폴백("충분합니다")이 붙으면, 화면이
+    「충분합니다」 라고 말하면서 되묻는 모순이 된다.
+    """
+    v = judge_of(payload(verdict="good", score=90, missing_points=["뒷받침이 없어요"]))
+    assert v.react == _REACT_FALLBACK["partial"]
+
+
+def test_partial_is_not_promoted_by_the_enforcement():
+    """이 그물은 good 만 막는다. 아래 등급을 건드리면 채점이 두 번 일어난다."""
+    v = judge_of(
+        payload(verdict="partial", score=55, covered_parts=[False, False]),
+        question=two_part_question(),
+    )
+    assert v.verdict == "partial" and v.score == 55
+
+
+def test_prompt_carries_the_element_checklist():
+    llm = ScriptedLLM(payload(verdict="good", covered_parts=[True, True]))
+    judge_answer(two_part_question(), GOOD_ANSWER, llm=llm)
+    assert "골자의 요소" in llm.prompts[0]
+    for part in TWO_PART:
+        assert part in llm.prompts[0]
+
+
+def test_prompt_omits_the_checklist_for_single_element_questions():
+    llm = ScriptedLLM(payload(verdict="good"))
+    judge_answer(make_question(), GOOD_ANSWER, llm=llm)
+    assert "골자의 요소" not in llm.prompts[0]

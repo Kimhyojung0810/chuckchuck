@@ -1435,6 +1435,29 @@ def qa_probe_tier(round_no: int) -> str:
 #: 대사 길이 상한. 화면 말풍선이 감당하는 길이다.
 QA_TEXT_MAX = 200
 
+#: 골자를 쪼갤 요소의 최대 개수. 넷 이상으로 쪼개면 어느 하나만 빠져도 good 이
+#: 막혀서 사실상 이길 수 없는 질문이 된다 — 압박이 목적이지 고문이 목적이 아니다
+#: (QA_MAX_ROUNDS 주석과 같은 규율).
+QA_GIST_PARTS_MAX = 3
+
+
+def _gist_parts_of(raw: object) -> list[str]:
+    """
+    `Question.answer_gist_parts` 정규화. **비었거나 2개 이상**이라는 불변식을 여기서 만든다.
+
+    요소가 하나뿐이면 «요소별 검사» 라는 말 자체가 성립하지 않는다 (골자 하나와
+    같은 말이다). F-09 가 매번 `len >= 2` 를 다시 세지 않게 입구에서 한 번만 자른다.
+    """
+    if not isinstance(raw, (list, tuple)):
+        return []
+    parts: list[str] = []
+    for item in raw:
+        text = str(item or "").strip()
+        # 같은 요소를 두 번 세면 답한 사람이 이유 없이 하나 더 요구받는다
+        if text and text not in parts:
+            parts.append(text[:QA_TEXT_MAX])
+    return parts[:QA_GIST_PARTS_MAX] if len(parts) >= 2 else []
+
 #: 막힘 코칭 단계. verdict 를 4-class 로 유지하기 위해 **별도 축**으로 둔다 —
 #: 5번째 verdict 를 만들면 qa_passed·점수표·프론트 배지 맵이 전부 흔들린다.
 #:   ""        평시 판정
@@ -1542,6 +1565,19 @@ class Question:
     #: 이 질문에 기대하는 답의 골자. 되묻기가 끝날 때 "그래서 뭐라고 답했어야 하나" 를
     #: 보여 주는 재료다. 대화가 끝났는데 답을 모른 채면 코칭이 실패한 것이므로 비워 두지 않는다.
     answer_gist: str = ""
+    #: 질문이 **둘 이상**을 물을 때 골자를 요소로 쪼갠 것. F-09 의 채점 체크리스트다 —
+    #: 하나라도 안 나오면 good 을 막는다 (f09_judge `_enforce_gist_parts`).
+    #:
+    #: **비었거나 2개 이상이다.** 1개는 쪼갠 의미가 없어 F-08 이 빈 배열로 되돌린다.
+    #: `answer_gist` 를 대체하지 않고 옆에 둔다 — 프론트의 「이렇게 답했으면 됐다」
+    #: 카드와 F-08 의 쌍둥이 질문 판별이 둘 다 `answer_gist` 원문을 읽기 때문이다.
+    answer_gist_parts: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # 불변식을 **타입에서** 지킨다. F-08 은 dataclass 로 직접 짓고 프론트·세션
+        # 복원은 from_dict 로 오는데, 둘 중 한쪽만 정규화하면 F-09 가 매번 다시
+        # 세어야 한다 — 그러면 「요소 1개」 라는 성립하지 않는 상태가 새어 나간다.
+        self.answer_gist_parts = _gist_parts_of(self.answer_gist_parts)
 
     def to_dict(self) -> dict:
         return {
@@ -1557,6 +1593,7 @@ class Question:
             "slide_nos": list(self.slide_nos),
             "doc_weight": self.doc_weight,
             "answer_gist": self.answer_gist,
+            "answer_gist_parts": list(self.answer_gist_parts),
         }
 
     @classmethod
@@ -1579,6 +1616,9 @@ class Question:
             slide_nos=[int(n) for n in d.get("slide_nos", [])],
             doc_weight=float(d.get("doc_weight", 0.0)),
             answer_gist=str(d.get("answer_gist", "") or ""),
+            # 정규화는 __post_init__ 이 한다 — 옛 세션이 하나만 실어 보내도 거기서
+            # 「요소 검사 없음」 으로 떨어진다.
+            answer_gist_parts=d.get("answer_gist_parts") or [],
         )
 
 
