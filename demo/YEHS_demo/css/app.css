@@ -136,6 +136,10 @@ h1, h2, h3, p { margin: 0; }
 .brand-mark .bm-bg { fill: var(--accent); }
 .brand-mark .bm-bubble { fill: #fff; }
 .brand-mark .bm-tick { stroke: var(--accent); }
+.brand-app-icon {
+  display: block; width: 28px; height: 28px; flex: none; object-fit: cover;
+  border-radius: 8px; box-shadow: 0 2px 7px rgba(6, 48, 39, .16);
+}
 .topbar-right { display: flex; align-items: center; gap: 14px; }
 .avatar {
   width: 34px; height: 34px; border-radius: 50%;

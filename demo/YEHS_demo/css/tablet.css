@@ -74,6 +74,7 @@
     color: var(--text); text-decoration: none; letter-spacing: -.02em;
   }
   .sidenav-brand .brand-mark { width: 22px; height: 22px; flex: none; }
+  .sidenav-brand .brand-app-icon { width: 30px; height: 30px; border-radius: 9px; }
   .sidenav-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
   /* 7px 이던 세로 패딩. 아이패드로 쓰는 화면인데 줄 높이가 32px 이라 손가락
      기준(44px)에 한참 못 미쳤다. 아이콘이 들어오면서 줄이 자연히 42px 이 된다 */
