@@ -1556,3 +1556,23 @@ def test_triage_does_not_get_the_body_only_question_generation_does():
 
 def test_the_prompt_rule_points_at_the_body_line():
     assert "자료 본문" in QUESTION_SYSTEM_PROMPT
+
+
+def test_korean_conjunctive_endings_split_the_gist():
+    """
+    실측(2026-08-10)에서 「무엇이며, 그 근거는」 질문의 골자가 "…요인이며, 이는 …"
+    로 와서 하나도 안 갈렸다 — 질문은 둘을 묻는다고 잡히는데 요소가 안 생겨서
+    백스톱이 통째로 죽어 있었다.
+    """
+    from chuckchuck.f08_questions import _split_gist_parts
+
+    parts = _split_gist_parts("카페인이 가장 큰 요인이며, 이는 각성이 오래 가기 때문입니다")
+    assert len(parts) == 2
+    assert parts[0].endswith("요인이며")          # 어미는 남기고 쉼표만 소비한다
+
+
+def test_a_bare_comma_still_does_not_split_a_single_element_gist():
+    """한 요소 안의 수식절까지 자르면 하나를 물은 질문이 둘로 둔갑한다."""
+    from chuckchuck.f08_questions import _split_gist_parts
+
+    assert _split_gist_parts("신체가 회복되고, 초반에 몰려 있는 깊은 수면") == []
