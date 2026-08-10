@@ -14,6 +14,10 @@
 */
 
 :root {
+  /* 데스크톱에서는 이 내부 좌표계를 바꾸지 않고 화면 바깥에서만 축소한다. */
+  --artboard-w: 1336px;
+  --artboard-h: 1024px;
+  --artboard-scale: 1;
   --topbar-h: 64px;
   /* 화면 좌우 여백. 1024 에서 20px, 1366 에서 38px 언저리로 자란다 */
   --gutter: clamp(20px, 2.8vw, 40px);
@@ -30,6 +34,26 @@
 }
 
 @media (min-width: 900px) {
+
+  /* 1336×1024 iPad Pro 아트보드. 노트북에서는 레이아웃을 눌러 담지 않고
+     JS가 계산한 배율로 화면 전체를 같은 비율로 줄인다. */
+  html {
+    width: 100%; height: 100%; overflow: hidden;
+    background: radial-gradient(circle at 50% 0%, #f7faf8 0, #edf2ef 72%);
+  }
+  body {
+    position: fixed; left: 50%; top: 50%;
+    width: var(--artboard-w); height: var(--artboard-h); min-height: var(--artboard-h);
+    overflow: auto;
+    transform: translate(-50%, -50%) scale(var(--artboard-scale));
+    transform-origin: center;
+    box-shadow: 0 24px 72px rgba(6, 48, 39, .14), 0 0 0 1px rgba(6, 48, 39, .07);
+  }
+  :root {
+    --gutter: 38px;
+    --app-h: calc(var(--artboard-h) - var(--topbar-h));
+    --safe-bottom: 205px;
+  }
 
   /* ══ 0. 앱 셸 ═══════════════════════════════════════════════
      내비는 고정이고 본문은 그만큼 밀린다. 폭을 --nav-w 로 두는 이유:

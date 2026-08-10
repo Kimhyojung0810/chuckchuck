@@ -6100,24 +6100,33 @@ function tsplitRamp(n) {
   });
 }
 
-/** rows: [{ name, rec, act }] — 단위는 상관없다(초·%). 각 줄에서 제 합으로 나눈다. */
-function timeSplitHtml(rows) {
+/** rows: [{ name, rec, act }] — 값은 초 단위. 각 줄에서 제 합으로 나눈다. */
+function timeSplitHtml(rows, totals = {}) {
   const clean = (rows || []).filter(r => r && (r.rec > 0 || r.act > 0));
   if (clean.length < 2) return '';
   const sum = k => clean.reduce((s, r) => s + Math.max(0, r[k] || 0), 0) || 1;
   const recTotal = sum('rec'), actTotal = sum('act');
 
   const ramp = tsplitRamp(clean.length);
-  const bar = (k, total) => `<div class="tsplit-bar">${clean.map((r, i) => {
+  const bar = (k, total, showTime = false) => `<div class="tsplit-bar">${clean.map((r, i) => {
     const pct = Math.max(0, r[k] || 0) / total * 100;
     if (pct <= 0) return '';
     const [bg, fg] = ramp[i];
+    const seconds = Math.max(0, r[k] || 0);
     return `<span class="tsplit-seg" style="width:${pct.toFixed(2)}%;--c:${bg};--tc:${fg}"
-                 title="${escapeHtml(r.name)} · ${Math.round(pct)}%">${
+                 title="${escapeHtml(r.name)} · ${Math.round(pct)}% · ${fmtMarkSec(seconds)}">${
       /* 좁은 조각에 숫자를 우겨넣으면 글자가 잘려 나온다. 9% 아래는 색만 남기고
          숫자는 범례와 title 이 맡는다 */
-      pct >= 9 ? `<b>${Math.round(pct)}%</b>` : ''}</span>`;
+      pct >= 9 ? `<b>${Math.round(pct)}%</b>${showTime ? `<small class="tsplit-time">${fmtMarkSec(seconds)}</small>` : ''}` : ''}</span>`;
   }).join('')}</div>`;
+
+  const targetSec = Math.max(1, Number(totals.targetSec) || recTotal);
+  const actualSec = Math.max(0, Number(totals.actualSec) || actTotal);
+  const scaleMax = Math.max(targetSec, actualSec, 1);
+  const targetPct = targetSec / scaleMax * 100;
+  const actualPct = actualSec / scaleMax * 100;
+  const totalGap = Math.round(actualSec - targetSec);
+  const deltaText = totalGap === 0 ? '목표와 같음' : `${totalGap > 0 ? '+' : '−'}${fmtMarkSec(Math.abs(totalGap))}`;
 
   /* 한 줄 결론. 가장 크게 어긋난 구간 둘만 말한다 — 다섯 구간을 다 늘어놓으면
      그래프를 두 줄로 줄인 뜻이 없다 */
@@ -6138,7 +6147,17 @@ function timeSplitHtml(rows) {
       </div>
       <div class="tsplit-row is-mine">
         <span class="tsplit-lb">내가 한 발표</span>
-        ${bar('act', actTotal)}
+        ${bar('act', actTotal, true)}
+      </div>
+      <div class="tsplit-total">
+        <span class="tsplit-lb">총 발표 길이</span>
+        <div>
+          <div class="tsplit-total-copy"><span>목표 ${fmtMarkSec(targetSec)}</span><b>실제 ${fmtMarkSec(actualSec)} <em class="tsplit-delta${totalGap < 0 ? ' is-short' : ''}">${deltaText}</em></b></div>
+          <div class="tsplit-total-track" aria-label="목표 ${fmtMarkSec(targetSec)}, 실제 ${fmtMarkSec(actualSec)}">
+            <span class="tsplit-total-fill" style="width:${actualPct.toFixed(2)}%"></span>
+            <i class="tsplit-target-mark" style="left:${targetPct.toFixed(2)}%" aria-hidden="true"></i>
+          </div>
+        </div>
       </div>
       <p class="note tsplit-say">${say || '이상적인 배분과 거의 같게 썼어요.'}</p>
     </div>`;
@@ -6147,10 +6166,19 @@ function timeSplitHtml(rows) {
 /** 시간 분배 카드 — 실측이면 pace.sections, 샘플이면 DATA.timeAlloc 을 쓴다. */
 function timeSplitCard(pace) {
   const secs = (pace && pace.sections) || [];
+  const sampleTargetSec = 600;
+  const sampleActualSec = Number(DATA.session && DATA.session.durationSec) || sampleTargetSec;
   const rows = secs.length
     ? secs.map(s => ({ name: s.name, rec: s.recommended_sec || 0, act: s.actual_sec || 0 }))
-    : (DATA.timeAlloc || []).map(r => ({ name: r[0], rec: r[1], act: r[2] }));
-  const body = timeSplitHtml(rows);
+    : (DATA.timeAlloc || []).map(r => ({
+        name: r[0],
+        rec: sampleTargetSec * (r[1] || 0) / 100,
+        act: sampleActualSec * (r[2] || 0) / 100,
+      }));
+  const totals = secs.length
+    ? { targetSec: pace.target_sec, actualSec: pace.actual_sec }
+    : { targetSec: sampleTargetSec, actualSec: sampleActualSec };
+  const body = timeSplitHtml(rows, totals);
   if (!body) return '';
   return `
     <div class="card">
