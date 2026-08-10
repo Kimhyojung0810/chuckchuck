@@ -47,6 +47,8 @@ from .contracts import (
     Question,
     QuestionDoc,
     QuestionError,
+    Slide,
+    SlideDoc,
     Transcript,
     TriageMark,
 )
@@ -125,6 +127,17 @@ MINOR_WEIGHT = float(os.environ.get("CHUCKCHUCK_QA_MINOR_WEIGHT", "0.2"))
 
 #: 개념 하나당 프롬프트에 실을 발화 발췌 길이. 전체 발화를 다 실으면 개념이 묻힌다.
 SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_QA_SPEECH_EXCERPT_MAX", "300"))
+
+#: 개념 하나당 프롬프트에 실을 **자료 본문** 길이. 근거 장(`node.slide_nos`)만 잘라
+#: 넣는다 — 자료 전체를 실으면 F-06 이 겪은 「입력이 길면 LLM JSON 이 잘린다」로 간다.
+#:
+#: 이게 있어야 모범답에 "자료에 있는 말로만 써라" 를 **가리킬 수 있다.** 예전엔
+#: F-08 이 ConceptGraph 요약(토큰 아홉 개)만 쥐고 있어서 그 규칙이 부탁일 뿐이었고,
+#: 자료엔 "약 90–110분" 만 있는데 모범답이 "뇌파 측정을 통해" 라고 썼다.
+#:
+#: **0 이면 본문을 아예 안 싣는다** — 시연 중에 프롬프트를 예전으로 되돌리는
+#: 스위치다. 커밋을 찾지 않고 `CHUCKCHUCK_QA_SLIDE_BODY_MAX=0` 하나로 끈다.
+SLIDE_BODY_MAX = int(os.environ.get("CHUCKCHUCK_QA_SLIDE_BODY_MAX", "400"))
 
 #: 한 개념에 붙여 보여 줄 이웃 개념 수. 그래프가 넓어도 프롬프트가 안 터지게 자른다.
 NEIGHBOR_MAX = 5
@@ -213,6 +226,10 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
 - answer_gist: 이 질문에 기대하는 **답의 골자** 한두 줄. 발표자가 끝내 못 답했을 때
   "이렇게 답했어야 한다" 로 보여 줄 내용이다. **자료에 있는 내용만** 쓰고 지어내지 마라.
   질문이 아니라 답을 써라 — 물음표로 끝나면 안 된다.
+  **개념에 「자료 본문」 줄이 붙어 있으면 거기 있는 말로만 쓴다.** 그 줄에 없는
+  사실·용어·수치를 보태지 마라. 자료엔 "약 90–110분" 만 있는데 "뇌파 측정을 통해
+  입증되었으며" 라고 쓰는 것이 정확히 금지되는 것이다 — 발표자가 방어할 수 없는
+  답이 된다. 본문 줄이 없는 개념은 요약과 발표에서 한 말까지만 쓴다.
   **근거는 자료 본문이나 발표에서 한 말에서만 든다.** "경로에 …로 표시되어 있다"
   처럼 우리가 준 배경을 근거로 인용하지 마라 — 발표자는 그걸 본 적이 없어서
   그 답은 애초에 쓸 수 없는 답이 된다.
@@ -561,6 +578,40 @@ def _speech_excerpt(node: ConceptNode, transcript: Transcript | None) -> str:
     if len(said) <= SPEECH_EXCERPT_MAX:
         return said
     return said[: SPEECH_EXCERPT_MAX - 1].rstrip() + "…"
+
+
+def _slides_by_no(slidedoc: SlideDoc | None) -> dict[int, Slide]:
+    """
+    `slide_no → Slide` 색인. **build_questions 에서 한 번만 만든다** —
+    개념마다 slides 를 훑으면 개념 수 × 장 수가 된다.
+    """
+    if slidedoc is None:
+        return {}
+    return {s.slide_no: s for s in slidedoc.slides}
+
+
+def _slide_body(node: ConceptNode, by_no: dict[int, Slide]) -> str:
+    """
+    이 개념의 **근거 장 자료 본문**. `_speech_excerpt` 와 같은 규칙으로 자른다
+    (근거 장만 · 한 줄로 이어 붙여 · 상한에서 절단).
+
+    발화가 "말로 뭐라고 했나" 라면 이건 "자료에 뭐라고 써 있나" 다. 둘을 나란히
+    줘야 모범답이 자료 밖으로 나가는 것을 프롬프트가 가리킬 수 있다.
+    """
+    if not by_no or SLIDE_BODY_MAX <= 0:
+        return ""
+    # 줄바꿈을 접는다 — raw_text 는 블록마다 개행이라 그대로 실으면 프롬프트의
+    # 한 줄짜리 개념 항목 구조가 깨진다 (f14_rubric `_slides_block` 과 같은 처리).
+    body = " ".join(
+        " ".join(text.split())
+        for text in (
+            (by_no[no].raw_text or "") for no in node.slide_nos if no in by_no
+        )
+        if text.strip()
+    )
+    if len(body) <= SLIDE_BODY_MAX:
+        return body
+    return body[: SLIDE_BODY_MAX - 1].rstrip() + "…"
 
 
 # ---------------------------------------------------------------------------
@@ -953,6 +1004,7 @@ def _build_question_prompt(
     transcript: Transcript | None,
     ctx: Context,
     flow_of: dict[str, FlowIssue] | None = None,
+    by_no: dict[int, Slide] | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-questions",
@@ -995,6 +1047,12 @@ def _build_question_prompt(
         issue = (flow_of or {}).get(node.id)
         if issue is not None and mark.source == "weak_flow":
             parts.append(f"    {_flow_line(issue)}")
+
+        # 자료가 먼저, 발화가 나중. 우리가 재는 것은 «자료가 약속한 것을 말로
+        # 지켰는가» 라서 프롬프트도 자료를 기준으로 읽히게 둔다.
+        body = _slide_body(node, by_no or {})
+        if body:
+            parts.append(f"    자료 본문(S{nos}): {body}")
 
         said = _speech_excerpt(node, transcript)
         item = judged.get(node.id)
@@ -1204,6 +1262,7 @@ def build_questions(
     alignment: AlignmentDoc | dict | None = None,
     flow: FlowDiff | dict | None = None,
     transcript: Transcript | dict | None = None,
+    slidedoc: SlideDoc | dict | None = None,
     context: Context | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
@@ -1219,6 +1278,14 @@ def build_questions(
     관계를 파고드는 질문이 나오게 한다. flow 를 주면 weak_flow 근거 개념에 이슈
     상세(순서 역행·연결 누락)가 붙어 "왜 이 순서로 설명했나요?" 류 질문이 가능해진다
     — 순위는 안 바뀐다, 프롬프트 재료일 뿐이다.
+
+    slidedoc 을 주면 개념마다 **근거 장의 자료 본문**이 함께 실려, 모범답
+    (`answer_gist`)이 자료 밖 지식으로 살을 붙이는 것을 프롬프트가 가리킬 수 있다.
+    **안 주면 예전과 완전히 같은 프롬프트다** — 이 인자는 켜야 도는 것이라,
+    호출자가 안 넘기면 이 기능은 통째로 잠잔다.
+
+    triage 에는 자료 본문을 안 준다. 1차 심사는 «물을 만한 개념인가» 만 고르고
+    순위는 결정적 신호에서 나오므로, 본문을 실어도 순위는 안 바뀌고 토큰만 는다.
     """
     graph = _as_graph(graph)
     if isinstance(triage, dict):
@@ -1229,6 +1296,8 @@ def build_questions(
         flow = FlowDiff.from_dict(flow)
     if isinstance(transcript, dict):
         transcript = Transcript.from_dict(transcript)
+    if isinstance(slidedoc, dict):
+        slidedoc = SlideDoc.from_dict(slidedoc)
     ctx = _as_context(context)
 
     if track not in QA_TRACKS:
@@ -1251,7 +1320,10 @@ def build_questions(
     data = _call_with_retry(
         engine,
         QUESTION_SYSTEM_PROMPT,
-        _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of),
+        _build_question_prompt(
+            graph, marks, by_id, alignment, transcript, ctx, flow_of,
+            _slides_by_no(slidedoc),
+        ),
     )
     raw_questions = [q for q in (data.get("questions") or []) if isinstance(q, dict)]
 

@@ -1423,3 +1423,136 @@ def test_gist_parts_are_deterministic_for_the_same_triage():
 
 def test_prompt_asks_for_gist_parts():
     assert "answer_gist_parts" in QUESTION_SYSTEM_PROMPT
+
+
+# ---------------------------------------------------------------------------
+# D · 자료 본문을 F-08 까지 (백로그 #4)
+#
+# 모범답이 자료에 없는 지식으로 살을 붙였다 — 자료엔 "약 90–110분" 만 있는데
+# "뇌파 측정을 통해" 라고 썼다. 원인은 F-08 이 SlideDoc 을 아예 안 받는 것이었다.
+# 여기서 검사하는 것은 «근거 장 본문만 · 상한 안에서 · 안 주면 예전 그대로» 다.
+# ---------------------------------------------------------------------------
+
+from chuckchuck.contracts import Slide, SlideBlock, SlideDoc      # noqa: E402
+from chuckchuck import f08_questions as f08                       # noqa: E402
+
+
+def make_slidedoc(n: int = 3) -> SlideDoc:
+    """장마다 본문이 **유일하게 식별 가능한** SlideDoc — 어느 장이 실렸는지 그대로 단언한다."""
+    return SlideDoc(
+        file_name="sample.pdf",
+        total_slides=n,
+        slides=[
+            Slide(
+                slide_no=i,
+                title=f"{i}장 제목",
+                blocks=[SlideBlock(category="paragraph", text=f"본문마커{i} 자료가 말하는 내용 {i}")],
+            )
+            for i in range(1, n + 1)
+        ],
+    )
+
+
+def question_prompt(*, slidedoc=None, graph=None, monkeypatch=None) -> str:
+    """질문 생성 프롬프트를 그대로 돌려준다 (triage 는 이미 끝난 상태로 준다)."""
+    graph = graph or make_graph()
+    llm = ScriptedLLM(questions_payload())
+    build_questions(graph, make_triage(graph), track="10", slidedoc=slidedoc, llm=llm)
+    return llm.prompts[-1]
+
+
+def test_evidence_slide_body_reaches_the_prompt():
+    assert "본문마커1" in question_prompt(slidedoc=make_slidedoc())
+
+
+def test_only_the_evidence_slides_of_that_concept_are_included():
+    """
+    핵심이다. 자료 전체를 싣는 것이 아니라 **개념의 근거 장만** 잘라 넣는다 —
+    make_graph 는 c1 의 slide_nos 를 [1] 로 둔다.
+    """
+    prompt = question_prompt(slidedoc=make_slidedoc())
+    c1_line = next(ln for ln in prompt.splitlines() if ln.strip().startswith("자료 본문") )
+    assert "본문마커1" in c1_line
+    assert "본문마커2" not in c1_line and "본문마커3" not in c1_line
+
+
+def test_without_a_slidedoc_the_prompt_is_exactly_what_it_was_before():
+    """이 인자는 켜야 도는 것이다 — 안 넘기면 기능이 통째로 잠잔다."""
+    assert "자료 본문" not in question_prompt()
+
+
+def test_the_kill_switch_removes_the_body_from_the_prompt(monkeypatch):
+    """시연 중 되돌릴 길 — 커밋을 찾지 않고 환경변수 하나로 끈다."""
+    monkeypatch.setattr(f08, "SLIDE_BODY_MAX", 0)
+    assert "자료 본문" not in question_prompt(slidedoc=make_slidedoc())
+
+
+def test_a_long_body_is_clipped_at_the_cap(monkeypatch):
+    monkeypatch.setattr(f08, "SLIDE_BODY_MAX", 20)
+    doc = SlideDoc(
+        file_name="sample.pdf", total_slides=1,
+        slides=[Slide(slide_no=1, blocks=[SlideBlock(category="paragraph", text="가" * 500)])],
+    )
+    line = next(
+        ln for ln in question_prompt(slidedoc=doc).splitlines()
+        if ln.strip().startswith("자료 본문")
+    )
+    assert line.rstrip().endswith("…")
+    assert len(line.split(": ", 1)[1]) == 20
+
+
+def test_newlines_in_the_body_do_not_break_the_one_line_item_shape():
+    """raw_text 는 블록마다 개행이라, 접지 않으면 개념 항목 구조가 깨진다."""
+    doc = SlideDoc(
+        file_name="sample.pdf", total_slides=1,
+        slides=[Slide(slide_no=1, blocks=[
+            SlideBlock(category="paragraph", text="첫 줄"),
+            SlideBlock(category="paragraph", text="둘째 줄"),
+        ])],
+    )
+    line = next(
+        ln for ln in question_prompt(slidedoc=doc).splitlines()
+        if ln.strip().startswith("자료 본문")
+    )
+    assert "첫 줄 둘째 줄" in line
+
+
+def test_a_concept_with_no_evidence_slides_gets_no_body_line():
+    graph = ConceptGraph(
+        file_name="sample.pdf", total_slides=1,
+        nodes=[ConceptNode(id="c1", label="개념1", slide_nos=[], summary="한 줄", weight=1.0, depth=1)],
+        edges=[],
+    )
+    assert "자료 본문" not in question_prompt(slidedoc=make_slidedoc(), graph=graph)
+
+
+def test_a_slide_number_missing_from_the_deck_is_skipped_not_crashed():
+    """그래프가 자료보다 큰 장 번호를 들고 있어도 (구버전 산출물) 죽지 않는다."""
+    graph = ConceptGraph(
+        file_name="sample.pdf", total_slides=9,
+        nodes=[ConceptNode(id="c1", label="개념1", slide_nos=[1, 99], summary="한 줄", weight=1.0, depth=1)],
+        edges=[],
+    )
+    prompt = question_prompt(slidedoc=make_slidedoc(), graph=graph)
+    assert "본문마커1" in prompt
+
+
+def test_the_prompt_is_deterministic_for_the_same_input():
+    doc = make_slidedoc()
+    assert question_prompt(slidedoc=doc) == question_prompt(slidedoc=doc)
+
+
+def test_a_dict_slidedoc_is_accepted_like_every_other_f08_input():
+    assert "본문마커1" in question_prompt(slidedoc=make_slidedoc().to_dict())
+
+
+def test_triage_does_not_get_the_body_only_question_generation_does():
+    """1차 심사는 순위만 정한다 — 본문을 실어도 순위는 안 바뀌고 토큰만 는다."""
+    graph = make_graph()
+    triage_llm = ScriptedLLM(marks_payload())
+    triage_questions(graph, llm=triage_llm)
+    assert "자료 본문" not in triage_llm.prompts[0]
+
+
+def test_the_prompt_rule_points_at_the_body_line():
+    assert "자료 본문" in QUESTION_SYSTEM_PROMPT

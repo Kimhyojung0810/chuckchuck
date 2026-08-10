@@ -143,6 +143,29 @@ def _save_slidedoc_cache(doc_dict: dict, file_name: str) -> None:
         sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 실패(무시): {e}\n")
 
 
+def _load_slidedoc_cache(file_name: str) -> dict | None:
+    """
+    자료 이름으로 파싱본을 되찾는다 (F-08 에 근거 장 본문을 주기 위해서).
+
+    **정확한 stem 하나만 본다.** 못 찾으면 None 이고, 그러면 F-08 은 자료 본문
+    없이 — 즉 예전과 똑같은 프롬프트로 — 돈다.
+
+    **최신본으로 대체하지 않는다.** 남의 자료 본문이 내 질문의 모범답 근거가
+    되면 화면은 멀쩡한데 답이 딴 자료 것이 된다. mock 이 파일 이름만 바꿔치기해서
+    사람을 태운 것과 같은 종류의 착시다 (CLAUDE.md §2, `_handle_cached_slidedoc`
+    가 이름을 못 찾을 때 최신본을 안 주는 것과 같은 이유).
+    """
+    stem = _cache_stem(file_name)
+    path = ROOT / "fixtures" / "raw" / f"{stem}.slidedoc.json"
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # 캐시가 없거나 깨졌다고 질문 생성을 죽이지 않는다 — 본문은 있으면 좋은
+        # 것이지 없으면 못 도는 것이 아니다.
+        return None
+    return doc if isinstance(doc, dict) and doc.get("slides") else None
+
+
 def _take_stem(body: dict) -> str:
     """
     이 녹음이 어느 자료의 것인지. 자료 이름으로 슬라이드 캐시와 짝을 맞춘다.
@@ -1175,6 +1198,11 @@ class Handler(SimpleHTTPRequestHandler):
         # triage 는 트랙과 무관하다 (f08_questions 모듈 주석). 같은 입력이면 1차 심사를
         # 재사용해 트랙만 바꾼 재요청이 LLM 1콜로 끝나게 한다 — 매번 다시 돌리면
         # temperature 탓에 1분 트랙 질문이 5분 트랙의 부분집합이라는 보장도 깨진다.
+        # 근거 장 본문. 없으면 None 이고 F-08 은 예전 프롬프트로 돈다 (조용히 죽지 않는다).
+        # 세션 아티팩트가 아니라 파싱 때 남긴 디스크 캐시에서 찾는다 —
+        # 프론트는 slidedoc 을 안 들고 있고, 아티팩트 키를 늘리면 프론트 계약이 깨진다.
+        slidedoc = _load_slidedoc_cache(graph.file_name)
+
         cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm))
         try:
             triage = STORE.get_triage(cache_key)
@@ -1195,13 +1223,18 @@ class Handler(SimpleHTTPRequestHandler):
                 # (server/app.py)는 넘기는데 브리지만 빠져 있었다.
                 flow=flow,
                 transcript=transcript,
+                # 근거 장 본문 — 모범답이 자료 밖 지식으로 살 붙이는 것을 막는다
+                slidedoc=slidedoc,
                 context=ctx,
                 llm=llm,
             )
         except QuestionError as e:
             return self._json(502, {"error": "questions_failed", "message": str(e)})
+        # 본문 유무를 남긴다. 조용히 빠지면 "왜 여전히 자료에 없는 말을 쓰지?" 를
+        # 디버깅할 수 없다 (_handle_qa_judge 의 근거= 표시와 같은 이유).
         sys.stderr.write(
-            f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} model={doc.model}\n"
+            f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} "
+            f"model={doc.model} 본문={'yes' if slidedoc else '-'}\n"
         )
         return self._json(200, with_hint_ladders(doc.to_dict(), doc.questions))
 
