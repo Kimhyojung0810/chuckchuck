@@ -984,6 +984,11 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       pushTurn({
         who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react),
         score: v.score || 0, before,
+        // 「모르겠어요」에 온 응답은 **판정이 아니다** — 서버가 점수를 안 매기고
+        // verdict 자리에 폴백을 넣어 보낸다 (f09_judge.coach_stuck). 그걸 판정표로
+        // 그리면 솔직하게 모르겠다고 누른 사람이 틀린 답과 똑같은 빨간 칩을 받는다.
+        // 단계를 그대로 실어서 «지금 무슨 일이 일어나는지» 를 대신 적는다.
+        coach: v.coach_stage || '',
       });
     }
 

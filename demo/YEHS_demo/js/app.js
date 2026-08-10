@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qk6" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qk7" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -6867,6 +6867,17 @@ function streamRow(it) {
     return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}${it.auto ? ' · 좁혀 물으면서 같이 열었어요' : ''}</b>${it.text}${slides}</div></div>`;
   }
   if (it.kind === 'react') {
+    /* 「모르겠어요」에 온 응답은 판정이 아니다 (f09_judge.coach_stuck 이 점수를
+       안 매기고 verdict 자리에 폴백을 넣는다). 판정 칩으로 그리면 솔직하게
+       모르겠다고 누른 사람이 **틀린 답과 똑같은 빨간 칩**을 받는다 — 그리고
+       다음에 무슨 일이 일어나는지는 어디에도 안 적혀 있었다 (2026-08-10 사용자).
+       칩을 빼고, 코치가 지금 무엇을 하려는지를 그 자리에 적는다. */
+    if (it.coach) {
+      const line = it.coach === 'explain' ? '답을 같이 풀어 볼게요' : '더 쉬운 걸로 바꿔 물을게요';
+      return `<div class="msg ai react is-coach">${av}<div class="msg-bubble">
+        <span class="msg-meta">${line}</span>
+        <p>${it.text}</p></div></div>`;
+    }
     // 맵 밖 값이면 칩에 문자 그대로 "undefined" 가 그려진다 — 보류 쪽으로 떨어뜨린다.
     const lab = { full: '제대로 설명했어요', partial: '절반쯤', none: '아직' }[it.verdict] || '아직';
     const cls = { full: 'st-ok', partial: 'st-mid', none: 'st-no' }[it.verdict] || 'st-om';
