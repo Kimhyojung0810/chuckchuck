@@ -2351,7 +2351,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qka" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qkb" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -5654,16 +5654,47 @@ function tauJudge(pct) {
 
 const CPM_REC = { min: 300, max: 350 }; // F-17 이 권장을 안 주면 쓰는 화면 기본값(자/분)
 
-function cpmJudge(avg, rec) {
-  if (!avg) return '';
+/** 00:00 꼴. 막대 안이나 총량 비교처럼 자리수가 고정돼야 읽히는 곳에 쓴다
+ *  (fmtSec 의 「9분 24초」는 문장 안에서 읽는 꼴이다) */
+function clockSec(sec) {
+  const s = Math.max(0, Math.round(sec || 0));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/* ── 말 속도를 사람의 말로 ─────────────────────────────────────────────
+   「328자/분」은 발표하는 사람이 체감할 수 없는 숫자다. 발표 중에 자기가 몇 자를
+   말했는지 아는 사람은 없고, 그래서 이 숫자를 봐도 다음에 무엇을 바꿀지 못 정한다.
+   계산은 자/분으로 그대로 하고(권장 범위와 견주려면 필요하다), 화면에는 판정과
+   처방만 내놓는다. 원본 값은 title 로만 남긴다 — 물어보면 답할 수 있게. */
+const PACE_STEPS = {
+  vfast: { label: '매우 빠름', tip: '듣는 사람이 따라가기 어려울 수 있어요' },
+  fast: { label: '조금 빠름', tip: '문장 끝에서 한 박자 쉬어 보세요' },
+  ok: { label: '적정 속도', tip: '듣기 편한 범위로 말했어요' },
+  slow: { label: '조금 느림', tip: '조금만 템포를 올려도 좋아요' },
+  vslow: { label: '매우 느림', tip: '핵심 문장만 남기고 템포를 올려 보세요' },
+};
+
+/** @returns {{key:string,label:string,tip:string,cpm:number}|null} */
+function paceJudge(avg, rec) {
+  if (!avg) return null;
   const nums = String(rec || '').match(/\d+/g) || [];
   const lo = Number(nums[0]) || CPM_REC.min;
   const hi = Number(nums[1]) || CPM_REC.max;
-  if (avg > hi * 1.15) return '권장보다 많이 빨라요';
-  if (avg > hi) return '권장보다 조금 빨라요';
-  if (avg < lo * 0.85) return '권장보다 많이 느려요';
-  if (avg < lo) return '권장보다 조금 느려요';
-  return '권장 범위예요';
+  const key = avg > hi * 1.15 ? 'vfast'
+    : avg > hi ? 'fast'
+      : avg < lo * 0.85 ? 'vslow'
+        : avg < lo ? 'slow' : 'ok';
+  return { key, ...PACE_STEPS[key], cpm: Math.round(avg) };
+}
+const paceIsFast = j => !!j && (j.key === 'fast' || j.key === 'vfast');
+
+/** 구간 속도는 절대값이 아니라 «본인 평균의 몇 배» 로 말한다 —
+ *  같은 430자/분이 어떤 사람에겐 평소 속도고 어떤 사람에겐 폭주다 */
+function paceRatioWord(cpm, avg) {
+  if (!cpm || !avg) return '';
+  const r = cpm / avg;
+  if (Math.abs(r - 1) < 0.1) return '평소와 비슷';
+  return `평소의 ${r.toFixed(1)}배 · ${r > 1 ? '빠름' : '천천히'}`;
 }
 
 function timeDiffJudge(targetSec, actualSec) {
@@ -5688,9 +5719,9 @@ function voiceVerdict(easy, pace) {
     return { headline: easy.headline, action: easy.actions[0] || '' };
   }
   const avg = Math.round((pace && pace.avg_chars_per_min) || 0);
-  const speed = cpmJudge(avg, pace && pace.recommended_cpm);
-  if (speed && speed !== '권장 범위예요') {
-    const isFast = speed.includes('빨라요');
+  const speed = paceJudge(avg, pace && pace.recommended_cpm);
+  if (speed && speed.key !== 'ok') {
+    const isFast = paceIsFast(speed);
     return {
       headline: isFast ? '전체적으로 권장보다 빠르게 말했어요' : '전체적으로 권장보다 천천히 말했어요',
       action: isFast
@@ -5882,57 +5913,113 @@ function tsplitRamp(n) {
   });
 }
 
-/** rows: [{ name, rec, act }] — 단위는 상관없다(초·%). 각 줄에서 제 합으로 나눈다. */
-function timeSplitHtml(rows) {
+/** 총 발표 길이 비교 한 줄.
+ *
+ *  위 두 막대는 둘 다 100% 라 «총량» 을 말할 수 없다. 그렇다고 실제가 짧았다고
+ *  막대 전체를 줄이면 구간 비율을 나란히 못 견주게 된다 — 그래서 총량만 따로
+ *  한 줄로 뺀다. 목표는 눈금으로, 실제는 채운 길이로 둬서 «넘쳤나 모자랐나» 가
+ *  글자를 읽기 전에 보이게 한다. */
+function totalTrackHtml(targetSec, actualSec) {
+  if (!targetSec || !actualSec) return '';
+  const d = Math.round(actualSec - targetSec);
+  // 목표 눈금이 오른쪽 끝에 붙어 안 보이는 것을 막는 6% 여유
+  const span = Math.max(targetSec, actualSec) * 1.06;
+  const fill = Math.min(100, actualSec / span * 100);
+  const mark = Math.min(100, targetSec / span * 100);
+  const gapText = d === 0 ? '목표와 같아요'
+    : `목표보다 ${clockSec(Math.abs(d))} ${d > 0 ? '길어요' : '짧아요'}`;
+  return `
+    <div class="tsplit-total">
+      <div class="tst-head">
+        <span class="tst-lb">총 발표 길이</span>
+        <span class="tst-nums num">목표 <b>${clockSec(targetSec)}</b> · 실제 <b>${clockSec(actualSec)}</b>${
+          d ? `<em class="${d > 0 ? 'over' : 'under'}">${d > 0 ? '+' : '−'}${clockSec(Math.abs(d))}</em>` : ''}</span>
+      </div>
+      <!-- 색 하나로 말하지 않는다 — 위 글자가 같은 사실을 문자로 들고 있고,
+           눈금과 채움에는 aria-label 을 붙인다 -->
+      <div class="tst-track" role="img"
+           aria-label="목표 ${clockSec(targetSec)}, 실제 ${clockSec(actualSec)}, ${gapText}">
+        <i class="tst-fill" style="width:${fill.toFixed(1)}%"></i>
+        <span class="tst-mark" style="left:${mark.toFixed(1)}%"></span>
+      </div>
+    </div>`;
+}
+
+/** rows: [{ name, rec, act }] — **초** 단위. opts: { targetSec, actualSec } */
+function timeSplitHtml(rows, opts = {}) {
   const clean = (rows || []).filter(r => r && (r.rec > 0 || r.act > 0));
   if (clean.length < 2) return '';
   const sum = k => clean.reduce((s, r) => s + Math.max(0, r[k] || 0), 0) || 1;
   const recTotal = sum('rec'), actTotal = sum('act');
+  const pctOf = (r, k, total) => Math.max(0, r[k] || 0) / total * 100;
 
   const ramp = tsplitRamp(clean.length);
-  const bar = (k, total) => `<div class="tsplit-bar">${clean.map((r, i) => {
-    const pct = Math.max(0, r[k] || 0) / total * 100;
+  /* withTime 은 「내가 한 발표」에만 준다. 이상적인 배분은 비교 기준일 뿐이라
+     퍼센트까지가 할 일이고, 두 줄이 똑같이 무거우면 어느 쪽이 내 결과인지 흐려진다 */
+  const bar = (k, total, withTime) => `<div class="tsplit-bar">${clean.map((r, i) => {
+    const pct = pctOf(r, k, total);
     if (pct <= 0) return '';
     const [bg, fg] = ramp[i];
+    const sec = withTime ? clockSec(r[k]) : '';
     return `<span class="tsplit-seg" style="width:${pct.toFixed(2)}%;--c:${bg};--tc:${fg}"
-                 title="${escapeHtml(r.name)} · ${Math.round(pct)}%">${
+                 title="${escapeHtml(r.name)} · ${Math.round(pct)}%${sec ? ` · ${sec}` : ''}">${
       /* 좁은 조각에 숫자를 우겨넣으면 글자가 잘려 나온다. 9% 아래는 색만 남기고
          숫자는 범례와 title 이 맡는다 */
-      pct >= 9 ? `<b>${Math.round(pct)}%</b>` : ''}</span>`;
+      pct >= 9 ? `<b>${Math.round(pct)}%</b>${sec ? `<i>${sec}</i>` : ''}` : ''}</span>`;
   }).join('')}</div>`;
+
+  const gapOf = r => Math.round(pctOf(r, 'act', actTotal) - pctOf(r, 'rec', recTotal));
+  /* 범례에 «몇 %p 어긋났나» 를 붙인다. 색과 이름만 있으면 두 막대를 눈으로 번갈아
+     재야 하는데, 그 뺄셈은 화면이 해 줘야 하는 일이다. 차이가 없으면 배지도 없다 */
+  const legend = clean.map((r, i) => {
+    const g = gapOf(r);
+    return `<span><i style="background:${ramp[i][0]}"></i>${escapeHtml(r.name)}${
+      g ? `<em class="num">${g > 0 ? '+' : '−'}${Math.abs(g)}%p</em>` : ''}</span>`;
+  }).join('');
 
   /* 한 줄 결론. 가장 크게 어긋난 구간 둘만 말한다 — 다섯 구간을 다 늘어놓으면
      그래프를 두 줄로 줄인 뜻이 없다 */
-  const gaps = clean.map(r => ({
-    name: r.name,
-    gap: Math.round((r.act / actTotal * 100) - (r.rec / recTotal * 100)),
-  })).filter(g => Math.abs(g.gap) >= 3).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+  const gaps = clean.map(r => ({ name: r.name, gap: gapOf(r) }))
+    .filter(g => Math.abs(g.gap) >= 3).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
   const say = gaps.slice(0, 2).map(g => `<b>${escapeHtml(g.name)}</b>에 ${
     g.gap > 0 ? `${g.gap}%p 더` : `${-g.gap}%p 적게`} 썼어요`).join(' · ');
 
   return `
     <div class="tsplit">
-      <div class="tsplit-legend">${clean.map((r, i) =>
-        `<span><i style="background:${ramp[i][0]}"></i>${escapeHtml(r.name)}</span>`).join('')}</div>
+      <div class="tsplit-legend">${legend}</div>
       <div class="tsplit-row">
         <span class="tsplit-lb">이상적인 배분</span>
-        ${bar('rec', recTotal)}
+        ${bar('rec', recTotal, false)}
       </div>
       <div class="tsplit-row is-mine">
         <span class="tsplit-lb">내가 한 발표</span>
-        ${bar('act', actTotal)}
+        ${bar('act', actTotal, true)}
       </div>
       <p class="note tsplit-say">${say || '이상적인 배분과 거의 같게 썼어요.'}</p>
+      ${totalTrackHtml(opts.targetSec, opts.actualSec)}
     </div>`;
 }
+
+/** 샘플 발표의 목표 시간(10분 모드). 샘플 데이터에는 목표가 없다 */
+const SAMPLE_TARGET_SEC = 600;
 
 /** 시간 분배 카드 — 실측이면 pace.sections, 샘플이면 DATA.timeAlloc 을 쓴다. */
 function timeSplitCard(pace) {
   const secs = (pace && pace.sections) || [];
-  const rows = secs.length
-    ? secs.map(s => ({ name: s.name, rec: s.recommended_sec || 0, act: s.actual_sec || 0 }))
-    : (DATA.timeAlloc || []).map(r => ({ name: r[0], rec: r[1], act: r[2] }));
-  const body = timeSplitHtml(rows);
+  let rows, targetSec, actualSec;
+  if (secs.length) {
+    rows = secs.map(s => ({ name: s.name, rec: s.recommended_sec || 0, act: s.actual_sec || 0 }));
+    targetSec = pace.target_sec; actualSec = pace.actual_sec;
+  } else {
+    /* 샘플은 퍼센트로 들고 있다. 막대 안에 실제 시간을 적으려면 초여야 한다 —
+       퍼센트만으로는 「20% / 01:30」의 아랫줄을 만들 수가 없다 */
+    actualSec = (DATA.session && DATA.session.durationSec) || 0;
+    targetSec = (DATA.session && DATA.session.targetSec) || SAMPLE_TARGET_SEC;
+    rows = (DATA.timeAlloc || []).map(r => ({
+      name: r[0], rec: (r[1] / 100) * targetSec, act: (r[2] / 100) * actualSec,
+    }));
+  }
+  const body = timeSplitHtml(rows, { targetSec, actualSec });
   if (!body) return '';
   return `
     <div class="card">
@@ -5951,7 +6038,7 @@ function rPace(host = $('#rbody')) {
     const fillers = easy.fillers;
     // 처방 문구는 진단 블록이 한 번만 말한다 — 예전 voice-tip 과 중복이었다
     const diffLabel = timeDiffJudge(livePace.target_sec, livePace.actual_sec);
-    const speedLabel = cpmJudge(Math.round(avg), livePace.recommended_cpm);
+    const speed = paceJudge(Math.round(avg), livePace.recommended_cpm);
     /* 「짧게 말한 핵심 장」 상자는 뺐다 — 같은 사실을 위 그래프가 이미 말한다
        (핵심 장은 S번호가 파랑, 짧은 장은 막대 색이 다르다). 판정 헤드의 처방과
        상자 제목까지 세 번 반복돼서 화면이 길어지기만 했다. */
@@ -5975,20 +6062,26 @@ function rPace(host = $('#rbody')) {
       </div>`;
     /* 세로 한 줄로 편다. 예전엔 진단에 따라 시간·간투어 중 하나를 접어 뒀는데,
        접힌 쪽은 있는 줄도 모르고 지나갔다 — 둘 다 이 탭의 본문이다. */
+    /* 순서가 곧 읽는 순서다. 시간 분배 → 그 판정 → 숫자 → 어디가 문제였나 →
+       청중 반응 → 말버릇. 예전엔 판정 상자가 맨 위에 홀로 떠서, 무엇을 보고
+       그렇게 판정했는지가 아래에 따로 있었다 — 판정은 근거 바로 옆에 있어야 한다 */
     host.innerHTML = `
       <div class="voice-stack">
-        ${tabVerdictHtml(voiceVerdict(easy, livePace))}
         ${splitCard}
-        <div id="dlvAud"></div>
+        ${tabVerdictHtml(voiceVerdict(easy, livePace))}
         <!-- 카드 세 장이었다. 시간 분배 막대가 바로 위에서 같은 이야기를 그림으로
              하고 있어서, 카드까지 세우면 비슷한 크기의 그래픽이 둘이 된다
              (토스 그래픽 3번). 숫자는 지키고 무게만 뺀다 -->
         <p class="voice-facts">
           <span><i>목표</i>${escapeHtml(easy.target)}</span>
           <span><i>내가 쓴 시간</i>${escapeHtml(easy.actual)}${diffLabel ? `<em>${escapeHtml(diffLabel)}</em>` : ''}</span>
-          <span><i>평균 말 속도</i>${Math.round(avg)}자/분${speedLabel ? `<em>${escapeHtml(speedLabel)}</em>` : ''}</span>
+          <!-- 자/분은 title 로만 남긴다 — 발표 중에 자기가 몇 자를 말했는지
+               체감하는 사람은 없다 (§13) -->
+          <span${speed ? ` title="평균 ${speed.cpm}자/분"` : ''}><i>전체 말 속도</i>${
+            speed ? `${escapeHtml(speed.label)}<em>${escapeHtml(speed.tip)}</em>` : '측정 못 했어요'}</span>
         </p>
         ${longCard}
+        <div id="dlvAud"></div>
         ${fillerCard}
       </div>`;
     return;
@@ -6030,31 +6123,40 @@ function rPace(host = $('#rbody')) {
         action: '빠른 구간의 개념 판정을 함께 확인하고, 그 장에서 한 박자 쉬어 보세요.' }
     : { headline: '구간별 말 속도가 고르게 유지됐어요',
         action: '이 속도를 유지하면서 아래 시간 배분만 살펴보세요.' };
-  const fbSpeedLabel = cpmJudge(st.avg, st.rec);
+  const fbSpeed = paceJudge(st.avg, st.rec);
+  const fbTargetSec = (DATA.session && DATA.session.targetSec) || SAMPLE_TARGET_SEC;
+  const fbActualSec = (DATA.session && DATA.session.durationSec) || 0;
+  const fbDiff = timeDiffJudge(fbTargetSec, fbActualSec);
   host.innerHTML = `
     ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
       ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
-    ${tabVerdictHtml(fbVerdict)}
     ${timeSplitCard(null)}
-    <div id="dlvAud"></div>
-    <div class="stat-row">
-      <div class="stat-card"><small>내 평균</small><strong class="num" data-count="${st.avg}">0</strong><span class="unit">자/분</span>${fbSpeedLabel ? `<p class="note" style="margin-top:4px">${fbSpeedLabel}</p>` : ''}</div>
-      <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${st.max}</strong><span class="unit">자/분</span><p class="note" style="margin-top:4px">${escapeHtml(String(st.maxSeg))}</p></div>
-      <div class="stat-card"><small>발표 권장 속도</small><strong class="num">${st.rec}</strong><span class="unit">자/분</span></div>
-    </div>
+    ${tabVerdictHtml(fbVerdict)}
+    <!-- 큰 카드 세 장(내 평균·가장 빨랐던 구간·권장 속도)이었다. 셋 다 자/분이라
+         체감이 안 되는 숫자를 셋으로 늘린 자리였고, 바로 위 시간 분배 막대가 같은
+         이야기를 이미 그림으로 하고 있었다 (§14). 얇은 한 줄로 줄인다 -->
+    <p class="voice-facts">
+      <span><i>목표</i>${clockSec(fbTargetSec)}</span>
+      <span><i>내가 쓴 시간</i>${clockSec(fbActualSec)}${fbDiff ? `<em>${escapeHtml(fbDiff)}</em>` : ''}</span>
+      <span${fbSpeed ? ` title="평균 ${fbSpeed.cpm}자/분 · 권장 ${escapeHtml(String(st.rec))}자/분"` : ''}><i>전체 말 속도</i>${
+        fbSpeed ? `${escapeHtml(fbSpeed.label)}<em>${escapeHtml(fbSpeed.tip)}</em>` : '측정 못 했어요'}</span>
+      <span title="${st.max}자/분"><i>가장 빨랐던 구간</i>${escapeHtml(paceRatioWord(st.max, st.avg))}<em>${escapeHtml(String(st.maxSeg))}</em></span>
+    </p>
     <div class="card">
-      <h3 class="section-title">구간별 말 속도<span class="soft">점선이 내 평균이에요</span></h3>
+      <h3 class="section-title">구간별 말 속도<span class="soft">점선이 내 평소 속도예요</span></h3>
       <div class="pace-rows">
-        <span class="pace-base" style="left:calc(122px + (100% - 226px) * ${ratio.toFixed(3)})"><em>내 평균 ${st.avg}</em></span>
+        <span class="pace-base" style="left:calc(122px + (100% - 226px) * ${ratio.toFixed(3)})"><em>내 평소 속도</em></span>
         ${rows.map(r => `
         <div class="pace-row ${r[3] ? 'fast' : ''}">
           <span class="nm">${escapeHtml(String(r[0]))}</span>
           <div class="fill-bar"><i class="${r[3] ? 'red' : ''}" data-w="${(r[2] / MAX * 100).toFixed(1)}%"></i></div>
-          <span class="vl">${r[2]}자/분${r[3] ? ' · 빠름' : (r[4] ? ' · 느림' : '')}</span>
+          <!-- 「430자/분」이 아니라 「평소의 1.3배 · 빠름」이다. 자/분은 title 로 남긴다 -->
+          <span class="vl" title="${r[2]}자/분">${escapeHtml(paceRatioWord(r[2], st.avg))}</span>
         </div>`).join('')}
       </div>
       <p class="note" style="margin-top:14px">${note}</p>
     </div>
+    <div id="dlvAud"></div>
 `;
 }
 

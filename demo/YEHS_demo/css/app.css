@@ -1982,20 +1982,53 @@ table.plain tr:last-child td { border-bottom: 0; }
 /* 내가 한 발표가 주인공이다 — 이상적인 배분은 대조군이라 한 단계 낮춘다 */
 .tsplit-row.is-mine .tsplit-lb { color: var(--text); font-weight: 700; }
 .tsplit-bar { display: flex; height: 30px; border-radius: 9px; overflow: hidden; background: var(--fill); }
-.tsplit-row.is-mine .tsplit-bar { height: 42px; border-radius: 11px; }
+/* 47px — 퍼센트와 실제 시간 두 줄이 들어가는 최소 높이이자, 위 30px 대조군보다
+   확실히 무거워 보이는 높이다. 실제 데이터가 주인공이라는 걸 크기로 말한다 */
+.tsplit-row.is-mine .tsplit-bar { height: 47px; border-radius: 11px; }
 .tsplit-seg {
-  display: flex; align-items: center; justify-content: center;
-  min-width: 0; background: var(--c);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; min-width: 0; background: var(--c);
   transition: width .7s cubic-bezier(.22, .61, .36, 1);
 }
 /* 글자색은 칸이 들고 온다 — 옅은 칸에 흰 글씨를 얹으면 %가 안 읽힌다 */
 .tsplit-seg b { font-size: 11px; font-weight: 700; color: var(--tc, #fff); letter-spacing: -.02em; }
+/* 실제 시간. 퍼센트보다 한 단계 작고 옅다 — 둘이 같은 무게면 어느 쪽이 답인지 흐려진다 */
+.tsplit-seg i {
+  font-size: 10px; font-style: normal; font-weight: 600; letter-spacing: -.02em;
+  color: var(--tc, #fff); opacity: .78; font-variant-numeric: tabular-nums;
+}
 /* 단색 계조라 칸 경계가 인접색끼리 붙어 보인다. 머리카락만큼만 띄운다 */
 .tsplit-seg + .tsplit-seg { box-shadow: inset 1px 0 0 rgba(255, 255, 255, .5); }
 .tsplit-row.is-mine .tsplit-seg b { font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .tsplit-seg { transition: none; } }
+/* 범례의 «몇 %p 어긋났나» 배지. 숫자는 tabular 로 세로줄을 맞춘다 */
+.tsplit-legend em {
+  font-style: normal; font-weight: 700; font-size: 11px; color: var(--text-3);
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
 .tsplit-say { margin-top: 14px; }
 .tsplit-say b { color: var(--text); font-weight: 700; }
+
+/* ── 총 발표 길이 (두 100% 막대가 말하지 못하는 총량) ── */
+.tsplit-total { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.tst-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tst-lb { font-size: 12px; font-weight: 600; color: var(--text-3); }
+.tst-nums { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tst-nums b { color: var(--text); font-weight: 700; }
+.tst-nums em { font-style: normal; font-weight: 700; margin-left: 8px; }
+.tst-nums em.over { color: var(--mid); }
+.tst-nums em.under { color: var(--text-2); }
+.tst-track {
+  position: relative; height: 10px; margin-top: 9px;
+  border-radius: var(--r-pill); background: var(--fill); overflow: hidden;
+}
+.tst-fill { display: block; height: 100%; border-radius: var(--r-pill); background: var(--brand); }
+/* 목표 위치 눈금. 채움 위에 얹어야 «넘었나 못 미쳤나» 가 한눈에 읽힌다 */
+.tst-mark {
+  position: absolute; top: -2px; bottom: -2px; width: 2px;
+  background: var(--text); border-radius: 1px; transform: translateX(-1px);
+}
+@media (prefers-reduced-motion: reduce) { .tst-fill { transition: none; } }
 .deck-film { display: flex; gap: 8px; overflow-x: auto; padding: 16px 2px 6px; scrollbar-width: thin; }
 /* 필름은 키보드로 드나드는 자리다 — 초점이 어디 있는지 보여야 한다 */
 .deck-film .slidethumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
