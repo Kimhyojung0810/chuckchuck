@@ -79,6 +79,9 @@ main > .verdict:first-child { margin-top: -24px; }
   display: block; font-size: var(--t-display); font-weight: 700;
   line-height: 1.33;
 }
+/* 등급(B+)은 100점 숫자보다 훨씬 커야 한다 — 헤드에서 가장 먼저, 가장 크게
+   읽히는 게 결론이어야 한다. 글자 둘뿐이라 이 폭(clamp 150~220px)에도 넉넉하다. */
+.verdict-score strong.grade { font-size: clamp(56px, 9vw, 90px); line-height: 1.1; }
 .verdict-score .of { color: #7FB3A2; font-size: 15px; font-weight: 600; margin-left: 4px; letter-spacing: -.02em; }
 
 /* 숫자 옆에 앉는 발표새. 숫자를 대체하지 않고 옆에 선다 — 박수는 숫자의 앞에
@@ -94,8 +97,9 @@ main > .verdict:first-child { margin-top: -24px; }
 .verdict-score .prev { display: block; margin-top: 10px; color: #7FB3A2; font-size: 12px; font-weight: 500; }
 
 .verdict-judgement h2 {
-  /* TDS Typography3 = 22/31 → 1.4 */
-  margin: 0; font-size: var(--t-title); font-weight: 600;
+  /* 등급(B+)이 헤드의 주인공이 된 뒤로, 이 한 줄은 결론이 아니라 단서다 —
+     TDS Typography3(22px) 대신 한 단계 낮춘다 (2026-08-12 지적) */
+  margin: 0; font-size: 18px; font-weight: 600;
   line-height: 1.4; max-width: 34ch;
 }
 /* 단서는 작게, 한 줄에 하나씩. 헤드에 이어 붙이면 큰 글씨 벽이 된다 */
@@ -158,7 +162,7 @@ main > .verdict:first-child { margin-top: -24px; }
 .vd-rest .vd {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center; gap: 10px;
-  width: 100%; margin: 0; padding: 11px 2px;
+  width: 100%; margin: 0; padding: 14px 2px;
   border: 0; border-top: 1px solid rgba(255, 255, 255, .1);
   background: none; color: inherit; font: inherit; text-align: left;
   border-radius: 8px;
@@ -167,13 +171,18 @@ main > .verdict:first-child { margin-top: -24px; }
 .vd-rest button.vd { cursor: pointer; transition: background .12s ease; }
 .vd-rest button.vd:hover { background: rgba(255, 255, 255, .07); }
 .vd-rest button.vd:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
-.vd-rest .vd .lb { font-size: 13px; }
+/* 다크 면 위 민트(#9FC9B6, ~4.6:1)는 톤이 배경과 가까워 체감 대비가 낮다 —
+   흰색에 가깝게 올려 가독성을 확보한다 (2026-08-12 지적: "글자 잘 안 보여요") */
+.vd-rest .vd .lb { font-size: 16px; color: #E9F7EF; }
 .vd-rest .vd .vl {
   text-align: right; color: #fff;
-  font-size: 16px; font-weight: 700; letter-spacing: -.02em;
+  font-size: 19px; font-weight: 700; letter-spacing: -.02em;
 }
 /* 「누르면 더 있다」는 신호. 값과 붙어 다녀야 한 줄로 읽힌다 */
-.vd-rest .vd-go { color: #5E9683; font-size: 16px; line-height: 1; }
+.vd-rest .vd-go { color: #5E9683; font-size: 18px; line-height: 1; }
+/* 점수 뒤 /100 — 값과 같은 줄이지만 주인공은 아니다. em 기준이라 기둥의
+   큰 숫자(30px)와 나머지 목록(19px) 어디에 붙어도 알맞게 작아진다. */
+.verdict-dims .vl .of { font-size: .55em; font-weight: 600; opacity: .6; margin-left: 3px; }
 
 /* ── 채점 근거·못 잰 항목 ──────────────────────────────────────────────
    결론이 아니라 단서다. 예전엔 「채점표 v3 · 학교 프로젝트(교수 대상)」가 점수

@@ -688,7 +688,7 @@
   .verdict-score .vs-body { padding-top: 10px; }
   .verdict-score strong { font-size: 30px; }
   .verdict-score .prev { margin-top: 6px; }
-  .verdict-judgement h2 { font-size: 19px; }
+  .verdict-judgement h2 { font-size: 17px; }
   .verdict-dims { margin-top: 12px; }
   /* 채점 항목이 7개다. 기본 flex-basis 로는 6 + 1 로 접혀 마지막 항목만
      전체 폭을 차지한다 — 가로형에서는 한 줄에 나란히 세운다 */

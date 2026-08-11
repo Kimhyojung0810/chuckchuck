@@ -53,9 +53,12 @@ function g3dAttachLabels(stage, g, nodes, compact) {
   const els = named.map((n) => {
     const el = document.createElement('span');
     el.className = 'g3d-label';
-    // 판정 점 + 이름 + 말한 정도 막대. 이름만 있으면 「무슨 개념이 있다」까지만
-    // 읽히고, 이 발표에서 그 개념이 어떻게 됐는지는 공 색을 눈으로 되짚어야 한다.
+    /* 판정 점 + 이름 + 비중 막대(금색) + 말한 정도 막대(초록). 공 크기로 비중을
+       주긴 하지만 3D 는 원근·겹침 때문에 «어느 게 더 큰가」가 눈으로 잘 안
+       잡힌다 (2026-08-12 사용자: 가중치 구분이 안 된다) — 이름표에 숫자 그대로
+       막대를 하나 더 그려서 크기에 의존하지 않고도 비중이 바로 읽히게 한다. */
     el.innerHTML = `<i style="background:${n.dot || n.color}"></i>${escapeHtml(n.label)}`
+      + `<em style="--wt:${Math.round((n.weight || 0) * 100)}%" title="자료가 실은 비중"></em>`
       + (n.verdict ? `<b style="--sp:${Math.round((n.speech || 0) * 100)}%"></b>` : '');
     layer.appendChild(el);
     return el;
@@ -90,13 +93,32 @@ function g3dAttachLabels(stage, g, nodes, compact) {
   };
 }
 
-/** 지금 세션의 그래프·정합. 없으면 null — 없는 그래프를 지어내지 않는다. */
+/**
+ * 지금 세션의 그래프·정합. 없으면 null — 없는 그래프를 지어내지 않는다.
+ *
+ * 예외: **쇼케이스 모드에서는 예외다.** #/graph 는 부스에서 주소를 직접 쳐서
+ * 들어가는 화면이라(§2 사이드바 주석), #/new 연습을 한 번도 안 돌린 첫 방문
+ * 이면 pipelineOut 이 비어 있다 — 그러면 그냥 빈 화면이 뜬다(2026-08-12 실측:
+ * "아직 보여줄 개념 그래프가 없어요"). SHOWCASE_DEMO 는 애초에 리포트·질문
+ * 코칭도 전부 이 더미로 고정해서 보여주므로(app.js showcasePipelineStub), 여기도
+ * 같은 더미를 쓰는 게 "없는 그래프를 지어내는" 게 아니라 이미 켜진 쇼케이스를
+ * 이 화면에도 켜는 것이다.
+ */
 function graph3dSource() {
   const src = (typeof nf !== 'undefined' && nf && nf.pipelineOut)
     ? nf : (loadSession('new-flow') || {});
   const out = src.pipelineOut || null;
-  if (!out || !out.graph || !Array.isArray(out.graph.nodes) || !out.graph.nodes.length) return null;
-  return { graph: out.graph, alignment: out.alignment || null };
+  if (out && out.graph && Array.isArray(out.graph.nodes) && out.graph.nodes.length) {
+    return { graph: out.graph, alignment: out.alignment || null };
+  }
+  if (typeof isShowcaseDemo === 'function' && isShowcaseDemo()
+    && typeof showcasePipelineStub === 'function') {
+    const stub = showcasePipelineStub();
+    if (stub && stub.graph && Array.isArray(stub.graph.nodes) && stub.graph.nodes.length) {
+      return { graph: stub.graph, alignment: stub.alignment || null };
+    }
+  }
+  return null;
 }
 
 /**
@@ -191,9 +213,11 @@ function g3dRgba(hex, alpha) {
  */
 function g3dStrength(verdict, speech) {
   if (verdict === 'missing' || verdict === 'contradiction') return 0.95;
-  if (verdict === 'aligned') return 0.20 + Math.max(0, Math.min(1, speech || 0)) * 0.25;
-  if (verdict === 'justified_skip') return 0.16;
-  return 0.14;   // 판정 전
+  // 바닥을 너무 낮게 두면 큰 공도 크림 배경에 묻혀 «크기(=비중)」가 안 읽힌다
+  // (2026-08-12 사용자: 가중치 구분이 안 된다). 실루엣이 살 만큼만 올린다.
+  if (verdict === 'aligned') return 0.34 + Math.max(0, Math.min(1, speech || 0)) * 0.32;
+  if (verdict === 'justified_skip') return 0.30;
+  return 0.28;   // 판정 전
 }
 
 /**
@@ -357,7 +381,7 @@ function renderGraph3D() {
       <div class="g3d-legend">
         <span><i style="background:${g3dRgba(g3dColor('--brand', '#08B879'), 0.4)}"></i>자기 말로 설명했어요</span>
         <span><i style="background:${g3dColor('--no', '#DC2626')}"></i>아직 못 했거나 다르게 말했어요</span>
-        <span class="g3d-hint">크기는 자료가 실은 비중이에요 · 이름표 앞의 점이 판정 네 가지를 나눠요 · 개념을 누르면 이어진 것만 남아요</span>
+        <span class="g3d-hint">공 크기와 이름표의 금색 막대가 자료가 실은 비중이에요 · 초록 막대는 실제로 말한 정도예요 · 점이 판정 네 가지를 나눠요 · 개념을 누르면 이어진 것만 남아요</span>
       </div>
       <aside class="g3d-card" id="g3dCard" hidden></aside>
     </div>`;
@@ -397,10 +421,13 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
        조용히 아무 일도 안 했다 (실측: 5초 동안 이름표가 0.7px 움직였다). */
     const g = ForceGraph3D({ controlType: 'orbit' })(stage)
       .graphData(data)
-      /* 앱의 크림 면 그대로. 처음엔 「무대」라고 어두운 딥그린을 깔았는데, 밝은
-         화면 한가운데 검은 판이 박혀서 화면을 뚫어 놓은 것처럼 보였다
-         (2026-08-10 사용자). 판정 5색은 밝은 면에서 오히려 더 또렷하다. */
-      .backgroundColor(g3dColor('--canvas', '#FFFDF7'))
+      /* 캔버스는 투명하게 두고, 무대의 실제 면은 CSS 비네트(g3d-stage 배경)가
+         맡는다. 처음엔 어두운 딥그린을 깔았는데, 밝은 화면 한가운데 검은
+         판이 박혀서 화면을 뚫어 놓은 것처럼 보였다 (2026-08-10 사용자).
+         평평한 단색만 깔면 「무대」가 어디서 시작하고 끝나는지 안 보인다
+         (2026-08-12 사용자: 배경이 뭔지 모르겠다) — CSS 쪽에서 중심이 밝고
+         가장자리가 살짝 짙어지는 결을 준다. 판정 5색은 밝은 면에서 더 또렷하다. */
+      .backgroundColor('rgba(0,0,0,0)')
       .showNavInfo(false)
       /* 위계는 **우리가 직접 층으로 세운다** (아래 fy 고정 참고).
          라이브러리의 dagMode 를 먼저 써 봤는데 relates 간선이 순환을 만들어
@@ -410,27 +437,32 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
       .nodeColor((n) => (focusId && n.id !== focusId && !g3dKinOf(data, focusId).has(n.id)
         ? g3dFade(n.color) : n.color))
       // 자료가 힘을 실은 개념일수록 크다. weight 는 0~1 이라 그대로 쓰면 다 비슷해진다.
-      /* weight 를 넓게 벌린다. 1~15 로는 눈이 차이를 못 잡아 다 비슷한 공이 됐다.
-         부피는 반지름의 세제곱이라 nodeVal 을 크게 벌려야 지름이 눈에 띈다. */
-      .nodeVal((n) => 2 + Math.pow(n.weight, 1.4) * 60)
-      .nodeOpacity(0.92)
-      .nodeResolution(16)
-      // 밝은 면이라 선은 흰색이 아니라 딥그린 계열로 어둡게 — 흰 선은 안 보인다
+      /* weight 를 넓게 벌린다. 1.4·60 으로는 가장 무거운 것과 가장 가벼운 것의
+         지름 차이가 1.8배 정도라 눈으로 «이게 더 무겁다」를 못 잡았다
+         (2026-08-12 사용자: 가중치 구분이 안 된다). 지수·배율을 올려 지름
+         차이를 2배 이상으로 벌린다 — 부피는 반지름의 세제곱이라 nodeVal 은
+         그보다 훨씬 크게 벌려야 한다. */
+      .nodeVal((n) => 3 + Math.pow(n.weight, 1.8) * 140)
+      .nodeOpacity(0.95)
+      .nodeResolution(28)
+      /* 밝은 면이라 선은 흰색이 아니라 딥그린 계열로 어둡게 — 흰 선은 안 보인다.
+         .28/.52 로는 실제로 화면에서 거의 안 보였다(2026-08-12 사용자: 선이
+         잘 안 보인대) — 진하기를 크게 올린다. */
       .linkColor((l) => {
         const on = !focusId || g3dLinkTouches(l, focusId);
-        if (!on) return 'rgba(21,92,70,.06)';
-        return l.kind === 'relates' ? 'rgba(21,92,70,.28)' : 'rgba(21,92,70,.52)';
+        if (!on) return 'rgba(21,92,70,.08)';
+        return l.kind === 'relates' ? 'rgba(21,92,70,.45)' : 'rgba(21,92,70,.75)';
       })
       /* 연결이 주인공이다. 가늘고 흐린 선은 「점들이 떠 있다」로 읽힌다 —
          relates 까지 또렷하게 그려야 «얽혀 있다» 가 보인다. */
       .linkWidth((l) => {
-        const w = l.kind === 'relates' ? 0.9 : 1.8;
+        const w = l.kind === 'relates' ? 1.6 : 2.8;
         return (focusId && g3dLinkTouches(l, focusId)) ? w * 2.2 : w;
       })
       // parent 간선에만 입자를 흘린다 — 자료의 뼈대가 어디로 흐르는지가 보인다
       // 입자는 모든 연결에 흘린다. 멈춰 있는 선은 그림이고, 흐르는 선은 관계다.
       .linkDirectionalParticles(2)
-      .linkDirectionalParticleWidth(1.6)
+      .linkDirectionalParticleWidth(2.4)
       .linkDirectionalParticleSpeed(0.006)
       .onNodeClick((n) => {
         /* 누른 개념과 **이어진 것만** 남기고 나머지를 죽인다. 이 화면이 하려는

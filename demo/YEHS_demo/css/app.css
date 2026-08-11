@@ -199,11 +199,10 @@ main.narrow { max-width: 640px; }
 /* 키보드로 탐색할 때 지금 어디인지 보여야 한다. 예전엔 일부 버튼에만 있었다 */
 .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .btn-primary {
-  background: linear-gradient(180deg, #13965c 0%, var(--accent) 58%, #087647 100%);
+  background: var(--accent);
   color: #fff;
-  box-shadow: 0 5px 14px rgba(12, 137, 81, .18), inset 0 1px rgba(255, 255, 255, .2);
 }
-.btn-primary:hover { background: linear-gradient(180deg, #118e57 0%, var(--accent-strong) 100%); box-shadow: 0 7px 18px rgba(12, 137, 81, .24); }
+.btn-primary:hover { background: var(--accent-strong); }
 .btn-primary:disabled { background: #E3EDE6; color: var(--text-3); cursor: not-allowed; transform: none; }
 .btn-secondary { background: var(--fill); color: var(--text); }
 .btn-secondary:hover { background: #E2EFE7; }
@@ -294,7 +293,7 @@ main.narrow { max-width: 640px; }
 .time-presets button.on:hover { background: var(--brand-strong); }
 .time-presets button:active { transform: scale(.94); }
 /* 주 버튼은 눌리는 게 손끝에 잡혀야 한다 */
-.btn-primary { transition: transform .12s var(--ease), background .15s ease, box-shadow .15s ease; }
+.btn-primary { transition: transform .12s var(--ease), background .15s ease; }
 .btn-primary:active { transform: scale(.985); }
 
 /* ── 채움 바 (애니메이션 공용) ── */
@@ -409,18 +408,6 @@ main.narrow { max-width: 640px; }
   color: var(--text-2); font-size: var(--t-body); line-height: 1.65;
 }
 .dz-or { color: var(--text-3); font-size: var(--t-meta); line-height: 1.5; }
-.sample-demo-entry {
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-  width: min(100%, 360px);
-  margin-top: 14px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
-}
-.sample-demo-entry .btn { width: 100%; min-height: 48px; background: linear-gradient(145deg, #f4faf7, #e8f5ee); }
-.sample-demo-entry small { max-width: 34ch; color: var(--text-3); font-size: 11px; line-height: 1.5; text-align: center; }
-.sample-demo-badge { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
 .sample-analysis-note {
   margin: 0 0 16px;
   padding: 12px 14px;
@@ -899,7 +886,7 @@ details.fold .fold-body { padding: 0 24px 20px; }
   background: var(--surface); border-radius: var(--r-card);
   box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 14px;
 }
-.tab-verdict h2 { font-size: 18px; font-weight: var(--w-bold); letter-spacing: -.3px; margin: 0 0 6px; }
+.tab-verdict h2 { font-size: 16px; font-weight: var(--w-bold); letter-spacing: -.3px; margin: 0 0 6px; }
 .tab-verdict .tv-action { font-size: 14px; color: var(--text-2); line-height: 1.6; margin: 0; }
 .tab-verdict .bubble { margin-top: 12px; }
 .mini-row { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-radius: var(--r-ctl); font-size: 14px; cursor: pointer; }
@@ -1537,10 +1524,10 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .live-tip { display: block; margin-top: 9px; font-size: 12px; color: var(--text-3); }
 .qa-speak { min-width: 160px; }
 /* 회색 캔버스 위 버튼은 흰 배경 + 테두리로 분리 */
-.qa-live .btn-secondary { background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--border); }
+.qa-live .btn-secondary { background: var(--surface); border: 1px solid var(--border); }
 .qa-live .btn-secondary:hover { background: #F0F2F4; }
 .trap-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.trap-choices .btn { height: 54px; background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--border); font-weight: 600; }
+.trap-choices .btn { height: 54px; background: var(--surface); border: 1px solid var(--border); font-weight: 600; }
 .trap-choices .btn:hover { background: var(--accent-weak); color: var(--accent-strong); border-color: var(--accent-weak); }
 
 /* ── QA 시간 모드 선택 ── */
@@ -3018,6 +3005,10 @@ table.plain tr:last-child td { border-bottom: 0; }
 .filler-row:first-child { border-top: 0; }
 .filler-row span { font-size: 15px; font-weight: 600; color: var(--text); }
 .filler-row b { font-size: 15px; font-weight: 700; color: var(--text-2); }
+/* 태그(간투어·반복)를 <i> 기울임으로 구분하던 것을 걷는다 — 이탤릭이 아니라
+   구분선(|)으로 나눈다 (2026-08-12 지적: "기울기 말고 구분되게") */
+.filler-row .ftag { font-size: 13px; font-weight: 600; font-style: normal; color: var(--text-3); }
+.filler-row .fsep { margin: 0 7px; color: var(--border); font-weight: 400; }
 
 /* ── 필름: 컬러 테두리 23개 → 중립 테두리 + 모서리 점 ──────────────────
    저마다 2px 컬러 테두리를 두르고 있었다. 정보는 맞지만 비슷한 크기의 그래픽

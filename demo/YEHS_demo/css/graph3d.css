@@ -13,36 +13,59 @@
 
 .g3d-top {
   display: flex; align-items: center; gap: 18px;
-  padding: 14px 20px; flex: 0 0 auto;
+  padding: 16px 22px; flex: 0 0 auto;
 }
 .g3d-back {
-  color: var(--text-3, #5b6b64); font-size: 13px; font-weight: 600; text-decoration: none;
+  color: var(--text-3, #5b6b64); font-size: 14px; font-weight: 600; text-decoration: none;
   padding: 6px 10px; border-radius: var(--r-ctl, 12px);
 }
 .g3d-back:hover { background: var(--accent-weak, #E9F7EF); }
-.g3d-title b { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
-.g3d-title span { display: block; margin-top: 2px; font-size: 12px; color: var(--text-3, #5b6b64); font-weight: 500; }
+/* 위 설명 글씨가 개미만하다는 지적(2026-08-12 사용자) — 제목·부제를 눈에 띄게 키운다 */
+.g3d-title b { display: block; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.g3d-title span { display: block; margin-top: 3px; font-size: 14px; color: var(--text-2, #38493f); font-weight: 500; }
 
-/* 무대. 남는 높이를 전부 먹는다 — 3D 는 좁으면 아무것도 안 보인다 */
-.g3d-stage { flex: 1 1 auto; min-height: 0; position: relative; }
+/* 무대. 남는 높이를 전부 먹는다 — 3D 는 좁으면 아무것도 안 보인다.
+   캔버스는 투명해서(js/graph3d.js backgroundColor) 이 결이 그대로 비친다 —
+   평평한 단색 하나만 있으면 무대가 어디서 시작·끝나는지 안 보인다는 지적
+   (2026-08-12 사용자: 배경이 뭔지 모르겠다) 때문에 중심이 밝고 가장자리가
+   살짝 짙어지는 비네트를 준다. */
+.g3d-stage {
+  flex: 1 1 auto; min-height: 0; position: relative;
+  background: radial-gradient(ellipse 80% 70% at 50% 42%,
+    var(--canvas, #FFFDF7) 0%, #F2ECDC 55%, #E7DFC7 100%);
+}
 .g3d-stage canvas { display: block; }
 /* 노드 이름표. 캔버스 위에 HTML 로 얹는다 (js/graph3d.js g3dAttachLabels).
    pointer-events 를 끄는 게 중요하다 — 안 그러면 이름표가 노드 클릭을 가로채
    「눌러도 아무 일도 안 일어나는」 그래프가 된다. */
 .g3d-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* 11.5px 이름표는 3D 무대에서 개미만했다는 지적 — 카드처럼 눈에 확 들어오게
+   키우고, 그림자를 얹어 배경(비네트·다른 선)과 겹쳐도 또렷하게 뜬다. */
 .g3d-label {
   position: absolute; top: 0; left: 0; will-change: transform;
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 2px 7px; border-radius: 999px;
-  background: rgba(255, 253, 247, .92); border: 1px solid var(--line, #D5E2DA);
-  color: var(--text, #10201a); font-size: 11.5px; font-weight: 700; letter-spacing: -.01em;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px;
+  background: rgba(255, 253, 247, .96); border: 1.5px solid var(--line, #D5E2DA);
+  box-shadow: 0 3px 10px rgba(16, 32, 26, .16);
+  color: var(--text, #10201a); font-size: 14px; font-weight: 700; letter-spacing: -.01em;
   white-space: nowrap; transition: opacity .2s;
 }
 /* 판정 점 — 공 색을 눈으로 되짚지 않아도 이름 옆에서 바로 읽힌다 */
-.g3d-label i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
-/* 말한 정도 막대. 채워진 만큼이 speech_weight 다 — 없는 값은 아예 안 그린다 */
+.g3d-label i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+/* 비중 막대(금색) — 공 크기만으로는 3D 원근 때문에 «어느 게 더 큰가」가 잘 안
+   읽힌다는 지적(2026-08-12 사용자: 가중치 구분이 안 된다). 숫자를 그대로
+   막대로 얹어 크기에 의존하지 않고 비중이 바로 보이게 한다. */
+.g3d-label em {
+  position: relative; width: 24px; height: 5px; border-radius: 2px; flex: none;
+  background: rgba(120, 96, 15, .16);
+}
+.g3d-label em::after {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: var(--wt, 0%);
+  border-radius: 2px; background: linear-gradient(90deg, #E8AC1E, #C6860A);
+}
+/* 말한 정도 막대(초록). 채워진 만큼이 speech_weight 다 — 없는 값은 아예 안 그린다 */
 .g3d-label b {
-  position: relative; width: 22px; height: 3px; border-radius: 2px; flex: none;
+  position: relative; width: 24px; height: 5px; border-radius: 2px; flex: none;
   background: rgba(21, 92, 70, .16);
 }
 .g3d-label b::after {
@@ -50,9 +73,10 @@
   border-radius: 2px; background: var(--brand, #08B879);
 }
 
-/* 무대가 말하는 한 줄 요약 — 그림만 두면 「그래프가 있다」로 끝난다 */
-.g3d-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 20px 4px; font-size: 12px; }
-.g3d-k { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+/* 무대가 말하는 한 줄 요약 — 그림만 두면 「그래프가 있다」로 끝난다.
+   12px 는 개미만하다는 지적 대상이라 함께 키운다. */
+.g3d-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 0 22px 6px; font-size: 14px; }
+.g3d-k { padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
 .g3d-k.ok { background: var(--ok-bg); color: var(--ok); }
 .g3d-k.no { background: var(--no-bg); color: var(--no); }
 .g3d-k.ct { background: var(--ct-bg); color: var(--ct); }
@@ -68,21 +92,24 @@
 .rep-graph .g3d-k.no { background: var(--no-bg); color: var(--no); }
 .rep-graph .g3d-k.ct { background: var(--ct-bg); color: var(--ct); }
 .rep-graph .g3d-k.om { background: var(--om-bg); color: var(--om); }
-.g3d-labels.is-compact .g3d-label { font-size: 10.5px; padding: 1px 5px; }
+.g3d-labels.is-compact .g3d-label { font-size: 12.5px; padding: 3px 8px; }
+.g3d-labels.is-compact .g3d-label em,
+.g3d-labels.is-compact .g3d-label b { width: 18px; height: 4px; }
 
 .g3d-loading {
   position: absolute; inset: 0; margin: 0;
   display: flex; align-items: center; justify-content: center;
-  color: var(--text-3, #5b6b64); font-size: 13px; font-weight: 600;
+  color: var(--text-3, #5b6b64); font-size: 14px; font-weight: 600;
 }
 
+/* 범례도 위 요약과 같은 지적을 받았다 — 12px → 14px, 점도 눈에 띄게 키운다 */
 .g3d-legend {
-  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
-  padding: 12px 20px 16px; font-size: 12px; font-weight: 600; color: var(--text-2, #38493f);
+  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+  padding: 14px 22px 18px; font-size: 14px; font-weight: 600; color: var(--text-2, #38493f);
 }
-.g3d-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.g3d-legend i { width: 9px; height: 9px; border-radius: 50%; }
-.g3d-hint { color: var(--text-3, #5b6b64); font-weight: 500; }
+.g3d-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.g3d-legend i { width: 11px; height: 11px; border-radius: 50%; }
+.g3d-hint { color: var(--text-3, #5b6b64); font-weight: 500; font-size: 13px; }
 
 /* 개념 카드. 무대를 가리지 않게 오른쪽에 붙이고, 좁은 화면에서는 아래로 내린다 */
 .g3d-card {
@@ -93,11 +120,11 @@
   backdrop-filter: blur(8px);
 }
 .g3d-card[hidden] { display: none; }
-.g3d-card h3 { margin: 2px 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
-.g3d-verdict { font-size: 11px; font-weight: 700; }
-.g3d-sum { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: var(--text-2, #38493f); word-break: keep-all; }
-.g3d-note { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--text-3, #5b6b64); word-break: keep-all; }
-.g3d-slides { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--text-3, #5b6b64); }
+.g3d-card h3 { margin: 2px 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.g3d-verdict { font-size: 13px; font-weight: 700; }
+.g3d-sum { margin: 0 0 8px; font-size: 14.5px; line-height: 1.55; color: var(--text-2, #38493f); word-break: keep-all; }
+.g3d-note { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--text-3, #5b6b64); word-break: keep-all; }
+.g3d-slides { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--text-3, #5b6b64); }
 .g3d-close {
   position: absolute; right: 10px; top: 10px; width: 26px; height: 26px;
   border: 0; border-radius: 50%; cursor: pointer;
@@ -111,7 +138,9 @@
    부모 높이를 못 물려받는다. */
 .rep-graph-stage {
   position: relative; height: 420px; margin-top: 12px;
-  border-radius: var(--r-inner, 16px); overflow: hidden; background: var(--canvas, #FFFDF7);
+  border-radius: var(--r-inner, 16px); overflow: hidden;
+  background: radial-gradient(ellipse 80% 70% at 50% 42%,
+    var(--canvas, #FFFDF7) 0%, #F2ECDC 55%, #E7DFC7 100%);
   border: 1px solid var(--line, #D5E2DA);
 }
 .rep-graph { position: relative; }
@@ -123,7 +152,7 @@
 
 @media (max-width: 720px) {
   .g3d-card { right: 12px; left: 12px; width: auto; top: auto; bottom: 84px; }
-  .g3d-legend { gap: 10px; font-size: 11px; }
+  .g3d-legend { gap: 12px; font-size: 12.5px; }
 }
 
 /* 이웃 강조. 누른 개념과 이어진 것만 남기고 나머지는 죽인다 — 지우지 않고

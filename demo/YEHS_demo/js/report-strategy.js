@@ -120,7 +120,9 @@ window.ReportStrategy = (function () {
 
   // ── 화면 ─────────────────────────────────────────────────────────────
 
-  /** 슬라이드 번호 묶음을 'S01-S04' 처럼 이어 붙인다. 흩어져 있으면 쉼표로. */
+  /** 슬라이드 번호 묶음을 '3번 슬라이드'·'3-4번 슬라이드' 처럼 이어 붙인다.
+   *  흩어져 있으면 쉼표로 (2026-08-12: 'S03' 코드명 대신 화면 어디서나 쓰는
+   *  「N번 슬라이드」 표기로 통일). */
   function slideRange(nos) {
     if (!nos || !nos.length) return '';
     const sorted = [...nos].sort((a, b) => a - b);
@@ -130,8 +132,8 @@ window.ReportStrategy = (function () {
       if (last && n === last[1] + 1) last[1] = n;
       else runs.push([n, n]);
     });
-    const pad = n => `S${String(n).padStart(2, '0')}`;
-    return runs.map(([a, b]) => (a === b ? pad(a) : `${pad(a)}-${pad(b)}`)).join(', ');
+    const label = runs.map(([a, b]) => (a === b ? `${a}` : `${a}-${b}`)).join(', ');
+    return `${label}번 슬라이드`;
   }
 
   /** 'M:SS'·'MM:SS' → 초. 그 형식이 아니면 null. */
@@ -180,7 +182,7 @@ window.ReportStrategy = (function () {
           </div>
           <p class="strat-what">${esc(b.what)}</p>
           ${delta ? `<p class="strat-delta">${esc(delta)}</p>` : ''}
-          ${b.add ? `<p class="strat-add"><span>추가</span>${esc(b.add)}</p>` : ''}
+          ${b.add ? `<p class="strat-add"><span>추천</span>${esc(b.add)}</p>` : ''}
         </li>`;
         }).join('')}
       </ol>`;
@@ -203,7 +205,7 @@ window.ReportStrategy = (function () {
     if (!keep || !keep.quote) return '';
     return `
       <div class="strat-keep">
-        <span class="strat-tag">그대로 살릴 문장</span>
+        <span class="strat-tag">이미 스티브 잡스인 문장</span>
         <blockquote>“${esc(keep.quote)}”</blockquote>
         ${keep.at ? `<small>${esc(keep.at)}에 실제로 한 말이에요.</small>` : ''}
       </div>`;
