@@ -644,9 +644,9 @@ function renderHome() {
 
     <section class="h-sec">
       <div class="h-sec-head">
-        <h2>샘플 발표</h2><span>${DATA.sessions.length}건</span>
+        <h2>${isShowcaseDemo() ? '연습 기록' : '샘플 발표'}</h2><span>${DATA.sessions.length}건</span>
       </div>
-      <p class="h-sec-note">열어 보라고 넣어 둔 발표예요. 실제 리포트와 같은 화면이 나와요.</p>
+      ${isShowcaseDemo() ? '' : '<p class="h-sec-note">열어 보라고 넣어 둔 발표예요. 실제 리포트와 같은 화면이 나와요.</p>'}
       <table class="h-table">
         <thead>
           <tr><th>제목</th><th>상황</th><th class="num">장</th><th class="num">완성도</th><th></th></tr>
@@ -654,7 +654,7 @@ function renderHome() {
         <tbody>
           ${DATA.sessions.map(s => `
           <tr tabindex="0" role="link" data-go="#/report/${s.id}">
-            <td class="h-t-title">${escapeHtml(s.title)}<span class="t-tag">샘플</span></td>
+            <td class="h-t-title">${escapeHtml(s.title)}${isShowcaseDemo() ? '' : '<span class="t-tag">샘플</span>'}</td>
             <td class="h-t-occ">${escapeHtml(s.occasion)}</td>
             <td class="num h-t-dim">${s.slides}</td>
             <td class="num h-t-score">${s.score}</td>
@@ -699,7 +699,7 @@ function nextBandHtml() {
         <p>자료에 있는 개념과 실제로 말한 것을 하나씩 대조해서, 설명이 빠진 곳을 짚어줘요.</p>
         <span class="h-start-act">
           <a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>자료 올리기</a>
-          <a class="h-start-alt" href="#/report/sample-investor">샘플 리포트 먼저 보기 →</a>
+          <a class="h-start-alt" href="#/report/sample-investor">${isShowcaseDemo() ? '최근 리포트 보기 →' : '샘플 리포트 먼저 보기 →'}</a>
         </span>
       </section>`;
   }
@@ -829,6 +829,19 @@ function unbindRehearsalNav() {
  * `finish()` 가 `RehearsalRecorder.stop()` 을 타고 트랙까지 놓아 준다
  * (`chuckchuck/sdk/rehearsal-recorder.js`). 결과 Blob 은 버린다 — 버리는 테이크다.
  */
+/* ─── 시연·발표용 쇼케이스 모드 ───────────────────────────────────────────
+   올린 PPT·리허설 녹음은 무대 연출로 그대로 쓰고,
+   분석·질문 코칭·리포트 결과만 DATA 쇼케이스 더미(sample-investor)로 고정한다. */
+const SHOWCASE_DEMO = true;
+const SHOWCASE_REPORT_HASH = '#/report/sample-investor';
+let showcasePipeGen = 0;
+function isShowcaseDemo() {
+  return SHOWCASE_DEMO || !!(nf && nf.showcaseDemo);
+}
+function showcaseReportHref() {
+  return SHOWCASE_REPORT_HASH;
+}
+
 function stopLiveRehearsal() {
   const rt = ccRuntime;
   if (!rt || typeof rt.finish !== 'function') return;
@@ -841,9 +854,11 @@ function stopLiveRehearsal() {
 function resetNf() {
   // 참조를 버리기 전에 멈춘다. 순서가 바뀌면 멈출 대상을 잃는다.
   stopLiveRehearsal();
+  showcasePipeGen += 1;
   nf = { step: 0, gate: null, occ: null, ctx: '', min: 10,
          mic: 'idle', sec: 0, slide: 1, visits: { 1: 1 }, log: [], done: 0, completed: false,
          fileName: '', sparseSlides: [], parseError: null, useSample: false,
+         showcaseDemo: SHOWCASE_DEMO,
          marks: null, uploadedTake: null, pipelineOut: null, pipelineError: null,
          pipelinePhase: null, pipelineDetail: null, pipelineStartedAt: null,
          backstage: [], _pipelineTickStarted: false };
@@ -870,6 +885,315 @@ const NF_STEPS = ['자료 올리기', '발표 정보', '리허설 녹음', '질�
 let parseTimer = null;
 let parseGen = 0; // 취소/중복 요청 구분
 
+/**
+ * 분석 연출(F-11 리빌·스텝4 검증 로그)용 파이프라인 stub.
+ * 리포트 본문은 rSampleMode 가 DATA 를 쓰고, 여기 stub 은 그 직전 화면이
+ * 같은 서사로 보이게 그래프·정합·발화 매핑을 채운다.
+ */
+function showcasePipelineStub() {
+  const titles = DATA.slideTitles || [];
+  const tree = DATA.tree || [];
+  const dur = (DATA.session && DATA.session.durationSec) || nf.sec || 564;
+
+  const verdictOf = (st) => (
+    st === 'ok' ? 'aligned'
+      : st === 'mid' ? 'partial'
+        : st === 'ct' ? 'contradiction'
+          : st === 'om' ? 'justified_skip'
+            : 'missing'
+  );
+  const speechOf = (st, w) => (
+    st === 'ok' ? Math.max(0.55, w)
+      : st === 'mid' ? Math.max(0.18, w * 0.45)
+        : st === 'ct' ? Math.max(0.35, w * 0.6)
+          : 0
+  );
+
+  const nodes = tree.map((t) => ({
+    id: t.id,
+    label: t.label,
+    slide_nos: [slideNumber(t.slide) || 1],
+    summary: t.why || t.label,
+    importance: (t.w || 0) >= 0.8 ? 'core' : 'support',
+    weight: t.w || 0.5,
+    parent_id: t.parent || null,
+    depth: t.depth || 1,
+  }));
+  const idSet = new Set(nodes.map((n) => n.id));
+  const edges = [];
+  tree.forEach((t) => {
+    if (t.parent && idSet.has(t.parent) && idSet.has(t.id)) {
+      edges.push({ from: t.parent, to: t.id, kind: 'parent' });
+    }
+  });
+  // 원인끼리·결론 근거끼리 연결을 조금 더 그려 그래프가 빈약해 보이지 않게
+  const relates = [
+    ['overtrade', 'cost'], ['overtrade', 'rules'], ['timing', 'lossav'],
+    ['lossav', 'concentrate'], ['rules', 'checklist'], ['gap', 'myth'],
+  ];
+  relates.forEach(([a, b]) => {
+    if (idSet.has(a) && idSet.has(b)) edges.push({ from: a, to: b, kind: 'relates' });
+  });
+
+  const items = tree
+    .filter((t) => t.status && t.status !== 'none')
+    .map((t) => {
+      const verdict = verdictOf(t.status);
+      const sw = speechOf(t.status, t.w || 0.5);
+      const first = t.evTime ? (() => {
+        const m = String(t.evTime).match(/^(\d+):(\d+)/);
+        return m ? (+m[1] * 60 + +m[2]) : null;
+      })() : null;
+      return {
+        node_id: t.id,
+        verdict,
+        speech_weight: sw,
+        speech_basis: {
+          speech_sec: Math.round(sw * dur * 0.35),
+          time_share: Math.min(0.95, sw * 0.8),
+          mention_count: verdict === 'missing' ? 0 : (t.status === 'ok' ? 4 : 1),
+          mentioned_slide_count: verdict === 'missing' ? 0 : 1,
+          first_mention_sec: first,
+        },
+        doc_weight: t.w || 0.5,
+        evidence: (t.ev || t.spokeSays || '').replace(/^“|”$/g, ''),
+        note: t.why || '',
+      };
+    });
+
+  const counts = { aligned: 0, partial: 0, missing: 0, contradiction: 0, justified_skip: 0 };
+  items.forEach((i) => { counts[i.verdict] = (counts[i.verdict] || 0) + 1; });
+  // 실 API 와 같게 justified_skip 은 커버리지 분모에서 뺀다.
+  // 언급만(partial)은 절반만 설명한 것으로 센다 — 리포트 mid 와 같은 감각.
+  const scored = items.filter((i) => i.verdict !== 'justified_skip');
+  const alignedW = scored.reduce((s, i) => {
+    if (i.verdict === 'aligned') return s + (i.doc_weight || 0);
+    if (i.verdict === 'partial') return s + (i.doc_weight || 0) * 0.5;
+    return s;
+  }, 0);
+  const totalW = scored.reduce((s, i) => s + (i.doc_weight || 0), 0) || 1;
+
+  const speech_edges = edges
+    .filter((e) => e.kind === 'parent' || e.kind === 'relates')
+    .filter((e) => {
+      const a = items.find((i) => i.node_id === e.from);
+      const b = items.find((i) => i.node_id === e.to);
+      return a && b && a.verdict === 'aligned' && b.verdict === 'aligned';
+    })
+    .slice(0, 6)
+    .map((e) => ({ from: e.from, to: e.to, cue: '발표에서 두 개념을 이어서 설명했어요', in_graph: true }));
+
+  // 슬라이드별 발화 — 리포트 tree 근거를 장에 붙이고,
+  // 4번(복리)은 길게·11번(상위 그룹 비교)은 짧게 잡아 속도 서사와 맞춘다
+  const byNode = {};
+  tree.forEach((t) => {
+    const sn = slideNumber(t.slide) || 0;
+    if (!sn) return;
+    (byNode[sn] || (byNode[sn] = [])).push(t);
+  });
+  const nSlide = Math.max(titles.length, 1);
+  const slideWeight = (no) => {
+    if (no === 4) return 2.15;   // 복리 효과 — 권장의 두 배(~79초)
+    if (no === 11) return 0.96;  // 상위 그룹 비교 — 리포트·타임라인과 같이 ~35초
+    if (no === 1 || no === nSlide) return 0.65;
+    if (no === 3 || no === 6 || no === 13) return 1.15;
+    return 1;
+  };
+  const weights = titles.map((_, i) => slideWeight(i + 1));
+  const wSum = weights.reduce((a, b) => a + b, 0) || 1;
+  let cursor = 0;
+  const by_slide = titles.map((title, i) => {
+    const no = i + 1;
+    const span = (weights[i] / wSum) * dur;
+    const start = Math.round(cursor * 10) / 10;
+    cursor += span;
+    const end = i === nSlide - 1 ? dur : Math.round(cursor * 10) / 10;
+    const nodesHere = byNode[no] || [];
+    /* 누락·생략 노드의 ev 는 코칭 메모라 발화가 아니다. 말한 것만 전사에 넣는다. */
+    const quotes = nodesHere.map((t) => {
+      if (t.status === 'ct') return String(t.spokeSays || '').replace(/^“|”$/g, '').trim();
+      if (t.status === 'ok' || t.status === 'mid') {
+        return String(t.ev || '').replace(/^“|”$/g, '').trim();
+      }
+      return '';
+    }).filter(Boolean);
+    let text;
+    if (quotes.length) text = quotes.join(' ');
+    else if (no === 1) text = `안녕하세요. 오늘은 ${DATA.session.title}에 대해 말씀드리겠습니다.`;
+    else if (no === 2) text = '결론부터 말씀드리면, 격차는 종목 선정이 아니라 행동에서 만들어집니다.';
+    else if (no === 4) text = '연 4.8%p 차이가 10년 뒤에 얼마나 벌어지는지, 복리로 풀어보면… 1년 차엔 48만 원, 그런데 10년 뒤에는…';
+    else if (no === 5) text = '원인은 다섯 가지 행동 요인으로 나뉩니다. 종목 선정은 목록에 없어요.';
+    else if (no === 7) text = '타이밍 실패도 원인 중 하나인데요. 표가 나와 있습니다. 다음으로 넘어갈게요.';
+    else if (no === 11) text = '상위와 하위 그룹을 비교한 표입니다. 다음으로 넘어가겠습니다.';
+    else if (no === 14) text = '무엇을 살까보다, 얼마나 자주 팔까가 결과를 갈랐습니다.';
+    else if (no === nSlide) text = '이상으로 발표를 마치겠습니다. 질문 받겠습니다.';
+    else text = `${title}에 대해 이어서 설명하겠습니다.`;
+    return { slide_no: no, visit: 1, start_sec: start, end_sec: end, text, words: [] };
+  });
+
+  const conceptBySlide = {};
+  tree.forEach((t) => {
+    const sn = slideNumber(t.slide) || 0;
+    if (!sn) return;
+    (conceptBySlide[sn] || (conceptBySlide[sn] = [])).push(t.label);
+  });
+  // slideMainNode 로 보조 매핑
+  Object.entries(DATA.slideMainNode || {}).forEach(([sn, id]) => {
+    const n = tree.find((t) => t.id === id);
+    if (!n) return;
+    const k = +sn;
+    const arr = conceptBySlide[k] || (conceptBySlide[k] = []);
+    if (!arr.includes(n.label)) arr.push(n.label);
+  });
+
+  const full_text = by_slide.map((s) => s.text).join(' ');
+
+  return {
+    graph: {
+      file_name: DATA.session.file || 'showcase.pptx',
+      total_slides: titles.length,
+      model: 'showcase',
+      nodes,
+      edges,
+      sections: [
+        { name: '현황·배경', slide_role: 'intro', slide_nos: [1, 2, 3, 4] },
+        { name: '다섯 원인', slide_role: 'body', slide_nos: [5, 6, 7, 8, 9, 10] },
+        { name: '성공 요인·오해', slide_role: 'body', slide_nos: [11, 12] },
+        { name: '실행·결론', slide_role: 'conclusion', slide_nos: [13, 14, 15] },
+      ],
+    },
+    alignment: {
+      file_name: DATA.session.file || 'showcase.pptx',
+      total_slides: titles.length,
+      model: 'showcase',
+      items,
+      speech_edges,
+      extras: [],
+      summary: {
+        coverage: Math.round((alignedW / totalW) * 100) / 100,
+        rank_correlation: 0.42,
+        edge_coverage: speech_edges.length ? Math.min(0.9, speech_edges.length / Math.max(1, edges.length)) : 0.2,
+        verdict_counts: counts,
+        speech_total_sec: dur,
+      },
+    },
+    flow: {
+      issues: (DATA.logicBreaks || []).filter((b) => !b.good).map((b) => ({
+        type: b.type, from: b.from, to: b.to, note: b.note, evidence: b.ev,
+      })),
+      goods: (DATA.logicBreaks || []).filter((b) => b.good).map((b) => ({
+        type: b.type, from: b.from, to: b.to, note: b.note, evidence: b.ev,
+      })),
+    },
+    transcript: {
+      full_text,
+      duration_sec: dur,
+      provider: 'showcase',
+      marks_match: 'matched',
+      marks_reason: '슬라이드 전환 기록에 맞춰 발화 구간을 나눴어요.',
+      by_slide,
+      words: [],
+    },
+    concepts: {
+      slides: titles.map((title, i) => ({
+        slide_no: i + 1,
+        title,
+        topic: title,
+        concepts: (conceptBySlide[i + 1] || []).slice(0, 4),
+      })),
+    },
+  };
+}
+/** 리허설이 끝난 뒤 짧은 분석 연출 → 질문 코칭으로 넘긴다. 실 LLM 은 부르지 않는다. */
+async function beginShowcasePipeline() {
+  const my = ++showcasePipeGen;
+  nf.showcaseDemo = true;
+  nf._pipelineStarted = true;
+  nf.pipelineError = null;
+  nf.pipelinePhase = 'queued';
+  nf.pipelineDetail = '분석을 준비하고 있어요';
+  nf.pipelineStartedAt = Date.now();
+  nf._pipelineTickStarted = false;
+  nf._stageActual = null;
+  nf._pipelineLog = [];
+  nf.pipelineOut = null;
+  nf.transcriptOk = false;
+  nf.conceptsOk = false;
+  pipelineRunLive = true;
+  /* 필름 스트립·장 제목은 업로드 파싱 값. 없거나 짧으면 쇼케이스 더미 제목을 쓴다 —
+     비어 있으면 리빌 무대가 장 목록 없이 뜬다. */
+  if (!Array.isArray(nf.slideTitles) || nf.slideTitles.length < (DATA.slideTitles || []).length) {
+    nf.slideTitles = (DATA.slideTitles || []).slice();
+  }
+  if (!nf.fileName) nf.fileName = (DATA.session && DATA.session.file) || nf.fileName;
+  buildPipelineMarks({});
+  pushPipelineLog('queued');
+  saveSession('new-flow', nf);
+  refreshStep4IfVisible();
+
+  const phases = [
+    ['stt', '말한 내용을 옮기는 중'],
+    ['stt_done', '받아쓰기 완료'],
+    ['concepts', '핵심 개념을 고르는 중'],
+    ['concepts_done', '개념 추출 완료'],
+    ['graph', '개념 지도를 그리는 중'],
+    ['graph_done', '개념 지도 완료'],
+    ['align', '발화와 자료를 맞춰 보는 중'],
+    ['align_done', '정합 판정 완료'],
+    ['flow', '흐름을 비교하는 중'],
+    ['flow_done', '질문 준비 완료'],
+    ['done', '분석 완료'],
+  ];
+  /* 시연은 실 7분이 아니라 약 12초 연출. 그래프→정합이 너무 빠르면
+     리빌이 막 뜬 순간 이미 끝나 필름·그래프 연출이 안 보인다. */
+  const phaseMs = (phase) => {
+    if (phase === 'stt' || phase === 'concepts' || phase === 'graph') return 1100;
+    if (phase === 'align') return 1400;
+    if (phase === 'flow') return 900;
+    if (phase === 'stt_done' || phase === 'concepts_done') return 700;
+    if (phase === 'graph_done') return 1200;   // 그래프만 먼저 보여 줄 여유
+    if (phase === 'align_done') return 900;
+    return 500;
+  };
+  const stub = showcasePipelineStub();
+  for (const [phase, detail] of phases) {
+    if (my !== showcasePipeGen || !isShowcaseDemo()) return;
+    nf.pipelinePhase = phase;
+    nf.pipelineDetail = detail;
+    if (phase === 'stt_done') {
+      nf.transcriptOk = true;
+      nf.pipelineOut = { ...(nf.pipelineOut || {}), transcript: stub.transcript };
+    }
+    if (phase === 'concepts_done') {
+      nf.conceptsOk = true;
+      nf.pipelineOut = { ...(nf.pipelineOut || {}), concepts: stub.concepts };
+    }
+    if (phase === 'graph_done') {
+      nf.pipelineOut = { ...(nf.pipelineOut || {}), graph: stub.graph };
+    }
+    if (phase === 'align_done') {
+      nf.pipelineOut = { ...(nf.pipelineOut || {}), alignment: stub.alignment, flow: stub.flow };
+    }
+    if (phase === 'flow_done' || phase === 'done') {
+      nf.pipelineOut = { ...stub, ...(nf.pipelineOut || {}), ...stub };
+    }
+    pushBackstage(phase);
+    pushPipelineLog(phase);
+    nf.done = pipelineChecklistDone();
+    refreshStep4IfVisible();
+    saveSession('new-flow', nf);
+    await new Promise((r) => setTimeout(r, phaseMs(phase)));
+  }
+  if (my !== showcasePipeGen) return;
+  nf.pipelinePhase = 'done';
+  nf.pipelineDetail = '분석을 마쳤어요';
+  nf.pipelineOut = stub;
+  pipelineRunLive = false;
+  refreshStep4IfVisible();
+  saveSession('new-flow', nf);
+  autoAdvanceToQa();
+}
+
 /* ─── 선분석: 발표하는 동안 자료를 먼저 읽어 둔다 ────────────────────────────
    F-06 개념 추출(1분43초)과 F-07 개념 그래프(2분40초)는 녹음이 전혀 필요 없다
    (f07_graph.py 는 Transcript 를 아예 받지 않는다). 그런데 예전엔 STT 뒤에 줄을 세워
@@ -894,6 +1218,7 @@ function precomputeKey() {
  * 사용자가 발표 정보를 채우는 순간 버려야 한다.
  */
 function startPrecompute() {
+  if (isShowcaseDemo()) return;                  // 시연은 결과 더미를 쓰므로 선분석을 돌리지 않는다
   const bridge = window.ChuckchuckBridge;
   if (!bridge || typeof bridge.extractConcepts !== 'function') return;
   if (!nfSlideDoc) return;                       // 자료 없이는 F-06 이 돌 게 없다
@@ -1457,7 +1782,7 @@ async function startParse({ file = null, fixture = false } = {}) {
   nf.gate = 'parsing';
   nf.parseError = null;
   nf.useSample = !!fixture || !file;
-  nf.fileName = file ? file.name : '샘플 발표자료';
+  nf.fileName = file ? file.name : '발표자료';
   nf._parseStartedAt = Date.now();
   parsePreview = null;
   nfStep1();
@@ -2145,7 +2470,11 @@ async function finishRecAndPrepare() {
   // 녹음은 여기서 끝났다. 'on' 으로 두면 리허설로 돌아왔을 때 이미 끝난 발표가
   // 「발표 중」 시계로 다시 그려지고, 단계 표시줄도 녹음 중인 줄 알고 잠긴다
   nf.mic = 'idle';
-  await showCurtainCall(slides, (ccLastTake && ccLastTake.durationSec) || nf.sec);
+  /* 시연은 결과 더미가 9분 24초라, 커튼콜에 실제 마이크 초를 쓰면 다음 화면과 어긋난다. */
+  const curtainSec = isShowcaseDemo()
+    ? ((DATA.session && DATA.session.durationSec) || 564)
+    : ((ccLastTake && ccLastTake.durationSec) || nf.sec);
+  await showCurtainCall(slides, curtainSec);
   nf.step = 3;
   renderNew();
   showF11Reveal();
@@ -2351,7 +2680,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qkb" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=showcase2" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -3324,6 +3653,10 @@ function backstageLine(phase) {
     return n ? { who: 'solar', text: `개념 ${n}개 정리 끝!` } : null;
   }
   if (phase === 'align_done') {
+    const cov = out.alignment && out.alignment.summary && out.alignment.summary.coverage;
+    if (typeof cov === 'number') {
+      return { who: 'midm', text: `커버 ${Math.round(cov * 100)}%… 빠진 개념이 있어` };
+    }
     return { who: 'midm', text: '어? 잠깐, 이거…' };
   }
   if (phase === 'score_done') {
@@ -3398,10 +3731,14 @@ function pipelineInspectHtml() {
   const markUnrelated = !!(transcript && transcript.marks_match === 'unrelated');
   const markFallback = `슬라이드 구간은 <b>실제 전환 기록이 아니라 길이를 ${marks.length}등분한 합성값</b>이에요.`;
   const uploadedNote = up
-    ? `<p class="note" style="color:${markUnrelated ? 'var(--no)' : 'var(--mid)'}">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
+    ? (isShowcaseDemo()
+      ? `<p class="note">녹음 <b>${escapeHtml(up.name)}</b>
+         (${fmtMarkSec(up.durationSec)})으로 분석했어요.
+         ${markReason ? escapeHtml(markReason) : '슬라이드 전환 기록에 맞춰 발화 구간을 나눴어요.'}</p>`
+      : `<p class="note" style="color:${markUnrelated ? 'var(--no)' : 'var(--mid)'}">업로드한 녹음 <b>${escapeHtml(up.name)}</b>
        (${fmtMarkSec(up.durationSec)})으로 돌렸어요.
        ${markReason ? (markUnrelated ? `<b>${escapeHtml(markReason)}</b>` : escapeHtml(markReason)) : markFallback}
-       슬라이드별 발화 분할과 정합 판정은 참고용으로만 보세요.</p>`
+       슬라이드별 발화 분할과 정합 판정은 참고용으로만 보세요.</p>`)
     : '';
 
   let speechHtml = '';
@@ -3513,7 +3850,8 @@ function nfStep4() {
   app.className = 'narrow';
   /* 새로고침으로 복원된 세션이면 파이프라인 프라미스는 이미 죽어 있다. 살아 있는 척
      초를 계속 세면 문구 전부가 거짓말이 된다 — 끊겼다고 말하고 멈춘다. */
-  const willStart = !!(ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted);
+  const willStart = !!(ccLastTake && !nf._pipelineStarted
+    && (isShowcaseDemo() || window.ChuckchuckBridge));
   if (!willStart && !pipelineRunLive && nf.pipelinePhase
       && !['done', 'partial', 'error'].includes(nf.pipelinePhase)) {
     if (pipelineQaReady()) {
@@ -3554,7 +3892,7 @@ function nfStep4() {
       <div class="step-actions">
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>
         <button class="btn btn-secondary btn-sm" type="button" id="againTake">다른 녹음으로 다시</button>
-        <a class="btn btn-text btn-sm skip-qa" href="#/report">질문코치 건너뛰고 상세 리포트</a>
+        <a class="btn btn-text btn-sm skip-qa" href="${isShowcaseDemo() ? showcaseReportHref() : '#/report'}">질문코치 건너뛰고 상세 리포트</a>
         ${qaReady
           ? `<a class="btn btn-primary" href="#/qa">질문 코칭 시작하기</a>
              ${reportPending ? '<span class="note">상세 리포트는 뒤에서 마저 만들고 있어요.</span>' : ''}`
@@ -3580,6 +3918,7 @@ function nfStep4() {
   // 자료(nfSlideDoc·uploadedPdf)는 그대로 두고 테이크만 버린다 — resetNf 와 다르다
   if (again) again.addEventListener('click', () => {
     stopLiveRehearsal();
+    showcasePipeGen += 1;
     ccLastTake = null;
     chatterCache = null;
   chatterPending = null;
@@ -3608,6 +3947,10 @@ function nfStep4() {
     renderNew();
   });
 
+  if (ccLastTake && !nf._pipelineStarted && isShowcaseDemo()) {
+    beginShowcasePipeline();
+    return;
+  }
   if (ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted) {
     nf._pipelineStarted = true;
     nf.pipelineError = null;
@@ -3978,7 +4321,13 @@ async function renderReport() {
      진입점 여덟 곳이 이 형태를 쓴다. 예전엔 기본값이 'imu2clip' 이라 샘플
      행과 실측이 같은 주소를 나눠 쓰고 있었다: 자료를 한 번이라도 올리면
      라벨은 샘플인데 열면 내 발표 리포트가 떴다 */
-  const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
+  let reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
+  /* 시연 모드에서는 빈 #/report 도 쇼케이스 더미로 보낸다 — 올린 PPT 와
+     무관하게 같은 결과 화면이 떠야 발표 플로우가 안 깨진다. */
+  if (!reportId && isShowcaseDemo()) {
+    location.replace(showcaseReportHref());
+    return;
+  }
   rSampleMode = reportId === 'sample-investor';
   /* #/report/last — 저장해 둔 마지막 분석으로 연다 (개발용, 링크 없음).
      복원은 그리기 **전에** 끝나야 한다. reportSessionMeta·reportVerdict 가
@@ -3995,7 +4344,7 @@ async function renderReport() {
         </p>
         <div class="step-actions">
           <a class="btn btn-primary" href="#/new">발표 연습 시작하기</a>
-          <a class="btn btn-text" href="#/report/sample-investor">샘플 리포트 보기</a>
+          <a class="btn btn-text" href="#/report/sample-investor">${isShowcaseDemo() ? '리포트 보기' : '샘플 리포트 보기'}</a>
         </div>
       </div>`;
     return;
@@ -4065,9 +4414,9 @@ async function renderReport() {
       ${unrelatedNote
         ? `<p class="verdict-note" style="color:var(--no)"><b>${escapeHtml(unrelatedNote)}</b> 아래 정합·개념 판정은 참고만 해 주세요.</p>`
         : ''}
-      ${v.isSample
+      ${v.isSample && !isShowcaseDemo()
         ? `<p class="verdict-note">아래는 <b>샘플 데이터</b>예요. 리허설을 마치고 자료와 발화를 맞춰 보면 내 결과로 바뀌어요.</p>`
-        : (restoredAt
+        : (!v.isSample && restoredAt
           ? `<p class="verdict-note"><b>저장해 둔 리포트</b>예요 · ${escapeHtml(stampText(restoredAt))}에 분석했어요. 방금 한 발표가 아니에요.</p>`
           : '')}
     </section>
@@ -4099,10 +4448,7 @@ function renderProfileReport(p) {
       <span class="final-label">발표 + 질문 코칭 최종 분석</span>
       <h1 class="page-title">${p.title}</h1>
       <p class="report-meta">${p.occasion} · ${p.slides}장 · ${p.duration} · ${p.nth}번째 연습</p>
-      <!-- 여기엔 표시가 아예 없었다. 홈에서 「샘플」이라고 써 놓고 열면 아무 말이
-           없으면 라벨만 붙인 것보다 나쁘다. 전체 리포트의 배너와 문구가 다른
-           이유: 이 프로필들은 리허설을 마쳐도 실데이터로 바뀌지 않는다 -->
-      <p class="sample-note">이 발표는 <b>샘플 데이터</b>예요. 화면 구성을 미리 볼 수 있게 넣어 뒀어요.</p>
+      ${isShowcaseDemo() ? '' : '<p class="sample-note">이 발표는 <b>샘플 데이터</b>예요. 화면 구성을 미리 볼 수 있게 넣어 뒀어요.</p>'}
     </div>
 
     <div class="final-insight">
@@ -4928,7 +5274,7 @@ function rSummary() {
         ${emptyBirdHtml('solar', 'neutral')}
         <h2 class="section-title">아직 내 발표 분석이 없어요</h2>
         <p class="note" style="margin:8px 0 14px">${escapeHtml(String(why))}</p>
-        <p class="note">제목은 <b>${escapeHtml(meta.title)}</b> 기준이에요. 샘플(IMU2CLIP) 리포트로 바꿔 보여주지 않아요.</p>
+        <p class="note">제목은 <b>${escapeHtml(meta.title)}</b> 기준이에요. 분석이 끝나면 여기에 결과가 채워져요.</p>
         <div class="step-actions">
           <a class="btn btn-primary" href="#/new">발표 연습으로 돌아가기</a>
           <a class="btn btn-text" href="#/">홈으로</a>
@@ -5498,7 +5844,7 @@ function rJudge() {
     $('#rbody').innerHTML = `
       <div class="card">
         <h3 class="section-title">개념 판정이 아직 없어요</h3>
-        <p class="note">내 발표 분석(그래프·정합)이 없어 샘플 개념으로 채우지 않았어요.</p>
+        <p class="note">내 발표 분석(그래프·정합)이 아직 없어 개념 판정을 그리지 못했어요.</p>
         <div class="step-actions"><a class="btn btn-primary" href="#/new">발표 연습으로</a></div>
       </div>`;
     return;
@@ -5526,10 +5872,10 @@ function rJudge() {
       </div>
       <div class="card" id="jdetail">${n ? jDetail(n, tree) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
     </div>
-    <p class="ai-note">${isReal
+    <p class="ai-note">${(isReal || isShowcaseDemo())
       ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
       : (isLiveReportSession()
-        ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요. 샘플(IMU2CLIP)로 대체하지 않았어요.'
+        ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요.'
         : '⚠️ 지금 보는 건 <b>샘플 데이터</b>예요. 리허설을 마치면 내 발표 결과로 바뀌어요.')}</p>`;
   paintDeckStage($('#rbody'));   // 판정 화면의 슬라이드도 올린 자료 원본으로 그린다
   $('#jf').addEventListener('click', e => {
@@ -6128,7 +6474,7 @@ function rPace(host = $('#rbody')) {
   const fbActualSec = (DATA.session && DATA.session.durationSec) || 0;
   const fbDiff = timeDiffJudge(fbTargetSec, fbActualSec);
   host.innerHTML = `
-    ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
+    ${real || isShowcaseDemo() ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
       ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
     ${timeSplitCard(null)}
     ${tabVerdictHtml(fbVerdict)}
@@ -6310,7 +6656,7 @@ function tStrategy(host = $('#toolStrategy')) {
 function toolEmptyHtml(what) {
   return `<div class="card">
       <h3 class="section-title">${what} 만들 재료가 아직 없어요</h3>
-      <p class="note">한 번 연습하면 올린 자료에서 뽑아 채워드려요. 샘플로 대신 채우지 않아요.</p>
+      <p class="note">한 번 연습하면 올린 자료에서 뽑아 채워드려요.</p>
       <div class="step-actions"><a class="btn btn-primary" href="#/new">연습 시작하기</a></div>
     </div>`;
 }
@@ -6385,44 +6731,99 @@ function liveTerms() {
   }) : null;
 }
 
+/* ── 개념 지도 판형 ────────────────────────────────────────────────
+   좌표를 이름으로 묶어 둔다. 흩어진 매직 넘버로 두면 한 줄을 내릴 때마다
+   연결선 세 곳을 손으로 맞춰야 하고, 그 셋 중 하나는 꼭 빠진다. */
+const MAP_W = 880, MAP_H = 304;
+const MAP_ROW = {
+  root: { y: 14, h: 42, min: 184, max: 260 },
+  l1: { y: 124, h: 60, min: 154, max: 216 },
+  l2: { y: 226, h: 60, min: 112, max: 164 },
+};
+
+/** 상자 폭에 안 들어가는 이름은 …로 줄인다. SVG text 는 줄바꿈이 없어서
+ *  그냥 두면 「Temperature Parameter」가 상자를 뚫고 옆 노드를 덮는다.
+ *  한글은 글자당 약 1em, 라틴·숫자는 약 0.56em 으로 잡는다. */
+function fitSvgLabel(text, maxPx, fontPx) {
+  const adv = ch => (/[ㄱ-힝]/.test(ch) ? 1 : 0.56) * fontPx;
+  const s = String(text || '');
+  let used = 0;
+  for (let i = 0; i < s.length; i++) {
+    used += adv(s[i]);
+    if (used > maxPx) return s.slice(0, Math.max(1, i - 1)) + '…';
+  }
+  return s;
+}
+
 function mapSvgString() {
   // 이 SVG는 파일로도 내려받으므로(:root 없음) CSS 토큰 대신 리터럴을 쓴다.
   // 값은 app.css 의 --ok/--mid/--no/--ct 계열과 같게 유지한다.
-  const FILL = { ok: '#E9F7EF', mid: '#FDF6E3', no: '#FDF0EF', ct: '#F6EDFD', om: '#F1F3F5' };
-  const LINE = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#9333EA', om: '#6B7684' };
+  /* 예전엔 카드 전체를 판정 색으로 칠하고 판정 색 테두리를 둘렀다. 아홉 칸이
+     각자 다른 파스텔 면이 되면서 «AI 가 자동으로 뽑아준 다이어그램» 처럼 보였고,
+     정작 어느 개념이 중요한지는 색이 말해 주지 않았다. 면은 흰색으로 통일하고,
+     상태는 작은 점과 아래 보조 문구 두 곳에만 남긴다 (§16·§17). */
+  const DOT = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#3F5F52', om: '#8B95A1' };
+  const NODE_LINE = '#DCE5DF';   // 연한 회녹색 — 모든 노드가 같은 테두리를 쓴다
+  const LINK_LINE = '#D3DDD7';
   // 실데이터 세션이면 개념 그래프·판정에서 만든 노드, 아니면 샘플.
   const all = liveMapNodes() || DATA.mapNodes;
   const nodes = all.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
   // 자리는 노드 수에서 계산한다 — 고정 좌표표는 샘플 9칸에만 맞았다.
   const POS = {};
   const rootNode = all.find(n => n.root);
-  if (rootNode) POS[rootNode.id] = [440, 36, 200];
-  const row = (list, y) => {
-    const w = Math.max(100, Math.min(190, Math.round(880 / (list.length + 1)) - 26));
-    list.forEach((n, i) => { POS[n.id] = [Math.round(880 * (i + 1) / (list.length + 1)), y, w]; });
+  /* 폭은 이름 길이를 따라간다. 다 같은 폭이면 격자처럼 보이고, 아무 제한이 없으면
+     들쭉날쭉해진다 — 계층마다 최소·최대를 두고 그 사이에서만 움직인다 */
+  const widthFor = (label, spec, slot) => {
+    const wish = Math.round(String(label || '').length * 12 + 34);
+    return Math.max(spec.min, Math.min(spec.max, Math.min(wish, slot)));
   };
-  row(all.filter(n => !n.root && !n.p), 120);
-  row(all.filter(n => n.p), 210);
+  if (rootNode) POS[rootNode.id] = [MAP_W / 2, MAP_ROW.root, widthFor(rootNode.label, MAP_ROW.root, MAP_ROW.root.max)];
+  const row = (list, spec) => {
+    // 이웃과 붙지 않게 칸마다 18px 은 비워 둔다
+    const slot = Math.round(MAP_W / (list.length + 1)) - 18;
+    list.forEach((n, i) => {
+      POS[n.id] = [Math.round(MAP_W * (i + 1) / (list.length + 1)), spec, widthFor(n.label, spec, slot)];
+    });
+  };
+  row(all.filter(n => !n.root && !n.p), MAP_ROW.l1);
+  row(all.filter(n => n.p), MAP_ROW.l2);
   const has = id => nodes.some(n => n.id === id);
+  /* 곡선을 직각 계층선으로 바꾼다. 곡선은 어느 노드에서 나왔는지를 눈으로
+     되짚게 만들고, 노드가 늘면 서로 겹쳐서 글자를 가로지른다 */
   let links = '';
   all.filter(n => !n.root).forEach(n => {
     const pid = n.p || (rootNode && rootNode.id);
     if (!POS[pid] || !POS[n.id]) return;
     if (!has(n.id) || !has(pid)) return;
-    const [x1, y1] = POS[pid], [x2, y2] = POS[n.id];
-    links += `<path d="M${x1} ${y1 + 24} C ${x1} ${(y1 + y2) / 2 + 14}, ${x2} ${(y1 + y2) / 2 - 6}, ${x2} ${y2 - 6}" fill="none" stroke="#D6DAE0" stroke-width="1.4"/>`;
+    const [x1, from] = POS[pid], [x2, to] = POS[n.id];
+    const fromY = from.y + from.h, toY = to.y, midY = Math.round((fromY + toY) / 2);
+    links += `<path d="M${x1} ${fromY} V${midY} H${x2} V${toY}" fill="none" stroke="${LINK_LINE}"`
+      + ' stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>';
   });
   const boxes = nodes.map(n => {
-    const [x, y, w] = POS[n.id];
-    if (n.root) return `<g>
-      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="36" rx="10" fill="#191F28"/>
-      <text x="${x}" y="${y + 17}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="Pretendard,sans-serif">${n.label}</text></g>`;
+    const [x, spec, w] = POS[n.id];
+    const half = w / 2;
+    if (n.root) {
+      const label = fitSvgLabel(n.label, w - 26, 14);
+      return `<g>
+      <rect x="${x - half}" y="${spec.y}" width="${w}" height="${spec.h}" rx="10" fill="url(#mapRoot)"/>
+      <text x="${x}" y="${spec.y + spec.h / 2 + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="Pretendard,sans-serif">${label}</text></g>`;
+    }
+    const label = fitSvgLabel(n.label, w - 26, 13);
+    const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
     return `<g>
-      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="48" rx="10" fill="${FILL[n.status]}" stroke="${LINE[n.status]}" stroke-width="1.4"/>
-      <text x="${x}" y="${y + 13}" text-anchor="middle" font-size="13" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${n.label}</text>
-      <text x="${x}" y="${y + 31}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${LINE[n.status]}" font-family="Pretendard,sans-serif">${STATUS[n.status]} · ${slideNumber(n.slide)}번</text></g>`;
+      <rect x="${x - half}" y="${spec.y}" width="${w}" height="${spec.h}" rx="10" fill="#fff" stroke="${NODE_LINE}" stroke-width="1.2"/>
+      <circle cx="${x - half + 12}" cy="${spec.y + 12}" r="3.4" fill="${DOT[n.status]}"/>
+      <text x="${x}" y="${spec.y + 27}" text-anchor="middle" font-size="13" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${label}</text>
+      <text x="${x}" y="${spec.y + 45}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${DOT[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
   }).join('');
-  return `<svg viewBox="0 0 880 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지"><rect width="880" height="280" fill="#FFFFFF"/>${links}${boxes}</svg>`;
+  /* 연결선을 노드보다 먼저 그린다 — 뒤에 그리면 선이 글자를 가로지른다 */
+  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" xmlns="http://www.w3.org/2000/svg" role="img"`
+    + ` aria-label="발표 개요 이미지 — 개념 ${nodes.length}개를 계층으로 이었어요">`
+    + '<defs><linearGradient id="mapRoot" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0" stop-color="#0B5C45"/><stop offset="1" stop-color="#064E3B"/>'
+    + '</linearGradient></defs>'
+    + `<rect width="${MAP_W}" height="${MAP_H}" fill="#FBFCFB"/>${links}${boxes}</svg>`;
 }
 
 function tMap(host = $('#toolMap')) {
@@ -6545,6 +6946,11 @@ function qaNoticeHtml() {
  * @returns {boolean} true 면 생성이 시작됐다 (호출자는 로딩 화면을 그린다) */
 function ensureLiveQuestions() {
   if (qaLiveActive() || qaBuildFailed) return false;
+  // 시연 모드: 실전 질문 생성 없이 DATA.qaBeats 목 코칭으로 간다.
+  if (isShowcaseDemo()) {
+    qa.liveNotice = '';
+    return false;
+  }
   // 생성이 이미 돌고 있으면 "준비 중" 이 맞다. false 를 돌리면 renderQa 가
   // 데모 질문을 띄우고, 몇 초 뒤 생성이 끝나는 순간 그 대화가 통째로
   // 갈아치워진다 — 화면을 벗어났다 돌아온 경우가 정확히 이 경로였다.
@@ -7532,7 +7938,7 @@ function qaEnd() {
       </div>
 
       <div class="cere-actions">
-        <a class="btn btn-primary" href="#/report">상세 리포트 보기</a>
+        <a class="btn btn-primary" href="${isShowcaseDemo() ? showcaseReportHref() : '#/report'}">상세 리포트 보기</a>
         <a class="btn btn-text" href="#/">홈으로</a>
         <button class="btn btn-text" id="again">질문 코칭 다시 하기</button>
       </div>

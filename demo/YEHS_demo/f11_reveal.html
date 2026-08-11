@@ -207,6 +207,8 @@
 
   .node.v-aligned circle.body { stroke: var(--good); fill: var(--good-soft); }
   .node.v-aligned .gauge { stroke: var(--good); }
+  .node.v-partial circle.body { stroke: #C88A2E; fill: #FFF6E8; }
+  .node.v-partial .gauge { stroke: #C88A2E; }
   .node.v-missing circle.body { stroke: var(--dim); fill: var(--surface); }
   .node.v-missing text { fill: var(--faint); }
   .node.v-missing .gauge { stroke: var(--dim); }
@@ -631,9 +633,10 @@
       </div>
       <div class="verdict-list">
         <div class="v-row" id="vr1"><span class="dot" style="background:var(--good)"></span>잘 설명했어요<span class="cnt">6개</span></div>
-        <div class="v-row" id="vr2"><span class="dot" style="background:var(--dim)"></span>아직 설명하지 않았어요<span class="cnt">2개</span></div>
-        <div class="v-row" id="vr3"><span class="dot" style="background:var(--bad)"></span>자료와 다르게 말했어요<span class="cnt">1개</span></div>
-        <div class="v-row" id="vr4"><span class="dot" style="background:var(--faint)"></span>생략해도 괜찮았어요<span class="cnt">1개</span></div>
+        <div class="v-row" id="vr2"><span class="dot" style="background:#C88A2E"></span>언급만 했어요<span class="cnt">2개</span></div>
+        <div class="v-row" id="vr3"><span class="dot" style="background:var(--dim)"></span>아직 설명하지 않았어요<span class="cnt">2개</span></div>
+        <div class="v-row" id="vr4"><span class="dot" style="background:var(--bad)"></span>자료와 다르게 말했어요<span class="cnt">1개</span></div>
+        <div class="v-row" id="vr5"><span class="dot" style="background:var(--faint)"></span>생략해도 괜찮았어요<span class="cnt">1개</span></div>
       </div>
       <div class="mini-scatter" id="miniScatter"></div>
       <div class="cta-wrap">
@@ -1057,7 +1060,7 @@ attachHover();   // buildStage() 가 먼저 돌며 예약해 둔 것을 지금 �
  * 응답을 넘기면 mock 을 갈아끼우고 스테이지를 다시 만든다.
  * ------------------------------------------------------------- */
 const VERDICT_FROM_API = {
-  aligned: "aligned", justified_skip: "skip",
+  aligned: "aligned", partial: "partial", justified_skip: "skip",
   missing: "missing", contradiction: "contra",
 };
 const MAX_REVEAL_NODES = 12;   // 폰 캔버스에 담을 상한 — weight 상위만
@@ -1187,9 +1190,11 @@ function applyAlignment(align) {
   };
 
   const counts = s.verdict_counts || {};
-  [["vr1", "aligned"], ["vr2", "missing"], ["vr3", "contradiction"], ["vr4", "justified_skip"]]
+  [["vr1", "aligned"], ["vr2", "partial"], ["vr3", "missing"], ["vr4", "contradiction"], ["vr5", "justified_skip"]]
     .forEach(([id, k]) => {
-      const cnt = $(id).querySelector(".cnt");
+      const el = $(id);
+      if (!el) return;
+      const cnt = el.querySelector(".cnt");
       if (cnt) cnt.textContent = `${counts[k] || 0}개`;
     });
   const mini = $("miniScatter");
@@ -1428,6 +1433,7 @@ const CRAIL_VERDICT = {
   partial:       { t: "언급만 했어요",     c: "var(--mid, #C88A2E)" },
   missing:       { t: "안 나왔어요",       c: "var(--dim)" },
   contradiction: { t: "자료와 달라요",     c: "var(--bad)" },
+  contra:        { t: "자료와 달라요",     c: "var(--bad)" }, // applyAlignment 내부 키
   skip:          { t: "생략해도 괜찮아요", c: "var(--faint)" },
 };
 
@@ -1749,7 +1755,7 @@ async function sceneSweep() {
 
 async function sceneVerdict() {
   setScene(3);
-  const marks = { aligned: "✓", contra: "!", missing: "", skip: "" };
+  const marks = { aligned: "✓", partial: "·", contra: "!", missing: "", skip: "" };
   let stampIdx = 0;
   for (const ne of nodeEls) {
     const v = ne.n.verdict;
@@ -1810,7 +1816,7 @@ async function sceneScatter() {
 }
 
 const VERDICT_COLOR = {
-  aligned: "var(--good)", missing: "var(--dim)",
+  aligned: "var(--good)", partial: "#C88A2E", missing: "var(--dim)",
   skip: "var(--faint)", contra: "var(--bad)",
 };
 
@@ -1902,9 +1908,10 @@ async function sceneSummary() {
   $("mc2").classList.add("show");
   if (SUMMARY.edge == null) $("edgeNum").textContent = "–";
   else countUp($("edgeNum"), SUMMARY.edge, 900, (v) => Math.round(v) + "%");
-  for (const id of ["vr1", "vr2", "vr3", "vr4"]) {
+  for (const id of ["vr1", "vr2", "vr3", "vr4", "vr5"]) {
     await sleep(160);
-    $(id).classList.add("show");
+    const row = $(id);
+    if (row) row.classList.add("show");
   }
   buildMiniScatter();
   await sleep(160);
@@ -1931,7 +1938,9 @@ function resetAll() {
   }
   $("finding").innerHTML = "";
   showWaitBar(false);
-  ["mc1", "mc2", "vr1", "vr2", "vr3", "vr4"].forEach((id) => $(id).classList.remove("show"));
+  ["mc1", "mc2", "vr1", "vr2", "vr3", "vr4", "vr5"].forEach((id) => {
+    const el = $(id); if (el) el.classList.remove("show");
+  });
   for (const ne of nodeEls) {
     ne.g.setAttribute("class", "node");
     ne.g.style.transform = `translate(${ne.n.x}px, ${ne.n.y}px)`;
