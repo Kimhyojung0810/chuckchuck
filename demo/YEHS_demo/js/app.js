@@ -164,11 +164,11 @@ function voiceEasyBlocks(pace, habits, report) {
   const actual = fmtSec(pace.actual_sec);
   let headline = '시간 배분이랑 말하는 습관을 함께 살펴봤어요.';
   if (shortCore.length && longOnes.length) {
-    headline = '중요한 장은 짧게 지나갔고, 어떤 장은 생각보다 길게 말했어요.';
+    headline = '중요한 슬라이드는 짧게 지나갔고, 어떤 슬라이드는 생각보다 길게 말했어요.';
   } else if (shortCore.length) {
-    headline = '중요한 장에 시간을 조금 더 쓰면 전달력이 살아나요.';
+    headline = '중요한 슬라이드에 시간을 조금 더 쓰면 전달력이 살아나요.';
   } else if (longOnes.length) {
-    headline = '긴 장을 조금 줄이면 목표 시간에 더 잘 맞춰져요.';
+    headline = '긴 슬라이드를 조금 줄이면 목표 시간에 더 잘 맞춰져요.';
   } else if (report && report.one_liner) {
     headline = report.one_liner;
   }
@@ -176,11 +176,11 @@ function voiceEasyBlocks(pace, habits, report) {
   const lead = `목표 ${target} 중에 실제로 약 ${actual} 말했어요. 전체 말 속도는 ${paceLabel.short}였어요.`;
   const actions = [];
   if (shortCore.length) {
-    actions.push(`핵심인 ${shortCore.map(s => `${s.slide_no}번`).join(', ')} 장에 시간을 더 써 보세요. 아래 상자를 눌러 각 장 시간을 확인해요.`);
+    actions.push(`핵심인 ${shortCore.map(s => `${s.slide_no}번`).join(', ')} 슬라이드에 시간을 더 써 보세요. 아래 상자를 눌러 각 슬라이드 시간을 확인해요.`);
   }
   if (longOnes.length) {
     const top = [...longOnes].sort((a, b) => (b.delta_sec || 0) - (a.delta_sec || 0)).slice(0, 3);
-    actions.push(`${top.map(s => `${s.slide_no}번`).join(', ')} 장은 길게 말했어요. 세부 설명을 줄이면 좋아요.`);
+    actions.push(`${top.map(s => `${s.slide_no}번`).join(', ')} 슬라이드는 길게 말했어요. 세부 설명을 줄이면 좋아요.`);
   }
   if (fillers.length) {
     const topF = fillers.slice(0, 2).map(f => `「${f.text}」`).join(', ');
@@ -225,7 +225,7 @@ function voiceTimeChartHtml(pace) {
       <div class="voice-chart-head">
         <div>
           <h3 class="section-title">슬라이드별 시간<span class="soft">X축 슬라이드 · Y축 초</span></h3>
-          <p class="note">회색은 권장, 파랑은 내가 쓴 시간이에요. 핵심 장은 위에 표시돼요.</p>
+          <p class="note">회색은 권장, 파랑은 내가 쓴 시간이에요. 핵심 슬라이드는 위에 표시돼요.</p>
         </div>
         <div class="voice-lgd">
           <span><i class="rec"></i>권장</span>
@@ -576,7 +576,7 @@ function nextCardHtml() {
     const meta = (nf && nf.slideDocMeta) || {};
     const name = meta.file_name || (nf && nf.fileName) || '';
     const lead = stage === 'uploaded' && name
-      ? `${escapeHtml(name)}${meta.total_slides ? ` · ${meta.total_slides}장` : ''}`
+      ? `${escapeHtml(name)}${meta.total_slides ? ` · 슬라이드 ${meta.total_slides}개` : ''}`
       : '네 모델이 각자 맡은 일로 발표를 봐요';
     const tail = stage === 'uploaded'
       ? '연습을 마치면 이 넷이 본 것 중 제일 급한 하나를 여기 띄워요'
@@ -663,7 +663,7 @@ function renderHome() {
       ${isShowcaseDemo() ? '' : '<p class="h-sec-note">열어 보라고 넣어 둔 발표예요. 실제 리포트와 같은 화면이 나와요.</p>'}
       <table class="h-table">
         <thead>
-          <tr><th>제목</th><th>상황</th><th class="num">장</th><th class="num">완성도</th><th></th></tr>
+          <tr><th>제목</th><th>상황</th><th class="num">슬라이드</th><th class="num">완성도</th><th></th></tr>
         </thead>
         <tbody>
           ${DATA.sessions.map(s => `
@@ -723,7 +723,7 @@ function nextBandHtml() {
     const name = meta.file_name || (nf && nf.fileName) || '올린 자료';
     return `
       <section class="h-start">
-        <b>${escapeHtml(name)}${meta.total_slides ? ` · ${meta.total_slides}장` : ''}</b>
+        <b>${escapeHtml(name)}${meta.total_slides ? ` · 슬라이드 ${meta.total_slides}개` : ''}</b>
         <p>연습을 마치면 네 모델이 본 것 중 제일 급한 하나를 여기에 띄워요.</p>
         <span class="h-start-act"><a class="btn btn-primary btn-sm" href="#/new">이어서 연습하기</a></span>
       </section>`;
@@ -1014,6 +1014,14 @@ function showcasePipelineStub() {
           : 0
   );
 
+  /* 리빌 무대(viewBox 380×418) 손배치 좌표 — 내장 mock 이 그랬듯 사람이 자리를
+     잡아 줘야 원이 안 쪼그라들고 라벨도 안 잘린다. 자동 배치는 줄 세우기만 한다. */
+  const revealPos = {
+    gap: [190, 64], compound: [66, 58], myth: [312, 74],
+    overtrade: [86, 172], timing: [196, 210], lossav: [306, 176],
+    cost: [46, 282], rules: [140, 300], concentrate: [330, 288],
+    checklist: [232, 356],
+  };
   const nodes = tree.map((t) => ({
     id: t.id,
     label: t.label,
@@ -1023,6 +1031,8 @@ function showcasePipelineStub() {
     weight: t.w || 0.5,
     parent_id: t.parent || null,
     depth: t.depth || 1,
+    x: revealPos[t.id] ? revealPos[t.id][0] : undefined,
+    y: revealPos[t.id] ? revealPos[t.id][1] : undefined,
   }));
   const idSet = new Set(nodes.map((n) => n.id));
   const edges = [];
@@ -1031,12 +1041,21 @@ function showcasePipelineStub() {
       edges.push({ from: t.parent, to: t.id, kind: 'parent' });
     }
   });
-  // 원인끼리·결론 근거끼리 연결을 조금 더 그려 그래프가 빈약해 보이지 않게
+  /* 원인끼리·결론 근거끼리 연결을 그려 개념들이 얽혀 있다는 걸 보여준다
+     (2026-08-12 사용자: 트리처럼 보이니 간선이 늘어도 상관없다). 부모-자식
+     간선과 겹치는 세 쌍(overtrade-rules, rules-checklist, gap-myth)은 이미
+     parent 로 그려지므로 여기 다시 넣지 않는다 — 같은 두 점을 잇는 선을
+     둘 그리면 하나는 숨어 보이지 않을 뿐 새 연결이 아니다. */
   const relates = [
     ['gap', 'overtrade'],       // 현황 → 가장 큰 원인
     ['overtrade', 'timing'],    // 「가장 큰 두 개는 언제의 문제」
-    ['overtrade', 'cost'], ['overtrade', 'rules'], ['timing', 'lossav'],
-    ['lossav', 'concentrate'], ['rules', 'checklist'], ['gap', 'myth'],
+    ['overtrade', 'cost'], ['timing', 'lossav'], ['lossav', 'concentrate'],
+    // 격차의 원인 다섯이 gap 하나에만 매달려 있지 않다는 것
+    ['gap', 'timing'], ['gap', 'lossav'], ['gap', 'concentrate'], ['gap', 'cost'],
+    // 오해가 다른 원인으로 이어지는 것, 비용·체크리스트가 다른 원인과도 얽히는 것
+    ['myth', 'overtrade'], ['myth', 'concentrate'],
+    ['cost', 'rules'], ['checklist', 'cost'], ['checklist', 'timing'],
+    ['compound', 'cost'],
   ];
   relates.forEach(([a, b]) => {
     if (idSet.has(a) && idSet.has(b)) edges.push({ from: a, to: b, kind: 'relates' });
@@ -1284,15 +1303,17 @@ async function beginShowcasePipeline() {
     ['flow_done', '질문 준비 완료'],
     ['done', '분석 완료'],
   ];
-  /* 시연 연출은 타임라인 예산(약 55초)에 맞춘다.
-     12초 만에 100%가 되면 「55초」 눈금과 「9초 지났어요」가 서로 다른 말이 된다. */
-  const showcaseBudgetSec = { stt: 28, concepts: 7, graph: 12, align: 6, flow: 2 };
+  /* 시연은 실 7분이 아니라 약 12초 연출(023a2d3 의 리듬). 55초 예산으로 늘렸더니
+     대기 화면만 한참 보다가 그래프 쇼가 늦게 시작돼 「분석 화면이 안 뜬다」로
+     읽혔다 (2026-08-12 지적). 슈슈슉 지나가고 무대는 그래프 연출이 갖는다. */
   const phaseMs = (phase) => {
-    const stage = String(phase).replace(/_(done|error)$/, '');
-    if (phase.endsWith('_done')) return 900;
-    if (phase === 'done') return 1200;
-    if (showcaseBudgetSec[stage] != null) return showcaseBudgetSec[stage] * 1000;
-    return 800;
+    if (phase === 'stt' || phase === 'concepts' || phase === 'graph') return 1100;
+    if (phase === 'align') return 1400;
+    if (phase === 'flow') return 900;
+    if (phase === 'stt_done' || phase === 'concepts_done') return 700;
+    if (phase === 'graph_done') return 1200;   // 그래프만 먼저 보여 줄 여유
+    if (phase === 'align_done') return 900;
+    return 500;
   };
   const stub = showcasePipelineStub();
   for (const [phase, detail] of phases) {
@@ -1315,13 +1336,6 @@ async function beginShowcasePipeline() {
     }
     if (phase === 'flow_done' || phase === 'done') {
       nf.pipelineOut = { ...stub, ...(nf.pipelineOut || {}), ...stub };
-    }
-    /* 끝난 단계의 실측을 남겨 타임라인 폭이 예산(55초)과 맞게 채워지게 한다. */
-    if (phase.endsWith('_done')) {
-      const stage = phase.replace(/_done$/, '');
-      if (showcaseBudgetSec[stage] != null) {
-        nf._stageActual = { ...(nf._stageActual || {}), [stage]: showcaseBudgetSec[stage] };
-      }
     }
     pushBackstage(phase);
     pushPipelineLog(phase);
@@ -1817,16 +1831,12 @@ function nfStep1() {
           <span class="dz-kicker">새 발표 연습</span>
           <h1>발표자료를<br>여기에 놓아주세요</h1>
           <p class="dz-note">자료를 읽은 뒤 발표 정보와 리허설 설정을 이어서 진행해요.</p>
-          <p class="note">PDF, PPTX · 최대 30MB · 100장까지</p>
+          <p class="note">PDF, PPTX · 최대 30MB · 슬라이드 100개까지</p>
         </div>
         <div class="dz-actions">
           <button class="btn btn-primary" id="pick">내 컴퓨터에서 선택</button>
           <span class="dz-or">또는 이 화면에 파일을 끌어다 놓으세요</span>
-          <div class="sample-demo-entry">
-            <span class="sample-demo-badge">샘플 데모</span>
-            <button class="btn btn-secondary" id="sampleDemo" type="button">더미 발표자료로 전체 과정 보기</button>
-            <small>실제 분석이 아니라 준비된 개인투자자 발표 예시로 녹음과 결과 화면을 체험해요.</small>
-          </div>
+          <button class="btn btn-text" id="sampleStart">샘플 자료로 바로 시작</button>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
       </div>`;
@@ -1835,7 +1845,10 @@ function nfStep1() {
        뒤로 밀린다. 이 단계의 CTA 는 드롭존 자체다 */
     const dz = $('#dz');
     $('#pick').addEventListener('click', () => $('#file').click());
-    $('#sampleDemo').addEventListener('click', () => startParse({ fixture: true }));
+    /* 파일 없이 더미로 도는 입구. 예전엔 업로드가 실패해야만 「샘플 데모로
+       계속하기」가 나왔다 — 부스처럼 파일이 없는 자리에서는 입구가 없는 셈이라
+       시작 화면에 상시로 둔다 (2026-08-12 지적). */
+    $('#sampleStart').addEventListener('click', () => startParse({ fixture: true }));
     $('#file').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       /\.(pdf|pptx)$/i.test(f.name) ? startParse({ file: f }) : failParse('PDF나 PPTX 파일만 분석할 수 있어요.');
@@ -1862,7 +1875,7 @@ function nfStep1() {
         <div class="parse-peek">
           <img src="${parsePreview.thumb}" alt="">
           <div>
-            <b class="num" data-count="${parsePreview.pages}">${parsePreview.pages}</b><span class="parse-peek-unit">장짜리 자료예요</span>
+            <b class="num" data-count="${parsePreview.pages}">${parsePreview.pages}</b><span class="parse-peek-unit">슬라이드짜리 자료예요</span>
             <p>기다리는 동안 브라우저에서 먼저 열어 봤어요. 슬라이드별 개념은 위 분석이 끝나면 이어서 보여줄게요.</p>
           </div>
         </div>` : ''}
@@ -1906,7 +1919,7 @@ function nfStep1() {
       : '슬라이드 텍스트를 기준으로 개념을 추출할 준비가 됐어요.';
     box.innerHTML = `
       <div class="card">
-        <div class="gate-ok">${nf.useSample ? '샘플 자료 · ' : ''}${titles.length}장을 슬라이드별로 읽었어요</div>
+        <div class="gate-ok">${nf.useSample ? '샘플 자료 · ' : ''}슬라이드 ${titles.length}개를 읽었어요</div>
         <div class="thumbs">
           ${titles.map((t, i) => `
           <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" data-thumb-page="${i + 1}" alt="${i + 1}번 슬라이드" loading="lazy"><span><b>${i + 1}</b>${escapeHtml(t)}</span></div>`).join('')}
@@ -2041,7 +2054,11 @@ async function startParse({ file = null, fixture = false } = {}) {
     if (myGen !== parseGen) return;
     console.warn('[chuckchuck] parse', err);
     const rawMessage = err.message || String(err);
-    nf.parseError = /Unexpected token|not valid JSON|parse HTTP 40[45]/i.test(rawMessage)
+    /* 시연 빌드는 분석 서버가 아예 없다 — 브리지 없음을 「새로고침 해주세요」로
+       안내하면 몇 번을 새로고침해도 같은 사고가 난다. 샘플 입구로 보낸다. */
+    const noServer = /Unexpected token|not valid JSON|parse HTTP 40[45]/i.test(rawMessage)
+      || (isShowcaseDemo() && /SDK bridge/i.test(rawMessage));
+    nf.parseError = noServer
       ? '현재 배포본에는 실제 파일 분석 서버가 연결되지 않았어요. 샘플 데모로 전체 흐름을 먼저 확인해보세요.'
       : rawMessage;
     nf.gate = 'fail';
@@ -2165,7 +2182,7 @@ function nfStep2() {
           ${times.map(t => `<button class="${nf.min === t ? 'on' : ''}" data-min="${t}">${t}분</button>`).join('')}
         </div>
         <div class="time-detail">
-          <p><b>${titles.length}장 기준 장당 약 <em id="perSlide">${perSlide}</em>초</b><span>질문 시간을 포함하면 1~2분 여유를 두는 게 좋아요.</span></p>
+          <p><b>슬라이드 ${titles.length}개 기준 슬라이드당 약 <em id="perSlide">${perSlide}</em>초</b><span>질문 시간을 포함하면 1~2분 여유를 두는 게 좋아요.</span></p>
         </div>
       </div>
     </div>
@@ -2670,6 +2687,10 @@ function queueSampleAnalysis(take) {
   nf.step = 3;
   saveSession('new-flow', nf);
   renderNew();
+  /* 시연은 「마이크 없이」로 와도 리빌 연출이 본편이다 — 녹음 경로
+     (finishRecAndPrepare)와 같은 화면을 연다. 이 함수만 스텝4 로 보내고
+     리빌을 안 열어서, 이 경로로 온 사람은 그래프 쇼를 통째로 못 봤다. */
+  if (isShowcaseDemo()) showF11Reveal();
 }
 
 function startSampleWithoutRecording() {
@@ -2690,7 +2711,7 @@ function curtainCallCopy(slides, durationSec) {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   const time = m ? `${m}분 ${s}초` : `${s}초`;
-  return `${slides}장, ${time}, <b>완주!</b>`;
+  return `슬라이드 ${slides}개, ${time}, <b>완주!</b>`;
 }
 
 /** 3초 뒤(또는 아무 데나 누르면 바로) 해소되는 약속을 돌려준다. */
@@ -2768,9 +2789,11 @@ async function finishRecAndPrepare() {
   await showCurtainCall(slides, curtainSec);
   nf.step = 3;
   renderNew();
-  /* 시연은 스텝4 연출만 쓴다. F-11 리빌을 띄우면 「개념마다 판정을 내렸어요」가
-     잠깐 보이다가 질문 코칭 시간 고르기로 튕겨, 중간 화면처럼 읽힌다. */
-  if (!nf.useSample && !isShowcaseDemo()) showF11Reveal();
+  /* 시연도 F-11 리빌을 띄운다 — 개념 그래프에 판정 도장이 찍히는 연출이 부스의
+     핵심 장면이다. 리빌은 CTA 를 눌러야 닫히고, autoAdvanceToQa 도 리빌이 떠 있는
+     동안은 기다리므로 중간에 튕기지 않는다. 친구 쪽 샘플 데모(useSample)는
+     쇼케이스가 꺼진 빌드에서만 스텝4 연출로 간다. */
+  if (!nf.useSample || isShowcaseDemo()) showF11Reveal();
 }
 
 /**
@@ -2973,7 +2996,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=showcase2" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=showcase5" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -3940,7 +3963,7 @@ function backstageLine(phase) {
   }
   if (phase === 'concepts_done') {
     const n = out.concepts && (out.concepts.slides || []).length;
-    return n ? { who: 'solar', text: `${n}장, 다 읽었어` } : null;
+    return n ? { who: 'solar', text: `슬라이드 ${n}개, 다 읽었어` } : null;
   }
   if (phase === 'graph_done') {
     const n = out.graph && (out.graph.nodes || []).length;
@@ -4056,7 +4079,7 @@ function pipelineInspectHtml() {
 
   let conceptHtml = '';
   if (concepts && !concepts.error && Array.isArray(concepts.slides)) {
-    conceptHtml = `<details class="pipe-block" open><summary>개념 추출 (${concepts.slides.length}장)</summary>
+    conceptHtml = `<details class="pipe-block" open><summary>개념 추출 (슬라이드 ${concepts.slides.length}개)</summary>
       <ul class="pipe-concepts">${concepts.slides.slice(0, 12).map((s) =>
         `<li><b>${s.slide_no}.</b> ${escapeHtml(s.topic || s.title || '')}
          <span>${escapeHtml((s.concepts || []).slice(0, 3).join(' · '))}</span></li>`
@@ -4691,6 +4714,47 @@ function hasLastReport() {
  * 유지돼야 하는 세션의 결론이라 헤드로 끌어올렸다. 계산 자체는 기존
  * realSummary()·realTrophy() 를 그대로 쓰고 여기서는 조합만 한다.
  */
+/** 최종 점수는 학점형 등급으로 보여준다. 세부 축(dimsHtml)은 «어디를 고칠지»
+ *  알려줘야 하니 100점 숫자를 남기고, 헤드의 한 점수는 «잘했다/못했다» 만
+ *  한눈에 주면 된다 — 등급이 그 요약에 더 맞는다. */
+function scoreGrade(score) {
+  const n = Number(score) || 0;
+  if (n >= 90) return 'A+';
+  if (n >= 80) return 'A';
+  if (n >= 70) return 'B+';
+  if (n >= 60) return 'B';
+  if (n >= 50) return 'C+';
+  if (n >= 40) return 'C';
+  return 'D';
+}
+
+/** 시간 관리가 왜 낮은지 한 줄. 「정한 시간 안에 들어왔나요」는 이 지표가 «무엇을»
+ *  보는지 설명이지 «왜 이번에» 낮았는지는 말해 주지 않는다. 시간 분배 카드
+ *  (timeSplitCard)와 같은 비교식으로 계획 대비 가장 벗어난 구간을 짚는다.
+ *  구간 데이터가 없으면 빈 문자열을 내서 DIM_HINT 의 일반 설명으로 떨어진다. */
+function timeManagementReason() {
+  const pace = (reportOut() || {}).pace;
+  const secs = (pace && pace.sections) || [];
+  const rows = secs.length
+    ? secs.map(s => ({ name: s.name, rec: s.recommended_sec || 0, act: s.actual_sec || 0 }))
+    : (DATA.timeAlloc || []).map(r => ({ name: r[0], rec: r[1] || 0, act: r[2] || 0 }));
+  const devs = rows
+    .filter(r => r.rec > 0)
+    .map(r => ({ name: r.name, pct: Math.round((r.act - r.rec) / r.rec * 100) }))
+    .filter(d => Math.abs(d.pct) >= 20)
+    .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+  if (!devs.length) return '';
+  const over = devs.find(d => d.pct > 0);
+  const under = devs.find(d => d.pct < 0 && (!over || d.name !== over.name));
+  if (over && under) {
+    return `${over.name}에 계획보다 시간을 ${over.pct}% 더 쓰고, ${under.name}은 ${Math.abs(under.pct)}% 모자랐어요.`;
+  }
+  const only = devs[0];
+  return only.pct > 0
+    ? `${only.name}에 계획보다 시간을 ${only.pct}% 더 썼어요.`
+    : `${only.name}이 계획보다 ${Math.abs(only.pct)}% 모자랐어요.`;
+}
+
 function reportVerdict() {
   const live = isLiveReportSession();
   const real = realSummary();
@@ -4825,10 +4889,10 @@ async function renderReport() {
      것이라, 그게 요약 바로 다음에 와야 한다. 채점 근거는 그 판단이 미덥지
      않을 때 열어 보는 자리라 뒤로 보낸다.
      이름도 산출물이 아니라 «무엇을 답해 주는 화면인가» 로 바꿨다. */
-  const tabs = ['요약', '말하기', '개념 전달', '흐름', '채점 근거', '연습 도구'];
+  const tabs = ['요약', '말하기', '개념 전달', '흐름', '채점 근거', '연습 도구', '발표 구성'];
   const meta = [
     escapeHtml(s.occasion),
-    s.slides ? `${s.slides}장` : '',
+    s.slides ? `슬라이드 ${s.slides}개` : '',
     escapeHtml(s.duration),
     s.live ? '' : `${s.nth}번째 연습`,
   ].filter(Boolean);
@@ -4843,10 +4907,9 @@ async function renderReport() {
             <span class="vs-label">발표 완성도</span>
             <div class="vs-body">
               <div class="vs-num">
-                <strong class="num">${v.score}<span class="of">/100</span></strong>
+                <strong class="num grade">${scoreGrade(v.score)}</strong>
                 ${scoreBirdHtml(v.mood)}
               </div>
-              ${v.delta}
             </div>
           </div>
           <div class="verdict-judgement">
@@ -4894,7 +4957,7 @@ function renderProfileReport(p) {
       <a class="back-link" href="#/">← 내 발표</a>
       <span class="final-label">발표 + 질문 코칭 최종 분석</span>
       <h1 class="page-title">${p.title}</h1>
-      <p class="report-meta">${p.occasion} · ${p.slides}장 · ${p.duration} · ${p.nth}번째 연습</p>
+      <p class="report-meta">${p.occasion} · 슬라이드 ${p.slides}개 · ${p.duration} · ${p.nth}번째 연습</p>
       ${isShowcaseDemo() ? '' : '<p class="sample-note">이 발표는 <b>샘플 데이터</b>예요. 화면 구성을 미리 볼 수 있게 넣어 뒀어요.</p>'}
     </div>
 
@@ -4928,7 +4991,7 @@ function renderProfileReport(p) {
     </div>`;
 }
 /* 탭 순서의 단일 원본. renderReport 의 tabs 라벨 배열과 순서가 같아야 한다. */
-const R_TAB_VIEWS = [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools];
+const R_TAB_VIEWS = [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools, rStrategy];
 
 /**
  * 탭 전환은 본문(#rbody)만 다시 그린다.
@@ -5241,7 +5304,7 @@ function rRubric() {
     return `<details class="rb-cluster" id="rb-${escapeHtml(c.key)}"${c.key === weakestKey ? ' open' : ''}>
       <summary>
         <span class="rb-cname">${escapeHtml(c.name)}</span>
-        <span class="rb-cmeta">${scored}/${rows.length}개 항목</span>
+        <span class="rb-cmeta">${scored}개 항목</span>
         ${head}
       </summary>
       <ol class="rb-list">${done.map(rowHtml).join('')}</ol>
@@ -5253,8 +5316,8 @@ function rRubric() {
     <div class="card">
       <h3 class="section-title">채점표</h3>
       <p class="note" style="margin-bottom:14px">
-        ${escapeHtml(occLabel(sc.situation_label) || '기본 기준')} 기준으로 ${items.length}개 항목 중
-        ${nScored}개를 채점했어요. 항목마다 왜 그 점수인지 근거를 남겨요.
+        ${escapeHtml(occLabel(sc.situation_label) || '기본 기준')} 기준으로 ${nScored}개 항목을
+        채점했어요. 항목마다 왜 그 점수인지 근거를 남겨요.
       </p>
       ${blocks}
     </div>`;
@@ -5309,6 +5372,18 @@ const DIM_HINT = {
   '시간 관리': '정한 시간 안에 들어왔나요',
 };
 
+/** 그 축에서 제일 낮은 항목의 근거 한 줄. DIM_HINT 는 «무엇을» 보는지고 «왜 이번에»
+ *  낮았는지는 말해주지 않는다 (timeManagementReason 의 같은 문제, 여기선 전체 축으로
+ *  일반화한다). 근거가 없으면 빈 문자열을 내서 DIM_HINT 의 질문으로 떨어진다. */
+function clusterReason(key) {
+  if (!key) return '';
+  const items = ((reportScore() || {}).items) || [];
+  const worst = items
+    .filter(it => it.cluster === key && it.status === 'scored' && (it.evidence || it.note))
+    .sort((a, b) => (a.score || 0) - (b.score || 0))[0];
+  return worst ? (worst.evidence || worst.note) : '';
+}
+
 /**
  * 채점표 클러스터를 그린다.
  *
@@ -5342,12 +5417,12 @@ function dimsHtml(dims) {
 
   /* 주인공 한 칸 — 카드로 서고 설명 한 줄과 막대를 갖는다 */
   const weakCard = (d) => {
-    const hint = DIM_HINT[d[0]] || '';
+    const hint = (d[0] === '시간 관리' && timeManagementReason()) || clusterReason(d[4]) || DIM_HINT[d[0]] || '';
     return `
       <div class="vd vd-weak">
         <span class="vd-tag">여기부터 보세요</span>
         <span class="lb">${escapeHtml(d[0])}</span>
-        <span class="vl num">${d[1]}</span>
+        <span class="vl num">${d[1]}<span class="of">/100</span></span>
         <div class="bar"><i style="width:0" data-w="${d[1]}%"></i></div>
         ${hint ? `<span class="hint">${escapeHtml(hint)}</span>` : ''}
       </div>`;
@@ -5360,11 +5435,11 @@ function dimsHtml(dims) {
      클러스터 키가 없는 샘플 데이터는 누를 곳이 없으므로 div 로 낸다. */
   const restRow = (d) => {
     const key = d[4] || '';
-    const hint = DIM_HINT[d[0]] || '';
+    const hint = clusterReason(key) || DIM_HINT[d[0]] || '';
     const attrs = `class="vd"${hint ? ` title="${escapeHtml(hint)}"` : ''}`;
     const inner = `
         <span class="lb">${escapeHtml(d[0])}</span>
-        <span class="vl num">${d[1]}</span>
+        <span class="vl num">${d[1]}<span class="of">/100</span></span>
         ${key ? '<span class="vd-go" aria-hidden="true">›</span>' : ''}`;
     return key
       ? `<button type="button" ${attrs} data-cluster="${escapeHtml(key)}">${inner}</button>`
@@ -5796,7 +5871,7 @@ function rSummary() {
          그대로 있고 #/graph 와 대기 화면이 같이 쓴다. -->
 
     <div class="card rep-deck">
-      <h3 class="section-title">슬라이드로 보는 발표<span class="soft">장을 누르거나 <kbd>←</kbd><kbd>→</kbd> 로 넘겨요</span></h3>
+      <h3 class="section-title">슬라이드로 보는 발표<span class="soft">슬라이드를 누르거나 <kbd>←</kbd><kbd>→</kbd> 로 넘겨요</span></h3>
       <div id="deckBody">${deckHtml()}</div>
       <!-- 탭 이동은 한 번만 멈춘다(선택된 장만 tabindex=0). 23장짜리 자료에서
            칸마다 멈추면 필름을 지나가는 데만 탭을 23번 눌러야 한다 —
@@ -6007,11 +6082,11 @@ function showcaseChatterStub() {
         refs: [{ node_id: 'rules', source: 'alignment' }] },
       { speaker: 'solar', mood: 'curious', text: '자료엔 회전율 8.4배, 매도규칙 71% 대 18%가 있는데 발표에선 그 숫자가 안 나왔어.',
         refs: [{ node_id: 'rules', source: 'graph' }] },
-      { speaker: 'ax', mood: 'neutral', text: '손실 회피는 짧게만 스쳤고, 오해와 사실 장에선 자료랑 다른 결론을 말한 것 같아.',
+      { speaker: 'ax', mood: 'neutral', text: '손실 회피는 짧게만 스쳤고, 오해와 사실 슬라이드에서는 자료랑 다른 결론을 말한 것 같아.',
         refs: [{ node_id: 'lossav', source: 'alignment' }, { node_id: 'myth', source: 'alignment' }] },
       { speaker: 'exaone', mood: 'happy', text: '그래도 과잉 매매→비용으로 이은 멘트는 깔끔했어. 그 호흡으로 11번만 살리면 된다.',
         refs: [{ node_id: 'overtrade', source: 'flow' }, { node_id: 'cost', source: 'flow' }] },
-      { speaker: 'midm', mood: 'grumpy', text: '타이밍 실패도 장에 있었는데 발표에선 거의 안 들렸어. 원인 다섯 개라면서 두 개가 비네.',
+      { speaker: 'midm', mood: 'grumpy', text: '타이밍 실패도 슬라이드에 있었는데 발표에선 거의 안 들렸어. 원인 다섯 개라면서 두 개가 비네.',
         refs: [{ node_id: 'timing', source: 'alignment' }] },
       { speaker: 'ax', mood: 'curious', text: '전체로는 아홉 분쯤? 앞은 길고 결론 근거는 짧았어. 들으면서 숨이 앞쪽에 몰리는 느낌이었어.',
         refs: [] },
@@ -6064,7 +6139,7 @@ function audienceBlockReason() {
     return `${stage}에서 실패해서 분석이 멈췄어요${err ? ` (${err})` : ''}. `
       + '기다려도 진행되지 않아요 — 「다른 녹음으로 다시」로 재시도해 주세요.';
   }
-  return `아직 ${stage} 단계예요. 실API 는 12장 기준 7분쯤 걸려요. `
+  return `아직 ${stage} 단계예요. 실API 는 슬라이드 12개 기준 7분쯤 걸려요. `
     + '청중은 판정 결과를 놓고 수군거리는 거라, 거기까지 끝나야 열려요.';
 }
 
@@ -6205,7 +6280,7 @@ function deckHtml() {
     // 라벨·근거·제안은 모두 LLM 산출물이다 — innerHTML 에 넣기 전에 이스케이프한다
     panel = `
       <div class="dp-top">${chip(node.status, true)}<b>${escapeHtml(node.label)}</b></div>
-      <span class="bubble-label" style="margin-top:0">이 장에서 한 말</span>
+      <span class="bubble-label" style="margin-top:0">이 슬라이드에서 한 말</span>
       <div class="bubble">${node.ev
         ? escapeHtml(node.ev)
         : '<span class="note">이 개념에 해당하는 발화를 찾지 못했어요.</span>'}${node.evTime ? `<time>${escapeHtml(node.evTime)}</time>` : ''}</div>
@@ -6221,14 +6296,14 @@ function deckHtml() {
         <span class="bubble-label">실제로 한 말</span>
         <div class="bubble" style="background:var(--ct-bg)">${node.spokeSays}<time>${node.spokeTime}</time></div>`
       : `
-        <span class="bubble-label" style="margin-top:0">이 장에서 한 말</span>
+        <span class="bubble-label" style="margin-top:0">이 슬라이드에서 한 말</span>
         <div class="bubble">${node.ev}${node.evTime ? `<time>${node.evTime}</time>` : ''}</div>`}
       <div class="dp-fix"><b>이렇게 말해보세요</b><p>${node.fix}</p></div>
       <button class="btn btn-tint btn-sm" id="deckJudgeGo" data-node="${node.id}">판정 근거 자세히 보기</button>`;
   } else {
     panel = `<p class="dp-none">${live
-      ? '이 장에 걸린 개념 판정이 없어요.'
-      : '이 장은 핵심 개념 판정 대상이 아니에요.'}</p>`;
+      ? '이 슬라이드에 걸린 개념 판정이 없어요.'
+      : '이 슬라이드는 핵심 개념 판정 대상이 아니에요.'}</p>`;
   }
   if (moments.length) {
     panel += `<div class="dp-moments">${moments.map(m =>
@@ -6462,7 +6537,7 @@ function jDetail(n, tree = DATA.tree) {
 const FLOW_KIND = {
   missing_link: { type: '연결 멘트 없음', good: false },
   order_jump: { type: '근거 점프', good: false },
-  good_link: { type: '잘된 연결', good: true },
+  good_link: { type: '매끄러운 연결', good: true },
 };
 
 /* ── 탭 진단 블록 ─────────────────────────────────────────────
@@ -6509,7 +6584,7 @@ function flowVerdict(flow) {
   if (top.kind === 'missing_link') {
     return {
       headline: `${where} 잇는 말 없이 화제가 바뀌었어요`,
-      action: '「그래서」「이걸 확인하려고」처럼 앞 장과 잇는 한 문장을 넣으면 흐름이 살아나요.',
+      action: '「그래서」「이걸 확인하려고」처럼 앞 슬라이드와 잇는 한 문장을 넣으면 흐름이 살아나요.',
       evidence: top.cue || '',
     };
   }
@@ -6724,14 +6799,16 @@ function rLogic() {
     /* DATA.logicBreaks 의 from·to 는 이미 '5번' 처럼 번을 달고 있다.
        여기서 또 붙여서 「5번번에서 7번번으로」가 나가고 있었다 (샘플 경로). */
     headline: `${bad[0].from}에서 ${bad[0].to}으로 넘어갈 때 논리가 끊겼어요`,
-    action: '앞 장과 잇는 한 문장을 넣으면 흐름이 살아나요. 아래 실제 발화를 확인해 보세요.',
+    action: '앞 슬라이드와 잇는 한 문장을 넣으면 흐름이 살아나요. 아래 실제 발화를 확인해 보세요.',
   } : null;
   $('#rbody').innerHTML = `
     ${tabVerdictHtml(verdict)}
     ${first ? logicBreakCardHtml(first) : ''}
     ${rest.length ? `<details class="fold"><summary>나머지 ${rest.length}곳 더 보기</summary>
       <div class="fold-body">${rest.map(logicBreakCardHtml).join('')}</div></details>` : ''}
-    <p class="ai-note">논리가 끊긴 곳은 최대 5곳까지만 짚어요 — 위치와 실제 발화를 함께 확인하세요.</p>`;
+    <p class="ai-note">${bad.length
+      ? `여기서는 ${bad[0].from} 슬라이드와 ${bad[0].to} 슬라이드의 논리가 달라요 — 위치와 실제 발화를 함께 확인하세요.`
+      : '앞뒤 흐름이 자연스럽게 이어졌어요.'}</p>`;
 }
 
 /* 탭 4 — 말 속도 */
@@ -6943,7 +7020,7 @@ function rPace(host = $('#rbody')) {
         <h3 class="section-title">자주 쓴 간투어·반복<span class="soft">간투어 ${(liveHabits && liveHabits.filler_cnt) || fillers.length}회 · 같은 말 반복 ${(liveHabits && liveHabits.repeat_cnt) || repeats.length}회 · 긴 쉼 ${(liveHabits && liveHabits.pause_cnt) || 0}회</span></h3>
         <!-- F-18 LoRA 태거(FIL/REP/PAUSE) 결과. 시연은 같은 계약의 stub 을 그린다. -->
         ${habitRows.length ? `<div class="filler-list">${habitRows.map(f => `
-          <div class="filler-row"><span><i class="note" style="margin-right:6px">${f.tag}</i>${escapeHtml(f.text)}</span><b class="num">${f.n}회</b></div>`).join('')}</div>`
+          <div class="filler-row"><span><span class="ftag">${f.tag}</span><span class="fsep" aria-hidden="true">|</span>${escapeHtml(f.text)}</span><b class="num">${f.n}회</b></div>`).join('')}</div>`
           : `<p class="note">눈에 띄는 간투어·반복은 거의 없었어요. 좋아요!</p>`}
       </div>`;
     /* 세로 한 줄로 편다. 예전엔 진단에 따라 시간·간투어 중 하나를 접어 뒀는데,
@@ -7003,7 +7080,7 @@ function rPace(host = $('#rbody')) {
   // 폴백 경로도 진단→근거→처방 구조를 따른다 — 헤드라인은 이미 계산된 판정에서만 만든다
   const fbVerdict = fastRows.length
     ? { headline: `${fastRows.length}개 구간에서 평균보다 훨씬 빨랐어요`,
-        action: '빠른 구간의 개념 판정을 함께 확인하고, 그 장에서 한 박자 쉬어 보세요.' }
+        action: '빠른 구간의 개념 판정을 함께 확인하고, 그 슬라이드에서 한 박자 쉬어 보세요.' }
     : { headline: '구간별 말 속도가 고르게 유지됐어요',
         action: '이 속도를 유지하면서 아래 시간 배분만 살펴보세요.' };
   const fbPace = humanPaceLabel(st.avg, st.rec);
@@ -7057,13 +7134,13 @@ function rDelivery() {
 }
 
 /* 탭 6 — 연습 도구.
-   안쪽 세그먼트 메뉴를 없애고 네 도구를 한 번에 세로로 편다. 탭 안에 탭이 있어서
-   「발표 구성」 말고 세 개가 있다는 걸 모르고 지나가는 사람이 많았다.
-   도구마다 host 를 따로 주는 이유: 넷이 다 같은 #toolBody 에 쓰면 서로 지웠다.
+   안쪽 세그먼트 메뉴를 없애고 세 도구를 한 번에 세로로 편다. 탭 안에 탭이 있어서
+   몇 개가 있는지 모르고 지나가는 사람이 많았다.
+   도구마다 host 를 따로 주는 이유: 셋이 다 같은 #toolBody 에 쓰면 서로 지웠다.
 
    순서는 발표 직전에 손이 가는 차례다 (2026-08-07 지시). 그림 한 장 → 그대로
-   말할 문장 → 질문 대비 → 순서 다시 짜기. 「발표 구성」은 지금 당장 쓰는 게
-   아니라 다음 연습에서 고칠 것이라 맨 아래다.
+   말할 문장 → 질문 대비. 「발표 구성」은 지금 당장 쓰는 게 아니라 다음 연습에서
+   고칠 것이라, 성격이 달라서 2026-08-12 부터 상위 탭(탭 7)으로 뺐다.
 
    sub 는 도구마다 꼬리에 달려 있던 설명을 제목 밑으로 올린 것이다 — 무엇에 쓰는
    물건인지 다 읽고 나서야 알려 주면 늦다 (토스 Predictable hint). */
@@ -7071,7 +7148,6 @@ const TOOL_SECTIONS = [
   { label: '개요 이미지', sub: '발표 직전에 이 한 장으로 전체 구조를 훑어요', id: 'toolMap', render: (host) => tMap(host) },
   { label: '펀치라인', sub: '이 문장은 그대로 말해도 좋아요', id: 'toolPunch', render: (host) => tPunch(host) },
   { label: '용어 카드', sub: '질문이 올 개념과 답하는 순서예요', id: 'toolTerms', render: (host) => tTerms(host) },
-  { label: '발표 구성', sub: '다음 연습에서 순서를 이렇게 바꿔 봐요', id: 'toolStrategy', render: (host) => tStrategy(host) },
 ];
 
 function rTools() {
@@ -7161,6 +7237,14 @@ function strategyAnalysis() {
     time_alloc: timeAlloc,
     quotes,
   };
+}
+
+/* 탭 7 — 발표 구성. 2026-08-12 부터 「연습 도구」 안 넷째 자리에서 상위 탭으로
+   뺐다 — 지금 당장 쓰는 세 도구(개요 이미지·펀치라인·용어 카드)와 성격이
+   달라서(다음 연습을 위한 것) 한 탭에 같이 있으면 도구 하나로 오해받았다. */
+function rStrategy() {
+  $('#rbody').innerHTML = `<p class="tool-sec-sub">다음 연습에서 순서를 이렇게 바꿔 봐요</p><div id="toolStrategy"></div>`;
+  tStrategy();
 }
 
 function tStrategy(host = $('#toolStrategy')) {
@@ -7366,10 +7450,10 @@ function tMap(host = $('#toolMap')) {
   host.innerHTML = `
     <div class="map-tools">
       <label class="toggle"><input type="checkbox" id="weakOnly" ${mapWeakOnly ? 'checked' : ''}> 챙길 개념만 보기</label>
-      <button class="btn btn-secondary btn-sm" id="dl">SVG로 저장</button>
+      <button class="btn btn-secondary btn-sm" id="dl">이미지로 저장</button>
     </div>
     <div class="map-box">${mapSvgString()}</div>
-    <p class="note" style="margin-top:10px">네모 아래 색 글씨가 그 개념을 얼마나 설명했는지예요.</p>`;
+    <p class="note" style="margin-top:10px">챙길 개념만 보기</p>`;
   $('#weakOnly', host).addEventListener('change', e => { mapWeakOnly = e.target.checked; tMap(host); });
   $('#dl', host).addEventListener('click', () => {
     const blob = new Blob([mapSvgString()], { type: 'image/svg+xml' });
@@ -7922,7 +8006,7 @@ function streamRow(it) {
        뭐가 있는지 아는 사람에게만 힌트다. 그래서 부르는 장을 조그맣게 같이 띄운다.
        slides 는 openNextHint 가 진짜 렌더가 있는 장만 골라 실어 준다. */
     const slides = (it.slides || []).length ? `<div class="hint-slides">${it.slides.map((no) => `
-      <figure><img data-thumb-page="${no}" src="${deckImageSrc(no)}" alt="${no}번 슬라이드" loading="lazy"><figcaption>${no}장</figcaption></figure>`).join('')}</div>` : '';
+      <figure><img data-thumb-page="${no}" src="${deckImageSrc(no)}" alt="${no}번 슬라이드" loading="lazy"><figcaption>${no}번</figcaption></figure>`).join('')}</div>` : '';
     return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}${it.auto ? ' · 좁혀 물으면서 같이 열었어요' : ''}</b>${it.text}${slides}</div></div>`;
   }
   if (it.kind === 'react') {

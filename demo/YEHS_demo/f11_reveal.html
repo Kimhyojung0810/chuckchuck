@@ -1119,14 +1119,23 @@ function applyGraphOnly(graph) {
     speech: 0,
     verdict: null,          // 아직 판정 전 — sceneVerdict 가 켤 때까지 색을 안 준다
     first: null,
+    x: Number.isFinite(gn.x) ? gn.x : null,
+    y: Number.isFinite(gn.y) ? gn.y : null,
   })).sort((a, b) => b.doc - a.doc).slice(0, MAX_REVEAL_NODES);
-  if (nodes.length > 8) {
-    // 촘촘한 판에서는 14자 라벨이 이웃과 겹친다 — 더 짧게
-    nodes.forEach((n) => {
-      if (n.label.length > 8) n.label = n.label.slice(0, 7) + "…";
-    });
+  /* 좌표가 실려 오면 손배치다 — 시연 더미처럼 사람이 자리를 잡아 준 그래프는
+     자동 배치·라벨 절단을 건너뛰고 내장 mock 과 같은 결로 그린다. */
+  const handPlaced = nodes.length > 0 && nodes.every((n) => n.x != null && n.y != null);
+  if (handPlaced) {
+    RADIUS_SCALE = 0.9;
+  } else {
+    if (nodes.length > 8) {
+      // 촘촘한 판에서는 14자 라벨이 이웃과 겹친다 — 더 짧게
+      nodes.forEach((n) => {
+        if (n.label.length > 8) n.label = n.label.slice(0, 7) + "…";
+      });
+    }
+    layoutNodes(nodes);
   }
-  layoutNodes(nodes);
   const ids = new Set(nodes.map((n) => n.id));
 
   NODES = nodes;
