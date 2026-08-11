@@ -113,7 +113,7 @@ const DATA = {
     '결론 — 덜 움직이는 것이 유리했다',
     'Q&A',
   ],
-  /* 이 발표자료의 렌더 이미지는 없다 — 비워 두면 번호 자리표시자(slidePlaceholder)로 그려진다. */
+  /* webp 컷은 없고, 시연·샘플은 assets/samples/investor_preview.pdf 를 pdf.js 로 그린다. */
   slideImages: [],
 
   tree: [

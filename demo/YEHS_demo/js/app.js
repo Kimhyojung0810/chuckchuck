@@ -85,13 +85,24 @@ function animateViz(root = document) {
   });
 }
 
-/** 샘플 모드에서만 voice_report_live.json 폴백. 실발표 실패 시 목업을 덮어쓰지 않는다. */
+/** 말하기(F-17 속도 · F-18 간투어) 결과가 없으면 시연·샘플 stub 으로 채운다. */
 let _voiceLiveCache = null;
 async function ensureVoicePipelineOut() {
-  if (nf && nf.pipelineOut && nf.pipelineOut.pace && (nf.pipelineOut.pace.slides || []).length) {
+  const hasVoice = !!(nf && nf.pipelineOut
+    && nf.pipelineOut.pace && (nf.pipelineOut.pace.slides || []).length
+    && nf.pipelineOut.habits);
+  if (hasVoice) return nf.pipelineOut;
+
+  /* 시연·샘플 리포트는 실 F-18(LoRA 간투어 태거) 대신 같은 모양의 stub 을 쓴다.
+     없으면 말하기 탭이 DATA 폴백으로 떨어져 「자주 쓴 간투어」 카드 자체가 안 나온다. */
+  if (isShowcaseDemo() || rSampleMode || (nf && nf.useSample)) {
+    const voice = showcaseVoiceStub();
+    nf = nf || {};
+    nf.pipelineOut = { ...(nf.pipelineOut || {}), ...voice };
     return nf.pipelineOut;
   }
-  // 실제 파이프라인이 돌다 깨졌거나 진행 중이면 fixture 목업을 끼워 넣지 않는다
+
+  // 예전 샘플 fixture 경로(useSample 이고 아직 실연을 안 돌린 경우)
   const phase = nf && nf.pipelinePhase;
   const realAttempt = !!(nf && (nf._pipelineStarted || nf.pipelineError || phase));
   const allowFixture = !!(nf && nf.useSample) && !realAttempt;
@@ -129,16 +140,16 @@ function fmtSec(sec) {
   return `${Math.floor(s / 60)}분 ${s % 60}초`;
 }
 
-function fillerKeywordStats(habits) {
+function fillerKeywordStats(habits, kind = 'FIL') {
   const spans = (habits && (habits.spans || habits.spans_sample)) || [];
   const count = {};
-  spans.filter(s => s.kind === 'FIL').forEach(s => {
+  spans.filter(s => s.kind === kind).forEach(s => {
     const t = String(s.text || '').trim();
     if (!t) return;
     count[t] = (count[t] || 0) + 1;
   });
   return Object.entries(count)
-    .map(([text, n]) => ({ text, n }))
+    .map(([text, n]) => ({ text, n, kind }))
     .sort((a, b) => b.n - a.n || a.text.localeCompare(b.text, 'ko'));
 }
 
@@ -147,7 +158,8 @@ function voiceEasyBlocks(pace, habits, report) {
   const shortCore = slides.filter(s => s.importance === 'core' && s.status === 'short');
   const longOnes = slides.filter(s => s.status === 'long');
   const okCore = slides.filter(s => s.importance === 'core' && s.status === 'ok');
-  const fillers = fillerKeywordStats(habits);
+  const fillers = fillerKeywordStats(habits, 'FIL');
+  const repeats = fillerKeywordStats(habits, 'REP');
   const target = fmtSec(pace.target_sec);
   const actual = fmtSec(pace.actual_sec);
   let headline = '시간 배분이랑 말하는 습관을 함께 살펴봤어요.';
@@ -177,7 +189,7 @@ function voiceEasyBlocks(pace, habits, report) {
   if (!actions.length && Array.isArray(report && report.actions)) {
     actions.push(...report.actions.slice(0, 3));
   }
-  return { slides, shortCore, longOnes, okCore, fillers, headline, lead, target, actual, actions };
+  return { slides, shortCore, longOnes, okCore, fillers, repeats, headline, lead, target, actual, actions };
 }
 
 function slidePillHtml(slides, tone) {
@@ -836,6 +848,8 @@ function unbindRehearsalNav() {
    분석·질문 코칭·리포트 결과만 DATA 쇼케이스 더미(sample-investor)로 고정한다. */
 const SHOWCASE_DEMO = true;
 const SHOWCASE_REPORT_HASH = '#/report/sample-investor';
+/* 시연·샘플 리포트용 슬라이드 원본. DATA.slideImages 가 비어 있어도 이 PDF 로 그린다. */
+const SHOWCASE_SLIDE_PDF = 'assets/samples/investor_preview.pdf';
 let showcasePipeGen = 0;
 function isShowcaseDemo() {
   return SHOWCASE_DEMO || !!(nf && nf.showcaseDemo);
@@ -886,6 +900,95 @@ if (nf.gate === 'parsing') {
 const NF_STEPS = ['자료 올리기', '발표 정보', '리허설 녹음', '질문 준비'];
 let parseTimer = null;
 let parseGen = 0; // 취소/중복 요청 구분
+
+/**
+ * 시연 말하기(F-17·F-18) stub.
+ * 실서비스에선 LoRA 간투어 태거(f18)가 habits.spans 를 채우고, 말하기 탭이
+ * 「자주 쓴 간투어」로 그린다. 시연은 같은 계약의 더미를 넣어 카드가 비지 않게 한다.
+ */
+function showcaseVoiceStub() {
+  const dur = (DATA.session && DATA.session.durationSec) || 564;
+  const target = (DATA.session && DATA.session.targetSec) || SAMPLE_TARGET_SEC || 600;
+  const paceRows = DATA.pace || [];
+  const n = Math.max(1, paceRows.length);
+  const slides = paceRows.map((p, i) => {
+    const no = p[1];
+    const cpm = p[2] || 0;
+    const fast = !!p[3];
+    /* 11번(상위 그룹 비교)은 짧게, 4번(복리)은 길게 — DATA 서사와 동일 */
+    let actual = Math.round(dur / n);
+    if (no === 11) actual = 35;
+    if (no === 4) actual = 95;
+    let status = 'ok';
+    if (no === 11) status = 'short';
+    else if (no === 4) status = 'long';
+    else if (fast) status = 'fast';
+    return {
+      slide_no: no,
+      title: p[0],
+      chars_per_min: cpm,
+      actual_sec: actual,
+      recommended_sec: Math.round(target / n),
+      status,
+      importance: (no === 11 || no === 6 || no === 3) ? 'core' : 'support',
+    };
+  });
+  const sections = (DATA.timeAlloc || []).map((r) => {
+    const label = String(r[3] || '');
+    return {
+      name: r[0],
+      recommended_sec: Math.round(target * (r[1] || 0) / 100),
+      actual_sec: Math.round(dur * (r[2] || 0) / 100),
+      status: label.includes('부족') ? 'short' : (label.includes('초과') ? 'long' : 'ok'),
+    };
+  });
+  const spans = [
+    { kind: 'FIL', text: '그', start_sec: 48, end_sec: 48.4, slide_no: 3 },
+    { kind: 'FIL', text: '그', start_sec: 52, end_sec: 52.3, slide_no: 3 },
+    { kind: 'FIL', text: '음', start_sec: 118, end_sec: 118.5, slide_no: 5 },
+    { kind: 'FIL', text: '그', start_sec: 190, end_sec: 190.3, slide_no: 6 },
+    { kind: 'FIL', text: '이제', start_sec: 210, end_sec: 210.4, slide_no: 6 },
+    { kind: 'FIL', text: '그', start_sec: 255, end_sec: 255.3, slide_no: 8 },
+    { kind: 'FIL', text: '음', start_sec: 268, end_sec: 268.6, slide_no: 8 },
+    { kind: 'FIL', text: '그냥', start_sec: 310, end_sec: 310.5, slide_no: 9 },
+    { kind: 'FIL', text: '그', start_sec: 420, end_sec: 420.3, slide_no: 12 },
+    { kind: 'REP', text: '그래서 그래서', start_sec: 200, end_sec: 201, slide_no: 6 },
+    { kind: 'REP', text: '결국 결국', start_sec: 500, end_sec: 501, slide_no: 14 },
+  ];
+  return {
+    pace: {
+      target_sec: target,
+      actual_sec: dur,
+      avg_chars_per_min: (DATA.paceStats && DATA.paceStats.avg) || 328,
+      max_chars_per_min: (DATA.paceStats && DATA.paceStats.max) || 430,
+      max_slide_no: 11,
+      recommended_cpm: (DATA.paceStats && DATA.paceStats.rec) || '300~350',
+      slides,
+      sections,
+      tips: ['11번 상위 그룹 비교는 35초로 짧고, 4번 복리 설명은 길어요.'],
+    },
+    habits: {
+      by_slide: [
+        { slide_no: 3, repeat_cnt: 0, filler_cnt: 2, pause_cnt: 0 },
+        { slide_no: 6, repeat_cnt: 1, filler_cnt: 2, pause_cnt: 0 },
+        { slide_no: 8, repeat_cnt: 0, filler_cnt: 2, pause_cnt: 1 },
+        { slide_no: 11, repeat_cnt: 0, filler_cnt: 0, pause_cnt: 0 },
+      ],
+      repeat_cnt: 2,
+      filler_cnt: 9,
+      pause_cnt: 1,
+      provider: 'showcase-lora',
+      tips: ['원인 설명 구간(3·6·8번)에 「그」「음」이 몰려 있어요.'],
+      n_spans: spans.length,
+      spans_sample: spans,
+      spans,
+    },
+    report: {
+      one_liner: (DATA.session && DATA.session.oneLiner)
+        || '과잉 매매 설명은 좋았지만, 결론 근거인 상위 그룹 비교가 짧았어요.',
+    },
+  };
+}
 
 /**
  * 분석 연출(F-11 리빌·스텝4 검증 로그)용 파이프라인 stub.
@@ -962,6 +1065,8 @@ function showcasePipelineStub() {
         doc_weight: t.w || 0.5,
         evidence: (t.ev || t.spokeSays || '').replace(/^“|”$/g, ''),
         note: t.why || '',
+        /* F-11 suggestion — 요약 탭 트로피·판정 탭 「이렇게 말해보세요」가 이걸 읽는다 */
+        suggestion: t.fix || '',
       };
     });
 
@@ -1135,6 +1240,7 @@ function showcasePipelineStub() {
       })),
     },
     score: DATA.score || null,
+    ...showcaseVoiceStub(),
   };
 }
 /** 리허설이 끝난 뒤 짧은 분석 연출 → 질문 코칭으로 넘긴다. 실 LLM 은 부르지 않는다. */
@@ -1159,7 +1265,8 @@ async function beginShowcasePipeline() {
     nf.slideTitles = (DATA.slideTitles || []).slice();
   }
   if (!nf.fileName) nf.fileName = (DATA.session && DATA.session.file) || nf.fileName;
-  buildPipelineMarks({});
+  /* 시연은 브라우저 인코딩이 없다. 남겨 두면 타임라인 앞에 2초 허수가 붙는다. */
+  buildPipelineMarks({ encodingReady: true });
   pushPipelineLog('queued');
   saveSession('new-flow', nf);
   refreshStep4IfVisible();
@@ -1177,16 +1284,15 @@ async function beginShowcasePipeline() {
     ['flow_done', '질문 준비 완료'],
     ['done', '분석 완료'],
   ];
-  /* 시연은 실 7분이 아니라 약 12초 연출. 그래프→정합이 너무 빠르면
-     리빌이 막 뜬 순간 이미 끝나 필름·그래프 연출이 안 보인다. */
+  /* 시연 연출은 타임라인 예산(약 55초)에 맞춘다.
+     12초 만에 100%가 되면 「55초」 눈금과 「9초 지났어요」가 서로 다른 말이 된다. */
+  const showcaseBudgetSec = { stt: 28, concepts: 7, graph: 12, align: 6, flow: 2 };
   const phaseMs = (phase) => {
-    if (phase === 'stt' || phase === 'concepts' || phase === 'graph') return 1100;
-    if (phase === 'align') return 1400;
-    if (phase === 'flow') return 900;
-    if (phase === 'stt_done' || phase === 'concepts_done') return 700;
-    if (phase === 'graph_done') return 1200;   // 그래프만 먼저 보여 줄 여유
-    if (phase === 'align_done') return 900;
-    return 500;
+    const stage = String(phase).replace(/_(done|error)$/, '');
+    if (phase.endsWith('_done')) return 900;
+    if (phase === 'done') return 1200;
+    if (showcaseBudgetSec[stage] != null) return showcaseBudgetSec[stage] * 1000;
+    return 800;
   };
   const stub = showcasePipelineStub();
   for (const [phase, detail] of phases) {
@@ -1209,6 +1315,13 @@ async function beginShowcasePipeline() {
     }
     if (phase === 'flow_done' || phase === 'done') {
       nf.pipelineOut = { ...stub, ...(nf.pipelineOut || {}), ...stub };
+    }
+    /* 끝난 단계의 실측을 남겨 타임라인 폭이 예산(55초)과 맞게 채워지게 한다. */
+    if (phase.endsWith('_done')) {
+      const stage = phase.replace(/_done$/, '');
+      if (showcaseBudgetSec[stage] != null) {
+        nf._stageActual = { ...(nf._stageActual || {}), [stage]: showcaseBudgetSec[stage] };
+      }
     }
     pushBackstage(phase);
     pushPipelineLog(phase);
@@ -1429,6 +1542,20 @@ async function ensurePreviewPdf(doc = null) {
     return uploadedPdf;
   } catch (err) {
     console.warn('[chuckchuck] preview pdf', err);
+    return null;
+  }
+}
+
+/** 시연·샘플은 서버 preview API 없이 로컬 PDF 로 슬라이드 덱을 채운다. */
+async function ensureShowcasePreviewPdf() {
+  if (uploadedPdf && uploadedPdf.pdf) return uploadedPdf;
+  if (!(isShowcaseDemo() || rSampleMode || (nf && nf.useSample))) return null;
+  try {
+    const name = (DATA.session && DATA.session.file) || 'investor_preview.pdf';
+    await loadPreviewPdf(SHOWCASE_SLIDE_PDF, name);
+    return uploadedPdf;
+  } catch (err) {
+    console.warn('[chuckchuck] showcase slide pdf', err);
     return null;
   }
 }
@@ -1671,6 +1798,13 @@ function renderNew() {
   app.className = 'narrow';
   app.innerHTML = `${nfSteps()}<div id="nf"></div>`;
   [nfStep1, nfStep2, nfStep3, nfStep4][nf.step]();
+  /* 샘플·시연 연습 화면의 슬라이드 필름도 PDF 가 있어야 채워진다.
+     ensure 는 비동기라 그린 뒤 붙이고, 붙으면 썸네일만 다시 칠한다. */
+  if ((isShowcaseDemo() || (nf && nf.useSample)) && !uploadedPdf) {
+    ensureShowcasePreviewPdf().then((pdf) => {
+      if (pdf && $('#nf')) paintDeckThumbs(app);
+    });
+  }
 }
 
 /* 스텝 1 — 자료 올리기 */
@@ -1691,7 +1825,7 @@ function nfStep1() {
           <div class="sample-demo-entry">
             <span class="sample-demo-badge">샘플 데모</span>
             <button class="btn btn-secondary" id="sampleDemo" type="button">더미 발표자료로 전체 과정 보기</button>
-            <small>실제 분석이 아니라 준비된 IMU2CLIP 예시로 녹음과 결과 화면을 체험해요.</small>
+            <small>실제 분석이 아니라 준비된 개인투자자 발표 예시로 녹음과 결과 화면을 체험해요.</small>
           </div>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
@@ -1813,7 +1947,7 @@ function clientSampleSlideDoc() {
     };
   });
   return {
-    file_name: 'IMU2CLIP_샘플_발표자료.pdf',
+    file_name: (DATA.session && DATA.session.file) || '개인투자자_수익률격차_분석.pdf',
     total_slides: slides.length,
     slides,
     sample: true,
@@ -1873,6 +2007,7 @@ async function startParse({ file = null, fixture = false } = {}) {
       const doc = clientSampleSlideDoc();
       applySlideDoc(doc, { keepDemoImages: true });
       setUploadedPdf(null);
+      await ensureShowcasePreviewPdf();
       nf.gate = 'done';
       nf._parseStartedAt = null;
       if (parseTimer) { clearInterval(parseTimer); parseTimer = null; }
@@ -2622,14 +2757,20 @@ async function finishRecAndPrepare() {
   // 녹음은 여기서 끝났다. 'on' 으로 두면 리허설로 돌아왔을 때 이미 끝난 발표가
   // 「발표 중」 시계로 다시 그려지고, 단계 표시줄도 녹음 중인 줄 알고 잠긴다
   nf.mic = 'idle';
-  /* 시연은 결과 더미가 9분 24초라, 커튼콜에 실제 마이크 초를 쓰면 다음 화면과 어긋난다. */
+  /* 시연은 결과 더미가 9분 24초라, 커튼콜·이후 화면에 실제 마이크 초를 쓰면 어긋난다. */
   const curtainSec = isShowcaseDemo()
     ? ((DATA.session && DATA.session.durationSec) || 564)
     : ((ccLastTake && ccLastTake.durationSec) || nf.sec);
+  if (isShowcaseDemo()) {
+    nf.sec = curtainSec;
+    if (ccLastTake) ccLastTake.durationSec = curtainSec;
+  }
   await showCurtainCall(slides, curtainSec);
   nf.step = 3;
   renderNew();
-  if (!nf.useSample) showF11Reveal();
+  /* 시연은 스텝4 연출만 쓴다. F-11 리빌을 띄우면 「개념마다 판정을 내렸어요」가
+     잠깐 보이다가 질문 코칭 시간 고르기로 튕겨, 중간 화면처럼 읽힌다. */
+  if (!nf.useSample && !isShowcaseDemo()) showF11Reveal();
 }
 
 /**
@@ -2972,10 +3113,11 @@ const PIPELINE_AFTER_QA_PHASES = [
   'partial', 'done', 'error',
 ];
 
-function buildPipelineMarks({ conceptsReady = false, graphReady = false } = {}) {
+function buildPipelineMarks({ conceptsReady = false, graphReady = false, encodingReady = false } = {}) {
   const secs = { ...PIPELINE_STAGE_SEC_BASE };
   if (conceptsReady) secs.concepts = 0;
   if (graphReady) secs.graph = 0;
+  if (encodingReady) secs.encoding = 0;
   pipelineStageSec = secs;
 
   const total = PIPELINE_STAGE_ORDER.reduce((s, k) => s + (secs[k] || 0), 0) || 1;
@@ -4367,8 +4509,18 @@ let rSampleMode = false;
  * 결과가 없는 것으로 친다: 호출부는 이미 전부 「없으면 DATA 샘플」 분기를 갖고 있다.
  */
 function reportOut() {
-  if (rSampleMode) return null;
-  return (nf && nf.pipelineOut) || null;
+  const out = (nf && nf.pipelineOut) || null;
+  if (rSampleMode) {
+    /* 샘플 딱지 리포트: 개념·흐름은 DATA, 말하기(F-17/F-18 간투어)만 stub/fixture 를 연다.
+       전부 null 로 막으면 「자주 쓴 간투어」 카드가 말하기 탭에서 사라진다. */
+    if (!out || !(out.pace || out.habits)) return null;
+    return {
+      pace: out.pace || null,
+      habits: out.habits || null,
+      report: out.report || null,
+    };
+  }
+  return out;
 }
 
 /** 채점표(F-14) 결과. 시연·샘플 리포트는 DATA.score(채점표 v3)를 쓴다. */
@@ -4621,6 +4773,9 @@ async function renderReport() {
     return;
   }
   rSampleMode = reportId === 'sample-investor';
+  /* 시연·샘플 리포트는 슬라이드 이미지가 비어 있다. 로컬 preview PDF 를 먼저 붙여
+     「슬라이드로 보는 발표」가 번호 자리표시자만 보이지 않게 한다. */
+  if (rSampleMode || isShowcaseDemo()) await ensureShowcasePreviewPdf();
   /* #/report/last — 저장해 둔 마지막 분석으로 연다 (개발용, 링크 없음).
      복원은 그리기 **전에** 끝나야 한다. reportSessionMeta·reportVerdict 가
      이미 nf 를 읽은 뒤면 옛 화면이 한 번 깜빡이고 덮인다. */
@@ -4955,6 +5110,18 @@ async function paintDeckThumbs(root = document) {
  * 그게 다음 리허설에서 실제로 말해볼 한 문장이라 트로피 자리에 맞다.
  * 전부 잘 설명했으면 aligned 중 가장 무거운 개념의 유지 멘트를 쓴다.
  */
+/** 시연·샘플 리포트용 트로피. QA 더미의 before/after 문장을 쓴다. */
+function sampleTrophy() {
+  const tr = DATA.session && DATA.session.qa && DATA.session.qa.trophy;
+  if (!tr || !tr.after) return null;
+  return {
+    text: tr.after,
+    slide: tr.slide || 11,
+    verdict: 'missing',
+    label: tr.node || '',
+  };
+}
+
 function realTrophy() {
   const out = reportOut();
   const al = out && out.alignment;
@@ -5553,7 +5720,7 @@ function rSummary() {
   const live = meta.live;
   const s = DATA.session;
   const prio = DATA.priorities[s.occasion] || DATA.priorities['범용'] || Object.values(DATA.priorities)[0];
-  const trophy = realTrophy();
+  const trophy = realTrophy() || (!isLiveReportSession() ? sampleTrophy() : null);
   const real = realSummary();
   const tree = judgeTree();
   const isRealTree = !!(tree[0] && tree[0].real);
@@ -5757,8 +5924,8 @@ function autoAdvanceToQa() {
     location.hash = '#/qa';
   };
   // 「끝났어요」를 한 박자 보여주고 넘어간다. 즉시 바꾸면 무슨 일이 일어난 건지
-  // 모른 채 화면만 갈린다.
-  setTimeout(go, 1200);
+  // 모른 채 화면만 갈린다. 시연은 연출을 더 오래 보여 준다.
+  setTimeout(go, isShowcaseDemo() ? 2800 : 1200);
 }
 
 /** 파이프라인이 더 돌지 않는 상태인가. 문구와 색이 같은 답을 봐야 해서 한 곳에 둔다. */
@@ -5802,6 +5969,12 @@ function prefetchChatter() {
   if (chatterCache || chatterPending || !window.Chatter) return;
   const b = pipelineBundle();
   if (!b) return;
+  /* 시연·샘플은 브리지 없이 더미 수다로 연다. 실 API 가 있으면 그걸 쓰고,
+     실패해도 시연이 막히지 않게 stub 으로 떨어진다. */
+  if (rSampleMode || isShowcaseDemo()) {
+    chatterPending = Promise.resolve(showcaseChatterStub());
+    return;
+  }
   chatterPending = window.Chatter.fetchChatter(b.graph, b.alignment, b.flow);
   chatterPending.catch(() => { chatterPending = null; });
 }
@@ -5811,18 +5984,68 @@ function prefetchChatter() {
    --------------------------------------------------------------------------- */
 
 
+/**
+ * 시연·샘플 리포트용 청중 수다. /api/v1/chatter 없이 객석을 연다.
+ * 판정 서사(과잉 매매 ok · 손실 회피 mid · 사전 매도 규칙 missing · 오해와 사실 ct)에 맞춘다.
+ */
+function showcaseChatterStub() {
+  const file = (DATA.session && DATA.session.file) || 'showcase.pdf';
+  const slides = (DATA.session && DATA.session.slides) || 15;
+  return {
+    file_name: file,
+    total_slides: slides,
+    absent: [],
+    speaker_names: { midm: '믿:음', solar: '쏠라', exaone: '엑사원', ax: '엑씨' },
+    speaker_models: {
+      midm: 'KT 믿:음', solar: 'Upstage Solar',
+      exaone: 'LG EXAONE', ax: 'SKT A.X',
+    },
+    turns: [
+      { speaker: 'exaone', mood: 'happy', text: '과잉 매매 원인 설명은 진짜 좋았어. 비용은 확정인데 수익은 불확실하다 — 그 한 줄이 남네.',
+        refs: [{ node_id: 'overtrade', source: 'alignment' }] },
+      { speaker: 'midm', mood: 'grumpy', text: '근데 11번 상위 그룹 비교는… 표만 비추고 사전 매도 규칙은 말이 없더라. 결론 근거인데.',
+        refs: [{ node_id: 'rules', source: 'alignment' }] },
+      { speaker: 'solar', mood: 'curious', text: '자료엔 회전율 8.4배, 매도규칙 71% 대 18%가 있는데 발표에선 그 숫자가 안 나왔어.',
+        refs: [{ node_id: 'rules', source: 'graph' }] },
+      { speaker: 'ax', mood: 'neutral', text: '손실 회피는 짧게만 스쳤고, 오해와 사실 장에선 자료랑 다른 결론을 말한 것 같아.',
+        refs: [{ node_id: 'lossav', source: 'alignment' }, { node_id: 'myth', source: 'alignment' }] },
+      { speaker: 'exaone', mood: 'happy', text: '그래도 과잉 매매→비용으로 이은 멘트는 깔끔했어. 그 호흡으로 11번만 살리면 된다.',
+        refs: [{ node_id: 'overtrade', source: 'flow' }, { node_id: 'cost', source: 'flow' }] },
+      { speaker: 'midm', mood: 'grumpy', text: '타이밍 실패도 장에 있었는데 발표에선 거의 안 들렸어. 원인 다섯 개라면서 두 개가 비네.',
+        refs: [{ node_id: 'timing', source: 'alignment' }] },
+      { speaker: 'ax', mood: 'curious', text: '전체로는 아홉 분쯤? 앞은 길고 결론 근거는 짧았어. 들으면서 숨이 앞쪽에 몰리는 느낌이었어.',
+        refs: [] },
+    ],
+  };
+}
+
 function pipelineBundle() {
   const out = reportOut();
   if (out && out.graph && out.alignment && out.flow) return out;
+  /* 샘플·시연 리포트는 말하기 탭 때문에 reportOut() 이 null 이다.
+     청중석은 graph/alignment/flow 만 있으면 되므로, 방금 만든 stub 또는
+     시연 더미를 따로 꺼낸다 — 안 그러면 「리허설을 마치면」 거짓말이 뜬다. */
+  if (rSampleMode || isShowcaseDemo()) {
+    const live = (nf && nf.pipelineOut) || null;
+    if (live && live.graph && live.alignment && live.flow) return live;
+    if (typeof showcasePipelineStub === 'function') {
+      const stub = showcasePipelineStub();
+      if (stub && stub.graph && stub.alignment && stub.flow) return stub;
+    }
+  }
   return null;
 }
 
 /** 청중이 왜 못 오는지 — '리허설을 마치세요'는 이미 마친 사람에게 거짓말이다. */
 function audienceBlockReason() {
+  if (pipelineBundle()) return null;
+
   const out = reportOut();
   if (!out) {
-    /* 샘플을 보는 중이면 내 리허설 상태로 말하지 않는다 — 샘플 리포트에서
-       「스텝 4의 검증 로그를 확인해 주세요」가 뜨면 있지도 않은 내 실패를 말한다 */
+    /* 샘플·시연인데도 bundle 이 비면 stub 생성 실패다 — 리허설 미완료로 말하지 않는다 */
+    if (rSampleMode || isShowcaseDemo()) {
+      return '청중 데이터를 준비하지 못했어요. 화면을 새로고침한 뒤 다시 눌러 주세요.';
+    }
     const upl = reportNf();
     return upl && upl.transcriptOk
       ? '발표는 기록됐는데 분석 결과가 없어요. 스텝 4의 검증 로그를 확인해 주세요.'
@@ -5883,9 +6106,20 @@ async function openAudience() {
   try {
     if (!chatterCache) {
       // 탭을 열 때 미리 받기 시작했으면 그 약속을 기다린다 (두 번 부르지 않는다)
-      chatterCache = await (chatterPending || window.Chatter.fetchChatter(
+      const fetchLive = () => window.Chatter.fetchChatter(
         bundle.graph, bundle.alignment, bundle.flow
-      ));
+      );
+      if (rSampleMode || isShowcaseDemo()) {
+        chatterCache = await (chatterPending || Promise.resolve(showcaseChatterStub()));
+      } else {
+        try {
+          chatterCache = await (chatterPending || fetchLive());
+        } catch (err) {
+          /* 실연에서 API 가 죽어도 시연 플래그가 켜져 있으면 stub 으로 살린다 */
+          if (isShowcaseDemo()) chatterCache = showcaseChatterStub();
+          else throw err;
+        }
+      }
       chatterPending = null;
       // 누가 못 왔는지는 객석을 열어봐야 안다. 티켓의 빈 도장이 여기서 확정된다
       recordShow();
@@ -6338,6 +6572,18 @@ function paceRatioWord(cpm, avg) {
   return `평소의 ${r.toFixed(1)}배 · ${r > 1 ? '빠름' : '천천히'}`;
 }
 
+function cpmJudge(avg, rec) {
+  if (!avg) return '';
+  const nums = String(rec || '').match(/\d+/g) || [];
+  const lo = Number(nums[0]) || CPM_REC.min;
+  const hi = Number(nums[1]) || CPM_REC.max;
+  if (avg > hi * 1.15) return '권장보다 많이 빨라요';
+  if (avg > hi) return '권장보다 조금 빨라요';
+  if (avg < lo * 0.85) return '권장보다 많이 느려요';
+  if (avg < lo) return '권장보다 조금 느려요';
+  return '권장 범위예요';
+}
+
 /** 분석 단위(자/분)를 사람이 바로 이해하는 말로 바꾼다. 원값은 계산에만 쓴다. */
 function humanPaceLabel(avg, rec) {
   const judged = cpmJudge(avg, rec);
@@ -6672,7 +6918,8 @@ function rPace(host = $('#rbody')) {
   if (livePace && Array.isArray(livePace.slides) && livePace.slides.length && livePace.slides[0].actual_sec != null && typeof voiceTimeChartHtml === 'function') {
     const avg = livePace.avg_chars_per_min || 0;
     const easy = voiceEasyBlocks(livePace, liveHabits, liveReport || {});
-    const fillers = easy.fillers;
+    const fillers = easy.fillers || [];
+    const repeats = easy.repeats || [];
     // 처방 문구는 진단 블록이 한 번만 말한다 — 예전 voice-tip 과 중복이었다
     const diffLabel = timeDiffJudge(livePace.target_sec, livePace.actual_sec);
     const speedPace = humanPaceLabel(Math.round(avg), livePace.recommended_cpm);
@@ -6687,15 +6934,17 @@ function rPace(host = $('#rbody')) {
         <h3 class="section-title">길게 말한 장<span class="soft">여기를 줄이면 목표에 더 가까워져요</span></h3>
         <div class="slide-pill-row">${slidePillHtml(easy.longOnes, 'long')}</div>
       </div>`;
+    const habitRows = [
+      ...fillers.map(f => ({ ...f, tag: '간투어' })),
+      ...repeats.map(f => ({ ...f, tag: '반복' })),
+    ];
     const fillerCard = `
       <div class="card">
-        <h3 class="section-title">자주 쓴 간투어<span class="soft">같은 말 반복 ${(liveHabits && liveHabits.repeat_cnt) || 0}회 · 긴 쉼 ${(liveHabits && liveHabits.pause_cnt) || 0}회</span></h3>
-        <!-- 빈도에 따라 상자가 4단계로 커지던 워드클라우드였다. 세 줄이면 될 것을
-             그래픽으로 만든 자리다 — 크기로 빈도를 말하면 정확히 몇 배인지 못 읽고,
-             옆의 숫자가 이미 더 정확하게 말한다 (토스 그래픽 2·3번). -->
-        ${fillers.length ? `<div class="filler-list">${fillers.map(f => `
-          <div class="filler-row"><span>${escapeHtml(f.text)}</span><b class="num">${f.n}회</b></div>`).join('')}</div>`
-          : `<p class="note">눈에 띄는 간투어는 거의 없었어요. 좋아요!</p>`}
+        <h3 class="section-title">자주 쓴 간투어·반복<span class="soft">간투어 ${(liveHabits && liveHabits.filler_cnt) || fillers.length}회 · 같은 말 반복 ${(liveHabits && liveHabits.repeat_cnt) || repeats.length}회 · 긴 쉼 ${(liveHabits && liveHabits.pause_cnt) || 0}회</span></h3>
+        <!-- F-18 LoRA 태거(FIL/REP/PAUSE) 결과. 시연은 같은 계약의 stub 을 그린다. -->
+        ${habitRows.length ? `<div class="filler-list">${habitRows.map(f => `
+          <div class="filler-row"><span><i class="note" style="margin-right:6px">${f.tag}</i>${escapeHtml(f.text)}</span><b class="num">${f.n}회</b></div>`).join('')}</div>`
+          : `<p class="note">눈에 띄는 간투어·반복은 거의 없었어요. 좋아요!</p>`}
       </div>`;
     /* 세로 한 줄로 편다. 예전엔 진단에 따라 시간·간투어 중 하나를 접어 뒀는데,
        접힌 쪽은 있는 줄도 모르고 지나갔다 — 둘 다 이 탭의 본문이다. */
