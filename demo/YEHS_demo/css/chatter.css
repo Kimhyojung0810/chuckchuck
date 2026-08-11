@@ -73,8 +73,8 @@
   position: absolute;
   top: -12%;
   left: 50%;
-  width: 78vw;
-  height: 62vh;
+  width: calc(var(--vw) * 0.78);
+  height: calc(var(--vh) * 0.62);
   transform: translateX(-50%);
   background: radial-gradient(50% 60% at 50% 0%, rgba(255, 233, 184, .2), transparent 70%);
   pointer-events: none;
@@ -152,8 +152,8 @@
 /* 문짝 둘 + 그 사이의 틈. 틈에서 따뜻한 빛과 웅성거림이 새어 나온다 */
 .ch-door-frame {
   position: relative;
-  width: min(280px, 62vw);
-  height: min(300px, 42vh);
+  width: min(280px, calc(var(--vw) * 0.62));
+  height: min(300px, calc(var(--vh) * 0.42));
   margin: 0 auto 14px;
   transform-style: preserve-3d;
 }
@@ -212,7 +212,7 @@
 .ch-door.leaving .ch-door-frame {
   /* iPad Safari 는 100vh 가 실제 보이는 높이보다 커서 문이 화면을 넘친다. dvh/dvw 로 맞춘다 */
   width: 100dvw;
-  height: 100dvh;
+  height: var(--vh);
   margin: 0;
 }
 .ch-door.leaving .ch-door-l { animation: chDoorShutL .7s cubic-bezier(.4, 0, .2, 1) forwards; }
@@ -250,7 +250,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(6px, 2.2vw, 26px);
+  gap: clamp(6px, calc(var(--vw) * 0.022), 26px);
   /* 앞줄 실루엣이 좌석 등받이를 살짝 물어야 '뒤에 앉은 것'이 된다.
      다만 명패(= 모델 배지)까지 가리면 안 된다 — 어느 단계에서도 숨기지 않는다 */
   padding-bottom: 54px;
@@ -259,7 +259,7 @@
 
 .ch-seat {
   position: relative;
-  width: clamp(124px, 20vw, 178px);
+  width: clamp(124px, calc(var(--vw) * 0.2), 178px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -474,7 +474,7 @@
 
 .ch-chick {
   /* 말풍선보다 작으면 대사가 주인공이 된다. 들어주는 건 병아리다 */
-  width: clamp(96px, 15vw, 134px);
+  width: clamp(96px, calc(var(--vw) * 0.15), 134px);
   height: auto;
   display: block;
   overflow: visible;
@@ -690,7 +690,7 @@
 .ch-empty {
   display: grid;
   place-content: center;
-  width: clamp(96px, 15vw, 134px);
+  width: clamp(96px, calc(var(--vw) * 0.15), 134px);
   min-height: 92px;
   margin: 0;
   text-align: center;
@@ -798,7 +798,7 @@
   position: absolute;
   left: 46%;
   top: -18%;
-  width: 34vw;
+  width: calc(var(--vw) * 0.34);
   height: 108%;
   z-index: 0;
   pointer-events: none;

@@ -52,8 +52,8 @@
   position: absolute;
   top: -10%;
   left: 50%;
-  width: 70vw;
-  height: 60vh;
+  width: calc(var(--vw) * 0.7);
+  height: calc(var(--vh) * 0.6);
   transform: translateX(-50%);
   background: radial-gradient(50% 60% at 50% 0%, rgba(255, 233, 184, .18), transparent 70%);
   pointer-events: none;
@@ -64,10 +64,10 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(4px, 2vw, 20px);
+  gap: clamp(4px, calc(var(--vw) * 0.02), 20px);
 }
 .cc-row .ch-chick {
-  width: clamp(72px, 11vw, 104px);
+  width: clamp(72px, calc(var(--vw) * 0.11), 104px);
   cursor: default;
 }
 /* 일어서는 순서를 어긋내면 '넷이 각자 일어난' 것이 된다 (Staging) */
@@ -97,7 +97,7 @@
 
 .cc-line {
   position: relative;
-  font-size: clamp(20px, 3.4vw, 30px);
+  font-size: clamp(20px, calc(var(--vw) * 0.034), 30px);
   font-weight: 700;
   letter-spacing: -.02em;
   opacity: 0;
@@ -144,8 +144,8 @@
 
 /* 배웅 (§4) — 트로피 문장은 조금 크게. 집에 가져갈 단 하나의 문장이다 */
 .so-veil .cc-line.so-shout {
-  max-width: min(680px, 86vw);
-  font-size: clamp(19px, 3vw, 27px);
+  max-width: min(680px, calc(var(--vw) * 0.86));
+  font-size: clamp(19px, calc(var(--vw) * 0.03), 27px);
   line-height: 1.4;
   color: var(--th-gold);
 }
@@ -195,7 +195,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(4px, 2vw, 18px);
+  gap: clamp(4px, calc(var(--vw) * 0.02), 18px);
 }
 .cue-row .ch-seat {
   width: auto;
@@ -207,14 +207,14 @@
 .cue-row .ch-seat:nth-child(2) { animation-delay: .09s; }
 .cue-row .ch-seat:nth-child(3) { animation-delay: .18s; }
 .cue-row .ch-seat:nth-child(4) { animation-delay: .27s; }
-.cue-row .ch-chick { width: clamp(56px, 8vw, 78px); cursor: default; }
+.cue-row .ch-chick { width: clamp(56px, calc(var(--vw) * 0.08), 78px); cursor: default; }
 @keyframes cueSit {
   to { opacity: 1; transform: translateY(0); }
 }
 
 /* 무대감독의 큐 사인 */
 .cue-word {
-  font-size: clamp(24px, 4vw, 38px);
+  font-size: clamp(24px, calc(var(--vw) * 0.04), 38px);
   font-weight: 700;
   letter-spacing: .04em;
   color: var(--th-gold);
@@ -264,7 +264,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(6px, 3vw, 30px);
+  gap: clamp(6px, calc(var(--vw) * 0.03), 30px);
   transition: transform .35s var(--ease, ease);
 }
 .sf-row .ch-seat {
@@ -279,7 +279,7 @@
   transition: filter .4s ease;
 }
 .sf-row .ch-chick {
-  width: clamp(38px, 5vw, 54px);
+  width: clamp(38px, calc(var(--vw) * 0.05), 54px);
   cursor: default;
   animation: none;              /* 공연 중엔 흔들리지 않는다 — 호흡만 */
 }

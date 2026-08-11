@@ -86,7 +86,7 @@
 
 /* 개념 카드. 무대를 가리지 않게 오른쪽에 붙이고, 좁은 화면에서는 아래로 내린다 */
 .g3d-card {
-  position: absolute; right: 20px; top: 76px; width: 300px; max-width: calc(100vw - 40px);
+  position: absolute; right: 20px; top: 76px; width: 300px; max-width: calc(var(--vw) - 40px);
   padding: 18px 18px 16px; border-radius: var(--r-print, 20px);
   background: rgba(255, 253, 247, .96); border: 1px solid var(--line, #D5E2DA);
   box-shadow: 0 8px 28px rgba(16, 32, 26, .12);

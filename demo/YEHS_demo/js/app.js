@@ -404,6 +404,28 @@ addEventListener('hashchange', () => {
 document.addEventListener('DOMContentLoaded', () => wireFreshPracticeButtons());
 wireFreshPracticeButtons();
 
+/* ══ 아트보드 스케일 ══════════════════════════════════════════════════
+   데스크톱은 1336×1024 한 판을 창에 맞춰 통째로 줄인다. CSS(tablet.css)는
+   판의 «안» 만 알고, 창과의 비율은 이 함수 하나가 정한다.
+
+   창마다 요소를 제각각 압축하지 않는 이유: 이 화면은 발표 자료와 분석을 나란히
+   놓고 대조하는 자리다. 노트북에서는 시간 분배 막대가 두 줄로 접히고 모니터에서는
+   한 줄이면, 「어디를 보라」를 기기마다 새로 배워야 한다.
+
+   900px 미만은 1 로 둬서 기존 모바일 레이아웃을 그대로 쓴다 — tablet.css 의
+   아트보드 규칙도 같은 경계(@media (min-width: 900px))에서 켜진다. 두 값이
+   어긋나면 판은 안 켜졌는데 스케일만 걸려서 화면이 반쪽으로 줄어든다. */
+const ARTBOARD_W = 1336, ARTBOARD_H = 1024, ARTBOARD_MIN_W = 900;
+function syncArtboard() {
+  const desktop = window.innerWidth >= ARTBOARD_MIN_W;
+  const scale = desktop
+    ? Math.min(window.innerWidth / ARTBOARD_W, window.innerHeight / ARTBOARD_H)
+    : 1;
+  document.documentElement.style.setProperty('--artboard-scale', String(scale));
+}
+syncArtboard();
+addEventListener('resize', syncArtboard);
+
 /* ══ 홈 ══ */
 /* 홈 첫 카드 — 네 모델이 각자 맡은 일 (04_screens.md 「홈 첫 화면」).
    예전엔 여기가 「최근 발표 완성도 86점 · 5회 동안 25 올랐어요」였다. 처음 온
@@ -2329,7 +2351,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qk9" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qka" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.

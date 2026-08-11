@@ -42,8 +42,8 @@ app.css 가 이미 1,500줄을 넘어 여기서 따로 관리합니다.
    main.wide 안에 있지만 전면폭으로 빠져나온다. */
 .verdict {
   position: relative; overflow: hidden; color: #fff;
-  margin-inline: calc(50% - 50vw + var(--nav-w) / 2);
-  padding: 32px max(24px, calc(50vw - 540px)) 0;
+  margin-inline: calc(50% - calc(var(--vw) * 0.5) + var(--nav-w) / 2);
+  padding: 32px max(24px, calc(calc(var(--vw) * 0.5) - 540px)) 0;
   /* 토스는 면을 그라디언트로 칠하지 않는다. 3단 그라디언트는 이 화면만
      다른 앱처럼 보이게 했다 — 브랜드 초록 단색 한 장으로 간다. */
   background: var(--navy);
@@ -64,8 +64,8 @@ main > .verdict:first-child { margin-top: -24px; }
 
 /* 비대칭 그리드 — 점수는 왼쪽 축, 판단은 오른쪽 본문 */
 .verdict-grid {
-  display: grid; grid-template-columns: clamp(150px, 18vw, 220px) 1fr;
-  gap: clamp(24px, 4vw, 48px); align-items: start;
+  display: grid; grid-template-columns: clamp(150px, calc(var(--vw) * 0.18), 220px) 1fr;
+  gap: clamp(24px, calc(var(--vw) * 0.04), 48px); align-items: start;
   margin-top: 20px; padding-bottom: 28px;
 }
 /* 라벨 → 숫자. 대문자 변환과 넓은 자간은 걷어냈다 (.eyebrow 와 같은 이유) */
@@ -584,7 +584,7 @@ main img, main canvas, main svg { max-width: 100%; }
 .t-head h1 { font-size: var(--t-h1); font-weight: 700; letter-spacing: -.024em; }
 
 /* 구역 띠 — 전면폭으로 빠져나가 화면을 가른다 */
-.t-band { height: 16px; margin: 20px calc(50% - 50vw + var(--nav-w) / 2); background: var(--fill); }
+.t-band { height: 16px; margin: 20px calc(50% - calc(var(--vw) * 0.5) + var(--nav-w) / 2); background: var(--fill); }
 
 .t-card {
   background: var(--surface); border-radius: var(--r-print);
