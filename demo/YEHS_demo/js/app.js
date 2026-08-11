@@ -102,7 +102,7 @@ async function ensureVoicePipelineOut() {
     return nf.pipelineOut;
   }
   try {
-    const res = await fetch('/data/voice_report_live.json', { cache: 'no-store' });
+    const res = await fetch('data/voice_report_live.json', { cache: 'no-store' });
     if (!res.ok) return nf && nf.pipelineOut;
     const d = await res.json();
     _voiceLiveCache = {
@@ -160,7 +160,8 @@ function voiceEasyBlocks(pace, habits, report) {
   } else if (report && report.one_liner) {
     headline = report.one_liner;
   }
-  const lead = `목표 ${target} 중에 실제로 약 ${actual} 말했어요. 평균 속도는 ${Math.round(pace.avg_chars_per_min || 0)}자/분이에요.`;
+  const paceLabel = humanPaceLabel(Math.round(pace.avg_chars_per_min || 0), pace.recommended_cpm);
+  const lead = `목표 ${target} 중에 실제로 약 ${actual} 말했어요. 전체 말 속도는 ${paceLabel.short}였어요.`;
   const actions = [];
   if (shortCore.length) {
     actions.push(`핵심인 ${shortCore.map(s => `${s.slide_no}번`).join(', ')} 장에 시간을 더 써 보세요. 아래 상자를 눌러 각 장 시간을 확인해요.`);
@@ -625,6 +626,7 @@ function renderHome() {
     <header class="h-head">
       <h1>내 발표</h1>
       ${(gm.days || []).length ? `<span class="h-sub">${dayStreak(gm.days)}일 연속 · 레벨 ${gameLevel(gm.xp)}</span>` : ''}
+      <p class="h-lead">발표 자료와 실제로 말한 내용을 함께 보고, 다음 연습에서 고칠 곳을 찾아요.</p>
     </header>
 
     ${resume ? `
@@ -1677,10 +1679,20 @@ function nfStep1() {
   if (nf.gate === null) {
     box.innerHTML = `
       <div class="dropzone" id="dz">
-        <h3>발표자료를 올려주세요</h3>
-        <p class="note">PDF, PPTX · 최대 30MB, 100장까지 (25장 안팎을 권장해요)</p>
+        <div class="dz-copy">
+          <span class="dz-kicker">새 발표 연습</span>
+          <h1>발표자료를<br>여기에 놓아주세요</h1>
+          <p class="dz-note">자료를 읽은 뒤 발표 정보와 리허설 설정을 이어서 진행해요.</p>
+          <p class="note">PDF, PPTX · 최대 30MB · 100장까지</p>
+        </div>
         <div class="dz-actions">
-          <button class="btn btn-secondary" id="pick">파일 선택</button>
+          <button class="btn btn-primary" id="pick">내 컴퓨터에서 선택</button>
+          <span class="dz-or">또는 이 화면에 파일을 끌어다 놓으세요</span>
+          <div class="sample-demo-entry">
+            <span class="sample-demo-badge">샘플 데모</span>
+            <button class="btn btn-secondary" id="sampleDemo" type="button">더미 발표자료로 전체 과정 보기</button>
+            <small>실제 분석이 아니라 준비된 IMU2CLIP 예시로 녹음과 결과 화면을 체험해요.</small>
+          </div>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
       </div>`;
@@ -1689,6 +1701,7 @@ function nfStep1() {
        뒤로 밀린다. 이 단계의 CTA 는 드롭존 자체다 */
     const dz = $('#dz');
     $('#pick').addEventListener('click', () => $('#file').click());
+    $('#sampleDemo').addEventListener('click', () => startParse({ fixture: true }));
     $('#file').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       /\.(pdf|pptx)$/i.test(f.name) ? startParse({ file: f }) : failParse('PDF나 PPTX 파일만 분석할 수 있어요.');
@@ -1747,8 +1760,9 @@ function nfStep1() {
   } else if (nf.gate === 'fail') {
     box.innerHTML = `
       ${stageAccidentHtml(nf.parseError || 'PDF나 PPTX 파일만 분석할 수 있어요. 다른 파일로 올려주세요.', { title: '죄송해요, 대본을 못 받았어요!' })}
-      <div class="step-actions"><button class="btn btn-secondary" id="retry">다시 올리기</button></div>`;
+      <div class="step-actions"><button class="btn btn-secondary" id="retry">다시 올리기</button><button class="btn btn-primary" id="sampleDemo">샘플 데모로 계속하기</button></div>`;
     $('#retry').addEventListener('click', () => { nf.gate = null; nf.parseError = null; nfStep1(); });
+    $('#sampleDemo').addEventListener('click', () => startParse({ fixture: true }));
   } else {
     const titles = activeTitles();
     const images = activeImages();
@@ -1758,7 +1772,7 @@ function nfStep1() {
       : '슬라이드 텍스트를 기준으로 개념을 추출할 준비가 됐어요.';
     box.innerHTML = `
       <div class="card">
-        <div class="gate-ok">${titles.length}장을 슬라이드별로 읽었어요</div>
+        <div class="gate-ok">${nf.useSample ? '샘플 자료 · ' : ''}${titles.length}장을 슬라이드별로 읽었어요</div>
         <div class="thumbs">
           ${titles.map((t, i) => `
           <div class="thumb ${sparse.has(i + 1) ? 'warn' : ''}"><img src="${images[i]}" data-thumb-page="${i + 1}" alt="${i + 1}번 슬라이드" loading="lazy"><span><b>${i + 1}</b>${escapeHtml(t)}</span></div>`).join('')}
@@ -1778,6 +1792,33 @@ function nfStep1() {
    nf 에 넣지 않는다 — saveSession 이 sessionStorage 로 밀어 넣는데 dataURL 이
    수십 KB 라 다른 세션 값까지 통째로 저장에 실패할 수 있다 */
 let parsePreview = null;
+
+/** GitHub Pages에서도 서버 없이 제품의 전체 흐름을 확인하는 명시적 샘플 자료. */
+function clientSampleSlideDoc() {
+  const topicBySlide = Object.fromEntries((DATA.tree || []).map((node) => [slideNumber(node.slide), node]));
+  const slides = DATA.slideTitles.map((title, index) => {
+    const no = index + 1;
+    const topic = topicBySlide[no];
+    const lines = [
+      title,
+      topic && topic.ev,
+      topic && topic.why,
+    ].filter(Boolean);
+    return {
+      slide_no: no,
+      title,
+      raw_text: lines.join('\n'),
+      blocks: lines.map((text) => ({ text })),
+      text_sparse: lines.length < 2,
+    };
+  });
+  return {
+    file_name: 'IMU2CLIP_샘플_발표자료.pdf',
+    total_slides: slides.length,
+    slides,
+    sample: true,
+  };
+}
 
 /**
  * 서버가 자료를 읽는 동안 브라우저가 같은 파일을 직접 열어 본다.
@@ -1824,6 +1865,21 @@ async function startParse({ file = null, fixture = false } = {}) {
     await new Promise((r) => setTimeout(r, 300));
   }
   try {
+    if (nf.useSample) {
+      // 정적 배포에는 Python API가 없다. 샘플 버튼만 브라우저 내 fixture를 쓰고,
+      // 실제 파일 업로드는 계속 실 API 계약을 타게 해 둘을 섞지 않는다.
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      if (myGen !== parseGen) return;
+      const doc = clientSampleSlideDoc();
+      applySlideDoc(doc, { keepDemoImages: true });
+      setUploadedPdf(null);
+      nf.gate = 'done';
+      nf._parseStartedAt = null;
+      if (parseTimer) { clearInterval(parseTimer); parseTimer = null; }
+      saveSession('new-flow', nf);
+      nfStep1();
+      return;
+    }
     const b = window.ChuckchuckBridge;
     if (!b || typeof b.parseDocument !== 'function') {
       throw new Error('SDK bridge가 아직 준비되지 않았어요. 페이지를 새로고침 해주세요.');
@@ -1849,7 +1905,10 @@ async function startParse({ file = null, fixture = false } = {}) {
   } catch (err) {
     if (myGen !== parseGen) return;
     console.warn('[chuckchuck] parse', err);
-    nf.parseError = err.message || String(err);
+    const rawMessage = err.message || String(err);
+    nf.parseError = /Unexpected token|not valid JSON|parse HTTP 40[45]/i.test(rawMessage)
+      ? '현재 배포본에는 실제 파일 분석 서버가 연결되지 않았어요. 샘플 데모로 전체 흐름을 먼저 확인해보세요.'
+      : rawMessage;
     nf.gate = 'fail';
     nf._parseStartedAt = null;
     if (parseTimer) { clearInterval(parseTimer); parseTimer = null; }
@@ -2006,12 +2065,12 @@ function nfStep2() {
     saveSession('new-flow', nf);
   });
   // 녹음 화면으로 넘어가는 순간 자료 축(F-06·F-07)을 먼저 건다 — 발표하는 동안 돈다
-  $('#go').addEventListener('click', () => { startPrecompute(); nf.step = 2; renderNew(); });
+  $('#go').addEventListener('click', () => { if (!nf.useSample) startPrecompute(); nf.step = 2; renderNew(); });
   // 건너뛰면 상황을 비운다. 서버가 기본 기준으로 매기고 "안 골라서 …" 안내를 남긴다 —
   // 없는 상황을 지어내 보내면 어느 가중치로 매겼는지 알 수 없게 된다.
   $('#skip').addEventListener('click', () => {
     nf.occ = '';
-    startPrecompute();   // occ 를 비운 뒤에 걸어야 그 조건 그대로 개념을 뽑는다
+    if (!nf.useSample) startPrecompute();   // 샘플은 브라우저 fixture를 쓰고 API를 호출하지 않는다
     nf.step = 2;
     renderNew();
   });
@@ -2071,7 +2130,15 @@ function nfStep3() {
       ${precomputeNoteHtml()}
     </div>
     <div class="rehearsal-shell">
-      <div class="card rehearsal-control" id="recPanel"></div>
+      <aside class="rehearsal-side" aria-label="발표 컨트롤">
+        <div class="card rehearsal-control" id="recPanel"></div>
+        <div class="card rehearsal-nav" aria-label="슬라이드 이동">
+          <button type="button" class="btn btn-secondary rehearsal-nav-prev" data-slide-nav="-1">이전 슬라이드</button>
+          <div class="rehearsal-slide-meta"><span>현재 슬라이드</span><strong id="slideNo" class="num">${nf.slide} / ${nPages}</strong></div>
+          <button type="button" class="btn btn-primary rehearsal-nav-next" data-slide-nav="1">다음 슬라이드</button>
+        </div>
+        <div class="sf" id="stagefront" aria-hidden="true"></div>
+      </aside>
       <div class="card viewer presentation-viewer">
         <div class="viewer-stage ${usePdf ? 'has-pdf' : 'has-slide-doc'}">
           ${stageInner}
@@ -2079,20 +2146,15 @@ function nfStep3() {
           <button type="button" class="stage-nav stage-next" data-slide-nav="1" aria-label="다음 슬라이드">›</button>
         </div>
         <div class="viewer-caption">
-          <div class="caption-nav">
-            <button type="button" class="btn btn-secondary btn-sm" data-slide-nav="-1">이전</button>
-            <button type="button" class="btn btn-secondary btn-sm" data-slide-nav="1">다음</button>
-          </div>
           <strong id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</strong>
-          <small id="slideNo" class="num">${nf.slide} / ${nPages}</small>
         </div>
         <div class="slide-film ${usePdf ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
       </div>
     </div>
-    <div class="sf" id="stagefront" aria-hidden="true"></div>
     <p class="privacy-note">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB · 슬라이드 구간은 길이를 균등하게 나눠 채워요</p>`;
   renderRecPanel();
   bindRehearsalNav();
+  syncRehearsalNav();
   paintRehearsalSlide(nf.slide);
   // 무대가 먼저다. 필름 썸네일은 그 뒤에 순차로 채워진다(캐시라 두 번째부터는 즉시)
   if (usePdf) paintDeckThumbs(app);
@@ -2104,6 +2166,13 @@ function nfStep3() {
 function moveSlide(d) {
   const n = rehearsalCount();
   moveSlideTo(Math.min(n, Math.max(1, (Number(nf.slide) || 1) + Number(d || 0))));
+}
+
+function syncRehearsalNav() {
+  const current = Number(nf.slide) || 1;
+  const last = rehearsalCount();
+  $$('[data-slide-nav="-1"]').forEach((button) => { button.hidden = current <= 1; });
+  $$('[data-slide-nav="1"]').forEach((button) => { button.hidden = current >= last; });
 }
 
 function moveSlideTo(next) {
@@ -2126,6 +2195,7 @@ function moveSlideTo(next) {
     $$('#slideFilm button').forEach((b) => b.classList.toggle('on', Number(b.dataset.slide) === next));
     const currentThumb = $(`#slideFilm button[data-slide="${next}"]`);
     if (currentThumb) currentThumb.scrollIntoView({ block: 'nearest', inline: 'center' });
+    syncRehearsalNav();
     paintRehearsalSlide(next);
     const wrap = $('#slideCardWrap');
     if (wrap && wrap.style.display !== 'none' && bodies) {
@@ -2224,21 +2294,25 @@ function renderRecPanel() {
        세워지므로 길을 안 열어 주면 이미 끝난 분석으로 다시 갈 수가 없다 */
     const hasTake = !!(nf.pipelineOut || nf.pipelineError);
     p.innerHTML = `
-      <div class="rec-copy"><span>준비되면 시작하세요</span></div>
+      <div class="rec-copy"><span>${nf.useSample ? '샘플 발표를 직접 녹음해보세요' : '준비되면 시작하세요'}</span>${nf.useSample ? '<p>녹음은 실제로 진행되고, 분석 결과만 준비된 샘플을 사용해요.</p>' : ''}</div>
       ${hasTake ? '<button class="btn btn-secondary" id="recResume">아까 발표로 질문 준비하기</button>' : ''}
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
+      ${nf.useSample ? '<button class="btn btn-text btn-sm" id="sampleNoMic">마이크 없이 분석 화면만 보기</button>' : ''}
       ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
     if (hasTake) {
       $('#recResume').addEventListener('click', () => { nf.step = 3; renderNew(); });
     }
+    if (nf.useSample) $('#sampleNoMic').addEventListener('click', startSampleWithoutRecording);
     bindRecUpload();
   } else if (nf.mic === 'denied') {
     p.innerHTML = `
       <div class="mic-denied"><b>마이크 권한이 필요해요</b><span>주소창의 권한 설정에서 허용한 뒤 다시 시작해주세요.</span></div>
       <button class="btn btn-secondary" id="recRetry">다시 시도하기</button>
+      ${nf.useSample ? '<button class="btn btn-text" id="sampleNoMic">마이크 없이 분석 화면만 보기</button>' : ''}
       ${recUploadHtml()}`;
     $('#recRetry').addEventListener('click', startRec);
+    if (nf.useSample) $('#sampleNoMic').addEventListener('click', startSampleWithoutRecording);
     bindRecUpload();
   } else {
     p.innerHTML = `
@@ -2246,7 +2320,7 @@ function renderRecPanel() {
         <div><span class="rec-live">발표 중</span><strong class="rec-clock" id="clock">${fmt(nf.sec)}</strong></div>
         <span class="meter" aria-label="마이크 입력 감지 중"><i></i><i></i><i></i><i></i><i></i></span>
       </div>
-      <details class="rec-log-fold" open><summary>슬라이드 전환 <b id="recSwitchCount">${slideSwitchCount()}</b>회 기록</summary><div class="trans-log" id="tlog">
+      <details class="rec-log-fold"><summary>슬라이드 전환 <b id="recSwitchCount">${slideSwitchCount()}</b>회 기록</summary><div class="trans-log" id="tlog">
         ${(nf.log || []).map(l => `<span class="${l.re ? 're' : ''}">${l.txt}</span>`).join('')}
       </div></details>
       <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>`;
@@ -2428,6 +2502,45 @@ function startRecClock() {
   }, 1000);
 }
 
+function sampleTake(durationSec = 180) {
+  const duration = Math.max(30, Number(durationSec) || 180);
+  const marks = evenSlideMarks(duration, rehearsalCount());
+  return {
+    marks,
+    mimeType: 'audio/webm',
+    durationSec: duration,
+    fileName: 'sample-demo.webm',
+    _blob: new Blob([], { type: 'audio/webm' }),
+    sample: true,
+  };
+}
+
+function queueSampleAnalysis(take) {
+  stopLiveRehearsal();
+  ccLastTake = take || sampleTake(nf.sec);
+  nf.marks = ccLastTake.marks || [];
+  nf.sec = Math.round(ccLastTake.durationSec || nf.sec || 0);
+  nf.mic = 'idle';
+  nf.done = 0;
+  nf._pipelineStarted = false;
+  nf._samplePipelineStarted = false;
+  nf.pipelineOut = null;
+  nf.pipelineError = null;
+  nf.pipelinePhase = 'queued';
+  nf.pipelineDetail = '샘플 분석을 준비하고 있어요';
+  nf.pipelineStartedAt = Date.now();
+  nf._pipelineTickStarted = false;
+  nf.backstage = [];
+  nf._pipelineLog = [];
+  nf.step = 3;
+  saveSession('new-flow', nf);
+  renderNew();
+}
+
+function startSampleWithoutRecording() {
+  queueSampleAnalysis(sampleTake(180));
+}
+
 /* ─── 종연 3초 (UI_REDESIGN §3) ─────────────────────────────────────────────
    발표를 마치는 순간, 분석은 7분 걸리지만 박수칠 이유는 이미 안다: 끝까지 했다.
    네트워크 없이 즉시 아는 값(슬라이드 수·경과 시간)만 쓴다.
@@ -2497,6 +2610,14 @@ async function finishRecAndPrepare() {
     nf._pipelineTickStarted = false;
     saveSession('new-flow', nf);
   }
+  if (nf.useSample && !ccLastTake) {
+    ccLastTake = sampleTake(nf.sec);
+    nf.marks = ccLastTake.marks;
+    nf.pipelinePhase = 'queued';
+    nf.pipelineDetail = '샘플 분석을 준비하고 있어요';
+    nf.pipelineStartedAt = Date.now();
+  }
+  if (nf.useSample) nf._samplePipelineStarted = false;
   nf.backstage = [];   // 막간 대사는 테이크마다 새로 쌓인다
   // 녹음은 여기서 끝났다. 'on' 으로 두면 리허설로 돌아왔을 때 이미 끝난 발표가
   // 「발표 중」 시계로 다시 그려지고, 단계 표시줄도 녹음 중인 줄 알고 잠긴다
@@ -2508,7 +2629,7 @@ async function finishRecAndPrepare() {
   await showCurtainCall(slides, curtainSec);
   nf.step = 3;
   renderNew();
-  showF11Reveal();
+  if (!nf.useSample) showF11Reveal();
 }
 
 /**
@@ -3877,12 +3998,128 @@ function refreshStep4IfVisible() {
   if (key === 'new' && nf.step === 3) nfStep4();
 }
 
+function clientSamplePipelineData() {
+  const duration = Math.max(180, Number((ccLastTake && ccLastTake.durationSec) || nf.sec) || 180);
+  const marks = (ccLastTake && ccLastTake.marks && ccLastTake.marks.length)
+    ? ccLastTake.marks
+    : evenSlideMarks(duration, rehearsalCount());
+  const topicBySlide = Object.fromEntries((DATA.tree || []).map((node) => [slideNumber(node.slide), node]));
+  const bySlide = marks.map((mark) => {
+    const no = Number(mark.slide_no) || 1;
+    const topic = topicBySlide[no];
+    return {
+      slide_no: no,
+      visit: mark.visit || 1,
+      start_sec: Number(mark.start_sec) || 0,
+      end_sec: Number(mark.end_sec) || 0,
+      text: (topic && topic.ev) || `${DATA.slideTitles[no - 1] || `${no}번 슬라이드`}의 핵심 내용을 설명했습니다.`,
+    };
+  });
+  const concepts = {
+    slides: DATA.slideTitles.map((title, index) => {
+      const node = topicBySlide[index + 1];
+      return { slide_no: index + 1, title, topic: title, concepts: node ? [node.label] : [] };
+    }),
+  };
+  const nodes = (DATA.tree || []).map((node) => ({
+    id: node.id,
+    label: node.label,
+    slide_no: slideNumber(node.slide),
+    status: node.status,
+    importance: node.w,
+  }));
+  const graph = {
+    nodes,
+    edges: (DATA.tree || []).filter((node) => node.parent).map((node) => ({ source: node.parent, target: node.id })),
+  };
+  const alignment = {
+    items: (DATA.tree || []).map((node) => ({
+      node_id: node.id,
+      slide_no: slideNumber(node.slide),
+      status: node.status,
+      confidence: node.conf,
+      evidence: node.ev || node.spokeSays || '',
+      reason: node.why || '',
+    })),
+  };
+  const flow = {
+    order_tau: 0.82,
+    ghost_node_ids: (DATA.tree || []).filter((node) => ['no', 'om'].includes(node.status)).map((node) => node.id),
+    issues: (DATA.logicBreaks || []).map((issue) => ({
+      type: issue.type,
+      from_slide: Number(String(issue.from || '').replace(/\D/g, '')) || null,
+      to_slide: Number(String(issue.to || '').replace(/\D/g, '')) || null,
+      evidence: issue.ev || '',
+      suggestion: issue.note || '',
+      good: !!issue.good,
+    })),
+  };
+  return {
+    transcript: {
+      full_text: bySlide.map((part) => part.text).join(' '),
+      duration_sec: duration,
+      provider: 'sample-demo',
+      by_slide: bySlide,
+      words: [],
+    },
+    concepts,
+    graph,
+    alignment,
+    flow,
+    score: { total: DATA.session.score, dimensions: DATA.session.dims },
+  };
+}
+
+function runClientSamplePipeline() {
+  if (nf._samplePipelineStarted) return;
+  nf._samplePipelineStarted = true;
+  nf._pipelineStarted = true;
+  nf.pipelineError = null;
+  nf.pipelineStartedAt = Date.now();
+  nf._phaseStartedAt = Date.now();
+  nf._pipelineLog = [];
+  nf.backstage = [];
+  pipelineRunLive = true;
+  buildPipelineMarks({ conceptsReady: false, graphReady: false });
+  const sample = clientSamplePipelineData();
+  const stages = [
+    { delay: 100, phase: 'encoding', detail: '샘플 녹음을 정리하고 있어요' },
+    { delay: 800, phase: 'stt_done', detail: '샘플 전사문을 슬라이드별로 나눴어요', data: { transcript: sample.transcript } },
+    { delay: 1500, phase: 'concepts_done', detail: '발표자료의 핵심 개념을 찾았어요', data: { concepts: sample.concepts } },
+    { delay: 2300, phase: 'graph_done', detail: '개념 사이 연결을 정리했어요', data: { graph: sample.graph } },
+    { delay: 3100, phase: 'align_done', detail: '자료와 샘플 발화를 대조했어요', data: { alignment: sample.alignment } },
+    { delay: 3900, phase: 'flow_done', detail: '발표 흐름을 비교했어요', data: { flow: sample.flow } },
+    { delay: 4700, phase: 'done', detail: '샘플 분석이 끝났어요', data: { score: sample.score } },
+  ];
+  stages.forEach((stage) => later(() => {
+    nf.pipelinePhase = stage.phase;
+    nf.pipelineDetail = stage.detail;
+    nf._phaseStartedAt = Date.now();
+    if (stage.data) nf.pipelineOut = { ...(nf.pipelineOut || {}), ...stage.data };
+    if (stage.phase === 'stt_done') nf.transcriptOk = true;
+    if (stage.phase === 'concepts_done') nf.conceptsOk = true;
+    pushBackstage(stage.phase);
+    pushPipelineLog(stage.phase);
+    nf.done = pipelineChecklistDone();
+    if (stage.phase === 'done') pipelineRunLive = false;
+    saveSession('new-flow', nf);
+    refreshStep4IfVisible();
+    if (stage.phase === 'done') {
+      later(() => {
+        if (location.hash.startsWith('#/new')) location.hash = '#/report/sample-imu2clip';
+      }, 1600);
+    }
+  }, stage.delay));
+}
+
 function nfStep4() {
   app.className = 'narrow';
+  const sampleRun = !!(nf.useSample && ccLastTake);
+  if (sampleRun && !['done', 'partial', 'error'].includes(nf.pipelinePhase || '')) pipelineRunLive = true;
   /* 새로고침으로 복원된 세션이면 파이프라인 프라미스는 이미 죽어 있다. 살아 있는 척
      초를 계속 세면 문구 전부가 거짓말이 된다 — 끊겼다고 말하고 멈춘다. */
   const willStart = !!(ccLastTake && !nf._pipelineStarted
-    && (isShowcaseDemo() || window.ChuckchuckBridge));
+    && (isShowcaseDemo() || (!sampleRun && window.ChuckchuckBridge)));
   if (!willStart && !pipelineRunLive && nf.pipelinePhase
       && !['done', 'partial', 'error'].includes(nf.pipelinePhase)) {
     if (pipelineQaReady()) {
@@ -3914,6 +4151,7 @@ function nfStep4() {
     <div class="card">
       <h3 class="section-title">${qaReady ? '질문 준비가 끝났어요' : '발표를 듣고 질문을 준비하고 있어요'}</h3>
       <p class="note" style="margin-bottom:14px">최종 분석 전에, 설명이 비어 있던 개념을 질문으로 함께 확인해요.</p>
+      ${nf.useSample ? '<p class="sample-analysis-note"><b>샘플 데모 분석</b> · 녹음 과정은 실제지만 아래 판정과 리포트는 준비된 예시 데이터예요.</p>' : ''}
       ${pipelineStatusBarHtml()}
       ${pipelineTimelineHtml('full')}
       ${backstageHtml()}
@@ -3961,6 +4199,7 @@ function nfStep4() {
     nf.visits = { 1: 1 };
     nf.done = 0;
     nf._pipelineStarted = false;
+    nf._samplePipelineStarted = false;
     nf.pipelineOut = null;
     nf.pipelineError = null;
     nf.pipelinePhase = null;
@@ -3982,7 +4221,9 @@ function nfStep4() {
     beginShowcasePipeline();
     return;
   }
-  if (ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted) {
+  if (sampleRun && !nf._samplePipelineStarted) runClientSamplePipeline();
+
+  if (!sampleRun && ccLastTake && window.ChuckchuckBridge && !nf._pipelineStarted) {
     nf._pipelineStarted = true;
     nf.pipelineError = null;
     nf.pipelinePhase = 'queued';
@@ -6097,6 +6338,24 @@ function paceRatioWord(cpm, avg) {
   return `평소의 ${r.toFixed(1)}배 · ${r > 1 ? '빠름' : '천천히'}`;
 }
 
+/** 분석 단위(자/분)를 사람이 바로 이해하는 말로 바꾼다. 원값은 계산에만 쓴다. */
+function humanPaceLabel(avg, rec) {
+  const judged = cpmJudge(avg, rec);
+  if (judged.includes('많이 빨라요')) return { short: '매우 빠름', detail: '듣는 사람이 따라가기 어려울 수 있어요' };
+  if (judged.includes('조금 빨라요')) return { short: '조금 빠름', detail: '문장 끝에서 한 박자 쉬어 보세요' };
+  if (judged.includes('많이 느려요')) return { short: '매우 느림', detail: '설명이 늘어지지 않게 호흡을 줄여 보세요' };
+  if (judged.includes('조금 느려요')) return { short: '조금 느림', detail: '조금만 템포를 올려도 좋아요' };
+  return { short: '적정 속도', detail: '듣기 편한 범위로 말했어요' };
+}
+
+function paceRatioText(value, baseline) {
+  if (!value || !baseline) return '측정 전';
+  const ratio = value / baseline;
+  if (ratio >= 1.15) return `평소의 ${ratio.toFixed(1)}배 · 빠름`;
+  if (ratio <= .85) return `평소의 ${ratio.toFixed(1)}배 · 천천히`;
+  return '평소와 비슷';
+}
+
 function timeDiffJudge(targetSec, actualSec) {
   if (!targetSec || !actualSec) return '';
   const d = Math.round(actualSec - targetSec);
@@ -6313,113 +6572,91 @@ function tsplitRamp(n) {
   });
 }
 
-/** 총 발표 길이 비교 한 줄.
- *
- *  위 두 막대는 둘 다 100% 라 «총량» 을 말할 수 없다. 그렇다고 실제가 짧았다고
- *  막대 전체를 줄이면 구간 비율을 나란히 못 견주게 된다 — 그래서 총량만 따로
- *  한 줄로 뺀다. 목표는 눈금으로, 실제는 채운 길이로 둬서 «넘쳤나 모자랐나» 가
- *  글자를 읽기 전에 보이게 한다. */
-function totalTrackHtml(targetSec, actualSec) {
-  if (!targetSec || !actualSec) return '';
-  const d = Math.round(actualSec - targetSec);
-  // 목표 눈금이 오른쪽 끝에 붙어 안 보이는 것을 막는 6% 여유
-  const span = Math.max(targetSec, actualSec) * 1.06;
-  const fill = Math.min(100, actualSec / span * 100);
-  const mark = Math.min(100, targetSec / span * 100);
-  const gapText = d === 0 ? '목표와 같아요'
-    : `목표보다 ${clockSec(Math.abs(d))} ${d > 0 ? '길어요' : '짧아요'}`;
-  return `
-    <div class="tsplit-total">
-      <div class="tst-head">
-        <span class="tst-lb">총 발표 길이</span>
-        <span class="tst-nums num">목표 <b>${clockSec(targetSec)}</b> · 실제 <b>${clockSec(actualSec)}</b>${
-          d ? `<em class="${d > 0 ? 'over' : 'under'}">${d > 0 ? '+' : '−'}${clockSec(Math.abs(d))}</em>` : ''}</span>
-      </div>
-      <!-- 색 하나로 말하지 않는다 — 위 글자가 같은 사실을 문자로 들고 있고,
-           눈금과 채움에는 aria-label 을 붙인다 -->
-      <div class="tst-track" role="img"
-           aria-label="목표 ${clockSec(targetSec)}, 실제 ${clockSec(actualSec)}, ${gapText}">
-        <i class="tst-fill" style="width:${fill.toFixed(1)}%"></i>
-        <span class="tst-mark" style="left:${mark.toFixed(1)}%"></span>
-      </div>
-    </div>`;
-}
+/** 샘플 발표의 목표 시간(10분 모드). 샘플 데이터에는 목표가 없다 */
+const SAMPLE_TARGET_SEC = 600;
 
-/** rows: [{ name, rec, act }] — **초** 단위. opts: { targetSec, actualSec } */
-function timeSplitHtml(rows, opts = {}) {
+function timeSplitHtml(rows, totals = {}) {
   const clean = (rows || []).filter(r => r && (r.rec > 0 || r.act > 0));
   if (clean.length < 2) return '';
   const sum = k => clean.reduce((s, r) => s + Math.max(0, r[k] || 0), 0) || 1;
   const recTotal = sum('rec'), actTotal = sum('act');
-  const pctOf = (r, k, total) => Math.max(0, r[k] || 0) / total * 100;
 
   const ramp = tsplitRamp(clean.length);
-  /* withTime 은 「내가 한 발표」에만 준다. 이상적인 배분은 비교 기준일 뿐이라
-     퍼센트까지가 할 일이고, 두 줄이 똑같이 무거우면 어느 쪽이 내 결과인지 흐려진다 */
-  const bar = (k, total, withTime) => `<div class="tsplit-bar">${clean.map((r, i) => {
-    const pct = pctOf(r, k, total);
+  const bar = (k, total, showTime = false) => `<div class="tsplit-bar">${clean.map((r, i) => {
+    const pct = Math.max(0, r[k] || 0) / total * 100;
     if (pct <= 0) return '';
     const [bg, fg] = ramp[i];
-    const sec = withTime ? clockSec(r[k]) : '';
+    const seconds = Math.max(0, r[k] || 0);
     return `<span class="tsplit-seg" style="width:${pct.toFixed(2)}%;--c:${bg};--tc:${fg}"
-                 title="${escapeHtml(r.name)} · ${Math.round(pct)}%${sec ? ` · ${sec}` : ''}">${
+                 title="${escapeHtml(r.name)} · ${Math.round(pct)}% · ${fmtMarkSec(seconds)}">${
       /* 좁은 조각에 숫자를 우겨넣으면 글자가 잘려 나온다. 9% 아래는 색만 남기고
          숫자는 범례와 title 이 맡는다 */
-      pct >= 9 ? `<b>${Math.round(pct)}%</b>${sec ? `<i>${sec}</i>` : ''}` : ''}</span>`;
+      pct >= 9 ? `<b>${Math.round(pct)}%</b>${showTime ? `<small class="tsplit-time">${fmtMarkSec(seconds)}</small>` : ''}` : ''}</span>`;
   }).join('')}</div>`;
 
-  const gapOf = r => Math.round(pctOf(r, 'act', actTotal) - pctOf(r, 'rec', recTotal));
-  /* 범례에 «몇 %p 어긋났나» 를 붙인다. 색과 이름만 있으면 두 막대를 눈으로 번갈아
-     재야 하는데, 그 뺄셈은 화면이 해 줘야 하는 일이다. 차이가 없으면 배지도 없다 */
-  const legend = clean.map((r, i) => {
-    const g = gapOf(r);
-    return `<span><i style="background:${ramp[i][0]}"></i>${escapeHtml(r.name)}${
-      g ? `<em class="num">${g > 0 ? '+' : '−'}${Math.abs(g)}%p</em>` : ''}</span>`;
-  }).join('');
+  const targetSec = Math.max(1, Number(totals.targetSec) || recTotal);
+  const actualSec = Math.max(0, Number(totals.actualSec) || actTotal);
+  const scaleMax = Math.max(targetSec, actualSec, 1);
+  const targetPct = targetSec / scaleMax * 100;
+  const actualPct = actualSec / scaleMax * 100;
+  const totalGap = Math.round(actualSec - targetSec);
+  const deltaText = totalGap === 0 ? '목표와 같음' : `${totalGap > 0 ? '+' : '−'}${fmtMarkSec(Math.abs(totalGap))}`;
 
   /* 한 줄 결론. 가장 크게 어긋난 구간 둘만 말한다 — 다섯 구간을 다 늘어놓으면
      그래프를 두 줄로 줄인 뜻이 없다 */
-  const gaps = clean.map(r => ({ name: r.name, gap: gapOf(r) }))
-    .filter(g => Math.abs(g.gap) >= 3).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+  const gaps = clean.map(r => ({
+    name: r.name,
+    gap: Math.round((r.act / actTotal * 100) - (r.rec / recTotal * 100)),
+  })).filter(g => Math.abs(g.gap) >= 3).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
   const say = gaps.slice(0, 2).map(g => `<b>${escapeHtml(g.name)}</b>에 ${
     g.gap > 0 ? `${g.gap}%p 더` : `${-g.gap}%p 적게`} 썼어요`).join(' · ');
 
   return `
     <div class="tsplit">
-      <div class="tsplit-legend">${legend}</div>
+      <div class="tsplit-legend">${clean.map((r, i) => {
+        const gap = Math.round((r.act / actTotal * 100) - (r.rec / recTotal * 100));
+        const delta = gap === 0 ? '' : `<small class="${gap > 0 ? 'is-more' : 'is-less'}">${gap > 0 ? '+' : '−'}${Math.abs(gap)}%p</small>`;
+        return `<span><i style="background:${ramp[i][0]}"></i>${escapeHtml(r.name)}${delta}</span>`;
+      }).join('')}</div>
       <div class="tsplit-row">
         <span class="tsplit-lb">이상적인 배분</span>
-        ${bar('rec', recTotal, false)}
+        ${bar('rec', recTotal)}
       </div>
       <div class="tsplit-row is-mine">
         <span class="tsplit-lb">내가 한 발표</span>
         ${bar('act', actTotal, true)}
       </div>
+      <div class="tsplit-total">
+        <span class="tsplit-lb">총 발표 길이</span>
+        <div>
+          <div class="tsplit-total-copy"><span>목표 ${fmtMarkSec(targetSec)}</span><b>실제 ${fmtMarkSec(actualSec)} <em class="tsplit-delta${totalGap < 0 ? ' is-short' : ''}">${deltaText}</em></b></div>
+          <div class="tsplit-total-track" aria-label="목표 ${fmtMarkSec(targetSec)}, 실제 ${fmtMarkSec(actualSec)}">
+            <span class="tsplit-total-fill" style="width:${actualPct.toFixed(2)}%"></span>
+            <i class="tsplit-target-mark" style="left:${targetPct.toFixed(2)}%" aria-hidden="true"></i>
+          </div>
+        </div>
+      </div>
       <p class="note tsplit-say">${say || '이상적인 배분과 거의 같게 썼어요.'}</p>
-      ${totalTrackHtml(opts.targetSec, opts.actualSec)}
     </div>`;
 }
 
-/** 샘플 발표의 목표 시간(10분 모드). 샘플 데이터에는 목표가 없다 */
-const SAMPLE_TARGET_SEC = 600;
-
 /** 시간 분배 카드 — 실측이면 pace.sections, 샘플이면 DATA.timeAlloc 을 쓴다. */
+
 function timeSplitCard(pace) {
   const secs = (pace && pace.sections) || [];
-  let rows, targetSec, actualSec;
-  if (secs.length) {
-    rows = secs.map(s => ({ name: s.name, rec: s.recommended_sec || 0, act: s.actual_sec || 0 }));
-    targetSec = pace.target_sec; actualSec = pace.actual_sec;
-  } else {
-    /* 샘플은 퍼센트로 들고 있다. 막대 안에 실제 시간을 적으려면 초여야 한다 —
-       퍼센트만으로는 「20% / 01:30」의 아랫줄을 만들 수가 없다 */
-    actualSec = (DATA.session && DATA.session.durationSec) || 0;
-    targetSec = (DATA.session && DATA.session.targetSec) || SAMPLE_TARGET_SEC;
-    rows = (DATA.timeAlloc || []).map(r => ({
-      name: r[0], rec: (r[1] / 100) * targetSec, act: (r[2] / 100) * actualSec,
-    }));
-  }
-  const body = timeSplitHtml(rows, { targetSec, actualSec });
+  const sampleTargetSec = 600;
+  const sampleActualSec = Number(DATA.session && DATA.session.durationSec) || sampleTargetSec;
+  const rows = secs.length
+    ? secs.map(s => ({ name: s.name, rec: s.recommended_sec || 0, act: s.actual_sec || 0 }))
+    : (DATA.timeAlloc || []).map(r => ({
+        name: r[0],
+        rec: sampleTargetSec * (r[1] || 0) / 100,
+        act: sampleActualSec * (r[2] || 0) / 100,
+      }));
+  const totals = secs.length
+    ? { targetSec: pace.target_sec, actualSec: pace.actual_sec }
+    : { targetSec: sampleTargetSec, actualSec: sampleActualSec };
+  const body = timeSplitHtml(rows, totals);
   if (!body) return '';
   return `
     <div class="card">
@@ -6438,7 +6675,7 @@ function rPace(host = $('#rbody')) {
     const fillers = easy.fillers;
     // 처방 문구는 진단 블록이 한 번만 말한다 — 예전 voice-tip 과 중복이었다
     const diffLabel = timeDiffJudge(livePace.target_sec, livePace.actual_sec);
-    const speed = paceJudge(Math.round(avg), livePace.recommended_cpm);
+    const speedPace = humanPaceLabel(Math.round(avg), livePace.recommended_cpm);
     /* 「짧게 말한 핵심 장」 상자는 뺐다 — 같은 사실을 위 그래프가 이미 말한다
        (핵심 장은 S번호가 파랑, 짧은 장은 막대 색이 다르다). 판정 헤드의 처방과
        상자 제목까지 세 번 반복돼서 화면이 길어지기만 했다. */
@@ -6475,13 +6712,10 @@ function rPace(host = $('#rbody')) {
         <p class="voice-facts">
           <span><i>목표</i>${escapeHtml(easy.target)}</span>
           <span><i>내가 쓴 시간</i>${escapeHtml(easy.actual)}${diffLabel ? `<em>${escapeHtml(diffLabel)}</em>` : ''}</span>
-          <!-- 자/분은 title 로만 남긴다 — 발표 중에 자기가 몇 자를 말했는지
-               체감하는 사람은 없다 (§13) -->
-          <span${speed ? ` title="평균 ${speed.cpm}자/분"` : ''}><i>전체 말 속도</i>${
-            speed ? `${escapeHtml(speed.label)}<em>${escapeHtml(speed.tip)}</em>` : '측정 못 했어요'}</span>
+          <span><i>전체 말 속도</i>${escapeHtml(speedPace.short)}<em>${escapeHtml(speedPace.detail)}</em></span>
         </p>
-        ${longCard}
         <div id="dlvAud"></div>
+        ${longCard}
         ${fillerCard}
       </div>`;
     return;
@@ -6523,40 +6757,34 @@ function rPace(host = $('#rbody')) {
         action: '빠른 구간의 개념 판정을 함께 확인하고, 그 장에서 한 박자 쉬어 보세요.' }
     : { headline: '구간별 말 속도가 고르게 유지됐어요',
         action: '이 속도를 유지하면서 아래 시간 배분만 살펴보세요.' };
-  const fbSpeed = paceJudge(st.avg, st.rec);
-  const fbTargetSec = (DATA.session && DATA.session.targetSec) || SAMPLE_TARGET_SEC;
-  const fbActualSec = (DATA.session && DATA.session.durationSec) || 0;
-  const fbDiff = timeDiffJudge(fbTargetSec, fbActualSec);
+  const fbPace = humanPaceLabel(st.avg, st.rec);
+  const fastestRatio = st.avg ? st.max / st.avg : 0;
   host.innerHTML = `
-    ${real || isShowcaseDemo() ? '' : `<p class="note" style="color:var(--mid);margin-bottom:10px">
-      ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
-    ${timeSplitCard(null)}
-    ${tabVerdictHtml(fbVerdict)}
-    <!-- 큰 카드 세 장(내 평균·가장 빨랐던 구간·권장 속도)이었다. 셋 다 자/분이라
-         체감이 안 되는 숫자를 셋으로 늘린 자리였고, 바로 위 시간 분배 막대가 같은
-         이야기를 이미 그림으로 하고 있었다 (§14). 얇은 한 줄로 줄인다 -->
-    <p class="voice-facts">
-      <span><i>목표</i>${clockSec(fbTargetSec)}</span>
-      <span><i>내가 쓴 시간</i>${clockSec(fbActualSec)}${fbDiff ? `<em>${escapeHtml(fbDiff)}</em>` : ''}</span>
-      <span${fbSpeed ? ` title="평균 ${fbSpeed.cpm}자/분 · 권장 ${escapeHtml(String(st.rec))}자/분"` : ''}><i>전체 말 속도</i>${
-        fbSpeed ? `${escapeHtml(fbSpeed.label)}<em>${escapeHtml(fbSpeed.tip)}</em>` : '측정 못 했어요'}</span>
-      <span title="${st.max}자/분"><i>가장 빨랐던 구간</i>${escapeHtml(paceRatioWord(st.max, st.avg))}<em>${escapeHtml(String(st.maxSeg))}</em></span>
-    </p>
-    <div class="card">
-      <h3 class="section-title">구간별 말 속도<span class="soft">점선이 내 평소 속도예요</span></h3>
-      <div class="pace-rows">
-        <span class="pace-base" style="left:calc(122px + (100% - 226px) * ${ratio.toFixed(3)})"><em>내 평소 속도</em></span>
-        ${rows.map(r => `
-        <div class="pace-row ${r[3] ? 'fast' : ''}">
-          <span class="nm">${escapeHtml(String(r[0]))}</span>
-          <div class="fill-bar"><i class="${r[3] ? 'red' : ''}" data-w="${(r[2] / MAX * 100).toFixed(1)}%"></i></div>
-          <!-- 「430자/분」이 아니라 「평소의 1.3배 · 빠름」이다. 자/분은 title 로 남긴다 -->
-          <span class="vl" title="${r[2]}자/분">${escapeHtml(paceRatioWord(r[2], st.avg))}</span>
-        </div>`).join('')}
+    <div class="voice-stack">
+      ${real || isShowcaseDemo() ? '' : `<p class="note" style="color:var(--mid);margin-bottom:0">
+        ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
+      ${timeSplitCard(null)}
+      ${tabVerdictHtml(fbVerdict)}
+      <div class="stat-row speech-stat-row">
+        <div class="stat-card"><small>전체 말 속도</small><strong class="pace-word">${escapeHtml(fbPace.short)}</strong><p class="note" style="margin-top:4px">${escapeHtml(fbPace.detail)}</p></div>
+        <div class="stat-card"><small>가장 빨랐던 구간</small><strong class="num">${fastestRatio.toFixed(1)}</strong><span class="unit">배</span><p class="note" style="margin-top:4px">평소 대비 · ${escapeHtml(String(st.maxSeg))}</p></div>
+        <div class="stat-card"><small>빠르게 말한 구간</small><strong class="num">${fastRows.length}</strong><span class="unit">개</span><p class="note" style="margin-top:4px">평소보다 15% 이상 빨랐어요</p></div>
       </div>
-      <p class="note" style="margin-top:14px">${note}</p>
+      <div class="card">
+        <h3 class="section-title">구간별 말 속도<span class="soft">내 평소 속도와 비교해요</span></h3>
+        <div class="pace-rows">
+          <span class="pace-base" style="left:calc(122px + (100% - 266px) * ${ratio.toFixed(3)})"><em>내 평소 속도</em></span>
+          ${rows.map(r => `
+          <div class="pace-row ${r[3] ? 'fast' : ''}" title="분석값 ${r[2]}자/분">
+            <span class="nm">${escapeHtml(String(r[0]))}</span>
+            <div class="fill-bar"><i class="${r[3] ? 'red' : ''}" data-w="${(r[2] / MAX * 100).toFixed(1)}%"></i></div>
+            <span class="vl">${paceRatioText(r[2], st.avg)}</span>
+          </div>`).join('')}
+        </div>
+        <p class="note" style="margin-top:14px">${note}</p>
+      </div>
+      <div id="dlvAud"></div>
     </div>
-    <div id="dlvAud"></div>
 `;
 }
 
@@ -6573,9 +6801,8 @@ function rPace(host = $('#rbody')) {
 function rDelivery() {
   const body = $('#rbody');
   rPace(body);
-  /* 청중석은 rPace 가 심어 둔 자리(#dlvAud)에 들어간다 — 맨 뒤가 아니라
-     시간 분배 바로 아래다. 부스에서 30초 안에 보여지는 건 이 둘이라
-     탭에서 제일 위여야 한다 (2026-08-08 지시). */
+  /* 청중석은 시간·속도 해석 뒤의 자리(#dlvAud)에 들어간다.
+     먼저 내 발표 사실을 읽고, 그다음 객석 반응을 보는 순서다. */
   const slot = $('#dlvAud');
   if (slot) rAudience(slot);
 }
@@ -6811,73 +7038,72 @@ function fitSvgLabel(text, maxPx, fontPx) {
 
 function mapSvgString() {
   // 이 SVG는 파일로도 내려받으므로(:root 없음) CSS 토큰 대신 리터럴을 쓴다.
-  // 값은 app.css 의 --ok/--mid/--no/--ct 계열과 같게 유지한다.
-  /* 예전엔 카드 전체를 판정 색으로 칠하고 판정 색 테두리를 둘렀다. 아홉 칸이
-     각자 다른 파스텔 면이 되면서 «AI 가 자동으로 뽑아준 다이어그램» 처럼 보였고,
-     정작 어느 개념이 중요한지는 색이 말해 주지 않았다. 면은 흰색으로 통일하고,
-     상태는 작은 점과 아래 보조 문구 두 곳에만 남긴다 (§16·§17). */
-  const DOT = { ok: '#0A8F68', mid: '#B45309', no: '#DC2626', ct: '#3F5F52', om: '#8B95A1' };
-  const NODE_LINE = '#DCE5DF';   // 연한 회녹색 — 모든 노드가 같은 테두리를 쓴다
-  const LINK_LINE = '#D3DDD7';
+  // 노드 면과 외곽선은 중립으로 통일한다. 상태색은 작은 점과 보조 문구만 맡는다.
+  // 면·선·글자를 모두 상태색으로 칠하면 개요보다 AI 생성 다이어그램처럼 보인다.
+  const NODE_FILL = '#FFFFFF';
+  const NODE_LINE = '#D8E2DD';
+  const ACCENT = { ok: '#0A8F68', mid: '#A16207', no: '#C2413A', ct: '#526B61', om: '#6B7684' };
   // 실데이터 세션이면 개념 그래프·판정에서 만든 노드, 아니면 샘플.
   const all = liveMapNodes() || DATA.mapNodes;
   const nodes = all.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
-  // 자리는 노드 수에서 계산한다 — 고정 좌표표는 샘플 9칸에만 맞았다.
+  // 같은 계층은 최소 폭과 높이를 맞추되 긴 제목만 자연스럽게 늘린다.
+  // 모두 내용 폭으로 만들면 트리가 들쭉날쭉하고, 모두 같은 폭이면 짧은 제목이 헐겁다.
   const POS = {};
   const rootNode = all.find(n => n.root);
-  /* 폭은 이름 길이를 따라간다. 다 같은 폭이면 격자처럼 보이고, 아무 제한이 없으면
-     들쭉날쭉해진다 — 계층마다 최소·최대를 두고 그 사이에서만 움직인다 */
-  const widthFor = (label, spec, slot) => {
-    const wish = Math.round(String(label || '').length * 12 + 34);
-    return Math.max(spec.min, Math.min(spec.max, Math.min(wish, slot)));
+  const textWidth = (value, px = 13) => Array.from(String(value || '')).reduce(
+    (sum, ch) => sum + (/[^\u0000-\u00ff]/.test(ch) ? px : px * .58), 0);
+  const nodeWidth = (n, level) => {
+    if (n.root) return Math.max(184, Math.min(260, Math.ceil(textWidth(n.label, 14) + 48)));
+    const min = level === 1 ? 154 : 112;
+    const max = level === 1 ? 216 : 164;
+    const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
+    return Math.max(min, Math.min(max, Math.ceil(Math.max(textWidth(n.label, 13.5), textWidth(meta, 11)) + 38)));
   };
-  if (rootNode) POS[rootNode.id] = [MAP_W / 2, MAP_ROW.root, widthFor(rootNode.label, MAP_ROW.root, MAP_ROW.root.max)];
-  const row = (list, spec) => {
-    // 이웃과 붙지 않게 칸마다 18px 은 비워 둔다
-    const slot = Math.round(MAP_W / (list.length + 1)) - 18;
+  if (rootNode) POS[rootNode.id] = [440, 30, nodeWidth(rootNode, 0)];
+  const row = (list, y, level) => {
+    if (!list.length) return;
+    const gap = level === 1 ? 32 : 20;
+    const widths = list.map(n => nodeWidth(n, level));
+    const total = widths.reduce((s, w) => s + w, 0) + gap * (list.length - 1);
+    let cursor = (880 - total) / 2;
     list.forEach((n, i) => {
-      POS[n.id] = [Math.round(MAP_W * (i + 1) / (list.length + 1)), spec, widthFor(n.label, spec, slot)];
+      POS[n.id] = [Math.round(cursor + widths[i] / 2), y, widths[i]];
+      cursor += widths[i] + gap;
     });
   };
-  row(all.filter(n => !n.root && !n.p), MAP_ROW.l1);
-  row(all.filter(n => n.p), MAP_ROW.l2);
+  row(all.filter(n => !n.root && !n.p), 124, 1);
+  row(all.filter(n => n.p), 226, 2);
   const has = id => nodes.some(n => n.id === id);
-  /* 곡선을 직각 계층선으로 바꾼다. 곡선은 어느 노드에서 나왔는지를 눈으로
-     되짚게 만들고, 노드가 늘면 서로 겹쳐서 글자를 가로지른다 */
   let links = '';
   all.filter(n => !n.root).forEach(n => {
     const pid = n.p || (rootNode && rootNode.id);
     if (!POS[pid] || !POS[n.id]) return;
     if (!has(n.id) || !has(pid)) return;
-    const [x1, from] = POS[pid], [x2, to] = POS[n.id];
-    const fromY = from.y + from.h, toY = to.y, midY = Math.round((fromY + toY) / 2);
-    links += `<path d="M${x1} ${fromY} V${midY} H${x2} V${toY}" fill="none" stroke="${LINK_LINE}"`
-      + ' stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>';
+    const [x1, y1] = POS[pid], [x2, y2] = POS[n.id];
+    const parent = all.find(x => x.id === pid);
+    const fromY = y1 + (parent && parent.root ? 36 : 52);
+    const toY = y2 - 8;
+    const midY = Math.round((fromY + toY) / 2);
+    links += `<path d="M${x1} ${fromY} V${midY} H${x2} V${toY}" fill="none" stroke="#BDD0C6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`;
   });
   const boxes = nodes.map(n => {
-    const [x, spec, w] = POS[n.id];
-    const half = w / 2;
-    if (n.root) {
-      const label = fitSvgLabel(n.label, w - 26, 14);
-      return `<g>
-      <rect x="${x - half}" y="${spec.y}" width="${w}" height="${spec.h}" rx="10" fill="url(#mapRoot)"/>
-      <text x="${x}" y="${spec.y + spec.h / 2 + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="Pretendard,sans-serif">${label}</text></g>`;
-    }
-    const label = fitSvgLabel(n.label, w - 26, 13);
+    const [x, y, w] = POS[n.id];
+    if (n.root) return `<g>
+      <rect x="${x - w / 2}" y="${y - 6}" width="${w}" height="42" rx="11" fill="url(#mapRoot)"/>
+      <text x="${x}" y="${y + 20}" text-anchor="middle" font-size="14.5" font-weight="750" fill="#fff" font-family="Pretendard,sans-serif">${n.label}</text></g>`;
     const meta = `${STATUS[n.status]} · ${slideNumber(n.slide)}번`;
+    const metaW = Math.ceil(textWidth(meta, 11));
     return `<g>
-      <rect x="${x - half}" y="${spec.y}" width="${w}" height="${spec.h}" rx="10" fill="#fff" stroke="${NODE_LINE}" stroke-width="1.2"/>
-      <circle cx="${x - half + 12}" cy="${spec.y + 12}" r="3.4" fill="${DOT[n.status]}"/>
-      <text x="${x}" y="${spec.y + 27}" text-anchor="middle" font-size="13" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${label}</text>
-      <text x="${x}" y="${spec.y + 45}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${DOT[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
+      <rect x="${x - w / 2}" y="${y - 8}" width="${w}" height="60" rx="11" fill="${NODE_FILL}" stroke="${NODE_LINE}" stroke-width="1.25"/>
+      <text x="${x}" y="${y + 14}" text-anchor="middle" font-size="13.5" font-weight="700" fill="#191F28" font-family="Pretendard,sans-serif">${n.label}</text>
+      <circle cx="${x - metaW / 2 - 7}" cy="${y + 34}" r="2.6" fill="${ACCENT[n.status]}"/>
+      <text x="${x + 4}" y="${y + 37}" text-anchor="middle" font-size="11" font-weight="650" fill="${ACCENT[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
   }).join('');
-  /* 연결선을 노드보다 먼저 그린다 — 뒤에 그리면 선이 글자를 가로지른다 */
-  return `<svg viewBox="0 0 ${MAP_W} ${MAP_H}" xmlns="http://www.w3.org/2000/svg" role="img"`
-    + ` aria-label="발표 개요 이미지 — 개념 ${nodes.length}개를 계층으로 이었어요">`
-    + '<defs><linearGradient id="mapRoot" x1="0" y1="0" x2="0" y2="1">'
-    + '<stop offset="0" stop-color="#0B5C45"/><stop offset="1" stop-color="#064E3B"/>'
-    + '</linearGradient></defs>'
-    + `<rect width="${MAP_W}" height="${MAP_H}" fill="#FBFCFB"/>${links}${boxes}</svg>`;
+  return `<svg viewBox="0 0 880 304" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지">
+    <defs>
+      <linearGradient id="mapRoot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#064E3B"/><stop offset="1" stop-color="#0A6B50"/></linearGradient>
+    </defs>
+    <rect width="880" height="304" fill="#FBFCFB"/>${links}${boxes}</svg>`;
 }
 
 function tMap(host = $('#toolMap')) {

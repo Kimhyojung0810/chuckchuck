@@ -1,0 +1,70 @@
+name: Deploy Chuckchuck to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository == 'baboseonho/chuckchuck'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v6
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare static site
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -R demo/YEHS_demo/. _site/
+          mkdir -p _site/sdk
+          cp -R chuckchuck/sdk/. _site/sdk/
+
+          # The demo bridge imports /sdk/index.js when served from the Python bridge.
+          # GitHub Pages hosts this project under /chuckchuck/, so rewrite only the
+          # deployment artifact; repository source files remain untouched.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('_site/js/chuckchuck_bridge.js')
+          text = p.read_text(encoding='utf-8')
+          old = "from '/sdk/index.js'"
+          new = "from '../sdk/index.js'"
+          if old not in text:
+              raise SystemExit('expected SDK import was not found')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+          touch _site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    if: github.repository == 'baboseonho/chuckchuck'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
