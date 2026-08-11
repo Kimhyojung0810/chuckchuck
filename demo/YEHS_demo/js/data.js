@@ -351,6 +351,570 @@ const DATA = {
       lost: '자료와 어긋난 종목 선정 결론을 확인했고, 본인 선택으로 다음 발표에서 방어할 항목으로 남겼어요.',
     },
   },
+
+  /* 채점표 v3 · 학회·수업(학교 프로젝트) 기준. 클러스터 평균은 session.dims 와 같다. */
+  score: {
+  "score": 74,
+  "situation": "school_project",
+  "situation_label": "학교 프로젝트 (교수 대상)",
+  "rubric_version": "v3",
+  "clusters": [
+    {
+      "key": "content",
+      "name": "내용 충실도",
+      "weight": 26,
+      "average": 80.94,
+      "item_nos": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "scored",
+      "effective_weight": 0.26,
+      "contribution": 21.04
+    },
+    {
+      "key": "logic",
+      "name": "논리 구조",
+      "weight": 23,
+      "average": 66.06,
+      "item_nos": [
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "status": "scored",
+      "effective_weight": 0.23,
+      "contribution": 15.19
+    },
+    {
+      "key": "audience",
+      "name": "목적·청중 적합성",
+      "weight": 8,
+      "average": 78.15,
+      "item_nos": [
+        13,
+        14
+      ],
+      "status": "scored",
+      "effective_weight": 0.08,
+      "contribution": 6.25
+    },
+    {
+      "key": "clarity",
+      "name": "언어적 명료성",
+      "weight": 10,
+      "average": 82.41,
+      "item_nos": [
+        17,
+        18,
+        19,
+        20,
+        21
+      ],
+      "status": "scored",
+      "effective_weight": 0.1,
+      "contribution": 8.24
+    },
+    {
+      "key": "delivery",
+      "name": "음성적 전달",
+      "weight": 7,
+      "average": 62.82,
+      "item_nos": [
+        22,
+        23,
+        24
+      ],
+      "status": "scored",
+      "effective_weight": 0.07,
+      "contribution": 4.4
+    },
+    {
+      "key": "visual",
+      "name": "시각자료 활용",
+      "weight": 13,
+      "average": 84.91,
+      "item_nos": [
+        27,
+        28,
+        29,
+        30,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "status": "scored",
+      "effective_weight": 0.13,
+      "contribution": 11.04
+    },
+    {
+      "key": "time",
+      "name": "시간 관리",
+      "weight": 13,
+      "average": 55.14,
+      "item_nos": [
+        31,
+        32,
+        33
+      ],
+      "status": "scored",
+      "effective_weight": 0.13,
+      "contribution": 7.17
+    }
+  ],
+  "items": [
+    {
+      "no": 1,
+      "cluster": "content",
+      "name": "핵심 개념 커버리지",
+      "status": "scored",
+      "score": 81,
+      "weight": 9,
+      "source": "det",
+      "evidence": "“개인 평균은 지수 대비 연 4.8%p 낮고…” · 격차·과잉 매매·비용은 다뤘어요. 타이밍·사전 규칙은 비었어요.",
+      "note": ""
+    },
+    {
+      "no": 2,
+      "cluster": "content",
+      "name": "설명 깊이",
+      "status": "scored",
+      "score": 76,
+      "weight": 10,
+      "source": "llm",
+      "evidence": "손실 회피는 보유 기간 수치만 말하고 포트폴리오가 나빠지는 경로까지는 안 갔어요.",
+      "note": ""
+    },
+    {
+      "no": 3,
+      "cluster": "content",
+      "name": "근거·수치·사례 제시",
+      "status": "scored",
+      "score": 88,
+      "weight": 9,
+      "source": "llm",
+      "evidence": "“회전율 8.4배·매도규칙 71% vs 18%” 표는 지나갔고, 4.8%p·52일/187일은 읽었어요.",
+      "note": ""
+    },
+    {
+      "no": 4,
+      "cluster": "content",
+      "name": "자료-발화 일치성",
+      "status": "scored",
+      "score": 65,
+      "weight": 8,
+      "source": "det",
+      "evidence": "12번에서 “공부를 많이 해서 종목을 잘 고르는 사람”이라 말해 자료와 어긋났어요.",
+      "note": ""
+    },
+    {
+      "no": 5,
+      "cluster": "content",
+      "name": "근거 없는 추가 발화",
+      "status": "scored",
+      "score": 99,
+      "weight": 7,
+      "source": "det",
+      "evidence": "자료 밖 임의 주장은 거의 없었고, 표에 있는 수치 위주로 말했어요.",
+      "note": ""
+    },
+    {
+      "no": 6,
+      "cluster": "content",
+      "name": "선행연구·이론적 근거 인용",
+      "status": "scored",
+      "score": 79,
+      "weight": 7,
+      "source": "llm",
+      "evidence": "행동 재무·손실 회피 맥락은 짚었지만 이론 이름은 거의 안 나왔어요.",
+      "note": ""
+    },
+    {
+      "no": 7,
+      "cluster": "logic",
+      "name": "핵심 주장 제시 시점",
+      "status": "scored",
+      "score": 92,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "2번에서 “격차는 행동에서 만들어진다”로 결론을 먼저 열었어요.",
+      "note": ""
+    },
+    {
+      "no": 8,
+      "cluster": "logic",
+      "name": "주장-근거-결론 연결",
+      "status": "scored",
+      "score": 56,
+      "weight": 9,
+      "source": "llm",
+      "evidence": "원인→실행으로 갈 때 11번 상위 그룹 비교 다리가 비어 주장이 끊겼어요.",
+      "note": ""
+    },
+    {
+      "no": 9,
+      "cluster": "logic",
+      "name": "전제 생략·결론 점프·모순",
+      "status": "scored",
+      "score": 52,
+      "weight": 8,
+      "source": "llm",
+      "evidence": "오해와 사실에서 자료가 깨는 결론을 그대로 말해 앞 논리를 뒤집었어요.",
+      "note": ""
+    },
+    {
+      "no": 10,
+      "cluster": "logic",
+      "name": "전환의 자연스러움",
+      "status": "scored",
+      "score": 65,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "“다음은 집중 투자입니다”처럼 전환만 있고, 왜 종목 수까지 봐야 하는지는 없었어요.",
+      "note": ""
+    },
+    {
+      "no": 11,
+      "cluster": "logic",
+      "name": "결론의 핵심 회수",
+      "status": "scored",
+      "score": 75,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "체크리스트와 결론 문장은 회수했지만, 사전 규칙 비교는 회수할 내용이 없었어요.",
+      "note": ""
+    },
+    {
+      "no": 12,
+      "cluster": "logic",
+      "name": "두괄식 구조",
+      "status": "situation_excluded",
+      "score": 0,
+      "weight": 0,
+      "source": "llm",
+      "evidence": "",
+      "note": "이 상황에서는 평가하지 않아요."
+    },
+    {
+      "no": 13,
+      "cluster": "audience",
+      "name": "청중 수준 맞춤 설명",
+      "status": "scored",
+      "score": 80,
+      "weight": 7,
+      "source": "llm",
+      "evidence": "학회·수업 청중에 맞춰 수치와 행동 요인을 풀었고, 전문 용어는 표를 보며 설명했어요.",
+      "note": ""
+    },
+    {
+      "no": 14,
+      "cluster": "audience",
+      "name": "목적에 맞는 강조점",
+      "status": "scored",
+      "score": 76,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "목적(격차의 행동 원인)에 맞춰 다섯 요인을 강조했지만, 결론 근거 표는 힘이 빠졌어요.",
+      "note": ""
+    },
+    {
+      "no": 15,
+      "cluster": "audience",
+      "name": "흥미 유발·스토리텔링",
+      "status": "situation_excluded",
+      "score": 0,
+      "weight": 0,
+      "source": "llm",
+      "evidence": "",
+      "note": "이 상황에서는 평가하지 않아요."
+    },
+    {
+      "no": 16,
+      "cluster": "audience",
+      "name": "실행 가능한 제안 명확성",
+      "status": "situation_excluded",
+      "score": 0,
+      "weight": 0,
+      "source": "llm",
+      "evidence": "",
+      "note": "이 상황에서는 평가하지 않아요."
+    },
+    {
+      "no": 17,
+      "cluster": "clarity",
+      "name": "지시어 남용 여부",
+      "status": "scored",
+      "score": 86,
+      "weight": 4,
+      "source": "det",
+      "evidence": "지시어 남용은 적고, 수치·표 이름을 직접 말했어요.",
+      "note": ""
+    },
+    {
+      "no": 18,
+      "cluster": "clarity",
+      "name": "전문용어 설명 동반",
+      "status": "scored",
+      "score": 84,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "회전율·손실 회피 등은 표와 함께 풀어 설명했어요.",
+      "note": ""
+    },
+    {
+      "no": 19,
+      "cluster": "clarity",
+      "name": "문장 길이·완결성",
+      "status": "scored",
+      "score": 80,
+      "weight": 4,
+      "source": "det",
+      "evidence": "문장은 대체로 완결됐고, 복리 구간만 길게 늘어진 편이었어요.",
+      "note": ""
+    },
+    {
+      "no": 20,
+      "cluster": "clarity",
+      "name": "표현의 의미 없는 반복",
+      "status": "scored",
+      "score": 85,
+      "weight": 3,
+      "source": "det",
+      "evidence": "의미 없는 반복은 적었어요.",
+      "note": ""
+    },
+    {
+      "no": 21,
+      "cluster": "clarity",
+      "name": "핵심 구조 신호어 사용",
+      "status": "scored",
+      "score": 78,
+      "weight": 5,
+      "source": "det",
+      "evidence": "“다섯 요인 중… 첫째가 과잉 매매”처럼 구조 신호어를 썼어요.",
+      "note": ""
+    },
+    {
+      "no": 22,
+      "cluster": "delivery",
+      "name": "말속도 적절성",
+      "status": "scored",
+      "score": 52,
+      "weight": 4,
+      "source": "det",
+      "evidence": "상위 그룹 비교 구간이 본인 평균보다 31% 빨랐어요 (430자/분).",
+      "note": ""
+    },
+    {
+      "no": 23,
+      "cluster": "delivery",
+      "name": "필러 빈도·위치",
+      "status": "scored",
+      "score": 72,
+      "weight": 4,
+      "source": "det",
+      "evidence": "필러가 핵심을 가리진 않았어요.",
+      "note": ""
+    },
+    {
+      "no": 24,
+      "cluster": "delivery",
+      "name": "휴지·침묵의 위치",
+      "status": "scored",
+      "score": 65,
+      "weight": 3,
+      "source": "det",
+      "evidence": "원인 전환에서 잠깐 쉬는 편이었고, 11번은 거의 쉬지 않고 지나갔어요.",
+      "note": ""
+    },
+    {
+      "no": 25,
+      "cluster": "delivery",
+      "name": "음량 안정성",
+      "status": "unmeasured",
+      "score": 0,
+      "weight": 3,
+      "source": "na",
+      "evidence": "",
+      "note": "이번 파이프라인에서는 못 쟀어요."
+    },
+    {
+      "no": 26,
+      "cluster": "delivery",
+      "name": "핵심 구간 강조",
+      "status": "unmeasured",
+      "score": 0,
+      "weight": 4,
+      "source": "na",
+      "evidence": "",
+      "note": "이번 파이프라인에서는 못 쟀어요."
+    },
+    {
+      "no": 27,
+      "cluster": "visual",
+      "name": "낭독 vs 실제 설명 구분",
+      "status": "scored",
+      "score": 90,
+      "weight": 6,
+      "source": "det",
+      "evidence": "표를 읽어 주며 설명했고, 화면 문장 낭독만으로 끝내진 않았어요.",
+      "note": ""
+    },
+    {
+      "no": 28,
+      "cluster": "visual",
+      "name": "슬라이드별 설명시간 균형",
+      "status": "scored",
+      "score": 62,
+      "weight": 5,
+      "source": "det",
+      "evidence": "복리(배경)는 길고 상위 그룹 비교(결론 근거)는 35초로 짧았어요.",
+      "note": ""
+    },
+    {
+      "no": 29,
+      "cluster": "visual",
+      "name": "그래프·표 설명",
+      "status": "scored",
+      "score": 80,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "현황·과잉 매매 표의 핵심 수치는 읽었고, 11번 비교표는 거의 안 읽었어요.",
+      "note": ""
+    },
+    {
+      "no": 30,
+      "cluster": "visual",
+      "name": "슬라이드-발화 강조 일치",
+      "status": "scored",
+      "score": 75,
+      "weight": 5,
+      "source": "det",
+      "evidence": "잘 설명한 장에서는 표 강조와 말이 맞았고, 11·12번은 어긋났어요.",
+      "note": ""
+    },
+    {
+      "no": 31,
+      "cluster": "time",
+      "name": "제한시간 준수",
+      "status": "scored",
+      "score": 80,
+      "weight": 5,
+      "source": "det",
+      "evidence": "목표 10분 대비 9분 24초로 시간은 지켰어요.",
+      "note": ""
+    },
+    {
+      "no": 32,
+      "cluster": "time",
+      "name": "구간별 시간 배분",
+      "status": "scored",
+      "score": 44,
+      "weight": 5,
+      "source": "det",
+      "evidence": "배경·현황 +67%, 성공 요인·오해 −52%로 구간 배분이 기울었어요.",
+      "note": ""
+    },
+    {
+      "no": 33,
+      "cluster": "time",
+      "name": "핵심 슬라이드 체류시간",
+      "status": "scored",
+      "score": 38,
+      "weight": 4,
+      "source": "det",
+      "evidence": "핵심인 11번은 짧고 보조인 4번 복리는 길었어요.",
+      "note": ""
+    },
+    {
+      "no": 34,
+      "cluster": "visual",
+      "name": "슬라이드 정보 밀도",
+      "status": "scored",
+      "score": 96,
+      "weight": 5,
+      "source": "det",
+      "evidence": "장당 정보량은 표 중심이라 읽기 무난했어요.",
+      "note": ""
+    },
+    {
+      "no": 35,
+      "cluster": "visual",
+      "name": "제목-본문 일치성",
+      "status": "scored",
+      "score": 94,
+      "weight": 5,
+      "source": "llm",
+      "evidence": "장 제목과 본문 요지가 대체로 맞았어요.",
+      "note": ""
+    },
+    {
+      "no": 36,
+      "cluster": "visual",
+      "name": "목차·로드맵 슬라이드",
+      "status": "scored",
+      "score": 88,
+      "weight": 4,
+      "source": "det",
+      "evidence": "원인 구조(5번)에서 다섯 요인을 미리 보여 줬어요.",
+      "note": ""
+    },
+    {
+      "no": 37,
+      "cluster": "visual",
+      "name": "데이터 시각화 적절성",
+      "status": "scored",
+      "score": 96,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "막대·비교표가 격차·회전율 성격에 잘 맞았어요.",
+      "note": ""
+    },
+    {
+      "no": 38,
+      "cluster": "visual",
+      "name": "출처·근거 표기",
+      "status": "scored",
+      "score": 75,
+      "weight": 7,
+      "source": "det",
+      "evidence": "예시용 가상 수치라는 고지는 있었지만 출처 표기는 얇았어요.",
+      "note": ""
+    },
+    {
+      "no": 39,
+      "cluster": "visual",
+      "name": "오탈자·맞춤법",
+      "status": "scored",
+      "score": 98,
+      "weight": 4,
+      "source": "llm",
+      "evidence": "눈에 띄는 오탈자는 없었어요.",
+      "note": ""
+    }
+  ],
+  "excluded": [
+    12,
+    15,
+    16
+  ],
+  "unmeasured": [
+    25,
+    26
+  ],
+  "basis": "full",
+  "model": "showcase",
+  "note": ""
+},
 };
 
 const STATUS = {ok:'설명함',mid:'언급만 함',no:'안 나옴',ct:'자료와 모순',om:'정당한 생략',fast:'빨라짐',none:'핵심 개념 없음'};

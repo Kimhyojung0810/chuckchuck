@@ -928,6 +928,8 @@ function showcasePipelineStub() {
   });
   // 원인끼리·결론 근거끼리 연결을 조금 더 그려 그래프가 빈약해 보이지 않게
   const relates = [
+    ['gap', 'overtrade'],       // 현황 → 가장 큰 원인
+    ['overtrade', 'timing'],    // 「가장 큰 두 개는 언제의 문제」
     ['overtrade', 'cost'], ['overtrade', 'rules'], ['timing', 'lossav'],
     ['lossav', 'concentrate'], ['rules', 'checklist'], ['gap', 'myth'],
   ];
@@ -973,15 +975,37 @@ function showcasePipelineStub() {
   }, 0);
   const totalW = scored.reduce((s, i) => s + (i.doc_weight || 0), 0) || 1;
 
+  /* 말로 이은 연결 — 양쪽이 다 aligned 일 때만 세면 mid→partial 뒤엔 1개만 남아
+     10%가 된다. 시연 서사(원인 구조→과잉 매매, 과잉↔비용, 언제 문제 두 축)에
+     맞는 연결을 명시하고, 언급만(partial) 끝점도 허용한다. */
+  const spokenCue = {
+    'gap|overtrade': '그래서 원인을 행동에서 찾아야 합니다. 그중 첫째가 과잉 매매예요',
+    'overtrade|timing': '가장 큰 두 개는 언제의 문제입니다',
+    'overtrade|cost': '비용은 확정인데 수익은 불확실합니다',
+    'lossav|concentrate': '다음은 집중 투자입니다',
+  };
   const speech_edges = edges
     .filter((e) => e.kind === 'parent' || e.kind === 'relates')
     .filter((e) => {
-      const a = items.find((i) => i.node_id === e.from);
-      const b = items.find((i) => i.node_id === e.to);
-      return a && b && a.verdict === 'aligned' && b.verdict === 'aligned';
+      const direct = e.from + '|' + e.to;
+      const key = Object.prototype.hasOwnProperty.call(spokenCue, direct)
+        ? direct
+        : [e.from, e.to].sort().join('|');
+      // 시연용으로 고른 연결만 — 자동 전량 허용하면 누락 다리가 살아있는 것처럼 보인다
+      return Object.prototype.hasOwnProperty.call(spokenCue, key);
     })
-    .slice(0, 6)
-    .map((e) => ({ from: e.from, to: e.to, cue: '발표에서 두 개념을 이어서 설명했어요', in_graph: true }));
+    .map((e) => {
+      const direct = e.from + '|' + e.to;
+      const key = Object.prototype.hasOwnProperty.call(spokenCue, direct)
+        ? direct
+        : [e.from, e.to].sort().join('|');
+      return {
+        from: e.from,
+        to: e.to,
+        cue: spokenCue[key] || '발표에서 두 개념을 이어서 설명했어요',
+        in_graph: true,
+      };
+    });
 
   // 슬라이드별 발화 — 리포트 tree 근거를 장에 붙이고,
   // 4번(복리)은 길게·11번(상위 그룹 비교)은 짧게 잡아 속도 서사와 맞춘다
@@ -1071,8 +1095,14 @@ function showcasePipelineStub() {
       extras: [],
       summary: {
         coverage: Math.round((alignedW / totalW) * 100) / 100,
-        rank_correlation: 0.42,
-        edge_coverage: speech_edges.length ? Math.min(0.9, speech_edges.length / Math.max(1, edges.length)) : 0.2,
+        rank_correlation: 0.58,
+        /* 그래프 간선 대비 말로 이은 비율. 시연은 ~40% — 다 잇지는 못했지만
+           10%처럼 「거의 연결 없음」으로 읽히면 56% 커버·74점과 감각이 안 맞는다. */
+        edge_coverage: (() => {
+          const n = edges.length || 1;
+          const raw = speech_edges.length / n;
+          return Math.round(Math.min(0.9, Math.max(raw, speech_edges.length ? 0.35 : 0)) * 100) / 100;
+        })(),
         verdict_counts: counts,
         speech_total_sec: dur,
       },
@@ -1102,6 +1132,7 @@ function showcasePipelineStub() {
         concepts: (conceptBySlide[i + 1] || []).slice(0, 4),
       })),
     },
+    score: DATA.score || null,
   };
 }
 /** 리허설이 끝난 뒤 짧은 분석 연출 → 질문 코칭으로 넘긴다. 실 LLM 은 부르지 않는다. */
@@ -4099,6 +4130,16 @@ function reportOut() {
   return (nf && nf.pipelineOut) || null;
 }
 
+/** 채점표(F-14) 결과. 시연·샘플 리포트는 DATA.score(채점표 v3)를 쓴다. */
+function reportScore() {
+  const live = reportOut();
+  if (live && live.score && typeof live.score.score === 'number') return live.score;
+  if ((rSampleMode || isShowcaseDemo()) && DATA.score && typeof DATA.score.score === 'number') {
+    return DATA.score;
+  }
+  return null;
+}
+
 /**
  * 업로드 세션 자체(nf)를 리포트가 읽어도 되는가.
  *
@@ -4299,12 +4340,22 @@ function reportVerdict() {
     };
   }
   const diff = s.score - s.prevScore;
+  /* 채점표가 있으면 클러스터 키를 붙여 막대 → 채점 근거로 이어지게 한다. */
+  const sc = DATA.score;
+  const dims = (sc && Array.isArray(sc.clusters) && sc.clusters.length)
+    ? sc.clusters.filter((c) => c.status === 'scored').map((c) => [
+      c.name, Math.round(c.average || 0), SCORE_CHICK[c.key] || '', c.weight || 0, c.key,
+    ])
+    : s.dims;
   return {
     hasAnalysis: true, isSample: true,
     mood: s.score >= 90 ? 'excited' : s.score >= 75 ? 'happy' : 'neutral',
     score: s.score,
-    dims: s.dims,
+    dims,
     headline: s.oneLiner,
+    basis: sc ? `‘${occLabel(sc.situation_label) || '기본 기준'}’에 맞춰 봤어요` : '',
+    excludedCount: sc && Array.isArray(sc.excluded) ? sc.excluded.length : 0,
+    unmeasuredCount: sc && Array.isArray(sc.unmeasured) ? sc.unmeasured.length : 0,
     delta: `<span class="delta num">▲ ${diff}</span><span class="prev num">지난 연습 ${s.prevScore}점</span>`,
   };
 }
@@ -4722,7 +4773,7 @@ const RUBRIC_STATUS = {
 const RUBRIC_SOURCE = { det: '계산', llm: 'AI 판단', na: '' };
 
 function rRubric() {
-  const sc = (reportOut() || {}).score;
+  const sc = reportScore();
   const items = (sc && sc.items) || [];
   if (!items.length) {
     $('#rbody').innerHTML = `
@@ -4802,7 +4853,10 @@ function rRubric() {
 }
 
 function realSummary() {
-  const sc = (reportOut() || {}).score;
+  /* 샘플 리포트는 reportVerdict 가 oneLiner 를 쓰도록 여기선 막는다.
+     채점 근거 탭은 reportScore() 로 직접 연다. */
+  if (rSampleMode) return null;
+  const sc = reportScore();
   if (!sc || typeof sc.score !== 'number') return null;
   /* 4번째 칸은 채점표의 클러스터 가중치(%)다. 「여기부터 보세요」가 동점을 만났을 때
      배열 순서 대신 이걸로 고른다 (dimsHtml 주석). 화면에는 나오지 않는다 */
