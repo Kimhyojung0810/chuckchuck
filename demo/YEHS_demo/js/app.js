@@ -1022,6 +1022,20 @@ function showcasePipelineStub() {
     cost: [46, 282], rules: [140, 300], concentrate: [330, 288],
     checklist: [232, 356],
   };
+  /* 원 안 마이크로 카피 — 자료(PPT)·리포트 근거의 수치를 그대로 옮긴다.
+     이름은 원 밖 라벨이 말하고, 원 안은 그 개념의 핵심 숫자 하나만 말한다. */
+  const revealSub = {
+    gap: '연 −4.8%p',          // S03 개인 평균 vs 지수
+    overtrade: '회전율↑ 수익↓', // S06 단조 감소
+    timing: '8.7%→1.5%',        // S07 20일 놓치면
+    lossav: '52일 vs 187일',    // S08 수익·손실 보유 기간
+    concentrate: '1.2%→6.3%',   // S09 분산 시 평균
+    cost: '확정 비용',           // S10 유일한 통제 변수
+    rules: '71% vs 18%',        // S11 상·하위 매도규칙 보유율
+    myth: '공부≠수익',           // S12 자료가 깨는 오해
+    checklist: '오늘 정할 값',    // S13 실행 항목
+    compound: '10년 누적',       // S04 배경 예시
+  };
   const nodes = tree.map((t) => ({
     id: t.id,
     label: t.label,
@@ -1033,6 +1047,7 @@ function showcasePipelineStub() {
     depth: t.depth || 1,
     x: revealPos[t.id] ? revealPos[t.id][0] : undefined,
     y: revealPos[t.id] ? revealPos[t.id][1] : undefined,
+    sub: revealSub[t.id] || undefined,
   }));
   const idSet = new Set(nodes.map((n) => n.id));
   const edges = [];
@@ -2996,7 +3011,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=showcase5" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=showcase6" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -6724,6 +6739,44 @@ function voiceVerdict(easy, pace) {
   };
 }
 
+/**
+ * 흐름 탭의 주인공 한 칸 (2026-08-12 다시 그림) — 「10번 슬라이드 ✕ 13번 슬라이드」
+ * 처럼 텍스트 칩만 있던 자리에 실제 슬라이드 두 장을 나란히 보여준다. 사이가
+ * 벌어져 있으면(from·to 가 연속이 아니면) 그 사이 번호를 「건너뜀」으로 짚어서
+ * "다리가 비어 있다" 는 말을 그림으로도 보여준다. 나머지(접힌 목록)는 예전
+ * 텍스트 칩 카드를 그대로 쓴다 — 주인공 하나만 크게, 나머지는 조용히(dimsHtml
+ * 과 같은 원칙). img[data-thumb-page] 는 렌더 뒤 paintDeckThumbs 가 채운다.
+ */
+function flowFeatureCardHtml({ good, topLabel, from, to, typeLabel, note, quoteHtml }) {
+  const fromNo = parseInt(from, 10) || 0;
+  const toNo = parseInt(to, 10) || fromNo;
+  const skipLabel = toNo - fromNo === 2 ? `${fromNo + 1}번`
+    : toNo - fromNo > 2 ? `${fromNo + 1}-${toNo - 1}번` : '';
+  return `
+  <div class="card flow-feature">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      ${chip(good ? 'ok' : 'no', true)}
+      <span class="note">${topLabel}</span>
+    </div>
+    <div class="flow-feature-slides">
+      <figure class="flow-feature-slide">
+        <img data-thumb-page="${fromNo}" src="${deckImageSrc(fromNo)}" alt="${fromNo}번 슬라이드" loading="lazy">
+        <figcaption>${fromNo}번 슬라이드</figcaption>
+      </figure>
+      <div class="flow-feature-gap">
+        <em class="${good ? 'good' : ''}">${good ? '✓' : '✕'}</em>
+        ${skipLabel ? `<span class="flow-feature-skip">${skipLabel} 건너뜀</span>` : ''}
+      </div>
+      <figure class="flow-feature-slide">
+        <img data-thumb-page="${toNo}" src="${deckImageSrc(toNo)}" alt="${toNo}번 슬라이드" loading="lazy">
+        <figcaption>${toNo}번 슬라이드</figcaption>
+      </figure>
+    </div>
+    <p class="logic-note"><b>${typeLabel}</b> — ${note}</p>
+    ${quoteHtml ? `<div class="bubble">${quoteHtml}</div>` : ''}
+  </div>`;
+}
+
 function flowIssueCardHtml(i) {
   const kind = FLOW_KIND[i.kind] || { type: escapeHtml(i.kind), good: false };
   const slides = i.slide_nos || [];
@@ -6760,9 +6813,19 @@ function rLogicRealCards(flow) {
         ? ` · 한 번도 언급되지 않은 개념 ${flow.ghost_node_ids.length}개`
         : ''}</p>`;
   }
+  const firstKind = first && (FLOW_KIND[first.kind] || { type: escapeHtml(first.kind), good: false });
+  const firstSlides = (first && first.slide_nos) || [];
   return `
     ${tabVerdictHtml(flowVerdict(flow))}
-    ${first ? flowIssueCardHtml(first) : ''}
+    ${first ? flowFeatureCardHtml({
+    good: firstKind.good,
+    topLabel: firstKind.type,
+    from: firstSlides[0] || 0,
+    to: firstSlides.length > 1 ? firstSlides[firstSlides.length - 1] : firstSlides[0] || 0,
+    typeLabel: firstKind.type,
+    note: escapeHtml(first.note || ''),
+    quoteHtml: first.cue ? `“${escapeHtml(first.cue)}”` : '',
+  }) : ''}
     ${rest.length ? `<details class="fold"><summary>나머지 ${rest.length}곳 더 보기</summary>
       <div class="fold-body">${rest.map(flowIssueCardHtml).join('')}</div></details>` : ''}
     ${tauNote}`;
@@ -6789,6 +6852,7 @@ function rLogic() {
   const flow = (reportOut() || {}).flow;
   if (flow && Array.isArray(flow.issues) && flow.issues.length) {
     $('#rbody').innerHTML = rLogicRealCards(flow);
+    paintDeckThumbs($('#rbody'));
     return;
   }
   // 샘플 경로도 같은 구조 — 끊긴 곳을 앞으로, 잘된 연결은 접는다 (샘플 배지는 판정 헤드가 단다)
@@ -6803,12 +6867,18 @@ function rLogic() {
   } : null;
   $('#rbody').innerHTML = `
     ${tabVerdictHtml(verdict)}
-    ${first ? logicBreakCardHtml(first) : ''}
+    ${first ? flowFeatureCardHtml({
+    good: first.good,
+    topLabel: first.time,
+    from: first.from,
+    to: first.to,
+    typeLabel: first.type,
+    note: first.note,
+    quoteHtml: first.ev ? `${first.ev}<time>${first.time}</time>` : '',
+  }) : ''}
     ${rest.length ? `<details class="fold"><summary>나머지 ${rest.length}곳 더 보기</summary>
-      <div class="fold-body">${rest.map(logicBreakCardHtml).join('')}</div></details>` : ''}
-    <p class="ai-note">${bad.length
-      ? `여기서는 ${bad[0].from} 슬라이드와 ${bad[0].to} 슬라이드의 논리가 달라요 — 위치와 실제 발화를 함께 확인하세요.`
-      : '앞뒤 흐름이 자연스럽게 이어졌어요.'}</p>`;
+      <div class="fold-body">${rest.map(logicBreakCardHtml).join('')}</div></details>` : ''}`;
+  paintDeckThumbs($('#rbody'));
 }
 
 /* 탭 4 — 말 속도 */

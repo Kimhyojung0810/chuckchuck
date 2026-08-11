@@ -34,7 +34,13 @@
   background: radial-gradient(ellipse 80% 70% at 50% 42%,
     var(--canvas, #FFFDF7) 0%, #F2ECDC 55%, #E7DFC7 100%);
 }
-.g3d-stage canvas { display: block; }
+/* 자리가 잡히기 전엔 숨겨 둔다 — 흩어진 공이 스스로 모이는 과정을 보여주지
+   않고, 다 잡힌 뒤(js/graph3d.js revealFitted)에 한 번에 켜서 «처음부터 이미
+   꽉 차 있었다»로 보이게 한다 (2026-08-12 사용자). mountGraph3D 는 전용
+   화면(.g3d-stage)과 리포트/대기 카드(.rep-graph-stage)에 똑같이 쓰이므로
+   둘 다 같이 가려 둔다. */
+.g3d-stage canvas, .rep-graph-stage canvas { display: block; opacity: 0; transition: opacity .45s ease; }
+.g3d-stage.is-ready canvas, .rep-graph-stage.is-ready canvas { opacity: 1; }
 /* 노드 이름표. 캔버스 위에 HTML 로 얹는다 (js/graph3d.js g3dAttachLabels).
    pointer-events 를 끄는 게 중요하다 — 안 그러면 이름표가 노드 클릭을 가로채
    「눌러도 아무 일도 안 일어나는」 그래프가 된다. */
@@ -75,19 +81,26 @@
 
 /* 무대가 말하는 한 줄 요약 — 그림만 두면 「그래프가 있다」로 끝난다.
    12px 는 개미만하다는 지적 대상이라 함께 키운다. */
-.g3d-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 0 22px 6px; font-size: 14px; }
-.g3d-k { padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
-.g3d-k.ok { background: var(--ok-bg); color: var(--ok); }
-.g3d-k.no { background: var(--no-bg); color: var(--no); }
-.g3d-k.ct { background: var(--ct-bg); color: var(--ct); }
-.g3d-k.om { background: var(--om-bg); color: var(--om); }
-.g3d-lead { color: var(--text-2, #38493f); font-weight: 500; }
-.g3d-lead b { color: var(--text, #10201a); font-weight: 700; }
+.g3d-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 22px 6px; font-size: 14px; }
+.g3d-k { padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; border: 1px solid transparent; }
+.g3d-k.ok { background: var(--ok-bg); color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.g3d-k.no { background: var(--no-bg); color: var(--no); border-color: color-mix(in srgb, var(--no) 35%, transparent); }
+.g3d-k.ct { background: var(--ct-bg); color: var(--ct); border-color: color-mix(in srgb, var(--ct) 35%, transparent); }
+.g3d-k.om { background: var(--om-bg); color: var(--om); border-color: color-mix(in srgb, var(--om) 35%, transparent); }
+/* 요약 칩들과 한 줄에 뒤섞여 있으면 이 발표에서 제일 먼저 봐야 할 한 문장이
+   눈에 안 들어온다는 지적(2026-08-12 사용자: 직관적으로 안 와닿는다) —
+   칩과 분리해서 그 자체로 배너처럼 보이게 한다. 판정 색은 안 바꾼다(불변) */
+.g3d-lead {
+  display: block; flex-basis: 100%; margin-top: 4px; padding: 10px 14px;
+  border-radius: var(--r-inner, 16px); font-weight: 600; font-size: 15px; line-height: 1.5;
+}
+.g3d-lead-warn { background: var(--no-bg); border: 1px solid color-mix(in srgb, var(--no) 45%, transparent); color: var(--text, #10201a); }
+.g3d-lead-warn b { color: var(--no); font-weight: 800; }
+.g3d-lead-ok { background: var(--ok-bg); border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent); color: var(--text, #10201a); }
+.g3d-lead-ok b { color: var(--ok); font-weight: 800; }
 .g3d-sum-pending { color: var(--text-3, #5b6b64); font-weight: 600; }
 /* 리포트 카드 안에서는 밝은 면 위라 색을 뒤집는다 */
 .rep-graph .g3d-summary { padding: 8px 0 0; }
-.rep-graph .g3d-lead { color: var(--text-2, #4b5563); }
-.rep-graph .g3d-lead b { color: var(--text, #111); }
 .rep-graph .g3d-k.ok { background: var(--ok-bg); color: var(--ok); }
 .rep-graph .g3d-k.no { background: var(--no-bg); color: var(--no); }
 .rep-graph .g3d-k.ct { background: var(--ct-bg); color: var(--ct); }
@@ -168,5 +181,4 @@
    서면 문장이 칩 사이를 비집고 들어가 두 조각으로 끊긴다 — 「작업 맥락」과
    「이 아직 말로 안 나왔어요」가 따로 놀았다. */
 .qb-graph .g3d-summary { padding: 0; }
-.qb-graph .g3d-lead,
 .qb-graph .g3d-clip { flex: 1 0 100%; font-size: 12.5px; }

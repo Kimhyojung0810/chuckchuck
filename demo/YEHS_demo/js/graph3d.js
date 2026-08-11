@@ -285,9 +285,22 @@ function g3dData(src) {
      자른 사실은 화면이 말한다 — 안 그러면 «자료에 개념이 12개뿐» 으로 읽힌다. */
   const shown = [...nodes].sort((a, b) => b.weight - a.weight).slice(0, G3D_MAX_NODES);
   const ids = new Set(shown.map((n) => n.id));
+  const weightOf = {};
+  shown.forEach((n) => { weightOf[n.id] = n.weight; });
+  /* 중요도(imp) — parent(뼈대)는 늘 1. relates 는 두 끝 개념이 자료에서 얼마나
+     무거운지의 평균으로 정한다. kind 둘로만 가르면(2026-08-12 이전) relates
+     열몇 개가 서로 다 똑같이 보여서 «어떤 연결이 진짜 중요한가」가 안 와닿았다
+     (2026-08-12 사용자: 여전히 안 와닿는다) — 무거운 개념 둘을 잇는 선일수록
+     굵고 밝아야 한다. */
   const links = (src.graph.edges || [])
     .filter((e) => e && ids.has(e.from) && ids.has(e.to))
-    .map((e) => ({ source: e.from, target: e.to, kind: e.kind || 'parent' }));
+    .map((e) => {
+      const kind = e.kind || 'parent';
+      const imp = kind === 'parent'
+        ? 1
+        : Math.max(0.1, Math.min(1, ((weightOf[e.from] || 0.5) + (weightOf[e.to] || 0.5)) / 2));
+      return { source: e.from, target: e.to, kind, imp };
+    });
   // 이웃 표. 누른 개념의 연결을 밝히고 나머지를 죽일 때 쓴다 — 「이어져 있다」를
   // 말로 하지 않고 눈으로 보여주는 유일한 방법이다.
   const kin = {};
@@ -333,10 +346,10 @@ function g3dSummaryHtml(nodes) {
     ${by('contradiction') ? `<b class="g3d-k ct">다르게 ${by('contradiction')}</b>` : ''}
     ${by('justified_skip') ? `<b class="g3d-k om">넘어가도 됨 ${by('justified_skip')}</b>` : ''}
     ${heavyMissing.length
-      ? `<span class="g3d-lead">자료가 힘준 개념 중 <b>${escapeHtml(heavyMissing[0].label)}</b>${
+      ? `<span class="g3d-lead g3d-lead-warn">자료가 힘준 개념 중 <b>${escapeHtml(heavyMissing[0].label)}</b>${
           heavyMissing.length > 1 ? ` 외 ${heavyMissing.length - 1}개가` : g3dSubject(heavyMissing[0].label)
         } 아직 말로 안 나왔어요</span>`
-      : '<span class="g3d-lead">자료가 힘준 개념은 모두 말로 나왔어요</span>'}`;
+      : '<span class="g3d-lead g3d-lead-ok">자료가 힘준 개념은 모두 말로 나왔어요</span>'}`;
 }
 
 /** 무대 위 개념 카드. 클릭한 개념의 사실만 싣는다 — 없는 값은 줄을 안 만든다. */
@@ -414,6 +427,15 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
   let layerFocus = () => {};
   return loadForceGraph3D().then(() => {
     stage.innerHTML = '';
+    stage.classList.remove('is-ready');
+    /* 자리가 잡히기 전 무대(캔버스)는 숨겨 둔다 — 이 로딩 문구만 보인다.
+       예전엔 캔버스가 바로 보여서, 흩어진 공이 3초 넘게 스스로 모이는 걸
+       그대로 보여줬다(2026-08-12 사용자: 처음 뜰 때부터 이미 꽉 차 있었으면
+       좋겠다). 자리가 다 잡힌 뒤에 한 번에 켜면 "자라나는" 인상이 없다. */
+    const loadingEl = document.createElement('p');
+    loadingEl.className = 'g3d-loading';
+    loadingEl.textContent = '무대를 세우고 있어요…';
+    stage.appendChild(loadingEl);
     const showCard = (n) => { if (onPick) onPick(n); };
 
     /* controlType 을 orbit 으로 고정한다. 이 라이브러리의 기본은 trackball 인데
@@ -442,28 +464,40 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
          (2026-08-12 사용자: 가중치 구분이 안 된다). 지수·배율을 올려 지름
          차이를 2배 이상으로 벌린다 — 부피는 반지름의 세제곱이라 nodeVal 은
          그보다 훨씬 크게 벌려야 한다. */
-      .nodeVal((n) => 3 + Math.pow(n.weight, 1.8) * 140)
+      /* 지름 차이를 더 크게 벌린다 (2026-08-12 사용자: 노드도 더 극적으로).
+         2.0·170 이면 가장 무거운 것과 가장 가벼운 것의 지름 차이가 눈에
+         확 들어온다 — 부피는 반지름의 세제곱이라 nodeVal 은 그보다 크게 벌린다. */
+      .nodeVal((n) => 3 + Math.pow(n.weight, 2.0) * 170)
       .nodeOpacity(0.95)
       .nodeResolution(28)
       /* 밝은 면이라 선은 흰색이 아니라 딥그린 계열로 어둡게 — 흰 선은 안 보인다.
-         .28/.52 로는 실제로 화면에서 거의 안 보였다(2026-08-12 사용자: 선이
-         잘 안 보인대) — 진하기를 크게 올린다. */
+         kind 둘로만(parent/relates) 가른 이전 버전은 relates 열몇 개가 서로 다
+         똑같아서 «어떤 게 중요한 연결인가」가 안 와닿았다(2026-08-12 사용자) —
+         이제 g3dData 가 준 imp(0~1, 두 끝 개념의 비중)로 선마다 다르게 그린다.
+         낮은 imp 는 거의 안 보일 만큼 죽이고, 높은 imp 는 굵고 진하게 — 그
+         차이 자체가 «중요/안 중요」를 말한다. */
       .linkColor((l) => {
         const on = !focusId || g3dLinkTouches(l, focusId);
-        if (!on) return 'rgba(21,92,70,.08)';
-        return l.kind === 'relates' ? 'rgba(21,92,70,.45)' : 'rgba(21,92,70,.75)';
+        const imp = l.imp == null ? 0.4 : l.imp;
+        if (!on) return 'rgba(21,92,70,.05)';
+        const a = 0.10 + Math.pow(imp, 1.4) * 0.82;
+        return `rgba(21,92,70,${a.toFixed(2)})`;
       })
-      /* 연결이 주인공이다. 가늘고 흐린 선은 「점들이 떠 있다」로 읽힌다 —
-         relates 까지 또렷하게 그려야 «얽혀 있다» 가 보인다. */
       .linkWidth((l) => {
-        const w = l.kind === 'relates' ? 1.6 : 2.8;
+        const imp = l.imp == null ? 0.4 : l.imp;
+        const w = 0.6 + Math.pow(imp, 1.2) * 4.6;
         return (focusId && g3dLinkTouches(l, focusId)) ? w * 2.2 : w;
       })
-      // parent 간선에만 입자를 흘린다 — 자료의 뼈대가 어디로 흐르는지가 보인다
-      // 입자는 모든 연결에 흘린다. 멈춰 있는 선은 그림이고, 흐르는 선은 관계다.
-      .linkDirectionalParticles(2)
-      .linkDirectionalParticleWidth(2.4)
-      .linkDirectionalParticleSpeed(0.006)
+      /* 입자도 중요도를 따라간다. 안 중요한 선까지 다 흘리면 화면이 산만해져
+         정작 중요한 흐름이 묻힌다 — 중요한 선만 흐르게 두면 «이게 뼈대다» 가
+         저절로 보인다. */
+      .linkDirectionalParticles((l) => {
+        const imp = l.imp == null ? 0.4 : l.imp;
+        if (imp < 0.55) return 0;
+        return imp >= 0.85 ? 3 : 2;
+      })
+      .linkDirectionalParticleWidth((l) => 1.8 + (l.imp == null ? 0.4 : l.imp) * 2.4)
+      .linkDirectionalParticleSpeed((l) => 0.004 + (l.imp == null ? 0.4 : l.imp) * 0.006)
       .onNodeClick((n) => {
         /* 누른 개념과 **이어진 것만** 남기고 나머지를 죽인다. 이 화면이 하려는
            말이 「개념들이 서로 얽혀 있다」인데, 색색 공이 떠 있는 그림만으로는
@@ -543,16 +577,22 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     } catch (err) { console.warn('[chuckchuck] graph force', err); }
 
     /* 자리가 잡힌 뒤에 화면에 맞춘다. 예전엔 0.7초에 맞춰서, 아직 퍼지는 중인
-       그래프를 기준으로 잡아 놓고 정작 다 퍼진 뒤엔 화면 한가운데 작게 남았다. */
-    if (typeof g.onEngineStop === 'function') {
-      let fitted = false;
-      g.onEngineStop(() => {
-        if (fitted) return;
-        fitted = true;
-        g.zoomToFit(800, compact ? 70 : 50);
+       그래프를 기준으로 잡아 놓고 정작 다 퍼진 뒤엔 화면 한가운데 작게 남았다.
+       **애니메이션 없이(0ms) 맞추고 나서야 캔버스를 보여준다** — 800ms 로 맞추면
+       캔버스가 보이는 순간부터 다시 카메라가 움직이는 게 보여서 "자라나는" 인상이
+       남는다(2026-08-12 사용자: 처음 뜰 때부터 이미 꽉 차 있었으면 좋겠다). */
+    let fitted = false;
+    const revealFitted = () => {
+      if (fitted) return;
+      fitted = true;
+      g.zoomToFit(0, compact ? 70 : 50);
+      requestAnimationFrame(() => {
+        stage.classList.add('is-ready');
+        loadingEl.remove();
       });
-    }
-    setTimeout(() => g.zoomToFit(800, compact ? 70 : 50), 3200);
+    };
+    if (typeof g.onEngineStop === 'function') g.onEngineStop(revealFitted);
+    setTimeout(revealFitted, 3200);
     layerFocus = g3dAttachLabels(stage, g, data.nodes, compact) || (() => {});
     return g;
   }).catch((err) => {
