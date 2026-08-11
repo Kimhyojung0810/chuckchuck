@@ -677,7 +677,7 @@ function nextBandHtml() {
         <p>자료에 있는 개념과 실제로 말한 것을 하나씩 대조해서, 설명이 빠진 곳을 짚어줘요.</p>
         <span class="h-start-act">
           <a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>자료 올리기</a>
-          <a class="h-start-alt" href="#/report/sample-imu2clip">샘플 리포트 먼저 보기 →</a>
+          <a class="h-start-alt" href="#/report/sample-investor">샘플 리포트 먼저 보기 →</a>
         </span>
       </section>`;
   }
@@ -2329,7 +2329,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=qk8" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=qk9" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -3803,7 +3803,7 @@ function reportSessionMeta() {
   };
 }
 
-let rTab = 0, jSel = 'contrast', jFilter = 'all', mapWeakOnly = false, repSlide = 7;
+let rTab = 0, jSel = 'lossav', jFilter = 'all', mapWeakOnly = false, repSlide = 8;
 
 /* ─── 저장해 둔 마지막 리포트 (#/report/last) ──────────────────────────────
    개발·시연 준비용이다. 화면 한 장 보려고 매번 녹음하고 질문 코칭까지 할 수는
@@ -3955,9 +3955,9 @@ async function renderReport() {
   /* id 없는 #/report 는 실측이다 — 질문 코칭 끝의 「상세 리포트 보기」를 비롯해
      진입점 여덟 곳이 이 형태를 쓴다. 예전엔 기본값이 'imu2clip' 이라 샘플
      행과 실측이 같은 주소를 나눠 쓰고 있었다: 자료를 한 번이라도 올리면
-     라벨은 「IMU2CLIP 86점」인데 열면 내 발표 리포트가 떴다 */
+     라벨은 샘플인데 열면 내 발표 리포트가 떴다 */
   const reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
-  rSampleMode = reportId === 'sample-imu2clip';
+  rSampleMode = reportId === 'sample-investor';
   /* #/report/last — 저장해 둔 마지막 분석으로 연다 (개발용, 링크 없음).
      복원은 그리기 **전에** 끝나야 한다. reportSessionMeta·reportVerdict 가
      이미 nf 를 읽은 뒤면 옛 화면이 한 번 깜빡이고 덮인다. */
@@ -3973,7 +3973,7 @@ async function renderReport() {
         </p>
         <div class="step-actions">
           <a class="btn btn-primary" href="#/new">발표 연습 시작하기</a>
-          <a class="btn btn-text" href="#/report/sample-imu2clip">샘플 리포트 보기</a>
+          <a class="btn btn-text" href="#/report/sample-investor">샘플 리포트 보기</a>
         </div>
       </div>`;
     return;
@@ -4807,17 +4807,17 @@ const QA_VERDICT = {
 function qaHistoryPanelHtml() {
   if (!window.QaHistory) return '';
   // 해시에 id 가 없으면 **가장 최근 기록**을 보여준다. 실전 코칭은 'flat' 키로
-  // 저장되는데 예전 기본값 'imu2clip'(목 데모 키)만 읽어서, 방금 끝낸 코칭이
+  // 저장되는데 예전 기본값만 읽어서, 방금 끝낸 코칭이
   // 리포트에 안 뜨거나 목 시나리오가 내 기록인 양 떴다.
-  /* 'last'(저장 리포트)·'sample-imu2clip'(샘플 리포트)은 QaHistory 의 키가
+  /* 'last'(저장 리포트)·'sample-investor'(샘플 리포트)은 QaHistory 의 키가
      아니라 리포트 주소다 — 그대로 get() 에 넣으면 항상 빈손이라, 저장 리포트를
      열면 방금 한 코칭 내역이 소리 없이 사라졌다. 저장 리포트는 가장 최근 기록,
-     샘플은 목 시나리오 키('imu2clip')로 조회한다. */
+     샘플은 목 시나리오 키('investor')로 조회한다. */
   const hashId = location.hash.replace(/^#\/?/, '').split('/')[1];
   const latestId = (window.QaHistory.list()[0] || {}).id;
   const reportId = hashId === 'last' ? latestId
-    : hashId === 'sample-imu2clip' ? 'imu2clip'
-      : (hashId || latestId || 'imu2clip');
+    : hashId === 'sample-investor' ? 'investor'
+      : (hashId || latestId || 'investor');
   const rec = reportId ? window.QaHistory.get(reportId) : null;
   if (!rec || !rec.beats || !rec.beats.length) return '';
 
@@ -6001,7 +6001,7 @@ function rPace(host = $('#rbody')) {
       ? `${fastRows.map(r => escapeHtml(r[0])).join(' · ')} 구간이 본인 평균보다 15% 넘게 빨라요. 그 개념의 판정을 함께 확인해 보세요.`
       : '구간별 속도가 고르게 유지됐어요.')
       + (real.dropped ? ` (너무 짧은 ${real.dropped}개 구간은 속도를 못 재 제외했어요)` : '')
-    : '수식 설명 구간이 본인 평균보다 24% 빨라요. Temperature Parameter와 loss 모두 설명이 부족하다고 판정된 개념과 겹쳐요.';
+    : '상위 그룹 비교 구간이 본인 평균보다 31% 빨라요. 사전 매도 규칙 등 설명이 빠졌다고 판정된 개념과 겹쳐요.';
   // 폴백 경로도 진단→근거→처방 구조를 따른다 — 헤드라인은 이미 계산된 판정에서만 만든다
   const fbVerdict = fastRows.length
     ? { headline: `${fastRows.length}개 구간에서 평균보다 훨씬 빨랐어요`,
@@ -6629,7 +6629,7 @@ function resetQa() {
     mode: (qa && qa.mode) || '10',
     bi: 0, sub: 'answer', hint: 0,
     turns: [],
-    concepts: { joint: 'wait', temp: 'wait', aria: 'wait' },
+    concepts: { lossav: 'wait', timing: 'wait', rules: 'wait' },
     lost: [],
     combo: 0, comboMax: 0, awarded: false, award: null,
     liveNotice: '',
@@ -6690,10 +6690,10 @@ const XP_MULT = { '교수님': 1, '심사위원': 1.5, '회사 상사': 1.3, '�
 /* 홈: 연속 연습 스트릭 + 설득력 레벨 + 복습 큐 (말해보카식 루프, 토스식 정보 위계) */
 function gameStripHtml() {
   const g = loadGame(), streak = dayStreak(g.days), lvl = gameLevel(g.xp), inLvl = (g.xp || 0) % 100;
-  const L = { joint: '공동 임베딩 정렬', temp: 'Temperature Parameter', aria: 'Aria 일반화' };
+  const L = { lossav: '손실 회피', timing: '타이밍 실패', rules: '사전 매도 규칙' };
   const items = [];
   (qa.lost || []).forEach(c => items.push({ label: L[c], when: '지금 복습', due: true }));
-  ['joint', 'temp'].forEach((c, i) => {
+  ['lossav', 'timing'].forEach((c, i) => {
     if (qa.concepts && (qa.concepts[c] === 'won' || qa.concepts[c] === 'review'))
       items.push({ label: L[c], when: `${[3, 7][i]}일 뒤` });
   });
@@ -6715,7 +6715,7 @@ function gameStripHtml() {
 function awardGame() {
   const g = loadGame();
   let base = 0;
-  ['joint', 'temp', 'aria'].forEach(c => { const s = qa.concepts[c]; if (s === 'won') base += 20; else if (s === 'review') base += 30; });
+  ['lossav', 'timing', 'rules'].forEach(c => { const s = qa.concepts[c]; if (s === 'won') base += 20; else if (s === 'review') base += 30; });
   base += (qa.comboMax || 0) * 3;
   const earned = Math.round(base * (XP_MULT[qa.aud] || 1));
   const today = isoDay(new Date());
@@ -6734,18 +6734,18 @@ const PERSONAS = {
   '일반 청중': { init: '청', accent: 'orange', tag: '비전공 청중', style: '전문용어를 쓰면 되물어요', pass: '쉬운 말로' },
 };
 const AUDS = Object.keys(PERSONAS);
-const CONCEPT_LABELS = { joint: '공동 임베딩', temp: 'Temperature', aria: 'Aria 일반화' };
-const CONCEPT_FULL = { joint: '공동 임베딩 정렬', temp: 'Temperature Parameter', aria: 'Aria 데이터셋 해석' };
+const CONCEPT_LABELS = { lossav: '손실 회피', timing: '타이밍 실패', rules: '사전 규칙' };
+const CONCEPT_FULL = { lossav: '손실 회피', timing: '타이밍 실패', rules: '사전 매도 규칙' };
 
 /* ── QA 시간 모드: 치명도 순으로 질문 범위를 채운다 ──
  * 키는 서버 계약의 track 과 같은 문자열이다. */
 const QA_MODES = {
   '1':  { min: 1,  short: '1분 · 핵심만',   desc: '가장 치명적인 개념 하나만 빠르게 확인해요. 복습은 생략해요.',
-          scopeLabel: '가장 치명적인 개념 하나', count: 1, demoConcepts: ['joint'], review: false },
+          scopeLabel: '가장 치명적인 개념 하나', count: 1, demoConcepts: ['lossav'], review: false },
   '5':  { min: 5,  short: '5분 · 핵심+α',  desc: '핵심 개념에 함정 검증과 시차 복습까지 붙여 제대로 코칭해요.',
-          scopeLabel: '핵심 개념 + 놓친 개념', count: 3, demoConcepts: ['joint', 'temp'], review: true },
+          scopeLabel: '핵심 개념 + 놓친 개념', count: 3, demoConcepts: ['lossav', 'timing'], review: true },
   '10': { min: 10, short: '10분 · 전체 커버', desc: '아쉬운 개념 전부에, 자료와 모순된 설명까지 대조해요.',
-          scopeLabel: '아쉬운 개념 전부 + 모순 대조', count: 7, demoConcepts: ['joint', 'temp', 'aria'], review: true },
+          scopeLabel: '아쉬운 개념 전부 + 모순 대조', count: 7, demoConcepts: ['lossav', 'timing', 'rules'], review: true },
 };
 const qaScope = () => QA_MODES[qa.mode] || QA_MODES['10'];
 /* 모드 범위에 맞는 비트만 통과 (1분 모드는 시차 복습 비트 제외) */
@@ -6973,8 +6973,8 @@ function renderQa() {
         <div class="step-actions"><a class="btn btn-primary" href="#/">홈으로</a></div>`;
       return;
     }
-    if (!qa.concepts) qa.concepts = { joint: 'wait', temp: 'wait', aria: 'wait' };
-    qa.concepts.joint = 'current';
+    if (!qa.concepts) qa.concepts = { lossav: 'wait', timing: 'wait', rules: 'wait' };
+    qa.concepts.lossav = 'current';
     presentQuestion(firstBeat);
   }
   // 새로고침 등으로 중간 상태가 저장돼 있으면 안전한 상태로 되돌림
@@ -7236,7 +7236,7 @@ function qaChoose(correct) {
   qaThink(() => react(b, correct ? 'full' : 'partial', correct ? b.onRight : b.onWrong));
 }
 
-/* ── 실패/방어 갈림길 (Aria) ── */
+/* ── 실패/방어 갈림길 (사전 매도 규칙) ── */
 function qaDecide(push) {
   const b = beat();
   if (push) {
@@ -7244,11 +7244,11 @@ function qaDecide(push) {
     streamCaption(b.pushAnswer, () => {
       commitAnswer(b.pushAnswer);
       qaThink(() => {
-        qa.concepts.aria = 'won';
+        qa.concepts.rules = 'won';
         qa.combo = (qa.combo || 0) + 1;
         qa.comboMax = Math.max(qa.comboMax || 0, qa.combo);
         pushTurn({ who: 'ai', kind: 'react', verdict: 'full', text: b.onPush });
-        pushTurn({ who: 'sys', kind: 'won', text: 'Aria 일반화 — 끝까지 밀어붙여 설득했어요' });
+        pushTurn({ who: 'sys', kind: 'won', text: '사전 매도 규칙 — 끝까지 밀어붙여 설득했어요' });
         growStream(); updateTracker();
         qa.sub = 'ended'; renderLive();
       });
@@ -7257,9 +7257,9 @@ function qaDecide(push) {
     pushTurn({ who: 'me', kind: 'choice', text: '오늘은 여기까지 할게요' });
     growStream();
     qaThink(() => {
-      qa.concepts.aria = 'lost'; qa.lost = ['aria'];
+      qa.concepts.rules = 'lost'; qa.lost = ['rules'];
       pushTurn({ who: 'ai', kind: 'concede', text: b.onConcede });
-      pushTurn({ who: 'sys', kind: 'lost', text: 'Aria 일반화 — 오늘은 방어하지 못했어요. 리포트에 남겨둘게요' });
+      pushTurn({ who: 'sys', kind: 'lost', text: '사전 매도 규칙 — 오늘은 방어하지 못했어요. 리포트에 남겨둘게요' });
       growStream(); updateTracker();
       qa.sub = 'ended'; renderLive();
     });
@@ -7324,7 +7324,7 @@ function recordQaHistory() {
   // mock 시나리오 경로
   const played = (DATA.qaBeats || []).filter(b => b.kind === 'ask');
   if (!played.length) return false;
-  return window.QaHistory.save('imu2clip', {
+  return window.QaHistory.save('investor', {
     live: false,
     aud: qa.aud || '교수님',
     mode: qa.mode || 'full',
@@ -7351,13 +7351,13 @@ function qaEnd() {
   saveSession('qa-flow', qa);
   const historySaved = recordQaHistory();
   const tr = DATA.session.qa.trophy;
-  const ariaLost = qa.lost.includes('aria');
+  const rulesLost = qa.lost.includes('rules');
   const concepts = [
-    { label: 'Self-Supervised Learning', pre: true },
-    { label: 'CLIP', pre: true },
-    { label: 'IMU2CLIP의 동기', pre: true },
-    { label: '공동 임베딩 정렬', pre: false },
-    { label: 'Temperature Parameter', pre: false },
+    { label: '격차의 실재', pre: true },
+    { label: '과잉 매매', pre: true },
+    { label: '거래 비용', pre: true },
+    { label: '손실 회피', pre: false },
+    { label: '타이밍 실패', pre: false },
   ];
   const aw = qa.award || { earned: 0, level: 1, streak: 1, xp: 0 };
   app.innerHTML = `
@@ -7389,9 +7389,9 @@ function qaEnd() {
             <i>✓</i><span>${c.label}</span>${c.pre ? '' : '<em>+ 오늘</em>'}
           </li>`).join('')}
         </ul>
-        <p class="cere-sub ${ariaLost ? 'warn' : 'good'}">${ariaLost
-          ? 'Aria 일반화는 오늘 방어하지 못했어요 — 복습으로 다시 만나요'
-          : '자료와 어긋났던 Aria 설명도 대화로 바로잡았어요'}</p>
+        <p class="cere-sub ${rulesLost ? 'warn' : 'good'}">${rulesLost
+          ? '사전 매도 규칙은 오늘 방어하지 못했어요 — 복습으로 다시 만나요'
+          : '자료와 어긋났던 종목 선정 결론도 대화로 바로잡았어요'}</p>
       </div>
 
       <div class="card cere-card c3">
@@ -7404,7 +7404,7 @@ function qaEnd() {
             <span>${qa.aud} 보너스 ×${XP_MULT[qa.aud] || 1}</span>
           </div>
         </div>
-        <div class="cere-next"><span>다음 목표</span><b>${ariaLost ? 'Aria 일반화 다시 방어하기' : 'IMU Encoder를 한 문장으로 설명하기'}</b></div>
+        <div class="cere-next"><span>다음 목표</span><b>${rulesLost ? '사전 매도 규칙 다시 방어하기' : '상위 그룹 비교표를 한 문장으로 설명하기'}</b></div>
       </div>
 
       <div class="cere-actions">
