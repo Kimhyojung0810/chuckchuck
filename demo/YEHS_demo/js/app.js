@@ -1222,7 +1222,7 @@ function showcasePipelineStub() {
       edges,
       sections: [
         { name: '현황·배경', slide_role: 'intro', slide_nos: [1, 2, 3, 4] },
-        { name: '다섯 원인', slide_role: 'body', slide_nos: [5, 6, 7, 8, 9, 10] },
+        { name: '핵심 원인', slide_role: 'body', slide_nos: [5, 6, 7, 8, 9, 10] },
         { name: '성공 요인·오해', slide_role: 'body', slide_nos: [11, 12] },
         { name: '실행·결론', slide_role: 'conclusion', slide_nos: [13, 14, 15] },
       ],
@@ -1851,7 +1851,6 @@ function nfStep1() {
         <div class="dz-actions">
           <button class="btn btn-primary" id="pick">내 컴퓨터에서 선택</button>
           <span class="dz-or">또는 이 화면에 파일을 끌어다 놓으세요</span>
-          <button class="btn btn-text" id="sampleStart">샘플 자료로 바로 시작</button>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
       </div>`;
@@ -1860,10 +1859,6 @@ function nfStep1() {
        뒤로 밀린다. 이 단계의 CTA 는 드롭존 자체다 */
     const dz = $('#dz');
     $('#pick').addEventListener('click', () => $('#file').click());
-    /* 파일 없이 더미로 도는 입구. 예전엔 업로드가 실패해야만 「샘플 데모로
-       계속하기」가 나왔다 — 부스처럼 파일이 없는 자리에서는 입구가 없는 셈이라
-       시작 화면에 상시로 둔다 (2026-08-12 지적). */
-    $('#sampleStart').addEventListener('click', () => startParse({ fixture: true }));
     $('#file').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       /\.(pdf|pptx)$/i.test(f.name) ? startParse({ file: f }) : failParse('PDF나 PPTX 파일만 분석할 수 있어요.');
@@ -5315,7 +5310,12 @@ function rRubric() {
        처럼 보인다. 기둥에서 줄을 눌러 들어온 경우엔 goRubric 이 그 묶음을 연다. */
     const done = rows.filter(r => r.status === 'scored');
     const scored = done.length;
-    const unmeasured = rows.length - scored;
+    /* 「안 봄」과 「못 쟀음」은 다른 사실이다 (§4, RUBRIC_STATUS). 예전엔 둘을
+       rows.length - scored 하나로 뭉쳐서 안 본 항목까지 "채점을 마치지 못해
+       못 쟀어요"라고 거짓말했다 — 논리 구조의 두괄식 구조(상황상 안 봄)가
+       실제 사례다. 줄로는 안 그리되(위 주석) 상태별로 세어 맞는 말을 낸다. */
+    const excluded = rows.filter(r => r.status === 'situation_excluded');
+    const unmeasured = rows.filter(r => r.status === 'unmeasured');
     return `<details class="rb-cluster" id="rb-${escapeHtml(c.key)}"${c.key === weakestKey ? ' open' : ''}>
       <summary>
         <span class="rb-cname">${escapeHtml(c.name)}</span>
@@ -5323,7 +5323,8 @@ function rRubric() {
         ${head}
       </summary>
       <ol class="rb-list">${done.map(rowHtml).join('')}</ol>
-      ${unmeasured ? `<p class="rb-unmeasured">${unmeasured}개 항목은 채점을 마치지 못해 이번엔 못 쟀어요</p>` : ''}
+      ${excluded.length ? `<p class="rb-unmeasured">${excluded.length}개 항목은 ${RUBRIC_STATUS.situation_excluded.t}</p>` : ''}
+      ${unmeasured.length ? `<p class="rb-unmeasured">${unmeasured.length}개 항목은 채점을 마치지 못해 ${RUBRIC_STATUS.unmeasured.t}</p>` : ''}
     </details>`;
   }).join('');
 
@@ -5331,7 +5332,7 @@ function rRubric() {
     <div class="card">
       <h3 class="section-title">채점표</h3>
       <p class="note" style="margin-bottom:14px">
-        ${escapeHtml(occLabel(sc.situation_label) || '기본 기준')} 기준으로 ${nScored}개 항목을
+        ‘${escapeHtml(occLabel(sc.situation_label) || '기본 기준')}’ 기준으로 ${nScored}개 항목을
         채점했어요. 항목마다 왜 그 점수인지 근거를 남겨요.
       </p>
       ${blocks}
@@ -6777,25 +6778,21 @@ function flowFeatureCardHtml({ good, topLabel, from, to, typeLabel, note, quoteH
   </div>`;
 }
 
-function flowIssueCardHtml(i) {
+/** 실데이터 흐름 이슈 하나를 flowFeatureCardHtml 입력으로 옮긴다.
+ *  주인공 카드와 접힌 목록이 같은 그림(실제 슬라이드 두 장)을 쓰게 한다
+ *  (2026-08-12: "나머지도 비슷하게" — 텍스트 칩 카드를 걷어냈다). */
+function flowIssueToFeature(i) {
   const kind = FLOW_KIND[i.kind] || { type: escapeHtml(i.kind), good: false };
   const slides = i.slide_nos || [];
-  const from = slides.length ? `${slides[0]}번` : '—';
-  const to = slides.length > 1 ? `${slides[slides.length - 1]}번` : from;
-  return `
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      ${chip(kind.good ? 'ok' : 'no', true)}
-      <span class="note">${kind.type}</span>
-    </div>
-    <div class="flow-vis">
-      <span class="slide-chip">${from} 슬라이드</span>
-      <span class="flow-line ${kind.good ? 'good' : ''}"><em>${kind.good ? '✓' : '✕'}</em></span>
-      <span class="slide-chip">${to} 슬라이드</span>
-    </div>
-    <p class="logic-note"><b>${kind.type}</b> — ${escapeHtml(i.note || '')}</p>
-    ${i.cue ? `<div class="bubble">“${escapeHtml(i.cue)}”</div>` : ''}
-  </div>`;
+  return flowFeatureCardHtml({
+    good: kind.good,
+    topLabel: kind.type,
+    from: slides[0] || 0,
+    to: slides.length > 1 ? slides[slides.length - 1] : slides[0] || 0,
+    typeLabel: kind.type,
+    note: escapeHtml(i.note || ''),
+    quoteHtml: i.cue ? `“${escapeHtml(i.cue)}”` : '',
+  });
 }
 
 function rLogicRealCards(flow) {
@@ -6827,25 +6824,22 @@ function rLogicRealCards(flow) {
     quoteHtml: first.cue ? `“${escapeHtml(first.cue)}”` : '',
   }) : ''}
     ${rest.length ? `<details class="fold"><summary>나머지 ${rest.length}곳 더 보기</summary>
-      <div class="fold-body">${rest.map(flowIssueCardHtml).join('')}</div></details>` : ''}
+      <div class="fold-body">${rest.map(flowIssueToFeature).join('')}</div></details>` : ''}
     ${tauNote}`;
 }
 
-function logicBreakCardHtml(l) {
-  return `
-  <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      ${chip(l.good ? 'ok' : 'no', true)}
-      <span class="note num">${l.time}</span>
-    </div>
-    <div class="flow-vis">
-      <span class="slide-chip">${l.from} 슬라이드</span>
-      <span class="flow-line ${l.good ? 'good' : ''}"><em>${l.good ? '✓' : '✕'}</em></span>
-      <span class="slide-chip">${l.to} 슬라이드</span>
-    </div>
-    <p class="logic-note"><b>${l.type}</b> — ${l.note}</p>
-    <div class="bubble">${l.ev}<time>${l.time}</time></div>
-  </div>`;
+/** 샘플 흐름 이슈 하나를 flowFeatureCardHtml 입력으로 옮긴다 — 위 flowIssueToFeature
+ *  와 같은 이유(2026-08-12), 실측 경로가 아니라 DATA.logicBreaks 모양을 받는다. */
+function logicBreakToFeature(l) {
+  return flowFeatureCardHtml({
+    good: l.good,
+    topLabel: l.time,
+    from: l.from,
+    to: l.to,
+    typeLabel: l.type,
+    note: l.note,
+    quoteHtml: l.ev ? `${l.ev}<time>${l.time}</time>` : '',
+  });
 }
 
 function rLogic() {
@@ -6861,8 +6855,10 @@ function rLogic() {
   const bad = breaks.filter(l => !l.good);
   const verdict = bad.length ? {
     /* DATA.logicBreaks 의 from·to 는 이미 '5번' 처럼 번을 달고 있다.
-       여기서 또 붙여서 「5번번에서 7번번으로」가 나가고 있었다 (샘플 경로). */
-    headline: `${bad[0].from}에서 ${bad[0].to}으로 넘어갈 때 논리가 끊겼어요`,
+       여기서 또 붙여서 「5번번에서 7번번으로」가 나가고 있었다 (샘플 경로).
+       "넘어갈 때 논리가 끊겼어요" 는 무엇이 문제인지 말해주지 않는다 —
+       두 슬라이드가 어긋난다는 사실 자체를 직접 말한다 (2026-08-12 지적). */
+    headline: `${bad[0].from}과 ${bad[0].to}은 논리가 달라요`,
     action: '앞 슬라이드와 잇는 한 문장을 넣으면 흐름이 살아나요. 아래 실제 발화를 확인해 보세요.',
   } : null;
   $('#rbody').innerHTML = `
@@ -6877,7 +6873,7 @@ function rLogic() {
     quoteHtml: first.ev ? `${first.ev}<time>${first.time}</time>` : '',
   }) : ''}
     ${rest.length ? `<details class="fold"><summary>나머지 ${rest.length}곳 더 보기</summary>
-      <div class="fold-body">${rest.map(logicBreakCardHtml).join('')}</div></details>` : ''}`;
+      <div class="fold-body">${rest.map(logicBreakToFeature).join('')}</div></details>` : ''}`;
   paintDeckThumbs($('#rbody'));
 }
 
@@ -7215,7 +7211,7 @@ function rDelivery() {
    sub 는 도구마다 꼬리에 달려 있던 설명을 제목 밑으로 올린 것이다 — 무엇에 쓰는
    물건인지 다 읽고 나서야 알려 주면 늦다 (토스 Predictable hint). */
 const TOOL_SECTIONS = [
-  { label: '개요 이미지', sub: '발표 직전에 이 한 장으로 전체 구조를 훑어요', id: 'toolMap', render: (host) => tMap(host) },
+  { label: '발표 직전 챙길 개념도', sub: '이 한 장으로 전체 구조를 훑어요', id: 'toolMap', render: (host) => tMap(host) },
   { label: '펀치라인', sub: '이 문장은 그대로 말해도 좋아요', id: 'toolPunch', render: (host) => tPunch(host) },
   { label: '용어 카드', sub: '질문이 올 개념과 답하는 순서예요', id: 'toolTerms', render: (host) => tTerms(host) },
 ];
@@ -7249,6 +7245,16 @@ function strategySessionKey() {
  * 인용은 개념 판정의 근거 발화(evidence)에서 가져온다 — 서버가 keep.quote 를
  * 실제 발화와 대조해 없으면 버리므로, 진짜 한 말만 넣어야 제안에 살아남는다.
  */
+/** judgeTree() 의 slide 필드는 개념 그래프·판정 탭이 쓰는 'S03' 코드다.
+ *  F-20(발표 구성) 프롬프트에 'S03' 을 그대로 넘기면 LLM 이 그 표기를
+ *  그대로 따라 써서 화면에 "S03" 이 나온다 (2026-08-12 지적) — 여기서만
+ *  순수 슬라이드 번호로 벗겨서 보낸다. 다른 화면(개념 그래프 등)의 'S03'
+ *  표기는 이 함수 밖이라 그대로 둔다. */
+function slideNumFromCode(code) {
+  const n = parseInt(String(code || '').replace(/^S/i, ''), 10);
+  return Number.isFinite(n) ? n : '';
+}
+
 function strategyAnalysis() {
   const meta = reportSessionMeta();
   const tree = judgeTree();
@@ -7256,7 +7262,7 @@ function strategyAnalysis() {
 
   const concepts = tree.slice(0, 14).map(n => ({
     label: n.label,
-    slide: n.slide,
+    slide: slideNumFromCode(n.slide),
     verdict: STATUS[n.status] || n.status,
   }));
 
@@ -7274,8 +7280,7 @@ function strategyAnalysis() {
   }));
   const timeAlloc = sections.length
     ? sections.map(s => ({
-      slide: (s.slide_nos && s.slide_nos.length)
-        ? `S${String(Math.min(...s.slide_nos)).padStart(2, '0')}` : '',
+      slide: (s.slide_nos && s.slide_nos.length) ? Math.min(...s.slide_nos) : '',
       label: s.name || '',
       recommended: fmtMarkSec(s.recommended_sec || 0),
       actual: fmtMarkSec(s.actual_sec || 0),
@@ -7310,7 +7315,7 @@ function strategyAnalysis() {
 }
 
 /* 탭 7 — 발표 구성. 2026-08-12 부터 「연습 도구」 안 넷째 자리에서 상위 탭으로
-   뺐다 — 지금 당장 쓰는 세 도구(개요 이미지·펀치라인·용어 카드)와 성격이
+   뺐다 — 지금 당장 쓰는 세 도구(발표 직전 챙길 개념도·펀치라인·용어 카드)와 성격이
    달라서(다음 연습을 위한 것) 한 탭에 같이 있으면 도구 하나로 오해받았다. */
 function rStrategy() {
   $('#rbody').innerHTML = `<p class="tool-sec-sub">다음 연습에서 순서를 이렇게 바꿔 봐요</p><div id="toolStrategy"></div>`;
@@ -7333,7 +7338,7 @@ function tStrategy(host = $('#toolStrategy')) {
 }
 
 /* ── 연습 도구의 실데이터 도출 ─────────────────────────────────────────────
-   개요 이미지·펀치라인·용어 카드가 데모 고정값(DATA.*)만 보여주던 것을,
+   발표 직전 챙길 개념도·펀치라인·용어 카드가 데모 고정값(DATA.*)만 보여주던 것을,
    실데이터 세션에서는 개념 그래프(요약·슬라이드)·판정·예상 질문(F-08)에서
    결정적으로 뽑는다. 재료가 없으면 샘플로 위장하지 않고 빈 상태를 말한다. */
 
@@ -7502,7 +7507,7 @@ function mapSvgString() {
       <circle cx="${x - metaW / 2 - 7}" cy="${y + 34}" r="2.6" fill="${ACCENT[n.status]}"/>
       <text x="${x + 4}" y="${y + 37}" text-anchor="middle" font-size="11" font-weight="650" fill="${ACCENT[n.status]}" font-family="Pretendard,sans-serif">${meta}</text></g>`;
   }).join('');
-  return `<svg viewBox="0 0 880 304" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 개요 이미지">
+  return `<svg viewBox="0 0 880 304" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="발표 직전 챙길 개념도">
     <defs>
       <linearGradient id="mapRoot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#064E3B"/><stop offset="1" stop-color="#0A6B50"/></linearGradient>
     </defs>
@@ -7512,19 +7517,19 @@ function mapSvgString() {
 function tMap(host = $('#toolMap')) {
   if (!host) return;
   if (isLiveReportSession() && !liveMapNodes()) {
-    // 도구 이름은 「개요 이미지」 하나다. 여기만 '개념 지도' 라고 부르면
+    // 도구 이름은 「발표 직전 챙길 개념도」 하나다. 여기만 다르게 부르면
     // 같은 화면에서 이름이 둘이 된다
-    host.innerHTML = toolEmptyHtml('개요 이미지를');
+    host.innerHTML = toolEmptyHtml('발표 직전 챙길 개념도를');
     return;
   }
   host.innerHTML = `
     <div class="map-tools">
-      <label class="toggle"><input type="checkbox" id="weakOnly" ${mapWeakOnly ? 'checked' : ''}> 챙길 개념만 보기</label>
+      <button type="button" class="btn btn-primary btn-sm" id="weakOnly" aria-pressed="${mapWeakOnly}">챙길 개념만 보기</button>
       <button class="btn btn-secondary btn-sm" id="dl">이미지로 저장</button>
     </div>
     <div class="map-box">${mapSvgString()}</div>
     <p class="note" style="margin-top:10px">챙길 개념만 보기</p>`;
-  $('#weakOnly', host).addEventListener('change', e => { mapWeakOnly = e.target.checked; tMap(host); });
+  $('#weakOnly', host).addEventListener('click', () => { mapWeakOnly = !mapWeakOnly; tMap(host); });
   $('#dl', host).addEventListener('click', () => {
     const blob = new Blob([mapSvgString()], { type: 'image/svg+xml' });
     const a = document.createElement('a');

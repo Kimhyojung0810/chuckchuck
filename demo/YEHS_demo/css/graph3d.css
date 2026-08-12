@@ -56,28 +56,23 @@
   color: var(--text, #10201a); font-size: 14px; font-weight: 700; letter-spacing: -.01em;
   white-space: nowrap; transition: opacity .2s;
 }
+/* 공 가장자리를 가리키는 작은 말풍선 꼭짓점. js/graph3d.js 가 이름표를 공의
+   화면 반지름만큼 아래로 내려서 겹침(«꼬리표» 로 보이던 문제, 2026-08-12
+   사용자)은 없앴지만, 그러면 이름표가 공과 안 이어진 채 허공에 뜬 칩으로
+   보인다 — 위를 가리키는 작은 삼각형 하나로 「이게 저 공 거다」를 잇는다.
+   테두리색 삼각형(::before, 큼)을 뒤에 깔고 배경색 삼각형(::after, 작음)을
+   앞에 겹쳐서 이름표 테두리와 같은 1.5px 윤곽을 만든다. */
+.g3d-label::before, .g3d-label::after {
+  content: ''; position: absolute; top: 0; left: 50%; width: 0; height: 0;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+}
+.g3d-label::before { margin: -7px 0 0 -7px; border-bottom: 7px solid var(--line, #D5E2DA); }
+.g3d-label::after {
+  margin: -5px 0 0 -5px; border-left-width: 5px; border-right-width: 5px;
+  border-bottom: 5px solid rgba(255, 253, 247, .96);
+}
 /* 판정 점 — 공 색을 눈으로 되짚지 않아도 이름 옆에서 바로 읽힌다 */
 .g3d-label i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-/* 비중 막대(금색) — 공 크기만으로는 3D 원근 때문에 «어느 게 더 큰가」가 잘 안
-   읽힌다는 지적(2026-08-12 사용자: 가중치 구분이 안 된다). 숫자를 그대로
-   막대로 얹어 크기에 의존하지 않고 비중이 바로 보이게 한다. */
-.g3d-label em {
-  position: relative; width: 24px; height: 5px; border-radius: 2px; flex: none;
-  background: rgba(120, 96, 15, .16);
-}
-.g3d-label em::after {
-  content: ''; position: absolute; inset: 0 auto 0 0; width: var(--wt, 0%);
-  border-radius: 2px; background: linear-gradient(90deg, #E8AC1E, #C6860A);
-}
-/* 말한 정도 막대(초록). 채워진 만큼이 speech_weight 다 — 없는 값은 아예 안 그린다 */
-.g3d-label b {
-  position: relative; width: 24px; height: 5px; border-radius: 2px; flex: none;
-  background: rgba(21, 92, 70, .16);
-}
-.g3d-label b::after {
-  content: ''; position: absolute; inset: 0 auto 0 0; width: var(--sp, 0%);
-  border-radius: 2px; background: var(--brand, #08B879);
-}
 
 /* 무대가 말하는 한 줄 요약 — 그림만 두면 「그래프가 있다」로 끝난다.
    12px 는 개미만하다는 지적 대상이라 함께 키운다. */
@@ -106,8 +101,6 @@
 .rep-graph .g3d-k.ct { background: var(--ct-bg); color: var(--ct); }
 .rep-graph .g3d-k.om { background: var(--om-bg); color: var(--om); }
 .g3d-labels.is-compact .g3d-label { font-size: 12.5px; padding: 3px 8px; }
-.g3d-labels.is-compact .g3d-label em,
-.g3d-labels.is-compact .g3d-label b { width: 18px; height: 4px; }
 
 .g3d-loading {
   position: absolute; inset: 0; margin: 0;
@@ -170,7 +163,7 @@
 
 /* 이웃 강조. 누른 개념과 이어진 것만 남기고 나머지는 죽인다 — 지우지 않고
    흐리게만 둔다. 사라지면 「연결이 없다」로 읽힌다. */
-.g3d-label.is-dim { opacity: .18 !important; }
+.g3d-label.is-dim { opacity: .27 !important; }
 .g3d-clip { color: var(--text-3, #5b6b64); font-weight: 500; }
 
 /* 질문 생성 대기 화면의 개념 지도. 카드 안이 아니라 이미 카드인 화면에 얹는 거라
@@ -182,3 +175,247 @@
    「이 아직 말로 안 나왔어요」가 따로 놀았다. */
 .qb-graph .g3d-summary { padding: 0; }
 .qb-graph .g3d-clip { flex: 1 0 100%; font-size: 12.5px; }
+
+
+/* 2026-08-12 product-first graph redesign */
+.g3d-wrap { background: #fafaf8; overflow: hidden; }
+.g3d-top {
+  display: grid; grid-template-columns: minmax(420px, 1fr) auto;
+  align-items: end; gap: 10px 32px; padding: 18px 30px 16px;
+  border-bottom: 1px solid rgba(16,32,26,.08); background: rgba(255,255,255,.82);
+}
+.g3d-crumb { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--text-3); }
+.g3d-crumb a { color: inherit; text-decoration: none; }
+.g3d-crumb b { color: var(--text-2); font-weight: 650; }
+.g3d-title h1 { margin: 0 0 4px; font-size: 25px; line-height: 1.2; letter-spacing: -.035em; }
+.g3d-title p { margin: 0; font-size: 17px; line-height: 1.45; color: var(--text-2); }
+.g3d-title p strong { color: var(--text); font-weight: 750; }
+.g3d-summary { grid-column: 2; grid-row: 2; padding: 0; gap: 16px; flex-wrap: nowrap; }
+.g3d-k { display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent !important; white-space: nowrap; color: var(--text-2) !important; font-size: 13px; }
+.g3d-k i { width: 8px; height: 8px; border-radius: 50%; }
+.g3d-k.ok i { background: var(--ok); }.g3d-k.no i { background: var(--no); }
+.g3d-k.ct i { background: var(--ct); }.g3d-k.om i { background: var(--om); }
+.g3d-insight {
+  grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 10px; width: max-content;
+  max-width: 100%; padding: 7px 11px; border-radius: 10px; background: #fff8e8;
+  border: 1px solid #f4dfae; color: #6f5318; font-size: 12.5px;
+}
+.g3d-insight b { color: #8a6110; }.g3d-insight strong { color: var(--text); }
+.g3d-stage { background: #fafaf8; }
+.g3d-label {
+  padding: 3px 7px; border: 0; border-radius: 7px; background: rgba(250,250,248,.92);
+  box-shadow: 0 1px 4px rgba(16,32,26,.08); font-size: 13px; font-weight: 650;
+}
+.g3d-label::before,.g3d-label::after { display: none; }
+.g3d-label i { width: 6px; height: 6px; }
+.g3d-legend {
+  position: absolute; z-index: 4; right: 20px; top: 164px; display: flex; gap: 7px;
+  padding: 9px 11px; border: 1px solid rgba(16,32,26,.08); border-radius: 12px;
+  background: rgba(255,255,255,.88); box-shadow: 0 2px 10px rgba(16,32,26,.06);
+  backdrop-filter: blur(8px); font-size: 11px; color: var(--text-3);
+}
+.g3d-legend b { color: var(--text-2); margin-right: 3px; }
+.g3d-card {
+  top: 176px; right: 22px; width: 320px; max-height: calc(100vh - 198px); overflow: auto;
+  padding: 20px; border-radius: 16px; background: rgba(255,255,255,.96);
+  box-shadow: 0 10px 32px rgba(16,32,26,.10); border-color: rgba(16,32,26,.10);
+}
+.g3d-drawer-eyebrow { color: var(--text-3); font-size: 11px; font-weight: 750; letter-spacing: .04em; }
+.g3d-card h3 { margin: 5px 0 7px; font-size: 22px; }
+.g3d-verdict { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 12.5px; }
+.g3d-verdict i { width: 7px; height: 7px; border-radius: 50%; }
+.g3d-drawer-section { padding-top: 15px; margin-top: 15px; border-top: 1px solid rgba(16,32,26,.08); }
+.g3d-drawer-section > b { font-size: 12px; color: var(--text-3); }
+.g3d-drawer-section p { margin: 5px 0 0; color: var(--text-2); font-size: 13.5px; line-height: 1.55; word-break: keep-all; }
+.g3d-related { display: grid; gap: 6px; margin-top: 7px; }
+.g3d-related span { padding: 7px 9px; border-radius: 8px; background: #f5f7f5; font-size: 12px; color: var(--text-2); }
+.g3d-related i { padding: 0 4px; color: var(--brand); font-style: normal; }
+.g3d-practice { display: flex; justify-content: space-between; margin-top: 18px; padding: 11px 13px; border-radius: 10px; background: var(--accent-weak); color: var(--brand-deep); text-decoration: none; font-size: 13px; font-weight: 750; }
+.g3d-practice.is-primary { background: var(--brand); color: white; }
+.g3d-close { background: #f1f3f1; }
+@media (max-width: 900px) {
+  .g3d-top { grid-template-columns: 1fr; padding: 14px 18px; }
+  .g3d-summary { grid-column: 1; grid-row: auto; overflow-x: auto; }
+  .g3d-title p { font-size: 15px; }
+  .g3d-insight { grid-column: 1; }
+  .g3d-legend { top: 190px; }
+}
+
+
+/* 2차: 그래프 탐색과 수정 행동이 중심인 split view */
+.g3d-top {
+  grid-template-columns: minmax(320px, 1fr) auto;
+  align-items: center; gap: 8px 28px; padding: 14px 26px 13px;
+}
+.g3d-crumb { margin-bottom: 0; }
+.g3d-title h1 { font-size: 23px; }
+.g3d-title p { font-size: 14px; }
+.g3d-summary { align-self: end; }
+.g3d-insight {
+  position: relative; display: grid; grid-template-columns: 1fr auto; gap: 2px 18px;
+  width: 100%; padding: 12px 14px; border-radius: 12px; background: #fff8e8;
+  border-color: #efd99f; box-sizing: border-box;
+}
+.g3d-insight .g3d-diagnosis-label { grid-column: 1; color: #8a6110; font-size: 11px; font-weight: 750; }
+.g3d-insight > b { grid-column: 1; font-size: 16px; line-height: 1.35; color: var(--text); }
+.g3d-insight > p { grid-column: 1; margin: 2px 0 0; color: #705a2b; font-size: 12.5px; }
+.g3d-insight > a {
+  grid-column: 2; grid-row: 1 / 4; align-self: center; padding: 9px 12px; border-radius: 9px;
+  background: #8a6110; color: #fff; text-decoration: none; font-size: 12px; font-weight: 750;
+}
+.g3d-workspace {
+  flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 344px;
+  background: #fafaf8;
+}
+.g3d-workspace:has(.g3d-card[hidden]) { grid-template-columns: minmax(0, 1fr); }
+.g3d-graphpane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.g3d-stage { position: absolute; inset: 0; min-height: 0; }
+.g3d-card {
+  position: relative; inset: auto; width: auto; max-width: none; max-height: none;
+  padding: 20px 20px 18px; border-radius: 0; overflow: auto;
+  border-width: 0 0 0 1px; box-shadow: -8px 0 24px rgba(16,32,26,.045);
+  backdrop-filter: none;
+}
+.g3d-card h3 { font-size: 24px; margin-bottom: 12px; }
+.g3d-status-row {
+  display: flex; justify-content: space-between; align-items: center; padding: 9px 10px;
+  border-radius: 9px; background: #f5f7f5; font-size: 12px;
+}
+.g3d-status-row > b { color: var(--text-3); }
+.g3d-drawer-section { padding-top: 14px; margin-top: 14px; }
+.g3d-drawer-section > b, .g3d-drawer-actions > b { font-size: 12px; color: var(--text-3); }
+.g3d-problem ul { margin: 7px 0 0; padding: 9px 11px 9px 27px; border-radius: 9px; background: var(--no-bg); }
+.g3d-problem li { color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.g3d-related { display: flex; flex-wrap: wrap; gap: 6px; }
+.g3d-related span { padding: 6px 9px; border-radius: 999px; }
+.g3d-drawer-actions { padding-top: 16px; margin-top: 16px; border-top: 1px solid rgba(16,32,26,.08); }
+.g3d-practice { margin-top: 8px; }
+.g3d-practice.is-secondary { background: #f1f5f2; color: var(--text-2); }
+.g3d-report-link { display: block; margin-top: 12px; text-align: center; color: var(--text-3); font-size: 12px; text-decoration: none; }
+.g3d-filters {
+  position: absolute; z-index: 6; top: 14px; left: 16px; display: flex; flex-wrap: wrap; gap: 6px;
+  max-width: calc(100% - 110px);
+}
+.g3d-filters button, .g3d-controls button {
+  border: 1px solid rgba(16,32,26,.10); background: rgba(255,255,255,.92); color: var(--text-2);
+  box-shadow: 0 2px 8px rgba(16,32,26,.05); cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 650;
+}
+.g3d-filters button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 999px; }
+.g3d-filters button:hover, .g3d-filters button.is-active { border-color: var(--brand); background: var(--accent-weak); color: var(--brand-deep); }
+.g3d-filters i { width: 6px; height: 6px; border-radius: 50%; }
+.g3d-filters i.ok { background: var(--ok); }.g3d-filters i.no { background: var(--no); }
+.g3d-filters i.ct { background: var(--ct); }.g3d-filters i.om { background: var(--om); }
+.g3d-controls {
+  position: absolute; z-index: 6; left: 16px; bottom: 16px; display: flex; gap: 5px;
+}
+.g3d-controls button { min-width: 32px; height: 32px; padding: 0 9px; border-radius: 9px; }
+.g3d-controls button:hover { background: var(--accent-weak); color: var(--brand-deep); }
+.g3d-label { padding: 4px 8px; font-size: 14.5px; }
+.g3d-close { right: 14px; top: 14px; }
+@media (max-width: 980px) {
+  .g3d-workspace { grid-template-columns: minmax(0, 1fr) 310px; }
+  .g3d-top { grid-template-columns: 1fr; }
+  .g3d-summary { grid-column: 1; grid-row: auto; }
+}
+@media (max-width: 720px) {
+  .g3d-workspace { display: block; position: relative; }
+  .g3d-graphpane { height: 100%; }
+  .g3d-card { position: absolute; inset: auto 10px 10px; width: auto; max-height: 52%; border: 1px solid var(--line); border-radius: 14px; }
+  .g3d-insight { grid-template-columns: 1fr; }
+  .g3d-insight > a { grid-column: 1; grid-row: auto; width: max-content; margin-top: 5px; }
+  .g3d-filters { max-width: calc(100% - 24px); }
+}
+
+
+/* 3차 polish: 선택은 크기가 아니라 링, 조작은 태그가 아니라 컨트롤로 읽힌다. */
+.g3d-insight { grid-template-columns: 1fr auto; padding-block: 10px; }
+.g3d-insight > b { font-size: 15px; }
+.g3d-insight > a { grid-row: 1 / 3; }
+.g3d-filters {
+  align-items: center; gap: 9px; max-width: calc(100% - 32px);
+  padding: 6px; border: 1px solid rgba(16,32,26,.08); border-radius: 13px;
+  background: rgba(255,255,255,.82); box-shadow: 0 3px 12px rgba(16,32,26,.055);
+  backdrop-filter: blur(10px);
+}
+.g3d-filter-group, .g3d-view-option { display: flex; align-items: center; gap: 5px; }
+.g3d-view-option { padding-left: 9px; border-left: 1px solid rgba(16,32,26,.12); }
+.g3d-filter-label {
+  padding: 0 3px; color: var(--text-3); font-size: 10px; font-weight: 750;
+  letter-spacing: .02em;
+}
+.g3d-filters button { box-shadow: none; background: transparent; border-color: transparent; }
+.g3d-filters button:hover { background: #f1f6f3; border-color: #c9ded2; }
+.g3d-filters button.is-active {
+  background: var(--brand); border-color: var(--brand); color: #fff;
+  box-shadow: 0 2px 7px rgba(8,184,121,.22);
+}
+.g3d-view-option button { padding-left: 7px; }
+.g3d-view-option button > i {
+  position: relative; width: 24px; height: 14px; border-radius: 999px;
+  background: #cbd4cf; transition: background .16s;
+}
+.g3d-view-option button > i::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px;
+  border-radius: 50%; background: white; box-shadow: 0 1px 2px rgba(16,32,26,.2);
+  transition: transform .16s;
+}
+.g3d-view-option button.is-active > i { background: rgba(255,255,255,.55); }
+.g3d-view-option button.is-active > i::after { transform: translateX(10px); }
+.g3d-label.is-selected {
+  border: 1px solid color-mix(in srgb, var(--no) 55%, var(--brand));
+  box-shadow: 0 0 0 4px rgba(220,38,38,.09), 0 3px 10px rgba(16,32,26,.10);
+  font-weight: 800;
+}
+.g3d-report-link {
+  margin-top: 10px; padding: 8px; border-radius: 8px; color: var(--text-2);
+  font-weight: 650; text-decoration: underline; text-decoration-color: #b7c4bd;
+  text-underline-offset: 3px;
+}
+.g3d-report-link:hover { background: #f5f7f5; color: var(--text); }
+.g3d-controls { padding: 4px; border-radius: 11px; background: rgba(255,255,255,.72); }
+@media (max-width: 800px) {
+  .g3d-filters { align-items: flex-start; }
+  .g3d-filter-group { flex-wrap: wrap; }
+  .g3d-view-option { border-left: 0; padding-left: 0; }
+}
+
+
+/* 상태 필터의 active 색은 판정 색과 동일해야 한다. */
+.g3d-filters [data-g3d-filter="aligned"].is-active {
+  background: var(--ok); border-color: var(--ok); color: #fff;
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--ok) 26%, transparent);
+}
+.g3d-filters [data-g3d-filter="missing"].is-active {
+  background: var(--no); border-color: var(--no); color: #fff;
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--no) 24%, transparent);
+}
+.g3d-filters [data-g3d-filter="contradiction"].is-active {
+  background: var(--ct); border-color: var(--ct); color: #fff;
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--ct) 28%, transparent);
+}
+.g3d-filters [data-g3d-filter="justified_skip"].is-active {
+  background: var(--om); border-color: var(--om); color: #fff;
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--om) 24%, transparent);
+}
+.g3d-filters [data-g3d-filter].is-active > i { background: currentColor; }
+
+
+/* 선택 관계의 3단계: 선택 100%, 직접 연결 88%, 배경 27%. */
+.g3d-label.is-connected {
+  opacity: .88 !important;
+  border: 1px solid rgba(16,32,26,.14);
+  box-shadow: 0 2px 7px rgba(16,32,26,.09);
+  font-weight: 720;
+}
+.g3d-label.is-selected {
+  opacity: 1 !important;
+  border-width: 1.5px;
+  box-shadow: 0 0 0 4px rgba(220,38,38,.10), 0 4px 12px rgba(16,32,26,.13);
+}
+
+.g3d-label.is-connected { border-color: color-mix(in srgb, var(--g3d-node-state) 38%, transparent); }
+.g3d-label.is-selected {
+  border-color: var(--g3d-node-state);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--g3d-node-state) 12%, transparent),
+    0 4px 12px rgba(16,32,26,.13);
+}

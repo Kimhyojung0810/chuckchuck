@@ -546,8 +546,16 @@ main img, main canvas, main svg { max-width: 100%; }
   background: var(--paper); border-radius: 0 var(--r-print) var(--r-print) 0;
 }
 .strat-keep { margin-bottom: 12px; }
+/* 여기 태그는 "이 순서로 바꾸면"(중립 안내)과 달리 칭찬이다 — 회색 메타 글자에
+   묻히면 안 된다. .strat-add span 의 배지 언어(초록 알약)를 그대로 가져온다 */
+.strat-keep .strat-tag {
+  display: inline-block; margin-bottom: 8px;
+  padding: 2px 9px; border-radius: var(--r-pill);
+  background: var(--brand); color: #fff;
+  font-size: 12px; font-weight: 700; letter-spacing: .02em;
+}
 .strat-keep blockquote {
-  margin: 0; font-size: 15px; font-weight: 500; line-height: 1.75; color: var(--text);
+  margin: 0; font-size: 18px; font-weight: 700; line-height: 1.75; color: var(--text);
 }
 .strat-keep small { display: block; margin-top: 8px; font-size: 12px; color: var(--text-3); }
 

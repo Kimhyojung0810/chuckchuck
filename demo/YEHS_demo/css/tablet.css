@@ -64,7 +64,7 @@
      .verdict·.t-band 의 전면폭 계산(calc(50% - 50vw + var(--nav-w)/2))이
      같은 값을 타야 가로 스크롤이 안 난다. */
   :root {
-    --nav-w: 216px;
+    --nav-w: 176px;
     /* 여기서부터 화면 단위는 실제 창이 아니라 아트보드다. 이 두 줄이
        --gutter·--app-h·--safe-bottom 을 비롯한 모든 파생값을 한 번에 돌린다 */
     --vw: var(--artboard-w);
@@ -1248,5 +1248,11 @@
 @media (min-width: 900px) and (max-width: 1450px) {
   .deck-stage img, .deck-stage canvas {
     height: clamp(260px, 34vh, 320px); width: auto; max-width: 100%; object-fit: contain;
+  }
+}
+
+@media (min-width: 721px) {
+  .sidenav-list a[aria-current="page"] {
+    background: color-mix(in srgb, var(--brand-weak) 55%, white);
   }
 }

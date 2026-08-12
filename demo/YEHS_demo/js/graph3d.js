@@ -53,21 +53,34 @@ function g3dAttachLabels(stage, g, nodes, compact) {
   const els = named.map((n) => {
     const el = document.createElement('span');
     el.className = 'g3d-label';
-    /* 판정 점 + 이름 + 비중 막대(금색) + 말한 정도 막대(초록). 공 크기로 비중을
-       주긴 하지만 3D 는 원근·겹침 때문에 «어느 게 더 큰가」가 눈으로 잘 안
-       잡힌다 (2026-08-12 사용자: 가중치 구분이 안 된다) — 이름표에 숫자 그대로
-       막대를 하나 더 그려서 크기에 의존하지 않고도 비중이 바로 읽히게 한다. */
-    el.innerHTML = `<i style="background:${n.dot || n.color}"></i>${escapeHtml(n.label)}`
-      + `<em style="--wt:${Math.round((n.weight || 0) * 100)}%" title="자료가 실은 비중"></em>`
-      + (n.verdict ? `<b style="--sp:${Math.round((n.speech || 0) * 100)}%"></b>` : '');
+    /* 판정 점 + 이름만. 비중·말한 정도를 가로 막대 둘로 얹어 봤는데
+       (2026-08-12) 안 와닿는다는 지적을 받고 뺐다 — 비중은 이미 공 크기가
+       말하고, 말한 정도는 눌러서 나오는 카드가 문장으로 말해 준다. 이름표는
+       「이게 무슨 개념이냐」만 짧게 답하면 된다. */
+    el.style.setProperty('--g3d-node-state', n.dot || n.color);
+    el.innerHTML = `<i style="background:${n.dot || n.color}"></i>${escapeHtml(n.label)}`;
     layer.appendChild(el);
     return el;
   });
   if (compact) layer.classList.add('is-compact');
+  // mountGraph3D 의 nodeVal 과 같은 공식으로 반지름을 미리 구해 둔다 — 매
+  // 프레임 다시 계산할 값이 아니다(weight 는 안 바뀐다).
+  const radii = named.map((n) => g3dNodeRadius(n.weight));
+  const GAP_PX = 8;   // 공 가장자리와 이름표 사이 숨 쉴 틈
 
   let alive = true;
   const tick = () => {
     if (!alive || !stage.isConnected) { alive = false; return; }
+    /* 공의 화면 반지름(px)을 재서 이름표를 그 아래로 내린다.
+       **왜 이게 필요한가:** 예전엔 이름표를 공의 중심 좌표에 그대로 얹었다.
+       중심에 얹으면 이름표 위 절반은 공 속에 파묻히고 아래 절반(점·막대
+       달린 부분)만 삐져나와 「공에 이상한 꼬리표가 달렸다」로 보였다
+       (2026-08-12 사용자). 카메라 시야각(fov)·거리로 공의 실제 반지름이
+       화면에서 몇 px 인지 구해서, 그만큼 아래로 밀면 이름표가 공 밖에서
+       또렷한 캡션으로 뜬다 — 확대해도 축소해도 공 가장자리를 따라간다. */
+    const camera = typeof g.camera === 'function' ? g.camera() : null;
+    const camPos = camera && camera.position;
+    const fov = camera && camera.fov;
     for (let i = 0; i < named.length; i++) {
       const n = named[i];
       const el = els[i];
@@ -76,19 +89,35 @@ function g3dAttachLabels(stage, g, nodes, compact) {
       // 화면 밖이면 감춘다 — 가장자리에 눌어붙은 이름표는 그래프를 지저분하게 만든다
       if (!p || p.x < -40 || p.y < -20 || p.x > stage.clientWidth + 40 || p.y > stage.clientHeight + 20) {
         el.style.opacity = '0';
-      } else {
-        el.style.opacity = '1';
-        el.style.transform = `translate(-50%, 0) translate(${p.x}px, ${p.y}px)`;
+        continue;
       }
+      let dropPx = GAP_PX;
+      if (camPos && fov) {
+        const dx = n.x - camPos.x;
+        const dy = n.y - camPos.y;
+        const dz = n.z - camPos.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+        const worldPerPx = (2 * Math.tan((fov * Math.PI) / 360) * dist) / (stage.clientHeight || 1);
+        // 너무 가까이 당겨 화면을 다 채웠을 때 이름표가 한참 밀려나지 않게 상한을 둔다
+        dropPx = Math.min(120, radii[i] / worldPerPx) + GAP_PX;
+      }
+      el.style.opacity = '1';
+      el.style.transform = `translate(-50%, 0) translate(${p.x}px, ${(p.y + dropPx)}px)`;
     }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
 
-  return (focus) => {
+  return (focus, verdictFilter = '', directOnly = false) => {
     named.forEach((n, i) => {
-      const on = !focus || n.id === focus.id || (focus.kin && focus.kin.has(n.id));
+      const statusOn = !verdictFilter || n.verdict === verdictFilter;
+      const relationOn = !focus || !!verdictFilter || n.id === focus.id || (focus.kin && focus.kin.has(n.id));
+      const on = statusOn && relationOn;
+      const selected = !!focus && n.id === focus.id;
+      const connected = !!focus && !selected && focus.kin && focus.kin.has(n.id);
       els[i].classList.toggle('is-dim', !on);
+      els[i].classList.toggle('is-selected', selected);
+      els[i].classList.toggle('is-connected', connected);
     });
   };
 }
@@ -158,16 +187,27 @@ function g3dKinOf(data, id) {
 /** 죽여 둘 색. 지우지 않고 흐리게만 둔다 — 사라지면 «연결이 없다»로 읽힌다. */
 function g3dFade(color) {
   const m = /^rgba?\(([^)]+)\)$/.exec(String(color || ''));
-  if (m) { const p = m[1].split(',').map((x) => x.trim()); return `rgba(${p[0]},${p[1]},${p[2]},.10)`; }
+  if (m) { const p = m[1].split(',').map((x) => x.trim()); return `rgba(${p[0]},${p[1]},${p[2]},.36)`; }
   const h = String(color || '').replace('#', '');
   if (h.length !== 6) return color;
   const n = parseInt(h, 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},.10)`;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},.36)`;
 }
 
 /** 무대에 세울 개념 수 상한. 리빌(MAX_REVEAL_NODES)과 같은 값이다 —
  *  한 자료를 두 화면이 다른 개수로 보여주면 어느 쪽이 맞는지 알 수 없다. */
 const G3D_MAX_NODES = 12;
+
+/**
+ * 공 크기 공식. **mountGraph3D 의 nodeVal 과 g3dAttachLabels 의 이름표 자리
+ * 계산이 이 하나를 같이 쓴다** — 둘이 각자 계산하면 라이브러리 쪽 반지름과
+ * 이름표가 비껴 나가서 «반쯤 공에 박힌 꼬리표» 가 다시 생긴다.
+ * 실제 반지름(월드 단위)은 라이브러리 공식 그대로다: cbrt(val) * nodeRelSize.
+ * nodeRelSize 는 기본값 4 를 그대로 쓴다 (mountGraph3D 에서 따로 안 바꿈).
+ */
+const G3D_NODE_REL_SIZE = 5.5;
+function g3dNodeVal(weight) { return 3 + Math.pow(weight || 0, 2.0) * 170; }
+function g3dNodeRadius(weight) { return Math.cbrt(g3dNodeVal(weight)) * G3D_NODE_REL_SIZE; }
 
 function g3dColor(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -221,21 +261,22 @@ function g3dStrength(verdict, speech) {
 }
 
 /**
- * 공이 쓸 색. **두 가지뿐이다** — 괜찮은 것은 브랜드 그린, 봐야 할 것은 빨강.
+ * 공이 쓸 색.
  *
- * 판정은 넷인데 색을 넷 주면 화면이 넷을 동시에 주장한다. 지도가 할 일은
- * 「어디를 봐야 하나」 하나이고, 「어떤 종류의 문제인가」는 그 다음 질문이다.
- * 그래서 공은 둘로 줄이고, 넷의 구분은 **이름표의 6px 점**이 그대로 들고 있다
- * (점은 작아서 소리치지 않으면서 알려 준다). 눌러서 나오는 카드가 문장으로
- * 다시 말해 주므로 잃는 정보는 없다.
- *
- * 색을 바꿔도 된다는 허락을 받고 고른 답이다 (2026-08-10). 토스의 Bubble 이
- * 두 상태를 blue·grey 로 가르는 것과 같은 구조다 (TDS.md:2254).
+ * 한때는 둘로만 줄였다 — 괜찮은 것은 브랜드 그린, 봐야 할 것은 빨강, 넷의
+ * 구분은 이름표의 점만 들고 가는 안 (2026-08-10 허락). 그런데 이름표 점은
+ * 보라(대조 판정 --ct)인데 공은 missing 과 같은 빨강이라 「이름표는 보라,
+ * 공은 빨강」이 한 개념 위에서 어긋나 보였다 (2026-08-12 사용자: 오해와
+ * 사실은 이름표가 보라니까 공도 보라여야 한다) — 대조(contradiction)만
+ * 따로 떼어 공도 --ct 를 쓴다. missing 은 여전히 빨강, 나머지(설명함·
+ * 넘어가도 됨·판정 전)는 여전히 브랜드 그린/무채색으로 둘로 묶는다 —
+ * 이 셋은 이름표 점도 서로 색이 다르지 않았으니 공을 굳이 셋으로 안 쪼갠다.
  */
 function g3dBallHue(verdict) {
-  return (verdict === 'missing' || verdict === 'contradiction')
-    ? g3dColor('--no', '#DC2626')
-    : g3dColor('--brand', '#08B879');
+  if (verdict === 'contradiction') return g3dColor('--ct', '#9333EA');
+  if (verdict === 'missing') return g3dColor('--no', '#DC2626');
+  if (verdict === 'justified_skip') return g3dColor('--om', '#8A9467');
+  return g3dColor('--brand', '#08B879');
 }
 
 /**
@@ -337,33 +378,51 @@ function g3dSummaryHtml(nodes) {
   const judged = nodes.filter((n) => n.verdict);
   if (!judged.length) return '<span class="g3d-sum-pending">판정은 아직이에요</span>';
   const by = (v) => judged.filter((n) => n.verdict === v).length;
-  // 자료가 힘을 실었는데(상위 절반) 아직 안 말한 개념 — 제일 먼저 봐야 할 것
-  const heavy = [...judged].sort((a, b) => b.weight - a.weight).slice(0, Math.ceil(judged.length / 2));
-  const heavyMissing = heavy.filter((n) => n.verdict === 'missing');
   return `
-    <b class="g3d-k ok">설명함 ${by('aligned')}</b>
-    <b class="g3d-k no">아직 ${by('missing')}</b>
-    ${by('contradiction') ? `<b class="g3d-k ct">다르게 ${by('contradiction')}</b>` : ''}
-    ${by('justified_skip') ? `<b class="g3d-k om">넘어가도 됨 ${by('justified_skip')}</b>` : ''}
-    ${heavyMissing.length
-      ? `<span class="g3d-lead g3d-lead-warn">자료가 힘준 개념 중 <b>${escapeHtml(heavyMissing[0].label)}</b>${
-          heavyMissing.length > 1 ? ` 외 ${heavyMissing.length - 1}개가` : g3dSubject(heavyMissing[0].label)
-        } 아직 말로 안 나왔어요</span>`
-      : '<span class="g3d-lead g3d-lead-ok">자료가 힘준 개념은 모두 말로 나왔어요</span>'}`;
+    <b class="g3d-k ok"><i></i>잘 설명함 ${by('aligned')}</b>
+    <b class="g3d-k no"><i></i>아직 ${by('missing')}</b>
+    <b class="g3d-k ct"><i></i>다르게 ${by('contradiction')}</b>
+    <b class="g3d-k om"><i></i>넘어가도 됨 ${by('justified_skip')}</b>`;
 }
 
-/** 무대 위 개념 카드. 클릭한 개념의 사실만 싣는다 — 없는 값은 줄을 안 만든다. */
-function g3dCardHtml(n) {
-  const word = G3D_VERDICT_WORD[n.verdict] || '아직 판정 전이에요';
-  const slides = (n.slides || []).length
-    ? `<p class="g3d-slides">${n.slides.slice(0, 6).join(', ')}장에 나와요</p>` : '';
-  const note = n.note ? `<p class="g3d-note">${escapeHtml(n.note)}</p>` : '';
-  const summary = n.summary ? `<p class="g3d-sum">${escapeHtml(n.summary)}</p>` : '';
-  return `<button class="g3d-close" id="g3dClose" type="button" aria-label="닫기">✕</button>
-    <span class="g3d-verdict" style="color:${n.color}">${word}</span>
-    <h3>${escapeHtml(n.label)}</h3>
-    ${summary}${note}${slides}`;
+function g3dPriority(nodes) {
+  return [...nodes]
+    .filter((n) => n.verdict === 'missing' || n.verdict === 'contradiction')
+    .sort((a, b) => b.weight - a.weight)[0] || null;
 }
+
+function g3dInsightHtml(nodes) {
+  const priority = g3dPriority(nodes);
+  if (!priority) return '<span class="g3d-diagnosis-label">이번 발표 진단</span><b>핵심 개념을 안정적으로 설명했어요</b><p>연결 개념을 질문으로 점검하면 더 단단해져요.</p>';
+  return `<span class="g3d-diagnosis-label">가장 먼저 고칠 개념 · ${escapeHtml(priority.label)}</span>
+    <b>다음 연습은 ‘${escapeHtml(priority.label)}’부터 시작하세요</b>
+    <a href="#/qa">바로 연습하기 <span>→</span></a>`;
+}
+
+/** 무대 위 개념 카드. 설명 → 문제 → 행동의 순서로만 읽힌다. */
+function g3dCardHtml(n, data) {
+  const word = G3D_VERDICT_WORD[n.verdict] || '아직 판정 전이에요';
+  const note = n.note ? escapeHtml(n.note) : '핵심 근거와 설명 흐름이 충분히 드러나지 않았어요.';
+  const summary = n.summary ? escapeHtml(n.summary) : '발표 전체 논지를 이어 주는 핵심 개념이에요.';
+  const related = [...(n.kin || [])].map((id) => data.nodes.find((x) => x.id === id)).filter(Boolean);
+  const links = related.length
+    ? related.slice(0, 5).map((x) => `<span>${escapeHtml(x.label)}</span>`).join('')
+    : '<span>직접 연결된 개념 없음</span>';
+  const action = n.verdict === 'missing' || n.verdict === 'contradiction';
+  return `<button class="g3d-close" id="g3dClose" type="button" aria-label="패널 닫기">✕</button>
+    <span class="g3d-drawer-eyebrow">선택한 개념</span>
+    <h3>${escapeHtml(n.label)}</h3>
+    <div class="g3d-status-row"><b>상태</b><span class="g3d-verdict"><i style="background:${n.dot}"></i>${word}</span></div>
+    <div class="g3d-drawer-section"><b>왜 중요한가</b><p>${summary}</p></div>
+    <div class="g3d-drawer-section g3d-problem"><b>내 설명에서 부족한 점</b><ul><li>${note}</li></ul></div>
+    <div class="g3d-drawer-section"><b>연결된 개념</b><div class="g3d-related">${links}</div></div>
+    <div class="g3d-drawer-actions"><b>다음 행동</b>
+      <a class="g3d-practice${action ? ' is-primary' : ''}" href="#/qa">${action ? '이 개념부터 다시 연습하기' : '질문으로 더 단단하게 만들기'} <span>→</span></a>
+      <a class="g3d-practice is-secondary" href="#/qa">연결 개념까지 같이 연습하기 <span>→</span></a>
+      <a class="g3d-report-link" href="#/report">전체 리포트로 돌아가기</a>
+    </div>`;
+}
+
 
 function renderGraph3D() {
   app.className = '';
@@ -381,31 +440,68 @@ function renderGraph3D() {
   const data = g3dData(src);
   app.innerHTML = `<div class="g3d-wrap">
       <div class="g3d-top">
-        <a class="g3d-back" href="#/report">← 리포트로</a>
+        <nav class="g3d-crumb"><a href="#/report">리포트</a><span>/</span><b>개념 그래프</b></nav>
         <div class="g3d-title">
-          <b>내 자료는 이렇게 짜여 있어요</b>
-          <span>${data.total > data.nodes.length
-            ? `개념 ${data.total}개 중 자료가 힘준 ${data.nodes.length}개 · 그 사이 연결 ${data.links.length}개`
-            : `개념 ${data.nodes.length}개 · 연결 ${data.links.length}개`}</span>
+          <h1>개념 그래프</h1>
+          <p><strong>${data.total}개의 개념</strong> · <strong>${data.totalLinks}개의 연결</strong></p>
         </div>
         <div class="g3d-summary">${g3dSummaryHtml(data.nodes)}</div>
+        <div class="g3d-insight">${g3dInsightHtml(data.nodes)}</div>
       </div>
-      <div class="g3d-stage" id="g3dStage"><p class="g3d-loading">무대를 세우고 있어요…</p></div>
-      <div class="g3d-legend">
-        <span><i style="background:${g3dRgba(g3dColor('--brand', '#08B879'), 0.4)}"></i>자기 말로 설명했어요</span>
-        <span><i style="background:${g3dColor('--no', '#DC2626')}"></i>아직 못 했거나 다르게 말했어요</span>
-        <span class="g3d-hint">공 크기와 이름표의 금색 막대가 자료가 실은 비중이에요 · 초록 막대는 실제로 말한 정도예요 · 점이 판정 네 가지를 나눠요 · 개념을 누르면 이어진 것만 남아요</span>
+      <div class="g3d-workspace">
+        <section class="g3d-graphpane">
+          <div class="g3d-filters">
+            <div class="g3d-filter-group" aria-label="개념 상태 필터">
+              <span class="g3d-filter-label">상태</span>
+              <button class="is-active" data-g3d-filter="" type="button">전체</button>
+              <button data-g3d-filter="aligned" type="button"><i class="ok"></i>잘 설명함</button>
+              <button data-g3d-filter="missing" type="button"><i class="no"></i>아직</button>
+              <button data-g3d-filter="contradiction" type="button"><i class="ct"></i>다르게</button>
+              <button data-g3d-filter="justified_skip" type="button"><i class="om"></i>넘어가도 됨</button>
+            </div>
+            <div class="g3d-view-option">
+              <span class="g3d-filter-label">보기</span>
+              <button data-g3d-direct type="button" role="switch" aria-checked="false"><i></i>직접 연결만</button>
+            </div>
+          </div>
+          <div class="g3d-stage" id="g3dStage"><p class="g3d-loading">그래프를 불러오고 있어요…</p></div>
+          <div class="g3d-controls" aria-label="그래프 화면 조절">
+            <button data-g3d-action="zoom-in" type="button" aria-label="확대">＋</button>
+            <button data-g3d-action="zoom-out" type="button" aria-label="축소">−</button>
+            <button data-g3d-action="fit" type="button">전체 보기</button>
+            <button data-g3d-action="clear" type="button">선택 초기화</button>
+          </div>
+        </section>
+        <aside class="g3d-card" id="g3dCard" hidden></aside>
       </div>
-      <aside class="g3d-card" id="g3dCard" hidden></aside>
     </div>`;
 
-  mountGraph3D($('#g3dStage'), data, { onPick: (n) => {
+  const graphP = mountGraph3D($('#g3dStage'), data, { initialPick: g3dPriority(data.nodes), onPick: (n, clearFocus) => {
     const card = $('#g3dCard');
-    card.innerHTML = g3dCardHtml(n);
+    card.innerHTML = g3dCardHtml(n, data);
     card.hidden = false;
     const close = $('#g3dClose');
-    if (close) close.addEventListener('click', () => { card.hidden = true; });
+    if (close) close.addEventListener('click', () => { card.hidden = true; clearFocus(); });
   } });
+  graphP.then((g) => {
+    document.querySelectorAll('[data-g3d-filter]').forEach((btn) => btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-g3d-filter]').forEach((x) => x.classList.toggle('is-active', x === btn));
+      g.g3dSetFilter(btn.dataset.g3dFilter || '');
+    }));
+    const direct = document.querySelector('[data-g3d-direct]');
+    if (direct) direct.addEventListener('click', () => {
+      direct.classList.toggle('is-active');
+      direct.setAttribute('aria-checked', String(direct.classList.contains('is-active')));
+      g.g3dSetDirect(direct.classList.contains('is-active'));
+    });
+    document.querySelectorAll('[data-g3d-action]').forEach((btn) => btn.addEventListener('click', () => {
+      const action = btn.dataset.g3dAction;
+      if (action === 'fit') g.g3dFit();
+      if (action === 'clear') { g.g3dClear(); const card = $('#g3dCard'); if (card) card.hidden = true; }
+      if (action === 'zoom-in') g.g3dZoom(.78);
+      if (action === 'zoom-out') g.g3dZoom(1.28);
+    }));
+  });
 }
 
 /**
@@ -415,14 +511,16 @@ function renderGraph3D() {
  * 한쪽만 고쳐져서 같은 그래프가 두 얼굴이 된다. compact 는 리포트용으로
  * 회전을 늦추고 이름표를 조금 줄인다.
  */
-function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
+function mountGraph3D(stage, data, { onPick = null, compact = false, initialPick = null } = {}) {
   if (!stage) return;
   /* **층으로 묶지 않는다.** 한때 depth 로 y 를 고정해 트리처럼 세웠는데,
      이 자료가 말하는 것은 위계가 아니라 «개념들이 서로 얽혀 있다» 이다
      (2026-08-10 지시: 트리 말고 그래프인 걸 보여줘야 한다). 층을 묶으면
      가로줄 몇 개로 보여서 그 얽힘이 통째로 사라진다. force 에 맡기고
      대신 연결을 굵고 밝게 그린다. */
-  let focusId = null;
+  let focusId = initialPick ? initialPick.id : null;
+  let verdictFilter = '';
+  let directOnly = false;
   /** 이름표도 같이 죽인다 — 공만 흐려지고 글자가 또렷하면 초점이 안 생긴다. */
   let layerFocus = () => {};
   return loadForceGraph3D().then(() => {
@@ -436,12 +534,26 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     loadingEl.className = 'g3d-loading';
     loadingEl.textContent = '무대를 세우고 있어요…';
     stage.appendChild(loadingEl);
-    const showCard = (n) => { if (onPick) onPick(n); };
+    let g = null;
+    const focusedNode = () => data.nodes.find((n) => n.id === focusId) || null;
+    const refresh = () => {
+      if (!g) return;
+      g.nodeColor(g.nodeColor()).nodeVal(g.nodeVal()).nodeVisibility(g.nodeVisibility())
+        .linkColor(g.linkColor()).linkWidth(g.linkWidth()).linkVisibility(g.linkVisibility());
+      layerFocus(focusedNode(), verdictFilter, directOnly);
+    };
+    const clearFocus = () => {
+      focusId = null;
+      directOnly = false;
+      stage.classList.remove('is-focused');
+      refresh();
+    };
+    const showCard = (n) => { if (onPick) onPick(n, clearFocus); };
 
     /* controlType 을 orbit 으로 고정한다. 이 라이브러리의 기본은 trackball 인데
        TrackballControls 에는 autoRotate 가 아예 없어서, 켠 줄 알았던 자동 회전이
        조용히 아무 일도 안 했다 (실측: 5초 동안 이름표가 0.7px 움직였다). */
-    const g = ForceGraph3D({ controlType: 'orbit' })(stage)
+    g = ForceGraph3D({ controlType: 'orbit' })(stage)
       .graphData(data)
       /* 캔버스는 투명하게 두고, 무대의 실제 면은 CSS 비네트(g3d-stage 배경)가
          맡는다. 처음엔 어두운 딥그린을 깔았는데, 밝은 화면 한가운데 검은
@@ -456,8 +568,16 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
          계층 계산이 무너지고, 열일곱 개가 한 줄로 뭉쳐 아무것도 안 읽혔다.
          우리는 f07 이 준 depth 를 이미 들고 있으니 그걸 쓰면 순환과 무관하다. */
       .nodeLabel((n) => n.label)
-      .nodeColor((n) => (focusId && n.id !== focusId && !g3dKinOf(data, focusId).has(n.id)
-        ? g3dFade(n.color) : n.color))
+      .nodeColor((n) => {
+        const statusOff = verdictFilter && n.verdict !== verdictFilter;
+        const kin = focusId ? g3dKinOf(data, focusId) : null;
+        const relationOff = !verdictFilter && focusId && n.id !== focusId && !kin.has(n.id);
+        if (statusOff || relationOff) return g3dFade(n.color);
+        if (focusId && n.id === focusId) return g3dRgba(g3dBallHue(n.verdict), 1);
+        if (focusId && kin.has(n.id)) return g3dRgba(g3dBallHue(n.verdict), .92);
+        return n.color;
+      })
+      .nodeVisibility((n) => !directOnly || !focusId || n.id === focusId || g3dKinOf(data, focusId).has(n.id))
       // 자료가 힘을 실은 개념일수록 크다. weight 는 0~1 이라 그대로 쓰면 다 비슷해진다.
       /* weight 를 넓게 벌린다. 1.4·60 으로는 가장 무거운 것과 가장 가벼운 것의
          지름 차이가 1.8배 정도라 눈으로 «이게 더 무겁다」를 못 잡았다
@@ -467,7 +587,13 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
       /* 지름 차이를 더 크게 벌린다 (2026-08-12 사용자: 노드도 더 극적으로).
          2.0·170 이면 가장 무거운 것과 가장 가벼운 것의 지름 차이가 눈에
          확 들어온다 — 부피는 반지름의 세제곱이라 nodeVal 은 그보다 크게 벌린다. */
-      .nodeVal((n) => 3 + Math.pow(n.weight, 2.0) * 170)
+      .nodeVal((n) => {
+        const base = g3dNodeVal(n.weight);
+        if (!focusId || verdictFilter) return base;
+        if (n.id === focusId) return base * Math.pow(1.20, 3);
+        if (g3dKinOf(data, focusId).has(n.id)) return base * Math.pow(1.10, 3);
+        return base;
+      })
       .nodeOpacity(0.95)
       .nodeResolution(28)
       /* 밝은 면이라 선은 흰색이 아니라 딥그린 계열로 어둡게 — 흰 선은 안 보인다.
@@ -477,47 +603,49 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
          낮은 imp 는 거의 안 보일 만큼 죽이고, 높은 imp 는 굵고 진하게 — 그
          차이 자체가 «중요/안 중요」를 말한다. */
       .linkColor((l) => {
-        const on = !focusId || g3dLinkTouches(l, focusId);
+        const statusOn = !verdictFilter || l.source.verdict === verdictFilter || l.target.verdict === verdictFilter;
+        const touches = !!focusId && g3dLinkTouches(l, focusId);
         const imp = l.imp == null ? 0.4 : l.imp;
-        if (!on) return 'rgba(21,92,70,.05)';
-        const a = 0.10 + Math.pow(imp, 1.4) * 0.82;
+        if (!statusOn) return 'rgba(21,92,70,.12)';
+        if (focusId && !verdictFilter) {
+          if (!touches) return 'rgba(21,92,70,.16)';
+          const a = 0.70 + imp * 0.18;
+          return `rgba(21,92,70,${a.toFixed(2)})`;
+        }
+        const a = 0.08 + Math.pow(imp, 1.4) * 0.32;
         return `rgba(21,92,70,${a.toFixed(2)})`;
       })
       .linkWidth((l) => {
         const imp = l.imp == null ? 0.4 : l.imp;
-        const w = 0.6 + Math.pow(imp, 1.2) * 4.6;
-        return (focusId && g3dLinkTouches(l, focusId)) ? w * 2.2 : w;
+        const base = 0.25 + Math.pow(imp, 1.2) * 1.05;
+        return focusId && !verdictFilter && g3dLinkTouches(l, focusId) ? base * 2 : base;
       })
+      .linkVisibility((l) => !directOnly || !focusId || g3dLinkTouches(l, focusId))
       /* 입자도 중요도를 따라간다. 안 중요한 선까지 다 흘리면 화면이 산만해져
          정작 중요한 흐름이 묻힌다 — 중요한 선만 흐르게 두면 «이게 뼈대다» 가
          저절로 보인다. */
       .linkDirectionalParticles((l) => {
         const imp = l.imp == null ? 0.4 : l.imp;
+        if (focusId && !g3dLinkTouches(l, focusId)) return 0;
         if (imp < 0.55) return 0;
         return imp >= 0.85 ? 3 : 2;
       })
-      .linkDirectionalParticleWidth((l) => 1.8 + (l.imp == null ? 0.4 : l.imp) * 2.4)
+      .linkDirectionalParticleWidth((l) => 0.8 + (l.imp == null ? 0.4 : l.imp) * 1.2)
       .linkDirectionalParticleSpeed((l) => 0.004 + (l.imp == null ? 0.4 : l.imp) * 0.006)
       .onNodeClick((n) => {
         /* 누른 개념과 **이어진 것만** 남기고 나머지를 죽인다. 이 화면이 하려는
            말이 「개념들이 서로 얽혀 있다」인데, 색색 공이 떠 있는 그림만으로는
            그게 안 읽힌다 — 하나를 누를 때마다 실이 몇 가닥 딸려 나와야 한다.
            같은 개념을 다시 누르면 원래대로 돌아온다. */
-        focusId = (focusId === n.id) ? null : n.id;
-        g.nodeColor(g.nodeColor()).linkColor(g.linkColor()).linkWidth(g.linkWidth());
-        stage.classList.toggle('is-focused', !!focusId);
-        if (focusId) layerFocus(n); else layerFocus(null);
+        focusId = n.id;
+        stage.classList.add('is-focused');
+        refresh();
         showCard(n);
         // 누른 개념 앞으로 카메라를 옮긴다 — 「눌렀다」가 눈에 보여야 한다
         // 공이 클수록 멀리서 잡는다. 고정 거리로 두면 큰 개념을 눌렀을 때
         // 화면을 꽉 채우다 못해 잘려 나간다 — 이웃을 보여주려던 클릭인데
         // 정작 이웃이 화면 밖으로 밀린다.
-        const dist = 150 + n.weight * 260;
-        const r = Math.hypot(n.x, n.y, n.z) || 1;
-        g.cameraPosition(
-          { x: n.x * (1 + dist / r), y: n.y * (1 + dist / r), z: n.z * (1 + dist / r) },
-          n, 900,
-        );
+        g3dFitContext(550, 64);
       });
 
     // 천천히 도는 무대. 손을 대면 멈춘다 — 보고 있는 걸 계속 돌리면 멀미가 난다.
@@ -561,20 +689,35 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     };
     fit();
     window.addEventListener('resize', fit);
+    if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(stage);
 
     /* 형제들을 넓게 민다. 기본 반발력으로는 한 층에 열 개가 서면 공이 겹치고
        이름표가 서로를 덮어 아무것도 안 읽힌다 — 층을 세워 놓고 그 안에서
        뭉개지면 위계를 보여준 보람이 없다.
+
+       -300/55 는 지금 공 크기(반지름 최대 ~22)에 비해 너무 좁아서 다닥다닥
+       모여 복잡해 보였다 (2026-08-12 사용자: 노드 간격을 더 띄워야 한다) —
+       반발력·연결 거리를 크게 올린다.
 
        **d3ReheatSimulation 은 부르지 않는다**: 이 시점에 시뮬레이션을 다시
        데우면 tick 이 undefined 라 렌더 루프가 통째로 죽는다 — 실제로 그래프가
        한 점으로 뭉쳤다. 힘만 바꾸고 나머지는 라이브러리에 맡긴다. */
     try {
       const charge = g.d3Force('charge');
-      if (charge && charge.strength) charge.strength(compact ? -180 : -300);
+      if (charge && charge.strength) charge.strength(compact ? -420 : -1250);
+      if (charge && charge.distanceMax) charge.distanceMax(compact ? 260 : 520);
       const linkF = g.d3Force('link');
-      if (linkF && linkF.distance) linkF.distance(compact ? 40 : 55);
+      if (linkF && linkF.distance) linkF.distance(compact ? 85 : 180);
     } catch (err) { console.warn('[chuckchuck] graph force', err); }
+
+    const g3dFitContext = (duration = 450, padding = 64) => {
+      if (!focusId) {
+        g.zoomToFit(duration, compact ? 70 : 30);
+        return;
+      }
+      const kin = g3dKinOf(data, focusId);
+      g.zoomToFit(duration, padding, (n) => n.id === focusId || kin.has(n.id));
+    };
 
     /* 자리가 잡힌 뒤에 화면에 맞춘다. 예전엔 0.7초에 맞춰서, 아직 퍼지는 중인
        그래프를 기준으로 잡아 놓고 정작 다 퍼진 뒤엔 화면 한가운데 작게 남았다.
@@ -585,7 +728,8 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     const revealFitted = () => {
       if (fitted) return;
       fitted = true;
-      g.zoomToFit(0, compact ? 70 : 50);
+      g.zoomToFit(0, compact ? 70 : 30);
+      if (initialPick && !compact) g3dFitContext(650, 64);
       requestAnimationFrame(() => {
         stage.classList.add('is-ready');
         loadingEl.remove();
@@ -594,6 +738,28 @@ function mountGraph3D(stage, data, { onPick = null, compact = false } = {}) {
     if (typeof g.onEngineStop === 'function') g.onEngineStop(revealFitted);
     setTimeout(revealFitted, 3200);
     layerFocus = g3dAttachLabels(stage, g, data.nodes, compact) || (() => {});
+    if (initialPick) {
+      stage.classList.add('is-focused');
+      layerFocus(initialPick, verdictFilter, directOnly);
+      showCard(initialPick);
+    }
+    g.g3dSetFilter = (value) => { verdictFilter = value || ''; refresh(); };
+    g.g3dSetDirect = (value) => {
+      directOnly = !!value; refresh();
+      requestAnimationFrame(() => directOnly ? g3dFitContext(450, 42) : g.zoomToFit(450, compact ? 70 : 30));
+    };
+    g.g3dFit = () => g.zoomToFit(350, compact ? 70 : 30);
+    g.g3dClear = clearFocus;
+    g.g3dZoom = (factor) => {
+      const camera = g.camera();
+      const target = g.controls() && g.controls().target ? g.controls().target : { x: 0, y: 0, z: 0 };
+      const p = camera.position;
+      g.cameraPosition({
+        x: target.x + (p.x - target.x) * factor,
+        y: target.y + (p.y - target.y) * factor,
+        z: target.z + (p.z - target.z) * factor,
+      }, target, 250);
+    };
     return g;
   }).catch((err) => {
     // 못 불러왔으면 빈 무대를 두지 않고 이유를 적는다
@@ -634,7 +800,7 @@ function mountGraphCard(prefix) {
       compact: true,
       onPick: (n) => {
         if (!card) return;
-        card.innerHTML = g3dCardHtml(n);
+        card.innerHTML = g3dCardHtml(n, data);
         card.hidden = false;
         const close = document.getElementById('g3dClose');
         if (close) close.addEventListener('click', () => { card.hidden = true; });
