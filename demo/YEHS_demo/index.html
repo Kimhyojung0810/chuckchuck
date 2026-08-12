@@ -10,17 +10,18 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <title>척척발표</title>
 <!-- 앱 아이콘은 브라우저·아이패드 홈 화면·앱 셸에서 같은 원본을 쓴다. -->
 <meta name="theme-color" content="#064E3B">
-<link rel="icon" type="image/png" sizes="64x64" href="assets/chuckchuck-app-icon-64.png?v=qk11">
-<link rel="icon" type="image/png" sizes="512x512" href="assets/chuckchuck-app-icon-512.png?v=qk11">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/chuckchuck-app-icon-180.png?v=qk11">
+<link rel="icon" href="favicon.ico?v=qk13">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/chuckchuck-app-icon-64.png?v=qk13">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/chuckchuck-app-icon-512.png?v=qk13">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/chuckchuck-app-icon-180.png?v=qk13">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/app.css?v=qkq">
 <!-- #/graph 3D 무대 전용. 데모 경로 밖 화면이라 app.css 를 안 건드리고 따로 둔다 -->
-<link rel="stylesheet" href="css/graph3d.css?v=qkn">
+<link rel="stylesheet" href="css/graph3d.css?v=qku">
 <link rel="stylesheet" href="css/chatter.css?v=qkh">
 <link rel="stylesheet" href="css/theater.css?v=qkh">
 <link rel="stylesheet" href="css/landing-v2.css?v=qkh">
-<link rel="stylesheet" href="css/design-system.css?v=qkn">
+<link rel="stylesheet" href="css/design-system.css?v=qkp5">
 <!-- 아이패드 가로형 레이아웃. 앞의 규칙 위에 얹으므로 마지막에 둔다 -->
 <link rel="stylesheet" href="css/tablet.css?v=qkl">
 <script>
@@ -42,7 +43,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      좁은 화면(<900px)에서는 통째로 숨기고 기존 탑바 흐름을 그대로 쓴다 —
      --nav-w 가 0 이라 아무것도 안 바뀐다 -->
 <nav class="sidenav" aria-label="주요 메뉴">
-  <a class="sidenav-brand" href="#/"><img class="brand-app-icon" src="assets/chuckchuck-app-icon-64.png?v=qk11" alt="">척척발표</a>
+  <a class="sidenav-brand" href="#/"><img class="brand-app-icon" src="assets/chuckchuck-app-icon-64.png?v=qk13" alt="">척척발표</a>
   <a class="btn btn-primary sidenav-cta" href="#/new" data-fresh-practice>새 발표 연습</a>
   <!-- 아이콘은 이름 옆의 장식이 아니라 자리표다. 글자 셋만 세로로 세워 두면
        사이트맵처럼 읽히고, 지금 어디인지도 글자 무게로만 말하게 된다.
@@ -76,7 +77,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <div class="artboard-scroll">
 
 <header class="topbar">
-  <a class="brand" href="#/"><img class="brand-app-icon" src="assets/chuckchuck-app-icon-64.png?v=qk11" alt="">척척발표</a>
+  <a class="brand" href="#/"><img class="brand-app-icon" src="assets/chuckchuck-app-icon-64.png?v=qk13" alt="">척척발표</a>
   <div class="topbar-right">
     <a class="btn btn-primary btn-sm" href="#/new" id="topFresh" data-fresh-practice>새 발표 연습</a>
   </div>
@@ -106,11 +107,11 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <!-- 실전 QA(F-08·F-09) — app.js 에서 떼어냈다. 전역을 공유하므로 app.js 앞에 둔다 -->
 <script src="js/qa_live.js?v=qkh"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
-<script src="js/graph3d.js?v=qkn"></script>
+<script src="js/graph3d.js?v=qkv"></script>
 <!-- Motion(구 Motion One) IIFE — 분석 타임라인·피드의 스프링 등장 모션.
      부스 네트워크를 믿지 않으므로 CDN 이 아니라 로컬로 둔다. 없어도 화면은 그대로 뜬다 -->
 <script src="js/vendor/motion.min.js?v=qkh"></script>
-<script src="js/app.js?v=qkq"></script>
+<script src="js/app.js?v=qkt"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkh"></script>
 </body>
