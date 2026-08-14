@@ -1,0 +1,8 @@
+<svg viewBox="-6 -6 112 112" role="img" aria-hidden="true" class="ch-chick" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><style>svg{--chick-body:#FFD96A;--chick-midm:#FFD96A;--chick-solar:#FFD96A;
+--chick-exaone:#FFD96A;--chick-ax:#FFD96A;--chick-line:#356B59;--chick-belly:#FFF3CF;
+--chick-mint:#9ADBC0;--chick-beak:#F0A93C;--chick-blush:#F7B6A8;}
+*{animation:none!important;transition:none!important;}
+.ch-blush{opacity:.5!important}
+.ch-eye-line{fill:none;stroke:#2F3B33;stroke-width:2.6;stroke-linecap:round;opacity:0!important}
+.ch-heart{opacity:0!important}.ch-mark{opacity:0!important}.ch-pen-stroke{opacity:0!important}
+</style><ellipse cx="50" cy="66" rx="27" ry="24" fill="#FFD96A" stroke="#356B59" stroke-width="3.5"></ellipse><circle cx="50" cy="40" r="27" fill="#FFD96A" stroke="#356B59" stroke-width="3.5"></circle><path d="M50 13c0-6 4-9 8-9-1 5-3 8-8 9z" fill="#9BD9C4" stroke="#356B59" stroke-width="2.5"></path><circle cx="40" cy="39" r="4.6" fill="#2F3B33"></circle><circle cx="60" cy="39" r="4.6" fill="#2F3B33"></circle><circle cx="41.6" cy="37.4" r="1.5" fill="#fff"></circle><circle cx="61.6" cy="37.4" r="1.5" fill="#fff"></circle><path d="M46 49h8l-4 5z" fill="#F0A93C"></path><ellipse cx="30" cy="47" rx="5" ry="3.4" fill="#F7B6A8" opacity=".75"></ellipse><ellipse cx="70" cy="47" rx="5" ry="3.4" fill="#F7B6A8" opacity=".75"></ellipse><rect x="62" y="52" width="8" height="30" rx="4" fill="#FFD96A" stroke="#356B59" stroke-width="3" transform="rotate(24 66 67)"></rect><path d="M20 74h30" stroke="#F7E08A" stroke-width="7" stroke-linecap="round"></path></svg>

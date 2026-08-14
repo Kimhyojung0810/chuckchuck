@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<title>발표새 이미지 대조표</title>
+<style>
+  :root { --line:#356B59; --ink:#1d2b25; --dim:#6b7c74; }
+  body { margin:0; padding:32px; background:#FFFDF7; color:var(--ink);
+         font:16px/1.6 Pretendard, -apple-system, system-ui, sans-serif; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  h2 { font-size:17px; margin:36px 0 12px; color:var(--line); }
+  p  { margin:0 0 8px; color:var(--dim); font-size:14px; }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); }
+  figure { margin:0; }
+  /* 체커보드 — 배경이 정말 비었는지 눈으로 확인하려고 깐다 */
+  .tile { border-radius:14px; border:1px solid #e4ece7; overflow:hidden;
+          background-color:#fff;
+          background-image:linear-gradient(45deg,#eef2f0 25%,transparent 25%,transparent 75%,#eef2f0 75%),
+                           linear-gradient(45deg,#eef2f0 25%,transparent 25%,transparent 75%,#eef2f0 75%);
+          background-size:16px 16px; background-position:0 0, 8px 8px; }
+  img { display:block; width:100%; height:auto; }
+  figcaption { margin-top:6px; font-size:12px; color:var(--dim); word-break:break-all; }
+</style>
+
+<h1>발표새 이미지 대조표</h1>
+<p>배경 투명 PNG 24장. 체커보드가 비쳐 보이면 배경이 비어 있는 것이다. 벡터가 필요하면 <code>svg/</code> 를 쓴다.</p>
+
+<h2>객석 발표새 — 4 모델 × 5 표정</h2>
+<div class="grid" id="seats"></div>
+
+<h2>작업대 새 — F-11 분석 연출</h2>
+<div class="grid" id="bench"></div>
+
+<script>
+  const MODELS = [['midm','믿음'], ['solar','쏠라'], ['exaone','엑사원'], ['ax','엑씨']];
+  const MOODS = ['neutral', 'happy', 'curious', 'grumpy', 'excited'];
+  const PROPS = ['none', 'phones', 'slides', 'pen'];
+
+  const card = name => `
+    <figure>
+      <div class="tile"><img src="png/${name}.png" alt="${name}" loading="lazy"></div>
+      <figcaption>${name}.png</figcaption>
+    </figure>`;
+
+  document.getElementById('seats').innerHTML = MODELS.flatMap(
+    ([id, ko]) => MOODS.map(m => card(`chick_${id}_${ko}_${m}`))).join('');
+  document.getElementById('bench').innerHTML =
+    PROPS.map(p => card(`workbench_bird_${p}`)).join('');
+</script>
+</html>
