@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="930" viewBox="21 62 1800 930">
+<rect x="21" y="62" width="1800" height="930" fill="#ffffff"/>
+<circle cx="115" cy="425" r="38" fill="#edf6fa" stroke="#3478a8" stroke-width="2"/>
+<circle cx="115" cy="413" r="11" fill="#3478a8"/>
+<path d="M89 449 Q115 425 141 449" fill="#3478a8"/>
+<text x="115" y="488" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="115" dy="0">발표자</tspan>
+</text>
+<rect x="220" y="380" width="160" height="90" rx="8" fill="#eadff3" stroke="#5f58c7" stroke-width="1.8"/>
+<polyline points="247,432 267,411 285,437 307,405 330,433 353,412" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="278" y="478" width="44" height="7" rx="3.5" fill="#5f58c7"/>
+<text x="300" y="517" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="300" dy="0">웹 데모 화면</tspan>
+</text>
+<rect x="440" y="385" width="130" height="24" rx="6" fill="#dcebd4" stroke="#3b8f65" stroke-width="1.4"/>
+<rect x="440" y="418" width="130" height="24" rx="6" fill="#dcebd4" stroke="#3b8f65" stroke-width="1.4"/>
+<rect x="440" y="451" width="130" height="24" rx="6" fill="#dcebd4" stroke="#3b8f65" stroke-width="1.4"/>
+<circle cx="457" cy="397" r="4.5" fill="#3b8f65"/>
+<circle cx="457" cy="430" r="4.5" fill="#3b8f65"/>
+<circle cx="457" cy="463" r="4.5" fill="#3b8f65"/>
+<text x="505" y="517" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="505" dy="0">API 오케스트레이션</tspan>
+</text>
+<polyline points="153,425 219,425" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="219,425 210,420.5 210,429.5" fill="#202124"/>
+<polyline points="220,455 146,455" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="146,455 155,450.5 155,459.5" fill="#202124"/>
+<polyline points="380,425 439,425" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="439,425 430,420.5 430,429.5" fill="#202124"/>
+<polyline points="440,455 381,455" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="381,455 390,450.5 390,459.5" fill="#202124"/>
+<rect x="640" y="105" width="1125" height="430" rx="20" fill="#fff9e9" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="660" y="103" width="1085" height="4" fill="#fff9e9"/>
+<line x1="660" y1="105" x2="1095.25" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="1309.75" y1="105" x2="1745" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="1100.25" y="85" width="204.5" height="42" rx="9" fill="#ffffff"/>
+<text x="1202.5" y="118" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1202.5" dy="0">마이크로 모듈</tspan>
+</text>
+<path d="M741.5 147 H765.5 L774.5 156 V187 H741.5 Z" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M765.5 147 V156 H774.5 M748.5 164 H767.5 M748.5 173 H767.5" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="757.5" y="218" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="757.5" dy="0">자료 읽기</tspan>
+</text>
+<circle cx="932.5" cy="167" r="18" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="932.5" cy="167" r="7" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M932.5 142 V149 M957.5 167 H950.5 M932.5 192 V185 M907.5 167 H914.5" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="932.5" y="218" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="932.5" dy="0">발표 맥락</tspan>
+</text>
+<rect x="1099.5" y="147" width="16" height="30" rx="8" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1091.5 169 Q1091.5 185 1107.5 185 Q1123.5 185 1123.5 169 M1107.5 185 V192 M1098.5 192 H1116.5" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1107.5" y="218" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1107.5" dy="0">녹음</tspan>
+</text>
+<rect x="1261.5" y="151" width="42" height="29" rx="3" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1289.5 151 V172 L1296.5 167 L1303.5 172 M1272.5 188 H1292.5" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1282.5" y="218" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1282.5" dy="0">슬라이드 마크</tspan>
+</text>
+<path d="M1435.5 167 H1441.5 L1446.5 155 L1452.5 180 L1458.5 159 L1464.5 175 L1470.5 163 H1479.5" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1439.5 188 H1475.5" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1457.5" y="218" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1457.5" dy="0">받아쓰기</tspan>
+</text>
+<path d="M1608.5 167 H1656.5" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="1612.5" cy="167" r="4" fill="#ffffff" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="1625.5" cy="167" r="4" fill="#ffffff" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="1639.5" cy="167" r="4" fill="#ffffff" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="1652.5" cy="167" r="4" fill="#ffffff" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1612.5 153 V160 M1652.5 174 V181" fill="none" stroke="#3478a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1632.5" y="218" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1632.5" dy="0">구간 추정</tspan>
+</text>
+<rect x="737.5" y="289" width="34" height="12" rx="3" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="743.5" y="304" width="34" height="12" rx="3" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="737.5" y="319" width="34" height="12" rx="3" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="757.5" y="358" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="757.5" dy="0">개념 정리</tspan>
+</text>
+<path d="M917.5 295 L947.5 295 L932.5 324 Z" fill="none" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="917.5" cy="295" r="6" fill="#ffffff" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="947.5" cy="295" r="6" fill="#ffffff" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="932.5" cy="324" r="6" fill="#ffffff" stroke="#b47a16" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="932.5" y="358" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="932.5" dy="0">개념 그래프</tspan>
+</text>
+<path d="M1085.5 292 H1129.5 V319 H1110.5 L1099.5 329 V319 H1085.5 Z" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1112.5" y="314" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="24" font-weight="700" fill="#7652a8" text-anchor="middle">
+<tspan x="1112.5" dy="0">?</tspan>
+</text>
+<text x="1107.5" y="358" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1107.5" dy="0">예상 질문</tspan>
+</text>
+<circle cx="1282.5" cy="307" r="22" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1270.5 307 L1279.5 317 L1296.5 297" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1282.5" y="358" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1282.5" dy="0">답변 판정</tspan>
+</text>
+<rect x="1435.5" y="289" width="16" height="36" rx="3" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1463.5" y="289" width="16" height="36" rx="3" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1453.5 300 H1461.5 M1453.5 314 H1461.5" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1457.5" y="358" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1457.5" dy="0">정합 분석</tspan>
+</text>
+<path d="M1610.5 295 H1642.5 L1650.5 303 M1642.5 295 L1650.5 303 L1642.5 311" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1654.5 319 H1622.5 L1614.5 311 M1622.5 319 L1614.5 311 L1622.5 303" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1632.5" y="358" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1632.5" dy="0">흐름 비교</tspan>
+</text>
+<circle cx="741.5" cy="439" r="7" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M732.5 462 Q741.5 450 750.5 462" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="757.5" cy="439" r="7" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M748.5 462 Q757.5 450 766.5 462" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="773.5" cy="439" r="7" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M764.5 462 Q773.5 450 782.5 462" fill="none" stroke="#7652a8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="757.5" y="498" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="757.5" dy="0">삐약이 청중</tspan>
+</text>
+<rect x="915.5" y="426" width="34" height="42" rx="4" fill="none" stroke="#b65a5a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M925.5 449 L931.5 456 L943.5 440 M924.5 434 H940.5" fill="none" stroke="#b65a5a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="932.5" y="498" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="932.5" dy="0">평가·채점</tspan>
+</text>
+<circle cx="1107.5" cy="447" r="22" fill="none" stroke="#b65a5a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1107.5 447 L1119.5 437 M1107.5 447 V434" fill="none" stroke="#b65a5a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1107.5" y="498" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1107.5" dy="0">속도·시간</tspan>
+</text>
+<path d="M1259.5 432 H1305.5 V457 H1287.5 L1276.5 468 V457 H1259.5 Z" fill="none" stroke="#b65a5a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1267.5 445 H1273.5 L1277.5 438 L1282.5 454 L1287.5 441 L1292.5 450 H1298.5" fill="none" stroke="#b65a5a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1282.5" y="498" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1282.5" dy="0">발화 습관</tspan>
+</text>
+<rect x="1437.5" y="425" width="40" height="44" rx="4" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1446.5 459 V449 M1457.5 459 V439 M1468.5 459 V432" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1457.5" y="498" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1457.5" dy="0">통합 리포트</tspan>
+</text>
+<path d="M1609.5 461 H1624.5 V451 H1639.5 V441 H1654.5" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1646.5 433 L1654.5 441 L1646.5 449" fill="none" stroke="#3a7f62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1632.5" y="498" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1632.5" dy="0">발표 구성</tspan>
+</text>
+<rect x="640" y="575" width="1125" height="220" rx="20" fill="#fff4f6" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="660" y="573" width="1085" height="4" fill="#fff4f6"/>
+<line x1="660" y1="575" x2="1066.0" y2="575" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="1339.0" y1="575" x2="1745" y2="575" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="1071.0" y="555" width="263.0" height="42" rx="9" fill="#ffffff"/>
+<text x="1202.5" y="588" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1202.5" dy="0">국내 인공지능 연동</tspan>
+</text>
+<circle cx="792.5" cy="642" r="32" fill="#e36a3d"/>
+<text x="792.5" y="648" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="792.5" dy="0">U</tspan>
+</text>
+<text x="792.5" y="710" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="792.5" dy="0">Upstage</tspan>
+</text>
+<text x="792.5" y="739" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="15" font-weight="500" fill="#62666b" text-anchor="middle">
+<tspan x="792.5" dy="0">Document Parse · Solar 추론</tspan>
+</text>
+<circle cx="1062.5" cy="642" r="32" fill="#d92578"/>
+<text x="1062.5" y="648" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1062.5" dy="0">A.X</tspan>
+</text>
+<text x="1062.5" y="710" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1062.5" dy="0">SKT A.X</tspan>
+</text>
+<text x="1062.5" y="739" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="15" font-weight="500" fill="#62666b" text-anchor="middle">
+<tspan x="1062.5" dy="0">음성인식 · 공통 추론</tspan>
+</text>
+<circle cx="1332.5" cy="642" r="32" fill="#d83434"/>
+<text x="1332.5" y="648" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1332.5" dy="0">M</tspan>
+</text>
+<text x="1332.5" y="710" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1332.5" dy="0">KT Mi:dm 2.0</tspan>
+</text>
+<text x="1332.5" y="739" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="15" font-weight="500" fill="#62666b" text-anchor="middle">
+<tspan x="1332.5" dy="0">공통 추론 · AI Hub LoRA</tspan>
+</text>
+<circle cx="1602.5" cy="642" r="32" fill="#9d174d"/>
+<text x="1602.5" y="648" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1602.5" dy="0">X</tspan>
+</text>
+<text x="1602.5" y="710" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1602.5" dy="0">LG EXAONE</tspan>
+</text>
+<text x="1602.5" y="739" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="15" font-weight="500" fill="#62666b" text-anchor="middle">
+<tspan x="1602.5" dy="0">공통 추론 · 가상 청중</tspan>
+</text>
+<rect x="640" y="825" width="1125" height="130" rx="20" fill="#f2f9ef" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="660" y="823" width="1085" height="4" fill="#f2f9ef"/>
+<line x1="660" y1="825" x2="1137.0" y2="825" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="1268.0" y1="825" x2="1745" y2="825" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="1142.0" y="805" width="121" height="42" rx="9" fill="#ffffff"/>
+<text x="1202.5" y="838" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1202.5" dy="0">저장소</tspan>
+</text>
+<ellipse cx="970" cy="864" rx="35" ry="10" fill="#a8c8e2" stroke="#4f83aa" stroke-width="1.4"/>
+<rect x="935" y="864" width="70" height="35" fill="#dceaf7" stroke="#4f83aa" stroke-width="1.4"/>
+<ellipse cx="970" cy="899" rx="35" ry="10" fill="#a8c8e2" stroke="#4f83aa" stroke-width="1.4"/>
+<text x="970" y="932" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="19" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="970" dy="0">세션·작업 기록</tspan>
+</text>
+<rect x="1400" y="852" width="72" height="18" rx="5" fill="#f6dfdf" stroke="#b84a4a" stroke-width="1.2"/>
+<rect x="1400" y="877" width="72" height="18" rx="5" fill="#f6dfdf" stroke="#b84a4a" stroke-width="1.2"/>
+<rect x="1400" y="902" width="72" height="18" rx="5" fill="#f6dfdf" stroke="#b84a4a" stroke-width="1.2"/>
+<text x="1436" y="944" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="19" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1436" dy="0">업로드·녹음·캐시 파일</tspan>
+</text>
+<polyline points="570,397 620,397 620,320 640,320" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="640,320 631,315.5 631,324.5" fill="#202124"/>
+<polyline points="570,430 610,430 610,685 640,685" fill="none" stroke="#3478a8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" stroke-dasharray="5 4"/>
+<polygon points="640,685 631,680.5 631,689.5" fill="#3478a8"/>
+<polyline points="505,540 505,890 640,890" fill="none" stroke="#202124" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="640,890 631,885.5 631,894.5" fill="#202124"/>
+</svg>

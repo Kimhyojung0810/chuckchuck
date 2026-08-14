@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1660" height="840" viewBox="5 70 1660 840">
+<rect x="5" y="70" width="1660" height="840" fill="#ffffff"/>
+<rect x="35" y="105" width="300" height="770" rx="20" fill="#ffffff" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="55" y="103" width="260" height="4" fill="#ffffff"/>
+<line x1="74.0" y1="105" x2="55" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="296.0" y1="105" x2="315" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="79.0" y="85" width="212.0" height="42" rx="9" fill="#ffffff"/>
+<text x="185.0" y="118" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="185.0" dy="0">사용자 학습 루프</tspan>
+</text>
+<rect x="375" y="105" width="940" height="770" rx="20" fill="#ffffff" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="395" y="103" width="900" height="4" fill="#ffffff"/>
+<line x1="692.25" y1="105" x2="395" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="997.75" y1="105" x2="1295" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="697.25" y="85" width="295.5" height="42" rx="9" fill="#ffffff"/>
+<text x="845.0" y="118" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="845.0" dy="0">멀티모달 분석 및 피드백</tspan>
+</text>
+<rect x="1355" y="105" width="280" height="770" rx="20" fill="#ffffff" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="1375" y="103" width="240" height="4" fill="#ffffff"/>
+<line x1="1430.8" y1="105" x2="1375" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="1559.2" y1="105" x2="1615" y2="105" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="1435.8" y="85" width="118.4" height="42" rx="9" fill="#ffffff"/>
+<text x="1495.0" y="118" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1495.0" dy="0">API 호출</tspan>
+</text>
+<circle cx="88" cy="190" r="30" fill="#edf6fa" stroke="#3478a8" stroke-width="1.8"/>
+<circle cx="88" cy="180" r="8" fill="#3478a8"/>
+<path d="M69 206 Q88 189 107 206" fill="#3478a8"/>
+<text x="88" y="235" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="15" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="88" dy="0">발표자</tspan>
+</text>
+<rect x="135" y="152" width="165" height="82" rx="8" fill="#fff0c2" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="136" cy="153" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="136" y="158" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="136" dy="0">1</tspan>
+</text>
+<text x="217.5" y="199.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="217.5" dy="0">발표 입력</tspan>
+</text>
+<polyline points="118,190 134,190" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="134,190 124,185 124,195" fill="#202124"/>
+<rect x="72" y="278" width="228" height="90" rx="8" fill="#dceaf7" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="73" cy="279" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="73" y="284" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="73" dy="0">2</tspan>
+</text>
+<text x="186.0" y="329.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="186.0" dy="0">발표 리허설</tspan>
+</text>
+<rect x="72" y="462" width="228" height="90" rx="8" fill="#dcebd4" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="73" cy="463" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="73" y="468" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="73" dy="0">3</tspan>
+</text>
+<text x="186.0" y="513.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="186.0" dy="0">맞춤형 Q&amp;A</tspan>
+</text>
+<rect x="72" y="625" width="228" height="96" rx="8" fill="#eadff3" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="73" cy="626" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="73" y="631" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="73" dy="0">4</tspan>
+</text>
+<text x="186.0" y="679.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="186.0" dy="0">통합 리포트</tspan>
+</text>
+<rect x="72" y="790" width="228" height="55" rx="8" fill="#dcebd4" stroke="#30343a" stroke-width="1.4"/>
+<text x="186.0" y="823.5" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="186.0" dy="0">다음 리허설</tspan>
+</text>
+<polyline points="217,234 217,255 186,255 186,277" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="186,277 181,267 191,267" fill="#202124"/>
+<polyline points="186,368 186,461" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="186,461 181,451 191,451" fill="#202124"/>
+<polyline points="186,552 186,624" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="186,624 181,614 191,614" fill="#202124"/>
+<polyline points="186,722 186,789" fill="none" stroke="#3a7f62" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="186,789 181,779 191,779" fill="#3a7f62"/>
+<polyline points="72,817 52,817 52,323 71,323" fill="none" stroke="#3a7f62" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" stroke-dasharray="5 4"/>
+<polygon points="71,323 61,318 61,328" fill="#3a7f62"/>
+<rect x="415" y="160" width="390" height="225" rx="20" fill="#fff9e8" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="435" y="158" width="350" height="4" fill="#fff9e8"/>
+<line x1="511.5" y1="160" x2="435" y2="160" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="708.5" y1="160" x2="785" y2="160" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="516.5" y="140" width="187.0" height="42" rx="9" fill="#ffffff"/>
+<text x="610.0" y="173" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="610.0" dy="0">자료 분석 경로</tspan>
+</text>
+<rect x="440" y="225" width="108" height="88" rx="8" fill="#fff0c2" stroke="#30343a" stroke-width="1.4"/>
+<text x="494.0" y="275.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="494.0" dy="0">구조 분석</tspan>
+</text>
+<rect x="573" y="225" width="108" height="88" rx="8" fill="#fff0c2" stroke="#30343a" stroke-width="1.4"/>
+<text x="627.0" y="275.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="627.0" dy="0">개념 추출</tspan>
+</text>
+<rect x="706" y="225" width="74" height="88" rx="8" fill="#fff0c2" stroke="#30343a" stroke-width="1.4"/>
+<text x="743.0" y="275.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="743.0" dy="0">그래프</tspan>
+</text>
+<polyline points="548,269 572,269" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="572,269 562,264 562,274" fill="#202124"/>
+<polyline points="681,269 705,269" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="705,269 695,264 695,274" fill="#202124"/>
+<rect x="415" y="455" width="390" height="225" rx="20" fill="#f1f7fc" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="435" y="453" width="350" height="4" fill="#f1f7fc"/>
+<line x1="511.5" y1="455" x2="435" y2="455" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="708.5" y1="455" x2="785" y2="455" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="516.5" y="435" width="187.0" height="42" rx="9" fill="#ffffff"/>
+<text x="610.0" y="468" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="610.0" dy="0">발화 분석 경로</tspan>
+</text>
+<rect x="440" y="520" width="95" height="88" rx="8" fill="#dceaf7" stroke="#30343a" stroke-width="1.4"/>
+<text x="487.5" y="570.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="487.5" dy="0">음성인식</tspan>
+</text>
+<rect x="550" y="520" width="95" height="88" rx="8" fill="#dceaf7" stroke="#30343a" stroke-width="1.4"/>
+<text x="597.5" y="570.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="597.5" dy="0">STT 분석</tspan>
+</text>
+<rect x="660" y="520" width="120" height="88" rx="8" fill="#dceaf7" stroke="#30343a" stroke-width="1.4"/>
+<text x="720.0" y="559.5" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="720.0" dy="0">언어적 특징</tspan>
+<tspan x="720.0" dy="23">분석</tspan>
+</text>
+<polyline points="535,564 549,564" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="549,564 539,559 539,569" fill="#202124"/>
+<polyline points="645,564 659,564" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="659,564 649,559 649,569" fill="#202124"/>
+<polyline points="300,192 390,192 390,269 439,269" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="439,269 429,264 429,274" fill="#202124"/>
+<polyline points="300,323 380,323 380,564 439,564" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="439,564 429,559 429,569" fill="#202124"/>
+<rect x="850" y="330" width="205" height="160" rx="8" fill="#dcebd4" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="851" cy="331" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="851" y="336" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="851" dy="0">5</tspan>
+</text>
+<text x="952.5" y="416.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="952.5" dy="0">자료–발화 정합</tspan>
+</text>
+<polyline points="780,269 820,269 820,380 849,380" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="849,380 839,375 839,385" fill="#202124"/>
+<polyline points="780,564 820,564 820,440 849,440" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="849,440 839,435 839,445" fill="#202124"/>
+<rect x="1100" y="205" width="175" height="112" rx="8" fill="#eadff3" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="1101" cy="206" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="1101" y="211" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1101" dy="0">6</tspan>
+</text>
+<text x="1187.5" y="267.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1187.5" dy="0">질문·답변 코칭</tspan>
+</text>
+<rect x="1100" y="455" width="175" height="112" rx="8" fill="#f6dfdf" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="1101" cy="456" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="1101" y="461" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1101" dy="0">7</tspan>
+</text>
+<text x="1187.5" y="517.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1187.5" dy="0">평가·음성 분석</tspan>
+</text>
+<rect x="1038" y="665" width="237" height="110" rx="8" fill="#dcebd4" stroke="#30343a" stroke-width="1.4"/>
+<circle cx="1039" cy="666" r="13" fill="#3c57a6" stroke="#ffffff" stroke-width="2"/>
+<text x="1039" y="671" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1039" dy="0">8</tspan>
+</text>
+<text x="1156.5" y="726.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1156.5" dy="0">통합 코칭 결과</tspan>
+</text>
+<polyline points="1055,370 1075,370 1075,261 1099,261" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="1099,261 1089,256 1089,266" fill="#202124"/>
+<polyline points="1055,450 1075,450 1075,511 1099,511" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="1099,511 1089,506 1089,516" fill="#202124"/>
+<polyline points="1275,261 1288,261 1288,720 1276,720" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="1276,720 1286,715 1286,725" fill="#202124"/>
+<polyline points="1188,567 1188,664" fill="none" stroke="#202124" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="1188,664 1183,654 1193,654" fill="#202124"/>
+<polyline points="1038,720 350,720 350,673 301,673" fill="none" stroke="#3a7f62" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+<polygon points="301,673 311,668 311,678" fill="#3a7f62"/>
+<rect x="415" y="790" width="860" height="70" rx="8" fill="#f2f3f4" stroke="#30343a" stroke-width="1.4"/>
+<text x="845.0" y="831.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="845.0" dy="0">공통 AI 어댑터</tspan>
+</text>
+<polyline points="1156,775 1156,789" fill="none" stroke="#3478a8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" stroke-dasharray="5 4"/>
+<polygon points="1156,789 1151,779 1161,779" fill="#3478a8"/>
+<polyline points="1275,827 1335,827 1335,620 1374,620" fill="none" stroke="#3478a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" stroke-dasharray="5 4"/>
+<polygon points="1374,620 1364,615 1364,625" fill="#3478a8"/>
+<rect x="1375" y="175" width="240" height="650" rx="20" fill="#f8f3fb" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="1395" y="173" width="200" height="4" fill="#f8f3fb"/>
+<line x1="1400.75" y1="175" x2="1395" y2="175" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<line x1="1589.25" y1="175" x2="1595" y2="175" stroke="#5f6b76" stroke-width="1.7" stroke-dasharray="9 7"/>
+<rect x="1405.75" y="141" width="178.5" height="66" rx="9" fill="#ffffff"/>
+<text x="1495.0" y="168" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="25" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1495.0" dy="0">국내 인공지능</tspan>
+<tspan x="1495.0" dy="28">모델</tspan>
+</text>
+<rect x="1395" y="220" width="200" height="88" rx="8" fill="#fff0c2" stroke="#30343a" stroke-width="1.4"/>
+<text x="1495.0" y="270.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1495.0" dy="0">Upstage Solar</tspan>
+</text>
+<rect x="1395" y="340" width="200" height="88" rx="8" fill="#dceaf7" stroke="#30343a" stroke-width="1.4"/>
+<text x="1495.0" y="390.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1495.0" dy="0">SKT A.X</tspan>
+</text>
+<rect x="1395" y="460" width="200" height="88" rx="8" fill="#dcebd4" stroke="#30343a" stroke-width="1.4"/>
+<text x="1495.0" y="510.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1495.0" dy="0">KT Mi:dm 2.0</tspan>
+</text>
+<rect x="1395" y="580" width="200" height="88" rx="8" fill="#eadff3" stroke="#30343a" stroke-width="1.4"/>
+<text x="1495.0" y="630.0" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1495.0" dy="0">LG EXAONE</tspan>
+</text>
+<rect x="1395" y="700" width="200" height="88" rx="8" fill="#f6dfdf" stroke="#30343a" stroke-width="1.4"/>
+<text x="1495.0" y="739.5" font-family='"NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif' font-size="20" font-weight="700" fill="#202124" text-anchor="middle">
+<tspan x="1495.0" dy="0">AI Hub 공적말하기</tspan>
+<tspan x="1495.0" dy="23">데이터</tspan>
+</text>
+</svg>

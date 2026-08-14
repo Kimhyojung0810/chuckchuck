@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1100" viewBox="0 0 1920 1100">
+<defs>
+  <style>text { font-family: "NanumGothic", "Malgun Gothic", "Noto Sans KR", sans-serif; }</style>
+</defs>
+<rect width="1920" height="1100" fill="#f5f7f9"/>
+<text x="55" y="55" font-size="32" font-weight="700" fill="#263238" text-anchor="start">
+<tspan x="55" dy="0">척척발표 시스템 전체 아키텍처</tspan>
+</text>
+<text x="55" y="82" font-size="14" font-weight="400" fill="#667085" text-anchor="start">
+<tspan x="55" dy="0">발표자료와 실제 발화를 결합한 근거 중심 AI 발표 코칭 서비스</tspan>
+</text>
+<polyline points="1210,73 1260,73" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1260,73 1251,68 1251,78" fill="#475467"/>
+<text x="1270" y="78" font-size="12.5" font-weight="400" fill="#667085" text-anchor="start">
+<tspan x="1270" dy="0">내부 데이터 흐름</tspan>
+</text>
+<polyline points="1400,73 1450,73" fill="none" stroke="#288fb5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 5"/>
+<polygon points="1450,73 1441,68 1441,78" fill="#288fb5"/>
+<text x="1460" y="78" font-size="12.5" font-weight="400" fill="#667085" text-anchor="start">
+<tspan x="1460" dy="0">외부 AI 연동</tspan>
+</text>
+<polyline points="1580,73 1630,73" fill="none" stroke="#1f9d77" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1630,73 1621,68 1621,78" fill="#1f9d77"/>
+<text x="1640" y="78" font-size="12.5" font-weight="400" fill="#667085" text-anchor="start">
+<tspan x="1640" dy="0">코칭 결과 반환</tspan>
+</text>
+<rect x="40" y="110" width="280" height="860" rx="2" fill="#ffffff" stroke="#86d0e7" stroke-width="2" stroke-dasharray="7 6"/>
+<rect x="40" y="110" width="280" height="58" fill="#3f4145"/>
+<text x="180.0" y="146" font-size="19" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="180.0" dy="0">사용자 채널 (Web / Tablet)</tspan>
+</text>
+<rect x="350" y="110" width="1120" height="860" rx="2" fill="#ffffff" stroke="#86d0e7" stroke-width="2" stroke-dasharray="7 6"/>
+<rect x="350" y="110" width="1120" height="58" fill="#3f4145"/>
+<text x="910.0" y="146" font-size="19" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="910.0" dy="0">척척발표 AI Coaching Platform</tspan>
+</text>
+<rect x="1500" y="110" width="380" height="860" rx="2" fill="#ffffff" stroke="#86d0e7" stroke-width="2" stroke-dasharray="7 6"/>
+<rect x="1500" y="110" width="380" height="58" fill="#3f4145"/>
+<text x="1690.0" y="146" font-size="19" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1690.0" dy="0">국내 AI · 외부 인프라</tspan>
+</text>
+<circle cx="95" cy="245" r="34" fill="#e8f6fb" stroke="#48afd0" stroke-width="2"/>
+<circle cx="95" cy="235" r="9" fill="#288fb5"/>
+<path d="M75 261 Q95 243 115 261" fill="#288fb5"/>
+<text x="95" y="300" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="95" dy="0">발표자</tspan>
+</text>
+<rect x="145" y="205" width="145" height="82" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="217.5" y="234" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="217.5" dy="0">자료 업로드</tspan>
+</text>
+<text x="217.5" y="259" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="217.5" dy="0">PDF·PPTX</tspan>
+<tspan x="217.5" dy="18">상황·청중·목표시간</tspan>
+</text>
+<polyline points="129,245 144,245" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="144,245 135,240 135,250" fill="#475467"/>
+<rect x="65" y="355" width="225" height="92" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="177.5" y="384" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="177.5" dy="0">슬라이드 기반 리허설</tspan>
+</text>
+<text x="177.5" y="409" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="177.5" dy="0">음성 녹음 · 슬라이드 전환</tspan>
+<tspan x="177.5" dy="18">재방문·시간축 기록</tspan>
+</text>
+<polyline points="217,287 217,335 177,335 177,354" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="177,354 172,345 182,345" fill="#475467"/>
+<rect x="65" y="545" width="225" height="92" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="177.5" y="574" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="177.5" dy="0">적응형 질문 코칭</tspan>
+</text>
+<text x="177.5" y="599" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="177.5" dy="0">답변 판정 · 힌트 · 재질문</tspan>
+<tspan x="177.5" dy="18">자기 말로 다시 설명</tspan>
+</text>
+<polyline points="177,448 177,544" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="177,544 172,535 182,535" fill="#475467"/>
+<rect x="65" y="705" width="225" height="102" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="177.5" y="734" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="177.5" dy="0">통합 리포트</tspan>
+</text>
+<text x="177.5" y="759" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="177.5" dy="0">개념·흐름·음성·점수</tspan>
+<tspan x="177.5" dy="18">삐약이 · 발표 구성 부분 교정</tspan>
+</text>
+<polyline points="177,638 177,704" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="177,704 172,695 182,695" fill="#475467"/>
+<rect x="65" y="865" width="225" height="58" rx="5" fill="#eef9f5" stroke="#63b89c" stroke-width="1.6"/>
+<text x="177.5" y="894" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="177.5" dy="0">다음 리허설</tspan>
+</text>
+<text x="177.5" y="919" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="177.5" dy="0">분석 → 학습 → 재연습</tspan>
+</text>
+<polyline points="177,808 177,864" fill="none" stroke="#1f9d77" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="177,864 172,855 182,855" fill="#1f9d77"/>
+<rect x="390" y="185" width="1040" height="145" rx="3" fill="#fbfcfd" stroke="#d1d5db" stroke-width="1.4" stroke-dasharray="5 4"/>
+<rect x="390" y="185" width="1040" height="40" fill="#55585d"/>
+<text x="910.0" y="211" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="910.0" dy="0">Service Layer</tspan>
+</text>
+<rect x="430" y="240" width="250" height="64" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="555.0" y="269" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="555.0" dy="0">Demo Web UI</tspan>
+</text>
+<text x="555.0" y="294" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="555.0" dy="0">업로드 · 리허설 · Q&amp;A · 리포트</tspan>
+</text>
+<rect x="790" y="240" width="250" height="64" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="915.0" y="269" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="915.0" dy="0">Demo Bridge API</tspan>
+</text>
+<text x="915.0" y="294" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="915.0" dy="0">데모 서비스 · 캐시 · 요청 제한</tspan>
+</text>
+<rect x="1150" y="240" width="240" height="64" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1270.0" y="269" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1270.0" dy="0">FastAPI · Job Worker</tspan>
+</text>
+<text x="1270.0" y="294" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1270.0" dy="0">API 전용 · 비동기 작업 · 상태 조회</tspan>
+</text>
+<polyline points="290,246 380,246 380,272 429,272" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="429,272 420,267 420,277" fill="#475467"/>
+<polyline points="680,272 789,272" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="789,272 780,267 780,277" fill="#475467"/>
+<text x="1270" y="318" font-size="11.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1270" dy="0">※ Demo Bridge와 FastAPI는 별도 실행 경로</tspan>
+</text>
+<rect x="390" y="355" width="1040" height="455" rx="3" fill="#fbfcfd" stroke="#d1d5db" stroke-width="1.4" stroke-dasharray="5 4"/>
+<rect x="390" y="355" width="1040" height="40" fill="#55585d"/>
+<text x="910.0" y="381" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="910.0" dy="0">AI Analysis &amp; Coaching Pipeline</tspan>
+</text>
+<text x="415" y="432" font-size="13" font-weight="700" fill="#288fb5" text-anchor="start">
+<tspan x="415" dy="0">문서 경로</tspan>
+</text>
+<text x="415" y="582" font-size="13" font-weight="700" fill="#288fb5" text-anchor="start">
+<tspan x="415" dy="0">음성 경로</tspan>
+</text>
+<text x="415" y="742" font-size="13" font-weight="700" fill="#1f9d77" text-anchor="start">
+<tspan x="415" dy="0">코칭 결과</tspan>
+</text>
+<rect x="470" y="400" width="170" height="82" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<circle cx="488" cy="418" r="12" fill="#288fb5"/>
+<text x="488" y="423" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="488" dy="0">1</tspan>
+</text>
+<text x="563.0" y="429" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="563.0" dy="0">문서 구조 분석</tspan>
+</text>
+<text x="555.0" y="454" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="555.0" dy="0">제목·본문·표·시각요소</tspan>
+<tspan x="555.0" dy="18">SlideDoc</tspan>
+</text>
+<rect x="680" y="400" width="170" height="82" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<circle cx="698" cy="418" r="12" fill="#288fb5"/>
+<text x="698" y="423" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="698" dy="0">2</tspan>
+</text>
+<text x="773.0" y="429" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="773.0" dy="0">개념 추출</tspan>
+</text>
+<text x="765.0" y="454" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="765.0" dy="0">주제·키워드·핵심 개념</tspan>
+<tspan x="765.0" dy="18">ConceptDoc</tspan>
+</text>
+<rect x="890" y="400" width="170" height="82" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<circle cx="908" cy="418" r="12" fill="#288fb5"/>
+<text x="908" y="423" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="908" dy="0">3</tspan>
+</text>
+<text x="983.0" y="429" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="983.0" dy="0">개념 그래프</tspan>
+</text>
+<text x="975.0" y="454" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="975.0" dy="0">위계·연결·중요도</tspan>
+<tspan x="975.0" dy="18">ConceptGraph</tspan>
+</text>
+<polyline points="640,441 679,441" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="679,441 670,436 670,446" fill="#475467"/>
+<polyline points="850,441 889,441" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="889,441 880,436 880,446" fill="#475467"/>
+<rect x="470" y="550" width="170" height="82" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<circle cx="488" cy="568" r="12" fill="#288fb5"/>
+<text x="488" y="573" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="488" dy="0">4</tspan>
+</text>
+<text x="563.0" y="579" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="563.0" dy="0">음성인식</tspan>
+</text>
+<text x="555.0" y="604" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="555.0" dy="0">단어별 타임스탬프</tspan>
+<tspan x="555.0" dy="18">Transcript</tspan>
+</text>
+<rect x="680" y="550" width="170" height="82" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<circle cx="698" cy="568" r="12" fill="#288fb5"/>
+<text x="698" y="573" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="698" dy="0">5</tspan>
+</text>
+<text x="773.0" y="579" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="773.0" dy="0">발화 동기화</tspan>
+</text>
+<text x="765.0" y="604" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="765.0" dy="0">슬라이드별 발화·시간</tspan>
+<tspan x="765.0" dy="18">방문·재방문 구간</tspan>
+</text>
+<polyline points="640,591 679,591" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="679,591 670,586 670,596" fill="#475467"/>
+<rect x="1050" y="485" width="190" height="112" rx="5" fill="#f0f7ff" stroke="#8bb8e8" stroke-width="1.6"/>
+<circle cx="1068" cy="503" r="12" fill="#288fb5"/>
+<text x="1068" y="508" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1068" dy="0">6</tspan>
+</text>
+<text x="1153.0" y="514" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1153.0" dy="0">정합·논리 흐름</tspan>
+</text>
+<text x="1145.0" y="539" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1145.0" dy="0">정합 · 정당한 생략</tspan>
+<tspan x="1145.0" dy="18">누락 · 모순 · 설명 순서</tspan>
+<tspan x="1145.0" dy="18">AlignmentDoc · FlowDiff</tspan>
+</text>
+<polyline points="1060,441 1090,441 1090,484" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1090,484 1085,475 1095,475" fill="#475467"/>
+<polyline points="850,591 930,591 930,563 1049,563" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1049,563 1040,558 1040,568" fill="#475467"/>
+<rect x="1260" y="400" width="140" height="92" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<circle cx="1278" cy="418" r="12" fill="#288fb5"/>
+<text x="1278" y="423" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1278" dy="0">7</tspan>
+</text>
+<text x="1338.0" y="429" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1338.0" dy="0">질문 코칭</tspan>
+</text>
+<text x="1330.0" y="454" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1330.0" dy="0">질문 순위·판정</tspan>
+<tspan x="1330.0" dy="18">힌트·재질문</tspan>
+</text>
+<rect x="1260" y="545" width="140" height="92" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1330.0" y="574" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1330.0" dy="0">평가·음성</tspan>
+</text>
+<text x="1330.0" y="599" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1330.0" dy="0">39항목·속도</tspan>
+<tspan x="1330.0" dy="18">반복·간투어</tspan>
+</text>
+<polyline points="1240,520 1250,520 1250,446 1259,446" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1259,446 1250,441 1250,451" fill="#475467"/>
+<polyline points="1240,563 1259,563" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1259,563 1250,558 1250,568" fill="#475467"/>
+<rect x="1070" y="690" width="330" height="88" rx="5" fill="#eef9f5" stroke="#63b89c" stroke-width="1.6"/>
+<circle cx="1088" cy="708" r="12" fill="#288fb5"/>
+<text x="1088" y="713" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1088" dy="0">8</tspan>
+</text>
+<text x="1243.0" y="719" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1243.0" dy="0">통합 코칭 결과</tspan>
+</text>
+<text x="1235.0" y="744" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1235.0" dy="0">근거 기반 리포트 · 삐약이 4종 청중</tspan>
+<tspan x="1235.0" dy="18">유명 발표가 구성 원리 기반 부분 교정</tspan>
+</text>
+<polyline points="1330,492 1420,492 1420,734 1401,734" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1401,734 1410,729 1410,739" fill="#475467"/>
+<polyline points="1330,637 1330,689" fill="none" stroke="#475467" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1330,689 1325,680 1335,680" fill="#475467"/>
+<polyline points="1070,734 1015,734 1015,830 335,830 335,756 291,756" fill="none" stroke="#1f9d77" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="291,756 300,751 300,761" fill="#1f9d77"/>
+<rect x="390" y="835" width="1040" height="105" rx="4" fill="#f0f7ff" stroke="#8bb8e8" stroke-width="1.6"/>
+<text x="415" y="864" font-size="16" font-weight="700" fill="#263238" text-anchor="start">
+<tspan x="415" dy="0">신뢰성·통제 계층</tspan>
+</text>
+<rect x="420" y="882" width="210" height="38" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="525.0" y="911" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="525.0" dy="0">공통 데이터 계약</tspan>
+</text>
+<rect x="665" y="882" width="210" height="38" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="770.0" y="911" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="770.0" dy="0">결정적 수치·순위 계산</tspan>
+</text>
+<rect x="910" y="882" width="210" height="38" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1015.0" y="911" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1015.0" dy="0">ID·근거·인용 후처리</tspan>
+</text>
+<rect x="1155" y="882" width="240" height="38" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1275.0" y="911" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1275.0" dy="0">외부 AI 어댑터·폴백</tspan>
+</text>
+<rect x="1530" y="185" width="320" height="595" rx="3" fill="#fbfcfd" stroke="#d1d5db" stroke-width="1.4" stroke-dasharray="5 4"/>
+<rect x="1530" y="185" width="320" height="40" fill="#55585d"/>
+<text x="1690.0" y="211" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1690.0" dy="0">AI Services</tspan>
+</text>
+<rect x="1565" y="235" width="250" height="70" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1690.0" y="264" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1690.0" dy="0">Upstage</tspan>
+</text>
+<text x="1690.0" y="289" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1690.0" dy="0">Document Parse · Solar Pro 3</tspan>
+</text>
+<rect x="1565" y="345" width="250" height="70" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1690.0" y="374" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1690.0" dy="0">SKT A.X</tspan>
+</text>
+<text x="1690.0" y="399" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1690.0" dy="0">STT · A.X-K1</tspan>
+</text>
+<rect x="1565" y="455" width="250" height="70" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1690.0" y="484" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1690.0" dy="0">KT Mi:dm 2.0</tspan>
+</text>
+<text x="1690.0" y="509" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1690.0" dy="0">로컬 추론 · LoRA 발화 태거</tspan>
+</text>
+<rect x="1565" y="565" width="250" height="70" rx="5" fill="#ffffff" stroke="#b8c1cc" stroke-width="1.6"/>
+<text x="1690.0" y="594" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1690.0" dy="0">LG EXAONE</tspan>
+</text>
+<text x="1690.0" y="619" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1690.0" dy="0">의미 판단 · 가상 청중</tspan>
+</text>
+<rect x="1565" y="675" width="250" height="70" rx="5" fill="#eef9f5" stroke="#63b89c" stroke-width="1.6"/>
+<text x="1690.0" y="704" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1690.0" dy="0">AI Hub 공적말하기 데이터</tspan>
+</text>
+<text x="1690.0" y="729" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1690.0" dy="0">LoRA 학습 · 내부 성능 검증</tspan>
+</text>
+<polyline points="1395,901 1480,901 1480,760 1529,760" fill="none" stroke="#288fb5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 5"/>
+<polygon points="1529,760 1520,755 1520,765" fill="#288fb5"/>
+<text x="1488" y="790" font-size="11.5" font-weight="400" fill="#288fb5" text-anchor="start">
+<tspan x="1488" dy="0">문서·STT·LLM 호출</tspan>
+</text>
+<rect x="1530" y="805" width="320" height="135" rx="3" fill="#fbfcfd" stroke="#d1d5db" stroke-width="1.4" stroke-dasharray="5 4"/>
+<rect x="1530" y="805" width="320" height="40" fill="#55585d"/>
+<text x="1690.0" y="831" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="1690.0" dy="0">Backend · Operations</tspan>
+</text>
+<rect x="1565" y="850" width="250" height="80" rx="5" fill="#fff8e8" stroke="#dfad48" stroke-width="1.6"/>
+<text x="1690.0" y="879" font-size="16" font-weight="700" fill="#263238" text-anchor="middle">
+<tspan x="1690.0" dy="0">현재 개발용 운영 구조</tspan>
+</text>
+<text x="1690.0" y="904" font-size="12.5" font-weight="400" fill="#667085" text-anchor="middle">
+<tspan x="1690.0" dy="0">인메모리 세션·작업 큐</tspan>
+<tspan x="1690.0" dy="18">서명 쿠키 · Basic Auth · Rate Limit</tspan>
+</text>
+<polyline points="1390,272 1460,272 1460,887 1564,887" fill="none" stroke="#288fb5" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 5"/>
+<polygon points="1564,887 1555,882 1555,892" fill="#288fb5"/>
+<rect x="40" y="995" width="1840" height="58" rx="5" fill="#fff8e8" stroke="#dfad48" stroke-width="1.6"/>
+<circle cx="68" cy="1024" r="11" fill="#dfad48"/>
+<text x="68" y="1029" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">
+<tspan x="68" dy="0">!</tspan>
+</text>
+<text x="92" y="1018" font-size="16" font-weight="700" fill="#263238" text-anchor="start">
+<tspan x="92" dy="0">현재 구현 범위</tspan>
+</text>
+<text x="92" y="1040" font-size="13" font-weight="400" fill="#667085" text-anchor="start">
+<tspan x="92" dy="0">세션과 장시간 작업은 개발용 인메모리 구조이며 서버 재시작 시 소실됩니다. 운영 단계에서는 DB·영속 작업 큐·사용자별 권한·암호화·삭제 정책으로 전환할 계획입니다.</tspan>
+</text>
+</svg>
