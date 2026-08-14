@@ -2,6 +2,10 @@
 __pycache__/
 *.pyc
 .env
+# .env 를 손으로 백업하면 .env 패턴에 안 걸려서 실키가 그대로 올라간다 (2026-08-14)
+.env.bak*
+.env.backup*
+.env.local
 .DS_Store
 *.egg-info/
 .pytest_cache/
