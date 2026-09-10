@@ -36,7 +36,7 @@ const EXPORT_LINE = `
 ;globalThis.__api = {
   qaLiveActive, newLiveState, liveStalled, hintSlideNos,
   liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
-  liveScoredAnswers,
+  liveScoredAnswers, stuckLabelFor, coachMeta, coachReactText,
 };`;
 
 /**
@@ -373,6 +373,29 @@ test('턴이 없으면 1라운드다 (빈 배열)', () => {
 });
 
 /* ── 실행 ──────────────────────────────────────────────────────────────────── */
+/* ── 「모르겠어요」 사다리 3단 (2026-09-10) ── */
+test('「모르겠어요」 라벨은 포기 횟수를 따라 3단이다', () => {
+  const { api } = newContext();
+  eq(api.stuckLabelFor(0), '모르겠어요', '0회');
+  eq(api.stuckLabelFor(1), '그래도 모르겠어요 · 빈칸으로', '1회');
+  eq(api.stuckLabelFor(2), '그래도 모르겠어요 · 답 보기', '2회');
+  eq(api.stuckLabelFor(5), '그래도 모르겠어요 · 답 보기', '그 이상');
+});
+test('코치 머리말은 단계마다 몇 단째인지 말한다', () => {
+  const { api } = newContext();
+  eq(api.coachMeta('narrow').startsWith('막힘 1/3'), true, 'narrow');
+  eq(api.coachMeta('scaffold').startsWith('막힘 2/3'), true, 'scaffold');
+  eq(api.coachMeta('explain').startsWith('막힘 3/3'), true, 'explain');
+  eq(api.coachMeta('없는단계'), '더 쉬운 걸로 바꿔 물을게요', '모르는 단계는 예전 문구');
+});
+test('react 에 붙어 온 자료 인용은 카드로 그리니 본문에서 뗀다', () => {
+  const { api } = newContext();
+  const react = '괜찮아요, 같이 볼게요. 자료 3장은 이렇게 말해요: «손실은 돌아오는 과정에서 커진다»';
+  eq(api.coachReactText(react, '손실은 돌아오는 과정에서 커진다'), '괜찮아요, 같이 볼게요.', '인용 제거');
+  eq(api.coachReactText(react, ''), react, '인용이 없으면 그대로');
+  eq(api.coachReactText('그냥 한 마디', '인용'), '그냥 한 마디', '« 가 없으면 그대로');
+});
+
 let failed = 0;
 for (const c of cases) {
   try {

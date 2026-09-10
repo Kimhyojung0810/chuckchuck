@@ -250,14 +250,39 @@ function liveStreak() {
  * 건너뛰는 길만 하나 더 생길 뿐이라 하나로 합치고, 라벨로 다음에 무슨 일이
  * 벌어질지 미리 알린다.
  */
+function stuckLabelFor(gaveUpCount) {
+  // 서버 사다리(f09 _coach_stage)와 같은 셈: 0 → 위치, 1 → 발판(빈칸), 2+ → 해설.
+  // CTA 문구만 보고 다음에 무슨 일이 벌어질지 예측돼야 한다 (CLAUDE.md §3-1).
+  if (gaveUpCount >= 2) return '그래도 모르겠어요 · 답 보기';
+  if (gaveUpCount === 1) return '그래도 모르겠어요 · 빈칸으로';
+  return '모르겠어요';
+}
+
 function stuckLabel() {
   const L = qa.live;
-  // 두 번째 「모르겠어요」는 이제 넘어가기가 아니라 **답 보기**다 — 서버가 해설을
-  // 풀어 주고, 그걸 보고 한 번 말해 본 뒤에 닫힌다 (coachedRetell).
-  // CTA 문구만 보고 다음에 무슨 일이 벌어질지 예측돼야 한다 (CLAUDE.md §3-1).
-  return (L.turns || []).some((t) => t.gaveUp)
-    ? '그래도 모르겠어요 · 답 보기'
-    : '모르겠어요';
+  return stuckLabelFor((L.turns || []).filter((t) => t.gaveUp).length);
+}
+
+/** 코치 턴·되물음의 머리말. 「지금 몇 단째, 무엇을 하는지」 를 적는다. */
+function coachMeta(stage) {
+  return {
+    narrow: '막힘 1/3 · 자료에서 같이 찾아요',
+    scaffold: '막힘 2/3 · 빈칸을 채워요',
+    explain: '막힘 3/3 · 답을 같이 풀어요',
+    clarify: '질문을 다시 풀었어요',
+  }[stage] || '더 쉬운 걸로 바꿔 물을게요';
+}
+
+/**
+ * 코치 react 에서 자료 인용을 뗀다. 서버가 1단 react 뒤에 "자료 N장은 이렇게
+ * 말해요: «…»" 를 붙여 보내는데(글로만 보는 클라이언트용), 이 화면은 같은 인용을
+ * 카드로 그리므로 두 번 보이면 안 된다.
+ */
+function coachReactText(react, quote) {
+  const text = String(react || '');
+  if (!quote || !text.includes('«')) return text;
+  const at = text.search(/\s자료(?:\s\d+장)?[은는]\s이렇게 말해요/);
+  return at > 0 ? text.slice(0, at).trim() : text;
 }
 
 /* ── 개념 퀘스트 (왼쪽 칸) ──────────────────────────────────────────────────
@@ -532,6 +557,7 @@ function liveSendLabel() {
 function wireLiveInput() {
   const L = qa.live;
   const on = (sel, fn) => { const el = $(sel); if (el) el.addEventListener('click', fn); };
+  installChoiceDelegate();
   on('#liveSend', () => submitLiveAnswer());
   on('#liveMic', () => toggleLiveMic());
   on('#liveStuck', () => submitLiveAnswer({ giveUp: true }));
@@ -582,6 +608,25 @@ function hintSlideNos(text) {
     .map((s) => Number(s.trim()))
     .filter((n) => n > 0 && (typeof hasRealSlideImage !== 'function' || hasRealSlideImage(n)))
     .slice(0, HINT_SLIDE_SHOW_MAX);
+}
+
+/**
+ * 선택 칩 클릭을 문서에서 한 번만 받는다. 스트림은 말풍선마다 innerHTML 을 갈아
+ * 끼우므로(growStream) 칩마다 묶으면 새 칩은 못 받는다. 누르면 답칸에 넣고 커서를
+ * 준다 — 바로 보내지 않는다. 고쳐 쓸 여지가 있어야 「선택」이지 「버튼」이 아니다.
+ */
+function installChoiceDelegate() {
+  if (typeof document === 'undefined' || document.__qaChoiceDelegate) return;
+  document.__qaChoiceDelegate = true;
+  document.addEventListener('click', (e) => {
+    const chip = e.target && e.target.closest ? e.target.closest('.qa-choice-chip') : null;
+    if (!chip) return;
+    const ta = $('#liveAnswer');
+    if (!ta || ta.disabled) return;
+    ta.value = chip.textContent.trim();
+    ta.focus();
+    ta.selectionStart = ta.selectionEnd = ta.value.length;
+  });
 }
 
 /** 힌트 한 칸 열기. 사용자가 눌러도, 라운드가 올라 자동으로 열려도 여기로 온다. */
@@ -1001,9 +1046,15 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     if (v.react) {
       // 점수를 같이 싣는다. 「좋아지고 있다」는 말보다 62 → 78 이라는 진짜 숫자가
       // 세다 (UI_REDESIGN §14 — 숫자는 신성하다, 지어내지 않는다).
+      const quote = v.evidence_quote || '';
       pushTurn({
-        who: 'ai', kind: 'react', verdict: m.react, text: escapeHtml(v.react),
+        who: 'ai', kind: 'react', verdict: m.react,
+        text: escapeHtml(v.coach_stage ? coachReactText(v.react, quote) : v.react),
         score: v.score || 0, before,
+        // 자료 인용 카드 재료 — 코칭 응답에만 실린다. 옛 세션 턴에는 없다.
+        quote: v.coach_stage && quote ? escapeHtml(quote) : '',
+        quoteSlide: v.coach_stage ? (v.evidence_slide_no || 0) : 0,
+        slides: v.coach_stage && v.evidence_slide_no ? hintSlideNos(`${v.evidence_slide_no}장`) : [],
         // 「모르겠어요」에 온 응답은 **판정이 아니다** — 서버가 점수를 안 매기고
         // verdict 자리에 폴백을 넣어 보낸다 (f09_judge.coach_stuck). 그걸 판정표로
         // 그리면 솔직하게 모르겠다고 누른 사람이 틀린 답과 똑같은 빨간 칩을 받는다.
@@ -1188,8 +1239,11 @@ function askAgain(v, turn, { skipMissing = false } = {}) {
     pushTurn({
       who: 'ai',
       kind: 'question',
-      meta: `${TIER_META[tier] || TIER_META.probe} · ${turn + 1}번째 답변`,
+      // 코칭 되물음은 라운드가 아니라 사다리 단계가 머리말이다.
+      meta: v.coach_stage ? coachMeta(v.coach_stage) : `${TIER_META[tier] || TIER_META.probe} · ${turn + 1}번째 답변`,
       text: escapeHtml(v.followup),
+      // 둘 중 하나 — 누르면 답칸에 들어간다 (바로 보내지 않는다: 고쳐 쓸 여지를 둔다)
+      choices: (v.choices || []).map((c) => escapeHtml(String(c))),
     });
   }
   autoHint(tier);

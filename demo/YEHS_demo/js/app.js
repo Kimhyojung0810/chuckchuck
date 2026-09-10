@@ -874,6 +874,8 @@ function resetNf() {
   nf = { step: 0, gate: null, occ: null, ctx: '', min: 10,
          mic: 'idle', sec: 0, slide: 1, visits: { 1: 1 }, log: [], done: 0, completed: false,
          fileName: '', sparseSlides: [], parseError: null, useSample: false,
+         // 서버가 파싱 때 발급한 이 발표의 열쇠. 모든 분석·판정 호출이 이걸 실어 보낸다.
+         sessionId: null, consentLearning: false,
          showcaseDemo: SHOWCASE_DEMO,
          marks: null, uploadedTake: null, pipelineOut: null, pipelineError: null,
          pipelinePhase: null, pipelineDetail: null, pipelineStartedAt: null,
@@ -1405,12 +1407,13 @@ function startPrecompute() {
   const state = { conceptsReady: false, graphReady: false, failed: false, graph: null };
 
   // transcript 없이 부른다 — 아직 녹음이 시작도 안 했다 (§F-06 speech_hint 는 선택)
-  const conceptsP = bridge.extractConcepts({ slideDoc, context })
+  const sessionId = nf.sessionId || null;
+  const conceptsP = bridge.extractConcepts({ slideDoc, context, sessionId })
     .then((c) => { state.conceptsReady = true; return c; })
     .catch((err) => { state.failed = true; console.warn('[chuckchuck] precompute concepts', err); throw err; });
 
   const graphP = conceptsP
-    .then((concepts) => bridge.buildGraph({ concepts, slideDoc, context }))
+    .then((concepts) => bridge.buildGraph({ concepts, slideDoc, context, sessionId }))
     .then((g) => { state.graphReady = true; state.graph = g; return g; })
     .catch((err) => { state.failed = true; console.warn('[chuckchuck] precompute graph', err); throw err; });
 
@@ -1555,11 +1558,9 @@ function previewPdfUrlFor(docOrName) {
   if (docOrName && typeof docOrName === 'object' && docOrName.preview_pdf) {
     return docOrName.preview_pdf;
   }
-  const hint = typeof docOrName === 'string'
-    ? docOrName
-    : (docOrName && (docOrName.file_name || docOrName.fileName)) || nf.fileName || '';
-  if (!hint) return null;
-  return `/api/v1/preview-pdf?file=${encodeURIComponent(hint)}`;
+  // 미리보기는 세션 id 로만 찾는다 — 파일명으로 찾으면 같은 이름의 남의 자료가 붙는다.
+  if (!nf || !nf.sessionId) return null;
+  return `/api/v1/preview-pdf?session_id=${encodeURIComponent(nf.sessionId)}`;
 }
 
 async function ensurePreviewPdf(doc = null) {
@@ -1853,14 +1854,23 @@ function nfStep1() {
           <span class="dz-or">또는 이 화면에 파일을 끌어다 놓으세요</span>
         </div>
         <input type="file" id="file" accept=".pdf,.pptx" hidden>
+        <label class="dz-consent">
+          <input type="checkbox" id="consentLearn"${nf.consentLearning ? ' checked' : ''}>
+          <span>이 자료와 발표 기록을 척척발표가 나아지는 데 써도 좋아요</span>
+        </label>
+        <p class="dz-consent-note">켜면 최대 1년 보관해요. 끄면 분석이 끝난 뒤 하루 안에 지워요. 리포트에서 언제든 지울 수 있어요.</p>
       </div>`;
     /* 여기에 비활성 「다음」 버튼을 두지 않는다. 화면에서 제일 큰 물건이
        아무것도 안 하는 버튼이면 눈이 거기 먼저 가고, 정작 할 일(자료 올리기)이
        뒤로 밀린다. 이 단계의 CTA 는 드롭존 자체다 */
     const dz = $('#dz');
+    /* 동의는 기본 꺼짐이고 올리는 순간의 값만 본다 — 서버가 업로드 때 한 번 받아 고정한다. */
+    const readConsent = () => { nf.consentLearning = !!($('#consentLearn') && $('#consentLearn').checked); };
+    $('#consentLearn').addEventListener('change', readConsent);
     $('#pick').addEventListener('click', () => $('#file').click());
     $('#file').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
+      readConsent();
       /\.(pdf|pptx)$/i.test(f.name) ? startParse({ file: f }) : failParse('PDF나 PPTX 파일만 분석할 수 있어요.');
     });
     dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('hover'); });
@@ -1868,6 +1878,7 @@ function nfStep1() {
     dz.addEventListener('drop', e => {
       e.preventDefault(); dz.classList.remove('hover');
       const f = e.dataTransfer.files[0]; if (!f) return;
+      readConsent();
       /\.(pdf|pptx)$/i.test(f.name) ? startParse({ file: f }) : failParse('PDF나 PPTX 파일만 분석할 수 있어요.');
     });
   } else if (nf.gate === 'parsing') {
@@ -2042,8 +2053,10 @@ async function startParse({ file = null, fixture = false } = {}) {
     if (!b || typeof b.parseDocument !== 'function') {
       throw new Error('SDK bridge가 아직 준비되지 않았어요. 페이지를 새로고침 해주세요.');
     }
-    const doc = await b.parseDocument({ file, fixture: nf.useSample });
+    const doc = await b.parseDocument({ file, fixture: nf.useSample, consent: !!nf.consentLearning });
     if (myGen !== parseGen) return; // 취소됨
+    // 서버가 발급한 이 발표의 열쇠. 없으면(mock·옛 브리지) 세션 없이 예전처럼 돈다.
+    nf.sessionId = doc.session_id || null;
     applySlideDoc(doc, { keepDemoImages: nf.useSample });
     setUploadedPdf(null); // 이전 자료 잔상 제거 (썸네일 캐시까지)
     if (file && /\.pdf$/i.test(file.name || '')) {
@@ -2819,9 +2832,9 @@ async function ensureSlideDoc() {
     if (!uploadedPdf) await ensurePreviewPdf(nfSlideDoc);
     return nfSlideDoc;
   }
-  const hint = nf.fileName || '';
+  if (!nf.sessionId) return null;   // 세션 없이는 찾을 열쇠가 없다 — 재파싱을 안내한다
   try {
-    const res = await fetch(`/api/v1/cached-slidedoc?file=${encodeURIComponent(hint)}`);
+    const res = await fetch(`/api/v1/cached-slidedoc?session_id=${encodeURIComponent(nf.sessionId)}`);
     if (!res.ok) return null;
     const doc = await res.json();
     if (!doc || doc.error || !Array.isArray(doc.slides)) return null;
@@ -4427,6 +4440,7 @@ function nfStep4() {
       slideDoc,
       // #/replay 로 들어온 테이크는 저장된 받아쓰기를 그대로 쓴다 (재녹음·재과금 없음)
       reuse: !!ccLastTake.reuse,
+      sessionId: nf.sessionId || null,
       precomputed: precomputeHandles(),
       context: {
         situation: nf.occ || '',
@@ -4957,6 +4971,7 @@ async function renderReport() {
     switchReportTab($$('#rtabs button').indexOf(b));
   });
   R_TAB_VIEWS[rTab]();
+  wireSessionDelete($('#rbody'));
   animateViz($('#rbody'));
 }
 
@@ -4998,7 +5013,54 @@ function renderProfileReport(p) {
       <h2 class="section-title">다음 발표에서 고칠 3가지</h2>
       <ol>${p.priorities.map(x => `<li>${x}</li>`).join('')}</ol>
       <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/">내 발표로 돌아가기</a></div>
+      ${sessionDeleteHtml()}
     </div>`;
+}
+
+/* ── 「이 발표 기록 지우기」 ───────────────────────────────────────────────
+   서버에 남은 자료·받아쓰기·판정 기록을 지우는 유일한 길이다 (계정이 없으니
+   브라우저가 든 세션 id 가 곧 열쇠다). 실측 리포트에만 보이고, 두 번 눌러야 지운다.
+   확인 줄의 왼쪽은 「닫기」 — 「취소」는 하던 일이 취소되는 줄 안다 (CLAUDE.md §3-1). */
+function sessionDeleteHtml() {
+  if (!isLiveReportSession() || !(nf && nf.sessionId)) return '';
+  return `<div class="session-delete" id="sessionDelete">
+    <button class="btn btn-text btn-sm" type="button" data-del="ask">이 발표 기록 지우기</button>
+  </div>`;
+}
+
+function wireSessionDelete(root) {
+  const box = root.querySelector('#sessionDelete');
+  if (!box) return;
+  box.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    const mode = btn.dataset.del;
+    if (mode === 'ask') {
+      box.innerHTML = `<p class="note">서버에 남은 자료·받아쓰기·판정 기록을 지워요. 되돌릴 수 없어요.</p>
+        <div class="step-actions" style="margin-top:8px">
+          <button class="btn btn-secondary btn-sm" type="button" data-del="close">닫기</button>
+          <button class="btn btn-primary btn-sm" type="button" data-del="go">지우기</button>
+        </div>`;
+      return;
+    }
+    if (mode === 'close') { box.innerHTML = sessionDeleteHtml().replace(/^<div[^>]*>|<\/div>$/g, ''); return; }
+    if (mode !== 'go') return;
+    btn.disabled = true; btn.textContent = '지우는 중이에요…';
+    const sid = nf.sessionId;
+    try {
+      const bridge = window.ChuckchuckBridge;
+      if (bridge && typeof bridge.deleteSession === 'function') await bridge.deleteSession(sid);
+      // 브라우저에 남은 것도 같이 비운다 — 서버는 비었는데 화면이 남아 있으면 안 지워진 줄 안다
+      try { localStorage.removeItem(LAST_REPORT_KEY); } catch (_) { /* privacy mode */ }
+      try { if (window.QaHistory) window.QaHistory.clear(sid); } catch (_) { /* ignore */ }
+      try { sessionStorage.removeItem('cheokcheok:chuckchuck-session'); } catch (_) { /* ignore */ }
+      nf.sessionId = null;
+      box.innerHTML = '<p class="note">지웠어요. 서버에는 이 발표가 남아 있지 않아요.</p>';
+    } catch (err) {
+      box.innerHTML = `<p class="note">지우지 못했어요: ${escapeHtml(String(err.message || err))}. 잠시 뒤 다시 누르면 할 수 있어요.</p>
+        <button class="btn btn-text btn-sm" type="button" data-del="ask">다시 시도</button>`;
+    }
+  });
 }
 /* 탭 순서의 단일 원본. renderReport 의 tabs 라벨 배열과 순서가 같아야 한다. */
 const R_TAB_VIEWS = [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools, rStrategy];
@@ -5019,6 +5081,7 @@ function switchReportTab(i) {
   rTab = i;
   btns.forEach((b, k) => b.classList.toggle('on', k === i));
   R_TAB_VIEWS[i]();
+  wireSessionDelete($('#rbody'));
   animateViz($('#rbody'));
 }
 
@@ -7609,6 +7672,12 @@ function wireQaModeButtons(rerender) {
 /* 플랫(세션 없는) 질문 경로가 쓰는 판정용 세션 자리표시자. */
 const FLAT_QA_SESSION_ID = 'flat';
 
+/* 질문·판정에 실을 세션 id. 자료를 올려 서버가 발급한 id 가 있으면 그것, 없으면(샘플·mock) 'flat'.
+   'flat' 하나를 모두가 나눠 쓰던 때에는 발표 A 의 flow 가 발표 B 의 판정 근거로 섞였다. */
+function qaSessionId() {
+  return (typeof nf !== 'undefined' && nf && nf.sessionId) || FLAT_QA_SESSION_ID;
+}
+
 /* 실전 질문을 만들 수 없는 **영구적** 이유. null 이면 만들 수 있다. */
 function qaLiveBlockReason(out) {
   if (!out || !out.graph) {
@@ -7675,13 +7744,13 @@ function ensureLiveQuestions() {
   // 실패해도 아래 요청이 본문으로 그대로 싣고 가므로 흐름이 막히지 않는다.
   const artifacts = liveArtifacts();
   const registered = artifacts && bridge.registerSessionArtifacts
-    ? bridge.registerSessionArtifacts(FLAT_QA_SESSION_ID, artifacts).catch((err) => {
+    ? bridge.registerSessionArtifacts(qaSessionId(), artifacts).catch((err) => {
         console.warn('[chuckchuck] register session artifacts', err);
       })
     : Promise.resolve();
 
   registered.then(() => bridge.buildQuestions({
-    sessionId: FLAT_QA_SESSION_ID,
+    sessionId: qaSessionId(),
     graph: out.graph,
     alignment: out.alignment || null,
     flow: out.flow || null,
@@ -7695,7 +7764,7 @@ function ensureLiveQuestions() {
     const questions = (doc && doc.questions) || [];
     if (questions.length) {
       // 어느 자료로 만든 질문인지 같이 새긴다 — 자료가 바뀌면 낡은 것이 된다.
-      qa.live = newLiveState(FLAT_QA_SESSION_ID, questions, qaDocKey());
+      qa.live = newLiveState(qaSessionId(), questions, qaDocKey());
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;
@@ -8071,6 +8140,7 @@ function streamRow(it) {
         <span class="msg-meta">${it.meta || ''}${it.slide ? ` · ${slideNumber(it.slide)}번 슬라이드` : ''}</span>
         <p class="msg-q">${it.text}</p>
         ${it.basis ? `<span class="msg-basis">${it.basis}</span>` : ''}
+        ${(it.choices || []).length ? `<div class="qa-choices">${it.choices.map((c) => `<button type="button" class="qa-choice-chip">${c}</button>`).join('')}</div>` : ''}
       </div></div>`;
   }
   if (it.kind === 'interject') return `<div class="msg ai cut">${av}<div class="msg-bubble">${it.text}</div></div>`;
@@ -8091,11 +8161,18 @@ function streamRow(it) {
        다음에 무슨 일이 일어나는지는 어디에도 안 적혀 있었다 (2026-08-10 사용자).
        칩을 빼고, 코치가 지금 무엇을 하려는지를 그 자리에 적는다. */
     if (it.coach) {
-      const line = { explain: '답을 같이 풀어 볼게요', clarify: '질문을 다시 풀어 드릴게요' }[it.coach]
-        || '더 쉬운 걸로 바꿔 물을게요';
+      const line = {
+        narrow: '막힘 1/3 · 자료에서 같이 찾아요', scaffold: '막힘 2/3 · 빈칸을 채워요',
+        explain: '막힘 3/3 · 답을 같이 풀어요', clarify: '질문을 다시 풀었어요',
+      }[it.coach] || '더 쉬운 걸로 바꿔 물을게요';
+      /* 자료 인용 카드 — 기억을 요구하지 않고 **보고 짚게** 한다. 서버가 F-08 때 저장한
+         근거 장 문장(evidence_quote)이라 지어낸 말이 아니다. 장 그림은 힌트와 같은 방식. */
+      const quote = it.quote ? `<blockquote class="qa-evidence"><span>자료 ${it.quoteSlide ? `${it.quoteSlide}장` : ''}</span>${it.quote}</blockquote>` : '';
+      const slides = (it.slides || []).length ? `<div class="hint-slides">${it.slides.map((no) => `
+      <figure><img data-thumb-page="${no}" src="${deckImageSrc(no)}" alt="${no}번 슬라이드" loading="lazy"><figcaption>${no}번</figcaption></figure>`).join('')}</div>` : '';
       return `<div class="msg ai react is-coach">${av}<div class="msg-bubble">
         <span class="msg-meta">${line}</span>
-        <p>${it.text}</p></div></div>`;
+        <p>${it.text}</p>${quote}${slides}</div></div>`;
     }
     // 맵 밖 값이면 칩에 문자 그대로 "undefined" 가 그려진다 — 보류 쪽으로 떨어뜨린다.
     const lab = { full: '제대로 설명했어요', partial: '절반쯤', none: '아직' }[it.verdict] || '아직';
@@ -8695,7 +8772,9 @@ function renderAbout() {
       <h2 class="section-title">자료와 녹음은 이렇게 다뤄요</h2>
       <ul class="principles">
         <li><b>분석에만 써요.</b> 다른 곳에 넘기지 않아요.</li>
-        <li><b>1년 동안 보관한 뒤 지워요.</b> 그동안은 다시 듣고 지난 발표와 견줘 볼 수 있어요.</li>
+        <li><b>학습에 쓰기로 한 자료만 최대 1년 보관해요.</b> 자료를 올릴 때 체크한 발표만이에요. 그 밖의 자료는 분석이 끝나면 하루 안에 지워요.</li>
+        <li><b>녹음은 받아쓰기가 끝나는 즉시 지워요.</b> 글로 옮긴 내용만 남아요.</li>
+        <li><b>리포트의 「이 발표 기록 지우기」를 누르면 바로 지워요.</b> 서버에 남은 자료·받아쓰기·판정 기록이 한 번에 사라져요.</li>
       </ul>
     </div>
     </div>
@@ -8748,15 +8827,16 @@ async function renderReplay() {
       `<span class="chip chip-sm ${t.transcript ? 'st-ok' : 'st-no'}">받아쓰기 ${t.transcript ? '있어요' : '없어요'}</span>`,
       `<span class="chip chip-sm ${t.preview ? 'st-ok' : 'st-om'}">원본 화면 ${t.preview ? '있어요' : '없어요'}</span>`,
     ].join('');
+    const when = t.at ? new Date(t.at * 1000).toLocaleString('ko-KR') : '';
     return `<div class="qa-sum">
-      <b class="qs-name">${escapeHtml(t.stem)}</b>
-      <p class="qs-text">${marks}</p>
-      <button class="btn ${ready ? 'btn-primary' : 'btn-secondary'}" data-replay="${escapeHtml(t.stem)}"
+      <b class="qs-name">${escapeHtml(t.title || t.session_id)}</b>
+      <p class="qs-text">${marks}<span class="chip chip-sm">${escapeHtml(when)}</span>${t.consent ? '<span class="chip chip-sm st-ok">학습 동의</span>' : ''}</p>
+      <button class="btn ${ready ? 'btn-primary' : 'btn-secondary'}" data-replay="${escapeHtml(t.session_id)}" data-title="${escapeHtml(t.title || '')}"
         ${ready ? '' : 'disabled'} type="button">${ready ? '이 발표로 이어서' : '한 번은 말해야 저장돼요'}</button>
     </div>`;
   }).join('');
   box.querySelectorAll('[data-replay]').forEach((btn) => {
-    btn.addEventListener('click', () => startReplay(btn.dataset.replay, btn));
+    btn.addEventListener('click', () => startReplay(btn.dataset.replay, btn.dataset.title, btn));
   });
 }
 
@@ -8767,25 +8847,26 @@ async function renderReplay() {
  * 되살리고 원본 미리보기 PDF 까지 메모리에 올린다. PDF 를 같이 올리는 게 중요한데,
  * 그게 없으면 힌트에 붙는 슬라이드가 회색 자리표시자로 떨어진다 (hasRealSlideImage).
  */
-async function startReplay(stem, btn) {
+async function startReplay(sessionId, title, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '불러오는 중이에요…'; }
   resetNf();
   resetQa();
-  nf.fileName = stem;               // ensureSlideDoc 이 이 이름으로 캐시를 찾는다
+  nf.sessionId = sessionId;         // ensureSlideDoc 이 이 id 로 파싱본을 찾는다
+  nf.fileName = title || sessionId;
   const doc = await ensureSlideDoc();
   if (!doc) {
     if (btn) { btn.disabled = false; btn.textContent = '이 발표로 이어서'; }
     const box = $('#replayList');
     if (box) box.insertAdjacentHTML('afterbegin',
-      `<div class="qa-flag lost"><i>✕</i>'${escapeHtml(stem)}' 의 자료 파싱본을 못 찾았어요</div>`);
+      `<div class="qa-flag lost"><i>✕</i>'${escapeHtml(title || sessionId)}' 의 자료 파싱본을 못 찾았어요</div>`);
     return;
   }
   applySlideDoc(doc, { keepDemoImages: false });
-  nf.fileName = doc.file_name || stem;
+  nf.fileName = doc.file_name || title || sessionId;
   nf.gate = 'done';
   nf.step = 3;                      // [nfStep1, nfStep2, nfStep3, nfStep4][3]
   // 녹음 대신 저장본을 태운다. _blob 이 없어도 reuse 가 서버에서 먼저 걸린다.
-  ccLastTake = { marks: [], _blob: null, mimeType: '', fileName: stem, reuse: true };
+  ccLastTake = { marks: [], _blob: null, mimeType: '', fileName: nf.fileName, reuse: true };
   saveSession('new-flow', nf);
   // 해시가 이미 #/new 면 hashchange 가 안 떠서 화면이 안 바뀐다 — 직접 그린다.
   if (location.hash === '#/new') route();

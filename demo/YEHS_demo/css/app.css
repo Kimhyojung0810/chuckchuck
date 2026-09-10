@@ -408,6 +408,15 @@ main.narrow { max-width: 640px; }
   color: var(--text-2); font-size: var(--t-body); line-height: 1.65;
 }
 .dz-or { color: var(--text-3); font-size: var(--t-meta); line-height: 1.5; }
+/* 학습 동의 — 기본 꺼짐. 드롭존의 주인공은 자료 올리기라 작게, 아래에 둔다 */
+.dz-consent {
+  display: inline-flex; align-items: flex-start; gap: 8px; margin-top: 22px;
+  color: var(--text-2); font-size: var(--t-meta); line-height: 1.5; text-align: left; cursor: pointer;
+}
+.dz-consent input { margin: 3px 0 0; accent-color: var(--brand); flex: none; }
+.dz-consent-note { margin: 6px auto 0; max-width: 40ch; color: var(--text-3); font-size: 12px; line-height: 1.5; }
+.session-delete { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.session-delete .btn-text { padding-left: 0; }
 .sample-analysis-note {
   margin: 0 0 16px;
   padding: 12px 14px;
@@ -1403,6 +1412,12 @@ details.fold .fold-body { padding: 0 24px 20px; }
 
 /* 힌트가 부르는 장을 조그맣게 같이 띄운다 — 장 번호만 부르면 그 장에 뭐가 있는지
    아는 사람에게만 힌트다. 말풍선 안이라 작게 두고, 넘치면 가로로 민다. */
+/* 코칭 자료 인용 카드 · 둘 중 하나 선택 칩 (2026-09-10) */
+.qa-evidence { margin: 8px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); border-radius: var(--r-ctl); background: var(--accent-weak); font-size: 14px; line-height: 1.55; color: var(--text); }
+.qa-evidence span { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 700; color: var(--text-3); }
+.qa-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.qa-choice-chip { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 12px; border: 1px solid var(--accent); border-radius: var(--r-pill); background: var(--surface); color: var(--accent); cursor: pointer; }
+.qa-choice-chip:hover, .qa-choice-chip:focus-visible { background: var(--accent-weak); outline: none; }
 .hint-slides { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; padding-bottom: 2px; }
 .hint-slides figure { margin: 0; flex: 0 0 auto; width: 116px; }
 .hint-slides img {
