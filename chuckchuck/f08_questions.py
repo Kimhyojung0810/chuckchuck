@@ -24,6 +24,7 @@ import os
 import re
 from itertools import groupby
 
+from ._evidence import anchor_slides, clean_slide_text, neighbor_lines, section_line
 from ._json_text import extract_json_object
 from .contracts import (
     QA_EXTRA_MAX,
@@ -126,7 +127,7 @@ HEAVY_WEIGHT = float(os.environ.get("CHUCKCHUCK_QA_HEAVY_WEIGHT", "0.5"))
 MINOR_WEIGHT = float(os.environ.get("CHUCKCHUCK_QA_MINOR_WEIGHT", "0.2"))
 
 #: 개념 하나당 프롬프트에 실을 발화 발췌 길이. 전체 발화를 다 실으면 개념이 묻힌다.
-SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_QA_SPEECH_EXCERPT_MAX", "300"))
+SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_QA_SPEECH_EXCERPT_MAX", "500"))
 
 #: 개념 하나당 프롬프트에 실을 **자료 본문** 길이. 근거 장(`node.slide_nos`)만 잘라
 #: 넣는다 — 자료 전체를 실으면 F-06 이 겪은 「입력이 길면 LLM JSON 이 잘린다」로 간다.
@@ -137,7 +138,9 @@ SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_QA_SPEECH_EXCERPT_MAX", "300
 #:
 #: **0 이면 본문을 아예 안 싣는다** — 시연 중에 프롬프트를 예전으로 되돌리는
 #: 스위치다. 커밋을 찾지 않고 `CHUCKCHUCK_QA_SLIDE_BODY_MAX=0` 하나로 끈다.
-SLIDE_BODY_MAX = int(os.environ.get("CHUCKCHUCK_QA_SLIDE_BODY_MAX", "400"))
+#: 2026-09-10: 400 → 1200. 근거 장을 anchor 3장으로 좁히고 캡션 잡음을 걷어냈으니
+#: 같은 글자 수가 전부 본문이다. 400 이던 때는 그중 70% 가 이미지 캡션이었다.
+SLIDE_BODY_MAX = int(os.environ.get("CHUCKCHUCK_QA_SLIDE_BODY_MAX", "1200"))
 
 #: 한 개념에 붙여 보여 줄 이웃 개념 수. 그래프가 넓어도 프롬프트가 안 터지게 자른다.
 NEIGHBOR_MAX = 5
@@ -566,13 +569,17 @@ def _relation_line(node: ConceptNode, graph: ConceptGraph) -> str:
     return " · ".join(parts)
 
 
-def _speech_excerpt(node: ConceptNode, transcript: Transcript | None) -> str:
-    """이 개념의 근거 장에서 실제로 한 말. Transcript.by_slide 를 slide_no 로 조인한다."""
+def _speech_excerpt(
+    node: ConceptNode, transcript: Transcript | None, slide_nos: list[int] | None = None
+) -> str:
+    """이 개념의 근거 장에서 실제로 한 말. Transcript.by_slide 를 slide_no 로 조인한다.
+    `slide_nos` 를 주면 그 장만 (anchor 장) — 안 주면 node.slide_nos 전부다."""
     if transcript is None:
         return ""
+    nos = node.slide_nos if slide_nos is None else slide_nos
     said = " ".join(
         text
-        for text in (transcript.text_for_slide(no).strip() for no in node.slide_nos)
+        for text in (transcript.text_for_slide(no).strip() for no in nos)
         if text
     )
     if len(said) <= SPEECH_EXCERPT_MAX:
@@ -590,7 +597,26 @@ def _slides_by_no(slidedoc: SlideDoc | None) -> dict[int, Slide]:
     return {s.slide_no: s for s in slidedoc.slides}
 
 
-def _slide_body(node: ConceptNode, by_no: dict[int, Slide]) -> str:
+def _anchor_nos(node: ConceptNode, by_no: dict[int, Slide]) -> list[int]:
+    """
+    이 개념의 **anchor 장** — F-07 의 slide_nos 안에서 본문이 실제로 이 개념을 말하는
+    장만 최대 ANCHOR_MAX 개. 자료가 없으면(by_no 비면) 좁힐 근거가 없어 slide_nos 그대로다.
+    """
+    # 근거 장이 없는 개념(정합이 만든 extra 개념 등)은 자료 본문도 없다 — 덱 전체에서
+    # 찾아 붙이면 "이 개념의 근거 장" 이 아니라 아무 장이 된다.
+    if not by_no or not node.slide_nos:
+        return list(node.slide_nos)
+    texts = {
+        no: clean_slide_text(s.raw_text or "")
+        for no, s in by_no.items()
+        if no in node.slide_nos
+    }
+    return anchor_slides(node.label, node.summary, node.slide_nos, texts)
+
+
+def _slide_body(
+    node: ConceptNode, by_no: dict[int, Slide], slide_nos: list[int] | None = None
+) -> str:
     """
     이 개념의 **근거 장 자료 본문**. `_speech_excerpt` 와 같은 규칙으로 자른다
     (근거 장만 · 한 줄로 이어 붙여 · 상한에서 절단).
@@ -600,14 +626,15 @@ def _slide_body(node: ConceptNode, by_no: dict[int, Slide]) -> str:
     """
     if not by_no or SLIDE_BODY_MAX <= 0:
         return ""
-    # 줄바꿈을 접는다 — raw_text 는 블록마다 개행이라 그대로 실으면 프롬프트의
-    # 한 줄짜리 개념 항목 구조가 깨진다 (f14_rubric `_slides_block` 과 같은 처리).
+    nos = node.slide_nos if slide_nos is None else slide_nos
+    # 정제해서 싣는다 — 이미지 캡션·HTML 을 걷어내고 줄바꿈을 접는다 (_evidence).
+    # 안 걷어내면 예산의 70% 가 "A well-lit, modern wooden desk…" 로 찬다.
     body = " ".join(
-        " ".join(text.split())
+        text
         for text in (
-            (by_no[no].raw_text or "") for no in node.slide_nos if no in by_no
+            clean_slide_text(by_no[no].raw_text or "") for no in nos if no in by_no
         )
-        if text.strip()
+        if text
     )
     if len(body) <= SLIDE_BODY_MAX:
         return body
@@ -1029,7 +1056,10 @@ def _build_question_prompt(
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
     for mark in marks:
         node = by_id[mark.node_id]
-        nos = ",".join(str(n) for n in node.slide_nos)
+        # 자료가 있으면 근거 장을 anchor 로 좁힌다. 12장짜리 개념이 세 개면 셋이
+        # 똑같은 덱 첫 장을 받았다 — 그 상태에서는 사전 정의 질문밖에 안 나온다.
+        anchors = _anchor_nos(node, by_no or {})
+        nos = ",".join(str(n) for n in anchors)
         line = (
             f"- ({node.id}) {node.label} [S{nos}] · 치명도={mark.severity}"
             f" · 함정={'예' if mark.trap else '아니오'}"
@@ -1043,6 +1073,12 @@ def _build_question_prompt(
         relation = _relation_line(node, graph)
         if relation:
             parts.append(f"    {relation}")
+        section = section_line(node, graph)
+        if section:
+            parts.append(f"    {section}")
+        # 이웃의 요약·간선 종류·근거 장. 이름만 있으면 관계를 캐묻지 못한다.
+        for ln in neighbor_lines(node, graph):
+            parts.append(f"    이웃 {ln}")
 
         issue = (flow_of or {}).get(node.id)
         if issue is not None and mark.source == "weak_flow":
@@ -1050,11 +1086,11 @@ def _build_question_prompt(
 
         # 자료가 먼저, 발화가 나중. 우리가 재는 것은 «자료가 약속한 것을 말로
         # 지켰는가» 라서 프롬프트도 자료를 기준으로 읽히게 둔다.
-        body = _slide_body(node, by_no or {})
+        body = _slide_body(node, by_no or {}, anchors)
         if body:
             parts.append(f"    자료 본문(S{nos}): {body}")
 
-        said = _speech_excerpt(node, transcript)
+        said = _speech_excerpt(node, transcript, anchors if by_no else None)
         item = judged.get(node.id)
         if said or (item is not None and item.evidence.strip()):
             verdict = f"({item.verdict}) " if item is not None else ""
@@ -1066,8 +1102,11 @@ def _fallback_text(
     node: ConceptNode,
     mark: TriageMark,
     flow_issue: FlowIssue | None = None,
+    slide_nos: list[int] | None = None,
 ) -> tuple[str, str, str]:
-    """LLM 이 이 개념을 빠뜨렸을 때 쓰는 결정적 문장 3종 (question, why, hint)."""
+    """LLM 이 이 개념을 빠뜨렸을 때 쓰는 결정적 문장 3종 (question, why, hint).
+    `slide_nos` 는 anchor 장 — 안 주면 node.slide_nos 다."""
+    nos_all = node.slide_nos if slide_nos is None else slide_nos
     # '~시겠어요' 는 쓰지 않는다 (CLAUDE.md §3-1). 이 문장은 용어 카드의
     # 「이런 질문이 와요」로도 그대로 나가므로 제품 말투를 따른다.
     if mark.angle:
@@ -1082,20 +1121,22 @@ def _fallback_text(
     else:
         why = _WHY_BY_SOURCE.get(mark.source, _WHY_BY_SOURCE[QA_SOURCE_FALLBACK])
 
-    if node.slide_nos:
+    if nos_all:
         # 사다리 2단(_hint_scope)과 같은 절단 — 12장을 다 나열하면 좁혀 주기는커녕
         # 아무 정보도 없다. 문구는 2단과 다르게 둔다: 같으면 build_hint_ladder 의
         # 중복 제거가 2단을 지워 사다리가 한 칸 짧아진다.
-        shown = node.slide_nos[:HINT_SLIDE_MAX]
+        shown = nos_all[:HINT_SLIDE_MAX]
         nos = ", ".join(str(n) for n in shown)
-        extra = f" 외 {len(node.slide_nos) - len(shown)}장" if len(node.slide_nos) > len(shown) else ""
+        extra = f" 외 {len(nos_all) - len(shown)}장" if len(nos_all) > len(shown) else ""
         hint = f"{nos}장{extra}에 이 개념을 둔 이유부터 떠올려 보세요"
     else:
         hint = "자료에서 이 개념을 왜 다뤘는지부터 짚어 보세요"
     return question, why, hint
 
 
-def _fallback_gist(node: ConceptNode, *, trap: bool = False) -> str:
+def _fallback_gist(
+    node: ConceptNode, *, trap: bool = False, slide_nos: list[int] | None = None
+) -> str:
     """
     LLM 이 골자를 빠뜨렸을 때 자료로 조립하는 결정적 문장.
 
@@ -1110,9 +1151,14 @@ def _fallback_gist(node: ConceptNode, *, trap: bool = False) -> str:
         summary = f"{node.label} 의 핵심"
     if trap:
         summary = f"질문의 전제가 자료와 달라요 — 자료가 말하는 것: {summary}"
-    if node.slide_nos:
-        nos = ", ".join(str(n) for n in node.slide_nos)
-        return f"{summary} ({nos}장 근거)"
+    nos_all = node.slide_nos if slide_nos is None else slide_nos
+    if nos_all:
+        # _fallback_text 의 힌트와 같은 절단. 이 문장은 화면에 모범답으로 그대로
+        # 나간다 — "(1, 2, 3, …, 12장 근거)" 는 근거가 아니라 소음이다.
+        shown = nos_all[:HINT_SLIDE_MAX]
+        nos = ", ".join(str(n) for n in shown)
+        extra = f" 외 {len(nos_all) - len(shown)}장" if len(nos_all) > len(shown) else ""
+        return f"{summary} ({nos}장{extra} 근거)"
     return summary
 
 
@@ -1195,6 +1241,7 @@ def _normalize_questions(
     marks: list[TriageMark],
     by_id: dict[str, ConceptNode],
     flow_of: dict[str, FlowIssue] | None = None,
+    by_no: dict[int, Slide] | None = None,
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
@@ -1215,8 +1262,11 @@ def _normalize_questions(
     for mark in marks:
         node = by_id[mark.node_id]
         raw = written.get(mark.node_id) or {}
+        # 질문의 근거 장은 anchor 다 — 힌트·모범답·화면의 장 그림·판정의 본문이
+        # 전부 이 목록을 따라가므로, 프롬프트에 실린 장과 같아야 한다.
+        anchors = _anchor_nos(node, by_no or {})
         fb_question, fb_why, fb_hint = _fallback_text(
-            node, mark, (flow_of or {}).get(mark.node_id)
+            node, mark, (flow_of or {}).get(mark.node_id), slide_nos=anchors
         )
 
         # 발판을 근거로 인용한 문장은 없는 것으로 친다 — 아래 `or` 가 결정적
@@ -1229,7 +1279,7 @@ def _normalize_questions(
             written_gist = ""
 
         question_text = written_q or fb_question
-        gist = written_gist or _fallback_gist(node, trap=mark.trap)
+        gist = written_gist or _fallback_gist(node, trap=mark.trap, slide_nos=anchors)
         # 요소 쪼개기. LLM 이 쓴 것을 먼저 믿고, 안 썼는데 문면이 둘 이상을 묻고
         # 있으면 코드가 골자를 갈라 백스톱을 세운다 (_followup·_OPEN_QUESTION_RE 와
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
@@ -1252,7 +1302,7 @@ def _normalize_questions(
             severity=mark.severity,
             trap=mark.trap,
             source=mark.source,
-            slide_nos=list(node.slide_nos),
+            slide_nos=list(anchors),
             doc_weight=mark.doc_weight,
             answer_gist=gist,
             # 「비었거나 2개 이상」 불변식은 Question 이 지킨다 (contracts._gist_parts_of).
@@ -1324,12 +1374,12 @@ def build_questions(
     engine = _engine(llm, llm_kwargs)
     flow_of = _flow_issue_by_node(flow)
 
+    by_no = _slides_by_no(slidedoc)
     data = _call_with_retry(
         engine,
         QUESTION_SYSTEM_PROMPT,
         _build_question_prompt(
-            graph, marks, by_id, alignment, transcript, ctx, flow_of,
-            _slides_by_no(slidedoc),
+            graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no,
         ),
     )
     raw_questions = [q for q in (data.get("questions") or []) if isinstance(q, dict)]
@@ -1337,7 +1387,7 @@ def build_questions(
     # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의
     # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.
     questions, twins = _drop_twin_questions(
-        _normalize_questions(raw_questions, marks, by_id, flow_of),
+        _normalize_questions(raw_questions, marks, by_id, flow_of, by_no),
         QA_TRACK_LIMITS[track],
     )
 

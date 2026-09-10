@@ -9,13 +9,18 @@ import 해도 정책 위반이 아닙니다 (DEV_POLICY §4-1 은 F-모듈끼리
   개념당 400자 예산이 그 잡음으로 채워져 정작 본문이 안 실렸다.
 - F-07 이 핵심 개념에 근거 장을 12장 전부 붙여서, "근거 장 본문" 이 덱 전체가 됐다.
   같은 400자를 세 개념이 똑같이 받으니 질문이 사전 정의처럼 나왔다.
+- 그래프는 "경로=A > B · 연결=C, D" 이름 한 줄로만 실렸다. 이웃의 요약·간선 종류가
+  없으면 모델은 관계를 캐묻지 못하고 정의를 묻는다.
 
 이 파일은 순수 함수만 둔다. LLM 을 부르지 않고, contracts 타입만 받는다.
 """
 
 from __future__ import annotations
 
+import os
 import re
+
+from ._match import contains_tokens, norm_tokens
 
 #: 이미지 자리표시자와 캡션 블록. Upstage document-parse 의 markdown 출력 모양이다.
 _FIGCAPTION_RE = re.compile(r"<figcaption>.*?</figcaption>", re.S | re.I)
@@ -26,6 +31,12 @@ _TAG_RE = re.compile(r"<[^>]+>")
 #: 한글 자료에서 40자 넘는 순수 영문 구절은 본문이 아니라 이미지 설명이다.
 _LONG_LATIN_RE = re.compile(r"(?<![가-힣])[A-Za-z][A-Za-z0-9 ,.'\"()-]{40,}")
 _WS_RE = re.compile(r"\s+")
+
+#: 한 개념에 붙일 근거 장 수. F-07 이 12장을 다 붙여도 여기서 이만큼만 남는다.
+#: f08 `HINT_SLIDE_MAX` 와 같은 값 — 힌트가 가리키는 장과 프롬프트에 실린 장이 같아야 한다.
+ANCHOR_MAX = int(os.environ.get("CHUCKCHUCK_QA_ANCHOR_SLIDES", "3"))
+#: 이웃 개념 상세 줄 수. f08 `NEIGHBOR_MAX` 와 같은 값.
+NEIGHBOR_DETAIL_MAX = 5
 
 
 def clean_slide_text(raw_text: str) -> str:
@@ -59,3 +70,83 @@ def markup_ratio(raw_text: str) -> float:
         return 0.0
     kept = len(clean_slide_text(text))
     return max(0.0, 1.0 - kept / max(1, len(_WS_RE.sub(" ", text).strip())))
+
+
+def _content_tokens(text: str) -> list[str]:
+    """대조용 토큰. 한 글자는 우연히 다 걸리므로 버린다."""
+    return [t for t in norm_tokens(text) if len(t) >= 2]
+
+
+def anchor_slides(
+    label: str,
+    summary: str,
+    slide_nos: list[int],
+    texts: dict[int, str],
+    k: int = ANCHOR_MAX,
+) -> list[int]:
+    """
+    이 개념을 **실제로 뒷받침하는 장** 을 최대 k 개 고른다 (장 번호 오름차순).
+
+    후보는 F-07 이 준 `slide_nos` 다 — 그래프의 조인 키를 바꾸지 않고 그 안에서
+    좁힌다. 점수는 개념 이름·요약의 낱말이 그 장 본문에 몇 개 있는가이고, 이름이
+    통째로 나오는 장은 가산한다. 본문에 이름도 요약도 안 나오면(그림뿐인 장)
+    F-07 순서대로 앞 k 장을 쓴다 — 예전 힌트가 하던 그대로다.
+
+    `texts` 는 slide_no → 정제 본문(`clean_slide_text`). 비어 있으면 자를 근거가
+    없으니 slide_nos 앞 k 장이다.
+    """
+    wanted = list(slide_nos or [])
+    candidates = [n for n in (wanted or sorted(texts)) if n in texts]
+    if not candidates:
+        return wanted[:k]
+    query = set(_content_tokens(f"{label} {summary}"))
+    name = _content_tokens(label)
+    scored: list[tuple[int, int]] = []
+    for no in candidates:
+        tokens = _content_tokens(texts[no])
+        present = set(tokens)
+        score = sum(1 for t in query if t in present)
+        if name and contains_tokens(tokens, name):
+            score += 2
+        scored.append((score, no))
+    scored.sort(key=lambda s: (-s[0], s[1]))
+    top = [no for score, no in scored if score > 0][:k]
+    return sorted(top or candidates[:k])
+
+
+def neighbor_lines(node, graph, texts: dict[int, str] | None = None) -> list[str]:
+    """
+    이웃 개념을 **요약·간선 종류·근거 장**과 함께 한 줄씩.
+
+    "연결=환경 설계, 집중 루틴" 만으로는 모델이 두 개념이 내용상 어떤 관계인지
+    모른다. 요약이 나란히 있어야 "A 가 B 를 줄이는가" 같은 관계 질문이 나온다.
+    간선 방향은 발표자가 고른 것이 아니라 우리가 추론한 배치라(f08 규칙 3-1),
+    상위/하위/관련으로만 적고 그 배치를 묻지 않게 하는 문구는 호출자가 붙인다.
+    """
+    kinds: dict[str, str] = {}
+    for e in graph.edges:
+        if e.from_id == node.id:
+            kinds[e.to_id] = "하위" if e.kind == "parent" else "관련"
+        elif e.to_id == node.id:
+            kinds[e.from_id] = "상위" if e.kind == "parent" else "관련"
+    ranked = sorted(graph.neighbors_of(node.id), key=lambda n: (-n.weight, n.id))
+    lines: list[str] = []
+    for other in ranked[:NEIGHBOR_DETAIL_MAX]:
+        line = f"{kinds.get(other.id, '관련')} · {other.label}"
+        if other.summary:
+            line += f": {other.summary}"
+        nos = anchor_slides(other.label, other.summary, other.slide_nos, texts or {})
+        if nos:
+            line += f" [S{','.join(str(n) for n in nos)}]"
+        lines.append(line)
+    return lines
+
+
+def section_line(node, graph) -> str:
+    """이 개념이 발표의 어느 구간(도입·본론·결론)에 있는지 한 줄. 없으면 빈 문자열."""
+    if not node.slide_nos:
+        return ""
+    section = graph.section_of(min(node.slide_nos))
+    if section is None:
+        return ""
+    return f"구간={section.name} ({section.slide_role})"

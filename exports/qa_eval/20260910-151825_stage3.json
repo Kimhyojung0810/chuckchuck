@@ -1,0 +1,239 @@
+{
+ "bundle": "/home/yehschuck/project/chuckchuck/fixtures/live_qa_run.json",
+ "track": "5",
+ "model": "ax",
+ "summary": {
+  "questions": 3,
+  "fallback": 0,
+  "trap": 1,
+  "slide_count_mean": 3.0,
+  "specificity_mean": 4.33,
+  "grounding_mean": 0.45,
+  "honorifics_questions": 0,
+  "honorifics_judge": 0,
+  "judge": {
+   "gist_passed": "3/3",
+   "unrelated_wrong": "1/3",
+   "trap_agree_wrong": "0/1",
+   "trap_fixed_passed": "1/1"
+  },
+  "prompts": {
+   "qa-questions": {
+    "n": 1,
+    "user_chars_mean": 8213.0,
+    "noise_ratio_mean": 0.02,
+    "sec_mean": 20.6
+   },
+   "qa-judge": {
+    "n": 8,
+    "user_chars_mean": 1298.5,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 6.58
+   }
+  }
+ },
+ "questions": [
+  {
+   "id": "q01-notification",
+   "label": "알림",
+   "trap": true,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 3,
+   "grounding": 0.33,
+   "honorifics": 0,
+   "question": "알림 확인을 잠깐이라고 표현했는데 실제 인지 비용은 어떻게 되는가",
+   "gist": "알림 확인은 짧아도 작업 맥락 복구에 더 큰 인지 비용이 든다"
+  },
+  {
+   "id": "q03-work-context",
+   "label": "작업 맥락",
+   "trap": false,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 5,
+   "grounding": 0.33,
+   "honorifics": 0,
+   "question": "집중을 머릿속 작업 상태로 정의한 것이 작업 복귀에 어떤 영향을 주는가",
+   "gist": "작업 맥락이 흔들리면 다시 원래 상태로 복구하는 데 시간이 더 걸린다"
+  },
+  {
+   "id": "q05-environmental-design",
+   "label": "환경 설계",
+   "trap": false,
+   "severity": 2,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 5,
+   "grounding": 0.7,
+   "honorifics": 0,
+   "question": "알림 차단 외에 작업 흐름 끊김을 줄이는 다른 환경 설계 전략은 있는가",
+   "gist": "스마트폰 시야 밖 두기, 메신저·메일 닫기, 전환 전 한 줄 메모가 도움이 된다"
+  }
+ ],
+ "judgements": [
+  {
+   "question_id": "q01-notification",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 75,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인보다 맥락 복구에 더 큰 비용이 든다는 요지는 정확합니다. 그럼 작업 맥락 복구에 드는 인지 비용이 구체적으로 어떤 하위 요소로 나뉘는지 설명했나요?",
+   "followup": "작업 맥락 복구에 드는 인지 비용이 구체적으로 어떤 하위 요소로 나뉘는지 설명했나요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "알림 확인의 인지 비용이라는 요지를 짚지 않았습니다. 작업 맥락 복구라는 핵심 근거를 말해 주세요.",
+   "followup": "알림 확인 후 원래 작업으로 복귀하는 과정에서 어떤 인지 비용이 발생하나요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정에 동의",
+   "expect": "wrong",
+   "ok": false,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인이 작업 맥락을 흔든다는 점까지는 정확합니다. 그럼 ‘잠깐 확인’이라는 표현보다 실제로 더 큰 인지 비용이 드는 부분은 무엇인가요?",
+   "followup": "알림 확인 후 원래 작업으로 복귀할 때 어떤 인지 과정이 추가로 소모되나요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정을 바로잡음",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "확인 시간이 짧아도 작업 맥락 복구에 더 큰 인지 비용이 든다는 점은 정확합니다. 그럼 발표에서 말한 ‘집중 손실’과 ‘작업 흐름 끊김’은 어떤 근거로 설명했나요?",
+   "followup": "알림 확인 이후 작업 맥락 복구가 왜 더 큰 인지 비용을 발생시키는지, 집중 손실과 작업 흐름 끊김을 어떤 근거로 설명했나요?"
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "작업 맥락이 흔들릴 때 복구 시간이 길어진다는 요지까지는 정확합니다. 그럼 ‘복구 시간이 길어진다’는 것이 어떤 인지 과정 때문에 생기는지 설명해볼 수 있을까요?",
+   "followup": "알림 확인 이후에 다시 원래 작업으로 돌아와서 목표와 단계를 떠올리는 과정이 왜 인지적으로 부담이 되는지 설명해볼 수 있을까요?"
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": false,
+   "verdict": "partial",
+   "score": 75,
+   "passed": true,
+   "honorifics": 0,
+   "react": "작업 맥락을 목표와 순서가 머릿속에 올라와 있는 상태로 정의한 것은 정확합니다. 그럼 알림 때문에 작업 맥락이 흔들리면 다시 원래 상태로 복구하는 데 시간이 더 걸린다는 점은요?",
+   "followup": "알림 때문에 작업 맥락이 흔들리면 다시 원래 상태로 복구하는 데 시간이 더 걸린다는 점은요?"
+  },
+  {
+   "question_id": "q05-environmental-design",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 85,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 차단뿐 아니라 시야에서 스마트폰을 치우고, 주의를 끄는 창을 닫으며, 전환 전에 한 줄 메모를 남기는 전략을 모두 자기 말로 설명했습니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q05-environmental-design",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": false,
+   "verdict": "partial",
+   "score": 65,
+   "passed": false,
+   "honorifics": 0,
+   "react": "알림 차단 외 스마트폰 시야 밖 두기·메신저·메일 닫기·전환 전 한 줄 메모까지는 정확합니다.",
+   "followup": "알림 확인 후 작업 복귀 과정에서 발생하는 비가시적 집중 손실은 어떤 방식으로 환경 설계와 연결되나요?"
+  }
+ ],
+ "calls": [
+  {
+   "task": "qa-questions",
+   "sec": 20.6,
+   "system_chars": 2121,
+   "user_chars": 8213,
+   "noise_ratio": 0.02
+  },
+  {
+   "task": "qa-judge",
+   "sec": 10.1,
+   "system_chars": 2689,
+   "user_chars": 1312,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.6,
+   "system_chars": 2689,
+   "user_chars": 1349,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 8.4,
+   "system_chars": 2689,
+   "user_chars": 1298,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.0,
+   "system_chars": 2689,
+   "user_chars": 1327,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.8,
+   "system_chars": 2689,
+   "user_chars": 1260,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.2,
+   "system_chars": 2689,
+   "user_chars": 1293,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.8,
+   "system_chars": 2689,
+   "user_chars": 1261,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.7,
+   "system_chars": 2689,
+   "user_chars": 1288,
+   "noise_ratio": 0.01
+  }
+ ]
+}

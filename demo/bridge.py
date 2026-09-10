@@ -1280,6 +1280,9 @@ class Handler(SimpleHTTPRequestHandler):
         transcript = Transcript.from_dict(found["transcript"]) if found["transcript"] else None
         ctx = Context.from_dict(found["context"] or body.get("context") or {})
         llm = "mock" if _mock() else body.get("llm")
+        # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본. F-08 과 같은 디스크
+        # 캐시에서 찾는다 (프론트는 slidedoc 을 안 들고 있다).
+        slidedoc = _load_slidedoc_cache(graph.file_name) if graph is not None else None
         try:
             judgement = judge_answer(
                 question,
@@ -1295,6 +1298,7 @@ class Handler(SimpleHTTPRequestHandler):
                 # 보여준 힌트 — 안 실으면 힌트를 따라온 답에 코치가 맥락 없이 반응한다
                 hints_shown=[str(h) for h in (body.get("hints_shown") or []) if str(h).strip()],
                 llm=llm,
+                slidedoc=slidedoc,
             )
         except JudgeError as e:
             return self._json(502, {"error": "judge_failed", "message": str(e)})
@@ -1302,7 +1306,7 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
             f"passed={judgement.passed} stage={judgement.coach_stage!r} "
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
-            f"/{'stt' if transcript else '-'}\n"
+            f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}\n"
         )
         return self._json(200, judgement.to_dict())
 

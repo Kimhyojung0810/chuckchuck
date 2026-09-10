@@ -18,6 +18,8 @@ from __future__ import annotations
 import os
 import re
 
+from ._evidence import anchor_slides, clean_slide_text, neighbor_lines
+from ._match import norm_tokens
 from ._json_text import extract_json_object
 from .contracts import (
     QA_COACH_STAGES,
@@ -34,6 +36,7 @@ from .contracts import (
     QaJudgement,
     QaTurn,
     Question,
+    SlideDoc,
     Transcript,
     qa_mastered,
     qa_probe_tier,
@@ -54,7 +57,12 @@ HISTORY_TURNS = int(os.environ.get("CHUCKCHUCK_JUDGE_HISTORY_TURNS", "6"))
 PRIOR_ANSWERS_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_PRIOR_ANSWERS", "5"))
 
 #: 프롬프트에 실을 발화 발췌 길이. 이 개념의 근거 장 발화만 붙인다.
-SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_SPEECH_EXCERPT_MAX", "300"))
+SPEECH_EXCERPT_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_SPEECH_EXCERPT_MAX", "500"))
+
+#: 판정에 실을 **자료 근거 장 본문** 총 글자 수. 0 이면 끈다.
+#: 2026-09-10 까지 판정은 자료 본문을 아예 못 봤다 — summary 한 줄과 발화 300자로
+#: "자료와 어긋나는가" 를 판정했으니 함정에 동의한 답이 60점을 받았다.
+SLIDE_BODY_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_SLIDE_BODY_MAX", "1200"))
 
 #: 개념 하나에 붙여 보여 줄 이웃 개념 수.
 NEIGHBOR_MAX = 5
@@ -65,7 +73,7 @@ _REACT_BY_VERDICT = {
     "good": "네, 그 설명이면 충분합니다.",
     # '절반' 은 요지를 맞힌 사람에게 과소평가로 읽힌다. 되묻기의 목적은 채점이 아니라
     # 한 걸음 더 끌어내는 것이라, 인정할 것은 인정하고 남은 하나를 가리킨다.
-    "partial": "요지는 잡으셨습니다. 한 가지만 더 짚어 주세요.",
+    "partial": "요지는 잡았어요. 한 가지만 더 짚어 주세요.",
     "wrong": "그 부분은 자료와 맞지 않습니다.",
     "unknown": "지금 답변만으로는 판단하기 어렵습니다.",
 }
@@ -84,8 +92,21 @@ EMPTY_ANSWER_REACT = "아직 답변이 없습니다. 짧아도 좋으니 자기 
 #: followup 이 비어 돌아왔을 때 쓰는 결정적 문장. 실전 코칭은 턴 상한이 없어서
 #: 되묻기가 멈추면 사용자가 갇힌다 — LLM 이 빠뜨려도 질문은 반드시 나와야 한다.
 #: 빠진 포인트가 있으면 그것을 겨냥하고, 없으면 개념 이름으로 좁힌다.
-_FOLLOWUP_BY_POINT = "{point} 에 대해서는 어떻게 보시나요?"
-_FOLLOWUP_GENERIC = "{label} 를 뒷받침할 근거를 하나만 더 들어 주시겠어요?"
+#: 조사를 붙이지 않는 모양으로 둔다 — "인지 자원 를" 처럼 띄어 붙은 조사가 화면에
+#: 그대로 나갔다. '~시겠어요' 는 CLAUDE.md §3-1 이 금지한 높임이다.
+_FOLLOWUP_BY_POINT = "{point} — 이 부분은 어떻게 봐요?"
+_FOLLOWUP_GENERIC = "{label} — 이걸 뒷받침할 근거를 하나만 더 들어 주세요."
+#: 답변이 질문·자료와 아무 낱말도 안 겹칠 때. LLM 의 react 는 자료 본문을 답변으로
+#: 착각한 문장("…까지는 정확합니다")이라 쓰지 않는다.
+_OFF_TOPIC_REACT = "질문과 다른 이야기예요. {label}에 대해 자료에 있는 대로 말해 보세요."
+#: 함정 질문의 잘못된 전제를 그대로 받아들였을 때.
+_TRAP_AGREED_REACT = "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요."
+#: 두 가드가 내리는 점수 상한. 규칙 8 의 wrong 구간(39 이하) 안이다.
+OFF_TOPIC_SCORE_MAX = 35
+#: 이보다 근거 낱말이 적으면 무관 판정을 하지 않는다 — 실사용은 골자+자료 본문으로
+#: 언제나 수백 개다. 질문 한 줄만 있는 호출(테스트·근거 없는 flat 판정)은 건드리지 않는다.
+ON_TOPIC_MIN_EVIDENCE_TOKENS = 30
+TRAP_AGREED_SCORE_MAX = 35
 
 #: 되묻기 단계별 지시. **질문의 넓이는 코드가 정하고 LLM 은 그 넓이의 문장만 쓴다.**
 #: 단계가 안 좁혀지면 사용자는 같은 벽을 세 번 만나고, 세 번째에 창을 닫는다.
@@ -162,6 +183,9 @@ verdict 는 다음 넷 중 하나다:
 
 규칙:
 1. **내용만 본다.** 말투·문장력·길이로 깎지 마라. 짧아도 맞으면 good 이다.
+1-1. **답변에 있는 것만 답변이다.** 아래 '자료 근거 장 본문'·'기대하는 답의 골자' 는
+   대조 원본이지 발표자가 말한 것이 아니다. 답변 본문에 없는 내용을 답변이 말한
+   것으로 치지 마라. 답변이 질문·자료와 무관한 이야기면 wrong 이다.
 2. **선택형 질문(둘 중 하나·예/아니오)은 맞는 쪽을 고른 것 자체가 완전한 답이다.**
    "얕은 수면인가요, 깊은 수면인가요?" 에 "얕은 수면이요" 라고만 답해도,
    그 선택이 맞으면 근거가 없어도 good 이다.
@@ -169,9 +193,11 @@ verdict 는 다음 넷 중 하나다:
    뜻이 같으면 정답으로 본다. 골자의 문장을 react·followup 에 그대로 옮겨
    정답을 흘리지 마라.
 4. 이 질문이 '함정' 이라면, 발표자가 그 잘못된 전제를 **바로잡았을 때** good 이다.
-   함정에 그대로 동의했으면 wrong 이다.
+   함정에 그대로 동의했으면 wrong 이다. 함정 질문에는 출력에 premise_corrected 를
+   **반드시** 적는다 — 전제가 틀렸다고 지적·정정했으면 true, 받아들였거나 언급이
+   없으면 false. 이 값은 코드가 등급에 그대로 반영한다.
 5. react 는 심사위원이 그 자리에서 할 한 마디다. 존댓말, 한 문장.
-   **맞힌 것을 먼저 이름 붙이고 나서** 남은 것을 가리켜라 — "…까지는 정확합니다.
+   **답변 안에서 맞힌 것을 먼저 이름 붙이고 나서** 남은 것을 가리켜라 — "…까지는 정확합니다.
    그럼 …은요?" 처럼. 틀린 데부터 말하면 발표자는 다음 답을 시도하지 않는다.
    앞 턴보다 나아졌으면 그 진전을 짚어라. 빈말 칭찬은 하지 마라.
 6. summary_sentence 는 이 개념에 대한 총평 한 문장이다. 리포트에 남는다.
@@ -202,8 +228,11 @@ verdict 는 다음 넷 중 하나다:
   "summary_sentence": "<이 개념에 대한 총평 한 문장>",
   "missing_points": ["<답변에서 빠진 포인트>"],
   "followup": "<빠진 지점을 겨냥한 후속 질문 한 문장. 충분하면 빈 문자열>",
-  "covered_parts": [true, false]
+  "covered_parts": [true, false],
+  "premise_corrected": true
 }
+
+premise_corrected 는 함정 질문일 때만 쓴다 (아니면 빼거나 null).
 
 covered_parts 는 '골자의 요소' 가 주어졌을 때만 쓴다 (없으면 빈 배열).
 요소와 **같은 순서·같은 개수**로 참/거짓만 적는다. 개수가 어긋나면 통째로 버려진다.
@@ -244,7 +273,39 @@ def _concept_block(question: Question, graph: ConceptGraph | None) -> list[str]:
         if len(ranked) > NEIGHBOR_MAX:
             shown += f" 외 {len(ranked) - NEIGHBOR_MAX}개"
         lines.append("연결된 개념: " + shown)
+        # 이웃의 요약·간선 종류. 이름만으로는 "옆 개념과의 관계를 짚었는가" 를 못 본다.
+        for ln in neighbor_lines(node, graph):
+            lines.append(f"  - {ln}")
     return lines if len(lines) > 2 else []
+
+
+def _slide_block(
+    question: Question, slidedoc: SlideDoc | None, graph: ConceptGraph | None
+) -> list[str]:
+    """
+    질문의 근거 장 **자료 본문** — 판정이 "자료와 어긋난다" 를 대조할 원본이다.
+
+    F-08 이 만든 질문은 slide_nos 가 이미 anchor(최대 3장)다. 옛 세션의 질문은
+    12장을 들고 올 수 있어 여기서 다시 좁힌다. 장마다 예산을 나눠 싣는다.
+    """
+    if slidedoc is None or SLIDE_BODY_MAX <= 0 or not question.slide_nos:
+        return []
+    texts = {s.slide_no: clean_slide_text(s.raw_text or "") for s in slidedoc.slides}
+    node = graph.node(question.node_id) if graph is not None else None
+    nos = anchor_slides(
+        question.label, node.summary if node else "", list(question.slide_nos), texts
+    )
+    nos = [n for n in nos if texts.get(n)]
+    if not nos:
+        return []
+    per_slide = max(80, SLIDE_BODY_MAX // len(nos))
+    lines = ["", "## 자료 근거 장 본문 (판정의 대조 원본 — 발표자가 말한 것이 아니다)"]
+    for no in nos:
+        text = texts[no]
+        if len(text) > per_slide:
+            text = text[: per_slide - 1].rstrip() + "…"
+        lines.append(f"[S{no}] {text}")
+    return lines
 
 
 def _speech_block(question: Question, transcript: Transcript | None) -> list[str]:
@@ -272,6 +333,7 @@ def _build_user_prompt(
     transcript: Transcript | None,
     ctx: Context,
     prior_answers: list[str] | None = None,
+    slidedoc: SlideDoc | None = None,
 ) -> str:
     """
     질문 → 자료 근거 → 지난 대화 → 이번 답변 순.
@@ -292,6 +354,7 @@ def _build_user_prompt(
         parts.append(f"이 질문을 던진 이유: {question.why}")
 
     parts += _concept_block(question, graph)
+    parts += _slide_block(question, slidedoc, graph)
 
     item = None
     if alignment is not None:
@@ -452,6 +515,69 @@ def _enforce_good(
 _TIER_NARROWER = {"probe": "focus", "focus": "converge", "converge": "converge"}
 
 
+def _content_tokens(text: str) -> list[str]:
+    return [t for t in norm_tokens(text or "") if len(t) >= 2]
+
+
+def _shares_vocabulary(answer: str, evidence: str) -> bool:
+    """
+    답변과 근거가 낱말을 하나라도 공유하는가. 조사가 붙은 토큰("알림을"·"알림")은
+    앞머리 일치로 같은 낱말로 본다. 둘 중 하나가 비면 판단할 수 없어 True 다.
+    """
+    a_tokens = _content_tokens(answer)
+    e_tokens = _content_tokens(evidence)
+    # 근거가 얇으면(자료 본문·발화 없이 질문 한 줄뿐) 안 겹치는 것이 신호가 아니다.
+    if not a_tokens or len(e_tokens) < ON_TOPIC_MIN_EVIDENCE_TOKENS:
+        return True
+    e_set = set(e_tokens)
+    for a in a_tokens:
+        if a in e_set:
+            return True
+        if any(e.startswith(a) or a.startswith(e) for e in e_set):
+            return True
+    return False
+
+
+def _enforce_on_topic(
+    answer: str, evidence: str, question: Question, verdict: str, score: int, points: list[str]
+) -> tuple[str, int, list[str], bool]:
+    """
+    **질문·자료와 아무 낱말도 안 겹치는 답은 wrong 이다.** 코드가 막는다.
+
+    2026-09-10 실측: 물류 창고 재고 회전율 이야기(이 발표와 무관)에 partial 65~75 가
+    나왔다. react 는 "스마트폰 시야 밖 두기·메일 닫기까지는 정확합니다" — 답변이
+    아니라 프롬프트에 실린 **자료 본문을 답변으로 착각**한 것이다. 자료를 더 실을수록
+    이 착각은 커지므로, 규칙 1-1 로 부탁하고 여기서 받는다.
+
+    낱말 하나만 겹쳐도 통과시킨다 — 바꿔 말한 답을 오답으로 만들지 않기 위해서다.
+    이 가드는 «관련 없는 이야기» 만 잡는다.
+    """
+    if _shares_vocabulary(answer, evidence):
+        return verdict, score, points, False
+    lead = f"질문이 묻는 것: {question.label or question.node_id}"
+    return "wrong", min(score, OFF_TOPIC_SCORE_MAX), [lead] + [p for p in points if p != lead], True
+
+
+def _enforce_trap(
+    data: dict, question: Question, verdict: str, score: int, points: list[str]
+) -> tuple[str, int, list[str], bool]:
+    """
+    함정 질문에 **전제를 받아들인 답은 통과하지 못한다.** 코드가 막는다.
+
+    규칙 4 는 처음부터 "동의했으면 wrong" 이었는데 실 LLM 은 "네, 맞습니다" 에
+    partial 60~70 을 줬다 (2026-09-10 실측). 판정에 premise_corrected 를 함께 받아
+    false 면 등급을 되돌린다. 값이 없으면 판단 근거가 없는 것이라 손대지 않는다
+    (`_enforce_good` 과 같은 규율 — 근거 없이 깎으면 맞힌 사람이 이유 없이 진다).
+    """
+    if not question.trap:
+        return verdict, score, points, False
+    corrected = data.get("premise_corrected")
+    if corrected is None or bool(corrected):
+        return verdict, score, points, False
+    lead = "질문의 전제가 자료와 다르다는 점"
+    return "wrong", min(score, TRAP_AGREED_SCORE_MAX), [lead] + [p for p in points if p != lead], True
+
+
 def _normalize(
     data: dict,
     question: Question,
@@ -460,6 +586,8 @@ def _normalize(
     *,
     followup_tier: str = "",
     forced_point: str = "",
+    answer: str = "",
+    evidence: str = "",
 ) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
@@ -494,8 +622,17 @@ def _normalize(
     # 문장은 LLM, 계약은 코드 (모듈 원칙). react·summary 폴백보다 앞에 둬야
     # 등급이 뒤집힌 판정에 "충분합니다" 라는 good 폴백이 붙지 않는다.
     verdict, score, points = _enforce_good(data, question, verdict, score, points)
+    verdict, score, points, off_topic = _enforce_on_topic(
+        answer, evidence, question, verdict, score, points
+    )
+    verdict, score, points, trap_agreed = _enforce_trap(data, question, verdict, score, points)
 
     react = str(data.get("react", "") or "").strip() or _REACT_BY_VERDICT[verdict]
+    # 가드가 등급을 뒤집었으면 LLM 의 react 는 그 등급과 어긋난 문장이다 — 코드 문구로.
+    if off_topic:
+        react = _OFF_TOPIC_REACT.format(label=question.label or "이 개념")
+    elif trap_agreed:
+        react = _TRAP_AGREED_REACT
     summary = str(data.get("summary_sentence", "") or "").strip()
     if not summary:
         summary = _SUMMARY_BY_VERDICT[verdict].format(
@@ -763,6 +900,8 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
 COACH_SYSTEM_PROMPT = """당신은 발표 코치다. 발표자가 방금 막혔다.
 
 절대 나무라지 마라. 한 문장으로 안심시키고 바로 도움으로 넘어간다.
+react 는 **막힌 상황에 맞는 말**이다 — 발표자는 답을 못 했다. "핵심을 잘 짚었다"
+같은 빈말 칭찬은 쓰지 마라. 안심과 다음 발걸음만 말한다.
 
 [단계=narrow] 답을 알려 주지 마라. 대신 **원래 질문보다 훨씬 쉬운 되물음** 하나를
 쓴다. 자료의 근거 슬라이드에서 출발해 예/아니오나 한 단어로 답할 수 있을 만큼
@@ -809,6 +948,7 @@ def coach_stuck(
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
     stage: str = "",
+    slidedoc: SlideDoc | dict | None = None,
 ) -> QaJudgement:
     """
     막힌 발표자에게 응한다. 1차는 쉬운 되물음(narrow), 2차는 해설(explain).
@@ -827,6 +967,8 @@ def coach_stuck(
         alignment = AlignmentDoc.from_dict(alignment)
     if isinstance(transcript, dict):
         transcript = Transcript.from_dict(transcript)
+    if isinstance(slidedoc, dict):
+        slidedoc = SlideDoc.from_dict(slidedoc)
 
     turns = [t if isinstance(t, QaTurn) else QaTurn.from_dict(t) for t in (history or [])]
     ctx = Context() if context is None else (
@@ -838,7 +980,9 @@ def coach_stuck(
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
     user = "\n".join([
         f"[단계] {stage}",
-        _build_user_prompt(question, said, turns, graph, alignment, transcript, ctx),
+        _build_user_prompt(
+            question, said, turns, graph, alignment, transcript, ctx, slidedoc=slidedoc
+        ),
         "",
         f"기대하는 답의 골자: {question.answer_gist or '(없음)'}",
     ])
@@ -965,6 +1109,7 @@ def judge_answer(
     hints_shown: list[str] | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
+    slidedoc: SlideDoc | dict | None = None,
 ) -> QaJudgement:
     """
     Question + 답변 (+선택 ConceptGraph·AlignmentDoc·Transcript·history·Context)
@@ -991,7 +1136,9 @@ def judge_answer(
     # 이 질문의 몇 번째 답변인가. 되묻기 단계와 대화의 출구(mastered)가 여기 달렸다.
     round_no = _round_no(prior_answers)
 
-    if not (answer or "").strip():
+    # 「모르겠어요」 버튼은 답이 비어 있어도 코칭으로 간다 — 빈 답 검사가 먼저면
+    # 버튼을 누른 사람이 "아직 답변이 없습니다" 를 받는다 (2026-09-10 실측).
+    if not give_up and not (answer or "").strip():
         return _empty_answer(question, round_no)
 
     # 포기는 판정하지 않는다. 버튼(give_up)이든 타이핑(looks_stuck)이든 같은 곳으로 간다.
@@ -1008,6 +1155,7 @@ def judge_answer(
             context=context,
             llm=llm,
             llm_kwargs=llm_kwargs,
+            slidedoc=slidedoc,
         )
     if asks_back(answer):
         return coach_stuck(
@@ -1020,6 +1168,7 @@ def judge_answer(
             llm=llm,
             llm_kwargs=llm_kwargs,
             stage="clarify",
+            slidedoc=slidedoc,
         )
 
     if isinstance(graph, dict):
@@ -1028,6 +1177,8 @@ def judge_answer(
         alignment = AlignmentDoc.from_dict(alignment)
     if isinstance(transcript, dict):
         transcript = Transcript.from_dict(transcript)
+    if isinstance(slidedoc, dict):
+        slidedoc = SlideDoc.from_dict(slidedoc)
 
     turns = [
         t if isinstance(t, QaTurn) else QaTurn.from_dict(t)
@@ -1043,7 +1194,8 @@ def judge_answer(
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
     user = _build_user_prompt(
-        question, answer, turns, graph, alignment, transcript, ctx, prior_answers
+        question, answer, turns, graph, alignment, transcript, ctx, prior_answers,
+        slidedoc=slidedoc,
     )
     # 정답 골자는 판정에도 싣는다 (규칙 3 의 채점 기준). 코칭(coach_stuck)만 갖고
     # 있으면 이지선다 질문에 정답 단답이 와도 모델이 자료 발췌에서 확신을 못 얻어
@@ -1100,4 +1252,11 @@ def judge_answer(
         data, question, engine.name, round_no,
         followup_tier=tier,
         forced_point=giveup_topic,
+        answer=answer,
+        # 가드가 대조할 근거 — 프롬프트에 실린 것과 같은 자료·발화·골자.
+        evidence="\n".join([
+            question.question, question.answer_gist, *question.answer_gist_parts,
+            *_concept_block(question, graph), *_slide_block(question, slidedoc, graph),
+            *_speech_block(question, transcript),
+        ]),
     )

@@ -350,6 +350,7 @@ async def judge_qa_answer(session_id: str, payload: dict):
     raw_graph = artifacts.get(CONCEPT_GRAPH)
     raw_alignment = artifacts.get(ALIGNMENT_DOC)
     raw_transcript = artifacts.get(TRANSCRIPT)
+    raw_slidedoc = artifacts.get(SLIDE_DOC)
 
     llm = "mock" if settings.mock_external else payload.get("llm")
     judgement = await run_in_threadpool(
@@ -372,6 +373,8 @@ async def judge_qa_answer(session_id: str, payload: dict):
                 str(h) for h in (payload.get("hints_shown") or []) if str(h).strip()
             ],
             llm=llm,
+            # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본 (브리지와 같은 계약)
+            slidedoc=SlideDoc.from_dict(raw_slidedoc) if raw_slidedoc else None,
         )
     )
     return judgement.to_dict()

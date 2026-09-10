@@ -1,0 +1,246 @@
+{
+ "bundle": "/home/yehschuck/project/chuckchuck/fixtures/live_qa_run.json",
+ "track": "5",
+ "model": "ax",
+ "summary": {
+  "questions": 3,
+  "fallback": 0,
+  "trap": 1,
+  "slide_count_mean": 3.0,
+  "specificity_mean": 4.33,
+  "grounding_mean": 0.58,
+  "honorifics_questions": 0,
+  "honorifics_judge": 0,
+  "judge": {
+   "gist_passed": "3/3",
+   "unrelated_wrong": "3/3",
+   "trap_agree_wrong": "1/1",
+   "trap_fixed_passed": "1/1"
+  },
+  "prompts": {
+   "qa-questions": {
+    "n": 1,
+    "user_chars_mean": 8213.0,
+    "noise_ratio_mean": 0.02,
+    "sec_mean": 22.5
+   },
+   "qa-judge": {
+    "n": 9,
+    "user_chars_mean": 1323.56,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 5.61
+   }
+  }
+ },
+ "questions": [
+  {
+   "id": "q01-notification",
+   "label": "알림",
+   "trap": true,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 4,
+   "grounding": 0.5,
+   "honorifics": 0,
+   "question": "알림 확인을 '잠깐'이라고 표현한 이유와 실제 인지 비용은 어떻게 되는가?",
+   "gist": "알림은 확인하지 않아도 주의를 끌고 작업 맥락 복구에 추가 인지 비용이 발생한다."
+  },
+  {
+   "id": "q03-work-context",
+   "label": "작업 맥락",
+   "trap": false,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 4,
+   "grounding": 0.55,
+   "honorifics": 0,
+   "question": "집중을 '머릿속 작업 상태'로 정의한 것이 작업 복귀에 어떤 영향을 주는가?",
+   "gist": "작업 맥락은 목표·단계·규칙·임시 기억으로 구성되며 알림에 의해 흔들린다."
+  },
+  {
+   "id": "q05-environmental-design",
+   "label": "환경 설계",
+   "trap": false,
+   "severity": 2,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 5,
+   "grounding": 0.69,
+   "honorifics": 0,
+   "question": "알림 차단 외에 작업 흐름 끊김을 줄이는 다른 환경 설계 전략은 있는가?",
+   "gist": "스마트폰을 시야 밖에 두거나 메시지 확인 시간을 따로 정하는 등 환경 설계 전략이 있다."
+  }
+ ],
+ "judgements": [
+  {
+   "question_id": "q01-notification",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 95,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인의 ‘잠깐’ 표현이 인지 비용 문제로 이어진다는 요지는 정확합니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 20,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요.",
+   "followup": "알림 확인의 ‘잠깐’이라는 표현이 작업 맥락 복구에 추가 인지 비용이 발생한다는 개념과 어떻게 연결되는지 구체적으로 설명해 주실 수 있나요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정에 동의",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 알림 에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 시간이 짧아도 작업 맥락 복구에 드는 인지 비용이 커지는 이유는 무엇인가요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정을 바로잡음",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "확인하지 않아도 주의가 끌린다는 점까지는 정확합니다.",
+   "followup": "알림 확인 후 원래 작업으로 복귀할 때 어떤 인지 과정이 추가로 소모되나요?"
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "작업 맥락을 목표·단계·규칙·임시 기억으로 설명한 부분까지는 정확합니다.",
+   "followup": "알림이 작업 맥락을 흔들 때, 목표·단계·규칙·임시 기억 중 어떤 요소가 특히 작업 복귀를 어렵게 만드는가요?"
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 작업 맥락 에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "작업 맥락의 구성 요소 중 규칙이나 임시 기억이 알림으로 흔들리면 작업 복귀 시 어떤 문제가 생기나요?"
+  },
+  {
+   "question_id": "q05-environmental-design",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 85,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 차단 외에 스마트폰을 시야 밖에 두거나 메시지 확인 시간을 따로 정하는 환경 설계 전략을 제시했습니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q05-environmental-design",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 25,
+   "passed": false,
+   "honorifics": 0,
+   "react": "물류 창고 재고 회전율 비교와 동절기 배송 지연은 환경 설계 전략과 직접 연결되지 않습니다.",
+   "followup": "알림 차단 외에 작업 흐름 끊김을 줄이기 위한 환경 설계 전략에는 어떤 것들이 있나요?"
+  }
+ ],
+ "calls": [
+  {
+   "task": "qa-questions",
+   "sec": 22.5,
+   "system_chars": 2121,
+   "user_chars": 8213,
+   "noise_ratio": 0.02
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.1,
+   "system_chars": 3044,
+   "user_chars": 1344,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.7,
+   "system_chars": 3044,
+   "user_chars": 1370,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.5,
+   "system_chars": 3136,
+   "user_chars": 1370,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.7,
+   "system_chars": 3044,
+   "user_chars": 1319,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.1,
+   "system_chars": 3044,
+   "user_chars": 1359,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 8.2,
+   "system_chars": 3044,
+   "user_chars": 1264,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.7,
+   "system_chars": 3044,
+   "user_chars": 1294,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.2,
+   "system_chars": 3044,
+   "user_chars": 1285,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.3,
+   "system_chars": 3044,
+   "user_chars": 1307,
+   "noise_ratio": 0.01
+  }
+ ]
+}

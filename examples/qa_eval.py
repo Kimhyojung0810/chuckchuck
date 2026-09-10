@@ -72,6 +72,8 @@ UNRELATED_ANSWER = (
 #: 함정 질문의 잘못된 전제에 그대로 동의하는 답. 규칙상 wrong 이어야 한다.
 TRAP_AGREE_ANSWER = "네, 맞습니다. 말씀하신 대로입니다."
 
+#: 질문이 해요체로 끝나는가. "…되는가?" 같은 반말 의문형은 화면 말투와 어긋난다 (f08 규칙 5).
+POLITE_END_RE = re.compile(r"(요|까|죠|세요|나요|가요|래요)\s*[?.!]?\s*$")
 #: CLAUDE.md §3-1 이 금지한 높임. 질문·힌트·반응 문장에서 센다.
 HONORIFIC_RE = re.compile(r"[가-힣]*(셨|시겠|십니|십시오|시나요|시는지|계시|여쭈)|께\s")
 
@@ -172,6 +174,7 @@ def question_row(q: Question, corpus: Corpus) -> dict:
         "specificity": specificity(q, corpus),
         "grounding": grounding_ratio(q.answer_gist, corpus.evidence_tokens(q.slide_nos)),
         "honorifics": honorifics(q.question, q.why, q.hint, q.answer_gist),
+        "impolite": not POLITE_END_RE.search(q.question or ""),
         "question": q.question, "gist": q.answer_gist,
     }
 
@@ -248,6 +251,7 @@ def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict]) -> dict:
         "specificity_mean": mean([r["specificity"] for r in qrows]),
         "grounding_mean": mean([r["grounding"] for r in qrows]),
         "honorifics_questions": sum(r["honorifics"] for r in qrows),
+        "impolite_questions": sum(1 for r in qrows if r["impolite"]),
         "honorifics_judge": sum(r["honorifics"] for r in jrows),
         "judge": {
             "gist_passed": rate("골자 그대로"), "unrelated_wrong": rate("엉뚱한 답"),
@@ -266,7 +270,7 @@ def print_summary(s: dict, model: str) -> None:
     print(f"\n{'=' * 72}\n요약  (model={model})\n{'-' * 72}")
     print(f"질문 {s['questions']}개 · 폴백 {s['fallback']} · 함정 {s['trap']} · 근거 장 평균 {s['slide_count_mean']}")
     print(f"질문 특이도 평균 {s['specificity_mean']}  · 근거 인용률 평균 {s['grounding_mean']}")
-    print(f"말투 위반: 질문 {s['honorifics_questions']} · 판정 {s['honorifics_judge']}")
+    print(f"말투 위반: 높임 질문 {s['honorifics_questions']} · 판정 {s['honorifics_judge']} · 반말 질문 {s['impolite_questions']}/{s['questions']}")
     print(f"판정 일관성: 골자→통과 {j['gist_passed']} · 엉뚱→wrong {j['unrelated_wrong']}"
           f" · 함정동의→wrong {j['trap_agree_wrong']} · 함정정정→통과 {j['trap_fixed_passed']}")
     for task, v in p.items():
@@ -297,7 +301,7 @@ def main() -> int:
     print(f"\nF-08 track={doc.track} 질문 {len(doc.questions)}개 ({time.time() - t0:.1f}s, model={doc.model})")
     qrows = [question_row(q, corpus) for q in doc.questions]
     for r in qrows:
-        flag = " [폴백]" if r["fallback"] else ""
+        flag = (" [폴백]" if r["fallback"] else "") + (" [반말]" if r["impolite"] else "")
         print(f"  - {r['id']:<24}장{r['slide_count']:>2} 특이도{r['specificity']:>2} 인용률{r['grounding'] if r['grounding'] is not None else '-':>5} "
               f"말투{r['honorifics']}{flag}\n      Q: {r['question'][:100]}")
 
