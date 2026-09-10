@@ -1,0 +1,239 @@
+{
+ "bundle": "/home/yehschuck/project/chuckchuck/fixtures/live_qa_run.json",
+ "track": "5",
+ "model": "ax",
+ "summary": {
+  "questions": 3,
+  "fallback": 0,
+  "trap": 1,
+  "slide_count_mean": 7.0,
+  "specificity_mean": 4.33,
+  "grounding_mean": 0.42,
+  "honorifics_questions": 0,
+  "honorifics_judge": 1,
+  "judge": {
+   "gist_passed": "2/3",
+   "unrelated_wrong": "2/3",
+   "trap_agree_wrong": "0/1",
+   "trap_fixed_passed": "1/1"
+  },
+  "prompts": {
+   "qa-questions": {
+    "n": 1,
+    "user_chars_mean": 5284.0,
+    "noise_ratio_mean": 0.14,
+    "sec_mean": 23.8
+   },
+   "qa-judge": {
+    "n": 8,
+    "user_chars_mean": 936.5,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 5.46
+   }
+  }
+ },
+ "questions": [
+  {
+   "id": "q01-notification",
+   "label": "알림",
+   "trap": true,
+   "severity": 1,
+   "slide_count": 9,
+   "fallback": false,
+   "specificity": 4,
+   "grounding": 0.64,
+   "honorifics": 0,
+   "question": "왜 알림 확인을 '잠깐'이라고 표현했는지, 실제 인지 비용은 어떻게 되는가",
+   "gist": "알림 확인 후 다시 원래 작업으로 복귀하는 과정에서 발생하는 비가시적 집중 손실이 인지 비용의 핵심이다"
+  },
+  {
+   "id": "q03-work-context",
+   "label": "작업 맥락",
+   "trap": false,
+   "severity": 1,
+   "slide_count": 9,
+   "fallback": false,
+   "specificity": 4,
+   "grounding": 0.2,
+   "honorifics": 0,
+   "question": "집중을 '머릿속 작업 상태'로 정의한 것이 실제 작업 복귀에 어떤 영향을 주는가",
+   "gist": "머릿속 작업 상태는 알림에 의해 흔들리며, 이로 인해 작업 복귀가 어려워진다"
+  },
+  {
+   "id": "q05-environmental-design",
+   "label": "환경 설계",
+   "trap": false,
+   "severity": 2,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 5,
+   "grounding": 0.42,
+   "honorifics": 0,
+   "question": "알림 차단 외에 '작업 흐름 끊김'을 줄이는 다른 환경 설계 전략은 있는가",
+   "gist": "알림 차단 외에 작업 흐름 끊김을 줄이는 다른 환경 설계 전략이 필요하다"
+  }
+ ],
+ "judgements": [
+  {
+   "question_id": "q01-notification",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 1,
+   "react": "알림 확인 후 다시 원래 작업으로 복귀하는 과정에서 발생하는 비가시적 집중 손실이 인지 비용의 핵심이라는 요지는 정확합니다.",
+   "followup": "알림 확인 후 다시 원래 작업으로 복귀할 때 발생하는 비가시적 집중 손실이 구체적으로 어떤 인지 과정을 소모한다고 보시나요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 30,
+   "passed": false,
+   "honorifics": 0,
+   "react": "알림 확인의 인지 비용이라는 질문에서 벗어났습니다. 왜 다시 원래 작업으로 복귀하기 어려운지에 대한 근거는요?",
+   "followup": "알림 확인 후 다시 원래 작업으로 복귀하는 과정에서 발생하는 비가시적 집중 손실은 무엇인가요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정에 동의",
+   "expect": "wrong",
+   "ok": false,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인이 집중을 흔든다는 점까지는 정확합니다. 그럼 ‘잠깐 확인’ 뒤에 실제로 어떤 비가시적 손실이 발생하는지, 다시 원래 작업으로 복귀하기 어려워지는 구체적 과정은요?",
+   "followup": "알림 확인 이후 작업 맥락이 끊겨 다시 집중 상태로 돌아오기 어려워지는 과정을 어떻게 설명할 수 있을까요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정을 바로잡음",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인 후 다시 원래 작업으로 복귀하는 과정에서 발생하는 비가시적 집중 손실이 인지 비용의 핵심이라는 점까지는 정확합니다.",
+   "followup": "알림 확인 후 다시 원래 작업으로 복귀할 때 어떤 인지 과정이 추가로 소모된다고 볼 수 있을까요?"
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 85,
+   "passed": true,
+   "honorifics": 0,
+   "react": "머릿속 작업 상태를 알림에 의해 흔들린다고 설명한 지점까지는 정확합니다",
+   "followup": ""
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": false,
+   "verdict": "partial",
+   "score": 55,
+   "passed": false,
+   "honorifics": 0,
+   "react": "머릿속 작업 상태를 목표와 순서가 올라와 있는 상태로 설명한 부분까지는 정확합니다. 그럼 알림 때문에 그 머릿속 상태가 흔들리면 작업 복귀가 어려워지는 이유는 무엇인가요?",
+   "followup": "알림 때문에 머릿속 작업 상태가 흔들리면, 다시 원래 작업으로 돌아가기까지 어떤 과정이 추가로 필요해지나요?"
+  },
+  {
+   "question_id": "q05-environmental-design",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": false,
+   "verdict": "partial",
+   "score": 55,
+   "passed": false,
+   "honorifics": 0,
+   "react": "알림 차단 외에 ‘작업 흐름 끊김’을 줄이는 다른 환경 설계 전략이 필요하다는 점은 짚었습니다. 그렇다면 알림 차단 외에 작업 흐름 끊김을 줄이는 다른 환경 설계 전략은 무엇인가요?",
+   "followup": "알림 차단 외에 작업 흐름 끊김을 줄이는 다른 환경 설계 전략은 무엇인가요?"
+  },
+  {
+   "question_id": "q05-environmental-design",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 25,
+   "passed": false,
+   "honorifics": 0,
+   "react": "물류 창고와 재고 회전율, 동절기 배송 지연과 반품률이라는 결론은 환경 설계의 작업 흐름 끊김 문제와 연결되지 않습니다.",
+   "followup": "작업 흐름 끊김을 줄이기 위해 알림 차단 외에 어떤 환경 설계 전략을 적용할 수 있나요?"
+  }
+ ],
+ "calls": [
+  {
+   "task": "qa-questions",
+   "sec": 23.8,
+   "system_chars": 2121,
+   "user_chars": 5284,
+   "noise_ratio": 0.14
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.7,
+   "system_chars": 2689,
+   "user_chars": 932,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.1,
+   "system_chars": 2689,
+   "user_chars": 946,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.0,
+   "system_chars": 2689,
+   "user_chars": 895,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.4,
+   "system_chars": 2689,
+   "user_chars": 947,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 3.9,
+   "system_chars": 2689,
+   "user_chars": 895,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.9,
+   "system_chars": 2689,
+   "user_chars": 924,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.7,
+   "system_chars": 2689,
+   "user_chars": 961,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.0,
+   "system_chars": 2689,
+   "user_chars": 992,
+   "noise_ratio": 0.01
+  }
+ ]
+}
