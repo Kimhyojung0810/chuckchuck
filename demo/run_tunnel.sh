@@ -12,6 +12,11 @@
 # 여기에 **Cloudflare Access 를 반드시 함께** 걸어서, 허용한 이메일만
 # 들어오게 합니다. Access 없이 터널만 뚫으면 0.0.0.0 으로 여는 것과 같습니다.
 #
+# ── 더 쉬운 길: 대시보드 토큰 방식 ─────────────────────────────
+# Zero Trust → Networks → Tunnels → Create 에서 주는 `sudo cloudflared service install <토큰>`
+# 한 줄이면 이 스크립트 없이 systemd 서비스로 붙는다. 절차는 docs/DEPLOYMENT.md §10.
+# 아래는 CLI 로 직접 만들 때의 길이다.
+#
 # ── 처음 한 번만 (사람이 직접) ──────────────────────────────────
 #   1) cloudflared tunnel login          # 브라우저 로그인. Cloudflare 에 등록된 도메인이 필요합니다.
 #   2) cloudflared tunnel create chuckchuck

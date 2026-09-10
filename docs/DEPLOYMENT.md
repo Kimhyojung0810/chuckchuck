@@ -48,7 +48,8 @@ FastAPI 서버는 `/api/v1/*` 계약이 스펙대로 동작하는지 pytest로 �
 | 로컬 믿:음 서빙 포트 | 8010 | `serve_midm.py --port 8010`, `MIDM_BASE_URL=http://127.0.0.1:8010/v1`로 연결 |
 
 원격에서 화면을 봐야 하면 `DEMO_HOST`를 열지 않고 **SSH 터널**을 쓴다
-(`ssh -L 8799:127.0.0.1:8799 <host>`).
+(`ssh -L 8799:127.0.0.1:8799 <host>`). 심사위원처럼 SSH 가 없는 사람에게 열려면
+§10 의 Cloudflare Tunnel + Access 를 쓴다 — 역시 `DEMO_HOST` 는 그대로다.
 
 ## 4. 하드웨어
 
@@ -108,6 +109,58 @@ FastAPI 서버는 `/api/v1/*` 계약이 스펙대로 동작하는지 pytest로 �
 4. **`DEMO_HOST`가 `127.0.0.1`인지** — 실 API 키가 걸린 채로 `0.0.0.0`이면 과금 위험.
 5. **회귀 스모크**: `python -m pytest tests/ -q`(591 passed·7 skipped 기준),
    프론트 JS를 고쳤으면 `node tests/js/qa_live.smoke.mjs`도.
+
+## 10. 원격 호스팅 — Cloudflare Tunnel + Access (2026-09-10)
+
+GPU 머신이 늘 켜져 있으니 브리지를 여기서 상시로 띄우고, Cloudflare 가 앞에서 받는다.
+포트를 열지 않고 `DEMO_HOST=127.0.0.1` 을 지킨 채로 `https://demo.<도메인>` 이 열린다.
+
+```
+브라우저 ──https──▶ Cloudflare (Access: 이메일 로그인) ──터널──▶ 127.0.0.1:8799 브리지 (+GPU)
+```
+
+**Access 없이 터널만 뚫으면 `0.0.0.0` 으로 여는 것과 같다.** 브리지는 인증이 없고
+모든 엔드포인트가 과금 API 를 부른다. `trycloudflare.com` 임시 주소도 같은 이유로
+시연 호스팅에는 쓰지 않는다 (`demo/run_tunnel.sh` 가 거부한다).
+
+### 10-1. 브리지를 상시 서비스로
+
+`/etc/systemd/system/chuckchuck-bridge.service` — 재부팅해도 살아난다. 키는 저장소 `.env`
+에서 읽고 유닛에는 적지 않는다. LoRA 어댑터가 없는 머신은 `HABIT_PROVIDER=heuristic` 을
+**명시**한다 (그냥 두면 조용히 떨어진다).
+
+```bash
+sudo systemctl status chuckchuck-bridge          # active · enabled 이어야 한다
+sudo journalctl -u chuckchuck-bridge -n 20       # 부팅 로그에 f-06 backend · 키 상태가 찍힌다
+sudo systemctl restart chuckchuck-bridge         # 브리지 코드나 .env 를 고쳤으면
+```
+
+### 10-2. 터널 — 대시보드 토큰 방식 (권장, CLI 로그인 불필요)
+
+1. **도메인**이 Cloudflare 에 있어야 한다. 없으면 대시보드 → Domain Registration 에서
+   하나 산다 (`.com` 원가 약 $10/년, 사자마자 물린다).
+2. Zero Trust 대시보드 → Networks → Tunnels → **Create a tunnel** (Cloudflared) → 이름 `chuckchuck`.
+3. 화면이 주는 명령을 **GPU 머신 터미널에서** 그대로 실행한다 (토큰이 들어 있으니 채팅에 붙이지 않는다):
+   `sudo cloudflared service install <토큰>` — systemd 서비스로 깔리고 재부팅해도 살아난다.
+4. 같은 화면 → Public Hostname → `demo.<도메인>` → Service `HTTP` `127.0.0.1:8799`.
+5. Access → Applications → **Add an application** → Self-hosted → 도메인 `demo.<도메인>`
+   → Policy `Allow` / Include `Emails` / 시연에 들어올 사람 주소만. 세션 기간은 하루면 충분하다.
+6. 확인: 시크릿 창에서 `https://demo.<도메인>` → **로그인 화면이 먼저** 떠야 한다.
+   로그인 없이 열리면 Access 가 안 걸린 것 — 즉시 `sudo systemctl stop cloudflared`.
+
+CLI 로 직접 만들고 싶으면 `demo/run_tunnel.sh` 머리말의 절차(`cloudflared tunnel login` →
+`create` → `route dns`)를 따른다. 결과는 같다.
+
+### 10-3. 터널 뒤에서 달라지는 것
+
+- **요청 제한의 IP**: 터널을 거친 요청은 전부 127.0.0.1 에서 온다. 브리지 `_client_key` 가
+  루프백 요청에 한해 `CF-Connecting-IP` 를 읽어 사람마다 따로 센다. 이게 없으면 심사위원
+  전원이 30회/분 한 통을 나눠 써서 세 명째부터 429 가 난다.
+- **CORS 불필요**: 화면과 API 가 같은 오리진(브리지)이라 `DEMO_ALLOWED_ORIGINS` 도
+  `js/config.js` 의 `CHUCKCHUCK_API_BASE` 도 그대로 비워 둔다.
+- **첫 요청 지연**: LoRA 가 있는 머신은 예열(CLAUDE.md §2)을 시연 전에 해 둔다.
+- **과금**: Access 를 통과한 사람은 누구나 실 API 를 부른다. 허용 이메일을 최소로 두고
+  시연이 끝나면 Access 정책을 끄거나 `sudo systemctl stop cloudflared`.
 
 ## 9. 개발 환경 (참고)
 

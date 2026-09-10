@@ -1124,11 +1124,23 @@ class Handler(SimpleHTTPRequestHandler):
 
 
     def _client_key(self) -> str:
-        """요청 제한을 셀 단위. 데모는 인증이 없으니 IP 가 최선이다."""
+        """
+        요청 제한을 셀 단위. 데모는 인증이 없으니 IP 가 최선이다.
+
+        Cloudflare Tunnel 뒤에서는 모든 요청이 127.0.0.1 에서 온다 — 그대로 세면
+        심사위원 전원이 30회/분 한 통을 나눠 쓰고 세 명째부터 429 가 난다.
+        **루프백에서 온 요청에 한해** 터널이 붙인 CF-Connecting-IP 를 믿는다.
+        바깥에서 온 요청의 헤더는 위조일 수 있어 안 읽는다 (DEMO_HOST=0.0.0.0 금지와 같은 이유).
+        """
         try:
-            return str(self.client_address[0])
+            addr = str(self.client_address[0])
         except Exception:  # noqa: BLE001
             return "unknown"
+        if addr in ("127.0.0.1", "::1"):
+            forwarded = (self.headers.get("CF-Connecting-IP") or "").strip()
+            if forwarded:
+                return forwarded
+        return addr
 
     def _handle_session_artifacts(self, raw: bytes):
         """
