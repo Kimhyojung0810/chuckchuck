@@ -24,7 +24,14 @@ import os
 import re
 from itertools import groupby
 
-from ._evidence import anchor_slides, clean_slide_text, neighbor_lines, section_line
+from ._evidence import (
+    anchor_slides,
+    clean_slide_text,
+    mask_gist,
+    neighbor_lines,
+    quote_for,
+    section_line,
+)
 from ._json_text import extract_json_object
 from .contracts import (
     QA_EXTRA_MAX,
@@ -1242,6 +1249,7 @@ def _normalize_questions(
     by_id: dict[str, ConceptNode],
     flow_of: dict[str, FlowIssue] | None = None,
     by_no: dict[int, Slide] | None = None,
+    transcript: Transcript | None = None,
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
@@ -1265,6 +1273,9 @@ def _normalize_questions(
         # 질문의 근거 장은 anchor 다 — 힌트·모범답·화면의 장 그림·판정의 본문이
         # 전부 이 목록을 따라가므로, 프롬프트에 실린 장과 같아야 한다.
         anchors = _anchor_nos(node, by_no or {})
+        # 힌트·코칭이 그대로 옮겨 보여 줄 인용 — LLM 없이 즉시 나와야 하므로 여기서 저장한다.
+        quote_no, quote = _evidence_quote(node, anchors, by_no or {})
+        speech = _speech_quote(anchors, transcript) if quote else ""
         fb_question, fb_why, fb_hint = _fallback_text(
             node, mark, (flow_of or {}).get(mark.node_id), slide_nos=anchors
         )
@@ -1307,8 +1318,34 @@ def _normalize_questions(
             answer_gist=gist,
             # 「비었거나 2개 이상」 불변식은 Question 이 지킨다 (contracts._gist_parts_of).
             answer_gist_parts=parts,
+            evidence_slide_no=quote_no,
+            evidence_quote=quote,
+            speech_quote=speech,
         ))
     return questions
+
+
+def _evidence_quote(node: ConceptNode, anchors: list[int], by_no: dict[int, Slide]) -> tuple[int, str]:
+    """anchor 장 순서대로 훑어 이 개념을 말하는 한 문장. (장 번호, 문장). 없으면 (0, "")."""
+    for no in anchors:
+        slide = by_no.get(no)
+        if slide is None:
+            continue
+        quote = quote_for(node.label, node.summary, clean_slide_text(slide.raw_text or ""))
+        if quote:
+            return no, quote
+    return 0, ""
+
+
+def _speech_quote(anchors: list[int], transcript: Transcript | None) -> str:
+    """anchor 장에서 실제로 한 말 한 구절. STT 는 문장부호가 없어 앞 120자가 된다."""
+    if transcript is None:
+        return ""
+    for no in anchors:
+        said = quote_for("", "", transcript.text_for_slide(no))
+        if said:
+            return said
+    return ""
 
 
 def build_questions(
@@ -1387,7 +1424,7 @@ def build_questions(
     # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의
     # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.
     questions, twins = _drop_twin_questions(
-        _normalize_questions(raw_questions, marks, by_id, flow_of, by_no),
+        _normalize_questions(raw_questions, marks, by_id, flow_of, by_no, transcript),
         QA_TRACK_LIMITS[track],
     )
 
@@ -1418,6 +1455,31 @@ HINT_SLIDE_MAX = 3
 
 #: 골자 조각을 만들 최소 길이. 이보다 짧으면 잘라 봐야 통째로 노출된다.
 GIST_FRAGMENT_MIN = 4
+
+
+def _hint_locate(question: Question) -> str:
+    """
+    0단계 · 위치. **자료의 문장을 그대로** 보여 준다 — "자료 3장은 이렇게 말해요: «…»".
+
+    기억을 요구하는 대신 보고 짚게 한다. 장 번호가 문장에 있어서 화면이 그 장 그림을
+    같이 띄운다 (qa_live.js `hintSlideNos`). F-08 이 slidedoc 없이 만든 질문은 인용이
+    없어 빈 문자열 — 그때 사다리는 예전 그대로다.
+    """
+    if not question.evidence_quote:
+        return ""
+    where = f"자료 {question.evidence_slide_no}장은" if question.evidence_slide_no else "자료는"
+    return _clip(f"{where} 이렇게 말해요: «{question.evidence_quote}»")
+
+
+def _hint_scaffold(question: Question) -> str:
+    """
+    발판. 골자에서 낱말 하나를 가린 빈칸 — 답을 통째로 주지 않으면서 문장의 뼈대를 준다.
+    인용이 있는 질문에서만 (옛 질문의 사다리 길이를 바꾸지 않는다).
+    """
+    if not question.evidence_quote:
+        return ""
+    masked, _, _ = mask_gist(question.answer_gist, question.label, [])
+    return _clip(f"빈칸을 채워 보세요: {masked}") if masked else ""
 
 
 def _hint_direction(question: Question) -> str:
@@ -1516,7 +1578,13 @@ def build_hint_ladder(
     if isinstance(judgement, dict):
         judgement = QaJudgement.from_dict(judgement)
 
-    steps = [_hint_direction(question), _hint_scope(question), _hint_gist(question)]
+    steps = [
+        _hint_locate(question),
+        _hint_direction(question),
+        _hint_scope(question),
+        _hint_scaffold(question),
+        _hint_gist(question),
+    ]
     if judgement is not None:
         steps.append(_hint_close(question, judgement))
 

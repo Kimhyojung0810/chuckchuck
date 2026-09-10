@@ -966,11 +966,22 @@ LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 �
       "why": "자료에는 있는데 발표에서 설명하지 않은 개념이에요",
       "hint": "5장에서 이 개념을 어떻게 설명했는지 떠올려 보세요",
       "severity": 1, "trap": true, "source": "missing",
-      "slide_nos": [5], "doc_weight": 0.92 }
+      "slide_nos": [5], "doc_weight": 0.92,
+      "answer_gist": "두 모달리티를 같은 공간에 놓고 대조 손실로 정렬한다",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "IMU 와 영상 임베딩을 같은 공간에 놓고 대조 손실로 정렬한다",
+      "speech_quote": "여기서는 두 신호를 같은 공간에 두고 맞췄습니다" }
   ],
   "deferred_node_ids": ["s7", "s2"]
 }
 ```
+
+`slide_nos` 는 **anchor 장**이다 (2026-09-10) — F-07 의 근거 장 안에서 본문이 실제로 이
+개념을 말하는 장 최대 3개. 힌트·모범답·화면의 장 그림·판정 본문이 전부 이 목록을 따른다.
+`evidence_slide_no`·`evidence_quote`·`speech_quote` 는 F-08 이 slidedoc 을 받았을 때만
+채운다 — 「모르겠어요」 사다리가 "자료 5장은 이렇게 말해요: «…»" 로 LLM 없이 즉시 쓴다.
+없으면 빈 값이고 사다리는 예전(방향·범위·접근) 그대로다.
 
 **보증 (불변식):** ① 질문 `id` 유일 · `node_id` 중복 없음 ② 질문 수 ≤
 `QA_TRACK_LIMITS[track]` ③ `trap=true` 수 ≤ `QA_TRACK_TRAPS[track]` (1분 트랙은 0)
@@ -994,10 +1005,25 @@ LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 �
   "followup": "그 값을 키우면 무엇이 달라지나요?",
   "round_no": 1,
   "probe_tier": "probe",
+  "choices": [],
+  "evidence_quote": "",
+  "evidence_slide_no": 0,
   "passed": false,
   "mastered": false
 }
 ```
+
+#### 막힘 코칭 — `coach_stage` (「모르겠어요」)
+
+| 단계 | 몇 번째 포기 | 무엇을 주나 | LLM |
+|---|---|---|---|
+| `narrow` | 1 | 자료 인용(«…», `evidence_slide_no`) + **둘 중 하나** 되물음. `choices` 2개 | 호출. 선택형이 아니면 코드 문장으로 폴백 |
+| `scaffold` | 2 | 골자에서 낱말 하나를 가린 **빈칸** + `choices`(정답·이웃 개념에서 뽑은 오답) | **없음** |
+| `explain` | 3+ | 해설 + 출처(자료 N장 인용 · 발표 때 한 말) → 화면이 「자기 말로 다시」로 보낸다 | 호출 |
+| `clarify` | (되물음) | 같은 질문을 쉬운 말로 | 호출 |
+
+단계는 서버가 history 의 같은 `question_id` 포기 횟수로 센다. 골자가 없어 빈칸을 못 만들면
+`scaffold` 를 건너뛰고 `explain` 이다. `choices` 가 비면 자유 답이다.
 
 | `verdict` | 뜻 | 기본 `score` |
 |------|------|------|

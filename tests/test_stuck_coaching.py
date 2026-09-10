@@ -123,9 +123,41 @@ def test_first_give_up_narrows_instead_of_revealing():
     assert j.passed is False
 
 
-def test_second_give_up_explains_and_closes():
-    """같은 질문에서 또 포기하면 해설한다 — 계속 되물으면 그냥 괴롭히는 것이다."""
+def _two_give_ups(question_text: str | None = None) -> list[QaTurn]:
+    """같은 질문에서 두 번 막힌 이력 — 세 번째가 해설이다 (narrow → scaffold → explain)."""
+    text = question_text or make_question().question
+    return [
+        QaTurn(question=text, answer="모르겠어요", verdict="unknown"),
+        QaTurn(question=text, answer="(모르겠어요)", verdict="unknown", gave_up=True),
+    ]
+
+
+def test_second_give_up_scaffolds_with_a_blank():
+    """두 번째 포기는 답이 아니라 **발판**이다 — 골자에서 낱말 하나를 가린 빈칸. LLM 을 안 부른다."""
     history = [QaTurn(question=make_question().question, answer="모르겠어요", verdict="unknown")]
+    llm = RecordingLLM()
+    j = coach_stuck(make_question(), history=history, llm=llm)
+
+    assert j.coach_stage == "scaffold"
+    assert j.followup.startswith("빈칸을 채워 보세요: ")
+    assert "___" in j.followup
+    assert "때문입니다" in j.followup              # 서술어는 안 가린다 — 명사(사용자·이탈)를 가린다
+    assert "사용자" not in j.followup or "이탈" not in j.followup
+    assert j.explanation == "" and j.passed is False
+    assert llm.kwargs == []                         # LLM 호출 없음
+
+
+def test_scaffold_skips_to_explain_when_there_is_no_gist():
+    """골자가 없으면 빈칸을 못 만든다 — 발판을 건너뛰고 해설로 간다."""
+    history = [QaTurn(question=make_question().question, answer="모르겠어요", verdict="unknown")]
+    llm = CoachLLM({"react": "네", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
+    j = coach_stuck(make_question(answer_gist=""), history=history, llm=llm)
+    assert j.coach_stage == "explain"
+
+
+def test_third_give_up_explains_and_closes():
+    """같은 질문에서 세 번째로 막히면 해설한다 — 계속 되물으면 그냥 괴롭히는 것이다."""
+    history = _two_give_ups()
     llm = CoachLLM({"react": "여기까지 같이 볼게요.", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
     j = coach_stuck(make_question(), history=history, llm=llm)
 
@@ -144,7 +176,10 @@ def test_typed_text_with_give_up_button_still_reaches_explain():
     """
     typed = "음… 지연 시간이 뭔가 사용자한테 영향을 준다는 건 알겠는데 그 이상은 설명을 못 하겠어요"
     assert looks_stuck(typed) is False          # 텍스트만 보면 포기가 아니다
-    history = [QaTurn(question=make_question().question, answer=typed, gave_up=True)]
+    history = [
+        QaTurn(question=make_question().question, answer="모르겠어요", verdict="unknown"),
+        QaTurn(question=make_question().question, answer=typed, gave_up=True),
+    ]
 
     llm = CoachLLM({"react": "괜찮아요", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
     j = coach_stuck(make_question(), history=history, llm=llm)
@@ -185,11 +220,7 @@ def test_second_give_up_with_whitespace_variant_still_explains():
     단계 판정이 문면 완전일치면, 질문을 trim 해 보내는 외부 클라이언트에서
     prior=0 이 되어 explain 단계로 영영 못 올라간다.
     """
-    history = [QaTurn(
-        question="  " + make_question().question + " ",
-        answer="모르겠어요",
-        verdict="unknown",
-    )]
+    history = _two_give_ups("  " + make_question().question + " ")
     llm = CoachLLM({"react": "여기까지 같이 볼게요.", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
     j = coach_stuck(make_question(), history=history, llm=llm)
 
@@ -203,7 +234,7 @@ def test_coach_stage_is_always_in_enum():
 
 def test_explain_falls_back_to_answer_gist():
     """LLM 이 해설을 안 주면 F-08 이 만들어 둔 answer_gist 로 메운다."""
-    history = [QaTurn(question=make_question().question, answer="모르겠어요", verdict="unknown")]
+    history = _two_give_ups()
     llm = CoachLLM({"react": "네"})
     j = coach_stuck(make_question(), history=history, llm=llm)
 
@@ -298,6 +329,9 @@ def test_second_give_up_explains_when_history_carries_followup_text():
         # 2턴: 되물음에 포기 — question 은 followup 문면이다
         QaTurn(question_id=q.id, question="3장에서 응답이 느리면 사용자는 어떻게 하죠?",
                answer="모르겠어요", verdict="unknown"),
+        # 3턴: 발판(빈칸)에도 포기 — 이번이 해설이다
+        QaTurn(question_id=q.id, question="빈칸을 채워 보세요: 사용자 이탈로 이어지기 ___",
+               answer="(모르겠어요)", verdict="unknown", gave_up=True),
     ]
     llm = CoachLLM({"react": "여기까지 같이 볼게요.", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
     j = coach_stuck(q, history=history, llm=llm)

@@ -1,0 +1,465 @@
+{
+ "bundle": "/home/yehschuck/project/chuckchuck/fixtures/live_qa_run.json",
+ "track": "5",
+ "model": "ax",
+ "summary": {
+  "questions": 3,
+  "fallback": 0,
+  "trap": 1,
+  "slide_count_mean": 3.0,
+  "specificity_mean": 4.0,
+  "grounding_mean": 0.61,
+  "honorifics_questions": 0,
+  "impolite_questions": 3,
+  "honorifics_judge": 1,
+  "judge": {
+   "gist_passed": "3/3",
+   "unrelated_wrong": "3/3",
+   "trap_agree_wrong": "1/1",
+   "trap_fixed_passed": "0/1"
+  },
+  "prompts": {
+   "qa-questions": {
+    "n": 1,
+    "user_chars_mean": 8213.0,
+    "noise_ratio_mean": 0.02,
+    "sec_mean": 24.5
+   },
+   "qa-judge": {
+    "n": 9,
+    "user_chars_mean": 1351.89,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 4.54
+   },
+   "[단계] narrow": {
+    "n": 3,
+    "user_chars_mean": 2117.67,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 6.1
+   },
+   "[단계] explain": {
+    "n": 3,
+    "user_chars_mean": 2282.33,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 5.47
+   }
+  },
+  "coach": {
+   "stages": {
+    "q01-notification": [
+     "narrow",
+     "scaffold",
+     "explain"
+    ],
+    "q02-concentration-loss": [
+     "narrow",
+     "scaffold",
+     "explain"
+    ],
+    "q03-work-context": [
+     "narrow",
+     "scaffold",
+     "explain"
+    ]
+   },
+   "step1_cites_slide": "3/3",
+   "step1_choice_form": "3/3",
+   "step1_quote_in_deck": "3/3",
+   "explain_cites_slide": "3/3",
+   "honorifics": 0
+  }
+ },
+ "questions": [
+  {
+   "id": "q01-notification",
+   "label": "알림",
+   "trap": true,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 5,
+   "grounding": 0.5,
+   "honorifics": 0,
+   "impolite": true,
+   "question": "알림 확인을 '잠깐'이라고 표현한 이유는 무엇이며, 실제 인지 비용은 어떻게 되는가?",
+   "gist": "알림 확인 시간보다 작업 맥락 복구에 드는 인지 비용이 더 크다."
+  },
+  {
+   "id": "q02-concentration-loss",
+   "label": "집중 손실",
+   "trap": false,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 3,
+   "grounding": 0.82,
+   "honorifics": 0,
+   "impolite": true,
+   "question": "알림 확인 후 발생하는 비가시적 집중 손실은 어떤 메커니즘으로 설명되는가?",
+   "gist": "알림 확인 후 작업 복귀 과정에서 attention residue가 남아 집중 손실이 발생한다."
+  },
+  {
+   "id": "q03-work-context",
+   "label": "작업 맥락",
+   "trap": false,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 4,
+   "grounding": 0.5,
+   "honorifics": 0,
+   "impolite": true,
+   "question": "집중을 ‘머릿속 작업 상태’로 정의한 것이 작업 복귀에 어떤 영향을 주는가?",
+   "gist": "알림은 시선뿐 아니라 머릿속 작업 맥락을 흔들어 작업 복귀를 어렵게 만든다."
+  }
+ ],
+ "judgements": [
+  {
+   "question_id": "q01-notification",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 85,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인 시간보다 작업 맥락 복구에 드는 인지 비용이 더 크다는 핵심을 정확히 짚었습니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 1,
+   "react": "질문과 다른 이야기예요. 알림에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 시간보다 작업 맥락 복구에 드는 인지 비용이 더 크다는 점을 어떻게 설명하시겠습니까?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정에 동의",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 알림에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 시간보다 작업 맥락 복구에 드는 인지 비용이 더 크다는 근거는 무엇인가요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정을 바로잡음",
+   "expect": "passed",
+   "ok": false,
+   "verdict": "wrong",
+   "score": 30,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요.",
+   "followup": "알림 확인을 '잠깐'이라고 표현한 이유는 무엇인가요?"
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 80,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인 후 작업 복귀 과정에서 attention residue가 남아 집중 손실이 발생한다는 핵심 메커니즘을 정확히 짚었습니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 집중 손실에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 후 작업 복귀가 어려운 이유를 주의 잔류 개념으로 설명해 주세요."
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 90,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림이 머릿속 작업 맥락을 흔들어 작업 복귀를 어렵게 만든다는 핵심을 정확히 짚었습니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 작업 맥락에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림이 ‘머릿속 작업 상태’를 흔들 때 발생하는 인지 비용이나 주의 잔여물은 어떤 방식으로 작업 복귀를 어렵게 만들까요?"
+  }
+ ],
+ "coaching": [
+  {
+   "question_id": "q01-notification",
+   "step": 1,
+   "stage": "narrow",
+   "cites_slide": true,
+   "choice_form": true,
+   "choices": [
+    "흐름 복구 비용",
+    "시간 빼앗김"
+   ],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "지금 질문이 조금 어려웠을 수 있어요. 자료 1장은 이렇게 말해요: «스마트폰 알림이 우리의 작업 맥락을 끊는 방식 핵심 메시지 알림은 시간을 훔치는 게 아니라 , 머릿속 흐름을 끊는다 .»",
+   "followup": "자료 1장은 알림이 ‘시간을 훔치는 게 아니라 머릿속 흐름을 끊는다’고 말합니다. 이 말은 알림 확인 시간보다 작업 맥락 복구에 드는 인지 비용이 더 크다는 뜻인가요, 아니면 알림이 실제로 시간을 많이 빼앗는다는 뜻인가요?",
+   "explanation": ""
+  },
+  {
+   "question_id": "q01-notification",
+   "step": 2,
+   "stage": "scaffold",
+   "cites_slide": true,
+   "choice_form": true,
+   "choices": [
+    "비가시적",
+    "비용"
+   ],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "괜찮아요. 한 칸만 채우면 돼요.",
+   "followup": "빈칸을 채워 보세요: 알림 확인 시간보다 작업 맥락 복구에 드는 인지 ___ 더 크다. — '비가시적' 인가요, '비용' 인가요? (자료 1장)",
+   "explanation": ""
+  },
+  {
+   "question_id": "q01-notification",
+   "step": 3,
+   "stage": "explain",
+   "cites_slide": true,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "지금 질문의 핵심이 바로 잡혔다.",
+   "followup": "",
+   "explanation": "자료 1장은 알림 확인 자체보다 작업 맥락 복구에 더 큰 인지 비용이 든다는 점을 말하고, 발표자가 실제로 ‘잠깐 확인 뒤에 다시 집중하기 어렵다’고 한 말도 같은 맥락이다. — 자료 1장: «스마트폰 알림이 우리의 작업 맥락을 끊는 방식 핵심 메시지 알림은 시간을 훔치는 게 아니라 , 머릿속 흐름을 끊는다 .» 발표에서는 «안녕하세요 오늘은 스마트 알림 하나가 왜 우리의 집중을 크게 방해하는지 이야기해보겠습니다 우리는 보통 알림을 잠깐 확인하는 정도는 별문제 아니라고 생각합니다 하지만 실제로는 그 잠깐의 행동 뒤에 더 큰 집중 손실이…» 라고 말했어요."
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "step": 1,
+   "stage": "narrow",
+   "cites_slide": true,
+   "choice_form": true,
+   "choices": [
+    "A: 시간 짧아도 복구 비용 큼",
+    "B: 시간 길면 복구 비용 더 큼"
+   ],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "지금 이 질문은 발표자가 개념을 정확히 이해했는지 확인하는 단계라서, 답을 못 해도 괜찮습니다. 자료 2장은 이렇게 말해요: «알림 주의가 튄다 확인 다른 정보로 이동 전환 하던 일이 멈춘다 복구 맥락을 다시 찾는다 그래서 알림의 비용은 “초”가 아니라 “흐름”으로 봐야 한다 .»",
+   "followup": "자료 2장은 알림 확인 후 집중 손실이 ‘시간’이 아니라 ‘흐름’에서 발생한다고 말합니다. 이 말은 A처럼 알림 확인 시간이 짧아도 복구 비용이 크다는 뜻인가요, 아니면 B처럼 알림 확인 시간이 길수록 복구 비용이 더 커진다는 뜻인가요?",
+   "explanation": ""
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "step": 2,
+   "stage": "scaffold",
+   "cites_slide": true,
+   "choice_form": true,
+   "choices": [
+    "attention",
+    "스마트폰"
+   ],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "괜찮아요. 한 칸만 채우면 돼요.",
+   "followup": "빈칸을 채워 보세요: 알림 확인 후 작업 복귀 과정에서 ___ residue가 남아 집중 손실이 발생한다. — 'attention' 인가요, '스마트폰' 인가요? (자료 2장)",
+   "explanation": ""
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "step": 3,
+   "stage": "explain",
+   "cites_slide": true,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "괜찮아요. 여기서 같이 짚어 볼게요.",
+   "followup": "",
+   "explanation": "자료 2장은 알림 확인 자체보다 작업 복귀 과정에서 발생하는 ‘흐름 복구 비용’을 강조합니다. 발표에서 언급한 5초 확인 후 다시 돌아와 흐름을 떠올리는 상황이 바로 이 근거에 해당합니다. 기대하는 답은 attention residue가 남아 집중 손실이 발생한다는 점을 명확히 설명하는 것입니다. — 자료 2장: «알림 주의가 튄다 확인 다른 정보로 이동 전환 하던 일이 멈춘다 복구 맥락을 다시 찾는다 그래서 알림의 비용은 “초”가 아니라 “흐름”으로 봐야 한다 .» 발표에서는 «네 앞서 볼 수 있듯이 많은 사람들은 알림을 잠깐 보는 정도는 큰 문제가 아니라고 생각을 합니다 예를 들어서 메시지를 5 초 정도 확인을 하면 그냥 오초만 손해 본 것처럼 느껴집니다 그런데 실제로는 그 이후에 다시…» 라고 말했어요."
+  },
+  {
+   "question_id": "q03-work-context",
+   "step": 1,
+   "stage": "narrow",
+   "cites_slide": true,
+   "choice_form": true,
+   "choices": [
+    "같은 방향",
+    "다른 방향"
+   ],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "지금 질문을 잘 이해하고 있어요. 자료 1장은 이렇게 말해요: «스마트폰 알림이 우리의 작업 맥락을 끊는 방식 핵심 메시지 알림은 시간을 훔치는 게 아니라 , 머릿속 흐름을 끊는다 .»",
+   "followup": "자료 인용은 ‘알림은 시간을 훔치는 게 아니라 머릿속 흐름을 끊는다’입니다. 이 문장은 작업 복귀가 어렵다는 주장과 같은 방향인가요, 아니면 다른 방향인가요?",
+   "explanation": ""
+  },
+  {
+   "question_id": "q03-work-context",
+   "step": 2,
+   "stage": "scaffold",
+   "cites_slide": true,
+   "choice_form": true,
+   "choices": [
+    "스마트폰",
+    "어렵게"
+   ],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "괜찮아요. 한 칸만 채우면 돼요.",
+   "followup": "빈칸을 채워 보세요: 알림은 시선뿐 아니라 머릿속 작업 맥락을 흔들어 작업 복귀를 ___ 만든다. — '스마트폰' 인가요, '어렵게' 인가요? (자료 1장)",
+   "explanation": ""
+  },
+  {
+   "question_id": "q03-work-context",
+   "step": 3,
+   "stage": "explain",
+   "cites_slide": true,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": true,
+   "honorifics": 0,
+   "react": "지금 질문이 핵심 연결고리를 묻고 있어요",
+   "followup": "",
+   "explanation": "자료 1장은 스마트폰 알림이 시간을 훔치는 게 아니라 머릿속 흐름을 끊는다고 설명합니다. 이 흐름은 목표·단계·규칙·임시 기억으로 이루어진 작업 맥락이므로, 알림이 이를 흔들면 다시 원래 작업으로 돌아와 맥락을 복구해야 해서 작업 복귀가 어려워집니다. 발표에서 집중을 ‘머릿속 작업 상태’라고 말한 것은 바로 이 복구 부담을 보여주기 위한 연결고리입니다. — 자료 1장: «스마트폰 알림이 우리의 작업 맥락을 끊는 방식 핵심 메시지 알림은 시간을 훔치는 게 아니라 , 머릿속 흐름을 끊는다 .» 발표에서는 «안녕하세요 오늘은 스마트 알림 하나가 왜 우리의 집중을 크게 방해하는지 이야기해보겠습니다 우리는 보통 알림을 잠깐 확인하는 정도는 별문제 아니라고 생각합니다 하지만 실제로는 그 잠깐의 행동 뒤에 더 큰 집중 손실이…» 라고 말했어요."
+  }
+ ],
+ "calls": [
+  {
+   "task": "qa-questions",
+   "sec": 24.5,
+   "system_chars": 2121,
+   "user_chars": 8213,
+   "noise_ratio": 0.02
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.1,
+   "system_chars": 3044,
+   "user_chars": 1335,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.6,
+   "system_chars": 3044,
+   "user_chars": 1370,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.9,
+   "system_chars": 3044,
+   "user_chars": 1319,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.3,
+   "system_chars": 3044,
+   "user_chars": 1350,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.6,
+   "system_chars": 3044,
+   "user_chars": 1396,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 1.9,
+   "system_chars": 3044,
+   "user_chars": 1414,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.8,
+   "system_chars": 3136,
+   "user_chars": 1414,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.2,
+   "system_chars": 3044,
+   "user_chars": 1270,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.5,
+   "system_chars": 3044,
+   "user_chars": 1299,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] narrow",
+   "sec": 5.8,
+   "system_chars": 1026,
+   "user_chars": 2087,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] explain",
+   "sec": 4.2,
+   "system_chars": 1026,
+   "user_chars": 2259,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] narrow",
+   "sec": 8.0,
+   "system_chars": 1026,
+   "user_chars": 2186,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] explain",
+   "sec": 5.9,
+   "system_chars": 1026,
+   "user_chars": 2346,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] narrow",
+   "sec": 4.5,
+   "system_chars": 1026,
+   "user_chars": 2080,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] explain",
+   "sec": 6.3,
+   "system_chars": 1026,
+   "user_chars": 2242,
+   "noise_ratio": 0.01
+  }
+ ]
+}

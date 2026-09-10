@@ -1,0 +1,405 @@
+{
+ "bundle": "/home/yehschuck/project/chuckchuck/fixtures/live_qa_run.json",
+ "track": "5",
+ "model": "ax",
+ "summary": {
+  "questions": 3,
+  "fallback": 0,
+  "trap": 1,
+  "slide_count_mean": 3.0,
+  "specificity_mean": 4.0,
+  "grounding_mean": 0.74,
+  "honorifics_questions": 0,
+  "impolite_questions": 0,
+  "honorifics_judge": 1,
+  "judge": {
+   "gist_passed": "3/3",
+   "unrelated_wrong": "3/3",
+   "trap_agree_wrong": "1/1",
+   "trap_fixed_passed": "1/1"
+  },
+  "prompts": {
+   "qa-questions": {
+    "n": 2,
+    "user_chars_mean": 8213.0,
+    "noise_ratio_mean": 0.02,
+    "sec_mean": 20.3
+   },
+   "qa-judge": {
+    "n": 8,
+    "user_chars_mean": 1301.5,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 4.95
+   },
+   "[단계] narrow": {
+    "n": 3,
+    "user_chars_mean": 1855.67,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 4.57
+   },
+   "[단계] explain": {
+    "n": 3,
+    "user_chars_mean": 1939.67,
+    "noise_ratio_mean": 0.01,
+    "sec_mean": 4.37
+   }
+  },
+  "coach": {
+   "stages": {
+    "q01-notification": [
+     "narrow",
+     "explain"
+    ],
+    "q02-concentration-loss": [
+     "narrow",
+     "explain"
+    ],
+    "q03-work-context": [
+     "narrow",
+     "explain"
+    ]
+   },
+   "step1_cites_slide": "0/3",
+   "step1_choice_form": "0/3",
+   "step1_quote_in_deck": "-",
+   "explain_cites_slide": "0/3",
+   "honorifics": 0
+  }
+ },
+ "questions": [
+  {
+   "id": "q01-notification",
+   "label": "알림",
+   "trap": true,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 5,
+   "grounding": 0.78,
+   "honorifics": 0,
+   "impolite": false,
+   "question": "알림 확인 후 다시 집중하기 어려운 이유는 무엇인가요?",
+   "gist": "알림 확인 후 작업 맥락을 복구해야 해서 다시 집중하기 어렵다"
+  },
+  {
+   "id": "q02-concentration-loss",
+   "label": "집중 손실",
+   "trap": false,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 3,
+   "grounding": 0.78,
+   "honorifics": 0,
+   "impolite": false,
+   "question": "알림 확인 후 발생하는 비가시적 집중 손실은 어떤 메커니즘인가요?",
+   "gist": "알림 확인 후 작업 맥락을 복구해야 해서 다시 집중하기 어렵다"
+  },
+  {
+   "id": "q03-work-context",
+   "label": "작업 맥락",
+   "trap": false,
+   "severity": 1,
+   "slide_count": 3,
+   "fallback": false,
+   "specificity": 4,
+   "grounding": 0.67,
+   "honorifics": 0,
+   "impolite": false,
+   "question": "집중을 ‘머릿속 작업 상태’로 정의한 것이 작업 복귀에 어떤 영향을 주나요?",
+   "gist": "알림 확인 후 작업 맥락을 복구해야 해서 다시 집중하기 어렵다"
+  }
+ ],
+ "judgements": [
+  {
+   "question_id": "q01-notification",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 85,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인 후 작업 맥락 복구가 필요하다는 점까지는 정확합니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 30,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 알림에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 후 작업 맥락을 복구하는 데 어떤 인지 비용이 발생하나요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정에 동의",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 알림에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 후 작업 맥락을 복구하는 데 어떤 인지 자원이 소모되나요?"
+  },
+  {
+   "question_id": "q01-notification",
+   "case": "함정을 바로잡음",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "partial",
+   "score": 70,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인 후 작업 맥락 복구가 어렵다는 점까지는 정확합니다.",
+   "followup": "알림 확인 후 원래 작업으로 복귀할 때 머릿속 작업 상태를 다시 세우는 데 드는 인지 비용이 왜 눈에 잘 보이지 않나요?"
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 80,
+   "passed": true,
+   "honorifics": 0,
+   "react": "알림 확인 후 작업 맥락을 복구해야 해서 다시 집중하기 어렵다는 점까지 정확히 짚었습니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 0,
+   "react": "질문과 다른 이야기예요. 집중 손실에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 후 작업 맥락을 복구해야 해서 다시 집중하기 어렵다"
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "골자 그대로",
+   "expect": "passed",
+   "ok": true,
+   "verdict": "good",
+   "score": 85,
+   "passed": true,
+   "honorifics": 0,
+   "react": "집중과 작업 맥락의 관계를 정확히 짚었습니다.",
+   "followup": ""
+  },
+  {
+   "question_id": "q03-work-context",
+   "case": "엉뚱한 답",
+   "expect": "wrong",
+   "ok": true,
+   "verdict": "wrong",
+   "score": 35,
+   "passed": false,
+   "honorifics": 1,
+   "react": "질문과 다른 이야기예요. 작업 맥락에 대해 자료에 있는 대로 말해 보세요.",
+   "followup": "알림 확인 후 작업 맥락을 복구해야 해서 다시 집중하기 어렵다는 점을 어떻게 설명하셨나요?"
+  }
+ ],
+ "coaching": [
+  {
+   "question_id": "q01-notification",
+   "step": 1,
+   "stage": "narrow",
+   "cites_slide": false,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": null,
+   "honorifics": 0,
+   "react": "지금 질문은 중요한 포인트를 정확히 짚고 있어요.",
+   "followup": "알림을 확인한 뒤 ‘머릿속 작업 상태’가 원래로 돌아오려면 무엇이 필요할까?",
+   "explanation": ""
+  },
+  {
+   "question_id": "q01-notification",
+   "step": 2,
+   "stage": "explain",
+   "cites_slide": false,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": null,
+   "honorifics": 0,
+   "react": "지금 헷갈리는 게 정상입니다.",
+   "followup": "",
+   "explanation": "자료 S1, S2, S11은 알림이 화면을 본 시간보다 작업 맥락을 복구하는 과정에서 집중 손실이 커진다고 설명합니다. 발표에서 ‘알림이 이 상태를 잠깐 흔들고 다시 이어서 하기가 어려워진다’고 말한 것은 이 핵심을 정확히 짚은 것입니다."
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "step": 1,
+   "stage": "narrow",
+   "cites_slide": false,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": null,
+   "honorifics": 0,
+   "react": "지금 막힌 게 정상이다. 한 단계만 같이 정리해 보자.",
+   "followup": "알림 확인 후 다시 원래 작업으로 돌아올 때, 발표자는 ‘흐름’이 끊긴다고 말했는데 그 ‘흐름’이 정확히 무엇을 복구해야 하는 상태인지 한 단어로 말해 줄 수 있나?",
+   "explanation": ""
+  },
+  {
+   "question_id": "q02-concentration-loss",
+   "step": 2,
+   "stage": "explain",
+   "cites_slide": false,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": null,
+   "honorifics": 0,
+   "react": "지금 질문은 개념을 정확히 짚으려는 거라서 막힌 게 자연스럽다",
+   "followup": "",
+   "explanation": "자료 S2·S8은 알림 확인 자체보다 작업 복귀 과정에서 발생하는 맥락 복구가 집중 손실의 핵심이라고 설명한다. 발표자는 ‘잠깐 흔들려서 다시 돌아오기 어렵다’고 말했는데, 이 한 문장으로 ‘복구해야 하는 생각의 양’이라는 골자를 전달하면 된다."
+  },
+  {
+   "question_id": "q03-work-context",
+   "step": 1,
+   "stage": "narrow",
+   "cites_slide": false,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": null,
+   "honorifics": 0,
+   "react": "지금 질문이 핵심으로 잘 가고 있어요.",
+   "followup": "알림을 본 뒤 다시 원래 작업으로 돌아올 때, 어디까지 했는지 떠올려야 하나요?",
+   "explanation": ""
+  },
+  {
+   "question_id": "q03-work-context",
+   "step": 2,
+   "stage": "explain",
+   "cites_slide": false,
+   "choice_form": false,
+   "choices": [],
+   "quote_in_deck": null,
+   "honorifics": 0,
+   "react": "지금 막히면 다 그렇다.",
+   "followup": "",
+   "explanation": "자료 S8은 알림 확인 자체보다 작업 맥락을 복구하는 과정이 인지 비용을 키운다고 말하고, 발표자는 집중을 목표와 순서가 머릿속에 올라와 있는 상태로 설명했다. 따라서 질문은 알림 확인 후 머릿속 작업 상태를 다시 떠올려야 해서 작업 복귀가 어려워진다는 흐름으로 답하면 된다."
+  }
+ ],
+ "calls": [
+  {
+   "task": "qa-questions",
+   "sec": 20.2,
+   "system_chars": 2121,
+   "user_chars": 8213,
+   "noise_ratio": 0.02
+  },
+  {
+   "task": "qa-questions",
+   "sec": 20.4,
+   "system_chars": 2213,
+   "user_chars": 8213,
+   "noise_ratio": 0.02
+  },
+  {
+   "task": "qa-judge",
+   "sec": 3.7,
+   "system_chars": 3044,
+   "user_chars": 1291,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 4.8,
+   "system_chars": 3044,
+   "user_chars": 1328,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.1,
+   "system_chars": 3044,
+   "user_chars": 1277,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.9,
+   "system_chars": 3044,
+   "user_chars": 1306,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 3.9,
+   "system_chars": 3044,
+   "user_chars": 1331,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 6.6,
+   "system_chars": 3044,
+   "user_chars": 1368,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 3.7,
+   "system_chars": 3044,
+   "user_chars": 1237,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "qa-judge",
+   "sec": 5.9,
+   "system_chars": 3044,
+   "user_chars": 1274,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] narrow",
+   "sec": 4.1,
+   "system_chars": 878,
+   "user_chars": 1827,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] explain",
+   "sec": 4.3,
+   "system_chars": 878,
+   "user_chars": 1905,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] narrow",
+   "sec": 5.0,
+   "system_chars": 878,
+   "user_chars": 1903,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] explain",
+   "sec": 4.6,
+   "system_chars": 878,
+   "user_chars": 1987,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] narrow",
+   "sec": 4.6,
+   "system_chars": 878,
+   "user_chars": 1837,
+   "noise_ratio": 0.01
+  },
+  {
+   "task": "[단계] explain",
+   "sec": 4.2,
+   "system_chars": 878,
+   "user_chars": 1927,
+   "noise_ratio": 0.01
+  }
+ ]
+}

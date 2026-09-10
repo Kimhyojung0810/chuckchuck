@@ -17,12 +17,15 @@ LLM 이 그날 낸 답을 보고 "좋아진 것 같다" 로 끝나고, 다음 �
                    함정을 바로잡음 → 통과. 이 넷이 어긋나면 점수가 거짓말이다.
     말투 위반      '~시', '~시겠어요', '하셨' 같은 금지 높임(CLAUDE.md §3-1) 개수.
     프롬프트 크기  LLM 에 실린 글자 수와 그중 이미지 캡션·HTML 잡음 비율, 지연.
+    막힘 코칭      「모르겠어요」를 연달아 눌렀을 때: 단계 순서, 1단이 장 번호를 대는가,
+                   선택지를 주는가, 인용이 자료에 실제로 있는가, 해설이 출처를 대는가.
 
 실행 (저장소 루트에서, 실 LLM 을 부른다 — .env 필요):
 
     python examples/qa_eval.py                       # 질문 5분 트랙 + 판정 4벌
     python examples/qa_eval.py --tag baseline        # 결과 파일 이름에 꼬리표
     python examples/qa_eval.py --no-judge            # 질문만 (F-09 호출 없음, 싸다)
+    python examples/qa_eval.py --no-coach            # 막힘 코칭은 건너뛴다
     python examples/qa_eval.py --dump /tmp/qa.json   # 프롬프트·응답 원문까지 남긴다
 
 결과 요약은 exports/qa_eval/<시각>_<tag>.json 에 남는다. 전후 비교는 이 파일 둘을 놓고 본다.
@@ -74,6 +77,9 @@ TRAP_AGREE_ANSWER = "네, 맞습니다. 말씀하신 대로입니다."
 
 #: 질문이 해요체로 끝나는가. "…되는가?" 같은 반말 의문형은 화면 말투와 어긋난다 (f08 규칙 5).
 POLITE_END_RE = re.compile(r"(요|까|죠|세요|나요|가요|래요)\s*[?.!]?\s*$")
+#: 되물음이 선택형인가 — "A인가요, B인가요?" · "…였나요, 아니었나요?" · "둘 중".
+CHOICE_RE = re.compile(r"(인가요|였나요|있었나요|없었나요|맞나요)[^?]*?(인가요|였나요|있었나요|없었나요|아닌가요)|둘 중|중 (어느|하나)")
+SLIDE_NO_RE = re.compile(r"\d+\s*장|\bS\d+")
 #: CLAUDE.md §3-1 이 금지한 높임. 질문·힌트·반응 문장에서 센다.
 HONORIFIC_RE = re.compile(r"[가-힣]*(셨|시겠|십니|십시오|시나요|시는지|계시|여쭈)|께\s")
 
@@ -229,7 +235,39 @@ def run_judges(questions: list[Question], art: dict, llm: LLMProvider, limit: in
     return rows
 
 
-def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict]) -> dict:
+def run_coaching(questions: list[Question], art: dict, llm: LLMProvider, corpus: Corpus, limit: int) -> list[dict]:
+    """「모르겠어요」를 해설이 나올 때까지 연달아 누른다 (최대 3번)."""
+    rows = []
+    for q in questions[:limit]:
+        history: list[dict] = []
+        deck = " ".join(corpus.slide_text.values())
+        for step in range(1, 4):
+            v = judge_answer(q, "(모르겠어요)", give_up=True, history=history,
+                             graph=art["concept_graph"], alignment=art.get("alignment_doc"),
+                             transcript=art.get("transcript"), slidedoc=art.get("slide_doc"),
+                             context=art.get("context"), llm=llm)
+            quote = getattr(v, "evidence_quote", "") or ""
+            row = {
+                "question_id": q.id, "step": step, "stage": v.coach_stage,
+                "cites_slide": bool(SLIDE_NO_RE.search(v.followup + " " + v.react + " " + (v.explanation or ""))),
+                "choice_form": bool(CHOICE_RE.search(v.followup or "")) or len(getattr(v, "choices", []) or []) == 2,
+                "choices": list(getattr(v, "choices", []) or []),
+                "quote_in_deck": (quote in deck) if quote else None,
+                "honorifics": honorifics(v.react, v.followup, v.explanation),
+                "react": v.react, "followup": v.followup, "explanation": v.explanation or "",
+            }
+            rows.append(row)
+            shown = row["followup"] or row["explanation"]
+            print(f"    {q.id:<24} {step}단 {v.coach_stage:<8} 장{'O' if row['cites_slide'] else '-'} "
+                  f"선택{'O' if row['choice_form'] else '-'}  {shown[:70]}")
+            history.append({"question_id": q.id, "question": q.question, "answer": "(모르겠어요)",
+                            "verdict": v.verdict, "gave_up": True})
+            if v.coach_stage == "explain":
+                break
+    return rows
+
+
+def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict], crows: list[dict] | None = None) -> dict:
     def mean(xs):
         xs = [x for x in xs if x is not None]
         return round(sum(xs) / len(xs), 2) if xs else None
@@ -243,6 +281,13 @@ def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict]) -> dict:
         t = by_task.setdefault(c["task"], {"n": 0, "chars": [], "noise": [], "sec": []})
         t["n"] += 1
         t["chars"].append(c["user_chars"]); t["noise"].append(c["noise_ratio"]); t["sec"].append(c["sec"])
+    crows = crows or []
+    def crate(step, key):
+        hit = [r for r in crows if r["step"] == step and r.get(key) is not None]
+        return f"{sum(1 for r in hit if r[key])}/{len(hit)}" if hit else "-"
+    stages = {}
+    for r in crows:
+        stages.setdefault(r["question_id"], []).append(r["stage"])
     return {
         "questions": len(qrows),
         "fallback": sum(1 for r in qrows if r["fallback"]),
@@ -262,6 +307,14 @@ def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict]) -> dict:
                 "noise_ratio_mean": mean(v["noise"]), "sec_mean": mean(v["sec"])}
             for k, v in by_task.items()
         },
+        "coach": {
+            "stages": stages,
+            "step1_cites_slide": crate(1, "cites_slide"), "step1_choice_form": crate(1, "choice_form"),
+            "step1_quote_in_deck": crate(1, "quote_in_deck"),
+            "explain_cites_slide": f"{sum(1 for r in crows if r['stage'] == 'explain' and r['cites_slide'])}/"
+                                   f"{sum(1 for r in crows if r['stage'] == 'explain')}" if crows else "-",
+            "honorifics": sum(r["honorifics"] for r in crows),
+        },
     }
 
 
@@ -275,6 +328,12 @@ def print_summary(s: dict, model: str) -> None:
           f" · 함정동의→wrong {j['trap_agree_wrong']} · 함정정정→통과 {j['trap_fixed_passed']}")
     for task, v in p.items():
         print(f"프롬프트 {task:<12} {v['n']}회 · {v['user_chars_mean']}자 · 잡음 {v['noise_ratio_mean']:.0%} · {v['sec_mean']}s")
+    c = s.get("coach") or {}
+    if c.get("stages"):
+        seqs = " · ".join("→".join(v) for v in c["stages"].values())
+        print(f"막힘 코칭: 단계 {seqs}")
+        print(f"  1단 장 번호 {c['step1_cites_slide']} · 선택형 {c['step1_choice_form']} · 인용∈자료 {c['step1_quote_in_deck']}"
+              f" · 해설 출처 {c['explain_cites_slide']} · 높임 {c['honorifics']}")
 
 
 def main() -> int:
@@ -285,6 +344,7 @@ def main() -> int:
     ap.add_argument("--tag", default="", help="결과 파일 꼬리표 (예: baseline)")
     ap.add_argument("--limit", type=int, default=3, help="판정에 넣을 질문 수 (기본 3)")
     ap.add_argument("--no-judge", action="store_true", help="F-09 를 부르지 않는다")
+    ap.add_argument("--no-coach", action="store_true", help="「모르겠어요」 코칭을 건너뛴다")
     ap.add_argument("--fresh-triage", action="store_true", help="저장된 심사 대신 F-08 1차를 다시 돌린다")
     ap.add_argument("--dump", type=Path, default=None, help="프롬프트·응답 원문을 이 파일에 남긴다")
     args = ap.parse_args()
@@ -310,7 +370,12 @@ def main() -> int:
         print("\nF-09 판정")
         jrows = run_judges(doc.questions, art, llm, args.limit)
 
-    summary = summarize(qrows, jrows, llm.calls)
+    crows = []
+    if not args.no_judge and not args.no_coach:
+        print("\n막힘 코칭 (「모르겠어요」 연타)")
+        crows = run_coaching(doc.questions, art, llm, corpus, args.limit)
+
+    summary = summarize(qrows, jrows, llm.calls, crows)
     print_summary(summary, llm.name)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -318,7 +383,7 @@ def main() -> int:
     out = OUT_DIR / f"{stamp}{'_' + args.tag if args.tag else ''}.json"
     out.write_text(json.dumps({
         "bundle": str(args.bundle), "track": args.track, "model": llm.name,
-        "summary": summary, "questions": qrows, "judgements": jrows,
+        "summary": summary, "questions": qrows, "judgements": jrows, "coaching": crows,
         "calls": [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in llm.calls],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n요약 저장: {out.relative_to(ROOT)}")

@@ -150,3 +150,104 @@ def section_line(node, graph) -> str:
     if section is None:
         return ""
     return f"구간={section.name} ({section.slide_role})"
+
+
+# ---------------------------------------------------------------------------
+# 인용 · 빈칸 — 「모르겠어요」 사다리의 재료. LLM 을 부르지 않는다.
+# ---------------------------------------------------------------------------
+
+#: 문장 경계. 마침표·물음표 뒤, 표의 칸(|), 가운뎃점 나열, 줄바꿈.
+_SENT_SPLIT_RE = re.compile(r"(?<=[.?!])\s+|\s*\|\s*|\s+·\s+|\n")
+#: 인용 한 구절의 길이. 너무 짧으면 표 칸 조각이고, 너무 길면 화면 한 줄을 넘는다.
+QUOTE_MIN = 12
+QUOTE_MAX = 120
+#: 빈칸으로 가릴 낱말. 조사를 뗀 줄기가 이 길이 이상이어야 답이 된다.
+MASK_MIN = 2
+_WORD_RE = re.compile(r"[가-힣A-Za-z0-9%]+")
+#: 서술어·연결 어미로 끝나는 낱말은 가리지 않는다 — "때문입니다" 를 가리면 발판이 아니라 말장난이다.
+_PREDICATE_END_RE = re.compile(r"(니다|습니다|입니다|이다|된다|한다|진다|하는|되는|이는|으며|면서|지만|어서|아서|도록|하게|되게|지기|기|고|며|다|요|라)$")
+#: 명사 뒤에 붙는 조사. 떼고 줄기만 답으로 보여 준다.
+_PARTICLE_END_RE = re.compile(r"(에서는|으로는|에서|으로|에게|부터|까지|처럼|보다|이나|나|은|는|이|가|을|를|의|도|에|와|과|로)$")
+
+
+def _sentences(text: str) -> list[str]:
+    parts = (s.strip(" |·-—") for s in _SENT_SPLIT_RE.split(text or ""))
+    return [s for s in parts if len(s) >= QUOTE_MIN]
+
+
+def quote_for(label: str, summary: str, text: str, max_len: int = QUOTE_MAX) -> str:
+    """
+    본문에서 **이 개념을 말하는 한 문장**을 그대로 옮긴다.
+
+    개념 이름이 통째로 나오는 문장을 가장 먼저, 다음은 이름·요약 낱말이 많이 겹치는
+    문장. 아무 문장도 안 겹치면 첫 문장이다 — "자료 N장은 이렇게 말해요" 가 빈손이면
+    사다리 1단이 통째로 사라진다. 본문이 없으면 빈 문자열.
+    """
+    sentences = _sentences(text)
+    if not sentences:
+        return ""
+    query = set(_content_tokens(f"{label} {summary}"))
+    name = _content_tokens(label)
+    best, best_score = sentences[0], -1
+    for sentence in sentences:
+        tokens = _content_tokens(sentence)
+        present = set(tokens)
+        score = sum(1 for t in query if t in present)
+        if name and contains_tokens(tokens, name):
+            score += 3
+        if score > best_score:
+            best, best_score = sentence, score
+    if len(best) > max_len:
+        best = best[: max_len - 1].rstrip() + "…"
+    return best
+
+
+def _stem(word: str) -> str:
+    """조사를 뗀 줄기. 떼고 나서 두 글자 미만이면("밖으로"→"밖") 명사 후보가 아니라 빈 문자열."""
+    m = _PARTICLE_END_RE.search(word)
+    if not m:
+        return word
+    stem = word[: -len(m.group(1))]
+    return stem if len(stem) >= MASK_MIN else ""
+
+
+def _mask_candidates(text: str, exclude: set[str]) -> list[tuple[str, str]]:
+    """
+    (원래 낱말, 줄기) 목록. 서술어는 뺀다. 순서는 문장 순서다.
+    영문·숫자(수치·용어)는 어미 검사 없이 그대로 후보다.
+    """
+    out: list[tuple[str, str]] = []
+    for word in _WORD_RE.findall(text or ""):
+        if _PREDICATE_END_RE.search(word) and not re.search(r"[A-Za-z0-9]", word):
+            continue
+        stem = _stem(word)
+        if len(stem) < MASK_MIN or stem.lower() in exclude or word.lower() in exclude:
+            continue
+        out.append((word, stem))
+    return out
+
+
+def mask_gist(gist: str, label: str, distractor_pool: list[str]) -> tuple[str, str, str]:
+    """
+    골자에서 낱말 하나를 가린 **빈칸 문장**과 (정답, 오답).
+
+    가리는 낱말은 개념 이름이 아닌 것 중 가장 긴 것 — 이름을 가리면 질문이 곧 답이고,
+    짧은 낱말은 조사가 섞여 답이 안 된다. 오답은 이웃 개념 요약에서 같은 방식으로
+    고른다 (골자에 없는 낱말). 재료가 없으면 ("", "", "") — 억지로 만들지 않는다.
+    """
+    text = (gist or "").strip()
+    if not text:
+        return "", "", ""
+    exclude = set(_content_tokens(label))
+    candidates = _mask_candidates(text, exclude)
+    if not candidates:
+        return "", "", ""
+    # 줄기가 긴 것, 같으면 문장에서 **뒤에** 있는 것 — 한국어 골자는 결론이 뒤에 오므로
+    # 뒤쪽 명사가 답에 더 가깝다. 동률 규칙이 있어야 같은 골자면 언제나 같은 빈칸이다.
+    word, answer = max(candidates, key=lambda c: (len(c[1]), text.rfind(c[0])))
+    masked = text.replace(word, "___", 1)
+    gist_stems = {s.lower() for _, s in candidates}
+    pool = " ".join(s for s in distractor_pool if s)
+    others = [s for _, s in _mask_candidates(pool, exclude) if s.lower() not in gist_stems]
+    distractor = max(others, key=len) if others else ""
+    return masked, answer, distractor

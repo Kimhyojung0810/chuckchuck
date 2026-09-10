@@ -1464,7 +1464,9 @@ def _gist_parts_of(raw: object) -> list[str]:
 #:   narrow    1차 포기 — 답을 주지 않고 더 쉬운 되물음으로 한 발 끌어준다
 #:   explain   2차 포기 — 해설하고 이 질문을 닫는다
 #:   clarify   되물음 — 질문 자체를 못 알아들었다. 채점하지 않고 질문을 다시 쓴다
-QA_COACH_STAGES = ("", "narrow", "explain", "clarify")
+#: narrow(위치: 자료 인용 + 둘 중 하나) → scaffold(발판: 빈칸, LLM 없음) → explain(해설 + 출처).
+#: clarify 는 포기가 아니라 되물음. "" 는 평시 판정.
+QA_COACH_STAGES = ("", "narrow", "scaffold", "explain", "clarify")
 
 #: 해설 길이 상한. QA_TEXT_MAX 보다 길다 — 해설은 말풍선 한 마디가 아니라
 #: "이렇게 답했어야 한다" 를 근거까지 붙여 설명하는 문단이기 때문이다.
@@ -1573,6 +1575,13 @@ class Question:
     #: `answer_gist` 를 대체하지 않고 옆에 둔다 — 프론트의 「이렇게 답했으면 됐다」
     #: 카드와 F-08 의 쌍둥이 질문 판별이 둘 다 `answer_gist` 원문을 읽기 때문이다.
     answer_gist_parts: list[str] = field(default_factory=list)
+    #: 근거 장에서 **그대로 옮긴** 한 문장과 그 장 번호. 힌트·코칭이 "자료 3장은 이렇게
+    #: 말해요: «…»" 로 쓴다 — 기억을 요구하지 않고 보고 짚게 하기 위해서다.
+    #: F-08 이 slidedoc 을 받았을 때만 채운다. 없으면 빈 값이고 힌트 사다리는 예전 그대로다.
+    evidence_slide_no: int = 0
+    evidence_quote: str = ""
+    #: 같은 장에서 발표자가 실제로 한 말 한 구절 (STT). 해설이 "발표에서는 …라고 했어요" 로 쓴다.
+    speech_quote: str = ""
 
     def __post_init__(self) -> None:
         # 불변식을 **타입에서** 지킨다. F-08 은 dataclass 로 직접 짓고 프론트·세션
@@ -1595,6 +1604,9 @@ class Question:
             "doc_weight": self.doc_weight,
             "answer_gist": self.answer_gist,
             "answer_gist_parts": list(self.answer_gist_parts),
+            "evidence_slide_no": self.evidence_slide_no,
+            "evidence_quote": self.evidence_quote,
+            "speech_quote": self.speech_quote,
         }
 
     @classmethod
@@ -1620,6 +1632,9 @@ class Question:
             # 정규화는 __post_init__ 이 한다 — 옛 세션이 하나만 실어 보내도 거기서
             # 「요소 검사 없음」 으로 떨어진다.
             answer_gist_parts=d.get("answer_gist_parts") or [],
+            evidence_slide_no=int(d.get("evidence_slide_no") or 0),
+            evidence_quote=str(d.get("evidence_quote", "") or ""),
+            speech_quote=str(d.get("speech_quote", "") or ""),
         )
 
 
@@ -1758,6 +1773,11 @@ class QaJudgement:
     round_no: int = 1
     #: 되묻기 압박 단계 (QA_PROBE_TIERS). 정복했으면 빈 문자열이다.
     probe_tier: str = ""
+    #: 막힘 코칭의 선택지 (둘 중 하나). 비어 있으면 자유 답. 프론트가 칩으로 그린다.
+    choices: list[str] = field(default_factory=list)
+    #: 코칭이 근거로 든 자료 인용과 장 번호 (Question 에서 승계). 화면이 카드로 그린다.
+    evidence_quote: str = ""
+    evidence_slide_no: int = 0
 
     @property
     def passed(self) -> bool:
@@ -1790,6 +1810,9 @@ class QaJudgement:
             "explanation": self.explanation,
             "round_no": self.round_no,
             "probe_tier": self.probe_tier,
+            "choices": list(self.choices),
+            "evidence_quote": self.evidence_quote,
+            "evidence_slide_no": self.evidence_slide_no,
             # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다.
             # 둘을 다 보낸다: passed 는 리포트가 세는 값, mastered 는 대화가 닫는 값.
             "passed": self.passed,
@@ -1824,6 +1847,9 @@ class QaJudgement:
             explanation=str(d.get("explanation", "") or ""),
             round_no=max(1, round_no),
             probe_tier=probe_tier if probe_tier in QA_PROBE_TIERS else "",
+            choices=[str(c) for c in (d.get("choices") or []) if str(c).strip()],
+            evidence_quote=str(d.get("evidence_quote", "") or ""),
+            evidence_slide_no=int(d.get("evidence_slide_no") or 0),
             # `passed`·`mastered` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
             # round_no 는 읽는다: 파생값이 아니라 서버가 센 사실이고, 판정을 저장했다가
             # 다시 읽을 때(옛 세션 복원) 이 값이 없으면 mastered 가 1라운드로 되돌아간다.
@@ -2015,6 +2041,131 @@ class RubricScore:
             basis=basis if basis in RUBRIC_BASES else "partial",
             model=str(d.get("model", "") or ""),
             note=str(d.get("note", "") or ""),
+        )
+
+
+# ---------------------------------------------------------------------------
+# 세션 기록 · 피드백  (데모 브리지 보관소 — demo/session_archive.py)
+# ---------------------------------------------------------------------------
+#
+# 업로드 한 건 = 세션 하나. 브리지가 파싱 때 id 를 발급하고, 이후 모든 호출이
+# `session_id` 를 실어 보낸다. 디스크에는 `var/data/sessions/YYYY/MM/DD/{id}/`
+# 로 남는다 — id 앞의 UTC 타임스탬프 덕에 `ls` 만으로 시간순이다.
+#
+# **동의(consent_learning)가 없으면 원본·분석 산출물을 남기지 않는다.** 파싱본과
+# 받아쓰기만 캐시로 하루 두고 지운다 (재파싱·재녹음 없이 이어가기 위한 것).
+
+#: 세션에 남기는 산출물 종류. 이 밖의 이름은 저장하지 않는다.
+SESSION_ARTIFACT_KINDS = (
+    "slide_doc",       # F-01 (동의 무관 캐시)
+    "transcript",      # F-05 (동의 무관 캐시)
+    "concept_doc",     # F-06
+    "concept_graph",   # F-07
+    "alignment_doc",   # F-11
+    "flow_diff",       # F-11 파생
+    "chatter_doc",     # F-12
+    "pace_doc",        # F-17
+    "habit_doc",       # F-18
+    "rubric_score",    # F-14
+    "report_doc",      # F-19
+    "question_doc",    # F-08
+)
+
+#: 동의 없이도 남기는 캐시. 나머지는 동의한 세션에만 쓴다.
+SESSION_CACHE_KINDS = ("slide_doc", "transcript")
+
+
+@dataclass
+class SessionRecord:
+    """세션 하나의 manifest. 파일 위치·동의·모델·개수만 담고 본문은 옆 파일에 둔다."""
+    session_id: str
+    uploaded_at: float
+    updated_at: float
+    consent_learning: bool = False
+    consent_at: float | None = None
+    title: str = ""            # 화면용 이름 (파일명에서 안전한 글자만)
+    file_name: str = ""
+    upload_ext: str = ""       # ".pdf" | ".pptx" — 매직바이트로 판별한 값
+    upload_sha256: str = ""
+    upload_bytes: int = 0
+    context: dict = field(default_factory=dict)      # Context.to_dict()
+    artifacts: dict = field(default_factory=dict)    # kind → 상대 경로
+    models: dict = field(default_factory=dict)       # kind → 응답의 model/provider
+    code_version: str = ""     # 만들 때의 git sha — 프롬프트를 고친 뒤 재생 diff 용
+    qa_turn_count: int = 0
+    feedback_count: int = 0
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SessionRecord":
+        return cls(
+            session_id=str(d.get("session_id", "")),
+            uploaded_at=float(d.get("uploaded_at", 0.0) or 0.0),
+            updated_at=float(d.get("updated_at", 0.0) or 0.0),
+            consent_learning=bool(d.get("consent_learning", False)),
+            consent_at=d.get("consent_at"),
+            title=str(d.get("title", "")),
+            file_name=str(d.get("file_name", "")),
+            upload_ext=str(d.get("upload_ext", "")),
+            upload_sha256=str(d.get("upload_sha256", "")),
+            upload_bytes=int(d.get("upload_bytes", 0) or 0),
+            context=dict(d.get("context") or {}),
+            artifacts=dict(d.get("artifacts") or {}),
+            models=dict(d.get("models") or {}),
+            code_version=str(d.get("code_version", "")),
+            qa_turn_count=int(d.get("qa_turn_count", 0) or 0),
+            feedback_count=int(d.get("feedback_count", 0) or 0),
+        )
+
+
+#: 사용자가 남길 수 있는 피드백 종류와, 종류별 허용 값.
+#: 이것만이 라벨이다 — 침묵·모델 출력·점수는 라벨이 아니다 (DATA_PIPELINE.md §5).
+FEEDBACK_KINDS = ("question_vote", "judgement_dispute", "rubric_dispute", "habit_dispute")
+FEEDBACK_VALUES: dict[str, tuple[str, ...]] = {
+    "question_vote": ("up", "down"),
+    "judgement_dispute": ("wrong_verdict",),
+    "rubric_dispute": ("too_high", "too_low"),
+    "habit_dispute": ("not_habit",),
+}
+FEEDBACK_COMMENT_MAX = 200
+
+
+@dataclass
+class FeedbackEvent:
+    """feedback.jsonl 한 줄. `payload` 는 판정 대상의 스냅샷이라 프롬프트가 바뀌어도 라벨이 산다."""
+    kind: str
+    target_id: str      # 질문 id / "q:<qid>:r<round>" / 채점표 항목 번호 / "span:<start_sec>"
+    value: str
+    at: float
+    comment: str = ""
+    payload: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FeedbackEvent":
+        """모르는 kind·value 는 ValueError. 저장소가 쓰레기를 받지 않게 경계에서 거른다."""
+        kind = str(d.get("kind", ""))
+        if kind not in FEEDBACK_KINDS:
+            raise ValueError(f"모르는 피드백 종류: {kind!r}")
+        value = str(d.get("value", ""))
+        if value not in FEEDBACK_VALUES[kind]:
+            raise ValueError(f"{kind} 에 허용되지 않는 값: {value!r}")
+        target = str(d.get("target_id", "")).strip()
+        if not target:
+            raise ValueError("target_id 가 비었어요")
+        comment = str(d.get("comment", "") or "").strip()[:FEEDBACK_COMMENT_MAX]
+        payload = d.get("payload")
+        return cls(
+            kind=kind,
+            target_id=target[:120],
+            value=value,
+            at=float(d.get("at", 0.0) or 0.0),
+            comment=comment,
+            payload=dict(payload) if isinstance(payload, dict) else {},
         )
 
 

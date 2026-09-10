@@ -280,3 +280,144 @@ def test_결정적_후속_질문에_띄어_붙은_조사와_시겠어요_가_없
     for tpl in (_FOLLOWUP_BY_POINT.format(point="인지 자원"), _FOLLOWUP_GENERIC.format(label="인지 자원")):
         assert " 를 " not in tpl and " 에 " not in tpl
         assert "시겠어요" not in tpl and "보시나요" not in tpl
+
+
+# ---------------------------------------------------------------------------
+# 「모르겠어요」 사다리 — 인용·빈칸·3단
+# ---------------------------------------------------------------------------
+
+from chuckchuck import build_hint_ladder, coach_stuck
+from chuckchuck._evidence import mask_gist, quote_for
+from chuckchuck.contracts import QaTurn
+
+
+def test_인용은_개념_이름이_든_문장을_그대로_옮긴다():
+    text = "알림 하나를 확인했을 뿐인데 왜 다시 집중하기 어려울까. 주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다. 정리."
+    q = quote_for("주의 전환", "인지 과정", text)
+    assert q == "주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다."
+
+
+def test_인용은_표_칸과_짧은_조각을_건너뛴다():
+    assert quote_for("개념", "", "| 5 초 | ≠ 5 초 | 손실은 화면을 본 시간보다 돌아오는 과정에서 커진다") \
+        == "손실은 화면을 본 시간보다 돌아오는 과정에서 커진다"
+    assert quote_for("개념", "", "짧다") == ""
+
+
+def test_인용은_120자에서_자른다():
+    q = quote_for("개념", "", "가" * 300)
+    assert len(q) == 120 and q.endswith("…")
+
+
+def test_빈칸은_개념_이름이_아닌_가장_긴_낱말을_가린다():
+    masked, answer, distractor = mask_gist(
+        "화면을 본 시간이 아니라 맥락을 복구하는 과정에서 커진다", "주의 전환",
+        ["집중을 돕도록 물리적·디지털 환경을 의도적으로 구성하는 접근"],
+    )
+    assert "___" in masked and answer not in masked
+    assert answer in ("화면", "시간", "맥락", "과정")     # 명사 줄기 — 서술어·조사는 답이 아니다
+    assert distractor and distractor not in masked
+    assert not distractor.endswith(("다", "는", "을", "를"))
+
+
+def test_빈칸은_서술어를_가리지_않는다():
+    masked, answer, _ = mask_gist("알림 확인 후 작업 맥락 복구에 더 큰 인지 비용이 들기 때문입니다", "알림", [])
+    assert answer not in ("때문입니다", "들기", "복구에", "비용이")
+    assert answer in ("복구", "비용", "작업", "맥락", "확인", "인지")
+    assert "때문입니다" in masked
+
+
+def test_코치는_포기한_사람을_칭찬하지_않는다():
+    llm = ScriptedLLM({"react": "지금 핵심을 잘 짚으셨어요", "followup": "A인가요, B인가요?", "choices": ["A", "B"]})
+    j = coach_stuck(question(**EVQ), graph=GRAPH, llm=llm)
+    assert "짚으셨" not in j.react and j.react.startswith("괜찮아요")
+
+
+def test_빈칸_재료가_없으면_빈_값():
+    assert mask_gist("", "개념", []) == ("", "", "")
+    assert mask_gist("주의 전환", "주의 전환", []) == ("", "", "")
+
+
+def test_F08_이_인용과_발화를_질문에_저장한다():
+    from chuckchuck.contracts import Transcript
+    words = [{"text": w, "start_sec": i, "end_sec": i + 1}
+             for i, w in enumerate(["5초만", "봤는데", "왜", "오래", "남을까요"])]
+    tr = Transcript.from_dict({"full_text": "5초만 봤는데 왜 오래 남을까요", "words": words,
+                               "by_slide": [{"slide_no": 2, "start_sec": 0, "end_sec": 5, "words": words,
+                                             "text": "5초만 봤는데 왜 오래 남을까요"}],
+                               "provider": "fixture", "duration_sec": 5})
+    llm = ScriptedLLM({"questions": []})
+    doc = build_questions(GRAPH, triage(), track="5", slidedoc=DECK, transcript=tr, llm=llm)
+    q = next(q for q in doc.questions if q.node_id == "switch")
+    assert q.evidence_slide_no in (2, 3)
+    assert "주의 전환" in q.evidence_quote
+    assert "5초만 봤는데" in q.speech_quote
+    # 왕복해도 남는다
+    back = Question.from_dict(q.to_dict())
+    assert back.evidence_quote == q.evidence_quote and back.speech_quote == q.speech_quote
+
+
+def test_인용이_있으면_사다리_첫_칸이_자료_인용이고_빈칸_칸이_생긴다():
+    q = question(evidence_slide_no=2, evidence_quote="주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다")
+    ladder = build_hint_ladder(q)
+    assert ladder[0] == "자료 2장은 이렇게 말해요: «주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다»"
+    assert any(step.startswith("빈칸을 채워 보세요: ") for step in ladder)
+
+
+def test_인용이_없으면_사다리는_예전_그대로다():
+    ladder = build_hint_ladder(question())
+    assert not any("이렇게 말해요" in s or "빈칸" in s for s in ladder)
+
+
+EVQ = dict(evidence_slide_no=2, evidence_quote="주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다",
+           speech_quote="5초만 봤는데 왜 오래 남을까요")
+
+
+def test_1단은_인용을_react_에_붙이고_선택지_둘을_준다():
+    llm = ScriptedLLM({"react": "괜찮아요.", "followup": "이건 확인하는 순간 이야기인가요, 돌아오는 과정 이야기인가요?",
+                       "choices": ["확인하는 순간", "돌아오는 과정"]})
+    j = coach_stuck(question(**EVQ), graph=GRAPH, llm=llm)
+    assert j.coach_stage == "narrow"
+    assert "자료 2장은 이렇게 말해요: «주의 전환은" in j.react
+    assert j.choices == ["확인하는 순간", "돌아오는 과정"]
+    assert "2장" in j.followup                      # 화면이 장 그림을 붙일 번호
+    assert j.evidence_quote == EVQ["evidence_quote"] and j.evidence_slide_no == 2
+    # 프롬프트에도 인용·발화가 실렸다
+    assert "자료 인용: 자료 2장 — «" in llm.prompts[0] and "발표 때 한 말: «5초만" in llm.prompts[0]
+
+
+def test_1단에서_LLM_이_선택형을_안_쓰면_코드가_둘_중_하나를_만든다():
+    llm = ScriptedLLM({"react": "괜찮아요.", "followup": "주의 전환이 왜 문제인지 설명해 보세요"})
+    j = coach_stuck(question(**EVQ), graph=GRAPH, llm=llm)
+    assert len(j.choices) == 2
+    assert "쪽인가요" in j.followup and "«주의 전환은" in j.followup
+
+
+def test_2단은_LLM_없이_빈칸과_선택지를_준다():
+    llm = ScriptedLLM({"react": "안 불러야 한다"})
+    history = [QaTurn(question_id="q01-switch", question="q", answer="(모르겠어요)", verdict="unknown", gave_up=True)]
+    j = coach_stuck(question(**EVQ), graph=GRAPH, history=history, llm=llm)
+    assert j.coach_stage == "scaffold"
+    assert j.followup.startswith("빈칸을 채워 보세요: ") and "___" in j.followup
+    assert len(j.choices) == 2 and any(c in ("화면", "시간", "맥락", "과정") for c in j.choices)
+    assert llm.prompts == []
+
+
+def test_3단_해설에는_출처가_붙는다():
+    llm = ScriptedLLM({"react": "여기까지 볼게요.", "explanation": "손실은 돌아오는 과정에서 커집니다."})
+    history = [QaTurn(question_id="q01-switch", question="q", answer="(모르겠어요)", verdict="unknown", gave_up=True)] * 2
+    j = coach_stuck(question(**EVQ), graph=GRAPH, history=history, llm=llm)
+    assert j.coach_stage == "explain"
+    assert j.explanation.startswith("손실은 돌아오는 과정에서 커집니다.")
+    assert "자료 2장: «주의 전환은" in j.explanation
+    assert "발표에서는 «5초만 봤는데" in j.explanation
+    assert len(j.explanation) <= 500
+
+
+def test_판정_직렬화에_선택지와_인용이_실린다():
+    from chuckchuck.contracts import QaJudgement
+    j = QaJudgement(question_id="q", choices=["a", "b"], evidence_quote="인용", evidence_slide_no=3)
+    d = j.to_dict()
+    assert d["choices"] == ["a", "b"] and d["evidence_slide_no"] == 3
+    back = QaJudgement.from_dict(d)
+    assert back.choices == ["a", "b"] and back.evidence_quote == "인용"
+    assert QaJudgement.from_dict({"question_id": "q"}).choices == []     # 옛 세션

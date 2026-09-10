@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 import re
 
-from ._evidence import anchor_slides, clean_slide_text, neighbor_lines
+from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_lines
 from ._match import norm_tokens
 from ._json_text import extract_json_object
 from .contracts import (
@@ -894,7 +894,11 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
         1 for t in turns
         if _same_question(t) and (t.gave_up or looks_stuck(t.answer))
     )
-    return "explain" if prior >= 1 else "narrow"
+    # 0: 위치(자료 인용 + 둘 중 하나) · 1: 발판(빈칸, LLM 없음) · 2+: 해설.
+    # 답 공개까지 간접 힌트 두 번 — MVP_SPEC §5.3 "세 번째에 자기 말로".
+    if prior >= 2:
+        return "explain"
+    return "scaffold" if prior == 1 else "narrow"
 
 
 COACH_SYSTEM_PROMPT = """당신은 발표 코치다. 발표자가 방금 막혔다.
@@ -903,9 +907,11 @@ COACH_SYSTEM_PROMPT = """당신은 발표 코치다. 발표자가 방금 막혔�
 react 는 **막힌 상황에 맞는 말**이다 — 발표자는 답을 못 했다. "핵심을 잘 짚었다"
 같은 빈말 칭찬은 쓰지 마라. 안심과 다음 발걸음만 말한다.
 
-[단계=narrow] 답을 알려 주지 마라. 대신 **원래 질문보다 훨씬 쉬운 되물음** 하나를
-쓴다. 자료의 근거 슬라이드에서 출발해 예/아니오나 한 단어로 답할 수 있을 만큼
-좁혀라. 발표자가 스스로 첫 발을 떼게 하는 것이 목적이다.
+[단계=narrow] 답을 알려 주지 마라. '자료 인용' 이 주어지면 **그 문장에 대해** 둘 중
+하나를 고르게 하는 되물음 하나를 쓴다 — "A인가요, B인가요?" 꼴. choices 에 그 두
+선택지를 각각 20자 이내로 적는다: 하나는 자료가 말하는 쪽, 하나는 그럴듯한 반대쪽.
+인용이 없으면 근거 슬라이드에서 출발해 예/아니오로 답할 수 있을 만큼 좁힌다.
+발표자가 스스로 첫 발을 떼게 하는 것이 목적이다.
 
 [단계=explain] 이제 알려 준다. '기대하는 답의 골자' 와 근거 슬라이드, 그리고
 발표 때 실제로 한 말을 엮어 "이렇게 답했으면 됐다" 를 설명한다. 자료에 없는
@@ -922,7 +928,8 @@ react 는 **막힌 상황에 맞는 말**이다 — 발표자는 답을 못 했�
 출력 스키마 (단계에 해당하는 키만 채운다):
 {
   "react": "안심시키는 한 마디",
-  "followup": "narrow 단계에서 쓸 더 쉬운 되물음 · clarify 단계에서 쓸 다시 쓴 질문 한 문장",
+  "followup": "narrow 단계에서 쓸 둘 중 하나 되물음 · clarify 단계에서 쓸 다시 쓴 질문 한 문장",
+  "choices": ["narrow 단계의 선택지 A", "선택지 B"],
   "explanation": "explain 단계에서 쓸 해설 두세 문장"
 }"""
 
@@ -935,6 +942,9 @@ def _clip_explain(text: str) -> str:
 
 
 _COACH_REACT_FALLBACK = "괜찮아요. 여기서 같이 짚어 볼게요."
+#: 포기한 사람에게 나올 수 없는 말. 프롬프트가 금지해도 실 LLM 이 "핵심을 잘 짚으셨어요" 를
+#: 냈다 (2026-09-10). 높임 '~셨' 도 여기서 같이 걸린다 (CLAUDE.md §3-1).
+_COACH_PRAISE_RE = re.compile(r"잘 짚|정확합니다|정확해요|맞습니다|맞아요|훌륭|잘 하셨|셨어요|셨습니다")
 
 
 def coach_stuck(
@@ -975,6 +985,13 @@ def coach_stuck(
         Context.from_dict(context) if isinstance(context, dict) else context
     )
     stage = stage if stage in QA_COACH_STAGES and stage else _coach_stage(question, turns)
+    # 발판 단계는 LLM 을 부르지 않는다 — 골자에서 낱말 하나를 가린 빈칸이 전부다.
+    # 재료가 없으면(골자 없음) 이 단을 건너뛰고 해설로 간다.
+    if stage == "scaffold":
+        scaffold = _scaffold_judgement(question, graph)
+        if scaffold is not None:
+            return scaffold
+        stage = "explain"
     said = "(질문을 못 알아들어 되물었다)" if stage == "clarify" else "(모르겠다고 했다)"
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
@@ -983,6 +1000,7 @@ def coach_stuck(
         _build_user_prompt(
             question, said, turns, graph, alignment, transcript, ctx, slidedoc=slidedoc
         ),
+        *_quote_lines(question),
         "",
         f"기대하는 답의 골자: {question.answer_gist or '(없음)'}",
     ])
@@ -993,22 +1011,25 @@ def coach_stuck(
         data = _call_coach(engine, user, extra_system=JSON_RETRY_NUDGE)
 
     react = _clip(str(data.get("react", "") or "")) or _COACH_REACT_FALLBACK
+    if _COACH_PRAISE_RE.search(react):
+        react = _COACH_REACT_FALLBACK
+    choices: list[str] = []
     # 폴백은 F-08 이 이미 만들어 둔 것을 쓴다 — 코칭이 빈손으로 끝나면 안 된다
     if stage == "explain":
         followup = ""
         explanation = _clip_explain(str(data.get("explanation", "") or "")) or _clip_explain(
             question.answer_gist or f"{question.label or '이 개념'} 은 자료의 근거 장을 다시 보면 좋아요."
         )
+        explanation = _with_citation(explanation, question)
     elif stage == "clarify":
         # 폴백은 **원래 질문 그대로**다. 여기서 힌트로 갈아타면 묻는 대상이 바뀌어,
         # 못 알아들었다고 말한 사람이 다른 질문을 받게 된다.
         followup = _clip(str(data.get("followup", "") or "")) or _clip(question.question)
         explanation = ""
     else:
-        followup = _clip(str(data.get("followup", "") or "")) or _clip(
-            question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?"
-        )
+        followup, choices = _narrow_followup(data, question, graph)
         explanation = ""
+        react = _with_quote(react, question)
 
     label = question.label or "이 개념"
     summary = (
@@ -1028,6 +1049,123 @@ def coach_stuck(
         hints=build_hint_ladder(question, None),
         coach_stage=stage if stage in QA_COACH_STAGES else "narrow",
         explanation=explanation,
+        choices=choices,
+        evidence_quote=question.evidence_quote,
+        evidence_slide_no=question.evidence_slide_no,
+    )
+
+
+#: 선택형 되물음의 모양. 이게 아니면 LLM 이 넓게 물은 것이라 결정적 문장으로 간다.
+_CHOICE_FORM_RE = re.compile(r"(인가요|였나요|있었나요|없었나요|맞나요)[^?]*?(인가요|였나요|있었나요|없었나요|아닌가요)|둘 중")
+
+
+def _quote_lines(question: Question) -> list[str]:
+    """코치 프롬프트에 싣는 자료 인용·발화 인용. 없으면 빈 목록."""
+    lines: list[str] = []
+    if question.evidence_quote:
+        where = f"자료 {question.evidence_slide_no}장" if question.evidence_slide_no else "자료"
+        lines += ["", f"자료 인용: {where} — «{question.evidence_quote}»"]
+    if question.speech_quote:
+        lines.append(f"발표 때 한 말: «{question.speech_quote}»")
+    return lines
+
+
+def _slide_tag(question: Question) -> str:
+    return f" (자료 {question.evidence_slide_no}장)" if question.evidence_slide_no else ""
+
+
+def _distractor_pool(question: Question, graph: ConceptGraph | None) -> list[str]:
+    if graph is None:
+        return []
+    return [n.summary for n in graph.neighbors_of(question.node_id) if n.summary]
+
+
+def _narrow_followup(data: dict, question: Question, graph: ConceptGraph | None) -> tuple[str, list[str]]:
+    """
+    위치 단계의 되물음. **둘 중 하나 모양이 아니면 코드 문장으로 간다.**
+
+    LLM 이 choices 2개와 선택형 followup 을 다 줬으면 그것. 하나라도 빠지면 골자를
+    가린 빈칸에서 정답·오답을 뽑아 "자료 N장은 «…» 라고 해요. 이 장이 말하는 건
+    A 쪽인가요, B 쪽인가요?" 를 만든다. 그것도 안 되면 예전 폴백(F-08 힌트)이다.
+    장 번호를 문장에 남긴다 — 화면이 그 번호로 장 그림을 붙인다.
+    """
+    followup = _clip(str(data.get("followup", "") or ""))
+    choices = [_clip(str(c)) for c in (data.get("choices") or []) if str(c).strip()][:2]
+    if not question.evidence_quote:
+        # 인용이 없는 옛 질문 — 선택형을 강제할 재료가 없다. 예전 그대로 LLM 되물음이고,
+        # 선택지는 둘 다 왔을 때만 싣는다.
+        fallback = _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?")
+        return (followup or fallback), (choices if len(choices) == 2 else [])
+    if followup and len(choices) == 2 and _CHOICE_FORM_RE.search(followup):
+        if question.evidence_slide_no and "장" not in followup:
+            followup = _clip(followup + _slide_tag(question))
+        return followup, choices
+    _, answer, distractor = mask_gist(question.answer_gist, question.label, _distractor_pool(question, graph))
+    if answer and distractor and question.evidence_quote:
+        where = f"자료 {question.evidence_slide_no}장은" if question.evidence_slide_no else "자료는"
+        pair = sorted([answer, distractor])
+        text = f"{where} «{question.evidence_quote}» 라고 해요. 이 장이 말하는 건 '{pair[0]}' 쪽인가요, '{pair[1]}' 쪽인가요?"
+        return _clip(text), pair
+    fallback = _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?")
+    return fallback, []
+
+
+def _with_quote(react: str, question: Question) -> str:
+    """안심 한 마디 뒤에 자료 인용을 붙인다 — 상한 안에 들어갈 때만."""
+    if not question.evidence_quote:
+        return react
+    where = f"자료 {question.evidence_slide_no}장은" if question.evidence_slide_no else "자료는"
+    joined = f"{react} {where} 이렇게 말해요: «{question.evidence_quote}»"
+    return joined if len(joined) <= QA_TEXT_MAX else react
+
+
+def _with_citation(explanation: str, question: Question) -> str:
+    """해설 끝에 출처를 **반드시** 단다: 자료 N장 인용, 발표 때 한 말. 상한 안에서."""
+    parts: list[str] = []
+    if question.evidence_quote and question.evidence_quote not in explanation:
+        where = f"자료 {question.evidence_slide_no}장" if question.evidence_slide_no else "자료"
+        parts.append(f"{where}: «{question.evidence_quote}»")
+    if question.speech_quote and question.speech_quote not in explanation:
+        parts.append(f"발표에서는 «{question.speech_quote}» 라고 말했어요.")
+    if not parts:
+        return explanation
+    tail = " — " + " ".join(parts)
+    room = QA_EXPLAIN_MAX - len(tail)
+    if room < 40:
+        return explanation
+    body = explanation if len(explanation) <= room else explanation[: room - 1].rstrip() + "…"
+    return body + tail
+
+
+def _scaffold_judgement(question: Question, graph: ConceptGraph | None) -> QaJudgement | None:
+    """
+    발판 단계 — LLM 없이. 골자에서 낱말 하나를 가린 빈칸과 선택지 둘.
+    골자가 없어 빈칸을 못 만들면 None (호출자가 해설로 넘긴다).
+    """
+    masked, answer, distractor = mask_gist(
+        question.answer_gist, question.label, _distractor_pool(question, graph)
+    )
+    if not masked:
+        return None
+    choices = sorted([answer, distractor]) if distractor else []
+    followup = f"빈칸을 채워 보세요: {masked}"
+    if choices:
+        followup += f" — '{choices[0]}' 인가요, '{choices[1]}' 인가요?"
+    followup += _slide_tag(question)
+    return QaJudgement(
+        question_id=question.id,
+        node_id=question.node_id,
+        verdict=QA_VERDICT_FALLBACK,
+        score=0,
+        react="괜찮아요. 한 칸만 채우면 돼요.",
+        summary_sentence=_clip(f"{question.label or '이 개념'} — 빈칸으로 발판을 놓았어요."),
+        model="",
+        followup=_clip(followup),
+        hints=build_hint_ladder(question, None),
+        coach_stage="scaffold",
+        choices=choices,
+        evidence_quote=question.evidence_quote,
+        evidence_slide_no=question.evidence_slide_no,
     )
 
 
