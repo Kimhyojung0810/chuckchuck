@@ -6,12 +6,16 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
+import re
 import sys
+import threading
 import time
 import tempfile
 import traceback
+import zipfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -37,12 +41,37 @@ from chuckchuck import (  # noqa: E402
 from chuckchuck.contracts import ConceptDoc, HabitDoc, PaceDoc, SlideDoc, SlideMark  # noqa: E402
 
 from demo.rate_limit import RateLimiter  # noqa: E402
+from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
 #: 클라이언트는 session_missing 을 받으면 다시 등록하고 재시도한다.
 STORE = SessionStore()
+
+
+def _env_flag(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default).strip().lower() not in ("", "0", "false", "off", "no")
+
+
+#: 업로드·파싱본·받아쓰기·분석 산출물이 남는 자리. git 이 무시하는 var/ 아래가 기본이고,
+#: systemd 유닛에서 DEMO_DATA_DIR 로 바꿀 수 있다. 예전의 fixtures/raw 는 더 쓰지 않는다 —
+#: 파일명으로 덮어쓰고, 언제 올렸는지 모르고, 실제 발표 자료가 git 에 커밋됐다.
+DATA_DIR = Path(os.environ.get("DEMO_DATA_DIR", "").strip() or (ROOT / "var" / "data"))
+ARCHIVE = SessionArchive(
+    DATA_DIR,
+    cache_ttl_sec=float(os.environ.get("DEMO_CACHE_TTL_HOURS", "24") or 24) * 3600,
+    stage_ttl_sec=float(os.environ.get("DEMO_STAGE_CACHE_TTL_HOURS", "72") or 72) * 3600,
+    retention_sec=float(os.environ.get("DEMO_RETENTION_DAYS", "365") or 365) * 86400,
+    code_version=git_sha(ROOT),
+)
+
+#: 저장된 세션 **목록**을 주는 경로(/api/v1/cached-takes, #/replay). 개발자 화면이라
+#: 기본은 닫는다 — 열려 있으면 주소를 아는 누구나 남의 발표 기록을 본다.
+DEV_ROUTES = _env_flag("DEMO_DEV_ROUTES")
+
+#: 만료 세션을 훑는 주기. 시작할 때 한 번, 그 뒤 하루에 한 번.
+PRUNE_INTERVAL_SEC = 24 * 3600
 
 #: 과금 호출(파싱·STT·LLM)이 붙은 엔드포인트의 IP당 분당 상한.
 #: 0 이하면 제한을 끈다 (오프라인 시연·자동화).
@@ -126,80 +155,34 @@ def _cache_stem(file_name: str) -> str:
     return safe[:80] or "upload"
 
 
-def _save_slidedoc_cache(doc_dict: dict, file_name: str) -> None:
+PDF_MAGIC = b"%PDF"
+
+
+def _sniff_document(data: bytes) -> str | None:
     """
-    파싱 결과를 fixtures/raw 에 남긴다.
+    업로드 내용으로 형식을 판별한다. 확장자는 사용자가 붙인 이름일 뿐이다.
 
-    같은 자료로 녹음만 바꿔가며 반복 테스트할 때 재파싱(느리고 유료)을 건너뛰기 위한 것.
-    실패해도 파싱 자체는 성공이므로 삼키되 로그는 남긴다.
+    PDF 는 머리 1KB 안에 `%PDF`, PPTX 는 zip 이면서 `ppt/presentation.xml` 을 품는다.
+    둘 다 아니면 None — 디스크에 쓰기 전에 거절한다.
     """
-    try:
-        raw_dir = ROOT / "fixtures" / "raw"
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        path = raw_dir / f"{_cache_stem(file_name)}.slidedoc.json"
-        path.write_text(json.dumps(doc_dict, ensure_ascii=False), encoding="utf-8")
-        sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 {path.name}\n")
-    except OSError as e:
-        sys.stderr.write(f"[bridge] SlideDoc 캐시 저장 실패(무시): {e}\n")
-
-
-def _load_slidedoc_cache(file_name: str) -> dict | None:
-    """
-    자료 이름으로 파싱본을 되찾는다 (F-08 에 근거 장 본문을 주기 위해서).
-
-    **정확한 stem 하나만 본다.** 못 찾으면 None 이고, 그러면 F-08 은 자료 본문
-    없이 — 즉 예전과 똑같은 프롬프트로 — 돈다.
-
-    **최신본으로 대체하지 않는다.** 남의 자료 본문이 내 질문의 모범답 근거가
-    되면 화면은 멀쩡한데 답이 딴 자료 것이 된다. mock 이 파일 이름만 바꿔치기해서
-    사람을 태운 것과 같은 종류의 착시다 (CLAUDE.md §2, `_handle_cached_slidedoc`
-    가 이름을 못 찾을 때 최신본을 안 주는 것과 같은 이유).
-    """
-    stem = _cache_stem(file_name)
-    path = ROOT / "fixtures" / "raw" / f"{stem}.slidedoc.json"
-    try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        # 캐시가 없거나 깨졌다고 질문 생성을 죽이지 않는다 — 본문은 있으면 좋은
-        # 것이지 없으면 못 도는 것이 아니다.
+    if not data:
         return None
-    return doc if isinstance(doc, dict) and doc.get("slides") else None
-
-
-def _take_stem(body: dict) -> str:
-    """
-    이 녹음이 어느 자료의 것인지. 자료 이름으로 슬라이드 캐시와 짝을 맞춘다.
-
-    짝이 어긋나면 남의 발표 녹음이 내 자료에 붙어 정합 판정이 통째로 거짓말이 된다
-    (`_handle_cached_slidedoc` 가 이름을 못 찾을 때 최신본으로 대체하지 않는 것과 같은 이유).
-    """
-    doc = body.get("slidedoc") or {}
-    name = ""
-    if isinstance(doc, dict):
-        name = str(doc.get("file_name") or "")
-    return _cache_stem(name or str(body.get("file_name") or "") or "take")
-
-
-def _save_transcript_cache(out: dict, stem: str) -> None:
-    """
-    STT 결과를 fixtures/raw 에 남긴다.
-
-    같은 발표를 고쳐 가며 반복 테스트할 때 **다시 녹음하지 않기 위한 것**이다
-    (2026-08-08 사용자 요청). STT 는 느리고 유료라 재호출이 곧 비용이기도 하다.
-    슬라이드 캐시(`_save_slidedoc_cache`)와 대칭으로 두어 한 자료의 파싱본과
-    녹음본이 같은 이름으로 나란히 남는다.
-
-    실패해도 STT 자체는 성공이므로 삼키되 로그는 남긴다.
-    """
+    if PDF_MAGIC in data[:1024]:
+        return ".pdf"
+    if data[:2] != b"PK":
+        return None
     try:
-        raw_dir = ROOT / "fixtures" / "raw"
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        path = raw_dir / f"{stem}.transcript.json"
-        path.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
-        sys.stderr.write(f"[bridge] Transcript 캐시 저장 {path.name}\n")
-    except OSError as e:
-        sys.stderr.write(f"[bridge] Transcript 캐시 저장 실패(무시): {e}\n")
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            if "ppt/presentation.xml" in z.namelist():
+                return ".pptx"
+    except (zipfile.BadZipFile, OSError, RuntimeError):
+        return None
+    return None
 
+
+def _session_id_of(body: dict) -> str:
+    """본문의 session_id. 모양이 틀리면 빈 문자열 — 보관소가 거절하니 여기서 조용히 비운다."""
+    return ARCHIVE.safe_id(body.get("session_id")) or ""
 
 
 # LibreOffice 는 macOS 앱 번들·snap 설치에서 PATH 에 링크를 만들지 않는다.
@@ -234,10 +217,10 @@ def _soffice_bin() -> str | None:
     return None
 
 
-def _pptx_to_preview_pdf(pptx_path: Path, file_name: str) -> Path | None:
+def _pptx_to_preview_pdf(pptx_path: Path) -> bytes | None:
     """
     PPTX → PDF (LibreOffice headless). 발표 화면이 원본 슬라이드를 그리도록
-    fixtures/raw/{stem}.preview.pdf 로 저장한다.
+    렌더한 PDF 바이트를 돌려준다. 어디에 남길지는 호출부(세션 보관소)가 정한다.
     """
     import shutil
     import subprocess
@@ -250,9 +233,6 @@ def _pptx_to_preview_pdf(pptx_path: Path, file_name: str) -> Path | None:
             "(다른 경로면 SOFFICE_BIN=/path/to/soffice)\n"
         )
         return None
-    stem = _cache_stem(file_name)
-    raw_dir = ROOT / "fixtures" / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
     out_dir = Path(tempfile.mkdtemp(prefix="chuckchuck-pdf-"))
     try:
         proc = subprocess.run(
@@ -280,30 +260,14 @@ def _pptx_to_preview_pdf(pptx_path: Path, file_name: str) -> Path | None:
         if not produced:
             sys.stderr.write("[bridge] pptx→pdf: 출력 PDF 없음\n")
             return None
-        dest = raw_dir / f"{stem}.preview.pdf"
-        shutil.copy2(produced[0], dest)
-        sys.stderr.write(f"[bridge] preview PDF 저장 {dest.name} ({dest.stat().st_size} bytes)\n")
-        return dest
+        data = produced[0].read_bytes()
+        sys.stderr.write(f"[bridge] preview PDF 렌더 ({len(data)} bytes)\n")
+        return data
     except Exception as e:  # noqa: BLE001
         sys.stderr.write(f"[bridge] pptx→pdf exception: {e!r}\n")
         return None
     finally:
         shutil.rmtree(out_dir, ignore_errors=True)
-
-
-def _save_pdf_preview(pdf_path: Path, file_name: str) -> Path | None:
-    """업로드 PDF 원본을 preview 캐시로 복사 (세션 복구·통일 경로)."""
-    import shutil
-
-    try:
-        raw_dir = ROOT / "fixtures" / "raw"
-        raw_dir.mkdir(parents=True, exist_ok=True)
-        dest = raw_dir / f"{_cache_stem(file_name)}.preview.pdf"
-        shutil.copy2(pdf_path, dest)
-        return dest
-    except OSError as e:
-        sys.stderr.write(f"[bridge] pdf preview 복사 실패: {e}\n")
-        return None
 
 
 def _mock() -> bool:
@@ -345,7 +309,7 @@ def _fake_delay(path: str) -> None:
 # 이름이 같은 다른 자료가 조용히 붙을 수 있어서 그쪽은 근사 매치 폴백을 금지해 뒀다.
 # 여기서는 아예 내용이 1비트라도 다르면 다른 키가 되게 한다 — 근사 매치가 존재할 수 없다.
 STAGE_CACHE_ON = os.environ.get("DEMO_STAGE_CACHE", "1").lower() not in ("0", "false", "off")
-STAGE_CACHE_DIR = ROOT / "fixtures" / "raw" / "stage_cache"
+STAGE_CACHE_DIR = ARCHIVE.stage_dir
 
 
 def _stage_key(*parts) -> str:
@@ -448,6 +412,8 @@ class Handler(SimpleHTTPRequestHandler):
 
             if parsed.path == "/api/v1/session/artifacts":
                 return self._handle_session_artifacts(raw)
+            if parsed.path.endswith("/feedback") and parsed.path.startswith("/api/v1/sessions/"):
+                return self._handle_feedback(parsed.path, raw)
             if parsed.path == "/api/v1/parse":
                 return self._handle_parse(raw)
             if parsed.path == "/api/v1/concepts":
@@ -492,101 +458,54 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception:  # noqa: BLE001
                 return
 
-    def _handle_cached_slidedoc(self, parsed):
-        """fixtures/raw 에 저장된 *.slidedoc.json 을 재사용 (재파싱 없이 발표 화면 복구)."""
+    @staticmethod
+    def _query_session_id(parsed) -> str:
         from urllib.parse import parse_qs
 
         qs = parse_qs(parsed.query or "")
-        hint = (qs.get("file") or [""])[0]
-        raw_dir = ROOT / "fixtures" / "raw"
-        cands = sorted(raw_dir.glob("*.slidedoc.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-        if not cands:
-            return self._json(404, {"error": "no_cache", "message": "저장된 SlideDoc이 없습니다."})
-        if hint:
-            # 이름을 지정했는데 못 찾으면 최신본으로 대체하지 않는다 —
-            # 다른 발표자료가 조용히 붙으면 정합 판정이 통째로 거짓말이 된다.
-            want = _cache_stem(hint)
-            chosen = next((p for p in cands if p.stem == f"{want}.slidedoc" or want in p.name), None)
-            if chosen is None:
-                return self._json(
-                    404,
-                    {"error": "no_cache", "message": f"'{hint}' 에 맞는 저장본이 없습니다."},
-                )
-        else:
-            chosen = cands[0]
-        doc = json.loads(chosen.read_text(encoding="utf-8"))
+        return ARCHIVE.safe_id((qs.get("session_id") or [""])[0]) or ""
+
+    def _handle_cached_slidedoc(self, parsed):
+        """세션에 남긴 파싱본 (재파싱 없이 발표 화면 복구). session_id 가 곧 열쇠다.
+
+        **최신본으로 대체하지 않는다.** 예전에는 이름을 못 찾으면 가장 최근 업로드를
+        줬는데, 그게 남의 발표자료였다. 없으면 없다고 한다."""
+        sid = self._query_session_id(parsed)
+        doc = ARCHIVE.read_artifact(sid, "slide_doc") if sid else None
+        if doc is None:
+            return self._json(404, {"error": "no_cache", "message": "저장된 자료 파싱본이 없어요. 자료를 다시 올리면 돼요."})
         return self._json(200, doc)
 
-
     def _handle_cached_transcript(self, parsed):
-        """
-        fixtures/raw 에 저장된 *.transcript.json 을 돌려준다 (재녹음·재과금 없이 이어서).
-
-        이름을 지정했는데 못 찾으면 최신본으로 대체하지 않는다 — 다른 발표 녹음이
-        조용히 붙으면 정합 판정이 통째로 거짓말이 된다 (`_handle_cached_slidedoc` 와 같은 규율).
-        """
-        from urllib.parse import parse_qs
-
-        qs = parse_qs(parsed.query or "")
-        hint = (qs.get("file") or [""])[0]
-        raw_dir = ROOT / "fixtures" / "raw"
-        cands = sorted(raw_dir.glob("*.transcript.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-        if not cands:
-            return self._json(404, {"error": "no_cache", "message": "저장된 녹음이 없습니다."})
-        if hint:
-            want = _cache_stem(hint)
-            chosen = next((p for p in cands if p.stem == f"{want}.transcript" or want in p.name), None)
-            if chosen is None:
-                return self._json(
-                    404,
-                    {"error": "no_cache", "message": f"'{hint}' 에 맞는 저장된 녹음이 없습니다."},
-                )
-        else:
-            chosen = cands[0]
-        sys.stderr.write(f"[bridge] Transcript 캐시 사용 {chosen.name}\n")
-        return self._json(200, json.loads(chosen.read_text(encoding="utf-8")))
+        """세션에 남긴 받아쓰기 (재녹음·재과금 없이 이어서). 규칙은 위와 같다."""
+        sid = self._query_session_id(parsed)
+        doc = ARCHIVE.read_artifact(sid, "transcript") if sid else None
+        if doc is None:
+            return self._json(404, {"error": "no_cache", "message": "저장된 받아쓰기가 없어요. 한 번은 실제로 말해야 남아요."})
+        sys.stderr.write(f"[bridge] Transcript 캐시 사용 {sid}\n")
+        return self._json(200, doc)
 
     def _handle_cached_takes(self):
         """
-        저장된 발표 목록. #/replay 가 「무엇으로 이어갈 수 있나」를 그리는 재료다.
+        저장된 세션 목록. #/replay 가 「무엇으로 이어갈 수 있나」를 그리는 재료다.
 
-        녹음까지 있는 것만 주지 않는다 — 슬라이드만 있는 자료도 보여줘야
-        "이건 한 번 말해야 저장된다"를 화면에서 알 수 있다.
+        **개발자용이라 DEMO_DEV_ROUTES=1 일 때만 연다.** 목록은 곧 남의 발표 기록이다.
         """
-        raw_dir = ROOT / "fixtures" / "raw"
-        takes: dict[str, dict] = {}
-        for path in raw_dir.glob("*.slidedoc.json"):
-            stem = path.name[: -len(".slidedoc.json")]
-            takes[stem] = {"stem": stem, "slides": True, "transcript": False, "preview": False,
-                           "at": int(path.stat().st_mtime)}
-        for path in raw_dir.glob("*.transcript.json"):
-            stem = path.name[: -len(".transcript.json")]
-            t = takes.setdefault(stem, {"stem": stem, "slides": False, "transcript": False,
-                                        "preview": False, "at": 0})
-            t["transcript"] = True
-            t["at"] = max(t["at"], int(path.stat().st_mtime))
-        for stem, t in takes.items():
-            t["preview"] = (raw_dir / f"{stem}.preview.pdf").is_file()
-        items = sorted(takes.values(), key=lambda t: t["at"], reverse=True)
-        return self._json(200, {"takes": items})
+        if not DEV_ROUTES:
+            return self._json(404, {"error": "not found"})
+        return self._json(200, {"takes": ARCHIVE.list_sessions()})
 
     def _handle_preview_pdf(self, parsed):
-        """발표 원본 미리보기 PDF (PPTX 변환본 또는 업로드 PDF 캐시)."""
-        from urllib.parse import parse_qs
-
-        qs = parse_qs(parsed.query or "")
-        hint = (qs.get("file") or [""])[0]
-        stem = _cache_stem(hint)
-        path = (ROOT / "fixtures" / "raw" / f"{stem}.preview.pdf").resolve()
-        raw_root = (ROOT / "fixtures" / "raw").resolve()
-        if not str(path).startswith(str(raw_root)) or not path.is_file():
+        """발표 원본 미리보기 PDF (PPTX 렌더본 또는 업로드한 PDF 그대로)."""
+        sid = self._query_session_id(parsed)
+        path = ARCHIVE.preview_path(sid) if sid else None
+        if path is None:
             return self._json(404, {"error": "no_preview", "message": "원본 미리보기 PDF가 없어요."})
         data = path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", "application/pdf")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(data)
 
@@ -651,6 +570,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(400, {"error": "document field missing"})
         if len(file_bytes) > MAX_UPLOAD_BYTES:
             return self._json(413, {"error": "too_large", "message": "최대 30MB까지 올릴 수 있어요."})
+        # 확장자가 아니라 내용으로 판별한다. 아니면 디스크에 쓰지 않는다.
+        ext = _sniff_document(file_bytes)
+        if ext is None:
+            return self._json(415, {"error": "unsupported_type", "message": "PDF나 PPTX 파일만 올릴 수 있어요."})
 
         if _mock():
             fixture = ROOT / "fixtures" / "sample_slidedoc.json"
@@ -658,8 +581,14 @@ class Handler(SimpleHTTPRequestHandler):
             doc.file_name = filename
             return self._json(200, doc.to_dict())
 
-        sys.stderr.write(f"[bridge] F-01 parse start file={filename!r} bytes={len(file_bytes)}\n")
-        with tempfile.NamedTemporaryFile(suffix=Path(filename).suffix or ".pdf", delete=False) as tmp:
+        # 학습 동의는 업로드 때 한 번만 받는다 (쿼리). 이후 호출은 이 값을 못 올린다.
+        from urllib.parse import parse_qs
+
+        qs = parse_qs(urlparse(self.path).query or "")
+        consent = (qs.get("consent_learning") or ["0"])[0].strip().lower() in ("1", "true", "yes", "on")
+
+        sys.stderr.write(f"[bridge] F-01 parse start file={filename!r} bytes={len(file_bytes)} consent={consent}\n")
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
             tmp.write(file_bytes)
             tmp_path = tmp.name
         try:
@@ -668,16 +597,25 @@ class Handler(SimpleHTTPRequestHandler):
             # 파서는 임시 경로 이름을 그대로 담는다. 원래 업로드 이름으로 되돌린다.
             doc.file_name = filename
             payload = doc.to_dict()
-            # 발표 화면용 원본 미리보기 PDF (PPTX는 LibreOffice 변환)
-            ext = Path(filename).suffix.lower()
-            preview = None
-            if ext == ".pptx":
-                preview = _pptx_to_preview_pdf(Path(tmp_path), filename)
-            elif ext == ".pdf":
-                preview = _save_pdf_preview(Path(tmp_path), filename)
-            if preview is not None:
-                payload["preview_pdf"] = f"/api/v1/preview-pdf?file={_cache_stem(filename)}"
-            _save_slidedoc_cache(payload, filename)
+            # 세션 발급 — 이후 모든 호출이 이 id 를 실어 보낸다. 저장 실패는 파싱 실패가 아니다.
+            sid = ARCHIVE.new_id()
+            rec = ARCHIVE.open(
+                sid, consent=consent, file_name=filename, ext=ext, upload=file_bytes,
+                sha256=hashlib.sha256(file_bytes).hexdigest(), title=_cache_stem(filename),
+            )
+            if rec is not None:
+                payload["session_id"] = sid
+                payload["consent_learning"] = consent
+                # 발표 화면용 원본 미리보기 (PPTX 는 LibreOffice 렌더, PDF 는 원본이 곧 미리보기)
+                if ext == ".pptx":
+                    rendered = _pptx_to_preview_pdf(Path(tmp_path))
+                    if rendered:
+                        ARCHIVE.put_file(sid, "preview.pdf", rendered)
+                elif not consent:
+                    ARCHIVE.put_file(sid, "preview.pdf", file_bytes)
+                if ARCHIVE.preview_path(sid) is not None:
+                    payload["preview_pdf"] = f"/api/v1/preview-pdf?session_id={sid}"
+                ARCHIVE.put_artifact(sid, "slide_doc", payload)
             return self._json(200, payload)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
@@ -695,9 +633,13 @@ class Handler(SimpleHTTPRequestHandler):
         # 같은 자료·같은 발표 정보면 결과가 같다. 부스 2회차부터 1분 43초를 안 태운다
         key = _stage_key("f06", body["slide_doc"], body.get("context") or {}, llm,
                          body.get("transcript") or None)
+        # 발표 정보는 manifest 에 붙인다 — 또래 기준(상황×시간) 을 만들 때의 버킷 키다.
+        if not _mock() and _session_id_of(body) and body.get("context"):
+            ARCHIVE.set_context(_session_id_of(body), body["context"])
         cached = _stage_cache_get("concepts", key)
         if cached is not None:
             sys.stderr.write(f"[bridge] F-06 concepts 캐시 적중 {key}\n")
+            self._archive(body, "concept_doc", cached)
             return self._json(200, cached)
 
         sys.stderr.write(
@@ -709,6 +651,7 @@ class Handler(SimpleHTTPRequestHandler):
         sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}\n")
         payload = result.to_dict()
         _stage_cache_put("concepts", key, payload)
+        self._archive(body, "concept_doc", payload)
         return self._json(200, payload)
 
     def _handle_strategy(self, raw: bytes):
@@ -760,6 +703,7 @@ class Handler(SimpleHTTPRequestHandler):
         cached = _stage_cache_get("graph", key)
         if cached is not None:
             sys.stderr.write(f"[bridge] F-07 graph 캐시 적중 {key}\n")
+            self._archive(body, "concept_graph", cached)
             return self._json(200, cached)
 
         sys.stderr.write(
@@ -774,6 +718,7 @@ class Handler(SimpleHTTPRequestHandler):
         )
         payload = graph.to_dict()
         _stage_cache_put("graph", key, payload)
+        self._archive(body, "concept_graph", payload)
         return self._json(200, payload)
 
     def _handle_alignment(self, raw: bytes):
@@ -805,7 +750,9 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-11 alignment done coverage={s.coverage} "
             f"verdicts={s.verdict_counts}\n"
         )
-        return self._json(200, alignment.to_dict())
+        payload = alignment.to_dict()
+        self._archive(body, "alignment_doc", payload)
+        return self._json(200, payload)
 
     def _handle_flow(self, raw: bytes):
         """F-11 파생 · ConceptGraph + AlignmentDoc → FlowDiff. LLM 호출 없음."""
@@ -825,7 +772,9 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-11 flow done issues={len(flow.issues)} "
             f"tau={flow.order_tau} ghosts={len(flow.ghost_node_ids)}\n"
         )
-        return self._json(200, flow.to_dict())
+        payload = flow.to_dict()
+        self._archive(body, "flow_diff", payload)
+        return self._json(200, payload)
 
 
     def _handle_chatter(self, raw: bytes):
@@ -851,7 +800,9 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] chatter done turns={len(chatter.turns)} "
             f"speakers={len(speakers)} refs={len(chatter.referenced_node_ids)}\n"
         )
-        return self._json(200, chatter.to_dict())
+        payload = chatter.to_dict()
+        self._archive(body, "chatter_doc", payload)
+        return self._json(200, payload)
 
     def _handle_score(self, raw: bytes):
         """F-13 · AlignmentDoc(+선택 FlowDiff) → 0~100 점. LLM 호출 없음."""
@@ -918,7 +869,9 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-14 score={result.score} situation={result.situation} "
             f"basis={result.basis} 제외={result.excluded} 못잼={result.unmeasured}\n"
         )
-        return self._json(200, result.to_dict())
+        payload = result.to_dict()
+        self._archive(body, "rubric_score", payload)
+        return self._json(200, payload)
 
     def _handle_pace(self, raw: bytes):
         """F-17 · Transcript(+ConceptDoc/Context) → PaceDoc. LLM 없음."""
@@ -938,7 +891,9 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-17 pace done slides={len(pace.slides)} "
             f"actual={pace.actual_sec}s target={pace.target_sec}s\n"
         )
-        return self._json(200, pace.to_dict())
+        payload = pace.to_dict()
+        self._archive(body, "pace_doc", payload)
+        return self._json(200, payload)
 
     def _handle_habits(self, raw: bytes):
         """F-18 · Transcript → HabitDoc."""
@@ -959,7 +914,9 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-18 habits done REP={habits.repeat_cnt} FIL={habits.filler_cnt} "
             f"PAUSE={habits.pause_cnt} provider={habits.provider}\n"
         )
-        return self._json(200, habits.to_dict())
+        payload = habits.to_dict()
+        self._archive(body, "habit_doc", payload)
+        return self._json(200, payload)
 
     def _handle_report(self, raw: bytes):
         """F-19 · PaceDoc + HabitDoc → ReportDoc (LLM, mock 이면 규칙 폴백)."""
@@ -982,7 +939,9 @@ class Handler(SimpleHTTPRequestHandler):
         sys.stderr.write(
             f"[bridge] F-19 report done score={report.score} model={report.model}\n"
         )
-        return self._json(200, report.to_dict())
+        payload = report.to_dict()
+        self._archive(body, "report_doc", payload)
+        return self._json(200, payload)
 
     def _handle_transcribe(self, raw: bytes):
         body = json.loads(raw or b"{}")
@@ -1007,25 +966,18 @@ class Handler(SimpleHTTPRequestHandler):
         # 말하지 않기 위한 길이다 (2026-08-08 사용자 요청). 없으면 404 로 분명히
         # 알린다. 조용히 실 STT 로 흘리면 아낀 줄 알았던 과금이 그대로 나간다.
         if body.get("reuse"):
-            # 저장할 때는 자료 이름으로 짝을 맞추지만(_take_stem), 꺼낼 때는 **부른
-            # 이름이 먼저다.** #/replay 는 "이 테이크" 를 콕 집어 부르는데, 자료
-            # 이름을 앞세우면 자료명과 테이크명이 다를 때 엉뚱하게 못 찾는다.
-            named = _cache_stem(str(body.get("file_name") or "")) if body.get("file_name") else ""
-            tried = [s for s in (named, _take_stem(body)) if s]
-            path = next(
-                (p for p in ((ROOT / "fixtures" / "raw" / f"{s}.transcript.json") for s in tried) if p.is_file()),
-                None,
-            )
-            if path is None:
+            sid = _session_id_of(body)
+            saved = ARCHIVE.read_artifact(sid, "transcript") if sid else None
+            if saved is None:
                 return self._json(
                     404,
                     {
                         "error": "no_cache",
-                        "message": f"'{tried[0] if tried else '이 발표'}' 로 저장된 녹음이 없어요. 한 번은 실제로 말해야 저장됩니다.",
+                        "message": "이 발표로 저장된 받아쓰기가 없어요. 한 번은 실제로 말해야 남아요.",
                     },
                 )
-            sys.stderr.write(f"[bridge] F-05 transcribe → 저장본 재사용 {path.name}\n")
-            return self._json(200, json.loads(path.read_text(encoding="utf-8")))
+            sys.stderr.write(f"[bridge] F-05 transcribe → 저장본 재사용 {sid}\n")
+            return self._json(200, saved)
 
         marks = [SlideMark.from_dict(m) for m in body.get("marks", [])]
         provider = "mock" if _mock() else body.get("provider", "skt-ax")
@@ -1102,8 +1054,7 @@ class Handler(SimpleHTTPRequestHandler):
             # 재분할까지 끝난 뒤에 저장한다 — 저장본을 그대로 다시 쓸 때 화면이
             # 방금 본 것과 같아야 한다. mock 결과는 남기지 않는다 (남의 자료를
             # 내 녹음으로 착각하게 만드는 것과 같은 종류의 거짓이다).
-            if not _mock():
-                _save_transcript_cache(out, _take_stem(body))
+            self._archive(body, "transcript", out)
             return self._json(200, out)
         except Exception as e:  # noqa: BLE001
             from chuckchuck.contracts import STTError
@@ -1142,6 +1093,20 @@ class Handler(SimpleHTTPRequestHandler):
                 return forwarded
         return addr
 
+    @staticmethod
+    def _archive(body: dict, kind: str, payload: dict) -> None:
+        """
+        분석 산출물을 세션 보관소에 남긴다 (write-behind — 요청 결과에 영향 없음).
+
+        mock 결과는 남기지 않는다 — 남의 자료를 내 결과로 착각하게 만드는 것과 같은
+        종류의 거짓이다. 동의 없는 세션은 보관소가 거른다 (캐시 종류만 남긴다).
+        """
+        if _mock():
+            return
+        sid = _session_id_of(body)
+        if sid:
+            ARCHIVE.put_artifact(sid, kind, payload)
+
     def _handle_session_artifacts(self, raw: bytes):
         """
         세션 아티팩트 등록 · {session_id, graph?, alignment?, flow?, transcript?, context?}.
@@ -1159,6 +1124,69 @@ class Handler(SimpleHTTPRequestHandler):
         stored = STORE.put_artifacts(session_id, {k: body[k] for k in ARTIFACT_KEYS if k in body})
         sys.stderr.write(f"[bridge] session artifacts sid={session_id} stored={stored}\n")
         return self._json(200, {"session_id": session_id, "stored": stored})
+
+    @staticmethod
+    def _path_session_id(path: str) -> str:
+        """`/api/v1/sessions/{id}/…` 의 id. 모양이 틀리면 빈 문자열."""
+        parts = path.split("/")
+        try:
+            return ARCHIVE.safe_id(parts[parts.index("sessions") + 1]) or ""
+        except (ValueError, IndexError):
+            return ""
+
+    def _handle_feedback(self, path: str, raw: bytes):
+        """
+        POST /api/v1/sessions/{id}/feedback · {events:[FeedbackEvent…]}
+
+        사용자가 누른 👍/👎·「이 판정은 아닌 것 같아요」·「이건 반복이 아니에요」.
+        이것만이 라벨이다. 동의 세션에만 쌓이고, 종류·값·길이는 계약이 거른다.
+        """
+        from chuckchuck.contracts import FeedbackEvent
+
+        sid = self._path_session_id(path)
+        if not sid:
+            return self._json(400, {"error": "bad_request", "message": "session_id 모양이 맞지 않아요."})
+        body = json.loads(raw or b"{}")
+        events = body.get("events")
+        if not isinstance(events, list) or not events:
+            return self._json(400, {"error": "bad_request", "message": "events 가 필요해요."})
+        accepted = 0
+        for item in events[:50]:
+            try:
+                ev = FeedbackEvent.from_dict(item if isinstance(item, dict) else {})
+            except ValueError as e:
+                return self._json(400, {"error": "bad_request", "message": str(e)})
+            if not ev.at:
+                ev.at = time.time()
+            if ARCHIVE.append(sid, "feedback", ev.to_dict()):
+                accepted += 1
+        sys.stderr.write(f"[bridge] feedback sid={sid} accepted={accepted}/{len(events)}\n")
+        return self._json(200, {"session_id": sid, "accepted": accepted})
+
+    def do_DELETE(self):
+        """DELETE /api/v1/sessions/{id} — 서버에 남은 그 발표의 모든 것을 지운다.
+
+        있든 없든 204 다. 존재 여부를 알려 주는 것 자체가 정보이기 때문이다."""
+        parsed = urlparse(self.path)
+        try:
+            if not (parsed.path.startswith("/api/v1/sessions/") and parsed.path.count("/") == 4):
+                return self._json(404, {"error": "not found"})
+            sid = self._path_session_id(parsed.path)
+            if sid:
+                removed = ARCHIVE.delete(sid)
+                STORE.forget(sid)
+                sys.stderr.write(f"[bridge] session delete sid={sid} removed={removed}\n")
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            return
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            try:
+                self._json(500, {"error": type(e).__name__, "message": str(e)})
+            except Exception:  # noqa: BLE001
+                return
 
     def _resolve(self, body: dict, *keys: str) -> dict:
         """
@@ -1211,9 +1239,10 @@ class Handler(SimpleHTTPRequestHandler):
         # 재사용해 트랙만 바꾼 재요청이 LLM 1콜로 끝나게 한다 — 매번 다시 돌리면
         # temperature 탓에 1분 트랙 질문이 5분 트랙의 부분집합이라는 보장도 깨진다.
         # 근거 장 본문. 없으면 None 이고 F-08 은 예전 프롬프트로 돈다 (조용히 죽지 않는다).
-        # 세션 아티팩트가 아니라 파싱 때 남긴 디스크 캐시에서 찾는다 —
+        # 세션 아티팩트가 아니라 파싱 때 남긴 디스크 보관소에서 session_id 로 찾는다 —
         # 프론트는 slidedoc 을 안 들고 있고, 아티팩트 키를 늘리면 프론트 계약이 깨진다.
-        slidedoc = _load_slidedoc_cache(graph.file_name)
+        # id 로만 찾으니 남의 자료가 붙을 길이 구조적으로 없다.
+        slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
 
         cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm))
         try:
@@ -1248,7 +1277,9 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} "
             f"model={doc.model} 본문={'yes' if slidedoc else '-'}\n"
         )
-        return self._json(200, with_hint_ladders(doc.to_dict(), doc.questions))
+        payload = with_hint_ladders(doc.to_dict(), doc.questions)
+        self._archive(body, "question_doc", payload)
+        return self._json(200, payload)
 
     def _handle_qa_judge(self, raw: bytes):
         """F-09 · {question_id, answer, history?, question, give_up?} → QaJudgement.
@@ -1293,8 +1324,8 @@ class Handler(SimpleHTTPRequestHandler):
         ctx = Context.from_dict(found["context"] or body.get("context") or {})
         llm = "mock" if _mock() else body.get("llm")
         # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본. F-08 과 같은 디스크
-        # 캐시에서 찾는다 (프론트는 slidedoc 을 안 들고 있다).
-        slidedoc = _load_slidedoc_cache(graph.file_name) if graph is not None else None
+        # 보관소에서 session_id 로 찾는다 (프론트는 slidedoc 을 안 들고 있다).
+        slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
         try:
             judgement = judge_answer(
                 question,
@@ -1320,7 +1351,20 @@ class Handler(SimpleHTTPRequestHandler):
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
             f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}\n"
         )
-        return self._json(200, judgement.to_dict())
+        payload = judgement.to_dict()
+        # 질문·답·판정 한 턴을 남긴다 (동의 세션만). 사람이 고친 판정과 짝을 맞출 원본이다.
+        if not _mock() and _session_id_of(body):
+            ARCHIVE.append(_session_id_of(body), "qa_turns", {
+                "at": time.time(),
+                "question_id": question.id,
+                "question": question.to_dict(),
+                "answer": str(body.get("answer", "") or ""),
+                "prior_answers": prior_answers_from(body),
+                "hints_shown": [str(h) for h in (body.get("hints_shown") or [])],
+                "give_up": bool(body.get("give_up")),
+                "judgement": payload,
+            })
+        return self._json(200, payload)
 
     def _json(self, code: int, payload: dict):
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -1341,13 +1385,31 @@ class Handler(SimpleHTTPRequestHandler):
         if origin and origin in ALLOWED_ORIGINS:
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
     def do_OPTIONS(self):
         self.send_response(204)
         self.end_headers()
+
+
+def _prune_once() -> None:
+    try:
+        gone = ARCHIVE.prune()
+    except Exception as e:  # noqa: BLE001 — 청소 실패로 브리지를 죽이지 않는다
+        sys.stderr.write(f"[bridge] 만료 세션 정리 실패: {e}\n")
+        return
+    sys.stderr.write(f"[bridge] 만료 세션 정리: {len(gone)}건 지움\n")
+
+
+def _start_prune_loop() -> None:
+    """시작할 때 한 번, 그 뒤 하루에 한 번. About 화면의 「1년 뒤 지워요」를 이 스레드가 지킨다."""
+    def loop():
+        while True:
+            _prune_once()
+            time.sleep(PRUNE_INTERVAL_SEC)
+    threading.Thread(target=loop, name="archive-prune", daemon=True).start()
 
 
 class ReusableThreadingHTTPServer(ThreadingHTTPServer):
@@ -1369,6 +1431,8 @@ def main():
             flush=True,
         )
     print(settings.masked(), flush=True)
+    print(f"  세션 보관: {DATA_DIR} · 개발 목록 경로={'열림' if DEV_ROUTES else '닫힘'}", flush=True)
+    _start_prune_loop()
     server = ReusableThreadingHTTPServer((host, port), Handler)
     try:
         server.serve_forever(poll_interval=0.5)

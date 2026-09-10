@@ -97,7 +97,7 @@ python - <<'PY'
 from chuckchuck import build_graph, extract_concepts
 from chuckchuck.contracts import SlideDoc, Context
 import json, time
-doc = SlideDoc.from_dict(json.load(open("fixtures/raw/<deck>.slidedoc.json")))
+doc = SlideDoc.from_dict(json.load(open("var/data/sessions/<YYYY/MM/DD/id>/slide_doc.json")))
 cd = extract_concepts(doc, Context(), llm="solar")     # 입력 고정
 for m in ["solar", "ax", "midm", "exaone"]:
     t = time.time(); g = build_graph(cd, Context(), slide_doc=doc, llm=m)

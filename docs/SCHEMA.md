@@ -1212,11 +1212,59 @@ API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/
 
 ---
 
+## 10-B. 세션 기록 · 피드백 — `SessionRecord` · `FeedbackEvent` (데모 브리지 보관소)
+
+업로드 한 건 = 세션 하나. `POST /api/v1/parse` 응답에 `session_id` 가 실리고 이후 모든 호출이
+그것을 보낸다. 디스크: `DEMO_DATA_DIR/sessions/YYYY/MM/DD/{session_id}/` (`demo/session_archive.py`).
+id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬, 뒤가 추측 불가능성.
+
+```jsonc
+// manifest.json — SessionRecord
+{
+  "session_id": "20260910T143512Z_3f9a2c7e",
+  "uploaded_at": 1789000000.0, "updated_at": 1789000900.0,
+  "consent_learning": true, "consent_at": 1789000000.0,   // 업로드 때 한 번, 이후 못 올린다
+  "title": "발표", "file_name": "발표.pdf", "upload_ext": ".pdf",  // ext 는 매직바이트로 판별
+  "upload_sha256": "…", "upload_bytes": 1234567,
+  "context": { "situation": "학회", "audience": "심사위원", "duration_min": 10 },
+  "artifacts": { "slide_doc": "slide_doc.json", "concept_graph": "artifacts/concept_graph.json" },
+  "models": { "concept_graph": "solar-pro2", "habit_doc": "lora" },
+  "code_version": "e20c05f",
+  "qa_turn_count": 4, "feedback_count": 2
+}
+```
+
+| 종류 | 파일 | 동의 없이도? |
+|---|---|---|
+| `slide_doc` · `transcript` | `slide_doc.json` · `transcript.json` | ✅ 캐시 (24h) |
+| `concept_doc` `concept_graph` `alignment_doc` `flow_diff` `chatter_doc` `pace_doc` `habit_doc` `rubric_score` `report_doc` `question_doc` | `artifacts/<kind>.json` | ❌ 동의 세션만 |
+| 원본 | `original.pdf` / `original.pptx` | ❌ 동의 세션만 |
+| QA 턴 | `qa_turns.jsonl` `{at, question_id, question, answer, prior_answers, hints_shown, give_up, judgement}` | ❌ |
+| 피드백 | `feedback.jsonl` (아래) | ❌ |
+
+`POST /api/v1/sessions/{id}/feedback` · `{ "events": [FeedbackEvent…] }` → `{session_id, accepted}`.
+`DELETE /api/v1/sessions/{id}` → 204 (있든 없든).
+
+```jsonc
+// FeedbackEvent — 이것만이 라벨이다. 침묵·모델 출력·점수는 라벨이 아니다.
+{
+  "kind": "question_vote | judgement_dispute | rubric_dispute | habit_dispute",
+  "target_id": "q3 | q:q3:r2 | 12 | span:41.2",
+  "value": "up|down | wrong_verdict | too_high|too_low | not_habit",
+  "at": 1789000500.0,
+  "comment": "≤200자",
+  "payload": { /* 판정 대상 스냅샷 — 질문 본문·판정·구간 텍스트. 프롬프트가 바뀌어도 라벨이 산다 */ }
+}
+```
+
+---
+
 ## 11. 구현 파일
 
 | 파일 | 역할 |
 |------|------|
 | `chuckchuck/contracts.py` | ours 타입 정의 (유일 결합점) |
+| `demo/session_archive.py` | 세션 보관소 — id 발급·동의·만료·삭제 (§10-B) |
 | `chuckchuck/f01_parse.py` | Upstage → SlideDoc |
 | `chuckchuck/providers/stt_impl.py` | A.X → Word[] |
 | `chuckchuck/f05_stt.py` | Word[] + SlideMark[] → Transcript |

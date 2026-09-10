@@ -261,10 +261,9 @@ coverage 가 100% 여도 데이터에 항상 남아 있는 것들이 있다:
 
 #### ⑧ ConceptDoc · ConceptGraph 디스크 캐시
 
-`fixtures/raw/stage_cache/{stage}-{sha1}.json`. **파일 이름이 아니라 내용 해시로 건다.**
-SlideDoc 캐시는 파일명 stem 을 쓰는데 이름이 같은 다른 자료가 조용히 붙을 수 있어서
-그쪽은 근사 매치 폴백을 금지해 뒀다. 여기서는 아예 내용이 1비트라도 다르면 다른 키가 되게 한다 —
-근사 매치가 존재할 수 없다.
+`var/data/stage_cache/{stage}-{sha1}.json` (2026-09-10 부터 — 예전 자리는 `fixtures/raw/stage_cache`).
+**파일 이름이 아니라 내용 해시로 건다.** SlideDoc 은 이제 세션 id 로만 찾지만(`session_archive.py`),
+여기서는 아예 내용이 1비트라도 다르면 다른 키가 되게 한다 — 근사 매치가 존재할 수 없다.
 
 키에 넣는 것: 단계 이름 · 입력 문서 · `context` · `llm`(mock 여부 포함) · (F-06 은) transcript.
 출력에 영향을 주는 걸 하나라도 빼면 캐시가 거짓말을 한다.
@@ -460,7 +459,7 @@ python -m pytest tests/ -q
 mock 의 `_handle_parse` 는 올린 자료를 버리고 샘플로 바꿔치기해서 "내 자료로 도는가" 를 못 본다.
 UI 타이밍만 볼 때 쓰고, 그 화면으로 분석 품질을 판단하지 않는다.
 
-캐시를 비우고 처음부터 보려면 `rm -rf fixtures/raw/stage_cache` (재생성되는 산출물이다).
+캐시를 비우고 처음부터 보려면 `rm -rf var/data/stage_cache` (재생성되는 산출물이다).
 캐시를 아예 끄려면 `DEMO_STAGE_CACHE=0`.
 
 손으로 확인할 것:

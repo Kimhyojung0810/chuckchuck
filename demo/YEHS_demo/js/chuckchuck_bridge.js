@@ -190,8 +190,14 @@ export function attachRehearsalRuntime(nf, hooks = {}) {
   };
 }
 
-/** F-01: 파일 업로드 또는 fixture 샘플 → SlideDoc */
-export async function parseDocument({ file = null, fixture = false } = {}) {
+/**
+ * F-01: 파일 업로드 또는 fixture 샘플 → SlideDoc.
+ *
+ * 응답의 `session_id` 가 이 발표의 열쇠다 — 이후 모든 호출이 이것을 실어 보내고,
+ * 서버는 이 id 로만 파싱본·받아쓰기를 찾는다 (파일명으로 남의 자료가 붙던 사고 방지).
+ * `consent` 는 학습 동의. 업로드 때 한 번만 보내고 서버가 manifest 에 고정한다.
+ */
+export async function parseDocument({ file = null, fixture = false, consent = false } = {}) {
   let res;
   if (fixture || !file) {
     res = await fetch(apiBase() + '/api/v1/parse', {
@@ -202,18 +208,44 @@ export async function parseDocument({ file = null, fixture = false } = {}) {
   } else {
     const fd = new FormData();
     fd.append('document', file, file.name);
-    res = await fetch(apiBase() + '/api/v1/parse', { method: 'POST', body: fd });
+    const q = consent ? '?consent_learning=1' : '';
+    res = await fetch(apiBase() + '/api/v1/parse' + q, { method: 'POST', body: fd });
   }
   const data = await res.json();
   if (!res.ok || data.error) {
     throw new Error(data.message || data.error || `parse HTTP ${res.status}`);
   }
   saveChuckSession({
+    sessionId: data.session_id || null,
     slideDocMeta: {
       file_name: data.file_name,
       total_slides: data.total_slides,
     },
   });
+  return data;
+}
+
+/** 서버에 남은 이 발표의 모든 것(자료·받아쓰기·판정 기록)을 지운다. 있든 없든 성공이다. */
+export async function deleteSession(sessionId) {
+  if (!sessionId) return false;
+  const res = await fetch(apiBase() + `/api/v1/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 204) throw new Error(`delete HTTP ${res.status}`);
+  return true;
+}
+
+/**
+ * 사용자 피드백(👍/👎·「이 판정은 아닌 것 같아요」·「이건 반복이 아니에요」)을 남긴다.
+ * 동의한 세션에만 쌓인다 — 서버가 거르므로 여기서는 묻지 않는다. 실패해도 화면을 막지 않는다.
+ */
+export async function sendFeedback(sessionId, events) {
+  if (!sessionId || !Array.isArray(events) || !events.length) return { accepted: 0 };
+  const res = await fetch(apiBase() + `/api/v1/sessions/${encodeURIComponent(sessionId)}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ events }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || data.error || `feedback HTTP ${res.status}`);
   return data;
 }
 
@@ -264,11 +296,12 @@ async function readJson(res, label) {
  * 선분석은 녹음이 끝나기 전에 도는 경로라 transcript 없이 부른다. 공짜는 아니다:
  * 글자 없는 슬라이드의 topic 추정이 그만큼 약해진다.
  */
-export async function extractConcepts({ slideDoc, context, transcript = null }) {
+export async function extractConcepts({ slideDoc, context, transcript = null, sessionId = null }) {
   const res = await fetch(apiBase() + '/api/v1/concepts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      session_id: sessionId || null,
       slide_doc: slideDoc,
       context: context || {},
       transcript: transcript ? slimTranscript(transcript) : null,
@@ -282,11 +315,11 @@ export async function extractConcepts({ slideDoc, context, transcript = null }) 
 }
 
 /** F-07 개념 그래프 한 번. Transcript 를 받지 않는다 (f07_graph.py 계약) */
-export async function buildGraph({ concepts, slideDoc, context }) {
+export async function buildGraph({ concepts, slideDoc, context, sessionId = null }) {
   const res = await fetch(apiBase() + '/api/v1/graph', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
+    body: JSON.stringify({ session_id: sessionId || null, concept_doc: concepts, slide_doc: slideDoc, context: context || {} }),
   });
   const graph = await readJson(res, '개념 그래프');
   if (!res.ok || graph.error) {
@@ -301,7 +334,7 @@ export async function buildGraph({ concepts, slideDoc, context }) {
  *   "없음"으로 읽고 같은 호출을 한 번 더 결제했을 것이다. await 하면 진행 중인 호출에 붙는다.
  *   reject 되면 조용히 원래 경로로 되돌아간다.
  */
-export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null, reuse = false }) {
+export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null, reuse = false, sessionId = null }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -317,6 +350,8 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      // 이 발표의 열쇠. 서버가 받아쓰기를 이 id 아래 남기고, reuse 도 이 id 로 찾는다.
+      session_id: sessionId || null,
       marks: marks || [],
       audio_base64,
       ext,
@@ -354,7 +389,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
         usedPreConcepts = !!concepts;
       }
       if (!concepts) {
-        concepts = await extractConcepts({ slideDoc, context, transcript });
+        concepts = await extractConcepts({ slideDoc, context, transcript, sessionId });
       }
       report('concepts_done', `개념 슬라이드 ${(concepts.slides || []).length}장`, { transcript, concepts });
     } catch (err) {
@@ -386,7 +421,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
         graph = await pre.graphP.catch(() => null);
       }
       if (!graph) {
-        graph = await buildGraph({ concepts, slideDoc, context });
+        graph = await buildGraph({ concepts, slideDoc, context, sessionId });
       }
       report('graph_done', `개념 ${(graph.nodes || []).length}개 · 연결 ${(graph.edges || []).length}개`, { transcript, concepts, graph });
 
@@ -394,7 +429,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       const aRes = await fetch(apiBase() + '/api/v1/alignment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ graph, transcript: slimTranscript(transcript), context: context || {} }),
+        body: JSON.stringify({ session_id: sessionId || null, graph, transcript: slimTranscript(transcript), context: context || {} }),
       });
       alignment = await readJson(aRes, '정합 판정');
       if (!aRes.ok || alignment.error) {
@@ -418,7 +453,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       const fRes = await fetch(apiBase() + '/api/v1/flow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ graph, alignment }),
+        body: JSON.stringify({ session_id: sessionId || null, graph, alignment }),
       });
       flow = await readJson(fRes, '흐름 비교');
       if (!fRes.ok || flow.error) {
@@ -449,6 +484,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        session_id: sessionId || null,
         transcript: slim,
         context: context || {},
         concept_doc: concepts || null,
@@ -466,7 +502,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     const hRes = await fetch(apiBase() + '/api/v1/habits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript: slim }),
+      body: JSON.stringify({ session_id: sessionId || null, transcript: slim }),
     });
     habits = await readJson(hRes, '말버릇 분석');
     if (!hRes.ok || habits.error) {
@@ -487,6 +523,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          session_id: sessionId || null,
           situation: (context || {}).situation || '',
           context: context || {},
           slides: slideDoc || null,
@@ -515,7 +552,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // 점수는 채점표가 진실이다 — F-19 가 두 번째 점수를 만들지 않게 같이 보낸다
-      body: JSON.stringify({ pace, habits, rubric: score, context: context || {} }),
+      body: JSON.stringify({ session_id: sessionId || null, pace, habits, rubric: score, context: context || {} }),
     });
     voiceReport = await readJson(rRes, '리포트');
     if (!rRes.ok || voiceReport.error) {
@@ -914,6 +951,8 @@ export async function transcribeAnswer(blob) {
 
 window.ChuckchuckBridge = {
   attachRehearsalRuntime,
+  deleteSession,
+  sendFeedback,
   startAnswerRecording,
   transcribeAnswer,
   hasLiveDictation,

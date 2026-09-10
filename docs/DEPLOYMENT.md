@@ -70,12 +70,21 @@ FastAPI 서버는 `/api/v1/*` 계약이 스펙대로 동작하는지 pytest로 �
   `transcribe`·`graph`·`alignment`·`chatter`·`habits` 등)에 IP당 분당
   `DEMO_RATE_LIMIT_PER_MIN`(기본 30) 상한. 0 이하로 두면 꺼진다(오프라인 시연·자동화용).
   사람이 분당 30턴을 못 넘으므로 정상 사용엔 안 걸린다.
-- **파일명/내용 해시 캐시**: 같은 자료·같은 녹음의 재호출 비용을 줄인다
-  (`_save_slidedoc_cache`/`_load_slidedoc_cache`, `fixtures/raw/*.slidedoc.json`).
-  "이건 운영용 영속 저장소를 대체하지 않는다" —
-  `기술개발_구현내용_초안.md` §3.4가 이미 이 한계를 명시했다.
-- **세션·작업 상태는 전부 인메모리**다. 브리지든 FastAPI든 재시작하면 진행 중이던 세션이
-  사라진다 — 데모 중 프로세스를 재시작해야 하면 사용자는 처음부터 다시 시작해야 한다.
+- **세션 보관소** (`demo/session_archive.py`, 2026-09-10): 업로드 한 건이 세션 하나다. 파싱 때
+  브리지가 `session_id` 를 발급하고 이후 모든 호출이 그것을 실어 보낸다. 디스크는
+  `DEMO_DATA_DIR`(기본 `var/data`) 아래 `sessions/YYYY/MM/DD/<타임스탬프>_<난수>/` 로 남아
+  `ls` 만으로 시간순이다. **학습 동의를 켠 세션만** 원본·분석 산출물·QA 턴·피드백을 남기고
+  `DEMO_RETENTION_DAYS`(365) 뒤 지운다. 동의 없는 세션은 파싱본·받아쓰기 캐시만
+  `DEMO_CACHE_TTL_HOURS`(24) 두고 지운다. 정리는 시작 때 한 번 + 하루 한 번 데몬 스레드
+  (`journalctl` 에 `만료 세션 정리: N건` 이 찍힌다). 자세한 규칙은 [PRIVACY.md](PRIVACY.md).
+  예전의 `fixtures/raw/{파일명}.*` 는 더 쓰지 않는다 — 파일명으로 남의 자료가 붙고 실제
+  발표 자료가 git 에 커밋됐다.
+- **F-06·F-07 내용 해시 캐시**: `var/data/stage_cache/` (`DEMO_STAGE_CACHE_TTL_HOURS`, 72).
+  파일명이 아니라 내용 해시라 남의 자료가 붙을 길이 없다.
+- **인메모리 세션(`SessionStore`)은 그대로 핫패스**다. 질문·판정 근거는 메모리에서 먼저 찾고,
+  보관소는 write-behind 다 — 저장 실패가 요청을 죽이지 않는다.
+- **저장된 세션 목록**(`/api/v1/cached-takes`, `#/replay`)은 `DEMO_DEV_ROUTES=1` 일 때만 열린다.
+  목록은 곧 남의 발표 기록이라 운영 기본은 404 다.
 
 ## 6. 정적 프론트 캐시 버전 함정 (`?v=`)
 
@@ -134,6 +143,11 @@ sudo systemctl status chuckchuck-bridge          # active · enabled 이어야 �
 sudo journalctl -u chuckchuck-bridge -n 20       # 부팅 로그에 f-06 backend · 키 상태가 찍힌다
 sudo systemctl restart chuckchuck-bridge         # 브리지 코드나 .env 를 고쳤으면
 ```
+
+세션 보관소는 `WorkingDirectory` 아래 `var/data` 가 기본이다 (유닛의 `User` 가 쓸 수 있어야 한다).
+저장소 디스크 밖에 두려면 유닛에 `Environment=DEMO_DATA_DIR=/var/lib/chuckchuck` 을 넣고
+`sudo install -d -o yehschuck -m 0700 /var/lib/chuckchuck`. 백업 대상에 넣으면 백업도 같이 만료시킬 것 —
+안 그러면 「1년 뒤 지워요」 가 거짓이 된다.
 
 ### 10-2. 터널 — 대시보드 토큰 방식 (권장, CLI 로그인 불필요)
 

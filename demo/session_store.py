@@ -124,6 +124,13 @@ class SessionStore:
             entry["at"] = self._clock()   # 쓰이는 세션은 살려 둔다 (LRU)
             return dict(entry["data"])
 
+    def forget(self, session_id: str) -> bool:
+        """세션을 지운다 (사용자가 「이 발표 기록 지우기」를 눌렀을 때). 없었으면 False."""
+        if not session_id:
+            return False
+        with self._lock:
+            return self._sessions.pop(session_id, None) is not None
+
     # -- triage 캐시 ------------------------------------------------------
 
     def get_triage(self, key: str):
