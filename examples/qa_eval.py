@@ -28,6 +28,7 @@ LLM 이 그날 낸 답을 보고 "좋아진 것 같다" 로 끝나고, 다음 �
     python examples/qa_eval.py --no-coach            # 막힘 코칭은 건너뛴다
     python examples/qa_eval.py --dump /tmp/qa.json   # 프롬프트·응답 원문까지 남긴다
     python examples/qa_eval.py --rubric              # 회의(09-12 §4) rubric 7항목을 LLM 심사관이 채점 (호출 +1)
+    python examples/qa_eval.py --situation work_report --tag wr   # 같은 번들을 상황만 바꿔 (픽스처엔 상황이 없다)
     python examples/qa_eval.py --bundle-dir exports/eval_bundles --tag v1
                                                      # 번들 N개 → <시각>_v1.corpus.json (평균·합) 도 같이 남긴다
 
@@ -133,6 +134,19 @@ def load_artifacts(path: Path) -> dict:
         raise SystemExit(f"측정 기록이 없어요: {path}")
     raw = json.loads(path.read_text(encoding="utf-8"))
     return raw["session"]["artifacts"] if "session" in raw else raw
+
+
+def with_context(art: dict, situation: str | None, audience: str | None) -> dict:
+    """번들의 발표 상황·청중을 덮어쓴 사본. 고정 픽스처에는 context 가 없어(2026-09-12 확인) 지금까지의
+    벤치는 전부 "범용 발표" 조건이었다 — 상황별 질문(로드맵 B3)을 재려면 같은 번들을 상황만 바꿔 돌린다."""
+    if not situation and not audience:
+        return art
+    ctx = dict(art.get("context") or {})
+    if situation:
+        ctx["situation"] = situation
+    if audience:
+        ctx["audience"] = audience
+    return {**art, "context": ctx}
 
 
 def content_tokens(text: str) -> set[str]:
@@ -476,7 +490,7 @@ def print_summary(s: dict, model: str) -> None:
 
 def run_bundle(bundle: Path, args) -> dict:
     """번들 하나를 측정하고 요약 dict 를 돌려준다. 결과 파일도 남긴다."""
-    art = load_artifacts(bundle)
+    art = with_context(load_artifacts(bundle), args.situation, args.audience)
     corpus = Corpus(SlideDoc.from_dict(art["slide_doc"]),
                     Transcript.from_dict(art["transcript"]) if art.get("transcript") else None)
     llm = RecordingLLM(get_llm(args.llm))
@@ -514,7 +528,7 @@ def run_bundle(bundle: Path, args) -> dict:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = OUT_DIR / f"{stamp}{'_' + args.tag if args.tag else ''}.json"
     out.write_text(json.dumps({
-        "bundle": str(bundle), "track": args.track, "model": llm.name,
+        "bundle": str(bundle), "track": args.track, "model": llm.name, "context": art.get("context"),
         "summary": summary, "questions": qrows, "judgements": jrows, "coaching": crows, "rubric": rrows,
         "calls": [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in llm.calls],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -618,6 +632,9 @@ def main() -> int:
     ap.add_argument("--bundle-dir", type=Path, default=None,
                     help="번들 폴더 전체 (examples/build_eval_bundle.py 출력). 하나씩 재고 평균±편차를 낸다")
     ap.add_argument("--track", default="5")
+    ap.add_argument("--situation", default=None,
+                    help="발표 상황 덮어쓰기 (school_project | product_launch | work_report | casual_peer)")
+    ap.add_argument("--audience", default=None, help="청중 자유 입력 덮어쓰기")
     ap.add_argument("--llm", default=None, help="REASONING_BACKEND 대신 쓸 백엔드")
     ap.add_argument("--tag", default="", help="결과 파일 꼬리표 (예: baseline)")
     ap.add_argument("--limit", type=int, default=3, help="판정에 넣을 질문 수 (기본 3)")

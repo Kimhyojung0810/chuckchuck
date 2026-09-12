@@ -170,3 +170,12 @@ def test_parse_rubric_does_not_guess_when_count_differs(qa_eval):
     raw = json.dumps({"scores": [_score("Q-1")]})
     rows = qa_eval.parse_rubric(raw, [_q("q01"), _q("q02")])
     assert [r["missing"] for r in rows] == [True, True]
+
+
+def test_with_context_overrides_only_what_is_given(qa_eval):
+    art = {"slide_doc": {}, "context": {"situation": "school_project", "audience": "교수", "duration_min": 10}}
+    out = qa_eval.with_context(art, "work_report", None)
+    assert out["context"] == {"situation": "work_report", "audience": "교수", "duration_min": 10}
+    assert art["context"]["situation"] == "school_project"          # 원본은 그대로
+    assert qa_eval.with_context(art, None, None) is art               # 아무것도 안 주면 사본도 안 만든다
+    assert qa_eval.with_context({"slide_doc": {}}, None, "투자자")["context"] == {"audience": "투자자"}
