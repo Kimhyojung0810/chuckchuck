@@ -1,7 +1,7 @@
 export const meta = {
   name: 'improve-qa',
   description: 'Q&A 프롬프트 가설을 벤치마크로 하나씩 시험해 좋아진 것만 남긴다 (실 LLM 호출 · 과금)',
-  whenToUse: 'Q&A 질문 생성(F-08)·판정(F-09) 프롬프트를 자율적으로 개선할 때. args: {stamp(필수), maxVariants=3, judge=false, limit=2, focus="", push=false}',
+  whenToUse: 'Q&A 질문 생성(F-08)·판정(F-09) 프롬프트를 자율적으로 개선할 때. args: {stamp(필수), maxVariants=3, rubric=true, judge=false, limit=2, focus="", push=false}',
   phases: [
     { title: 'Baseline', detail: '현재 프롬프트로 벤치마크 1회 (기준선)' },
     { title: 'Hypotheses', detail: '기준선 결과·프롬프트·장부를 읽고 가설 목록' },
@@ -12,12 +12,12 @@ export const meta = {
 
 // ---- 설정 --------------------------------------------------------------
 // 스크립트 안에서는 시각을 만들 수 없다(재개 호환). 호출자가 stamp 를 준다: "20260912-1130".
-const cfg = Object.assign({ maxVariants: 3, judge: false, limit: 2, focus: '', push: false }, args || {})
+const cfg = Object.assign({ maxVariants: 3, judge: false, rubric: true, limit: 2, focus: '', push: false }, args || {})
 if (!cfg.stamp || !/^\d{8}-\d{4}$/.test(String(cfg.stamp))) {
   throw new Error('args.stamp 가 필요해요 (YYYYMMDD-HHMM). 예: {"stamp":"20260912-1130"}')
 }
 cfg.maxVariants = Math.min(Number(cfg.maxVariants) || 3, 5)   // 과금 상한: 한 번에 최대 5변형
-const benchFlags = `${cfg.judge ? '--judge ' : ''}--limit ${cfg.limit}`
+const benchFlags = `${cfg.rubric ? '--rubric ' : ''}${cfg.judge ? '--judge ' : ''}--limit ${cfg.limit}`
 const EDITABLE = ['chuckchuck/f08_questions.py', 'chuckchuck/f09_judge.py']
 const EDITABLE_STR = EDITABLE.join(' ')
 

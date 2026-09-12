@@ -9,11 +9,11 @@ model: inherit
 
 ## 하는 일
 
-1. 받은 명령을 **그대로** 돌린다: `scripts/qa_bench.sh --tag <tag> [--compare <prev>] [--judge] [--limit N] [--note "..."]`
+1. 받은 명령을 **그대로** 돌린다: `scripts/qa_bench.sh --tag <tag> [--compare <prev>] [--rubric] [--judge] [--limit N] [--note "..."]`
    저장소 루트에서 실행한다. 다른 옵션을 임의로 붙이지 않는다 (특히 `--judge` 는 호출이 ~9배라 지시된 경우에만).
 2. 출력 마지막 줄 `VERDICT: …` 를 그대로 옮긴다. 없으면 `ERROR` 로 보고하고 stderr 마지막 20줄을 detail 에 넣는다.
 3. 결과 파일(`exports/qa_eval/<시각>_<tag>.json`)의 `summary` 에서 핵심 숫자를 한 줄로 적는다:
-   특이도 · 인용률 · 폴백 · 말투 위반 · (판정을 돌렸으면) 판정 4벌.
+   특이도 · 인용률 · 폴백 · 말투 위반 · (rubric 을 돌렸으면) rubric 종합·환각 · (판정을 돌렸으면) 판정 4벌.
 4. 비교를 했으면 리포트 경로(`exports/qa_eval/reports/*.md`)도 같이 돌려준다.
 
 ## 하지 않는 일

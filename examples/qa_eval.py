@@ -27,8 +27,12 @@ LLM 이 그날 낸 답을 보고 "좋아진 것 같다" 로 끝나고, 다음 �
     python examples/qa_eval.py --no-judge            # 질문만 (F-09 호출 없음, 싸다)
     python examples/qa_eval.py --no-coach            # 막힘 코칭은 건너뛴다
     python examples/qa_eval.py --dump /tmp/qa.json   # 프롬프트·응답 원문까지 남긴다
+    python examples/qa_eval.py --rubric              # 회의(09-12 §4) rubric 7항목을 LLM 심사관이 채점 (호출 +1)
+    python examples/qa_eval.py --bundle-dir exports/eval_bundles --tag v1
+                                                     # 번들 N개 → <시각>_v1.corpus.json (평균·합) 도 같이 남긴다
 
-결과 요약은 exports/qa_eval/<시각>_<tag>.json 에 남는다. 전후 비교는 이 파일 둘을 놓고 본다.
+결과 요약은 exports/qa_eval/<시각>_<tag>.json 에 남는다. 전후 비교는 이 파일 둘을 놓고 본다
+(`examples/qa_eval_compare.py --tag 전 --tag 후`). 번들 폴더로 돌렸으면 `.corpus.json` 이 비교 대상이다.
 """
 
 from __future__ import annotations
@@ -50,6 +54,7 @@ load_dotenv()
 
 from chuckchuck import build_questions, judge_answer, triage_questions  # noqa: E402
 from chuckchuck._evidence import clean_slide_text  # noqa: E402
+from chuckchuck._json_text import extract_json_object  # noqa: E402
 from chuckchuck._match import norm_tokens  # noqa: E402
 from chuckchuck.contracts import (  # noqa: E402
     ConceptGraph,
@@ -186,6 +191,106 @@ def question_row(q: Question, corpus: Corpus) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# rubric — 회의(2026-09-12 §4) 7항목을 LLM-as-a-Judge 로 잰다. 번들당 호출 1회.
+# 특이도·인용률은 "자료를 보고 있는가" 를, 이건 "발표자가 실제로 받을 법한 질문인가" 를 잰다.
+# ---------------------------------------------------------------------------
+
+RUBRIC_ITEMS = ("groundedness", "relevance", "coverage", "depth", "answerability", "non_duplication")
+RUBRIC_SYSTEM = """당신은 발표 Q&A 품질 심사관이다. 발표자가 실제로 받을 법하고 생각할 가치가 있는 질문인지 잰다.
+자료와 발화에 있는 것만 근거로 삼는다. 자료에 없는 내용을 지어내지 마라. 확신이 없으면 낮은 점수를 준다.
+
+각 질문을 항목마다 1~5 로 채점한다.
+- groundedness: 질문의 전제가 자료·발화에 그대로 있다(5) ↔ 자료에 없는 사실을 전제로 한다(1)
+- relevance: 이 발표의 핵심 주장에 닿는다(5) ↔ 어느 발표에나 붙일 수 있다(1)
+- coverage: 설명이 부족했던 지점을 짚는다(5) ↔ 이미 충분히 설명한 것을 되묻는다(1)
+- depth: 이유·비교·한계를 묻는다(5) ↔ 단순 사실 확인(1)
+- answerability: 자료·발화로 답할 수 있다(5) ↔ 발표자도 답할 수 없다(1)
+- non_duplication: 다른 질문과 겹치지 않는다(5) ↔ 같은 걸 말만 바꿔 묻는다(1)
+- hallucination: 자료에 없는 내용을 사실처럼 전제하면 true. trap=true 인 질문은 일부러 틀린 전제를 쓰므로 false.
+- reason: 근거 한 문장. 장 번호(S3 처럼)를 댄다.
+
+코드펜스·주석·말머리 없이 JSON 객체 하나만 출력한다:
+{"scores": [{"id": "q01", "groundedness": 4, "relevance": 5, "coverage": 3, "depth": 4, "answerability": 5, "non_duplication": 5, "hallucination": false, "reason": "S3 의 수치를 그대로 전제로 삼았다"}]}
+"""
+#: 심사관에게 실을 장별 발췌 상한. 22장 × 600자 ≈ 13k 자 — 판정 프롬프트(1.3k)보다 크지만 호출은 1회다.
+RUBRIC_SLIDE_MAX = 600
+RUBRIC_SPEECH_MAX = 400
+
+
+def rubric_user_prompt(questions: list[Question], corpus: Corpus) -> str:
+    lines = ["[TASK] qa-rubric", "", "## 자료 (장별 본문)"]
+    lines += [f"S{no}: {t[:RUBRIC_SLIDE_MAX]}" for no, t in corpus.slide_text.items() if t.strip()]
+    lines += ["", "## 발화 (장별 받아쓰기)"]
+    lines += [f"S{no}: {t[:RUBRIC_SPEECH_MAX]}" for no, t in corpus.speech_text.items() if t.strip()]
+    lines += ["", "## 질문"]
+    lines += [f"- id={q.id} trap={'true' if q.trap else 'false'} 근거장={q.slide_nos}: {q.question}" for q in questions]
+    return "\n".join(lines)
+
+
+def _clamp15(v) -> int | None:
+    try:
+        return max(1, min(5, int(v)))
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_rubric(raw: str, questions: list[Question]) -> list[dict]:
+    """심사관 응답 → 질문별 행. 응답에 없는 질문은 missing 으로 남긴다 (0점으로 치지 않는다).
+    trap 질문의 hallucination 은 코드가 false 로 못 박는다 — 심사관이 헷갈려도 함정을 벌하지 않는다."""
+    data = extract_json_object(raw)
+    by_id = {str(s.get("id")): s for s in data.get("scores", []) if isinstance(s, dict)}
+    rows = []
+    for q in questions:
+        s = by_id.get(q.id)
+        if s is None:
+            rows.append({"question_id": q.id, "missing": True})
+            continue
+        row = {"question_id": q.id, "missing": False,
+               "hallucination": bool(s.get("hallucination")) and not q.trap,
+               "reason": str(s.get("reason") or "")[:200]}
+        for k in RUBRIC_ITEMS:
+            row[k] = _clamp15(s.get(k))
+        rows.append(row)
+    return rows
+
+
+def run_rubric(questions: list[Question], corpus: Corpus, llm: LLMProvider) -> list[dict]:
+    if not questions:
+        return []
+    try:
+        raw = llm.complete(system=RUBRIC_SYSTEM, user=rubric_user_prompt(questions, corpus),
+                           temperature=0.0, max_tokens=2048, json_mode=True)
+        rows = parse_rubric(raw, questions)
+    except Exception as e:  # noqa: BLE001 — 측정 도구: 심사 실패는 결과에 missing 으로 남기고 계속 간다
+        print(f"  rubric 실패: {type(e).__name__}: {str(e)[:120]}")
+        return [{"question_id": q.id, "missing": True} for q in questions]
+    for r in rows:
+        if r["missing"]:
+            print(f"    {r['question_id']:<24} (심사관 응답에 없음)")
+            continue
+        cells = " ".join(f"{k[:5]}{r[k] if r[k] is not None else '-'}" for k in RUBRIC_ITEMS)
+        print(f"    {r['question_id']:<24} {cells}{' [환각]' if r['hallucination'] else ''}  {r['reason'][:50]}")
+    return rows
+
+
+def rubric_summary(rrows: list[dict]) -> dict:
+    """항목별 평균 + 환각 수 + 종합(환각 질문은 0점). 비교 스크립트의 PRIMARY 가 이 키를 읽는다."""
+    scored = [r for r in rrows if not r.get("missing")]
+    out: dict = {"n": len(scored), "missing": len(rrows) - len(scored)}
+    for k in RUBRIC_ITEMS:
+        xs = [r[k] for r in scored if r.get(k) is not None]
+        out[f"{k}_mean"] = round(sum(xs) / len(xs), 2) if xs else None
+    out["hallucination"] = sum(1 for r in scored if r.get("hallucination"))
+    per_q = []
+    for r in scored:
+        vals = [r[k] for k in RUBRIC_ITEMS if r.get(k) is not None]
+        if vals:
+            per_q.append(0.0 if r.get("hallucination") else sum(vals) / len(vals))
+    out["overall_mean"] = round(sum(per_q) / len(per_q), 2) if per_q else None
+    return out
+
+
+# ---------------------------------------------------------------------------
 # 실행
 # ---------------------------------------------------------------------------
 
@@ -267,7 +372,8 @@ def run_coaching(questions: list[Question], art: dict, llm: LLMProvider, corpus:
     return rows
 
 
-def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict], crows: list[dict] | None = None) -> dict:
+def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict], crows: list[dict] | None = None,
+              rrows: list[dict] | None = None) -> dict:
     def mean(xs):
         xs = [x for x in xs if x is not None]
         return round(sum(xs) / len(xs), 2) if xs else None
@@ -288,7 +394,9 @@ def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict], crows: li
     stages = {}
     for r in crows:
         stages.setdefault(r["question_id"], []).append(r["stage"])
+    rubric = {"rubric": rubric_summary(rrows)} if rrows else {}
     return {
+        **rubric,
         "questions": len(qrows),
         "fallback": sum(1 for r in qrows if r["fallback"]),
         "trap": sum(1 for r in qrows if r["trap"]),
@@ -328,6 +436,11 @@ def print_summary(s: dict, model: str) -> None:
           f" · 함정동의→wrong {j['trap_agree_wrong']} · 함정정정→통과 {j['trap_fixed_passed']}")
     for task, v in p.items():
         print(f"프롬프트 {task:<12} {v['n']}회 · {v['user_chars_mean']}자 · 잡음 {v['noise_ratio_mean']:.0%} · {v['sec_mean']}s")
+    r = s.get("rubric")
+    if r:
+        cells = " · ".join(f"{k[:5]} {r.get(f'{k}_mean')}" for k in RUBRIC_ITEMS)
+        print(f"rubric(1~5): 종합 {r['overall_mean']} · 환각 {r['hallucination']} · {cells}"
+              + (f" · 누락 {r['missing']}" if r.get("missing") else ""))
     c = s.get("coach") or {}
     if c.get("stages"):
         seqs = " · ".join("→".join(v) for v in c["stages"].values())
@@ -336,20 +449,9 @@ def print_summary(s: dict, model: str) -> None:
               f" · 해설 출처 {c['explain_cites_slide']} · 높임 {c['honorifics']}")
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--bundle", type=Path, default=RUN_FIXTURE, help="아티팩트 한 벌 (기본 live_qa_run.json)")
-    ap.add_argument("--track", default="5")
-    ap.add_argument("--llm", default=None, help="REASONING_BACKEND 대신 쓸 백엔드")
-    ap.add_argument("--tag", default="", help="결과 파일 꼬리표 (예: baseline)")
-    ap.add_argument("--limit", type=int, default=3, help="판정에 넣을 질문 수 (기본 3)")
-    ap.add_argument("--no-judge", action="store_true", help="F-09 를 부르지 않는다")
-    ap.add_argument("--no-coach", action="store_true", help="「모르겠어요」 코칭을 건너뛴다")
-    ap.add_argument("--fresh-triage", action="store_true", help="저장된 심사 대신 F-08 1차를 다시 돌린다")
-    ap.add_argument("--dump", type=Path, default=None, help="프롬프트·응답 원문을 이 파일에 남긴다")
-    args = ap.parse_args()
-
-    art = load_artifacts(args.bundle)
+def run_bundle(bundle: Path, args) -> dict:
+    """번들 하나를 측정하고 요약 dict 를 돌려준다. 결과 파일도 남긴다."""
+    art = load_artifacts(bundle)
     corpus = Corpus(SlideDoc.from_dict(art["slide_doc"]),
                     Transcript.from_dict(art["transcript"]) if art.get("transcript") else None)
     llm = RecordingLLM(get_llm(args.llm))
@@ -375,21 +477,122 @@ def main() -> int:
         print("\n막힘 코칭 (「모르겠어요」 연타)")
         crows = run_coaching(doc.questions, art, llm, corpus, args.limit)
 
-    summary = summarize(qrows, jrows, llm.calls, crows)
+    rrows = []
+    if args.rubric:
+        print("\nrubric 심사 (7항목)")
+        rrows = run_rubric(doc.questions, corpus, llm)
+
+    summary = summarize(qrows, jrows, llm.calls, crows, rrows)
     print_summary(summary, llm.name)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = OUT_DIR / f"{stamp}{'_' + args.tag if args.tag else ''}.json"
     out.write_text(json.dumps({
-        "bundle": str(args.bundle), "track": args.track, "model": llm.name,
-        "summary": summary, "questions": qrows, "judgements": jrows, "coaching": crows,
+        "bundle": str(bundle), "track": args.track, "model": llm.name,
+        "summary": summary, "questions": qrows, "judgements": jrows, "coaching": crows, "rubric": rrows,
         "calls": [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in llm.calls],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n요약 저장: {out.relative_to(ROOT)}")
     if args.dump:
         args.dump.write_text(json.dumps(llm.calls, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"원문 덤프: {args.dump}")
+    return summary
+
+
+#: 코퍼스 요약에서 평균±편차를 낼 숫자 열.
+CORPUS_KEYS = ("specificity_mean", "grounding_mean", "fallback", "honorifics_questions",
+               "honorifics_judge", "impolite_questions")
+
+
+def _agg(vals: list):
+    """같은 키의 값 N개를 하나로: 숫자는 평균, 'a/b' 는 합, dict 는 재귀, 그 밖(단계 목록)은 버린다."""
+    vals = [v for v in vals if v is not None and v != "-"]
+    if not vals:
+        return None
+    if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in vals):
+        return round(sum(vals) / len(vals), 2)
+    if all(isinstance(v, str) and "/" in v for v in vals):
+        parts = [tuple(int(x) for x in v.split("/", 1)) for v in vals]
+        return f"{sum(a for a, _ in parts)}/{sum(b for _, b in parts)}"
+    if all(isinstance(v, dict) for v in vals):
+        keys: list = []
+        for d in vals:
+            keys += [k for k in d if k not in keys]
+        out = {k: _agg([d.get(k) for d in vals]) for k in keys}
+        kept = {k: v for k, v in out.items() if v is not None}
+        return kept or None          # 단계 목록처럼 전부 버려진 dict 는 통째로 뺀다
+    return None
+
+
+def aggregate_summaries(summaries: list[dict]) -> dict:
+    """번들 N개 요약을 단일 요약과 **같은 모양**으로 합친다 — qa_eval_compare 가 그대로 읽는다.
+    한 발표에서 좋아진 것이 다른 발표에서 나빠졌으면 평균이 그걸 드러낸다."""
+    return _agg(list(summaries)) or {}
+
+
+def write_corpus(summaries: list[dict], bundles: list[Path], tag: str) -> Path:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = OUT_DIR / f"{stamp}{'_' + tag if tag else ''}.corpus.json"
+    out.write_text(json.dumps({"bundles": [b.stem for b in bundles], "n": len(summaries),
+                               "summary": aggregate_summaries(summaries)}, ensure_ascii=False, indent=1),
+                   encoding="utf-8")
+    return out
+
+
+def print_corpus(summaries: list[dict]) -> None:
+    """번들 N개의 평균±편차. 한 발표에서 좋아진 것이 다른 발표에서 나빠졌는지 여기서 보인다."""
+    import statistics
+
+    print(f"\n{'=' * 72}\n코퍼스 요약  (번들 {len(summaries)}개)\n{'-' * 72}")
+    for key in CORPUS_KEYS:
+        xs = [s[key] for s in summaries if s.get(key) is not None]
+        if not xs:
+            continue
+        sd = statistics.pstdev(xs) if len(xs) > 1 else 0.0
+        print(f"  {key:<22} {statistics.fmean(xs):>7.2f} ± {sd:<6.2f} (n={len(xs)})")
+    for case in ("gist_passed", "unrelated_wrong", "trap_agree_wrong", "trap_fixed_passed"):
+        hit = tot = 0
+        for s in summaries:
+            r = (s.get("judge") or {}).get(case, "-")
+            if "/" in r:
+                a, b = r.split("/")
+                hit += int(a)
+                tot += int(b)
+        if tot:
+            print(f"  judge.{case:<16} {hit}/{tot}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--bundle", type=Path, default=RUN_FIXTURE, help="아티팩트 한 벌 (기본 live_qa_run.json)")
+    ap.add_argument("--bundle-dir", type=Path, default=None,
+                    help="번들 폴더 전체 (examples/build_eval_bundle.py 출력). 하나씩 재고 평균±편차를 낸다")
+    ap.add_argument("--track", default="5")
+    ap.add_argument("--llm", default=None, help="REASONING_BACKEND 대신 쓸 백엔드")
+    ap.add_argument("--tag", default="", help="결과 파일 꼬리표 (예: baseline)")
+    ap.add_argument("--limit", type=int, default=3, help="판정에 넣을 질문 수 (기본 3)")
+    ap.add_argument("--no-judge", action="store_true", help="F-09 를 부르지 않는다")
+    ap.add_argument("--no-coach", action="store_true", help="「모르겠어요」 코칭을 건너뛴다")
+    ap.add_argument("--rubric", action="store_true", help="rubric 7항목을 LLM 심사관이 채점한다 (번들당 호출 +1)")
+    ap.add_argument("--fresh-triage", action="store_true", help="저장된 심사 대신 F-08 1차를 다시 돌린다")
+    ap.add_argument("--dump", type=Path, default=None, help="프롬프트·응답 원문을 이 파일에 남긴다")
+    args = ap.parse_args()
+
+    if args.bundle_dir:
+        bundles = sorted(args.bundle_dir.glob("*.json"))
+        if not bundles:
+            raise SystemExit(f"번들이 없어요: {args.bundle_dir} — 먼저 python examples/build_eval_bundle.py")
+        summaries = []
+        for i, b in enumerate(bundles, 1):
+            print(f"\n### [{i}/{len(bundles)}] {b.stem}")
+            summaries.append(run_bundle(b, args))
+        print_corpus(summaries)
+        out = write_corpus(summaries, bundles, args.tag)
+        print(f"\n코퍼스 요약 저장: {out.relative_to(ROOT)}  ← 비교는 이 파일로")
+        return 0
+    run_bundle(args.bundle, args)
     return 0
 
 

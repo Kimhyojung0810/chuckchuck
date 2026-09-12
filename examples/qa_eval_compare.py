@@ -49,6 +49,15 @@ PRIMARY: tuple[tuple[str, str, float], ...] = (
     ("coach.step1_quote_in_deck", "up", 0),
     ("coach.explain_cites_slide", "up", 0),
     ("coach.honorifics", "down", 0),
+    # rubric (1~5, LLM 심사관). 0.3 은 같은 프롬프트를 두 번 채점했을 때의 흔들림을 넉넉히 덮는 값 — 표본이 늘면 다시 잰다.
+    ("rubric.overall_mean", "up", 0.3),
+    ("rubric.groundedness_mean", "up", 0.3),
+    ("rubric.relevance_mean", "up", 0.3),
+    ("rubric.coverage_mean", "up", 0.3),
+    ("rubric.depth_mean", "up", 0.3),
+    ("rubric.answerability_mean", "up", 0.3),
+    ("rubric.non_duplication_mean", "up", 0.3),
+    ("rubric.hallucination", "down", 0),
 )
 
 #: 참고 지표 — 판정에는 안 들어가고 표에만 찍는다 (지연·프롬프트 크기).
@@ -167,7 +176,8 @@ def append_ledger(result: dict, before_name: str, after_name: str, note: str, no
 
 
 def latest_for_tag(tag: str) -> Path:
-    hits = sorted(OUT_DIR.glob(f"*_{tag}.json"))
+    """번들 폴더로 돌린 코퍼스 요약(.corpus.json)이 있으면 그것을, 없으면 단일 결과의 최신을."""
+    hits = sorted(OUT_DIR.glob(f"*_{tag}.corpus.json")) or sorted(OUT_DIR.glob(f"*_{tag}.json"))
     if not hits:
         sys.exit(f"tag '{tag}' 결과 파일이 없어요: {OUT_DIR}/*_{tag}.json")
     return hits[-1]
