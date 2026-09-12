@@ -97,3 +97,25 @@ def test_measure_reads_the_real_fixture_without_llm():
     s = ge.measure(art)
     assert s["nodes"] > 0 and 0 <= s["slide_coverage"] <= 1
     assert "align" in s and s["align"]["items"] > 0
+
+
+def test_stage_graph_drops_stale_alignment(monkeypatch):
+    """--stage graph 면 저장된 정합(옛 node_id)을 버린다 — 새 그래프와 맞춰 재면 거짓 숫자다."""
+    art = ge.load_artifacts(ROOT / "fixtures" / "live_qa_run.json")
+    fake_graph = ConceptGraph.from_dict(art["concept_graph"])
+    import chuckchuck
+    monkeypatch.setattr(chuckchuck, "extract_concepts", lambda *a, **k: "concept_doc")
+    monkeypatch.setattr(chuckchuck, "build_graph", lambda *a, **k: fake_graph)
+    monkeypatch.setattr(chuckchuck, "align_speech", lambda *a, **k: (_ for _ in ()).throw(AssertionError("align 은 안 불러야 한다")))
+    import chuckchuck.providers.llm_impl as impl
+    class _Stub:
+        name = "stub"
+        def complete(self, **k): return "{}"
+    monkeypatch.setattr(impl, "get_llm", lambda *a, **k: _Stub())
+    class _CD:  # concept_doc 흉내 — to_dict 만 있으면 된다
+        def to_dict(self): return {}
+    monkeypatch.setattr(chuckchuck, "extract_concepts", lambda *a, **k: _CD())
+    out, calls = ge.rebuild(art, None, stage="graph")
+    assert "alignment_doc" not in out and "concept_graph" in out
+    s = ge.measure(out)
+    assert "align" not in s

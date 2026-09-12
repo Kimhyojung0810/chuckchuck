@@ -237,6 +237,9 @@ def rebuild(art: dict, llm_name: str | None, stage: str = "all") -> tuple[dict, 
         graph = build_graph(concept_doc, ctx, slide_doc=slidedoc, llm=llm)
         print(f"F-06→F-07 다시 만듦: 노드 {len(graph.nodes)} · 간선 {len(graph.edges)} ({time.time() - t0:.0f}s, {llm.name})")
         out["concept_doc"], out["concept_graph"] = concept_doc.to_dict(), graph.to_dict()
+        if stage == "graph":
+            # 저장된 정합은 옛 그래프의 node_id 를 가리킨다 — 새 그래프와 맞춰 재면 엉뚱한 숫자가 된다 (09-12 G5 실측: 7노드에 정합 13항목).
+            out.pop("alignment_doc", None)
     else:
         graph = ConceptGraph.from_dict(art["concept_graph"])
         print(f"저장 그래프 고정: 노드 {len(graph.nodes)} · 간선 {len(graph.edges)}")
