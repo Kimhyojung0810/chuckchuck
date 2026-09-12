@@ -62,13 +62,15 @@ DUP_CONTAINMENT = 0.8
 EVIDENCE_FOUND_MIN = 0.8
 
 #: (summary 경로, 방향, 잡음 폭) — qa_eval_compare.PRIMARY 와 같은 규약.
+#: 폭은 2026-09-12 같은 코드로 3회 재생성한 실측에서 — 노드 7/9/11 · 요약 근거 0.30/0.43/0.55(sd 0.11) · 고립 0/0/0.18 ·
+#: 커버리지 0.92~1.0. 한 번 재면 이 안에서 널뛴다. 그래서 --runs 3 평균이 기본이고, 폭은 3회 평균의 흔들림(≈ sd/√3) 기준이다.
 PRIMARY: tuple[tuple[str, str, float], ...] = (
-    ("slide_coverage", "up", 0.05),
+    ("slide_coverage", "up", 0.06),
     ("anchored_ratio", "up", 0.05),
-    ("label_grounded", "up", 0.05),
-    ("summary_grounding", "up", 0.05),
-    ("nodes_per_slide", "up", 0.3),
-    ("orphan_ratio", "down", 0.02),
+    ("label_grounded", "up", 0.08),
+    ("summary_grounding", "up", 0.12),
+    ("nodes_per_slide", "up", 0.25),
+    ("orphan_ratio", "down", 0.1),
     ("dangling_edges", "down", 0),
     ("dup_label_pairs", "down", 0),
     ("align.evidence_found", "up", 0.05),
@@ -275,20 +277,38 @@ def print_summary(s: dict) -> None:
 def run_one(bundle: Path, args) -> dict:
     art = load_artifacts(bundle)
     calls: list[dict] = []
+    per_run: list[dict] = []
     if args.rebuild:
-        art, calls = rebuild(art, args.llm, args.stage)
-    summary = measure(art)
+        # 같은 코드로 N번 만들어 평균 — 한 번은 잡음이다 (머리 주석의 실측). 결과 파일에는 회차별 요약도 남긴다.
+        for i in range(max(1, args.runs)):
+            if args.runs > 1:
+                print(f"\n--- 재생성 {i + 1}/{args.runs}")
+            art_i, calls_i = rebuild(load_artifacts(bundle), args.llm, args.stage)
+            per_run.append(measure(art_i))
+            calls += calls_i
+            art = art_i
+        summary = per_run[0] if len(per_run) == 1 else _mean_summary(per_run)
+    else:
+        summary = measure(art)
     print(f"\n자료: {art['concept_graph'].get('file_name', bundle.stem)}")
     print_summary(summary)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = OUT_DIR / f"{stamp}{'_' + args.tag if args.tag else ''}.json"
-    payload = {"bundle": str(bundle), "rebuilt": bool(args.rebuild), "summary": summary, "calls": calls}
+    payload = {"bundle": str(bundle), "rebuilt": bool(args.rebuild), "runs": len(per_run) or 1,
+               "summary": summary, "per_run": per_run, "calls": calls}
     if args.rebuild:
         payload["artifacts"] = {k: art[k] for k in ("concept_graph", "alignment_doc") if k in art}
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"요약 저장: {out.relative_to(ROOT)}")
     return summary
+
+
+def _mean_summary(runs: list[dict]) -> dict:
+    qa_spec = importlib.util.spec_from_file_location("qa_eval", ROOT / "examples" / "qa_eval.py")
+    qa_eval = importlib.util.module_from_spec(qa_spec)
+    qa_spec.loader.exec_module(qa_eval)
+    return qa_eval.aggregate_summaries(runs)
 
 
 def latest_for_tag(tag: str) -> Path:
@@ -303,6 +323,7 @@ def main() -> int:
     ap.add_argument("--bundle", type=Path, default=RUN_FIXTURE)
     ap.add_argument("--bundle-dir", type=Path, default=None)
     ap.add_argument("--rebuild", action="store_true", help="실 LLM 으로 다시 돌린다 (--stage 로 범위)")
+    ap.add_argument("--runs", type=int, default=3, help="--rebuild 를 몇 번 반복해 평균낼지 (기본 3 — 한 번은 잡음)")
     ap.add_argument("--stage", choices=("all", "graph", "align"), default="all",
                     help="all: F-06→07→11 · graph: F-06→07 만 · align: 저장 그래프 위에 F-11 만 (F-11 가설용)")
     ap.add_argument("--llm", default=None, help="REASONING_BACKEND 대신 쓸 백엔드")
