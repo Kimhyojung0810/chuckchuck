@@ -172,4 +172,5 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 | [`demo/YEHS_demo/MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) | 화면 스펙·정보 구조·디자인 토큰 |
 | [`docs/UI_REDESIGN.md`](docs/UI_REDESIGN.md) | 척척극장 연출 규율 |
 | [`docs/ANALYSIS_WAIT_REDESIGN.md`](docs/ANALYSIS_WAIT_REDESIGN.md) | 발표 종료 → 질문 코칭 대기 구간 재설계 (선분석·진행률·리빌) |
+| [`docs/AUTONOMOUS_LOOP.md`](docs/AUTONOMOUS_LOOP.md) | Q&A 프롬프트 자율 개선 루프 (`/improve-qa`) — 벤치마크가 채택을 정한다. 실 LLM 과금 |
 | [`docs/회의록/`](docs/회의록/README.md) | 팀 회의록 · 살아 있는 할 일 목록 · 마일스톤 달력 (Festa 10/6~8 · 결선 11/18) |
