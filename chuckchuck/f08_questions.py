@@ -1243,6 +1243,31 @@ def _split_gist_parts(gist: str) -> list[str]:
     return parts if len(parts) >= 2 else []
 
 
+#: 이미 해요체·경어로 끝나는 문장. 이건 건드리지 않는다.
+_POLITE_END_RE = re.compile(r"(요|죠|세요|나요|가요|래요|습니까)\s*[?.!]?\s*$")
+#: LLM 이 자주 내는 반말 의문 어미 → 해요체. 순서대로 첫 매치만 적용한다.
+#: 규칙 5(해요체)를 프롬프트로 부탁만 해서는 안 지켜진다 — 2026-09-12 실측에서 두 변형 모두 3/3 반말.
+_IMPOLITE_END_RULES: tuple[tuple[re.Pattern, str], ...] = (
+    (re.compile(r"는가(\s*[?.!]?)\s*$"), r"나요\1"),            # 되는가 → 되나요
+    (re.compile(r"([인한던은])가(\s*[?.!]?)\s*$"), r"\1가요\2"),  # 무엇인가 → 무엇인가요 · 타당한가 → 타당한가요
+    (re.compile(r"(?<!니)까(\s*[?.!]?)\s*$"), r"까요\1"),        # 일까 → 일까요 (습니까는 그대로)
+    (re.compile(r"(?:느)?냐(\s*[?.!]?)\s*$"), r"나요\1"),          # 있느냐 → 있나요
+    (re.compile(r"(설명|서술|말|답)하라\s*[?.!]?\s*$"), r"\1해 주세요."),
+)
+
+
+def _polite_question(text: str) -> str:
+    """반말 의문 어미를 해요체로 바꾼다. 문장 끝만 본다 — 본문의 낱말은 건드리지 않는다.
+    문장부호는 있는 그대로 둔다 (LLM 이 쓴 문장을 어미 말고는 바꾸지 않는다). 이미 해요체면 그대로."""
+    t = text or ""
+    if not t.strip() or _POLITE_END_RE.search(t):
+        return t
+    for pat, rep in _IMPOLITE_END_RULES:
+        if pat.search(t):
+            return pat.sub(rep, t)
+    return t
+
+
 def _normalize_questions(
     raw_questions: list[dict],
     marks: list[TriageMark],
@@ -1282,7 +1307,7 @@ def _normalize_questions(
 
         # 발판을 근거로 인용한 문장은 없는 것으로 친다 — 아래 `or` 가 결정적
         # 템플릿으로 떨어뜨린다. 자료로 만든 문장이 발판 인용보다 언제나 낫다.
-        written_q = _clip(str(raw.get("question", "") or ""))
+        written_q = _polite_question(_clip(str(raw.get("question", "") or "")))
         written_gist = _clip(str(raw.get("answer_gist", "") or ""))
         if _cites_scaffold(written_q):
             written_q = ""

@@ -49,14 +49,15 @@ PRIMARY: tuple[tuple[str, str, float], ...] = (
     ("coach.step1_quote_in_deck", "up", 0),
     ("coach.explain_cites_slide", "up", 0),
     ("coach.honorifics", "down", 0),
-    # rubric (1~5, LLM 심사관). 0.3 은 같은 프롬프트를 두 번 채점했을 때의 흔들림을 넉넉히 덮는 값 — 표본이 늘면 다시 잰다.
-    ("rubric.overall_mean", "up", 0.3),
-    ("rubric.groundedness_mean", "up", 0.3),
-    ("rubric.relevance_mean", "up", 0.3),
-    ("rubric.coverage_mean", "up", 0.3),
-    ("rubric.depth_mean", "up", 0.3),
-    ("rubric.answerability_mean", "up", 0.3),
-    ("rubric.non_duplication_mean", "up", 0.3),
+    # rubric (1~5, LLM 심사관). 질문 3개면 한 질문의 1점 차가 평균 0.33 이다 — 그건 잡음이다. 0.5 는 두 질문이
+    # 같은 방향으로 움직여야 신호로 본다는 뜻. 번들이 늘어 질문이 10개를 넘으면 0.3 으로 줄인다.
+    ("rubric.overall_mean", "up", 0.5),
+    ("rubric.groundedness_mean", "up", 0.5),
+    ("rubric.relevance_mean", "up", 0.5),
+    ("rubric.coverage_mean", "up", 0.5),
+    ("rubric.depth_mean", "up", 0.5),
+    ("rubric.answerability_mean", "up", 0.5),
+    ("rubric.non_duplication_mean", "up", 0.5),
     ("rubric.hallucination", "down", 0),
 )
 

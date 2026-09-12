@@ -8,7 +8,9 @@
 #         --limit N (기본 2)
 #         --bundle-dir DIR (동의 세션 묶음) · --track 1|5|10
 #
-# 마지막 줄이 VERDICT: IMPROVED|REGRESSED|NOISE|BASELINE 다. 자동 루프는 이 줄만 읽는다.
+# 마지막 줄이 VERDICT: IMPROVED|REGRESSED|NOISE|BASELINE|INVALID 다. 자동 루프는 이 줄만 읽는다.
+# INVALID = 질문이 전부 코드 조립 폴백 (LLM 이 지시를 못 따랐거나 응답이 잘렸다). 이런 측정은
+# 프롬프트가 아니라 그날의 LLM 을 잰 것이라 비교에 쓰지 않는다 — 2026-09-12 첫 루프에서 실제로 겪었다.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -40,6 +42,24 @@ ARGS=(examples/qa_eval.py --tag "$TAG" --track "$TRACK" --limit "$LIMIT")
 
 echo "▶ $PY ${ARGS[*]}"
 "$PY" "${ARGS[@]}"
+
+# 방금 남은 결과(코퍼스 파일 우선)가 전부 폴백이면 비교하지 않는다.
+if ! "$PY" - "$TAG" <<'PYCHK'
+import json, sys
+from pathlib import Path
+tag = sys.argv[1]
+out = Path("exports/qa_eval")
+hits = sorted(out.glob(f"*_{tag}.corpus.json")) or sorted(out.glob(f"*_{tag}.json"))
+s = json.loads(hits[-1].read_text(encoding="utf-8")).get("summary", {}) if hits else {}
+q, fb = s.get("questions") or 0, s.get("fallback") or 0
+if q and fb >= q:
+    print(f"⚠ 질문 {q}개가 전부 폴백 — LLM 응답 이상. 이 측정은 비교에 쓰지 않아요.")
+    sys.exit(1)
+PYCHK
+then
+  echo "VERDICT: INVALID"
+  exit 0
+fi
 
 if [[ -n $COMPARE ]]; then
   "$PY" examples/qa_eval_compare.py --tag "$COMPARE" --tag "$TAG" --ledger --note "$NOTE"

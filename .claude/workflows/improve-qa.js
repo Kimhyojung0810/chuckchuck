@@ -24,7 +24,7 @@ const EDITABLE_STR = EDITABLE.join(' ')
 const BENCH = {
   type: 'object',
   properties: {
-    verdict: { type: 'string', enum: ['IMPROVED', 'REGRESSED', 'NOISE', 'BASELINE', 'ERROR'] },
+    verdict: { type: 'string', enum: ['IMPROVED', 'REGRESSED', 'NOISE', 'BASELINE', 'INVALID', 'ERROR'] },
     tag: { type: 'string' }, summary: { type: 'string' }, reportPath: { type: 'string' }, detail: { type: 'string' },
   },
   required: ['verdict', 'tag', 'summary'],
@@ -62,16 +62,23 @@ const DONE = { type: 'object', properties: { ok: { type: 'boolean' }, detail: { 
 // ---- 1. 기준선 -----------------------------------------------------------
 phase('Baseline')
 const baseTag = `base-${cfg.stamp}`
-const base = await agent(
+// 전부 폴백(INVALID)이면 한 번 더 잰다 — LLM 응답이 잘린 날의 기준선은 프롬프트를 잰 게 아니다.
+let base = null
+for (let attempt = 1; attempt <= 2; attempt++) {
+  base = await agent(
 `.claude/agents/qa-bench-runner.md 를 먼저 읽고 그대로 따른다.
 
 1. \`git status --short ${EDITABLE_STR}\` 가 비어 있는지 확인한다. 비어 있지 않으면 verdict 'ERROR' 로 돌려주고 멈춘다
    — 손대다 만 프롬프트 위에 기준선을 잡으면 이후 비교가 전부 거짓말이 된다.
-2. \`scripts/qa_bench.sh --tag ${baseTag} ${benchFlags}\` 를 돌린다 (비교 없음). 마지막 줄이 VERDICT: BASELINE 이어야 한다.
-3. verdict 는 'BASELINE', tag 는 '${baseTag}', summary 에 핵심 숫자를 적는다.`,
-  { phase: 'Baseline', label: 'bench:baseline', schema: BENCH, effort: 'low' })
+2. \`scripts/qa_bench.sh --tag ${baseTag} ${benchFlags}\` 를 돌린다 (비교 없음). 마지막 줄이 VERDICT: BASELINE 또는 INVALID 다.
+3. verdict 는 그 줄 그대로('BASELINE' | 'INVALID' | 'ERROR'), tag 는 '${baseTag}', summary 에 핵심 숫자를 적는다.${attempt > 1 ? ' (재측정 — 직전 측정이 전부 폴백이었다)' : ''}`,
+    { phase: 'Baseline', label: attempt > 1 ? 'bench:baseline-retry' : 'bench:baseline', schema: BENCH, effort: 'low' })
+  if (base && base.verdict === 'BASELINE') break
+  if (!base || base.verdict === 'ERROR') return { error: '기준선을 잡지 못했어요', base }
+  log(`기준선 ${attempt}차가 전부 폴백(INVALID) — ${attempt < 2 ? '다시 잰다' : '두 번 다 무효, 멈춘다'}`)
+}
 if (!base || base.verdict !== 'BASELINE') {
-  return { error: '기준선을 잡지 못했어요', base }
+  return { error: '기준선이 두 번 다 전부 폴백이었어요 — LLM 백엔드 상태를 먼저 보세요', base }
 }
 log(`기준선 ${baseTag}: ${base.summary}`)
 
@@ -146,6 +153,7 @@ for (let i = 0; i < hyps.length; i++) {
     { phase: 'Variants', label: `bench:${h.id}`, schema: BENCH, effort: 'low' })
   const verdict = bench ? bench.verdict : 'ERROR'
 
+  if (verdict === 'INVALID') log(`${h.id} 측정이 전부 폴백(INVALID) — 판정 없이 되돌린다`)
   if (verdict === 'IMPROVED') {
     const commit = await agent(
 `저장소 루트에서 ${EDITABLE_STR} 만 스테이징하고 커밋한다. 다른 파일은 절대 넣지 않는다.

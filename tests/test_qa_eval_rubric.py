@@ -157,3 +157,16 @@ def test_latest_for_tag_prefers_corpus_file(compare, tmp_path, monkeypatch):
     (tmp_path / "20260912-090000_v1.corpus.json").write_text("{}")
     assert compare.latest_for_tag("v1").name == "20260912-090000_v1.corpus.json"
     assert compare.latest_for_tag("v9") if False else True
+
+
+def test_parse_rubric_pairs_by_position_when_ids_differ_but_count_matches(qa_eval):
+    raw = json.dumps({"scores": [_score("Q-1"), _score("Q-2", depth=2)]})
+    rows = qa_eval.parse_rubric(raw, [_q("q01"), _q("q02")])
+    assert [r["missing"] for r in rows] == [False, False]
+    assert rows[1]["depth"] == 2
+
+
+def test_parse_rubric_does_not_guess_when_count_differs(qa_eval):
+    raw = json.dumps({"scores": [_score("Q-1")]})
+    rows = qa_eval.parse_rubric(raw, [_q("q01"), _q("q02")])
+    assert [r["missing"] for r in rows] == [True, True]

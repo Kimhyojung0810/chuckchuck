@@ -241,10 +241,13 @@ def parse_rubric(raw: str, questions: list[Question]) -> list[dict]:
     trap 질문의 hallucination=false · groundedness=None 은 코드가 못 박는다 — 2026-09-12 실측에서
     심사관이 함정 질문에 "전제가 자료에 없다" 며 전 항목 1점을 줬다. 함정은 벌할 게 아니라 설계다."""
     data = extract_json_object(raw)
-    by_id = {str(s.get("id")): s for s in data.get("scores", []) if isinstance(s, dict)}
+    scores = [s for s in data.get("scores", []) if isinstance(s, dict)]
+    by_id = {str(s.get("id")): s for s in scores}
+    # 심사관이 id 를 바꿔 쓰는 일이 있다 (2026-09-12: 3개 중 2개 누락). 개수가 같으면 순서로 짝짓는다.
+    by_pos = dict(zip((q.id for q in questions), scores)) if len(scores) == len(questions) else {}
     rows = []
     for q in questions:
-        s = by_id.get(q.id)
+        s = by_id.get(q.id) or by_pos.get(q.id)
         if s is None:
             rows.append({"question_id": q.id, "missing": True})
             continue
