@@ -24,7 +24,7 @@
 | 순서 | 할 일 | 끝난 기준 |
 |---|---|---|
 | A1 | 동의 문구·위치 개선 (Festa 전 허용되는 최소 프론트 수정: 문구·체크박스 설명) — "무엇을·얼마나·어떻게 지우는지" 세 줄 | 부스 관람객이 읽고 켜는 비율을 셀 수 있다 |
-| A2 | 브리지 시작 때 + 하루 한 번 `build_eval_bundle` · `build_peer_norms` 자동 실행 (만료 정리와 같은 자리) | `journalctl` 에 "평가 묶음 N건 · 또래 표 갱신" 이 찍힌다 |
+| ~~A2~~ | **끝 (09-12, `af8e312`)** — 만료 정리 스레드가 동의 세션으로 `var/data/derived/` 에 평가 묶음·또래 표를 다시 만든다. 0건이면 안 쓴다 | `journalctl` 에 "학습 자산: 동의 세션 N건 → …" |
 | A3 | Festa 부스 모드: 발표 끝·QA 끝에 한 화면 설문(회의 §7 항목) — 동의 세션에만, 스킵 가능 | 설문이 세션 manifest 에 붙고 `build_eval_bundle` 이 같이 내보낸다 |
 | A4 | 사람이 고친 판정(👍/👎·이의)이 30세션·200건을 넘으면 `export_lora_corrections` → 저장소 밖 재학습 | 문턱은 DATA_PIPELINE §5 그대로. 넘기 전엔 하지 않는다 |
 
@@ -35,10 +35,16 @@
 | 순서 | 할 일 | 끝난 기준 |
 |---|---|---|
 | B1 | Eval Set 5~10건 — 동의 세션이 없는 동안은 팀 자체 발표(`fixtures/raw` 에서 뺀 것 말고, 팀원이 새로 녹음한 것)로 채운다 | `qa_bench.sh --bundle-dir` 가 N건 평균±편차를 찍고, `qa_eval_compare` 가 그 평균을 비교한다 |
-| B2 | rubric 7항목(Groundedness…Hallucination)을 `qa_eval.py` 의 LLM-judge 로 수치화 → `PRIMARY` 표에 추가 | 장부에 rubric 점수 열이 생긴다. 사람 채점 20건과 일치율을 먼저 잰다 |
+| B2 | ~~rubric 7항목 수치화~~ **절반 끝 (09-12, `8b237cb`)** — `qa_eval.py --rubric`, PRIMARY 에 8종. 남은 것: 사람 채점 20건과 일치율 | 일치율을 재기 전까지 rubric 은 "참고" |
 | B3 | 청중 페르소나 질문 생성 — 심사위원·투자자·동료·교수 각각이 물을 법한 것 (F-08 컨텍스트 조립, 계약 변경 없음) | 페르소나별 질문이 rubric Relevance·Depth 에서 기준선을 이긴다 |
 | B4 | `/improve-qa` 를 매 세션 1회 기본 실행 — 장부가 결선 그래프가 된다 | 장부에 Baseline → Prompt → Context 단계가 IMPROVED 줄로 이어진다 |
 | B5 | 답변 판정(F-09)의 「모르겠어요」 사다리와 후속 질문을 같은 루프에 넣는다 (`--coach`) | 코칭 5지표가 PRIMARY 에서 판정된다 |
+
+### B'. 그래프·정합 — 질문의 앞단 (09-12 추가)
+
+`examples/graph_eval.py`(지표 12개) · `scripts/graph_bench.sh` · `/improve-graph`(워크플로 파일 `.claude/workflows/improve-graph.js`) 이 있다.
+09-12 첫 루프: G2(F-07 요약을 개념 목록 설명에서 그대로) 채택 `4e48ece`. F-11 인용은 코드 백스톱(`_verbatim_evidence`).
+남은 것: F-11 가설은 `--stage align` 으로 그래프 고정 후 재측정 · A.X 의 노드 7~8/12장(Solar 13) 을 F-06 배치·F-07 합병 규칙으로 올리기.
 
 ### C. UI — "내 발표가 어떤 뉘앙스였나" (Festa 뒤)
 
