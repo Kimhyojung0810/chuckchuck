@@ -16,6 +16,8 @@ from chuckchuck.f08_questions import _polite_question
     ("복귀 시간이 더 길어질까?", "복귀 시간이 더 길어질까요?"),
     ("근거가 있느냐?", "근거가 있나요?"),
     ("그 차이를 설명하라.", "그 차이를 설명해 주세요."),
+    ("실제 인지 비용은 어떻게 다른가", "실제 인지 비용은 어떻게 다른가요"),   # 루프 3 에서 놓친 어미 (ㄴ받침 + 가)
+    ("두 방식 중 어느 쪽이 더 큰가?", "두 방식 중 어느 쪽이 더 큰가요?"),
 ])
 def test_impolite_endings_become_haeyo(raw, expected):
     assert _polite_question(raw) == expected
@@ -29,6 +31,7 @@ def test_impolite_endings_become_haeyo(raw, expected):
     "근거는 무엇입니까?",
     "",
     "진짜 질문",          # 반말 어미가 아니면 손대지 않는다 — 문장부호도 안 붙인다
+    "이 항목의 평가?",     # 명사 '평가' 로 끝나는 건 의문 어미가 아니다
 ])
 def test_polite_text_is_untouched(already):
     assert _polite_question(already) == already

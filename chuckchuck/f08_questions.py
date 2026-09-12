@@ -1274,7 +1274,7 @@ _POLITE_END_RE = re.compile(r"(요|죠|세요|나요|가요|래요|습니까)\s*
 #: 규칙 5(해요체)를 프롬프트로 부탁만 해서는 안 지켜진다 — 2026-09-12 실측에서 두 변형 모두 3/3 반말.
 _IMPOLITE_END_RULES: tuple[tuple[re.Pattern, str], ...] = (
     (re.compile(r"는가(\s*[?.!]?)\s*$"), r"나요\1"),            # 되는가 → 되나요
-    (re.compile(r"([인한던은])가(\s*[?.!]?)\s*$"), r"\1가요\2"),  # 무엇인가 → 무엇인가요 · 타당한가 → 타당한가요
+    (re.compile(r"([가-힣])가(\s*[?.!]?)\s*$"), r"\1가요\2"),     # 무엇인가·타당한가·어떻게 다른가 → …가요 (ㄴ받침 검사는 아래)
     (re.compile(r"(?<!니)까(\s*[?.!]?)\s*$"), r"까요\1"),        # 일까 → 일까요 (습니까는 그대로)
     (re.compile(r"(?:느)?냐(\s*[?.!]?)\s*$"), r"나요\1"),          # 있느냐 → 있나요
     (re.compile(r"(설명|서술|말|답)하라\s*[?.!]?\s*$"), r"\1해 주세요."),
@@ -1288,8 +1288,13 @@ def _polite_question(text: str) -> str:
     if not t.strip() or _POLITE_END_RE.search(t):
         return t
     for pat, rep in _IMPOLITE_END_RULES:
-        if pat.search(t):
-            return pat.sub(rep, t)
+        m = pat.search(t)
+        if not m:
+            continue
+        # "X가" 규칙은 X 가 ㄴ받침 음절(인·한·던·은·른·큰…)일 때만 의문 어미다. "평가?" 같은 명사 끝은 건드리지 않는다.
+        if rep.startswith("\\1가요") and (ord(m.group(1)) - 0xAC00) % 28 != 4:
+            continue
+        return pat.sub(rep, t)
     return t
 
 
