@@ -22,7 +22,7 @@
 
 | # | 상태 | 할 일 | 담당 | 마감 | 근거 회의 |
 |---|---|---|---|---|---|
-| 1 | ⬜ | AI Festa 부스 소개자료 내용·레이아웃 확정 → `.ai` 제출 (1,500×2,250mm · 이미지 Embed · 텍스트 Outline · ai.rookie.info@gmail.com) | **담당 미정** | **2026-09-16 (수) 18:00** | [09-12](2026-09-12_AI_Festa_준비.md#1-1-부스-프로젝트-소개자료가-최우선) |
+| 1 | 🟡 | AI Festa 부스 소개자료 — **내용·레이아웃 초안 있음** [FESTA_PANEL_DRAFT.md](../FESTA_PANEL_DRAFT.md). 남은 것: 디자인 담당 확정 → `.ai` 제작 → 제출 (1,500×2,250mm · 이미지 Embed · 텍스트 Outline · ai.rookie.info@gmail.com) | **담당 미정** | **2026-09-16 (수) 18:00** | [09-12](2026-09-12_AI_Festa_준비.md#1-1-부스-프로젝트-소개자료가-최우선) |
 | 2 | ⬜ | Q&A Benchmark / Eval Set 설계 초안 (고정 발표·발화 세트 + 채점 rubric). Holdout 은 `fixtures/holdout/` 에 넣는다 | 선호·종원 | 2026-09-19 (금) 초안 | [09-12 §4](2026-09-12_AI_Festa_준비.md#4-qa-개발-방식-자체를-바꿀-필요) |
 | 3 | 🟡 | Q&A 자동 평가 + regression report — 2026-09-12: `qa_eval_compare.py`(판정) · `qa_bench.sh` · `/improve-qa` 루프 · rubric 7항목 LLM 심사 · 번들 N개 평균 비교 · 그래프/정합 하네스(`graph_eval.py` · `improve-graph`) 까지 됨 ([AUTONOMOUS_LOOP.md](../AUTONOMOUS_LOOP.md) · [WORKLOG 09-12](../WORKLOG.md)). 남은 것: rubric 심사 vs 사람 채점 일치율, Eval Set 5~10건(#2) | 효정·현석 | Festa 전까지 계속 사용 | [09-12 §4](2026-09-12_AI_Festa_준비.md#4-qa-개발-방식-자체를-바꿀-필요) |
 | 4 | ⬜ | Fine-tuning 용 공개 데이터셋 후보 탐색·비교표 (규모·언어·라벨 구조·라이선스) | 종원·선호 | 2026-09-15 주부터 우선 | [09-12 §6](2026-09-12_AI_Festa_준비.md#6-데이터셋-기반-fine-tuning) |
