@@ -179,3 +179,24 @@ def test_with_context_overrides_only_what_is_given(qa_eval):
     assert art["context"]["situation"] == "school_project"          # 원본은 그대로
     assert qa_eval.with_context(art, None, None) is art               # 아무것도 안 주면 사본도 안 만든다
     assert qa_eval.with_context({"slide_doc": {}}, None, "투자자")["context"] == {"audience": "투자자"}
+
+
+def test_merge_rubric_runs_takes_medians_and_majority_hallucination(qa_eval):
+    runs = [
+        qa_eval.parse_rubric(json.dumps({"scores": [_score("q01", coverage=2, depth=2, hallucination=True)]}), [_q("q01")]),
+        qa_eval.parse_rubric(json.dumps({"scores": [_score("q01", coverage=3, depth=4)]}), [_q("q01")]),
+        qa_eval.parse_rubric(json.dumps({"scores": [_score("q01", coverage=4, depth=4)]}), [_q("q01")]),
+    ]
+    m = qa_eval.merge_rubric_runs(runs)
+    assert m[0]["coverage"] == 3 and m[0]["depth"] == 4 and m[0]["runs"] == 3
+    assert m[0]["hallucination"] is False                       # 3번 중 1번은 과반이 아니다
+
+
+def test_merge_rubric_runs_keeps_missing_only_if_every_run_missed(qa_eval):
+    runs = [
+        qa_eval.parse_rubric(json.dumps({"scores": []}), [_q("q01")]),
+        qa_eval.parse_rubric(json.dumps({"scores": [_score("q01", depth=1)]}), [_q("q01")]),
+    ]
+    m = qa_eval.merge_rubric_runs(runs)
+    assert m[0]["missing"] is False and m[0]["depth"] == 1 and m[0]["runs"] == 1
+    assert qa_eval.merge_rubric_runs([runs[0], runs[0]])[0]["missing"] is True

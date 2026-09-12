@@ -277,9 +277,42 @@ def parse_rubric(raw: str, questions: list[Question]) -> list[dict]:
     return rows
 
 
-def run_rubric(questions: list[Question], corpus: Corpus, llm: LLMProvider) -> list[dict]:
+def _median(xs: list[int]) -> int | None:
+    xs = sorted(x for x in xs if x is not None)
+    return xs[len(xs) // 2] if xs else None
+
+
+def merge_rubric_runs(runs: list[list[dict]]) -> list[dict]:
+    """같은 질문을 N번 채점한 행들을 질문별 **중앙값**으로 합친다. 환각은 과반이 true 일 때만 true.
+
+    2026-09-12 실측: 글자까지 같은 질문 3개를 심사관이 종합 3.96 과 4.69 로 매겼다 (coverage 2 vs 3, depth 2 vs 4).
+    한 번 채점한 점수는 잡음이다. 3번 재서 중앙값을 쓰면 한 번의 널뛰기가 판정을 뒤집지 못한다."""
+    if len(runs) == 1:
+        return runs[0]
+    by_q: dict[str, list[dict]] = {}
+    for rows in runs:
+        for r in rows:
+            by_q.setdefault(r["question_id"], []).append(r)
+    merged = []
+    for qid, rows in by_q.items():
+        scored = [r for r in rows if not r.get("missing")]
+        if not scored:
+            merged.append({"question_id": qid, "missing": True})
+            continue
+        row = {"question_id": qid, "missing": False, "runs": len(scored),
+               "hallucination": sum(1 for r in scored if r.get("hallucination")) * 2 > len(scored),
+               "reason": scored[0].get("reason", "")}
+        for k in RUBRIC_ITEMS:
+            row[k] = _median([r.get(k) for r in scored])
+        merged.append(row)
+    return merged
+
+
+def run_rubric(questions: list[Question], corpus: Corpus, llm: LLMProvider, runs: int = 1) -> list[dict]:
     if not questions:
         return []
+    if runs > 1:
+        return merge_rubric_runs([run_rubric(questions, corpus, llm) for _ in range(runs)])
     try:
         raw = llm.complete(system=RUBRIC_SYSTEM, user=rubric_user_prompt(questions, corpus),
                            temperature=0.0, max_tokens=2048, json_mode=True)
@@ -519,7 +552,7 @@ def run_bundle(bundle: Path, args) -> dict:
     rrows = []
     if args.rubric:
         print("\nrubric 심사 (7항목)")
-        rrows = run_rubric(doc.questions, corpus, llm)
+        rrows = run_rubric(doc.questions, corpus, llm, runs=args.rubric_runs)
 
     summary = summarize(qrows, jrows, llm.calls, crows, rrows)
     print_summary(summary, llm.name)
@@ -641,6 +674,8 @@ def main() -> int:
     ap.add_argument("--no-judge", action="store_true", help="F-09 를 부르지 않는다")
     ap.add_argument("--no-coach", action="store_true", help="「모르겠어요」 코칭을 건너뛴다")
     ap.add_argument("--rubric", action="store_true", help="rubric 7항목을 LLM 심사관이 채점한다 (번들당 호출 +1)")
+    ap.add_argument("--rubric-runs", type=int, default=3,
+                    help="rubric 채점 횟수, 항목별 중앙값 (기본 3 — 한 번은 잡음이다. 호출 수는 그만큼 는다)")
     ap.add_argument("--fresh-triage", action="store_true", help="저장된 심사 대신 F-08 1차를 다시 돌린다")
     ap.add_argument("--dump", type=Path, default=None, help="프롬프트·응답 원문을 이 파일에 남긴다")
     args = ap.parse_args()
