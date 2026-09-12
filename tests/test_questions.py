@@ -1576,3 +1576,25 @@ def test_a_bare_comma_still_does_not_split_a_single_element_gist():
     from chuckchuck.f08_questions import _split_gist_parts
 
     assert _split_gist_parts("신체가 회복되고, 초반에 몰려 있는 깊은 수면") == []
+
+
+# ---------------------------------------------------------------------------
+# 대상 id 가 하나도 안 돌아온 응답 — 2026-09-12 A.X 실측 (0.9초 응답, 전부 폴백)
+# ---------------------------------------------------------------------------
+
+def test_build_questions_retries_once_when_no_target_ids_come_back():
+    graph = make_graph()
+    good = questions_payload({"node_id": "c1", "question": "개념1 은 왜 중요한가요?",
+                              "why": "핵심", "hint": "1장", "answer_gist": "개념1 한 줄"})
+    llm = SequenceLLM(json.dumps({"questions": []}), good)
+    doc = build_questions(graph, make_triage(graph), track="10", llm=llm)
+    assert llm.calls == 2
+    assert any(q.question == "개념1 은 왜 중요한가요?" for q in doc.questions)
+
+
+def test_build_questions_falls_back_to_templates_when_retry_is_empty_or_broken():
+    graph = make_graph()
+    llm = SequenceLLM(json.dumps({"questions": [{"node_id": "stranger", "question": "?"}]}), "깨짐")
+    doc = build_questions(graph, make_triage(graph), track="10", llm=llm)
+    assert llm.calls == 2
+    assert doc.questions and all(q.question for q in doc.questions)   # 템플릿으로 메웠다, 예외 없음

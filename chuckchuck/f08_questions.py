@@ -539,6 +539,31 @@ def _call_with_retry(engine: LLMProvider, system: str, user: str) -> dict:
         return _call(engine, system + JSON_RETRY_NUDGE, user)
 
 
+def _raw_questions(data: dict) -> list[dict]:
+    return [q for q in (data.get("questions") or []) if isinstance(q, dict)]
+
+
+def _covers_any_target(raw_questions: list[dict], marks: list[TriageMark]) -> bool:
+    targets = {m.node_id for m in marks}
+    return any(str(q.get("node_id", "") or "") in targets for q in raw_questions)
+
+
+def _questions_with_retry(engine: LLMProvider, prompt: str, marks: list[TriageMark]) -> list[dict]:
+    """질문 JSON 을 받되, **대상 id 가 하나도 없으면 파싱 실패와 같은 실패로 보고 한 번 더 묻는다.**
+
+    2026-09-12 실측: A.X 가 0.9초 만에 파싱은 되지만 대상 node_id 가 하나도 없는 JSON 을 돌려준 일이
+    측정 5회 중 2회. 그때 `_normalize_questions` 는 조용히 전부 템플릿으로 메웠고 사용자는 "라벨 —
+    설명해 주세요." 만 받았다. 두 번째도 비면 그대로 템플릿으로 간다 — 구멍은 내지 않는다.
+    """
+    raw = _raw_questions(_call_with_retry(engine, QUESTION_SYSTEM_PROMPT, prompt))
+    if marks and not _covers_any_target(raw, marks):
+        try:
+            raw = _raw_questions(_call(engine, QUESTION_SYSTEM_PROMPT + JSON_RETRY_NUDGE, prompt))
+        except QuestionError:
+            raw = []
+    return raw
+
+
 def _node_lines(pairs: list[tuple[ConceptNode, str]]) -> list[str]:
     """'- (id) 이름 [S1,2] w=0.8 · 근거=missing — 요약' 줄. MockLLM 도 이 꼴을 읽는다."""
     lines = []
@@ -1437,14 +1462,11 @@ def build_questions(
     flow_of = _flow_issue_by_node(flow)
 
     by_no = _slides_by_no(slidedoc)
-    data = _call_with_retry(
+    raw_questions = _questions_with_retry(
         engine,
-        QUESTION_SYSTEM_PROMPT,
-        _build_question_prompt(
-            graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no,
-        ),
+        _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no),
+        marks,
     )
-    raw_questions = [q for q in (data.get("questions") or []) if isinstance(q, dict)]
 
     # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의
     # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.

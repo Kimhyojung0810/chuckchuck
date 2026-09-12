@@ -59,6 +59,7 @@ from chuckchuck._match import norm_tokens  # noqa: E402
 from chuckchuck.contracts import (  # noqa: E402
     ConceptGraph,
     Context,
+    JudgeError,
     QaTriage,
     Question,
     QuestionDoc,
@@ -334,8 +335,16 @@ def run_judges(questions: list[Question], art: dict, llm: LLMProvider, limit: in
     rows = []
     for q in questions[:limit]:
         for case, answer, expect in judge_cases(q):
-            v = judge_answer(q, answer, graph=art["concept_graph"], alignment=art.get("alignment_doc"),
-                             transcript=art.get("transcript"), context=art.get("context"), llm=llm)
+            try:
+                v = judge_answer(q, answer, graph=art["concept_graph"], alignment=art.get("alignment_doc"),
+                                 transcript=art.get("transcript"), context=art.get("context"), llm=llm)
+            except (JudgeError, ValueError) as e:
+                # 2026-09-12: A.X 가 판정 JSON 을 두 번 다 못 돌려줘 하네스가 통째로 죽었다. 실패도 데이터다.
+                rows.append({"question_id": q.id, "case": case, "expect": expect, "ok": False,
+                             "verdict": "error", "score": 0, "passed": False, "honorifics": 0,
+                             "react": "", "followup": "", "error": f"{type(e).__name__}: {str(e)[:160]}"})
+                print(f"    ✗ {q.id:<24} {case:<9} → ERROR    {str(e)[:60]}")
+                continue
             ok = v.passed if expect == "passed" else (v.verdict == "wrong")
             rows.append({
                 "question_id": q.id, "case": case, "expect": expect, "ok": ok,
@@ -355,10 +364,17 @@ def run_coaching(questions: list[Question], art: dict, llm: LLMProvider, corpus:
         history: list[dict] = []
         deck = " ".join(corpus.slide_text.values())
         for step in range(1, 4):
-            v = judge_answer(q, "(모르겠어요)", give_up=True, history=history,
-                             graph=art["concept_graph"], alignment=art.get("alignment_doc"),
-                             transcript=art.get("transcript"), slidedoc=art.get("slide_doc"),
-                             context=art.get("context"), llm=llm)
+            try:
+                v = judge_answer(q, "(모르겠어요)", give_up=True, history=history,
+                                 graph=art["concept_graph"], alignment=art.get("alignment_doc"),
+                                 transcript=art.get("transcript"), slidedoc=art.get("slide_doc"),
+                                 context=art.get("context"), llm=llm)
+            except (JudgeError, ValueError) as e:
+                rows.append({"question_id": q.id, "step": step, "stage": "error", "cites_slide": False,
+                             "choice_form": False, "choices": [], "quote_in_deck": None, "honorifics": 0,
+                             "react": "", "followup": "", "explanation": "", "error": f"{type(e).__name__}: {str(e)[:160]}"})
+                print(f"    {q.id:<24} {step}단 ERROR    {str(e)[:60]}")
+                break
             quote = getattr(v, "evidence_quote", "") or ""
             row = {
                 "question_id": q.id, "step": step, "stage": v.coach_stage,
@@ -406,6 +422,7 @@ def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict], crows: li
     return {
         **rubric,
         "questions": len(qrows),
+        "judge_errors": sum(1 for r in jrows if r.get("verdict") == "error") + sum(1 for r in crows if r.get("stage") == "error"),
         "fallback": sum(1 for r in qrows if r["fallback"]),
         "trap": sum(1 for r in qrows if r["trap"]),
         "slide_count_mean": mean([r["slide_count"] for r in qrows]),
@@ -502,10 +519,29 @@ def run_bundle(bundle: Path, args) -> dict:
         "calls": [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in llm.calls],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\n요약 저장: {out.relative_to(ROOT)}")
+    odd = anomalies(summary)
+    if odd:
+        raw = out.with_suffix(".raw.json")
+        raw.write_text(json.dumps({"anomalies": odd, "calls": llm.calls}, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"⚠ 이상 {', '.join(odd)} — 프롬프트·응답 원문을 남겼어요: {raw.relative_to(ROOT)}")
     if args.dump:
         args.dump.write_text(json.dumps(llm.calls, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"원문 덤프: {args.dump}")
     return summary
+
+
+def anomalies(summary: dict) -> list[str]:
+    """이 측정을 믿기 전에 사람이 원문을 봐야 하는 신호. 하나라도 있으면 run_bundle 이 원문 덤프를 남긴다."""
+    odd = []
+    q = summary.get("questions") or 0
+    if q and (summary.get("fallback") or 0) >= q:
+        odd.append("전부 폴백")
+    if summary.get("judge_errors"):
+        odd.append(f"판정 오류 {summary['judge_errors']}")
+    r = summary.get("rubric") or {}
+    if r.get("missing"):
+        odd.append(f"rubric 누락 {r['missing']}")
+    return odd
 
 
 #: 코퍼스 요약에서 평균±편차를 낼 숫자 열.

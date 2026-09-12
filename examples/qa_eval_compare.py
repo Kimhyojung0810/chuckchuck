@@ -40,6 +40,7 @@ PRIMARY: tuple[tuple[str, str, float], ...] = (
     ("honorifics_questions", "down", 0),
     ("honorifics_judge", "down", 0),
     ("impolite_questions", "down", 0),
+    ("judge_errors", "down", 0),
     ("judge.gist_passed", "up", 0),
     ("judge.unrelated_wrong", "up", 0),
     ("judge.trap_agree_wrong", "up", 0),
