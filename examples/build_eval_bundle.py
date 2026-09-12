@@ -13,6 +13,7 @@
   캐시로 남아 있어도 건드리지 않는다.
 - 출력 폴더를 **매번 비우고** 다시 만든다 — 사용자가 지운 세션이 export 에 남으면
   「지웠어요」 가 거짓이 된다.
+- 로직은 `demo/learning_jobs.py` 에 있고 브리지가 하루 한 번 같은 것을 `var/data/derived/` 에 만든다.
 - 판정 이의(`judgement_dispute`)는 `disputes` 로 같이 싣는다. 하네스가 그 (질문, 답) 쌍을
   다시 판정해 "이의 턴 판정 뒤집힘률" 을 볼 수 있다.
 """
@@ -21,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -29,61 +29,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from demo.learning_jobs import OPTIONAL, REQUIRED, bundle_for, build_bundles  # noqa: E402, F401
 from demo.session_archive import SessionArchive  # noqa: E402
 
 DEFAULT_OUT = ROOT / "exports" / "eval_bundles"
-
-#: 번들이 되려면 이 둘은 있어야 한다. 질문 생성이 그래프 위에서 돈다.
-REQUIRED = ("slide_doc", "concept_graph")
-#: 있으면 같이 싣는 것.
-OPTIONAL = ("transcript", "concept_doc", "alignment_doc", "flow_diff", "question_doc",
-            "pace_doc", "habit_doc", "rubric_score", "report_doc")
 
 
 def _since_epoch(text: str | None) -> float:
     if not text:
         return 0.0
     return time.mktime(time.strptime(text, "%Y-%m-%d"))
-
-
-def bundle_for(archive: SessionArchive, rec) -> dict | None:
-    """세션 하나 → 번들 dict. 필수 산출물이 없으면 None."""
-    arts = {k: archive.read_artifact(rec.session_id, k) for k in REQUIRED + OPTIONAL}
-    if any(arts[k] is None for k in REQUIRED):
-        return None
-    disputes = [e for e in archive.read_stream(rec.session_id, "feedback") if e.get("kind") == "judgement_dispute"]
-    return {
-        "session_id": rec.session_id,
-        "consent": True,
-        "code_version": rec.code_version,
-        "session": {
-            "id": rec.session_id,
-            "title": rec.title or rec.file_name,
-            "context": rec.context,
-            "created_at": rec.uploaded_at,
-            "artifacts": {k: v for k, v in arts.items() if v is not None},
-        },
-        "qa_turns": archive.read_stream(rec.session_id, "qa_turns"),
-        "disputes": disputes,
-    }
-
-
-def build_bundles(archive: SessionArchive, out_dir: Path, *, since: float = 0.0) -> list[Path]:
-    """동의 세션 전부를 번들로. 출력 폴더는 비우고 새로 만든다."""
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
-    for rec in archive.iter_consented():
-        if rec.uploaded_at < since:
-            continue
-        bundle = bundle_for(archive, rec)
-        if bundle is None:
-            continue
-        path = out_dir / f"{rec.session_id}.json"
-        path.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
-        written.append(path)
-    return written
 
 
 def main() -> int:

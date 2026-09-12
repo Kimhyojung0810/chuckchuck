@@ -40,6 +40,7 @@ from chuckchuck import (  # noqa: E402
 )
 from chuckchuck.contracts import ConceptDoc, HabitDoc, PaceDoc, SlideDoc, SlideMark  # noqa: E402
 
+from demo.learning_jobs import refresh_learning_assets  # noqa: E402
 from demo.rate_limit import RateLimiter  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
@@ -70,8 +71,10 @@ ARCHIVE = SessionArchive(
 #: 기본은 닫는다 — 열려 있으면 주소를 아는 누구나 남의 발표 기록을 본다.
 DEV_ROUTES = _env_flag("DEMO_DEV_ROUTES")
 
-#: 만료 세션을 훑는 주기. 시작할 때 한 번, 그 뒤 하루에 한 번.
+#: 만료 세션을 훑는 주기. 시작할 때 한 번, 그 뒤 하루에 한 번. 같은 스레드가 학습 자산도 갱신한다.
 PRUNE_INTERVAL_SEC = 24 * 3600
+#: 동의 세션에서 자동으로 만드는 학습 자산. `exports/`(손으로 만든 평가 묶음)와 섞이지 않게 데이터 폴더 아래.
+DERIVED_DIR = DATA_DIR / "derived"
 
 #: 과금 호출(파싱·STT·LLM)이 붙은 엔드포인트의 IP당 분당 상한.
 #: 0 이하면 제한을 끈다 (오프라인 시연·자동화).
@@ -1403,11 +1406,28 @@ def _prune_once() -> None:
     sys.stderr.write(f"[bridge] 만료 세션 정리: {len(gone)}건 지움\n")
 
 
+def _refresh_learning_once() -> None:
+    """동의 세션 → 평가 묶음(var/data/derived/eval_bundles) + 또래 표. 0건이면 아무것도 쓰지 않는다."""
+    try:
+        r = refresh_learning_assets(ARCHIVE, bundles_dir=DERIVED_DIR / "eval_bundles",
+                                    norms_path=DERIVED_DIR / "norms" / "percentile_table.json")
+    except Exception as e:  # noqa: BLE001 — 자산 갱신 실패로 브리지를 죽이지 않는다
+        sys.stderr.write(f"[bridge] 학습 자산 갱신 실패: {e}\n")
+        return
+    if not r["written"]:
+        sys.stderr.write("[bridge] 학습 자산: 동의 세션 0건 — 건너뜀\n")
+        return
+    sys.stderr.write(f"[bridge] 학습 자산: 동의 세션 {r['consented']}건 → 평가 묶음 {r['bundles']}건 · "
+                     f"또래 표 {r['norm_sessions']}건/{r['norm_rows']}줄\n")
+
+
 def _start_prune_loop() -> None:
-    """시작할 때 한 번, 그 뒤 하루에 한 번. About 화면의 「1년 뒤 지워요」를 이 스레드가 지킨다."""
+    """시작할 때 한 번, 그 뒤 하루에 한 번. About 화면의 「1년 뒤 지워요」를 이 스레드가 지키고,
+    지운 뒤의 동의 세션으로 학습 자산을 다시 만든다 (지운 세션이 묶음에 남지 않게 순서가 중요하다)."""
     def loop():
         while True:
             _prune_once()
+            _refresh_learning_once()
             time.sleep(PRUNE_INTERVAL_SEC)
     threading.Thread(target=loop, name="archive-prune", daemon=True).start()
 
