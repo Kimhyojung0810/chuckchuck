@@ -1259,6 +1259,21 @@ id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬,
 
 ---
 
+## 10-C. F-23 상황 추정 — `ContextSuggestion`
+
+자료를 올린 직후, 발화 없이 **자료만 보고** 발표 상황을 제안한다 (`POST /api/v1/suggest-context {slide_doc}`). 결정론 규칙, LLM 호출 0.
+
+```json
+{"situation": "work_report", "audience": "상사", "confidence": 0.86,
+ "why": "1장 '실적' · 2장 '이슈' · 3장 '요청 사항'",
+ "scores": {"school_project": 0, "product_launch": 1, "work_report": 12, "casual_peer": 0}}
+```
+
+- `situation`: `rubric_v3.SITUATIONS` 의 키. **빈 문자열이면 미정** — 화면은 아무것도 채우지 않는다.
+- `confidence`: 1위 상황 점수 / 전체 신호 점수. 1위가 2점 미만이거나 비율 0.4 미만이면 미정.
+- 화면 규칙: `#/new` 폼을 **미리 채우기만** 한다. 사용자가 고른 값이 언제나 이긴다. 자동 확정·바텀시트 없음.
+- 측정: 동의 세션의 manifest context(사용자 최종값) vs 이 추정값의 일치율 (로드맵 A5).
+
 ## 11. 구현 파일
 
 | 파일 | 역할 |

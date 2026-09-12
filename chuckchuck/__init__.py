@@ -72,8 +72,10 @@ from .f14_rubric import from_legacy_score, score_rubric
 from .f17_pace import analyze_pace
 from .f18_habits import extract_habits
 from .f19_report import compose_report
+from .f23_context import suggest_context
 
 __all__ = [
+    "suggest_context",
     "AlignError",
     "AlignmentDoc",
     "AlignmentItem",

@@ -419,6 +419,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_feedback(parsed.path, raw)
             if parsed.path == "/api/v1/parse":
                 return self._handle_parse(raw)
+            if parsed.path == "/api/v1/suggest-context":
+                return self._handle_suggest_context(raw)
             if parsed.path == "/api/v1/concepts":
                 return self._handle_concepts(raw)
             if parsed.path == "/api/v1/transcribe":
@@ -622,6 +624,16 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200, payload)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
+
+    def _handle_suggest_context(self, raw: bytes):
+        """[F-23] 자료만 보고 발표 상황을 추정한다. 결정론·호출 0 — 과금 경로가 아니다.
+        화면은 이 값으로 #/new 폼을 미리 채우기만 하고, 사용자가 고른 값이 이긴다."""
+        from chuckchuck.f23_context import suggest_context
+
+        body = json.loads(raw or b"{}")
+        if not body.get("slide_doc"):
+            return self._json(400, {"error": "slide_doc 이 필요해요"})
+        return self._json(200, suggest_context(body["slide_doc"]).to_dict())
 
     def _handle_concepts(self, raw: bytes):
         from chuckchuck.contracts import Transcript

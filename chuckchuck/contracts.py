@@ -297,6 +297,31 @@ class SlideConcepts:
 
 
 @dataclass
+class ContextSuggestion:
+    """
+    [F-23] 자료만 보고 추정한 발표 상황 — "업무 보고 같아요, 맞나요?" 의 재료.
+
+    화면은 이걸로 `#/new` 폼을 **미리 채우기만** 한다. 사용자가 고른 값이 언제나 이긴다.
+    situation 이 빈 문자열이면 미정 — 아무것도 채우지 않는다. why 는 사람이 읽는 근거
+    ("3장 '분기 실적' · 9장 '요청 사항'"). scores 는 상황별 신호 점수(디버그·측정용).
+    """
+    situation: str = ""                    # rubric_v3.SITUATIONS 의 키 또는 ""
+    audience: str = ""                     # 제안 청중 라벨 ("상사")
+    confidence: float = 0.0                # 0~1. 1위 상황이 전체 신호에서 차지한 비율
+    why: str = ""
+    scores: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {"situation": self.situation, "audience": self.audience, "confidence": self.confidence,
+                "why": self.why, "scores": dict(self.scores)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ContextSuggestion":
+        return cls(situation=str(d.get("situation", "") or ""), audience=str(d.get("audience", "") or ""),
+                   confidence=float(d.get("confidence", 0.0) or 0.0), why=str(d.get("why", "") or ""),
+                   scores={str(k): int(v) for k, v in (d.get("scores") or {}).items()})
+
+@dataclass
 class ConceptDoc:
     """F-06의 산출물. F-07 트리 생성의 입력이 된다."""
     file_name: str
