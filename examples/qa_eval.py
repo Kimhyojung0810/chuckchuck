@@ -206,7 +206,9 @@ RUBRIC_SYSTEM = """당신은 발표 Q&A 품질 심사관이다. 발표자가 실
 - depth: 이유·비교·한계를 묻는다(5) ↔ 단순 사실 확인(1)
 - answerability: 자료·발화로 답할 수 있다(5) ↔ 발표자도 답할 수 없다(1)
 - non_duplication: 다른 질문과 겹치지 않는다(5) ↔ 같은 걸 말만 바꿔 묻는다(1)
-- hallucination: 자료에 없는 내용을 사실처럼 전제하면 true. trap=true 인 질문은 일부러 틀린 전제를 쓰므로 false.
+- hallucination: 자료에 없는 내용을 사실처럼 전제하면 true.
+- trap=true 인 질문은 **일부러** 자료와 어긋난 전제를 써서 발표자가 알아채는지 보는 질문이다. 전제가 틀린 것을 벌하지 않는다:
+  groundedness 는 null, hallucination 은 false 로 두고, 나머지 항목은 "발표자가 이 함정을 알아채고 바로잡을 가치가 있는가" 로 채점한다.
 - reason: 근거 한 문장. 장 번호(S3 처럼)를 댄다.
 
 코드펜스·주석·말머리 없이 JSON 객체 하나만 출력한다:
@@ -236,7 +238,8 @@ def _clamp15(v) -> int | None:
 
 def parse_rubric(raw: str, questions: list[Question]) -> list[dict]:
     """심사관 응답 → 질문별 행. 응답에 없는 질문은 missing 으로 남긴다 (0점으로 치지 않는다).
-    trap 질문의 hallucination 은 코드가 false 로 못 박는다 — 심사관이 헷갈려도 함정을 벌하지 않는다."""
+    trap 질문의 hallucination=false · groundedness=None 은 코드가 못 박는다 — 2026-09-12 실측에서
+    심사관이 함정 질문에 "전제가 자료에 없다" 며 전 항목 1점을 줬다. 함정은 벌할 게 아니라 설계다."""
     data = extract_json_object(raw)
     by_id = {str(s.get("id")): s for s in data.get("scores", []) if isinstance(s, dict)}
     rows = []
@@ -250,6 +253,8 @@ def parse_rubric(raw: str, questions: list[Question]) -> list[dict]:
                "reason": str(s.get("reason") or "")[:200]}
         for k in RUBRIC_ITEMS:
             row[k] = _clamp15(s.get(k))
+        if q.trap:
+            row["groundedness"] = None   # 함정의 전제는 일부러 어긋난다 — 심사관이 뭐라 했든 채점하지 않는다
         rows.append(row)
     return rows
 

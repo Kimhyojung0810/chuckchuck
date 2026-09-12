@@ -78,7 +78,9 @@ def test_trap_question_is_never_hallucination(qa_eval):
     raw = json.dumps({"scores": [_score("q01", hallucination=True), _score("q02", hallucination=True)]})
     rows = qa_eval.parse_rubric(raw, [_q("q01", trap=True), _q("q02")])
     assert rows[0]["hallucination"] is False
-    assert rows[1]["hallucination"] is True
+    assert rows[0]["groundedness"] is None          # 함정의 전제는 채점하지 않는다
+    assert rows[0]["depth"] == 4                     # 나머지 항목은 정상 채점
+    assert rows[1]["hallucination"] is True and rows[1]["groundedness"] == 4
 
 
 def test_rubric_summary_zeroes_hallucinated_question_in_overall(qa_eval):
