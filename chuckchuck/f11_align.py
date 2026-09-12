@@ -239,10 +239,49 @@ def _fallback_verdict(basis: SpeechBasis) -> str:
     return "aligned" if basis.mention_count >= MENTION_MIN else "missing"
 
 
+#: 인용이 발화에 "있다" 로 보는 낱말 포함 비율. 이 아래면 발화 원문 창으로 바꾼다.
+_EVIDENCE_VERBATIM_MIN = 0.8
+#: 원문 창 크기(낱말 수)와, 창을 인용으로 채택하는 최소 겹침. 겹침이 이보다 작으면 LLM 문장을 그대로 둔다
+#: (지어낸 인용은 못 고친다 — 그건 graph_eval 의 evidence_found 가 잡아 사람에게 보인다).
+_EVIDENCE_WINDOW_WORDS = 24
+_EVIDENCE_WINDOW_MIN = 0.35
+
+
+def _evidence_tokens(text: str) -> set[str]:
+    return {t for t in norm_tokens(text or "") if len(t) >= 2}
+
+
+def _verbatim_evidence(evidence: str, node: ConceptNode, transcript: Transcript) -> str:
+    """LLM 이 낸 '인용' 이 발화 원문이 아니면(요약·의역) 그 개념의 근거 장 발화에서 가장 겹치는 원문 창으로 바꾼다.
+
+    2026-09-12 실측(A.X): 정합 인용 6개 중 5개가 "~하는 과정"·"~하는 상태" 같은 요약문이었다. 화면은 이걸
+    「발표에서 이렇게 말했어요」 로 보여 주므로 발표자가 안 한 말이 인용부호 안에 들어간다. 프롬프트(규칙 2)로
+    부탁만 해서는 안 지켜지니 코드가 받는다. 짧은 인용(낱말 3개 미만)은 판단할 근거가 없어 그대로 둔다.
+    """
+    ev = _evidence_tokens(evidence)
+    if len(ev) < 3:
+        return evidence
+    texts = [transcript.text_for_slide(no) for no in node.slide_nos] or []
+    speech = " ".join(t for t in texts if t.strip()) or transcript.full_text
+    if not speech.strip():
+        return evidence
+    if len(ev & _evidence_tokens(speech)) / len(ev) >= _EVIDENCE_VERBATIM_MIN and evidence.strip() in speech:
+        return evidence
+    words = speech.split()
+    best, best_score = "", 0.0
+    for i in range(0, max(1, len(words) - _EVIDENCE_WINDOW_WORDS + 1)):
+        window = " ".join(words[i:i + _EVIDENCE_WINDOW_WORDS])
+        score = len(ev & _evidence_tokens(window)) / len(ev)
+        if score > best_score:
+            best, best_score = window, score
+    return best if best_score >= _EVIDENCE_WINDOW_MIN else evidence
+
+
 def _normalize_items(
     raw_items: list[dict],
     graph: ConceptGraph,
     bases: dict[str, SpeechBasis],
+    transcript: Transcript | None = None,
 ) -> list[AlignmentItem]:
     """
     raw 판정을 그래프의 모든 노드에 정확히 1개씩으로 정리한다.
@@ -272,6 +311,8 @@ def _normalize_items(
         basis = bases[node.id]
         raw = judged.get(node.id)
         evidence = str((raw or {}).get("evidence", "") or "").strip()
+        if evidence and transcript is not None:
+            evidence = _verbatim_evidence(evidence, node, transcript)
         note = str((raw or {}).get("note", "") or "").strip()
 
         verdict = str((raw or {}).get("verdict", "") or "")
@@ -526,7 +567,7 @@ def align_speech(
             pass
 
     bases = _speech_bases(graph, transcript)
-    items = _normalize_items(raw_items, graph, bases)
+    items = _normalize_items(raw_items, graph, bases, transcript)
     _apply_speech_weights(items, graph)
     speech_edges = _normalize_speech_edges(
         [e for e in (data.get("speech_edges") or []) if isinstance(e, dict)], graph

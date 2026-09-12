@@ -541,6 +541,10 @@ def anomalies(summary: dict) -> list[str]:
     r = summary.get("rubric") or {}
     if r.get("missing"):
         odd.append(f"rubric 누락 {r['missing']}")
+    # 재시도가 붙었다는 건 첫 응답이 못 쓸 것이었다는 뜻 — 결과는 멀쩡해도 원문을 남겨야 원인을 본다 (2026-09-12).
+    q = (summary.get("prompts") or {}).get("qa-questions") or {}
+    if (q.get("n") or 0) >= 2:
+        odd.append(f"질문 재시도 {q['n'] - 1}회")
     return odd
 
 

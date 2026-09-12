@@ -137,7 +137,7 @@ for (let i = 0; i < hyps.length; i++) {
 
   const guard = await agent(
 `.claude/agents/regression-guard.md 를 먼저 읽고 그대로 따른다.
-허용된 파일 목록: ${EDITABLE_STR}. 검사 1·4·5 를 한다 (프론트는 안 바뀌었으니 2·3 은 생략).`,
+허용된 파일 목록: ${EDITABLE_STR}. 검사 1·4·5 를 한다 (프론트는 안 바뀌었으니 2·3 은 생략). 범위 검사는 코드 폴더(chuckchuck·tests·fixtures·demo)만 본다.`,
     { phase: 'Variants', label: `guard:${h.id}`, schema: GUARD, effort: 'low' })
   if (!guard || !guard.ok) {
     await revert()

@@ -7,6 +7,7 @@
 
     python examples/graph_eval.py                        # fixtures/live_qa_run.json 의 저장된 그래프·정합 (호출 0)
     python examples/graph_eval.py --rebuild --tag v1     # F-06→F-07→F-11 을 다시 돌려 잰다 (호출 ≈ 3~5, 2~3분)
+    python examples/graph_eval.py --rebuild --stage align --tag a1   # 저장 그래프 고정, F-11 만 (F-11 가설은 이걸로)
     python examples/graph_eval.py --bundle-dir exports/eval_bundles --tag v1
     python examples/graph_eval.py --compare base --tag v1   # 전후 비교 → VERDICT
 
@@ -214,8 +215,11 @@ def compare_graph(before: dict, after: dict) -> dict:
     return {"verdict": verdict, "rows": rows, "secondary": info}
 
 
-def rebuild(art: dict, llm_name: str | None) -> tuple[dict, list[dict]]:
-    """F-06→F-07→F-11 을 다시 돌린다. 호출 기록을 같이 돌려준다."""
+def rebuild(art: dict, llm_name: str | None, stage: str = "all") -> tuple[dict, list[dict]]:
+    """다시 돌린다. stage=all: F-06→F-07→F-11 · graph: F-06→F-07 만(정합은 저장본) · align: 저장 그래프 위에 F-11 만.
+
+    F-11 가설을 잴 때 그래프까지 다시 만들면 노드가 달라져 정합 지표가 그 잡음을 탄다 (2026-09-12 G1 실측).
+    가설이 건드리는 단계만 다시 돌리는 것이 자다."""
     from chuckchuck import align_speech, build_graph, extract_concepts
     from chuckchuck.providers.llm_impl import get_llm
     qa_eval_spec = importlib.util.spec_from_file_location("qa_eval", ROOT / "examples" / "qa_eval.py")
@@ -227,15 +231,19 @@ def rebuild(art: dict, llm_name: str | None) -> tuple[dict, list[dict]]:
     transcript = Transcript.from_dict(art["transcript"]) if art.get("transcript") else None
     ctx = Context.from_dict(art.get("context") or {})
     t0 = time.time()
-    concept_doc = extract_concepts(slidedoc, ctx, transcript=transcript, llm=llm)
-    graph = build_graph(concept_doc, ctx, slide_doc=slidedoc, llm=llm)
-    print(f"F-06→F-07 다시 만듦: 노드 {len(graph.nodes)} · 간선 {len(graph.edges)} ({time.time() - t0:.0f}s, {llm.name})")
     out = dict(art)
-    out["concept_doc"], out["concept_graph"] = concept_doc.to_dict(), graph.to_dict()
-    if transcript is not None:
+    if stage in ("all", "graph"):
+        concept_doc = extract_concepts(slidedoc, ctx, transcript=transcript, llm=llm)
+        graph = build_graph(concept_doc, ctx, slide_doc=slidedoc, llm=llm)
+        print(f"F-06→F-07 다시 만듦: 노드 {len(graph.nodes)} · 간선 {len(graph.edges)} ({time.time() - t0:.0f}s, {llm.name})")
+        out["concept_doc"], out["concept_graph"] = concept_doc.to_dict(), graph.to_dict()
+    else:
+        graph = ConceptGraph.from_dict(art["concept_graph"])
+        print(f"저장 그래프 고정: 노드 {len(graph.nodes)} · 간선 {len(graph.edges)}")
+    if transcript is not None and stage in ("all", "align"):
         alignment = align_speech(graph, transcript, ctx, llm=llm)
         out["alignment_doc"] = alignment.to_dict()
-        print(f"F-11 다시 판정: 항목 {len(alignment.items)}")
+        print(f"F-11 다시 판정: 항목 {len(alignment.items)} ({llm.name})")
     calls = [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in llm.calls]
     return out, calls
 
@@ -265,7 +273,7 @@ def run_one(bundle: Path, args) -> dict:
     art = load_artifacts(bundle)
     calls: list[dict] = []
     if args.rebuild:
-        art, calls = rebuild(art, args.llm)
+        art, calls = rebuild(art, args.llm, args.stage)
     summary = measure(art)
     print(f"\n자료: {art['concept_graph'].get('file_name', bundle.stem)}")
     print_summary(summary)
@@ -291,7 +299,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bundle", type=Path, default=RUN_FIXTURE)
     ap.add_argument("--bundle-dir", type=Path, default=None)
-    ap.add_argument("--rebuild", action="store_true", help="F-06→F-07→F-11 을 실 LLM 으로 다시 돌린다")
+    ap.add_argument("--rebuild", action="store_true", help="실 LLM 으로 다시 돌린다 (--stage 로 범위)")
+    ap.add_argument("--stage", choices=("all", "graph", "align"), default="all",
+                    help="all: F-06→07→11 · graph: F-06→07 만 · align: 저장 그래프 위에 F-11 만 (F-11 가설용)")
     ap.add_argument("--llm", default=None, help="REASONING_BACKEND 대신 쓸 백엔드")
     ap.add_argument("--tag", default="")
     ap.add_argument("--compare", default=None, help="이 tag 의 최신 결과와 비교해 VERDICT 를 찍는다")

@@ -44,9 +44,10 @@ const HYP = {
         properties: {
           id: { type: 'string' }, title: { type: 'string' },
           file: { type: 'string', enum: EDITABLE },
+          stage: { type: 'string', enum: ['graph', 'align', 'all'] },
           change: { type: 'string' }, expected: { type: 'string' },
         },
-        required: ['id', 'title', 'file', 'change', 'expected'],
+        required: ['id', 'title', 'file', 'change', 'expected', 'stage'],
       },
     },
   },
@@ -99,7 +100,8 @@ const hyp = await agent(
 ${cfg.focus ? `이번 초점: ${cfg.focus}\n` : ''}
 가설 하나의 조건:
 - 변수 하나만 바꾼다 (프롬프트 문장 하나 추가/수정, 배치 크기·발췌 길이 상수 하나, few-shot 하나).
-- file 은 ${EDITABLE_STR} 중 하나.
+- file 은 ${EDITABLE_STR} 중 하나. stage 는 그 파일이 f11 이면 'align'(저장 그래프 고정, F-11 만 재실행), f06/f07 이면 'graph'.
+  F-11 가설을 잴 때 그래프까지 다시 만들면 노드가 달라져 정합 지표가 잡음을 탄다 — 이번 루프 G1 이 그렇게 잘못 재졌다.
 - change 는 qa-prompt-tuner 가 그대로 적용할 수 있게 구체적으로 (어느 상수/문단을, 무엇으로).
 - expected 는 어느 지표가 어느 방향인지 (예: "summary_grounding ↑ 0.42→0.6, label_grounded 그대로, nodes 12~16").
 - "자료에 없는 내용을 지어내지 마라" 문장 삭제, JSON 스키마 삭제, 모델 교체, fixtures 수정은 가설이 아니다.
@@ -139,7 +141,7 @@ for (let i = 0; i < hyps.length; i++) {
 
   const guard = await agent(
 `.claude/agents/regression-guard.md 를 먼저 읽고 그대로 따른다.
-허용된 파일 목록: ${EDITABLE_STR}. 검사 1·4·5 를 한다 (프론트는 안 바뀌었으니 2·3 은 생략).`,
+허용된 파일 목록: ${EDITABLE_STR}. 검사 1·4·5 를 한다 (프론트는 안 바뀌었으니 2·3 은 생략). 범위 검사는 코드 폴더(chuckchuck·tests·fixtures·demo)만 본다.`,
     { phase: 'Variants', label: `guard:${h.id}`, schema: GUARD, effort: 'low' })
   if (!guard || !guard.ok) {
     await revert()
@@ -150,7 +152,7 @@ for (let i = 0; i < hyps.length; i++) {
 
   const bench = await agent(
 `.claude/agents/graph-bench-runner.md 를 먼저 읽고 그대로 따른다.
-\`scripts/graph_bench.sh --tag ${tag} --compare ${accepted} --note "${h.id} ${h.title.replace(/"/g, "'")}" ${benchFlags}\` 를 돌리고
+\`scripts/graph_bench.sh --tag ${tag} --compare ${accepted} --stage ${h.stage || 'all'} --note "${h.id} ${h.title.replace(/"/g, "'")}" ${benchFlags}\` 를 돌리고
 마지막 줄 VERDICT 와 리포트 경로, 핵심 숫자를 돌려준다.`,
     { phase: 'Variants', label: `bench:${h.id}`, schema: BENCH, effort: 'low' })
   const verdict = bench ? bench.verdict : 'ERROR'

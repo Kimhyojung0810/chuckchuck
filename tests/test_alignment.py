@@ -618,3 +618,39 @@ def test_mention_alone_does_not_overturn_missing():
         transcript=make_transcript({1: spoken, 2: "개념2 설명", 3: "개념3 설명"}),
     )
     assert doc.item("c1").verdict == "missing"
+
+
+# ---------------------------------------------------------------------------
+# 근거 인용 백스톱 — 요약문 '인용' 은 발화 원문 창으로 (2026-09-12, A.X 실측 인용∈발화 0.17)
+# ---------------------------------------------------------------------------
+
+SPEECH_1 = ("안녕하세요 오늘은 스마트 알림 하나가 왜 우리의 집중을 크게 방해하는지 이야기해보겠습니다 "
+            "우리는 보통 알림을 잠깐 확인하는 정도는 별문제 아니라고 생각합니다 하지만 실제로는 그 잠깐의 행동 뒤에 "
+            "더 큰 집중 손실이 따라옵니다 오늘 발표에서는 알림이 집중을 끊는 과정을 살펴보고 왜 다시 집중하기가 어려운지 정리해보겠습니다")
+
+
+def test_paraphrased_evidence_is_replaced_by_verbatim_speech_window():
+    graph = make_graph(1)
+    tr = make_transcript({1: SPEECH_1})
+    doc = align_of(payload(items=[{"node_id": "c1", "verdict": "aligned",
+                                   "evidence": "스마트 알림이 집중을 크게 방해하고 잠깐 확인해도 집중 손실이 따라온다는 설명"}]),
+                   graph=graph, transcript=tr)
+    ev = doc.item("c1").evidence
+    assert ev and ev in SPEECH_1                 # 발표자가 실제로 한 말이다
+    assert doc.item("c1").verdict == "aligned"   # 판정은 그대로
+
+
+def test_verbatim_evidence_is_kept_as_is():
+    graph = make_graph(1)
+    tr = make_transcript({1: SPEECH_1})
+    quote = "그 잠깐의 행동 뒤에 더 큰 집중 손실이 따라옵니다"
+    doc = align_of(payload(items=[{"node_id": "c1", "verdict": "aligned", "evidence": quote}]), graph=graph, transcript=tr)
+    assert doc.item("c1").evidence == quote
+
+
+def test_unrelated_evidence_is_left_alone_for_the_metric_to_catch():
+    graph = make_graph(1)
+    tr = make_transcript({1: SPEECH_1})
+    made_up = "양자 컴퓨터의 큐비트 오류율이 임계값 아래로 내려갔다는 실험 결과"
+    doc = align_of(payload(items=[{"node_id": "c1", "verdict": "aligned", "evidence": made_up}]), graph=graph, transcript=tr)
+    assert doc.item("c1").evidence == made_up    # 겹침이 없으면 고치지 않는다 — 지어낸 인용은 지표가 잡는다
