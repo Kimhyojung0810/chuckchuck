@@ -47,7 +47,7 @@
 
 `examples/graph_eval.py`(지표 12개) · `scripts/graph_bench.sh` · `/improve-graph`(워크플로 파일 `.claude/workflows/improve-graph.js`) 이 있다.
 09-12 첫 루프: G2(F-07 요약을 개념 목록 설명에서 그대로) 채택 `4e48ece`. F-11 인용은 코드 백스톱(`_verbatim_evidence`).
-남은 것: F-11 가설은 `--stage align` 으로 그래프 고정 후 재측정 · A.X 의 노드 7~8/12장(Solar 13) 을 F-06 배치·F-07 합병 규칙으로 올리기.
+**09-12 밤 결론: A.X 그래프 출력은 같은 코드로도 노드 7~16 으로 흔들려(3회 평균끼리도 6개 차이) 프롬프트 효과를 판별할 수 없다. 그래프 프롬프트 루프는 Solar 키 또는 A.X 안정화까지 보류.** 그 전까지는 결정론 코드 개선만. 후보 1순위: G4(F-06 입력 정제, 중복 쌍 2.67→0.67).
 
 ### C. UI — "내 발표가 어떤 뉘앙스였나" (Festa 뒤)
 
