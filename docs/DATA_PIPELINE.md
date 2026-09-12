@@ -147,7 +147,7 @@ Solar Pro3·A.X-K1·EXAONE·Mi:dm(로컬 베이스)에 전사문+맥락만 주�
 | 단계 | 계획 | 산출물(계획) | 실제 구현 |
 |---|---|---|---|
 | 1단계 | 전문가 채점 엔진 이식 (카운트→1~5점 룩업 테이블, 등급 회귀를 서비스에 연결) | `chuckchuck/f21_expert_grade.py` | ❌ **미구현** — 해당 파일 없음 |
-| 2단계 | 또래 비교 백분위 (연령×청중규모×발표유형별 분포로 "상위 N%" 산출) | `chuckchuck/f22_peer_norm.py`, `data/norms/percentile_table.json` | ❌ **미구현** — 둘 다 없음 |
+| 2단계 | 또래 비교 백분위 (연령×청중규모×발표유형별 분포로 "상위 N%" 산출) | `chuckchuck/f22_peer_norm.py`, `data/norms/percentile_table.json` | 🟡 **모듈·빌더 구현** (2026-09-10) — 버킷은 (발표 상황×길이), 표는 `examples/build_peer_norms.py` 가 동의 세션 코퍼스(`var/data`)에서 만든다. 버킷당 n≥20 이 차야 줄이 생기고, 그 전엔 「아직 비교할 만큼 모이지 않았어요」. 리포트 카피 연결은 n 이 찬 뒤 |
 | 3단계 | 태깅 확장 — REP/FIL/WR 태스크 분리 + 시드 3개 학습, 카운트 MAE 기준 평가 | `runs/{fil,wr}_seed{42,43,44}/` | ✅ **완료** — §3-2·3-3·`RESULTS_2ND.md`에 기록됨 |
 | 4단계 | 전문가 톤 진단 생성 — Solar Pro3(교사)가 640건에 코멘트 생성 → 믿:음 LoRA(학생)로 증류 | 증류 학습 산출물 | ❌ **미구현** — teacher/distillation 관련 파일 검색 결과 0건 |
 

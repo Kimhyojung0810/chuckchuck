@@ -2170,6 +2170,36 @@ class FeedbackEvent:
 
 
 # ---------------------------------------------------------------------------
+# F-22 : 또래 기준 (세션 코퍼스에서 뽑은 백분위)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PeerNorm:
+    """한 버킷(상황×발표 길이)·한 지표의 분포. n 이 최소치 미만이면 만들지 않는다."""
+    metric: str
+    bucket: str
+    n: int
+    p10: float
+    p25: float
+    p50: float
+    p75: float
+    p90: float
+    built_at: float = 0.0
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PeerNorm":
+        return cls(
+            metric=str(d.get("metric", "")), bucket=str(d.get("bucket", "")), n=int(d.get("n", 0) or 0),
+            p10=float(d.get("p10", 0.0)), p25=float(d.get("p25", 0.0)), p50=float(d.get("p50", 0.0)),
+            p75=float(d.get("p75", 0.0)), p90=float(d.get("p90", 0.0)),
+            built_at=float(d.get("built_at", 0.0) or 0.0),
+        )
+
+
+# ---------------------------------------------------------------------------
 # 예외
 # ---------------------------------------------------------------------------
 

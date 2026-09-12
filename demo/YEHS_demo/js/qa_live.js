@@ -414,6 +414,13 @@ function liveQuestHtml() {
     </div>`;
 }
 
+/* 사용자 피드백 버튼 (학습 동의 세션에만). app.js 의 fbButtonsHtml 이 동의·중복을 거른다 —
+   하네스(qa_live.smoke)에는 그 전역이 없으니 없으면 조용히 빈 문자열이다. */
+function liveFeedbackHtml(kind, target, buttons, payload) {
+  if (typeof fbButtonsHtml !== 'function') return '';
+  try { return fbButtonsHtml(kind, target, buttons, payload); } catch (_) { return ''; }
+}
+
 function presentLiveQuestion() {
   const L = qa.live;
   if (L.asked === L.qi) return;
@@ -425,6 +432,9 @@ function presentLiveQuestion() {
     meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · ${SEVERITY_LINE[q.severity] || '보통이에요'}`,
     text: escapeHtml(q.question),
     basis: q.why ? escapeHtml(q.why) : '',
+    // 👍/👎 — 「이 자료에서 나올 만한 질문이었나」. 이것이 질문 생성의 라벨이다.
+    fb: liveFeedbackHtml('question_vote', String(q.id), [['up', '👍 좋은 질문이에요'], ['down', '👎 이 질문은 별로예요']],
+      { question: q.question, node_id: q.node_id, slide_nos: q.slide_nos || [], trap: !!q.trap, source: q.source || '' }),
   });
 }
 
@@ -451,6 +461,7 @@ function renderQaLive() {
     </div>`;
   scrollDown();
   wireLiveInput();
+  if (typeof wireFeedback === 'function') wireFeedback(app);
 }
 
 /** 왼쪽 칸 — 퀘스트 목록 + 지금 라운드. 판정 뒤 이것만 갈아 끼운다. */
@@ -1060,6 +1071,10 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
         // 그리면 솔직하게 모르겠다고 누른 사람이 틀린 답과 똑같은 빨간 칩을 받는다.
         // 단계를 그대로 실어서 «지금 무슨 일이 일어나는지» 를 대신 적는다.
         coach: v.coach_stage || '',
+        // 판정 이의 — 코칭 응답(막힘 사다리)은 판정이 아니라 버튼을 안 단다.
+        fb: v.coach_stage ? '' : liveFeedbackHtml('judgement_dispute', `q:${q.id}:r${L.turn || 1}`,
+          [['wrong_verdict', '이 판정은 아닌 것 같아요']],
+          { answer, verdict: v.verdict, score: v.score || 0, round: L.turn || 1, question: q.question }),
       });
     }
 

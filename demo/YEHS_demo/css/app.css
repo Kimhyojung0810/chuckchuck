@@ -416,6 +416,16 @@ main.narrow { max-width: 640px; }
 .dz-consent input { margin: 3px 0 0; accent-color: var(--brand); flex: none; }
 .dz-consent-note { margin: 6px auto 0; max-width: 40ch; color: var(--text-3); font-size: 12px; line-height: 1.5; }
 .session-delete { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+/* 피드백 — 근거 줄 아래 작게. 판정을 가리지 않는다 (연출이 데이터를 가리면 연출을 버린다) */
+.fb-row { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--text-3); font-size: 12px; line-height: 1.5; }
+.fb-btn {
+  border: 1px solid var(--border); border-radius: var(--r-pill); background: transparent;
+  color: var(--text-2); font: inherit; font-size: 12px; padding: 2px 10px; cursor: pointer;
+}
+.fb-btn:hover { border-color: var(--brand); color: var(--brand); }
+.fb-btn:disabled { opacity: .5; cursor: default; }
+.fb-thanks { color: var(--brand); font-size: 12px; font-weight: 600; }
+.filler-row .fb-row { flex-basis: 100%; }
 .session-delete .btn-text { padding-left: 0; }
 .sample-analysis-note {
   margin: 0 0 16px;

@@ -4972,6 +4972,7 @@ async function renderReport() {
   });
   R_TAB_VIEWS[rTab]();
   wireSessionDelete($('#rbody'));
+  wireFeedback($('#rbody'));
   animateViz($('#rbody'));
 }
 
@@ -5015,6 +5016,68 @@ function renderProfileReport(p) {
       <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/">내 발표로 돌아가기</a></div>
       ${sessionDeleteHtml()}
     </div>`;
+}
+
+/* ── 사용자 피드백 (학습 동의 세션에만) ─────────────────────────────────
+   👍/👎·「이 점수는 아닌 것 같아요」·「이건 반복이 아니에요」 — 이것만이 라벨이다.
+   동의하지 않은 발표에는 버튼을 아예 안 그린다: 누른 것이 버려지는 버튼은 거짓말이다.
+   한 항목에 한 번만 보낸다 (sessionStorage 로 중복 방지). 실패해도 화면을 막지 않는다. */
+function feedbackAllowed() {
+  // 샘플·시연 모드는 남의(준비된) 결과라 라벨이 아니다. 동의 없는 세션은 버려지는 버튼이다.
+  return !!(nf && nf.sessionId && nf.consentLearning && !nf.useSample) && !isShowcaseDemo();
+}
+
+function fbKey(kind, target) {
+  return `cheokcheok:fb:${nf.sessionId}:${kind}:${target}`;
+}
+
+function fbSent(kind, target) {
+  try { return sessionStorage.getItem(fbKey(kind, target)) === '1'; } catch (_) { return false; }
+}
+
+function fbButtonHtml(kind, target, value, label, payload) {
+  if (!feedbackAllowed()) return '';
+  const data = escapeHtml(JSON.stringify(payload || {}));
+  return `<button class="fb-btn" type="button" data-fb-kind="${kind}" data-fb-target="${escapeHtml(target)}"
+    data-fb-value="${value}" data-fb-payload="${data}">${label}</button>`;
+}
+
+/** 한 대상에 버튼 여러 개(높아요/낮아요, 👍/👎). 이미 보냈으면 「고마워요」 하나만. */
+function fbButtonsHtml(kind, target, buttons, payload, lead = '') {
+  if (!feedbackAllowed()) return '';
+  if (fbSent(kind, target)) return `<span class="fb-row"><span class="fb-thanks">고마워요</span></span>`;
+  const inner = buttons.map(([value, label]) => fbButtonHtml(kind, target, value, label, payload)).join('');
+  return `<span class="fb-row">${lead}${inner}</span>`;
+}
+
+function wireFeedback(root) {
+  if (!root || root.__fbWired) return;
+  root.__fbWired = true;
+  root.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.fb-btn');
+    if (!btn || !feedbackAllowed()) return;
+    const kind = btn.dataset.fbKind;
+    const target = btn.dataset.fbTarget;
+    let payload = {};
+    try { payload = JSON.parse(btn.dataset.fbPayload || '{}'); } catch (_) { /* ignore */ }
+    const group = btn.closest('.fb-row') || btn.parentElement;
+    group.querySelectorAll('.fb-btn').forEach((b) => { b.disabled = true; });
+    try {
+      const bridge = window.ChuckchuckBridge;
+      if (bridge && typeof bridge.sendFeedback === 'function') {
+        await bridge.sendFeedback(nf.sessionId, [{ kind, target_id: target, value: btn.dataset.fbValue, at: Date.now() / 1000, payload }]);
+      }
+      try { sessionStorage.setItem(fbKey(kind, target), '1'); } catch (_) { /* privacy mode */ }
+      const thanks = document.createElement('span');
+      thanks.className = 'fb-thanks';
+      thanks.textContent = '고마워요';
+      group.querySelectorAll('.fb-btn').forEach((b) => b.remove());
+      group.appendChild(thanks);
+    } catch (err) {
+      console.warn('[chuckchuck] feedback', err);
+      group.querySelectorAll('.fb-btn').forEach((b) => { b.disabled = false; });
+    }
+  });
 }
 
 /* ── 「이 발표 기록 지우기」 ───────────────────────────────────────────────
@@ -5082,6 +5145,7 @@ function switchReportTab(i) {
   btns.forEach((b, k) => b.classList.toggle('on', k === i));
   R_TAB_VIEWS[i]();
   wireSessionDelete($('#rbody'));
+  wireFeedback($('#rbody'));
   animateViz($('#rbody'));
 }
 
@@ -5348,12 +5412,17 @@ function rRubric() {
      지우는 건 «반복» 이지 «사실» 이 아니다. */
   const rowHtml = (it) => {
     const why = it.evidence || it.note || '';
+    const fbPayload = { no: it.no, name: it.name, score: it.score, evidence: why };
+    const fb = it.status === 'scored'
+      ? fbButtonsHtml('rubric_dispute', String(it.no), [['too_high', '높아요'], ['too_low', '낮아요']], fbPayload, '이 점수는 아닌 것 같아요 · ')
+      : '';
     return `<li class="rb-item is-${it.status}">
       <div class="rb-line"><span class="rb-no num">${it.no}</span>
         <span class="rb-name">${escapeHtml(it.name)}</span>
         ${it.source && RUBRIC_SOURCE[it.source] ? `<span class="rb-src">${RUBRIC_SOURCE[it.source]}</span>` : ''}
         <b class="num">${Math.round(it.score)}</b></div>
       ${why ? `<p class="rb-why">${escapeHtml(why)}</p>` : ''}
+      ${fb}
     </li>`;
   };
 
@@ -7149,7 +7218,11 @@ function rPace(host = $('#rbody')) {
         <h3 class="section-title">자주 쓴 간투어·반복<span class="soft">간투어 ${(liveHabits && liveHabits.filler_cnt) || fillers.length}회 · 같은 말 반복 ${(liveHabits && liveHabits.repeat_cnt) || repeats.length}회 · 긴 쉼 ${(liveHabits && liveHabits.pause_cnt) || 0}회</span></h3>
         <!-- F-18 LoRA 태거(FIL/REP/PAUSE) 결과. 시연은 같은 계약의 stub 을 그린다. -->
         ${habitRows.length ? `<div class="filler-list">${habitRows.map(f => `
-          <div class="filler-row"><span><span class="ftag">${f.tag}</span><span class="fsep" aria-hidden="true">|</span>${escapeHtml(f.text)}</span><b class="num">${f.n}회</b></div>`).join('')}</div>`
+          <div class="filler-row"><span><span class="ftag">${f.tag}</span><span class="fsep" aria-hidden="true">|</span>${escapeHtml(f.text)}</span><b class="num">${f.n}회</b>
+            ${fbButtonsHtml('habit_dispute', `kw:${f.kind}:${f.text}`,
+              [['not_habit', f.kind === 'REP' ? '이건 반복이 아니에요' : '이건 간투어가 아니에요']],
+              { kind: f.kind, text: f.text, n: f.n, provider: liveHabits && liveHabits.provider,
+                spans: ((liveHabits && (liveHabits.spans || liveHabits.spans_sample)) || []).filter(s => s.kind === f.kind && String(s.text || '').trim() === f.text).slice(0, 5) })}</div>`).join('')}</div>`
           : `<p class="note">눈에 띄는 간투어·반복은 거의 없었어요. 좋아요!</p>`}
       </div>`;
     /* 세로 한 줄로 편다. 예전엔 진단에 따라 시간·간투어 중 하나를 접어 뒀는데,
@@ -8141,6 +8214,7 @@ function streamRow(it) {
         <p class="msg-q">${it.text}</p>
         ${it.basis ? `<span class="msg-basis">${it.basis}</span>` : ''}
         ${(it.choices || []).length ? `<div class="qa-choices">${it.choices.map((c) => `<button type="button" class="qa-choice-chip">${c}</button>`).join('')}</div>` : ''}
+        ${it.fb || ''}
       </div></div>`;
   }
   if (it.kind === 'interject') return `<div class="msg ai cut">${av}<div class="msg-bubble">${it.text}</div></div>`;
@@ -8185,7 +8259,7 @@ function streamRow(it) {
     const meter = it.score ? `<b class="msg-score num">${it.score}</b><small>완성도</small>${delta}` : '';
     return `<div class="msg ai react">${av}<div class="msg-bubble">
       <span class="react-head"><span class="chip chip-sm ${cls}">${lab}</span>${meter}</span>
-      <p>${it.text}</p></div></div>`;
+      <p>${it.text}</p>${it.fb || ''}</div></div>`;
   }
   if (it.kind === 'missing') {
     return `<div class="msg ai miss">${av}<div class="msg-bubble">

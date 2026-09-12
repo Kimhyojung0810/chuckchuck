@@ -9,6 +9,66 @@
 
 # 작업 일지
 
+## 2026-09-10 — 업로드를 학습 자산으로: 동의 기반 세션 보관소 + 개선 루프 (Claude 세션, 같은 날 3차)
+
+사용자 요청: "사용자가 올린 PPT/PDF 를 모아 우리 시스템을 학습·개선하고 싶다. 업로드 저장
+디렉터리를 만들자. 날짜순으로 정렬되게." 조사해 보니 **이미 모으고 있었다 — 사고로.**
+플랜: `~/.claude/plans/dazzling-greeting-snail.md`. 규칙 한 장: [PRIVACY.md](PRIVACY.md).
+
+### 고치기 전에 무엇이 문제였나 → 어떻게 풀었나
+
+| 문제 | 어디 | 풀이 |
+|---|---|---|
+| 모든 업로드의 파싱 전문·PDF 원본·음성 전문이 `fixtures/raw/{파일명}.*` 로 무기한 남았고 실제 사용자 발표 13건이 git 에 커밋됨 | `bridge.py` `_save_slidedoc_cache` 등 | `demo/session_archive.py` — `var/data/sessions/YYYY/MM/DD/<UTC타임스탬프>_<8hex>/`. `ls` 만으로 시간순. 13건 `git rm` (사본은 `~/chuckchuck-removed-decks/`, 히스토리 재작성은 팀 결정으로 남김) |
+| 파일명이 키라 같은 이름이면 서로 덮어씀, cached-* 는 못 찾으면 **가장 최근 업로드(남의 자료)** 를 돌려줌 | `_handle_cached_slidedoc` `:515` | id 는 서버 발급, 정규식으로만 받고 경로는 id 안의 날짜로 계산. cached-* 는 id 로만, 최신본 폴백 제거 |
+| `cached-takes` 가 인증 없이 전체 목록 | `bridge.py:549` | `DEMO_DEV_ROUTES=1` 일 때만 (기본 404) |
+| About 의 「1년 뒤 지워요」 가 구현 없음, 동의 없음 | `app.js:8698` | 드롭존 체크박스(기본 꺼짐) → `?consent_learning=1` → manifest 고정. 동의 세션만 원본·산출물·QA턴·피드백, 1년 뒤 prune. 동의 없음 = 파싱본·받아쓰기 24h 캐시. 리포트 「이 발표 기록 지우기」 → `DELETE /api/v1/sessions/{id}` |
+| 서버 형식 검사 없음 (프론트 확장자 정규식뿐) | `_handle_parse` | 매직바이트(`%PDF` / zip+`ppt/presentation.xml`) 아니면 415, 디스크에 안 씀 |
+| 프론트 세션 id 가 `'flat'` 하나 | `app.js:7610` | `qaSessionId()` = 발급 id ‖ 'flat'. 모든 분석·판정 호출에 `session_id` |
+
+### "학습" 이 실제로 무엇인가 (판단)
+
+업로드에는 사람 라벨이 없다 — F-18 LoRA 는 AI Hub 40인 평가 라벨로 저장소 밖에서 학습했다.
+그래서 순서는 (1) 실제 세션으로 **회귀 측정**, (2) 라벨 없는 **또래 기준선**, (3) 프롬프트를 고친 뒤
+**재생 diff**, (4) 사람이 고친 판정이 쌓이면 그때 LoRA. 이것만 라벨이다: 👍/👎 · 「이 판정은 아닌
+것 같아요」 · 「높아요/낮아요」 · 「이건 반복이 아니에요」. 침묵·모델 출력·점수는 라벨이 아니다.
+
+### 산출물 (커밋순)
+
+1. `ebf356c` **feat(archive)** — 보관소·브리지 배선·매직바이트·동의 UI·삭제·git rm·문서(PRIVACY·SCHEMA §10-B·DEPLOYMENT §5).
+   검증: pytest 740 (+37: `test_session_archive.py` 22, `test_bridge_parse.py` 15), node smoke 30.
+2. (다음 커밋) **feat(learning-loop)** — 피드백 버튼(리포트 채점표 항목 「높아요/낮아요」, 말버릇 「이건 반복이
+   아니에요」, 질문 코칭 👍/👎·「이 판정은 아닌 것 같아요」; 동의 세션에만 그린다) + 오프라인 도구:
+   - `examples/build_eval_bundle.py` → `exports/eval_bundles/*.json` (동의 세션 → `live_qa_run.json` 모양).
+     `examples/qa_eval.py --bundle-dir exports/eval_bundles` 가 N건 평균±편차를 찍는다.
+   - `chuckchuck/f22_peer_norm.py` + `examples/build_peer_norms.py` → `data/norms/percentile_table.json`.
+     버킷(상황×길이)당 n≥20 미만이면 줄을 안 만들고 「아직 비교할 만큼 모이지 않았어요」.
+   - `examples/replay_sessions.py --stage rubric|judge|questions` → `exports/replay/*.md` (그때 vs 지금 diff).
+   - `examples/export_lora_corrections.py` → `exports/lora_corrections.jsonl` (문턱 30세션·200정정).
+   검증: pytest 756, node smoke 33, 빈 데이터 디렉터리로 각 스크립트 실행.
+
+### 팀이 따라 할 순서
+
+```bash
+sudo systemctl restart chuckchuck-bridge          # DEMO_DATA_DIR 기본 var/data (WorkingDirectory 아래)
+sudo journalctl -u chuckchuck-bridge -n 5          # "세션 보관: …" · "만료 세션 정리: N건" 이 찍힌다
+# 자료 올리기 → 응답에 session_id → 오늘 폴더가 시간순으로 보인다
+ls var/data/sessions/$(date -u +%Y/%m/%d)/
+# 학습 동의를 켠 발표가 분석까지 끝나면
+python examples/build_eval_bundle.py && python examples/qa_eval.py --bundle-dir exports/eval_bundles --no-coach --limit 2
+python examples/build_peer_norms.py                # n 이 찰 때까지는 빈 표
+python examples/replay_sessions.py --stage judge --limit 3   # 프롬프트를 고친 뒤
+```
+
+### 남은 것
+
+- **푸시**: 이 머신에 GitHub 자격 증명이 없어 `git push` 가 실패한다 (`gh` 도 없음). 로컬 main 이 origin 보다 앞서 있다.
+- `#/replay` 화면은 `DEMO_DEV_ROUTES=1` 로만 열린다. 로컬 반복 테스트 때 `.env` 에 켠다.
+- 옛 `fixtures/raw/*.transcript.json`·`*.preview.pdf`·`stage_cache/` 로컬 잔재는 브리지가 더 읽지 않는다. `rm` 해도 된다.
+- git 히스토리에는 지운 발표 자료가 남아 있다. 공개 저장소로 갈 거면 `git filter-repo` — 팀 결정.
+- 또래 기준 리포트 카피(「또래 상위 N%」) 연결은 버킷 n≥20 이 찬 뒤. `f22_peer_norm.describe()` 가 문장을 준다.
+- LoRA 재학습은 정정 200건 뒤, 저장소 밖에서.
+
 ## 2026-09-10 — 「모르겠어요」 사다리를 근거에 못 박는다 (Claude 세션, 같은 날 2차)
 
 "QA 세션에서 「모르겠어요」를 눌렀을 때 단계가 더 논리적이고, 전보다 구체적으로
