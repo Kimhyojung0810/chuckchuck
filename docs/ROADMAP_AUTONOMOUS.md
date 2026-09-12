@@ -27,7 +27,7 @@
 | ~~A2~~ | **끝 (09-12, `af8e312`)** — 만료 정리 스레드가 동의 세션으로 `var/data/derived/` 에 평가 묶음·또래 표를 다시 만든다. 0건이면 안 쓴다 | `journalctl` 에 "학습 자산: 동의 세션 N건 → …" |
 | A3 | Festa 부스 모드: 발표 끝·QA 끝에 한 화면 설문(회의 §7 항목) — 동의 세션에만, 스킵 가능 | 설문이 세션 manifest 에 붙고 `build_eval_bundle` 이 같이 내보낸다 |
 | A4 | 사람이 고친 판정(👍/👎·이의)이 30세션·200건을 넘으면 `export_lora_corrections` → 저장소 밖 재학습 | 문턱은 DATA_PIPELINE §5 그대로. 넘기 전엔 하지 않는다 |
-| A5 | **상황 추정** — 자료를 올리면 "업무 보고 같아요" 를 결정론 규칙(+미정일 때 LLM 1회)으로 제안. 계약 `ContextSuggestion` + `/api/v1/suggest-context` ([설계](plan/deck-tailored-suggestions.plan.md)) | 동의 세션에서 추정값 vs 사용자 최종값 일치율이 찍힌다 |
+| ~~A5~~ | **서버 끝 (09-12, `8e4e908`)** — `f23_context.suggest_context` · `/api/v1/suggest-context`. 결정론 1단만; LLM 2단은 일치율을 본 뒤 | 동의 세션에서 추정값 vs 사용자 최종값 일치율이 찍힌다 (미측정) |
 | A6 | `#/new` 폼 미리 채우기 한 줄 (사용자가 바꾸면 그게 이긴다, 새 화면 없음) | 사용자 확인 뒤. Festa 전 허용 범위 안 |
 
 ### B. QA 하네스 — "실제 사람이 물을 법한 질문" 을 수치로 밀어올린다
@@ -38,7 +38,7 @@
 |---|---|---|
 | B1 | Eval Set 5~10건 — 동의 세션이 없는 동안은 팀 자체 발표(`fixtures/raw` 에서 뺀 것 말고, 팀원이 새로 녹음한 것)로 채운다 | `qa_bench.sh --bundle-dir` 가 N건 평균±편차를 찍고, `qa_eval_compare` 가 그 평균을 비교한다 |
 | B2 | ~~rubric 7항목 수치화~~ **절반 끝 (09-12, `8b237cb`)** — `qa_eval.py --rubric`, PRIMARY 에 8종. 남은 것: 사람 채점 20건과 일치율 | 일치율을 재기 전까지 rubric 은 "참고" |
-| B3 | 청중 페르소나 질문 생성 — 심사위원·투자자·동료·교수 각각이 물을 법한 것 (F-08 컨텍스트 조립, 계약 변경 없음) | 페르소나별 질문이 rubric Relevance·Depth 에서 기준선을 이긴다 |
+| B3 | 청중 페르소나 질문 — **09-12 1차 기각** (4상황 중 3개 REGRESSED; 집중력 교양 픽스처에 고객·상사 페르소나가 안 맞음). 상황이 자료와 맞는 번들(업무 보고 자료)이 생기면 재측정. 패치는 스크래치가 아니라 WORKLOG 09-12 밤 절에 기록 | 상황이 맞는 번들에서 rubric Relevance·Depth 가 기준선을 이긴다 |
 | B4 | `/improve-qa` 를 매 세션 1회 기본 실행 — 장부가 결선 그래프가 된다 | 장부에 Baseline → Prompt → Context 단계가 IMPROVED 줄로 이어진다 |
 | B5 | 답변 판정(F-09)의 「모르겠어요」 사다리와 후속 질문을 같은 루프에 넣는다 (`--coach`) | 코칭 5지표가 PRIMARY 에서 판정된다 |
 | B6 | **내용 제안 F-23** — 페르소나 표로 "이 청중이 기대하는데 자료에 없는 것" 을 장 번호로. 서버·측정은 Festa 전, 리포트 탭은 Festa 뒤 ([설계](plan/deck-tailored-suggestions.plan.md)) | 「있음」 판정의 장 번호가 실제로 맞는 비율 ≥ 0.9 |
