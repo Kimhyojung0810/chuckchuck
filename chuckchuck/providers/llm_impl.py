@@ -156,8 +156,10 @@ class MockLLM(LLMProvider):
         quote = "모의 근거 발화 인용"
         tail = user.split("## 슬라이드별 발화", 1)[1] if "## 슬라이드별 발화" in user else ""
         for line in tail.splitlines():
+            if line.lstrip().startswith("#"):          # "### 슬라이드 N" 제목 줄은 발화가 아니다
+                continue
             text = re.sub(r"^\s*(\[[^\]]*\]|S\d+[^:]*:|-)\s*", "", line).strip()
-            if text:
+            if text and text != "(발화 없음)":
                 quote = " ".join(text.split()[:8])
                 break
 

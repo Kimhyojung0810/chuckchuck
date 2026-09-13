@@ -149,6 +149,7 @@ def test_mock_llm_end_to_end():
     assert doc.model == "mock"
     assert len(doc.items) == 3
     assert doc.summary.verdict_counts["aligned"] >= 1
+    assert doc.item("c1").evidence == "개념1 설명"        # 모의 인용도 발화 원문이어야 한다 (P4 규칙과 같은 자)
 
 
 def test_roundtrip():
