@@ -648,9 +648,11 @@ def test_verbatim_evidence_is_kept_as_is():
     assert doc.item("c1").evidence == quote
 
 
-def test_unrelated_evidence_is_left_alone_for_the_metric_to_catch():
+def test_fabricated_evidence_is_dropped_and_verdict_demoted():
+    """발화와 전혀 안 겹치는 인용은 지어낸 것 — 근거 없음으로 처리해 aligned 가 강등된다 (P4)."""
     graph = make_graph(1)
     tr = make_transcript({1: SPEECH_1})
     made_up = "양자 컴퓨터의 큐비트 오류율이 임계값 아래로 내려갔다는 실험 결과"
     doc = align_of(payload(items=[{"node_id": "c1", "verdict": "aligned", "evidence": made_up}]), graph=graph, transcript=tr)
-    assert doc.item("c1").evidence == made_up    # 겹침이 없으면 고치지 않는다 — 지어낸 인용은 지표가 잡는다
+    assert doc.item("c1").evidence == ""
+    assert doc.item("c1").verdict != "aligned"   # 개념1 이 발화에 없으니 결정적 폴백(missing)으로

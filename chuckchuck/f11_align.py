@@ -241,10 +241,12 @@ def _fallback_verdict(basis: SpeechBasis) -> str:
 
 #: 인용이 발화에 "있다" 로 보는 낱말 포함 비율. 이 아래면 발화 원문 창으로 바꾼다.
 _EVIDENCE_VERBATIM_MIN = 0.8
-#: 원문 창 크기(낱말 수)와, 창을 인용으로 채택하는 최소 겹침. 겹침이 이보다 작으면 LLM 문장을 그대로 둔다
-#: (지어낸 인용은 못 고친다 — 그건 graph_eval 의 evidence_found 가 잡아 사람에게 보인다).
+#: 원문 창 크기(낱말 수)와, 창을 인용으로 채택하는 최소 겹침.
 _EVIDENCE_WINDOW_WORDS = 24
 _EVIDENCE_WINDOW_MIN = 0.35
+#: 이 아래로도 안 겹치면 **지어낸 인용**이다 — 빈 문자열로 바꿔 "근거 없는 aligned/contradiction" 강등 규칙이 받게 한다.
+#: 2026-09-13: 백스톱 뒤에도 23% 가 남았고, 그 인용이 「이렇게 말했어요」 로 화면에 나가는 건 신뢰 문제(P4)다.
+_EVIDENCE_FABRICATED_MAX = 0.15
 
 
 def _evidence_tokens(text: str) -> set[str]:
@@ -274,7 +276,9 @@ def _verbatim_evidence(evidence: str, node: ConceptNode, transcript: Transcript)
         score = len(ev & _evidence_tokens(window)) / len(ev)
         if score > best_score:
             best, best_score = window, score
-    return best if best_score >= _EVIDENCE_WINDOW_MIN else evidence
+    if best_score >= _EVIDENCE_WINDOW_MIN:
+        return best
+    return "" if best_score < _EVIDENCE_FABRICATED_MAX else evidence
 
 
 def _normalize_items(
