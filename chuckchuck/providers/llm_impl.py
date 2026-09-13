@@ -605,6 +605,50 @@ class ExaoneLLM(OpenAICompatLLM):
         )
 
 
+class FallbackLLM(LLMProvider):
+    """
+    주 제공자가 넘어지면 예비 제공자로 **한 번** 넘긴다.
+
+    2026-09-13 A/B: Solar 는 26회 중 이상 0, A.X 는 25회 중 빈 답·시간 초과·JSON 꼬리 2회.
+    어느 쪽이든 한 곳만 쓰면 그 한 곳의 장애가 곧 데모 장애다 (공유문 「막힌 것」).
+    넘기는 조건은 **연결·상태 오류와 빈 응답**뿐이다. JSON 파싱 실패는 모듈(f08·f11)이
+    같은 모델에 한 번 더 묻는 규율이 이미 있어 여기서 건드리지 않는다.
+
+    누가 답했는지는 숨기지 않는다 — `name` 이 **마지막으로 실제 답한 제공자** 를 가리키므로
+    모듈이 `engine.name` 으로 남기는 `model` 필드에 그대로 찍힌다 (F-18 `provider` 와 같은 정직성 규칙).
+    """
+
+    def __init__(self, primary: LLMProvider, secondary: LLMProvider):
+        if primary.name == secondary.name:
+            raise ConceptError(f"[fallback] 주·예비가 같은 제공자예요: {primary.name}")
+        self.primary, self.secondary = primary, secondary
+        self._last = primary.name
+        self.fallbacks = 0   # 이 인스턴스가 예비로 넘긴 횟수 (로그·벤치용)
+
+    @property
+    def name(self) -> str:  # type: ignore[override]
+        return self._last
+
+    def complete(self, *, system: str, user: str, temperature: float = 0.2,
+                 max_tokens: int = 4096, json_mode: bool = False) -> str:
+        kw = dict(system=system, user=user, temperature=temperature,
+                  max_tokens=max_tokens, json_mode=json_mode)
+        try:
+            out = self.primary.complete(**kw)
+            if out and out.strip():
+                self._last = self.primary.name
+                return out
+            reason = "빈 응답"
+        except ConceptError as e:
+            reason = str(e)[:120]
+        self.fallbacks += 1
+        import sys
+        sys.stderr.write(f"[llm] {self.primary.name} 실패({reason}) → {self.secondary.name} 로 넘겨요\n")
+        out = self.secondary.complete(**kw)
+        self._last = self.secondary.name
+        return out
+
+
 REGISTRY: dict[str, type[LLMProvider]] = {
     "mock": MockLLM,
     "solar": SolarLLM,
@@ -621,11 +665,22 @@ def get_llm(name: str | None = None, **kwargs) -> LLMProvider:
     name 생략 시 REASONING_BACKEND 환경변수(기본 solar)를 따른다.
     """
     backend = (name or os.environ.get("REASONING_BACKEND") or "solar").lower()
-    if backend not in REGISTRY:
-        raise ConceptError(
-            f"모르는 LLM: {backend}. 가능한 값: {', '.join(REGISTRY)}"
-        )
-    return REGISTRY[backend](**kwargs)
+    # "solar+ax" 꼴이면 주+예비. 이름 없이 부른 호출(기본 경로)은 REASONING_FALLBACK 도 읽는다 —
+    # 모듈마다 배선을 바꾸지 않고 한 줄로 예비를 켠다. 명시한 이름(벤치 --llm 등)은 섞지 않는다.
+    secondary = ""
+    if "+" in backend:
+        backend, secondary = (x.strip() for x in backend.split("+", 1))
+    elif not name:
+        secondary = (os.environ.get("REASONING_FALLBACK") or "").strip().lower()
+    for key in (backend, secondary):
+        if key and key not in REGISTRY:
+            raise ConceptError(
+                f"모르는 LLM: {key}. 가능한 값: {', '.join(REGISTRY)}"
+            )
+    primary = REGISTRY[backend](**kwargs)
+    if not secondary or secondary == backend or backend == "mock":
+        return primary
+    return FallbackLLM(primary, REGISTRY[secondary](**kwargs))
 
 
 def health_check() -> str:

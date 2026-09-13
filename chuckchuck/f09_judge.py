@@ -67,6 +67,12 @@ SLIDE_BODY_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_SLIDE_BODY_MAX", "1200"))
 #: 개념 하나에 붙여 보여 줄 이웃 개념 수.
 NEIGHBOR_MAX = 5
 
+#: CLAUDE.md §3-1 이 금지한 높임. 프롬프트가 해요체를 시켜도 실 LLM 이 「좋아요」 판정에
+#: "정확히 짚으셨습니다" 를 냈다 (2026-09-13 Solar A/B, 2문장). 코칭 경로의 _COACH_PRAISE_RE 와
+#: 같은 규율 — 문장은 LLM, 말투 계약은 코드. 걸리면 그 등급의 결정적 문구로 바꾼다.
+#: examples/qa_eval.py 의 HONORIFIC_RE 와 같은 낱말이라 하네스가 세는 것과 코드가 막는 것이 일치한다.
+_HONORIFIC_RE = re.compile(r"셨|시겠|십니|십시오|시나요|시는지|계시|여쭈|께\s")
+
 #: react 가 비어 돌아왔을 때 채워 넣는 결정적 문구.
 #: 프론트가 이걸로 말풍선을 그리므로 비워 둘 수 없다.
 _REACT_BY_VERDICT = {
@@ -633,7 +639,11 @@ def _normalize(
         react = _OFF_TOPIC_REACT.format(label=question.label or "이 개념")
     elif trap_agreed:
         react = _TRAP_AGREED_REACT
+    elif _HONORIFIC_RE.search(react):
+        react = _REACT_BY_VERDICT[verdict]
     summary = str(data.get("summary_sentence", "") or "").strip()
+    if _HONORIFIC_RE.search(summary):
+        summary = ""
     if not summary:
         summary = _SUMMARY_BY_VERDICT[verdict].format(
             label=question.label or question.node_id or "이 개념"
@@ -706,6 +716,8 @@ def _followup(
 
     point = points[0] if points else (question.label or "이 개념")
     written = _clip(str(data.get("followup", "") or ""))
+    if _HONORIFIC_RE.search(written):
+        written = ""
     # probe(1라운드)는 열린 질문이 맞는 모양이라 그대로 쓴다.
     if written and (tier == "probe" or _is_narrow(written)):
         return written
@@ -1011,7 +1023,7 @@ def coach_stuck(
         data = _call_coach(engine, user, extra_system=JSON_RETRY_NUDGE)
 
     react = _clip(str(data.get("react", "") or "")) or _COACH_REACT_FALLBACK
-    if _COACH_PRAISE_RE.search(react):
+    if _COACH_PRAISE_RE.search(react) or _HONORIFIC_RE.search(react):
         react = _COACH_REACT_FALLBACK
     choices: list[str] = []
     # 폴백은 F-08 이 이미 만들어 둔 것을 쓴다 — 코칭이 빈손으로 끝나면 안 된다

@@ -281,6 +281,34 @@ def test_blank_react_replaced():
     assert judgement.summary_sentence.strip()
 
 
+@pytest.mark.parametrize("react", [
+    "알림 확인의 비용까지 정확히 짚으셨습니다.",   # 2026-09-13 Solar 실측
+    "핵심 메커니즘을 정확히 짚어주셨습니다.",
+    "근거를 하나 더 들어 주시겠어요?",
+    "자료를 보시나요?",
+])
+def test_honorific_react_replaced_by_verdict_phrase(react):
+    """§3-1: 판정문에 높임이 나오면 그 등급의 결정적 문구로 바꾼다 (코칭 경로와 같은 규율)."""
+    judgement = judge_of(payload(verdict="good", react=react))
+    assert judgement.react == "네, 그 설명이면 충분합니다."
+
+
+def test_polite_haeyo_react_is_kept():
+    """해요체는 높임이 아니다 — 가드가 멀쩡한 문장까지 지우면 LLM 을 쓴 뜻이 없다."""
+    judgement = judge_of(payload(verdict="good", react="네, 그 설명이면 충분해요. 다음 질문 보세요."))
+    assert judgement.react == "네, 그 설명이면 충분해요. 다음 질문 보세요."
+
+
+def test_honorific_summary_and_followup_replaced():
+    judgement = judge_of(payload(
+        verdict="partial", react="요지는 잡았어요.",
+        summary_sentence="개념1 — 잘 설명하셨어요.",
+        followup="근거를 더 말씀해 주시겠어요?",
+    ))
+    assert "셨" not in judgement.summary_sentence and "개념1" in judgement.summary_sentence
+    assert "시겠" not in judgement.followup and judgement.followup
+
+
 def test_fallback_summary_names_the_concept():
     assert "개념1" in judge_of(payload(verdict="wrong")).summary_sentence
 
@@ -790,7 +818,7 @@ def test_좁힌_질문은_LLM_문장을_그대로_쓴다():
 
 def test_1라운드_열린_질문은_그대로_둔다():
     """probe 단계는 열린 질문이 맞는 모양이다 — 여기까지 좁히면 생각할 여지가 없다."""
-    open_q = "왜 그 방법을 고르셨는지 설명해 주시겠어요?"
+    open_q = "왜 그 방법을 골랐는지 설명해 주세요."   # §3-1: 해요체 (높임 가드에 안 걸리는 열린 질문)
     j = judge_of(payload(verdict="partial", score=60, followup=open_q))
     assert j.probe_tier == "probe"
     assert j.followup == open_q
@@ -1065,8 +1093,8 @@ def test_the_round_counter_is_untouched_by_the_narrowing():
 
 def test_a_plain_answer_keeps_the_round_shaped_followup():
     v = judge_of(payload(verdict="partial", score=60,
-                         followup="왜 그렇게 보시나요?"), answer=GOOD_ANSWER)
-    assert v.followup == "왜 그렇게 보시나요?"     # 1라운드는 열린 질문이 맞는 모양
+                         followup="왜 그렇게 봐요?"), answer=GOOD_ANSWER)
+    assert v.followup == "왜 그렇게 봐요?"     # 1라운드는 열린 질문이 맞는 모양
 
 
 def test_prompt_tells_the_judge_not_to_re_ask_the_given_up_piece():

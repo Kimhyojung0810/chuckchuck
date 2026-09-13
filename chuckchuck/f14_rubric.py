@@ -520,9 +520,9 @@ def score_rubric(
 
     model = ""
     if pending:
-        if llm is None:
-            llm = os.environ.get("REASONING_BACKEND", "solar")
-        engine = llm if isinstance(llm, LLMProvider) else get_llm(str(llm), **(llm_kwargs or {}))
+        # llm 미지정이면 get_llm 기본 경로 — REASONING_BACKEND 와 REASONING_FALLBACK(예비) 를 함께 읽는다
+        engine = llm if isinstance(llm, LLMProvider) else get_llm(
+            None if llm is None else str(llm), **(llm_kwargs or {}))
         model = getattr(engine, "name", str(llm))
         graded = _score_llm(engine, ev, pending)
         by_no = {i.no: i for i in items}

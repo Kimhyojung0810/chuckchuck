@@ -9,6 +9,47 @@
 
 # 작업 일지
 
+## 2026-09-13 (밤 2) — 추론 LLM 을 Solar 주 + A.X 예비로, F-09 높임 가드, H5 는 재현 실패로 기각 (Claude 세션, 사용자 결정)
+
+바로 앞 절의 A/B 를 놓고 사용자가 물었다: "뭐가 더 좋은가, 둘 다 쓰면 안 되나, 조화는 안 되나."
+F-08 만 5회씩 더 재서(특이도 A.X 3.87 vs Solar 3.27 · 인용률 Solar 0.58 vs A.X 0.47 · 시간 5초 vs 25초 · 벤더 이상 Solar 0/26 · A.X 2/25)
+**둘 다 쓰되 앙상블이 아니라 역할 분담 + 예비**로 정했다. 본체 추론은 Solar(코드 기본값·7/30 F-07 벤치와 같은 결정), A.X 는 Solar 가 넘어질 때 받는 보험.
+F-08 을 A.X 에 따로 주는 건 팀원 번들 5건 이상 뒤 재측정. 앙상블(둘 다 생성해 결정론 점수로 고르기)은 비용·지연 2배라 보류.
+
+### ① F-09 판정문 높임 가드 (코드)
+
+- `f09_judge._HONORIFIC_RE` — 하네스 `qa_eval.HONORIFIC_RE` 와 같은 낱말표(셨·시겠·십니·십시오·시나요·시는지·계시·여쭈·께). 하네스가 세는 것과 코드가 막는 것이 일치한다.
+- react → 그 등급의 결정적 문구, summary → 등급 템플릿, followup → 단계 폴백, 코칭 react → 코칭 폴백. 프롬프트는 안 건드렸다 (문장은 LLM, 말투 계약은 코드).
+- `test_judge.py` +6 (Solar 실측 2문장 포함 · 해요체는 안 지우는 것 · summary/followup). 기존 픽스처 2개가 높임 문장이라 해요체로 바꿨다 — 검사 의도(1라운드 열린 질문 유지)는 그대로.
+
+### ② 기본값 Solar + 기준선 재측정 + 가설 H5 (기각)
+
+- `.env` `REASONING_BACKEND=ax → solar` · `REASONING_FALLBACK=ax` (백업: 세션 scratchpad). `.env.example` 에 줄 추가.
+- Solar 기준선 `base-20260913-2230`: 특이도 3.33 · 인용률 0.53 · rubric 4.64.
+- **H5-deck-term-in-question** — 질문 문장에 그 개념의 「자료 본문」 줄에 실제로 있는 고유 용어·수치 하나를 그대로 넣게 한다. 각도는 안 바꾼다 (H3 계열이 각도까지 바꿔 depth·non_dup 을 깎은 것과 다른 점).
+  `v1-20260913-2230`: 인용률 0.53→0.71 · 특이도 3.33→3.67 · rubric coverage·depth 4→4.67. VERDICT 는 IMPROVED 였다.
+  **그런데 같은 코드로 2회 재현하니 인용률 0.53 · 0.43** — 기준선 9표본(0.42~0.62, 다른 세션의 noise_20260913 포함) 안이다. 0.71 은 1회 잡음. **기각, 코드 되돌림.** 장부에 정정 줄.
+  배운 것: 표본 1건·질문 3개에서는 IMPROVED 한 번으로 채택하면 안 된다. 다른 세션이 같은 시각에 잰 잡음 폭(인용률 0.20·특이도 1.0)이 맞다 — 그 폭이면 이 델타(0.18)는 처음부터 NOISE 였다. 채택 조건에 「재현 1회」를 넣어야 한다 (AUTONOMOUS_LOOP 규칙 후보).
+
+### ③ 예비(fallback) 래퍼
+
+- `providers.FallbackLLM(primary, secondary)` — 연결·상태 오류(`ConceptError`)와 빈 응답에서만 예비로 **한 번** 넘긴다. JSON 파싱 실패는 모듈의 같은 모델 재시도 규율이 있어 건드리지 않는다.
+- `name` 이 마지막으로 실제 답한 쪽이라 모듈이 남기는 `model` 에 그대로 찍힌다 (F-18 `provider` 와 같은 정직성). 넘길 때 stderr 한 줄.
+- `get_llm()`: `"solar+ax"` 꼴, 또는 이름 없는 기본 호출에서 `REASONING_FALLBACK`. **이름을 박은 호출(벤치 `--llm`)은 섞지 않는다** — 측정이 오염된다. mock 은 예비 없음.
+- f14(rubric)·f19(report) 가 `REASONING_BACKEND` 를 직접 읽어 이름을 박고 있어 예비를 못 받았다 → 기본 경로로.
+- `tests/test_llm_fallback.py` 12건.
+
+### 같은 트리의 다른 세션
+
+이 세션 동안 다른 Claude 세션이 `tests/test_*_logic.py`·`examples/qa_eval_noise.py`·`qa_eval_compare.py`(잡음 폭)·`_rubric_det.py`·f17·f18 을 같은 트리에 쓰고 있었다 (pytest 총계가 830→1157 로 몇 분 새 늘었다).
+그쪽 미완 변경으로 도는 실패(test_qa_eval_rubric 1 · test_rubric_det_logic 5)는 이 변경과 무관하고 커밋에 넣지 않았다. 추적 테스트 + 이 세션 파일 기준 **858 passed · 7 skipped**, node 스모크 33.
+그 세션이 방금 넣은 `scripts/chk gate`(pre-commit) 가 전체 pytest 를 돌려서 남의 미완 변경에 막혔다. 게이트를 건너뛰지 않고 스테이징까지만 해 두었다 — 그쪽 변경이 초록이 되면 그대로 `git commit`.
+
+### 남은 것
+
+- 브리지 재기동(앞 절) — 그때 새 `.env` 가 실린다. 재기동 뒤 `/api/v1/questions` 한 번 눌러 `model: solar` 인지 본다.
+- 예비가 실제로 넘어가는 장면은 실 장애가 있어야 보인다. 벤치 지표 `fallbacks` 는 안 넣었다 — 필요해지면 `RecordingLLM` 에 한 줄.
+
 ## 2026-09-13 (저녁) — 개발 도구 `scripts/chk` — 커밋·시연·세션 시작의 손일을 명령으로 (Claude 세션, 사용자 요청 "자동화툴 전부 진행")
 
 프롬프트를 고치는 일은 `/improve-qa` 가 하지만 그 주변(커밋 전 검사 넷 · `?v=` · 브리지 예열 · 세션 브리핑)은 전부 사람 손이었다.
