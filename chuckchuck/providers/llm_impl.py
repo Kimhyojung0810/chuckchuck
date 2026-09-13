@@ -151,12 +151,21 @@ class MockLLM(LLMProvider):
         내용이 그럴듯할 필요는 없다. 후처리·불변식 경로가 도는지만 보면 된다.
         """
         ids = _ids_in_prompt(user) or ["n1"]
+        # 인용은 프롬프트에 실린 **실제 발화**에서 가져온다 — f11 이 발화에 없는 인용을 근거 없음으로 버리므로
+        # (2026-09-13, P4) 지어낸 문장을 넣으면 mock 경로에서도 전부 강등된다.
+        quote = "모의 근거 발화 인용"
+        tail = user.split("## 슬라이드별 발화", 1)[1] if "## 슬라이드별 발화" in user else ""
+        for line in tail.splitlines():
+            text = re.sub(r"^\s*(\[[^\]]*\]|S\d+[^:]*:|-)\s*", "", line).strip()
+            if text:
+                quote = " ".join(text.split()[:8])
+                break
 
         items = [
             {
                 "node_id": nid,
                 "verdict": "aligned",
-                "evidence": "모의 근거 발화 인용",
+                "evidence": quote,
                 "note": "모의 판정",
             }
             for nid in ids[:-1]
