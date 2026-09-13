@@ -881,7 +881,7 @@ function startDictationMic() {
           // 여기서 곧바로 녹음을 시작하지는 않는다 — onError 는 비동기라 사용자
           // 조작 권한이 이미 풀렸을 수 있고, 그러면 getUserMedia 가 막힌다.
           liveDictationDead = true;
-          micSay(`${escapeHtml(msg)} — 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 타이핑으로 답하셔도 됩니다`);
+          micSay(`${escapeHtml(msg)} — 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 타이핑으로 답해도 돼요`);
           setMicBtn('idle', !!(qa.live && qa.live.busy));
         },
       }),
@@ -913,7 +913,7 @@ async function startRecordingMic() {
   } catch (err) {
     liveMicPending = '';
     // 권한 거부·미지원. 삼키면 사용자는 버튼이 왜 안 먹는지 알 수 없다.
-    micSay(`마이크를 못 열었어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답하셔도 됩니다`);
+    micSay(`마이크를 못 열었어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답해도 돼요`);
     setMicBtn('idle');
     return;
   }
@@ -949,7 +949,7 @@ async function stopLiveMic() {
     if (text) fillLiveAnswer(text);
     else micSay('말소리를 못 알아들었어요 — 다시 녹음하거나 타이핑으로 답해 주세요');
   } catch (err) {
-    micSay(`받아쓰기에 실패했어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답하셔도 됩니다`);
+    micSay(`받아쓰기에 실패했어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답해도 돼요`);
   }
   liveMicPending = '';
   idle();
