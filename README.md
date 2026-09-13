@@ -174,6 +174,29 @@ DEMO_PORT=8801 ./demo/run_bridge_midm.sh
 DEMO_PORT=8801 python -m demo.bridge
 ```
 
+## 개발 도구 `scripts/chk`
+
+커밋·시연·세션 시작의 손일을 한 명령씩으로 모았다. 전부 표준 라이브러리, LLM 호출 없음.
+
+| 명령 | 언제 | 하는 일 |
+|---|---|---|
+| `scripts/chk gate` | 커밋 전 | pytest(기준선 이상) · 프론트 JS 를 고쳤으면 node 스모크 · css/js 를 고쳤으면 `?v=` 올렸는지 · diff 에 키 패턴. 하나라도 걸리면 exit 1 |
+| `scripts/chk bump` | css/js/리빌을 고친 뒤 | `index.html` 의 해당 `?v=` 와 `app.js` 의 리빌 `v=` 를 올린다 (이미 올렸으면 건너뜀) |
+| `scripts/chk doctor` | 새 머신 · 부스 컴퓨터 · 브리지가 이상할 때 | `.env` 키 유무(값은 안 보임) · torch/CUDA · LoRA 어댑터 경로 · midm python · ffmpeg · 포트 · 보관소 |
+| `scripts/chk warmup` | 시연 전 | `/api/v1/habits` 를 두 번 불러 모델 로드 시간·실제 지연·`provider` 가 `lora` 인지 |
+| `scripts/chk brief` | 세션 시작 | 마일스톤 D-day · 헌장 §0 · 끝나지 않은 할 일 · 두 장부 마지막 줄 · WORKLOG 맨 위 · git. `/continue` 스킬이 이걸 부른다 |
+| `scripts/chk ledger-chart` | 결과보고서(10/23) | 장부의 IMPROVED 줄을 이어 지표별 선 그래프(SVG)와 표(MD) → `exports/ledger_chart/` |
+| `scripts/chk install-hooks` | 클론 뒤 한 번 | `git commit` 마다 `gate --scope staged` 가 돌게 `core.hooksPath` 를 건다. 해제는 `--uninstall` |
+
+```bash
+scripts/chk install-hooks          # 한 번
+scripts/chk doctor && DEMO_PORT=8799 ./demo/run_bridge_midm.sh   # 이 머신에 midm conda 가 없으면 doctor 가 대신 쓸 python 을 알려 준다
+scripts/chk warmup                 # provider=lora 확인
+```
+
+Claude Code 세션에서는 `.claude/settings.json` 의 PreToolUse 훅이 `git commit` 을 부르기 전에 같은 gate 를 돌린다 (git 훅이 설치돼 있으면 그쪽만).
+훅 자체가 고장났을 때만 `CHK_SKIP_GATE=1`. 검사 로직은 `scripts/chk_lib/gate.py`, 테스트는 `tests/test_chk.py`.
+
 ## 개발 환경 (Claude Code · ECC)
 
 이 저장소는 Claude Code 플러그인 **ECC**를 쓴다. 설정은 `.claude/settings.json`에 커밋돼 있어서, 클론 후 Claude Code로 이 폴더를 열면 마켓플레이스 등록과 플러그인 활성화가 자동으로 잡힌다. 플러그인 본체는 저장소에 없으므로 각자 머신에 한 번 받아야 한다.

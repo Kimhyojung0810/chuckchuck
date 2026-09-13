@@ -60,3 +60,7 @@ fixtures/raw/stage_cache/
 # 녹음 받아쓰기는 발표자 음성 전문이라 로컬에만 둔다 (2026-08-08 지시).
 # 재사용은 fixtures/raw 에 그대로 있으면 되고, 저장소에 올릴 이유는 없다.
 fixtures/raw/*.transcript.json
+
+# 벤치마크 결과 원본 — AUTONOMOUS_LOOP §5 "무시됨(로컬)". 장부(docs/*_LEDGER.md)가 커밋되는 기록이다 (2026-09-13)
+exports/qa_eval/
+exports/graph_eval/

@@ -9,6 +9,29 @@
 
 # 작업 일지
 
+## 2026-09-13 (저녁) — 개발 도구 `scripts/chk` — 커밋·시연·세션 시작의 손일을 명령으로 (Claude 세션, 사용자 요청 "자동화툴 전부 진행")
+
+프롬프트를 고치는 일은 `/improve-qa` 가 하지만 그 주변(커밋 전 검사 넷 · `?v=` · 브리지 예열 · 세션 브리핑)은 전부 사람 손이었다.
+그래서 낮에 테스트 실패가 `| tail` 에 가려진 채 두 번 커밋됐다. 이 도구는 그 손일을 명령 하나씩으로 만든 것이다. LLM 호출 없음.
+
+| 명령 | 무엇 | 왜 |
+|---|---|---|
+| `chk gate` | pytest(기준선 830) · JS 바뀌면 node 스모크 · css/js 바뀌면 `?v=` 올렸는지 · diff 추가 줄의 키 패턴(up_·awf_·flp_·sk-·AKIA·Bearer) · `--allow` 범위. 하나라도 걸리면 exit 1 | CLAUDE.md §3-5 의 넷을 사람이 순서대로 기억하지 않게. `regression-guard` 에이전트도 이제 이걸 부른다 (검사 로직 한 곳) |
+| `chk bump` | 바뀐 자산의 `index.html ?v=` 와 `app.js` 리빌 `v=` 를 올린다. 이미 올렸으면 건너뜀 | §2 「20분 날리는 함정」. 리빌은 index.html 이 아니라 app.js 에 있다는 걸 코드가 기억한다 |
+| `chk doctor` | `.env` 키 유무(값 안 보임) · mock 여부 · torch/CUDA · LoRA 어댑터 · midm python · ffmpeg · soffice · 포트 · 보관소 · 디스크 | 이 머신(yehschuck, A100)은 문서가 가정한 `/home/ubuntu` 서버가 아니다. **실측: `.env` 의 LoRA 경로가 예시값(`/path/to/lora/adapter`) 그대로라 8799 브리지가 `provider=heuristic` 으로 돌고 있었다.** midm conda 는 없지만 `.venv` 에 CUDA torch 가 있어 `MIDM_PY=.venv/bin/python` 으로 띄우면 된다 — doctor 가 그 명령을 찍어 준다 |
+| `chk warmup` | `/api/v1/habits` 두 번 → 모델 로드 시간·실제 지연·`provider` | §2 의 curl 을 도구로. 위 heuristic 을 이걸로 잡았다 |
+| `chk brief` | 마일스톤 D-day · 헌장 §0 · 끝나지 않은 할 일 · 두 장부 마지막 5줄 · WORKLOG 맨 위 · 「다음:」 · git | ROADMAP §2 "매 세션 읽어라" 네 문서를 한 화면에. `/continue` 스킬이 부른다 |
+| `chk ledger-chart` | 장부의 IMPROVED 줄을 이어 지표별 선 그래프(SVG, 지표마다 패널 하나) + 표(MD) | AUTONOMOUS_LOOP §5 결선 그래프의 원자료. 지금은 QA 1점·그래프 1점 |
+| `chk install-hooks` | `core.hooksPath=scripts/githooks` → `git commit` 마다 `gate --scope staged` | Claude Code 는 `.claude/settings.json` PreToolUse 훅이 `git commit` 전에 worktree 범위로 같은 검사 (git 훅 있으면 그쪽만) |
+
+- 코드 `scripts/chk` + `scripts/chk_lib/*.py`(모듈당 200줄 아래) · 테스트 `tests/test_chk.py` 10개(순수 함수만) · pytest **840 passed · 7 skipped**.
+- 검증: gate 음성 케이스 셋을 실제로 겪었다 — 추적 안 된 파일의 키 → 막음 · css 만 고침 → 막음 · `bump` 뒤 → 통과. 그리고 **gate 가 제 테스트 파일의 가짜 키를 잡아서** 픽스처를 실행 시점 조립으로 바꿨다.
+- `.gitignore` 에 `exports/qa_eval/`·`exports/graph_eval/` — AUTONOMOUS_LOOP §5 가 "무시됨(로컬)" 이라 적었는데 실제로는 안 무시돼 `git status` 에 35개가 떠 있었다.
+- CLAUDE.md §3-5·§4 기준선 591 → 830. `regression-guard.md` 검사 1~5 를 `chk gate --json` 으로.
+- 안 한 것: `.env` 의 LoRA 경로 수정(사용자 환경값) · 다른 세션의 미커밋 변경(`docs/plan/audience-evidence-…`, 스크린샷)은 그대로 둠.
+
+**다음:** `.env` 의 `CHUCKCHUCK_LORA_PATH` 를 이 머신의 어댑터 경로로 바꾸고 브리지를 다시 띄운 뒤 `scripts/chk warmup` 으로 `provider=lora` 를 확인한다. 팀원은 클론 뒤 `scripts/chk install-hooks` 한 번.
+
 ## 2026-09-13 (밤) — Upstage 키 투입 뒤 Q&A 계통 점검 + solar-pro3 vs A.X-K1 A/B (Claude 세션, 사용자 요청)
 
 할 일 0-a(Upstage 키를 개발 서버 `.env` 에)가 끝나서, 09-10 부터 「Upstage 키 미발급」으로 대기하던 하네스 6단계를 돌렸다.

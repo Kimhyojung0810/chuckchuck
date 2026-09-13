@@ -9,13 +9,22 @@ model: inherit
 
 ## 검사 (전부 저장소 루트에서)
 
-1. **회귀** — `.venv/bin/python -m pytest tests/ -q -p no:cacheprovider 2>&1 | tail -3`
-   기준선은 CLAUDE.md §4 의 값 이상이어야 한다. `failed` 나 `error` 가 하나라도 있으면 실패.
+검사 1~5 는 `scripts/chk gate` 한 명령이 한다. 규칙은 `scripts/chk_lib/gate.py` 에 있고 `tests/test_chk.py` 가 지킨다 —
+여기 적힌 것과 코드가 어긋나면 코드가 맞다.
+
+```bash
+scripts/chk gate --scope worktree --json                      # 허용 목록 없이
+scripts/chk gate --scope worktree --json --allow chuckchuck/f08_questions.py chuckchuck/f09_judge.py   # 루프의 범위 검사
+```
+
+JSON 의 `ok` 와 `checks[]`(name · status · detail · lines) 를 그대로 옮긴다. 검사 항목:
+
+1. **회귀** — pytest. `failed`/`error` 가 하나라도 있거나 passed 가 기준선(`chk_lib/common.py PYTEST_MIN`) 아래면 실패.
 2. **프론트 스모크** — `demo/YEHS_demo/js/*.js` 가 diff 에 있을 때만 `node tests/js/qa_live.smoke.mjs`.
-3. **캐시 버전** — `css/*.css` 나 `js/*.js` 가 diff 에 있으면 `demo/YEHS_demo/index.html` 의 `?v=` 도 diff 에 있어야 한다 (CLAUDE.md §2 함정).
-4. **비밀키** — `git diff HEAD | grep -nE 'sk-[A-Za-z0-9]{8,}|api[_-]?key\s*[=:]\s*["'"'"'][^"'"'"']{8,}|Bearer [A-Za-z0-9._-]{20,}'` 에 걸리면 실패. `.env` 가 staged 면 실패.
-5. **범위** — 허용된 파일 목록을 받았으면 `git diff --name-only HEAD -- chuckchuck tests fixtures demo .env` 가 그 안에 있어야 한다.
-   밖의 파일이 바뀌었으면 실패하고 목록을 적는다. **코드 폴더 밖(`examples/`·`docs/`·`scripts/`·`.claude/`)의 변경은 범위 검사에서 뺀다** —
+3. **캐시 버전** — css/js 가 바뀌면 `index.html` 의 그 자산 `?v=` 가 HEAD 와 달라야 한다. `f11_reveal.html` 이 바뀌면 `app.js` 의 리빌 `v=`.
+4. **비밀키** — diff 의 추가 줄에서 키 앞머리(up_·awf_·flp_·sk-·AKIA)·Bearer·`*_KEY=긴값`. `.env` 가 대상에 있으면 실패.
+5. **범위** — `--allow` 를 받았으면 `chuckchuck/ tests/ fixtures/ demo/ .env` 아래의 변경이 그 안에 있어야 한다.
+   **코드 폴더 밖(`examples/`·`docs/`·`scripts/`·`.claude/`)의 변경은 범위 검사에서 뺀다** —
    루프가 도는 동안 사람이 문서·측정 도구를 고칠 수 있어야 한다 (2026-09-12: 그 때문에 루프 중 작업이 막혔다). 단 `tests/` 는 검사한다 — 튜너가 테스트를 고쳐 통과시키는 걸 막는 게 이 검사의 이유다.
 
 ## 돌려주는 것
