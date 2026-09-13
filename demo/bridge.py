@@ -422,6 +422,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_parse(raw)
             if parsed.path == "/api/v1/suggest-context":
                 return self._handle_suggest_context(raw)
+            if parsed.path == "/api/v1/deck-gaps":
+                return self._handle_deck_gaps(raw)
             if parsed.path == "/api/v1/concepts":
                 return self._handle_concepts(raw)
             if parsed.path == "/api/v1/transcribe":
@@ -635,6 +637,21 @@ class Handler(SimpleHTTPRequestHandler):
         if not body.get("slide_doc"):
             return self._json(400, {"error": "slide_doc 이 필요해요"})
         return self._json(200, suggest_context(body["slide_doc"]).to_dict())
+
+    def _handle_deck_gaps(self, raw: bytes):
+        """[F-23 · 내용 제안] 이 청중이 기대하는데 자료에 없는 것. 결정론·호출 0. 상황이 없으면 F-23 추정값을 쓴다."""
+        from chuckchuck.f23_context import deck_gaps, suggest_context
+
+        body = json.loads(raw or b"{}")
+        if not body.get("slide_doc"):
+            return self._json(400, {"error": "slide_doc 이 필요해요"})
+        situation = str(body.get("situation") or "")
+        if not situation:
+            situation = suggest_context(body["slide_doc"]).situation
+        if not situation:
+            return self._json(200, {"situation": "", "items": [], "summary": {},
+                                    "message": "발표 상황을 골라 주면 청중이 기대하는 항목을 맞춰 볼 수 있어요"})
+        return self._json(200, deck_gaps(body["slide_doc"], situation))
 
     def _handle_concepts(self, raw: bytes):
         from chuckchuck.contracts import Transcript

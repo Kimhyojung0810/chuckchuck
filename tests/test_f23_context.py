@@ -62,3 +62,32 @@ def test_bridge_route_returns_suggestion_without_llm():
     assert code == 200 and payload["situation"] == "work_report" and payload["why"]
     h._handle_suggest_context(b"{}")
     assert h.sent[-1][0] == 400
+
+
+def test_deck_gaps_marks_missing_expectations_for_work_report():
+    from chuckchuck.f23_context import deck_gaps
+    doc = _doc(("3분기 실적 보고", "목표 대비 진행률 80%"),
+               ("이슈", "지연 원인은 인력 부족"),
+               ("요청 사항", "예산 승인 필요"))
+    g = deck_gaps(doc, "work_report")
+    by = {i["key"]: i for i in g["items"]}
+    assert by["status"]["status"] == "present" and 1 in by["status"]["slide_nos"]
+    assert by["ask"]["status"] == "present"
+    assert by["risk"]["status"] == "missing" and by["risk"]["slide_nos"] == []
+    assert by["next"]["status"] in ("weak", "missing")          # '계획·일정·기한' 낱말이 없다
+    assert g["summary"]["missing"] >= 1 and g["situation_label"].startswith("업무 보고")
+
+
+def test_deck_gaps_unknown_situation_is_empty():
+    from chuckchuck.f23_context import deck_gaps
+    assert deck_gaps(_doc(("a", "b")), "")["items"] == []
+
+
+def test_bridge_deck_gaps_falls_back_to_suggested_situation():
+    h = FakeHandler()
+    doc = _doc(("분기 실적 보고", "현황과 진행률"), ("요청 사항", "예산 결정 필요"))
+    h._handle_deck_gaps(json.dumps({"slide_doc": doc.to_dict()}).encode())
+    code, out = h.sent[-1]
+    assert code == 200 and out["situation"] == "work_report" and any(i["status"] == "missing" for i in out["items"])
+    h._handle_deck_gaps(json.dumps({"slide_doc": _doc(("발표", "안녕하세요")).to_dict()}).encode())
+    assert h.sent[-1][1]["items"] == [] and "골라" in h.sent[-1][1]["message"]

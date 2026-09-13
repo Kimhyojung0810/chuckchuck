@@ -104,3 +104,75 @@ _SITUATION_RE = re.compile(r"^[a-z_]+$")
 
 def is_situation_key(text: str) -> bool:
     return bool(_SITUATION_RE.match(text or "")) and text in SIGNALS
+
+
+# ---------------------------------------------------------------------------
+# [F-23 · 내용 제안] 이 청중이 기대하는데 자료에 없는 것 — 결정론 1단 (docs/plan/deck-tailored-suggestions.plan.md §2)
+# ---------------------------------------------------------------------------
+
+#: 상황별 「청중이 기대하는 것」. (키, 화면 라벨, 신호 낱말). 제목에 있으면 강한 신호, 본문 두 곳 이상이면 있음, 한 곳이면 약함.
+EXPECTATIONS: dict[str, tuple[tuple[str, str, tuple[str, ...]], ...]] = {
+    "school_project": (
+        ("problem", "문제 정의", ("문제", "배경", "동기", "목적", "필요성")),
+        ("method", "방법", ("방법", "방법론", "설계", "절차", "실험")),
+        ("evidence", "근거·출처", ("근거", "출처", "참고문헌", "논문", "데이터", "연구")),
+        ("result", "결과 수치", ("결과", "수치", "정확도", "%", "표", "그래프")),
+        ("limit", "한계", ("한계", "제한", "향후", "개선점", "limitation")),
+        ("prior", "선행 연구 대비 차이", ("선행", "기존", "대비", "차이", "비교")),
+    ),
+    "product_launch": (
+        ("who", "누구의 어떤 문제", ("고객", "사용자", "문제", "불편", "페인")),
+        ("diff", "차별점·비교", ("차별", "비교", "경쟁", "대비", "유일")),
+        ("price", "가격·조건", ("가격", "요금", "무료", "조건", "플랜")),
+        ("cta", "다음 행동", ("신청", "구매", "체험", "예약", "문의", "다운로드")),
+        ("caveat", "안 되는 경우", ("제한", "지원하지", "안 되", "주의", "예외")),
+    ),
+    "work_report": (
+        ("status", "목표 대비 현황(수치)", ("현황", "진행률", "목표", "달성", "%", "실적")),
+        ("issue", "이슈와 원인", ("이슈", "문제", "원인", "지연", "장애")),
+        ("next", "다음 행동과 기한", ("계획", "다음", "일정", "기한", "액션")),
+        ("ask", "필요한 자원·결정 요청", ("요청", "결정", "승인", "필요", "예산", "인력")),
+        ("risk", "리스크", ("리스크", "위험", "대비", "우려")),
+    ),
+    "casual_peer": (
+        ("what", "무엇을 만들었나", ("만들", "구현", "개발", "결과물", "데모")),
+        ("how", "어떻게(구조)", ("구조", "아키텍처", "흐름", "설계", "코드")),
+        ("lesson", "시행착오", ("시행착오", "삽질", "실패", "배운", "교훈")),
+        ("repro", "재현 방법", ("재현", "설치", "실행", "레포", "링크", "명령")),
+        ("together", "같이 할 것", ("같이", "함께", "다음에", "제안", "협업")),
+    ),
+}
+#: '있음' 으로 보는 본문 신호 수 (제목 신호는 하나면 있음).
+PRESENT_MIN_BODY_HITS = 2
+
+
+def deck_gaps(doc: SlideDoc | dict, situation: str) -> dict:
+    """SlideDoc + 상황 → 기대 항목별 있음/약함/없음과 장 번호. 결정론, 호출 0.
+
+    LLM 2단(항목이 실제로 그 장에서 다뤄졌는지)은 표본이 생기면 붙인다. 지금은 낱말 신호라 "있음" 이 과대평가될 수 있으므로
+    화면(Festa 뒤)은 '없음' 을 먼저 보여 주고 '있음' 은 근거 장을 같이 낸다."""
+    if isinstance(doc, dict):
+        doc = SlideDoc.from_dict(doc)
+    expects = EXPECTATIONS.get(situation or "", ())
+    items = []
+    for key, label, words in expects:
+        title_hits: list[tuple[int, str]] = []
+        body_hits: list[tuple[int, str]] = []
+        for slide in doc.slides:
+            for w in _hits(slide.title or "", words):
+                title_hits.append((slide.slide_no, w))
+            for w in _hits(slide.raw_text or "", words):
+                body_hits.append((slide.slide_no, w))
+        hits = title_hits + body_hits
+        if title_hits or len({n for n, _ in body_hits}) >= PRESENT_MIN_BODY_HITS:
+            status = "present"
+        elif body_hits:
+            status = "weak"
+        else:
+            status = "missing"
+        nos = sorted({n for n, _ in hits})
+        why = " · ".join(f"{n}장 '{w}'" for n, w in hits[:3]) if hits else "자료에 이 항목의 낱말이 없어요"
+        items.append({"key": key, "label": label, "status": status, "slide_nos": nos, "why": why})
+    counts = {s: sum(1 for i in items if i["status"] == s) for s in ("present", "weak", "missing")}
+    return {"situation": situation or "", "situation_label": LABELS.get(situation or "", ""),
+            "items": items, "summary": counts}

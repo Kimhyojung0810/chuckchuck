@@ -1274,6 +1274,21 @@ id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬,
 - 화면 규칙: `#/new` 폼을 **미리 채우기만** 한다. 사용자가 고른 값이 언제나 이긴다. 자동 확정·바텀시트 없음.
 - 측정: 동의 세션의 manifest context(사용자 최종값) vs 이 추정값의 일치율 (로드맵 A5).
 
+## 10-D. F-23 내용 제안 — `deck_gaps` (결정론 1단)
+
+`POST /api/v1/deck-gaps {slide_doc, situation?}` → 상황별 「청중이 기대하는 것」 항목마다 `present | weak | missing` 과 근거 장.
+상황이 비면 F-23 추정값을 쓰고, 그래도 없으면 빈 목록 + 안내 문장.
+
+```json
+{"situation": "work_report", "situation_label": "업무 보고 (상사 대상)",
+ "items": [{"key": "status", "label": "목표 대비 현황(수치)", "status": "present", "slide_nos": [2], "why": "2장 '현황' · 2장 '진행률'"},
+           {"key": "risk", "label": "리스크", "status": "missing", "slide_nos": [], "why": "자료에 이 항목의 낱말이 없어요"}],
+ "summary": {"present": 3, "weak": 1, "missing": 1}}
+```
+
+- 낱말 신호라 `present` 는 과대평가될 수 있다. 화면(Festa 뒤)은 **missing 을 먼저**, present 는 근거 장을 같이 낸다.
+- 계약 타입은 아직 dict — LLM 2단을 붙이며 `DeckGapDoc` 으로 올린다 (로드맵 B6).
+
 ## 11. 구현 파일
 
 | 파일 | 역할 |
