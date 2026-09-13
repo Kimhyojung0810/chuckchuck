@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import re
 from typing import Any
 
@@ -471,6 +472,26 @@ class OpenAICompatLLM(LLMProvider):
         if name:
             self.name = name
 
+    #: 일시 오류(읽기 타임아웃 · 연결 끊김 · 429 · 5xx)는 한 번만 물러났다 다시 부른다.
+    #: 2026-09-12 실측: A.X 게이트웨이가 180초 읽기 타임아웃과 500 을 냈고, 그때 F-08 은 그대로 죽어 사용자는 오류 화면을 봤다.
+    #: 두 번째도 실패하면 그대로 올린다 — 무한 재시도로 과금을 태우지 않는다 (f08·f11 의 JSON 재시도와 같은 규율).
+    RETRY_ONCE_STATUS = frozenset({429, 500, 502, 503, 504})
+    RETRY_BACKOFF_SEC = 2.0
+
+    def _post_with_retry(self, url: str, headers: dict, payload: dict):
+        try:
+            res = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            time.sleep(self.RETRY_BACKOFF_SEC)
+            try:
+                return requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+            except (requests.Timeout, requests.ConnectionError) as e2:
+                raise ConceptError(f"[{self.name}] LLM 연결 실패 (2회): {type(e2).__name__}: {str(e2)[:200]}") from e2
+        if res.status_code in self.RETRY_ONCE_STATUS:
+            time.sleep(self.RETRY_BACKOFF_SEC)
+            return requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+        return res
+
     def complete(
         self,
         *,
@@ -504,7 +525,7 @@ class OpenAICompatLLM(LLMProvider):
             # 실행해 보기 전까지 모르는 지뢰를 밟는다 (F-09 「모르겠어요」가 그랬다).
             if "json" not in f"{system}\n{user}".lower():
                 payload["messages"][0]["content"] += "\n\n출력은 JSON 객체 하나로만 한다."
-        res = requests.post(url, headers=headers, json=payload, timeout=self.timeout)
+        res = self._post_with_retry(url, headers, payload)
         if res.status_code != 200:
             raise ConceptError(
                 f"[{self.name}] LLM 오류 {res.status_code}: {res.text[:300]}"
