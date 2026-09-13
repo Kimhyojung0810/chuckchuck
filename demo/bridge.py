@@ -1077,6 +1077,13 @@ class Handler(SimpleHTTPRequestHandler):
 
             msg = str(e) or e.__class__.__name__
             sys.stderr.write(f"[bridge] F-05 transcribe failed: {msg}\n")
+            # "인식 결과가 비어 있습니다" 는 장애가 아니라 말소리가 없었던 것이다 (2026-09-13 실측: 톤만 든 WAV).
+            # 벤더 문구를 그대로 내보내면 사용자는 STT 가 고장 난 줄 안다 — 무엇을 하면 되는지로 바꿔 말한다.
+            if isinstance(e, STTError) and "인식 결과가 비어" in msg:
+                return self._json(422, {
+                    "error": "no_speech",
+                    "message": "말소리를 못 알아들었어요. 마이크에 조금 더 가까이 다시 말하거나 타이핑으로 답해 주세요.",
+                })
             code = 502 if isinstance(e, STTError) else 500
             return self._json(
                 code,

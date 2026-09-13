@@ -92,3 +92,31 @@ def test_이름이_비면_기본값으로_떨어진다() -> None:
 def test_다른_자료는_다른_캐시_이름을_갖는다() -> None:
     """이름이 겹치면 엉뚱한 발표자료가 붙어 정합 판정이 통째로 거짓말이 된다."""
     assert _cache_stem("발표A.pdf") != _cache_stem("발표B.pdf")
+
+
+def test_빈_인식_결과는_장애가_아니라_말소리_없음으로_알린다(monkeypatch) -> None:
+    """2026-09-13: 톤만 든 WAV 를 올리면 벤더가 '인식 결과가 비어 있습니다' 를 내고 화면엔 STT 장애처럼 떴다."""
+    import io, json
+    from email.message import Message
+    import demo.bridge as bridge
+    from chuckchuck.contracts import STTError
+
+    class H(bridge.Handler):
+        def __init__(self):  # noqa: D107
+            self.sent = []; self.headers = Message(); self.client_address = ("127.0.0.1", 1); self.wfile = io.BytesIO()
+        def _json(self, code, payload): self.sent.append((code, payload))
+        def send_response(self, *a, **k): pass
+        def send_header(self, *a, **k): pass
+        def end_headers(self): pass
+
+    monkeypatch.setattr(bridge, "_mock", lambda: False)
+    monkeypatch.setattr(bridge, "transcribe", lambda *a, **k: (_ for _ in ()).throw(STTError("[skt-ax] 인식 결과가 비어 있습니다.")))
+    h = H()
+    h._handle_transcribe(json.dumps({"marks": [], "audio_base64": "AAAA", "ext": "webm"}).encode())
+    code, out = h.sent[-1]
+    assert code == 422 and out["error"] == "no_speech"
+    assert "타이핑" in out["message"] and "실패" not in out["message"]
+
+    monkeypatch.setattr(bridge, "transcribe", lambda *a, **k: (_ for _ in ()).throw(STTError("A.X STT upload 응답을 읽지 못했어요")))
+    h._handle_transcribe(json.dumps({"marks": [], "audio_base64": "AAAA", "ext": "webm"}).encode())
+    assert h.sent[-1][0] == 502            # 진짜 장애는 그대로 502
