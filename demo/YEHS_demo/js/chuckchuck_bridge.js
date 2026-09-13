@@ -949,7 +949,31 @@ export async function transcribeAnswer(blob) {
   return String(t.full_text || '').trim();
 }
 
+/**
+ * [F-23] 자료만 보고 발표 상황을 추정한다 — "팀에 보고하는 발표 같아요" 의 재료.
+ * 결정론·호출 0 이라 실패해도 조용히 null 을 돌려준다. 화면은 이 값으로 폼을 **미리 채우기만** 하고,
+ * 사용자가 고른 값이 언제나 이긴다 (다크패턴 금지 — 자동 확정·바텀시트 없음).
+ */
+export async function suggestContext(slideDoc) {
+  if (!slideDoc || !Array.isArray(slideDoc.slides)) return null;
+  try {
+    const res = await fetchWithTimeout(apiBase() + '/api/v1/suggest-context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slide_doc: slideDoc }),
+    }, 8000, '상황 추정');
+    const s = await readJson(res, '상황 추정');
+    if (!res.ok || s.error || !s.situation) return null;
+    return { situation: String(s.situation), audience: String(s.audience || ''),
+             confidence: Number(s.confidence || 0), why: String(s.why || '') };
+  } catch (err) {
+    console.info('[chuckchuck] suggest-context 건너뜀', err && err.message);
+    return null;
+  }
+}
+
 window.ChuckchuckBridge = {
+  suggestContext,
   attachRehearsalRuntime,
   deleteSession,
   sendFeedback,

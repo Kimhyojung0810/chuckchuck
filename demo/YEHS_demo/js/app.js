@@ -879,7 +879,8 @@ function resetNf() {
          showcaseDemo: SHOWCASE_DEMO,
          marks: null, uploadedTake: null, pipelineOut: null, pipelineError: null,
          pipelinePhase: null, pipelineDetail: null, pipelineStartedAt: null,
-         backstage: [], _pipelineTickStarted: false };
+         backstage: [], _pipelineTickStarted: false,
+         suggest: null, occTouched: false, occSuggested: false };
   nfSlideDoc = null;
   ccRuntime = null;
   ccLastTake = null;
@@ -2058,6 +2059,16 @@ async function startParse({ file = null, fixture = false } = {}) {
     // 서버가 발급한 이 발표의 열쇠. 없으면(mock·옛 브리지) 세션 없이 예전처럼 돈다.
     nf.sessionId = doc.session_id || null;
     applySlideDoc(doc, { keepDemoImages: nf.useSample });
+    // [F-23] 자료만 보고 상황을 추정해 둔다 — 2단계 폼이 아직 비어 있을 때만 미리 채운다.
+    // 기다리지 않는다(결정론이라 즉시지만, 실패해도 업로드 흐름을 막지 않는다).
+    nf.suggest = null; nf.occTouched = false;
+    if (typeof b.suggestContext === 'function') {
+      b.suggestContext(doc).then((s) => {
+        if (myGen !== parseGen) return;
+        nf.suggest = s;
+        saveSession('new-flow', nf);
+      });
+    }
     setUploadedPdf(null); // 이전 자료 잔상 제거 (썸네일 캐시까지)
     if (file && /\.pdf$/i.test(file.name || '')) {
       try { await loadUploadedPdf(file); }
@@ -2173,6 +2184,25 @@ const OCC_LABEL = {
 };
 /** 모르는 값이면 온 그대로 낸다 — 빈칸보다 낫고, 새 상황이 생겨도 화면은 산다 */
 const occLabel = v => OCC_LABEL[String(v || '').trim()] || String(v || '');
+/** F-23 이 돌려주는 상황 key → 계약 문자열 (rubric_v3.SITUATIONS 와 같은 뜻). 화면엔 occLabel() 을 거친 말이 나간다. */
+const OCC_BY_KEY = {
+  school_project: '학교 프로젝트 (교수 대상)',
+  product_launch: '신제품 설명 (대중 대상)',
+  work_report: '업무 보고 (상사 대상)',
+  casual_peer: '동료 간 캐주얼 PR',
+};
+/**
+ * 추정이 있고, 사용자가 아직 아무것도 안 골랐으면 미리 채운다. 한 번 손댄 뒤에는 다시 채우지 않는다.
+ * 돌려주는 값은 안내 문장 (없으면 ''). "골라 뒀어요" 라고 말하고 바꾸는 길을 같이 준다 — 자동 확정이 아니다.
+ */
+function applyOccSuggestion() {
+  const s = nf.suggest;
+  if (!s || !s.situation || !OCC_BY_KEY[s.situation]) return '';
+  if (!nf.occ && !nf.occTouched) { nf.occ = OCC_BY_KEY[s.situation]; nf.occSuggested = true; }
+  if (nf.occ !== OCC_BY_KEY[s.situation]) return '';
+  const why = s.why ? ` · ${s.why}` : '';
+  return `자료를 보니 ‘${occLabel(OCC_BY_KEY[s.situation])}’ 같아서 골라 뒀어요${why}. 아니면 다른 걸 눌러 주세요.`;
+}
 
 function nfStep2() {
   /* 채점표 v3 의 상황 4열 그대로다. 라벨을 그대로 보내면 서버(rubric_v3.resolve_situation)가
@@ -2182,6 +2212,7 @@ function nfStep2() {
      「교수 대상」·「상사 대상」은 사람이 쓰는 말이 아니다 — 누구 앞에서
      무엇을 하는지 한 문장으로 말한다 (해요체·능동형, CLAUDE.md §3-1) */
   const occs = Object.entries(OCC_LABEL);
+  const suggestNote = applyOccSuggestion();
   const times = [3, 5, 10, 15, 20, 30];
   const titles = activeTitles();
   const perSlide = Math.round(nf.min * 60 / titles.length);
@@ -2194,6 +2225,7 @@ function nfStep2() {
         <div class="chips" id="occ">
           ${occs.map(([val, label]) => `<button class="${nf.occ === val ? 'on' : ''}" data-occ="${val}">${occIcon(val)}<span>${label}</span></button>`).join('')}
         </div>
+        ${suggestNote ? `<p class="note nf-suggest" id="occSuggest">${escapeHtml(suggestNote)}</p>` : ''}
       </div>
       <div class="field">
         <label>조금 더 설명해주면 좋아요</label>
@@ -2221,6 +2253,8 @@ function nfStep2() {
     // 넣는 순간 값이 오염되고, rubric_v3.py 는 이 한국어 문자열로 상황을
     // 매핑하므로(school_project 등) 조용히 기본 가중치로 떨어진다.
     nf.occ = b.dataset.occ || b.textContent.trim();
+    nf.occTouched = true;                       // 사용자가 골랐다 — 추정은 이제 물러난다
+    const note = $('#occSuggest'); if (note) note.remove();
     $$('#occ button').forEach(x => x.classList.toggle('on', x === b));
     springPick(b);
     saveSession('new-flow', nf);
