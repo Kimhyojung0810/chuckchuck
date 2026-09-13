@@ -23,8 +23,8 @@
 | # | 질문 | 오늘의 사례 | 확인 |
 |---|---|---|---|
 | 0-1 | **기준선이 유효한가?** 질문이 전부 폴백(템플릿)은 아닌가, 노드가 0은 아닌가 | 루프 1 의 세 판정이 전부 폴백 기준선과 비교됐다 → 무효 | `VERDICT: INVALID` 가 찍히는지. `exports/qa_eval/*.raw.json` 이 생겼는지 |
-| 0-2 | **같은 조건으로 두 번 재면 같은 값이 나오나?** | 같은 코드로 그래프 3회: 노드 7/9/11. 같은 질문 3개에 rubric 4.69 vs 3.96 | `graph_eval --rebuild --runs 3` · `qa_eval --rubric-runs 3` 의 `per_run` 을 본다 |
-| 0-3 | 잡음 폭이 실측에서 온 값인가, 짐작인가? | rubric 폭 0.3 은 짐작이었고 질문 3개에선 1점 차가 0.33 이라 전부 REGRESSED | `qa_eval_compare.PRIMARY` · `graph_eval.PRIMARY` 주석의 실측 근거 |
+| 0-2 | **같은 조건으로 두 번 재면 같은 값이 나오나?** | 같은 코드로 그래프 3회: 노드 7/9/11. 같은 질문 3개에 rubric 4.69 vs 3.96. **09-13 Q&A 3회(픽스처 1·질문 2): Solar 특이도 3.33~4.33 · 인용률 0.42~0.62, A.X 인용률 0.43~0.76 · rubric 종합 3.32~4.58** | `graph_eval --rebuild --runs 3` · `qa_eval --rubric-runs 3` 의 `per_run` · 같은 tag 접두어로 3회 잰 뒤 `examples/qa_eval_noise.py --glob '*_cal*-solarj-*'` |
+| 0-3 | 잡음 폭이 실측에서 온 값인가, 짐작인가? | rubric 폭 0.3 은 짐작이었고 질문 3개에선 1점 차가 0.33 이라 전부 REGRESSED. **09-13: 특이도 ±0.5·인용률 ±0.05 도 짐작이었다 — 실측은 1.0·0.2. 장부의 델타 대부분(유일한 IMPROVED 포함)이 이 폭 안이다** | `qa_eval_compare.PRIMARY` · `graph_eval.PRIMARY` 주석의 실측 근거 · `exports/qa_eval/reports/noise_<날짜>.md` |
 | 0-4 | 변형이 건드린 단계만 다시 돌렸나? | F-11 가설(G1)을 재면서 F-06/07 까지 다시 만들어 노드 7→10 — 정합 지표가 그 잡음을 탔다 | `graph_bench.sh --stage align` |
 | 0-5 | 비교한 두 파일이 정말 "전·후" 인가? 같은 tag 로 덮어쓰지 않았나 | `--tag` 만 주고 `--rebuild` 없이 돌려 저장 그래프끼리 비교했다 | `--compare-only` 로 파일명(시각)을 눈으로 확인 |
 

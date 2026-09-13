@@ -137,7 +137,8 @@ def test_aggregate_means_numbers_sums_ratios_drops_lists(qa_eval):
 
 def test_aggregate_output_is_readable_by_compare(qa_eval, compare):
     before = qa_eval.aggregate_summaries([_summary(4.0, 0.6, "3/3"), _summary(4.0, 0.6, "3/3")])
-    after = qa_eval.aggregate_summaries([_summary(4.0, 0.6, "3/3"), _summary(4.0, 0.6, "1/3")])
+    # 골자 통과 잡음 폭은 실측 ±0.5 (09-13) — 6/6 → 2/6 (0.67 하락) 이어야 폭 밖이다
+    after = qa_eval.aggregate_summaries([_summary(4.0, 0.6, "1/3"), _summary(4.0, 0.6, "1/3")])
     r = compare.compare(before, after)
     assert r["verdict"] == "REGRESSED"
     assert next(x for x in r["rows"] if x["key"] == "judge.gist_passed")["state"] == "worse"

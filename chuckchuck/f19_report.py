@@ -147,12 +147,25 @@ def _parse_json(text: str) -> dict:
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
     try:
-        return json.loads(text)
+        data = json.loads(text, strict=False)
     except json.JSONDecodeError:
         m = re.search(r"\{.*\}", text, re.DOTALL)
         if not m:
             raise
-        return json.loads(m.group(0))
+        data = json.loads(m.group(0), strict=False)
+    if not isinstance(data, dict):
+        # 리스트·숫자·문자열이 오면 예전엔 try 밖에서 AttributeError 로 500 이 났다 (2026-09-13 감사)
+        raise ValueError(f"리포트 JSON 최상위가 객체가 아닙니다: {type(data).__name__}")
+    return data
+
+
+def _as_list(v) -> list[str]:
+    """LLM 이 목록 자리에 문자열 하나를 주면 글자 단위로 쪼개지 않고 한 항목으로 받는다."""
+    if v is None:
+        return []
+    if isinstance(v, str):
+        return [v] if v.strip() else []
+    return [str(x) for x in v]
 
 
 def compose_report(
@@ -202,13 +215,19 @@ def compose_report(
     # 점수는 채점표가 진실이다 — 모듈 원칙("숫자는 다시 짐작하지 않습니다")대로
     # LLM 이 준 score/grade 는 무시한다. LLM 값을 받으면 같은 수치 입력인데
     # 실행마다 점수가 흔들리고, "85점" 같은 문자열이 오면 int() 가 터진다.
+    has_body = any(_as_list(data.get(k)) for k in ("strengths", "weaknesses", "actions"))
+    if not str(data.get("one_liner") or "").strip() and not has_body:
+        # 파싱은 됐지만 알맹이가 없다({} 등) — 빈 리포트를 내보내느니 숫자로 조립한 폴백을 준다
+        return _fallback_report(
+            pace, habits, model=f"{getattr(engine, 'name', 'llm')}-fallback", score=score
+        )
     return ReportDoc(
         one_liner=str(data.get("one_liner") or ""),
         score=score,
         grade="",
-        strengths=[str(x) for x in data.get("strengths") or []][:5],
-        weaknesses=[str(x) for x in data.get("weaknesses") or []][:5],
-        actions=[str(x) for x in data.get("actions") or []][:5],
+        strengths=_as_list(data.get("strengths"))[:5],
+        weaknesses=_as_list(data.get("weaknesses"))[:5],
+        actions=_as_list(data.get("actions"))[:5],
         pace_summary=str(data.get("pace_summary") or " ".join(pace.tips[:2])),
         habit_summary=str(data.get("habit_summary") or " ".join(habits.tips[:2])),
         model=getattr(engine, "name", str(llm)),

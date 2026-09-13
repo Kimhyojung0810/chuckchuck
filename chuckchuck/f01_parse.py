@@ -206,12 +206,12 @@ def _call_async(
 
 def _element_text(el: dict) -> str:
     content = el.get("content") or {}
-    return (
-        content.get("text")
-        or content.get("markdown")
-        or content.get("html")
-        or ""
-    ).strip()
+    # SCHEMA 1-A: text → markdown → html. strip 한 뒤에 비었는지 봐야 공백뿐인 text 가 다음 후보를 가리지 않는다
+    for key in ("text", "markdown", "html"):
+        v = (content.get(key) or "").strip()
+        if v:
+            return v
+    return ""
 
 
 def _bbox_center_x(coords: list | None) -> float | None:
@@ -228,7 +228,9 @@ def _align_from_centers(centers: list[float], weights: list[float]) -> str | Non
         return None
     if len(centers) != len(weights):
         weights = [1.0] * len(centers)
-    wsum = sum(weights) or 1.0
+    wsum = sum(weights)
+    if wsum <= 0:
+        weights, wsum = [1.0] * len(centers), float(len(centers))
     cx = sum(c * w for c, w in zip(centers, weights)) / wsum
     if cx < ALIGN_LEFT_MAX:
         return "left"
@@ -478,10 +480,8 @@ def parse_document(
 
     # Upstage sync 한도(~100p)와 맞춤. CHUCKCHUCK_MAX_SLIDES 로 조절.
     if len(slides) > MAX_SLIDES:
-        raise ParseError(
-            f"{len(slides)}장입니다. 현재 {MAX_SLIDES}장까지 지원합니다."
-            f" (raw 는 이미 저장됨: {RAW_DIR})"
-        )
+        saved_hint = f" (raw 저장: {out_dir or RAW_DIR})" if do_save else ""
+        raise ParseError(f"{len(slides)}장입니다. 현재 {MAX_SLIDES}장까지 지원합니다.{saved_hint}")
 
     # 장수가 많으면 다음부터 async 권장 신호 — 이번엔 이미 sync로 받았음
     _ = ASYNC_THRESHOLD_PAGES

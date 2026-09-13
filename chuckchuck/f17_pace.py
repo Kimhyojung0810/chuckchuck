@@ -73,7 +73,8 @@ def _aggregate_by_slide(transcript: Transcript) -> dict[int, dict]:
             continue
         wall = max(0.0, sp.end_sec - sp.start_sec)
         if sp.words:
-            speak = max(0.0, sp.words[-1].end_sec - sp.words[0].start_sec)
+            # 단어가 시간순이 아니어도(STT 가 정렬해 주지만) 발화 길이가 음수가 되지 않게 최소·최대로 잰다
+            speak = max(0.0, max(w.end_sec for w in sp.words) - min(w.start_sec for w in sp.words))
             text = " ".join(w.text for w in sp.words)
         else:
             speak = wall

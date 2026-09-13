@@ -33,16 +33,22 @@ LEDGER = ROOT / "docs" / "QA_BENCH_LEDGER.md"
 
 #: (summary 경로, 좋아지는 방향, 잡음 폭). 잡음 폭 안의 변화는 "같다" 로 본다.
 #: LLM 출력은 매번 조금씩 다르므로 소수 지표에 폭을 둔다. 개수·비율 지표는 0 — 하나라도 달라지면 신호다.
+# 잡음 폭은 실측이다 — 같은 코드로 3회 재서 나온 범위 (examples/qa_eval_noise.py → exports/qa_eval/reports/noise_<날짜>.md).
+# 2026-09-13 Solar(주 백엔드) 3회 · 픽스처 1건 · 질문 2개 · rubric 3회 중앙값: 특이도 3.33~4.33(범위 1.0) · 인용률 0.42~0.62(0.20)
+# · 골자 통과 0.5~1.0 · rubric 전 항목 범위 0. A.X 는 훨씬 넓다(특이도 1.34 · 인용률 0.33 · rubric 종합 1.26) — A.X 로 재면 rubric 도 판정에 못 쓴다.
+# 표본이 1건인 동안은 이 폭이 장부의 델타 대부분을 삼킨다. 그게 사실이다 — 폭을 좁혀서 신호를 만들지 않는다 (FAILURE_QUESTIONS 4-4).
+# 번들이 5건 넘으면 다시 잰다.
 PRIMARY: tuple[tuple[str, str, float], ...] = (
-    ("specificity_mean", "up", 0.5),
-    ("grounding_mean", "up", 0.05),
+    ("specificity_mean", "up", 1.0),
+    ("grounding_mean", "up", 0.2),
     ("fallback", "down", 0),
     ("honorifics_questions", "down", 0),
     ("honorifics_judge", "down", 0),
     ("impolite_questions", "down", 0),
     ("judge_errors", "down", 0),
-    ("judge.gist_passed", "up", 0),
-    ("judge.unrelated_wrong", "up", 0),
+    # 질문 2개의 비율은 한 질문이 뒤집히면 0.5 다 — Solar 3회에서 골자 통과가 0.5~1.0 으로 실제로 뒤집혔다 (09-13)
+    ("judge.gist_passed", "up", 0.5),
+    ("judge.unrelated_wrong", "up", 0.5),
     ("judge.trap_agree_wrong", "up", 0),
     ("judge.trap_fixed_passed", "up", 0),
     ("coach.step1_cites_slide", "up", 0),
@@ -51,7 +57,8 @@ PRIMARY: tuple[tuple[str, str, float], ...] = (
     ("coach.explain_cites_slide", "up", 0),
     ("coach.honorifics", "down", 0),
     # rubric (1~5, LLM 심사관). 질문 3개면 한 질문의 1점 차가 평균 0.33 이다 — 그건 잡음이다. 0.5 는 두 질문이
-    # 같은 방향으로 움직여야 신호로 본다는 뜻. 번들이 늘어 질문이 10개를 넘으면 0.3 으로 줄인다.
+    # 같은 방향으로 움직여야 신호로 본다는 뜻. 09-13 Solar 3회는 전 항목 범위 0 이라 0.5 를 유지한다 (A.X 는 1.3~1.7).
+    # 번들이 늘어 질문이 10개를 넘으면 0.3 으로 줄인다.
     ("rubric.overall_mean", "up", 0.5),
     ("rubric.groundedness_mean", "up", 0.5),
     ("rubric.relevance_mean", "up", 0.5),

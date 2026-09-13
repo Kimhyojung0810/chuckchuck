@@ -144,7 +144,12 @@ CITATION_PATTERN = re.compile(
 
 #: 문장 종결(19번). f05_stt 의 것과 같은 뜻이지만, 모듈끼리 import 하지 않는 규칙에 따라
 #: 여기에 따로 둔다 (docs/DEV_POLICY.md §4).
-SENTENCE_END = re.compile(r"[.!?。]|(?:니다|세요|어요|아요|네요|군요|겠죠|나요|까요)(?=\s|$)")
+# 소수점(3.5)은 문장 끝이 아니다. STT 받아쓰기는 구두점이 없어 어미 검출이 전부라 해요체 종결을 넓게 잡는다
+# (f05_stt.SENTENCE_END 와 같은 뜻). 긴 어미가 앞에 와야 "거든요" 가 "요" 로 잘리지 않는다.
+SENTENCE_END = re.compile(
+    r"(?<!\d)[.!?。](?!\d)"
+    r"|(?:거든요|니다|세요|어요|아요|해요|돼요|네요|군요|겠죠|예요|에요|나요|까요|래요|게요|죠)(?=\s|$)"
+)
 
 _DIGIT = re.compile(r"\d")
 _WS = re.compile(r"\s+")
@@ -347,12 +352,25 @@ def _item_05_extra_speech(ev: Evidence) -> Result:
     return score, f"자료에 없는 이야기를 {len(extras)}개 덧붙였어요 ({labels})"
 
 
+_PARTICLE_TAIL = re.compile(r"(은요|는요|이요|은|는|이|가|을|를|도|만|요|로|에)$")
+_TOKEN_STRIP = re.compile(r"[^\w가-힣]+")
+
+
+def _is_deixis(word: str) -> bool:
+    """조사만 뗀 뒤 지시어 목록과 정확히 맞아야 한다. 접두 비교는 "그런데"(접속사)를 "그런" 으로 잡았다 (2026-09-13 감사)."""
+    tok = _TOKEN_STRIP.sub("", word)
+    if tok in DEIXIS_WORDS:
+        return True
+    stripped = _PARTICLE_TAIL.sub("", tok)
+    return bool(stripped) and stripped in DEIXIS_WORDS
+
+
 def _item_17_deixis(ev: Evidence) -> Result:
     """지시어 남용 — '이거/저거' 가 몇 어절에 한 번 나오나."""
     words = ev.words
     if not words:
         return None
-    hits = [w for w in words if any(w.startswith(d) for d in DEIXIS_WORDS)]
+    hits = [w for w in words if _is_deixis(w)]
     per100 = len(hits) / len(words) * 100
     score = _band(per100, good=DEIXIS_FREE_PER_100, bad=DEIXIS_ZERO_PER_100)
     if not hits:
@@ -444,8 +462,14 @@ def _item_23_fillers(ev: Evidence) -> Result:
     if core and ev.habits.filler_cnt > 0:
         core_hits = sum(h.filler_cnt for h in ev.habits.by_slide if h.slide_no in core)
         share = core_hits / ev.habits.filler_cnt
+        # 예전엔 share > 0.5 절벽이라 보조 슬라이드에 간투어를 더 넣으면 점수가 올랐다 (2026-09-13 감사).
+        # 핵심 슬라이드의 간투어 밀도(분당)로 깎으면 보조 슬라이드 쪽은 감점을 줄이지 못하고 base 만 깎는다.
+        # 기준은 FILLER_FREE_PER_MIN: 핵심 슬라이드만으로 "무감점 예산"(분당 2번)을 다 쓰면 최대 감점이다.
+        core_per_min = core_hits / minutes
+        extra = FILLER_CORE_PENALTY_MAX * min(1.0, core_per_min / FILLER_FREE_PER_MIN)
+        if core_hits:
+            score = _penalize((100 - score) + extra)
         if share > 0.5:
-            score = _penalize((100 - score) + FILLER_CORE_PENALTY_MAX * share)
             return score, f"분당 간투어 {per_min:.1f}번이고, 그중 {share:.0%}가 핵심 슬라이드에 몰렸어요"
     if ev.habits.filler_cnt == 0:
         return score, "어·음 같은 간투어가 거의 없었어요"

@@ -154,7 +154,7 @@ def _extract_json(text: str) -> dict[str, Any]:
     last_err: Exception | None = None
     for cand in candidates:
         try:
-            data = json.loads(cand)
+            data = json.loads(cand, strict=False)
             if isinstance(data, dict):
                 return data
         except json.JSONDecodeError as e:
@@ -170,7 +170,7 @@ def _extract_json(text: str) -> dict[str, Any]:
     slides = []
     for o in objs:
         try:
-            slides.append(json.loads(_repair_json_text(o)))
+            slides.append(json.loads(_repair_json_text(o), strict=False))
         except json.JSONDecodeError:
             continue
     if slides:
@@ -204,7 +204,15 @@ def _call_batch(
     out = data.get("slides", [])
     if not isinstance(out, list):
         raise ConceptError(f"slides 배열이 없습니다: {type(out)}")
-    return [s for s in out if isinstance(s, dict) and "slide_no" in s]
+    requested = {sl.slide_no for sl in slides}
+    return [s for s in out if isinstance(s, dict) and _slide_no_or_none(s) in requested]
+
+
+def _slide_no_or_none(s: dict) -> int | None:
+    try:
+        return int(s.get("slide_no"))
+    except (TypeError, ValueError):
+        return None
 
 
 def extract_concepts(
@@ -262,6 +270,8 @@ def extract_concepts(
             for fut in futures:
                 merged.extend(fut.result())
 
+    # 배치가 지시를 어기고 남의 장을 같이 돌려주면 뒤 배치가 앞 배치 결과를 덮었다 (2026-09-13 감사).
+    # 각 배치 결과는 그 배치가 받은 장만 인정한다.
     by_no = {int(s["slide_no"]): s for s in merged if "slide_no" in s}
 
     slides: list[SlideConcepts] = []

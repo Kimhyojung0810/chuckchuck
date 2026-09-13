@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import re
+from dataclasses import replace
 from collections import defaultdict
 
 from .contracts import HabitDoc, HabitError, HabitSpan, SlideHabits, Transcript
@@ -78,16 +79,16 @@ def _heuristic_spans(transcript: Transcript, *, kinds: set[str] | None = None) -
                     end_sec=b.end_sec,
                     slide_no=_slide_at(transcript, a.start_sec),
                 ))
-            elif i >= 2:
-                prev2 = _norm_tok(words[i - 2].text)
-                if na and prev2 and na.startswith(prev2) and len(prev2) >= 2 and na != prev2:
-                    spans.append(HabitSpan(
-                        kind="REP",
-                        text=f"{words[i - 2].text} {b.text}",
-                        start_sec=words[i - 2].start_sec,
-                        end_sec=b.end_sec,
-                        slide_no=_slide_at(transcript, words[i - 2].start_sec),
-                    ))
+            elif na and nb and nb.startswith(na) and len(na) >= 2:
+                # 접두 반복("지도 지도력은") — 인접 쌍(a, b)에서 바로 잡는다. 예전 코드는 words[i-2]·words[i-1] 을
+                # 비교하면서 스팬은 words[i] 까지 잡아 한 단어 밀렸고, 전사 끝의 반복은 아예 놓쳤다 (2026-09-13 감사).
+                spans.append(HabitSpan(
+                    kind="REP",
+                    text=f"{a.text} {b.text}",
+                    start_sec=a.start_sec,
+                    end_sec=b.end_sec,
+                    slide_no=_slide_at(transcript, a.start_sec),
+                ))
 
     if "PAUSE" in want:
         for i in range(1, len(words)):
@@ -140,6 +141,7 @@ def _merge_lora_and_heuristic(transcript: Transcript, lora: list[HabitSpan]) -> 
 
 def _aggregate(spans: list[HabitSpan], transcript: Transcript) -> HabitDoc:
     by: dict[int, dict] = defaultdict(lambda: {"REP": 0, "FIL": 0, "PAUSE": 0})
+    spans = [replace(s) for s in spans]  # 호출자가 넘긴 객체를 제자리에서 바꾸지 않는다
     for s in spans:
         no = s.slide_no
         if no is None:
