@@ -182,3 +182,18 @@ CLI 로 직접 만들고 싶으면 `demo/run_tunnel.sh` 머리말의 절차(`clo
 커밋돼 있어 클론 후 자동 인식), 공통 규칙은 `.claude/rules/common/`에 저장소 안에 직접
 커밋돼 있다(플러그인이 rule 배포를 지원하지 않아서). 이건 실행·배포와는 별개 층이라
 자세한 내용은 `README.md` §"개발 환경 (Claude Code · ECC)"를 참고한다.
+
+
+## STT — ffmpeg 은 필수다 (2026-09-13)
+
+A.X STT 게이트웨이 앞의 WAF 가 **10 MiB 미만** 업로드를 검사하다 막을 수 있다 (`chuckchuck/providers/stt_impl.py` 머리 주석의 8/7 실측).
+우회는 업로드 직전에 PCM WAV 로 다시 뽑아 본문을 상한 위로 올리는 것이고, **ffmpeg 이 없으면 우회가 조용히 꺼진다.**
+발표 리허설 녹음(수 분, 수 MB)보다 **질문 코칭의 답변 녹음(10초 안팎, 수백 KB)** 이 정확히 이 구간이다.
+
+```bash
+sudo apt-get install -y ffmpeg
+which ffmpeg && ffmpeg -version | head -1      # 브리지 시작 로그에 "⚠ ffmpeg 이 없어요" 가 안 떠야 한다
+```
+
+부스 데모 머신에서 시연 전 확인 목록에 넣는다. 벤더(SKT)에 업로드 엔드포인트의 본문 검사 제외를 요청해 두었고,
+풀리면 `CHUCKCHUCK_STT_WAF_WORKAROUND=0` 으로 이 층을 끈다.

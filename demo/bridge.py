@@ -10,6 +10,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -1464,6 +1465,11 @@ def main():
         )
     print(settings.masked(), flush=True)
     print(f"  세션 보관: {DATA_DIR} · 개발 목록 경로={'열림' if DEV_ROUTES else '닫힘'}", flush=True)
+    if not _mock() and not shutil.which("ffmpeg"):
+        # A.X 앞단 WAF 는 10MiB 미만 업로드를 검사하다 막을 수 있고, 그 우회(PCM WAV 로 키우기)는 ffmpeg 이 있어야 돈다.
+        # 질문 코칭의 답변 녹음은 10초 안팎(수백 KB)이라 정확히 그 구간이다 — 조용히 넘어가면 부스에서 "받아쓰기 실패" 로 나타난다.
+        print("  ⚠ ffmpeg 이 없어요. 10MB 미만 녹음(질문 코칭 답변)의 WAF 우회가 꺼져 받아쓰기가 실패할 수 있어요 — "
+              "`sudo apt-get install ffmpeg` (docs/DEPLOYMENT.md §STT)", flush=True)
     _start_prune_loop()
     server = ReusableThreadingHTTPServer((host, port), Handler)
     try:
