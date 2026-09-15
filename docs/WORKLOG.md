@@ -9,6 +9,14 @@
 
 # 작업 일지
 
+## 2026-09-16 — 부스 체험: 화면 캡처로 바로 질문 받기 (Claude 세션, 사용자 요청 9/15)
+
+- **왜**: 부스에서 PDF 업로드 + 3~5분 녹음이 제일 긴 구간이다. 방문객이 지금 보는 화면으로 바로 질문을 받게 하면 대기줄이 짧아지고 남의 자료가 아니라 자기 화면으로 체험한다.
+- **무엇**: F-01 이 PNG/JPG 를 받는다(Upstage 는 이미지를 1페이지로 읽는다) + `merge_slidedocs` 로 여러 장을 한 자료로. 브리지 `_handle_parse` 가 파일 파트를 전부 모은다(예전엔 첫 파트에서 멈췄고, `rstrip` 이 이진 끝바이트를 깎을 수 있었다). 새 페이지 `booth.html` + `js/booth.js` + `css/booth.css` — `app.js`·`index.html` 은 안 건드렸다(Festa 전 새 화면 금지의 취지). 세션 보관소는 `original_N.png` 를 허용.
+- **검증**: `scripts/chk gate` 초록(pytest 1187 · node 33). 브리지 8801 실 API 실측 — 화면 2장 → 파싱 5.2s · 개념 2.9s · 그래프 9.8s · 질문 13.3s(합 31.2s) · 판정 2.9s. 브라우저(화면 공유·PiP)는 이 머신에 없어 못 눌러 봤다 — 부스 노트북에서 확인 필요.
+- **주의**: 8799 브리지는 옛 코드로 떠 있다. `booth.html` 을 쓰려면 브리지를 다시 띄워야 한다.
+- 설계·실측: [plan/booth-screen-qa.plan.md](plan/booth-screen-qa.plan.md)
+
 ## 2026-09-13 (밤 3) — 배포 검토: Vercel·Netlify 로 되나, 돈 안 내고 되는 건 뭔가 (Claude 세션, 사용자 질문 — 결정 없음)
 
 코드 변경 없음. 사용자 질문 두 개에 답한 내용을 남긴다. 근거는 `netlify.toml` · `docs/DEPLOYMENT.md` §4·§7·§10 · `demo/YEHS_demo/js/config.js` · `demo/run_tunnel.sh`.

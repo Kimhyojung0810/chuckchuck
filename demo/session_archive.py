@@ -55,6 +55,8 @@ MAX_STREAM_LINES = 500
 
 #: put_file 로 쓸 수 있는 이름. 그 밖은 거부한다.
 ALLOWED_FILES = frozenset({"preview.pdf"})
+#: 부스 화면 캡처 묶음의 2장째부터 (1장째는 original.png). 동의한 세션만 남긴다.
+EXTRA_ORIGINAL_RE = re.compile(r"original_[2-9]\d?\.(png|jpg)")
 
 STREAMS = ("qa_turns", "feedback")
 
@@ -251,9 +253,10 @@ class SessionArchive:
         return doc if isinstance(doc, dict) else None
 
     def put_file(self, sid: str, name: str, data: bytes) -> bool:
-        """이름이 정해진 파일(미리보기 PDF)만. 임의 이름은 거부한다."""
+        """이름이 정해진 파일(미리보기 PDF·캡처 묶음)만. 임의 이름은 거부한다."""
         p = self.path(sid)
-        if p is None or name not in ALLOWED_FILES or not data:
+        allowed = name in ALLOWED_FILES or EXTRA_ORIGINAL_RE.fullmatch(name) is not None
+        if p is None or not allowed or not data:
             return False
         try:
             with self._lock:

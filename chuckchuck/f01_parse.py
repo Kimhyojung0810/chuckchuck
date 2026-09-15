@@ -6,6 +6,7 @@ Upstage Document Parse를 호출해 SlideDoc을 만듭니다.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 import os
 import time
 from pathlib import Path
@@ -49,7 +50,9 @@ RAW_DIR = Path(
     )
 )
 
-ALLOWED_EXT = {".pdf", ".pptx"}
+# 이미지는 부스 체험용 — 화면 캡처 한 장이 슬라이드 한 장이 된다 (Upstage 는
+# PNG/JPG 를 1페이지 문서로 읽는다). 여러 장은 merge_slidedocs 로 한 자료가 된다.
+ALLOWED_EXT = {".pdf", ".pptx", ".png", ".jpg", ".jpeg"}
 MAX_MB = 30          # 제품 스펙. Upstage 한도는 50MB
 # 제품 UI 권장은 30장, Upstage sync 한도는 100p. 데모/실측용으로 env 로 조절 가능.
 MAX_SLIDES = int(os.environ.get("CHUCKCHUCK_MAX_SLIDES", "100"))
@@ -487,6 +490,22 @@ def parse_document(
     _ = ASYNC_THRESHOLD_PAGES
 
     return doc
+
+
+def merge_slidedocs(docs: list[SlideDoc], *, file_name: str) -> SlideDoc:
+    """
+    자료 여러 개를 순서대로 이어 붙여 한 자료로 만든다 (새 객체, 입력은 안 건드린다).
+
+    부스 체험은 화면 캡처를 한 장씩 올리는데, 캡처 한 장은 Upstage 가 1페이지
+    문서로 읽어 slide_no 가 전부 1 이다. 그대로 두면 개념 그래프의 slide_nos 가
+    전부 1장을 가리켜 「1번 슬라이드」질문만 나온다 — 올린 순서대로 다시 번호를
+    매긴다.
+    """
+    slides: list[Slide] = []
+    for doc in docs:
+        for slide in doc.slides:
+            slides.append(replace(slide, slide_no=len(slides) + 1))
+    return SlideDoc(file_name=file_name, total_slides=len(slides), slides=slides)
 
 
 def sparse_slide_numbers(doc: SlideDoc) -> list[int]:

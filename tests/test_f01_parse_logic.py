@@ -65,9 +65,10 @@ def _file(tmp_path, name="deck.pdf") -> Path:
 
 def test_validate_extension_existence_size(tmp_path, monkeypatch):
     for ext in (".txt", ".docx", ".ppt", ".key"):
-        with pytest.raises(ParseError, match=rf"{re.escape(ext)} 는 지원하지 않습니다.*\.pdf, \.pptx"):
+        with pytest.raises(ParseError, match=rf"{re.escape(ext)} 는 지원하지 않습니다.*\.pdf, \.png, \.pptx"):
             f01._validate(_file(tmp_path, f"deck{ext}"))
-    for ext in (".pdf", ".PDF", ".pptx", ".Pptx"):
+    # 이미지는 부스 체험(화면 캡처)용 — Upstage 가 1페이지 문서로 읽는다
+    for ext in (".pdf", ".PDF", ".pptx", ".Pptx", ".png", ".jpg", ".JPEG"):
         f01._validate(_file(tmp_path, f"deck{ext}"))
     with pytest.raises(ParseError, match="파일이 없습니다"):
         f01._validate(tmp_path / "없음.pdf")
@@ -397,3 +398,19 @@ def test_inventory_raw_elements_counts_keys_and_clips_base64():
     assert inv["has_coordinates_any"] is True and inv["font_like_keys"] == ["font_size"]
     assert inv["top_level_keys"] == ["apiVersion", "elements", "model"]
     assert f01.inventory_raw_elements({})["has_coordinates_any"] is False
+
+
+def test_merge_slidedocs_는_올린_순서대로_번호를_다시_매기고_입력을_안_건드린다():
+    def one(title: str) -> SlideDoc:
+        return SlideDoc.from_dict({"file_name": f"{title}.png", "total_slides": 1, "slides": [
+            {"slide_no": 1, "title": title, "blocks": [{"category": "paragraph", "text": title}]},
+        ]})
+    a, b, c = one("첫 장"), one("둘째 장"), one("셋째 장")
+    merged = f01.merge_slidedocs([a, b, c], file_name="화면 3장")
+    assert merged.file_name == "화면 3장" and merged.total_slides == 3
+    assert [s.slide_no for s in merged.slides] == [1, 2, 3]
+    assert [s.title for s in merged.slides] == ["첫 장", "둘째 장", "셋째 장"]
+    assert merged.slides[1].blocks[0].text == "둘째 장"
+    # 캡처 한 장은 전부 slide_no=1 이었다 — 원본은 그대로다
+    assert [d.slides[0].slide_no for d in (a, b, c)] == [1, 1, 1]
+    assert f01.merge_slidedocs([], file_name="빈").total_slides == 0

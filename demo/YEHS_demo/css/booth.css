@@ -1,0 +1,106 @@
+/*
+부스 체험 화면(booth.html) 전용. 토큰은 app.css 의 :root 를 그대로 쓰고,
+레이아웃만 .booth 아래에 둔다. 앱 화면(index.html)에는 영향이 없다.
+*/
+.booth-body { background: var(--canvas); color: var(--text); margin: 0; }
+.booth {
+  max-width: 720px; margin: 0 auto; padding: 24px 20px 60px;
+  font-family: Pretendard, "Pretendard Variable", system-ui, sans-serif;
+}
+.booth-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 28px; }
+.booth-brand { font-weight: 700; color: var(--navy); text-decoration: none; font-size: 15px; }
+.booth-mode { color: var(--text-3); font-size: 13px; }
+
+.booth-title { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; }
+.booth-lead { margin-top: 8px; color: var(--text-2); font-size: 15px; line-height: 1.5; }
+.booth-note { margin-top: 10px; color: var(--text-3); font-size: 13px; }
+
+.booth-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.booth-cta { width: 100%; margin-top: 20px; }
+
+/* 공유 미리보기 */
+.booth-stage { margin-top: 18px; }
+.booth-stage video {
+  width: 100%; max-height: 320px; background: #000;
+  border-radius: var(--r-inner, 16px); border: 1.5px solid var(--border);
+}
+.booth-stage-actions { display: flex; gap: 10px; margin-top: 10px; }
+
+/* 담은 장면 */
+.booth-shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 18px; }
+.booth-shot { position: relative; border: 1.5px solid var(--border); border-radius: var(--r-ctl, 12px); overflow: hidden; background: var(--surface); }
+.booth-shot img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.booth-shot-no {
+  position: absolute; left: 8px; top: 8px; font-size: 12px; font-weight: 600;
+  background: var(--navy); color: #fff; border-radius: 999px; padding: 2px 8px;
+}
+.booth-shot-del {
+  position: absolute; right: 6px; top: 6px; border: 0; cursor: pointer;
+  background: rgba(24,24,27,.7); color: #fff; border-radius: 999px; width: 26px; height: 26px; font-size: 14px;
+}
+
+.booth-context { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+.booth-context .field { margin-bottom: 0; }
+.booth-context select {
+  width: 100%; height: 46px; padding: 0 12px; font-size: 15px; font-family: inherit;
+  border: 1.5px solid var(--border); border-radius: var(--r-ctl, 12px); background: var(--surface); color: var(--text);
+}
+@media (max-width: 520px) { .booth-context { grid-template-columns: 1fr; } }
+
+/* 진행 — 숫자는 실측만 (UI_REDESIGN §14) */
+.booth-stages { list-style: none; padding: 0; margin: 22px 0 0; border: 1.5px solid var(--border); border-radius: var(--r-inner, 16px); background: var(--surface); }
+.booth-stages li { display: flex; justify-content: space-between; padding: 14px 16px; border-top: 1px solid var(--line); font-size: 15px; color: var(--text-3); }
+.booth-stages li:first-child { border-top: 0; }
+.booth-stages li.is-running { color: var(--text); font-weight: 600; }
+.booth-stages li.is-done { color: var(--text-2); }
+.booth-stages li.is-done .st-time { color: var(--ok); }
+.booth-stages li.is-failed { color: var(--no); }
+.st-time { font-variant-numeric: tabular-nums; }
+.booth-error { margin-top: 18px; padding: 16px; border-radius: var(--r-inner, 16px); background: var(--no-bg); }
+.booth-error-text { color: var(--no); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+
+/* 질문 코칭 */
+.booth-qa-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.booth-count { font-size: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.booth-card { border: 1.5px solid var(--border); border-radius: var(--r-print, 20px); background: var(--surface); padding: 22px; }
+.booth-chiprow { display: flex; gap: 6px; flex-wrap: wrap; }
+.booth-chip { font-size: 12px; font-weight: 600; background: var(--accent-weak); color: var(--accent); border-radius: 999px; padding: 4px 10px; }
+.booth-chip-slide { background: var(--fill); color: var(--text-2); }
+.booth-chip:empty { display: none; }
+.booth-question { margin-top: 12px; font-size: 20px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+.booth-why { margin-top: 8px; color: var(--text-3); font-size: 14px; line-height: 1.5; }
+.booth-hints { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-ctl, 12px); background: var(--mid-bg); color: var(--mid); font-size: 14px; line-height: 1.5; }
+.booth-hints p + p { margin-top: 6px; }
+.booth-answer { margin-top: 16px; }
+.booth-answer textarea {
+  width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; font-family: inherit; line-height: 1.5;
+  border: 1.5px solid var(--border); border-radius: var(--r-ctl, 12px); background: var(--fill); color: var(--text); resize: vertical;
+}
+.booth-answer textarea:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.booth-busy { margin-top: 12px; color: var(--text-3); font-size: 14px; }
+
+.booth-result { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+.booth-verdict { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.booth-pill { font-size: 13px; font-weight: 700; border-radius: 999px; padding: 4px 12px; }
+.booth-pill[data-v="good"] { background: var(--ok-bg); color: var(--ok); }
+.booth-pill[data-v="partial"] { background: var(--mid-bg); color: var(--mid); }
+.booth-pill[data-v="wrong"] { background: var(--no-bg); color: var(--no); }
+.booth-pill[data-v="unknown"] { background: var(--fill); color: var(--text-2); }
+.booth-react { font-size: 15px; font-weight: 600; }
+.booth-summary { margin-top: 10px; font-size: 15px; line-height: 1.55; }
+.booth-missing { margin: 10px 0 0; padding-left: 18px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
+.booth-missing:empty { display: none; }
+.booth-followup { margin-top: 10px; font-size: 15px; font-weight: 600; color: var(--navy); }
+.booth-explain { margin-top: 10px; padding: 12px 14px; border-radius: var(--r-ctl, 12px); background: var(--fill); font-size: 14px; line-height: 1.55; }
+.booth-followup:empty, .booth-explain:empty, .booth-summary:empty { display: none; }
+
+.booth-tally { list-style: none; padding: 0; margin: 14px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.booth-tally li { font-size: 13px; font-weight: 600; border-radius: 999px; padding: 6px 12px; background: var(--fill); color: var(--text-2); }
+.booth-tally li[data-v="good"] { background: var(--ok-bg); color: var(--ok); }
+.booth-tally li[data-v="partial"] { background: var(--mid-bg); color: var(--mid); }
+.booth-tally li[data-v="wrong"] { background: var(--no-bg); color: var(--no); }
+
+/* 작은 창(Document Picture-in-Picture)으로 떠 있을 때 */
+.booth-pip-window { margin: 0; padding: 14px; background: var(--canvas); color: var(--text); font-family: Pretendard, system-ui, sans-serif; }
+.booth-pip-window .booth-card { padding: 16px; }
+.booth-pip-window .booth-question { font-size: 17px; }

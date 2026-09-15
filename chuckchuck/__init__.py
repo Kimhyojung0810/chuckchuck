@@ -58,7 +58,7 @@ from .contracts import (
     qa_passed,
     qa_probe_tier,
 )
-from .f01_parse import parse_document, sparse_slide_numbers
+from .f01_parse import merge_slidedocs, parse_document, sparse_slide_numbers
 from .f05_stt import speech_for_slide, split_by_slide, transcribe
 from .f06_concepts import extract_concepts
 from .f07_graph import build_graph
@@ -137,6 +137,7 @@ __all__ = [
     "extract_habits",
     "judge_answer",
     "looks_stuck",
+    "merge_slidedocs",
     "parse_document",
     "qa_mastered",
     "qa_passed",

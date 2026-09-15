@@ -149,6 +149,16 @@ CUDA 확인:
 python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else "")'
 ```
 
+### 부스 체험 — 화면을 담아 바로 질문 받기
+
+```
+http://127.0.0.1:8799/booth.html
+```
+
+PDF·녹음 없이, 발표 자료가 열린 창을 공유하거나 스크린샷을 올리면 그 화면으로 질문·판정을 받는다.
+캡처 한 장이 슬라이드 한 장이다 (여러 장은 올린 순서대로 번호). 실측: 화면 2장 → 질문까지 약 31초, 판정 3초.
+「작은 창으로 띄우기」는 Chrome 116+ 의 Document Picture-in-Picture 다. 설계·실측은 [`docs/plan/booth-screen-qa.plan.md`](docs/plan/booth-screen-qa.plan.md).
+
 ### 손으로 눌러보는 체크리스트
 
 1. **자료 업로드** — 본인 PDF/PPTX (샘플이 아닌 파일). PPTX는 미리보기 PDF 변환이 필요할 수 있다.

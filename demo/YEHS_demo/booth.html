@@ -1,0 +1,147 @@
+<!--
+부스 체험용 화면입니다 — 지금 보고 있는 화면(슬라이드)을 담아 바로 질문을 받아요.
+앱(index.html)과 브리지를 같이 쓰지만 app.js 는 건드리지 않는 별도 페이지예요.
+docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
+-->
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>척척발표 · 화면으로 질문 받기</title>
+<meta name="theme-color" content="#064E3B">
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="css/app.css?v=ql2">
+<link rel="stylesheet" href="css/booth.css?v=b1">
+</head>
+<body class="booth-body">
+<main class="booth" id="booth">
+
+  <header class="booth-top">
+    <a class="booth-brand" href="index.html">척척발표</a>
+    <span class="booth-mode">화면으로 질문 받기</span>
+  </header>
+
+  <!-- 1. 담기 -->
+  <section class="booth-step" id="step-capture" data-step="capture">
+    <h1 class="booth-title">지금 화면을 보여 주면 질문을 만들어요</h1>
+    <p class="booth-lead">발표 자료가 열린 창을 공유하고 장면을 담아요. 스크린샷을 올려도 돼요.</p>
+
+    <div class="booth-actions">
+      <button class="btn btn-primary" id="btn-share" type="button">화면 공유하기</button>
+      <label class="btn btn-secondary" for="file-shots">스크린샷 올리기</label>
+      <input id="file-shots" type="file" accept="image/png,image/jpeg" multiple hidden>
+    </div>
+    <p class="booth-note" id="share-unsupported" hidden>이 브라우저는 화면 공유가 안 돼요. 스크린샷을 올리면 같은 체험을 할 수 있어요.</p>
+
+    <div class="booth-stage" id="share-stage" hidden>
+      <video id="share-video" autoplay muted playsinline></video>
+      <div class="booth-stage-actions">
+        <button class="btn btn-primary" id="btn-grab" type="button">이 장면 담기</button>
+        <button class="btn btn-secondary" id="btn-stop-share" type="button">공유 끝내기</button>
+      </div>
+    </div>
+
+    <div class="booth-shots" id="shots" aria-live="polite"></div>
+
+    <div class="booth-context">
+      <div class="field">
+        <label for="ctx-situation">어떤 자리에서 발표해요?</label>
+        <select id="ctx-situation">
+          <option value="school_project">학교 프로젝트 (교수 대상)</option>
+          <option value="product_launch">신제품 설명 (대중 대상)</option>
+          <option value="work_report">업무 보고 (상사 대상)</option>
+          <option value="casual_peer">동료 간 캐주얼 PR</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="ctx-track">질문을 몇 개 받을까요?</label>
+        <select id="ctx-track">
+          <option value="1">1개 (짧게 맛보기)</option>
+          <option value="5" selected>3개 (부스 기본)</option>
+          <option value="10">7개 (끝까지)</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-primary booth-cta" id="btn-go" type="button" disabled>질문 만들기</button>
+  </section>
+
+  <!-- 2. 분석 중 -->
+  <section class="booth-step" id="step-progress" data-step="progress" hidden>
+    <h1 class="booth-title">화면을 읽고 있어요</h1>
+    <p class="booth-lead" id="progress-lead">장수에 따라 30초에서 2분쯤 걸려요. 걸린 시간은 실측이에요.</p>
+    <ol class="booth-stages" id="stages">
+      <li data-stage="parse"><span class="st-name">화면 읽기</span><span class="st-time">—</span></li>
+      <li data-stage="concepts"><span class="st-name">핵심 개념 뽑기</span><span class="st-time">—</span></li>
+      <li data-stage="graph"><span class="st-name">개념 잇기</span><span class="st-time">—</span></li>
+      <li data-stage="questions"><span class="st-name">질문 만들기</span><span class="st-time">—</span></li>
+    </ol>
+    <div class="booth-error" id="progress-error" hidden>
+      <p class="booth-error-text" id="progress-error-text"></p>
+      <div class="booth-actions">
+        <button class="btn btn-primary" id="btn-retry" type="button">다시 시도하기</button>
+        <button class="btn btn-secondary" id="btn-back-capture" type="button">화면 다시 담기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 질문 코칭 -->
+  <section class="booth-step" id="step-qa" data-step="qa" hidden>
+    <div class="booth-qa-head">
+      <span class="booth-count" id="qa-count">1 / 3</span>
+      <button class="btn btn-tint booth-pip" id="btn-pip" type="button" hidden>작은 창으로 띄우기</button>
+    </div>
+
+    <div class="booth-panel" id="qa-panel">
+      <article class="booth-card" id="qa-card">
+        <div class="booth-chiprow">
+          <span class="booth-chip" id="qa-label"></span>
+          <span class="booth-chip booth-chip-slide" id="qa-slide"></span>
+        </div>
+        <h2 class="booth-question" id="qa-question"></h2>
+        <p class="booth-why" id="qa-why"></p>
+
+        <div class="booth-hints" id="qa-hints" hidden></div>
+
+        <div class="booth-answer">
+          <textarea id="qa-answer" rows="4" placeholder="자료에 있는 말로 답해 보세요"></textarea>
+          <div class="booth-actions">
+            <button class="btn btn-primary" id="btn-answer" type="button">답하기</button>
+            <button class="btn btn-secondary" id="btn-hint" type="button">힌트 보기</button>
+            <button class="btn btn-secondary" id="btn-giveup" type="button">모르겠어요, 답 볼게요</button>
+          </div>
+        </div>
+
+        <div class="booth-result" id="qa-result" hidden>
+          <div class="booth-verdict"><span class="booth-pill" id="qa-pill"></span><span class="booth-react" id="qa-react"></span></div>
+          <p class="booth-summary" id="qa-summary"></p>
+          <ul class="booth-missing" id="qa-missing"></ul>
+          <p class="booth-followup" id="qa-followup"></p>
+          <p class="booth-explain" id="qa-explain"></p>
+          <div class="booth-actions">
+            <button class="btn btn-primary" id="btn-next" type="button">다음 질문</button>
+            <button class="btn btn-secondary" id="btn-again" type="button">이 질문 다시 답하기</button>
+          </div>
+        </div>
+
+        <p class="booth-busy" id="qa-busy" hidden>답을 읽고 있어요…</p>
+      </article>
+
+      <article class="booth-card booth-done" id="qa-done" hidden>
+        <h2 class="booth-question">질문을 다 받았어요</h2>
+        <ul class="booth-tally" id="qa-tally"></ul>
+        <p class="booth-why">발표 녹음까지 하면 자료와 말이 어긋난 곳도 잡아요.</p>
+        <div class="booth-actions">
+          <button class="btn btn-primary" id="btn-restart" type="button">다른 화면으로 다시 하기</button>
+          <a class="btn btn-secondary" href="index.html">전체 연습 해 보기</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+</main>
+<script type="module" src="js/booth.js?v=b1"></script>
+</body>
+</html>

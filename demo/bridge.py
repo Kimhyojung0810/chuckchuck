@@ -36,6 +36,7 @@ from chuckchuck import (  # noqa: E402
     compose_report,
     extract_concepts,
     extract_habits,
+    merge_slidedocs,
     parse_document,
     transcribe,
 )
@@ -160,6 +161,31 @@ def _cache_stem(file_name: str) -> str:
 
 
 PDF_MAGIC = b"%PDF"
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+JPEG_MAGIC = b"\xff\xd8\xff"
+IMAGE_EXTS = (".png", ".jpg")
+
+
+def _multipart_files(raw: bytes, boundary: bytes) -> list[tuple[str, bytes]]:
+    """
+    multipart 본문에서 파일 파트를 올린 순서대로 (이름, 내용) 으로 돌려준다.
+
+    예전에는 첫 파트에서 멈췄다. 부스 체험은 화면 캡처를 여러 장 올리므로 전부 모은다.
+    내용 끝의 `\r\n` 은 파트 구분자에 붙은 것이라 정확히 한 번만 뗀다 — rstrip 은
+    이진 파일의 실제 마지막 바이트까지 깎는다.
+    """
+    files: list[tuple[str, bytes]] = []
+    for part in raw.split(b"--" + boundary):
+        if b"filename=" not in part:
+            continue
+        header, _, content = part.partition(b"\r\n\r\n")
+        if content.endswith(b"--"):
+            content = content[:-2]
+        if content.endswith(b"\r\n"):
+            content = content[:-2]
+        m = re.search(r'filename="([^"]+)"', header.decode(errors="ignore"))
+        files.append((m.group(1) if m else "upload.pdf", content))
+    return files
 
 
 def _sniff_document(data: bytes) -> str | None:
@@ -173,6 +199,11 @@ def _sniff_document(data: bytes) -> str | None:
         return None
     if PDF_MAGIC in data[:1024]:
         return ".pdf"
+    # 부스 체험용 화면 캡처. 확장자를 .jpg 로 통일한다 — f01 은 둘 다 받는다.
+    if data.startswith(PNG_MAGIC):
+        return ".png"
+    if data.startswith(JPEG_MAGIC):
+        return ".jpg"
     if data[:2] != b"PK":
         return None
     try:
@@ -555,33 +586,22 @@ class Handler(SimpleHTTPRequestHandler):
         if not boundary:
             return self._json(400, {"error": "multipart required"})
 
-        parts = raw.split(b"--" + boundary)
-        file_bytes = None
-        filename = "upload.pdf"
-        for part in parts:
-            if b"filename=" not in part:
-                continue
-            header, _, content = part.partition(b"\r\n\r\n")
-            content = content.rstrip(b"\r\n")
-            if content.endswith(b"--"):
-                content = content[:-2]
-            fn = header.decode(errors="ignore")
-            import re
-
-            m = re.search(r'filename="([^"]+)"', fn)
-            if m:
-                filename = m.group(1)
-            file_bytes = content
-            break
-
-        if file_bytes is None:
+        uploads = _multipart_files(raw, boundary)
+        if not uploads:
             return self._json(400, {"error": "document field missing"})
-        if len(file_bytes) > MAX_UPLOAD_BYTES:
+        if sum(len(b) for _, b in uploads) > MAX_UPLOAD_BYTES:
             return self._json(413, {"error": "too_large", "message": "최대 30MB까지 올릴 수 있어요."})
         # 확장자가 아니라 내용으로 판별한다. 아니면 디스크에 쓰지 않는다.
-        ext = _sniff_document(file_bytes)
-        if ext is None:
-            return self._json(415, {"error": "unsupported_type", "message": "PDF나 PPTX 파일만 올릴 수 있어요."})
+        exts = [_sniff_document(b) for _, b in uploads]
+        if any(e is None for e in exts):
+            return self._json(415, {"error": "unsupported_type", "message": "PDF·PPTX·PNG·JPG 파일만 올릴 수 있어요."})
+        # 여러 장은 화면 캡처(이미지)만 — 문서 두 개를 한 자료로 섞는 길은 열지 않는다.
+        if len(uploads) > 1 and any(e not in IMAGE_EXTS for e in exts):
+            return self._json(415, {"error": "unsupported_type", "message": "여러 장은 화면 캡처(PNG·JPG)만 함께 올릴 수 있어요."})
+        filename, file_bytes = uploads[0]
+        ext = exts[0]
+        if len(uploads) > 1:
+            filename = f"화면 {len(uploads)}장"
 
         if _mock():
             fixture = ROOT / "fixtures" / "sample_slidedoc.json"
@@ -595,12 +615,21 @@ class Handler(SimpleHTTPRequestHandler):
         qs = parse_qs(urlparse(self.path).query or "")
         consent = (qs.get("consent_learning") or ["0"])[0].strip().lower() in ("1", "true", "yes", "on")
 
-        sys.stderr.write(f"[bridge] F-01 parse start file={filename!r} bytes={len(file_bytes)} consent={consent}\n")
-        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-            tmp.write(file_bytes)
-            tmp_path = tmp.name
+        sys.stderr.write(
+            f"[bridge] F-01 parse start file={filename!r} files={len(uploads)} "
+            f"bytes={sum(len(b) for _, b in uploads)} consent={consent}\n"
+        )
+        tmp_paths: list[str] = []
+        for (_, data), e in zip(uploads, exts):
+            with tempfile.NamedTemporaryFile(suffix=e, delete=False) as tmp:
+                tmp.write(data)
+                tmp_paths.append(tmp.name)
         try:
-            doc = parse_document(tmp_path)
+            if len(tmp_paths) == 1:
+                doc = parse_document(tmp_paths[0])
+            else:
+                # 캡처 한 장 = 1페이지 문서. 올린 순서대로 번호를 다시 매겨 한 자료로 만든다.
+                doc = merge_slidedocs([parse_document(tp) for tp in tmp_paths], file_name=filename)
             sys.stderr.write(f"[bridge] F-01 parse done slides={doc.total_slides}\n")
             # 파서는 임시 경로 이름을 그대로 담는다. 원래 업로드 이름으로 되돌린다.
             doc.file_name = filename
@@ -614,19 +643,26 @@ class Handler(SimpleHTTPRequestHandler):
             if rec is not None:
                 payload["session_id"] = sid
                 payload["consent_learning"] = consent
-                # 발표 화면용 원본 미리보기 (PPTX 는 LibreOffice 렌더, PDF 는 원본이 곧 미리보기)
+                # 동의한 캡처 묶음은 2장째부터 따로 남긴다 (original 은 1장째다)
+                if consent and len(uploads) > 1:
+                    for i, ((_, data), e) in enumerate(zip(uploads, exts)):
+                        if i:
+                            ARCHIVE.put_file(sid, f"original_{i + 1}{e}", data)
+                # 발표 화면용 원본 미리보기 (PPTX 는 LibreOffice 렌더, PDF 는 원본이 곧 미리보기).
+                # 이미지는 미리보기가 없다 — PNG 를 preview.pdf 로 두면 pdf.js 가 죽는다.
                 if ext == ".pptx":
-                    rendered = _pptx_to_preview_pdf(Path(tmp_path))
+                    rendered = _pptx_to_preview_pdf(Path(tmp_paths[0]))
                     if rendered:
                         ARCHIVE.put_file(sid, "preview.pdf", rendered)
-                elif not consent:
+                elif ext == ".pdf" and not consent:
                     ARCHIVE.put_file(sid, "preview.pdf", file_bytes)
                 if ARCHIVE.preview_path(sid) is not None:
                     payload["preview_pdf"] = f"/api/v1/preview-pdf?session_id={sid}"
                 ARCHIVE.put_artifact(sid, "slide_doc", payload)
             return self._json(200, payload)
         finally:
-            Path(tmp_path).unlink(missing_ok=True)
+            for tp in tmp_paths:
+                Path(tp).unlink(missing_ok=True)
 
     def _handle_suggest_context(self, raw: bytes):
         """[F-23] 자료만 보고 발표 상황을 추정한다. 결정론·호출 0 — 과금 경로가 아니다.
