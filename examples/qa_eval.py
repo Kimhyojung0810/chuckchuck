@@ -527,6 +527,8 @@ def run_bundle(bundle: Path, args) -> dict:
     corpus = Corpus(SlideDoc.from_dict(art["slide_doc"]),
                     Transcript.from_dict(art["transcript"]) if art.get("transcript") else None)
     llm = RecordingLLM(get_llm(args.llm))
+    # 모델끼리 비교할 때는 심사관을 한 모델로 고정한다 — 아니면 각 모델이 자기 답을 채점한다.
+    rubric_llm = RecordingLLM(get_llm(args.rubric_llm)) if args.rubric_llm else llm
     print(f"자료: {art['concept_graph']['file_name']} · 장 {len(corpus.slide_text)} · 본문(정제) "
           f"{sum(len(t) for t in corpus.slide_text.values())}자 · 발화 {sum(len(t) for t in corpus.speech_text.values())}자")
 
@@ -552,7 +554,8 @@ def run_bundle(bundle: Path, args) -> dict:
     rrows = []
     if args.rubric:
         print("\nrubric 심사 (7항목)")
-        rrows = run_rubric(doc.questions, corpus, llm, runs=args.rubric_runs)
+        print(f"  심사관: {rubric_llm.name}")
+        rrows = run_rubric(doc.questions, corpus, rubric_llm, runs=args.rubric_runs)
 
     summary = summarize(qrows, jrows, llm.calls, crows, rrows)
     print_summary(summary, llm.name)
@@ -561,7 +564,7 @@ def run_bundle(bundle: Path, args) -> dict:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     out = OUT_DIR / f"{stamp}{'_' + args.tag if args.tag else ''}.json"
     out.write_text(json.dumps({
-        "bundle": str(bundle), "track": args.track, "model": llm.name, "context": art.get("context"),
+        "bundle": str(bundle), "track": args.track, "model": llm.name, "rubric_model": rubric_llm.name, "context": art.get("context"),
         "summary": summary, "questions": qrows, "judgements": jrows, "coaching": crows, "rubric": rrows,
         "calls": [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in llm.calls],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -674,6 +677,8 @@ def main() -> int:
     ap.add_argument("--no-judge", action="store_true", help="F-09 를 부르지 않는다")
     ap.add_argument("--no-coach", action="store_true", help="「모르겠어요」 코칭을 건너뛴다")
     ap.add_argument("--rubric", action="store_true", help="rubric 7항목을 LLM 심사관이 채점한다 (번들당 호출 +1)")
+    ap.add_argument("--rubric-llm", default=None,
+                    help="rubric 심사관 백엔드. 비우면 --llm 과 같다 (모델 비교 때는 solar 로 고정)")
     ap.add_argument("--rubric-runs", type=int, default=3,
                     help="rubric 채점 횟수, 항목별 중앙값 (기본 3 — 한 번은 잡음이다. 호출 수는 그만큼 는다)")
     ap.add_argument("--fresh-triage", action="store_true", help="저장된 심사 대신 F-08 1차를 다시 돌린다")
