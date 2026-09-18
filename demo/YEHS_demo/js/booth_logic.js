@@ -127,3 +127,51 @@ export function speakableJudgement(j, { giveUp = false, answerGist = '' } = {}) 
   else parts.push(j.followup);
   return parts.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()).join(' ');
 }
+
+/* ─── 통화 모드 — 화상통화처럼 내 모습 위로 질문·자막·판정이 오간다 ─────── */
+
+/** 상대(병아리)의 기분. chatter.css 의 data-mood 훅(curious·happy·grumpy·excited)과 같은 이름만 쓴다. */
+export function partnerMood(phase, verdict = '') {
+  if (phase === 'asking' || phase === 'hint') return 'curious';
+  if (phase === 'listening' || phase === 'judging') return 'neutral';
+  if (phase === 'judged') {
+    if (verdict === 'good') return 'happy';
+    if (verdict === 'wrong') return 'grumpy';
+    return 'curious';
+  }
+  return 'neutral';
+}
+
+/** 자동 대화의 침묵 판정 — 마지막으로 글자가 바뀐 뒤 quietMs 가 지났고, 말한 게 있으면 끝난 것으로 본다. */
+export function speechSettled({ lastChangeAt, now, text, quietMs = 2500 }) {
+  if (!text || !String(text).trim()) return false;
+  if (!Number.isFinite(lastChangeAt) || !Number.isFinite(now)) return false;
+  return now - lastChangeAt >= quietMs;
+}
+
+/** 보내기 전 카운트다운 문구. 고칠 틈을 눈에 보이게 남긴다 — 자동으로 보내되 몰래 보내지 않는다. */
+export function countdownText(secondsLeft) {
+  const n = Math.max(0, Math.ceil(Number(secondsLeft) || 0));
+  return n > 0 ? `${n}초 뒤에 보낼게요. 고치려면 자막을 누르세요.` : '보내는 중이에요.';
+}
+
+/**
+ * 상대 말풍선 목록 — 판정 하나를 통화의 말풍선 몇 개로 나눈다.
+ * 화면 카드와 같은 재료(react·summary·missing·followup·explanation)만 쓴다. 판정 색은 pill 로만.
+ */
+export function judgementBubbles(j, { giveUp = false, answerGist = '' } = {}) {
+  if (!j) return [];
+  const v = j.verdict || 'unknown';
+  const out = [];
+  const head = [j.react, j.summary_sentence].filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()).join(' ');
+  out.push({ kind: 'verdict', verdict: v, text: head });
+  const missing = Array.isArray(j.missing_points) ? j.missing_points.filter((m) => typeof m === 'string' && m.trim()) : [];
+  if (missing.length) out.push({ kind: 'missing', verdict: v, items: missing });
+  if (giveUp || j.coach_stage === 'explain') {
+    const ex = (typeof j.explanation === 'string' && j.explanation.trim()) || (answerGist || '').trim();
+    if (ex) out.push({ kind: 'explain', verdict: v, text: ex });
+  } else if (typeof j.followup === 'string' && j.followup.trim()) {
+    out.push({ kind: 'followup', verdict: v, text: j.followup.trim() });
+  }
+  return out;
+}

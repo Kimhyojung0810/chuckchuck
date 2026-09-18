@@ -129,6 +129,37 @@ test('읽어 주기: 화면에 있는 말만 — 되묻기는 평소에, 정답 
   eq(L.speakableJudgement(null), '');
 });
 
+/* ── 통화 모드 ─────────────────────────────────────────────────────────────── */
+test('상대 기분은 chatter.css 가 아는 이름만 — 묻는 중 curious, 잘 답하면 happy, 어긋나면 grumpy', () => {
+  eq(L.partnerMood('asking'), 'curious');
+  eq(L.partnerMood('listening'), 'neutral');
+  eq(L.partnerMood('judged', 'good'), 'happy');
+  eq(L.partnerMood('judged', 'wrong'), 'grumpy');
+  eq(L.partnerMood('judged', 'partial'), 'curious');
+  const css = readFileSync(path.join(ROOT, 'demo/YEHS_demo/css/chatter.css'), 'utf8');
+  for (const m of ['curious', 'happy', 'grumpy']) if (!css.includes(`data-mood="${m}"`)) throw new Error(`chatter.css 에 없는 기분: ${m}`);
+});
+test('침묵 판정: 말한 게 있고 2.5초 조용하면 끝, 아무 말 없으면 영원히 끝이 아니다', () => {
+  eq(L.speechSettled({ lastChangeAt: 1000, now: 3600, text: '답' }), true);
+  eq(L.speechSettled({ lastChangeAt: 1000, now: 3000, text: '답' }), false);
+  eq(L.speechSettled({ lastChangeAt: 1000, now: 99999, text: '  ' }), false);
+  eq(L.speechSettled({ lastChangeAt: NaN, now: 5000, text: '답' }), false);
+});
+test('카운트다운 문구는 고칠 길을 말한다', () => {
+  if (!L.countdownText(2.2).startsWith('3초')) throw new Error(L.countdownText(2.2));
+  if (!L.countdownText(3).includes('고치려면')) throw new Error(L.countdownText(3));
+  eq(L.countdownText(0), '보내는 중이에요.');
+});
+test('판정 말풍선: 반응+요약 → 빠진 것 → 되묻기(평소) 또는 정답 요지(포기)', () => {
+  const j = { verdict: 'partial', react: '음,', summary_sentence: '반은 맞아요.', missing_points: ['근거', ''], followup: '그럼요?', explanation: '정답 X' };
+  eq(L.judgementBubbles(j).map((b) => b.kind), ['verdict', 'missing', 'followup']);
+  eq(L.judgementBubbles(j)[0], { kind: 'verdict', verdict: 'partial', text: '음, 반은 맞아요.' });
+  eq(L.judgementBubbles(j)[1].items, ['근거']);
+  eq(L.judgementBubbles(j, { giveUp: true }).map((b) => b.kind), ['verdict', 'missing', 'explain']);
+  eq(L.judgementBubbles({ verdict: 'good', react: '좋아요' }).length, 1);
+  eq(L.judgementBubbles(null), []);
+});
+
 /* ── 하네스가 진짜로 회귀를 잡는지 ─────────────────────────────────────────── */
 /* 고치기 전 붓(기준선을 한 번만 잡던 것)으로 같은 시험을 돌려서 반드시 깨지는지 본다.
    안 깨지면 위의 「사용자가 친 글자」 시험은 아무것도 지키고 있지 않은 것이다. */

@@ -15,6 +15,7 @@
 - **무엇**: `booth.html/js/css` — `getUserMedia` 카메라 미리보기 + 「찍기」(카메라 바꾸기 · 미리보기 못 열면 `capture="environment"` 기기 카메라 앱), 폰 사진 EXIF 회전·1600px JPEG 정리, 「말해서 답하기」(앱과 같은 실시간 받아쓰기 → 녹음+STT 폴백, 채워만 주고 보내지 않음), 「소리 켜기」(speechSynthesis, 기본 무음, 화면에 있는 말만), 손가락 기기 48px, 장면 수 안내. 순수 판단은 새 `js/booth_logic.js` → `tests/js/booth.smoke.mjs` 18 케이스(자기검사 포함). `scripts/chk gate` 가 `tests/js/*.smoke.mjs` 전부 + `?v=` 를 `booth.html`·`js/booth.js` import 까지 본다(`gate.ASSET_HOSTS`), `bump` 도 같이. `app.js`·`index.html` 은 안 건드렸다.
 - **검증**: `scripts/chk gate` 초록(pytest 1189 · booth 18 · qa_live 33). 브리지 8801 실 API — 폰 사진 흉내 JPEG 2장(기울임·배경·JPEG 78) → 파싱 5.0s · 개념 1.9s · 그래프 5.8s · 질문 6.4s(합 19.1s) · 판정 1.6s. 질문 3개 전부 사진 본문 인용. 브라우저는 이 머신에 없어 카메라·마이크·TTS 는 **부스 컴퓨터 리허설에서 눌러 봐야 한다** (plan §6-2).
 - **리서치**: 부스 운영 방식(체험 길이·대기줄·소음 홀 음성 입력·폰 참여와 개인정보·후속·측정·AI Festa 2026 정보)을 출처와 함께 정리하고 우리 적용안을 판단 → [plan/booth-operations.plan.md](plan/booth-operations.plan.md). 결정은 팀 몫(리허설 10/5 전).
+- **통화 모드 (같은 날 저녁, 사용자: "화상통화를 한다는 느낌이어야 해")**: 질문 단계를 통화 화면으로 — 내 모습(앞카메라, 거울) 바탕 + 객석 병아리 상대 타일(`Chatter.chickSvg`, 기분 data-mood) + 말풍선(질문·내 답·판정·되묻기) + 내 말 자막(눌러서 고침) + 자동 대화(듣기 → 2.5초 침묵 → 3초 카운트다운 → 보내기, 자막 누르면 멈춤). `booth.html` 이 `chatter.css/js` 를 같이 문다. 순수 판단 4개(`partnerMood`·`speechSettled`·`countdownText`·`judgementBubbles`) 스모크 22 케이스. 브라우저 없는 서버라 실제 통화 화면은 리허설에서 처음 본다 (plan §6-0·§6-2).
 - **주의**: 8799 브리지는 9/10 코드(.venv python)로 떠 있어 이미지 파싱이 안 된다. booth 를 쓰려면 다시 띄운다. 이 머신은 `MIDM_PY=.venv/bin/python` 으로 띄운다(`chk doctor`).
 
 ## 2026-09-16 — 부스 체험: 화면 캡처로 바로 질문 받기 (Claude 세션, 사용자 요청 9/15)

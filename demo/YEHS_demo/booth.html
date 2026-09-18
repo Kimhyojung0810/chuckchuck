@@ -13,7 +13,8 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
 <link rel="icon" href="favicon.ico">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/app.css?v=ql2">
-<link rel="stylesheet" href="css/booth.css?v=b2">
+<link rel="stylesheet" href="css/chatter.css?v=qkh">
+<link rel="stylesheet" href="css/booth.css?v=b3">
 </head>
 <body class="booth-body">
 <main class="booth" id="booth">
@@ -93,55 +94,54 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
     </div>
   </section>
 
-  <!-- 3. 질문 코칭 -->
+  <!-- 3. 통화 — 내 모습 위로 질문·자막·판정이 오간다 -->
   <section class="booth-step" id="step-qa" data-step="qa" hidden>
     <div class="booth-qa-head">
       <span class="booth-count" id="qa-count">1 / 3</span>
       <div class="booth-qa-tools">
+        <button class="btn btn-tint" id="btn-autotalk" type="button" aria-pressed="true">자동 대화 끄기</button>
         <button class="btn btn-tint" id="btn-sound" type="button" aria-pressed="false" hidden>소리 켜기</button>
+        <button class="btn btn-tint" id="btn-self-camera" type="button">카메라 끄기</button>
         <button class="btn btn-tint booth-pip" id="btn-pip" type="button" hidden>작은 창으로 띄우기</button>
+        <button class="btn btn-secondary" id="btn-leave" type="button">통화 마치기</button>
       </div>
     </div>
 
     <div class="booth-panel" id="qa-panel">
-      <article class="booth-card" id="qa-card">
-        <div class="booth-chiprow">
-          <span class="booth-chip" id="qa-label"></span>
-          <span class="booth-chip booth-chip-slide" id="qa-slide"></span>
-        </div>
-        <h2 class="booth-question" id="qa-question"></h2>
-        <p class="booth-why" id="qa-why"></p>
-
-        <div class="booth-hints" id="qa-hints" hidden></div>
-
-        <div class="booth-answer">
-          <textarea id="qa-answer" rows="4" placeholder="말해서 답하거나, 자료에 있는 말로 적어 보세요"></textarea>
-          <p class="booth-note booth-mic-note" id="qa-mic-note" aria-live="polite" hidden></p>
-          <div class="booth-actions booth-answer-actions">
-            <button class="btn btn-tint booth-mic" id="btn-mic" type="button" data-state="idle" aria-label="말해서 답하기">말해서 답하기</button>
-            <button class="btn btn-primary" id="btn-answer" type="button">답하기</button>
-            <button class="btn btn-secondary" id="btn-hint" type="button">힌트 보기</button>
-            <button class="btn btn-secondary" id="btn-giveup" type="button">모르겠어요, 답 볼게요</button>
-          </div>
+      <div class="call" id="call" data-phase="asking">
+        <!-- 내 모습 -->
+        <div class="call-self" id="call-self" data-camera="off">
+          <video id="call-self-video" autoplay muted playsinline></video>
+          <p class="call-self-note" id="call-self-note"></p>
         </div>
 
-        <div class="booth-result" id="qa-result" hidden>
-          <div class="booth-verdict"><span class="booth-pill" id="qa-pill"></span><span class="booth-react" id="qa-react"></span></div>
-          <p class="booth-summary" id="qa-summary"></p>
-          <ul class="booth-missing" id="qa-missing"></ul>
-          <p class="booth-followup" id="qa-followup"></p>
-          <p class="booth-explain" id="qa-explain"></p>
-          <div class="booth-actions">
-            <button class="btn btn-primary" id="btn-next" type="button">다음 질문</button>
-            <button class="btn btn-secondary" id="btn-again" type="button">이 질문 다시 답하기</button>
-          </div>
+        <!-- 상대 -->
+        <div class="call-partner">
+          <div class="ch-seat seated call-partner-seat" id="call-partner-seat" data-mood="neutral" data-side="right" style="--vw:900"></div>
+          <p class="call-partner-name">쏠라 <span id="call-partner-status">묻고 있어요</span></p>
         </div>
 
-        <p class="booth-busy" id="qa-busy" hidden>답을 읽고 있어요…</p>
-      </article>
+        <!-- 말풍선 — 상대는 왼쪽, 나는 오른쪽 -->
+        <div class="call-log" id="call-log" aria-live="polite"></div>
+
+        <!-- 내 말 자막 — 눌러서 고칠 수 있다 -->
+        <div class="call-caption">
+          <p class="call-mic-note" id="qa-mic-note" aria-live="polite" hidden></p>
+          <textarea id="qa-answer" rows="2" placeholder="말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요."></textarea>
+        </div>
+
+        <div class="call-controls">
+          <button class="btn booth-mic" id="btn-mic" type="button" data-state="idle" aria-label="말해서 답하기">말해서 답하기</button>
+          <button class="btn btn-primary" id="btn-answer" type="button">답하기</button>
+          <button class="btn btn-secondary" id="btn-hint" type="button">힌트</button>
+          <button class="btn btn-secondary" id="btn-giveup" type="button">모르겠어요</button>
+          <button class="btn btn-secondary" id="btn-again" type="button" hidden>다시 답하기</button>
+          <button class="btn btn-primary" id="btn-next" type="button" hidden>다음 질문</button>
+        </div>
+      </div>
 
       <article class="booth-card booth-done" id="qa-done" hidden>
-        <h2 class="booth-question">질문을 다 받았어요</h2>
+        <h2 class="booth-question">통화를 마쳤어요</h2>
         <ul class="booth-tally" id="qa-tally"></ul>
         <p class="booth-why">발표 녹음까지 하면 자료와 말이 어긋난 곳도 잡아요.</p>
         <div class="booth-actions">
@@ -153,6 +153,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
   </section>
 
 </main>
-<script type="module" src="js/booth.js?v=b2"></script>
+<script src="js/chatter.js?v=qkh"></script>
+<script type="module" src="js/booth.js?v=b3"></script>
 </body>
 </html>
