@@ -65,21 +65,46 @@ def is_front_js(path: str) -> bool:
     return path.startswith("demo/YEHS_demo/js/") and path.endswith(".js") or path.startswith("tests/js/")
 
 
+# 프론트 스모크 전부. 파일 하나만 박아 두면 새 스모크(booth)는 아무도 안 돌린다.
+NODE_SMOKES = sorted(str(p.relative_to(C.ROOT)) for p in (C.ROOT / "tests/js").glob("*.smoke.mjs"))
+
+
 def check_node_smoke(files: list[str]) -> Check:
     if not any(is_front_js(f) for f in files):
         return Check("node smoke", "skip", "프론트 JS 변경 없음")
     if not shutil.which("node"):
         return Check("node smoke", "fail", "node 가 없어요 — 프론트 JS 를 고쳤으면 스모크를 돌려야 한다 (CLAUDE.md §2)")
-    r = C.sh(["node", "tests/js/qa_live.smoke.mjs"], timeout=120)
-    last = (r.stdout.strip().splitlines() or ["(출력 없음)"])[-1]
-    if r.returncode != 0 or re.search(r"\b[1-9]\d* failed", last):
-        return Check("node smoke", "fail", last, (r.stdout + r.stderr).strip().splitlines()[-15:])
-    return Check("node smoke", "ok", last)
+    lines: list[str] = []
+    for smoke in NODE_SMOKES:
+        r = C.sh(["node", smoke], timeout=120)
+        last = (r.stdout.strip().splitlines() or ["(출력 없음)"])[-1]
+        lines.append(f"{PurePosixPath(smoke).name}: {last}")
+        if r.returncode != 0 or re.search(r"\b[1-9]\d* failed", last):
+            return Check("node smoke", "fail", lines[-1], (r.stdout + r.stderr).strip().splitlines()[-15:])
+    return Check("node smoke", "ok", " · ".join(lines))
+
+
+# `?v=` 를 무는 곳(host) 과 그 host 가 무는 자산. index.html 이 전부가 아니다 —
+# booth.html 은 booth.css·booth.js 를, js/booth.js 는 import 로 booth_logic.js 를 문다.
+# 값은 host 기준 상대 경로를 검사하는 정규식 (host 가 js/ 안에 있으면 자산도 js/ 기준).
+ASSET_HOSTS: dict[str, str] = {
+    "index.html": r"^(css/.+\.css|js/.+\.js)$",
+    "booth.html": r"^(css/.+\.css|js/.+\.js)$",
+    "js/booth.js": r"^js/booth_logic\.js$",
+}
+
+
+def host_ref(host: str, rel: str) -> str:
+    """host 파일 안에서 자산을 부르는 이름. js/booth.js 는 `./booth_logic.js` 처럼 같은 폴더 기준이다."""
+    host_dir = str(PurePosixPath(host).parent)
+    if host_dir in ("", ".") or not rel.startswith(host_dir + "/"):
+        return rel
+    return rel[len(host_dir) + 1:]
 
 
 def asset_token(html: str, asset: str) -> str | None:
-    """index.html 이 `asset?v=TOKEN` 으로 무는 값. 안 물면 None."""
-    m = re.search(r'(?:href|src)="' + re.escape(asset) + r'\?v=([^"&]+)"', html)
+    """host 가 `asset?v=TOKEN` 으로 무는 값. `href=`·`src=` 와 ES import 의 `from './asset?v='` 둘 다 본다. 안 물면 None."""
+    m = re.search(r'(?:(?:href|src)="|from\s+[\'"]\./)' + re.escape(asset) + r'\?v=([^"\'&]+)', html)
     return m.group(1) if m else None
 
 
@@ -88,8 +113,14 @@ def reveal_token(app_js: str) -> str | None:
     return m.group(1) if m else None
 
 
-def stale_assets(files: list[str], index_old: str, index_new: str, app_old: str, app_new: str) -> list[str]:
-    """바뀌었는데 ?v= 가 그대로인 자산 목록. 순수 함수 — 테스트가 여기를 잡는다."""
+def stale_assets(files: list[str], index_old: str, index_new: str, app_old: str, app_new: str,
+                 hosts: dict[str, tuple[str, str]] | None = None) -> list[str]:
+    """
+    바뀌었는데 ?v= 가 그대로인 자산 목록. 순수 함수 — 테스트가 여기를 잡는다.
+
+    `hosts` 는 index.html 밖에서 ?v= 를 무는 곳들 {host: (old, new)} (ASSET_HOSTS 의 나머지).
+    """
+    pages: dict[str, tuple[str, str]] = {"index.html": (index_old, index_new), **(hosts or {})}
     stale: list[str] = []
     for f in files:
         if not f.startswith("demo/YEHS_demo/"):
@@ -101,9 +132,13 @@ def stale_assets(files: list[str], index_old: str, index_new: str, app_old: str,
             continue
         if not ((rel.startswith("css/") and rel.endswith(".css")) or (rel.startswith("js/") and rel.endswith(".js"))):
             continue
-        old, new = asset_token(index_old, rel), asset_token(index_new, rel)
-        if old is not None and old == new:
-            stale.append(f"{rel} → index.html `?v={old}` 그대로")
+        for host, (h_old, h_new) in pages.items():
+            if host in ASSET_HOSTS and not re.search(ASSET_HOSTS[host], rel):
+                continue
+            ref = host_ref(host, rel)
+            old, new = asset_token(h_old, ref), asset_token(h_new, ref)
+            if old is not None and old == new:
+                stale.append(f"{rel} → {host} `?v={old}` 그대로")
     return stale
 
 
@@ -111,9 +146,13 @@ def check_cache_version(files: list[str], scope: str) -> Check:
     touched = [f for f in files if f.startswith("demo/YEHS_demo/") and re.search(r"\.(css|js)$|f11_reveal\.html$", f)]
     if not touched:
         return Check("?v= 캐시", "skip", "css/js/리빌 변경 없음")
+    hosts = {
+        host: (C.file_at_head(str(C.DEMO / host)), C.file_at(str(C.DEMO / host), scope))
+        for host in ASSET_HOSTS if host != "index.html"
+    }
     stale = stale_assets(
         files, C.file_at_head(str(C.INDEX_HTML)), C.file_at(str(C.INDEX_HTML), scope),
-        C.file_at_head(str(C.APP_JS)), C.file_at(str(C.APP_JS), scope),
+        C.file_at_head(str(C.APP_JS)), C.file_at(str(C.APP_JS), scope), hosts,
     )
     if stale:
         return Check("?v= 캐시", "fail", f"{len(stale)}개 안 올림 — `scripts/chk bump` 로 올린다", stale)

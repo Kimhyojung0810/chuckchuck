@@ -155,9 +155,12 @@ python -c 'import torch; print(torch.cuda.is_available(), torch.cuda.get_device_
 http://127.0.0.1:8799/booth.html
 ```
 
-PDF·녹음 없이, 발표 자료가 열린 창을 공유하거나 스크린샷을 올리면 그 화면으로 질문·판정을 받는다.
-캡처 한 장이 슬라이드 한 장이다 (여러 장은 올린 순서대로 번호). 실측: 화면 2장 → 질문까지 약 31초, 판정 3초.
-「작은 창으로 띄우기」는 Chrome 116+ 의 Document Picture-in-Picture 다. 설계·실측은 [`docs/plan/booth-screen-qa.plan.md`](docs/plan/booth-screen-qa.plan.md).
+PDF·녹음 없이, 발표 자료를 **카메라로 찍거나** 자료가 열린 창을 공유하거나 사진을 올리면 그 장면으로 질문·판정을 받는다.
+답은 **말해서**(크롬 실시간 받아쓰기 → 안 되면 녹음+서버 STT) 하거나 쳐서 한다 — 받아쓴 글을 확인한 뒤 「답하기」.
+「소리 켜기」면 질문·판정을 읽어 준다 (기본 무음). 캡처 한 장이 슬라이드 한 장이다 (여러 장은 올린 순서대로 번호).
+실측: 폰 사진 2장 → 질문까지 약 19초, 판정 2초 (Solar). 「작은 창으로 띄우기」는 Chrome 116+ 의 Document Picture-in-Picture 다.
+설계·실측은 [`docs/plan/booth-screen-qa.plan.md`](docs/plan/booth-screen-qa.plan.md), 부스에서 어떻게 돌릴지는
+[`docs/plan/booth-operations.plan.md`](docs/plan/booth-operations.plan.md). 프론트 순수 함수는 `node tests/js/booth.smoke.mjs`.
 
 ### 손으로 눌러보는 체크리스트
 

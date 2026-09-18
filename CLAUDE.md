@@ -48,6 +48,7 @@ curl -sS -X POST http://127.0.0.1:8799/api/v1/habits -H 'Content-Type: applicati
 
 python -m pytest tests/ -q                    # 회귀 스모크 (파이썬)
 node tests/js/qa_live.smoke.mjs               # 질문 코칭 프론트 순수 함수 (브라우저 없이)
+node tests/js/booth.smoke.mjs                 # 부스 체험(booth_logic.js) 순수 함수 — gate 는 tests/js/*.smoke.mjs 전부 돌린다
 ```
 
 `tests/` 는 파이썬만 모은다. **프론트 JS 를 고쳤으면 위 노드 스모크도 같이 돌린다** —

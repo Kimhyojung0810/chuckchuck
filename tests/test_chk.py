@@ -59,6 +59,39 @@ def test_stale_assets_requires_bump_only_for_touched_referenced_files():
     assert gate.stale_assets(files, INDEX, new, APP_JS, APP_JS) == []
 
 
+BOOTH_HTML = '''<link rel="stylesheet" href="css/app.css?v=ql2">
+<link rel="stylesheet" href="css/booth.css?v=b1">
+<script type="module" src="js/booth.js?v=b1"></script>'''
+BOOTH_JS = "import { x } from './chuckchuck_bridge.js';\nimport { y } from './booth_logic.js?v=b1';\n"
+
+
+def test_stale_assets_sees_booth_page_and_booth_js_import():
+    """부스 자산은 index.html 이 안 문다 — booth.html 과 js/booth.js 의 import 가 문다 (2026-09-18 카메라·마이크 작업 때 추가)."""
+    files = ["demo/YEHS_demo/css/booth.css", "demo/YEHS_demo/js/booth_logic.js"]
+    hosts = {"booth.html": (BOOTH_HTML, BOOTH_HTML), "js/booth.js": (BOOTH_JS, BOOTH_JS)}
+    stale = gate.stale_assets(files, INDEX, INDEX, APP_JS, APP_JS, hosts)
+    assert [s.split(" ")[0] for s in stale] == ["css/booth.css", "js/booth_logic.js"]
+    assert "js/booth.js" in stale[1]
+    # 둘 다 올리면 통과. import 줄은 bump_asset 이 host 기준 이름(booth_logic.js)으로 올린다
+    hosts = {
+        "booth.html": (BOOTH_HTML, bump.bump_asset(BOOTH_HTML, "css/booth.css", "b2")),
+        "js/booth.js": (BOOTH_JS, bump.bump_asset(BOOTH_JS, "booth_logic.js", "b2")),
+    }
+    assert gate.stale_assets(files, INDEX, INDEX, APP_JS, APP_JS, hosts) == []
+    assert "from './booth_logic.js?v=b2'" in hosts["js/booth.js"][1]
+    # index.html 이 무는 app.css 는 booth.html 도 물지만, index.html 만 올리면 booth.html 쪽이 걸린다
+    files = ["demo/YEHS_demo/css/app.css"]
+    only_index = gate.stale_assets(files, INDEX, bump.bump_asset(INDEX, "css/app.css", "ql3"), APP_JS, APP_JS,
+                                   {"booth.html": (BOOTH_HTML, BOOTH_HTML)})
+    assert only_index == ["css/app.css → booth.html `?v=ql2` 그대로"]
+
+
+def test_host_ref_is_relative_to_host_folder():
+    assert gate.host_ref("js/booth.js", "js/booth_logic.js") == "booth_logic.js"
+    assert gate.host_ref("booth.html", "js/booth.js") == "js/booth.js"
+    assert gate.host_ref("index.html", "css/app.css") == "css/app.css"
+
+
 def test_stale_reveal_checks_app_js_not_index():
     files = ["demo/YEHS_demo/f11_reveal.html"]
     assert len(gate.stale_assets(files, INDEX, INDEX, APP_JS, APP_JS)) == 1
