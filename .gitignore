@@ -64,3 +64,4 @@ fixtures/raw/*.transcript.json
 # 벤치마크 결과 원본 — AUTONOMOUS_LOOP §5 "무시됨(로컬)". 장부(docs/*_LEDGER.md)가 커밋되는 기록이다 (2026-09-13)
 exports/qa_eval/
 exports/graph_eval/
+labs/qa_call/out/

@@ -14,7 +14,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/app.css?v=ql2">
 <link rel="stylesheet" href="css/chatter.css?v=qkh">
-<link rel="stylesheet" href="css/booth.css?v=b3">
+<link rel="stylesheet" href="css/booth.css?v=b4">
 </head>
 <body class="booth-body">
 <main class="booth" id="booth">
@@ -116,7 +116,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
         </div>
 
         <!-- 상대 -->
-        <div class="call-partner">
+        <div class="call-partner glass">
           <div class="ch-seat seated call-partner-seat" id="call-partner-seat" data-mood="neutral" data-side="right" style="--vw:900"></div>
           <p class="call-partner-name">쏠라 <span id="call-partner-status">묻고 있어요</span></p>
         </div>
@@ -124,19 +124,21 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
         <!-- 말풍선 — 상대는 왼쪽, 나는 오른쪽 -->
         <div class="call-log" id="call-log" aria-live="polite"></div>
 
-        <!-- 내 말 자막 — 눌러서 고칠 수 있다 -->
+        <!-- 아래 묶음: 자막 + 조작줄. 흐름 배치라 조작줄이 몇 줄이 되어도 자막을 덮지 않는다 -->
+        <div class="call-dock">
         <div class="call-caption">
           <p class="call-mic-note" id="qa-mic-note" aria-live="polite" hidden></p>
-          <textarea id="qa-answer" rows="2" placeholder="말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요."></textarea>
+          <textarea id="qa-answer" class="glass" rows="2" placeholder="말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요."></textarea>
         </div>
 
         <div class="call-controls">
-          <button class="btn booth-mic" id="btn-mic" type="button" data-state="idle" aria-label="말해서 답하기">말해서 답하기</button>
-          <button class="btn btn-primary" id="btn-answer" type="button">답하기</button>
-          <button class="btn btn-secondary" id="btn-hint" type="button">힌트</button>
-          <button class="btn btn-secondary" id="btn-giveup" type="button">모르겠어요</button>
-          <button class="btn btn-secondary" id="btn-again" type="button" hidden>다시 답하기</button>
-          <button class="btn btn-primary" id="btn-next" type="button" hidden>다음 질문</button>
+          <button class="btn glass booth-mic" id="btn-mic" type="button" data-state="idle" aria-label="말해서 답하기">말해서 답하기</button>
+          <button class="btn glass btn-primary" id="btn-answer" type="button">답하기</button>
+          <button class="btn glass btn-secondary" id="btn-hint" type="button">힌트</button>
+          <button class="btn glass btn-secondary" id="btn-giveup" type="button">모르겠어요</button>
+          <button class="btn glass btn-secondary" id="btn-again" type="button" hidden>다시 답하기</button>
+          <button class="btn glass btn-primary" id="btn-next" type="button" hidden>다음 질문</button>
+        </div>
         </div>
       </div>
 
@@ -154,6 +156,6 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
 
 </main>
 <script src="js/chatter.js?v=qkh"></script>
-<script type="module" src="js/booth.js?v=b3"></script>
+<script type="module" src="js/booth.js?v=b4"></script>
 </body>
 </html>

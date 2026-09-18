@@ -352,6 +352,7 @@ async function startQa() {
   $('btn-pip').hidden = !('documentPictureInPicture' in window);
   $('btn-sound').hidden = !('speechSynthesis' in window);
   $('btn-mic').hidden = !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  document.querySelector('.booth-qa-tools').hidden = false;
   $('call-log').innerHTML = '';
   mountPartner();
   await openSelfView();
@@ -415,7 +416,7 @@ function toggleSelfView() {
 function bubble(side, html, { kind = '', verdict = '' } = {}) {
   const log = $('call-log');
   const el = document.createElement('div');
-  el.className = `call-bubble is-${side}${kind ? ` is-${kind}` : ''}`;
+  el.className = `call-bubble glass is-${side}${kind ? ` is-${kind}` : ''}`;
   if (verdict) el.dataset.v = verdict;
   el.innerHTML = html;
   log.appendChild(el);
@@ -493,6 +494,7 @@ async function submit(giveUp) {
 
 function renderJudgement(j, giveUp) {
   const v = j.verdict || 'unknown';
+  note('qa-mic-note', '');
   for (const b of judgementBubbles(j, { giveUp, answerGist: q().answer_gist || '' })) {
     if (b.kind === 'verdict') bubble('partner', `<span class="booth-pill" data-v="${b.verdict}">${esc(VERDICT_WORD[b.verdict] || b.verdict)}</span><p>${esc(b.text)}</p>`, { kind: 'verdict', verdict: b.verdict });
     else if (b.kind === 'missing') bubble('partner', `<p class="call-missing-head">빠진 것</p><ul class="booth-missing">${b.items.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>`, { kind: 'missing' });
@@ -537,6 +539,7 @@ function finish() {
   closeSelfView();
   document.body.classList.remove('booth-in-call');
   $('call').hidden = true;
+  document.querySelector('.booth-qa-tools').hidden = true;
   const ul = $('qa-tally'); ul.innerHTML = '';
   for (const row of tally(state.questions, state.perQ)) {
     const li = document.createElement('li'); li.dataset.v = row.verdict;

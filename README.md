@@ -160,7 +160,8 @@ PDF·녹음 없이, 발표 자료를 **카메라로 찍거나** 자료가 열린
 자동 대화(기본 켬)는 말을 멈추면 3초 카운트다운 뒤 보낸다 (자막을 누르면 멈추고 고친다). 「소리 켜기」면 상대가 읽어 준다 (기본 무음). 캡처 한 장이 슬라이드 한 장이다 (여러 장은 올린 순서대로 번호).
 실측: 폰 사진 2장 → 질문까지 약 19초, 판정 2초 (Solar). 「작은 창으로 띄우기」는 Chrome 116+ 의 Document Picture-in-Picture 다.
 설계·실측은 [`docs/plan/booth-screen-qa.plan.md`](docs/plan/booth-screen-qa.plan.md), 부스에서 어떻게 돌릴지는
-[`docs/plan/booth-operations.plan.md`](docs/plan/booth-operations.plan.md). 프론트 순수 함수는 `node tests/js/booth.smoke.mjs`.
+[`docs/plan/booth-operations.plan.md`](docs/plan/booth-operations.plan.md). 프론트 순수 함수는 `node tests/js/booth.smoke.mjs`,
+통화 화면을 브라우저 없이 단계별로 찍어 보는 실험실은 [`labs/qa_call/`](labs/qa_call/README.md) (`python labs/qa_call/run.py all`).
 
 ### 손으로 눌러보는 체크리스트
 

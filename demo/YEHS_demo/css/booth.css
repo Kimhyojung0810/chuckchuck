@@ -139,15 +139,45 @@
 }
 
 /* ─── 통화 — 화상통화처럼. 내 모습이 바탕, 병아리가 상대, 말풍선이 그 위를 오간다 ───
-   병아리는 얹는 층이지 가리는 층이 아니다 (UI_REDESIGN §14): 말풍선은 위로 갈수록 흐려지고,
-   판정 색은 pill 로만 쓴다. */
+   재질은 글라스(9/18 사용자: "애플의 glass"). 규칙 — 뒤가 비쳐야 글라스다(불투명 배경 금지),
+   블러+채도, 위쪽에 얇은 반사선, 누르면 밝아진다, 블러를 못 하는 브라우저·투명도 줄이기 설정에선
+   불투명에 가깝게. 병아리와 말풍선은 얹는 층이지 가리는 층이 아니다 (UI_REDESIGN §14):
+   말풍선은 왼쪽 60% 안에만 서고 위로 갈수록 흐려진다. 판정 색은 pill 로만. */
+.call {
+  --glass-blur: blur(18px) saturate(1.7);
+  --glass-light: rgba(255, 255, 255, .62);
+  --glass-dark: rgba(16, 20, 32, .46);
+  --glass-brand: rgba(8, 184, 121, .58);
+  --glass-edge: rgba(255, 255, 255, .55);
+  --glass-shine: inset 0 1px 0 rgba(255, 255, 255, .65);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
 .booth-in-call .booth { max-width: 960px; }
 .call {
   position: relative; width: 100%; aspect-ratio: 16 / 10; min-height: 420px;
+  display: flex; flex-direction: column;   /* 말풍선(위, 남는 공간) + 아래 묶음(자막·조작줄) — 겹치지 않는다 */
   background: var(--ch-house-deep, #0e1120); color: #fff;
   border-radius: var(--r-print, 20px); overflow: hidden; border: 1.5px solid var(--border);
 }
-@media (max-width: 640px) { .call { aspect-ratio: 3 / 4; min-height: 520px; } }
+@media (max-width: 640px) { .call { aspect-ratio: auto; min-height: 560px; height: calc(100vh - 150px); } }
+.booth-count { white-space: nowrap; }
+@media (max-width: 640px) {
+  .booth-qa-tools .btn { height: 36px; padding: 0 12px; font-size: 13px; }
+  .booth-qa-head { align-items: flex-start; }
+}
+
+/* 글라스 한 장 — 모든 오버레이가 이 한 규칙을 나눠 쓴다 */
+.glass {
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shine), var(--glass-shadow);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .call { --glass-light: rgba(255,255,255,.94); --glass-dark: rgba(16,20,32,.9); --glass-brand: rgba(8,184,121,.94); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .call { --glass-light: rgba(255,255,255,.94); --glass-dark: rgba(16,20,32,.9); --glass-brand: rgba(8,184,121,.94); }
+}
 
 /* 내 모습 — 거울처럼 좌우를 뒤집는다. 통화 셀프뷰의 관례 */
 .call-self { position: absolute; inset: 0; display: grid; place-items: center; }
@@ -157,78 +187,85 @@
 .call-self-note:empty { display: none; }
 .call-self[data-camera="on"] .call-self-note { bottom: 24%; text-shadow: 0 1px 6px rgba(0,0,0,.7); }
 
-/* 상대 — 작은 타일. 객석 병아리 한 마리, 기분은 data-mood 로 chatter.css 가 그린다 */
+/* 상대 — 작은 글라스 타일. 객석 병아리 한 마리, 기분은 data-mood 로 chatter.css 가 그린다 */
 .call-partner {
   position: absolute; top: 12px; right: 12px; width: 128px; padding: 10px 8px 8px;
-  background: var(--surface); color: var(--text); border-radius: var(--r-inner, 16px);
-  box-shadow: 0 6px 20px rgba(0,0,0,.35); text-align: center;
+  background: var(--glass-light); color: var(--text); border-radius: var(--r-inner, 16px);
+  text-align: center; transition: box-shadow .25s ease;
 }
 .call-partner .ch-seat { width: 100%; opacity: 1; transform: none; filter: none; animation: none; }
 .call-partner .ch-chick { width: 84px; margin: 0 auto; cursor: default; }
 .call-partner-name { margin: 6px 0 0; font-size: 12px; font-weight: 700; color: var(--navy); }
-.call-partner-name span { display: block; font-weight: 500; color: var(--text-3); min-height: 1.4em; }
+.call-partner-name span { display: block; font-weight: 500; color: var(--text-2); min-height: 1.4em; }
 .call-partner-name span:empty::before { content: '\00a0'; }
 .call-partner-seat.is-talking .ch-chick { animation: callTalk .55s ease-in-out infinite; }
 @keyframes callTalk { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-3px) rotate(1deg); } }
-.call[data-phase="listening"] .call-partner { box-shadow: 0 0 0 3px var(--brand), 0 6px 20px rgba(0,0,0,.35); }
+.call[data-phase="listening"] .call-partner { box-shadow: var(--glass-shine), 0 0 0 2.5px var(--brand), var(--glass-shadow); }
 @media (prefers-reduced-motion: reduce) { .call-partner-seat.is-talking .ch-chick { animation: none; } }
 
-/* 말풍선 — 아래에 붙고 위로 갈수록 흐려진다 */
+/* 말풍선 — 왼쪽 60% 안에 서고, 아래에 붙고, 위로 갈수록 흐려진다 */
 .call-log {
-  position: absolute; left: 12px; right: 152px; top: 12px; bottom: 156px;
+  position: relative; flex: 1 1 auto; min-height: 0; margin: 12px 12px 6px; width: 60%;
   display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
   overflow: hidden; pointer-events: none;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%);
-  mask-image: linear-gradient(to bottom, transparent, #000 22%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%);
+  mask-image: linear-gradient(to bottom, transparent, #000 24%);
 }
 .call-bubble {
-  max-width: 82%; padding: 10px 14px; border-radius: 16px; font-size: 15px; line-height: 1.5;
-  word-break: keep-all; box-shadow: 0 2px 10px rgba(0,0,0,.25); animation: callPop .22s ease-out;
+  max-width: 92%; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.5;
+  word-break: keep-all; animation: callPop .22s ease-out;
 }
 .call-bubble p { margin: 0; }
 .call-bubble p + p, .call-bubble .booth-chiprow + p, .call-bubble .booth-pill + p { margin-top: 6px; }
-.call-bubble.is-partner { align-self: flex-start; background: rgba(255,255,255,.94); color: var(--text); border-bottom-left-radius: 6px; }
-.call-bubble.is-me { align-self: flex-end; background: var(--brand); color: #fff; border-bottom-right-radius: 6px; }
-.call-bubble.is-giveup { background: var(--fill); color: var(--text-2); }
-.call-bubble.is-error { background: var(--no-bg); color: var(--no); }
+.call-bubble.is-partner { align-self: flex-start; background: var(--glass-light); color: var(--text); border-bottom-left-radius: 6px; }
+.call-bubble.is-me { align-self: flex-end; background: var(--glass-brand); color: #fff; border-bottom-right-radius: 6px; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.call-bubble.is-giveup { background: var(--glass-dark); color: #e6eaf3; }
+.call-bubble.is-error { background: rgba(255, 235, 235, .8); color: var(--no); }
 .call-bubble .call-q { font-size: 17px; font-weight: 700; line-height: 1.4; }
-.call-bubble .call-why { font-size: 13px; color: var(--text-3); }
+.call-bubble .call-why { font-size: 13px; color: var(--text-2); }
 .call-bubble .call-hint { color: var(--mid); }
 .call-bubble .call-followup { font-weight: 600; color: var(--navy); }
 .call-bubble .call-explain { color: var(--text-2); }
-.call-bubble .call-missing-head { font-size: 13px; font-weight: 600; color: var(--text-3); }
-.call-bubble .booth-missing { margin-top: 4px; }
+.call-bubble .call-missing-head { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.call-bubble .booth-missing { margin-top: 4px; color: var(--text); }
 @keyframes callPop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .call-bubble { animation: none; } }
 
-/* 내 말 자막 — 눌러서 고칠 수 있는 입력창을 자막처럼 */
-.call-caption { position: absolute; left: 12px; right: 12px; bottom: 74px; }
+/* 아래 묶음 — 자막 + 조작줄 */
+.call-dock { position: relative; flex: 0 0 auto; margin: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+/* 내 말 자막 — 눌러서 고칠 수 있는 입력창을 자막처럼. 안내 한 줄은 자리를 늘 잡아 둔다(말풍선과 안 겹치게) */
+.call-caption { position: relative; }
 .call-caption textarea {
   width: 100%; box-sizing: border-box; padding: 10px 14px; font-size: 17px; line-height: 1.45; font-family: inherit;
-  background: rgba(0,0,0,.58); color: #fff; border: 1.5px solid transparent; border-radius: var(--r-ctl, 12px);
-  resize: none; backdrop-filter: blur(6px);
+  background: var(--glass-dark); color: #fff; border-radius: var(--r-ctl, 12px); resize: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35); transition: background .2s ease, box-shadow .2s ease;
 }
-.call-caption textarea::placeholder { color: #b9c2d6; }
-.call-caption textarea:focus { outline: none; border-color: var(--brand); background: rgba(0,0,0,.72); }
+.call-caption textarea::placeholder { color: #c9d1e3; text-shadow: none; }
+.call-caption textarea:focus { outline: none; background: rgba(16,20,32,.62); box-shadow: var(--glass-shine), 0 0 0 2px var(--brand), var(--glass-shadow); }
 .call-caption textarea:disabled { opacity: .7; }
-.call-mic-note { margin: 0 0 6px; font-size: 13px; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
-.call-mic-note[hidden] { display: none; }
+.call-mic-note { margin: 0 0 6px; min-height: 1.4em; font-size: 13px; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+.call-mic-note[hidden] { display: block; visibility: hidden; }
 
-/* 조작줄 */
-.call-controls { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.call-controls .btn { height: 44px; }
-.call-controls .booth-mic { background: rgba(255,255,255,.14); color: #fff; }
-.call-controls .booth-mic[data-state="dictating"], .call-controls .booth-mic[data-state="recording"] { background: var(--no); color: #fff; }
-.call-controls .btn-secondary { background: rgba(255,255,255,.14); color: #fff; }
-.call-controls .btn-secondary:hover { background: rgba(255,255,255,.24); }
-.call-controls .btn:disabled { opacity: .45; }
+/* 조작줄 — 캡슐 글라스. 주인공(답하기·다음)만 브랜드 틴트, 말하는 중엔 빨강 틴트 */
+.call-controls { position: relative; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.call-controls .btn {
+  height: 44px; border-radius: 999px; color: #fff; background: var(--glass-dark);
+  text-shadow: 0 1px 2px rgba(0,0,0,.3); transition: filter .15s ease, transform .15s ease, background .2s ease;
+}
+.call-controls .btn:hover { filter: brightness(1.12); }
+.call-controls .btn:active { transform: scale(.97); }
+.call-controls .btn-primary { background: var(--glass-brand); }
+.call-controls .btn-primary:hover { background: var(--glass-brand); filter: brightness(1.12); }
+.call-controls .booth-mic[data-state="dictating"], .call-controls .booth-mic[data-state="recording"] { background: rgba(220, 60, 60, .62); }
+.call-controls .btn:disabled { opacity: .45; filter: none; transform: none; }
+.call-controls .btn-primary:disabled { background: var(--glass-dark); }
 
 @media (max-width: 640px) {
   .call-partner { width: 96px; padding: 8px 6px 6px; }
   .call-partner .ch-chick { width: 64px; }
-  .call-log { right: 118px; bottom: 170px; }
-  .call-caption { bottom: 108px; }
-  .call-controls .btn { flex: 1 1 auto; }
+  .call-log { width: 70%; }
+  .call-controls .btn { flex: 1 1 auto; height: 42px; padding: 0 12px; }
   .call-controls .booth-mic { flex-basis: 100%; }
 }
 .booth-pip-window .call { min-height: 0; height: calc(100vh - 28px); aspect-ratio: auto; }
+.booth-qa-tools[hidden] { display: none; }
