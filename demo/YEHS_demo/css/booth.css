@@ -368,6 +368,7 @@
 @media (max-width: 640px) {
   .call { --pip-w: 112px; }
   /* 세로 폰에서 자료가 메인이면 위에 붙인다 — 아래 말풍선·조작줄에 가리지 않게 */
+  .call[data-main="slides"] .call-slides { top: 96px; }   /* 도구줄(두 줄) 아래부터 — 버튼이 자료를 덮지 않게 */
   .call[data-main="slides"] .call-slides img { object-position: 50% 0; }
   /* 도구줄이 두 줄이 되므로 슬라이드 번호·계기도 그만큼 내려간다 */
   .call[data-main="slides"] .call-slide-no { top: 84px; }

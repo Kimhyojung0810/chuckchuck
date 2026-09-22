@@ -319,6 +319,10 @@ async function uploadShots() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.error) throw new Error(data.message || data.error || `parse HTTP ${res.status}`);
     return data;
+  } catch (err) {
+    // 시간 초과는 브라우저가 「signal is aborted without reason」이라고 말한다 — 사람 말로 바꾼다 (9/23 실험실에서 실제로 봤다)
+    if (err && err.name === 'AbortError') throw new Error(`장면 읽기가 ${Math.round(PARSE_TIMEOUT_MS / 1000)}초 안에 끝나지 않았어요. 다시 시도하면 할 수 있어요.`);
+    throw err;
   } finally { clearTimeout(timer); }
 }
 
@@ -977,6 +981,9 @@ async function openLevelMeter(s) {
 
 function micLevel(s) {
   if (!s.analyser || !s.buf) return null;
+  // 크롬은 사용자 조작 없이 만든 AudioContext 를 정지해 둘 수 있다 — 그러면 0 만 읽혀 「목소리가 작아요」가 잘못 뜬다.
+  // 재개를 시도하고, 돌지 않으면 음량은 안 잰 것으로 한다
+  if (s.ac && s.ac.state !== 'running') { s.ac.resume().catch(() => {}); return null; }
   s.analyser.getFloatTimeDomainData(s.buf);
   let sum = 0;
   for (let i = 0; i < s.buf.length; i++) sum += s.buf[i] * s.buf[i];
