@@ -210,3 +210,17 @@ export function judgementBubbles(j, { giveUp = false, answerGist = '' } = {}) {
   }
   return out;
 }
+
+/**
+ * 판정 한 풍선 — 9/23 사용자: "판정 뒤에 말풍선 쌓이는 것도 최근 하나만 남게".
+ * judgementBubbles 의 조각(반응+요약 · 빠진 것 · 되묻기/정답 요지)을 버리지 않고 한 풍선에 담는다.
+ * 화면은 이 풍선 하나로 앞 풍선(질문·내 답·힌트)을 갈아 끼운다. 판정 색은 pill 로만 — 숫자·판정은 잃지 않는다.
+ */
+export function judgementBubble(j, opts = {}) {
+  const parts = judgementBubbles(j, opts);
+  if (!parts.length) return null;
+  const head = parts.find((b) => b.kind === 'verdict');
+  const missing = parts.find((b) => b.kind === 'missing');
+  const tail = parts.find((b) => b.kind === 'followup' || b.kind === 'explain') || null;
+  return { verdict: head.verdict, text: head.text, missing: missing ? missing.items : [], tail: tail ? { kind: tail.kind, text: tail.text } : null };
+}

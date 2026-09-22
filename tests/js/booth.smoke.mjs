@@ -159,6 +159,13 @@ test('판정 말풍선: 반응+요약 → 빠진 것 → 되묻기(평소) 또�
   eq(L.judgementBubbles({ verdict: 'good', react: '좋아요' }).length, 1);
   eq(L.judgementBubbles(null), []);
 });
+test('판정 한 풍선(9/23): 조각을 잃지 않고 하나로 — 빠진 것·되묻기가 들어가고, 포기면 정답 요지', () => {
+  const j = { verdict: 'partial', react: '음,', summary_sentence: '반은 맞아요.', missing_points: ['근거'], followup: '그럼요?', explanation: '정답 X' };
+  eq(L.judgementBubble(j), { verdict: 'partial', text: '음, 반은 맞아요.', missing: ['근거'], tail: { kind: 'followup', text: '그럼요?' } });
+  eq(L.judgementBubble(j, { giveUp: true }).tail, { kind: 'explain', text: '정답 X' });
+  eq(L.judgementBubble({ verdict: 'good', react: '좋아요' }), { verdict: 'good', text: '좋아요', missing: [], tail: null });
+  eq(L.judgementBubble(null), null);
+});
 
 /* ── 말로 조작하기 ─────────────────────────────────────────────────────────── */
 test('문장 끝의 「다음 질문」: 앞부분은 답으로 남기고 next', () => {

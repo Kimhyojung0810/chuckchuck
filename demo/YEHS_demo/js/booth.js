@@ -33,9 +33,9 @@ import {
 import {
   MAX_SHOTS, MIC_LABEL, VERDICT_WORD,
   appendTranscript, cameraErrorText, captureRoutes, countdownText, fitScale, hintLadder,
-  judgementBubbles, newPen, paintDictation, partnerMood, shotFileName, shotsAdvice,
+  judgementBubble, newPen, paintDictation, partnerMood, shotFileName, shotsAdvice,
   speakableJudgement, speechSettled, tally, voiceCommand,
-} from './booth_logic.js?v=b4';
+} from './booth_logic.js?v=b5';
 
 const PARSE_TIMEOUT_MS = 120000;
 const SOUND_KEY = 'cheokcheok:booth-sound';
@@ -413,8 +413,10 @@ function toggleSelfView() {
 }
 
 /* 말풍선 — 상대는 왼쪽, 나는 오른쪽. 마지막 몇 개만 보이고 위는 흐려진다 (가리는 층이 아니다) */
-function bubble(side, html, { kind = '', verdict = '' } = {}) {
+/** 말풍선 하나. replace 면 앞 풍선을 전부 치우고 이것만 남긴다 — 통화에서 병아리는 한 번에 한 마디만 한다. */
+function bubble(side, html, { kind = '', verdict = '', replace = false } = {}) {
   const log = $('call-bubbles');
+  if (replace) log.replaceChildren();
   const el = document.createElement('div');
   el.className = `call-bubble glass is-${side}${kind ? ` is-${kind}` : ''}`;
   if (verdict) el.dataset.v = verdict;
@@ -431,7 +433,7 @@ function renderQuestion() {
   cancelCountdown();
   $('qa-count').textContent = `${state.idx + 1} / ${state.questions.length}`;
   const chips = `<span class="booth-chip">${esc(cur.label || '')}</span>${(cur.slide_nos || []).length ? `<span class="booth-chip booth-chip-slide">${esc(cur.slide_nos.join('·'))}번 장면</span>` : ''}`;
-  bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${cur.why ? `<p class="call-why">${esc(cur.why)}</p>` : ''}`, { kind: 'question' });
+  bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${cur.why ? `<p class="call-why">${esc(cur.why)}</p>` : ''}`, { kind: 'question', replace: true });
   $('qa-answer').value = '';
   $('qa-answer').placeholder = '말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요.';
   note('qa-mic-note', '');
@@ -495,10 +497,12 @@ async function submit(giveUp) {
 function renderJudgement(j, giveUp) {
   const v = j.verdict || 'unknown';
   note('qa-mic-note', '');
-  for (const b of judgementBubbles(j, { giveUp, answerGist: q().answer_gist || '' })) {
-    if (b.kind === 'verdict') bubble('partner', `<span class="booth-pill" data-v="${b.verdict}">${esc(VERDICT_WORD[b.verdict] || b.verdict)}</span><p>${esc(b.text)}</p>`, { kind: 'verdict', verdict: b.verdict });
-    else if (b.kind === 'missing') bubble('partner', `<p class="call-missing-head">빠진 것</p><ul class="booth-missing">${b.items.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>`, { kind: 'missing' });
-    else bubble('partner', `<p class="${b.kind === 'followup' ? 'call-followup' : 'call-explain'}">${esc(b.text)}</p>`, { kind: b.kind });
+  // 판정은 풍선 하나로 — 질문·내 답·힌트 풍선을 치우고 이것만 남긴다 (9/23 사용자: "판정 뒤에 말풍선 쌓이는 것도 최근 하나만")
+  const b = judgementBubble(j, { giveUp, answerGist: q().answer_gist || '' });
+  if (b) {
+    const missing = b.missing.length ? `<p class="call-missing-head">빠진 것</p><ul class="booth-missing">${b.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '';
+    const tail = b.tail ? `<p class="${b.tail.kind === 'followup' ? 'call-followup' : 'call-explain'}">${esc(b.tail.text)}</p>` : '';
+    bubble('partner', `<span class="booth-pill" data-v="${b.verdict}">${esc(VERDICT_WORD[b.verdict] || b.verdict)}</span><p>${esc(b.text)}</p>${missing}${tail}`, { kind: 'verdict', verdict: b.verdict, replace: true });
   }
   // 판정이 준 힌트는 사다리에 이어 붙인다 — 코치가 힌트와 이어지는 말로 반응한다
   if (Array.isArray(j.hints) && j.hints.length) {

@@ -254,6 +254,9 @@
 .call-bubble .call-explain { color: var(--text-2); }
 .call-bubble .call-missing-head { font-size: 13px; font-weight: 600; color: var(--text-2); }
 .call-bubble .booth-missing { margin-top: 4px; color: var(--text); }
+/* 판정 한 풍선(9/23) — 반응+요약 · 빠진 것 · 되묻기가 한 풍선에 구획으로 선다 */
+.call-bubble.is-verdict .call-missing-head { margin-top: 10px; }
+.call-bubble.is-verdict .call-followup, .call-bubble.is-verdict .call-explain { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--glass-edge); }
 @keyframes callPop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .call-bubble { animation: none; } }
 
