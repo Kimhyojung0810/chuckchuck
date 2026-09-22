@@ -53,8 +53,8 @@ from chuckchuck.config import load_dotenv  # noqa: E402
 
 load_dotenv()
 
-from chuckchuck import build_questions, judge_answer, triage_questions  # noqa: E402
-from chuckchuck._evidence import clean_slide_text  # noqa: E402
+from chuckchuck import build_papers, build_questions, judge_answer, triage_questions  # noqa: E402
+from chuckchuck._evidence import clean_slide_text, find_citations  # noqa: E402
 from chuckchuck._json_text import extract_json_object  # noqa: E402
 from chuckchuck._match import norm_tokens  # noqa: E402
 from chuckchuck.contracts import (  # noqa: E402
@@ -192,8 +192,22 @@ def honorifics(*texts: str) -> int:
     return sum(len(HONORIFIC_RE.findall(t or "")) for t in texts)
 
 
-def question_row(q: Question, corpus: Corpus) -> dict:
+def citation_grounded(q: Question, papers) -> bool | None:
+    """질문·이유·힌트·골자 속 「저자 (연도)」 인용이 전부 PaperDoc 에 실재하는가. 문헌이 없으면 None.
+
+    F-08 어댑터가 목록 밖 인용을 버리므로 **항상 True 여야 한다** — False 가 하나라도 나오면 어댑터 버그다."""
+    if papers is None:
+        return None
+    cites = []
+    for t in (q.question, q.why, q.hint, q.answer_gist):
+        cites += find_citations(t or "")
+    return all(any(r.year == y and s in {a.lower() for a in r.authors} for r in papers.refs) for s, y in cites)
+
+
+def question_row(q: Question, corpus: Corpus, papers=None) -> dict:
     return {
+        "paper_ids": list(q.paper_ids),
+        "citation_grounded": citation_grounded(q, papers),
         "id": q.id, "label": q.label, "trap": q.trap, "severity": q.severity,
         "slide_count": len(q.slide_nos),
         "fallback": bool(FALLBACK_QUESTION_RE.search(q.question) or FALLBACK_GIST_RE.search(q.answer_gist or "")),
@@ -350,7 +364,7 @@ def rubric_summary(rrows: list[dict]) -> dict:
 # 실행
 # ---------------------------------------------------------------------------
 
-def make_questions(art: dict, track: str, llm: LLMProvider, fresh_triage: bool) -> QuestionDoc:
+def make_questions(art: dict, track: str, llm: LLMProvider, fresh_triage: bool, papers=None) -> QuestionDoc:
     graph = ConceptGraph.from_dict(art["concept_graph"])
     ctx = Context.from_dict(art.get("context") or {})
     if fresh_triage or not art.get("qa_triage"):
@@ -360,7 +374,7 @@ def make_questions(art: dict, track: str, llm: LLMProvider, fresh_triage: bool) 
         triage = QaTriage.from_dict(art["qa_triage"])
     return build_questions(
         graph, triage, track=track, alignment=art.get("alignment_doc"), flow=art.get("flow_diff"),
-        transcript=art.get("transcript"), slidedoc=art.get("slide_doc"), context=ctx, llm=llm,
+        transcript=art.get("transcript"), slidedoc=art.get("slide_doc"), context=ctx, papers=papers, llm=llm,
     )
 
 
@@ -475,6 +489,9 @@ def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict], crows: li
         "slide_count_mean": mean([r["slide_count"] for r in qrows]),
         "specificity_mean": mean([r["specificity"] for r in qrows]),
         "grounding_mean": mean([r["grounding"] for r in qrows]),
+        # 문헌(F-24) — --papers 일 때만 값이 있다. citation_grounded 는 1.0 이 아니면 채택 금지.
+        "paper_cited_questions": sum(1 for r in qrows if r["paper_ids"]),
+        "citation_grounded": mean([1.0 if r["citation_grounded"] else 0.0 for r in qrows if r["citation_grounded"] is not None]),
         "honorifics_questions": sum(r["honorifics"] for r in qrows),
         "impolite_questions": sum(1 for r in qrows if r["impolite"]),
         "honorifics_judge": sum(r["honorifics"] for r in jrows),
@@ -503,6 +520,8 @@ def print_summary(s: dict, model: str) -> None:
     print(f"\n{'=' * 72}\n요약  (model={model})\n{'-' * 72}")
     print(f"질문 {s['questions']}개 · 폴백 {s['fallback']} · 함정 {s['trap']} · 근거 장 평균 {s['slide_count_mean']}")
     print(f"질문 특이도 평균 {s['specificity_mean']}  · 근거 인용률 평균 {s['grounding_mean']}")
+    if s.get("citation_grounded") is not None:
+        print(f"문헌: 논문을 인용한 질문 {s['paper_cited_questions']}/{s['questions']} · 인용 실재율 {s['citation_grounded']} (1.0 아니면 실패)")
     print(f"말투 위반: 높임 질문 {s['honorifics_questions']} · 판정 {s['honorifics_judge']} · 반말 질문 {s['impolite_questions']}/{s['questions']}")
     print(f"판정 일관성: 골자→통과 {j['gist_passed']} · 엉뚱→wrong {j['unrelated_wrong']}"
           f" · 함정동의→wrong {j['trap_agree_wrong']} · 함정정정→통과 {j['trap_fixed_passed']}")
@@ -532,12 +551,22 @@ def run_bundle(bundle: Path, args) -> dict:
     print(f"자료: {art['concept_graph']['file_name']} · 장 {len(corpus.slide_text)} · 본문(정제) "
           f"{sum(len(t) for t in corpus.slide_text.values())}자 · 발화 {sum(len(t) for t in corpus.speech_text.values())}자")
 
+    papers = None
+    if args.papers:
+        t0 = time.time()
+        papers = build_papers(art["concept_graph"], art.get("slide_doc"), scholar=args.scholar, llm=llm)
+        print(f"\nF-24 문헌 {len(papers.refs)}개 (자료 인용 {len(papers.deck_refs)} · 검색 {len(papers.scholar_refs)}) "
+              f"provider={papers.provider} ({time.time() - t0:.1f}s){(' · ' + papers.note) if papers.note else ''}")
+        for r in papers.refs:
+            print(f"  - {r.id} {r.cite_key:<28} {r.title[:60]}{' · 초록' if r.abstract else ''}")
+
     t0 = time.time()
-    doc = make_questions(art, args.track, llm, args.fresh_triage)
+    doc = make_questions(art, args.track, llm, args.fresh_triage, papers=papers)
     print(f"\nF-08 track={doc.track} 질문 {len(doc.questions)}개 ({time.time() - t0:.1f}s, model={doc.model})")
-    qrows = [question_row(q, corpus) for q in doc.questions]
+    qrows = [question_row(q, corpus, papers) for q in doc.questions]
     for r in qrows:
         flag = (" [폴백]" if r["fallback"] else "") + (" [반말]" if r["impolite"] else "")
+        flag += (f" [문헌 {','.join(r['paper_ids'])}]" if r["paper_ids"] else "") + (" [인용 지어냄!]" if r["citation_grounded"] is False else "")
         print(f"  - {r['id']:<24}장{r['slide_count']:>2} 특이도{r['specificity']:>2} 인용률{r['grounding'] if r['grounding'] is not None else '-':>5} "
               f"말투{r['honorifics']}{flag}\n      Q: {r['question'][:100]}")
 
@@ -682,6 +711,8 @@ def main() -> int:
     ap.add_argument("--rubric-runs", type=int, default=3,
                     help="rubric 채점 횟수, 항목별 중앙값 (기본 3 — 한 번은 잡음이다. 호출 수는 그만큼 는다)")
     ap.add_argument("--fresh-triage", action="store_true", help="저장된 심사 대신 F-08 1차를 다시 돌린다")
+    ap.add_argument("--papers", action="store_true", help="F-24 문헌(자료 인용 + 학술 검색)을 만들어 F-08 에 넘긴다")
+    ap.add_argument("--scholar", default=None, help="--papers 의 검색 provider (openalex | none, 기본 SCHOLAR_PROVIDER)")
     ap.add_argument("--dump", type=Path, default=None, help="프롬프트·응답 원문을 이 파일에 남긴다")
     args = ap.parse_args()
 

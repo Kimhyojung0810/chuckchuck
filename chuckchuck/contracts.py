@@ -1498,6 +1498,141 @@ QA_COACH_STAGES = ("", "narrow", "scaffold", "explain", "clarify")
 QA_EXPLAIN_MAX = 500
 
 
+# ---------------------------------------------------------------------------
+# F-24 : 문헌 (교수가 읽고 온 논문)  — 질문 근거 · 자유 검색
+# ---------------------------------------------------------------------------
+
+#: 문헌의 출처. deck = 자료(슬라이드)가 인용한 것 · scholar = 학술 검색(OpenAlex 등)이 찾은 실재 논문.
+PAPER_KINDS = ("deck", "scholar")
+PAPER_KIND_FALLBACK = "deck"
+
+#: 프롬프트·화면에 실을 초록 한 줄의 최대 글자 수. **원문 그대로 자른 것**이지 요약이 아니다 —
+#: 논문 내용을 LLM 이 다시 쓰게 두면 지어낸다 (audience-evidence 계획 §2-1 L2).
+PAPER_ABSTRACT_MAX = 300
+
+#: 질문 근거용으로 검색할 개념 수와 개념당 논문 수. 개념 전부를 검색하면 외부 호출이
+#: 개념 수만큼 늘고 프롬프트도 길어진다 — 상위 weight 개념만 본다.
+PAPER_NODE_MAX = 5
+PAPER_PER_NODE = 2
+#: 자유 검색(search_papers) 결과 상한.
+PAPER_SEARCH_MAX = 8
+
+
+@dataclass
+class PaperRef:
+    """
+    문헌 하나. **제목·저자·연도·DOI·초록은 전부 원문(자료 또는 검색 API)에서 온다.**
+    LLM 이 채우는 필드는 없다 — 그래서 질문이 이 목록의 논문만 인용하면 지어냄이 0 이다.
+
+    `id` 는 문서 안에서 결정적이다 (자료 인용은 d01…, 검색 결과는 s01…).
+    `node_ids` 는 이 문헌이 어느 개념의 근거로 붙었는지 (검색 질의가 된 개념).
+    `slide_no` 는 자료가 인용한 장 (검색 결과는 0).
+    """
+    id: str
+    kind: str = PAPER_KIND_FALLBACK        # deck | scholar
+    title: str = ""
+    authors: list[str] = field(default_factory=list)   # 성(또는 표시 이름) 최대 3명
+    et_al: bool = False                    # 자료가 「et al.」·「등」 으로 적었는가 (표시용)
+    year: int = 0
+    venue: str = ""
+    doi: str = ""                          # "10.1037/xhp0000100" 꼴 (URL 아님)
+    url: str = ""
+    abstract: str = ""                     # 원문에서 PAPER_ABSTRACT_MAX 로 자른 한 줄
+    cited_by: int = 0                      # 피인용 수 (검색 결과만)
+    slide_no: int = 0
+    node_ids: list[str] = field(default_factory=list)
+    query: str = ""                        # 이 문헌을 찾은 검색어 (검색 결과만)
+    source: str = ""                       # 어느 통로가 찾았나 (openalex · semanticscholar · arxiv · crossref · europepmc). 여러 곳이면 "a+b"
+
+    @property
+    def cite_key(self) -> str:
+        """「Stothart (2015)」 꼴의 인용 표시. 프롬프트·화면·검사가 같은 문자열을 쓴다."""
+        head = self.authors[0] if self.authors else (self.title[:20] if self.title else self.id)
+        if len(self.authors) > 1 or self.et_al:
+            head += " et al."
+        return f"{head} ({self.year})" if self.year else head
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["cite_key"] = self.cite_key
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PaperRef":
+        kind = str(d.get("kind", PAPER_KIND_FALLBACK) or PAPER_KIND_FALLBACK)
+        try:
+            year = int(d.get("year") or 0)
+        except (TypeError, ValueError):
+            year = 0
+        return cls(
+            id=str(d["id"]),
+            kind=kind if kind in PAPER_KINDS else PAPER_KIND_FALLBACK,
+            title=str(d.get("title", "") or ""),
+            authors=[str(a) for a in (d.get("authors") or []) if str(a).strip()],
+            et_al=bool(d.get("et_al", False)),
+            year=year,
+            venue=str(d.get("venue", "") or ""),
+            doi=str(d.get("doi", "") or ""),
+            url=str(d.get("url", "") or ""),
+            abstract=str(d.get("abstract", "") or "")[:PAPER_ABSTRACT_MAX],
+            cited_by=int(d.get("cited_by") or 0),
+            slide_no=int(d.get("slide_no") or 0),
+            node_ids=[str(n) for n in (d.get("node_ids") or [])],
+            query=str(d.get("query", "") or ""),
+            source=str(d.get("source", "") or ""),
+        )
+
+
+@dataclass
+class PaperDoc:
+    """
+    F-24 산출물. 자료가 인용한 문헌(deck) + 개념별로 검색해 온 실재 논문(scholar).
+
+    F-08 은 이 목록을 「교수가 읽고 온 문헌」 으로 프롬프트에 싣고, 질문 속 인용이
+    이 목록 밖이면 그 문장을 버린다. 트랙과 무관하므로 **세션에 한 번만** 만든다.
+    `provider` 는 검색을 맡은 쪽 이름 (openalex · none). 검색이 꺼졌거나 실패하면
+    deck 만 남고 provider 는 그 사정을 적는다 — 조용히 빈 목록이 되지 않는다.
+    """
+    file_name: str
+    refs: list[PaperRef] = field(default_factory=list)
+    provider: str = "none"
+    note: str = ""                          # 검색을 못 했으면 왜인지 한 줄
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "provider": self.provider,
+            "note": self.note,
+            "refs": [r.to_dict() for r in self.refs],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PaperDoc":
+        return cls(
+            file_name=str(d.get("file_name", "") or ""),
+            refs=[PaperRef.from_dict(r) for r in d.get("refs", [])],
+            provider=str(d.get("provider", "none") or "none"),
+            note=str(d.get("note", "") or ""),
+        )
+
+    def ref(self, ref_id: str) -> PaperRef | None:
+        for r in self.refs:
+            if r.id == ref_id:
+                return r
+        return None
+
+    @property
+    def deck_refs(self) -> list[PaperRef]:
+        return [r for r in self.refs if r.kind == "deck"]
+
+    @property
+    def scholar_refs(self) -> list[PaperRef]:
+        return [r for r in self.refs if r.kind == "scholar"]
+
+    def for_node(self, node_id: str) -> list[PaperRef]:
+        return [r for r in self.refs if node_id in r.node_ids]
+
+
 @dataclass
 class TriageMark:
     """
@@ -1607,6 +1742,9 @@ class Question:
     evidence_quote: str = ""
     #: 같은 장에서 발표자가 실제로 한 말 한 구절 (STT). 해설이 "발표에서는 …라고 했어요" 로 쓴다.
     speech_quote: str = ""
+    #: 이 질문이 근거로 든 문헌 (PaperDoc.refs[].id). F-08 이 papers 를 받았을 때만 채운다.
+    #: 목록 밖 인용은 F-08 어댑터가 버리므로, 여기 있는 id 는 전부 PaperDoc 에 실재한다.
+    paper_ids: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         # 불변식을 **타입에서** 지킨다. F-08 은 dataclass 로 직접 짓고 프론트·세션
@@ -1632,6 +1770,7 @@ class Question:
             "evidence_slide_no": self.evidence_slide_no,
             "evidence_quote": self.evidence_quote,
             "speech_quote": self.speech_quote,
+            "paper_ids": list(self.paper_ids),
         }
 
     @classmethod
@@ -1660,6 +1799,7 @@ class Question:
             evidence_slide_no=int(d.get("evidence_slide_no") or 0),
             evidence_quote=str(d.get("evidence_quote", "") or ""),
             speech_quote=str(d.get("speech_quote", "") or ""),
+            paper_ids=[str(x) for x in (d.get("paper_ids") or [])],
         )
 
 
@@ -1679,6 +1819,9 @@ class QuestionDoc:
     #: 후보였지만 이번 트랙 상한에서 밀린 개념. "더 길게 하면 이것도 물어요" 안내용.
     deferred_node_ids: list[str] = field(default_factory=list)
     model: str = ""
+    #: 질문들이 실제로 인용한 문헌만 (PaperDoc 의 부분집합). 화면이 질문 카드 옆에
+    #: 「이 논문을 보고 묻는 질문이에요」 를 그릴 때 PaperDoc 을 따로 안 들고 있어도 되게.
+    papers: list[PaperRef] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -1688,6 +1831,7 @@ class QuestionDoc:
             "questions": [q.to_dict() for q in self.questions],
             "deferred_node_ids": list(self.deferred_node_ids),
             "model": self.model,
+            "papers": [p.to_dict() for p in self.papers],
         }
 
     @classmethod
@@ -1700,6 +1844,7 @@ class QuestionDoc:
             questions=[Question.from_dict(q) for q in d.get("questions", [])],
             deferred_node_ids=[str(x) for x in d.get("deferred_node_ids", [])],
             model=d.get("model", ""),
+            papers=[PaperRef.from_dict(p) for p in (d.get("papers") or [])],
         )
 
     def question(self, question_id: str) -> Question | None:
@@ -2286,6 +2431,10 @@ class StrategyError(ChuckchuckError):
 
 class RubricError(ChuckchuckError):
     """F-14 채점표 채점 실패."""
+
+
+class PaperError(ChuckchuckError):
+    """F-24 문헌 검색 실패 (외부 API 오류·시간 초과). 호출자는 deck 문헌만으로 폴백한다."""
 
 
 def ensure_dict_list(items: list[Any] | list[dict], factory):

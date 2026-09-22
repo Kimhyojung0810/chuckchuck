@@ -5,6 +5,7 @@ STT·LLM 구현체를 여기서 골라 가져올 수 있습니다.
 
 from .stt_impl import AxSTT, MockSTT, compare_table, get_provider
 from .llm_impl import get_llm, health_check, SolarLLM, AxLLM, MockLLM
+from .scholar_impl import OpenAlexScholar, NoScholar, get_scholar
 
 __all__ = [
     "AxSTT",
@@ -16,4 +17,7 @@ __all__ = [
     "get_provider",
     "get_llm",
     "health_check",
+    "OpenAlexScholar",
+    "NoScholar",
+    "get_scholar",
 ]

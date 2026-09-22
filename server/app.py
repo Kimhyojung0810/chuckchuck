@@ -536,7 +536,19 @@ async def flat_questions(payload: dict):
         track = QA_TRACK_FALLBACK
     llm = "mock" if settings.mock_external else payload.get("llm")
 
+    # F-24 문헌 — 본문의 slide_doc 이 있을 때만 자료 인용을 뽑고, SCHOLAR_PROVIDER 가 켜져 있으면 검색까지.
+    # mock 이면 검색은 부르지 않는다. papers=false 면 끈다.
+    slide_doc = SlideDoc.from_dict(payload["slide_doc"]) if payload.get("slide_doc") else None
+    want_papers = payload.get("papers") is not False
+
     def run() -> QuestionDoc:
+        from chuckchuck import build_papers
+        papers = None
+        if want_papers:
+            try:
+                papers = build_papers(graph, slide_doc, scholar="none" if settings.mock_external else None, llm=llm)
+            except Exception as e:  # noqa: BLE001 — 문헌 없이도 질문은 나와야 한다
+                log.warning("F-24 papers 실패, 문헌 없이 진행: %s", e)
         triage = triage_questions(graph, alignment, flow, ctx, transcript=transcript, llm=llm)
         return build_questions(
             graph,
@@ -545,7 +557,9 @@ async def flat_questions(payload: dict):
             alignment=alignment,
             flow=flow,
             transcript=transcript,
+            slidedoc=slide_doc,
             context=ctx,
+            papers=papers,
             llm=llm,
         )
 
@@ -554,6 +568,42 @@ async def flat_questions(payload: dict):
     # 1칸으로 무너지고 「답 보고 넘어가기」가 조기에 열린다 (qa_live liveStalled).
     from chuckchuck.f08_questions import with_hint_ladders
     return with_hint_ladders(doc.to_dict(), doc.questions)
+
+
+@app.post("/api/v1/papers/search")
+async def flat_papers_search(payload: dict):
+    """F-24 · {query, limit?} → PaperDoc. 자유 질문에 대한 논문 검색 (품질 순). mock 이면 검색 안 함."""
+    from chuckchuck import search_papers
+    from chuckchuck.contracts import PAPER_SEARCH_MAX
+
+    query = str(payload.get("query") or "").strip()
+    if not query:
+        raise HTTPException(400, {"error": "bad_request", "message": "query 가 필요합니다."})
+    try:
+        limit = max(1, min(int(payload.get("limit") or PAPER_SEARCH_MAX), 20))
+    except (TypeError, ValueError):
+        limit = PAPER_SEARCH_MAX
+    llm = "mock" if settings.mock_external else payload.get("llm")
+    doc = await run_in_threadpool(
+        lambda: search_papers(query, limit=limit, scholar="none" if settings.mock_external else None, llm=llm)
+    )
+    return doc.to_dict()
+
+
+@app.post("/api/v1/papers")
+async def flat_papers(payload: dict):
+    """F-24 · {graph, slide_doc?} → PaperDoc. 자료가 인용한 문헌 + 개념별 검색 논문."""
+    from chuckchuck import build_papers
+
+    if not payload.get("graph"):
+        raise HTTPException(400, {"error": "bad_request", "message": "graph 가 필요합니다."})
+    graph = ConceptGraph.from_dict(payload["graph"])
+    slide_doc = SlideDoc.from_dict(payload["slide_doc"]) if payload.get("slide_doc") else None
+    llm = "mock" if settings.mock_external else payload.get("llm")
+    doc = await run_in_threadpool(
+        lambda: build_papers(graph, slide_doc, scholar="none" if settings.mock_external else None, llm=llm)
+    )
+    return doc.to_dict()
 
 
 @app.post("/api/v1/flow")

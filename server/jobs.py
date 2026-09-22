@@ -49,6 +49,7 @@ from .store import (
     CONCEPT_DOC,
     CONCEPT_GRAPH,
     FLOW_DIFF,
+    PAPER_DOC,
     QA_TRIAGE,
     QUESTION_DOC,
     SLIDE_DOC,
@@ -192,7 +193,7 @@ def _handle_graph(job_id: str, session_id: str, params: dict) -> dict:
     store.put_artifact(session_id, CONCEPT_GRAPH, payload)
     # 그래프가 바뀌면 그 아래 QA 산출물은 옛 덱의 node_id 만 들고 있어 무효다.
     # 남겨 두면 다음 질문 생성이 캐시 히트로 집어 들어 영구 실패한다.
-    store.drop_artifact(session_id, QA_TRIAGE, QUESTION_DOC)
+    store.drop_artifact(session_id, QA_TRIAGE, QUESTION_DOC, PAPER_DOC)
     _progress(job_id, "graph_done", f"개념 {len(graph.nodes)}개 · 연결 {len(graph.edges)}개")
     return payload
 
@@ -283,7 +284,7 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
         # 그래프가 교체된 세션(직접 put, 예전 버전이 남긴 캐시)을 위한 자가 복구다.
         # 이걸 안 하면 그 세션은 재시도해도 영영 QuestionError 로 죽는다.
         log.info("triage 캐시가 현재 그래프와 맞지 않아 다시 만듭니다 (session=%s)", session_id)
-        store.drop_artifact(session_id, QA_TRIAGE, QUESTION_DOC)
+        store.drop_artifact(session_id, QA_TRIAGE, QUESTION_DOC, PAPER_DOC)
         cached = None
 
     if cached:
@@ -296,6 +297,19 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
         )
         store.put_artifact(session_id, QA_TRIAGE, triage.to_dict())
 
+    # F-24 문헌 — 세션에 한 번 만들어 보관하고 트랙이 바뀌어도 재사용한다 (외부 검색은 한 번).
+    papers_raw = artifacts.get(PAPER_DOC)
+    if not papers_raw:
+        from chuckchuck import build_papers
+        _progress(job_id, "papers", "자료가 인용한 문헌과 관련 논문을 찾는 중")
+        try:
+            papers = build_papers(graph, artifacts.get(SLIDE_DOC), scholar="none" if settings.mock_external else None, llm=llm)
+            papers_raw = papers.to_dict()
+            store.put_artifact(session_id, PAPER_DOC, papers_raw)
+        except Exception as e:  # noqa: BLE001 — 문헌 없이도 질문은 나와야 한다
+            log.warning("F-24 papers 실패, 문헌 없이 진행 (session=%s): %s", session_id, e)
+            papers_raw = None
+
     _progress(job_id, "questions", f"{track}분 코스 예상 질문 만드는 중")
     doc = build_questions(
         graph,
@@ -304,7 +318,9 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
         alignment=alignment,
         flow=flow,
         transcript=transcript,
+        slidedoc=artifacts.get(SLIDE_DOC),
         context=ctx,
+        papers=papers_raw,
         llm=llm,
     )
 

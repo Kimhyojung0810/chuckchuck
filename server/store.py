@@ -22,6 +22,7 @@ ALIGNMENT_DOC = "alignment_doc"  # F-11
 FLOW_DIFF = "flow_diff"          # F-11 파생
 QA_TRIAGE = "qa_triage"          # F-08 1차 — 트랙과 무관해 세션에 캐시한다
 QUESTION_DOC = "question_doc"    # F-08 2차 — 트랙별 질문 세트
+PAPER_DOC = "paper_doc"          # F-24 문헌 — 트랙과 무관해 세션에 캐시한다 (그래프가 바뀌면 지운다)
 
 
 def new_id() -> str:

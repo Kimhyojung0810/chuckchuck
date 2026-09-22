@@ -251,3 +251,201 @@ def mask_gist(gist: str, label: str, distractor_pool: list[str]) -> tuple[str, s
     others = [s for _, s in _mask_candidates(pool, exclude) if s.lower() not in gist_stems]
     distractor = max(others, key=len) if others else ""
     return masked, answer, distractor
+
+
+# ---------------------------------------------------------------------------
+# 자료가 인용한 문헌 — 결정론 (F-24 · F-08 · F-23 공용)
+#
+# "교수는 당신이 낸 참고문헌으로 묻는다" 의 재료다. 슬라이드 본문에서 「저자 (연도)」
+# 꼴과 REFERENCES 장을 정규식으로만 뽑는다. LLM 이 논문 이름을 지어내는 것을 막는
+# 유일한 방법은 **목록을 코드가 만드는 것**이라, 여기에는 모델이 없다.
+# ---------------------------------------------------------------------------
+
+#: 「Stothart et al. (2015)」 「Stothart, Mitchum & Yehnert (2015)」 「Peng et al. (CHI 2021)」
+#: 「Leroy (2009)」. 연도 앞의 낱말(CHI·NeurIPS)은 학회명이라 버린다.
+_LATIN_NAME = r"[A-Z][A-Za-z'’\-]+"
+_CITE_LATIN_RE = re.compile(
+    rf"(?P<authors>{_LATIN_NAME}(?:\s*,\s*{_LATIN_NAME})*(?:\s*(?:&|and)\s*{_LATIN_NAME})?)"
+    rf"\s*(?P<etal>et\s+al\.?)?\s*\(\s*(?:[A-Za-z]+\s+)?(?P<year>(?:19|20)\d{{2}})[a-z]?\s*\)"
+)
+#: 「김철수(2021)」 「김철수 등(2021)」 「이영희 외 (2020)」.
+_CITE_KO_RE = re.compile(
+    r"(?P<authors>[가-힣]{2,4})\s*(?P<etal>등|외)?\s*\(\s*(?P<year>(?:19|20)\d{2})\s*\)"
+)
+#: 「[3] Author, Title, 2019」 꼴의 번호 참고문헌 줄 (참고문헌 장 안에서만).
+_NUMBERED_REF_RE = re.compile(r"^\s*\[(?P<n>\d{1,3})\]\s*(?P<body>.+?)\s*$")
+_DOI_RE = re.compile(r"10\.\d{2,9}(?:\s\d{1,6})?/[^\s\"<>)\]]+")
+_YEAR_RE = re.compile(r"\b((?:19|20)\d{2})\b")
+#: 참고문헌 장 판별 — 제목이나 첫 줄.
+_REFERENCES_HEAD_RE = re.compile(r"references|bibliography|참고\s*문헌|참고\s*연구|참고\s*자료", re.I)
+
+#: 문헌 제목으로 볼 줄의 최소 길이. 이보다 짧으면 저자 줄이거나 잘린 꼬리다.
+_TITLE_MIN = 18
+_AUTHOR_MAX = 3
+
+
+def _split_authors(text: str) -> list[str]:
+    parts = re.split(r"\s*(?:,|&|\band\b)\s*", text.strip())
+    return [p.strip() for p in parts if p.strip()][:_AUTHOR_MAX]
+
+
+def _is_reference_slide(slide) -> bool:
+    head = " ".join([(slide.title or ""), (slide.raw_text or "").split("\n", 1)[0]])
+    return bool(_REFERENCES_HEAD_RE.search(head))
+
+
+def _looks_like_title(line: str) -> bool:
+    s = line.strip()
+    if len(s) < _TITLE_MIN or _DOI_RE.search(s) and len(_DOI_RE.sub("", s)) < _TITLE_MIN:
+        return False
+    if _CITE_LATIN_RE.search(s) or _CITE_KO_RE.search(s):
+        return False
+    return True
+
+
+def _title_and_venue(line: str) -> tuple[str, str]:
+    """「제목. 학술지. DOI: …」 한 줄을 제목·학술지로 가른다. DOI 는 따로 뽑는다."""
+    s = _DOI_RE.sub("", line)
+    s = re.sub(r"\bDOI\s*:?\s*$", "", s, flags=re.I).strip()
+    # 마침표만 문장 경계다 — 제목에 「?」 가 흔하다 ("No task left behind? Examining…").
+    sentences = [x.strip() for x in re.split(r"(?<=\.)\s+", s) if x.strip()]
+    if not sentences:
+        return "", ""
+    title = sentences[0].rstrip(".")
+    venue = sentences[1].rstrip(".") if len(sentences) > 1 else ""
+    if venue and re.fullmatch(r"(?i)doi:?", venue):
+        venue = ""
+    return title, venue
+
+
+def _is_author_line(line: str) -> bool:
+    return bool(_CITE_LATIN_RE.search(line) or _CITE_KO_RE.search(line))
+
+
+def _clean_doi(raw: str) -> str:
+    return re.sub(r"\s+", "", raw).rstrip(".,;")
+
+
+def _enrich_from_segment(ref, lines: list[str], at: int) -> None:
+    """참고문헌 장에서 저자 줄 `at` 의 제목·학술지·DOI 를 찾는다.
+
+    저자 줄 사이가 한 항목의 구간이다. 뒤 구간(저자 → 제목 → DOI 가 정상 순서)을 먼저
+    보고, 거기 제목이 없으면 앞 구간의 **마지막** 제목 줄을 본다 — Upstage 가 줄 순서를
+    흔들어 「제목 → DOI → 저자」 로 오는 항목이 실제로 있다 (live_qa_run 픽스처 12장).
+    DOI 는 제목 줄과 그 뒤 다음 제목 줄 전까지만 본다 — 옆 항목의 DOI 를 집지 않게."""
+    n = len(lines)
+    fwd_end = at + 1
+    while fwd_end < n and not _is_author_line(lines[fwd_end]):
+        fwd_end += 1
+    forward = list(range(at + 1, fwd_end))
+    bwd_start = at - 1
+    while bwd_start >= 0 and not _is_author_line(lines[bwd_start]):
+        bwd_start -= 1
+    backward = list(range(bwd_start + 1, at))
+
+    title_at = next((i for i in forward if _looks_like_title(lines[i])), None)
+    if title_at is None:
+        title_at = next((i for i in reversed(backward) if _looks_like_title(lines[i])), None)
+    if title_at is None:
+        return
+    segment = forward if title_at in forward else backward
+    if not ref.title:
+        ref.title, ref.venue = _title_and_venue(lines[title_at])
+    if not ref.doi:
+        for i in segment[segment.index(title_at):]:
+            if i != title_at and _looks_like_title(lines[i]):
+                break
+            m = _DOI_RE.search(lines[i])
+            if m:
+                ref.doi = _clean_doi(m.group(0))
+                break
+
+
+def find_citations(text: str) -> list[tuple[str, int]]:
+    """문장 속 「저자 (연도)」 인용을 (첫 저자 성 소문자, 연도) 로 뽑는다. F-08 이 질문의 인용을 검사할 때 쓴다."""
+    out: list[tuple[str, int]] = []
+    for pat in (_CITE_LATIN_RE, _CITE_KO_RE):
+        for m in pat.finditer(text or ""):
+            authors = _split_authors(m.group("authors"))
+            if authors:
+                out.append((authors[0].lower(), int(m.group("year"))))
+    return out
+
+
+def citation_lines(slidedoc) -> list:
+    """
+    SlideDoc → 자료가 인용한 문헌 `PaperRef` 목록 (kind="deck"). **LLM 0.**
+
+    - 본문의 「저자 (연도)」 는 어느 장이든 잡는다 — 그 장이 `slide_no` 가 된다
+      (교수는 "3장에서 인용한 …" 으로 묻는다). 같은 (첫 저자, 연도) 는 하나로 합친다.
+    - 참고문헌 장(REFERENCES/참고문헌)에서는 저자 줄 주변에서 제목·학술지·DOI 까지 채운다.
+      번호 참고문헌(`[3] …`)도 그 장에서만 항목으로 본다.
+    - id 는 첫 등장 순서로 d01, d02… — 같은 자료면 같은 id 다.
+
+    슬라이드가 없거나 인용이 없으면 빈 목록이다. 한글 자료의 「김철수(2021)」 도 잡는다.
+    """
+    from .contracts import PaperRef  # 순환 import 회피 — contracts 는 이 파일을 모른다
+
+    if slidedoc is None:
+        return []
+    slides = getattr(slidedoc, "slides", None) or []
+    found: dict[tuple[str, int], PaperRef] = {}
+    order: list[tuple[str, int]] = []
+
+    def take(key: tuple[str, int], make) -> PaperRef:
+        ref = found.get(key)
+        if ref is None:
+            ref = make()
+            found[key] = ref
+            order.append(key)
+        return ref
+
+    for slide in sorted(slides, key=lambda s: s.slide_no):
+        text = slide.raw_text or ""
+        is_ref_slide = _is_reference_slide(slide)
+        lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+
+        for at, line in enumerate(lines):
+            for pat in (_CITE_LATIN_RE, _CITE_KO_RE):
+                for m in pat.finditer(line):
+                    authors = _split_authors(m.group("authors"))
+                    if not authors:
+                        continue
+                    year = int(m.group("year"))
+                    key = (authors[0].lower(), year)
+                    et_al = bool(m.group("etal"))
+                    ref = take(key, lambda: PaperRef(
+                        id="", kind="deck", authors=authors, year=year, slide_no=slide.slide_no,
+                        et_al=et_al,
+                    ))
+                    if len(authors) > len(ref.authors):
+                        ref.authors = authors
+                    ref.et_al = ref.et_al or et_al
+                    if is_ref_slide:
+                        _enrich_from_segment(ref, lines, at)
+
+            if is_ref_slide:
+                m = _NUMBERED_REF_RE.match(line)
+                if m and not (_CITE_LATIN_RE.search(line) or _CITE_KO_RE.search(line)):
+                    body = m.group("body")
+                    ym = _YEAR_RE.search(body)
+                    year = int(ym.group(1)) if ym else 0
+                    head = re.split(r"[,.]", body, 1)[0].strip()
+                    key = (f"[{m.group('n')}]", year)
+                    ref = take(key, lambda: PaperRef(
+                        id="", kind="deck", authors=_split_authors(head)[:1] if head else [],
+                        year=year, slide_no=slide.slide_no,
+                    ))
+                    title, venue = _title_and_venue(body)
+                    if not ref.title and len(title) >= _TITLE_MIN:
+                        ref.title, ref.venue = title, venue
+                    dm = _DOI_RE.search(body)
+                    if dm and not ref.doi:
+                        ref.doi = _clean_doi(dm.group(0))
+
+    refs = [found[k] for k in order]
+    for i, ref in enumerate(refs, 1):
+        ref.id = f"d{i:02d}"
+        if ref.doi and not ref.url:
+            ref.url = f"https://doi.org/{ref.doi}"
+    return refs

@@ -101,6 +101,9 @@ PAID_PATHS = frozenset({
     # (세션 경로 /api/v1/sessions/{id}/qa/judge 는 아래 endswith 검사가 잡는다)
     "/api/v1/qa/judge",
     "/api/v1/strategy",
+    # F-24 는 학술 검색 API(+검색어 번역 LLM 1콜)를 부른다
+    "/api/v1/papers",
+    "/api/v1/papers/search",
 })
 
 #: CORS 허용 origin. 기본은 브리지 자신(같은 출처)이라 헤더가 필요 없고,
@@ -479,6 +482,10 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_report(raw)
             if parsed.path == "/api/v1/questions":
                 return self._handle_questions(raw)
+            if parsed.path == "/api/v1/papers":
+                return self._handle_papers(raw)
+            if parsed.path == "/api/v1/papers/search":
+                return self._handle_papers_search(raw)
             if parsed.path == "/api/v1/strategy":
                 return self._handle_strategy(raw)
             # F-09: /api/v1/sessions/{id}/qa/judge — 세션 없이도 body.question 으로 판정
@@ -1319,6 +1326,9 @@ class Handler(SimpleHTTPRequestHandler):
         # 프론트는 slidedoc 을 안 들고 있고, 아티팩트 키를 늘리면 프론트 계약이 깨진다.
         # id 로만 찾으니 남의 자료가 붙을 길이 구조적으로 없다.
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        # 교수가 읽고 온 문헌 (F-24). 세션에 한 번 만들고 재사용한다 — 트랙을 바꿔도 외부 검색을
+        # 다시 안 한다. body.papers=false 면 끈다 (비교 벤치용). 없으면 F-08 은 예전 프롬프트다.
+        papers = None if body.get("papers") is False else self._papers_for(body, found["graph"], slidedoc, llm)
 
         cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm))
         try:
@@ -1343,19 +1353,92 @@ class Handler(SimpleHTTPRequestHandler):
                 # 근거 장 본문 — 모범답이 자료 밖 지식으로 살 붙이는 것을 막는다
                 slidedoc=slidedoc,
                 context=ctx,
+                papers=papers,
                 llm=llm,
             )
         except QuestionError as e:
             return self._json(502, {"error": "questions_failed", "message": str(e)})
         # 본문 유무를 남긴다. 조용히 빠지면 "왜 여전히 자료에 없는 말을 쓰지?" 를
         # 디버깅할 수 없다 (_handle_qa_judge 의 근거= 표시와 같은 이유).
+        cited = sum(1 for q in doc.questions if q.paper_ids)
         sys.stderr.write(
             f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} "
-            f"model={doc.model} 본문={'yes' if slidedoc else '-'}\n"
+            f"model={doc.model} 본문={'yes' if slidedoc else '-'} "
+            f"문헌={len(papers.refs) if papers else '-'} 인용질문={cited}\n"
         )
         payload = with_hint_ladders(doc.to_dict(), doc.questions)
         self._archive(body, "question_doc", payload)
         return self._json(200, payload)
+
+    def _papers_for(self, body: dict, graph_raw: dict | None, slidedoc, llm):
+        """
+        F-24 PaperDoc. 보관소(paper_doc) → 메모리 캐시 → 새로 만들기 순.
+
+        mock 모드에서는 검색을 부르지 않는다 (scholar="none") — 자료 인용(deck)만 나온다.
+        실 API 모드의 provider 는 SCHOLAR_PROVIDER 환경변수가 정한다 (기본 none).
+        실패해도 None 을 돌려주고 질문 생성은 그대로 간다 — 문헌은 있으면 좋은 재료지 필수가 아니다.
+        """
+        from chuckchuck import build_papers
+        from chuckchuck.contracts import PaperDoc
+
+        if not graph_raw:
+            return None
+        sid = _session_id_of(body)
+        stored = ARCHIVE.read_artifact(sid, "paper_doc") if sid else None
+        if stored:
+            return PaperDoc.from_dict(stored)
+        scholar = "none" if _mock() else None
+        key = "papers:" + fingerprint(graph_raw, bool(slidedoc), str(scholar), str(llm))
+        cached = STORE.get_triage(key)   # 지문별 캐시 — triage 와 같은 통을 쓴다 (키 접두어로 구분)
+        if cached is not None:
+            return cached
+        try:
+            papers = build_papers(graph_raw, slidedoc, scholar=scholar, llm=llm)
+        except Exception as e:  # noqa: BLE001 — 문헌 없이도 질문은 나와야 한다
+            sys.stderr.write(f"[bridge] F-24 papers 실패, 문헌 없이 진행: {type(e).__name__}: {e}\n")
+            return None
+        sys.stderr.write(
+            f"[bridge] F-24 papers provider={papers.provider} deck={len(papers.deck_refs)} "
+            f"scholar={len(papers.scholar_refs)}{(' · ' + papers.note) if papers.note else ''}\n"
+        )
+        STORE.set_triage(key, papers)
+        self._archive(body, "paper_doc", papers.to_dict())
+        return papers
+
+    def _handle_papers(self, raw: bytes):
+        """F-24 · {graph | session_id} → PaperDoc. 화면이 「교수가 읽고 온 문헌」 카드를 그릴 때."""
+        body = json.loads(raw or b"{}")
+        found = self._resolve(body, "graph")
+        if not found["graph"]:
+            return self._json(400, {"error": "bad_request", "message": "graph 또는 session_id 가 필요합니다."})
+        slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        llm = "mock" if _mock() else body.get("llm")
+        papers = self._papers_for(body, found["graph"], slidedoc, llm)
+        if papers is None:
+            return self._json(502, {"error": "papers_failed", "message": "문헌을 만들지 못했어요."})
+        return self._json(200, papers.to_dict())
+
+    def _handle_papers_search(self, raw: bytes):
+        """F-24 · {query, limit?} → PaperDoc. 자유 질문에 대한 논문 검색 (품질 순)."""
+        from chuckchuck import search_papers
+        from chuckchuck.contracts import PAPER_SEARCH_MAX
+
+        body = json.loads(raw or b"{}")
+        query = str(body.get("query") or "").strip()
+        if not query:
+            return self._json(400, {"error": "bad_request", "message": "query 가 필요합니다."})
+        try:
+            limit = max(1, min(int(body.get("limit") or PAPER_SEARCH_MAX), 20))
+        except (TypeError, ValueError):
+            limit = PAPER_SEARCH_MAX
+        scholar = "none" if _mock() else None
+        llm = "mock" if _mock() else body.get("llm")
+        papers = search_papers(query, limit=limit, scholar=scholar, llm=llm)
+        sys.stderr.write(
+            f"[bridge] F-24 search provider={papers.provider} n={len(papers.refs)}"
+            f"{(' · ' + papers.note) if papers.note else ''}\n"
+        )
+        return self._json(200, papers.to_dict())
 
     def _handle_qa_judge(self, raw: bytes):
         """F-09 · {question_id, answer, history?, question, give_up?} → QaJudgement.

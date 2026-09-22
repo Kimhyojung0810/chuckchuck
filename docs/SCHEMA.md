@@ -971,11 +971,19 @@ LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 �
       "answer_gist_parts": [],
       "evidence_slide_no": 5,
       "evidence_quote": "IMU 와 영상 임베딩을 같은 공간에 놓고 대조 손실로 정렬한다",
-      "speech_quote": "여기서는 두 신호를 같은 공간에 두고 맞췄습니다" }
+      "speech_quote": "여기서는 두 신호를 같은 공간에 두고 맞췄습니다",
+      "paper_ids": ["d01"] }
   ],
-  "deferred_node_ids": ["s7", "s2"]
+  "deferred_node_ids": ["s7", "s2"],
+  "papers": [ { "id": "d01", "kind": "deck", "cite_key": "Stothart et al. (2015)", "title": "…", "…": "§8-G PaperRef" } ]
 }
 ```
+
+`paper_ids`·`papers` 는 F-08 이 `PaperDoc`(§8-G) 을 받았을 때만 채운다 (2026-09-22). `paper_ids` 는
+이 질문이 인용한 문헌이고, `papers` 는 질문들이 인용한 문헌만 모은 `PaperDoc.refs` 의 부분집합이라
+화면이 질문 카드 옆에 「이 논문을 보고 묻는 질문이에요」 를 그릴 때 PaperDoc 을 따로 안 들고 있어도 된다.
+**보증 ⑧: 질문·why·hint·answer_gist 속 「저자 (연도)」 인용은 전부 PaperDoc 에 실재한다** — 목록 밖
+논문을 인용한 문장은 어댑터가 버리고 결정적 템플릿으로 메운다 (`qa_eval --papers` 의 `citation_grounded` = 1.0).
 
 `slide_nos` 는 **anchor 장**이다 (2026-09-10) — F-07 의 근거 장 안에서 본문이 실제로 이
 개념을 말하는 장 최대 3개. 힌트·모범답·화면의 장 그림·판정 본문이 전부 이 목록을 따른다.
@@ -989,6 +997,61 @@ LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 �
 이내이며 **절대 비지 않는다** (LLM 이 빠뜨리면 결정적 템플릿으로 메운다)
 ⑥ **`id` 가 `rank`·`node_id` 에서 결정적으로 나오므로, 같은 triage·같은 track 이면
 결과가 완전히 같다** (uuid 금지) ⑦ `deferred_node_ids` 는 상한에 밀린 후보.
+
+### 8-G. `PaperDoc` — 교수가 읽고 온 문헌 (F-24, 2026-09-22)
+
+**책임 한 줄:** 자료가 인용한 참고문헌과 개념별로 검색한 실재 논문을 모아, F-08 이 **논문을 근거로 묻는**
+질문을 만들 수 있게 한다. `SlideDoc`(+`ConceptGraph`) → `PaperDoc` · 자유 질문 문자열 → `PaperDoc`.
+
+| 입력 | 필수 | 무엇에 쓰나 |
+|------|------|------|
+| `ConceptGraph` | ✅ | 상위 weight 개념 `PAPER_NODE_MAX`(5)개 → 검색어 · deck 문헌에 `node_ids` 조인(`slide_nos`) |
+| `SlideDoc` | 선택 | 「저자 (연도)」·REFERENCES 장을 **정규식**으로 뽑아 deck 문헌 (LLM 0) |
+| 학술 검색 provider | 선택 | `SCHOLAR_PROVIDER` 가 `none` 이 아닐 때만 외부 호출. 통로 5개(openalex · semanticscholar · arxiv · crossref · europepmc)를 쉼표로 여러 개, `all` 은 openalex,arxiv,europepmc(+semanticscholar 는 `S2_API_KEY` 가 있을 때). `none` 이면 deck 만 |
+
+```jsonc
+{
+  "file_name": "IMU2CLIP_sample.pdf",
+  "provider": "openalex+arxiv+europepmc",   // 검색을 맡은 통로 — 하나면 그 이름, 여럿이면 "a+b", 껐으면 none
+  "note": "",                      // 검색을 못 했으면 왜인지 ("검색 꺼짐…" · "openalex 검색 실패: …")
+  "refs": [
+    { "id": "d01", "kind": "deck",                      // d = 자료가 인용 · s = 검색 결과
+      "cite_key": "Stothart et al. (2015)",             // 파생 — 프롬프트·화면·검사가 같은 문자열을 쓴다
+      "title": "The attentional cost of receiving a cell phone notification",
+      "authors": ["Stothart", "Mitchum", "Yehnert"], "et_al": true, "year": 2015,
+      "venue": "Journal of Experimental Psychology: HPP",
+      "doi": "10.1037/xhp0000100", "url": "https://doi.org/10.1037/xhp0000100",
+      "abstract": "…원문을 PAPER_ABSTRACT_MAX(300자)로 자른 것…",   // 요약 아님
+      "cited_by": 412, "slide_no": 5, "node_ids": ["notification"], "query": "", "source": "openalex" },
+    { "id": "s01", "kind": "scholar", "cite_key": "Leroy (2009)", "slide_no": 0,
+      "node_ids": ["attention-residue"], "query": "attention residue task switching",
+      "source": "openalex+europepmc",   // 어느 통로가 찾았나. 두 통로가 같이 찾으면 "a+b" (합의는 순위를 올린다)
+      "…": "…" }
+  ]
+}
+```
+
+**원칙:** 제목·저자·연도·DOI·초록은 전부 **원문(자료 또는 검색 API)** 에서 온다. LLM 이 채우는 필드는 없다.
+LLM 은 한 번만 쓴다 — 한글 개념 이름을 영어 검색어로 바꾸는 일(`[TASK] paper-queries`). 검색어는
+사실이 아니라 열쇠라 지어내도 해가 없다. 영문 개념은 LLM 없이 그대로 검색한다.
+
+**품질 순위**(`providers/scholar_impl.rank_refs` — 통로가 몇 개든 이 한 함수): 검색어 낱말이 제목·초록에
+실제로 있는 비율 0.5 · 관련도(통로가 안 주면 응답 순서) 0.2 · 피인용(log) 0.2 · 최근성 0.1. 낱말 겹침 0.5 미만은
+**채워 넣지 않는다** (관련도·피인용만 믿으면 "attention residue task switching" 에 AlphaFold 가 1위로 온다 — 09-22 실측).
+**제목에 검색어 낱말이 하나도 없으면 버린다** (초록에만 attention·residue·task 가 다 있는 단백질 결합 부위 논문이
+3위에 올랐다 — 09-23 실측). 같은 논문의 여러 판(Europe PMC 의 MED·PMC·PPR, DOI 있는 판과 arXiv 판)은 하나로 합친다.
+
+**보증:** ① `id` 는 문서 안에서 결정적(d01…, s01… 첫 등장 순) ② 같은 논문(DOI 또는 제목)은 하나로 합치고
+`node_ids` 를 더한다 ③ 검색이 꺼졌거나 실패해도 예외 없이 deck 만 돌려주고 `note` 에 사정을 적는다
+④ deck 문헌은 검색으로 되찾아(DOI 우선) DOI·초록을 채우되 `kind` 는 deck 그대로다.
+
+**F-08 이 인용하게 하는 법(2026-09-23):** 문헌 줄이 붙은 개념인데 질문이 인용을 안 했으면, 그 질문과 문헌만 실은
+짧은 과제 `[TASK] qa-cite` 로 **한 번** 고쳐 쓰게 한다 (전체 프롬프트 재요청은 15k자 속에서 규칙이 묻혀 두 번 다 인용 0 이었다).
+고쳐 쓴 문장도 어댑터가 다시 검사한다 — 목록 밖 인용이면 원문을 지킨다.
+
+**경로:** `POST /api/v1/papers` `{graph|session_id, slide_doc?}` → PaperDoc (세션에 한 번 만들어 `paper_doc`
+아티팩트로 보관, 그래프가 바뀌면 지운다) · `POST /api/v1/papers/search` `{query, limit?}` → PaperDoc
+(자유 질문의 논문 검색, 전부 `kind=scholar`). `/api/v1/questions` 는 `papers=false` 로 끌 수 있다.
 
 ### 8-F. 후처리 — `QaJudgement` (F-09)
 

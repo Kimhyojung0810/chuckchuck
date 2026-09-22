@@ -42,6 +42,9 @@ from .contracts import (
     ReportError,
     RubricClusterScore,
     RubricError,
+    PaperDoc,
+    PaperError,
+    PaperRef,
     RubricItemScore,
     RubricScore,
     STTError,
@@ -73,9 +76,15 @@ from .f17_pace import analyze_pace
 from .f18_habits import extract_habits
 from .f19_report import compose_report
 from .f23_context import suggest_context
+from .f24_papers import build_papers, search_papers
 
 __all__ = [
     "suggest_context",
+    "build_papers",
+    "search_papers",
+    "PaperDoc",
+    "PaperError",
+    "PaperRef",
     "AlignError",
     "AlignmentDoc",
     "AlignmentItem",

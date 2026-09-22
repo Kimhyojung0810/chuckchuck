@@ -27,6 +27,7 @@ from itertools import groupby
 from ._evidence import (
     anchor_slides,
     clean_slide_text,
+    find_citations,
     mask_gist,
     neighbor_lines,
     quote_for,
@@ -50,6 +51,8 @@ from .contracts import (
     Context,
     FlowDiff,
     FlowIssue,
+    PaperDoc,
+    PaperRef,
     QaJudgement,
     QaTriage,
     Question,
@@ -279,6 +282,51 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
       "answer_gist_parts": ["둘 이상을 묻는 질문일 때만 요소별로. 아니면 []"] }
   ]
 }
+"""
+
+#: 문헌(PaperDoc)이 있을 때만 시스템 프롬프트 뒤에 붙는 규칙. **없으면 프롬프트는 예전과 글자까지 같다.**
+#: 교수 페르소나의 「경험」 = 문헌이다 (docs/plan/audience-evidence-and-deck-consulting.plan.md §2-1).
+PAPER_SYSTEM_ADDENDUM = """
+
+## 문헌 근거 — 이 요청에만 붙는 규칙
+사용자 프롬프트에 '교수가 읽고 온 문헌' 목록이 있다. 너는 **그 문헌을 읽고 온 심사위원**이다.
+- 질문 대상 개념에 「문헌」 줄이 붙어 있으면, 그 문헌을 근거로 찌르는 질문을 **우선** 써라.
+  (예: "5장에서 Stothart et al. (2015)를 인용했는데, 그 연구는 알림을 확인하지 않은 조건을
+  쟀어요. 이 실험은 어느 조건인가요?") 문헌 줄이 없는 개념은 예전처럼 자료로 묻는다.
+- **인용은 목록에 있는 문헌만, 적힌 인용 표시(저자 (연도)) 그대로.** 목록 밖의 논문·저자·
+  연도를 쓰면 그 질문은 통째로 버려지고 템플릿 문장으로 바뀐다.
+- 그 논문에 대해 말할 수 있는 것은 「초록」 줄에 적힌 것뿐이다. 초록에 없는 결과·수치·
+  조건을 논문의 것으로 말하지 마라.
+- answer_gist 는 여전히 **자료 본문과 발표에서 한 말**로만 쓴다. 논문 내용을 답의 골자로
+  쓰지 마라 — 발표자가 그 논문을 읽었다고 가정할 수 없다. 단, 「자료 N장이 인용」한
+  문헌은 발표자가 직접 낸 것이라, 그 논문이 무엇을 다뤘는지 정도는 답에 기대해도 된다.
+- 출력의 질문마다 `paper_ids` 를 더한다: 이 질문이 인용한 문헌 id 배열. 인용 안 했으면 [].
+  { "node_id": "joint", "question": "…", "why": "…", "hint": "…",
+    "answer_gist": "…", "answer_gist_parts": [], "paper_ids": ["d01"] }
+"""
+
+#: 문헌 줄이 붙은 개념인데 질문이 문헌을 인용하지 않았을 때, **그 질문만** 골라 문헌을 얹어 다시 쓰게 하는 작은 호출.
+#: 2026-09-22 실측(solar): 서가·문헌 줄·규칙을 다 실어도 첫 응답은 인용 0 이었고, 전체 프롬프트(15k자)를 나무라며
+#: 다시 물어도 0 이었다 (paper_ids 를 questions 바깥에 적었다). 긴 프롬프트에서 규칙은 묻힌다 — 그래서 문헌과
+#: 질문 하나만 보여 주는 짧은 과제로 바꾼다. 호출은 **한 번만**, 결과는 어댑터가 다시 검사한다 (목록 밖 인용은 버린다).
+CITE_SYSTEM_PROMPT = """당신은 논문을 읽고 온 심사위원이다. 이미 쓴 질문을 받아, 붙어 있는 문헌을 근거로 찌르는 질문으로 고쳐 쓴다.
+
+규칙
+- question 문장 **안에** 문헌의 인용 표시를 **적힌 그대로** 넣어라 (예: "Stothart et al. (2015)"). 표시를 바꾸거나 다른 논문을 끌어오지 마라.
+  인용은 문장의 주어나 전제로 들어간다. **문장 끝에 덧붙이지 말고, «제목» 은 넣지 마라.**
+  나쁨: "…메커니즘은 무엇인가요? Stothart et al. (2015) «The attentional cost …»"
+  좋음: "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?"
+- 문헌에 대해 말할 수 있는 것은 「초록」 줄에 적힌 것뿐이다. 초록에 없는 결과·수치·조건을 논문의 것으로 말하지 마라.
+- 질문의 대상 개념과 묻는 요지는 유지한다. 발표자의 주장과 문헌이 어긋나거나, 문헌이 잰 조건을 발표가 밝히지 않은
+  지점을 찌른다. 「자료 N장이 인용」한 문헌이면 "N장에서 인용한 …" 으로 시작해도 좋다.
+- **question 은 두 문장 이내, 200자 이내.** 논문 요지는 한 절("…라고 봤는데")로만 끌어오고 초록을 옮겨 적지 마라.
+  길면 통째로 버려진다. 문헌이 여럿이어도 하나만 골라 인용한다.
+- 해요체. why 는 이 문헌으로 묻는 이유 한 줄, hint 는 발표자가 답을 떠올릴 실마리 한 줄. answer_gist 는 고치지 않는다.
+- paper_ids 에는 실제로 인용한 문헌 id 만 적는다.
+- 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+
+출력 스키마:
+{ "questions": [ { "node_id": "<그대로>", "question": "…", "why": "…", "hint": "…", "paper_ids": ["d01"] } ] }
 """
 
 #: 응답이 복구 불가능한 JSON 일 때 한 번 더 물어볼 때 덧붙이는 말 (f11_align 과 같은 전략).
@@ -548,20 +596,122 @@ def _covers_any_target(raw_questions: list[dict], marks: list[TriageMark]) -> bo
     return any(str(q.get("node_id", "") or "") in targets for q in raw_questions)
 
 
-def _questions_with_retry(engine: LLMProvider, prompt: str, marks: list[TriageMark]) -> list[dict]:
+def _questions_with_retry(
+    engine: LLMProvider, prompt: str, marks: list[TriageMark], system: str = QUESTION_SYSTEM_PROMPT,
+) -> list[dict]:
     """질문 JSON 을 받되, **대상 id 가 하나도 없으면 파싱 실패와 같은 실패로 보고 한 번 더 묻는다.**
 
     2026-09-12 실측: A.X 가 0.9초 만에 파싱은 되지만 대상 node_id 가 하나도 없는 JSON 을 돌려준 일이
     측정 5회 중 2회. 그때 `_normalize_questions` 는 조용히 전부 템플릿으로 메웠고 사용자는 "라벨 —
     설명해 주세요." 만 받았다. 두 번째도 비면 그대로 템플릿으로 간다 — 구멍은 내지 않는다.
     """
-    raw = _raw_questions(_call_with_retry(engine, QUESTION_SYSTEM_PROMPT, prompt))
+    raw = _raw_questions(_call_with_retry(engine, system, prompt))
     if marks and not _covers_any_target(raw, marks):
         try:
-            raw = _raw_questions(_call(engine, QUESTION_SYSTEM_PROMPT + JSON_RETRY_NUDGE, prompt))
+            raw = _raw_questions(_call(engine, system + JSON_RETRY_NUDGE, prompt))
         except QuestionError:
             raw = []
     return raw
+
+
+def _question_cites(q: dict, papers: PaperDoc | None) -> bool:
+    """이 질문(raw)이 목록의 문헌을 인용했는가 — 문장 속 「저자 (연도)」 또는 실재하는 paper_ids."""
+    if papers is None:
+        return True
+    ids = {r.id for r in papers.refs}
+    if any(str(x) in ids for x in (q.get("paper_ids") or [])):
+        return True
+    return bool(_cited_ids(" ".join(str(q.get(k, "") or "") for k in ("question", "why", "hint")), papers))
+
+
+def _cite_targets(
+    raw: list[dict], marks: list[TriageMark], by_id: dict[str, ConceptNode], by_no: dict[int, Slide],
+    papers: PaperDoc | None,
+) -> list[tuple[dict, ConceptNode, list[PaperRef]]]:
+    """문헌 줄이 붙은 개념인데 인용이 없는 질문들. 개념당 첫 질문만 (어댑터도 개념당 하나만 쓴다)."""
+    if papers is None:
+        return []
+    marked = {m.node_id for m in marks}
+    out, seen = [], set()
+    for q in raw:
+        nid = str(q.get("node_id", "") or "")
+        if nid not in marked or nid in seen or nid not in by_id:
+            continue
+        seen.add(nid)
+        node = by_id[nid]
+        refs = _papers_for_node(papers, node, _anchor_nos(node, by_no))
+        if refs and str(q.get("question", "") or "").strip() and not _question_cites(q, papers):
+            out.append((q, node, refs))
+    return out
+
+
+def _cite_prompt(targets: list[tuple[dict, ConceptNode, list[PaperRef]]]) -> str:
+    parts = ["[TASK] qa-cite", "", "아래 질문마다 붙은 문헌을 근거로 question·why·hint 를 고쳐 써라. node_id 는 그대로.", ""]
+    for q, node, refs in targets:
+        parts.append(f"### ({node.id}) {node.label}")
+        parts.append(f"question: {str(q.get('question', '') or '')}")
+        if q.get("why"):
+            parts.append(f"why: {str(q.get('why') or '')}")
+        if q.get("hint"):
+            parts.append(f"hint: {str(q.get('hint') or '')}")
+        for ref in refs:
+            parts.append("문헌 " + _paper_line(ref))
+        parts.append("")
+    return "\n".join(parts)
+
+
+#: 고쳐 쓴 문장에서 지울 것 — 프롬프트의 «제목» 표기를 그대로 베낀 조각. 09-23 실측(solar): 질문 끝에 "Stothart et al. (2015)
+#: «The attentional cost …»" 를 덧붙였다. 제목은 카드가 그리지 문장에 들어갈 것이 아니다.
+_TITLE_SPAN_RE = re.compile(r"\s*«[^»]*»")
+#: 문장 끝에 덧붙인 인용 표시 — 「…인가요? Stothart et al. (2015)」 꼴. 끝맺음 뒤에 오는 인용은 뗀다 (앞에 인용이 또 있으면 그것이 남는다).
+_TRAILING_CITE_RE = re.compile(r"([?？.!]|요|까)\s*(?:[A-Z][A-Za-z\-']+(?:\s+(?:et\s+al\.|&\s+[A-Z][A-Za-z\-']+|and\s+[A-Z][A-Za-z\-']+))?\s*\(\d{4}[a-z]?\)\s*[,·;]?\s*)+$")
+
+
+def _clean_rewritten(text: str) -> str:
+    text = _TITLE_SPAN_RE.sub("", str(text or ""))
+    text = _TRAILING_CITE_RE.sub(r"\1", text)
+    return _WS_RE.sub(" ", text).strip() if "_WS_RE" in globals() else " ".join(text.split())
+
+
+def _apply_cite_rewrite(raw: list[dict], targets: list[tuple[dict, ConceptNode, list[PaperRef]]], data: dict,
+                        papers: PaperDoc) -> list[dict]:
+    """고쳐 쓴 질문을 원래 자리에 얹는다. **문헌을 실제로 인용한 것만** 받고, 나머지는 원문 그대로."""
+    rewritten = {str(x.get("node_id", "") or ""): x for x in _raw_questions(data)}
+    allowed = {ref.id for _, _, refs in targets for ref in refs}
+    for q, node, _ in targets:
+        new = rewritten.get(node.id)
+        if not new or not str(new.get("question", "") or "").strip():
+            continue
+        candidate = {**q, **{k: _clean_rewritten(new[k]) for k in ("question", "why", "hint") if new.get(k)},
+                     "paper_ids": [str(x) for x in (new.get("paper_ids") or []) if str(x) in allowed]}
+        # 09-23 실측(solar): 초록을 옮겨 적은 세 문장짜리 질문이 와서 QA_TEXT_MAX 에서 잘려 끝맺음이 사라졌다(반말로 찍힘).
+        # 길거나 해요체 물음으로 끝나지 않으면 원문을 지킨다 — 인용 하나 얻자고 화면 말투를 깨지 않는다.
+        q_text = _polite_question(str(candidate.get("question", "") or ""))
+        if len(q_text) > QA_TEXT_MAX or not _POLITE_END_RE.search(q_text):
+            continue
+        candidate["question"] = q_text
+        # paper_ids 만 적고 문장에 인용이 없거나, 목록 밖 논문을 끌어왔으면 원문을 지킨다 (어댑터가 버릴 문장이다).
+        text = " ".join(str(candidate.get(k, "") or "") for k in ("question", "why", "hint"))
+        if _cited_ids(text, papers) and not _ungrounded_citation(text, papers):
+            q.clear()
+            q.update(candidate)
+    return raw
+
+
+def _questions_with_papers(
+    engine: LLMProvider, prompt: str, marks: list[TriageMark], system: str,
+    by_id: dict[str, ConceptNode], by_no: dict[int, Slide], papers: PaperDoc | None,
+) -> list[dict]:
+    """질문을 받은 뒤, 문헌이 붙었는데 인용이 없는 질문만 골라 qa-cite 로 **한 번** 고쳐 쓴다. 실패하면 첫 응답 그대로."""
+    raw = _questions_with_retry(engine, prompt, marks, system)
+    targets = _cite_targets(raw, marks, by_id, by_no, papers)
+    if not targets:
+        return raw
+    try:
+        data = _call(engine, CITE_SYSTEM_PROMPT, _cite_prompt(targets))
+    except QuestionError:
+        return raw
+    return _apply_cite_rewrite(raw, targets, data, papers)
 
 
 def _node_lines(pairs: list[tuple[ConceptNode, str]]) -> list[str]:
@@ -1064,6 +1214,7 @@ def _build_question_prompt(
     ctx: Context,
     flow_of: dict[str, FlowIssue] | None = None,
     by_no: dict[int, Slide] | None = None,
+    papers: PaperDoc | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-questions",
@@ -1085,6 +1236,14 @@ def _build_question_prompt(
         "missing_link 는 \"두 개념이 어떤 관계인지\".",
         "",
     ]
+    if papers is not None:
+        shelf: list[PaperRef] = []
+        for mark in marks:
+            node = by_id[mark.node_id]
+            for ref in _papers_for_node(papers, node, _anchor_nos(node, by_no or {})):
+                if ref not in shelf:
+                    shelf.append(ref)
+        parts += _paper_shelf_lines(papers, shelf)
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
     for mark in marks:
         node = by_id[mark.node_id]
@@ -1116,6 +1275,10 @@ def _build_question_prompt(
         if issue is not None and mark.source == "weak_flow":
             parts.append(f"    {_flow_line(issue)}")
 
+        # 이 개념에 붙은 문헌 — 자료가 그 장에서 인용했거나 이 개념으로 검색된 것.
+        for ref in _papers_for_node(papers, node, anchors):
+            parts.append(f"    문헌 ({ref.id}) {ref.cite_key} ← 질문 문장에 \"{ref.cite_key}\" 를 그대로 넣어 이 문헌을 근거로 물어라")
+
         # 자료가 먼저, 발화가 나중. 우리가 재는 것은 «자료가 약속한 것을 말로
         # 지켰는가» 라서 프롬프트도 자료를 기준으로 읽히게 둔다.
         body = _slide_body(node, by_no or {}, anchors)
@@ -1128,6 +1291,95 @@ def _build_question_prompt(
             verdict = f"({item.verdict}) " if item is not None else ""
             parts.append(f"    발표에서 한 말{verdict}: {said or item.evidence}")
     return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# 문헌 (F-24 PaperDoc) — 프롬프트 재료와 인용 검사. papers 가 None 이면 전부 잠잔다.
+# ---------------------------------------------------------------------------
+
+#: 프롬프트에 실을 초록 길이. 계약의 300자보다 짧게 — 서가가 길어지면 규칙이 묻힌다 (09-22 실측 15k자·인용 0).
+PAPER_PROMPT_ABSTRACT_MAX = 200
+
+
+def _paper_line(ref: PaperRef) -> str:
+    where = f"자료 {ref.slide_no}장이 인용" if ref.kind == "deck" and ref.slide_no else (
+        f"검색: {ref.query}" if ref.query else "검색")
+    line = f"({ref.id}) {ref.cite_key}"
+    if ref.title:
+        line += f" «{ref.title}»"
+    if ref.venue:
+        line += f" · {ref.venue}"
+    line += f" · [{where}]"
+    if ref.abstract:
+        line += f"\n    초록: {ref.abstract[:PAPER_PROMPT_ABSTRACT_MAX]}"
+    return line
+
+
+def _paper_shelf_lines(papers: PaperDoc | None, refs: list[PaperRef] | None = None) -> list[str]:
+    """서가. refs 를 주면 그것만 싣는다 — 질문 대상 개념에 붙은 문헌만 실어 프롬프트를 짧게 둔다."""
+    if papers is None or not papers.refs:
+        return []
+    shelf = refs if refs is not None else papers.refs
+    if not shelf:
+        return []
+    lines = [
+        "## 교수가 읽고 온 문헌 — 인용은 **이 목록 안에서만**, 인용 표시는 적힌 그대로",
+        "초록은 원문을 자른 것이다. 논문에 대해 말할 수 있는 것은 이 줄뿐이다.",
+        "",
+    ]
+    lines += [_paper_line(r) for r in shelf]
+    lines.append("")
+    return lines
+
+
+#: 개념 하나에 붙일 문헌 줄 수. 참고문헌 장을 근거로 가진 개념은 그 장의 문헌 전부가 걸리므로 자른다.
+PAPER_LINES_PER_NODE = 4
+
+
+def _papers_for_node(papers: PaperDoc | None, node: ConceptNode, anchors: list[int]) -> list[PaperRef]:
+    """이 개념에 붙은 문헌 — 검색으로 이 개념에 붙은 것이 먼저, 그다음 근거 장이 인용한 것."""
+    if papers is None:
+        return []
+    direct = [r for r in papers.refs if node.id in r.node_ids]
+    by_slide = [r for r in papers.refs if r not in direct
+                and r.kind == "deck" and r.slide_no and r.slide_no in anchors]
+    return (direct + by_slide)[:PAPER_LINES_PER_NODE]
+
+
+def _ref_cited(ref: PaperRef, surname: str, year: int) -> bool:
+    return ref.year == year and surname in {a.lower() for a in ref.authors}
+
+
+def _ungrounded_citation(text: str, papers: PaperDoc | None) -> bool:
+    """문장이 목록에 없는 논문을 인용했는가. papers 가 없으면 검사하지 않는다 (예전과 같은 동작)."""
+    if papers is None:
+        return False
+    for surname, year in find_citations(text):
+        if not any(_ref_cited(r, surname, year) for r in papers.refs):
+            return True
+    return False
+
+
+def _cited_ids(text: str, papers: PaperDoc | None) -> list[str]:
+    if papers is None:
+        return []
+    ids: list[str] = []
+    for surname, year in find_citations(text):
+        for r in papers.refs:
+            if _ref_cited(r, surname, year) and r.id not in ids:
+                ids.append(r.id)
+    return ids
+
+
+def _paper_ids_of(raw: dict, texts: list[str], papers: PaperDoc | None) -> list[str]:
+    """LLM 이 적은 paper_ids 중 실재하는 것 + 문장에서 실제로 인용한 것. 순서는 문서 순."""
+    if papers is None:
+        return []
+    claimed = {str(x) for x in (raw.get("paper_ids") or []) if str(x)}
+    cited = set()
+    for t in texts:
+        cited.update(_cited_ids(t, papers))
+    return [r.id for r in papers.refs if r.id in claimed or r.id in cited]
 
 
 def _fallback_text(
@@ -1305,6 +1557,7 @@ def _normalize_questions(
     flow_of: dict[str, FlowIssue] | None = None,
     by_no: dict[int, Slide] | None = None,
     transcript: Transcript | None = None,
+    papers: PaperDoc | None = None,
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
@@ -1313,6 +1566,7 @@ def _normalize_questions(
     - 빠진 대상은 결정적 템플릿 문장으로 메운다 (질문 세트에 구멍을 내지 않는다)
     - id 는 rank·node_id 에서 결정적으로 만든다 — 같은 triage 면 같은 결과가 나온다
     - 모든 문장은 QA_TEXT_MAX 로 자른다
+    - papers 가 있으면 **목록 밖 논문을 인용한 문장은 버리고** 템플릿으로 메운다 (citation_grounded = 1.0)
     """
     target_ids = {m.node_id for m in marks}
     written: dict[str, dict] = {}
@@ -1339,10 +1593,16 @@ def _normalize_questions(
         # 템플릿으로 떨어뜨린다. 자료로 만든 문장이 발판 인용보다 언제나 낫다.
         written_q = _polite_question(_clip(str(raw.get("question", "") or "")))
         written_gist = _clip(str(raw.get("answer_gist", "") or ""))
-        if _cites_scaffold(written_q):
+        written_why = _clip(str(raw.get("why", "") or ""))
+        written_hint = _clip(str(raw.get("hint", "") or ""))
+        if _cites_scaffold(written_q) or _ungrounded_citation(written_q, papers):
             written_q = ""
-        if _cites_scaffold(written_gist):
+        if _cites_scaffold(written_gist) or _ungrounded_citation(written_gist, papers):
             written_gist = ""
+        if _ungrounded_citation(written_why, papers):
+            written_why = ""
+        if _ungrounded_citation(written_hint, papers):
+            written_hint = ""
 
         question_text = written_q or fb_question
         gist = written_gist or _fallback_gist(node, trap=mark.trap, slide_nos=anchors)
@@ -1353,18 +1613,21 @@ def _normalize_questions(
             p for p in (
                 _clip(str(p) or "") for p in (raw.get("answer_gist_parts") or [])
             )
-            if p and not _cites_scaffold(p)
+            if p and not _cites_scaffold(p) and not _ungrounded_citation(p, papers)
         ]
         if len(parts) < 2 and _asks_multiple(question_text):
             parts = _split_gist_parts(gist)
+        paper_ids = _paper_ids_of(
+            raw, [question_text, written_why, written_hint, gist], papers,
+        ) if written_q else []
 
         questions.append(Question(
             id=f"q{mark.rank:02d}-{mark.node_id}",
             node_id=mark.node_id,
             label=node.label,
             question=question_text,
-            why=_clip(str(raw.get("why", "") or "")) or fb_why,
-            hint=_clip(str(raw.get("hint", "") or "")) or fb_hint,
+            why=written_why or fb_why,
+            hint=written_hint or fb_hint,
             severity=mark.severity,
             trap=mark.trap,
             source=mark.source,
@@ -1376,6 +1639,7 @@ def _normalize_questions(
             evidence_slide_no=quote_no,
             evidence_quote=quote,
             speech_quote=speech,
+            paper_ids=paper_ids,
         ))
     return questions
 
@@ -1413,12 +1677,18 @@ def build_questions(
     transcript: Transcript | dict | None = None,
     slidedoc: SlideDoc | dict | None = None,
     context: Context | dict | None = None,
+    papers: PaperDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QuestionDoc:
     """
-    ConceptGraph + QaTriage (+선택 track·AlignmentDoc·FlowDiff·Transcript·Context)
+    ConceptGraph + QaTriage (+선택 track·AlignmentDoc·FlowDiff·Transcript·Context·PaperDoc)
     → QuestionDoc.
+
+    papers(F-24 PaperDoc) 를 주면 「교수가 읽고 온 문헌」 이 프롬프트에 실리고, 질문은
+    그 문헌을 근거로 찌를 수 있다. **목록 밖 논문을 인용한 문장은 코드가 버린다** — 질문
+    속 인용은 전부 PaperDoc 에 실재하고, `Question.paper_ids` 와 `QuestionDoc.papers` 로
+    화면이 되짚는다. 안 주면 프롬프트·시스템 프롬프트가 예전과 글자까지 같다.
 
     무엇을 물을지는 triage 가 이미 정했다. 여기서는 트랙 상한만큼 자르고
     LLM 에 문장만 받아 온다. 같은 triage·같은 track 이면 질문 id 까지 같다.
@@ -1447,6 +1717,10 @@ def build_questions(
         transcript = Transcript.from_dict(transcript)
     if isinstance(slidedoc, dict):
         slidedoc = SlideDoc.from_dict(slidedoc)
+    if isinstance(papers, dict):
+        papers = PaperDoc.from_dict(papers)
+    if papers is not None and not papers.refs:
+        papers = None   # 빈 문헌은 없는 것과 같다 — 프롬프트를 바꾸지 않는다
     ctx = _as_context(context)
 
     if track not in QA_TRACKS:
@@ -1467,19 +1741,21 @@ def build_questions(
     flow_of = _flow_issue_by_node(flow)
 
     by_no = _slides_by_no(slidedoc)
-    raw_questions = _questions_with_retry(
-        engine,
-        _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no),
-        marks,
+    prompt = _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers)
+    raw_questions = _questions_with_papers(
+        engine, prompt, marks,
+        QUESTION_SYSTEM_PROMPT + (PAPER_SYSTEM_ADDENDUM if papers is not None else ""),
+        by_id, by_no, papers,
     )
 
     # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의
     # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.
     questions, twins = _drop_twin_questions(
-        _normalize_questions(raw_questions, marks, by_id, flow_of, by_no, transcript),
+        _normalize_questions(raw_questions, marks, by_id, flow_of, by_no, transcript, papers),
         QA_TRACK_LIMITS[track],
     )
 
+    used = {pid for q in questions for pid in q.paper_ids}
     return QuestionDoc(
         file_name=graph.file_name,
         total_slides=graph.total_slides,
@@ -1487,6 +1763,7 @@ def build_questions(
         questions=questions,
         deferred_node_ids=twins + deferred,
         model=engine.name,
+        papers=[r for r in papers.refs if r.id in used] if papers is not None else [],
     )
 
 
