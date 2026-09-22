@@ -28,8 +28,9 @@ export LD_LIBRARY_PATH=/tmp/pwlibs/usr/lib/x86_64-linux-gnu
 |---|---|---|
 | capture | 사진 2장이 썸네일로 담기는가 | `1_capture.png` |
 | analyze | 파싱→개념→그래프→질문 실측 초, 실패면 실패 문구 | `2_analyze_*.png` |
+| present | 발표 모드(자료가 메인·내 모습이 작은 창)로 열리는가 → `window.boothLab.feed` 로 간투어·움직임을 흘려 넣어 삐약이 지적 말풍선·땀방울(`data-tell="awkward"`)·발표 시계 → 작은 창을 눌러 자리 바꾸기 → 운영자 계기(`#btn-meter`) | `3_present.png` · `3b_present_tell.png` · `3c_present_swapped.png` · `3d_present_meter.png` |
 | call-ask | 내 모습(가짜 카메라) + 병아리 + 질문 말풍선, 마이크 상태 | `3_call_ask.png` |
-| call-answer | 답 → 판정 pill·요약·빠진 것·되묻기 말풍선, 병아리 기분 | `4_call_answer.png` |
+| call-answer | 답 → 판정 pill·요약·빠진 것·되묻기 **한 풍선**, 앞 질문·내 답이 그대로 남아 있는가(스크롤 기록), 꼬리(`is-latest`)가 양쪽 하나씩인가 | `4_call_answer.png` |
 | call-hint | 힌트 말풍선 | `5_call_hint.png` |
 | call-giveup | 다음 질문 → 「모르겠어요」 → 정답 요지 | `6_call_giveup.png` |
 | finish | 통화 마치기 → 결과 카드 | `7_finish.png` |
@@ -38,7 +39,10 @@ export LD_LIBRARY_PATH=/tmp/pwlibs/usr/lib/x86_64-linux-gnu
 
 ## 못 보는 것
 
-- **실제 마이크·실시간 받아쓰기** — 헤드리스 크롬은 구글 음성 서버에 못 붙는다. 답은 자막에 타이핑해 넣는다.
+- **실제 마이크·실시간 받아쓰기** — 헤드리스 크롬은 구글 음성 서버에 못 붙는다. 답은 자막에 타이핑해 넣고,
+  발표 모드의 말하기 피드백은 `window.boothLab.feed({text, now, motion, level})` 로 흘려 넣는다(사람이 쓰는 길이 아니다).
+- **움직임·목소리 크기의 실제 문턱** — 가짜 카메라·가짜 마이크 값이라 숫자가 부스와 다르다.
+  부스 컴퓨터에서 `booth.html?meter=1` 로 계기를 켜고 「기준 맞추기 (5초 가만히)」로 맞춘다 (plan §7-2).
 - **읽어 주기(TTS)** — 헤드리스에 음성이 없다. 켜도 소리는 안 난다.
 - 그래서 마이크·소리는 부스 컴퓨터 리허설(`docs/plan/booth-screen-qa.plan.md` §6-2)에서만 확인된다.
 

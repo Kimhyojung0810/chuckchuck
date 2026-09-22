@@ -167,6 +167,121 @@ test('판정 한 풍선(9/23): 조각을 잃지 않고 하나로 — 빠진 것�
   eq(L.judgementBubble(null), null);
 });
 
+/* ── 발표 모드 — 실시간 말하기 피드백 ─────────────────────────────────────── */
+/** 계기에 관찰을 순서대로 넣고 나온 지적 목록을 돌려준다 */
+function run(obs) {
+  let m = L.createDelivery(); const tells = [];
+  for (const o of obs) { const r = L.deliveryObserve(m, o); m = r.meter; if (r.tell) tells.push({ at: o.now, kind: r.tell.kind }); }
+  return { m, tells };
+}
+const 가 = (n) => '가'.repeat(n);
+test('간투어 3번이면 지적하고, 쿨다운 안에는 다시 안 한다', () => {
+  const { tells } = run([{ text: '', now: 0 }, { text: '어 음 저희 서비스는 그 이제', now: 1000 }, { text: '어 음 저희 서비스는 그 이제 어 음', now: 2000 }]);
+  eq(tells, [{ at: 1000, kind: 'filler' }]);
+});
+test('빠름: 15초 창에서 분당 402자 넘게 말하면 fast — 앱의 cpmJudge 와 같은 배수', () => {
+  // 0.5초마다 5자 = 600자/분
+  const obs = []; for (let i = 0; i <= 20; i++) obs.push({ text: 가(5 * i), now: i * 500 });
+  const { tells } = run(obs);
+  eq(tells.map((t) => t.kind), ['fast']);
+  if (tells[0].at < 6000) throw new Error('6초는 들어야 잰다: ' + tells[0].at);
+});
+test('느림: 분당 120자면 slow. 재료가 모자라면(25자 미만) 말하지 않는다', () => {
+  const obs = []; for (let i = 0; i <= 40; i++) obs.push({ text: 가(i), now: i * 500 });
+  const { tells } = run(obs);
+  eq(tells.map((t) => t.kind), ['slow']);
+  eq(run(obs.slice(0, 10)).tells, []);
+});
+test('같은 낱말 4번이면 repeat (간투어는 빼고), 더듬기 2번도 repeat', () => {
+  eq(run([{ text: '', now: 0 }, { text: '그래서 저희는 그래서 이것을 그래서 만들고 그래서 팝니다', now: 1000 }]).tells.map((t) => t.kind), ['repeat']);
+  eq(run([{ text: '', now: 0 }, { text: '지도 지도력은 리더십 리더십의 핵심', now: 1000 }]).tells.map((t) => t.kind), ['repeat']);
+  eq(run([{ text: '', now: 0 }, { text: '음 음 저희 그 그 서비스', now: 1000 }]).tells.map((t) => t.kind), ['filler']);
+});
+test('멈춤: 말하다가 5초 조용하면 pause, 처음부터 아무 말 없으면 아니다', () => {
+  const t = '저희 서비스를 소개할게요';
+  eq(run([{ text: '', now: 0 }, { text: t, now: 1000 }, { text: t, now: 3000 }, { text: t, now: 6500 }]).tells.map((x) => x.kind), ['pause']);
+  eq(run([{ text: '', now: 0 }, { text: '', now: 3000 }, { text: '', now: 7000 }]).tells, []);
+});
+test('산만한 움직임: 5초 동안 프레임 차이 평균이 기준 넘게 이어지면 fidget', () => {
+  const obs = []; for (let i = 0; i <= 24; i++) obs.push({ text: '', now: i * 250, motion: 30 });
+  eq(run(obs).tells.map((t) => t.kind), ['fidget']);
+  const calm = []; for (let i = 0; i <= 24; i++) calm.push({ text: '', now: i * 250, motion: 3 });
+  eq(run(calm).tells, []);
+});
+test('작은 목소리: 글자는 느는데 음량이 낮으면 quiet. 안 말하는 동안의 낮은 음량은 아니다', () => {
+  const obs = []; for (let i = 0; i <= 28; i++) obs.push({ text: 가(i), now: i * 250, level: 0.005 });
+  eq(run(obs).tells.map((t) => t.kind), ['quiet']);
+  const silent = []; for (let i = 0; i <= 28; i++) silent.push({ text: '', now: i * 250, level: 0.005 });
+  eq(run(silent).tells, []);
+});
+test('안정: 권장 속도로 60초 이어 말하면 칭찬 한 번, 그 다음은 60초 뒤', () => {
+  // 0.5초에 2.7자 = 324자/분
+  const obs = []; for (let i = 0; i <= 260; i++) obs.push({ text: 가(Math.round(2.7 * i)), now: i * 500 });
+  const { tells, m } = run(obs);
+  eq(tells.map((t) => t.kind), ['steady', 'steady']);
+  eq(L.deliverySummary(m), '');
+});
+test('멈춤이 낀 구간을 「느려요」로 잘못 잡지 않는다 — 말한 시간은 글자가 는 시점끼리만 센다', () => {
+  // 5초 말함(30자) → 6초 침묵(센서 관찰만 0.25초마다) → 7초 말함(42자, 분당 360자) → 6초 침묵
+  const obs = [];
+  for (let i = 0; i <= 10; i++) obs.push({ text: 가(3 * i), now: i * 500 });
+  for (let t = 5250; t <= 11000; t += 250) obs.push({ text: 가(30), now: t });
+  for (let k = 1; k <= 14; k++) obs.push({ text: 가(30 + 3 * k), now: 11000 + k * 500 });
+  for (let t = 18250; t <= 24000; t += 250) obs.push({ text: 가(72), now: t });
+  eq(run(obs).tells.map((t) => t.kind), ['pause']);
+});
+test('장면을 넘긴 직후 8초는 멈춤을 지적하지 않는다', () => {
+  const t = '저희 서비스를 소개할게요';
+  const base = [{ text: '', now: 0, slide: 0 }, { text: t, now: 1000, slide: 0 }];
+  const quiet = (slide) => { const o = []; for (let x = 2000; x <= 9500; x += 500) o.push({ text: t, now: x, slide }); return o; };
+  eq(run([...base, ...quiet(1)]).tells, []);                    // 2초에 장면을 넘김 → 10초까지 유예
+  eq(run([...base, ...quiet(0)]).tells.map((x) => x.kind), ['pause']);
+});
+test('칭찬은 시작 60초 전엔 없다', () => {
+  const obs = []; for (let i = 0; i <= 60; i++) obs.push({ text: 가(Math.round(2.7 * i)), now: i * 500 });   // 30초
+  eq(run(obs).tells, []);
+});
+test('마친 화면 한 줄: 지적한 것만 세고 칭찬은 안 센다', () => {
+  const m = { counts: { fast: 2, filler: 1, steady: 3 } };
+  eq(L.deliverySummary(m), '발표 중 알려 준 것 · 빠름 2 · 간투어 1');
+  eq(L.deliverySummary(L.createDelivery()), '');
+});
+test('발표 중 말로 조작: 「질문 받을게요」「다음 장면」— 앞은 남긴다', () => {
+  eq(L.presentCommand('이상입니다 질문 받을게요'), { cmd: 'ask', rest: '이상입니다' });
+  eq(L.presentCommand('다음 장면으로'), { cmd: 'next', rest: '' });
+  eq(L.presentCommand('이전 슬라이드'), { cmd: 'prev', rest: '' });
+  eq(L.presentCommand('이 질문 받기가 핵심이고'), null);
+});
+/* ── 계기와 기준 맞추기 (운영자용) ───────────────────────────────────────── */
+test('기준 맞추기: 바닥값의 3배·4배로 문턱을 잡되 바닥 밑으로는 안 내려간다', () => {
+  const c = L.calibrateDelivery(L.DELIVERY, { motionFloor: 6.2, levelFloor: 0.01 });
+  eq([c.fidgetMotion, c.quietLevel], [19, 0.04]);
+  eq(c.pauseMs, L.DELIVERY.pauseMs, '나머지 값은 그대로 가져온다');
+  const quiet = L.calibrateDelivery(L.DELIVERY, { motionFloor: 0.2, levelFloor: 0.0001 });
+  eq([quiet.fidgetMotion, quiet.quietLevel], [8, 0.006], '조용한 방에서도 문턱이 0 이 되지 않는다');
+  eq(L.calibrateDelivery(L.DELIVERY, {}).fidgetMotion, L.DELIVERY.fidgetMotion, '안 잰 항목은 안 바꾼다');
+});
+test('계기 한 줄: 지금 값 / 지금 기준, 못 잰 것은 —', () => {
+  let m = L.createDelivery();
+  for (let i = 0; i <= 40; i++) m = L.deliveryObserve(m, { text: '가'.repeat(3 * i), now: i * 500, motion: 4 }).meter;
+  const t = L.meterText(m, L.DELIVERY);
+  if (!t.startsWith('움직임 4.0 / 기준 12 ')) throw new Error(t);
+  if (!t.includes('음량 — / 기준')) throw new Error('마이크를 못 열었으면 — 라야 해요: ' + t);
+  if (!/빠르기 3\d\d자\/분/.test(t)) throw new Error(t);
+  eq(L.meterText(L.createDelivery(), L.DELIVERY), '움직임 — / 기준 12 · 음량 — / 기준 0.015');
+});
+test('계기: 지적한 것은 개수로 붙고, 창 안의 빠르기는 speakingRateOf 가 준다', () => {
+  const m = { events: [{ t: 0, len: 0, chars: 0 }], counts: { filler: 2 } };
+  if (!L.meterText(m, L.DELIVERY).endsWith('간투어 2')) throw new Error(L.meterText(m, L.DELIVERY));
+  eq(L.speakingRateOf(L.createDelivery(), 0, L.DELIVERY), null, '재료가 모자라면 null');
+});
+
+test('자막 꼬리 · 시계', () => {
+  eq(L.captionTail('가나다', 90), '가나다');
+  eq(L.captionTail('a'.repeat(100), 90).length, 91);
+  eq(L.clockText(65000), '01:05'); eq(L.clockText(-5), '00:00');
+});
+
 /* ── 말로 조작하기 ─────────────────────────────────────────────────────────── */
 test('문장 끝의 「다음 질문」: 앞부분은 답으로 남기고 next', () => {
   eq(L.voiceCommand('빠른 수익화 때문이에요 다음 질문'), { cmd: 'next', rest: '빠른 수익화 때문이에요' });

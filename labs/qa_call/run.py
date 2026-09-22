@@ -5,12 +5,13 @@
 헤드리스 크롬 + 가짜 카메라로 **실 API 브리지**에 붙여 단계마다 스크린샷과 보고(JSON)를 남긴다.
 앱(index.html)은 건드리지 않고 booth.html 만 본다 — "QA 시스템만" 떼어 시험하는 자리다.
 
-    python labs/qa_call/run.py all                      # 담기→분석→질문→답→판정→힌트→포기→마침 전부
+    python labs/qa_call/run.py all                      # 담기→분석→발표→질문→답→판정→힌트→포기→마침 전부
+    python labs/qa_call/run.py present                  # 발표 모드까지만 (실시간 피드백·계기)
     python labs/qa_call/run.py call-answer --mobile     # 폰 화면(390×844)으로 답·판정까지만
     python labs/qa_call/run.py freeze                   # 지금 booth 파일 3개를 out/snapshots/<stamp>/ 에 얼린다
     python labs/qa_call/run.py all --base http://127.0.0.1:8799
 
-단계(--stage): capture · analyze · call-ask · call-answer · call-hint · call-giveup · finish · all
+단계(--stage): capture · analyze · present · call-ask · call-answer · call-hint · call-giveup · finish · all
 결과: labs/qa_call/out/<stamp>/*.png + report.json (걸린 시간·말풍선 본문·콘솔 오류)
 
 준비: .venv 에 `pip install playwright pillow && python -m playwright install chromium`.
@@ -32,7 +33,7 @@ ROOT = HERE.parents[1]
 OUT = HERE / "out"
 BOOTH = ROOT / "demo/YEHS_demo"
 BOOTH_FILES = ["booth.html", "js/booth.js", "js/booth_logic.js", "css/booth.css"]
-STAGES = ["capture", "analyze", "call-ask", "call-answer", "call-hint", "call-giveup", "finish"]
+STAGES = ["capture", "analyze", "present", "call-ask", "call-answer", "call-hint", "call-giveup", "finish"]
 ANSWER = "초기 타깃은 발표를 준비하는 대학생과 취업준비생이고, 이후 기업 보고와 사내교육으로 넓힐 계획이에요"
 
 
@@ -104,16 +105,65 @@ def run(stage: str, base: str, mobile: bool, photos: list[Path]) -> Path:
                 print("  분석 실패:", report["stages"]["analyze"]["error"])
                 return out
             stages = page.evaluate("Array.from(document.querySelectorAll('#stages li')).map(li => [li.dataset.stage, li.querySelector('.st-time').textContent])")
-            mark("analyze", t0, {"bridge_stages": stages, "questions": page.evaluate("document.querySelectorAll('#qa-count')[0].textContent")})
+            mark("analyze", t0, {"bridge_stages": stages, "mode": page.get_attribute("#call", "data-mode")})
+            if "present" not in want:
+                return out
+
+            # 발표 모드 — 마이크가 없는 헤드리스라 window.boothLab.feed 로 말·움직임을 흘려 넣는다
+            t0 = time.time()
+            page.wait_for_selector('#call[data-mode="present"]', timeout=10000)
+            page.wait_for_timeout(1500)
+            shot("3_present")
+            page.evaluate("""() => {
+                window.boothLab.feed({ text: '' });
+                window.boothLab.feed({ text: '어 음 그 저희 서비스는 이제 어 음 발표를 시작할게요' });
+            }""")
+            page.wait_for_function("document.querySelectorAll('#call-bubbles .call-bubble.is-tell').length >= 2", timeout=5000)
+            page.wait_for_selector('#call-partner-seat[data-tell="awkward"]', timeout=5000)
+            page.wait_for_timeout(400)
+            shot("3b_present_tell")
+            tell_seat = {"tell": page.get_attribute("#call-partner-seat", "data-tell"),
+                         "mood": page.get_attribute("#call-partner-seat", "data-mood"),
+                         "status": page.inner_text("#call-partner-status")}
+            # 움직임 — 지적 사이 쿨다운(12초)을 넘기려고 앞선 시각으로 25번 흘린다 (0.25초 간격)
+            page.evaluate("""() => {
+                const t0 = performance.now() + 15000;
+                for (let i = 0; i < 25; i++) window.boothLab.feed({ text: '', now: t0 + i * 250, motion: 30 });
+            }""")
+            page.wait_for_function("document.querySelectorAll('#call-bubbles .call-bubble.is-tell').length >= 3", timeout=5000)
+            page.wait_for_timeout(300)
+            tells = page.evaluate("Array.from(document.querySelectorAll('#call-bubbles .call-bubble.is-tell')).map(b => b.innerText.trim())")
+            # 작은 창(내 모습)을 누르면 메인이 바뀐다
+            page.click("#call-self")
+            page.wait_for_function("document.getElementById('call').dataset.main === 'self'", timeout=3000)
+            page.wait_for_timeout(500)
+            shot("3c_present_swapped")
+            page.click("#call-slides")
+            page.wait_for_function("document.getElementById('call').dataset.main === 'slides'", timeout=3000)
+            # 계기(운영자용) — 기준 맞추기 화면
+            page.click("#btn-meter")
+            page.wait_for_selector("#call-meter:not([hidden])", timeout=3000)
+            page.wait_for_timeout(1200)
+            shot("3d_present_meter")
+            meter = page.inner_text("#meter-read")
+            if "기준" not in meter:
+                raise AssertionError(f"계기에 기준이 안 보여요: {meter!r}")
+            page.click("#btn-meter")
+            mark("present", t0, {"tells": tells, "seat": tell_seat, "clock": page.inner_text("#present-clock"),
+                                 "slide_no": page.inner_text("#call-slide-no"), "meter": meter,
+                                 "mic_note": page.inner_text("#qa-mic-note")})
             if "call-ask" not in want:
                 return out
 
             t0 = time.time()
+            page.click("#btn-ask")
+
             page.wait_for_selector("#call-log .call-bubble.is-question", timeout=10000)
             page.wait_for_timeout(2000)
             shot("3_call_ask")
             mark("call-ask", t0, {"camera": page.get_attribute("#call-self", "data-camera"), "mic": page.get_attribute("#btn-mic", "data-state"),
-                                  "mood": page.get_attribute("#call-partner-seat", "data-mood")})
+                                  "mood": page.get_attribute("#call-partner-seat", "data-mood"), "main": page.get_attribute("#call", "data-main"),
+                                  "questions": page.inner_text("#qa-count")})
             if "call-answer" not in want:
                 return out
 
@@ -124,7 +174,17 @@ def run(stage: str, base: str, mobile: bool, photos: list[Path]) -> Path:
             page.wait_for_timeout(1200)
             shot("4_call_answer")
             v = page.evaluate("(() => { const b = document.querySelector('#call-log .call-bubble.is-verdict'); return b ? b.dataset.v : 'error'; })()")
-            mark("call-answer", t0, {"verdict": v, "mood": page.get_attribute("#call-partner-seat", "data-mood")})
+            # 판정은 한 풍선, 앞의 질문·내 답은 그대로 남아 있어야 한다 (9/23 — 기록을 치우지 않는다)
+            counts = page.evaluate("""(() => {
+                const q = (s) => document.querySelectorAll('#call-bubbles ' + s).length;
+                return { verdict: q('.call-bubble.is-verdict'), question: q('.call-bubble.is-question'), answer: q('.call-bubble.is-answer'),
+                         me_latest: q('.call-bubble.is-me.is-latest'), partner_latest: q('.call-bubble.is-partner.is-latest'),
+                         scrollable: document.getElementById('call-bubbles').scrollHeight > document.getElementById('call-bubbles').clientHeight };
+            })()""")
+            for key, want_n in (("verdict", 1), ("question", 1), ("answer", 1), ("me_latest", 1), ("partner_latest", 1)):
+                if counts[key] != want_n:
+                    raise AssertionError(f"말풍선 {key} 가 {counts[key]}개예요 ({want_n}개여야 해요): {counts}")
+            mark("call-answer", t0, {"verdict": v, "mood": page.get_attribute("#call-partner-seat", "data-mood"), "bubbles": counts})
             if "call-hint" not in want:
                 return out
 
@@ -145,7 +205,8 @@ def run(stage: str, base: str, mobile: bool, photos: list[Path]) -> Path:
             page.wait_for_timeout(1500)
             if page.is_visible("#call") and page.is_enabled("#btn-giveup"):
                 page.click("#btn-giveup")
-                page.wait_for_selector("#call-log .call-bubble.is-explain, #call-log .call-bubble.is-error", timeout=90000)
+                # 포기하면 정답 요지가 판정 풍선 안의 .call-explain 으로 들어온다 (9/23 한 풍선)
+                page.wait_for_selector("#call-log .call-bubble.is-verdict .call-explain, #call-log .call-bubble.is-error", timeout=90000)
                 page.wait_for_timeout(1000)
                 shot("6_call_giveup")
                 mark("call-giveup", t0, {"mood": page.get_attribute("#call-partner-seat", "data-mood")})

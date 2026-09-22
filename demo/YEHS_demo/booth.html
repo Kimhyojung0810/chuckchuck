@@ -14,7 +14,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/app.css?v=ql2">
 <link rel="stylesheet" href="css/chatter.css?v=qkh">
-<link rel="stylesheet" href="css/booth.css?v=b6">
+<link rel="stylesheet" href="css/booth.css?v=b7">
 </head>
 <body class="booth-body">
 <main class="booth" id="booth">
@@ -97,55 +97,87 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
   <!-- 3. 통화 — 내 모습 위로 질문·자막·판정이 오간다 -->
   <section class="booth-step" id="step-qa" data-step="qa" hidden>
     <div class="booth-panel" id="qa-panel">
-      <div class="call" id="call" data-phase="asking">
+      <!-- 페이스타임처럼(9/23 사용자): 무대 둘(자료 · 내 모습) 중 하나가 메인, 다른 하나가 오른쪽 아래 작은 창 — 작은 창을 누르면 자리가 바뀐다.
+           발표 모드(data-mode=present)는 자료가 메인이고 삐약이가 말하기를 듣고 실시간으로 알려 준다. Q&A(qa)는 내 모습이 메인이고 질문·판정이 오간다. -->
+      <div class="call" id="call" data-phase="present" data-mode="present" data-main="slides">
+        <!-- 자료 — 담은 장면을 슬라이드처럼 넘긴다 -->
+        <div class="call-stage call-slides" id="call-slides" role="button" tabindex="0" aria-label="자료 화면. 누르면 내 모습과 자리를 바꿔요">
+          <img id="call-slide-img" alt="">
+          <span class="call-slide-no glass" id="call-slide-no"></span>
+        </div>
         <!-- 내 모습 -->
-        <div class="call-self" id="call-self" data-camera="off">
+        <div class="call-stage call-self" id="call-self" data-camera="off" role="button" tabindex="0" aria-label="내 모습. 누르면 자료와 자리를 바꿔요">
           <video id="call-self-video" autoplay muted playsinline></video>
           <p class="call-self-note" id="call-self-note"></p>
         </div>
 
-        <!-- 위 도구줄 — 통화 화면 안에 얹는다. 9/23 사용자: "순수 화상통화 화면만" — 페이지 머리·바깥 도구줄은 통화 중에 없앤다 -->
+        <!-- 위 도구줄 — 프레임 안 글라스 캡슐. 왼쪽은 시계(발표) 또는 질문 번호(Q&A) -->
         <div class="call-topbar booth-qa-head">
-          <span class="booth-count glass" id="qa-count">1 / 3</span>
+          <span class="booth-count glass" id="present-clock">00:00</span>
+          <span class="booth-count glass" id="qa-count" hidden>1 / 3</span>
           <div class="booth-qa-tools">
-            <button class="btn glass" id="btn-autotalk" type="button" aria-pressed="true">자동 대화 끄기</button>
+            <button class="btn glass" id="btn-meter" type="button" aria-pressed="false" data-mode="present">계기 보기</button>
+            <button class="btn glass" id="btn-autotalk" type="button" aria-pressed="true" hidden>자동 대화 끄기</button>
             <button class="btn glass" id="btn-sound" type="button" aria-pressed="false" hidden>소리 켜기</button>
             <button class="btn glass" id="btn-self-camera" type="button">카메라 끄기</button>
             <button class="btn glass booth-pip" id="btn-pip" type="button" hidden>작은 창으로 띄우기</button>
-            <button class="btn glass call-leave" id="btn-leave" type="button">통화 마치기</button>
           </div>
         </div>
 
-        <!-- 말풍선 — 병아리(왼쪽 아래)에 붙어서 위로 쌓인다. 가장 새 상대 말풍선에 꼬리가 달려 병아리를 가리킨다. 내 말은 오른쪽 -->
+        <!-- 계기 — 운영자용. 이 컴퓨터의 움직임·음량 기준을 눈으로 보고 맞춘다 (기본 숨김 · ?meter=1 이면 켠 채 시작) -->
+        <div class="call-meter glass" id="call-meter" data-mode="present" hidden>
+          <p class="call-meter-read" id="meter-read">—</p>
+          <p class="call-meter-note" id="meter-note" hidden></p>
+          <div class="call-meter-row">
+            <button class="btn" id="btn-calibrate" type="button">기준 맞추기 (5초 가만히)</button>
+            <button class="btn" id="btn-calib-reset" type="button">기본값으로</button>
+          </div>
+        </div>
+
+        <!-- 대화 — 삐약이는 왼쪽 아래에서 말하고 그 말이 왼쪽으로 올라온다. 내 말은 오른쪽 아래(내 작은 창 쪽)에서 올라온다.
+             전체를 스크롤해 이전 질문을 볼 수 있다. 가장 새 말풍선에만 꼬리가 붙는다 -->
         <div class="call-log" id="call-log">
           <div class="call-partner glass" id="call-partner">
-            <p class="call-partner-name">쏠라 <span id="call-partner-status">묻고 있어요</span></p>
+            <p class="call-partner-name">쏠라 <span id="call-partner-status">듣고 있어요</span></p>
             <div class="ch-seat seated call-partner-seat" id="call-partner-seat" data-mood="neutral" data-side="left" style="--vw:900"></div>
           </div>
           <div class="call-bubbles" id="call-bubbles" aria-live="polite"></div>
+          <div class="call-pip-slot" aria-hidden="true"></div>
         </div>
 
         <!-- 아래 묶음: 자막 + 조작줄. 흐름 배치라 조작줄이 몇 줄이 되어도 자막을 덮지 않는다 -->
-        <div class="call-dock">
-        <div class="call-caption">
-          <p class="call-mic-note" id="qa-mic-note" aria-live="polite" hidden></p>
-          <textarea id="qa-answer" class="glass" rows="2" placeholder="말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요."></textarea>
-        </div>
+        <div class="call-dock" id="call-dock">
+          <div class="call-caption">
+            <p class="call-mic-note" id="qa-mic-note" aria-live="polite" hidden></p>
+            <!-- 발표 중: 지금 말하는 문장이 자막으로 흐른다(고칠 필요 없음) -->
+            <p class="call-live glass" id="present-caption" data-mode="present"></p>
+            <!-- Q&A: 눌러서 고칠 수 있는 자막 -->
+            <textarea id="qa-answer" class="glass" rows="2" data-mode="qa" placeholder="말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요."></textarea>
+          </div>
 
-        <div class="call-controls">
-          <button class="btn glass booth-mic" id="btn-mic" type="button" data-state="idle" aria-label="말해서 답하기">말해서 답하기</button>
-          <button class="btn glass btn-primary" id="btn-answer" type="button">답하기</button>
-          <button class="btn glass btn-secondary" id="btn-hint" type="button">힌트</button>
-          <button class="btn glass btn-secondary" id="btn-giveup" type="button">모르겠어요</button>
-          <button class="btn glass btn-secondary" id="btn-again" type="button" hidden>다시 답하기</button>
-          <button class="btn glass btn-primary" id="btn-next" type="button" hidden>다음 질문</button>
-        </div>
+          <div class="call-dock-row">
+            <button class="btn glass booth-mic" id="btn-mic" type="button" data-state="idle" aria-label="발표 듣게 하기">발표 듣게 하기</button>
+            <div class="call-controls glass" data-mode="present">
+              <button class="btn" id="btn-slide-prev" type="button">이전 장면</button>
+              <button class="btn" id="btn-slide-next" type="button">다음 장면</button>
+              <button class="btn btn-primary" id="btn-ask" type="button">질문 받기</button>
+            </div>
+            <div class="call-controls glass" data-mode="qa">
+              <button class="btn btn-primary" id="btn-answer" type="button">답하기</button>
+              <button class="btn btn-secondary" id="btn-hint" type="button">힌트</button>
+              <button class="btn btn-secondary" id="btn-giveup" type="button">모르겠어요</button>
+              <button class="btn btn-secondary" id="btn-again" type="button" hidden>다시 답하기</button>
+              <button class="btn btn-primary" id="btn-next" type="button" hidden>다음 질문</button>
+            </div>
+            <button class="btn glass call-leave" id="btn-leave" type="button">통화 마치기</button>
+          </div>
         </div>
       </div>
 
       <article class="booth-card booth-done" id="qa-done" hidden>
         <h2 class="booth-question">통화를 마쳤어요</h2>
         <ul class="booth-tally" id="qa-tally"></ul>
+        <p class="booth-note" id="qa-delivery" hidden></p>
         <p class="booth-why">발표 녹음까지 하면 자료와 말이 어긋난 곳도 잡아요.</p>
         <div class="booth-actions">
           <button class="btn btn-primary" id="btn-restart" type="button">다른 자료로 다시 하기</button>
@@ -157,6 +189,6 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
 
 </main>
 <script src="js/chatter.js?v=qkh"></script>
-<script type="module" src="js/booth.js?v=b6"></script>
+<script type="module" src="js/booth.js?v=b7"></script>
 </body>
 </html>
