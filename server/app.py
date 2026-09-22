@@ -375,6 +375,8 @@ async def judge_qa_answer(session_id: str, payload: dict):
             llm=llm,
             # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본 (브리지와 같은 계약)
             slidedoc=SlideDoc.from_dict(raw_slidedoc) if raw_slidedoc else None,
+            # F-25 기억 — 본문에 실어 보낸 MemoryDoc dict (브리지가 만든 것). 없으면 예전과 같다
+            memory=payload.get("memory") if isinstance(payload.get("memory"), dict) else None,
         )
     )
     return judgement.to_dict()
@@ -549,7 +551,9 @@ async def flat_questions(payload: dict):
                 papers = build_papers(graph, slide_doc, scholar="none" if settings.mock_external else None, llm=llm)
             except Exception as e:  # noqa: BLE001 — 문헌 없이도 질문은 나와야 한다
                 log.warning("F-24 papers 실패, 문헌 없이 진행: %s", e)
-        triage = triage_questions(graph, alignment, flow, ctx, transcript=transcript, llm=llm)
+        # F-25 기억 — 이 서버는 세션 간 보관소가 없어 본문의 memory(MemoryDoc dict)를 그대로 쓴다 (브리지가 만든 것)
+        memory = payload.get("memory") if isinstance(payload.get("memory"), dict) else None
+        triage = triage_questions(graph, alignment, flow, ctx, transcript=transcript, memory=memory, llm=llm)
         return build_questions(
             graph,
             triage,
@@ -560,6 +564,7 @@ async def flat_questions(payload: dict):
             slidedoc=slide_doc,
             context=ctx,
             papers=papers,
+            memory=memory,
             llm=llm,
         )
 

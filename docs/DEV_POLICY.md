@@ -54,6 +54,8 @@
 | F-17    | 말 속도·시간 배분 | ✅     | `Transcript`+`Context`(+`ConceptDoc`) → `PaceDoc` (규칙) |
 | F-18    | 음성 습관      | ✅     | `Transcript` → `HabitDoc` (기본 LoRA REP + heuristic FIL/PAUSE) |
 | F-19    | 음성 종합 리포트 | ✅     | `PaceDoc`+`HabitDoc`+`RubricScore` → `ReportDoc` (LLM. 점수는 F-14 것을 싣는다) |
+| F-24    | 교수가 읽고 온 문헌 | ✅     | `SlideDoc`+`ConceptGraph` → `PaperDoc` (자료 인용 정규식 + 학술 검색 5통로, 검색어 번역만 LLM 1콜). F-08 이 인용 |
+| F-25    | 리허설 기억     | ✅     | 지난 세션 `qa_turns` → `MemoryDoc` (LLM 0). F-08 순서·질문, F-09 판정·코칭이 받는다 |
 
 
 상세 필드·벤더 매핑은 `**[SCHEMA.md](./SCHEMA.md)`** / 코드 `**chuckchuck/contracts.py**` 가 단일 출처다.

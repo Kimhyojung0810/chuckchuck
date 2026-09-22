@@ -1053,6 +1053,41 @@ LLM 은 한 번만 쓴다 — 한글 개념 이름을 영어 검색어로 바꾸
 아티팩트로 보관, 그래프가 바뀌면 지운다) · `POST /api/v1/papers/search` `{query, limit?}` → PaperDoc
 (자유 질문의 논문 검색, 전부 `kind=scholar`). `/api/v1/questions` 는 `papers=false` 로 끌 수 있다.
 
+### 8-H. `MemoryDoc` — 리허설을 기억하는 Q&A (F-25, 2026-09-23)
+
+**책임 한 줄:** 같은 사람·같은 발표의 지난 리허설(동의 세션의 `qa_turns.jsonl`)에서 개념별 답변 과정을 **세어** 다음 Q&A 에 잇는다.
+못 넘긴 개념이 먼저 나오고(F-08 1차), 질문이 빠졌던 점을 겨냥하고(F-08 2차), 판정이 진전을 알아보고(F-09), 코칭이 안 통한 되물음을 건너뛴다.
+
+| 입력 | 필수 | 무엇에 쓰나 |
+|------|------|------|
+| 지난 세션 `qa_turns` | ✅ | `{question{label,node_id}, hints_shown, give_up, judgement{verdict,score,missing_points}}` → 개념별 집계. **LLM 0** |
+| 잇는 열쇠 | ✅ | `learner_id`(브라우저 난수, 업로드 쿼리 `?learner=`) 또는 같은 파일 `sha256`. **파일 이름만으로는 안 잇는다** |
+| 이번 `ConceptGraph` | 선택 | `MemoryDoc.by_node(graph)` — 이름을 글자 2-gram Dice ≥ 0.6 으로 잇는다 (노드 id 는 세션마다 다르다) |
+
+```jsonc
+{
+  "learner_key": "learner:3f9a2c7e",     // "learner:<id 앞 8자>" | "deck:<sha 앞 12자>" | "" (못 이음)
+  "file_name": "발표.pdf", "note": "",
+  "sessions": [                            // 최신이 먼저, 최대 MEMORY_SESSIONS_MAX(5)
+    { "session_id": "20260922T…", "at": 1758550000.0, "title": "발표",
+      "questions": 3, "good": 1, "partial": 1, "wrong": 0, "give_ups": 1, "score_mean": 58.3 }
+  ],
+  "concepts": [                            // stalled(한 번도 good 을 못 받음)가 먼저
+    { "key": "알림의주의비용", "label": "알림의 주의 비용", "node_ids": ["notification"],
+      "asked": 2, "attempts": 3, "give_ups": 0, "verdicts": { "wrong": 1, "partial": 2 },
+      "last_verdict": "partial", "best_verdict": "partial", "last_score": 65, "last_at": 1758550201.0,
+      "missing_points": ["통제 집단", "측정 조건"],   // 최근 판정이 짚은 것, 최신 우선, 최대 3
+      "hints_max": 1, "stalled": true }
+  ]
+}
+```
+
+**프롬프트에 싣는 것:** `ConceptMemory.prompt_line` 한 줄 — 「지난 리허설: 2번 물음 · 마지막 판정 반쯤 · 빠졌던 점: 통제 집단 / 측정 조건」.
+**싣지 않는 것:** 답변 원문(지난 답을 이번 답으로 착각한다), 오디오, 동의 없는 세션. memory 가 없으면 F-08·F-09 프롬프트는 예전과 글자까지 같다.
+
+**경로:** `POST /api/v1/memory {session_id}` → MemoryDoc (없으면 `note` 에 사유). `/api/v1/questions`·`/api/v1/qa/judge` 는 세션에 기억이 있으면
+자동으로 싣고, 본문 `"memory": false` 로 끈다. 만든 기억은 이 세션의 `memory_doc` 아티팩트(동의 세션만)로 남는다.
+
 ### 8-F. 후처리 — `QaJudgement` (F-09)
 
 ```jsonc

@@ -42,6 +42,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from chuckchuck.contracts import (
+    MEMORY_SESSIONS_MAX,
     SESSION_ARTIFACT_KINDS,
     SESSION_CACHE_KINDS,
     SessionRecord,
@@ -52,6 +53,8 @@ ID_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z_[0-9a-f]{8}$"
 
 #: 세션당 jsonl 한 줄 상한. 넘치면 버린다 — 무한히 밀어 넣는 클라이언트 방어.
 MAX_STREAM_LINES = 500
+#: 브라우저가 주는 익명 학습자 id 모양 (F-25).
+LEARNER_ID_RE = re.compile(r"[A-Za-z0-9_-]{4,64}")
 
 #: put_file 로 쓸 수 있는 이름. 그 밖은 거부한다.
 ALLOWED_FILES = frozenset({"preview.pdf"})
@@ -166,8 +169,11 @@ class SessionArchive:
         upload: bytes | None,
         sha256: str = "",
         title: str = "",
+        learner_id: str = "",
     ) -> SessionRecord | None:
-        """세션을 만든다. 동의했을 때만 원본을 남긴다. 실패하면 None (요청은 계속 간다)."""
+        """세션을 만든다. 동의했을 때만 원본을 남긴다. 실패하면 None (요청은 계속 간다).
+
+        `learner_id` 는 브라우저가 준 익명 id (F-25 기억을 잇는 열쇠). 모양이 틀리면 비운다."""
         p = self.path(sid)
         if p is None:
             return None
@@ -177,6 +183,7 @@ class SessionArchive:
             consent_learning=bool(consent), consent_at=now if consent else None,
             title=title, file_name=file_name, upload_ext=ext, upload_sha256=sha256,
             upload_bytes=len(upload or b""), code_version=self._code_version,
+            learner_id=self.safe_learner(learner_id),
         )
         try:
             with self._lock:
@@ -375,6 +382,48 @@ class SessionArchive:
         return gone
 
     # -- 조회 ------------------------------------------------------------------
+
+    # -- F-25 리허설 기억 ---------------------------------------------------
+
+    @staticmethod
+    def safe_learner(value: object) -> str:
+        """브라우저가 준 학습자 id. 4~64자 [A-Za-z0-9_-] 만 받는다 — 경로·로그에 그대로 들어가므로."""
+        s = str(value or "").strip()
+        return s if LEARNER_ID_RE.fullmatch(s) else ""
+
+    def related_sessions(self, sid: str, limit: int = MEMORY_SESSIONS_MAX) -> tuple[list[SessionRecord], str]:
+        """
+        같은 사람·같은 발표의 지난 세션들 (최신 먼저, 최대 limit) 과 이은 열쇠.
+
+        잇는 규칙: ① 같은 learner_id ② 같은 파일(sha256). **파일 이름만으로는 잇지 않는다** — 같은 이름의 남의 자료가
+        붙는다. 동의한 세션만, 자기 자신은 뺀다. 열쇠는 "learner:<id 앞 8자>" 또는 "deck:<sha 앞 12자>", 못 이으면 "".
+        """
+        me = self.manifest(sid)
+        if me is None:
+            return [], ""
+        rows: list[SessionRecord] = []
+        key = ""
+        for _, rec in self._manifests():
+            if rec.session_id == sid or not rec.consent_learning:
+                continue
+            by_learner = bool(me.learner_id) and rec.learner_id == me.learner_id
+            by_deck = bool(me.upload_sha256) and rec.upload_sha256 == me.upload_sha256
+            if by_learner or by_deck:
+                rows.append(rec)
+                key = key or (f"learner:{me.learner_id[:8]}" if by_learner else f"deck:{me.upload_sha256[:12]}")
+        rows.sort(key=lambda r: -r.uploaded_at)
+        return rows[:limit], key
+
+    def rehearsals_for(self, sid: str) -> tuple[list[dict], str]:
+        """F-25 build_memory 입력: [{session_id, at, title, turns}] 와 열쇠. 답변 턴이 없는 세션도 요약용으로 싣는다."""
+        rows, key = self.related_sessions(sid)
+        out = []
+        for rec in rows:
+            out.append({
+                "session_id": rec.session_id, "at": rec.uploaded_at, "title": rec.title or rec.file_name,
+                "turns": self.read_stream(rec.session_id, "qa_turns"),
+            })
+        return out, key
 
     def iter_consented(self) -> Iterator[SessionRecord]:
         """학습에 써도 되는 세션만, 날짜순."""

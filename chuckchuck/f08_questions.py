@@ -51,6 +51,8 @@ from .contracts import (
     Context,
     FlowDiff,
     FlowIssue,
+    ConceptMemory,
+    MemoryDoc,
     PaperDoc,
     PaperRef,
     QaJudgement,
@@ -303,6 +305,17 @@ PAPER_SYSTEM_ADDENDUM = """
 - 출력의 질문마다 `paper_ids` 를 더한다: 이 질문이 인용한 문헌 id 배열. 인용 안 했으면 [].
   { "node_id": "joint", "question": "…", "why": "…", "hint": "…",
     "answer_gist": "…", "answer_gist_parts": [], "paper_ids": ["d01"] }
+"""
+
+#: 지난 리허설 기억(MemoryDoc)이 질문 대상 개념에 붙었을 때만 시스템 프롬프트 뒤에 붙는 규칙. **없으면 예전과 글자까지 같다.**
+MEMORY_SYSTEM_ADDENDUM = """
+
+## 지난 리허설 — 이 요청에만 붙는 규칙
+개념에 「지난 리허설: …」 줄이 있으면 같은 발표자가 이 개념을 전에 답해 본 것이다.
+- 「빠졌던 점」이 있으면 그 지점을 **콕 집어** 묻는다 — 지난번과 같은 넓이로 다시 묻지 마라.
+- 지난번에 통과한 개념이면 한 단계 깊게(조건·한계·반례) 묻는다. 같은 질문을 되풀이하지 마라.
+- 질문 문장에 "지난번" 같은 말을 넣지 마라 — 발표자에게는 새 심사위원이다. 기억은 질문의 과녁을 정하는 데만 쓴다.
+- 지난 답변 원문은 주어지지 않는다. 지난번에 무엇을 말했는지 짐작해서 쓰지 마라.
 """
 
 #: 문헌 줄이 붙은 개념인데 질문이 문헌을 인용하지 않았을 때, **그 질문만** 골라 문헌을 얹어 다시 쓰게 하는 작은 호출.
@@ -1028,11 +1041,15 @@ def triage_questions(
     context: Context | dict | None = None,
     *,
     transcript: Transcript | dict | None = None,
+    memory: MemoryDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QaTriage:
     """
-    ConceptGraph(+선택 AlignmentDoc·FlowDiff·Context·Transcript) → QaTriage.
+    ConceptGraph(+선택 AlignmentDoc·FlowDiff·Context·Transcript·MemoryDoc) → QaTriage.
+
+    memory(F-25) 를 주면 **지난 리허설에서 못 넘긴 개념이 앞으로 온다** — 순위 안에서의 상대 순서는 그대로다
+    (결정적). 트랙 상한 때문에 뒤로 밀려 안 물어보던 개념도, 지난번에 막혔으면 이번엔 물어본다. 안 주면 예전과 같다.
 
     후보와 순위(rank)·근거(source)는 코드가 결정적으로 정하고,
     LLM 은 severity·trap·angle 만 채운다. 빠뜨린 후보는 결정적 폴백으로 메운다.
@@ -1064,13 +1081,27 @@ def triage_questions(
         _build_triage_prompt(graph, pairs, alignment, transcript, ctx, flow),
     )
     raw_marks = [m for m in (data.get("marks") or []) if isinstance(m, dict)]
+    marks = _normalize_marks(raw_marks, pairs, graph)
+    if memory is not None:
+        marks = _stalled_first(marks, graph, MemoryDoc.from_dict(memory) if isinstance(memory, dict) else memory)
 
     return QaTriage(
         file_name=graph.file_name,
         total_slides=graph.total_slides,
-        marks=_normalize_marks(raw_marks, pairs, graph),
+        marks=marks,
         model=engine.name,
     )
+
+
+def _stalled_first(marks: list[TriageMark], graph: ConceptGraph, memory: MemoryDoc) -> list[TriageMark]:
+    """지난 리허설에서 한 번도 good 을 못 받은 개념을 앞으로. 그 안팎의 상대 순서는 유지하고 rank 를 다시 매긴다."""
+    stalled = {nid for nid, cm in memory.by_node(graph).items() if cm.stalled}
+    if not stalled:
+        return marks
+    ordered = [m for m in marks if m.node_id in stalled] + [m for m in marks if m.node_id not in stalled]
+    for rank, mark in enumerate(ordered, start=1):
+        mark.rank = rank
+    return ordered
 
 
 # ---------------------------------------------------------------------------
@@ -1215,6 +1246,7 @@ def _build_question_prompt(
     flow_of: dict[str, FlowIssue] | None = None,
     by_no: dict[int, Slide] | None = None,
     papers: PaperDoc | None = None,
+    memory_of: dict[str, ConceptMemory] | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-questions",
@@ -1278,6 +1310,12 @@ def _build_question_prompt(
         # 이 개념에 붙은 문헌 — 자료가 그 장에서 인용했거나 이 개념으로 검색된 것.
         for ref in _papers_for_node(papers, node, anchors):
             parts.append(f"    문헌 ({ref.id}) {ref.cite_key} ← 질문 문장에 \"{ref.cite_key}\" 를 그대로 넣어 이 문헌을 근거로 물어라")
+
+        # 지난 리허설 기억 (F-25) — 판정·횟수·빠진 점만. 지난 답변 원문은 싣지 않는다.
+        cm = (memory_of or {}).get(node.id)
+        if cm is not None:
+            tail = " ← 빠졌던 점을 겨냥해 물어라" if cm.missing_points else (" ← 지난번에 못 넘긴 개념이다, 이번엔 더 좁게 물어라" if cm.stalled else "")
+            parts.append(f"    {cm.prompt_line}{tail}")
 
         # 자료가 먼저, 발화가 나중. 우리가 재는 것은 «자료가 약속한 것을 말로
         # 지켰는가» 라서 프롬프트도 자료를 기준으로 읽히게 둔다.
@@ -1678,12 +1716,16 @@ def build_questions(
     slidedoc: SlideDoc | dict | None = None,
     context: Context | dict | None = None,
     papers: PaperDoc | dict | None = None,
+    memory: MemoryDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QuestionDoc:
     """
-    ConceptGraph + QaTriage (+선택 track·AlignmentDoc·FlowDiff·Transcript·Context·PaperDoc)
+    ConceptGraph + QaTriage (+선택 track·AlignmentDoc·FlowDiff·Transcript·Context·PaperDoc·MemoryDoc)
     → QuestionDoc.
+
+    memory(F-25 MemoryDoc) 를 주면 질문 대상 개념에 「지난 리허설: …」 한 줄이 붙어, 질문이 지난번의 빈틈을
+    겨냥한다. 사실(판정·횟수·빠진 점)만 싣고 답변 원문은 싣지 않는다. 안 주면 프롬프트가 예전과 글자까지 같다.
 
     papers(F-24 PaperDoc) 를 주면 「교수가 읽고 온 문헌」 이 프롬프트에 실리고, 질문은
     그 문헌을 근거로 찌를 수 있다. **목록 밖 논문을 인용한 문장은 코드가 버린다** — 질문
@@ -1721,6 +1763,9 @@ def build_questions(
         papers = PaperDoc.from_dict(papers)
     if papers is not None and not papers.refs:
         papers = None   # 빈 문헌은 없는 것과 같다 — 프롬프트를 바꾸지 않는다
+    if isinstance(memory, dict):
+        memory = MemoryDoc.from_dict(memory)
+    memory_of = memory.by_node(graph) if memory is not None else {}
     ctx = _as_context(context)
 
     if track not in QA_TRACKS:
@@ -1741,10 +1786,13 @@ def build_questions(
     flow_of = _flow_issue_by_node(flow)
 
     by_no = _slides_by_no(slidedoc)
-    prompt = _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers)
+    prompt = _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of)
+    remembered = any(m.node_id in memory_of for m in marks)
     raw_questions = _questions_with_papers(
         engine, prompt, marks,
-        QUESTION_SYSTEM_PROMPT + (PAPER_SYSTEM_ADDENDUM if papers is not None else ""),
+        QUESTION_SYSTEM_PROMPT
+        + (PAPER_SYSTEM_ADDENDUM if papers is not None else "")
+        + (MEMORY_SYSTEM_ADDENDUM if remembered else ""),
         by_id, by_no, papers,
     )
 

@@ -7,6 +7,9 @@
 from .config import settings
 from .contracts import (
     AlignError,
+    ConceptMemory,
+    MemoryDoc,
+    RehearsalSummary,
     AlignmentDoc,
     AlignmentItem,
     AlignmentSummary,
@@ -77,9 +80,15 @@ from .f18_habits import extract_habits
 from .f19_report import compose_report
 from .f23_context import suggest_context
 from .f24_papers import build_papers, search_papers
+from .f25_memory import build_memory, link_memory
 
 __all__ = [
     "suggest_context",
+    "build_memory",
+    "link_memory",
+    "MemoryDoc",
+    "ConceptMemory",
+    "RehearsalSummary",
     "build_papers",
     "search_papers",
     "PaperDoc",

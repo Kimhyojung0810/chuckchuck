@@ -197,6 +197,38 @@ export function attachRehearsalRuntime(nf, hooks = {}) {
  * 서버는 이 id 로만 파싱본·받아쓰기를 찾는다 (파일명으로 남의 자료가 붙던 사고 방지).
  * `consent` 는 학습 동의. 업로드 때 한 번만 보내고 서버가 manifest 에 고정한다.
  */
+/**
+ * 익명 학습자 id (F-25 리허설 기억의 열쇠). 이 브라우저의 난수 하나 — 이름·계정이 아니다.
+ * 같은 브라우저에서 같은 발표를 다시 연습하면 서버가 지난 리허설(학습 동의한 세션만)을 잇는다.
+ * localStorage 가 막힌 환경(시크릿 창·차단)에서는 빈 문자열 — 그러면 같은 파일(sha256)로만 잇는다.
+ */
+export function learnerId() {
+  try {
+    let id = localStorage.getItem('chuckchuck.learner') || '';
+    if (!/^[A-Za-z0-9_-]{4,64}$/.test(id)) {
+      const buf = new Uint8Array(12);
+      (window.crypto || {}).getRandomValues ? window.crypto.getRandomValues(buf) : buf.forEach((_, i) => { buf[i] = Math.floor(Math.random() * 256); });
+      id = Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem('chuckchuck.learner', id);
+    }
+    return id;
+  } catch (_) {
+    return '';
+  }
+}
+
+/** F-25 · 지난 리허설 기억. 지난 세션이 없으면 refs 없이 note 만 온다. */
+export async function fetchMemory(sessionId) {
+  const res = await fetch(apiBase() + '/api/v1/memory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId || null }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.message || data.error || `memory HTTP ${res.status}`);
+  return data;
+}
+
 export async function parseDocument({ file = null, fixture = false, consent = false } = {}) {
   let res;
   if (fixture || !file) {
@@ -208,7 +240,11 @@ export async function parseDocument({ file = null, fixture = false, consent = fa
   } else {
     const fd = new FormData();
     fd.append('document', file, file.name);
-    const q = consent ? '?consent_learning=1' : '';
+    const params = new URLSearchParams();
+    if (consent) params.set('consent_learning', '1');
+    const learner = learnerId();
+    if (learner) params.set('learner', learner);
+    const q = params.toString() ? '?' + params.toString() : '';
     res = await fetch(apiBase() + '/api/v1/parse' + q, { method: 'POST', body: fd });
   }
   const data = await res.json();

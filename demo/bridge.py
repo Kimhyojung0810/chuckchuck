@@ -482,6 +482,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_report(raw)
             if parsed.path == "/api/v1/questions":
                 return self._handle_questions(raw)
+            if parsed.path == "/api/v1/memory":
+                return self._handle_memory(raw)
             if parsed.path == "/api/v1/papers":
                 return self._handle_papers(raw)
             if parsed.path == "/api/v1/papers/search":
@@ -621,6 +623,8 @@ class Handler(SimpleHTTPRequestHandler):
 
         qs = parse_qs(urlparse(self.path).query or "")
         consent = (qs.get("consent_learning") or ["0"])[0].strip().lower() in ("1", "true", "yes", "on")
+        # 익명 학습자 id (F-25) — 브라우저 localStorage 의 난수. 같은 사람의 지난 리허설을 잇는 열쇠다.
+        learner_id = ARCHIVE.safe_learner((qs.get("learner") or [""])[0])
 
         sys.stderr.write(
             f"[bridge] F-01 parse start file={filename!r} files={len(uploads)} "
@@ -646,6 +650,7 @@ class Handler(SimpleHTTPRequestHandler):
             rec = ARCHIVE.open(
                 sid, consent=consent, file_name=filename, ext=ext, upload=file_bytes,
                 sha256=hashlib.sha256(file_bytes).hexdigest(), title=_cache_stem(filename),
+                learner_id=learner_id,
             )
             if rec is not None:
                 payload["session_id"] = sid
@@ -1329,13 +1334,16 @@ class Handler(SimpleHTTPRequestHandler):
         # 교수가 읽고 온 문헌 (F-24). 세션에 한 번 만들고 재사용한다 — 트랙을 바꿔도 외부 검색을
         # 다시 안 한다. body.papers=false 면 끈다 (비교 벤치용). 없으면 F-08 은 예전 프롬프트다.
         papers = None if body.get("papers") is False else self._papers_for(body, found["graph"], slidedoc, llm)
+        # 지난 리허설 기억 (F-25). 같은 사람·같은 파일의 동의한 지난 세션에서. body.memory=false 면 끈다.
+        memory = None if body.get("memory") is False else self._memory_for(body)
 
-        cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm))
+        cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm),
+                                memory.to_dict() if memory else None)
         try:
             triage = STORE.get_triage(cache_key)
             if triage is None:
                 triage = triage_questions(
-                    graph, alignment, flow, ctx, transcript=transcript, llm=llm
+                    graph, alignment, flow, ctx, transcript=transcript, memory=memory, llm=llm
                 )
                 STORE.set_triage(cache_key, triage)
             else:
@@ -1354,6 +1362,7 @@ class Handler(SimpleHTTPRequestHandler):
                 slidedoc=slidedoc,
                 context=ctx,
                 papers=papers,
+                memory=memory,
                 llm=llm,
             )
         except QuestionError as e:
@@ -1361,14 +1370,63 @@ class Handler(SimpleHTTPRequestHandler):
         # 본문 유무를 남긴다. 조용히 빠지면 "왜 여전히 자료에 없는 말을 쓰지?" 를
         # 디버깅할 수 없다 (_handle_qa_judge 의 근거= 표시와 같은 이유).
         cited = sum(1 for q in doc.questions if q.paper_ids)
+        remembered = len(memory.by_node(graph)) if memory else 0
         sys.stderr.write(
             f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} "
             f"model={doc.model} 본문={'yes' if slidedoc else '-'} "
-            f"문헌={len(papers.refs) if papers else '-'} 인용질문={cited}\n"
+            f"문헌={len(papers.refs) if papers else '-'} 인용질문={cited} "
+            f"기억={remembered if memory else '-'}\n"
         )
         payload = with_hint_ladders(doc.to_dict(), doc.questions)
         self._archive(body, "question_doc", payload)
         return self._json(200, payload)
+
+    def _memory_for(self, body: dict):
+        """
+        F-25 MemoryDoc. 메모리 캐시 → 보관소의 지난 세션(qa_turns)에서 새로 만들기. 지난 리허설이 없으면 None.
+
+        같은 사람(learner_id)·같은 파일(sha256)의 **동의한** 세션만 잇는다 — session_archive.related_sessions 가 거른다.
+        만든 기억은 이 세션의 memory_doc 아티팩트로 남긴다 (동의 세션만 저장된다). 실패해도 None — 기억은 있으면 좋은 재료다.
+        """
+        from chuckchuck import build_memory
+
+        sid = _session_id_of(body)
+        if not sid or _mock():
+            return None
+        key = "memory:" + sid
+        cached = STORE.get_triage(key)
+        if cached is not None:
+            return cached or None          # 빈 dict 는 「지난 리허설 없음」 을 캐시한 것
+        try:
+            rehearsals, learner_key = ARCHIVE.rehearsals_for(sid)
+            if not rehearsals:
+                STORE.set_triage(key, {})
+                return None
+            me = ARCHIVE.manifest(sid)
+            memory = build_memory(rehearsals, file_name=(me.file_name if me else ""), learner_key=learner_key)
+        except Exception as e:  # noqa: BLE001 — 기억 없이도 질문·판정은 나와야 한다
+            sys.stderr.write(f"[bridge] F-25 memory 실패, 기억 없이 진행: {type(e).__name__}: {e}\n")
+            STORE.set_triage(key, {})
+            return None
+        sys.stderr.write(
+            f"[bridge] F-25 memory key={memory.learner_key} sessions={len(memory.sessions)} "
+            f"concepts={len(memory.concepts)} stalled={len(memory.stalled)}\n"
+        )
+        STORE.set_triage(key, memory)
+        self._archive(body, "memory_doc", memory.to_dict())
+        return memory
+
+    def _handle_memory(self, raw: bytes):
+        """F-25 · {session_id} → MemoryDoc. 지난 리허설이 없으면 빈 문서(note 에 사유). 화면이 「지난번보다」 를 그릴 때."""
+        from chuckchuck.contracts import MemoryDoc
+
+        body = json.loads(raw or b"{}")
+        if not _session_id_of(body):
+            return self._json(400, {"error": "bad_request", "message": "session_id 가 필요합니다."})
+        memory = self._memory_for(body)
+        if memory is None:
+            return self._json(200, MemoryDoc(note="지난 리허설 없음 — 학습 동의를 켠 지난 세션이 있어야 이어져요").to_dict())
+        return self._json(200, memory.to_dict())
 
     def _papers_for(self, body: dict, graph_raw: dict | None, slidedoc, llm):
         """
@@ -1501,6 +1559,8 @@ class Handler(SimpleHTTPRequestHandler):
                 hints_shown=[str(h) for h in (body.get("hints_shown") or []) if str(h).strip()],
                 llm=llm,
                 slidedoc=slidedoc,
+                # 지난 리허설 기억 (F-25) — 지난번에 빠졌던 점이 이번엔 나왔는지 본다. 포기하면 코칭 단계도 이것이 정한다
+                memory=self._memory_for(body),
             )
         except JudgeError as e:
             return self._json(502, {"error": "judge_failed", "message": str(e)})

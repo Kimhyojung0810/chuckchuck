@@ -6,6 +6,7 @@ SlideDoc, Transcript, ConceptDoc 같은 공통 타입이 여기 있습니다.
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -1633,6 +1634,211 @@ class PaperDoc:
         return [r for r in self.refs if node_id in r.node_ids]
 
 
+# ---------------------------------------------------------------------------
+# F-25 리허설 기억 — 같은 사람이 같은 발표를 다시 연습할 때, 지난 답변 과정을 되짚는다
+# ---------------------------------------------------------------------------
+
+#: 개념 하나에 남기는 「빠진 점」 최대 수 (최신 우선).
+MEMORY_MISSING_MAX = 3
+#: 기억에 합칠 지난 리허설 최대 수 (최신 우선). 그 전 것은 잊는다 — 오래된 실수로 사람을 못 박지 않는다.
+MEMORY_SESSIONS_MAX = 5
+#: 개념 이름을 조인 키로 만들 때 지우는 글자.
+_MEMORY_KEY_STRIP_RE = re.compile(r"[^0-9a-z가-힣]+")
+#: verdict 의 좋은 순. best_verdict 를 고를 때 쓴다.
+MEMORY_VERDICT_ORDER = ("good", "partial", "wrong", "unknown")
+
+
+def memory_key(label: str) -> str:
+    """개념 이름 → 조인 키. 세션마다 노드 id 는 달라지지만 이름은 대개 같다 — 소문자·기호·공백을 지운 이름으로 잇는다."""
+    return _MEMORY_KEY_STRIP_RE.sub("", (label or "").lower())
+
+
+@dataclass
+class ConceptMemory:
+    """
+    개념 하나에 대한 지난 리허설 기억. **전부 기록(qa_turns·판정)에서 센 것** — LLM 이 채우는 필드는 없다.
+
+    `key` 는 `memory_key(label)`. `stalled` 는 「물어봤는데 한 번도 good 을 못 받았다」 — 다음 리허설에서
+    먼저 묻고, 코칭은 한 단계 위에서 시작하는 근거다.
+    """
+    key: str
+    label: str = ""
+    node_ids: list[str] = field(default_factory=list)     # 세션마다 달랐던 노드 id 들
+    asked: int = 0                                        # 이 개념을 물은 리허설 수
+    attempts: int = 0                                     # 답한 턴 수 (포기 포함)
+    give_ups: int = 0
+    verdicts: dict = field(default_factory=dict)          # good/partial/wrong/unknown → 횟수
+    last_verdict: str = ""
+    best_verdict: str = ""
+    last_score: int = 0
+    last_at: float = 0.0
+    missing_points: list[str] = field(default_factory=list)   # 최근 판정이 짚은 빠진 점 (최신 우선, 중복 없음)
+    hints_max: int = 0                                    # 한 질문에서 본 힌트 최대 수
+
+    @property
+    def stalled(self) -> bool:
+        return self.attempts > 0 and self.best_verdict != "good"
+
+    @property
+    def cleared(self) -> bool:
+        return self.best_verdict == "good"
+
+    @property
+    def prompt_line(self) -> str:
+        """프롬프트 한 줄. 사실만 — 판정·횟수·빠진 점. 답변 원문은 싣지 않는다 (지난 답을 이번 답으로 착각하게 한다)."""
+        verdict_ko = {"good": "통과", "partial": "반쯤", "wrong": "어긋남", "unknown": "판정 없음"}
+        bits = [f"{self.asked}번 물음"]
+        if self.last_verdict:
+            bits.append(f"마지막 판정 {verdict_ko.get(self.last_verdict, self.last_verdict)}")
+        if self.give_ups:
+            bits.append(f"포기 {self.give_ups}번")
+        if self.hints_max:
+            bits.append(f"힌트 {self.hints_max}개까지 봄")
+        line = "지난 리허설: " + " · ".join(bits)
+        if self.missing_points:
+            line += " · 빠졌던 점: " + " / ".join(self.missing_points[:MEMORY_MISSING_MAX])
+        return line
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["stalled"] = self.stalled
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptMemory":
+        return cls(
+            key=str(d.get("key", "") or ""), label=str(d.get("label", "") or ""),
+            node_ids=[str(x) for x in (d.get("node_ids") or [])],
+            asked=int(d.get("asked", 0) or 0), attempts=int(d.get("attempts", 0) or 0),
+            give_ups=int(d.get("give_ups", 0) or 0),
+            verdicts={str(k): int(v) for k, v in (d.get("verdicts") or {}).items()},
+            last_verdict=str(d.get("last_verdict", "") or ""), best_verdict=str(d.get("best_verdict", "") or ""),
+            last_score=int(d.get("last_score", 0) or 0), last_at=float(d.get("last_at", 0.0) or 0.0),
+            missing_points=[str(x) for x in (d.get("missing_points") or []) if str(x).strip()][:MEMORY_MISSING_MAX],
+            hints_max=int(d.get("hints_max", 0) or 0),
+        )
+
+
+@dataclass
+class RehearsalSummary:
+    """지난 리허설 한 번의 요약 — 화면의 「지난번보다」 비교와 리포트용."""
+    session_id: str
+    at: float = 0.0
+    title: str = ""
+    questions: int = 0          # 물은 질문 수
+    good: int = 0               # 최종적으로 good 을 받은 질문 수
+    partial: int = 0
+    wrong: int = 0
+    give_ups: int = 0           # 포기 턴 수
+    score_mean: float = 0.0     # 판정 점수 평균 (포기 턴 제외)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RehearsalSummary":
+        return cls(
+            session_id=str(d.get("session_id", "") or ""), at=float(d.get("at", 0.0) or 0.0),
+            title=str(d.get("title", "") or ""), questions=int(d.get("questions", 0) or 0),
+            good=int(d.get("good", 0) or 0), partial=int(d.get("partial", 0) or 0), wrong=int(d.get("wrong", 0) or 0),
+            give_ups=int(d.get("give_ups", 0) or 0), score_mean=float(d.get("score_mean", 0.0) or 0.0),
+        )
+
+
+@dataclass
+class MemoryDoc:
+    """
+    같은 사람·같은 발표의 지난 리허설 기억 (F-25). 세션 보관소의 **동의한** 세션에서만 만든다.
+
+    `learner_key` 는 무엇으로 이었는가 — "learner:<id>"(브라우저가 준 익명 id) 또는 "deck:<sha256 앞 12자>"(같은 파일).
+    파일 이름만으로는 잇지 않는다 (같은 이름의 남의 자료가 붙는다). `sessions` 는 최신이 먼저.
+    """
+    learner_key: str = ""
+    file_name: str = ""
+    sessions: list[RehearsalSummary] = field(default_factory=list)
+    concepts: list[ConceptMemory] = field(default_factory=list)
+    note: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "learner_key": self.learner_key, "file_name": self.file_name, "note": self.note,
+            "sessions": [s.to_dict() for s in self.sessions],
+            "concepts": [c.to_dict() for c in self.concepts],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MemoryDoc":
+        return cls(
+            learner_key=str(d.get("learner_key", "") or ""), file_name=str(d.get("file_name", "") or ""),
+            note=str(d.get("note", "") or ""),
+            sessions=[RehearsalSummary.from_dict(x) for x in (d.get("sessions") or []) if isinstance(x, dict)],
+            concepts=[ConceptMemory.from_dict(x) for x in (d.get("concepts") or []) if isinstance(x, dict)],
+        )
+
+    def concept(self, label: str) -> ConceptMemory | None:
+        key = memory_key(label)
+        if not key:
+            return None
+        return next((c for c in self.concepts if c.key == key), None)
+
+    @property
+    def stalled(self) -> list[ConceptMemory]:
+        return [c for c in self.concepts if c.stalled]
+
+    @property
+    def last(self) -> RehearsalSummary | None:
+        return self.sessions[0] if self.sessions else None
+
+    def by_node(self, graph: "ConceptGraph | None") -> dict[str, ConceptMemory]:
+        """
+        이번 ConceptGraph 의 노드에 기억을 잇는다 → {node_id: ConceptMemory}. 이름이 정확히 같은 것을 먼저, 그다음
+        토큰 겹침(Jaccard ≥ MEMORY_LINK_JACCARD_MIN). 한 기억은 한 노드에만 (같은 이름이 둘이면 weight 큰 쪽).
+        """
+        if graph is None or not self.concepts or not graph.nodes:
+            return {}
+        nodes = sorted(graph.nodes, key=lambda n: (-n.weight, n.id))
+        out: dict[str, ConceptMemory] = {}
+        used: set[str] = set()
+        for node in nodes:
+            cm = self.concept(node.label)
+            if cm is not None and cm.key not in used:
+                out[node.id] = cm
+                used.add(cm.key)
+        for node in nodes:
+            if node.id in out:
+                continue
+            key = memory_key(node.label)
+            best, best_score = None, 0.0
+            for cm in self.concepts:
+                if cm.key in used:
+                    continue
+                score = memory_similarity(key, cm.key)
+                if score >= MEMORY_LINK_MIN and score > best_score:
+                    best, best_score = cm, score
+            if best is not None:
+                out[node.id] = best
+                used.add(best.key)
+        return out
+
+
+#: 이름이 정확히 같지 않을 때 같은 개념으로 볼 글자 2-gram 겹침(Dice) 하한. "알림의 주의 비용" vs "알림 주의 비용" 은 0.73,
+#: "환경 설계" vs "환경 요인" 은 0.33. 낱말 단위(Jaccard)는 한국어 조사(의·은·는) 하나에 갈라져서 글자 단위로 잰다.
+MEMORY_LINK_MIN = 0.6
+
+
+def memory_similarity(key_a: str, key_b: str) -> float:
+    """memory_key 두 개의 글자 2-gram Dice 계수 (0~1). 둘 중 하나가 두 글자 미만이면 같을 때만 1."""
+    if not key_a or not key_b:
+        return 0.0
+    if key_a == key_b:
+        return 1.0
+    a = {key_a[i:i + 2] for i in range(len(key_a) - 1)}
+    b = {key_b[i:i + 2] for i in range(len(key_b) - 1)}
+    if not a or not b:
+        return 0.0
+    return 2 * len(a & b) / (len(a) + len(b))
+
+
 @dataclass
 class TriageMark:
     """
@@ -2239,6 +2445,8 @@ SESSION_ARTIFACT_KINDS = (
     "rubric_score",    # F-14
     "report_doc",      # F-19
     "question_doc",    # F-08
+    "paper_doc",       # F-24 (09-23: 브리지가 쓰는데 목록에 없어 조용히 버려지고 있었다)
+    "memory_doc",      # F-25 — 이 세션이 만들어 쓴 지난 리허설 기억 (재생·리포트용)
 )
 
 #: 동의 없이도 남기는 캐시. 나머지는 동의한 세션에만 쓴다.
@@ -2264,6 +2472,7 @@ class SessionRecord:
     code_version: str = ""     # 만들 때의 git sha — 프롬프트를 고친 뒤 재생 diff 용
     qa_turn_count: int = 0
     feedback_count: int = 0
+    learner_id: str = ""       # 브라우저가 준 익명 학습자 id (F-25 기억을 잇는 열쇠). 없으면 같은 파일(sha256)로만 잇는다
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -2282,6 +2491,7 @@ class SessionRecord:
             upload_sha256=str(d.get("upload_sha256", "")),
             upload_bytes=int(d.get("upload_bytes", 0) or 0),
             context=dict(d.get("context") or {}),
+            learner_id=str(d.get("learner_id", "") or ""),
             artifacts=dict(d.get("artifacts") or {}),
             models=dict(d.get("models") or {}),
             code_version=str(d.get("code_version", "")),

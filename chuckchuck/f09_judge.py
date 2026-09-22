@@ -22,6 +22,8 @@ from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_line
 from ._match import norm_tokens
 from ._json_text import extract_json_object
 from .contracts import (
+    ConceptMemory,
+    MemoryDoc,
     QA_COACH_STAGES,
     QA_EXPLAIN_MAX,
     QA_MAX_ROUNDS,
@@ -340,9 +342,10 @@ def _build_user_prompt(
     ctx: Context,
     prior_answers: list[str] | None = None,
     slidedoc: SlideDoc | None = None,
+    memory_cm: ConceptMemory | None = None,
 ) -> str:
     """
-    질문 → 자료 근거 → 지난 대화 → 이번 답변 순.
+    질문 → 자료 근거 → 지난 대화 → 지난 리허설 기억 → 이번 답변 순.
 
     판정 대상(질문)을 맨 앞에 두는 것은 F-07·F-11 에서 확인한 배치다 —
     앞에 둬야 모델이 답변을 질문에 비추어 보지, 답변만 따로 요약하지 않는다.
@@ -380,8 +383,35 @@ def _build_user_prompt(
             parts.append(f"- Q: {turn.question}")
             parts.append(f"  A: {turn.answer}  → {turn.verdict}")
 
+    parts += _memory_block(memory_cm)
     parts += _answer_block(answer, prior_answers)
     return "\n".join(parts)
+
+
+def _memory_concept(question: Question, memory: MemoryDoc | dict | None, graph: ConceptGraph | None) -> ConceptMemory | None:
+    """이 질문의 개념에 붙은 기억. 그래프가 있으면 node_id 로, 없으면 질문의 label 로 잇는다."""
+    if memory is None:
+        return None
+    if isinstance(memory, dict):
+        memory = MemoryDoc.from_dict(memory)
+    if graph is not None:
+        cm = memory.by_node(graph).get(question.node_id)
+        if cm is not None:
+            return cm
+    return memory.concept(question.label)
+
+
+def _memory_block(cm: ConceptMemory | None) -> list[str]:
+    """F-25 지난 리허설 기억. 없으면 빈 목록 — 프롬프트가 예전과 같다."""
+    if cm is None or cm.attempts <= 0:
+        return []
+    lines = ["", "## 지난 리허설에서 이 개념 (같은 발표자 · 사실만)", cm.prompt_line]
+    if cm.missing_points:
+        lines.append(
+            "지난번에 빠졌던 점이 이번 답에 나왔으면 summary_sentence 에서 그 진전을 알아봐 주고("
+            "예: \"지난번엔 빠졌던 조건을 이번엔 짚었어요\"), 또 빠졌으면 missing_points 에 같은 말로 적어라."
+        )
+    return lines
 
 
 def _gist_parts_block(question: Question) -> str:
@@ -971,9 +1001,13 @@ def coach_stuck(
     llm_kwargs: dict | None = None,
     stage: str = "",
     slidedoc: SlideDoc | dict | None = None,
+    memory: MemoryDoc | dict | None = None,
 ) -> QaJudgement:
     """
     막힌 발표자에게 응한다. 1차는 쉬운 되물음(narrow), 2차는 해설(explain).
+
+    memory(F-25) 가 「이 개념에서 지난번에도 포기했다」 고 하면 1차 되물음(narrow)을 건너뛰고 발판(scaffold)에서
+    시작한다 — 지난번에 안 통한 되물음을 같은 넓이로 다시 하지 않는다.
 
     판정이 아니므로 verdict 는 항상 'unknown' · score 0 이고 passed 는 거짓이다.
     단계는 history 로 서버가 정한다 (_coach_stage).
@@ -997,6 +1031,9 @@ def coach_stuck(
         Context.from_dict(context) if isinstance(context, dict) else context
     )
     stage = stage if stage in QA_COACH_STAGES and stage else _coach_stage(question, turns)
+    memory_cm = _memory_concept(question, memory, graph)
+    if stage == "narrow" and memory_cm is not None and memory_cm.stalled and memory_cm.give_ups >= 1:
+        stage = "scaffold"
     # 발판 단계는 LLM 을 부르지 않는다 — 골자에서 낱말 하나를 가린 빈칸이 전부다.
     # 재료가 없으면(골자 없음) 이 단을 건너뛰고 해설로 간다.
     if stage == "scaffold":
@@ -1260,10 +1297,14 @@ def judge_answer(
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
     slidedoc: SlideDoc | dict | None = None,
+    memory: MemoryDoc | dict | None = None,
 ) -> QaJudgement:
     """
-    Question + 답변 (+선택 ConceptGraph·AlignmentDoc·Transcript·history·Context)
+    Question + 답변 (+선택 ConceptGraph·AlignmentDoc·Transcript·history·Context·MemoryDoc)
     → QaJudgement.
+
+    memory(F-25) 를 주면 이 개념의 지난 리허설 기억(판정·빠진 점)이 판정 프롬프트에 실려, 지난번에 빠졌던 점이
+    이번엔 나왔는지 알아본다. 포기하면 코칭 시작 단계도 기억이 정한다 (coach_stuck). 안 주면 예전과 같다.
 
     give_up=True 이거나 답변이 포기로 보이면(looks_stuck) 판정하지 않고
     coach_stuck() 으로 넘긴다 — 모르겠다는 사람에게 점수를 매길 이유가 없다.
@@ -1306,6 +1347,7 @@ def judge_answer(
             llm=llm,
             llm_kwargs=llm_kwargs,
             slidedoc=slidedoc,
+            memory=memory,
         )
     if asks_back(answer):
         return coach_stuck(
@@ -1345,7 +1387,7 @@ def judge_answer(
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
     user = _build_user_prompt(
         question, answer, turns, graph, alignment, transcript, ctx, prior_answers,
-        slidedoc=slidedoc,
+        slidedoc=slidedoc, memory_cm=_memory_concept(question, memory, graph),
     )
     # 정답 골자는 판정에도 싣는다 (규칙 3 의 채점 기준). 코칭(coach_stuck)만 갖고
     # 있으면 이지선다 질문에 정답 단답이 와도 모델이 자료 발췌에서 확신을 못 얻어
