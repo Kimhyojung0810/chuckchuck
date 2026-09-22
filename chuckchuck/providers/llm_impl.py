@@ -580,15 +580,20 @@ class AxLLM(OpenAICompatLLM):
 
 
 class MidmLLM(OpenAICompatLLM):
-    """KT 믿음 (Friendli dedicated)."""
+    """KT 믿:음 공식 API (https://midm.kt.com/v1/chat/completions, 모델 midm-pro-fp8-kaic).
+
+    2026-09-22: Friendli dedicated 에서 KT 공식 엔드포인트로 옮김. 공식 문서가 요구하는
+    Content-Type charset 을 그대로 보낸다. MIDM_ENDPOINT_ID 가 요청의 model 필드가 된다.
+    """
 
     def __init__(self, api_key: str | None = None, endpoint_id: str | None = None):
-        eid = endpoint_id or os.environ.get("MIDM_ENDPOINT_ID", "")
+        eid = endpoint_id or os.environ.get("MIDM_ENDPOINT_ID", "midm-pro-fp8-kaic")
         super().__init__(
             api_key=api_key or os.environ.get("MIDM_API_KEY", ""),
-            base_url=os.environ.get("MIDM_BASE_URL", "https://api.friendli.ai/dedicated/v1"),
+            base_url=os.environ.get("MIDM_BASE_URL", "https://midm.kt.com/v1"),
             model=eid,
             name="midm",
+            extra_headers={"Content-Type": "application/json; charset=UTF-8"},
         )
 
 

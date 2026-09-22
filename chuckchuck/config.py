@@ -91,8 +91,8 @@ class Settings:
     ax_stt_streaming_model: str = "A.X_STT_note_streaming"
 
     midm_api_key: str = ""
-    midm_base_url: str = "https://api.friendli.ai/dedicated/v1"
-    midm_endpoint_id: str = ""
+    midm_base_url: str = "https://midm.kt.com/v1"
+    midm_endpoint_id: str = "midm-pro-fp8-kaic"
 
     exaone_api_key: str = ""
     exaone_base_url: str = "https://api.friendli.ai/dedicated/v1"
@@ -143,7 +143,7 @@ class Settings:
 
             midm_api_key=e("MIDM_API_KEY", ""),
             midm_base_url=e("MIDM_BASE_URL", cls.midm_base_url),
-            midm_endpoint_id=e("MIDM_ENDPOINT_ID", ""),
+            midm_endpoint_id=e("MIDM_ENDPOINT_ID", cls.midm_endpoint_id),
 
             exaone_api_key=e("EXAONE_API_KEY", ""),
             exaone_base_url=e("EXAONE_BASE_URL", cls.exaone_base_url),
