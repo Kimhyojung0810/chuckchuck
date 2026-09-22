@@ -34,8 +34,8 @@ import {
   MAX_SHOTS, MIC_LABEL, VERDICT_WORD,
   appendTranscript, cameraErrorText, captureRoutes, countdownText, fitScale, hintLadder,
   judgementBubbles, newPen, paintDictation, partnerMood, shotFileName, shotsAdvice,
-  speakableJudgement, speechSettled, tally,
-} from './booth_logic.js?v=b3';
+  speakableJudgement, speechSettled, tally, voiceCommand,
+} from './booth_logic.js?v=b4';
 
 const PARSE_TIMEOUT_MS = 120000;
 const SOUND_KEY = 'cheokcheok:booth-sound';
@@ -353,7 +353,7 @@ async function startQa() {
   $('btn-sound').hidden = !('speechSynthesis' in window);
   $('btn-mic').hidden = !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   document.querySelector('.booth-qa-tools').hidden = false;
-  $('call-log').innerHTML = '';
+  $('call-bubbles').innerHTML = '';
   mountPartner();
   await openSelfView();
   renderQuestion();
@@ -414,7 +414,7 @@ function toggleSelfView() {
 
 /* 말풍선 — 상대는 왼쪽, 나는 오른쪽. 마지막 몇 개만 보이고 위는 흐려진다 (가리는 층이 아니다) */
 function bubble(side, html, { kind = '', verdict = '' } = {}) {
-  const log = $('call-log');
+  const log = $('call-bubbles');
   const el = document.createElement('div');
   el.className = `call-bubble glass is-${side}${kind ? ` is-${kind}` : ''}`;
   if (verdict) el.dataset.v = verdict;
@@ -624,18 +624,53 @@ function holdCaption() {
   if (state.countdown) { cancelCountdown(); note('qa-mic-note', '멈췄어요. 고친 뒤 「답하기」를 눌러요.'); }
 }
 
+/** 지금 말로 누를 수 있는 버튼 — 화면의 버튼 상태를 그대로 따른다 (숨은·꺼진 버튼은 말로도 안 눌린다). */
+function voiceAllowed() {
+  return {
+    next: !$('btn-next').hidden,
+    again: !$('btn-again').hidden,
+    hint: !$('btn-hint').disabled,
+    giveup: !$('btn-giveup').disabled,
+    answer: !$('btn-answer').disabled,
+  };
+}
+
+/** 말로 누른 버튼. 자막에는 「'다음 질문' 이라고 했어요」처럼 남겨 무엇이 왜 일어났는지 보이게 한다. */
+function runVoiceCommand(cmd) {
+  const said = { next: $('btn-next').textContent, giveup: '모르겠어요', hint: '힌트', again: '다시 답하기', answer: '답하기' }[cmd];
+  note('qa-mic-note', `「${said}」라고 말해서 눌렀어요.`);
+  if (cmd === 'next') return next();
+  if (cmd === 'giveup') return submit(true);
+  if (cmd === 'hint') return showHint();
+  if (cmd === 'again') return again();
+  if (cmd === 'answer') return submit(false);
+}
+
 /** 실시간 받아쓰기 — 말하는 중에 자막이 채워진다 (크롬·엣지). */
 function startDictation() {
   const ta = $('qa-answer');
   let pen = newPen(ta.value);
+  // 말로 조작하기 — 확정 조각이 늘어날 때마다 새 조각 끝에서 명령을 본다. 명령은 자막에서 뗀다(cut).
+  let seenFinal = 0; const cuts = [];
   try {
     state.mic = {
       dictation: true,
       session: startLiveDictation({
         onText: ({ final, interim }) => {
-          const r = paintDictation(pen, ta.value, final + interim);
+          let command = null;
+          if (final.length > seenFinal) {
+            const chunk = final.slice(seenFinal);
+            const hit = voiceCommand(chunk, voiceAllowed());
+            if (hit) { cuts.push([seenFinal + hit.rest.length, final.length]); command = hit.cmd; }
+            seenFinal = final.length;
+          }
+          let clean = ''; let at = 0;
+          for (const [a, b] of cuts) { clean += final.slice(at, a); at = b; }
+          clean += final.slice(at);
+          const r = paintDictation(pen, ta.value, `${clean} ${command ? '' : interim}`.trim());
           pen = r.pen;
           if (ta.value !== r.value) { ta.value = r.value; ta.scrollTop = ta.scrollHeight; markSpeech(); }
+          if (command) runVoiceCommand(command);
         },
         onError: (msg) => {
           state.mic = null;

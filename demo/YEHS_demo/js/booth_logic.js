@@ -96,6 +96,41 @@ export function appendTranscript(current, text) {
   return prev ? `${prev} ${add}` : add;
 }
 
+/* ─── 말로 조작하기 (9/23) ─────────────────────────────────────────────────
+   사용자: "모르겠어요·다음 질문… 전부 말로 진행할 수 있도록". 받아쓰기의 **확정된 조각** 끝에서만 본다 —
+   중간 결과(interim)는 글자가 계속 바뀌어서 명령으로 읽으면 헛발질한다.
+   명령은 문장 **끝**에 있어야 한다("…때문이에요 다음 질문"). 앞부분(rest)은 답으로 남긴다.
+   「모르겠어요」는 답 안에도 흔히 나오므로("정확한 수치는 모르겠어요") 앞이 두 어절 이하일 때만 포기로 본다.
+   allowed 로 지금 눌릴 수 있는 버튼만 허용한다 — 판정 전에 「다음 질문」이라고 해도 아무 일도 안 일어난다. */
+export const VOICE_COMMANDS = [
+  { cmd: 'next',   re: /(?:다음\s*질문(?:이요|으로|이요)?|다음\s*문제|넘어가\s*(?:요|자|줘|주세요|겠어요)?|통화\s*마치기|여기까지\s*할게요)$/ },
+  { cmd: 'giveup', re: /(?:잘\s*)?모르겠(?:어요|어|습니다|네요|는데요)$/, shortRest: 2 },
+  { cmd: 'hint',   re: /힌트(?:요|\s*주세요|\s*줘요|\s*줘|\s*하나만|\s*보여\s*줘요|\s*보여\s*줘|\s*볼게요)?$/ },
+  { cmd: 'again',  re: /다시\s*(?:답|말)(?:할게요|해\s*볼게요|해볼게요|하기)$/ },
+  { cmd: 'answer', re: /(?:답할게요|보낼게요|답하기|보내기|보내\s*주세요|이상입니다|이상이에요|끝이에요|여기까지예요)$/ },
+];
+const VOICE_TRAIL = /[\s.,!?。…~]+$/;
+
+/**
+ * 확정 조각 하나에서 명령을 찾는다. 없으면 null.
+ * 반환: { cmd, rest } — rest 는 명령을 뗀 앞부분(답으로 남길 글).
+ */
+export function voiceCommand(chunk, allowed = {}) {
+  const text = (chunk || '').replace(VOICE_TRAIL, '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  for (const { cmd, re, shortRest } of VOICE_COMMANDS) {
+    if (allowed[cmd] === false) continue;
+    const m = text.match(re);
+    if (!m) continue;
+    const rest = text.slice(0, m.index).replace(VOICE_TRAIL, '').trim();
+    // 명령 앞이 붙어 있으면(공백 없이) 단어의 일부다: "다음질문" 은 되지만 "그다음 질문" 의 "다음 질문" 은 안 된다
+    if (rest && !/\s$/.test(text.slice(0, m.index))) continue;
+    if (shortRest !== undefined && rest && rest.split(' ').length > shortRest) continue;
+    return { cmd, rest };
+  }
+  return null;
+}
+
 /* ─── 판정 · 읽어 주기 ──────────────────────────────────────────────────── */
 
 export const VERDICT_WORD = { good: '잘 답했어요', partial: '반쯤 왔어요', wrong: '자료와 달라요', unknown: '아직 모르겠어요' };

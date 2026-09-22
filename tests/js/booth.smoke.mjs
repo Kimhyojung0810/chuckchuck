@@ -160,6 +160,31 @@ test('판정 말풍선: 반응+요약 → 빠진 것 → 되묻기(평소) 또�
   eq(L.judgementBubbles(null), []);
 });
 
+/* ── 말로 조작하기 ─────────────────────────────────────────────────────────── */
+test('문장 끝의 「다음 질문」: 앞부분은 답으로 남기고 next', () => {
+  eq(L.voiceCommand('빠른 수익화 때문이에요 다음 질문'), { cmd: 'next', rest: '빠른 수익화 때문이에요' });
+  eq(L.voiceCommand('다음 질문으로.'), { cmd: 'next', rest: '' });
+  eq(L.voiceCommand('넘어가 주세요'), { cmd: 'next', rest: '' });
+});
+test('「모르겠어요」는 짧을 때만 포기 — 답 문장 안의 모르겠어요는 그대로 답이다', () => {
+  eq(L.voiceCommand('잘 모르겠어요'), { cmd: 'giveup', rest: '' });
+  eq(L.voiceCommand('저도 잘 모르겠어요'), { cmd: 'giveup', rest: '저도' });
+  eq(L.voiceCommand('정확한 수치까지는 제가 잘 모르겠어요'), null);
+});
+test('힌트 · 다시 답하기 · 답하기', () => {
+  eq(L.voiceCommand('힌트 주세요').cmd, 'hint');
+  eq(L.voiceCommand('힌트').cmd, 'hint');
+  eq(L.voiceCommand('다시 답할게요').cmd, 'again');
+  eq(L.voiceCommand('핵심은 기관 고객의 안정적 수요예요 이상입니다'), { cmd: 'answer', rest: '핵심은 기관 고객의 안정적 수요예요' });
+});
+test('지금 눌릴 수 없는 버튼은 말로도 안 눌린다 · 단어 일부는 명령이 아니다', () => {
+  eq(L.voiceCommand('다음 질문', { next: false }), null);
+  eq(L.voiceCommand('그 다음 질문이 뭔지 힌트요', { next: false }).cmd, 'hint');
+  eq(L.voiceCommand('그다음 질문'), null, '붙어 있으면 단어의 일부');
+  eq(L.voiceCommand(''), null);
+  eq(L.voiceCommand('   '), null);
+});
+
 /* ── 하네스가 진짜로 회귀를 잡는지 ─────────────────────────────────────────── */
 /* 고치기 전 붓(기준선을 한 번만 잡던 것)으로 같은 시험을 돌려서 반드시 깨지는지 본다.
    안 깨지면 위의 「사용자가 친 글자」 시험은 아무것도 지키고 있지 않은 것이다. */

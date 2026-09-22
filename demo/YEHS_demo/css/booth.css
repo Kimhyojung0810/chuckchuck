@@ -65,10 +65,10 @@
 .booth-error { margin-top: 18px; padding: 16px; border-radius: var(--r-inner, 16px); background: var(--no-bg); }
 .booth-error-text { color: var(--no); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
 
-/* 질문 코칭 */
-.booth-qa-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
-.booth-qa-tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.booth-count { font-size: 14px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+/* 질문 코칭 — 도구줄은 통화 프레임 위에 얹는 글라스 캡슐 (.call-topbar 참조) */
+.booth-qa-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.booth-qa-tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.booth-count { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .booth-card { border: 1.5px solid var(--border); border-radius: var(--r-print, 20px); background: var(--surface); padding: 22px; }
 .booth-chiprow { display: flex; gap: 6px; flex-wrap: wrap; }
 .booth-chip { font-size: 12px; font-weight: 600; background: var(--accent-weak); color: var(--accent); border-radius: 999px; padding: 4px 10px; }
@@ -152,18 +152,28 @@
   --glass-shine: inset 0 1px 0 rgba(255, 255, 255, .65);
   --glass-shadow: 0 8px 24px rgba(0, 0, 0, .18);
 }
-.booth-in-call .booth { max-width: 960px; }
+/* 통화 중에는 화상통화 화면만 남긴다 (9/23) — 페이지 머리를 숨기고 프레임이 창을 채운다 */
+.booth-in-call .booth { max-width: none; padding: 12px; }
+.booth-in-call .booth-top { display: none; }
+.booth-in-call .call { height: calc(100vh - 24px); min-height: 420px; aspect-ratio: auto; }
 .call {
   position: relative; width: 100%; aspect-ratio: 16 / 10; min-height: 420px;
   display: flex; flex-direction: column;   /* 말풍선(위, 남는 공간) + 아래 묶음(자막·조작줄) — 겹치지 않는다 */
   background: var(--ch-house-deep, #0e1120); color: #fff;
   border-radius: var(--r-print, 20px); overflow: hidden; border: 1.5px solid var(--border);
 }
-@media (max-width: 640px) { .call { aspect-ratio: auto; min-height: 560px; height: calc(100vh - 150px); } }
+@media (max-width: 640px) { .call { aspect-ratio: auto; min-height: 560px; height: calc(100vh - 24px); } }
 .booth-count { white-space: nowrap; }
+/* 위 도구줄 — 프레임 안, 절대 배치. 말풍선 칸은 그만큼 위를 비운다 */
+.call-topbar { position: absolute; top: 10px; left: 12px; right: 12px; z-index: 2; pointer-events: none; }
+.call-topbar > * { pointer-events: auto; }
+.call-topbar .booth-count { display: inline-block; padding: 6px 10px; border-radius: 999px; background: var(--glass-dark); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.call-topbar .btn { height: 32px; padding: 0 12px; font-size: 12.5px; border-radius: 999px; background: var(--glass-dark); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.3); transition: filter .15s ease, background .2s ease; }
+.call-topbar .btn:hover { filter: brightness(1.12); }
+.call-topbar .btn[aria-pressed="true"] { background: var(--glass-brand); }
+.call-topbar .call-leave { background: rgba(255,255,255,.7); color: var(--text); text-shadow: none; }
 @media (max-width: 640px) {
-  .booth-qa-tools .btn { height: 36px; padding: 0 12px; font-size: 13px; }
-  .booth-qa-head { align-items: flex-start; }
+  .call-topbar .btn { height: 30px; padding: 0 10px; font-size: 12px; }
 }
 
 /* 글라스 한 장 — 모든 오버레이가 이 한 규칙을 나눠 쓴다 */
@@ -187,15 +197,16 @@
 .call-self-note:empty { display: none; }
 .call-self[data-camera="on"] .call-self-note { bottom: 24%; text-shadow: 0 1px 6px rgba(0,0,0,.7); }
 
-/* 상대 — 작은 글라스 타일. 객석 병아리 한 마리, 기분은 data-mood 로 chatter.css 가 그린다 */
+/* 상대 — 작은 글라스 타일. 말풍선 칸의 왼쪽 아래에 앉고, 말풍선이 그 옆에 붙는다 (9/23 사용자: "삐약이에게 말풍선이 붙어 있으면").
+   이름은 위, 병아리는 아래 — 꼬리가 병아리 몸을 가리키게 */
 .call-partner {
-  position: absolute; top: 12px; right: 12px; width: 128px; padding: 10px 8px 8px;
+  flex: 0 0 auto; align-self: flex-end; width: 116px; padding: 8px 8px 6px;
   background: var(--glass-light); color: var(--text); border-radius: var(--r-inner, 16px);
   text-align: center; transition: box-shadow .25s ease;
 }
 .call-partner .ch-seat { width: 100%; opacity: 1; transform: none; filter: none; animation: none; }
-.call-partner .ch-chick { width: 84px; margin: 0 auto; cursor: default; }
-.call-partner-name { margin: 6px 0 0; font-size: 12px; font-weight: 700; color: var(--navy); }
+.call-partner .ch-chick { width: 80px; margin: 0 auto; cursor: default; }
+.call-partner-name { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--navy); }
 .call-partner-name span { display: block; font-weight: 500; color: var(--text-2); min-height: 1.4em; }
 .call-partner-name span:empty::before { content: '\00a0'; }
 .call-partner-seat.is-talking .ch-chick { animation: callTalk .55s ease-in-out infinite; }
@@ -203,18 +214,33 @@
 .call[data-phase="listening"] .call-partner { box-shadow: var(--glass-shine), 0 0 0 2.5px var(--brand), var(--glass-shadow); }
 @media (prefers-reduced-motion: reduce) { .call-partner-seat.is-talking .ch-chick { animation: none; } }
 
-/* 말풍선 — 왼쪽 60% 안에 서고, 아래에 붙고, 위로 갈수록 흐려진다 */
+/* 말풍선 칸 — 왼쪽 아래 병아리 + 그 옆에 위로 쌓이는 풍선 열. 왼쪽 72% 안에 서서 얼굴 가운데를 비운다.
+   위 도구줄 높이(52px)만큼 위를 비우고, 풍선 열은 위로 갈수록 흐려진다 */
 .call-log {
-  position: relative; flex: 1 1 auto; min-height: 0; margin: 12px 12px 6px; width: 60%;
-  display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
+  position: relative; flex: 1 1 auto; min-height: 0; margin: 52px 12px 6px; width: 72%;
+  display: flex; flex-direction: row; align-items: flex-end; gap: 10px;
   overflow: hidden; pointer-events: none;
+}
+.call-bubbles {
+  flex: 1 1 auto; min-width: 0; max-height: 100%;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
+  overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%);
   mask-image: linear-gradient(to bottom, transparent, #000 24%);
 }
 .call-bubble {
-  max-width: 92%; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.5;
+  position: relative; max-width: 92%; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.5;
   word-break: keep-all; animation: callPop .22s ease-out;
 }
+/* 꼬리 — 가장 새 상대 말풍선에서 병아리 쪽(왼쪽 아래)으로. 반투명이라 겹치면 진해지므로 반쪽만 남긴다(clip-path).
+   내 말이 마지막이면 꼬리가 없다 — 병아리가 말하는 중이 아니다 */
+.call-bubbles > .call-bubble.is-partner:last-child::after {
+  content: ""; position: absolute; left: -7px; bottom: 18px; width: 14px; height: 14px;
+  background: inherit; border-left: 1px solid var(--glass-edge); border-top: 1px solid var(--glass-edge);
+  clip-path: polygon(0 0, 100% 0, 0 100%); transform: rotate(45deg); border-radius: 0 0 0 2px;
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+.call-bubbles > .call-bubble.is-partner:last-child { border-bottom-left-radius: 18px; }
 .call-bubble p { margin: 0; }
 .call-bubble p + p, .call-bubble .booth-chiprow + p, .call-bubble .booth-pill + p { margin-top: 6px; }
 .call-bubble.is-partner { align-self: flex-start; background: var(--glass-light); color: var(--text); border-bottom-left-radius: 6px; }
@@ -261,9 +287,9 @@
 .call-controls .btn-primary:disabled { background: var(--glass-dark); }
 
 @media (max-width: 640px) {
-  .call-partner { width: 96px; padding: 8px 6px 6px; }
-  .call-partner .ch-chick { width: 64px; }
-  .call-log { width: 70%; }
+  .call-partner { width: 88px; padding: 6px 6px 4px; }
+  .call-partner .ch-chick { width: 60px; }
+  .call-log { width: 100%; margin-top: 84px; gap: 8px; }
   .call-controls .btn { flex: 1 1 auto; height: 42px; padding: 0 12px; }
   .call-controls .booth-mic { flex-basis: 100%; }
 }
