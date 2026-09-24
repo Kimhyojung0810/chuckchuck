@@ -91,11 +91,15 @@ async function ensureVoicePipelineOut() {
   const hasVoice = !!(nf && nf.pipelineOut
     && nf.pipelineOut.pace && (nf.pipelineOut.pace.slides || []).length
     && nf.pipelineOut.habits);
+  /* 「샘플」 딱지 리포트는 내 세션(nf)을 건드리지 않는다. 예전엔 여기서 stub 을
+     nf.pipelineOut 에 섞어 넣어, 샘플 리포트를 한 번 열어 본 뒤 내 발표 리포트로
+     돌아오면 말하기 탭에 샘플 간투어가 내 것처럼 떴다. reportOut() 이 stub 을 직접 준다. */
+  if (rSampleMode) return null;
   if (hasVoice) return nf.pipelineOut;
 
   /* 시연·샘플 리포트는 실 F-18(LoRA 간투어 태거) 대신 같은 모양의 stub 을 쓴다.
      없으면 말하기 탭이 DATA 폴백으로 떨어져 「자주 쓴 간투어」 카드 자체가 안 나온다. */
-  if (isShowcaseDemo() || rSampleMode || (nf && nf.useSample)) {
+  if (isShowcaseDemo() || (nf && nf.useSample)) {
     const voice = showcaseVoiceStub();
     nf = nf || {};
     nf.pipelineOut = { ...(nf.pipelineOut || {}), ...voice };
@@ -845,14 +849,22 @@ function unbindRehearsalNav() {
  */
 /* ─── 시연·발표용 쇼케이스 모드 ───────────────────────────────────────────
    올린 PPT·리허설 녹음은 무대 연출로 그대로 쓰고,
-   분석·질문 코칭·리포트 결과만 DATA 쇼케이스 더미(sample-investor)로 고정한다. */
-const SHOWCASE_DEMO = true;
+   분석·질문 코칭·리포트 결과만 DATA 쇼케이스 더미(sample-investor)로 고정한다.
+
+   **꺼 둔다 (2026-09-23 사용자: "서비스 전체를 실제로 운용하도록").** 켜 두면 실제로
+   올린 자료·녹음이 어느 단계에서도 실 API 를 타지 않고 더미 결과가 뜬다 — 사용자는
+   자기 발표의 분석인 줄 안다(CLAUDE.md §4). 부스 시연용으로 다시 켤 일이 있으면
+   이 상수 하나만 true 로 바꾼다. 샘플 데모는 「샘플 데모로 계속하기」(nf.useSample)와
+   #/report/sample-investor(rSampleMode) 로 **사용자가 고를 때만** 열린다. */
+const SHOWCASE_DEMO = false;
 const SHOWCASE_REPORT_HASH = '#/report/sample-investor';
 /* 시연·샘플 리포트용 슬라이드 원본. DATA.slideImages 가 비어 있어도 이 PDF 로 그린다. */
 const SHOWCASE_SLIDE_PDF = 'assets/samples/investor_preview.pdf';
 let showcasePipeGen = 0;
 function isShowcaseDemo() {
-  return SHOWCASE_DEMO || !!(nf && nf.showcaseDemo);
+  /* nf.showcaseDemo 는 보지 않는다. sessionStorage 에 남은 옛 시연 세션의 표시가
+     새로 올린 실제 자료까지 더미로 끌고 간다 — 스위치는 빌드 상수 하나다. */
+  return SHOWCASE_DEMO;
 }
 function showcaseReportHref() {
   return SHOWCASE_REPORT_HASH;
@@ -892,6 +904,10 @@ function resetNf() {
   pdfRenderToken += 1;
   saveSession('new-flow', nf);
 }
+/* 시연 모드가 켜져 있던 때 만든 세션이면(분석 결과가 쇼케이스 더미) 버리고 새로 시작한다.
+   남겨 두면 스텝 4·질문 코칭·리포트가 그 더미를 내 결과처럼 다시 그린다. */
+const STALE_SHOWCASE_SESSION = !SHOWCASE_DEMO && !!(nf && nf.showcaseDemo);
+if (STALE_SHOWCASE_SESSION) resetNf();
 if (!Number.isInteger(nf.step)) resetNf();
 // 새로고침/서버 재시작 후 'parsing'만 남은 건 가짜 로딩 — 요청이 없어서 풀어줌
 if (nf.gate === 'parsing') {
@@ -1577,6 +1593,17 @@ async function ensurePreviewPdf(doc = null) {
   }
 }
 
+/**
+ * 샘플 리포트를 보느라 붙인 샘플 덱(investor_preview.pdf)을 실제 세션 화면에서 걷는다.
+ * uploadedPdf 는 전역 하나라, 샘플 리포트를 열어 본 뒤 내 발표로 돌아오면
+ * (PPTX 미리보기가 없는 경우) 리허설·리포트가 남의 슬라이드를 내 자료처럼 그렸다.
+ */
+function dropSampleDeckForRealSession() {
+  if (!uploadedPdf || !uploadedPdf.sampleDeck) return;
+  if (rSampleMode || isShowcaseDemo() || (nf && nf.useSample)) return;
+  setUploadedPdf(null);
+}
+
 /** 시연·샘플은 서버 preview API 없이 로컬 PDF 로 슬라이드 덱을 채운다. */
 async function ensureShowcasePreviewPdf() {
   if (uploadedPdf && uploadedPdf.pdf) return uploadedPdf;
@@ -1584,6 +1611,8 @@ async function ensureShowcasePreviewPdf() {
   try {
     const name = (DATA.session && DATA.session.file) || 'investor_preview.pdf';
     await loadPreviewPdf(SHOWCASE_SLIDE_PDF, name);
+    // 샘플 덱이라고 표시해 둔다 — 실제 세션 화면이 이 PDF 를 내 자료로 그리지 않게
+    if (uploadedPdf) uploadedPdf.sampleDeck = true;
     return uploadedPdf;
   } catch (err) {
     console.warn('[chuckchuck] showcase slide pdf', err);
@@ -1824,6 +1853,7 @@ function slidePlaceholder(n) {
 }
 
 function renderNew() {
+  dropSampleDeckForRealSession();
   saveSession('new-flow', nf);
   bindStepNav();
   app.className = 'narrow';
@@ -2529,10 +2559,14 @@ function renderRecPanel() {
         <div><span class="rec-live">발표 중</span><strong class="rec-clock" id="clock">${fmt(nf.sec)}</strong></div>
         <span class="meter" aria-label="마이크 입력 감지 중"><i></i><i></i><i></i><i></i><i></i></span>
       </div>
+      <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>
+      <!-- 전환 기록은 종료 버튼 **뒤**에 둔다. 예전엔 버튼 위에 있었고, 펼치면 뜨는
+           팝오버(position:absolute · z-index 5)가 바로 아래 「발표 마치고 질문 준비하기」를
+           통째로 덮어 눌리지 않았다 (2026-09-23 사용자 제보). 이제 펼쳐도 제자리에서
+           아래로만 늘어난다 (css .rec-log-fold .trans-log position:static). -->
       <details class="rec-log-fold"><summary>슬라이드 전환 <b id="recSwitchCount">${slideSwitchCount()}</b>회 기록</summary><div class="trans-log" id="tlog">
         ${(nf.log || []).map(l => `<span class="${l.re ? 're' : ''}">${l.txt}</span>`).join('')}
-      </div></details>
-      <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>`;
+      </div></details>`;
     $('#recEnd').addEventListener('click', finishRecAndPrepare);
     audienceMount();   // 무대에 올랐으면 객석에도 넷이 앉아 있어야 한다
   }
@@ -4592,14 +4626,11 @@ let rSampleMode = false;
 function reportOut() {
   const out = (nf && nf.pipelineOut) || null;
   if (rSampleMode) {
-    /* 샘플 딱지 리포트: 개념·흐름은 DATA, 말하기(F-17/F-18 간투어)만 stub/fixture 를 연다.
-       전부 null 로 막으면 「자주 쓴 간투어」 카드가 말하기 탭에서 사라진다. */
-    if (!out || !(out.pace || out.habits)) return null;
-    return {
-      pace: out.pace || null,
-      habits: out.habits || null,
-      report: out.report || null,
-    };
+    /* 샘플 딱지 리포트: 개념·흐름은 DATA, 말하기(F-17/F-18 간투어)만 stub 을 연다.
+       전부 null 로 막으면 「자주 쓴 간투어」 카드가 말하기 탭에서 사라진다.
+       nf.pipelineOut 은 **읽지 않는다** — 내 실제 발표의 속도·간투어가 샘플 딱지 밑에 뜬다. */
+    const voice = showcaseVoiceStub();
+    return { pace: voice.pace, habits: voice.habits, report: voice.report };
   }
   return out;
 }
@@ -4895,6 +4926,7 @@ async function renderReport() {
     return;
   }
   rSampleMode = reportId === 'sample-investor';
+  dropSampleDeckForRealSession();
   /* 시연·샘플 리포트는 슬라이드 이미지가 비어 있다. 로컬 preview PDF 를 먼저 붙여
      「슬라이드로 보는 발표」가 번호 자리표시자만 보이지 않게 한다. */
   if (rSampleMode || isShowcaseDemo()) await ensureShowcasePreviewPdf();
@@ -6223,12 +6255,15 @@ function rAudience(host = $('#rbody')) {
  * 그때 실패 문구를 판정 색으로 보여준다 (CLAUDE.md 4)
  */
 function prefetchChatter() {
+  /* 샘플 리포트는 받아 둘 게 없다 — openAudience 가 stub 을 바로 쓴다. 여기서
+     chatterPending 에 stub 을 넣으면 그 캐시가 내 실제 발표 리포트로 새어
+     객석에 샘플 수다가 내 것처럼 떴다. */
+  if (rSampleMode) return;
   if (chatterCache || chatterPending || !window.Chatter) return;
   const b = pipelineBundle();
   if (!b) return;
-  /* 시연·샘플은 브리지 없이 더미 수다로 연다. 실 API 가 있으면 그걸 쓰고,
-     실패해도 시연이 막히지 않게 stub 으로 떨어진다. */
-  if (rSampleMode || isShowcaseDemo()) {
+  /* 시연은 브리지 없이 더미 수다로 연다. */
+  if (isShowcaseDemo()) {
     chatterPending = Promise.resolve(showcaseChatterStub());
     return;
   }
@@ -6283,7 +6318,8 @@ function pipelineBundle() {
      청중석은 graph/alignment/flow 만 있으면 되므로, 방금 만든 stub 또는
      시연 더미를 따로 꺼낸다 — 안 그러면 「리허설을 마치면」 거짓말이 뜬다. */
   if (rSampleMode || isShowcaseDemo()) {
-    const live = (nf && nf.pipelineOut) || null;
+    // 샘플 딱지 리포트는 내 실제 결과(nf.pipelineOut)를 꺼내지 않는다 — 라벨이 거짓말이 된다
+    const live = rSampleMode ? null : ((nf && nf.pipelineOut) || null);
     if (live && live.graph && live.alignment && live.flow) return live;
     if (typeof showcasePipelineStub === 'function') {
       const stub = showcasePipelineStub();
@@ -6361,12 +6397,22 @@ async function openAudience() {
   say('객석에서 수군거리는 중...', false);
   audienceOpening = true;
   try {
+    /* 샘플 딱지 리포트의 객석은 내 세션 캐시(chatterCache)를 쓰지도 채우지도 않는다 */
+    if (rSampleMode) {
+      window.Chatter.show(showcaseChatterStub(), {
+        nodeSlides,
+        onRef: (id) => goJudge(id),
+        onClose: () => { document.body.style.overflow = ''; },
+      });
+      say('발표 끝나고 객석에 남은 네 청중이 뭐라고 하는지 엿들어 볼까요?', false);
+      return;
+    }
     if (!chatterCache) {
       // 탭을 열 때 미리 받기 시작했으면 그 약속을 기다린다 (두 번 부르지 않는다)
       const fetchLive = () => window.Chatter.fetchChatter(
         bundle.graph, bundle.alignment, bundle.flow
       );
-      if (rSampleMode || isShowcaseDemo()) {
+      if (isShowcaseDemo()) {
         chatterCache = await (chatterPending || Promise.resolve(showcaseChatterStub()));
       } else {
         try {
@@ -7831,6 +7877,7 @@ function ensureLiveQuestions() {
     }
     qaBuildFailed = true;
     qa.liveNotice = '질문 생성 모듈을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.';
+    qa.liveError = '질문 생성 모듈을 불러오지 못했어요. 새로고침하면 다시 불러와요.';
     saveSession('qa-flow', qa);
     return false;
   }
@@ -7847,6 +7894,7 @@ function ensureLiveQuestions() {
   qaBuilding = true;
   qaBuildStartedAt = Date.now();
   qa.liveNotice = '';
+  qa.liveError = '';
   // 아티팩트를 세션에 먼저 등록해 둔다 — 이후 판정은 session_id 만 보내면 되고,
   // 실패해도 아래 요청이 본문으로 그대로 싣고 가므로 흐름이 막히지 않는다.
   const artifacts = liveArtifacts();
@@ -7879,11 +7927,13 @@ function ensureLiveQuestions() {
     } else {
       qaBuildFailed = true;
       qa.liveNotice = '내 발표에서는 질문이 만들어지지 않았어요. 데모 질문으로 진행해요.';
+      qa.liveError = '질문 생성은 끝났는데 돌아온 질문이 0개예요.';
     }
   }).catch((err) => {
     qaBuildFailed = true;
     console.warn('[chuckchuck] build questions', err);
     qa.liveNotice = `내 발표로 질문을 만들지 못했어요 (${err.message || err}). 데모 질문으로 진행해요.`;
+    qa.liveError = humanErrorText(err.message || String(err));
   }).finally(() => {
     qaBuilding = false;
     saveSession('qa-flow', qa);
@@ -7982,9 +8032,9 @@ function renderQaBuilding() {
           </li>`).join('')}</ul>
         ${rest > 0 ? `<p class="qb-pool-more">외 ${rest}개를 더 보고 있어요</p>` : ''}
       </div>` : ''}
-      <div class="step-actions qb-actions">
+      ${qaRealSession() ? '' : `<div class="step-actions qb-actions">
         <button class="btn btn-text" id="qbSkip" type="button">기다리지 않고 데모 질문으로 진행하기</button>
-      </div>
+      </div>`}
     </div>`;
   clearInterval(qaBuildTimer);
   paintQaBuildElapsed();
@@ -8026,7 +8076,7 @@ function resetQa() {
     concepts: { lossav: 'wait', timing: 'wait', rules: 'wait' },
     lost: [],
     combo: 0, comboMax: 0, awarded: false, award: null,
-    liveNotice: '',
+    liveNotice: '', liveError: '',
   };
   qaBuildFailed = false;
   // 질문 생성 모듈 폴링 카운터도 새 코칭에서 다시 센다 — 안 그러면 한 번
@@ -8034,7 +8084,7 @@ function resetQa() {
   qaBridgeTries = 0;
   saveSession('qa-flow', qa);
 }
-if (!Array.isArray(qa.turns) || !qa.mode || !qa.concepts) resetQa();
+if (!Array.isArray(qa.turns) || !qa.mode || !qa.concepts || STALE_SHOWCASE_SESSION) resetQa();
 
 /* 구버전 브라우저 상태 복원 — turn/turns/hintLevel 이 없으면 실전 코칭이 빈다. */
 if (qa.live && Array.isArray(qa.live.questions)) {
@@ -8357,6 +8407,78 @@ function typeSummary(node) {
 /* 실전 QA(서버 질문 생성·판정) 화면은 js/qa_live.js 로 분리했습니다. */
 
 /* ── 화면 ── */
+/**
+ * 실제 자료를 올려 서버가 세션을 발급한 발표인가. 이 세션의 질문 코칭에는
+ * 데모 질문을 섞지 않는다 — 샘플 입구(nf.useSample)를 고른 경우만 데모가 열린다.
+ */
+function qaRealSession() {
+  if (isShowcaseDemo()) return false;
+  if (!nf || nf.useSample) return false;
+  return !!(nf.sessionId || (nf.fileName && nf.gate === 'done'));
+}
+
+let qaWaitTimer = null;
+
+/**
+ * 분석이 뒤에서 아직 도는 중이라 질문을 만들 재료(그래프·정합·흐름)가 덜 모였는가.
+ * 선분석 덕에 그래프는 발표가 끝나는 순간 이미 있어서, 그래프만 보고 질문을 만들면
+ * 정합·발화 없이 자료만으로 묻는 질문이 나온다 — 리빌을 건너뛰고 #/qa 로 바로 온 경우다.
+ */
+function qaPipelineWaiting() {
+  if (!nf || pipelineQaReady()) return false;
+  const phase = nf.pipelinePhase || '';
+  return !!(pipelineRunLive && !['done', 'partial', 'error'].includes(phase));
+}
+
+/** 실제 세션인데 실전 질문이 없을 때 — 아직 분석 중이거나, 만들다 실패했다. */
+function renderQaUnavailable() {
+  app.className = 'narrow';
+  const out = (nf && nf.pipelineOut) || null;
+  const phase = (nf && nf.pipelinePhase) || '';
+  const running = qaPipelineWaiting();
+  const failedPipe = !out || !out.graph
+    ? (nf && (nf.pipelineError || phase === 'error'))
+    : false;
+  let title;
+  let body;
+  if (running) {
+    title = '발표 분석이 끝나면 질문을 만들어요';
+    body = `${pipelinePhaseLabel(phase || 'queued')}. 내가 한 말과 자료를 다 맞춰 보면 이 화면이 바로 질문으로 바뀌어요.`;
+  } else if (!out || !out.graph) {
+    title = '질문을 만들 분석 결과가 없어요';
+    body = failedPipe
+      ? `분석이 멈췄어요: ${humanErrorText(nf.pipelineError || nf.pipelineDetail || '원인을 받지 못했어요')}`
+      : '리허설을 마치면 내 발표에서 질문을 만들어요.';
+  } else {
+    title = '내 발표로 질문을 만들지 못했어요';
+    body = qa.liveError || '질문 생성 요청이 실패했어요.';
+  }
+  app.innerHTML = `
+    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 코칭</span></div>
+    ${running ? `<div class="card qa-building" role="status" aria-live="polite">
+        <b>${escapeHtml(title)}</b><p class="note">${escapeHtml(body)}</p><div class="qb-bar"><i></i></div></div>`
+      : stageAccidentHtml(body, { title })}
+    <div class="step-actions">
+      ${out && out.graph && !running ? '<button class="btn btn-primary" id="qaRetryBuild" type="button">질문 다시 만들기</button>' : ''}
+      <a class="btn ${out && out.graph && !running ? 'btn-secondary' : 'btn-primary'}" href="#/new">분석 진행 화면으로</a>
+      ${out && out.graph && !running ? '<a class="btn btn-text" href="#/report">상세 리포트 보기</a>' : ''}
+    </div>`;
+  const retry = $('#qaRetryBuild');
+  if (retry) retry.addEventListener('click', () => {
+    qaBuildFailed = false;
+    qaBridgeTries = 0;
+    qa.liveNotice = '';
+    qa.liveError = '';
+    saveSession('qa-flow', qa);
+    renderQa();
+  });
+  // 분석이 뒤에서 도는 중이면 그래프가 올 때까지 조용히 다시 본다
+  clearTimeout(qaWaitTimer);
+  if (running) {
+    qaWaitTimer = setTimeout(() => { if (onQaRoute()) renderQa(); }, 3000);
+  }
+}
+
 function renderQa() {
   app.className = 'narrow';
   dismissF11Reveal();
@@ -8366,7 +8488,13 @@ function renderQa() {
   // 시간 트랙(1/5/10분)을 먼저 고르게 한다 — 질문 개수가 트랙에 달려 있다
   if (!qa.started && !qa.turns.length) return qaModeGate();
   // 트랙이 정해졌으면 여기서 실제 질문을 보장한다
+  // 실제 세션은 정합·흐름까지 나온 뒤에 질문을 만든다 (qaPipelineWaiting 주석)
+  if (qaRealSession() && !qaLiveActive() && !qaBuilding && qaPipelineWaiting()) return renderQaUnavailable();
   if (ensureLiveQuestions()) return renderQaBuilding();
+  /* 실제 자료를 올린 세션은 여기서 멈춘다. 아래는 데모 질문(js/data.js) 경로라,
+     질문 생성이 실패했거나 분석이 아직 안 끝났는데 그대로 내려가면 남의 발표
+     질문이 내 질문처럼 뜬다 — 실패는 실패로 보여준다(CLAUDE.md §4). */
+  if (qaRealSession() && !qaLiveActive()) return renderQaUnavailable();
   qa.started = true;
   // 첫 진입: 첫 질문을 스레드에 올림 (데모 폴백)
   const firstBeat = qaBeatList()[0];

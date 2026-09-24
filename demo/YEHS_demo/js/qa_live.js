@@ -988,11 +988,26 @@ function fillLiveAnswer(text) {
 
 async function submitLiveAnswer({ giveUp = false } = {}) {
   const L = qa.live;
-  // 녹음 중 전송을 허용하면 화면이 다시 그려지며 마이크 버튼이 사라지고,
-  // 녹음은 아무도 안 멈추는 채로 남는다.
+  /* 마이크가 켜져 있어도 자막 칸에 쳐 둔 글은 언제든 보낼 수 있어야 한다
+     (2026-09-23 사용자: "타이핑도 허용하게"). 예전엔 「먼저 멈추고 보내 주세요」로
+     막아서, 말하다가 손으로 고쳐 쓴 사람이 전송을 못 했다. 보내기 전에 마이크를
+     먼저 멈춘다 — 안 멈추면 재렌더에 버튼이 사라지고 녹음이 아무도 안 멈추는 채 남는다.
+     - 실시간 받아쓰기: 말한 것은 이미 칸에 들어 있다 → 멈추고 그대로 보낸다.
+     - 녹음(서버 STT): 칸에 쓴 글이 있으면 그 글이 답이다 → 녹음은 버리고 보낸다.
+       칸이 비어 있으면 보낼 게 녹음뿐이라, 받아쓰기를 먼저 하라고 안내한다. */
   if (liveMic) {
-    micSay('녹음 중이에요 — 먼저 멈추고 받아쓴 뒤에 보내 주세요');
-    return;
+    const typedNow = (($('#liveAnswer') || {}).value || '').trim();
+    if (liveMic.dictation) {
+      await stopLiveMic();
+    } else if (typedNow || giveUp) {
+      const mic = liveMic;
+      liveMic = null;
+      try { await mic.session.stop(); } catch (_) { /* 이미 멈춘 뒤 */ }
+      setMicBtn('idle', !!(qa.live && qa.live.busy));
+    } else {
+      micSay('녹음 중이에요 — 마이크를 한 번 더 누르면 받아써서 칸에 담아요. 타이핑해서 보내도 돼요');
+      return;
+    }
   }
   // 여닫는 가장자리도 막는다 — 여는 중에 보내면 녹음이 아무도 안 멈추는 채
   // 남고, 받아쓰는 중에 보내면 받아쓴 문장이 재렌더에 지워진다.

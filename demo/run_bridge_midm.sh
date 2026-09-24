@@ -18,6 +18,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 MIDM_PY="${MIDM_PY:-/home/ubuntu/miniforge3/envs/midm/bin/python}"
+# 팀 GPU 서버 밖(예: .venv 에 torch+CUDA 가 있는 A100 머신)에서는 midm env 가 없다 — .venv 로 대신한다.
+if [[ ! -x "$MIDM_PY" && -x "$ROOT/.venv/bin/python" ]] \
+   && "$ROOT/.venv/bin/python" -c 'import torch, peft' 2>/dev/null; then
+  echo "midm python 없음($MIDM_PY) — torch+peft 가 있는 $ROOT/.venv/bin/python 을 쓴다." >&2
+  MIDM_PY="$ROOT/.venv/bin/python"
+fi
 if [[ ! -x "$MIDM_PY" ]]; then
   echo "midm python 없음: $MIDM_PY" >&2
   echo "  conda activate midm 후 MIDM_PY=\$(which python) 로 다시 실행하세요." >&2
@@ -44,4 +50,5 @@ echo "  url:    http://${DEMO_HOST}:${DEMO_PORT}/"
 echo "  mock:   $MOCK_EXTERNAL_APIS"
 echo "  habits: $HABIT_PROVIDER  kinds=$CHUCKCHUCK_LORA_KINDS"
 echo "  lora:   $CHUCKCHUCK_LORA_PATH"
+echo "  soffice: ${SOFFICE_BIN:-(PATH 탐색)}"
 exec "$MIDM_PY" -m demo.bridge

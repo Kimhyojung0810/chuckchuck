@@ -1750,8 +1750,9 @@ class MemoryDoc:
     """
     같은 사람·같은 발표의 지난 리허설 기억 (F-25). 세션 보관소의 **동의한** 세션에서만 만든다.
 
-    `learner_key` 는 무엇으로 이었는가 — "learner:<id>"(브라우저가 준 익명 id) 또는 "deck:<sha256 앞 12자>"(같은 파일).
-    파일 이름만으로는 잇지 않는다 (같은 이름의 남의 자료가 붙는다). `sessions` 는 최신이 먼저.
+    `learner_key` 는 무엇으로 이었는가 — "learner:<id 앞 8자>"(브라우저가 준 익명 id). 같은 파일(sha256)이나 파일 이름만으로는
+    잇지 않는다 (부스에서 모두 같은 샘플을 올리면 남의 기록이 붙는다). `sessions` 는 최신이 먼저이고,
+    `RehearsalSummary.session_id` 는 진짜 id 가 아니라 불투명한 표시("past-…")다 — 진짜 id 는 열람·삭제의 열쇠다.
     """
     learner_key: str = ""
     file_name: str = ""

@@ -9,6 +9,21 @@
 
 # 작업 일지
 
+## 2026-09-23 — 쇼케이스 끄기(실분석이 기본) · 보안 점검 조치 · 실흐름 실험실 (Claude 세션, 사용자 요청 "서비스 전체를 실제로 운용하도록")
+
+- **왜**: `app.js` 의 `SHOWCASE_DEMO = true` 가 켜져 있어 올린 자료·녹음이 어느 단계에서도 실 API 를 안 타고
+  더미(sample-investor)가 내 결과처럼 떴다 (DEPLOYMENT §7 옛 기록). 사용자가 실제로 작동하도록 재설계를 요청.
+- **무엇**: `SHOWCASE_DEMO = false` + `nf.showcaseDemo` 는 더 이상 보지 않는다(옛 시연 세션은 버림). 실제 세션(`qaRealSession`)은
+  질문 생성 실패·분석 미완 시 데모 질문으로 떨어지지 않고 `renderQaUnavailable` 실패 화면. 샘플 리포트(`rSampleMode`)가
+  내 세션(`nf.pipelineOut`·chatterCache·uploadedPdf)을 오염시키던 세 갈래를 끊음. 리허설 종료 버튼이 전환 기록 팝오버에 덮이던 것 수정.
+  보안 점검([review/security-review-2026-09-23.md](review/security-review-2026-09-23.md)) 조치: 브리지 Host 허용 목록·Access 헤더 필수 옵션·
+  JSON 상한·루프백 강제·오류 문구에서 경로 제거·키 마스킹은 길이만. `scripts/run_bridge_local.sh`(sudo 없는 이 머신용).
+- **검증**: `labs/app_flow/run.py`(새 실험실, 실 API 브리지 8803 임시) 2026-09-23 16:05 — useSample=false · STT skt-ax 50어 · 그래프 33노드 ·
+  실전 질문 7개(자료 인용) · 판정 wrong/35 · 리포트 live, 데모 표식 0건, 종료 버튼 5개 뷰포트 모두 눌림. `scripts/chk gate` 초록(pytest 1282 · 스모크 77).
+  **아직 안 본 것**: 실제 마이크·부스 컴퓨터 리허설. 이 머신의 8799·8801 브리지는 이 코드보다 먼저 뜬 프로세스라 재시작해야 새 보안 코드가 돈다.
+- 9/24 후속(Claude): 게이트 비밀키 검사에 걸린 테스트의 가짜 키 문자열을 이어 붙이기로 바꿈. DEPLOYMENT §7·§8-3 을 꺼진 상태로 갱신.
+
+
 ## 2026-09-23 — F-25 리허설 기억: 답변 과정을 다음 Q&A 로 되가져온다 · 브리지 재시작
 
 사용자: "사람들이 QA 하면서 답변하는 과정을 전부 메모리해서 다음 QA 때 더 효과적으로." 답변 과정은 동의 세션의

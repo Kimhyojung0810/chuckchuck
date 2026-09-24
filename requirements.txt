@@ -9,6 +9,7 @@ requests>=2.31.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 python-multipart>=0.0.9   # 업로드 라우트(UploadFile) 가 요구한다
+pypdf>=4.0                # 데모 브리지: PDF 장수를 Upstage 에 보내기 전에 센다 (과금 상한). 없으면 근사치로 센다
 
 # 테스트 — README 가 설치 직후 `python -m pytest tests/ -q` 를 지시한다
 pytest>=8.0

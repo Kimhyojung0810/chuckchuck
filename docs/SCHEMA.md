@@ -1061,15 +1061,15 @@ LLM 은 한 번만 쓴다 — 한글 개념 이름을 영어 검색어로 바꾸
 | 입력 | 필수 | 무엇에 쓰나 |
 |------|------|------|
 | 지난 세션 `qa_turns` | ✅ | `{question{label,node_id}, hints_shown, give_up, judgement{verdict,score,missing_points}}` → 개념별 집계. **LLM 0** |
-| 잇는 열쇠 | ✅ | `learner_id`(브라우저 난수, 업로드 쿼리 `?learner=`) 또는 같은 파일 `sha256`. **파일 이름만으로는 안 잇는다** |
+| 잇는 열쇠 | ✅ | `learner_id`(브라우저 난수, 업로드 쿼리 `?learner=`)만. 요청 세션도 동의해야 한다. **같은 파일(`sha256`)·파일 이름만으로는 안 잇는다** — 부스에서 남의 기록이 붙는다. `sessions[].session_id` 는 불투명한 `past-…` 표시다 |
 | 이번 `ConceptGraph` | 선택 | `MemoryDoc.by_node(graph)` — 이름을 글자 2-gram Dice ≥ 0.6 으로 잇는다 (노드 id 는 세션마다 다르다) |
 
 ```jsonc
 {
-  "learner_key": "learner:3f9a2c7e",     // "learner:<id 앞 8자>" | "deck:<sha 앞 12자>" | "" (못 이음)
+  "learner_key": "learner:3f9a2c7e",     // "learner:<id 앞 8자>" | "" (못 이음). 같은 파일만으로는 잇지 않는다
   "file_name": "발표.pdf", "note": "",
   "sessions": [                            // 최신이 먼저, 최대 MEMORY_SESSIONS_MAX(5)
-    { "session_id": "20260922T…", "at": 1758550000.0, "title": "발표",
+    { "session_id": "past-3f9a2c7e1b04", "at": 1758550000.0, "title": "발표",
       "questions": 3, "good": 1, "partial": 1, "wrong": 0, "give_ups": 1, "score_mean": 58.3 }
   ],
   "concepts": [                            // stalled(한 번도 good 을 못 받음)가 먼저

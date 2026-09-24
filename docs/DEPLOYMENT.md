@@ -43,7 +43,10 @@ FastAPI 서버는 `/api/v1/*` 계약이 스펙대로 동작하는지 pytest로 �
 | 변수 | 기본값 | 비고 |
 |---|---|---|
 | `DEMO_PORT` | 8787(②) / 8799(③, LoRA 포함) | 겹치면 `DEMO_PORT=8801 ./demo/run_bridge_midm.sh`처럼 바꾼다 |
-| `DEMO_HOST` | `127.0.0.1` | **실 API 모드에서 `0.0.0.0` 금지.** IP만 알면 아무나 눌러 팀 계정으로 과금된다 |
+| `DEMO_HOST` | `127.0.0.1` | **실 API 모드에서 루프백이 아니면 브리지가 시작을 거부한다** (2026-09-23 부터, 전에는 경고만). IP만 알면 아무나 눌러 팀 계정으로 과금된다 |
+| `DEMO_REQUIRE_ACCESS` | `0` | `1` 이면 `Cf-Access-Jwt-Assertion` 헤더 없는 요청을 전부 403 (정적 파일 포함). 터널로 열 때만 켠다 (§10-2) |
+| `TUNNEL_HOSTNAME` · `DEMO_ALLOWED_HOSTS` | 비어 있음 | Host 헤더 허용 목록에 더한다 (기본 `127.0.0.1`·`localhost`·`::1`). 터널 호스트명은 반드시 넣는다 |
+| `DEMO_JSON_MAX_MB` | `2` | JSON 본문 상한(MB). 산출물 묶음 경로는 3배, 녹음·업로드는 30MB 원본 기준 |
 | `SERVER_PORT`/`SERVER_HOST` | 8000 / `127.0.0.1` | FastAPI(`server/`) 전용, 데모와 별개 |
 | 로컬 믿:음 서빙 포트 | 8010 | `serve_midm.py --port 8010`, `MIDM_BASE_URL=http://127.0.0.1:8010/v1`로 연결 |
 
@@ -95,18 +98,18 @@ FastAPI 서버는 `/api/v1/*` 계약이 스펙대로 동작하는지 pytest로 �
 **따로** 올려야 한다(2026-08-07에 실제로 이걸 놓쳐 리빌 레이아웃이 안 바뀐 채 하드
 리로드까지 했던 사고가 있었다). 확인 명령은 `CLAUDE.md` §2에 있다.
 
-## 7. 쇼케이스 모드 — 지금 배포된 화면은 실분석이 아니다
+## 7. 쇼케이스 모드 — 2026-09-23 부터 꺼져 있다 (실분석이 기본)
 
-**`demo/YEHS_demo/js/app.js:849` — `const SHOWCASE_DEMO = true;`가 지금 켜져 있다.**
-업로드·리허설 녹음(마이크·슬라이드 넘김)은 실제로 동작하지만, **분석·질문 코칭·
-리포트 결과는 고정 쇼케이스 더미(`#/report/sample-investor`)로 바뀐다** — 실 파이프라인
-결과가 아니다. `기술개발_구현내용_초안.md` §3.5의 표현을 그대로 쓰면: "실분석 경로와
-정직한 빈 상태 처리 코드가 함께 존재하지만, 현재 배포 화면을 실사용 제품으로 전환하려면
-쇼케이스 강제를 해제하고 전체 실데이터 흐름을 다시 검증해야 한다."
+**`demo/YEHS_demo/js/app.js` — `const SHOWCASE_DEMO = false;`** (사용자 지시 "서비스 전체를 실제로 운용하도록").
+올린 자료·리허설 녹음이 파싱→개념→그래프→STT→정합→질문→판정→리포트 전부 실 API 를 탄다.
+`labs/app_flow/run.py` 가 이 흐름을 실 브리지로 한 번 태우고 단계별 사진·요청 로그를 남기며,
+데모 전용 문구(`DEMO_MARKERS`)가 실제 세션 화면에 뜨면 잡아낸다 (2026-09-23 16:05 실측: 0건).
 
-즉 지금 상태로 시연하면 **연출은 실제 상호작용이고 숫자는 샘플**이다. 실제 파이프라인
-결과를 보려면(§8 체크리스트 3~5번) `SHOWCASE_DEMO = false`로 바꾸고 §1의 경로 ③으로
-띄운 뒤 실 데이터 흐름을 다시 확인해야 한다.
+켜져 있던 동안의 뜻: 업로드·녹음은 실제지만 **분석·질문 코칭·리포트는 고정 더미(`#/report/sample-investor`)** 였다.
+부스 시연용으로 다시 켤 일이 있으면 이 상수 하나만 `true` 로 바꾸고 `?v=` 를 올린다. 꺼진 상태에서 샘플 데모는
+「샘플 데모로 계속하기」(`nf.useSample`)와 `#/report/sample-investor` 로 **사용자가 고를 때만** 열린다.
+실제 세션은 질문 생성이 실패하거나 분석이 덜 끝났으면 데모 질문으로 떨어지지 않고 실패 화면(`renderQaUnavailable`)을 보여준다.
+시연 모드에서 만든 옛 세션(sessionStorage 의 `showcaseDemo`)은 켜자마자 버린다.
 
 ## 8. 배포 전 체크리스트 (README 발췌 + 배포 관점 보강)
 
@@ -114,7 +117,7 @@ FastAPI 서버는 `/api/v1/*` 계약이 스펙대로 동작하는지 pytest로 �
    `"provider":"lora"` 확인 (`heuristic`이면 python을 잘못 띄운 것).
 2. **캐시 버전**: `grep -o 'v=q[a-z0-9]*' demo/YEHS_demo/index.html`과
    `grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js`가 최신 커밋과 맞는지.
-3. **쇼케이스 여부**: 실제 분석 결과를 보여줘야 하면 §7의 `SHOWCASE_DEMO` 값을 확인.
+3. **쇼케이스 여부**: `SHOWCASE_DEMO` 가 `false` 인지 (§7). `true` 면 분석·질문·리포트가 더미다.
 4. **`DEMO_HOST`가 `127.0.0.1`인지** — 실 API 키가 걸린 채로 `0.0.0.0`이면 과금 위험.
 5. **회귀 스모크**: `python -m pytest tests/ -q`(591 passed·7 skipped 기준),
    프론트 JS를 고쳤으면 `node tests/js/qa_live.smoke.mjs`도.
@@ -161,6 +164,14 @@ sudo systemctl restart chuckchuck-bridge         # 브리지 코드나 .env 를 
    → Policy `Allow` / Include `Emails` / 시연에 들어올 사람 주소만. 세션 기간은 하루면 충분하다.
 6. 확인: 시크릿 창에서 `https://demo.<도메인>` → **로그인 화면이 먼저** 떠야 한다.
    로그인 없이 열리면 Access 가 안 걸린 것 — 즉시 `sudo systemctl stop cloudflared`.
+   명령으로는 `curl -sI https://demo.<도메인>` 이 `302` + `location: https://<팀>.cloudflareaccess.com/…` 이어야 한다.
+7. **브리지 유닛에 두 줄을 넣는다** (2026-09-23 보안 점검). 안 넣으면 터널 손님이 전부 403 을 본다.
+   ```
+   Environment=DEMO_REQUIRE_ACCESS=1           # Cf-Access-Jwt-Assertion 헤더 없는 요청은 정적 파일까지 403
+   Environment=TUNNEL_HOSTNAME=demo.<도메인>   # Host 허용 목록 (DNS rebinding 방지). 없으면 127.0.0.1·localhost 만 받는다
+   ```
+   `DEMO_REQUIRE_ACCESS=1` 이면 **로컬에서 `http://127.0.0.1:8799` 로 여는 것도 403** 이다 — 로컬 개발은 이 줄 없이 따로 띄운다.
+   확인: `curl -s -H 'Host: demo.<도메인>' http://127.0.0.1:8799/api/health` 가 `access_required` 여야 한다.
 
 CLI 로 직접 만들고 싶으면 `demo/run_tunnel.sh` 머리말의 절차(`cloudflared tunnel login` →
 `create` → `route dns`)를 따른다. 결과는 같다.

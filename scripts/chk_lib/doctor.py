@@ -82,7 +82,21 @@ def _lora_check(env: dict[str, str]) -> list[Check]:
     return out
 
 
-def _tools_check() -> list[Check]:
+def _soffice_path(env: dict[str, str]) -> str | None:
+    """demo.bridge._soffice_bin() 과 같은 순서: SOFFICE_BIN → PATH → 사용자 설치(~/.local/bin)."""
+    import os
+
+    override = (os.environ.get("SOFFICE_BIN") or env.get("SOFFICE_BIN") or "").strip()
+    if override and os.access(override, os.X_OK):
+        return override
+    found = shutil.which("soffice") or shutil.which("libreoffice")
+    if found:
+        return found
+    local = Path.home() / ".local/bin/soffice"
+    return str(local) if os.access(local, os.X_OK) else None
+
+
+def _tools_check(env: dict[str, str]) -> list[Check]:
     out: list[Check] = []
     if shutil.which("nvidia-smi"):
         r = C.sh(["nvidia-smi", "--query-gpu=name,memory.total,memory.used", "--format=csv,noheader"], timeout=30)
@@ -90,11 +104,13 @@ def _tools_check() -> list[Check]:
     else:
         out.append(Check("GPU", "warn", "nvidia-smi 없음 — LoRA 는 CPU 로 떨어지거나 실패한다"))
     out.append(Check("ffmpeg", "ok" if shutil.which("ffmpeg") else "warn",
-                     "있음" if shutil.which("ffmpeg") else "없음 — 10MB 미만 녹음의 WAF 우회가 꺼진다 (DEPLOYMENT §STT, `sudo apt-get install ffmpeg`)"))
+                     "있음" if shutil.which("ffmpeg") else "없음 — 10MB 미만 녹음의 WAF 우회가 꺼진다 (DEPLOYMENT §STT, `sudo apt-get install ffmpeg` · sudo 없으면 scripts/run_bridge_local.sh 머리말의 정적 빌드)"))
     out.append(Check("node", "ok" if shutil.which("node") else "warn",
                      C.sh(["node", "--version"]).stdout.strip() if shutil.which("node") else "없음 — 프론트 JS 스모크(tests/js) 못 돈다"))
-    out.append(Check("soffice", "ok" if shutil.which("soffice") or shutil.which("libreoffice") else "warn",
-                     "있음" if shutil.which("soffice") or shutil.which("libreoffice") else "없음 — PPTX 미리보기 PDF 변환이 안 될 수 있다"))
+    soffice = _soffice_path(env)
+    out.append(Check("soffice", "ok" if soffice else "warn",
+                     soffice or "없음 — PPTX 원본 슬라이드 미리보기(preview-pdf)가 자리표시자로 떨어진다. "
+                                "sudo 없으면 scripts/run_bridge_local.sh 머리말의 AppImage 설치 → SOFFICE_BIN"))
     out.append(Check("gh", "ok" if shutil.which("gh") else "skip", "있음" if shutil.which("gh") else "없음 (PR 만들 때만 필요)"))
     return out
 
@@ -128,7 +144,7 @@ def run(argv: list[str]) -> int:
     env = C.read_dotenv()
     checks = [Check("머신", "ok", f"{platform.node()} · {platform.system()} · python {platform.python_version()} · {C.ROOT}"),
               Check("git", "ok", f"{C.git('branch', '--show-current').strip()} @ {C.git('rev-parse', '--short', 'HEAD').strip()}")]
-    checks += _env_check(env) + _lora_check(env) + _tools_check() + _port_check(env) + _storage_check(env)
+    checks += _env_check(env) + _lora_check(env) + _tools_check(env) + _port_check(env) + _storage_check(env)
     print(C.bold("chk doctor — 이 머신에서 브리지가 뜰 조건"))
     print(C.render(checks))
     fails = [c for c in checks if c.failed or (ns.strict and c.status == "warn")]

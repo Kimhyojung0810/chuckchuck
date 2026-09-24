@@ -232,17 +232,20 @@ def _open(archive, *, consent, upload=b"%PDF-1.4 same", learner=""):
     return sid
 
 
-def test_related_sessions_는_learner_id_또는_같은_파일로만_잇고_동의_없는_세션과_자신은_뺀다(archive):
+def test_related_sessions_는_같은_learner_id_로만_잇고_동의_없는_세션과_자신은_뺀다(archive):
     a = _open(archive, consent=True, learner="brw_0001")
     archive.append(a, "qa_turns", turn("q01-c2", "알림 주의 비용", "partial", missing=["통제 집단"]))
     b = _open(archive, consent=False, learner="brw_0001")                     # 동의 없음 → 안 잇는다
     c = _open(archive, consent=True, upload=b"%PDF-1.4 other", learner="")    # 다른 파일 · id 없음 → 안 잇는다
-    d = _open(archive, consent=True, upload=b"%PDF-1.4 same", learner="brw_9999")   # 같은 파일 → 잇는다
+    d = _open(archive, consent=True, upload=b"%PDF-1.4 same", learner="brw_9999")   # 같은 파일이어도 남이면 안 잇는다 (보안 점검 2026-09-23)
     me = _open(archive, consent=True, learner="brw_0001")
     rows, key = archive.related_sessions(me)
-    assert [r.session_id for r in rows] == [d, a] and key == "learner:brw_0001"
+    assert [r.session_id for r in rows] == [a] and key == "learner:brw_0001"
+    assert d not in [r.session_id for r in rows] and b not in [r.session_id for r in rows]
     rehearsals_, key2 = archive.rehearsals_for(me)
-    assert key2 == key and [len(r["turns"]) for r in rehearsals_] == [0, 1] and rehearsals_[1]["turns"][0]["question_id"] == "q01-c2"
+    assert key2 == key and [len(r["turns"]) for r in rehearsals_] == [1] and rehearsals_[0]["turns"][0]["question_id"] == "q01-c2"
+    # 기억 문서에 실리는 id 는 진짜 session_id 가 아니다 — 진짜 id 는 열람·삭제의 열쇠다
+    assert rehearsals_[0]["session_id"] != a and rehearsals_[0]["session_id"].startswith("past-")
     # 파일 이름만 같고 내용·id 가 다르면 못 잇는다
     lonely = _open(archive, consent=True, upload=b"%PDF-1.4 unique", learner="zzzz")
     assert archive.related_sessions(lonely) == ([], "")

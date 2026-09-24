@@ -95,7 +95,7 @@ def _form_data(*, coordinates: bool | None = None) -> dict:
 
 def _validate(path: Path) -> None:
     if not path.exists():
-        raise ParseError(f"파일이 없습니다: {path}")
+        raise ParseError(f"파일이 없습니다: {path.name}")  # 이름만 — 전체 경로는 응답으로 새지 않게
     if path.suffix.lower() not in ALLOWED_EXT:
         raise ParseError(
             f"{path.suffix} 는 지원하지 않습니다. "

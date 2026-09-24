@@ -158,9 +158,10 @@ class Settings:
 
     def masked(self) -> str:
         def m(v: str) -> str:
+            # 키의 앞뒤 글자도 찍지 않는다 — 부스 화면·journald 에 그대로 남는다. 있는지와 길이만.
             if not v:
                 return "(없음)"
-            return f"{v[:6]}…{v[-4:]}" if len(v) > 12 else "설정됨"
+            return f"설정됨(길이 {len(v)})"
 
         return "\n".join([
             f"  env            {self.app_env}  mock={self.mock_external}",

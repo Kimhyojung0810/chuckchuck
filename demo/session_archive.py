@@ -29,6 +29,7 @@ DEV_POLICY §4: F-모듈을 import 하지 않는다. contracts 만 쓴다.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -395,24 +396,26 @@ class SessionArchive:
         """
         같은 사람·같은 발표의 지난 세션들 (최신 먼저, 최대 limit) 과 이은 열쇠.
 
-        잇는 규칙: ① 같은 learner_id ② 같은 파일(sha256). **파일 이름만으로는 잇지 않는다** — 같은 이름의 남의 자료가
-        붙는다. 동의한 세션만, 자기 자신은 뺀다. 열쇠는 "learner:<id 앞 8자>" 또는 "deck:<sha 앞 12자>", 못 이으면 "".
+        잇는 규칙: **요청하는 세션도 동의했고, learner_id(브라우저의 익명 id)가 같을 때만** 잇는다. 동의한 지난 세션만,
+        자기 자신은 뺀다. 열쇠는 "learner:<id 앞 8자>", 못 이으면 "".
+
+        예전에는 같은 파일(sha256)만으로도 이었다 — 부스처럼 모두가 같은 샘플 자료를 올리는 곳에서 남의 지난 리허설이
+        내 기억으로 붙었다 (보안 점검 2026-09-23 HIGH). 파일 이름만으로 잇지 않는 것은 그 전부터의 규칙이다.
         """
         me = self.manifest(sid)
-        if me is None:
+        if me is None or not me.consent_learning or not me.learner_id:
             return [], ""
-        rows: list[SessionRecord] = []
-        key = ""
-        for _, rec in self._manifests():
-            if rec.session_id == sid or not rec.consent_learning:
-                continue
-            by_learner = bool(me.learner_id) and rec.learner_id == me.learner_id
-            by_deck = bool(me.upload_sha256) and rec.upload_sha256 == me.upload_sha256
-            if by_learner or by_deck:
-                rows.append(rec)
-                key = key or (f"learner:{me.learner_id[:8]}" if by_learner else f"deck:{me.upload_sha256[:12]}")
+        rows = [
+            rec for _, rec in self._manifests()
+            if rec.session_id != sid and rec.consent_learning and rec.learner_id == me.learner_id
+        ]
         rows.sort(key=lambda r: -r.uploaded_at)
-        return rows[:limit], key
+        return rows[:limit], (f"learner:{me.learner_id[:8]}" if rows else "")
+
+    @staticmethod
+    def opaque_ref(sid: str) -> str:
+        """지난 세션을 가리키는 불투명한 표시. session_id 는 열람·삭제의 열쇠라 응답·기억 문서에 싣지 않는다."""
+        return "past-" + hashlib.sha256(("chuckchuck-memory:" + sid).encode("utf-8")).hexdigest()[:12]
 
     def rehearsals_for(self, sid: str) -> tuple[list[dict], str]:
         """F-25 build_memory 입력: [{session_id, at, title, turns}] 와 열쇠. 답변 턴이 없는 세션도 요약용으로 싣는다."""
@@ -420,7 +423,8 @@ class SessionArchive:
         out = []
         for rec in rows:
             out.append({
-                "session_id": rec.session_id, "at": rec.uploaded_at, "title": rec.title or rec.file_name,
+                # 진짜 id 는 싣지 않는다 — 이 목록은 MemoryDoc.sessions 가 되어 /api/v1/memory 응답과 memory_doc 에 남는다.
+                "session_id": self.opaque_ref(rec.session_id), "at": rec.uploaded_at, "title": rec.title or rec.file_name,
                 "turns": self.read_stream(rec.session_id, "qa_turns"),
             })
         return out, key

@@ -575,7 +575,8 @@
   .rehearsal-control .rec-status > div { align-items: flex-start; flex-direction: column; gap: 8px; }
   .rehearsal-control .meter { margin: 4px 0 0; height: 26px; }
   .rehearsal-control .rec-log-fold { width: 100%; min-width: 0; flex: none; }
-  .rehearsal-control .rec-log-fold .trans-log { right: 0; width: min(300px, calc(100vw - 48px)); }
+  /* 오른쪽 레일 안에서 제자리로 펼친다 — 팝오버로 띄우면 종료 버튼을 덮는다 (app.css 같은 줄) */
+  .rehearsal-control .rec-log-fold .trans-log { position: static; width: 100%; }
   .rehearsal-nav {
     margin-top: auto;
     flex-direction: column;

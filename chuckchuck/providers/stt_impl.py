@@ -293,7 +293,8 @@ class AxSTT(STTProvider):
     def transcribe(self, audio_path: str | Path) -> tuple[str, list[Word]]:
         path = Path(audio_path)
         if not path.exists():
-            raise STTError(f"오디오 파일이 없습니다: {path}")
+            # 경로는 싣지 않는다 — 이 문구가 HTTP 응답까지 올라가면 서버 파일의 존재 여부가 샌다.
+            raise STTError("오디오 파일이 없습니다.")
 
         # WAF 오탐 우회 — 본문을 검사 상한 위로 올린다. 실패하면 원본 그대로 올린다
         with tempfile.TemporaryDirectory(prefix="cc-stt-") as tmp:

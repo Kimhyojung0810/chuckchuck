@@ -120,6 +120,170 @@ MAX_UPLOAD_BYTES = 30 * 1024 * 1024  # UI 안내와 동일 (원본 파일 기준
 # 본문 한도도 그만큼 키워야 한다 — 안 그러면 정상 크기 녹음이 413 으로 막힌다.
 MAX_BODY_BYTES = MAX_UPLOAD_BYTES * 4 // 3 + 2 * 1024 * 1024
 
+# ─── 과금 폭주 상한 (보안 점검 2026-09-23) ──────────────────────────────────────
+# 요청 제한은 **횟수**만 센다. 본문 크기를 안 보면 분당 30회 안에서도 42MB 짜리 텍스트가
+# LLM 프롬프트에 실린다. 큰 본문이 정당한 곳은 녹음(base64)·자료 업로드 둘뿐이다.
+#: 나머지 JSON 경로의 기본 상한. 실측 최대 slide_doc 이 450KB 다.
+JSON_BODY_MAX = int(float(os.environ.get("DEMO_JSON_MAX_MB", "2") or 2) * 1024 * 1024)
+#: 파이프라인 산출물을 묶어 보내는 경로 — slide_doc·transcript·graph·alignment 를 한꺼번에 싣는다.
+JSON_BODY_MAX_BUNDLE = 3 * JSON_BODY_MAX
+BUNDLE_PATHS = frozenset({
+    "/api/v1/concepts", "/api/v1/graph", "/api/v1/alignment", "/api/v1/rubric",
+    "/api/v1/questions", "/api/v1/session/artifacts", "/api/v1/chatter", "/api/v1/flow",
+    "/api/v1/report", "/api/v1/strategy",
+})
+#: 본문 상한을 MAX_BODY_BYTES 로 두는 경로 (녹음 base64 · multipart 업로드).
+BIG_BODY_PATHS = frozenset({"/api/v1/transcribe", "/api/v1/parse"})
+#: F-09 판정 입력의 길이 상한. 사람이 한 질문에 말하는 양을 넉넉히 넘는다.
+ANSWER_MAX_CHARS = 4000
+HISTORY_MAX_ITEMS = 40
+HISTORY_MAX_CHARS = 40000
+PRIOR_ANSWERS_MAX = 10
+
+
+def _body_limit(path: str) -> int:
+    if path in BIG_BODY_PATHS:
+        return MAX_BODY_BYTES
+    if path in BUNDLE_PATHS or path.endswith("/qa/judge"):
+        return JSON_BODY_MAX_BUNDLE
+    return JSON_BODY_MAX
+
+
+# ─── 앞단 확인 (Access · Host) ─────────────────────────────────────────────────
+#: 1 이면 Cloudflare Access 가 붙이는 `Cf-Access-Jwt-Assertion` 헤더가 없는 요청을 전부 403 으로 막는다
+#: (정적 파일 포함). 터널 앞단 설정 하나가 빠져도 브리지가 무방비로 열리지 않게 하는 두 번째 자물쇠다.
+#: 서명 검증은 하지 않는다 — 브리지는 루프백에만 묶이고(아래 main), 그 앞은 cloudflared 뿐이다.
+REQUIRE_ACCESS = _env_flag("DEMO_REQUIRE_ACCESS")
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+#: Host 헤더 허용 목록 (DNS rebinding 방지). 포트는 보지 않는다 — 공격자 도메인이 127.0.0.1 로
+#: 풀려도 Host 에는 그 도메인이 실린다. 터널 호스트명·추가 호스트는 환경변수로 연다.
+ALLOWED_HOSTS = frozenset(
+    h.strip().lower()
+    for h in [*LOOPBACK_HOSTS, os.environ.get("TUNNEL_HOSTNAME", ""),
+              *os.environ.get("DEMO_ALLOWED_HOSTS", "").split(",")]
+    if h.strip()
+)
+
+
+def _host_name(raw: str) -> str:
+    """Host 헤더에서 포트를 뗀 이름. `[::1]:8799` 도 처리한다."""
+    h = (raw or "").strip().lower()
+    if h.startswith("["):
+        return h[1:].split("]", 1)[0]
+    return h.rsplit(":", 1)[0] if h.count(":") == 1 else h
+
+
+# ─── 모델 선택 (llm · provider) ────────────────────────────────────────────────
+# 실 API 모드에서는 요청 본문의 llm/provider 를 **무시**하고 환경변수(REASONING_BACKEND ·
+# STT_PROVIDER · HABIT_PROVIDER)만 쓴다. 본문을 믿으면 아무나 시간 과금 dedicated 엔드포인트를
+# 부르거나 `mock` 결과를 실제 산출물로 보관시킬 수 있다. 벤치용 선택은 DEMO_DEV_ROUTES 에서만.
+DEV_LLM_CHOICES = frozenset({"solar", "ax", "midm", "exaone"})
+DEV_STT_CHOICES = frozenset({"skt-ax", "ax"})
+DEV_HABIT_CHOICES = frozenset({"lora", "heuristic"})
+
+
+def _dev_choice(value, allowed: frozenset[str]) -> str | None:
+    """DEMO_DEV_ROUTES 일 때만, 허용 목록에 있는 값만 통과. `a+b`(주+예비) 꼴은 양쪽 다 허용돼야 한다."""
+    if not DEV_ROUTES or not isinstance(value, str):
+        return None
+    v = value.strip().lower()
+    parts = [p.strip() for p in v.split("+")]
+    return v if v and all(p in allowed for p in parts) else None
+
+
+def _pick_llm(body: dict) -> str | None:
+    """이번 요청의 LLM 이름. None 이면 모듈이 REASONING_BACKEND(+REASONING_FALLBACK) 를 따른다."""
+    if _mock():
+        return "mock"
+    return _dev_choice(body.get("llm"), DEV_LLM_CHOICES)
+
+
+def _pick_stt_provider(body: dict) -> str | None:
+    """STT 제공자. None 이면 f05 가 STT_PROVIDER 환경변수를 따른다."""
+    if _mock():
+        return "mock"
+    return _dev_choice(body.get("provider"), DEV_STT_CHOICES)
+
+
+def _pick_habit_provider(body: dict) -> str | None:
+    """습관 분석 제공자. 과금은 없지만(로컬 LoRA) 실 모드에서는 같은 규칙으로 환경변수만 따른다.
+    mock 모드는 예전처럼 본문 값을 받는다 (extract_habits 가 모르는 값은 HabitError)."""
+    if _mock():
+        return body.get("provider")
+    return _dev_choice(body.get("provider"), DEV_HABIT_CHOICES)
+
+
+def _count_pages(data: bytes, ext: str) -> int | None:
+    """
+    업로드 문서의 장수를 **로컬에서** 센다. Upstage 는 페이지 단위로 과금하고, 파서의 MAX_SLIDES 검사는
+    파싱이 끝난 뒤에 돈다 — 그 전에 막아야 청구가 안 나간다. 못 세면 None (파서 쪽 검사가 남는다).
+    """
+    try:
+        if ext == ".pdf":
+            try:
+                from pypdf import PdfReader
+
+                return len(PdfReader(io.BytesIO(data), strict=False).pages)
+            except ImportError:
+                # pypdf 가 없는 환경의 근사치: 페이지 객체 수. `/Type /Pages`(트리 노드)는 빼고 센다.
+                n = len(re.findall(rb"/Type\s*/Page(?!s)", data))
+                return n or None
+        if ext == ".pptx":
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                return sum(1 for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n))
+    except Exception as e:  # noqa: BLE001 — 깨진 파일은 파서가 사실대로 말한다
+        sys.stderr.write(f"[bridge] 장수 사전 확인 실패(파서에 맡김): {type(e).__name__}\n")
+        return None
+    return None
+
+
+#: 500/502 응답에 그대로 실어도 되는 파서 오류 (사용자가 고칠 수 있는 사실만). 괄호 안 부가 정보는 뗀다.
+_PUBLIC_PARSE_ERROR = re.compile(r"^\d+장입니다|^파일이 [\d.]+MB|지원하지 않습니다|초 안에 끝나지 않았습니다")
+GENERIC_ERROR_MESSAGE = "요청을 처리하지 못했어요. 잠시 뒤 다시 해 주세요."
+
+
+def _public_message(e: Exception) -> str:
+    """응답에 싣는 오류 문구. 벤더 응답 본문·서버 경로가 섞일 수 있어 기본은 일반 문구다 — 상세는 stderr."""
+    from chuckchuck.contracts import ParseError
+
+    msg = str(e)
+    if isinstance(e, ParseError) and _PUBLIC_PARSE_ERROR.search(msg):
+        return re.sub(r"\s*\([^)]*\)", "", msg).strip()
+    return GENERIC_ERROR_MESSAGE
+
+
+PAPER_QUERY_MAX_CHARS = 300
+
+
+def _max_slides() -> int:
+    from chuckchuck.f01_parse import MAX_SLIDES
+
+    return MAX_SLIDES
+
+
+def _clip_judge_inputs(body: dict) -> tuple[dict, str]:
+    """
+    F-09 판정 프롬프트에 실리는 필드의 길이를 제한한다 → (다듬은 본문, 거절 문구 또는 "").
+
+    답변 한 개가 상한을 넘으면 거절한다 (사람이 한 질문에 하는 말은 수백 자다).
+    기록류(history·prior_answers·hints_shown)는 부스 한 판 동안 계속 쌓이므로 거절하지 않고
+    **오래된 것부터 잘라** 최근 것만 싣는다 — 막힘 코칭은 같은 질문의 최근 턴만 본다.
+    """
+    if len(str(body.get("answer", "") or "")) > ANSWER_MAX_CHARS:
+        return body, f"답변은 {ANSWER_MAX_CHARS}자까지 판정할 수 있어요. 핵심만 줄여서 다시 답해 주세요."
+    history = [h for h in (body.get("history") or []) if isinstance(h, dict)][-HISTORY_MAX_ITEMS:] \
+        if isinstance(body.get("history"), list) else []
+    while history and len(json.dumps(history, ensure_ascii=False)) > HISTORY_MAX_CHARS:
+        history = history[1:]
+    prior = body.get("prior_answers") if isinstance(body.get("prior_answers"), list) else []
+    hints = body.get("hints_shown") if isinstance(body.get("hints_shown"), list) else []
+    return {
+        **body,
+        "history": history,
+        "prior_answers": [str(a)[:ANSWER_MAX_CHARS] for a in prior][-PRIOR_ANSWERS_MAX:],
+        "hints_shown": [str(h)[:ANSWER_MAX_CHARS] for h in hints][:PRIOR_ANSWERS_MAX],
+    }, ""
+
 ALLOWED_AUDIO_EXTS = frozenset(
     {".webm", ".m4a", ".mp4", ".mp3", ".wav", ".ogg", ".oga", ".flac", ".aac"}
 )
@@ -232,6 +396,7 @@ _SOFFICE_FALLBACK_PATHS = (
     "/usr/bin/soffice",
     "/usr/bin/libreoffice",
     "/snap/bin/libreoffice",
+    os.path.expanduser("~/.local/bin/soffice"),  # sudo 없는 머신: AppImage 를 풀어 링크 (scripts/run_bridge_local.sh)
 )
 
 
@@ -272,10 +437,13 @@ def _pptx_to_preview_pdf(pptx_path: Path) -> bytes | None:
         )
         return None
     out_dir = Path(tempfile.mkdtemp(prefix="chuckchuck-pdf-"))
+    # 변환마다 사용자 프로필을 따로 둔다 — 공유 프로필은 동시 변환이 서로 막고, 남의 파일이 남긴 설정을 잇는다.
+    profile_dir = Path(tempfile.mkdtemp(prefix="chuckchuck-lo-"))
     try:
         proc = subprocess.run(
             [
                 soffice,
+                f"-env:UserInstallation={profile_dir.as_uri()}",
                 "--headless",
                 "--nologo",
                 "--nofirststartwizard",
@@ -306,6 +474,7 @@ def _pptx_to_preview_pdf(pptx_path: Path) -> bytes | None:
         return None
     finally:
         shutil.rmtree(out_dir, ignore_errors=True)
+        shutil.rmtree(profile_dir, ignore_errors=True)
 
 
 def _mock() -> bool:
@@ -392,7 +561,32 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, fmt: str, *args) -> None:
         sys.stderr.write("%s - - [%s] %s\n" % (self.address_string(), self.log_date_time_string(), fmt % args))
 
+    def _gate(self) -> bool:
+        """
+        모든 요청의 첫 관문. 통과 못 하면 응답을 보내고 False.
+
+        ① Host 허용 목록 — 다른 사이트가 DNS rebinding 으로 브리지를 부르는 길을 막는다.
+           DEMO_HOST 가 와일드카드(mock 모드에서만 가능)면 LAN IP 로 접속하므로 건너뛴다.
+        ② DEMO_REQUIRE_ACCESS=1 이면 Cloudflare Access 헤더가 없는 요청을 정적 파일까지 403.
+        """
+        host = _host_name(self.headers.get("Host") or "")
+        wildcard = settings.demo_host in ("0.0.0.0", "::", "")
+        if host and not wildcard and host not in ALLOWED_HOSTS and host != settings.demo_host.lower():
+            sys.stderr.write("[bridge] Host 거절 (허용 목록 밖)\n")
+            self._json(403, {"error": "forbidden_host", "message": "이 주소로는 열 수 없어요."})
+            return False
+        if REQUIRE_ACCESS and not (self.headers.get("Cf-Access-Jwt-Assertion") or "").strip():
+            self._json(403, {"error": "access_required", "message": "로그인한 뒤에 열 수 있어요."})
+            return False
+        return True
+
+    def list_directory(self, path):  # noqa: D102 — 정적 서빙의 디렉터리 목록은 끈다 (MVP_SPEC·로그·실측 JSON 이 보였다)
+        self.send_error(404)
+        return None
+
     def do_GET(self):
+        if not self._gate():
+            return
         try:
             parsed = urlparse(self.path)
             if parsed.path.startswith("/sdk/"):
@@ -418,6 +612,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return
 
     def do_HEAD(self):
+        if not self._gate():
+            return
         try:
             parsed = urlparse(self.path)
             if parsed.path.startswith("/sdk/"):
@@ -428,12 +624,24 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if not self._gate():
+            return
         try:
             length = int(self.headers.get("Content-Length", 0) or 0)
             if length < 0:
                 return self._json(400, {"error": "bad content-length"})
-            if length > MAX_BODY_BYTES:
-                return self._json(413, {"error": "too_large", "message": "최대 30MB까지 올릴 수 있어요."})
+            limit = _body_limit(parsed.path)
+            if length > limit:
+                return self._json(413, {
+                    "error": "too_large",
+                    "message": f"최대 {limit // (1024 * 1024)}MB까지 보낼 수 있어요.",
+                })
+            # JSON 경로는 Content-Type 이 application/json 이어야 한다. 그래야 다른 사이트가 보낸
+            # 교차 출처 요청에 preflight 가 붙어 막힌다 (text/plain·form 은 preflight 없이 날아온다).
+            # 자료 업로드(/parse)만 multipart 를 받는다.
+            ctype = (self.headers.get("Content-Type") or "").lower()
+            if parsed.path != "/api/v1/parse" and "application/json" not in ctype:
+                return self._json(415, {"error": "json_required", "message": "Content-Type: application/json 으로 보내 주세요."})
             raw = self.rfile.read(length) if length else b""
 
             # 과금 경로는 IP당 분당 상한을 건다. 본문을 다 읽은 뒤에 막는다 —
@@ -500,9 +708,10 @@ class Handler(SimpleHTTPRequestHandler):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
             return
         except Exception as e:  # noqa: BLE001 — 데모 브리지
+            # 상세(벤더 응답 본문·서버 경로)는 stderr 에만. 응답에는 사용자가 고칠 수 있는 사실만 싣는다.
             traceback.print_exc()
             try:
-                self._json(500, {"error": type(e).__name__, "message": str(e)})
+                self._json(500, {"error": type(e).__name__, "message": _public_message(e)})
             except Exception:  # noqa: BLE001
                 return
 
@@ -611,6 +820,14 @@ class Handler(SimpleHTTPRequestHandler):
         ext = exts[0]
         if len(uploads) > 1:
             filename = f"화면 {len(uploads)}장"
+        # 장수는 Upstage 에 보내기 **전에** 로컬에서 센다 — 파서의 MAX_SLIDES 검사는 전 페이지 과금 뒤에 돈다.
+        pages = len(uploads) if len(uploads) > 1 else _count_pages(file_bytes, ext)
+        if pages is not None and pages > _max_slides():
+            sys.stderr.write(f"[bridge] F-01 parse 거절: {pages}장 > {_max_slides()}장\n")
+            return self._json(413, {
+                "error": "too_many_pages",
+                "message": f"{pages}장이에요. 지금은 {_max_slides()}장까지 올릴 수 있어요. 나눠서 올려 주세요.",
+            })
 
         if _mock():
             fixture = ROOT / "fixtures" / "sample_slidedoc.json"
@@ -706,8 +923,12 @@ class Handler(SimpleHTTPRequestHandler):
 
         body = json.loads(raw or b"{}")
         doc = SlideDoc.from_dict(body["slide_doc"])
+        # 파싱을 거치지 않은 slide_doc 도 들어올 수 있다 — 장수 상한을 여기서도 지킨다 (장마다 LLM 을 부른다).
+        if len(doc.slides) > _max_slides():
+            return self._json(413, {"error": "too_many_pages",
+                                    "message": f"{_max_slides()}장까지 분석할 수 있어요."})
         ctx = Context.from_dict(body.get("context") or {})
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         transcript = None
         if body.get("transcript"):
             transcript = Transcript.from_dict(body["transcript"])
@@ -747,7 +968,7 @@ class Handler(SimpleHTTPRequestHandler):
                 400,
                 {"error": "bad_request", "message": "analysis 가 필요합니다. 리포트 분석 결과를 보내세요."},
             )
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         sys.stderr.write(
             f"[bridge] F-20 strategy start concepts={len(analysis.get('concepts') or [])} "
             f"quotes={len(analysis.get('quotes') or [])} mock={_mock()}\n"
@@ -757,7 +978,8 @@ class Handler(SimpleHTTPRequestHandler):
         except StrategyError as e:
             # 환각을 걸러낸 결과 남는 게 없을 수 있다. 그건 500 이 아니라 "이번엔 못 냈다" 다.
             sys.stderr.write(f"[bridge] F-20 strategy rejected: {e}\n")
-            return self._json(502, {"error": "strategy_failed", "message": str(e)})
+            return self._json(502, {"error": "strategy_failed",
+                                    "message": "이번엔 구성 제안을 만들지 못했어요. 잠시 뒤 다시 해 주세요."})
         sys.stderr.write(
             f"[bridge] F-20 strategy done type={result['chosen']['type']} "
             f"climax={result['chosen']['climax']}\n"
@@ -776,7 +998,7 @@ class Handler(SimpleHTTPRequestHandler):
         ctx = Context.from_dict(body.get("context") or {})
         # slide_doc 은 선택. 주면 weight 가 글자 수·시각자료까지 반영한다.
         slide_doc = SlideDoc.from_dict(body["slide_doc"]) if body.get("slide_doc") else None
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         # F-07 은 Transcript 를 안 받는다 — 입력이 concept_doc·slide_doc·context 뿐이라
         # 같은 자료면 결과가 같다. 실측 2분 40초로 파이프라인에서 가장 긴 단계다
         key = _stage_key("f07", body["concept_doc"], body.get("slide_doc") or None,
@@ -819,7 +1041,7 @@ class Handler(SimpleHTTPRequestHandler):
         graph = ConceptGraph.from_dict(body["graph"])
         transcript = Transcript.from_dict(body["transcript"])
         ctx = Context.from_dict(body.get("context") or {})
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         sys.stderr.write(
             f"[bridge] F-11 alignment start nodes={len(graph.nodes)} "
             f"slides={graph.total_slides} mock={_mock()}\n"
@@ -916,7 +1138,7 @@ class Handler(SimpleHTTPRequestHandler):
         from chuckchuck.contracts import AlignmentDoc, FlowDiff
 
         body = json.loads(raw or b"{}")
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         try:
             result = score_rubric(
                 situation=body.get("situation"),
@@ -988,7 +1210,7 @@ class Handler(SimpleHTTPRequestHandler):
             )
         transcript = Transcript.from_dict(body["transcript"])
         # 기본은 LoRA (HABIT_PROVIDER / extract_habits 기본값). mock 이어도 강제하지 않음.
-        provider = body.get("provider")  # None → extract_habits 가 lora 기본
+        provider = _pick_habit_provider(body)  # None → HABIT_PROVIDER → lora 기본
         spans = body.get("spans")
         habits = extract_habits(transcript, provider=provider, spans=spans)
         sys.stderr.write(
@@ -1013,7 +1235,7 @@ class Handler(SimpleHTTPRequestHandler):
         pace = PaceDoc.from_dict(body["pace"])
         habits = HabitDoc.from_dict(body["habits"])
         ctx = Context.from_dict(body.get("context") or {})
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         # 점수는 채점표(F-14)가 진실이다. rubric 을 같이 보내면 그 점수를 싣고,
         # 안 보내면 0 으로 둔다 — 여기서 두 번째 점수를 만들지 않는다.
         report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), llm=llm)
@@ -1060,16 +1282,30 @@ class Handler(SimpleHTTPRequestHandler):
             sys.stderr.write(f"[bridge] F-05 transcribe → 저장본 재사용 {sid}\n")
             return self._json(200, saved)
 
+        # 서버 파일 경로는 받지 않는다 (보안 점검 2026-09-23 CRITICAL). 예전에는 본문의 audio_path 를
+        # 그대로 STT 에 넘겨서, 인증 없는 요청 하나로 서버 안의 아무 파일이나 외부 벤더로 올라갈 수 있었다.
+        # 오디오는 audio_base64 로만 받는다. 조용히 무시하지 않고 거절해서 잘못된 호출부를 드러낸다.
+        if body.get("audio_path") is not None:
+            sys.stderr.write("[bridge] F-05 transcribe 거절: audio_path 는 받지 않음\n")
+            return self._json(400, {
+                "error": "audio_path_unsupported",
+                "message": "녹음 파일은 audio_base64 로 보내 주세요.",
+            })
+
         marks = [SlideMark.from_dict(m) for m in body.get("marks", [])]
-        provider = "mock" if _mock() else body.get("provider", "skt-ax")
+        provider = _pick_stt_provider(body)
         _fake_delay("/api/v1/transcribe")
 
         audio_b64 = body.get("audio_base64")
-        audio_path = body.get("audio_path")
+        audio_path: str | None = None
         if audio_b64:
             import base64
+            import binascii
 
-            audio_bytes = base64.b64decode(audio_b64)
+            try:
+                audio_bytes = base64.b64decode(audio_b64, validate=False)
+            except (binascii.Error, ValueError, TypeError):
+                return self._json(400, {"error": "bad_audio", "message": "녹음 데이터를 읽지 못했어요. 다시 녹음해 주세요."})
             if len(audio_bytes) > MAX_UPLOAD_BYTES:
                 return self._json(
                     413,
@@ -1149,12 +1385,13 @@ class Handler(SimpleHTTPRequestHandler):
                     "error": "no_speech",
                     "message": "말소리를 못 알아들었어요. 마이크에 조금 더 가까이 다시 말하거나 타이핑으로 답해 주세요.",
                 })
+            # 벤더 응답 본문·서버 경로가 섞일 수 있어 상세는 위 stderr 에만 남긴다.
             code = 502 if isinstance(e, STTError) else 500
             return self._json(
                 code,
                 {
                     "error": "stt_failed",
-                    "message": msg if isinstance(e, STTError) else f"음성 인식에 실패했어요: {msg}",
+                    "message": "음성 인식이 이번엔 안 됐어요. 잠시 뒤 다시 녹음하거나 타이핑으로 답해 주세요.",
                 },
             )
         finally:
@@ -1203,7 +1440,9 @@ class Handler(SimpleHTTPRequestHandler):
         판정마다 그래프·발화를 통째로 재업로드하던 것을 없애는 자리다.
         """
         body = json.loads(raw or b"{}")
-        session_id = str(body.get("session_id") or "").strip()
+        # 파싱 때 발급한 모양의 id 만 받는다. 아무 문자열이나 받으면 로그에 가짜 줄을 심거나,
+        # 한도(세션 32개)를 채워 남의 세션을 밀어낼 수 있다. 크기는 do_POST 의 경로별 상한이 막는다.
+        session_id = _session_id_of(body)
         if not session_id:
             return self._json(400, {"error": "bad_request", "message": "session_id 가 필요합니다."})
 
@@ -1256,6 +1495,8 @@ class Handler(SimpleHTTPRequestHandler):
 
         있든 없든 204 다. 존재 여부를 알려 주는 것 자체가 정보이기 때문이다."""
         parsed = urlparse(self.path)
+        if not self._gate():
+            return
         try:
             if not (parsed.path.startswith("/api/v1/sessions/") and parsed.path.count("/") == 4):
                 return self._json(404, {"error": "not found"})
@@ -1269,10 +1510,10 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
-        except Exception as e:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             traceback.print_exc()
             try:
-                self._json(500, {"error": type(e).__name__, "message": str(e)})
+                self._json(500, {"error": "internal", "message": GENERIC_ERROR_MESSAGE})
             except Exception:  # noqa: BLE001
                 return
 
@@ -1321,7 +1562,7 @@ class Handler(SimpleHTTPRequestHandler):
         track = str(body.get("track") or QA_TRACK_FALLBACK)
         if track not in QA_TRACKS:
             track = QA_TRACK_FALLBACK
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
 
         # triage 는 트랙과 무관하다 (f08_questions 모듈 주석). 같은 입력이면 1차 심사를
         # 재사용해 트랙만 바꾼 재요청이 LLM 1콜로 끝나게 한다 — 매번 다시 돌리면
@@ -1366,7 +1607,9 @@ class Handler(SimpleHTTPRequestHandler):
                 llm=llm,
             )
         except QuestionError as e:
-            return self._json(502, {"error": "questions_failed", "message": str(e)})
+            sys.stderr.write(f"[bridge] F-08 questions failed: {e}\n")
+            return self._json(502, {"error": "questions_failed",
+                                    "message": "예상 질문을 만들지 못했어요. 잠시 뒤 다시 해 주세요."})
         # 본문 유무를 남긴다. 조용히 빠지면 "왜 여전히 자료에 없는 말을 쓰지?" 를
         # 디버깅할 수 없다 (_handle_qa_judge 의 근거= 표시와 같은 이유).
         cited = sum(1 for q in doc.questions if q.paper_ids)
@@ -1470,7 +1713,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not found["graph"]:
             return self._json(400, {"error": "bad_request", "message": "graph 또는 session_id 가 필요합니다."})
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         papers = self._papers_for(body, found["graph"], slidedoc, llm)
         if papers is None:
             return self._json(502, {"error": "papers_failed", "message": "문헌을 만들지 못했어요."})
@@ -1485,12 +1728,14 @@ class Handler(SimpleHTTPRequestHandler):
         query = str(body.get("query") or "").strip()
         if not query:
             return self._json(400, {"error": "bad_request", "message": "query 가 필요합니다."})
+        if len(query) > PAPER_QUERY_MAX_CHARS:
+            return self._json(413, {"error": "too_large", "message": f"검색어는 {PAPER_QUERY_MAX_CHARS}자까지 쓸 수 있어요."})
         try:
             limit = max(1, min(int(body.get("limit") or PAPER_SEARCH_MAX), 20))
         except (TypeError, ValueError):
             limit = PAPER_SEARCH_MAX
         scholar = "none" if _mock() else None
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         papers = search_papers(query, limit=limit, scholar=scholar, llm=llm)
         sys.stderr.write(
             f"[bridge] F-24 search provider={papers.provider} n={len(papers.refs)}"
@@ -1525,6 +1770,9 @@ class Handler(SimpleHTTPRequestHandler):
         question = Question.from_dict(qraw)
         if not question.question.strip():
             return self._json(400, {"error": "bad_request", "message": "질문 문장이 비어 있어요."})
+        body, too_long = _clip_judge_inputs(body)
+        if too_long:
+            return self._json(413, {"error": "too_large", "message": too_long})
         # 자료 근거 없이 판정하면 '자료와 어긋난다'(wrong)를 대조할 원본이 없고
         # 함정 질문의 핵심 규칙도 짐작이 된다. 본문에 없으면 세션에서 끌어온다.
         found = self._resolve(body, "graph", "alignment", "transcript", "context")
@@ -1539,7 +1787,7 @@ class Handler(SimpleHTTPRequestHandler):
         alignment = AlignmentDoc.from_dict(found["alignment"]) if found["alignment"] else None
         transcript = Transcript.from_dict(found["transcript"]) if found["transcript"] else None
         ctx = Context.from_dict(found["context"] or body.get("context") or {})
-        llm = "mock" if _mock() else body.get("llm")
+        llm = _pick_llm(body)
         # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본. F-08 과 같은 디스크
         # 보관소에서 session_id 로 찾는다 (프론트는 slidedoc 을 안 들고 있다).
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
@@ -1563,7 +1811,9 @@ class Handler(SimpleHTTPRequestHandler):
                 memory=self._memory_for(body),
             )
         except JudgeError as e:
-            return self._json(502, {"error": "judge_failed", "message": str(e)})
+            sys.stderr.write(f"[bridge] F-09 judge failed: {e}\n")
+            return self._json(502, {"error": "judge_failed",
+                                    "message": "답변을 판정하지 못했어요. 잠시 뒤 다시 답해 주세요."})
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
             f"passed={judgement.passed} stage={judgement.coach_stage!r} "
@@ -1609,6 +1859,8 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_OPTIONS(self):
+        if not self._gate():
+            return
         self.send_response(204)
         self.end_headers()
 
@@ -1653,17 +1905,38 @@ class ReusableThreadingHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
 
 
+def bind_refusal(host: str, mock: bool) -> str:
+    """
+    이 주소로 띄우면 안 되는 이유. 괜찮으면 빈 문자열.
+
+    실 API 모드에서 루프백이 아닌 주소는 **시작을 거부한다** (예전에는 경고만 찍고 떴다).
+    브리지에는 인증이 없어서, IP 만 알면 누구든 팀 계정으로 파싱·STT·LLM 을 과금시킨다.
+    바깥에서 볼 일이 있으면 SSH 터널이나 demo/run_tunnel.sh(Cloudflare Access) 를 쓴다.
+    """
+    if mock or host in LOOPBACK_HOSTS:
+        return ""
+    return (
+        f"DEMO_HOST={host} 로는 실 API 모드(MOCK_EXTERNAL_APIS=false)를 띄울 수 없어요. "
+        "브리지에는 인증이 없어 주소만 알면 누구든 과금 API 를 부릅니다. "
+        "DEMO_HOST=127.0.0.1 로 띄우고, 바깥에서는 SSH 터널이나 demo/run_tunnel.sh 로 보면 돼요."
+    )
+
+
 def main():
     host = settings.demo_host
     port = settings.demo_port
+    refusal = bind_refusal(host, _mock())
+    if refusal:
+        print(f"척척발표 demo bridge 시작 거부: {refusal}", file=sys.stderr, flush=True)
+        raise SystemExit(2)
     print(f"척척발표 demo bridge → http://{host}:{port}/", flush=True)
     print(f"  SDK:  http://{host}:{port}/sdk/index.js", flush=True)
     print(f"  MOCK_EXTERNAL_APIS={_mock()}", flush=True)
     print(f"  요청 제한: IP당 {PAID_RATE_LIMIT}회/분 (0=끔) · CORS 허용={sorted(ALLOWED_ORIGINS) or '없음(같은 출처만)'}", flush=True)
-    if host not in ("127.0.0.1", "localhost", "::1"):
+    print(f"  Access 헤더 필수={'예' if REQUIRE_ACCESS else '아니오'} · Host 허용={sorted(ALLOWED_HOSTS)}", flush=True)
+    if host not in LOOPBACK_HOSTS:
         print(
-            f"  ⚠ {host} 로 열려 있습니다. 브리지에는 인증이 없어 같은 망의 누구든 "
-            "과금 API(파싱·STT·LLM)를 부를 수 있어요. 시연이 끝나면 DEMO_HOST 를 되돌리세요.",
+            f"  ⚠ {host} 로 열려 있습니다 (mock 모드라 허용). 같은 망의 누구든 접속할 수 있어요.",
             flush=True,
         )
     print(settings.masked(), flush=True)

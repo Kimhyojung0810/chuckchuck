@@ -565,6 +565,7 @@ function renderQuestion() {
   const chips = `<span class="booth-chip">${esc(cur.label || '')}</span>${(cur.slide_nos || []).length ? `<span class="booth-chip booth-chip-slide">${esc(cur.slide_nos.join('·'))}번 장면</span>` : ''}`;
   bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${cur.why ? `<p class="call-why">${esc(cur.why)}</p>` : ''}`, { kind: 'question' });
   $('qa-answer').value = '';
+  state.userTyped = false;
   $('qa-answer').placeholder = '말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요.';
   note('qa-mic-note', '');
   $('btn-hint').disabled = hintLadder(cur).length === 0;
@@ -606,6 +607,7 @@ async function submit(giveUp) {
   setAnswering(false);
   bubble('me', `<p>${esc(giveUp ? (answer || '모르겠어요, 답 볼게요') : answer)}</p>`, { kind: giveUp ? 'giveup' : 'answer' });
   $('qa-answer').value = '';
+  state.userTyped = false;
   setPhase('judging');
   try {
     const j = await judgeQaAnswer(state.sessionId, {
@@ -664,6 +666,7 @@ function next() {
 function again() {
   hush(); cancelCountdown();
   $('qa-answer').value = '';
+  state.userTyped = false;
   setAnswering(true);
   setPhase('asking');
   if (state.autoTalk) toggleMic(); else if (!isCoarse()) $('qa-answer').focus();
@@ -750,6 +753,8 @@ function markSpeech() {
 /** 침묵을 본다. 말한 게 있고 2.5초 조용하면 마이크를 멈추고 카운트다운을 시작한다. */
 function watchQuiet() {
   if (!state.mic || !state.mic.dictation || !state.autoTalk) return;
+  // 자막 칸에 손으로 쓰는 중이면 자동으로 보내지 않는다 — 계속 듣기만 하고, 보내기는 「답하기」로
+  if (state.userTyped) { state.quietTimer = setTimeout(watchQuiet, 500); return; }
   if (speechSettled({ lastChangeAt: state.lastSpeechAt, now: performance.now(), text: $('qa-answer').value })) {
     stopMic().then(() => { if ($('qa-answer').value.trim()) startCountdown(); });
   } else {
@@ -759,6 +764,7 @@ function watchQuiet() {
 
 function startCountdown() {
   cancelCountdown();
+  if (state.userTyped) { note('qa-mic-note', '자막을 고쳤어요. 다 쓰면 「답하기」를 눌러요.'); return; }
   const until = performance.now() + COUNTDOWN_S * 1000;
   const tick = () => {
     const left = (until - performance.now()) / 1000;
@@ -1130,7 +1136,9 @@ async function stopMic({ silent = false } = {}) {
     const text = await transcribeAnswer(await mic.session.stop());
     if (text) {
       ta.value = appendTranscript(ta.value, text);
-      if (state.autoTalk) startCountdown();
+      // silent 은 「답하기」를 눌러 submit 이 멈춘 경우다 — 여기서 카운트다운을 걸면
+      // submit 이 보낸 뒤에 카운트다운이 한 번 더 보내 같은 답이 두 번 간다
+      if (state.autoTalk && !silent) startCountdown();
       else { note('qa-mic-note', '자막을 확인하고 「답하기」를 눌러요.'); $('btn-answer').focus(); }
     } else if (!silent) {
       note('qa-mic-note', '말소리를 못 알아들었어요. 다시 녹음하거나 자막을 눌러 적어 주세요.');
@@ -1271,6 +1279,10 @@ window.addEventListener('keydown', (e) => {
 });
 $('qa-answer').addEventListener('pointerdown', holdCaption);
 $('qa-answer').addEventListener('focus', holdCaption);
+/* 타이핑은 듣는 중에도 언제나 된다. 손으로 쓴 순간부터 이 질문은 자동 보내기를 멈춘다 —
+   받아쓰기 조각은 paintDictation 이 쓴 글 뒤에 잇고, 보내기는 「답하기」가 한다.
+   input 이벤트는 사람이 친 글에만 온다 (받아쓰기가 value 를 바꾸는 건 안 온다). */
+$('qa-answer').addEventListener('input', () => { state.userTyped = true; holdCaption(); });
 $('qa-answer').addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit(false);
 });
