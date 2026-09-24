@@ -360,6 +360,16 @@ test('발표 → Q&A: 내 모습이 메인, 시계는 숨고 질문 번호·자�
   O.renderOverlay(b, el, a);
   eq([el.call.dataset.mode, el.call.dataset.main, el.clock.hidden, el.qaCount.hidden, el.autotalk.hidden], ['qa', 'self', true, false, false]);
 });
+test('발표 → Q&A: 발표 자막을 비우고 자막 칸도 빈 글자로 다시 쓴다', () => {
+  const el = fakeEls();
+  const a = O.setCaption(O.createOverlayState(), '사내교육으로 넓힐 계획이에요');
+  O.renderOverlay(a, el);
+  eq(el.caption.textContent, '사내교육으로 넓힐 계획이에요');
+  const b = O.enterQa(a);
+  eq(b.caption, '');
+  O.renderOverlay(b, el, a);
+  eq(el.caption.textContent, '');
+});
 test('Q&A → 다시 발표: 자료가 메인이고 질문·판정·자막을 비운다', () => {
   let s = O.askQuestion(O.setPhaseOf(O.enterQa(O.createOverlayState()), 'judged', 'good'), { text: 'Q', tag: 't', scene: 2 });
   s = O.setCaption(s, '남은 자막');

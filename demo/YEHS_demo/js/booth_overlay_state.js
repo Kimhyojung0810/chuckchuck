@@ -40,9 +40,9 @@ export function enterPresent(s) {
   return { ...s, mode: 'present', main: 'slides', question: null, verdict: '', caption: '' };
 }
 
-/** Q&A — 내 모습이 메인 */
+/** Q&A — 내 모습이 메인. 발표 자막은 비운다 — #present-caption 은 CSS 로 숨지만 글자를 들고 있으면 다음 발표 진입 전까지 남은 말이 새어 나올 틈이 된다 */
 export function enterQa(s) {
-  return { ...s, mode: 'qa', main: 'self' };
+  return { ...s, mode: 'qa', main: 'self', caption: '' };
 }
 
 /** 메인 무대를 바꾼다. 모르는 값이면 그대로 둔다 */

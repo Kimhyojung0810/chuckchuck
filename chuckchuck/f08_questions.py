@@ -293,8 +293,16 @@ PAPER_SYSTEM_ADDENDUM = """
 ## 문헌 근거 — 이 요청에만 붙는 규칙
 사용자 프롬프트에 '교수가 읽고 온 문헌' 목록이 있다. 너는 **그 문헌을 읽고 온 심사위원**이다.
 - 질문 대상 개념에 「문헌」 줄이 붙어 있으면, 그 문헌을 근거로 찌르는 질문을 **우선** 써라.
-  (예: "5장에서 Stothart et al. (2015)를 인용했는데, 그 연구는 알림을 확인하지 않은 조건을
-  쟀어요. 이 실험은 어느 조건인가요?") 문헌 줄이 없는 개념은 예전처럼 자료로 묻는다.
+  문헌 줄이 없는 개념은 예전처럼 자료로 묻는다.
+- **[검색: …] 문헌은 발표자가 본 적도 인용한 적도 없다.** 교수가 따로 찾아 읽고 온 것이다.
+  그 문헌에 "인용했는데"·"인용하셨는데"·"N장에서 인용한" 을 붙이지 마라 — 없는 전제를 세운 질문이 된다.
+  검색 문헌은 **문헌을 주어로 세워 자료·발표와 견주는** 꼴로만 쓴다.
+  (검색 문헌 예: "Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데,
+  발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?")
+- "N장에서 인용한 …" 은 **[자료 N장이 인용] 문헌에만** 쓴다 — 자료가 실제로 인용한 것이라서.
+  (자료 인용 문헌 전용 예: "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않은 조건을
+  쟀어요. 이 실험은 어느 조건인가요?")
+- 높임을 쓰지 마라 — "하셨는데"·"판단하신" 이 아니라 "했는데"·"판단한".
 - **인용은 목록에 있는 문헌만, 적힌 인용 표시(저자 (연도)) 그대로.** 목록 밖의 논문·저자·
   연도를 쓰면 그 질문은 통째로 버려지고 템플릿 문장으로 바뀐다.
 - 그 논문에 대해 말할 수 있는 것은 「초록」 줄에 적힌 것뿐이다. 초록에 없는 결과·수치·
@@ -328,10 +336,16 @@ CITE_SYSTEM_PROMPT = """당신은 논문을 읽고 온 심사위원이다. 이�
 - question 문장 **안에** 문헌의 인용 표시를 **적힌 그대로** 넣어라 (예: "Stothart et al. (2015)"). 표시를 바꾸거나 다른 논문을 끌어오지 마라.
   인용은 문장의 주어나 전제로 들어간다. **문장 끝에 덧붙이지 말고, «제목» 은 넣지 마라.**
   나쁨: "…메커니즘은 무엇인가요? Stothart et al. (2015) «The attentional cost …»"
-  좋음: "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?"
+  좋음(검색 문헌): "Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?"
+- **[검색: …] 문헌은 발표자가 본 적도 인용한 적도 없다.** 교수가 따로 찾아 읽고 온 것이다. 그 문헌에
+  "인용했는데"·"인용하셨는데"·"N장에서 인용한" 을 쓰지 마라 — 없는 전제를 세운 질문이 되어 통째로 버려진다.
+  검색 문헌은 위 「좋음」 처럼 **문헌을 주어로 세워** "X (연도)는 …라고 봤는데, 발표(자료)는 …인가요?" 꼴로만 쓴다.
+- "N장에서 인용한 …" 은 **[자료 N장이 인용] 문헌에만** 쓴다.
+  좋음(자료 인용 문헌 전용): "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?"
 - 문헌에 대해 말할 수 있는 것은 「초록」 줄에 적힌 것뿐이다. 초록에 없는 결과·수치·조건을 논문의 것으로 말하지 마라.
 - 질문의 대상 개념과 묻는 요지는 유지한다. 발표자의 주장과 문헌이 어긋나거나, 문헌이 잰 조건을 발표가 밝히지 않은
-  지점을 찌른다. 「자료 N장이 인용」한 문헌이면 "N장에서 인용한 …" 으로 시작해도 좋다.
+  지점을 찌른다.
+- 높임을 쓰지 마라 — "하셨는데"·"판단하신"·"말씀" 이 아니라 "했는데"·"판단한"·"말".
 - **question 은 두 문장 이내, 200자 이내.** 논문 요지는 한 절("…라고 봤는데")로만 끌어오고 초록을 옮겨 적지 마라.
   길면 통째로 버려진다. 문헌이 여럿이어도 하나만 골라 인용한다.
 - 해요체. why 는 이 문헌으로 묻는 이유 한 줄, hint 는 발표자가 답을 떠올릴 실마리 한 줄. answer_gist 는 고치지 않는다.
@@ -695,7 +709,7 @@ def _apply_cite_rewrite(raw: list[dict], targets: list[tuple[dict, ConceptNode, 
         new = rewritten.get(node.id)
         if not new or not str(new.get("question", "") or "").strip():
             continue
-        candidate = {**q, **{k: _clean_rewritten(new[k]) for k in ("question", "why", "hint") if new.get(k)},
+        candidate = {**q, **{k: _plain_speech(_clean_rewritten(new[k])) for k in ("question", "why", "hint") if new.get(k)},
                      "paper_ids": [str(x) for x in (new.get("paper_ids") or []) if str(x) in allowed]}
         # 09-23 실측(solar): 초록을 옮겨 적은 세 문장짜리 질문이 와서 QA_TEXT_MAX 에서 잘려 끝맺음이 사라졌다(반말로 찍힘).
         # 길거나 해요체 물음으로 끝나지 않으면 원문을 지킨다 — 인용 하나 얻자고 화면 말투를 깨지 않는다.
@@ -704,8 +718,10 @@ def _apply_cite_rewrite(raw: list[dict], targets: list[tuple[dict, ConceptNode, 
             continue
         candidate["question"] = q_text
         # paper_ids 만 적고 문장에 인용이 없거나, 목록 밖 논문을 끌어왔으면 원문을 지킨다 (어댑터가 버릴 문장이다).
+        # 검색 문헌에 「인용했는데」 를 씌운 거짓 전제도 원문을 지킨다 — 09-24 실측, 판정이 전제부터 틀렸다고 했다.
         text = " ".join(str(candidate.get(k, "") or "") for k in ("question", "why", "hint"))
-        if _cited_ids(text, papers) and not _ungrounded_citation(text, papers):
+        if (_cited_ids(text, papers) and not _ungrounded_citation(text, papers)
+                and not _claims_presenter_cited(text, papers)):
             q.clear()
             q.update(candidate)
     return raw
@@ -1588,6 +1604,107 @@ def _polite_question(text: str) -> str:
     return t
 
 
+# ---------------------------------------------------------------------------
+# 문장 가운데 높임 — `_polite_question` 은 끝 어미만 본다. 2026-09-24 실측: "인용하셨는데 … 판단하신 근거는" 이
+# 규칙 5 가 있는데도 나왔다 (09-12 과 같은 교훈 — 말투는 부탁이 아니라 코드가 지킨다, CLAUDE.md §3-1).
+# ---------------------------------------------------------------------------
+
+#: (패턴, 바꿀 말). 순서대로 적용한다. 전부 「높임 선어말 어미가 붙은 꼴」 이라 명사 안에서 나올 일이 거의 없다 —
+#: 그래서 짧은 고정 문자열로 둔다. 문맥이 필요한 '이셨'·'께' 는 아래 함수가 따로 본다.
+_HONORIFIC_RULES: tuple[tuple[re.Pattern, str], ...] = (
+    (re.compile(r"하셨"), "했"),          # 인용하셨는데 → 인용했는데 · 선택하셨을 → 선택했을
+    (re.compile(r"되셨"), "됐"),
+    (re.compile(r"하시는"), "하는"),
+    (re.compile(r"하신"), "한"),          # 판단하신 → 판단한 · 생각하신다 → 생각한다
+    (re.compile(r"되신"), "된"),
+    (re.compile(r"하실"), "할"),
+    (re.compile(r"말씀"), "말"),          # 말씀하셨 → (위에서) 말씀했 → 말했
+)
+#: '이셨' — 앞 음절에 받침이 있으면 '이었', 없으면 '였' (학생이셨 → 학생이었 · 누구이셨 → 누구였).
+_ISYEOT_RE = re.compile(r"([가-힣]?)이셨")
+#: 높임 조사 '께' → '에게'. '께서' 는 주어 높임이라 문장 뜻이 바뀌므로 두지 않는다(요청 범위 밖).
+#: 앞이 한글 음절이고, 뒤가 낱말 끝(또는 는·도·만 다음 낱말 끝)일 때만 — '함께'·'그저께'·'엊그제께' 는 뺀다.
+_KKE_RE = re.compile(r"(?<=[가-힣])(?<![함저제])께(?!서)(?=(?:는|도|만)?(?![가-힣]))")
+
+
+def _has_batchim(ch: str) -> bool:
+    return "가" <= ch <= "힣" and (ord(ch) - 0xAC00) % 28 != 0
+
+
+def _plain_speech(text: str) -> str:
+    """문장 **가운데**의 높임(~셨·~신·~실·말씀·께)을 평이한 해요체 서술로 바꾼다. 끝 어미는 `_polite_question` 몫.
+    결정적이고 멱등이다 — 이미 평서면 그대로."""
+    t = text or ""
+    if not t:
+        return t
+    for pat, rep in _HONORIFIC_RULES:
+        t = pat.sub(rep, t)
+    t = _ISYEOT_RE.sub(lambda m: m.group(1) + ("이었" if not m.group(1) or _has_batchim(m.group(1)) else "였"), t)
+    return _KKE_RE.sub("에게", t)
+
+
+# ---------------------------------------------------------------------------
+# 거짓 전제 — 검색 문헌(kind="scholar")을 「발표자가 인용했다」 고 쓴 문장.
+# 2026-09-24 실측: 자료는 논문을 하나도 인용하지 않았는데 "O'Reilly et al. (2026)와 Kulshreshtha (2026)를
+# 인용하셨는데 …" 가 나왔고, 판정이 "질문의 전제부터 확인해 보세요" 로 빠졌다. 시스템이 만든 질문을 시스템이 틀렸다고
+# 하는 꼴이라, 프롬프트(CITE_SYSTEM_PROMPT·PAPER_SYSTEM_ADDENDUM)와 별개로 코드가 잡는다.
+# ---------------------------------------------------------------------------
+
+#: 「발표자가 인용했다」 는 표현. _plain_speech 뒤에 보지만 높임 꼴도 같이 잡는다.
+_PRESENTER_CITED_RE = re.compile(r"인용(?:했|하셨|하신|하였|한|하고|되었|됐|된)")
+#: 떼어 낼 수 있는 꼴 ① 관형절 — 「(N장에서) 인용한 X (연도)는 …」. 떼면 「X (연도)는 …」 로 검색 문헌에 허용된 꼴이 된다.
+#: 바로 뒤에 인용 표시가 올 때만 뗀다 ("…를 인용한 이유는" 을 떼면 문장이 깨진다).
+_CITED_ADNOMINAL_RE = re.compile(
+    r"(?:(?:\d+\s*장|자료|발표|슬라이드)\s*에서\s+)?인용(?:한|하신|된|했던|하셨던)\s+"
+    r"(?=[A-Z][A-Za-z'\-]+[^()]{0,60}\(\d{4}[a-z]?\))"
+)
+#: 떼어 낼 수 있는 꼴 ② 문장 앞 전제절 — 「X (연도)를 인용했는데, 본론」. 문장 첫머리부터 이 절까지 뗀다.
+#: 문장 단위로 잘라서 보므로 첫머리부터 아무 글자나 받는다 ("et al." 의 마침표 때문에 [^.] 로 막으면 못 잡는다).
+_CITED_CLAUSE_RE = re.compile(r"^.*?인용(?:했|하셨|하였|되었|됐)(?:는데|지만|으나|으며|고)\s*,?\s*|^.*?인용하고\s*,\s*")
+#: 떼고 남은 문장이 이보다 짧으면 질문이 아니라 꼬리다 — 뗀 것으로 치지 않는다.
+CITE_CLAIM_REST_MIN = 8
+#: 문장 경계 — 물음표·느낌표 뒤, 또는 한글 뒤 마침표. "et al. (2015)" 의 마침표에서 자르지 않는다.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[?!？])\s+|(?<=[가-힣]\.)\s+")
+
+
+def _claims_presenter_cited(text: str, papers: PaperDoc | None) -> bool:
+    """문장이 「발표자가 인용했다」 고 말하는데, 문장이 인용한 문헌 중 자료가 실제로 인용한 것(kind="deck")이 없는가.
+
+    문장에 목록의 문헌이 하나도 없으면 False 다 — "3장에서 인용한 통계는 …" 처럼 자료 속 인용을 말하는 것일 수 있고,
+    그건 자료에 있는 사실이라 거짓 전제가 아니다. 이 검사가 막는 것은 **검색 문헌에 발표자의 인용을 덧씌우는 것**뿐이다."""
+    if papers is None or not _PRESENTER_CITED_RE.search(text or ""):
+        return False
+    ids = _cited_ids(text, papers)
+    if not ids:
+        return False
+    kind_of = {r.id: r.kind for r in papers.refs}
+    return not any(kind_of.get(i) == "deck" for i in ids)
+
+
+def _drop_cite_claim(text: str, papers: PaperDoc | None) -> str:
+    """첫 응답의 거짓 전제 처리. 전제가 없으면 그대로, 전제 절만 떼어 낼 수 있으면 뗀 문장, 못 떼면 "".
+
+    **가장 덜 파괴적인 쪽을 고른다.** "" 은 호출자에서 기존 ungrounded 처리와 같이 결정적 템플릿으로 떨어진다 —
+    그러면 LLM 이 쓴 본론(자료를 근거로 한 좋은 물음)까지 잃는다. 09-24 실측 문장은 「…를 인용하셨는데, 본론?」 꼴이라
+    전제 절만 떼면 본론이 그대로 남는다. 관형절(「5장에서 인용한 X (연도)는 …라고 봤는데」)은 떼면 검색 문헌에 허용한
+    「X (연도)는 …」 꼴이 된다. 둘 다 아니면(주절 자체가 인용 주장 — "X 를 인용한 이유는?") 뗄 수 없어 템플릿으로 보낸다."""
+    if not _claims_presenter_cited(text, papers):
+        return text
+    out = []
+    for sent in _SENTENCE_SPLIT_RE.split(text.strip()):
+        if _claims_presenter_cited(sent, papers):
+            sent = _CITED_ADNOMINAL_RE.sub("", sent)
+            if _claims_presenter_cited(sent, papers):
+                sent = _CITED_CLAUSE_RE.sub("", sent, count=1)
+            sent = sent.strip(" ,")
+        if sent:
+            out.append(sent)
+    rest = " ".join(out)
+    if len(rest) < CITE_CLAIM_REST_MIN or _claims_presenter_cited(rest, papers):
+        return ""
+    return rest
+
+
 def _normalize_questions(
     raw_questions: list[dict],
     marks: list[TriageMark],
@@ -1629,10 +1746,12 @@ def _normalize_questions(
 
         # 발판을 근거로 인용한 문장은 없는 것으로 친다 — 아래 `or` 가 결정적
         # 템플릿으로 떨어뜨린다. 자료로 만든 문장이 발판 인용보다 언제나 낫다.
-        written_q = _polite_question(_clip(str(raw.get("question", "") or "")))
-        written_gist = _clip(str(raw.get("answer_gist", "") or ""))
-        written_why = _clip(str(raw.get("why", "") or ""))
-        written_hint = _clip(str(raw.get("hint", "") or ""))
+        # 높임을 먼저 풀고(_plain_speech) 끝 어미를 고친다(_polite_question). 거짓 전제(검색 문헌에 「인용하셨는데」)는
+        # 전제 절만 떼고, 못 떼면 "" — 아래 `or` 가 ungrounded 와 같은 템플릿으로 보낸다 (_drop_cite_claim 참고).
+        written_q = _drop_cite_claim(_polite_question(_plain_speech(_clip(str(raw.get("question", "") or "")))), papers)
+        written_gist = _drop_cite_claim(_plain_speech(_clip(str(raw.get("answer_gist", "") or ""))), papers)
+        written_why = _drop_cite_claim(_plain_speech(_clip(str(raw.get("why", "") or ""))), papers)
+        written_hint = _drop_cite_claim(_plain_speech(_clip(str(raw.get("hint", "") or ""))), papers)
         if _cites_scaffold(written_q) or _ungrounded_citation(written_q, papers):
             written_q = ""
         if _cites_scaffold(written_gist) or _ungrounded_citation(written_gist, papers):
@@ -1649,7 +1768,8 @@ def _normalize_questions(
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
         parts = [
             p for p in (
-                _clip(str(p) or "") for p in (raw.get("answer_gist_parts") or [])
+                _drop_cite_claim(_plain_speech(_clip(str(p) or "")), papers)
+                for p in (raw.get("answer_gist_parts") or [])
             )
             if p and not _cites_scaffold(p) and not _ungrounded_citation(p, papers)
         ]

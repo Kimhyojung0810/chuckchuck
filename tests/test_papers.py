@@ -583,3 +583,184 @@ def test_qa_cite_가_깨진_JSON_이면_첫_응답을_그대로_쓴다():
 
     doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=BrokenCite())
     assert doc.questions[0].question == "알림 비용은 왜 생기나요?" and doc.questions[0].paper_ids == []
+
+
+# ---------------------------------------------------------------------------
+# 거짓 전제 — 검색 문헌(scholar)에 「발표자가 인용했다」 를 씌우지 않는다 (2026-09-24 실측)
+# ---------------------------------------------------------------------------
+
+class _CiteRewrite(LLMProvider):
+    """첫 응답은 인용 없는 질문 둘, qa-cite 응답은 주어진 것."""
+    name = "cite-rewrite"
+
+    def __init__(self, rewrites: list[dict]):
+        self.rewrites = rewrites
+
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
+        if "[TASK] qa-cite" in user:
+            return json.dumps({"questions": self.rewrites}, ensure_ascii=False)
+        return json.dumps({"questions": [
+            {"node_id": "c1", "question": "알림 비용은 왜 생기나요?", "why": "w", "hint": "h", "answer_gist": "g"},
+            {"node_id": "c2", "question": "잔여 주의란 무엇인가요?", "why": "w2", "hint": "h2", "answer_gist": "g2"},
+        ]}, ensure_ascii=False)
+
+
+def test_qa_cite_검색_문헌만_인용하며_인용하셨는데_라고_쓴_재작성은_버리고_원문을_지킨다():
+    llm = _CiteRewrite([{"node_id": "c2", "question": "Leroy (2009)를 인용하셨는데, 잔여 주의는 어떻게 생기나요?",
+                         "why": "문헌 근거", "hint": "전환", "paper_ids": ["s01"]}])
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    q2 = doc.questions[1]
+    assert q2.question == "잔여 주의란 무엇인가요?" and q2.paper_ids == [] and q2.why == "w2"
+
+
+def test_qa_cite_자료_인용_문헌을_N장에서_인용한_으로_쓴_재작성은_받는다():
+    llm = _CiteRewrite([{"node_id": "c1", "question": "3장에서 인용한 Stothart et al. (2015)는 무엇을 쟀나요?",
+                         "why": "문헌 근거", "hint": "조건", "paper_ids": ["d01"]}])
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    q1 = doc.questions[0]
+    assert q1.question == "3장에서 인용한 Stothart et al. (2015)는 무엇을 쟀나요?" and q1.paper_ids == ["d01"]
+
+
+def test_qa_cite_검색_문헌을_주어로_세워_봤는데_꼴로_쓴_재작성은_받는다():
+    rewritten = "Leroy (2009)는 작업을 바꾼 뒤에도 주의가 남는다고 봤는데, 발표의 '잔여 주의'도 같은 뜻인가요?"
+    llm = _CiteRewrite([{"node_id": "c2", "question": rewritten, "why": "문헌 근거", "hint": "전환", "paper_ids": ["s01"]}])
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    q2 = doc.questions[1]
+    assert q2.question == rewritten and q2.paper_ids == ["s01"]
+
+
+def test_첫_응답의_거짓_전제는_전제_절만_떼고_높임도_푼다():
+    llm = ScriptedLLM({"qa-questions": {"questions": [
+        {"node_id": "c2", "question": "Leroy (2009)를 인용하셨는데, 잔여 주의가 핵심이라고 판단하신 근거는 무엇인가요?",
+         "why": "w", "hint": "h", "answer_gist": "g"},
+    ]}})
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    q2 = next(q for q in doc.questions if q.node_id == "c2")
+    assert q2.question == "잔여 주의가 핵심이라고 판단한 근거는 무엇인가요?"
+
+
+def test_첫_응답의_관형절_인용은_떼면_문헌_주어_꼴이_된다():
+    llm = ScriptedLLM({"qa-questions": {"questions": [
+        {"node_id": "c2", "question": "5장에서 인용한 Leroy (2009)는 주의가 남는다고 봤는데, 발표는 어떻게 보나요?",
+         "why": "w", "hint": "h", "answer_gist": "g"},
+    ]}})
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    q2 = next(q for q in doc.questions if q.node_id == "c2")
+    assert q2.question == "Leroy (2009)는 주의가 남는다고 봤는데, 발표는 어떻게 보나요?" and q2.paper_ids == ["s01"]
+
+
+def test_첫_응답의_인용_주장을_뗄_수_없으면_템플릿으로_간다():
+    llm = ScriptedLLM({"qa-questions": {"questions": [
+        {"node_id": "c2", "question": "Leroy (2009)를 인용한 이유는 무엇인가요?", "why": "w", "hint": "h", "answer_gist": "g"},
+    ]}})
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    q2 = next(q for q in doc.questions if q.node_id == "c2")
+    assert q2.question and "Leroy" not in q2.question and "인용한 이유" not in q2.question
+
+
+def test_claims_presenter_cited_는_deck_문헌이면_거짓이다():
+    from chuckchuck.f08_questions import _claims_presenter_cited
+    pd = papers_doc()
+    assert _claims_presenter_cited("Leroy (2009)를 인용했는데 왜 그런가요?", pd)
+    assert not _claims_presenter_cited("3장에서 인용한 Stothart et al. (2015)는 무엇을 쟀나요?", pd)
+    assert not _claims_presenter_cited("Leroy (2009)는 그렇게 봤는데 발표는 어떤가요?", pd)
+    assert not _claims_presenter_cited("3장에서 인용한 통계의 출처는 무엇인가요?", pd)   # 목록 문헌이 없으면 자료 속 인용 얘기
+    assert not _claims_presenter_cited("Leroy (2009)를 인용했는데 왜 그런가요?", None)
+
+
+# ---------------------------------------------------------------------------
+# 관련성 검사 — 검색어와 낱말 하나 안 나누는 검색 결과는 버리고 note 에 남긴다 (2026-09-24 GDM 실측)
+# ---------------------------------------------------------------------------
+
+def test_검색어와_낱말이_겹치는_결과는_남는다():
+    hit = scholar_ref("Attention residues after task switching", ["Leroy"], 2009, abstract="work tasks")
+    doc = build_papers(make_graph(), None, scholar=FakeScholar({"Attention residue": [hit]}), llm=ScriptedLLM({}), node_max=2)
+    assert [r.title for r in doc.scholar_refs] == ["Attention residues after task switching"]
+    assert "관련성 없음" not in doc.note
+
+
+def test_검색어와_낱말이_하나도_안_겹치는_결과는_버리고_note_에_적는다():
+    good = scholar_ref("Attention residue at work", ["Leroy"], 2009)
+    gdm = scholar_ref("Gestational diabetes mellitus prevention in pregnant women", ["Kim"], 2021,
+                      abstract="A randomized trial of lifestyle intervention for GDM", cited=300)
+    doc = build_papers(make_graph(), None, scholar=FakeScholar({"Attention residue": [gdm, good]}),
+                       llm=ScriptedLLM({}), node_max=2)
+    assert [r.title for r in doc.scholar_refs] == ["Attention residue at work"]
+    assert "관련성 없음 1건 버림" in doc.note
+
+
+def test_관련성_없는_결과는_자료_인용에_개념을_붙이지도_않는다():
+    # 자료 인용과 같은 논문이라도 검색어와 무관하면 그 개념을 deck 문헌에 붙이지 않는다.
+    dup = scholar_ref("The attentional cost of receiving a cell phone notification", ["Stothart"], 2015, doi="10.1037/xhp0000100")
+    doc = build_papers(make_graph(), make_slidedoc(), scholar=FakeScholar({"completely unrelated query": [dup]}),
+                       llm=ScriptedLLM({"paper-queries": {"queries": [{"node_id": "c1", "query": "completely unrelated query"}]}}),
+                       node_max=1)
+    assert "c1" in doc.ref("d01").node_ids          # 자료 장으로 붙은 것만
+    assert "관련성 없음 1건 버림" in doc.note
+
+
+def test_자유_검색도_관련성_없는_결과를_버린다():
+    hits = [scholar_ref("BM25 revisited", ["Robertson"], 2009), scholar_ref("Maternal glucose screening", ["Lee"], 2020)]
+    doc = search_papers("BM25 ranking function", scholar=FakeScholar({"BM25 ranking function": hits}), llm=ScriptedLLM({}))
+    assert [r.title for r in doc.refs] == ["BM25 revisited"] and "관련성 없음 1건 버림" in doc.note
+
+
+# ---------------------------------------------------------------------------
+# 짧은 영문 라벨 검색어 보강 — 09-24 실측: "B2C" 그대로 검색해 당뇨 선별 B2C 모델 논문이 붙었다
+# ---------------------------------------------------------------------------
+
+def make_en_graph() -> ConceptGraph:
+    return ConceptGraph(file_name="deck.pdf", total_slides=10, nodes=[
+        ConceptNode(id="root", label="AI Presentation Coaching", slide_nos=[1], depth=1, weight=1.0),
+        ConceptNode(id="b2c", label="B2C", slide_nos=[7], depth=2, weight=0.9),
+        ConceptNode(id="align", label="Slide-Speech Alignment Scoring Method", slide_nos=[4], depth=2, weight=0.5),
+    ])
+
+
+def test_짧은_영문_라벨은_주제_토큰을_붙여_검색한다():
+    fake = FakeScholar()
+    build_papers(make_en_graph(), None, scholar=fake, llm=ScriptedLLM({}), node_max=3)
+    assert "B2C AI Presentation Coaching" in fake.queries
+    assert "AI Presentation Coaching" in fake.queries                 # 루트는 3토큰 — 자기 자신을 붙이지 않는다
+    assert "Slide-Speech Alignment Scoring Method" in fake.queries   # 3토큰 이상은 그대로
+
+
+def test_보강_검색어에서_개념만_맞고_주제가_안_맞는_결과는_버린다():
+    gdm = scholar_ref("Early viability assessment of a Business-to-Consumer (B2C) model for digital diabetes screening",
+                      ["Kim"], 2023, abstract="gestational diabetes mellitus screening", cited=12)
+    fake = FakeScholar({"B2C AI Presentation Coaching": [gdm]})
+    doc = build_papers(make_en_graph(), None, scholar=fake, llm=ScriptedLLM({}), node_max=3)
+    assert not [r for r in doc.scholar_refs if "b2c" in r.node_ids]   # 문헌 없이 간다
+    assert "관련성 없음 1건 버림" in doc.note
+
+
+def test_보강_검색어에서_개념과_주제가_둘_다_맞는_결과는_남는다():
+    hit = scholar_ref("A B2C subscription model for AI presentation coaching tools", ["Park"], 2024, abstract="")
+    fake = FakeScholar({"B2C AI Presentation Coaching": [hit]})
+    doc = build_papers(make_en_graph(), None, scholar=fake, llm=ScriptedLLM({}), node_max=3)
+    kept = [r for r in doc.scholar_refs if "b2c" in r.node_ids]
+    assert [r.title for r in kept] == ["A B2C subscription model for AI presentation coaching tools"]
+    assert kept[0].query == "B2C AI Presentation Coaching" and "관련성 없음" not in doc.note
+
+
+def test_세_토큰_이상_검색어는_예전처럼_낱말_하나만_겹쳐도_남는다():
+    hit = scholar_ref("Scoring rubrics for oral exams", ["Lee"], 2019)            # 'scoring' 하나만 겹친다
+    fake = FakeScholar({"Slide-Speech Alignment Scoring Method": [hit]})
+    doc = build_papers(make_en_graph(), None, scholar=fake, llm=ScriptedLLM({}), node_max=3)
+    assert [r.title for r in doc.scholar_refs if "align" in r.node_ids] == ["Scoring rubrics for oral exams"]
+
+
+def test_주제_토큰은_weight_가_높은_지엽이_아니라_core_개념에서_온다():
+    # 09-24 실측: 수익모델 자료에서 B2C·B2B·SaaS(support, weight 1.0)가 주제로 뽑혀 "B2C" 에 "B2B SaaS" 가 붙었다.
+    graph = ConceptGraph(file_name="deck.pdf", total_slides=10, nodes=[
+        ConceptNode(id="cg", label="Concept Graph", slide_nos=[1], depth=1, weight=0.99, importance="core"),
+        ConceptNode(id="coach", label="AI Presentation Coaching", slide_nos=[1], depth=2, weight=0.7, importance="core"),
+        ConceptNode(id="b2b", label="B2B", slide_nos=[2], depth=1, weight=1.0, importance="support"),
+        ConceptNode(id="b2c", label="B2C", slide_nos=[2], depth=1, weight=1.0, importance="support"),
+        ConceptNode(id="saas", label="SaaS", slide_nos=[2], depth=2, weight=1.0, importance="support"),
+    ])
+    fake = FakeScholar()
+    build_papers(graph, None, scholar=fake, llm=ScriptedLLM({}), node_max=5)
+    b2c = [q for q in fake.queries if q.startswith("B2C")]
+    assert b2c == ["B2C Concept Graph AI Presentation Coaching"]   # core 라벨을 통째로, support(B2B·SaaS)는 안 붙는다
+    assert not any("B2B" in q or "SaaS" in q for q in b2c)

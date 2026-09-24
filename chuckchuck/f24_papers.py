@@ -28,6 +28,7 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
 from ._evidence import citation_lines
 from ._json_text import extract_json_object
@@ -45,6 +46,7 @@ from .contracts import (
 from .providers.llm_base import LLMProvider
 from .providers.llm_impl import get_llm
 from .providers.scholar_base import ScholarProvider
+from .providers.scholar_impl import _stems as _word_stems
 from .providers.scholar_impl import get_scholar
 
 #: 검색을 동시에 몇 개 띄울지. OpenAlex 는 초당 10 요청까지 받는다 — 그 아래로 둔다.
@@ -53,6 +55,19 @@ SEARCH_WORKERS = 4
 RESOLVE_DECK_MAX = int(os.environ.get("CHUCKCHUCK_PAPER_RESOLVE_MAX", "5"))
 #: 되찾은 검색 결과가 자료의 제목과 이만큼 겹쳐야 같은 논문으로 본다 (토큰 Jaccard).
 RESOLVE_MATCH_MIN = 0.6
+#: 검색 결과(scholar hit)의 제목+초록 어간이 검색어 어간과 최소 이만큼 겹쳐야 남긴다. 어간은 provider 의 순위 매기기와
+#: 같은 것(소문자 · 불용어 제거 · 복수/진행형 꼬리 뗀 앞 5글자)이다. provider 가 `rank_refs` 로 이미 거르지만, 그 검사는
+#: provider 마다 따로 부르는 것이라 새 통로·가짜 통로가 빠뜨리면 그대로 서가에 올라간다 — f24 가 마지막에 한 번 더 본다.
+#: 2026-09-24 실측: "B2B·B2C 수익모델" 개념에 임신성 당뇨(GDM) 논문이 붙어 질문 why 에 들어갔다.
+RELEVANCE_SHARED_MIN = 1
+#: 검색어의 내용 토큰이 이보다 적으면 발표 주제 토큰을 붙인다. 09-24 실측: 영문 라벨은 번역을 안 거쳐 "B2C"·"B2B"·
+#: "Concept Graph" 가 그대로 검색어가 됐고, "B2C" 에 당뇨 선별 B2C 모델 논문, "Concept Graph" 에 수술 영상 논문이 왔다.
+QUERY_MIN_TOKENS = 3
+#: 붙일 주제 토큰 최대 수 (루트 개념 + 상위 weight 개념의 영문 라벨에서, 자기 자신 빼고).
+QUERY_TOPIC_TOKENS = 5
+#: 검색어 토큰을 셀 때 뺄 기능어.
+_QUERY_FILLER = {"a", "an", "the", "of", "and", "or", "for", "in", "on", "to", "with", "by", "vs"}
+_QUERY_TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-]*")
 
 QUERY_SYSTEM_PROMPT = """당신은 학술 검색 사서다.
 발표 자료에서 뽑은 개념 목록을 받아, 개념마다 **영어 학술 검색어** 하나를 만든다.
@@ -142,19 +157,64 @@ def _pick_nodes(graph: ConceptGraph, node_max: int) -> list[ConceptNode]:
     return ordered[:max(0, node_max)]
 
 
+def _topic_nodes(graph: ConceptGraph) -> list[ConceptNode]:
+    """발표 주제를 말하는 개념 — **core 개념만**(얕은 순, 같으면 weight 순). core 가 하나도 없을 때만 루트 + 상위 weight 3개.
+    weight 만 보면 지엽이 올라온다: 09-24 실측에서 수익모델 자료의 B2C·B2B·SaaS(weight 1.0, support)가 주제로 뽑혀
+    "B2C" 검색어에 "B2B SaaS" 가 붙었고, 전자상거래 논문이 관련성 검사를 통과했다. 주제는 core 가 말한다."""
+    core = sorted((n for n in graph.nodes if n.importance == "core"), key=lambda n: (n.depth, -n.weight, n.id))
+    roots = [n for n in graph.nodes if n.depth == 1] or graph.nodes[:1]
+    tops = sorted(graph.nodes, key=lambda n: -n.weight)[:3]
+    out: list[ConceptNode] = []
+    for n in core or (*roots, *tops):
+        if n.label and n.label not in (m.label for m in out):
+            out.append(n)
+    return out
+
+
 def _topic_line(graph: ConceptGraph) -> str:
     """발표 주제 한 줄 — 검색어가 다른 분야로 새지 않게 번역 프롬프트에 싣는다. 루트 개념 + 상위 3개 이름."""
     roots = [n for n in graph.nodes if n.depth == 1] or graph.nodes[:1]
-    tops = sorted(graph.nodes, key=lambda n: -n.weight)[:3]
-    names = []
-    for n in (*roots, *tops):
-        if n.label and n.label not in names:
-            names.append(n.label)
+    names = [n.label for n in _topic_nodes(graph)]
     head = roots[0].summary if roots and roots[0].summary else ""
     return " · ".join(names[:4]) + (f" — {head[:80]}" if head else "")
 
 
-def _queries_for(nodes: list[ConceptNode], llm, llm_kwargs, topic: str = "") -> list[tuple[ConceptNode, str]]:
+def _query_tokens(text: str) -> list[str]:
+    """검색어의 내용 토큰 (기능어 뺀 영숫자 낱말, 원래 대소문자)."""
+    return [t for t in _QUERY_TOKEN_RE.findall(text or "") if t.lower() not in _QUERY_FILLER]
+
+
+def _topic_tokens_for(node: ConceptNode, topic_nodes: list[ConceptNode], query: str) -> list[str]:
+    """이 개념의 검색어에 붙일 주제 토큰. 영문 라벨만, 자기 자신·검색어에 이미 있는 낱말은 빼고, 최대 QUERY_TOPIC_TOKENS 개.
+    라벨은 **통째로** 붙인다 — "Slide-Speech Alignment" 를 "Slide" 로 자르면 뜻이 없는 낱말이 검색어가 된다. 다 안 들어가면 그 라벨은 건너뛴다."""
+    have = {t.lower() for t in _query_tokens(query)}
+    out: list[str] = []
+    for n in topic_nodes:
+        if n.id == node.id or _needs_translation(n.label):
+            continue
+        toks = [t for t in _query_tokens(n.label) if t.lower() not in have]
+        if not toks or len(out) + len(toks) > QUERY_TOPIC_TOKENS:
+            continue
+        out.extend(toks)
+        have.update(t.lower() for t in toks)
+        if len(out) >= QUERY_TOPIC_TOKENS:
+            break
+    return out
+
+
+@dataclass
+class _NodeQuery:
+    """개념 하나의 검색어. topic 이 비어 있지 않으면 짧은 검색어에 주제 토큰을 붙인 것이다 (query = concept + " " + topic)."""
+    node: ConceptNode
+    query: str
+    concept: str
+    topic: str = ""
+
+
+def _queries_for(nodes: list[ConceptNode], llm, llm_kwargs, topic: str = "",
+                 topic_nodes: list[ConceptNode] | None = None) -> list[_NodeQuery]:
+    """개념마다 검색어. 영문 라벨은 그대로, 한글은 번역. 내용 토큰이 QUERY_MIN_TOKENS 미만이면 주제 토큰을 붙인다
+    (번역 프롬프트엔 이미 주제가 실리지만, 결과가 짧으면 같은 보강을 한다)."""
     plain: dict[str, str] = {}
     to_translate: list[tuple[str, str]] = []
     for n in nodes:
@@ -164,11 +224,14 @@ def _queries_for(nodes: list[ConceptNode], llm, llm_kwargs, topic: str = "") -> 
             desc = n.label + (f" — {n.summary}" if n.summary else "")
             to_translate.append((n.id, desc[:160]))
     translated = _translate_queries(to_translate, llm, llm_kwargs, topic)
-    out: list[tuple[ConceptNode, str]] = []
+    out: list[_NodeQuery] = []
     for n in nodes:
         q = plain.get(n.id) or translated.get(n.id) or _ascii_fallback(n.label, n.summary)
-        if q:
-            out.append((n, q))
+        if not q:
+            continue
+        extra = _topic_tokens_for(n, topic_nodes or [], q) if len(_query_tokens(q)) < QUERY_MIN_TOKENS else []
+        topic_part = " ".join(extra)
+        out.append(_NodeQuery(node=n, query=f"{q} {topic_part}" if topic_part else q, concept=q, topic=topic_part))
     return out
 
 
@@ -197,6 +260,29 @@ def _same_paper(deck: PaperRef, hit: PaperRef) -> bool:
     if not a or not b:
         return False
     return len(a & b) / len(a | b) >= RESOLVE_MATCH_MIN
+
+
+def _shares(want: set[str], have: set[str]) -> bool:
+    return not want or len(want & have) >= RELEVANCE_SHARED_MIN
+
+
+def _relevant(hit: PaperRef, query: str, topic: str = "") -> bool:
+    """검색 결과가 검색어와 낱말(어간)을 RELEVANCE_SHARED_MIN 개 이상 나누는가. 검색어에 낱말이 없으면 참 (볼 것이 없다).
+
+    topic 을 주면(짧은 검색어에 주제 토큰을 붙인 경우) query 는 **개념 부분**이고, 개념 낱말과 주제 낱말을 **각각**
+    나눠야 남는다 — "B2C" 만 맞는 당뇨 선별 B2C 모델 논문은 presentation·coaching 이 없어 떨어진다."""
+    have = _word_stems(hit.title) | _word_stems(hit.abstract)
+    if not topic:
+        return _shares(_word_stems(query), have)
+    return _shares(_word_stems(query), have) and _shares(_word_stems(topic) - _word_stems(query), have)
+
+
+def _dropped_note(n: int) -> str:
+    return f"관련성 없음 {n}건 버림" if n else ""
+
+
+def _join_notes(*notes: str) -> str:
+    return " · ".join(n for n in notes if n)
 
 
 def _search_many(provider: ScholarProvider, jobs: list[tuple[str, object]]) -> tuple[dict[str, list[PaperRef]], str]:
@@ -271,9 +357,9 @@ def build_papers(
     resolvable = [r for r in deck if r.title or r.doi][:RESOLVE_DECK_MAX]
     for ref in resolvable:
         jobs.append((f"resolve:{ref.cite_key}", (lambda r=ref: provider.resolve(r.title, r.doi))))
-    node_queries = _queries_for(_pick_nodes(graph, node_max), llm, llm_kwargs, _topic_line(graph))
-    for node, query in node_queries:
-        jobs.append((f"node:{node.id}", (lambda q=query: provider.search(q, limit=per_node))))
+    node_queries = _queries_for(_pick_nodes(graph, node_max), llm, llm_kwargs, _topic_line(graph), _topic_nodes(graph))
+    for nq in node_queries:
+        jobs.append((f"node:{nq.node.id}", (lambda q=nq.query: provider.search(q, limit=per_node))))
     results, note = _search_many(provider, jobs)
 
     # ① deck 되찾기 — 같은 논문일 때만 채운다. kind 는 deck 그대로 (자료가 인용한 사실이 근거다).
@@ -293,8 +379,16 @@ def build_papers(
     # ② 개념별 검색 — deck 과 겹치면 deck 에 node_ids 만 더하고 버린다.
     seen = {_dedup_key(r): r for r in deck}
     scholar_refs: list[PaperRef] = []
-    for node, _ in node_queries:
+    dropped = 0
+    for nq in node_queries:
+        node = nq.node
         for hit in results.get(f"node:{node.id}") or []:
+            # 검색어와 낱말 하나 안 나누는 결과는 버린다 — deck 과 겹치는지 보기 **전에** (엉뚱한 개념을 deck 에 붙이지 않게).
+            # 보강된 검색어면 개념 낱말·주제 낱말을 각각 나눠야 한다. 다 떨어지면 그 개념은 문헌 없이 간다 (다른 논문을 끌어오지 않는다).
+            if not _relevant(hit, nq.concept, nq.topic):
+                dropped += 1
+                continue
+            hit.query = hit.query or nq.query      # 디버깅용 — 실제로 보낸(보강된) 검색어
             key = _dedup_key(hit)
             if key in seen:
                 if node.id not in seen[key].node_ids:
@@ -306,6 +400,7 @@ def build_papers(
 
     _assign_ids(deck, "d")
     _assign_ids(scholar_refs, "s")
+    note = _join_notes(note, _dropped_note(dropped))
     if not note and not scholar_refs and node_queries:
         note = "검색 결과 없음"
     if not node_queries and not deck:
@@ -342,7 +437,9 @@ def search_papers(
             return PaperDoc(file_name="", provider=provider.name,
                             note="검색어를 영어로 만들지 못했어요 — 영어로 다시 물어봐 주세요")
     results, note = _search_many(provider, [("q", (lambda: provider.search(search_q, limit=max(1, limit))))])
-    refs = results.get("q") or []
+    hits = results.get("q") or []
+    refs = [r for r in hits if _relevant(r, search_q)]
+    note = _join_notes(note, _dropped_note(len(hits) - len(refs)))
     for r in refs:
         r.query = search_q
     _assign_ids(refs, "s")

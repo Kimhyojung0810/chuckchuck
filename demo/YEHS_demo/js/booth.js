@@ -45,7 +45,7 @@ import {
 } from './booth_logic.js?v=b8';
 import {
   askQuestion, createOverlayState, enterPresent, enterQa, renderOverlay, setCaption, setMainOf, setPhaseOf,
-} from './booth_overlay_state.js?v=o2';
+} from './booth_overlay_state.js?v=o3';
 
 const PARSE_TIMEOUT_MS = 120000;
 const SOUND_KEY = 'cheokcheok:booth-sound';
@@ -116,6 +116,7 @@ const state = {
   lastTell: '',
   calib: null,          // { until, motion: [], level: [] }
   typeTimer: null,      // 긴 질문을 어절 단위로 흘려 쓰는 중
+  cutFrame: 0,          // 말풍선 열 스크롤 → markCut 한 프레임 한 번
 };
 const QUIET_MS = 2500;
 const COUNTDOWN_S = 3;
@@ -501,6 +502,7 @@ function watchDock() {
     call.style.setProperty('--call-h', `${Math.round(call.getBoundingClientRect().height)}px`);
     // 조작줄이 자라면(판정 뒤 「다음 질문」이 뜨면) 말풍선 칸이 줄어 새 풍선 아래가 잘렸다 — 바닥에 다시 붙인다
     pinLatest(log);
+    markCut(log);
   });
   state.dockObserver.observe(dock);
   state.dockObserver.observe(call);
@@ -571,6 +573,7 @@ function bubble(side, html, { kind = '', verdict = '' } = {}) {
   while (log.childElementCount > 80) log.removeChild(log.firstChild);
   markOlder(log);
   pinLatest(log);
+  markCut(log);
   return el;
 }
 
@@ -587,7 +590,8 @@ function pinLatest(log) {
   }
 }
 
-const EXPANDABLE = '.is-older, .is-verdict, .is-hint, .is-giveup';
+/* .can-expand — 지금 묻는 질문이 두 줄 창을 넘칠 때만 (typeQuestion 이 붙인다). 두 줄 안에 들면 펼칠 것이 없다 */
+const EXPANDABLE = '.is-older, .is-verdict, .is-hint, .is-giveup, .is-question.can-expand';
 /** 펼칠 수 있는 풍선만 키보드로 닿게 한다 — tabindex·role·aria-expanded. 못 펼치는 풍선에는 붙이지 않는다 */
 function syncExpandable(b) {
   if (b.matches(EXPANDABLE)) {
@@ -602,8 +606,42 @@ function syncExpandable(b) {
 }
 
 function toggleBubble(b) {
-  b.classList.toggle('is-expanded');
-  b.setAttribute('aria-expanded', String(b.classList.contains('is-expanded')));
+  const open = b.classList.toggle('is-expanded');
+  b.setAttribute('aria-expanded', String(open));
+  const qEl = b.querySelector('.call-q');
+  if (qEl && b.classList.contains('is-question')) {
+    // 흘려 쓰는 중에 펼치면 남은 어절을 한 번에 다 보인다. 접으면 질문 머리부터 보이게
+    if (open) finishTyping(qEl);
+    qEl.scrollTop = 0;
+    if (open) revealBubble(b);
+  }
+  markCut($('call-bubbles'));
+}
+
+/** 펼친 풍선이 열 안에서 보이게 — 열보다 크면 머리를, 아니면 바닥까지. 열 밖(페이지)은 스크롤하지 않는다 */
+function revealBubble(b) {
+  const log = $('call-bubbles');
+  const lr = log.getBoundingClientRect();
+  const br = b.getBoundingClientRect();
+  if (br.height > lr.height || br.top < lr.top) log.scrollTop += br.top - lr.top - 8;
+  else if (br.bottom > lr.bottom) log.scrollTop += br.bottom - lr.bottom;
+}
+
+/**
+ * 열 위 가장자리에 걸려 잘린 풍선은 통화(qa)에서 숨긴다 (CSS .is-cut → 투명). 9/24 실험실 4_call_answer:
+ * 내 답 풍선의 마지막 줄만 열 꼭대기(무대 ≈49%, 얼굴 한가운데)에 걸려 위쪽 흐림 마스크 속에서 옅은 초록 띠 +
+ * 유령 글씨로 남았다 — 발표 자막(#present-caption)이 아니라 이것이 「자막 잔상」이었다. 스크롤해 올리면 다시 보인다.
+ * 가장 새 풍선과 사용자가 펼친 풍선은 숨기지 않는다. 글자는 DOM 에 그대로(innerText·실험실 개수 그대로)
+ */
+function markCut(log) {
+  if (!log) return;
+  const top = log.getBoundingClientRect().top;
+  const items = log.children;
+  const n = items.length;
+  for (let i = 0; i < n; i++) {
+    const b = items[i];
+    b.classList.toggle('is-cut', i < n - 1 && !b.classList.contains('is-expanded') && b.getBoundingClientRect().top < top - 1);
+  }
 }
 
 /**
@@ -629,6 +667,9 @@ function typeQuestion(el) {
   state.typeTimer = null;
   if (!el || el.scrollHeight <= el.clientHeight + 1) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // 두 줄을 넘친다 — 눌러서 한 번에 다 볼 수 있게 (Festa 홀은 시끄러워 읽어 주기만으로는 안 들린다)
+  const qb = el.closest('.call-bubble');
+  if (qb) { qb.classList.add('can-expand'); syncExpandable(qb); }
   const words = el.textContent.split(/\s+/).filter(Boolean);
   el.innerHTML = words.map((w) => `<span class="call-w">${esc(w)}</span>`).join(' ');
   el.classList.add('is-typing');
@@ -645,6 +686,14 @@ function typeQuestion(el) {
   };
   step();
   state.typeTimer = setInterval(step, TYPE_WORD_MS);
+}
+/** 흘려 쓰기를 끝낸다 — 타이머를 멈추고 남은 어절을 다 켠다 (펼치기가 부른다). 흘리는 중이 아니면 아무것도 안 한다 */
+function finishTyping(el) {
+  if (!el || !el.classList.contains('is-typing')) return;
+  clearInterval(state.typeTimer);
+  state.typeTimer = null;
+  el.querySelectorAll('.call-w').forEach((w) => w.classList.add('is-on'));
+  el.classList.remove('is-typing');
 }
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -1372,7 +1421,12 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { e.preventDefault(); stepSlide(1); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); stepSlide(-1); }
 });
-// 풍선을 누르면 펼치고 다시 누르면 접는다 — 옛 풍선(한 줄)·판정·힌트·포기(두 줄 상한)
+// 열을 스크롤하면 위 가장자리에 걸린 풍선을 다시 가린다/보인다 (markCut). 한 프레임에 한 번만
+$('call-bubbles').addEventListener('scroll', () => {
+  if (state.cutFrame) return;
+  state.cutFrame = requestAnimationFrame(() => { state.cutFrame = 0; markCut($('call-bubbles')); });
+}, { passive: true });
+// 풍선을 누르면 펼치고 다시 누르면 접는다 — 옛 풍선(한 줄)·판정·힌트·포기(두 줄 상한)·넘치는 지금 질문
 $('call-bubbles').addEventListener('click', (e) => {
   const b = e.target.closest('.call-bubble');
   if (b && b.matches(EXPANDABLE)) toggleBubble(b);

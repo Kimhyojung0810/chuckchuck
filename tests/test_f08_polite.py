@@ -42,3 +42,42 @@ def test_only_the_ending_changes():
     out = _polite_question(raw)
     assert out.startswith("'잠깐'이라고 표현한 이유는 무엇이며,")
     assert out.endswith("어떻게 되나요?")
+
+
+# ---------------------------------------------------------------------------
+# _plain_speech — 문장 가운데 높임 (2026-09-24 실측: "인용하셨는데 … 판단하신 근거는")
+# ---------------------------------------------------------------------------
+
+from chuckchuck.f08_questions import _plain_speech  # noqa: E402
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("Leroy (2009)를 인용하셨는데, 왜 그런가요?", "Leroy (2009)를 인용했는데, 왜 그런가요?"),
+    ("핵심이라고 판단하신 근거는 무엇인가요?", "핵심이라고 판단한 근거는 무엇인가요?"),
+    ("이 방식을 선택하셨을 때 무엇을 봤나요?", "이 방식을 선택했을 때 무엇을 봤나요?"),
+    ("결과가 어떻게 되셨나요?", "결과가 어떻게 됐나요?"),
+    ("설명하시는 방식은 무엇인가요?", "설명하는 방식은 무엇인가요?"),
+    ("어떻게 적용하실 건가요?", "어떻게 적용할 건가요?"),
+    ("발표에서 말씀하신 수치는 어디서 왔나요?", "발표에서 말한 수치는 어디서 왔나요?"),
+    ("그때 학생이셨나요?", "그때 학생이었나요?"),
+    ("담당이 누구이셨나요?", "담당이 누구였나요?"),
+    ("사용자께 어떤 가치를 주나요?", "사용자에게 어떤 가치를 주나요?"),
+])
+def test_plain_speech_lowers_mid_sentence_honorifics(raw, expected):
+    assert _plain_speech(raw) == expected
+
+
+@pytest.mark.parametrize("already", [
+    "교수님께서 무엇을 물었나요?",          # '께서' 는 건드리지 않는다
+    "두 기능을 함께 쓰면 어떤가요?",        # '함께' 의 '께' 는 조사가 아니다
+    "그저께 측정한 값인가요?",
+    "왜 그렇게 판단했나요?",                 # 이미 평서
+    "설명해 주세요.",
+    "",
+])
+def test_plain_speech_leaves_plain_text_alone(already):
+    assert _plain_speech(already) == already
+
+
+def test_plain_speech_then_polite_question():
+    assert _polite_question(_plain_speech("판단하신 근거는 무엇인가?")) == "판단한 근거는 무엇인가요?"
