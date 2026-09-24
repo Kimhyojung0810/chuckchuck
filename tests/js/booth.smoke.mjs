@@ -25,6 +25,14 @@ async function importSource(src) {
 }
 const L = await importSource(readFileSync(LOGIC_PATH, 'utf8'));
 
+/* 오버레이 상태(booth_overlay_state.js)는 booth_logic 을 './booth_logic.js?v=…' 로 import 한다.
+   data: URL 에서는 상대 경로가 안 풀리므로 그 한 줄만 booth_logic 의 data: URL 로 바꿔 올린다 (나머지는 원본 그대로) */
+const OVERLAY_PATH = path.join(ROOT, 'demo/YEHS_demo/js/booth_overlay_state.js');
+const LOGIC_URL = `data:text/javascript;base64,${Buffer.from(readFileSync(LOGIC_PATH, 'utf8')).toString('base64')}`;
+const overlaySrc = readFileSync(OVERLAY_PATH, 'utf8');
+if (!/from '\.\/booth_logic\.js(\?v=[^']*)?'/.test(overlaySrc)) throw new Error('booth_overlay_state.js 의 booth_logic import 가 바뀌었어요 — 스모크의 치환도 같이 고쳐요');
+const O = await importSource(overlaySrc.replace(/from '\.\/booth_logic\.js(\?v=[^']*)?'/, `from '${LOGIC_URL}'`));
+
 const cases = [];
 function test(name, fn) { cases.push({ name, fn }); }
 function eq(a, b, msg = '') {
@@ -73,6 +81,24 @@ test('카메라 오류는 다음 행동이 보이는 말로 — 코드를 그대
   for (const name of ['NotAllowedError', 'NotFoundError', 'NotReadableError', 'WeirdError', undefined]) {
     const t = L.cameraErrorText(name ? { name } : null);
     if (/Error/.test(t) || !/(사진을 찍어 올리|다시 누르)/.test(t)) throw new Error(`${name}: ${t}`);
+  }
+});
+/* 토스 오류 문구 시스템 — 무슨 일 · 왜 · 이제 뭘. 가지마다 원인 한 마디와 다음 행동 한 마디가 있어야 한다 */
+const CAMERA_ERRORS = ['NotAllowedError', 'SecurityError', 'NotFoundError', 'OverconstrainedError', 'NotReadableError', 'AbortError', 'WeirdError', undefined];
+function threeParts(t, label) {
+  const sentences = t.split(/(?<=요\.)\s*/).filter(Boolean);
+  if (sentences.length < 2 || !sentences.every((x) => /요\.$/.test(x))) throw new Error(`${label}: 해요체 문장으로 끝나야 해요 — ${t}`);
+  if (!/(권한|다른 앱|찾을 수|지원)/.test(t)) throw new Error(`${label}: 원인(왜)이 없어요 — ${t}`);
+  if (!/(올리면|누르면|눌러요)/.test(t)) throw new Error(`${label}: 다음 행동(이제 뭘)이 없어요 — ${t}`);
+  if (/(주세요|세요\.)/.test(t)) throw new Error(`${label}: 과한 경어 — ${t}`);
+}
+test('카메라 오류 문구는 가지마다 무슨 일·왜·이제 뭘 세 가지를 다 말한다', () => {
+  for (const name of CAMERA_ERRORS) threeParts(L.cameraErrorText(name ? { name } : null), `담기 ${name}`);
+});
+test('통화 중 내 모습 오류는 「카메라 켜기」로 가는 길과 목소리로 이어지는 통화를 말한다', () => {
+  for (const name of CAMERA_ERRORS) {
+    const t = L.selfViewErrorText(name ? { name } : null);
+    if (!/「카메라 켜기」를 (한 번 더 )?눌러요/.test(t) || !t.includes('목소리로 통화해요') || /Error|주세요/.test(t)) throw new Error(`${name}: ${t}`);
   }
 });
 
@@ -147,7 +173,7 @@ test('침묵 판정: 말한 게 있고 2.5초 조용하면 끝, 아무 말 없�
 });
 test('카운트다운 문구는 고칠 길을 말한다', () => {
   if (!L.countdownText(2.2).startsWith('3초')) throw new Error(L.countdownText(2.2));
-  if (!L.countdownText(3).includes('고치려면')) throw new Error(L.countdownText(3));
+  if (L.countdownText(3) !== '3초 뒤에 보낼게요. 고치려면 자막을 눌러요.') throw new Error(L.countdownText(3));
   eq(L.countdownText(0), '보내는 중이에요.');
 });
 test('판정 말풍선: 반응+요약 → 빠진 것 → 되묻기(평소) 또는 정답 요지(포기)', () => {
@@ -305,6 +331,80 @@ test('지금 눌릴 수 없는 버튼은 말로도 안 눌린다 · 단어 일�
   eq(L.voiceCommand('그다음 질문'), null, '붙어 있으면 단어의 일부');
   eq(L.voiceCommand(''), null);
   eq(L.voiceCommand('   '), null);
+});
+
+/* ── 오버레이 상태 (캠 트랙 P0-3) ─────────────────────────────────────────── */
+/** renderOverlay 가 쓰는 칸만 흉내 낸 가짜 요소 */
+function fakeEls() {
+  const mk = (extra = {}) => ({ dataset: {}, hidden: false, textContent: '', ...extra });
+  return { call: mk(), seat: mk(), status: mk(), clock: mk(), qaCount: mk({ hidden: true }), autotalk: mk({ hidden: true }), caption: mk() };
+}
+test('오버레이 첫 상태는 booth.html 기본값(발표 · 자료 메인 · present)과 같다', () => {
+  const s = O.createOverlayState();
+  eq([s.mode, s.main, s.phase, s.question, s.speaker, s.mood, s.caption, s.verdict, s.handRaised],
+    ['present', 'slides', 'present', null, 'solar', 'neutral', '', '', false]);
+});
+test('전이 함수는 받은 상태를 고치지 않고 새 객체를 돌려준다', () => {
+  const s = Object.freeze(O.createOverlayState());
+  const steps = [O.enterQa(s), O.enterPresent(s), O.setMainOf(s, 'self'), O.setPhaseOf(s, 'asking'),
+    O.askQuestion(s, { text: '왜요?', tag: '근거', scene: 1 }), O.setCaption(s, '안녕')];
+  for (const n of steps) if (n === s) throw new Error('같은 객체를 돌려줬어요');
+  eq(s.mode, 'present'); eq(s.main, 'slides'); eq(s.caption, '');
+});
+test('발표 → Q&A: 내 모습이 메인, 시계는 숨고 질문 번호·자동 대화가 뜬다', () => {
+  const el = fakeEls();
+  const a = O.createOverlayState();
+  O.renderOverlay(a, el);
+  eq([el.call.dataset.mode, el.clock.hidden, el.qaCount.hidden, el.autotalk.hidden], ['present', false, true, true]);
+  const b = O.enterQa(a);
+  O.renderOverlay(b, el, a);
+  eq([el.call.dataset.mode, el.call.dataset.main, el.clock.hidden, el.qaCount.hidden, el.autotalk.hidden], ['qa', 'self', true, false, false]);
+});
+test('Q&A → 다시 발표: 자료가 메인이고 질문·판정·자막을 비운다', () => {
+  let s = O.askQuestion(O.setPhaseOf(O.enterQa(O.createOverlayState()), 'judged', 'good'), { text: 'Q', tag: 't', scene: 2 });
+  s = O.setCaption(s, '남은 자막');
+  const p = O.enterPresent(s);
+  eq([p.mode, p.main, p.question, p.verdict, p.caption], ['present', 'slides', null, '', '']);
+});
+test('단계 → 삐약이 기분은 booth_logic.partnerMood 규칙을 그대로 따른다', () => {
+  for (const [phase, v] of [['asking', ''], ['hint', ''], ['listening', ''], ['judging', ''], ['judged', 'good'], ['judged', 'wrong'], ['judged', 'partial'], ['present', '']]) {
+    const s = O.setPhaseOf(O.createOverlayState(), phase, v);
+    eq(s.mood, L.partnerMood(phase, v), `${phase}/${v}`);
+    eq([s.phase, s.verdict], [phase, v]);
+  }
+});
+test('단계를 그리면 data-phase·표정·이름표 한 줄이 같이 바뀐다 (판정 뒤에는 이름표를 비운다)', () => {
+  const el = fakeEls();
+  let s = O.setPhaseOf(O.createOverlayState(), 'judging');
+  O.renderOverlay(s, el);
+  eq([el.call.dataset.phase, el.seat.dataset.mood, el.status.textContent], ['judging', 'neutral', '생각하는 중']);
+  s = O.setPhaseOf(s, 'judged', 'good');
+  O.renderOverlay(s, el);
+  eq([el.call.dataset.phase, el.seat.dataset.mood, el.status.textContent], ['judged', 'happy', '']);
+});
+test('메인 바꾸기: slides ↔ self 만 받고, 모르는 값이면 그대로 둔다', () => {
+  const s = O.createOverlayState();
+  eq(O.setMainOf(s, 'self').main, 'self');
+  eq(O.setMainOf(O.setMainOf(s, 'self'), 'slides').main, 'slides');
+  if (O.setMainOf(s, 'face') !== s) throw new Error('모르는 값인데 새 상태를 만들었어요');
+});
+test('prev 를 주면 바뀐 칸만 쓴다 — 지적 중 작은 창을 눌러도 삐약이 표정·이름표를 덮지 않는다', () => {
+  const el = fakeEls();
+  const a = O.createOverlayState();
+  O.renderOverlay(a, el);
+  el.seat.dataset.mood = 'happy'; el.status.textContent = '좋아요';   // showTell 이 잠깐 바꿔 둔 것
+  const b = O.setMainOf(a, 'self');
+  O.renderOverlay(b, el, a);
+  eq([el.call.dataset.main, el.seat.dataset.mood, el.status.textContent], ['self', 'happy', '좋아요']);
+});
+test('질문·자막: 질문은 {text, tag, scene} 로 담기고 자막은 그대로 그려진다', () => {
+  const el = fakeEls();
+  const a = O.createOverlayState();
+  const b = O.setCaption(O.askQuestion(a, { text: '왜 SaaS 인가요?', tag: 'B2B', scene: 2 }), '저희 서비스는');
+  eq(b.question, { text: '왜 SaaS 인가요?', tag: 'B2B', scene: 2 });
+  O.renderOverlay(b, el, a);
+  eq(el.caption.textContent, '저희 서비스는');
+  eq(O.askQuestion(b, null).question, null);
 });
 
 /* ── 하네스가 진짜로 회귀를 잡는지 ─────────────────────────────────────────── */

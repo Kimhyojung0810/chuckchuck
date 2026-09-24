@@ -6,7 +6,7 @@
     scripts/chk bump --dry-run
 
 규칙
-- `자산?v=TOKEN` 으로 무는 곳(gate.ASSET_HOSTS: index.html · booth.html · js/booth.js 의 import)만 다룬다.
+- `자산?v=TOKEN` 으로 무는 곳(gate.ASSET_HOSTS: index.html · booth.html · js/booth.js · js/booth_overlay_state.js 의 import)만 다룬다.
   어느 곳도 안 무는 파일(landing*.js 등)은 알려 주고 넘어간다.
 - f11_reveal.html 이 바뀌면 index.html 이 아니라 js/app.js 의 `f11_reveal.html?embed=1&v=` 를 올린다.
   그러면 app.js 가 바뀌므로 app.js 의 ?v= 도 같이 올린다.

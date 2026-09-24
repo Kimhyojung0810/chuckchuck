@@ -47,13 +47,30 @@ export function shotsAdvice(n) {
   return `${n}장 담았어요. 서로 다른 장면일수록 좋아요.`;
 }
 
-/** 카메라 오류 코드 → 다음에 뭘 하면 되는지가 보이는 말. */
+/**
+ * 카메라 오류 코드 → 무슨 일 · 왜 · 이제 뭘 (토스 오류 문구 시스템, cam-track §3-1).
+ * 담기 단계용 — 다음 길은 「사진 찍어 올리기」다 (버튼이 그쪽으로 바뀐다).
+ */
 export function cameraErrorText(err) {
   const name = (err && err.name) || '';
-  if (name === 'NotAllowedError' || name === 'SecurityError') return '카메라 권한이 없어요. 사진을 찍어 올리면 같은 체험을 할 수 있어요.';
-  if (name === 'NotFoundError' || name === 'OverconstrainedError') return '카메라를 찾지 못했어요. 사진을 찍어 올리면 같은 체험을 할 수 있어요.';
-  if (name === 'NotReadableError' || name === 'AbortError') return '다른 앱이 카메라를 쓰고 있어요. 그 앱을 닫고 다시 누르면 열려요.';
-  return '카메라를 열지 못했어요. 사진을 찍어 올리면 같은 체험을 할 수 있어요.';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return '카메라 권한이 꺼져 있어서 열 수 없어요. 사진을 찍어 올리면 같은 체험을 할 수 있어요.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return '이 기기에서 카메라를 찾을 수 없어요. 사진을 찍어 올리면 같은 체험을 할 수 있어요.';
+  if (name === 'NotReadableError') return '다른 앱이 카메라를 쓰고 있어서 열 수 없어요. 그 앱을 닫고 다시 누르면 열려요.';
+  if (name === 'AbortError') return '카메라를 여는 중에 끊겼어요. 다른 앱이 쓰고 있거나 장치가 잠깐 응답하지 않았어요. 그 앱을 닫고 다시 누르면 열려요.';
+  return '카메라를 열지 못했어요. 이 브라우저가 지원하지 않을 수 있어요. 사진을 찍어 올리면 같은 체험을 할 수 있어요.';
+}
+
+/**
+ * 통화 중 내 모습(앞카메라)을 못 열었을 때. 통화는 목소리로 이어진다 — 다음 길은 「카메라 켜기」다.
+ * (예전엔 cameraErrorText 에서 문장을 잘라 붙였다 — 문장이 바뀌면 조용히 안 잘렸다)
+ */
+export function selfViewErrorText(err) {
+  const name = (err && err.name) || '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return '카메라 권한이 꺼져 있어요. 권한을 켜고 「카메라 켜기」를 눌러요. 그때까지 목소리로 통화해요.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return '카메라를 찾을 수 없어요. 카메라를 연결하고 「카메라 켜기」를 눌러요. 그때까지 목소리로 통화해요.';
+  if (name === 'NotReadableError') return '다른 앱이 카메라를 쓰고 있어요. 그 앱을 닫고 「카메라 켜기」를 눌러요. 그때까지 목소리로 통화해요.';
+  if (name === 'AbortError') return '카메라를 여는 중에 끊겼어요. 다른 앱이 쓰고 있거나 장치가 잠깐 응답하지 않았어요. 그 앱을 닫고 「카메라 켜기」를 눌러요. 그때까지 목소리로 통화해요.';
+  return '카메라를 열지 못했어요. 「카메라 켜기」를 한 번 더 눌러요. 그때까지 목소리로 통화해요.';
 }
 
 /* ─── 말해서 답하기 ─────────────────────────────────────────────────────── */
@@ -187,7 +204,7 @@ export function speechSettled({ lastChangeAt, now, text, quietMs = 2500 }) {
 /** 보내기 전 카운트다운 문구. 고칠 틈을 눈에 보이게 남긴다 — 자동으로 보내되 몰래 보내지 않는다. */
 export function countdownText(secondsLeft) {
   const n = Math.max(0, Math.ceil(Number(secondsLeft) || 0));
-  return n > 0 ? `${n}초 뒤에 보낼게요. 고치려면 자막을 누르세요.` : '보내는 중이에요.';
+  return n > 0 ? `${n}초 뒤에 보낼게요. 고치려면 자막을 눌러요.` : '보내는 중이에요.';
 }
 
 /**

@@ -14,7 +14,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="css/app.css?v=ql3">
 <link rel="stylesheet" href="css/chatter.css?v=qkh">
-<link rel="stylesheet" href="css/booth.css?v=b8">
+<link rel="stylesheet" href="css/booth.css?v=b11">
 </head>
 <body class="booth-body">
 <main class="booth" id="booth">
@@ -71,7 +71,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
       </div>
     </div>
 
-    <p class="booth-note booth-consent">담은 장면과 답은 지금 질문·판정에만 써요. 회사 자료는 공개해도 되는 것만 담아 주세요.</p>
+    <p class="booth-note booth-consent">담은 장면과 답은 지금 질문·판정에만 써요. 회사 자료는 공개해도 되는 것만 담아요.</p>
     <button class="btn btn-primary booth-cta" id="btn-go" type="button" disabled>질문 만들기</button>
   </section>
 
@@ -127,7 +127,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
         <!-- 계기 — 운영자용. 이 컴퓨터의 움직임·음량 기준을 눈으로 보고 맞춘다 (기본 숨김 · ?meter=1 이면 켠 채 시작) -->
         <div class="call-meter glass" id="call-meter" data-mode="present" hidden>
           <p class="call-meter-read" id="meter-read">—</p>
-          <p class="call-meter-note" id="meter-note" hidden></p>
+          <p class="call-meter-note" id="meter-note" aria-live="polite" hidden></p>
           <div class="call-meter-row">
             <button class="btn" id="btn-calibrate" type="button">기준 맞추기 (5초 가만히)</button>
             <button class="btn" id="btn-calib-reset" type="button">기본값으로</button>
@@ -150,7 +150,7 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
           <div class="call-caption">
             <p class="call-mic-note" id="qa-mic-note" aria-live="polite" hidden></p>
             <!-- 발표 중: 지금 말하는 문장이 자막으로 흐른다(고칠 필요 없음) -->
-            <p class="call-live glass" id="present-caption" data-mode="present"></p>
+            <p class="call-live glass" id="present-caption" data-mode="present" aria-live="off"></p>
             <!-- Q&A: 눌러서 고칠 수 있는 자막 -->
             <textarea id="qa-answer" class="glass" rows="2" data-mode="qa" placeholder="말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요."></textarea>
           </div>
@@ -189,6 +189,6 @@ docs/plan/booth-screen-qa.plan.md 가 설계 원본이에요.
 
 </main>
 <script src="js/chatter.js?v=qkh"></script>
-<script type="module" src="js/booth.js?v=b9"></script>
+<script type="module" src="js/booth.js?v=b12"></script>
 </body>
 </html>

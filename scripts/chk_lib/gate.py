@@ -90,7 +90,9 @@ def check_node_smoke(files: list[str]) -> Check:
 ASSET_HOSTS: dict[str, str] = {
     "index.html": r"^(css/.+\.css|js/.+\.js)$",
     "booth.html": r"^(css/.+\.css|js/.+\.js)$",
-    "js/booth.js": r"^js/booth_logic\.js$",
+    "js/booth.js": r"^js/booth_(logic|overlay_state)\.js$",
+    # 오버레이 상태 모듈도 booth_logic 을 ?v= 로 문다 — 둘의 값이 다르면 모듈이 두 벌 올라온다 (2026-09-24)
+    "js/booth_overlay_state.js": r"^js/booth_logic\.js$",
 }
 
 

@@ -40,9 +40,12 @@ import {
   DELIVERY, MAX_SHOTS, MIC_LABEL, MIC_LABEL_PRESENT, TELL_STATUS, TELL_WORD, VERDICT_WORD,
   appendTranscript, calibrateDelivery, cameraErrorText, captionTail, captureRoutes, clockText, countdownText,
   createDelivery, deliveryObserve, deliverySummary, fitScale, hintLadder, meterText,
-  judgementBubble, newPen, paintDictation, partnerMood, presentCommand, shotFileName, shotsAdvice,
+  judgementBubble, newPen, paintDictation, presentCommand, selfViewErrorText, shotFileName, shotsAdvice,
   speakableJudgement, speechSettled, tally, voiceCommand,
-} from './booth_logic.js?v=b6';
+} from './booth_logic.js?v=b8';
+import {
+  askQuestion, createOverlayState, enterPresent, enterQa, renderOverlay, setCaption, setMainOf, setPhaseOf,
+} from './booth_overlay_state.js?v=o2';
 
 const PARSE_TIMEOUT_MS = 120000;
 const SOUND_KEY = 'cheokcheok:booth-sound';
@@ -94,6 +97,8 @@ const state = {
   quietTimer: null,
   countdown: null,      // { id, until }
   phase: 'asking',      // present | asking | listening | judging | judged | hint
+  // 오버레이 한 덩어리 (캠 트랙 P0-3) — mode·main·phase 는 여기가 원본이고 아래 셋은 읽기 편하게 둔 사본이다
+  overlay: createOverlayState(),
   // 발표 모드 (9/23) — 통화는 여기서 시작한다
   mode: 'present',      // present | qa
   main: 'slides',       // 프레임을 채우는 쪽. 나머지가 오른쪽 아래 작은 창
@@ -110,6 +115,7 @@ const state = {
   meterOn: false,       // 운영자용 계기. 방문객에게는 안 보인다
   lastTell: '',
   calib: null,          // { until, motion: [], level: [] }
+  typeTimer: null,      // 긴 질문을 어절 단위로 흘려 쓰는 중
 };
 const QUIET_MS = 2500;
 const COUNTDOWN_S = 3;
@@ -152,7 +158,7 @@ function addShot(blob) {
 
 /** 화면 공유 — 자료가 열린 창을 고르면 미리보기가 뜨고, 「이 장면 담기」로 한 프레임씩 담는다. */
 async function startShare() {
-  if (!state.routes.share) { note('capture-note', '이 브라우저는 화면 공유가 안 돼요. 카메라로 찍거나 사진을 올리면 같은 체험을 할 수 있어요.'); return; }
+  if (!state.routes.share) { note('capture-note', '이 브라우저는 화면 공유를 지원하지 않아요. 카메라로 찍거나 사진을 올리면 같은 체험을 할 수 있어요.'); return; }
   stopStream();
   try {
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false });
@@ -396,13 +402,25 @@ async function enterCall() {
   if (!state.selfStream) await openSelfView();
 }
 
+/* ─── 오버레이 상태 → DOM (booth_overlay_state.js). setMode·setMain·setPhase 는 그 위의 얇은 껍질이다 ─── */
+function overlayEls() {
+  return {
+    call: $('call'), seat: $('call-partner-seat'), status: $('call-partner-status'),
+    clock: $('present-clock'), qaCount: $('qa-count'), autotalk: $('btn-autotalk'), caption: $('present-caption'),
+  };
+}
+
+/** 상태를 바꾸고 그린다. force 면 바뀌지 않은 칸도 다시 쓴다 (setPhase 는 늘 이름표·표정을 다시 썼다) */
+function applyOverlay(next, { force = false } = {}) {
+  const prev = state.overlay;
+  state.overlay = next;
+  state.mode = next.mode; state.main = next.main; state.phase = next.phase;
+  renderOverlay(next, overlayEls(), force ? null : prev);
+}
+
 /** 발표 ↔ Q&A. 도구줄에 무엇이 보이는지도 모드가 정한다 (자동 대화는 Q&A 의 것이다) */
 function setMode(mode) {
-  state.mode = mode;
-  $('call').dataset.mode = mode;
-  $('present-clock').hidden = mode !== 'present';
-  $('qa-count').hidden = mode !== 'qa';
-  $('btn-autotalk').hidden = mode !== 'qa';
+  applyOverlay(mode === 'qa' ? enterQa(state.overlay) : enterPresent(state.overlay));
   if (mode !== 'present' && state.meterOn) setMeter(false);   // 계기는 발표 모드의 것이다
   setMic($('btn-mic').dataset.state || 'idle', $('btn-mic').disabled);
 }
@@ -419,7 +437,7 @@ function startPresent() {
   renderSlide();
   state.delivery = createDelivery();
   state.transcript = ''; state.transcriptBase = '';
-  $('present-caption').textContent = '';
+  applyOverlay(setCaption(state.overlay, ''));
   $('call-bubbles').innerHTML = '';
   setPhase('present');
   bubble('partner', '<p class="call-tell">발표해 봐요. 빠르기·「어」「음」·같은 말 반복·멈춤·움직임·목소리 크기가 눈에 띄면 알려 줄게요. 다 하면 「질문 받기」라고 말하거나 눌러요.</p>', { kind: 'tell' });
@@ -461,8 +479,7 @@ function stepSlide(d) {
 
 /** 프레임을 채우는 쪽. 나머지는 오른쪽 아래 작은 창으로 간다 (CSS 가 data-main 으로 그린다) */
 function setMain(which) {
-  state.main = which;
-  $('call').dataset.main = which;
+  applyOverlay(setMainOf(state.overlay, which));
 }
 
 function swapMain() { setMain(state.main === 'slides' ? 'self' : 'slides'); }
@@ -476,10 +493,17 @@ function tapStage(which) {
 function watchDock() {
   if (state.dockObserver || typeof ResizeObserver !== 'function') return;
   const dock = $('call-dock');
+  const log = $('call-bubbles');
+  const call = $('call');
   state.dockObserver = new ResizeObserver(() => {
-    $('call').style.setProperty('--dock-h', `${Math.round(dock.getBoundingClientRect().height)}px`);
+    call.style.setProperty('--dock-h', `${Math.round(dock.getBoundingClientRect().height)}px`);
+    // 말풍선 열 상한(무대의 42% · 폰 36%)이 쓰는 무대 높이
+    call.style.setProperty('--call-h', `${Math.round(call.getBoundingClientRect().height)}px`);
+    // 조작줄이 자라면(판정 뒤 「다음 질문」이 뜨면) 말풍선 칸이 줄어 새 풍선 아래가 잘렸다 — 바닥에 다시 붙인다
+    pinLatest(log);
   });
   state.dockObserver.observe(dock);
+  state.dockObserver.observe(call);
 }
 
 /** 상대편 타일 — 객석의 병아리를 한 마리 앉힌다 (chatter.js chickSvg, 기분은 data-mood). */
@@ -491,13 +515,7 @@ function mountPartner() {
 }
 
 function setPhase(phase, verdict = '') {
-  state.phase = phase;
-  $('call-partner-seat').dataset.mood = partnerMood(phase, verdict);
-  $('call').dataset.phase = phase;
-  $('call-partner-status').textContent = {
-    present: '듣고 있어요',
-    asking: '묻고 있어요', hint: '힌트를 줬어요', listening: '듣고 있어요', judging: '생각하는 중', judged: '',
-  }[phase] || '';
+  applyOverlay(setPhaseOf(state.overlay, phase, verdict), { force: true });
 }
 
 /** 내 모습 — 앞카메라/웹캠. 못 열면 목소리만으로도 통화는 된다. */
@@ -518,7 +536,7 @@ async function openSelfView() {
     stream.getVideoTracks()[0].addEventListener('ended', closeSelfView);
   } catch (err) {
     tile.dataset.camera = 'off';
-    $('call-self-note').textContent = `${cameraErrorText(err).replace(' 사진을 찍어 올리면 같은 체험을 할 수 있어요.', '')} 목소리로 통화해요.`;
+    $('call-self-note').textContent = selfViewErrorText(err);
   }
   $('btn-self-camera').textContent = state.selfStream ? '카메라 끄기' : '카메라 켜기';
 }
@@ -551,8 +569,82 @@ function bubble(side, html, { kind = '', verdict = '' } = {}) {
   el.innerHTML = html;
   log.appendChild(el);
   while (log.childElementCount > 80) log.removeChild(log.firstChild);
-  log.scrollTop = log.scrollHeight;
+  markOlder(log);
+  pinLatest(log);
   return el;
+}
+
+/**
+ * 새 풍선을 보이게 스크롤한다. 보통은 바닥에 붙이고, 가장 새 풍선이 열보다 크면(폰 통화의 판정)
+ * 그 풍선의 머리(pill + 요약)가 보이게 맞춘다 — 3초 안에 읽을 것이 위에 있다. 나머지는 스크롤·누르기로
+ */
+function pinLatest(log) {
+  const last = log.lastElementChild;
+  if (last && last.offsetHeight > log.clientHeight) {
+    log.scrollTop += last.getBoundingClientRect().top - log.getBoundingClientRect().top - 8;
+  } else {
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
+const EXPANDABLE = '.is-older, .is-verdict, .is-hint, .is-giveup';
+/** 펼칠 수 있는 풍선만 키보드로 닿게 한다 — tabindex·role·aria-expanded. 못 펼치는 풍선에는 붙이지 않는다 */
+function syncExpandable(b) {
+  if (b.matches(EXPANDABLE)) {
+    b.tabIndex = 0;
+    b.setAttribute('role', 'button');
+    b.setAttribute('aria-expanded', String(b.classList.contains('is-expanded')));
+  } else {
+    b.removeAttribute('tabindex');
+    b.removeAttribute('role');
+    b.removeAttribute('aria-expanded');
+  }
+}
+
+function toggleBubble(b) {
+  b.classList.toggle('is-expanded');
+  b.setAttribute('aria-expanded', String(b.classList.contains('is-expanded')));
+}
+
+/**
+ * 한 화면 한 메시지 (토스 One Thing Per Page) — 가장 새 두 풍선만 또렷하고 나머지는 옅게(.is-older, CSS 만).
+ * 풍선을 지우거나 is-* 클래스를 빼지 않는다: 스크롤하면 이전 질문이 그대로 있고, 실험실이 개수를 센다.
+ */
+function markOlder(log) {
+  const items = log.children;
+  for (let i = 0; i < items.length; i++) {
+    items[i].classList.toggle('is-older', i < items.length - 2);
+    syncExpandable(items[i]);
+  }
+}
+
+/**
+ * 질문은 두 줄까지만 보인다 (CSS max-height). 넘치면 어절 단위로 흘려 쓰고 창을 따라 내린다 —
+ * 3초 안에 첫 두 줄을 읽고, 나머지는 읽는 속도로 따라온다. 글자는 처음부터 전부 DOM 에 있다
+ * (aria-live·읽어 주기·실험실 innerText 는 전문). 모션 줄이기면 흘리지 않고 CSS 가 상한을 푼다.
+ */
+const TYPE_WORD_MS = 160;
+function typeQuestion(el) {
+  clearInterval(state.typeTimer);
+  state.typeTimer = null;
+  if (!el || el.scrollHeight <= el.clientHeight + 1) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const words = el.textContent.split(/\s+/).filter(Boolean);
+  el.innerHTML = words.map((w) => `<span class="call-w">${esc(w)}</span>`).join(' ');
+  el.classList.add('is-typing');
+  const spans = el.querySelectorAll('.call-w');
+  let i = 0;
+  const step = () => {
+    const w = spans[i++];
+    if (w) {
+      w.classList.add('is-on');
+      const bottom = w.offsetTop + w.offsetHeight;
+      if (bottom > el.scrollTop + el.clientHeight) el.scrollTop = bottom - el.clientHeight;
+    }
+    if (i >= spans.length) { clearInterval(state.typeTimer); state.typeTimer = null; el.classList.remove('is-typing'); }
+  };
+  step();
+  state.typeTimer = setInterval(step, TYPE_WORD_MS);
 }
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -560,10 +652,12 @@ function renderQuestion() {
   const cur = q();
   cancelCountdown();
   $('qa-count').textContent = `${state.idx + 1} / ${state.questions.length}`;
+  state.overlay = askQuestion(state.overlay, { text: cur.question, tag: cur.label || '', scene: (cur.slide_nos || [])[0] ?? null });
   // 질문이 가리키는 장면을 작은 창에 띄운다 — 무엇을 묻는지 눈으로 같이 본다
   if (cur.slide_nos && cur.slide_nos.length) { state.slideIdx = Number(cur.slide_nos[0]) - 1; renderSlide(); }
   const chips = `<span class="booth-chip">${esc(cur.label || '')}</span>${(cur.slide_nos || []).length ? `<span class="booth-chip booth-chip-slide">${esc(cur.slide_nos.join('·'))}번 장면</span>` : ''}`;
-  bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${cur.why ? `<p class="call-why">${esc(cur.why)}</p>` : ''}`, { kind: 'question' });
+  const qb = bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${cur.why ? `<p class="call-why">${esc(cur.why)}</p>` : ''}`, { kind: 'question' });
+  typeQuestion(qb.querySelector('.call-q'));
   $('qa-answer').value = '';
   state.userTyped = false;
   $('qa-answer').placeholder = '말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요.';
@@ -599,10 +693,10 @@ function showHint() {
 async function submit(giveUp) {
   cancelCountdown();
   if (state.mic) await stopMic({ silent: true });
-  if (state.micPending) { note('qa-mic-note', state.micPending === 'transcribing' ? '받아쓰는 중이에요. 글자가 채워지면 보내 주세요.' : '마이크를 여는 중이에요.'); return; }
+  if (state.micPending) { note('qa-mic-note', state.micPending === 'transcribing' ? '받아쓰는 중이에요. 글자가 채워지면 「답하기」를 눌러요.' : '마이크를 여는 중이에요.'); return; }
   const cur = q(); const p = pq();
   const answer = $('qa-answer').value.trim();
-  if (!giveUp && !answer) { note('qa-mic-note', '아직 아무 말도 없어요. 말하거나 자막을 눌러 적어 주세요.'); return; }
+  if (!giveUp && !answer) { note('qa-mic-note', '아직 답이 비어 있어요. 말하거나 자막을 눌러 적어요.'); return; }
   hush();
   setAnswering(false);
   bubble('me', `<p>${esc(giveUp ? (answer || '모르겠어요, 답 볼게요') : answer)}</p>`, { kind: giveUp ? 'giveup' : 'answer' });
@@ -622,7 +716,7 @@ async function submit(giveUp) {
   } catch (err) {
     setAnswering(true);
     setPhase('asking');
-    bubble('partner', `<p>${esc((err && err.message) || '판정을 받지 못했어요. 다시 답하면 할 수 있어요.')}</p>`, { kind: 'error' });
+    bubble('partner', `<p>${esc((err && err.message) || '판정을 받지 못했어요. 연결이 잠깐 끊겼을 수 있어요. 다시 말하거나 적어서 답하면 돼요.')}</p>`, { kind: 'error' });
   }
 }
 
@@ -635,7 +729,7 @@ function renderJudgement(j, giveUp) {
   if (b) {
     const missing = b.missing.length ? `<p class="call-missing-head">빠진 것</p><ul class="booth-missing">${b.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '';
     const tail = b.tail ? `<p class="${b.tail.kind === 'followup' ? 'call-followup' : 'call-explain'}">${esc(b.tail.text)}</p>` : '';
-    bubble('partner', `<span class="booth-pill" data-v="${b.verdict}">${esc(VERDICT_WORD[b.verdict] || b.verdict)}</span><p>${esc(b.text)}</p>${missing}${tail}`, { kind: 'verdict', verdict: b.verdict });
+    bubble('partner', `<span class="booth-pill" data-v="${b.verdict}">${esc(VERDICT_WORD[b.verdict] || b.verdict)}</span><p class="call-sum">${esc(b.text)}</p>${missing}${tail}`, { kind: 'verdict', verdict: b.verdict });
   }
   // 판정이 준 힌트는 사다리에 이어 붙인다 — 코치가 힌트와 이어지는 말로 반응한다
   if (Array.isArray(j.hints) && j.hints.length) {
@@ -674,6 +768,7 @@ function again() {
 
 function finish() {
   if (state.mic) stopMic({ silent: true });
+  clearInterval(state.typeTimer);
   stopClock();
   stopSensors();
   closeSelfView();
@@ -734,7 +829,7 @@ function toggleMic() {
     if (state.dictationDead || !hasLiveDictation()) {
       state.micPending = '';
       setMic('idle');
-      note('qa-mic-note', '이 브라우저는 실시간 받아쓰기가 안 돼요. 피드백 없이 발표하고, 다 하면 「질문 받기」를 눌러요.');
+      note('qa-mic-note', '이 브라우저는 실시간 받아쓰기를 지원하지 않아요. 피드백 없이 발표하고, 다 하면 「질문 받기」를 눌러요.');
       return;
     }
     return startPresentDictation();
@@ -869,7 +964,7 @@ function startPresentDictation() {
         onText: ({ final, interim }) => {
           const text = `${state.transcriptBase}${final} ${interim}`.trim();
           state.transcript = text;
-          $('present-caption').textContent = captionTail(text);
+          applyOverlay(setCaption(state.overlay, captionTail(text)));
           observeDelivery({ text, now: performance.now() });
           if (final.length > seenFinal) {
             const chunk = final.slice(seenFinal);
@@ -1125,7 +1220,7 @@ async function stopMic({ silent = false } = {}) {
   }
   if (mic.dictation) {
     mic.session.stop();
-    if (!silent) note('qa-mic-note', ta.value.trim() ? '자막을 확인하고 「답하기」를 눌러요.' : '말소리를 못 알아들었어요. 다시 말하거나 자막을 눌러 적어 주세요.');
+    if (!silent) note('qa-mic-note', ta.value.trim() ? '자막을 확인하고 「답하기」를 눌러요.' : '말소리를 못 알아들었어요. 다시 말하거나 자막을 눌러 적어요.');
     setMic('idle', !!ta.disabled);
     if (state.phase === 'listening') setPhase('asking');
     return;
@@ -1141,7 +1236,7 @@ async function stopMic({ silent = false } = {}) {
       if (state.autoTalk && !silent) startCountdown();
       else { note('qa-mic-note', '자막을 확인하고 「답하기」를 눌러요.'); $('btn-answer').focus(); }
     } else if (!silent) {
-      note('qa-mic-note', '말소리를 못 알아들었어요. 다시 녹음하거나 자막을 눌러 적어 주세요.');
+      note('qa-mic-note', '말소리를 못 알아들었어요. 다시 녹음하거나 자막을 눌러 적어요.');
     }
   } catch (err) {
     note('qa-mic-note', `받아쓰기에 실패했어요: ${err.message || err}. 자막을 눌러 적어도 돼요.`);
@@ -1277,6 +1372,16 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') { e.preventDefault(); stepSlide(1); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); stepSlide(-1); }
 });
+// 풍선을 누르면 펼치고 다시 누르면 접는다 — 옛 풍선(한 줄)·판정·힌트·포기(두 줄 상한)
+$('call-bubbles').addEventListener('click', (e) => {
+  const b = e.target.closest('.call-bubble');
+  if (b && b.matches(EXPANDABLE)) toggleBubble(b);
+});
+$('call-bubbles').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const b = e.target.closest('.call-bubble');
+  if (b && b === e.target && b.matches(EXPANDABLE)) { e.preventDefault(); toggleBubble(b); }
+});
 $('qa-answer').addEventListener('pointerdown', holdCaption);
 $('qa-answer').addEventListener('focus', holdCaption);
 /* 타이핑은 듣는 중에도 언제나 된다. 손으로 쓴 순간부터 이 질문은 자동 보내기를 멈춘다 —
@@ -1294,7 +1399,7 @@ window.addEventListener('pagehide', () => { hush(); stopStream(); closeSelfView(
  */
 window.boothLab = {
   feed(o) {
-    if (o.text !== undefined) { state.transcript = o.text; $('present-caption').textContent = captionTail(o.text); }
+    if (o.text !== undefined) { state.transcript = o.text; applyOverlay(setCaption(state.overlay, captionTail(o.text))); }
     observeDelivery({ now: performance.now(), ...o });
   },
   get state() { return state; },

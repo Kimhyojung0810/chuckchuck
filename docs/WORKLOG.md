@@ -9,6 +9,20 @@
 
 # 작업 일지
 
+## 2026-09-24 — 캠 트랙(devforCAM): 발표 셀프뷰·Q&A 오버레이를 메인 플로에서 떼어 토스·당근 규칙으로 조인다 (Claude 세션 · 멀티에이전트, 사용자 요청 9/24)
+
+- **왜**: 사용자 "발표 화면에 내가 우하단, QA 는 overlay 로 내 모습이 잘 나오게 — 정상 플로에서 따로 빼 devforCAM 으로 진척도 확인, 우선순위·멀티에이전트·UI/UX 는 토스·당근 데이터 기반".
+  두 요청은 `booth.html` 발표 모드·통화 모드에 이미 있었고, 메인 앱(`app.js`)은 헌장대로 안 건드린다. 설계·우선순위·규칙·진척도는
+  [plan/cam-track.plan.md](plan/cam-track.plan.md), 감사는 `cam-track-audit-ui.md`·`cam-track-audit-copy.md`.
+- **셋팅**: 감사 2(sonnet UI · haiku 문구, 병렬) → 구현 1(opus, booth.* 만) → 실 API 실험실 + 코드 리뷰(병렬) → 고침 2바퀴. 실 API 실험실 3회.
+- **무엇**: P0-1 역할 변수 `--ov-bg/fg/stroke/accent`(당근 fg/bg/stroke), 타이포 3단 20/16/13(폰 18/15/12, SEED t-scale), 버튼 44/폰 48(targetSize),
+  눌림 .96·포커스 2.5px, 글라스 알파 .56, 질문 2줄+어절 흘려 쓰기(토스 3초), 말풍선 열 상한(얼굴 안 가림), 옛 풍선 한 줄 접기, 판정·힌트 2줄+펼치기(키보드 포함),
+  폰 통화는 삐약이 한 줄 아바타·자료 작은 창 오른쪽 위. 숨은 「다시 답하기/다음 질문」 노출 버그 수정. P0-2 문구: 「주세요/누르세요」 0,
+  카메라 오류 3요소(무슨 일/왜/이제 뭘 — 토스 Navigating error). P0-3 `booth_overlay_state.js`(순수 전이 + renderOverlay), setMode/setMain/setPhase 는 껍질.
+  gate 가 `booth_overlay_state.js` 의 import `?v=` 도 본다.
+- **검증**: `labs/qa_call` 실 API 데스크톱 8단계·폰 콘솔 오류 0, 하네스 검사 통과, 사진 눈검사(얼굴 가운데 안 가림), 코드 리뷰 APPROVE(LOW 2 반영),
+  스모크 44→55, gate 초록. **못 본 것**: 실제 마이크·TTS·부스 웹캠 문턱(리허설). 프레임 안 디자인 언어(글라스 vs 극장)는 9/25 회의 결정 뒤 P1.
+
 ## 2026-09-23 — 쇼케이스 끄기(실분석이 기본) · 보안 점검 조치 · 실흐름 실험실 (Claude 세션, 사용자 요청 "서비스 전체를 실제로 운용하도록")
 
 - **왜**: `app.js` 의 `SHOWCASE_DEMO = true` 가 켜져 있어 올린 자료·녹음이 어느 단계에서도 실 API 를 안 타고
