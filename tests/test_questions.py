@@ -560,6 +560,87 @@ def test_fallback_why_explains_the_source():
     assert "어긋난" in doc.questions[0].why
 
 
+def test_overlong_question_keeps_trailing_sentences_that_fit():
+    """09-24 모바일 실측: 225자 질문이 199자에서 잘려 '…이…' 로 끝났다. 앞 문장을 버리고 물음이 남는 쪽을 고른다."""
+    lead = "이 자료는 " + "배경 설명을 길게 " * 12 + "적었다고 했습니다."         # 125자 남짓
+    tail = "그렇다면 개념1의 근거는 " + "어느 장에서 " * 10 + "확인할 수 있나요?"    # 95자 남짓
+    assert len(lead + " " + tail) > QA_TEXT_MAX
+    doc = doc_of(questions_payload({"node_id": "c1", "question": lead + " " + tail}))
+    q = doc.questions[0].question
+    assert q == tail and len(q) <= QA_TEXT_MAX and not q.endswith("…")
+
+
+def test_overlong_single_sentence_falls_back_to_template():
+    doc = doc_of(questions_payload({"node_id": "c1", "question": "개념1은 " + "정말 " * 100 + "무엇인가요?"}))
+    q = doc.questions[0].question
+    assert q.startswith("개념1:") and not q.endswith("…")
+
+
+def test_overlong_trap_question_is_not_trimmed_but_templated():
+    """함정의 거짓 전제는 앞 문장에 있을 수 있다 — 문장을 버리면 함정이 아니게 된다."""
+    triage = triage_of(marks_payload({"node_id": "c1", "severity": 1, "trap": True, "angle": "각도"}))
+    lead = "자료가 " + "이렇게 " * 50 + "말했다고 했습니다."
+    assert len(lead) > QA_TEXT_MAX
+    doc = doc_of(questions_payload({"node_id": "c1", "question": lead + " 그게 맞나요?"}), triage=triage, track="5")
+    q = doc.questions[0].question
+    assert "이렇게" not in q and not q.endswith("…")
+
+
+def test_hapsyo_in_question_and_gist_becomes_haeyo():
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "개념1을 택했다고 했습니다. 그 근거는 무엇입니까?",
+        "answer_gist": "자료가 말하는 핵심 구조입니다.",
+    }))
+    q = doc.questions[0]
+    assert q.question == "개념1을 택했다고 했어요. 그 근거는 무엇인가요?"
+    assert q.answer_gist == "자료가 말하는 핵심 구조예요."
+
+
+def test_gist_with_numbers_absent_from_deck_falls_back():
+    """09-26 실험대 실측: 숫자가 없는 자료에 골자가 '정확도 70~80%'·'전환율 15%' — 포기 때 「정답 요지」 로 나가는 문장이다."""
+    payload = questions_payload({
+        "node_id": "c1", "question": "개념1의 근거는 무엇인가요?",
+        "answer_gist": "정확도는 70~80% 수준이고 전환율 15%를 목표로 해요",
+        "answer_gist_parts": ["정확도 70~80%", "전환율 15% 목표"],
+        "hint": "15% 를 떠올려 보세요", "why": "근거를 보기 위해",
+    })
+    with_deck = doc_of(payload, slidedoc=make_slidedoc()).questions[0]
+    assert "70" not in with_deck.answer_gist and "15%" not in with_deck.answer_gist
+    assert with_deck.answer_gist_parts == []           # 지어낸 골자의 조각도 남기지 않는다
+    assert "15%" not in with_deck.hint
+    assert with_deck.why == "근거를 보기 위해"          # 숫자 없는 문장은 그대로
+    assert with_deck.question == "개념1의 근거는 무엇인가요?"
+    # 자료 글이 없으면 판단하지 않는다 — 예전과 같다
+    without = doc_of(payload).questions[0]
+    assert "70~80%" in without.answer_gist
+
+
+def test_gist_numbers_present_in_deck_are_kept():
+    deck = make_slidedoc()
+    deck.slides[0].blocks[0].text += " 정확도 92% 로 측정"
+    q = doc_of(questions_payload({"node_id": "c1", "question": "개념1의 근거는 무엇인가요?", "answer_gist": "정확도 92% 예요"}),
+               slidedoc=deck).questions[0]
+    assert q.answer_gist == "정확도 92% 예요"
+
+
+def test_slug_node_id_in_sentence_becomes_label():
+    """09-26 실측: "concept-graph가 발표의 핵심 주장을…" — 화면 칩은 라벨인데 문장은 영문 슬러그."""
+    graph = ConceptGraph(
+        file_name="sample.pdf", total_slides=2,
+        nodes=[ConceptNode(id="concept-graph", label="개념 그래프", slide_nos=[1], summary="개념 그래프 요약", weight=1.0, depth=1),
+               ConceptNode(id="b2b", label="B2B", slide_nos=[2], summary="B2B 요약", weight=0.9, depth=1)],
+    )
+    triage = triage_of(marks_payload({"node_id": "concept-graph", "angle": "각"}, {"node_id": "b2b", "angle": "각"}), graph=graph)
+    doc = doc_of(questions_payload(
+        {"node_id": "concept-graph", "question": "concept-graph가 핵심 주장을 지탱하는 이유는 무엇인가요?", "answer_gist": "Concept-Graph 가 근거예요"},
+        {"node_id": "b2b", "question": "B2B 모델은 어떻게 작동하나요?"},
+    ), graph=graph, triage=triage)
+    by_id = {q.node_id: q for q in doc.questions}
+    assert by_id["concept-graph"].question == "개념 그래프가 핵심 주장을 지탱하는 이유는 무엇인가요?"
+    assert by_id["concept-graph"].answer_gist == "개념 그래프 가 근거예요"
+    assert by_id["b2b"].question == "B2B 모델은 어떻게 작동하나요?"     # 낱말 꼴 id 는 손대지 않는다
+
+
 def test_long_text_clipped_to_qa_text_max():
     doc = doc_of(questions_payload({
         "node_id": "c1",

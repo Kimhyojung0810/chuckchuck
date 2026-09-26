@@ -20,6 +20,7 @@ import re
 
 from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_lines
 from ._match import norm_tokens
+from ._speech import to_haeyo
 from ._json_text import extract_json_object
 from .contracts import (
     ConceptMemory,
@@ -78,12 +79,12 @@ _HONORIFIC_RE = re.compile(r"셨|시겠|십니|십시오|시나요|시는지|계
 #: react 가 비어 돌아왔을 때 채워 넣는 결정적 문구.
 #: 프론트가 이걸로 말풍선을 그리므로 비워 둘 수 없다.
 _REACT_BY_VERDICT = {
-    "good": "네, 그 설명이면 충분합니다.",
+    "good": "네, 그 설명이면 충분해요.",
     # '절반' 은 요지를 맞힌 사람에게 과소평가로 읽힌다. 되묻기의 목적은 채점이 아니라
     # 한 걸음 더 끌어내는 것이라, 인정할 것은 인정하고 남은 하나를 가리킨다.
     "partial": "요지는 잡았어요. 한 가지만 더 짚어 주세요.",
-    "wrong": "그 부분은 자료와 맞지 않습니다.",
-    "unknown": "지금 답변만으로는 판단하기 어렵습니다.",
+    "wrong": "그 부분은 자료와 맞지 않아요.",
+    "unknown": "지금 답변만으로는 판단하기 어려워요.",
 }
 
 #: summary_sentence 가 비어 돌아왔을 때. 리포트 총평 줄에 그대로 남는다.
@@ -95,7 +96,7 @@ _SUMMARY_BY_VERDICT = {
 }
 
 #: 답변이 비었을 때의 반응. LLM 을 부르지 않고 여기서 끝낸다.
-EMPTY_ANSWER_REACT = "아직 답변이 없습니다. 짧아도 좋으니 자기 말로 말해 보세요."
+EMPTY_ANSWER_REACT = "아직 답변이 없어요. 짧아도 좋으니 자기 말로 말해 보세요."
 
 #: followup 이 비어 돌아왔을 때 쓰는 결정적 문장. 실전 코칭은 턴 상한이 없어서
 #: 되묻기가 멈추면 사용자가 갇힌다 — LLM 이 빠뜨려도 질문은 반드시 나와야 한다.
@@ -114,6 +115,23 @@ OFF_TOPIC_SCORE_MAX = 35
 #: 이보다 근거 낱말이 적으면 무관 판정을 하지 않는다 — 실사용은 골자+자료 본문으로
 #: 언제나 수백 개다. 질문 한 줄만 있는 호출(테스트·근거 없는 flat 판정)은 건드리지 않는다.
 ON_TOPIC_MIN_EVIDENCE_TOKENS = 30
+#: 질문·골자·개념(=이 질문이 묻는 것)과 대조할 때의 최소 낱말 수. 상투어를 뺀 뒤 센다.
+ON_TOPIC_MIN_FOCUS_TOKENS = 12
+#: 이보다 짧은 답("빠진 개념을 찾아 주는 거예요")은 이 대조를 걸지 않는다 — 짧은 바꿔 말하기는 LLM 판정에 맡긴다.
+#: 이 가드가 잡는 것은 **길게 잘 말했는데 다른 개념 이야기**인 답이다 (09-26 실측 답은 내용 낱말 12개).
+ON_TOPIC_FOCUS_MIN_ANSWER_TOKENS = 8
+#: 「이 질문」 을 벗어난 답은 wrong 이 아니라 **통과 못 하는 partial** 이다 — 낱말 대조만으로 "자료와 달라요" 라고 못 박지 않는다.
+#: 바꿔 말한 정답이 걸렸을 때의 피해를 되묻기 한 바퀴로 줄인다. 통과선(70) 아래.
+FOCUS_MISS_SCORE_MAX = 65
+_FOCUS_MISS_REACT = "{label}에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요."
+#: 이 발표 어디에나 있는 상투어 — 이것만 겹치는 답은 「이 질문」 에 답한 것이 아니다.
+#: 2026-09-26 실험대 실측: 개념 그래프 질문에 타깃 시장 이야기가 partial 75 로 통과했다 — 자료 본문과 「발표」 한 낱말이 겹쳐서.
+_GENERIC_TOKENS = (
+    "발표", "자료", "질문", "설명", "개념", "근거", "이유", "핵심", "내용", "부분", "경우", "방법", "방식", "정도",
+    "이것", "그것", "저희", "우리", "이후", "계획", "생각", "때문", "그래서", "하지만", "그리고", "위해", "통해", "대해",
+    "관해", "무엇", "어떤", "어느", "어떻게", "있어요", "없어요", "같아요", "거예요", "이에요", "예요", "해요", "됩니다",
+    "있습니다", "없습니다", "합니다", "입니다", "했어요", "했습니다", "서비스", "프로젝트", "사용자", "기능",
+)
 TRAP_AGREED_SCORE_MAX = 35
 
 #: 되묻기 단계별 지시. **질문의 넓이는 코드가 정하고 LLM 은 그 넓이의 문장만 쓴다.**
@@ -555,15 +573,25 @@ def _content_tokens(text: str) -> list[str]:
     return [t for t in norm_tokens(text or "") if len(t) >= 2]
 
 
-def _shares_vocabulary(answer: str, evidence: str) -> bool:
+def _is_generic(token: str) -> bool:
+    return any(token.startswith(g) for g in _GENERIC_TOKENS)
+
+
+def _shares_vocabulary(
+    answer: str, evidence: str, min_tokens: int = ON_TOPIC_MIN_EVIDENCE_TOKENS, *, drop_generic: bool = False
+) -> bool:
     """
     답변과 근거가 낱말을 하나라도 공유하는가. 조사가 붙은 토큰("알림을"·"알림")은
     앞머리 일치로 같은 낱말로 본다. 둘 중 하나가 비면 판단할 수 없어 True 다.
+    drop_generic 이면 상투어(_GENERIC_TOKENS)를 양쪽에서 뺀 뒤 본다 — 「이 질문」 과 겹치는지 볼 때.
     """
     a_tokens = _content_tokens(answer)
     e_tokens = _content_tokens(evidence)
+    if drop_generic:
+        a_tokens = [t for t in a_tokens if not _is_generic(t)]
+        e_tokens = [t for t in e_tokens if not _is_generic(t)]
     # 근거가 얇으면(자료 본문·발화 없이 질문 한 줄뿐) 안 겹치는 것이 신호가 아니다.
-    if not a_tokens or len(e_tokens) < ON_TOPIC_MIN_EVIDENCE_TOKENS:
+    if not a_tokens or len(e_tokens) < min_tokens:
         return True
     e_set = set(e_tokens)
     for a in a_tokens:
@@ -575,8 +603,8 @@ def _shares_vocabulary(answer: str, evidence: str) -> bool:
 
 
 def _enforce_on_topic(
-    answer: str, evidence: str, question: Question, verdict: str, score: int, points: list[str]
-) -> tuple[str, int, list[str], bool]:
+    answer: str, evidence: str, question: Question, verdict: str, score: int, points: list[str], focus: str = ""
+) -> tuple[str, int, list[str], str]:
     """
     **질문·자료와 아무 낱말도 안 겹치는 답은 wrong 이다.** 코드가 막는다.
 
@@ -587,11 +615,23 @@ def _enforce_on_topic(
 
     낱말 하나만 겹쳐도 통과시킨다 — 바꿔 말한 답을 오답으로 만들지 않기 위해서다.
     이 가드는 «관련 없는 이야기» 만 잡는다.
+
+    2026-09-26 실측(실험대): 개념 그래프 질문에 **타깃 시장 이야기**(이 발표의 다른 개념)가 partial 75 — 자료 본문 전체와
+    「발표」 가 겹쳐 위 검사를 비켜 갔다. 그래서 `focus`(질문·골자·이 개념의 그래프 자리)와도 대조한다 — 상투어를 뺀 뒤
+    낱말 하나도 안 겹치면 이 질문에 답한 것이 아니다. 단, 이쪽은 wrong 이 아니라 **통과 못 하는 partial** 로만 내린다 —
+    같은 날 "빠진 개념을 찾아 주는 거예요" 같은 짧은 바꿔 말하기가 걸렸다. 낱말 대조는 «다른 이야기» 는 알아도
+    «틀린 이야기» 는 모른다. 짧은 답(ON_TOPIC_FOCUS_MIN_ANSWER_TOKENS 미만)은 LLM 에 맡긴다.
+
+    마지막 값은 어느 가드가 걸렸는지다 — "" · "off_topic"(자료와도 무관 → wrong) · "focus_miss"(이 질문만 벗어남 → partial ≤ 65).
     """
-    if _shares_vocabulary(answer, evidence):
-        return verdict, score, points, False
     lead = f"질문이 묻는 것: {question.label or question.node_id}"
-    return "wrong", min(score, OFF_TOPIC_SCORE_MAX), [lead] + [p for p in points if p != lead], True
+    if not _shares_vocabulary(answer, evidence):
+        return "wrong", min(score, OFF_TOPIC_SCORE_MAX), [lead] + [p for p in points if p != lead], "off_topic"
+    if (focus and len(_content_tokens(answer)) >= ON_TOPIC_FOCUS_MIN_ANSWER_TOKENS
+            and not _shares_vocabulary(answer, focus, ON_TOPIC_MIN_FOCUS_TOKENS, drop_generic=True)):
+        demoted = "partial" if verdict in ("good", "partial") else verdict
+        return demoted, min(score, FOCUS_MISS_SCORE_MAX), [lead] + [p for p in points if p != lead], "focus_miss"
+    return verdict, score, points, ""
 
 
 def _enforce_trap(
@@ -624,6 +664,7 @@ def _normalize(
     forced_point: str = "",
     answer: str = "",
     evidence: str = "",
+    focus: str = "",
 ) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
@@ -658,17 +699,22 @@ def _normalize(
     # 문장은 LLM, 계약은 코드 (모듈 원칙). react·summary 폴백보다 앞에 둬야
     # 등급이 뒤집힌 판정에 "충분합니다" 라는 good 폴백이 붙지 않는다.
     verdict, score, points = _enforce_good(data, question, verdict, score, points)
-    verdict, score, points, off_topic = _enforce_on_topic(
-        answer, evidence, question, verdict, score, points
-    )
+    # 함정 동의가 먼저다 — "네, 맞아요" 는 질문에 답한 것이라 무관 가드가 볼 일이 아니다 (09-26 실측: 무관 문구가 먼저 붙었다).
     verdict, score, points, trap_agreed = _enforce_trap(data, question, verdict, score, points)
+    guard = ""
+    if not trap_agreed:
+        verdict, score, points, guard = _enforce_on_topic(
+            answer, evidence, question, verdict, score, points, focus
+        )
 
     react = str(data.get("react", "") or "").strip() or _REACT_BY_VERDICT[verdict]
     # 가드가 등급을 뒤집었으면 LLM 의 react 는 그 등급과 어긋난 문장이다 — 코드 문구로.
-    if off_topic:
-        react = _OFF_TOPIC_REACT.format(label=question.label or "이 개념")
-    elif trap_agreed:
+    if trap_agreed:
         react = _TRAP_AGREED_REACT
+    elif guard == "off_topic":
+        react = _OFF_TOPIC_REACT.format(label=question.label or "이 개념")
+    elif guard == "focus_miss":
+        react = _FOCUS_MISS_REACT.format(label=question.label or "이 개념")
     elif _HONORIFIC_RE.search(react):
         react = _REACT_BY_VERDICT[verdict]
     summary = str(data.get("summary_sentence", "") or "").strip()
@@ -705,6 +751,20 @@ def _normalize(
     # 판정에 함께 실어 보내면 프론트가 추가 왕복 없이 즉시 보여 줄 수 있다.
     judgement.hints = build_hint_ladder(question, judgement)
     return judgement
+
+
+_HAEYO_FIELDS = ("react", "summary_sentence", "followup", "explanation")
+
+
+def _haeyo_data(data: dict) -> dict:
+    """LLM 응답의 문장 필드를 해요체로 푼다(_speech.to_haeyo). 2026-09-26 실측: 총평·해설이 매번 「~했습니다」 였다.
+    새 dict 를 돌려준다 — 원본은 건드리지 않는다."""
+    out = dict(data)
+    for k in _HAEYO_FIELDS:
+        v = out.get(k)
+        if isinstance(v, str) and v:
+            out[k] = to_haeyo(v)
+    return out
 
 
 def _clip(text: str) -> str:
@@ -1058,6 +1118,7 @@ def coach_stuck(
         data = _call_coach(engine, user)
     except JudgeError:
         data = _call_coach(engine, user, extra_system=JSON_RETRY_NUDGE)
+    data = _haeyo_data(data)
 
     react = _clip(str(data.get("react", "") or "")) or _COACH_REACT_FALLBACK
     if _COACH_PRAISE_RE.search(react) or _HONORIFIC_RE.search(react):
@@ -1440,15 +1501,17 @@ def judge_answer(
         # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
         data = _call(engine, user, extra_system=tier_brief + JSON_RETRY_NUDGE)
 
+    # 이 질문이 묻는 것 — 질문·골자·개념의 그래프 자리. 무관 가드가 자료 본문 전체가 아니라 이것과도 대조한다.
+    focus_lines = [question.question, question.answer_gist, *question.answer_gist_parts, *_concept_block(question, graph)]
     return _normalize(
-        data, question, engine.name, round_no,
+        _haeyo_data(data), question, engine.name, round_no,
         followup_tier=tier,
         forced_point=giveup_topic,
         answer=answer,
         # 가드가 대조할 근거 — 프롬프트에 실린 것과 같은 자료·발화·골자.
         evidence="\n".join([
-            question.question, question.answer_gist, *question.answer_gist_parts,
-            *_concept_block(question, graph), *_slide_block(question, slidedoc, graph),
+            *focus_lines, *_slide_block(question, slidedoc, graph),
             *_speech_block(question, transcript),
         ]),
+        focus="\n".join(focus_lines),
     )

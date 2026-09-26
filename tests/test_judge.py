@@ -270,9 +270,9 @@ def test_react_and_summary_never_empty(verdict):
 
 
 def test_llm_react_and_summary_kept():
-    judgement = judge_of(payload(verdict="good", react="좋습니다", summary_sentence="총평입니다"))
-    assert judgement.react == "좋습니다"
-    assert judgement.summary_sentence == "총평입니다"
+    judgement = judge_of(payload(verdict="good", react="좋아요", summary_sentence="총평이에요"))
+    assert judgement.react == "좋아요"
+    assert judgement.summary_sentence == "총평이에요"
 
 
 def test_blank_react_replaced():
@@ -290,7 +290,7 @@ def test_blank_react_replaced():
 def test_honorific_react_replaced_by_verdict_phrase(react):
     """§3-1: 판정문에 높임이 나오면 그 등급의 결정적 문구로 바꾼다 (코칭 경로와 같은 규율)."""
     judgement = judge_of(payload(verdict="good", react=react))
-    assert judgement.react == "네, 그 설명이면 충분합니다."
+    assert judgement.react == "네, 그 설명이면 충분해요."
 
 
 def test_polite_haeyo_react_is_kept():

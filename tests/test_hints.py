@@ -76,7 +76,7 @@ def test_삼단계는_기대_답의_앞_조각():
     """판정 없이 만들 수 있는 마지막 단계. 골자를 통째로 노출하지 않는다."""
     question = make_question()
     ladder = build_hint_ladder(question)
-    assert ladder[2].startswith("이 방향입니다")
+    assert ladder[2].startswith("이 방향이에요")
     assert question.answer_gist not in ladder[2]
 
 

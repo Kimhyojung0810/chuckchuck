@@ -232,6 +232,46 @@ def test_낱말_하나만_겹쳐도_무관_가드는_비켜선다():
     assert v.verdict == "partial" and v.score == 72
 
 
+def test_다른_개념_이야기를_길게_한_답은_자료_낱말이_겹쳐도_wrong_이다():
+    """2026-09-26 실험대 실측: 개념 그래프 질문에 타깃 시장 이야기가 partial 75 — 자료 본문과 「발표」 가 겹쳐 무관 가드를 비켜 갔다.
+    「알림」 은 근거 장(S2)에 있지만 이 질문(복귀 비용)·골자·개념 자리에는 없다."""
+    llm = ScriptedLLM(judge_payload(verdict="partial", score=75))
+    v = judge_answer(
+        question(), "알림이 계속 와서 저희 팀은 회의 중에 알림을 전부 끄기로 정했고 그 뒤로 훨씬 편해졌어요",
+        graph=GRAPH, slidedoc=DECK, llm=llm,
+    )
+    # 자료와 무관하다고까지는 못 박지 않는다 — 통과만 막고 되묻기로 보낸다
+    assert v.verdict == "partial" and v.score <= 65 and not v.passed
+    assert "답으로는 조금 멀어요" in v.react
+    assert v.missing_points[0].startswith("질문이 묻는 것")
+
+
+def test_짧은_바꿔_말하기는_집중_대조를_걸지_않는다():
+    """"빠진 개념을 찾아 주는 거예요" — 낱말은 안 겹치지만 뜻은 맞을 수 있다. 짧은 답은 LLM 판정 그대로."""
+    llm = ScriptedLLM(judge_payload(verdict="partial", score=72))
+    # 「알림」 은 근거 장에 있어 무관 가드는 비켜 가고, 짧아서 집중 대조도 걸지 않는다
+    v = judge_answer(question(), "알림이 계속 와서 그래요", graph=GRAPH, slidedoc=DECK, llm=llm)
+    assert v.verdict == "partial" and v.score == 72
+
+
+def test_함정_동의는_무관_가드보다_먼저다():
+    """"네, 맞아요. 그 전제가 정확해요" 는 질문에 답한 것이다 — 무관 문구가 아니라 함정 문구가 붙어야 한다."""
+    llm = ScriptedLLM(judge_payload(verdict="partial", score=70, premise_corrected=False))
+    v = judge_answer(question(trap=True), "네, 맞아요. 질문하신 대로예요. 그 전제가 정확해요. 저도 그렇게 봐요",
+                     graph=GRAPH, slidedoc=DECK, llm=llm)
+    assert v.verdict == "wrong"
+    assert v.react.startswith("질문의 전제부터 확인해 보세요")
+
+
+def test_골자를_바꿔_말한_긴_답은_집중_대조를_통과한다():
+    llm = ScriptedLLM(judge_payload(verdict="partial", score=72))
+    v = judge_answer(
+        question(), "화면 자체를 오래 봐서가 아니라 하던 일의 맥락을 다시 복구하느라 비용이 커지는 거라고 생각해요",
+        graph=GRAPH, slidedoc=DECK, llm=llm,
+    )
+    assert v.verdict == "partial" and v.score == 72
+
+
 def test_근거가_얇으면_무관_가드를_걸지_않는다():
     """질문 한 줄뿐인 호출(테스트·flat 판정)에서 안 겹치는 것은 신호가 아니다."""
     llm = ScriptedLLM(judge_payload(verdict="good", score=85))
@@ -407,7 +447,7 @@ def test_3단_해설에는_출처가_붙는다():
     history = [QaTurn(question_id="q01-switch", question="q", answer="(모르겠어요)", verdict="unknown", gave_up=True)] * 2
     j = coach_stuck(question(**EVQ), graph=GRAPH, history=history, llm=llm)
     assert j.coach_stage == "explain"
-    assert j.explanation.startswith("손실은 돌아오는 과정에서 커집니다.")
+    assert j.explanation.startswith("손실은 돌아오는 과정에서 커져요.")   # 해설의 합쇼체는 코드가 해요체로 푼다 (_speech.to_haeyo)
     assert "자료 2장: «주의 전환은" in j.explanation
     assert "발표에서는 «5초만 봤는데" in j.explanation
     assert len(j.explanation) <= 500

@@ -25,13 +25,14 @@ PRESENTER_CITED_RE = re.compile(r"인용(?:했|하셨|하신|하였|한|하고|�
 CITE_RE = re.compile(r"[A-Z][A-Za-z'\-]+(?:\s+et\s+al\.)?\s*\(\d{4}[a-z]?\)")
 #: f09 가드가 등급을 뒤집었을 때 쓰는 고정 문구 (f09 `_OFF_TOPIC_REACT` · `_TRAP_AGREED_REACT`).
 OFF_TOPIC_LEAD = "질문과 다른 이야기예요."
+FOCUS_MISS_MARK = "에 대한 답으로는 조금 멀어요."
 TRAP_AGREED_LEAD = "질문의 전제부터 확인해 보세요"
 #: 코드 폴백 반응 (f09 `_REACT_BY_VERDICT`). 이게 나오면 LLM 의 react 가 비었거나 높임이라 버려진 것.
 FALLBACK_REACTS = frozenset({
-    "네, 그 설명이면 충분합니다.",
+    "네, 그 설명이면 충분해요.",
     "요지는 잡았어요. 한 가지만 더 짚어 주세요.",
-    "그 부분은 자료와 맞지 않습니다.",
-    "지금 답변만으로는 판단하기 어렵습니다.",
+    "그 부분은 자료와 맞지 않아요.",
+    "지금 답변만으로는 판단하기 어려워요.",
 })
 #: 실 API 가 아닌 제공자 이름.
 MOCK_MODELS = frozenset({"", "mock", "mock-llm", "heuristic"})
@@ -47,8 +48,23 @@ def honorifics(*texts: str) -> int:
     return sum(len(HONORIFIC_RE.findall(_strip_quotes(t))) for t in texts)
 
 
+_BNIDA_RE = re.compile(r"([가-힣])니(?:다|까)(?=[\s.,!?»」)'\"]|$)")
+
+
+def _bnida_count(text: str) -> int:
+    """「시킵니다」 처럼 모음 어간 + ㅂ니다 — 앞 음절의 종성이 ㅂ(17)일 때만. 「습니다·입니다」 는 HAPSYO_RE 가 세므로 뺀다."""
+    n = 0
+    for m in _BNIDA_RE.finditer(text):
+        ch = m.group(1)
+        if ch in ("습", "입"):
+            continue
+        if (ord(ch) - 0xAC00) % 28 == 17:
+            n += 1
+    return n
+
+
 def hapsyo(*texts: str) -> int:
-    return sum(len(HAPSYO_RE.findall(_strip_quotes(t))) for t in texts)
+    return sum(len(HAPSYO_RE.findall(_strip_quotes(t))) + _bnida_count(_strip_quotes(t)) for t in texts)
 
 
 def is_clipped(text: str) -> bool:
@@ -139,6 +155,8 @@ def judgement_flags(j: dict) -> list[str]:
         flags.append("가드:무관")
     if react.startswith(TRAP_AGREED_LEAD):
         flags.append("가드:함정동의")
+    if FOCUS_MISS_MARK in react:
+        flags.append("가드:질문벗어남")
     if react in FALLBACK_REACTS:
         flags.append("react폴백")
     if j.get("coach_stage"):

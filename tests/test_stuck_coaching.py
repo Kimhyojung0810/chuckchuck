@@ -162,7 +162,7 @@ def test_third_give_up_explains_and_closes():
     j = coach_stuck(make_question(), history=history, llm=llm)
 
     assert j.coach_stage == "explain"
-    assert j.explanation == "핵심은 지연이 이탈로 이어진다는 점입니다."
+    assert j.explanation == "핵심은 지연이 이탈로 이어진다는 점이에요."   # 합쇼체는 코드가 해요체로 푼다 (_speech.to_haeyo)
     assert j.followup == ""      # 닫을 질문에 되물음을 남기면 화면이 모순된다
     assert j.passed is False
 
@@ -185,7 +185,7 @@ def test_typed_text_with_give_up_button_still_reaches_explain():
     j = coach_stuck(make_question(), history=history, llm=llm)
 
     assert j.coach_stage == "explain"
-    assert j.explanation == "핵심은 지연이 이탈로 이어진다는 점입니다."
+    assert j.explanation == "핵심은 지연이 이탈로 이어진다는 점이에요."   # 합쇼체는 코드가 해요체로 푼다 (_speech.to_haeyo)
 
 
 def test_give_up_flag_survives_dict_roundtrip():

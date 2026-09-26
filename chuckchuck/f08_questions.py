@@ -34,6 +34,7 @@ from ._evidence import (
     section_line,
 )
 from ._json_text import extract_json_object
+from ._speech import to_haeyo, ungrounded_numbers
 from .contracts import (
     QA_EXTRA_MAX,
     QA_SEVERITIES,
@@ -1705,6 +1706,59 @@ def _drop_cite_claim(text: str, papers: PaperDoc | None) -> str:
     return rest
 
 
+#: 노드 id 가 슬러그 꼴(concept-graph · sync-analysis)일 때만 라벨로 바꾼다 — "b2b" 같은 낱말 id 는 자연어와 겹쳐 손대지 않는다.
+_SLUG_ID_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)+$")
+
+
+def _unslug(text: str, node: ConceptNode) -> str:
+    """문장에 라벨 대신 노드 id 가 그대로 나온 것을 라벨로 바꾼다.
+
+    2026-09-26 실험대 실측(solar, 2회 중 2회): "concept-graph가 발표의 핵심 주장을…" · "sync-analysis가 Q&A 기반 학습에서…".
+    프롬프트가 node_id 를 대상 열쇠로 쓰다 보니 문장에도 새어 나온다. 화면 칩은 라벨인데 문장은 영문 슬러그면 다른 개념처럼 읽힌다."""
+    nid = (node.id or "").strip()
+    if not text or not nid or not node.label or nid == node.label or not _SLUG_ID_RE.match(nid.lower()):
+        return text
+    return re.sub(re.escape(nid), node.label, text, flags=re.IGNORECASE)
+
+
+def _fit_question(text: str, *, trap: bool = False) -> str:
+    """QA_TEXT_MAX 를 넘는 질문을 **문장 단위로** 줄인다. 앞 문장부터 버리고, 남은 것이 해요체 물음으로 끝나야 한다.
+
+    2026-09-24 모바일 실측: LLM 이 225자를 써서 `_clip` 이 199자에서 잘라 "…연구했는데, 이…" 로 나갔다 — 물음이 통째로
+    사라진 질문이 화면에 그대로 떴다. qa-cite 재작성 경로(`_apply_cite_rewrite`)는 09-23 교훈으로 길이·끝맺음을 검사했지만
+    첫 응답 경로에는 없었다. 못 줄이면 "" — 호출자가 결정적 템플릿으로 보낸다 (잘린 문장보다 템플릿이 낫다).
+    함정 질문은 문장을 버리지 않는다(거짓 전제가 앞 문장에 있을 수 있다) — 넘치면 바로 템플릿."""
+    t = (text or "").strip()
+    if len(t) <= QA_TEXT_MAX:
+        return t
+    if trap:
+        return ""
+    sents = [x for x in _SENTENCE_SPLIT_RE.split(t) if x]
+    while sents and len(" ".join(sents)) > QA_TEXT_MAX:
+        sents.pop(0)
+    rest = " ".join(sents).strip()
+    if not rest or not _POLITE_END_RE.search(rest):
+        return ""
+    return rest
+
+
+def _number_sources(
+    by_no: dict[int, Slide] | None, transcript: Transcript | None, papers: PaperDoc | None
+) -> list[str]:
+    """골자·힌트의 숫자를 대조할 원본 — 자료 글 전체·발화 전체·문헌 제목/초록. 자료 글이 없으면 빈 목록(판단하지 않는다).
+
+    2026-09-26 실험대 실측(solar): 멘토링 신청 폼 2장에 숫자가 하나도 없는데 골자가 "정확도 70~80%"·"전환율 15%"·"3회 진단 뒤" 를
+    썼다. 포기하면 「정답 요지」 로 화면에 나가는 문장이다 — 발표자가 방어할 수 없는 숫자를 정답이라고 보여 주는 꼴."""
+    if not by_no:
+        return []
+    out = [clean_slide_text(s.raw_text or "") for s in by_no.values()]
+    if transcript is not None and transcript.full_text:
+        out.append(transcript.full_text)
+    if papers is not None:
+        out.extend(f"{r.title} {r.abstract}" for r in papers.refs)
+    return [x for x in out if x]
+
+
 def _normalize_questions(
     raw_questions: list[dict],
     marks: list[TriageMark],
@@ -1724,6 +1778,7 @@ def _normalize_questions(
     - papers 가 있으면 **목록 밖 논문을 인용한 문장은 버리고** 템플릿으로 메운다 (citation_grounded = 1.0)
     """
     target_ids = {m.node_id for m in marks}
+    number_sources = _number_sources(by_no, transcript, papers)
     written: dict[str, dict] = {}
     for raw in raw_questions:
         node_id = str(raw.get("node_id", "") or "")
@@ -1748,10 +1803,26 @@ def _normalize_questions(
         # 템플릿으로 떨어뜨린다. 자료로 만든 문장이 발판 인용보다 언제나 낫다.
         # 높임을 먼저 풀고(_plain_speech) 끝 어미를 고친다(_polite_question). 거짓 전제(검색 문헌에 「인용하셨는데」)는
         # 전제 절만 떼고, 못 떼면 "" — 아래 `or` 가 ungrounded 와 같은 템플릿으로 보낸다 (_drop_cite_claim 참고).
-        written_q = _drop_cite_claim(_polite_question(_plain_speech(_clip(str(raw.get("question", "") or "")))), papers)
-        written_gist = _drop_cite_claim(_plain_speech(_clip(str(raw.get("answer_gist", "") or ""))), papers)
-        written_why = _drop_cite_claim(_plain_speech(_clip(str(raw.get("why", "") or ""))), papers)
-        written_hint = _drop_cite_claim(_plain_speech(_clip(str(raw.get("hint", "") or ""))), papers)
+        # 합쇼체(to_haeyo)도 여기서 푼다 — 09-26 실측: "고민된다고 했습니다." 가 질문 가운데, "…할 수 있습니다." 가 골자에.
+        # 질문은 자르지 않고 문장 단위로 줄인다(_fit_question) — 잘린 물음은 물음이 아니다.
+        def _tidy(key: str) -> str:
+            return to_haeyo(_plain_speech(_unslug(str(raw.get(key, "") or ""), node)))
+
+        written_q = _drop_cite_claim(_fit_question(_polite_question(_tidy("question")), trap=mark.trap), papers)
+        written_gist = _drop_cite_claim(_clip(_tidy("answer_gist")), papers)
+        written_why = _drop_cite_claim(_clip(_tidy("why")), papers)
+        written_hint = _drop_cite_claim(_clip(_tidy("hint")), papers)
+        # 자료·발화·문헌 어디에도 없는 숫자는 지어낸 것이다 — 아래 `or` 가 결정적 템플릿으로 보낸다 (_number_sources 참고).
+        # 함정 질문의 문장은 거짓 전제가 설계라 보지 않는다. 골자·힌트·이유는 함정이어도 자료가 말하는 것이어야 한다.
+        if number_sources:
+            if not mark.trap and ungrounded_numbers(written_q, number_sources):
+                written_q = ""
+            if ungrounded_numbers(written_gist, number_sources):
+                written_gist = ""
+            if ungrounded_numbers(written_why, number_sources):
+                written_why = ""
+            if ungrounded_numbers(written_hint, number_sources):
+                written_hint = ""
         if _cites_scaffold(written_q) or _ungrounded_citation(written_q, papers):
             written_q = ""
         if _cites_scaffold(written_gist) or _ungrounded_citation(written_gist, papers):
@@ -1768,11 +1839,15 @@ def _normalize_questions(
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
         parts = [
             p for p in (
-                _drop_cite_claim(_plain_speech(_clip(str(p) or "")), papers)
+                _drop_cite_claim(_clip(to_haeyo(_plain_speech(_unslug(str(p) or "", node)))), papers)
                 for p in (raw.get("answer_gist_parts") or [])
             )
             if p and not _cites_scaffold(p) and not _ungrounded_citation(p, papers)
+            and not (number_sources and ungrounded_numbers(p, number_sources))
         ]
+        # 골자가 템플릿으로 떨어졌으면 LLM 의 요소도 같은 출처다 — 지어낸 골자의 조각을 요소로 남기지 않는다.
+        if not written_gist:
+            parts = []
         if len(parts) < 2 and _asks_multiple(question_text):
             parts = _split_gist_parts(gist)
         paper_ids = _paper_ids_of(
@@ -2005,7 +2080,7 @@ def _hint_scope(question: Question) -> str:
         return "자료에서 이 개념을 왜 다뤘는지부터 짚어 보세요"
     shown = ", ".join(str(n) for n in nos[:HINT_SLIDE_MAX])
     if len(nos) > HINT_SLIDE_MAX:
-        return _clip(f"{shown}장을 비롯해 {len(nos)}장에 걸쳐 나옵니다 — 앞쪽부터 짚어 보세요")
+        return _clip(f"{shown}장을 비롯해 {len(nos)}장에 걸쳐 나와요 — 앞쪽부터 짚어 보세요")
     return _clip(f"{shown}장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요")
 
 
@@ -2032,7 +2107,7 @@ def _hint_gist(question: Question) -> str:
     골자가 짧으면 조각을 내도 원문이 드러나므로 빈 문자열이 된다.
     """
     fragment = _gist_fragment(question.answer_gist)
-    return _clip(f"이 방향입니다 — {fragment}") if fragment else ""
+    return _clip(f"이 방향이에요 — {fragment}") if fragment else ""
 
 
 def _hint_close(question: Question, judgement: QaJudgement) -> str:
@@ -2050,7 +2125,7 @@ def _hint_close(question: Question, judgement: QaJudgement) -> str:
         return _clip(f"아직 안 나온 것: {shown}")
 
     fragment = _gist_fragment(question.answer_gist)
-    return _clip(f"이 방향입니다 — {fragment}") if fragment else ""
+    return _clip(f"이 방향이에요 — {fragment}") if fragment else ""
 
 
 def build_hint_ladder(

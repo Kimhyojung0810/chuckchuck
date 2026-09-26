@@ -39,6 +39,10 @@ def test_clipped_question_is_flagged_not_as_impolite():
     assert "합쇼체1" in flags
 
 
+def test_bnida_counts_as_hapsyo():
+    assert "합쇼체2" in checks.question_flags(q(answer_gist="설명 능력을 향상시킵니다. 결과를 보여 줍니다."))
+
+
 def test_impolite_ending_flagged():
     assert "반말끝!" in checks.question_flags(q(question="개념1의 근거는 무엇인가?"))
 
@@ -87,7 +91,8 @@ def test_numbers_missing_from_deck_flagged():
 def test_guard_reacts_detected():
     assert "가드:무관" in checks.judgement_flags(j(react="질문과 다른 이야기예요. 개념1에 대해 자료에 있는 대로 말해 보세요."))
     assert "가드:함정동의" in checks.judgement_flags(j(react="질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요."))
-    assert "react폴백" in checks.judgement_flags(j(react="그 부분은 자료와 맞지 않습니다."))
+    assert "react폴백" in checks.judgement_flags(j(react="그 부분은 자료와 맞지 않아요."))
+    assert "가드:질문벗어남" in checks.judgement_flags(j(react="개념1에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요."))
 
 
 def test_hapsyo_counted_outside_quotes_only():
