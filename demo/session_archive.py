@@ -435,6 +435,20 @@ class SessionArchive:
             if rec.consent_learning:
                 yield rec
 
+    def find_by_sha256(self, sha256: str) -> str | None:
+        """같은 원본(sha256)으로 파싱본(slide_doc)이 남아 있는 가장 최근 세션 id. 없으면 None.
+
+        #/test/qa 가 같은 덱을 두 번째 열 때 Upstage 파싱을 건너뛰려고 쓴다 (개발용).
+        파싱본이 만료돼 지워졌으면 manifest 가 남아 있어도 None — 있다고 말하고 404 를 내면 안 된다."""
+        if not sha256:
+            return None
+        hit = None
+        for _, rec in self._manifests():          # 오래된 것부터 — 마지막이 최신
+            if rec.upload_sha256 == sha256 and "slide_doc" in rec.artifacts \
+                    and self.read_artifact(rec.session_id, "slide_doc") is not None:
+                hit = rec.session_id
+        return hit
+
     def list_sessions(self) -> list[dict]:
         """개발용 목록 (#/replay). 최신이 먼저."""
         rows = []

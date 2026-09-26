@@ -11,11 +11,13 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import threading
 import time
 import tempfile
 import traceback
+import unicodedata
 import zipfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -72,6 +74,10 @@ ARCHIVE = SessionArchive(
 #: 저장된 세션 **목록**을 주는 경로(/api/v1/cached-takes, #/replay). 개발자 화면이라
 #: 기본은 닫는다 — 열려 있으면 주소를 아는 누구나 남의 발표 기록을 본다.
 DEV_ROUTES = _env_flag("DEMO_DEV_ROUTES")
+#: #/test/qa 가 훑는 발표자료 폴더 (저장소 ppt/). 폴더 하나 = 덱 하나. 개발용 — DEV_ROUTES 뒤에만 연다.
+DECKS_DIR = ROOT / "ppt"
+DECK_EXTS = (".pptx", ".pdf")
+DECK_AUDIO_EXTS = (".m4a", ".mp3", ".wav", ".webm", ".ogg", ".aac", ".flac", ".mp4")
 
 #: 만료 세션을 훑는 주기. 시작할 때 한 번, 그 뒤 하루에 한 번. 같은 스레드가 학습 자산도 갱신한다.
 PRUNE_INTERVAL_SEC = 24 * 3600
@@ -318,6 +324,21 @@ def _safe_audio_ext(raw: str | None) -> str:
     if not ext.startswith("."):
         ext = f".{ext}" if ext else ""
     return ext if ext in ALLOWED_AUDIO_EXTS else DEFAULT_AUDIO_EXT
+
+
+def _probe_audio_sec(path: Path) -> float:
+    """ffprobe 로 재는 오디오 길이(초). ffprobe 가 없거나 실패하면 0 — 브라우저가 대신 잰다."""
+    exe = shutil.which("ffprobe") or str(Path.home() / ".local/bin/ffprobe")
+    if not Path(exe).exists():
+        return 0.0
+    try:
+        out = subprocess.run(
+            [exe, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, timeout=20, check=False,
+        ).stdout.strip()
+        return round(float(out), 2) if out else 0.0
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return 0.0
 
 
 def _cache_stem(file_name: str) -> str:
@@ -601,6 +622,17 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_cached_takes()
             if parsed.path == "/api/v1/preview-pdf":
                 return self._handle_preview_pdf(parsed)
+            if parsed.path == "/api/v1/dev/decks":
+                return self._handle_dev_decks()
+            if parsed.path == "/api/v1/dev/decks/file":
+                return self._handle_dev_deck_file(parsed)
+            # 주소창에 /test/QA 라고 쳐도 열리게 — 앱은 해시 라우팅이라 경로를 해시로 돌려보낸다.
+            if parsed.path.lower().rstrip("/") == "/test/qa":
+                self.send_response(302)
+                self.send_header("Location", "/index.html#/test/qa")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
             return super().do_GET()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
@@ -751,6 +783,88 @@ class Handler(SimpleHTTPRequestHandler):
         if not DEV_ROUTES:
             return self._json(404, {"error": "not found"})
         return self._json(200, {"takes": ARCHIVE.list_sessions()})
+
+    # ── #/test/qa — ppt/ 폴더의 덱을 골라 질문 코칭까지 바로 (개발용) ──────────
+    #
+    # 왜: 발표자료 하나를 QA 까지 태우려면 업로드 → 발표 정보 → 녹음(또는 녹음 업로드) → 분석을
+    # 손으로 거쳐야 했다. 팀이 모델을 자주 돌려보게 ppt/<덱>/ 을 목록으로 보여 주고 한 번에 태운다.
+    # 파싱·분석은 화면과 **같은 경로**(/api/v1/parse 등)를 그대로 탄다 — 여기서는 파일만 내려준다.
+    # cached-takes 와 같은 이유로 DEMO_DEV_ROUTES=1 일 때만 연다: 목록은 곧 이 서버의 로컬 파일이고,
+    # 클릭 한 번이 실 API 과금이다.
+
+    @staticmethod
+    def _deck_entries() -> list[dict]:
+        """ppt/ 아래 폴더(또는 낱개 pptx·pdf)마다 한 줄. 이름순."""
+        rows: list[dict] = []
+        if not DECKS_DIR.is_dir():
+            return rows
+        for entry in sorted(DECKS_DIR.iterdir(), key=lambda q: q.name):
+            if entry.name.startswith("."):
+                continue
+            if entry.is_dir():
+                files = sorted(q for q in entry.iterdir() if q.is_file())
+                deck = next((q for q in files if q.suffix.lower() in DECK_EXTS), None)
+                audio = next((q for q in files if q.suffix.lower() in DECK_AUDIO_EXTS), None)
+            elif entry.suffix.lower() in DECK_EXTS:
+                deck, audio = entry, None
+            else:
+                continue
+            if deck is None:
+                continue
+            row = {
+                # macOS 에서 온 폴더 이름은 자모가 풀린 NFD 다 — 화면용 이름만 모아 쓴다 (key 는 파일시스템 그대로)
+                "name": unicodedata.normalize("NFC", entry.stem if entry.is_file() else entry.name),
+                "key": entry.name,
+                "deck": deck.name, "deck_bytes": deck.stat().st_size,
+                "audio": audio.name if audio else None,
+                "audio_bytes": audio.stat().st_size if audio else 0,
+                # 길이는 브라우저가 재는데, 헤드리스 크로미움은 AAC(m4a) 를 못 읽는다 — ffprobe 가 있으면 여기서 잰다
+                "audio_sec": _probe_audio_sec(audio) if audio else 0,
+                "cached_session_id": None,
+            }
+            try:
+                sha = hashlib.sha256(deck.read_bytes()).hexdigest()
+                row["cached_session_id"] = ARCHIVE.find_by_sha256(sha)
+            except OSError:
+                pass
+            rows.append(row)
+        return rows
+
+    def _handle_dev_decks(self):
+        if not DEV_ROUTES:
+            return self._json(404, {"error": "not found"})
+        return self._json(200, {"dir": str(DECKS_DIR), "decks": self._deck_entries()})
+
+    def _handle_dev_deck_file(self, parsed):
+        """?deck=<폴더 이름>&kind=deck|audio → 파일 그대로. ppt/ 밖으로는 못 나간다."""
+        from urllib.parse import parse_qs
+
+        if not DEV_ROUTES:
+            return self._json(404, {"error": "not found"})
+        qs = parse_qs(parsed.query or "")
+        key = (qs.get("deck") or [""])[0]
+        kind = (qs.get("kind") or ["deck"])[0]
+        row = next((r for r in self._deck_entries() if r["key"] == key), None)
+        if row is None:
+            return self._json(404, {"error": "no_deck", "message": "그 이름의 발표자료 폴더가 없어요."})
+        base = DECKS_DIR / key
+        fname = row["deck"] if kind == "deck" else row["audio"]
+        if not fname:
+            return self._json(404, {"error": "no_audio", "message": "이 덱에는 녹음 파일이 없어요."})
+        path = (base / fname if base.is_dir() else base).resolve()
+        if not str(path).startswith(str(DECKS_DIR.resolve())) or not path.is_file():
+            return self._json(404, {"error": "no_file"})
+        data = path.read_bytes()
+        ctype = {
+            ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".pdf": "application/pdf", ".m4a": "audio/mp4", ".mp4": "audio/mp4", ".mp3": "audio/mpeg",
+            ".wav": "audio/wav", ".webm": "audio/webm", ".ogg": "audio/ogg", ".aac": "audio/aac", ".flac": "audio/flac",
+        }.get(path.suffix.lower(), "application/octet-stream")
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def _handle_preview_pdf(self, parsed):
         """발표 원본 미리보기 PDF (PPTX 렌더본 또는 업로드한 PDF 그대로)."""

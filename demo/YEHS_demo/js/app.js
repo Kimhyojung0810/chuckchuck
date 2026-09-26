@@ -289,6 +289,8 @@ const routes = {
   // 저장된 발표로 이어서 (개발용). 어디에도 링크를 걸지 않는다 — 부스 방문객이
   // 흘러 들어오면 남의 발표 기록을 보게 된다. 주소를 아는 사람만 들어온다.
   'replay': renderReplay,
+  // ppt/ 폴더의 덱을 골라 질문 코칭까지 한 번에 (개발용, #/test/qa). replay 와 같은 규칙 — 링크를 걸지 않는다.
+  'test': () => (location.hash.replace(/^#\/?/, '').split('/')[1] === 'qa' ? renderTestQa() : renderHome()),
   // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
   'landing': () => window.renderLanding(),
   // 개념 그래프 3D 무대 (js/graph3d.js). 데모 경로 밖이라 여기가 죽어도 시연은 돈다.
@@ -2988,7 +2990,7 @@ function recUploadFail(message) {
   alert(message);
 }
 
-async function useUploadedRecording(file) {
+async function useUploadedRecording(file, { knownDurationSec = 0 } = {}) {
   const looksAudio = AUDIO_EXT_RE.test(file.name) || /^audio\//i.test(file.type || '');
   if (!looksAudio) {
     return recUploadFail('오디오 파일만 올릴 수 있어요. (webm · m4a · mp3 · wav · ogg)');
@@ -3010,6 +3012,8 @@ async function useUploadedRecording(file) {
   } catch (err) {
     console.warn('[chuckchuck] audio duration', err);
   }
+  // 브라우저가 못 재면(헤드리스 크로미움은 AAC 를 못 읽는다) 호출자가 아는 길이(#/test/qa 는 서버 ffprobe)로 간다
+  if (!(Number.isFinite(durationSec) && durationSec > 0) && knownDurationSec > 0) durationSec = knownDurationSec;
   if (!Number.isFinite(durationSec) || durationSec <= 0) {
     return recUploadFail('오디오 길이를 읽지 못했어요. 다른 형식(m4a·mp3·wav)으로 다시 시도해주세요.');
   }
@@ -9020,6 +9024,189 @@ function renderAbout() {
       <a class="btn btn-primary" href="#/new" data-fresh-practice>새 발표 연습하기</a>
     </div>`;
   wireFreshPracticeButtons(app);
+}
+
+/* ── #/test/qa — ppt/ 폴더의 덱으로 질문 코칭까지 바로 (개발용) ────────────
+   왜: 자료 하나를 QA 까지 태우려면 업로드 → 발표 정보 → 녹음 → 분석을 손으로 거쳐야 했다.
+   팀이 모델(F-08 질문·F-09 판정)을 실제 화면에서 자주 돌려보게, 서버의 ppt/<덱>/ 을
+   목록으로 보여 주고 한 번에 태운다. 파싱·선분석·파이프라인은 **업로드 화면과 같은 함수**
+   (startParse·startPrecompute·useUploadedRecording)를 그대로 부른다 — 여기서 새로 하는 일은
+   「서버 파일을 File 로 감싸 넣는 것」과 「단계 사이의 클릭을 대신 누르는 것」뿐이다.
+
+   서버는 DEMO_DEV_ROUTES=1 일 때만 목록을 준다(#/replay 와 같다). 어디에도 링크를 걸지 않는다.
+   클릭 한 번이 실 API 과금이다 — 「자료만으로」는 파싱·개념·그래프·질문, 「녹음까지」는 거기에
+   받아쓰기·정합·흐름이 더 붙는다. 같은 덱을 두 번째 열면 파싱은 보관소의 지난 파싱본으로 건너뛴다. */
+
+const TEST_DECK_OCC = OCC_BY_KEY.school_project;   // 발표 정보 화면을 건너뛰므로 기본 상황을 하나 정해 둔다
+
+async function renderTestQa() {
+  app.className = 'narrow';
+  app.innerHTML = `<main>
+    <h1 class="section-title">발표자료 폴더로 질문 코칭 해 보기</h1>
+    <p class="sub">서버의 <code>ppt/</code> 폴더에 있는 덱을 골라요. 파싱과 분석을 거쳐 질문 코칭 화면까지 바로 가요. 실제 API 를 쓰니 몇 분 걸려요.</p>
+    <div id="deckList" class="stack">불러오고 있어요…</div>
+  </main>`;
+  const box = $('#deckList');
+  let decks = [];
+  let dir = '';
+  try {
+    const res = await fetch('/api/v1/dev/decks');
+    if (res.status === 404) throw new Error('개발용 경로가 닫혀 있어요. 브리지를 DEMO_DEV_ROUTES=1 로 띄우면 열려요.');
+    const body = (await res.json()) || {};
+    decks = body.decks || [];
+    dir = body.dir || '';
+  } catch (err) {
+    box.innerHTML = `<div class="qa-flag lost"><i>✕</i>목록을 못 불러왔어요: ${escapeHtml(String(err.message || err))}</div>`;
+    return;
+  }
+  if (!decks.length) {
+    box.innerHTML = `<p class="sub">아직 덱이 없어요. <code>${escapeHtml(dir)}</code> 아래에 폴더를 만들고 PPTX·PDF 를 넣으면 여기에 보여요.</p>`;
+    return;
+  }
+  const mb = (n) => `${(n / 1024 / 1024).toFixed(1)}MB`;
+  const sec = (n) => (n > 0 ? `${Math.floor(n / 60)}분 ${Math.round(n % 60)}초` : '');
+  box.innerHTML = decks.map((d) => {
+    const marks = [
+      `<span class="chip chip-sm st-ok">${escapeHtml(d.deck)} · ${mb(d.deck_bytes)}</span>`,
+      d.audio
+        ? `<span class="chip chip-sm st-ok">녹음 ${escapeHtml(d.audio)}${d.audio_sec ? ' · ' + sec(d.audio_sec) : ''}</span>`
+        : '<span class="chip chip-sm st-om">녹음 없어요</span>',
+      d.cached_session_id
+        ? '<span class="chip chip-sm">지난 파싱본 있어요 · 파싱 건너뛰어요</span>'
+        : '<span class="chip chip-sm">처음이라 파싱부터 해요</span>',
+    ].join('');
+    return `<div class="qa-sum" data-deck="${escapeHtml(d.key)}">
+      <b class="qs-name">${escapeHtml(d.name)}</b>
+      <p class="qs-text">${marks}</p>
+      <div class="step-actions" style="justify-content:flex-start;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" data-run="deck" type="button">자료만으로 질문 코칭</button>
+        <button class="btn ${d.audio ? 'btn-secondary' : 'btn-tint'}" data-run="audio" type="button" ${d.audio ? '' : 'disabled'}>${d.audio ? '녹음까지 태워서 질문 코칭' : '녹음이 있어야 태울 수 있어요'}</button>
+      </div>
+      <p class="note">발표 정보는 「${escapeHtml(TEST_DECK_OCC)}」 · ${nf.min || 10}분으로 두고 가요.</p>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-run]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('[data-deck]');
+      const row = decks.find((d) => d.key === card.dataset.deck);
+      if (row) startTestDeck(row, btn.dataset.run === 'audio', card);
+    });
+  });
+}
+
+/** 서버의 덱 파일을 File 로 감싼다 — 업로드 입력에서 고른 것과 같은 모양이라 같은 함수에 넣을 수 있다 */
+async function fetchDeckFile(key, kind, name) {
+  const res = await fetch(`/api/v1/dev/decks/file?deck=${encodeURIComponent(key)}&kind=${kind}`);
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { msg = ((await res.json()) || {}).message || msg; } catch (_) { /* 본문 없음 */ }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  return new File([blob], name, { type: blob.type || '' });
+}
+
+/**
+ * 덱 하나를 질문 코칭까지 태운다.
+ *
+ *  1. 파싱 — 지난 파싱본이 있으면 ensureSlideDoc() 로 되살리고(#/replay 와 같다), 없으면 startParse().
+ *  2. 발표 정보 — 화면을 건너뛰고 기본값을 넣은 뒤 startPrecompute() (스텝 2 의 「다음」이 하는 일).
+ *  3-a. 자료만 — 선분석 그래프가 오면 pipelineOut 에 넣고 #/qa. 정합·발화 없이 자료만으로 묻는 질문이 나온다.
+ *  3-b. 녹음까지 — useUploadedRecording() 에 녹음 파일을 넣는다. 그다음은 업로드 녹음과 완전히 같은 길이다:
+ *       분석 파이프라인 → 리빌 → autoAdvanceToQa 가 #/qa 로 보낸다.
+ */
+async function startTestDeck(row, withAudio, card) {
+  card.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  const say = (msg, lost = false) => {
+    let line = card.querySelector('.test-deck-note');
+    if (!line) { line = document.createElement('p'); line.className = 'test-deck-note note'; card.appendChild(line); }
+    line.innerHTML = lost ? `<span class="qa-flag lost"><i>✕</i>${escapeHtml(msg)}</span>` : escapeHtml(msg);
+  };
+  const fail = (msg) => {
+    say(msg, true);
+    card.querySelectorAll('button').forEach((b) => { b.disabled = b.dataset.run === 'audio' && !row.audio; });
+  };
+
+  resetNf();
+  resetQa();
+  nf.occ = TEST_DECK_OCC;
+  nf.ctx = '';
+  nf.occTouched = true;   // F-23 추정이 뒤늦게 와도 덮지 않는다
+  nf.fileName = row.deck;
+
+  // 녹음 파일은 먼저 받아 둔다 — 파싱 몇 분 뒤에 없다고 하면 그 시간을 버린다
+  let audioFile = null;
+  if (withAudio) {
+    say(`녹음 ${row.audio} 을 받고 있어요…`);
+    try { audioFile = await fetchDeckFile(row.key, 'audio', row.audio); }
+    catch (err) { return fail(`녹음 파일을 못 받았어요: ${err.message || err}`); }
+  }
+
+  // 1. 파싱
+  let restored = false;
+  if (row.cached_session_id) {
+    say('지난 파싱본을 되살리고 있어요…');
+    nf.sessionId = row.cached_session_id;
+    const doc = await ensureSlideDoc();
+    if (doc) {
+      applySlideDoc(doc, { keepDemoImages: false });
+      nf.fileName = doc.file_name || row.deck;
+      nf.gate = 'done';
+      restored = true;
+    } else {
+      nf.sessionId = null;   // 만료됐다 — 처음처럼 파싱한다
+    }
+  }
+  if (!restored) {
+    say(`${row.deck} 을 받아서 파싱하고 있어요… (몇 분 걸려요)`);
+    let deckFile;
+    try { deckFile = await fetchDeckFile(row.key, 'deck', row.deck); }
+    catch (err) { return fail(`자료 파일을 못 받았어요: ${err.message || err}`); }
+    // startParse 는 스텝 1 화면(#nf)에 그린다 — 업로드 화면으로 옮겨 놓고 부른다
+    location.hash = '#/new';
+    renderNew();
+    await startParse({ file: deckFile });
+    if (nf.gate !== 'done') return;   // 실패는 스텝 1 화면이 그대로 보여 준다
+  }
+  // ensureSlideDoc/startParse 는 발표 정보를 건드리지 않지만, resetNf 이후 saveSession 이 몇 번 돌았다 — 다시 확정
+  nf.occ = TEST_DECK_OCC;
+  nf.occTouched = true;
+
+  // 2. 발표 정보 화면의 「다음」이 하는 일
+  nf.step = 1;
+  startPrecompute();
+  nf.step = 2;
+  saveSession('new-flow', nf);
+  if (location.hash === '#/new') renderNew();
+  else location.hash = '#/new';
+
+  // 3-b. 녹음까지 — 업로드 녹음과 같은 길
+  if (withAudio) {
+    await new Promise((r) => setTimeout(r, 50));   // hashchange 로 renderNew 가 한 번 더 그린 뒤에
+    await useUploadedRecording(audioFile, { knownDurationSec: Number(row.audio_sec) || 0 });
+    return;
+  }
+
+  // 3-a. 자료만 — 선분석 그래프만 기다렸다가 질문 코칭으로
+  if (!precompute || !precompute.graphP) return;
+  nf.pipelinePhase = 'running';
+  nf.pipelineDetail = '자료만으로 개념·그래프를 만들고 있어요 (녹음 없음)';
+  nf.pipelineStartedAt = Date.now();
+  saveSession('new-flow', nf);
+  let graph = null;
+  try { graph = await precompute.graphP; }
+  catch (err) {
+    nf.pipelinePhase = 'error';
+    nf.pipelineError = String(err && err.message || err);
+    saveSession('new-flow', nf);
+    console.warn('[chuckchuck] test deck graph', err);
+  }
+  if (!graph) { location.hash = '#/qa'; return; }   // 실패 화면(renderQaUnavailable)이 이유를 말한다
+  nf.pipelineOut = { ...(nf.pipelineOut || {}), graph };
+  nf.pipelinePhase = 'partial';     // 정합·흐름은 없다 — 자료만으로 묻는 질문이라는 뜻
+  nf.pipelineDetail = '자료만으로 그래프까지 만들었어요. 받아쓰기·정합은 없어요.';
+  saveSession('new-flow', nf);
+  location.hash = '#/qa';
 }
 
 /* ── #/replay — 저장해 둔 발표로 이어서 (개발용) ──────────────────────────
