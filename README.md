@@ -162,6 +162,7 @@ PDF·녹음 없이, 발표 자료를 **카메라로 찍거나** 자료가 열린
 설계·실측은 [`docs/plan/booth-screen-qa.plan.md`](docs/plan/booth-screen-qa.plan.md), 부스에서 어떻게 돌릴지는
 [`docs/plan/booth-operations.plan.md`](docs/plan/booth-operations.plan.md). 프론트 순수 함수는 `node tests/js/booth.smoke.mjs`,
 통화 화면을 브라우저 없이 단계별로 찍어 보는 실험실은 [`labs/qa_call/`](labs/qa_call/README.md) (`python labs/qa_call/run.py all`).
+질문 생성·판정만 골라 되돌려 보는 실험대는 [`labs/qa_lab/`](labs/qa_lab/README.md) (`snapshot → questions → judge --probe → check`, 브라우저 없음).
 
 ### 손으로 눌러보는 체크리스트
 

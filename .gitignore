@@ -65,3 +65,4 @@ fixtures/raw/*.transcript.json
 exports/qa_eval/
 exports/graph_eval/
 labs/qa_call/out/
+labs/qa_lab/out/

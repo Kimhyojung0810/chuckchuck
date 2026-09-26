@@ -47,7 +47,7 @@ def freeze() -> Path:
     return dst
 
 
-def run(stage: str, base: str, mobile: bool, photos: list[Path]) -> Path:
+def run(stage: str, base: str, mobile: bool, photos: list[Path], answer: str = ANSWER) -> Path:
     from playwright.sync_api import sync_playwright
     from fakecam import build as build_cam
 
@@ -168,7 +168,7 @@ def run(stage: str, base: str, mobile: bool, photos: list[Path]) -> Path:
                 return out
 
             t0 = time.time()
-            page.fill("#qa-answer", ANSWER)
+            page.fill("#qa-answer", answer)
             page.click("#btn-answer")
             page.wait_for_selector("#call-log .call-bubble.is-verdict, #call-log .call-bubble.is-error", timeout=90000)
             page.wait_for_timeout(1200)
@@ -239,7 +239,8 @@ def run(stage: str, base: str, mobile: bool, photos: list[Path]) -> Path:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="labs/qa_call/run.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("stage", choices=STAGES + ["all", "freeze"])
-    ap.add_argument("--base", default="http://127.0.0.1:8801")
+    ap.add_argument("--base", default="http://127.0.0.1:8799", help="새 코드로 뜬 브리지 (README 와 같은 8799)")
+    ap.add_argument("--answer", default=ANSWER, help="call-answer 단계에 넣을 답 (기본은 고정 문장)")
     ap.add_argument("--mobile", action="store_true")
     ap.add_argument("--photos", nargs="*", default=[str(HERE / "fixture_slide1.jpg"), str(HERE / "fixture_slide2.jpg")])
     ns = ap.parse_args(argv)
@@ -247,7 +248,7 @@ def main(argv: list[str]) -> int:
         freeze()
         return 0
     sys.path.insert(0, str(HERE))
-    run(ns.stage, ns.base, ns.mobile, [Path(x) for x in ns.photos])
+    run(ns.stage, ns.base, ns.mobile, [Path(x) for x in ns.photos], answer=ns.answer)
     return 0
 
 
