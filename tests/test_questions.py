@@ -1742,3 +1742,42 @@ def test_발표자를_3인칭으로_부르지_않는다():
     assert _second_person(kept) == kept
     assert _second_person("발표자가 쉽게 막히는 지점은 어디인가요?") == "발표자가 쉽게 막히는 지점은 어디인가요?"
     assert _second_person(_second_person("발표자는 왜 강조했나요?")) == "왜 강조했나요?"
+
+
+# ---------------------------------------------------------------------------
+# 트랙별 배합 — 주제 → 요소 → 약점 (QA_TRACK_MIX)
+# ---------------------------------------------------------------------------
+
+def _mix(graph, track, **kw):
+    from chuckchuck.f08_questions import _pick_marks
+    depth_of = {n.id: n.depth for n in graph.nodes}
+    picked, _ = _pick_marks(make_triage(graph, **kw).marks, track, depth_of, kw.get("stalled"))
+    return [m.node_id for m in picked][: {"1": 1, "5": 3, "10": 7}[track]]
+
+
+def test_5분은_주제_요소_순서로_묻고_약점이_없으면_다른_축으로_채운다():
+    assert _mix(_tree_graph(), "5") == ["root", "leaf1", "other"]
+
+
+def test_녹음_경로에서도_누락_잎이_주제를_밀어내지_않는다():
+    """
+    예전엔 근거(누락)가 모든 키 위라, 누락된 잎 둘이 5분 트랙 앞자리를 먹고 주제는 셋째였다.
+    배합은 주제 자리를 먼저 채우고, 약점은 약점 자리에 들어간다.
+    """
+    graph = _tree_graph()
+    ids = _mix(graph, "5", alignment=make_alignment({"leaf2": "missing", "leaf3": "missing"}, graph))
+    assert ids[0] == "root"
+    assert {"leaf2", "leaf3"} <= set(ids[1:]), "요소 자리·약점 자리에 누락 개념이 들어간다"
+
+
+def test_1분은_주제_하나다():
+    graph = _tree_graph()
+    assert _mix(graph, "1", alignment=make_alignment({"leaf3": "contradiction"}, graph)) == ["root"]
+
+
+def test_깊이를_모르면_예전처럼_순위대로다():
+    from chuckchuck.f08_questions import _pick_marks
+    graph = _tree_graph()
+    marks = make_triage(graph).marks
+    picked, _ = _pick_marks(marks, "5")
+    assert [m.node_id for m in picked][:3] == [m.node_id for m in marks][:3]

@@ -1295,14 +1295,66 @@ def _drop_twin_questions(
     return kept[:limit], dropped
 
 
-def _pick_marks(marks: list[TriageMark], track: str) -> tuple[list[TriageMark], list[str]]:
-    """
-    트랙 상한만큼 rank 순으로 고르고, 함정 개수를 트랙 허용치로 깎는다.
+#: 트랙별 질문 배합 — 자리마다 순위가 가장 높은 맞는 개념을 넣는다. 맞는 개념이 없으면 남은 것 중 순위대로.
+#:   theme 주제(루트) · part 주제 바로 밑 요소 · weak 확인된 약점(모순·누락·덜 말함·흐름 결손, 지난 리허설에서 막힌 개념)
+#: 나오는 순서도 이 순서다 — 큰 주장을 먼저 묻고, 요소로 내려가고, 약점을 찌른다.
+#: 2026-09-28: 순위만으로 채우면 녹음 경로는 누락 잎이, 자료만 경로는 한 가지 가지가 트랙을 통째로 먹었다
+#: (docs/review/2026-09-28_QA_지엽성_원인분석.md §8).
+QA_TRACK_MIX: dict[str, tuple[str, ...]] = {
+    "1": ("theme",),
+    "5": ("theme", "part", "weak"),
+    "10": ("theme", "part", "weak", "part", "weak", "part", "weak"),
+}
 
+#: weak 자리에 들어갈 근거. extra(발화에만 나온 개념)는 약점이 아니라 즉흥이라 뺀다.
+_WEAK_SOURCES = ("contradiction", "missing", "under_spoken", "weak_flow")
+
+
+def _slot_fits(slot: str, mark: TriageMark, depth_of: dict[str, int], stalled: set[str]) -> bool:
+    if slot == "theme":
+        return depth_of.get(mark.node_id) == 1
+    if slot == "part":
+        return depth_of.get(mark.node_id) == 2
+    return mark.source in _WEAK_SOURCES or mark.node_id in stalled
+
+
+def _mixed_order(
+    ordered: list[TriageMark],
+    track: str,
+    depth_of: dict[str, int] | None,
+    stalled: set[str],
+) -> list[TriageMark]:
+    """배합대로 앞자리를 채우고, 나머지는 원래 순위대로 뒤에 붙인다. depth 를 모르면 순위 그대로."""
+    plan = QA_TRACK_MIX.get(track) or ()
+    if depth_of is None or not plan:
+        return ordered
+    rest = list(ordered)
+    head: list[TriageMark] = []
+    for slot in plan:
+        if not rest:
+            break
+        pick = next((m for m in rest if _slot_fits(slot, m, depth_of, stalled)), rest[0])
+        rest.remove(pick)
+        head.append(pick)
+    return head + rest
+
+
+def _pick_marks(
+    marks: list[TriageMark],
+    track: str,
+    depth_of: dict[str, int] | None = None,
+    stalled: set[str] | None = None,
+) -> tuple[list[TriageMark], list[str]]:
+    """
+    트랙 상한만큼 배합(QA_TRACK_MIX)대로 고르고, 함정 개수를 트랙 허용치로 깎는다.
+
+    depth_of(노드 id → 깊이)를 안 주면 예전처럼 rank 순이다.
     1분 트랙은 방어 연습할 시간이 없어 함정이 0개다 (QA_TRACK_TRAPS).
     상한에서 밀린 개념은 deferred 로 돌려준다 — "더 길게 하면 이것도 물어요" 안내용이다.
     """
-    ordered = sorted(marks, key=lambda m: (m.rank, m.node_id))
+    ordered = _mixed_order(
+        sorted(marks, key=lambda m: (m.rank, m.node_id)), track, depth_of, stalled or set()
+    )
     limit = QA_TRACK_LIMITS[track]
     take = limit + _twin_slack(limit)
     picked, deferred = ordered[:take], [m.node_id for m in ordered[take:]]
@@ -2062,7 +2114,9 @@ def build_questions(
             "triage 가 같은 ConceptGraph 에서 나온 것인지 확인하세요."
         )
 
-    marks, deferred = _pick_marks(known, track)
+    depth_of = {n.id: n.depth for n in graph.nodes}
+    stalled = {nid for nid, cm in memory_of.items() if cm.stalled}
+    marks, deferred = _pick_marks(known, track, depth_of, stalled)
     engine = _engine(llm, llm_kwargs)
     flow_of = _flow_issue_by_node(flow)
 
