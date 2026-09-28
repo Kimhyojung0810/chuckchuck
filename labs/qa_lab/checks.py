@@ -22,6 +22,8 @@ FALLBACK_QUESTION_RE = re.compile(r"— 설명해 주세요\.$|이 개념의 핵
 #: 「발표자가 인용했다」 는 표현 (f08 `_PRESENTER_CITED_RE` 와 같은 식).
 PRESENTER_CITED_RE = re.compile(r"인용(?:했|하셨|하신|하였|한|하고|되었|됐|된)")
 #: 「저자 (연도)」 인용 표시.
+#: 발표자를 3인칭으로 부른 질문 (f08 _second_person 이 못 받은 것)
+THIRD_PERSON_RE = re.compile(r"발표자(?:는|가|께서)\s")
 CITE_RE = re.compile(r"[A-Z][A-Za-z'\-]+(?:\s+et\s+al\.)?\s*\(\d{4}[a-z]?\)")
 #: f09 가드가 등급을 뒤집었을 때 쓰는 고정 문구 (f09 `_OFF_TOPIC_REACT` · `_TRAP_AGREED_REACT`).
 OFF_TOPIC_LEAD = "질문과 다른 이야기예요."
@@ -131,6 +133,8 @@ def question_flags(q: dict, papers: dict | None = None, deck_texts: list[str] | 
         flags.append(f"합쇼체{n}")
     if node_id_leaked(text, q.get("node_id", ""), q.get("label", "")):
         flags.append("노드id노출")
+    if THIRD_PERSON_RE.search(str(q.get("question", "") or "")):
+        flags.append("3인칭!")
     if PRESENTER_CITED_RE.search(text) and CITE_RE.search(text) and not _deck_refs(papers):
         flags.append("인용주장!")
     if not q.get("evidence_quote"):

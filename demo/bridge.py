@@ -540,6 +540,19 @@ STAGE_CACHE_ON = os.environ.get("DEMO_STAGE_CACHE", "1").lower() not in ("0", "f
 STAGE_CACHE_DIR = ARCHIVE.stage_dir
 
 
+def _code_version(module_name: str) -> str:
+    """
+    단계 모듈 소스의 해시. 캐시 키에 넣어, 프롬프트·후처리를 고치면 옛 결과가 안 맞게 한다.
+
+    2026-09-28: F-07 위계를 고쳤는데 캐시가 같은 자료에 옛 그래프(주제가 잎 밑에 붙은 것)를
+    그대로 돌려줘서, 브리지를 재시작해도 화면은 옛 질문 순서였다.
+    """
+    import importlib
+
+    path = Path(importlib.import_module(module_name).__file__)
+    return hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+
+
 def _stage_key(*parts) -> str:
     """출력에 영향을 주는 것 전부를 넣은 내용 해시. 하나라도 빠지면 캐시가 거짓말을 한다."""
     h = hashlib.sha1()
@@ -1049,7 +1062,7 @@ class Handler(SimpleHTTPRequestHandler):
         if body.get("transcript"):
             transcript = Transcript.from_dict(body["transcript"])
         # 같은 자료·같은 발표 정보면 결과가 같다. 부스 2회차부터 1분 43초를 안 태운다
-        key = _stage_key("f06", body["slide_doc"], body.get("context") or {}, llm,
+        key = _stage_key("f06", _code_version("chuckchuck.f06_concepts"), body["slide_doc"], body.get("context") or {}, llm,
                          body.get("transcript") or None)
         # 발표 정보는 manifest 에 붙인다 — 또래 기준(상황×시간) 을 만들 때의 버킷 키다.
         if not _mock() and _session_id_of(body) and body.get("context"):
@@ -1117,7 +1130,7 @@ class Handler(SimpleHTTPRequestHandler):
         llm = _pick_llm(body)
         # F-07 은 Transcript 를 안 받는다 — 입력이 concept_doc·slide_doc·context 뿐이라
         # 같은 자료면 결과가 같다. 실측 2분 40초로 파이프라인에서 가장 긴 단계다
-        key = _stage_key("f07", body["concept_doc"], body.get("slide_doc") or None,
+        key = _stage_key("f07", _code_version("chuckchuck.f07_graph"), body["concept_doc"], body.get("slide_doc") or None,
                          body.get("context") or {}, llm)
         cached = _stage_cache_get("graph", key)
         if cached is not None:

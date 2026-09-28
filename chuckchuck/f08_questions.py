@@ -269,6 +269,10 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
    (X) 왜 다른 정렬 방식 대신 이 방식을 선택했나요?
    (O) 회복이 신체적인 것과 정신적인 것을 모두 포함한다면, 둘 중 어느 쪽이
        수면의 질에 더 크게 좌우되나요?
+3-2. **발표자에게 직접 묻는다.** "발표자는 어떻게 설명했나요" 처럼 발표자를 3인칭으로 부르지 마라.
+   주어를 빼거나 "발표에서" 로 쓴다.  (X) 발표자는 이 공식을 어떻게 설명했나요?  (O) 이 공식을 어떻게 설명했나요?
+3-3. **"왜 A 를 B 보다 먼저 말했나" 같은 순서 질문은 「흐름(order_jump):」 줄이 붙은 개념에만** 쓴다. 그 줄이 없으면
+   순서가 문제라는 근거가 없다 — 순서 대신 그 개념의 내용·근거·한계를 물어라.
 4. '발표에서 한 말' 이 (aligned) 인 개념은 이미 설명에 성공한 개념이다.
    같은 설명을 되풀이하게 하지 말고 **심화·응용·한계**를 묻는 질문을 써라.
 5. 말투는 해요체다. '~시', '~시겠어요', '하셨는데' 같은 높임을 쓰지 마라.
@@ -1713,6 +1717,19 @@ def _plain_speech(text: str) -> str:
     return _KKE_RE.sub("에게", t)
 
 
+#: 발표자를 3인칭으로 부르는 꼴 — 「발표자는 어떻게 설명했나요?」. 질문은 발표자 **본인에게** 하는 말이다.
+#: 2026-09-28 수면발표 실측(solar). 뒤에 발표 행위 동사가 올 때만 잡는다 — 척척발표처럼 「발표자」 가 자료의
+#: 개념인 덱("발표자의 이해도를 진단")에서 내용을 지우면 안 된다.
+_THIRD_PERSON_RE = re.compile(
+    r"발표자(는|가|께서)\s+(?=[^.?!]{0,30}?(?:설명|언급|제시|말|강조|주장|소개|정의|꼽|들었|든 |했|한 ))"
+)
+
+
+def _second_person(text: str) -> str:
+    """「발표자는 …했나요」 → 「…했나요」, 「발표자가 제시한 X」 → 「발표에서 제시한 X」. 결정적이고 멱등이다."""
+    return _THIRD_PERSON_RE.sub(lambda m: "" if m.group(1) == "는" else "발표에서 ", text or "")
+
+
 # ---------------------------------------------------------------------------
 # 거짓 전제 — 검색 문헌(kind="scholar")을 「발표자가 인용했다」 고 쓴 문장.
 # 2026-09-24 실측: 자료는 논문을 하나도 인용하지 않았는데 "O'Reilly et al. (2026)와 Kulshreshtha (2026)를
@@ -1875,7 +1892,7 @@ def _normalize_questions(
         # 합쇼체(to_haeyo)도 여기서 푼다 — 09-26 실측: "고민된다고 했습니다." 가 질문 가운데, "…할 수 있습니다." 가 골자에.
         # 질문은 자르지 않고 문장 단위로 줄인다(_fit_question) — 잘린 물음은 물음이 아니다.
         def _tidy(key: str) -> str:
-            return to_haeyo(_plain_speech(_unslug(str(raw.get(key, "") or ""), node)))
+            return to_haeyo(_second_person(_plain_speech(_unslug(str(raw.get(key, "") or ""), node))))
 
         written_q = _drop_cite_claim(_fit_question(_polite_question(_tidy("question")), trap=mark.trap), papers)
         written_gist = _drop_cite_claim(_clip(_tidy("answer_gist")), papers)

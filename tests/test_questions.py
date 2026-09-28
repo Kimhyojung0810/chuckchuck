@@ -1730,3 +1730,15 @@ def test_후보_창은_위에서부터_찬다(monkeypatch):
     monkeypatch.setattr(f08, "CANDIDATE_LIMIT", 2)
     ids = _ids(_tree_graph())
     assert ids == ["root", "other"]
+
+
+def test_발표자를_3인칭으로_부르지_않는다():
+    """질문은 발표자 본인에게 하는 말이다 (2026-09-28 실측: 「…발표자는 어떻게 설명했나요?」)."""
+    from chuckchuck.f08_questions import _second_person
+    assert _second_person("이 공식을 발표자는 어떻게 설명했나요?") == "이 공식을 어떻게 설명했나요?"
+    assert _second_person("발표자가 제시한 기준은 무엇인가요?") == "발표에서 제시한 기준은 무엇인가요?"
+    # 「발표자」 가 자료의 개념이면 그대로 둔다 — 뒤에 발표 행위 동사가 없다
+    kept = "발표자의 이해도를 어떻게 진단하나요?"
+    assert _second_person(kept) == kept
+    assert _second_person("발표자가 쉽게 막히는 지점은 어디인가요?") == "발표자가 쉽게 막히는 지점은 어디인가요?"
+    assert _second_person(_second_person("발표자는 왜 강조했나요?")) == "왜 강조했나요?"
