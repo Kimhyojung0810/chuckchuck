@@ -693,8 +693,10 @@ def _question_cites(q: dict, papers: PaperDoc | None) -> bool:
 def _cite_targets(
     raw: list[dict], marks: list[TriageMark], by_id: dict[str, ConceptNode], by_no: dict[int, Slide],
     papers: PaperDoc | None,
+    paper_plan: dict[str, list[PaperRef]] | None = None,
 ) -> list[tuple[dict, ConceptNode, list[PaperRef]]]:
-    """문헌 줄이 붙은 개념인데 인용이 없는 질문들. 개념당 첫 질문만 (어댑터도 개념당 하나만 쓴다)."""
+    """문헌 줄이 붙은 개념인데 인용이 없는 질문들. 개념당 첫 질문만 (어댑터도 개념당 하나만 쓴다).
+    paper_plan 을 주면 계획에 든 개념만 고쳐 쓴다 — 상한 밖 개념에 인용을 강제하지 않는다."""
     if papers is None:
         return []
     marked = {m.node_id for m in marks}
@@ -705,7 +707,8 @@ def _cite_targets(
             continue
         seen.add(nid)
         node = by_id[nid]
-        refs = _papers_for_node(papers, node, _anchor_nos(node, by_no))
+        refs = (paper_plan.get(nid, []) if paper_plan is not None
+                else _papers_for_node(papers, node, _anchor_nos(node, by_no)))
         if refs and str(q.get("question", "") or "").strip() and not _question_cites(q, papers):
             out.append((q, node, refs))
     return out
@@ -769,10 +772,11 @@ def _apply_cite_rewrite(raw: list[dict], targets: list[tuple[dict, ConceptNode, 
 def _questions_with_papers(
     engine: LLMProvider, prompt: str, marks: list[TriageMark], system: str,
     by_id: dict[str, ConceptNode], by_no: dict[int, Slide], papers: PaperDoc | None,
+    paper_plan: dict[str, list[PaperRef]] | None = None,
 ) -> list[dict]:
     """질문을 받은 뒤, 문헌이 붙었는데 인용이 없는 질문만 골라 qa-cite 로 **한 번** 고쳐 쓴다. 실패하면 첫 응답 그대로."""
     raw = _questions_with_retry(engine, prompt, marks, system)
-    targets = _cite_targets(raw, marks, by_id, by_no, papers)
+    targets = _cite_targets(raw, marks, by_id, by_no, papers, paper_plan)
     if not targets:
         return raw
     try:
@@ -1389,7 +1393,13 @@ def _build_question_prompt(
     by_no: dict[int, Slide] | None = None,
     papers: PaperDoc | None = None,
     memory_of: dict[str, ConceptMemory] | None = None,
+    paper_plan: dict[str, list[PaperRef]] | None = None,
 ) -> str:
+    def refs_of(node: ConceptNode, anchors: list[int]) -> list[PaperRef]:
+        if paper_plan is not None:
+            return paper_plan.get(node.id, [])
+        return _papers_for_node(papers, node, anchors)
+
     parts = [
         "[TASK] qa-questions",
         ctx.to_prompt_block(),
@@ -1414,7 +1424,7 @@ def _build_question_prompt(
         shelf: list[PaperRef] = []
         for mark in marks:
             node = by_id[mark.node_id]
-            for ref in _papers_for_node(papers, node, _anchor_nos(node, by_no or {})):
+            for ref in refs_of(node, _anchor_nos(node, by_no or {})):
                 if ref not in shelf:
                     shelf.append(ref)
         parts += _paper_shelf_lines(papers, shelf)
@@ -1450,7 +1460,7 @@ def _build_question_prompt(
             parts.append(f"    {_flow_line(issue)}")
 
         # 이 개념에 붙은 문헌 — 자료가 그 장에서 인용했거나 이 개념으로 검색된 것.
-        for ref in _papers_for_node(papers, node, anchors):
+        for ref in refs_of(node, anchors):
             parts.append(f"    문헌 ({ref.id}) {ref.cite_key} ← 질문 문장에 \"{ref.cite_key}\" 를 그대로 넣어 이 문헌을 근거로 물어라")
 
         # 지난 리허설 기억 (F-25) — 판정·횟수·빠진 점만. 지난 답변 원문은 싣지 않는다.
@@ -1525,6 +1535,49 @@ def _papers_for_node(papers: PaperDoc | None, node: ConceptNode, anchors: list[i
                 and r.kind == "deck" and r.slide_no and r.slide_no in anchors]
     return (direct + by_slide)[:PAPER_LINES_PER_NODE]
 
+
+
+#: 트랙별 **논문 인용 질문 상한**. 예전엔 문헌 줄이 붙은 개념마다 인용을 강제해 5분 트랙 3개 중 2개,
+#: 10분 7개 중 5개가 「X et al. (연도)는 …했는데」 틀이었고 같은 논문이 여러 질문에 되풀이됐다
+#: (2026-09-29 실측, docs/review/2026-09-28_QA_지엽성_원인분석.md §9). 1분은 발표 자체만 묻는다.
+QA_TRACK_CITES = {"1": 0, "5": 1, "10": 2}
+
+
+def _plan_papers(
+    marks: list[TriageMark],
+    by_id: dict[str, ConceptNode],
+    by_no: dict[int, Slide] | None,
+    papers: PaperDoc | None,
+    track: str,
+) -> dict[str, list[PaperRef]]:
+    """
+    어느 질문에 어느 문헌 하나를 붙일지 정한다. 상한(QA_TRACK_CITES)까지만, **한 문헌은 한 번만**.
+
+    자료가 직접 인용한 문헌(deck)을 먼저 배정한다 — 발표자가 스스로 낸 근거라 묻기에 정당하다.
+    그다음 검색 문헌. 각 단계 안에서는 질문 순서(배합 순서)대로. 계획에 없는 개념은 문헌 줄 없이 자료로만 묻는다.
+    """
+    budget = QA_TRACK_CITES.get(track, 0)
+    if papers is None or budget <= 0:
+        return {}
+    plan: dict[str, list[PaperRef]] = {}
+    used: set[str] = set()
+    for want_deck in (True, False):
+        for mark in marks:
+            if budget <= 0:
+                return plan
+            node = by_id.get(mark.node_id)
+            if node is None or mark.node_id in plan:
+                continue
+            ref = next(
+                (r for r in _papers_for_node(papers, node, _anchor_nos(node, by_no or {}))
+                 if (r.kind == "deck") == want_deck and r.id not in used and r.cite_key not in used),
+                None,
+            )
+            if ref is not None:
+                plan[mark.node_id] = [ref]
+                used |= {ref.id, ref.cite_key}
+                budget -= 1
+    return plan
 
 def _ref_cited(ref: PaperRef, surname: str, year: int) -> bool:
     return ref.year == year and surname in {a.lower() for a in ref.authors}
@@ -2121,14 +2174,17 @@ def build_questions(
     flow_of = _flow_issue_by_node(flow)
 
     by_no = _slides_by_no(slidedoc)
-    prompt = _build_question_prompt(graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of)
+    paper_plan = _plan_papers(marks, by_id, by_no, papers, track)
+    prompt = _build_question_prompt(
+        graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of, paper_plan
+    )
     remembered = any(m.node_id in memory_of for m in marks)
     raw_questions = _questions_with_papers(
         engine, prompt, marks,
         QUESTION_SYSTEM_PROMPT
-        + (PAPER_SYSTEM_ADDENDUM if papers is not None else "")
+        + (PAPER_SYSTEM_ADDENDUM if paper_plan else "")
         + (MEMORY_SYSTEM_ADDENDUM if remembered else ""),
-        by_id, by_no, papers,
+        by_id, by_no, papers, paper_plan,
     )
 
     # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의

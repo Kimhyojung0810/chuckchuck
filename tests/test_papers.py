@@ -343,7 +343,7 @@ def test_papers_없으면_프롬프트와_시스템_프롬프트가_예전과_�
 def test_papers_가_있으면_서가와_개념별_문헌_줄이_실린다():
     g = make_graph()
     llm = ScriptedLLM({"qa-questions": {"questions": []}})
-    build_questions(g, triage(), track="5", papers=papers_doc(), llm=llm)
+    build_questions(g, triage(), track="10", papers=papers_doc(), llm=llm)
     user, system = llm.users[0], llm.systems[0]
     assert "## 교수가 읽고 온 문헌" in user
     assert "(d01) Stothart et al. (2015) «The attentional cost" in user and "[자료 3장이 인용]" in user
@@ -519,14 +519,14 @@ def test_문헌이_있는데_인용_0_이면_그_질문만_qa_cite_로_한_번_�
                 {"node_id": "c2", "question": "잔여 주의란 무엇인가요?", "why": "w2", "hint": "h2", "answer_gist": "g2"}]}, ensure_ascii=False)
 
     llm = CountingLLM()
-    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    doc = build_questions(make_graph(), triage(), track="10", papers=papers_doc(), llm=llm)
     assert len(llm.systems) == 2 and llm.systems[1] == CITE_SYSTEM_PROMPT
     cite_user = llm.users[1]
     # 인용 없는 질문 둘 다, 각자의 문헌과 함께 실린다 — 전체 프롬프트가 아니라 이것만
     assert "### (c1) 알림의 주의 비용" in cite_user and "question: 알림 비용은 왜 생기나요?" in cite_user
     assert "문헌 (d01) Stothart et al. (2015)" in cite_user and "문헌 (s01) Leroy (2009)" in cite_user
     assert "## 교수가 읽고 온 문헌" not in cite_user
-    q1, q2 = doc.questions
+    q1, q2 = (next(q for q in doc.questions if q.node_id == n) for n in ("c1", "c2"))
     assert "Stothart et al. (2015)" in q1.question and q1.paper_ids == ["d01"] and q1.why == "문헌 근거"
     assert q1.answer_gist == "원래 골자"                         # 골자는 고치지 않는다
     assert "Smith" not in q2.question and q2.question == "잔여 주의란 무엇인가요?" and q2.paper_ids == []   # 원문 유지
@@ -534,7 +534,7 @@ def test_문헌이_있는데_인용_0_이면_그_질문만_qa_cite_로_한_번_�
     llm2 = ScriptedLLM({"qa-questions": {"questions": [
         {"node_id": "c1", "question": "Stothart et al. (2015)는 무엇을 쟀나요?", "why": "w", "hint": "h", "answer_gist": "g"},
         {"node_id": "c2", "question": "Leroy (2009)를 어떻게 적용하나요?", "why": "w", "hint": "h", "answer_gist": "g"}]}})
-    build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm2)
+    build_questions(make_graph(), triage(), track="10", papers=papers_doc(), llm=llm2)
     assert len(llm2.systems) == 1
 
 
@@ -624,8 +624,8 @@ def test_qa_cite_자료_인용_문헌을_N장에서_인용한_으로_쓴_재작�
 def test_qa_cite_검색_문헌을_주어로_세워_봤는데_꼴로_쓴_재작성은_받는다():
     rewritten = "Leroy (2009)는 작업을 바꾼 뒤에도 주의가 남는다고 봤는데, 발표의 '잔여 주의'도 같은 뜻인가요?"
     llm = _CiteRewrite([{"node_id": "c2", "question": rewritten, "why": "문헌 근거", "hint": "전환", "paper_ids": ["s01"]}])
-    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
-    q2 = doc.questions[1]
+    doc = build_questions(make_graph(), triage(), track="10", papers=papers_doc(), llm=llm)
+    q2 = next(q for q in doc.questions if q.node_id == "c2")
     assert q2.question == rewritten and q2.paper_ids == ["s01"]
 
 
@@ -764,3 +764,33 @@ def test_주제_토큰은_weight_가_높은_지엽이_아니라_core_개념에�
     b2c = [q for q in fake.queries if q.startswith("B2C")]
     assert b2c == ["B2C Concept Graph AI Presentation Coaching"]   # core 라벨을 통째로, support(B2B·SaaS)는 안 붙는다
     assert not any("B2B" in q or "SaaS" in q for q in b2c)
+
+
+
+# ---------------------------------------------------------------------------
+# 인용 상한 — 트랙마다 문헌 질문 수를 묶고, 한 문헌은 한 번만 (QA_TRACK_CITES · _plan_papers)
+# ---------------------------------------------------------------------------
+
+def test_5분_트랙은_문헌_질문이_하나고_자료가_인용한_문헌이_먼저다():
+    llm = ScriptedLLM({"qa-questions": {"questions": []}})
+    build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    user = llm.users[0]
+    assert user.count("    문헌 (") == 1
+    assert "    문헌 (d01) Stothart et al. (2015)" in user, "발표자가 직접 인용한 문헌을 먼저 쓴다"
+    assert "    문헌 (s01)" not in user
+
+
+def test_1분_트랙은_문헌을_싣지_않는다():
+    llm = ScriptedLLM({"qa-questions": {"questions": []}})
+    build_questions(make_graph(), triage(), track="1", papers=papers_doc(), llm=llm)
+    assert "문헌" not in llm.users[0] and llm.systems[0] == QUESTION_SYSTEM_PROMPT
+
+
+def test_한_문헌은_두_질문에_붙지_않는다():
+    from chuckchuck.f08_questions import _plan_papers
+    g = make_graph()
+    marks = triage().marks
+    by_id = {n.id: n for n in g.nodes}
+    plan = _plan_papers(marks, by_id, None, papers_doc(), "10")
+    ids = [r.id for refs in plan.values() for r in refs]
+    assert len(ids) == len(set(ids)) and all(len(refs) == 1 for refs in plan.values())
