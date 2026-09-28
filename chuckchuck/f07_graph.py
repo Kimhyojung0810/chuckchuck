@@ -66,36 +66,63 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
   그건 목차지 개념이 아니다.
 - 노드 개수가 슬라이드 개수와 같으면 슬라이드를 그대로 옮긴 것이므로 잘못 만든 것이다.
 - 같은 개념이 여러 [S번호]에 나오면 하나의 노드로 합치고 slide_nos 에 그 번호를 모두 적어라.
+- '개념명: 설명' 꼴이 아니라 **낱말만 있는 줄**(키워드)은, 그 낱말을 이미 다루는 개념 노드가 있으면
+  거기 합치고 slide_nos 만 보탠다. 그런 노드가 없을 때만 따로 노드로 둔다.
+  이때 summary 에 **다른 노드의 설명을 베껴 쓰지 마라** — 그 낱말이 나온 장의 개념 설명 중 그 낱말이
+  들어간 것을 옮긴다. 두 노드의 summary 가 같으면 잘못 만든 것이다.
 
-연결선(edges) 규칙:
-1. edges 는 반드시 채운다. 간선이 하나도 없으면 잘못 만든 것이다.
-2. kind="parent" 는 위계다. from 이 상위 개념, to 가 하위 개념이다.
-   하위 개념 하나에 상위 개념은 하나만 붙인다.
-3. kind="relates" 는 위계가 아닌 논리 연결이다. 근거·수단·대조 관계를 여기 적는다.
-   한 개념이 여러 개념에 걸칠 때 이걸 쓴다.
-4. 위계 깊이는 3단계를 넘기지 마라. 발표를 관통하는 큰 개념 2~4개를 최상위로 둔다.
-   부모 없는 개념이 5개 이상이면 위계를 안 만든 것이므로 잘못 만든 것이다.
+위계(parent) 규칙 — 노드마다 parent 칸에 적는다:
+1. 노드마다 parent 에 **상위 개념의 id** 를 적는다. 최상위 개념만 parent 가 null 이다.
+   하위 개념 하나에 상위 개념은 하나만.
+2. **parent 가 null 인 노드는 많아야 4개다.** 5개 이상이면 위계를 안 만든 것이므로 잘못 만든 것이다.
+   개념 하나하나마다 "이건 어느 개념을 설명하거나 이루는가" 를 묻고, 그 답을 parent 에 적어라.
+3. 위계 깊이는 3단계를 넘기지 마라.
+4. nodes 는 **위에서 아래 순서**로 적는다 — 주제 먼저, 그 자식들, 그 손자들. parent 에는 이미 적은 노드의 id 만 쓴다.
+
+위계는 이 순서로 만든다 — 위에서 아래로:
+A. 먼저 **발표의 주제(핵심 주장) 개념 하나**를 고른다. thesis 에 그 id 를 적는다.
+   주제는 설명 분량이 가장 많은 개념이 아니다. 표지·도입·요약·결론 장이나 공식·정의 한 줄처럼
+   **글이 짧은 장에 있는 경우가 많다.** "이 발표는 결국 무엇을 말하려는가" 에 대한 답이 주제다.
+   주제 개념은 parent 가 null 이다.
+B. 주제를 이루는 **요소**를 주제 밑에 단다. 주제가 "A = B × C × D" 같은 공식·정의면
+   B·C·D 는 주제의 자식이다. 요소가 여러 장에 흩어져 나와도(설명 장·실천 장) 같은 부모다.
+   **주제 바로 밑 자식은 3~6개다.** 7개 이상이면 요소와 세부를 섞은 것이다 — 목록에 있는
+   개념 중 더 큰 것을 요소로 세우고, 나머지는 그 요소 밑(C)으로 내려라.
+   이름이 겹치는 개념("집중" 과 "집중 루틴", "시각적 X" 와 "비시각적 X")은 한 요소 밑에 형제로 둔다.
+C. 요소를 설명하는 세부(단계·종류·원인·수치·사례)는 그 요소 밑에 단다.
+D. 뒤쪽 장의 **실천·해결책·저하·부족·원인** 개념은 새 최상위가 아니다. 그것이 개선하거나
+   무너뜨리는 개념 밑에 단다. ("집중력 저하" 는 "집중력" 밑, "알림 끄기" 는 그것이 지키는 "집중력" 밑)
+E. 주제와 관계없이 독립적으로 서는 큰 축이 정말 있을 때만 최상위를 더 둔다 (주제 포함 4개까지).
+   배경 설명 장의 개념도 주제를 떠받치면 주제 밑이다. 자식이 하나도 없는 개념은 최상위가 아니다.
+
+연결선(edges) 규칙 — 위계가 아닌 연결만:
+5. edges 에는 kind="relates" 만 적는다. 근거·수단·대조·인과처럼 위계가 아닌 논리 연결이다.
+   한 개념이 다른 가지의 개념과도 이어질 때 쓴다. 위계는 edges 가 아니라 parent 칸에 적는다.
 
 그 밖:
-5. 자료에 없는 개념을 지어내지 마라. 주어진 개념 안에서만 묶어라.
-6. id 는 영소문자·숫자·하이픈만 쓴다. 짧고 의미 있게. 유일해야 한다.
-7. label 은 개념 이름만 짧게. summary 는 새 문장을 짓지 않는다 — 그 노드의 근거가 된 개념 목록 항목의
+6. 자료에 없는 개념을 지어내지 마라. 주어진 개념 안에서만 묶어라.
+7. id 는 영소문자·숫자·하이픈만 쓴다. 짧고 의미 있게. 유일해야 한다.
+8. label 은 개념 이름만 짧게. summary 는 새 문장을 짓지 않는다 — 그 노드의 근거가 된 개념 목록 항목의
    '개념명: 설명' 에서 설명 부분을 그대로 옮겨 적는다(여러 항목을 합친 노드면 그중 하나). 목록에 없는
    일반어(정신적·구조적·체계·에너지·요소·신호 같은 말)로 풀어 쓰지 마라. 자료의 낱말만 쓴다.
-8. sections 는 발표를 앞에서 뒤로 훑어 구획으로 나눈 것이다. 모든 장이 어딘가에 들어가야 한다.
+9. sections 는 발표를 앞에서 뒤로 훑어 구획으로 나눈 것이다. 모든 장이 어딘가에 들어가야 한다.
    slide_role 은 cover, intro, body, conclusion, closing 중 하나만 쓴다.
-9. 개념이 잘 설명됐는지 못 됐는지 판정하지 마라. 그건 다음 단계 일이다.
-10. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+10. 개념이 잘 설명됐는지 못 됐는지 판정하지 마라. 그건 다음 단계 일이다.
+11. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마:
 {
+  "thesis": "contrast",
   "nodes": [
-    { "id": "contrast", "label": "개념 이름", "slide_nos": [4, 5],
-      "summary": "한 줄 설명", "importance": "core" }
+    { "id": "contrast", "label": "주제 개념", "slide_nos": [1, 4],
+      "summary": "한 줄 설명", "importance": "core", "parent": null },
+    { "id": "joint", "label": "요소 개념", "slide_nos": [5, 6],
+      "summary": "한 줄 설명", "importance": "core", "parent": "contrast" },
+    { "id": "encoder", "label": "세부 개념", "slide_nos": [6],
+      "summary": "한 줄 설명", "importance": "support", "parent": "joint" }
   ],
   "edges": [
-    { "from": "contrast", "to": "joint", "kind": "parent" },
-    { "from": "joint", "to": "encoder", "kind": "relates" }
+    { "from": "encoder", "to": "contrast", "kind": "relates" }
   ],
   "sections": [
     { "name": "본론 — 제안 방법", "slide_role": "body", "slide_nos": [6, 7, 8] }
@@ -105,8 +132,8 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
 
 #: 간선이 하나도 없이 돌아왔을 때 한 번 더 물어볼 때 덧붙이는 말.
 RETRY_NUDGE = """
-[재요청] 직전 응답의 edges 가 비어 있었다. 개념들이 서로 아무 관계도 없다는 뜻이 되어 쓸 수 없다.
-이번에는 kind="parent" 간선을 반드시 포함해, 큰 개념 아래에 하위 개념을 매달아라.
+[재요청] 직전 응답에 위계도 연결도 없었다. 개념들이 서로 아무 관계도 없다는 뜻이 되어 쓸 수 없다.
+이번에는 노드마다 parent 칸을 채워, 큰 개념 아래에 하위 개념을 매달아라.
 """
 
 #: 응답이 복구 불가능한 JSON 일 때 한 번 더 물어볼 때 덧붙이는 말 (실측: Solar 가 가끔 낸다).
@@ -460,11 +487,23 @@ def _assemble(
     data: dict,
     doc: ConceptDoc,
     slide_doc: SlideDoc | None,
-) -> tuple[list[ConceptNode], list[ConceptEdge], list[Section]]:
-    """raw JSON → 불변식을 만족하는 (nodes, edges, sections)."""
+) -> tuple[list[ConceptNode], list[ConceptEdge], list[Section], str | None]:
+    """
+    raw JSON → 불변식을 만족하는 (nodes, edges, sections, thesis).
+
+    thesis 는 모델이 고른 발표 주제 노드 id 다 (없거나 목록 밖이면 None).
+    주제는 루트여야 하므로 모델이 부모를 붙였으면 떼고, 그 연결은 relates 로 남긴다.
+    """
     raw_nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict)]
     raw_edges = [e for e in (data.get("edges") or []) if isinstance(e, dict)]
     raw_sections = [s for s in (data.get("sections") or []) if isinstance(s, dict)]
+    # 위계는 노드의 parent 칸으로 받는다 (edges 로 받던 때는 Solar 가 절반 넘는 노드의 부모를
+    # 빠뜨려 루트가 13~17개였다). 앞에 두어, edges 의 parent 와 겹치면 노드 칸이 이긴다.
+    raw_edges = [
+        {"from": raw["parent"], "to": raw.get("id"), "kind": "parent"}
+        for raw in raw_nodes
+        if raw.get("parent") not in (None, "", "null") and raw.get("id")
+    ] + raw_edges
 
     final_ids, alias = _assign_ids(raw_nodes)
     importance_by_slide = {s.slide_no: s.importance for s in doc.slides}
@@ -484,6 +523,14 @@ def _assemble(
 
     node_ids = {n.id for n in nodes}
     parent_of, relates = _normalize_edges(raw_edges, alias, node_ids)
+    raw_thesis = str(data.get("thesis", "") or "")
+    thesis = alias.get(raw_thesis, raw_thesis) if raw_thesis else None
+    if thesis not in node_ids:
+        thesis = None
+    if thesis is not None and thesis in parent_of:
+        former = parent_of.pop(thesis)
+        if not any({e.from_id, e.to_id} == {former, thesis} for e in relates):
+            relates.append(ConceptEdge(from_id=former, to_id=thesis, kind="relates"))
     _break_parent_cycles(parent_of)
     _clamp_depth(parent_of, [n.id for n in nodes], MAX_GRAPH_DEPTH)
 
@@ -500,7 +547,7 @@ def _assemble(
     ]
     edges += [e for e in relates if e.from_id in node_ids and e.to_id in node_ids]
 
-    return nodes, edges, _to_sections(raw_sections, doc.total_slides)
+    return nodes, edges, _to_sections(raw_sections, doc.total_slides), thesis
 
 
 # ---------------------------------------------------------------------------
@@ -511,12 +558,14 @@ def _attach_target(
     demoted: ConceptNode,
     kept: list[ConceptNode],
     relates: list[ConceptEdge],
+    thesis: str | None = None,
 ) -> ConceptNode:
     """
     강등된 루트를 어느 남은 루트 밑에 붙일지 고른다.
 
-    relates 이웃 > 슬라이드 겹침 > 최고 weight 순. 아무 관련 없는 개념을
-    아무 데나 붙이는 것보다, 모델이 이미 적어 둔 연결을 근거로 쓴다.
+    relates 이웃 > 슬라이드 겹침 > 발표 주제(thesis) > 최고 weight 순. 아무 관련 없는
+    개념을 아무 데나 붙이는 것보다, 모델이 이미 적어 둔 연결을 근거로 쓴다.
+    근거가 없으면 발표 주제 밑이 가장 덜 틀린다 — 발표의 모든 개념은 주제를 떠받친다.
     """
     linked = {e.from_id for e in relates if e.to_id == demoted.id}
     linked |= {e.to_id for e in relates if e.from_id == demoted.id}
@@ -529,7 +578,7 @@ def _attach_target(
             candidates = [k for count, k in overlaps if count == best]
 
     if not candidates:
-        candidates = kept
+        candidates = [k for k in kept if k.id == thesis] or kept
     return sorted(candidates, key=lambda k: (-k.weight, k.id))[0]
 
 
@@ -557,11 +606,13 @@ def _clamp_roots(
     edges: list[ConceptEdge],
     doc: ConceptDoc,
     slide_doc: SlideDoc | None,
+    thesis: str | None = None,
 ) -> list[ConceptEdge]:
     """
     루트가 MAX_ROOTS 를 넘으면 **서브트리가 큰** 루트만 남기고 나머지를 그 밑에 붙인다.
 
-    남길 루트는 weight 가 아니라 모델이 그린 위계로 고른다 — 서브트리가 덮는 장 수 →
+    모델이 고른 발표 주제(thesis)는 무조건 남는다. 나머지는 모델이 그린 위계로 고른다 —
+    weight 가 아니라 서브트리가 덮는 장 수 →
     서브트리 개념 수 → weight 순. weight 는 글자·그림 비중이라, 예전엔 짧은 표지·공식
     장에 앉은 발표 주제가 설명이 긴 장의 세부 개념에 밀려 **자기 자식 밑으로** 강등됐다
     (2026-09-28 수면발표: 「수면의 질」이 자식 8개를 거느리고도 「수면 주기」 밑으로 갔다.
@@ -579,11 +630,15 @@ def _clamp_roots(
     relates = [e for e in edges if e.kind == "relates"]
     parent_of = {e.to_id: e.from_id for e in edges if e.kind == "parent"}
     span, size = _subtree_reach(nodes, parent_of)
-    ranked = sorted(roots, key=lambda n: (-span[n.id], -size[n.id], -n.weight, n.id))
+    # 자식이 없는 루트는 축이 아니다 — 모델이 부모를 빠뜨린 개념이라 먼저 붙인다.
+    ranked = sorted(
+        roots,
+        key=lambda n: (n.id != thesis, size[n.id] == 1, -span[n.id], -size[n.id], -n.weight, n.id),
+    )
     kept, demoted = ranked[:MAX_ROOTS], ranked[MAX_ROOTS:]
 
     for node in demoted:
-        parent_of[node.id] = _attach_target(node, kept, relates).id
+        parent_of[node.id] = _attach_target(node, kept, relates, thesis).id
 
     node_ids = [n.id for n in nodes]
     _clamp_depth(parent_of, node_ids, MAX_GRAPH_DEPTH)
@@ -618,7 +673,7 @@ def _call(
     slide_doc: SlideDoc | None,
     *,
     extra_system: str = "",
-) -> tuple[list[ConceptNode], list[ConceptEdge], list[Section]]:
+) -> tuple[list[ConceptNode], list[ConceptEdge], list[Section], str | None]:
     raw = engine.complete(
         system=SYSTEM_PROMPT + extra_system,
         user=_build_user_prompt(doc, ctx),
@@ -671,19 +726,21 @@ def build_graph(
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
 
     try:
-        nodes, edges, sections = _call(engine, doc, ctx, slide_doc)
+        nodes, edges, sections, thesis = _call(engine, doc, ctx, slide_doc)
     except GraphError:
         # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
-        nodes, edges, sections = _call(engine, doc, ctx, slide_doc, extra_system=JSON_RETRY_NUDGE)
+        nodes, edges, sections, thesis = _call(
+            engine, doc, ctx, slide_doc, extra_system=JSON_RETRY_NUDGE
+        )
     if _is_degenerate(nodes, edges):
         try:
             retry = _call(engine, doc, ctx, slide_doc, extra_system=RETRY_NUDGE)
         except GraphError:
             retry = None                      # 재시도가 깨지면 1차 결과를 쓴다
         if retry and not _is_degenerate(retry[0], retry[1]):
-            nodes, edges, sections = retry
+            nodes, edges, sections, thesis = retry
 
-    edges = _clamp_roots(nodes, edges, doc, slide_doc)
+    edges = _clamp_roots(nodes, edges, doc, slide_doc, thesis)
 
     return ConceptGraph(
         file_name=doc.file_name,

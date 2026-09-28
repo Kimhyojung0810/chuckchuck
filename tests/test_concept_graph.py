@@ -823,3 +823,62 @@ def test_root_clamp_keeps_the_root_with_the_bigger_subtree():
     assert graph.node("t").weight < graph.node("p").weight, "전제: 주제가 더 가볍다"
     assert graph.node("t").parent_id is None, "서브트리가 가장 큰 루트는 남는다"
     assert len(graph.roots) <= MAX_ROOTS
+
+
+# ---------------------------------------------------------------------------
+# 발표 주제(thesis)·노드 parent 칸 — 2026-09-28 F-07 프롬프트 개편
+# ---------------------------------------------------------------------------
+
+def test_node_parent_field_builds_hierarchy():
+    """위계는 노드의 parent 칸으로 받는다. edges 에는 relates 만 와도 된다."""
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null},
+      {"id": "a", "label": "요소 A", "slide_nos": [2], "parent": "t"},
+      {"id": "b", "label": "세부 B", "slide_nos": [3], "parent": "a"}
+    ], "edges": [{"from": "b", "to": "t", "kind": "relates"}], "sections": []}
+    """
+    graph = graph_of(payload)
+
+    assert graph.node("a").parent_id == "t"
+    assert graph.node("b").parent_id == "a"
+    assert [n.id for n in graph.roots] == ["t"]
+
+
+def test_thesis_with_a_parent_is_lifted_to_root():
+    """주제는 루트다. 모델이 부모를 붙였으면 떼고, 그 연결은 relates 로 남긴다."""
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "x", "label": "세부 X", "slide_nos": [2], "parent": null},
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": "x"}
+    ], "edges": [], "sections": []}
+    """
+    graph = graph_of(payload)
+
+    assert graph.node("t").parent_id is None
+    assert ("x", "t") in [(e.from_id, e.to_id) for e in graph.relates_edges]
+
+
+def test_root_clamp_keeps_thesis_and_drops_childless_roots_first():
+    """
+    루트가 넘치면 주제는 무조건 남고, 자식 없는 루트(부모를 빠뜨린 개념)가 먼저 붙는다.
+    근거 없는 강등 루트는 주제 밑으로 간다.
+    """
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null},
+      {"id": "a", "label": "축 A", "slide_nos": [2], "parent": null},
+      {"id": "a1", "label": "A 세부", "slide_nos": [2], "parent": "a"},
+      {"id": "p", "label": "외톨이 P", "slide_nos": [2, 3, 4, 5], "parent": null},
+      {"id": "q", "label": "외톨이 Q", "slide_nos": [2, 3, 4, 5], "parent": null},
+      {"id": "r", "label": "외톨이 R", "slide_nos": [2, 3, 4, 5], "parent": null},
+      {"id": "s", "label": "외톨이 S", "slide_nos": [6], "parent": null}
+    ], "edges": [], "sections": []}
+    """
+    graph = graph_of(payload, doc=make_doc(6))
+    roots = {n.id for n in graph.roots}
+
+    assert "t" in roots, "주제는 가장 가벼워도 남는다"
+    assert "a" in roots, "자식이 있는 루트가 외톨이보다 먼저 남는다"
+    assert len(roots) <= MAX_ROOTS
+    assert graph.node("s").parent_id == "t", "장이 겹치는 남은 루트가 없으면 주제 밑"
