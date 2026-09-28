@@ -627,9 +627,11 @@ class Handler(SimpleHTTPRequestHandler):
             if parsed.path == "/api/v1/dev/decks/file":
                 return self._handle_dev_deck_file(parsed)
             # 주소창에 /test/QA 라고 쳐도 열리게 — 앱은 해시 라우팅이라 경로를 해시로 돌려보낸다.
-            if parsed.path.lower().rstrip("/") == "/test/qa":
+            # /temp 도 같다 — 통화 배치로 도는 전체 흐름(업로드→발표→질문 코칭)의 입구 (js/call_flow.js).
+            hash_route = {"/test/qa": "#/test/qa", "/temp": "#/temp"}.get(parsed.path.lower().rstrip("/"))
+            if hash_route:
                 self.send_response(302)
-                self.send_header("Location", "/index.html#/test/qa")
+                self.send_header("Location", "/index.html" + hash_route)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return None

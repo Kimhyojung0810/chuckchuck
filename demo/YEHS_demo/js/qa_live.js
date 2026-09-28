@@ -450,6 +450,7 @@ function renderQaLive() {
   qa.started = true;
   if (!L.awaitEnd) presentLiveQuestion();
   saveSession('qa-flow', qa);
+  if (typeof callFlowOn === 'function' && callFlowOn()) return renderQaLiveCall();
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
     <div class="qa-shell">
@@ -1479,6 +1480,8 @@ function liveQuestionHints() {
 }
 
 function qaLiveEnd() {
+  // 통화 배치로 코칭했으면 층과 카메라를 거둔다 — 결과 화면은 일반 배치다
+  if (typeof callFlowUnmount === 'function') callFlowUnmount();
   qa.ended = true;
   // 발표 플로우도 끝난 걸로 표시 — 홈/이어하기에서 리포트로 이어지게
   if (typeof nf !== 'undefined' && nf) {

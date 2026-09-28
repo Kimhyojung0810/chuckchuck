@@ -291,6 +291,8 @@ const routes = {
   'replay': renderReplay,
   // ppt/ 폴더의 덱을 골라 질문 코칭까지 한 번에 (개발용, #/test/qa). replay 와 같은 규칙 — 링크를 걸지 않는다.
   'test': () => (location.hash.replace(/^#\/?/, '').split('/')[1] === 'qa' ? renderTestQa() : renderHome()),
+  // 통화 배치 흐름 (#/temp · 주소창 /temp) — 발표는 자료가 정면·내 모습 오른쪽 아래, Q&A 는 내 모습이 가운데 (js/call_flow.js)
+  'temp': () => window.renderCallEntry(),
   // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
   'landing': () => window.renderLanding(),
   // 개념 그래프 3D 무대 (js/graph3d.js). 데모 경로 밖이라 여기가 죽어도 시연은 돈다.
@@ -353,6 +355,8 @@ function route() {
 
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
+  // 통화 층(#cfCall)은 #app 밖에 떠 있어서 화면이 바뀌어도 안 지워진다 — 먼저 걷는다
+  if (typeof callFlowOnRoute === 'function') callFlowOnRoute(key);
   /* 샘플 모드는 renderReport() 안에서만 켜져서, 샘플 리포트를 보고 #/qa 로 나가면
      켜진 채로 남았다. reportOut() 이 이 값을 보고 결과를 가리므로 리포트를
      벗어나는 순간 꺼 준다 — 안 그러면 질문 코칭이 제 데이터를 못 읽는다 */
@@ -1855,6 +1859,7 @@ function slidePlaceholder(n) {
 }
 
 function renderNew() {
+  if (typeof callFlowUnmount === 'function') callFlowUnmount({ keepCam: callFlowOn() });
   dropSampleDeckForRealSession();
   saveSession('new-flow', nf);
   bindStepNav();
@@ -2325,6 +2330,7 @@ function rehearsalCount() {
 }
 
 function nfStep3() {
+  if (typeof callFlowOn === 'function' && callFlowOn()) return nfStep3Call();
   // 새로고침 후 PPTX 원본 미리보기가 비면 서버 캐시 PDF를 비동기로 붙인 뒤 다시 그린다
   if (!uploadedPdf && (nf.previewPdf || nf.fileName) && !nf._previewLoading) {
     nf._previewLoading = true;

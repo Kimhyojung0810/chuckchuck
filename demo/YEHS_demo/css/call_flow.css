@@ -1,0 +1,202 @@
+/* 통화 배치 흐름 (#/temp) — js/call_flow.js 가 body 에 붙이는 #cfCall 층.
+   발표: 자료가 정면, 내 모습은 오른쪽 아래 작은 창. Q&A: 내 모습이 가운데, 질문·답은 왼쪽에 겹치고 자료는 오른쪽 아래.
+   글라스 값은 부스 통화(css/booth.css)와 같은 것을 쓴다 — 두 화면이 같은 물건으로 보여야 한다.
+   판정 색·말풍선 안쪽 모양은 app.css 그대로다(판정 색 5종 불변). 여기서는 자리와 겉면만 정한다. */
+
+.cf-call {
+  --cf-gap: 16px;
+  --cf-pip-w: clamp(160px, 22vw, 320px);
+  --cf-top-h: 44px;
+  --cf-dock-h: 64px;                                /* call_flow.js 가 조작줄을 재서 덮어쓴다 */
+  --cf-glass-dark: rgba(16, 20, 32, .56);
+  --cf-glass-edge: rgba(255, 255, 255, .28);
+  --cf-blur: blur(18px) saturate(1.6);
+  position: fixed; inset: 0; z-index: 900;          /* 등장 의식·커튼콜(1200) 아래 */
+  background: #0B1411; color: #fff;
+  font-family: inherit; overflow: hidden;
+}
+body.cf-open { overflow: hidden; }
+/* 데스크톱 아트보드(tablet.css)는 body 를 transform 으로 줄여서 fixed 가 창이 아니라 판에 붙는다.
+   통화는 창을 통째로 쓰므로 층이 떠 있는 동안만 판을 푼다 — 랜딩(body:has(main.landing))과 같은 방법 */
+@media (min-width: 900px) {
+  body.cf-open {
+    position: static; width: auto; height: auto; min-height: 0;
+    transform: none; padding-left: 0; box-shadow: none;
+  }
+}
+body.cf-open .sidenav, body.cf-open .topbar { visibility: hidden; }
+
+.cf-glass {
+  background: var(--cf-glass-dark); color: #fff;
+  -webkit-backdrop-filter: var(--cf-blur); backdrop-filter: var(--cf-blur);
+  border: 1px solid var(--cf-glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 8px 24px rgba(0, 0, 0, .22);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cf-call { --cf-glass-dark: rgba(16, 20, 32, .9); }
+}
+
+/* ── 무대 둘: 메인은 창을 채우고, 다른 하나는 오른쪽 아래 작은 창 ── */
+.cf-stage { position: absolute; overflow: hidden; background: #111A17; transition: all 200ms ease; }
+.cf-call[data-main="slides"] .cf-slides,
+.cf-call[data-main="self"] .cf-self { inset: 0; border-radius: 0; z-index: 1; cursor: default; }
+.cf-call[data-main="slides"] .cf-self,
+.cf-call[data-main="self"] .cf-slides {
+  right: var(--cf-gap); bottom: var(--cf-pip-bottom, 96px);
+  width: var(--cf-pip-w); aspect-ratio: 16 / 9; height: auto;
+  border-radius: var(--r-inner, 8px); z-index: 4; cursor: pointer;
+  border: 1px solid var(--cf-glass-edge); box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
+}
+.cf-stage:focus-visible { outline: 2.5px solid var(--cyan, #3fd599); outline-offset: 2px; }
+
+/* 자료 — 창 안에 통째로 보이게(잘리지 않게). 위 도구줄·아래 조작줄 몫을 비운다 */
+.cf-slides { display: flex; align-items: center; justify-content: center; }
+.cf-call[data-main="slides"] .cf-slides { padding: calc(var(--cf-top-h) + 2 * var(--cf-gap)) calc(var(--cf-gap) * 4) 104px; }
+.cf-slide-canvas, .cf-slide-img {
+  display: block; max-width: 100%; max-height: 100%; width: auto; height: auto;
+  object-fit: contain; border-radius: 4px; box-shadow: 0 12px 40px rgba(0, 0, 0, .45); background: #fff;
+}
+.cf-call[data-main="self"] .cf-slides .cf-slide-img,
+.cf-call[data-main="self"] .cf-slides .cf-slide-canvas { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+.cf-slide-doc { width: min(100%, 960px); max-height: 100%; overflow: auto; color: var(--text); }
+.cf-slide-no {
+  position: absolute; left: 8px; bottom: 8px; padding: 2px 8px;
+  border-radius: var(--r-pill); font-size: 12px; font-weight: 600;
+}
+.cf-call[data-main="slides"] .cf-slide-no { display: none; }
+
+.cf-side-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 64px; border: 0; border-radius: var(--r-ctl, 8px);
+  background: rgba(255, 255, 255, .08); color: #fff; font-size: 28px; cursor: pointer;
+}
+.cf-side-nav:hover { background: rgba(255, 255, 255, .16); }
+.cf-prev { left: var(--cf-gap); } .cf-next { right: var(--cf-gap); }
+.cf-call[data-main="self"] .cf-side-nav { display: none; }
+.cf-side-nav[hidden] { display: none; }
+
+/* 내 모습 — 거울로 본다 (내가 오른손을 들면 화면 오른쪽) */
+.cf-self video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+.cf-self[data-camera="off"] video { visibility: hidden; }
+.cf-self-note {
+  position: absolute; inset: auto 12px 50% 12px; transform: translateY(50%);
+  margin: 0; text-align: center; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, .86);
+}
+.cf-self[data-camera="on"] .cf-self-note:empty { display: none; }
+.cf-call[data-main="self"] .cf-self-note { font-size: 16px; left: 20%; right: 20%; }
+
+/* ── 위 도구줄 ── */
+.cf-top {
+  position: absolute; top: var(--cf-gap); left: var(--cf-gap); right: var(--cf-gap); z-index: 6;
+  display: flex; align-items: center; gap: 8px; min-height: var(--cf-top-h); pointer-events: none;
+}
+.cf-top > * { pointer-events: auto; }
+.cf-pill {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
+  border-radius: var(--r-pill); font-size: 14px; font-weight: 600; white-space: nowrap;
+}
+.cf-slide-meta { max-width: 42vw; overflow: hidden; }
+.cf-slide-meta span { overflow: hidden; text-overflow: ellipsis; font-weight: 500; color: rgba(255, 255, 255, .86); }
+.cf-top-fill { flex: 1; min-width: 0; pointer-events: none; }
+/* 영상 위 글자는 늘 글라스 면 위에 둔다 (cam-track.plan §3-2) — 내 모습이 메인일 때 밝은 벽에 묻히지 않게 */
+.cf-top-fill .pre-note {
+  display: inline-flex; align-items: center; max-width: 100%; margin: 0; padding: 6px 12px; pointer-events: auto;
+  border-radius: var(--r-pill); background: var(--cf-glass-dark); color: rgba(255, 255, 255, .9); font-size: 13px;
+  -webkit-backdrop-filter: var(--cf-blur); backdrop-filter: var(--cf-blur);
+}
+.cf-call .btn.cf-glass { height: 40px; min-height: 40px; padding: 0 14px; border-radius: var(--r-pill); font-size: 14px; white-space: nowrap; }
+.cf-call .btn.cf-glass:hover { background: rgba(16, 20, 32, .72); }
+.cf-call .btn { transition: background .2s ease, transform 120ms ease; }
+.cf-call .btn:active { transform: scale(.96); }
+.cf-call .btn:focus-visible { outline: 2.5px solid var(--cyan, #3fd599); outline-offset: 2px; }
+
+/* ── 발표 조작줄: 이전 · 녹음 패널(시작/시계/마치기) · 다음. 작은 창 왼쪽까지만 뻗는다 ── */
+.cf-call[data-mode="present"] { --cf-pip-bottom: var(--cf-gap); }
+.cf-dock {
+  position: absolute; left: var(--cf-gap); bottom: var(--cf-gap); z-index: 5;
+  right: calc(var(--cf-pip-w) + 2 * var(--cf-gap));
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px;
+}
+.cf-call[data-main="self"] .cf-dock { right: var(--cf-gap); }
+.cf-call[data-main="self"][data-mode="present"] { --cf-pip-bottom: calc(var(--cf-dock-h) + 2 * var(--cf-gap)); }
+.cf-nav-btn { flex: none; background: rgba(255, 255, 255, .12); color: #fff; border: 0; }
+.cf-nav-btn:hover { background: rgba(255, 255, 255, .2); }
+.cf-nav-btn[hidden] { display: none; }
+.cf-rec { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.cf-rec .rec-copy { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: rgba(255, 255, 255, .9); }
+.cf-rec .rec-copy p { margin: 0; font-size: 12px; color: rgba(255, 255, 255, .7); }
+.cf-rec .rec-status, .cf-rec .rec-status > div { display: flex; align-items: center; gap: 10px; }
+.cf-rec .rec-live { color: #FF8A80; }
+.cf-rec .rec-live::before { background: #FF5A4E; }
+.cf-rec .rec-clock { font-size: 22px; color: #fff; }
+.cf-rec .meter i { background: var(--cyan, #3fd599); }
+.cf-rec .rec-log-fold { display: none; }             /* 전환 기록은 리포트가 보여 준다 — 무대에서는 뺀다 */
+.cf-rec .rec-upload { display: flex; align-items: center; gap: 6px; }
+.cf-rec .rec-upload .btn-text { color: rgba(255, 255, 255, .78); height: 40px; }
+.cf-rec .rec-upload .note:empty { display: none; }
+.cf-rec .rec-upload .note { margin: 0; color: rgba(255, 255, 255, .8); font-size: 12px; }
+.cf-rec .mic-denied { display: flex; flex-direction: column; font-size: 13px; }
+.cf-rec .btn-secondary { background: rgba(255, 255, 255, .92); }
+
+/* ── Q&A: 질문·답 칸은 왼쪽 기둥. 얼굴(가운데)을 비워 둔다 ──
+   층 전체가 흰 글자(영상 위 글라스용)라, 흰 카드로 그리는 말풍선·답 칸·목록은 본문 글자색으로 되돌린다 */
+.cf-stream, .cf-answer, .cf-drawer, .cf-slide-doc { color: var(--text); }
+.cf-call[data-mode="qa"] { --cf-pip-bottom: var(--cf-gap); }
+.cf-talk {
+  position: absolute; z-index: 5; left: var(--cf-gap); bottom: var(--cf-gap);
+  top: calc(var(--cf-top-h) + 2 * var(--cf-gap));
+  width: min(480px, 40vw); display: flex; flex-direction: column; gap: 10px; min-height: 0;
+}
+.cf-stream.qa-stream {
+  flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 24px 4px 4px;
+  display: flex; flex-direction: column; gap: 10px; max-height: none; background: none; border: 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 40px);
+  scrollbar-width: thin;
+}
+.cf-stream > :first-child { margin-top: auto; }       /* 말이 적을 때는 아래(답 칸 쪽)에 붙는다 */
+.cf-stream .msg-bubble, .cf-stream .qa-done, .cf-stream .qa-flag, .cf-stream .qa-sum, .cf-stream .qa-finale {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
+}
+.cf-stream .msg-bubble { max-width: 100%; }
+.cf-stream .msg.me .msg-bubble { background: rgba(14, 136, 80, .92); color: #fff; }
+.cf-stream .qa-flag { background: rgba(255, 255, 255, .94); color: var(--text); }
+.cf-stream .hint-slides img { max-width: 120px; }
+
+.cf-answer.card.qa-live-input {
+  flex: none; margin: 0; padding: 12px; border-radius: 16px;
+  background: rgba(255, 255, 255, .95); box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+  max-height: 46%; overflow-y: auto;
+}
+.cf-answer textarea { min-height: 64px; }
+.cf-answer .qa-input-label span { display: none; }   /* 좁은 기둥에서는 한 줄 안내만 */
+
+.cf-drawer {
+  position: absolute; z-index: 7; top: calc(var(--cf-top-h) + 2 * var(--cf-gap)); right: var(--cf-gap);
+  width: min(360px, 88vw); max-height: calc(100% - var(--cf-top-h) - 5 * var(--cf-gap) - 120px);
+  overflow-y: auto; padding: 16px; color: var(--text); box-shadow: 0 12px 36px rgba(0, 0, 0, .35);
+}
+.cf-drawer[hidden] { display: none; }
+
+/* ── 좁은 창(폰·세로 태블릿) ── */
+@media (max-width: 720px) {
+  .cf-call { --cf-gap: 10px; --cf-pip-w: 128px; --cf-top-h: 40px; }
+  .cf-pill { height: 32px; padding: 0 10px; font-size: 13px; }
+  .cf-slide-meta span { display: none; }
+  .cf-top > .cf-pill:first-child { display: none; }  /* 「발표」·「Q&A」 는 화면이 이미 말한다 — 좁은 줄에서는 버튼 자리를 준다 */
+  .cf-call .btn.cf-glass { height: 36px; min-height: 36px; padding: 0 10px; font-size: 13px; }
+  .cf-call[data-main="slides"] .cf-slides { padding: calc(var(--cf-top-h) + 2 * var(--cf-gap)) var(--cf-gap) calc(var(--cf-dock-h) + var(--cf-pip-w) * 9 / 16 + 4 * var(--cf-gap)); }
+  .cf-side-nav { display: none; }
+  .cf-call[data-mode="present"] { --cf-pip-bottom: calc(var(--cf-dock-h) + 2 * var(--cf-gap)); }
+  .cf-top-fill .pre-note { display: none; }        /* 좁은 도구줄에서 세 줄로 접힌다 — 발표에는 없어도 된다 */
+  .cf-dock { right: var(--cf-gap); flex-wrap: wrap; justify-content: space-between; }
+  .cf-rec { order: -1; flex-basis: 100%; }
+  /* Q&A: 작은 창은 오른쪽 위, 말은 화면 아래 절반 */
+  .cf-call[data-mode="qa"] .cf-slides { top: calc(var(--cf-top-h) + 2 * var(--cf-gap)); bottom: auto; }
+  .cf-talk { width: auto; right: var(--cf-gap); top: 38%; }
+  .cf-answer.card.qa-live-input { max-height: 55%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-stage, .cf-call .btn { transition: none; }
+  .cf-call .btn:active { transform: none; }
+}

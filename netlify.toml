@@ -18,3 +18,9 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# 주소창 /temp → 통화 배치 흐름(js/call_flow.js). 로컬은 demo/bridge.py 가 같은 일을 한다.
+[[redirects]]
+  from = "/temp"
+  to = "/index.html#/temp"
+  status = 302
