@@ -504,6 +504,33 @@ def _role_rank_of(graph: ConceptGraph, node: ConceptNode) -> int:
     return min(ranks) if ranks else _ROLE_RANK_FALLBACK
 
 
+def _hierarchy_of(graph: ConceptGraph | None, nodes: list[ConceptNode]) -> dict[str, tuple[int, int]]:
+    """
+    노드마다 위계 정렬 키 (depth, -서브트리가 덮는 장 수). 작을수록 앞이다.
+
+    **위계가 weight 위다.** weight 는 글자·그림 비중이라 설명이 긴 장의 세부 개념이
+    발표 주제보다 무겁게 나온다 — 그걸 그대로 줄 세우면 질문이 "글자 많은 장 순" 이
+    된다 (2026-09-28 수면발표: 「수면의 질」이 7개 질문에 한 번도 안 나왔다.
+    docs/review/2026-09-28_QA_지엽성_원인분석.md). 큰 개념을 먼저 묻고 아래로 내려간다.
+
+    같은 깊이 안에서는 서브트리가 발표를 더 넓게 덮는 개념이 먼저다.
+    그래프 밖 노드(extra:)는 루트와 같은 깊이로 본다 — 근거(source)가 따로 줄 세운다.
+    """
+    by_id = {n.id: n for n in graph.nodes} if graph is not None else {}
+    span: dict[str, set[int]] = {nid: set(n.slide_nos) for nid, n in by_id.items()}
+    for node in by_id.values():
+        seen = {node.id}
+        up = node.parent_id
+        while up is not None and up in by_id and up not in seen:
+            seen.add(up)
+            span[up] |= set(node.slide_nos)
+            up = by_id[up].parent_id
+    return {
+        n.id: (n.depth if n.id in by_id else 1, -len(span.get(n.id, n.slide_nos)))
+        for n in nodes
+    }
+
+
 def _ordered_candidates(
     graph: ConceptGraph,
     alignment: AlignmentDoc | None,
@@ -512,8 +539,11 @@ def _ordered_candidates(
     """
     질문 후보를 결정적 우선순위로 정렬해 CANDIDATE_LIMIT 까지 자른다.
 
-    근거 우선순위 → 구획 역할 → 자료 weight 내림차순 → 요약 유무
-    → 앞 슬라이드 → id 순.
+    근거 우선순위 → 구획 역할 → 위계(깊이 → 서브트리 장 범위) → 자료 weight 내림차순
+    → 요약 유무 → 앞 슬라이드 → id 순.
+
+    위계가 weight 위라서 CANDIDATE_LIMIT 창도 위에서부터 찬다 — 루트·상위 개념이
+    triage 에 보이기도 전에 잘리는 일이 없다 (_hierarchy_of).
 
     구획 역할이 weight 위에 있는 것은 의도된 것이다. 표지·맺음말에만 나오는 개념은
     자료가 크게 다뤘어도 심사위원이 물을 대상이 아니라서, 크기보다 **어느 구획에
@@ -530,17 +560,21 @@ def _ordered_candidates(
     for extra in extras:
         source_of[extra.id] = "extra"
 
+    everyone = [*graph.nodes, *extras]
+    hierarchy_of = _hierarchy_of(graph, everyone)
+
     def sort_key(node: ConceptNode) -> tuple:
         return (
             _SOURCE_RANK[source_of[node.id]],
             _role_rank_of(graph, node),
+            *hierarchy_of[node.id],
             -node.weight,
             0 if (node.summary or "").strip() else 1,
             min(node.slide_nos) if node.slide_nos else _NO_SLIDE,
             node.id,
         )
 
-    ranked = sorted([*graph.nodes, *extras], key=sort_key)[:CANDIDATE_LIMIT]
+    ranked = sorted(everyone, key=sort_key)[:CANDIDATE_LIMIT]
     return [(node, source_of[node.id]) for node in ranked]
 
 
@@ -955,22 +989,24 @@ def _normalize_marks(
 def _spread_adjacent(
     ordered: list[TriageMark],
     graph: ConceptGraph | None,
+    tier_of: dict[str, tuple] | None = None,
 ) -> list[TriageMark]:
     """
-    앞에서 이미 뽑은 개념과 **그래프에서 바로 붙어 있는** 개념은 뒤로 민다.
+    같은 층에서 이미 뽑은 개념과 **한 덩어리인** 개념은 그 층 뒤로 민다.
 
     이웃끼리 나란히 물으면 "왜 이걸 골랐나" 와 "이걸 어떻게 쓰나" 처럼 사용자가
     한 번에 답할 수 있는 질문이 두 개 나온다 — 같은 맥락을 다르게 물어 놓고
     다른 답을 요구하는 꼴이다. edges 가 그 인접을 이미 알고 있으니 LLM 이 필요 없다.
 
-    인접은 `neighbors_of` 로 본다 — parent·relates 를 방향 무시하고 모두 센다.
-    위계로 붙었든 논리로 붙었든 사용자에게는 똑같이 '한 덩어리' 이기 때문이다.
+    한 덩어리로 보는 것은 둘이다 — relates 로 이어진 개념, **같은 부모 밑 형제**.
+    부모·자식은 한 덩어리로 보지 않는다. 큰 개념을 묻고 그 아래로 내려가는 것은
+    되풀이가 아니라 심화다. 예전엔 parent 도 인접으로 쳐서, 잎이 먼저 뽑히면
+    **부모가 밀려났다** — 위계가 순위에 거꾸로 쓰였다
+    (docs/review/2026-09-28_QA_지엽성_원인분석.md §1-4).
 
-    **강등은 같은 근거(source) 안에서만 일어난다.** 근거가 다른 두 개념은 서로 다른
-    이유로 뽑힌 것이라 중복이 아니다. 이 울타리가 없으면 별 모양 그래프에서
-    루트가 무너진다 — 루트는 모든 자식과 인접하므로, 자식 하나가 '누락' 으로 먼저
-    뽑히는 순간 **자료에서 가장 무거운 개념이 맨 뒤로 밀린다.**
-    근거 우선순위를 넘지 않는다는 이 모듈의 규칙(_rerank 주석)과도 같은 결이다.
+    **강등은 같은 층(tier_of — 근거·구획·깊이) 안에서만 일어난다.** 근거가 다른 두
+    개념은 서로 다른 이유로 뽑힌 것이라 중복이 아니고, 깊이를 넘어 밀면 형제 하나
+    때문에 잎이 상위 개념 앞으로 올라온다. tier_of 가 없으면 근거로만 층을 나눈다.
 
     **제외가 아니라 강등이다.** 트랙 상한에 여유가 있으면 여전히 물어본다.
     모순·누락 근거는 아예 면제된다 (_ADJACENCY_EXEMPT).
@@ -978,19 +1014,36 @@ def _spread_adjacent(
     if graph is None or len(ordered) < 2:
         return ordered
 
+    parent_of = {n.id: n.parent_id for n in graph.nodes}
+    related: dict[str, set[str]] = {}
+    for e in graph.relates_edges:
+        related.setdefault(e.from_id, set()).add(e.to_id)
+        related.setdefault(e.to_id, set()).add(e.from_id)
+
+    def tier(m: TriageMark) -> tuple:
+        if tier_of is not None and m.node_id in tier_of:
+            return tier_of[m.node_id]
+        return (_SOURCE_RANK[m.source],)
+
     result: list[TriageMark] = []
-    # ordered 는 이미 근거 우선순위로 정렬돼 있어 groupby 가 그대로 근거 묶음이 된다.
-    for _, group in groupby(ordered, key=lambda m: _SOURCE_RANK[m.source]):
+    # ordered 는 이미 층 순서로 정렬돼 있어 groupby 가 그대로 층 묶음이 된다.
+    for _, group in groupby(ordered, key=tier):
         kept: list[TriageMark] = []
         demoted: list[TriageMark] = []
         chosen: set[str] = set()
+        chosen_parents: set[str] = set()
         for mark in group:
-            neighbors = {n.id for n in graph.neighbors_of(mark.node_id)}
-            if mark.source not in _ADJACENCY_EXEMPT and (neighbors & chosen):
+            parent = parent_of.get(mark.node_id)
+            clash = bool(related.get(mark.node_id, set()) & chosen) or (
+                parent is not None and parent in chosen_parents
+            )
+            if mark.source not in _ADJACENCY_EXEMPT and clash:
                 demoted.append(mark)
                 continue
             kept.append(mark)
             chosen.add(mark.node_id)
+            if parent is not None:
+                chosen_parents.add(parent)
         result.extend(kept + demoted)
     return result
 
@@ -1011,7 +1064,10 @@ def _rerank(
     severity 는 LLM 의 짐작이라, 리포트가 "누락" 이라 말한 개념을 짐작이 밀어내면
     두 화면이 어긋난다. 그래서 근거 안에서만 severity 가 순위를 정한다.
 
-    나머지 키(자료 weight → 앞 슬라이드 → id)는 동률을 깨기 위한 것이다 —
+    같은 근거 안에서는 위계(깊이)가 severity 위다 — 큰 개념부터 묻고 내려간다.
+    severity 는 같은 깊이 안의 서열을 정한다 (_hierarchy_of).
+
+    나머지 키(서브트리 장 범위 → 자료 weight → 앞 슬라이드 → id)는 동률을 깨기 위한 것이다 —
     같은 triage 응답이면 언제나 같은 순서가 나온다.
     """
     slide_of = {
@@ -1031,12 +1087,17 @@ def _rerank(
     no_summary_of = {
         node.id: (0 if (node.summary or "").strip() else 1) for node, _ in pairs
     }
+    # 위계는 severity 위다 — 큰 개념부터 묻고 내려간다. severity 는 같은 깊이 안의
+    # 서열을 정하고, 서브트리 범위는 severity 가 같을 때만 가른다.
+    hierarchy_of = _hierarchy_of(graph, [node for node, _ in pairs])
     ordered = sorted(
         marks,
         key=lambda m: (
             _SOURCE_RANK[m.source],
             role_of.get(m.node_id, _ROLE_RANK_FALLBACK),
+            hierarchy_of[m.node_id][0],
             m.severity,
+            hierarchy_of[m.node_id][1],
             -m.doc_weight,
             no_summary_of.get(m.node_id, 0),
             slide_of[m.node_id],
@@ -1045,7 +1106,15 @@ def _rerank(
     )
     # 순위가 정해진 뒤에 인접을 편다. 정렬 키에 섞으면 "누가 먼저 뽑혔나" 를
     # 알 수 없어 인접 판단이 불가능하다 — 이것은 순서에 의존하는 연산이다.
-    ordered = _spread_adjacent(ordered, graph)
+    tier_of = {
+        m.node_id: (
+            _SOURCE_RANK[m.source],
+            role_of.get(m.node_id, _ROLE_RANK_FALLBACK),
+            hierarchy_of[m.node_id][0],
+        )
+        for m in marks
+    }
+    ordered = _spread_adjacent(ordered, graph, tier_of)
     for rank, mark in enumerate(ordered, start=1):
         mark.rank = rank
     return ordered

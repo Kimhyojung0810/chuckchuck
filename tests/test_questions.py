@@ -1679,3 +1679,54 @@ def test_build_questions_falls_back_to_templates_when_retry_is_empty_or_broken()
     doc = build_questions(graph, make_triage(graph), track="10", llm=llm)
     assert llm.calls == 2
     assert doc.questions and all(q.question for q in doc.questions)   # 템플릿으로 메웠다, 예외 없음
+
+
+# ---------------------------------------------------------------------------
+# 위계 — 큰 개념부터 묻고 내려간다 (docs/review/2026-09-28_QA_지엽성_원인분석.md)
+# ---------------------------------------------------------------------------
+
+def _tree_graph() -> ConceptGraph:
+    """
+    root(1장·가벼움) ─ leaf1(2·3장·무거움), leaf2(4장)   ※ LLM severity 가 없으면 weight 0.5 기준 폴백이 갈라서 두 루트를 같은 0.5 로 둔다
+    other(5장, 루트) ─ leaf3(5장)
+
+    weight 만 보면 leaf1 이 1등이다 — 설명이 긴 장의 세부 개념이 주제보다 무거운 실측 모양.
+    """
+    nodes = [
+        ConceptNode(id="root", label="주제", slide_nos=[1], summary="s", weight=0.5, depth=1),
+        ConceptNode(id="leaf1", label="세부1", slide_nos=[2, 3], summary="s", weight=1.0,
+                    parent_id="root", depth=2),
+        ConceptNode(id="leaf2", label="세부2", slide_nos=[4], summary="s", weight=0.6,
+                    parent_id="root", depth=2),
+        ConceptNode(id="other", label="다른 축", slide_nos=[5], summary="s", weight=0.5, depth=1),
+        ConceptNode(id="leaf3", label="세부3", slide_nos=[5], summary="s", weight=0.55,
+                    parent_id="other", depth=2),
+    ]
+    edges = [
+        ConceptEdge(from_id="root", to_id="leaf1", kind="parent"),
+        ConceptEdge(from_id="root", to_id="leaf2", kind="parent"),
+        ConceptEdge(from_id="other", to_id="leaf3", kind="parent"),
+    ]
+    return ConceptGraph(file_name="t.pdf", total_slides=5, nodes=nodes, edges=edges)
+
+
+def test_루트가_더_무거운_잎보다_먼저_나온다():
+    ids = _ids(_tree_graph())
+    assert ids[:2] == ["root", "other"], "깊이가 weight 위다 — 서브트리가 넓은 root 가 먼저"
+
+
+def test_자식이_뽑혀도_부모는_밀리지_않고_형제는_층_안에서_밀린다():
+    """
+    부모·자식은 한 덩어리가 아니다 (심화). 같은 부모 밑 형제는 한 덩어리다.
+    leaf2 는 leaf1 의 형제라 leaf3 뒤로 가지만, 루트 층을 넘어 올라오지는 않는다.
+    """
+    ids = _ids(_tree_graph())
+    assert ids == ["root", "other", "leaf1", "leaf3", "leaf2"]
+
+
+def test_후보_창은_위에서부터_찬다(monkeypatch):
+    """CANDIDATE_LIMIT 가 좁아도 루트가 weight 에 밀려 triage 전에 잘리지 않는다."""
+    from chuckchuck import f08_questions as f08
+    monkeypatch.setattr(f08, "CANDIDATE_LIMIT", 2)
+    ids = _ids(_tree_graph())
+    assert ids == ["root", "other"]

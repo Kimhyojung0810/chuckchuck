@@ -533,6 +533,25 @@ def _attach_target(
     return sorted(candidates, key=lambda k: (-k.weight, k.id))[0]
 
 
+def _subtree_reach(
+    nodes: list[ConceptNode],
+    parent_of: dict[str, str],
+) -> tuple[dict[str, int], dict[str, int]]:
+    """노드마다 (서브트리가 덮는 장 수, 서브트리 개념 수). 자기 자신을 포함한다."""
+    slides = {n.id: set(n.slide_nos) for n in nodes}
+    size = {n.id: 1 for n in nodes}
+    for node in nodes:
+        seen = {node.id}
+        up = parent_of.get(node.id)
+        while up is not None and up not in seen:     # 순환은 이미 끊겼지만 방어
+            seen.add(up)
+            if up in slides:
+                slides[up] |= set(node.slide_nos)
+                size[up] += 1
+            up = parent_of.get(up)
+    return {k: len(v) for k, v in slides.items()}, size
+
+
 def _clamp_roots(
     nodes: list[ConceptNode],
     edges: list[ConceptEdge],
@@ -540,7 +559,13 @@ def _clamp_roots(
     slide_doc: SlideDoc | None,
 ) -> list[ConceptEdge]:
     """
-    루트가 MAX_ROOTS 를 넘으면 weight 상위만 루트로 남기고 나머지를 그 밑에 붙인다.
+    루트가 MAX_ROOTS 를 넘으면 **서브트리가 큰** 루트만 남기고 나머지를 그 밑에 붙인다.
+
+    남길 루트는 weight 가 아니라 모델이 그린 위계로 고른다 — 서브트리가 덮는 장 수 →
+    서브트리 개념 수 → weight 순. weight 는 글자·그림 비중이라, 예전엔 짧은 표지·공식
+    장에 앉은 발표 주제가 설명이 긴 장의 세부 개념에 밀려 **자기 자식 밑으로** 강등됐다
+    (2026-09-28 수면발표: 「수면의 질」이 자식 8개를 거느리고도 「수면 주기」 밑으로 갔다.
+    docs/review/2026-09-28_QA_지엽성_원인분석.md §1-5).
 
     nodes 의 parent_id/depth/weight 를 제자리 갱신하고, 새 edges 를 돌려준다.
     상한 이하면 아무것도 바꾸지 않는다.
@@ -551,10 +576,11 @@ def _clamp_roots(
     if len(roots) <= MAX_ROOTS:
         return edges
 
-    ranked = sorted(roots, key=lambda n: (-n.weight, -len(n.slide_nos), n.id))
-    kept, demoted = ranked[:MAX_ROOTS], ranked[MAX_ROOTS:]
     relates = [e for e in edges if e.kind == "relates"]
     parent_of = {e.to_id: e.from_id for e in edges if e.kind == "parent"}
+    span, size = _subtree_reach(nodes, parent_of)
+    ranked = sorted(roots, key=lambda n: (-span[n.id], -size[n.id], -n.weight, n.id))
+    kept, demoted = ranked[:MAX_ROOTS], ranked[MAX_ROOTS:]
 
     for node in demoted:
         parent_of[node.id] = _attach_target(node, kept, relates).id

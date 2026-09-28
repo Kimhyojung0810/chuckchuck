@@ -792,3 +792,34 @@ def test_json_wrapped_in_code_fence_is_recovered():
     graph = graph_of(payload)
 
     assert graph.node("b").parent_id == "a"
+
+
+def test_root_clamp_keeps_the_root_with_the_bigger_subtree():
+    """
+    남길 루트는 weight(글자·장 비중)가 아니라 서브트리로 고른다.
+
+    2026-09-28 수면발표: 발표 주제(「수면의 질」)는 짧은 표지·공식 장에 앉아 weight 가
+    낮았고, 자식 여럿을 거느리고도 클램프에서 강등돼 세부 개념 밑으로 갔다.
+    여기서 t 는 1장뿐이라 가장 가볍지만 x·y·z 를 거느려 서브트리가 가장 크다.
+    """
+    payload = """
+    {"nodes": [
+      {"id": "t", "label": "발표 주제", "slide_nos": [1]},
+      {"id": "x", "label": "요소 X", "slide_nos": [2]},
+      {"id": "y", "label": "요소 Y", "slide_nos": [3]},
+      {"id": "z", "label": "요소 Z", "slide_nos": [4]},
+      {"id": "p", "label": "세부 P", "slide_nos": [2, 3, 4, 5]},
+      {"id": "q", "label": "세부 Q", "slide_nos": [2, 3, 4, 5]},
+      {"id": "r", "label": "세부 R", "slide_nos": [2, 3, 4, 5]},
+      {"id": "s", "label": "세부 S", "slide_nos": [2, 3, 4, 5]}
+    ], "edges": [
+      {"from": "t", "to": "x", "kind": "parent"},
+      {"from": "t", "to": "y", "kind": "parent"},
+      {"from": "t", "to": "z", "kind": "parent"}
+    ], "sections": []}
+    """
+    graph = graph_of(payload, doc=make_doc(5))
+
+    assert graph.node("t").weight < graph.node("p").weight, "전제: 주제가 더 가볍다"
+    assert graph.node("t").parent_id is None, "서브트리가 가장 큰 루트는 남는다"
+    assert len(graph.roots) <= MAX_ROOTS

@@ -1,0 +1,720 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "total_slides": 8,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "sleep-quality",
+   "label": "수면의 질",
+   "slide_nos": [
+    1,
+    4
+   ],
+   "summary": "수면 시간보다 중요한 수면의 질 개념",
+   "importance": "core",
+   "weight": 0.574,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1664,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1
+  },
+  {
+   "id": "recovery-time",
+   "label": "회복한 시간",
+   "slide_nos": [
+    1,
+    4
+   ],
+   "summary": "침대에 누운 시간과 실제 회복 시간의 차이",
+   "importance": "core",
+   "weight": 0.485,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1664,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "sleep-quality",
+   "depth": 2
+  },
+  {
+   "id": "sleep-stages",
+   "label": "수면 단계",
+   "slide_nos": [
+    2,
+    3
+   ],
+   "summary": "N1-N2, N3, REM 수면",
+   "importance": "core",
+   "weight": 0.869,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.4715,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1
+  },
+  {
+   "id": "light-sleep",
+   "label": "얕은 수면",
+   "slide_nos": [
+    2,
+    3
+   ],
+   "summary": "N1-N2 수면",
+   "importance": "core",
+   "weight": 0.764,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.4715,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "deep-sleep",
+   "label": "깊은 수면",
+   "slide_nos": [
+    2,
+    3,
+    6
+   ],
+   "summary": "신체 피로 회복",
+   "importance": "core",
+   "weight": 0.984,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.5435,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": true
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "rem-sleep",
+   "label": "REM 수면",
+   "slide_nos": [
+    2,
+    3,
+    6
+   ],
+   "summary": "기억 정리 및 감정 처리",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.5435,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": true
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "sleep-cycle",
+   "label": "수면 주기",
+   "slide_nos": [
+    2
+   ],
+   "summary": "약 90-110분 주기로 반복",
+   "importance": "core",
+   "weight": 0.774,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3685,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1
+  },
+  {
+   "id": "sleep-quality-formula",
+   "label": "수면의 질",
+   "slide_nos": [
+    4
+   ],
+   "summary": "수면 질 = 시간 × 연속성 × 규칙성",
+   "importance": "core",
+   "weight": 0.384,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0881,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "sleep-quality",
+   "depth": 2
+  },
+  {
+   "id": "time",
+   "label": "시간",
+   "slide_nos": [
+    4,
+    7
+   ],
+   "summary": "필요한 수면 시간 확보",
+   "importance": "core",
+   "weight": 0.757,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.2119,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 13,
+    "title_hit": false
+   },
+   "parent_id": "sleep-quality-formula",
+   "depth": 3
+  },
+  {
+   "id": "continuity",
+   "label": "연속성",
+   "slide_nos": [
+    4,
+    5,
+    7
+   ],
+   "summary": "수면 주기의 끊기지 않음",
+   "importance": "core",
+   "weight": 0.754,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.3132,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "sleep-quality-formula",
+   "depth": 3
+  },
+  {
+   "id": "regularity",
+   "label": "규칙성",
+   "slide_nos": [
+    4,
+    7
+   ],
+   "summary": "일정한 기상 시간 유지",
+   "importance": "core",
+   "weight": 0.61,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.2119,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "sleep-quality-formula",
+   "depth": 3
+  },
+  {
+   "id": "caffeine",
+   "label": "카페인",
+   "slide_nos": [
+    5
+   ],
+   "summary": "오후·저녁 섭취",
+   "importance": "support",
+   "weight": 0.36,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1013,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "continuity-decline",
+   "depth": 2
+  },
+  {
+   "id": "alcohol",
+   "label": "음주",
+   "slide_nos": [
+    5
+   ],
+   "summary": "수면 후반 각성",
+   "importance": "support",
+   "weight": 0.36,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1013,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "continuity-decline",
+   "depth": 2
+  },
+  {
+   "id": "stress",
+   "label": "스트레스",
+   "slide_nos": [
+    5
+   ],
+   "summary": "잠들기 전 각성",
+   "importance": "support",
+   "weight": 0.344,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1013,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "continuity-decline",
+   "depth": 2
+  },
+  {
+   "id": "environment",
+   "label": "환경 요인",
+   "slide_nos": [
+    5
+   ],
+   "summary": "빛·소음·높은 온도",
+   "importance": "support",
+   "weight": 0.327,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1013,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "continuity-decline",
+   "depth": 2
+  },
+  {
+   "id": "social-jetlag",
+   "label": "사회적 시차",
+   "slide_nos": [
+    6
+   ],
+   "summary": "평일과 주말 수면 시간 차이로 인한 리듬 차이",
+   "importance": "support",
+   "weight": 0.154,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.072,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "weekend-catchup",
+   "label": "주말 몰아자기",
+   "slide_nos": [
+    6
+   ],
+   "summary": "주말 몰아자기",
+   "importance": "support",
+   "weight": 0.226,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.072,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": true
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "sleep-rhythm",
+   "label": "수면 리듬",
+   "slide_nos": [
+    6
+   ],
+   "summary": "사회적 시차로 인한 리듬 차이",
+   "importance": "support",
+   "weight": 0.137,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.072,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "time-shortage",
+   "label": "시간 부족",
+   "slide_nos": [
+    7
+   ],
+   "summary": "필요한 수면 시간 확보",
+   "importance": "core",
+   "weight": 0.561,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1238,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "continuity-decline",
+   "depth": 2
+  },
+  {
+   "id": "continuity-decline",
+   "label": "연속성 저하",
+   "slide_nos": [
+    7
+   ],
+   "summary": "카페인·음주·빛·소음 줄이기",
+   "importance": "core",
+   "weight": 0.665,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1238,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1
+  },
+  {
+   "id": "regularity-decline",
+   "label": "규칙성 저하",
+   "slide_nos": [
+    7
+   ],
+   "summary": "일정한 기상 시간 유지",
+   "importance": "core",
+   "weight": 0.561,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1238,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "continuity-decline",
+   "depth": 2
+  },
+  {
+   "id": "sufficient-time",
+   "label": "충분한 시간",
+   "slide_nos": [
+    8
+   ],
+   "summary": "몸이 회복할 최소량",
+   "importance": "core",
+   "weight": 0.374,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0651,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "regular-rhythm",
+   "label": "규칙적인 리듬",
+   "slide_nos": [
+    8
+   ],
+   "summary": "일정한 기상 시간",
+   "importance": "core",
+   "weight": 0.358,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0651,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "continuity-condition",
+   "label": "연속성",
+   "slide_nos": [
+    8
+   ],
+   "summary": "수면 주기의 끊기지 않음",
+   "importance": "core",
+   "weight": 0.423,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0651,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  },
+  {
+   "id": "biological-clock-stability",
+   "label": "생체리듬의 안정성",
+   "slide_nos": [
+    8
+   ],
+   "summary": "생체리듬의 안정성",
+   "importance": "core",
+   "weight": 0.358,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0651,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "sleep-stages",
+   "depth": 2
+  }
+ ],
+ "edges": [
+  {
+   "from": "sleep-quality",
+   "to": "recovery-time",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-quality",
+   "to": "sleep-quality-formula",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-quality-formula",
+   "to": "time",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-quality-formula",
+   "to": "continuity",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-quality-formula",
+   "to": "regularity",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "light-sleep",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "deep-sleep",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "rem-sleep",
+   "kind": "parent"
+  },
+  {
+   "from": "continuity-decline",
+   "to": "regularity-decline",
+   "kind": "parent"
+  },
+  {
+   "from": "continuity-decline",
+   "to": "time-shortage",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "continuity-condition",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "sufficient-time",
+   "kind": "parent"
+  },
+  {
+   "from": "continuity-decline",
+   "to": "alcohol",
+   "kind": "parent"
+  },
+  {
+   "from": "continuity-decline",
+   "to": "caffeine",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "biological-clock-stability",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "regular-rhythm",
+   "kind": "parent"
+  },
+  {
+   "from": "continuity-decline",
+   "to": "stress",
+   "kind": "parent"
+  },
+  {
+   "from": "continuity-decline",
+   "to": "environment",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "weekend-catchup",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "social-jetlag",
+   "kind": "parent"
+  },
+  {
+   "from": "sleep-stages",
+   "to": "sleep-rhythm",
+   "kind": "parent"
+  },
+  {
+   "from": "time",
+   "to": "sufficient-time",
+   "kind": "relates"
+  },
+  {
+   "from": "continuity",
+   "to": "continuity-decline",
+   "kind": "relates"
+  },
+  {
+   "from": "regularity",
+   "to": "regularity-decline",
+   "kind": "relates"
+  },
+  {
+   "from": "social-jetlag",
+   "to": "weekend-catchup",
+   "kind": "relates"
+  },
+  {
+   "from": "weekend-catchup",
+   "to": "sleep-rhythm",
+   "kind": "relates"
+  },
+  {
+   "from": "caffeine",
+   "to": "continuity-decline",
+   "kind": "relates"
+  },
+  {
+   "from": "alcohol",
+   "to": "continuity-decline",
+   "kind": "relates"
+  },
+  {
+   "from": "stress",
+   "to": "continuity-decline",
+   "kind": "relates"
+  },
+  {
+   "from": "environment",
+   "to": "continuity-decline",
+   "kind": "relates"
+  },
+  {
+   "from": "sufficient-time",
+   "to": "regular-rhythm",
+   "kind": "relates"
+  },
+  {
+   "from": "regular-rhythm",
+   "to": "continuity-condition",
+   "kind": "relates"
+  },
+  {
+   "from": "continuity-condition",
+   "to": "biological-clock-stability",
+   "kind": "relates"
+  }
+ ],
+ "sections": [
+  {
+   "name": "서론 — 수면의 질이 중요한 이유",
+   "slide_role": "intro",
+   "slide_nos": [
+    1
+   ]
+  },
+  {
+   "name": "본론 — 수면의 단계와 질",
+   "slide_role": "body",
+   "slide_nos": [
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "name": "본론 — 수면 방해 요인과 사회적 시차",
+   "slide_role": "body",
+   "slide_nos": [
+    5,
+    6
+   ]
+  },
+  {
+   "name": "결론 — 최소 기준과 좋은 잠의 조건",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    7,
+    8
+   ]
+  }
+ ]
+}
