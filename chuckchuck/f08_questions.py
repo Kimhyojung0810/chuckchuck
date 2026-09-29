@@ -42,6 +42,7 @@ from ._evidence import (
     section_line,
 )
 from ._claim_rules import is_sentence as _is_sentence
+from ._deck_lines import read_lines
 from ._json_text import extract_json_object
 from ._match import norm_tokens
 from ._probes import (
@@ -479,6 +480,7 @@ def _source_by_node(
     flow: FlowDiff | None,
     pace: PaceDoc | None = None,
     probes: list[Probe] | None = None,
+    slides: dict[int, str] | None = None,
 ) -> dict[str, str]:
     """
     노드마다 '왜 물을 만한가' 를 하나씩 정한다.
@@ -487,6 +489,7 @@ def _source_by_node(
     alignment·flow 가 없으면 전부 core_weight 다 — 녹음 없이 자료만 올린 경로다.
     probes(주장 그래프 탐침)를 주면 그 대상 노드가 탐침 종류를 근거로 얻는다 — 자료만 올린 경로도
     "크다" 말고 **자료 안의 긴장·빈틈** 이라는 근거를 갖게 된다 (2026-09-29, P3). 안 주면 예전과 같다.
+    slides(장 번호 → 원문)는 건너뛴 핵심 장의 대표를 장의 자리(식 머리·장 제목)로 고를 때 쓴다 (`_skipped_core`).
     """
     found: dict[str, str] = {n.id: QA_SOURCE_FALLBACK for n in graph.nodes}
 
@@ -525,8 +528,8 @@ def _source_by_node(
                 # justified_skip 은 위 분기에서 이미 갈라졌다.
                 claim(item.node_id, "under_spoken")
         # 말로 건너뛴 핵심 장 — 장마다 대표 개념 하나가 「건너뛴 핵심 장」 근거를 받는다 (09-30 held-out C-06 · WP-S2).
-        # 나머지 개념은 누락(missing) 그대로다 — 한 장을 두 질문이 캐묻지 않게.
-        for node_id in _skipped_core(alignment, graph):
+        # 나머지 개념은 누락(missing) 근거로 남되 후보에서는 대표 질문에 접힌다 (`_skip_folded`) — 한 장을 두 질문이 캐묻지 않게.
+        for node_id in _skipped_core(alignment, graph, slides):
             claim(node_id, "skipped_slide")
 
     # 시간을 크게 덜 쓴 장의 개념도 '덜 말함' 이다 (_rushed_slides). 이미 누락·모순이면 그대로 둔다.
@@ -684,25 +687,163 @@ def _verified_contradictions(alignment: AlignmentDoc | None) -> dict[str, Alignm
             if it.verdict == "contradiction" and (it.deck_quote or "").strip() and (it.evidence or "").strip()}
 
 
-def _skipped_core(alignment: AlignmentDoc | None, graph: ConceptGraph) -> dict[str, SkippedSlide]:
+def _skipped_core(alignment: AlignmentDoc | None, graph: ConceptGraph,
+                  slides: dict[int, str] | None = None) -> dict[str, SkippedSlide]:
     """
     말로 건너뛴 **핵심** 장 → 그 장을 대표해 물을 개념 하나 (node_id → SkippedSlide).
 
-    대표는 그 장에서 끝내 missing 으로 남은 개념(`SkippedSlide.node_ids`) 가운데 핵심(importance core 또는 비중 ≥ SKIP_CORE_WEIGHT)이고
-    자료 비중이 가장 큰 것 → 얕은 것 → id. 가벼운 개념뿐인 장은 여기 안 든다 — 누락(missing)으로만 남는다.
+    그 장에서 끝내 missing 으로 남은 개념(`SkippedSlide.node_ids`) 가운데 하나라도 핵심(importance core 또는 비중 ≥ SKIP_CORE_WEIGHT)이면
+    핵심 장이다 — 채점표(`_rubric_det._skipped_core`)와 같은 선이라 리포트가 「핵심 N장을 건너뛰었어요」 라고 한 장을 질문도 묻는다.
+    가벼운 개념뿐인 장은 여기 안 든다 — 누락(missing)으로만 남는다.
+
+    대표는 **그 장이 이름을 부르는 개념** 가운데 **장에서 맡은 자리**가 먼저다 (`_skip_role` — 식 머리 → 장 제목의 개념 → 그 장 다른 개념의
+    상위 개념), 그다음 자료 비중 → 얕은 것 → id. 장 원문(slides)이 부르는 개념이면 missing 이 아니어도 된다 — 건너뛴 식 장의 머리는
+    「생략이 합리적」 판정을 받은 가벼운 개념일 때가 있다. 원문이 없거나 원문이 부르는 개념이 없으면 `node_ids` 에서 고른다.
+    한 개념이 두 장의 대표가 되지 않는다 (앞 장이 먼저 가진다).
+    09-30 녹음 감사 REC-11: 비중 순이라 식의 한 칸(「바람 속도」 0.76)이 식 머리(「환기량」 0.59)를 앞서 「그 장의 바람 속도를 설명해
+    주세요」 가 됐다 — 그 장이 말하려던 것은 식 전체다.
     """
     if alignment is None or not alignment.skipped_slides:
         return {}
     by_id = {n.id: n for n in graph.nodes}
+    labels = [n.label for n in graph.nodes if n.label]
     out: dict[str, SkippedSlide] = {}
     for s in sorted(alignment.skipped_slides, key=lambda x: x.slide_no):
-        heavy = [by_id[i] for i in s.node_ids
-                 if i in by_id and (by_id[i].importance == "core" or by_id[i].weight >= SKIP_CORE_WEIGHT)]
-        if not heavy:
+        listed = [by_id[i] for i in dict.fromkeys(s.node_ids) if i in by_id]
+        if not any(n.importance == "core" or n.weight >= SKIP_CORE_WEIGHT for n in listed):
             continue
-        rep = min(heavy, key=lambda n: (-n.weight, n.depth, n.id))
-        out.setdefault(rep.id, s)
+        raw = (slides or {}).get(s.slide_no, "")
+        named = _named_on_slide(graph, s.slide_no, raw) if raw else []
+        pool = [n for n in (named or listed) if n.id not in out]
+        if not pool:
+            continue
+        role = _skip_role(pool, raw, labels, by_id)
+        rep = min(pool, key=lambda n: (role.get(n.id, SKIP_ROLE_OTHER), -n.weight, n.depth, n.id))
+        out[rep.id] = s
     return out
+
+
+def _names(text: str, label: str) -> bool:
+    """장 글이 개념을 **이름으로 부르는가** — 라벨 통째, 또는 라벨의 두 글자 이상 낱말(흔한 추상 명사 빼고)이 전부 (띄어 쓴 순서가
+    달라도 — 「환기 면적」 ↔ 「시간당 환기량 … 창문 개방 면적」). 머리 낱말 하나만 같은 다른 개념(「버리는 반죽」 ↔ 「반죽 무게」)은 아니다."""
+    if not text or not label:
+        return False
+    if grounding.mentions(text, label):
+        return True
+    words = [w for w in grounding.label_words(label) if grounding.stem(w) not in grounding.GENERIC_NOUNS]
+    return bool(words) and all(grounding.mentions(text, w) for w in words)
+
+
+def _folded_labels(skip: SkippedSlide, rep_id: str, by_id: dict[str, ConceptNode], by_no: dict[int, Slide] | None) -> list[str]:
+    """대표 질문에 접힌 개념 이름 — 그 장에서 missing 으로 남았고 그 장 글이 부르는 것 (`_skip_folded` 와 같은 거름). 원문이 없으면 전부."""
+    raw = by_no[skip.slide_no].raw_text or "" if by_no and skip.slide_no in by_no else ""
+    text = " ".join(read_lines(raw, clean_slide_text)) if raw else ""
+    return [by_id[i].label for i in dict.fromkeys(skip.node_ids)
+            if i != rep_id and i in by_id and by_id[i].label and (not raw or _names(text, by_id[i].label))]
+
+
+def _named_on_slide(graph: ConceptGraph, slide_no: int, raw_text: str) -> list[ConceptNode]:
+    """그 장을 근거 장으로 가진 개념 가운데 그 장 글이 이름을 부르는 것 (그래프 순서)."""
+    text = " ".join(read_lines(raw_text, clean_slide_text)) if raw_text else ""
+    return [n for n in graph.nodes if slide_no in (n.slide_nos or []) and _names(text, n.label)]
+
+
+#: 건너뛴 장에서 개념이 맡은 자리 — 작을수록 대표로 먼저다.
+SKIP_ROLE_FORMULA_HEAD = 0
+SKIP_ROLE_TITLE = 1            # 장 제목이 개념 이름을 통째로 부른다
+SKIP_ROLE_TITLE_WORD = 2       # 장 제목이 개념 이름의 낱말만 부른다
+SKIP_ROLE_PARENT = 3
+SKIP_ROLE_OTHER = 4
+#: 장 머리(제목)로 볼 첫 줄의 길이 상한 (띄어쓰기 뺀 글자) — 이보다 길거나 문장으로 끝나면 제목이 아니라 본문 줄이다.
+SKIP_HEADING_MAX = 24
+#: 식 기호 — 좌변을 떼어 낼 때 지운다.
+_FORMULA_SIGN_RE = re.compile(r"[=×✕÷+*/·−\-]+")
+
+
+def _slide_heading(lines: list[str]) -> str:
+    """장 머리 한 줄 — 첫 줄이 짧고 문장이 아닐 때만 (「환기량 계산」). 파서가 준 title 은 본문 문장일 때가 있어 쓰지 않는다."""
+    first = (lines[0] if lines else "").strip()
+    if not first or _is_sentence(first) or len(re.sub(r"\s+", "", first)) > SKIP_HEADING_MAX or "=" in first:
+        return ""
+    return first
+
+
+def _formula_heads(lines: list[str], labels: list[str]) -> list[str]:
+    """
+    장의 식 줄에서 **좌변의 개념 이름** — 「A = B × C」 의 A. 파서가 식 칸을 흐트러뜨려 좌변에 항이 섞이면(「A B × = C」) 좌변에서
+    **가장 먼저 나오는** 라벨이 머리다 (글은 머리부터 읽힌다). 좌변에 라벨이 없으면 좌변 글 그대로 — 라벨이 좌변을 품는지 호출자가 본다.
+    """
+    heads: list[str] = []
+    for line in lines:
+        if "=" not in line:
+            continue
+        lhs = line.split("=", 1)[0]
+        if not re.search(r"[가-힣A-Za-z]", lhs):
+            continue
+        spans = grounding.label_spans(lhs, labels)
+        heads.append(spans[0].label if spans else _FORMULA_SIGN_RE.sub(" ", lhs).strip())
+    return heads
+
+
+def _skip_role(cands: list[ConceptNode], raw_text: str, labels: list[str],
+               by_id: dict[str, ConceptNode]) -> dict[str, int]:
+    """건너뛴 장의 개념마다 자리 (`SKIP_ROLE_*`) — 식 머리 · 장 제목의 개념 · 같은 장 다른 개념의 상위 개념 · 그 밖."""
+    lines = read_lines(raw_text, clean_slide_text, labels=labels) if raw_text else []
+    heads = _formula_heads(lines, labels)
+    heading = _slide_heading(lines)
+    ids = {n.id for n in cands}
+    role: dict[str, int] = {}
+    for n in cands:
+        words = [w for w in [*grounding.label_words(n.label), grounding.head_word(n.label)]
+                 if w and grounding.stem(w) not in grounding.GENERIC_NOUNS]
+        if any(h == n.label or (len(grounding.squash(h)) >= 2 and grounding.mentions(n.label, h)) for h in heads):
+            role[n.id] = SKIP_ROLE_FORMULA_HEAD
+        elif heading and grounding.mentions(heading, n.label):
+            role[n.id] = SKIP_ROLE_TITLE
+        elif heading and any(grounding.mentions(heading, w) for w in words):
+            role[n.id] = SKIP_ROLE_TITLE_WORD
+        elif any(_ancestor_of(n.id, other, by_id) for other in ids if other != n.id):
+            role[n.id] = SKIP_ROLE_PARENT
+        else:
+            role[n.id] = SKIP_ROLE_OTHER
+    return role
+
+
+def _ancestor_of(anc: str, node_id: str, by_id: dict[str, ConceptNode]) -> bool:
+    """anc 가 node_id 의 상위(부모·조부모 …) 개념인가."""
+    seen: set[str] = set()
+    up = by_id[node_id].parent_id if node_id in by_id else None
+    while up is not None and up not in seen:
+        if up == anc:
+            return True
+        seen.add(up)
+        up = by_id[up].parent_id if up in by_id else None
+    return False
+
+
+def _skip_folded(alignment: AlignmentDoc | None, graph: ConceptGraph, skip_of: dict[str, SkippedSlide],
+                 source_of: dict[str, str] | None = None, slides: dict[int, str] | None = None) -> set[str]:
+    """
+    건너뛴 핵심 장의 **나머지 개념** — 대표 질문 하나가 그 장을 묻는다 (09-30 녹음 감사 REC-11: 교실 10분 7문항 중 3개가 건너뛴 4장).
+    이 개념들은 따로 묻지 않고 대표 질문의 골자에 접힌다 (`_normalize_questions`). 접는 것은 그 장에서 missing 으로 남은 개념 가운데
+    **그 장 글이 이름을 부르는** 것뿐이다(원문이 없으면 전부) — 여러 장에 걸친 큰 개념이 그 장에 이름도 없이 딸려 와 접히면 제 질문을
+    잃는다. 다른 근거(모순·탐침)가 붙은 개념은 그 근거로 묻는다 — 건너뛴 것과 다른 까닭이다. source_of 를 안 주면 누락 계열로 본다.
+    """
+    if not skip_of:
+        return set()
+    own = {"skipped_slide", "missing", "under_spoken", "weak_flow", "core_weight", "justified_skip", "extra"}
+    by_id = {n.id: n for n in graph.nodes}
+    folded: set[str] = set()
+    for rep, s in skip_of.items():
+        raw = (slides or {}).get(s.slide_no, "")
+        text = " ".join(read_lines(raw, clean_slide_text)) if raw else ""
+        for nid in s.node_ids:
+            if nid == rep or nid in skip_of or (source_of is not None and source_of.get(nid, "missing") not in own):
+                continue
+            if raw and not (nid in by_id and _names(text, by_id[nid].label)):
+                continue
+            folded.add(nid)
+    return folded
 
 
 #: 발화 가운데 인용할 절을 자를 곳 — 쉼표·문장부호 뒤, 「…는데요,」 같은 이음 뒤.
@@ -867,6 +1008,237 @@ def _cue_sentence(sentence: str) -> bool:
     return skip_cue(sentence) or defer_cue(sentence)
 
 
+# ---------------------------------------------------------------------------
+# 건너뛴 핵심 장 질문의 꼴 (09-30 녹음 대화 감사 REC-05) — 모순·탐침·함정처럼 LLM 문장을 코드가 본다
+#
+# 교실 덱 「왜 4장을 생략하고 바로 결과로 넘어갔는지 설명해 주세요」 는 「시간이 없어서요」 만으로 70 통과했고, 키오스크 덱 「메뉴 찾기 평균
+# 48초와 … 110초가 …」 는 건너뛴 장의 답을 질문이 다 말해 한 줄 답이 75 통과했다. 규칙은 구조(장 번호·개념 이름·숫자·자료 조각·
+# 까닭을 묻는 말)로만 — 덱 낱말 없음.
+# ---------------------------------------------------------------------------
+
+#: 빠뜨린 행동의 줄기 — 생략·누락·패스·스킵.
+_OMIT_STEM = r"(?:생략|누락|패스|스킵)"
+#: 발표자의 **말하기** 를 가리키는 명사 — 「잇는 멘트가 없었던 이유」 는 내용이 아니라 태도를 묻는다 (「효과가 없었던 이유」 는 내용이다).
+_SPEECH_ACT = r"멘트|말|설명|언급|소개|이야기|연결\s*설명"
+#: 까닭 말 바로 앞에서 **빠뜨린 행동**을 꾸미는 말 — 「생략한 이유」「누락된 까닭」「건너뛴 이유」「설명하지 않은 이유」. 이 꼴은 그 자체로
+#: 까닭을 묻는다. 「생략된 4장의 식」 처럼 장을 꾸미는 관형 표현은 아니다.
+_OMIT_REASON_RE = re.compile(
+    rf"(?:{_OMIT_STEM}\s*(?:한|된|하신|시킨)|건너뛴|빠뜨린|빠진|다루지\s*않은|설명하지\s*않은|언급하지\s*않은|말하지\s*않은"
+    rf"|소개하지\s*않은|(?<![가-힣])(?:{_SPEECH_ACT})(?:이|가)?\s*없(?:었던|던))\s*(?:이유|까닭|배경|판단|결정)")
+#: 빠뜨린 행동을 **서술하는** 꼴 — 「생략하고」「누락했」「건너뛰었」「다루지 않았」. 까닭 물음(왜·이유)과 한 절에 있으면 태도를 묻는 것이다.
+_OMIT_FINITE_RE = re.compile(
+    rf"{_OMIT_STEM}\s*(?:했|하고|하셨|하게|하기로|되었|됐|되고|돼서|되어서|된\s*(?:거|것|걸))"
+    r"|건너뛰(?:었|고|셨|게|기로)|빠뜨(?:렸|리고|리셨)|빠졌|다루지\s*않(?:았|고)|설명하지\s*않(?:았|고)|언급하지\s*않(?:았|고)"
+    rf"|말하지\s*않(?:았|고)|(?<![가-힣])(?:{_SPEECH_ACT})(?:이|가)?\s*없었")
+#: 「넘어가·넘기」 는 수량(「1,000ppm을 넘어간」)에도 쓰여 **장·설명을 목적어로** 받을 때만 건너뜀이다.
+_SKIP_OBJECT_VERB_RE = re.compile(
+    r"(?:\d{1,3}\s*장|(?:그|이|해당|앞|이번)\s*장|슬라이드|설명|내용|부분)(?:을|를|은|는|이|가|도)?\s+"
+    r"(?:[가-힣A-Za-z]+\s+){0,3}?"
+    r"(?:넘어갔|넘어가(?:고|셨|게|기로)|넘어간\s*(?:이유|까닭|거|것|걸|판단|결정)|넘겼|넘기(?:고|셨|게|기로)"
+    r"|넘긴\s*(?:이유|까닭|거|것|걸|판단|결정))")
+#: 까닭을 묻는 말 (어느 발표에나 쓰는 말).
+_REASON_ASK_RE = re.compile(r"(?<![가-힣])왜(?![가-힣])|어째서|이유|까닭|무엇\s*때문|무슨\s*사정")
+#: 앞 절의 빠뜨림을 받아 까닭을 묻는 말 — 「…패스했는데, 그 이유는 무엇인가요」「…생략했는데 이유가 뭔가요」.
+_REASON_ANAPHOR_RE = re.compile(r"^(?:그\s*|그렇게\s*한\s*|그런\s*)?(?:이유|까닭)|(?:그|그렇게\s*한|그런|그러한)\s*(?:이유|까닭)")
+#: 물음 안의 절 경계 — 문장부호 뒤 · 「…는데·지만·으나」 뒤.
+_ASK_CLAUSE_RE = re.compile(r"(?<=[,.?!])\s+|(?<=는데)\s+|(?<=지만)\s+|(?<=으나)\s+")
+
+
+def _asks_why_skipped(question: str) -> bool:
+    """
+    질문이 **빠뜨린 까닭**(생략·누락·건너뜀 — 발표자의 태도)을 묻는가 (질문 코칭 규칙 3 — 태도를 묻지 않는다). 「…생략된 이유」 처럼
+    까닭 말이 빠뜨림을 받거나, 한 절에 까닭 물음(왜·이유)과 빠뜨린 서술이 같이 있거나, 앞 절이 빠뜨린 서술이고 이 절이 「그 이유」 로
+    받으면 참. 「발표에서 4장은 넘어갔는데, 그 장의 X를 설명해 주세요」(명세 문장)·「왜 농도가 1,000ppm을 넘어가나요」·「생략된 4장의
+    식에서 왜 곱하나요」 는 아니다. 09-30 녹음 감사 REC-05 뒤 실측: 「…계산 공식이 발표에서 생략된 이유는 무엇인가요?」.
+    """
+    clauses = [c for c in _ASK_CLAUSE_RE.split(" ".join((question or "").split())) if c.strip()]
+    omitted = [bool(_OMIT_FINITE_RE.search(c) or _SKIP_OBJECT_VERB_RE.search(c)) for c in clauses]
+    for k, clause in enumerate(clauses):
+        if _OMIT_REASON_RE.search(clause) or (omitted[k] and _REASON_ASK_RE.search(clause)):
+            return True
+        if k and omitted[k - 1] and _REASON_ANAPHOR_RE.search(clause):
+            return True
+    return False
+
+
+def _skip_leaks(text: str, slide_no: int, by_no: dict[int, Slide] | None, labels: list[str], idx=None) -> bool:
+    """
+    글이 건너뛴 장의 **내용**(= 답)을 싣는가 — 그 장의 수치(단위가 붙었거나 10 이상·소수)를 말하거나, 그 장 본문의 _DECK_CHUNK 글자
+    조각을 그대로 옮기거나, 그 장의 식·긴 줄을 되읊는다(`_recited_lines`). 개념 이름·장 제목은 조각에서 뺀다 — 장이나 개념을
+    **부르는** 것은 답이 아니다.
+    """
+    if not text or not by_no or slide_no not in by_no:
+        return False
+    rows = [r.text for r in grounding.slide_rows(slide_no, by_no[slide_no].raw_text or "")]
+    heading = _slide_heading(rows)
+    deck = " ".join(rows[1:] if heading and rows and rows[0] == heading else rows)
+    values = [n for n in deck_numbers(deck) if n.unit or n.decimals or n.value >= 10]
+    said = deck_numbers(spoken_numbers(text))
+    if any(n.close_value(s) for n in values for s in said):
+        return True
+    body = grounding.squash(text)
+    for name in sorted({*labels, heading} - {""}, key=len, reverse=True):
+        squashed = grounding.squash(name)
+        if len(squashed) >= 2:
+            body = body.replace(squashed, "\0")
+    flat = grounding.squash(deck)
+    if any(flat[i:i + _DECK_CHUNK] in body for i in range(0, max(0, len(flat) - _DECK_CHUNK + 1))):
+        return True
+    return bool(idx is not None and _recited_lines(text, [slide_no], idx))
+
+
+def _skip_problem(question: str, skip: SkippedSlide, node: ConceptNode, by_no: dict[int, Slide] | None,
+                  labels: list[str], idx=None) -> str:
+    """
+    LLM 이 쓴 건너뛴 장 질문을 둘 수 없는 까닭 (둘 수 있으면 ""). 명세(질문 코칭 규칙 3 — 태도를 묻지 않는다): 그 장이나 대표 개념을
+    부르고, 그 장의 **내용**을 묻고(건너뛴 까닭은 안 묻고), 그 장의 수치·자료 조각을 싣지 않는다. 하나라도 어기면 정해진 문장이다
+    (「발표에서 N장은 넘어갔는데, 그 장의 …을 설명해 주세요」).
+    """
+    if _asks_why_skipped(question):
+        return "skip_why_asked"
+    if not (re.search(rf"(?<!\d){skip.slide_no}\s*장", question) or _mentions_loosely(question, node.label, [])):
+        return "skip_not_named"
+    if _skip_leaks(question, skip.slide_no, by_no, labels, idx):
+        return "skip_value_leak"
+    return ""
+
+
+def _skip_speech(skip: SkippedSlide) -> str:
+    """건너뛴 장 질문의 「발표에서 한 말」 — 발표자가 그 장을 건너뛴다고 한 말 그대로 (09-30 REC-18: 옆 장 문장이 실렸다)."""
+    cue = _FILLER_HEAD_RE.sub("", " ".join((skip.cue or "").split())).strip()
+    return _clip(cue)
+
+
+# ---------------------------------------------------------------------------
+# 누구의 말인가 (09-30 녹음 감사 REC-02 번트 Q6) — 녹음 모드에서 「…라고 했는데」 는 **발표자가 한 말**로 들린다
+#
+# 번트 Q6 「우리 리그 번트 성공률이 프로 리그 대비 19%p 낮다고 했는데…」 — 발표자는 그 말을 하지 않았고(「72퍼센트 정도 … 차이가 크진
+# 않아요」) 자료 5장이 한 말이었다. 발표자에게 붙인 말은 녹음에 있어야 하고, 자료에서 온 말은 자료에 붙인다 — 함정 문장(「자료에서
+# 「…」라고 했는데」)과 같은 꼴 「자료 N장에서 …라고 했는데」. 녹음이 없는 경로(자료만)에서는 「했는데」 가 자료를 가리키므로 그대로 둔다.
+# ---------------------------------------------------------------------------
+
+#: 말을 옮겨 붙이는 꼬리 — 「…라고 했는데」「…다고 말했는데」「…라고 설명했지만」.
+_ATTRIB_TAIL_RE = re.compile(
+    r"(?:이?라고|다고)\s*(?:했|하셨|말했|설명했|강조했|주장했|언급했|밝혔|이야기했|얘기했|제시했|소개했)(?:는데|지만|으나|고|으며)")
+#: 옮긴 말의 출처가 자료라는 표지 — 「자료에서」「슬라이드」「표에서」「5장에서」.
+_DECK_SOURCE_RE = re.compile(r"자료|슬라이드|도표|그래프|차트|(?<![가-힣])표(?:에서|에|의|는|를)|(?<![\d.])\d{1,3}\s*장(?!점|면|기|소|치)")
+#: 발표자 쪽 출처 표지 — 자료 출처로 바꿀 때 뗀다.
+_SPEECH_SOURCE_RE = re.compile(r"^\s*(?:발표(?:에서는|에서|\s*중에|\s*때)|말로)\s*,?\s*")
+#: 문장 끝 — 문장부호 뒤가 빈칸이거나 글 끝일 때만 (수 안의 점 「0.86」 은 아니다).
+_SENTENCE_END_RE = re.compile(r"(?<!\d)[.?!](?=\s|$)|(?<=\d)[.?!](?=\s)")
+#: 옮긴 말이 녹음에 **있다**고 보는 몫 — 내용 명사의 이만큼이 녹음에 있어야 한다 (수치는 전부 있어야 한다).
+SPOKEN_NOUN_SHARE = 0.6
+#: 옮긴 말이 자료 한 장에 있다고 보는 몫.
+DECK_NOUN_SHARE = 0.6
+
+
+def _speech_attribution(question: str) -> tuple[int, int] | None:
+    """
+    질문이 발표자에게 붙인 말의 자리 (옮긴 말 시작, 꼬리 시작) — 「…라고 했는데」 앞 절에 자료 출처 표지가 없을 때만. 없으면 None.
+    """
+    q = question or ""
+    m = _ATTRIB_TAIL_RE.search(q)
+    if m is None:
+        return None
+    # 옮긴 말은 앞 문장 끝 다음부터다 — 소수점(「0.86」)은 문장 끝이 아니다
+    ends = [e.end() for e in _SENTENCE_END_RE.finditer(q, 0, m.start())]
+    start = ends[-1] if ends else 0
+    while start < m.start() and q[start].isspace():
+        start += 1
+    if _DECK_SOURCE_RE.search(q[start:m.start()]):
+        return None
+    return (start, m.start()) if q[start:m.start()].strip() else None
+
+
+def _number_hit(n, p) -> bool:
+    """옮긴 말의 수 n 이 p 와 같은 수인가 — n 에 단위가 있으면 p 도 **같은 단위**여야 하고(「20%」 는 「20곳」 이 아니다), 반올림한
+    같은 값(8.7% ↔ 9%)은 단위가 같을 때만. 단위 없는 「1루」 의 1 이 「1.3배」 를 받치지 않게 한다."""
+    if n.unit is not None and n.unit != p.unit:
+        return False
+    return n.same_value(p) or (n.unit is not None and n.close_value(p))
+
+
+def _numbers_in(nums: list, pool: list) -> bool:
+    """수가 전부 pool 에 있는가 (`_number_hit`)."""
+    return all(any(_number_hit(n, p) for p in pool) for n in nums)
+
+
+def _stems_of(text: str) -> set[str]:
+    return {grounding.stem(w) for w in grounding.words(text)}
+
+
+#: 옮긴 말 끝·가운데의 **서술어 조각** — 「…낮아졌다고」 의 「낮아졌」, 「…늘었고」. 내용 명사로 세면 녹음의 「낮아진」 과 글자가 달라
+#: 녹음에 있는 말이 「녹음에 없는 말」 이 된다 (09-30 실측: 「평균 농도가 60퍼센트나 낮아졌다고 했는데」).
+_PRED_PIECE_RE = re.compile(r"(?:졌|었|았|였|했|됐|겠|웠|렸|켰|쳤|혔|섰|왔|갔|봤|줬|났)(?:고|으며|는데|지만)?$")
+
+
+def _premise_nouns(premise: str, tail: str = "") -> list[str]:
+    """옮긴 말의 내용 명사 — 「…다고」 로 옮긴 말이면 끝 낱말은 서술어라 뺀다(「…라고」 는 명사로 끝난다), 서술어 조각도 뺀다."""
+    words = (premise or "").split()
+    if tail.lstrip().startswith("다고") and words:
+        words = words[:-1]
+    return grounding.content_nouns(" ".join(w for w in words if not _PRED_PIECE_RE.search(w)))
+
+
+def _spoken_premise(premise: str, said_nums: list, said_stems: set[str], tail: str = "") -> bool:
+    """옮긴 말이 녹음에 있는가 — 수치가 전부 녹음에 있고(말로 적은 수 포함), 내용 명사의 SPOKEN_NOUN_SHARE 이상이 녹음에 있다."""
+    if not _numbers_in(deck_numbers(spoken_numbers(premise)), said_nums):
+        return False
+    nouns = _premise_nouns(premise, tail)
+    return not nouns or sum(1 for n in nouns if grounding.known_in(n, said_stems)) >= SPOKEN_NOUN_SHARE * len(nouns)
+
+
+def _deck_home(premise: str, deck_idx, tail: str = "") -> int:
+    """옮긴 말이 **자료에서 온** 장 번호 — 수치가 전부 그 장에 있고 내용 명사의 DECK_NOUN_SHARE 이상이 그 장에 있다. 없으면 0."""
+    if deck_idx is None:
+        return 0
+    nums = deck_numbers(spoken_numbers(premise))
+    nouns = _premise_nouns(premise, tail)
+    words = {grounding.stem(w) for w in grounding.words(premise) if not w[0].isdigit()}
+    best: tuple = ((0, 0, 0), 0)
+    for no in sorted(deck_idx.rows):
+        text = " ".join(r.text for r in deck_idx.rows[no])
+        pool = deck_numbers(text)
+        if not _numbers_in(nums, pool):
+            continue
+        stems = _stems_of(text)
+        hits = sum(1 for n in nouns if grounding.known_in(n, stems))
+        if (nouns and hits < DECK_NOUN_SHARE * len(nouns)) or (not nouns and not nums):
+            continue
+        # 같은 점수면 단위까지 같은 수(「8곳」 ↔ 「8분」 은 아니다) → 낱말이 더 겹치는 장
+        same_unit = sum(1 for n in nums if any(p.unit == n.unit and p.same_value(n) for p in pool))
+        score = (hits + same_unit, sum(1 for w in words if grounding.known_in(w, stems)), -no)
+        if score > best[0]:
+            best = (score, no)
+    return best[1]
+
+
+def _deck_attributed(question: str, span: tuple[int, int], slide_no: int) -> str:
+    """발표자에게 붙인 말을 자료에 붙인다 — 「자료 N장에서 …라고 했는데」(장을 못 정하면 「자료에서」). 발표 쪽 출처 표지는 뗀다."""
+    start, end = span
+    said = _SPEECH_SOURCE_RE.sub("", question[start:end]).lstrip()
+    where = f"자료 {slide_no}장에서 " if slide_no else "자료에서 "
+    return question[:start] + where + said + question[end:]
+
+
+def _attribution_fix(question: str, speech, deck_idx) -> tuple[str, str]:
+    """
+    녹음 모드의 「…라고 했는데」 → (고친 질문, 검사 이름). 녹음에 있는 말이면 그대로 (question, ""), 자료에만 있는 말이면 자료에 붙인
+    질문과 "attribution_deck", 어디에도 없는 말이면 ("", "attribution_unspoken") — 호출자가 정해진 문장으로 바꾼다.
+    speech 는 (녹음 수치, 녹음 낱말 줄기).
+    """
+    span = _speech_attribution(question)
+    if span is None:
+        return question, ""
+    premise, tail = question[span[0]:span[1]], question[span[1]:]
+    if _spoken_premise(premise, *speech, tail=tail):
+        return question, ""
+    home = _deck_home(premise, deck_idx, tail)
+    if home:
+        return _deck_attributed(question, span, home), "attribution_deck"
+    return "", "attribution_unspoken"
+
+
 def speech_unused_reason(
     slidedoc: SlideDoc | dict | None,
     transcript: Transcript | dict | None = None,
@@ -996,9 +1368,12 @@ def _ordered_candidates(
     flow: FlowDiff | None,
     pace: PaceDoc | None = None,
     probes: list[Probe] | None = None,
+    slides: dict[int, str] | None = None,
 ) -> list[tuple[ConceptNode, str]]:
     """
     질문 후보를 결정적 우선순위로 정렬해 CANDIDATE_LIMIT 까지 자른다.
+
+    말로 건너뛴 핵심 장의 나머지 개념은 후보에서 뺀다 — 장마다 대표 질문 하나가 그 장을 묻는다 (`_skip_folded`, 09-30 REC-11).
 
     근거 우선순위 → 구획 역할 → 위계(깊이 → 서브트리 장 범위) → 자료 weight 내림차순
     → 요약 유무 → 앞 슬라이드 → id 순.
@@ -1015,13 +1390,14 @@ def _ordered_candidates(
 
     마지막 두 단계는 동률을 깨려고 있다 — 같은 그래프면 언제나 같은 순서가 나온다.
     """
-    source_of = _source_by_node(graph, alignment, flow, pace, probes)
+    source_of = _source_by_node(graph, alignment, flow, pace, probes, slides)
     # 발화에만 나온 개념도 같은 축에서 같은 규칙으로 줄 세운다.
     extras = _extra_nodes(alignment)
     for extra in extras:
         source_of[extra.id] = "extra"
 
-    everyone = [*graph.nodes, *extras]
+    folded = _skip_folded(alignment, graph, _skipped_core(alignment, graph, slides), source_of, slides)
+    everyone = [n for n in (*graph.nodes, *extras) if n.id not in folded]
     hierarchy_of = _hierarchy_of(graph, everyone)
     rushed = _rushed_ids(pace, graph)
 
@@ -1655,6 +2031,7 @@ def _build_triage_prompt(
     flow: FlowDiff | None = None,
     rushed: dict[int, tuple[float, float]] | None = None,
     probe_of: dict[str, Probe] | None = None,
+    slides: dict[int, str] | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-triage",
@@ -1677,7 +2054,7 @@ def _build_triage_prompt(
         "",
     ]
     flow_of = _flow_issue_by_node(flow)
-    skip_of = _skipped_core(alignment, graph)
+    skip_of = _skipped_core(alignment, graph, slides)
     contra_of = _verified_contradictions(alignment)
     for line, (node, source) in zip(_node_lines(pairs), pairs):
         parts.append(line)
@@ -1984,14 +2361,14 @@ def triage_questions(
         sys.stderr.write(f"[f08] triage: {_unused_log(unused, overlap)} — 자료만으로 심사해요\n")
         alignment = flow = transcript = pace = None
     probes = derive_probes(graph, claims, slides_text if claims is not None else None)
-    pairs = _ordered_candidates(graph, alignment, flow, pace, probes)
+    pairs = _ordered_candidates(graph, alignment, flow, pace, probes, slides_text)
     engine = _engine(llm, llm_kwargs)
 
     data = _call_with_retry(
         engine,
         TRIAGE_SYSTEM_PROMPT,
         _build_triage_prompt(graph, pairs, alignment, transcript, ctx, flow, _rushed_slides(pace, graph),
-                             _probes_by_node(probes)),
+                             _probes_by_node(probes), slides_text),
     )
     raw_marks = [m for m in (data.get("marks") or []) if isinstance(m, dict)]
     # 코드가 확인한 녹음 사실(자료와 다른 수치 · 말로 건너뛴 핵심 장의 대표)은 LLM 이 가볍다고 해도 치명이다
@@ -2098,6 +2475,12 @@ def _twin_exempt(q: Question) -> bool:
     return q.trap or bool(q.basis and ({"gist_probe_rebuilt", "gist_probe_code"} & set(q.basis.checks)))
 
 
+def _recording_backed(q: Question) -> bool:
+    """녹음이 짚은 사실로 뽑힌 질문 — 코드가 확인한 모순 · 말로 건너뛴 핵심 장. 쌍둥이 정리가 **이 질문을** 밀지는 않는다(다른 질문이
+    이 질문과 겹치면 그쪽이 밀린다). 리포트가 「먼저 짚을 것」 으로 든 사실을 질문이 안 물으면 두 화면이 어긋난다 (09-30 REC-07)."""
+    return bool(q.basis and ({"contradiction_reconcile", "why_from_skip"} & set(q.basis.checks)))
+
+
 def _drop_twin_questions(
     questions: list[Question], limit: int
 ) -> tuple[list[Question], list[str]]:
@@ -2125,7 +2508,7 @@ def _drop_twin_questions(
         # 겹쳐 보이지만, 묻는 것(틀린 전제를 알아채는가)이 다르다 — 밀리면 트랙의 함정 허용치가 조용히 깎인다.
         # 탐침 골자를 코드 문장으로 다시 쓴 질문(gist_probe_rebuilt, qa/loop2)도 뺀다 — 틀 낱말(「…게 답이에요」)이 겹쳐
         # 서로 다른 탐침이 쌍둥이로 읽혔다. 탐침은 서로 다른 자료 줄을 따지므로 쌍둥이가 아니다.
-        twin = not _twin_exempt(q) and any(
+        twin = not _twin_exempt(q) and not _recording_backed(q) and any(
             _gist_overlap(q.answer_gist, k.answer_gist) > QA_TWIN_GIST_MAX for k in kept if not _twin_exempt(k)
         )
         (spare if twin else kept).append(q)
@@ -2332,6 +2715,10 @@ def _assign_traps(
     - 상한 안에 맞는 개념이 모자라면 여유분·밀린 개념(pool)에서 데려와 **상한 안의 한 자리와 바꾼다** — 주제·탐침·함정이
       아닌 뒤쪽 자리만 비킨다. 벤치 건식 실행(qa/trap): 바꾸기 전엔 5분 트랙 10덱 중 6덱이 함정 0개였다 — 여유분에 있던
       함정감이 상한 밖이라 쌍둥이 정리에서 잘렸다.
+    - **근거가 확인된 약점 질문**(keep — 코드가 확인한 모순·말로 건너뛴 핵심 장, 그리고 탐침에 묶인 개념)이 상한 밖에 밀려 있는 동안은
+      함정이 자리를 차지하지 않는다 — 함정이 들어갈 그 자리를 밀린 약점 질문이 받는다(함정 허용치를 한 칸 쓴다). 사용자 결정 「탐침
+      질문을 밀어내면서까지 함정을 넣지 않는다」 를 트랙 가리지 않고 넓힌 것이다 (09-30 녹음 감사 REC-07 조정자 주: 교실 5분 트랙에서
+      건너뛴 4장 질문이 밀린 채 함정이 들어갔다). 허용치(QA_TRACK_TRAPS)는 여전히 상한이다.
     triage 가 준 trap 표시는 새 객체에서 덮어쓴다 — 원본 triage 는 캐시돼 트랙마다 재사용된다.
     """
     budget = QA_TRACK_TRAPS.get(track, 0)
@@ -2345,6 +2732,8 @@ def _assign_traps(
         return m.node_id in probes and probes[m.node_id].kind == m.source
 
     keep = keep or set()
+    # 근거가 확인됐는데 상한 밖에 밀린 약점 질문 — 함정보다 먼저 자리를 받는다 (여유분 먼저, 그다음 밀린 순서)
+    waiting = [m for m in (*tail, *extra) if m.node_id in keep or probe_bound(m)]
     options: list[tuple[tuple, TriageMark, list]] = []
     for pos, mark in enumerate((head + tail + extra) if idx is not None else []):
         node = by_id.get(mark.node_id)
@@ -2363,24 +2752,43 @@ def _assign_traps(
     used_lines: set[str] = set()
     used_slides: set[int] = set(avoid_slides or ())
     labels = [n.label for n in by_id.values()]
+    placed: set[str] = set()          # 함정 자리를 대신 받은 약점 질문 — 다시 비키지 않는다
+    spent = 0
     for _, mark, cands in options:
-        if len(chosen) >= budget:
+        if spent >= budget:
             break
+        if mark.node_id in placed or not any(m is mark for m in (*head, *tail, *extra)):
+            continue
         # 한 장에 함정 하나 · 전제 줄이 **이 개념의** 사실일 때만 (09-30 held-out H-07): 반찬 덱은 두 함정이 6장 같은 표에,
         # 혈당 덱은 두 함정이 6장에 몰렸고, 「효과」「연구」「대출 권수 감소」 처럼 전제 줄에 없는 개념 이름이 함정 라벨이 됐다.
         pick = next((c for c in cands if c.line not in used_lines and c.premise.slide_no not in used_slides
                      and _trap_owned(by_id[mark.node_id].label, c.premise, labels, idx)), None)
         if pick is None:
             continue
-        if mark not in head:
+        if any(m is mark for m in head):
+            i = next(k for k, m in enumerate(head) if m is mark)
+        else:
             # 비킬 자리: 뒤에서부터, 주제·탐침·이미 고른 함정이 아닌 자리. 탐침은 자료 안의 진짜 긴장·빈틈이라 비키지 않는다.
-            spots = [i for i in range(len(head) - 1, -1, -1)
-                     if slot_of.get(head[i].node_id) != "theme" and head[i].node_id not in chosen
-                     and not probe_bound(head[i]) and head[i].node_id not in keep]
+            spots = [k for k in range(len(head) - 1, -1, -1)
+                     if slot_of.get(head[k].node_id) != "theme" and head[k].node_id not in chosen
+                     and head[k].node_id not in placed and not probe_bound(head[k]) and head[k].node_id not in keep]
             if not spots:
                 continue
             i = spots[0]
-            victim = head[i]
+        spent += 1
+        victim = head[i]
+        if waiting:
+            # 함정이 차지할 이 자리는 밀려 있던 약점 질문이 받는다 — 함정은 두지 않는다
+            backed = waiting.pop(0)
+            head[i] = backed
+            placed.add(backed.node_id)
+            slot_of.pop(victim.node_id, None)
+            slot_of[backed.node_id] = "weak"
+            tail = [m for m in tail if m.node_id != backed.node_id]
+            extra = [m for m in extra if m.node_id != backed.node_id]
+            deferred = [victim.node_id] + [n for n in deferred if n not in (backed.node_id, victim.node_id)]
+            continue
+        if victim is not mark:
             head[i] = mark
             slot_of[mark.node_id] = slot_of.pop(victim.node_id, "")
             tail = [m for m in tail if m.node_id != mark.node_id]
@@ -2388,6 +2796,8 @@ def _assign_traps(
         chosen[mark.node_id] = pick.premise
         used_lines.add(pick.line)
         used_slides.add(pick.premise.slide_no)
+    if placed:
+        sys.stderr.write(f"[f08] 함정 자리를 밀린 약점 질문이 받음 (트랙 {track}): {', '.join(sorted(placed))}\n")
     out = [TriageMark(node_id=m.node_id, severity=m.severity, trap=m.node_id in chosen, angle=m.angle, source=m.source,
                       rank=m.rank, doc_weight=m.doc_weight) for m in head + tail]
     return out, deferred, chosen
@@ -2439,6 +2849,7 @@ def _build_question_prompt(
     rushed: dict[int, tuple[float, float]] | None = None,
     probe_of: dict[str, Probe] | None = None,
     trap_of: dict[str, TrapPremise] | None = None,
+    skip_of: dict[str, SkippedSlide] | None = None,
 ) -> str:
     def refs_of(node: ConceptNode, anchors: list[int]) -> list[PaperRef]:
         if paper_plan is not None:
@@ -2474,7 +2885,8 @@ def _build_question_prompt(
                     shelf.append(ref)
         parts += _paper_shelf_lines(papers, shelf)
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
-    skip_of = _skipped_core(alignment, graph)
+    if skip_of is None:
+        skip_of = _skipped_core(alignment, graph, {no: s.raw_text or "" for no, s in (by_no or {}).items()} or None)
     contra_of = _verified_contradictions(alignment)
     # 각도(triage 메모)에 자료·발화·문헌 어디에도 없는 숫자가 있으면 싣지 않는다. 일반화 벤치 §9: 각도의 「당기순이익 93.923조원」
     # (자료는 93,923 십억원)이 질문 재료가 됐다 — LLM 이 각도의 숫자를 사실로 옮긴다.
@@ -2521,7 +2933,12 @@ def _build_question_prompt(
         # (`_contra_asked`) — 여기서는 무엇을 물을지만 못 박는다. 없는 덱은 프롬프트가 예전과 글자까지 같다.
         skip = skip_of.get(node.id)
         if skip is not None and mark.source == "skipped_slide":
-            parts.append(f"    {_skip_line(skip)} ← 건너뛴 까닭을 묻지 말고, 그 장이 말했어야 할 이 개념의 내용을 물어라")
+            parts.append(f"    {_skip_line(skip)} ← 건너뛴 까닭을 묻지 말고, 그 장이 말했어야 할 이 개념의 내용을 물어라."
+                         f" 그 장의 수치·식·문장은 질문에 옮기지 마라 — 그게 답이다")
+            folded_names = _folded_labels(skip, node.id, by_id, by_no)
+            if folded_names:
+                names = "·".join(f"「{x}」" for x in folded_names)
+                parts.append(f"    같은 장의 {names} 도 따로 묻지 않고 이 질문 하나로 묻는다 — answer_gist 에 함께 넣어라")
         contra = contra_of.get(node.id)
         if contra is not None and mark.source == "contradiction":
             parts.append(f"    {_contra_line(contra)} ← 발표에서 한 말을 들어 {josa(_contra_where(contra), '과', '와')} 어느 쪽이 "
@@ -3874,6 +4291,10 @@ def _normalize_questions(
     labels_list = [n.label for n in by_id.values() if n.label]
     slides_text = {no: s.raw_text or "" for no, s in (by_no or {}).items()}
     deck_all = "\n".join(slides_text.values())
+    # 녹음 모드 — 발표자에게 붙인 말은 녹음에 있어야 한다 (`_attribution_fix`). 자료만 경로(transcript None)는 보지 않는다.
+    said_text = transcript.full_text or " ".join(s.text for s in transcript.by_slide) if transcript is not None else ""
+    speech = (deck_numbers(spoken_numbers(said_text)), _stems_of(said_text)) if said_text.strip() else None
+    deck_idx = grounding.build_index(by_no, list(by_id.values())) if (speech is not None and by_no) else None
 
     def usable(line: str) -> bool:
         return usable_answer_line(line, challenged)
@@ -3896,6 +4317,8 @@ def _normalize_questions(
         anchors = _anchor_nos(node, by_no or {})
         skip = (skip_of or {}).get(mark.node_id) if mark.source == "skipped_slide" else None
         contra = (contra_of or {}).get(mark.node_id) if mark.source == "contradiction" else None
+        if skip is not None:
+            anchors = [skip.slide_no]      # 건너뛴 장 질문은 그 장을 묻는다 — 힌트·골자·판정 본문도 그 장이다
         fb_question, fb_why, fb_hint = _fallback_text(
             node, mark, (flow_of or {}).get(mark.node_id), slide_nos=anchors, skip=skip
         )
@@ -4009,6 +4432,13 @@ def _normalize_questions(
                 sys.stderr.write(f"[f08] 답할 수 없는 질문 {mark.node_id}: 자료에 없는 말 {missing_terms} · {written_q[:60]}\n")
                 written_q = ""
                 checks.append("question_unanswerable")
+        # 녹음 모드에서 「…라고 했는데」 는 발표자가 한 말로 들린다 — 녹음에 없는 말이면 자료에 붙이고(「자료 N장에서 …라고 했는데」),
+        # 자료에도 없으면 정해진 문장으로 (09-30 녹음 감사 REC-02 번트 Q6). 함정·모순은 아래에서 제 규칙으로 본다.
+        if written_q and tp is None and contra is None and speech is not None:
+            fixed, how = _attribution_fix(written_q, speech, deck_idx)
+            if how:
+                written_q = fixed
+                checks.append(how)
 
         # 함정 질문은 **코드가 만든 전제를 실어야** 함정이다. LLM 문장이 전제의 단서(바꾼 숫자·뒤집힌 순서 낱말)를 싣고
         # 자료의 단서(정답)는 안 실었을 때만 그 문장을 쓰고, 아니면 전제를 얹은 정해진 문장으로 바꾼다 (`_traps.question_carries`).
@@ -4021,6 +4451,12 @@ def _normalize_questions(
                 checks.append("ungrounded_number_dropped")
             if written_q and traps.question_carries(written_q, tp, node.label, idx.text if idx is not None else ""):
                 checks.append("trap_llm_worded")
+                # 함정 전제는 자료를 틀리게 옮긴 말이다 — 녹음 모드에서 발표자에게 붙이면 발표자가 하지 않은 말을 했다고 하는 꼴이라,
+                # 정해진 함정 문장처럼 자료에 붙인다 (「자료에서 「…」라고 했는데」)
+                span = _speech_attribution(written_q) if speech is not None else None
+                if span is not None:
+                    written_q = _deck_attributed(written_q, span, 0)
+                    checks.append("trap_attribution_deck")
             else:
                 if written_q:
                     checks.append("trap_premise_missing")
@@ -4031,14 +4467,33 @@ def _normalize_questions(
         # 그걸 흘리거나(`_contra_leaks`) 어긋남을 안 물으면(자료 장·「다른데/어느 쪽」 없음) 정해진 문장으로 바꾼다 — 부탁만으로는 안
         # 지켜진다(함정 전제와 같은 규율). 이 개념은 함정도 탐침도 아니다(`_assign_traps` keep · 탐침은 근거가 탐침인 개념만).
         if contra is not None:
-            if written_q and _contra_asked(written_q, contra):
+            unspoken = bool(written_q and speech is not None and _attribution_fix(written_q, speech, None)[1])
+            if written_q and _contra_asked(written_q, contra) and not unspoken:
                 checks.append("contradiction_llm_worded")
             else:
                 if written_q:
-                    checks.append("contradiction_value_leak" if _contra_leaks(written_q, contra) else "contradiction_not_asked")
+                    checks.append("contradiction_value_leak" if _contra_leaks(written_q, contra)
+                                  else "contradiction_unspoken" if unspoken else "contradiction_not_asked")
                 written_q = _contra_question(contra, node)
                 checks.append("contradiction_template")
             checks.append("contradiction_reconcile")
+        # 말로 건너뛴 핵심 장 — 질문은 그 장의 **내용**을 묻는다 (09-30 녹음 감사 REC-05). LLM 문장이 건너뛴 까닭을 묻거나, 그 장·개념을
+        # 안 부르거나, 그 장의 수치·자료 조각(= 답)을 실었으면 명세 문장 「발표에서 N장은 넘어갔는데, 그 장의 …을 설명해 주세요」 로 바꾼다
+        # — 모순·함정과 같은 규율(부탁만으로는 안 지켜진다).
+        if skip is not None:
+            problem = _skip_problem(written_q, skip, node, by_no, labels_list, idx) if written_q else ""
+            if written_q and not problem:
+                checks.append("skip_llm_worded")
+            else:
+                if problem:
+                    checks.append(problem)
+                written_q = fb_question
+                checks.append("skip_template")
+        # 다른 근거의 질문도 **빠뜨린 까닭**(「…설명이 발표에서 누락된 이유는」)을 묻지 않는다 — 「시간이 없어서요」 가 답이 되는 태도
+        # 질문이다(규칙 3). 폴백·탐침 문장으로 (09-30 REC-05 뒤 실측: 맞통풍 질문이 「…누락된 이유는 무엇인가요?」).
+        elif written_q and tp is None and contra is None and _asks_why_skipped(written_q):
+            checks.append("why_omitted_asked")
+            written_q = ""
         if probe is not None:
             # (a) 탐침 개념 이름이 전부 문장에 있어야 탐침을 물은 것이다. 이름 하나라도 빠지면 탐침과 다른 것을
             # 물은 질문이라, 부탁(프롬프트)만 믿지 않고 코드가 탐침 템플릿으로 바꾼다 (09-12 교훈과 같은 규율).
@@ -4083,12 +4538,18 @@ def _normalize_questions(
         # 09-29 재실행: 논문 질문을 버린 자리의 골자가 그 논문 초록을 그대로 말했다. 09-30 통합 실측(도서관 t5): 방법 질문을 폴백
         # 「…왜 중요한지 자료 1, 4장을 근거로 설명해 주세요」 로 바꿨는데 이유 「…측정 기준을 확인하여 …평가하기 위해」 와 힌트
         # 「…무엇을 실제로 측정했는지 찾아 보세요」 는 버린 질문의 것이었다. 이유·힌트·골자는 새 질문에 맞게 코드가 다시 쓴다.
-        llm_kept = bool(written_q) and not {"probe_template", "trap_template", "contradiction_template"} & set(checks)
+        llm_kept = bool(written_q) and not {"probe_template", "trap_template", "contradiction_template", "skip_template"} & set(checks)
         if not llm_kept:
             written_gist = written_why = written_hint = ""
         llm_why = written_why          # 「자료에 명시되지 않아」 판단은 LLM 이 쓴 이유로 한다 (아래 gist_out_of_deck)
 
         question_text = written_q or fb_question
+        # 탐침 문장(「「…」라고 했는데, …」)도 녹음 모드에서는 녹음에 있는 말만 발표자에게 붙인다 — 자료 줄이면 자료에 붙인다
+        if probe is not None and speech is not None and "probe_template" in checks:
+            fixed, how = _attribution_fix(question_text, speech, deck_idx)
+            if how == "attribution_deck":
+                question_text = fixed
+                checks.append(how)
         # 한 자료 줄은 한 질문만 되읊는다 (M-04) — 먼저 나온 질문이 가져가고, 뒤 질문은 폴백으로. 탐침·함정 질문은 그 줄을
         # 따지는 것이 질문이라 바꾸지 않는다(대신 그 줄을 가져간다).
         recited = _recited_lines(question_text, anchors, idx) if tp is None else []
@@ -4115,9 +4576,11 @@ def _normalize_questions(
             quote_no, quote = contra.deck_slide_no or 0, _clip(contra.deck_quote)
         else:
             quote_no, quote = _evidence_quote(node, anchors, by_no or {}, question_text, labels_list)
-        speech = _speech_quote(anchors, transcript, question_text, node) if quote else ""
+        spoken_quote = _speech_quote(anchors, transcript, question_text, node) if quote else ""
         if contra is not None:
-            speech = _clip(contra.evidence)          # 발화 쪽은 코드가 어긋난다고 본 바로 그 문장이다
+            spoken_quote = _clip(contra.evidence)          # 발화 쪽은 코드가 어긋난다고 본 바로 그 문장이다
+        elif skip is not None:
+            spoken_quote = _skip_speech(skip)              # 건너뛴 장에서 한 말은 건너뛴다는 그 말이다 — 옆 장 문장이 아니라 (09-30 REC-18)
 
         # 문헌에서 온 말 (09-29 기준선 §5-5). 질문이 문헌을 인용하지 않았으면 이유·힌트도 문헌을 말하지 않는다.
         # 골자는 언제나 자료로만 쓴다(PAPER_SYSTEM_ADDENDUM) — 검색 문헌 인용·「문헌·논문」 이야기는 문장째 뗀다.
@@ -4179,9 +4642,21 @@ def _normalize_questions(
         gist = written_gist or ev_gist or _fallback_gist(node, trap=trap, slide_nos=anchors)
         # 코드가 답할 수 없다고 본 질문(묻는 것이 자료에 없다), 또는 폴백인데 모범답에 실을 자료 줄이 하나도 없는 질문은 **다음 후보 뒤로**
         # 민다 (09-30 WP-P2 — 혈당 t5 첫 질문이 이것이었다). 트랙에 여유 후보가 없으면 폴백 문장 그대로 남는다(개수는 줄이지 않는다).
-        if "fallback_template" in checks and tp is None and probe is None and contra is None and (
+        if "fallback_template" in checks and tp is None and probe is None and contra is None and skip is None and (
                 "question_unanswerable" in checks or (by_no and not written_gist and not ev_gist)):
             checks.append("unanswerable_fallback")
+        # 건너뛴 핵심 장 질문의 골자는 그 장의 내용 — 같은 장의 다른 개념(따로 묻지 않고 이 질문에 접은 것)까지 담는다 (09-30 REC-11).
+        # LLM 골자가 접은 개념을 다 부르면 그대로(대표는 질문이 이미 부른다), 아니면 그 장 자료 줄을 그 개념들 쪽으로 골라 다시 쓴다.
+        if skip is not None:
+            folded_labels = _folded_labels(skip, node.id, by_id, by_no)
+            if folded_labels:
+                checks.append("skip_folded")
+            if not (written_gist and all(_mentions_loosely(gist, x, []) for x in folded_labels)):
+                code = _evidence_gist(node, " ".join([question_text, *folded_labels]), [skip.slide_no], by_no,
+                                      labels=labels_list, usable=usable)
+                if code:
+                    gist, written_gist = code, ""
+                    checks.append("gist_skip_code")
         # 탐침 질문의 골자는 **언제나** 탐침 종류로 코드가 조립한다 (09-30 held-out C-01(a)) — LLM 골자는 해결책을 지어내거나
         # (「신속한 반환 절차 도입이 필요해요」) 근거 없는 인과를 근거 있는 것처럼 풀었다. 인용은 탐침 근거·덱 전체 대조에서만 온다.
         if probe is not None and tp is None:
@@ -4198,7 +4673,7 @@ def _normalize_questions(
         # 단 그 「없다」 도 덱 전체와 대조한다 (09-30 standard 실측, 혈당 t5: 이유가 「식후 졸림을 줄이는 방법이 자료에 명시되지
         # 않아」 라 골자가 「자료에 나와 있지 않아요」 가 됐는데 5장 첫 줄이 「… 순서로 먹으면 식후 졸림을 줄일 수 있습니다」 였다 —
         # 판정의 되물음이 스스로 그 방법을 물었다). 자료가 말하고 있으면 그 줄이 기대 답이고, 틀린 이유 줄은 코드가 다시 쓴다.
-        why_absent = tp is None and probe is None and contra is None and bool(_NOT_IN_DECK_RE.search(llm_why or ""))
+        why_absent = tp is None and probe is None and contra is None and skip is None and bool(_NOT_IN_DECK_RE.search(llm_why or ""))
         said = grounding.absence_contradicted(llm_why, idx, question_text, plain=False) if why_absent else ""
         if said:
             m_said = re.match(r"S(\d+)\s*«(.+)»$", said)
@@ -4301,6 +4776,10 @@ def _normalize_questions(
                 llm_kept and _hint_ok(written_hint, question_text, gist, sorted({*anchors, *(node.slide_nos or [])}), idx)):
             checks.append("hint_code")
             written_hint = ""
+        # 건너뛴 장 질문의 힌트 1단도 질문과 같은 누설 검사 — 그 장의 수치·자료 조각·식을 말하면 답이다 (09-30 REC-05: 1단이 답을 줬다)
+        if skip is not None and written_hint and _skip_leaks(written_hint, skip.slide_no, by_no, labels_list, idx):
+            checks.append("hint_skip_leak")
+            written_hint = ""
         paper_ids = _paper_ids_of(
             raw, [question_text, written_why, written_hint, gist], papers,
         ) if written_q and "probe_template" not in checks else []   # 탐침 템플릿은 문헌을 인용하지 않는다
@@ -4332,7 +4811,7 @@ def _normalize_questions(
             # 싣지 않는다 (09-30 레드팀 B-01 · 프런트 실측: 근거 칸을 장 번호만 그려도 묶음에 사실 줄이 남았다). 사실은
             # `trap_premise.fact` 에만 — 판정·해설이 거기서 읽는다.
             evidence_quote="" if tp is not None else quote,
-            speech_quote="" if tp is not None else speech,
+            speech_quote="" if tp is not None else spoken_quote,
             paper_ids=paper_ids,
             basis=_basis_of(mark, slot, probe, quote_no, quote, checks, reason_ev=reason_ev, contrast=contrast,
                             trap_slide=tp.slide_no if tp is not None else 0,
@@ -4465,13 +4944,14 @@ def _deck_angle(angle: str, idx) -> str:
 
 
 def _resourced(triage: QaTriage, graph: ConceptGraph, probes: list[Probe], alignment: AlignmentDoc | None,
-               flow: FlowDiff | None, pace: PaceDoc | None, *, deck_only: bool = False, idx=None) -> QaTriage:
+               flow: FlowDiff | None, pace: PaceDoc | None, *, deck_only: bool = False, idx=None,
+               slides: dict[int, str] | None = None) -> QaTriage:
     """
     탐침·녹음이 바뀐 triage 의 근거(source)를 **triage 와 같은 규칙**(`_source_by_node`)으로 다시 매긴 사본.
     deck_only 면 녹음에서 온 것(발화에만 나온 extra 개념·녹음이 준 근거·녹음 이야기를 담은 각도)을 걷고 순위를 다시 매긴다
     (`_rerank` — LLM severity 는 그대로 쓴다). 캐시된 triage 는 건드리지 않는다.
     """
-    found = _source_by_node(graph, alignment, flow, pace, probes)
+    found = _source_by_node(graph, alignment, flow, pace, probes, slides)
     marks = []
     for m in triage.marks:
         if deck_only and m.node_id.startswith(EXTRA_ID_PREFIX):
@@ -4494,7 +4974,8 @@ _GREETING_LABEL_RE = re.compile(r"^\s*(?:감사\s*인사|감사합니다|인사|
 
 def _with_probes(triage: QaTriage, graph: ConceptGraph, claims: ClaimDoc | None,
                  slides: dict[int, str] | None = None, *, alignment: AlignmentDoc | None = None,
-                 flow: FlowDiff | None = None, pace: PaceDoc | None = None) -> QaTriage:
+                 flow: FlowDiff | None = None, pace: PaceDoc | None = None,
+                 deck_slides: dict[int, str] | None = None) -> QaTriage:
     """
     탐침이 든 triage. 이미 들고 왔으면 그대로, 없는데 claims 가 오면 찾아서 근거를 올린 **새 triage** 를 준다.
 
@@ -4508,7 +4989,7 @@ def _with_probes(triage: QaTriage, graph: ConceptGraph, claims: ClaimDoc | None,
     if slides and claims is not None:
         probes = derive_probes(graph, claims, slides)
         same = [p.to_dict() for p in probes] == [p.to_dict() for p in triage.probes]
-        return triage if same else _resourced(triage, graph, probes, alignment, flow, pace)
+        return triage if same else _resourced(triage, graph, probes, alignment, flow, pace, slides=deck_slides)
     if triage.probes or claims is None:
         return triage
     probes = derive_probes(graph, claims)
@@ -4523,6 +5004,77 @@ def _with_probes(triage: QaTriage, graph: ConceptGraph, claims: ClaimDoc | None,
                                 source=source, rank=m.rank, doc_weight=m.doc_weight))
     return QaTriage(file_name=triage.file_name, total_slides=triage.total_slides, marks=marks,
                     model=triage.model, probes=probes)
+
+
+def _with_skip_reps(marks: list[TriageMark], skip_of: dict[str, SkippedSlide], folded: set[str],
+                    by_id: dict[str, ConceptNode]) -> tuple[list[TriageMark], list[str]]:
+    """
+    건너뛴 핵심 장마다 질문 후보가 **대표 하나**가 되게 맞춘 사본 → (후보, 접어서 뺀 개념 id).
+
+    triage 는 캐시라 대표를 다른 규칙(자료 원문 없이 비중만)으로 골랐을 수 있다 — 그 장의 후보 가운데 가장 앞선 순위를 대표가 이어받고,
+    나머지(`_skip_folded`)는 뺀다. 대표는 코드가 확인한 사실이라 치명(1)이다 (`_normalize_marks` confirmed 와 같다). 원본은 안 건드린다.
+    """
+    if not skip_of:
+        return list(marks), []
+    group_of = {nid: rep for rep, s in skip_of.items() for nid in [rep, *s.node_ids] if nid == rep or nid in folded}
+    lead: dict[str, TriageMark] = {}
+    for m in marks:
+        rep = group_of.get(m.node_id)
+        if rep is not None and (rep not in lead or m.rank < lead[rep].rank):
+            lead[rep] = m
+    out: list[TriageMark] = []
+    dropped: list[str] = []
+    placed: set[str] = set()
+    for m in marks:
+        rep = group_of.get(m.node_id)
+        if rep is None:
+            out.append(m)
+            continue
+        if rep in placed or m is not lead[rep]:
+            dropped.append(m.node_id)
+            continue
+        placed.add(rep)
+        own = next((x for x in marks if x.node_id == rep), None)
+        if own is not None and _SOURCE_RANK[own.source] < _SOURCE_RANK["skipped_slide"]:
+            # 대표에 더 앞선 근거(모순·긴장)가 붙어 있으면 그 근거로 묻는다 — 건너뛴 것보다 확실한 사실이다
+            out.append(own)
+        else:
+            out.append(TriageMark(node_id=rep, severity=1, trap=False, angle=own.angle if own is not None else "",
+                                  source="skipped_slide", rank=m.rank,
+                                  doc_weight=by_id[rep].weight if rep in by_id else m.doc_weight))
+        if m.node_id != rep:
+            dropped.append(m.node_id)
+    return out, [nid for nid in dropped if nid not in placed]
+
+
+#: 한 장에 한 번만 묻는 근거 — 「발표에서 짧게 지나갔어요. 자료 N장의 핵심을 …」 처럼 틀이 장을 묻는다 (09-30 녹음 감사 REC-11 번트 6장).
+_ONE_PER_SLIDE_SOURCES = ("missing", "under_spoken")
+
+
+def _one_per_slide(marks: list[TriageMark], by_id: dict[str, ConceptNode], by_no: dict[int, Slide],
+                   skip_of: dict[str, SkippedSlide]) -> tuple[list[TriageMark], list[str]]:
+    """
+    같은 장(근거 장 묶음)·같은 근거(틀)의 누락·덜 말함 후보는 순위가 가장 앞선 하나만 남긴다 → (후보, 뺀 id).
+    말로 건너뛴 핵심 장 **하나만** 근거 장으로 가진 누락·덜 말함도 뺀다 — 그 장은 대표 질문이 묻는다.
+    09-30 녹음 감사 REC-11: 번트 10분 트랙에 「…는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?」 가 두 번 —
+    골자도 같은 6장 줄이라 한 번 답하면 둘이 같이 닫혔다(10분 트랙은 쌍둥이 여유분이 0 이라 `_drop_twin_questions` 가 못 바꾼다).
+    """
+    skipped = {s.slide_no for rep, s in skip_of.items() if any(m.node_id == rep for m in marks)}
+    seen: set[tuple] = set()
+    out: list[TriageMark] = []
+    dropped: list[str] = []
+    for m in marks:
+        if m.source not in _ONE_PER_SLIDE_SOURCES or m.node_id not in by_id:
+            out.append(m)
+            continue
+        anchors = tuple(_anchor_nos(by_id[m.node_id], by_no or {}))
+        key = (m.source, anchors)
+        if (anchors and key in seen) or (len(anchors) == 1 and anchors[0] in skipped):
+            dropped.append(m.node_id)
+            continue
+        seen.add(key)
+        out.append(m)
+    return out, dropped
 
 
 #: 로그 한 줄에 실을 인용 길이. 줄이 터미널 한 줄을 넘으면 다른 로그와 섞여 못 읽는다.
@@ -4643,7 +5195,7 @@ def build_questions(
         triage = _resourced(triage, graph, probes_now, None, None, None, deck_only=True, idx=idx_deck)
     # claims 를 받은 호출(F-26 을 돌린 경로)이면 탐침을 자료로 다시 찾는다 — 옛 주장 id·형제 한 줄만 본 빈칸·식을 못 읽은 긴장.
     triage = _with_probes(triage, graph, claim_doc, slides_text if claims is not None else None,
-                          alignment=alignment, flow=flow, pace=_as_pace(pace))
+                          alignment=alignment, flow=flow, pace=_as_pace(pace), deck_slides=slides_text or None)
     probe_of = _probes_by_node(triage.probes)
 
     # 합성 노드(extra:)도 사전에 넣는다. triage 가 후보로 올렸는데 여기서 빠지면
@@ -4666,9 +5218,17 @@ def build_questions(
     slot_of: dict[str, str] = {}
     # 코드가 확인한 녹음 사실 (09-30 WP-S2) — 자료와 다른 수치(모순)는 맨 앞, 말로 건너뛴 핵심 장은 약점 자리의 근거.
     contra_of = _verified_contradictions(alignment)
-    skip_of = _skipped_core(alignment, graph)
+    skip_of = _skipped_core(alignment, graph, slides_text or None)
+    # 건너뛴 핵심 장은 장마다 질문 하나 — 나머지 개념은 대표 질문의 골자로 접고, 같은 장·같은 틀의 누락·덜 말함은 한 번만 (09-30 REC-11)
+    folded = _skip_folded(alignment, graph, skip_of, {m.node_id: m.source for m in known}, slides_text or None)
+    known, set_aside = _with_skip_reps(known, skip_of, folded, by_id)
+    known, once = _one_per_slide(known, by_id, by_no, skip_of)
+    set_aside += once
+    if set_aside:
+        sys.stderr.write(f"[f08] 같은 장을 두 번 묻지 않게 뺀 후보: {', '.join(set_aside)}\n")
     front = [m.node_id for m in known if m.node_id in contra_of and m.source == "contradiction"]
     marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of, front=front)
+    deferred += [nid for nid in set_aside if nid not in deferred]
     # 탐침은 근거가 그 탐침인 개념에만 묶는다 — 모순·누락처럼 더 앞선 근거로 뽑힌 개념까지 탐침으로 끌면 근거가 섞인다.
     probe_of = {m.node_id: probe_of[m.node_id] for m in marks
                 if m.node_id in probe_of and probe_of[m.node_id].kind == m.source}
@@ -4676,16 +5236,20 @@ def build_questions(
     flow_of = _flow_issue_by_node(flow)
 
     # 함정은 코드가 고르고 전제도 코드가 자료에서 만든다 (qa/trap). 자료가 없으면 함정도 없다.
-    # 녹음이 짚은 사실(모순·건너뛴 핵심 장)은 함정이 되지도 함정에 자리를 비키지도 않고, 모순의 자료 장에는 함정을 만들지 않는다.
-    keep = {*front, *(m.node_id for m in marks if m.source == "skipped_slide" and m.node_id in skip_of)}
+    # 녹음이 짚은 사실(모순·건너뛴 핵심 장)은 함정이 되지도 함정에 자리를 비키지도 않는다. 모순의 자료 장과 말로 건너뛴 장에는 함정을
+    # 만들지 않는다 — 그 장의 사실은 이미 진짜 어긋남·건너뛴 장 질문으로 묻는다 (09-30 REC-11: 건너뛴 3장 질문이 이미 「110초」 를 말한
+    # 뒤 같은 장 함정 「…= 140초」 가 나왔다). 근거가 확인된 약점 질문이 밀려 있으면 함정 자리는 그 질문이 받는다 (`_assign_traps`).
+    keep = {m.node_id for m in known if (m.node_id in contra_of and m.source == "contradiction")
+            or (m.node_id in skip_of and m.source == "skipped_slide")}
+    avoid = {it.deck_slide_no for it in contra_of.values() if it.deck_slide_no}
+    avoid |= {s.slide_no for s in (alignment.skipped_slides if alignment is not None else [])}
     marks, deferred, trap_of = _assign_traps(marks, deferred, known, track, by_id, by_no,
-                                             _probes_by_node(triage.probes), slot_of, keep=keep,
-                                             avoid_slides={it.deck_slide_no for it in contra_of.values() if it.deck_slide_no})
+                                             _probes_by_node(triage.probes), slot_of, keep=keep, avoid_slides=avoid)
     probe_of = {nid: p for nid, p in probe_of.items() if nid not in trap_of}
     paper_plan = _plan_papers(marks, by_id, by_no, papers, track)
     prompt = _build_question_prompt(
         graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of, paper_plan,
-        _rushed_slides(_as_pace(pace), graph), probe_of, trap_of,
+        _rushed_slides(_as_pace(pace), graph), probe_of, trap_of, skip_of,
     )
     remembered = any(m.node_id in memory_of for m in marks)
     raw_questions = _questions_with_papers(

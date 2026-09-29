@@ -235,8 +235,9 @@ def test_건너뛴_핵심_장은_장마다_대표_개념_하나가_근거를_받
     _, tri, llm = ev_build("10")
     src = {m.node_id: m.source for m in tri.marks}
     assert "skipped_slide" in QA_SOURCES and QA_SOURCES.index("skipped_slide") < QA_SOURCES.index("missing")
-    assert src["formula"] == "skipped_slide"       # 3장에서 가장 무거운 개념
-    assert src["interval"] == "missing"            # 같은 장의 나머지는 누락 그대로 — 한 장을 두 질문이 캐묻지 않게
+    assert src["formula"] == "skipped_slide"       # 3장 식의 머리(좌변 「대기 시간」)
+    # 같은 장의 나머지는 후보에서 빠지고 대표 질문에 접힌다 — 한 장을 두 질문이 캐묻지 않게 (09-30 REC-11, test_f08_recording_rec.py)
+    assert "interval" not in src
     triage_prompt = next(p for p in llm.prompts if "[TASK] qa-triage" in p)
     assert "건너뜀: 발표에서 3장을 <speech>이 계산식은 시간 관계상 그냥 넘어갈게요</speech>" in triage_prompt
 

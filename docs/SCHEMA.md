@@ -893,6 +893,10 @@ LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict
 
 > 프론트가 CTA 에 약속하는 개수(`QA_MODES[k].count`)는 이 표와 **같은 값이어야 한다.**
 
+> 함정 상한은 **상한**이다 (09-30 녹음 감사 REC-07). 근거가 확인된 약점 질문 — 코드가 확인한 모순(`deck_quote`)·말로 건너뛴 핵심 장·
+> 탐침에 묶인 개념 — 이 트랙 상한 밖에 밀려 있는 동안 함정은 자리를 차지하지 않는다: 함정이 들어갈 그 자리를 밀린 약점 질문이 받고
+> (함정 허용치 한 칸을 쓴다), 남은 허용치만 함정이 된다. 모든 트랙에 같다 (`f08_questions._assign_traps`).
+
 ### 8-B. 후보 선정 — 전부 코드 (LLM 아님)
 
 `source` 가 곧 우선순위다. 여러 근거가 겹치면 위쪽이 이긴다.
@@ -901,13 +905,18 @@ LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict
 |------|------|
 | `contradiction` | `AlignmentDoc.items[].verdict == "contradiction"` — `deck_quote` 가 있는 것(코드가 자료 원문과 견줘 확인)은 **맨 앞**에 서고 「발표에서 한 말 vs 자료 N장, 어느 쪽이 맞나」 로 묻는다 (09-30 WP-S2) |
 | `tension` | 주장 그래프(F-26) 탐침 — 자료 안의 긴장 (`QaTriage.probes`) |
-| `skipped_slide` | `AlignmentDoc.skipped_slides` — 말로 건너뛴 **핵심** 장마다 대표 개념 하나(그 장에서 missing 으로 남은 핵심 개념 중 자료 비중이 가장 큰 것). 나머지는 `missing` (09-30 WP-S2) |
+| `skipped_slide` | `AlignmentDoc.skipped_slides` — 말로 건너뛴 **핵심** 장(`node_ids` 가운데 핵심 개념이 있는 장)마다 **질문 하나**. 대표 개념은 그 장 글이 이름을 부르는 개념 가운데 식 머리 → 장 제목의 개념 → 상위 개념 → 자료 비중 순. 그 장 글이 부르는 나머지 missing 개념은 따로 묻지 않고 대표 질문의 골자에 접는다. 질문은 그 장의 **내용**을 묻는다 — LLM 문장이 빠뜨린 까닭을 묻거나 장·개념을 안 부르거나 그 장의 수치·자료 조각을 실으면 「발표에서 N장은 넘어갔는데, 그 장의 X를 설명해 주세요」. `speech_quote` 는 건너뛰는 말 그대로. 그 장에는 함정을 만들지 않는다 (09-30 WP-S2 · 녹음 감사 REC-05·11·18) |
 | `missing` | 같은 곳 `verdict == "missing"` — **`decided_by == "fallback"`(LLM 판정이 없어 언급 횟수로 짐작) 은 누락이 아니다** |
-| `under_spoken` | `doc_weight − speech_weight > QA_UNDER_SPOKEN_GAP` (정당생략 제외) |
+| `under_spoken` | `doc_weight − speech_weight > QA_UNDER_SPOKEN_GAP` (정당생략 제외). `missing`·`under_spoken` 은 같은 근거 장·같은 근거(틀)로 두 번 묻지 않는다 (09-30 REC-11) |
 | `weak_flow` | `FlowDiff.issues` 중 `missing_link`·`order_jump` 에 등장하는 `node_ids` |
 | `extra` | `AlignmentDoc.extra_concepts` — 발화에만 나온 개념 (`extra:` 합성 노드) |
 | `core_weight` | 나머지를 `ConceptNode.weight` 내림차순 |
 | `justified_skip` | `verdict == "justified_skip"` — **강등**. 리포트가 생략을 승인한 개념은 weight 가 커도 서열 맨 뒤다 (모순·누락은 못 덮고, weak_flow 는 덮는다) |
+
+**녹음 모드에서 「…라고 했는데」 는 녹음에 있는 말만 발표자에게 붙인다 (09-30 녹음 감사 REC-02).** 옮긴 말의 수치가 받아쓰기에 없거나
+내용 명사가 받아쓰기에 모자라면 발표자의 말이 아니다 — 자료 한 장에 있는 말이면 「자료 N장에서 …라고 했는데」 로 자료에 붙이고(함정
+문장 「자료에서 「…」라고 했는데」 와 같은 꼴), 어디에도 없으면 정해진 문장으로 바꾼다. 자료만 올린 경로는 「했는데」 가 자료를 가리키므로
+그대로 둔다. 모든 질문은 빠뜨린 까닭(「…생략된 이유」「…설명이 없었던 이유」)을 묻지 않는다 — 태도를 묻는 질문이다.
 
 **`AlignmentDoc`·`FlowDiff` 없이 그래프만으로도 동작한다** — 녹음 없이 자료만 올린
 경로에서는 전부 `core_weight` 가 되고, 빈 질문 세트가 나오지 않는다.
