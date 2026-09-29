@@ -63,12 +63,14 @@ from ._probe_stance import (
     probed_quotes,
     restates_probe,
 )
+from . import _reason as RS
 from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
 from ._traps import leaks_fact, premise_stance, trap_narrow, without_premise
 from ._match import norm_tokens
 from ._speech import to_haeyo
 from ._json_text import extract_json_object
 from .contracts import (
+    ClaimQuote,
     ConceptMemory,
     MemoryDoc,
     QA_COACH_STAGES,
@@ -193,6 +195,10 @@ ON_TOPIC_FOCUS_MIN_ANSWER_TOKENS = 8
 #: 바꿔 말한 정답이 걸렸을 때의 피해를 되묻기 한 바퀴로 줄인다. 통과선(70) 아래.
 FOCUS_MISS_SCORE_MAX = 65
 _FOCUS_MISS_REACT = "{label}에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요."
+#: 근거를 묻는 질문에 배경(현상이 있다는 말)만 되풀이한 답 (qa/reason). 틀린 말은 아니라 wrong 이 아니라 통과 못 하는 partial.
+REASON_MISS_SCORE_MAX = 65
+_REASON_MISS_REACT = "현상이 있다는 점은 맞아요. 질문은 그렇게 결론 낸 이유를 물어요 — 자료 {no}장의 근거를 짚어 보세요."
+_REASON_MISS_FOLLOWUP = "그 결론을 받치는 이유는 자료 {no}장 어디에 있나요?"
 #: 이 발표 어디에나 있는 상투어 — 이것만 겹치는 답은 「이 질문」 에 답한 것이 아니다.
 #: 2026-09-26 실험대 실측: 개념 그래프 질문에 타깃 시장 이야기가 partial 75 로 통과했다 — 자료 본문과 「발표」 한 낱말이 겹쳐서.
 _GENERIC_TOKENS = (
@@ -892,6 +898,15 @@ def _normalize(
             verdict, score, points, guard = _enforce_on_topic(
                 answer, evidence, question, verdict, score, points, focus
             )
+    # 근거 질문에 배경만 되풀이한 답 (qa/reason) — 자료와 어긋나지도, 질문을 벗어나지도 않아서 위 가드는 못 잡는다.
+    reason_missed = False
+    if not trap_agreed and not restated and conflict is None and not guard and qa_passed(verdict, score):
+        missed = _reason_missed(answer, question)
+        if missed is not None:
+            lead = f"질문이 묻는 것: 결론을 받치는 이유 (자료 {missed.slide_no}장)"
+            verdict, score, reason_missed = "partial", min(score, REASON_MISS_SCORE_MAX), True
+            points = [lead] + [p for p in points if p != lead]
+            data = {**data, "followup": _REASON_MISS_FOLLOWUP.format(no=missed.slide_no)}
     # 판정이 스스로 「답과 반대 명제」 를 정답으로 들고 있으면서 통과를 준 자기모순 (09-29 벤치 held-out 오답 2건).
     # 탐침이 따지는 줄을 뒤집은 절은 빼고 본다 — 판정 react 가 그 줄을 되풀이해도 그건 정답이 아니다 (09-29 P5 health 골자 60).
     self_opposed = False
@@ -910,6 +925,8 @@ def _normalize(
         react = _DECK_CONFLICT_REACT.format(no=conflict.slide_no, what=conflict.what)
     elif self_opposed:
         react = _SELF_OPPOSED_REACT
+    elif reason_missed:
+        react = _REASON_MISS_REACT.format(no=(question.basis.reason[0].slide_no if question.basis else 0))
     elif guard == "off_topic":
         react = _OFF_TOPIC_REACT.format(label=question.label or "이 개념")
     elif guard == "focus_miss":
@@ -1458,6 +1475,15 @@ def _narrow_followup(
     """
     followup = _clip(str(data.get("followup", "") or ""))
     choices = [_clip(str(c)) for c in (data.get("choices") or []) if str(c).strip()][:2]
+    # 자료가 스스로 세운 대비가 먼저다 (qa/reason) — F-08 이 주장 그래프(대비 주장)·근거 장의 대비 줄에서 고른 [세운 쪽, 부정한 쪽].
+    # 09-29 부스: 인용의 낱말에서 뽑은 보기가 「'가지' 쪽인가요, '종목' 쪽인가요?」 로 둘 다 틀렸다. LLM 보기보다 앞에 두는 까닭:
+    # LLM 보기는 모양·자료 낱말만 검사할 수 있어 어느 쪽이 맞는지는 모른다 — 대비 쌍은 줄의 문법이 정답 쪽을 안다.
+    pair = _contrast_of(question)
+    if pair is not None:
+        (a, b), cq = pair
+        where = f"자료 {cq.slide_no}장은" if cq.slide_no else "자료는"
+        shown = sorted([a, b])
+        return _clip(f"{where} «{cq.quote}» 라고 해요. 이 장이 말하는 건 '{shown[0]}' 쪽인가요, '{shown[1]}' 쪽인가요?"), shown
     if not question.evidence_quote:
         # 인용이 없는 옛 질문 — 선택형을 강제할 재료가 없다. 예전 그대로 LLM 되물음이고,
         # 선택지는 둘 다 왔을 때만 싣는다.
@@ -1481,6 +1507,21 @@ def _narrow_followup(
         return _clip(text), pair
     fallback = _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?")
     return fallback, []
+
+
+def _contrast_of(question: Question) -> tuple[tuple[str, str], ClaimQuote] | None:
+    """F-08 이 근거 묶음에 실어 둔 대비 쌍과 그 자료 줄. 옛 세션·대비 없는 질문은 None."""
+    b = question.basis
+    if b is None or len(b.contrast) != 2 or not all(x.strip() for x in b.contrast):
+        return None
+    cq = b.contrast_quote or ClaimQuote(question.evidence_slide_no, question.evidence_quote)
+    if not cq.quote or len(cq.quote) > CONTRAST_QUOTE_MAX:
+        return None
+    return (b.contrast[0], b.contrast[1]), cq
+
+
+#: 대비 되물음에 싣는 자료 줄 상한 — 되물음 문장 전체가 QA_TEXT_MAX 안에 들어가야 보기가 잘리지 않는다.
+CONTRAST_QUOTE_MAX = 110
 
 
 def _with_quote(react: str, question: Question) -> str:
@@ -1515,9 +1556,10 @@ def _scaffold_judgement(question: Question, graph: ConceptGraph | None, deck_tex
     발판 단계 — LLM 없이. 골자에서 낱말 하나를 가린 빈칸과 선택지 둘.
     골자가 없어 빈칸을 못 만들면 None (호출자가 해설로 넘긴다).
     """
+    pair = _contrast_of(question)
     masked, answer, distractor = mask_gist(
         question.answer_gist, question.label, _distractor_pool(question, graph),
-        quote=question.evidence_quote, deck_text=deck_text,
+        quote=question.evidence_quote, deck_text=deck_text, pair=list(pair[0]) if pair else None,
     )
     if not masked:
         return None
@@ -1724,6 +1766,7 @@ def judge_answer(
     )
     user += _deck_line_block(answer, prior_answers, judge_deck)
     user += probe_brief(question)
+    user += _reason_block(question)
     # 정답 골자는 판정에도 싣는다 (규칙 3 의 참고 답). 코칭(coach_stuck)만 갖고
     # 있으면 이지선다 질문에 정답 단답이 와도 모델이 자료 발췌에서 확신을 못 얻어
     # unknown 으로 도망간다 — 이지선다 단답이 '너무 짧다' 로 거부된 실측(2026-08-07).
@@ -1796,6 +1839,47 @@ def judge_answer(
         deck=judge_deck,
         probed=tuple(probed),
     )
+
+
+def _reason_block(question: Question) -> str:
+    """
+    근거·이유를 묻는 질문의 채점 기준 블록 (qa/reason) — F-08 이 근거 묶음에 실은 이유 줄·배경 줄. 없으면 "".
+
+    09-30 부스 실측: 「…라고 결론지은 근거」 에 현상의 규모(배경)만 말한 답과 이유를 말한 답을 가를 원본이 판정에 없었다 —
+    골자가 두 절을 섞었고, 자료 본문도 두 절을 나란히 싣는다. 이유 줄을 채점 기준으로, 배경 줄은 「이유가 아니다」 로 따로 싣는다.
+    """
+    b = question.basis
+    if b is None or not b.reason:
+        return ""
+    reasons = "\n".join(f"- {q.slide_no}장: {q.quote[:160]}" for q in b.reason)
+    background = "\n".join(f"- {q.slide_no}장: {q.quote[:160]}" for q in b.background)
+    return (
+        "\n\n## 이 질문의 근거 줄 (결론을 받치는 이유 — 채점 기준, 자료 원문)\n" + reasons
+        + ("\n\n## 배경 줄 (현상이 있다는 말 — 이유가 아니다)\n" + background if background else "")
+        + "\n근거·이유를 묻는 질문이다. 근거 줄의 이유를 하나 이상 자기 말로 대면 good 이 될 수 있다."
+          " 배경 줄(현상·규모)만 되풀이하고 이유를 대지 않은 답은 partial 이다."
+    )
+
+
+def _reason_missed(answer: str, question: Question) -> ClaimQuote | None:
+    """
+    근거 질문에 **이유 낱말이 하나도 없고 배경만 되풀이한** 답이면 가장 곧은 이유 줄, 아니면 None.
+
+    이유 줄의 낱말 가운데 배경 줄·질문에도 있는 낱말은 뺀다 — 둘 다 같은 주제어(개념 이름)를 쓰므로 그걸로는 이유를 말했는지
+    알 수 없다. 남은 이유 낱말이 답에 하나도 없고 배경 줄과는 둘 이상 겹칠 때만 — 바꿔 말한 답(「자주 사고팔수록 …」)은
+    이유 낱말 하나로 통과한다. 낱말 대조는 «이유를 댔는가» 만 알지 «맞는 이유인가» 는 모른다 — 그건 LLM·자료 대조 몫이다.
+    """
+    b = question.basis
+    if b is None or not b.reason or not b.background or not (answer or "").strip():
+        return None
+    back = RS.tokens(" ".join(q.quote for q in b.background))
+    asked = RS.tokens(question.question)
+    reason_only = {t for t in RS.tokens(" ".join(q.quote for q in b.reason))
+                   if not RS.overlap({t}, back) and not RS.overlap({t}, asked)}
+    said = RS.tokens(answer)
+    if not reason_only or RS.overlap(reason_only, said) >= 1:
+        return None
+    return b.reason[0] if RS.overlap(said, back) >= 2 else None
 
 
 def _ground_gist(question: Question, deck: Deck, against: Deck | None = None) -> tuple[Question, bool]:

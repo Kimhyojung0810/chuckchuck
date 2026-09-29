@@ -46,6 +46,24 @@
    "truth": null},
   {"name": "sk_hynix", "group": "heldout", "slidedoc": "repo:var/data/sessions/2026/09/29/20260929T004602Z_46a3097e/slide_doc.json",
    "context": {"situation": "competition", "duration_min": 10},
+   "truth": null},
+  {"name": "yield_v2", "group": "tuned", "slidedoc": "repo:var/data/sessions/2026/09/29/20260929T141953Z_99dde264/slide_doc.json",
+   "context": {"situation": "competition", "duration_min": 10},
+   "note": "09-29 부스 실측 덱(v2) — 근거 질문의 골자가 배경 수치를 이유와 섞던 것, 「'가지' 쪽인가요」 보기의 회귀 예. 규칙 내용이 아니라 회귀 예로만 쓴다",
+   "truth": {
+    "control_tension": false, "planted": [], "claims": [], "noise_lines": [],
+    "reason": {"slide": 2,
+     "question": "격차가 종목 선택이 아닌 행동에서 발생한다고 결론지은 근거는 무엇인가요?",
+     "conclusion": "결론부터: 격차는 종목 선택이 아니라 행동에서 만들어진다",
+     "reason_lines": ["종목 선정 능력과 수익률의 상관은 약함", "매매 회전율은 수익률과 뚜렷한 역상관",
+                      "최상위 회전율 구간 평균 −3.6%", "무엇을 샀는가가 아니라, 얼마나 자주 사고팔았는가가 결과를 갈랐다"],
+     "background_lines": ["개인 평균은 지수 대비 연 4.8%p 낮음", "상위 25% 그룹도 지수를 2.6%p 하회", "일부의 실수가 아닌 전반적 현상"],
+     "strongest": "무엇을 샀는가가 아니라, 얼마나 자주 사고팔았는가가 결과를 갈랐다",
+     "contrast": {"affirmed": "행동", "negated": "종목 선택"}}
+   }},
+  {"name": "booth_photo", "group": "tuned", "slidedoc": "repo:var/data/sessions/2026/09/29/20260929T142228Z_11540ecb/slide_doc.json",
+   "context": {"situation": "school_project", "duration_min": 5},
+   "note": "09-29 부스 사진 덱(화면 캡처 → Upstage OCR) — F-26 주장이 받침 검사에서 전부 버려져 n=0 이던 덱. 그래프 경로가 비어도 구조 규칙으로 버티는지 본다",
    "truth": null}
  ]
 }

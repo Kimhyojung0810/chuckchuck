@@ -1817,6 +1817,10 @@ class QuestionBasis:
     source 는 Question.source 와 같은 값, slot 은 트랙 배합 자리(theme·part·weak·"" = 배합 밖),
     probe 는 탐침에서 나왔으면 그 Probe, evidence 는 자료 원문 인용들 (힌트 인용과 같은 출처),
     checks 는 질문 문장에 대한 코드 검사 결과 이름들 (예: "mentions_probe_nodes", "undercut_rewritten").
+
+    (qa/reason, 09-30 — 더한 칸만, 옛 세션은 빈 값) 근거·이유를 묻는 질문이면 reason 은 결론을 받치는 **이유 줄**,
+    background 는 현상이 있다는 **배경 줄** (둘 다 자료 원문 그대로) — F-09 가 채점 기준으로 싣는다. contrast 는
+    「모르겠어요」 보기 쌍 [자료가 세운 쪽, 부정한 쪽] 이고 contrast_quote 는 그 대비가 적힌 자료 줄이다.
     """
     source: str = QA_SOURCE_FALLBACK
     slot: str = ""
@@ -1824,11 +1828,18 @@ class QuestionBasis:
     probe: Probe | None = None
     evidence: list[ClaimQuote] = field(default_factory=list)
     checks: list[str] = field(default_factory=list)
+    reason: list[ClaimQuote] = field(default_factory=list)
+    background: list[ClaimQuote] = field(default_factory=list)
+    contrast: list[str] = field(default_factory=list)
+    contrast_quote: ClaimQuote | None = None
 
     def to_dict(self) -> dict:
         return {"source": self.source, "slot": self.slot, "rank": self.rank,
                 "probe": self.probe.to_dict() if self.probe else None,
-                "evidence": [e.to_dict() for e in self.evidence], "checks": list(self.checks)}
+                "evidence": [e.to_dict() for e in self.evidence], "checks": list(self.checks),
+                "reason": [e.to_dict() for e in self.reason], "background": [e.to_dict() for e in self.background],
+                "contrast": list(self.contrast),
+                "contrast_quote": self.contrast_quote.to_dict() if self.contrast_quote else None}
 
     @classmethod
     def from_dict(cls, d: dict | None) -> "QuestionBasis":
@@ -1841,6 +1852,11 @@ class QuestionBasis:
             probe=Probe.from_dict(d["probe"]) if d.get("probe") else None,
             evidence=[ClaimQuote.from_dict(e) for e in (d.get("evidence") or [])],
             checks=[str(x) for x in (d.get("checks") or [])],
+            reason=[ClaimQuote.from_dict(e) for e in (d.get("reason") or [])],
+            background=[ClaimQuote.from_dict(e) for e in (d.get("background") or [])],
+            # 쌍이 아니면 버린다 — 한쪽만 있는 보기는 「어느 쪽」 이 성립하지 않는다
+            contrast=[str(x) for x in (d.get("contrast") or [])] if len(d.get("contrast") or []) == 2 else [],
+            contrast_quote=ClaimQuote.from_dict(d["contrast_quote"]) if d.get("contrast_quote") else None,
         )
 
 
