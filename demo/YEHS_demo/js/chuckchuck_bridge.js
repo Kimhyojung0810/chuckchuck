@@ -783,7 +783,7 @@ export async function registerSessionArtifacts(sessionId, artifacts) {
 }
 
 /** F-08: 내 그래프·정합으로 예상 질문을 만든다 (플랫 경로) */
-export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId }) {
+export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId, prefetch, fresh }) {
   // apiBase() 를 빼면 안 된다 — fetchWithTimeout 은 URL 을 그대로 쓴다.
   // 같은 오리진에서는 멀쩡히 돌지만 프론트/백엔드를 나눠 올리면 404 로 죽는다.
   const res = await fetchWithTimeout(apiBase() + '/api/v1/questions', {
@@ -797,6 +797,9 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
       transcript: transcript ? slimTranscript(transcript) : null,
       context: context || {},
       track: track || '10',
+      // prefetch: 미리 만들기 — 브리지가 결과를 들고 있다가 같은 요청에 그대로 준다 · fresh: 들고 있는 것 말고 새로
+      prefetch: !!prefetch,
+      fresh: !!fresh,
     }),
   }, QUESTIONS_TIMEOUT_MS, '질문 생성');
   const doc = await res.json();

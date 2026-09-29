@@ -4596,6 +4596,7 @@ function nfStep4() {
         nf.pipelineError = null; // STT 성공분 유지 — 상단은 conceptsError 로 표시
       }
       console.info('[chuckchuck] pipeline ok', out);
+      prefetchLiveQuestions();   // 분석이 끝난 이 순간 질문을 미리 만든다 — 리빌을 보는 동안 준비된다
       // 발표가 끝난 이 순간부터 객석 수다를 받아 둔다. 질문 코칭 내용은 섞지
       // 않는다 — 수다는 F-07/F-11 결과만 보고 만들어지므로 여기서 확정된다.
       // 사람이 질문 준비를 보고 리포트를 넘기는 동안 채워져, 「객석 들어가기」가
@@ -7833,6 +7834,7 @@ function wireQaModeButtons(rerender) {
     resetQa();
     qa.mode = btn.dataset.mode;
     saveSession('qa-flow', qa);
+    prefetchLiveQuestions(qa.mode);
     rerender();
   }));
 }
@@ -7868,6 +7870,50 @@ function qaNoticeHtml() {
 
 /* 실전 질문이 아직 없으면 지금 만든다 — #/qa 로 오는 모든 경로의 단일 보장 지점.
  * @returns {boolean} true 면 생성이 시작됐다 (호출자는 로딩 화면을 그린다) */
+/** 질문 생성 요청의 재료. 미리 만들기와 실제 시작이 **글자까지 같은** 요청을 보내야 브리지 캐시가 맞는다 */
+function liveQuestionArgs(out, track) {
+  return {
+    sessionId: qaSessionId(),
+    graph: out.graph,
+    alignment: out.alignment || null,
+    flow: out.flow || null,
+    transcript: out.transcript || null,
+    context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
+    track: String(track || '10'),
+  };
+}
+
+/* 질문 미리 만들기 (2026-09-29 사용자 "매 요청 때 새로 만들지 말고 미리 준비").
+   예전엔 질문 코칭 화면에서 시간을 고른 뒤에야 질문을 만들어 20~30초를 기다렸다. 이제 재료가 모이는 순간
+   (분석이 끝났을 때 · 자료만으로 코칭에 들어갈 때 · 시간 고르는 화면이 뜨거나 다른 시간을 고를 때) 같은 요청을
+   prefetch 로 먼저 보내 둔다. 브리지는 결과를 입력 지문으로 들고 있다가, 시작을 누르면 그대로 준다 —
+   아직 만드는 중이면 새로 만들지 않고 그걸 기다린다 (demo/bridge.py _handle_questions). 결과는 여기서 안 쓴다. */
+let qaPrefetchKey = '';
+function prefetchLiveQuestions(track) {
+  if (isShowcaseDemo() || qaLiveActive()) return;
+  const bridge = window.ChuckchuckBridge;
+  const out = nf && nf.pipelineOut;
+  if (!bridge || !bridge.buildQuestions || !out || !out.graph) return;
+  // 정합·흐름을 기다리는 중이면 아직이다 — 지금 만들면 실제 요청과 재료가 달라 헛돈다 (qaPipelineWaiting)
+  if (typeof qaPipelineWaiting === 'function' && qaPipelineWaiting()) return;
+  const args = liveQuestionArgs(out, track || (qa && qa.mode) || '10');
+  const key = [args.sessionId, args.track, typeof qaDocKey === 'function' ? qaDocKey() : '',
+    !!args.alignment, !!args.flow].join('|');
+  if (qaPrefetchKey === key) return;
+  qaPrefetchKey = key;
+  const artifacts = liveArtifacts();
+  const registered = artifacts && bridge.registerSessionArtifacts
+    ? bridge.registerSessionArtifacts(args.sessionId, artifacts).catch(() => null)
+    : Promise.resolve();
+  registered
+    .then(() => bridge.buildQuestions({ ...args, prefetch: true }))
+    .then(() => console.info('[chuckchuck] 질문을 미리 만들어 뒀어요', args.track))
+    .catch((err) => {
+      qaPrefetchKey = '';   // 실패하면 다음 기회(시작 버튼)에 다시 만든다
+      console.warn('[chuckchuck] 질문 미리 만들기 실패 — 시작할 때 다시 만들어요', err);
+    });
+}
+
 function ensureLiveQuestions() {
   if (qaLiveActive() || qaBuildFailed) return false;
   // 시연 모드: 실전 질문 생성 없이 DATA.qaBeats 목 코칭으로 간다.
@@ -7918,15 +7964,7 @@ function ensureLiveQuestions() {
       })
     : Promise.resolve();
 
-  registered.then(() => bridge.buildQuestions({
-    sessionId: qaSessionId(),
-    graph: out.graph,
-    alignment: out.alignment || null,
-    flow: out.flow || null,
-    transcript: out.transcript || null,
-    context: { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min },
-    track: (qa && qa.mode) || '10',
-  })).then((doc) => {
+  registered.then(() => bridge.buildQuestions(liveQuestionArgs(out, (qa && qa.mode) || '10'))).then((doc) => {
     // 「기다리지 않고 데모 질문으로 진행」을 눌렀으면 늦게 도착한 결과를 버린다.
     // 여기서 안 버리면 데모 질문에 답하던 대화가 통째로 갈아치워진다.
     if (qaBuildFailed) return;
@@ -9217,6 +9255,7 @@ async function startTestDeck(row, withAudio, card) {
   nf.pipelinePhase = 'partial';     // 정합·흐름은 없다 — 자료만으로 묻는 질문이라는 뜻
   nf.pipelineDetail = '자료만으로 그래프까지 만들었어요. 받아쓰기·정합은 없어요.';
   saveSession('new-flow', nf);
+  prefetchLiveQuestions();   // 시간 고르는 동안 질문을 미리 만든다
   location.hash = '#/qa';
 }
 

@@ -1707,6 +1707,8 @@ function qaModeGate() {
       <button class="btn btn-primary" id="qaGateStart" type="button">질문 코칭 시작하기</button>
     </div>`;
   wireQaModeButtons(qaModeGate);
+  // 고르는 동안 지금 골라진 시간의 질문을 미리 만든다 (app.js prefetchLiveQuestions)
+  if (typeof prefetchLiveQuestions === 'function') prefetchLiveQuestions(qa.mode || '10');
   $('#qaGateStart').addEventListener('click', () => {
     qa.started = true;
     saveSession('qa-flow', qa);

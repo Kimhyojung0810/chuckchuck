@@ -563,6 +563,41 @@ def _stage_key(*parts) -> str:
     return h.hexdigest()[:20]
 
 
+#: 만드는 중인 질문 (q_key → Event). 미리 만들기와 실제 요청이 겹치면 한쪽만 LLM 을 부른다.
+_QUESTIONS_INFLIGHT: dict[str, threading.Event] = {}
+_QUESTIONS_LOCK = threading.Lock()
+#: 만드는 중인 것을 기다리는 최대 초. 질문 생성은 보통 20~30초 — 넘기면 기다리던 쪽이 직접 만든다.
+QUESTIONS_INFLIGHT_WAIT_SEC = 150
+
+
+def _questions_ready(q_key: str):
+    return STORE.get_triage(q_key)
+
+
+def _claim_questions(q_key: str) -> threading.Event | None:
+    """내가 만들 차례면 Event(끝나면 set), 누가 이미 만드는 중이면 None."""
+    with _QUESTIONS_LOCK:
+        if q_key in _QUESTIONS_INFLIGHT:
+            return None
+        ev = threading.Event()
+        _QUESTIONS_INFLIGHT[q_key] = ev
+        return ev
+
+
+def _wait_questions(q_key: str) -> None:
+    with _QUESTIONS_LOCK:
+        ev = _QUESTIONS_INFLIGHT.get(q_key)
+    if ev is not None:
+        ev.wait(QUESTIONS_INFLIGHT_WAIT_SEC)
+
+
+def _release_questions(q_key: str, ev: threading.Event) -> None:
+    with _QUESTIONS_LOCK:
+        if _QUESTIONS_INFLIGHT.get(q_key) is ev:
+            _QUESTIONS_INFLIGHT.pop(q_key, None)
+    ev.set()
+
+
 def _stage_cache_get(stage: str, key: str):
     if not STAGE_CACHE_ON:
         return None
@@ -1693,7 +1728,6 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _handle_questions(self, raw: bytes):
         """F-08 · {graph, alignment?, flow?, transcript?, context, track} → QuestionDoc."""
-        from chuckchuck import build_questions, triage_questions
         from chuckchuck.contracts import (
             QA_TRACK_FALLBACK,
             QA_TRACKS,
@@ -1731,17 +1765,60 @@ class Handler(SimpleHTTPRequestHandler):
         # 프론트는 slidedoc 을 안 들고 있고, 아티팩트 키를 늘리면 프론트 계약이 깨진다.
         # id 로만 찾으니 남의 자료가 붙을 길이 구조적으로 없다.
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
-        # 교수가 읽고 온 문헌 (F-24). 세션에 한 번 만들고 재사용한다 — 트랙을 바꿔도 외부 검색을
-        # 다시 안 한다. body.papers=false 면 끈다 (비교 벤치용). 없으면 F-08 은 예전 프롬프트다.
-        papers = None if body.get("papers") is False else self._papers_for(body, found["graph"], slidedoc, llm)
-        # 지난 리허설 기억 (F-25). 같은 사람·같은 파일의 동의한 지난 세션에서. body.memory=false 면 끈다.
-        memory = None if body.get("memory") is False else self._memory_for(body)
         # 장 단위 시간 배분 (F-17). 방금 /pace 가 concept_doc 과 함께 남긴 것만 쓴다 — 발화만으로 다시 재면
         # 장 중요도가 없어 보조 장(원인·사례)이 '덜 쓴 핵심 장' 으로 잘못 잡힌다 (09-29 수면 전사: 5·6장 0.37·0.46).
         pace = body.get("pace") or STORE.get_triage("pace:" + str(_session_id_of(body) or ""))
 
-        cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm),
-                                memory.to_dict() if memory else None, pace)
+        # 미리 만든 질문 (2026-09-29 사용자 "매 요청 때 새로 만들지 말고 미리 준비"). 프론트가 분석이 끝나는 순간
+        # 같은 요청을 body.prefetch=true 로 먼저 보내 둔다. 입력이 같으면 그 결과를 그대로 돌려주고, 아직 만드는 중이면
+        # 새로 만들지 않고 그걸 기다린다. body.fresh=true 면 새로 만든다.
+        # **지문은 문헌 검색 전에 정한다** — 문헌(F-24)은 외부 검색이라 동시에 두 번 돌면 결과가 달라서(09-29 실측
+        # 4편 vs 3편), 문헌을 지문에 넣었더니 미리 만들기와 실제 요청이 서로를 못 알아보고 둘 다 LLM 을 불렀다.
+        # 문헌·기억은 이 입력(그래프·본문·세션)에서 나오므로 세션 id 와 문헌 끄기 여부로 대신한다.
+        q_key = "questions:" + fingerprint(
+            found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(), track, str(llm),
+            str(_session_id_of(body) or ""), bool(slidedoc), pace, body.get("papers") is False, body.get("memory") is False,
+            _code_version("chuckchuck.f08_questions"),
+        )
+        label = "미리 만들기" if body.get("prefetch") else "요청"
+        sys.stderr.write(f"[bridge] F-08 questions key={q_key[10:22]} track={track} ({label}) parts="
+                         + ",".join(fingerprint(x)[:6] for x in (found["graph"], found["alignment"], found["flow"], found["transcript"],
+                                                                  ctx.to_dict(), str(_session_id_of(body) or ""), pace)) + "\n")
+        mine = None
+        if not body.get("fresh"):
+            ready = _questions_ready(q_key)
+            if ready is not None:
+                sys.stderr.write(f"[bridge] F-08 questions track={track} 미리 만든 질문을 씀 ({label})\n")
+                return self._json(200, ready)
+            mine = _claim_questions(q_key)
+            if mine is None:
+                # 누가 같은 질문을 만드는 중이다 — 끝나길 기다렸다가 그 결과를 쓴다. 실패했으면 아래에서 직접 만든다.
+                t0 = time.time()
+                _wait_questions(q_key)
+                ready = _questions_ready(q_key)
+                if ready is not None:
+                    sys.stderr.write(f"[bridge] F-08 questions track={track} 만들던 것을 {time.time() - t0:.1f}초 기다려 씀 ({label})\n")
+                    return self._json(200, ready)
+        try:
+            # 교수가 읽고 온 문헌 (F-24). 세션에 한 번 만들고 재사용한다 — 트랙을 바꿔도 외부 검색을
+            # 다시 안 한다. body.papers=false 면 끈다 (비교 벤치용). 없으면 F-08 은 예전 프롬프트다.
+            papers = None if body.get("papers") is False else self._papers_for(body, found["graph"], slidedoc, llm)
+            # 지난 리허설 기억 (F-25). 같은 사람·같은 파일의 동의한 지난 세션에서. body.memory=false 면 끈다.
+            memory = None if body.get("memory") is False else self._memory_for(body)
+            cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm),
+                                    memory.to_dict() if memory else None, pace)
+            return self._build_questions_payload(
+                q_key, graph, alignment, flow, transcript, ctx, track, llm, body, found, slidedoc, papers, memory, pace, cache_key,
+            )
+        finally:
+            if mine is not None:
+                _release_questions(q_key, mine)
+
+    def _build_questions_payload(self, q_key, graph, alignment, flow, transcript, ctx, track, llm, body, found,
+                                 slidedoc, papers, memory, pace, cache_key):
+        from chuckchuck import build_questions, triage_questions
+        from chuckchuck.contracts import QuestionError
+
         try:
             triage = STORE.get_triage(cache_key)
             if triage is None:
@@ -1784,6 +1861,7 @@ class Handler(SimpleHTTPRequestHandler):
             f"기억={remembered if memory else '-'}\n"
         )
         payload = with_hint_ladders(doc.to_dict(), doc.questions)
+        STORE.set_triage(q_key, payload)
         self._archive(body, "question_doc", payload)
         return self._json(200, payload)
 
