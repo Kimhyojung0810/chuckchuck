@@ -219,6 +219,19 @@ def read_lines(raw_text: str, clean, *, keep_table_sep: bool = False, drop_meta:
     return join_formula_lines(kept, labels)
 
 
+def is_filler_line(line: str) -> bool:
+    """
+    `read_lines` 가 버리는 **글 없는 줄** — 글머리표만 있는 줄, 글자·숫자가 하나도 없는 줄 (식 기호·화살표만 있는 줄은 식 잇기에
+    쓰니 아니다). 질문 쪽(`_evidence.noise_lines`)이 주장 쪽과 같은 줄을 버리려고 내놓는다 (09-30 WP-Q2).
+    """
+    x = (line or "").strip()
+    if not x:
+        return False
+    if _BULLET_ONLY_RE.match(x):
+        return True
+    return bool(_NO_CONTENT_RE.match(x)) and not (_OP_ONLY_RE.match(x) or _ARROW_ONLY_RE.match(x))
+
+
 def meta_lines(raw_text: str) -> list[str]:
     """원문에서 지시문으로 본 줄들 — 로그·시험용."""
     return [x.strip() for x in (raw_text or "").split("\n") if is_meta_line(x)]

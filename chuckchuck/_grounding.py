@@ -21,16 +21,25 @@ import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
-from ._evidence import clean_slide_text, join_sep, noise_lines, sentence_ahead, strip_chart_descriptions, wrap_width
+from ._evidence import (
+    clean_slide_text,
+    join_sep,
+    noise_lines,
+    page_marker_rows,
+    sentence_ahead,
+    strip_chart_descriptions,
+    wrap_width,
+)
 
 # ---------------------------------------------------------------------------
 # 자료 줄 — 글 상자 한 줄, 표는 행 하나가 한 줄
 # ---------------------------------------------------------------------------
 
-#: 쪽 번호("01 / 08")처럼 숫자·구분자만 있는 줄.
-_PAGE_NO_RE = re.compile(r"^[\d\s/|.·-]+$")
 #: 표 구분 행 「| --- | --- |」.
 _TABLE_SEP_RE = re.compile(r"^\|?\s*:?-{3,}")
+#: 홀로 선 한두 자리 절·단계 번호(「01」「2」「(3)」) — 사실이 아니라 차례 표시다. 쪽 번호 꼴이 아니어도 대조 줄에서 뺀다
+#: (앞뒤 줄 문맥 `DeckIndex.window` 를 차례 번호가 차지하지 않게). 「2023」「3.5」 같은 수치 줄은 남긴다 (09-30 G-A12).
+_SECTION_NO_RE = re.compile(r"^\(?\d{1,2}\)?\.?$")
 #: 슬라이드 머리로 볼 앞 줄 수 (제목·부제). 숫자 옆에 주어가 없을 때 장 제목이 주어인 경우가 많다.
 HEADING_ROWS = 2
 
@@ -50,6 +59,9 @@ def slide_rows(slide_no: int, raw_text: str) -> list[Row]:
     """
     슬라이드 원문을 줄로. `_evidence.slide_units` 는 인용 후보라 12자 미만 칸(표의 「| 과잉 매매 | -1.6 |」)을 버린다 —
     숫자가 어느 행에 붙었는지 보려면 표 행을 통째로 한 줄로 남겨야 해서 따로 둔다.
+
+    줄을 버리는 잣대는 주장 쪽(F-26 `_deck_lines.read_lines`)과 같다 — 쪽 번호 **꼴**과 글 없는 줄만 버리고(숫자만 있는 수치 줄
+    「2023」 은 남긴다), 자료 속 지시문은 `clean_slide_text` 가 뺀다 (09-30 WP-Q2). 홀로 선 한두 자리 차례 번호도 뺀다 — 사실이 아니다.
     """
     rows: list[Row] = []
     header = ""
@@ -57,7 +69,9 @@ def slide_rows(slide_no: int, raw_text: str) -> list[Row]:
     # 설문 보기·축 눈금은 자료의 사실이 아니다 — 골자·함정·근거 대조의 재료에서 뺀다 (09-30 held-out C-01: 설문 보기 「3시 이후」 가
     # 골자의 사실이 됐다). 명령 줄(「…로 판정할 것」)은 clean_slide_text 가 이미 지운다.
     noise = noise_lines(raw_text)
-    for line in strip_chart_descriptions(raw_text).split("\n"):
+    raw_lines = strip_chart_descriptions(raw_text or "").split("\n")
+    pages = page_marker_rows([clean_slide_text(x) for x in raw_lines])
+    for k, line in enumerate(raw_lines):
         s = line.strip()
         if not s:
             in_table = False
@@ -66,7 +80,7 @@ def slide_rows(slide_no: int, raw_text: str) -> list[Row]:
         if table and _TABLE_SEP_RE.match(s):
             continue
         text = clean_slide_text(s)
-        if not text or (not table and (_PAGE_NO_RE.match(text) or text in noise)):
+        if not text or (not table and (k in pages or text in noise or _SECTION_NO_RE.match(text))):
             continue     # 표 행(「| 1 | 1100 | 1050 |」)은 숫자뿐이어도 쪽 번호가 아니다
         cells: tuple[str, ...] = ()
         if table:

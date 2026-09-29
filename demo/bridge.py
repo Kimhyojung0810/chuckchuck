@@ -979,6 +979,9 @@ DEGRADED_NOTES = {
     "papers_partial": "문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.",
     "papers_failed": "문헌을 불러오지 못해 문헌 없이 질문을 만들었어요.",
     "memory_failed": "지난 리허설 기억을 읽지 못해 기억 없이 진행했어요.",
+    # /concepts · /graph (09-30 WP-Q2 — F-06 이 끝내 못 받은 장 · F-07 이 떨군 단계, `ConceptGraph.degraded`)
+    "concepts_missing": "AI 가 개념을 돌려주지 않은 장이 있어서 그 장은 개념 없이 분석했어요. 다시 분석하면 채울 수 있어요.",
+    "links": "개념 사이 연결을 보강하지 못해 처음 그린 연결로 개념 그래프를 만들었어요. 다시 분석하면 연결을 채울 수 있어요.",
 }
 #: 잠깐 뒤 다시 하면 나아질 수 있는 것 — 이걸로 만든 질문 묶음은 FALLBACK_TTL_SEC 만 들고 있는다.
 #: slide_doc_missing 은 안 넣는다 (다시 해도 본문이 생기지 않는다 — 짧게 들면 같은 질문을 LLM 으로 계속 다시 만든다).
@@ -1094,6 +1097,65 @@ def _upstream_error(e: BaseException) -> tuple[int, dict] | None:
         return 502, {"error": "upstream_failed",
                      "message": "AI 서버가 오류로 답했어요. 잠시 뒤 다시 해 주세요."}
     return None
+
+
+# ─── 개념·그래프 분석이 실패하거나 반쪽이면 무엇이 그런지 말한다 (09-30 WP-Q2) ──────────────────────────────────
+
+#: F-06 이 장 개념을 너무 많이 못 받았을 때의 ConceptError 문구 (`f06_concepts._fill_missing`: 「F-06 이 4/12장의 개념을 돌려주지
+#: 않았습니다 (장 [2, 5, 9, 11]).」). 문구가 바뀌면 tests/test_lines_q2.py 가 실제 F-06 으로 잡아 준다.
+_CONCEPTS_MISSING_RE = re.compile(r"(\d+)\s*/\s*(\d+)\s*장의 개념을 돌려주지 않았")
+_MISSING_SLIDES_RE = re.compile(r"장\s*\[([\d,\s]*)\]")
+#: F-07 이 노드를 하나도 못 만들었을 때의 GraphError 문구 (`f07_graph.build_graph`, 09-30 G-A7) · 개념 문서에 장이 없을 때.
+_GRAPH_EMPTY_RE = re.compile(r"노드를 하나도")
+_GRAPH_NO_SLIDES_RE = re.compile(r"슬라이드가 없습니다")
+
+
+def _analysis_failure(e: BaseException) -> tuple[int, dict] | None:
+    """
+    /concepts · /graph 의 분석 실패 → (상태, 본문). 외부 AI 지연·끊김(503)은 `_upstream_error` 그대로 — 여기는 **AI 가 답은 했는데
+    분석이 안 된** 경우다. 09-30 WP-C 가 올린 두 실패(노드 0개 GraphError · 빠진 장이 많은 ConceptError)가 예전엔 500 「요청을
+    처리하지 못했어요」·502 「AI 서버가 오류로 답했어요」 로만 보여서 무엇이 안 됐는지 알 수 없었다. 프론트(`extractConcepts`·
+    `buildGraph`)는 상태와 무관하게 message 를 그대로 띄운다. 모르는 실패면 None — 일반 처리(`_upstream_error`·500)로 간다.
+    """
+    from chuckchuck.contracts import ConceptError, GraphError
+
+    upstream = _upstream_error(e)
+    if upstream is not None and upstream[0] == 503:
+        return upstream
+    msg = str(e)
+    if isinstance(e, ConceptError):
+        m = _CONCEPTS_MISSING_RE.search(msg)
+        if m is None:
+            return None
+        sm = _MISSING_SLIDES_RE.search(msg)
+        nos = [int(x) for x in re.findall(r"\d+", sm.group(1))] if sm else []
+        where = f"({', '.join(str(x) for x in nos)}장)" if nos else ""
+        return 502, {"error": "concepts_incomplete", "missing_slides": nos, "retry_after": 10,
+                     "message": f"자료 {m.group(2)}장 가운데 {m.group(1)}장{where}의 개념을 AI 가 끝내 돌려주지 않아 분석을 멈췄어요. "
+                                "잠시 뒤 다시 분석하면 채울 수 있어요."}
+    if isinstance(e, GraphError):
+        if _GRAPH_NO_SLIDES_RE.search(msg):
+            return 400, {"error": "bad_request", "message": "개념 추출 결과에 장이 없어요. 자료를 다시 올리면 분석할 수 있어요."}
+        if _GRAPH_EMPTY_RE.search(msg):
+            return 502, {"error": "graph_empty", "retry_after": 10,
+                         "message": "AI 가 자료에서 개념을 하나도 찾지 못해 개념 그래프를 만들지 못했어요. "
+                                    "잠시 뒤 다시 분석하면 만들 수 있어요."}
+        return 502, {"error": "graph_failed", "retry_after": 10,
+                     "message": "AI 가 개념 그래프를 알아볼 수 있는 모양으로 돌려주지 않았어요. 잠시 뒤 다시 분석하면 만들 수 있어요."}
+    return None
+
+
+def _concepts_missing(concept_doc: dict) -> list[int]:
+    """F-06 이 끝내 못 받은 장 번호 (`SlideConcepts.missing`, 4a7b750) — 조금이면 F-06 이 실패 대신 빈 개념으로 두고 표시만 한다."""
+    return [int(s.get("slide_no") or 0) for s in (concept_doc or {}).get("slides") or []
+            if isinstance(s, dict) and s.get("missing")]
+
+
+def _analysis_response(payload: dict, degraded: list[str], **extra) -> dict:
+    """분석 응답 — 반쪽이면 degraded·degraded_notes(와 extra)를 싣는다. 온전하면 **payload 그대로** (응답 모양·지문이 예전과 같다)."""
+    if not degraded:
+        return payload
+    return {**_with_degraded(payload, degraded), **extra}
 
 
 # ─── 판정의 채점 기준은 서버가 정한다 (09-30 R4·B-07·B-12) ─────────────────────────────────────────────
@@ -1744,19 +1806,32 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         if cached is not None:
             sys.stderr.write(f"[bridge] F-06 concepts 캐시 적중 {key}\n")
             self._archive(body, "concept_doc", cached)
-            return self._json(200, cached)
+            missing = _concepts_missing(cached)
+            return self._json(200, _analysis_response(cached, ["concepts_missing"] if missing else [], missing_slides=missing))
 
         sys.stderr.write(
             f"[bridge] F-06 concepts start slides={doc.total_slides} "
             f"has_transcript={transcript is not None} mock={_mock()}\n"
         )
         _fake_delay("/api/v1/concepts")
-        result = extract_concepts(doc, ctx, transcript=transcript, llm=llm)
-        sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}\n")
+        try:
+            result = extract_concepts(doc, ctx, transcript=transcript, llm=llm)
+        except Exception as e:  # noqa: BLE001 — 분석 실패는 무엇이 안 됐는지 말한다 (모르는 실패는 일반 처리로 다시 던진다)
+            failed = _analysis_failure(e)
+            if failed is None:
+                raise
+            sys.stderr.write(f"[bridge] F-06 concepts 실패 → {failed[0]} {failed[1]['error']}: {e}\n")
+            return self._json(*failed)
         payload = result.to_dict()
-        _stage_cache_put("concepts", key, payload)
+        # 끝내 못 받은 장이 조금 있으면 F-06 은 빈 개념으로 두고 표시만 한다 — 응답·로그에 싣고, 단계 캐시에는 담지 않는다
+        # (다음 분석이 그 장을 다시 받게. 반쪽 결과를 같은 자료의 모든 세션에 물리지 않는다 — B-03 과 같은 규율).
+        missing = _concepts_missing(payload)
+        sys.stderr.write(f"[bridge] F-06 concepts done model={result.model}"
+                         f"{f' 빠진 장={missing} (캐시에 안 담음)' if missing else ''}\n")
+        if not missing:
+            _stage_cache_put("concepts", key, payload)
         self._archive(body, "concept_doc", payload)
-        return self._json(200, payload)
+        return self._json(200, _analysis_response(payload, ["concepts_missing"] if missing else [], missing_slides=missing))
 
     def _handle_strategy(self, raw: bytes):
         """F-20 · 분석 결과 → 발표 구성 제안 하나 + 대안 요약."""
@@ -1813,22 +1888,34 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         if cached is not None:
             sys.stderr.write(f"[bridge] F-07 graph 캐시 적중 {key}\n")
             self._archive(body, "concept_graph", cached)
-            return self._json(200, cached)
+            return self._json(200, _analysis_response(cached, list(cached.get("degraded") or [])))
 
         sys.stderr.write(
             f"[bridge] F-07 graph start slides={doc.total_slides} "
             f"has_slide_doc={slide_doc is not None} mock={_mock()}\n"
         )
         _fake_delay("/api/v1/graph")
-        graph = build_graph(doc, ctx, slide_doc=slide_doc, llm=llm)
+        try:
+            graph = build_graph(doc, ctx, slide_doc=slide_doc, llm=llm)
+        except Exception as e:  # noqa: BLE001 — 노드 0개 등 분석 실패는 무엇이 안 됐는지 말한다 (모르는 실패는 일반 처리로)
+            failed = _analysis_failure(e)
+            if failed is None:
+                raise
+            sys.stderr.write(f"[bridge] F-07 graph 실패 → {failed[0]} {failed[1]['error']}: {e}\n")
+            return self._json(*failed)
+        # 만들다 떨어진 단계(ConceptGraph.degraded — 예: 연결 보강 「links」)는 응답·로그에 싣는다. 그 그래프는 단계 캐시에 담지
+        # 않는다 — 일시 실패로 반쪽이 된 그래프를 같은 자료의 모든 세션에 물리지 않게 (B-03 과 같은 규율).
+        degraded = [str(x) for x in (getattr(graph, "degraded", None) or [])]
         sys.stderr.write(
             f"[bridge] F-07 graph done nodes={len(graph.nodes)} "
-            f"edges={len(graph.edges)} sections={len(graph.sections)}\n"
+            f"edges={len(graph.edges)} sections={len(graph.sections)} thesis={getattr(graph, 'thesis', None) or '-'}"
+            f"{f' 폴백={degraded} (캐시에 안 담음)' if degraded else ''}\n"
         )
         payload = graph.to_dict()
-        _stage_cache_put("graph", key, payload)
+        if not degraded:
+            _stage_cache_put("graph", key, payload)
         self._archive(body, "concept_graph", payload)
-        return self._json(200, payload)
+        return self._json(200, _analysis_response(payload, degraded))
 
     def _handle_alignment(self, raw: bytes):
         """F-11 · ConceptGraph + Transcript(+선택 Context) → AlignmentDoc."""
