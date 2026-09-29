@@ -26,6 +26,7 @@ import sys
 from itertools import groupby
 
 from . import _grounding as grounding
+from . import _reason as RS
 from . import _traps as traps
 from ._evidence import (
     anchor_slides,
@@ -342,6 +343,18 @@ PROBE_SYSTEM_ADDENDUM = """
 - 「근거 원문」 은 자료에 그대로 있는 문장이다. 질문은 그 문장들이 가리키는 것을 묻되, 문장을 되읊게 하지 마라.
 - 화살표(←) 줄이 이름을 댄 개념은 **전부** 질문 문장에 넣어라. 빠지면 버려지고 정해진 문장으로 바뀐다.
 - answer_gist 는 근거 원문과 자료 본문에 있는 말로만 쓴다.
+"""
+
+#: 질문 대상의 근거 장에 **이유 구조**(원인·이유 절, 「X 아니라 Y」 대비 줄, 상관 줄)가 있을 때만 붙는 answer_gist 규칙 (qa/reason).
+#: 09-30 부스 실측: 「…라고 결론지은 근거」 의 골자가 같은 장의 배경 절(현상이 있다·규모)과 이유 절을 섞었다. 코드가 골자를 이유 줄로
+#: 다시 맞추지만(`_reason.check_gist`), LLM 이 처음부터 이유를 쓰면 자기 말로 된 골자가 남는다. 이유 구조가 없는 덱은 프롬프트가
+#: 예전과 글자까지 같다 — 응답 재사용(벤치 Replay)과 다른 덱의 질문이 흔들리지 않게.
+REASON_SYSTEM_ADDENDUM = """
+
+## 근거·이유를 묻는 질문의 골자 — 이 요청에만 붙는 규칙
+질문이 근거·이유(왜·무엇 때문·그렇게 결론지은 근거)를 물으면 answer_gist 에는 **결론을 받치는 이유**를 쓴다.
+그 현상이 있다는 **배경**(현상의 규모·현황 수치)을 이유처럼 되풀이하지 마라. 자료가 스스로 세운 대비(「X 가 아니라 Y」)나
+원인·상관을 말한 줄이 있으면 그 줄이 골자의 중심이다.
 """
 
 #: 문헌(PaperDoc)이 있을 때만 시스템 프롬프트 뒤에 붙는 규칙. **없으면 프롬프트는 예전과 글자까지 같다.**
@@ -2874,6 +2887,26 @@ def _cites_scholar(text: str, papers: PaperDoc | None) -> bool:
     return any(kind_of.get(pid) != "deck" for pid in _cited_ids(text, papers))
 
 
+#: 근거 질문의 이유 줄을 찾을 장 수 상한 — anchor + 개념이 걸친 장.
+REASON_SLIDES_MAX = 6
+#: 골자 근거 검사(`_grounding.gist_problems`)가 낸 문제 종류 → 근거 묶음 검사 이름.
+_GIST_PROBLEM_CHECK = {"number": "gist_number_misplaced", "compare": "gist_rank_unbacked",
+                       "table": "gist_table_misattributed", "direction": "gist_direction_flipped"}
+#: 이유(why)·골자가 「자료에 없다」 고 스스로 말한 질문 — 기대 답은 「자료에 없다고 말하고 자료 범위에서 답하기」 다.
+#: 09-30 대화 감사 §1(c)·§4: why 는 「자료에 명시되지 않아」 인데 골자는 자료 밖 내용을 지어 정답 기준이 됐다.
+_NOT_IN_DECK_RE = re.compile(
+    r"자료(?:에|에서는?|에는)\s*(?:\S+\s*){0,3}?(?:명시(?:되어\s*있지|되지|하지)\s*않|제시(?:되지|하지)\s*않|나와\s*있지\s*않|"
+    r"나오지\s*않|언급(?:되지|하지)\s*않|없(?:어|는|다|으|습))")
+#: 골자가 이미 「자료에 없다」 를 인정하는 말.
+_ADMITS_ABSENT_RE = re.compile(r"자료에\s*없|나와\s*있지\s*않|제시되지\s*않|명시되지\s*않|언급되지\s*않|범위")
+
+
+def _out_of_deck_gist(quote_no: int, quote: str) -> str:
+    """자료가 답을 담지 않은 질문의 기대 답 — 없다고 먼저 말하고, 자료가 보여 준 범위에서 답한다."""
+    where = f"자료 {quote_no}장이 보여 준 범위(«{quote}»)" if quote and quote_no else "자료가 보여 준 범위"
+    return _clip(f"이 질문이 묻는 내용은 자료에 나와 있지 않아요 — 없다고 먼저 말하고, {where} 안에서 답하는 게 답이에요.")
+
+
 #: 골자가 전제를 바로잡는 표지 — 부정·대조 (어느 발표에나 쓰는 말이다).
 _CORRECTS_PREMISE_RE = re.compile(r"아니라|아니에요|아닙니다|아니고|달리|다르|반대|사실은|오히려|않|없|틀렸|전제")
 
@@ -3166,6 +3199,8 @@ def _normalize_questions(
             sys.stderr.write(f"[f08] 골자 다시 씀 {mark.node_id}: {','.join(problems)} · 골자: {written_gist[:80]}\n")
             written_gist = ""
             checks.append("gist_rebuilt")
+            # 무엇이 어긋났는지도 남긴다 (09-30 대화 감사 §1: 방향이 반대인 골자가 채점 기준·모범답으로 떴다)
+            checks.extend(sorted({_GIST_PROBLEM_CHECK[p.split(":")[0]] for p in problems if p.split(":")[0] in _GIST_PROBLEM_CHECK}))
         elif not written_gist:
             checks.append("gist_template")
         # 남은 함정의 골자는 전제를 바로잡아야 한다 (규칙: trap 골자는 자료의 사실로 전제를 뒤집는다). 일반화 벤치 §3: 함정 21개 모두
@@ -3182,12 +3217,45 @@ def _normalize_questions(
             gist = probe_gist(probe)
             written_gist = ""
             checks.append("gist_probe_rebuilt")
+        # why 가 「자료에 명시되지 않아」 라고 하는데 골자가 자료 밖 내용을 단정하면, 기대 답을 「없다고 말하고 자료 범위에서」 로.
+        if tp is None and probe is None and _NOT_IN_DECK_RE.search(written_why or "") and not _ADMITS_ABSENT_RE.search(gist):
+            gist = _out_of_deck_gist(quote_no, quote)
+            written_gist = ""
+            checks.append("gist_out_of_deck")
         if tp is not None:
             # 함정의 기대 답은 전제를 자료의 사실로 바로잡는 것 — 자료 줄 그대로다. 이유·힌트도 코드 문장이다:
             # 이유는 질문과 함께 화면에 보이므로 함정의 답을 흘리지 않고, 힌트는 장만 가리키고 값·순서는 말하지 않는다.
             gist = traps.trap_gist(tp)
             written_why = traps.trap_why(node.label)
             written_hint = traps.trap_hint(tp)
+        # 근거·이유를 묻는 질문의 골자는 결론을 받치는 **이유**여야 한다 (qa/reason). 09-30 부스 실측: 「…라고 결론지은 근거」 의
+        # 골자가 같은 장의 배경 절(현상이 있다 · 평균 N%p 낮음)과 이유 절을 섞고, 가장 곧은 줄(「X 가 아니라 Y 가 결과를 갈랐다」)은
+        # 뺐다 — 골자 검사가 「자료에 있나」 만 보고 「이 질문에 답하나」 는 안 봤다. 이유 줄은 그래프(F-26 인과·대비·비교 주장) 먼저,
+        # 없으면 장의 절 구조·말투(`_reason`)로 고른다. 함정·탐침 질문은 제 골자 규칙이 따로 있다.
+        reason_ev = None
+        if tp is None and probe is None and by_no and RS.asks_reason(question_text) and "gist_out_of_deck" not in checks:
+            # 이유는 근거 장(anchor, 최대 3장) 밖 개념 장에 있기도 하다 — 09-30 dry-run: 주제 개념의 anchor 는 표지 1장뿐이고
+            # 배경·이유 절은 요약 2장에 있었다. 개념이 걸친 장까지 본다 (REASON_SLIDES_MAX 장).
+            scope = [*anchors, *[n for n in sorted(node.slide_nos or []) if n not in anchors]][:REASON_SLIDES_MAX]
+            texts = {no: by_no[no].raw_text or "" for no in scope if no in by_no}
+            glines = RS.graph_lines(claims, node.id, list(by_id.values()), question_text, scope,
+                                    remedy=RS.asks_remedy(question_text))
+            reason_ev = RS.evidence(question_text, scope, texts, glines)
+            if reason_ev is not None:
+                if any(ln.graph for ln in reason_ev.reasons):
+                    checks.append("reason_graph")
+                new_gist, rchecks = RS.check_gist(gist, reason_ev, limit=QA_TEXT_MAX)
+                gist = _clip(new_gist)
+                checks.extend(rchecks)
+        # 「모르겠어요」 보기 쌍 — 자료가 세운 대비(세운 쪽이 정답). 그래프의 대비 주장 먼저, 없으면 근거 장의 대비 줄 (`_reason`).
+        contrast = None
+        if tp is None and by_no:
+            cscope = [*anchors, *[n for n in sorted(node.slide_nos or []) if n not in anchors]][:REASON_SLIDES_MAX]
+            ctexts = {no: by_no[no].raw_text or "" for no in {*cscope, quote_no} if no in by_no}
+            contrast = RS.contrast_choice(claims, node.id, list(by_id.values()), question_text, cscope, ctexts,
+                                          evidence_quote=quote, evidence_slide=quote_no, quote_only=probe is not None)
+            if contrast is not None:
+                checks.append(f"contrast_{contrast.source}")
         # 요소 쪼개기. LLM 이 쓴 것을 먼저 믿고, 안 썼는데 문면이 둘 이상을 묻고
         # 있으면 코드가 골자를 갈라 백스톱을 세운다 (_followup·_OPEN_QUESTION_RE 와
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
@@ -3209,6 +3277,8 @@ def _normalize_questions(
             parts = _split_gist_parts(gist)
         if tp is not None:
             parts = []       # 함정의 답은 하나다 — 전제를 바로잡는 것
+        if reason_ev is not None:
+            parts = [p for p in parts if RS.part_role(p, reason_ev) != "background"]   # 배경만 말하는 요소는 채점 기준이 아니다
         paper_ids = _paper_ids_of(
             raw, [question_text, written_why, written_hint, gist], papers,
         ) if written_q and "probe_template" not in checks else []   # 탐침 템플릿은 문헌을 인용하지 않는다
@@ -3232,14 +3302,21 @@ def _normalize_questions(
             evidence_quote=quote,
             speech_quote=speech,
             paper_ids=paper_ids,
-            basis=_basis_of(mark, (slot_of or {}).get(mark.node_id, ""), probe, quote_no, quote, checks),
+            basis=_basis_of(mark, (slot_of or {}).get(mark.node_id, ""), probe, quote_no, quote, checks,
+                            reason_ev=reason_ev, contrast=contrast),
             trap_premise=TrapPremise.from_dict(tp.to_dict()) if tp is not None else None,
         ))
     return questions
 
 
+#: 근거 묶음에 실을 이유 줄·배경 줄 수 — 판정 프롬프트에 그대로 실린다.
+BASIS_REASON_MAX = 4
+BASIS_BACKGROUND_MAX = 3
+
+
 def _basis_of(
     mark: TriageMark, slot: str, probe: Probe | None, quote_no: int, quote: str, checks: list[str],
+    *, reason_ev: "RS.Evidence | None" = None, contrast: "RS.ContrastChoice | None" = None,
 ) -> QuestionBasis:
     """
     이 질문의 근거 묶음 (P1). 인용은 탐침 근거 원문 전부 + 힌트 인용(없던 것이면 뒤에) — 화면 「이 질문의 근거」 와
@@ -3255,6 +3332,11 @@ def _basis_of(
         probe=Probe.from_dict(probe.to_dict()) if probe else None,
         evidence=evidence,
         checks=list(checks),
+        reason=[ClaimQuote(ln.slide_no, ln.text) for ln in (reason_ev.reasons if reason_ev else [])[:BASIS_REASON_MAX]],
+        background=[ClaimQuote(ln.slide_no, ln.text)
+                    for ln in (reason_ev.background if reason_ev else [])[:BASIS_BACKGROUND_MAX]],
+        contrast=[contrast.affirmed, contrast.negated] if contrast else [],
+        contrast_quote=ClaimQuote(contrast.slide_no, contrast.quote) if contrast else None,
     )
 
 
@@ -3322,6 +3404,14 @@ def _log_bases(questions: list[Question]) -> None:
             f"probe={b.probe.kind if b.probe else '-'} rank={b.rank} 근거={ev}"
             f"{' 검사=' + ','.join(b.checks) if b.checks else ''}\n"
         )
+
+
+def _has_reason_structure(marks: list[TriageMark], by_id: dict[str, ConceptNode], by_no: dict[int, Slide],
+                          trap_of: dict[str, TrapPremise]) -> bool:
+    """함정이 아닌 질문 대상의 근거 장 가운데 이유 구조가 있는 장이 있는가 (REASON_SYSTEM_ADDENDUM 을 붙일지)."""
+    nos = {no for m in marks if m.node_id not in trap_of and m.node_id in by_id
+           for no in _anchor_nos(by_id[m.node_id], by_no or {})}
+    return any(RS.has_reason_structure(by_no[no].raw_text or "", no) for no in sorted(nos) if no in by_no)
 
 
 def build_questions(
@@ -3439,7 +3529,8 @@ def build_questions(
         QUESTION_SYSTEM_PROMPT
         + (PAPER_SYSTEM_ADDENDUM if paper_plan else "")
         + (MEMORY_SYSTEM_ADDENDUM if remembered else "")
-        + (PROBE_SYSTEM_ADDENDUM if probe_of else ""),
+        + (PROBE_SYSTEM_ADDENDUM if probe_of else "")
+        + (REASON_SYSTEM_ADDENDUM if _has_reason_structure(marks, by_id, by_no, trap_of) else ""),
         by_id, by_no, papers, paper_plan,
     )
 
@@ -3505,7 +3596,9 @@ def _hint_scaffold(question: Question) -> str:
     if not question.evidence_quote:
         return ""
     # 인용에 있는 낱말을 먼저 가린다 — 화면이 같이 보여 주는 인용에서 답을 찾을 수 있게 (f09 _narrow_followup 과 같은 규칙).
-    masked, _, _ = mask_gist(question.answer_gist, question.label, [], quote=question.evidence_quote)
+    # 근거 묶음에 대비 쌍이 있으면(qa/reason) 자료가 세운 쪽을 가린다 — 「모르겠어요」 보기와 같은 빈칸이다.
+    pair = question.basis.contrast if question.basis and len(question.basis.contrast) == 2 else None
+    masked, _, _ = mask_gist(question.answer_gist, question.label, [], quote=question.evidence_quote, pair=pair)
     return _clip(f"빈칸을 채워 보세요: {masked}") if masked else ""
 
 

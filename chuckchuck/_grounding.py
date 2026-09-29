@@ -380,6 +380,12 @@ def _table_extreme(named: set[str], idx: DeckIndex) -> bool:
     return False
 
 
+def _table_heads(idx: DeckIndex) -> list[str]:
+    """표마다 행 머리(첫 칸) — 두 글자 이상 낱말이 있는 것만."""
+    return sorted({r.cells[0] for block in _tables(idx) for r in block
+                   if r.cells and len(squash(r.cells[0])) >= 2 and _value_words(r.cells[0])})
+
+
 def unbacked_comparisons(text: str, idx: DeckIndex | None) -> list[str]:
     """
     비교·서열을 말하는 절 가운데 자료의 비교 줄이 받치지 않는 것.
@@ -396,7 +402,9 @@ def unbacked_comparisons(text: str, idx: DeckIndex | None) -> list[str]:
     for clause in clauses(text):
         if not has_comparison(clause):
             continue
-        named = {s.label for s in label_spans(clause, idx.labels)}
+        # 표의 행 머리도 견주는 대상이다 — 그래프 노드가 아닌 표 항목(「요인 | 설명」 의 요인들)끼리 순위를 지어내는 골자가 있다
+        # (09-30 대화 감사 §1: 자료에 순위가 없는 요인 표를 두고 「A·B 가 가장 큰 영향」).
+        named = {s.label for s in label_spans(clause, idx.labels + _table_heads(idx))}
         if not named:
             continue
         backed = _SUPERLATIVE_RE.search(clause) is not None and _table_extreme(named, idx)
@@ -445,6 +453,23 @@ def _tables(idx: DeckIndex) -> list[list[Row]]:
     return [b for b in out if len(b) >= 2]
 
 
+#: 행 머리를 나란히 잇는 말만 있는 틈 — 「A와 B는 X」 의 「와 」.
+_COORD_GAP_RE = re.compile(r"^\s*(?:와|과|및|이나|나|또는|,|·|/)?\s*$")
+
+
+def _coordinated(clause: str, before: list[_Span]) -> list[_Span]:
+    """값 앞 가장 가까운 머리와, 그 머리에 「와·과·및·,」 로만 이어진 머리들 — 한 서술어를 함께 받는 주어 묶음.
+    09-30 대화 감사 §1: 표 「음주 | 수면 후반 각성」 을 「카페인과 음주는 수면 후반 각성을 유발」 로 옮겼다 — 가장 가까운 머리(음주)만
+    보면 통과해서, 카페인에 없는 값이 붙은 것을 못 봤다."""
+    group = [before[-1]]
+    for sp in reversed(before[:-1]):
+        if _COORD_GAP_RE.match(clause[sp.end:group[-1].start]):
+            group.append(sp)
+        else:
+            break
+    return group
+
+
 def misattributed_cells(text: str, idx: DeckIndex | None) -> list[str]:
     """
     표 값을 다른 행에 붙인 절. 절에 어떤 행의 값(낱말 둘 이상짜리 칸)이 나오면, 그 값 **앞에서 가장 가까운 행 머리**가
@@ -472,7 +497,7 @@ def misattributed_cells(text: str, idx: DeckIndex | None) -> list[str]:
                         continue
                     at = min((low.find(w) for w in vw if low.find(w) >= 0), default=-1)
                     before = [sp for sp in spans if sp.end <= at]
-                    if before and squash(before[-1].label) != squash(r.cells[0]):
+                    if before and any(squash(sp.label) != squash(r.cells[0]) for sp in _coordinated(clause, before)):
                         bad = True
                     elif not before and not any(squash(sp.label) == squash(r.cells[0]) for sp in spans) and spans:
                         bad = True   # 값이 먼저 나오고 다른 행 머리만 뒤에 있다
@@ -491,6 +516,70 @@ def described_table(slide_no: int, raw_text: str) -> str:
     return " · ".join(f"{r.cells[0]}: {' / '.join(c for c in r.cells[1:] if c)}" for r in rows if r.cells[0])
 
 
+# ---------------------------------------------------------------------------
+# (d) 방향 — 같은 대상을 말하면서 반대 말(가까울수록↔멀어질수록, 늘다↔줄다)을 쓰지 않는다
+# ---------------------------------------------------------------------------
+
+#: 방향이 반대인 말의 두 끝 — 어느 발표에나 쓰는 말이다. 한 글자 줄기는 뒤 글자까지 적어 낱말 조각(「작업」「적인」)을 피한다.
+_W = r"(?<![가-힣])"
+ANTONYM_PAIRS: tuple[tuple[str, str], ...] = (
+    (_W + r"가까(?:울|운|워|웠|이)|" + _W + r"가깝", _W + r"멀(?:어|수록|리|고|다|면|었)"),
+    (_W + r"늘(?:어|었|고|면|수록|린|리|려|릴|립|다|수)", _W + r"줄(?:어|었|고|면|수록|인|이|여|일|입|다)"),
+    (_W + r"높(?:아|았|고|은|을|게|이|여|다|수록)", _W + r"낮(?:아|았|고|은|을|게|추|춰|다|수록)"),
+    (r"좋아(?:지|져|진|집)", r"나빠(?:지|져|진|집)"),
+    (r"증가", r"감소"), (r"상승", r"하락"), (r"개선", r"악화"), (r"향상", r"저하"), (r"확대", r"축소"), (r"강화", r"약화"),
+    (_W + r"많(?:아|았|고|은|을|이|다|수록)", _W + r"적(?:어|었|고|은|을|게|다|수록)"),
+    (_W + r"(?:크(?:게|고|다|면|수록)|큰(?![가-힣])|커(?:지|져|진|요))", _W + r"작(?:게|고|다|은|을|아|수록)"),
+    (_W + r"(?:빠르|빨라|빠른)", _W + r"(?:느리|느려|느린)"),
+    (_W + r"(?:길(?:어|고|게|다|수록)|긴(?![가-힣]))", _W + r"짧(?:아|고|게|은|다|수록)"),
+)
+_ANTONYM_RES = tuple((re.compile(a), re.compile(b)) for a, b in ANTONYM_PAIRS)
+#: 부정이 든 절은 방향을 뒤집어 말한 것일 수 있다 (「줄지 않았다」) — 보지 않는다.
+_CLAUSE_NEG_RE = re.compile(r"않|아니|못|없")
+#: 방향 대조에 필요한 같은 대상 낱말 수 (반대 말 자신은 빼고).
+DIRECTION_SHARED_MIN = 2
+
+
+def _pole_free_words(text: str) -> set[str]:
+    out = set(words(text))
+    for a, b in _ANTONYM_RES:
+        out = {w for w in out if not (a.match(w) or b.match(w))}
+    return {stem(w) for w in out}
+
+
+def direction_conflicts(text: str, idx: DeckIndex | None) -> list[str]:
+    """
+    같은 대상을 말하는 자료 줄과 **방향이 반대인** 절. 09-30 대화 감사 §1: 골자 「폰이 가까울수록 … 좋아지는 경향」 이
+    자료 6장 「멀어질수록 좋아지는 경향」 과 반대였는데, 숫자·비교·표 검사는 이걸 못 봤고 판정은 이 골자로 정답을 wrong 0 으로 채점했다.
+    절과 자료 줄이 반대 말 쌍의 서로 다른 끝을 쓰고(각자 한쪽만), 반대 말을 뺀 낱말이 둘 이상 겹칠 때만 — 부정이 든 절은 뺀다.
+    """
+    if idx is None:
+        return []
+    out: list[str] = []
+    rows = [r for r in idx.all_rows() if not r.table]
+    for clause in clauses(text):
+        if _CLAUSE_NEG_RE.search(clause):
+            continue
+        cw = _pole_free_words(clause)
+        hit = False
+        for a, b in _ANTONYM_RES:
+            for mine, theirs in ((a, b), (b, a)):
+                if not mine.search(clause) or theirs.search(clause):
+                    continue
+                for r in rows:
+                    if theirs.search(r.text) and not mine.search(r.text) and not _CLAUSE_NEG_RE.search(r.text) \
+                            and len(cw & _pole_free_words(r.text)) >= DIRECTION_SHARED_MIN:
+                        hit = True
+                        break
+                if hit:
+                    break
+            if hit:
+                break
+        if hit:
+            out.append(clause)
+    return out
+
+
 def gist_problems(text: str, idx: DeckIndex | None) -> list[str]:
     """골자(또는 골자 요소)가 자료와 어긋나는 이유 목록. 빈 목록이면 통과. 자료가 없으면 판단하지 않는다."""
     if idx is None or not (text or "").strip():
@@ -498,6 +587,7 @@ def gist_problems(text: str, idx: DeckIndex | None) -> list[str]:
     probs = [f"number:{n}" for n in misplaced_numbers(text, idx)]
     probs += ["compare" for _ in unbacked_comparisons(text, idx)][:1]
     probs += ["table" for _ in misattributed_cells(text, idx)][:1]
+    probs += ["direction" for _ in direction_conflicts(text, idx)][:1]
     return probs
 
 

@@ -1,0 +1,258 @@
+{
+ "file_name": "공공자전거_재이용_분석.pptx",
+ "total_slides": 6,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "공공자전거, 왜 다시 타지 않을까",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "01 / 06"
+    },
+    {
+     "category": "heading1",
+     "text": "공공자전거, 왜 다시 타지 않을까"
+    },
+    {
+     "category": "paragraph",
+     "text": "대여소 수의 문제가 아니라 반납 경험의 문제다"
+    },
+    {
+     "category": "paragraph",
+     "text": "교통정책 세미나 | 2026.09"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "핵심 요약",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "02 / 06"
+    },
+    {
+     "category": "heading1",
+     "text": "핵심 요약"
+    },
+    {
+     "category": "paragraph",
+     "text": "결론: 재이용률 하락은 대여소 부족이 아니라 반납 불편에서 온다"
+    },
+    {
+     "category": "paragraph",
+     "text": "01"
+    },
+    {
+     "category": "paragraph",
+     "text": "02"
+    },
+    {
+     "category": "paragraph",
+     "text": "하락은 분명하다"
+    },
+    {
+     "category": "paragraph",
+     "text": "· 월 재이용률은 1년 새 38%에서"
+    },
+    {
+     "category": "paragraph",
+     "text": "27%로 하락"
+    },
+    {
+     "category": "paragraph",
+     "text": "· 신규 가입자의 절반이 두 달 안에"
+    },
+    {
+     "category": "paragraph",
+     "text": "이탈"
+    },
+    {
+     "category": "paragraph",
+     "text": "·"
+    },
+    {
+     "category": "paragraph",
+     "text": "특정 구만의 일이 아닌 시 전체 현상"
+    },
+    {
+     "category": "paragraph",
+     "text": "원인은 대여소가 아니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "· 대여소 밀도와 재이용률의 상관은"
+    },
+    {
+     "category": "paragraph",
+     "text": "약함"
+    },
+    {
+     "category": "paragraph",
+     "text": "· 반납 실패 경험은 재이용률과 뚜렷한"
+    },
+    {
+     "category": "paragraph",
+     "text": "역상관"
+    },
+    {
+     "category": "paragraph",
+     "text": "·"
+    },
+    {
+     "category": "paragraph",
+     "text": "반납 실패 2회 이상 이용자의 재이용률 12%"
+    },
+    {
+     "category": "paragraph",
+     "text": "어디서 빌리느냐가 아니라, 어디에 돌려놓을 수 있느냐가 재이용을 갈랐다"
+    },
+    {
+     "category": "paragraph",
+     "text": "03"
+    },
+    {
+     "category": "paragraph",
+     "text": "고칠 수 있는 문제다"
+    },
+    {
+     "category": "paragraph",
+     "text": "· 거치대 증설과 가상 반납 구역은 구청이"
+    },
+    {
+     "category": "paragraph",
+     "text": "결정"
+    },
+    {
+     "category": "paragraph",
+     "text": "·"
+    },
+    {
+     "category": "paragraph",
+     "text": "대여소를 더 짓지 않고도 개선 가능"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "현황",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "03 / 06"
+    },
+    {
+     "category": "heading1",
+     "text": "현황"
+    },
+    {
+     "category": "paragraph",
+     "text": "먼저 하락이 실제로 있는지 확인했다"
+    },
+    {
+     "category": "table",
+     "text": "| 연도 | 월 재이용률 |"
+    },
+    {
+     "category": "table",
+     "text": "| 2024 | 38% |"
+    },
+    {
+     "category": "table",
+     "text": "| 2025 | 27% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "재이용률 11%p 하락"
+    },
+    {
+     "category": "paragraph",
+     "text": "신규 가입자 두 달 이탈률 52%"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "반납 실패는 어디서 생기나",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "04 / 06"
+    },
+    {
+     "category": "heading1",
+     "text": "반납 실패는 어디서 생기나"
+    },
+    {
+     "category": "table",
+     "text": "| 반납 실패 유형 | 비중 |"
+    },
+    {
+     "category": "table",
+     "text": "| 거치대 만석 | 61% |"
+    },
+    {
+     "category": "table",
+     "text": "| 앱 반납 오류 | 24% |"
+    },
+    {
+     "category": "table",
+     "text": "| 반납 구역 모름 | 15% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "거치대가 가득 차서 반납하지 못하면 이용자는 다음 대여를 포기한다."
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "해결 방안",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "05 / 06"
+    },
+    {
+     "category": "heading1",
+     "text": "해결 방안"
+    },
+    {
+     "category": "table",
+     "text": "| 문제 | 해결 |"
+    },
+    {
+     "category": "table",
+     "text": "| 거치대 만석 | 출퇴근 시간 거치대 증설 |"
+    },
+    {
+     "category": "table",
+     "text": "| 앱 반납 오류 | 반납 확인 알림 도입 |"
+    },
+    {
+     "category": "table",
+     "text": "| 반납 구역 모름 | 가상 반납 구역 지도 제공 |"
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "마무리",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "06 / 06"
+    },
+    {
+     "category": "heading1",
+     "text": "마무리"
+    },
+    {
+     "category": "paragraph",
+     "text": "자전거를 더 놓는 것보다 돌려놓기 쉽게 만드는 것이 먼저입니다."
+    }
+   ]
+  }
+ ]
+}

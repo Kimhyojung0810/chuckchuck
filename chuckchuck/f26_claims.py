@@ -37,6 +37,7 @@ import sys
 from dataclasses import dataclass
 
 from . import _claim_rules as R
+from . import _reason as RS
 from ._claim_quote import (  # noqa: F401 — 테스트·브리지가 f26 에서 부른다
     QUOTE_MIN_CHARS,
     _Hit,
@@ -436,9 +437,95 @@ def rule_cause(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     return out
 
 
+def _side_node(phrase: str, other: str, graph: ConceptGraph, slide_no: int) -> ConceptNode | None:
+    """
+    대비 한쪽 구절이 가리키는 개념 — resolve_label 보다 **좁게**: 구절의 변별 낱말(맞은편 구절에 없는 것)이 전부 이름에
+    있어야 한다. 절반 겹침이면 「X 선택」 이 「X 수 하한」 으로 풀려 보기의 부정된 쪽이 엉뚱한 개념이 된다 (09-30 dry-run).
+    """
+    node = resolve_label(phrase, graph.nodes, exclude=other, slide_no=slide_no)
+    if node is None:
+        return None
+    toks = R.distinct_tokens(phrase, other)
+    ltoks = R.content_tokens(node.label)
+    ok = all(any(R.tok_match(t, lt) or R.tok_match(lt, t) for lt in ltoks) for t in toks)
+    return node if ok else None
+
+
+def rule_contrast(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
+    """
+    「X(이/가) 아니라 Y」·「X가 아닌 Y」·「X보다 Y가 …를 갈랐다」 줄 → contrast(subject=세운 쪽 Y, objects=[부정된 쪽 X]).
+
+    09-30 실측: 근거 질문의 「모르겠어요」 보기가 인용 한 줄의 낱말에서 나와 자료가 세운 대비를 몰랐다 — 그래프에 대비 주장이
+    있으면 F-08 이 질문의 개념에 닿은 대비로 보기(세운 쪽이 정답)를 고른다. 양쪽이 **서로 다른 개념**에 닿아야 남긴다.
+    한쪽이 개념에 안 닿으면 주장을 만들지 않는다 — 그래프 밖 구절을 노드로 더하면 F-07 이 세운 위계·가중치를 F-26 이 바꾸는
+    꼴이다. 그 줄은 F-08 이 장의 구조 규칙(`_reason`)으로 따로 읽는다 (보기 글은 어차피 자료 줄의 낱말 그대로다).
+    배경 절의 「일부가 아닌 전반적 현상」 같은 줄도 양쪽이 개념이면 주장이 된다 — 이유인지는 F-08 이 절 구조로 가른다.
+    """
+    out: list[Claim] = []
+    for s in slidedoc.slides:
+        for line in slide_lines(s.raw_text):
+            sides = RS.contrast_sides(line)
+            if not sides:
+                continue
+            neg, pos = sides
+            big = _side_node(pos, neg, graph, s.slide_no)
+            small = _side_node(neg, pos, graph, s.slide_no)
+            if big is None or small is None or big.id == small.id or R.same_concept(big.label, small.label):
+                continue
+            out.append(Claim(id="", kind="contrast", subject_id=big.id, object_ids=[small.id], text=line,
+                             evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
+    return out
+
+
+#: 「A와 B의 상관은 …」 · 「A는 B와 (뚜렷한) 역상관」 — 두 절을 가른다.
+_CORR_PAIR_RE = re.compile(
+    r"^(?P<a>[^,.?!]{2,30}?)(?:와|과)\s+(?P<b>[^,.?!]{2,30}?)(?:의|간의|사이의)\s+(?:[가-힣]+\s+)?(?:상관|연관성|관련성)")
+_CORR_SVO_RE = re.compile(r"^(?P<a>[^,.?!]{2,30}?)(?:은|는|이|가)\s+(?P<b>[^,.?!]{2,30}?)(?:와|과)\s+.*(?:상관|비례)")
+#: 「A → B」 줄 — 화살표 앞이 원인, 뒤가 결과.
+_ARROW_RE = re.compile(r"\s*(?:→|->)\s*")
+
+
+def rule_correlation(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
+    """
+    상관·역상관 줄과 「A → B」 줄 → cause(A → B). **약한 상관은 주장을 만들지 않는다** — 「A 와 B 의 상관은 약함」 은
+    A 가 B 의 원인이 **아니라는** 말이라 cause 로 적으면 근거 없는 인과 탐침이 거꾸로 선다. 그 줄은 F-08 이 이유 줄로 읽는다.
+    해결 장의 「방법 → 효과」 는 계획이라 인과로 보지 않는다 (rule_cause 와 같은 규율). 두 쪽이 다른 개념에 또렷이 닿아야 남긴다.
+    """
+    out: list[Claim] = []
+    for s in slidedoc.slides:
+        lines = slide_lines(s.raw_text)
+        heads = [ln for ln in lines[:2] if len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
+        solution_slide = any(R.SOLVE_HEAD_RE.search(h) for h in heads)
+        for unit in (u.text for u in RS.units(s.slide_no, s.raw_text) if u.kind in ("bullet", "text")):
+            if R.is_question(unit):
+                continue
+            strength = RS.correlation(unit)
+            parts = _ARROW_RE.split(unit, maxsplit=1)
+            if strength and strength != "weak":
+                m = _CORR_PAIR_RE.match(unit) or _CORR_SVO_RE.match(unit)
+                if not m:
+                    continue
+                left, right = m.group("a"), m.group("b")
+            elif len(parts) == 2 and not solution_slide and not strength and R.CAUSE_RE.search(parts[1]) \
+                    and not _ARROW_RE.search(parts[1]):
+                left, right = parts      # 화살표 하나 + 뒤쪽이 바꾸는 말 — 「A → B 가 는다」. 「가 → 나 → 다」 순서 나열은 아니다
+            else:
+                continue
+            # 짧은 쪽 구절이라 이름을 품는 가장 구체적인 개념을 먼저 (「오배송률」 이 루트 「오배송」 보다) — 없으면 가장 뚜렷한 개념
+            src = resolve_label(left, graph.nodes, exclude=right, slide_no=s.slide_no) or best_node(left, graph.nodes, slide_no=s.slide_no)
+            dst = resolve_label(right, graph.nodes, exclude=left, slide_no=s.slide_no) or best_node(
+                right, graph.nodes, slide_no=s.slide_no, skip={src.id} if src else None)
+            if src is None or dst is None or src.id == dst.id or not (_clear(src.label, left) and _clear(dst.label, right)):
+                continue
+            out.append(Claim(id="", kind="cause", subject_id=src.id, object_ids=[dst.id], text=unit,
+                             evidence=[ClaimQuote(s.slide_no, _tidy(unit))]))
+    return out
+
+
 def rule_claims(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     return (rule_compose(graph, slidedoc) + rule_list_compose(graph, slidedoc) + rule_compare(graph, slidedoc)
-            + rule_absolute(graph, slidedoc) + rule_solve_rows(graph, slidedoc) + rule_cause(graph, slidedoc))
+            + rule_absolute(graph, slidedoc) + rule_solve_rows(graph, slidedoc) + rule_cause(graph, slidedoc)
+            + rule_contrast(graph, slidedoc) + rule_correlation(graph, slidedoc))
 
 
 # ---------------------------------------------------------------------------

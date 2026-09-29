@@ -1,0 +1,81 @@
+{
+ "deck": "transit_bike",
+ "synthetic": true,
+ "context": {
+  "situation": "competition",
+  "duration_min": 7
+ },
+ "group": "heldout",
+ "control_tension": false,
+ "planted": [
+  {
+   "id": "C1",
+   "kind": "supported_cause",
+   "expect": "no_probe",
+   "slides": [
+    2
+   ],
+   "labels_any": [
+    "반납 실패"
+   ],
+   "quote_any": [
+    "역상관"
+   ],
+   "note": "역상관 줄 옆 줄에 수치(12%)가 있다 — unsupported_cause 가 나오면 오탐"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "contrast",
+   "slide": 2,
+   "quote_any": [
+    "대여소 부족이 아니라 반납 불편"
+   ]
+  },
+  {
+   "kind": "cause",
+   "slide": 2,
+   "quote_any": [
+    "역상관"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 5,
+   "quote_any": [
+    "거치대 증설",
+    "반납 확인 알림",
+    "가상 반납 구역"
+   ]
+  }
+ ],
+ "reason": {
+  "slide": 2,
+  "question": "재이용률 하락이 대여소 부족이 아니라 반납 불편에서 온다고 결론지은 근거는 무엇인가요?",
+  "conclusion": "결론: 재이용률 하락은 대여소 부족이 아니라 반납 불편에서 온다",
+  "reason_lines": [
+   "대여소 밀도와 재이용률의 상관은 약함",
+   "반납 실패 경험은 재이용률과 뚜렷한 역상관",
+   "반납 실패 2회 이상 이용자의 재이용률 12%",
+   "어디서 빌리느냐가 아니라, 어디에 돌려놓을 수 있느냐가 재이용을 갈랐다"
+  ],
+  "background_lines": [
+   "월 재이용률은 1년 새 38%에서 27%로 하락",
+   "신규 가입자의 절반이 두 달 안에 이탈",
+   "특정 구만의 일이 아닌 시 전체 현상"
+  ],
+  "strongest": "어디서 빌리느냐가 아니라, 어디에 돌려놓을 수 있느냐가 재이용을 갈랐다",
+  "contrast": {
+   "affirmed": "반납",
+   "negated": "대여소"
+  }
+ },
+ "noise_lines": [
+  "01 / 06",
+  "02 / 06",
+  "03 / 06",
+  "04 / 06",
+  "05 / 06",
+  "06 / 06"
+ ]
+}

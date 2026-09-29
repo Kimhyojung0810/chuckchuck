@@ -487,7 +487,8 @@ def _negated_in(stem: str, quote: str) -> bool:
 
 
 def mask_gist(
-    gist: str, label: str, distractor_pool: list[str], *, quote: str = "", deck_text: str = ""
+    gist: str, label: str, distractor_pool: list[str], *, quote: str = "", deck_text: str = "",
+    pair: tuple[str, str] | list[str] | None = None,
 ) -> tuple[str, str, str]:
     """
     골자에서 낱말 하나를 가린 **빈칸 문장**과 (정답, 오답).
@@ -512,9 +513,12 @@ def mask_gist(
                   if _noun_like(s, source) and s.lower() not in flat_label
                   and s not in _BOUND_NOUNS and not _negated_in(s, quote)]
     # 인용이 「X 아니라 Y」 면 보기는 그 둘이다 — 자료가 스스로 세운 대비라 「어느 쪽」 이 그대로 성립한다.
-    pos, neg = _contrast_pair(quote)
+    # pair(= F-08 이 주장 그래프·근거 장에서 고른 대비 [세운 쪽, 부정한 쪽], qa/reason)가 오면 그것이 먼저다 — 인용 한 줄의
+    # 대비(aadf68f)는 그래프가 비었을 때의 폴백이다.
+    pos, neg = (pair[0], pair[1]) if pair and len(pair) == 2 and pair[0] and pair[1] else _contrast_pair(quote)
     if pos and neg:
-        hit = next(((w, s) for w, s in candidates if s == pos), None)
+        hit = next(((w, s) for w, s in candidates if s == pos), None) or next(
+            ((w, w) for w in [pos] if pos in text), None)
         if hit:
             return text.replace(hit[0], "___", 1), pos, neg
         # 골자에 Y 가 없으면 빈칸 문장은 아래 규칙으로 만들고 보기만 대비 쌍이다 — 빈칸 없는 골자를 내면 답이 통째로 보인다
