@@ -86,7 +86,10 @@ def run_questions(run: B.DeckRun, track: str) -> dict | None:
     return doc
 
 
-def judge_one(run: B.DeckRun, q: dict, track: str) -> list[dict]:
+KINDS = ("gist", "agree", "offtopic")
+
+
+def judge_one(run: B.DeckRun, q: dict, track: str, kinds: tuple[str, ...] = KINDS) -> list[dict]:
     """함정 질문 하나에 탐침 셋 — 골자 그대로(통과해야) · 전제 동의(통과 못 해야) · 무관한 답(wrong 이어야)."""
     from chuckchuck import judge_answer
     from chuckchuck.f09_judge import _TRAP_AGREED_REACT
@@ -95,10 +98,14 @@ def judge_one(run: B.DeckRun, q: dict, track: str) -> list[dict]:
     sd, graph = B.read_json(d / "slide_doc.json"), B.read_json(d / "graph.json")
     tp = Question.from_dict(q).trap_premise
     rows = []
-    for kind, text, expect in (("gist", q["answer_gist"], "pass"), ("agree", agree_answer(tp), "not_pass"),
+    for kind, text, expect in (("gist", q["answer_gist"], "pass"), ("agree", agree_answer(tp) if tp else "", "not_pass"),
                                ("offtopic", B.OFFTOPIC, "wrong")):
+        if kind not in kinds or not text:
+            continue
+        t0, c0 = time.time(), B.BUDGET.used
         j = judge_answer(q, text, graph=graph, context=run.spec["context"], slidedoc=sd,
                          llm=B.engine(run.name, f"trap_judge:{kind}")).to_dict()
+        B.log_stage(run.name, f"trap_judge:{kind}", t0, c0)
         passed = j["verdict"] in ("good", "partial") and j["score"] >= 70
         ok = {"pass": passed, "not_pass": not passed, "wrong": j["verdict"] == "wrong"}[expect]
         rows.append({"q": q["id"], "track": track, "kind": kind, "answer": text, "verdict": j["verdict"], "score": j["score"],
@@ -147,6 +154,10 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--budget", type=int, default=52)
     ap.add_argument("--no-judge", action="store_true")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--from-bench", action="store_true",
+                    help="질문을 새로 만들지 않고 run.py 가 방금 만든 questions_t5/t10.json 을 그대로 잰다 (P5 — 함정은 F-08 안에서 코드가 만든다)")
+    ap.add_argument("--kinds", default=",".join(KINDS), help="함정 판정 탐침 종류 (gist·agree·offtopic)")
+    ap.add_argument("--no-extra", action="store_true", help="10분 트랙에만 있는 함정은 판정하지 않는다")
     ap.add_argument("--repo-root", default=str(B.DEFAULT_REPO))
     ns = ap.parse_args(argv)
     if ns.report:
@@ -155,7 +166,8 @@ def main(argv: list[str]) -> int:
     B.BUDGET.limit = ns.budget
     decks = B.load_decks(Path(ns.repo_root), set())
     names = list(decks) if ns.decks == "all" else ns.decks.split(",")
-    results: dict = B.read_json(OUT) or {}
+    results: dict = {} if ns.from_bench else (B.read_json(OUT) or {})
+    kinds = tuple(k.strip() for k in ns.kinds.split(",") if k.strip())
     docs: dict[str, dict[str, dict]] = {}
     runs = {name: B.DeckRun(decks[name], None) for name in names}
     try:
@@ -165,7 +177,7 @@ def main(argv: list[str]) -> int:
             sd, graph = B.read_json(run.dir / "slide_doc.json"), B.read_json(run.dir / "graph.json")
             r = {"group": decks[name]["group"], "tracks": {}, "judge": []}
             for t in ("5", "10"):
-                doc = run_questions(run, t)
+                doc = B.read_json(run.dir / f"questions_t{t}.json") if ns.from_bench else run_questions(run, t)
                 if doc is None:
                     continue
                 docs.setdefault(name, {})[t] = doc
@@ -177,15 +189,15 @@ def main(argv: list[str]) -> int:
             # 2. 5분 트랙 함정 전부 → 3. 10분 트랙에만 있는 함정을 덱마다 돌아가며 (예산까지)
             for name, run in runs.items():
                 for q in [q for q in docs.get(name, {}).get("5", {}).get("questions", []) if q.get("trap")]:
-                    results[name]["judge"] += judge_one(run, q, "5")
+                    results[name]["judge"] += judge_one(run, q, "5", kinds)
                     B.write_json(OUT, results)
             extra = {name: [q for q in docs.get(name, {}).get("10", {}).get("questions", []) if q.get("trap")
                             and q["node_id"] not in {x["node_id"] for x in docs[name].get("5", {}).get("questions", []) if x.get("trap")}]
                      for name in runs}
-            while any(extra.values()):
+            while any(extra.values()) and not ns.no_extra:
                 for name, run in runs.items():
                     if extra[name] and B.BUDGET.limit - B.BUDGET.used >= 3:
-                        results[name]["judge"] += judge_one(run, extra[name].pop(0), "10")
+                        results[name]["judge"] += judge_one(run, extra[name].pop(0), "10", kinds)
                         B.write_json(OUT, results)
                     elif extra[name]:
                         extra[name] = []

@@ -9,7 +9,8 @@ import json
 import re
 from pathlib import Path
 
-GROUPS = (("heldout", "held-out (안 본 덱)"), ("tuned", "tuned-on (튜닝에 쓴 덱: 수면·수익률격차)"))
+GROUPS = (("heldout", "held-out (안 본 덱)"), ("new", "새 덱 (P5 에 처음 만든 PPT)"),
+          ("tuned", "tuned-on (튜닝에 쓴 덱: 수면·수익률격차)"))
 
 
 def pct(a: float, b: float) -> str:
@@ -43,6 +44,21 @@ def agg(rows: list[dict], track: str) -> dict[str, str]:
             s[0] += a
             s[1] += b
     ctrl = [r for r in truthy if r["probes"].get("control_tension")]
+    scaf = [c for h in hrows for c in h.get("scaffold", [])]
+    scaf_n = [c for c in scaf if c["n"] == 2]
+    dunno = [c for r in rows for c in r.get("dunno_choices", [])]
+    dunno_n = [c for c in dunno if c["n"] == 2]
+    fc = lambda k: _sum(qrows, lambda q: q.get("flag_counts", {}).get(k, 0))  # noqa: E731
+    tr_rows = [r["traps"] for r in rows if r.get("traps")]
+    tr_t = [t["tracks"][track] for t in tr_rows if track in t.get("tracks", {})]
+    traps_all = [x for t in tr_t for x in t["traps"]]
+    tj = [x for t in tr_rows for x in t.get("judge", []) if x.get("track", "5") == track]
+    tj_kind: dict[str, list[int]] = {}
+    for x in tj:
+        s_ = tj_kind.setdefault(x["kind"], [0, 0])
+        s_[0] += 1 if x["ok"] else 0
+        s_[1] += 1
+    from chuckchuck.contracts import QA_TRACK_TRAPS
     claim_truth = [r for r in rows if "planted" in r["claims"]]
     return {
         "덱": str(len(rows)),
@@ -69,6 +85,8 @@ def agg(rows: list[dict], track: str) -> dict[str, str]:
         "함정 질문 (그중 탐침 질문)": f"{_sum(qrows, lambda q: q.get('trap', 0))} ({_sum(qrows, lambda q: q.get('trap_on_probe', 0))})",
         "함정인데 골자가 전제를 안 바로잡음": pct(_sum(qrows, lambda q: len(q.get('trap_gist_uncorrected', []))), _sum(qrows, lambda q: q.get('trap', 0))),
         "화면 금지 표식(!)": str(_sum(qrows, lambda q: sum(q['bad_flags'].values()))),
+        "  └ 반말끝 · 높임 · 잘림 · 자료밖숫자 · 3인칭": f"{fc('반말끝')} · {fc('높임')} · {fc('잘림')} · {fc('자료밖숫자')} · {fc('3인칭')}",
+        "코드 폴백 질문(fallback_template)": pct(_sum(qrows, lambda q: q['fallback']), nq),
         "합쇼체 남음": str(_sum(qrows, lambda q: q['hapsyo'])),
         "주제 자리가 루트(depth 1)": pct(_sum(qrows, lambda q: 1 if q['theme_is_root'] else 0), len(qrows)),
         "주제 자리가 가장 무거운 루트": pct(_sum(qrows, lambda q: 1 if q['theme_is_top_root'] else 0), len(qrows)),
@@ -78,6 +96,17 @@ def agg(rows: list[dict], track: str) -> dict[str, str]:
         "힌트 인용 원문 그대로": pct(_sum(hrows, lambda h: h['verbatim']), quoted),
         "탐침 질문의 힌트가 탐침 근거 줄": pct(_sum(hrows, lambda h: h['probe_in_evidence']), hp),
         "힌트가 설문 보기·쪽 번호 조각": str(_sum(hrows, lambda h: len(h['noise']))),
+        "힌트 인용이 질문과 내용 낱말 1개+ 겹침": pct(_sum(hrows, lambda h: h.get('overlap_any', 0)), quoted),
+        "발판 선택지 2개 나옴 (LLM 없음)": pct(len(scaf_n), len(scaf)),
+        "  └ 둘 다 명사(구) · 둘 다 자료에 그대로": f"{pct(sum(c['noun'] for c in scaf_n), len(scaf_n))} · {pct(sum(c['in_deck'] for c in scaf_n), len(scaf_n))}",
+        "「모르겠어요」 되물음 선택지 2개": pct(len(dunno_n), len(dunno)),
+        "  └ 둘 다 명사(구) · 둘 다 자료에 그대로 ": f"{pct(sum(c['noun'] for c in dunno_n), len(dunno_n))} · {pct(sum(c['in_deck'] for c in dunno_n), len(dunno_n))}",
+        "함정 수 / 허용치 (덱×트랙)": f"{len(traps_all)} / {QA_TRACK_TRAPS.get(track, 0) * len(tr_t)}" if tr_t else "-",
+        "  └ 전제가 자료와 다름(거짓) · 사실=자료 줄 · 질문이 전제를 실음": (f"{pct(sum(x['premise_false'] for x in traps_all), len(traps_all))} · "
+                                                         f"{pct(sum(x['fact_is_deck'] for x in traps_all), len(traps_all))} · "
+                                                         f"{pct(sum(x['carries'] for x in traps_all), len(traps_all))}") if traps_all else "-",
+        "함정 판정 기대대로": pct(sum(x["ok"] for x in tj), len(tj)) if tj else "-",
+        **{f"  └ trap-{'correct(골자)' if k == 'gist' else k}": pct(v[0], v[1]) for k, v in sorted(tj_kind.items())},
         "판정 기대대로": pct(_sum(judge, lambda j: j['ok']), _sum(judge, lambda j: j['n'])),
         **{f"  └ {k}": pct(v[0], v[1]) for k, v in sorted(by_kind.items())},
     }
@@ -205,6 +234,41 @@ def _safe(text: str) -> str:
     return _SK_ID_RE.sub("sk_", text)
 
 
+LIVE_STAGES = ("slides", "concepts", "graph", "claims", "triage", "questions5", "ladders5", "questions10", "ladders10")
+
+
+def latency_table(results: list[dict]) -> list[str]:
+    """out/timing.jsonl(실제로 돈 단계만) → 덱마다 업로드 뒤 질문이 나오기까지의 단계별 벽시계 시간·LLM 호출 수."""
+    p = Path(__file__).resolve().parent / "out" / "timing.jsonl"
+    if not p.exists():
+        return []
+    rows = [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
+    last: dict[tuple[str, str], dict] = {}
+    for r in rows:
+        last[(r["deck"], r["stage"])] = r      # 같은 단계를 여러 번 돌렸으면 마지막 것
+    decks = [r["name"] for r in results if not r.get("incomplete")]
+    out = ["## 실시간 경로 — 단계별 벽시계 시간(초) · LLM 호출", "",
+           "`out/timing.jsonl` — 캐시로 건너뛴 단계는 빈칸. slides 는 Upstage 파싱(LLM 아님).", "",
+           "| 덱 | " + " | ".join(LIVE_STAGES) + " | 합계(초) | LLM 호출 |", "|---|" + "---|" * (len(LIVE_STAGES) + 2)]
+    for d in decks:
+        cells, tot, calls = [], 0.0, 0
+        for st in LIVE_STAGES:
+            r = last.get((d, st))
+            if r is None:
+                cells.append("")
+                continue
+            cells.append(f"{r['sec']:.1f}" + (f" ({r['calls']})" if r.get("calls") else ""))
+            tot += r["sec"]
+            calls += r.get("calls", 0)
+        if any(cells):
+            out.append(f"| {d} | " + " | ".join(cells) + f" | {tot:.1f} | {calls} |")
+    judge = [r for r in rows if r["stage"].startswith(("judge:", "trap_judge:"))]
+    if judge:
+        secs = sorted(r["sec"] for r in judge)
+        out += ["", f"판정 1회(F-09) {len(secs)}번 — 중앙값 {secs[len(secs) // 2]:.1f}초 · 최대 {secs[-1]:.1f}초", ""]
+    return out + [""]
+
+
 def write(results: list[dict], out_dir: Path, calls: int = 0) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     slim = [{k: v for k, v in r.items()} for r in results]
@@ -215,6 +279,7 @@ def write(results: list[dict], out_dir: Path, calls: int = 0) -> None:
     for t in ("5", "10"):
         if any(t in r.get("questions", {}) for r in results):
             lines += [f"## 묶음별 합계 — 질문 트랙 {t}", ""] + agg_table(results, t) + [""]
+    lines += latency_table(results)
     lines += ["## 덱별", ""] + deck_table(results) + ["", "## 덱별 상세", ""]
     for r in results:
         lines += deck_detail(r)

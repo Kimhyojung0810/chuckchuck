@@ -46,7 +46,7 @@ REPORT_DIR = ROOT / "docs" / "review" / "2026-09-29_QA_근거검증" / "bench"
 DEFAULT_REPO = Path(os.environ.get("QA_BENCH_REPO_ROOT", "/home/yehschuck/project/chuckchuck"))
 
 #: 라이브 경로(.pptx → f01)로 태울 합성 덱. deck.pptx 가 있어야 한다.
-LIVE_DEFAULT = ("ir_banchan", "policy_jeonse", "hum_novel", "health_glucose")
+LIVE_DEFAULT = ("ir_banchan", "policy_jeonse", "hum_novel", "health_glucose", "lib_reopen")
 #: 안정성(1차 심사를 새로 3번) — 탐침이 가장 많은 합성 덱 하나 + 원래 사례
 STABILITY_DEFAULT = ("health_glucose", "sleep")
 #: 녹음 경로 — 합성 녹음(핵심 장을 6초에 넘김) + 실제 녹음
@@ -189,6 +189,15 @@ def note(msg: str) -> None:
     print(msg, flush=True)
 
 
+def log_stage(deck: str, stage: str, t0: float, calls0: int, **extra) -> None:
+    """실제로 돈 단계(캐시 아님)의 벽시계 시간과 그 단계의 LLM 호출 수 → out/timing.jsonl (실시간 경로 지연표의 원본)."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    with (OUT / "timing.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "deck": deck, "stage": stage,
+                            "sec": round(time.time() - t0, 2), "calls": BUDGET.used - calls0, **extra},
+                           ensure_ascii=False) + "\n")
+
+
 # ---------------------------------------------------------------------------
 # 덱 목록
 # ---------------------------------------------------------------------------
@@ -199,7 +208,7 @@ def load_decks(repo_root: Path, live: set[str]) -> dict[str, dict]:
         truth = read_json(d / "truth.json") or {}
         pptx = d / "deck.pptx"
         decks[d.name] = {
-            "name": d.name, "group": "heldout", "synthetic": True, "truth": truth,
+            "name": d.name, "group": truth.get("group") or "heldout", "synthetic": True, "truth": truth,
             "context": truth.get("context") or {"situation": "school_project", "duration_min": 5},
             "slidedoc_path": d / "slidedoc.json", "pptx": pptx if (pptx.exists() and d.name in live) else None,
             "transcript_path": d / "transcript.json" if (d / "transcript.json").exists() else None,
@@ -256,8 +265,9 @@ def stage_slides(run: DeckRun) -> dict:
             return got
         from chuckchuck.f01_parse import parse_document
 
-        t0 = time.time()
+        t0, c0 = time.time(), BUDGET.used
         sd = parse_document(spec["pptx"]).to_dict()
+        log_stage(run.name, "slides", t0, c0, upstage=1)
         with (OUT / "parse_calls.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "deck": run.name, "sec": round(time.time() - t0, 1)}) + "\n")
         note(f"  [{run.name}] f01 파싱(Upstage) {time.time() - t0:.1f}s · {len(sd.get('slides') or [])}장 (라이브)")
@@ -286,8 +296,9 @@ def stage_concepts(run: DeckRun, sd: dict) -> dict:
     from chuckchuck import extract_concepts
     from chuckchuck.contracts import Context, SlideDoc
 
-    t0 = time.time()
+    t0, c0 = time.time(), BUDGET.used
     cd = extract_concepts(SlideDoc.from_dict(sd), Context.from_dict(run.spec["context"]), llm=engine(run.name, "concepts"))
+    log_stage(run.name, "concepts", t0, c0)
     note(f"  [{run.name}] F-06 개념 {time.time() - t0:.1f}s")
     run.save("concepts", "concept_doc.json", key, cd.to_dict())
     return cd.to_dict()
@@ -301,9 +312,10 @@ def stage_graph(run: DeckRun, sd: dict, cd: dict) -> dict:
     from chuckchuck import build_graph
     from chuckchuck.contracts import ConceptDoc, Context, SlideDoc
 
-    t0 = time.time()
+    t0, c0 = time.time(), BUDGET.used
     g = build_graph(ConceptDoc.from_dict(cd), Context.from_dict(run.spec["context"]), slide_doc=SlideDoc.from_dict(sd),
                     llm=engine(run.name, "graph"))
+    log_stage(run.name, "graph", t0, c0)
     note(f"  [{run.name}] F-07 그래프 {time.time() - t0:.1f}s · 노드 {len(g.nodes)}")
     run.save("graph", "graph.json", key, g.to_dict())
     return g.to_dict()
@@ -316,8 +328,9 @@ def stage_claims(run: DeckRun, sd: dict, graph: dict) -> dict:
         return got
     from chuckchuck.f26_claims import build_claims
 
-    t0 = time.time()
+    t0, c0 = time.time(), BUDGET.used
     c = build_claims(graph, sd, llm=Replay(run.name, "claims", run.dir / "claims_llm.json"))
+    log_stage(run.name, "claims", t0, c0)
     note(f"  [{run.name}] F-26 주장 {time.time() - t0:.1f}s · {len(c.claims)}개 (버림 {c.dropped}) model={c.model}")
     run.save("claims", "claims.json", key, c.to_dict())
     return c.to_dict()
@@ -331,9 +344,10 @@ def stage_triage(run: DeckRun, graph: dict, claims: dict, tag: str = "triage", f
         return read_json(run.dir / fname)
     from chuckchuck import triage_questions
 
-    t0 = time.time()
+    t0, c0 = time.time(), BUDGET.used
     t = triage_questions(graph, alignment, flow, run.spec["context"], transcript=transcript, claims=claims,
                          llm=engine(run.name, tag))
+    log_stage(run.name, tag, t0, c0)
     note(f"  [{run.name}] F-08 1차 심사({tag}) {time.time() - t0:.1f}s · 후보 {len(t.marks)} · 탐침 {len(t.probes)}")
     run.save(tag, fname, key, t.to_dict())
     return t.to_dict()
@@ -350,9 +364,13 @@ def stage_questions(run: DeckRun, sd: dict, graph: dict, claims: dict, triage: d
         return read_json(run.dir / fname)
     from chuckchuck import build_questions
 
-    t0 = time.time()
+    t0, c0 = time.time(), BUDGET.used
     doc = build_questions(graph, triage, track=track, alignment=alignment, flow=flow, transcript=transcript,
                           slidedoc=sd, context=run.spec["context"], claims=claims, llm=engine(run.name, f"{tag}{track}"))
+    log_stage(run.name, f"{tag}{track}", t0, c0)
+    t1 = time.time()
+    ladders_of(doc.to_dict())
+    log_stage(run.name, f"ladders{track}", t1, BUDGET.used)
     note(f"  [{run.name}] F-08 질문 t{track}({tag}) {time.time() - t0:.1f}s · {len(doc.questions)}개")
     run.save(stage_key, fname, key, doc.to_dict())
     return doc.to_dict()
@@ -427,9 +445,15 @@ def stage_judge(run: DeckRun, sd: dict, graph: dict, qdoc: dict, answers: dict[s
                     "paraphrase": ans.get("paraphrase", ""), "wrong": ans.get("wrong", "")}[kind]
             if not text:
                 continue
-            t0 = time.time()
-            j = judge_answer(q, text, graph=graph, context=run.spec["context"], slidedoc=sd,
-                             give_up=(kind == "dunno"), llm=engine(run.name, f"judge:{kind}")).to_dict()
+            t0, c0 = time.time(), BUDGET.used
+            try:
+                j = judge_answer(q, text, graph=graph, context=run.spec["context"], slidedoc=sd,
+                                 give_up=(kind == "dunno"), llm=engine(run.name, f"judge:{kind}")).to_dict()
+            except BudgetExceeded:
+                # 예산에서 끊겨도 이미 받은 판정은 남긴다 (키는 안 적어 다음 실행이 다시 돈다) — P5 에서 4건을 잃었다
+                write_json(run.dir / "judge_partial.json", records)
+                raise
+            log_stage(run.name, f"judge:{kind}", t0, c0)
             row = M.judge_row(kind, j)
             row.update(q=q["id"], question=q["question"], probe=((q.get("basis") or {}).get("probe") or {}).get("kind", ""),
                        answer=text, sec=round(time.time() - t0, 1))
@@ -504,6 +528,28 @@ def parse_fidelity(run: DeckRun, sd: dict) -> dict | None:
             "lines_kept": len(lines) - len(missing), "missing": [f"S{no} «{ln}»" for no, ln in missing[:12]]}
 
 
+def deck_text(sd: dict) -> str:
+    from chuckchuck.contracts import SlideDoc
+    from chuckchuck.f09_judge import _deck_text
+
+    return _deck_text(SlideDoc.from_dict(sd))
+
+
+def scaffold_choices(qd: dict, sd: dict, graph: dict) -> list[dict]:
+    """발판 단계(LLM 없음)의 빈칸 선택지 둘 — 모든 질문에 대해 지금 코드로 다시 만든다."""
+    from chuckchuck.contracts import ConceptGraph, Question
+    from chuckchuck.f09_judge import _scaffold_judgement
+
+    deck = deck_text(sd)
+    g = ConceptGraph.from_dict(graph)
+    out = []
+    for q in qd.get("questions") or []:
+        j = _scaffold_judgement(Question.from_dict(q), g, deck)
+        out.append(dict(M.choice_quality(list(j.choices) if j else [], deck, q.get("evidence_quote", "")),
+                        q=q["id"], followup=j.followup if j else ""))
+    return out
+
+
 def collect(run: DeckRun, tracks: list[str]) -> dict:
     d = run.dir
     sd, graph, claims = read_json(d / "slide_doc.json"), read_json(d / "graph.json"), read_json(d / "claims.json")
@@ -527,10 +573,19 @@ def collect(run: DeckRun, tracks: list[str]) -> dict:
         if qd:
             out["questions"][t] = M.question_metrics(qd, graph, sd, truth)
             out["hints"][t] = M.hint_metrics(qd, sd, truth, ladders_of(qd))
+            out["hints"][t]["scaffold"] = scaffold_choices(qd, sd, graph)
     j = read_json(d / "judge.json")
     if j:
         out["judge"] = M.judge_metrics(j)
         out["judge_rows"] = j
+        deck = deck_text(sd)
+        q5 = {q["id"]: q for q in (read_json(d / "questions_t5.json") or {}).get("questions") or []}
+        out["dunno_choices"] = [dict(M.choice_quality(r.get("choices") or [], deck, q5.get(r["q"], {}).get("evidence_quote", "")),
+                                     q=r["q"], followup=r.get("followup", ""))
+                                for r in j if r["kind"] == "dunno"]
+    tr = (read_json(OUT / "traps_run.json") or {}).get(run.name)
+    if tr:
+        out["traps"] = tr
     rec = read_json(d / "questions_rec_t5.json")
     if rec:
         rm = M.question_metrics(rec, graph, sd, truth)

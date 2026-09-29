@@ -237,6 +237,27 @@ def _undercut(text: str) -> str:
     return _self_undercut(text)
 
 
+def _drop_expected_numbers(flags: list[str], q: dict, n_slides: int) -> list[str]:
+    """「자료밖숫자!」 중 **일부러 넣은 것**은 뺀다 — 함정 전제의 바꾼 값(설계상 자료에 없다)과 「N장」(장 번호)."""
+    premise = str((q.get("trap_premise") or {}).get("premise", "") or "")
+    out = []
+    for f in flags:
+        if not f.startswith("자료밖숫자!"):
+            out.append(f)
+            continue
+        left = []
+        for tok in f.removeprefix("자료밖숫자!").split("·"):
+            digits = re.sub(r"[^\d.,]", "", tok)
+            if tok.endswith("장") and digits.isdigit() and int(digits) <= n_slides:
+                continue
+            if q.get("trap") and digits and digits in premise:
+                continue
+            left.append(tok)
+        if left:
+            out.append("자료밖숫자!" + "·".join(left))
+    return out
+
+
 def question_metrics(qdoc: dict, graph: dict, slide_doc: dict, truth: dict | None) -> dict:
     qs = qdoc.get("questions") or []
     raw = slide_raw(slide_doc)
@@ -249,7 +270,7 @@ def question_metrics(qdoc: dict, graph: dict, slide_doc: dict, truth: dict | Non
         ev = b.get("evidence") or []
         probe = b.get("probe")
         checks = b.get("checks") or []
-        flags = question_flags(q, None, texts)
+        flags = _drop_expected_numbers(question_flags(q, None, texts), q, len(raw))
         node = by.get(q["node_id"], {})
         planted_hit = ""
         if probe:
@@ -283,6 +304,8 @@ def question_metrics(qdoc: dict, graph: dict, slide_doc: dict, truth: dict | Non
         "probe_template": sum(1 for r in probe_rows if r["probe_template"]),
         "bad_flags": dict(Counter(re.sub(r"\d+|·.*$", "", f) for r in rows for f in r["bad_flags"])),
         "hapsyo": sum(1 for r in rows if any(f.startswith("합쇼체") for f in r["flags"])),
+        "flag_counts": {k: sum(1 for r in rows if any(f.startswith(k) for f in r["flags"]))
+                        for k in ("반말끝", "높임", "잘림", "합쇼체", "자료밖숫자", "3인칭", "노드id노출")},
         "fallback": sum(1 for r in rows if "폴백" in r["flags"] or "fallback_template" in r["checks"]),
         "slots": dict(Counter(r["slot"] or "-" for r in rows)),
         "trap": sum(1 for r in rows if r["trap"]),
@@ -322,6 +345,47 @@ def noise_quote(quote: str, noise_lines: list[str]) -> str:
     return ""
 
 
+#: 질문·힌트 낱말 겹침에서 빼는 물음 틀 낱말
+_Q_STOP = {"무엇", "무엇인가요", "어떤", "어떻게", "어느", "있나요", "했는데", "라고", "이라고", "대해", "설명해", "주세요",
+           "경우", "의미", "근거", "이유", "자료", "발표", "말씀", "생각", "그렇게", "있는", "하는", "것은", "것이", "이런", "그런"}
+_JOSA_TAIL = re.compile(r"(?:으로|에서|에게|까지|부터|처럼|보다|이라|이나|라고|은|는|이|가|을|를|의|에|와|과|도|로|만)$")
+
+
+def content_words(text: str) -> set[str]:
+    out = set()
+    for w in re.findall(r"[가-힣A-Za-z0-9%.]{2,}", _TAG_RE.sub(" ", text or "")):
+        w = _JOSA_TAIL.sub("", w) if len(w) > 2 else w
+        if len(w) >= 2 and w not in _Q_STOP:
+            out.add(w)
+    return out
+
+
+def overlap(question: str, quote: str) -> int:
+    """질문 내용 낱말 중 힌트 인용에 (앞 두 글자 이상 줄기로) 나오는 것의 수."""
+    qn = norm(quote)
+    return sum(1 for w in content_words(question) if norm(w[:max(2, len(w) - 1)]) in qn)
+
+
+#: 되물음 선택지가 명사(구)가 아닌 꼴 — 활용 어미·명사형 어미·조사로 끝난다 (09-29 기준선: '중요함'·'늘릴수록'·'차지해'·'설명할')
+_NOT_NOUN_RE = re.compile(r"(?:다|요|함|됨|음|할|했|해서|하는|하게|하고|하며|수록|지만|면서|겠|된|되는|돼|해|은|는|을|를|의|에|로)$")
+_NOUN_OK = {"올해", "피해", "이해", "방해", "손해", "재해", "마음", "처음", "다음", "소음", "얼음", "기로", "도로", "경로", "진로",
+}
+
+
+def choice_quality(choices: list[str], deck_text: str, quote: str = "") -> dict:
+    """「모르겠어요」·발판 선택지 둘이 **명사(구)** 이고 **자료에 글자 그대로** 있는가 (정규화 부분 문자열)."""
+    def noun(c: str) -> bool:
+        last = (re.findall(r"[가-힣A-Za-z0-9%]+", c) or [""])[-1]
+        # 셋 글자 이상이 「지」로 끝나면 용언 줄기(「떨어지」「보이지」) — 「유지」「의지」 같은 두 글자 명사는 둔다
+        stem = len(last) >= 3 and last.endswith("지")
+        return bool(last) and (last in _NOUN_OK or not (_NOT_NOUN_RE.search(last) or stem))
+    dn = norm(deck_text)
+    return {"n": len(choices), "noun": bool(choices) and all(noun(c) for c in choices),
+            "in_deck": bool(choices) and all(norm(c) and norm(c) in dn for c in choices),
+            "in_quote": bool(choices and quote) and sum(1 for c in choices if norm(c) in norm(quote)) >= 1,
+            "choices": list(choices)}
+
+
 def hint_metrics(qdoc: dict, slide_doc: dict, truth: dict | None, ladders: dict[str, list[str]]) -> dict:
     raw = slide_raw(slide_doc)
     planted = {t["id"]: t for t in (truth or {}).get("planted") or []}
@@ -343,6 +407,7 @@ def hint_metrics(qdoc: dict, slide_doc: dict, truth: dict | None, ladders: dict[
             "verbatim": verbatim(quote, raw.get(no, "")) if quote else None,
             "in_probe_evidence": in_probe, "noise": noise_quote(quote, noise), "quote": quote, "slide": no,
             "ladder_len": len(ladder), "locate_first": bool(ladder) and ladder[0].startswith("자료"),
+            "overlap": overlap(q.get("question", ""), quote) if quote else None,
             "probe": probe["kind"] if probe else "",
         })
     # 탐침이 심은 항목을 짚은 질문이면, 힌트 인용이 그 항목의 근거 줄인가
@@ -365,6 +430,8 @@ def hint_metrics(qdoc: dict, slide_doc: dict, truth: dict | None, ladders: dict[
         "probe_in_evidence": sum(1 for r in probe_rows if r["in_probe_evidence"]),
         "noise": [f"{r['id']}: {r['noise']} «{r['quote'][:50]}»" for r in rows if r["noise"]],
         "locate_first": sum(1 for r in rows if r["locate_first"]) / n,
+        "overlap_any": sum(1 for r in quoted if (r["overlap"] or 0) >= 1),
+        "overlap_zero": [f"{r['id']}: S{r['slide']} «{r['quote'][:50]}»" for r in quoted if not r["overlap"]],
         "rows": rows,
     }
 
@@ -383,6 +450,7 @@ def judge_row(kind: str, j: dict) -> dict:
     return {"kind": kind, "verdict": j.get("verdict"), "score": j.get("score"), "outcome": outcome,
             "expect": exp, "ok": ok, "flags": judgement_flags(j), "react": j.get("react", ""),
             "missing": j.get("missing_points") or [], "followup": j.get("followup", ""),
+            "choices": j.get("choices") or [], "coach_stage": j.get("coach_stage", ""),
             "explanation": (j.get("explanation") or "")[:200]}
 
 

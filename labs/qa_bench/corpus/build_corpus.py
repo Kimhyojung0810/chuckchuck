@@ -359,6 +359,70 @@ DECKS["health_glucose"] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# 7. 공공 도서관 이용 활성화 (P5 최종 평가 때 새로 만든 덱 — 규칙·프롬프트를 고칠 때 한 번도 안 본 PPT)
+#    일부러 앞 여섯 덱과 겉모양을 바꿨다: 비교가 명사구(「X보다 중요한 Y」)가 아니라 문장(「X보다 더 중요한 것은 Y입니다」),
+#    쪽 번호는 「- n -」, 유보는 「…하는 편입니다」, 표가 두 장(추세·시범 결과)이다.
+# ---------------------------------------------------------------------------
+DECKS["lib_reopen"] = {
+    "context": {"situation": "school_project", "duration_min": 7},
+    "group": "new",
+    "doc": deck("해오름도서관_이용활성화_제안.pptx", [
+        slide(1, "# 다시 찾고 싶은 도서관", "구립 해오름도서관 이용 활성화 제안",
+              "대출 권수보다 더 중요한 것은 독서 경험입니다.", "- 1 -"),
+        slide(2, "# 줄어드는 발길", "| 연도 | 연간 방문자 | 1인당 대출 권수 |", "| 2023 | 84,200명 | 3.1권 |",
+              "| 2024 | 79,500명 | 2.6권 |", "| 2025 | 71,800명 | 2.2권 |", "3년 사이 연간 방문자가 15% 줄었습니다.", "- 2 -"),
+        slide(3, "# 왜 발길이 끊겼나", "스마트폰 사용 시간이 늘면서 청소년의 도서관 방문이 줄었습니다.",
+              "“도서관에 마지막으로 간 때는?”", "① 이번 달", "② 올해", "③ 기억 안 남", "- 3 -"),
+        slide(4, "# 독서 경험을 이루는 것", "독서 경험 =", "대출 권수", "×", "머문 시간", "×", "공간 만족도",
+              "얼마나 빌렸는가", "얼마나 머물렀는가", "다시 오고 싶은가", "- 4 -"),
+        slide(5, "# 이용을 가로막는 세 가지 장벽", "짧은 운영 시간", "부족한 열람 좌석", "낡은 온라인 예약 시스템", "- 5 -"),
+        slide(6, "# 제안", "야간 연장 개방 — 평일 22시까지 열어 짧은 운영 시간 문제를 풉니다.",
+              "자유열람실 확충 — 예약 없이 앉는 열람 좌석을 40석 늘립니다.",
+              "연장 개방을 하면 퇴근 후 이용자는 반드시 늘어납니다.", "- 6 -"),
+        slide(7, "# 시범 운영 결과 (2025년 9~10월, 8주)", "| 지표 | 시범 전 | 시범 후 |",
+              "| 평일 19시 이후 방문 | 월 1,150명 | 월 2,040명 |", "| 열람실 평균 대기 | 23분 | 9분 |",
+              "야간 연장 개방 후 19시 이후 방문이 77% 늘었습니다.", "- 7 -"),
+        slide(8, "# 이용자 목소리", "조용한 공간을 찾는 이용자는 스터디룸보다 개인 열람석을 선호하는 편입니다.",
+              "“밤에 열어서 퇴근길에 들를 수 있어요” — 직장인 이용자", "- 8 -"),
+        slide(9, "# 기대 효과와 요청", "연간 방문자 8만 명 회복", "야간 인력 2명 · 연 6,800만 원", "감사합니다", "- 9 -"),
+    ]),
+    "truth": {
+        "control_tension": False,
+        "planted": [
+            {"id": "T1", "kind": "tension", "expect": "probe", "slides": [1, 4],
+             "labels_any": ["독서 경험"], "quote_any": ["대출 권수보다 더 중요한", "독서 경험 ="],
+             "note": "대출 권수보다 중요하다면서 대출 권수가 독서 경험의 요소 — 비교가 문장꼴"},
+            {"id": "U1", "kind": "unsolved", "expect": "probe", "slides": [5, 6],
+             "labels_any": ["온라인 예약", "예약 시스템"], "quote_any": ["낡은 온라인 예약"],
+             "note": "제안이 운영 시간·좌석만 다루고 예약 시스템은 비어 있다"},
+            {"id": "C1", "kind": "unsupported_cause", "expect": "probe", "slides": [3],
+             "labels_any": ["스마트폰", "청소년"], "quote_any": ["스마트폰 사용 시간이 늘면서"],
+             "note": "3장에 수치·출처 없음 (설문 보기만 있다)"},
+            {"id": "C2", "kind": "supported_cause", "expect": "no_probe", "slides": [7],
+             "labels_any": ["야간 연장", "연장 개방"], "quote_any": ["77% 늘었"],
+             "note": "수치가 있는 인과 — unsupported_cause 가 나오면 오탐"},
+            {"id": "A1", "kind": "absolute_boundary", "expect": "probe", "slides": [6],
+             "labels_any": ["연장 개방", "야간 연장", "퇴근 후 이용자"], "quote_any": ["반드시 늘어납니다"],
+             "note": "단정"},
+            {"id": "H1", "kind": "hedged", "expect": "no_probe", "slides": [8],
+             "labels_any": ["개인 열람석", "열람석"], "quote_any": ["선호하는 편입니다"],
+             "note": "유보 — absolute_boundary 가 나오면 오탐"},
+        ],
+        "claims": [
+            {"kind": "compare", "slide": 1, "quote_any": ["대출 권수보다 더 중요한"]},
+            {"kind": "compose", "slide": 4, "quote_any": ["독서 경험 ="]},
+            {"kind": "compose", "slide": 5, "quote_any": ["짧은 운영 시간", "세 가지 장벽", "부족한 열람 좌석", "낡은 온라인 예약"]},
+            {"kind": "solve", "slide": 6, "quote_any": ["야간 연장 개방"]},
+            {"kind": "solve", "slide": 6, "quote_any": ["자유열람실", "40석"]},
+            {"kind": "cause", "slide": 3, "quote_any": ["스마트폰 사용 시간이"]},
+            {"kind": "absolute", "slide": 6, "quote_any": ["반드시 늘어납니다"]},
+        ],
+        "noise_lines": ["① 이번 달", "② 올해", "③ 기억 안 남"] + [f"- {i} -" for i in range(1, 10)],
+    },
+}
+
+
 def transcript_of(script: list[tuple[int, float, float, str]]) -> dict:
     """(장, 시작, 끝, 말) → Transcript dict. 낱말 시각은 구간 안에 고르게 나눈다 (합성)."""
     by_slide, words_all = [], []
@@ -378,7 +442,7 @@ def main() -> None:
         d = HERE / name
         d.mkdir(parents=True, exist_ok=True)
         (d / "slidedoc.json").write_text(json.dumps(spec["doc"], ensure_ascii=False, indent=1), encoding="utf-8")
-        truth = {"deck": name, "synthetic": True, "context": spec["context"], **spec["truth"]}
+        truth = {"deck": name, "synthetic": True, "context": spec["context"], "group": spec.get("group", "heldout"), **spec["truth"]}
         (d / "truth.json").write_text(json.dumps(truth, ensure_ascii=False, indent=1), encoding="utf-8")
         if spec.get("transcript_script"):
             (d / "transcript.json").write_text(

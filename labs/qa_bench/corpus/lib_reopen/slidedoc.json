@@ -1,0 +1,276 @@
+{
+ "file_name": "해오름도서관_이용활성화_제안.pptx",
+ "total_slides": 9,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "다시 찾고 싶은 도서관",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "다시 찾고 싶은 도서관"
+    },
+    {
+     "category": "paragraph",
+     "text": "구립 해오름도서관 이용 활성화 제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "대출 권수보다 더 중요한 것은 독서 경험입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "- 1 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "줄어드는 발길",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "줄어드는 발길"
+    },
+    {
+     "category": "table",
+     "text": "| 연도 | 연간 방문자 | 1인당 대출 권수 |"
+    },
+    {
+     "category": "table",
+     "text": "| 2023 | 84,200명 | 3.1권 |"
+    },
+    {
+     "category": "table",
+     "text": "| 2024 | 79,500명 | 2.6권 |"
+    },
+    {
+     "category": "table",
+     "text": "| 2025 | 71,800명 | 2.2권 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "3년 사이 연간 방문자가 15% 줄었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "- 2 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "왜 발길이 끊겼나",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "왜 발길이 끊겼나"
+    },
+    {
+     "category": "paragraph",
+     "text": "스마트폰 사용 시간이 늘면서 청소년의 도서관 방문이 줄었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "“도서관에 마지막으로 간 때는?”"
+    },
+    {
+     "category": "paragraph",
+     "text": "① 이번 달"
+    },
+    {
+     "category": "paragraph",
+     "text": "② 올해"
+    },
+    {
+     "category": "paragraph",
+     "text": "③ 기억 안 남"
+    },
+    {
+     "category": "paragraph",
+     "text": "- 3 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "독서 경험을 이루는 것",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "독서 경험을 이루는 것"
+    },
+    {
+     "category": "paragraph",
+     "text": "독서 경험 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "대출 권수"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "머문 시간"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "공간 만족도"
+    },
+    {
+     "category": "paragraph",
+     "text": "얼마나 빌렸는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "얼마나 머물렀는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "다시 오고 싶은가"
+    },
+    {
+     "category": "paragraph",
+     "text": "- 4 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "이용을 가로막는 세 가지 장벽",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "이용을 가로막는 세 가지 장벽"
+    },
+    {
+     "category": "paragraph",
+     "text": "짧은 운영 시간"
+    },
+    {
+     "category": "paragraph",
+     "text": "부족한 열람 좌석"
+    },
+    {
+     "category": "paragraph",
+     "text": "낡은 온라인 예약 시스템"
+    },
+    {
+     "category": "paragraph",
+     "text": "- 5 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "제안",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "야간 연장 개방 — 평일 22시까지 열어 짧은 운영 시간 문제를 풉니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "자유열람실 확충 — 예약 없이 앉는 열람 좌석을 40석 늘립니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "연장 개방을 하면 퇴근 후 이용자는 반드시 늘어납니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "- 6 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "시범 운영 결과 (2025년 9~10월, 8주)",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "시범 운영 결과 (2025년 9~10월, 8주)"
+    },
+    {
+     "category": "table",
+     "text": "| 지표 | 시범 전 | 시범 후 |"
+    },
+    {
+     "category": "table",
+     "text": "| 평일 19시 이후 방문 | 월 1,150명 | 월 2,040명 |"
+    },
+    {
+     "category": "table",
+     "text": "| 열람실 평균 대기 | 23분 | 9분 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "야간 연장 개방 후 19시 이후 방문이 77% 늘었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "- 7 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "이용자 목소리",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "이용자 목소리"
+    },
+    {
+     "category": "paragraph",
+     "text": "조용한 공간을 찾는 이용자는 스터디룸보다 개인 열람석을 선호하는 편입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "“밤에 열어서 퇴근길에 들를 수 있어요” — 직장인 이용자"
+    },
+    {
+     "category": "paragraph",
+     "text": "- 8 -"
+    }
+   ]
+  },
+  {
+   "slide_no": 9,
+   "title": "기대 효과와 요청",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "기대 효과와 요청"
+    },
+    {
+     "category": "paragraph",
+     "text": "연간 방문자 8만 명 회복"
+    },
+    {
+     "category": "paragraph",
+     "text": "야간 인력 2명 · 연 6,800만 원"
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "- 9 -"
+    }
+   ]
+  }
+ ]
+}

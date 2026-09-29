@@ -5,6 +5,7 @@
   "situation": "competition",
   "duration_min": 7
  },
+ "group": "heldout",
  "control_tension": false,
  "planted": [
   {
