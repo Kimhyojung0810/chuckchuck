@@ -193,18 +193,166 @@ def bench_metrics(results: list[dict]) -> dict[str, dict]:
     n_q = sum(h["n"] for h in hrows)
     locate = sum(h["locate_first"] * h["n"] for h in hrows)
     scaf = [c for h in hrows for c in h.get("scaffold") or []]
-    two = [c for c in scaf if c["n"] == 2]
+    two_all = [c for c in scaf if c["n"] == 2]
+    # 입장 보기 쌍(탐침 — 「늘 맞아요」/「조건이 붙어요」)은 명사·자료 대조 잣대의 대상이 아니다 — 따로 센다 (09-30 WP-J3).
+    two = [c for c in two_all if not c.get("stance")]
+    stance = [c for c in two_all if c.get("stance")]
     return {
+        "replay.scaffold.stance_valid": S.ratio(sum(_stance_fits(c) for c in stance), len(stance),
+                                                [f"{c['q']}: {c['choices']} (탐침 {c.get('probe') or '-'})" for c in stance if not _stance_fits(c)]),
         "replay.probes.recall": S.ratio(hit, planted, [f"{r['name']}: 놓침 {[k for k, v in r['probes']['recall_by_id'].items() if not v]}"
                                                        for r in truthy if r["probes"]["planted_hit"] < r["probes"]["planted"]]),
         "replay.probes.precision": S.ratio(tp, plantable),
         "replay.probes.negative_fp": S.metric(len(fps), len(truthy), fps),
         "replay.hints.locate_first": S.ratio(round(locate), n_q),
-        "replay.scaffold.two_choices": S.ratio(len(two), len(scaf)),
+        "replay.scaffold.two_choices": S.ratio(len(two_all), len(scaf)),
         "replay.scaffold.noun": S.ratio(sum(c["noun"] for c in two), len(two), [f"{c['q']}: {c['choices']}" for c in two if not c["noun"]]),
         "replay.scaffold.in_deck": S.ratio(sum(c["in_deck"] for c in two), len(two),
                                            [f"{c['q']}: {c['choices']}" for c in two if not c["in_deck"]]),
     }
+
+
+def _stance_fits(row: dict) -> bool:
+    """입장 보기 쌍이 질문의 탐침과 같은 뜻인가 — 빈틈 두 종류(해결 방법·근거)는 같은 쌍을 쓴다. 탐침이 아닌 질문에 입장 쌍이면 틀린 것이다."""
+    kind, probe = row.get("stance") or "", row.get("probe") or ""
+    return bool(kind and probe) and T.STANCE_TRUTH.get(kind) == T.STANCE_TRUTH.get(probe)
+
+
+def _fill(masked: str, choices: list[str], sources: list[str]) -> str:
+    """빈칸 글의 ___ 자리에 든 말 — 보기 가운데 그 자리에 넣으면 원문(골자·인용·자료)에 그대로 있는 것, 없으면 원문에서 그 자리를 읽는다."""
+    body = re.split(r" — '", masked.split("빈칸을 채워 보세요: ", 1)[-1])[0]
+    body = re.sub(r"\s*\(자료 \d+장\)\s*$", "", body)
+    inner = re.search(r"「([^」]*___[^」]*)」", body)
+    body = inner.group(1) if inner else body
+    if "___" not in body:
+        return ""
+    pre, post = body.split("___", 1)
+    pre, post = T.squash(pre)[-10:], T.squash(post)[:10]
+    hay = [T.squash(x) for x in sources if x]
+    for c in choices:
+        if any(f"{pre}{T.squash(c)}{post}" in h for h in hay):
+            return c
+    for h in hay:
+        m = re.search(re.escape(pre) + r"(.{1,24}?)" + re.escape(post), h) if (pre or post) else None
+        if m:
+            return m.group(1)
+    return ""
+
+
+def _shown(word: str, question: dict) -> bool:
+    """
+    가린 말이 질문 문장·개념 이름에 이미 보이는가 — 글자 그대로(띄어쓰기 무시) 또는 내용 낱말이 전부 질문 낱말의 머리로 있다.
+    머리 대조는 한쪽으로만 — 가린 말이 질문 낱말의 머리(「행동」 ← 「행동이」)일 때. `_fill` 이 띄어쓰기를 지운 복합어(「혈당지수」)를
+    질문의 짧은 낱말(「혈당」)과 양쪽 머리 대조로 같게 보면 헛집계다 (09-30 WP-J3 quick: 「혈당 부하 = ___ × 탄수화물 양」).
+    """
+    w = T.squash(word)
+    hay = f"{question.get('question', '')} {question.get('label', '')}"
+    if not w:
+        return False
+    if w in T.squash(hay):
+        return True
+    toks, hay_toks = T.tokens(word), T.tokens(hay)
+    return bool(toks) and all(any(h == x or h.startswith(x) for h in hay_toks) for x in toks)
+
+
+def blank_metrics(cache: Path, names: list[str], tracks: tuple[str, ...]) -> tuple[dict[str, dict], list[str]]:
+    """
+    빈칸 규칙 (09-30 WP-J3) — 두 사다리(「모르겠어요」 발판 · 힌트 사다리의 빈칸 칸)가 **질문이 이미 보여 준 말**을 가리는 몫. 함정 질문은 뺀다
+    (질문이 틀린 전제를 보여 주는 것이 그 질문이다 — 빈칸은 바로잡을 값이다). 가린 말은 원문(골자·인용·사실 줄·자료)에 보기를 넣어 되찾는다.
+    """
+    from chuckchuck.contracts import ConceptGraph, Question, SlideDoc
+    from chuckchuck.f08_questions import build_hint_ladder
+    from chuckchuck.f09_judge import _deck_text, _scaffold_judgement
+
+    scaf_hit = scaf_n = hint_hit = hint_n = 0
+    scaf_ex: list[str] = []
+    hint_ex: list[str] = []
+    errors: list[str] = []
+    for name in names:
+        d = cache / name
+        try:
+            sd = SlideDoc.from_dict(C.read_json(d / "slide_doc.json"))
+            g = ConceptGraph.from_dict(C.read_json(d / "graph.json"))
+            deck = _deck_text(sd)
+            for t in tracks:
+                for qd in (C.read_json(d / f"questions_t{t}.json") or {}).get("questions") or []:
+                    if qd.get("trap") or qd.get("trap_premise"):
+                        continue
+                    q = Question.from_dict(qd)
+                    probe_quotes = [e.quote for e in (q.basis.probe.evidence if q.basis and q.basis.probe else [])]
+                    sources = [q.answer_gist, q.evidence_quote, *probe_quotes, deck]
+                    j = _scaffold_judgement(q, g, deck)
+                    if j is not None and "___" in j.followup:
+                        word = _fill(j.followup, list(j.choices), sources)
+                        if word and not T.stance_pair(list(j.choices)):
+                            scaf_n += 1
+                            if _shown(word, qd):
+                                scaf_hit += 1
+                                scaf_ex.append(f"{name}/t{t}/{q.id}: 「{word}」 — {j.followup[:90]}")
+                    rung = next((h for h in build_hint_ladder(q) if h.startswith("빈칸을 채워 보세요")), "")
+                    if rung and "___" in rung and not re.search(r"'[^']+' 인가요, '[^']+' 인가요", rung):
+                        word = _fill(rung, [], sources)
+                        if word:
+                            hint_n += 1
+                            if _shown(word, qd):
+                                hint_hit += 1
+                                hint_ex.append(f"{name}/t{t}/{q.id}: 「{word}」 — {rung[:90]}")
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"blank {name}: {type(e).__name__}: {str(e)[:120]}")
+    return {
+        "replay.scaffold.blank_in_question": S.ratio(scaf_hit, scaf_n, scaf_ex),
+        "replay.hints.blank_in_question": S.ratio(hint_hit, hint_n, hint_ex),
+    }, errors
+
+
+_TEMPLATE_CHECKS = {"gist_template", "fallback_template"}
+_REBUILT_CHECKS = {"gist_probe_code", "gist_probe_rebuilt", "gist_rebuilt_trap"}
+
+
+def _placeholder_gist(q: dict) -> bool:
+    """자리 표시 골자(코드 틀·자료 줄 이어 붙이기) — 모범답이 아니라서 자체 점검 대상이 아니다 (대상 f09 `_template_gist` 와 같은 뜻)."""
+    checks = set(((q.get("basis") or {}).get("checks")) or [])
+    gist = q.get("answer_gist") or ""
+    return ((bool(_TEMPLATE_CHECKS & checks) and not (_REBUILT_CHECKS & checks))
+            or gist.startswith("자료는 이렇게 말해요"))
+
+
+def gist_self_metrics(cache: Path, names: list[str], tracks: tuple[str, ...],
+                      docs: list[tuple[str, str, dict, dict, dict]]) -> tuple[dict[str, dict], list[str]]:
+    """
+    「골자가 자체 가드에 걸리는 몫」 (09-30 WP-J3) — 재생한 F-08 질문(지금 코드)마다 **그 질문의 골자**를 첫 답으로 넣었을 때 코드 가드가
+    막는가. 대상에 `f09_judge.gist_self_check`(골자 바닥을 끈 채 「good 85」 대본으로 돌린다)가 있으면 그것, 없으면(옛 대상) 같은 대본으로
+    `judge_answer` 를 돌려 good 이 아니면 걸린 것으로 센다. 자리 표시 골자는 뺀다. 목표 0 — 우리가 「이렇게 말하면 완성이에요」 로 보여 주는
+    문장을 우리 가드가 떨구면 그 가드가 틀린 것이다.
+    """
+    from chuckchuck import judge_answer
+    from chuckchuck import f09_judge as F9
+
+    from . import guard_audit as GA
+
+    hit = n = 0
+    ex: list[str] = []
+    errors: list[str] = []
+    check = getattr(F9, "gist_self_check", None)
+    for name, t, doc, sd, graph in docs:
+        for q in doc.get("questions") or []:
+            gist = (q.get("answer_gist") or "").strip()
+            if not gist or _placeholder_gist(q):
+                continue
+            try:
+                if check is not None:
+                    why = check(q, slidedoc=sd, graph=graph)
+                else:
+                    j = judge_answer(q, gist, slidedoc=sd, graph=graph, llm=GA.make_permissive(q)).to_dict()
+                    why = "" if j.get("verdict") == "good" else (j.get("guard") or f"{j.get('verdict')}/{j.get('score')}")
+            except Exception as e:  # noqa: BLE001
+                errors.append(f"gist_self {name} t{t} {q.get('id')}: {type(e).__name__}: {str(e)[:120]}")
+                continue
+            n += 1
+            if why:
+                hit += 1
+                ex.append(f"{name}/t{t}/{q.get('id')}: {why} — «{gist[:90]}»")
+    return {"replay.gist_self_guard": S.ratio(hit, n, ex)}, errors
 
 
 def reason_metrics(RM, cache: Path, names: list[str], tracks: tuple[str, ...]) -> tuple[dict[str, dict], list[str]]:
@@ -260,6 +408,7 @@ def run(cache: Path, decks: list[str] | None, tracks: tuple[str, ...]) -> dict:
         names = [n for n in names if n in decks]
     errors: list[str] = []
     rows_all: list[dict] = []
+    rows_all_docs: list[tuple[str, str, dict, dict, dict]] = []
     done = total = 0
     misses: list[str] = []
     results = []
@@ -291,6 +440,7 @@ def run(cache: Path, decks: list[str] | None, tracks: tuple[str, ...]) -> dict:
                 misses.append(f"{name} t{t} ({why})")
                 continue
             done += 1
+            rows_all_docs.append((name, t, doc, sd, graph))
             cached = {q["id"]: q for q in cached_doc.get("questions") or []}
             for r in question_rows(doc.get("questions") or [], sd, cached, question_flags, is_fallback, M):
                 rows_all.append(dict(r, id=f"{name}/t{t}/{r['id']}"))
@@ -299,6 +449,12 @@ def run(cache: Path, decks: list[str] | None, tracks: tuple[str, ...]) -> dict:
     rm, rerr = reason_metrics(RM, cache, names, tracks)
     metrics.update(rm)
     errors += rerr
+    bm, berr = blank_metrics(cache, names, tracks)
+    metrics.update(bm)
+    errors += berr
+    gm, gerr = gist_self_metrics(cache, names, tracks, rows_all_docs)
+    metrics.update(gm)
+    errors += gerr
     metrics["replay.errors"] = S.metric(len(errors), None, errors)
     return {"metrics": metrics, "decks": names, "f08_rows": rows_all[:400]}
 

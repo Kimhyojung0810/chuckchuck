@@ -145,6 +145,17 @@ def choice_row(q: dict, graph, deck_text: str, lines: list[str]) -> dict:
     qq = Question.from_dict(q)
     followup, choices = _narrow_followup({}, qq, graph, deck_text)
     b = q.get("basis") or {}
+    # 탐침 질문의 입장 보기 쌍 (09-30 WP-J3) — 맞는 쪽은 탐침 종류가 정한다(잣대 쪽 정의 `metrics.STANCE_TRUTH`). 쌍의 종류가 질문의 탐침과 같은
+    # 뜻(빈틈 둘은 같다)이면 유효다.
+    from metrics import STANCE_TRUTH, stance_pair
+
+    kind = stance_pair(list(choices))
+    if kind:
+        probe_kind = ((b.get("probe") or {}).get("kind") or "")
+        right = STANCE_TRUTH.get(probe_kind, (None, None))[0]
+        answer = next((c for c in choices if right is not None and right.search(c)), "")
+        ok = bool(answer) and STANCE_TRUTH.get(kind) == STANCE_TRUTH.get(probe_kind)
+        return {"q": q["id"], "choices": choices, "answer": answer, "valid": ok, "followup": followup, "stance": kind}
     if len(b.get("contrast") or []) == 2 and hasattr(qq.basis, "contrast"):
         answer = b["contrast"][0]
     else:

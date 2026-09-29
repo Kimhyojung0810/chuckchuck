@@ -62,7 +62,11 @@ def _judged(turns: list[dict]) -> list[dict]:
     return [t for t in turns if t.get("judge")]
 
 
-def score_persona(name: str, turns: list[dict]) -> dict:
+def T_stance(chips: list[str]) -> str:
+    return P.T.stance_pair([str(c) for c in chips or []])
+
+
+def score_persona(name: str, turns: list[dict], question: dict | None = None) -> dict:
     """페르소나 기대 채점 — 지표 conv.* 의 분자·분모."""
     js = _judged(turns)
     first = js[0]["judge"] if js else {}
@@ -92,10 +96,13 @@ def score_persona(name: str, turns: list[dict]) -> dict:
     elif name == "DUNNO":
         stucks = [t for t in turns if t["action"] == "stuck"]
         j1 = (stucks[0].get("judge") or {}) if stucks else {}
-        chips_ok = len(j1.get("choices") or []) >= 2 and not any(x["tag"] == "relevance.choice_invalid" for x in stucks[0]["tags"]) if stucks else False
+        chips = list(j1.get("choices") or [])
+        invalid = bool(stucks) and any(x["tag"] == "relevance.choice_invalid" for x in stucks[0]["tags"])
+        # 입장이 서지 않는 탐침·자리 표시 골자는 보기 없이 위치 단계가 맞다 (09-30 WP-J3) — 그 질문에서 보기가 없는 것은 실패가 아니다.
+        chips_ok = (len(chips) >= 2 and not invalid) or (not chips and question is not None and P.no_binary_expected(question))
         second = (stucks[1].get("judge") or {}).get("coach_stage") if len(stucks) >= 2 else ""
-        out["dunno_ok"] = bool(chips_ok) and second in ("scaffold", "explain")
-        out["dunno_detail"] = {"choices": j1.get("choices"), "second_stage": second}
+        out["dunno_ok"] = bool(stucks) and bool(chips_ok) and second in ("scaffold", "explain")
+        out["dunno_detail"] = {"choices": chips, "second_stage": second, "stance": T_stance(chips)}
     elif name == "HINTS":
         opened = sum(1 for t in turns if t["action"] == "hint")
         out["hints_ok"] = opened >= 1 and any(passed(t) for t in js[:2])
@@ -189,7 +196,7 @@ class Player:
             if not closed():
                 do("answer", "good_more", a.get("good_more") or a["good"])
         self._exit(closed, do, a)
-        return turns, score_persona(name, turns)
+        return turns, score_persona(name, turns, q)
 
     def _exit(self, closed, do, a: dict) -> None:
         """닫히지 않았으면 LLM 없이 나간다 — 다시 말하기 · 답 펼치기 → 다시 말하기 · 실험실 건너뛰기."""

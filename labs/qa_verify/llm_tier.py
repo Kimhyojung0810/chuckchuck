@@ -159,7 +159,8 @@ def _conversations(bridge: Bridge, preps: list[dict], packs: dict[int, dict], ru
         rec = CV.play_session(bridge.base, prep, packs[i]["personas"], plan,
                               run_dir / f"{C.nfc(prep['deck'])}_{prep['mode']}_t{prep['track']}",
                               budget_check=lambda: bridge.used() + 1 <= limit)
-        records.append(rec)
+        # 사다리 검사(`_ladder_checks`)가 질문(골자·탐침 줄)과 자료 원문을 본다 — 기록에는 싣지 않고 메모리에서만 잇는다
+        records.append(dict(rec, questions=prep["questions"], deck_raw=P_texts(prep.get("slide_doc") or {})))
     return records
 
 
@@ -181,6 +182,7 @@ def _conv_metrics(records: list[dict]) -> dict[str, dict]:
     lat = [t["judge_sec"] for t in turns if t.get("judge_sec")]
     out["conv.latency_p50"] = S.metric(TG.percentile(lat, 0.5), len(lat))
     out["conv.latency_p90"] = S.metric(TG.percentile(lat, 0.9), len(lat))
+    out.update(_ladder_checks(records))
     forced, mismatch = _result_checks(records)
     out["conv.forced_close_counted"] = S.metric(len(forced), None, forced)
     out["conv.result_count_mismatch"] = S.metric(len(mismatch), None, mismatch)
@@ -190,6 +192,52 @@ def _conv_metrics(records: list[dict]) -> dict[str, dict]:
     errs += [f"{r['deck']}: {c}" for r in records for c in r.get("console") or [] if "pageerror" in c]
     out["conv.errors"] = S.metric(len(errs), None, errs)
     return out
+
+
+def _ladder_checks(records: list[dict]) -> dict[str, dict]:
+    """
+    실대화의 「모르겠어요」 사다리 (09-30 WP-J3):
+    - conv.stuck_choice_valid — 첫 단계 보기 쌍이 유효한 몫(보기 태그 없음 · 입장 쌍이면 질문의 탐침과 같은 뜻).
+    - conv.scaffold_blank_in_question — 발판 빈칸의 가린 말이 질문에 이미 보인 몫 (함정 빼고).
+    """
+    from . import replay as RP
+
+    valid = n = blank_hit = blank_n = 0
+    bad, blanks = [], []
+    for r in records:
+        qs = {q.get("id"): q for q in (r.get("questions") or [])}
+        for t in r["turns"]:
+            j = t.get("judge") or {}
+            q = qs.get(t.get("qid")) or {}
+            stage = j.get("coach_stage")
+            if stage == "narrow" and j.get("choices"):
+                n += 1
+                kind = T_stance(j["choices"])
+                probe = ((q.get("basis") or {}).get("probe") or {}).get("kind", "")
+                ok = not any(x["tag"] == "relevance.choice_invalid" for x in t.get("tags") or [])
+                if kind:
+                    ok = ok and RP._stance_fits({"stance": kind, "probe": probe})
+                valid += ok
+                if not ok:
+                    bad.append(f"{r['deck']} Q{t['q']}: {j['choices']} (탐침 {probe or '-'})")
+            if stage == "scaffold" and "___" in str(j.get("followup") or "") and not (q.get("trap") or q.get("trap_premise")):
+                probe_quotes = [e.get("quote", "") for e in (((q.get("basis") or {}).get("probe") or {}).get("evidence") or [])]
+                deck = "\n".join(str(x) for x in (r.get("deck_raw") or {}).values())
+                word = RP._fill(str(j["followup"]), [] if T_stance(j.get("choices") or []) else list(j.get("choices") or []),
+                                [q.get("answer_gist", ""), q.get("evidence_quote", ""), *probe_quotes, deck])
+                if word and not T_stance(j.get("choices") or []):
+                    blank_n += 1
+                    if RP._shown(word, q):
+                        blank_hit += 1
+                        blanks.append(f"{r['deck']} Q{t['q']}: 「{word}」 — {str(j['followup'])[:90]}")
+    return {"conv.stuck_choice_valid": S.ratio(valid, n, bad),
+            "conv.scaffold_blank_in_question": S.ratio(blank_hit, blank_n, blanks)}
+
+
+def T_stance(chips: list) -> str:
+    from . import textkit as TK
+
+    return TK.stance_pair([str(c) for c in chips or []])
 
 
 def _persona_examples(records: list[dict], key: str) -> list[str]:
@@ -298,11 +346,21 @@ def _redteam(target: Target, bridge: Bridge, preps: list[dict], packs: dict[int,
         for rows in per_session:
             if n < len(rows):
                 plan.append(rows[n])
-    picked = R.pick_budgeted(plan, attack_budget)
+    picked = R.pick_budgeted(plan, attack_budget - min(sum(len(p["questions"]) for _, p in sessions), attack_budget // 3))
     items = []
     for n, row in enumerate(picked):
         prep = preps[row["session"]]
         items.append(_item(f"atk|{n}", by_q[(row["session"], row["qid"])], row["rounds"], prep))
+    # 골자 되읽기 (09-30 WP-J3) — 질문마다 **그 질문의 골자**를 첫 답으로. 우리가 「이렇게 말하면 완성이에요」 로 보여 주는 문장이니 good 이어야 한다.
+    # 자리 표시 골자(코드 틀·자료 줄 이어 붙이기)는 모범답이 아니라 뺀다. 공격보다 먼저 담는다(질문 수만큼 · 판정 1콜씩).
+    gist_items = []
+    for i, prep in sessions:
+        for q in prep["questions"]:
+            gist = str(q.get("answer_gist") or "").strip()
+            if gist and not P_placeholder(q):
+                gist_items.append(_item(f"gist|{i}|{q.get('id', '')}", q, [gist], prep))
+    gist_items = gist_items[:max(0, attack_budget // 3)]
+    items.extend(gist_items)
     det = next(((i, a) for i, p in sessions for a in packs[i]["attacks"] if a["attack"] == "control"), None)
     if det and budget_left - sum(len(x["rounds"]) for x in items) >= 3:
         i, a = det
@@ -331,12 +389,27 @@ def _redteam(target: Target, bridge: Bridge, preps: list[dict], packs: dict[int,
         rows.append(dict(attack=row["attack"], expect=row["expect"], deck=row["deck"], qid=row["qid"], passed=o["passed"],
                          answer=row["rounds"][-1][:160], react=str((js[-1] or {}).get("react") or "")[:120],
                          verdict=(js[-1] or {}).get("verdict"), score=(js[-1] or {}).get("score")))
+    extra["gist"] = [{"key": it["key"], "gist": it["rounds"][0][:160], **((res.get(it["key"]) or [{}])[0])} for it in gist_items
+                     if res.get(it["key"])]
     extra["det"] = [(res.get(f"det|{k}") or [{}])[0] for k in range(3) if res.get(f"det|{k}")]
     extra["inj"] = [(res.get(f"inj|{k}") or [{}])[0] for k in range(2) if res.get(f"inj|{k}")]
     extra["tamper"] = _tamper(bridge, preps, packs)
     extra["judge_error"] = got.get("error")
     C.write_json(run_dir / "redteam.json", {"rows": rows, "extra": extra})
     return rows, extra
+
+
+def P_texts(slide_doc: dict) -> dict:
+    from . import textkit as TK
+
+    return TK.slide_texts(slide_doc)
+
+
+def P_placeholder(q: dict) -> bool:
+    """자리 표시 골자인가 (잣대 쪽 정의 — replay `_placeholder_gist` 와 같다)."""
+    from .replay import _placeholder_gist
+
+    return _placeholder_gist(q)
 
 
 def _item(key: str, q: dict, rounds: list[str], prep: dict) -> dict:
@@ -413,6 +486,12 @@ def _redteam_metrics(rows: list[dict], extra: dict) -> dict[str, dict]:
     if inj:
         out["redteam.slide_inject_pass"] = S.metric(sum(R.verdict_passed(j) for j in inj), len(inj),
                                                    [f"{j.get('verdict')}/{j.get('score')} «{str(j.get('react'))[:80]}»" for j in inj])
+    gists = extra.get("gist") or []
+    if gists:
+        bad = [g for g in gists if g.get("error") or g.get("verdict") != "good"]
+        out["conv.gist_replay_good"] = S.ratio(len(gists) - len(bad), len(gists),
+                                               [f"{g['key']}: {g.get('verdict')}/{g.get('score')} guard={g.get('guard')!r} «{g['gist'][:70]}» → "
+                                                f"«{str(g.get('react'))[:60]}»" for g in bad])
     tp = extra.get("tamper") or {}
     if tp.get("rows"):
         out["redteam.bridge_tamper_changed"] = S.metric(int(bool(tp.get("changed"))), 1,
