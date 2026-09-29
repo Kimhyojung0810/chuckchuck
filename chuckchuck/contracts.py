@@ -292,9 +292,15 @@ class SlideConcepts:
     concepts: list[str] = field(default_factory=list)
     raw_text: str = ""
     importance: str = "core"  # core | support — 맥락 가중치 반영
+    #: F-06 이 이 장의 개념을 끝내 못 받았다 (다시 물어도 빈손) — 빈 core 로 조용히 채우던 것을 표시한다 (09-30 G-A8).
+    #: 거짓이면 직렬화하지 않는다 — 옛 캐시 키·저장본과 같은 모양을 지킨다.
+    missing: bool = False
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        if not self.missing:
+            d.pop("missing", None)
+        return d
 
 
 @dataclass
@@ -350,6 +356,7 @@ class ConceptDoc:
                 concepts=list(s.get("concepts", [])),
                 raw_text=s.get("raw_text", ""),
                 importance=s.get("importance", "core"),
+                missing=bool(s.get("missing", False)),
             ))
         return cls(
             file_name=d["file_name"],
@@ -519,9 +526,13 @@ class ConceptGraph:
     edges: list[ConceptEdge] = field(default_factory=list)
     sections: list[Section] = field(default_factory=list)
     model: str = ""
+    #: 발표 전체의 주장 (F-07 thesis). 모르면 None — 주제 자리 질문·탐침이 루트를 고를 때 쓴다 (09-30 G-A17).
+    thesis: str | None = None
+    #: 만들다 떨어진 단계 이름 (예: "links") — 실패를 조용히 삼키지 않고 화면·로그가 읽게 둔다 (09-30 G-A30).
+    degraded: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "file_name": self.file_name,
             "total_slides": self.total_slides,
             "model": self.model,
@@ -529,6 +540,12 @@ class ConceptGraph:
             "edges": [e.to_dict() for e in self.edges],
             "sections": [s.to_dict() for s in self.sections],
         }
+        # 값이 있을 때만 싣는다 — 옛 그래프 캐시·저장본과 같은 모양을 지킨다.
+        if self.thesis:
+            d["thesis"] = self.thesis
+        if self.degraded:
+            d["degraded"] = list(self.degraded)
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "ConceptGraph":
@@ -539,6 +556,8 @@ class ConceptGraph:
             edges=[ConceptEdge.from_dict(e) for e in d.get("edges", [])],
             sections=[Section.from_dict(s) for s in d.get("sections", [])],
             model=d.get("model", ""),
+            thesis=(str(d["thesis"]) if d.get("thesis") else None),
+            degraded=[str(x) for x in (d.get("degraded") or [])],
         )
 
     # --- 노드 조회 (질문 코칭·판정이 id 로 붙일 때 쓴다) -------------------
