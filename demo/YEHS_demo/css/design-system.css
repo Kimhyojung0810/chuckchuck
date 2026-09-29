@@ -177,6 +177,11 @@ main > .verdict:first-child { margin-top: -24px; }
 .verdict-dims .vd-weak .lb { color: #CBEBDC; font-size: 13px; }
 .verdict-dims .vd-weak .vl { display: block; margin: 4px 0 10px; font-size: 30px; font-weight: 700; }
 .verdict-dims .vd-weak .bar { height: 5px; border-radius: 3px; }
+/* 녹음이 이 자료의 발표가 아닐 때 주인공 칸은 점수가 아니라 할 일 한 줄이다 (app.js reuploadDimsHtml · 09-30 REC-10) */
+.verdict-dims .vd-reupload .lb {
+  display: block; color: #fff;
+  font-size: 16px; font-weight: var(--w-bold); line-height: 1.45; word-break: keep-all;
+}
 .verdict-dims .vd-tag {
   display: inline-block; margin-bottom: 10px;
   padding: 4px 10px; border-radius: 999px;

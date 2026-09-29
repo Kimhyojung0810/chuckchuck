@@ -917,4 +917,6 @@ const DATA = {
 },
 };
 
-const STATUS = {ok:'설명함',mid:'언급만 함',no:'안 나옴',ct:'자료와 모순',om:'정당한 생략',fast:'빨라짐',none:'핵심 개념 없음'};
+/* na — 판정하지 않음. 녹음이 이 자료의 발표가 아니면(F-11 speech_match unrelated) 개념마다 「안 나옴」 이 아니라 이것이다 (09-30 REC-10).
+   판정 색 5종(--ok/--mid/--no/--ct/--om)은 쓰지 않는다 — 판정이 아니므로 중립 회색이다 (app.css .st-na) */
+const STATUS = {ok:'설명함',mid:'언급만 함',no:'안 나옴',ct:'자료와 모순',om:'정당한 생략',fast:'빨라짐',none:'핵심 개념 없음',na:'판정 안 함'};

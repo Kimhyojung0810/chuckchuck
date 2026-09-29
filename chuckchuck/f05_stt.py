@@ -34,6 +34,10 @@ _NIKKA_RE = re.compile(r"(.)니까$")
 _EUM_RE = re.compile(r"(^|.)음$")
 #: 「V-다 보면」「V-까 봐」 — 다음 낱말이 이것이면 앞 낱말은 끝이 아니라 이음이다 (「준비하다 보면」「늦을까 봐」).
 _JOINED_NEXT_RE = re.compile(r"^(?:보면|보니|보니까|보면은|보면서|보다가|봐|봐서|싶어|싶은|싶다)")
+#: 「A일까 B일까가 오늘 주제예요」「늘었을까 줄었을까를 봤어요」 — 다음 낱말도 물음꼴(「…까」「…는지」)이고 조사가 붙었거나 물음으로
+#: 끝나면 앞 「…까」 는 문장 끝이 아니라 **안긴 물음**(둘 중 하나를 묻는 명사절)의 앞 반쪽이다 (09-30 녹음 감사 REC-18: 장 경계가
+#: 「손해일까 | 이득일까가」 사이로 들어가 한 문장이 두 장으로 갈렸다).
+_EMBEDDED_Q_NEXT_RE = re.compile(r"^[가-힣]*(?:까|지)(?:가|를|는|은|도|에|의|로|부터|까지|요)?[.?!]?$")
 _JONG_B = 17        # 받침 ㅂ
 _JONG_SS = 20       # 받침 ㅆ
 _JONG_BS = 18       # 받침 ㅄ
@@ -64,6 +68,8 @@ def _sentence_end(text: str, next_text: str = "") -> bool:
     if m:
         return bool(m.group(1)) and _jong(m.group(1)) in (_JONG_SS, _JONG_BS)
     if t.endswith(("다", "까")) and _JOINED_NEXT_RE.match((next_text or "").strip()):
+        return False
+    if t.endswith("까") and _EMBEDDED_Q_NEXT_RE.match((next_text or "").strip()):
         return False
     return True
 

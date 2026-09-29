@@ -1,0 +1,3431 @@
+{
+ "full_text": "안녕하세요, 보건행정학과 이 학년 사 조예요. 저희는 지역 종합병원 외래에서 환자분들이 어디서 얼마나 기다리는지 직접 재 봤어요. 한 줄로 말하면, 기다리는 시간에 비해 의사를 만나는 시간은 턱없이 짧았어요. 오늘은 기다림이 어디서 생기는지, 그리고 어떻게 줄일 수 있는지 순서대로 말씀드릴게요. 왜 대기 시간을 봤냐면요. 외래 환자 한 분이 병원에 머무는 시간이 평균 구십사 분, 한 시간 반 남짓이에요. 그런데 정작 의사를 만나는 시간은 칠 분, 십 분도 안 돼요. 그래서인지 환자 열 명 중 여섯 명이 가장 큰 불만으로 긴 대기를 꼽았어요. 조사는 정형외과, 내과, 안과, 이렇게 외래 세 곳에서 했어요. 평일 열흘 동안 오전 아홉 시부터 오후 다섯 시까지 지키면서, 환자 사백십이 명의 접수, 진료, 수납 시각을 하나하나 적었어요. 병원 기록이 아니라 저희가 직접 잰 숫자예요. 응급 환자랑 당일 입원한 환자는 분석에서 제외했어요. 병원에서 보내는 시간을 쪼개 보면 이래요. 총 소요 시간은 접수 대기, 진료 대기, 진료, 수납 대기를 더한 거예요. 십일 분, 오십팔 분, 칠 분, 십팔 분, 합쳐서 구십사 분이죠. 여기서 진료 칠 분을 빼면 기다리는 데만 팔십칠 분을 쓰는 셈이에요. 그중에서도 제일 긴 게 진료 대기예요. 이번엔 예약 환자랑 당일 접수 환자를 나눠 봤어요. 예약하고 온 환자가 이백육십팔 명, 당일 접수한 환자가 백사십사 명이에요. 그럼 예약한 사람이 더 오래 기다렸을까요? 반대예요. 예약 환자는 사십일 분을 기다렸는데, 당일 접수 환자는 한 시간 반을 기다렸어요. 같은 진료를 받으려고 사십구 분을 더 기다린 거고, 두 배가 넘어요. 시간대별로도 나눠 봤어요. 시간대마다 차이가 꽤 났어요. 오전 아홉 시에서 열한 시 사이가 칠십이 분으로 제일 길었어요. 열한 시부터 한 시 사이는 오십일 분, 오후 두 시 이후는 삼십팔 분이었어요. 오후 대기는 오전 첫 두 시간의 절반 남짓이었던 거죠. 그래서 수납 대기부터 줄여 보려고, 이 주 동안 진료실 앞에서 모바일 수납 방법을 안내해 봤어요. 평균 수납 대기가 십팔 분에서 육 분으로 줄었어요. 삼분의 일이 된 거죠. 대기는 줄었지만 모바일 수납을 쓰는 분은 사 퍼센트에서 삼십일 퍼센트로, 여덟 배 가까이 늘었어요. 그래서 저희 제안은 세 가지예요. 당일 접수 환자에게 예상 대기 시간을 문자로 알려 드리고, 오전 예약 비중은 줄이고 오후 예약은 늘리고요, 안내 인력 두 명을 두는 거예요. 비용은 일 년에 오천사백만 원, 한 달로 치면 사백오십만 원이에요. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 1.0
+  },
+  {
+   "text": "보건행정학과",
+   "start_sec": 1.0,
+   "end_sec": 2.0
+  },
+  {
+   "text": "이",
+   "start_sec": 2.0,
+   "end_sec": 3.0
+  },
+  {
+   "text": "학년",
+   "start_sec": 3.0,
+   "end_sec": 4.0
+  },
+  {
+   "text": "사",
+   "start_sec": 4.0,
+   "end_sec": 5.0
+  },
+  {
+   "text": "조예요.",
+   "start_sec": 5.0,
+   "end_sec": 6.0
+  },
+  {
+   "text": "저희는",
+   "start_sec": 6.0,
+   "end_sec": 7.0
+  },
+  {
+   "text": "지역",
+   "start_sec": 7.0,
+   "end_sec": 8.0
+  },
+  {
+   "text": "종합병원",
+   "start_sec": 8.0,
+   "end_sec": 9.0
+  },
+  {
+   "text": "외래에서",
+   "start_sec": 9.0,
+   "end_sec": 10.0
+  },
+  {
+   "text": "환자분들이",
+   "start_sec": 10.0,
+   "end_sec": 11.0
+  },
+  {
+   "text": "어디서",
+   "start_sec": 11.0,
+   "end_sec": 12.0
+  },
+  {
+   "text": "얼마나",
+   "start_sec": 12.0,
+   "end_sec": 13.0
+  },
+  {
+   "text": "기다리는지",
+   "start_sec": 13.0,
+   "end_sec": 14.0
+  },
+  {
+   "text": "직접",
+   "start_sec": 14.0,
+   "end_sec": 15.0
+  },
+  {
+   "text": "재",
+   "start_sec": 15.0,
+   "end_sec": 16.0
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 16.0,
+   "end_sec": 17.0
+  },
+  {
+   "text": "한",
+   "start_sec": 17.0,
+   "end_sec": 18.0
+  },
+  {
+   "text": "줄로",
+   "start_sec": 18.0,
+   "end_sec": 19.0
+  },
+  {
+   "text": "말하면,",
+   "start_sec": 19.0,
+   "end_sec": 20.0
+  },
+  {
+   "text": "기다리는",
+   "start_sec": 20.0,
+   "end_sec": 21.0
+  },
+  {
+   "text": "시간에",
+   "start_sec": 21.0,
+   "end_sec": 22.0
+  },
+  {
+   "text": "비해",
+   "start_sec": 22.0,
+   "end_sec": 23.0
+  },
+  {
+   "text": "의사를",
+   "start_sec": 23.0,
+   "end_sec": 24.0
+  },
+  {
+   "text": "만나는",
+   "start_sec": 24.0,
+   "end_sec": 25.0
+  },
+  {
+   "text": "시간은",
+   "start_sec": 25.0,
+   "end_sec": 26.0
+  },
+  {
+   "text": "턱없이",
+   "start_sec": 26.0,
+   "end_sec": 27.0
+  },
+  {
+   "text": "짧았어요.",
+   "start_sec": 27.0,
+   "end_sec": 28.0
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 28.0,
+   "end_sec": 29.0
+  },
+  {
+   "text": "기다림이",
+   "start_sec": 29.0,
+   "end_sec": 30.0
+  },
+  {
+   "text": "어디서",
+   "start_sec": 30.0,
+   "end_sec": 31.0
+  },
+  {
+   "text": "생기는지,",
+   "start_sec": 31.0,
+   "end_sec": 32.0
+  },
+  {
+   "text": "그리고",
+   "start_sec": 32.0,
+   "end_sec": 33.0
+  },
+  {
+   "text": "어떻게",
+   "start_sec": 33.0,
+   "end_sec": 34.0
+  },
+  {
+   "text": "줄일",
+   "start_sec": 34.0,
+   "end_sec": 35.0
+  },
+  {
+   "text": "수",
+   "start_sec": 35.0,
+   "end_sec": 36.0
+  },
+  {
+   "text": "있는지",
+   "start_sec": 36.0,
+   "end_sec": 37.0
+  },
+  {
+   "text": "순서대로",
+   "start_sec": 37.0,
+   "end_sec": 38.0
+  },
+  {
+   "text": "말씀드릴게요.",
+   "start_sec": 38.0,
+   "end_sec": 39.0
+  },
+  {
+   "text": "왜",
+   "start_sec": 39.0,
+   "end_sec": 39.79
+  },
+  {
+   "text": "대기",
+   "start_sec": 39.79,
+   "end_sec": 40.57
+  },
+  {
+   "text": "시간을",
+   "start_sec": 40.57,
+   "end_sec": 41.36
+  },
+  {
+   "text": "봤냐면요.",
+   "start_sec": 41.36,
+   "end_sec": 42.14
+  },
+  {
+   "text": "외래",
+   "start_sec": 42.14,
+   "end_sec": 42.93
+  },
+  {
+   "text": "환자",
+   "start_sec": 42.93,
+   "end_sec": 43.71
+  },
+  {
+   "text": "한",
+   "start_sec": 43.71,
+   "end_sec": 44.5
+  },
+  {
+   "text": "분이",
+   "start_sec": 44.5,
+   "end_sec": 45.29
+  },
+  {
+   "text": "병원에",
+   "start_sec": 45.29,
+   "end_sec": 46.07
+  },
+  {
+   "text": "머무는",
+   "start_sec": 46.07,
+   "end_sec": 46.86
+  },
+  {
+   "text": "시간이",
+   "start_sec": 46.86,
+   "end_sec": 47.64
+  },
+  {
+   "text": "평균",
+   "start_sec": 47.64,
+   "end_sec": 48.43
+  },
+  {
+   "text": "구십사",
+   "start_sec": 48.43,
+   "end_sec": 49.21
+  },
+  {
+   "text": "분,",
+   "start_sec": 49.21,
+   "end_sec": 50.0
+  },
+  {
+   "text": "한",
+   "start_sec": 50.0,
+   "end_sec": 50.79
+  },
+  {
+   "text": "시간",
+   "start_sec": 50.79,
+   "end_sec": 51.57
+  },
+  {
+   "text": "반",
+   "start_sec": 51.57,
+   "end_sec": 52.36
+  },
+  {
+   "text": "남짓이에요.",
+   "start_sec": 52.36,
+   "end_sec": 53.14
+  },
+  {
+   "text": "그런데",
+   "start_sec": 53.14,
+   "end_sec": 53.93
+  },
+  {
+   "text": "정작",
+   "start_sec": 53.93,
+   "end_sec": 54.71
+  },
+  {
+   "text": "의사를",
+   "start_sec": 54.71,
+   "end_sec": 55.5
+  },
+  {
+   "text": "만나는",
+   "start_sec": 55.5,
+   "end_sec": 56.29
+  },
+  {
+   "text": "시간은",
+   "start_sec": 56.29,
+   "end_sec": 57.07
+  },
+  {
+   "text": "칠",
+   "start_sec": 57.07,
+   "end_sec": 57.86
+  },
+  {
+   "text": "분,",
+   "start_sec": 57.86,
+   "end_sec": 58.64
+  },
+  {
+   "text": "십",
+   "start_sec": 58.64,
+   "end_sec": 59.43
+  },
+  {
+   "text": "분도",
+   "start_sec": 59.43,
+   "end_sec": 60.21
+  },
+  {
+   "text": "안",
+   "start_sec": 60.21,
+   "end_sec": 61.0
+  },
+  {
+   "text": "돼요.",
+   "start_sec": 61.0,
+   "end_sec": 61.79
+  },
+  {
+   "text": "그래서인지",
+   "start_sec": 61.79,
+   "end_sec": 62.57
+  },
+  {
+   "text": "환자",
+   "start_sec": 62.57,
+   "end_sec": 63.36
+  },
+  {
+   "text": "열",
+   "start_sec": 63.36,
+   "end_sec": 64.14
+  },
+  {
+   "text": "명",
+   "start_sec": 64.14,
+   "end_sec": 64.93
+  },
+  {
+   "text": "중",
+   "start_sec": 64.93,
+   "end_sec": 65.71
+  },
+  {
+   "text": "여섯",
+   "start_sec": 65.71,
+   "end_sec": 66.5
+  },
+  {
+   "text": "명이",
+   "start_sec": 66.5,
+   "end_sec": 67.29
+  },
+  {
+   "text": "가장",
+   "start_sec": 67.29,
+   "end_sec": 68.07
+  },
+  {
+   "text": "큰",
+   "start_sec": 68.07,
+   "end_sec": 68.86
+  },
+  {
+   "text": "불만으로",
+   "start_sec": 68.86,
+   "end_sec": 69.64
+  },
+  {
+   "text": "긴",
+   "start_sec": 69.64,
+   "end_sec": 70.43
+  },
+  {
+   "text": "대기를",
+   "start_sec": 70.43,
+   "end_sec": 71.21
+  },
+  {
+   "text": "꼽았어요.",
+   "start_sec": 71.21,
+   "end_sec": 72.0
+  },
+  {
+   "text": "조사는",
+   "start_sec": 72.0,
+   "end_sec": 72.93
+  },
+  {
+   "text": "정형외과,",
+   "start_sec": 72.93,
+   "end_sec": 73.86
+  },
+  {
+   "text": "내과,",
+   "start_sec": 73.86,
+   "end_sec": 74.79
+  },
+  {
+   "text": "안과,",
+   "start_sec": 74.79,
+   "end_sec": 75.71
+  },
+  {
+   "text": "이렇게",
+   "start_sec": 75.71,
+   "end_sec": 76.64
+  },
+  {
+   "text": "외래",
+   "start_sec": 76.64,
+   "end_sec": 77.57
+  },
+  {
+   "text": "세",
+   "start_sec": 77.57,
+   "end_sec": 78.5
+  },
+  {
+   "text": "곳에서",
+   "start_sec": 78.5,
+   "end_sec": 79.43
+  },
+  {
+   "text": "했어요.",
+   "start_sec": 79.43,
+   "end_sec": 80.36
+  },
+  {
+   "text": "평일",
+   "start_sec": 80.36,
+   "end_sec": 81.29
+  },
+  {
+   "text": "열흘",
+   "start_sec": 81.29,
+   "end_sec": 82.21
+  },
+  {
+   "text": "동안",
+   "start_sec": 82.21,
+   "end_sec": 83.14
+  },
+  {
+   "text": "오전",
+   "start_sec": 83.14,
+   "end_sec": 84.07
+  },
+  {
+   "text": "아홉",
+   "start_sec": 84.07,
+   "end_sec": 85.0
+  },
+  {
+   "text": "시부터",
+   "start_sec": 85.0,
+   "end_sec": 85.93
+  },
+  {
+   "text": "오후",
+   "start_sec": 85.93,
+   "end_sec": 86.86
+  },
+  {
+   "text": "다섯",
+   "start_sec": 86.86,
+   "end_sec": 87.79
+  },
+  {
+   "text": "시까지",
+   "start_sec": 87.79,
+   "end_sec": 88.71
+  },
+  {
+   "text": "지키면서,",
+   "start_sec": 88.71,
+   "end_sec": 89.64
+  },
+  {
+   "text": "환자",
+   "start_sec": 89.64,
+   "end_sec": 90.57
+  },
+  {
+   "text": "사백십이",
+   "start_sec": 90.57,
+   "end_sec": 91.5
+  },
+  {
+   "text": "명의",
+   "start_sec": 91.5,
+   "end_sec": 92.43
+  },
+  {
+   "text": "접수,",
+   "start_sec": 92.43,
+   "end_sec": 93.36
+  },
+  {
+   "text": "진료,",
+   "start_sec": 93.36,
+   "end_sec": 94.29
+  },
+  {
+   "text": "수납",
+   "start_sec": 94.29,
+   "end_sec": 95.21
+  },
+  {
+   "text": "시각을",
+   "start_sec": 95.21,
+   "end_sec": 96.14
+  },
+  {
+   "text": "하나하나",
+   "start_sec": 96.14,
+   "end_sec": 97.07
+  },
+  {
+   "text": "적었어요.",
+   "start_sec": 97.07,
+   "end_sec": 98.0
+  },
+  {
+   "text": "병원",
+   "start_sec": 98.0,
+   "end_sec": 98.93
+  },
+  {
+   "text": "기록이",
+   "start_sec": 98.93,
+   "end_sec": 99.86
+  },
+  {
+   "text": "아니라",
+   "start_sec": 99.86,
+   "end_sec": 100.79
+  },
+  {
+   "text": "저희가",
+   "start_sec": 100.79,
+   "end_sec": 101.71
+  },
+  {
+   "text": "직접",
+   "start_sec": 101.71,
+   "end_sec": 102.64
+  },
+  {
+   "text": "잰",
+   "start_sec": 102.64,
+   "end_sec": 103.57
+  },
+  {
+   "text": "숫자예요.",
+   "start_sec": 103.57,
+   "end_sec": 104.5
+  },
+  {
+   "text": "응급",
+   "start_sec": 104.5,
+   "end_sec": 105.43
+  },
+  {
+   "text": "환자랑",
+   "start_sec": 105.43,
+   "end_sec": 106.36
+  },
+  {
+   "text": "당일",
+   "start_sec": 106.36,
+   "end_sec": 107.29
+  },
+  {
+   "text": "입원한",
+   "start_sec": 107.29,
+   "end_sec": 108.21
+  },
+  {
+   "text": "환자는",
+   "start_sec": 108.21,
+   "end_sec": 109.14
+  },
+  {
+   "text": "분석에서",
+   "start_sec": 109.14,
+   "end_sec": 110.07
+  },
+  {
+   "text": "제외했어요.",
+   "start_sec": 110.07,
+   "end_sec": 111.0
+  },
+  {
+   "text": "병원에서",
+   "start_sec": 111.0,
+   "end_sec": 111.85
+  },
+  {
+   "text": "보내는",
+   "start_sec": 111.85,
+   "end_sec": 112.7
+  },
+  {
+   "text": "시간을",
+   "start_sec": 112.7,
+   "end_sec": 113.54
+  },
+  {
+   "text": "쪼개",
+   "start_sec": 113.54,
+   "end_sec": 114.39
+  },
+  {
+   "text": "보면",
+   "start_sec": 114.39,
+   "end_sec": 115.24
+  },
+  {
+   "text": "이래요.",
+   "start_sec": 115.24,
+   "end_sec": 116.09
+  },
+  {
+   "text": "총",
+   "start_sec": 116.09,
+   "end_sec": 116.93
+  },
+  {
+   "text": "소요",
+   "start_sec": 116.93,
+   "end_sec": 117.78
+  },
+  {
+   "text": "시간은",
+   "start_sec": 117.78,
+   "end_sec": 118.63
+  },
+  {
+   "text": "접수",
+   "start_sec": 118.63,
+   "end_sec": 119.48
+  },
+  {
+   "text": "대기,",
+   "start_sec": 119.48,
+   "end_sec": 120.33
+  },
+  {
+   "text": "진료",
+   "start_sec": 120.33,
+   "end_sec": 121.17
+  },
+  {
+   "text": "대기,",
+   "start_sec": 121.17,
+   "end_sec": 122.02
+  },
+  {
+   "text": "진료,",
+   "start_sec": 122.02,
+   "end_sec": 122.87
+  },
+  {
+   "text": "수납",
+   "start_sec": 122.87,
+   "end_sec": 123.72
+  },
+  {
+   "text": "대기를",
+   "start_sec": 123.72,
+   "end_sec": 124.57
+  },
+  {
+   "text": "더한",
+   "start_sec": 124.57,
+   "end_sec": 125.41
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 125.41,
+   "end_sec": 126.26
+  },
+  {
+   "text": "십일",
+   "start_sec": 126.26,
+   "end_sec": 127.11
+  },
+  {
+   "text": "분,",
+   "start_sec": 127.11,
+   "end_sec": 127.96
+  },
+  {
+   "text": "오십팔",
+   "start_sec": 127.96,
+   "end_sec": 128.8
+  },
+  {
+   "text": "분,",
+   "start_sec": 128.8,
+   "end_sec": 129.65
+  },
+  {
+   "text": "칠",
+   "start_sec": 129.65,
+   "end_sec": 130.5
+  },
+  {
+   "text": "분,",
+   "start_sec": 130.5,
+   "end_sec": 131.35
+  },
+  {
+   "text": "십팔",
+   "start_sec": 131.35,
+   "end_sec": 132.2
+  },
+  {
+   "text": "분,",
+   "start_sec": 132.2,
+   "end_sec": 133.04
+  },
+  {
+   "text": "합쳐서",
+   "start_sec": 133.04,
+   "end_sec": 133.89
+  },
+  {
+   "text": "구십사",
+   "start_sec": 133.89,
+   "end_sec": 134.74
+  },
+  {
+   "text": "분이죠.",
+   "start_sec": 134.74,
+   "end_sec": 135.59
+  },
+  {
+   "text": "여기서",
+   "start_sec": 135.59,
+   "end_sec": 136.43
+  },
+  {
+   "text": "진료",
+   "start_sec": 136.43,
+   "end_sec": 137.28
+  },
+  {
+   "text": "칠",
+   "start_sec": 137.28,
+   "end_sec": 138.13
+  },
+  {
+   "text": "분을",
+   "start_sec": 138.13,
+   "end_sec": 138.98
+  },
+  {
+   "text": "빼면",
+   "start_sec": 138.98,
+   "end_sec": 139.83
+  },
+  {
+   "text": "기다리는",
+   "start_sec": 139.83,
+   "end_sec": 140.67
+  },
+  {
+   "text": "데만",
+   "start_sec": 140.67,
+   "end_sec": 141.52
+  },
+  {
+   "text": "팔십칠",
+   "start_sec": 141.52,
+   "end_sec": 142.37
+  },
+  {
+   "text": "분을",
+   "start_sec": 142.37,
+   "end_sec": 143.22
+  },
+  {
+   "text": "쓰는",
+   "start_sec": 143.22,
+   "end_sec": 144.07
+  },
+  {
+   "text": "셈이에요.",
+   "start_sec": 144.07,
+   "end_sec": 144.91
+  },
+  {
+   "text": "그중에서도",
+   "start_sec": 144.91,
+   "end_sec": 145.76
+  },
+  {
+   "text": "제일",
+   "start_sec": 145.76,
+   "end_sec": 146.61
+  },
+  {
+   "text": "긴",
+   "start_sec": 146.61,
+   "end_sec": 147.46
+  },
+  {
+   "text": "게",
+   "start_sec": 147.46,
+   "end_sec": 148.3
+  },
+  {
+   "text": "진료",
+   "start_sec": 148.3,
+   "end_sec": 149.15
+  },
+  {
+   "text": "대기예요.",
+   "start_sec": 149.15,
+   "end_sec": 150.0
+  },
+  {
+   "text": "이번엔",
+   "start_sec": 150.0,
+   "end_sec": 150.92
+  },
+  {
+   "text": "예약",
+   "start_sec": 150.92,
+   "end_sec": 151.83
+  },
+  {
+   "text": "환자랑",
+   "start_sec": 151.83,
+   "end_sec": 152.75
+  },
+  {
+   "text": "당일",
+   "start_sec": 152.75,
+   "end_sec": 153.67
+  },
+  {
+   "text": "접수",
+   "start_sec": 153.67,
+   "end_sec": 154.58
+  },
+  {
+   "text": "환자를",
+   "start_sec": 154.58,
+   "end_sec": 155.5
+  },
+  {
+   "text": "나눠",
+   "start_sec": 155.5,
+   "end_sec": 156.42
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 156.42,
+   "end_sec": 157.33
+  },
+  {
+   "text": "예약하고",
+   "start_sec": 157.33,
+   "end_sec": 158.25
+  },
+  {
+   "text": "온",
+   "start_sec": 158.25,
+   "end_sec": 159.17
+  },
+  {
+   "text": "환자가",
+   "start_sec": 159.17,
+   "end_sec": 160.08
+  },
+  {
+   "text": "이백육십팔",
+   "start_sec": 160.08,
+   "end_sec": 161.0
+  },
+  {
+   "text": "명,",
+   "start_sec": 161.0,
+   "end_sec": 161.92
+  },
+  {
+   "text": "당일",
+   "start_sec": 161.92,
+   "end_sec": 162.83
+  },
+  {
+   "text": "접수한",
+   "start_sec": 162.83,
+   "end_sec": 163.75
+  },
+  {
+   "text": "환자가",
+   "start_sec": 163.75,
+   "end_sec": 164.67
+  },
+  {
+   "text": "백사십사",
+   "start_sec": 164.67,
+   "end_sec": 165.58
+  },
+  {
+   "text": "명이에요.",
+   "start_sec": 165.58,
+   "end_sec": 166.5
+  },
+  {
+   "text": "그럼",
+   "start_sec": 166.5,
+   "end_sec": 167.42
+  },
+  {
+   "text": "예약한",
+   "start_sec": 167.42,
+   "end_sec": 168.33
+  },
+  {
+   "text": "사람이",
+   "start_sec": 168.33,
+   "end_sec": 169.25
+  },
+  {
+   "text": "더",
+   "start_sec": 169.25,
+   "end_sec": 170.17
+  },
+  {
+   "text": "오래",
+   "start_sec": 170.17,
+   "end_sec": 171.08
+  },
+  {
+   "text": "기다렸을까요?",
+   "start_sec": 171.08,
+   "end_sec": 172.0
+  },
+  {
+   "text": "반대예요.",
+   "start_sec": 172.0,
+   "end_sec": 172.92
+  },
+  {
+   "text": "예약",
+   "start_sec": 172.92,
+   "end_sec": 173.83
+  },
+  {
+   "text": "환자는",
+   "start_sec": 173.83,
+   "end_sec": 174.75
+  },
+  {
+   "text": "사십일",
+   "start_sec": 174.75,
+   "end_sec": 175.67
+  },
+  {
+   "text": "분을",
+   "start_sec": 175.67,
+   "end_sec": 176.58
+  },
+  {
+   "text": "기다렸는데,",
+   "start_sec": 176.58,
+   "end_sec": 177.5
+  },
+  {
+   "text": "당일",
+   "start_sec": 177.5,
+   "end_sec": 178.42
+  },
+  {
+   "text": "접수",
+   "start_sec": 178.42,
+   "end_sec": 179.33
+  },
+  {
+   "text": "환자는",
+   "start_sec": 179.33,
+   "end_sec": 180.25
+  },
+  {
+   "text": "한",
+   "start_sec": 180.25,
+   "end_sec": 181.17
+  },
+  {
+   "text": "시간",
+   "start_sec": 181.17,
+   "end_sec": 182.08
+  },
+  {
+   "text": "반을",
+   "start_sec": 182.08,
+   "end_sec": 183.0
+  },
+  {
+   "text": "기다렸어요.",
+   "start_sec": 183.0,
+   "end_sec": 183.92
+  },
+  {
+   "text": "같은",
+   "start_sec": 183.92,
+   "end_sec": 184.83
+  },
+  {
+   "text": "진료를",
+   "start_sec": 184.83,
+   "end_sec": 185.75
+  },
+  {
+   "text": "받으려고",
+   "start_sec": 185.75,
+   "end_sec": 186.67
+  },
+  {
+   "text": "사십구",
+   "start_sec": 186.67,
+   "end_sec": 187.58
+  },
+  {
+   "text": "분을",
+   "start_sec": 187.58,
+   "end_sec": 188.5
+  },
+  {
+   "text": "더",
+   "start_sec": 188.5,
+   "end_sec": 189.42
+  },
+  {
+   "text": "기다린",
+   "start_sec": 189.42,
+   "end_sec": 190.33
+  },
+  {
+   "text": "거고,",
+   "start_sec": 190.33,
+   "end_sec": 191.25
+  },
+  {
+   "text": "두",
+   "start_sec": 191.25,
+   "end_sec": 192.17
+  },
+  {
+   "text": "배가",
+   "start_sec": 192.17,
+   "end_sec": 193.08
+  },
+  {
+   "text": "넘어요.",
+   "start_sec": 193.08,
+   "end_sec": 194.0
+  },
+  {
+   "text": "시간대별로도",
+   "start_sec": 194.0,
+   "end_sec": 194.87
+  },
+  {
+   "text": "나눠",
+   "start_sec": 194.87,
+   "end_sec": 195.74
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 195.74,
+   "end_sec": 196.62
+  },
+  {
+   "text": "시간대마다",
+   "start_sec": 196.62,
+   "end_sec": 197.49
+  },
+  {
+   "text": "차이가",
+   "start_sec": 197.49,
+   "end_sec": 198.36
+  },
+  {
+   "text": "꽤",
+   "start_sec": 198.36,
+   "end_sec": 199.23
+  },
+  {
+   "text": "났어요.",
+   "start_sec": 199.23,
+   "end_sec": 200.1
+  },
+  {
+   "text": "오전",
+   "start_sec": 200.1,
+   "end_sec": 200.97
+  },
+  {
+   "text": "아홉",
+   "start_sec": 200.97,
+   "end_sec": 201.85
+  },
+  {
+   "text": "시에서",
+   "start_sec": 201.85,
+   "end_sec": 202.72
+  },
+  {
+   "text": "열한",
+   "start_sec": 202.72,
+   "end_sec": 203.59
+  },
+  {
+   "text": "시",
+   "start_sec": 203.59,
+   "end_sec": 204.46
+  },
+  {
+   "text": "사이가",
+   "start_sec": 204.46,
+   "end_sec": 205.33
+  },
+  {
+   "text": "칠십이",
+   "start_sec": 205.33,
+   "end_sec": 206.21
+  },
+  {
+   "text": "분으로",
+   "start_sec": 206.21,
+   "end_sec": 207.08
+  },
+  {
+   "text": "제일",
+   "start_sec": 207.08,
+   "end_sec": 207.95
+  },
+  {
+   "text": "길었어요.",
+   "start_sec": 207.95,
+   "end_sec": 208.82
+  },
+  {
+   "text": "열한",
+   "start_sec": 208.82,
+   "end_sec": 209.69
+  },
+  {
+   "text": "시부터",
+   "start_sec": 209.69,
+   "end_sec": 210.56
+  },
+  {
+   "text": "한",
+   "start_sec": 210.56,
+   "end_sec": 211.44
+  },
+  {
+   "text": "시",
+   "start_sec": 211.44,
+   "end_sec": 212.31
+  },
+  {
+   "text": "사이는",
+   "start_sec": 212.31,
+   "end_sec": 213.18
+  },
+  {
+   "text": "오십일",
+   "start_sec": 213.18,
+   "end_sec": 214.05
+  },
+  {
+   "text": "분,",
+   "start_sec": 214.05,
+   "end_sec": 214.92
+  },
+  {
+   "text": "오후",
+   "start_sec": 214.92,
+   "end_sec": 215.79
+  },
+  {
+   "text": "두",
+   "start_sec": 215.79,
+   "end_sec": 216.67
+  },
+  {
+   "text": "시",
+   "start_sec": 216.67,
+   "end_sec": 217.54
+  },
+  {
+   "text": "이후는",
+   "start_sec": 217.54,
+   "end_sec": 218.41
+  },
+  {
+   "text": "삼십팔",
+   "start_sec": 218.41,
+   "end_sec": 219.28
+  },
+  {
+   "text": "분이었어요.",
+   "start_sec": 219.28,
+   "end_sec": 220.15
+  },
+  {
+   "text": "오후",
+   "start_sec": 220.15,
+   "end_sec": 221.03
+  },
+  {
+   "text": "대기는",
+   "start_sec": 221.03,
+   "end_sec": 221.9
+  },
+  {
+   "text": "오전",
+   "start_sec": 221.9,
+   "end_sec": 222.77
+  },
+  {
+   "text": "첫",
+   "start_sec": 222.77,
+   "end_sec": 223.64
+  },
+  {
+   "text": "두",
+   "start_sec": 223.64,
+   "end_sec": 224.51
+  },
+  {
+   "text": "시간의",
+   "start_sec": 224.51,
+   "end_sec": 225.38
+  },
+  {
+   "text": "절반",
+   "start_sec": 225.38,
+   "end_sec": 226.26
+  },
+  {
+   "text": "남짓이었던",
+   "start_sec": 226.26,
+   "end_sec": 227.13
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 227.13,
+   "end_sec": 228.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 228.0,
+   "end_sec": 228.88
+  },
+  {
+   "text": "수납",
+   "start_sec": 228.88,
+   "end_sec": 229.76
+  },
+  {
+   "text": "대기부터",
+   "start_sec": 229.76,
+   "end_sec": 230.63
+  },
+  {
+   "text": "줄여",
+   "start_sec": 230.63,
+   "end_sec": 231.51
+  },
+  {
+   "text": "보려고,",
+   "start_sec": 231.51,
+   "end_sec": 232.39
+  },
+  {
+   "text": "이",
+   "start_sec": 232.39,
+   "end_sec": 233.27
+  },
+  {
+   "text": "주",
+   "start_sec": 233.27,
+   "end_sec": 234.15
+  },
+  {
+   "text": "동안",
+   "start_sec": 234.15,
+   "end_sec": 235.02
+  },
+  {
+   "text": "진료실",
+   "start_sec": 235.02,
+   "end_sec": 235.9
+  },
+  {
+   "text": "앞에서",
+   "start_sec": 235.9,
+   "end_sec": 236.78
+  },
+  {
+   "text": "모바일",
+   "start_sec": 236.78,
+   "end_sec": 237.66
+  },
+  {
+   "text": "수납",
+   "start_sec": 237.66,
+   "end_sec": 238.54
+  },
+  {
+   "text": "방법을",
+   "start_sec": 238.54,
+   "end_sec": 239.41
+  },
+  {
+   "text": "안내해",
+   "start_sec": 239.41,
+   "end_sec": 240.29
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 240.29,
+   "end_sec": 241.17
+  },
+  {
+   "text": "평균",
+   "start_sec": 241.17,
+   "end_sec": 242.05
+  },
+  {
+   "text": "수납",
+   "start_sec": 242.05,
+   "end_sec": 242.93
+  },
+  {
+   "text": "대기가",
+   "start_sec": 242.93,
+   "end_sec": 243.8
+  },
+  {
+   "text": "십팔",
+   "start_sec": 243.8,
+   "end_sec": 244.68
+  },
+  {
+   "text": "분에서",
+   "start_sec": 244.68,
+   "end_sec": 245.56
+  },
+  {
+   "text": "육",
+   "start_sec": 245.56,
+   "end_sec": 246.44
+  },
+  {
+   "text": "분으로",
+   "start_sec": 246.44,
+   "end_sec": 247.32
+  },
+  {
+   "text": "줄었어요.",
+   "start_sec": 247.32,
+   "end_sec": 248.2
+  },
+  {
+   "text": "삼분의",
+   "start_sec": 248.2,
+   "end_sec": 249.07
+  },
+  {
+   "text": "일이",
+   "start_sec": 249.07,
+   "end_sec": 249.95
+  },
+  {
+   "text": "된",
+   "start_sec": 249.95,
+   "end_sec": 250.83
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 250.83,
+   "end_sec": 251.71
+  },
+  {
+   "text": "대기는",
+   "start_sec": 251.71,
+   "end_sec": 252.59
+  },
+  {
+   "text": "줄었지만",
+   "start_sec": 252.59,
+   "end_sec": 253.46
+  },
+  {
+   "text": "모바일",
+   "start_sec": 253.46,
+   "end_sec": 254.34
+  },
+  {
+   "text": "수납을",
+   "start_sec": 254.34,
+   "end_sec": 255.22
+  },
+  {
+   "text": "쓰는",
+   "start_sec": 255.22,
+   "end_sec": 256.1
+  },
+  {
+   "text": "분은",
+   "start_sec": 256.1,
+   "end_sec": 256.98
+  },
+  {
+   "text": "사",
+   "start_sec": 256.98,
+   "end_sec": 257.85
+  },
+  {
+   "text": "퍼센트에서",
+   "start_sec": 257.85,
+   "end_sec": 258.73
+  },
+  {
+   "text": "삼십일",
+   "start_sec": 258.73,
+   "end_sec": 259.61
+  },
+  {
+   "text": "퍼센트로,",
+   "start_sec": 259.61,
+   "end_sec": 260.49
+  },
+  {
+   "text": "여덟",
+   "start_sec": 260.49,
+   "end_sec": 261.37
+  },
+  {
+   "text": "배",
+   "start_sec": 261.37,
+   "end_sec": 262.24
+  },
+  {
+   "text": "가까이",
+   "start_sec": 262.24,
+   "end_sec": 263.12
+  },
+  {
+   "text": "늘었어요.",
+   "start_sec": 263.12,
+   "end_sec": 264.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 264.0,
+   "end_sec": 264.89
+  },
+  {
+   "text": "저희",
+   "start_sec": 264.89,
+   "end_sec": 265.79
+  },
+  {
+   "text": "제안은",
+   "start_sec": 265.79,
+   "end_sec": 266.68
+  },
+  {
+   "text": "세",
+   "start_sec": 266.68,
+   "end_sec": 267.58
+  },
+  {
+   "text": "가지예요.",
+   "start_sec": 267.58,
+   "end_sec": 268.47
+  },
+  {
+   "text": "당일",
+   "start_sec": 268.47,
+   "end_sec": 269.37
+  },
+  {
+   "text": "접수",
+   "start_sec": 269.37,
+   "end_sec": 270.26
+  },
+  {
+   "text": "환자에게",
+   "start_sec": 270.26,
+   "end_sec": 271.16
+  },
+  {
+   "text": "예상",
+   "start_sec": 271.16,
+   "end_sec": 272.05
+  },
+  {
+   "text": "대기",
+   "start_sec": 272.05,
+   "end_sec": 272.95
+  },
+  {
+   "text": "시간을",
+   "start_sec": 272.95,
+   "end_sec": 273.84
+  },
+  {
+   "text": "문자로",
+   "start_sec": 273.84,
+   "end_sec": 274.74
+  },
+  {
+   "text": "알려",
+   "start_sec": 274.74,
+   "end_sec": 275.63
+  },
+  {
+   "text": "드리고,",
+   "start_sec": 275.63,
+   "end_sec": 276.53
+  },
+  {
+   "text": "오전",
+   "start_sec": 276.53,
+   "end_sec": 277.42
+  },
+  {
+   "text": "예약",
+   "start_sec": 277.42,
+   "end_sec": 278.32
+  },
+  {
+   "text": "비중은",
+   "start_sec": 278.32,
+   "end_sec": 279.21
+  },
+  {
+   "text": "줄이고",
+   "start_sec": 279.21,
+   "end_sec": 280.11
+  },
+  {
+   "text": "오후",
+   "start_sec": 280.11,
+   "end_sec": 281.0
+  },
+  {
+   "text": "예약은",
+   "start_sec": 281.0,
+   "end_sec": 281.89
+  },
+  {
+   "text": "늘리고요,",
+   "start_sec": 281.89,
+   "end_sec": 282.79
+  },
+  {
+   "text": "안내",
+   "start_sec": 282.79,
+   "end_sec": 283.68
+  },
+  {
+   "text": "인력",
+   "start_sec": 283.68,
+   "end_sec": 284.58
+  },
+  {
+   "text": "두",
+   "start_sec": 284.58,
+   "end_sec": 285.47
+  },
+  {
+   "text": "명을",
+   "start_sec": 285.47,
+   "end_sec": 286.37
+  },
+  {
+   "text": "두는",
+   "start_sec": 286.37,
+   "end_sec": 287.26
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 287.26,
+   "end_sec": 288.16
+  },
+  {
+   "text": "비용은",
+   "start_sec": 288.16,
+   "end_sec": 289.05
+  },
+  {
+   "text": "일",
+   "start_sec": 289.05,
+   "end_sec": 289.95
+  },
+  {
+   "text": "년에",
+   "start_sec": 289.95,
+   "end_sec": 290.84
+  },
+  {
+   "text": "오천사백만",
+   "start_sec": 290.84,
+   "end_sec": 291.74
+  },
+  {
+   "text": "원,",
+   "start_sec": 291.74,
+   "end_sec": 292.63
+  },
+  {
+   "text": "한",
+   "start_sec": 292.63,
+   "end_sec": 293.53
+  },
+  {
+   "text": "달로",
+   "start_sec": 293.53,
+   "end_sec": 294.42
+  },
+  {
+   "text": "치면",
+   "start_sec": 294.42,
+   "end_sec": 295.32
+  },
+  {
+   "text": "사백오십만",
+   "start_sec": 295.32,
+   "end_sec": 296.21
+  },
+  {
+   "text": "원이에요.",
+   "start_sec": 296.21,
+   "end_sec": 297.11
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 297.11,
+   "end_sec": 298.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 39,
+   "text": "안녕하세요, 보건행정학과 이 학년 사 조예요. 저희는 지역 종합병원 외래에서 환자분들이 어디서 얼마나 기다리는지 직접 재 봤어요. 한 줄로 말하면, 기다리는 시간에 비해 의사를 만나는 시간은 턱없이 짧았어요. 오늘은 기다림이 어디서 생기는지, 그리고 어떻게 줄일 수 있는지 순서대로 말씀드릴게요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 1.0
+    },
+    {
+     "text": "보건행정학과",
+     "start_sec": 1.0,
+     "end_sec": 2.0
+    },
+    {
+     "text": "이",
+     "start_sec": 2.0,
+     "end_sec": 3.0
+    },
+    {
+     "text": "학년",
+     "start_sec": 3.0,
+     "end_sec": 4.0
+    },
+    {
+     "text": "사",
+     "start_sec": 4.0,
+     "end_sec": 5.0
+    },
+    {
+     "text": "조예요.",
+     "start_sec": 5.0,
+     "end_sec": 6.0
+    },
+    {
+     "text": "저희는",
+     "start_sec": 6.0,
+     "end_sec": 7.0
+    },
+    {
+     "text": "지역",
+     "start_sec": 7.0,
+     "end_sec": 8.0
+    },
+    {
+     "text": "종합병원",
+     "start_sec": 8.0,
+     "end_sec": 9.0
+    },
+    {
+     "text": "외래에서",
+     "start_sec": 9.0,
+     "end_sec": 10.0
+    },
+    {
+     "text": "환자분들이",
+     "start_sec": 10.0,
+     "end_sec": 11.0
+    },
+    {
+     "text": "어디서",
+     "start_sec": 11.0,
+     "end_sec": 12.0
+    },
+    {
+     "text": "얼마나",
+     "start_sec": 12.0,
+     "end_sec": 13.0
+    },
+    {
+     "text": "기다리는지",
+     "start_sec": 13.0,
+     "end_sec": 14.0
+    },
+    {
+     "text": "직접",
+     "start_sec": 14.0,
+     "end_sec": 15.0
+    },
+    {
+     "text": "재",
+     "start_sec": 15.0,
+     "end_sec": 16.0
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 16.0,
+     "end_sec": 17.0
+    },
+    {
+     "text": "한",
+     "start_sec": 17.0,
+     "end_sec": 18.0
+    },
+    {
+     "text": "줄로",
+     "start_sec": 18.0,
+     "end_sec": 19.0
+    },
+    {
+     "text": "말하면,",
+     "start_sec": 19.0,
+     "end_sec": 20.0
+    },
+    {
+     "text": "기다리는",
+     "start_sec": 20.0,
+     "end_sec": 21.0
+    },
+    {
+     "text": "시간에",
+     "start_sec": 21.0,
+     "end_sec": 22.0
+    },
+    {
+     "text": "비해",
+     "start_sec": 22.0,
+     "end_sec": 23.0
+    },
+    {
+     "text": "의사를",
+     "start_sec": 23.0,
+     "end_sec": 24.0
+    },
+    {
+     "text": "만나는",
+     "start_sec": 24.0,
+     "end_sec": 25.0
+    },
+    {
+     "text": "시간은",
+     "start_sec": 25.0,
+     "end_sec": 26.0
+    },
+    {
+     "text": "턱없이",
+     "start_sec": 26.0,
+     "end_sec": 27.0
+    },
+    {
+     "text": "짧았어요.",
+     "start_sec": 27.0,
+     "end_sec": 28.0
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 28.0,
+     "end_sec": 29.0
+    },
+    {
+     "text": "기다림이",
+     "start_sec": 29.0,
+     "end_sec": 30.0
+    },
+    {
+     "text": "어디서",
+     "start_sec": 30.0,
+     "end_sec": 31.0
+    },
+    {
+     "text": "생기는지,",
+     "start_sec": 31.0,
+     "end_sec": 32.0
+    },
+    {
+     "text": "그리고",
+     "start_sec": 32.0,
+     "end_sec": 33.0
+    },
+    {
+     "text": "어떻게",
+     "start_sec": 33.0,
+     "end_sec": 34.0
+    },
+    {
+     "text": "줄일",
+     "start_sec": 34.0,
+     "end_sec": 35.0
+    },
+    {
+     "text": "수",
+     "start_sec": 35.0,
+     "end_sec": 36.0
+    },
+    {
+     "text": "있는지",
+     "start_sec": 36.0,
+     "end_sec": 37.0
+    },
+    {
+     "text": "순서대로",
+     "start_sec": 37.0,
+     "end_sec": 38.0
+    },
+    {
+     "text": "말씀드릴게요.",
+     "start_sec": 38.0,
+     "end_sec": 39.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 39,
+   "end_sec": 72,
+   "text": "왜 대기 시간을 봤냐면요. 외래 환자 한 분이 병원에 머무는 시간이 평균 구십사 분, 한 시간 반 남짓이에요. 그런데 정작 의사를 만나는 시간은 칠 분, 십 분도 안 돼요. 그래서인지 환자 열 명 중 여섯 명이 가장 큰 불만으로 긴 대기를 꼽았어요.",
+   "words": [
+    {
+     "text": "왜",
+     "start_sec": 39.0,
+     "end_sec": 39.79
+    },
+    {
+     "text": "대기",
+     "start_sec": 39.79,
+     "end_sec": 40.57
+    },
+    {
+     "text": "시간을",
+     "start_sec": 40.57,
+     "end_sec": 41.36
+    },
+    {
+     "text": "봤냐면요.",
+     "start_sec": 41.36,
+     "end_sec": 42.14
+    },
+    {
+     "text": "외래",
+     "start_sec": 42.14,
+     "end_sec": 42.93
+    },
+    {
+     "text": "환자",
+     "start_sec": 42.93,
+     "end_sec": 43.71
+    },
+    {
+     "text": "한",
+     "start_sec": 43.71,
+     "end_sec": 44.5
+    },
+    {
+     "text": "분이",
+     "start_sec": 44.5,
+     "end_sec": 45.29
+    },
+    {
+     "text": "병원에",
+     "start_sec": 45.29,
+     "end_sec": 46.07
+    },
+    {
+     "text": "머무는",
+     "start_sec": 46.07,
+     "end_sec": 46.86
+    },
+    {
+     "text": "시간이",
+     "start_sec": 46.86,
+     "end_sec": 47.64
+    },
+    {
+     "text": "평균",
+     "start_sec": 47.64,
+     "end_sec": 48.43
+    },
+    {
+     "text": "구십사",
+     "start_sec": 48.43,
+     "end_sec": 49.21
+    },
+    {
+     "text": "분,",
+     "start_sec": 49.21,
+     "end_sec": 50.0
+    },
+    {
+     "text": "한",
+     "start_sec": 50.0,
+     "end_sec": 50.79
+    },
+    {
+     "text": "시간",
+     "start_sec": 50.79,
+     "end_sec": 51.57
+    },
+    {
+     "text": "반",
+     "start_sec": 51.57,
+     "end_sec": 52.36
+    },
+    {
+     "text": "남짓이에요.",
+     "start_sec": 52.36,
+     "end_sec": 53.14
+    },
+    {
+     "text": "그런데",
+     "start_sec": 53.14,
+     "end_sec": 53.93
+    },
+    {
+     "text": "정작",
+     "start_sec": 53.93,
+     "end_sec": 54.71
+    },
+    {
+     "text": "의사를",
+     "start_sec": 54.71,
+     "end_sec": 55.5
+    },
+    {
+     "text": "만나는",
+     "start_sec": 55.5,
+     "end_sec": 56.29
+    },
+    {
+     "text": "시간은",
+     "start_sec": 56.29,
+     "end_sec": 57.07
+    },
+    {
+     "text": "칠",
+     "start_sec": 57.07,
+     "end_sec": 57.86
+    },
+    {
+     "text": "분,",
+     "start_sec": 57.86,
+     "end_sec": 58.64
+    },
+    {
+     "text": "십",
+     "start_sec": 58.64,
+     "end_sec": 59.43
+    },
+    {
+     "text": "분도",
+     "start_sec": 59.43,
+     "end_sec": 60.21
+    },
+    {
+     "text": "안",
+     "start_sec": 60.21,
+     "end_sec": 61.0
+    },
+    {
+     "text": "돼요.",
+     "start_sec": 61.0,
+     "end_sec": 61.79
+    },
+    {
+     "text": "그래서인지",
+     "start_sec": 61.79,
+     "end_sec": 62.57
+    },
+    {
+     "text": "환자",
+     "start_sec": 62.57,
+     "end_sec": 63.36
+    },
+    {
+     "text": "열",
+     "start_sec": 63.36,
+     "end_sec": 64.14
+    },
+    {
+     "text": "명",
+     "start_sec": 64.14,
+     "end_sec": 64.93
+    },
+    {
+     "text": "중",
+     "start_sec": 64.93,
+     "end_sec": 65.71
+    },
+    {
+     "text": "여섯",
+     "start_sec": 65.71,
+     "end_sec": 66.5
+    },
+    {
+     "text": "명이",
+     "start_sec": 66.5,
+     "end_sec": 67.29
+    },
+    {
+     "text": "가장",
+     "start_sec": 67.29,
+     "end_sec": 68.07
+    },
+    {
+     "text": "큰",
+     "start_sec": 68.07,
+     "end_sec": 68.86
+    },
+    {
+     "text": "불만으로",
+     "start_sec": 68.86,
+     "end_sec": 69.64
+    },
+    {
+     "text": "긴",
+     "start_sec": 69.64,
+     "end_sec": 70.43
+    },
+    {
+     "text": "대기를",
+     "start_sec": 70.43,
+     "end_sec": 71.21
+    },
+    {
+     "text": "꼽았어요.",
+     "start_sec": 71.21,
+     "end_sec": 72.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 72,
+   "end_sec": 111,
+   "text": "조사는 정형외과, 내과, 안과, 이렇게 외래 세 곳에서 했어요. 평일 열흘 동안 오전 아홉 시부터 오후 다섯 시까지 지키면서, 환자 사백십이 명의 접수, 진료, 수납 시각을 하나하나 적었어요. 병원 기록이 아니라 저희가 직접 잰 숫자예요. 응급 환자랑 당일 입원한 환자는 분석에서 제외했어요.",
+   "words": [
+    {
+     "text": "조사는",
+     "start_sec": 72.0,
+     "end_sec": 72.93
+    },
+    {
+     "text": "정형외과,",
+     "start_sec": 72.93,
+     "end_sec": 73.86
+    },
+    {
+     "text": "내과,",
+     "start_sec": 73.86,
+     "end_sec": 74.79
+    },
+    {
+     "text": "안과,",
+     "start_sec": 74.79,
+     "end_sec": 75.71
+    },
+    {
+     "text": "이렇게",
+     "start_sec": 75.71,
+     "end_sec": 76.64
+    },
+    {
+     "text": "외래",
+     "start_sec": 76.64,
+     "end_sec": 77.57
+    },
+    {
+     "text": "세",
+     "start_sec": 77.57,
+     "end_sec": 78.5
+    },
+    {
+     "text": "곳에서",
+     "start_sec": 78.5,
+     "end_sec": 79.43
+    },
+    {
+     "text": "했어요.",
+     "start_sec": 79.43,
+     "end_sec": 80.36
+    },
+    {
+     "text": "평일",
+     "start_sec": 80.36,
+     "end_sec": 81.29
+    },
+    {
+     "text": "열흘",
+     "start_sec": 81.29,
+     "end_sec": 82.21
+    },
+    {
+     "text": "동안",
+     "start_sec": 82.21,
+     "end_sec": 83.14
+    },
+    {
+     "text": "오전",
+     "start_sec": 83.14,
+     "end_sec": 84.07
+    },
+    {
+     "text": "아홉",
+     "start_sec": 84.07,
+     "end_sec": 85.0
+    },
+    {
+     "text": "시부터",
+     "start_sec": 85.0,
+     "end_sec": 85.93
+    },
+    {
+     "text": "오후",
+     "start_sec": 85.93,
+     "end_sec": 86.86
+    },
+    {
+     "text": "다섯",
+     "start_sec": 86.86,
+     "end_sec": 87.79
+    },
+    {
+     "text": "시까지",
+     "start_sec": 87.79,
+     "end_sec": 88.71
+    },
+    {
+     "text": "지키면서,",
+     "start_sec": 88.71,
+     "end_sec": 89.64
+    },
+    {
+     "text": "환자",
+     "start_sec": 89.64,
+     "end_sec": 90.57
+    },
+    {
+     "text": "사백십이",
+     "start_sec": 90.57,
+     "end_sec": 91.5
+    },
+    {
+     "text": "명의",
+     "start_sec": 91.5,
+     "end_sec": 92.43
+    },
+    {
+     "text": "접수,",
+     "start_sec": 92.43,
+     "end_sec": 93.36
+    },
+    {
+     "text": "진료,",
+     "start_sec": 93.36,
+     "end_sec": 94.29
+    },
+    {
+     "text": "수납",
+     "start_sec": 94.29,
+     "end_sec": 95.21
+    },
+    {
+     "text": "시각을",
+     "start_sec": 95.21,
+     "end_sec": 96.14
+    },
+    {
+     "text": "하나하나",
+     "start_sec": 96.14,
+     "end_sec": 97.07
+    },
+    {
+     "text": "적었어요.",
+     "start_sec": 97.07,
+     "end_sec": 98.0
+    },
+    {
+     "text": "병원",
+     "start_sec": 98.0,
+     "end_sec": 98.93
+    },
+    {
+     "text": "기록이",
+     "start_sec": 98.93,
+     "end_sec": 99.86
+    },
+    {
+     "text": "아니라",
+     "start_sec": 99.86,
+     "end_sec": 100.79
+    },
+    {
+     "text": "저희가",
+     "start_sec": 100.79,
+     "end_sec": 101.71
+    },
+    {
+     "text": "직접",
+     "start_sec": 101.71,
+     "end_sec": 102.64
+    },
+    {
+     "text": "잰",
+     "start_sec": 102.64,
+     "end_sec": 103.57
+    },
+    {
+     "text": "숫자예요.",
+     "start_sec": 103.57,
+     "end_sec": 104.5
+    },
+    {
+     "text": "응급",
+     "start_sec": 104.5,
+     "end_sec": 105.43
+    },
+    {
+     "text": "환자랑",
+     "start_sec": 105.43,
+     "end_sec": 106.36
+    },
+    {
+     "text": "당일",
+     "start_sec": 106.36,
+     "end_sec": 107.29
+    },
+    {
+     "text": "입원한",
+     "start_sec": 107.29,
+     "end_sec": 108.21
+    },
+    {
+     "text": "환자는",
+     "start_sec": 108.21,
+     "end_sec": 109.14
+    },
+    {
+     "text": "분석에서",
+     "start_sec": 109.14,
+     "end_sec": 110.07
+    },
+    {
+     "text": "제외했어요.",
+     "start_sec": 110.07,
+     "end_sec": 111.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 111,
+   "end_sec": 150,
+   "text": "병원에서 보내는 시간을 쪼개 보면 이래요. 총 소요 시간은 접수 대기, 진료 대기, 진료, 수납 대기를 더한 거예요. 십일 분, 오십팔 분, 칠 분, 십팔 분, 합쳐서 구십사 분이죠. 여기서 진료 칠 분을 빼면 기다리는 데만 팔십칠 분을 쓰는 셈이에요. 그중에서도 제일 긴 게 진료 대기예요.",
+   "words": [
+    {
+     "text": "병원에서",
+     "start_sec": 111.0,
+     "end_sec": 111.85
+    },
+    {
+     "text": "보내는",
+     "start_sec": 111.85,
+     "end_sec": 112.7
+    },
+    {
+     "text": "시간을",
+     "start_sec": 112.7,
+     "end_sec": 113.54
+    },
+    {
+     "text": "쪼개",
+     "start_sec": 113.54,
+     "end_sec": 114.39
+    },
+    {
+     "text": "보면",
+     "start_sec": 114.39,
+     "end_sec": 115.24
+    },
+    {
+     "text": "이래요.",
+     "start_sec": 115.24,
+     "end_sec": 116.09
+    },
+    {
+     "text": "총",
+     "start_sec": 116.09,
+     "end_sec": 116.93
+    },
+    {
+     "text": "소요",
+     "start_sec": 116.93,
+     "end_sec": 117.78
+    },
+    {
+     "text": "시간은",
+     "start_sec": 117.78,
+     "end_sec": 118.63
+    },
+    {
+     "text": "접수",
+     "start_sec": 118.63,
+     "end_sec": 119.48
+    },
+    {
+     "text": "대기,",
+     "start_sec": 119.48,
+     "end_sec": 120.33
+    },
+    {
+     "text": "진료",
+     "start_sec": 120.33,
+     "end_sec": 121.17
+    },
+    {
+     "text": "대기,",
+     "start_sec": 121.17,
+     "end_sec": 122.02
+    },
+    {
+     "text": "진료,",
+     "start_sec": 122.02,
+     "end_sec": 122.87
+    },
+    {
+     "text": "수납",
+     "start_sec": 122.87,
+     "end_sec": 123.72
+    },
+    {
+     "text": "대기를",
+     "start_sec": 123.72,
+     "end_sec": 124.57
+    },
+    {
+     "text": "더한",
+     "start_sec": 124.57,
+     "end_sec": 125.41
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 125.41,
+     "end_sec": 126.26
+    },
+    {
+     "text": "십일",
+     "start_sec": 126.26,
+     "end_sec": 127.11
+    },
+    {
+     "text": "분,",
+     "start_sec": 127.11,
+     "end_sec": 127.96
+    },
+    {
+     "text": "오십팔",
+     "start_sec": 127.96,
+     "end_sec": 128.8
+    },
+    {
+     "text": "분,",
+     "start_sec": 128.8,
+     "end_sec": 129.65
+    },
+    {
+     "text": "칠",
+     "start_sec": 129.65,
+     "end_sec": 130.5
+    },
+    {
+     "text": "분,",
+     "start_sec": 130.5,
+     "end_sec": 131.35
+    },
+    {
+     "text": "십팔",
+     "start_sec": 131.35,
+     "end_sec": 132.2
+    },
+    {
+     "text": "분,",
+     "start_sec": 132.2,
+     "end_sec": 133.04
+    },
+    {
+     "text": "합쳐서",
+     "start_sec": 133.04,
+     "end_sec": 133.89
+    },
+    {
+     "text": "구십사",
+     "start_sec": 133.89,
+     "end_sec": 134.74
+    },
+    {
+     "text": "분이죠.",
+     "start_sec": 134.74,
+     "end_sec": 135.59
+    },
+    {
+     "text": "여기서",
+     "start_sec": 135.59,
+     "end_sec": 136.43
+    },
+    {
+     "text": "진료",
+     "start_sec": 136.43,
+     "end_sec": 137.28
+    },
+    {
+     "text": "칠",
+     "start_sec": 137.28,
+     "end_sec": 138.13
+    },
+    {
+     "text": "분을",
+     "start_sec": 138.13,
+     "end_sec": 138.98
+    },
+    {
+     "text": "빼면",
+     "start_sec": 138.98,
+     "end_sec": 139.83
+    },
+    {
+     "text": "기다리는",
+     "start_sec": 139.83,
+     "end_sec": 140.67
+    },
+    {
+     "text": "데만",
+     "start_sec": 140.67,
+     "end_sec": 141.52
+    },
+    {
+     "text": "팔십칠",
+     "start_sec": 141.52,
+     "end_sec": 142.37
+    },
+    {
+     "text": "분을",
+     "start_sec": 142.37,
+     "end_sec": 143.22
+    },
+    {
+     "text": "쓰는",
+     "start_sec": 143.22,
+     "end_sec": 144.07
+    },
+    {
+     "text": "셈이에요.",
+     "start_sec": 144.07,
+     "end_sec": 144.91
+    },
+    {
+     "text": "그중에서도",
+     "start_sec": 144.91,
+     "end_sec": 145.76
+    },
+    {
+     "text": "제일",
+     "start_sec": 145.76,
+     "end_sec": 146.61
+    },
+    {
+     "text": "긴",
+     "start_sec": 146.61,
+     "end_sec": 147.46
+    },
+    {
+     "text": "게",
+     "start_sec": 147.46,
+     "end_sec": 148.3
+    },
+    {
+     "text": "진료",
+     "start_sec": 148.3,
+     "end_sec": 149.15
+    },
+    {
+     "text": "대기예요.",
+     "start_sec": 149.15,
+     "end_sec": 150.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 150,
+   "end_sec": 194,
+   "text": "이번엔 예약 환자랑 당일 접수 환자를 나눠 봤어요. 예약하고 온 환자가 이백육십팔 명, 당일 접수한 환자가 백사십사 명이에요. 그럼 예약한 사람이 더 오래 기다렸을까요? 반대예요. 예약 환자는 사십일 분을 기다렸는데, 당일 접수 환자는 한 시간 반을 기다렸어요. 같은 진료를 받으려고 사십구 분을 더 기다린 거고, 두 배가 넘어요.",
+   "words": [
+    {
+     "text": "이번엔",
+     "start_sec": 150.0,
+     "end_sec": 150.92
+    },
+    {
+     "text": "예약",
+     "start_sec": 150.92,
+     "end_sec": 151.83
+    },
+    {
+     "text": "환자랑",
+     "start_sec": 151.83,
+     "end_sec": 152.75
+    },
+    {
+     "text": "당일",
+     "start_sec": 152.75,
+     "end_sec": 153.67
+    },
+    {
+     "text": "접수",
+     "start_sec": 153.67,
+     "end_sec": 154.58
+    },
+    {
+     "text": "환자를",
+     "start_sec": 154.58,
+     "end_sec": 155.5
+    },
+    {
+     "text": "나눠",
+     "start_sec": 155.5,
+     "end_sec": 156.42
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 156.42,
+     "end_sec": 157.33
+    },
+    {
+     "text": "예약하고",
+     "start_sec": 157.33,
+     "end_sec": 158.25
+    },
+    {
+     "text": "온",
+     "start_sec": 158.25,
+     "end_sec": 159.17
+    },
+    {
+     "text": "환자가",
+     "start_sec": 159.17,
+     "end_sec": 160.08
+    },
+    {
+     "text": "이백육십팔",
+     "start_sec": 160.08,
+     "end_sec": 161.0
+    },
+    {
+     "text": "명,",
+     "start_sec": 161.0,
+     "end_sec": 161.92
+    },
+    {
+     "text": "당일",
+     "start_sec": 161.92,
+     "end_sec": 162.83
+    },
+    {
+     "text": "접수한",
+     "start_sec": 162.83,
+     "end_sec": 163.75
+    },
+    {
+     "text": "환자가",
+     "start_sec": 163.75,
+     "end_sec": 164.67
+    },
+    {
+     "text": "백사십사",
+     "start_sec": 164.67,
+     "end_sec": 165.58
+    },
+    {
+     "text": "명이에요.",
+     "start_sec": 165.58,
+     "end_sec": 166.5
+    },
+    {
+     "text": "그럼",
+     "start_sec": 166.5,
+     "end_sec": 167.42
+    },
+    {
+     "text": "예약한",
+     "start_sec": 167.42,
+     "end_sec": 168.33
+    },
+    {
+     "text": "사람이",
+     "start_sec": 168.33,
+     "end_sec": 169.25
+    },
+    {
+     "text": "더",
+     "start_sec": 169.25,
+     "end_sec": 170.17
+    },
+    {
+     "text": "오래",
+     "start_sec": 170.17,
+     "end_sec": 171.08
+    },
+    {
+     "text": "기다렸을까요?",
+     "start_sec": 171.08,
+     "end_sec": 172.0
+    },
+    {
+     "text": "반대예요.",
+     "start_sec": 172.0,
+     "end_sec": 172.92
+    },
+    {
+     "text": "예약",
+     "start_sec": 172.92,
+     "end_sec": 173.83
+    },
+    {
+     "text": "환자는",
+     "start_sec": 173.83,
+     "end_sec": 174.75
+    },
+    {
+     "text": "사십일",
+     "start_sec": 174.75,
+     "end_sec": 175.67
+    },
+    {
+     "text": "분을",
+     "start_sec": 175.67,
+     "end_sec": 176.58
+    },
+    {
+     "text": "기다렸는데,",
+     "start_sec": 176.58,
+     "end_sec": 177.5
+    },
+    {
+     "text": "당일",
+     "start_sec": 177.5,
+     "end_sec": 178.42
+    },
+    {
+     "text": "접수",
+     "start_sec": 178.42,
+     "end_sec": 179.33
+    },
+    {
+     "text": "환자는",
+     "start_sec": 179.33,
+     "end_sec": 180.25
+    },
+    {
+     "text": "한",
+     "start_sec": 180.25,
+     "end_sec": 181.17
+    },
+    {
+     "text": "시간",
+     "start_sec": 181.17,
+     "end_sec": 182.08
+    },
+    {
+     "text": "반을",
+     "start_sec": 182.08,
+     "end_sec": 183.0
+    },
+    {
+     "text": "기다렸어요.",
+     "start_sec": 183.0,
+     "end_sec": 183.92
+    },
+    {
+     "text": "같은",
+     "start_sec": 183.92,
+     "end_sec": 184.83
+    },
+    {
+     "text": "진료를",
+     "start_sec": 184.83,
+     "end_sec": 185.75
+    },
+    {
+     "text": "받으려고",
+     "start_sec": 185.75,
+     "end_sec": 186.67
+    },
+    {
+     "text": "사십구",
+     "start_sec": 186.67,
+     "end_sec": 187.58
+    },
+    {
+     "text": "분을",
+     "start_sec": 187.58,
+     "end_sec": 188.5
+    },
+    {
+     "text": "더",
+     "start_sec": 188.5,
+     "end_sec": 189.42
+    },
+    {
+     "text": "기다린",
+     "start_sec": 189.42,
+     "end_sec": 190.33
+    },
+    {
+     "text": "거고,",
+     "start_sec": 190.33,
+     "end_sec": 191.25
+    },
+    {
+     "text": "두",
+     "start_sec": 191.25,
+     "end_sec": 192.17
+    },
+    {
+     "text": "배가",
+     "start_sec": 192.17,
+     "end_sec": 193.08
+    },
+    {
+     "text": "넘어요.",
+     "start_sec": 193.08,
+     "end_sec": 194.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 194,
+   "end_sec": 228,
+   "text": "시간대별로도 나눠 봤어요. 시간대마다 차이가 꽤 났어요. 오전 아홉 시에서 열한 시 사이가 칠십이 분으로 제일 길었어요. 열한 시부터 한 시 사이는 오십일 분, 오후 두 시 이후는 삼십팔 분이었어요. 오후 대기는 오전 첫 두 시간의 절반 남짓이었던 거죠.",
+   "words": [
+    {
+     "text": "시간대별로도",
+     "start_sec": 194.0,
+     "end_sec": 194.87
+    },
+    {
+     "text": "나눠",
+     "start_sec": 194.87,
+     "end_sec": 195.74
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 195.74,
+     "end_sec": 196.62
+    },
+    {
+     "text": "시간대마다",
+     "start_sec": 196.62,
+     "end_sec": 197.49
+    },
+    {
+     "text": "차이가",
+     "start_sec": 197.49,
+     "end_sec": 198.36
+    },
+    {
+     "text": "꽤",
+     "start_sec": 198.36,
+     "end_sec": 199.23
+    },
+    {
+     "text": "났어요.",
+     "start_sec": 199.23,
+     "end_sec": 200.1
+    },
+    {
+     "text": "오전",
+     "start_sec": 200.1,
+     "end_sec": 200.97
+    },
+    {
+     "text": "아홉",
+     "start_sec": 200.97,
+     "end_sec": 201.85
+    },
+    {
+     "text": "시에서",
+     "start_sec": 201.85,
+     "end_sec": 202.72
+    },
+    {
+     "text": "열한",
+     "start_sec": 202.72,
+     "end_sec": 203.59
+    },
+    {
+     "text": "시",
+     "start_sec": 203.59,
+     "end_sec": 204.46
+    },
+    {
+     "text": "사이가",
+     "start_sec": 204.46,
+     "end_sec": 205.33
+    },
+    {
+     "text": "칠십이",
+     "start_sec": 205.33,
+     "end_sec": 206.21
+    },
+    {
+     "text": "분으로",
+     "start_sec": 206.21,
+     "end_sec": 207.08
+    },
+    {
+     "text": "제일",
+     "start_sec": 207.08,
+     "end_sec": 207.95
+    },
+    {
+     "text": "길었어요.",
+     "start_sec": 207.95,
+     "end_sec": 208.82
+    },
+    {
+     "text": "열한",
+     "start_sec": 208.82,
+     "end_sec": 209.69
+    },
+    {
+     "text": "시부터",
+     "start_sec": 209.69,
+     "end_sec": 210.56
+    },
+    {
+     "text": "한",
+     "start_sec": 210.56,
+     "end_sec": 211.44
+    },
+    {
+     "text": "시",
+     "start_sec": 211.44,
+     "end_sec": 212.31
+    },
+    {
+     "text": "사이는",
+     "start_sec": 212.31,
+     "end_sec": 213.18
+    },
+    {
+     "text": "오십일",
+     "start_sec": 213.18,
+     "end_sec": 214.05
+    },
+    {
+     "text": "분,",
+     "start_sec": 214.05,
+     "end_sec": 214.92
+    },
+    {
+     "text": "오후",
+     "start_sec": 214.92,
+     "end_sec": 215.79
+    },
+    {
+     "text": "두",
+     "start_sec": 215.79,
+     "end_sec": 216.67
+    },
+    {
+     "text": "시",
+     "start_sec": 216.67,
+     "end_sec": 217.54
+    },
+    {
+     "text": "이후는",
+     "start_sec": 217.54,
+     "end_sec": 218.41
+    },
+    {
+     "text": "삼십팔",
+     "start_sec": 218.41,
+     "end_sec": 219.28
+    },
+    {
+     "text": "분이었어요.",
+     "start_sec": 219.28,
+     "end_sec": 220.15
+    },
+    {
+     "text": "오후",
+     "start_sec": 220.15,
+     "end_sec": 221.03
+    },
+    {
+     "text": "대기는",
+     "start_sec": 221.03,
+     "end_sec": 221.9
+    },
+    {
+     "text": "오전",
+     "start_sec": 221.9,
+     "end_sec": 222.77
+    },
+    {
+     "text": "첫",
+     "start_sec": 222.77,
+     "end_sec": 223.64
+    },
+    {
+     "text": "두",
+     "start_sec": 223.64,
+     "end_sec": 224.51
+    },
+    {
+     "text": "시간의",
+     "start_sec": 224.51,
+     "end_sec": 225.38
+    },
+    {
+     "text": "절반",
+     "start_sec": 225.38,
+     "end_sec": 226.26
+    },
+    {
+     "text": "남짓이었던",
+     "start_sec": 226.26,
+     "end_sec": 227.13
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 227.13,
+     "end_sec": 228.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 228,
+   "end_sec": 264,
+   "text": "그래서 수납 대기부터 줄여 보려고, 이 주 동안 진료실 앞에서 모바일 수납 방법을 안내해 봤어요. 평균 수납 대기가 십팔 분에서 육 분으로 줄었어요. 삼분의 일이 된 거죠. 대기는 줄었지만 모바일 수납을 쓰는 분은 사 퍼센트에서 삼십일 퍼센트로, 여덟 배 가까이 늘었어요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 228.0,
+     "end_sec": 228.88
+    },
+    {
+     "text": "수납",
+     "start_sec": 228.88,
+     "end_sec": 229.76
+    },
+    {
+     "text": "대기부터",
+     "start_sec": 229.76,
+     "end_sec": 230.63
+    },
+    {
+     "text": "줄여",
+     "start_sec": 230.63,
+     "end_sec": 231.51
+    },
+    {
+     "text": "보려고,",
+     "start_sec": 231.51,
+     "end_sec": 232.39
+    },
+    {
+     "text": "이",
+     "start_sec": 232.39,
+     "end_sec": 233.27
+    },
+    {
+     "text": "주",
+     "start_sec": 233.27,
+     "end_sec": 234.15
+    },
+    {
+     "text": "동안",
+     "start_sec": 234.15,
+     "end_sec": 235.02
+    },
+    {
+     "text": "진료실",
+     "start_sec": 235.02,
+     "end_sec": 235.9
+    },
+    {
+     "text": "앞에서",
+     "start_sec": 235.9,
+     "end_sec": 236.78
+    },
+    {
+     "text": "모바일",
+     "start_sec": 236.78,
+     "end_sec": 237.66
+    },
+    {
+     "text": "수납",
+     "start_sec": 237.66,
+     "end_sec": 238.54
+    },
+    {
+     "text": "방법을",
+     "start_sec": 238.54,
+     "end_sec": 239.41
+    },
+    {
+     "text": "안내해",
+     "start_sec": 239.41,
+     "end_sec": 240.29
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 240.29,
+     "end_sec": 241.17
+    },
+    {
+     "text": "평균",
+     "start_sec": 241.17,
+     "end_sec": 242.05
+    },
+    {
+     "text": "수납",
+     "start_sec": 242.05,
+     "end_sec": 242.93
+    },
+    {
+     "text": "대기가",
+     "start_sec": 242.93,
+     "end_sec": 243.8
+    },
+    {
+     "text": "십팔",
+     "start_sec": 243.8,
+     "end_sec": 244.68
+    },
+    {
+     "text": "분에서",
+     "start_sec": 244.68,
+     "end_sec": 245.56
+    },
+    {
+     "text": "육",
+     "start_sec": 245.56,
+     "end_sec": 246.44
+    },
+    {
+     "text": "분으로",
+     "start_sec": 246.44,
+     "end_sec": 247.32
+    },
+    {
+     "text": "줄었어요.",
+     "start_sec": 247.32,
+     "end_sec": 248.2
+    },
+    {
+     "text": "삼분의",
+     "start_sec": 248.2,
+     "end_sec": 249.07
+    },
+    {
+     "text": "일이",
+     "start_sec": 249.07,
+     "end_sec": 249.95
+    },
+    {
+     "text": "된",
+     "start_sec": 249.95,
+     "end_sec": 250.83
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 250.83,
+     "end_sec": 251.71
+    },
+    {
+     "text": "대기는",
+     "start_sec": 251.71,
+     "end_sec": 252.59
+    },
+    {
+     "text": "줄었지만",
+     "start_sec": 252.59,
+     "end_sec": 253.46
+    },
+    {
+     "text": "모바일",
+     "start_sec": 253.46,
+     "end_sec": 254.34
+    },
+    {
+     "text": "수납을",
+     "start_sec": 254.34,
+     "end_sec": 255.22
+    },
+    {
+     "text": "쓰는",
+     "start_sec": 255.22,
+     "end_sec": 256.1
+    },
+    {
+     "text": "분은",
+     "start_sec": 256.1,
+     "end_sec": 256.98
+    },
+    {
+     "text": "사",
+     "start_sec": 256.98,
+     "end_sec": 257.85
+    },
+    {
+     "text": "퍼센트에서",
+     "start_sec": 257.85,
+     "end_sec": 258.73
+    },
+    {
+     "text": "삼십일",
+     "start_sec": 258.73,
+     "end_sec": 259.61
+    },
+    {
+     "text": "퍼센트로,",
+     "start_sec": 259.61,
+     "end_sec": 260.49
+    },
+    {
+     "text": "여덟",
+     "start_sec": 260.49,
+     "end_sec": 261.37
+    },
+    {
+     "text": "배",
+     "start_sec": 261.37,
+     "end_sec": 262.24
+    },
+    {
+     "text": "가까이",
+     "start_sec": 262.24,
+     "end_sec": 263.12
+    },
+    {
+     "text": "늘었어요.",
+     "start_sec": 263.12,
+     "end_sec": 264.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 264,
+   "end_sec": 298,
+   "text": "그래서 저희 제안은 세 가지예요. 당일 접수 환자에게 예상 대기 시간을 문자로 알려 드리고, 오전 예약 비중은 줄이고 오후 예약은 늘리고요, 안내 인력 두 명을 두는 거예요. 비용은 일 년에 오천사백만 원, 한 달로 치면 사백오십만 원이에요. 감사합니다.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 264.0,
+     "end_sec": 264.89
+    },
+    {
+     "text": "저희",
+     "start_sec": 264.89,
+     "end_sec": 265.79
+    },
+    {
+     "text": "제안은",
+     "start_sec": 265.79,
+     "end_sec": 266.68
+    },
+    {
+     "text": "세",
+     "start_sec": 266.68,
+     "end_sec": 267.58
+    },
+    {
+     "text": "가지예요.",
+     "start_sec": 267.58,
+     "end_sec": 268.47
+    },
+    {
+     "text": "당일",
+     "start_sec": 268.47,
+     "end_sec": 269.37
+    },
+    {
+     "text": "접수",
+     "start_sec": 269.37,
+     "end_sec": 270.26
+    },
+    {
+     "text": "환자에게",
+     "start_sec": 270.26,
+     "end_sec": 271.16
+    },
+    {
+     "text": "예상",
+     "start_sec": 271.16,
+     "end_sec": 272.05
+    },
+    {
+     "text": "대기",
+     "start_sec": 272.05,
+     "end_sec": 272.95
+    },
+    {
+     "text": "시간을",
+     "start_sec": 272.95,
+     "end_sec": 273.84
+    },
+    {
+     "text": "문자로",
+     "start_sec": 273.84,
+     "end_sec": 274.74
+    },
+    {
+     "text": "알려",
+     "start_sec": 274.74,
+     "end_sec": 275.63
+    },
+    {
+     "text": "드리고,",
+     "start_sec": 275.63,
+     "end_sec": 276.53
+    },
+    {
+     "text": "오전",
+     "start_sec": 276.53,
+     "end_sec": 277.42
+    },
+    {
+     "text": "예약",
+     "start_sec": 277.42,
+     "end_sec": 278.32
+    },
+    {
+     "text": "비중은",
+     "start_sec": 278.32,
+     "end_sec": 279.21
+    },
+    {
+     "text": "줄이고",
+     "start_sec": 279.21,
+     "end_sec": 280.11
+    },
+    {
+     "text": "오후",
+     "start_sec": 280.11,
+     "end_sec": 281.0
+    },
+    {
+     "text": "예약은",
+     "start_sec": 281.0,
+     "end_sec": 281.89
+    },
+    {
+     "text": "늘리고요,",
+     "start_sec": 281.89,
+     "end_sec": 282.79
+    },
+    {
+     "text": "안내",
+     "start_sec": 282.79,
+     "end_sec": 283.68
+    },
+    {
+     "text": "인력",
+     "start_sec": 283.68,
+     "end_sec": 284.58
+    },
+    {
+     "text": "두",
+     "start_sec": 284.58,
+     "end_sec": 285.47
+    },
+    {
+     "text": "명을",
+     "start_sec": 285.47,
+     "end_sec": 286.37
+    },
+    {
+     "text": "두는",
+     "start_sec": 286.37,
+     "end_sec": 287.26
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 287.26,
+     "end_sec": 288.16
+    },
+    {
+     "text": "비용은",
+     "start_sec": 288.16,
+     "end_sec": 289.05
+    },
+    {
+     "text": "일",
+     "start_sec": 289.05,
+     "end_sec": 289.95
+    },
+    {
+     "text": "년에",
+     "start_sec": 289.95,
+     "end_sec": 290.84
+    },
+    {
+     "text": "오천사백만",
+     "start_sec": 290.84,
+     "end_sec": 291.74
+    },
+    {
+     "text": "원,",
+     "start_sec": 291.74,
+     "end_sec": 292.63
+    },
+    {
+     "text": "한",
+     "start_sec": 292.63,
+     "end_sec": 293.53
+    },
+    {
+     "text": "달로",
+     "start_sec": 293.53,
+     "end_sec": 294.42
+    },
+    {
+     "text": "치면",
+     "start_sec": 294.42,
+     "end_sec": 295.32
+    },
+    {
+     "text": "사백오십만",
+     "start_sec": 295.32,
+     "end_sec": 296.21
+    },
+    {
+     "text": "원이에요.",
+     "start_sec": 296.21,
+     "end_sec": 297.11
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 297.11,
+     "end_sec": 298.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 298
+}

@@ -13,8 +13,10 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+import threading
 import uuid
 from base64 import b64decode
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -39,6 +41,7 @@ from chuckchuck import (
     transcribe,
     triage_questions,
 )
+from chuckchuck._client_payload import client_questions, reveal_due, reveal_fields, withheld
 from chuckchuck.contracts import (
     QA_TRACK_FALLBACK,
     QA_TRACKS,
@@ -177,6 +180,18 @@ def list_sessions():
     return {"sessions": [s.summary() for s in store.list_sessions()]}
 
 
+def _client_session(session) -> dict:
+    """
+    세션의 **화면용 사본** — 질문 묶음(QUESTION_DOC)은 함정의 전제·기대 답을 뺀 사본(`client_questions`)으로.
+    저장소의 원본은 그대로다 — 판정(`_resolve_question`)이 그 원본으로 채점한다 (브리지와 같은 규칙, 09-30 WP-J2).
+    """
+    data = session.to_dict()
+    artifacts = data.get("artifacts") or {}
+    if not isinstance(artifacts.get(QUESTION_DOC), dict):
+        return data
+    return {**data, "artifacts": {**artifacts, QUESTION_DOC: client_questions(artifacts[QUESTION_DOC])}}
+
+
 @app.post("/api/v1/sessions", status_code=201)
 async def create_session(payload: dict | None = None):
     payload = payload or {}
@@ -184,13 +199,13 @@ async def create_session(payload: dict | None = None):
         title=payload.get("title", ""),
         context=payload.get("context") or {},
     )
-    return s.to_dict()
+    return _client_session(s)
 
 
 @app.get("/api/v1/sessions/{session_id}")
 def get_session(session_id: str):
-    """이어하기용. artifact 전부 내려준다 (sessionStorage 대체)."""
-    return _need_session(session_id).to_dict()
+    """이어하기용. artifact 전부 내려준다 (sessionStorage 대체) — 질문 묶음은 화면 사본으로."""
+    return _client_session(_need_session(session_id))
 
 
 @app.patch("/api/v1/sessions/{session_id}")
@@ -203,7 +218,7 @@ async def patch_session(session_id: str, payload: dict):
     if "context" in payload:
         fields["context"] = payload["context"] or {}
     s = store.update_session(session_id, **fields)
-    return s.to_dict()
+    return _client_session(s)
 
 
 @app.post("/api/v1/sessions/{session_id}/document", status_code=202)
@@ -303,6 +318,31 @@ async def start_questions(session_id: str, payload: dict | None = None):
     }
 
 
+#: 플랫 라우트(/api/v1/questions)가 만든 **함정 질문의 원본** — 화면 사본에서 뺀 전제·기대 답(`client_questions`)을 판정이 되찾는 곳.
+#: 플랫에는 세션(QUESTION_DOC)이 없다. 브리지는 'flat' 자리의 질문 색인을 문장까지 같을 때만 쓴다 — 같은 규칙으로 (id, 문장) 이 열쇠다.
+#: 서버를 다시 띄우면 비고, 그때는 예전처럼 본문 질문으로 판정한다(함정인 줄은 알지만 전제는 모른다).
+_FLAT_TRAPS: OrderedDict[tuple[str, str], dict] = OrderedDict()
+_FLAT_TRAPS_MAX = 512
+_FLAT_TRAPS_LOCK = threading.Lock()
+
+
+def _flat_trap_key(question_id: str, question: dict) -> tuple[str, str]:
+    return str(question_id or question.get("id") or ""), str(question.get("question") or "").strip()
+
+
+def _remember_flat_traps(payload: dict) -> None:
+    """플랫으로 만든 묶음의 함정 질문 원본을 남긴다 (오래된 것부터 밀어낸다)."""
+    for q in (payload.get("questions") or []) if isinstance(payload, dict) else []:
+        if not (isinstance(q, dict) and withheld(q)):
+            continue
+        key = _flat_trap_key("", q)
+        with _FLAT_TRAPS_LOCK:
+            _FLAT_TRAPS[key] = q
+            _FLAT_TRAPS.move_to_end(key)
+            while len(_FLAT_TRAPS) > _FLAT_TRAPS_MAX:
+                _FLAT_TRAPS.popitem(last=False)
+
+
 def _resolve_question(session, question_id: str, fallback: dict | None) -> Question:
     """
     판정할 질문을 찾는다. 세션의 QuestionDoc 이 정본이고, 없으면 요청 바디를 믿는다.
@@ -310,6 +350,8 @@ def _resolve_question(session, question_id: str, fallback: dict | None) -> Quest
     저장소가 인메모리라 서버를 재시작하면 세션이 통째로 날아간다. 반면 프론트는
     질문 세트를 브라우저에 영속시켜 두므로, 그 상태로 답을 보내면 모든 질문이
     '판정 실패' 가 된다. 바디 폴백이 그 경로를 살린다 — 판정 자체는 무상태다.
+
+    바디 질문은 화면 사본이라 함정의 전제·기대 답이 비어 있다 — 플랫으로 만든 함정이면 이 서버가 남긴 원본(id·문장이 같은 것)을 쓴다.
     """
     if session is not None:
         raw_doc = (session.artifacts or {}).get(QUESTION_DOC)
@@ -319,7 +361,9 @@ def _resolve_question(session, question_id: str, fallback: dict | None) -> Quest
                 return found
 
     if fallback:
-        question = Question.from_dict(fallback)
+        with _FLAT_TRAPS_LOCK:
+            original = _FLAT_TRAPS.get(_flat_trap_key(question_id, fallback))
+        question = Question.from_dict(original or fallback)
         if question.question.strip():
             return question
 
@@ -338,12 +382,17 @@ async def judge_qa_answer(session_id: str, payload: dict):
     F-09 · 답변 판정. **잡이 아니라 동기 라우트다** — 프론트가 응답 바디를 바로 읽는다.
 
     세션이 살아 있으면 그래프·정합 판정을 근거로 함께 넘긴다.
+
+    함정 질문의 기대 답은 화면 사본에 없다(`client_questions`) — 브리지와 같은 규칙으로 판정 응답에 싣는다: `reveal: true` 요청
+    (「답 보고 다시 말해보기」)은 판정하지 않고(LLM 없이) 기대 답만, 판정이면 바로잡았거나·닫혔거나·해설 단계일 때만 (`reveal_due`).
     """
     question = _resolve_question(
         store.get_session(session_id),
         str(payload.get("question_id", "") or ""),
         payload.get("question"),
     )
+    if payload.get("reveal") is True:
+        return {"question_id": question.id, "reveal": True, **reveal_fields(question)}
 
     session = store.get_session(session_id)
     artifacts = (session.artifacts if session else None) or {}
@@ -379,7 +428,8 @@ async def judge_qa_answer(session_id: str, payload: dict):
             memory=payload.get("memory") if isinstance(payload.get("memory"), dict) else None,
         )
     )
-    return judgement.to_dict()
+    body = judgement.to_dict()
+    return {**body, **reveal_fields(question)} if reveal_due(question, judgement) else body
 
 
 @app.get("/api/v1/jobs/{job_id}")
@@ -387,7 +437,11 @@ def get_job(job_id: str):
     job = store.get_job(job_id)
     if job is None:
         raise HTTPException(404, {"error": "not_found", "message": "작업이 없습니다."})
-    return job.to_dict()
+    data = job.to_dict()
+    # 질문 잡의 결과는 화면으로 간다 — 함정의 전제·기대 답은 뺀 사본으로 (원본은 세션의 QUESTION_DOC 에 남아 채점 기준이 된다)
+    if job.type == "questions" and isinstance(data.get("result"), dict):
+        return {**data, "result": client_questions(data["result"])}
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -571,8 +625,11 @@ async def flat_questions(payload: dict):
     doc = await run_in_threadpool(run)
     # 힌트 사다리를 얹는다 — 브리지만 얹으면 이 라우트로 직결한 화면은 힌트가
     # 1칸으로 무너지고 「답 보고 넘어가기」가 조기에 열린다 (qa_live liveStalled).
+    # 함정의 전제·기대 답은 뺀 화면 사본으로 낸다 (브리지와 같은 규칙 — `client_questions`). 원본은 판정이 되찾게 남긴다.
     from chuckchuck.f08_questions import with_hint_ladders
-    return with_hint_ladders(doc.to_dict(), doc.questions)
+    payload = with_hint_ladders(doc.to_dict(), doc.questions)
+    _remember_flat_traps(payload)
+    return client_questions(payload)
 
 
 @app.post("/api/v1/papers/search")

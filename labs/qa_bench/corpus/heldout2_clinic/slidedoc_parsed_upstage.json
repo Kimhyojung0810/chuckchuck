@@ -1,0 +1,260 @@
+{
+ "file_name": "deck.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "외래 진료, 기다림은 어디서 생길까"
+    },
+    {
+     "category": "paragraph",
+     "text": "의사를 만나는 시간보다 기다리는 시간이 훨씬 깁니다\n보건행정학과 2학년 4조 | 지역 종합병원 외래 현장 조사"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 80,
+   "line_count": 3,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "외래 진료, 기다림은 어디서 생길까\n의사를 만나는 시간보다 기다리는 시간이 훨씬 깁니다\n보건행정학과 2학년 4조 | 지역 종합병원 외래 현장 조사"
+  },
+  {
+   "slide_no": 2,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "왜 대기 시간인가"
+    },
+    {
+     "category": "paragraph",
+     "text": "외래 환자 한 명이 병원에 머무는 시간은 평균 94분입니다.\n그중 의사를 만나는 진료 시간은 7분뿐입니다.\n환자 5명 중 3명이 가장 큰 불만으로 '긴 대기'를 꼽았습니다."
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 105,
+   "line_count": 4,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "왜 대기 시간인가\n외래 환자 한 명이 병원에 머무는 시간은 평균 94분입니다.\n그중 의사를 만나는 진료 시간은 7분뿐입니다.\n환자 5명 중 3명이 가장 큰 불만으로 '긴 대기'를 꼽았습니다."
+  },
+  {
+   "slide_no": 3,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "조사 방법"
+    },
+    {
+     "category": "paragraph",
+     "text": "정형외과·내과·안과 외래 3곳\n평일 10일 · 오전 9시~오후 5시\n환자 412명의 접수·진료·수납 시각을 직접 기록\n응급 환자와 당일 입원 환자는 분석에서 제외"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 95,
+   "line_count": 5,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "조사 방법\n정형외과·내과·안과 외래 3곳\n평일 10일 · 오전 9시~오후 5시\n환자 412명의 접수·진료·수납 시각을 직접 기록\n응급 환자와 당일 입원 환자는 분석에서 제외"
+  },
+  {
+   "slide_no": 4,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "병원에서 보내는 시간 쪼개 보기"
+    },
+    {
+     "category": "paragraph",
+     "text": "진료 대기 +"
+    },
+    {
+     "category": "paragraph",
+     "text": "진료 +"
+    },
+    {
+     "category": "paragraph",
+     "text": "총 소요"
+    },
+    {
+     "category": "paragraph",
+     "text": "시간 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "접수 대기 +"
+    },
+    {
+     "category": "paragraph",
+     "text": "11분 + 58분 + 7분 + 18분 = 94분"
+    },
+    {
+     "category": "paragraph",
+     "text": "가장 긴 구간은 진료 대기입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "수납 대기"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 92,
+   "line_count": 9,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "병원에서 보내는 시간 쪼개 보기\n진료 대기 +\n진료 +\n총 소요\n시간 =\n접수 대기 +\n11분 + 58분 + 7분 + 18분 = 94분\n가장 긴 구간은 진료 대기입니다.\n수납 대기"
+  },
+  {
+   "slide_no": 5,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "예약 환자와 당일 접수 환자"
+    },
+    {
+     "category": "table",
+     "text": "| 구분 | 환자 수 | 평균 진료 대기 |\n| --- | --- | --- |\n| 예약 환자 | 268명 | 41분 |\n| 당일 접수 환자 | 144명 | 90분 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "당일 접수 환자의 진료 대기는 예약 환자의 2배가 넘었습니다."
+    }
+   ],
+   "categories": [
+    "paragraph",
+    "table"
+   ],
+   "total_char_count": 142,
+   "line_count": 6,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "예약 환자와 당일 접수 환자\n| 구분 | 환자 수 | 평균 진료 대기 |\n| --- | --- | --- |\n| 예약 환자 | 268명 | 41분 |\n| 당일 접수 환자 | 144명 | 90분 |\n당일 접수 환자의 진료 대기는 예약 환자의 2배가 넘었습니다."
+  },
+  {
+   "slide_no": 6,
+   "title": "시간대별 진료 대기",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "시간대별 진료 대기"
+    },
+    {
+     "category": "table",
+     "text": "| 시간대 | 평균 진료 대기 |\n| --- | --- |\n| 오전 9~11시 | 72분 |\n| 오전 11시~오후 1시 | 51분 |\n| 오후 2~5시 | 38분 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "오후 2~5시 대기는 오전 9~11시에 비해 절반 수준이었습니다."
+    }
+   ],
+   "categories": [
+    "heading1",
+    "table",
+    "paragraph"
+   ],
+   "total_char_count": 138,
+   "line_count": 7,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "시간대별 진료 대기\n| 시간대 | 평균 진료 대기 |\n| --- | --- |\n| 오전 9~11시 | 72분 |\n| 오전 11시~오후 1시 | 51분 |\n| 오후 2~5시 | 38분 |\n오후 2~5시 대기는 오전 9~11시에 비해 절반 수준이었습니다."
+  },
+  {
+   "slide_no": 7,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "시범 개선: 모바일 수납 안내"
+    },
+    {
+     "category": "paragraph",
+     "text": "진료실 앞에서 모바일 수납 방법을 2주 동안 안내했습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 지표 | 시범 전 | 시범 후 |\n| --- | --- | --- |\n| 평균 수납 대기 | 18분 | 6분 |\n| 모바일 수납 이용률 | 4% | 31% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "수납 대기가 3분의 1로 줄었습니다."
+    }
+   ],
+   "categories": [
+    "paragraph",
+    "table"
+   ],
+   "total_char_count": 158,
+   "line_count": 7,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "시범 개선: 모바일 수납 안내\n진료실 앞에서 모바일 수납 방법을 2주 동안 안내했습니다.\n| 지표 | 시범 전 | 시범 후 |\n| --- | --- | --- |\n| 평균 수납 대기 | 18분 | 6분 |\n| 모바일 수납 이용률 | 4% | 31% |\n수납 대기가 3분의 1로 줄었습니다."
+  },
+  {
+   "slide_no": 8,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "당일 접수 환자에게 예상 대기 시간 문자 알림\n오전 예약 비중을 줄이고 오후 예약 늘리기\n안내 인력 2명 · 연 5,400만 원\n감사합니다"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 79,
+   "line_count": 5,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "제안\n당일 접수 환자에게 예상 대기 시간 문자 알림\n오전 예약 비중을 줄이고 오후 예약 늘리기\n안내 인력 2명 · 연 5,400만 원\n감사합니다"
+  }
+ ]
+}

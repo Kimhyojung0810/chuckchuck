@@ -50,8 +50,9 @@ def fake_get(monkeypatch, responses):
     calls = []
     queue = list(responses)
 
-    def _get(url, params=None, timeout=None, headers=None):
-        calls.append({"url": url, "params": params or {}, "headers": headers or {}})
+    def _get(url, params=None, timeout=None, headers=None, **kw):
+        # 키 머리·메일을 실은 요청은 되돌리기를 손으로 따라간다(allow_redirects=False) — 그 요청도 받는다 (scholar_impl._send)
+        calls.append({"url": url, "params": params or {}, "headers": headers or {}, **kw})
         return queue.pop(0) if len(queue) > 1 else queue[0]
 
     monkeypatch.setattr("chuckchuck.providers.scholar_impl.requests.get", _get)

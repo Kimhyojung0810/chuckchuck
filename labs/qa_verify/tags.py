@@ -185,6 +185,12 @@ def choice_tags(choices: list[str], deck: str, followup: str = "") -> list[dict]
     """
     if not choices:
         return []
+    # 입장 보기 쌍(탐침 질문 — 「늘 맞아요」/「조건이 붙어요」)은 자료 낱말 보기가 아니다: 명사·자료 대조 대신 입장 잣대로 본다 (09-30 WP-J3).
+    kind = T.stance_pair([str(c) for c in choices])
+    if kind:
+        return []
+    if len(choices) == 2 and all(T._STANCE_CHIP_RE.match(str(c).strip()) for c in choices):
+        return [_tag("relevance.choice_invalid", "입장 보기 쌍이 아님(맞는 쪽·틀린 쪽이 하나씩 아님)", " / ".join(map(str, choices)))]
     shown = re.search(r"«([^»]+)»", followup or "")
     sides = T.contrast_sides(shown.group(1)) if shown else None
     affirmed = sides[1] if sides and T.noun_phrase_ok(sides[0]) and T.noun_phrase_ok(sides[1]) else ""

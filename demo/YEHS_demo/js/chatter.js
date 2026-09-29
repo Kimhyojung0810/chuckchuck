@@ -607,13 +607,15 @@ ${props(speaker)}
   /* API                                                                  */
   /* ------------------------------------------------------------------ */
 
-  async function fetchChatter(graph, alignment, flow) {
+  /* sessionId 를 싣는다 — 브리지가 세션 id + 재료 해시로 수다를 캐시에 둔다. 예전엔 결과·리포트 화면을 새로 열 때마다 네 모델을
+     다시 불렀다 (09-30 녹음 대화 감사 REC-19: LLM 230콜 중 101콜이 객석, 그중 약 55콜이 같은 분석의 재렌더) */
+  async function fetchChatter(graph, alignment, flow, sessionId) {
     let res;
     try {
       res = await fetch('/api/v1/chatter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ graph: graph, alignment: alignment, flow: flow }),
+        body: JSON.stringify({ session_id: sessionId || null, graph: graph, alignment: alignment, flow: flow }),
       });
     } catch (err) {
       // fetch 자체가 터진 것 = 서버가 없다. 정적 배포(GitHub Pages)에는 /api 가 없다.

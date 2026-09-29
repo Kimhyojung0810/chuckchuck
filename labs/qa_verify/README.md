@@ -165,6 +165,11 @@ quick 의 가드 감사도 같은 공격을 **LLM 없이** 넣는다 — `guard.
   대상 `triage_questions`·`build_questions` 를 부른다. 기대: `node_id` 질문의 `question_equals`·`question_startswith`·`question_forbid`·
   `checks_require`·`speech_quote_equals`, 트랙 전체의 `slide_questions_max {slide, max}`·`no_trap_on_slides`·`trap_count_max`·`trap_count_min`·
   `node_absent`·`node_present`·`slot_of` (09-30 녹음 감사 REC-05·07·11·18·02, 사례는 `cases.d/f08rec.json`).
+- `align_contra` — `args.said`(`[{slide_no, text, expect}]`) 문장을 장마다 한 구간으로 놓고 대상 F-11 코드 대조
+  (`_align_checks.contradictions`, 그래프는 장마다 개념 하나)를 돌린다. `expect` 가 `"none"` 이면 모순이 없어야 하고,
+  `{family, slide}` 면 그 장에 그 갈래(`number`·`direction`·`polarity` — `AlignmentItem.contra_kind`)의 모순이 있어야 한다.
+- `evidence_verified` — `args.talk`(구간) · `node` · `quote`(LLM 인용)로 대상 `_align_checks.resolve_evidence` 를 불러
+  `expect.forbid`(녹음에 없는 조각이 남으면 실패) · `contains` · `empty` 로 본다.
 
 `source.file` 은 처음 읽을 때 `out/frozen/<id>.json` 에 얼려 둔다 — 부스 세션 보관소는 지워질 수 있다. 원본도 얼린 것도 없으면
 `inline`(또는 다른 사례의 inline 을 `inline_from` 으로), 그것도 없으면 skip(`quick.cases.skipped`). 발표자의 자료 본문을 새로

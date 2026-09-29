@@ -376,15 +376,39 @@ _NOUN_OK = {"올해", "피해", "이해", "방해", "손해", "재해", "마음"
 }
 
 
+#: 입장 보기 쌍 (09-30 WP-J3) — 탐침 질문의 「모르겠어요」·발판 보기는 자료 낱말이 아니라 입장 둘이다(「늘 맞아요」/「조건이 붙어요」).
+#: 명사·자료 대조 대상이 아니라 따로 센다. (맞는 쪽 표지, 틀린 쪽 표지) — 잣대 쪽 정의라 대상의 표를 읽지 않는다 (verify textkit 과 같은 값).
+STANCE_TRUTH = {
+    "absolute_boundary": (re.compile(r"조건|경우에\s*따라|때에\s*따라"), re.compile(r"늘|항상|언제나|모든\s*경우")),
+    "unsolved": (re.compile(r"비어|없었|없어"), re.compile(r"나와\s*있")),
+    "unsupported_cause": (re.compile(r"비어|없었|없어"), re.compile(r"나와\s*있")),
+    "tension": (re.compile(r"전체|일부"), re.compile(r"서로\s*다른|따로")),
+}
+_STANCE_CHIP_RE = re.compile(r"^[가-힣 ]{2,16}(?:어요|아요|예요|이에요|여요|해요)$")
+
+
+def stance_pair(choices: list[str]) -> str:
+    """보기 둘이 입장 쌍이면 그 탐침 종류(맞는 쪽·틀린 쪽 표지가 하나씩), 아니면 ""."""
+    if len(choices) != 2 or not all(_STANCE_CHIP_RE.match((c or "").strip()) for c in choices):
+        return ""
+    for kind, (right, wrong) in STANCE_TRUTH.items():
+        r = [c for c in choices if right.search(c) and not wrong.search(c)]
+        w = [c for c in choices if wrong.search(c) and not right.search(c)]
+        if len(r) == 1 and len(w) == 1:
+            return kind
+    return ""
+
+
 def choice_quality(choices: list[str], deck_text: str, quote: str = "") -> dict:
-    """「모르겠어요」·발판 선택지 둘이 **명사(구)** 이고 **자료에 글자 그대로** 있는가 (정규화 부분 문자열)."""
+    """「모르겠어요」·발판 선택지 둘이 **명사(구)** 이고 **자료에 글자 그대로** 있는가 (정규화 부분 문자열).
+    입장 보기 쌍이면 stance 에 그 종류를 적는다 — 명사·자료 대조는 그 쌍에 맞지 않는 잣대다 (09-30 WP-J3)."""
     def noun(c: str) -> bool:
         last = (re.findall(r"[가-힣A-Za-z0-9%]+", c) or [""])[-1]
         # 셋 글자 이상이 「지」로 끝나면 용언 줄기(「떨어지」「보이지」) — 「유지」「의지」 같은 두 글자 명사는 둔다
         stem = len(last) >= 3 and last.endswith("지")
         return bool(last) and (last in _NOUN_OK or not (_NOT_NOUN_RE.search(last) or stem))
     dn = norm(deck_text)
-    return {"n": len(choices), "noun": bool(choices) and all(noun(c) for c in choices),
+    return {"n": len(choices), "stance": stance_pair(list(choices)), "noun": bool(choices) and all(noun(c) for c in choices),
             "in_deck": bool(choices) and all(norm(c) and norm(c) in dn for c in choices),
             "in_quote": bool(choices and quote) and sum(1 for c in choices if norm(c) in norm(quote)) >= 1,
             "choices": list(choices)}

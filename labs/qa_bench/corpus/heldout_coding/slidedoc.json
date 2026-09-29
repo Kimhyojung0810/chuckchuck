@@ -1,0 +1,238 @@
+{
+ "file_name": "방과후_코딩교실_출석탐구.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "방과후 코딩 교실, 왜 학기 말이면 자리가 빌까",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "방과후 코딩 교실, 왜 학기 말이면 자리가 빌까"
+    },
+    {
+     "category": "paragraph",
+     "text": "짝 코딩을 한 주에는 빈자리가 줄었습니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "정보 탐구 발표 | 1학년 5반 코딩 모둠"
+    },
+    {
+     "category": "paragraph",
+     "text": "1/8"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "조사 배경",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "조사 배경"
+    },
+    {
+     "category": "paragraph",
+     "text": "우리 학교 방과후 코딩 교실 등록 학생은 48명입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "3월 첫 주 출석률은 92%였지만 7월 마지막 주에는 58%로 떨어졌습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "7월에는 출석률 60% 미만인 주가 4주 연속 이어졌습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "2/8"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "조사 방법",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "조사 방법"
+    },
+    {
+     "category": "paragraph",
+     "text": "출석부 16주치 (3월~7월)"
+    },
+    {
+     "category": "paragraph",
+     "text": "수업 뒤 설문 4회 · 응답 41명"
+    },
+    {
+     "category": "paragraph",
+     "text": "담당 선생님 인터뷰 1회"
+    },
+    {
+     "category": "paragraph",
+     "text": "3/8"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "출석률은 이렇게 셌습니다",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "출석률은 이렇게 셌습니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "주간 출석률 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "출석 학생 수"
+    },
+    {
+     "category": "paragraph",
+     "text": "÷"
+    },
+    {
+     "category": "paragraph",
+     "text": "등록 학생 수"
+    },
+    {
+     "category": "paragraph",
+     "text": "× 100"
+    },
+    {
+     "category": "paragraph",
+     "text": "지각 10분 이내는 출석으로 셌습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "4/8"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "반별 출석률",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "반별 출석률"
+    },
+    {
+     "category": "table",
+     "text": "| 반 | 3월 첫 주 | 7월 마지막 주 |"
+    },
+    {
+     "category": "table",
+     "text": "| 블록 코딩 반 (24명) | 96% | 71% |"
+    },
+    {
+     "category": "table",
+     "text": "| 파이썬 반 (24명) | 88% | 46% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "파이썬 반은 블록 코딩 반보다 7월 출석률이 25%p 낮았습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "5/8"
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "짝 코딩과 혼자 코딩",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "짝 코딩과 혼자 코딩"
+    },
+    {
+     "category": "paragraph",
+     "text": "혼자 코딩한 주에 비해 짝 코딩을 한 주가 다음 주 출석률이 11%p 높았습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 수업 방식 | 주 수 | 다음 주 평균 출석률 |"
+    },
+    {
+     "category": "table",
+     "text": "| 혼자 코딩 | 9주 | 64% |"
+    },
+    {
+     "category": "table",
+     "text": "| 짝 코딩 | 7주 | 75% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "6/8"
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "빠진 이유 (설문, 복수 응답)",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "빠진 이유 (설문, 복수 응답)"
+    },
+    {
+     "category": "paragraph",
+     "text": "빠진 적이 있다고 답한 29명에게 이유를 물었습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 이유 | 응답 수 |"
+    },
+    {
+     "category": "table",
+     "text": "| 과제가 어려워서 | 17명 |"
+    },
+    {
+     "category": "table",
+     "text": "| 학원 시간과 겹쳐서 | 12명 |"
+    },
+    {
+     "category": "table",
+     "text": "| 집이 멀어서 (2km 이상) | 6명 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "7/8"
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "제안",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "파이썬 반부터 격주로 짝 코딩을 합니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "두 번 연속 빠진 학생에게는 담당 선생님이 먼저 연락합니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "8/8"
+    }
+   ]
+  }
+ ]
+}

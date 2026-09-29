@@ -708,6 +708,12 @@ class AlignmentItem:
     deck_quote: str = ""
     deck_slide_no: int | None = None
     decided_by: str = "llm"            # ALIGN_DECIDERS
+    #: 코드가 확인한 모순의 갈래 — "number"(수치가 다름) · "direction"(비교·방향이 반대) · "polarity"(맞다·아니다가 반대) · ""(모름·모순 아님).
+    #: 질문·리포트가 「수치」「방향」「맞다·아니다」 를 이것으로 고른다 — 자료 쪽에만 남은 수로 짐작하면 「이 할도 안 되는」(= 2할 미만)이
+    #: 「수치가 달라요」 가 됐다(09-30 녹음 감사 REC-03). 예전 저장본엔 없다 — 비면 예전처럼 짐작한다.
+    contra_kind: str = ""
+
+    CONTRA_KINDS = ("number", "direction", "polarity")
 
     def to_dict(self) -> dict:
         return {
@@ -721,6 +727,7 @@ class AlignmentItem:
             "deck_quote": self.deck_quote,
             "deck_slide_no": self.deck_slide_no,
             "decided_by": self.decided_by,
+            "contra_kind": self.contra_kind,
         }
 
     @classmethod
@@ -728,6 +735,7 @@ class AlignmentItem:
         verdict = d.get("verdict", "missing")
         slide_no = d.get("deck_slide_no")
         decided = str(d.get("decided_by", "llm") or "llm")
+        contra_kind = str(d.get("contra_kind", "") or "")
         return cls(
             node_id=str(d["node_id"]),
             verdict=verdict if verdict in ALIGN_VERDICTS else "missing",
@@ -739,6 +747,7 @@ class AlignmentItem:
             deck_quote=str(d.get("deck_quote", "") or ""),
             deck_slide_no=None if slide_no is None else int(slide_no),
             decided_by=decided if decided in ALIGN_DECIDERS else "llm",
+            contra_kind=contra_kind if contra_kind in cls.CONTRA_KINDS else "",
         )
 
 
@@ -1529,10 +1538,11 @@ def qa_passed(verdict: str, score: int) -> bool:
 #:   · deck(자료와 수치·서열·방향·부정 어긋남) · number_unsupported(자료에 없는 수를 다른 값의 대상에 붙임) · self_opposed
 #:   · restated(탐침 줄 되풀이) · reason(근거 질문에 배경만) · off_topic · focus_miss · list(낱말 나열·서술어 없음)
 #:   · echo(질문 되읊기) · repeat(앞 답 되풀이) · ungrounded(답이 골자·자료와 맞닿지 않음) · short(한두 낱말) · choice(되물음 칩)
-#:   · language(한국어가 아닌 답)
+#:   · language(한국어가 아닌 답) · contra_said(모순 질문에 발표 쪽을 다시 고름 · wrong 35)
+#:   · contra_dispute(모순 질문에 발표 쪽을 출처·자료 오류를 들어 고름 — 자료 안의 숫자로만 확인한다 · wrong 35)
 QA_JUDGE_GUARDS = ("", "trap", "trap_misfixed", "trap_open", "injection", "deck", "number_unsupported", "self_opposed",
                    "restated", "reason", "off_topic", "focus_miss", "list", "echo", "repeat", "ungrounded", "short", "choice",
-                   "language")
+                   "language", "contra_said", "contra_dispute")
 
 
 #: 한 질문을 붙들 최대 라운드. 넘어가면 통과 수준(qa_passed)에서 닫아 준다 —
@@ -1799,6 +1809,51 @@ CLAIM_KINDS = ("compose", "compare", "cause", "solve", "absolute", "contrast")
 #: absolute_boundary  absolute 주장 ("반드시·완전히·항상") — 반례·경계를 묻는다
 #: sibling_priority   같은 compose 의 형제 요소 — 하나만 지킬 수 있다면 어느 쪽인가
 PROBE_KINDS = ("tension", "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority")
+
+
+@dataclass(frozen=True)
+class ProbeStance:
+    """
+    탐침 질문의 **입장 둘 중 하나** — 「모르겠어요」 첫 단계(F-09 코칭)와 힌트 사다리(F-08)가 같이 쓰는 한 벌 (09-30 WP-J3).
+
+    탐침은 「자료가 무엇을 말하나」 가 아니라 「자료의 그 말이 어디까지 맞나·무엇이 비었나」 를 묻는다. 그래서 첫 되물음이 골자의
+    낱말을 가린 「'A' 쪽인가요, 'B' 쪽인가요?」 이면 뜻이 없다 — 09-30 standard 실측 「'부하' 쪽인가요, '완전히' 쪽인가요?」.
+    묻는 것은 **입장**이다: 늘 맞나·조건이 붙나 / 자료에 나와 있었나·비어 있었나 / 전체와 일부인가·서로 다른 둘인가.
+
+    ask 는 앞 문장(「자료 N장은 «…» 라고 해요.」 · 「{개념} 이야기예요.」)이 가리키는 것을 「이 말」「이 문제」 로 받는다 — 덱 낱말이 없는
+    고정 문장이라 어느 발표에나 그대로 쓴다. choices 는 칩 글이고 **물음 속 순서**다(정답 자리가 종류마다 달라 누르는 자리로 못 맞힌다).
+    correct 가 맞는 쪽이다. 판정(F-09)은 칩 글과 같은 답을 이 표로 읽는다.
+    """
+    ask: str
+    choices: tuple[str, str]
+    correct: str
+
+    @property
+    def wrong(self) -> str:
+        return next(c for c in self.choices if c != self.correct)
+
+
+#: 탐침 종류 → 입장 둘 중 하나. **형제 우선순위(sibling_priority)는 없다** — 자료가 두 요소 가운데 어느 쪽에 순위를 뒀는지 코드가
+#: 모른다(`_probes._ranked` 는 순위를 말했는지만 본다). 그 질문은 검증된 대비 쌍이나 위치 단계로 간다 — 가린 낱말 쌍은 쓰지 않는다.
+#: 긴장(tension)은 비교(A가 B보다)와 구성(A = … × B)이 함께 있을 때만 생기므로 「전체와 그 일부를 견준 말」 이 늘 맞는 쪽이다.
+PROBE_STANCES: dict[str, ProbeStance] = {
+    "absolute_boundary": ProbeStance(
+        ask="이 말은 늘 맞는 말인가요, 조건이 붙는 말인가요?", choices=("늘 맞아요", "조건이 붙어요"), correct="조건이 붙어요"),
+    "unsolved": ProbeStance(
+        ask="자료에 이 문제를 푸는 방법이 나와 있었나요, 아직 비어 있었나요?", choices=("나와 있었어요", "아직 비어 있었어요"),
+        correct="아직 비어 있었어요"),
+    "unsupported_cause": ProbeStance(
+        ask="자료에 이 말을 받치는 수치나 출처가 나와 있었나요, 아직 비어 있었나요?", choices=("나와 있었어요", "아직 비어 있었어요"),
+        correct="아직 비어 있었어요"),
+    "tension": ProbeStance(
+        ask="이 말은 전체와 그 일부를 견준 말인가요, 서로 다른 두 가지를 견준 말인가요?", choices=("전체와 일부예요", "서로 다른 둘이에요"),
+        correct="전체와 일부예요"),
+    # 모순 질문(질문 출처 contradiction — 탐침이 아니다, 09-30 WP-CONTRA · 녹음 감사 REC-08). 두 값을 코드가 알면 (자료 값, 발표 값) 칩이
+    # 질문마다 따로 선다(`_contra.contra_stance` — `_probe_stance.STANCE_RESOLVERS` 한 줄). 이 줄은 값을 모르는 모순(방향·부정)의 칩이다.
+    # 자료 쪽이 맞는 쪽이다 — F-08 골자가 「자료 N장은 “…”라고 해요. 발표에서 한 “…”는 이 수치로 바로잡아야 해요」 다.
+    "contradiction": ProbeStance(ask="맞는 건 자료 쪽인가요, 발표 쪽인가요?", choices=("자료 쪽이에요", "발표 쪽이에요"),
+                                 correct="자료 쪽이에요"),
+}
 
 
 @dataclass

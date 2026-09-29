@@ -1,0 +1,10 @@
+{
+ "what": "qa/tidy 실제 화면 — 교실 공기(co2)·키오스크·축제 부스 감사 덱. 브리지 127.0.0.1:8893 (DEMO_DEV_ROUTES=1 · HABIT_PROVIDER=heuristic · MOCK_EXTERNAL_APIS=false · 실 API), 전 = 005ab5e, 후 = a132ae3",
+ "scenarios": {
+  "r3": "다른 발표 녹음(recording_r3) — 되살린 세션(qa/report2 06:27) 전·후 + 새로 태운 실 녹음(후) + 키오스크·부스 R3 되살린 세션(후)",
+  "r1fallback": "이 발표 녹음(recording_r1)을 실제 화면으로 태우되 F-11 요청만 가로채 **진짜 F-11 코드(align_speech)를 빈 판정 LLM 으로** 돌린 결과(basis fallback · code 9 · fallback 14)로 — 나머지(채점 F-14 align_fallback 포함)는 실 API. 전에 태운 세션을 후에 되살려 같은 재료로 비교",
+  "r1": "이 발표 녹음 — 되살린 세션(시각자료 활용 근거가 마크다운 표) 전·후 + 새로 태운 실 녹음(후)"
+ },
+ "counts_after_r1fallback": {"reveal_rows": "잘 설명 4 · 언급 0 · 안 나옴 4 · 모순 1 · 생략 0 · 판정 안 함 14", "concepts_tab": "판정한 개념 9개 중 4개 · 다시 볼 곳 5 · 판정 안 함 14 (전: 개념 23개 중 5개 · 안 나옴 17)"},
+ "llm_calls": {"total": 17, "by_stage": {"f06_concepts": 2, "f07_graph": 3, "f14_rubric": 9, "f19_report": 2, "f11_align": 1}, "note": "객석(F-12)·질문(F-08) 요청은 막았다(화면 확인 범위 밖). 되살린 세션 사진은 0콜."}
+}

@@ -709,10 +709,40 @@ def join_formula(lines: list[str], labels: list[str] | None = None) -> list[str]
             # 식 기호로 시작하는 줄도 캡션 조각을 걷는다 (「× 좌석 수 얼마나」 → 「× 좌석 수」). 기호 뒤가 캡션뿐이면 기호만 —
             # 식이 열린 채 남아야 구조 채움(`_deck_lines.join_formula_lines`)이 다음 항을 찾는다.
             head, cut = caption_cut(line)
-            out[-1] = f"{prev} {(head or line[0]) if cut else line}"
+            piece = (head or line[0]) if cut else line
+            at = _formula_behind_captions(out)
+            if at is not None:
+                # 앞 줄이 캡션 물음이다 — 기호 줄은 캡션이 아니라 그 앞의 식에 잇는다 (qa/tidy · WP-M 이 남긴 것: 「독서량 = 대출 권수」 /
+                # 「몇 권 빌렸는가」 / 「× 머문 시간」 이 「몇 권 빌렸는가 × 머문 시간」 이 되어 물음 줄로 버려지고 식은 항 하나로 남았다).
+                # 이은 식은 맨 뒤로 옮긴다 — 다음 줄(항 이름·기호)이 이 식을 이어 받는다. 캡션 줄은 제 순서대로 식 앞에 남는다.
+                out.append(_attach_term(out.pop(at), piece))
+                continue
+            out[-1] = f"{prev} {piece}"
             continue
         out.append(line)
     return out
+
+
+def _caption_line(line: str) -> bool:
+    """도식 캡션 물음 줄인가 — 물음 줄(`is_question_line`)이거나, 캡션 조각을 걷으면 남는 항이 없는 줄(「얼마나 오래」)."""
+    return is_question_line(line) or caption_cut(line) == ("", True)
+
+
+def _formula_behind_captions(out: list[str]) -> int | None:
+    """맨 뒤 줄들이 캡션 물음이면 그 바로 앞 줄이 식(=·×·÷)일 때 그 자리. 맨 뒤가 캡션이 아니거나 캡션 앞이 식이 아니면 None."""
+    k = len(out) - 1
+    if k < 0 or not _caption_line(out[k]):
+        return None
+    while k >= 0 and _caption_line(out[k]):
+        k -= 1
+    return k if k >= 0 and _FORMULA_MARK_RE.search(out[k]) else None
+
+
+def _attach_term(formula: str, piece: str) -> str:
+    """식 끝에 기호 줄 조각을 잇는다. 식이 이미 기호로 끝났으면 조각 머리의 기호는 겹쳐 쓰지 않는다 (「A = B ×」 + 「× C」 → 「A = B × C」)."""
+    if _OPERATOR_END_RE.search(formula):
+        piece = re.sub(r"^[=×+÷→]\s*", "", piece)
+    return f"{formula} {piece}" if piece else formula
 
 
 def _after_label(line: str, label: str) -> str:

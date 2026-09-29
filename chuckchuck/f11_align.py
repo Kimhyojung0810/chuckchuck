@@ -411,7 +411,8 @@ def _apply_skips(
 ) -> list[SkippedSlide]:
     """
     말로 건너뛴 장의 개념 — 다른 문장이 그 개념을 이름으로 불러 설명하지 않았으면 missing (「시간 관계상 그냥 넘어갈게요」).
-    가벼운 개념(weight < SKIP_GUARD_WEIGHT)의 justified_skip 은 존중한다. 모순은 건드리지 않는다.
+    발표자가 스스로 건너뛴다고 말한 장이라 가벼운 개념이라도 「정당한 생략」(justified_skip)으로 두지 않는다 — 09-30 녹음 감사 REC-12:
+    「예외인 경우는 오늘은 빼고」 로 건너뛴 장이 LLM 의 justified_skip 으로 남아 결함도 상한도 없었다. 모순은 건드리지 않는다.
     """
     by_id = {n.id: n for n in graph.nodes}
     for it in items:
@@ -421,10 +422,9 @@ def _apply_skips(
             continue
         if it.verdict == "aligned" and it.evidence and _names(node, it.evidence):
             continue
-        if it.verdict == "justified_skip" and node.weight < SKIP_GUARD_WEIGHT:
-            continue
         cue = skipped[hit[0]]
-        it.verdict, it.decided_by = "missing", "code"
+        # 설명한 문장이 없다고 하면서 LLM 인용을 남기면 「이 슬라이드에서 한 말」 과 판정이 서로 다른 말을 한다 — 근거를 비운다
+        it.verdict, it.decided_by, it.evidence = "missing", "code", ""
         it.note = f"{hit[0]}장은 「{cue.text}」라고 하고 넘어갔어요 — 이 개념을 설명한 문장이 없어요"
     return [
         SkippedSlide(
@@ -462,18 +462,23 @@ def _apply_contradictions(
     for c in found:
         it = item_of[c.node_id]
         it.verdict, it.decided_by = "contradiction", "code"
-        it.evidence, it.deck_slide_no = c.utterance.text, c.slide_no
+        it.evidence, it.deck_slide_no = c.quote or c.utterance.text, c.slide_no
         it.deck_quote = _strip_title(c.deck_line, (titles or {}).get(c.slide_no, ""))
+        # 모순의 갈래 — 질문·리포트가 「수치가 달라요」「방향이 반대예요」「맞다·아니다가 반대예요」 를 이것으로 고른다 (09-30 REC-03)
+        it.contra_kind = c.family
         if c.said and c.deck_said:
             it.note = f"발표에서는 {josa(c.said, '이라고', '라고')} 했는데 자료 {c.slide_no}장은 {josa(c.deck_said, '이에요', '예요')}"
         elif c.kind == "negation":
             it.note = f"자료 {c.slide_no}장과 맞다·아니다가 반대예요"
-        elif c.kind == "order":
-            it.note = f"자료 {c.slide_no}장과 크고 작은 순서가 반대예요"
+        elif c.kind == "order" or c.relation == "swapped":
+            it.note = f"자료 {c.slide_no}장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요"
+        elif c.family == "number":
+            # 값 한 쌍을 못 뽑은 수치 어긋남 — 방향 문구를 붙이면 수치를 잘못 말한 발표에 「방향이 반대」 라고 거짓말을 한다
+            it.note = f"자료 {c.slide_no}장과 수치가 달라요"
         else:
             it.note = f"자료 {c.slide_no}장과 높고 낮은 방향이 반대예요"
     for it in items:
-        hit = next((c for c in found if it.verdict == "aligned" and c.utterance.text in it.evidence), None)
+        hit = next((c for c in found if it.verdict == "aligned" and _quotes_same(c.utterance.text, it.evidence)), None)
         if hit is None:
             continue
         node = by_id[it.node_id]
@@ -483,6 +488,20 @@ def _apply_contradictions(
         elif hit.said and hit.deck_said:
             # 이 개념은 말했지만 그 문장의 수치가 자료와 다르다 — 설명함은 두되 숨기지 않는다
             it.note = (f"{it.note} · 이 문장의 {josa(hit.said, '은', '는')} 자료 {hit.slide_no}장({hit.deck_said})과 달라요").lstrip(" ·")
+        else:
+            # 방향·맞다아니다가 자료와 반대인 문장 — 수치가 아니어도 숨기지 않는다 (09-30 녹음 모드 화면: 「맞통풍보다 두 배 빨리」 를
+            # 거꾸로 말한 문장이 「농도 감소 속도」 의 설명함 근거로 그대로 남았다)
+            it.note = f"{it.note} · 이 문장은 자료 {hit.slide_no}장과 {_CONTRA_WHAT.get(hit.family, '내용이 반대예요')}".lstrip(" ·")
+
+
+#: 설명함 근거가 어긋난 문장일 때 덧붙이는 말 — 갈래마다. 값 한 쌍을 못 뽑은 수치 어긋남은 「반대」 가 아니라 「달라요」 다.
+_CONTRA_WHAT = {"direction": "방향이 반대예요", "polarity": "맞다·아니다가 반대예요", "number": "수치가 달라요"}
+
+
+def _quotes_same(sentence: str, evidence: str) -> bool:
+    """근거 인용이 이 발화 문장(의 일부)인가 — 띄어쓰기·끝 부호와 머리 군말(「그리고」)은 달라도 된다 (LLM 인용은 부호를 자주 뺀다)."""
+    a, b = "".join((sentence or "").split()).rstrip(".?!"), "".join((evidence or "").split()).rstrip(".?!")
+    return bool(a and b) and (a in b or (len(b) >= 10 and b in a))
 
 
 # ---------------------------------------------------------------------------

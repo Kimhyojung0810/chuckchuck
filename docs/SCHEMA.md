@@ -1329,7 +1329,9 @@ ClaimDoc(+ 자료 원문)에서 결정적으로 만든다(`_probes.derive_probes
 `injection`(답 속 채점 지시 · 55) · `list`(낱말 나열·서술어 없음 · 65) · `echo`(질문 되읊기 · 55) · `repeat`(앞 답 되풀이 · 65, 라운드도
 안 오른다) · `number_unsupported`(자료에 없는 수를 자료가 다른 값을 붙인 대상에 · 65) · `ungrounded`(통과 점수인데 골자 요소·질문의
 고유 낱말과 안 닿음 · 65) · `trap_misfixed`(수치 함정을 틀린 값으로 고침 · wrong 35) · `trap_open`(함정인데 전제를 짚었는지 모름 · 65) ·
-`language`(한국어가 아닌 답 — 채점하지 않고 `unknown`) 와 예전 가드들(`trap` · `deck` · `self_opposed` · `restated` · `reason` ·
+`language`(한국어가 아닌 답 — 채점하지 않고 `unknown`) · `contra_said`(모순 질문에 발표 쪽을 다시 고름 · wrong 35) ·
+`contra_dispute`(모순 질문에 발표 쪽을 출처·자료 오류를 들어 고름 — 코치는 자료 안의 숫자로만 확인한다 · wrong 35, 그 숫자가 발표 값으로
+계산되면 partial 70) 와 예전 가드들(`trap` · `deck` · `self_opposed` · `restated` · `reason` ·
 `off_topic` · `focus_miss` · `short` · `choice`). 화면은 문장(`guard_reason`)을, 하네스·리포트는 이름을 읽는다.
 
 **판정 응답에만 붙는 네 칸 (09-30 R4·B-07·B-12, `POST /api/v1/sessions/{id}/qa/judge` · `/api/v1/qa/judge`)** — QaJudgement 계약 밖이라

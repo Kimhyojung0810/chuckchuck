@@ -42,7 +42,8 @@ const EXPORT_LINE = `
   liveHistory, liveForcedClose, liveWonCount, liveCoachAsk,
   liveBucket, liveHintsUsed, liveWholeSentences, liveDegradedLines, liveQuestionWhy, liveJudgeFailure,
   liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
-  liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion,
+  liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion, liveRevealsHalf,
+  liveEntryNotes, liveContradiction,
 };`;
 
 /**
@@ -574,6 +575,17 @@ test('코칭이 방금 되물었으면 그 되물음을 판정에 같이 싣는�
   eq(api.liveCoachAsk(), [], '판정 되물음은 싣지 않는다');
 });
 
+test('「모르겠어요」 사다리의 보기·빈칸에 답한 턴에는 완성 문장을 펼치지 않는다 — 답은 3단 해설에서 (WP-J3)', () => {
+  const { api } = newContext();
+  const partial = { verdict: 'partial', score: 65, missing_points: ['그 말이 들어맞지 않는 조건'] };
+  eq(api.liveRevealsHalf({ coach_stage: 'narrow', choices: ['늘 맞아요', '조건이 붙어요'] }, partial), false, '1단 보기에 답함');
+  eq(api.liveRevealsHalf({ coach_stage: 'scaffold' }, partial), false, '2단 빈칸에 답함');
+  eq(api.liveRevealsHalf({ coach_stage: 'clarify' }, partial), true, '다시 푼 질문에 답함은 사다리가 아니다');
+  eq(api.liveRevealsHalf({ verdict: 'partial', score: 60 }, partial), true, '보통 되묻기');
+  eq(api.liveRevealsHalf(null, partial), true, '첫 답');
+  eq(api.liveRevealsHalf(null, { verdict: 'wrong' }), false, 'partial 만');
+});
+
 /* ── 09-30 held-out C-09 — 결과 네 묶음 · 헤드라인은 스스로 설명만 ── */
 const R = {
   self: { verdict: 'good', mastered: true, closeReason: 'good', turns: 1, hintLevel: 0 },
@@ -752,6 +764,26 @@ test('WP-J2 함정 사본(trap_premise 없음)도 바로잡기 전에는 「빠�
   eq(b.turns.filter((t) => t.kind === 'gist').map((t) => t.text), ['질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.'], '바로잡은 뒤에는 판정이 싣고 온 골자');
 });
 
+/* ── WP-CONTRA · 모순 질문의 골자·인용은 자료 쪽 값(= 답)이다 ───────────────────────────── */
+
+const CONTRA_Q = { id: 'q1', label: '물 사용량', question: '발표에서 “물 사용량이 오십 퍼센트나 줄었어요”라고 했는데, 자료 4장의 수치와 달라요. 어느 쪽이 맞나요?',
+  source: 'contradiction', basis: { source: 'contradiction', checks: ['contradiction_reconcile'] },
+  answer_gist: '자료 4장은 “점적 관수로 바꾸자 물 사용량이 35% 줄었습니다.”라고 해요.', hints: ['방향', '범위', '빈칸'] };
+
+test('WP-CONTRA 모순 질문은 통과 전에는 「빠진 절반」 에 골자(자료 쪽 값)를 펼치지 않는다', () => {
+  const { ctx, api, turns } = newContext();
+  eq(api.liveContradiction(CONTRA_Q), true);
+  eq(api.liveContradiction({ source: 'core_weight' }), false);
+  eq(api.liveContradiction({ source: 'contradiction' }), true, 'basis 없는 옛 사본도 출처로 안다');
+  ctx.qa.live = liveState(api, [CONTRA_Q]);
+  api.revealHalf(CONTRA_Q, { verdict: 'partial', passed: false, missing_points: ['발표에서 한 말을 자료에 맞춰 고친 문장'], summary_sentence: '총평' });
+  eq(turns.filter((t) => t.kind === 'gist').length, 0, '못 바로잡았으면 완성 문장 칸이 없다');
+  const b = newContext();
+  b.ctx.qa.live = liveState(b.api, [CONTRA_Q]);
+  b.api.revealHalf(CONTRA_Q, { verdict: 'partial', passed: true, missing_points: [] });
+  eq(b.turns.filter((t) => t.kind === 'gist').length, 1, '통과한 뒤에는 편다');
+});
+
 test('WP-J2 함정 질문의 마무리 카드는 닫힌 판정이 싣고 온 골자를 쓴다 (사본에는 없다)', () => {
   const { ctx, api, turns } = newContext();
   ctx.qa.live = liveState(api, [WITHHELD_TRAP, { id: 'q3' }]);
@@ -768,6 +800,30 @@ test('WP-J2 녹음이 자료와 다른 발표면 질문 묶음에 한 번 조용
   eq(api.liveDegradedLines({ speech_mismatch_deck_only: true }), ['녹음이 이 자료와 달라서 자료만 보고 질문했어요.'], '묶음 머리 표시도 받는다');
   eq(api.liveDegradedLines({ questions: [{ id: 'q1', basis: { checks: [] } }, { id: 'q2', basis: null }] }), [], '녹음이 맞으면 조용히');
   eq(api.liveSpeechMismatch({ verdict: 'good' }), false, '판정 응답에는 질문이 없다');
+});
+
+test('REC-14 녹음이 다른 발표라는 알림이 첫 줄 — 문헌 알림 뒤에 묻지 않고, 같은 사실을 두 번 말하지 않는다', () => {
+  const { api } = newContext();
+  const note = '녹음이 이 자료와 다른 발표라서 자료만 보고 질문을 만들었어요. 이 자료로 발표한 녹음을 올리면 발표 내용도 같이 물어볼게요.';
+  const doc = {
+    degraded: ['papers_partial'], degraded_notes: ['문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.'],
+    speech_unused: 'unrelated_speech', speech_note: note,
+    questions: [{ id: 'q1', basis: { checks: ['speech_mismatch_deck_only'] } }],
+  };
+  eq(api.liveEntryNotes(doc), [note, '문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.'], '까닭이 맨 앞 · 줄인 같은 말은 뺀다');
+  eq(api.liveEntryNotes({ ...doc, speech_unused: '', speech_note: '' }),
+    ['문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.', '녹음이 이 자료와 달라서 자료만 보고 질문했어요.'],
+    '문서 단위 까닭이 없으면 예전 그대로');
+  eq(api.liveEntryNotes({ questions: [] }), [], '녹음이 맞으면 조용히');
+});
+
+test('REC-10 결과 화면 — 녹음이 다른 발표면 「근거 발화와 함께」 를 약속하지 않고 맞는 녹음을 올리라고 한다', () => {
+  const { api } = newContext();
+  const r = [{ verdict: 'wrong', passed: false, mastered: false }, { verdict: 'good', passed: true, mastered: true, turns: 1 }];
+  const sum = api.liveResultSummary(r, { speech: false, unrelated: true });
+  eq(sum.sub.includes('근거 발화'), false, '약속하지 않는다');
+  eq(sum.sub.includes('이 자료로 발표한 녹음을 올리면'), true, sum.sub);
+  eq(api.liveResultSummary(r, { speech: true }).sub.includes('근거 발화'), true, '맞는 녹음은 예전 그대로');
 });
 
 let failed = 0;

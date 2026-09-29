@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const APP_SRC = readFileSync(path.join(ROOT, 'demo/YEHS_demo/js/app.js'), 'utf8');
+const DATA_SRC = readFileSync(path.join(ROOT, 'demo/YEHS_demo/js/data.js'), 'utf8');
 
 function extractFunction(src, name) {
   const head = new RegExp(`\\n(?:async\\s+)?function\\s+${name}\\s*\\(`);
@@ -46,17 +47,38 @@ function extractConst(src, name) {
   if (!m) throw new Error(`${name} 상수를 못 찾았어요.`);
   return m[0].trim();
 }
+/** 여러 줄에 걸친 상수 (`const X = { … };` · `[ … ];`) — 괄호 짝을 세어 자른다 */
+function extractBlockConst(src, name) {
+  const m = new RegExp(`\\nconst ${name} = ([\\[{])`).exec(src);
+  if (!m) throw new Error(`${name} 상수를 못 찾았어요.`);
+  let depth = 0;
+  for (let j = m.index + m[0].length - 1; j < src.length; j += 1) {
+    if ('[{'.includes(src[j])) depth += 1;
+    else if (']}'.includes(src[j]) && --depth === 0) return src.slice(m.index + 1, j + 2);
+  }
+  throw new Error(`${name} 상수가 안 닫혀요.`);
+}
 
-const NAMES = ['faultClip', 'reportFaultRows', 'reportFaultHeadline', 'reportFaultsHtml', 'scoreGrade'];
+const NAMES = ['faultClip', 'reportFaultRows', 'reportFaultHeadline', 'reportFaultsHtml', 'scoreGrade',
+  'recordingUnrelated', 'reuploadDimsHtml', 'dimRestRowHtml', 'realJudgeTree', 'judgeSplitHtml', 'judgeLegendHtml',
+  'noEvidenceNote', 'unmeasuredLinesHtml', 'fmtMarkSec', 'judgeSlideOf', 'conceptUnjudgedWhy'];
+/* 다른 발표 녹음(REC-10)을 그리는 함수들이 기대는 전역 — 리포트 재료(reportOut)만 흉내 내고 나머지는 원본을 잘라 올린다 */
 function load(src = APP_SRC) {
   const ctx = vm.createContext({
     escapeHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+    clusterReason: () => '',
+    DIM_HINT: {},
+    __out: null,
   });
   vm.runInContext([
     extractConst(src, 'REPORT_FAULT_ORDER'), extractConst(src, 'REPORT_FAULT_QUOTE_MAX'),
+    extractConst(DATA_SRC, 'STATUS'), extractBlockConst(src, 'STATUS_FROM_VERDICT'), extractBlockConst(src, 'JUDGE_SPLIT'),
+    extractBlockConst(src, 'RUBRIC_STATUS'),
+    'function reportOut() { return globalThis.__out; }',
     ...NAMES.map((n) => extractFunction(src, n)),
     `;globalThis.__api = { ${NAMES.join(', ')} };`,
   ].join('\n'), ctx);
+  ctx.__api.setOut = (out) => { ctx.__out = out; };
   return ctx.__api;
 }
 const A = load();
@@ -130,7 +152,8 @@ test('다른 발표 녹음 — 헤드는 약속한 문장, 행은 그렇게 본 
   eq(A.reportFaultHeadline(rows), '녹음이 이 자료와 다른 발표라서 말 분석은 하지 않았어요', '헤드');
   eq(rows[0].title, '녹음 낱말 가운데 이 자료에도 있는 말이 4%예요', '행 제목 — 헤드를 되풀이하지 않는다');
   const html = A.reportFaultsHtml(rows, sc.cap);
-  ok(html.includes('아래 개념 판정은 참고만 하고, 이 자료로 발표한 녹음을 올리면 같이 볼게요.'), '할 일 · 아래 판정의 단서');
+  ok(html.includes('말한 내용·말 속도·시간·말버릇은 채점하지 않았어요. 이 자료로 발표한 녹음을 올리면 같이 볼게요.'),
+    '할 일 — 녹음으로 재는 것 전부를 안 쟀다 (REC-10)');
   ok(html.includes('이 자료의 발표가 아니라서 등급은 D까지만 매겼어요.'), '상한 줄');
   eq(A.reportFaultRows(sc, { speech_match: 'unrelated', items: [] }, GRAPH)[0].title, '녹음과 이 자료가 다루는 내용이 달라요', '겹침을 모르면');
 });
@@ -163,6 +186,74 @@ test('인용은 escape 되고 길면 낱말 경계에서 자른다', () => {
   ok(html.includes('&lt;b&gt;굵게&lt;/b&gt;') && !html.includes('<b>굵게'), 'escape');
 });
 
+/* ── 다른 발표 녹음이면 녹음으로 잰 것은 「안 쟀다」 (09-30 녹음 대화 감사 REC-10) ─────────────────────── */
+const FEST_GRAPH = { nodes: [
+  { id: 'air', label: '교실 공기', slide_nos: [1, 2], weight: 1 }, { id: 'co2', label: '이산화탄소 농도', slide_nos: [2, 5], weight: 0.8 },
+  { id: 'wind', label: '바람 속도', slide_nos: [4], weight: 0.5 },
+] };
+const UNJUDGED = { speech_match: 'unrelated', basis: 'skipped', speech_overlap: 0.05, items: FEST_GRAPH.nodes.map(n => ({
+  node_id: n.id, verdict: 'missing', decided_by: 'fallback', evidence: '', note: '녹음이 이 자료의 발표가 아니라서 판정하지 않았어요 (5%)' })) };
+const UNRELATED_SCORE = { score: 29, cap: 39, faults: [{ kind: 'unrelated_speech', text: '녹음이 이 발표 자료와 다른 발표예요 (5%)', slide_no: null }] };
+
+test('다른 발표 녹음인가 — 채점표 결함이나 정합(speech_match·basis) 둘 중 하나면 참, 새 표시는 없다', () => {
+  eq(A.recordingUnrelated(UNRELATED_SCORE, {}), true, '채점표 결함');
+  eq(A.recordingUnrelated({ faults: [] }, { speech_match: 'unrelated' }), true, '채점표 폴백 + 정합');
+  eq(A.recordingUnrelated(null, { basis: 'skipped' }), true, '판정 건너뜀');
+  eq(A.recordingUnrelated({ faults: [{ kind: 'align_fallback' }] }, { speech_match: 'matched', basis: 'fallback' }), false,
+    '정합이 짐작뿐인 것은 녹음이 이 발표의 것이다');
+  eq(A.recordingUnrelated(null, null), false, '재료가 없어도 던지지 않는다');
+});
+
+test('기둥의 「여기부터 보세요」 는 점수 축이 아니라 녹음을 다시 올리라는 한 줄 — 남은 축은 목록에 그대로', () => {
+  const html = A.reuploadDimsHtml([['시각자료 활용', 56, 'exaone', 20, 'visual']]);
+  const weak = html.split('<div class="vd-rest">')[0];
+  ok(weak.includes('여기부터 보세요') && weak.includes('이 자료로 발표한 녹음을 다시 올려 주세요'), weak);
+  ok(!weak.includes('/100') && !weak.includes('시간 관리') && !/\d/.test(weak), `주인공 칸에 점수가 없다: ${weak}`);
+  ok(html.includes('시각자료 활용') && html.includes('data-cluster="visual"'), '자료로만 잰 축은 아래 목록에 남는다');
+  eq(A.reuploadDimsHtml([]).includes('vd-rest'), false, '남은 축이 없으면 목록도 없다');
+});
+
+test('개념 칩은 「안 나옴」 이 아니라 「판정 안 함」 — 요약·범례·빈 근거 문구가 같은 말을 한다', () => {
+  A.setOut({ graph: FEST_GRAPH, alignment: UNJUDGED, score: UNRELATED_SCORE });
+  const tree = A.realJudgeTree();
+  eq(tree.map(t => t.status), ['na', 'na', 'na'], '상태');
+  const split = A.judgeSplitHtml(tree);
+  ok(split.includes('판정하지 않았어요') && !split.includes('다시 볼 곳') && !split.includes('설명했어요'), split);
+  eq(A.judgeLegendHtml(tree), '<span><i class="dot st-na"></i>판정 안 함</span>', '범례는 판정 안 함 하나');
+  ok(A.noEvidenceNote('na').includes('찾아보지 않았어요') && A.noEvidenceNote('no').includes('찾지 못했어요'), '빈 근거');
+  // 이 자료의 발표인 녹음은 그대로 판정한다
+  A.setOut({ graph: FEST_GRAPH, alignment: { speech_match: 'matched', basis: 'llm', items: [
+    { node_id: 'air', verdict: 'aligned' }, { node_id: 'co2', verdict: 'missing' }, { node_id: 'wind', verdict: 'justified_skip' }] },
+  score: { score: 70, faults: [] } });
+  const judged = A.realJudgeTree();
+  eq(judged.map(t => t.status), ['ok', 'no', 'om'], '판정 그대로');
+  eq((A.judgeLegendHtml(judged).match(/<span>/g) || []).length, 5, '범례 다섯');
+  ok(A.judgeSplitHtml(judged).includes('다시 볼 곳 1개'), '다시 볼 곳');
+});
+
+test('채점 근거 — 못 잰 항목은 까닭별로 센다 (다른 발표 녹음을 채점 실패로 적지 않는다)', () => {
+  const html = A.unmeasuredLinesHtml([
+    { no: 22, note: '녹음이 이 자료의 발표가 아니라서 이번엔 재지 않았어요' },
+    { no: 31, note: '녹음이 이 자료의 발표가 아니라서 이번엔 재지 않았어요' },
+    { no: 25, note: '음향 특징을 뽑지 않아서 이번엔 못 쟀어요' }, { no: 9, note: '' }]);
+  ok(html.includes('2개 항목 — 녹음이 이 자료의 발표가 아니라서 이번엔 재지 않았어요'), html);
+  ok(html.includes('1개 항목 — 음향 특징을 뽑지 않아서 이번엔 못 쟀어요'), html);
+  ok(html.includes('1개 항목은 채점을 마치지 못해 이번엔 못 쟀어요'), '까닭이 없으면 예전 문구');
+  eq(A.unmeasuredLinesHtml([]), '', '없으면 빈 문자열');
+});
+
+/* ── 모순 개념은 어긋난 장에 (09-30 녹음 대화 감사 REC-16) ──────────────────────────────────────── */
+test('모순 개념의 장은 어긋난 그 장(deck_slide_no) — 개념이 처음 나온 장(1번)이 아니다', () => {
+  const graph = { nodes: [{ id: 'avg', label: '평균 농도', slide_nos: [1, 5], weight: 1 }, { id: 'air', label: '교실 공기', slide_nos: [3, 1], weight: 0.5 }] };
+  A.setOut({ graph, score: { score: 59, faults: [] }, alignment: { speech_match: 'matched', basis: 'llm', items: [
+    { node_id: 'avg', verdict: 'contradiction', deck_slide_no: 5, deck_quote: '평균 농도가 40% 낮아졌습니다' },
+    { node_id: 'air', verdict: 'aligned', deck_slide_no: 3 }] } });
+  const tree = A.realJudgeTree();
+  eq(tree.map(t => [t.id, t.status, t.slide]), [['avg', 'ct', 'S05'], ['air', 'ok', 'S01']], '장');
+  eq(A.judgeSlideOf({ slide_nos: [1, 5] }, { verdict: 'contradiction', deck_slide_no: null }), 1, '어긋난 장을 모르면 처음 나온 장');
+  eq(A.judgeSlideOf({ slide_nos: [] }, null), 1, '장이 없으면 1');
+});
+
 /* ── 하네스 자기 검사 — 헤드가 결함을 무시하도록 원본을 망가뜨리면 위 케이스가 떨어져야 한다 ─────────── */
 test('하네스가 회귀를 잡는다 (헤드가 결함을 무시하는 app.js 를 넣으면 실패)', () => {
   const broken = APP_SRC.replace("if (count('unrelated_speech')) return '녹음이 이 자료와 다른 발표라서 말 분석은 하지 않았어요';",
@@ -171,6 +262,15 @@ test('하네스가 회귀를 잡는다 (헤드가 결함을 무시하는 app.js 
   const B = load(broken);
   const rows = B.reportFaultRows({ faults: [{ kind: 'unrelated_speech', text: '', slide_no: null }] }, {}, GRAPH);
   eq(B.reportFaultHeadline(rows), '', '망가진 원본은 빈 헤드를 낸다');
+});
+
+test('하네스가 회귀를 잡는다 (다른 발표 녹음의 개념을 「안 나옴」 으로 그리는 app.js 를 넣으면 실패)', () => {
+  const broken = APP_SRC.replace("status: naWhy ? 'na' : (STATUS_FROM_VERDICT[it.verdict] || 'no'),",
+    "status: STATUS_FROM_VERDICT[it.verdict] || 'no',");
+  ok(broken !== APP_SRC, '망가뜨릴 줄을 못 찾았어요 — 원본이 바뀌었으면 이 케이스도 같이 고쳐요');
+  const B = load(broken);
+  B.setOut({ graph: FEST_GRAPH, alignment: UNJUDGED, score: UNRELATED_SCORE });
+  eq(B.realJudgeTree().map(t => t.status), ['no', 'no', 'no'], '망가진 원본은 「안 나옴」 을 낸다');
 });
 
 let failed = 0;

@@ -485,6 +485,23 @@ def _session_id_of(body: dict) -> str:
     return ARCHIVE.safe_id(body.get("session_id")) or ""
 
 
+def _optional_alignment(body: dict):
+    """
+    /pace·/report 본문의 정합(선택). 녹음이 이 자료의 발표인지만 읽는다 (09-30 REC-10) — 없거나 모양이 깨졌으면 None.
+    예전엔 이 칸이 없었던 요청이라, 곁다리 칸 하나가 깨졌다고 속도·리포트까지 500 으로 죽이지 않는다. 깨진 건 로그로 남긴다.
+    """
+    from chuckchuck.contracts import AlignmentDoc
+
+    raw = body.get("alignment")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return AlignmentDoc.from_dict(raw)
+    except (KeyError, TypeError, ValueError) as e:
+        sys.stderr.write(f"[bridge] alignment 본문을 못 읽어 정합 없이 진행: {type(e).__name__}: {e}\n")
+        return None
+
+
 # LibreOffice 는 macOS 앱 번들·snap 설치에서 PATH 에 링크를 만들지 않는다.
 # PATH 만 보면 설치돼 있어도 못 찾아 PPTX 원본 미리보기가 조용히 텍스트로 떨어진다.
 _SOFFICE_FALLBACK_PATHS = (
@@ -649,6 +666,7 @@ STAGE_ENTRY_MODULES: dict[str, tuple[str, ...]] = {
     # 질문 묶음은 주장·문헌·기억을 재료로 먹는다 — 그 모듈이 바뀌어도 옛 질문을 안 쓴다
     "questions": ("chuckchuck.f08_questions", "chuckchuck.f26_claims", "chuckchuck.f24_papers", "chuckchuck.f25_memory"),
     "judge": ("chuckchuck.f09_judge",),                  # judge_answer
+    "chatter": ("chuckchuck.f12_chatter",),              # build_chatter — 디스크 캐시 (세션 id + 재료 해시, 09-30 REC-19)
 }
 
 
@@ -843,6 +861,79 @@ def _release_questions(q_key: str, ev: threading.Event) -> None:
     ev.set()
 
 
+#: 만드는 중인 객석 수다 (key → Event). 결과 화면을 열며 미리 받기 시작한 것과 리포트를 새로 열어 부른 것이 겹치면 한쪽만 LLM 을
+#: 부르고 다른 쪽은 끝나길 기다렸다가 캐시에서 읽는다 (09-30 녹음 대화 감사 REC-19 — 브라우저가 끊은 요청도 끝까지 만들어 캐시에 남는다).
+_CHATTER_INFLIGHT: dict[str, threading.Event] = {}
+_CHATTER_LOCK = threading.Lock()
+#: 기다리는 최대 초 — 라운드 둘 × 병아리 상한(f12 CHATTER_SPEAKER_TIMEOUT_SEC 45초) + 여유. 넘기면 기다리던 쪽이 직접 만든다.
+CHATTER_INFLIGHT_WAIT_SEC = 120
+#: 못 온 병아리가 있던 수다 (key → (시각, payload)). 디스크 캐시에는 안 쓴다 — 실패를 성공처럼 굳히지 않는다. 다만 방금 45초를 태우고
+#: 죽은 모델을 곧바로 다시 부르면 또 죽는다(09-30 실측: 믿:음·엑사원이 두 번 연속 결석, 그사이 LLM 7콜씩). 이 초 안에는 방금 결과를
+#: 결석 표시 그대로 돌려주고, 지나면 다시 부른다.
+_CHATTER_PARTIAL: dict[str, tuple[float, dict]] = {}
+CHATTER_RETRY_AFTER_SEC = 90
+
+
+def _recent_partial_chatter(key: str) -> dict | None:
+    """방금(CHATTER_RETRY_AFTER_SEC 안) 결석이 있던 수다 — 오래된 것은 지운다."""
+    now = time.monotonic()
+    with _CHATTER_LOCK:
+        for k in [k for k, (at, _) in _CHATTER_PARTIAL.items() if now - at >= CHATTER_RETRY_AFTER_SEC]:
+            _CHATTER_PARTIAL.pop(k, None)
+        got = _CHATTER_PARTIAL.get(key)
+    return got[1] if got else None
+
+
+def _remember_chatter(key: str, payload: dict, complete: bool) -> None:
+    """전원 등장이면 디스크 캐시, 결석이 있으면 잠깐만 기억한다 (다시 부를 때까지)."""
+    if complete:
+        _stage_cache_put("chatter", key, payload)
+        with _CHATTER_LOCK:
+            _CHATTER_PARTIAL.pop(key, None)
+    else:
+        with _CHATTER_LOCK:
+            _CHATTER_PARTIAL[key] = (time.monotonic(), payload)
+
+
+def _claim_chatter(key: str) -> threading.Event | None:
+    """내가 만들 차례면 Event(끝나면 set), 누가 이미 만드는 중이면 None."""
+    with _CHATTER_LOCK:
+        if key in _CHATTER_INFLIGHT:
+            return None
+        ev = threading.Event()
+        _CHATTER_INFLIGHT[key] = ev
+        return ev
+
+
+def _wait_chatter(key: str) -> None:
+    with _CHATTER_LOCK:
+        ev = _CHATTER_INFLIGHT.get(key)
+    if ev is not None:
+        ev.wait(CHATTER_INFLIGHT_WAIT_SEC)
+
+
+def _release_chatter(key: str, ev: threading.Event) -> None:
+    with _CHATTER_LOCK:
+        if _CHATTER_INFLIGHT.get(key) is ev:
+            _CHATTER_INFLIGHT.pop(key, None)
+    ev.set()
+
+
+def _chatter_key(sid: str, body: dict) -> str:
+    """
+    객석 수다 캐시 키 — 세션 id + 재료(그래프·정합·흐름, 계약 모양) 해시 + f12 코드 판 + 어느 모델로 부르나(목업이면 목업).
+
+    재료가 하나라도 바뀌면(다시 분석) 새 키다. 세션 id 가 없으면(옛 화면) 재료만으로 — 같은 재료면 같은 수다를 돌려줘도 된다.
+    """
+    from chuckchuck.contracts import AlignmentDoc, FlowDiff
+
+    return _stage_key(
+        "chatter", _stage_version("chatter"), sid or "",
+        _canon(ConceptGraph, body.get("graph")), _canon(AlignmentDoc, body.get("alignment")),
+        _canon(FlowDiff, body.get("flow")), _llm_identity(None), _mock(),
+    )
+
+
 def _stage_cache_get(stage: str, key: str):
     if not STAGE_CACHE_ON:
         return None
@@ -880,41 +971,14 @@ def _slidedoc_kw(fn, slidedoc) -> dict:
     return {"slidedoc": slidedoc} if "slidedoc" in params else {}
 
 
-#: 함정 질문에서 **화면으로 보내지 않는** 칸 — 틀린 전제·자료의 사실(trap_premise), 전제를 바로잡은 기대 답(answer_gist = 사실 줄),
-#: 그 요소. 채점은 서버가 제 사본으로 한다(WP-B `_resolve_question`) — 이 칸들은 클라이언트에 있을 까닭이 없다 (09-30 WP-J2).
-TRAP_WITHHELD = ("trap_premise", "answer_gist", "answer_gist_parts")
-
-
-def _withheld(q: dict) -> bool:
-    return bool(q.get("trap")) or bool(q.get("trap_premise"))
-
-
-def client_questions(payload: dict) -> dict:
-    """
-    질문 묶음의 **화면용 사본** — 함정 질문의 사실이 든 칸(TRAP_WITHHELD)을 비우고 gist_withheld=true 를 단다. 원본은 그대로 둔다.
-
-    09-30 WP-J2: WP-Q 가 근거 칸(basis·evidence_quote·speech_quote·힌트 사다리)에서 사실 줄을 뺐지만, 같은 질문 객체의 trap_premise.fact 와
-    answer_gist(「질문의 전제와 달리, 자료 N장은 「…」이라고 해요」)가 그대로 화면으로 갔다 — 개발자 도구 한 번이면 정답이었고, 화면의
-    「답 펼치기」 경로 하나만 잘못 그려도 바로잡기 전에 사실이 떴다. 사실은 판정 응답이 **바로잡았거나·닫혔거나·해설 단계일 때**만
-    싣는다(`_reveal_fields`) — 그리고 「답 보고 다시 말해보기」 는 reveal 요청으로 받는다.
-    """
-    qs = payload.get("questions") if isinstance(payload, dict) else None
-    if not isinstance(qs, list) or not any(isinstance(q, dict) and _withheld(q) for q in qs):
-        return payload
-    out = []
-    for q in qs:
-        if isinstance(q, dict) and _withheld(q):
-            q = {**q, "trap_premise": None, "answer_gist": "", "answer_gist_parts": [], "gist_withheld": True}
-        out.append(q)
-    return {**payload, "questions": out}
-
-
-def _reveal_fields(question) -> dict:
-    """함정 질문을 펼칠 때 판정 응답에 싣는 기대 답·사실 줄 (클라이언트 사본에서 뺀 것)."""
-    tp = question.trap_premise
-    return {"answer_gist": question.answer_gist or "",
-            "reveal_quote": (tp.fact if tp is not None else "") or question.evidence_quote or "",
-            "reveal_slide_no": (tp.slide_no if tp is not None else 0) or question.evidence_slide_no or 0}
+# 함정 질문의 화면 사본 규칙(뺄 칸 · 언제 다시 실을지)은 FastAPI 서버와 같은 것을 쓴다 — `chuckchuck._client_payload`.
+# 09-30 WP-J2 에 여기서 먼저 넣었는데 server/app.py 는 사실 칸을 그대로 내보냈다. 규칙이 두 벌이면 두 서버가 다시 갈라진다.
+from chuckchuck._client_payload import (  # noqa: E402
+    TRAP_WITHHELD,  # noqa: F401 — 예전처럼 bridge.TRAP_WITHHELD 로도 읽힌다 (labs/qa_verify 가 이름을 말한다)
+    client_questions,
+    reveal_due,
+    reveal_fields,
+)
 
 
 def _claims_kw(fn, claims) -> dict:
@@ -2049,7 +2113,13 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
 
 
     def _handle_chatter(self, raw: bytes):
-        """삐약 청중석 · ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc."""
+        """
+        삐약 청중석 · ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc.
+
+        세션 id + 재료 해시로 단계 캐시에 둔다 (09-30 녹음 대화 감사 REC-19) — 예전엔 결과·리포트 화면을 열 때마다 네 모델(라운드 둘,
+        최대 8콜)을 다시 불렀다: 감사 LLM 230콜 중 101콜이 객석, 그중 약 55콜이 이미 분석한 세션의 재렌더였다.
+        못 온 병아리가 있으면(LLM 실패 — absent) 캐시에 두지 않는다. 대타 대사를 성공처럼 굳히면 다음에 열어도 계속 결석이다.
+        """
         from chuckchuck import build_chatter
 
         body = json.loads(raw or b"{}")
@@ -2065,13 +2135,32 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                     ),
                 },
             )
-        chatter = build_chatter(body["graph"], body["alignment"], body["flow"])
-        speakers = sorted({t.speaker for t in chatter.turns})
-        sys.stderr.write(
-            f"[bridge] chatter done turns={len(chatter.turns)} "
-            f"speakers={len(speakers)} refs={len(chatter.referenced_node_ids)}\n"
-        )
-        payload = chatter.to_dict()
+        key = _chatter_key(_session_id_of(body), body)
+        payload = _stage_cache_get("chatter", key) or _recent_partial_chatter(key)
+        claim = None
+        if payload is None:
+            claim = _claim_chatter(key)
+            if claim is None:                     # 같은 수다를 누가 만드는 중 — 끝나길 기다렸다가 캐시를 본다
+                _wait_chatter(key)
+                payload = _stage_cache_get("chatter", key) or _recent_partial_chatter(key)
+        if payload is not None:
+            absent = payload.get("absent") or []
+            sys.stderr.write(f"[bridge] chatter {'recent partial (결석 ' + ','.join(absent) + ')' if absent else 'cache hit'} "
+                             f"turns={len(payload.get('turns') or [])}\n")
+        else:
+            try:
+                chatter = build_chatter(body["graph"], body["alignment"], body["flow"])
+                payload = chatter.to_dict()
+                _remember_chatter(key, payload, complete=not chatter.absent)
+            finally:
+                if claim is not None:
+                    _release_chatter(key, claim)
+            speakers = sorted({t.speaker for t in chatter.turns})
+            sys.stderr.write(
+                f"[bridge] chatter done turns={len(chatter.turns)} "
+                f"speakers={len(speakers)} refs={len(chatter.referenced_node_ids)} "
+                f"{'absent=' + ','.join(chatter.absent) + f' (캐시 안 함 · {CHATTER_RETRY_AFTER_SEC}초 뒤 다시 부름)' if chatter.absent else 'cached'}\n"
+            )
         self._archive(body, "chatter_doc", payload)
         return self._json(200, payload)
 
@@ -2145,7 +2234,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         return self._json(200, payload)
 
     def _handle_pace(self, raw: bytes):
-        """F-17 · Transcript(+ConceptDoc/Context) → PaceDoc. LLM 없음."""
+        """F-17 · Transcript(+ConceptDoc/Context/AlignmentDoc) → PaceDoc. LLM 없음."""
         from chuckchuck.contracts import Transcript
 
         body = json.loads(raw or b"{}")
@@ -2157,10 +2246,13 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         transcript = Transcript.from_dict(body["transcript"])
         ctx = Context.from_dict(body.get("context") or {})
         concept_doc = ConceptDoc.from_dict(body["concept_doc"]) if body.get("concept_doc") else None
-        pace = analyze_pace(transcript, ctx, concept_doc)
+        # 정합(F-11)이 「녹음이 이 자료의 발표가 아니다」 라면 F-17 은 재지 않는다 — 빈 PaceDoc (09-30 녹음 대화 감사 REC-10)
+        alignment = _optional_alignment(body)
+        pace = analyze_pace(transcript, ctx, concept_doc, alignment)
+        unmeasured = " · 녹음이 이 자료의 발표가 아니라 재지 않음" if alignment is not None and not pace.slides else ""
         sys.stderr.write(
             f"[bridge] F-17 pace done slides={len(pace.slides)} "
-            f"actual={pace.actual_sec}s target={pace.target_sec}s\n"
+            f"actual={pace.actual_sec}s target={pace.target_sec}s{unmeasured}\n"
         )
         payload = pace.to_dict()
         self._archive(body, "pace_doc", payload)
@@ -2210,7 +2302,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         llm = _pick_llm(body)
         # 점수는 채점표(F-14)가 진실이다. rubric 을 같이 보내면 그 점수를 싣고,
         # 안 보내면 0 으로 둔다 — 여기서 두 번째 점수를 만들지 않는다.
-        report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), llm=llm)
+        # alignment 는 녹음이 이 자료의 발표인지만 본다 — 다른 발표면 LLM 없이 「재지 않았어요」 리포트 (09-30 REC-10)
+        report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), alignment=_optional_alignment(body), llm=llm)
         sys.stderr.write(
             f"[bridge] F-19 report done score={report.score} model={report.model}\n"
         )
@@ -3097,7 +3190,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             on_server = qsrc in ("server", "archive", "mismatch")
             sys.stderr.write(f"[bridge] F-09 reveal q={question.id} 질문={qsrc}\n")
             return self._json(200, {"question_id": question.id, "reveal": True, "grounded_on_server": on_server,
-                                    **_reveal_fields(question)})
+                                    **reveal_fields(question)})
         # 자료 근거 없이 판정하면 '자료와 어긋난다'(wrong)를 대조할 원본이 없고
         # 함정 질문의 핵심 규칙도 짐작이 된다. 본문에 없으면 세션에서 끌어온다.
         found = self._resolve(body, "graph", "alignment", "transcript", "context")
@@ -3162,11 +3255,10 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         )
         payload = _with_degraded(
             {**judgement.to_dict(), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)}, degraded)
-        if (question.trap or question.trap_premise is not None) and (
-                judgement.passed or judgement.mastered or judgement.coach_stage == "explain"):
+        if reveal_due(question, judgement):
             # 화면 사본에서 뺀 기대 답(`client_questions`)은 **바로잡았거나(통과)·닫혔거나·해설 단계일 때** 판정 응답으로 준다 — 화면의
             # 「빠진 절반·완성 문장」(revealHalf)·마무리 카드(finishLiveQuestion)·해설 뒤 다시 말하기가 이것을 읽는다 (09-30 WP-J2).
-            payload = {**payload, **_reveal_fields(question)}
+            payload = {**payload, **reveal_fields(question)}
         # 질문·답·판정 한 턴을 남긴다 (동의 세션만). 사람이 고친 판정과 짝을 맞출 원본이다.
         # **서버가 만든 질문으로 채점한 턴만** 남긴다 — 본문 질문으로 채점한 턴은 기준을 믿을 수 없고, 남기면 F-25 기억과
         # 학습 묶음(learning_jobs)으로 흘러가 다음 리허설의 질문·판정 프롬프트에 실린다.

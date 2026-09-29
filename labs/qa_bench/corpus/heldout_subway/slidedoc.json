@@ -1,0 +1,242 @@
+{
+ "file_name": "3호선_겨울난방민원_약난방칸_제안.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "겨울 지하철, 왜 '덥다'는 민원이 더 많을까",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "겨울 지하철, 왜 '덥다'는 민원이 더 많을까"
+    },
+    {
+     "category": "paragraph",
+     "text": "객실 온도를 혼잡도에 맞추는 약난방칸 확대 제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "시민 정책 제안 공모 | 도시철도 3호선 이용자 모임"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "시범 운행 전 겨울의 냉난방 민원",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "02 | 08"
+    },
+    {
+     "category": "heading1",
+     "text": "시범 운행 전 겨울의 냉난방 민원"
+    },
+    {
+     "category": "paragraph",
+     "text": "시범 운행 전 겨울(12~2월) 3호선 냉난방 민원은 모두 5,460건이었습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 구분 | 건수 |"
+    },
+    {
+     "category": "table",
+     "text": "| 덥다 | 3,900건 |"
+    },
+    {
+     "category": "table",
+     "text": "| 춥다 | 1,560건 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "'덥다' 민원이 '춥다' 민원보다 2.5배 많았습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "언제 더운가",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "03 | 08"
+    },
+    {
+     "category": "heading1",
+     "text": "언제 더운가"
+    },
+    {
+     "category": "table",
+     "text": "| 시간대 | 평균 혼잡도 | 객실 평균 온도 |"
+    },
+    {
+     "category": "table",
+     "text": "| 출근 7~9시 | 158% | 24.6℃ |"
+    },
+    {
+     "category": "table",
+     "text": "| 낮 11~15시 | 62% | 21.4℃ |"
+    },
+    {
+     "category": "paragraph",
+     "text": "낮 시간대에 비해 출근 시간대 객실 온도가 3.2℃ 높았습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "'덥다' 민원의 71%가 혼잡도 150%를 넘는 시간에 들어왔습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "설정 온도는 이렇게 정합니다",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "04 | 08"
+    },
+    {
+     "category": "heading1",
+     "text": "설정 온도는 이렇게 정합니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "객실 설정 온도 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "기준 온도"
+    },
+    {
+     "category": "paragraph",
+     "text": "−"
+    },
+    {
+     "category": "paragraph",
+     "text": "혼잡 보정값"
+    },
+    {
+     "category": "paragraph",
+     "text": "기준 온도: 겨울 20℃"
+    },
+    {
+     "category": "paragraph",
+     "text": "혼잡도 150% 이상일 때 보정값 2℃"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "약난방칸 시범 운행 (지난겨울 12~2월)",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "05 | 08"
+    },
+    {
+     "category": "heading1",
+     "text": "약난방칸 시범 운행 (지난겨울 12~2월)"
+    },
+    {
+     "category": "paragraph",
+     "text": "열차마다 양 끝 두 칸의 난방 온도를 2℃ 낮게 맞췄습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "'덥다' 민원은 한 달 평균 1,300건에서 780건으로 40% 줄었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "'춥다' 민원은 한 달 평균 520건에서 560건으로 조금 늘었습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "약난방칸 이용자 설문 (612명)",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "06 | 08"
+    },
+    {
+     "category": "heading1",
+     "text": "약난방칸 이용자 설문 (612명)"
+    },
+    {
+     "category": "table",
+     "text": "| 응답 | 비율 |"
+    },
+    {
+     "category": "table",
+     "text": "| 더 쾌적하다 | 64% |"
+    },
+    {
+     "category": "table",
+     "text": "| 차이를 못 느꼈다 | 27% |"
+    },
+    {
+     "category": "table",
+     "text": "| 더 춥다 | 9% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "이용자 10명 중 6명 이상이 더 쾌적하다고 답했습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "'더 춥다'는 응답은 10% 미만이었습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "비용과 전력",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "07 | 08"
+    },
+    {
+     "category": "heading1",
+     "text": "비용과 전력"
+    },
+    {
+     "category": "paragraph",
+     "text": "시범 칸의 난방 전력 사용량은 일반 칸보다 12% 적었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "추가 비용은 안내 스티커와 앱 알림 개발비 1,800만 원입니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "제안",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "08 | 08"
+    },
+    {
+     "category": "heading1",
+     "text": "제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "모든 열차에 약난방칸 2칸 운영"
+    },
+    {
+     "category": "paragraph",
+     "text": "역 안내 화면과 앱에 약난방칸 위치 표시"
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    }
+   ]
+  }
+ ]
+}

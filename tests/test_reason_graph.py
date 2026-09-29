@@ -9,6 +9,7 @@
 """
 
 import json
+from dataclasses import replace
 
 from chuckchuck import _reason as RS
 from chuckchuck import build_questions, judge_answer
@@ -205,9 +206,19 @@ def test_모르겠어요_보기는_자료가_세운_대비_쌍():
 
 
 def test_발판_빈칸도_세운_쪽을_가린다():
-    q = _reason_question()
+    # 질문·개념 칩이 대비를 보여 주지 않으면 발판 빈칸은 세운 쪽이다 (qa/reason) — 개념 이름(화면 칩)도 보이는 말이다 (09-30 WP-J3)
+    q = replace(_reason_question(), label="오배송 원인", question="오배송이 왜 늘었다고 결론지었나요? 그 근거는 무엇인가요?")
     j = _scaffold_judgement(q, LOGI_GRAPH, " ".join(TEXTS.values()))
     assert j is not None and sorted(j.choices) == sorted(["검수 동선", "인력 부족"])
+
+
+def test_질문이_이미_보여_준_세운_쪽은_발판_빈칸이_아니다():
+    # 09-30 WP-J3: 「…인력 부족이 아니라 검수 동선에서 생긴다고 결론지은 근거는?」 — 질문이 대비를 그대로 보여 준다. 그 쪽을 가리면
+    # 보이는 말을 다시 채우는 칸이다 — 발판은 질문에 없는 말을 가리거나(없으면) 해설로 넘어간다.
+    q = _reason_question()
+    j = _scaffold_judgement(q, LOGI_GRAPH, " ".join(TEXTS.values()))
+    # 예전엔 보기 [검수 동선, 인력 부족] 으로 「___」 에 질문이 보여 준 쪽을 넣게 했다
+    assert j is None or not ({"검수 동선", "인력 부족"} & set(j.choices))
 
 
 def test_대비_쌍이_없는_옛_질문은_인용_한_줄의_대비로_간다():

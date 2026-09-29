@@ -202,7 +202,9 @@ def test_C01a_탐침_골자의_빈칸은_첫_절의_열쇠_말이고_사다리�
     ladder = build_hint_ladder(q)
     blank = next(i for i, h in enumerate(ladder) if h.startswith("빈칸을 채워 보세요: "))
     near = next(i for i, h in enumerate(ladder) if h.startswith("이 방향이에요 — "))
-    assert "아직 ___나 출처가 없어요" in ladder[blank] and blank < near
+    # 09-30 WP-J3: 탐침의 빈칸은 「모르겠어요」 사다리와 같은 입장 빈칸이다 — 칩(contracts.PROBE_STANCES)이 들어가는 틀.
+    assert "「좌석 부족은 주말에 특히 심합니다」에 붙은 수치나 출처는 ___" in ladder[blank] and blank < near
+    assert "'나와 있었어요' 인가요, '아직 비어 있었어요' 인가요?" in ladder[blank]
 
 
 def test_C01a_긴장_탐침의_각도_조사는_인용_받침을_따른다():
@@ -632,15 +634,21 @@ def _blank_after_shown(ladder: list[str]) -> None:
     assert blank.index("___") >= blank.index(shown) + len(shown)          # 이미 보여 준 말은 가리지 않는다
 
 
-def test_M06_폴백_골자의_사다리는_머리말이_겹치지_않고_빈칸은_보여_준_곳_뒤에():
+def test_M06_폴백_골자의_사다리는_머리말이_겹치지_않고_틀_골자는_가리지_않는다():
     by, _ = ask([q_item("taste", "맛 평가는 어떤 역할을 하나요?", gist="자료 내용이에요.")], [("taste", False)])
     ladder = build_hint_ladder(by["taste"])
     assert not any("이 방향이에요 — 자료는 이렇게 말해요" in h for h in ladder)
-    _blank_after_shown(ladder)
+    # 09-30 WP-J3 (standard e2e703b): 틀 골자(자료 줄을 이어 붙인 자리 표시)는 가리지 않는다 — 인용·첫 절 칸이 이미 그 줄이다
+    assert not any(h.startswith("빈칸을 채워 보세요") for h in ladder)
 
 
-def test_M06_한_절짜리_골자도_빈칸은_보여_준_앞부분_뒤에():
+def test_M06_한_절짜리_골자도_빈칸은_보여_준_앞부분과_질문의_낱말을_가리지_않는다():
     by, _ = ask([q_item("temp", "잔반은 어떻게 줄일 수 있나요?", gist="배식 순서를 바꾸면 잔반을 줄일 수 있어요.",
+                        hint="4장의 개선 방안을 떠올려 보세요.")], [("temp", False)])
+    ladder = build_hint_ladder(by["temp"])
+    # 보여 준 앞부분(「배식 순서를 바꾸면…」) 뒤에 남은 말(「잔반을 줄일 수 있어요」)은 질문이 이미 부른 말뿐이다 — 빈칸 칸을 두지 않는다
+    assert not any(h.startswith("빈칸을 채워 보세요") for h in ladder)
+    by, _ = ask([q_item("temp", "잔반은 어떻게 줄일 수 있나요?", gist="배식 순서를 바꾸면 버려지는 반찬 양을 줄일 수 있어요.",
                         hint="4장의 개선 방안을 떠올려 보세요.")], [("temp", False)])
     _blank_after_shown(build_hint_ladder(by["temp"]))
 

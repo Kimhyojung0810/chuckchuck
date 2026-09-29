@@ -63,9 +63,17 @@ from ._probes import (
     usable_answer_line,
 )
 from ._probes import josa as _probe_josa
-from ._probe_stance import gist_needs_rebuild, probe_gist
+from ._probe_stance import (
+    blank_exclusions,
+    evidence_gist,
+    gist_needs_rebuild,
+    probe_gist,
+    probe_scaffold,
+    shown_in_question,
+    template_gist,
+)
 from ._deck_claims import numbers as deck_numbers
-from ._speech import to_haeyo, ungrounded_numbers
+from ._speech import josa_of, to_haeyo, ungrounded_numbers
 from ._spoken import defer_cue, skip_cue, spoken_numbers
 from .contracts import (
     PROBE_KINDS,
@@ -5428,6 +5436,11 @@ def _hint_scaffold(question: Question) -> str:
     09-30 held-out 감사(M-06): 빈칸이 「혈당 ___ 줄이는」「(___ 외, 2015)」「「60분 ___」 값은 180」 처럼 쓸모없는 낱말을 가렸고,
     「32,___」 처럼 수를 쪼갰다. 틀 말(「자료는 이렇게 말해요 —」)은 떼고, 함정은 바로잡을 단서(값·낱말)를 가리고, 「」 안의
     이름(표 열 이름·인용 제목)은 가리지 않는다.
+
+    09-30 WP-J3: **질문이 이미 보여 준 낱말은 가리지 않는다**(`_probe_stance.blank_exclusions` — 개념 이름·질문 문장·탐침이 따지는 줄).
+    빈칸 탐침의 「___을 개선하는 방법은 아직 자료에 없어요」 는 질문이 부른 개념 이름을 가렸다. 탐침 질문의 빈칸은 「모르겠어요」 사다리와
+    같은 것(`probe_scaffold` — 제한 조건 · 식의 나머지 요소 · 입장 칩이 들어가는 틀)이다. 코드 틀 골자는 가리지 않고 근거 인용을 가린다.
+    함정 빈칸 뒤 조사는 사실 줄의 받침을 따른다(「…낮음」이라고) — 예전엔 「라고」 를 받침과 상관없이 붙였다.
     """
     if question.trap_premise is not None:
         blank = _trap_blank(question)
@@ -5437,21 +5450,30 @@ def _hint_scaffold(question: Question) -> str:
         if blank.startswith("표에서 "):
             return _clip(f"빈칸을 채워 보세요: 자료 {no}장 {blank}이에요." if no else f"빈칸을 채워 보세요: 자료 {blank}이에요.")
         where = f"자료 {no}장은" if no else "자료는"
-        return _clip(f"빈칸을 채워 보세요: {where} 「{blank}」라고 해요.")
+        return _clip(f"빈칸을 채워 보세요: {where} 「{blank}」{josa_of(question.trap_premise.fact, '이라고', '라고')} 해요.")
     if not question.evidence_quote:
         return ""
     probe = question.basis.probe if question.basis is not None else None
-    if probe is not None and "gist_probe_code" in (question.basis.checks or []):
-        return _probe_blank(question, probe)
+    if probe is not None:
+        masked, _, choices = probe_scaffold(question)
+        if not masked:
+            return ""
+        tail = f" — '{choices[0]}' 인가요, '{choices[1]}' 인가요?" if len(choices) == 2 else ""
+        return _clip(f"빈칸을 채워 보세요: {masked}{tail}")
+    if template_gist(question) or evidence_gist(question):
+        # 틀 골자는 가리지 않는다 (09-30 standard e2e703b) — 사다리의 인용 칸·첫 절 칸이 이미 그 자료 줄을 보여 준다.
+        return ""
     body = _gist_body(question.answer_gist)
     # 앞 칸(`_hint_gist`)이 첫 절을 이미 보여 줬으면 빈칸은 **그 뒤 절**에 둔다 — 보여 준 절을 다시 가리면 발판이 아니다
-    # (WP-Q 테스트: 4단 「이 방향이에요 — A」 뒤 5단이 「A 의 한 낱말 ___ · B」 였다).
-    head, rest = _after_fragment(body, _gist_fragment(question.answer_gist))
+    # (WP-Q 테스트: 4단 「이 방향이에요 — A」 뒤 5단이 「A 의 한 낱말 ___ · B」 였다). 뒤 절에 가릴 말이 없으면(남은 말이 전부
+    # 질문에 보인다) 빈칸 칸을 두지 않는다 — 앞 절로 돌아가 가리면 방금 보여 준 말을 다시 채우는 칸이 된다 (09-30 WP-J3).
+    fragment = _gist_fragment(question.answer_gist)
+    head, rest = _after_fragment(body, fragment)
     pair = question.basis.contrast if question.basis and len(question.basis.contrast) == 2 else None
-    masked = _mask_body(rest, question, pair) if head else ""
-    if masked:
-        return _clip(f"빈칸을 채워 보세요: {head}{masked}")
-    masked = _mask_body(body, question, pair)
+    if head:
+        masked = _mask_body(rest, question, pair, shown=fragment)
+        return _clip(f"빈칸을 채워 보세요: {head}{masked}") if masked else ""
+    masked = _mask_body(body, question, pair, shown=fragment.rstrip("…"))
     return _clip(f"빈칸을 채워 보세요: {masked}") if masked else ""
 
 
@@ -5468,44 +5490,32 @@ def _after_fragment(body: str, fragment: str) -> tuple[str, str]:
     return body[:len(body) - len(rest)], rest
 
 
-def _mask_body(text: str, question: Question, pair) -> str:
-    """골자 글에서 답의 열쇠 한 낱말을 가린 글 (못 가리면 ""). 「」 안(이름·인용)은 가리지 않는다."""
+def _mask_body(text: str, question: Question, pair, *, shown: str = "") -> str:
+    """골자 글에서 답의 열쇠 한 낱말을 가린 글 (못 가리면 ""). 「」 안(이름·인용)은 가리지 않는다.
+    질문 문장·개념 이름·앞 칸이 보여 준 조각(shown)의 낱말은 가리지 않는다 (09-30 WP-J3)."""
     spans = re.findall(r"「[^」]*」", text)
     masked_src = text
     for k, sp in enumerate(spans):
         masked_src = masked_src.replace(sp, f"\u0000{k}\u0000", 1)
     # 인용에 있는 낱말을 먼저 가린다 — 화면이 같이 보여 주는 인용에서 답을 찾을 수 있게 (f09 _narrow_followup 과 같은 규칙).
     # 근거 묶음에 대비 쌍이 있으면(qa/reason) 자료가 세운 쪽을 가린다 — 「모르겠어요」 보기와 같은 빈칸이다.
-    masked, _, _ = mask_gist(masked_src, question.label, [], quote=question.evidence_quote, pair=pair)
+    # 질문이 이미 보여 준 낱말은 가리지 않는다 (09-30 WP-J3) — 대비 쌍의 세운 쪽이 질문에 보이면 쌍 없이 다시 가린다.
+    exclusions = f"{blank_exclusions(question)} {shown}".strip()
+    seen = f"{shown} ".strip()
+
+    def visible(word: str) -> bool:
+        return shown_in_question(word, question) or bool(seen and word and word.replace(" ", "") in seen.replace(" ", ""))
+
+    masked, answer, _ = mask_gist(masked_src, exclusions, [], quote=question.evidence_quote, pair=pair)
+    if answer and visible(answer):
+        masked, answer, _ = mask_gist(masked_src, exclusions, [], quote=question.evidence_quote) if pair else ("", "", "")
+        if answer and visible(answer):
+            masked = ""
     if not masked or "___" not in masked:
         return ""
     for k, sp in enumerate(spans):
         masked = masked.replace(f"\u0000{k}\u0000", sp, 1)
     return masked
-
-
-def _probe_blank(question: Question, probe: Probe) -> str:
-    """탐침 코드 골자의 빈칸 — 골자 첫 절에서 **그 탐침의 열쇠 말**을 가린다: 빈칸 탐침은 비어 있는 문제 이름, 근거 없는 인과는
-    「수치」, 단정은 「단정」, 긴장은 요소 이름. 틀 말(「어떻게 채울지」)을 가리는 빈칸은 발판이 아니다 (09-30 벤치)."""
-    first = _gist_fragment(question.answer_gist).rstrip("…") or _gist_body(question.answer_gist)
-    key = ""
-    if probe.kind == "unsolved":
-        key = question.label or ""
-    elif probe.kind == "unsupported_cause":
-        key = "수치"
-    elif probe.kind == "absolute_boundary":
-        key = "단정"
-    elif probe.kind == "tension":
-        key = tension_terms(probe)[1]
-    if not key or key not in first:
-        return ""
-    # 「…」 안은 인용이라 가리지 않는다 — 인용 밖의 첫 자리
-    spans = [(m.start(), m.end()) for m in re.finditer(r"「[^」]*」", first)]
-    at = next((i for i in (m.start() for m in re.finditer(re.escape(key), first))
-               if not any(a <= i < b for a, b in spans)), -1)
-    if at < 0:
-        return ""
-    return _clip(f"빈칸을 채워 보세요: {first[:at]}___{first[at + len(key):]}")
 
 
 def _hint_direction(question: Question) -> str:

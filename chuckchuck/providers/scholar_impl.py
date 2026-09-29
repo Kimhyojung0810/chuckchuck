@@ -24,10 +24,12 @@
 환경변수:
     SCHOLAR_PROVIDER   openalex | semanticscholar | arxiv | crossref | europepmc | all | none,
                        쉼표로 여러 개 (기본 none). all = openalex,arxiv,europepmc (+semanticscholar, S2_API_KEY 가 있을 때)
-    SCHOLAR_MAILTO     polite pool 용 연락 메일 (OpenAlex·Crossref — User-Agent 와 `mailto` 쿼리)
-    OPENALEX_MAILTO    OpenAlex 만 쓸 polite pool 메일 (`mailto` 쿼리). 없으면 SCHOLAR_MAILTO
+    SCHOLAR_MAILTO     polite pool 용 연락 메일 — OpenAlex(`mailto` 쿼리, OPENALEX_MAILTO 가 없을 때)와 Crossref(`mailto` 쿼리와
+                       User-Agent)에만 보낸다. arXiv·Semantic Scholar·Europe PMC 에는 보내지 않는다 (User-Agent 기본값에 메일이 없다)
+    OPENALEX_MAILTO    OpenAlex 에만 보낼 polite pool 메일 (`mailto` 쿼리). 없으면 SCHOLAR_MAILTO. 다른 통로로는 안 넘어간다
     OPENALEX_API_KEY   OpenAlex 키 (선택, 무료 발급) — 키 없는 하루 예산의 10배. `Authorization: Bearer` 머리로 보낸다
-    S2_API_KEY         Semantic Scholar 키 (선택 — 없으면 공용 한도 100회/5분)
+    S2_API_KEY         Semantic Scholar 키 (선택 — 없으면 공용 한도 100회/5분). `x-api-key` 머리 — 다른 곳으로 넘어가는
+                       되돌리기(3xx)에는 싣지 않는다 (`_send`: requests 는 Authorization 만 스스로 뗀다)
 
 키·메일은 환경변수에서만 읽고 값을 찍지 않는다 — 로그는 「설정됨/없음/형식 오류」 만(브리지 시작 배너 `config.masked` 와 같은
 규칙), 오류 문구는 값을 가린 뒤에 만든다(`_redact`, 마지막 자리는 `scholar_base.redact_secrets` — ScholarCallError 가 받을 때).
@@ -54,7 +56,7 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, wait
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 import requests
 
@@ -100,7 +102,15 @@ _QUERY_STOP = {"the", "and", "for", "with", "from", "into", "over", "under", "us
                "are", "its", "their", "this", "that", "these", "those", "than", "not", "can", "may", "was", "were"}
 
 
-_UA = {"User-Agent": "chuckchuck/1.0 (F-24 papers; mailto:%s)"}
+#: 모든 통로가 싣는 User-Agent — **연락 메일을 싣지 않는다.** 09-30 까지는 메일을 여기 박아 arXiv·Semantic Scholar·Europe PMC 까지
+#: 다섯 통로 모두에 보냈다(WP-M 보안 검토). 메일이 뜻이 있는 곳은 polite pool 을 두는 두 곳뿐이다 — OpenAlex 는 `mailto` 쿼리로,
+#: Crossref 는 `mailto` 쿼리와 제 User-Agent(`_user_agent`)로 받는다 (Crossref REST 「etiquette」).
+_UA_BASE = "chuckchuck/1.0 (F-24 papers)"
+
+
+def _user_agent(mailto: str = "") -> str:
+    """User-Agent — 메일을 주면 polite pool 꼴(「…; mailto:…」). 메일은 그것을 받는 통로만 넘긴다."""
+    return f"chuckchuck/1.0 (F-24 papers; mailto:{mailto})" if mailto else _UA_BASE
 
 
 #: 키·메일로 쓸 수 있는 값의 꼴 — 인쇄 가능한 ASCII, 빈칸 없음. 줄바꿈이 든 값은 requests 가 머리 오류(InvalidHeader)를 내며 값을
@@ -118,8 +128,9 @@ def _config_value(raw) -> tuple[str, str]:
 
 
 def _mailto() -> str:
-    """User-Agent·Crossref 의 polite pool 메일 — SCHOLAR_MAILTO, 없으면 OPENALEX_MAILTO (형식이 틀리면 싣지 않는다)."""
-    return _config_value(os.environ.get("SCHOLAR_MAILTO") or os.environ.get("OPENALEX_MAILTO"))[0]
+    """Crossref 의 polite pool 메일 — SCHOLAR_MAILTO 만 (형식이 틀리면 싣지 않는다). OPENALEX_MAILTO 는 「OpenAlex 에만 보낼 메일」이라
+    여기로 넘어오지 않는다 — 09-30 까지는 SCHOLAR_MAILTO 가 없으면 이 값을 모든 통로의 User-Agent 와 Crossref 에 실었다."""
+    return _config_value(os.environ.get("SCHOLAR_MAILTO"))[0]
 
 
 def _openalex_mailto_raw() -> str:
@@ -302,15 +313,78 @@ def _request_timeout(who: str, timeout: float | None = None) -> float:
     return base if left is None else min(base, left)
 
 
+#: 되돌리기(3xx) 응답 코드와 따라갈 최대 횟수 (requests 기본은 30 — 검색 통로가 그렇게 돌릴 까닭이 없다).
+_REDIRECT_CODES = (301, 302, 303, 307, 308)
+MAX_REDIRECTS = 5
+#: 다른 곳(스킴·호스트·포트)으로 넘어가는 되돌리기에 싣지 않을 머리 — 키 머리. requests 는 Authorization 만 스스로 떼고
+#: (Session.rebuild_auth) 그 밖의 머리는 새 호스트로 그대로 보낸다 — Semantic Scholar 의 x-api-key 가 그랬다 (09-30 WP-M 보안 검토).
+_KEY_HEADERS = ("x-api-key", "authorization")
+#: 그중 requests 가 **떼지 않는** 머리 — 이것이 있으면 되돌리기를 손으로 따라간다 (`_send`).
+_STICKY_KEY_HEADERS = ("x-api-key",)
+
+
+def _header(headers, name: str) -> str:
+    """머리 값 하나 (이름 대소문자 무관). requests 응답의 머리는 대소문자를 안 가리지만 가짜 응답·일반 dict 는 가린다."""
+    for k, v in (headers or {}).items():
+        if str(k).lower() == name:
+            return str(v or "")
+    return ""
+
+
+def _private(headers: dict) -> bool:
+    """이 머리를 requests 에 맡기면 다른 곳으로 넘어가는가 — requests 가 안 떼는 키 머리(x-api-key)가 있거나 User-Agent 에 연락 메일이
+    있다. Authorization 만 있으면 requests 가 다른 호스트로 넘어갈 때 스스로 뗀다."""
+    return any(str(k).lower() in _STICKY_KEY_HEADERS for k in headers) or "mailto:" in _header(headers, "user-agent")
+
+
+def _public(headers: dict) -> dict:
+    """다른 곳으로 넘어갈 때 보낼 머리 — 키 머리를 떼고 User-Agent 는 메일 없는 기본값으로."""
+    kept = {k: v for k, v in headers.items() if str(k).lower() not in _KEY_HEADERS and str(k).lower() != "user-agent"}
+    return {**kept, "User-Agent": _UA_BASE}
+
+
+def _origin(url: str) -> tuple[str, str, int | None]:
+    parts = urlsplit(url)
+    return parts.scheme.lower(), (parts.hostname or "").lower(), parts.port or {"http": 80, "https": 443}.get(parts.scheme.lower())
+
+
+def _same_place(src: str, dst: str) -> bool:
+    """같은 곳인가 — 스킴·호스트·포트가 같다. 같은 호스트의 http → https(기본 포트) 올림은 같은 곳으로 본다 (requests 와 같은 잣대)."""
+    a, b = _origin(src), _origin(dst)
+    return a == b or (a[1] == b[1] and a[0] == "http" and b[0] == "https" and a[2] == 80 and b[2] == 443)
+
+
+def _send(url: str, params: dict | None, headers: dict, timeout: float):
+    """
+    GET 한 번. 키·메일을 실은 요청은 되돌리기를 **손으로** 따라간다 — 같은 곳이면 머리를 그대로, 다른 곳으로 넘어가면 키 머리를 떼고
+    메일 없는 User-Agent 로 (`_public`). 한 번 떼면 되돌아와도 다시 싣지 않는다. 비밀이 없는 요청은 예전처럼 requests 가 따라간다.
+    MAX_REDIRECTS 를 넘으면 마지막 3xx 응답을 그대로 돌려준다 — 호출자(`_checked_get`)가 http 실패로 적는다.
+    """
+    if not _private(headers):
+        return requests.get(url, params=params, timeout=timeout, headers=headers)
+    res = requests.get(url, params=params, timeout=timeout, headers=headers, allow_redirects=False)
+    here = str(getattr(res, "url", "") or url)
+    for _ in range(MAX_REDIRECTS):
+        where = _header(getattr(res, "headers", None), "location") if res.status_code in _REDIRECT_CODES else ""
+        if not where:
+            return res
+        nxt = urljoin(here, where)
+        if not _same_place(here, nxt):
+            headers = _public(headers)
+        res = requests.get(nxt, timeout=timeout, headers=headers, allow_redirects=False)
+        here = str(getattr(res, "url", "") or nxt)
+    return res
+
+
 def _http_get(who: str, url: str, params: dict | None = None, headers: dict | None = None, *,
               timeout: float | None = None, after_backoff: bool = False):
-    """통로 줄(lane)을 지켜 GET 한 번. 줄에서 기다린 만큼 마감이 줄어드니 시간 초과는 자리를 잡은 **뒤에** 정한다."""
+    """통로 줄(lane)을 지켜 GET 한 번. 줄에서 기다린 만큼 마감이 줄어드니 시간 초과는 자리를 잡은 **뒤에** 정한다.
+    User-Agent 는 메일 없는 기본값이고, 통로가 제 머리(headers)로 덮는다 — Crossref 만 메일을 단다 (`_user_agent`)."""
     ln = lane(who)
     ln.enter(_queue_wait(), after_backoff=after_backoff)
     failure: tuple[str, str, type] | None = None
     try:
-        return requests.get(url, params=params, timeout=_request_timeout(who, timeout),
-                            headers={**_UA, "User-Agent": _UA["User-Agent"] % _mailto(), **(headers or {})})
+        return _send(url, params, {"User-Agent": _UA_BASE, **(headers or {})}, _request_timeout(who, timeout))
     # requests 의 오류 문구는 요청 주소를 쿼리째 싣고(mailto), 머리 오류는 머리 값(키)을 repr 로 싣는다 — 값을 가린 문구만 쓴다.
     except requests.exceptions.InvalidHeader:
         failure = (f"{who} 요청 머리 값이 잘못됨 — 키·메일 설정의 형식을 확인", "network", requests.exceptions.InvalidHeader)
@@ -836,24 +910,31 @@ class CrossrefScholar(ScholarProvider):
             p["mailto"] = _mailto()
         return p
 
+    @staticmethod
+    def _headers() -> dict:
+        """Crossref 는 polite pool 메일을 User-Agent 로도 받는다 — 메일을 싣는 머리는 이 통로에만 있다 (`_http_get` 기본값은 메일 없음)."""
+        mail = _mailto()
+        return {"User-Agent": _user_agent(mail)} if mail else {}
+
     def search(self, query: str, *, limit: int = 5) -> list[PaperRef]:
         q = clean_query(query)
         if not q:
             return []
         data = _get_json(f"{self.base_url}/works", self._params({"query.bibliographic": q, "rows": max(limit * 4, 10)}),
-                         self.timeout, None, self.name)
+                         self.timeout, self._headers(), self.name)
         items = ((data or {}).get("message") or {}).get("items") or []
         return rank_refs(_positional(self._to_refs(items, q)), limit)
 
     def resolve(self, title: str, doi: str = "") -> list[PaperRef]:
         if doi:
-            data = _get_json(f"{self.base_url}/works/{doi}", None, self.timeout, None, self.name)
+            data = _get_json(f"{self.base_url}/works/{doi}", None, self.timeout, self._headers(), self.name)
             item = (data or {}).get("message")
             return self._to_refs([item], title)[:1] if item else []
         q = clean_query(title)
         if not q:
             return []
-        data = _get_json(f"{self.base_url}/works", self._params({"query.bibliographic": q, "rows": 1}), self.timeout, None, self.name)
+        data = _get_json(f"{self.base_url}/works", self._params({"query.bibliographic": q, "rows": 1}), self.timeout,
+                         self._headers(), self.name)
         return self._to_refs(((data or {}).get("message") or {}).get("items") or [], title)[:1]
 
     def _to_refs(self, items: list, query: str) -> list[PaperRef]:

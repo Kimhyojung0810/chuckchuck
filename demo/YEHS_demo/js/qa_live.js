@@ -1245,6 +1245,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       stillWanted: stillHere,
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
+    // 이번 답이 「모르겠어요」 사다리의 되물음(둘 중 하나·빈칸)에 대한 답인가 — 바로 앞 응답이 그 단계였다 (liveRevealsHalf)
+    const prevJudgement = L.lastJudgement;
     L.turn += 1;
     // clarify 는 «질문을 못 알아들어 되물었다» 는 뜻이라 채점된 답이 아니다.
     // 대화에는 남기되 라운드에서는 뺀다 (liveScoredAnswers).
@@ -1273,7 +1275,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     if (v.react) {
       // 점수를 같이 싣는다. 「좋아지고 있다」는 말보다 62 → 78 이라는 진짜 숫자가
       // 세다 (UI_REDESIGN §14 — 숫자는 신성하다, 지어내지 않는다).
-      const quote = v.evidence_quote || '';
+      // 모순 질문의 인용은 자료 쪽 줄(= 답)이다 — 서버가 「모르겠어요」 1·2단에서 비워 보내지만, 화면도 3단 해설 전에는 인용 상자에
+      // 싣지 않는다 (09-30 WP-CONTRA · 녹음 감사 REC-08: 1단부터 자료 줄 상자가 떴다)
+      const quote = (liveContradiction(q) && v.coach_stage !== 'explain') ? '' : (v.evidence_quote || '');
       pushTurn({
         // 70~79 통과(요지는 맞음)는 「절반쯤」 이 아니다 — 서버의 passed 를 그대로 칩에 옮긴다 (09-30 §10)
         who: 'ai', kind: 'react', verdict: (!v.coach_stage && v.passed && v.verdict === 'partial') ? 'full' : m.react,
@@ -1307,7 +1311,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     } else {
       // 절반은 맞혔는데 또 물으면 뭘 더 말해야 하는지 모른 채 같은 답을 낸다.
       // 빠진 절반을 펼쳐 주고 되묻기는 그대로 이어 간다 (2026-08-08 사용자 요청).
-      const shownMissing = v.verdict === 'partial' ? revealHalf(q, v) : false;
+      const shownMissing = liveRevealsHalf(prevJudgement, v) ? revealHalf(q, v) : false;
       // 「N번째 답변」 은 서버가 센 라운드로 — 예전 L.turn 은 「모르겠어요」 턴까지 세어 서버(2라운드)와 어긋났다 (09-30 §10)
       askAgain(v, v.round_no || L.turn, { skipMissing: shownMissing });
     }
@@ -1524,6 +1528,20 @@ function liveDegradedLines(res) {
 }
 
 /**
+ * 첫 질문 앞에 한 번 띄우는 알림 줄 (09-30 녹음 대화 감사 REC-14).
+ *
+ * 녹음을 받았는데 질문 재료로 못 썼으면(QuestionDoc.speech_unused — 다른 발표 · 판정이 짐작뿐) 그 까닭(speech_note)이 **맨 앞**이다.
+ * 예전엔 끝에 붙여 「문헌 검색 일부가 실패해서…」 뒤에 묻혔다 — 녹음이 다른 발표라는 건 질문 전체의 재료가 바뀐 일이라 문헌보다 먼저다.
+ * speech_note 가 있으면 같은 사실을 줄여 말한 LIVE_SPEECH_MISMATCH_NOTE 는 뺀다 — 한 사실을 두 번 말하지 않는다.
+ */
+function liveEntryNotes(doc) {
+  const lines = liveDegradedLines(doc);
+  const note = doc && doc.speech_unused && typeof doc.speech_note === 'string' ? doc.speech_note.trim() : '';
+  if (!note) return lines;
+  return [note, ...lines.filter((n) => n !== note && n !== LIVE_SPEECH_MISMATCH_NOTE)];
+}
+
+/**
  * 질문 묶음이 녹음을 버리고 자료만으로 만들어졌나 — F-08 은 질문마다 basis.checks 에 speech_mismatch_deck_only 를 남긴다
  * (문서 단위 칸이 계약에 없어서). 묶음 머리에 같은 이름의 참 값이 오면 그것도 받는다. 판정 응답에는 questions 가 없어 늘 거짓이다.
  */
@@ -1641,6 +1659,30 @@ function autoHint(tier) {
 }
 
 /**
+ * 「절반만 설득했어요」 펼침(revealHalf)을 여는가 — partial 판정이고, 이번 답이 「모르겠어요」 사다리의 되물음(둘 중 하나·빈칸)에
+ * 대한 답이 **아닐** 때만. 사다리 도중에 완성 문장을 펼치면 1단 보기 하나 고른 사람에게 답이 통째로 보인다 — 막히면 정답 대신 간접
+ * 힌트를 단계적으로 주고, 답은 3단(해설)에서 연다 (MVP_SPEC §5.3 · 09-30 WP-J3, standard 4124984 혈당 Q1: 보기 「순서」 partial 65
+ * 바로 뒤에 「이렇게 말하면 완성이에요」 가 골자 전체를 보였다). 되물음을 못 알아들어 다시 푼 질문(clarify)의 답은 사다리 답이 아니다.
+ *
+ * @param {object|null} prev  바로 앞 서버 응답 (L.lastJudgement — 이번 응답으로 덮기 전)
+ * @param {object} v          이번 판정
+ */
+/**
+ * 코드가 확인한 모순 질문인가 — 「발표에서 “…”라고 했는데, 자료 N장과 달라요. 어느 쪽이 맞나요?」 (F-08 basis.source contradiction).
+ * 골자·자료 인용이 곧 자료 쪽 값(= 답)이라, 발표자가 통과하기 전에는 「빠진 절반」 에 완성 문장을 펼치지 않고 「모르겠어요」 1·2단 인용
+ * 상자에도 싣지 않는다 — 3단 해설·「답 보고 다시 말해보기」·마무리 카드에서 연다 (09-30 WP-CONTRA · 녹음 감사 REC-04·08).
+ */
+function liveContradiction(q) {
+  const src = (q && ((q.basis && q.basis.source) || q.source)) || '';
+  return src === 'contradiction';
+}
+
+function liveRevealsHalf(prev, v) {
+  const stage = (prev && prev.coach_stage) || '';
+  return !!v && v.verdict === 'partial' && stage !== 'narrow' && stage !== 'scaffold';
+}
+
+/**
  * 「절반만 설득했어요」 자리에서 **빠진 절반과 완성 문장을 펼친다.**
  *
  * 절반을 맞힌 사람에게 빈손으로 또 물으면, 뭘 더 말해야 하는지 모르는 채 방금 쓴
@@ -1662,7 +1704,8 @@ function revealHalf(q, v) {
   const points = (v.missing_points || []).filter(Boolean).slice(0, 3);
   // 함정 질문의 골자는 **바로잡은 사실 그 자체**다 — 아직 못 바로잡았는데 펼치면 정답을 흘린다 (09-30 §7).
   // 브리지는 함정의 전제·골자를 화면 사본에서 뺀다(gist_withheld · 09-30 WP-J2) — 함정인지는 q.trap 으로, 바로잡은 뒤의 골자는 판정 응답으로 온다.
-  const trapOpen = !!((q.trap || q.trap_premise || q.gist_withheld) && !v.passed);
+  // 모순 질문의 골자도 자료 쪽 값 그 자체다 — 통과하기 전에는 펼치지 않는다 (09-30 WP-CONTRA · REC-04: 발표 값을 고집한 75 통과 뒤 골자가 떴다).
+  const trapOpen = !!((q.trap || q.trap_premise || q.gist_withheld || liveContradiction(q)) && !v.passed);
   const answer = trapOpen ? '' : (liveRevealModel(q, v) || v.summary_sentence || '');
   // 둘 다 비면 열 것이 없다. 빈 카드를 띄우느니 되묻기만 이어 간다.
   if (!points.length && !answer) return false;
@@ -1940,7 +1983,7 @@ function liveResultRow(r, bucket = liveBucket(r)) {
  * 결과 머리 — 헤드라인 숫자는 스스로 설명한 것만 (C-09). speech: 상세 리포트에 발화 분석이 있는가 (자료만 쓴 세션은 없다 —
  * 「근거 발화와 함께 짚어 줄게요」 는 그때만 약속한다).
  */
-function liveResultSummary(results, { speech = true } = {}) {
+function liveResultSummary(results, { speech = true, unrelated = false } = {}) {
   const rs = results || [];
   const count = { self: 0, helped: 0, retold: 0, skipped: 0 };
   rs.forEach((r) => { count[liveBucket(r)] += 1; });
@@ -1961,9 +2004,12 @@ function liveResultSummary(results, { speech = true } = {}) {
   const sub = !asked ? ''
     : allSelf
       ? (hinted ? `힌트를 본 질문이 ${hinted}개 있어요. 같은 질문으로 한 번 더 하면 힌트 없이도 될 거예요.` : '힌트 없이 전부 스스로 설명했어요. 같은 질문으로 한 번 더 하면 답이 더 짧아져요.')
-      : speech
+      : speech && !unrelated
         ? '다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.'
-        : '상세 리포트에 질문마다 내 답을 남겨 뒀어요. 발표를 녹음하면 말과 자료를 같이 짚어 줘요.';
+        /* 녹음은 받았는데 이 자료의 발표가 아니었다 — 「발표를 녹음하면」 이 아니라 맞는 녹음을 올리면이다 (09-30 REC-10) */
+        : unrelated
+          ? '상세 리포트에 질문마다 내 답을 남겨 뒀어요. 이 자료로 발표한 녹음을 올리면 말과 자료를 같이 짚어 줘요.'
+          : '상세 리포트에 질문마다 내 답을 남겨 뒀어요. 발표를 녹음하면 말과 자료를 같이 짚어 줘요.';
   return { count, asked, self, allSelf, head, stats, sub };
 }
 
@@ -1983,11 +2029,12 @@ function qaLiveEnd() {
   const L = qa.live;
   // 상세 리포트에 개념 판정(발화 분석)이 있는가 — 자료만 쓴 세션은 없다. 없으면 행 화살표도 안 단다 (09-30 L-03: 빈 리포트로 데려갔다)
   const speech = typeof qaReportHasJudge === 'function' ? qaReportHasJudge() : true;
+  const unrelated = typeof qaRecordingUnrelated === 'function' ? qaRecordingUnrelated() : false;
   /* 결과를 상태로 묶는다. 섞어 두면 "어디부터 손대야 하는지" 가 안 보인다.
      순서는 사용자가 다음에 할 일 순 — 도움 받은 것 → 답을 본 것 → 넘긴 것 → 스스로 한 것 */
   const grouped = { helped: [], retold: [], skipped: [], self: [] };
   (L.results || []).forEach((r, i) => grouped[liveBucket(r)].push({ r, i }));
-  const sum = liveResultSummary(L.results, { speech });
+  const sum = liveResultSummary(L.results, { speech, unrelated });
 
   /* 질문 원문은 길고 여섯 개가 다 "…설명해 주시겠어요?" 로 끝나 벽처럼 읽힌다.
      제목은 개념 이름으로, 질문은 한 줄로 줄여 보조 텍스트에 둔다 (TDS ListRow 2RowTypeA) */
