@@ -748,12 +748,48 @@ _SOURCE_RE = re.compile(
 _DATA_RE = re.compile(r"\d[\d,.]*\s*(?:%|퍼센트|배|명|회|번|시간|분|초|년|개월|주|일|세|살|원|달러|점|건|개|곳|위)|\d+\.\d+")
 
 
+#: 방법·조건을 **이름으로** 묻는 꼴 — 「측정 방법과 조건」「선정 기준」「조사 대상」「실제 …와 일치하는지」「대표성」. 이 물음은 수치만으로는
+#: 답이 안 된다 — 자료에 방법·출처 줄이 있어야 한다 (09-30 녹음 감사 REC-20: 수치 줄 「…110초」 하나로 「측정 방법과 조건은?」 이,
+#: 선정 기준이 없는 덱에서 「구체적인 선정 기준은?」 이 통과했다).
+_META_ASK_RE = re.compile(
+    r"(?:측정|조사|실험|평가|선정|선발|모집|표집|샘플링|분류|집계)\s*(?:의\s*)?(?:방법|기준|조건|절차|방식|대상|환경|과정)|"
+    r"(?:선정|선발|분류|채택|포함|제외)\s*기준|대표성|표본\s*(?:크기|수)")
+#: 잰 것이 **실제 상황과 같은지**를 묻는 꼴 — 「실제 매장 환경과 일치하는지」. 자료가 실제와 같다고 적은 줄이 있거나 방법 줄이 있어야 한다.
+_VALIDITY_ASK_RE = re.compile(r"실제\s*[가-힣\s]{0,16}?(?:일치하는지|같은지|맞는지|적용되는지|적용될\s*수|다르지\s*않은지)")
+#: 방법을 말하는 자료 줄 — 「측정 방법」 머리·「…로 측정/조사/기록」·「…명을 대상으로」·「…간격으로」.
+_METHOD_LINE_RE = re.compile(
+    r"(?:측정|조사|실험|선정|모집|평가|분석)\s*(?:방법|방식|절차|기준|대상|기간|조건)|(?:으로|로)\s*(?:측정|조사|기록|선정|모집|평가|집계)|"
+    r"측정기|간격으로|(?:명|곳|개)을?\s*대상으로")
+#: 실제와 같다고 적은 자료 줄 — 「실제 매장과 같은 연습용 키오스크」 같은 꼴.
+_VALIDITY_LINE_RE = re.compile(r"실제\s*[가-힣\s]{0,10}(?:같은|일치|동일)")
+
+
+def _formula_answers(question: str, rows: list[str]) -> bool:
+    """장의 식(칸마다 줄이 갈린 식도 다음 몇 줄을 잇는다)의 **좌변**이 질문이 계산을 묻는 대상인가 — 좌변 내용 낱말이 질문에 있다.
+    「침대에 누운 시간과 회복 시간의 차이를 어떻게 계산했나요」 는 「수면의 질 = …」 식으로 답할 수 없다."""
+    q = [stem(n) for n in content_nouns(question)]
+    for i, row in enumerate(rows):
+        if "=" not in row:
+            continue
+        left, right = row.split("=", 1)
+        lhs_text = left.strip() or (rows[i - 1] if i else "")
+        if not re.search(r"[×✕÷+*]", " ".join([right, *rows[i + 1:i + 6]])):
+            continue
+        lhs = [stem(n) for n in content_nouns(lhs_text)]
+        if lhs and any(_word_in(x, q) for x in lhs):
+            return True
+    return False
+
+
 def asks_method(question: str) -> bool:
-    """질문이 방법·측정·계산·통제를 묻는가."""
-    return bool(_METHOD_ASK_RE.search(question or ""))
+    """질문이 방법·측정·계산·통제를 묻는가 (방법·조건을 이름으로 묻는 꼴 포함)."""
+    q = question or ""
+    return bool(_METHOD_ASK_RE.search(q) or _META_ASK_RE.search(q) or _VALIDITY_ASK_RE.search(q))
 
 
 _CITATION_MARK_RE = re.compile(r"\((?:[^()]*?)(?:19|20)\d{2}[a-z]?\)|et\s+al\.?|doi\s*:|10\.\d{4,9}/", re.I)
+#: 계산을 묻는 꼴 — 계산 물음은 근거 장의 식(「X = B × C」)이 답이다 (`_formula_answers`).
+_CALC_ASK_RE = re.compile(r"계산|산출|구하|구할|구해")
 #: 장 머리로 보는 줄 길이 상한 — 제목·부제는 짧다.
 HEADING_MAX = 24
 
@@ -781,6 +817,17 @@ def method_supported(question: str, anchors: list[int], idx: DeckIndex | None) -
     # 머리 줄은 인용 표기(「(2019)」·et al.)가 있을 때만 출처로 친다.
     if any(_SOURCE_RE.search(r.text) and (not _is_heading(r) or _CITATION_MARK_RE.search(r.text)) for r in rows):
         return True
+    if _META_ASK_RE.search(question or "") or _VALIDITY_ASK_RE.search(question or ""):
+        # 방법·조건을 이름으로 묻는 질문 — 방법 줄(측정 방법·…로 조사·…명을 대상으로)이 **덱 어디에든** 있어야 한다. 방법 장은
+        # 흔히 따로 있다(「측정 방법」 장). 수치 줄만으로는 답이 안 된다 (09-30 녹음 감사 REC-20). 실제와 같은지 묻는 질문은
+        # 자료가 실제와 같다고 적은 줄도 받는다.
+        line_re = _METHOD_LINE_RE
+        if _VALIDITY_ASK_RE.search(question or "") and not _META_ASK_RE.search(question or ""):
+            return any(_METHOD_LINE_RE.search(r.text) or _VALIDITY_LINE_RE.search(r.text) for r in idx.all_rows())
+        return any(line_re.search(r.text) for r in idx.all_rows())
+    if _CALC_ASK_RE.search(question or "") and any(_formula_answers(question, [r.text for r in idx.rows.get(no, [])])
+                                                   for no in anchors):
+        return True        # 「X 는 어떻게 계산하나요」 는 근거 장의 「X = …」 식이 답이다 (식에는 수치가 없을 수 있다)
     data = [r for r in rows if _has_data(r)]
     if not data:
         return False
@@ -1253,11 +1300,39 @@ def attributed_premise(question: str) -> str:
     return m.group("p").strip(" 「」“”\"'") if m else ""
 
 
+#: 최상급을 **자료가 정한 것처럼** 깔고 그 까닭을 묻는 꼴 — 「…가장 중요한 변수로 설정된 이유」「가장 큰 원인이라고 본 근거」.
+_PRESUPPOSE_RE = re.compile(r"이유|까닭|근거|배경|(?<![가-힣])왜(?![가-힣])|(?:로|으로)\s*(?:설정|선정|꼽|정한|정했|정하|본|봤|보는|삼은|삼았|둔|두었)"
+                            r"|(?:라고|이라고)\s*(?:한|본|했|하는)")
+
+
+def superlative_premise(question: str, idx: DeckIndex | None) -> str:
+    """
+    질문이 **자료에 없는 최상급**을 전제로 깔고 그 까닭을 묻는가 → 그 최상급 구절 (아니면 ""). 09-30 녹음 감사 REC-20: 「환기 면적이
+    '세 가지 요소' 중 가장 중요한 변수로 설정된 이유」 — 자료는 세 요소를 곱으로 나란히 둘 뿐 순위를 말하지 않았다.
+    자료 줄에 최상급 말(가장·제일·최대·최고 …)이 있고 질문의 그 구절과 내용 낱말을 나누면 자료가 한 말이라 막지 않는다. 「무엇이 가장
+    중요한가요?」 처럼 순위를 **묻는** 질문은 전제가 아니다.
+    """
+    if idx is None:
+        return ""
+    q = _QUOTED_RE.sub(" ", question or "")
+    for m in _SUPERLATIVE_RE.finditer(q):
+        if not _PRESUPPOSE_RE.search(q[m.end(): m.end() + 40]):
+            continue
+        nouns = [stem(n) for n in content_nouns(q[max(0, m.start() - 24): m.end() + 12])]
+        backed = any(_SUPERLATIVE_RE.search(r.text) and (not nouns or any(_word_in(n, [stem(w) for w in words(r.text)])
+                                                                           for n in nouns))
+                     for r in idx.all_rows())
+        if not backed:
+            return q[m.start(): m.end() + 10].strip()
+    return ""
+
+
 def question_premise_problems(question: str, idx: DeckIndex | None, extra_vocab: set[str] | None = None) -> list[str]:
     """
     함정이 아닌 질문 문장이 자료와 어긋나는 전제를 까는가 → 사유 목록 (빈 목록이면 통과).
     - "direction": 같은 대상을 반대 방향 말로 (가까울수록↔멀어질수록 · 늘다↔줄다)
     - "comparison": 자료의 비교를 뒤집었다 (X보다 중요한 Y ↔ Y보다 X 가 더 중요)
+    - "superlative": 자료가 안 매긴 최상급을 전제로 까닭을 묻는다 (`superlative_premise`, 09-30 녹음 감사 REC-20)
     - "unsupported_premise": 「…라고 했는데」 로 자료의 말처럼 얹은 절이 자료에 없다 (자료 밖 명사 둘 이상 또는 받치는 곳 없음)
     """
     if idx is None or not (question or "").strip():
@@ -1267,6 +1342,8 @@ def question_premise_problems(question: str, idx: DeckIndex | None, extra_vocab:
         out.append("direction")
     if comparison_flips(question, idx):
         out.append("comparison")
+    if superlative_premise(question, idx):
+        out.append("superlative")
     premise = attributed_premise(question)
     if premise and len(content_nouns(premise)) >= 2 and not clause_supported(premise, idx, extra_vocab):
         out.append("unsupported_premise")

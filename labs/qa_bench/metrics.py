@@ -22,7 +22,11 @@ PROBE_KINDS = ("tension", "unsolved", "unsupported_cause", "absolute_boundary", 
 PLANTABLE = ("tension", "unsolved", "unsupported_cause", "absolute_boundary")
 #: 음성 대조군 → 나오면 안 되는 탐침 종류
 FORBIDDEN = {"supported_cause": "unsupported_cause", "hedged": "absolute_boundary", "unsolved": "unsolved",
-             "tension": "tension"}
+             "tension": "tension",
+             # 09-30 WP-P2 — 단정 표지는 있지만 따질 주장이 아닌 줄: 자기 자료에서 본 과거 관찰 · 늘어놓은 것 안에서 센 것 ·
+             # 비용이 붙는 기제 · 정의
+             "observation": "absolute_boundary", "count": "absolute_boundary", "mechanism": "absolute_boundary",
+             "definition": "absolute_boundary"}
 
 _TAG_RE = re.compile(r"<[^>]+>|!\[[^\]]*\]\([^)]*\)")
 _DROP_RE = re.compile(r"[\s\"'“”‘’「」『』`|•▪■◦*# ]+")

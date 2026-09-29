@@ -267,23 +267,136 @@ def _clause_around(line: str, start: int, end: int) -> tuple[str, str]:
     return before, after
 
 
-def absolute_marker(line: str, strong_only: bool = False) -> str:
-    """줄에 **부정·유보되지 않은** 단정 표지가 있으면 그 표지, 없으면 ""."""
+def _absolute_hits(line: str, strong_only: bool = False):
+    """줄의 **부정·유보되지 않은** 단정 표지마다 (표지, 앞 조각, 뒤 조각) — 같은 절 안의 앞뒤."""
     text = line or ""
     rx = _ABS_STRONG_RE if strong_only else _ABS_ANY_RE
     for m in rx.finditer(text):
         word = m.group(0)
         if word.replace(" ", "").startswith("100") and _PERCENT_VALUE_RE.match(text[m.end():]):
             continue                                 # 잰 값 — 「만족도 100%」
-        if _NEG_POLARITY_RE.match(word):
-            return word
         before, after = _clause_around(text, m.start(), m.end())
+        if _NEG_POLARITY_RE.match(word):
+            yield word, before, after
+            continue
         if _NEGATION_RE.search(after):
             continue                                 # 「반드시 … 것은 아니다」 — 유보
         if word in _QUANTIFIERS and _HEDGE_RE.search(before + " " + after):
             continue                                 # 「누구나 … 쓸 수 있다」 — 능력·허용
-        return word
-    return ""
+        yield word, before, after
+
+
+def absolute_marker(line: str, strong_only: bool = False) -> str:
+    """줄에 **부정·유보되지 않은** 단정 표지가 있으면 그 표지, 없으면 ""."""
+    return next((word for word, _, _ in _absolute_hits(line, strong_only)), "")
+
+
+# ---------------------------------------------------------------------------
+# 단정이 **따져 물을 주장**인가 — 관찰·기제·정의는 「들어맞지 않는 경우」 를 물을 거리가 아니다 (09-30 WP-P2)
+# ---------------------------------------------------------------------------
+# 09-30 standard 실측: 단정 탐침이 표지(하나도·반드시)만 보고 걸려서, 발표자가 **자기 자료에서 본 것**(「격차를 만든 다섯 요인 중 …
+# 해당하는 항목은 하나도 없었다」)과 **거래의 기제**(「매매할 때마다 수수료·세금은 반드시 발생」)에 「이 말이 들어맞지 않는 경우도
+# 있나요?」 를 물었다. 개수를 센 관찰이나 비용이 붙는 기제는 반례를 들 말이 아니다. 따져 물을 것은 처방·효과·일반화
+# (「식사 순서만 바꾸면 … 완전히 막을 수 있습니다」) — 이 판단을 **말투의 구조**로 한다. 어느 분야에나 쓰는 한국어 문법 낱말과
+# 비용·조사를 뜻하는 일반 낱말만 둔다 (특정 발표의 낱말은 없다).
+
+#: 과거 시제 어절 — 줄기 끝 음절의 받침이 ㅆ(았·었·였·했·됐·났 …). 「있·겠」 은 과거가 아니다.
+_JONG_SS = 20
+_NOT_PAST = frozenset("있겠")
+#: 어절 끝 어미 음절 — 줄기를 찾으려고 뒤에서부터 걷어 낸다 (다·습니다·어요·음·고·며·지 …).
+_ENDING_SYLLABLES = frozenset("다니습요어아음고며죠지네")
+_HANGUL_WORD_RE = re.compile(r"[가-힣]+")
+#: 관찰을 보고하는 말 — 「나타났다·확인됐다·드러났다」 는 시제 그대로 **본 것**을 말한다.
+_REPORT_RE = re.compile(r"나타났|나타나|확인됐|확인되었|확인했|관찰됐|관찰되었|관찰했|측정됐|측정되었|집계됐|집계되었|드러났|"
+                        r"밝혀졌|나왔|기록했|기록됐")
+#: 발표자 **자기 자료**의 자리 — 조사·실험·기간·자기 지칭. 이 말 없이 과거로 쓴 일반화(「그 시대 소설은 항상 …로 끝났다」)는
+#: 관찰이 아니라 따질 주장이다.
+_OWN_DATA_RE = re.compile(
+    r"조사|분석|실험|관찰|측정|설문|응답|참여|참가|표본|샘플|파일럿|시범|테스트|기간|동안|결과|데이터|집계|기록|사례|대상|"
+    r"우리|저희|이번|지난|올해|작년|지금까지|그동안|이후|이래|\d")
+#: 센 집합 — 「다섯 요인 중」「응답자 40명 가운데」「세 가지 방법 중」. 자료가 스스로 늘어놓은 것 안에서 센 말이다.
+_ENUM_SET_RE = re.compile(r"(?:\d+|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:[가-힣]{1,6}\s*){0,2}(?:중|가운데)(?:에서|에)?(?![가-힣])")
+#: 센 결과를 말하는 표지 — 「하나도·아무도 없다」. 이 표지가 센 집합 뒤에 오면 개수를 센 관찰이다. 「모든」 은 넣지 않는다 —
+#: 「세 가지 방법 중 모든 방법이 효과가 있다」 는 센 것이 아니라 효과를 단정한 말이다.
+_COUNT_MARKERS = frozenset({"하나도", "아무도", "아무것도", "아무런", "전혀"})
+#: 비용·요금 낱말 — 기제 판단에만 쓴다 (거래·이용에 **붙는** 것). 「대여료·주차비·가입금」 처럼 「…료·비·금」 으로 끝나는 요금 낱말은
+#: 꼴로 받고(목록으로 다 못 적는다), 같은 꼴의 다른 뜻 낱말(자료·재료·음료·준비·장비·지금 …)은 뺀다.
+_COST_RE = re.compile(r"수수료|세금|세액|부가세|관세|비용|요금|이자|운임|회비|학비|경비|벌금|위약금|보증금")
+_FEE_WORD_RE = re.compile(r"(?<![가-힣])([가-힣]{1,3}(?:료|비|금))(?=[은는이가을를도만과와의로]?(?:\s|[,·.]|$))")
+_NOT_FEE = frozenset("자료 재료 음료 연료 원료 사료 시료 의료 치료 종료 완료 무료 유료 준비 대비 예비 장비 설비 연비 비비 "
+                     "지금 방금 조금 상금 기금 자금 모금 현금 원금 저금".split())
+
+
+def _has_cost(text: str) -> bool:
+    return bool(_COST_RE.search(text or "")) or any(w not in _NOT_FEE for w in _FEE_WORD_RE.findall(text or ""))
+
+
+#: 붙거나 드는 말 — 「발생·생기다·들다·붙다·부과·차감·청구」. 바뀌는 말(줄다·사라지다)은 효과라 여기 없다.
+_OCCUR_RE = re.compile(r"발생|생기|생긴|생깁|생겨|든다|듭니다|들어요|들고|붙|부과|차감|소요|청구|빠져나|나간다|나갑니다")
+#: 정의 — 「X란 …이다」「…을 뜻한다」「정의상」.
+_DEFINITION_RE = re.compile(r"(?:이란|란|이라는\s*것은|라는\s*것은)\s.*(?:이다|입니다|말한다|말합니다|뜻한다|뜻합니다|의미한다|의미합니다|"
+                            r"가리킨다|가리킵니다)|정의상|정의에\s*따르면|정의하면")
+#: 따질 주장의 틀 — 「X만 하면」(충분 조건) · 「X만으로도」 · 「누구나·모든 사람」(사람 전체) · 「무조건」.
+_SUFFICIENCY_RE = re.compile(r"(?<=[가-힣])만\s+[가-힣]+(?:으면|면)(?![가-힣])|(?<=[가-힣])만으로(?:도)?\s|(?<=[가-힣])만\s*있으면")
+_PEOPLE_RE = re.compile(r"누구나|누구든|모든\s*사람|어떤\s*사람(?:이든|이라도)|모두가|무조건")
+
+
+def _past_word(word: str) -> bool:
+    chars = [c for c in word or "" if "가" <= c <= "힣"]
+    while chars and chars[-1] in _ENDING_SYLLABLES:
+        chars.pop()
+    if not chars:
+        return False
+    last = chars[-1]
+    return (ord(last) - 0xAC00) % 28 == _JONG_SS and last not in _NOT_PAST
+
+
+def _last_predicate(before: str, word: str, after: str) -> str:
+    """표지가 든 절의 끝 서술어 어절 — 표지 뒤 조각의 마지막 한글 어절(없으면 표지 앞까지)."""
+    words = _HANGUL_WORD_RE.findall(after) or _HANGUL_WORD_RE.findall(f"{before} {word}")
+    return words[-1] if words else ""
+
+
+def absolute_kind(line: str, strong_only: bool = False) -> str:
+    """
+    줄의 단정이 어떤 말인가 → "claim"(따져 물을 주장) · "finding"(자기 자료에서 본 것) · "count"(늘어놓은 것 안에서 센 것) ·
+    "mechanism"(비용이 붙는 기제) · "definition"(정의) · ""(부정·유보되지 않은 단정 표지가 없다).
+
+    표지(`_absolute_hits`)마다 그 절을 본다 — 하나라도 따질 주장이면 "claim".
+    1. finding: 절의 끝 서술어가 과거(「없었다·늘었다·나타났다」)이고, 보고하는 말이거나 자기 자료의 자리(조사·기간·숫자·
+       「우리·지난」)가 있다. 틀(「X만 하면」)이 있어도 과거로 본 것은 관찰이다.
+    2. 「X만 하면·X만으로도·누구나·모든 사람·무조건」 틀이 있으면 claim — 아래 세 예외보다 앞선다(「이 카드만 쓰면 수수료는 전혀
+       붙지 않습니다」 는 기제가 아니라 처방이다).
+    3. count: 센 집합(「다섯 요인 중」) 뒤의 「하나도·아무도·전혀」.
+    4. mechanism: 비용 낱말이 붙거나 드는 말과 한 절에 있다(「…할 때마다 수수료는 반드시 발생」). 부정 표지(「절대 … 않는다」)는
+       기제가 아니라 약속이다(「추가 요금은 절대 발생하지 않습니다」 는 따질 주장).
+    5. definition: 「X란 …이다」「정의상」, 또는 식.
+    그 밖의 단정(효과·보장·일반화 — 「도입하면 … 완전히 사라집니다」「알림은 절대 … 넘지 않습니다」「…은 항상 …로 끝납니다」)은 claim.
+    """
+    text = line or ""
+    first = ""
+    for word, before, after in _absolute_hits(text, strong_only):
+        clause = f"{before}{word}{after}"
+        kind = ""
+        if _past_word(_last_predicate(before, word, after)) and (_REPORT_RE.search(clause) or _OWN_DATA_RE.search(clause)):
+            kind = "finding"
+        elif _SUFFICIENCY_RE.search(text) or _PEOPLE_RE.search(text):
+            return "claim"
+        elif word in _COUNT_MARKERS and _ENUM_SET_RE.search(before):
+            kind = "count"
+        elif not _NEG_POLARITY_RE.match(word) and _has_cost(clause) and _OCCUR_RE.search(clause):
+            kind = "mechanism"          # 「비용이 반드시 든다」 는 기제, 「추가 요금은 절대 발생하지 않는다」 는 약속(따질 주장)이다
+        elif _DEFINITION_RE.search(text) or is_formula(text):
+            kind = "definition"
+        else:
+            return "claim"
+        first = first or kind
+    return first
+
+
+def contestable_absolute(line: str, strong_only: bool = False) -> bool:
+    """줄이 **따져 물을** 단정인가 — 단정 탐침(absolute_boundary)과 모범답에서 뺄 과장 줄이 같은 잣대를 쓴다."""
+    return absolute_kind(line, strong_only) == "claim"
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +486,11 @@ _LESS_PRED_RE = re.compile(
     r"떨어지|떨어진|떨어져|떨어졌|적(?!인|극|합|절|용|정|색|자|응|어도)|줄|감소|하락)")
 _NEG_TAIL_RE = re.compile(r"지\s*(?:는|도|가)?\s*(?:않|못)|(?:는|은)\s*아니")
 _CMP_QUOTE_RE = re.compile(r"[\"'“”‘’「」『』()\[\]]")
+
+
+def less_predicate(pred: str) -> bool:
+    """비교 서술어가 작은 쪽을 말하는가 (「적은·낮은·짧은·못한」)."""
+    return bool(_LESS_PRED_RE.match(pred or ""))
 
 
 def _less(adv: str, pred: str, rest: str) -> bool:

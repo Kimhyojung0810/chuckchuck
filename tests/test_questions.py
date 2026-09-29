@@ -560,7 +560,7 @@ def test_fallback_question_is_a_natural_sentence_not_the_angle_memo():
     doc = doc_of(questions_payload(), graph=graph, triage=triage)
     q = doc.questions[0].question
     assert "왜 이 방식을 골랐는지" not in q and "—" not in q and ":" not in q
-    assert q.endswith(("요.", "요?")) and "개념1이" in q
+    assert q.endswith(("요.", "요?")) and "개념1을" in q
 
 
 def test_fallback_why_explains_the_source():

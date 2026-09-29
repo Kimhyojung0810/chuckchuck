@@ -1,0 +1,196 @@
+{
+ "file_name": "주민목공공방_운영보고.pptx",
+ "total_slides": 7,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "주민 목공 공방",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "01 / 07"
+    },
+    {
+     "category": "heading1",
+     "text": "주민 목공 공방"
+    },
+    {
+     "category": "paragraph",
+     "text": "참여자 수보다 중요한 작품 완성률"
+    },
+    {
+     "category": "paragraph",
+     "text": "마을 활동 보고 | 2026.09"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "우리가 보는 숫자",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "02 / 07"
+    },
+    {
+     "category": "heading1",
+     "text": "우리가 보는 숫자"
+    },
+    {
+     "category": "paragraph",
+     "text": "작품 완성률 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "참여자 수"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "출석률"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "마감률"
+    },
+    {
+     "category": "paragraph",
+     "text": "몇 명이 오는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "끝까지 오는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "작품을 마무리하는가"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "공방이 겪는 세 가지 문제",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "03 / 07"
+    },
+    {
+     "category": "heading1",
+     "text": "공방이 겪는 세 가지 문제"
+    },
+    {
+     "category": "paragraph",
+     "text": "① 공구 대기 시간"
+    },
+    {
+     "category": "paragraph",
+     "text": "② 먼지와 소음"
+    },
+    {
+     "category": "paragraph",
+     "text": "③ 작업대 부족"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "개선 방법",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "04 / 07"
+    },
+    {
+     "category": "heading1",
+     "text": "개선 방법"
+    },
+    {
+     "category": "paragraph",
+     "text": "공구를 두 벌씩 갖춰 공구 대기 시간을 줄입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "집진기를 달아 먼지와 소음을 줄입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "안전 교육만 받으면 누구나 첫 수업부터 완벽하게 작품을 완성할 수 있습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "지난 분기 돌아보기",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "05 / 07"
+    },
+    {
+     "category": "heading1",
+     "text": "지난 분기 돌아보기"
+    },
+    {
+     "category": "paragraph",
+     "text": "지난 분기 참여자 42명 가운데 수업 중 다친 사람은 아무도 없었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "조사한 다섯 가지 불만 가운데 강사에 관한 항목은 하나도 없다"
+    },
+    {
+     "category": "paragraph",
+     "text": "수업을 들을 때마다 나무 재료비는 반드시 발생합니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "참여자 반응",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "06 / 07"
+    },
+    {
+     "category": "heading1",
+     "text": "참여자 반응"
+    },
+    {
+     "category": "paragraph",
+     "text": "주말반을 열면서 공방 만족도가 높아졌습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "맺음",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "07 / 07"
+    },
+    {
+     "category": "heading1",
+     "text": "맺음"
+    },
+    {
+     "category": "paragraph",
+     "text": "다만 손 기술에 따라 완성 속도는 다를 수 있습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    }
+   ]
+  }
+ ]
+}

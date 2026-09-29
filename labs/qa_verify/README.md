@@ -140,7 +140,7 @@ quick 의 가드 감사도 같은 공격을 **LLM 없이** 넣는다 — `guard.
 ```json
 {
   "id": "짧은_영문_id", "title": "무엇이 어떻게 틀렸었나 (한 줄)", "origin": "언제·어디서 · 고친 커밋",
-  "kind": "units_no_midword_start | best_quote_slide | contrast_choice | f08_scripted",
+  "kind": "units_no_midword_start | best_quote_slide | contrast_choice | f08_scripted | probe_absolute",
   "source": {"file": "주 체크아웃 기준 경로", "base": "main", "slides": [2],
              "inline": {"slides": [{"slide_no": 2, "text": "원본이 사라져도 돌도록 넣어 두는 자료 (선택)"}]}},
   "args": { … kind 마다 … }
@@ -154,6 +154,12 @@ quick 의 가드 감사도 같은 공격을 **LLM 없이** 넣는다 — `guard.
   `forbid_choices` 가 안 나오는지. `scan_deck: true` 면 자료의 「X 아니라 Y」 줄 전부에서 Y 가 보기에 드는지도 본다.
 - `f08_scripted` — `args.nodes`(그래프) · `node_id` · `question` · `gist` 를 정해 둔 LLM 응답으로 대상 `build_questions` 에 넣고
   `expect.gist_forbid` · `gist_forbid_regex` · `gist_require_any` · `question_not_self_contradicting` 으로 본다.
+  `claims: "rules"` 면 대상 F-26 규칙 주장(+ `extra_claims` — LLM 이 냈을 주장을 데이터로)을 같이 넣어 탐침이 묶이고, `marks`·`track`·
+  `questions` 로 여러 개념·트랙을 준다. 기대에 `question_forbid` · `question_equals` · `question_single_ask`(하네스 잣대 `two_asks`) ·
+  `checks_require` · `node_absent`(+ `count`) 도 쓴다.
+- `probe_absolute` — 대상 F-26 규칙 주장 → `derive_probes` 의 단정 탐침이 `absolute_on` 줄에만 나오고 `absolute_off` 줄(관찰·셈·기제)엔
+  안 나오는지, 그 코드 골자가 `gist_require`·`gist_require_any` 를 담고 `gist_forbid`(골자 전체)·`gist_bare_forbid`(「」 인용 밖)를
+  안 담는지 (09-30 WP-P2).
 - `align_contra` — `args.said`(`[{slide_no, text, expect}]`) 문장을 장마다 한 구간으로 놓고 대상 F-11 코드 대조
   (`_align_checks.contradictions`, 그래프는 장마다 개념 하나)를 돌린다. `expect` 가 `"none"` 이면 모순이 없어야 하고,
   `{family, slide}` 면 그 장에 그 갈래(`number`·`direction`·`polarity` — `AlignmentItem.contra_kind`)의 모순이 있어야 한다.

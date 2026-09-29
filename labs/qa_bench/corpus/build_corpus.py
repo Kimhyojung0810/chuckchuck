@@ -9,7 +9,8 @@ QA 일반화 벤치의 **합성 자료** 원본 — 이 파일이 `corpus/<deck>
 truth.json 모양:
     planted: [{id, kind, expect, slides, labels_any, quote_any, note}]
         kind   = 탐침 종류(tension·unsolved·unsupported_cause·absolute_boundary) 또는 음성 대조군
-                 (supported_cause — unsupported_cause 가 나오면 안 된다 · hedged — absolute_boundary 가 나오면 안 된다)
+                 (supported_cause — unsupported_cause 가 나오면 안 된다 · hedged — absolute_boundary 가 나오면 안 된다 ·
+                  observation·count·mechanism·definition — 단정 표지는 있지만 따질 주장이 아닌 줄, absolute_boundary 가 나오면 안 된다)
         expect = "probe" (이 종류 탐침이 나와야 한다) | "no_probe" (이 대상에 그 종류가 나오면 오탐)
         labels_any = 탐침 대상 개념(node_ids[0]) 라벨이 이 말 중 하나를 품으면 맞힌 것 (공백 무시)
         quote_any  = 또는 탐침 근거 인용이 이 말 중 하나를 품으면 맞힌 것
@@ -479,6 +480,70 @@ DECKS["transit_bike"] = {
             "contrast": {"affirmed": "반납", "negated": "대여소"},
         },
         "noise_lines": [f"0{i} / 06" for i in range(1, 7)],
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# 9. 주민 목공 공방 (09-30 WP-P2 — 단정 탐침의 **음성 대조군**을 처음 보는 분야로 심은 덱. 규칙을 짠 사람이 만들었으니
+#    held-out 이 아니라 대조군 묶음(controls)이다 — 규칙이 여기서만 맞으면 held-out 수치가 말해 준다.)
+#    같은 단정 표지(아무도·하나도·반드시)를 네 꼴로 심었다: 따질 과장(「…만 받으면 누구나 … 완벽하게」) · 자기 자료에서 본 과거 관찰
+#    (「지난 분기 참여자 42명 가운데 … 아무도 없었습니다」) · 늘어놓은 것 안에서 센 것(「조사한 다섯 가지 불만 가운데 … 하나도 없다」)
+#    · 비용이 붙는 기제(「수업을 들을 때마다 나무 재료비는 반드시 발생합니다」). 과장에만 단정 탐침이 나와야 한다. 맺음 장의 유보
+#    (「손 기술에 따라 … 다를 수 있습니다」)는 과장 탐침 모범답이 댈 조건이다.
+# ---------------------------------------------------------------------------
+DECKS["wood_workshop"] = {
+    "context": {"situation": "school_project", "duration_min": 5},
+    "group": "controls",
+    "doc": deck("주민목공공방_운영보고.pptx", [
+        slide(1, "01 / 07", "# 주민 목공 공방", "참여자 수보다 중요한 작품 완성률", "마을 활동 보고 | 2026.09"),
+        slide(2, "02 / 07", "# 우리가 보는 숫자", "작품 완성률 =", "참여자 수", "×", "출석률", "×", "마감률",
+              "몇 명이 오는가", "끝까지 오는가", "작품을 마무리하는가"),
+        slide(3, "03 / 07", "# 공방이 겪는 세 가지 문제", "① 공구 대기 시간", "② 먼지와 소음", "③ 작업대 부족"),
+        slide(4, "04 / 07", "# 개선 방법", "공구를 두 벌씩 갖춰 공구 대기 시간을 줄입니다.", "집진기를 달아 먼지와 소음을 줄입니다.",
+              "안전 교육만 받으면 누구나 첫 수업부터 완벽하게 작품을 완성할 수 있습니다."),
+        slide(5, "05 / 07", "# 지난 분기 돌아보기", "지난 분기 참여자 42명 가운데 수업 중 다친 사람은 아무도 없었습니다.",
+              "조사한 다섯 가지 불만 가운데 강사에 관한 항목은 하나도 없다",
+              "수업을 들을 때마다 나무 재료비는 반드시 발생합니다."),
+        slide(6, "06 / 07", "# 참여자 반응", "주말반을 열면서 공방 만족도가 높아졌습니다."),
+        slide(7, "07 / 07", "# 맺음", "다만 손 기술에 따라 완성 속도는 다를 수 있습니다.", "감사합니다"),
+    ]),
+    "truth": {
+        "control_tension": False,
+        "planted": [
+            {"id": "T1", "kind": "tension", "expect": "probe", "slides": [1, 2],
+             "labels_any": ["작품 완성률", "완성률"], "quote_any": ["참여자 수보다 중요한", "작품 완성률 ="],
+             "note": "참여자 수보다 중요하다면서 참여자 수가 작품 완성률의 요소"},
+            {"id": "U1", "kind": "unsolved", "expect": "probe", "slides": [3, 4],
+             "labels_any": ["작업대 부족", "작업대"], "quote_any": ["작업대 부족"],
+             "note": "개선 방법이 공구 대기·먼지만 다루고 작업대 부족은 비어 있다"},
+            {"id": "C1", "kind": "unsupported_cause", "expect": "probe", "slides": [6],
+             "labels_any": ["주말반", "공방 만족도", "만족도"], "quote_any": ["주말반을 열면서"],
+             "note": "6장에 수치·출처 없음"},
+            {"id": "A1", "kind": "absolute_boundary", "expect": "probe", "slides": [4],
+             "labels_any": ["안전 교육", "작품 완성"], "quote_any": ["완벽하게 작품을"],
+             "note": "따질 과장 — 「…만 받으면 누구나 … 완벽하게」"},
+            {"id": "N1", "kind": "observation", "expect": "no_probe", "slides": [5],
+             "labels_any": [], "quote_any": ["아무도 없었습니다"],
+             "note": "자기 자료에서 본 과거 관찰 — 단정 탐침이 나오면 오탐 (WP-P2 문제 1a)"},
+            {"id": "N2", "kind": "count", "expect": "no_probe", "slides": [5],
+             "labels_any": [], "quote_any": ["하나도 없다"],
+             "note": "늘어놓은 다섯 가지 안에서 센 것 — 단정 탐침이 나오면 오탐 (WP-P2 문제 1a)"},
+            {"id": "N3", "kind": "mechanism", "expect": "no_probe", "slides": [5],
+             "labels_any": [], "quote_any": ["재료비는 반드시 발생"],
+             "note": "비용이 붙는 기제 — 단정 탐침이 나오면 오탐 (WP-P2 문제 1b)"},
+            {"id": "H1", "kind": "hedged", "expect": "no_probe", "slides": [7],
+             "labels_any": [], "quote_any": ["다를 수 있습니다"],
+             "note": "유보"},
+        ],
+        "claims": [
+            {"kind": "compare", "slide": 1, "quote_any": ["참여자 수보다 중요한"]},
+            {"kind": "compose", "slide": 2, "quote_any": ["작품 완성률 ="]},
+            {"kind": "compose", "slide": 3, "quote_any": ["세 가지 문제", "공구 대기 시간", "작업대 부족"]},
+            {"kind": "solve", "slide": 4, "quote_any": ["공구 대기 시간을 줄입니다", "먼지와 소음을 줄입니다"]},
+            {"kind": "absolute", "slide": 4, "quote_any": ["완벽하게 작품을"]},
+        ],
+        "noise_lines": [f"0{i} / 07" for i in range(1, 8)],
     },
 }
 
