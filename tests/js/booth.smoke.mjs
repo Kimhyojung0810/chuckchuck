@@ -288,6 +288,18 @@ test('폴백 표시: 사람이 할 일이 있는 것만 화면에 — 서버 질
   eq(L.devOnlyDegraded({ grounded_on_server: false }), ['grounded_on_server=false']);
   eq([L.degradedLines(null), L.degradedLines({ grounded_on_deck: true })], [[], []]);
 });
+test('WP-J2 녹음이 자료와 다른 발표면 질문 묶음에 한 번 알린다 — F-08 speech_mismatch_deck_only', () => {
+  const doc = { questions: [{ basis: { checks: ['speech_mismatch_deck_only'] } }, { basis: { checks: ['speech_mismatch_deck_only'] } }] };
+  eq(L.speechMismatch(doc), true);
+  eq(L.degradedLines(doc), [L.SPEECH_MISMATCH_NOTE]);
+  eq(L.SPEECH_MISMATCH_NOTE, '녹음이 이 자료와 달라서 자료만 보고 질문했어요.');
+  eq(L.degradedLines({ questions: [{ basis: { checks: [] } }] }), []);
+});
+test('WP-J2 함정 질문의 해설 칸 — 서버 해설이 비면 판정 응답이 싣고 온 골자(사본에는 없다)', () => {
+  const j = { coach_stage: 'explain', react: '괜찮아요.', explanation: '', answer_gist: '질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.' };
+  eq(L.judgementBubble(j, { trap: true, answerGist: '' }).tail, { kind: 'explain', text: '질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.', choices: [] });
+  eq(L.judgementBubble({ coach_stage: 'explain', react: '괜찮아요.', explanation: '' }, { trap: true, answerGist: '' }).tail, null, '골자가 없으면 해설 칸도 없다');
+});
 test('함정 질문의 이유 줄은 함정임을 알리지 않는다 — 장만 가리키는 중립 문장 (B-01·H-07)', () => {
   const trapWhy = '「단백질 먼저」에 대해 질문이 말한 내용이 자료와 같은지 먼저 따져 보는 연습이에요.';
   const w = L.questionWhy({ trap: true, why: trapWhy, slide_nos: [6, 6, 2] });

@@ -66,13 +66,47 @@ def make_replay_only(store: dict, hasher):
     return ReplayOnly()
 
 
-def _replay_f08(B, run, sd, graph, claims, triage, track, ctx):
+def make_refresher(store: dict, hasher, path: Path):
+    """
+    얼린 응답이 있으면 그것, 없으면 **실제 제공자**를 불러 같은 해시로 더해 두는 겉감 (refresh 전용 — quick 은 쓰지 않는다).
+    실제 제공자는 대상의 `get_llm(None)` 이다 — 호출 세기·예산은 `llm_guard.install("count", …)` 가 그 클래스에 씌운다.
+    """
+    from chuckchuck.providers.llm_base import LLMProvider
+    from chuckchuck.providers.llm_impl import get_llm
+
+    class Refresher(LLMProvider):
+        name = "refresh"
+
+        def __init__(self):
+            self.hits = 0
+            self.calls = 0
+            self.inner = None
+
+        def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
+            key = hasher(system, user)
+            got = store.get(key)
+            if got is not None:
+                self.hits += 1
+                return got["text"]
+            if self.inner is None:
+                self.inner = get_llm(None)
+            text = self.inner.complete(system=system, user=user, temperature=temperature, max_tokens=max_tokens,
+                                       json_mode=json_mode)
+            self.calls += 1
+            store[key] = {"model": getattr(self.inner, "name", "llm"), "text": text}
+            C.write_json(path, store)                 # 한 콜마다 — 예산에서 끊겨도 받은 응답은 남는다
+            return text
+
+    return Refresher()
+
+
+def _replay_f08(B, run, sd, graph, claims, triage, track, ctx, llm=None):
     from chuckchuck import build_questions
 
     store = C.read_json(run.dir / f"questions_llm_t{track}.json") or {}
-    if not store:
+    if not store and llm is None:
         return None, "얼린 질문 응답 없음"
-    llm = make_replay_only(store, B.h)
+    llm = llm or make_replay_only(store, B.h)
     kw = dict(track=track, alignment=None, flow=None, transcript=None, slidedoc=sd, context=ctx, claims=claims, llm=llm)
     try:
         doc = build_questions(graph, triage, **kw)
@@ -81,7 +115,7 @@ def _replay_f08(B, run, sd, graph, claims, triage, track, ctx):
         doc = build_questions(graph, triage, **kw)
     except ReplayMiss:
         return None, "프롬프트 바뀜"
-    if llm.misses:
+    if getattr(llm, "misses", 0):
         return None, "프롬프트 바뀜"
     return doc.to_dict(), ""
 
@@ -267,3 +301,48 @@ def run(cache: Path, decks: list[str] | None, tracks: tuple[str, ...]) -> dict:
     errors += rerr
     metrics["replay.errors"] = S.metric(len(errors), None, errors)
     return {"metrics": metrics, "decks": names, "f08_rows": rows_all[:400]}
+
+
+def refresh(cache: Path, decks: list[str] | None, tracks: tuple[str, ...]) -> dict:
+    """
+    얼린 F-08 질문 응답을 **지금 프롬프트로** 다시 굽는다 (실 LLM — 부모가 `llm_guard.install("count", …, budget)` 로 센다).
+
+    quick 의 결정적 재생은 프롬프트 해시가 같을 때만 얼린 응답을 쓴다 — F-08 프롬프트가 바뀌면 `replay.f08.coverage` 가 떨어진다
+    (09-30 WP-Q 뒤 46% → 0%). 재생과 **똑같은 호출**(같은 캐시 입력 · 같은 트랙 · 같은 상황)로 build_questions 를 돌려, 없는 해시만
+    실제 제공자에게 묻고 같은 파일(`questions_llm_t{트랙}.json`)에 더한다 — 옛 응답은 지우지 않는다(옛 코드를 재는 대상도 있다).
+    덱 캐시의 그래프·주장·1차 심사는 그대로 쓴다 — 새로 굽는 것은 질문 LLM 응답뿐이라 덱·트랙마다 1콜(재시도면 2콜)이다.
+    """
+    B, *_ = _bench()
+    B.OUT = cache
+    specs = B.load_decks(C.MAIN_CHECKOUT, set())
+    names = [d.name for d in sorted(cache.iterdir()) if d.is_dir() and not d.name.startswith("_")
+             and (d / "questions_t5.json").exists() and (d / "slide_doc.json").exists()]
+    if decks:
+        names = [n for n in names if n in decks]
+    rows, errors = [], []
+    for name in names:
+        spec = specs.get(name) or {"name": name, "group": "heldout", "synthetic": False, "truth": None,
+                                   "context": {"situation": "school_project", "duration_min": 5}, "pptx": None,
+                                   "slidedoc_path": None, "transcript_path": None}
+        run_ = B.DeckRun(dict(spec, pptx=None), None)
+        d = cache / name
+        sd, graph, claims, triage = (C.read_json(d / f) for f in ("slide_doc.json", "graph.json", "claims.json", "triage.json"))
+        if not (sd and graph and triage):
+            continue
+        for t in tracks:
+            if not (d / f"questions_t{t}.json").exists():
+                continue
+            path = d / f"questions_llm_t{t}.json"
+            llm = make_refresher(C.read_json(path) or {}, B.h, path)
+            try:
+                doc, why = _replay_f08(B, run_, sd, graph, claims, triage, t, spec.get("context") or {}, llm=llm)
+            except Exception as e:  # noqa: BLE001 — 한 덱이 죽어도(예산 포함) 나머지는 본다
+                errors.append(f"{name} t{t}: {type(e).__name__}: {str(e)[:160]}")
+                if type(e).__name__ == "BudgetExceeded":
+                    break
+                continue
+            rows.append({"deck": name, "track": t, "hits": llm.hits, "calls": llm.calls,
+                         "questions": len((doc or {}).get("questions") or []), "why": why})
+        if errors and errors[-1].split(": ")[1:2] == ["BudgetExceeded"]:
+            break
+    return {"rows": rows, "errors": errors, "calls": sum(r["calls"] for r in rows)}

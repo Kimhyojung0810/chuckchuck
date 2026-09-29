@@ -42,7 +42,7 @@ const EXPORT_LINE = `
   liveHistory, liveForcedClose, liveWonCount, liveCoachAsk,
   liveBucket, liveHintsUsed, liveWholeSentences, liveDegradedLines, liveQuestionWhy, liveJudgeFailure,
   liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
-  liveHintsShown,
+  liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion,
 };`;
 
 /**
@@ -717,6 +717,50 @@ test('답변 받아쓰기 본문 — 세션 id 를 맨 앞에 싣는다 (브리�
   const on = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm', sendSession: true });
   eq(Object.keys(on)[0], 'session_id', '켜면 맨 앞 — 큰 본문에서 정규식이 바로 찾는다');
   eq('session_id' in BRIDGE.answerSttBody({ sessionId: null, sendSession: true }), false, '세션이 없으면 안 싣는다');
+});
+
+/* ── WP-J2 · 함정 질문의 사실은 화면 사본에 없다 (브리지 client_questions) ───────────────────────────── */
+
+const WITHHELD_TRAP = { id: 'q2', label: '거래 비용', question: '거래 비용이 가장 작은 값이라 부담이 작다는 뜻인가요?', trap: true,
+  trap_premise: null, answer_gist: '', answer_gist_parts: [], gist_withheld: true, hints: ['방향', '범위', '빈칸'] };
+
+test('WP-J2 함정 사본은 골자가 비었다 — 펼칠 골자는 판정 응답(해설·answer_gist)에서, 없으면 서버에 따로 받는다', () => {
+  const { api } = newContext();
+  eq(api.liveRevealModel(WITHHELD_TRAP, {}), '', '사본에는 골자가 없다');
+  eq(api.liveNeedsReveal(WITHHELD_TRAP, {}), true, '바로잡기 전 「답 보기」 는 reveal 요청으로');
+  eq(api.liveNeedsReveal(WITHHELD_TRAP, { answer_gist: '질문의 전제와 달리 …' }), false, '닫힌·바로잡은 판정이 골자를 실어 왔다');
+  eq(api.liveRevealModel(WITHHELD_TRAP, { explanation: '해설', answer_gist: '골자' }), '해설', '해설이 먼저');
+  eq(api.liveRevealModel({ answer_gist: '보통 골자' }, {}), '보통 골자', '보통 질문은 사본의 골자');
+  eq(api.liveNeedsReveal({ answer_gist: '보통 골자' }, {}), false);
+});
+
+test('WP-J2 함정 사본(trap_premise 없음)도 바로잡기 전에는 「빠진 절반」 에 골자를 펼치지 않는다', () => {
+  const { ctx, api, turns } = newContext();
+  ctx.qa.live = liveState(api, [WITHHELD_TRAP]);
+  eq(api.revealHalf(WITHHELD_TRAP, { verdict: 'partial', passed: false, missing_points: [], summary_sentence: '총평 — 사실을 말한 문장' }), false);
+  eq(turns.filter((t) => t.kind === 'gist').length, 0, '못 바로잡았으면 완성 문장 칸이 없다');
+  const b = newContext();
+  b.ctx.qa.live = liveState(b.api, [WITHHELD_TRAP]);
+  b.api.revealHalf(WITHHELD_TRAP, { verdict: 'partial', passed: true, missing_points: [], answer_gist: '질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.' });
+  eq(b.turns.filter((t) => t.kind === 'gist').map((t) => t.text), ['질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.'], '바로잡은 뒤에는 판정이 싣고 온 골자');
+});
+
+test('WP-J2 함정 질문의 마무리 카드는 닫힌 판정이 싣고 온 골자를 쓴다 (사본에는 없다)', () => {
+  const { ctx, api, turns } = newContext();
+  ctx.qa.live = liveState(api, [WITHHELD_TRAP, { id: 'q3' }]);
+  api.finishLiveQuestion(WITHHELD_TRAP, { verdict: 'partial', score: 75, passed: true, mastered: true, close_reason: 'rounds',
+    summary_sentence: '거래 비용 — 요지는 잡았어요.', answer_gist: '질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.' }, '가장 커요');
+  eq(turns.find((t) => t.kind === 'done').gist, '질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.');
+});
+
+test('WP-J2 녹음이 자료와 다른 발표면 질문 묶음에 한 번 조용히 알린다 (F-08 speech_mismatch_deck_only)', () => {
+  const { api } = newContext();
+  const doc = { questions: [{ id: 'q1', basis: { checks: ['mentions_probe_nodes', 'speech_mismatch_deck_only'] } }, { id: 'q2', basis: { checks: ['speech_mismatch_deck_only'] } }] };
+  eq(api.liveSpeechMismatch(doc), true);
+  eq(api.liveDegradedLines(doc), ['녹음이 이 자료와 달라서 자료만 보고 질문했어요.'], '질문이 여럿이어도 한 줄');
+  eq(api.liveDegradedLines({ speech_mismatch_deck_only: true }), ['녹음이 이 자료와 달라서 자료만 보고 질문했어요.'], '묶음 머리 표시도 받는다');
+  eq(api.liveDegradedLines({ questions: [{ id: 'q1', basis: { checks: [] } }, { id: 'q2', basis: null }] }), [], '녹음이 맞으면 조용히');
+  eq(api.liveSpeechMismatch({ verdict: 'good' }), false, '판정 응답에는 질문이 없다');
 });
 
 let failed = 0;

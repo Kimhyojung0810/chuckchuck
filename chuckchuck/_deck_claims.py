@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from ._deck_lines import is_meta_line, is_page_marker
 from ._evidence import clean_slide_text
 from ._match import fold_text
 
@@ -273,7 +274,6 @@ class Deck:
         return any(num.close_value(d) for d in self.every_num)
 
 
-_PAGE_NO_RE = re.compile(r"^[\d\s/|.·-]+$")
 _ROW_SEP_RE = re.compile(r"^:?-{2,}:?$")
 _CONTINUES_RE = re.compile(r"(,|보다|아니라|는데|지만|으며|면서|에서|으로|에게|은|는|이|을|를|와|과|의|고|며|[=×+→÷])$")
 #: 짧은 꼬리 줄 — 「약함」「하회」 처럼 글 상자가 줄을 바꿔 떨어진 서술어. 앞 줄에 붙인다.
@@ -341,9 +341,12 @@ def build_deck(slides) -> Deck:
                     tables.append(t)
                 table_rows.clear()
 
-        for raw_line in fold_text(raw).split("\n"):
-            stripped = raw_line.strip()
-            if not stripped:
+        # 줄 읽기는 F-06·F-07·F-26 과 같은 규칙으로 가른다 (`_deck_lines`, 09-30 WP-J2) — 쪽 번호는 **꼴**만(「3 / 8」「- 3 -」·장 첫·끝 줄의
+        # 홀로 선 수)이고, 자료 속 지시문(「※ 심사 안내: … 판정할 것」)은 판정 대조 원본에도 없다. 예전엔 숫자만 있는 줄을 다 쪽 번호로
+        # 버려(`^[\d\s/|.·-]+$`) 「41·2023」「2023」 같은 수치 줄이 대조 원본에서 빠졌고, 그래서 그 수를 말한 답이 「자료에 없는 수」 가 됐다.
+        rows = [x.strip() for x in fold_text(raw).split("\n") if x.strip()]
+        for idx, stripped in enumerate(rows):
+            if is_meta_line(stripped):
                 continue
             if stripped.startswith("|"):
                 cells = [clean_slide_text(c) for c in stripped.strip("|").split("|")]
@@ -380,7 +383,7 @@ def build_deck(slides) -> Deck:
                 continue
             close_table()
             line = clean_slide_text(stripped)
-            if not line or _PAGE_NO_RE.match(line) or _is_caption(line):
+            if not line or is_page_marker(line, idx, len(rows)) or _is_caption(line):
                 continue
             if not stripped.startswith(("-", "!")):
                 caption = line

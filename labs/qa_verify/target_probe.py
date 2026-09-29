@@ -13,6 +13,7 @@
 - guard           판정 가드 감사 — LLM 자리에 정해 둔 응답 (LLM 없음)
 - personas        질문 목록 → 자동 페르소나 · 공격 답 (LLM 없음)
 - judge           정해진 답들을 실 LLM 으로 판정 (standard/full — calls.jsonl 에 세고 예산에서 끊는다)
+- refresh         벤치 캐시의 얼린 F-08 응답을 지금 프롬프트로 다시 굽는다 (실 LLM · 예산 — quick 재생 범위를 되살린다)
 """
 
 from __future__ import annotations
@@ -125,6 +126,14 @@ def cmd_replay(inp: dict) -> dict:
     return replay.run(Path(inp["cache"]), inp.get("decks") or None, tuple(inp.get("tracks") or ("5", "10")))
 
 
+def cmd_refresh(inp: dict) -> dict:
+    """벤치 캐시의 얼린 F-08 응답을 지금 프롬프트로 다시 굽는다 — 실 LLM, calls.jsonl 에 세고 budget 에서 끊는다 (replay.refresh)."""
+    llm_guard.install("count", inp.get("calls"), inp.get("budget"), stage="replay_refresh")
+    from labs.qa_verify import replay
+
+    return replay.refresh(Path(inp["cache"]), inp.get("decks") or None, tuple(inp.get("tracks") or ("5", "10")))
+
+
 def cmd_guard(inp: dict) -> dict:
     llm_guard.install("forbid")
     from labs.qa_verify import guard_audit
@@ -176,7 +185,7 @@ def cmd_judge(inp: dict) -> dict:
 
 
 COMMANDS = {"info": cmd_info, "regress": cmd_regress, "replay": cmd_replay, "guard": cmd_guard,
-            "personas": cmd_personas, "judge": cmd_judge}
+            "personas": cmd_personas, "judge": cmd_judge, "refresh": cmd_refresh}
 
 
 def main(argv: list[str]) -> int:

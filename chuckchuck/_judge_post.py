@@ -375,6 +375,94 @@ def content_word_count(text: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# 되물음이 자료 밖을 묻는가 (09-30 WP-J2) — 결손(§4)과 같은 잣대를 되물음에도
+# ---------------------------------------------------------------------------
+
+#: 되물음의 뼈대 낱말 — 묻는 모양의 말이지 자료의 대상이 아니다 (「한 문장으로 말해 볼래요」「서로 어떻게 이어지는지」
+#: 「통하지 않는 경우나 조건」). 어느 발표에나 쓰는 말만 둔다.
+_FOLLOWUP_FRAME = (
+    "문장", "말해", "말하", "말한", "말이", "말은", "다시", "서로", "함께", "이어", "이을", "들어", "달라", "다르", "해당", "관련",
+    "각각", "간의", "사이", "연결", "이건", "그건", "이것", "그것", "이걸", "그걸", "낱말", "알고", "경우", "조건", "한계", "예외",
+    "효과", "정도", "수준", "방향", "쪽인", "쪽이", "통하", "맞으", "맞는", "보강", "보완", "더하", "이야기", "얘기", "하나", "정의",
+    "중심", "위해", "위한", "대한", "대해", "아니", "뜻", "상황", "것들", "점은", "점이",
+)
+#: 예시를 늘어놓는 문장 — 「예를 들어, 어떤 종류의 식사나 특정 상황에서만…」. 괄호 예시(`_EXAMPLE_PAREN_RE`)와 같이 뗀다.
+_EXAMPLE_SENTENCE_RE = re.compile(r"(?:예를\s*들어|예컨대|가령|이를테면)[^.?!]*")
+#: 요구 대상 명사구에서 뗄 꾸밈말 — 관형형 용언(「포함되는」「구체적인」)은 대상이 아니다.
+_ADNOMINAL_RE = re.compile(r"(?:는|은|한|된|할|될|던|인|운|진|난|적)$")
+#: 자료에 있는지·자료가 무엇을 말하는지 **묻는** 되물음 — 자료 밖을 요구하는 것이 아니라 자료를 다시 보게 한다
+#: (「…가 자료에 있나요, 없었나요?」「자료에 명시된 41% 를 확인해 주세요」「자료 5장을 다시 보면」).
+_ASKS_PRESENCE_RE = re.compile(
+    r"자료(?:에는|에서는|에서|에|엔|의)\s*(?:[가-힣A-Za-z0-9%.]+\s*){0,2}?(?:있|없|나와|나오|찾|확인|명시|제시|적힌|적혀|언급|쓰인)"
+    r"|\d+\s*장(?:을|에서|에|의)")
+#: 되물음이 **요구하는 대상** — 물음말 바로 앞의 명사구(두 어절까지) (「…구체적인 현황은 어떻게 되나요」 · 「…실험 조건은 무엇인가요」).
+_ASKED_OBJECT_RE = re.compile(
+    r"((?:[가-힣A-Za-z0-9]{2,}\s+)?[가-힣A-Za-z0-9]{2,})\s*(?:은|는|이|가|을|를)\s*(?:무엇|어떻게|어떤|얼마|몇|언제|어디)")
+#: 줄기 끝에 남은 조사 한 글자 — 「질이」「빛과」「감소라(는)」 처럼 한 글자 명사·인용 조사는 떼어 낼 줄기가 짧아 남는다.
+_TAIL_PARTICLE = "이가과와라은는을를의에도로"
+
+
+def asks_deck_presence(text: str) -> bool:
+    """되물음이 자료를 **다시 보게** 하는가 — 「…가 자료에 있나요?」「자료 5장을 다시 보면」. 자료 밖을 요구하는 말이 아니다."""
+    return bool(_ASKS_PRESENCE_RE.search(text or ""))
+
+
+def _followup_stems(text: str) -> list[str]:
+    return [s for s in claim_stems(text)
+            if not s.startswith(_QUESTION_FRAME) and not s.startswith(_FOLLOWUP_FRAME) and not _VERBISH_END_RE.search(s)]
+
+
+def followup_beyond_deck(followup: str, deck: Deck | None, question: str = "", label: str = "") -> list[str]:
+    """
+    LLM 되물음이 **자료에 없는 것**을 요구하는가 — 그렇다면 자료에 없는 낱말들, 아니면 빈 목록 (09-30 WP-J2).
+
+    09-30 standard 실측: 근거 없는 인과 질문(「자료엔 수치가 없다」 가 답)에 「이 효과를 뒷받침하는 연구나 실험에서 보고된 구체적인
+    수치(예: 포만감 지속 시간, 허기 감소 비율 등)는 무엇인가요?」, 자료가 현황을 안 다룬 문제에 「피해 회복 지연의 구체적인 현황은
+    어떻게 되나요?」. 결손(§4)은 자료로 거르는데 되물음은 안 걸러서, 발표자가 자료에 없는 것을 대라는 질문을 받았다.
+
+    결손과 같은 잣대(`point_supported`·`beyond_deck_terms`) — 예시 괄호를 떼고 판정 어휘·물음 뼈대를 뺀 내용 낱말의 60% 이상이
+    자료에 있어야 하고, 물음말 바로 앞의 **요구 대상**(「…현황은 어떻게 되나요」)이 자료에 있어야 한다. 질문 문장·개념 이름에 있는
+    낱말은 되물음 탓이 아니라 센다. 「자료에 있나요?」「N장을 다시 보면」 처럼 자료를 보게 하는 되물음은 보지 않는다.
+    자료가 없으면 판단하지 않는다(빈 목록).
+    """
+    if deck is None or deck.empty or not (followup or "").strip():
+        return []
+    text = scrub(_EXAMPLE_SENTENCE_RE.sub(" ", _EXAMPLE_PAREN_RE.sub("", followup))).strip()
+    if not text or _ASKS_PRESENCE_RE.search(text):
+        return []
+    deck_stems = list(deck.stems)
+    deck_raw = " ".join(ln.text for ln in deck.lines)
+    known = content_stems(f"{question} {label}")
+    hay = f"{deck_raw} {question} {label}"
+
+    def present(s: str) -> bool:
+        if _has(deck_stems, s) or _has(known, s):
+            return True
+        # 조사가 떨어지지 않은 줄기(「질이」「빛과」「감소라」)는 조사를 떼고 본다 — 자료에 있는 말을 없다고 하지 않게.
+        # 한 글자 명사(질·빛)는 낱말로 선 자리만(「수면의 질 =」「빛·소음」) — 한 글자를 아무 데서나 찾으면 다 있다고 나온다.
+        if len(s) < 2 or s[-1] not in _TAIL_PARTICLE:
+            return False
+        bare = s[:-1]
+        if len(bare) >= 2:
+            return bare in hay
+        return bool(re.search(rf"(?<![가-힣]){re.escape(bare)}(?![가-힣])|(?<![가-힣]){re.escape(bare)}[{_TAIL_PARTICLE}]", hay))
+
+    def absent(stems: list[str]) -> list[str]:
+        return [s for s in stems if not present(s)]
+
+    stems = _followup_stems(text)
+    gone = absent(stems)
+    if stems and len(gone) > (1 - POINT_DECK_MIN) * len(stems):
+        return gone
+    for m in _ASKED_OBJECT_RE.finditer(text):
+        phrase = " ".join(w for w in m.group(1).split() if not _ADNOMINAL_RE.search(w))
+        target = absent(_followup_stems(phrase))
+        if target:
+            return target
+    return []
+
+
+# ---------------------------------------------------------------------------
 # §8 선택형 되물음 — 두 자료 낱말 사이의 진짜 양자택일인가
 # ---------------------------------------------------------------------------
 

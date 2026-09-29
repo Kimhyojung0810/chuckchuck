@@ -262,8 +262,9 @@ export function judgementView(j, { giveUp = false, answerGist = '', trap = false
   const missing = reason === 'good' || stage ? [] : cleanMissing(j.missing_points);
   let tail = null;
   if (stage === 'explain' || (giveUp && !stage && isText(j.explanation))) {
-    // 해설 — 서버 해설이 먼저. 비었을 때만 골자로 (함정의 골자는 바로잡은 사실 그 자체라 안 쓴다)
-    const ex = wholeSentences(j.explanation) || (trap ? '' : wholeSentences(answerGist));
+    // 해설 — 서버 해설이 먼저. 비었을 때만 골자로 (함정의 골자는 바로잡은 사실 그 자체라 질문 사본에 없다 — 브리지가 해설 단계
+    // 판정 응답에 answer_gist 로 싣는다, 09-30 WP-J2)
+    const ex = wholeSentences(j.explanation) || wholeSentences(isText(j.answer_gist) ? j.answer_gist : (trap ? '' : answerGist));
     if (ex) tail = { kind: 'explain', text: ex, choices: [] };
   } else if (!closed && isText(j.followup)) {
     const choices = stage ? (Array.isArray(j.choices) ? j.choices.filter(isText).map((c) => c.trim()).slice(0, 4) : []) : [];
@@ -301,6 +302,8 @@ export function giveupSaid(typed) {
  * 화면에 싣지 않는다 — 개발 로그 몫이다.
  */
 const DEV_ONLY_DEGRADED = new Set(['question_unverified', 'question_mismatch']);
+/** 녹음이 이 자료와 다른 발표라 F-08 이 자료만 보고 물었다 — 앱 qa_live LIVE_SPEECH_MISMATCH_NOTE 와 같은 말 (09-30 WP-J2) */
+export const SPEECH_MISMATCH_NOTE = '녹음이 이 자료와 달라서 자료만 보고 질문했어요.';
 export function degradedLines(res) {
   if (!res || typeof res !== 'object') return [];
   const codes = Array.isArray(res.degraded) ? res.degraded : [];
@@ -308,7 +311,16 @@ export function degradedLines(res) {
   const out = [];
   notes.forEach((n, i) => { if (isText(n) && !DEV_ONLY_DEGRADED.has(codes[i])) out.push(n.trim()); });
   if (res.grounded_on_deck === false && !codes.includes('slide_doc_missing')) out.push('자료 본문 없이 판정했어요.');
+  if (speechMismatch(res)) out.push(SPEECH_MISMATCH_NOTE);
   return [...new Set(out)];
+}
+
+/** 질문 묶음이 녹음을 버리고 자료만으로 만들어졌나 — 질문마다의 basis.checks(F-08) 또는 묶음 머리의 같은 이름 참 값 */
+export function speechMismatch(res) {
+  if (!res || typeof res !== 'object') return false;
+  if (res.speech_mismatch_deck_only === true) return true;
+  const qs = Array.isArray(res.questions) ? res.questions : [];
+  return qs.some((q) => q && q.basis && Array.isArray(q.basis.checks) && q.basis.checks.includes('speech_mismatch_deck_only'));
 }
 
 /** 개발 로그로만 남길 폴백 (화면에는 안 싣는다) */

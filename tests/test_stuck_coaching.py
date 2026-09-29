@@ -141,7 +141,9 @@ def test_second_give_up_scaffolds_with_a_blank():
     assert j.coach_stage == "scaffold"
     assert j.followup.startswith("빈칸을 채워 보세요: ")
     assert "___" in j.followup
-    assert "때문입니다" in j.followup              # 서술어는 안 가린다 — 명사(사용자·이탈)를 가린다
+    # 서술어는 안 가린다 — 명사(사용자·이탈)를 가린다. 빈칸 문장은 발표자가 말할 문장이라 해요체다(골자의 「때문입니다」 → 「때문이에요」,
+    # 09-30 WP-J2 — 자료 줄로 조립한 골자의 합쇼체가 발판에 그대로 떴다)
+    assert "때문이에요" in j.followup
     assert "사용자" not in j.followup or "이탈" not in j.followup
     assert j.explanation == "" and j.passed is False
     assert llm.kwargs == []                         # LLM 호출 없음

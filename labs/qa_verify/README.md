@@ -177,7 +177,15 @@ while true; do .venv/bin/python labs/qa_verify/verify.py --repo "$PWD" --tier qu
   대상이 문구를 바꾸면 조용히 0 이 된다.
 - standard 는 덱 3개 × 5분 트랙(질문 3~4개)이라 페르소나마다 표본이 1~3이다. 한 번의 값보다 기준선과의 차이를 본다.
 - quick 의 결정적 재생은 벤치 캐시의 얼린 LLM 응답에 기댄다. 캐시가 오래되면(프롬프트가 바뀌면) 범위가 줄어든다 —
-  `labs/qa_bench/run.py base` 로 캐시를 새로 굽는다(실 LLM).
+  `labs/qa_bench/run.py base` 로 캐시를 새로 굽는다(실 LLM). 질문 응답만 **지금 프롬프트로** 다시 구우려면(그래프·주장·1차 심사는
+  캐시 그대로, 덱·트랙마다 1콜 — 14덱 × 2트랙 28콜) `target_probe.py refresh` 를 쓴다 (09-30 WP-J2: WP-Q 뒤 coverage 0% → 100%):
+
+  ```bash
+  echo '{"cache": "'$PWD'/labs/qa_bench/out", "tracks": ["5","10"], "calls": "'$PWD'/labs/qa_verify/out/refresh/calls.jsonl", "budget": 45}' > /tmp/in.json
+  QA_VERIFY_REPO=$PWD .venv/bin/python labs/qa_verify/target_probe.py refresh /tmp/in.json /tmp/out.json
+  ```
+
+  새 응답은 같은 파일(`questions_llm_t{트랙}.json`)에 해시로 **더한다** — 옛 코드를 재는 대상의 응답은 지우지 않는다.
 - 첫 standard 실행은 덱마다 파이프라인(개념·그래프·주장·문헌·1차 심사·질문) LLM 이 ~10콜 든다(09-30 첫 실행: 3덱 31콜 →
   예산 55 에서 대화 13 · 레드팀 11 만 남아 질문 6개 · 공격 4개). 두 번째부터는 `out/bridge_data` 단계 캐시로 개념·그래프·주장이 빠진다.
   `--no-papers` 로 문헌 검색 2콜/덱을 뺄 수 있지만 질문 프롬프트가 운영과 달라진다.
