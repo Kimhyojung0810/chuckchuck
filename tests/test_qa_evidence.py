@@ -499,3 +499,18 @@ def test_견준_대상을_요소로_다시_넣은_질문은_그_모순을_묻는
     assert _undercut_question(SLEEP_Q, node) == "시간도 수면의 질의 요소인데, 수면의 질이 시간보다 중요하다는 건 어떤 뜻인가요?"
     plain = "시간보다 연속성이 더 중요한 이유는 무엇인가요?"
     assert _undercut_question(plain, node) == plain
+
+
+def test_폭에서_꺾인_OCR_줄은_잇고_앞_장_꼬리_조각은_인용으로_쓰지_않는다():
+    # 09-29 부스 실측 꼴 — 사진 OCR 이 낱말 한가운데서 줄을 꺾었다 (도메인 중립 문장)
+    raw = ("신청서 한 줄 소개를 적어 주세요 *\n"
+           "주문 앱 - 매장 대기열 예측 기반 픽업 알림 서비스\n"
+           "매장 대기열과 조리 시간을 함께 분석해 픽업 시각을 예측하고, 혼잡 구간 기\n"
+           "반 알림을 통해 고객의 대기 시간을 줄이는 모바일 주문 서비스입니다.")
+    units = slide_units(raw)
+    assert "주문 앱 - 매장 대기열 예측 기반 픽업 알림 서비스" in units          # 폭보다 짧은 제목 줄은 그대로
+    assert any("혼잡 구간 기반 알림을 통해" in u for u in units)                 # 낱말 한가운데 꺾임은 붙인다
+    assert not any(u.startswith("반 알림") for u in units)
+    tail = "(매장)과 본사 대상 구독형 도입을 주요 수익모델로 검토하고 있습니다.\n본사 대상 구독형 도입이 가장 빠른 수익 경로입니다."
+    no, quote = best_quote("본사 구독", "", [(2, tail)], "본사 대상 구독형 도입이 왜 유리한가요?")
+    assert quote.startswith("본사 대상")

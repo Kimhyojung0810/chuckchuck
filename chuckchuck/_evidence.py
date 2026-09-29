@@ -218,6 +218,15 @@ _PAGE_NO_RE = re.compile(r"^[\d\s/|.·-]+$")
 _OPERATOR_END_RE = re.compile(r"[=×+→÷]$")
 #: 문장이 이어지는 줄 — 쉼표·조사·연결 어미로 끝나면 줄바꿈이 문장 가운데서 난 것이다.
 _CONTINUES_END_RE = re.compile(r"(,|보다|아니라|는데|지만|으며|면서|에서|으로|에게|은|는|이|을|를|와|과|의|고|며)$")
+#: 사진 OCR·PDF 본문은 **글자 폭에서 줄을 꺾는다** — 낱말 한가운데서도 (09-29 부스: 「취약 개념 기」 / 「반 Q&A를 통해…」).
+#: 그 장에서 가장 긴 줄 폭의 이 비율 이상인 줄이 문장 끝으로 안 끝나면 다음 줄과 한 문장이다. 폭보다 짧게 끝난 줄
+#: (제목 「… 학습 트레이너」)은 거기서 끝난 것이다. 폭 자체가 짧은 장(글 상자 칸)은 WRAP_MIN 밑이라 꺾임으로 보지 않는다.
+WRAP_MIN = 30
+WRAP_WIDTH_SHARE = 0.7
+#: 문장이 끝난 줄 — 마침표·물음표·느낌표·콜론·필수 표시(*)·닫는 따옴표, 또는 종결 어미.
+_SENTENCE_END_RE = re.compile(r"([.?!:*」』”\"')\]]|다|요|죠|음|함|됨|임)$")
+#: 앞 장에서 넘어온 문장의 꼬리 — 조사나 닫는 괄호로 시작한다 (「(B2C)와 대학·기업 …」). 인용 첫째로 쓰지 않는다.
+_FRAGMENT_START_RE = re.compile(r"^(\([^()]{1,12}\)[와과를을이가은는의도로에]|[와과를을이가은는의도로에](\s|$)|[)\]」』])")
 
 
 def slide_units(raw_text: str) -> list[str]:
@@ -235,21 +244,32 @@ def slide_units(raw_text: str) -> list[str]:
     """
     lines = [clean_slide_text(line) for line in strip_chart_descriptions(raw_text).split("\n")]
     lines = [line for line in lines if line and not _PAGE_NO_RE.match(line)]
+    width = max((len(line) for line in lines), default=0)
+    wrap_at = max(WRAP_MIN, int(width * WRAP_WIDTH_SHARE))
     runs: list[list[str]] = []
     for line in lines:
         prev = runs[-1] if runs else None
         joined = " ".join(prev) if prev else ""
+        wrapped = prev is not None and len(prev[-1]) >= wrap_at and not _SENTENCE_END_RE.search(prev[-1])
         joins = prev is not None and (
             bool(_OPERATOR_END_RE.search(prev[-1]) or _OPERATOR_END_RE.fullmatch(line))
             # 이어짐을 먼저 본다 — "보다" 는 "다" 로 끝나도 문장 끝이 아니다
             or bool(_CONTINUES_END_RE.search(prev[-1]))
+            or wrapped
             or (len(joined) < QUOTE_MIN and len(line) < QUOTE_MIN)
         )
-        if joins:
+        if joins and wrapped and _HANGUL_END_START(prev[-1], line) and not _CONTINUES_END_RE.search(prev[-1]):
+            # 폭에서 꺾인 줄은 낱말 한가운데일 수 있다 — 한글끼리면 붙여 쓴다 (「기」+「반」 → 「기반」).
+            prev[-1] = prev[-1] + line
+        elif joins:
             prev.append(line)
         else:
             runs.append([line])
     return [s for run in runs for s in _sentences(" ".join(run))]
+
+
+def _HANGUL_END_START(prev: str, line: str) -> bool:
+    return bool(prev and line and "가" <= prev[-1] <= "힣" and "가" <= line[0] <= "힣")
 
 
 def _overlap(query: list[str], tokens: list[str]) -> int:
@@ -290,7 +310,7 @@ def ranked_quotes(
     name = _content_tokens(label)
     base = set(_content_tokens(f"{label} {summary}"))
     asked = _asked_tokens(question)
-    scored: list[tuple[tuple[int, int, int, int], int, str]] = []
+    scored: list[tuple[tuple[int, int, int, int, int], int, str]] = []
     seen: set[str] = set()
     for order, (no, raw) in enumerate(texts):
         for pos, sentence in enumerate(slide_units(raw)):
@@ -302,7 +322,9 @@ def ranked_quotes(
             base_score = sum(1 for t in base if t in present)
             if name and contains_tokens(tokens, name):
                 base_score += 3
-            scored.append(((_overlap(asked, tokens), base_score, -order, -pos), no, sentence))
+            # 앞 장에서 넘어온 꼬리 조각은 질문과 겹쳐도 뒤로 — 화면에 「(B2C)와 …」 로 시작하는 인용이 뜬다 (09-29 부스).
+            whole = 0 if _FRAGMENT_START_RE.match(sentence) else 1
+            scored.append(((whole, _overlap(asked, tokens), base_score, -order, -pos), no, sentence))
     scored.sort(key=lambda s: s[0], reverse=True)
     out: list[tuple[int, str]] = []
     for _, no, quote in scored[:max(1, k)]:
