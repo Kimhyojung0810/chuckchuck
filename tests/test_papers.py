@@ -320,6 +320,15 @@ def papers_doc() -> PaperDoc:
     ])
 
 
+LEROY_ABSTRACT = "Attention residue persists after people switch away from an unfinished task and lowers performance on the next task."
+
+
+def papers_doc_with_abstract() -> PaperDoc:
+    doc = papers_doc()
+    doc.refs[1].abstract = LEROY_ABSTRACT
+    return doc
+
+
 def triage() -> QaTriage:
     return QaTriage(file_name="deck.pdf", total_slides=12, marks=[
         TriageMark(node_id="c1", severity=1, rank=1, source="core_weight", doc_weight=1.0),
@@ -593,10 +602,13 @@ class _CiteRewrite(LLMProvider):
     """첫 응답은 인용 없는 질문 둘, qa-cite 응답은 주어진 것."""
     name = "cite-rewrite"
 
-    def __init__(self, rewrites: list[dict]):
+    def __init__(self, rewrites: list[dict], checks: list[dict] | None = None):
         self.rewrites = rewrites
+        self.checks = checks or []
 
     def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
+        if "[TASK] qa-paper-check" in user:
+            return json.dumps({"checks": self.checks}, ensure_ascii=False)
         if "[TASK] qa-cite" in user:
             return json.dumps({"questions": self.rewrites}, ensure_ascii=False)
         return json.dumps({"questions": [
@@ -623,8 +635,9 @@ def test_qa_cite_자료_인용_문헌을_N장에서_인용한_으로_쓴_재작�
 
 def test_qa_cite_검색_문헌을_주어로_세워_봤는데_꼴로_쓴_재작성은_받는다():
     rewritten = "Leroy (2009)는 작업을 바꾼 뒤에도 주의가 남는다고 봤는데, 발표의 '잔여 주의'도 같은 뜻인가요?"
-    llm = _CiteRewrite([{"node_id": "c2", "question": rewritten, "why": "문헌 근거", "hint": "전환", "paper_ids": ["s01"]}])
-    doc = build_questions(make_graph(), triage(), track="10", papers=papers_doc(), llm=llm)
+    llm = _CiteRewrite([{"node_id": "c2", "question": rewritten, "why": "문헌 근거", "hint": "전환", "paper_ids": ["s01"]}],
+                       checks=[{"node_id": "c2", "supported": True, "evidence": LEROY_ABSTRACT}])
+    doc = build_questions(make_graph(), triage(), track="10", papers=papers_doc_with_abstract(), llm=llm)
     q2 = next(q for q in doc.questions if q.node_id == "c2")
     assert q2.question == rewritten and q2.paper_ids == ["s01"]
 
@@ -640,11 +653,12 @@ def test_첫_응답의_거짓_전제는_전제_절만_떼고_높임도_푼다():
 
 
 def test_첫_응답의_관형절_인용은_떼면_문헌_주어_꼴이_된다():
-    llm = ScriptedLLM({"qa-questions": {"questions": [
+    llm = ScriptedLLM({"qa-paper-check": {"checks": [{"node_id": "c2", "supported": True, "evidence": LEROY_ABSTRACT}]},
+                       "qa-questions": {"questions": [
         {"node_id": "c2", "question": "5장에서 인용한 Leroy (2009)는 주의가 남는다고 봤는데, 발표는 어떻게 보나요?",
          "why": "w", "hint": "h", "answer_gist": "g"},
     ]}})
-    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc_with_abstract(), llm=llm)
     q2 = next(q for q in doc.questions if q.node_id == "c2")
     assert q2.question == "Leroy (2009)는 주의가 남는다고 봤는데, 발표는 어떻게 보나요?" and q2.paper_ids == ["s01"]
 
@@ -794,3 +808,181 @@ def test_한_문헌은_두_질문에_붙지_않는다():
     plan = _plan_papers(marks, by_id, None, papers_doc(), "10")
     ids = [r.id for refs in plan.values() for r in refs]
     assert len(ids) == len(set(ids)) and all(len(refs) == 1 for refs in plan.values())
+
+
+# ---------------------------------------------------------------------------
+# 인용 주장 검사 — 「X 는 …라고 봤는데」 의 「…」 가 초록에 있어야 남는다 (2026-09-29 Paulsrud et al. (2026))
+# ---------------------------------------------------------------------------
+
+PAULSRUD_ABSTRACT = (
+    "Objectives To evaluate the correlation between subjective and objective sleep measures in children and adolescents "
+    "across four interrelated dimensions: duration, continuity, regularity, and quality. Results The strongest correlations "
+    "were observed for sleep duration. For sleep quality correlation estimates were inconsistent. Conclusions Subjective and "
+    "objective sleep measures reflect related but distinct aspects of children's sleep and cannot usually replace one another."
+)
+PAULSRUD_CLAIM = "Paulsrud et al. (2026)는 수면의 질이 시간보다 중요하다고 보았는데, 발표의 '연속성과 규칙성'은 그 주장을 뒷받침하는 근거인가요?"
+
+
+def sleep_papers() -> PaperDoc:
+    return PaperDoc(file_name="deck.pdf", provider="fake", refs=[
+        PaperRef(id="s04", kind="scholar", title="Association between subjective and objective measures of pediatric sleep",
+                 authors=["Paulsrud", "Thorsen", "Andersen"], year=2026, node_ids=["c1"], query="sleep quality",
+                 abstract=PAULSRUD_ABSTRACT, doi="10.1016/j.sleep.2026.108965"),
+    ])
+
+
+class _ClaimLLM(LLMProvider):
+    """첫 응답은 c1 에 주장을 붙인 인용 질문, qa-paper-check 응답은 주어진 것 (문자열이면 그대로 — 깨진 JSON 용)."""
+    name = "claim"
+
+    def __init__(self, question: str, check):
+        self.question, self.check, self.check_calls = question, check, 0
+
+    def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
+        if "[TASK] qa-paper-check" in user:
+            self.check_calls += 1
+            self.check_user = user
+            return self.check if isinstance(self.check, str) else json.dumps(self.check, ensure_ascii=False)
+        return json.dumps({"questions": [
+            {"node_id": "c1", "question": self.question, "why": "Paulsrud et al. (2026) 근거", "hint": "h", "answer_gist": "g"},
+            {"node_id": "c2", "question": "잔여 주의란 무엇인가요?", "why": "w", "hint": "h", "answer_gist": "g"},
+        ]}, ensure_ascii=False)
+
+
+def _q(doc, nid="c1"):
+    return next(q for q in doc.questions if q.node_id == nid)
+
+
+def test_초록에_없는_주장을_붙인_인용은_버리고_템플릿으로_간다():
+    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "evidence": "", "rewrite": ""}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    q = _q(doc)
+    assert "Paulsrud" not in q.question and "Paulsrud" not in q.why and q.question
+    assert q.paper_ids == [] and doc.papers == []
+    assert llm.check_calls == 1 and "[1] Objectives To evaluate" in llm.check_user and "[4] Conclusions" in llm.check_user   # 초록 전문을 문장 번호로
+
+
+def test_지지된다면서_지어낸_근거_문장은_받지_않는다():
+    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": True,
+                                                   "evidence": "Sleep quality matters more than sleep duration for children."}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert "Paulsrud" not in _q(doc).question and _q(doc).paper_ids == []
+
+
+def test_초록에_글자_그대로_있는_근거면_원문_질문을_지킨다():
+    ok = "Paulsrud et al. (2026)는 수면 시간이 주관·객관 측정에서 가장 잘 맞는다고 봤는데, 발표는 왜 질을 앞세웠나요?"
+    llm = _ClaimLLM(ok, {"checks": [{"node_id": "c1", "supported": True,
+                                     "evidence": "The strongest correlations were observed for sleep duration."}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert _q(doc).question == ok and _q(doc).paper_ids == ["s04"]
+
+
+def test_근거가_없으면_초록이_말하는_것으로_고친_문장을_받는다():
+    fixed = "Paulsrud et al. (2026)는 아이들의 주관·객관 수면 측정이 얼마나 맞는지 쟀는데, 발표의 '연속성과 규칙성'은 어떻게 쟀나요?"
+    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "evidence": "", "rewrite": fixed,
+        "rewrite_evidence": "To evaluate the correlation between subjective and objective sleep measures in children"}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert _q(doc).question == fixed and _q(doc).paper_ids == ["s04"]
+
+
+def test_고친_문장도_근거가_초록에_없으면_버린다():
+    fixed = "Paulsrud et al. (2026)는 질이 중요하다고 쟀는데, 발표는 어떻게 보나요?"
+    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed,
+                                                   "rewrite_evidence": "Sleep quality is what matters most in children."}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert "Paulsrud" not in _q(doc).question
+
+
+def test_검사_응답이_깨지면_확인_못_한_주장은_버린다():
+    llm = _ClaimLLM(PAULSRUD_CLAIM, "not json")
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert "Paulsrud" not in _q(doc).question and _q(doc).paper_ids == []
+
+
+def test_초록이_없는_문헌에_붙인_주장은_묻지도_않고_버린다():
+    papers = sleep_papers()
+    papers.refs[0].abstract = ""
+    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": []})
+    doc = build_questions(make_graph(), triage(), track="5", papers=papers, llm=llm)
+    assert llm.check_calls == 0 and "Paulsrud" not in _q(doc).question
+
+
+def test_주장_없이_인용만_하는_질문은_검사하지_않는다():
+    plain = "Paulsrud et al. (2026)의 네 가지 수면 차원 가운데 발표는 어디에 서 있나요?"
+    llm = _ClaimLLM(plain, {"checks": []})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert llm.check_calls == 0 and _q(doc).question == plain and _q(doc).paper_ids == ["s04"]
+
+
+def test_프롬프트에_초록_전문이_실린다():
+    llm = ScriptedLLM({"qa-questions": {"questions": []}})
+    build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert "cannot usually replace one another." in llm.users[0]
+
+
+def test_검사_응답의_node_id_가_문헌_id_여도_순서로_받는다():
+    # 09-29 실측(solar): node_id 자리에 문헌 id(s05)를 적어 옳은 재작성이 통째로 버려졌다
+    fixed = "Paulsrud et al. (2026)는 수면 시간에서 주관·객관 측정이 가장 잘 맞는다고 봤는데, 발표는 왜 질을 앞세웠나요?"
+    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "s04", "supported": False, "rewrite": fixed,
+                                                   "rewrite_evidence": "The strongest correlations were observed for sleep duration."}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert _q(doc).question == fixed and _q(doc).paper_ids == ["s04"]
+
+
+def test_근거_없는_논문_절만_떼고_본론을_살린다():
+    claim = "Paulsrud et al. (2026)는 수면의 질이 시간보다 중요하다고 보았는데, 발표에서 연속성을 규칙성보다 앞에 둔 이유는 무엇인가요?"
+    llm = _ClaimLLM(claim, {"checks": [{"node_id": "c1", "supported": False, "rewrite": ""}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    q = _q(doc)
+    assert q.question == "발표에서 연속성을 규칙성보다 앞에 둔 이유는 무엇인가요?" and q.paper_ids == []
+    assert "Paulsrud" not in q.why
+
+
+def test_근거는_초록_문장_번호로도_받고_질문을_베낀_근거는_받지_않는다():
+    # 09-29 실측(solar): rewrite_evidence 에 고친 질문 문장을 그대로 베꼈다 — 번호로 받으면 초록 밖 문장을 가리킬 수 없다
+    fixed = "Paulsrud et al. (2026)는 수면 시간에서 주관·객관 측정이 가장 잘 맞는다고 봤는데, 발표는 왜 질을 앞세웠나요?"
+    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed, "rewrite_evidence_no": 2}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert _q(doc).question == fixed and "[2] Results The strongest correlations" in llm.check_user
+    copied = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed,
+                                                      "rewrite_evidence": fixed, "rewrite_evidence_no": 99}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=copied)
+    assert "Paulsrud" not in _q(doc).question
+
+
+def test_발표자에게_묻는_동사는_논문의_주장으로_치지_않는다():
+    ask = "Paulsrud et al. (2026)의 네 차원을 발표에서 어떻게 설명했나요?"
+    llm = _ClaimLLM(ask, {"checks": []})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert llm.check_calls == 0 and _q(doc).question == ask
+
+
+def test_떼고_남은_본론이_그_로_앞_절을_가리키면_템플릿으로():
+    claim = "Paulsrud et al. (2026)는 질·시간·규칙성 세 조건을 봤는데, 발표는 그 세 조건 중 무엇을 빠뜨렸나요?"
+    llm = _ClaimLLM(claim, {"checks": [{"node_id": "c1", "supported": False}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert "그 세 조건" not in _q(doc).question and "Paulsrud" not in _q(doc).question
+
+
+def test_예시의_자리표시를_베낀_질문은_템플릿으로():
+    llm = ScriptedLLM({"qa-questions": {"questions": [
+        {"node_id": "c1", "question": "발표의 '<이 발표의 개념>'은 알림 비용을 어떻게 설명하나요?", "why": "<근거>", "hint": "h", "answer_gist": "g"},
+    ]}})
+    q = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm).questions[0]
+    assert "<" not in q.question and "<" not in q.why and q.question
+
+
+def test_라고_했는데_꼴도_주장으로_검사한다():
+    claim = "Paulsrud et al. (2026)는 질이 시간보다 중요하다고 했는데, 발표에서 연속성을 앞에 둔 이유는 무엇인가요?"
+    llm = _ClaimLLM(claim, {"checks": [{"node_id": "c1", "supported": False}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert llm.check_calls == 1 and _q(doc).question == "발표에서 연속성을 앞에 둔 이유는 무엇인가요?"
+
+
+def test_이유_칸의_논문_주장은_질문이_검사를_통과한_문헌일_때만_남는다():
+    llm = ScriptedLLM({"qa-questions": {"questions": [
+        {"node_id": "c1", "question": "발표는 질을 어떻게 쟀나요?",
+         "why": "Paulsrud et al. (2026)는 질이 시간보다 중요하다고 봤는데, 발표도 같은 입장이라서", "hint": "h", "answer_gist": "g"},
+    ]}})
+    q = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm).questions[0]
+    assert "Paulsrud" not in q.why and q.why and q.paper_ids == []

@@ -1507,9 +1507,12 @@ QA_EXPLAIN_MAX = 500
 PAPER_KINDS = ("deck", "scholar")
 PAPER_KIND_FALLBACK = "deck"
 
-#: 프롬프트·화면에 실을 초록 한 줄의 최대 글자 수. **원문 그대로 자른 것**이지 요약이 아니다 —
+#: 프롬프트·화면에 실을 초록의 최대 글자 수. **원문 그대로**지 요약이 아니다 —
 #: 논문 내용을 LLM 이 다시 쓰게 두면 지어낸다 (audience-evidence 계획 §2-1 L2).
-PAPER_ABSTRACT_MAX = 300
+#: 2026-09-29: 300 이었을 때 구조화 초록(Objectives·Methods·Results)은 목적 한 줄에서 잘려 결과가 한 글자도 안 실렸다.
+#: 그 상태로 「X 는 …라고 봤는데」 를 쓰게 하니 LLM 이 발표의 주장을 논문 입에 넣었다 (Paulsrud et al. (2026) 수면 질문).
+#: 보통 초록(150~350 낱말)이 통째로 들어가는 길이로 둔다. 인용 주장 검사(f08 _verify_paper_claims)도 이 전문을 대조한다.
+PAPER_ABSTRACT_MAX = 2400
 
 #: 질문 근거용으로 검색할 개념 수와 개념당 논문 수. 개념 전부를 검색하면 외부 호출이
 #: 개념 수만큼 늘고 프롬프트도 길어진다 — 상위 weight 개념만 본다.
@@ -1538,7 +1541,7 @@ class PaperRef:
     venue: str = ""
     doi: str = ""                          # "10.1037/xhp0000100" 꼴 (URL 아님)
     url: str = ""
-    abstract: str = ""                     # 원문에서 PAPER_ABSTRACT_MAX 로 자른 한 줄
+    abstract: str = ""                     # 원문 초록 (태그 뗀 것, PAPER_ABSTRACT_MAX 까지)
     cited_by: int = 0                      # 피인용 수 (검색 결과만)
     slide_no: int = 0
     node_ids: list[str] = field(default_factory=list)

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from itertools import groupby
 
 from ._evidence import (
@@ -55,6 +56,7 @@ from .contracts import (
     ConceptMemory,
     MemoryDoc,
     PaceDoc,
+    PAPER_ABSTRACT_MAX,
     PaperDoc,
     PaperRef,
     QaJudgement,
@@ -307,7 +309,7 @@ PAPER_SYSTEM_ADDENDUM = """
   그 문헌에 "인용했는데"·"인용하셨는데"·"N장에서 인용한" 을 붙이지 마라 — 없는 전제를 세운 질문이 된다.
   검색 문헌은 **문헌을 주어로 세워 자료·발표와 견주는** 꼴로만 쓴다.
   (검색 문헌 예: "Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데,
-  발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?")
+  발표의 '<이 발표의 개념>'은 그것과 같은 현상인가요?")
 - "N장에서 인용한 …" 은 **[자료 N장이 인용] 문헌에만** 쓴다 — 자료가 실제로 인용한 것이라서.
   (자료 인용 문헌 전용 예: "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않은 조건을
   쟀어요. 이 실험은 어느 조건인가요?")
@@ -315,7 +317,9 @@ PAPER_SYSTEM_ADDENDUM = """
 - **인용은 목록에 있는 문헌만, 적힌 인용 표시(저자 (연도)) 그대로.** 목록 밖의 논문·저자·
   연도를 쓰면 그 질문은 통째로 버려지고 템플릿 문장으로 바뀐다.
 - 그 논문에 대해 말할 수 있는 것은 「초록」 줄에 적힌 것뿐이다. 초록에 없는 결과·수치·
-  조건을 논문의 것으로 말하지 마라.
+  조건을 논문의 것으로 말하지 마라. **"X 는 …라고 봤는데" 의 「…」 는 초록의 결과·결론 문장에서 가져온다.**
+  초록이 발표의 주장을 직접 말하지 않으면 논문이 **무엇을 쟀는지·비교했는지**(목적·방법)로 끌어온다
+  ("X 는 …를 …와 견줘 쟀는데"). **발표의 주장을 논문의 주장처럼 쓰지 마라** — 코드가 초록과 대조해 없으면 버린다.
 - answer_gist 는 여전히 **자료 본문과 발표에서 한 말**로만 쓴다. 논문 내용을 답의 골자로
   쓰지 마라 — 발표자가 그 논문을 읽었다고 가정할 수 없다. 단, 「자료 N장이 인용」한
   문헌은 발표자가 직접 낸 것이라, 그 논문이 무엇을 다뤘는지 정도는 답에 기대해도 된다.
@@ -345,13 +349,15 @@ CITE_SYSTEM_PROMPT = """당신은 논문을 읽고 온 심사위원이다. 이�
 - question 문장 **안에** 문헌의 인용 표시를 **적힌 그대로** 넣어라 (예: "Stothart et al. (2015)"). 표시를 바꾸거나 다른 논문을 끌어오지 마라.
   인용은 문장의 주어나 전제로 들어간다. **문장 끝에 덧붙이지 말고, «제목» 은 넣지 마라.**
   나쁨: "…메커니즘은 무엇인가요? Stothart et al. (2015) «The attentional cost …»"
-  좋음(검색 문헌): "Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?"
+  좋음(검색 문헌): "Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '<이 발표의 개념>'은 그것과 같은 현상인가요?"
 - **[검색: …] 문헌은 발표자가 본 적도 인용한 적도 없다.** 교수가 따로 찾아 읽고 온 것이다. 그 문헌에
   "인용했는데"·"인용하셨는데"·"N장에서 인용한" 을 쓰지 마라 — 없는 전제를 세운 질문이 되어 통째로 버려진다.
   검색 문헌은 위 「좋음」 처럼 **문헌을 주어로 세워** "X (연도)는 …라고 봤는데, 발표(자료)는 …인가요?" 꼴로만 쓴다.
 - "N장에서 인용한 …" 은 **[자료 N장이 인용] 문헌에만** 쓴다.
-  좋음(자료 인용 문헌 전용): "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '비가시적 집중 손실'은 그것과 같은 현상인가요?"
+  좋음(자료 인용 문헌 전용): "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표의 '<이 발표의 개념>'은 그것과 같은 현상인가요?"
 - 문헌에 대해 말할 수 있는 것은 「초록」 줄에 적힌 것뿐이다. 초록에 없는 결과·수치·조건을 논문의 것으로 말하지 마라.
+  "…라고 봤는데" 의 「…」 는 초록의 결과·결론 문장에서 가져온다. 초록이 그런 결론을 말하지 않으면 논문이 무엇을 쟀는지로
+  끌어온다("X 는 …를 …와 견줘 쟀는데"). **발표의 주장을 논문의 주장처럼 쓰지 마라** — 코드가 초록과 대조해 없으면 버린다.
 - 질문의 대상 개념과 묻는 요지는 유지한다. 발표자의 주장과 문헌이 어긋나거나, 문헌이 잰 조건을 발표가 밝히지 않은
   지점을 찌른다.
 - 높임을 쓰지 마라 — "하셨는데"·"판단하신"·"말씀" 이 아니라 "했는데"·"판단한"·"말".
@@ -705,9 +711,9 @@ def _engine(llm: str | LLMProvider | None, llm_kwargs: dict | None) -> LLMProvid
     return llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
 
 
-def _call(engine: LLMProvider, system: str, user: str) -> dict:
+def _call(engine: LLMProvider, system: str, user: str, temperature: float = 0.3) -> dict:
     """LLM 한 번 부르고 JSON 객체로. 파싱 실패는 QuestionError 로 감싼다."""
-    raw = engine.complete(system=system, user=user, temperature=0.3, max_tokens=MAX_TOKENS, json_mode=True)
+    raw = engine.complete(system=system, user=user, temperature=temperature, max_tokens=MAX_TOKENS, json_mode=True)
     try:
         return extract_json_object(raw)
     except ValueError as e:
@@ -850,13 +856,237 @@ def _questions_with_papers(
     """질문을 받은 뒤, 문헌이 붙었는데 인용이 없는 질문만 골라 qa-cite 로 **한 번** 고쳐 쓴다. 실패하면 첫 응답 그대로."""
     raw = _questions_with_retry(engine, prompt, marks, system)
     targets = _cite_targets(raw, marks, by_id, by_no, papers, paper_plan)
-    if not targets:
-        return raw
+    if targets:
+        try:
+            raw = _apply_cite_rewrite(raw, targets, _call(engine, CITE_SYSTEM_PROMPT, _cite_prompt(targets)), papers)
+        except QuestionError:
+            pass
+    return _verify_paper_claims(engine, raw, marks, papers)
+
+
+# ---------------------------------------------------------------------------
+# 인용 주장 검사 — 「X (연도)는 …라고 봤는데」 의 「…」 가 정말 초록에 있는가
+#
+# 2026-09-29 실측(solar): "Paulsrud et al. (2026)는 수면의 질이 시간보다 중요하다고 보았는데, …" 가 나왔다.
+# 그 논문은 아이들의 주관·객관 수면 측정이 얼마나 맞는지 본 메타분석이고, 질이 시간보다 중요하다는 말은 초록 어디에도
+# 없다 — 발표의 주장을 논문 입에 넣은 것이다. 프롬프트 규칙(「초록에 없는 것을 말하지 마라」)만으로는 안 지켜졌다
+# (09-12 교훈과 같다). 그래서 코드가 받는다: 주장을 붙인 인용 질문마다 LLM 에 **초록에서 그대로 베낀 근거 문장**을
+# 내게 하고, 그 문장이 초록에 글자 그대로 있는지를 코드가 확인한다. 근거가 없으면 초록이 실제로 말하는 것으로 고친
+# 문장(역시 근거 문장 필수)을 받고, 그것도 안 되면 인용을 빼고 템플릿으로 보낸다. 호출은 트랙당 한 번(인용 질문 ≤2).
+# ---------------------------------------------------------------------------
+
+#: 문헌을 주어로 세워 무언가를 **봤다·밝혔다** 고 말하는 꼴. 이런 동사가 없는 인용(「X 의 개념이 여기 어떻게 적용되나요?」·
+#: 「3장에서 인용한 X 는 무엇을 쟀나요?」)은 논문에 주장을 붙이지 않으니 검사하지 않는다.
+_PAPER_CLAIM_RE = re.compile(
+    r"(봤|보았|밝혔|밝혀냈|보고했|주장했|제시했|제안했|발견했|확인했|보여\s?줬|보여\s?주었|보였|나타냈|결론\S*|지적했|강조했|"
+    r"설명했|말했|규정했|정의했|입증했|증명했|시사했|드러냈|[다라]고\s?했|[다라]고\s?하였|[다라]는\s?(?:결과|결론))"
+)
+#: 근거 문장으로 받는 최소 길이. 몇 낱말짜리 조각(「sleep quality」)은 어느 초록에나 있어 근거가 못 된다.
+PAPER_EVIDENCE_MIN = 25
+
+PAPER_CHECK_SYSTEM_PROMPT = """당신은 논문 인용을 검사하는 편집자다. 질문이 논문에 대해 한 말이 그 논문의 초록에 실제로 적혀 있는지 본다.
+
+규칙
+- supported 는 초록의 문장이 질문이 논문에 붙인 주장을 **직접** 말할 때만 true 다. 비슷한 주제를 다루기만 하면 false 다.
+  발표의 주장을 논문의 주장처럼 쓴 것이면 false 다.
+- 초록은 문장마다 [번호] 가 붙어 있다. evidence_no 는 그 주장을 **직접** 말하는 초록 문장의 번호다. 없으면 0.
+- supported 가 false 면 rewrite 에 고친 질문을 쓴다. 초록이 **실제로 말하는 것**(연구 목적·방법·결과 중 하나)을 한 절로
+  논문에 붙이고, 발표의 개념과 견주는 물음은 유지한다. 예: "X (연도)는 …를 …와 견줘 쟀는데, 발표의 '…'는 …인가요?"
+  인용 표시(저자 (연도))는 적힌 그대로 문장 안에 넣는다. 해요체, 두 문장 이내, 200자 이내, 높임 금지.
+  rewrite_evidence_no 는 고친 문장이 논문에 붙인 내용을 말하는 초록 문장의 번호다. 초록으로 고칠 수 없으면 rewrite 는 "", 번호는 0.
+- 번호는 반드시 초록에 붙은 [번호] 중 하나다. 질문 문장이나 고친 문장을 근거 자리에 베끼지 마라.
+- 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+{ "checks": [ { "node_id": "<### 줄의 괄호 안 그대로>", "supported": false, "evidence_no": 0, "rewrite": "…", "rewrite_evidence_no": 3 } ] }"""
+
+
+def _flat(text: str) -> str:
+    """근거 대조용 — 대소문자·공백·따옴표 모양·끝 마침표 차이는 무시한다."""
+    text = str(text or "").lower().replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
+    return " ".join(text.split()).strip(" .\"'")
+
+
+def _evidence_in_abstract(evidence: str, ref: PaperRef) -> bool:
+    ev = _flat(evidence)
+    return len(ev) >= PAPER_EVIDENCE_MIN and ev in _flat(ref.abstract)
+
+
+#: 초록 문장 경계 — 마침표·물음표 뒤 공백 다음이 대문자·숫자일 때. "et al. (2015)"·"e.g. sleep" 에서는 안 자른다.
+_ABSTRACT_SENT_RE = re.compile(r"(?<=[.?!])\s+(?=[A-Z0-9(])(?<!\bal\.\s)(?<!\be\.g\.\s)(?<!\bi\.e\.\s)")
+
+
+def _abstract_sentences(ref: PaperRef) -> list[str]:
+    return [x.strip() for x in _ABSTRACT_SENT_RE.split(ref.abstract or "") if len(x.strip()) >= PAPER_EVIDENCE_MIN]
+
+
+def _evidence_of(c: dict, key: str, ref: PaperRef) -> str:
+    """검사 응답이 가리킨 초록 문장. 번호(`<key>_no`)가 먼저다 — 09-29 실측(solar): 「초록 문장을 그대로 복사」 하라 했더니
+    세 번 중 세 번 고친 질문 문장을 근거 자리에 베꼈다. 번호는 초록에 실제로 있는 문장만 가리킬 수 있다.
+    글자 그대로 옮긴 인용(`<key>`)도 초록에 있으면 받는다. 둘 다 아니면 "" — 근거 없음."""
+    sents = _abstract_sentences(ref)
     try:
-        data = _call(engine, CITE_SYSTEM_PROMPT, _cite_prompt(targets))
-    except QuestionError:
+        no = int(c.get(f"{key}_no") or 0)
+    except (TypeError, ValueError):
+        no = 0
+    if 1 <= no <= len(sents):
+        return sents[no - 1]
+    text = str(c.get(key, "") or "")
+    return text if _evidence_in_abstract(text, ref) else ""
+
+
+def _claimed_ref(q: dict, papers: PaperDoc | None, key: str = "question") -> PaperRef | None:
+    """이 질문(의 key 칸)이 주장을 붙인 문헌. 인용이 없거나 주장 동사가 없으면 None — 검사할 것이 없다."""
+    if papers is None:
+        return None
+    text = str(q.get(key, "") or "")
+    by_id = {r.id: r for r in papers.refs}
+    for pid in _cited_ids(text, papers):
+        ref = by_id.get(pid)
+        at = text.find(ref.cite_key) if ref is not None and ref.cite_key else -1
+        if at < 0:
+            continue
+        # 논문을 주어로 세운 절만 본다 — 이음새(는데·지만)나 문장 끝까지. 「…를 발표에서 어떻게 설명했나요?」 의
+        # 「설명했」 은 발표자에게 묻는 말이지 논문의 주장이 아니다 (09-29 실측에서 이것까지 잡았다).
+        tail = text[at + len(ref.cite_key):]
+        stop = _CLAIM_JOINT_RE.search(tail)
+        end = re.search(r"[?？!]|[가-힣]\.(?:\s|$)", tail)
+        cut = min(x.start() for x in (stop, end) if x) if (stop or end) else len(tail)
+        if stop is None or stop.start() != cut:
+            continue          # 이음새 없이 끝나는 문장은 논문에 주장을 붙이지 않고 묻기만 한다
+        if _PAPER_CLAIM_RE.search(tail[:cut]):
+            return ref
+    return None
+
+
+def _paper_check_prompt(targets: list[tuple[dict, PaperRef]]) -> str:
+    parts = ["[TASK] qa-paper-check", "", "질문마다 논문에 붙인 주장이 초록에 있는지 검사하라. node_id 는 그대로.", ""]
+    for q, ref in targets:
+        parts.append(f"### ({q.get('node_id', '')})")
+        parts.append(f"question: {q.get('question', '')}")
+        parts.append(f"문헌 ({ref.id}) {ref.cite_key} «{ref.title}»")
+        parts.append("초록:")
+        parts += [f"[{i}] {x}" for i, x in enumerate(_abstract_sentences(ref), 1)]
+        parts.append("")
+    return "\n".join(parts)
+
+
+#: 논문 절을 떼고 남은 본론이 앞 절을 가리키면(「그 주장을 뒷받침하나요?」) 뗄 수 없다 — 가리킬 것이 사라진다.
+_CLAIM_ANAPHORA_RE = re.compile(r"(그|이|해당)\s?(주장|결과|결론|연구|논문|정의|관점|견해|발견|지적)|(?:^|\s)(그|해당)\s|그것|이것|그와|이와|그렇다면|반면")
+#: 「X 는 …라고 봤는데, 본론」 의 이음새. 첫 이음새에서 자른다.
+_CLAIM_JOINT_RE = re.compile(r"(?:는데|지만|으나|는데도)\s*,?\s*")
+#: 떼고 남은 본론의 최소 길이 — 이보다 짧으면 질문이 아니라 꼬리다.
+CLAIM_REST_MIN = 12
+
+
+def _drop_paper_clause(text: str, ref: PaperRef) -> str:
+    """「X (연도)는 …라고 봤는데, 본론?」 에서 논문 절을 떼고 본론만. 뗄 수 없으면 "".
+
+    템플릿으로 떨어지는 것보다 LLM 이 쓴 본론(발표를 겨냥한 물음)을 살리는 쪽이 낫다 — 09-29 실측에서 템플릿은
+    개념 요약을 그대로 이어 붙인 「왜 수면의 질이 시간 × 연속성 × … 으로 정의되는지 — 설명해 주세요」 였다."""
+    text = str(text or "")
+    at = text.find(ref.cite_key) if ref.cite_key else -1
+    if at < 0:
+        return ""
+    m = _CLAIM_JOINT_RE.search(text, at + len(ref.cite_key))
+    if not m:
+        return ""
+    rest = text[m.end():].strip(" ,")
+    if (len(rest) < CLAIM_REST_MIN or _CLAIM_ANAPHORA_RE.search(rest) or ref.cite_key in rest
+            or not _POLITE_END_RE.search(rest)):
+        return ""
+    return rest
+
+
+def _strip_paper_claim(q: dict, ref: PaperRef) -> None:
+    """근거 없는 인용 주장. 질문은 논문 절만 떼어 본론을 살리고, 못 떼면 비워 템플릿으로 보낸다 (_normalize_questions 의 `or`).
+    이유·힌트가 그 문헌을 말했으면 비운다 — 확인 못 한 주장을 거기서 되풀이하지 않게."""
+    q["question"] = _drop_paper_clause(str(q.get("question", "") or ""), ref)
+    for key in ("why", "hint"):
+        if ref.cite_key and ref.cite_key in str(q.get(key, "") or ""):
+            q[key] = ""
+    q["paper_ids"] = []
+
+
+def _checks_by_node(data: dict, checkable: list[tuple[dict, PaperRef]]) -> dict[str, dict]:
+    """검사 응답을 질문(node_id)에 잇는다. node_id 가 틀리면 순서로 받는다 — 09-29 실측(solar): node_id 자리에
+    문헌 id(s05)를 적었다. f24 번역 응답(09-22)과 같은 버릇이다. 개수가 다르면 순서를 믿지 않는다."""
+    rows = [c for c in (data.get("checks") or []) if isinstance(c, dict)]
+    ids = [str(q.get("node_id", "") or "") for q, _ in checkable]
+    out = {str(c.get("node_id", "") or ""): c for c in rows if str(c.get("node_id", "") or "") in ids}
+    if len(rows) == len(ids):
+        for nid, c in zip(ids, rows):
+            out.setdefault(nid, c)
+    return out
+
+
+def _verify_paper_claims(
+    engine: LLMProvider, raw: list[dict], marks: list[TriageMark], papers: PaperDoc | None,
+) -> list[dict]:
+    """주장을 붙인 인용 질문을 초록과 대조한다 (위 절 주석). 대상이 없으면 LLM 을 부르지 않는다.
+
+    **확인 못 한 주장은 버린다** — 검사 호출이 실패해도, 초록이 비어 있어도 같다. 근거를 못 댄 인용 하나 잃는 것이
+    발표자에게 없는 논문 주장을 믿게 하는 것보다 싸다. 개념당 첫 질문만 본다 (어댑터도 첫 질문만 쓴다)."""
+    marked, seen = {m.node_id for m in marks}, set()
+    targets: list[tuple[dict, PaperRef]] = []
+    firsts: list[dict] = []
+    for q in raw:
+        nid = str(q.get("node_id", "") or "")
+        if nid not in marked or nid in seen:
+            continue
+        seen.add(nid)
+        firsts.append(q)
+        ref = _claimed_ref(q, papers)
+        if ref is not None:
+            targets.append((q, ref))
+    if not targets:
+        _drop_side_claims(firsts, papers, verified=set())
         return raw
-    return _apply_cite_rewrite(raw, targets, data, papers)
+    checkable = [(q, ref) for q, ref in targets if ref.abstract]
+    checks: dict[str, dict] = {}
+    if checkable:
+        try:
+            # 검사는 판정이라 흔들리면 안 된다 — 09-29 실측: 같은 Nishida 주장을 0.3 에서 한 번은 근거 없음, 한 번은 [8] 로 봤다
+            data = _call(engine, PAPER_CHECK_SYSTEM_PROMPT, _paper_check_prompt(checkable), temperature=0.0)
+            checks = _checks_by_node(data, checkable)
+        except QuestionError:
+            checks = {}
+    for q, ref in targets:
+        c = checks.get(str(q.get("node_id", "") or "")) or {}
+        nid = str(q.get("node_id", "") or "")
+        evidence = _evidence_of(c, "evidence", ref)
+        if c.get("supported") is True and evidence:
+            sys.stderr.write(f"[f08] 인용 주장 검사 {nid} {ref.cite_key}: 초록에 근거 있음 — 그대로 · 근거: {evidence[:100]}\n")
+            continue
+        rewrite = _polite_question(_plain_speech(_clean_rewritten(str(c.get("rewrite", "") or ""))))
+        if (rewrite and ref.cite_key in rewrite and len(rewrite) <= QA_TEXT_MAX and _POLITE_END_RE.search(rewrite)
+                and not _claims_presenter_cited(rewrite, papers) and not _ungrounded_citation(rewrite, papers)
+                and _evidence_of(c, "rewrite_evidence", ref)):
+            q["question"] = rewrite
+            q["paper_ids"] = [ref.id]
+            sys.stderr.write(f"[f08] 인용 주장 검사 {nid} {ref.cite_key}: 초록에 없음 — 초록 근거로 고쳐 씀 · "
+                             f"근거: {_evidence_of(c, 'rewrite_evidence', ref)[:100]}\n")
+            continue
+        why = "초록 없음" if not ref.abstract else ("검사 응답 없음" if not c else "초록에 없음, 고친 문장도 근거 없음")
+        before = str(q.get("question", "") or "")
+        _strip_paper_claim(q, ref)
+        sys.stderr.write(f"[f08] 인용 주장 검사 {nid} {ref.cite_key}: {why} — "
+                         f"{'논문 절만 뗌' if q['question'] else '템플릿으로'} · 질문: {before[:80]}\n")
+    verified = {(str(q.get("node_id", "") or ""), ref.id) for q, ref in targets if q.get("paper_ids") == [ref.id]}
+    _drop_side_claims(firsts, papers, verified)
+    return raw
+
+
+def _drop_side_claims(firsts: list[dict], papers: PaperDoc | None, verified: set[tuple[str, str]]) -> None:
+    """이유·힌트 칸이 논문에 주장을 붙였으면 비운다 (템플릿이 메운다). 질문 문장이 같은 문헌으로 검사를 통과했을 때만 둔다.
+
+    09-29 실측(solar): 질문은 인용 없이 묻고 이유 칸에 「Sowers et al. (2008)는 …로 정의했다」 를 적었다. 이유는 질문 말풍선
+    아래 그대로 나가고 paper_ids 도 거기서 추론된다 — 검사 없이 두면 질문 문장에서 막은 거짓 주장이 한 줄 아래로 새어 나간다.
+    LLM 을 따로 부르지 않는다: 이유·힌트는 없어도 질문이 서고, 템플릿이 있다."""
+    for q in firsts:
+        nid = str(q.get("node_id", "") or "")
+        for key in ("why", "hint"):
+            ref = _claimed_ref(q, papers, key)
+            if ref is not None and (nid, ref.id) not in verified:
+                q[key] = ""
 
 
 def _node_lines(pairs: list[tuple[ConceptNode, str]]) -> list[str]:
@@ -1576,7 +1806,9 @@ def _build_question_prompt(
 # ---------------------------------------------------------------------------
 
 #: 프롬프트에 실을 초록 길이. 계약의 300자보다 짧게 — 서가가 길어지면 규칙이 묻힌다 (09-22 실측 15k자·인용 0).
-PAPER_PROMPT_ABSTRACT_MAX = 200
+#: 프롬프트에 싣는 초록 길이. 예전엔 200 이라 구조화 초록의 목적 줄만 실렸고, 결과를 못 본 LLM 이 발표의 주장을
+#: 논문 입에 넣었다 (2026-09-29 Paulsrud et al. (2026)). 서가에는 계획된 문헌(트랙당 ≤2)만 실리므로 전문을 실어도 짧다.
+PAPER_PROMPT_ABSTRACT_MAX = PAPER_ABSTRACT_MAX
 
 
 def _paper_line(ref: PaperRef) -> str:
@@ -1602,7 +1834,7 @@ def _paper_shelf_lines(papers: PaperDoc | None, refs: list[PaperRef] | None = No
         return []
     lines = [
         "## 교수가 읽고 온 문헌 — 인용은 **이 목록 안에서만**, 인용 표시는 적힌 그대로",
-        "초록은 원문을 자른 것이다. 논문에 대해 말할 수 있는 것은 이 줄뿐이다.",
+        "초록은 원문 그대로다. 논문에 대해 말할 수 있는 것은 이 초록에 적힌 것뿐이다.",
         "",
     ]
     lines += [_paper_line(r) for r in shelf]
@@ -1790,10 +2022,15 @@ _SCAFFOLD_CITED = (
 )
 
 
+#: 프롬프트 예시의 자리표시(「발표의 '<이 발표의 개념>'은」)를 그대로 베낀 흔적. 09-29 실측(solar): 예시의 구체 개념
+#: ('비가시적 집중 손실')을 수면 발표 질문에 베꼈고, 자리표시로 바꾸자 자리표시를 베꼈다. 베낀 문장은 없는 것으로 친다.
+_PLACEHOLDER_RE = re.compile(r"<[^<>\n]{1,24}>")
+
+
 def _cites_scaffold(text: str) -> bool:
-    """이 문장이 우리 프롬프트 발판을 근거로 인용했는가."""
+    """이 문장이 우리 프롬프트 발판을 근거로 인용했거나, 예시의 자리표시를 베꼈는가."""
     t = (text or "").replace(" ", "")
-    return any(mark.replace(" ", "") in t for mark in _SCAFFOLD_CITED)
+    return any(mark.replace(" ", "") in t for mark in _SCAFFOLD_CITED) or bool(_PLACEHOLDER_RE.search(text or ""))
 
 
 #: 한 질문이 **둘 이상**을 묻는다는 표지. 여기 걸릴 때만 코드가 골자를 쪼갠다.
@@ -2106,9 +2343,9 @@ def _normalize_questions(
             written_q = ""
         if _cites_scaffold(written_gist) or _ungrounded_citation(written_gist, papers):
             written_gist = ""
-        if _ungrounded_citation(written_why, papers):
+        if _cites_scaffold(written_why) or _ungrounded_citation(written_why, papers):
             written_why = ""
-        if _ungrounded_citation(written_hint, papers):
+        if _cites_scaffold(written_hint) or _ungrounded_citation(written_hint, papers):
             written_hint = ""
 
         question_text = written_q or fb_question

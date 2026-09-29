@@ -73,6 +73,8 @@ class MockLLM(LLMProvider):
             return self._mock_triage(user)
         if "[TASK] qa-questions" in user:
             return self._mock_questions(user)
+        if "[TASK] qa-paper-check" in user:
+            return '{"checks": []}'      # 가짜는 초록을 대조하지 못한다 — 주장을 붙인 인용은 확인 못 한 것으로 버려진다
         if "[TASK] qa-cite" in user:
             return '{"questions": []}'   # 가짜는 문헌을 얹지 않는다 — 원문 질문이 그대로 남는다
         if "[TASK] qa-judge" in user:

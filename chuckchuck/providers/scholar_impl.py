@@ -359,8 +359,8 @@ def _strip_tags(text: str) -> str:
 
 
 class SemanticScholarScholar(ScholarProvider):
-    """Semantic Scholar Graph API. TLDR 한 줄이 있으면 초록 대신 쓴다 (짧고 사람이 쓴 요약이 아니라 모델 요약이지만
-    S2 가 만든 것이지 우리 LLM 이 만든 것이 아니다 — 출처가 남는다). 키 없이 100회/5분."""
+    """Semantic Scholar Graph API. 초록이 없을 때만 TLDR 한 줄을 쓴다 — TLDR 은 S2 의 모델 요약이라, 인용 주장을
+    대조할 원문(f08 _verify_paper_claims)으로는 초록이 낫다 (2026-09-29). 키 없이 100회/5분."""
 
     name = "semanticscholar"
     FIELDS = "title,authors,year,venue,externalIds,abstract,citationCount,tldr,openAccessPdf,url"
@@ -407,7 +407,7 @@ class SemanticScholarScholar(ScholarProvider):
                 authors=[_surname((a or {}).get("name", "")) for a in (w.get("authors") or [])[:3] if (a or {}).get("name")],
                 year=int(w.get("year") or 0), venue=str(w.get("venue") or ""), doi=doi,
                 url=f"https://doi.org/{doi}" if doi else str(pdf or w.get("url") or ""),
-                abstract=(tldr or _WS_RE.sub(" ", str(w.get("abstract") or "")).strip())[:PAPER_ABSTRACT_MAX],
+                abstract=(_strip_tags(str(w.get("abstract") or "")) or tldr)[:PAPER_ABSTRACT_MAX],
                 cited_by=int(w.get("citationCount") or 0), query=query, source=self.name,
             ))
         return out
@@ -571,7 +571,7 @@ class EuropePmcScholar(ScholarProvider):
                 authors=[n.split()[0] for n in names if n.split()],   # "Stothart C" 꼴 — 성이 앞
                 year=int(w.get("pubYear") or 0), venue=str(w.get("journalTitle") or ""),
                 doi=doi, url=f"https://doi.org/{doi}" if doi else f"https://europepmc.org/article/{w.get('source','MED')}/{w.get('id','')}",
-                abstract=_WS_RE.sub(" ", str(w.get("abstractText") or "")).strip()[:PAPER_ABSTRACT_MAX],
+                abstract=_strip_tags(str(w.get("abstractText") or ""))[:PAPER_ABSTRACT_MAX],   # 구조화 초록은 <h4> 가 섞여 온다
                 cited_by=int(w.get("citedByCount") or 0), query=query, source=self.name,
             ))
         return out

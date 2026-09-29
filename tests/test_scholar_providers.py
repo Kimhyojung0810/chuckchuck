@@ -67,17 +67,22 @@ def test_openalex_결과에_source_가_남는다(monkeypatch):
     assert refs and refs[0].source == "openalex"
 
 
-def test_semanticscholar_는_TLDR_을_초록으로_쓰고_DOI_url_을_만든다(monkeypatch):
+def test_semanticscholar_는_초록을_먼저_쓰고_없을_때만_TLDR_을_쓴다(monkeypatch):
+    # 09-29: 인용 주장을 초록과 대조하게 되면서 모델 요약(TLDR)보다 원문 초록이 우선이다
     calls = fake_get(monkeypatch, [Res(payload={"data": [
         {"title": "Smartphone notification attention cost", "year": 2022, "venue": "CHI", "citationCount": 37,
          "authors": [{"name": "Jane Upshaw"}, {"name": "Kim Bo"}], "externalIds": {"DOI": "10.1/abc"},
-         "abstract": "long abstract " * 40, "tldr": {"text": "Notifications cost attention."}, "openAccessPdf": {"url": "http://pdf"}},
+         "abstract": "<p>Receiving a notification lowers accuracy.</p>", "tldr": {"text": "Notifications cost attention."},
+         "openAccessPdf": {"url": "http://pdf"}},
+        {"title": "Smartphone notification attention cost two", "year": 2021, "authors": [{"name": "Lee Min"}],
+         "abstract": None, "tldr": {"text": "Notifications cost attention."}},
     ]})])
-    refs = SemanticScholarScholar(api_key="k").search("smartphone notification attention cost", limit=1)
+    refs = SemanticScholarScholar(api_key="k").search("smartphone notification attention cost", limit=2)
     assert calls[0]["url"].endswith("/paper/search") and calls[0]["headers"]["x-api-key"] == "k"
     r = refs[0]
-    assert r.abstract == "Notifications cost attention." and r.doi == "10.1/abc" and r.url == "https://doi.org/10.1/abc"
+    assert r.abstract == "Receiving a notification lowers accuracy." and r.doi == "10.1/abc" and r.url == "https://doi.org/10.1/abc"
     assert r.authors == ["Upshaw", "Bo"] and r.cite_key == "Upshaw et al. (2022)" and r.source == "semanticscholar"
+    assert refs[1].abstract == "Notifications cost attention."
 
 
 def test_429_는_한_번_쉬고_다시_묻고_두_번째도_429_면_PaperError(monkeypatch):
