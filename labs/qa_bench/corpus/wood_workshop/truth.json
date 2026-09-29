@@ -1,0 +1,181 @@
+{
+ "deck": "wood_workshop",
+ "synthetic": true,
+ "context": {
+  "situation": "school_project",
+  "duration_min": 5
+ },
+ "group": "controls",
+ "control_tension": false,
+ "planted": [
+  {
+   "id": "T1",
+   "kind": "tension",
+   "expect": "probe",
+   "slides": [
+    1,
+    2
+   ],
+   "labels_any": [
+    "작품 완성률",
+    "완성률"
+   ],
+   "quote_any": [
+    "참여자 수보다 중요한",
+    "작품 완성률 ="
+   ],
+   "note": "참여자 수보다 중요하다면서 참여자 수가 작품 완성률의 요소"
+  },
+  {
+   "id": "U1",
+   "kind": "unsolved",
+   "expect": "probe",
+   "slides": [
+    3,
+    4
+   ],
+   "labels_any": [
+    "작업대 부족",
+    "작업대"
+   ],
+   "quote_any": [
+    "작업대 부족"
+   ],
+   "note": "개선 방법이 공구 대기·먼지만 다루고 작업대 부족은 비어 있다"
+  },
+  {
+   "id": "C1",
+   "kind": "unsupported_cause",
+   "expect": "probe",
+   "slides": [
+    6
+   ],
+   "labels_any": [
+    "주말반",
+    "공방 만족도",
+    "만족도"
+   ],
+   "quote_any": [
+    "주말반을 열면서"
+   ],
+   "note": "6장에 수치·출처 없음"
+  },
+  {
+   "id": "A1",
+   "kind": "absolute_boundary",
+   "expect": "probe",
+   "slides": [
+    4
+   ],
+   "labels_any": [
+    "안전 교육",
+    "작품 완성"
+   ],
+   "quote_any": [
+    "완벽하게 작품을"
+   ],
+   "note": "따질 과장 — 「…만 받으면 누구나 … 완벽하게」"
+  },
+  {
+   "id": "N1",
+   "kind": "observation",
+   "expect": "no_probe",
+   "slides": [
+    5
+   ],
+   "labels_any": [],
+   "quote_any": [
+    "아무도 없었습니다"
+   ],
+   "note": "자기 자료에서 본 과거 관찰 — 단정 탐침이 나오면 오탐 (WP-P2 문제 1a)"
+  },
+  {
+   "id": "N2",
+   "kind": "count",
+   "expect": "no_probe",
+   "slides": [
+    5
+   ],
+   "labels_any": [],
+   "quote_any": [
+    "하나도 없다"
+   ],
+   "note": "늘어놓은 다섯 가지 안에서 센 것 — 단정 탐침이 나오면 오탐 (WP-P2 문제 1a)"
+  },
+  {
+   "id": "N3",
+   "kind": "mechanism",
+   "expect": "no_probe",
+   "slides": [
+    5
+   ],
+   "labels_any": [],
+   "quote_any": [
+    "재료비는 반드시 발생"
+   ],
+   "note": "비용이 붙는 기제 — 단정 탐침이 나오면 오탐 (WP-P2 문제 1b)"
+  },
+  {
+   "id": "H1",
+   "kind": "hedged",
+   "expect": "no_probe",
+   "slides": [
+    7
+   ],
+   "labels_any": [],
+   "quote_any": [
+    "다를 수 있습니다"
+   ],
+   "note": "유보"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "compare",
+   "slide": 1,
+   "quote_any": [
+    "참여자 수보다 중요한"
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 2,
+   "quote_any": [
+    "작품 완성률 ="
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 3,
+   "quote_any": [
+    "세 가지 문제",
+    "공구 대기 시간",
+    "작업대 부족"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 4,
+   "quote_any": [
+    "공구 대기 시간을 줄입니다",
+    "먼지와 소음을 줄입니다"
+   ]
+  },
+  {
+   "kind": "absolute",
+   "slide": 4,
+   "quote_any": [
+    "완벽하게 작품을"
+   ]
+  }
+ ],
+ "noise_lines": [
+  "01 / 07",
+  "02 / 07",
+  "03 / 07",
+  "04 / 07",
+  "05 / 07",
+  "06 / 07",
+  "07 / 07"
+ ]
+}

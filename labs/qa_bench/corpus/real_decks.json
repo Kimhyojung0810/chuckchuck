@@ -32,8 +32,13 @@
    "truth": {
     "control_tension": false,
     "planted": [
-     {"id": "A1", "kind": "absolute_boundary", "expect": "probe", "slides": [14], "labels_any": ["시장 예측", "예측"],
-      "quote_any": ["하나도 없었다"], "note": "「하나도 없었다」 단정"},
+     {"id": "A1", "kind": "observation", "expect": "no_probe", "slides": [14], "labels_any": [],
+      "quote_any": ["하나도 없었다"],
+      "note": "09-30 WP-P2: 자기 자료에서 본 과거 관찰(다섯 요인 가운데 센 것) — 따질 단정이 아니다. 예전엔 단정 탐침 정답(probe)으로 적었다"},
+     {"id": "N2", "kind": "count", "expect": "no_probe", "slides": [5], "labels_any": [], "quote_any": ["하나도 없다"],
+      "note": "09-30 WP-P2: 늘어놓은 다섯 요인 안에서 센 것 — 단정 탐침이 나오면 오탐"},
+     {"id": "N3", "kind": "mechanism", "expect": "no_probe", "slides": [6], "labels_any": [], "quote_any": ["반드시 발생"],
+      "note": "09-30 WP-P2: 거래마다 비용이 붙는 기제 — 단정 탐침이 나오면 오탐 (standard 3d12c92 「…주장의 경계는 무엇인가요?」)"},
      {"id": "H1", "kind": "hedged", "expect": "no_probe", "slides": [14], "labels_any": [], "quote_any": ["완전히 없앨 수는 없지만"],
       "note": "부정된 「완전히」"}
     ],
@@ -51,7 +56,16 @@
    "context": {"situation": "competition", "duration_min": 10},
    "note": "09-29 부스 실측 덱(v2) — 근거 질문의 골자가 배경 수치를 이유와 섞던 것, 「'가지' 쪽인가요」 보기의 회귀 예. 규칙 내용이 아니라 회귀 예로만 쓴다",
    "truth": {
-    "control_tension": false, "planted": [], "claims": [], "noise_lines": [],
+    "control_tension": false,
+    "planted": [
+     {"id": "N1", "kind": "observation", "expect": "no_probe", "slides": [14], "labels_any": [], "quote_any": ["하나도 없었다"],
+      "note": "09-30 WP-P2: 자기 자료에서 본 과거 관찰 — 단정 탐침이 나오면 오탐"},
+     {"id": "N2", "kind": "count", "expect": "no_probe", "slides": [5], "labels_any": [], "quote_any": ["하나도 없다"],
+      "note": "09-30 WP-P2: 늘어놓은 다섯 요인 안에서 센 것"},
+     {"id": "N3", "kind": "mechanism", "expect": "no_probe", "slides": [6], "labels_any": [], "quote_any": ["반드시 발생"],
+      "note": "09-30 WP-P2: 거래마다 비용이 붙는 기제"}
+    ],
+    "claims": [], "noise_lines": [],
     "reason": {"slide": 2,
      "question": "격차가 종목 선택이 아닌 행동에서 발생한다고 결론지은 근거는 무엇인가요?",
      "conclusion": "결론부터: 격차는 종목 선택이 아니라 행동에서 만들어진다",

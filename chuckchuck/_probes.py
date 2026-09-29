@@ -311,14 +311,19 @@ def _unsupported_cause(graph_by: dict[str, ConceptNode], claims: list[Claim]) ->
 
 def _absolute_boundary(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
     """
-    단정("반드시·완전히·항상") — 그 말이 통하지 않는 경우·경계를 묻는다.
-    인용 줄에 **부정되지 않은** 단정 표지가 있을 때만 (「반드시 …는 아니다」 는 유보다 — F-26 이 거르지만 한 번 더).
+    단정("반드시·완전히·항상") — 그 말이 들어맞지 않는 경우나 조건을 묻는다.
+    인용 줄에 **부정되지 않은** 단정 표지가 있고(「반드시 …는 아니다」 는 유보다 — F-26 이 거르지만 한 번 더), 그 단정이
+    **따져 물을 주장**일 때만 (`_claim_rules.absolute_kind` — 09-30 WP-P2). 자기 자료에서 본 것(「…하나도 없었다」)·늘어놓은 것
+    안에서 센 것·비용이 붙는 기제·정의는 반례를 물을 말이 아니다.
+
+    각도(angle)는 프롬프트에 그대로 실린다 — 「경계」 같은 우리 말을 쓰면 LLM 이 질문에 옮긴다(09-30 standard: 「…주장의 경계는
+    무엇인가요?」). 발표자에게 그대로 물을 수 있는 말로 쓴다.
     """
     out: list[Probe] = []
     for c in claims:
         if c.kind != "absolute":
             continue
-        marked = [e for e in c.evidence if R.absolute_marker(e.quote)]
+        marked = [e for e in c.evidence if R.absolute_marker(e.quote) and R.contestable_absolute(e.quote)]
         if not marked:
             continue
         said = marked[0].quote
@@ -326,7 +331,7 @@ def _absolute_boundary(graph_by: dict[str, ConceptNode], claims: list[Claim]) ->
             kind="absolute_boundary",
             node_ids=[c.subject_id],
             claim_ids=[c.id],
-            angle=f"「{said}」는 단정이다 — 이 말이 들어맞지 않는 경우·경계를 묻는다",
+            angle=f"「{said}」{_quote_josa(said, '은', '는')} 예외 없이 말한 문장이다 — 이 말이 들어맞지 않는 경우나 조건이 있는지 묻는다",
             evidence=_evidence_of(c),
         ))
     return out
@@ -904,14 +909,49 @@ def _quote_josa(quote: str, with_batchim: str, without: str) -> str:
 _HEDGE_RE = re.compile(r"다를\s*수|달라질\s*수|경우에\s*따라|사람마다|지역마다|개인에\s*따라|마다\s*다르|조건에\s*따라|않을\s*수\s*있|아닐\s*수\s*있")
 
 
-def hedge_line(slides: dict[int, str] | None, near: set[int] | None = None) -> tuple[int, str] | None:
-    """자료가 스스로 단 유보 줄 (가까운 장 먼저). 단정 탐침의 골자가 「자료도 …라고 했어요」 로 기댈 곳."""
+def hedge_line(slides: dict[int, str] | None, near: set[int] | None = None, about: str = "") -> tuple[int, str] | None:
+    """
+    자료가 스스로 단 유보 줄 (가까운 장 먼저). 단정 탐침의 골자가 「자료에 적었듯 …」 으로 기댈 곳.
+
+    about(단정 줄·대상 이름)을 주면 **그 단정의 조건일 수 있는 줄**만 — 가까운 장(HEDGE_NEAR 안)이거나 낱말을 나눈다.
+    덱 끝의 「날씨에 따라 일정이 달라질 수 있습니다」 를 다른 장의 효과 단정의 조건이라고 말하면 모범답이 거짓이 된다 (WP-P2).
+    """
     if not slides:
         return None
     cands = [(no, ln) for no, ln in _deck_lines(slides, []) if _HEDGE_RE.search(ln) and not is_question_line(ln)
              and not R.absolute_marker(ln, strong_only=True)]
-    cands.sort(key=lambda x: (0 if near and x[0] in near else 1, x[0]))
+    anchor = min(near) if near else 0
+    if about and anchor:
+        # 낱말은 **내용 명사**로 견준다 — 「있습니다」 같은 서술어 하나로 먼 장의 다른 이야기가 붙었다 (WP-P2 테스트)
+        own = set(G.content_nouns(about))
+        cands = [(no, ln) for no, ln in cands
+                 if abs(no - anchor) <= HEDGE_NEAR
+                 or any(R.tok_match(t, o) or R.tok_match(o, t) for t in G.content_nouns(ln) for o in own)]
+    cands.sort(key=lambda x: (0 if near and x[0] in near else 1, abs(x[0] - anchor) if anchor else 0, x[0]))
     return cands[0] if cands else None
+
+
+#: 단정 줄과 이만큼 떨어진 장까지의 유보 줄은 그 단정의 조건으로 읽는다 (낱말을 안 나눠도).
+HEDGE_NEAR = 2
+#: 유보 줄에서 「…수 있」 까지 — 조건을 해요체 한 절로 옮긴다(「개인에 따라 반응이 다를 수 있어요」).
+_CAN_RE = re.compile(r"수\s*(?:도\s*)?있")
+
+
+#: 유보 줄 머리의 접속 말 — 「다만 …」 을 「자료에 적었듯 다만 …」 으로 옮기면 어색하다.
+_HEDGE_LEAD_RE = re.compile(r"^(?:다만|단|하지만|그러나|물론|또한|그리고)\s*,?\s*")
+
+
+def _hedge_clause(line: str) -> str:
+    """유보 줄 → 조건을 말하는 해요체 한 절. 「…수 있」 꼴이 아니면 "" (호출자가 인용으로)."""
+    text = _HEDGE_LEAD_RE.sub("", " ".join((line or "").split()).rstrip(" ."))
+    m = _CAN_RE.search(text)
+    if not m or not _HEDGE_RE.search(text[: m.end()]) or len(text[: m.end()]) > HEDGE_CLAUSE_MAX:
+        return ""
+    return text[: m.end()] + "어요."
+
+
+#: 조건 절의 상한 — 골자 한 칸(200자) 안에 단정 표지·장 번호·보완 말까지 들어가야 한다.
+HEDGE_CLAUSE_MAX = 48
 
 
 def probe_code_gist(probe: Probe, labels: dict[str, str], slides: dict[int, str] | None = None) -> str:
@@ -949,15 +989,34 @@ def probe_code_gist(probe: Probe, labels: dict[str, str], slides: dict[int, str]
         return (f"{where}의 「{_q(first.quote)}」에는 아직 수치나 출처가 없어요. "
                 f"설문이나 통계, 비교 자료로 보강할게요.")
     if probe.kind == "absolute_boundary" and first is not None:
-        hedge = hedge_line(slides, {first.slide_no}) if slides else None
-        also = (f" 자료 {hedge[0]}장에도 「{_q(hedge[1], 45)}」{_quote_josa(_q(hedge[1], 45), '이라고', '라고')} 적었어요."
-                if hedge else "")
-        return (f"{where}의 「{_q(first.quote)}」{_quote_josa(first.quote, '은', '는')} 모든 경우에 그렇다고 단정할 수는 "
-                f"없어요.{also} 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.")
+        return _absolute_gist(first, lab[0] if lab else "", where, slides)
     if probe.kind == "sibling_priority" and len(lab) >= 2:
         return (f"{josa(lab[0], '과', '와')} {lab[1]}{josa(lab[1], '은', '는')[len(lab[1]):]} 둘 다 필요해요. 어느 하나만 고르기보다, "
                 f"상황에 따라 먼저 챙길 쪽을 정하면 돼요.")
     return ""
+
+
+def _absolute_gist(first: ClaimQuote, target: str, where: str, slides: dict[int, str] | None) -> str:
+    """
+    단정 탐침의 모범답 (09-30 WP-P2) — 발표자 목소리, 해요체, 단정 줄을 되읊지 않는다. 첫 절에 열쇠 말 「단정」 을 둔다(빈칸 칸).
+
+    예전 골자 「…는 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.」 는 **조건을
+    하나도 말하지 않아서**, 그대로 답하면 단정 줄을 다시 말한 것과 같았다(09-30 standard: 이 골자를 답한 사람이 「자료의 단정을
+    다시 말했어요」 55).
+    - 자료가 스스로 단 조건(`hedge_line` — 「개인에 따라 반응이 다를 수 있으니」)이 있으면 그 조건과 장을 댄다.
+    - 없으면 자료에 조건이 없다고 솔직히 말하고 무엇을 더할지(누구에게·언제·어떤 조건에서) 말한다 — 빈칸·근거 없는 인과 골자와
+      같은 「비어 있다 → 보완할게요」 꼴.
+    """
+    marker = R.absolute_marker(first.quote) or R.absolute_marker(first.quote, strong_only=True)
+    said = f"「{marker}」{_quote_josa(marker, '이라고', '라고')}" if marker else "그렇게"
+    hedge = hedge_line(slides, {first.slide_no}, about=f"{first.quote} {target}") if slides else None
+    if hedge is not None:
+        clause = _hedge_clause(hedge[1])
+        cond = (f"자료 {hedge[0]}장에 적었듯 {clause}" if clause
+                else f"자료 {hedge[0]}장에도 「{_q(hedge[1], 45)}」{_quote_josa(_q(hedge[1], 45), '이라고', '라고')} 적었어요.")
+        return f"{said} 단정할 수는 없어요 — {cond} 이 조건을 붙여서 말할게요."
+    return (f"{said} 단정할 수는 없어요 — {where}에는 이 말이 들어맞는 조건이 아직 없어요. "
+            f"누구에게, 언제, 어떤 조건에서 그런지 정해서 보완할게요.")
 
 
 def probe_hint(probe: Probe, labels: dict[str, str]) -> str:
