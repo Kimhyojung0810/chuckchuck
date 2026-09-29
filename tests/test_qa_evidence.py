@@ -461,3 +461,40 @@ def test_판정_직렬화에_선택지와_인용이_실린다():
     back = QaJudgement.from_dict(d)
     assert back.choices == ["a", "b"] and back.evidence_quote == "인용"
     assert QaJudgement.from_dict({"question_id": "q"}).choices == []     # 옛 세션
+
+
+# ---------------------------------------------------------------------------
+# 09-29 수면 발표 — 힌트가 1장 설문 보기를 붙여 보여 주고, 주제 질문이 자기모순이던 것
+# ---------------------------------------------------------------------------
+
+from chuckchuck._evidence import best_quote, slide_units
+from chuckchuck.f08_questions import _undercut_question
+
+SLEEP_S1 = ("01 / 08\n수면의 질\n분명 잤는데\n왜 피곤할까?\n수면 시간보다 중요한 수면의 질\n“어젯밤 몇 시간 잤나요?”\n"
+            "5시간 미만\n5–7시간\n7시간 이상\n잠을 오래 잤다고 반드시 개운한 것은 아닙니다.")
+SLEEP_S4 = ("충분히 자도 피곤한 진짜 이유\n수면의 질은 단순한 “시간”보다 넓은 개념입니다.\n수면의 질 =\n시간\n×\n연속성\n×\n규칙성\n"
+            "얼마나 잤는가\n얼마나 끊기지 않았는가\n언제 자고 일어났는가")
+SLEEP_Q = "수면의 질이 시간보다 중요한 이유를 발표에서 제시한 세 가지 요소(시간, 연속성, 규칙성)를 바탕으로 설명해 주세요."
+
+
+def test_인용_후보는_글_상자_줄을_지키고_칸마다_나뉜_식은_잇는다():
+    units = slide_units(SLEEP_S1) + slide_units(SLEEP_S4)
+    assert "수면 시간보다 중요한 수면의 질" in units              # 제목이 설문 보기와 붙지 않는다
+    assert not any("5시간 미만" in u and "개운한" in u for u in units)
+    assert "수면의 질 = 시간 × 연속성 × 규칙성" in units
+    assert not any(u.startswith("01 / 08") for u in units)        # 쪽 번호는 글이 아니다
+    assert slide_units("핵심은 원인의 개수보다\n“수면 주기가 끊긴다”는 점입니다.") \
+        == ["핵심은 원인의 개수보다 “수면 주기가 끊긴다”는 점입니다."]
+
+
+def test_인용은_앞_장이_아니라_질문을_받치는_장에서_고른다():
+    no, quote = best_quote("수면의 질", "시간 × 연속성 × 규칙성", [(1, SLEEP_S1), (4, SLEEP_S4)], SLEEP_Q)
+    assert (no, quote) == (4, "수면의 질 = 시간 × 연속성 × 규칙성")
+    assert best_quote("개념", "", []) == (0, "")
+
+
+def test_견준_대상을_요소로_다시_넣은_질문은_그_모순을_묻는다():
+    node = ConceptNode(id="sleep-quality", label="수면의 질", slide_nos=[1, 4], summary="")
+    assert _undercut_question(SLEEP_Q, node) == "시간도 수면의 질의 요소인데, 수면의 질이 시간보다 중요하다는 건 어떤 뜻인가요?"
+    plain = "시간보다 연속성이 더 중요한 이유는 무엇인가요?"
+    assert _undercut_question(plain, node) == plain

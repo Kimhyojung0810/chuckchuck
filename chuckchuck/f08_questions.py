@@ -27,6 +27,7 @@ from itertools import groupby
 
 from ._evidence import (
     anchor_slides,
+    best_quote,
     clean_slide_text,
     find_citations,
     mask_gist,
@@ -279,6 +280,11 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
 3-4. 「시간배분:」 줄이 붙은 개념은 그 장을 제 몫보다 짧게 넘긴 것이다. 정의를 되묻지 말고, 그 장에서
    설명하지 못했을 **개념 사이의 관계·조건·우선순위**를 물어라.
    (예) "알림을 한 번만 확인해도 집중이 크게 무너지나요, 아니면 여러 번 쌓여야 무너지나요?"
+3-5. 「주제:」 줄이 붙은 개념은 발표 전체의 주장이다. 자료의 두 문구를 이어 붙여 "…를 바탕으로 설명해 주세요" 로
+   **주장을 되읊게 하지 마라.** 주장이 성립하는 조건·경계·반례, 또는 자료 안에서 **서로 부딪히는 표현**
+   (예: "X보다 중요하다" 면서 X 를 요소로 넣음)을 한 가지 골라 물어라.
+   (X) 수면의 질이 시간보다 중요한 이유를 세 가지 요소(시간, 연속성, 규칙성)를 바탕으로 설명해 주세요.
+   (O) 시간도 수면의 질의 요소인데, 수면의 질이 시간보다 중요하다는 건 어떤 뜻인가요?
 4. '발표에서 한 말' 이 (aligned) 인 개념은 이미 설명에 성공한 개념이다.
    같은 설명을 되풀이하게 하지 말고 **심화·응용·한계**를 묻는 질문을 써라.
 5. 말투는 해요체다. '~시', '~시겠어요', '하셨는데' 같은 높임을 쓰지 마라.
@@ -1804,6 +1810,8 @@ def _build_question_prompt(
         relation = _relation_line(node, graph)
         if relation:
             parts.append(f"    {relation}")
+        if node.parent_id is None and node.depth == 1:
+            parts.append("    주제: 발표 전체의 주장이다 — 되읊게 하지 말고 조건·경계·부딪히는 표현을 물어라 (규칙 3-5)")
         section = section_line(node, graph)
         if section:
             parts.append(f"    {section}")
@@ -2278,6 +2286,46 @@ def _unslug(text: str, node: ConceptNode) -> str:
     return re.sub(re.escape(nid), node.label, text, flags=re.IGNORECASE)
 
 
+#: 「X보다 …」 — 견주는 대상과 그 뒤 서술어 첫 낱말.
+_COMPARE_RE = re.compile(r"([가-힣A-Za-z]{1,12})보다\s+([가-힣]+)")
+#: 괄호 안 나열 「(시간, 연속성, 규칙성)」.
+_LISTED_RE = re.compile(r"\(([^()]*[,·][^()]*)\)")
+
+
+def _self_undercut(text: str) -> str:
+    """
+    「X보다 …」 로 견주면서 같은 문장의 괄호 나열에 X 를 요소로 다시 넣으면 그 X. 아니면 "".
+
+    09-29 수면 발표: "수면의 질이 시간보다 중요한 이유를 … 세 가지 요소(시간, 연속성, 규칙성)를
+    바탕으로 설명해 주세요" — 1장(시간보다 중요)과 4장(시간 × 연속성 × 규칙성)을 이어 붙여, 답할 수
+    없는 요구가 됐다. 읽는 사람은 "시간이 더 중요하다는 건가" 로 읽었다.
+    """
+    listed = {
+        item.strip() for m in _LISTED_RE.finditer(text or "") for item in re.split(r"[,·]", m.group(1))
+    }
+    for m in _COMPARE_RE.finditer(text or ""):
+        compared = m.group(1)
+        if compared in listed:
+            return compared
+    return ""
+
+
+def _undercut_question(text: str, node: ConceptNode) -> str:
+    """자기모순 문장을 **그 모순을 묻는 문장**으로. 모순이 없으면 그대로.
+
+    부딪힘 자체는 자료에 있다(한 장은 "X보다", 다른 장은 X 를 요소로) — 심사위원이 실제로 찌를 자리라
+    버리지 않고 그걸 묻는다. 서술어는 원문의 것을 쓴다 ("중요한" → "중요하다").
+    """
+    compared = _self_undercut(text)
+    if not compared:
+        return text
+    m = next(m for m in _COMPARE_RE.finditer(text) if m.group(1) == compared)
+    pred = m.group(2)
+    pred = pred[:-1] + "하다" if pred.endswith("한") and len(pred) > 1 else pred
+    subj = node.label + ("이" if node.label and _has_batchim(node.label[-1]) else "가")
+    return f"{compared}도 {node.label}의 요소인데, {subj} {compared}보다 {pred}는 건 어떤 뜻인가요?"
+
+
 def _fit_question(text: str, *, trap: bool = False) -> str:
     """QA_TEXT_MAX 를 넘는 질문을 **문장 단위로** 줄인다. 앞 문장부터 버리고, 남은 것이 해요체 물음으로 끝나야 한다.
 
@@ -2349,9 +2397,6 @@ def _normalize_questions(
         # 질문의 근거 장은 anchor 다 — 힌트·모범답·화면의 장 그림·판정의 본문이
         # 전부 이 목록을 따라가므로, 프롬프트에 실린 장과 같아야 한다.
         anchors = _anchor_nos(node, by_no or {})
-        # 힌트·코칭이 그대로 옮겨 보여 줄 인용 — LLM 없이 즉시 나와야 하므로 여기서 저장한다.
-        quote_no, quote = _evidence_quote(node, anchors, by_no or {})
-        speech = _speech_quote(anchors, transcript) if quote else ""
         fb_question, fb_why, fb_hint = _fallback_text(
             node, mark, (flow_of or {}).get(mark.node_id), slide_nos=anchors
         )
@@ -2366,6 +2411,8 @@ def _normalize_questions(
             return to_haeyo(_second_person(_plain_speech(_unslug(str(raw.get(key, "") or ""), node))))
 
         written_q = _drop_cite_claim(_fit_question(_polite_question(_tidy("question")), trap=mark.trap), papers)
+        if written_q and not mark.trap:
+            written_q = _undercut_question(written_q, node)
         written_gist = _drop_cite_claim(_clip(_tidy("answer_gist")), papers)
         written_why = _drop_cite_claim(_clip(_tidy("why")), papers)
         written_hint = _drop_cite_claim(_clip(_tidy("hint")), papers)
@@ -2390,6 +2437,10 @@ def _normalize_questions(
             written_hint = ""
 
         question_text = written_q or fb_question
+        # 힌트·코칭이 그대로 옮겨 보여 줄 인용 — LLM 없이 즉시 나와야 하므로 여기서 저장한다.
+        # 질문 문장이 정해진 뒤에 고른다 — 힌트는 질문이 가리키는 자리를 보여 줘야 한다.
+        quote_no, quote = _evidence_quote(node, anchors, by_no or {}, question_text)
+        speech = _speech_quote(anchors, transcript) if quote else ""
         gist = written_gist or _fallback_gist(node, trap=mark.trap, slide_nos=anchors)
         # 요소 쪼개기. LLM 이 쓴 것을 먼저 믿고, 안 썼는데 문면이 둘 이상을 묻고
         # 있으면 코드가 골자를 갈라 백스톱을 세운다 (_followup·_OPEN_QUESTION_RE 와
@@ -2434,16 +2485,16 @@ def _normalize_questions(
     return questions
 
 
-def _evidence_quote(node: ConceptNode, anchors: list[int], by_no: dict[int, Slide]) -> tuple[int, str]:
-    """anchor 장 순서대로 훑어 이 개념을 말하는 한 문장. (장 번호, 문장). 없으면 (0, "")."""
-    for no in anchors:
-        slide = by_no.get(no)
-        if slide is None:
-            continue
-        quote = quote_for(node.label, node.summary, clean_slide_text(slide.raw_text or ""))
-        if quote:
-            return no, quote
-    return 0, ""
+def _evidence_quote(
+    node: ConceptNode, anchors: list[int], by_no: dict[int, Slide], question: str = "",
+) -> tuple[int, str]:
+    """anchor 장 전부에서 이 질문을 가장 잘 받치는 한 줄. (장 번호, 문장). 없으면 (0, "").
+
+    장을 앞에서부터 보고 첫 문장을 쓰면 표지가 늘 이긴다 — 09-29 수면 발표에서 질문은 4장의
+    식(시간 × 연속성 × 규칙성)을 묻는데 힌트는 1장 설문 보기를 붙여 보여 줬다 (`best_quote`).
+    """
+    texts = [(no, by_no[no].raw_text or "") for no in anchors if no in by_no]
+    return best_quote(node.label, node.summary, texts, question)
 
 
 def _speech_quote(anchors: list[int], transcript: Transcript | None) -> str:

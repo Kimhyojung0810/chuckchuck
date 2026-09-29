@@ -175,6 +175,94 @@ def _sentences(text: str) -> list[str]:
     return [s for s in parts if len(s) >= QUOTE_MIN]
 
 
+#: 쪽 번호("01 / 08")처럼 숫자·구분자만 있는 줄 — 글이 아니다.
+_PAGE_NO_RE = re.compile(r"^[\d\s/|.·-]+$")
+#: 식을 잇는 기호로 끝나는 줄 — 다음 줄과 한 식이다 ("수면의 질 =" "시간" "×" "연속성").
+_OPERATOR_END_RE = re.compile(r"[=×+→÷]$")
+#: 문장이 이어지는 줄 — 쉼표·조사·연결 어미로 끝나면 줄바꿈이 문장 가운데서 난 것이다.
+_CONTINUES_END_RE = re.compile(r"(,|보다|아니라|는데|지만|으며|면서|에서|으로|에게|은|는|이|을|를|와|과|의|고|며)$")
+
+
+def slide_units(raw_text: str) -> list[str]:
+    """
+    슬라이드 원문을 **글 상자 줄 단위**로 나눈 인용 후보 (각 QUOTE_MIN 자 이상).
+
+    `clean_slide_text` 는 줄을 접어 한 줄로 만든다 — 인용이 그 위에서 마침표로만 자르면
+    제목·설문 보기·본문이 한 "문장" 으로 붙는다 (09-29 수면 1장 힌트: 「수면 시간보다 중요한
+    수면의 질 “어젯밤 몇 시간 잤나요?” 5시간 미만 5–7시간 7시간 이상 잠을 오래 잤다고…」).
+    그래서 줄을 먼저 나누고, 다음 줄과는 이럴 때만 잇는다.
+
+    - 식 기호로 끝나거나 식 기호만 있는 줄 — 칸마다 나뉜 식을 다시 한 식으로
+    - 쉼표·조사·연결 어미로 끝난 줄 — 한 문장이 두 줄로 접힌 것
+    - 아직 QUOTE_MIN 보다 짧은 덩이에 짧은 줄 — 낱말 칸들
+    """
+    lines = [clean_slide_text(line) for line in (raw_text or "").split("\n")]
+    lines = [line for line in lines if line and not _PAGE_NO_RE.match(line)]
+    runs: list[list[str]] = []
+    for line in lines:
+        prev = runs[-1] if runs else None
+        joined = " ".join(prev) if prev else ""
+        joins = prev is not None and (
+            bool(_OPERATOR_END_RE.search(prev[-1]) or _OPERATOR_END_RE.fullmatch(line))
+            # 이어짐을 먼저 본다 — "보다" 는 "다" 로 끝나도 문장 끝이 아니다
+            or bool(_CONTINUES_END_RE.search(prev[-1]))
+            or (len(joined) < QUOTE_MIN and len(line) < QUOTE_MIN)
+        )
+        if joins:
+            prev.append(line)
+        else:
+            runs.append([line])
+    return [s for run in runs for s in _sentences(" ".join(run))]
+
+
+def _overlap(query: list[str], tokens: list[str]) -> int:
+    """query 낱말 중 tokens 에 있는 수. 한글은 조사가 붙어도 같은 낱말로 본다 ("시간보다" ∋ "시간")."""
+    return sum(
+        1 for q in set(query)
+        if any(q == t or (q in t or t in q) and min(len(q), len(t)) >= 2 and q.isalpha() and t.isalpha()
+               for t in tokens)
+    )
+
+
+def best_quote(
+    label: str,
+    summary: str,
+    texts: list[tuple[int, str]],
+    question: str = "",
+    max_len: int = QUOTE_MAX,
+) -> tuple[int, str]:
+    """
+    여러 근거 장 가운데 **이 질문을 가장 잘 받치는 한 줄**. (장 번호, 인용). 없으면 (0, "").
+
+    `texts` 는 (장 번호, 원문 raw_text) — 줄 구조가 살아 있어야 한다 (`slide_units`).
+    예전엔 장을 앞에서부터 보고 첫 장의 문장을 썼다. 표지(1장)가 늘 먼저 걸려서, 질문이
+    4장의 식을 묻는데 힌트는 1장 설문 보기를 보여 줬다 (09-29 수면). 이제 모든 장의 줄을
+    한 줄 세워 점수로 고르고, 동점이면 앞 장이다.
+
+    점수는 개념 이름이 통째로 든 줄 +3, 이름·요약 낱말 겹침, 그리고 **질문 문장** 낱말
+    겹침이다 — 힌트는 질문이 가리키는 자리를 보여 줘야 한다.
+    """
+    name = _content_tokens(label)
+    base = set(_content_tokens(f"{label} {summary}"))
+    asked = [t for t in _content_tokens(question) if t not in base]
+    best: tuple[int, int, str] | None = None
+    for no, raw in texts:
+        for sentence in slide_units(raw):
+            tokens = _content_tokens(sentence)
+            present = set(tokens)
+            score = sum(1 for t in base if t in present) + _overlap(asked, tokens)
+            if name and contains_tokens(tokens, name):
+                score += 3
+            if best is None or score > best[0]:
+                best = (score, no, sentence)
+    if best is None:
+        return 0, ""
+    _, no, quote = best
+    if len(quote) > max_len:
+        quote = quote[: max_len - 1].rstrip() + "…"
+    return no, quote
+
+
 def quote_for(label: str, summary: str, text: str, max_len: int = QUOTE_MAX) -> str:
     """
     본문에서 **이 개념을 말하는 한 문장**을 그대로 옮긴다.
