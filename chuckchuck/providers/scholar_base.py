@@ -18,21 +18,52 @@ LLM provider 와 같은 규율이다 — 벤더 raw 는 구현체 안에서만 �
 from __future__ import annotations
 
 import contextvars
+import os
+import re
 import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from urllib.parse import quote, quote_plus
 
 from ..contracts import PaperError
 
 #: 검색 한 번의 결과 상태 (status 항목의 state). ok·empty 는 성공이고 나머지는 결과를 못 받은 까닭이다.
 SEARCH_STATES = ("ok", "empty", "rate_limited", "timeout", "throttled", "http", "network", "parse", "failed", "error")
 
+#: 오류 문구·통로 사정(status)에 실리면 안 되는 설정 값의 환경변수 — 학술 검색 통로의 키·연락 메일 (09-30 WP-M).
+SECRET_ENVS = ("OPENALEX_API_KEY", "OPENALEX_MAILTO", "SCHOLAR_MAILTO", "S2_API_KEY")
+#: 이보다 짧은 값은 가리지 않는다 — 한두 글자를 지우면 오류 문구가 뭉개진다 (키·메일은 이보다 길다).
+SECRET_MIN = 4
+
+
+def _secret_forms(value: str) -> set[str]:
+    """값이 글에 나올 수 있는 꼴 — 날값 · 주소 인코딩(quote·quote_plus) · repr 이스케이프(줄바꿈이 「\\n」 두 글자) · unicode_escape."""
+    return {value, quote(value, safe=""), quote_plus(value), repr(value)[1:-1],
+            value.encode("unicode_escape").decode("ascii")}
+
+
+def redact_secrets(text, extra=()) -> str:
+    """
+    글에서 학술 검색 키·연락 메일 값을 「***」 로 가린다 — 환경변수(SECRET_ENVS) 값과 호출자가 준 값(extra — 이번 요청에 실은
+    쿼리·머리 값) 모두, 날값·주소 인코딩(「%40」, 대소문자 무관)·repr 이스케이프 꼴 모두. `ScholarCallError` 가 문구를 받을 때와
+    `status_of_error` 가 부른다 — 통로마다 부르는 곳을 빠뜨려도 여기서 걸린다 (09-30 WP-M 보안 검토: requests 의 머리 오류
+    문구는 값을 repr 로 싣고, arXiv·예외 폴백 문구는 가리지 않고 나갔다).
+    """
+    out = str(text or "")
+    values = {(os.environ.get(n) or "").strip() for n in SECRET_ENVS} | {str(v or "").strip() for v in extra}
+    forms = {f for v in values if len(v) >= SECRET_MIN for f in _secret_forms(v) if len(f) >= SECRET_MIN}
+    if not forms:
+        return out
+    pattern = re.compile("|".join(re.escape(f) for f in sorted(forms, key=len, reverse=True)), re.I)
+    return pattern.sub("***", out)
+
 
 class ScholarCallError(PaperError):
-    """검색 한 번이 실패한 까닭을 코드로 싣는 PaperError. `status` 는 여러 통로를 합친 호출이 통로마다 남긴 사정."""
+    """검색 한 번이 실패한 까닭을 코드로 싣는 PaperError. `status` 는 여러 통로를 합친 호출이 통로마다 남긴 사정.
+    문구는 받을 때 키·메일 값을 가린다(`redact_secrets`) — 이 문구가 stderr·통로 사정·응답의 까닭 글로 나간다."""
 
     def __init__(self, message: str, *, kind: str = "failed", provider: str = "", status: list[dict] | None = None):
-        super().__init__(message)
+        super().__init__(redact_secrets(message))
         self.kind = kind if kind in SEARCH_STATES else "failed"
         self.provider = provider
         self.status = [dict(s) for s in (status or [])]
@@ -50,9 +81,10 @@ def status_of_error(provider: str, e: BaseException) -> dict:
     """예외 하나 → 통로 사정 한 줄 {provider, state, error} (state 는 SEARCH_STATES)."""
     if isinstance(e, ScholarCallError):
         return {"provider": provider, "state": e.kind, "error": str(e)[:200]}
+    # 통로 밖에서 만든 예외는 값을 가리지 않고 올 수 있다 — 자르기 전에 가린다 (09-30 WP-M)
     if isinstance(e, PaperError):
-        return {"provider": provider, "state": "failed", "error": str(e)[:200]}
-    return {"provider": provider, "state": "error", "error": f"{type(e).__name__}: {e}"[:200]}
+        return {"provider": provider, "state": "failed", "error": redact_secrets(e)[:200]}
+    return {"provider": provider, "state": "error", "error": redact_secrets(f"{type(e).__name__}: {e}")[:200]}
 
 
 def status_rows(value) -> list[dict]:
