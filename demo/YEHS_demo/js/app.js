@@ -3148,7 +3148,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=showcase6" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=showcase7" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -6365,11 +6365,12 @@ function qaHistoryPanelHtml({ open = false } = {}) {
     </details>`;
 }
 
-/** 판정 범례 — 다른 발표 녹음이라 전부 「판정 안 함」 이면 그 하나만. 안 쓰는 판정 다섯을 늘어놓으면 판정을 한 것처럼 읽힌다 (REC-10) */
+/** 판정 범례 — 다른 발표 녹음이라 전부 「판정 안 함」 이면 그 하나만. 안 쓰는 판정 다섯을 늘어놓으면 판정을 한 것처럼 읽힌다 (REC-10).
+ *  짐작이라 판정 안 한 개념이 섞였으면 다섯 뒤에 「판정 안 함」 도 단다 — 필름의 회색 점을 범례에서 찾을 수 있어야 한다 */
 function judgeLegendHtml(rows) {
   const list = Array.isArray(rows) ? rows : [];
   const allNa = list.length > 0 && list.every(n => n.status === 'na');
-  const keys = allNa ? ['na'] : ['ok', 'mid', 'no', 'ct', 'om'];
+  const keys = allNa ? ['na'] : ['ok', 'mid', 'no', 'ct', 'om', ...(list.some(n => n.status === 'na') ? ['na'] : [])];
   return keys.map(k => `<span><i class="dot st-${k}"></i>${STATUS[k]}</span>`).join('');
 }
 
@@ -6897,7 +6898,7 @@ function deckHtml() {
       <span class="bubble-label" style="margin-top:0">이 슬라이드에서 한 말</span>
       <div class="bubble">${node.ev
         ? escapeHtml(node.ev)
-        : `<span class="note">${noEvidenceNote(node.status)}</span>`}${node.evTime ? `<time>${escapeHtml(node.evTime)}</time>` : ''}</div>
+        : `<span class="note">${noEvidenceNote(node.status, node.naWhy, node.mentions)}</span>`}${node.evTime ? `<time>${escapeHtml(node.evTime)}</time>` : ''}</div>
       ${node.why ? `<p class="note" style="margin-top:10px">${escapeHtml(node.why)}</p>` : ''}
       ${node.fix ? `<div class="dp-fix"><b>이렇게 말해보세요</b><p>${escapeHtml(node.fix)}</p></div>` : ''}
       <button class="btn btn-tint btn-sm" id="deckJudgeGo" data-node="${escapeHtml(node.id)}">판정 근거 자세히 보기</button>`;
@@ -6959,11 +6960,31 @@ function prioCard(p, num) {
     </div>`;
 }
 
-/** 근거 발화가 빈 개념의 한 줄 — 판정하지 않은 개념(na)은 「찾지 못했어요」 가 아니다. 찾아보지 않았다 (REC-10) */
-function noEvidenceNote(status) {
-  return status === 'na'
-    ? '녹음이 이 자료의 발표가 아니라서 이 개념의 말은 찾아보지 않았어요.'
-    : '이 개념에 해당하는 발화를 찾지 못했어요.';
+/**
+ * 근거 발화가 빈 개념의 한 줄 — 판정하지 않은 개념(na)은 「찾지 못했어요」 가 아니다. 찾아보지 않았다 (REC-10).
+ * 짐작(naWhy 'guess')은 AI 판정이 비어 판정하지 않은 개념이다 — 짐작의 재료였던 **잰 수**(이름이 나온 횟수)는 판정이 아니라
+ * 사실로 적는다. 이름 그대로 안 나왔어도 다른 말로 설명했을 수 있다 — 그래서 「안 나옴」 으로 부르지 않는다.
+ */
+function noEvidenceNote(status, naWhy = 'unrelated', mentions = null) {
+  if (status !== 'na') return '이 개념에 해당하는 발화를 찾지 못했어요.';
+  if (naWhy !== 'guess') return '녹음이 이 자료의 발표가 아니라서 이 개념의 말은 찾아보지 않았어요.';
+  const n = Number(mentions);
+  const fact = mentions == null || !Number.isFinite(n) ? ''
+    : n > 0 ? ` 발표에서 이 개념 이름은 ${n}번 나왔어요.`
+      : ' 발표에서 이 개념 이름 그대로는 나오지 않았어요. 다른 말로 설명했을 수 있어요.';
+  return `AI 판정이 비어서 이 개념은 판정하지 않았어요.${fact}`;
+}
+
+/**
+ * 개념 판정을 판정으로 세우지 않는 까닭 — 'unrelated'(녹음이 이 자료의 발표가 아니다) · 'guess'(AI 판정이 비어 코드가 언급 횟수로
+ * 짐작한 것, F-11 decided_by fallback) · ''(판정 그대로). 짐작은 「안 말했다」 는 확인이 아니다 — 채점(F-13·F-14)·질문(F-08)·객석(F-12)이
+ * 판정으로 세지 않는다(contracts ALIGN_DECIDERS). 화면만 「안 나옴」「설명함」 으로 칠하면 같은 리포트가 「개념 전달은 채점하지
+ * 않았어요」 와 「안 나옴 14개」 를 같이 말한다 (qa/tidy · WP-D 남은 것). 코드가 까닭을 대고 정한 판정(decided_by code — 자료 원문과
+ * 어긋난 수치, 말로 건너뛴 장, 찾은 발화)은 짐작이 아니라서 그대로 판정이다.
+ */
+function conceptUnjudgedWhy(item, unrelated) {
+  if (unrelated) return 'unrelated';
+  return item && item.decided_by === 'fallback' ? 'guess' : '';
 }
 
 /* 탭 2 — 개념별 판정 */
@@ -6988,6 +7009,8 @@ function judgeSlideOf(node, item) {
  * 결과가 없으면 null — 호출부가 DATA 샘플로 떨어지고 화면에 그렇게 표시한다.
  * 녹음이 이 자료의 발표가 아니면 정합은 판정을 하지 않았다(basis skipped) — item 이 missing 이어도 「안 나옴」 이 아니라
  * 「판정 안 함」(na)이다. 같은 화면이 「판정하지 않았어요」 와 「안 나옴 17개」 를 같이 말하던 자리다 (REC-10).
+ * AI 판정이 비어 짐작으로 채운 개념(decided_by fallback — basis fallback 이면 거의 전부)도 「판정 안 함」 이다 (`conceptUnjudgedWhy`).
+ * 까닭(naWhy)과 짐작의 재료였던 이름 언급 횟수(mentions)를 같이 들고 가 화면이 사실로 적는다.
  */
 function realJudgeTree() {
   const out = reportOut();
@@ -7005,6 +7028,7 @@ function realJudgeTree() {
       const it = itemBy[n.id];
       const basis = it.speech_basis || {};
       const slideNo = judgeSlideOf(n, it);
+      const naWhy = conceptUnjudgedWhy(it, unjudged);
       return {
         id: n.id,
         label: n.label || n.id,
@@ -7012,12 +7036,15 @@ function realJudgeTree() {
         parent: n.parent_id || null,
         w: n.weight || 0,
         slide: `S${String(slideNo).padStart(2, '0')}`,
-        status: unjudged ? 'na' : (STATUS_FROM_VERDICT[it.verdict] || 'no'),
+        status: naWhy ? 'na' : (STATUS_FROM_VERDICT[it.verdict] || 'no'),
+        naWhy,
+        mentions: typeof basis.mention_count === 'number' && Number.isFinite(basis.mention_count) ? basis.mention_count : null,
         conf: Math.round((it.confidence || 0) * 100),
         checks: it.checks || {},
         ev: it.evidence || '',
         evTime: basis.first_mention_sec != null ? fmtMarkSec(basis.first_mention_sec) : '',
-        why: it.note || '',
+        // 짐작한 개념의 note 는 버려진 LLM 판정의 까닭이다(「근거 없이 aligned」 의 설명 등) — 판정 이유로 세우지 않는다
+        why: naWhy === 'guess' ? '' : (it.note || ''),
         fix: it.suggestion || '',
         real: true,
       };
@@ -7057,22 +7084,28 @@ function judgeSplitHtml(tree) {
   if (!total) return '';
   const n = {};
   tree.forEach(t => { n[t.status] = (n[t.status] || 0) + 1; });
-  /* 녹음이 이 자료의 발표가 아니면 판정 자체가 없다 — 「0개를 설명했어요 · 다시 볼 곳 N개」 는 거짓이다 (REC-10) */
+  /* 녹음이 이 자료의 발표가 아니면 판정 자체가 없다 — 「0개를 설명했어요 · 다시 볼 곳 N개」 는 거짓이다 (REC-10).
+     AI 판정이 통째로 비었을 때(전부 짐작)도 같다 — 까닭만 다르다 */
   if (n.na === total) {
+    const guess = tree.every(t => t.naWhy === 'guess');
     return `
     <div class="card jsplit-card">
-      <p class="jsplit-head">녹음이 이 자료의 발표가 아니라서 개념 <b class="num">${total}</b>개를 판정하지 않았어요</p>
-      <p class="note">이 자료로 발표한 녹음을 올리면 개념마다 설명했는지 같이 볼게요.</p>
+      <p class="jsplit-head">${guess ? 'AI 판정이 비어서' : '녹음이 이 자료의 발표가 아니라서'} 개념 <b class="num">${total}</b>개를 판정하지 않았어요</p>
+      <p class="note">${guess
+        ? '다시 분석하면 개념마다 설명했는지 같이 볼게요.'
+        : '이 자료로 발표한 녹음을 올리면 개념마다 설명했는지 같이 볼게요.'}</p>
     </div>`;
   }
   const rows = JUDGE_SPLIT.filter(([k]) => n[k]);
   /* 짚어야 할 것 = 안 나옴 + 자료와 모순. 「설명함 3개」만 크게 쓰면 잘한 것만
      말하는 리포트가 된다 — 못 한 쪽도 같은 줄에 적는다 (§4) */
   const redo = (n.no || 0) + (n.ct || 0);
+  /* 판정 안 한 개념이 섞였으면 분모는 판정한 개념이다 — 「28개 중 2개를 설명했어요」 는 짐작 26개를 못 한 것으로 센다 */
+  const judged = total - (n.na || 0);
   return `
     <div class="card jsplit-card">
       <p class="jsplit-head">
-        개념 <b class="num">${total}</b>개 중 <b class="num jsplit-ok">${n.ok || 0}</b>개를 설명했어요${
+        ${judged < total ? '판정한 개념' : '개념'} <b class="num">${judged}</b>개 중 <b class="num jsplit-ok">${n.ok || 0}</b>개를 설명했어요${
         redo ? `<span class="jsplit-redo">다시 볼 곳 ${redo}개</span>` : ''}
       </p>
       <div class="jsplit-rows">${rows.map(([k, label]) => `
@@ -7081,6 +7114,7 @@ function judgeSplitHtml(tree) {
           <span class="jsplit-name">${label}</span>
           <b class="num">${n[k]}</b>
         </div>`).join('')}</div>
+      ${n.na ? `<p class="note">판정 안 함 ${n.na}개는 AI 판정이 비어서 설명했는지 가리지 않은 개념이에요.</p>` : ''}
     </div>`;
 }
 
@@ -7124,7 +7158,9 @@ function rJudge() {
       <div class="card" id="jdetail">${n ? jDetail(n, tree) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
     </div>
     <p class="ai-note">${isReal && tree.every(t => t.status === 'na')
-      ? '녹음이 이 자료의 발표가 아니라서 개념 판정은 하지 않았어요.'
+      ? (tree.every(t => t.naWhy === 'guess')
+        ? 'AI 판정이 비어서 개념 판정은 하지 않았어요.'
+        : '녹음이 이 자료의 발표가 아니라서 개념 판정은 하지 않았어요.')
       : (isReal || isShowcaseDemo())
       ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
       : (isLiveReportSession()
@@ -7173,7 +7209,7 @@ function jDetail(n, tree = DATA.tree) {
       <div class="bubble fixup" style="background:var(--ct-bg)">${n.spokeSays}<time>${n.spokeTime}</time></div>
     </div>` : `
     <div class="drow"><b>근거 발화</b>
-      <div class="bubble">${n.ev ? escapeHtml(n.ev) : `<span class="note">${noEvidenceNote(n.status)}</span>`}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
+      <div class="bubble">${n.ev ? escapeHtml(n.ev) : `<span class="note">${noEvidenceNote(n.status, n.naWhy, n.mentions)}</span>`}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
     </div>`}
     ${n.why ? `<div class="drow"><b>판정 이유</b>${escapeHtml(n.why)}</div>` : ''}
     ${n.fix ? `<div class="fixbox"><b>이렇게 말해보세요</b><p>${escapeHtml(n.fix)}</p></div>` : ''}
@@ -8448,17 +8484,21 @@ const QA_BUILD_POOL_MAX = 4;
 /** 이 초를 넘으면 문구를 바꾼다. 「10초쯤」이라 해 놓고 침묵하지 않는다 */
 const QA_BUILD_OVERRUN_SEC = 25;
 
-/** 질문이 나올 자리 — 안 나온 개념과 자료와 어긋난 개념을 무게순으로 */
+/** 질문이 나올 자리 — 안 나온 개념과 자료와 어긋난 개념을 무게순으로.
+ *  판정하지 않은 개념은 후보가 아니다 — 다른 발표 녹음이면 전부, AI 판정이 비어 짐작한 개념(decided_by fallback)은 하나씩.
+ *  예전엔 다른 발표 녹음에서 개념마다 「한 번도 안 나왔어요」 를 달았다 (F-08 도 짐작은 누락으로 세지 않는다 — conceptUnjudgedWhy) */
 function qaBuildCandidates() {
   const out = nf && nf.pipelineOut;
   const al = out && out.alignment;
   const graph = out && out.graph;
   if (!al || !graph) return [];
+  const unrelated = recordingUnrelated(out.score, al);
   const labelOf = {};
   (graph.nodes || []).forEach((n) => { labelOf[n.id] = n.label || ''; });
   // 모순이 먼저다. 안 한 말보다 틀린 말이 질문으로 더 아프다
   const rank = { contradiction: 0, missing: 1 };
   return (al.items || [])
+    .filter((i) => !conceptUnjudgedWhy(i, unrelated))
     .filter((i) => i.verdict === 'contradiction' || i.verdict === 'missing')
     .sort((a, b) => (rank[a.verdict] - rank[b.verdict])
       || ((b.doc_weight || 0) - (a.doc_weight || 0)))

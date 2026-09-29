@@ -61,7 +61,7 @@ function extractBlockConst(src, name) {
 
 const NAMES = ['faultClip', 'reportFaultRows', 'reportFaultHeadline', 'reportFaultsHtml', 'scoreGrade',
   'recordingUnrelated', 'reuploadDimsHtml', 'dimRestRowHtml', 'realJudgeTree', 'judgeSplitHtml', 'judgeLegendHtml',
-  'noEvidenceNote', 'unmeasuredLinesHtml', 'fmtMarkSec', 'judgeSlideOf'];
+  'noEvidenceNote', 'unmeasuredLinesHtml', 'fmtMarkSec', 'judgeSlideOf', 'conceptUnjudgedWhy'];
 /* 다른 발표 녹음(REC-10)을 그리는 함수들이 기대는 전역 — 리포트 재료(reportOut)만 흉내 내고 나머지는 원본을 잘라 올린다 */
 function load(src = APP_SRC) {
   const ctx = vm.createContext({
@@ -265,7 +265,7 @@ test('하네스가 회귀를 잡는다 (헤드가 결함을 무시하는 app.js 
 });
 
 test('하네스가 회귀를 잡는다 (다른 발표 녹음의 개념을 「안 나옴」 으로 그리는 app.js 를 넣으면 실패)', () => {
-  const broken = APP_SRC.replace("status: unjudged ? 'na' : (STATUS_FROM_VERDICT[it.verdict] || 'no'),",
+  const broken = APP_SRC.replace("status: naWhy ? 'na' : (STATUS_FROM_VERDICT[it.verdict] || 'no'),",
     "status: STATUS_FROM_VERDICT[it.verdict] || 'no',");
   ok(broken !== APP_SRC, '망가뜨릴 줄을 못 찾았어요 — 원본이 바뀌었으면 이 케이스도 같이 고쳐요');
   const B = load(broken);
