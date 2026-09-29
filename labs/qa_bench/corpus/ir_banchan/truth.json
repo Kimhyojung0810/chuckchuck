@@ -1,0 +1,175 @@
+{
+ "deck": "ir_banchan",
+ "synthetic": true,
+ "context": {
+  "situation": "competition",
+  "duration_min": 7
+ },
+ "control_tension": false,
+ "planted": [
+  {
+   "id": "T1",
+   "kind": "tension",
+   "expect": "probe",
+   "slides": [
+    1,
+    3
+   ],
+   "labels_any": [
+    "월 반복 매출",
+    "반복 매출",
+    "MRR"
+   ],
+   "quote_any": [
+    "구독자 수보다 중요한",
+    "월 반복 매출 ="
+   ],
+   "note": "구독자 수보다 중요하다면서 구독자 수가 월 반복 매출의 요소"
+  },
+  {
+   "id": "U1",
+   "kind": "unsolved",
+   "expect": "probe",
+   "slides": [
+    4,
+    5
+   ],
+   "labels_any": [
+    "첫 달 이탈",
+    "이탈"
+   ],
+   "quote_any": [
+    "첫 달 이탈"
+   ],
+   "note": "해결책이 배송비·폐기만 다루고 첫 달 이탈은 비어 있다"
+  },
+  {
+   "id": "C1",
+   "kind": "unsupported_cause",
+   "expect": "probe",
+   "slides": [
+    2
+   ],
+   "labels_any": [
+    "1인 가구"
+   ],
+   "quote_any": [
+    "1인 가구 증가가"
+   ],
+   "note": "2장에 수치·출처 없음"
+  },
+  {
+   "id": "C2",
+   "kind": "supported_cause",
+   "expect": "no_probe",
+   "slides": [
+    6
+   ],
+   "labels_any": [
+    "묶음 배송",
+    "권역 묶음"
+   ],
+   "quote_any": [
+    "41% 줄었"
+   ],
+   "note": "수치가 있는 인과 — unsupported_cause 가 나오면 오탐"
+  },
+  {
+   "id": "A1",
+   "kind": "absolute_boundary",
+   "expect": "probe",
+   "slides": [
+    5
+   ],
+   "labels_any": [
+    "주문 마감",
+    "수요 예측",
+    "폐기"
+   ],
+   "quote_any": [
+    "반드시 0개"
+   ],
+   "note": "단정"
+  },
+  {
+   "id": "H1",
+   "kind": "hedged",
+   "expect": "no_probe",
+   "slides": [
+    7
+   ],
+   "labels_any": [
+    "고객 반응",
+    "유지"
+   ],
+   "quote_any": [
+    "경향이 있습니다"
+   ],
+   "note": "유보 표현 — absolute_boundary 가 나오면 오탐"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "compare",
+   "slide": 1,
+   "quote_any": [
+    "구독자 수보다 중요한"
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 3,
+   "quote_any": [
+    "월 반복 매출 ="
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 4,
+   "quote_any": [
+    "높은 배송비",
+    "세 가지 문제",
+    "첫 달 이탈",
+    "반찬 폐기"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 5,
+   "quote_any": [
+    "권역 묶음 배송"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 5,
+   "quote_any": [
+    "수요 예측 주문 마감"
+   ]
+  },
+  {
+   "kind": "cause",
+   "slide": 2,
+   "quote_any": [
+    "1인 가구 증가가"
+   ]
+  },
+  {
+   "kind": "absolute",
+   "slide": 5,
+   "quote_any": [
+    "반드시 0개"
+   ]
+  }
+ ],
+ "noise_lines": [
+  "01 / 08",
+  "02 / 08",
+  "03 / 08",
+  "04 / 08",
+  "05 / 08",
+  "06 / 08",
+  "07 / 08",
+  "08 / 08"
+ ]
+}

@@ -1,0 +1,226 @@
+{
+ "file_name": "혈당스파이크와_식사순서_교양발표.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "밥 먹고 졸린 이유",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "01 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "밥 먹고 졸린 이유"
+    },
+    {
+     "category": "paragraph",
+     "text": "탄수화물 양보다 중요한 혈당 부하"
+    },
+    {
+     "category": "paragraph",
+     "text": "“점심 먹고 가장 졸린 시간은?”"
+    },
+    {
+     "category": "paragraph",
+     "text": "1시"
+    },
+    {
+     "category": "paragraph",
+     "text": "2시"
+    },
+    {
+     "category": "paragraph",
+     "text": "3시 이후"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "혈당 스파이크란",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "02 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "혈당 스파이크란"
+    },
+    {
+     "category": "paragraph",
+     "text": "식후 혈당이 짧은 시간에 급하게 올랐다가 떨어지는 현상입니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "혈당 부하 계산",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "03 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "혈당 부하 계산"
+    },
+    {
+     "category": "paragraph",
+     "text": "혈당 부하 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "혈당 지수"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "탄수화물 양"
+    },
+    {
+     "category": "paragraph",
+     "text": "÷ 100"
+    },
+    {
+     "category": "paragraph",
+     "text": "얼마나 빨리 오르는 음식인가"
+    },
+    {
+     "category": "paragraph",
+     "text": "얼마나 먹었는가"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "스파이크가 만드는 세 가지 문제",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "04 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "스파이크가 만드는 세 가지 문제"
+    },
+    {
+     "category": "paragraph",
+     "text": "식후 졸림"
+    },
+    {
+     "category": "paragraph",
+     "text": "잦은 허기"
+    },
+    {
+     "category": "paragraph",
+     "text": "야간 폭식"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "식사 순서 바꾸기",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "05 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "식사 순서 바꾸기"
+    },
+    {
+     "category": "paragraph",
+     "text": "채소 → 단백질 → 탄수화물 순서로 먹으면 식후 졸림을 줄일 수 있습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "식이섬유를 먼저 먹으면 포만감이 오래가서 잦은 허기를 막습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "연구로 본 효과",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "06 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "연구로 본 효과"
+    },
+    {
+     "category": "paragraph",
+     "text": "채소를 먼저 먹은 그룹은 식후 혈당 최고치가 평균 29% 낮았습니다 (Shukla 외, 2015)."
+    },
+    {
+     "category": "table",
+     "text": "| 순서 | 30분 혈당 | 60분 혈당 |"
+    },
+    {
+     "category": "table",
+     "text": "| 탄수화물 먼저 | 172 | 180 |"
+    },
+    {
+     "category": "table",
+     "text": "| 채소 먼저 | 122 | 128 |"
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "생활 속 팁",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "07 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "생활 속 팁"
+    },
+    {
+     "category": "paragraph",
+     "text": "야식이 다음 날 아침 공복 혈당을 높입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "개인에 따라 반응이 다를 수 있으니 무리하지 마세요."
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "정리",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "08 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "정리"
+    },
+    {
+     "category": "paragraph",
+     "text": "무엇을 먹느냐만큼 어떤 순서로 먹느냐도 중요합니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    }
+   ]
+  }
+ ]
+}

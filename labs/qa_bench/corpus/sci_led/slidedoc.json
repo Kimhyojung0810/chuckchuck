@@ -1,0 +1,184 @@
+{
+ "file_name": "LED광원_상추생장_탐구보고.pptx",
+ "total_slides": 7,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "LED 광원 색에 따른 상추 생장 비교",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "LED 광원 색에 따른 상추 생장 비교"
+    },
+    {
+     "category": "paragraph",
+     "text": "과학탐구 2모둠"
+    },
+    {
+     "category": "paragraph",
+     "text": "1 / 7"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "탐구 질문",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "탐구 질문"
+    },
+    {
+     "category": "paragraph",
+     "text": "빛의 색이 달라지면 상추의 생장도 달라질까?"
+    },
+    {
+     "category": "paragraph",
+     "text": "가설: 적색광 비율이 높을수록 잎 면적이 넓어진다."
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "실험 설계",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "실험 설계"
+    },
+    {
+     "category": "table",
+     "text": "| 조건 | 광원 | 광량(μmol) | 개체 수 |"
+    },
+    {
+     "category": "table",
+     "text": "| A | 적색 LED | 200 | 12 |"
+    },
+    {
+     "category": "table",
+     "text": "| B | 청색 LED | 200 | 12 |"
+    },
+    {
+     "category": "table",
+     "text": "| C | 백색 LED | 200 | 12 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "온도 22℃ · 광주기 16시간 · 4주 재배"
+    },
+    {
+     "category": "paragraph",
+     "text": "3 / 7"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "측정 방법",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "측정 방법"
+    },
+    {
+     "category": "paragraph",
+     "text": "생장 지수 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "잎 면적"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "생체중"
+    },
+    {
+     "category": "paragraph",
+     "text": "잎 면적은 사진 분석, 생체중은 전자저울로 측정"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "결과",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "결과"
+    },
+    {
+     "category": "table",
+     "text": "| 조건 | 잎 면적(cm²) | 생체중(g) |"
+    },
+    {
+     "category": "table",
+     "text": "| A | 182 | 21.4 |"
+    },
+    {
+     "category": "table",
+     "text": "| B | 131 | 17.9 |"
+    },
+    {
+     "category": "table",
+     "text": "| C | 158 | 19.6 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "적색광 조건의 잎 면적이 청색광보다 39% 넓었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "5 / 7"
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "해석",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "해석"
+    },
+    {
+     "category": "paragraph",
+     "text": "적색광은 청색광보다 잎 면적 확장에 효과적인 것으로 보입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "다만 이 결과는 온도와 품종에 따라 달라질 수 있습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "청색광 조건은 줄기가 짧고 잎이 두꺼웠습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "한계와 다음 탐구",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "한계와 다음 탐구"
+    },
+    {
+     "category": "paragraph",
+     "text": "개체 수가 조건당 12개로 적습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "다음에는 적색·청색 혼합 비율을 바꿔 보려고 합니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "7 / 7"
+    }
+   ]
+  }
+ ]
+}

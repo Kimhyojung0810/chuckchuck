@@ -1,0 +1,1271 @@
+{
+ "full_text": "점심 먹고 두 시쯤 되면 너무 졸리잖아요. 오늘은 왜 그런지, 그리고 탄수화물 양보다 혈당 부하가 왜 더 중요한지 이야기해 볼게요. 혈당 스파이크는 밥을 먹은 뒤에 혈당이 짧은 시간에 확 올랐다가 뚝 떨어지는 현상이에요. 이게 떨어질 때 졸리고 기운이 빠져요. 이건 계산식인데 넘어갈게요. 스파이크가 반복되면 식후에 졸리고, 금방 또 배가 고프고, 밤에 폭식하게 돼요. 이 세 가지가 문제예요. 그래서 식사 순서를 바꾸자는 거예요. 채소를 먼저, 그다음 고기나 두부 같은 단백질, 마지막에 밥을 먹으면 졸림이 줄어요. 식이섬유가 먼저 들어가면 배도 오래 불러요. 실제로 채소를 먼저 먹은 그룹은 혈당 최고치가 평균 29퍼센트 낮았다는 연구가 있어요. 표를 보면 30분, 60분 혈당이 다 낮아요. 야식을 먹으면 다음 날 아침 혈당도 높아져요. 다만 사람마다 반응이 다르니까 무리하지는 마세요. 무엇을 먹느냐만큼 어떤 순서로 먹느냐도 중요해요. 감사합니다.",
+ "words": [
+  {
+   "text": "점심",
+   "start_sec": 0.0,
+   "end_sec": 1.4
+  },
+  {
+   "text": "먹고",
+   "start_sec": 1.4,
+   "end_sec": 2.8
+  },
+  {
+   "text": "두",
+   "start_sec": 2.8,
+   "end_sec": 4.2
+  },
+  {
+   "text": "시쯤",
+   "start_sec": 4.2,
+   "end_sec": 5.6
+  },
+  {
+   "text": "되면",
+   "start_sec": 5.6,
+   "end_sec": 7.0
+  },
+  {
+   "text": "너무",
+   "start_sec": 7.0,
+   "end_sec": 8.4
+  },
+  {
+   "text": "졸리잖아요.",
+   "start_sec": 8.4,
+   "end_sec": 9.8
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 9.8,
+   "end_sec": 11.2
+  },
+  {
+   "text": "왜",
+   "start_sec": 11.2,
+   "end_sec": 12.6
+  },
+  {
+   "text": "그런지,",
+   "start_sec": 12.6,
+   "end_sec": 14.0
+  },
+  {
+   "text": "그리고",
+   "start_sec": 14.0,
+   "end_sec": 15.4
+  },
+  {
+   "text": "탄수화물",
+   "start_sec": 15.4,
+   "end_sec": 16.8
+  },
+  {
+   "text": "양보다",
+   "start_sec": 16.8,
+   "end_sec": 18.2
+  },
+  {
+   "text": "혈당",
+   "start_sec": 18.2,
+   "end_sec": 19.6
+  },
+  {
+   "text": "부하가",
+   "start_sec": 19.6,
+   "end_sec": 21.0
+  },
+  {
+   "text": "왜",
+   "start_sec": 21.0,
+   "end_sec": 22.4
+  },
+  {
+   "text": "더",
+   "start_sec": 22.4,
+   "end_sec": 23.8
+  },
+  {
+   "text": "중요한지",
+   "start_sec": 23.8,
+   "end_sec": 25.2
+  },
+  {
+   "text": "이야기해",
+   "start_sec": 25.2,
+   "end_sec": 26.6
+  },
+  {
+   "text": "볼게요.",
+   "start_sec": 26.6,
+   "end_sec": 28.0
+  },
+  {
+   "text": "혈당",
+   "start_sec": 28.0,
+   "end_sec": 29.42
+  },
+  {
+   "text": "스파이크는",
+   "start_sec": 29.42,
+   "end_sec": 30.84
+  },
+  {
+   "text": "밥을",
+   "start_sec": 30.84,
+   "end_sec": 32.26
+  },
+  {
+   "text": "먹은",
+   "start_sec": 32.26,
+   "end_sec": 33.68
+  },
+  {
+   "text": "뒤에",
+   "start_sec": 33.68,
+   "end_sec": 35.11
+  },
+  {
+   "text": "혈당이",
+   "start_sec": 35.11,
+   "end_sec": 36.53
+  },
+  {
+   "text": "짧은",
+   "start_sec": 36.53,
+   "end_sec": 37.95
+  },
+  {
+   "text": "시간에",
+   "start_sec": 37.95,
+   "end_sec": 39.37
+  },
+  {
+   "text": "확",
+   "start_sec": 39.37,
+   "end_sec": 40.79
+  },
+  {
+   "text": "올랐다가",
+   "start_sec": 40.79,
+   "end_sec": 42.21
+  },
+  {
+   "text": "뚝",
+   "start_sec": 42.21,
+   "end_sec": 43.63
+  },
+  {
+   "text": "떨어지는",
+   "start_sec": 43.63,
+   "end_sec": 45.05
+  },
+  {
+   "text": "현상이에요.",
+   "start_sec": 45.05,
+   "end_sec": 46.47
+  },
+  {
+   "text": "이게",
+   "start_sec": 46.47,
+   "end_sec": 47.89
+  },
+  {
+   "text": "떨어질",
+   "start_sec": 47.89,
+   "end_sec": 49.32
+  },
+  {
+   "text": "때",
+   "start_sec": 49.32,
+   "end_sec": 50.74
+  },
+  {
+   "text": "졸리고",
+   "start_sec": 50.74,
+   "end_sec": 52.16
+  },
+  {
+   "text": "기운이",
+   "start_sec": 52.16,
+   "end_sec": 53.58
+  },
+  {
+   "text": "빠져요.",
+   "start_sec": 53.58,
+   "end_sec": 55.0
+  },
+  {
+   "text": "이건",
+   "start_sec": 55.0,
+   "end_sec": 57.0
+  },
+  {
+   "text": "계산식인데",
+   "start_sec": 57.0,
+   "end_sec": 59.0
+  },
+  {
+   "text": "넘어갈게요.",
+   "start_sec": 59.0,
+   "end_sec": 61.0
+  },
+  {
+   "text": "스파이크가",
+   "start_sec": 61.0,
+   "end_sec": 62.93
+  },
+  {
+   "text": "반복되면",
+   "start_sec": 62.93,
+   "end_sec": 64.87
+  },
+  {
+   "text": "식후에",
+   "start_sec": 64.87,
+   "end_sec": 66.8
+  },
+  {
+   "text": "졸리고,",
+   "start_sec": 66.8,
+   "end_sec": 68.73
+  },
+  {
+   "text": "금방",
+   "start_sec": 68.73,
+   "end_sec": 70.67
+  },
+  {
+   "text": "또",
+   "start_sec": 70.67,
+   "end_sec": 72.6
+  },
+  {
+   "text": "배가",
+   "start_sec": 72.6,
+   "end_sec": 74.53
+  },
+  {
+   "text": "고프고,",
+   "start_sec": 74.53,
+   "end_sec": 76.47
+  },
+  {
+   "text": "밤에",
+   "start_sec": 76.47,
+   "end_sec": 78.4
+  },
+  {
+   "text": "폭식하게",
+   "start_sec": 78.4,
+   "end_sec": 80.33
+  },
+  {
+   "text": "돼요.",
+   "start_sec": 80.33,
+   "end_sec": 82.27
+  },
+  {
+   "text": "이",
+   "start_sec": 82.27,
+   "end_sec": 84.2
+  },
+  {
+   "text": "세",
+   "start_sec": 84.2,
+   "end_sec": 86.13
+  },
+  {
+   "text": "가지가",
+   "start_sec": 86.13,
+   "end_sec": 88.07
+  },
+  {
+   "text": "문제예요.",
+   "start_sec": 88.07,
+   "end_sec": 90.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 90.0,
+   "end_sec": 91.83
+  },
+  {
+   "text": "식사",
+   "start_sec": 91.83,
+   "end_sec": 93.65
+  },
+  {
+   "text": "순서를",
+   "start_sec": 93.65,
+   "end_sec": 95.48
+  },
+  {
+   "text": "바꾸자는",
+   "start_sec": 95.48,
+   "end_sec": 97.3
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 97.3,
+   "end_sec": 99.13
+  },
+  {
+   "text": "채소를",
+   "start_sec": 99.13,
+   "end_sec": 100.96
+  },
+  {
+   "text": "먼저,",
+   "start_sec": 100.96,
+   "end_sec": 102.78
+  },
+  {
+   "text": "그다음",
+   "start_sec": 102.78,
+   "end_sec": 104.61
+  },
+  {
+   "text": "고기나",
+   "start_sec": 104.61,
+   "end_sec": 106.43
+  },
+  {
+   "text": "두부",
+   "start_sec": 106.43,
+   "end_sec": 108.26
+  },
+  {
+   "text": "같은",
+   "start_sec": 108.26,
+   "end_sec": 110.09
+  },
+  {
+   "text": "단백질,",
+   "start_sec": 110.09,
+   "end_sec": 111.91
+  },
+  {
+   "text": "마지막에",
+   "start_sec": 111.91,
+   "end_sec": 113.74
+  },
+  {
+   "text": "밥을",
+   "start_sec": 113.74,
+   "end_sec": 115.57
+  },
+  {
+   "text": "먹으면",
+   "start_sec": 115.57,
+   "end_sec": 117.39
+  },
+  {
+   "text": "졸림이",
+   "start_sec": 117.39,
+   "end_sec": 119.22
+  },
+  {
+   "text": "줄어요.",
+   "start_sec": 119.22,
+   "end_sec": 121.04
+  },
+  {
+   "text": "식이섬유가",
+   "start_sec": 121.04,
+   "end_sec": 122.87
+  },
+  {
+   "text": "먼저",
+   "start_sec": 122.87,
+   "end_sec": 124.7
+  },
+  {
+   "text": "들어가면",
+   "start_sec": 124.7,
+   "end_sec": 126.52
+  },
+  {
+   "text": "배도",
+   "start_sec": 126.52,
+   "end_sec": 128.35
+  },
+  {
+   "text": "오래",
+   "start_sec": 128.35,
+   "end_sec": 130.17
+  },
+  {
+   "text": "불러요.",
+   "start_sec": 130.17,
+   "end_sec": 132.0
+  },
+  {
+   "text": "실제로",
+   "start_sec": 132.0,
+   "end_sec": 134.0
+  },
+  {
+   "text": "채소를",
+   "start_sec": 134.0,
+   "end_sec": 136.0
+  },
+  {
+   "text": "먼저",
+   "start_sec": 136.0,
+   "end_sec": 138.0
+  },
+  {
+   "text": "먹은",
+   "start_sec": 138.0,
+   "end_sec": 140.0
+  },
+  {
+   "text": "그룹은",
+   "start_sec": 140.0,
+   "end_sec": 142.0
+  },
+  {
+   "text": "혈당",
+   "start_sec": 142.0,
+   "end_sec": 144.0
+  },
+  {
+   "text": "최고치가",
+   "start_sec": 144.0,
+   "end_sec": 146.0
+  },
+  {
+   "text": "평균",
+   "start_sec": 146.0,
+   "end_sec": 148.0
+  },
+  {
+   "text": "29퍼센트",
+   "start_sec": 148.0,
+   "end_sec": 150.0
+  },
+  {
+   "text": "낮았다는",
+   "start_sec": 150.0,
+   "end_sec": 152.0
+  },
+  {
+   "text": "연구가",
+   "start_sec": 152.0,
+   "end_sec": 154.0
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 154.0,
+   "end_sec": 156.0
+  },
+  {
+   "text": "표를",
+   "start_sec": 156.0,
+   "end_sec": 158.0
+  },
+  {
+   "text": "보면",
+   "start_sec": 158.0,
+   "end_sec": 160.0
+  },
+  {
+   "text": "30분,",
+   "start_sec": 160.0,
+   "end_sec": 162.0
+  },
+  {
+   "text": "60분",
+   "start_sec": 162.0,
+   "end_sec": 164.0
+  },
+  {
+   "text": "혈당이",
+   "start_sec": 164.0,
+   "end_sec": 166.0
+  },
+  {
+   "text": "다",
+   "start_sec": 166.0,
+   "end_sec": 168.0
+  },
+  {
+   "text": "낮아요.",
+   "start_sec": 168.0,
+   "end_sec": 170.0
+  },
+  {
+   "text": "야식을",
+   "start_sec": 170.0,
+   "end_sec": 171.54
+  },
+  {
+   "text": "먹으면",
+   "start_sec": 171.54,
+   "end_sec": 173.08
+  },
+  {
+   "text": "다음",
+   "start_sec": 173.08,
+   "end_sec": 174.62
+  },
+  {
+   "text": "날",
+   "start_sec": 174.62,
+   "end_sec": 176.15
+  },
+  {
+   "text": "아침",
+   "start_sec": 176.15,
+   "end_sec": 177.69
+  },
+  {
+   "text": "혈당도",
+   "start_sec": 177.69,
+   "end_sec": 179.23
+  },
+  {
+   "text": "높아져요.",
+   "start_sec": 179.23,
+   "end_sec": 180.77
+  },
+  {
+   "text": "다만",
+   "start_sec": 180.77,
+   "end_sec": 182.31
+  },
+  {
+   "text": "사람마다",
+   "start_sec": 182.31,
+   "end_sec": 183.85
+  },
+  {
+   "text": "반응이",
+   "start_sec": 183.85,
+   "end_sec": 185.38
+  },
+  {
+   "text": "다르니까",
+   "start_sec": 185.38,
+   "end_sec": 186.92
+  },
+  {
+   "text": "무리하지는",
+   "start_sec": 186.92,
+   "end_sec": 188.46
+  },
+  {
+   "text": "마세요.",
+   "start_sec": 188.46,
+   "end_sec": 190.0
+  },
+  {
+   "text": "무엇을",
+   "start_sec": 190.0,
+   "end_sec": 192.14
+  },
+  {
+   "text": "먹느냐만큼",
+   "start_sec": 192.14,
+   "end_sec": 194.29
+  },
+  {
+   "text": "어떤",
+   "start_sec": 194.29,
+   "end_sec": 196.43
+  },
+  {
+   "text": "순서로",
+   "start_sec": 196.43,
+   "end_sec": 198.57
+  },
+  {
+   "text": "먹느냐도",
+   "start_sec": 198.57,
+   "end_sec": 200.71
+  },
+  {
+   "text": "중요해요.",
+   "start_sec": 200.71,
+   "end_sec": 202.86
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 202.86,
+   "end_sec": 205.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0.0,
+   "end_sec": 28.0,
+   "text": "점심 먹고 두 시쯤 되면 너무 졸리잖아요. 오늘은 왜 그런지, 그리고 탄수화물 양보다 혈당 부하가 왜 더 중요한지 이야기해 볼게요.",
+   "words": [
+    {
+     "text": "점심",
+     "start_sec": 0.0,
+     "end_sec": 1.4
+    },
+    {
+     "text": "먹고",
+     "start_sec": 1.4,
+     "end_sec": 2.8
+    },
+    {
+     "text": "두",
+     "start_sec": 2.8,
+     "end_sec": 4.2
+    },
+    {
+     "text": "시쯤",
+     "start_sec": 4.2,
+     "end_sec": 5.6
+    },
+    {
+     "text": "되면",
+     "start_sec": 5.6,
+     "end_sec": 7.0
+    },
+    {
+     "text": "너무",
+     "start_sec": 7.0,
+     "end_sec": 8.4
+    },
+    {
+     "text": "졸리잖아요.",
+     "start_sec": 8.4,
+     "end_sec": 9.8
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 9.8,
+     "end_sec": 11.2
+    },
+    {
+     "text": "왜",
+     "start_sec": 11.2,
+     "end_sec": 12.6
+    },
+    {
+     "text": "그런지,",
+     "start_sec": 12.6,
+     "end_sec": 14.0
+    },
+    {
+     "text": "그리고",
+     "start_sec": 14.0,
+     "end_sec": 15.4
+    },
+    {
+     "text": "탄수화물",
+     "start_sec": 15.4,
+     "end_sec": 16.8
+    },
+    {
+     "text": "양보다",
+     "start_sec": 16.8,
+     "end_sec": 18.2
+    },
+    {
+     "text": "혈당",
+     "start_sec": 18.2,
+     "end_sec": 19.6
+    },
+    {
+     "text": "부하가",
+     "start_sec": 19.6,
+     "end_sec": 21.0
+    },
+    {
+     "text": "왜",
+     "start_sec": 21.0,
+     "end_sec": 22.4
+    },
+    {
+     "text": "더",
+     "start_sec": 22.4,
+     "end_sec": 23.8
+    },
+    {
+     "text": "중요한지",
+     "start_sec": 23.8,
+     "end_sec": 25.2
+    },
+    {
+     "text": "이야기해",
+     "start_sec": 25.2,
+     "end_sec": 26.6
+    },
+    {
+     "text": "볼게요.",
+     "start_sec": 26.6,
+     "end_sec": 28.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 28.0,
+   "end_sec": 55.0,
+   "text": "혈당 스파이크는 밥을 먹은 뒤에 혈당이 짧은 시간에 확 올랐다가 뚝 떨어지는 현상이에요. 이게 떨어질 때 졸리고 기운이 빠져요.",
+   "words": [
+    {
+     "text": "혈당",
+     "start_sec": 28.0,
+     "end_sec": 29.42
+    },
+    {
+     "text": "스파이크는",
+     "start_sec": 29.42,
+     "end_sec": 30.84
+    },
+    {
+     "text": "밥을",
+     "start_sec": 30.84,
+     "end_sec": 32.26
+    },
+    {
+     "text": "먹은",
+     "start_sec": 32.26,
+     "end_sec": 33.68
+    },
+    {
+     "text": "뒤에",
+     "start_sec": 33.68,
+     "end_sec": 35.11
+    },
+    {
+     "text": "혈당이",
+     "start_sec": 35.11,
+     "end_sec": 36.53
+    },
+    {
+     "text": "짧은",
+     "start_sec": 36.53,
+     "end_sec": 37.95
+    },
+    {
+     "text": "시간에",
+     "start_sec": 37.95,
+     "end_sec": 39.37
+    },
+    {
+     "text": "확",
+     "start_sec": 39.37,
+     "end_sec": 40.79
+    },
+    {
+     "text": "올랐다가",
+     "start_sec": 40.79,
+     "end_sec": 42.21
+    },
+    {
+     "text": "뚝",
+     "start_sec": 42.21,
+     "end_sec": 43.63
+    },
+    {
+     "text": "떨어지는",
+     "start_sec": 43.63,
+     "end_sec": 45.05
+    },
+    {
+     "text": "현상이에요.",
+     "start_sec": 45.05,
+     "end_sec": 46.47
+    },
+    {
+     "text": "이게",
+     "start_sec": 46.47,
+     "end_sec": 47.89
+    },
+    {
+     "text": "떨어질",
+     "start_sec": 47.89,
+     "end_sec": 49.32
+    },
+    {
+     "text": "때",
+     "start_sec": 49.32,
+     "end_sec": 50.74
+    },
+    {
+     "text": "졸리고",
+     "start_sec": 50.74,
+     "end_sec": 52.16
+    },
+    {
+     "text": "기운이",
+     "start_sec": 52.16,
+     "end_sec": 53.58
+    },
+    {
+     "text": "빠져요.",
+     "start_sec": 53.58,
+     "end_sec": 55.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 55.0,
+   "end_sec": 61.0,
+   "text": "이건 계산식인데 넘어갈게요.",
+   "words": [
+    {
+     "text": "이건",
+     "start_sec": 55.0,
+     "end_sec": 57.0
+    },
+    {
+     "text": "계산식인데",
+     "start_sec": 57.0,
+     "end_sec": 59.0
+    },
+    {
+     "text": "넘어갈게요.",
+     "start_sec": 59.0,
+     "end_sec": 61.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 61.0,
+   "end_sec": 90.0,
+   "text": "스파이크가 반복되면 식후에 졸리고, 금방 또 배가 고프고, 밤에 폭식하게 돼요. 이 세 가지가 문제예요.",
+   "words": [
+    {
+     "text": "스파이크가",
+     "start_sec": 61.0,
+     "end_sec": 62.93
+    },
+    {
+     "text": "반복되면",
+     "start_sec": 62.93,
+     "end_sec": 64.87
+    },
+    {
+     "text": "식후에",
+     "start_sec": 64.87,
+     "end_sec": 66.8
+    },
+    {
+     "text": "졸리고,",
+     "start_sec": 66.8,
+     "end_sec": 68.73
+    },
+    {
+     "text": "금방",
+     "start_sec": 68.73,
+     "end_sec": 70.67
+    },
+    {
+     "text": "또",
+     "start_sec": 70.67,
+     "end_sec": 72.6
+    },
+    {
+     "text": "배가",
+     "start_sec": 72.6,
+     "end_sec": 74.53
+    },
+    {
+     "text": "고프고,",
+     "start_sec": 74.53,
+     "end_sec": 76.47
+    },
+    {
+     "text": "밤에",
+     "start_sec": 76.47,
+     "end_sec": 78.4
+    },
+    {
+     "text": "폭식하게",
+     "start_sec": 78.4,
+     "end_sec": 80.33
+    },
+    {
+     "text": "돼요.",
+     "start_sec": 80.33,
+     "end_sec": 82.27
+    },
+    {
+     "text": "이",
+     "start_sec": 82.27,
+     "end_sec": 84.2
+    },
+    {
+     "text": "세",
+     "start_sec": 84.2,
+     "end_sec": 86.13
+    },
+    {
+     "text": "가지가",
+     "start_sec": 86.13,
+     "end_sec": 88.07
+    },
+    {
+     "text": "문제예요.",
+     "start_sec": 88.07,
+     "end_sec": 90.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 90.0,
+   "end_sec": 132.0,
+   "text": "그래서 식사 순서를 바꾸자는 거예요. 채소를 먼저, 그다음 고기나 두부 같은 단백질, 마지막에 밥을 먹으면 졸림이 줄어요. 식이섬유가 먼저 들어가면 배도 오래 불러요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 90.0,
+     "end_sec": 91.83
+    },
+    {
+     "text": "식사",
+     "start_sec": 91.83,
+     "end_sec": 93.65
+    },
+    {
+     "text": "순서를",
+     "start_sec": 93.65,
+     "end_sec": 95.48
+    },
+    {
+     "text": "바꾸자는",
+     "start_sec": 95.48,
+     "end_sec": 97.3
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 97.3,
+     "end_sec": 99.13
+    },
+    {
+     "text": "채소를",
+     "start_sec": 99.13,
+     "end_sec": 100.96
+    },
+    {
+     "text": "먼저,",
+     "start_sec": 100.96,
+     "end_sec": 102.78
+    },
+    {
+     "text": "그다음",
+     "start_sec": 102.78,
+     "end_sec": 104.61
+    },
+    {
+     "text": "고기나",
+     "start_sec": 104.61,
+     "end_sec": 106.43
+    },
+    {
+     "text": "두부",
+     "start_sec": 106.43,
+     "end_sec": 108.26
+    },
+    {
+     "text": "같은",
+     "start_sec": 108.26,
+     "end_sec": 110.09
+    },
+    {
+     "text": "단백질,",
+     "start_sec": 110.09,
+     "end_sec": 111.91
+    },
+    {
+     "text": "마지막에",
+     "start_sec": 111.91,
+     "end_sec": 113.74
+    },
+    {
+     "text": "밥을",
+     "start_sec": 113.74,
+     "end_sec": 115.57
+    },
+    {
+     "text": "먹으면",
+     "start_sec": 115.57,
+     "end_sec": 117.39
+    },
+    {
+     "text": "졸림이",
+     "start_sec": 117.39,
+     "end_sec": 119.22
+    },
+    {
+     "text": "줄어요.",
+     "start_sec": 119.22,
+     "end_sec": 121.04
+    },
+    {
+     "text": "식이섬유가",
+     "start_sec": 121.04,
+     "end_sec": 122.87
+    },
+    {
+     "text": "먼저",
+     "start_sec": 122.87,
+     "end_sec": 124.7
+    },
+    {
+     "text": "들어가면",
+     "start_sec": 124.7,
+     "end_sec": 126.52
+    },
+    {
+     "text": "배도",
+     "start_sec": 126.52,
+     "end_sec": 128.35
+    },
+    {
+     "text": "오래",
+     "start_sec": 128.35,
+     "end_sec": 130.17
+    },
+    {
+     "text": "불러요.",
+     "start_sec": 130.17,
+     "end_sec": 132.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 132.0,
+   "end_sec": 170.0,
+   "text": "실제로 채소를 먼저 먹은 그룹은 혈당 최고치가 평균 29퍼센트 낮았다는 연구가 있어요. 표를 보면 30분, 60분 혈당이 다 낮아요.",
+   "words": [
+    {
+     "text": "실제로",
+     "start_sec": 132.0,
+     "end_sec": 134.0
+    },
+    {
+     "text": "채소를",
+     "start_sec": 134.0,
+     "end_sec": 136.0
+    },
+    {
+     "text": "먼저",
+     "start_sec": 136.0,
+     "end_sec": 138.0
+    },
+    {
+     "text": "먹은",
+     "start_sec": 138.0,
+     "end_sec": 140.0
+    },
+    {
+     "text": "그룹은",
+     "start_sec": 140.0,
+     "end_sec": 142.0
+    },
+    {
+     "text": "혈당",
+     "start_sec": 142.0,
+     "end_sec": 144.0
+    },
+    {
+     "text": "최고치가",
+     "start_sec": 144.0,
+     "end_sec": 146.0
+    },
+    {
+     "text": "평균",
+     "start_sec": 146.0,
+     "end_sec": 148.0
+    },
+    {
+     "text": "29퍼센트",
+     "start_sec": 148.0,
+     "end_sec": 150.0
+    },
+    {
+     "text": "낮았다는",
+     "start_sec": 150.0,
+     "end_sec": 152.0
+    },
+    {
+     "text": "연구가",
+     "start_sec": 152.0,
+     "end_sec": 154.0
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 154.0,
+     "end_sec": 156.0
+    },
+    {
+     "text": "표를",
+     "start_sec": 156.0,
+     "end_sec": 158.0
+    },
+    {
+     "text": "보면",
+     "start_sec": 158.0,
+     "end_sec": 160.0
+    },
+    {
+     "text": "30분,",
+     "start_sec": 160.0,
+     "end_sec": 162.0
+    },
+    {
+     "text": "60분",
+     "start_sec": 162.0,
+     "end_sec": 164.0
+    },
+    {
+     "text": "혈당이",
+     "start_sec": 164.0,
+     "end_sec": 166.0
+    },
+    {
+     "text": "다",
+     "start_sec": 166.0,
+     "end_sec": 168.0
+    },
+    {
+     "text": "낮아요.",
+     "start_sec": 168.0,
+     "end_sec": 170.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 170.0,
+   "end_sec": 190.0,
+   "text": "야식을 먹으면 다음 날 아침 혈당도 높아져요. 다만 사람마다 반응이 다르니까 무리하지는 마세요.",
+   "words": [
+    {
+     "text": "야식을",
+     "start_sec": 170.0,
+     "end_sec": 171.54
+    },
+    {
+     "text": "먹으면",
+     "start_sec": 171.54,
+     "end_sec": 173.08
+    },
+    {
+     "text": "다음",
+     "start_sec": 173.08,
+     "end_sec": 174.62
+    },
+    {
+     "text": "날",
+     "start_sec": 174.62,
+     "end_sec": 176.15
+    },
+    {
+     "text": "아침",
+     "start_sec": 176.15,
+     "end_sec": 177.69
+    },
+    {
+     "text": "혈당도",
+     "start_sec": 177.69,
+     "end_sec": 179.23
+    },
+    {
+     "text": "높아져요.",
+     "start_sec": 179.23,
+     "end_sec": 180.77
+    },
+    {
+     "text": "다만",
+     "start_sec": 180.77,
+     "end_sec": 182.31
+    },
+    {
+     "text": "사람마다",
+     "start_sec": 182.31,
+     "end_sec": 183.85
+    },
+    {
+     "text": "반응이",
+     "start_sec": 183.85,
+     "end_sec": 185.38
+    },
+    {
+     "text": "다르니까",
+     "start_sec": 185.38,
+     "end_sec": 186.92
+    },
+    {
+     "text": "무리하지는",
+     "start_sec": 186.92,
+     "end_sec": 188.46
+    },
+    {
+     "text": "마세요.",
+     "start_sec": 188.46,
+     "end_sec": 190.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 190.0,
+   "end_sec": 205.0,
+   "text": "무엇을 먹느냐만큼 어떤 순서로 먹느냐도 중요해요. 감사합니다.",
+   "words": [
+    {
+     "text": "무엇을",
+     "start_sec": 190.0,
+     "end_sec": 192.14
+    },
+    {
+     "text": "먹느냐만큼",
+     "start_sec": 192.14,
+     "end_sec": 194.29
+    },
+    {
+     "text": "어떤",
+     "start_sec": 194.29,
+     "end_sec": 196.43
+    },
+    {
+     "text": "순서로",
+     "start_sec": 196.43,
+     "end_sec": 198.57
+    },
+    {
+     "text": "먹느냐도",
+     "start_sec": 198.57,
+     "end_sec": 200.71
+    },
+    {
+     "text": "중요해요.",
+     "start_sec": 200.71,
+     "end_sec": 202.86
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 202.86,
+     "end_sec": 205.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 205.0
+}
