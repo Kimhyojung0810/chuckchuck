@@ -6,7 +6,10 @@ SlideDoc, Transcript, ConceptDoc 같은 공통 타입이 여기 있습니다.
 
 from __future__ import annotations
 
+import difflib
+import functools
 import re
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -1465,12 +1468,18 @@ QA_SEVERITY_FALLBACK = 2
 #: justified_skip 이 core_weight 보다도 뒤인 것도 의도된 것이다 — 리포트가
 #: "생략이 합리적" 이라 말한 개념을 자료 weight 가 크다는 이유로 앞세우면
 #: 두 화면이 어긋난다. 버리지는 않는다 — 트랙 상한에 여유가 있으면 여전히 물어본다.
+#: skipped_slide(09-30 WP-S2)는 발표자가 **말로 건너뛴 핵심 장**(AlignmentDoc.skipped_slides — 「시간 관계상 그냥 넘어갈게요」)의
+#: 대표 개념이다. 코드가 건너뛰는 말을 찾아 확인한 누락이라 LLM 이 판정한 누락(missing)보다 앞이다 — 채점표도 이것으로 상한을 건다.
 QA_SOURCES = (
-    "contradiction", "tension", "missing", "under_spoken", "weak_flow",
+    "contradiction", "tension", "skipped_slide", "missing", "under_spoken", "weak_flow",
     "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority",
     "extra", "core_weight", "justified_skip",
 )
 QA_SOURCE_FALLBACK = "core_weight"
+
+#: QuestionDoc.speech_unused 허용값 — 녹음을 받았는데 질문 재료로 안 쓴 까닭. RubricFault.kind 와 같은 말이라 리포트·질문이
+#: 한 낱말로 같은 사실을 말한다 (09-30 WP-S2). 빈 문자열은 「녹음을 썼거나 원래 없었다」.
+QA_SPEECH_UNUSED = ("unrelated_speech", "align_fallback")
 
 #: doc_weight − speech_weight 가 이만큼 벌어지면 '중요도 대비 설명 부족'(under_spoken).
 #: SCHEMA §7-F 가 같은 격차를 쓰고 있어 값을 맞춘다 — 리포트와 질문이 같은 선을 봐야
@@ -1718,11 +1727,20 @@ class PaperDoc:
     이 목록 밖이면 그 문장을 버린다. 트랙과 무관하므로 **세션에 한 번만** 만든다.
     `provider` 는 검색을 맡은 쪽 이름 (openalex · none). 검색이 꺼졌거나 실패하면
     deck 만 남고 provider 는 그 사정을 적는다 — 조용히 빈 목록이 되지 않는다.
+
+    `status` 는 검색 한 건 한 건의 사정 (f24 가 채운다, 09-30 G-A9·G-A32) — 사람 말 한 줄(note)로는 「어느 개념이 왜 문헌 없이
+    갔나」 를 못 가른다. 항목은 dict 이고 `kind` 로 나뉜다:
+      concept   {node_id, label, query, query_source(label·llm·ascii·none), state, kept, dropped, reason}
+      resolve   {cite_key, state}
+      provider  {provider, calls, ok, empty, failed, rate_limited, timeout, throttled, error}
+    state: ok · empty · (실패) failed · rate_limited · timeout · http · network · parse · error · (요청 한도로 참음) throttled ·
+    (시간 예산으로 시작 못 함) not_searched · (검색어 없음) no_query. 비어 있으면 검색을 안 했거나 옛 문서다.
     """
     file_name: str
     refs: list[PaperRef] = field(default_factory=list)
     provider: str = "none"
     note: str = ""                          # 검색을 못 했으면 왜인지 한 줄
+    status: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -1730,6 +1748,7 @@ class PaperDoc:
             "provider": self.provider,
             "note": self.note,
             "refs": [r.to_dict() for r in self.refs],
+            "status": [dict(s) for s in self.status],
         }
 
     @classmethod
@@ -1739,6 +1758,7 @@ class PaperDoc:
             refs=[PaperRef.from_dict(r) for r in d.get("refs", [])],
             provider=str(d.get("provider", "none") or "none"),
             note=str(d.get("note", "") or ""),
+            status=[dict(s) for s in (d.get("status") or []) if isinstance(s, dict)],
         )
 
     def ref(self, ref_id: str) -> PaperRef | None:
@@ -1990,11 +2010,17 @@ MEMORY_SESSIONS_MAX = 5
 _MEMORY_KEY_STRIP_RE = re.compile(r"[^0-9a-z가-힣]+")
 #: verdict 의 좋은 순. best_verdict 를 고를 때 쓴다.
 MEMORY_VERDICT_ORDER = ("good", "partial", "wrong", "unknown")
+#: 발표 지문(`ConceptMemory.deck_keys`)에 싣는 개념 이름 열쇠 최대 수.
+MEMORY_DECK_KEYS_MAX = 40
+#: MemoryDoc 하나에 싣는 개념 기억 최대 수 — f25 는 리허설 5번 × 개념 10여 개라 넉넉하다. 본문으로 기억을 받는 통로(server/app.py)가
+#: 수천 개를 보내면 by_node 의 이름 대조가 그만큼 곱으로 늘어난다 (09-30 리뷰).
+MEMORY_CONCEPTS_MAX = 200
 
 
 def memory_key(label: str) -> str:
-    """개념 이름 → 조인 키. 세션마다 노드 id 는 달라지지만 이름은 대개 같다 — 소문자·기호·공백을 지운 이름으로 잇는다."""
-    return _MEMORY_KEY_STRIP_RE.sub("", (label or "").lower())
+    """개념 이름 → 조인 키. 세션마다 노드 id 는 달라지지만 이름은 대개 같다 — 소문자·기호·공백을 지운 이름으로 잇는다.
+    NFKC 로 먼저 접는다 — 맥에서 만든 자료의 NFD 라벨(자모 낱자)은 [가-힣] 에 안 걸려 열쇠가 빈 문자열이 됐다 (09-30 G-A11 과 같은 뿌리)."""
+    return _MEMORY_KEY_STRIP_RE.sub("", unicodedata.normalize("NFKC", label or "").lower())
 
 
 @dataclass
@@ -2002,8 +2028,13 @@ class ConceptMemory:
     """
     개념 하나에 대한 지난 리허설 기억. **전부 기록(qa_turns·판정)에서 센 것** — LLM 이 채우는 필드는 없다.
 
-    `key` 는 `memory_key(label)`. `stalled` 는 「물어봤는데 한 번도 good 을 못 받았다」 — 다음 리허설에서
-    먼저 묻고, 코칭은 한 단계 위에서 시작하는 근거다.
+    `key` 는 `memory_key(label)`. `stalled` 는 「물어봤는데 한 번도 통과선(`qa_passed`)을 못 넘었다」 — 다음 리허설에서
+    먼저 묻고, 코칭은 한 단계 위에서 시작하는 근거다. `cleared` 는 「good 으로 설득해 닫았다」 — 3라운드 출구(`close_reason`
+    rounds·guard)로 닫힌 것은 설득이 아니다.
+
+    `deck_keys` 는 이 기억이 나온 **발표의 지문** — 같은 발표로 묶인 지난 리허설들에서 물은 개념 이름 열쇠 전부(f25 가 채운다).
+    이름 하나(「비용」)가 같다고 다른 발표의 기억을 잇지 않도록 `MemoryDoc.by_node` 가 이번 그래프와 견준다. 비어 있으면(옛 기억)
+    예전처럼 이름으로만 잇는다.
     """
     key: str
     label: str = ""
@@ -2018,10 +2049,19 @@ class ConceptMemory:
     last_at: float = 0.0
     missing_points: list[str] = field(default_factory=list)   # 최근 판정이 짚은 빠진 점 (최신 우선, 중복 없음)
     hints_max: int = 0                                    # 한 질문에서 본 힌트 최대 수
+    passes: int = 0                                       # 통과선(qa_passed)을 넘은 턴 수 — 70~79 partial 도 센다
+    closes: dict = field(default_factory=dict)            # 닫힌 까닭(close_reason: good·rounds·guard) → 횟수
+    deck_keys: list[str] = field(default_factory=list)    # 발표 지문 — 같은 발표의 리허설에서 물은 개념 이름 열쇠 (정렬)
 
     @property
     def stalled(self) -> bool:
-        return self.attempts > 0 and self.best_verdict != "good"
+        """
+        물어봤는데 한 번도 통과선을 못 넘었다. 09-30 감사 G-A23: 예전엔 `best_verdict != "good"` 이라, 판정은 `qa_passed` 로
+        통과(partial 70~79)라고 해 놓고 기억은 「못 넘긴 개념」 으로 세어 다음 리허설 맨 앞에 다시 세웠다. 이제 통과 턴(passes)이
+        하나라도 있으면 막힌 것이 아니다. 가드에 막힌 채 3라운드에서 닫힌 턴(close_reason guard)은 통과가 아니라 여기 남는다.
+        passes 가 없는 옛 기억은 예전 규칙 그대로다.
+        """
+        return self.attempts > 0 and self.passes == 0 and self.best_verdict != "good"
 
     @property
     def cleared(self) -> bool:
@@ -2060,6 +2100,9 @@ class ConceptMemory:
             last_score=int(d.get("last_score", 0) or 0), last_at=float(d.get("last_at", 0.0) or 0.0),
             missing_points=[str(x) for x in (d.get("missing_points") or []) if str(x).strip()][:MEMORY_MISSING_MAX],
             hints_max=int(d.get("hints_max", 0) or 0),
+            passes=int(d.get("passes", 0) or 0),
+            closes={str(k): int(v) for k, v in (d.get("closes") or {}).items()},
+            deck_keys=[str(x) for x in (d.get("deck_keys") or []) if str(x)][:MEMORY_DECK_KEYS_MAX],
         )
 
 
@@ -2097,34 +2140,49 @@ class MemoryDoc:
     `learner_key` 는 무엇으로 이었는가 — "learner:<id 앞 8자>"(브라우저가 준 익명 id). 같은 파일(sha256)이나 파일 이름만으로는
     잇지 않는다 (부스에서 모두 같은 샘플을 올리면 남의 기록이 붙는다). `sessions` 는 최신이 먼저이고,
     `RehearsalSummary.session_id` 는 진짜 id 가 아니라 불투명한 표시("past-…")다 — 진짜 id 는 열람·삭제의 열쇠다.
+
+    `scoped` 는 「이번 발표에 맞춰 걸렀다」 — f25 가 이번 그래프(graph=)를 받아 다른 발표의 리허설을 빼고 만든 기억이다. 그러면
+    이름만으로 찾아도(`concept`) 안전하고 `by_node` 는 지문 대조를 건너뛴다. 아니면(이번 발표를 모르고 만든 기억) 지문이 있는
+    기억은 그래프와 견줘서만(`by_node`) 잇는다.
     """
     learner_key: str = ""
     file_name: str = ""
     sessions: list[RehearsalSummary] = field(default_factory=list)
     concepts: list[ConceptMemory] = field(default_factory=list)
     note: str = ""
+    scoped: bool = False
 
     def to_dict(self) -> dict:
         return {
-            "learner_key": self.learner_key, "file_name": self.file_name, "note": self.note,
+            "learner_key": self.learner_key, "file_name": self.file_name, "note": self.note, "scoped": self.scoped,
             "sessions": [s.to_dict() for s in self.sessions],
             "concepts": [c.to_dict() for c in self.concepts],
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "MemoryDoc":
+        concepts = [x for x in (d.get("concepts") or []) if isinstance(x, dict)][:MEMORY_CONCEPTS_MAX]
         return cls(
             learner_key=str(d.get("learner_key", "") or ""), file_name=str(d.get("file_name", "") or ""),
-            note=str(d.get("note", "") or ""),
+            note=str(d.get("note", "") or ""), scoped=bool(d.get("scoped", False)),
             sessions=[RehearsalSummary.from_dict(x) for x in (d.get("sessions") or []) if isinstance(x, dict)],
-            concepts=[ConceptMemory.from_dict(x) for x in (d.get("concepts") or []) if isinstance(x, dict)],
+            concepts=[ConceptMemory.from_dict(x) for x in concepts],
         )
 
     def concept(self, label: str) -> ConceptMemory | None:
+        """
+        이름(열쇠)이 같은 기억 — 그래프 없이 이름만으로 찾을 때. 같은 이름이 둘 이상이면(두 발표 모두 「비용」 을 물었다) None.
+        발표 지문이 있는 기억은 이번 발표에 맞춰 거른 기억(scoped)일 때만 돌려준다 — 이름 하나로는 발표를 가를 수 없다.
+        09-30 리뷰: 판정(f09 `_memory_concept`)은 그래프로 못 이은 노드를 이 이름 찾기로 다시 찾아, 다른 발표의 「비용」 기억과
+        그 결손이 판정 프롬프트에 실리고 코칭이 발판(scaffold)부터 시작했다.
+        """
         key = memory_key(label)
         if not key:
             return None
-        return next((c for c in self.concepts if c.key == key), None)
+        hits = [c for c in self.concepts if c.key == key]
+        if len(hits) != 1 or (hits[0].deck_keys and not self.scoped):
+            return None
+        return hits[0]
 
     @property
     def stalled(self) -> list[ConceptMemory]:
@@ -2136,43 +2194,140 @@ class MemoryDoc:
 
     def by_node(self, graph: "ConceptGraph | None") -> dict[str, ConceptMemory]:
         """
-        이번 ConceptGraph 의 노드에 기억을 잇는다 → {node_id: ConceptMemory}. 이름이 정확히 같은 것을 먼저, 그다음
-        토큰 겹침(Jaccard ≥ MEMORY_LINK_JACCARD_MIN). 한 기억은 한 노드에만 (같은 이름이 둘이면 weight 큰 쪽).
+        이번 ConceptGraph 의 노드에 기억을 잇는다 → {node_id: ConceptMemory}. 이름(열쇠)이 같은 것을 먼저, 그다음
+        `memory_similarity` ≥ MEMORY_LINK_MIN (표기만 다르거나 내용 낱말을 덧붙인 이름 — 반대·치환은 0). 한 기억은 한 노드에만
+        (같은 이름이 둘이면 weight 큰 쪽).
+
+        **발표가 맞는 기억만 잇는다** (09-30 감사 G-A23d): 조인 키가 이름이라, 같은 사람이 연습한 다른 발표의 「비용」 기억이
+        이번 발표의 「비용」 노드에 붙어 「지난번에 못 넘긴 개념」 으로 맨 앞에 서고 그 발표의 빠진 점을 겨냥한 질문이 나왔다.
+        지문(deck_keys)이 있는 기억은 그 발표에서 물은 **다른** 개념 이름들이 이번 그래프에도 충분히 있어야 잇는다
+        (`memory_presentation_fit`). 다른 이름이 하나도 없는 지문(그 발표에서 한 개념만 물었다)은 잇지 않는다 — 이름 하나로는
+        발표를 가를 수 없고, 노드 id 도 LLM 이 붙인 영문 슬러그라(「비용」→ cost) 다른 발표와 겹친다 (09-30 리뷰).
+        이번 발표에 맞춰 거른 기억(scoped)은 지문 대조를 건너뛴다.
         """
         if graph is None or not self.concepts or not graph.nodes:
             return {}
         nodes = sorted(graph.nodes, key=lambda n: (-n.weight, n.id))
+        graph_keys = tuple(dict.fromkeys(k for k in (memory_key(n.label) for n in graph.nodes) if k))
+        fit = {i: memory_presentation_fit(cm.deck_keys, cm.key, graph_keys) for i, cm in enumerate(self.concepts)}
+
+        def fits(i: int) -> bool:
+            if self.scoped or not self.concepts[i].deck_keys:
+                return True
+            matched, total = fit[i]
+            return total > 0 and matched >= min(MEMORY_PRESENTATION_KEYS_MIN, total) and matched / total >= MEMORY_PRESENTATION_MIN
+
+        def rank(i: int, score: float) -> tuple:
+            matched, total = fit[i]
+            return (score, (matched / total) if total else 0.0, self.concepts[i].last_at, -i)
+
         out: dict[str, ConceptMemory] = {}
-        used: set[str] = set()
-        for node in nodes:
-            cm = self.concept(node.label)
-            if cm is not None and cm.key not in used:
-                out[node.id] = cm
-                used.add(cm.key)
-        for node in nodes:
-            if node.id in out:
-                continue
-            key = memory_key(node.label)
-            best, best_score = None, 0.0
-            for cm in self.concepts:
-                if cm.key in used:
+        used: set[int] = set()
+        for exact in (True, False):
+            for node in nodes:
+                if node.id in out:
                     continue
-                score = memory_similarity(key, cm.key)
-                if score >= MEMORY_LINK_MIN and score > best_score:
-                    best, best_score = cm, score
-            if best is not None:
-                out[node.id] = best
-                used.add(best.key)
+                key = memory_key(node.label)
+                if not key:
+                    continue          # 이름이 비면(기호뿐인 라벨) 이을 근거가 없다 — 빈 열쇠끼리 잇지 않는다
+                best: tuple | None = None
+                for i, cm in enumerate(self.concepts):
+                    if i in used or not cm.key or not fits(i):
+                        continue
+                    score = 1.0 if cm.key == key else (0.0 if exact else memory_similarity(key, cm.key))
+                    if (exact and score < 1.0) or score < MEMORY_LINK_MIN:
+                        continue
+                    if best is None or rank(i, score) > best[0]:
+                        best = (rank(i, score), i)
+                if best is not None:
+                    out[node.id] = self.concepts[best[1]]
+                    used.add(best[1])
         return out
 
 
 #: 이름이 정확히 같지 않을 때 같은 개념으로 볼 글자 2-gram 겹침(Dice) 하한. "알림의 주의 비용" vs "알림 주의 비용" 은 0.73,
 #: "환경 설계" vs "환경 요인" 은 0.33. 낱말 단위(Jaccard)는 한국어 조사(의·은·는) 하나에 갈라져서 글자 단위로 잰다.
 MEMORY_LINK_MIN = 0.6
+#: 조사·띄어쓰기·영어 복수 꼬리만 다른 이름의 점수 — Dice 가 낮아도(「수면의 질」↔「수면 질」 0.40) 같은 개념이다. 1.0 은 같은 열쇠 몫.
+MEMORY_SAME_NAME = 0.95
+#: Dice 가 이 아래면 글자 차이를 따져 볼 것도 없이 다른 이름이다 (조사 하나 차이는 짧은 이름도 0.4 위).
+_MEMORY_DICE_FLOOR = 0.3
+#: 이름 대조에 쓰는 열쇠 앞 글자 수 — difflib 는 길이의 곱으로 느려진다 (6000자 두 개 3초, 09-30 리뷰). 개념 이름은 이보다 훨씬 짧다.
+_MEMORY_CMP_MAX = 80
+#: 발표 지문 대조 — 지난 발표에서 물은 **다른** 개념 이름 가운데 이번 그래프에 있어야 할 몫과 최소 개수.
+#: 09-30 실측 기준: 같은 덱을 다시 올리면 그래프가 캐시돼 1.0, 자료를 고친 판도 핵심 개념 이름은 대개 남는다. 다른 발표가
+#: 흔한 이름 두셋(「비용」「효과」)을 나눠도 물은 이름의 절반을 넘기는 어렵다.
+MEMORY_PRESENTATION_MIN = 0.5
+MEMORY_PRESENTATION_KEYS_MIN = 2
+
+#: 두 이름의 글자 차이가 이것뿐이면 표기 차이다 — 조사, 복수·형용 꼬리(「들」「적」), 영어 굴절 꼬리.
+_MEMORY_PARTICLE_RE = re.compile(r"^(?:의|은|는|이|가|을|를|과|와|에서|에게|에|으로|로|도|만|및|들|적)+$")
+_MEMORY_INFLECT_RE = re.compile(r"^(?:s|es|ed|d|ing|y|ies|ied)$")
+#: 한쪽 이름에만 붙은 조각에 이 낱말이 있으면 **다른 개념**이다 — 방향·양·해결·부정적 관계를 말하는 말. 어느 분야에나 쓰는
+#: 문법·평가 어휘만 둔다 (09-30 G-A23c: 「인력 부족」↔「인력 부족 해소」 Dice 0.75 로 이어졌다).
+_MEMORY_POLARITY_KO = (
+    "증가", "감소", "증대", "감축", "상승", "하락", "향상", "저하", "개선", "악화", "확대", "축소", "강화", "약화",
+    "부족", "결핍", "결여", "부재", "과다", "과잉", "과소", "충분", "해소", "해결", "완화", "심화", "극복", "방지",
+    "예방", "억제", "촉진", "절감", "저감", "제거", "손실", "이익", "이득", "손해", "성공", "실패", "장점", "단점",
+    "긍정", "부정", "찬성", "반대", "높은", "낮은", "많은", "적은", "없는", "없음", "유지", "상실", "금지",
+    "허용", "폐지", "도입", "불가", "가능", "방해", "장벽", "저해", "차단", "중단", "지연", "위협", "위험", "부작용",
+    "한계", "피해", "오류", "손상", "결함",
+)
+_MEMORY_POLARITY_EN = (
+    "increas", "decreas", "reduc", "declin", "improv", "worsen", "deterior", "enhanc", "mitigat", "prevent", "loss",
+    "gain", "lack", "shortage", "deficit", "deficien", "excess", "surplus", "overload", "benefit", "harm", "positive",
+    "negative", "high", "low", "less", "more", "without", "absen", "fail", "success", "barrier", "obstacle", "disrupt",
+    "interrupt", "risk", "threat", "delay", "damage", "error",
+)
+#: 이름 맨 앞에만 붙은 짧은 영어 조각은 접두다 (un·in·non·dis·anti·semi…) — 뜻을 뒤집거나 바꾼다.
+_MEMORY_PREFIX_EN_MAX = 4
 
 
+def _memory_piece(seg: str, at_start: bool) -> str:
+    """한쪽 이름에만 있는 조각 하나 → "same"(표기) · "extends"(내용 덧붙임) · "different"(뜻이 바뀜)."""
+    if not at_start and (_MEMORY_PARTICLE_RE.match(seg) or _MEMORY_INFLECT_RE.match(seg)):
+        return "same"
+    if len(seg) == 1 and "가" <= seg <= "힣":
+        return "different"       # 한 글자 접두·접미 — 비·불·무·미·반·탈·저·고·과·양 …
+    if any(m in seg for m in _MEMORY_POLARITY_KO) or any(m in seg for m in _MEMORY_POLARITY_EN):
+        return "different"
+    if at_start and seg.isascii() and seg.isalpha() and len(seg) <= _MEMORY_PREFIX_EN_MAX:
+        return "different"
+    return "extends"
+
+
+def memory_name_diff(key_a: str, key_b: str) -> str:
+    """
+    두 열쇠의 글자 차이의 성격 — "same"(조사·띄어쓰기·굴절만 다르다) · "extends"(한쪽이 내용 낱말을 덧붙였다) ·
+    "different"(치환·반대말·부정 접두·방향 표지). difflib 편집 단위로 본다. 결정적.
+
+    치환은 늘 different 다: 한국어 개념 이름에서 한 낱말만 바뀐 짝은 대개 반대말이다(상위/하위 · 손실/수익 · 단기/장기 ·
+    내부/외부 · 온라인/오프라인). 동의어 치환(사용/이용)도 못 잇지만 — 잘못 이은 기억은 사람을 억울하게 하고, 못 이은 기억은
+    「지난 리허설 없음」 과 같을 뿐이다.
+    """
+    kinds: list[str] = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, key_a, key_b, autojunk=False).get_opcodes():
+        if op == "equal":
+            continue
+        sa, sb = key_a[i1:i2], key_b[j1:j2]
+        if op == "replace":
+            same = all(_MEMORY_PARTICLE_RE.match(s) for s in (sa, sb)) or all(_MEMORY_INFLECT_RE.match(s) for s in (sa, sb))
+            kinds.append("same" if same and i1 > 0 else "different")
+            continue
+        kinds.append(_memory_piece(sa or sb, (i1 if sa else j1) == 0))
+    if "different" in kinds:
+        return "different"
+    return "extends" if "extends" in kinds else "same"
+
+
+@functools.lru_cache(maxsize=8192)
 def memory_similarity(key_a: str, key_b: str) -> float:
-    """memory_key 두 개의 글자 2-gram Dice 계수 (0~1). 둘 중 하나가 두 글자 미만이면 같을 때만 1."""
+    """
+    개념 이름(또는 memory_key) 두 개가 같은 개념인 정도 (0~1). 같은 열쇠 1.0 · 표기만 다름 MEMORY_SAME_NAME ·
+    내용 덧붙임은 글자 2-gram Dice · 치환·반대말·부정 접두·방향 표지가 한쪽에만 있으면 0 (`memory_name_diff`).
+    둘 중 하나가 두 글자 미만이면 같을 때만 1. 이름을 그대로 넣어도 된다 — 안에서 memory_key 로 접는다(열쇠에는 멱등).
+    """
+    key_a, key_b = memory_key(key_a)[:_MEMORY_CMP_MAX], memory_key(key_b)[:_MEMORY_CMP_MAX]
     if not key_a or not key_b:
         return 0.0
     if key_a == key_b:
@@ -2181,7 +2336,28 @@ def memory_similarity(key_a: str, key_b: str) -> float:
     b = {key_b[i:i + 2] for i in range(len(key_b) - 1)}
     if not a or not b:
         return 0.0
-    return 2 * len(a & b) / (len(a) + len(b))
+    dice = 2 * len(a & b) / (len(a) + len(b))
+    if dice < _MEMORY_DICE_FLOOR:
+        return 0.0
+    kind = memory_name_diff(key_a, key_b)
+    if kind == "different":
+        return 0.0
+    return max(dice, MEMORY_SAME_NAME) if kind == "same" else dice
+
+
+def memory_presentation_fit(deck_keys, own_key: str, graph_keys) -> tuple[int, int]:
+    """
+    발표 지문 대조 → (이번 그래프에도 있는 다른 개념 이름 수, 지문의 다른 개념 이름 수). 자기 이름(own_key)은 세지 않는다 —
+    그 이름이 같다는 것은 이미 아는 사실이고, 물을 것은 「같은 발표인가」 다. 이름 대조는 `memory_similarity` (반대말은 0).
+    """
+    # 자기 이름의 표기 변형(「비용」·「비용의」)도 「다른 이름」 이 아니다 — 세면 한 개념만 물은 발표가 둘을 물은 것처럼 부풀었다
+    others = [k for k in dict.fromkeys(deck_keys or ())
+              if k and k != own_key and not (own_key and memory_similarity(k, own_key) >= MEMORY_SAME_NAME)]
+    graph_keys = tuple(graph_keys or ())
+    exact = set(graph_keys)
+    matched = sum(1 for k in others
+                  if k in exact or any(memory_similarity(k, g) >= MEMORY_LINK_MIN for g in graph_keys))
+    return matched, len(others)
 
 
 @dataclass
@@ -2388,6 +2564,12 @@ class QuestionDoc:
     #: 질문들이 실제로 인용한 문헌만 (PaperDoc 의 부분집합). 화면이 질문 카드 옆에
     #: 「이 논문을 보고 묻는 질문이에요」 를 그릴 때 PaperDoc 을 따로 안 들고 있어도 되게.
     papers: list[PaperRef] = field(default_factory=list)
+    #: 녹음을 **받았는데** 질문 재료로 쓰지 않은 까닭 (09-30 WP-S2 — 문서 단위 신호는 이것 하나다). "" 이면 녹음을 썼거나
+    #: 원래 녹음이 없었다(자료만 올린 경로). 값은 RubricFault.kind 와 같은 말이다 — "unrelated_speech"(녹음이 이 자료의 발표가
+    #: 아님) · "align_fallback"(정합 판정이 짐작뿐). 값이 있으면 모든 질문이 자료만으로 만든 것이다.
+    speech_unused: str = ""
+    #: 위 까닭을 화면에 그대로 띄울 한 줄 (해요체). speech_unused 가 비면 빈 문자열.
+    speech_note: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -2398,11 +2580,14 @@ class QuestionDoc:
             "deferred_node_ids": list(self.deferred_node_ids),
             "model": self.model,
             "papers": [p.to_dict() for p in self.papers],
+            "speech_unused": self.speech_unused,
+            "speech_note": self.speech_note,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "QuestionDoc":
         track = str(d.get("track", QA_TRACK_FALLBACK))
+        unused = str(d.get("speech_unused", "") or "")
         return cls(
             file_name=d["file_name"],
             total_slides=int(d.get("total_slides", 0)),
@@ -2411,6 +2596,8 @@ class QuestionDoc:
             deferred_node_ids=[str(x) for x in d.get("deferred_node_ids", [])],
             model=d.get("model", ""),
             papers=[PaperRef.from_dict(p) for p in (d.get("papers") or [])],
+            speech_unused=unused if unused in QA_SPEECH_UNUSED else "",
+            speech_note=str(d.get("speech_note", "") or "") if unused in QA_SPEECH_UNUSED else "",
         )
 
     def question(self, question_id: str) -> Question | None:

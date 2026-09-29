@@ -19,8 +19,9 @@ from __future__ import annotations
 import re
 
 from . import _claim_rules as R
+from . import _deck_lines as DL
 from . import _grounding as G
-from ._evidence import is_question_line, join_formula, noise_lines, slide_units
+from ._evidence import clean_slide_text, is_question_line, noise_lines, page_marker_rows, strip_chart_descriptions
 from ._match import contains_tokens, label_tokens, norm_tokens
 from .contracts import (
     PROBE_KINDS,
@@ -79,12 +80,24 @@ def mentions(text: str, label: str) -> bool:
 def _related(a: str, b: str) -> bool:
     """
     두 라벨이 같은 개념을 가리키는가 — 한쪽 토큰열이 다른 쪽 안에 있거나("작업 시간" ⊇ "시간"),
-    양·방향 수식어만 다르다("충분한 시간" = "시간 부족" — F-07 이 같은 개념을 두 노드로 둔 경우).
+    양·방향 수식어만 다르다("충분한 시간" = "시간 부족" — F-07 이 같은 개념을 두 노드로 둔 경우). 반의어(「매출 증가」↔「매출 감소」)는
+    다른 개념이다 (`_claim_rules.same_concept`) — 긴장·비교에서 반대 쪽을 같은 요소로 읽지 않는다.
     """
     ta, tb = label_tokens(a), label_tokens(b)
     if not ta or not tb:
         return bool(a) and a == b
     return contains_tokens(ta, tb) or contains_tokens(tb, ta) or R.same_concept(a, b)
+
+
+def _same_variable(a: str, b: str) -> bool:
+    """
+    해결·문제 짝을 볼 때의 「같은 개념」 — **극성은 보지 않는다** (`_claim_rules.same_variable`). 「매출 감소」 문제를 푸는 해결 주장은
+    목적어를 「매출 증가」 로 적는다 — 반의어라서 같은 개념이 아니라고 보면 풀린 문제가 빈칸 탐침(unsolved)이 된다 (09-30 WP-C 요청).
+    """
+    ta, tb = label_tokens(a), label_tokens(b)
+    if not ta or not tb:
+        return bool(a) and a == b
+    return contains_tokens(ta, tb) or contains_tokens(tb, ta) or R.same_variable(a, b)
 
 
 # ---------------------------------------------------------------------------
@@ -227,13 +240,14 @@ def _unsolved(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Pro
         fix_slides = {q.slide_no for s in fixes for q in s.evidence}
         fix_nodes = {s.subject_id for s in fixes} | {
             n.id for n in graph_by.values() if fix_slides & set(n.slide_nos or [])}
-        # 문제 항목 자신과 그 겹친 이름(F-07 이 같은 개념을 두 노드로 둔 것)은 해결 쪽 개념이 아니다
+        # 문제 항목 자신과 그 겹친 이름(F-07 이 같은 개념을 두 노드로 둔 것 — 극성만 다른 이름도)은 해결 쪽 개념이 아니다
         fix_nodes = {n for n in fix_nodes - set(items)
-                     if n in graph_by and not any(_related(graph_by[n].label, graph_by[i].label) for i in items)}
+                     if n in graph_by and not any(_same_variable(graph_by[n].label, graph_by[i].label) for i in items)}
 
         def solved_by(o: str) -> list[Claim]:
             label = graph_by[o].label
-            return [s for s in fixes if any(x == o or (x in graph_by and _related(graph_by[x].label, label)) for x in s.object_ids)
+            return [s for s in fixes
+                    if any(x == o or (x in graph_by and _same_variable(graph_by[x].label, label)) for x in s.object_ids)
                     or any(R.mentioned(label, q.quote) for q in s.evidence)]
 
         def solved(o: str) -> bool:
@@ -409,12 +423,19 @@ def _usable(claims: list[Claim], graph_by: dict[str, ConceptNode]) -> list[Claim
 
 
 def as_claims(claims: ClaimDoc | dict | None) -> ClaimDoc | None:
-    """dict 도 받는다. 주장이 하나도 없으면 None — 없는 것과 같다 (프롬프트·순위를 안 바꾼다)."""
+    """
+    dict 도 받는다. None 만 None 이다 — **빈 주장 문서는 빈 문서 그대로** 돌려준다.
+
+    09-30 WP-Q2(WP-C 요청): 예전엔 주장이 하나도 없으면 None 으로 바꿔서, F-26 이 빈 문서를 낸 덱(식을 못 읽었거나 LLM 이
+    주장을 못 낸 덱)은 F-08 `build_questions` 가 「주장을 안 돌린 호출」 로 보고 **자료 구조로 찾는 탐침**(비교 줄 + 식 줄의
+    긴장, `structural_tensions`)까지 통째로 건너뛰었다. F-26 이 빈 문서를 내는 것은 실패가 아니라 결과다(c0ca80a). 주장이 없어서
+    생기는 차이(주장 인용·주장 id)는 쓰는 쪽이 `doc.claims` 로 가른다.
+    """
     if claims is None:
         return None
     if isinstance(claims, dict):
         claims = ClaimDoc.from_dict(claims)
-    return claims if claims.claims else None
+    return claims
 
 
 def derive_probes(graph: ConceptGraph, claims: ClaimDoc | dict | None,
@@ -430,32 +451,41 @@ def derive_probes(graph: ConceptGraph, claims: ClaimDoc | dict | None,
     - **자료 구조의 긴장**(`structural_tensions`) — 「X보다 중요한 Y」 줄과 「Y = … × X × …」 식 줄이 함께 있으면, F-26 이
       식을 못 읽었어도(캡션이 식 가운데 끼어 compose 주장이 빠졌다) 긴장 탐침을 세운다.
     - **덱 전체 대조**(`validate_probes`) — 해결책 빠짐(unsolved)은 형제 한 줄이 아니라 덱의 모든 해결 줄을 본다.
-    안 주면 예전과 같다.
+    안 주면 예전과 같다. 주장 문서가 비어도(F-26 이 아무 주장도 못 낸 덱) slides 가 있으면 자료 구조 탐침은 찾는다.
     """
     doc = as_claims(claims)
-    if not graph.nodes or (doc is None and not slides):
+    has_claims = doc is not None and bool(doc.claims)
+    if not graph.nodes or (not has_claims and not slides):
         return []
     graph_by = {n.id: n for n in graph.nodes}
-    usable = _usable(doc.claims, graph_by) if doc is not None else []
+    usable = _usable(doc.claims, graph_by) if has_claims else []
     found = [
         *_tension(graph_by, usable), *_unsolved(graph_by, usable), *_unsupported_cause(graph_by, usable),
         *_absolute_boundary(graph_by, usable), *_sibling_priority(graph_by, usable),
     ]
     if slides:
-        found += structural_tensions(graph, slides, found)
-        found = validate_probes(found, graph, slides)
+        lines = _deck_lines(slides, [n.label for n in graph.nodes])
+        found += structural_tensions(graph, slides, found, lines=lines)
+        found = validate_probes(found, graph, slides, lines=lines)
     node_order = {n.id: i for i, n in enumerate(graph.nodes)}
     found.sort(key=lambda p: (_KIND_RANK[p.kind], node_order.get(p.node_ids[0], len(node_order)), p.claim_ids))
     out: list[Probe] = []
-    seen: set[tuple] = set()
     for p in found:
-        # 같은 이름·같은 개념의 두 노드(F-07 이 겹쳐 둔 것)는 한 대상이다
+        # 같은 이름·같은 개념의 두 노드(F-07 이 겹쳐 둔 것)는 한 대상이다 — 같은 개념은 변수에 **극성까지** 본다
+        # (`_same_target`: 「매출 증가」 와 「매출 감소」 는 다른 대상, 「충분한 시간」 과 「시간 부족」 은 같은 대상)
         label = graph_by[p.node_ids[0]].label
-        key = (p.kind, R.concept_key(label) or label)
-        if key not in seen:
-            seen.add(key)
+        if not any(q.kind == p.kind and _same_target(label, graph_by[q.node_ids[0]].label) for q in out):
             out.append(p)
     return _cap_sibling(out)
+
+
+def _same_target(a: str, b: str) -> bool:
+    """
+    탐침 두 개가 한 대상인가 — 이름이 같거나(띄어쓰기·따옴표 무시) 같은 개념이다 (`_claim_rules.same_concept`: 같은 변수에
+    극성이 반대가 아니다). 09-30 WP-Q2(WP-C 요청): 예전엔 변수(`concept_key`)만 봐서 「매출 증가」 의 단정 탐침과 「매출 감소」 의
+    단정 탐침이 한 대상으로 합쳐져 뒤의 것이 사라졌다. 수식어 없는 이름(「시간」)·충족 짝(「충분한 시간」↔「시간 부족」)은 그대로 합친다.
+    """
+    return G.squash(a) == G.squash(b) or R.same_concept(a, b)
 
 
 #: 형제 우선순위 탐침은 덱에 하나만 — 다른 탐침이 하나도 없을 때만 더 둔다. 목록마다 하나씩 나오면
@@ -583,7 +613,12 @@ _THAN_SENT_RE = re.compile(
 
 
 def compare_sides(line: str) -> tuple[str, str] | None:
-    """비교 줄 → (작은 쪽, 큰 쪽) 명사구. 「X보다 중요한 Y」 는 (X, Y). 물음 줄·식 줄은 아니다."""
+    """
+    비교 줄 → (작은 쪽, 큰 쪽) 명사구. 「X보다 중요한 Y」 는 (X, Y). 물음 줄·식 줄은 아니다.
+
+    두 쪽의 **자리**는 이 파일의 꼴(짧은 명사구)로 찾고, **어느 쪽이 큰지**는 주장 쪽 잣대(`_claim_rules.compare_sides`)에 묻는다 —
+    「X보다 적은 Y」「X보다 낮은 Y」 는 X 가 큰 쪽이다 (09-30 G-A1 이 F-26 에서 고친 것을 질문 쪽도 따른다, WP-Q2).
+    """
     text = (line or "").strip()
     if not text or is_question_line(text) or R.is_formula(text):
         return None
@@ -592,8 +627,21 @@ def compare_sides(line: str) -> tuple[str, str] | None:
         if m:
             x, y = m.group("x").strip(), _COPULA_END_RE.sub("", m.group("y").strip()).strip()
             if x and y and x != y:
-                return x, y
+                return (y, x) if _reads_reversed(text, x, y) else (x, y)
     return None
+
+
+def _reads_reversed(line: str, lesser: str, greater: str) -> bool:
+    """주장 쪽 잣대가 이 줄의 큰 쪽을 lesser 로 읽는가 — 그 해석의 큰 쪽 구절이 lesser 를 품고 작은 쪽 구절이 greater 를 품는다."""
+    def has(phrase: str, np_: str) -> bool:
+        return contains_tokens(norm_tokens(phrase), label_tokens(np_) or norm_tokens(np_))
+
+    for big, small in R.compare_sides(line):
+        if has(big, greater) and not has(big, lesser):
+            return False
+        if has(big, lesser) and has(small, greater) and not has(big, greater):
+            return True
+    return False
 
 
 #: 명사구 끝의 서술격 — 「…것은 독서 경험입니다」 의 「입니다」.
@@ -601,54 +649,99 @@ _COPULA_END_RE = re.compile(r"(?:입니다|이다|예요|이에요|이었다|였
 
 
 def _formula_terms(line: str) -> tuple[str, list[str]] | None:
+    """
+    식 줄 → (좌변, 항 목록). 항은 주장 쪽과 **같은** 잣대로 나눈다 (`_claim_rules.formula_terms` — 「×·÷·+·*」 는 늘, 「x」「·」 는
+    앞뒤를 띄운 낱자일 때만 연산). 09-30 WP-Q2: 이 파일만 붙인 가운뎃점(「기술·자본」)까지 나눠서 F-26 과 다른 항을 읽었다
+    (09-30 G-A27 — 가운뎃점은 나열이다). 숫자만 있는 항(계수)은 뺀다.
+    """
     sides = R.formula_sides(line)
     if not sides:
         return None
-    parts = [p.strip(" .") for p in re.split(r"\s*[×✕*+·÷]\s*|\s+x\s+", sides[1]) if p.strip(" .")]
-    parts = [p for p in parts if not re.fullmatch(r"[\d.,%]+", p)]
+    parts = [p for p in R.formula_terms(sides[1]) if not re.fullmatch(r"[\d.,%]+", p)]
     return (sides[0].strip(), parts) if len(parts) >= 2 else None
 
 
+def _content_part(phrase: str) -> list[str]:
+    """
+    구절의 **뜻을 싣는 낱말** — 머리말(`_claim_rules.head_token`)까지의 토큰. 머리 뒤에 붙은 가벼운 머리(「체계」「방식」)·양 수식어
+    (「감소」「부족」)는 뺀다: 「예방 체계」 → [예방], 「대출 권수 감소」 → [대출, 권수], 「수면 시간」 → [수면, 시간].
+    """
+    toks = [t for t in norm_tokens(phrase) if len(t) >= 2]
+    head = R.head_token(phrase)
+    at = max((i for i, t in enumerate(toks) if head and t.startswith(head)), default=len(toks) - 1)
+    return toks[: at + 1]
+
+
 def _node_for(term: str, graph_by: dict[str, ConceptNode], slide_no: int = 0) -> ConceptNode | None:
-    """자료의 낱말(식 항·비교 쪽)에 맞는 개념 — 이름이 그 낱말과 같거나, 이름 토큰이 그 낱말에 다 들거나, 그 낱말 토큰이
-    이름에 다 든다. 여럿이면 이름이 짧고(더 곧은 이름) 그 장에 걸친 것."""
+    """
+    자료의 낱말(식 항·비교 쪽)이 가리키는 개념 — 주장 쪽(F-26 `resolve_label`)과 같은 잣대로 고른다 (09-30 WP-Q2):
+
+    1. 이름이 그 낱말과 같다 (띄어쓰기·따옴표 무시).
+    2. 한쪽 토큰열이 다른 쪽 안에 이어서 든다 — **머리말이 통해야** 한다 (`head_compatible`: 「혈당 부하」 는 「혈당」 을 품지만
+       머리는 「부하」 다). 반의어(「매출 증가」↔「매출 감소」)는 아니다.
+    3. 그래도 없으면 낱말의 뜻 낱말(`_content_part` — 가벼운 머리를 뗀 것)이 전부 이름에 든다, 머리말이 통하고 반의어가 아니다
+       (「예방 체계」 → 「사전 예방」). 09-30 WP-Q2: 그래프가 발표 주제를 자료와 다른 말로 지으면(「사전 예방」) 자료 구조 긴장이
+       대상 노드를 못 찾아 F-26 이 빈 주장을 낸 덱에서 긴장 T1 이 사라졌다. 「수면 시간」 → 「작업 시간」 은 뜻 낱말 「수면」 이
+       없어서 아니다.
+
+    같은 차례 안에서는 극성이 같은 이름(「대출 권수」 에 「대출 권수 감소」 보다 「대출 권수」), 그 장에 걸친 이름, 길이가 비슷한 이름 순.
+    """
     tt = label_tokens(term)
     if not tt:
         return None
+    content = _content_part(term)
+    pol = R.polarity(term)
     cands = []
     for n in graph_by.values():
         lt = label_tokens(n.label)
         if not lt:
             continue
-        exact = G.squash(n.label) == G.squash(term)
-        if exact or contains_tokens(tt, lt) or contains_tokens(lt, tt):
-            cands.append((not exact, slide_no not in (n.slide_nos or []), abs(len(lt) - len(tt)), n.id, n))
-    return min(cands)[4] if cands else None
+        if G.squash(n.label) == G.squash(term):
+            rank = 0
+        elif R.antonyms(term, n.label) or not R.head_compatible(term, n.label):
+            continue
+        elif contains_tokens(tt, lt) or contains_tokens(lt, tt):
+            rank = 1
+        elif content and all(any(R.tok_match(x, c) or R.tok_match(c, x) for x in lt) for c in content):
+            rank = 2
+        else:
+            continue
+        cands.append((rank, R.polarity(n.label) != pol, slide_no not in (n.slide_nos or []), abs(len(lt) - len(tt)), n.id, n))
+    return min(cands)[-1] if cands else None
 
 
 def _deck_lines(slides: dict[int, str], labels: list[str]) -> list[tuple[int, str]]:
-    """덱의 줄 (장, 줄) — 식은 라벨로 잇고(캡션은 항이 아니다), 설문 보기·쪽 번호는 뺀다."""
+    """
+    덱의 줄 (장, 줄) — **F-26 인용과 같은 줄 읽기** (`_deck_lines.read_lines`: 차트 설명 블록을 장 전체에서 먼저 걷고, 쪽 번호 꼴·
+    글머리표만 있는 줄·자료 속 지시문을 빼고, 식 조각을 라벨로 잇되 캡션 물음은 항이 아니고 물음꼴 라벨로는 안 채우며, 그래도 열린
+    식은 몇 줄 안의 항 같은 줄로 마저 채운다). 여기에 설문 보기·축 눈금(`_evidence.noise_lines`)만 더 뺀다 — 보기는 사실이 아니다.
+    09-30 WP-Q2: 예전엔 이 파일만의 줄 읽기라 F-26 이 채운 식을 여기서는 「…×」 로 읽어 자료 구조 긴장을 놓칠 수 있었다.
+    """
     out: list[tuple[int, str]] = []
     for no in sorted(slides):
-        raw = slides[no] or ""
-        noise = noise_lines(raw)
-        lines = [ln.strip() for ln in raw.split("\n")]
-        lines = [G.clean_slide_text(ln) for ln in lines if ln and ln.strip() not in noise]
-        out += [(no, ln) for ln in join_formula([ln for ln in lines if ln], labels) if ln]
+        raw = strip_chart_descriptions(slides[no] or "")
+        rows = raw.split("\n")
+        cleaned = [clean_slide_text(x) for x in rows]
+        # 보기·눈금만 먼저 뺀다 — 쪽 번호 꼴은 read_lines 가 F-26 과 같은 자리 셈(빈 줄 뺀 맨 앞·맨 끝)으로 뺀다
+        noise, pages = noise_lines(raw), page_marker_rows(cleaned)
+        kept = [x for k, x in enumerate(rows) if k in pages or x.strip().startswith("|") or cleaned[k].strip() not in noise]
+        out += [(no, ln) for ln in DL.read_lines("\n".join(kept), clean_slide_text, labels=labels) if ln]
     return out
 
 
-def structural_tensions(graph: ConceptGraph, slides: dict[int, str], existing: list[Probe] | None = None) -> list[Probe]:
+def structural_tensions(graph: ConceptGraph, slides: dict[int, str], existing: list[Probe] | None = None, *,
+                        lines: list[tuple[int, str]] | None = None) -> list[Probe]:
     """
     「X보다 중요한 Y」 줄 + 「Y = … × X × …」 식 줄 → 긴장 탐침 (주장 그래프 없이, 자료 줄만으로).
 
     09-30 held-out(도서관): 1장 「대출 권수보다 더 중요한 것은 독서 경험입니다」 와 4장 식이 있는데, 식 가운데 캡션이 끼어
-    F-26 이 식(compose)을 못 읽어 긴장 탐침이 없었다. 식은 `join_formula` 가 그래프 라벨로 잇는다. 이미 같은 대상의 긴장이
-    있으면 만들지 않는다. 대상 노드는 식의 좌변(Y)·항(X)에 맞는 개념 — 못 찾으면 만들지 않는다.
+    F-26 이 식(compose)을 못 읽어 긴장 탐침이 없었다. 식은 F-26 과 같은 줄 읽기(`_deck_lines`)로 잇는다. 이미 같은 대상의 긴장이
+    있으면 만들지 않는다. 대상 노드는 식의 좌변(Y)·항(X)에 맞는 개념(`_node_for` — F-26 과 같은 잣대) — 못 찾으면 만들지 않는다.
+    F-26 이 빈 주장 문서를 낸 덱에서도 여기가 돈다 (`as_claims`). lines 는 `_deck_lines` 결과 (부르는 쪽이 이미 읽었으면 넘긴다).
     """
     graph_by = {n.id: n for n in graph.nodes}
-    labels = [n.label for n in graph.nodes]
-    lines = _deck_lines(slides, labels)
+    if lines is None:
+        lines = _deck_lines(slides, [n.label for n in graph.nodes])
     have = {(p.node_ids[0], p.node_ids[1]) for p in existing or [] if p.kind == "tension" and len(p.node_ids) >= 2}
     have_targets = {p.node_ids[0] for p in existing or [] if p.kind == "tension"}
     out: list[Probe] = []
@@ -662,10 +755,9 @@ def structural_tensions(graph: ConceptGraph, slides: dict[int, str], existing: l
             if parsed is None:
                 continue
             lhs, terms = parsed
-            if not (contains_tokens(label_tokens(lhs), label_tokens(greater)) or contains_tokens(label_tokens(greater), label_tokens(lhs))):
+            if not _same_phrase(lhs, greater):
                 continue
-            term = next((t for t in terms if contains_tokens(label_tokens(t), label_tokens(lesser))
-                         or contains_tokens(label_tokens(lesser), label_tokens(t))), "")
+            term = next((t for t in terms if _same_phrase(t, lesser)), "")
             if not term:
                 continue
             a = _node_for(lhs, graph_by, f_no) or _node_for(greater, graph_by, c_no)
@@ -684,18 +776,27 @@ def structural_tensions(graph: ConceptGraph, slides: dict[int, str], existing: l
     return out
 
 
+def _same_phrase(a: str, b: str) -> bool:
+    """자료의 두 구절(식 좌변·항 ↔ 비교 쪽)이 같은 것을 부르는가 — 한쪽 토큰열이 다른 쪽에 이어서 들고 머리말이 통한다
+    (`head_compatible`: 「혈당 부하」 ↔ 「혈당」 은 아니다 — F-26·F-07 과 같은 잣대)."""
+    ta, tb = label_tokens(a), label_tokens(b)
+    return bool(ta) and bool(tb) and (contains_tokens(ta, tb) or contains_tokens(tb, ta)) and R.head_compatible(a, b)
+
+
 def solution_line(label: str, slides: dict[int, str], exclude_slides: set[int] | None = None,
-                  labels: list[str] | None = None, *, strict: bool = False) -> tuple[int, str] | None:
+                  labels: list[str] | None = None, *, strict: bool = False,
+                  lines: list[tuple[int, str]] | None = None) -> tuple[int, str] | None:
     """
     덱 전체에서 이 개념의 **해결 줄** — 개념 이름과 해결 동사(줄이다·막다·낮추다·지원·도입 …)가 한 줄에 있다. 이름이 통째로
     나온 줄이 먼저, 없으면(strict 가 아니면) 변별 토큰의 절반 이상이 나온 줄. 문제 목록 장(exclude_slides)의 줄·식 줄은 문제나
     구성을 늘어놓은 것이라 뺀다 (09-30 전세 덱: 식 「예방 체계 = 정보 공개 × …」 의 「예방」 이 해결 줄로 잡혔다). 없으면 None.
+    lines 는 `_deck_lines` 결과 (부르는 쪽이 이미 읽었으면 넘긴다).
     """
-    lines = [(no, ln) for no, ln in _deck_lines(slides, labels or [])
+    cands = [(no, ln) for no, ln in (lines if lines is not None else _deck_lines(slides, labels or []))
              if not (exclude_slides and no in exclude_slides) and not is_question_line(ln) and not R.is_formula(ln)
              and G.REMEDY_VERB_RE.search(ln)]
     for need in ((1.0,) if strict else (1.0, R.MENTION_MIN)):
-        for no, ln in lines:
+        for no, ln in cands:
             if R.mention_score(label, ln) >= need:
                 return no, ln
     return None
@@ -706,7 +807,8 @@ def remedies_target(label: str, line: str) -> bool:
     return G.remedy_of(label, line)
 
 
-def validate_probes(probes: list[Probe], graph: ConceptGraph, slides: dict[int, str]) -> list[Probe]:
+def validate_probes(probes: list[Probe], graph: ConceptGraph, slides: dict[int, str], *,
+                    lines: list[tuple[int, str]] | None = None) -> list[Probe]:
     """
     덱 전체로 탐침을 다시 본다 — 틀린 탐침은 버리고, 형제 근거는 실제 해결 줄로 바꾼다.
 
@@ -714,9 +816,12 @@ def validate_probes(probes: list[Probe], graph: ConceptGraph, slides: dict[int, 
       「… 순서로 먹으면 식후 졸림을 줄일 수 있습니다」 가 있는데 F-26 이 해결 주장을 다른 줄에 붙여 「식후 졸림」 이 빈칸 탐침이
       됐고, 골자가 「개선 방법은 자료에 제시되지 않았어요」 로 거짓을 가르쳤다.
     - unsolved 의 형제(해결된 쪽) 근거는 그 형제의 해결 줄로 — 「잦은 허기를 막습니다」 줄을 「졸림」 의 해결로 인용하지 않게.
+    lines 는 `_deck_lines` 결과 — 탐침마다 덱을 다시 읽지 않는다.
     """
     graph_by = {n.id: n for n in graph.nodes}
     labels = [n.label for n in graph.nodes]
+    if lines is None:
+        lines = _deck_lines(slides, labels)
     out: list[Probe] = []
     for p in probes:
         if p.kind != "unsolved" or not p.node_ids or p.node_ids[0] not in graph_by:
@@ -724,20 +829,20 @@ def validate_probes(probes: list[Probe], graph: ConceptGraph, slides: dict[int, 
             continue
         list_slides = {e.slide_no for e in p.evidence[:1]}
         target = graph_by[p.node_ids[0]].label
-        if solution_line(target, slides, list_slides, labels, strict=True) is not None:
+        if solution_line(target, slides, list_slides, labels, strict=True, lines=lines) is not None:
             continue
         # 근거가 나온 장(문제 목록일 수 있다)도 본다 — 개념이 해결 동사의 **대상**인 줄만 해결 줄로 친다 (`remedies_target`).
         # WP-Q 테스트: 한 장에 「좌석 부족은 주말에 심합니다」 와 「흡음재를 붙이면 소음을 줄일 수 있습니다」 가 같이 있으면 그 장을
         # 통째로 빼서 「소음」 이 빈칸 탐침으로 남았고, 골자가 「자료에는 소음을 개선하는 방법이 나와 있지 않아요」 로 거짓을 가르쳤다.
         if any(no in list_slides and not R.is_formula(ln) and not is_question_line(ln) and remedies_target(target, ln)
-               for no, ln in _deck_lines(slides, labels)):
+               for no, ln in lines):
             continue
         ev = list(p.evidence[:1])
         sib = p.node_ids[1] if len(p.node_ids) >= 2 and p.node_ids[1] in graph_by else ""
-        fix = solution_line(graph_by[sib].label, slides, list_slides, labels) if sib else None
+        fix = solution_line(graph_by[sib].label, slides, list_slides, labels, lines=lines) if sib else None
         if sib and fix is None:
             # 형제의 해결 줄이 근거와 같은 장에 있으면 그 줄 (개념이 해결 동사의 대상인 줄만 — `remedies_target`)
-            fix = next(((no, ln) for no, ln in _deck_lines(slides, labels)
+            fix = next(((no, ln) for no, ln in lines
                         if no in list_slides and not R.is_formula(ln) and not is_question_line(ln)
                         and remedies_target(graph_by[sib].label, ln)), None)
         if fix is not None:

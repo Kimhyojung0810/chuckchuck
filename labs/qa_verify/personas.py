@@ -358,6 +358,10 @@ def build(q: dict, slide_doc: dict, *, others: list[dict] | None = None, helpers
     elif out_of_deck(q):
         first = plain[0] if plain else ""
         answers["good"] = "자료에는 그 내용이 나와 있지 않아요." + (f" 자료가 말하는 건 {T.reported(first)} 하는 데까지예요." if first else "")
+        # 빈틈을 묻는 질문(「…없는데, 어떻게 해결/보강하려는지」)의 좋은 답은 없다는 인정 + 보강 계획이다 — 인정만 하면 부분 점수가 맞다
+        # (09-30 표준 단계: 「자료에 없어요」 만 한 답을 정답 대조군으로 세어 판정이 옳게 준 55 를 실패로 셌다).
+        if re.search(r"어떻게|해결|보강|개선|근거|뒷받침", q.get("question", "")):
+            answers["good"] += " 그래서 설문이나 통계, 비교 자료를 찾아 보강할게요."
         source = "honest"
     elif probe:
         answers["good"] = speak_claim(q.get("answer_gist", ""), seed)

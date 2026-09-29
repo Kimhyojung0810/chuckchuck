@@ -473,3 +473,25 @@ def test_모양이_계약과_다른_본문_질문은_400(env):
     bad = trap_question(id="q07-c1", trap=False, trap_premise=None, slide_nos=["둘째 장"])
     code, body = judge(sid, bad)
     assert code == 400 and body["error"] == "bad_request"
+
+
+def test_기억은_이번_발표의_그래프와_자료로_좁혀_만든다(env, monkeypatch):
+    # 09-30 WP-P: build_memory(graph=, slidedoc=) 를 받아야 다른 발표의 리허설이 기억·요약에서 빠진다 (scoped)
+    archive, _ = env
+    sid = open_session(archive)
+    bridge.STORE.put_artifacts(sid, {"graph": GRAPH})
+    seen = {}
+
+    def fake_rehearsals(_sid):
+        return [{"session_id": "old", "at": "2026-09-29T00:00:00Z", "title": "t", "turns": []}], "learner-x"
+
+    def fake_build(rehearsals, **kw):
+        seen.update(kw)
+        from chuckchuck.contracts import MemoryDoc
+        return MemoryDoc(learner_key="learner-x")
+
+    monkeypatch.setattr(archive, "rehearsals_for", fake_rehearsals)
+    monkeypatch.setattr("chuckchuck.build_memory", fake_build)
+    post("/api/v1/memory", {"session_id": sid})
+    assert seen.get("graph") and seen["graph"].get("nodes") == GRAPH.get("nodes")
+    assert seen.get("slidedoc") is not None

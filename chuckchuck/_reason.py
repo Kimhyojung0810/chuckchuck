@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 
 from . import _claim_rules as R
-from ._evidence import clean_slide_text
+from ._evidence import clean_slide_text, page_marker_rows
 from ._grounding import stem as _josa_stem
 
 # ---------------------------------------------------------------------------
@@ -31,9 +31,9 @@ from ._grounding import stem as _josa_stem
 _BULLET_ONLY_RE = re.compile(r"^[·•▪■◦∙*\-–—]+$")
 #: 글머리표 줄. 「-」「*」 는 뒤에 빈칸이 있어야 한다 — 「−3.6%」 같은 음수를 글머리표로 읽지 않게.
 _BULLET_RE = re.compile(r"^(?:[·•▪■◦∙]\s*|[*\-–—]\s+|[①-⑳]\s*|\(?\d{1,2}[.)]\s+)(?P<body>\S.*)$")
-#: 절 번호 줄(「01」「02」) — 절이 바뀐다는 표시.
+#: 절 번호 줄(「01」「02」「(2)」) — 절이 바뀐다는 표시. 그 밖의 쪽 번호 꼴(「3 / 12」「- 3 -」「p. 3」)은 F-26 과 같은 잣대로 버린다
+#: (`_evidence.page_marker_rows`).
 _MARKER_RE = re.compile(r"^\(?\d{1,2}\)?\.?$")
-_PAGE_RE = re.compile(r"^\d{1,3}\s*/\s*\d{1,3}$|^-\s*\d{1,3}\s*-$")
 _TABLE_SEP_RE = re.compile(r"^\|?\s*:?-{3,}")
 #: 줄이 이렇게 끝나면 다음 줄이 이어진다 (조사·관형형·쉼표) — 글상자 폭으로 꺾인 줄.
 _CONT_END_RE = re.compile(r"(?:은|는|이|가|을|를|의|와|과|에|로|으로|에서|에게|한|된|인|하는|되는|하게|적인|및|,)$")
@@ -66,9 +66,11 @@ def units(slide_no: int, raw_text: str) -> list[Unit]:
     """장 원문 → 줄 목록. 글머리표·꺾인 낱말·절 번호·절 제목을 읽는다."""
     items: list[list] = []            # [text, kind]
     pending = False
-    for raw in (raw_text or "").split("\n"):
-        line = clean_slide_text(raw).strip()
-        if not line or _PAGE_RE.match(line):
+    cleaned = [clean_slide_text(raw).strip() for raw in (raw_text or "").split("\n")]
+    pages = page_marker_rows(cleaned)
+    for k, line in enumerate(cleaned):
+        # 절 번호 꼴(「02」「(2)」)은 쪽 번호 잣대보다 먼저 절 번호로 읽는다 — 장 가운데의 「(2)」 를 쪽 번호로 버리면 두 절이 한 절이 된다
+        if not line or (k in pages and not _MARKER_RE.match(line)):
             continue
         if _BULLET_ONLY_RE.match(line):
             pending = True

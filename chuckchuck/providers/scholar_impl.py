@@ -27,24 +27,32 @@
     SCHOLAR_MAILTO     polite pool 용 연락 메일 (OpenAlex·Crossref). OPENALEX_MAILTO 도 읽는다
     S2_API_KEY         Semantic Scholar 키 (선택 — 없으면 공용 한도 100회/5분)
     SCHOLAR_TIMEOUT_SEC  요청 시간 초과 (기본 8)
+    SCHOLAR_QUEUE_WAIT_SEC  통로 요청 한도(LANES) 줄에서 기다릴 최대 초 (기본 10, 마감이 걸려 있으면 마감까지)
+
+요청 한도 (09-30 G-A9·B-14/B-15): f24 가 개념 넷을 동시에 띄우면 통로마다 4병렬이 됐다 — arXiv 는 「3초에 한 번」 이
+이용 규칙이라 줄줄이 429 를 받았고, 그 429 는 합친 결과에 묻혀 성공처럼 보였다. 이제 통로마다 동시 요청 수와 요청 사이
+최소 간격(`LANES`)을 **프로세스 전체에서** 지키고, 429 를 받으면 그 통로를 다 같이 쉰다(Retry-After). 줄이 마감보다 길면
+보내지 않고 throttled 로 알린다 — 벤더가 막은 것(rate_limited)과 우리가 참은 것(throttled)을 가른다.
 """
 
 from __future__ import annotations
 
+import contextvars
 import datetime
 import html
 import math
 import os
 import re
 import sys
+import threading
 import time
 import xml.etree.ElementTree as ET
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 
 import requests
 
-from ..contracts import PAPER_ABSTRACT_MAX, PaperError, PaperRef
-from .scholar_base import ScholarProvider
+from ..contracts import PAPER_ABSTRACT_MAX, PaperRef
+from .scholar_base import ScholarCallError, ScholarProvider, SearchHits, dominant_state, remaining, status_of_error
 
 _WS_RE = re.compile(r"\s+")
 #: OpenAlex 는 `?`·`*` 가 든 검색어에 400 을 낸다 (와일드카드로 읽는다). 따옴표·콜론도 지운다.
@@ -62,9 +70,19 @@ TITLE_HIT_MIN = 2
 #: 피인용 0 이고 한 통로만 찾은 논문(아무도 보증하지 않은 것)은 검색어 낱말 중 하나만 빼고 다 제목에 있어야 한다.
 #: 두 통로가 같이 찾았거나(source 에 "+") 피인용이 있으면 남이 이미 검증한 논문이라 TITLE_HIT_MIN 이면 된다.
 TITLE_MISS_MAX_UNVOUCHED = 1
-#: coverage 를 잴 때 무시할 낱말.
+#: coverage·관련성을 잴 때 무시할 낱말 (**어간 전에 낱말 통째로** 본다 — 「context」 를 빼도 「content」 는 남는다).
+#: 09-30 G-A31: 기능어·학술 상투어(research·impact·effect·method …)가 겹침으로 세여, 주제가 다른 논문이 「검색어 낱말을
+#: 나눈다」 로 통과했다. 어느 분야 논문에나 있는 말만 둔다 — model·system·data 처럼 분야에 따라 내용인 말은 두지 않는다.
 _QUERY_STOP = {"the", "and", "for", "with", "from", "into", "over", "under", "using", "based",
-               "study", "review", "analysis", "effect", "effects", "approach", "method", "methods"}
+               "study", "review", "analysis", "effect", "effects", "approach", "method", "methods",
+               "studies", "reviews", "analyses", "research", "impact", "impacts", "influence", "influences", "role", "roles",
+               "factor", "factors", "relationship", "relationships", "association", "associations", "evidence",
+               "outcome", "outcomes", "result", "results", "finding", "findings", "methodology", "among", "between",
+               "toward", "towards", "via", "within", "across", "through", "novel", "new", "recent", "latest", "paper", "papers",
+               "article", "articles", "approaches", "survey",
+               "surveys", "case", "cases", "perspective", "perspectives", "implication", "implications", "aspect",
+               "aspects", "issue", "issues", "context", "contexts", "use", "uses", "does", "how", "what", "why", "which",
+               "are", "its", "their", "this", "that", "these", "those", "than", "not", "can", "may", "was", "were"}
 
 
 _UA = {"User-Agent": "chuckchuck/1.0 (F-24 papers; mailto:%s)"}
@@ -74,35 +92,200 @@ def _mailto() -> str:
     return os.environ.get("SCHOLAR_MAILTO") or os.environ.get("OPENALEX_MAILTO") or ""
 
 
-#: 429(속도 제한)를 받으면 이만큼 쉬고 **한 번만** 다시 묻는다. Retry-After 가 있으면 그 값(상한 RATE_LIMIT_WAIT_MAX).
+#: 429(속도 제한)를 받으면 이만큼 쉬고 **한 번만** 다시 묻는다. Retry-After 가 있으면 그 값 — 단 RATE_LIMIT_WAIT_MAX 를 넘으면
+#: 다시 묻지 않는다 (요청 안에서 몇 분·몇 시간을 잘 수는 없다).
 RATE_LIMIT_WAIT_SEC = 1.5
 RATE_LIMIT_WAIT_MAX = 4.0
+#: 429 뒤 그 통로 전체가 쉬는 최대 초 — Retry-After 를 이만큼까지는 지킨다. 09-30 실측: 키 없는 OpenAlex 가 하루 한도를 다 써
+#: Retry-After 19517(≈5.4시간)을 줬는데, 예전 코드는 4초 뒤 다시 묻고 다른 개념 검색도 그대로 보내 9번 모두 429 를 받았다.
+LANE_COOLDOWN_MAX = 900.0
+#: 요청 하나에 줄 최소 시간 (마감이 가까워도 이보다 짧게는 안 준다 — 그럴 바에는 안 보낸다).
+REQUEST_MIN_SEC = 1.0
+
+#: 통로마다 (동시 요청 수, 요청 사이 최소 간격 초). 벤더가 적어 둔 한도 아래로 — 프로세스 전체에서 나눠 쓴다.
+#:   arxiv           이용 규칙 「3초에 한 번」 (export.arxiv.org API terms). 09-30 G-A9: 4병렬 → 429 연쇄.
+#:   semanticscholar 키 없이 100회/5분(공용), 키가 있어도 초당 1회.
+#:   openalex        초당 10회 (polite pool) — 넷까지.
+#:   crossref·europepmc  공개 한도가 넉넉하지만 공용 자원이라 둘씩.
+LANES: dict[str, tuple[int, float]] = {
+    "openalex": (4, 0.12),
+    "arxiv": (1, 3.1),
+    "semanticscholar": (1, 1.1),
+    "crossref": (2, 0.25),
+    "europepmc": (2, 0.25),
+}
+_LANE_DEFAULT = (2, 0.25)
 
 
-def _get_json(url: str, params: dict | None, timeout: float, headers: dict | None = None, who: str = "",
-              _retry: bool = True) -> dict | list | None:
-    """GET → JSON. 404 는 None, 429 는 한 번 쉬고 재시도, 나머지 오류는 PaperError. 벤더 이름은 메시지에만 남는다."""
+def _now() -> float:
+    return time.monotonic()
+
+
+def _pause(seconds: float) -> None:
+    """줄 간격만큼 기다린다. time.sleep 을 안 쓴다 — 429 백오프(time.sleep)와 따로 세야 테스트가 가른다."""
+    if seconds > 0:
+        threading.Event().wait(seconds)
+
+
+class _Lane:
+    """통로 하나의 요청 줄 — 동시 요청 수(slots)와 시작 간격(interval). 스레드 안전."""
+
+    def __init__(self, name: str, slots: int, interval: float):
+        self.name = name
+        self.interval = max(0.0, interval)
+        self._slots = threading.BoundedSemaphore(max(1, slots))
+        self._lock = threading.Lock()
+        self._next = 0.0          # 다음 요청을 시작해도 되는 시각 (_now 기준)
+        self._cool_until = 0.0    # 벤더가 429 로 쉬라고 한 끝 시각 — 이 줄에서 기다리다 못 보내면 rate_limited 다 (우리가 참은 것이 아니다)
+
+    def _throttled(self, why: str) -> ScholarCallError:
+        if self._cool_until > _now():
+            return ScholarCallError(f"{self.name} 응답 429 뒤 쉬는 중 — {why} 보내지 않음", kind="rate_limited", provider=self.name)
+        return ScholarCallError(f"{self.name} 요청 한도 — {why} 보내지 않음", kind="throttled", provider=self.name)
+
+    def _start_at(self, now: float, after_backoff: bool) -> float:
+        """이 요청이 시작해도 되는 가장 이른 시각 — 우리 간격(_next)과 벤더 쉼(_cool_until). 백오프를 마친 재시도는 벤더 쉼만 건너뛴다."""
+        return max(now, self._next) if after_backoff else max(now, self._next, self._cool_until)
+
+    def enter(self, wait_max: float, after_backoff: bool = False) -> None:
+        """
+        자리를 잡는다. wait_max 안에 시작할 수 없으면 보내지 않고 throttled(벤더가 쉬라고 한 동안이면 rate_limited).
+        시작 시각은 **자리를 잡은 뒤에** 차지한다 — 먼저 차지하면 늦게 차지한 스레드가 자리를 먼저 잡아, 간격이 무너졌다
+        (테스트 실측: 3초 간격 통로에서 0.02초 간격 요청). 429 백오프 뒤 재시도(after_backoff)도 **간격은 지킨다** — 09-30 리뷰:
+        간격까지 건너뛰자 arXiv 에 네 스레드의 재시도가 0.05초 간격으로 몰렸다.
+        """
+        end = _now() + max(0.0, wait_max)
+        with self._lock:
+            ahead = self._start_at(_now(), after_backoff) - _now()
+            if ahead > wait_max:
+                raise self._throttled(f"{ahead:.1f}초 줄이라")
+        if not self._slots.acquire(timeout=max(0.0, end - _now())):
+            raise self._throttled("동시 요청 자리가 없어")
+        try:
+            while True:
+                with self._lock:
+                    now = _now()
+                    start = self._start_at(now, after_backoff)
+                    if start > now and start > end:          # 기다려야 하는데 그만큼 기다릴 수 없다
+                        raise self._throttled(f"{start - now:.1f}초 줄이라")
+                    if start <= now:
+                        self._next = max(self._next, now + self.interval)
+                        return
+                _pause(start - now)
+        except BaseException:
+            self._slots.release()
+            raise
+
+    def leave(self) -> None:
+        self._slots.release()
+
+    def cool_down(self, seconds: float) -> None:
+        """429 — 이 통로를 부르는 모두가 이만큼 쉰다 (LANE_COOLDOWN_MAX 까지). 우리 간격(_next)과 따로 든다."""
+        with self._lock:
+            self._cool_until = max(self._cool_until, _now() + min(max(0.0, seconds), LANE_COOLDOWN_MAX))
+
+
+_LANES: dict[str, _Lane] = {}
+_LANES_LOCK = threading.Lock()
+
+
+def lane(name: str) -> _Lane:
+    """통로 이름 → 요청 줄 (프로세스에 하나)."""
+    with _LANES_LOCK:
+        got = _LANES.get(name)
+        if got is None:
+            slots, interval = LANES.get(name, _LANE_DEFAULT)
+            got = _LANES[name] = _Lane(name, slots, interval)
+        return got
+
+
+def reset_lanes() -> None:
+    """요청 줄을 비운다 (테스트·LANES 를 바꾼 뒤)."""
+    with _LANES_LOCK:
+        _LANES.clear()
+
+
+def _queue_wait() -> float:
+    """줄에서 기다릴 최대 초 — 마감이 걸려 있으면 마감까지(요청 하나 몫은 남기고), 없으면 SCHOLAR_QUEUE_WAIT_SEC.
+    마감을 건 호출자(f24 의 시간 예산)는 그 안에서 줄을 다 써도 된다 — 09-30 가짜 arXiv 실측: 10초로 자르면 예산 20초 안에
+    들어갈 개념 검색 둘이 throttled 로 빠졌다."""
+    left = remaining()
+    if left is not None:
+        return max(0.0, left - REQUEST_MIN_SEC)
     try:
-        res = requests.get(url, params=params, timeout=timeout,
-                           headers={**_UA, "User-Agent": _UA["User-Agent"] % _mailto(), **(headers or {})})
+        return float(os.environ.get("SCHOLAR_QUEUE_WAIT_SEC", "10"))
+    except ValueError:
+        return 10.0
+
+
+def _request_timeout(who: str, timeout: float | None = None) -> float:
+    """요청 하나의 시간 초과 — 통로의 timeout(없으면 SCHOLAR_TIMEOUT_SEC), 마감이 더 가까우면 마감까지. 마감이 지났으면 안 보낸다."""
+    base = timeout or _timeout()
+    left = remaining()
+    if left is not None and left < REQUEST_MIN_SEC:
+        raise ScholarCallError(f"{who} 시간 예산이 끝나 보내지 않음", kind="timeout", provider=who)
+    return base if left is None else min(base, left)
+
+
+def _http_get(who: str, url: str, params: dict | None = None, headers: dict | None = None, *,
+              timeout: float | None = None, after_backoff: bool = False):
+    """통로 줄(lane)을 지켜 GET 한 번. 줄에서 기다린 만큼 마감이 줄어드니 시간 초과는 자리를 잡은 **뒤에** 정한다."""
+    ln = lane(who)
+    ln.enter(_queue_wait(), after_backoff=after_backoff)
+    try:
+        return requests.get(url, params=params, timeout=_request_timeout(who, timeout),
+                            headers={**_UA, "User-Agent": _UA["User-Agent"] % _mailto(), **(headers or {})})
+    except requests.Timeout as e:
+        raise ScholarCallError(f"{who} 시간 초과: {e}", kind="timeout", provider=who) from e
     except requests.RequestException as e:
-        raise PaperError(f"{who} 요청 실패: {e}") from e
+        raise ScholarCallError(f"{who} 요청 실패: {e}", kind="network", provider=who) from e
+    finally:
+        ln.leave()
+
+
+def _retry_after(res) -> float:
+    """429 응답이 쉬라고 한 초 (없거나 못 읽으면 RATE_LIMIT_WAIT_SEC). 자르지 않는다 — 자르는 것은 쓰는 쪽이 정한다."""
+    try:
+        return max(0.0, float((getattr(res, "headers", None) or {}).get("Retry-After") or RATE_LIMIT_WAIT_SEC))
+    except (TypeError, ValueError):
+        return RATE_LIMIT_WAIT_SEC
+
+
+def _checked_get(who: str, url: str, params: dict | None = None, headers: dict | None = None, *,
+                 timeout: float | None = None):
+    """
+    GET → 응답 (200 또는 404). 429 는 그 통로를 다 같이 쉬게 하고(cool_down) **한 번만** 다시 묻는다 — 마감 안에 쉴 수 있을 때만.
+    나머지 상태는 ScholarCallError(http). 09-23 실측: Semantic Scholar 는 키 없이 연속 3번째부터 429, 한 번 쉬면 대개 통과한다.
+    """
+    res = _http_get(who, url, params, headers, timeout=timeout)
+    if res.status_code == 429:
+        wait = _retry_after(res)
+        left = remaining()
+        lane(who).cool_down(wait)
+        if wait > RATE_LIMIT_WAIT_MAX:
+            raise ScholarCallError(f"{who} 응답 429 — {wait:.0f}초 쉬라고 함", kind="rate_limited", provider=who)
+        if left is not None and left - wait < REQUEST_MIN_SEC:
+            raise ScholarCallError(f"{who} 응답 429 — 쉴 시간이 예산에 없음", kind="rate_limited", provider=who)
+        time.sleep(max(0.0, wait))
+        res = _http_get(who, url, params, headers, timeout=timeout, after_backoff=True)
+        if res.status_code == 429:
+            lane(who).cool_down(_retry_after(res))
+            raise ScholarCallError(f"{who} 응답 429: {str(getattr(res, 'text', ''))[:120]}", kind="rate_limited", provider=who)
+    if res.status_code not in (200, 404):
+        raise ScholarCallError(f"{who} 응답 {res.status_code}: {str(getattr(res, 'text', ''))[:200]}", kind="http", provider=who)
+    return res
+
+
+def _get_json(url: str, params: dict | None, timeout: float | None = None, headers: dict | None = None,
+              who: str = "") -> dict | list | None:
+    """GET → JSON. 404 는 None, 429 는 한 번 쉬고 재시도, 나머지 오류는 PaperError(ScholarCallError)."""
+    res = _checked_get(who, url, params, headers, timeout=timeout)
     if res.status_code == 404:
         return None
-    if res.status_code == 429 and _retry:
-        # 09-23 실측: Semantic Scholar 는 키 없이 연속 3번째부터 429. 한 번 쉬면 대개 통과한다.
-        try:
-            wait = min(float(res.headers.get("Retry-After") or RATE_LIMIT_WAIT_SEC), RATE_LIMIT_WAIT_MAX)
-        except (TypeError, ValueError):
-            wait = RATE_LIMIT_WAIT_SEC
-        time.sleep(max(0.0, wait))
-        return _get_json(url, params, timeout, headers, who, _retry=False)
-    if res.status_code != 200:
-        raise PaperError(f"{who} 응답 {res.status_code}: {res.text[:200]}")
     try:
         return res.json()
     except ValueError as e:
-        raise PaperError(f"{who} 응답이 JSON 이 아닙니다") from e
+        raise ScholarCallError(f"{who} 응답이 JSON 이 아닙니다", kind="parse", provider=who) from e
 
 
 def _timeout() -> float:
@@ -151,9 +334,27 @@ def _stem(t: str) -> str:
     return t[:_STEM_LEN]
 
 
+#: 부정·반대 접두 + 낱말 (non-sleep · anti-inflammatory) 은 **한 낱말**로 붙인다 — 떼면 뒤 낱말이 그대로 겹침으로 세인다.
+#: 09-30 실측(09-29 기준선 문헌 다시 판정): 「깊은 수면」 검색어 deep sleep recovery 에 non-sleep deep rest(잠이 아닌 휴식) 논문 둘이
+#: sleep·deep 겹침으로 붙어 있었다.
+_NEGATED_RE = re.compile(r"\b(non|anti)[-\s]+(?=[a-z])")
+
+
 def _stems(text: str) -> set[str]:
-    return {_stem(t) for t in _TOKEN_RE.findall((text or "").lower())
+    folded = _NEGATED_RE.sub(r"\1", (text or "").lower())
+    return {_stem(t) for t in _TOKEN_RE.findall(folded)
             if len(t) > 2 and t not in _QUERY_STOP}
+
+
+def word_stems(text: str) -> set[str]:
+    """영어 내용 낱말의 어간 집합 (기능어·학술 상투어를 뺀 것). 순위(coverage·제목 문턱)와 f24 관련성 바닥이 같은 잣대를 쓴다."""
+    return _stems(text)
+
+
+def word_stem_seq(text: str) -> list[str]:
+    """word_stems 와 같은 잣대의 어간을 **글 순서대로** (겹침 없이 빼지 않는다) — 이웃한 낱말 짝을 볼 때 쓴다."""
+    folded = _NEGATED_RE.sub(r"\1", (text or "").lower())
+    return [_stem(t) for t in _TOKEN_RE.findall(folded) if len(t) > 2 and t not in _QUERY_STOP]
 
 
 def coverage(query: str, title: str, abstract: str) -> float:
@@ -205,17 +406,10 @@ class OpenAlexScholar(ScholarProvider):
         }
         if self.mailto:
             params["mailto"] = self.mailto
-        try:
-            res = requests.get(f"{self.base_url}/works", params=params, timeout=self.timeout,
-                               headers={"User-Agent": "chuckchuck/1.0 (F-24 papers)"})
-        except requests.RequestException as e:
-            raise PaperError(f"OpenAlex 요청 실패: {e}") from e
+        res = _checked_get(self.name, f"{self.base_url}/works", params, timeout=self.timeout)
         if res.status_code != 200:
-            raise PaperError(f"OpenAlex 응답 {res.status_code}: {res.text[:200]}")
-        try:
-            works = res.json().get("results") or []
-        except ValueError as e:
-            raise PaperError("OpenAlex 응답이 JSON 이 아닙니다") from e
+            raise ScholarCallError(f"openalex 응답 {res.status_code}: {str(res.text)[:200]}", kind="http", provider=self.name)
+        works = (self._json(res) or {}).get("results") or []
         return self._rank(self._to_refs(works, q), limit)
 
     def resolve(self, title: str, doi: str = "") -> list[PaperRef]:
@@ -226,30 +420,28 @@ class OpenAlexScholar(ScholarProvider):
         params = {"select": self.SELECT}
         if self.mailto:
             params["mailto"] = self.mailto
-        try:
-            if doi:
-                res = requests.get(f"{self.base_url}/works/https://doi.org/{doi}", params=params,
-                                   timeout=self.timeout, headers={"User-Agent": "chuckchuck/1.0 (F-24 papers)"})
-                if res.status_code == 404:
-                    return []
-                if res.status_code != 200:
-                    raise PaperError(f"OpenAlex 응답 {res.status_code}: {res.text[:200]}")
-                works = [res.json()]
-            else:
-                q = clean_query(title)
-                if not q:
-                    return []
-                params.update({"filter": f"is_retracted:false,title.search:{q}", "per-page": 3})
-                res = requests.get(f"{self.base_url}/works", params=params, timeout=self.timeout,
-                                   headers={"User-Agent": "chuckchuck/1.0 (F-24 papers)"})
-                if res.status_code != 200:
-                    raise PaperError(f"OpenAlex 응답 {res.status_code}: {res.text[:200]}")
-                works = res.json().get("results") or []
-        except requests.RequestException as e:
-            raise PaperError(f"OpenAlex 요청 실패: {e}") from e
-        except ValueError as e:
-            raise PaperError("OpenAlex 응답이 JSON 이 아닙니다") from e
+        if doi:
+            res = _checked_get(self.name, f"{self.base_url}/works/https://doi.org/{doi}", params, timeout=self.timeout)
+            if res.status_code == 404:
+                return []
+            works = [self._json(res) or {}]
+        else:
+            q = clean_query(title)
+            if not q:
+                return []
+            params.update({"filter": f"is_retracted:false,title.search:{q}", "per-page": 3})
+            res = _checked_get(self.name, f"{self.base_url}/works", params, timeout=self.timeout)
+            if res.status_code != 200:
+                raise ScholarCallError(f"openalex 응답 {res.status_code}: {str(res.text)[:200]}", kind="http", provider=self.name)
+            works = (self._json(res) or {}).get("results") or []
         return [ref for _, ref in self._to_refs(works, title)][:1]
+
+    def _json(self, res) -> dict:
+        try:
+            data = res.json()
+        except ValueError as e:
+            raise ScholarCallError("openalex 응답이 JSON 이 아닙니다", kind="parse", provider=self.name) from e
+        return data if isinstance(data, dict) else {}
 
     @staticmethod
     def _to_refs(works: list[dict], query: str) -> list[tuple[float, PaperRef]]:
@@ -413,6 +605,10 @@ class SemanticScholarScholar(ScholarProvider):
         return out
 
 
+#: arXiv 가 매긴 DOI 의 앞머리 (10.48550/arXiv.2112.09118).
+ARXIV_DOI_PREFIX = "10.48550/arxiv."
+
+
 class ArxivScholar(ScholarProvider):
     """arXiv Atom API. 최신 프리프린트 — 피인용 수는 없다 (순위는 겹침·최근성·응답 순서)."""
 
@@ -424,18 +620,14 @@ class ArxivScholar(ScholarProvider):
         self.timeout = timeout or _timeout()
 
     def _fetch(self, search_query: str, max_results: int) -> list[PaperRef]:
-        try:
-            res = requests.get(self.base_url, params={"search_query": search_query, "max_results": max_results,
-                                                      "sortBy": "relevance"},
-                               timeout=self.timeout, headers={"User-Agent": _UA["User-Agent"] % _mailto()})
-        except requests.RequestException as e:
-            raise PaperError(f"arxiv 요청 실패: {e}") from e
+        res = _checked_get(self.name, self.base_url, {"search_query": search_query, "max_results": max_results,
+                                                      "sortBy": "relevance"}, timeout=self.timeout)
         if res.status_code != 200:
-            raise PaperError(f"arxiv 응답 {res.status_code}: {res.text[:200]}")
+            raise ScholarCallError(f"arxiv 응답 {res.status_code}: {str(res.text)[:200]}", kind="http", provider=self.name)
         try:
             root = ET.fromstring(res.content)
         except ET.ParseError as e:
-            raise PaperError("arxiv 응답이 Atom XML 이 아닙니다") from e
+            raise ScholarCallError("arxiv 응답이 Atom XML 이 아닙니다", kind="parse", provider=self.name) from e
         out = []
         for e in root.findall("a:entry", self.NS):
             title = _WS_RE.sub(" ", (e.findtext("a:title", "", self.NS) or "")).strip()
@@ -467,8 +659,10 @@ class ArxivScholar(ScholarProvider):
         return rank_refs(_positional(refs), limit)
 
     def resolve(self, title: str, doi: str = "") -> list[PaperRef]:
+        """제목으로 프리프린트를 되찾는다. arXiv 가 아닌 DOI(학술지 논문)는 묻지 않는다 — arXiv 는 그 DOI 를 모르고,
+        「3초에 한 번」 인 줄을 자료 인용 되찾기가 먼저 차지하면 개념 검색이 줄에서 밀린다 (09-30 G-A9)."""
         q = clean_query(title)
-        if not q:
+        if not q or (doi and not doi.lower().startswith(ARXIV_DOI_PREFIX)):
             return []
         refs = self._fetch(f'ti:"{q}"', 3)
         for r in refs:
@@ -577,10 +771,16 @@ class EuropePmcScholar(ScholarProvider):
         return out
 
 
+#: 여러 통로를 합칠 때 마감이 없으면 통로 하나를 이만큼까지 기다린다 (요청 한도 줄 + 요청 시간 초과 + 429 한 번 쉼).
+MULTI_WAIT_SEC = 20.0
+
+
 class MultiScholar(ScholarProvider):
     """통로 여러 개를 동시에 부르고 합친다. 같은 논문(DOI 또는 제목)은 하나로 — 피인용은 최대, 빈 초록·DOI 는 채운다.
 
-    한 통로가 죽어도 나머지로 간다 (전부 죽으면 PaperError). 어느 통로가 찾았는지는 `PaperRef.source` 에 "a+b" 로 남는다."""
+    한 통로가 죽어도 나머지로 간다 (전부 죽으면 PaperError). 어느 통로가 찾았는지는 `PaperRef.source` 에 "a+b" 로 남는다.
+    결과는 `SearchHits` 라 통로마다 사정(status)을 달고 온다 — 09-30 G-A9: 한 통로가 429 를 받아도 합친 결과는 성공처럼 보였다.
+    늦은 통로는 마감(없으면 MULTI_WAIT_SEC)까지만 기다리고 timeout 으로 적는다 — 제일 느린 통로가 개념 검색 전체를 붙들지 않게."""
 
     def __init__(self, providers: list[ScholarProvider]):
         self.providers = providers
@@ -590,23 +790,34 @@ class MultiScholar(ScholarProvider):
     def _key(ref: PaperRef) -> str:
         return paper_key(ref)
 
-    def _fan_out(self, call, what: str) -> list[list[PaperRef]]:
+    def _fan_out(self, call, what: str) -> tuple[list[list[PaperRef]], list[dict]]:
+        """통로마다 call 을 동시에 → (받은 목록들, 통로마다 사정). 마감까지 안 온 통로는 버리고 기다리지 않는다."""
+        pool = ThreadPoolExecutor(max_workers=max(1, len(self.providers)))
+        # 마감(contextvars)을 통로 스레드로 넘긴다 — 스레드마다 제 사본이어야 한다 (한 Context 를 두 스레드가 같이 못 돈다)
+        futs = [(p, pool.submit(contextvars.copy_context().run, call, p)) for p in self.providers]
+        done, _ = wait([f for _, f in futs], timeout=max(0.0, remaining(MULTI_WAIT_SEC)))
+        pool.shutdown(wait=False, cancel_futures=True)
         results: list[list[PaperRef]] = []
-        errors: list[str] = []
-        with ThreadPoolExecutor(max_workers=max(1, len(self.providers))) as pool:
-            futs = [(p, pool.submit(call, p)) for p in self.providers]
-            for p, fut in futs:
-                try:
-                    results.append(fut.result())
-                except PaperError as e:
-                    errors.append(f"{p.name}: {e}")
-                except Exception as e:  # noqa: BLE001 — 통로 하나의 버그가 나머지를 막지 않는다
-                    errors.append(f"{p.name}: {type(e).__name__}: {e}")
-        if errors:
-            sys.stderr.write(f"[scholar] {what} 일부 통로 실패: {' · '.join(errors)[:300]}\n")
+        status: list[dict] = []
+        for p, fut in futs:
+            if fut not in done:
+                status.append({"provider": p.name, "state": "timeout", "error": f"{p.name} 제한 시간 안에 안 옴"})
+                continue
+            try:
+                refs = fut.result()
+            except Exception as e:  # noqa: BLE001 — 통로 하나의 버그가 나머지를 막지 않는다
+                status.append(status_of_error(p.name, e))
+                continue
+            results.append(refs)
+            status.append({"provider": p.name, "state": "ok" if refs else "empty", "n": len(refs)})
+        bad = [s for s in status if s["state"] not in ("ok", "empty")]
+        if bad:
+            sys.stderr.write(f"[scholar] {what} 일부 통로 실패: "
+                             f"{' · '.join(s['provider'] + ': ' + s.get('error', s['state']) for s in bad)[:300]}\n")
         if not results:
-            raise PaperError(f"모든 통로 실패 — {' · '.join(errors)[:200]}")
-        return results
+            raise ScholarCallError(f"모든 통로 실패 — {' · '.join(s.get('error', s['state']) for s in bad)[:200]}",
+                                   kind=dominant_state(bad) or "failed", provider=self.name, status=status)
+        return results, status
 
     @staticmethod
     def _merge(lists: list[list[PaperRef]]) -> list[tuple[float, PaperRef]]:
@@ -640,16 +851,16 @@ class MultiScholar(ScholarProvider):
         return list(merged.values())
 
     def search(self, query: str, *, limit: int = 5) -> list[PaperRef]:
-        lists = self._fan_out(lambda p: p.search(query, limit=limit), f"search({query[:40]})")
-        return rank_refs(self._merge(lists), limit)
+        lists, status = self._fan_out(lambda p: p.search(query, limit=limit), f"search({query[:40]})")
+        return SearchHits(rank_refs(self._merge(lists), limit), status)
 
     def resolve(self, title: str, doi: str = "") -> list[PaperRef]:
-        lists = self._fan_out(lambda p: p.resolve(title, doi), f"resolve({(doi or title)[:40]})")
+        lists, status = self._fan_out(lambda p: p.resolve(title, doi), f"resolve({(doi or title)[:40]})")
         merged = self._merge([l[:1] for l in lists if l])
         if not merged:
-            return []
+            return SearchHits([], status)
         merged.sort(key=lambda t: -t[0])
-        return [merged[0][1]]
+        return SearchHits([merged[0][1]], status)
 
 
 class NoScholar(ScholarProvider):
