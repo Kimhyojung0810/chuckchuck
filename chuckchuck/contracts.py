@@ -708,6 +708,12 @@ class AlignmentItem:
     deck_quote: str = ""
     deck_slide_no: int | None = None
     decided_by: str = "llm"            # ALIGN_DECIDERS
+    #: 코드가 확인한 모순의 갈래 — "number"(수치가 다름) · "direction"(비교·방향이 반대) · "polarity"(맞다·아니다가 반대) · ""(모름·모순 아님).
+    #: 질문·리포트가 「수치」「방향」「맞다·아니다」 를 이것으로 고른다 — 자료 쪽에만 남은 수로 짐작하면 「이 할도 안 되는」(= 2할 미만)이
+    #: 「수치가 달라요」 가 됐다(09-30 녹음 감사 REC-03). 예전 저장본엔 없다 — 비면 예전처럼 짐작한다.
+    contra_kind: str = ""
+
+    CONTRA_KINDS = ("number", "direction", "polarity")
 
     def to_dict(self) -> dict:
         return {
@@ -721,6 +727,7 @@ class AlignmentItem:
             "deck_quote": self.deck_quote,
             "deck_slide_no": self.deck_slide_no,
             "decided_by": self.decided_by,
+            "contra_kind": self.contra_kind,
         }
 
     @classmethod
@@ -728,6 +735,7 @@ class AlignmentItem:
         verdict = d.get("verdict", "missing")
         slide_no = d.get("deck_slide_no")
         decided = str(d.get("decided_by", "llm") or "llm")
+        contra_kind = str(d.get("contra_kind", "") or "")
         return cls(
             node_id=str(d["node_id"]),
             verdict=verdict if verdict in ALIGN_VERDICTS else "missing",
@@ -739,6 +747,7 @@ class AlignmentItem:
             deck_quote=str(d.get("deck_quote", "") or ""),
             deck_slide_no=None if slide_no is None else int(slide_no),
             decided_by=decided if decided in ALIGN_DECIDERS else "llm",
+            contra_kind=contra_kind if contra_kind in cls.CONTRA_KINDS else "",
         )
 
 

@@ -160,6 +160,11 @@ quick 의 가드 감사도 같은 공격을 **LLM 없이** 넣는다 — `guard.
 - `probe_absolute` — 대상 F-26 규칙 주장 → `derive_probes` 의 단정 탐침이 `absolute_on` 줄에만 나오고 `absolute_off` 줄(관찰·셈·기제)엔
   안 나오는지, 그 코드 골자가 `gist_require`·`gist_require_any` 를 담고 `gist_forbid`(골자 전체)·`gist_bare_forbid`(「」 인용 밖)를
   안 담는지 (09-30 WP-P2).
+- `align_contra` — `args.said`(`[{slide_no, text, expect}]`) 문장을 장마다 한 구간으로 놓고 대상 F-11 코드 대조
+  (`_align_checks.contradictions`, 그래프는 장마다 개념 하나)를 돌린다. `expect` 가 `"none"` 이면 모순이 없어야 하고,
+  `{family, slide}` 면 그 장에 그 갈래(`number`·`direction`·`polarity` — `AlignmentItem.contra_kind`)의 모순이 있어야 한다.
+- `evidence_verified` — `args.talk`(구간) · `node` · `quote`(LLM 인용)로 대상 `_align_checks.resolve_evidence` 를 불러
+  `expect.forbid`(녹음에 없는 조각이 남으면 실패) · `contains` · `empty` 로 본다.
 
 `source.file` 은 처음 읽을 때 `out/frozen/<id>.json` 에 얼려 둔다 — 부스 세션 보관소는 지워질 수 있다. 원본도 얼린 것도 없으면
 `inline`(또는 다른 사례의 inline 을 `inline_from` 으로), 그것도 없으면 skip(`quick.cases.skipped`). 발표자의 자료 본문을 새로

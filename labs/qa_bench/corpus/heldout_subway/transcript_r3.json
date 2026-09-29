@@ -1,0 +1,2701 @@
+{
+ "full_text": "안녕하세요, 총무팀이에요. 상반기 운영 보고를 드릴게요. 오늘 주제는 신입 회원이 석 달을 넘기게 하려면 어떻게 해야 하나예요. 올해 상반기에 신입 회원이 마흔 명 들어왔어요. 그런데 그중 스물여덟 명, 칠십 퍼센트가 석 달 안에 그만뒀어요. 석 달 이탈률이 작년 오십오 퍼센트에서 올해 칠십 퍼센트로 올라갔어요. 그만두는 비율이 작년보다 늘어난 거죠. 그만둔 분들께 이유를 여쭤봤는데 스물한 분이 답해 주셨어요. 게임에 끼기 어려웠다는 분이 열한 명으로 제일 많았고, 기다리는 시간이 길었다는 분이 일곱 명, 회비가 부담됐다는 분은 세 명이었어요. 회비 때문이라는 분은 십오 퍼센트도 안 됐던 거예요. 모임별로 보면, 평일 저녁은 화요일이랑 목요일에 코트 네 면, 토요일 오전은 여섯 면이에요. 평일 저녁은 평균 삼십 분 넘게 기다렸고, 토요일 오전은 십이 분이었어요. 토요일 오전은 평일 저녁보다 대기 시간이 훨씬 짧았어요. 절반도 안 됐으니까요. 그래서 삼월부터 멘토 짝을 시범으로 해 봤어요. 신입 열 명에게 기존 회원을 한 명씩 멘토로 붙였어요. 석 달 뒤에 멘토가 있는 신입은 열 명 중 여섯 명, 육십 퍼센트가 남았고요, 멘토가 없는 신입은 서른 명 중 여섯 명, 이십 퍼센트만 남았어요. 멘토가 없는 신입은 멘토가 있는 신입에 비해 남은 비율이 삼분의 일밖에 안 됐던 거죠. 멘토를 붙이니까 그만두는 사람이 확 줄었어요. 회비는 이렇게 나와요. 체육관 대관료를 활동 회원 수로 나누고, 셔틀콕값을 더해요. 대관료가 백팔십만 원이고 활동 회원이 육십 명이니까 한 사람에 삼만 원, 여기에 셔틀콕값 만 원을 더해서 월 사만 원이에요. 하반기에는 세 가지를 바꿔요. 토요일 아홉 시부터 열 시까지 신입 전용 코트를 한 면 두고요, 게임 순서는 대기 명단 앱에 공개해서 누가 순서를 건너뛰는 일이 없게 할 거예요. 그리고 신입은 첫 달 회비를 이만 원만 받아요. 정리하면, 신입이 첫 게임에 빨리 들어가야 오래 남아요. 신입분들 보이면 먼저 같이 치자고 해 주세요. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 1.29
+  },
+  {
+   "text": "총무팀이에요.",
+   "start_sec": 1.29,
+   "end_sec": 2.59
+  },
+  {
+   "text": "상반기",
+   "start_sec": 2.59,
+   "end_sec": 3.88
+  },
+  {
+   "text": "운영",
+   "start_sec": 3.88,
+   "end_sec": 5.18
+  },
+  {
+   "text": "보고를",
+   "start_sec": 5.18,
+   "end_sec": 6.47
+  },
+  {
+   "text": "드릴게요.",
+   "start_sec": 6.47,
+   "end_sec": 7.76
+  },
+  {
+   "text": "오늘",
+   "start_sec": 7.76,
+   "end_sec": 9.06
+  },
+  {
+   "text": "주제는",
+   "start_sec": 9.06,
+   "end_sec": 10.35
+  },
+  {
+   "text": "신입",
+   "start_sec": 10.35,
+   "end_sec": 11.65
+  },
+  {
+   "text": "회원이",
+   "start_sec": 11.65,
+   "end_sec": 12.94
+  },
+  {
+   "text": "석",
+   "start_sec": 12.94,
+   "end_sec": 14.24
+  },
+  {
+   "text": "달을",
+   "start_sec": 14.24,
+   "end_sec": 15.53
+  },
+  {
+   "text": "넘기게",
+   "start_sec": 15.53,
+   "end_sec": 16.82
+  },
+  {
+   "text": "하려면",
+   "start_sec": 16.82,
+   "end_sec": 18.12
+  },
+  {
+   "text": "어떻게",
+   "start_sec": 18.12,
+   "end_sec": 19.41
+  },
+  {
+   "text": "해야",
+   "start_sec": 19.41,
+   "end_sec": 20.71
+  },
+  {
+   "text": "하나예요.",
+   "start_sec": 20.71,
+   "end_sec": 22.0
+  },
+  {
+   "text": "올해",
+   "start_sec": 22.0,
+   "end_sec": 23.22
+  },
+  {
+   "text": "상반기에",
+   "start_sec": 23.22,
+   "end_sec": 24.44
+  },
+  {
+   "text": "신입",
+   "start_sec": 24.44,
+   "end_sec": 25.66
+  },
+  {
+   "text": "회원이",
+   "start_sec": 25.66,
+   "end_sec": 26.88
+  },
+  {
+   "text": "마흔",
+   "start_sec": 26.88,
+   "end_sec": 28.09
+  },
+  {
+   "text": "명",
+   "start_sec": 28.09,
+   "end_sec": 29.31
+  },
+  {
+   "text": "들어왔어요.",
+   "start_sec": 29.31,
+   "end_sec": 30.53
+  },
+  {
+   "text": "그런데",
+   "start_sec": 30.53,
+   "end_sec": 31.75
+  },
+  {
+   "text": "그중",
+   "start_sec": 31.75,
+   "end_sec": 32.97
+  },
+  {
+   "text": "스물여덟",
+   "start_sec": 32.97,
+   "end_sec": 34.19
+  },
+  {
+   "text": "명,",
+   "start_sec": 34.19,
+   "end_sec": 35.41
+  },
+  {
+   "text": "칠십",
+   "start_sec": 35.41,
+   "end_sec": 36.62
+  },
+  {
+   "text": "퍼센트가",
+   "start_sec": 36.62,
+   "end_sec": 37.84
+  },
+  {
+   "text": "석",
+   "start_sec": 37.84,
+   "end_sec": 39.06
+  },
+  {
+   "text": "달",
+   "start_sec": 39.06,
+   "end_sec": 40.28
+  },
+  {
+   "text": "안에",
+   "start_sec": 40.28,
+   "end_sec": 41.5
+  },
+  {
+   "text": "그만뒀어요.",
+   "start_sec": 41.5,
+   "end_sec": 42.72
+  },
+  {
+   "text": "석",
+   "start_sec": 42.72,
+   "end_sec": 43.94
+  },
+  {
+   "text": "달",
+   "start_sec": 43.94,
+   "end_sec": 45.16
+  },
+  {
+   "text": "이탈률이",
+   "start_sec": 45.16,
+   "end_sec": 46.38
+  },
+  {
+   "text": "작년",
+   "start_sec": 46.38,
+   "end_sec": 47.59
+  },
+  {
+   "text": "오십오",
+   "start_sec": 47.59,
+   "end_sec": 48.81
+  },
+  {
+   "text": "퍼센트에서",
+   "start_sec": 48.81,
+   "end_sec": 50.03
+  },
+  {
+   "text": "올해",
+   "start_sec": 50.03,
+   "end_sec": 51.25
+  },
+  {
+   "text": "칠십",
+   "start_sec": 51.25,
+   "end_sec": 52.47
+  },
+  {
+   "text": "퍼센트로",
+   "start_sec": 52.47,
+   "end_sec": 53.69
+  },
+  {
+   "text": "올라갔어요.",
+   "start_sec": 53.69,
+   "end_sec": 54.91
+  },
+  {
+   "text": "그만두는",
+   "start_sec": 54.91,
+   "end_sec": 56.12
+  },
+  {
+   "text": "비율이",
+   "start_sec": 56.12,
+   "end_sec": 57.34
+  },
+  {
+   "text": "작년보다",
+   "start_sec": 57.34,
+   "end_sec": 58.56
+  },
+  {
+   "text": "늘어난",
+   "start_sec": 58.56,
+   "end_sec": 59.78
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 59.78,
+   "end_sec": 61.0
+  },
+  {
+   "text": "그만둔",
+   "start_sec": 61.0,
+   "end_sec": 62.23
+  },
+  {
+   "text": "분들께",
+   "start_sec": 62.23,
+   "end_sec": 63.46
+  },
+  {
+   "text": "이유를",
+   "start_sec": 63.46,
+   "end_sec": 64.69
+  },
+  {
+   "text": "여쭤봤는데",
+   "start_sec": 64.69,
+   "end_sec": 65.91
+  },
+  {
+   "text": "스물한",
+   "start_sec": 65.91,
+   "end_sec": 67.14
+  },
+  {
+   "text": "분이",
+   "start_sec": 67.14,
+   "end_sec": 68.37
+  },
+  {
+   "text": "답해",
+   "start_sec": 68.37,
+   "end_sec": 69.6
+  },
+  {
+   "text": "주셨어요.",
+   "start_sec": 69.6,
+   "end_sec": 70.83
+  },
+  {
+   "text": "게임에",
+   "start_sec": 70.83,
+   "end_sec": 72.06
+  },
+  {
+   "text": "끼기",
+   "start_sec": 72.06,
+   "end_sec": 73.29
+  },
+  {
+   "text": "어려웠다는",
+   "start_sec": 73.29,
+   "end_sec": 74.51
+  },
+  {
+   "text": "분이",
+   "start_sec": 74.51,
+   "end_sec": 75.74
+  },
+  {
+   "text": "열한",
+   "start_sec": 75.74,
+   "end_sec": 76.97
+  },
+  {
+   "text": "명으로",
+   "start_sec": 76.97,
+   "end_sec": 78.2
+  },
+  {
+   "text": "제일",
+   "start_sec": 78.2,
+   "end_sec": 79.43
+  },
+  {
+   "text": "많았고,",
+   "start_sec": 79.43,
+   "end_sec": 80.66
+  },
+  {
+   "text": "기다리는",
+   "start_sec": 80.66,
+   "end_sec": 81.89
+  },
+  {
+   "text": "시간이",
+   "start_sec": 81.89,
+   "end_sec": 83.11
+  },
+  {
+   "text": "길었다는",
+   "start_sec": 83.11,
+   "end_sec": 84.34
+  },
+  {
+   "text": "분이",
+   "start_sec": 84.34,
+   "end_sec": 85.57
+  },
+  {
+   "text": "일곱",
+   "start_sec": 85.57,
+   "end_sec": 86.8
+  },
+  {
+   "text": "명,",
+   "start_sec": 86.8,
+   "end_sec": 88.03
+  },
+  {
+   "text": "회비가",
+   "start_sec": 88.03,
+   "end_sec": 89.26
+  },
+  {
+   "text": "부담됐다는",
+   "start_sec": 89.26,
+   "end_sec": 90.49
+  },
+  {
+   "text": "분은",
+   "start_sec": 90.49,
+   "end_sec": 91.71
+  },
+  {
+   "text": "세",
+   "start_sec": 91.71,
+   "end_sec": 92.94
+  },
+  {
+   "text": "명이었어요.",
+   "start_sec": 92.94,
+   "end_sec": 94.17
+  },
+  {
+   "text": "회비",
+   "start_sec": 94.17,
+   "end_sec": 95.4
+  },
+  {
+   "text": "때문이라는",
+   "start_sec": 95.4,
+   "end_sec": 96.63
+  },
+  {
+   "text": "분은",
+   "start_sec": 96.63,
+   "end_sec": 97.86
+  },
+  {
+   "text": "십오",
+   "start_sec": 97.86,
+   "end_sec": 99.09
+  },
+  {
+   "text": "퍼센트도",
+   "start_sec": 99.09,
+   "end_sec": 100.31
+  },
+  {
+   "text": "안",
+   "start_sec": 100.31,
+   "end_sec": 101.54
+  },
+  {
+   "text": "됐던",
+   "start_sec": 101.54,
+   "end_sec": 102.77
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 102.77,
+   "end_sec": 104.0
+  },
+  {
+   "text": "모임별로",
+   "start_sec": 104.0,
+   "end_sec": 105.2
+  },
+  {
+   "text": "보면,",
+   "start_sec": 105.2,
+   "end_sec": 106.4
+  },
+  {
+   "text": "평일",
+   "start_sec": 106.4,
+   "end_sec": 107.6
+  },
+  {
+   "text": "저녁은",
+   "start_sec": 107.6,
+   "end_sec": 108.8
+  },
+  {
+   "text": "화요일이랑",
+   "start_sec": 108.8,
+   "end_sec": 110.0
+  },
+  {
+   "text": "목요일에",
+   "start_sec": 110.0,
+   "end_sec": 111.2
+  },
+  {
+   "text": "코트",
+   "start_sec": 111.2,
+   "end_sec": 112.4
+  },
+  {
+   "text": "네",
+   "start_sec": 112.4,
+   "end_sec": 113.6
+  },
+  {
+   "text": "면,",
+   "start_sec": 113.6,
+   "end_sec": 114.8
+  },
+  {
+   "text": "토요일",
+   "start_sec": 114.8,
+   "end_sec": 116.0
+  },
+  {
+   "text": "오전은",
+   "start_sec": 116.0,
+   "end_sec": 117.2
+  },
+  {
+   "text": "여섯",
+   "start_sec": 117.2,
+   "end_sec": 118.4
+  },
+  {
+   "text": "면이에요.",
+   "start_sec": 118.4,
+   "end_sec": 119.6
+  },
+  {
+   "text": "평일",
+   "start_sec": 119.6,
+   "end_sec": 120.8
+  },
+  {
+   "text": "저녁은",
+   "start_sec": 120.8,
+   "end_sec": 122.0
+  },
+  {
+   "text": "평균",
+   "start_sec": 122.0,
+   "end_sec": 123.2
+  },
+  {
+   "text": "삼십",
+   "start_sec": 123.2,
+   "end_sec": 124.4
+  },
+  {
+   "text": "분",
+   "start_sec": 124.4,
+   "end_sec": 125.6
+  },
+  {
+   "text": "넘게",
+   "start_sec": 125.6,
+   "end_sec": 126.8
+  },
+  {
+   "text": "기다렸고,",
+   "start_sec": 126.8,
+   "end_sec": 128.0
+  },
+  {
+   "text": "토요일",
+   "start_sec": 128.0,
+   "end_sec": 129.2
+  },
+  {
+   "text": "오전은",
+   "start_sec": 129.2,
+   "end_sec": 130.4
+  },
+  {
+   "text": "십이",
+   "start_sec": 130.4,
+   "end_sec": 131.6
+  },
+  {
+   "text": "분이었어요.",
+   "start_sec": 131.6,
+   "end_sec": 132.8
+  },
+  {
+   "text": "토요일",
+   "start_sec": 132.8,
+   "end_sec": 134.0
+  },
+  {
+   "text": "오전은",
+   "start_sec": 134.0,
+   "end_sec": 135.2
+  },
+  {
+   "text": "평일",
+   "start_sec": 135.2,
+   "end_sec": 136.4
+  },
+  {
+   "text": "저녁보다",
+   "start_sec": 136.4,
+   "end_sec": 137.6
+  },
+  {
+   "text": "대기",
+   "start_sec": 137.6,
+   "end_sec": 138.8
+  },
+  {
+   "text": "시간이",
+   "start_sec": 138.8,
+   "end_sec": 140.0
+  },
+  {
+   "text": "훨씬",
+   "start_sec": 140.0,
+   "end_sec": 141.2
+  },
+  {
+   "text": "짧았어요.",
+   "start_sec": 141.2,
+   "end_sec": 142.4
+  },
+  {
+   "text": "절반도",
+   "start_sec": 142.4,
+   "end_sec": 143.6
+  },
+  {
+   "text": "안",
+   "start_sec": 143.6,
+   "end_sec": 144.8
+  },
+  {
+   "text": "됐으니까요.",
+   "start_sec": 144.8,
+   "end_sec": 146.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 146.0,
+   "end_sec": 147.03
+  },
+  {
+   "text": "삼월부터",
+   "start_sec": 147.03,
+   "end_sec": 148.07
+  },
+  {
+   "text": "멘토",
+   "start_sec": 148.07,
+   "end_sec": 149.1
+  },
+  {
+   "text": "짝을",
+   "start_sec": 149.1,
+   "end_sec": 150.13
+  },
+  {
+   "text": "시범으로",
+   "start_sec": 150.13,
+   "end_sec": 151.16
+  },
+  {
+   "text": "해",
+   "start_sec": 151.16,
+   "end_sec": 152.2
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 152.2,
+   "end_sec": 153.23
+  },
+  {
+   "text": "신입",
+   "start_sec": 153.23,
+   "end_sec": 154.26
+  },
+  {
+   "text": "열",
+   "start_sec": 154.26,
+   "end_sec": 155.3
+  },
+  {
+   "text": "명에게",
+   "start_sec": 155.3,
+   "end_sec": 156.33
+  },
+  {
+   "text": "기존",
+   "start_sec": 156.33,
+   "end_sec": 157.36
+  },
+  {
+   "text": "회원을",
+   "start_sec": 157.36,
+   "end_sec": 158.39
+  },
+  {
+   "text": "한",
+   "start_sec": 158.39,
+   "end_sec": 159.43
+  },
+  {
+   "text": "명씩",
+   "start_sec": 159.43,
+   "end_sec": 160.46
+  },
+  {
+   "text": "멘토로",
+   "start_sec": 160.46,
+   "end_sec": 161.49
+  },
+  {
+   "text": "붙였어요.",
+   "start_sec": 161.49,
+   "end_sec": 162.52
+  },
+  {
+   "text": "석",
+   "start_sec": 162.52,
+   "end_sec": 163.56
+  },
+  {
+   "text": "달",
+   "start_sec": 163.56,
+   "end_sec": 164.59
+  },
+  {
+   "text": "뒤에",
+   "start_sec": 164.59,
+   "end_sec": 165.62
+  },
+  {
+   "text": "멘토가",
+   "start_sec": 165.62,
+   "end_sec": 166.66
+  },
+  {
+   "text": "있는",
+   "start_sec": 166.66,
+   "end_sec": 167.69
+  },
+  {
+   "text": "신입은",
+   "start_sec": 167.69,
+   "end_sec": 168.72
+  },
+  {
+   "text": "열",
+   "start_sec": 168.72,
+   "end_sec": 169.75
+  },
+  {
+   "text": "명",
+   "start_sec": 169.75,
+   "end_sec": 170.79
+  },
+  {
+   "text": "중",
+   "start_sec": 170.79,
+   "end_sec": 171.82
+  },
+  {
+   "text": "여섯",
+   "start_sec": 171.82,
+   "end_sec": 172.85
+  },
+  {
+   "text": "명,",
+   "start_sec": 172.85,
+   "end_sec": 173.89
+  },
+  {
+   "text": "육십",
+   "start_sec": 173.89,
+   "end_sec": 174.92
+  },
+  {
+   "text": "퍼센트가",
+   "start_sec": 174.92,
+   "end_sec": 175.95
+  },
+  {
+   "text": "남았고요,",
+   "start_sec": 175.95,
+   "end_sec": 176.98
+  },
+  {
+   "text": "멘토가",
+   "start_sec": 176.98,
+   "end_sec": 178.02
+  },
+  {
+   "text": "없는",
+   "start_sec": 178.02,
+   "end_sec": 179.05
+  },
+  {
+   "text": "신입은",
+   "start_sec": 179.05,
+   "end_sec": 180.08
+  },
+  {
+   "text": "서른",
+   "start_sec": 180.08,
+   "end_sec": 181.11
+  },
+  {
+   "text": "명",
+   "start_sec": 181.11,
+   "end_sec": 182.15
+  },
+  {
+   "text": "중",
+   "start_sec": 182.15,
+   "end_sec": 183.18
+  },
+  {
+   "text": "여섯",
+   "start_sec": 183.18,
+   "end_sec": 184.21
+  },
+  {
+   "text": "명,",
+   "start_sec": 184.21,
+   "end_sec": 185.25
+  },
+  {
+   "text": "이십",
+   "start_sec": 185.25,
+   "end_sec": 186.28
+  },
+  {
+   "text": "퍼센트만",
+   "start_sec": 186.28,
+   "end_sec": 187.31
+  },
+  {
+   "text": "남았어요.",
+   "start_sec": 187.31,
+   "end_sec": 188.34
+  },
+  {
+   "text": "멘토가",
+   "start_sec": 188.34,
+   "end_sec": 189.38
+  },
+  {
+   "text": "없는",
+   "start_sec": 189.38,
+   "end_sec": 190.41
+  },
+  {
+   "text": "신입은",
+   "start_sec": 190.41,
+   "end_sec": 191.44
+  },
+  {
+   "text": "멘토가",
+   "start_sec": 191.44,
+   "end_sec": 192.48
+  },
+  {
+   "text": "있는",
+   "start_sec": 192.48,
+   "end_sec": 193.51
+  },
+  {
+   "text": "신입에",
+   "start_sec": 193.51,
+   "end_sec": 194.54
+  },
+  {
+   "text": "비해",
+   "start_sec": 194.54,
+   "end_sec": 195.57
+  },
+  {
+   "text": "남은",
+   "start_sec": 195.57,
+   "end_sec": 196.61
+  },
+  {
+   "text": "비율이",
+   "start_sec": 196.61,
+   "end_sec": 197.64
+  },
+  {
+   "text": "삼분의",
+   "start_sec": 197.64,
+   "end_sec": 198.67
+  },
+  {
+   "text": "일밖에",
+   "start_sec": 198.67,
+   "end_sec": 199.7
+  },
+  {
+   "text": "안",
+   "start_sec": 199.7,
+   "end_sec": 200.74
+  },
+  {
+   "text": "됐던",
+   "start_sec": 200.74,
+   "end_sec": 201.77
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 201.77,
+   "end_sec": 202.8
+  },
+  {
+   "text": "멘토를",
+   "start_sec": 202.8,
+   "end_sec": 203.84
+  },
+  {
+   "text": "붙이니까",
+   "start_sec": 203.84,
+   "end_sec": 204.87
+  },
+  {
+   "text": "그만두는",
+   "start_sec": 204.87,
+   "end_sec": 205.9
+  },
+  {
+   "text": "사람이",
+   "start_sec": 205.9,
+   "end_sec": 206.93
+  },
+  {
+   "text": "확",
+   "start_sec": 206.93,
+   "end_sec": 207.97
+  },
+  {
+   "text": "줄었어요.",
+   "start_sec": 207.97,
+   "end_sec": 209.0
+  },
+  {
+   "text": "회비는",
+   "start_sec": 209.0,
+   "end_sec": 210.2
+  },
+  {
+   "text": "이렇게",
+   "start_sec": 210.2,
+   "end_sec": 211.4
+  },
+  {
+   "text": "나와요.",
+   "start_sec": 211.4,
+   "end_sec": 212.6
+  },
+  {
+   "text": "체육관",
+   "start_sec": 212.6,
+   "end_sec": 213.8
+  },
+  {
+   "text": "대관료를",
+   "start_sec": 213.8,
+   "end_sec": 215.0
+  },
+  {
+   "text": "활동",
+   "start_sec": 215.0,
+   "end_sec": 216.2
+  },
+  {
+   "text": "회원",
+   "start_sec": 216.2,
+   "end_sec": 217.4
+  },
+  {
+   "text": "수로",
+   "start_sec": 217.4,
+   "end_sec": 218.6
+  },
+  {
+   "text": "나누고,",
+   "start_sec": 218.6,
+   "end_sec": 219.8
+  },
+  {
+   "text": "셔틀콕값을",
+   "start_sec": 219.8,
+   "end_sec": 221.0
+  },
+  {
+   "text": "더해요.",
+   "start_sec": 221.0,
+   "end_sec": 222.2
+  },
+  {
+   "text": "대관료가",
+   "start_sec": 222.2,
+   "end_sec": 223.4
+  },
+  {
+   "text": "백팔십만",
+   "start_sec": 223.4,
+   "end_sec": 224.6
+  },
+  {
+   "text": "원이고",
+   "start_sec": 224.6,
+   "end_sec": 225.8
+  },
+  {
+   "text": "활동",
+   "start_sec": 225.8,
+   "end_sec": 227.0
+  },
+  {
+   "text": "회원이",
+   "start_sec": 227.0,
+   "end_sec": 228.2
+  },
+  {
+   "text": "육십",
+   "start_sec": 228.2,
+   "end_sec": 229.4
+  },
+  {
+   "text": "명이니까",
+   "start_sec": 229.4,
+   "end_sec": 230.6
+  },
+  {
+   "text": "한",
+   "start_sec": 230.6,
+   "end_sec": 231.8
+  },
+  {
+   "text": "사람에",
+   "start_sec": 231.8,
+   "end_sec": 233.0
+  },
+  {
+   "text": "삼만",
+   "start_sec": 233.0,
+   "end_sec": 234.2
+  },
+  {
+   "text": "원,",
+   "start_sec": 234.2,
+   "end_sec": 235.4
+  },
+  {
+   "text": "여기에",
+   "start_sec": 235.4,
+   "end_sec": 236.6
+  },
+  {
+   "text": "셔틀콕값",
+   "start_sec": 236.6,
+   "end_sec": 237.8
+  },
+  {
+   "text": "만",
+   "start_sec": 237.8,
+   "end_sec": 239.0
+  },
+  {
+   "text": "원을",
+   "start_sec": 239.0,
+   "end_sec": 240.2
+  },
+  {
+   "text": "더해서",
+   "start_sec": 240.2,
+   "end_sec": 241.4
+  },
+  {
+   "text": "월",
+   "start_sec": 241.4,
+   "end_sec": 242.6
+  },
+  {
+   "text": "사만",
+   "start_sec": 242.6,
+   "end_sec": 243.8
+  },
+  {
+   "text": "원이에요.",
+   "start_sec": 243.8,
+   "end_sec": 245.0
+  },
+  {
+   "text": "하반기에는",
+   "start_sec": 245.0,
+   "end_sec": 246.03
+  },
+  {
+   "text": "세",
+   "start_sec": 246.03,
+   "end_sec": 247.06
+  },
+  {
+   "text": "가지를",
+   "start_sec": 247.06,
+   "end_sec": 248.08
+  },
+  {
+   "text": "바꿔요.",
+   "start_sec": 248.08,
+   "end_sec": 249.11
+  },
+  {
+   "text": "토요일",
+   "start_sec": 249.11,
+   "end_sec": 250.14
+  },
+  {
+   "text": "아홉",
+   "start_sec": 250.14,
+   "end_sec": 251.17
+  },
+  {
+   "text": "시부터",
+   "start_sec": 251.17,
+   "end_sec": 252.19
+  },
+  {
+   "text": "열",
+   "start_sec": 252.19,
+   "end_sec": 253.22
+  },
+  {
+   "text": "시까지",
+   "start_sec": 253.22,
+   "end_sec": 254.25
+  },
+  {
+   "text": "신입",
+   "start_sec": 254.25,
+   "end_sec": 255.28
+  },
+  {
+   "text": "전용",
+   "start_sec": 255.28,
+   "end_sec": 256.31
+  },
+  {
+   "text": "코트를",
+   "start_sec": 256.31,
+   "end_sec": 257.33
+  },
+  {
+   "text": "한",
+   "start_sec": 257.33,
+   "end_sec": 258.36
+  },
+  {
+   "text": "면",
+   "start_sec": 258.36,
+   "end_sec": 259.39
+  },
+  {
+   "text": "두고요,",
+   "start_sec": 259.39,
+   "end_sec": 260.42
+  },
+  {
+   "text": "게임",
+   "start_sec": 260.42,
+   "end_sec": 261.44
+  },
+  {
+   "text": "순서는",
+   "start_sec": 261.44,
+   "end_sec": 262.47
+  },
+  {
+   "text": "대기",
+   "start_sec": 262.47,
+   "end_sec": 263.5
+  },
+  {
+   "text": "명단",
+   "start_sec": 263.5,
+   "end_sec": 264.53
+  },
+  {
+   "text": "앱에",
+   "start_sec": 264.53,
+   "end_sec": 265.56
+  },
+  {
+   "text": "공개해서",
+   "start_sec": 265.56,
+   "end_sec": 266.58
+  },
+  {
+   "text": "누가",
+   "start_sec": 266.58,
+   "end_sec": 267.61
+  },
+  {
+   "text": "순서를",
+   "start_sec": 267.61,
+   "end_sec": 268.64
+  },
+  {
+   "text": "건너뛰는",
+   "start_sec": 268.64,
+   "end_sec": 269.67
+  },
+  {
+   "text": "일이",
+   "start_sec": 269.67,
+   "end_sec": 270.69
+  },
+  {
+   "text": "없게",
+   "start_sec": 270.69,
+   "end_sec": 271.72
+  },
+  {
+   "text": "할",
+   "start_sec": 271.72,
+   "end_sec": 272.75
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 272.75,
+   "end_sec": 273.78
+  },
+  {
+   "text": "그리고",
+   "start_sec": 273.78,
+   "end_sec": 274.81
+  },
+  {
+   "text": "신입은",
+   "start_sec": 274.81,
+   "end_sec": 275.83
+  },
+  {
+   "text": "첫",
+   "start_sec": 275.83,
+   "end_sec": 276.86
+  },
+  {
+   "text": "달",
+   "start_sec": 276.86,
+   "end_sec": 277.89
+  },
+  {
+   "text": "회비를",
+   "start_sec": 277.89,
+   "end_sec": 278.92
+  },
+  {
+   "text": "이만",
+   "start_sec": 278.92,
+   "end_sec": 279.94
+  },
+  {
+   "text": "원만",
+   "start_sec": 279.94,
+   "end_sec": 280.97
+  },
+  {
+   "text": "받아요.",
+   "start_sec": 280.97,
+   "end_sec": 282.0
+  },
+  {
+   "text": "정리하면,",
+   "start_sec": 282.0,
+   "end_sec": 283.25
+  },
+  {
+   "text": "신입이",
+   "start_sec": 283.25,
+   "end_sec": 284.5
+  },
+  {
+   "text": "첫",
+   "start_sec": 284.5,
+   "end_sec": 285.75
+  },
+  {
+   "text": "게임에",
+   "start_sec": 285.75,
+   "end_sec": 287.0
+  },
+  {
+   "text": "빨리",
+   "start_sec": 287.0,
+   "end_sec": 288.25
+  },
+  {
+   "text": "들어가야",
+   "start_sec": 288.25,
+   "end_sec": 289.5
+  },
+  {
+   "text": "오래",
+   "start_sec": 289.5,
+   "end_sec": 290.75
+  },
+  {
+   "text": "남아요.",
+   "start_sec": 290.75,
+   "end_sec": 292.0
+  },
+  {
+   "text": "신입분들",
+   "start_sec": 292.0,
+   "end_sec": 293.25
+  },
+  {
+   "text": "보이면",
+   "start_sec": 293.25,
+   "end_sec": 294.5
+  },
+  {
+   "text": "먼저",
+   "start_sec": 294.5,
+   "end_sec": 295.75
+  },
+  {
+   "text": "같이",
+   "start_sec": 295.75,
+   "end_sec": 297.0
+  },
+  {
+   "text": "치자고",
+   "start_sec": 297.0,
+   "end_sec": 298.25
+  },
+  {
+   "text": "해",
+   "start_sec": 298.25,
+   "end_sec": 299.5
+  },
+  {
+   "text": "주세요.",
+   "start_sec": 299.5,
+   "end_sec": 300.75
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 300.75,
+   "end_sec": 302.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 22,
+   "text": "안녕하세요, 총무팀이에요. 상반기 운영 보고를 드릴게요. 오늘 주제는 신입 회원이 석 달을 넘기게 하려면 어떻게 해야 하나예요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 1.29
+    },
+    {
+     "text": "총무팀이에요.",
+     "start_sec": 1.29,
+     "end_sec": 2.59
+    },
+    {
+     "text": "상반기",
+     "start_sec": 2.59,
+     "end_sec": 3.88
+    },
+    {
+     "text": "운영",
+     "start_sec": 3.88,
+     "end_sec": 5.18
+    },
+    {
+     "text": "보고를",
+     "start_sec": 5.18,
+     "end_sec": 6.47
+    },
+    {
+     "text": "드릴게요.",
+     "start_sec": 6.47,
+     "end_sec": 7.76
+    },
+    {
+     "text": "오늘",
+     "start_sec": 7.76,
+     "end_sec": 9.06
+    },
+    {
+     "text": "주제는",
+     "start_sec": 9.06,
+     "end_sec": 10.35
+    },
+    {
+     "text": "신입",
+     "start_sec": 10.35,
+     "end_sec": 11.65
+    },
+    {
+     "text": "회원이",
+     "start_sec": 11.65,
+     "end_sec": 12.94
+    },
+    {
+     "text": "석",
+     "start_sec": 12.94,
+     "end_sec": 14.24
+    },
+    {
+     "text": "달을",
+     "start_sec": 14.24,
+     "end_sec": 15.53
+    },
+    {
+     "text": "넘기게",
+     "start_sec": 15.53,
+     "end_sec": 16.82
+    },
+    {
+     "text": "하려면",
+     "start_sec": 16.82,
+     "end_sec": 18.12
+    },
+    {
+     "text": "어떻게",
+     "start_sec": 18.12,
+     "end_sec": 19.41
+    },
+    {
+     "text": "해야",
+     "start_sec": 19.41,
+     "end_sec": 20.71
+    },
+    {
+     "text": "하나예요.",
+     "start_sec": 20.71,
+     "end_sec": 22.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 22,
+   "end_sec": 61,
+   "text": "올해 상반기에 신입 회원이 마흔 명 들어왔어요. 그런데 그중 스물여덟 명, 칠십 퍼센트가 석 달 안에 그만뒀어요. 석 달 이탈률이 작년 오십오 퍼센트에서 올해 칠십 퍼센트로 올라갔어요. 그만두는 비율이 작년보다 늘어난 거죠.",
+   "words": [
+    {
+     "text": "올해",
+     "start_sec": 22.0,
+     "end_sec": 23.22
+    },
+    {
+     "text": "상반기에",
+     "start_sec": 23.22,
+     "end_sec": 24.44
+    },
+    {
+     "text": "신입",
+     "start_sec": 24.44,
+     "end_sec": 25.66
+    },
+    {
+     "text": "회원이",
+     "start_sec": 25.66,
+     "end_sec": 26.88
+    },
+    {
+     "text": "마흔",
+     "start_sec": 26.88,
+     "end_sec": 28.09
+    },
+    {
+     "text": "명",
+     "start_sec": 28.09,
+     "end_sec": 29.31
+    },
+    {
+     "text": "들어왔어요.",
+     "start_sec": 29.31,
+     "end_sec": 30.53
+    },
+    {
+     "text": "그런데",
+     "start_sec": 30.53,
+     "end_sec": 31.75
+    },
+    {
+     "text": "그중",
+     "start_sec": 31.75,
+     "end_sec": 32.97
+    },
+    {
+     "text": "스물여덟",
+     "start_sec": 32.97,
+     "end_sec": 34.19
+    },
+    {
+     "text": "명,",
+     "start_sec": 34.19,
+     "end_sec": 35.41
+    },
+    {
+     "text": "칠십",
+     "start_sec": 35.41,
+     "end_sec": 36.62
+    },
+    {
+     "text": "퍼센트가",
+     "start_sec": 36.62,
+     "end_sec": 37.84
+    },
+    {
+     "text": "석",
+     "start_sec": 37.84,
+     "end_sec": 39.06
+    },
+    {
+     "text": "달",
+     "start_sec": 39.06,
+     "end_sec": 40.28
+    },
+    {
+     "text": "안에",
+     "start_sec": 40.28,
+     "end_sec": 41.5
+    },
+    {
+     "text": "그만뒀어요.",
+     "start_sec": 41.5,
+     "end_sec": 42.72
+    },
+    {
+     "text": "석",
+     "start_sec": 42.72,
+     "end_sec": 43.94
+    },
+    {
+     "text": "달",
+     "start_sec": 43.94,
+     "end_sec": 45.16
+    },
+    {
+     "text": "이탈률이",
+     "start_sec": 45.16,
+     "end_sec": 46.38
+    },
+    {
+     "text": "작년",
+     "start_sec": 46.38,
+     "end_sec": 47.59
+    },
+    {
+     "text": "오십오",
+     "start_sec": 47.59,
+     "end_sec": 48.81
+    },
+    {
+     "text": "퍼센트에서",
+     "start_sec": 48.81,
+     "end_sec": 50.03
+    },
+    {
+     "text": "올해",
+     "start_sec": 50.03,
+     "end_sec": 51.25
+    },
+    {
+     "text": "칠십",
+     "start_sec": 51.25,
+     "end_sec": 52.47
+    },
+    {
+     "text": "퍼센트로",
+     "start_sec": 52.47,
+     "end_sec": 53.69
+    },
+    {
+     "text": "올라갔어요.",
+     "start_sec": 53.69,
+     "end_sec": 54.91
+    },
+    {
+     "text": "그만두는",
+     "start_sec": 54.91,
+     "end_sec": 56.12
+    },
+    {
+     "text": "비율이",
+     "start_sec": 56.12,
+     "end_sec": 57.34
+    },
+    {
+     "text": "작년보다",
+     "start_sec": 57.34,
+     "end_sec": 58.56
+    },
+    {
+     "text": "늘어난",
+     "start_sec": 58.56,
+     "end_sec": 59.78
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 59.78,
+     "end_sec": 61.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 61,
+   "end_sec": 104,
+   "text": "그만둔 분들께 이유를 여쭤봤는데 스물한 분이 답해 주셨어요. 게임에 끼기 어려웠다는 분이 열한 명으로 제일 많았고, 기다리는 시간이 길었다는 분이 일곱 명, 회비가 부담됐다는 분은 세 명이었어요. 회비 때문이라는 분은 십오 퍼센트도 안 됐던 거예요.",
+   "words": [
+    {
+     "text": "그만둔",
+     "start_sec": 61.0,
+     "end_sec": 62.23
+    },
+    {
+     "text": "분들께",
+     "start_sec": 62.23,
+     "end_sec": 63.46
+    },
+    {
+     "text": "이유를",
+     "start_sec": 63.46,
+     "end_sec": 64.69
+    },
+    {
+     "text": "여쭤봤는데",
+     "start_sec": 64.69,
+     "end_sec": 65.91
+    },
+    {
+     "text": "스물한",
+     "start_sec": 65.91,
+     "end_sec": 67.14
+    },
+    {
+     "text": "분이",
+     "start_sec": 67.14,
+     "end_sec": 68.37
+    },
+    {
+     "text": "답해",
+     "start_sec": 68.37,
+     "end_sec": 69.6
+    },
+    {
+     "text": "주셨어요.",
+     "start_sec": 69.6,
+     "end_sec": 70.83
+    },
+    {
+     "text": "게임에",
+     "start_sec": 70.83,
+     "end_sec": 72.06
+    },
+    {
+     "text": "끼기",
+     "start_sec": 72.06,
+     "end_sec": 73.29
+    },
+    {
+     "text": "어려웠다는",
+     "start_sec": 73.29,
+     "end_sec": 74.51
+    },
+    {
+     "text": "분이",
+     "start_sec": 74.51,
+     "end_sec": 75.74
+    },
+    {
+     "text": "열한",
+     "start_sec": 75.74,
+     "end_sec": 76.97
+    },
+    {
+     "text": "명으로",
+     "start_sec": 76.97,
+     "end_sec": 78.2
+    },
+    {
+     "text": "제일",
+     "start_sec": 78.2,
+     "end_sec": 79.43
+    },
+    {
+     "text": "많았고,",
+     "start_sec": 79.43,
+     "end_sec": 80.66
+    },
+    {
+     "text": "기다리는",
+     "start_sec": 80.66,
+     "end_sec": 81.89
+    },
+    {
+     "text": "시간이",
+     "start_sec": 81.89,
+     "end_sec": 83.11
+    },
+    {
+     "text": "길었다는",
+     "start_sec": 83.11,
+     "end_sec": 84.34
+    },
+    {
+     "text": "분이",
+     "start_sec": 84.34,
+     "end_sec": 85.57
+    },
+    {
+     "text": "일곱",
+     "start_sec": 85.57,
+     "end_sec": 86.8
+    },
+    {
+     "text": "명,",
+     "start_sec": 86.8,
+     "end_sec": 88.03
+    },
+    {
+     "text": "회비가",
+     "start_sec": 88.03,
+     "end_sec": 89.26
+    },
+    {
+     "text": "부담됐다는",
+     "start_sec": 89.26,
+     "end_sec": 90.49
+    },
+    {
+     "text": "분은",
+     "start_sec": 90.49,
+     "end_sec": 91.71
+    },
+    {
+     "text": "세",
+     "start_sec": 91.71,
+     "end_sec": 92.94
+    },
+    {
+     "text": "명이었어요.",
+     "start_sec": 92.94,
+     "end_sec": 94.17
+    },
+    {
+     "text": "회비",
+     "start_sec": 94.17,
+     "end_sec": 95.4
+    },
+    {
+     "text": "때문이라는",
+     "start_sec": 95.4,
+     "end_sec": 96.63
+    },
+    {
+     "text": "분은",
+     "start_sec": 96.63,
+     "end_sec": 97.86
+    },
+    {
+     "text": "십오",
+     "start_sec": 97.86,
+     "end_sec": 99.09
+    },
+    {
+     "text": "퍼센트도",
+     "start_sec": 99.09,
+     "end_sec": 100.31
+    },
+    {
+     "text": "안",
+     "start_sec": 100.31,
+     "end_sec": 101.54
+    },
+    {
+     "text": "됐던",
+     "start_sec": 101.54,
+     "end_sec": 102.77
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 102.77,
+     "end_sec": 104.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 104,
+   "end_sec": 146,
+   "text": "모임별로 보면, 평일 저녁은 화요일이랑 목요일에 코트 네 면, 토요일 오전은 여섯 면이에요. 평일 저녁은 평균 삼십 분 넘게 기다렸고, 토요일 오전은 십이 분이었어요. 토요일 오전은 평일 저녁보다 대기 시간이 훨씬 짧았어요. 절반도 안 됐으니까요.",
+   "words": [
+    {
+     "text": "모임별로",
+     "start_sec": 104.0,
+     "end_sec": 105.2
+    },
+    {
+     "text": "보면,",
+     "start_sec": 105.2,
+     "end_sec": 106.4
+    },
+    {
+     "text": "평일",
+     "start_sec": 106.4,
+     "end_sec": 107.6
+    },
+    {
+     "text": "저녁은",
+     "start_sec": 107.6,
+     "end_sec": 108.8
+    },
+    {
+     "text": "화요일이랑",
+     "start_sec": 108.8,
+     "end_sec": 110.0
+    },
+    {
+     "text": "목요일에",
+     "start_sec": 110.0,
+     "end_sec": 111.2
+    },
+    {
+     "text": "코트",
+     "start_sec": 111.2,
+     "end_sec": 112.4
+    },
+    {
+     "text": "네",
+     "start_sec": 112.4,
+     "end_sec": 113.6
+    },
+    {
+     "text": "면,",
+     "start_sec": 113.6,
+     "end_sec": 114.8
+    },
+    {
+     "text": "토요일",
+     "start_sec": 114.8,
+     "end_sec": 116.0
+    },
+    {
+     "text": "오전은",
+     "start_sec": 116.0,
+     "end_sec": 117.2
+    },
+    {
+     "text": "여섯",
+     "start_sec": 117.2,
+     "end_sec": 118.4
+    },
+    {
+     "text": "면이에요.",
+     "start_sec": 118.4,
+     "end_sec": 119.6
+    },
+    {
+     "text": "평일",
+     "start_sec": 119.6,
+     "end_sec": 120.8
+    },
+    {
+     "text": "저녁은",
+     "start_sec": 120.8,
+     "end_sec": 122.0
+    },
+    {
+     "text": "평균",
+     "start_sec": 122.0,
+     "end_sec": 123.2
+    },
+    {
+     "text": "삼십",
+     "start_sec": 123.2,
+     "end_sec": 124.4
+    },
+    {
+     "text": "분",
+     "start_sec": 124.4,
+     "end_sec": 125.6
+    },
+    {
+     "text": "넘게",
+     "start_sec": 125.6,
+     "end_sec": 126.8
+    },
+    {
+     "text": "기다렸고,",
+     "start_sec": 126.8,
+     "end_sec": 128.0
+    },
+    {
+     "text": "토요일",
+     "start_sec": 128.0,
+     "end_sec": 129.2
+    },
+    {
+     "text": "오전은",
+     "start_sec": 129.2,
+     "end_sec": 130.4
+    },
+    {
+     "text": "십이",
+     "start_sec": 130.4,
+     "end_sec": 131.6
+    },
+    {
+     "text": "분이었어요.",
+     "start_sec": 131.6,
+     "end_sec": 132.8
+    },
+    {
+     "text": "토요일",
+     "start_sec": 132.8,
+     "end_sec": 134.0
+    },
+    {
+     "text": "오전은",
+     "start_sec": 134.0,
+     "end_sec": 135.2
+    },
+    {
+     "text": "평일",
+     "start_sec": 135.2,
+     "end_sec": 136.4
+    },
+    {
+     "text": "저녁보다",
+     "start_sec": 136.4,
+     "end_sec": 137.6
+    },
+    {
+     "text": "대기",
+     "start_sec": 137.6,
+     "end_sec": 138.8
+    },
+    {
+     "text": "시간이",
+     "start_sec": 138.8,
+     "end_sec": 140.0
+    },
+    {
+     "text": "훨씬",
+     "start_sec": 140.0,
+     "end_sec": 141.2
+    },
+    {
+     "text": "짧았어요.",
+     "start_sec": 141.2,
+     "end_sec": 142.4
+    },
+    {
+     "text": "절반도",
+     "start_sec": 142.4,
+     "end_sec": 143.6
+    },
+    {
+     "text": "안",
+     "start_sec": 143.6,
+     "end_sec": 144.8
+    },
+    {
+     "text": "됐으니까요.",
+     "start_sec": 144.8,
+     "end_sec": 146.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 146,
+   "end_sec": 209,
+   "text": "그래서 삼월부터 멘토 짝을 시범으로 해 봤어요. 신입 열 명에게 기존 회원을 한 명씩 멘토로 붙였어요. 석 달 뒤에 멘토가 있는 신입은 열 명 중 여섯 명, 육십 퍼센트가 남았고요, 멘토가 없는 신입은 서른 명 중 여섯 명, 이십 퍼센트만 남았어요. 멘토가 없는 신입은 멘토가 있는 신입에 비해 남은 비율이 삼분의 일밖에 안 됐던 거죠. 멘토를 붙이니까 그만두는 사람이 확 줄었어요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 146.0,
+     "end_sec": 147.03
+    },
+    {
+     "text": "삼월부터",
+     "start_sec": 147.03,
+     "end_sec": 148.07
+    },
+    {
+     "text": "멘토",
+     "start_sec": 148.07,
+     "end_sec": 149.1
+    },
+    {
+     "text": "짝을",
+     "start_sec": 149.1,
+     "end_sec": 150.13
+    },
+    {
+     "text": "시범으로",
+     "start_sec": 150.13,
+     "end_sec": 151.16
+    },
+    {
+     "text": "해",
+     "start_sec": 151.16,
+     "end_sec": 152.2
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 152.2,
+     "end_sec": 153.23
+    },
+    {
+     "text": "신입",
+     "start_sec": 153.23,
+     "end_sec": 154.26
+    },
+    {
+     "text": "열",
+     "start_sec": 154.26,
+     "end_sec": 155.3
+    },
+    {
+     "text": "명에게",
+     "start_sec": 155.3,
+     "end_sec": 156.33
+    },
+    {
+     "text": "기존",
+     "start_sec": 156.33,
+     "end_sec": 157.36
+    },
+    {
+     "text": "회원을",
+     "start_sec": 157.36,
+     "end_sec": 158.39
+    },
+    {
+     "text": "한",
+     "start_sec": 158.39,
+     "end_sec": 159.43
+    },
+    {
+     "text": "명씩",
+     "start_sec": 159.43,
+     "end_sec": 160.46
+    },
+    {
+     "text": "멘토로",
+     "start_sec": 160.46,
+     "end_sec": 161.49
+    },
+    {
+     "text": "붙였어요.",
+     "start_sec": 161.49,
+     "end_sec": 162.52
+    },
+    {
+     "text": "석",
+     "start_sec": 162.52,
+     "end_sec": 163.56
+    },
+    {
+     "text": "달",
+     "start_sec": 163.56,
+     "end_sec": 164.59
+    },
+    {
+     "text": "뒤에",
+     "start_sec": 164.59,
+     "end_sec": 165.62
+    },
+    {
+     "text": "멘토가",
+     "start_sec": 165.62,
+     "end_sec": 166.66
+    },
+    {
+     "text": "있는",
+     "start_sec": 166.66,
+     "end_sec": 167.69
+    },
+    {
+     "text": "신입은",
+     "start_sec": 167.69,
+     "end_sec": 168.72
+    },
+    {
+     "text": "열",
+     "start_sec": 168.72,
+     "end_sec": 169.75
+    },
+    {
+     "text": "명",
+     "start_sec": 169.75,
+     "end_sec": 170.79
+    },
+    {
+     "text": "중",
+     "start_sec": 170.79,
+     "end_sec": 171.82
+    },
+    {
+     "text": "여섯",
+     "start_sec": 171.82,
+     "end_sec": 172.85
+    },
+    {
+     "text": "명,",
+     "start_sec": 172.85,
+     "end_sec": 173.89
+    },
+    {
+     "text": "육십",
+     "start_sec": 173.89,
+     "end_sec": 174.92
+    },
+    {
+     "text": "퍼센트가",
+     "start_sec": 174.92,
+     "end_sec": 175.95
+    },
+    {
+     "text": "남았고요,",
+     "start_sec": 175.95,
+     "end_sec": 176.98
+    },
+    {
+     "text": "멘토가",
+     "start_sec": 176.98,
+     "end_sec": 178.02
+    },
+    {
+     "text": "없는",
+     "start_sec": 178.02,
+     "end_sec": 179.05
+    },
+    {
+     "text": "신입은",
+     "start_sec": 179.05,
+     "end_sec": 180.08
+    },
+    {
+     "text": "서른",
+     "start_sec": 180.08,
+     "end_sec": 181.11
+    },
+    {
+     "text": "명",
+     "start_sec": 181.11,
+     "end_sec": 182.15
+    },
+    {
+     "text": "중",
+     "start_sec": 182.15,
+     "end_sec": 183.18
+    },
+    {
+     "text": "여섯",
+     "start_sec": 183.18,
+     "end_sec": 184.21
+    },
+    {
+     "text": "명,",
+     "start_sec": 184.21,
+     "end_sec": 185.25
+    },
+    {
+     "text": "이십",
+     "start_sec": 185.25,
+     "end_sec": 186.28
+    },
+    {
+     "text": "퍼센트만",
+     "start_sec": 186.28,
+     "end_sec": 187.31
+    },
+    {
+     "text": "남았어요.",
+     "start_sec": 187.31,
+     "end_sec": 188.34
+    },
+    {
+     "text": "멘토가",
+     "start_sec": 188.34,
+     "end_sec": 189.38
+    },
+    {
+     "text": "없는",
+     "start_sec": 189.38,
+     "end_sec": 190.41
+    },
+    {
+     "text": "신입은",
+     "start_sec": 190.41,
+     "end_sec": 191.44
+    },
+    {
+     "text": "멘토가",
+     "start_sec": 191.44,
+     "end_sec": 192.48
+    },
+    {
+     "text": "있는",
+     "start_sec": 192.48,
+     "end_sec": 193.51
+    },
+    {
+     "text": "신입에",
+     "start_sec": 193.51,
+     "end_sec": 194.54
+    },
+    {
+     "text": "비해",
+     "start_sec": 194.54,
+     "end_sec": 195.57
+    },
+    {
+     "text": "남은",
+     "start_sec": 195.57,
+     "end_sec": 196.61
+    },
+    {
+     "text": "비율이",
+     "start_sec": 196.61,
+     "end_sec": 197.64
+    },
+    {
+     "text": "삼분의",
+     "start_sec": 197.64,
+     "end_sec": 198.67
+    },
+    {
+     "text": "일밖에",
+     "start_sec": 198.67,
+     "end_sec": 199.7
+    },
+    {
+     "text": "안",
+     "start_sec": 199.7,
+     "end_sec": 200.74
+    },
+    {
+     "text": "됐던",
+     "start_sec": 200.74,
+     "end_sec": 201.77
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 201.77,
+     "end_sec": 202.8
+    },
+    {
+     "text": "멘토를",
+     "start_sec": 202.8,
+     "end_sec": 203.84
+    },
+    {
+     "text": "붙이니까",
+     "start_sec": 203.84,
+     "end_sec": 204.87
+    },
+    {
+     "text": "그만두는",
+     "start_sec": 204.87,
+     "end_sec": 205.9
+    },
+    {
+     "text": "사람이",
+     "start_sec": 205.9,
+     "end_sec": 206.93
+    },
+    {
+     "text": "확",
+     "start_sec": 206.93,
+     "end_sec": 207.97
+    },
+    {
+     "text": "줄었어요.",
+     "start_sec": 207.97,
+     "end_sec": 209.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 209,
+   "end_sec": 245,
+   "text": "회비는 이렇게 나와요. 체육관 대관료를 활동 회원 수로 나누고, 셔틀콕값을 더해요. 대관료가 백팔십만 원이고 활동 회원이 육십 명이니까 한 사람에 삼만 원, 여기에 셔틀콕값 만 원을 더해서 월 사만 원이에요.",
+   "words": [
+    {
+     "text": "회비는",
+     "start_sec": 209.0,
+     "end_sec": 210.2
+    },
+    {
+     "text": "이렇게",
+     "start_sec": 210.2,
+     "end_sec": 211.4
+    },
+    {
+     "text": "나와요.",
+     "start_sec": 211.4,
+     "end_sec": 212.6
+    },
+    {
+     "text": "체육관",
+     "start_sec": 212.6,
+     "end_sec": 213.8
+    },
+    {
+     "text": "대관료를",
+     "start_sec": 213.8,
+     "end_sec": 215.0
+    },
+    {
+     "text": "활동",
+     "start_sec": 215.0,
+     "end_sec": 216.2
+    },
+    {
+     "text": "회원",
+     "start_sec": 216.2,
+     "end_sec": 217.4
+    },
+    {
+     "text": "수로",
+     "start_sec": 217.4,
+     "end_sec": 218.6
+    },
+    {
+     "text": "나누고,",
+     "start_sec": 218.6,
+     "end_sec": 219.8
+    },
+    {
+     "text": "셔틀콕값을",
+     "start_sec": 219.8,
+     "end_sec": 221.0
+    },
+    {
+     "text": "더해요.",
+     "start_sec": 221.0,
+     "end_sec": 222.2
+    },
+    {
+     "text": "대관료가",
+     "start_sec": 222.2,
+     "end_sec": 223.4
+    },
+    {
+     "text": "백팔십만",
+     "start_sec": 223.4,
+     "end_sec": 224.6
+    },
+    {
+     "text": "원이고",
+     "start_sec": 224.6,
+     "end_sec": 225.8
+    },
+    {
+     "text": "활동",
+     "start_sec": 225.8,
+     "end_sec": 227.0
+    },
+    {
+     "text": "회원이",
+     "start_sec": 227.0,
+     "end_sec": 228.2
+    },
+    {
+     "text": "육십",
+     "start_sec": 228.2,
+     "end_sec": 229.4
+    },
+    {
+     "text": "명이니까",
+     "start_sec": 229.4,
+     "end_sec": 230.6
+    },
+    {
+     "text": "한",
+     "start_sec": 230.6,
+     "end_sec": 231.8
+    },
+    {
+     "text": "사람에",
+     "start_sec": 231.8,
+     "end_sec": 233.0
+    },
+    {
+     "text": "삼만",
+     "start_sec": 233.0,
+     "end_sec": 234.2
+    },
+    {
+     "text": "원,",
+     "start_sec": 234.2,
+     "end_sec": 235.4
+    },
+    {
+     "text": "여기에",
+     "start_sec": 235.4,
+     "end_sec": 236.6
+    },
+    {
+     "text": "셔틀콕값",
+     "start_sec": 236.6,
+     "end_sec": 237.8
+    },
+    {
+     "text": "만",
+     "start_sec": 237.8,
+     "end_sec": 239.0
+    },
+    {
+     "text": "원을",
+     "start_sec": 239.0,
+     "end_sec": 240.2
+    },
+    {
+     "text": "더해서",
+     "start_sec": 240.2,
+     "end_sec": 241.4
+    },
+    {
+     "text": "월",
+     "start_sec": 241.4,
+     "end_sec": 242.6
+    },
+    {
+     "text": "사만",
+     "start_sec": 242.6,
+     "end_sec": 243.8
+    },
+    {
+     "text": "원이에요.",
+     "start_sec": 243.8,
+     "end_sec": 245.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 245,
+   "end_sec": 282,
+   "text": "하반기에는 세 가지를 바꿔요. 토요일 아홉 시부터 열 시까지 신입 전용 코트를 한 면 두고요, 게임 순서는 대기 명단 앱에 공개해서 누가 순서를 건너뛰는 일이 없게 할 거예요. 그리고 신입은 첫 달 회비를 이만 원만 받아요.",
+   "words": [
+    {
+     "text": "하반기에는",
+     "start_sec": 245.0,
+     "end_sec": 246.03
+    },
+    {
+     "text": "세",
+     "start_sec": 246.03,
+     "end_sec": 247.06
+    },
+    {
+     "text": "가지를",
+     "start_sec": 247.06,
+     "end_sec": 248.08
+    },
+    {
+     "text": "바꿔요.",
+     "start_sec": 248.08,
+     "end_sec": 249.11
+    },
+    {
+     "text": "토요일",
+     "start_sec": 249.11,
+     "end_sec": 250.14
+    },
+    {
+     "text": "아홉",
+     "start_sec": 250.14,
+     "end_sec": 251.17
+    },
+    {
+     "text": "시부터",
+     "start_sec": 251.17,
+     "end_sec": 252.19
+    },
+    {
+     "text": "열",
+     "start_sec": 252.19,
+     "end_sec": 253.22
+    },
+    {
+     "text": "시까지",
+     "start_sec": 253.22,
+     "end_sec": 254.25
+    },
+    {
+     "text": "신입",
+     "start_sec": 254.25,
+     "end_sec": 255.28
+    },
+    {
+     "text": "전용",
+     "start_sec": 255.28,
+     "end_sec": 256.31
+    },
+    {
+     "text": "코트를",
+     "start_sec": 256.31,
+     "end_sec": 257.33
+    },
+    {
+     "text": "한",
+     "start_sec": 257.33,
+     "end_sec": 258.36
+    },
+    {
+     "text": "면",
+     "start_sec": 258.36,
+     "end_sec": 259.39
+    },
+    {
+     "text": "두고요,",
+     "start_sec": 259.39,
+     "end_sec": 260.42
+    },
+    {
+     "text": "게임",
+     "start_sec": 260.42,
+     "end_sec": 261.44
+    },
+    {
+     "text": "순서는",
+     "start_sec": 261.44,
+     "end_sec": 262.47
+    },
+    {
+     "text": "대기",
+     "start_sec": 262.47,
+     "end_sec": 263.5
+    },
+    {
+     "text": "명단",
+     "start_sec": 263.5,
+     "end_sec": 264.53
+    },
+    {
+     "text": "앱에",
+     "start_sec": 264.53,
+     "end_sec": 265.56
+    },
+    {
+     "text": "공개해서",
+     "start_sec": 265.56,
+     "end_sec": 266.58
+    },
+    {
+     "text": "누가",
+     "start_sec": 266.58,
+     "end_sec": 267.61
+    },
+    {
+     "text": "순서를",
+     "start_sec": 267.61,
+     "end_sec": 268.64
+    },
+    {
+     "text": "건너뛰는",
+     "start_sec": 268.64,
+     "end_sec": 269.67
+    },
+    {
+     "text": "일이",
+     "start_sec": 269.67,
+     "end_sec": 270.69
+    },
+    {
+     "text": "없게",
+     "start_sec": 270.69,
+     "end_sec": 271.72
+    },
+    {
+     "text": "할",
+     "start_sec": 271.72,
+     "end_sec": 272.75
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 272.75,
+     "end_sec": 273.78
+    },
+    {
+     "text": "그리고",
+     "start_sec": 273.78,
+     "end_sec": 274.81
+    },
+    {
+     "text": "신입은",
+     "start_sec": 274.81,
+     "end_sec": 275.83
+    },
+    {
+     "text": "첫",
+     "start_sec": 275.83,
+     "end_sec": 276.86
+    },
+    {
+     "text": "달",
+     "start_sec": 276.86,
+     "end_sec": 277.89
+    },
+    {
+     "text": "회비를",
+     "start_sec": 277.89,
+     "end_sec": 278.92
+    },
+    {
+     "text": "이만",
+     "start_sec": 278.92,
+     "end_sec": 279.94
+    },
+    {
+     "text": "원만",
+     "start_sec": 279.94,
+     "end_sec": 280.97
+    },
+    {
+     "text": "받아요.",
+     "start_sec": 280.97,
+     "end_sec": 282.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 282,
+   "end_sec": 302,
+   "text": "정리하면, 신입이 첫 게임에 빨리 들어가야 오래 남아요. 신입분들 보이면 먼저 같이 치자고 해 주세요. 감사합니다.",
+   "words": [
+    {
+     "text": "정리하면,",
+     "start_sec": 282.0,
+     "end_sec": 283.25
+    },
+    {
+     "text": "신입이",
+     "start_sec": 283.25,
+     "end_sec": 284.5
+    },
+    {
+     "text": "첫",
+     "start_sec": 284.5,
+     "end_sec": 285.75
+    },
+    {
+     "text": "게임에",
+     "start_sec": 285.75,
+     "end_sec": 287.0
+    },
+    {
+     "text": "빨리",
+     "start_sec": 287.0,
+     "end_sec": 288.25
+    },
+    {
+     "text": "들어가야",
+     "start_sec": 288.25,
+     "end_sec": 289.5
+    },
+    {
+     "text": "오래",
+     "start_sec": 289.5,
+     "end_sec": 290.75
+    },
+    {
+     "text": "남아요.",
+     "start_sec": 290.75,
+     "end_sec": 292.0
+    },
+    {
+     "text": "신입분들",
+     "start_sec": 292.0,
+     "end_sec": 293.25
+    },
+    {
+     "text": "보이면",
+     "start_sec": 293.25,
+     "end_sec": 294.5
+    },
+    {
+     "text": "먼저",
+     "start_sec": 294.5,
+     "end_sec": 295.75
+    },
+    {
+     "text": "같이",
+     "start_sec": 295.75,
+     "end_sec": 297.0
+    },
+    {
+     "text": "치자고",
+     "start_sec": 297.0,
+     "end_sec": 298.25
+    },
+    {
+     "text": "해",
+     "start_sec": 298.25,
+     "end_sec": 299.5
+    },
+    {
+     "text": "주세요.",
+     "start_sec": 299.5,
+     "end_sec": 300.75
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 300.75,
+     "end_sec": 302.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 302
+}

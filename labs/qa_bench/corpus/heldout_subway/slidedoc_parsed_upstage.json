@@ -1,0 +1,252 @@
+{
+ "file_name": "deck.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "겨울 지하철, 왜 '덥다'는 민원이 더 많을까"
+    },
+    {
+     "category": "paragraph",
+     "text": "객실 온도를 혼잡도에 맞추는 약난방칸 확대 제안\n시민 정책 제안 공모 | 도시철도 3호선 이용자 모임"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 81,
+   "line_count": 3,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "겨울 지하철, 왜 '덥다'는 민원이 더 많을까\n객실 온도를 혼잡도에 맞추는 약난방칸 확대 제안\n시민 정책 제안 공모 | 도시철도 3호선 이용자 모임"
+  },
+  {
+   "slide_no": 2,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "시범 운행 전 겨울의 냉난방 민원"
+    },
+    {
+     "category": "paragraph",
+     "text": "시범 운행 전 겨울(12~2월) 3호선 냉난방 민원은 모두 5,460건이었습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 구분 | 건수 |\n| --- | --- |\n| 덥다 | 3,900건 |\n| 춥다 | 1,560건 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "'덥다' 민원이 '춥다' 민원보다 2.5배 많았습니다."
+    }
+   ],
+   "categories": [
+    "paragraph",
+    "table"
+   ],
+   "total_char_count": 150,
+   "line_count": 7,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "시범 운행 전 겨울의 냉난방 민원\n시범 운행 전 겨울(12~2월) 3호선 냉난방 민원은 모두 5,460건이었습니다.\n| 구분 | 건수 |\n| --- | --- |\n| 덥다 | 3,900건 |\n| 춥다 | 1,560건 |\n'덥다' 민원이 '춥다' 민원보다 2.5배 많았습니다."
+  },
+  {
+   "slide_no": 3,
+   "title": "언제 더운가",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "언제 더운가"
+    },
+    {
+     "category": "table",
+     "text": "| 시간대 | 평균 혼잡도 | 객실 평균 온도 |\n| --- | --- | --- |\n| 출근 7~9시 | 158% | 24.6℃ |\n| 낮 11~15시 | 62% | 21.4℃ |"
+    },
+    {
+     "category": "paragraph",
+     "text": "낮 시간대에 비해 출근 시간대 객실 온도가 3.2℃ 높았습니다.\n'덥다' 민원의 71%가 혼잡도 150%를 넘는 시간에 들어왔습니다."
+    }
+   ],
+   "categories": [
+    "heading1",
+    "table",
+    "paragraph"
+   ],
+   "total_char_count": 181,
+   "line_count": 7,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "언제 더운가\n| 시간대 | 평균 혼잡도 | 객실 평균 온도 |\n| --- | --- | --- |\n| 출근 7~9시 | 158% | 24.6℃ |\n| 낮 11~15시 | 62% | 21.4℃ |\n낮 시간대에 비해 출근 시간대 객실 온도가 3.2℃ 높았습니다.\n'덥다' 민원의 71%가 혼잡도 150%를 넘는 시간에 들어왔습니다."
+  },
+  {
+   "slide_no": 4,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "설정 온도는 이렇게 정합니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "객실 설정 온도 = 기준 온도 −"
+    },
+    {
+     "category": "paragraph",
+     "text": "혼잡 보정값"
+    },
+    {
+     "category": "paragraph",
+     "text": "기준 온도: 겨울 20℃\n혼잡도 150% 이상일 때 보정값 2℃"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 74,
+   "line_count": 5,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "설정 온도는 이렇게 정합니다\n객실 설정 온도 = 기준 온도 −\n혼잡 보정값\n기준 온도: 겨울 20℃\n혼잡도 150% 이상일 때 보정값 2℃"
+  },
+  {
+   "slide_no": 5,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "약난방칸 시범 운행 (지난겨울 12~2월)"
+    },
+    {
+     "category": "paragraph",
+     "text": "열차마다 양 끝 두 칸의 난방 온도를 2℃ 낮게 맞췄습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "'덥다' 민원은 한 달 평균 1,300건에서 780건으로 40% 줄었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "'춥다' 민원은 한 달 평균 520건에서 560건으로 조금 늘었습니다."
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 137,
+   "line_count": 4,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "약난방칸 시범 운행 (지난겨울 12~2월)\n열차마다 양 끝 두 칸의 난방 온도를 2℃ 낮게 맞췄습니다.\n'덥다' 민원은 한 달 평균 1,300건에서 780건으로 40% 줄었습니다.\n'춥다' 민원은 한 달 평균 520건에서 560건으로 조금 늘었습니다."
+  },
+  {
+   "slide_no": 6,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "약난방칸 이용자 설문 (612명)"
+    },
+    {
+     "category": "table",
+     "text": "| 응답 | 비율 |\n| --- | --- |\n| 더 쾌적하다 | 64% |\n| 차이를 못 느꼈다 | 27% |\n| 더 춥다 | 9% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "이용자 10명 중 6명 이상이 더 쾌적하다고 답했습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "'더 춥다'는 응답은 10% 미만이었습니다."
+    }
+   ],
+   "categories": [
+    "paragraph",
+    "table"
+   ],
+   "total_char_count": 149,
+   "line_count": 8,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "약난방칸 이용자 설문 (612명)\n| 응답 | 비율 |\n| --- | --- |\n| 더 쾌적하다 | 64% |\n| 차이를 못 느꼈다 | 27% |\n| 더 춥다 | 9% |\n이용자 10명 중 6명 이상이 더 쾌적하다고 답했습니다.\n'더 춥다'는 응답은 10% 미만이었습니다."
+  },
+  {
+   "slide_no": 7,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "비용과 전력"
+    },
+    {
+     "category": "paragraph",
+     "text": "시범 칸의 난방 전력 사용량은 일반 칸보다 12% 적었습니다.\n추가 비용은 안내 스티커와 앱 알림 개발비 1,800만 원입니다."
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 77,
+   "line_count": 3,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "비용과 전력\n시범 칸의 난방 전력 사용량은 일반 칸보다 12% 적었습니다.\n추가 비용은 안내 스티커와 앱 알림 개발비 1,800만 원입니다."
+  },
+  {
+   "slide_no": 8,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "모든 열차에 약난방칸 2칸 운영\n역 안내 화면과 앱에 약난방칸 위치 표시\n감사합니다"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 48,
+   "line_count": 4,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "제안\n모든 열차에 약난방칸 2칸 운영\n역 안내 화면과 앱에 약난방칸 위치 표시\n감사합니다"
+  }
+ ]
+}

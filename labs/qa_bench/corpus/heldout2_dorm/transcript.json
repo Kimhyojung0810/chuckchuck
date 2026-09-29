@@ -1,0 +1,2541 @@
+{
+ "full_text": "안녕하세요, 생활관 자치회 환경부예요. 이번 1학기에 한빛관에서 전기 절약 캠페인을 했는데요, 그 결과를 보고드리려고 해요. 불 끄고 플러그 뽑기, 한 학기 동안 해 보니까 어땠는지 숫자 위주로 정리해 봤어요. 시작한 이유, 캠페인 내용, 결과, 다음 학기 계획 순서로 말씀드릴게요. 왜 시작했냐면요. 지난해 한빛관 전기요금이 6,100만 원이었어요. 3년 전보다 22퍼센트나 오른 거예요. 관생 480명으로 나누면 한 사람당 1년에 12만 7천 원꼴이에요. 그래서 저희가 할 수 있는 걸 해 보자고 시작했어요. 캠페인은 세 가지였어요. 외출할 때 멀티탭 스위치 끄기, 에어컨 설정 온도 26도 지키기, 그리고 층별 절약 순위를 매주 공개하기요. 에어컨을 26도에 맞추면 감기도 덜 걸린다고 하더라고요. 기간은 3월 9일부터 6월 26일까지 16주였어요. 층별로 나눠 보면, 캠페인에 참여한 층이 6개 층, 참여 안 한 층이 4개 층이었어요. 층마다 결과가 꽤 달랐는데요. 그런데 1인당 사용량이 줄어든 폭은 참여 층보다 비참여 층 쪽이 더 컸어요. 이걸 돈으로 바꾸면요, 아낀 전기요금은 줄어든 사용량에 킬로와트시당 요금을 곱한 거예요. 16주 동안 지난해 같은 기간보다 11,500킬로와트시를 덜 썼고요, 킬로와트시당 160원을 곱하면 184만 원이에요. 한 학기 동안 모은 돈이 이 정도라는 거예요. 음 주차별 실천율 표는 오늘은 제쳐 두고, 설문 얘기로 바로 갈게요. 불편한 점도 물어봤는데요, 설문에는 212명이 답해 줬어요. 에어컨 26도가 덥다는 학생이 열 명 중에 여섯 명이나 됐어요. 외출할 때 멀티탭 끄기가 번거롭다는 응답은 19퍼센트였고요. 그러니까 멀티탭보다 더위가 훨씬 큰 불만이었어요. 하나씩 말씀드리면요, 다음 학기에는 방문마다 멀티탭 껐나요 스티커를 붙이고요, 에어컨은 26도를 그대로 두는 대신 자기 전에 1시간 예약 끄기를 안내하려고 해요. 1등 층에는 간식비 20만 원을 주고, 한 학기 예산은 150만 원이에요. 참여 층도 6개 층에서 10개 층 전체로 늘릴 거예요. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 0.97
+  },
+  {
+   "text": "생활관",
+   "start_sec": 0.97,
+   "end_sec": 1.95
+  },
+  {
+   "text": "자치회",
+   "start_sec": 1.95,
+   "end_sec": 2.92
+  },
+  {
+   "text": "환경부예요.",
+   "start_sec": 2.92,
+   "end_sec": 3.9
+  },
+  {
+   "text": "이번",
+   "start_sec": 3.9,
+   "end_sec": 4.87
+  },
+  {
+   "text": "1학기에",
+   "start_sec": 4.87,
+   "end_sec": 5.85
+  },
+  {
+   "text": "한빛관에서",
+   "start_sec": 5.85,
+   "end_sec": 6.82
+  },
+  {
+   "text": "전기",
+   "start_sec": 6.82,
+   "end_sec": 7.79
+  },
+  {
+   "text": "절약",
+   "start_sec": 7.79,
+   "end_sec": 8.77
+  },
+  {
+   "text": "캠페인을",
+   "start_sec": 8.77,
+   "end_sec": 9.74
+  },
+  {
+   "text": "했는데요,",
+   "start_sec": 9.74,
+   "end_sec": 10.72
+  },
+  {
+   "text": "그",
+   "start_sec": 10.72,
+   "end_sec": 11.69
+  },
+  {
+   "text": "결과를",
+   "start_sec": 11.69,
+   "end_sec": 12.67
+  },
+  {
+   "text": "보고드리려고",
+   "start_sec": 12.67,
+   "end_sec": 13.64
+  },
+  {
+   "text": "해요.",
+   "start_sec": 13.64,
+   "end_sec": 14.62
+  },
+  {
+   "text": "불",
+   "start_sec": 14.62,
+   "end_sec": 15.59
+  },
+  {
+   "text": "끄고",
+   "start_sec": 15.59,
+   "end_sec": 16.56
+  },
+  {
+   "text": "플러그",
+   "start_sec": 16.56,
+   "end_sec": 17.54
+  },
+  {
+   "text": "뽑기,",
+   "start_sec": 17.54,
+   "end_sec": 18.51
+  },
+  {
+   "text": "한",
+   "start_sec": 18.51,
+   "end_sec": 19.49
+  },
+  {
+   "text": "학기",
+   "start_sec": 19.49,
+   "end_sec": 20.46
+  },
+  {
+   "text": "동안",
+   "start_sec": 20.46,
+   "end_sec": 21.44
+  },
+  {
+   "text": "해",
+   "start_sec": 21.44,
+   "end_sec": 22.41
+  },
+  {
+   "text": "보니까",
+   "start_sec": 22.41,
+   "end_sec": 23.38
+  },
+  {
+   "text": "어땠는지",
+   "start_sec": 23.38,
+   "end_sec": 24.36
+  },
+  {
+   "text": "숫자",
+   "start_sec": 24.36,
+   "end_sec": 25.33
+  },
+  {
+   "text": "위주로",
+   "start_sec": 25.33,
+   "end_sec": 26.31
+  },
+  {
+   "text": "정리해",
+   "start_sec": 26.31,
+   "end_sec": 27.28
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 27.28,
+   "end_sec": 28.26
+  },
+  {
+   "text": "시작한",
+   "start_sec": 28.26,
+   "end_sec": 29.23
+  },
+  {
+   "text": "이유,",
+   "start_sec": 29.23,
+   "end_sec": 30.21
+  },
+  {
+   "text": "캠페인",
+   "start_sec": 30.21,
+   "end_sec": 31.18
+  },
+  {
+   "text": "내용,",
+   "start_sec": 31.18,
+   "end_sec": 32.15
+  },
+  {
+   "text": "결과,",
+   "start_sec": 32.15,
+   "end_sec": 33.13
+  },
+  {
+   "text": "다음",
+   "start_sec": 33.13,
+   "end_sec": 34.1
+  },
+  {
+   "text": "학기",
+   "start_sec": 34.1,
+   "end_sec": 35.08
+  },
+  {
+   "text": "계획",
+   "start_sec": 35.08,
+   "end_sec": 36.05
+  },
+  {
+   "text": "순서로",
+   "start_sec": 36.05,
+   "end_sec": 37.03
+  },
+  {
+   "text": "말씀드릴게요.",
+   "start_sec": 37.03,
+   "end_sec": 38.0
+  },
+  {
+   "text": "왜",
+   "start_sec": 38.0,
+   "end_sec": 39.0
+  },
+  {
+   "text": "시작했냐면요.",
+   "start_sec": 39.0,
+   "end_sec": 40.0
+  },
+  {
+   "text": "지난해",
+   "start_sec": 40.0,
+   "end_sec": 41.0
+  },
+  {
+   "text": "한빛관",
+   "start_sec": 41.0,
+   "end_sec": 42.0
+  },
+  {
+   "text": "전기요금이",
+   "start_sec": 42.0,
+   "end_sec": 43.0
+  },
+  {
+   "text": "6,100만",
+   "start_sec": 43.0,
+   "end_sec": 44.0
+  },
+  {
+   "text": "원이었어요.",
+   "start_sec": 44.0,
+   "end_sec": 45.0
+  },
+  {
+   "text": "3년",
+   "start_sec": 45.0,
+   "end_sec": 46.0
+  },
+  {
+   "text": "전보다",
+   "start_sec": 46.0,
+   "end_sec": 47.0
+  },
+  {
+   "text": "22퍼센트나",
+   "start_sec": 47.0,
+   "end_sec": 48.0
+  },
+  {
+   "text": "오른",
+   "start_sec": 48.0,
+   "end_sec": 49.0
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 49.0,
+   "end_sec": 50.0
+  },
+  {
+   "text": "관생",
+   "start_sec": 50.0,
+   "end_sec": 51.0
+  },
+  {
+   "text": "480명으로",
+   "start_sec": 51.0,
+   "end_sec": 52.0
+  },
+  {
+   "text": "나누면",
+   "start_sec": 52.0,
+   "end_sec": 53.0
+  },
+  {
+   "text": "한",
+   "start_sec": 53.0,
+   "end_sec": 54.0
+  },
+  {
+   "text": "사람당",
+   "start_sec": 54.0,
+   "end_sec": 55.0
+  },
+  {
+   "text": "1년에",
+   "start_sec": 55.0,
+   "end_sec": 56.0
+  },
+  {
+   "text": "12만",
+   "start_sec": 56.0,
+   "end_sec": 57.0
+  },
+  {
+   "text": "7천",
+   "start_sec": 57.0,
+   "end_sec": 58.0
+  },
+  {
+   "text": "원꼴이에요.",
+   "start_sec": 58.0,
+   "end_sec": 59.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 59.0,
+   "end_sec": 60.0
+  },
+  {
+   "text": "저희가",
+   "start_sec": 60.0,
+   "end_sec": 61.0
+  },
+  {
+   "text": "할",
+   "start_sec": 61.0,
+   "end_sec": 62.0
+  },
+  {
+   "text": "수",
+   "start_sec": 62.0,
+   "end_sec": 63.0
+  },
+  {
+   "text": "있는",
+   "start_sec": 63.0,
+   "end_sec": 64.0
+  },
+  {
+   "text": "걸",
+   "start_sec": 64.0,
+   "end_sec": 65.0
+  },
+  {
+   "text": "해",
+   "start_sec": 65.0,
+   "end_sec": 66.0
+  },
+  {
+   "text": "보자고",
+   "start_sec": 66.0,
+   "end_sec": 67.0
+  },
+  {
+   "text": "시작했어요.",
+   "start_sec": 67.0,
+   "end_sec": 68.0
+  },
+  {
+   "text": "캠페인은",
+   "start_sec": 68.0,
+   "end_sec": 69.0
+  },
+  {
+   "text": "세",
+   "start_sec": 69.0,
+   "end_sec": 70.0
+  },
+  {
+   "text": "가지였어요.",
+   "start_sec": 70.0,
+   "end_sec": 71.0
+  },
+  {
+   "text": "외출할",
+   "start_sec": 71.0,
+   "end_sec": 72.0
+  },
+  {
+   "text": "때",
+   "start_sec": 72.0,
+   "end_sec": 73.0
+  },
+  {
+   "text": "멀티탭",
+   "start_sec": 73.0,
+   "end_sec": 74.0
+  },
+  {
+   "text": "스위치",
+   "start_sec": 74.0,
+   "end_sec": 75.0
+  },
+  {
+   "text": "끄기,",
+   "start_sec": 75.0,
+   "end_sec": 76.0
+  },
+  {
+   "text": "에어컨",
+   "start_sec": 76.0,
+   "end_sec": 77.0
+  },
+  {
+   "text": "설정",
+   "start_sec": 77.0,
+   "end_sec": 78.0
+  },
+  {
+   "text": "온도",
+   "start_sec": 78.0,
+   "end_sec": 79.0
+  },
+  {
+   "text": "26도",
+   "start_sec": 79.0,
+   "end_sec": 80.0
+  },
+  {
+   "text": "지키기,",
+   "start_sec": 80.0,
+   "end_sec": 81.0
+  },
+  {
+   "text": "그리고",
+   "start_sec": 81.0,
+   "end_sec": 82.0
+  },
+  {
+   "text": "층별",
+   "start_sec": 82.0,
+   "end_sec": 83.0
+  },
+  {
+   "text": "절약",
+   "start_sec": 83.0,
+   "end_sec": 84.0
+  },
+  {
+   "text": "순위를",
+   "start_sec": 84.0,
+   "end_sec": 85.0
+  },
+  {
+   "text": "매주",
+   "start_sec": 85.0,
+   "end_sec": 86.0
+  },
+  {
+   "text": "공개하기요.",
+   "start_sec": 86.0,
+   "end_sec": 87.0
+  },
+  {
+   "text": "에어컨을",
+   "start_sec": 87.0,
+   "end_sec": 88.0
+  },
+  {
+   "text": "26도에",
+   "start_sec": 88.0,
+   "end_sec": 89.0
+  },
+  {
+   "text": "맞추면",
+   "start_sec": 89.0,
+   "end_sec": 90.0
+  },
+  {
+   "text": "감기도",
+   "start_sec": 90.0,
+   "end_sec": 91.0
+  },
+  {
+   "text": "덜",
+   "start_sec": 91.0,
+   "end_sec": 92.0
+  },
+  {
+   "text": "걸린다고",
+   "start_sec": 92.0,
+   "end_sec": 93.0
+  },
+  {
+   "text": "하더라고요.",
+   "start_sec": 93.0,
+   "end_sec": 94.0
+  },
+  {
+   "text": "기간은",
+   "start_sec": 94.0,
+   "end_sec": 95.0
+  },
+  {
+   "text": "3월",
+   "start_sec": 95.0,
+   "end_sec": 96.0
+  },
+  {
+   "text": "9일부터",
+   "start_sec": 96.0,
+   "end_sec": 97.0
+  },
+  {
+   "text": "6월",
+   "start_sec": 97.0,
+   "end_sec": 98.0
+  },
+  {
+   "text": "26일까지",
+   "start_sec": 98.0,
+   "end_sec": 99.0
+  },
+  {
+   "text": "16주였어요.",
+   "start_sec": 99.0,
+   "end_sec": 100.0
+  },
+  {
+   "text": "층별로",
+   "start_sec": 100.0,
+   "end_sec": 100.87
+  },
+  {
+   "text": "나눠",
+   "start_sec": 100.87,
+   "end_sec": 101.73
+  },
+  {
+   "text": "보면,",
+   "start_sec": 101.73,
+   "end_sec": 102.6
+  },
+  {
+   "text": "캠페인에",
+   "start_sec": 102.6,
+   "end_sec": 103.47
+  },
+  {
+   "text": "참여한",
+   "start_sec": 103.47,
+   "end_sec": 104.33
+  },
+  {
+   "text": "층이",
+   "start_sec": 104.33,
+   "end_sec": 105.2
+  },
+  {
+   "text": "6개",
+   "start_sec": 105.2,
+   "end_sec": 106.07
+  },
+  {
+   "text": "층,",
+   "start_sec": 106.07,
+   "end_sec": 106.93
+  },
+  {
+   "text": "참여",
+   "start_sec": 106.93,
+   "end_sec": 107.8
+  },
+  {
+   "text": "안",
+   "start_sec": 107.8,
+   "end_sec": 108.67
+  },
+  {
+   "text": "한",
+   "start_sec": 108.67,
+   "end_sec": 109.53
+  },
+  {
+   "text": "층이",
+   "start_sec": 109.53,
+   "end_sec": 110.4
+  },
+  {
+   "text": "4개",
+   "start_sec": 110.4,
+   "end_sec": 111.27
+  },
+  {
+   "text": "층이었어요.",
+   "start_sec": 111.27,
+   "end_sec": 112.13
+  },
+  {
+   "text": "층마다",
+   "start_sec": 112.13,
+   "end_sec": 113.0
+  },
+  {
+   "text": "결과가",
+   "start_sec": 113.0,
+   "end_sec": 113.87
+  },
+  {
+   "text": "꽤",
+   "start_sec": 113.87,
+   "end_sec": 114.73
+  },
+  {
+   "text": "달랐는데요.",
+   "start_sec": 114.73,
+   "end_sec": 115.6
+  },
+  {
+   "text": "그런데",
+   "start_sec": 115.6,
+   "end_sec": 116.47
+  },
+  {
+   "text": "1인당",
+   "start_sec": 116.47,
+   "end_sec": 117.33
+  },
+  {
+   "text": "사용량이",
+   "start_sec": 117.33,
+   "end_sec": 118.2
+  },
+  {
+   "text": "줄어든",
+   "start_sec": 118.2,
+   "end_sec": 119.07
+  },
+  {
+   "text": "폭은",
+   "start_sec": 119.07,
+   "end_sec": 119.93
+  },
+  {
+   "text": "참여",
+   "start_sec": 119.93,
+   "end_sec": 120.8
+  },
+  {
+   "text": "층보다",
+   "start_sec": 120.8,
+   "end_sec": 121.67
+  },
+  {
+   "text": "비참여",
+   "start_sec": 121.67,
+   "end_sec": 122.53
+  },
+  {
+   "text": "층",
+   "start_sec": 122.53,
+   "end_sec": 123.4
+  },
+  {
+   "text": "쪽이",
+   "start_sec": 123.4,
+   "end_sec": 124.27
+  },
+  {
+   "text": "더",
+   "start_sec": 124.27,
+   "end_sec": 125.13
+  },
+  {
+   "text": "컸어요.",
+   "start_sec": 125.13,
+   "end_sec": 126.0
+  },
+  {
+   "text": "이걸",
+   "start_sec": 126.0,
+   "end_sec": 127.06
+  },
+  {
+   "text": "돈으로",
+   "start_sec": 127.06,
+   "end_sec": 128.12
+  },
+  {
+   "text": "바꾸면요,",
+   "start_sec": 128.12,
+   "end_sec": 129.19
+  },
+  {
+   "text": "아낀",
+   "start_sec": 129.19,
+   "end_sec": 130.25
+  },
+  {
+   "text": "전기요금은",
+   "start_sec": 130.25,
+   "end_sec": 131.31
+  },
+  {
+   "text": "줄어든",
+   "start_sec": 131.31,
+   "end_sec": 132.38
+  },
+  {
+   "text": "사용량에",
+   "start_sec": 132.38,
+   "end_sec": 133.44
+  },
+  {
+   "text": "킬로와트시당",
+   "start_sec": 133.44,
+   "end_sec": 134.5
+  },
+  {
+   "text": "요금을",
+   "start_sec": 134.5,
+   "end_sec": 135.56
+  },
+  {
+   "text": "곱한",
+   "start_sec": 135.56,
+   "end_sec": 136.62
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 136.62,
+   "end_sec": 137.69
+  },
+  {
+   "text": "16주",
+   "start_sec": 137.69,
+   "end_sec": 138.75
+  },
+  {
+   "text": "동안",
+   "start_sec": 138.75,
+   "end_sec": 139.81
+  },
+  {
+   "text": "지난해",
+   "start_sec": 139.81,
+   "end_sec": 140.88
+  },
+  {
+   "text": "같은",
+   "start_sec": 140.88,
+   "end_sec": 141.94
+  },
+  {
+   "text": "기간보다",
+   "start_sec": 141.94,
+   "end_sec": 143.0
+  },
+  {
+   "text": "11,500킬로와트시를",
+   "start_sec": 143.0,
+   "end_sec": 144.06
+  },
+  {
+   "text": "덜",
+   "start_sec": 144.06,
+   "end_sec": 145.12
+  },
+  {
+   "text": "썼고요,",
+   "start_sec": 145.12,
+   "end_sec": 146.19
+  },
+  {
+   "text": "킬로와트시당",
+   "start_sec": 146.19,
+   "end_sec": 147.25
+  },
+  {
+   "text": "160원을",
+   "start_sec": 147.25,
+   "end_sec": 148.31
+  },
+  {
+   "text": "곱하면",
+   "start_sec": 148.31,
+   "end_sec": 149.38
+  },
+  {
+   "text": "184만",
+   "start_sec": 149.38,
+   "end_sec": 150.44
+  },
+  {
+   "text": "원이에요.",
+   "start_sec": 150.44,
+   "end_sec": 151.5
+  },
+  {
+   "text": "한",
+   "start_sec": 151.5,
+   "end_sec": 152.56
+  },
+  {
+   "text": "학기",
+   "start_sec": 152.56,
+   "end_sec": 153.62
+  },
+  {
+   "text": "동안",
+   "start_sec": 153.62,
+   "end_sec": 154.69
+  },
+  {
+   "text": "모은",
+   "start_sec": 154.69,
+   "end_sec": 155.75
+  },
+  {
+   "text": "돈이",
+   "start_sec": 155.75,
+   "end_sec": 156.81
+  },
+  {
+   "text": "이",
+   "start_sec": 156.81,
+   "end_sec": 157.88
+  },
+  {
+   "text": "정도라는",
+   "start_sec": 157.88,
+   "end_sec": 158.94
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 158.94,
+   "end_sec": 160.0
+  },
+  {
+   "text": "음",
+   "start_sec": 160.0,
+   "end_sec": 160.82
+  },
+  {
+   "text": "주차별",
+   "start_sec": 160.82,
+   "end_sec": 161.64
+  },
+  {
+   "text": "실천율",
+   "start_sec": 161.64,
+   "end_sec": 162.45
+  },
+  {
+   "text": "표는",
+   "start_sec": 162.45,
+   "end_sec": 163.27
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 163.27,
+   "end_sec": 164.09
+  },
+  {
+   "text": "제쳐",
+   "start_sec": 164.09,
+   "end_sec": 164.91
+  },
+  {
+   "text": "두고,",
+   "start_sec": 164.91,
+   "end_sec": 165.73
+  },
+  {
+   "text": "설문",
+   "start_sec": 165.73,
+   "end_sec": 166.55
+  },
+  {
+   "text": "얘기로",
+   "start_sec": 166.55,
+   "end_sec": 167.36
+  },
+  {
+   "text": "바로",
+   "start_sec": 167.36,
+   "end_sec": 168.18
+  },
+  {
+   "text": "갈게요.",
+   "start_sec": 168.18,
+   "end_sec": 169.0
+  },
+  {
+   "text": "불편한",
+   "start_sec": 169.0,
+   "end_sec": 170.03
+  },
+  {
+   "text": "점도",
+   "start_sec": 170.03,
+   "end_sec": 171.07
+  },
+  {
+   "text": "물어봤는데요,",
+   "start_sec": 171.07,
+   "end_sec": 172.1
+  },
+  {
+   "text": "설문에는",
+   "start_sec": 172.1,
+   "end_sec": 173.13
+  },
+  {
+   "text": "212명이",
+   "start_sec": 173.13,
+   "end_sec": 174.17
+  },
+  {
+   "text": "답해",
+   "start_sec": 174.17,
+   "end_sec": 175.2
+  },
+  {
+   "text": "줬어요.",
+   "start_sec": 175.2,
+   "end_sec": 176.23
+  },
+  {
+   "text": "에어컨",
+   "start_sec": 176.23,
+   "end_sec": 177.27
+  },
+  {
+   "text": "26도가",
+   "start_sec": 177.27,
+   "end_sec": 178.3
+  },
+  {
+   "text": "덥다는",
+   "start_sec": 178.3,
+   "end_sec": 179.33
+  },
+  {
+   "text": "학생이",
+   "start_sec": 179.33,
+   "end_sec": 180.37
+  },
+  {
+   "text": "열",
+   "start_sec": 180.37,
+   "end_sec": 181.4
+  },
+  {
+   "text": "명",
+   "start_sec": 181.4,
+   "end_sec": 182.43
+  },
+  {
+   "text": "중에",
+   "start_sec": 182.43,
+   "end_sec": 183.47
+  },
+  {
+   "text": "여섯",
+   "start_sec": 183.47,
+   "end_sec": 184.5
+  },
+  {
+   "text": "명이나",
+   "start_sec": 184.5,
+   "end_sec": 185.53
+  },
+  {
+   "text": "됐어요.",
+   "start_sec": 185.53,
+   "end_sec": 186.57
+  },
+  {
+   "text": "외출할",
+   "start_sec": 186.57,
+   "end_sec": 187.6
+  },
+  {
+   "text": "때",
+   "start_sec": 187.6,
+   "end_sec": 188.63
+  },
+  {
+   "text": "멀티탭",
+   "start_sec": 188.63,
+   "end_sec": 189.67
+  },
+  {
+   "text": "끄기가",
+   "start_sec": 189.67,
+   "end_sec": 190.7
+  },
+  {
+   "text": "번거롭다는",
+   "start_sec": 190.7,
+   "end_sec": 191.73
+  },
+  {
+   "text": "응답은",
+   "start_sec": 191.73,
+   "end_sec": 192.77
+  },
+  {
+   "text": "19퍼센트였고요.",
+   "start_sec": 192.77,
+   "end_sec": 193.8
+  },
+  {
+   "text": "그러니까",
+   "start_sec": 193.8,
+   "end_sec": 194.83
+  },
+  {
+   "text": "멀티탭보다",
+   "start_sec": 194.83,
+   "end_sec": 195.87
+  },
+  {
+   "text": "더위가",
+   "start_sec": 195.87,
+   "end_sec": 196.9
+  },
+  {
+   "text": "훨씬",
+   "start_sec": 196.9,
+   "end_sec": 197.93
+  },
+  {
+   "text": "큰",
+   "start_sec": 197.93,
+   "end_sec": 198.97
+  },
+  {
+   "text": "불만이었어요.",
+   "start_sec": 198.97,
+   "end_sec": 200.0
+  },
+  {
+   "text": "하나씩",
+   "start_sec": 200.0,
+   "end_sec": 200.95
+  },
+  {
+   "text": "말씀드리면요,",
+   "start_sec": 200.95,
+   "end_sec": 201.9
+  },
+  {
+   "text": "다음",
+   "start_sec": 201.9,
+   "end_sec": 202.86
+  },
+  {
+   "text": "학기에는",
+   "start_sec": 202.86,
+   "end_sec": 203.81
+  },
+  {
+   "text": "방문마다",
+   "start_sec": 203.81,
+   "end_sec": 204.76
+  },
+  {
+   "text": "멀티탭",
+   "start_sec": 204.76,
+   "end_sec": 205.71
+  },
+  {
+   "text": "껐나요",
+   "start_sec": 205.71,
+   "end_sec": 206.67
+  },
+  {
+   "text": "스티커를",
+   "start_sec": 206.67,
+   "end_sec": 207.62
+  },
+  {
+   "text": "붙이고요,",
+   "start_sec": 207.62,
+   "end_sec": 208.57
+  },
+  {
+   "text": "에어컨은",
+   "start_sec": 208.57,
+   "end_sec": 209.52
+  },
+  {
+   "text": "26도를",
+   "start_sec": 209.52,
+   "end_sec": 210.48
+  },
+  {
+   "text": "그대로",
+   "start_sec": 210.48,
+   "end_sec": 211.43
+  },
+  {
+   "text": "두는",
+   "start_sec": 211.43,
+   "end_sec": 212.38
+  },
+  {
+   "text": "대신",
+   "start_sec": 212.38,
+   "end_sec": 213.33
+  },
+  {
+   "text": "자기",
+   "start_sec": 213.33,
+   "end_sec": 214.29
+  },
+  {
+   "text": "전에",
+   "start_sec": 214.29,
+   "end_sec": 215.24
+  },
+  {
+   "text": "1시간",
+   "start_sec": 215.24,
+   "end_sec": 216.19
+  },
+  {
+   "text": "예약",
+   "start_sec": 216.19,
+   "end_sec": 217.14
+  },
+  {
+   "text": "끄기를",
+   "start_sec": 217.14,
+   "end_sec": 218.1
+  },
+  {
+   "text": "안내하려고",
+   "start_sec": 218.1,
+   "end_sec": 219.05
+  },
+  {
+   "text": "해요.",
+   "start_sec": 219.05,
+   "end_sec": 220.0
+  },
+  {
+   "text": "1등",
+   "start_sec": 220.0,
+   "end_sec": 220.95
+  },
+  {
+   "text": "층에는",
+   "start_sec": 220.95,
+   "end_sec": 221.9
+  },
+  {
+   "text": "간식비",
+   "start_sec": 221.9,
+   "end_sec": 222.86
+  },
+  {
+   "text": "20만",
+   "start_sec": 222.86,
+   "end_sec": 223.81
+  },
+  {
+   "text": "원을",
+   "start_sec": 223.81,
+   "end_sec": 224.76
+  },
+  {
+   "text": "주고,",
+   "start_sec": 224.76,
+   "end_sec": 225.71
+  },
+  {
+   "text": "한",
+   "start_sec": 225.71,
+   "end_sec": 226.67
+  },
+  {
+   "text": "학기",
+   "start_sec": 226.67,
+   "end_sec": 227.62
+  },
+  {
+   "text": "예산은",
+   "start_sec": 227.62,
+   "end_sec": 228.57
+  },
+  {
+   "text": "150만",
+   "start_sec": 228.57,
+   "end_sec": 229.52
+  },
+  {
+   "text": "원이에요.",
+   "start_sec": 229.52,
+   "end_sec": 230.48
+  },
+  {
+   "text": "참여",
+   "start_sec": 230.48,
+   "end_sec": 231.43
+  },
+  {
+   "text": "층도",
+   "start_sec": 231.43,
+   "end_sec": 232.38
+  },
+  {
+   "text": "6개",
+   "start_sec": 232.38,
+   "end_sec": 233.33
+  },
+  {
+   "text": "층에서",
+   "start_sec": 233.33,
+   "end_sec": 234.29
+  },
+  {
+   "text": "10개",
+   "start_sec": 234.29,
+   "end_sec": 235.24
+  },
+  {
+   "text": "층",
+   "start_sec": 235.24,
+   "end_sec": 236.19
+  },
+  {
+   "text": "전체로",
+   "start_sec": 236.19,
+   "end_sec": 237.14
+  },
+  {
+   "text": "늘릴",
+   "start_sec": 237.14,
+   "end_sec": 238.1
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 238.1,
+   "end_sec": 239.05
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 239.05,
+   "end_sec": 240.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 38,
+   "text": "안녕하세요, 생활관 자치회 환경부예요. 이번 1학기에 한빛관에서 전기 절약 캠페인을 했는데요, 그 결과를 보고드리려고 해요. 불 끄고 플러그 뽑기, 한 학기 동안 해 보니까 어땠는지 숫자 위주로 정리해 봤어요. 시작한 이유, 캠페인 내용, 결과, 다음 학기 계획 순서로 말씀드릴게요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 0.97
+    },
+    {
+     "text": "생활관",
+     "start_sec": 0.97,
+     "end_sec": 1.95
+    },
+    {
+     "text": "자치회",
+     "start_sec": 1.95,
+     "end_sec": 2.92
+    },
+    {
+     "text": "환경부예요.",
+     "start_sec": 2.92,
+     "end_sec": 3.9
+    },
+    {
+     "text": "이번",
+     "start_sec": 3.9,
+     "end_sec": 4.87
+    },
+    {
+     "text": "1학기에",
+     "start_sec": 4.87,
+     "end_sec": 5.85
+    },
+    {
+     "text": "한빛관에서",
+     "start_sec": 5.85,
+     "end_sec": 6.82
+    },
+    {
+     "text": "전기",
+     "start_sec": 6.82,
+     "end_sec": 7.79
+    },
+    {
+     "text": "절약",
+     "start_sec": 7.79,
+     "end_sec": 8.77
+    },
+    {
+     "text": "캠페인을",
+     "start_sec": 8.77,
+     "end_sec": 9.74
+    },
+    {
+     "text": "했는데요,",
+     "start_sec": 9.74,
+     "end_sec": 10.72
+    },
+    {
+     "text": "그",
+     "start_sec": 10.72,
+     "end_sec": 11.69
+    },
+    {
+     "text": "결과를",
+     "start_sec": 11.69,
+     "end_sec": 12.67
+    },
+    {
+     "text": "보고드리려고",
+     "start_sec": 12.67,
+     "end_sec": 13.64
+    },
+    {
+     "text": "해요.",
+     "start_sec": 13.64,
+     "end_sec": 14.62
+    },
+    {
+     "text": "불",
+     "start_sec": 14.62,
+     "end_sec": 15.59
+    },
+    {
+     "text": "끄고",
+     "start_sec": 15.59,
+     "end_sec": 16.56
+    },
+    {
+     "text": "플러그",
+     "start_sec": 16.56,
+     "end_sec": 17.54
+    },
+    {
+     "text": "뽑기,",
+     "start_sec": 17.54,
+     "end_sec": 18.51
+    },
+    {
+     "text": "한",
+     "start_sec": 18.51,
+     "end_sec": 19.49
+    },
+    {
+     "text": "학기",
+     "start_sec": 19.49,
+     "end_sec": 20.46
+    },
+    {
+     "text": "동안",
+     "start_sec": 20.46,
+     "end_sec": 21.44
+    },
+    {
+     "text": "해",
+     "start_sec": 21.44,
+     "end_sec": 22.41
+    },
+    {
+     "text": "보니까",
+     "start_sec": 22.41,
+     "end_sec": 23.38
+    },
+    {
+     "text": "어땠는지",
+     "start_sec": 23.38,
+     "end_sec": 24.36
+    },
+    {
+     "text": "숫자",
+     "start_sec": 24.36,
+     "end_sec": 25.33
+    },
+    {
+     "text": "위주로",
+     "start_sec": 25.33,
+     "end_sec": 26.31
+    },
+    {
+     "text": "정리해",
+     "start_sec": 26.31,
+     "end_sec": 27.28
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 27.28,
+     "end_sec": 28.26
+    },
+    {
+     "text": "시작한",
+     "start_sec": 28.26,
+     "end_sec": 29.23
+    },
+    {
+     "text": "이유,",
+     "start_sec": 29.23,
+     "end_sec": 30.21
+    },
+    {
+     "text": "캠페인",
+     "start_sec": 30.21,
+     "end_sec": 31.18
+    },
+    {
+     "text": "내용,",
+     "start_sec": 31.18,
+     "end_sec": 32.15
+    },
+    {
+     "text": "결과,",
+     "start_sec": 32.15,
+     "end_sec": 33.13
+    },
+    {
+     "text": "다음",
+     "start_sec": 33.13,
+     "end_sec": 34.1
+    },
+    {
+     "text": "학기",
+     "start_sec": 34.1,
+     "end_sec": 35.08
+    },
+    {
+     "text": "계획",
+     "start_sec": 35.08,
+     "end_sec": 36.05
+    },
+    {
+     "text": "순서로",
+     "start_sec": 36.05,
+     "end_sec": 37.03
+    },
+    {
+     "text": "말씀드릴게요.",
+     "start_sec": 37.03,
+     "end_sec": 38.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 38,
+   "end_sec": 68,
+   "text": "왜 시작했냐면요. 지난해 한빛관 전기요금이 6,100만 원이었어요. 3년 전보다 22퍼센트나 오른 거예요. 관생 480명으로 나누면 한 사람당 1년에 12만 7천 원꼴이에요. 그래서 저희가 할 수 있는 걸 해 보자고 시작했어요.",
+   "words": [
+    {
+     "text": "왜",
+     "start_sec": 38.0,
+     "end_sec": 39.0
+    },
+    {
+     "text": "시작했냐면요.",
+     "start_sec": 39.0,
+     "end_sec": 40.0
+    },
+    {
+     "text": "지난해",
+     "start_sec": 40.0,
+     "end_sec": 41.0
+    },
+    {
+     "text": "한빛관",
+     "start_sec": 41.0,
+     "end_sec": 42.0
+    },
+    {
+     "text": "전기요금이",
+     "start_sec": 42.0,
+     "end_sec": 43.0
+    },
+    {
+     "text": "6,100만",
+     "start_sec": 43.0,
+     "end_sec": 44.0
+    },
+    {
+     "text": "원이었어요.",
+     "start_sec": 44.0,
+     "end_sec": 45.0
+    },
+    {
+     "text": "3년",
+     "start_sec": 45.0,
+     "end_sec": 46.0
+    },
+    {
+     "text": "전보다",
+     "start_sec": 46.0,
+     "end_sec": 47.0
+    },
+    {
+     "text": "22퍼센트나",
+     "start_sec": 47.0,
+     "end_sec": 48.0
+    },
+    {
+     "text": "오른",
+     "start_sec": 48.0,
+     "end_sec": 49.0
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 49.0,
+     "end_sec": 50.0
+    },
+    {
+     "text": "관생",
+     "start_sec": 50.0,
+     "end_sec": 51.0
+    },
+    {
+     "text": "480명으로",
+     "start_sec": 51.0,
+     "end_sec": 52.0
+    },
+    {
+     "text": "나누면",
+     "start_sec": 52.0,
+     "end_sec": 53.0
+    },
+    {
+     "text": "한",
+     "start_sec": 53.0,
+     "end_sec": 54.0
+    },
+    {
+     "text": "사람당",
+     "start_sec": 54.0,
+     "end_sec": 55.0
+    },
+    {
+     "text": "1년에",
+     "start_sec": 55.0,
+     "end_sec": 56.0
+    },
+    {
+     "text": "12만",
+     "start_sec": 56.0,
+     "end_sec": 57.0
+    },
+    {
+     "text": "7천",
+     "start_sec": 57.0,
+     "end_sec": 58.0
+    },
+    {
+     "text": "원꼴이에요.",
+     "start_sec": 58.0,
+     "end_sec": 59.0
+    },
+    {
+     "text": "그래서",
+     "start_sec": 59.0,
+     "end_sec": 60.0
+    },
+    {
+     "text": "저희가",
+     "start_sec": 60.0,
+     "end_sec": 61.0
+    },
+    {
+     "text": "할",
+     "start_sec": 61.0,
+     "end_sec": 62.0
+    },
+    {
+     "text": "수",
+     "start_sec": 62.0,
+     "end_sec": 63.0
+    },
+    {
+     "text": "있는",
+     "start_sec": 63.0,
+     "end_sec": 64.0
+    },
+    {
+     "text": "걸",
+     "start_sec": 64.0,
+     "end_sec": 65.0
+    },
+    {
+     "text": "해",
+     "start_sec": 65.0,
+     "end_sec": 66.0
+    },
+    {
+     "text": "보자고",
+     "start_sec": 66.0,
+     "end_sec": 67.0
+    },
+    {
+     "text": "시작했어요.",
+     "start_sec": 67.0,
+     "end_sec": 68.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 68,
+   "end_sec": 100,
+   "text": "캠페인은 세 가지였어요. 외출할 때 멀티탭 스위치 끄기, 에어컨 설정 온도 26도 지키기, 그리고 층별 절약 순위를 매주 공개하기요. 에어컨을 26도에 맞추면 감기도 덜 걸린다고 하더라고요. 기간은 3월 9일부터 6월 26일까지 16주였어요.",
+   "words": [
+    {
+     "text": "캠페인은",
+     "start_sec": 68.0,
+     "end_sec": 69.0
+    },
+    {
+     "text": "세",
+     "start_sec": 69.0,
+     "end_sec": 70.0
+    },
+    {
+     "text": "가지였어요.",
+     "start_sec": 70.0,
+     "end_sec": 71.0
+    },
+    {
+     "text": "외출할",
+     "start_sec": 71.0,
+     "end_sec": 72.0
+    },
+    {
+     "text": "때",
+     "start_sec": 72.0,
+     "end_sec": 73.0
+    },
+    {
+     "text": "멀티탭",
+     "start_sec": 73.0,
+     "end_sec": 74.0
+    },
+    {
+     "text": "스위치",
+     "start_sec": 74.0,
+     "end_sec": 75.0
+    },
+    {
+     "text": "끄기,",
+     "start_sec": 75.0,
+     "end_sec": 76.0
+    },
+    {
+     "text": "에어컨",
+     "start_sec": 76.0,
+     "end_sec": 77.0
+    },
+    {
+     "text": "설정",
+     "start_sec": 77.0,
+     "end_sec": 78.0
+    },
+    {
+     "text": "온도",
+     "start_sec": 78.0,
+     "end_sec": 79.0
+    },
+    {
+     "text": "26도",
+     "start_sec": 79.0,
+     "end_sec": 80.0
+    },
+    {
+     "text": "지키기,",
+     "start_sec": 80.0,
+     "end_sec": 81.0
+    },
+    {
+     "text": "그리고",
+     "start_sec": 81.0,
+     "end_sec": 82.0
+    },
+    {
+     "text": "층별",
+     "start_sec": 82.0,
+     "end_sec": 83.0
+    },
+    {
+     "text": "절약",
+     "start_sec": 83.0,
+     "end_sec": 84.0
+    },
+    {
+     "text": "순위를",
+     "start_sec": 84.0,
+     "end_sec": 85.0
+    },
+    {
+     "text": "매주",
+     "start_sec": 85.0,
+     "end_sec": 86.0
+    },
+    {
+     "text": "공개하기요.",
+     "start_sec": 86.0,
+     "end_sec": 87.0
+    },
+    {
+     "text": "에어컨을",
+     "start_sec": 87.0,
+     "end_sec": 88.0
+    },
+    {
+     "text": "26도에",
+     "start_sec": 88.0,
+     "end_sec": 89.0
+    },
+    {
+     "text": "맞추면",
+     "start_sec": 89.0,
+     "end_sec": 90.0
+    },
+    {
+     "text": "감기도",
+     "start_sec": 90.0,
+     "end_sec": 91.0
+    },
+    {
+     "text": "덜",
+     "start_sec": 91.0,
+     "end_sec": 92.0
+    },
+    {
+     "text": "걸린다고",
+     "start_sec": 92.0,
+     "end_sec": 93.0
+    },
+    {
+     "text": "하더라고요.",
+     "start_sec": 93.0,
+     "end_sec": 94.0
+    },
+    {
+     "text": "기간은",
+     "start_sec": 94.0,
+     "end_sec": 95.0
+    },
+    {
+     "text": "3월",
+     "start_sec": 95.0,
+     "end_sec": 96.0
+    },
+    {
+     "text": "9일부터",
+     "start_sec": 96.0,
+     "end_sec": 97.0
+    },
+    {
+     "text": "6월",
+     "start_sec": 97.0,
+     "end_sec": 98.0
+    },
+    {
+     "text": "26일까지",
+     "start_sec": 98.0,
+     "end_sec": 99.0
+    },
+    {
+     "text": "16주였어요.",
+     "start_sec": 99.0,
+     "end_sec": 100.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 100,
+   "end_sec": 126,
+   "text": "층별로 나눠 보면, 캠페인에 참여한 층이 6개 층, 참여 안 한 층이 4개 층이었어요. 층마다 결과가 꽤 달랐는데요. 그런데 1인당 사용량이 줄어든 폭은 참여 층보다 비참여 층 쪽이 더 컸어요.",
+   "words": [
+    {
+     "text": "층별로",
+     "start_sec": 100.0,
+     "end_sec": 100.87
+    },
+    {
+     "text": "나눠",
+     "start_sec": 100.87,
+     "end_sec": 101.73
+    },
+    {
+     "text": "보면,",
+     "start_sec": 101.73,
+     "end_sec": 102.6
+    },
+    {
+     "text": "캠페인에",
+     "start_sec": 102.6,
+     "end_sec": 103.47
+    },
+    {
+     "text": "참여한",
+     "start_sec": 103.47,
+     "end_sec": 104.33
+    },
+    {
+     "text": "층이",
+     "start_sec": 104.33,
+     "end_sec": 105.2
+    },
+    {
+     "text": "6개",
+     "start_sec": 105.2,
+     "end_sec": 106.07
+    },
+    {
+     "text": "층,",
+     "start_sec": 106.07,
+     "end_sec": 106.93
+    },
+    {
+     "text": "참여",
+     "start_sec": 106.93,
+     "end_sec": 107.8
+    },
+    {
+     "text": "안",
+     "start_sec": 107.8,
+     "end_sec": 108.67
+    },
+    {
+     "text": "한",
+     "start_sec": 108.67,
+     "end_sec": 109.53
+    },
+    {
+     "text": "층이",
+     "start_sec": 109.53,
+     "end_sec": 110.4
+    },
+    {
+     "text": "4개",
+     "start_sec": 110.4,
+     "end_sec": 111.27
+    },
+    {
+     "text": "층이었어요.",
+     "start_sec": 111.27,
+     "end_sec": 112.13
+    },
+    {
+     "text": "층마다",
+     "start_sec": 112.13,
+     "end_sec": 113.0
+    },
+    {
+     "text": "결과가",
+     "start_sec": 113.0,
+     "end_sec": 113.87
+    },
+    {
+     "text": "꽤",
+     "start_sec": 113.87,
+     "end_sec": 114.73
+    },
+    {
+     "text": "달랐는데요.",
+     "start_sec": 114.73,
+     "end_sec": 115.6
+    },
+    {
+     "text": "그런데",
+     "start_sec": 115.6,
+     "end_sec": 116.47
+    },
+    {
+     "text": "1인당",
+     "start_sec": 116.47,
+     "end_sec": 117.33
+    },
+    {
+     "text": "사용량이",
+     "start_sec": 117.33,
+     "end_sec": 118.2
+    },
+    {
+     "text": "줄어든",
+     "start_sec": 118.2,
+     "end_sec": 119.07
+    },
+    {
+     "text": "폭은",
+     "start_sec": 119.07,
+     "end_sec": 119.93
+    },
+    {
+     "text": "참여",
+     "start_sec": 119.93,
+     "end_sec": 120.8
+    },
+    {
+     "text": "층보다",
+     "start_sec": 120.8,
+     "end_sec": 121.67
+    },
+    {
+     "text": "비참여",
+     "start_sec": 121.67,
+     "end_sec": 122.53
+    },
+    {
+     "text": "층",
+     "start_sec": 122.53,
+     "end_sec": 123.4
+    },
+    {
+     "text": "쪽이",
+     "start_sec": 123.4,
+     "end_sec": 124.27
+    },
+    {
+     "text": "더",
+     "start_sec": 124.27,
+     "end_sec": 125.13
+    },
+    {
+     "text": "컸어요.",
+     "start_sec": 125.13,
+     "end_sec": 126.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 126,
+   "end_sec": 160,
+   "text": "이걸 돈으로 바꾸면요, 아낀 전기요금은 줄어든 사용량에 킬로와트시당 요금을 곱한 거예요. 16주 동안 지난해 같은 기간보다 11,500킬로와트시를 덜 썼고요, 킬로와트시당 160원을 곱하면 184만 원이에요. 한 학기 동안 모은 돈이 이 정도라는 거예요.",
+   "words": [
+    {
+     "text": "이걸",
+     "start_sec": 126.0,
+     "end_sec": 127.06
+    },
+    {
+     "text": "돈으로",
+     "start_sec": 127.06,
+     "end_sec": 128.12
+    },
+    {
+     "text": "바꾸면요,",
+     "start_sec": 128.12,
+     "end_sec": 129.19
+    },
+    {
+     "text": "아낀",
+     "start_sec": 129.19,
+     "end_sec": 130.25
+    },
+    {
+     "text": "전기요금은",
+     "start_sec": 130.25,
+     "end_sec": 131.31
+    },
+    {
+     "text": "줄어든",
+     "start_sec": 131.31,
+     "end_sec": 132.38
+    },
+    {
+     "text": "사용량에",
+     "start_sec": 132.38,
+     "end_sec": 133.44
+    },
+    {
+     "text": "킬로와트시당",
+     "start_sec": 133.44,
+     "end_sec": 134.5
+    },
+    {
+     "text": "요금을",
+     "start_sec": 134.5,
+     "end_sec": 135.56
+    },
+    {
+     "text": "곱한",
+     "start_sec": 135.56,
+     "end_sec": 136.62
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 136.62,
+     "end_sec": 137.69
+    },
+    {
+     "text": "16주",
+     "start_sec": 137.69,
+     "end_sec": 138.75
+    },
+    {
+     "text": "동안",
+     "start_sec": 138.75,
+     "end_sec": 139.81
+    },
+    {
+     "text": "지난해",
+     "start_sec": 139.81,
+     "end_sec": 140.88
+    },
+    {
+     "text": "같은",
+     "start_sec": 140.88,
+     "end_sec": 141.94
+    },
+    {
+     "text": "기간보다",
+     "start_sec": 141.94,
+     "end_sec": 143.0
+    },
+    {
+     "text": "11,500킬로와트시를",
+     "start_sec": 143.0,
+     "end_sec": 144.06
+    },
+    {
+     "text": "덜",
+     "start_sec": 144.06,
+     "end_sec": 145.12
+    },
+    {
+     "text": "썼고요,",
+     "start_sec": 145.12,
+     "end_sec": 146.19
+    },
+    {
+     "text": "킬로와트시당",
+     "start_sec": 146.19,
+     "end_sec": 147.25
+    },
+    {
+     "text": "160원을",
+     "start_sec": 147.25,
+     "end_sec": 148.31
+    },
+    {
+     "text": "곱하면",
+     "start_sec": 148.31,
+     "end_sec": 149.38
+    },
+    {
+     "text": "184만",
+     "start_sec": 149.38,
+     "end_sec": 150.44
+    },
+    {
+     "text": "원이에요.",
+     "start_sec": 150.44,
+     "end_sec": 151.5
+    },
+    {
+     "text": "한",
+     "start_sec": 151.5,
+     "end_sec": 152.56
+    },
+    {
+     "text": "학기",
+     "start_sec": 152.56,
+     "end_sec": 153.62
+    },
+    {
+     "text": "동안",
+     "start_sec": 153.62,
+     "end_sec": 154.69
+    },
+    {
+     "text": "모은",
+     "start_sec": 154.69,
+     "end_sec": 155.75
+    },
+    {
+     "text": "돈이",
+     "start_sec": 155.75,
+     "end_sec": 156.81
+    },
+    {
+     "text": "이",
+     "start_sec": 156.81,
+     "end_sec": 157.88
+    },
+    {
+     "text": "정도라는",
+     "start_sec": 157.88,
+     "end_sec": 158.94
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 158.94,
+     "end_sec": 160.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 160,
+   "end_sec": 169,
+   "text": "음 주차별 실천율 표는 오늘은 제쳐 두고, 설문 얘기로 바로 갈게요.",
+   "words": [
+    {
+     "text": "음",
+     "start_sec": 160.0,
+     "end_sec": 160.82
+    },
+    {
+     "text": "주차별",
+     "start_sec": 160.82,
+     "end_sec": 161.64
+    },
+    {
+     "text": "실천율",
+     "start_sec": 161.64,
+     "end_sec": 162.45
+    },
+    {
+     "text": "표는",
+     "start_sec": 162.45,
+     "end_sec": 163.27
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 163.27,
+     "end_sec": 164.09
+    },
+    {
+     "text": "제쳐",
+     "start_sec": 164.09,
+     "end_sec": 164.91
+    },
+    {
+     "text": "두고,",
+     "start_sec": 164.91,
+     "end_sec": 165.73
+    },
+    {
+     "text": "설문",
+     "start_sec": 165.73,
+     "end_sec": 166.55
+    },
+    {
+     "text": "얘기로",
+     "start_sec": 166.55,
+     "end_sec": 167.36
+    },
+    {
+     "text": "바로",
+     "start_sec": 167.36,
+     "end_sec": 168.18
+    },
+    {
+     "text": "갈게요.",
+     "start_sec": 168.18,
+     "end_sec": 169.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 169,
+   "end_sec": 200,
+   "text": "불편한 점도 물어봤는데요, 설문에는 212명이 답해 줬어요. 에어컨 26도가 덥다는 학생이 열 명 중에 여섯 명이나 됐어요. 외출할 때 멀티탭 끄기가 번거롭다는 응답은 19퍼센트였고요. 그러니까 멀티탭보다 더위가 훨씬 큰 불만이었어요.",
+   "words": [
+    {
+     "text": "불편한",
+     "start_sec": 169.0,
+     "end_sec": 170.03
+    },
+    {
+     "text": "점도",
+     "start_sec": 170.03,
+     "end_sec": 171.07
+    },
+    {
+     "text": "물어봤는데요,",
+     "start_sec": 171.07,
+     "end_sec": 172.1
+    },
+    {
+     "text": "설문에는",
+     "start_sec": 172.1,
+     "end_sec": 173.13
+    },
+    {
+     "text": "212명이",
+     "start_sec": 173.13,
+     "end_sec": 174.17
+    },
+    {
+     "text": "답해",
+     "start_sec": 174.17,
+     "end_sec": 175.2
+    },
+    {
+     "text": "줬어요.",
+     "start_sec": 175.2,
+     "end_sec": 176.23
+    },
+    {
+     "text": "에어컨",
+     "start_sec": 176.23,
+     "end_sec": 177.27
+    },
+    {
+     "text": "26도가",
+     "start_sec": 177.27,
+     "end_sec": 178.3
+    },
+    {
+     "text": "덥다는",
+     "start_sec": 178.3,
+     "end_sec": 179.33
+    },
+    {
+     "text": "학생이",
+     "start_sec": 179.33,
+     "end_sec": 180.37
+    },
+    {
+     "text": "열",
+     "start_sec": 180.37,
+     "end_sec": 181.4
+    },
+    {
+     "text": "명",
+     "start_sec": 181.4,
+     "end_sec": 182.43
+    },
+    {
+     "text": "중에",
+     "start_sec": 182.43,
+     "end_sec": 183.47
+    },
+    {
+     "text": "여섯",
+     "start_sec": 183.47,
+     "end_sec": 184.5
+    },
+    {
+     "text": "명이나",
+     "start_sec": 184.5,
+     "end_sec": 185.53
+    },
+    {
+     "text": "됐어요.",
+     "start_sec": 185.53,
+     "end_sec": 186.57
+    },
+    {
+     "text": "외출할",
+     "start_sec": 186.57,
+     "end_sec": 187.6
+    },
+    {
+     "text": "때",
+     "start_sec": 187.6,
+     "end_sec": 188.63
+    },
+    {
+     "text": "멀티탭",
+     "start_sec": 188.63,
+     "end_sec": 189.67
+    },
+    {
+     "text": "끄기가",
+     "start_sec": 189.67,
+     "end_sec": 190.7
+    },
+    {
+     "text": "번거롭다는",
+     "start_sec": 190.7,
+     "end_sec": 191.73
+    },
+    {
+     "text": "응답은",
+     "start_sec": 191.73,
+     "end_sec": 192.77
+    },
+    {
+     "text": "19퍼센트였고요.",
+     "start_sec": 192.77,
+     "end_sec": 193.8
+    },
+    {
+     "text": "그러니까",
+     "start_sec": 193.8,
+     "end_sec": 194.83
+    },
+    {
+     "text": "멀티탭보다",
+     "start_sec": 194.83,
+     "end_sec": 195.87
+    },
+    {
+     "text": "더위가",
+     "start_sec": 195.87,
+     "end_sec": 196.9
+    },
+    {
+     "text": "훨씬",
+     "start_sec": 196.9,
+     "end_sec": 197.93
+    },
+    {
+     "text": "큰",
+     "start_sec": 197.93,
+     "end_sec": 198.97
+    },
+    {
+     "text": "불만이었어요.",
+     "start_sec": 198.97,
+     "end_sec": 200.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 200,
+   "end_sec": 240,
+   "text": "하나씩 말씀드리면요, 다음 학기에는 방문마다 멀티탭 껐나요 스티커를 붙이고요, 에어컨은 26도를 그대로 두는 대신 자기 전에 1시간 예약 끄기를 안내하려고 해요. 1등 층에는 간식비 20만 원을 주고, 한 학기 예산은 150만 원이에요. 참여 층도 6개 층에서 10개 층 전체로 늘릴 거예요. 감사합니다.",
+   "words": [
+    {
+     "text": "하나씩",
+     "start_sec": 200.0,
+     "end_sec": 200.95
+    },
+    {
+     "text": "말씀드리면요,",
+     "start_sec": 200.95,
+     "end_sec": 201.9
+    },
+    {
+     "text": "다음",
+     "start_sec": 201.9,
+     "end_sec": 202.86
+    },
+    {
+     "text": "학기에는",
+     "start_sec": 202.86,
+     "end_sec": 203.81
+    },
+    {
+     "text": "방문마다",
+     "start_sec": 203.81,
+     "end_sec": 204.76
+    },
+    {
+     "text": "멀티탭",
+     "start_sec": 204.76,
+     "end_sec": 205.71
+    },
+    {
+     "text": "껐나요",
+     "start_sec": 205.71,
+     "end_sec": 206.67
+    },
+    {
+     "text": "스티커를",
+     "start_sec": 206.67,
+     "end_sec": 207.62
+    },
+    {
+     "text": "붙이고요,",
+     "start_sec": 207.62,
+     "end_sec": 208.57
+    },
+    {
+     "text": "에어컨은",
+     "start_sec": 208.57,
+     "end_sec": 209.52
+    },
+    {
+     "text": "26도를",
+     "start_sec": 209.52,
+     "end_sec": 210.48
+    },
+    {
+     "text": "그대로",
+     "start_sec": 210.48,
+     "end_sec": 211.43
+    },
+    {
+     "text": "두는",
+     "start_sec": 211.43,
+     "end_sec": 212.38
+    },
+    {
+     "text": "대신",
+     "start_sec": 212.38,
+     "end_sec": 213.33
+    },
+    {
+     "text": "자기",
+     "start_sec": 213.33,
+     "end_sec": 214.29
+    },
+    {
+     "text": "전에",
+     "start_sec": 214.29,
+     "end_sec": 215.24
+    },
+    {
+     "text": "1시간",
+     "start_sec": 215.24,
+     "end_sec": 216.19
+    },
+    {
+     "text": "예약",
+     "start_sec": 216.19,
+     "end_sec": 217.14
+    },
+    {
+     "text": "끄기를",
+     "start_sec": 217.14,
+     "end_sec": 218.1
+    },
+    {
+     "text": "안내하려고",
+     "start_sec": 218.1,
+     "end_sec": 219.05
+    },
+    {
+     "text": "해요.",
+     "start_sec": 219.05,
+     "end_sec": 220.0
+    },
+    {
+     "text": "1등",
+     "start_sec": 220.0,
+     "end_sec": 220.95
+    },
+    {
+     "text": "층에는",
+     "start_sec": 220.95,
+     "end_sec": 221.9
+    },
+    {
+     "text": "간식비",
+     "start_sec": 221.9,
+     "end_sec": 222.86
+    },
+    {
+     "text": "20만",
+     "start_sec": 222.86,
+     "end_sec": 223.81
+    },
+    {
+     "text": "원을",
+     "start_sec": 223.81,
+     "end_sec": 224.76
+    },
+    {
+     "text": "주고,",
+     "start_sec": 224.76,
+     "end_sec": 225.71
+    },
+    {
+     "text": "한",
+     "start_sec": 225.71,
+     "end_sec": 226.67
+    },
+    {
+     "text": "학기",
+     "start_sec": 226.67,
+     "end_sec": 227.62
+    },
+    {
+     "text": "예산은",
+     "start_sec": 227.62,
+     "end_sec": 228.57
+    },
+    {
+     "text": "150만",
+     "start_sec": 228.57,
+     "end_sec": 229.52
+    },
+    {
+     "text": "원이에요.",
+     "start_sec": 229.52,
+     "end_sec": 230.48
+    },
+    {
+     "text": "참여",
+     "start_sec": 230.48,
+     "end_sec": 231.43
+    },
+    {
+     "text": "층도",
+     "start_sec": 231.43,
+     "end_sec": 232.38
+    },
+    {
+     "text": "6개",
+     "start_sec": 232.38,
+     "end_sec": 233.33
+    },
+    {
+     "text": "층에서",
+     "start_sec": 233.33,
+     "end_sec": 234.29
+    },
+    {
+     "text": "10개",
+     "start_sec": 234.29,
+     "end_sec": 235.24
+    },
+    {
+     "text": "층",
+     "start_sec": 235.24,
+     "end_sec": 236.19
+    },
+    {
+     "text": "전체로",
+     "start_sec": 236.19,
+     "end_sec": 237.14
+    },
+    {
+     "text": "늘릴",
+     "start_sec": 237.14,
+     "end_sec": 238.1
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 238.1,
+     "end_sec": 239.05
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 239.05,
+     "end_sec": 240.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 240
+}

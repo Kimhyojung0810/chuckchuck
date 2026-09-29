@@ -1,0 +1,344 @@
+{
+ "deck": "heldout2_recycle",
+ "synthetic": true,
+ "group": "rec_align_heldout2_2026-09-30",
+ "topic": "아파트 투명 페트병 분리배출 시범사업 결과와 확대 — 주민자치회의 주민참여예산 제안",
+ "context": {
+  "situation": "competition",
+  "duration_min": 10
+ },
+ "page_style": "「· 3 ·」 (가운뎃점으로 감싼 숫자)",
+ "total_slides": 8,
+ "deck_comparisons": [
+  {
+   "slide": 5,
+   "quote": "별도 배출률이 시범 전의 2.6배가 됐습니다.",
+   "construction": "A가 B의 N배"
+  },
+  {
+   "slide": 6,
+   "quote": "경비원이 수거함 앞에서 안내한 단지는 안내하지 않은 단지보다 별도 배출률이 18%p 높았습니다.",
+   "construction": "A는 B보다 … 높았다"
+  }
+ ],
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "투명 페트병 시범사업 발표 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 5,
+     "deck_quote": "| 이물질 섞임 비율 | 34% | 9% |",
+     "speech_quote": "이물질이 섞인 비율도 34퍼센트에서 19퍼센트로 떨어졌고요.",
+     "form": "before_after_pair_one_value_wrong",
+     "deck_value": "34% → 9%",
+     "speech_value": "34% → 19%",
+     "note": "전후 짝에서 뒤 값만 틀림 — 앞 값(34%)과 방향(떨어졌다)은 맞다"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 7,
+     "deck_quote": "수거함 주변 무단 투기 신고는 월 26건에서 11건으로 줄었습니다.",
+     "speech_quote": "수거함 주변 무단 투기 신고는 오히려 늘었어요.",
+     "form": "antonym_change_verb",
+     "note": "변화 동사를 반의어로(줄었다 → 늘었다) — 발화에 수는 없다"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 3,
+     "deck_quote": "시범사업 개요",
+     "speech_quote": "다음은 시범사업 개요인데요, 나눠 드린 자료 뒷면에 다 적어 뒀으니까 이 장은 접어 두겠습니다.",
+     "skip_quote": "다음은 시범사업 개요인데요, 나눠 드린 자료 뒷면에 다 적어 뒀으니까 이 장은 접어 두겠습니다.",
+     "form": "fold_away_see_handout",
+     "skip_verb": "접어 두겠습니다",
+     "labels_any": [
+      "시범사업 개요",
+      "전용 수거함",
+      "3,840세대",
+      "라벨 떼는 법",
+      "16주"
+     ],
+     "absent_elsewhere": [
+      "3,840",
+      "48",
+      "16주",
+      "4월",
+      "개요"
+     ],
+     "note": "나눠 준 자료로 돌리고 「접어 두겠습니다」 로 건너뜀 (다음 장으로 간다는 말도 없다) — 3장 내용(기간·단지·세대·수거함 수)은 R1 어디에서도 말하지 않는다"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "slide": 8,
+     "near_slide": 8,
+     "deck_quote": null,
+     "speech_quote": "옆 구에서는 이 사업을 하고 나서 종량제 봉투 판매량이 1년 만에 15퍼센트 줄었다고 들었습니다.",
+     "form": "hearsay_other_district_effect",
+     "note": "자료에 없는 주장 (수·「줄었다」 포함) — 모순·건너뜀이 아니다"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     5,
+     7
+    ],
+    "skipped_slides": [
+     3
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 31
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 31,
+     "end_sec": 70
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 70,
+     "end_sec": 83
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 83,
+     "end_sec": 120
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 120,
+     "end_sec": 155
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 155,
+     "end_sec": 191
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 191,
+     "end_sec": 218
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 218,
+     "end_sec": 260
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "투명 페트병 시범사업 발표 녹음 (R2)",
+   "planted": [],
+   "tricky_correct": [
+    {
+     "slide": 2,
+     "trap": "quantity_bound_n_of_m",
+     "deck": "우리 구 공동주택의 투명 페트병 별도 배출률은 23%에 그칩니다.",
+     "speech": "네 집 중 한 집도 안 되는 거죠.",
+     "why": "23% < 25% — 「네 집 중 한 집도 안 되는」 은 참"
+    },
+    {
+     "slide": 3,
+     "trap": "computed_value",
+     "deck": "전용 수거함 48개 설치",
+     "speech": "한 단지에 여덟 개씩 들어간 셈이에요.",
+     "why": "48개 ÷ 6개 단지 = 8 (자료에 없는 몫)"
+    },
+    {
+     "slide": 4,
+     "trap": "content_meaning_subtract",
+     "deck": "3,600kg × 250원 − 30만 원 = 60만 원",
+     "speech": "운반비 삼십만 원을 빼고 나면 육십만 원이 남습니다.",
+     "why": "「빼고」 는 식의 뺄셈 — 장을 건너뛰는 말이 아니다"
+    },
+    {
+     "slide": 4,
+     "trap": "computed_value",
+     "deck": "3,600kg × 250원 − 30만 원 = 60만 원",
+     "speech": "킬로그램당 이백오십 원이니까 구십만 원어치고요",
+     "why": "3,600 × 250원 = 90만 원 (식 중간값, 자료에 없다)"
+    },
+    {
+     "slide": 5,
+     "trap": "quantity_bound",
+     "deck": "별도 배출률이 시범 전의 2.6배가 됐습니다.",
+     "speech": "두 배 반이 넘게 늘어난 거죠.",
+     "why": "2.6 > 2.5 — 「두 배 반이 넘게」 는 참"
+    },
+    {
+     "slide": 5,
+     "trap": "before_after_pair",
+     "deck": "| 이물질 섞임 비율 | 34% | 9% |",
+     "speech": "이물질이 섞인 비율은 삼십사 퍼센트에서 구 퍼센트로 떨어졌고",
+     "why": "전후 두 값이 모두 맞다 (R1 N1 과 짝)"
+    },
+    {
+     "slide": 5,
+     "trap": "change_verb_other_subject",
+     "deck": "| 월 수거량 | 1,100kg | 3,600kg |",
+     "speech": "섞이는 이물질은 줄고, 모이는 양은 세 배 넘게 늘어난 겁니다.",
+     "why": "줄다(이물질)·늘다(수거량) 가 한 문장에 주어를 바꿔 나온다 — 둘 다 맞다. 3,600/1,100 ≈ 3.3"
+    },
+    {
+     "slide": 5,
+     "trap": "computed_value",
+     "deck": "| 월 수거량 | 1,100kg | 3,600kg |",
+     "speech": "한 달에 이천오백 킬로그램이 더 모인 거예요.",
+     "why": "3,600 − 1,100 = 2,500 (자료에 없는 차)"
+    },
+    {
+     "slide": 6,
+     "trap": "question_shaped",
+     "deck": "경비원이 수거함 앞에서 안내한 단지는 안내하지 않은 단지보다 별도 배출률이 18%p 높았습니다.",
+     "speech": "그럼 안내가 없던 단지가 더 잘 모았을까요?",
+     "why": "뒤집힌 방향을 묻는 질문 — 바로 「그렇지 않았습니다」 로 부정한다"
+    },
+    {
+     "slide": 6,
+     "trap": "reverse_order_antonym",
+     "deck": "경비원이 수거함 앞에서 안내한 단지는 안내하지 않은 단지보다 별도 배출률이 18%p 높았습니다.",
+     "speech": "안내가 없던 단지가 십팔 퍼센트포인트 낮았습니다.",
+     "why": "주어를 뒤집고 반의어(높았다→낮았다) — 뜻은 같다"
+    },
+    {
+     "slide": 7,
+     "trap": "close_approximation_n_of_m",
+     "deck": "설문 응답 1,020세대 중 74%가 '계속 참여하겠다'고 답했습니다.",
+     "speech": "응답해 주신 천이십 세대 가운데 네 집 중 세 집 가까이가 계속 참여하겠다고 하셨어요.",
+     "why": "74% ≈ 4집 중 3집(75%) 에 조금 못 미침 — 「가까이」 는 맞는 어림"
+    },
+    {
+     "slide": 8,
+     "trap": "quantity_bound",
+     "deck": "필요 예산 연 1,650만 원 (수거함 190개 · 현장 안내 수당 · 안내문)",
+     "speech": "천칠백만 원이 채 안 되는 예산입니다.",
+     "why": "1,650만 < 1,700만 — 「채 안 되는」 은 참"
+    }
+   ],
+   "spoken_forms": [
+    {
+     "slide": 2,
+     "deck": "23%",
+     "speech": "이십삼 퍼센트"
+    },
+    {
+     "slide": 3,
+     "deck": "3,840세대",
+     "speech": "삼천팔백사십 세대"
+    },
+    {
+     "slide": 3,
+     "deck": "48개",
+     "speech": "마흔여덟 개"
+    },
+    {
+     "slide": 5,
+     "deck": "1,100kg",
+     "speech": "천백 킬로그램"
+    },
+    {
+     "slide": 6,
+     "deck": "18%p",
+     "speech": "십팔 퍼센트포인트"
+    },
+    {
+     "slide": 7,
+     "deck": "1,020세대",
+     "speech": "천이십 세대"
+    },
+    {
+     "slide": 8,
+     "deck": "24개 단지",
+     "speech": "스물네 개 단지"
+    },
+    {
+     "slide": 8,
+     "deck": "1,650만 원",
+     "speech": "천육백오십만 원"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 27
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 27,
+     "end_sec": 69
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 69,
+     "end_sec": 101
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 101,
+     "end_sec": 138
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 138,
+     "end_sec": 184
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 184,
+     "end_sec": 228
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 228,
+     "end_sec": 262
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 262,
+     "end_sec": 297
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "reuse": [
+    "heldout2_dorm",
+    "r2"
+   ],
+   "title": "기숙사 전기 절약 캠페인 발표 녹음 (다른 발표)",
+   "planted": [],
+   "source": "기숙사 전기 절약 캠페인 결과 보고 (heldout2_dorm R2 — 다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": "다른 발표 — 장 대응 없음"
+  }
+ }
+}

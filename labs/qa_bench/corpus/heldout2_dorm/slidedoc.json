@@ -1,0 +1,242 @@
+{
+ "file_name": "한빛관_전기절약캠페인_결과보고.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "불 끄고 플러그 뽑기, 한 학기 해 보니",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "불 끄고 플러그 뽑기, 한 학기 해 보니"
+    },
+    {
+     "category": "paragraph",
+     "text": "한빛관 기숙사 전기 절약 캠페인 결과 보고"
+    },
+    {
+     "category": "paragraph",
+     "text": "생활관 자치회 환경부 · 2026학년도 1학기"
+    },
+    {
+     "category": "paragraph",
+     "text": "1"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "왜 시작했나",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "왜 시작했나"
+    },
+    {
+     "category": "paragraph",
+     "text": "지난해 한빛관 전기요금은 6,100만 원이었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "3년 전보다 22% 올랐습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "관생 480명 기준, 1인당 연 12만 7천 원꼴입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "2"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "캠페인 내용",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "캠페인 내용"
+    },
+    {
+     "category": "paragraph",
+     "text": "① 외출할 때 멀티탭 스위치 끄기"
+    },
+    {
+     "category": "paragraph",
+     "text": "② 에어컨 설정 온도 26도 지키기"
+    },
+    {
+     "category": "paragraph",
+     "text": "③ 층별 절약 순위 매주 공개"
+    },
+    {
+     "category": "paragraph",
+     "text": "기간: 3월 9일~6월 26일 (16주)"
+    },
+    {
+     "category": "paragraph",
+     "text": "3"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "층별 결과",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "층별 결과"
+    },
+    {
+     "category": "table",
+     "text": "| 구분 | 층 수 | 1인당 사용량 변화 |"
+    },
+    {
+     "category": "table",
+     "text": "| 캠페인 참여 층 | 6개 층 | −14% |"
+    },
+    {
+     "category": "table",
+     "text": "| 비참여 층 | 4개 층 | −3% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "참여 층은 비참여 층보다 1인당 사용량이 더 많이 줄었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "4"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "아낀 전기요금",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "아낀 전기요금"
+    },
+    {
+     "category": "paragraph",
+     "text": "아낀 전기요금 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "줄어든 사용량"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "kWh당 요금"
+    },
+    {
+     "category": "paragraph",
+     "text": "11,500kWh × 160원 = 184만 원"
+    },
+    {
+     "category": "paragraph",
+     "text": "캠페인 16주 동안 지난해 같은 기간보다 11,500kWh를 덜 썼습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "5"
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "주차별 실천율",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "주차별 실천율"
+    },
+    {
+     "category": "table",
+     "text": "| 기간 | 멀티탭 끄고 나간 방 비율 |"
+    },
+    {
+     "category": "table",
+     "text": "| 1~4주 | 38% |"
+    },
+    {
+     "category": "table",
+     "text": "| 5~8주 | 52% |"
+    },
+    {
+     "category": "table",
+     "text": "| 9~16주 | 67% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "주가 지날수록 실천하는 방이 늘었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "6"
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "설문으로 본 불편 (응답 212명)",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "설문으로 본 불편 (응답 212명)"
+    },
+    {
+     "category": "paragraph",
+     "text": "에어컨 26도가 덥다: 41%"
+    },
+    {
+     "category": "paragraph",
+     "text": "외출 때 멀티탭 끄기가 번거롭다: 19%"
+    },
+    {
+     "category": "paragraph",
+     "text": "멀티탭 불편에 비해 더위 불만이 2배 넘게 많았습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "7"
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "다음 학기에는",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "다음 학기에는"
+    },
+    {
+     "category": "paragraph",
+     "text": "방문마다 '멀티탭 껐나요?' 스티커 부착"
+    },
+    {
+     "category": "paragraph",
+     "text": "에어컨 26도는 유지하고 취침 전 1시간 예약 끄기 안내"
+    },
+    {
+     "category": "paragraph",
+     "text": "1등 층 간식비 20만 원 · 한 학기 예산 150만 원"
+    },
+    {
+     "category": "paragraph",
+     "text": "참여 층을 6개 층에서 10개 층 전체로"
+    },
+    {
+     "category": "paragraph",
+     "text": "8"
+    }
+   ]
+  }
+ ]
+}

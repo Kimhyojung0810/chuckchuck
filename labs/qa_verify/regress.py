@@ -13,6 +13,9 @@
                           여러 개념·트랙을 준다(여유 후보·밀어내기).
 - probe_absolute          대상 F-26 규칙 주장 → `derive_probes` 에서 단정 탐침이 **따질 줄에만** 나오는지(`absolute_on`·`absolute_off`),
                           그 탐침의 코드 골자(`probe_code_gist`)가 조건을 대는지·단정 줄을 되읊지 않는지 (09-30 WP-P2)
+- align_contra            녹음 문장을 장마다 놓고 대상 F-11 코드 대조(`_align_checks.contradictions`)가 모순을 기대한 장·갈래
+                          (number·direction·polarity)로 잡는지, 바르게 말한 문장은 안 잡는지 (09-30 녹음 감사 REC-01·02·03)
+- evidence_verified       대상 `_align_checks.resolve_evidence` 가 LLM 인용에서 녹음에 없는 문장을 빼는지 (REC-06)
 - judge_scripted          대상 `judge_answer` 에 실측의 LLM 판정을 넣고 코드가 낸 등급·결손·되물음·react 를 검사 (09-30 WP-J3)
 - stuck_ladder            「모르겠어요」 첫 단계 보기 · 발판 · 힌트 빈칸 · 칩 답 판정(LLM 없이)을 검사 (09-30 WP-J3)
 """
@@ -366,6 +369,71 @@ def check_f08_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
     return "pass", f"골자 «{gist[:70]}»" + (f" · 질문 «{question[:50]}»" if asked else ""), obs
 
 
+def _talk(segments: list[dict]):
+    """[{slide_no, text}] → 장마다 20초씩인 Transcript (낱말 시각 없음)."""
+    from chuckchuck.contracts import SlideSpeech, Transcript
+
+    by_slide = [SlideSpeech(int(x["slide_no"]), 1, 20.0 * i, 20.0 * (i + 1), x["text"]) for i, x in enumerate(segments)]
+    return Transcript(full_text=" ".join(x["text"] for x in segments), by_slide=by_slide, provider="case",
+                      duration_sec=20.0 * len(segments))
+
+
+def check_align_contra(doc: dict, args: dict) -> tuple[str, str, dict]:
+    """
+    args.said: [{slide_no, text, expect: "none" | {family, slide}}] — 문장마다 한 구간으로 놓고 대상 F-11 코드 대조를 돌린다.
+    그래프는 장마다 개념 하나(+ 뿌리) — LLM 이 없으니 코드 대조만 본다.
+    """
+    from chuckchuck._align_checks import contradictions
+    from chuckchuck._deck_claims import deck_from_slidedoc
+    from chuckchuck._spoken import utterances
+    from chuckchuck.contracts import ConceptGraph, ConceptNode, SlideDoc
+
+    sd = SlideDoc.from_dict(doc)
+    deck = deck_from_slidedoc(sd)
+    nodes = [ConceptNode(id="root", label="발표", slide_nos=[s.slide_no for s in sd.slides], weight=1.0)]
+    nodes += [ConceptNode(id=f"s{s.slide_no}", label=(s.title or f"{s.slide_no}장")[:30], slide_nos=[s.slide_no], weight=0.6,
+                          depth=2, parent_id="root") for s in sd.slides]
+    graph = ConceptGraph(file_name=sd.file_name, total_slides=len(sd.slides), nodes=nodes)
+    problems, seen = [], []
+    for row in args.get("said") or []:
+        found = contradictions(graph, utterances(_talk([row])), deck)
+        got = [(getattr(c, "family", "") or c.kind, c.slide_no) for c in found]
+        seen.append({"text": row["text"][:50], "got": got})
+        exp = row.get("expect", "none")
+        if exp == "none":
+            if got:
+                problems.append(f"바른 말에 모순 {got} «{row['text'][:30]}»")
+        elif (exp["family"], int(exp["slide"])) not in got:
+            problems.append(f"{exp['slide']}장 {exp['family']} 모순을 못 잡음 (잡은 것 {got}) «{row['text'][:30]}»")
+    if problems:
+        return "fail", "; ".join(problems[:3]), {"seen": seen}
+    return "pass", f"문장 {len(seen)}개 — 기대대로", {"seen": seen}
+
+
+def check_evidence_verified(doc: dict, args: dict) -> tuple[str, str, dict]:
+    """
+    args.talk: [{slide_no, text}] · node: {id, label, slide_nos, summary} · quote: LLM 인용 ·
+    expect: {forbid: [녹음에 없는 조각], contains: [남아야 할 조각], empty: bool}.
+    """
+    from chuckchuck._align_checks import resolve_evidence
+    from chuckchuck._spoken import utterances
+    from chuckchuck.contracts import ConceptNode
+
+    n = args["node"]
+    node = ConceptNode(id=n["id"], label=n["label"], slide_nos=list(n.get("slide_nos") or []), summary=n.get("summary", ""))
+    deck_texts = [_raw(s) for s in doc.get("slides") or []]
+    got = resolve_evidence(args["quote"], node, utterances(_talk(args["talk"])), deck_texts)
+    exp = args.get("expect") or {}
+    problems = [f"녹음에 없는 「{x}」 가 근거에 남음" for x in exp.get("forbid") or [] if x in got]
+    problems += [f"「{x}」 가 근거에서 빠짐" for x in exp.get("contains") or [] if x not in got]
+    if exp.get("empty") and got:
+        problems.append("근거가 비어야 하는데 남음")
+    obs = {"evidence": got}
+    if problems:
+        return "fail", "; ".join(problems) + f" — «{got[:60]}»", obs
+    return "pass", f"근거 «{got[:60]}»" if got else "근거 비움 (개념을 받치는 말이 녹음에 없다)", obs
+
+
 def _judge_graph_of(args: dict, doc: dict):
     """args.nodes(있으면)로 그래프 — f08_scripted 와 같은 꼴. 없으면 None."""
     from chuckchuck.contracts import ConceptEdge, ConceptGraph, ConceptNode
@@ -524,6 +592,8 @@ KINDS = {
     "contrast_choice": check_contrast_choice,
     "f08_scripted": check_f08_scripted,
     "probe_absolute": check_probe_absolute,
+    "align_contra": check_align_contra,
+    "evidence_verified": check_evidence_verified,
     "judge_scripted": check_judge_scripted,
     "stuck_ladder": check_stuck_ladder,
 }

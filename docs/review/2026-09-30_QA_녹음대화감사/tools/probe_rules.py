@@ -11,9 +11,20 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-sys.path.insert(0, str(ROOT))
+# --repo <worktree> 로 다른 코드(전·후 비교)를 잰다. 덱·증거는 이 폴더 것을 쓴다.
+_REPO = Path(sys.argv[sys.argv.index("--repo") + 1]) if "--repo" in sys.argv else ROOT
+sys.path.insert(0, str(_REPO))
 from chuckchuck import _align_checks as A  # noqa: E402
-from chuckchuck._deck_claims import _than_sides, conflicts, deck_from_slidedoc, direction, directions, negated, numbers  # noqa: E402
+from chuckchuck._deck_claims import conflicts, deck_from_slidedoc, direction, directions, negated, numbers  # noqa: E402
+
+try:                                   # 09-30 WP 정합 대조 뒤 — 비교를 (주어, 대상, 잣대, 방향) 으로 읽는다
+    from chuckchuck._compare import read_comparison  # noqa: E402
+
+    def _than_sides(text):
+        c = read_comparison(text)
+        return None if c is None else {"주어": c.subject, "대상": c.other, "잣대": c.measure, "방향": c.sign}
+except ImportError:                    # 감사 당시 코드(3a32e25 이전)
+    from chuckchuck._deck_claims import _than_sides  # noqa: E402
 from chuckchuck._spoken import skip_cue, spoken_numbers, utterances  # noqa: E402
 from chuckchuck.contracts import ConceptNode, SlideDoc, Transcript  # noqa: E402
 

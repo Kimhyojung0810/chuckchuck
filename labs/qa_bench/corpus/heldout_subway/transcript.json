@@ -1,0 +1,2241 @@
+{
+ "full_text": "안녕하세요. 저희는 도시철도 3호선 이용자 모임입니다. 겨울에 지하철 타시면 덥다고 느끼신 적 많으시죠? 오늘은 객실 온도를 혼잡도에 맞추는 약난방칸을 늘리자는 제안을 드리려고 합니다. 먼저 민원부터 보겠습니다. 시범 운행을 하기 전 겨울, 12월부터 2월까지 3호선 냉난방 민원이 모두 5460건 들어왔습니다. 이 중에 덥다는 민원이 3900건, 춥다는 민원이 1560건이에요. 덥다는 민원이 춥다는 민원보다 2.5배 많았습니다. 겨울인데 춥다가 아니라 덥다는 거죠. 언제 덥냐면요, 출근 시간대인 7시에서 9시 사이예요. 이때 평균 혼잡도가 158퍼센트, 객실 온도는 평균 24.6도였습니다. 낮 시간대는 혼잡도 62퍼센트에 21.4도였고요. 출근 시간대가 3.2도 더 높았던 거죠. 사실 겨울에는 다들 두꺼운 외투를 입고 타니까 실제 온도보다 더 덥게 느끼는 거예요. 덥다는 민원의 71퍼센트가 혼잡도 150퍼센트를 넘는 시간에 들어왔습니다. 여기 계산식이 있는데요, 이 부분은 오늘 따로 설명드리지 않겠습니다. 그래서 지난겨울에 약난방칸 시범 운행을 해 봤습니다. 열차마다 양 끝 두 칸만 난방 온도를 2도 낮게 맞췄어요. 그랬더니 덥다는 민원이 한 달 평균 1300건에서 780건으로 40퍼센트 줄었습니다. 춥다는 민원도 오히려 조금 줄었고요. 약난방칸을 타 보신 612분께 설문도 했습니다. 64퍼센트가 더 쾌적하다고 답하셨고요, 차이를 못 느꼈다는 분이 27퍼센트, 더 춥다는 분은 9퍼센트였습니다. 열 명 중 여섯 명 넘게 더 쾌적하다고 하신 거예요. 비용도 말씀드리면요, 시범 칸은 일반 칸보다 난방 전력을 12퍼센트 덜 썼습니다. 추가로 드는 돈은 안내 스티커랑 앱 알림 개발비까지 해서 약 삼천만 원입니다. 정리하면, 모든 열차에 약난방칸을 두 칸씩 두고, 역 안내 화면이랑 앱에 약난방칸이 어디 있는지 보여 드리자는 겁니다. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요.",
+   "start_sec": 0.0,
+   "end_sec": 1.43
+  },
+  {
+   "text": "저희는",
+   "start_sec": 1.43,
+   "end_sec": 2.87
+  },
+  {
+   "text": "도시철도",
+   "start_sec": 2.87,
+   "end_sec": 4.3
+  },
+  {
+   "text": "3호선",
+   "start_sec": 4.3,
+   "end_sec": 5.74
+  },
+  {
+   "text": "이용자",
+   "start_sec": 5.74,
+   "end_sec": 7.17
+  },
+  {
+   "text": "모임입니다.",
+   "start_sec": 7.17,
+   "end_sec": 8.61
+  },
+  {
+   "text": "겨울에",
+   "start_sec": 8.61,
+   "end_sec": 10.04
+  },
+  {
+   "text": "지하철",
+   "start_sec": 10.04,
+   "end_sec": 11.48
+  },
+  {
+   "text": "타시면",
+   "start_sec": 11.48,
+   "end_sec": 12.91
+  },
+  {
+   "text": "덥다고",
+   "start_sec": 12.91,
+   "end_sec": 14.35
+  },
+  {
+   "text": "느끼신",
+   "start_sec": 14.35,
+   "end_sec": 15.78
+  },
+  {
+   "text": "적",
+   "start_sec": 15.78,
+   "end_sec": 17.22
+  },
+  {
+   "text": "많으시죠?",
+   "start_sec": 17.22,
+   "end_sec": 18.65
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 18.65,
+   "end_sec": 20.09
+  },
+  {
+   "text": "객실",
+   "start_sec": 20.09,
+   "end_sec": 21.52
+  },
+  {
+   "text": "온도를",
+   "start_sec": 21.52,
+   "end_sec": 22.96
+  },
+  {
+   "text": "혼잡도에",
+   "start_sec": 22.96,
+   "end_sec": 24.39
+  },
+  {
+   "text": "맞추는",
+   "start_sec": 24.39,
+   "end_sec": 25.83
+  },
+  {
+   "text": "약난방칸을",
+   "start_sec": 25.83,
+   "end_sec": 27.26
+  },
+  {
+   "text": "늘리자는",
+   "start_sec": 27.26,
+   "end_sec": 28.7
+  },
+  {
+   "text": "제안을",
+   "start_sec": 28.7,
+   "end_sec": 30.13
+  },
+  {
+   "text": "드리려고",
+   "start_sec": 30.13,
+   "end_sec": 31.57
+  },
+  {
+   "text": "합니다.",
+   "start_sec": 31.57,
+   "end_sec": 33.0
+  },
+  {
+   "text": "먼저",
+   "start_sec": 33.0,
+   "end_sec": 34.43
+  },
+  {
+   "text": "민원부터",
+   "start_sec": 34.43,
+   "end_sec": 35.86
+  },
+  {
+   "text": "보겠습니다.",
+   "start_sec": 35.86,
+   "end_sec": 37.29
+  },
+  {
+   "text": "시범",
+   "start_sec": 37.29,
+   "end_sec": 38.71
+  },
+  {
+   "text": "운행을",
+   "start_sec": 38.71,
+   "end_sec": 40.14
+  },
+  {
+   "text": "하기",
+   "start_sec": 40.14,
+   "end_sec": 41.57
+  },
+  {
+   "text": "전",
+   "start_sec": 41.57,
+   "end_sec": 43.0
+  },
+  {
+   "text": "겨울,",
+   "start_sec": 43.0,
+   "end_sec": 44.43
+  },
+  {
+   "text": "12월부터",
+   "start_sec": 44.43,
+   "end_sec": 45.86
+  },
+  {
+   "text": "2월까지",
+   "start_sec": 45.86,
+   "end_sec": 47.29
+  },
+  {
+   "text": "3호선",
+   "start_sec": 47.29,
+   "end_sec": 48.71
+  },
+  {
+   "text": "냉난방",
+   "start_sec": 48.71,
+   "end_sec": 50.14
+  },
+  {
+   "text": "민원이",
+   "start_sec": 50.14,
+   "end_sec": 51.57
+  },
+  {
+   "text": "모두",
+   "start_sec": 51.57,
+   "end_sec": 53.0
+  },
+  {
+   "text": "5460건",
+   "start_sec": 53.0,
+   "end_sec": 54.43
+  },
+  {
+   "text": "들어왔습니다.",
+   "start_sec": 54.43,
+   "end_sec": 55.86
+  },
+  {
+   "text": "이",
+   "start_sec": 55.86,
+   "end_sec": 57.29
+  },
+  {
+   "text": "중에",
+   "start_sec": 57.29,
+   "end_sec": 58.71
+  },
+  {
+   "text": "덥다는",
+   "start_sec": 58.71,
+   "end_sec": 60.14
+  },
+  {
+   "text": "민원이",
+   "start_sec": 60.14,
+   "end_sec": 61.57
+  },
+  {
+   "text": "3900건,",
+   "start_sec": 61.57,
+   "end_sec": 63.0
+  },
+  {
+   "text": "춥다는",
+   "start_sec": 63.0,
+   "end_sec": 64.43
+  },
+  {
+   "text": "민원이",
+   "start_sec": 64.43,
+   "end_sec": 65.86
+  },
+  {
+   "text": "1560건이에요.",
+   "start_sec": 65.86,
+   "end_sec": 67.29
+  },
+  {
+   "text": "덥다는",
+   "start_sec": 67.29,
+   "end_sec": 68.71
+  },
+  {
+   "text": "민원이",
+   "start_sec": 68.71,
+   "end_sec": 70.14
+  },
+  {
+   "text": "춥다는",
+   "start_sec": 70.14,
+   "end_sec": 71.57
+  },
+  {
+   "text": "민원보다",
+   "start_sec": 71.57,
+   "end_sec": 73.0
+  },
+  {
+   "text": "2.5배",
+   "start_sec": 73.0,
+   "end_sec": 74.43
+  },
+  {
+   "text": "많았습니다.",
+   "start_sec": 74.43,
+   "end_sec": 75.86
+  },
+  {
+   "text": "겨울인데",
+   "start_sec": 75.86,
+   "end_sec": 77.29
+  },
+  {
+   "text": "춥다가",
+   "start_sec": 77.29,
+   "end_sec": 78.71
+  },
+  {
+   "text": "아니라",
+   "start_sec": 78.71,
+   "end_sec": 80.14
+  },
+  {
+   "text": "덥다는",
+   "start_sec": 80.14,
+   "end_sec": 81.57
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 81.57,
+   "end_sec": 83.0
+  },
+  {
+   "text": "언제",
+   "start_sec": 83.0,
+   "end_sec": 84.43
+  },
+  {
+   "text": "덥냐면요,",
+   "start_sec": 84.43,
+   "end_sec": 85.85
+  },
+  {
+   "text": "출근",
+   "start_sec": 85.85,
+   "end_sec": 87.28
+  },
+  {
+   "text": "시간대인",
+   "start_sec": 87.28,
+   "end_sec": 88.7
+  },
+  {
+   "text": "7시에서",
+   "start_sec": 88.7,
+   "end_sec": 90.13
+  },
+  {
+   "text": "9시",
+   "start_sec": 90.13,
+   "end_sec": 91.55
+  },
+  {
+   "text": "사이예요.",
+   "start_sec": 91.55,
+   "end_sec": 92.98
+  },
+  {
+   "text": "이때",
+   "start_sec": 92.98,
+   "end_sec": 94.4
+  },
+  {
+   "text": "평균",
+   "start_sec": 94.4,
+   "end_sec": 95.83
+  },
+  {
+   "text": "혼잡도가",
+   "start_sec": 95.83,
+   "end_sec": 97.26
+  },
+  {
+   "text": "158퍼센트,",
+   "start_sec": 97.26,
+   "end_sec": 98.68
+  },
+  {
+   "text": "객실",
+   "start_sec": 98.68,
+   "end_sec": 100.11
+  },
+  {
+   "text": "온도는",
+   "start_sec": 100.11,
+   "end_sec": 101.53
+  },
+  {
+   "text": "평균",
+   "start_sec": 101.53,
+   "end_sec": 102.96
+  },
+  {
+   "text": "24.6도였습니다.",
+   "start_sec": 102.96,
+   "end_sec": 104.38
+  },
+  {
+   "text": "낮",
+   "start_sec": 104.38,
+   "end_sec": 105.81
+  },
+  {
+   "text": "시간대는",
+   "start_sec": 105.81,
+   "end_sec": 107.23
+  },
+  {
+   "text": "혼잡도",
+   "start_sec": 107.23,
+   "end_sec": 108.66
+  },
+  {
+   "text": "62퍼센트에",
+   "start_sec": 108.66,
+   "end_sec": 110.09
+  },
+  {
+   "text": "21.4도였고요.",
+   "start_sec": 110.09,
+   "end_sec": 111.51
+  },
+  {
+   "text": "출근",
+   "start_sec": 111.51,
+   "end_sec": 112.94
+  },
+  {
+   "text": "시간대가",
+   "start_sec": 112.94,
+   "end_sec": 114.36
+  },
+  {
+   "text": "3.2도",
+   "start_sec": 114.36,
+   "end_sec": 115.79
+  },
+  {
+   "text": "더",
+   "start_sec": 115.79,
+   "end_sec": 117.21
+  },
+  {
+   "text": "높았던",
+   "start_sec": 117.21,
+   "end_sec": 118.64
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 118.64,
+   "end_sec": 120.06
+  },
+  {
+   "text": "사실",
+   "start_sec": 120.06,
+   "end_sec": 121.49
+  },
+  {
+   "text": "겨울에는",
+   "start_sec": 121.49,
+   "end_sec": 122.91
+  },
+  {
+   "text": "다들",
+   "start_sec": 122.91,
+   "end_sec": 124.34
+  },
+  {
+   "text": "두꺼운",
+   "start_sec": 124.34,
+   "end_sec": 125.77
+  },
+  {
+   "text": "외투를",
+   "start_sec": 125.77,
+   "end_sec": 127.19
+  },
+  {
+   "text": "입고",
+   "start_sec": 127.19,
+   "end_sec": 128.62
+  },
+  {
+   "text": "타니까",
+   "start_sec": 128.62,
+   "end_sec": 130.04
+  },
+  {
+   "text": "실제",
+   "start_sec": 130.04,
+   "end_sec": 131.47
+  },
+  {
+   "text": "온도보다",
+   "start_sec": 131.47,
+   "end_sec": 132.89
+  },
+  {
+   "text": "더",
+   "start_sec": 132.89,
+   "end_sec": 134.32
+  },
+  {
+   "text": "덥게",
+   "start_sec": 134.32,
+   "end_sec": 135.74
+  },
+  {
+   "text": "느끼는",
+   "start_sec": 135.74,
+   "end_sec": 137.17
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 137.17,
+   "end_sec": 138.6
+  },
+  {
+   "text": "덥다는",
+   "start_sec": 138.6,
+   "end_sec": 140.02
+  },
+  {
+   "text": "민원의",
+   "start_sec": 140.02,
+   "end_sec": 141.45
+  },
+  {
+   "text": "71퍼센트가",
+   "start_sec": 141.45,
+   "end_sec": 142.87
+  },
+  {
+   "text": "혼잡도",
+   "start_sec": 142.87,
+   "end_sec": 144.3
+  },
+  {
+   "text": "150퍼센트를",
+   "start_sec": 144.3,
+   "end_sec": 145.72
+  },
+  {
+   "text": "넘는",
+   "start_sec": 145.72,
+   "end_sec": 147.15
+  },
+  {
+   "text": "시간에",
+   "start_sec": 147.15,
+   "end_sec": 148.57
+  },
+  {
+   "text": "들어왔습니다.",
+   "start_sec": 148.57,
+   "end_sec": 150.0
+  },
+  {
+   "text": "여기",
+   "start_sec": 150.0,
+   "end_sec": 150.89
+  },
+  {
+   "text": "계산식이",
+   "start_sec": 150.89,
+   "end_sec": 151.78
+  },
+  {
+   "text": "있는데요,",
+   "start_sec": 151.78,
+   "end_sec": 152.67
+  },
+  {
+   "text": "이",
+   "start_sec": 152.67,
+   "end_sec": 153.56
+  },
+  {
+   "text": "부분은",
+   "start_sec": 153.56,
+   "end_sec": 154.44
+  },
+  {
+   "text": "오늘",
+   "start_sec": 154.44,
+   "end_sec": 155.33
+  },
+  {
+   "text": "따로",
+   "start_sec": 155.33,
+   "end_sec": 156.22
+  },
+  {
+   "text": "설명드리지",
+   "start_sec": 156.22,
+   "end_sec": 157.11
+  },
+  {
+   "text": "않겠습니다.",
+   "start_sec": 157.11,
+   "end_sec": 158.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 158.0,
+   "end_sec": 159.31
+  },
+  {
+   "text": "지난겨울에",
+   "start_sec": 159.31,
+   "end_sec": 160.62
+  },
+  {
+   "text": "약난방칸",
+   "start_sec": 160.62,
+   "end_sec": 161.94
+  },
+  {
+   "text": "시범",
+   "start_sec": 161.94,
+   "end_sec": 163.25
+  },
+  {
+   "text": "운행을",
+   "start_sec": 163.25,
+   "end_sec": 164.56
+  },
+  {
+   "text": "해",
+   "start_sec": 164.56,
+   "end_sec": 165.88
+  },
+  {
+   "text": "봤습니다.",
+   "start_sec": 165.88,
+   "end_sec": 167.19
+  },
+  {
+   "text": "열차마다",
+   "start_sec": 167.19,
+   "end_sec": 168.5
+  },
+  {
+   "text": "양",
+   "start_sec": 168.5,
+   "end_sec": 169.81
+  },
+  {
+   "text": "끝",
+   "start_sec": 169.81,
+   "end_sec": 171.12
+  },
+  {
+   "text": "두",
+   "start_sec": 171.12,
+   "end_sec": 172.44
+  },
+  {
+   "text": "칸만",
+   "start_sec": 172.44,
+   "end_sec": 173.75
+  },
+  {
+   "text": "난방",
+   "start_sec": 173.75,
+   "end_sec": 175.06
+  },
+  {
+   "text": "온도를",
+   "start_sec": 175.06,
+   "end_sec": 176.38
+  },
+  {
+   "text": "2도",
+   "start_sec": 176.38,
+   "end_sec": 177.69
+  },
+  {
+   "text": "낮게",
+   "start_sec": 177.69,
+   "end_sec": 179.0
+  },
+  {
+   "text": "맞췄어요.",
+   "start_sec": 179.0,
+   "end_sec": 180.31
+  },
+  {
+   "text": "그랬더니",
+   "start_sec": 180.31,
+   "end_sec": 181.62
+  },
+  {
+   "text": "덥다는",
+   "start_sec": 181.62,
+   "end_sec": 182.94
+  },
+  {
+   "text": "민원이",
+   "start_sec": 182.94,
+   "end_sec": 184.25
+  },
+  {
+   "text": "한",
+   "start_sec": 184.25,
+   "end_sec": 185.56
+  },
+  {
+   "text": "달",
+   "start_sec": 185.56,
+   "end_sec": 186.88
+  },
+  {
+   "text": "평균",
+   "start_sec": 186.88,
+   "end_sec": 188.19
+  },
+  {
+   "text": "1300건에서",
+   "start_sec": 188.19,
+   "end_sec": 189.5
+  },
+  {
+   "text": "780건으로",
+   "start_sec": 189.5,
+   "end_sec": 190.81
+  },
+  {
+   "text": "40퍼센트",
+   "start_sec": 190.81,
+   "end_sec": 192.12
+  },
+  {
+   "text": "줄었습니다.",
+   "start_sec": 192.12,
+   "end_sec": 193.44
+  },
+  {
+   "text": "춥다는",
+   "start_sec": 193.44,
+   "end_sec": 194.75
+  },
+  {
+   "text": "민원도",
+   "start_sec": 194.75,
+   "end_sec": 196.06
+  },
+  {
+   "text": "오히려",
+   "start_sec": 196.06,
+   "end_sec": 197.38
+  },
+  {
+   "text": "조금",
+   "start_sec": 197.38,
+   "end_sec": 198.69
+  },
+  {
+   "text": "줄었고요.",
+   "start_sec": 198.69,
+   "end_sec": 200.0
+  },
+  {
+   "text": "약난방칸을",
+   "start_sec": 200.0,
+   "end_sec": 201.28
+  },
+  {
+   "text": "타",
+   "start_sec": 201.28,
+   "end_sec": 202.55
+  },
+  {
+   "text": "보신",
+   "start_sec": 202.55,
+   "end_sec": 203.83
+  },
+  {
+   "text": "612분께",
+   "start_sec": 203.83,
+   "end_sec": 205.1
+  },
+  {
+   "text": "설문도",
+   "start_sec": 205.1,
+   "end_sec": 206.38
+  },
+  {
+   "text": "했습니다.",
+   "start_sec": 206.38,
+   "end_sec": 207.66
+  },
+  {
+   "text": "64퍼센트가",
+   "start_sec": 207.66,
+   "end_sec": 208.93
+  },
+  {
+   "text": "더",
+   "start_sec": 208.93,
+   "end_sec": 210.21
+  },
+  {
+   "text": "쾌적하다고",
+   "start_sec": 210.21,
+   "end_sec": 211.48
+  },
+  {
+   "text": "답하셨고요,",
+   "start_sec": 211.48,
+   "end_sec": 212.76
+  },
+  {
+   "text": "차이를",
+   "start_sec": 212.76,
+   "end_sec": 214.03
+  },
+  {
+   "text": "못",
+   "start_sec": 214.03,
+   "end_sec": 215.31
+  },
+  {
+   "text": "느꼈다는",
+   "start_sec": 215.31,
+   "end_sec": 216.59
+  },
+  {
+   "text": "분이",
+   "start_sec": 216.59,
+   "end_sec": 217.86
+  },
+  {
+   "text": "27퍼센트,",
+   "start_sec": 217.86,
+   "end_sec": 219.14
+  },
+  {
+   "text": "더",
+   "start_sec": 219.14,
+   "end_sec": 220.41
+  },
+  {
+   "text": "춥다는",
+   "start_sec": 220.41,
+   "end_sec": 221.69
+  },
+  {
+   "text": "분은",
+   "start_sec": 221.69,
+   "end_sec": 222.97
+  },
+  {
+   "text": "9퍼센트였습니다.",
+   "start_sec": 222.97,
+   "end_sec": 224.24
+  },
+  {
+   "text": "열",
+   "start_sec": 224.24,
+   "end_sec": 225.52
+  },
+  {
+   "text": "명",
+   "start_sec": 225.52,
+   "end_sec": 226.79
+  },
+  {
+   "text": "중",
+   "start_sec": 226.79,
+   "end_sec": 228.07
+  },
+  {
+   "text": "여섯",
+   "start_sec": 228.07,
+   "end_sec": 229.34
+  },
+  {
+   "text": "명",
+   "start_sec": 229.34,
+   "end_sec": 230.62
+  },
+  {
+   "text": "넘게",
+   "start_sec": 230.62,
+   "end_sec": 231.9
+  },
+  {
+   "text": "더",
+   "start_sec": 231.9,
+   "end_sec": 233.17
+  },
+  {
+   "text": "쾌적하다고",
+   "start_sec": 233.17,
+   "end_sec": 234.45
+  },
+  {
+   "text": "하신",
+   "start_sec": 234.45,
+   "end_sec": 235.72
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 235.72,
+   "end_sec": 237.0
+  },
+  {
+   "text": "비용도",
+   "start_sec": 237.0,
+   "end_sec": 238.22
+  },
+  {
+   "text": "말씀드리면요,",
+   "start_sec": 238.22,
+   "end_sec": 239.43
+  },
+  {
+   "text": "시범",
+   "start_sec": 239.43,
+   "end_sec": 240.65
+  },
+  {
+   "text": "칸은",
+   "start_sec": 240.65,
+   "end_sec": 241.87
+  },
+  {
+   "text": "일반",
+   "start_sec": 241.87,
+   "end_sec": 243.09
+  },
+  {
+   "text": "칸보다",
+   "start_sec": 243.09,
+   "end_sec": 244.3
+  },
+  {
+   "text": "난방",
+   "start_sec": 244.3,
+   "end_sec": 245.52
+  },
+  {
+   "text": "전력을",
+   "start_sec": 245.52,
+   "end_sec": 246.74
+  },
+  {
+   "text": "12퍼센트",
+   "start_sec": 246.74,
+   "end_sec": 247.96
+  },
+  {
+   "text": "덜",
+   "start_sec": 247.96,
+   "end_sec": 249.17
+  },
+  {
+   "text": "썼습니다.",
+   "start_sec": 249.17,
+   "end_sec": 250.39
+  },
+  {
+   "text": "추가로",
+   "start_sec": 250.39,
+   "end_sec": 251.61
+  },
+  {
+   "text": "드는",
+   "start_sec": 251.61,
+   "end_sec": 252.83
+  },
+  {
+   "text": "돈은",
+   "start_sec": 252.83,
+   "end_sec": 254.04
+  },
+  {
+   "text": "안내",
+   "start_sec": 254.04,
+   "end_sec": 255.26
+  },
+  {
+   "text": "스티커랑",
+   "start_sec": 255.26,
+   "end_sec": 256.48
+  },
+  {
+   "text": "앱",
+   "start_sec": 256.48,
+   "end_sec": 257.7
+  },
+  {
+   "text": "알림",
+   "start_sec": 257.7,
+   "end_sec": 258.91
+  },
+  {
+   "text": "개발비까지",
+   "start_sec": 258.91,
+   "end_sec": 260.13
+  },
+  {
+   "text": "해서",
+   "start_sec": 260.13,
+   "end_sec": 261.35
+  },
+  {
+   "text": "약",
+   "start_sec": 261.35,
+   "end_sec": 262.57
+  },
+  {
+   "text": "삼천만",
+   "start_sec": 262.57,
+   "end_sec": 263.78
+  },
+  {
+   "text": "원입니다.",
+   "start_sec": 263.78,
+   "end_sec": 265.0
+  },
+  {
+   "text": "정리하면,",
+   "start_sec": 265.0,
+   "end_sec": 266.28
+  },
+  {
+   "text": "모든",
+   "start_sec": 266.28,
+   "end_sec": 267.56
+  },
+  {
+   "text": "열차에",
+   "start_sec": 267.56,
+   "end_sec": 268.83
+  },
+  {
+   "text": "약난방칸을",
+   "start_sec": 268.83,
+   "end_sec": 270.11
+  },
+  {
+   "text": "두",
+   "start_sec": 270.11,
+   "end_sec": 271.39
+  },
+  {
+   "text": "칸씩",
+   "start_sec": 271.39,
+   "end_sec": 272.67
+  },
+  {
+   "text": "두고,",
+   "start_sec": 272.67,
+   "end_sec": 273.94
+  },
+  {
+   "text": "역",
+   "start_sec": 273.94,
+   "end_sec": 275.22
+  },
+  {
+   "text": "안내",
+   "start_sec": 275.22,
+   "end_sec": 276.5
+  },
+  {
+   "text": "화면이랑",
+   "start_sec": 276.5,
+   "end_sec": 277.78
+  },
+  {
+   "text": "앱에",
+   "start_sec": 277.78,
+   "end_sec": 279.06
+  },
+  {
+   "text": "약난방칸이",
+   "start_sec": 279.06,
+   "end_sec": 280.33
+  },
+  {
+   "text": "어디",
+   "start_sec": 280.33,
+   "end_sec": 281.61
+  },
+  {
+   "text": "있는지",
+   "start_sec": 281.61,
+   "end_sec": 282.89
+  },
+  {
+   "text": "보여",
+   "start_sec": 282.89,
+   "end_sec": 284.17
+  },
+  {
+   "text": "드리자는",
+   "start_sec": 284.17,
+   "end_sec": 285.44
+  },
+  {
+   "text": "겁니다.",
+   "start_sec": 285.44,
+   "end_sec": 286.72
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 286.72,
+   "end_sec": 288.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 33,
+   "text": "안녕하세요. 저희는 도시철도 3호선 이용자 모임입니다. 겨울에 지하철 타시면 덥다고 느끼신 적 많으시죠? 오늘은 객실 온도를 혼잡도에 맞추는 약난방칸을 늘리자는 제안을 드리려고 합니다.",
+   "words": [
+    {
+     "text": "안녕하세요.",
+     "start_sec": 0.0,
+     "end_sec": 1.43
+    },
+    {
+     "text": "저희는",
+     "start_sec": 1.43,
+     "end_sec": 2.87
+    },
+    {
+     "text": "도시철도",
+     "start_sec": 2.87,
+     "end_sec": 4.3
+    },
+    {
+     "text": "3호선",
+     "start_sec": 4.3,
+     "end_sec": 5.74
+    },
+    {
+     "text": "이용자",
+     "start_sec": 5.74,
+     "end_sec": 7.17
+    },
+    {
+     "text": "모임입니다.",
+     "start_sec": 7.17,
+     "end_sec": 8.61
+    },
+    {
+     "text": "겨울에",
+     "start_sec": 8.61,
+     "end_sec": 10.04
+    },
+    {
+     "text": "지하철",
+     "start_sec": 10.04,
+     "end_sec": 11.48
+    },
+    {
+     "text": "타시면",
+     "start_sec": 11.48,
+     "end_sec": 12.91
+    },
+    {
+     "text": "덥다고",
+     "start_sec": 12.91,
+     "end_sec": 14.35
+    },
+    {
+     "text": "느끼신",
+     "start_sec": 14.35,
+     "end_sec": 15.78
+    },
+    {
+     "text": "적",
+     "start_sec": 15.78,
+     "end_sec": 17.22
+    },
+    {
+     "text": "많으시죠?",
+     "start_sec": 17.22,
+     "end_sec": 18.65
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 18.65,
+     "end_sec": 20.09
+    },
+    {
+     "text": "객실",
+     "start_sec": 20.09,
+     "end_sec": 21.52
+    },
+    {
+     "text": "온도를",
+     "start_sec": 21.52,
+     "end_sec": 22.96
+    },
+    {
+     "text": "혼잡도에",
+     "start_sec": 22.96,
+     "end_sec": 24.39
+    },
+    {
+     "text": "맞추는",
+     "start_sec": 24.39,
+     "end_sec": 25.83
+    },
+    {
+     "text": "약난방칸을",
+     "start_sec": 25.83,
+     "end_sec": 27.26
+    },
+    {
+     "text": "늘리자는",
+     "start_sec": 27.26,
+     "end_sec": 28.7
+    },
+    {
+     "text": "제안을",
+     "start_sec": 28.7,
+     "end_sec": 30.13
+    },
+    {
+     "text": "드리려고",
+     "start_sec": 30.13,
+     "end_sec": 31.57
+    },
+    {
+     "text": "합니다.",
+     "start_sec": 31.57,
+     "end_sec": 33.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 33,
+   "end_sec": 83,
+   "text": "먼저 민원부터 보겠습니다. 시범 운행을 하기 전 겨울, 12월부터 2월까지 3호선 냉난방 민원이 모두 5460건 들어왔습니다. 이 중에 덥다는 민원이 3900건, 춥다는 민원이 1560건이에요. 덥다는 민원이 춥다는 민원보다 2.5배 많았습니다. 겨울인데 춥다가 아니라 덥다는 거죠.",
+   "words": [
+    {
+     "text": "먼저",
+     "start_sec": 33.0,
+     "end_sec": 34.43
+    },
+    {
+     "text": "민원부터",
+     "start_sec": 34.43,
+     "end_sec": 35.86
+    },
+    {
+     "text": "보겠습니다.",
+     "start_sec": 35.86,
+     "end_sec": 37.29
+    },
+    {
+     "text": "시범",
+     "start_sec": 37.29,
+     "end_sec": 38.71
+    },
+    {
+     "text": "운행을",
+     "start_sec": 38.71,
+     "end_sec": 40.14
+    },
+    {
+     "text": "하기",
+     "start_sec": 40.14,
+     "end_sec": 41.57
+    },
+    {
+     "text": "전",
+     "start_sec": 41.57,
+     "end_sec": 43.0
+    },
+    {
+     "text": "겨울,",
+     "start_sec": 43.0,
+     "end_sec": 44.43
+    },
+    {
+     "text": "12월부터",
+     "start_sec": 44.43,
+     "end_sec": 45.86
+    },
+    {
+     "text": "2월까지",
+     "start_sec": 45.86,
+     "end_sec": 47.29
+    },
+    {
+     "text": "3호선",
+     "start_sec": 47.29,
+     "end_sec": 48.71
+    },
+    {
+     "text": "냉난방",
+     "start_sec": 48.71,
+     "end_sec": 50.14
+    },
+    {
+     "text": "민원이",
+     "start_sec": 50.14,
+     "end_sec": 51.57
+    },
+    {
+     "text": "모두",
+     "start_sec": 51.57,
+     "end_sec": 53.0
+    },
+    {
+     "text": "5460건",
+     "start_sec": 53.0,
+     "end_sec": 54.43
+    },
+    {
+     "text": "들어왔습니다.",
+     "start_sec": 54.43,
+     "end_sec": 55.86
+    },
+    {
+     "text": "이",
+     "start_sec": 55.86,
+     "end_sec": 57.29
+    },
+    {
+     "text": "중에",
+     "start_sec": 57.29,
+     "end_sec": 58.71
+    },
+    {
+     "text": "덥다는",
+     "start_sec": 58.71,
+     "end_sec": 60.14
+    },
+    {
+     "text": "민원이",
+     "start_sec": 60.14,
+     "end_sec": 61.57
+    },
+    {
+     "text": "3900건,",
+     "start_sec": 61.57,
+     "end_sec": 63.0
+    },
+    {
+     "text": "춥다는",
+     "start_sec": 63.0,
+     "end_sec": 64.43
+    },
+    {
+     "text": "민원이",
+     "start_sec": 64.43,
+     "end_sec": 65.86
+    },
+    {
+     "text": "1560건이에요.",
+     "start_sec": 65.86,
+     "end_sec": 67.29
+    },
+    {
+     "text": "덥다는",
+     "start_sec": 67.29,
+     "end_sec": 68.71
+    },
+    {
+     "text": "민원이",
+     "start_sec": 68.71,
+     "end_sec": 70.14
+    },
+    {
+     "text": "춥다는",
+     "start_sec": 70.14,
+     "end_sec": 71.57
+    },
+    {
+     "text": "민원보다",
+     "start_sec": 71.57,
+     "end_sec": 73.0
+    },
+    {
+     "text": "2.5배",
+     "start_sec": 73.0,
+     "end_sec": 74.43
+    },
+    {
+     "text": "많았습니다.",
+     "start_sec": 74.43,
+     "end_sec": 75.86
+    },
+    {
+     "text": "겨울인데",
+     "start_sec": 75.86,
+     "end_sec": 77.29
+    },
+    {
+     "text": "춥다가",
+     "start_sec": 77.29,
+     "end_sec": 78.71
+    },
+    {
+     "text": "아니라",
+     "start_sec": 78.71,
+     "end_sec": 80.14
+    },
+    {
+     "text": "덥다는",
+     "start_sec": 80.14,
+     "end_sec": 81.57
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 81.57,
+     "end_sec": 83.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 83,
+   "end_sec": 150,
+   "text": "언제 덥냐면요, 출근 시간대인 7시에서 9시 사이예요. 이때 평균 혼잡도가 158퍼센트, 객실 온도는 평균 24.6도였습니다. 낮 시간대는 혼잡도 62퍼센트에 21.4도였고요. 출근 시간대가 3.2도 더 높았던 거죠. 사실 겨울에는 다들 두꺼운 외투를 입고 타니까 실제 온도보다 더 덥게 느끼는 거예요. 덥다는 민원의 71퍼센트가 혼잡도 150퍼센트를 넘는 시간에 들어왔습니다.",
+   "words": [
+    {
+     "text": "언제",
+     "start_sec": 83.0,
+     "end_sec": 84.43
+    },
+    {
+     "text": "덥냐면요,",
+     "start_sec": 84.43,
+     "end_sec": 85.85
+    },
+    {
+     "text": "출근",
+     "start_sec": 85.85,
+     "end_sec": 87.28
+    },
+    {
+     "text": "시간대인",
+     "start_sec": 87.28,
+     "end_sec": 88.7
+    },
+    {
+     "text": "7시에서",
+     "start_sec": 88.7,
+     "end_sec": 90.13
+    },
+    {
+     "text": "9시",
+     "start_sec": 90.13,
+     "end_sec": 91.55
+    },
+    {
+     "text": "사이예요.",
+     "start_sec": 91.55,
+     "end_sec": 92.98
+    },
+    {
+     "text": "이때",
+     "start_sec": 92.98,
+     "end_sec": 94.4
+    },
+    {
+     "text": "평균",
+     "start_sec": 94.4,
+     "end_sec": 95.83
+    },
+    {
+     "text": "혼잡도가",
+     "start_sec": 95.83,
+     "end_sec": 97.26
+    },
+    {
+     "text": "158퍼센트,",
+     "start_sec": 97.26,
+     "end_sec": 98.68
+    },
+    {
+     "text": "객실",
+     "start_sec": 98.68,
+     "end_sec": 100.11
+    },
+    {
+     "text": "온도는",
+     "start_sec": 100.11,
+     "end_sec": 101.53
+    },
+    {
+     "text": "평균",
+     "start_sec": 101.53,
+     "end_sec": 102.96
+    },
+    {
+     "text": "24.6도였습니다.",
+     "start_sec": 102.96,
+     "end_sec": 104.38
+    },
+    {
+     "text": "낮",
+     "start_sec": 104.38,
+     "end_sec": 105.81
+    },
+    {
+     "text": "시간대는",
+     "start_sec": 105.81,
+     "end_sec": 107.23
+    },
+    {
+     "text": "혼잡도",
+     "start_sec": 107.23,
+     "end_sec": 108.66
+    },
+    {
+     "text": "62퍼센트에",
+     "start_sec": 108.66,
+     "end_sec": 110.09
+    },
+    {
+     "text": "21.4도였고요.",
+     "start_sec": 110.09,
+     "end_sec": 111.51
+    },
+    {
+     "text": "출근",
+     "start_sec": 111.51,
+     "end_sec": 112.94
+    },
+    {
+     "text": "시간대가",
+     "start_sec": 112.94,
+     "end_sec": 114.36
+    },
+    {
+     "text": "3.2도",
+     "start_sec": 114.36,
+     "end_sec": 115.79
+    },
+    {
+     "text": "더",
+     "start_sec": 115.79,
+     "end_sec": 117.21
+    },
+    {
+     "text": "높았던",
+     "start_sec": 117.21,
+     "end_sec": 118.64
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 118.64,
+     "end_sec": 120.06
+    },
+    {
+     "text": "사실",
+     "start_sec": 120.06,
+     "end_sec": 121.49
+    },
+    {
+     "text": "겨울에는",
+     "start_sec": 121.49,
+     "end_sec": 122.91
+    },
+    {
+     "text": "다들",
+     "start_sec": 122.91,
+     "end_sec": 124.34
+    },
+    {
+     "text": "두꺼운",
+     "start_sec": 124.34,
+     "end_sec": 125.77
+    },
+    {
+     "text": "외투를",
+     "start_sec": 125.77,
+     "end_sec": 127.19
+    },
+    {
+     "text": "입고",
+     "start_sec": 127.19,
+     "end_sec": 128.62
+    },
+    {
+     "text": "타니까",
+     "start_sec": 128.62,
+     "end_sec": 130.04
+    },
+    {
+     "text": "실제",
+     "start_sec": 130.04,
+     "end_sec": 131.47
+    },
+    {
+     "text": "온도보다",
+     "start_sec": 131.47,
+     "end_sec": 132.89
+    },
+    {
+     "text": "더",
+     "start_sec": 132.89,
+     "end_sec": 134.32
+    },
+    {
+     "text": "덥게",
+     "start_sec": 134.32,
+     "end_sec": 135.74
+    },
+    {
+     "text": "느끼는",
+     "start_sec": 135.74,
+     "end_sec": 137.17
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 137.17,
+     "end_sec": 138.6
+    },
+    {
+     "text": "덥다는",
+     "start_sec": 138.6,
+     "end_sec": 140.02
+    },
+    {
+     "text": "민원의",
+     "start_sec": 140.02,
+     "end_sec": 141.45
+    },
+    {
+     "text": "71퍼센트가",
+     "start_sec": 141.45,
+     "end_sec": 142.87
+    },
+    {
+     "text": "혼잡도",
+     "start_sec": 142.87,
+     "end_sec": 144.3
+    },
+    {
+     "text": "150퍼센트를",
+     "start_sec": 144.3,
+     "end_sec": 145.72
+    },
+    {
+     "text": "넘는",
+     "start_sec": 145.72,
+     "end_sec": 147.15
+    },
+    {
+     "text": "시간에",
+     "start_sec": 147.15,
+     "end_sec": 148.57
+    },
+    {
+     "text": "들어왔습니다.",
+     "start_sec": 148.57,
+     "end_sec": 150.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 150,
+   "end_sec": 158,
+   "text": "여기 계산식이 있는데요, 이 부분은 오늘 따로 설명드리지 않겠습니다.",
+   "words": [
+    {
+     "text": "여기",
+     "start_sec": 150.0,
+     "end_sec": 150.89
+    },
+    {
+     "text": "계산식이",
+     "start_sec": 150.89,
+     "end_sec": 151.78
+    },
+    {
+     "text": "있는데요,",
+     "start_sec": 151.78,
+     "end_sec": 152.67
+    },
+    {
+     "text": "이",
+     "start_sec": 152.67,
+     "end_sec": 153.56
+    },
+    {
+     "text": "부분은",
+     "start_sec": 153.56,
+     "end_sec": 154.44
+    },
+    {
+     "text": "오늘",
+     "start_sec": 154.44,
+     "end_sec": 155.33
+    },
+    {
+     "text": "따로",
+     "start_sec": 155.33,
+     "end_sec": 156.22
+    },
+    {
+     "text": "설명드리지",
+     "start_sec": 156.22,
+     "end_sec": 157.11
+    },
+    {
+     "text": "않겠습니다.",
+     "start_sec": 157.11,
+     "end_sec": 158.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 158,
+   "end_sec": 200,
+   "text": "그래서 지난겨울에 약난방칸 시범 운행을 해 봤습니다. 열차마다 양 끝 두 칸만 난방 온도를 2도 낮게 맞췄어요. 그랬더니 덥다는 민원이 한 달 평균 1300건에서 780건으로 40퍼센트 줄었습니다. 춥다는 민원도 오히려 조금 줄었고요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 158.0,
+     "end_sec": 159.31
+    },
+    {
+     "text": "지난겨울에",
+     "start_sec": 159.31,
+     "end_sec": 160.62
+    },
+    {
+     "text": "약난방칸",
+     "start_sec": 160.62,
+     "end_sec": 161.94
+    },
+    {
+     "text": "시범",
+     "start_sec": 161.94,
+     "end_sec": 163.25
+    },
+    {
+     "text": "운행을",
+     "start_sec": 163.25,
+     "end_sec": 164.56
+    },
+    {
+     "text": "해",
+     "start_sec": 164.56,
+     "end_sec": 165.88
+    },
+    {
+     "text": "봤습니다.",
+     "start_sec": 165.88,
+     "end_sec": 167.19
+    },
+    {
+     "text": "열차마다",
+     "start_sec": 167.19,
+     "end_sec": 168.5
+    },
+    {
+     "text": "양",
+     "start_sec": 168.5,
+     "end_sec": 169.81
+    },
+    {
+     "text": "끝",
+     "start_sec": 169.81,
+     "end_sec": 171.12
+    },
+    {
+     "text": "두",
+     "start_sec": 171.12,
+     "end_sec": 172.44
+    },
+    {
+     "text": "칸만",
+     "start_sec": 172.44,
+     "end_sec": 173.75
+    },
+    {
+     "text": "난방",
+     "start_sec": 173.75,
+     "end_sec": 175.06
+    },
+    {
+     "text": "온도를",
+     "start_sec": 175.06,
+     "end_sec": 176.38
+    },
+    {
+     "text": "2도",
+     "start_sec": 176.38,
+     "end_sec": 177.69
+    },
+    {
+     "text": "낮게",
+     "start_sec": 177.69,
+     "end_sec": 179.0
+    },
+    {
+     "text": "맞췄어요.",
+     "start_sec": 179.0,
+     "end_sec": 180.31
+    },
+    {
+     "text": "그랬더니",
+     "start_sec": 180.31,
+     "end_sec": 181.62
+    },
+    {
+     "text": "덥다는",
+     "start_sec": 181.62,
+     "end_sec": 182.94
+    },
+    {
+     "text": "민원이",
+     "start_sec": 182.94,
+     "end_sec": 184.25
+    },
+    {
+     "text": "한",
+     "start_sec": 184.25,
+     "end_sec": 185.56
+    },
+    {
+     "text": "달",
+     "start_sec": 185.56,
+     "end_sec": 186.88
+    },
+    {
+     "text": "평균",
+     "start_sec": 186.88,
+     "end_sec": 188.19
+    },
+    {
+     "text": "1300건에서",
+     "start_sec": 188.19,
+     "end_sec": 189.5
+    },
+    {
+     "text": "780건으로",
+     "start_sec": 189.5,
+     "end_sec": 190.81
+    },
+    {
+     "text": "40퍼센트",
+     "start_sec": 190.81,
+     "end_sec": 192.12
+    },
+    {
+     "text": "줄었습니다.",
+     "start_sec": 192.12,
+     "end_sec": 193.44
+    },
+    {
+     "text": "춥다는",
+     "start_sec": 193.44,
+     "end_sec": 194.75
+    },
+    {
+     "text": "민원도",
+     "start_sec": 194.75,
+     "end_sec": 196.06
+    },
+    {
+     "text": "오히려",
+     "start_sec": 196.06,
+     "end_sec": 197.38
+    },
+    {
+     "text": "조금",
+     "start_sec": 197.38,
+     "end_sec": 198.69
+    },
+    {
+     "text": "줄었고요.",
+     "start_sec": 198.69,
+     "end_sec": 200.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 200,
+   "end_sec": 237,
+   "text": "약난방칸을 타 보신 612분께 설문도 했습니다. 64퍼센트가 더 쾌적하다고 답하셨고요, 차이를 못 느꼈다는 분이 27퍼센트, 더 춥다는 분은 9퍼센트였습니다. 열 명 중 여섯 명 넘게 더 쾌적하다고 하신 거예요.",
+   "words": [
+    {
+     "text": "약난방칸을",
+     "start_sec": 200.0,
+     "end_sec": 201.28
+    },
+    {
+     "text": "타",
+     "start_sec": 201.28,
+     "end_sec": 202.55
+    },
+    {
+     "text": "보신",
+     "start_sec": 202.55,
+     "end_sec": 203.83
+    },
+    {
+     "text": "612분께",
+     "start_sec": 203.83,
+     "end_sec": 205.1
+    },
+    {
+     "text": "설문도",
+     "start_sec": 205.1,
+     "end_sec": 206.38
+    },
+    {
+     "text": "했습니다.",
+     "start_sec": 206.38,
+     "end_sec": 207.66
+    },
+    {
+     "text": "64퍼센트가",
+     "start_sec": 207.66,
+     "end_sec": 208.93
+    },
+    {
+     "text": "더",
+     "start_sec": 208.93,
+     "end_sec": 210.21
+    },
+    {
+     "text": "쾌적하다고",
+     "start_sec": 210.21,
+     "end_sec": 211.48
+    },
+    {
+     "text": "답하셨고요,",
+     "start_sec": 211.48,
+     "end_sec": 212.76
+    },
+    {
+     "text": "차이를",
+     "start_sec": 212.76,
+     "end_sec": 214.03
+    },
+    {
+     "text": "못",
+     "start_sec": 214.03,
+     "end_sec": 215.31
+    },
+    {
+     "text": "느꼈다는",
+     "start_sec": 215.31,
+     "end_sec": 216.59
+    },
+    {
+     "text": "분이",
+     "start_sec": 216.59,
+     "end_sec": 217.86
+    },
+    {
+     "text": "27퍼센트,",
+     "start_sec": 217.86,
+     "end_sec": 219.14
+    },
+    {
+     "text": "더",
+     "start_sec": 219.14,
+     "end_sec": 220.41
+    },
+    {
+     "text": "춥다는",
+     "start_sec": 220.41,
+     "end_sec": 221.69
+    },
+    {
+     "text": "분은",
+     "start_sec": 221.69,
+     "end_sec": 222.97
+    },
+    {
+     "text": "9퍼센트였습니다.",
+     "start_sec": 222.97,
+     "end_sec": 224.24
+    },
+    {
+     "text": "열",
+     "start_sec": 224.24,
+     "end_sec": 225.52
+    },
+    {
+     "text": "명",
+     "start_sec": 225.52,
+     "end_sec": 226.79
+    },
+    {
+     "text": "중",
+     "start_sec": 226.79,
+     "end_sec": 228.07
+    },
+    {
+     "text": "여섯",
+     "start_sec": 228.07,
+     "end_sec": 229.34
+    },
+    {
+     "text": "명",
+     "start_sec": 229.34,
+     "end_sec": 230.62
+    },
+    {
+     "text": "넘게",
+     "start_sec": 230.62,
+     "end_sec": 231.9
+    },
+    {
+     "text": "더",
+     "start_sec": 231.9,
+     "end_sec": 233.17
+    },
+    {
+     "text": "쾌적하다고",
+     "start_sec": 233.17,
+     "end_sec": 234.45
+    },
+    {
+     "text": "하신",
+     "start_sec": 234.45,
+     "end_sec": 235.72
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 235.72,
+     "end_sec": 237.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 237,
+   "end_sec": 265,
+   "text": "비용도 말씀드리면요, 시범 칸은 일반 칸보다 난방 전력을 12퍼센트 덜 썼습니다. 추가로 드는 돈은 안내 스티커랑 앱 알림 개발비까지 해서 약 삼천만 원입니다.",
+   "words": [
+    {
+     "text": "비용도",
+     "start_sec": 237.0,
+     "end_sec": 238.22
+    },
+    {
+     "text": "말씀드리면요,",
+     "start_sec": 238.22,
+     "end_sec": 239.43
+    },
+    {
+     "text": "시범",
+     "start_sec": 239.43,
+     "end_sec": 240.65
+    },
+    {
+     "text": "칸은",
+     "start_sec": 240.65,
+     "end_sec": 241.87
+    },
+    {
+     "text": "일반",
+     "start_sec": 241.87,
+     "end_sec": 243.09
+    },
+    {
+     "text": "칸보다",
+     "start_sec": 243.09,
+     "end_sec": 244.3
+    },
+    {
+     "text": "난방",
+     "start_sec": 244.3,
+     "end_sec": 245.52
+    },
+    {
+     "text": "전력을",
+     "start_sec": 245.52,
+     "end_sec": 246.74
+    },
+    {
+     "text": "12퍼센트",
+     "start_sec": 246.74,
+     "end_sec": 247.96
+    },
+    {
+     "text": "덜",
+     "start_sec": 247.96,
+     "end_sec": 249.17
+    },
+    {
+     "text": "썼습니다.",
+     "start_sec": 249.17,
+     "end_sec": 250.39
+    },
+    {
+     "text": "추가로",
+     "start_sec": 250.39,
+     "end_sec": 251.61
+    },
+    {
+     "text": "드는",
+     "start_sec": 251.61,
+     "end_sec": 252.83
+    },
+    {
+     "text": "돈은",
+     "start_sec": 252.83,
+     "end_sec": 254.04
+    },
+    {
+     "text": "안내",
+     "start_sec": 254.04,
+     "end_sec": 255.26
+    },
+    {
+     "text": "스티커랑",
+     "start_sec": 255.26,
+     "end_sec": 256.48
+    },
+    {
+     "text": "앱",
+     "start_sec": 256.48,
+     "end_sec": 257.7
+    },
+    {
+     "text": "알림",
+     "start_sec": 257.7,
+     "end_sec": 258.91
+    },
+    {
+     "text": "개발비까지",
+     "start_sec": 258.91,
+     "end_sec": 260.13
+    },
+    {
+     "text": "해서",
+     "start_sec": 260.13,
+     "end_sec": 261.35
+    },
+    {
+     "text": "약",
+     "start_sec": 261.35,
+     "end_sec": 262.57
+    },
+    {
+     "text": "삼천만",
+     "start_sec": 262.57,
+     "end_sec": 263.78
+    },
+    {
+     "text": "원입니다.",
+     "start_sec": 263.78,
+     "end_sec": 265.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 265,
+   "end_sec": 288,
+   "text": "정리하면, 모든 열차에 약난방칸을 두 칸씩 두고, 역 안내 화면이랑 앱에 약난방칸이 어디 있는지 보여 드리자는 겁니다. 감사합니다.",
+   "words": [
+    {
+     "text": "정리하면,",
+     "start_sec": 265.0,
+     "end_sec": 266.28
+    },
+    {
+     "text": "모든",
+     "start_sec": 266.28,
+     "end_sec": 267.56
+    },
+    {
+     "text": "열차에",
+     "start_sec": 267.56,
+     "end_sec": 268.83
+    },
+    {
+     "text": "약난방칸을",
+     "start_sec": 268.83,
+     "end_sec": 270.11
+    },
+    {
+     "text": "두",
+     "start_sec": 270.11,
+     "end_sec": 271.39
+    },
+    {
+     "text": "칸씩",
+     "start_sec": 271.39,
+     "end_sec": 272.67
+    },
+    {
+     "text": "두고,",
+     "start_sec": 272.67,
+     "end_sec": 273.94
+    },
+    {
+     "text": "역",
+     "start_sec": 273.94,
+     "end_sec": 275.22
+    },
+    {
+     "text": "안내",
+     "start_sec": 275.22,
+     "end_sec": 276.5
+    },
+    {
+     "text": "화면이랑",
+     "start_sec": 276.5,
+     "end_sec": 277.78
+    },
+    {
+     "text": "앱에",
+     "start_sec": 277.78,
+     "end_sec": 279.06
+    },
+    {
+     "text": "약난방칸이",
+     "start_sec": 279.06,
+     "end_sec": 280.33
+    },
+    {
+     "text": "어디",
+     "start_sec": 280.33,
+     "end_sec": 281.61
+    },
+    {
+     "text": "있는지",
+     "start_sec": 281.61,
+     "end_sec": 282.89
+    },
+    {
+     "text": "보여",
+     "start_sec": 282.89,
+     "end_sec": 284.17
+    },
+    {
+     "text": "드리자는",
+     "start_sec": 284.17,
+     "end_sec": 285.44
+    },
+    {
+     "text": "겁니다.",
+     "start_sec": 285.44,
+     "end_sec": 286.72
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 286.72,
+     "end_sec": 288.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 288
+}
