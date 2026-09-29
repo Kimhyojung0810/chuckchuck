@@ -211,12 +211,54 @@ def _skip_removal(s: str) -> bool:
     return not (before and re.search(r"(?:을|를)$", before[-1]))       # 「오늘은 설탕을 빼고」 는 내용이다
 
 
+# --- 제쳐 두기 · 발표 밖으로 미루기 (held-out 2차) ---------------------------------------------------------------
+# 「주차별 실천율 표는 오늘은 제쳐 두고, 설문 얘기로 바로 갈게요」「이 장은 접어 두겠습니다」 — 두다 앞의 「제쳐·접어·덮어·미뤄」 는
+# 설명을 치워 두는 말이다. 「모바일 수납 시범 결과는 궁금하신 분만 발표 끝나고 따로 물어봐 주세요」「나눠 드린 자료에 다 적어 뒀으니까」 —
+# 발표 **밖**(끝난 뒤·따로·나눠 준 자료)으로 미루면 발표에서는 건너뛴 것이다(「나중에 설명할게요」 는 발표 안에서 미루는 말 — `defer_cue`).
+# 어느 쪽이든 **무엇을** 넘기는지 화제(「…표는」「…결과는」「이 장은」)로 세운 말이어야 한다 — 「우산을 접어 두고」 는 내용이다.
+_SKIP_SET_ASIDE_RE = re.compile(r"(?:제쳐|접어|덮어|미뤄)\s?(?:두겠|둘\s?(?:게|께)|둡니다|두죠|두고(?=[\s,.]|$))")
+#: 발표 뒤로 미루는 말 — 뒤에 묻기·알려 주기 말이 와야 한다. 「질문은 발표 끝나고 받을게요」(묻고 답하는 때)·「봉사자들은 발표 끝나고
+#: 남아 주세요」 는 내용을 넘기는 말이 아니다. 「따로」 만으로는 발표 밖인지 모른다(「따로 한 장으로 설명드릴게요」) — 듣는 이가 따로 묻는 말만.
+_SKIP_AFTER_TALK_RE = re.compile(
+    r"(?:발표\s?(?:끝나고|끝난\s?(?:뒤|후)에?|후에|마치고|마친\s?(?:뒤|후)에?)|끝나고\s?따로)\s?"
+    r"(?:[가-힣]+\s)?(?:물어|질문해|여쭤|말씀|설명|얘기|이야기|알려|보여|보내)"
+    r"|따로\s?(?:물어|질문해|여쭤)"
+)
+#: 나눠 준 자료로 미루는 말 — 뒤에 담겨 있다·보라는 말이 와야 한다(「오늘 나눠 드린 자료는 발표 뒤에 걷어 갈게요」 는 아니다).
+_SKIP_HANDOUT_RE = re.compile(
+    r"(?:나눠\s?드린|배포한|배포해\s?드린|첨부한|공유한|보내\s?드린)\s?자료(?:\s?[가-힣]+)?\s?"
+    r"(?:[가-힣]+\s)?(?:적어|있|나와|정리|담아|실어|참고|보시|보세요|보면|확인)"
+)
+#: 화제로 세운 말(「…결과는」「…통계 표는」) — 무엇을 치워 두는지 말한 자리다. 한 글자 명사는 자료의 한 부분을 이르는 말(표·식·값·글)만.
+_TOPIC_WORD_RE = re.compile(r"(?:[가-힣]{2,}|(?<=\s)(?:표|식|값|글))(?:은|는)(?=\s|$)")
+#: 화제 꼴이지만 넘기는 **내용**이 아닌 말 — 때·차례(「오늘은」「다음은」)와 묻고 답하는 때(「질문은 발표 끝나고」).
+_NOT_SKIPPED_TOPIC_RE = re.compile(
+    r"^(?:오늘|다음|그다음|지금|이번엔|이번에|우선|먼저|일단|저|제|저희|우리|질문|질의|문의|궁금한\s?점)(?:은|는)$"
+)
+
+
+def _topic_before(s: str, end: int) -> bool:
+    """end 앞에 넘기는 내용을 화제로 세운 말이 있는가 (위 주석)."""
+    if _SKIP_TOPIC_RE.search(s[:end]):
+        return True
+    return any(not _NOT_SKIPPED_TOPIC_RE.match(m.group(0)) for m in _TOPIC_WORD_RE.finditer(s[:end]))
+
+
+def _skip_set_aside(s: str) -> bool:
+    """제쳐 두기·발표 밖으로 미루기로 이 자리를 넘기는 말인가 (위 주석)."""
+    m = _SKIP_SET_ASIDE_RE.search(s)
+    if m is not None:
+        return _topic_before(s, m.start()) and (not m.group(0).endswith("고") or _speaker_intent(s[m.end():]))
+    m = _SKIP_AFTER_TALK_RE.search(s) or _SKIP_HANDOUT_RE.search(s)
+    return m is not None and _topic_before(s, m.start())
+
+
 def skip_cue(sentence: str) -> bool:
     """발표자가 이 자리의 내용을 **설명하지 않고 넘긴다**고 말한 문장인가."""
     s = " ".join((sentence or "").split())
     if not s or _BEFORE_MOVE_RE.search(s):
         return False
-    if _skip_removal(s):
+    if _skip_removal(s) or _skip_set_aside(s):
         return True
     intent = _SKIP_INTENT_RE.search(s)
     connect = None if intent else _SKIP_CONNECT_RE.search(s)
