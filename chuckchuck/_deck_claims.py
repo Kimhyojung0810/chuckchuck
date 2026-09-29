@@ -22,8 +22,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from ._deck_lines import is_meta_line, is_page_marker
-from ._evidence import clean_slide_text
+from ._deck_lines import is_filler_line, is_page_marker
+from ._evidence import clean_slide_text, is_meta_instruction
 from ._match import fold_text
 
 # ---------------------------------------------------------------------------
@@ -342,11 +342,13 @@ def build_deck(slides) -> Deck:
                 table_rows.clear()
 
         # 줄 읽기는 F-06·F-07·F-26 과 같은 규칙으로 가른다 (`_deck_lines`, 09-30 WP-J2) — 쪽 번호는 **꼴**만(「3 / 8」「- 3 -」·장 첫·끝 줄의
-        # 홀로 선 수)이고, 자료 속 지시문(「※ 심사 안내: … 판정할 것」)은 판정 대조 원본에도 없다. 예전엔 숫자만 있는 줄을 다 쪽 번호로
-        # 버려(`^[\d\s/|.·-]+$`) 「41·2023」「2023」 같은 수치 줄이 대조 원본에서 빠졌고, 그래서 그 수를 말한 답이 「자료에 없는 수」 가 됐다.
+        # 홀로 선 수)이고, 글 없는 줄(글머리표만·기호만)은 버린다. 예전엔 숫자만 있는 줄을 다 쪽 번호로 버려(`^[\d\s/|.·-]+$`)
+        # 「41·2023」「2023」 같은 수치 줄이 대조 원본에서 빠졌고, 그래서 그 수를 말한 답이 「자료에 없는 수」 가 됐다.
+        # 자료 속 지시문(「※ 심사 안내: … 판정할 것」)은 판정 대조 원본에도 없다 — 판정 프롬프트(`_judge_guard.meta_line`)·질문 쪽
+        # (`clean_slide_text`)과 같은 잣대(`is_meta_instruction`)로, 표 줄도 같이 본다.
         rows = [x.strip() for x in fold_text(raw).split("\n") if x.strip()]
         for idx, stripped in enumerate(rows):
-            if is_meta_line(stripped):
+            if is_meta_instruction(stripped) or is_filler_line(stripped):
                 continue
             if stripped.startswith("|"):
                 cells = [clean_slide_text(c) for c in stripped.strip("|").split("|")]

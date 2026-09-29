@@ -494,6 +494,13 @@ test('「이 질문의 근거」 는 자리·근거를 사람 말로 옮기고 �
   eq(api.questionOriginHtml({}), '', 'basis 없으면 칸도 없다');
 });
 
+test('말로 건너뛴 장에서 나온 질문도 근거 줄이 사람 말로 나온다 (WP-S2 skipped_slide)', () => {
+  const { api } = newContext();
+  eq(api.questionOriginLine({ source: 'skipped_slide', slot: 'weak' }), '더 짚어 볼 곳 · 발표에서 말로 건너뛴 장', '자리 뒤에 근거');
+  eq(api.questionOriginLine({ source: 'skipped_slide', slot: '' }), '발표에서 말로 건너뛴 장', '배합 밖이면 근거만');
+  eq(/skipped_slide/.test(api.questionOriginHtml({ basis: { source: 'skipped_slide', slot: '' } })), false, '영문 id 가 화면에 안 나온다');
+});
+
 test('C-03 「이 질문의 근거」 는 장 번호만 — 자료 인용(함정이면 정답 줄)을 싣지 않는다', () => {
   const { api } = newContext();
   const fact = '대출 권수보다 더 중요한 것은 독서 경험입니다';

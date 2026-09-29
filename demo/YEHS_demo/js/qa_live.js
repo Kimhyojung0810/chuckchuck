@@ -484,6 +484,8 @@ const QA_ORIGIN_PROBE = {
 };
 const QA_ORIGIN_SOURCE = {
   contradiction: '발표에서 자료와 다르게 말한 곳',
+  // WP-S2: 발표자가 말로 건너뛴 핵심 장(「시간 관계상 넘어갈게요」)의 개념 — 없으면 근거 줄에 자리(slot)만 남았다
+  skipped_slide: '발표에서 말로 건너뛴 장',
   missing: '자료에 있는데 발표에서 말하지 않은 개념',
   under_spoken: '발표에서 짧게 지나간 개념',
   weak_flow: '다른 개념과의 연결이 드러나지 않은 곳',
