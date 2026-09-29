@@ -374,11 +374,15 @@ def _booth(target: Target, bridge: Bridge, run_dir: Path) -> dict[str, dict] | N
 
 def _pipeline_metrics(preps: list[dict], bridge: Bridge) -> dict[str, dict]:
     failed = [f"{p['deck']} {p['mode']} t{p['track']}: {p.get('error')}" for p in preps if not p.get("ok")]
-    short = []
+    short, t5 = [], []
     for p in preps:
         if not p.get("ok"):
             continue
         got = sum(1 for q in p.get("questions") or [] if q.get("trap") or q.get("trap_premise"))
+        # 5분 트랙은 탐침 질문을 밀어내며 함정을 넣지 않는다 (09-30 사용자 결정) — 부족으로 세지 않고 참고로만 남긴다.
+        if str(p.get("track")) != "10":
+            t5.append(f"{p['deck']} {p['mode']} t{p['track']}: 함정 {got}")
+            continue
         want = TRACK_TRAPS.get(str(p.get("track")), 0)
         if got < want:
             short.append((want - got, f"{p['deck']} {p['mode']} t{p['track']}: 함정 {got}/{want}"))
@@ -386,6 +390,7 @@ def _pipeline_metrics(preps: list[dict], bridge: Bridge) -> dict[str, dict]:
     out = {
         "pipeline.failed_decks": S.metric(len(failed), len(preps), failed),
         "pipeline.traps_missing": S.metric(sum(n for n, _ in short), len(preps), [x for _, x in short]),
+        "pipeline.traps_t5": S.metric(len(t5), len(preps), t5),
         "pipeline.questions": S.metric(sum(len(p.get("questions") or []) for p in preps if p.get("ok"))),
         "pipeline.llm_calls": S.metric(sum(p.get("llm_calls", 0) for p in preps)),
         "pipeline.wall_sec": S.metric(round(sum(p.get("wall", 0) for p in preps), 1)),
