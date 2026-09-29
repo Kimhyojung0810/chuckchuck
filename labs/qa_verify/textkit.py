@@ -465,3 +465,39 @@ def one_fact_flip(text: str, avoid: str = "", kinds: tuple[str, ...] = FLIP_KIND
         if got:
             return got[0], kind, got[1], got[2]
     return None
+
+
+# ---------------------------------------------------------------------------
+# 입장 보기 쌍 (09-30 WP-J3) — 탐침 질문의 「모르겠어요」·발판 보기는 자료 낱말이 아니라 **입장** 둘이다
+# 잣대는 대상의 표(contracts.PROBE_STANCES)를 읽지 않는다 — 입장이 무엇이고 어느 쪽이 맞는지를 여기서 따로 정한다.
+# ---------------------------------------------------------------------------
+
+#: (맞는 쪽 표지, 틀린 쪽 표지) — 탐침 종류마다. 단정은 「조건이 붙는다」, 빈틈은 「비어 있었다」, 긴장은 「전체와 일부」 가 맞다.
+STANCE_TRUTH = {
+    "absolute_boundary": (re.compile(r"조건|경우에\s*따라|때에\s*따라"), re.compile(r"늘|항상|언제나|모든\s*경우")),
+    "unsolved": (re.compile(r"비어|없었|없어"), re.compile(r"나와\s*있")),
+    "unsupported_cause": (re.compile(r"비어|없었|없어"), re.compile(r"나와\s*있")),
+    "tension": (re.compile(r"전체|일부"), re.compile(r"서로\s*다른|따로")),
+}
+#: 입장 보기의 꼴 — 해요체 서술로 끝나는 짧은 말(「조건이 붙어요」「아직 비어 있었어요」).
+_STANCE_CHIP_RE = re.compile(r"^[가-힣 ]{2,16}(?:어요|아요|예요|이에요|여요|해요)$")
+
+
+def stance_pair(choices: list[str]) -> str:
+    """보기 둘이 **입장 쌍**이면 그 탐침 종류, 아니면 "". 두 보기가 해요체 서술이고, 한 종류의 맞는 쪽·틀린 쪽 표지를 하나씩 가진다."""
+    if len(choices) != 2 or not all(_STANCE_CHIP_RE.match((c or "").strip()) for c in choices):
+        return ""
+    for kind, (right, wrong) in STANCE_TRUTH.items():
+        r = [c for c in choices if right.search(c) and not wrong.search(c)]
+        w = [c for c in choices if wrong.search(c) and not right.search(c)]
+        if len(r) == 1 and len(w) == 1 and r[0] != w[0]:
+            return kind
+    return ""
+
+
+def stance_correct(choices: list[str], kind: str) -> str:
+    """입장 쌍에서 탐침 종류 kind 의 맞는 쪽 보기. 없으면 ""."""
+    right, wrong = STANCE_TRUTH.get(kind, (None, None))
+    if right is None:
+        return ""
+    return next((c for c in choices if right.search(c) and not wrong.search(c)), "")

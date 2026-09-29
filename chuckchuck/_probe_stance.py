@@ -24,6 +24,7 @@ import re
 from . import _claim_rules as R
 from ._deck_claims import _has, content_stems, direction, numbers
 from ._speech import josa_of
+from .contracts import PROBE_STANCES, QA_TEXT_MAX, ProbeStance
 
 #: 자료 줄 자체를 따져 묻는 탐침 — 이 종류의 근거 줄은 채점 원본이 아니다.
 PROBED_LINE_KINDS = frozenset({"absolute_boundary", "unsupported_cause", "tension", "sibling_priority"})
@@ -94,6 +95,24 @@ def answers_gap(answer: str, kind: str) -> bool:
     return bool(_REMEDY_PLAN_RE.search(t))
 
 
+#: 채우는 **행동** — 보강·보완·더하기·도입·모으기. 계획 문장의 동사다.
+_PLAN_ACT_RE = re.compile(r"보완|보강|개선|해결|더하|더해|더할|추가|채우|채워|채울|마련|넣|도입|만들|모으|모아|모을|조사|수집|찾아")
+#: 하겠다는 **다짐** — 「…할게요」「…해 볼 거예요」「…할 계획이에요」. 「어떻게 보강할지 말하는 게 답이에요」 는 다짐이 아니다.
+_COMMIT_RE = re.compile(r"게요|겠어요|겠습니다|거예요|거에요|예정|계획|려고|하려|해\s*볼|볼\s*거")
+
+
+def plans_gap(text: str) -> bool:
+    """
+    빈틈을 **어떻게 채울지** 다짐했는가 — 「설문이나 통계로 보강할게요」「다음 발표에서 좌석 예약제를 더해 볼 거예요」.
+    빈틈 탐침의 모범답은 「빈틈 인정 + 채울 계획」 이다 — 인정만 한 답과 계획까지 말한 답을 코드가 가른다 (09-30 WP-J3).
+    한 문장 안에 채우는 행동과 다짐이 같이 있어야 한다 — 「어떤 자료로 보강할지 말하는 게 답이에요」 는 계획이 아니라 말에 대한 말이다.
+    """
+    t = text or ""
+    if any(_PLAN_ACT_RE.search(x) and _COMMIT_RE.search(x) for x in _sentences(t)):
+        return True
+    return bool(_REMEDY_PLAN_RE.search(t))
+
+
 def acknowledges_gap(text: str) -> bool:
     """답이 자료의 **빈틈을 인정**했는가 — 근거(수치·출처)가 없다 · 해결 방법이 없다. 빈틈 탐침의 되물음을 「어떻게 보강할래요?」 로
     좁힐지 정할 때 쓴다 (09-30 WP-J2). 막연한 「추가 확인이 필요해요」 는 인정이 아니다(`_EVIDENCE_GAP_RE` 와 같은 규율)."""
@@ -143,8 +162,11 @@ def probe_brief(question) -> str:
     probe = probe_of(question)
     first = _short(quotes[0])
     if probe.kind == "absolute_boundary":
-        body = (f"이 질문은 자료의 단정 「{first}」의 예외·경계를 묻는다 — 단정을 되풀이하거나 그대로 받아들이는 답은 답이 아니다"
-                " (통과 아님). 그 말이 들어맞지 않는 경우·조건·한계를 든 답이 정답 쪽이다.")
+        # 「예외·경계」 라는 말은 쓰지 않는다 — 판정 LLM 이 그 낱말을 react 로 옮겨 「예외를 짚었어요」 같은 분석 말이 화면에 샜다
+        # (09-30 WP-P2 지적). 모범답(F-08 `_absolute_gist`)처럼 **조건**으로 말한다.
+        body = (f"이 질문은 자료의 단정 「{first}」이 어떤 조건에서만 맞는지 묻는다 — 단정을 되풀이하거나 그대로 받아들이는 답은"
+                " 답이 아니다 (통과 아님). 그 말에 붙는 조건(누구에게·언제·어떤 상황에서)을 든 답, 또는 자료에 그 조건이 아직 없다고"
+                " 밝히고 어떻게 보완할지 말한 답이 정답 쪽이다.")
     elif probe.kind == "unsupported_cause":
         body = (f"이 질문은 자료의 인과 「{first}」를 받치는 근거(수치·출처·사례)를 묻는다 — 자료의 그 줄에는 근거가 없다."
                 " 인과를 되풀이하거나 「근거가 명확하다」 고만 하는 답은 답이 아니다 (통과 아님). 근거를 대거나,"
@@ -190,16 +212,22 @@ def _novel(answer: str, question_text: str, quotes: list[str]) -> list[str]:
             if not _has(known, s) and not s.startswith(_FILLER) and not s.startswith(_HEDGE_STEMS) and not direction(s)]
 
 
+#: 인용·보고 어미 — 「…막을 수 있다고 | 단정할 수는 없어요」 처럼 절 나누기가 인용절과 그 절을 받는 서술어를 가른다.
+#: 받는 서술어(「단정할 수는 없어요」「보기는 어려워요」)가 그 인용절의 경계 표지다 (09-30 WP-J3).
+_QUOTATIVE_END_RE = re.compile(r"(?:다고|라고|냐고|자고|다는|라는|다며|라며)[^가-힣A-Za-z0-9]*$")
+
+
 def _scope(clauses_: list[str], i: int) -> str:
     """
     i 번째 절과, 대조 어미로 이어진 앞·뒤 절 — 단정을 옮긴 절에 붙은 경계 표지를 볼 범위.
     「…막을 수 있다고」 + 「했지만」 처럼 절 나누기가 떼어 낸 짧은 보고·보조 절(두 어절 이하)은 앞 절에 붙여 본다.
+    인용 어미(「…있다고」)로 끝난 절은 그 절을 받는 다음 절까지 본다 — 「…있다고 단정할 수는 없어요」 의 「없」 이 경계다.
     """
     j, text = i, clauses_[i]
     while j + 1 < len(clauses_) and len(clauses_[j + 1].split()) <= 2 and not _CONTRAST_END_RE.search(text):
         j += 1
         text = f"{text} {clauses_[j]}"
-    if _CONTRAST_END_RE.search(text) and j + 1 < len(clauses_):
+    if (_CONTRAST_END_RE.search(text) or _QUOTATIVE_END_RE.search(text)) and j + 1 < len(clauses_):
         text = f"{text} {clauses_[j + 1]}"
     if i > 0 and _CONTRAST_END_RE.search(clauses_[i - 1]):
         text = f"{clauses_[i - 1]} {text}"
@@ -240,20 +268,20 @@ def restates_line(answer: str, probe, q_text: str = "") -> str:
     if not quotes or not text:
         return ""
     kind = probe.kind
-    parts = _clauses(text)
-    pieces = [(c, _stems(c)) for c in parts]
     if kind == "absolute_boundary":
         # 경계 표지는 **단정을 옮긴 절**(과 대조 어미로 이어진 앞뒤 절)에 있어야 센다 (09-30 레드팀 J3). 예전엔 답 어디에든
         # 「경우·없·않·다르·일부」 하나만 있으면 가드가 꺼졌다 — 「걱정하지 않아도 돼요」 의 「않」 이 단정을 풀어 준 셈이었다.
         # 단정 줄 **자체에** 든 표지(「절대 하루 3번을 넘지 **않**습니다」 의 않)는 경계가 아니라 옮긴 말이다 — 줄에 없던 표지만 센다.
         quoted_marks = [m for q in quotes for m in _BOUNDARY_RE.findall(q)]
-        for i, (clause, stems) in enumerate(pieces):
-            # 따옴표로 **인용한** 단정(「자료 5장의 '…하나도 없다'는 문장이 이를 명시해요」)은 출처를 댄 것이지 단정을 되풀이한 게
-            # 아니다 — 인용 부분을 빼고 본다 (09-30 verify 하네스: 좋은 답이 이 인용 때문에 되풀이 55 를 받았다).
-            bare = _QUOTED_SPAN_RE.sub(" ", clause)
-            if bare != clause:
-                stems = _stems(bare)
-            if not (any(_restates(stems, q) for q in quotes) and R.absolute_marker(bare)):
+        # 따옴표로 **인용한** 단정(「자료 5장의 '…하나도 없다'는 문장이 이를 명시해요」)은 출처를 댄 것이지 단정을 되풀이한 게
+        # 아니다 — 인용 부분을 빼고 본다 (09-30 verify 하네스: 좋은 답이 이 인용 때문에 되풀이 55 를 받았다).
+        # 인용을 **절을 가르기 전에** 뺀다 (09-30 WP-J3 standard 실측): 절 나누기가 인용 안의 「때마다」「…하고」 에서 갈라
+        # 「「매매할 때마다 | 수수료·세금은 반드시 발생」은 …」 의 두 조각이 어느 쪽도 인용 꼴이 아니게 됐고, 우리 골자를 그대로 말한 답이
+        # 「자료의 단정을 다시 말했어요」 55 를 받았다.
+        parts = _clauses(_QUOTED_SPAN_RE.sub(" ※ ", text))
+        for i, clause in enumerate(parts):
+            stems = _stems(clause)
+            if not (any(_restates(stems, q) for q in quotes) and R.absolute_marker(clause)):
                 continue
             marks = _BOUNDARY_RE.findall(_UNIVERSAL_RE.sub(" ", _scope(parts, i)))
             for m in quoted_marks:
@@ -342,8 +370,10 @@ def probe_gist(probe) -> str:
     first = _short(quotes[0].quote, 70)
     where = f"자료 {quotes[0].slide_no}장" if quotes[0].slide_no else "자료"
     if probe.kind == "absolute_boundary":
-        return (f"{where}의 「{first}」{josa_of(first, '은', '는')} 모든 경우에 그렇다고 단정할 수는 없어요."
-                " 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.")
+        # 예전 「…는 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만…」 은 조건을 하나도 말하지 않아 그대로
+        # 답하면 단정 줄을 다시 말한 것과 같았다 (09-30 standard · WP-P2 지적). 폴백은 자료를 못 보니 「조건이 아직 없다 → 보완」 꼴이다.
+        return (f"「{first}」{josa_of(first, '이라고', '라고')} 단정할 수는 없어요 — {where}에는 이 말이 들어맞는 조건이 아직 없어요."
+                " 누구에게, 언제, 어떤 조건에서 그런지 정해서 보완할게요.")
     if probe.kind == "unsupported_cause":
         return f"{where}의 「{first}」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요."
     if probe.kind == "tension" and len(quotes) >= 2:
@@ -369,3 +399,402 @@ def gist_needs_rebuild(gist: str, probe, q_text: str = "") -> bool:
 
 #: f08 `_evidence_gist` 가 여는 말 — 같은 문자열이어야 한다 (f08 을 import 하지 않으려고 여기 둔다).
 EVIDENCE_GIST_LEAD = "자료는 이렇게 말해요 — "
+
+#: 코드가 자리만 채운 골자 — F-08 이 LLM 골자를 못 써서 틀 문장으로 둔 것. 모범답이 아니라 자리 표시라 **가리지도, 보기로 쪼개지도,
+#: 채점 바닥으로도 쓰지 않는다** (09-30 standard e2e703b · WP-J3). 두 사다리(F-08 힌트 · F-09 「모르겠어요」)와 판정이 같은 잣대를 쓴다.
+TEMPLATE_GIST_CHECKS = frozenset({"gist_template", "fallback_template"})
+#: 틀 자리에 코드가 **모범답을 다시 지었다**는 표시 — 탐침 코드 골자·탐침 폴백 골자·함정 바로잡음 골자는 자리 표시가 아니다.
+GIST_REBUILT_CHECKS = frozenset({"gist_probe_code", "gist_probe_rebuilt", "gist_rebuilt_trap"})
+
+
+def template_gist(question) -> bool:
+    """골자가 코드 틀 자리 표시인가 — gist_template·fallback_template 이고, 그 자리에 코드가 모범답을 다시 짓지 않았다."""
+    basis = getattr(question, "basis", None)
+    checks = set(getattr(basis, "checks", None) or []) if basis is not None else set()
+    return bool(TEMPLATE_GIST_CHECKS & checks) and not (GIST_REBUILT_CHECKS & checks)
+
+
+def evidence_gist(question) -> bool:
+    """골자가 자료 줄을 이어 붙인 꼴(「자료는 이렇게 말해요 — A · B (1, 5장)」)인가 — 머리말·장 목록째 가리면 발판이 아니다."""
+    return (getattr(question, "answer_gist", "") or "").startswith(EVIDENCE_GIST_LEAD)
+
+
+# ---------------------------------------------------------------------------
+# 입장 둘 중 하나 — 「모르겠어요」 첫 단계(F-09) · 칩 답 판정(F-09) (09-30 WP-J3 · contracts.PROBE_STANCES)
+# ---------------------------------------------------------------------------
+
+#: 입장 물음 앞에 싣는 자료 줄의 상한 — 물음 전체가 QA_TEXT_MAX 안에 들어가야 칩 글이 잘리지 않는다.
+STANCE_QUOTE_MAX = 110
+#: 긴장 탐침의 비교 줄 — 「A보다 중요한 B」. 긴장 물음 앞에는 이 줄을 싣는다(식 줄은 답을 보여 준다).
+_THAN_RE = re.compile(r"보다")
+
+
+#: 보기가 **질문마다 다른** 입장을 더할 자리 — 종류 이름 → (질문 → ProbeStance | None). 예: 모순 질문의 (자료 값, 발화 값)은 표에 고정 글로
+#: 둘 수 없다 — 여기에 보기를 짓는 함수를 더하면 사다리(F-08 힌트·F-09 「모르겠어요」)와 칩 판정(F-09 `stance_pick`)이 그대로 쓴다.
+#: 종류 이름은 탐침 종류, 탐침이 아닌 질문은 질문 출처(`Question.source` — 「contradiction」 따위)다.
+STANCE_RESOLVERS: dict = {}
+
+
+def stance_kind(question) -> str:
+    """입장 표를 찾는 이름 — 탐침 질문은 탐침 종류, 아니면 질문 출처."""
+    probe = probe_of(question)
+    return probe.kind if probe is not None else (getattr(question, "source", "") or "")
+
+
+def stance_of(question) -> ProbeStance | None:
+    """
+    이 질문의 입장 둘 중 하나 (contracts.PROBE_STANCES · STANCE_RESOLVERS), 설 수 없으면 None.
+
+    탐침 종류가 표에 없으면(형제 우선순위 — 자료가 어느 쪽에 순위를 뒀는지 코드가 모른다) None 이다. 단정·근거 없는 인과는 따지는
+    자료 줄이, 긴장은 비교 줄과 구성 줄 둘이 탐침 근거에 있어야 한다 — 그 줄이 「이 말」 이 가리키는 것이다.
+    """
+    kind = stance_kind(question)
+    if kind in STANCE_RESOLVERS:
+        return STANCE_RESOLVERS[kind](question)
+    probe = probe_of(question)
+    if probe is None:
+        return None
+    st = PROBE_STANCES.get(probe.kind)
+    if st is None:
+        return None
+    quotes = [e for e in probe.evidence if (e.quote or "").strip()]
+    if probe.kind in ("absolute_boundary", "unsupported_cause") and not quotes:
+        return None
+    if probe.kind == "tension" and len(quotes) < 2:
+        return None
+    return st
+
+
+def _stance_quote(probe):
+    quotes = [e for e in probe.evidence if (e.quote or "").strip()]
+    if not quotes:
+        return None
+    if probe.kind == "tension":
+        return next((e for e in quotes if _THAN_RE.search(e.quote)), quotes[0])
+    return quotes[0]
+
+
+def stance_prompt(question) -> tuple[str, list[str]] | None:
+    """
+    「모르겠어요」 첫 단계의 입장 물음과 칩 둘 — 「자료 5장은 «…» 라고 해요. 이 말은 늘 맞는 말인가요, 조건이 붙는 말인가요?」.
+    빈칸 탐침은 줄 대신 개념 이름으로 받는다(「피해 회복 지연 이야기예요.」 — 탐침 근거 줄은 문제 목록 제목·다른 요소의 해결 줄이다).
+    칩은 표의 글 그대로다 — 자료 낱말 보기가 아니라서 LLM 보기 검사(`f09._llm_choice_ok`)를 거치지 않는다. 설 수 없으면 None.
+    """
+    st = stance_of(question)
+    if st is None:
+        return None
+    probe = probe_of(question)
+    label = (getattr(question, "label", "") or "").strip()
+    if probe is None:
+        # 표 밖 종류(STANCE_RESOLVERS) — 근거 인용이 있으면 그 줄, 없으면 개념 이름으로 받는다
+        quote = " ".join((getattr(question, "evidence_quote", "") or "").split())
+        no = getattr(question, "evidence_slide_no", 0) or 0
+        lead = (f"자료 {no}장은 «{quote}» 라고 해요." if no else f"자료는 «{quote}» 라고 해요.") if quote and len(quote) <= STANCE_QUOTE_MAX \
+            else (f"{label} 이야기예요." if label else "")
+    elif probe.kind == "unsolved":
+        lead = f"{label} 이야기예요." if label else ""
+    else:
+        q = _stance_quote(probe)
+        quote = " ".join((q.quote or "").split())
+        if len(quote) <= STANCE_QUOTE_MAX:
+            lead = f"자료 {q.slide_no}장은 «{quote}» 라고 해요." if q.slide_no else f"자료는 «{quote}» 라고 해요."
+        else:
+            lead = f"자료 {q.slide_no}장의 그 말 이야기예요." if q.slide_no else ""
+    text = f"{lead} {st.ask}".strip()
+    return (text if len(text) <= QA_TEXT_MAX else st.ask), list(st.choices)
+
+
+def _letters(text: str) -> str:
+    return re.sub(r"[^가-힣A-Za-z0-9]", "", text or "")
+
+
+#: 칩 글 앞뒤에 붙어도 칩 답으로 보는 말 길이 — 「네 조건이 붙어요」「음, 아직 비어 있었어요.」.
+STANCE_PICK_SLACK = 4
+
+
+def stance_pick(answer: str, question) -> str:
+    """
+    답이 입장 칩 하나를 고른 말인가 — "correct" · "wrong" · "". 화면은 칩을 누르면 그 글을 답칸에 넣어 보낸다(서버는 칩인지 모른다).
+    칩 글과 같거나(문장부호 무시) 앞뒤로 네 글자 안쪽만 붙은 말이고 다른 칩 글은 없을 때만 — 긴 답은 평소 판정으로 간다.
+    """
+    st = stance_of(question)
+    a = _letters(answer)
+    if st is None or not a:
+        return ""
+    for c in st.choices:
+        c_sq, other = _letters(c), _letters(st.wrong if c == st.correct else st.correct)
+        if c_sq and c_sq in a and len(a) - len(c_sq) <= STANCE_PICK_SLACK and other not in a:
+            return "correct" if c == st.correct else "wrong"
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# 빈틈 탐침 — 골자가 「자료에 없다」 고 정한 것을 요구하는 말 (09-30 WP-J3 · standard 실측)
+# ---------------------------------------------------------------------------
+
+#: 빈틈 탐침이 **자료에 없다고 정한 것**의 이름 — 근거 없는 인과는 수치·출처·사례, 빈칸은 해결 방법. 어느 발표에나 쓰는 낱말만 둔다.
+_GAP_THING_RE = {
+    "unsupported_cause": re.compile(r"수치|숫자|데이터|통계|연구|실험|조사|출처|증거|근거|비율|퍼센트|\d+\s*%|표본|사례|비교\s*자료"),
+    "unsolved": re.compile(r"방법|방안|대책|해결책|해결\s*방법|개선책|조치|전략|절차|대안"),
+}
+#: 그 빈틈을 **인정하라는** 말 — 요구가 아니라 인정이다(「근거가 없다는 점」). 결손으로 남는다(이미 말했으면 §5 가 뺀다).
+_GAP_ACK_RE = re.compile(r"없|않|부족|비어|빠져|빠진|모자라|아직")
+#: 빈틈을 **어떻게 채울지**(보강 계획)를 묻는 말 — 골자의 둘째 절이라 요구해도 된다.
+_GAP_PLAN_RE = re.compile(r"보강|보완|채우|채울|앞으로|계획|찾아|모으|모을|수집|더하|더할")
+
+
+def demands_gap(text: str, question, others: tuple[str, ...] | list[str] = ()) -> bool:
+    """
+    결손·되물음·react 문장이 빈틈 탐침의 **빈 것 자체**를 내놓으라는 말인가 (09-30 WP-J3).
+
+    09-30 standard 실측(빈칸 탐침): 「자료에는 그 내용이 나와 있지 않아요 … 보강할게요」 에 결손 「피해 회복 지연을 개선하기 위한 구체적
+    방안」 — 골자가 **자료에 없다**고 한 바로 그것이 「아직 안 나온 것」 칩에 떴고, 판정의 자기모순 가드는 그 결손을 답과 반대 명제로 읽어
+    정직한 답을 60 으로 내렸다. 근거 없는 인과에 「구체적인 사례나 비교 자료」 도 같다.
+    빈 것을 **인정하라는** 말(「근거가 없다는 점」)·**채울 계획**을 묻는 말(「어떻게 보강할지」)은 요구가 아니다. 빈칸 탐침에서 해결책이
+    붙은 **다른 요소**(others — 탐침의 다른 개념 이름)만 부르는 말도 자료에 있는 것이다.
+    """
+    probe = probe_of(question)
+    if probe is None or probe.kind not in _GAP_THING_RE:
+        return False
+    t = text or ""
+    if not _GAP_THING_RE[probe.kind].search(t) or _GAP_ACK_RE.search(t) or _GAP_PLAN_RE.search(t):
+        return False
+    if probe.kind == "unsolved" and others:
+        target = content_stems(getattr(question, "label", "") or "")
+        said = content_stems(t)
+        names_other = any(o and all(_has(said, s) for s in content_stems(o)) for o in others)
+        if names_other and not (target and all(_has(said, s) for s in target)):
+            return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# 되물음이 따지는 단정을 전제로 까는가 (09-30 WP-J3 · standard 실측)
+# ---------------------------------------------------------------------------
+
+#: 단정을 **풀거나 따지는** 말 — 이 말이 같은 절에 있으면 단정 표지를 써도 전제가 아니다(「완전히 막을 수 없는 경우」).
+_LOOSEN_RE = re.compile(r"없|않|못|아니|어렵|힘들|다를|달라|예외|한계|경우에\s*따라|과장|지나치")
+#: 단정을 **말로 따지는** 꼴 — 「…완전히 막을 수 있다는 말이 늘 맞을까요?」 의 「다는 말」.
+_REPORTED_RE = re.compile(r"(?:다는|라는|다고|라고)\s*(?:말|주장|단정|표현|문장|설명)?")
+
+
+def presupposes_claim(text: str, question) -> bool:
+    """
+    되물음이 질문이 따지는 **단정을 전제로 깐** 말인가 (단정의 경계 탐침).
+
+    09-30 standard 실측: 「…완전히 막을 수 있다」 의 경계를 묻는 질문에서 LLM 되물음이 「식사 순서 외에 혈당 스파이크를 완전히 막기 위해
+    고려해야 할 다른 조건은 무엇인가요?」 — 따져 보라던 「완전히」 를 되물음이 사실로 받았다. 단정 표지(탐침 줄의 「완전히·반드시·항상」)가
+    되물음에 있고, 그 절에 부정·유보가 없고, 그 단정을 말로 따지는 꼴(「…다는 말이」)도 아니면 전제로 깐 것이다. 인용(「…」) 안은 옮긴 말이다.
+    """
+    probe = probe_of(question)
+    if probe is None or probe.kind != "absolute_boundary":
+        return False
+    marks = {R.absolute_marker(e.quote) for e in probe.evidence if (e.quote or "").strip()} - {""}
+    if not marks or not (text or "").strip():
+        return False
+    for clause in _clauses(_QUOTED_SPAN_RE.sub(" ※ ", text)):
+        for m in marks:
+            at = clause.find(m)
+            if at < 0:
+                continue
+            tail = clause[at + len(m):]
+            if _LOOSEN_RE.search(clause) or _REPORTED_RE.search(tail):
+                continue
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# 빈칸 — 질문이 이미 보여 준 낱말은 가리지 않는다 (두 사다리 공용, 09-30 WP-J3)
+# ---------------------------------------------------------------------------
+
+def blank_exclusions(question) -> str:
+    """
+    빈칸으로 가리지 않을 글 — 개념 이름 · **질문 문장** · 탐침이 따지는 자료 줄. `_evidence.mask_gist` 의 label 자리에 넘긴다
+    (그 자리의 낱말·글자는 빈칸도 오답도 되지 않는다).
+
+    09-30 standard 실측: 빈칸 탐침의 힌트 「빈칸을 채워 보세요: ___을 개선하는 방법은 아직 자료에 없어요」 가 질문이 이미 부른 개념 이름을
+    가렸고, 단정 탐침의 발판은 질문이 따지는 자료 줄의 「완전히」 를 가렸다 — 보이는 말을 다시 채우는 칸은 배울 것이 없다. 벤치 캐시 140문항
+    가운데 64문항의 발판 빈칸이 질문에 있는 낱말이었다.
+    """
+    return " ".join(x for x in (getattr(question, "label", "") or "", getattr(question, "question", "") or "",
+                                *probed_quotes(question)) if x)
+
+
+def shown_in_question(word: str, question, *, quotes: bool = True) -> bool:
+    """
+    가린 낱말이 질문 문장(·개념 이름·따지는 줄)에 이미 보이는가 — 글자 그대로(띄어쓰기 무시) 또는 같은 줄기.
+    quotes=False 면 따지는 자료 줄은 빼고 본다 — 그 줄 **안의** 한 칸을 가리는 발판(식의 나머지 요소)이 그 줄에 있는 것은 당연하다.
+    """
+    w = _letters(word)
+    if not w:
+        return False
+    hay = blank_exclusions(question) if quotes else " ".join(
+        x for x in (getattr(question, "label", "") or "", getattr(question, "question", "") or "") if x)
+    if w in _letters(hay):
+        return True
+    stems = content_stems(word)
+    shown = content_stems(hay)
+    return bool(stems) and all(_has(shown, s) for s in stems)
+
+
+#: 자료가 스스로 단 **제한 조건** 줄 — 「개인에 따라 …」「지역마다 다를 수 있어」「경우에 따라」. 어느 분야에나 쓰는 유보 말.
+_LIMIT_LINE_RE = re.compile(r"다를\s*수|달라질\s*수|경우에\s*따라|에\s*따라\s*(?:다르|달라|차이)|마다\s*(?:다르|달라|차이)|"
+                            r"않을\s*수\s*있|아닐\s*수\s*있|조건에서|조건이\s*(?:맞|갖춰)")
+#: 제한 조건 줄에서 **조건 낱말** — 「개인에 따라」 의 개인, 「지역마다」 의 지역.
+_CONDITION_WORD_RE = re.compile(r"([가-힣A-Za-z0-9]{2,10})(?:에\s*따라서?|마다|별로)")
+
+
+def limit_line(texts: list[str], question) -> str:
+    """단정 탐침의 **제한 조건** 줄 — texts(골자가 인용한 줄·자료 줄) 가운데 유보 말이 있고 따지는 단정 줄이 아닌 첫 줄. 없으면 ""."""
+    probed = {_letters(q) for q in probed_quotes(question)}
+    for t in texts:
+        s = " ".join((t or "").split())
+        if s and _letters(s) not in probed and _LIMIT_LINE_RE.search(s) and not R.absolute_marker(s, strong_only=True):
+            return s
+    return ""
+
+
+#: 골자가 조건 절 앞에 다는 머리 — 「자료 7장에 적었듯 …」「자료 7장에도 …」「자료 7장처럼 …」. 떼고 조건 절만 받는다.
+_CLAUSE_HEAD_RE = re.compile(
+    r"자료\s*(\d+)\s*장(?:에서도|에서|에도|에는|에)?\s*(?:적었듯(?:이)?|말했듯(?:이)?|적은\s*대로|처럼|따르면|보면)?\s*,?\s*")
+#: 인용 앞 「자료 N장…」 — 인용 바로 앞 머리(「자료 7장에도 「…」」「자료 7장에 적었듯 「…」」)에서 장 번호를 읽는다.
+_QUOTE_HEAD_RE = re.compile(r"자료\s*(\d+)\s*장[^「«.!?]{0,14}[「«]\s*$")
+
+
+def limit_of(question) -> tuple[int, str, bool]:
+    """
+    단정 탐침 골자의 **제한 조건** — (장, 글, 자료 인용인가). 없으면 (0, "", False).
+
+    골자가 「」 로 인용한 자료 줄이 먼저다(「자료 7장에도 「개인에 따라 반응이 다를 수 있으니 무리하지 마세요」라고 적었어요」).
+    없으면 골자가 해요체로 옮긴 조건 절(09-30 WP-P2 골자 「… — 자료 7장에 적었듯 개인에 따라 반응이 다를 수 있어요.」) — 이 글은
+    자료 원문이 아니라 골자의 말이라, 쓰는 쪽이 「」 로 싸서 자료 인용처럼 보이면 안 된다(quoted=False).
+    """
+    gist = getattr(question, "answer_gist", "") or ""
+    line = limit_line(quoted_spans(gist), question)
+    if line:
+        at = gist.find(line)
+        m = _QUOTE_HEAD_RE.search(gist[:max(0, at)]) if at > 0 else None
+        return (int(m.group(1)) if m else 0), line, True
+    bare = re.sub(r"「[^」]*」|«[^»]*»", " ", gist)
+    for seg in re.split(r"(?<=[.!?])\s+|\s+[—–]\s+", bare):
+        seg = seg.strip()
+        # 보완 다짐(「어떤 조건에서 그런지 정해서 보완할게요」)은 조건이 아니라 조건이 **없다**는 골자의 꼬리다
+        if not seg or not _LIMIT_LINE_RE.search(seg) or R.absolute_marker(seg, strong_only=True) or plans_gap(seg):
+            continue
+        m = _CLAUSE_HEAD_RE.match(seg)
+        clause = (seg[m.end():] if m else seg).strip()
+        if clause and _LIMIT_LINE_RE.search(clause):
+            return (int(m.group(1)) if m else 0), clause, False
+    return 0, "", False
+
+
+def condition_word(line: str, question) -> str:
+    """제한 조건 줄의 조건 낱말(「개인」「지역」) — 질문에 이미 보이는 낱말이면 ""."""
+    for m in _CONDITION_WORD_RE.finditer(line or ""):
+        w = m.group(1)
+        if not shown_in_question(w, question):
+            return w
+    return ""
+
+
+def quoted_spans(text: str) -> list[str]:
+    """글 속 「…」·«…» 인용(나온 순서) — 골자가 인용한 자료 줄을 꺼낼 때."""
+    return [m.group(1) or m.group(2) for m in re.finditer(r"「([^」]{4,160})」|«([^»]{4,160})»", text or "")]
+
+
+# ---------------------------------------------------------------------------
+# 탐침 발판 — 두 사다리(F-08 힌트 · F-09 「모르겠어요」 둘째 단계)가 같이 쓰는 빈칸 (09-30 WP-J3)
+# ---------------------------------------------------------------------------
+
+#: 식 줄 — 「A = B × C × D」. 긴장 탐침의 구성 줄이 식이면 그 **나머지 요소**가 발판의 빈칸이다(전체가 무엇으로 이뤄졌나).
+_FORMULA_SPLIT_RE = re.compile(r"\s*[×xX*·+/÷,]\s*")
+#: 입장 빈칸의 틀 — 빈칸 자리에 입장 칩(contracts.PROBE_STANCES)이 그대로 들어가는 문장. 「…」 안은 자료 원문 그대로다.
+_STANCE_FRAME = {
+    "absolute_boundary": "{where}의 「{line}」{topic} ___",
+    "unsupported_cause": "{where}의 「{line}」에 붙은 수치나 출처는 ___",
+    "unsolved": "자료에서 {target} 푸는 방법은 ___",
+    "tension": "{where}의 「{line}」{topic} ___",
+}
+#: 입장 틀에 싣는 자료 줄 상한 — 보기 둘과 장 표기까지 말풍선 한 칸(QA_TEXT_MAX)에 들어가게.
+STANCE_FRAME_QUOTE_MAX = 60
+
+
+def _formula_blank(question) -> tuple[str, str]:
+    """긴장 탐침의 구성 식 줄에서 질문에 없는 요소 하나를 가린 (빈칸 글, 가린 요소). 식이 아니거나 남는 요소가 없으면 ("", "")."""
+    probe = probe_of(question)
+    for e in probe.evidence:
+        line = " ".join((e.quote or "").split())
+        if "=" not in line:
+            continue
+        rhs = line.split("=", 1)[1]
+        for part in _FORMULA_SPLIT_RE.split(rhs):
+            item = part.strip(" ()[]")
+            if len(_letters(item)) < 2 or re.fullmatch(r"[\d.%\s]+", item) or shown_in_question(item, question, quotes=False):
+                continue
+            masked = line.replace(item, "___", 1)
+            where = f"자료 {e.slide_no}장은" if e.slide_no else "자료는"
+            return f"{where} 「{masked}」{josa_of(line, '이라고', '라고')} 해요.", item
+    return "", ""
+
+
+def _limit_blank_text(question) -> tuple[str, str]:
+    """
+    단정 탐침 — 골자의 **제한 조건**(`limit_of`)에서 조건 낱말을 가린 (빈칸 글, 가린 말). 없으면 ("", "").
+    자료 인용이면 「」 안 원문 그대로(「자료 7장은 「___에 따라 반응이 다를 수 있으니 …」이라고 해요.」), 골자가 옮긴 조건 절이면
+    골자의 말 그대로(「자료 7장에 적었듯 ___에 따라 반응이 다를 수 있어요.」) — 따지는 단정 줄의 말(「완전히」)은 가리지 않는다.
+    """
+    no, line, quoted = limit_of(question)
+    word = condition_word(line, question) if line else ""
+    if not word or word not in line:
+        return "", ""
+    masked = line.replace(word, "___", 1)
+    if quoted:
+        where = f"자료 {no}장은" if no else "자료는"
+        return f"{where} 「{masked}」{josa_of(line, '이라고', '라고')} 해요.", word
+    return (f"자료 {no}장에 적었듯 {masked}" if no else masked), word
+
+
+def _stance_frame(question) -> str:
+    """입장 칩이 빈칸에 들어가는 틀 문장 — 「자료 6장의 「…」은 ___」 (칩: 늘 맞아요 / 조건이 붙어요). 설 수 없으면 ""."""
+    st = stance_of(question)
+    probe = probe_of(question)
+    if st is None or probe is None or probe.kind not in _STANCE_FRAME:
+        return ""
+    label = (getattr(question, "label", "") or "").strip()
+    if probe.kind == "unsolved":
+        return _STANCE_FRAME["unsolved"].format(target=f"{label}{josa_of(label, '을', '를')}") if label else ""
+    q = _stance_quote(probe)
+    line = _short(q.quote, STANCE_FRAME_QUOTE_MAX)
+    where = f"자료 {q.slide_no}장" if q.slide_no else "자료"
+    return _STANCE_FRAME[probe.kind].format(where=where, line=line, topic=josa_of(line, "은", "는"))
+
+
+def probe_scaffold(question) -> tuple[str, str, list[str]]:
+    """
+    탐침 질문의 발판 빈칸 — (빈칸 글, 가린 말, 입장 보기 — 입장 빈칸일 때만). 탐침이 아니거나 설 수 없으면 ("", "", []).
+
+    **질문이 이미 보여 준 말은 가리지 않는다** — 탐침은 질문이 자료 줄을 옮겨 따지므로 골자 낱말을 가리면 대개 질문의 말이었다
+    (09-30 standard: 빈칸 탐침 힌트 「___을 개선하는 방법은 아직 자료에 없어요」 가 질문이 부른 개념 이름을, 단정 탐침 발판이 따지는 줄의
+    「완전히」 를 가렸다). 대신 탐침마다 배울 것이 있는 자리를 가린다:
+    - 단정의 경계 → 골자가 인용한 **제한 조건** 줄의 조건 낱말(「___에 따라 반응이 다를 수 있으니」).
+    - 긴장 → 구성 식의 **나머지 요소**(전체가 무엇으로 이뤄졌나) — 질문에 없는 요소가 있을 때.
+    - 그 밖·재료가 없으면 → **입장** 빈칸: 입장 칩(contracts.PROBE_STANCES)이 들어가는 틀 문장(「…에 붙은 수치나 출처는 ___」).
+    형제 우선순위는 입장이 없어 ("", "", []) 이다 — 가린 낱말 쌍을 만들지 않는다.
+    """
+    probe = probe_of(question)
+    if probe is None:
+        return "", "", []
+    if probe.kind == "absolute_boundary":
+        text, word = _limit_blank_text(question)
+        if text:
+            return text, word, []
+    if probe.kind == "tension":
+        text, word = _formula_blank(question)
+        if text:
+            return text, word, []
+    frame = _stance_frame(question)
+    st = stance_of(question)
+    if frame and st is not None:
+        return frame, st.correct, list(st.choices)
+    return "", "", []

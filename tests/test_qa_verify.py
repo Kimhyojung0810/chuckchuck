@@ -413,6 +413,40 @@ def test_회귀_사례_데이터는_코드_없이_입력과_기대만_갖는다(
         assert need in by
 
 
+def test_WP_J3_회귀_사례는_처음_보는_분야_쌍둥이가_있다():
+    by = {c["id"]: c for c in RG.load_cases()}
+    for need in ("gist_floor_probe_gist", "gist_not_restated_quote_split", "gap_absence_not_missing", "no_reask_after_absence",
+                 "probe_stance_choices", "scaffold_blank_not_in_question", "hint_blank_not_label"):
+        assert need in by and f"{need}_neutral" in by, need
+        assert by[need]["kind"] == by[f"{need}_neutral"]["kind"]
+
+
+@pytest.mark.parametrize("chips,kind,right", [
+    (["늘 맞아요", "조건이 붙어요"], "absolute_boundary", "조건이 붙어요"),
+    (["나와 있었어요", "아직 비어 있었어요"], "unsolved", "아직 비어 있었어요"),
+    (["전체와 일부예요", "서로 다른 둘이에요"], "tension", "전체와 일부예요"),
+])
+def test_입장_보기_쌍_잣대는_세_종류를_다_알아본다(chips, kind, right):
+    # 09-30 WP-J3 quick: 「아직 비어 있었어요」 가 틀린 쪽 표지 「있었」 에도 걸려 빈틈 입장 쌍을 못 알아봤다 — 보기 부적절로 셌다
+    assert T.stance_pair(chips) == kind
+    assert T.stance_correct(chips, kind) == right
+    assert T.stance_correct(chips, "unsupported_cause" if kind == "unsolved" else kind) == right
+    assert TG.choice_tags(chips, "") == []
+    assert T.stance_pair(["시간", "연속성"]) == "" and T.stance_pair(["늘 맞아요", "늘 달라요"]) == ""
+
+
+@pytest.mark.parametrize("word,question,shown", [
+    ("완전히", "화분만 옮기면 잎이 완전히 자란다는 단정이 맞지 않는 경우는?", True),
+    ("야간도난", "야간 도난을 개선하기 위한 구체적 방안은 무엇인가요?", True),   # _fill 이 띄어쓰기를 지운 꼴
+    ("행동", "행동이 왜 중요한가요?", True),
+    ("물주기간격", "물 주기에서 흙이 하는 역할은 무엇인가요?", False),      # 복합어의 앞 낱말만 질문에 있다
+    ("대기 시간", "재방문율이 매장 경험보다 중요하다는 건 어떤 뜻인가요?", False),
+])
+def test_빈칸_잣대는_질문에_보인_말만_센다(word, question, shown):
+    from labs.qa_verify import replay as RP
+    assert RP._shown(word, {"question": question, "label": ""}) is shown
+
+
 def test_inline_자료와_장_고르기_이어받기():
     cases = {c["id"]: c for c in RG.load_cases()}
     doc, where = RG.load_source({"id": "x", "source": {"inline_from": "dunno_pair_contrast", "slides": [2]}}, cases)

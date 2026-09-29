@@ -181,6 +181,20 @@ POINT_LINE_MIN = 2
 POINT_DECK_MIN = 0.6
 
 
+#: 설명의 **원리**를 달라는 말 — 「생리학적 원리」「구체적인 메커니즘」「작용 기전」. 자료에 그런 설명이 한 줄도 없으면 자료 밖 요구다.
+#: 「메커니즘」 은 판정 어휘(`_META_STEMS`)라 내용 낱말 대조에서 빠져, 「식사 순서 변경이 혈당 스파이크를 줄이는 구체적인 메커니즘」 이
+#: 자료 지지 검사를 통과했다 (09-30 WP-J3 · standard e2e703b). 어느 분야에나 쓰는 설명 어휘만 둔다.
+_MECHANISM_RE = re.compile(r"메커니즘|기전|원리|생리학|작용\s*방식|작동\s*방식|과학적\s*근거")
+
+
+def mechanism_beyond(text: str, deck: Deck | None) -> str:
+    """글이 원리·메커니즘 설명을 요구하는데 자료에 그런 말이 없으면 그 낱말, 아니면 "" (자료가 없으면 판단하지 않는다)."""
+    m = _MECHANISM_RE.search(text or "")
+    if not m or deck is None or deck.empty:
+        return ""
+    return "" if _MECHANISM_RE.search(" ".join(ln.text for ln in deck.lines)) else m.group(0)
+
+
 def point_supported(point: str, deck: Deck | None, question: str = "") -> bool:
     """
     결손이 **자료로 받쳐지는가** (§4). 자료가 없으면 판단 근거가 없어 받쳐진 것으로 본다.
@@ -191,6 +205,8 @@ def point_supported(point: str, deck: Deck | None, question: str = "") -> bool:
     """
     if deck is None or deck.empty:
         return True
+    if mechanism_beyond(point, deck):
+        return False
     stems = claim_stems(point)
     deck_stems = list(deck.stems)
     nums = numbers(point)
@@ -434,6 +450,9 @@ def followup_beyond_deck(followup: str, deck: Deck | None, question: str = "", l
     text = scrub(_EXAMPLE_SENTENCE_RE.sub(" ", _EXAMPLE_PAREN_RE.sub("", followup))).strip()
     if not text or _ASKS_PRESENCE_RE.search(text):
         return []
+    mech = mechanism_beyond(text, deck)
+    if mech:
+        return [mech]            # 「…그 생리학적 원리를 설명해 줄래요?」 — 자료에 원리 설명이 없다 (09-30 WP-J3 · standard e2e703b)
     deck_stems = list(deck.stems)
     deck_raw = " ".join(ln.text for ln in deck.lines)
     known = content_stems(f"{question} {label}")
@@ -499,3 +518,81 @@ def same_kind(a: str, b: str) -> bool:
         return "latin" if re.fullmatch(r"[A-Za-z .\-]+", x.strip()) else "ko"
     la, lb = len(a.strip()), len(b.strip())
     return kind(a) == kind(b) and la > 0 and lb > 0 and max(la, lb) <= 3 * min(la, lb)
+
+
+# ---------------------------------------------------------------------------
+# react 의 지적 문장이 자료 밖을 요구하는가 (09-30 WP-J3) — 결손·되물음과 같은 잣대를 react 에도
+# ---------------------------------------------------------------------------
+
+#: 지적·요구 문장의 표지 — 대조 이음말이 있거나, 지적 서술어로 끝난다. 칭찬으로 끝나는 문장(「…정확히 짚었어요」)은 보지 않는다
+#: (「정보 부족이 …를 늘린다는 인과는 정확히 짚었어요」 의 「부족」 은 내용 낱말이다).
+_CONTRAST_LINK_RE = re.compile(r"다만|하지만|그런데|그러나|지만\s*,?\s")
+_CRITIQUE_END_RE = re.compile(
+    r"(?:않았|않아|않은|못했|없었|부족|아쉬|필요|좋겠|빠져\s*있|빠졌|누락|고려해\s*볼|덧붙|보태)[가-힣\s]{0,8}[.!?]?\s*$")
+_PRAISE_END_RE = re.compile(r"(?:맞아요|정확해요|짚었어요|짚어\s*줬어요|설명했어요|말했어요|좋아요)[.!]?\s*$")
+#: 지적의 **대상**은 대조 이음말 뒤다 — 「…은 정확히 짚었지만, X 는 설명하지 않았어요」 의 X.
+_CRITIQUE_HEAD_RE = re.compile(r"^.*(?:지만|다만|그런데|하지만|그러나)\s*,?\s*")
+#: 지적 문장의 뼈대 낱말 — 답·자료·말하기에 대한 말이지 요구하는 내용이 아니다 (어느 발표에나 같은 말).
+_REACT_FRAME = ("답변", "답에", "답은", "답이", "본문", "힌트", "질문", "자료", "설명", "언급", "부분", "조금", "아직", "여전히",
+                "앞으로", "명확", "구체", "핵심", "근거", "내용", "이유", "점까", "점을", "점은", "점이", "점도", "점과", "정확",
+                "아쉬", "부족", "충분", "좋겠", "고려", "생각", "경우", "정도", "다음", "먼저", "함께", "모두", "그대", "표현",
+                "아닌", "아니", "전제", "인과", "관계", "주장", "결론", "의미", "뜻")
+
+
+def critique_beyond_deck(sentence: str, deck: Deck | None, known: str = "") -> list[str]:
+    """
+    react 의 **지적·요구 문장**이 자료에도, 발표자의 답·질문(known)에도 없는 개념을 요구하는가 — 그 낱말들, 아니면 [].
+
+    09-30 WP-J2 남은 것: 결손·되물음은 자료 밖 요구를 거르는데 react 는 안 걸러 「다만 지원 대상이 만 29세 이하로 제한되어 형평성 문제가
+    제기될 수 있다는 점은 언급되지 않았어요」(자료에 형평성 이야기가 없다)가 그대로 나갔다. 칭찬 문장은 보지 않는다 — 발표자가 말한 것을
+    인정하는 문장은 답의 낱말로 쓰인다(`praise_ungrounded` 가 따로 본다). 지적 문장에서 대조 이음말 뒤(지적의 대상)의 명사 줄기 가운데
+    판정 어휘·뼈대 낱말·용언 꼴을 뺀 것이 자료·답·질문 어디에도 없으면 자료 밖 요구다. 자료가 없으면 판단하지 않는다.
+    """
+    text = sentence or ""
+    critique = _CRITIQUE_END_RE.search(text) or (_CONTRAST_LINK_RE.search(text) and not _PRAISE_END_RE.search(text))
+    if deck is None or deck.empty or not critique:
+        return []
+    target = _CRITIQUE_HEAD_RE.sub("", sentence) if _CRITIQUE_HEAD_RE.search(sentence) else sentence
+    target = _EXAMPLE_PAREN_RE.sub("", target)
+    deck_stems = list(deck.stems)
+    hay = f"{' '.join(ln.text for ln in deck.lines)} {known}"
+    known_stems = content_stems(known)
+    out: list[str] = []
+    for s in claim_stems(target):
+        if (len(s) < 2 or s.startswith(_REACT_FRAME) or s.startswith(_QUESTION_FRAME) or s.startswith(_FOLLOWUP_FRAME)
+                or _VERBISH_END_RE.search(s) or _HADA_RE.search(s) or re.search(r"\d", s)):
+            continue
+        if _has(deck_stems, s) or _has(known_stems, s):
+            continue
+        bare = s[:-1] if s[-1] in _TAIL_PARTICLE and len(s) >= 3 else s
+        if bare in hay:
+            continue
+        out.append(s)
+    return out
+
+
+def critique_of_praised(sentence: str, others: list[str], said: str) -> bool:
+    """
+    지적 문장이 **같은 react 가 칭찬한 것**을, 발표자가 이미 말했는데도 다시 지적하는가 — 칭찬과 지적이 한 점을 두고 엇갈린 react (09-30 WP-J3).
+
+    09-30 standard 실측: 「…시장 예측 능력에 대한 언급이 자료 14장에 없다는 점은 정확히 짚었어요. 다만, 자료 14장의 다섯 요인 중 '시장
+    예측 능력'이 포함되지 않았다는 점을 구체적으로 설명하지 않아 아쉬워요.」 — 같은 점을 칭찬하고 탓했다. 지적의 대상(대조 이음말 뒤)이
+    같은 react 의 칭찬 문장과 내용 줄기 둘 이상·절반 이상을 나누고, 발표자의 답에도 이미 나왔으면(`point_covered`) 그 지적은 뺀다.
+    """
+    text = sentence or ""
+    critique = _CRITIQUE_END_RE.search(text) or (_CONTRAST_LINK_RE.search(text) and not _PRAISE_END_RE.search(text))
+    if not critique:
+        return False
+    target = _CRITIQUE_HEAD_RE.sub("", text) if _CRITIQUE_HEAD_RE.search(text) else text
+    mine = [s for s in claim_stems(target) if not s.startswith(_REACT_FRAME) and not _VERBISH_END_RE.search(s)
+            and not _HADA_RE.search(s) and not re.match(r"^(?:\d+)?장", s)]
+    if len(mine) < 2 or not point_covered(to_noun_phrase(target), said):
+        return False
+    for other in others:
+        if other == sentence or not _PRAISE_SENT_RE.search(other):
+            continue
+        theirs = claim_stems(_PRAISE_SENT_RE.split(other)[0])
+        shared = sum(1 for s in mine if _has(theirs, s))
+        if shared >= 2 and shared >= 0.5 * len(mine):
+            return True
+    return False

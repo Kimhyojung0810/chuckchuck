@@ -151,7 +151,9 @@ def test_따져_묻는_줄은_자료_대조에서_빠지고_다른_줄은_그대
 
 def test_판정_프롬프트에_질문이_따지는_자료_줄을_싣는다():
     _, llm = _judge(ABS_Q, "주문이 몰리면 늦어질 수 있어요.")
-    assert "예외·경계를 묻는다" in llm.prompts[0] and "완전히 사라집니다" in llm.prompts[0]
+    # 09-30 WP-J3 (WP-P2 지적): 「예외·경계」 라는 말은 판정 LLM 이 react 로 옮겨 화면에 샜다 — 조건으로 묻는다
+    assert "어떤 조건에서만 맞는지 묻는다" in llm.prompts[0] and "완전히 사라집니다" in llm.prompts[0]
+    assert "예외·경계" not in llm.prompts[0]
     _, llm2 = _judge(CAUSE_Q, "설문으로 보강하겠어요.")
     assert "근거(수치·출처·사례)를 묻는다" in llm2.prompts[0]
     plain = Question(id="q1", node_id="hub", label="지역 거점 창고", question="지역 거점 창고는 무엇인가요?", slide_nos=[3])
