@@ -316,6 +316,38 @@
     "gist": "",
     "expect": {"gist_forbid": ["완벽하게", "참여자 수보다 중요한"], "checks_require": ["fallback_template"]}
    }
+  },
+  {
+   "id": "gap_told_question_template",
+   "title": "빈틈 탐침 질문이 답(「자료에 없다」)을 먼저 말하고 다른 것을 물으면 정해진 문장 — 「피해 회복 지연을 개선하는 방법이 자료에 없는데, 정보 비대칭을 해소하는 방법은 어떻게 적용할 수 있나요?」",
+   "origin": "09-30 standard a1412dc(WP-P2) 전세 Q2",
+   "kind": "f08_scripted",
+   "source": {"file": "labs/qa_bench/corpus/policy_jeonse/slidedoc.json", "base": "harness", "slides": [1, 4, 5, 6]},
+   "args": {
+    "nodes": [{"id": "prev", "label": "예방 체계", "slide_nos": [1, 4], "depth": 1, "weight": 1.0}, {"id": "info", "label": "정보 비대칭", "slide_nos": [4, 5], "depth": 2, "parent_id": "prev"}, {"id": "guard", "label": "보증 가입 장벽", "slide_nos": [4, 6], "depth": 2, "parent_id": "prev"}, {"id": "delay", "label": "피해 회복 지연", "slide_nos": [4], "depth": 2, "parent_id": "prev"}, {"id": "map", "label": "전세 시세 지도", "slide_nos": [5], "depth": 3, "parent_id": "info"}, {"id": "fee", "label": "보증료 지원", "slide_nos": [6], "depth": 3, "parent_id": "guard"}],
+    "claims": "rules",
+    "extra_claims": [{"kind": "compose", "subject_id": "prev", "object_ids": ["info", "guard", "delay"], "slide_no": 4, "quote": "해결해야 할 세 가지 문제"}, {"kind": "solve", "subject_id": "map", "object_ids": ["info"], "slide_no": 5, "quote": "정보 비대칭을 해소합니다."}, {"kind": "solve", "subject_id": "fee", "object_ids": ["guard"], "slide_no": 6, "quote": "보증 가입 장벽을 없앱니다."}],
+    "node_id": "delay",
+    "question": "피해 회복 지연을 개선하는 방법이 자료에 없는데, 정보 비대칭을 해소하는 방법은 어떻게 적용할 수 있나요?",
+    "gist": "",
+    "expect": {"question_forbid": ["자료에 없는데"], "checks_require": ["probe_template"]}
+   }
+  },
+  {
+   "id": "gap_told_question_template_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 목공 공방 「작업대 부족」)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "f08_scripted",
+   "source": {"inline_from": "absolute_observation_truism_off_neutral", "slides": [3, 4]},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "claims": "rules",
+    "extra_claims": [{"kind": "solve", "subject_id": "rate", "object_ids": ["tool"], "slide_no": 4, "quote": "공구를 두 벌씩 갖춰 공구 대기 시간을 줄입니다."}, {"kind": "solve", "subject_id": "rate", "object_ids": ["dust"], "slide_no": 4, "quote": "집진기를 달아 먼지와 소음을 줄입니다."}],
+    "node_id": "bench",
+    "question": "작업대 부족을 개선하는 방법이 자료에 없는데, 공구 대기 시간 해결책은 어떻게 적용할 수 있나요?",
+    "gist": "",
+    "expect": {"question_forbid": ["자료에 없는데"], "checks_require": ["probe_template"]}
+   }
   }
  ]
 }

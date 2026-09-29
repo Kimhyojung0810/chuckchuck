@@ -880,10 +880,20 @@ _SHAPE = {
 _OFF_PROBE_RE = re.compile(r"메커니즘|기제|경로는|심리적|생리적|어떻게\s*다른|차이는|차이가\s*무엇")
 
 
+#: 빈틈 탐침(해결책 빠짐·근거 없는 인과)의 답은 「자료에 없다」 인데 질문이 그걸 먼저 말하는 꼴 — 「…개선하는 방법이 자료에 없는데,
+#: …어떻게 적용할 수 있나요?」(09-30 standard 전세 Q2). 답을 흘리고 다른 것을 묻는다.
+_GAP_TOLD_RE = re.compile(
+    r"(?:자료|발표)(?:에|에서|에는|에서는|엔)\s*[^,.?]{0,24}?(?:없|나와\s*있지\s*않|제시(?:되어\s*있|돼\s*있)?지\s*않|"
+    r"다루(?:어\s*있)?지\s*않|빠져)[^,.?]{0,8}?(?:는데|지만|으니|니까|어서|아서|다는\s*점|고)")
+
+
 def probe_shaped(text: str, probe: Probe) -> bool:
-    """질문 문장이 이 탐침을 묻는 꼴인가 — 종류별 물음 말이 (다) 있고, 탐침과 다른 것을 묻는 말이 없다."""
+    """질문 문장이 이 탐침을 묻는 꼴인가 — 종류별 물음 말이 (다) 있고, 탐침과 다른 것을 묻는 말이 없고, 빈틈 탐침이면 답
+    (「자료에 없다」)을 먼저 말하지 않는다."""
     t = text or ""
     if not t.strip() or _OFF_PROBE_RE.search(t):
+        return False
+    if probe.kind in ("unsolved", "unsupported_cause") and _GAP_TOLD_RE.search(t):
         return False
     return all(rx.search(t) for rx in _SHAPE.get(probe.kind, ()))
 
@@ -983,7 +993,7 @@ _ASK_IDIOM_RE = re.compile(
 _ASK_JOIN_RE = re.compile(r"(이며|이고|인지|한지|는지|은지|으며|며|고)\s*,\s*")
 #: 뒤 절이 물음인가 — 물음 낱말 또는 물음 어미.
 _ASK_END_RE = re.compile(r"(?:나요|가요|까요|죠|습니까|니까)\s*[?？]?\s*$|[?？]\s*$")
-_LEAD_CONJ_RE = re.compile(r"^(?:그리고|또한|또|아울러|그렇다면|그럼|그러면)\s*,?\s*")
+_LEAD_CONJ_RE = re.compile(r"^(?:그리고|또한|또|아울러|그렇다면|그럼|그러면)(?:\s*,\s*|\s+)")
 
 
 def _asks(text: str) -> bool:
@@ -1120,7 +1130,7 @@ _CAN_RE = re.compile(r"수\s*(?:도\s*)?있")
 
 
 #: 유보 줄 머리의 접속 말 — 「다만 …」 을 「자료에 적었듯 다만 …」 으로 옮기면 어색하다.
-_HEDGE_LEAD_RE = re.compile(r"^(?:다만|단|하지만|그러나|물론|또한|그리고)\s*,?\s*")
+_HEDGE_LEAD_RE = re.compile(r"^(?:다만|단|하지만|그러나|물론|또한|그리고)(?:\s*,\s*|\s+)")
 
 
 def _hedge_clause(line: str) -> str:
