@@ -3797,6 +3797,12 @@ def _bound_to_basis(text: str, probe: Probe | None, node: ConceptNode, by_id: di
     return _mentions_loosely(text, node.label, [])
 
 
+def _haeyo_outside_quotes(text: str) -> str:
+    """인용 「」·«» 밖의 합쇼체를 해요체로 (`_to_haeyo` — 인용 안은 그대로 둔다). 이미 해요체면 그대로."""
+    t = text or ""
+    return _to_haeyo(t) if t and ("니다" in t or "니까" in t) else t
+
+
 def _label_vocab(by_id: dict[str, ConceptNode]) -> set[str]:
     """그래프 라벨의 낱말 줄기 — 「자료 어디에도 없는 낱말」 판단에 더한다 (라벨은 자료를 읽고 지은 이름이다)."""
     return {grounding.stem(w) for n in by_id.values() for w in grounding.words(n.label or "")}
@@ -3820,6 +3826,12 @@ def _normalize_questions(
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
+
+    challenged(탐침이 따지는 자료 줄 — `_probes.challenged_lines`)는 **다른 질문의 모범답**에 싣지 않는다. 따질 만한 강한 단정 줄도
+    같다(`_probes.usable_answer_line`, 09-30 WP-P2). 질문 문장은 한 가지만 묻고(`_probes.split_asks` — 근거에 묶인 물음만 남긴다),
+    우리 분석 말(`_probes.jargon_terms` — 「경계·탐침」)이 없어야 한다 — 걸리면 정해진 문장이다. 코드가 「답할 수 없다」 고 본 질문의
+    폴백은 `unanswerable_fallback` 표시를 달아 `_drop_twin_questions` 가 다음 후보 뒤로 민다. 화면에 나가는 네 칸(질문·이유·힌트·골자)은
+    인용 「」·«» 밖을 해요체로 마무리한다 (`_haeyo_outside_quotes`).
 
     녹음 경로의 코드 확인 사실 (09-30 WP-S2): contra_of(자료 원문과 다른 수치·방향 — `deck_quote`)로 뽑힌 개념은 「어느 쪽이 맞나」
     질문이다 — LLM 문장이 자료 쪽 값(= 답)을 흘리거나 어긋남을 안 물으면 정해진 문장으로 바꾸고(`_contra_asked`), 골자는 두 인용을
@@ -4283,13 +4295,20 @@ def _normalize_questions(
             raw, [question_text, written_why, written_hint, gist], papers,
         ) if written_q and "probe_template" not in checks else []   # 탐침 템플릿은 문헌을 인용하지 않는다
 
+        # 인용이 곧 답인가는 **자료 줄 그대로인** 골자로 본다 — 아래 해요체 마무리가 줄 끝을 바꾸기 전에.
+        answer_quote = probe is None and _quote_is_answer(quote, gist)
+        # 화면에 나가는 네 칸은 인용 「」·«» 밖을 해요체로 마무리한다 (09-30 WP-P2 — replay 합쇼체 9.3% 가 전부 「자료는 이렇게 말해요 —
+        # …현상입니다」 꼴의 자료 줄 골자였다). 인용 안의 자료 원문은 글자 그대로 둔다.
+        question_text = _haeyo_outside_quotes(question_text)
+        gist = _haeyo_outside_quotes(gist)
+        parts = [_haeyo_outside_quotes(x) for x in parts]
         questions.append(Question(
             id=f"q{mark.rank:02d}-{mark.node_id}",
             node_id=mark.node_id,
             label=node.label,
             question=question_text,
-            why=written_why or fb_why,
-            hint=written_hint or fb_hint,
+            why=_haeyo_outside_quotes(written_why or fb_why),
+            hint=_haeyo_outside_quotes(written_hint or fb_hint),
             severity=mark.severity,
             trap=trap,
             source=mark.source,
@@ -4308,8 +4327,7 @@ def _normalize_questions(
             basis=_basis_of(mark, slot, probe, quote_no, quote, checks, reason_ev=reason_ev, contrast=contrast,
                             trap_slide=tp.slide_no if tp is not None else 0,
                             # 모순의 자료 쪽 인용은 곧 답이다 — 질문 밑 「이 질문의 근거」 에는 장 번호만
-                            hide_quote=tp is not None or contra is not None
-                            or (probe is None and _quote_is_answer(quote, gist))),
+                            hide_quote=tp is not None or contra is not None or answer_quote),
             trap_premise=TrapPremise.from_dict(tp.to_dict()) if tp is not None else None,
         ))
     return questions

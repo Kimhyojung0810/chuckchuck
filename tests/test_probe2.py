@@ -391,3 +391,20 @@ def test_여유_후보가_없으면_폴백_문장_그대로_남는다():
     assert [x.node_id for x in doc.questions] == ["root"]
     assert "unanswerable_fallback" in doc.questions[0].basis.checks
     assert not any("filled_for_unanswerable" in x.basis.checks for x in doc.questions)
+
+
+def test_화면_네_칸은_인용_밖이_해요체다():
+    doc = build([item("dropout", "중도 포기가 있었나요?", gist="지난 학기에 그만둔 사람은 아무도 없었습니다.",
+                      why="중도 포기를 확인하는 질문입니다.", hint="6장을 보십시오.")],
+                [("dropout", "core_weight")])
+    q1 = next(x for x in doc.questions if x.node_id == "dropout")
+    for text in (q1.question, q1.answer_gist, q1.why, q1.hint):
+        outside = "".join(part for i, part in enumerate(text.replace("」", "「").split("「")) if i % 2 == 0)
+        assert "습니다" not in outside and "입니다" not in outside, text
+
+
+def test_자료_줄_골자도_해요체로_끝내고_근거_인용은_원문_그대로():
+    doc = build([item("dropout", "지난 학기 중도 포기는 어땠나요?", gist="")], [("dropout", "core_weight")])
+    q1 = next(x for x in doc.questions if x.node_id == "dropout")
+    assert q1.answer_gist.startswith("자료는 이렇게 말해요 — ") and "없었어요" in q1.answer_gist
+    assert "습니다" not in q1.answer_gist

@@ -253,8 +253,10 @@ def test_C01b_자료에_없다는_골자가_자료와_어긋나면_그_줄로_�
                 [("temp", False)])
     q = by["temp"]
     assert "gist_absence_contradicted" in q.basis.checks
-    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있습니다 (4장)"
+    # 자료 줄 골자도 인용 밖이라 해요체로 마무리한다 (09-30 WP-P2) — 근거 인용(evidence_quote)은 자료 원문 그대로다
+    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있어요 (4장)"
     assert q.evidence_slide_no == 4          # 근거 인용도 그 줄로 — 다른 장의 식을 근거로 보여 주지 않는다
+    assert q.evidence_quote == "배식 순서를 바꾸면 잔반을 줄일 수 있습니다"
 
 
 def test_C01b_이유_줄의_자료에_없다도_덱과_대조한다():
@@ -264,7 +266,7 @@ def test_C01b_이유_줄의_자료에_없다도_덱과_대조한다():
                         why="잔반을 줄이는 구체적인 방법이 자료에 명시되지 않아 묻는 질문이에요.")], [("temp", False)])
     q = by["temp"]
     assert "why_absence_contradicted" in q.basis.checks and "gist_out_of_deck" not in q.basis.checks
-    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있습니다 (4장)"
+    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있어요 (4장)"
     assert "명시되지 않아" not in q.why
 
 
