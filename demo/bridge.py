@@ -2073,7 +2073,11 @@ class Handler(SimpleHTTPRequestHandler):
             # 재분할까지 끝난 뒤에 저장한다 — 저장본을 그대로 다시 쓸 때 화면이
             # 방금 본 것과 같아야 한다. mock 결과는 남기지 않는다 (남의 자료를
             # 내 녹음으로 착각하게 만드는 것과 같은 종류의 거짓이다).
-            self._archive(body, "transcript", out)
+            # 질문 코칭 답변 한 마디(purpose=qa_answer)는 발표 받아쓰기가 아니다 — 보관하면 그 세션의 리허설 받아쓰기(transcript)를
+            # 덮어 새로고침 복구·「저장해 둔 녹음으로 이어서」·기억(F-25)이 답변 한 줄을 발표로 읽는다 (09-30 qa/front: 그래서 답변
+            # 받아쓰기에 session_id 를 못 싣고, 요청 제한이 IP 칸 하나로 몰렸다).
+            if str(body.get("purpose") or "") != "qa_answer":
+                self._archive(body, "transcript", out)
             return self._json(200, out)
         except Exception as e:  # noqa: BLE001
             from chuckchuck.contracts import STTError

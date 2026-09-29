@@ -40,6 +40,9 @@ const EXPORT_LINE = `
   paperHref, attachQuestionPapers, linkCitedText, questionPapersHtml,
   questionOriginLine, questionOriginHtml,
   liveHistory, liveForcedClose, liveWonCount, liveCoachAsk,
+  liveBucket, liveHintsUsed, liveWholeSentences, liveDegradedLines, liveQuestionWhy, liveJudgeFailure,
+  liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
+  liveHintsShown,
 };`;
 
 /**
@@ -69,6 +72,49 @@ function extractFunction(src, name) {
 }
 
 const QA_DOC_KEY_SRC = extractFunction(APP_SRC, 'qaDocKey');
+
+/**
+ * 매개변수에 기본값 객체(`{ a = 1 } = {}`)가 있는 함수도 잘라낸다 — 괄호 깊이로 매개변수를 건너뛴 뒤 본문 중괄호를 센다.
+ * chuckchuck_bridge.js 는 ES 모듈(import·window 전역)이라 통째로 못 올려서, 순수 함수만 이름으로 꺼낸다.
+ */
+function extractFunctionWithParams(src, name) {
+  const head = new RegExp(`\\n(?:async\\s+)?function\\s+${name}\\s*\\(`);
+  const m = head.exec(src);
+  if (!m) throw new Error(`${name} 을 못 찾았어요. 원본이 바뀌었으면 하네스도 같이 고쳐야 해요.`);
+  const start = m.index + 1;
+  let i = m.index + m[0].length;
+  for (let paren = 1; paren > 0; i += 1) {
+    if (src[i] === '(') paren += 1;
+    else if (src[i] === ')') paren -= 1;
+  }
+  const bodyAt = src.indexOf('{', i);
+  let depth = 0;
+  for (let j = bodyAt; j < src.length; j += 1) {
+    if (src[j] === '{') depth += 1;
+    else if (src[j] === '}' && --depth === 0) {
+      const slice = src.slice(start, j + 1);
+      new vm.Script(slice);
+      return slice;
+    }
+  }
+  throw new Error(`${name} 의 본문이 안 닫혀요.`);
+}
+/** 한 줄 상수(`const NAME = …;`)를 꺼낸다 — 잘라낸 함수가 기대는 값 */
+function extractConst(src, name) {
+  const m = new RegExp(`\\nconst ${name} = [^\\n]*;`).exec(src);
+  if (!m) throw new Error(`${name} 상수를 못 찾았어요.`);
+  return m[0].trim();
+}
+const BRIDGE_SRC = readFileSync(path.join(JS_DIR, 'chuckchuck_bridge.js'), 'utf8');
+const BRIDGE = (() => {
+  const ctx = vm.createContext({});
+  vm.runInContext([
+    extractConst(BRIDGE_SRC, 'JUDGE_RATE_RETRIES'), extractConst(BRIDGE_SRC, 'ANSWER_STT_SENDS_SESSION'),
+    extractFunctionWithParams(BRIDGE_SRC, 'judgeRetryPlan'), extractFunctionWithParams(BRIDGE_SRC, 'answerSttBody'),
+    ';globalThis.__b = { judgeRetryPlan, answerSttBody, ANSWER_STT_SENDS_SESSION };',
+  ].join('\n'), ctx);
+  return ctx.__b;
+})();
 
 /**
  * 시험용 컨텍스트 한 벌. `pushTurn` 은 빈 함수가 아니라 **기록기**다 —
@@ -334,6 +380,16 @@ test('고치기 전 코드로 돌리면 힌트 분모 시험이 깨진다', () =
   if (!threw) throw new Error('고치기 전 코드도 통과했어요 — 이 시험은 회귀를 못 잡아요');
 });
 
+/* C-09 자기검사 — 「도움 받아 닫힘」 규칙을 빼면(예전처럼 good·partial 이면 다 지킨 것) 결과 묶음 시험이 깨져야 한다 */
+const HELPED_LINE = "if (liveForcedClose(r) || (r.hintLevel || 0) >= LIVE_HINT_HELP || r.viaCoach) return 'helped';";
+test('도움 받아 닫힘 규칙을 빼면 C-09 결과 묶음 시험이 깨진다', () => {
+  if (!QA_LIVE_SRC.includes(HELPED_LINE)) throw new Error(`liveBucket 이 바뀌었어요. 이 자기검사도 같이 고쳐야 해요: ${HELPED_LINE}`);
+  const ctx = vm.createContext({ console, qa: { live: null }, nf: null, pushTurn: () => {}, saveSession: () => {}, escapeHtml: (x) => String(x) });
+  vm.runInContext(QA_LIVE_SRC.replace(HELPED_LINE, '') + EXPORT_LINE, ctx);
+  const broken = [R.forced, R.hint3, R.chip].map((r) => ctx.__api.liveBucket(r));
+  if (broken.every((b) => b === 'helped')) throw new Error('규칙을 빼도 도움 받은 질문이 helped 로 남았어요 — 시험이 아무것도 안 지킨다');
+});
+
 /* ── liveScoredAnswers — 라운드를 세는 분모 ────────────────────────────────────
    서버(f09 `_round_no`)가 이 배열의 길이로 되묻기 라운드를 센다. 채점 안 된 턴이
    섞이면 ① 라운드가 이유 없이 올라 되묻기가 좁아지고 ② 누적 답변 블록에 그 말이
@@ -434,9 +490,45 @@ test('「이 질문의 근거」 는 자리·근거를 사람 말로 옮기고 �
   eq(api.questionOriginLine(null), '', '옛 세션 질문은 basis 가 없다');
   const html = api.questionOriginHtml({ basis });
   eq(html.startsWith('<details class="msg-origin"><summary>이 질문의 근거</summary>'), true, '접혀서 시작한다');
-  eq(html.includes('<span>자료 4장</span>수면의 질 = 시간 × 연속성 × 규칙성'), true, '자료 인용');
   eq(/tension|theme|probe_template/.test(html), false, '영문 id 가 화면에 안 나온다');
   eq(api.questionOriginHtml({}), '', 'basis 없으면 칸도 없다');
+});
+
+test('C-03 「이 질문의 근거」 는 장 번호만 — 자료 인용(함정이면 정답 줄)을 싣지 않는다', () => {
+  const { api } = newContext();
+  const fact = '대출 권수보다 더 중요한 것은 독서 경험입니다';
+  // 함정: 근거 인용이 곧 바로잡은 사실 줄이다
+  const trap = { trap: true, basis: { source: 'core_weight', slot: 'part', evidence: [{ slide_no: 1, quote: fact }, { slide_no: 1, quote: '같은 장' }] } };
+  const t = api.questionOriginHtml(trap);
+  eq(t.includes(fact), false, '함정의 사실 줄이 안 보인다');
+  eq(t.includes('근거 자료 1장'), true, '어디를 보면 되는지는 말한다');
+  // 함정이 아닌 질문도 답하기 전에는 인용을 안 싣는다
+  const probe = { kind: 'tension', evidence: [{ slide_no: 4, quote: '수면의 질 = 시간 × 연속성 × 규칙성' }] };
+  const p = api.questionOriginHtml({ basis: { source: 'tension', slot: 'theme', probe, evidence: probe.evidence } });
+  eq(p.includes('수면의 질 = 시간'), false, '인용 없음');
+  eq((p.match(/4장/g) || []).length, 1, '탐침 줄이 이미 장을 말하면 장 번호 줄을 또 달지 않는다');
+});
+
+test('B-01·H-07 함정 질문은 다른 질문과 같은 말풍선 — claim(주황)·함정 이유 줄이 없다', () => {
+  const { ctx, api, turns } = newContext();
+  const trapWhy = '「단백질 먼저」에 대해 질문이 말한 내용이 자료와 같은지 먼저 따져 보는 연습이에요.';
+  ctx.qa.live = liveState(api, [{ id: 'q1', trap: true, question: '20%라고 했는데?', why: trapWhy, slide_nos: [6], label: '단백질 먼저' }]);
+  api.presentLiveQuestion();
+  const q = turns.find((t) => t.who === 'ai');
+  eq(q.kind, 'question', '함정도 question');
+  eq(q.basis.includes('따져'), false, '함정 이유 줄을 안 싣는다');
+  eq(q.basis, '자료 6장을 근거로 설명할 수 있는지 보려고 물어요.', '장만 가리키는 중립 이유');
+  eq(api.liveQuestionWhy({ why: ' 보통 이유 ' }), '보통 이유', '보통 질문은 서버 이유 그대로');
+});
+
+test('질문 묶음의 폴백 표시는 첫 질문 앞에 한 번 — 서버 질문을 못 찾은 것은 화면에 안 싣는다', () => {
+  const { ctx, api, turns } = newContext();
+  ctx.qa.live = liveState(api, [{ id: 'q1', question: 'a' }, { id: 'q2', question: 'b' }], { notes: ['문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요.'] });
+  api.presentLiveQuestion();
+  eq(turns[0].kind, 'note', '첫 질문 앞 안내 한 줄');
+  eq(api.liveDegradedLines({ degraded: ['question_unverified', 'papers_timeout'], degraded_notes: ['개발용', '문헌 늦음'], grounded_on_server: false }), ['문헌 늦음']);
+  eq(api.liveDegradedLines({ degraded: [], degraded_notes: [], grounded_on_deck: false }), ['자료 본문 없이 판정했어요.']);
+  eq(api.liveDegradedLines(null), []);
 });
 
 /* ── 09-30 대화 감사 §10 — 판정에 보내는 대화 · 라운드 출구 ── */
@@ -473,6 +565,158 @@ test('코칭이 방금 되물었으면 그 되물음을 판정에 같이 싣는�
   eq(api.liveCoachAsk(), ["되물음: '가' 쪽인가요, '나' 쪽인가요?"], '코칭 되물음');
   ctx.qa.live.lastJudgement = { verdict: 'partial', followup: '더 말해 볼래요?' };
   eq(api.liveCoachAsk(), [], '판정 되물음은 싣지 않는다');
+});
+
+/* ── 09-30 held-out C-09 — 결과 네 묶음 · 헤드라인은 스스로 설명만 ── */
+const R = {
+  self: { verdict: 'good', mastered: true, closeReason: 'good', turns: 1, hintLevel: 0 },
+  selfHint: { verdict: 'good', mastered: true, closeReason: 'good', turns: 2, hintLevel: 2, hintUsed: 1 },
+  forced: { verdict: 'partial', mastered: true, closeReason: 'rounds', turns: 3 },
+  guard: { verdict: 'partial', mastered: true, closeReason: 'guard', turns: 3 },
+  hint3: { verdict: 'good', mastered: true, closeReason: 'good', turns: 1, hintLevel: 3, hintUsed: 3 },
+  chip: { verdict: 'good', mastered: true, closeReason: 'good', turns: 2, viaCoach: true },
+  retold: { verdict: 'partial', mastered: false, revealed: true, retold: true, answer: '다시 말한 답' },
+  looked: { verdict: 'partial', mastered: false, revealed: true },
+  coachedRetell: { verdict: 'unknown', mastered: false, gaveUp: true, revealed: true, coached: true, retold: true },
+  skipped: { verdict: 'skipped', mastered: false, skipped: true },
+  unasked: { verdict: 'skipped', mastered: false, unasked: true },
+  stopped: { verdict: 'partial', mastered: false, stopped: true, answers: 2, answer: '두 번째 답' },
+  labSkip: { verdict: 'skipped', mastered: false, answer: '(lab skip)' },
+};
+test('C-09 결과 묶음: 스스로·도움·답 보고 다시 말함·넘김 — 강제 닫힘·힌트 셋째 칸·보기는 「스스로」 가 아니다', () => {
+  const { api } = newContext();
+  const b = Object.fromEntries(Object.entries(R).map(([k, r]) => [k, api.liveBucket(r)]));
+  eq(b, { self: 'self', selfHint: 'self', forced: 'helped', guard: 'helped', hint3: 'helped', chip: 'helped', retold: 'retold', looked: 'skipped',
+    coachedRetell: 'retold', skipped: 'skipped', unasked: 'skipped', stopped: 'skipped', labSkip: 'skipped' }, '묶음');
+  eq(api.liveWonCount(Object.values(R)), 2, '퀘스트 막대·헤드라인은 스스로 설명만');
+  eq(api.liveBucket({ verdict: 'good', passed: true }), 'self', '옛 세션(mastered 없음)은 passed 로');
+});
+test('C-09 헤드라인 숫자는 스스로 설명한 것만 — 안 물은 질문은 분모에서도 뺀다', () => {
+  const { api } = newContext();
+  const mixed = api.liveResultSummary([R.self, R.forced, R.retold, R.unasked], { speech: false });
+  eq([mixed.asked, mixed.self], [3, 1]);
+  eq(mixed.head.includes('질문 3개 중') && mixed.head.includes('>1</b>개를 스스로 설명했어요'), true, mixed.head);
+  eq(mixed.stats.map((x) => [x.key, x.n]), [['self', 1], ['helped', 1], ['retold', 1], ['skipped', 1]]);
+  eq(mixed.sub.includes('근거 발화'), false, '자료만 쓴 세션에 「근거 발화와 함께」 를 약속하지 않는다');
+  eq(api.liveResultSummary([R.self, R.forced], { speech: true }).sub.includes('근거 발화'), true);
+  const all = api.liveResultSummary([R.self, R.selfHint], {});
+  eq([all.allSelf, all.stats.length], [true, 0]);
+  eq(all.head.includes('모두 스스로 설명했어요'), true);
+  eq(all.sub.startsWith('힌트를 본 질문이 1개'), true, '누른 힌트만 센다');
+  const none = api.liveResultSummary([R.forced, R.skipped], {});
+  eq(/0\s*<\/b>개를|>0</.test(none.head), false, '0 을 앞세우지 않는다');
+  eq(none.head.includes('다음엔 스스로 설명해 볼 질문'), true, none.head);
+  eq(api.liveResultSummary([R.unasked], {}).head, '질문에 답하면 여기에 결과가 쌓여요');
+});
+test('C-09 결과·리포트 한 줄은 스스로 모순되지 않는다 — 「N번 만에」 는 스스로 설명에만', () => {
+  const { api } = newContext();
+  const row = (r) => api.liveResultRow(r);
+  eq(row(R.self), { bucket: 'self', chip: '스스로 설명', cls: 'st-ok', meta: '첫 답에 설명했어요' });
+  eq(row(R.selfHint).meta, '2번 만에 설명했어요 · 힌트 1번 봤어요');
+  eq(row(R.forced).meta, '세 번째 답에서 닫혔어요');
+  eq(row(R.guard).meta, '자료와 다시 맞춰 볼 곳이 남았어요');
+  eq(row(R.chip).meta, '보기·빈칸 도움으로 닫았어요');
+  eq(row(R.retold), { bucket: 'retold', chip: '답 보고 다시 말함', cls: 'st-om', meta: '답을 보고 내 말로 다시 말했어요' });
+  eq(row(R.stopped).meta, '답 2번 하고 멈췄어요');
+  eq([row(R.unasked).chip, row(R.looked).chip, row(R.skipped).chip], ['안 물음', '답만 봄', '넘김']);
+  for (const r of Object.values(R)) {
+    const x = row(r);
+    if (x.bucket !== 'self' && /만에/.test(x.meta)) throw new Error(`스스로가 아닌 줄에 「만에」: ${JSON.stringify(x)}`);
+  }
+  eq(api.liveResultRow({ closeReason: 'guard' }, 'helped').meta, '자료와 다시 맞춰 볼 곳이 남았어요', '리포트는 저장한 묶음을 넘긴다');
+});
+test('B-09 판정에 보내는 힌트는 연 칸의 글 그대로 — 사다리가 갈아 끼워져도 본 적 없는 글이 안 간다', () => {
+  const { ctx, api } = newContext();
+  ctx.qa.live = liveState(api, [{ id: 'q1', hints: ['방향', '범위', '인용', '조각'] }]);
+  api.openNextHint();
+  ctx.qa.live.hintList = ['방향', '범위', '인용', '아직 안 나온 것: X'];   // 판정이 넷째 칸을 바꿔 끼웠다
+  ctx.qa.live.lastJudgement = { coach_stage: 'narrow', followup: "'가' 쪽인가요?" };
+  eq(api.liveHintsShown(), ['방향', "되물음: '가' 쪽인가요?"]);
+  ctx.qa.live.hintsSeen = undefined;   // 옛 저장 세션
+  eq(api.liveHintsShown(), ['방향', "되물음: '가' 쪽인가요?"], '옛 세션은 연 칸만큼 자른다');
+});
+test('L-05 저절로 열린 힌트는 「힌트 N번」 으로 안 센다', () => {
+  const { ctx, api } = newContext();
+  ctx.qa.live = liveState(api, [{ id: 'q1', hints: ['a', 'b', 'c'] }, { id: 'q2' }]);
+  api.openNextHint({ auto: true });
+  api.openNextHint();
+  api.closeLiveQuestion({ id: 'q1', verdict: 'good', mastered: true, closeReason: 'good' });
+  const r = ctx.qa.live.results[0];
+  eq([r.hintLevel, r.hintUsed, api.liveHintsUsed(r)], [2, 1, 1]);
+  eq(ctx.qa.live.hintAuto, 0, '다음 질문은 새로 센다');
+  eq(api.liveHintsUsed({ hintLevel: 2 }), 2, '옛 결과는 hintLevel');
+});
+test('M-11 「여기까지 하고 저장」 — 답한 질문은 시도를 남기고(멈춤), 띄우지 않은 질문은 「안 물음」', () => {
+  const { ctx, api, turns } = newContext();
+  ctx.qaLiveEnd = () => {};
+  ctx.qa.live = liveState(api, [{ id: 'q1', label: 'A', question: 'a?' }, { id: 'q2', label: 'B', question: 'b?' }, { id: 'q3', label: 'C', question: 'c?' }], {
+    turn: 2,
+    turns: [{ answer: '첫 답', verdict: 'wrong', score: 30 }, { answer: '(모르겠어요)', verdict: 'unknown', gaveUp: true }, { answer: '둘째 답', verdict: 'partial', score: 65 }],
+  });
+  api.finishLiveQaEarly();
+  const rs = ctx.qa.live.results;
+  eq([rs[0].stopped, rs[0].answer, rs[0].answers, rs[0].viaCoach, rs[0].verdict], [true, '둘째 답', 2, true, 'partial'], '지금 질문');
+  eq([rs[1].unasked, rs[2].unasked], [true, true], '남은 질문');
+  eq(rs.map((r) => api.liveBucket(r)), ['skipped', 'skipped', 'skipped']);
+  eq(turns.filter((t) => t.kind === 'lost').map((t) => t.text), ['A — 답 2번 하고 멈췄어요. 한 답을 리포트에 남겨둘게요', '남은 질문 2개는 묻지 않고 마쳤어요']);
+});
+test('M-11 답이 없으면 넘김, 답을 보고 다시 말하던 중이면 「답만 봄」 으로 닫는다', () => {
+  const { ctx, api } = newContext();
+  ctx.qaLiveEnd = () => {};
+  ctx.qa.live = liveState(api, [{ id: 'q1', label: 'A' }]);
+  api.finishLiveQaEarly();
+  eq([ctx.qa.live.results[0].skipped, ctx.qa.live.results[0].answer], [true, '']);
+  const b = newContext();
+  b.ctx.qaLiveEnd = () => {};
+  b.ctx.qa.live = liveState(b.api, [{ id: 'q1', label: 'A' }], { retell: { model: 'm', record: { id: 'q1', label: 'A', revealed: true, verdict: 'wrong', answer: '틀린 답' } } });
+  b.api.finishLiveQaEarly();
+  eq(b.api.liveBucket(b.ctx.qa.live.results[0]), 'skipped');
+  eq(b.api.liveResultRow(b.ctx.qa.live.results[0]).chip, '답만 봄');
+});
+test('문장 한가운데서 끊긴 모범답은 마지막 온전한 문장까지', () => {
+  const { api } = newContext();
+  eq(api.liveWholeSentences('A 해요. B 를 진행…'), 'A 해요.');
+  eq(api.liveWholeSentences('3.5% 예요. 계속…'), '3.5% 예요.');
+  eq(api.liveWholeSentences('안 잘린 글이에요.'), '안 잘린 글이에요.');
+  eq(api.liveWholeSentences('끝이 없는 잘린…'), '끝이 없는 잘린…');
+});
+
+/* ── 09-30 held-out H-15 — 요청 제한은 판정 실패가 아니다 ── */
+test('H-15 요청 제한(429)은 기다렸다 두 번까지 다시, AI 지연(503 upstream)은 한 번, 그 밖은 안 다시', () => {
+  const rate = { code: 'rate_limited', status: 429, rateLimited: true, retryAfter: 45 };
+  eq(BRIDGE.judgeRetryPlan(rate, 0), { retry: true, waitSec: 45, reason: 'rate' });
+  eq(BRIDGE.judgeRetryPlan(rate, 1).retry, true);
+  eq(BRIDGE.judgeRetryPlan(rate, 2), { retry: false, waitSec: 0, reason: 'rate' });
+  eq(BRIDGE.judgeRetryPlan({ status: 429 }, 0).waitSec, 5, 'retry_after 가 없으면 5초');
+  eq(BRIDGE.judgeRetryPlan({ status: 429, retryAfter: 600 }, 0).waitSec, 60, '60초로 자른다');
+  eq(BRIDGE.judgeRetryPlan({ code: 'upstream_timeout', status: 503, retryAfter: 10 }, 0), { retry: true, waitSec: 10, reason: 'upstream' });
+  eq(BRIDGE.judgeRetryPlan({ code: 'upstream_unavailable', status: 503 }, 1).retry, false, '한 번만');
+  for (const e of [{ code: 'session_missing', status: 409 }, { code: 'server_unreachable' }, { code: 'upstream_failed', status: 502 }, null]) {
+    eq(BRIDGE.judgeRetryPlan(e, 0).retry, false, JSON.stringify(e));
+  }
+});
+test('H-15 끝내 막힌 요청 제한은 출구(답 보기)를 열지 않고 「넘긴 질문」 으로 안 남긴다 — 서버가 죽은 것과 다르다', () => {
+  const { ctx, api } = newContext();
+  const f = api.liveJudgeFailure({ code: 'rate_limited', status: 429, rateLimited: true, message: '요청이 너무 잦아요.' });
+  eq([f.judgeFailed, f.restore, f.retryOnReconnect], [false, true, null]);
+  ctx.qa.live = liveState(api, [{ id: 'q1', hints: ['a'] }], { judgeFailed: f.judgeFailed, turns: [{ score: 40 }] });
+  eq(api.liveStalled(), false, '요청 제한 한 번으로 답 보기 출구가 열리지 않는다');
+  eq(api.liveJudgeFailure({ code: 'server_unreachable' }).judgeFailed, true, '서버가 끊긴 것은 출구를 연다');
+  eq(api.liveJudgeFailure({ code: 'server_unreachable' }, true).retryOnReconnect, { giveUp: true });
+  eq(api.liveJudgeFailure({ code: 'cancelled' }).text, '', '화면을 떠나 취소된 것은 말하지 않는다');
+  eq(api.liveJudgeFailure({ code: 'rate_limited' }, true).restore, false, '포기 자리표시자는 되살리지 않는다');
+  eq(api.liveRetryWaitText(9.1), '요청이 몰려서 잠깐 기다렸다 다시 보낼게요 · 10초');
+});
+test('답변 받아쓰기 본문 — 세션 id 를 맨 앞에 싣는다 (브리지가 purpose=qa_answer 는 보관하지 않는다, 09-30)', () => {
+  eq(BRIDGE.ANSWER_STT_SENDS_SESSION, true, '켬 — 요청 제한을 세션마다 세게 한다 (H-15)');
+  const def = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm' });
+  eq(Object.keys(def)[0], 'session_id');
+  eq([def.purpose, def.marks, def.audio_base64, def.ext], ['qa_answer', [], 'AAA', '.webm']);
+  const off = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm', sendSession: false });
+  eq('session_id' in off, false);
+  const on = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm', sendSession: true });
+  eq(Object.keys(on)[0], 'session_id', '켜면 맨 앞 — 큰 본문에서 정규식이 바로 찾는다');
+  eq('session_id' in BRIDGE.answerSttBody({ sessionId: null, sendSession: true }), false, '세션이 없으면 안 싣는다');
 });
 
 let failed = 0;

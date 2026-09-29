@@ -35,17 +35,18 @@ import {
   startAnswerRecording,
   startLiveDictation,
   transcribeAnswer,
-} from './chuckchuck_bridge.js';
+} from './chuckchuck_bridge.js?v=qkx6';
 import {
-  DELIVERY, MAX_SHOTS, MIC_LABEL, MIC_LABEL_PRESENT, TELL_STATUS, TELL_WORD, VERDICT_WORD,
+  DELIVERY, MAX_SHOTS, MIC_LABEL, MIC_LABEL_PRESENT, TELL_STATUS, TELL_WORD,
   appendTranscript, calibrateDelivery, cameraErrorText, captionTail, captureRoutes, clockText, countdownText,
-  createDelivery, deliveryObserve, deliverySummary, fitScale, hintLadder, meterText,
-  judgementBubble, newPen, paintDictation, presentCommand, selfViewErrorText, shotFileName, shotsAdvice,
+  createDelivery, degradedLines, deliveryObserve, deliverySummary, devOnlyDegraded, fitScale, giveupLabel, giveupSaid,
+  hintLadder, hintsForJudge, judgementBubble, judgementClosed, meterText, mergeLadder, newPen, paintDictation, presentCommand,
+  questionHistory, questionWhy, retryWaitText, scoredAnswers, selfViewErrorText, shotFileName, shotsAdvice,
   speakableJudgement, speechSettled, tally, voiceCommand,
-} from './booth_logic.js?v=b8';
+} from './booth_logic.js?v=b9';
 import {
   askQuestion, createOverlayState, enterPresent, enterQa, renderOverlay, setCaption, setMainOf, setPhaseOf,
-} from './booth_overlay_state.js?v=o3';
+} from './booth_overlay_state.js?v=o4';
 
 const PARSE_TIMEOUT_MS = 120000;
 const SOUND_KEY = 'cheokcheok:booth-sound';
@@ -81,8 +82,9 @@ const state = {
   graph: null,
   questions: [],
   idx: 0,
-  history: [],          // QaTurn dict (한글 키 — 굳은 계약)
-  perQ: {},             // question_id → { priorAnswers, hintsShown, hintLevel, verdicts[] }
+  history: [],          // QaTurn dict (한글 키 — 굳은 계약). 판정에는 지금 질문의 것만 보낸다 (questionHistory)
+  perQ: {},             // question_id → pq() 참고
+  qNotes: [],           // 질문 묶음의 폴백 표시(degraded_notes) — Q&A 첫 풍선 아래 한 줄로
   timers: {},
   pipWindow: null,
   // 마이크. 세션에 저장하지 않는다 — MediaRecorder 는 새로고침을 못 넘긴다.
@@ -117,6 +119,7 @@ const state = {
   calib: null,          // { until, motion: [], level: [] }
   typeTimer: null,      // 긴 질문을 어절 단위로 흘려 쓰는 중
   cutFrame: 0,          // 말풍선 열 스크롤 → markCut 한 프레임 한 번
+  judging: null,        // 판정을 기다리는 질문 id (요청 제한으로 다시 보내는 동안도) — 같은 답을 두 번 보내지 않는다
 };
 const QUIET_MS = 2500;
 const COUNTDOWN_S = 3;
@@ -368,6 +371,8 @@ async function runPipeline() {
     stageDone('questions');
     state.questions = (qdoc.questions || []).filter((q) => q && q.question);
     if (!state.questions.length) throw new Error('이 장면에서는 질문을 만들지 못했어요. 글자가 더 잘 보이게 다시 찍으면 만들 수 있어요.');
+    // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 그렇다고 말한다 — 짧게, Q&A 를 시작할 때 한 번 (09-30 WP-B)
+    state.qNotes = degradedLines(qdoc);
     state.idx = 0; state.history = []; state.perQ = {};
     startPresent();   // 질문보다 발표가 먼저다 (9/23) — 「질문 받기」를 누르면 Q&A 로 간다
   } catch (err) {
@@ -380,10 +385,25 @@ async function runPipeline() {
 
 /* ─── 3. 통화 — 내 모습 위로 질문·자막·판정이 오간다 ────────────────────── */
 function q() { return state.questions[state.idx]; }
+/**
+ * 질문 하나의 통화 기록. 결과 표(tally)·판정 요청이 여기서 읽는다.
+ *  asked      한 번이라도 띄웠나 — 결과 표의 「안 물었어요」 와 「답하기 전에 마쳤어요」 를 가른다 (H-13)
+ *  turns      [{ answer, verdict, giveUp, clarify }] — 채점된 답은 scoredAnswers 가 고른다 (B-10)
+ *  ladder     힌트 사다리. 판정이 같거나 긴 것을 주면 갈아탄다 (mergeLadder)
+ *  hintsSeen  실제로 연 힌트 칸의 글 — 판정에 「보여 준 힌트」 로 이것만 보낸다 (H-14)
+ *  closed     서버가 닫았나 (mastered) · closeReason good|rounds|guard (H-12)
+ *  coached    「모르겠어요」 코칭을 거쳤나 · explained 해설(explain)을 봤나 — 닫혀도 「도움 받아 답했어요」 로 센다
+ *  last       마지막 판정 — 코칭 되물음을 다음 판정에 싣고, 닫혔는지 본다
+ */
 function pq() {
-  const id = q().id;
-  if (!state.perQ[id]) state.perQ[id] = { priorAnswers: [], hintsShown: [], hintLevel: 0, verdicts: [] };
-  return state.perQ[id];
+  const cur = q();
+  if (!state.perQ[cur.id]) {
+    state.perQ[cur.id] = {
+      asked: false, turns: [], ladder: hintLadder(cur), hintsSeen: [], hintLevel: 0, verdicts: [],
+      closed: false, closeReason: '', coached: false, explained: false, notesShown: [], last: null,
+    };
+  }
+  return state.perQ[cur.id];
 }
 
 function isCoarse() { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
@@ -397,6 +417,7 @@ async function enterCall() {
   $('btn-pip').hidden = !('documentPictureInPicture' in window);
   $('btn-sound').hidden = !('speechSynthesis' in window);
   $('btn-mic').hidden = !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  $('btn-leave').hidden = false;   // 지난 통화의 마지막 질문에서 숨긴 채로 남지 않게 (renderJudgement)
   document.querySelector('.booth-qa-tools').hidden = false;
   mountPartner();
   watchDock();
@@ -699,21 +720,29 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 
 function renderQuestion() {
   const cur = q();
+  const p = pq();
+  p.asked = true;
   cancelCountdown();
   $('qa-count').textContent = `${state.idx + 1} / ${state.questions.length}`;
   state.overlay = askQuestion(state.overlay, { text: cur.question, tag: cur.label || '', scene: (cur.slide_nos || [])[0] ?? null });
   // 질문이 가리키는 장면을 작은 창에 띄운다 — 무엇을 묻는지 눈으로 같이 본다
   if (cur.slide_nos && cur.slide_nos.length) { state.slideIdx = Number(cur.slide_nos[0]) - 1; renderSlide(); }
   const chips = `<span class="booth-chip">${esc(cur.label || '')}</span>${(cur.slide_nos || []).length ? `<span class="booth-chip booth-chip-slide">${esc(cur.slide_nos.join('·'))}번 장면</span>` : ''}`;
-  const qb = bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${cur.why ? `<p class="call-why">${esc(cur.why)}</p>` : ''}`, { kind: 'question' });
+  // 이유 한 줄 — 함정 질문은 서버 이유가 함정임을 알려 주므로 중립 문장으로 (questionWhy · 09-30 B-01)
+  const why = questionWhy(cur);
+  // 폴백 재료로 만든 질문이면 첫 질문 아래 한 번만 그렇다고 적는다 (degraded_notes)
+  const qNote = state.idx === 0 && state.qNotes.length ? `<p class="call-note">${esc(state.qNotes.join(' '))}</p>` : '';
+  const qb = bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${why ? `<p class="call-why">${esc(why)}</p>` : ''}${qNote}`, { kind: 'question' });
   typeQuestion(qb.querySelector('.call-q'));
   $('qa-answer').value = '';
   state.userTyped = false;
   $('qa-answer').placeholder = '말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요.';
   note('qa-mic-note', '');
-  $('btn-hint').disabled = hintLadder(cur).length === 0;
+  $('btn-hint').disabled = p.hintLevel >= p.ladder.length;
+  $('btn-giveup').textContent = giveupLabel(p.turns.filter((t) => t.giveUp).length);
   $('btn-again').hidden = true;
   $('btn-next').hidden = true;
+  $('btn-leave').hidden = false;
   setAnswering(true);
   setPhase('asking');
   // 상대가 말을 마치면(읽어 주기 켬) 또는 잠깐 뒤(무음) 듣기 시작 — 통화에서는 상대가 묻고 내가 말한다
@@ -728,13 +757,13 @@ function setAnswering(on) {
 }
 
 function showHint() {
-  const cur = q(); const p = pq();
-  const ladder = hintLadder(cur);
-  if (p.hintLevel >= ladder.length) return;
-  const h = ladder[p.hintLevel++];
-  p.hintsShown.push(h);
+  const p = pq();
+  if (p.closed || p.hintLevel >= p.ladder.length) return;
+  const h = p.ladder[p.hintLevel++];
+  // 연 칸만, 연 그때의 글 그대로 판정에 보낸다 (hintsForJudge · 09-30 H-14)
+  p.hintsSeen.push(h);
   bubble('partner', `<p class="call-hint">힌트 ${p.hintLevel}. ${esc(h)}</p>`, { kind: 'hint' });
-  if (p.hintLevel >= ladder.length) $('btn-hint').disabled = true;
+  if (p.hintLevel >= p.ladder.length) $('btn-hint').disabled = true;
   setPhase('hint');
   speak(h);
 }
@@ -744,58 +773,120 @@ async function submit(giveUp) {
   if (state.mic) await stopMic({ silent: true });
   if (state.micPending) { note('qa-mic-note', state.micPending === 'transcribing' ? '받아쓰는 중이에요. 글자가 채워지면 「답하기」를 눌러요.' : '마이크를 여는 중이에요.'); return; }
   const cur = q(); const p = pq();
+  if (p.closed || state.judging === cur.id) return;   // 닫힌 질문·이 질문의 판정을 기다리는 중에는 더 보내지 않는다 (말로 「답할게요」 해도)
   const answer = $('qa-answer').value.trim();
   if (!giveUp && !answer) { note('qa-mic-note', '아직 답이 비어 있어요. 말하거나 자막을 눌러 적어요.'); return; }
   hush();
   setAnswering(false);
-  bubble('me', `<p>${esc(giveUp ? (answer || '모르겠어요, 답 볼게요') : answer)}</p>`, { kind: giveUp ? 'giveup' : 'answer' });
+  $('btn-again').hidden = true;   // 판정을 기다리는 동안(요청 제한으로 다시 보내는 동안도) 「다시 답하기」 는 할 일이 없다
+  // 내 말풍선 — 「모르겠어요」 는 그 말 그대로 (09-30 L-01: 「모르겠어요, 답 볼게요」 는 서버가 되물음 단계일 때도 떴다)
+  bubble('me', `<p>${esc(giveUp ? giveupSaid(answer) : answer)}</p>`, { kind: giveUp ? 'giveup' : 'answer' });
   $('qa-answer').value = '';
   state.userTyped = false;
   setPhase('judging');
+  // 이번 답이 실제로 받은 물음 — 되물음이 떠 있으면 그것이다 (앱 submitLiveAnswer 의 askedNow)
+  const askedNow = (p.last && !p.closed && p.last.followup) || cur.question;
+  state.judging = cur.id;
+  const stillHere = () => q() === cur && !$('call').hidden;
   try {
     const j = await judgeQaAnswer(state.sessionId, {
-      questionId: cur.id, answer, history: state.history, question: cur, giveUp,
-      priorAnswers: p.priorAnswers, hintsShown: p.hintsShown,
+      questionId: cur.id, answer, question: cur, giveUp,
+      history: questionHistory(state.history, cur.id),
+      priorAnswers: scoredAnswers(p.turns),
+      hintsShown: hintsForJudge(p.hintsSeen, p.last),
       artifacts: { graph: state.graph, context: state.context },
+      // 요청 제한·AI 서버 지연 — 기다렸다가 같은 답을 다시 보낸다. 남은 초를 안내 줄에 센다 (09-30 H-15)
+      onWait: ({ left, reason }) => { if (stillHere()) note('qa-mic-note', retryWaitText(left, reason)); },
+      stillWanted: stillHere,
     });
-    state.history.push({ '질문': cur.question, '답변': answer, '판정': j.verdict || 'unknown', question_id: cur.id, '포기': !!giveUp });
-    if (answer) p.priorAnswers.push(answer);
+    if (state.judging === cur.id) state.judging = null;
+    if (!stillHere()) return;   // 기다리는 사이 다음 질문·통화 마치기를 눌렀다 — 지난 질문의 판정을 새 화면에 얹지 않는다
+    const stage = j.coach_stage || '';
+    state.history.push({ '질문': askedNow, '답변': answer, '판정': j.verdict || 'unknown', question_id: cur.id, '포기': !!giveUp });
+    p.turns.push({ answer, verdict: j.verdict || 'unknown', giveUp: !!giveUp, clarify: stage === 'clarify' });
     p.verdicts.push(j.verdict || 'unknown');
+    p.last = j;
+    p.ladder = mergeLadder(p.ladder, j.hints);
+    if (giveUp) p.coached = true;
+    if (stage === 'explain') p.explained = true;
+    if (judgementClosed(j)) { p.closed = true; p.closeReason = j.close_reason || (j.verdict === 'good' ? 'good' : 'rounds'); }
+    const dev = devOnlyDegraded(j);
+    if (dev.length) console.info('[booth] 판정 폴백(화면 밖):', dev.join(', '));
     renderJudgement(j, giveUp);
   } catch (err) {
+    if (state.judging === cur.id) state.judging = null;
+    if (!stillHere() || (err && err.code === 'cancelled')) return;
     setAnswering(true);
     setPhase('asking');
-    bubble('partner', `<p>${esc((err && err.message) || '판정을 받지 못했어요. 연결이 잠깐 끊겼을 수 있어요. 다시 말하거나 적어서 답하면 돼요.')}</p>`, { kind: 'error' });
+    // 보낸 답은 자막 칸에 되살린다 — 다시 말하지 않고 「답하기」만 누르면 된다
+    if (answer && !giveUp) $('qa-answer').value = answer;
+    const msg = err && err.rateLimited
+      ? '요청이 몰려서 판정을 아직 못 받았어요. 조금 뒤에 「답하기」를 다시 누르면 판정해요.'
+      : ((err && err.message) || '판정을 받지 못했어요. 연결이 잠깐 끊겼을 수 있어요. 다시 말하거나 적어서 답하면 돼요.');
+    note('qa-mic-note', '');
+    bubble('partner', `<p>${esc(msg)}</p>`, { kind: 'error' });
   }
 }
 
+/** 판정 한 풍선의 속 — pill · 반응(닫혔을 때만 총평) · 빠진 것 · 되묻기/해설 · 보기 칩 · 폴백 한 줄 */
+function judgementHtml(b, notes) {
+  const missing = b.missing.length ? `<p class="call-missing-head">${esc(b.missingHead)}</p><ul class="booth-missing">${b.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '';
+  const tail = b.tail ? `<p class="${b.tail.kind === 'followup' ? 'call-followup' : 'call-explain'}">${esc(b.tail.text)}</p>` : '';
+  // 보기 칩 — 누르면 자막 칸에 들어간다. 바로 보내지 않는다(고쳐 쓸 여지 · 앱 qa-choice-chip 과 같은 규율)
+  const choices = b.tail && b.tail.choices && b.tail.choices.length
+    ? `<div class="call-choices">${b.tail.choices.map((c) => `<button type="button" class="call-choice">${esc(c)}</button>`).join('')}</div>` : '';
+  const note = notes.length ? `<p class="call-note">${esc(notes.join(' '))}</p>` : '';
+  return `<span class="booth-pill" data-v="${b.verdict}">${esc(b.word)}</span>${b.text ? `<p class="call-sum">${esc(b.text)}</p>` : ''}${missing}${tail}${choices}${note}`;
+}
+
 function renderJudgement(j, giveUp) {
-  const v = j.verdict || 'unknown';
+  const cur = q(); const p = pq();
   note('qa-mic-note', '');
   // 판정은 여러 개로 쪼개지 않고 풍선 하나에 담는다 (9/23 사용자: "판정 뒤에 말풍선 쌓이는 것도 최근 하나만")
   // — 앞 풍선은 치우지 않는다. 이전 질문·답은 위로 스크롤하면 그대로 있다
-  const b = judgementBubble(j, { giveUp, answerGist: q().answer_gist || '' });
-  if (b) {
-    const missing = b.missing.length ? `<p class="call-missing-head">빠진 것</p><ul class="booth-missing">${b.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '';
-    const tail = b.tail ? `<p class="${b.tail.kind === 'followup' ? 'call-followup' : 'call-explain'}">${esc(b.tail.text)}</p>` : '';
-    bubble('partner', `<span class="booth-pill" data-v="${b.verdict}">${esc(VERDICT_WORD[b.verdict] || b.verdict)}</span><p class="call-sum">${esc(b.text)}</p>${missing}${tail}`, { kind: 'verdict', verdict: b.verdict });
-  }
-  // 판정이 준 힌트는 사다리에 이어 붙인다 — 코치가 힌트와 이어지는 말로 반응한다
-  if (Array.isArray(j.hints) && j.hints.length) {
-    const p = pq();
-    for (const h of j.hints) { if (!p.hintsShown.includes(h)) p.hintsShown.push(h); }
-  }
+  const opts = { giveUp, answerGist: cur.answer_gist || '', trap: !!cur.trap };
+  const b = judgementBubble(j, opts);
+  // 자료 본문 없이 판정한 것 같은 폴백은 한 질문에 한 번만 짧게 (09-30 WP-B)
+  const notes = degradedLines(j).filter((n) => !p.notesShown.includes(n));
+  p.notesShown.push(...notes);
+  if (b) bubble('partner', judgementHtml(b, notes), { kind: 'verdict', verdict: b.verdict });
   const last = state.idx + 1 >= state.questions.length;
   $('btn-next').textContent = last ? '통화 마치기' : '다음 질문';
   $('btn-next').hidden = false;
-  $('btn-again').hidden = !!giveUp || v === 'good';
-  setPhase('judged', v);
-  const again = !giveUp && v !== 'good';
-  if (again) { setAnswering(true); $('qa-answer').placeholder = '되물었어요. 이어서 말해도 되고, 다음 질문으로 가도 돼요.'; }
+  // 마지막 질문에서는 「다음 질문」 자리가 곧 「통화 마치기」다 — 빨간 마치기를 하나 더 두지 않는다 (09-30 M-13)
+  $('btn-leave').hidden = last;
+  // 서버가 닫았으면(mastered) 되묻지 않는다 — 답칸·다시 답하기를 닫고 다음으로 (H-12). 닫히지 않았으면 「모르겠어요」 뒤에도
+  // 답칸과 「다시 답하기」를 열어 둔다 — 보기를 고르거나 빈칸을 채워 바로 답할 수 있어야 한다 (H-10)
+  const open = !p.closed;
+  $('btn-again').hidden = !open;
+  setPhase('judged', b ? b.verdict : (j.verdict || 'unknown'));
+  if (open) {
+    setAnswering(true);
+    $('btn-hint').disabled = p.hintLevel >= p.ladder.length;
+    $('btn-giveup').textContent = giveupLabel(p.turns.filter((t) => t.giveUp).length);
+    $('qa-answer').placeholder = b && b.tail && b.tail.choices && b.tail.choices.length
+      ? '보기를 누르거나 말해서 답해요. 다음 질문으로 가도 돼요.'
+      : '되물었어요. 이어서 말해도 되고, 다음 질문으로 가도 돼요.';
+  } else {
+    setAnswering(false);
+    $('qa-answer').placeholder = last ? '이 질문은 여기까지예요. 통화를 마치면 결과를 보여 줘요.' : '이 질문은 여기까지예요. 다음 질문으로 가요.';
+  }
   $('btn-next').focus();
   // 되물었으면 상대 말이 끝난 뒤 다시 듣는다 — 통화가 이어진다
-  const after = () => { if (state.autoTalk && again && state.phase === 'judged') toggleMic(); };
-  if (!speak(speakableJudgement(j, { giveUp, answerGist: q().answer_gist || '' }), after) && again) setTimeout(after, 1200);
+  const after = () => { if (state.autoTalk && open && state.phase === 'judged') toggleMic(); };
+  if (!speak(speakableJudgement(j, opts), after) && open) setTimeout(after, 1200);
+}
+
+/** 보기 칩을 누르면 자막 칸에 넣는다 — 보내지는 않는다. 자동 보내기도 멈춘다(손으로 고른 답이다) */
+function pickChoice(chip) {
+  const ta = $('qa-answer');
+  if (!ta || ta.disabled) return;
+  if (state.mic) stopMic({ silent: true });
+  cancelCountdown();
+  ta.value = chip.textContent.trim();
+  state.userTyped = true;
+  note('qa-mic-note', '고른 보기를 자막에 넣었어요. 고쳐도 되고, 「답하기」를 누르면 보내요.');
+  if (!isCoarse()) ta.focus();
 }
 
 function next() {
@@ -808,9 +899,11 @@ function next() {
 
 function again() {
   hush(); cancelCountdown();
+  if (pq().closed) return;
   $('qa-answer').value = '';
   state.userTyped = false;
   setAnswering(true);
+  $('btn-hint').disabled = pq().hintLevel >= pq().ladder.length;
   setPhase('asking');
   if (state.autoTalk) toggleMic(); else if (!isCoarse()) $('qa-answer').focus();
 }
@@ -1277,7 +1370,7 @@ async function stopMic({ silent = false } = {}) {
   state.micPending = 'transcribing';
   setMic('transcribing', true);
   try {
-    const text = await transcribeAnswer(await mic.session.stop());
+    const text = await transcribeAnswer(await mic.session.stop(), { sessionId: state.sessionId });
     if (text) {
       ta.value = appendTranscript(ta.value, text);
       // silent 은 「답하기」를 눌러 submit 이 멈춘 경우다 — 여기서 카운트다운을 걸면
@@ -1428,6 +1521,8 @@ $('call-bubbles').addEventListener('scroll', () => {
 }, { passive: true });
 // 풍선을 누르면 펼치고 다시 누르면 접는다 — 옛 풍선(한 줄)·판정·힌트·포기(두 줄 상한)·넘치는 지금 질문
 $('call-bubbles').addEventListener('click', (e) => {
+  const chip = e.target.closest('.call-choice');
+  if (chip) { e.stopPropagation(); pickChoice(chip); return; }
   const b = e.target.closest('.call-bubble');
   if (b && b.matches(EXPANDABLE)) toggleBubble(b);
 });

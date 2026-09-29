@@ -244,7 +244,9 @@ def test_함정_힌트_사다리는_자료_줄을_첫_칸에_두지_않는다():
     q = next(q for q in doc.questions if q.trap)
     ladder = build_hint_ladder(q)
     assert q.trap_premise.fact not in ladder[0] and "2장" in ladder[0]
-    assert any(q.trap_premise.fact in step for step in ladder[1:])
+    # 09-30 WP-Q(프런트 실측): 사다리는 질문 묶음에 통째로 실려 화면으로 간다 — 사실 줄은 어느 칸에도 없다. 판정·해설이 연다.
+    assert not any(q.trap_premise.fact in step for step in ladder)
+    assert "같은지" not in ladder[0]          # 「질문 속 수치가 자료와 같은지」 — 첫 칸이 함정임을 드러내지 않는다
 
 
 def test_계약_왕복():
@@ -282,9 +284,10 @@ def test_전제에_동의한_답은_함정_가드에_걸린다():
 
 def test_전제를_바로잡은_답은_LLM_이_틀려도_통과한다():
     q = _trap_question()
+    # 「자료와 달라요, 그렇게까지 줄지는 않았어요.」 는 여기서 뺐다 — 09-30 레드팀 J2: 무엇을 반박하는지 없는 「달라요」 는 코드가
+    # 바로잡음으로 정하지 않고 LLM 에 맡긴다 (tests/test_judge_redteam.py 가 그 경로를 본다).
     for answer in (q.answer_gist,
-                   "84%가 아니라 42%예요. 12분에서 7분으로 줄었어요.",
-                   "자료와 달라요, 그렇게까지 줄지는 않았어요."):
+                   "84%가 아니라 42%예요. 12분에서 7분으로 줄었어요."):
         j = _judge(q, answer, premise_corrected=False)
         assert j.verdict == "good" and j.react != _TRAP_AGREED_REACT, (answer, j.verdict, j.react)
 

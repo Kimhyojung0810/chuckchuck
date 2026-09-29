@@ -143,7 +143,7 @@ def test_긴장_탐침은_두_주장의_인용을_합치고_각도를_코드가_
     assert tension.claim_ids == ["c02", "c01"]
     assert [(e.slide_no, e.quote) for e in tension.evidence] == [
         (1, "수면 시간보다 중요한 수면의 질"), (4, "수면의 질 = 시간 × 연속성 × 규칙성")]
-    assert tension.angle == "「수면 시간보다 중요한 수면의 질」라면서 시간을 수면의 질의 요소로 둔다 — 두 말이 함께 성립하는 뜻을 묻는다"
+    assert tension.angle == "「수면 시간보다 중요한 수면의 질」이라면서 시간을 수면의 질의 요소로 둔다 — 두 말이 함께 성립하는 뜻을 묻는다"
 
 
 def test_견준_대상이_다른_노드여도_라벨이_겹치면_긴장이다():
@@ -197,7 +197,7 @@ def test_triage_프롬프트에_탐침_줄이_붙고_claims_없으면_안_붙는
     with_llm, without_llm = ScriptedLLM(), ScriptedLLM()
     triage_questions(GRAPH, claims=CLAIMS, llm=with_llm)
     triage_questions(GRAPH, llm=without_llm)
-    assert "탐침(tension): 「수면 시간보다 중요한 수면의 질」라면서" in with_llm.prompts[0]
+    assert "탐침(tension): 「수면 시간보다 중요한 수면의 질」이라면서" in with_llm.prompts[0]
     assert "탐침(" not in without_llm.prompts[0]
 
 
@@ -273,7 +273,9 @@ def test_탐침_개념을_빼먹은_질문은_탐침_템플릿으로_바뀐다()
 def test_LLM_이_비워도_탐침_템플릿이다_종류별_문장():
     doc, _ = build(claims=CLAIMS, questions=[])
     text = {q.node_id: q.question for q in doc.questions}
-    assert text["quality"] == "시간도 수면의 질의 요소인데, 수면의 질이 시간보다 중요하다는 건 어떤 뜻인가요?"
+    # 긴장 템플릿은 자료의 비교 줄 말 그대로 부른다 (「수면 시간보다 중요한 수면의 질」 → 「수면 시간」) — 09-30 held-out: 그래프 이름이
+    # 자료 낱말과 다르면(「대출 권수 감소」) 「…감소도 …의 요소인데」 가 됐다
+    assert text["quality"] == "수면 시간도 수면의 질의 요소인데, 수면의 질이 수면 시간보다 중요하다는 건 어떤 뜻인가요?"
     assert text["continuity"] == "시간에는 해결책을 제시했는데, 연속성은 어떻게 개선하나요?"
     assert all("probe_template" in q.basis.checks and "probe_nodes_missing" not in q.basis.checks for q in doc.questions)
 
@@ -283,8 +285,9 @@ def test_단정과_형제_우선순위_템플릿():
     probes = {p.kind: p for p in derive_probes(GRAPH, CLAIMS)}
     labels = {n.id: n.label for n in GRAPH.nodes}
     by = {n.id: n for n in GRAPH.nodes}
+    # 인용이 있으면 개념 이름을 머리에 달지 않는다 — 그래프 이름(「전세사기 완전 사라짐」)이 자료의 말이 아닐 수 있다 (09-30 held-out)
     assert probe_question(probes["absolute_boundary"], labels, by, CLAIMS) == \
-        "규칙성에 대해 「주말에 몰아 자면 리듬은 반드시 무너집니다.」라고 했는데, 이 말이 들어맞지 않는 경우도 있나요?"
+        "「주말에 몰아 자면 리듬은 반드시 무너집니다.」라고 했는데, 이 말이 들어맞지 않는 경우도 있나요?"
     assert probe_question(probes["sibling_priority"], labels, by, CLAIMS) == \
         "시간과 연속성 중 하나만 챙길 수 있다면, 수면의 질에는 어느 쪽이 더 중요한가요?"
     assert probe_question(probes["unsupported_cause"], labels, by, CLAIMS) == \

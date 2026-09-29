@@ -381,3 +381,17 @@ def test_키는_앞뒤_글자_없이_길이만_찍는다():
     s = replace(Settings.load(), upstage_api_key=fake_key)
     out = s.masked()
     assert "up_ABC" not in out and "1234" not in out and "설정됨(길이 23)" in out
+
+
+def test_transcribe_는_질문_코칭_답변을_세션_발표_받아쓰기로_보관하지_않는다(real, monkeypatch):
+    # 09-30 qa/front: 답변 한 마디가 그 세션의 transcript 를 덮으면 새로고침 복구·기억이 답변을 발표로 읽는다
+    from chuckchuck.contracts import Transcript
+    archived = []
+    monkeypatch.setattr(bridge.Handler, "_archive", lambda self, body, kind, payload: archived.append((kind, body.get("purpose"))))
+    monkeypatch.setattr(bridge, "transcribe", lambda path, marks, provider=None: Transcript.from_dict(
+        {"full_text": "답이에요", "words": [], "by_slide": [], "provider": "fixture", "duration_sec": 1}))
+    audio = base64.b64encode(b"abc").decode()
+    _post("/api/v1/transcribe", {"session_id": "20260930T015107Z_abcdef12", "purpose": "qa_answer", "audio_base64": audio, "marks": []})
+    assert archived == []
+    _post("/api/v1/transcribe", {"session_id": "20260930T015107Z_abcdef12", "audio_base64": audio, "marks": []})
+    assert archived == [("transcript", None)]

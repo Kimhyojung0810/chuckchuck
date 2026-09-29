@@ -54,6 +54,31 @@ _SUPPORT_CLAIM_RE = re.compile(
 #: 두 말을 잇는 표지 — 긴장 질문에 「어떻게 함께 성립하는가」 를 말한 답.
 _RECONCILE_RE = re.compile(r"동시에|함께|이면서|지만|반면|뜻|의미|구분|차이|측면|관점|수준|범위|아니라|대신|전제|조건")
 
+#: 단정을 **더 세게** 받아들이는 말 — 「어떤 경우에도·항상·예외 없이」. 「경우·예외」 가 들어 있지만 경계가 아니라 동의다.
+#: 09-30 레드팀 J3: 「어떤 경우에도 식사 순서만 바꾸면 … 완전히 막을 수 있어서 걱정하지 않아도 돼요」 가 「경우」「않」 하나로
+#: 단정 가드를 꺼서 wrong 0 대신 LLM 판정에 맡겨졌다(이번엔 LLM 이 막았지만 운이다).
+_UNIVERSAL_RE = re.compile(
+    r"어떤\s*경우(?:에도|든|라도)|어느\s*경우(?:에도|든|라도)|모든\s*경우(?:에|에도)?|언제(?:나|든)|항상|무조건|"
+    r"예외\s*(?:없이|가\s*없|는\s*없)|반드시|절대(?:로)?|100\s*%"
+)
+#: 경계 표지를 앞뒤 절까지 넓혀 볼 대조 어미 — 「…막을 수 있다고 했지만, 탄수화물이 많으면 아니에요」.
+_CONTRAST_END_RE = re.compile(r"(?:지만|는데|은데|으나|다만)[^가-힣A-Za-z0-9]*$")
+#: 근거가 **비었다고 밝힌** 말 — 근거를 가리키는 낱말 + 없음·부족. 「추가 확인이 필요해요」 같은 막연한 유보는 아니다.
+_EVIDENCE_GAP_RE = re.compile(
+    r"(?:근거|수치|출처|자료|데이터|통계|연구|실험|증거|사례|숫자)[^.?!\n]{0,14}"
+    r"(?:없|부족|모자라|빠져|안\s*나와|안\s*나오|제시되지\s*않|제시하지\s*않|확인되지\s*않|밝혀지지\s*않|달지\s*않|안\s*달)"
+)
+#: 근거를 **어떻게 보강할지** 말하는 동사 — 출처 낱말(설문·통계…)과 같은 문장에 있을 때만 보강 계획이다.
+_PLAN_VERB_RE = re.compile(r"보강|보완|조사|모으|모아|측정|비교|찾아|구해|확인|검증|받아|받으|수집|분석|추적|물어")
+#: 필요·당위 — 「연구가 필요해요」 는 출처를 댄 말이 아니라 유보다.
+_NEED_RE = re.compile(r"필요|해야|돼야|되어야|아직|확인|검증|보완|보강|없|부족")
+#: 새 낱말로 세지 않는 유보·강조·지시어 — 「이건 추가 확인이 필요해요」 는 아무것도 보태지 않는다.
+_HEDGE_STEMS = ("추가", "확인", "필요", "검증", "보완", "보강", "아직", "조금", "정확", "확실", "더욱", "계속", "나중",
+                "이건", "그건", "저건", "이거", "그거", "여기", "거기")
+_SENT_SPLIT_RE = re.compile(r"(?<=[.?!])\s+|\n+")
+#: 따옴표로 묶은 인용 — '…' "…" 「…」 «…» ‘…’ “…”.
+_QUOTED_SPAN_RE = re.compile(r"'[^'\n]{2,120}'|\"[^\"\n]{2,120}\"|「[^」]{2,120}」|«[^»]{2,120}»|‘[^’\n]{2,120}’|“[^”\n]{2,120}”")
+
 
 def probe_of(question):
     """질문이 탐침에서 나왔으면 그 Probe, 아니면 None."""
@@ -125,9 +150,31 @@ def _clauses(text: str) -> list[str]:
 
 
 def _novel(answer: str, question_text: str, quotes: list[str]) -> list[str]:
-    """질문·탐침 줄에 없는 답의 낱말 — 되풀이 말고 무엇을 **보탰는가**."""
+    """질문·탐침 줄에 없는 답의 낱말 — 되풀이 말고 무엇을 **보탰는가**. 유보어(「추가 확인이 필요해요」)는 보탠 것이 아니다."""
     known = content_stems(" ".join([question_text, *quotes]))
-    return [s for s in dict.fromkeys(content_stems(answer)) if not _has(known, s) and not s.startswith(_FILLER)]
+    # 방향 낱말(「커지니까요」)은 인과 줄의 서술어를 활용만 바꿔 되풀이한 것이다 — 보탠 낱말이 아니다.
+    return [s for s in dict.fromkeys(content_stems(answer))
+            if not _has(known, s) and not s.startswith(_FILLER) and not s.startswith(_HEDGE_STEMS) and not direction(s)]
+
+
+def _scope(clauses_: list[str], i: int) -> str:
+    """
+    i 번째 절과, 대조 어미로 이어진 앞·뒤 절 — 단정을 옮긴 절에 붙은 경계 표지를 볼 범위.
+    「…막을 수 있다고」 + 「했지만」 처럼 절 나누기가 떼어 낸 짧은 보고·보조 절(두 어절 이하)은 앞 절에 붙여 본다.
+    """
+    j, text = i, clauses_[i]
+    while j + 1 < len(clauses_) and len(clauses_[j + 1].split()) <= 2 and not _CONTRAST_END_RE.search(text):
+        j += 1
+        text = f"{text} {clauses_[j]}"
+    if _CONTRAST_END_RE.search(text) and j + 1 < len(clauses_):
+        text = f"{text} {clauses_[j + 1]}"
+    if i > 0 and _CONTRAST_END_RE.search(clauses_[i - 1]):
+        text = f"{clauses_[i - 1]} {text}"
+    return text
+
+
+def _sentences(text: str) -> list[str]:
+    return [x.strip() for x in _SENT_SPLIT_RE.split(text or "") if x.strip()]
 
 
 def _new_number(answer: str, question_text: str, quotes: list[str]) -> bool:
@@ -160,23 +207,58 @@ def restates_line(answer: str, probe, q_text: str = "") -> str:
     if not quotes or not text:
         return ""
     kind = probe.kind
-    pieces = [(c, _stems(c)) for c in _clauses(text)]
+    parts = _clauses(text)
+    pieces = [(c, _stems(c)) for c in parts]
     if kind == "absolute_boundary":
-        if _BOUNDARY_RE.search(text):
-            return ""
-        for clause, stems in pieces:
-            if any(_restates(stems, q) for q in quotes) and R.absolute_marker(clause):
+        # 경계 표지는 **단정을 옮긴 절**(과 대조 어미로 이어진 앞뒤 절)에 있어야 센다 (09-30 레드팀 J3). 예전엔 답 어디에든
+        # 「경우·없·않·다르·일부」 하나만 있으면 가드가 꺼졌다 — 「걱정하지 않아도 돼요」 의 「않」 이 단정을 풀어 준 셈이었다.
+        # 단정 줄 **자체에** 든 표지(「절대 하루 3번을 넘지 **않**습니다」 의 않)는 경계가 아니라 옮긴 말이다 — 줄에 없던 표지만 센다.
+        quoted_marks = [m for q in quotes for m in _BOUNDARY_RE.findall(q)]
+        for i, (clause, stems) in enumerate(pieces):
+            # 따옴표로 **인용한** 단정(「자료 5장의 '…하나도 없다'는 문장이 이를 명시해요」)은 출처를 댄 것이지 단정을 되풀이한 게
+            # 아니다 — 인용 부분을 빼고 본다 (09-30 verify 하네스: 좋은 답이 이 인용 때문에 되풀이 55 를 받았다).
+            bare = _QUOTED_SPAN_RE.sub(" ", clause)
+            if bare != clause:
+                stems = _stems(bare)
+            if not (any(_restates(stems, q) for q in quotes) and R.absolute_marker(bare)):
+                continue
+            marks = _BOUNDARY_RE.findall(_UNIVERSAL_RE.sub(" ", _scope(parts, i)))
+            for m in quoted_marks:
+                if m in marks:
+                    marks.remove(m)
+            if not marks:
                 return kind
         return ""
     if kind == "unsupported_cause":
-        if _new_number(text, q_text, quotes) or _GAP_RE.search(text):
+        if _new_number(text, q_text, quotes):
+            return ""
+        # 인과는 연결 어미(「발달해서」)에서 절이 갈리므로 **문장**이 되풀이의 단위다. 근거가 비었다는 인정은 ① 인과를 옮긴 문장 안의
+        # 유보 표지이거나 ② 근거 낱말 + 없음(「출처는 없어요」)이어야 한다 — 따로 떨어진 「추가 확인이 필요해요」 는 아니다 (J3).
+        sents = _sentences(text) or [text]
+        restating = [x for x in sents if any(_restates(_stems(x), q) for q in quotes)]
+        # 인과 줄 **자체에** 든 유보 낱말(「주소 **검증**을 붙이면」 의 검증)은 인정이 아니라 옮긴 말이다 — 줄에 없던 표지만 센다.
+        line_gaps = [m for q in quotes for m in _GAP_RE.findall(q)]
+
+        def own_gap(sentence: str) -> bool:
+            found = _GAP_RE.findall(sentence)
+            for m in line_gaps:
+                if m in found:
+                    found.remove(m)
+            return bool(found)
+
+        acknowledged = any(_EVIDENCE_GAP_RE.search(x) for x in sents) or any(own_gap(x) for x in restating)
+        planned = any(_SOURCE_RE.search(x) and _PLAN_VERB_RE.search(x) for x in sents)
+        if acknowledged or planned:
             return ""
         if _PROOF_CLAIM_RE.search(text):
             return kind          # 수치도 인정도 없이 「입증됐다·명확하다」 — 근거를 댄 것이 아니라 주장한 것이다
-        if _SOURCE_RE.search(text):
+        # 출처를 **댄** 말(「조사에 따르면」)만 근거다 — 「연구가 필요해요」 처럼 필요·당위와 같이 온 출처 낱말은 유보다.
+        if any(_SOURCE_RE.search(x) and not _NEED_RE.search(x) for x in sents):
             return ""
         said = _stems(text)
-        if any(_restates(said, q) for q in quotes) and len(_novel(text, q_text, quotes)) < NOVEL_MIN:
+        # 보탠 낱말은 유보 문장(「연구가 필요해요」 — 인과를 옮기지도, 근거가 없다고 밝히지도 않은 필요·당위 문장) 밖에서만 센다.
+        core = " ".join(x for x in sents if x in restating or not _NEED_RE.search(_QUOTED_SPAN_RE.sub(" ", x)))
+        if any(_restates(said, q) for q in quotes) and len(_novel(core, q_text, quotes)) < NOVEL_MIN:
             return kind
         return kind if _SUPPORT_CLAIM_RE.search(text) else ""
     if kind == "tension" and len(quotes) >= 2:
