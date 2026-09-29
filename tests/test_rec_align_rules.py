@@ -337,3 +337,13 @@ def test_skip_target_by_slide_shape_and_previous_sentence():
     prev = Utterance(6, 6, 0, "하반기 계획은 단톡방에 따로 올려 둘게요.")
     cue2 = Utterance(7, 7, 0, "여기는 스킵하고 바로 정리할게요.", skip=True)
     assert list(skip_targets([prev, cue2], texts)) == [6]               # 앞 문장이 그 장을 불렀다 — 「정리」 는 가는 곳
+
+
+def test_unitless_value_against_a_named_row_with_the_unit_in_the_header():
+    """표 단위가 머리 칸에만 있으면 답도 단위를 뺀다 — 행 이름을 부른 값이 그 행 값과 다르면 어긋남 (09-30 standard 실행, 조정자)."""
+    bakery = deck_of("손실 요인\n| 요인 | 월 손실 (만 원) |\n| --- | --- |\n| 재고 폐기 | -120 |\n| 포장재 | -45 |\n| 배달 수수료 | -80 |")
+    got = conflicts("재고 폐기의 값이 -90이라고 나와요.", bakery)
+    assert [(c.kind, c.said, c.deck_value) for c in got] == [("number", "-90", "-120만원")]
+    assert conflicts("재고 폐기는 -120이에요.", bakery) == []
+    assert conflicts("재고 폐기는 120 정도 손해예요.", bakery) == []            # 부호를 빼고 말해도 크기가 같으면 맞다
+    assert conflicts("재고 폐기와 배달 수수료 차이는 40이에요.", bakery) == []  # 두 행을 부른 계산

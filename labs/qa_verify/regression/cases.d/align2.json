@@ -441,6 +441,79 @@
      ]
     }
    }
+  },
+  {
+   "id": "rec_row_value_unitless",
+   "title": "단위를 머리 칸에만 적은 표의 행 값을 단위 없이 다르게 말한 답(「집중 투자의 값이 -0.4」 ↔ 표 「집중 투자 | -0.6」)은 수치 어긋남 — 표 전체의 차로 면제하지 않는다",
+   "origin": "09-30 standard 실행 int3 005ab5e 수익률격차 Q3 WRONG (조정자) · WP 정합 대조 2",
+   "kind": "align_contra",
+   "source": {
+    "file": "var/data/sessions/2026/09/29/20260929T010009Z_8d99e152/slide_doc.json",
+    "base": "main",
+    "slides": [
+     5
+    ]
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 5,
+      "text": "자료를 보면 원인 상세라고 하고, 집중 투자의 값이 -0.4라고 하고, 집중 투자 — 종목 수가 적을수록 결과의 진폭이 커진다고 해요.",
+      "expect": {
+       "family": "number",
+       "slide": 5
+      }
+     },
+     {
+      "slide_no": 5,
+      "text": "집중 투자는 -0.6이에요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 5,
+      "text": "과잉 매매와 거래 비용 차이는 1.4예요.",
+      "expect": "none"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_row_value_unitless_neutral",
+   "title": "(위 사례의 다른 분야 쌍둥이 — 동네 제과점 월 손실 요인 표, 단위는 머리 칸의 「(만 원)」 에만)",
+   "origin": "tests/test_rec_align_rules.py 와 같은 꼴",
+   "kind": "align_contra",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 3,
+       "text": "손실 요인\n| 요인 | 월 손실 (만 원) |\n| --- | --- |\n| 재고 폐기 | -120 |\n| 포장재 | -45 |\n| 배달 수수료 | -80 |"
+      }
+     ]
+    }
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 3,
+      "text": "재고 폐기의 값이 -90이라고 나와요.",
+      "expect": {
+       "family": "number",
+       "slide": 3
+      }
+     },
+     {
+      "slide_no": 3,
+      "text": "재고 폐기는 -120이에요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 3,
+      "text": "재고 폐기와 배달 수수료 차이는 40이에요.",
+      "expect": "none"
+     }
+    ]
+   }
   }
  ]
 }

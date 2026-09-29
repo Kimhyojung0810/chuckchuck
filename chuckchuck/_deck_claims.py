@@ -745,7 +745,8 @@ def _approx_near(num: Num, value: Num) -> bool:
     if num.unit in ("pct", "pp"):
         band = APPROX_PP_ROUND if abs(num.value) % 10 == 0 else APPROX_PP_EXACT
         return abs(num.value - value.value) <= band
-    return bool(value.value) and abs(num.value - value.value) <= APPROX_RATIO * abs(value.value)
+    # 상대 오차, 또는 자료 값의 끝자리 한 칸(「약 0.5」 ↔ 0.6 · 「약 6명」 ↔ 5명) 가운데 넓은 쪽
+    return bool(value.value) and abs(num.value - value.value) <= max(APPROX_RATIO * abs(value.value), 10 ** -value.decimals)
 
 
 #: 수 뒤의 한계 표지 — 「30분 넘게」「70% 이상」 은 그보다 큰 값, 「5,500건 가까이」「10% 미만」 은 그보다 작은 값을 말한다.
@@ -839,7 +840,12 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
     nums = numbers(clause)
     lines_ids = {id(x) for x in deck.lines}
     for idx, num in enumerate(nums):
-        if num.unit is None or deck.has_number(num) or any(num.same_value(q) for q in q_nums):
+        if any(num.same_value(q) for q in q_nums):
+            continue
+        if num.unit is None:
+            out += _row_value_conflict(clause, idx, nums, deck, lines_ids, lead)
+            continue
+        if deck.has_number(num):
             continue
         subject, label_idx = _subject_before(clause, idx, nums, deck)
         if not subject and idx == 0 and not content_stems(clause[:num.start]) and lead:
@@ -974,11 +980,66 @@ def _pair_conflicts(clause: str, deck: Deck) -> list[Conflict]:
     return out
 
 
+#: 단위 없이 **값으로** 말한 수의 뒤 — 조사·서술어·어림 말. 이름의 일부(「1사」「2루」)나 모르는 단위(「3.2도」「64.56조원」)는 아니다.
+_BARE_VALUE_TAIL_RE = re.compile(
+    r"(?:\s*$|\s*[,.]|(?:이라고|라고|이라는|라는|이에요|예요|이었|였|입니다|이다|이며|이고|으로|로|이|가|은|는|을|를|의|과|와|까지|에서|보다)"
+    r"(?![가-힣])|(?:이라고|라고|이에요|예요|이었|였|입니|이다|이며|이고|으로|로)|\s+(?:정도|쯤|가량|안팎|이었|였)|정도|쯤|가량)"
+)
+
+
+def _row_value_conflict(clause: str, idx: int, nums: list[Num], deck: Deck, lines_ids: set[int],
+                        lead: str = "") -> list[Conflict]:
+    """
+    단위 없이 말한 수가 **이름을 부른 표 행**의 값과 다르다 — 표는 단위를 머리 칸(「Profit Margin (p.p., Annual)」「(%)」)에만 적어서
+    말할 때도 단위를 빼기 쉽다(「집중 투자의 값이 -0.4라고」, 자료 표 「집중 투자 | -0.6」 — 09-30 standard 실행에서 통과했다).
+    단위 없는 수는 자료의 아무 같은 수와 짝지어지므로(`has_number`) 예전엔 건너뛰었다. 여기서는 이렇게 **다** 맞을 때만 잡는다.
+    - 수 바로 앞 말에 표 칸 행 이름의 낱말이 전부 있고, 같은 장의 다른 행 이름은 절에 없다.
+    - 그 행 칸 값 어느 것과도 크기가 다르다(부호는 안 본다 — 「0.6 낮아요」 처럼 빼고 말하기 쉽다).
+    - 그 행 값들로 계산한 수(합·차)가 아니고, 어림·한계 표지가 붙었으면 그 폭 밖이다.
+    """
+    num = nums[idx]
+    # 값으로 말한 수만 — 뒤가 조사·서술(「-0.4라고」「-120이에요」「90 정도」)일 때. 「1사 2루」「7시」「3.2도」 처럼 수 뒤에 이름·세는
+    # 말이 붙으면 값이 아니라 이름이거나 단위를 모르는 수다.
+    if not _BARE_VALUE_TAIL_RE.match(clause[num.end:]):
+        return []
+    # 절 머리의 수면 같은 문장의 앞 절 끝(몇 낱말)도 본다 — 「재고」「광고」 처럼 「고」 로 끝나는 명사에서 절이 갈려 행 이름이
+    # 앞 절로 떨어진다(「재고 | 폐기의 값이 -90이라고」).
+    tail = " ".join((lead or "").split()[-6:]) if idx == 0 else ""
+    before = f"{tail} {clause[nums[idx - 1].end if idx > 0 else 0:num.start]}"
+    said = content_stems(before)
+    clause_stems = content_stems(f"{tail} {clause}")
+    # 값 칸이 하나뿐인 행만 — 칸이 여럿이면(「출근 7~9시 | 158% | 24.6℃」) 단위 없는 수가 어느 칸의 값인지 모른다
+    single = {_row_key(r.text) for r in deck.lines if r.is_row and len(r.nums) == 1}
+    cells = [r for r in deck.regions
+             if r.is_row and id(r) not in lines_ids and len(r.nums) == 1 and r.nums[0].unit is not None
+             and _row_key(r.text) in single]
+    owned: list[DeckLine] = []
+    for r in cells:
+        key = content_stems(_row_key(r.text))
+        if key and all(_has(said, k) for k in key) and not _names_other_row(clause_stems, r, deck):
+            owned.append(r)
+    if not owned:
+        return []
+    vals = [n for r in owned for n in r.nums]
+    # 계산한 수는 **그 행** 값들로만 본다 — 표 전체의 차를 다 허용하면 행이 다섯이면 차가 열 개라 틀린 값 대부분이 「계산」 이 된다
+    # (「집중 투자 -0.4」 가 거래 비용 -0.2 와 집중 투자 -0.6 의 차로 면제됐다). 다른 행을 부른 절은 위에서 이미 뺐다.
+    if any(num.close_value(v) for v in vals) or _derived(num, vals):
+        return []
+    if (_approx(clause, num) and any(_approx_near(num, v) for v in vals)) or _bound_ok(clause, num, vals):
+        return []
+    owner = min(owned, key=lambda r: len(r.text))
+    key = " ".join(content_stems(_row_key(owner.text)))
+    return [Conflict("number", owner.slide_no, owner.text, clause, f"{key}의 수치",
+                     said=num_label(num), deck_value=num_label(owner.nums[0]))]
+
+
 def _names_other_row(clause_stems: list[str], row: DeckLine, deck: Deck) -> bool:
     """절이 같은 장 표의 **다른 행** 이름을 부르는가."""
+    own_key = _row_key(row.text)
     for r in deck.lines:
         # 값이 없는 행(머리 행 「시간대 | 평균 혼잡도 | …」)은 다른 행이 아니다 — 그 열 이름이 행 이름을 가리키는 말이다.
-        if not r.is_row or r is row or r.slide_no != row.slide_no or not r.nums:
+        # 칸 하나(「타이밍 실패 | 열 머리 | -1.2」)와 그 행 줄(「타이밍 실패 | -1.2」)은 같은 행이다.
+        if not r.is_row or r is row or r.slide_no != row.slide_no or not r.nums or _row_key(r.text) == own_key:
             continue
         key = content_stems(_row_key(r.text))
         if key and all(_has(clause_stems, k) for k in key):
