@@ -1,0 +1,197 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "provider": "openalex+arxiv+europepmc",
+ "note": "",
+ "refs": [
+  {
+   "id": "s01",
+   "kind": "scholar",
+   "title": "Time course of perceptual, cognitive, physical and physiological responses to a single non-sleep deep rest session in physically active young adults",
+   "authors": [
+    "Boukhris",
+    "Suppiah",
+    "Kerkeni"
+   ],
+   "et_al": false,
+   "year": 2026,
+   "venue": "",
+   "doi": "10.1111/aphw.70180",
+   "url": "https://doi.org/10.1111/aphw.70180",
+   "abstract": "Non-sleep deep rest (NSDR), a brief guided relaxation technique involving slow breathing and sequential body awareness, has recently been proposed as a practical rest strategy. However, evidence on its short-term time course and physiological responses remains limited. This study examined the effects of a brief NSDR session on perceptual, cognitive, physical, and physiological outcomes in physically active young adults. In a parallel-group design, 102 participants (mean age: 22 ± 3 years) were randomly allocated to either a 10-min guided NSDR protocol (n = 51) or a control condition (n = 51). Perceptual outcomes included sleepiness, fatigue, readiness to perform, as well as muscular stress, lack of activation, negative emotional state, overall stress, physical performance capacity, mental performance capacity, emotional balance and overall recovery (short recovery and stress scale), alongside cognitive (Simon task) and physical (handgrip strength and countermovement jump) performance assessed at baseline, immediately, 20 min and 40 min post-intervention. Physiological responses (heart rate, heart rate variability and skin temperature) were recorded continuously during the intervention. Linear mixed-effects models showed that NSDR resulted in significant Group × Time improvements across perceptual measures, including reduced sleepiness (p = .009, η p 2 = .03), fatigue (p = .001, η p 2 = .05), stress (p = .005, η p 2 = .04) and lack of activation (p = .011, η p 2 = .04), alongside enhanced mental performance capacity (p = .008, η p 2 = .04) and overall recovery (p = .014, η p 2 = .03) compared to control. Reaction time in the Simon task (Group × Time: p p 2 = .07) was enhanced in the NSDR group immediately post-intervention (p = .012), while no differences were observed at later assessments. Physiological responses showed a significant Group × Time interaction for heart rate, indicating a greater relative reduction during NSDR compared to control, alongside a smaller rise in skin temperature in the NSDR condition (p .05). These findings suggest that NSDR was associated with consistent improvements in perceptual outcomes, while cognitive findings were transient and physiological findings were modest and should be interpreted cautiously. These results support further evaluation of NSDR as a brief, time-efficient acute rest intervention.",
+   "cited_by": 0,
+   "slide_no": 0,
+   "node_ids": [
+    "deep-sleep"
+   ],
+   "query": "deep sleep recovery effect",
+   "source": "europepmc",
+   "cite_key": "Boukhris et al. (2026)"
+  },
+  {
+   "id": "s02",
+   "kind": "scholar",
+   "title": "Comparing the Effects of a Short Nap and Non-Sleep Deep Rest on Perceptual, Cognitive, and Physical Performance in Active Adults",
+   "authors": [
+    "Boukhris",
+    "Suppiah",
+    "Driller"
+   ],
+   "et_al": false,
+   "year": 2026,
+   "venue": "",
+   "doi": "10.3390/clockssleep8030052",
+   "url": "https://doi.org/10.3390/clockssleep8030052",
+   "abstract": "This study compared the effects of a 25-min nap opportunity and a 10-min non-sleep deep rest (NSDR) condition on perceptual, cognitive, and physical performance in physically active young adults. Sixty participants (26 female, 34 male; 22 ± 4 years) were randomly assigned to one of three groups (nap, NSDR, control; n = 20 each). All groups completed identical assessments immediately, 20 min, and 40 min post-intervention. Mixed-effects models, adjusted for sex, prior-night sleep, and weekly physical activity, revealed a significant group × time interaction for sleepiness, fatigue, readiness to perform, and handgrip strength ( p p > 0.05). At 40 min post-intervention, the nap group reported lower fatigue than control ( p = 0.01, Cohen's d = 0.98) and higher readiness to perform than both control ( p p = 0.001, Cohen's d = 1.25). For handgrip strength, although a significant group × time interaction was observed, post-hoc comparisons showed no significant between-group differences at any time point. No significant effects were observed for the NSDR condition on perceptual, cognitive, or physical outcomes ( p > 0.05). These findings indicate that a short nap can enhance perceived readiness and reduce fatigue after a brief latency period, whereas NSDR did not elicit significant effects under the present conditions.",
+   "cited_by": 0,
+   "slide_no": 0,
+   "node_ids": [
+    "deep-sleep"
+   ],
+   "query": "deep sleep recovery effect",
+   "source": "europepmc",
+   "cite_key": "Boukhris et al. (2026)"
+  },
+  {
+   "id": "s03",
+   "kind": "scholar",
+   "title": "REM Sleep, Prefrontal Theta, and the Consolidation of Human Emotional Memory",
+   "authors": [
+    "Nishida",
+    "Pearsall",
+    "Buckner"
+   ],
+   "et_al": false,
+   "year": 2008,
+   "venue": "Cerebral Cortex",
+   "doi": "10.1093/cercor/bhn155",
+   "url": "https://doi.org/10.1093/cercor/bhn155",
+   "abstract": "Both emotion and sleep are independently known to modulate declarative memory. Memory can be facilitated by emotion, leading to enhanced consolidation across increasing time delays. Sleep also facilitates offline memory processing, resulting in superior recall the next day. Here we explore whether rapid eye movement (REM) sleep, and aspects of its unique neurophysiology, underlie these convergent influences on memory. Using a nap paradigm, we measured the consolidation of neutral and negative emotional memories, and the association with REM-sleep electrophysiology. Subjects that napped showed a consolidation benefit for emotional but not neutral memories. The No-Nap control group showed no evidence of a consolidation benefit for either memory type. Within the Nap group, the extent of emotional memory facilitation was significantly correlated with the amount of REM sleep and also with right-dominant prefrontal theta power during REM. Together, these data support the role of REM-sleep neurobiology in the consolidation of emotional human memories, findings that have direct translational implications for affective psychiatric and mood disorders.",
+   "cited_by": 616,
+   "slide_no": 0,
+   "node_ids": [
+    "rem-sleep"
+   ],
+   "query": "REM sleep memory consolidation emotional processing",
+   "source": "openalex",
+   "cite_key": "Nishida et al. (2008)"
+  },
+  {
+   "id": "s04",
+   "kind": "scholar",
+   "title": "The role of REM sleep theta activity in emotional memory",
+   "authors": [
+    "Hutchison",
+    "Rathore"
+   ],
+   "et_al": false,
+   "year": 2015,
+   "venue": "Frontiers in Psychology",
+   "doi": "10.3389/fpsyg.2015.01439",
+   "url": "https://doi.org/10.3389/fpsyg.2015.01439",
+   "abstract": "While non-REM (NREM) sleep has been strongly implicated in the reactivation and consolidation of memory traces, the role of rapid-eye movement (REM) sleep remains unclear. A growing body of research on humans and animals provide behavioral evidence for a role of REM sleep in the strengthening and modulation of emotional memories. Theta activity-which describes low frequency oscillations in the local field potential within the hippocampus, amygdala and neocortex-is a prominent feature of both wake and REM sleep in humans and rodents. Theta coherence between the hippocampus and amygdala drives large-scale pontine-geniculo-occipital (PGO) waves, the density of which predicts increases in plasticity-related gene expression. This could potentially facilitate the processing of emotional memory traces within the hippocampus during REM sleep. Further, the timing of hippocampal activity in relation to theta phase is vital in determining subsequent potentiation of neuronal activity. This could allow the emotionally modulated strengthening of novel and gradual weakening of consolidated hippocampal memory traces during REM sleep. Hippocampal theta activity is also correlated with REM sleep levels of achetylcholine - which is thought to reduce hippocampal inputs in the neocortex. The additional low levels of noradrenaline during REM sleep, which facilitate feedback within the neocortex, could allow the integration of novel memory traces previously consolidated during NREM sleep. We therefore propose that REM sleep mediates the prioritized processing of emotional memories within the hippocampus, the integration of previously consolidated memory traces within the neocortex, as well as the disengagement of consolidated neocortical memory traces from the hippocampus.",
+   "cited_by": 253,
+   "slide_no": 0,
+   "node_ids": [
+    "rem-sleep"
+   ],
+   "query": "REM sleep memory consolidation emotional processing",
+   "source": "openalex",
+   "cite_key": "Hutchison et al. (2015)"
+  },
+  {
+   "id": "s05",
+   "kind": "scholar",
+   "title": "Daily rhythms of the sleep-wake cycle",
+   "authors": [
+    "Waterhouse",
+    "Fukuda",
+    "Morita"
+   ],
+   "et_al": false,
+   "year": 2012,
+   "venue": "Journal of PHYSIOLOGICAL ANTHROPOLOGY",
+   "doi": "10.1186/1880-6805-31-5",
+   "url": "https://doi.org/10.1186/1880-6805-31-5",
+   "abstract": "The amount and timing of sleep and sleep architecture (sleep stages) are determined by several factors, important among which are the environment, circadian rhythms and time awake. Separating the roles played by these factors requires specific protocols, including the constant routine and altered sleep-wake schedules. Results from such protocols have led to the discovery of the factors that determine the amounts and distribution of slow wave and rapid eye movement sleep as well as to the development of models to determine the amount and timing of sleep. One successful model postulates two processes. The first is process S, which is due to sleep pressure (and increases with time awake) and is attributed to a 'sleep homeostat'. Process S reverses during slow wave sleep (when it is called process S'). The second is process C, which shows a daily rhythm that is parallel to the rhythm of core temperature. Processes S and C combine approximately additively to determine the times of sleep onset and waking. The model has proved useful in describing normal sleep in adults. Current work aims to identify the detailed nature of processes S and C. The model can also be applied to circumstances when the sleep-wake cycle is different from the norm in some way. These circumstances include: those who are poor sleepers or short sleepers; the role an individual's chronotype (a measure of how the timing of the individual's preferred sleep-wake cycle compares with the average for a population); and changes in the sleep-wake cycle with age, particularly in adolescence and aging, since individuals tend to prefer to go to sleep later during adolescence and earlier in old age. In all circumstances, the evidence that sleep times and architecture are altered and the possible causes of these changes (including altered S, S' and C processes) are examined.",
+   "cited_by": 119,
+   "slide_no": 0,
+   "node_ids": [
+    "sleep-cycle"
+   ],
+   "query": "sleep cycle 90-110 minute rhythm",
+   "source": "openalex",
+   "cite_key": "Waterhouse et al. (2012)"
+  },
+  {
+   "id": "s06",
+   "kind": "scholar",
+   "title": "Sleep, Hormones, and Circadian Rhythms throughout the Menstrual Cycle in Healthy Women and Women with Premenstrual Dysphoric Disorder",
+   "authors": [
+    "Shechter",
+    "Boivin"
+   ],
+   "et_al": false,
+   "year": 2010,
+   "venue": "International Journal of Endocrinology",
+   "doi": "10.1155/2010/259345",
+   "url": "https://doi.org/10.1155/2010/259345",
+   "abstract": "A relationship exists between the sleep-wake cycle and hormone secretion, which, in women, is further modulated by the menstrual cycle. This interaction can influence sleep across the menstrual cycle in healthy women and in women with premenstrual dysphoric disorder (PMDD), who experience specific alterations of circadian rhythms during their symptomatic luteal phase along with sleep disturbances during this time. This review will address the variation of sleep at different menstrual phases in healthy and PMDD women, as well as changes in circadian rhythms, with an emphasis on their relationship with female sex hormones. It will conclude with a brief discussion on nonpharmacological treatments of PMDD which use chronotherapeutic methods to realign circadian rhythms as a means of improving sleep and mood in these women.",
+   "cited_by": 199,
+   "slide_no": 0,
+   "node_ids": [
+    "sleep-cycle"
+   ],
+   "query": "sleep cycle 90-110 minute rhythm",
+   "source": "openalex",
+   "cite_key": "Shechter et al. (2010)"
+  },
+  {
+   "id": "s07",
+   "kind": "scholar",
+   "title": "Sleep timing, sleep consistency, and health in adults: a systematic review",
+   "authors": [
+    "Chaput",
+    "Dutil",
+    "Featherstone"
+   ],
+   "et_al": false,
+   "year": 2020,
+   "venue": "Applied Physiology Nutrition and Metabolism",
+   "doi": "10.1139/apnm-2020-0032",
+   "url": "https://doi.org/10.1139/apnm-2020-0032",
+   "abstract": "The objective of this systematic review was to examine the associations between sleep timing (e.g., bedtime/wake-up time, midpoint of sleep), sleep consistency/regularity (e.g., intra-individual variability in sleep duration, social jetlag, catch-up sleep), and health outcomes in adults aged 18 years and older. Four electronic databases were searched in December 2018 for articles published in the previous 10 years. Fourteen health outcomes were examined. A total of 41 articles, including 92 340 unique participants from 14 countries, met inclusion criteria. Sleep was assessed objectively in 37% of studies and subjectively in 63% of studies. Findings suggest that later sleep timing and greater sleep variability were generally associated with adverse health outcomes. However, because most studies reported linear associations, it was not possible to identify thresholds for “late sleep timing” or “large sleep variability”. In addition, social jetlag was associated with adverse health outcomes, while weekend catch-up sleep was associated with better health outcomes. The quality of evidence ranged from “very low” to “moderate” across study designs and health outcomes using GRADE. In conclusion, the available evidence supports that earlier sleep timing and regularity in sleep patterns with consistent bedtimes and wake-up times are favourably associated with health. (PROSPERO registration no.: CRD42019119534.) Novelty This is the first systematic review to examine the influence of sleep timing and sleep consistency on health outcomes. Later sleep timing and greater variability in sleep are both associated with adverse health outcomes in adults. Regularity in sleep patterns with consistent bedtimes and wake-up times should be encouraged.",
+   "cited_by": 370,
+   "slide_no": 0,
+   "node_ids": [
+    "regularity"
+   ],
+   "query": "sleep regularity consistent wake time",
+   "source": "openalex",
+   "cite_key": "Chaput et al. (2020)"
+  },
+  {
+   "id": "s08",
+   "kind": "scholar",
+   "title": "Sleep regularity is a stronger predictor of mortality risk than sleep duration: A prospective cohort study",
+   "authors": [
+    "Windred",
+    "Burns",
+    "Lane"
+   ],
+   "et_al": false,
+   "year": 2023,
+   "venue": "SLEEP",
+   "doi": "10.1093/sleep/zsad253",
+   "url": "https://doi.org/10.1093/sleep/zsad253",
+   "abstract": "Abnormally short and long sleep are associated with premature mortality, and achieving optimal sleep duration has been the focus of sleep health guidelines. Emerging research demonstrates that sleep regularity, the day-to-day consistency of sleep-wake timing, can be a stronger predictor for some health outcomes than sleep duration. The role of sleep regularity in mortality, however, has not been investigated in a large cohort with objective data. We therefore aimed to compare how sleep regularity and duration predicted risk for all-cause and cause-specific mortality. We calculated Sleep Regularity Index (SRI) scores from > 10 million hours of accelerometer data in 60 977 UK Biobank participants (62.8 ± 7.8 years, 55.0% female, median[IQR] SRI: 81.0[73.8-86.3]). Mortality was reported up to 7.8 years after accelerometer recording in 1859 participants (4.84 deaths per 1000 person-years, mean (±SD) follow-up of 6.30 ± 0.83 years). Higher sleep regularity was associated with a 20%-48% lower risk of all-cause mortality (p < .001 to p = 0.004), a 16%-39% lower risk of cancer mortality (p < 0.001 to p = 0.017), and a 22%-57% lower risk of cardiometabolic mortality (p < 0.001 to p = 0.048), across the top four SRI quintiles compared to the least regular quintile. Results were adjusted for age, sex, ethnicity, and sociodemographic, lifestyle, and health factors. Sleep regularity was a stronger predictor of all-cause mortality than sleep duration, by comparing equivalent mortality models, and by comparing nested SRI-mortality models with and without sleep duration (p = 0.14-0.20). These findings indicate that sleep regularity is an important predictor of mortality risk and is a stronger predictor than sleep duration. Sleep regularity may be a simple, effective target for improving general health and survival.",
+   "cited_by": 254,
+   "slide_no": 0,
+   "node_ids": [
+    "regularity"
+   ],
+   "query": "sleep regularity consistent wake time",
+   "source": "openalex",
+   "cite_key": "Windred et al. (2023)"
+  }
+ ]
+}

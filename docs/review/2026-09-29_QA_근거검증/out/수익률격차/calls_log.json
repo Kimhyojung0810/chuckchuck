@@ -1,0 +1,37 @@
+[
+ {
+  "at": "2026-09-29T19:58:21",
+  "head": "8bf0082",
+  "calls": {
+   "align": 1,
+   "triage": 2,
+   "papers": 1,
+   "questions": 10,
+   "graph": 3
+  },
+  "total": 17
+ },
+ {
+  "at": "2026-09-29T20:01:46",
+  "head": "8bf0082",
+  "calls": {
+   "judge": 24
+  },
+  "total": 24
+ },
+ {
+  "at": "2026-09-29T20:03:13",
+  "head": "8bf0082",
+  "calls": {
+   "triage": 2,
+   "questions": 6
+  },
+  "total": 8
+ },
+ {
+  "at": "2026-09-29T20:04:25",
+  "head": "8bf0082",
+  "calls": {},
+  "total": 0
+ }
+]

@@ -1,0 +1,134 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "total_slides": 8,
+ "model": "solar",
+ "marks": [
+  {
+   "node_id": "recovery-time",
+   "severity": 1,
+   "trap": false,
+   "angle": "",
+   "source": "missing",
+   "rank": 1,
+   "doc_weight": 0.638
+  },
+  {
+   "node_id": "sleep-quality",
+   "severity": 1,
+   "trap": true,
+   "angle": "수면의 질을 구성하는 시간, 연속성, 규칙성의 상대적 중요도",
+   "source": "under_spoken",
+   "rank": 2,
+   "doc_weight": 0.729
+  },
+  {
+   "node_id": "sleep-continuity",
+   "severity": 1,
+   "trap": true,
+   "angle": "수면 연속성을 끊는 주요 원인(음주, 카페인, 스트레스)의 구체적 영향",
+   "source": "under_spoken",
+   "rank": 3,
+   "doc_weight": 0.888
+  },
+  {
+   "node_id": "regularity",
+   "severity": 2,
+   "trap": true,
+   "angle": "규칙적인 기상 시간이 수면 연속성과 수면의 질에 미치는 구체적 효과",
+   "source": "under_spoken",
+   "rank": 4,
+   "doc_weight": 0.903
+  },
+  {
+   "node_id": "sleep-time",
+   "severity": 2,
+   "trap": true,
+   "angle": "침대에 누운 시간과 실제 회복 시간의 차이를 설명하는 구체적 근거",
+   "source": "under_spoken",
+   "rank": 5,
+   "doc_weight": 0.763
+  },
+  {
+   "node_id": "social-jetlag",
+   "severity": 2,
+   "trap": true,
+   "angle": "사회적 시차가 수면 리듬에 미치는 장기적 영향",
+   "source": "under_spoken",
+   "rank": 6,
+   "doc_weight": 0.569
+  },
+  {
+   "node_id": "sleep-stages",
+   "severity": 1,
+   "trap": false,
+   "angle": "",
+   "source": "under_spoken",
+   "rank": 7,
+   "doc_weight": 0.83
+  },
+  {
+   "node_id": "deep-sleep",
+   "severity": 1,
+   "trap": true,
+   "angle": "깊은 수면이 신체 회복에 미치는 구체적 메커니즘과 다른 수면 단계와의 상호작용",
+   "source": "under_spoken",
+   "rank": 8,
+   "doc_weight": 1.0
+  },
+  {
+   "node_id": "rem-sleep",
+   "severity": 1,
+   "trap": true,
+   "angle": "REM 수면이 기억 정리 및 감정 처리에 미치는 구체적 영향과 깊은 수면과의 차이점",
+   "source": "under_spoken",
+   "rank": 9,
+   "doc_weight": 1.0
+  },
+  {
+   "node_id": "sleep-cycle",
+   "severity": 1,
+   "trap": true,
+   "angle": "수면 주기(90-110분)가 깊은 수면과 REM 수면의 분포에 미치는 영향",
+   "source": "under_spoken",
+   "rank": 10,
+   "doc_weight": 0.94
+  },
+  {
+   "node_id": "sufficient-time",
+   "severity": 2,
+   "trap": false,
+   "angle": "",
+   "source": "weak_flow",
+   "rank": 11,
+   "doc_weight": 0.427
+  },
+  {
+   "node_id": "alcohol",
+   "severity": 3,
+   "trap": true,
+   "angle": "음주가 수면 후반 각성에 미치는 구체적 메커니즘",
+   "source": "weak_flow",
+   "rank": 12,
+   "doc_weight": 0.422
+  },
+  {
+   "node_id": "caffeine",
+   "severity": 3,
+   "trap": true,
+   "angle": "오후·저녁 카페인 섭취가 수면 후반 각성에 미치는 구체적 영향",
+   "source": "weak_flow",
+   "rank": 13,
+   "doc_weight": 0.422
+  },
+  {
+   "node_id": "stress",
+   "severity": 3,
+   "trap": true,
+   "angle": "스트레스가 잠들기 전 각성에 미치는 구체적 메커니즘",
+   "source": "weak_flow",
+   "rank": 14,
+   "doc_weight": 0.391
+  }
+ ],
+ "probes": []
+}
