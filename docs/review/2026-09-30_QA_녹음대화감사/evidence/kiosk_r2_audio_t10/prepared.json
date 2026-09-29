@@ -1,0 +1,398 @@
+{
+  "deck": "audit_kiosk_r2",
+  "mode": "audio",
+  "track": "10",
+  "qa_mode": "10",
+  "session_id": "20260929T195404Z_2571d1c1",
+  "questions": [
+    {
+      "id": "q01-education",
+      "node_id": "education",
+      "label": "어르신 키오스크 주문 교실",
+      "question": "왜 다른 방식 대신 사람을 먼저 돕는 교육을 제안했나요?",
+      "why": "기계 교체보다 교육이 더 효과적이라는 근거를 확인하기 위해 묻는 질문이에요.",
+      "hint": "교육 전후의 성공률 변화를 근거로 설명해 보세요.",
+      "severity": 1,
+      "trap": false,
+      "source": "under_spoken",
+      "slide_nos": [
+        1,
+        4,
+        5
+      ],
+      "doc_weight": 0.966,
+      "answer_gist": "교육 전 혼자 주문 성공률 31%에서 교육 후 78%로 2.5배 증가했고, 평균 주문 시간도 110초에서 64초로 단축되었기 때문이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 1,
+      "evidence_quote": "기계를 바꾸는 것보다 먼저 사람을 돕는 교육이 필요합니다",
+      "speech_quote": "핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "theme",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 1,
+            "quote": "기계를 바꾸는 것보다 먼저 사람을 돕는 교육이 필요합니다"
+          }
+        ],
+        "checks": [],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "교육 전후의 성공률 변화를 근거로 설명해 보세요.",
+        "1, 4, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 1장은 이렇게 말해요: «기계를 바꾸는 것보다 먼저 사람을 돕는 교육이 필요합니다»",
+        "이 방향이에요 — 교육 전 혼자 주문 성공률 31%에서 교육 후 78%로 2.5배 증가했고",
+        "빈칸을 채워 보세요: 교육 전 혼자 주문 성공률 31%에서 교육 후 78%로 2.5배 증가했고, 평균 주문 시간도 ___에서 64초로 단축되었기 때문이에요."
+      ]
+    },
+    {
+      "id": "q02-implementation",
+      "node_id": "implementation",
+      "label": "제안",
+      "question": "제안이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        8
+      ],
+      "doc_weight": 0.324,
+      "answer_gist": "자료는 이렇게 말해요 — 교육과 화면 개선을 함께 추진 (8장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "교육과 화면 개선을 함께 추진",
+      "speech_quote": "그래서 저희 제안은 구마다 교실 한 곳, 1년에 사천팔백만 원이에요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 2,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "question_unanswerable",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 교육과 화면…",
+        "빈칸을 채워 보세요: 교육과 화면 개선을 함께 ___"
+      ]
+    },
+    {
+      "id": "q03-problem",
+      "node_id": "problem",
+      "label": "주문 포기",
+      "question": "자료에서 「65세 이상 20명 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "2장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        2
+      ],
+      "doc_weight": 0.375,
+      "answer_gist": "질문의 전제와 달리, 자료 2장은 「65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 2,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "weak",
+        "rank": 3,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 2,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "ungrounded_number_dropped",
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "65세 이상 20명 중 6명이 키오스크 주문을 포기한 적이 있습니다",
+        "fact": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다",
+        "slide_no": 2,
+        "wrong": [
+          "20명"
+        ],
+        "right": [
+          "10명"
+        ]
+      },
+      "hints": [
+        "2장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "2장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 2장은 「65세 이상 ___ 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 해요."
+      ]
+    },
+    {
+      "id": "q04-target",
+      "node_id": "target",
+      "label": "어르신",
+      "question": "65세 이상 어르신을 대상으로 한 구체적인 선정 기준은 무엇인가요?",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "발표에서 언급된 연령 기준과 조사 대상 규모를 찾아보세요.",
+      "severity": 3,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        2
+      ],
+      "doc_weight": 0.461,
+      "answer_gist": "65세 이상 어르신을 대상으로 했으며, 10명의 어르신을 조사해 6명이 키오스크 주문을 포기한 결과를 바탕으로 했어요.",
+      "answer_gist_parts": [
+        "대상 연령 기준: 65세 이상",
+        "조사 규모: 10명 중 6명 포기"
+      ],
+      "evidence_slide_no": 2,
+      "evidence_quote": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다.",
+      "speech_quote": "그런데 65세 이상 어르신 열 명 중 여섯 명이 키오스크 주문을 포기해 본 적이 있대요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 4,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 2,
+            "quote": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다."
+          }
+        ],
+        "checks": [
+          "why_code"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "발표에서 언급된 연령 기준과 조사 대상 규모를 찾아보세요.",
+        "1, 2장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 2장은 이렇게 말해요: «65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다.»",
+        "이 방향이에요 — 65세 이상 어르신을 대상으로 했으며",
+        "빈칸을 채워 보세요: 65세 이상 어르신을 대상으로 했으며, 10명의 어르신을 조사해 6명이 ___ 주문을 포기한 결과를 바탕으로 했어요."
+      ]
+    },
+    {
+      "id": "q11-payment-stuck",
+      "node_id": "payment-stuck",
+      "label": "결제 단계",
+      "question": "자료에서 「결제 단계에서 멈추는 경우가 여전히 가장 적습니다」라고 했는데, 그렇게 되는 이유를 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "7장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        7
+      ],
+      "doc_weight": 0.095,
+      "answer_gist": "질문의 전제와 달리, 자료 7장은 「결제 단계에서 멈추는 경우가 여전히 가장 많습니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 7,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "",
+        "rank": 11,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 7,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "direction",
+        "premise": "결제 단계에서 멈추는 경우가 여전히 가장 적습니다",
+        "fact": "결제 단계에서 멈추는 경우가 여전히 가장 많습니다",
+        "slide_no": 7,
+        "wrong": [
+          "적습니다|"
+        ],
+        "right": [
+          "많습니다|"
+        ]
+      },
+      "hints": [
+        "7장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "7장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 7장은 「결제 단계에서 멈추는 경우가 여전히 가장 ___」라고 해요."
+      ]
+    },
+    {
+      "id": "q07-payment",
+      "node_id": "payment",
+      "label": "결제",
+      "question": "자료에서 「48초 + 35초 + 27초 = 140초」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "3, 7장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        3,
+        7
+      ],
+      "doc_weight": 0.348,
+      "answer_gist": "질문의 전제와 달리, 자료 3장은 「48초 + 35초 + 27초 = 110초」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 3,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "weak",
+        "rank": 7,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 3,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "48초 + 35초 + 27초 = 140초",
+        "fact": "48초 + 35초 + 27초 = 110초",
+        "slide_no": 3,
+        "wrong": [
+          "140초"
+        ],
+        "right": [
+          "110초"
+        ]
+      },
+      "hints": [
+        "3, 7장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "3, 7장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 3장은 「48초 + 35초 + 27초 = ___」라고 해요."
+      ]
+    },
+    {
+      "id": "q05-kiosk",
+      "node_id": "kiosk",
+      "label": "키오스크",
+      "question": "키오스크 주문 단계별 평균 소요 시간 110초의 측정 방법과 조건은 무엇인가요?",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "2, 3, 4장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        2,
+        3,
+        4
+      ],
+      "doc_weight": 1,
+      "answer_gist": "자료는 이렇게 말해요 — 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초 · 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다 (2, 3장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 3,
+      "evidence_quote": "평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초",
+      "speech_quote": "평균 주문 시간은 메뉴 찾기, 옵션 고르기, 결제 이 세 단계를 더한 거예요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "weak",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 3,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_clause_unsupported",
+          "gist_template",
+          "why_code",
+          "hint_code",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "2, 3, 4장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "2, 3, 4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초",
+        "빈칸을 채워 보세요: 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초 · 65세 이상 10명 중 6명이 키오스크 ___을 포기한 적이 있습니다"
+      ]
+    }
+  ],
+  "sec": 48.3
+}

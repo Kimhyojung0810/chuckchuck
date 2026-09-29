@@ -1,0 +1,249 @@
+{
+ "deck": "audit_co2",
+ "synthetic": true,
+ "group": "audit_rec_heldout_2026-09-30",
+ "context": {
+  "situation": "school_project",
+  "duration_min": 10
+ },
+ "total_slides": 8,
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "교실공기 발표 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 5,
+     "deck_quote": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.",
+     "speech_quote": "평균 농도가 60퍼센트나 낮아진 거예요.",
+     "deck_value": "40%",
+     "speech_value": "60%"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 6,
+     "deck_quote": "앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다.",
+     "speech_quote": "의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.",
+     "note": "주어를 뒤바꾼 비교 — 수(2배)는 같고 방향만 반대"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 4,
+     "skip_quote": "이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+     "labels_any": [
+      "환기량",
+      "시간당 환기량",
+      "창문 개방 면적",
+      "바람 속도",
+      "개방 시간"
+     ],
+     "skip_verb": "생략"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "near_slide": 8,
+     "speech_quote": "실제로 환기를 잘한 반은 기말고사 평균도 5점 정도 높았다고 해요.",
+     "note": "자료에 없는 주장 — 모순·건너뜀이 아니므로 「먼저 짚을 것」 에 나오면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     5,
+     6
+    ],
+    "skipped_slides": [
+     4
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 40
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 40,
+     "end_sec": 80
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 80,
+     "end_sec": 115
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 115,
+     "end_sec": 124
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 124,
+     "end_sec": 170
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 170,
+     "end_sec": 210
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 210,
+     "end_sec": 250
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 250,
+     "end_sec": 290
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "교실공기 발표 녹음 (R2)",
+   "planted": [],
+   "spoken_forms": [
+    {
+     "slide": 5,
+     "deck": "40%",
+     "speech": "사십 퍼센트"
+    },
+    {
+     "slide": 5,
+     "deck": "1,450ppm",
+     "speech": "천사백오십 피피엠"
+    },
+    {
+     "slide": 5,
+     "deck": "870ppm",
+     "speech": "팔백칠십 피피엠"
+    },
+    {
+     "slide": 6,
+     "deck": "2배",
+     "speech": "두 배"
+    },
+    {
+     "slide": 6,
+     "deck": "14분 · 7분",
+     "speech": "십사 분 · 칠 분"
+    },
+    {
+     "slide": 2,
+     "deck": "1,000ppm",
+     "speech": "천 피피엠"
+    },
+    {
+     "slide": 7,
+     "deck": "3도",
+     "speech": "삼 도"
+    },
+    {
+     "slide": 7,
+     "deck": "26~29명",
+     "speech": "스물여섯 명에서 스물아홉 명"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 40
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 40,
+     "end_sec": 80
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 80,
+     "end_sec": 115
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 115,
+     "end_sec": 160
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 160,
+     "end_sec": 205
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 205,
+     "end_sec": 245
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 245,
+     "end_sec": 290
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 290,
+     "end_sec": 320
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "title": "학생회 축제 부스 결산 녹음",
+   "planted": [],
+   "source": "학생회 축제 부스 결산 (다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 45
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 45,
+     "end_sec": 90
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 90,
+     "end_sec": 135
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 135,
+     "end_sec": 180
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 180,
+     "end_sec": 220
+    }
+   ]
+  }
+ }
+}

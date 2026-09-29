@@ -1,0 +1,399 @@
+{
+  "deck": "audit_co2_r2",
+  "mode": "audio",
+  "track": "10",
+  "qa_mode": "10",
+  "session_id": "20260929T195402Z_36af1170",
+  "questions": [
+    {
+      "id": "q07-classroom-air",
+      "node_id": "classroom-air",
+      "label": "교실 공기",
+      "question": "교실 공기 환기의 중요성과 쉬는 시간 환기의 한계를 동시에 언급한 이유는 무엇인가요?",
+      "why": "두 측면을 모두 고려해 환기 전략의 필요성을 강조하기 위해 묻는 질문이에요.",
+      "hint": "자료의 첫 문장과 발표에서 제시된 두 가지 상황을 연결해 보세요.",
+      "severity": 3,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        2
+      ],
+      "doc_weight": 0.466,
+      "answer_gist": "수업이 40분 이상 지속되면 이산화탄소 농도가 1,000ppm을 초과해 졸음과 두통이 늘어나므로 교실 공기 환기가 중요하고, 쉬는 시간만으로는 1,000ppm 초과 시간이 32분으로 한계가 있어 추가 환기가 필요하다는 점을 동시에 강조하기 위해서예요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 1,
+      "evidence_quote": "교실 공기, 쉬는 시간 환기로 충분할까",
+      "speech_quote": "오늘은 교실 공기 이야기를 해 보려고 해요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "theme",
+        "rank": 7,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 1,
+            "quote": "교실 공기, 쉬는 시간 환기로 충분할까"
+          }
+        ],
+        "checks": [],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "자료의 첫 문장과 발표에서 제시된 두 가지 상황을 연결해 보세요.",
+        "1, 2장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 수업이 40분 이상 지속되면 이산화탄소 농도가 1,000ppm을 초과해 졸음과 두통이 늘어나므로 교실 공기 환기가 중요하고",
+        "빈칸을 채워 보세요: 수업이 40분 이상 지속되면 이산화탄소 농도가 1,000ppm을 초과해 졸음과 두통이 늘어나므로 교실 공기 환기가 중요하고, 쉬는 시간만으로는 1,000ppm 초과 시간이 32분으로 한계가 있어 추가 ___가 필요하다는 점을 동시에 강조하기 위해서예요."
+      ]
+    },
+    {
+      "id": "q02-ventilation",
+      "node_id": "ventilation",
+      "label": "환기",
+      "question": "자료 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        5,
+        6
+      ],
+      "doc_weight": 1,
+      "answer_gist": "질문의 전제와 달리, 자료 5장 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값은 32분이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 2,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 5,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "ungrounded_number_dropped",
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분",
+        "fact": "표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값은 32분",
+        "slide_no": 5,
+        "wrong": [
+          "48분"
+        ],
+        "right": [
+          "32분"
+        ]
+      },
+      "hints": [
+        "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "1, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 5장 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값은 ___이에요."
+      ]
+    },
+    {
+      "id": "q01-ventilation-area",
+      "node_id": "ventilation-area",
+      "label": "환기 면적",
+      "question": "시간당 환기량 공식에서 환기 면적이 '세 가지 요소' 중 가장 중요한 변수로 설정된 이유는 무엇인가요?",
+      "why": "환기량 계산에서 각 요소의 상대적 중요성을 파악하기 위해 묻는 질문이에요.",
+      "hint": "발표에서 환기량을 어떻게 계산했는지 설명한 부분을 참고해 보세요.",
+      "severity": 1,
+      "trap": false,
+      "source": "missing",
+      "slide_nos": [
+        4,
+        5,
+        6
+      ],
+      "doc_weight": 0.745,
+      "answer_gist": "자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 5분 추가 환기 (4, 5장)",
+      "answer_gist_parts": [
+        "자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+        "수업 중 5분 추가 환기 (4, 5장)"
+      ],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "시간당 환기량은 창문을 연 면적에 바람 속도를 곱하고, 거기에 연 시간을 곱해서 구해요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "missing",
+        "slot": "weak",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_rebuilt",
+          "gist_rank_unbacked",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "발표에서 환기량을 어떻게 계산했는지 설명한 부분을 참고해 보세요.",
+        "4, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+        "빈칸을 채워 보세요: 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 ___ 추가 환기"
+      ]
+    },
+    {
+      "id": "q03-co2-concentration",
+      "node_id": "co2-concentration",
+      "label": "이산화탄소 농도",
+      "question": "자료에서 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 2,000ppm을 넘습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "2, 3, 5장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        2,
+        3,
+        5
+      ],
+      "doc_weight": 0.821,
+      "answer_gist": "질문의 전제와 달리, 자료 2장은 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 2,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 3,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 2,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "ungrounded_number_dropped",
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 2,000ppm을 넘습니다",
+        "fact": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다",
+        "slide_no": 2,
+        "wrong": [
+          "2,000"
+        ],
+        "right": [
+          "1,000"
+        ]
+      },
+      "hints": [
+        "2, 3, 5장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 2장은 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 ___ppm을 넘습니다」라고 해요."
+      ]
+    },
+    {
+      "id": "q06-cross-ventilation",
+      "node_id": "cross-ventilation",
+      "label": "맞통풍",
+      "question": "자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        6
+      ],
+      "doc_weight": 0.417,
+      "answer_gist": "질문의 전제와 달리, 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "weak",
+        "rank": 6,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분",
+        "fact": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분",
+        "slide_no": 6,
+        "wrong": [
+          "10분"
+        ],
+        "right": [
+          "14분"
+        ]
+      },
+      "hints": [
+        "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 ___이에요."
+      ]
+    },
+    {
+      "id": "q04-wind-speed",
+      "node_id": "wind-speed",
+      "label": "바람 속도",
+      "question": "시간당 환기량 공식에서 바람 속도가 차지하는 비중과 실제 측정값과의 관계는 무엇인가요?",
+      "why": "환기량 계산에서 바람 속도의 역할을 확인하기 위해 묻는 질문이에요.",
+      "hint": "발표에서 환기량을 어떻게 계산했는지 설명한 부분을 참고해 보세요.",
+      "severity": 2,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        4
+      ],
+      "doc_weight": 0.764,
+      "answer_gist": "시간당 환기량은 창문 개방 면적 × 바람 속도 × 개방 시간으로 계산되며, 발표에서 '바람이 얼마나 드는지'가 세 가지 요소 중 하나로 포함되어 있어요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "시간당 환기량은 창문을 연 면적에 바람 속도를 곱하고, 거기에 연 시간을 곱해서 구해요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "weak",
+        "rank": 4,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "발표에서 환기량을 어떻게 계산했는지 설명한 부분을 참고해 보세요.",
+        "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 4장은 이렇게 말해요: «시간당 환기량 창문 개방 면적 × = 바람 속도»",
+        "이 방향이에요 — 시간당 환기량은 창문 개방 면적 × 바람 속도 × 개방 시간으로 계산되며",
+        "빈칸을 채워 보세요: 시간당 환기량은 창문 개방 면적 × 바람 속도 × 개방 시간으로 계산되며, 발표에서 '바람이 얼마나 드는지'가 세 가지 요소 중 ___로 포함되어 있어요."
+      ]
+    },
+    {
+      "id": "q05-ventilation-volume",
+      "node_id": "ventilation-volume",
+      "label": "환기량",
+      "question": "환기량이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "4, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        4,
+        5,
+        6
+      ],
+      "doc_weight": 0.594,
+      "answer_gist": "자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 5분 추가 환기 (4, 5장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "시간당 환기량은 창문을 연 면적에 바람 속도를 곱하고, 거기에 연 시간을 곱해서 구해요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "question_unanswerable",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "4, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "4, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+        "빈칸을 채워 보세요: 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 ___ 추가 환기"
+      ]
+    }
+  ],
+  "sec": 51.8
+}

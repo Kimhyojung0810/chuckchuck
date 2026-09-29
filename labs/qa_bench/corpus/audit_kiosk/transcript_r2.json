@@ -1,0 +1,2531 @@
+{
+ "full_text": "안녕하세요. 오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요. 그런데 65세 이상 어르신 열 명 중 여섯 명이 키오스크 주문을 포기해 본 적이 있대요. 포기한 이유 1위가 뭐냐면, 뒤에 사람이 기다려서, 이게 사십일 퍼센트였어요. 글씨가 작아서보다 눈치가 보여서가 더 컸던 거죠. 주문 한 번에 시간이 얼마나 걸리는지도 쪼개 봤어요. 평균 주문 시간은 메뉴 찾기, 옵션 고르기, 결제 이 세 단계를 더한 거예요. 메뉴 찾는 데 사십팔 초, 옵션 고르는 데 삼십오 초, 결제에 이십칠 초, 합치면 백십 초예요. 두 분 가까이 서 있어야 하니까 뒤에서 기다리는 사람이 신경 쓰일 수밖에 없죠. 그래서 교실은 이렇게 운영했어요. 일주일에 두 번, 4주 동안, 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요, 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 일흔두 분 기준이에요. 혼자 주문에 성공한 비율이 교육 전 삼십일 퍼센트에서 교육 후 칠십팔 퍼센트가 됐어요. 두 배 반 정도로 늘어난 거죠. 평균 주문 시간도 백십 초에서 일 분 사 초로 줄었어요. 그럼 큰 글씨 모드만 켜면 되지 않냐는 얘기도 있어서 비교해 봤어요. 큰 글씨 모드만 켠 매장은 성공률이 십이 퍼센트포인트 올랐는데, 주문 교실은 사십칠 퍼센트포인트 올랐어요. 그러니까 큰 글씨 모드만으로는 교육한 매장보다 상승 폭이 훨씬 작았던 거예요. 남은 과제도 있어요. 결제 단계에서 멈추시는 경우가 여전히 제일 많고요. 현금을 안 받는 키오스크가 사십삼 퍼센트나 돼서, 현금만 쓰시는 분들은 아예 주문을 못 하세요. 그래서 저희 제안은 구마다 교실 한 곳, 1년에 사천팔백만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요.",
+   "start_sec": 0.0,
+   "end_sec": 1.94
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 1.94,
+   "end_sec": 3.89
+  },
+  {
+   "text": "어르신",
+   "start_sec": 3.89,
+   "end_sec": 5.83
+  },
+  {
+   "text": "키오스크",
+   "start_sec": 5.83,
+   "end_sec": 7.78
+  },
+  {
+   "text": "주문",
+   "start_sec": 7.78,
+   "end_sec": 9.72
+  },
+  {
+   "text": "교실을",
+   "start_sec": 9.72,
+   "end_sec": 11.67
+  },
+  {
+   "text": "제안드리려고",
+   "start_sec": 11.67,
+   "end_sec": 13.61
+  },
+  {
+   "text": "해요.",
+   "start_sec": 13.61,
+   "end_sec": 15.56
+  },
+  {
+   "text": "핵심은",
+   "start_sec": 15.56,
+   "end_sec": 17.5
+  },
+  {
+   "text": "기계를",
+   "start_sec": 17.5,
+   "end_sec": 19.44
+  },
+  {
+   "text": "바꾸기",
+   "start_sec": 19.44,
+   "end_sec": 21.39
+  },
+  {
+   "text": "전에",
+   "start_sec": 21.39,
+   "end_sec": 23.33
+  },
+  {
+   "text": "사람을",
+   "start_sec": 23.33,
+   "end_sec": 25.28
+  },
+  {
+   "text": "먼저",
+   "start_sec": 25.28,
+   "end_sec": 27.22
+  },
+  {
+   "text": "돕는",
+   "start_sec": 27.22,
+   "end_sec": 29.17
+  },
+  {
+   "text": "교육이",
+   "start_sec": 29.17,
+   "end_sec": 31.11
+  },
+  {
+   "text": "필요하다는",
+   "start_sec": 31.11,
+   "end_sec": 33.06
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 33.06,
+   "end_sec": 35.0
+  },
+  {
+   "text": "요즘",
+   "start_sec": 35.0,
+   "end_sec": 36.15
+  },
+  {
+   "text": "식당이나",
+   "start_sec": 36.15,
+   "end_sec": 37.31
+  },
+  {
+   "text": "카페에",
+   "start_sec": 37.31,
+   "end_sec": 38.46
+  },
+  {
+   "text": "가면",
+   "start_sec": 38.46,
+   "end_sec": 39.62
+  },
+  {
+   "text": "대부분",
+   "start_sec": 39.62,
+   "end_sec": 40.77
+  },
+  {
+   "text": "키오스크로",
+   "start_sec": 40.77,
+   "end_sec": 41.92
+  },
+  {
+   "text": "주문하잖아요.",
+   "start_sec": 41.92,
+   "end_sec": 43.08
+  },
+  {
+   "text": "그런데",
+   "start_sec": 43.08,
+   "end_sec": 44.23
+  },
+  {
+   "text": "65세",
+   "start_sec": 44.23,
+   "end_sec": 45.38
+  },
+  {
+   "text": "이상",
+   "start_sec": 45.38,
+   "end_sec": 46.54
+  },
+  {
+   "text": "어르신",
+   "start_sec": 46.54,
+   "end_sec": 47.69
+  },
+  {
+   "text": "열",
+   "start_sec": 47.69,
+   "end_sec": 48.85
+  },
+  {
+   "text": "명",
+   "start_sec": 48.85,
+   "end_sec": 50.0
+  },
+  {
+   "text": "중",
+   "start_sec": 50.0,
+   "end_sec": 51.15
+  },
+  {
+   "text": "여섯",
+   "start_sec": 51.15,
+   "end_sec": 52.31
+  },
+  {
+   "text": "명이",
+   "start_sec": 52.31,
+   "end_sec": 53.46
+  },
+  {
+   "text": "키오스크",
+   "start_sec": 53.46,
+   "end_sec": 54.62
+  },
+  {
+   "text": "주문을",
+   "start_sec": 54.62,
+   "end_sec": 55.77
+  },
+  {
+   "text": "포기해",
+   "start_sec": 55.77,
+   "end_sec": 56.92
+  },
+  {
+   "text": "본",
+   "start_sec": 56.92,
+   "end_sec": 58.08
+  },
+  {
+   "text": "적이",
+   "start_sec": 58.08,
+   "end_sec": 59.23
+  },
+  {
+   "text": "있대요.",
+   "start_sec": 59.23,
+   "end_sec": 60.38
+  },
+  {
+   "text": "포기한",
+   "start_sec": 60.38,
+   "end_sec": 61.54
+  },
+  {
+   "text": "이유",
+   "start_sec": 61.54,
+   "end_sec": 62.69
+  },
+  {
+   "text": "1위가",
+   "start_sec": 62.69,
+   "end_sec": 63.85
+  },
+  {
+   "text": "뭐냐면,",
+   "start_sec": 63.85,
+   "end_sec": 65.0
+  },
+  {
+   "text": "뒤에",
+   "start_sec": 65.0,
+   "end_sec": 66.15
+  },
+  {
+   "text": "사람이",
+   "start_sec": 66.15,
+   "end_sec": 67.31
+  },
+  {
+   "text": "기다려서,",
+   "start_sec": 67.31,
+   "end_sec": 68.46
+  },
+  {
+   "text": "이게",
+   "start_sec": 68.46,
+   "end_sec": 69.62
+  },
+  {
+   "text": "사십일",
+   "start_sec": 69.62,
+   "end_sec": 70.77
+  },
+  {
+   "text": "퍼센트였어요.",
+   "start_sec": 70.77,
+   "end_sec": 71.92
+  },
+  {
+   "text": "글씨가",
+   "start_sec": 71.92,
+   "end_sec": 73.08
+  },
+  {
+   "text": "작아서보다",
+   "start_sec": 73.08,
+   "end_sec": 74.23
+  },
+  {
+   "text": "눈치가",
+   "start_sec": 74.23,
+   "end_sec": 75.38
+  },
+  {
+   "text": "보여서가",
+   "start_sec": 75.38,
+   "end_sec": 76.54
+  },
+  {
+   "text": "더",
+   "start_sec": 76.54,
+   "end_sec": 77.69
+  },
+  {
+   "text": "컸던",
+   "start_sec": 77.69,
+   "end_sec": 78.85
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 78.85,
+   "end_sec": 80.0
+  },
+  {
+   "text": "주문",
+   "start_sec": 80.0,
+   "end_sec": 81.0
+  },
+  {
+   "text": "한",
+   "start_sec": 81.0,
+   "end_sec": 82.0
+  },
+  {
+   "text": "번에",
+   "start_sec": 82.0,
+   "end_sec": 83.0
+  },
+  {
+   "text": "시간이",
+   "start_sec": 83.0,
+   "end_sec": 84.0
+  },
+  {
+   "text": "얼마나",
+   "start_sec": 84.0,
+   "end_sec": 85.0
+  },
+  {
+   "text": "걸리는지도",
+   "start_sec": 85.0,
+   "end_sec": 86.0
+  },
+  {
+   "text": "쪼개",
+   "start_sec": 86.0,
+   "end_sec": 87.0
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 87.0,
+   "end_sec": 88.0
+  },
+  {
+   "text": "평균",
+   "start_sec": 88.0,
+   "end_sec": 89.0
+  },
+  {
+   "text": "주문",
+   "start_sec": 89.0,
+   "end_sec": 90.0
+  },
+  {
+   "text": "시간은",
+   "start_sec": 90.0,
+   "end_sec": 91.0
+  },
+  {
+   "text": "메뉴",
+   "start_sec": 91.0,
+   "end_sec": 92.0
+  },
+  {
+   "text": "찾기,",
+   "start_sec": 92.0,
+   "end_sec": 93.0
+  },
+  {
+   "text": "옵션",
+   "start_sec": 93.0,
+   "end_sec": 94.0
+  },
+  {
+   "text": "고르기,",
+   "start_sec": 94.0,
+   "end_sec": 95.0
+  },
+  {
+   "text": "결제",
+   "start_sec": 95.0,
+   "end_sec": 96.0
+  },
+  {
+   "text": "이",
+   "start_sec": 96.0,
+   "end_sec": 97.0
+  },
+  {
+   "text": "세",
+   "start_sec": 97.0,
+   "end_sec": 98.0
+  },
+  {
+   "text": "단계를",
+   "start_sec": 98.0,
+   "end_sec": 99.0
+  },
+  {
+   "text": "더한",
+   "start_sec": 99.0,
+   "end_sec": 100.0
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 100.0,
+   "end_sec": 101.0
+  },
+  {
+   "text": "메뉴",
+   "start_sec": 101.0,
+   "end_sec": 102.0
+  },
+  {
+   "text": "찾는",
+   "start_sec": 102.0,
+   "end_sec": 103.0
+  },
+  {
+   "text": "데",
+   "start_sec": 103.0,
+   "end_sec": 104.0
+  },
+  {
+   "text": "사십팔",
+   "start_sec": 104.0,
+   "end_sec": 105.0
+  },
+  {
+   "text": "초,",
+   "start_sec": 105.0,
+   "end_sec": 106.0
+  },
+  {
+   "text": "옵션",
+   "start_sec": 106.0,
+   "end_sec": 107.0
+  },
+  {
+   "text": "고르는",
+   "start_sec": 107.0,
+   "end_sec": 108.0
+  },
+  {
+   "text": "데",
+   "start_sec": 108.0,
+   "end_sec": 109.0
+  },
+  {
+   "text": "삼십오",
+   "start_sec": 109.0,
+   "end_sec": 110.0
+  },
+  {
+   "text": "초,",
+   "start_sec": 110.0,
+   "end_sec": 111.0
+  },
+  {
+   "text": "결제에",
+   "start_sec": 111.0,
+   "end_sec": 112.0
+  },
+  {
+   "text": "이십칠",
+   "start_sec": 112.0,
+   "end_sec": 113.0
+  },
+  {
+   "text": "초,",
+   "start_sec": 113.0,
+   "end_sec": 114.0
+  },
+  {
+   "text": "합치면",
+   "start_sec": 114.0,
+   "end_sec": 115.0
+  },
+  {
+   "text": "백십",
+   "start_sec": 115.0,
+   "end_sec": 116.0
+  },
+  {
+   "text": "초예요.",
+   "start_sec": 116.0,
+   "end_sec": 117.0
+  },
+  {
+   "text": "두",
+   "start_sec": 117.0,
+   "end_sec": 118.0
+  },
+  {
+   "text": "분",
+   "start_sec": 118.0,
+   "end_sec": 119.0
+  },
+  {
+   "text": "가까이",
+   "start_sec": 119.0,
+   "end_sec": 120.0
+  },
+  {
+   "text": "서",
+   "start_sec": 120.0,
+   "end_sec": 121.0
+  },
+  {
+   "text": "있어야",
+   "start_sec": 121.0,
+   "end_sec": 122.0
+  },
+  {
+   "text": "하니까",
+   "start_sec": 122.0,
+   "end_sec": 123.0
+  },
+  {
+   "text": "뒤에서",
+   "start_sec": 123.0,
+   "end_sec": 124.0
+  },
+  {
+   "text": "기다리는",
+   "start_sec": 124.0,
+   "end_sec": 125.0
+  },
+  {
+   "text": "사람이",
+   "start_sec": 125.0,
+   "end_sec": 126.0
+  },
+  {
+   "text": "신경",
+   "start_sec": 126.0,
+   "end_sec": 127.0
+  },
+  {
+   "text": "쓰일",
+   "start_sec": 127.0,
+   "end_sec": 128.0
+  },
+  {
+   "text": "수밖에",
+   "start_sec": 128.0,
+   "end_sec": 129.0
+  },
+  {
+   "text": "없죠.",
+   "start_sec": 129.0,
+   "end_sec": 130.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 130.0,
+   "end_sec": 131.6
+  },
+  {
+   "text": "교실은",
+   "start_sec": 131.6,
+   "end_sec": 133.2
+  },
+  {
+   "text": "이렇게",
+   "start_sec": 133.2,
+   "end_sec": 134.8
+  },
+  {
+   "text": "운영했어요.",
+   "start_sec": 134.8,
+   "end_sec": 136.4
+  },
+  {
+   "text": "일주일에",
+   "start_sec": 136.4,
+   "end_sec": 138.0
+  },
+  {
+   "text": "두",
+   "start_sec": 138.0,
+   "end_sec": 139.6
+  },
+  {
+   "text": "번,",
+   "start_sec": 139.6,
+   "end_sec": 141.2
+  },
+  {
+   "text": "4주",
+   "start_sec": 141.2,
+   "end_sec": 142.8
+  },
+  {
+   "text": "동안,",
+   "start_sec": 142.8,
+   "end_sec": 144.4
+  },
+  {
+   "text": "한",
+   "start_sec": 144.4,
+   "end_sec": 146.0
+  },
+  {
+   "text": "번에",
+   "start_sec": 146.0,
+   "end_sec": 147.6
+  },
+  {
+   "text": "90분씩이에요.",
+   "start_sec": 147.6,
+   "end_sec": 149.2
+  },
+  {
+   "text": "강사",
+   "start_sec": 149.2,
+   "end_sec": 150.8
+  },
+  {
+   "text": "한",
+   "start_sec": 150.8,
+   "end_sec": 152.4
+  },
+  {
+   "text": "명이",
+   "start_sec": 152.4,
+   "end_sec": 154.0
+  },
+  {
+   "text": "어르신",
+   "start_sec": 154.0,
+   "end_sec": 155.6
+  },
+  {
+   "text": "여섯",
+   "start_sec": 155.6,
+   "end_sec": 157.2
+  },
+  {
+   "text": "분을",
+   "start_sec": 157.2,
+   "end_sec": 158.8
+  },
+  {
+   "text": "맡았고요,",
+   "start_sec": 158.8,
+   "end_sec": 160.4
+  },
+  {
+   "text": "실제",
+   "start_sec": 160.4,
+   "end_sec": 162.0
+  },
+  {
+   "text": "매장이랑",
+   "start_sec": 162.0,
+   "end_sec": 163.6
+  },
+  {
+   "text": "똑같은",
+   "start_sec": 163.6,
+   "end_sec": 165.2
+  },
+  {
+   "text": "연습용",
+   "start_sec": 165.2,
+   "end_sec": 166.8
+  },
+  {
+   "text": "키오스크로",
+   "start_sec": 166.8,
+   "end_sec": 168.4
+  },
+  {
+   "text": "연습했어요.",
+   "start_sec": 168.4,
+   "end_sec": 170.0
+  },
+  {
+   "text": "결과는",
+   "start_sec": 170.0,
+   "end_sec": 171.47
+  },
+  {
+   "text": "참여하신",
+   "start_sec": 171.47,
+   "end_sec": 172.94
+  },
+  {
+   "text": "일흔두",
+   "start_sec": 172.94,
+   "end_sec": 174.41
+  },
+  {
+   "text": "분",
+   "start_sec": 174.41,
+   "end_sec": 175.88
+  },
+  {
+   "text": "기준이에요.",
+   "start_sec": 175.88,
+   "end_sec": 177.35
+  },
+  {
+   "text": "혼자",
+   "start_sec": 177.35,
+   "end_sec": 178.82
+  },
+  {
+   "text": "주문에",
+   "start_sec": 178.82,
+   "end_sec": 180.29
+  },
+  {
+   "text": "성공한",
+   "start_sec": 180.29,
+   "end_sec": 181.76
+  },
+  {
+   "text": "비율이",
+   "start_sec": 181.76,
+   "end_sec": 183.24
+  },
+  {
+   "text": "교육",
+   "start_sec": 183.24,
+   "end_sec": 184.71
+  },
+  {
+   "text": "전",
+   "start_sec": 184.71,
+   "end_sec": 186.18
+  },
+  {
+   "text": "삼십일",
+   "start_sec": 186.18,
+   "end_sec": 187.65
+  },
+  {
+   "text": "퍼센트에서",
+   "start_sec": 187.65,
+   "end_sec": 189.12
+  },
+  {
+   "text": "교육",
+   "start_sec": 189.12,
+   "end_sec": 190.59
+  },
+  {
+   "text": "후",
+   "start_sec": 190.59,
+   "end_sec": 192.06
+  },
+  {
+   "text": "칠십팔",
+   "start_sec": 192.06,
+   "end_sec": 193.53
+  },
+  {
+   "text": "퍼센트가",
+   "start_sec": 193.53,
+   "end_sec": 195.0
+  },
+  {
+   "text": "됐어요.",
+   "start_sec": 195.0,
+   "end_sec": 196.47
+  },
+  {
+   "text": "두",
+   "start_sec": 196.47,
+   "end_sec": 197.94
+  },
+  {
+   "text": "배",
+   "start_sec": 197.94,
+   "end_sec": 199.41
+  },
+  {
+   "text": "반",
+   "start_sec": 199.41,
+   "end_sec": 200.88
+  },
+  {
+   "text": "정도로",
+   "start_sec": 200.88,
+   "end_sec": 202.35
+  },
+  {
+   "text": "늘어난",
+   "start_sec": 202.35,
+   "end_sec": 203.82
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 203.82,
+   "end_sec": 205.29
+  },
+  {
+   "text": "평균",
+   "start_sec": 205.29,
+   "end_sec": 206.76
+  },
+  {
+   "text": "주문",
+   "start_sec": 206.76,
+   "end_sec": 208.24
+  },
+  {
+   "text": "시간도",
+   "start_sec": 208.24,
+   "end_sec": 209.71
+  },
+  {
+   "text": "백십",
+   "start_sec": 209.71,
+   "end_sec": 211.18
+  },
+  {
+   "text": "초에서",
+   "start_sec": 211.18,
+   "end_sec": 212.65
+  },
+  {
+   "text": "일",
+   "start_sec": 212.65,
+   "end_sec": 214.12
+  },
+  {
+   "text": "분",
+   "start_sec": 214.12,
+   "end_sec": 215.59
+  },
+  {
+   "text": "사",
+   "start_sec": 215.59,
+   "end_sec": 217.06
+  },
+  {
+   "text": "초로",
+   "start_sec": 217.06,
+   "end_sec": 218.53
+  },
+  {
+   "text": "줄었어요.",
+   "start_sec": 218.53,
+   "end_sec": 220.0
+  },
+  {
+   "text": "그럼",
+   "start_sec": 220.0,
+   "end_sec": 221.25
+  },
+  {
+   "text": "큰",
+   "start_sec": 221.25,
+   "end_sec": 222.5
+  },
+  {
+   "text": "글씨",
+   "start_sec": 222.5,
+   "end_sec": 223.75
+  },
+  {
+   "text": "모드만",
+   "start_sec": 223.75,
+   "end_sec": 225.0
+  },
+  {
+   "text": "켜면",
+   "start_sec": 225.0,
+   "end_sec": 226.25
+  },
+  {
+   "text": "되지",
+   "start_sec": 226.25,
+   "end_sec": 227.5
+  },
+  {
+   "text": "않냐는",
+   "start_sec": 227.5,
+   "end_sec": 228.75
+  },
+  {
+   "text": "얘기도",
+   "start_sec": 228.75,
+   "end_sec": 230.0
+  },
+  {
+   "text": "있어서",
+   "start_sec": 230.0,
+   "end_sec": 231.25
+  },
+  {
+   "text": "비교해",
+   "start_sec": 231.25,
+   "end_sec": 232.5
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 232.5,
+   "end_sec": 233.75
+  },
+  {
+   "text": "큰",
+   "start_sec": 233.75,
+   "end_sec": 235.0
+  },
+  {
+   "text": "글씨",
+   "start_sec": 235.0,
+   "end_sec": 236.25
+  },
+  {
+   "text": "모드만",
+   "start_sec": 236.25,
+   "end_sec": 237.5
+  },
+  {
+   "text": "켠",
+   "start_sec": 237.5,
+   "end_sec": 238.75
+  },
+  {
+   "text": "매장은",
+   "start_sec": 238.75,
+   "end_sec": 240.0
+  },
+  {
+   "text": "성공률이",
+   "start_sec": 240.0,
+   "end_sec": 241.25
+  },
+  {
+   "text": "십이",
+   "start_sec": 241.25,
+   "end_sec": 242.5
+  },
+  {
+   "text": "퍼센트포인트",
+   "start_sec": 242.5,
+   "end_sec": 243.75
+  },
+  {
+   "text": "올랐는데,",
+   "start_sec": 243.75,
+   "end_sec": 245.0
+  },
+  {
+   "text": "주문",
+   "start_sec": 245.0,
+   "end_sec": 246.25
+  },
+  {
+   "text": "교실은",
+   "start_sec": 246.25,
+   "end_sec": 247.5
+  },
+  {
+   "text": "사십칠",
+   "start_sec": 247.5,
+   "end_sec": 248.75
+  },
+  {
+   "text": "퍼센트포인트",
+   "start_sec": 248.75,
+   "end_sec": 250.0
+  },
+  {
+   "text": "올랐어요.",
+   "start_sec": 250.0,
+   "end_sec": 251.25
+  },
+  {
+   "text": "그러니까",
+   "start_sec": 251.25,
+   "end_sec": 252.5
+  },
+  {
+   "text": "큰",
+   "start_sec": 252.5,
+   "end_sec": 253.75
+  },
+  {
+   "text": "글씨",
+   "start_sec": 253.75,
+   "end_sec": 255.0
+  },
+  {
+   "text": "모드만으로는",
+   "start_sec": 255.0,
+   "end_sec": 256.25
+  },
+  {
+   "text": "교육한",
+   "start_sec": 256.25,
+   "end_sec": 257.5
+  },
+  {
+   "text": "매장보다",
+   "start_sec": 257.5,
+   "end_sec": 258.75
+  },
+  {
+   "text": "상승",
+   "start_sec": 258.75,
+   "end_sec": 260.0
+  },
+  {
+   "text": "폭이",
+   "start_sec": 260.0,
+   "end_sec": 261.25
+  },
+  {
+   "text": "훨씬",
+   "start_sec": 261.25,
+   "end_sec": 262.5
+  },
+  {
+   "text": "작았던",
+   "start_sec": 262.5,
+   "end_sec": 263.75
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 263.75,
+   "end_sec": 265.0
+  },
+  {
+   "text": "남은",
+   "start_sec": 265.0,
+   "end_sec": 266.67
+  },
+  {
+   "text": "과제도",
+   "start_sec": 266.67,
+   "end_sec": 268.33
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 268.33,
+   "end_sec": 270.0
+  },
+  {
+   "text": "결제",
+   "start_sec": 270.0,
+   "end_sec": 271.67
+  },
+  {
+   "text": "단계에서",
+   "start_sec": 271.67,
+   "end_sec": 273.33
+  },
+  {
+   "text": "멈추시는",
+   "start_sec": 273.33,
+   "end_sec": 275.0
+  },
+  {
+   "text": "경우가",
+   "start_sec": 275.0,
+   "end_sec": 276.67
+  },
+  {
+   "text": "여전히",
+   "start_sec": 276.67,
+   "end_sec": 278.33
+  },
+  {
+   "text": "제일",
+   "start_sec": 278.33,
+   "end_sec": 280.0
+  },
+  {
+   "text": "많고요.",
+   "start_sec": 280.0,
+   "end_sec": 281.67
+  },
+  {
+   "text": "현금을",
+   "start_sec": 281.67,
+   "end_sec": 283.33
+  },
+  {
+   "text": "안",
+   "start_sec": 283.33,
+   "end_sec": 285.0
+  },
+  {
+   "text": "받는",
+   "start_sec": 285.0,
+   "end_sec": 286.67
+  },
+  {
+   "text": "키오스크가",
+   "start_sec": 286.67,
+   "end_sec": 288.33
+  },
+  {
+   "text": "사십삼",
+   "start_sec": 288.33,
+   "end_sec": 290.0
+  },
+  {
+   "text": "퍼센트나",
+   "start_sec": 290.0,
+   "end_sec": 291.67
+  },
+  {
+   "text": "돼서,",
+   "start_sec": 291.67,
+   "end_sec": 293.33
+  },
+  {
+   "text": "현금만",
+   "start_sec": 293.33,
+   "end_sec": 295.0
+  },
+  {
+   "text": "쓰시는",
+   "start_sec": 295.0,
+   "end_sec": 296.67
+  },
+  {
+   "text": "분들은",
+   "start_sec": 296.67,
+   "end_sec": 298.33
+  },
+  {
+   "text": "아예",
+   "start_sec": 298.33,
+   "end_sec": 300.0
+  },
+  {
+   "text": "주문을",
+   "start_sec": 300.0,
+   "end_sec": 301.67
+  },
+  {
+   "text": "못",
+   "start_sec": 301.67,
+   "end_sec": 303.33
+  },
+  {
+   "text": "하세요.",
+   "start_sec": 303.33,
+   "end_sec": 305.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 305.0,
+   "end_sec": 306.84
+  },
+  {
+   "text": "저희",
+   "start_sec": 306.84,
+   "end_sec": 308.68
+  },
+  {
+   "text": "제안은",
+   "start_sec": 308.68,
+   "end_sec": 310.53
+  },
+  {
+   "text": "구마다",
+   "start_sec": 310.53,
+   "end_sec": 312.37
+  },
+  {
+   "text": "교실",
+   "start_sec": 312.37,
+   "end_sec": 314.21
+  },
+  {
+   "text": "한",
+   "start_sec": 314.21,
+   "end_sec": 316.05
+  },
+  {
+   "text": "곳,",
+   "start_sec": 316.05,
+   "end_sec": 317.89
+  },
+  {
+   "text": "1년에",
+   "start_sec": 317.89,
+   "end_sec": 319.74
+  },
+  {
+   "text": "사천팔백만",
+   "start_sec": 319.74,
+   "end_sec": 321.58
+  },
+  {
+   "text": "원이에요.",
+   "start_sec": 321.58,
+   "end_sec": 323.42
+  },
+  {
+   "text": "교육이랑",
+   "start_sec": 323.42,
+   "end_sec": 325.26
+  },
+  {
+   "text": "화면",
+   "start_sec": 325.26,
+   "end_sec": 327.11
+  },
+  {
+   "text": "개선을",
+   "start_sec": 327.11,
+   "end_sec": 328.95
+  },
+  {
+   "text": "같이",
+   "start_sec": 328.95,
+   "end_sec": 330.79
+  },
+  {
+   "text": "가야",
+   "start_sec": 330.79,
+   "end_sec": 332.63
+  },
+  {
+   "text": "한다는",
+   "start_sec": 332.63,
+   "end_sec": 334.47
+  },
+  {
+   "text": "게",
+   "start_sec": 334.47,
+   "end_sec": 336.32
+  },
+  {
+   "text": "결론이에요.",
+   "start_sec": 336.32,
+   "end_sec": 338.16
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 338.16,
+   "end_sec": 340.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 35,
+   "text": "안녕하세요. 오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요.",
+   "words": [
+    {
+     "text": "안녕하세요.",
+     "start_sec": 0.0,
+     "end_sec": 1.94
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 1.94,
+     "end_sec": 3.89
+    },
+    {
+     "text": "어르신",
+     "start_sec": 3.89,
+     "end_sec": 5.83
+    },
+    {
+     "text": "키오스크",
+     "start_sec": 5.83,
+     "end_sec": 7.78
+    },
+    {
+     "text": "주문",
+     "start_sec": 7.78,
+     "end_sec": 9.72
+    },
+    {
+     "text": "교실을",
+     "start_sec": 9.72,
+     "end_sec": 11.67
+    },
+    {
+     "text": "제안드리려고",
+     "start_sec": 11.67,
+     "end_sec": 13.61
+    },
+    {
+     "text": "해요.",
+     "start_sec": 13.61,
+     "end_sec": 15.56
+    },
+    {
+     "text": "핵심은",
+     "start_sec": 15.56,
+     "end_sec": 17.5
+    },
+    {
+     "text": "기계를",
+     "start_sec": 17.5,
+     "end_sec": 19.44
+    },
+    {
+     "text": "바꾸기",
+     "start_sec": 19.44,
+     "end_sec": 21.39
+    },
+    {
+     "text": "전에",
+     "start_sec": 21.39,
+     "end_sec": 23.33
+    },
+    {
+     "text": "사람을",
+     "start_sec": 23.33,
+     "end_sec": 25.28
+    },
+    {
+     "text": "먼저",
+     "start_sec": 25.28,
+     "end_sec": 27.22
+    },
+    {
+     "text": "돕는",
+     "start_sec": 27.22,
+     "end_sec": 29.17
+    },
+    {
+     "text": "교육이",
+     "start_sec": 29.17,
+     "end_sec": 31.11
+    },
+    {
+     "text": "필요하다는",
+     "start_sec": 31.11,
+     "end_sec": 33.06
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 33.06,
+     "end_sec": 35.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 35,
+   "end_sec": 80,
+   "text": "요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요. 그런데 65세 이상 어르신 열 명 중 여섯 명이 키오스크 주문을 포기해 본 적이 있대요. 포기한 이유 1위가 뭐냐면, 뒤에 사람이 기다려서, 이게 사십일 퍼센트였어요. 글씨가 작아서보다 눈치가 보여서가 더 컸던 거죠.",
+   "words": [
+    {
+     "text": "요즘",
+     "start_sec": 35.0,
+     "end_sec": 36.15
+    },
+    {
+     "text": "식당이나",
+     "start_sec": 36.15,
+     "end_sec": 37.31
+    },
+    {
+     "text": "카페에",
+     "start_sec": 37.31,
+     "end_sec": 38.46
+    },
+    {
+     "text": "가면",
+     "start_sec": 38.46,
+     "end_sec": 39.62
+    },
+    {
+     "text": "대부분",
+     "start_sec": 39.62,
+     "end_sec": 40.77
+    },
+    {
+     "text": "키오스크로",
+     "start_sec": 40.77,
+     "end_sec": 41.92
+    },
+    {
+     "text": "주문하잖아요.",
+     "start_sec": 41.92,
+     "end_sec": 43.08
+    },
+    {
+     "text": "그런데",
+     "start_sec": 43.08,
+     "end_sec": 44.23
+    },
+    {
+     "text": "65세",
+     "start_sec": 44.23,
+     "end_sec": 45.38
+    },
+    {
+     "text": "이상",
+     "start_sec": 45.38,
+     "end_sec": 46.54
+    },
+    {
+     "text": "어르신",
+     "start_sec": 46.54,
+     "end_sec": 47.69
+    },
+    {
+     "text": "열",
+     "start_sec": 47.69,
+     "end_sec": 48.85
+    },
+    {
+     "text": "명",
+     "start_sec": 48.85,
+     "end_sec": 50.0
+    },
+    {
+     "text": "중",
+     "start_sec": 50.0,
+     "end_sec": 51.15
+    },
+    {
+     "text": "여섯",
+     "start_sec": 51.15,
+     "end_sec": 52.31
+    },
+    {
+     "text": "명이",
+     "start_sec": 52.31,
+     "end_sec": 53.46
+    },
+    {
+     "text": "키오스크",
+     "start_sec": 53.46,
+     "end_sec": 54.62
+    },
+    {
+     "text": "주문을",
+     "start_sec": 54.62,
+     "end_sec": 55.77
+    },
+    {
+     "text": "포기해",
+     "start_sec": 55.77,
+     "end_sec": 56.92
+    },
+    {
+     "text": "본",
+     "start_sec": 56.92,
+     "end_sec": 58.08
+    },
+    {
+     "text": "적이",
+     "start_sec": 58.08,
+     "end_sec": 59.23
+    },
+    {
+     "text": "있대요.",
+     "start_sec": 59.23,
+     "end_sec": 60.38
+    },
+    {
+     "text": "포기한",
+     "start_sec": 60.38,
+     "end_sec": 61.54
+    },
+    {
+     "text": "이유",
+     "start_sec": 61.54,
+     "end_sec": 62.69
+    },
+    {
+     "text": "1위가",
+     "start_sec": 62.69,
+     "end_sec": 63.85
+    },
+    {
+     "text": "뭐냐면,",
+     "start_sec": 63.85,
+     "end_sec": 65.0
+    },
+    {
+     "text": "뒤에",
+     "start_sec": 65.0,
+     "end_sec": 66.15
+    },
+    {
+     "text": "사람이",
+     "start_sec": 66.15,
+     "end_sec": 67.31
+    },
+    {
+     "text": "기다려서,",
+     "start_sec": 67.31,
+     "end_sec": 68.46
+    },
+    {
+     "text": "이게",
+     "start_sec": 68.46,
+     "end_sec": 69.62
+    },
+    {
+     "text": "사십일",
+     "start_sec": 69.62,
+     "end_sec": 70.77
+    },
+    {
+     "text": "퍼센트였어요.",
+     "start_sec": 70.77,
+     "end_sec": 71.92
+    },
+    {
+     "text": "글씨가",
+     "start_sec": 71.92,
+     "end_sec": 73.08
+    },
+    {
+     "text": "작아서보다",
+     "start_sec": 73.08,
+     "end_sec": 74.23
+    },
+    {
+     "text": "눈치가",
+     "start_sec": 74.23,
+     "end_sec": 75.38
+    },
+    {
+     "text": "보여서가",
+     "start_sec": 75.38,
+     "end_sec": 76.54
+    },
+    {
+     "text": "더",
+     "start_sec": 76.54,
+     "end_sec": 77.69
+    },
+    {
+     "text": "컸던",
+     "start_sec": 77.69,
+     "end_sec": 78.85
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 78.85,
+     "end_sec": 80.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 80,
+   "end_sec": 130,
+   "text": "주문 한 번에 시간이 얼마나 걸리는지도 쪼개 봤어요. 평균 주문 시간은 메뉴 찾기, 옵션 고르기, 결제 이 세 단계를 더한 거예요. 메뉴 찾는 데 사십팔 초, 옵션 고르는 데 삼십오 초, 결제에 이십칠 초, 합치면 백십 초예요. 두 분 가까이 서 있어야 하니까 뒤에서 기다리는 사람이 신경 쓰일 수밖에 없죠.",
+   "words": [
+    {
+     "text": "주문",
+     "start_sec": 80.0,
+     "end_sec": 81.0
+    },
+    {
+     "text": "한",
+     "start_sec": 81.0,
+     "end_sec": 82.0
+    },
+    {
+     "text": "번에",
+     "start_sec": 82.0,
+     "end_sec": 83.0
+    },
+    {
+     "text": "시간이",
+     "start_sec": 83.0,
+     "end_sec": 84.0
+    },
+    {
+     "text": "얼마나",
+     "start_sec": 84.0,
+     "end_sec": 85.0
+    },
+    {
+     "text": "걸리는지도",
+     "start_sec": 85.0,
+     "end_sec": 86.0
+    },
+    {
+     "text": "쪼개",
+     "start_sec": 86.0,
+     "end_sec": 87.0
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 87.0,
+     "end_sec": 88.0
+    },
+    {
+     "text": "평균",
+     "start_sec": 88.0,
+     "end_sec": 89.0
+    },
+    {
+     "text": "주문",
+     "start_sec": 89.0,
+     "end_sec": 90.0
+    },
+    {
+     "text": "시간은",
+     "start_sec": 90.0,
+     "end_sec": 91.0
+    },
+    {
+     "text": "메뉴",
+     "start_sec": 91.0,
+     "end_sec": 92.0
+    },
+    {
+     "text": "찾기,",
+     "start_sec": 92.0,
+     "end_sec": 93.0
+    },
+    {
+     "text": "옵션",
+     "start_sec": 93.0,
+     "end_sec": 94.0
+    },
+    {
+     "text": "고르기,",
+     "start_sec": 94.0,
+     "end_sec": 95.0
+    },
+    {
+     "text": "결제",
+     "start_sec": 95.0,
+     "end_sec": 96.0
+    },
+    {
+     "text": "이",
+     "start_sec": 96.0,
+     "end_sec": 97.0
+    },
+    {
+     "text": "세",
+     "start_sec": 97.0,
+     "end_sec": 98.0
+    },
+    {
+     "text": "단계를",
+     "start_sec": 98.0,
+     "end_sec": 99.0
+    },
+    {
+     "text": "더한",
+     "start_sec": 99.0,
+     "end_sec": 100.0
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 100.0,
+     "end_sec": 101.0
+    },
+    {
+     "text": "메뉴",
+     "start_sec": 101.0,
+     "end_sec": 102.0
+    },
+    {
+     "text": "찾는",
+     "start_sec": 102.0,
+     "end_sec": 103.0
+    },
+    {
+     "text": "데",
+     "start_sec": 103.0,
+     "end_sec": 104.0
+    },
+    {
+     "text": "사십팔",
+     "start_sec": 104.0,
+     "end_sec": 105.0
+    },
+    {
+     "text": "초,",
+     "start_sec": 105.0,
+     "end_sec": 106.0
+    },
+    {
+     "text": "옵션",
+     "start_sec": 106.0,
+     "end_sec": 107.0
+    },
+    {
+     "text": "고르는",
+     "start_sec": 107.0,
+     "end_sec": 108.0
+    },
+    {
+     "text": "데",
+     "start_sec": 108.0,
+     "end_sec": 109.0
+    },
+    {
+     "text": "삼십오",
+     "start_sec": 109.0,
+     "end_sec": 110.0
+    },
+    {
+     "text": "초,",
+     "start_sec": 110.0,
+     "end_sec": 111.0
+    },
+    {
+     "text": "결제에",
+     "start_sec": 111.0,
+     "end_sec": 112.0
+    },
+    {
+     "text": "이십칠",
+     "start_sec": 112.0,
+     "end_sec": 113.0
+    },
+    {
+     "text": "초,",
+     "start_sec": 113.0,
+     "end_sec": 114.0
+    },
+    {
+     "text": "합치면",
+     "start_sec": 114.0,
+     "end_sec": 115.0
+    },
+    {
+     "text": "백십",
+     "start_sec": 115.0,
+     "end_sec": 116.0
+    },
+    {
+     "text": "초예요.",
+     "start_sec": 116.0,
+     "end_sec": 117.0
+    },
+    {
+     "text": "두",
+     "start_sec": 117.0,
+     "end_sec": 118.0
+    },
+    {
+     "text": "분",
+     "start_sec": 118.0,
+     "end_sec": 119.0
+    },
+    {
+     "text": "가까이",
+     "start_sec": 119.0,
+     "end_sec": 120.0
+    },
+    {
+     "text": "서",
+     "start_sec": 120.0,
+     "end_sec": 121.0
+    },
+    {
+     "text": "있어야",
+     "start_sec": 121.0,
+     "end_sec": 122.0
+    },
+    {
+     "text": "하니까",
+     "start_sec": 122.0,
+     "end_sec": 123.0
+    },
+    {
+     "text": "뒤에서",
+     "start_sec": 123.0,
+     "end_sec": 124.0
+    },
+    {
+     "text": "기다리는",
+     "start_sec": 124.0,
+     "end_sec": 125.0
+    },
+    {
+     "text": "사람이",
+     "start_sec": 125.0,
+     "end_sec": 126.0
+    },
+    {
+     "text": "신경",
+     "start_sec": 126.0,
+     "end_sec": 127.0
+    },
+    {
+     "text": "쓰일",
+     "start_sec": 127.0,
+     "end_sec": 128.0
+    },
+    {
+     "text": "수밖에",
+     "start_sec": 128.0,
+     "end_sec": 129.0
+    },
+    {
+     "text": "없죠.",
+     "start_sec": 129.0,
+     "end_sec": 130.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 130,
+   "end_sec": 170,
+   "text": "그래서 교실은 이렇게 운영했어요. 일주일에 두 번, 4주 동안, 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요, 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 130.0,
+     "end_sec": 131.6
+    },
+    {
+     "text": "교실은",
+     "start_sec": 131.6,
+     "end_sec": 133.2
+    },
+    {
+     "text": "이렇게",
+     "start_sec": 133.2,
+     "end_sec": 134.8
+    },
+    {
+     "text": "운영했어요.",
+     "start_sec": 134.8,
+     "end_sec": 136.4
+    },
+    {
+     "text": "일주일에",
+     "start_sec": 136.4,
+     "end_sec": 138.0
+    },
+    {
+     "text": "두",
+     "start_sec": 138.0,
+     "end_sec": 139.6
+    },
+    {
+     "text": "번,",
+     "start_sec": 139.6,
+     "end_sec": 141.2
+    },
+    {
+     "text": "4주",
+     "start_sec": 141.2,
+     "end_sec": 142.8
+    },
+    {
+     "text": "동안,",
+     "start_sec": 142.8,
+     "end_sec": 144.4
+    },
+    {
+     "text": "한",
+     "start_sec": 144.4,
+     "end_sec": 146.0
+    },
+    {
+     "text": "번에",
+     "start_sec": 146.0,
+     "end_sec": 147.6
+    },
+    {
+     "text": "90분씩이에요.",
+     "start_sec": 147.6,
+     "end_sec": 149.2
+    },
+    {
+     "text": "강사",
+     "start_sec": 149.2,
+     "end_sec": 150.8
+    },
+    {
+     "text": "한",
+     "start_sec": 150.8,
+     "end_sec": 152.4
+    },
+    {
+     "text": "명이",
+     "start_sec": 152.4,
+     "end_sec": 154.0
+    },
+    {
+     "text": "어르신",
+     "start_sec": 154.0,
+     "end_sec": 155.6
+    },
+    {
+     "text": "여섯",
+     "start_sec": 155.6,
+     "end_sec": 157.2
+    },
+    {
+     "text": "분을",
+     "start_sec": 157.2,
+     "end_sec": 158.8
+    },
+    {
+     "text": "맡았고요,",
+     "start_sec": 158.8,
+     "end_sec": 160.4
+    },
+    {
+     "text": "실제",
+     "start_sec": 160.4,
+     "end_sec": 162.0
+    },
+    {
+     "text": "매장이랑",
+     "start_sec": 162.0,
+     "end_sec": 163.6
+    },
+    {
+     "text": "똑같은",
+     "start_sec": 163.6,
+     "end_sec": 165.2
+    },
+    {
+     "text": "연습용",
+     "start_sec": 165.2,
+     "end_sec": 166.8
+    },
+    {
+     "text": "키오스크로",
+     "start_sec": 166.8,
+     "end_sec": 168.4
+    },
+    {
+     "text": "연습했어요.",
+     "start_sec": 168.4,
+     "end_sec": 170.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 170,
+   "end_sec": 220,
+   "text": "결과는 참여하신 일흔두 분 기준이에요. 혼자 주문에 성공한 비율이 교육 전 삼십일 퍼센트에서 교육 후 칠십팔 퍼센트가 됐어요. 두 배 반 정도로 늘어난 거죠. 평균 주문 시간도 백십 초에서 일 분 사 초로 줄었어요.",
+   "words": [
+    {
+     "text": "결과는",
+     "start_sec": 170.0,
+     "end_sec": 171.47
+    },
+    {
+     "text": "참여하신",
+     "start_sec": 171.47,
+     "end_sec": 172.94
+    },
+    {
+     "text": "일흔두",
+     "start_sec": 172.94,
+     "end_sec": 174.41
+    },
+    {
+     "text": "분",
+     "start_sec": 174.41,
+     "end_sec": 175.88
+    },
+    {
+     "text": "기준이에요.",
+     "start_sec": 175.88,
+     "end_sec": 177.35
+    },
+    {
+     "text": "혼자",
+     "start_sec": 177.35,
+     "end_sec": 178.82
+    },
+    {
+     "text": "주문에",
+     "start_sec": 178.82,
+     "end_sec": 180.29
+    },
+    {
+     "text": "성공한",
+     "start_sec": 180.29,
+     "end_sec": 181.76
+    },
+    {
+     "text": "비율이",
+     "start_sec": 181.76,
+     "end_sec": 183.24
+    },
+    {
+     "text": "교육",
+     "start_sec": 183.24,
+     "end_sec": 184.71
+    },
+    {
+     "text": "전",
+     "start_sec": 184.71,
+     "end_sec": 186.18
+    },
+    {
+     "text": "삼십일",
+     "start_sec": 186.18,
+     "end_sec": 187.65
+    },
+    {
+     "text": "퍼센트에서",
+     "start_sec": 187.65,
+     "end_sec": 189.12
+    },
+    {
+     "text": "교육",
+     "start_sec": 189.12,
+     "end_sec": 190.59
+    },
+    {
+     "text": "후",
+     "start_sec": 190.59,
+     "end_sec": 192.06
+    },
+    {
+     "text": "칠십팔",
+     "start_sec": 192.06,
+     "end_sec": 193.53
+    },
+    {
+     "text": "퍼센트가",
+     "start_sec": 193.53,
+     "end_sec": 195.0
+    },
+    {
+     "text": "됐어요.",
+     "start_sec": 195.0,
+     "end_sec": 196.47
+    },
+    {
+     "text": "두",
+     "start_sec": 196.47,
+     "end_sec": 197.94
+    },
+    {
+     "text": "배",
+     "start_sec": 197.94,
+     "end_sec": 199.41
+    },
+    {
+     "text": "반",
+     "start_sec": 199.41,
+     "end_sec": 200.88
+    },
+    {
+     "text": "정도로",
+     "start_sec": 200.88,
+     "end_sec": 202.35
+    },
+    {
+     "text": "늘어난",
+     "start_sec": 202.35,
+     "end_sec": 203.82
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 203.82,
+     "end_sec": 205.29
+    },
+    {
+     "text": "평균",
+     "start_sec": 205.29,
+     "end_sec": 206.76
+    },
+    {
+     "text": "주문",
+     "start_sec": 206.76,
+     "end_sec": 208.24
+    },
+    {
+     "text": "시간도",
+     "start_sec": 208.24,
+     "end_sec": 209.71
+    },
+    {
+     "text": "백십",
+     "start_sec": 209.71,
+     "end_sec": 211.18
+    },
+    {
+     "text": "초에서",
+     "start_sec": 211.18,
+     "end_sec": 212.65
+    },
+    {
+     "text": "일",
+     "start_sec": 212.65,
+     "end_sec": 214.12
+    },
+    {
+     "text": "분",
+     "start_sec": 214.12,
+     "end_sec": 215.59
+    },
+    {
+     "text": "사",
+     "start_sec": 215.59,
+     "end_sec": 217.06
+    },
+    {
+     "text": "초로",
+     "start_sec": 217.06,
+     "end_sec": 218.53
+    },
+    {
+     "text": "줄었어요.",
+     "start_sec": 218.53,
+     "end_sec": 220.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 220,
+   "end_sec": 265,
+   "text": "그럼 큰 글씨 모드만 켜면 되지 않냐는 얘기도 있어서 비교해 봤어요. 큰 글씨 모드만 켠 매장은 성공률이 십이 퍼센트포인트 올랐는데, 주문 교실은 사십칠 퍼센트포인트 올랐어요. 그러니까 큰 글씨 모드만으로는 교육한 매장보다 상승 폭이 훨씬 작았던 거예요.",
+   "words": [
+    {
+     "text": "그럼",
+     "start_sec": 220.0,
+     "end_sec": 221.25
+    },
+    {
+     "text": "큰",
+     "start_sec": 221.25,
+     "end_sec": 222.5
+    },
+    {
+     "text": "글씨",
+     "start_sec": 222.5,
+     "end_sec": 223.75
+    },
+    {
+     "text": "모드만",
+     "start_sec": 223.75,
+     "end_sec": 225.0
+    },
+    {
+     "text": "켜면",
+     "start_sec": 225.0,
+     "end_sec": 226.25
+    },
+    {
+     "text": "되지",
+     "start_sec": 226.25,
+     "end_sec": 227.5
+    },
+    {
+     "text": "않냐는",
+     "start_sec": 227.5,
+     "end_sec": 228.75
+    },
+    {
+     "text": "얘기도",
+     "start_sec": 228.75,
+     "end_sec": 230.0
+    },
+    {
+     "text": "있어서",
+     "start_sec": 230.0,
+     "end_sec": 231.25
+    },
+    {
+     "text": "비교해",
+     "start_sec": 231.25,
+     "end_sec": 232.5
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 232.5,
+     "end_sec": 233.75
+    },
+    {
+     "text": "큰",
+     "start_sec": 233.75,
+     "end_sec": 235.0
+    },
+    {
+     "text": "글씨",
+     "start_sec": 235.0,
+     "end_sec": 236.25
+    },
+    {
+     "text": "모드만",
+     "start_sec": 236.25,
+     "end_sec": 237.5
+    },
+    {
+     "text": "켠",
+     "start_sec": 237.5,
+     "end_sec": 238.75
+    },
+    {
+     "text": "매장은",
+     "start_sec": 238.75,
+     "end_sec": 240.0
+    },
+    {
+     "text": "성공률이",
+     "start_sec": 240.0,
+     "end_sec": 241.25
+    },
+    {
+     "text": "십이",
+     "start_sec": 241.25,
+     "end_sec": 242.5
+    },
+    {
+     "text": "퍼센트포인트",
+     "start_sec": 242.5,
+     "end_sec": 243.75
+    },
+    {
+     "text": "올랐는데,",
+     "start_sec": 243.75,
+     "end_sec": 245.0
+    },
+    {
+     "text": "주문",
+     "start_sec": 245.0,
+     "end_sec": 246.25
+    },
+    {
+     "text": "교실은",
+     "start_sec": 246.25,
+     "end_sec": 247.5
+    },
+    {
+     "text": "사십칠",
+     "start_sec": 247.5,
+     "end_sec": 248.75
+    },
+    {
+     "text": "퍼센트포인트",
+     "start_sec": 248.75,
+     "end_sec": 250.0
+    },
+    {
+     "text": "올랐어요.",
+     "start_sec": 250.0,
+     "end_sec": 251.25
+    },
+    {
+     "text": "그러니까",
+     "start_sec": 251.25,
+     "end_sec": 252.5
+    },
+    {
+     "text": "큰",
+     "start_sec": 252.5,
+     "end_sec": 253.75
+    },
+    {
+     "text": "글씨",
+     "start_sec": 253.75,
+     "end_sec": 255.0
+    },
+    {
+     "text": "모드만으로는",
+     "start_sec": 255.0,
+     "end_sec": 256.25
+    },
+    {
+     "text": "교육한",
+     "start_sec": 256.25,
+     "end_sec": 257.5
+    },
+    {
+     "text": "매장보다",
+     "start_sec": 257.5,
+     "end_sec": 258.75
+    },
+    {
+     "text": "상승",
+     "start_sec": 258.75,
+     "end_sec": 260.0
+    },
+    {
+     "text": "폭이",
+     "start_sec": 260.0,
+     "end_sec": 261.25
+    },
+    {
+     "text": "훨씬",
+     "start_sec": 261.25,
+     "end_sec": 262.5
+    },
+    {
+     "text": "작았던",
+     "start_sec": 262.5,
+     "end_sec": 263.75
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 263.75,
+     "end_sec": 265.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 265,
+   "end_sec": 305,
+   "text": "남은 과제도 있어요. 결제 단계에서 멈추시는 경우가 여전히 제일 많고요. 현금을 안 받는 키오스크가 사십삼 퍼센트나 돼서, 현금만 쓰시는 분들은 아예 주문을 못 하세요.",
+   "words": [
+    {
+     "text": "남은",
+     "start_sec": 265.0,
+     "end_sec": 266.67
+    },
+    {
+     "text": "과제도",
+     "start_sec": 266.67,
+     "end_sec": 268.33
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 268.33,
+     "end_sec": 270.0
+    },
+    {
+     "text": "결제",
+     "start_sec": 270.0,
+     "end_sec": 271.67
+    },
+    {
+     "text": "단계에서",
+     "start_sec": 271.67,
+     "end_sec": 273.33
+    },
+    {
+     "text": "멈추시는",
+     "start_sec": 273.33,
+     "end_sec": 275.0
+    },
+    {
+     "text": "경우가",
+     "start_sec": 275.0,
+     "end_sec": 276.67
+    },
+    {
+     "text": "여전히",
+     "start_sec": 276.67,
+     "end_sec": 278.33
+    },
+    {
+     "text": "제일",
+     "start_sec": 278.33,
+     "end_sec": 280.0
+    },
+    {
+     "text": "많고요.",
+     "start_sec": 280.0,
+     "end_sec": 281.67
+    },
+    {
+     "text": "현금을",
+     "start_sec": 281.67,
+     "end_sec": 283.33
+    },
+    {
+     "text": "안",
+     "start_sec": 283.33,
+     "end_sec": 285.0
+    },
+    {
+     "text": "받는",
+     "start_sec": 285.0,
+     "end_sec": 286.67
+    },
+    {
+     "text": "키오스크가",
+     "start_sec": 286.67,
+     "end_sec": 288.33
+    },
+    {
+     "text": "사십삼",
+     "start_sec": 288.33,
+     "end_sec": 290.0
+    },
+    {
+     "text": "퍼센트나",
+     "start_sec": 290.0,
+     "end_sec": 291.67
+    },
+    {
+     "text": "돼서,",
+     "start_sec": 291.67,
+     "end_sec": 293.33
+    },
+    {
+     "text": "현금만",
+     "start_sec": 293.33,
+     "end_sec": 295.0
+    },
+    {
+     "text": "쓰시는",
+     "start_sec": 295.0,
+     "end_sec": 296.67
+    },
+    {
+     "text": "분들은",
+     "start_sec": 296.67,
+     "end_sec": 298.33
+    },
+    {
+     "text": "아예",
+     "start_sec": 298.33,
+     "end_sec": 300.0
+    },
+    {
+     "text": "주문을",
+     "start_sec": 300.0,
+     "end_sec": 301.67
+    },
+    {
+     "text": "못",
+     "start_sec": 301.67,
+     "end_sec": 303.33
+    },
+    {
+     "text": "하세요.",
+     "start_sec": 303.33,
+     "end_sec": 305.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 305,
+   "end_sec": 340,
+   "text": "그래서 저희 제안은 구마다 교실 한 곳, 1년에 사천팔백만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요. 감사합니다.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 305.0,
+     "end_sec": 306.84
+    },
+    {
+     "text": "저희",
+     "start_sec": 306.84,
+     "end_sec": 308.68
+    },
+    {
+     "text": "제안은",
+     "start_sec": 308.68,
+     "end_sec": 310.53
+    },
+    {
+     "text": "구마다",
+     "start_sec": 310.53,
+     "end_sec": 312.37
+    },
+    {
+     "text": "교실",
+     "start_sec": 312.37,
+     "end_sec": 314.21
+    },
+    {
+     "text": "한",
+     "start_sec": 314.21,
+     "end_sec": 316.05
+    },
+    {
+     "text": "곳,",
+     "start_sec": 316.05,
+     "end_sec": 317.89
+    },
+    {
+     "text": "1년에",
+     "start_sec": 317.89,
+     "end_sec": 319.74
+    },
+    {
+     "text": "사천팔백만",
+     "start_sec": 319.74,
+     "end_sec": 321.58
+    },
+    {
+     "text": "원이에요.",
+     "start_sec": 321.58,
+     "end_sec": 323.42
+    },
+    {
+     "text": "교육이랑",
+     "start_sec": 323.42,
+     "end_sec": 325.26
+    },
+    {
+     "text": "화면",
+     "start_sec": 325.26,
+     "end_sec": 327.11
+    },
+    {
+     "text": "개선을",
+     "start_sec": 327.11,
+     "end_sec": 328.95
+    },
+    {
+     "text": "같이",
+     "start_sec": 328.95,
+     "end_sec": 330.79
+    },
+    {
+     "text": "가야",
+     "start_sec": 330.79,
+     "end_sec": 332.63
+    },
+    {
+     "text": "한다는",
+     "start_sec": 332.63,
+     "end_sec": 334.47
+    },
+    {
+     "text": "게",
+     "start_sec": 334.47,
+     "end_sec": 336.32
+    },
+    {
+     "text": "결론이에요.",
+     "start_sec": 336.32,
+     "end_sec": 338.16
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 338.16,
+     "end_sec": 340.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 340
+}

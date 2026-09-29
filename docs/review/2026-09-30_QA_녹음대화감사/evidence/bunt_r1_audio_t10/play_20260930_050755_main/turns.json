@@ -1,0 +1,1009 @@
+{
+  "prep": "20260930_045356_audit_bunt_r1_audio_t10",
+  "deck": "audit_bunt_r1",
+  "mode": "audio",
+  "track": "10",
+  "tag": "main",
+  "script": "labs/qa_convo/answers/audit_rec_bunt_r1_t10_main.json",
+  "questions": [
+    {
+      "id": "q01-bunt-loss",
+      "node_id": "bunt-loss",
+      "label": "번트 전략의 순손실",
+      "question": "번트 전략의 순손실 수치가 실제 계산과 일치하는지 확인해 주세요.",
+      "why": "번트 손익 계산의 정확성을 검증하기 위해 묻는 질문이에요.",
+      "hint": "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "under_spoken",
+      "slide_nos": [
+        4
+      ],
+      "doc_weight": 0.668,
+      "answer_gist": "자료는 이렇게 말해요 — 번트 손익 = 성공 후 기대값 − · 0.71 − 0.86 = −0.15점 (4장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "번트 손익 = 성공 후 기대값 −",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "theme",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_clause_unsupported",
+          "gist_template",
+          "hint_code",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 번트 손익 = 성공 후 기대값 −",
+        "빈칸을 채워 보세요: 번트 손익 = 성공 후 기대값 − · 0.71 − 0.86 = −___"
+      ]
+    },
+    {
+      "id": "q02-bunt-expectation",
+      "node_id": "bunt-expectation",
+      "label": "번트 전후 득점 기대값",
+      "question": "자료 표에서 무사 1루의 「득점 기대값」 값이 0.52점이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요",
+      "hint": "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "under_spoken",
+      "slide_nos": [
+        3
+      ],
+      "doc_weight": 0.89,
+      "answer_gist": "질문의 전제와 달리, 자료 3장 표에서 무사 1루의 「득점 기대값」 값은 0.86점이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 3,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "part",
+        "rank": 2,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 3,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 무사 1루의 「득점 기대값」 값이 0.52점",
+        "fact": "표에서 무사 1루의 「득점 기대값」 값은 0.86점",
+        "slide_no": 3,
+        "wrong": [
+          "0.52점"
+        ],
+        "right": [
+          "0.86점"
+        ]
+      },
+      "hints": [
+        "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 3장 표에서 무사 1루의 「득점 기대값」 값은 ___이에요."
+      ]
+    },
+    {
+      "id": "q03-hard-hit-vs-bunt",
+      "node_id": "hard-hit-vs-bunt",
+      "label": "강공과 번트 비교",
+      "question": "자료에서 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 0.8배 높았습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요",
+      "hint": "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "under_spoken",
+      "slide_nos": [
+        6
+      ],
+      "doc_weight": 0.834,
+      "answer_gist": "질문의 전제와 달리, 자료 6장은 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "weak",
+        "rank": 3,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 0.8배 높았습니다",
+        "fact": "무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다",
+        "slide_no": 6,
+        "wrong": [
+          "0.8배"
+        ],
+        "right": [
+          "1.3배"
+        ]
+      },
+      "hints": [
+        "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 6장은 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 ___ 높았습니다」라고 해요."
+      ]
+    },
+    {
+      "id": "q04-bunt-profit-formula",
+      "node_id": "bunt-profit-formula",
+      "label": "번트 손익 계산 공식",
+      "question": "자료에서 「71 − 0.86 = −0.11점」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요",
+      "hint": "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 3,
+      "trap": true,
+      "source": "under_spoken",
+      "slide_nos": [
+        4
+      ],
+      "doc_weight": 0.663,
+      "answer_gist": "질문의 전제와 달리, 자료 4장은 「71 − 0.86 = −0.15점」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "part",
+        "rank": 4,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "71 − 0.86 = −0.11점",
+        "fact": "71 − 0.86 = −0.15점",
+        "slide_no": 4,
+        "wrong": [
+          "−0.11점"
+        ],
+        "right": [
+          "−0.15점"
+        ]
+      },
+      "hints": [
+        "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 4장은 「71 − 0.86 = ___」라고 해요."
+      ]
+    },
+    {
+      "id": "q05-hard-hit-advantage",
+      "node_id": "hard-hit-advantage",
+      "label": "강공의 상대적 우위",
+      "question": "강공의 상대적 우위는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?",
+      "why": "자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요",
+      "hint": "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 3,
+      "trap": false,
+      "source": "under_spoken",
+      "slide_nos": [
+        6
+      ],
+      "doc_weight": 0.719,
+      "answer_gist": "자료는 이렇게 말해요 — 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다 · 선택: 이닝 득점 확률 · 번트: 34% · 강공: 44% (6장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.",
+      "speech_quote": "그럼 번트 대신 강공을 하면 어떨까요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "weak",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "question_premise_conflict",
+          "premise_unsupported_premise",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 6장은 이렇게 말해요: «무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.»",
+        "이 방향이에요 — 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다",
+        "빈칸을 채워 보세요: 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다 · 선택: 이닝 득점 확률 · ___: 34% · 강공: 44%"
+      ]
+    },
+    {
+      "id": "q08-bunt-success-rate",
+      "node_id": "bunt-success-rate",
+      "label": "번트 성공률",
+      "question": "우리 리그 번트 성공률이 프로 리그 대비 19%p 낮다고 했는데, 이 비교의 타당성은 어떻게 되나요?",
+      "why": "자료 5장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "프로 리그와 우리 리그의 번트 성공률 수치를 다시 확인해 보세요.",
+      "severity": 3,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        5
+      ],
+      "doc_weight": 0.773,
+      "answer_gist": "우리 리그 번트 성공률은 62%이며, 프로 리그 81%보다 19%p 낮아 상대적으로 성공률이 낮아요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "우리 리그 번트 성공률은 62%입니다.",
+      "speech_quote": "우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "part",
+        "rank": 8,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 5,
+            "quote": "우리 리그 번트 성공률은 62%입니다."
+          }
+        ],
+        "checks": [
+          "why_code"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "프로 리그와 우리 리그의 번트 성공률 수치를 다시 확인해 보세요.",
+        "5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 5장은 이렇게 말해요: «우리 리그 번트 성공률은 62%입니다.»",
+        "이 방향이에요 — 우리 리그 번트 성공률은 62%이며",
+        "빈칸을 채워 보세요: 우리 리그 번트 성공률은 62%이며, 프로 ___ 81%보다 19%p 낮아 상대적으로 성공률이 낮아요."
+      ]
+    },
+    {
+      "id": "q06-hard-hit-probability",
+      "node_id": "hard-hit-probability",
+      "label": "득점 확률 수치",
+      "question": "득점 확률 수치는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?",
+      "why": "자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요",
+      "hint": "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 3,
+      "trap": false,
+      "source": "under_spoken",
+      "slide_nos": [
+        6
+      ],
+      "doc_weight": 0.664,
+      "answer_gist": "자료는 이렇게 말해요 — 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다 · 선택: 이닝 득점 확률 · 번트: 34% · 강공: 44% (6장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.",
+      "speech_quote": "무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "weak",
+        "rank": 6,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "method_unsupported",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 6장은 이렇게 말해요: «무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.»",
+        "이 방향이에요 — 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다",
+        "빈칸을 채워 보세요: 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다 · 선택: 이닝 득점 확률 · 번트: 34% · ___: 44%"
+      ]
+    }
+  ],
+  "turns": [
+    {
+      "q": 4,
+      "persona": "trap_agree",
+      "action": "answer",
+      "input": "네, 71에서 0.86을 빼면 마이너스 0.11점이라 번트가 손해라는 걸 보여 줘요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "네, 71에서 0.86을 빼면 마이너스 0.11점이라 번트가 손해라는 걸 보여 줘요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n\n질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n자료 4장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요."
+        }
+      ],
+      "judge": {
+        "question_id": "q04-bunt-profit-formula",
+        "node_id": "bunt-profit-formula",
+        "verdict": "wrong",
+        "score": 0,
+        "react": "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요.",
+        "summary_sentence": "번트 손익 계산 공식 — 자료와 어긋나게 설명했어요. 다시 보세요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "자료 4장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요.",
+        "hints": [
+          "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 4장은 「71 − 0.86 = ___」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "질문의 전제가 자료와 다르다는 점",
+        "guard": "trap",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "네, 71에서 0.86을 빼면 마이너스 0.11점이라 번트가 손해라는 걸 보여 줘요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.09
+        }
+      ],
+      "latency_sec": 1.9,
+      "judge_sec": 1.09,
+      "state": {
+        "qi": 3,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q4_trap_agree_01_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 4,
+      "persona": "trap_agree",
+      "action": "answer",
+      "input": "자료 4장은 0.71에서 0.86을 빼서 마이너스 0.15점이에요. 번트에 성공해도 기대값이 0.15점 줄어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "자료 4장은 0.71에서 0.86을 빼서 마이너스 0.15점이에요. 번트에 성공해도 기대값이 0.15점 줄어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n\n71에서 0.86을 빼서 -0.15점이라는 계산과 번트 성공 시 기대값이 0.15점 감소한다는 설명은 정확해요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n번트 손익 계산 공식\n설득 완료\n총평에 적었어요\n\n번트 손익 계산 공식은 성공 후 기대값에서 시도 전 기대값을 빼서 순손실 -0.15점을 나타내며, 이는 번트가 손해임을 보여 줘요.\n\n질문 4/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 5/7 · 가벼워요",
+          "text": "교\n예상 질문 5/7 · 가벼워요\n\n강공의 상대적 우위는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q04-bunt-profit-formula",
+        "node_id": "bunt-profit-formula",
+        "verdict": "good",
+        "score": 85,
+        "react": "71에서 0.86을 빼서 -0.15점이라는 계산과 번트 성공 시 기대값이 0.15점 감소한다는 설명은 정확해요.",
+        "summary_sentence": "번트 손익 계산 공식은 성공 후 기대값에서 시도 전 기대값을 빼서 순손실 -0.15점을 나타내며, 이는 번트가 손해임을 보여 줘요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 4장은 「71 − 0.86 = ___」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "자료 4장은 0.71에서 0.86을 빼서 마이너스 0.15점이에요. 번트에 성공해도 기대값이 0.15점 줄어요.",
+        "give_up": false,
+        "prior_answers": [
+          "네, 71에서 0.86을 빼면 마이너스 0.11점이라 번트가 손해라는 걸 보여 줘요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.24
+        }
+      ],
+      "latency_sec": 2.1,
+      "judge_sec": 1.24,
+      "state": {
+        "qi": 4,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q4_trap_agree_02_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 6,
+      "persona": "side_speech_like",
+      "action": "answer",
+      "input": "우리 리그 번트 성공률이 72퍼센트고 프로가 81퍼센트라서, 생각보다 차이가 크지 않다는 비교예요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "우리 리그 번트 성공률이 72퍼센트고 프로가 81퍼센트라서, 생각보다 차이가 크지 않다는 비교예요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n\n답변에서 제시한 수치가 자료와 다릅니다. 우리 리그 번트 성공률은 62%인데 72%라고 말했어요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n우리 리그 번트 성공률은 정확히 몇 퍼센트인가요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q08-bunt-success-rate",
+        "node_id": "bunt-success-rate",
+        "verdict": "wrong",
+        "score": 0,
+        "react": "답변에서 제시한 수치가 자료와 다릅니다. 우리 리그 번트 성공률은 62%인데 72%라고 말했어요.",
+        "summary_sentence": "번트 성공률 — 자료와 어긋나게 설명했어요. 다시 보세요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "우리 리그 번트 성공률은 정확히 몇 퍼센트인가요?",
+        "hints": [
+          "프로 리그와 우리 리그의 번트 성공률 수치를 다시 확인해 보세요.",
+          "5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 5장은 이렇게 말해요: «우리 리그 번트 성공률은 62%입니다.»",
+          "이 방향이에요 — 우리 리그 번트 성공률은 62%이며",
+          "빈칸을 채워 보세요: 우리 리그 번트 성공률은 62%이며, 프로 ___ 81%보다 19%p 낮아 상대적으로 성공률이 낮아요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "우리 리그 번트 성공률이 72퍼센트고 프로가 81퍼센트라서, 생각보다 차이가 크지 않다는 비교예요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.89
+        }
+      ],
+      "latency_sec": 2.7,
+      "judge_sec": 1.89,
+      "state": {
+        "qi": 5,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q6_side_speech_like_03_answer.png",
+      "auto_tags": [
+        "relevance:fail_without_missing"
+      ]
+    },
+    {
+      "q": 6,
+      "persona": "side_speech_like",
+      "action": "answer",
+      "input": "자료 5장을 다시 보면 우리 리그 번트 성공률은 62%이고 프로 리그 81%보다 19%p 낮아요. 제가 발표에서 72라고 잘못 말했어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "자료 5장을 다시 보면 우리 리그 번트 성공률은 62%이고 프로 리그 81%보다 19%p 낮아요. 제가 발표에서 72라고 잘못 말했어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n80\n완성도\n\n자료 5장을 정확히 인용하여 우리 리그 번트 성공률이 62%이고 프로 리그 81%보다 19%p 낮다는 점을 정확히 설명했어요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n번트 성공률\n설득 완료\n총평에 적었어요\n\n우리 리그 번트 성공률은 62%로 프로 리그 대비 19%p 낮아 상대적으로 성공률이 낮은 상황이에요.\n\n질문 6/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 7/7 · 가벼워요",
+          "text": "교\n예상 질문 7/7 · 가벼워요\n\n득점 확률 수치는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q08-bunt-success-rate",
+        "node_id": "bunt-success-rate",
+        "verdict": "good",
+        "score": 80,
+        "react": "자료 5장을 정확히 인용하여 우리 리그 번트 성공률이 62%이고 프로 리그 81%보다 19%p 낮다는 점을 정확히 설명했어요.",
+        "summary_sentence": "우리 리그 번트 성공률은 62%로 프로 리그 대비 19%p 낮아 상대적으로 성공률이 낮은 상황이에요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "프로 리그와 우리 리그의 번트 성공률 수치를 다시 확인해 보세요.",
+          "5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 5장은 이렇게 말해요: «우리 리그 번트 성공률은 62%입니다.»",
+          "이 방향이에요 — 우리 리그 번트 성공률은 62%이며",
+          "빈칸을 채워 보세요: 우리 리그 번트 성공률은 62%이며, 프로 ___ 81%보다 19%p 낮아 상대적으로 성공률이 낮아요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "자료 5장을 다시 보면 우리 리그 번트 성공률은 62%이고 프로 리그 81%보다 19%p 낮아요. 제가 발표에서 72라고 잘못 말했어요.",
+        "give_up": false,
+        "prior_answers": [
+          "우리 리그 번트 성공률이 72퍼센트고 프로가 81퍼센트라서, 생각보다 차이가 크지 않다는 비교예요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.33
+        }
+      ],
+      "latency_sec": 2.2,
+      "judge_sec": 1.33,
+      "state": {
+        "qi": 6,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q6_side_speech_like_04_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 7,
+      "persona": "reversed_then_fix",
+      "action": "answer",
+      "input": "무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높았다는 거예요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높았다는 거예요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n\n번트와 강공의 득점 확률 수치를 반대로 말했어요. 번트는 34%, 강공은 44%로 강공이 더 높아요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n번트와 강공의 득점 확률 수치를 정확히 어떻게 비교했는지 다시 한 번 설명해 줄래요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q06-hard-hit-probability",
+        "node_id": "hard-hit-probability",
+        "verdict": "wrong",
+        "score": 0,
+        "react": "번트와 강공의 득점 확률 수치를 반대로 말했어요. 번트는 34%, 강공은 44%로 강공이 더 높아요.",
+        "summary_sentence": "번트보다 강공의 득점 확률이 더 높다는 핵심 내용을 반대로 설명하여 자료와의 불일치가 발생했어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "번트와 강공의 득점 확률 수치를 정확히 어떻게 비교했는지 다시 한 번 설명해 줄래요?",
+        "hints": [
+          "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 6장은 이렇게 말해요: «무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.»",
+          "이 방향이에요 — 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다",
+          "빈칸을 채워 보세요: 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다 · 선택: 이닝 득점 확률 · 번트: 34% · ___: 44%"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높았다는 거예요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.09
+        }
+      ],
+      "latency_sec": 1.9,
+      "judge_sec": 1.09,
+      "state": {
+        "qi": 6,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q7_reversed_then_fix_05_answer.png",
+      "auto_tags": [
+        "relevance:fail_without_missing"
+      ]
+    },
+    {
+      "q": 7,
+      "persona": "reversed_then_fix",
+      "action": "answer",
+      "input": "자료 6장은 무사 1루에서 강공이 번트보다 그 이닝 득점 확률이 1.3배 높았다고 해요. 강공 44%, 번트 34%예요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "자료 6장은 무사 1루에서 강공이 번트보다 그 이닝 득점 확률이 1.3배 높았다고 해요. 강공 44%, 번트 34%예요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n\n무사 1루에서 강공이 번트보다 득점 확률이 1.3배 높았다는 점까지 정확히 말했어요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n득점 확률 수치\n설득 완료\n총평에 적었어요\n\n득점 확률 수치는 무사 1루에서 강공이 번트보다 1.3배 높은 44%의 확률을 보인 핵심 개념이에요.\n\n질문 7/7 마무리 — 마지막 질문이었어요"
+        },
+        {
+          "who": "sys",
+          "kind": "finale",
+          "meta": "",
+          "text": "질문 7개를 모두 마쳤어요\n\n주고받은 내용을 위로 올려 다시 볼 수 있어요."
+        }
+      ],
+      "judge": {
+        "question_id": "q06-hard-hit-probability",
+        "node_id": "hard-hit-probability",
+        "verdict": "good",
+        "score": 85,
+        "react": "무사 1루에서 강공이 번트보다 득점 확률이 1.3배 높았다는 점까지 정확히 말했어요.",
+        "summary_sentence": "득점 확률 수치는 무사 1루에서 강공이 번트보다 1.3배 높은 44%의 확률을 보인 핵심 개념이에요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 6장은 이렇게 말해요: «무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.»",
+          "이 방향이에요 — 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다",
+          "빈칸을 채워 보세요: 무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다 · 선택: 이닝 득점 확률 · 번트: 34% · ___: 44%"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "자료 6장은 무사 1루에서 강공이 번트보다 그 이닝 득점 확률이 1.3배 높았다고 해요. 강공 44%, 번트 34%예요.",
+        "give_up": false,
+        "prior_answers": [
+          "무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높았다는 거예요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.08
+        }
+      ],
+      "latency_sec": 1.9,
+      "judge_sec": 1.08,
+      "state": {
+        "qi": 7,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": true,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 0,
+        "buttons": [
+          "liveSeeResult|결과 확인하기"
+        ]
+      },
+      "shot": "q7_reversed_then_fix_06_answer.png",
+      "auto_tags": []
+    }
+  ],
+  "console": [],
+  "entry_turns": [
+    {
+      "who": "sys",
+      "kind": "note",
+      "text": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요."
+    },
+    {
+      "who": "ai",
+      "kind": "question",
+      "text": "번트 전략의 순손실 수치가 실제 계산과 일치하는지 확인해 주세요."
+    }
+  ],
+  "entry_stream": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요.\n\n교\n예상 질문 1/7 · 꼭 넘어야 해요\n\n번트 전략의 순손실 수치가 실제 계산과 일치하는지 확인해 주세요.\n\n번트 손익 계산의 정확성을 검증하기 위해 묻는 질문이에요.\n이 질문의 근거",
+  "result_text": "← 내 발표로 나가기\n코칭 기록 저장됨\n\n실전 질문 코칭 결과\n\n질문 7개 중 3개를 스스로 설명했어요\n3\n스스로 설명\n4\n넘김·안 물음\n\n다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.\n\n넘기거나 안 물은 질문\n4\n답하지 않았거나 묻기 전에 마쳤어요\n번트 전략의 순손실\n번트 전략의 순손실 수치가 실제 계산과 일치하는지 확인해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n번트 전후 득점 기대값\n자료 표에서 무사 1루의 「득점 기대값」 값이 0.52점이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 …\n넘김\n답하지 않고 넘겼어요\n›\n강공과 번트 비교\n자료에서 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 0.8배 높았습니다」라고 했는데, 이 수치가 무…\n넘김\n답하지 않고 넘겼어요\n›\n강공의 상대적 우위\n강공의 상대적 우위는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?\n넘김\n답하지 않고 넘겼어요\n›\n스스로 설명한 질문\n3\n힌트·보기 없이 내 말로 닫았어요\n번트 손익 계산 공식\n번트 손익 계산 공식은 성공 후 기대값에서 시도 전 기대값을 빼서 순손실 -0.15점을 나타내며, 이는 번트가…\n스스로 설명\n2번 만에 설명했어요\n›\n번트 성공률\n우리 리그 번트 성공률은 62%로 프로 리그 대비 19%p 낮아 상대적으로 성공률이 낮은 상황이에요.\n스스로 설명\n2번 만에 설명했어요\n›\n득점 확률 수치\n득점 확률 수치는 무사 1루에서 강공이 번트보다 1.3배 높은 44%의 확률을 보인 핵심 개념이에요.\n스스로 설명\n2번 만에 설명했어요\n›\n상세 리포트 보기\n같은 질문으로 다시\n홈으로",
+  "report_qa_log": "질문 코칭 내역\n 교수님과 주고받은 3개 질문 · 대화로 3개 늘었어요 · 2026.09.30\n\n첫 시도에 설명\n0\n→\n끝까지 설명\n3\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요 · 대화로 3개 늘었어요\n\n넘김\n번트 전략의 순손실\n01\n\n질문\n번트 전략의 순손실 수치가 실제 계산과 일치하는지 확인해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n번트 전후 득점 기대값\n02\n\n질문\n자료 표에서 무사 1루의 「득점 기대값」 값이 0.52점이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n강공과 번트 비교\n03\n\n질문\n자료에서 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 0.8배 높았습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n번트 손익 계산 공식\n04\n\n질문\n자료에서 「71 − 0.86 = −0.11점」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n자료 4장은 0.71에서 0.86을 빼서 마이너스 0.15점이에요. 번트에 성공해도 기대값이 0.15점 줄어요.\n\n번트 손익 계산 공식은 성공 후 기대값에서 시도 전 기대값을 빼서 순손실 -0.15점을 나타내며, 이는 번트가 손해임을 보여 줘요.\n\n2번 만에 설명했어요\n\n넘김\n강공의 상대적 우위\n05\n\n질문\n강공의 상대적 우위는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n번트 성공률\n06\n\n질문\n우리 리그 번트 성공률이 프로 리그 대비 19%p 낮다고 했는데, 이 비교의 타당성은 어떻게 되나요?\n\n내 답변\n자료 5장을 다시 보면 우리 리그 번트 성공률은 62%이고 프로 리그 81%보다 19%p 낮아요. 제가 발표에서 72라고 잘못 말했어요.\n\n우리 리그 번트 성공률은 62%로 프로 리그 대비 19%p 낮아 상대적으로 성공률이 낮은 상황이에요.\n\n2번 만에 설명했어요\n\n스스로 설명\n득점 확률 수치\n07\n\n질문\n득점 확률 수치는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n내 답변\n자료 6장은 무사 1루에서 강공이 번트보다 그 이닝 득점 확률이 1.3배 높았다고 해요. 강공 44%, 번트 34%예요.\n\n득점 확률 수치는 무사 1루에서 강공이 번트보다 1.3배 높은 44%의 확률을 보인 핵심 개념이에요.\n\n2번 만에 설명했어요",
+  "report_text": "수업에서 발표해요\n슬라이드 8개\n4분 40초\n\n사회인야구_번트손익_분석\n발표 완성도\nB\n?\n핵심은 전했고, 다듬을 곳이 보여요\n여기부터 보세요\n목적·청중 적합성\n0/100\n안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전 과연 손해일까 이득일까가 오늘 주제예요.\n내용 충실도\n94/100\n›\n논리 구조\n89/100\n›\n언어적 명료성\n79/100\n›\n음성적 전달\n61/100\n›\n시각자료 활용\n39/100\n›\n시간 관리\n48/100\n›\n‘수업에서 발표해요’에 맞춰 봤어요\n안 본 항목 3개 · 못 잰 항목 4개\n이 자리에서 안 보는 항목 3개는 빼고 봤어요\n4개 항목은 이번엔 재지 못했어요. 다음 연습에선 더 많이 알려드릴게요.\n요약\n말하기\n개념 전달\n흐름\n채점 근거\n연습 도구\n발표 구성\n슬라이드로 보는 발표\n슬라이드를 누르거나 ←→ 로 넘겨요\n8 / 8\n8번 슬라이드\n설명함\n평소 전략\n이 슬라이드에서 한 말\n평소에는 강공 한 점이 급할 때만 번트.\n\n평소 전략을 강공 우선, 1점 급할 때 번트로 설명\n\n판정 근거 자세히 보기\n1\n2\n3\n4\n5\n6\n7\n8\n설명함\n언급만 함\n안 나옴\n자료와 모순\n정당한 생략\n개념별 판정 전체 보기\n11개\n득점 기대값\n3번 슬라이드\n설명함\n번트 전후 득점 기대값\n3번 슬라이드\n설명함\n강공과 번트 비교\n6번 슬라이드\n설명함\n번트 성공률\n5번 슬라이드\n설명함\n강공의 상대적 우위\n6번 슬라이드\n설명함\n번트 전략의 순손실\n4번 슬라이드\n설명함\n득점 확률 수치\n6번 슬라이드\n설명함\n번트 손익 계산 공식\n4번 슬라이드\n설명함\n평소 전략\n8번 슬라이드\n설명함\n프로 리그 대비 성공률\n5번 슬라이드\n설명함\n특수 상황에서의 번트 효용성\n7번 슬라이드\n정당한 생략\n질문 코칭 내역\n 교수님과 주고받은 3개 질문 · 대화로 3개 늘었어요 · 2026.09.30\n\n첫 시도에 설명\n0\n→\n끝까지 설명\n3\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요 · 대화로 3개 늘었어요\n\n넘김\n번트 전략의 순손실\n01\n\n질문\n번트 전략의 순손실 수치가 실제 계산과 일치하는지 확인해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n번트 전후 득점 기대값\n02\n\n질문\n자료 표에서 무사 1루의 「득점 기대값」 값이 0.52점이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n강공과 번트 비교\n03\n\n질문\n자료에서 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 0.8배 높았습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n번트 손익 계산 공식\n04\n\n질문\n자료에서 「71 − 0.86 = −0.11점」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n자료 4장은 0.71에서 0.86을 빼서 마이너스 0.15점이에요. 번트에 성공해도 기대값이 0.15점 줄어요.\n\n번트 손익 계산 공식은 성공 후 기대값에서 시도 전 기대값을 빼서 순손실 -0.15점을 나타내며, 이는 번트가 손해임을 보여 줘요.\n\n2번 만에 설명했어요\n\n넘김\n강공의 상대적 우위\n05\n\n질문\n강공의 상대적 우위는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n번트 성공률\n06\n\n질문\n우리 리그 번트 성공률이 프로 리그 대비 19%p 낮다고 했는데, 이 비교의 타당성은 어떻게 되나요?\n\n내 답변\n자료 5장을 다시 보면 우리 리그 번트 성공률은 62%이고 프로 리그 81%보다 19%p 낮아요. 제가 발표에서 72라고 잘못 말했어요.\n\n우리 리그 번트 성공률은 62%로 프로 리그 대비 19%p 낮아 상대적으로 성공률이 낮은 상황이에요.\n\n2번 만에 설명했어요\n\n스스로 설명\n득점 확률 수치\n07\n\n질문\n득점 확률 수치는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n내 답변\n자료 6장은 무사 1루에서 강공이 번트보다 그 이닝 득점 확률이 1.3배 높았다고 해요. 강공 44%, 번트 34%예요.\n\n득점 확률 수치는 무사 1루에서 강공이 번트보다 1.3배 높은 44%의 확률을 보인 핵심 개념이에요.\n\n2번 만에 설명했어요\n\n이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.\n\n새 발표 연습\n질문 연습 다시 하기"
+}

@@ -1,0 +1,178 @@
+{
+ "file_name": "사회인야구_번트손익_분석.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "번트, 정말 점수를 만들까",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "번트, 정말 점수를 만들까"
+    },
+    {
+     "category": "paragraph",
+     "text": "아웃 하나를 내주고 주자를 보내는 작전의 손익"
+    },
+    {
+     "category": "paragraph",
+     "text": "사회인 야구 리그 데이터 분석 · 2026 시즌"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "분석한 데이터",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "분석한 데이터"
+    },
+    {
+     "category": "paragraph",
+     "text": "리그 12개 팀 · 180경기 · 타석 7,900개"
+    },
+    {
+     "category": "paragraph",
+     "text": "기록원이 입력한 경기 기록"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "상황별 득점 기대값",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "상황별 득점 기대값"
+    },
+    {
+     "category": "table",
+     "text": "| 상황 | 득점 기대값 |"
+    },
+    {
+     "category": "table",
+     "text": "| 무사 1루 | 0.86점 |"
+    },
+    {
+     "category": "table",
+     "text": "| 1사 2루 | 0.71점 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "번트에 성공해도 득점 기대값이 0.15점 줄었습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "번트의 손익 계산",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "번트의 손익 계산"
+    },
+    {
+     "category": "paragraph",
+     "text": "번트 손익 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "성공 후 기대값"
+    },
+    {
+     "category": "paragraph",
+     "text": "−"
+    },
+    {
+     "category": "paragraph",
+     "text": "시도 전 기대값"
+    },
+    {
+     "category": "paragraph",
+     "text": "0.71 − 0.86 = −0.15점"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "번트 성공률",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "번트 성공률"
+    },
+    {
+     "category": "paragraph",
+     "text": "우리 리그 번트 성공률은 62%입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "프로 리그(81%)보다 19%p 낮습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "강공과 비교",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "강공과 비교"
+    },
+    {
+     "category": "paragraph",
+     "text": "무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 선택 | 이닝 득점 확률 |"
+    },
+    {
+     "category": "table",
+     "text": "| 번트 | 34% |"
+    },
+    {
+     "category": "table",
+     "text": "| 강공 | 44% |"
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "예외: 번트가 이득인 때",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "예외: 번트가 이득인 때"
+    },
+    {
+     "category": "paragraph",
+     "text": "9회 동점에서 1점만 필요할 때는 번트가 득점 확률을 높입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "타율 2할 미만 타자라면 번트가 낫습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "결론",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "결론"
+    },
+    {
+     "category": "paragraph",
+     "text": "평소에는 강공, 1점이 급할 때만 번트"
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    }
+   ]
+  }
+ ]
+}

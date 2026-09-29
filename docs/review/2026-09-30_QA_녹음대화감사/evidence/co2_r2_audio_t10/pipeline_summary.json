@@ -1,0 +1,437 @@
+{
+ "alignment": {
+  "speech_match": "matched",
+  "speech_overlap": 0.4217,
+  "basis": "llm",
+  "skipped_slides": [],
+  "items": [
+   {
+    "node_id": "classroom-air",
+    "label": "교실 공기",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "정리하면, 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "co2-concentration",
+    "label": "이산화탄소 농도",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "수업이 사십 분 넘게 이어지면 교실 이산화탄소 농도가 천 피피엠을 넘어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation",
+    "label": "환기",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "정리하면, 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-time",
+    "label": "환기 시간",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "정리하면, 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-area",
+    "label": "환기 면적",
+    "verdict": "missing",
+    "decided_by": "code",
+    "deck_slide_no": null,
+    "evidence": "창문을 연 면적에 바람 속도를 곱하고, 거기에 연 시간을 곱해서 구해요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "wind-speed",
+    "label": "바람 속도",
+    "verdict": "aligned",
+    "decided_by": "code",
+    "deck_slide_no": null,
+    "evidence": "시간당 환기량은 창문을 연 면적에 바람 속도를 곱하고, 거기에 연 시간을 곱해서 구해요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-volume",
+    "label": "환기량",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "시간당 환기량은 창문을 연 면적에 바람 속도를 곱하고, 거기에 연 시간을 곱해서 구해요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-effect",
+    "label": "환기 효과",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "평균 농도가 천사백오십 피피엠이었고, 천 피피엠을 넘은 시간이 수업당 삼십이 분이었어요. 그런데 수업 중에 5분을 더 열었더니 평균이 팔백칠십 피피엠으로 내려갔고, 넘은 시간도 육 분으로 줄었어요. 평균 농도로 보면 사십 퍼센트 낮아진 거예요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "cross-ventilation",
+    "label": "맞통풍",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "앞문이랑 뒤 창문을 같이 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 두 배 빨리 떨어졌어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "one-side-ventilation",
+    "label": "한쪽 환기",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "앞문이랑 뒤 창문을 같이 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 두 배 빨리 떨어졌어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "concentration-reduction-speed",
+    "label": "농도 감소 속도",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "천 피피엠 아래로 내려가는 데 한쪽 창문은 십사 분, 맞통풍은 칠 분 걸렸어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-efficiency",
+    "label": "환기 효율",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "temperature-change",
+    "label": "실내 온도 변화",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "겨울에는 5분만 열어도 실내 온도가 평균 삼 도 정도 내려가서 춥다는 친구들이 있었어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "student-count-variation",
+    "label": "학생 수 변동",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "학생 수가 날마다 스물여섯 명에서 스물아홉 명으로 조금씩 달랐어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "sample-size-limit",
+    "label": "표본 크기 제한",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "측정한 교실이 저희 반 한 곳뿐이었고요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "optimal-ventilation-strategy",
+    "label": "최적 환기 전략",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "conclusion",
+    "label": "결론",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요.",
+    "deck_quote": ""
+   }
+  ]
+ },
+ "score": {
+  "score": 73,
+  "cap": null,
+  "basis": "partial",
+  "note": "",
+  "faults": [],
+  "unmeasured": [
+   6,
+   25,
+   26,
+   39
+  ]
+ },
+ "report": {
+  "one_liner": "발표 시간이 너무 짧아 핵심 내용을 충분히 전달하지 못했어요. 특히 그래프·표 설명이 전혀 없어서 청중이 이해하기 어려웠고, 제한시간을 지키지 못해 전체 흐름이 어색했어요.",
+  "score": 73,
+  "grade": "",
+  "strengths": [
+   "논리 구조는 잘 잡혀 있고, 시각자료를 활용한 계산과 한계점 제시가 명확했어요. 말 속도는 대체로 안정적이었고, 눈에 띄는 반복이나 긴 휴지는 적었어요."
+  ],
+  "weaknesses": [
+   "그래프·표 설명이 전혀 없어서 측정 결과를 제대로 전달하지 못했어요. 제한시간을 지키지 못해 발표 시간이 5.3분으로 너무 짧았고, 제목과 본문 내용이 일치하지 않아 청중이 혼란스러웠어요."
+  ],
+  "actions": [
+   "그래프와 표를 직접 가리키며 측정 결과(쉬는 시간만 환기했을 때 1,450ppm, 수업 중 5분 추가 환기했을 때 870ppm)와 40% 농도 감소 효과를 구체적으로 설명해보세요.",
+   "전체 발표 시간을 10분(600초) 목표로 잡고, 핵심 슬라이드(1~5번)에 각각 1~2문장의 추가 설명을 넣어 권장 시간(99초)에 가깝게 맞춰보세요.",
+   "제목과 본문 내용이 일치하도록 슬라이드 제목을 '교실 공기, 쉬는 시간 환기로 충분할까?'로 수정하고, 본문 첫 문장에서 바로 주제를 소개해보세요."
+  ],
+  "pace_summary": "{'average_sps': 2.26, 'average_cpm': 144.9, 'status': '전체적으로 말 속도가 빠르고, 핵심 슬라이드에서 권장 시간 대비 46%~64% 부족했어요. 특히 1번과 2번 슬라이드가 매우 짧아 청중이 내용을 따라가기 어려웠어요.'}",
+  "habit_summary": "{'repetitions': 0, 'fillers': 2, 'pauses': 0, 'status': '눈에 띄는 반복이나 긴 휴지는 적었지만, 그래프·표 설명이 없어 청중이 내용을 이해하기 어려웠어요.'}",
+  "model": "solar"
+ },
+ "pace": {
+  "target_sec": 600,
+  "actual_sec": 320,
+  "avg_chars_per_min": 144.9,
+  "slides": [
+   {
+    "slide_no": 1,
+    "title": "교실 공기, 쉬는 시간 환기로 충분할까",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 35.56,
+    "recommended_sec": 99.17,
+    "delta_sec": -63.61,
+    "chars_per_min": 189,
+    "syllable_per_sec": 2.9,
+    "status": "short",
+    "note": "핵심 · 권장 대비 64% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 2,
+    "title": "왜 교실 공기인가",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 17.77,
+    "recommended_sec": 99.17,
+    "delta_sec": -81.4,
+    "chars_per_min": 148.6,
+    "syllable_per_sec": 2.36,
+    "status": "short",
+    "note": "핵심 · 권장 대비 82% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 3,
+    "title": "측정 방법",
+    "importance": "support",
+    "importance_weight": 0.35,
+    "actual_sec": 59.26,
+    "recommended_sec": 34.71,
+    "delta_sec": 24.55,
+    "chars_per_min": 118.5,
+    "syllable_per_sec": 1.79,
+    "status": "long",
+    "note": "권장 대비 70% 초과",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 4,
+    "title": "환기량 계산",
+    "importance": "support",
+    "importance_weight": 0.35,
+    "actual_sec": 35.56,
+    "recommended_sec": 34.71,
+    "delta_sec": 0.85,
+    "chars_per_min": 163.7,
+    "syllable_per_sec": 2.56,
+    "status": "ok",
+    "note": "적절",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 5,
+    "title": "측정 결과",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 53.33,
+    "recommended_sec": 99.17,
+    "delta_sec": -45.84,
+    "chars_per_min": 165.4,
+    "syllable_per_sec": 2.59,
+    "status": "short",
+    "note": "핵심 · 권장 대비 46% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 6,
+    "title": "맞통풍과 한쪽 환기",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 41.48,
+    "recommended_sec": 99.17,
+    "delta_sec": -57.69,
+    "chars_per_min": 124.4,
+    "syllable_per_sec": 1.98,
+    "status": "short",
+    "note": "핵심 · 권장 대비 58% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 7,
+    "title": "한계",
+    "importance": "support",
+    "importance_weight": 0.35,
+    "actual_sec": 41.48,
+    "recommended_sec": 34.71,
+    "delta_sec": 6.77,
+    "chars_per_min": 134.5,
+    "syllable_per_sec": 2.12,
+    "status": "ok",
+    "note": "적절",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 8,
+    "title": "결론",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 35.56,
+    "recommended_sec": 99.17,
+    "delta_sec": -63.61,
+    "chars_per_min": 129.9,
+    "syllable_per_sec": 2.02,
+    "status": "short",
+    "note": "핵심 · 권장 대비 64% 부족",
+    "skip_cue": ""
+   }
+  ],
+  "tips": [
+   "목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요.",
+   "1번은 핵심인데 권장 99초 중 36초만 썼어요. 여기 시간을 늘리세요.",
+   "2번은 핵심인데 권장 99초 중 18초만 썼어요. 여기 시간을 늘리세요."
+  ]
+ },
+ "transcript_by_slide": [
+  {
+   "slide_no": 1,
+   "start_sec": 0,
+   "end_sec": 35.56,
+   "text": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데, 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론을 먼저 말씀드리면, 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요."
+  },
+  {
+   "slide_no": 2,
+   "start_sec": 35.56,
+   "end_sec": 53.33,
+   "text": "먼저 왜 교실 공기를 봤냐면요. 수업이 사십 분 넘게 이어지면 교실 이산화탄소 농도가 천 피피엠을 넘어요."
+  },
+  {
+   "slide_no": 3,
+   "start_sec": 53.33,
+   "end_sec": 112.59,
+   "text": "천 피피엠 이상이 되면 졸리다, 머리가 아프다 하는 친구들이 늘어나요. 저희도 오후 수업 때 유난히 졸린 게 이것 때문인가 싶었어요. 측정은 이렇게 했어요. 이산화탄소 측정기 두 대를 교실 앞이랑 뒤에 하나씩 놓고요. 3주 동안, 수업이 있는 날 15일을 5분 간격으로 기록했어요."
+  },
+  {
+   "slide_no": 4,
+   "start_sec": 112.59,
+   "end_sec": 148.15,
+   "text": "그다음은 환기량을 어떻게 계산하는지예요. 시간당 환기량은 창문을 연 면적에 바람 속도를 곱하고, 거기에 연 시간을 곱해서 구해요. 그러니까 얼마나 넓게 여는지, 바람이 얼마나 드는지, 얼마나 오래 여는지 세 가지가 다 들어가요."
+  },
+  {
+   "slide_no": 5,
+   "start_sec": 148.15,
+   "end_sec": 201.48,
+   "text": "저희가 바꿀 수 있는 건 주로 마지막, 여는 시간이었어요. 이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 천사백오십 피피엠이었고, 천 피피엠을 넘은 시간이 수업당 삼십이 분이었어요. 그런데 수업 중에 5분을 더 열었더니 평균이 팔백칠십 피피엠으로 내려갔고, 넘은 시간도 육 분으로 줄었어요. 평균 농도로 보면 사십 퍼센트 낮아진 거예요."
+  },
+  {
+   "slide_no": 6,
+   "start_sec": 201.48,
+   "end_sec": 242.96,
+   "text": "열 때 어떻게 여는지도 비교해 봤어요. 앞문이랑 뒤 창문을 같이 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 두 배 빨리 떨어졌어요. 천 피피엠 아래로 내려가는 데 한쪽 창문은 십사 분, 맞통풍은 칠 분 걸렸어요."
+  },
+  {
+   "slide_no": 7,
+   "start_sec": 242.96,
+   "end_sec": 284.44,
+   "text": "한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 삼 도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 스물여섯 명에서 스물아홉 명으로 조금씩 달랐어요."
+  },
+  {
+   "slide_no": 8,
+   "start_sec": 284.44,
+   "end_sec": 320,
+   "text": "정리하면, 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요. 여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요. 들어 주셔서 감사합니다."
+  }
+ ],
+ "pipeline_log": [
+  {
+   "kind": "pre",
+   "text": "발표하는 동안 자료의 개념을 미리 정리해 뒀어요",
+   "phase": "queued",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말한 내용을 다 옮겼어요 · 단어 263개 · 슬라이드 구간 8개 · 발화 내용을 자료와 맞춰 슬라이드 구간을 추정했어요.",
+   "phase": "stt_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "핵심 개념을 찾았어요 · 개념 슬라이드 8장",
+   "phase": "concepts_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "'교실 공기' · '이산화탄소 농도' 등 개념 17개를 발표와 대조할 준비를 했어요",
+   "phase": "graph_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "자료와 발표 대조를 마쳤어요 · 정합 판정 17개",
+   "phase": "align_done",
+   "sec": 13
+  },
+  {
+   "kind": "done",
+   "text": "흐름 비교를 마쳤어요 · 흐름 판정 8개",
+   "phase": "flow_done",
+   "sec": 13
+  },
+  {
+   "kind": "done",
+   "text": "시간 배분을 다 쟀어요 · 배분 8장 · 실제 320초",
+   "phase": "pace_done",
+   "sec": 13
+  },
+  {
+   "kind": "done",
+   "text": "말버릇을 다 찾았어요 · REP 0 · FIL 2 · PAUSE 0",
+   "phase": "habits_done",
+   "sec": 13
+  },
+  {
+   "kind": "done",
+   "text": "점수를 매겼어요 · 73점 · 학교 프로젝트 (교수 대상)",
+   "phase": "score_done",
+   "sec": 16
+  },
+  {
+   "kind": "done",
+   "text": "리포트를 다 썼어요 · 발표 시간이 너무 짧아 핵심 내용을 충분히 전달하지 못했어요. 특히 그래프·표 설명이 전혀 없어서 청중이 이해하기 어려웠고, 제한시간을 지키지 못해 전체 흐름이 어색했어요.",
+   "phase": "voice_report_done",
+   "sec": 19
+  },
+  {
+   "kind": "done",
+   "text": "상세 리포트까지 다 만들었어요 · 총 19초",
+   "phase": "done",
+   "sec": 19
+  }
+ ]
+}

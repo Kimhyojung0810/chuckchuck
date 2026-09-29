@@ -1,0 +1,552 @@
+{
+ "alignment": {
+  "speech_match": "matched",
+  "speech_overlap": 0.4375,
+  "basis": "llm",
+  "skipped_slides": [
+   {
+    "slide_no": 3,
+    "cue": "이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.",
+    "node_ids": [
+     "menu-search",
+     "option-select"
+    ]
+   }
+  ],
+  "items": [
+   {
+    "node_id": "education",
+    "label": "어르신 키오스크 주문 교실",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "target",
+    "label": "어르신",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "problem",
+    "label": "주문 포기",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "그런데 65세 이상 어르신 10명 중 6명이 키오스크 주문을 포기해 본 적이 있대요. 포기한 이유 1위가 뒤에 사람이 기다려서, 이게 41퍼센트였어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "reason",
+    "label": "뒤에 사람 기다림",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "그런데 65세 이상 어르신 10명 중 6명이 키오스크 주문을 포기해 본 적이 있대요. 포기한 이유 1위가 뒤에 사람이 기다려서, 이게 41퍼센트였어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "kiosk",
+    "label": "키오스크",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "menu-search",
+    "label": "메뉴 찾기",
+    "verdict": "missing",
+    "decided_by": "code",
+    "deck_slide_no": null,
+    "evidence": "안녕하세요. 오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "option-select",
+    "label": "옵션 고르기",
+    "verdict": "missing",
+    "decided_by": "code",
+    "deck_slide_no": null,
+    "evidence": "안녕하세요. 오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "payment",
+    "label": "결제",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "결제 단계에서 멈추시는 경우가 여전히 제일 많고요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "total-time",
+    "label": "주문 시간",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "평균 주문 시간도 110초에서 64초로 줄었고요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "operation",
+    "label": "교실 운영 방식",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "교실은 이렇게 운영했어요. 일주일에 두 번 4주 동안 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "schedule",
+    "label": "주 2회",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "교실은 이렇게 운영했어요. 일주일에 두 번 4주 동안 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "duration",
+    "label": "4주",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "일주일에 두 번 4주 동안 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "session",
+    "label": "90분",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "일주일에 두 번 4주 동안 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ratio",
+    "label": "강사 1명당 6명",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "교실은 이렇게 운영했어요. 일주일에 두 번 4주 동안 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "practice-kiosk",
+    "label": "연습용 키오스크",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "result",
+    "label": "교육 결과",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "success-rate",
+    "label": "혼자 주문 성공률",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "time-reduction",
+    "label": "주문 시간 감소",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "comparison",
+    "label": "큰 글씨 모드만으로는",
+    "verdict": "justified_skip",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "class-effect",
+    "label": "주문 교실 교육 효과",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "screen-mode",
+    "label": "큰 글씨 모드",
+    "verdict": "aligned",
+    "decided_by": "code",
+    "deck_slide_no": null,
+    "evidence": "큰 글씨 모드만 켜면 되지 않냐는 얘기도 있는데요, 사실 큰 글씨 모드만 켠 매장이 교육한 매장보다 성공률이 더 많이 올랐어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "remaining",
+    "label": "남은 과제",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "남은 과제도 있어요. 결제 단계에서 멈추시는 경우가 여전히 제일 많고요. 현금을 안 받는 키오스크가 43퍼센트나 돼서 현금만 쓰시는 분들은 아예 주문을 못 하세요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "payment-stuck",
+    "label": "결제 단계",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "결제 단계에서 멈추시는 경우가 여전히 제일 많고요. 현금을 안 받는 키오스크가 43퍼센트나 돼서 현금만 쓰시는 분들은 아예 주문을 못 하세요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "cashless",
+    "label": "현금 미지원",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "남은 과제도 있어요. 결제 단계에서 멈추시는 경우가 여전히 제일 많고요. 현금을 안 받는 키오스크가 43퍼센트나 돼서 현금만 쓰시는 분들은 아예 주문을 못 하세요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "implementation",
+    "label": "제안",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "class-per-district",
+    "label": "구마다 교실 1곳",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "budget",
+    "label": "연 4,800만 원",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "combined",
+    "label": "교육과 화면 개선",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요.",
+    "deck_quote": ""
+   }
+  ]
+ },
+ "score": {
+  "score": 69,
+  "cap": 69,
+  "basis": "partial",
+  "note": "말로 건너뛴 핵심 장 1장 — 총점은 69점을 넘지 않아요 (79점에서 낮췄어요)",
+  "faults": [
+   {
+    "kind": "skipped_slide",
+    "text": "핵심 3장을 「이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.」라고 하고 건너뛰었어요",
+    "slide_no": 3
+   }
+  ],
+  "unmeasured": [
+   18,
+   25,
+   26
+  ]
+ },
+ "report": {
+  "one_liner": "말 속도가 너무 빠르고, 핵심 슬라이드 3장을 건너뛰어 내용이 부족했어요. 특히 3번 슬라이드를 한 문장이라도 설명하고 넘어가면 더 좋을 거예요.",
+  "score": 69,
+  "grade": "",
+  "strengths": [
+   "핵심 슬라이드 1, 2, 4, 5, 8번을 모두 설명했고, 간투어(어, 그, 음)와 긴 휴지가 거의 없었어요. 슬라이드 6번과 7번은 권장 시간보다 조금 더 길게 말해 이해하기 쉬웠어요."
+  ],
+  "weaknesses": [
+   "핵심 3장을 「이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.」라고 하고 건너뛰었어요",
+   "말 속도가 너무 빨라서(116자/분) 청중이 따라가기 힘들었어요. 특히 슬라이드 3번을 통째로 건너뛰어 핵심 내용이 빠졌고, 전체 발표 시간이 4.9분으로 목표 10분보다 훨씬 짧았어요."
+  ],
+  "actions": [
+   "슬라이드 3번을 한 문장이라도 설명하고 넘어가보세요.",
+   "말 속도를 1분에 100자 정도로 천천히 말해보세요.",
+   "전체 발표 시간을 10분 정도로 맞추기 위해 각 슬라이드에 더 많은 내용을 넣어보세요."
+  ],
+  "pace_summary": "평균 116자/분으로 매우 빨랐고, 슬라이드 3번에서 속도가 크게 흔들렸어요. 슬라이드 7번은 평균보다 빠르게 말했어요.",
+  "habit_summary": "REP(같은 말 반복)와 FIL(긴 휴지)은 거의 없었고, 간투어(어, 그, 음)도 적었어요. 다만 말 속도가 너무 빨라서 청중이 따라가기 힘들었어요.",
+  "model": "solar"
+ },
+ "pace": {
+  "target_sec": 600,
+  "actual_sec": 295,
+  "avg_chars_per_min": 116.3,
+  "slides": [
+   {
+    "slide_no": 1,
+    "title": "어르신 키오스크 주문 교실",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 35.4,
+    "recommended_sec": 89.55,
+    "delta_sec": -54.15,
+    "chars_per_min": 145.8,
+    "syllable_per_sec": 2.32,
+    "status": "short",
+    "note": "핵심 · 권장 대비 60% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 2,
+    "title": "왜 키오스크인가",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 35.4,
+    "recommended_sec": 89.55,
+    "delta_sec": -54.15,
+    "chars_per_min": 108.5,
+    "syllable_per_sec": 1.5,
+    "status": "short",
+    "note": "핵심 · 권장 대비 60% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 3,
+    "title": "주문 한 번에 걸리는 시간",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 11.8,
+    "recommended_sec": 89.55,
+    "delta_sec": -77.75,
+    "chars_per_min": 254.2,
+    "syllable_per_sec": 3.98,
+    "status": "short",
+    "note": "핵심 · 말로 건너뛴 장 · 「이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.」",
+    "skip_cue": "이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다."
+   },
+   {
+    "slide_no": 4,
+    "title": "교실 운영 방식",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 47.2,
+    "recommended_sec": 89.55,
+    "delta_sec": -42.35,
+    "chars_per_min": 111.9,
+    "syllable_per_sec": 1.67,
+    "status": "short",
+    "note": "핵심 · 권장 대비 47% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 5,
+    "title": "교육 결과 (참여 72명)",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 41.3,
+    "recommended_sec": 89.55,
+    "delta_sec": -48.25,
+    "chars_per_min": 81.4,
+    "syllable_per_sec": 1.09,
+    "status": "short",
+    "note": "핵심 · 권장 대비 53% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 6,
+    "title": "큰 글씨 모드만으로는",
+    "importance": "support",
+    "importance_weight": 0.35,
+    "actual_sec": 41.3,
+    "recommended_sec": 31.34,
+    "delta_sec": 9.96,
+    "chars_per_min": 100.2,
+    "syllable_per_sec": 1.6,
+    "status": "long",
+    "note": "권장 대비 31% 초과",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 7,
+    "title": "남은 과제",
+    "importance": "support",
+    "importance_weight": 0.35,
+    "actual_sec": 29.5,
+    "recommended_sec": 31.34,
+    "delta_sec": -1.84,
+    "chars_per_min": 140.3,
+    "syllable_per_sec": 2.17,
+    "status": "fast",
+    "note": "이 구간 말이 평균보다 빨라요",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 8,
+    "title": "제안",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 53.1,
+    "recommended_sec": 89.55,
+    "delta_sec": -36.45,
+    "chars_per_min": 101.7,
+    "syllable_per_sec": 1.51,
+    "status": "short",
+    "note": "핵심 · 권장 대비 40% 부족",
+    "skip_cue": ""
+   }
+  ],
+  "tips": [
+   "3번(핵심)은 「이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.」라고 하고 넘어갔어요. 핵심 장은 한 문장이라도 설명하고 넘어가 보세요.",
+   "목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요.",
+   "1번은 핵심인데 권장 90초 중 35초만 썼어요. 여기 시간을 늘리세요.",
+   "2번은 핵심인데 권장 90초 중 35초만 썼어요. 여기 시간을 늘리세요."
+  ]
+ },
+ "transcript_by_slide": [
+  {
+   "slide_no": 1,
+   "start_sec": 0,
+   "end_sec": 35.4,
+   "text": "안녕하세요. 오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요."
+  },
+  {
+   "slide_no": 2,
+   "start_sec": 35.4,
+   "end_sec": 70.8,
+   "text": "그런데 65세 이상 어르신 10명 중 6명이 키오스크 주문을 포기해 본 적이 있대요. 포기한 이유 1위가 뒤에 사람이 기다려서, 이게 41퍼센트였어요."
+  },
+  {
+   "slide_no": 3,
+   "start_sec": 70.8,
+   "end_sec": 82.6,
+   "text": "글씨가 작아서보다 눈치가 보여서가 더 컸던 거죠. 이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다."
+  },
+  {
+   "slide_no": 4,
+   "start_sec": 82.6,
+   "end_sec": 129.8,
+   "text": "교실은 이렇게 운영했어요. 일주일에 두 번 4주 동안 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요."
+  },
+  {
+   "slide_no": 5,
+   "start_sec": 129.8,
+   "end_sec": 171.1,
+   "text": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요."
+  },
+  {
+   "slide_no": 6,
+   "start_sec": 171.1,
+   "end_sec": 212.4,
+   "text": "큰 글씨 모드만 켜면 되지 않냐는 얘기도 있는데요, 사실 큰 글씨 모드만 켠 매장이 교육한 매장보다 성공률이 더 많이 올랐어요. 그래도 교육을 같이 하는 게 좋다고 봐요."
+  },
+  {
+   "slide_no": 7,
+   "start_sec": 212.4,
+   "end_sec": 241.9,
+   "text": "남은 과제도 있어요. 결제 단계에서 멈추시는 경우가 여전히 제일 많고요. 현금을 안 받는 키오스크가 43퍼센트나 돼서 현금만 쓰시는 분들은 아예 주문을 못 하세요."
+  },
+  {
+   "slide_no": 8,
+   "start_sec": 241.9,
+   "end_sec": 295,
+   "text": "그리고 교육을 들은 어르신 열 명 중 아홉 명은 한 달 뒤에도 혼자 주문하셨어요. 그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요. 감사합니다."
+  }
+ ],
+ "pipeline_log": [
+  {
+   "kind": "start",
+   "text": "녹음을 넘겨받았어요",
+   "phase": "queued",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말한 내용을 다 옮겼어요 · 단어 189개 · 슬라이드 구간 8개 · 발화 내용을 자료와 맞춰 슬라이드 구간을 추정했어요.",
+   "phase": "stt_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "핵심 개념을 찾았어요 · 개념 슬라이드 8장",
+   "phase": "concepts_done",
+   "sec": 6
+  },
+  {
+   "kind": "done",
+   "text": "'어르신 키오스크 주문 교실' · '어르신' 등 개념 28개를 발표와 대조할 준비를 했어요",
+   "phase": "graph_done",
+   "sec": 24
+  },
+  {
+   "kind": "done",
+   "text": "자료와 발표 대조를 마쳤어요 · 정합 판정 28개",
+   "phase": "align_done",
+   "sec": 48
+  },
+  {
+   "kind": "done",
+   "text": "흐름 비교를 마쳤어요 · 흐름 판정 18개",
+   "phase": "flow_done",
+   "sec": 49
+  },
+  {
+   "kind": "done",
+   "text": "시간 배분을 다 쟀어요 · 배분 8장 · 실제 295초",
+   "phase": "pace_done",
+   "sec": 49
+  },
+  {
+   "kind": "done",
+   "text": "말버릇을 다 찾았어요 · REP 0 · FIL 0 · PAUSE 0",
+   "phase": "habits_done",
+   "sec": 49
+  },
+  {
+   "kind": "done",
+   "text": "점수를 매겼어요 · 69점 · 학교 프로젝트 (교수 대상)",
+   "phase": "score_done",
+   "sec": 52
+  },
+  {
+   "kind": "done",
+   "text": "리포트를 다 썼어요 · 말 속도가 너무 빠르고, 핵심 슬라이드 3장을 건너뛰어 내용이 부족했어요. 특히 3번 슬라이드를 한 문장이라도 설명하고 넘어가면 더 좋을 거예요.",
+   "phase": "voice_report_done",
+   "sec": 54
+  },
+  {
+   "kind": "done",
+   "text": "상세 리포트까지 다 만들었어요 · 총 54초",
+   "phase": "done",
+   "sec": 54
+  }
+ ]
+}

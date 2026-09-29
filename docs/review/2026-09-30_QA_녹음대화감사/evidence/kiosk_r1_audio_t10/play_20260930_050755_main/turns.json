@@ -1,0 +1,1040 @@
+{
+  "prep": "20260930_045354_audit_kiosk_r1_audio_t10",
+  "deck": "audit_kiosk_r1",
+  "mode": "audio",
+  "track": "10",
+  "tag": "main",
+  "script": "labs/qa_convo/answers/audit_rec_kiosk_r1_t10_main.json",
+  "questions": [
+    {
+      "id": "q06-education",
+      "node_id": "education",
+      "label": "어르신 키오스크 주문 교실",
+      "question": "어르신 키오스크 주문 교실이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "1, 4, 5장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        4,
+        5
+      ],
+      "doc_weight": 0.966,
+      "answer_gist": "자료는 이렇게 말해요 — 어르신 키오스크 주문 교실 · 강사 1명당 어르신 6명 (1, 4장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 1,
+      "evidence_quote": "어르신 키오스크 주문 교실",
+      "speech_quote": "오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "theme",
+        "rank": 6,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 1,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "question_unanswerable",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "1, 4, 5장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "1, 4, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 어르신 키오스크 주문 교실",
+        "빈칸을 채워 보세요: 어르신 키오스크 주문 교실 · 강사 ___ 어르신 6명"
+      ]
+    },
+    {
+      "id": "q07-problem",
+      "node_id": "problem",
+      "label": "주문 포기",
+      "question": "자료에서 「65세 이상 20명 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "2장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 1,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        2
+      ],
+      "doc_weight": 0.375,
+      "answer_gist": "질문의 전제와 달리, 자료 2장은 「65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 2,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 7,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 2,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "65세 이상 20명 중 6명이 키오스크 주문을 포기한 적이 있습니다",
+        "fact": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다",
+        "slide_no": 2,
+        "wrong": [
+          "20명"
+        ],
+        "right": [
+          "10명"
+        ]
+      },
+      "hints": [
+        "2장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "2장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 2장은 「65세 이상 ___ 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 해요."
+      ]
+    },
+    {
+      "id": "q01-menu-search",
+      "node_id": "menu-search",
+      "label": "메뉴 찾기",
+      "question": "메뉴 찾기 평균 48초와 옵션 고르기 평균 35초, 결제 평균 27초를 합한 총 평균 주문 시간 110초가 주문 포기 문제와 어떤 관련이 있는지 설명해 주세요.",
+      "why": "“시간이 없어서 패스하겠습니다”라고 하고 넘어간 3장의 핵심이라, 그 내용을 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "주문 포기 이유 중 '뒤에 사람이 기다려서'가 시간 압박과 관련이 있을 수 있어요.",
+      "severity": 1,
+      "trap": false,
+      "source": "skipped_slide",
+      "slide_nos": [
+        3
+      ],
+      "doc_weight": 0.227,
+      "answer_gist": "자료는 이렇게 말해요 — 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초 · 주문 한 번에 걸리는 시간 (3장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 3,
+      "evidence_quote": "평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초",
+      "speech_quote": "글씨가 작아서보다 눈치가 보여서가 더 컸던 거죠.",
+      "paper_ids": [],
+      "basis": {
+        "source": "skipped_slide",
+        "slot": "weak",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 3,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_clause_unsupported",
+          "gist_template",
+          "why_from_skip",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "주문 포기 이유 중 '뒤에 사람이 기다려서'가 시간 압박과 관련이 있을 수 있어요.",
+        "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초",
+        "빈칸을 채워 보세요: 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초 · 주문 한 번에 걸리는 ___"
+      ]
+    },
+    {
+      "id": "q08-implementation",
+      "node_id": "implementation",
+      "label": "제안",
+      "question": "제안이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        8
+      ],
+      "doc_weight": 0.324,
+      "answer_gist": "자료는 이렇게 말해요 — 교육과 화면 개선을 함께 추진 (8장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "교육과 화면 개선을 함께 추진",
+      "speech_quote": "그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 8,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "question_unanswerable",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 교육과 화면…",
+        "빈칸을 채워 보세요: 교육과 화면 개선을 함께 ___"
+      ]
+    },
+    {
+      "id": "q02-option-select",
+      "node_id": "option-select",
+      "label": "옵션 고르기",
+      "question": "자료에서 「48초 + 35초 + 27초 = 140초」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료에는 있는데 발표에서 설명하지 않은 개념이에요",
+      "hint": "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 3,
+      "trap": true,
+      "source": "missing",
+      "slide_nos": [
+        3
+      ],
+      "doc_weight": 0.227,
+      "answer_gist": "질문의 전제와 달리, 자료 3장은 「48초 + 35초 + 27초 = 110초」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 3,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "missing",
+        "slot": "weak",
+        "rank": 2,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 3,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "48초 + 35초 + 27초 = 140초",
+        "fact": "48초 + 35초 + 27초 = 110초",
+        "slide_no": 3,
+        "wrong": [
+          "140초"
+        ],
+        "right": [
+          "110초"
+        ]
+      },
+      "hints": [
+        "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 3장은 「48초 + 35초 + 27초 = ___」라고 해요."
+      ]
+    },
+    {
+      "id": "q12-operation",
+      "node_id": "operation",
+      "label": "교실 운영 방식",
+      "question": "자료에서 「구마다 교실 1곳 · 연 3,400만 원」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료 4, 8장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "4, 8장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "core_weight",
+      "slide_nos": [
+        4,
+        8
+      ],
+      "doc_weight": 0.626,
+      "answer_gist": "질문의 전제와 달리, 자료 8장은 「구마다 교실 1곳 · 연 4,800만 원」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "part",
+        "rank": 12,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "구마다 교실 1곳 · 연 3,400만 원",
+        "fact": "구마다 교실 1곳 · 연 4,800만 원",
+        "slide_no": 8,
+        "wrong": [
+          "3,400만 원"
+        ],
+        "right": [
+          "4,800만 원"
+        ]
+      },
+      "hints": [
+        "4, 8장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "4, 8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 8장은 「구마다 교실 1곳 · 연 ___」라고 해요."
+      ]
+    },
+    {
+      "id": "q03-kiosk",
+      "node_id": "kiosk",
+      "label": "키오스크",
+      "question": "키오스크는 발표에서 짧게 지나갔어요. 자료 2, 3, 4장의 핵심을 한 문장으로 말하면 무엇인가요?",
+      "why": "자료에서 비중이 큰데 발표에서는 짧게 지나간 개념이에요",
+      "hint": "2, 3, 4장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "under_spoken",
+      "slide_nos": [
+        2,
+        3,
+        4
+      ],
+      "doc_weight": 1,
+      "answer_gist": "자료는 이렇게 말해요 — 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다 · 실제 매장과 같은 연습용 키오스크 (2, 4장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 2,
+      "evidence_quote": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다.",
+      "speech_quote": "그런데 65세 이상 어르신 10명 중 6명이 키오스크 주문을 포기해 본 적이 있대요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "under_spoken",
+        "slot": "weak",
+        "rank": 3,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 2,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "recite_duplicate",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "2, 3, 4장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "2, 3, 4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 2장은 이렇게 말해요: «65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다.»",
+        "이 방향이에요 — 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다",
+        "빈칸을 채워 보세요: 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다 · 실제 매장과 같은 ___ 키오스크"
+      ]
+    }
+  ],
+  "turns": [
+    {
+      "q": 3,
+      "persona": "short_then_good",
+      "action": "answer",
+      "input": "시간이 오래 걸리니까 포기하게 돼요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "시간이 오래 걸리니까 포기하게 돼요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n75\n완성도\n\n시간이 오래 걸린다는 점은 맞아요. 그런데 구체적으로 어떤 단계에서 48초가 측정되었는지, 메뉴 찾기 외에 옵션 고르기나 결제 시간은 어떻게 되는지 추가로 설명해 줄래요?"
+        },
+        {
+          "who": "ai",
+          "kind": "missing",
+          "meta": "",
+          "text": "교\n아직 안 나온 것\n메뉴 찾기 외에 옵션 고르기(35초)와 결제(27초)의 소요 시간"
+        },
+        {
+          "who": "ai",
+          "kind": "gist",
+          "meta": "",
+          "text": "교\n이렇게 말하면 완성이에요\n\n자료는 이렇게 말해요 — 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초 · 주문 한 번에 걸리는 시간 (3장)"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n메뉴 찾기 외에 옵션 고르기나 결제 단계에서 소요된 시간은 각각 얼마였나요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-menu-search",
+        "node_id": "menu-search",
+        "verdict": "partial",
+        "score": 75,
+        "react": "시간이 오래 걸린다는 점은 맞아요. 그런데 구체적으로 어떤 단계에서 48초가 측정되었는지, 메뉴 찾기 외에 옵션 고르기나 결제 시간은 어떻게 되는지 추가로 설명해 줄래요?",
+        "summary_sentence": "메뉴 찾기 평균 48초는 주문 포기 현상의 주요 원인으로, 전체 주문 시간(110초) 중 메뉴 탐색 단계가 가장 오래 걸리는 것으로 나타났어요.",
+        "missing_points": [
+          "메뉴 찾기 외에 옵션 고르기(35초)와 결제(27초)의 소요 시간"
+        ],
+        "model": "solar",
+        "followup": "메뉴 찾기 외에 옵션 고르기나 결제 단계에서 소요된 시간은 각각 얼마였나요?",
+        "hints": [
+          "자료에서 언급된 키오스크 환경이나 조건을 찾아보세요.",
+          "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "아직 안 나온 것: 메뉴 찾기 외에 옵션 고르기(35초)와 결제(27초)의 소요 시간",
+          "빈칸을 채워 보세요: 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초 · 주문 한 번에 걸리는 ___"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": true,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_mismatch"
+        ],
+        "degraded_notes": [
+          "화면의 질문이 서버가 만든 질문과 달라서 서버의 질문으로 판정했어요."
+        ]
+      },
+      "judge_req": {
+        "answer": "시간이 오래 걸리니까 포기하게 돼요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.66
+        }
+      ],
+      "latency_sec": 2.5,
+      "judge_sec": 1.66,
+      "state": {
+        "qi": 2,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 4,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q3_short_then_good_01_answer.png",
+      "auto_tags": [
+        "consistency:passed_not_mastered score=75"
+      ]
+    },
+    {
+      "q": 3,
+      "persona": "short_then_good",
+      "action": "answer",
+      "input": "3장은 평균 주문 시간이 메뉴 찾기, 옵션 고르기, 결제 세 단계를 더한 거라는 내용이에요. 48초, 35초, 27초를 더하면 110초라 두 분 가까이 서 있어야 해서, 뒤에 사람이 기다리면 눈치가 보여 포기하게 돼요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "3장은 평균 주문 시간이 메뉴 찾기, 옵션 고르기, 결제 세 단계를 더한 거라는 내용이에요. 48초, 35초, 27초를 더하면 110초라 두 분 가까이 서 있어야 해서, 뒤에 사람이 기다리면 눈치가 보여 포기하게 돼요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n+10\n\n메뉴 찾기, 옵션 고르기, 결제 세 단계를 합친 평균 주문 시간 110초를 정확히 언급했고, 그 수치가 길어서 주문 포기로 이어진다는 연결 고리도 잘 설명했어요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n메뉴 찾기\n설득 완료\n총평에 적었어요\n\n메뉴 찾기(48초), 옵션 고르기(35초), 결제(27초)를 합친 평균 주문 시간 110초가 길어 주문 포기로 이어진다는 점을 정확히 설명했어요.\n\n질문 3/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 4/7 · 보통이에요",
+          "text": "교\n예상 질문 4/7 · 보통이에요\n\n제안이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n\n다른 개념과의 연결이 발표에서 드러나지 않았어요\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-menu-search",
+        "node_id": "menu-search",
+        "verdict": "good",
+        "score": 85,
+        "react": "메뉴 찾기, 옵션 고르기, 결제 세 단계를 합친 평균 주문 시간 110초를 정확히 언급했고, 그 수치가 길어서 주문 포기로 이어진다는 연결 고리도 잘 설명했어요.",
+        "summary_sentence": "메뉴 찾기(48초), 옵션 고르기(35초), 결제(27초)를 합친 평균 주문 시간 110초가 길어 주문 포기로 이어진다는 점을 정확히 설명했어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "자료에서 언급된 키오스크 환경이나 조건을 찾아보세요.",
+          "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "이 방향이에요 — 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초",
+          "빈칸을 채워 보세요: 평균 주문 시간 메뉴 찾기 + 옵션 고르기 + 결제 = 48초 + 35초 + 27초 = 110초 · 주문 한 번에 걸리는 ___"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": true,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_mismatch"
+        ],
+        "degraded_notes": [
+          "화면의 질문이 서버가 만든 질문과 달라서 서버의 질문으로 판정했어요."
+        ]
+      },
+      "judge_req": {
+        "answer": "3장은 평균 주문 시간이 메뉴 찾기, 옵션 고르기, 결제 세 단계를 더한 거라는 내용이에요. 48초, 35초, 27초를 더하면 110초라 두 분 가까이 서 있어야 해서, 뒤에 사람이 기다리면 눈치가 보여 포기하게 돼요.",
+        "give_up": false,
+        "prior_answers": [
+          "시간이 오래 걸리니까 포기하게 돼요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.72
+        }
+      ],
+      "latency_sec": 2.6,
+      "judge_sec": 1.72,
+      "state": {
+        "qi": 3,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 4,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q3_short_then_good_02_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 5,
+      "persona": "trap_agree",
+      "action": "answer",
+      "input": "네, 세 단계를 합치면 140초나 걸린다는 걸 보여 줘요. 그만큼 오래 걸려요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "네, 세 단계를 합치면 140초나 걸린다는 걸 보여 줘요. 그만큼 오래 걸려요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n35\n완성도\n\n질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n자료 3장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요."
+        }
+      ],
+      "judge": {
+        "question_id": "q02-option-select",
+        "node_id": "option-select",
+        "verdict": "wrong",
+        "score": 35,
+        "react": "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요.",
+        "summary_sentence": "자료에 없는 잘못된 수치를 그대로 받아들여 개념을 정확히 방어하지 못했어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "자료 3장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요.",
+        "hints": [
+          "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 3장은 「48초 + 35초 + 27초 = ___」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "질문의 전제가 자료와 다르다는 점",
+        "guard": "trap",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "네, 세 단계를 합치면 140초나 걸린다는 걸 보여 줘요. 그만큼 오래 걸려요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.04
+        }
+      ],
+      "latency_sec": 1.9,
+      "judge_sec": 1.04,
+      "state": {
+        "qi": 4,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q5_trap_agree_03_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 5,
+      "persona": "trap_agree",
+      "action": "answer",
+      "input": "다시 보니 48초, 35초, 27초를 더하면 110초예요. 자료 3장도 110초라고 해요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "다시 보니 48초, 35초, 27초를 더하면 110초예요. 자료 3장도 110초라고 해요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n절반쯤\n65\n완성도\n+30\n\n질문이 말한 내용이 자료와 같은지부터 확인해 보세요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "좁혀서 다시 물어볼게요 · 3번째 답변",
+          "text": "교\n좁혀서 다시 물어볼게요 · 3번째 답변\n\n자료 3장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요."
+        },
+        {
+          "who": "ai",
+          "kind": "hint",
+          "meta": "",
+          "text": "교\n힌트 1/3 · 좁혀 물으면서 같이 열었어요\n3장에 이 개념을 둔 이유부터 떠올려 보세요"
+        }
+      ],
+      "judge": {
+        "question_id": "q02-option-select",
+        "node_id": "option-select",
+        "verdict": "partial",
+        "score": 65,
+        "react": "질문이 말한 내용이 자료와 같은지부터 확인해 보세요.",
+        "summary_sentence": "옵션 고르기 — 질문의 전제가 자료와 같은지 아직 짚지 않았어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "자료 3장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요.",
+        "hints": [
+          "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 3장은 「48초 + 35초 + 27초 = ___」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "focus",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "질문의 전제가 자료와 같은지",
+        "guard": "trap_open",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "다시 보니 48초, 35초, 27초를 더하면 110초예요. 자료 3장도 110초라고 해요.",
+        "give_up": false,
+        "prior_answers": [
+          "네, 세 단계를 합치면 140초나 걸린다는 걸 보여 줘요. 그만큼 오래 걸려요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.33
+        }
+      ],
+      "latency_sec": 2.2,
+      "judge_sec": 1.33,
+      "state": {
+        "qi": 4,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 2,
+        "hintLevel": 1,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 2단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q5_trap_agree_04_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 7,
+      "persona": "partial_then_addon",
+      "action": "answer",
+      "input": "키오스크 주문을 포기하는 어르신이 많다는 거예요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "키오스크 주문을 포기하는 어르신이 많다는 거예요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n70\n완성도\n\n주문 포기 비율이 맞아요. 그런데 실제 매장과 같은 연습용 키오스크를 활용한 교실 운영 방식에 대한 설명이 빠져 있네요. 그 부분은 어떻게 되나요?"
+        },
+        {
+          "who": "ai",
+          "kind": "missing",
+          "meta": "",
+          "text": "교\n아직 안 나온 것\n실제 매장과 같은 연습용 키오스크를 활용한 교실 운영 방식"
+        },
+        {
+          "who": "ai",
+          "kind": "gist",
+          "meta": "",
+          "text": "교\n이렇게 말하면 완성이에요\n\n자료는 이렇게 말해요 — 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다 · 실제 매장과 같은 연습용 키오스크 (2, 4장)"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n실제 매장과 같은 연습용 키오스크를 활용한 교실 운영 방식에 대해 구체적으로 설명해 줄래요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q03-kiosk",
+        "node_id": "kiosk",
+        "verdict": "partial",
+        "score": 70,
+        "react": "주문 포기 비율이 맞아요. 그런데 실제 매장과 같은 연습용 키오스크를 활용한 교실 운영 방식에 대한 설명이 빠져 있네요. 그 부분은 어떻게 되나요?",
+        "summary_sentence": "키오스크 주문 포기 문제와 교육 필요성을 언급했으나, 구체적인 교실 운영 방식(실제 매장 환경 재현)은 누락되었어요.",
+        "missing_points": [
+          "실제 매장과 같은 연습용 키오스크를 활용한 교실 운영 방식"
+        ],
+        "model": "solar",
+        "followup": "실제 매장과 같은 연습용 키오스크를 활용한 교실 운영 방식에 대해 구체적으로 설명해 줄래요?",
+        "hints": [
+          "2, 3, 4장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "2, 3, 4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 2장은 이렇게 말해요: «65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다.»",
+          "아직 안 나온 것: 실제 매장과 같은 연습용 키오스크를 활용한 교실 운영 방식",
+          "빈칸을 채워 보세요: 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다 · 실제 매장과 같은 ___ 키오스크"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "키오스크 주문을 포기하는 어르신이 많다는 거예요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.34
+        }
+      ],
+      "latency_sec": 2.2,
+      "judge_sec": 1.34,
+      "state": {
+        "qi": 6,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q7_partial_then_addon_05_answer.png",
+      "auto_tags": [
+        "tone:hapsyo 습니다",
+        "consistency:passed_not_mastered score=70"
+      ]
+    },
+    {
+      "q": 7,
+      "persona": "partial_then_addon",
+      "action": "answer",
+      "input": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있고, 그래서 실제 매장과 같은 연습용 키오스크로 교육하는 교실을 만든 거예요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있고, 그래서 실제 매장과 같은 연습용 키오스크로 교육하는 교실을 만든 거예요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n+15\n\n65세 이상 10명 중 6명이 키오스크 주문을 포기한 점과 실제 매장과 같은 연습용 키오스크로 교육하는 교실까지 정확히 짚어줬어요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n키오스크\n설득 완료\n총평에 적었어요\n\n키오스크 주문 포기 문제와 이를 해결하기 위한 실제 매장 환경을 재현한 교육 교실의 필요성을 한 문장으로 요약했어요.\n\n질문 7/7 마무리 — 마지막 질문이었어요"
+        },
+        {
+          "who": "sys",
+          "kind": "finale",
+          "meta": "",
+          "text": "질문 7개를 모두 마쳤어요\n\n주고받은 내용을 위로 올려 다시 볼 수 있어요."
+        }
+      ],
+      "judge": {
+        "question_id": "q03-kiosk",
+        "node_id": "kiosk",
+        "verdict": "good",
+        "score": 85,
+        "react": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 점과 실제 매장과 같은 연습용 키오스크로 교육하는 교실까지 정확히 짚어줬어요.",
+        "summary_sentence": "키오스크 주문 포기 문제와 이를 해결하기 위한 실제 매장 환경을 재현한 교육 교실의 필요성을 한 문장으로 요약했어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "2, 3, 4장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "2, 3, 4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 2장은 이렇게 말해요: «65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다.»",
+          "이 방향이에요 — 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다",
+          "빈칸을 채워 보세요: 65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있습니다 · 실제 매장과 같은 ___ 키오스크"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있고, 그래서 실제 매장과 같은 연습용 키오스크로 교육하는 교실을 만든 거예요.",
+        "give_up": false,
+        "prior_answers": [
+          "키오스크 주문을 포기하는 어르신이 많다는 거예요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 0.95
+        }
+      ],
+      "latency_sec": 1.8,
+      "judge_sec": 0.95,
+      "state": {
+        "qi": 7,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": true,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 0,
+        "buttons": [
+          "liveSeeResult|결과 확인하기"
+        ]
+      },
+      "shot": "q7_partial_then_addon_06_answer.png",
+      "auto_tags": []
+    }
+  ],
+  "console": [],
+  "entry_turns": [
+    {
+      "who": "sys",
+      "kind": "note",
+      "text": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요."
+    },
+    {
+      "who": "ai",
+      "kind": "question",
+      "text": "어르신 키오스크 주문 교실이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요."
+    }
+  ],
+  "entry_stream": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요.\n\n교\n예상 질문 1/7 · 꼭 넘어야 해요\n\n어르신 키오스크 주문 교실이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n\n다른 개념과의 연결이 발표에서 드러나지 않았어요\n이 질문의 근거",
+  "result_text": "← 내 발표로 나가기\n코칭 기록 저장됨\n\n실전 질문 코칭 결과\n\n질문 7개 중 2개를 스스로 설명했어요\n2\n스스로 설명\n5\n넘김·안 물음\n\n다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.\n\n넘기거나 안 물은 질문\n5\n답하지 않았거나 묻기 전에 마쳤어요\n어르신 키오스크 주문 교실\n어르신 키오스크 주문 교실이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n주문 포기\n자료에서 「65세 이상 20명 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 했는데, 이 수치가 무엇을…\n넘김\n답하지 않고 넘겼어요\n›\n제안\n제안이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n옵션 고르기\n자료에서 「48초 + 35초 + 27초 = 140초」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n교실 운영 방식\n자료에서 「구마다 교실 1곳 · 연 3,400만 원」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n스스로 설명한 질문\n2\n힌트·보기 없이 내 말로 닫았어요\n메뉴 찾기\n메뉴 찾기(48초), 옵션 고르기(35초), 결제(27초)를 합친 평균 주문 시간 110초가 길어 주문 포기로…\n스스로 설명\n2번 만에 설명했어요\n›\n키오스크\n키오스크 주문 포기 문제와 이를 해결하기 위한 실제 매장 환경을 재현한 교육 교실의 필요성을 한 문장으로 요약…\n스스로 설명\n2번 만에 설명했어요\n›\n상세 리포트 보기\n같은 질문으로 다시\n홈으로",
+  "report_qa_log": "질문 코칭 내역\n 교수님과 주고받은 3개 질문 · 대화로 2개 늘었어요 · 2026.09.30\n\n첫 시도에 설명\n0\n→\n끝까지 설명\n2\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요 · 대화로 2개 늘었어요\n\n넘김\n어르신 키오스크 주문 교실\n01\n\n질문\n어르신 키오스크 주문 교실이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n주문 포기\n02\n\n질문\n자료에서 「65세 이상 20명 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n메뉴 찾기\n03\n\n질문\n메뉴 찾기 평균 48초와 옵션 고르기 평균 35초, 결제 평균 27초를 합한 총 평균 주문 시간 110초가 주문 포기 문제와 어떤 관련이 있는지 설명해 주세요.\n\n내 답변\n3장은 평균 주문 시간이 메뉴 찾기, 옵션 고르기, 결제 세 단계를 더한 거라는 내용이에요. 48초, 35초, 27초를 더하면 110초라 두 분 가까이 서 있어야 해서, 뒤에 사람이 기다리면 눈치가 보여 포기하게 돼요.\n\n메뉴 찾기(48초), 옵션 고르기(35초), 결제(27초)를 합친 평균 주문 시간 110초가 길어 주문 포기로 이어진다는 점을 정확히 설명했어요.\n\n2번 만에 설명했어요\n\n넘김\n제안\n04\n\n질문\n제안이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n옵션 고르기\n05\n\n질문\n자료에서 「48초 + 35초 + 27초 = 140초」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n(lab close)\n\n답하지 않고 넘겼어요\n\n넘김\n교실 운영 방식\n06\n\n질문\n자료에서 「구마다 교실 1곳 · 연 3,400만 원」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n키오스크\n07\n\n질문\n키오스크는 발표에서 짧게 지나갔어요. 자료 2, 3, 4장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n내 답변\n65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있고, 그래서 실제 매장과 같은 연습용 키오스크로 교육하는 교실을 만든 거예요.\n\n키오스크 주문 포기 문제와 이를 해결하기 위한 실제 매장 환경을 재현한 교육 교실의 필요성을 한 문장으로 요약했어요.\n\n2번 만에 설명했어요",
+  "report_text": "수업에서 발표해요\n슬라이드 8개\n4분 55초\n\n어르신_키오스크_주문교실_제안\n발표 완성도\nB\n?\n핵심 3장을 말로 건너뛰었어요\n\n먼저 짚을 것 1가지\n\n핵심 3장을 말로 건너뛰었어요\n\n발표\n“이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.”\n\n설명하지 않은 개념 · 메뉴 찾기 · 옵션 고르기\n\n이 문제 때문에 등급은 B까지만 매겼어요.\n\n여기부터 보세요\n시간 관리\n32/100\n중반이 계획보다 63% 모자랐어요.\n내용 충실도\n92/100\n›\n논리 구조\n100/100\n›\n목적·청중 적합성\n83/100\n›\n언어적 명료성\n79/100\n›\n음성적 전달\n64/100\n›\n시각자료 활용\n72/100\n›\n‘수업에서 발표해요’에 맞춰 봤어요\n안 본 항목 3개 · 못 잰 항목 3개\n이 자리에서 안 보는 항목 3개는 빼고 봤어요\n3개 항목은 이번엔 재지 못했어요. 다음 연습에선 더 많이 알려드릴게요.\n말로 건너뛴 핵심 장 1장 — 총점은 69점을 넘지 않아요 (79점에서 낮췄어요)\n요약\n말하기\n개념 전달\n흐름\n채점 근거\n연습 도구\n발표 구성\n슬라이드로 보는 발표\n슬라이드를 누르거나 ←→ 로 넘겨요\n8 / 8\n8번 슬라이드\n설명함\n제안\n이 슬라이드에서 한 말\n그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요.00:12\n\n구마다 교실 1곳 운영, 연 4,800만 원 예산, 교육과 화면 개선을 함께 추진 개념 설명\n\n판정 근거 자세히 보기\n설명함\n교육과 화면 개선\n설명함\n구마다 교실 1곳\n설명함\n연 4,800만 원\n1\n2\n3\n4\n5\n6\n7\n8\n설명함\n언급만 함\n안 나옴\n자료와 모순\n정당한 생략\n개념별 판정 전체 보기\n 28개 · 다시 볼 곳 2개\n키오스크\n2번 슬라이드\n설명함\n어르신 키오스크 주문 교실\n1번 슬라이드\n설명함\n교실 운영 방식\n4번 슬라이드\n설명함\n어르신\n1번 슬라이드\n설명함\n교육 결과\n5번 슬라이드\n설명함\n혼자 주문 성공률\n5번 슬라이드\n설명함\n주문 포기\n2번 슬라이드\n설명함\n주문 시간 감소\n5번 슬라이드\n설명함\n결제\n3번 슬라이드\n설명함\n제안\n8번 슬라이드\n설명함\n큰 글씨 모드\n6번 슬라이드\n설명함\n큰 글씨 모드만으로는\n6번 슬라이드\n정당한 생략\n주문 시간\n3번 슬라이드\n설명함\n연습용 키오스크\n4번 슬라이드\n설명함\n교육과 화면 개선\n8번 슬라이드\n설명함\n메뉴 찾기\n3번 슬라이드\n안 나옴\n옵션 고르기\n3번 슬라이드\n안 나옴\n주 2회\n4번 슬라이드\n설명함\n4주\n4번 슬라이드\n설명함\n90분\n4번 슬라이드\n설명함\n구마다 교실 1곳\n8번 슬라이드\n설명함\n연 4,800만 원\n8번 슬라이드\n설명함\n주문 교실 교육 효과\n6번 슬라이드\n설명함\n뒤에 사람 기다림\n2번 슬라이드\n설명함\n강사 1명당 6명\n4번 슬라이드\n설명함\n결제 단계\n7번 슬라이드\n설명함\n남은 과제\n7번 슬라이드\n설명함\n현금 미지원\n7번 슬라이드\n설명함\n질문 코칭 내역\n 교수님과 주고받은 3개 질문 · 대화로 2개 늘었어요 · 2026.09.30\n\n첫 시도에 설명\n0\n→\n끝까지 설명\n2\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요 · 대화로 2개 늘었어요\n\n넘김\n어르신 키오스크 주문 교실\n01\n\n질문\n어르신 키오스크 주문 교실이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n주문 포기\n02\n\n질문\n자료에서 「65세 이상 20명 중 6명이 키오스크 주문을 포기한 적이 있습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n메뉴 찾기\n03\n\n질문\n메뉴 찾기 평균 48초와 옵션 고르기 평균 35초, 결제 평균 27초를 합한 총 평균 주문 시간 110초가 주문 포기 문제와 어떤 관련이 있는지 설명해 주세요.\n\n내 답변\n3장은 평균 주문 시간이 메뉴 찾기, 옵션 고르기, 결제 세 단계를 더한 거라는 내용이에요. 48초, 35초, 27초를 더하면 110초라 두 분 가까이 서 있어야 해서, 뒤에 사람이 기다리면 눈치가 보여 포기하게 돼요.\n\n메뉴 찾기(48초), 옵션 고르기(35초), 결제(27초)를 합친 평균 주문 시간 110초가 길어 주문 포기로 이어진다는 점을 정확히 설명했어요.\n\n2번 만에 설명했어요\n\n넘김\n제안\n04\n\n질문\n제안이 앞뒤 내용과 어떻게 이어지는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n옵션 고르기\n05\n\n질문\n자료에서 「48초 + 35초 + 27초 = 140초」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n(lab close)\n\n답하지 않고 넘겼어요\n\n넘김\n교실 운영 방식\n06\n\n질문\n자료에서 「구마다 교실 1곳 · 연 3,400만 원」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n스스로 설명\n키오스크\n07\n\n질문\n키오스크는 발표에서 짧게 지나갔어요. 자료 2, 3, 4장의 핵심을 한 문장으로 말하면 무엇인가요?\n\n내 답변\n65세 이상 10명 중 6명이 키오스크 주문을 포기한 적이 있고, 그래서 실제 매장과 같은 연습용 키오스크로 교육하는 교실을 만든 거예요.\n\n키오스크 주문 포기 문제와 이를 해결하기 위한 실제 매장 환경을 재현한 교육 교실의 필요성을 한 문장으로 요약했어요.\n\n2번 만에 설명했어요\n\n이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.\n\n새 발표 연습\n질문 연습 다시 하기"
+}

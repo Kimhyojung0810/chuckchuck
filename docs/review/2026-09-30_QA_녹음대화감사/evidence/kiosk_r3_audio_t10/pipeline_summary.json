@@ -1,0 +1,409 @@
+{
+ "alignment": {
+  "speech_match": "unrelated",
+  "speech_overlap": 0.0434,
+  "basis": "skipped",
+  "skipped_slides": [],
+  "items": [
+   {
+    "node_id": "education",
+    "label": "어르신 키오스크 주문 교실",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "target",
+    "label": "어르신",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "problem",
+    "label": "주문 포기",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "reason",
+    "label": "뒤에 사람 기다림",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "kiosk",
+    "label": "키오스크",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "menu-search",
+    "label": "메뉴 찾기",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "option-select",
+    "label": "옵션 고르기",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "payment",
+    "label": "결제",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "total-time",
+    "label": "주문 시간",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "operation",
+    "label": "교실 운영 방식",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "schedule",
+    "label": "주 2회",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "duration",
+    "label": "4주",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "session",
+    "label": "90분",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ratio",
+    "label": "강사 1명당 6명",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "practice-kiosk",
+    "label": "연습용 키오스크",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "result",
+    "label": "교육 결과",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "success-rate",
+    "label": "혼자 주문 성공률",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "time-reduction",
+    "label": "주문 시간 감소",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "comparison",
+    "label": "큰 글씨 모드만으로는",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "class-effect",
+    "label": "주문 교실 교육 효과",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "screen-mode",
+    "label": "큰 글씨 모드",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "remaining",
+    "label": "남은 과제",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "payment-stuck",
+    "label": "결제 단계",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "cashless",
+    "label": "현금 미지원",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "implementation",
+    "label": "제안",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "class-per-district",
+    "label": "구마다 교실 1곳",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "budget",
+    "label": "연 4,800만 원",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "combined",
+    "label": "교육과 화면 개선",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   }
+  ]
+ },
+ "score": {
+  "score": 34,
+  "cap": 39,
+  "basis": "partial",
+  "note": "녹음이 이 발표 자료와 다른 발표라서 말한 내용은 채점하지 않았어요 — 자료와 말하기 습관만 봤고, 이 자료의 발표로는 39점 위로 매기지 않아요",
+  "faults": [
+   {
+    "kind": "unrelated_speech",
+    "text": "녹음이 이 발표 자료와 다른 발표예요 (발화 낱말 중 자료에도 있는 비중 4%) — 말한 내용은 채점하지 않았어요",
+    "slide_no": null
+   }
+  ],
+  "unmeasured": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   13,
+   14,
+   18,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   32,
+   33
+  ]
+ },
+ "report": {
+  "one_liner": "녹음이 이 발표 자료와 다른 발표라서 말한 내용은 분석하지 않았어요. 이 자료로 발표한 녹음을 올리면 개념·흐름까지 같이 볼게요.",
+  "score": 34,
+  "grade": "",
+  "strengths": [],
+  "weaknesses": [
+   "녹음이 이 발표 자료와 다른 발표예요 (발화 낱말 중 자료에도 있는 비중 4%) — 말한 내용은 채점하지 않았어요"
+  ],
+  "actions": [
+   "이 발표 자료로 한 녹음을 다시 올려 보세요 — 그래야 개념·흐름·자료와 맞게 말했는지 볼 수 있어요.",
+   "말 속도를 300~350자/분 정도로 빠르게 말해보세요."
+  ],
+  "pace_summary": "말 속도가 평균 104.8자/분으로 권장 구간보다 195자/분 느려서 핵심 내용을 충분히 전달하지 못했어요.",
+  "habit_summary": "REP=0, FIL=3, PAUSE=0으로 눈에 띄는 반복이나 긴 휴지는 적지만, 간투어는 거의 없어요. 다만 녹음이 자료와 다른 내용이라 채점하지 않았어요.",
+  "model": "solar"
+ },
+ "pace": {
+  "target_sec": 600,
+  "actual_sec": 315,
+  "avg_chars_per_min": 104.8,
+  "slides": [
+   {
+    "slide_no": 1,
+    "title": "어르신 키오스크 주문 교실",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 315,
+    "recommended_sec": 600,
+    "delta_sec": -285,
+    "chars_per_min": 104.8,
+    "syllable_per_sec": 1.6,
+    "status": "short",
+    "note": "핵심 · 권장 대비 47% 부족",
+    "skip_cue": ""
+   }
+  ],
+  "tips": [
+   "목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요.",
+   "1번은 핵심인데 권장 600초 중 315초만 썼어요. 여기 시간을 늘리세요."
+  ]
+ },
+ "transcript_by_slide": [],
+ "pipeline_log": [
+  {
+   "kind": "pre",
+   "text": "발표하는 동안 자료의 개념을 미리 정리해 뒀어요",
+   "phase": "queued",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말한 내용을 다 옮겼어요 · 단어 188개 · 슬라이드 구간 0개 · 녹음이 이 발표 자료와 아예 다른 내용으로 보여요 — 발화에 나온 낱말 중 자료에도 있는 낱말이 2%뿐이에요. 다른 발표의 자료나 녹음을 올렸는지 확인해 주세요. 슬라이드 구간은 길이를 균등하게 나눴어요.",
+   "phase": "stt_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "핵심 개념을 찾았어요 · 개념 슬라이드 8장",
+   "phase": "concepts_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "'어르신 키오스크 주문 교실' · '어르신' 등 개념 28개를 발표와 대조할 준비를 했어요",
+   "phase": "graph_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "자료와 발표 대조를 마쳤어요 · 정합 판정 28개",
+   "phase": "align_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "흐름 비교를 마쳤어요 · 흐름 판정 0개",
+   "phase": "flow_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "시간 배분을 다 쟀어요 · 배분 1장 · 실제 315초",
+   "phase": "pace_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말버릇을 다 찾았어요 · REP 0 · FIL 3 · PAUSE 0",
+   "phase": "habits_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "점수를 매겼어요 · 34점 · 학교 프로젝트 (교수 대상)",
+   "phase": "score_done",
+   "sec": 2
+  },
+  {
+   "kind": "done",
+   "text": "리포트를 다 썼어요 · 녹음이 이 발표 자료와 다른 발표라서 말한 내용은 분석하지 않았어요. 이 자료로 발표한 녹음을 올리면 개념·흐름까지 같이 볼게요.",
+   "phase": "voice_report_done",
+   "sec": 5
+  },
+  {
+   "kind": "done",
+   "text": "상세 리포트까지 다 만들었어요 · 총 5초",
+   "phase": "done",
+   "sec": 5
+  }
+ ]
+}
