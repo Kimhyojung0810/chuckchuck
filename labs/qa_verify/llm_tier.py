@@ -179,23 +179,53 @@ def _persona_examples(records: list[dict], key: str) -> list[str]:
     return ex[:3]
 
 
+def _self_explained_section(text: str) -> str:
+    """결과 화면에서 「스스로 설명한 질문」 칸의 글 (09-30 qa/front 네 묶음). 옛 화면이면 ""."""
+    m = re.search(r"스스로 설명한 질문(.*?)(?=도움 받아 닫은 질문|답 보고 다시 말한 질문|넘기거나 안 물은 질문|상세 리포트 보기|$)",
+                  text or "", re.S)
+    return m.group(1) if m else ""
+
+
+def _listed(label: str, section: str) -> bool:
+    """질문 이름이 칸 안에 **한 줄로** 있는가 — 다른 질문의 요약 문장 속 낱말(「…다섯 가지 행동 요인(…)」)은 세지 않는다."""
+    return any(line.strip() == label.strip() for line in (section or "").splitlines())
+
+
 def _result_checks(records: list[dict]) -> tuple[list[str], list[str]]:
-    """결과 화면 — 3라운드 강제 종료(좋음이 아닌 채 닫힘)를 「지킨 질문」 으로 세는가 · 화면 숫자가 기록과 맞는가."""
+    """
+    결과 화면 — 3라운드 강제 종료(좋음이 아닌 채 닫힘)를 「스스로 설명」 으로 세는가 · 헤드라인 숫자가 그 칸과 맞는가.
+
+    09-30: 예전엔 강제 종료가 **있기만 하면** 「결과 화면이 지킨 질문으로 셈」 이라고 적었다 — 화면을 안 봤다. qa/front 가 결과를
+    네 묶음(스스로 설명 / 도움 받아 닫힘 / 답 보고 다시 말함 / 넘김·안 물음)으로 나눈 뒤로는 그 질문 이름이 「스스로 설명한 질문」
+    칸에 실제로 있는지를 본다. 옛 화면(칸 없음)이면 예전처럼 헤드라인 「N개 중 M개를 자기 말로 지켰어요」 에 기댄다.
+    """
     forced, mismatch = [], []
     for r in records:
         by_q: dict[int, list[dict]] = {}
         for t in r["turns"]:
             if t.get("judge") and not t["judge"].get("coach_stage"):
                 by_q.setdefault(t["q"], []).append(t["judge"])
-        won_ui = [x for x in r.get("results") or [] if not x.get("revealed") and x.get("verdict") in ("good", "partial")]
+        results = r.get("results") or []
+        text = (r.get("end_card") or "") + " " + (r.get("result_text") or "")
+        self_sec = _self_explained_section(text)
         for qn, js in by_q.items():
             last = js[-1]
-            if last.get("mastered") and last.get("verdict") != "good" and int(last.get("round_no") or 0) >= 3:
-                forced.append(f"{r['deck']} Q{qn}: {last.get('verdict')}/{last.get('score')} r{last.get('round_no')} 닫힘 → 결과 화면 「지킨 질문」")
-        text = (r.get("end_card") or "") + " " + (r.get("result_text") or "")
-        m = re.search(r"(\d+)개 중 (\d+)개를 자기 말로 지켰어요", text)
-        if m and int(m.group(2)) != len(won_ui):
-            mismatch.append(f"{r['deck']}: 화면 {m.group(2)}개 · 기록 {len(won_ui)}개")
+            if not (last.get("mastered") and last.get("verdict") != "good" and int(last.get("round_no") or 0) >= 3):
+                continue
+            label = next((x.get("label") for x in results if x.get("id") == last.get("question_id")), "") or ""
+            if self_sec:
+                if label and _listed(label, self_sec):
+                    forced.append(f"{r['deck']} Q{qn}: {last.get('verdict')}/{last.get('score')} r{last.get('round_no')} 닫힘 → 「스스로 설명」 칸에 셈")
+            else:
+                forced.append(f"{r['deck']} Q{qn}: {last.get('verdict')}/{last.get('score')} r{last.get('round_no')} 닫힘 → 결과 화면 「지킨 질문」(옛 화면)")
+        m = re.search(r"(\d+)개 중 (\d+)개를 (?:자기 말로 지켰어요|스스로 설명했어요)", text)
+        if m:
+            if self_sec:
+                shown = sum(1 for x in results if x.get("label") and _listed(x["label"], self_sec))
+            else:
+                shown = len([x for x in results if not x.get("revealed") and x.get("verdict") in ("good", "partial")])
+            if int(m.group(2)) != shown:
+                mismatch.append(f"{r['deck']}: 헤드라인 {m.group(2)}개 · 칸 {shown}개")
     return forced, mismatch
 
 

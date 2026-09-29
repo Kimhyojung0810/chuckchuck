@@ -81,7 +81,9 @@ def score_persona(name: str, turns: list[dict]) -> dict:
         out["wrong_rejected"] = bool(js) and not passed(js[0]) and not TG.PRAISE_RE.search(str(first.get("react") or ""))
         out["wrong_recover"] = any(passed(t) for t in js[1:3])
     elif name == "OFFTOPIC":
-        out["offtopic_rejected"] = bool(js) and (first.get("verdict") == "wrong" or TG.OFF_TOPIC_LEAD in str(first.get("react") or ""))
+        # 통과하지 못했고 칭찬도 없으면 막은 것이다 — 같은 덱의 다른 장 줄은 「질문과 다른 이야기」 가 아니라 「조금 멀어요」(초점 가드)로
+        # 막히는 게 맞다 (09-30 표준 단계: partial/65 「…에 대한 답으로는 조금 멀어요」 를 실패로 셌다).
+        out["offtopic_rejected"] = bool(js) and not passed(js[0]) and not TG.PRAISE_RE.search(str(first.get("react") or ""))
     elif name == "ONEWORD":
         out["one_word_rejected"] = bool(js) and not passed(js[0])
     elif name == "TRAP":
