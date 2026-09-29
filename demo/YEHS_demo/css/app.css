@@ -1392,6 +1392,13 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .msg-origin summary { cursor: pointer; font-weight: var(--w-med); }
 .msg-origin p { margin: 6px 0 0; }
 .msg-origin .qa-evidence { font-size: 13px; }
+/* 근거 장 번호 — 인용은 싣지 않는다 (함정은 인용이 곧 정답이다 · 09-30 C-03) */
+.msg-origin .msg-origin-slides { color: var(--text-2); font-weight: var(--w-med); }
+/* 안내 한 줄 (qa_live kind 'note') — 폴백 재료로 만든 질문·자료 본문 없이 한 판정·요청 제한. 판정 표식(✓·✕)이 아니다 */
+.qa-note-line {
+  align-self: center; max-width: 90%; margin: 0; padding: 6px 12px; border-radius: var(--r-pill);
+  background: var(--fill); color: var(--text-2); font-size: 12px; line-height: 1.5; text-align: center;
+}
 /* 논문을 근거로 든 질문 — 문장 속 인용과 아래 줄 둘 다 그 논문으로 간다 (qa_live.js questionPapersHtml) */
 .msg-paper-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 .msg-paper-link:hover { text-decoration-thickness: 2px; }
@@ -2362,6 +2369,11 @@ table.plain tr:last-child td { border-bottom: 0; }
 }
 .qres-stats b.qres-redo { color: var(--mid); }
 .qres-stats span { display: block; margin-top: 4px; font-size: 13px; color: var(--text-3); }
+/* 네 묶음(스스로·도움·답 보고·넘김)이 다 서면 폰에서는 두 줄로 — 칸 이름이 한 글자씩 끊기지 않게 */
+@media (max-width: 520px) {
+  .qres-stats { flex-wrap: wrap; }
+  .qres-stats > div { flex: 1 1 calc(50% - 5px); }
+}
 
 /* 질문을 고르는 동안 이미 손에 쥔 숫자 — 후보 목록이 못 뜰 때 화면을 메운다 */
 .qb-facts { display: flex; gap: 10px; margin: 14px 0 0; }

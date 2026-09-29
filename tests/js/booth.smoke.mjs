@@ -141,16 +141,33 @@ test('힌트 사다리: hints[] 가 있으면 그것, 없으면 옛 hint 한 칸
   eq(L.hintLadder({ hints: [], hint: '' }), []);
   eq(L.hintLadder(null), []);
 });
-test('마지막 화면: 질문마다 마지막 판정이 결과, 판정이 없으면 unknown', () => {
+test('마지막 화면(옛 기록 모양): 마지막 판정이 good 이면 닫힌 것, 판정이 없으면 「안 물었어요」 (H-13)', () => {
   const rows = L.tally([{ id: 'q1', label: 'A' }, { id: 'q2' }], { q1: { verdicts: ['wrong', 'good'] } });
-  eq(rows.map((r) => [r.no, r.label, r.verdict]), [[1, 'A', 'good'], [2, '질문', 'unknown']]);
+  eq(rows.map((r) => [r.no, r.label, r.verdict]), [[1, 'A', 'good'], [2, '질문', 'unasked']]);
   eq(rows[0].word, L.VERDICT_WORD.good);
+  eq(rows[1].word, '안 물었어요', '「아직 모르겠어요」 가 아니다 — 사용자는 모른다고 한 적이 없다');
 });
-test('읽어 주기: 화면에 있는 말만 — 되묻기는 평소에, 정답 요지는 포기했을 때만', () => {
+test('마지막 화면: 띄웠는데 답이 없으면 「답하기 전에 마쳤어요」, 코칭·해설·힌트 셋째 칸 뒤에 닫히면 「도움 받아 답했어요」 (H-12)', () => {
+  const qs = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((id) => ({ id, label: id }));
+  const rows = L.tally(qs, {
+    a: { asked: true, verdicts: [] },
+    b: { verdicts: ['good'], closed: true, closeReason: 'good' },
+    c: { verdicts: ['unknown', 'good'], closed: true, closeReason: 'good', coached: true },
+    d: { verdicts: ['partial', 'partial', 'partial'], closed: true, closeReason: 'rounds' },
+    e: { verdicts: ['good'], closed: true, closeReason: 'good', hintLevel: 3 },
+    f: { verdicts: ['unknown', 'unknown', 'unknown'], closed: false, explained: true },
+    g: { verdicts: ['partial'], closed: false },
+  });
+  eq(rows.map((r) => r.word), ['답하기 전에 마쳤어요', '잘 답했어요', '도움 받아 답했어요', '요지는 통과했어요', '도움 받아 답했어요', '답을 같이 풀었어요', '반쯤 왔어요']);
+  eq(rows.map((r) => r.verdict), ['unasked', 'good', 'partial', 'partial', 'partial', 'unknown', 'partial'], '판정 색은 네 가지 + 회색만');
+  eq(L.tally([{ id: 'x' }], { x: { verdicts: ['partial'], closed: true, closeReason: 'guard' } })[0].word, '자료와 다시 맞춰 봐요');
+});
+test('읽어 주기: 화면에 있는 말만 — 총평은 닫혔을 때만, 되묻기는 안 닫혔을 때, 해설은 해설 단계에서', () => {
   const j = { react: '좋아요.', summary_sentence: '핵심을 짚었어요.', followup: '그럼 왜죠?', explanation: '정답은 X.' };
-  eq(L.speakableJudgement(j), '좋아요. 핵심을 짚었어요. 그럼 왜죠?');
-  eq(L.speakableJudgement(j, { giveUp: true }), '좋아요. 핵심을 짚었어요. 정답은 X.');
-  eq(L.speakableJudgement({ coach_stage: 'explain', summary_sentence: 's' }, { answerGist: '요지' }), 's 요지');
+  eq(L.speakableJudgement({ ...j, verdict: 'partial', mastered: false }), '좋아요. 그럼 왜죠?', '안 닫힌 판정에 총평(모범답)을 읽지 않는다 (H-11)');
+  eq(L.speakableJudgement({ ...j, verdict: 'good', mastered: true, close_reason: 'good' }), '좋아요. 핵심을 짚었어요.', '닫혔으면 되묻지 않는다 (H-12)');
+  eq(L.speakableJudgement({ ...j, verdict: 'unknown', coach_stage: 'explain' }), '좋아요. 핵심을 짚었어요. 정답은 X.');
+  eq(L.speakableJudgement({ coach_stage: 'explain', summary_sentence: 's' }, { answerGist: '요지' }), 's 요지', '해설이 비면 골자로');
   eq(L.speakableJudgement({ react: 42, followup: '   ' }), '', '문자열이 아니거나 빈 것은 읽지 않는다');
   eq(L.speakableJudgement(null), '');
 });
@@ -176,21 +193,114 @@ test('카운트다운 문구는 고칠 길을 말한다', () => {
   if (L.countdownText(3) !== '3초 뒤에 보낼게요. 고치려면 자막을 눌러요.') throw new Error(L.countdownText(3));
   eq(L.countdownText(0), '보내는 중이에요.');
 });
-test('판정 말풍선: 반응+요약 → 빠진 것 → 되묻기(평소) 또는 정답 요지(포기)', () => {
+test('판정 말풍선: 반응 → 빠진 것 → 되묻기. 안 닫힌 판정에는 총평을 안 붙인다 (H-11)', () => {
   const j = { verdict: 'partial', react: '음,', summary_sentence: '반은 맞아요.', missing_points: ['근거', ''], followup: '그럼요?', explanation: '정답 X' };
   eq(L.judgementBubbles(j).map((b) => b.kind), ['verdict', 'missing', 'followup']);
-  eq(L.judgementBubbles(j)[0], { kind: 'verdict', verdict: 'partial', text: '음, 반은 맞아요.' });
+  eq(L.judgementBubbles(j)[0], { kind: 'verdict', verdict: 'partial', text: '음,' });
   eq(L.judgementBubbles(j)[1].items, ['근거']);
-  eq(L.judgementBubbles(j, { giveUp: true }).map((b) => b.kind), ['verdict', 'missing', 'explain']);
+  eq(L.judgementBubbles(j, { giveUp: true }).map((b) => b.kind), ['verdict', 'missing', 'explain'], '옛 브리지(단계 없는 포기)는 해설이 있을 때만 해설');
   eq(L.judgementBubbles({ verdict: 'good', react: '좋아요' }).length, 1);
   eq(L.judgementBubbles(null), []);
 });
-test('판정 한 풍선(9/23): 조각을 잃지 않고 하나로 — 빠진 것·되묻기가 들어가고, 포기면 정답 요지', () => {
+test('판정 한 풍선(9/23): 조각을 잃지 않고 하나로 — pill 낱말·빠진 것·되묻기가 들어간다', () => {
   const j = { verdict: 'partial', react: '음,', summary_sentence: '반은 맞아요.', missing_points: ['근거'], followup: '그럼요?', explanation: '정답 X' };
-  eq(L.judgementBubble(j), { verdict: 'partial', text: '음, 반은 맞아요.', missing: ['근거'], tail: { kind: 'followup', text: '그럼요?' } });
-  eq(L.judgementBubble(j, { giveUp: true }).tail, { kind: 'explain', text: '정답 X' });
-  eq(L.judgementBubble({ verdict: 'good', react: '좋아요' }), { verdict: 'good', text: '좋아요', missing: [], tail: null });
+  eq(L.judgementBubble(j), { verdict: 'partial', word: '반쯤 왔어요', text: '음,', missing: ['근거'], missingHead: '빠진 것', tail: { kind: 'followup', text: '그럼요?', choices: [] }, closed: false, stage: '' });
+  eq(L.judgementBubble(j, { giveUp: true }).tail, { kind: 'explain', text: '정답 X', choices: [] });
+  eq(L.judgementBubble({ verdict: 'good', react: '좋아요', mastered: true, close_reason: 'good' }),
+    { verdict: 'good', word: '잘 답했어요', text: '좋아요', missing: [], missingHead: '다시 볼 것', tail: null, closed: true, stage: '' });
   eq(L.judgementBubble(null), null);
+});
+/* ── 09-30 held-out 부스 감사 H-10~H-14 ─────────────────────────────────── */
+const GIST = '현재 프로토타입/MVP를 보유 중이며, 발표자료에 명시된 대로 PoC 단계에서 아이디어 및 개념 검증을 진행…';
+test('H-10 「모르겠어요」 첫 번째(narrow): 되물음 + 보기 칩, 골자는 안 보인다, 답칸은 열린다', () => {
+  const j = { verdict: 'unknown', score: 0, coach_stage: 'narrow', react: '같이 볼게요.', summary_sentence: '단계 — 막힌 지점을 같이 짚었어요.',
+    followup: "'PoC' 쪽인가요, 'MVP' 쪽인가요?", choices: ['PoC', ' MVP ', ''], mastered: false };
+  const b = L.judgementBubble(j, { giveUp: true, answerGist: GIST });
+  eq(b.tail, { kind: 'followup', text: "'PoC' 쪽인가요, 'MVP' 쪽인가요?", choices: ['PoC', 'MVP'] });
+  eq(b.closed, false, '다시 답할 수 있다');
+  eq([b.verdict, b.word], ['unknown', L.COACH_WORD.narrow], '판정이 아니라 코치가 하는 일');
+  eq(JSON.stringify(b).includes('프로토타입/MVP를 보유'), false, '골자(모범답)를 흘리지 않는다');
+  eq(b.text, '같이 볼게요.', '코칭 단계에는 총평을 안 붙인다');
+});
+test('H-10 scaffold 는 빈칸 되물음, explain 은 해설 — 해설이 비었을 때만 골자, 잘린 골자는 문장 끝에서', () => {
+  const sc = L.judgementBubble({ coach_stage: 'scaffold', react: 'r', followup: '빈칸: 개념 ___ 을 해요.' }, { giveUp: true, answerGist: GIST });
+  eq(sc.tail.kind, 'followup');
+  const ex = L.judgementBubble({ coach_stage: 'explain', react: 'r', explanation: '' }, { giveUp: true, answerGist: '첫 문장이에요. 둘째 문장은 여기서 끊…' });
+  eq(ex.tail, { kind: 'explain', text: '첫 문장이에요.', choices: [] });
+  eq(L.judgementBubble({ coach_stage: 'explain', explanation: '' }, { giveUp: true, answerGist: '함정의 사실 줄이에요.', trap: true }).tail, null, '함정의 골자는 바로잡은 사실 그 자체라 대신 쓰지 않는다');
+});
+test('문장 한가운데서 끊긴 글은 마지막 온전한 문장까지 — 안 잘린 글·온전한 문장이 없는 글은 그대로', () => {
+  eq(L.wholeSentences('A 해요. B 를 진행…'), 'A 해요.');
+  eq(L.wholeSentences('수치는 3.5%예요. 그리고 계속…'), '수치는 3.5%예요.', '소수점은 문장 끝이 아니다');
+  eq(L.wholeSentences('«인용이에요.» 다음…'), '«인용이에요.»');
+  eq(L.wholeSentences('끝까지 다 온 글이에요.'), '끝까지 다 온 글이에요.');
+  eq(L.wholeSentences('한 문장도 안 끝난 채 잘린…'), '한 문장도 안 끝난 채 잘린…');
+  eq(L.wholeSentences(null), '');
+});
+test('H-11 오답·절반 풍선에 총평(모범답)이 없다 — 닫힌 good 에만', () => {
+  const summary = 'B2C/B2B 병행 시 가격 정책은 두 가지 과금 구조로 설계되어야 해요.';
+  const wrong = L.judgementBubble({ verdict: 'wrong', score: 0, react: '질문과 다른 이야기예요.', summary_sentence: summary, followup: 'f', mastered: false });
+  eq(wrong.text.includes(summary), false);
+  const good = L.judgementBubble({ verdict: 'good', score: 85, react: '좋아요.', summary_sentence: summary, mastered: true, close_reason: 'good' });
+  eq(good.text.includes(summary), true);
+});
+test('70~79 통과(passed)인데 안 닫힌 판정은 「반쯤 왔어요」 가 아니라 「요지는 맞아요」 — 되묻기는 이어 간다 (앱 칩과 같다)', () => {
+  const b = L.judgementBubble({ verdict: 'partial', score: 75, passed: true, mastered: false, react: 'r', followup: '한 가지만 더요?' });
+  eq([b.word, b.verdict, b.tail.kind], [L.PASSED_WORD, 'good', 'followup']);
+  eq(L.judgementBubble({ verdict: 'partial', score: 65, passed: false, mastered: false, react: 'r' }).word, L.VERDICT_WORD.partial);
+});
+test('H-11 가드 사유 표기는 「빠진 것」 이 아니다', () => {
+  eq(L.cleanMissing(['질문이 묻는 것: B2C/B2B 병행', '자료 4장과 어긋난 곳: 맞다·아니다 쪽', '개인 사용자 구독형', ' ', 3]), ['개인 사용자 구독형']);
+});
+test('H-12 서버가 닫았으면(mastered) 되묻지 않는다 — followup 이 와도, 3라운드 출구는 pill 이 그렇다고 말한다', () => {
+  const j = { verdict: 'partial', score: 75, mastered: true, close_reason: 'rounds', react: '요지는 맞아요.', summary_sentence: '총평.', followup: '한 가지만 더 짚어 주세요.', missing_points: [] };
+  const b = L.judgementBubble(j);
+  eq([b.closed, b.tail, b.word, b.verdict], [true, null, L.CLOSE_WORD.rounds, 'partial']);
+  eq(L.judgementClosed({ verdict: 'good' }), true, '옛 브리지(mastered 없음)는 good 만 닫는다 (B-10)');
+  eq(L.judgementClosed({ verdict: 'partial', score: 75 }), false);
+  eq(L.judgementClosed({ verdict: 'unknown', coach_stage: 'narrow', mastered: true }), false, '코칭 응답은 닫지 않는다');
+});
+test('H-14 판정에 보내는 힌트는 연 칸만 — 판정이 준 사다리는 사다리에만 (+ 코칭 되물음)', () => {
+  eq(L.hintsForJudge(['h1'], { verdict: 'partial', hints: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] }), ['h1']);
+  eq(L.hintsForJudge([], { coach_stage: 'narrow', followup: "'가' 쪽인가요, '나' 쪽인가요?" }), ["되물음: '가' 쪽인가요, '나' 쪽인가요?"]);
+  eq(L.hintsForJudge(['h1', ' '], { coach_stage: 'explain', followup: 'x' }), ['h1'], '해설 단계는 되물음이 아니다');
+  eq(L.mergeLadder(['a', 'b', 'c'], ['A', 'B', 'C', 'D']), ['A', 'B', 'C', 'D'], '긴 사다리로 갈아탄다');
+  eq(L.mergeLadder(['a', 'b', 'c', 'd'], ['A', 'B']), ['a', 'b', 'c', 'd'], '짧아지면 안 버린다 (분모가 안 준다)');
+  eq(L.mergeLadder(['a', 'b'], ['A', 'B']), ['A', 'B'], '같은 길이는 갈아탄다 (넷째 칸이 바뀐다)');
+  eq(L.mergeLadder(['a'], undefined), ['a']);
+});
+test('B-10·M-08 판정에는 이 질문의 대화만, 채점된 답만 — 포기·되물음 턴은 라운드를 태우지 않는다', () => {
+  const hist = [{ question_id: 'q1', 답변: '끝난 답' }, { question_id: 'q2', 답변: '지금 답' }];
+  eq(L.questionHistory(hist, 'q2').map((t) => t.답변), ['지금 답']);
+  eq(L.scoredAnswers([{ answer: '첫 답' }, { answer: '', giveUp: true }, { answer: '무슨 뜻이에요?', clarify: true }, { answer: ' 둘째 답 ' }]), ['첫 답', '둘째 답']);
+});
+test('L-01 「모르겠어요」 버튼·말풍선 — 서버 사다리를 따라 이름이 바뀌고, 자리표시자는 안 보인다', () => {
+  eq([0, 1, 2, 5].map(L.giveupLabel), ['모르겠어요', '그래도 모르겠어요 · 빈칸으로', '그래도 모르겠어요 · 답 보기', '그래도 모르겠어요 · 답 보기']);
+  eq(L.giveupSaid(''), '모르겠어요');
+  eq(L.giveupSaid(' 음 PoC 는 지났는데 '), '음 PoC 는 지났는데');
+});
+test('폴백 표시: 사람이 할 일이 있는 것만 화면에 — 서버 질문을 못 찾은 것은 개발 로그로만', () => {
+  const j = { degraded: ['question_unverified', 'slide_doc_missing'], degraded_notes: ['서버 질문 못 찾음', '자료 본문을 찾지 못해 자료와 대조하지 않고 진행했어요.'], grounded_on_deck: false, grounded_on_server: false };
+  eq(L.degradedLines(j), ['자료 본문을 찾지 못해 자료와 대조하지 않고 진행했어요.']);
+  eq(L.devOnlyDegraded(j), ['question_unverified']);
+  eq(L.degradedLines({ degraded: [], degraded_notes: [], grounded_on_deck: false }), ['자료 본문 없이 판정했어요.']);
+  eq(L.degradedLines({ degraded: ['papers_timeout'], degraded_notes: ['문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요.'] }).length, 1);
+  eq(L.devOnlyDegraded({ grounded_on_server: false }), ['grounded_on_server=false']);
+  eq([L.degradedLines(null), L.degradedLines({ grounded_on_deck: true })], [[], []]);
+});
+test('함정 질문의 이유 줄은 함정임을 알리지 않는다 — 장만 가리키는 중립 문장 (B-01·H-07)', () => {
+  const trapWhy = '「단백질 먼저」에 대해 질문이 말한 내용이 자료와 같은지 먼저 따져 보는 연습이에요.';
+  const w = L.questionWhy({ trap: true, why: trapWhy, slide_nos: [6, 6, 2] });
+  eq(w, '자료 6·2장을 근거로 설명할 수 있는지 보려고 물어요.');
+  eq(/따져|함정|같은지/.test(w), false);
+  eq(L.questionWhy({ trap: true, why: trapWhy }), '자료를 근거로 설명할 수 있는지 보려고 물어요.');
+  eq(L.questionWhy({ why: ' 보통 이유예요. ' }), '보통 이유예요.');
+  eq(L.questionWhy(null), '');
+});
+test('요청 제한·AI 지연 안내는 남은 초를 센다 (H-15)', () => {
+  eq(L.retryWaitText(4.2), '요청이 몰려서 잠깐 기다렸다 다시 보낼게요 · 5초');
+  eq(L.retryWaitText(0), '다시 보내는 중이에요.');
+  eq(L.retryWaitText(3, 'upstream'), 'AI 서버가 늦어서 3초 뒤에 한 번 더 보낼게요.');
 });
 
 /* ── 발표 모드 — 실시간 말하기 피드백 ─────────────────────────────────────── */
@@ -429,6 +539,15 @@ test('고치기 전 붓으로 돌리면 「사용자가 친 글자」 시험이 
   let r = B.paintDictation(B.newPen(''), '', '안녕');
   r = B.paintDictation(r.pen, '안녕하세요 (수정)', '안녕 저는');
   if (r.value === '안녕하세요 (수정) 안녕 저는') throw new Error('깨진 붓이 통과했어요 — 시험이 아무것도 안 지킨다');
+});
+/* H-11 자기검사 — 총평을 늘 붙이던 옛 규칙으로 되돌리면 「오답 풍선에 모범답이 없다」 시험이 깨져야 한다 */
+const SUMMARY_LINE = "const showSummary = closed || stage === 'explain';";
+test('총평을 늘 붙이던 옛 규칙으로 돌리면 H-11 시험이 깨진다', async () => {
+  const src = readFileSync(LOGIC_PATH, 'utf8');
+  if (!src.includes(SUMMARY_LINE)) throw new Error(`judgementView 가 바뀌었어요. 이 자기검사도 같이 고쳐야 해요: ${SUMMARY_LINE}`);
+  const B = await importSource(src.replace(SUMMARY_LINE, 'const showSummary = true;'));
+  const b = B.judgementBubble({ verdict: 'wrong', react: 'r', summary_sentence: '모범답', mastered: false });
+  if (!b.text.includes('모범답')) throw new Error('깨진 규칙도 모범답을 숨겼어요 — 시험이 아무것도 안 지킨다');
 });
 
 /* ── 실행 ──────────────────────────────────────────────────────────────────── */

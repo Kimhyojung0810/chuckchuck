@@ -106,6 +106,8 @@
 .booth-tally li[data-v="good"] { background: var(--ok-bg); color: var(--ok); }
 .booth-tally li[data-v="partial"] { background: var(--mid-bg); color: var(--mid); }
 .booth-tally li[data-v="wrong"] { background: var(--no-bg); color: var(--no); }
+/* 안 물은 질문 — 판정이 아니다. 판정 색을 안 쓰고 테두리만 (09-30 H-13: 「아직 모르겠어요」 로 읽혔다) */
+.booth-tally li[data-v="unasked"] { background: transparent; color: var(--text-3); box-shadow: inset 0 0 0 1px var(--border); }
 
 /* 작은 창(Document Picture-in-Picture)으로 떠 있을 때 */
 .booth-pip-window { margin: 0; padding: 14px; background: var(--canvas); color: var(--text); font-family: Pretendard, system-ui, sans-serif; }
@@ -345,7 +347,9 @@
 /* 옛 풍선은 흐려지는 대신 한 줄로 접힌다(9/24 실험실: .55 는 흰 자료 위에서 유령 글씨였다) — 면은 그대로(.8), 글자는 한 줄 + 말줄임.
    숨기지 않고 잘라 보이기만 한다: innerText·스크린리더에는 전문이 그대로 있다. 누르면 펼친다(.is-expanded) */
 .call-bubble.is-older:not(.is-expanded) {
-  opacity: .8; display: flex; flex-flow: row wrap; align-items: baseline; gap: 0 8px;
+  /* 줄 사이 12px — 둘째 줄(질문의 칩 줄·판정의 「빠진 것」)이 아래 여백(10px) 안으로 머리만 삐져나와 겹쳐 보였다 (09-30 M-13).
+     overflow 는 여백 가장자리에서 자르므로, 둘째 줄을 상한 밖으로 밀어내야 안 보인다. 글자는 그대로 DOM 에 있다 */
+  opacity: .8; display: flex; flex-flow: row wrap; align-items: baseline; gap: 12px 8px;
   max-height: calc(1.5em + 20px); overflow: hidden;
 }
 .call-bubble.is-older:not(.is-expanded) > * { flex: 1 1 100%; min-width: 0; margin: 0; }
@@ -418,6 +422,18 @@
 .call-bubble.is-verdict .call-followup,
 .call-bubble.is-verdict .call-explain { font-size: var(--ov-t-label); line-height: 1.45; }
 .call-bubble.is-verdict .call-followup, .call-bubble.is-verdict .call-explain { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--ov-stroke); }
+/* 「모르겠어요」 되물음의 보기 칩 (09-30 H-10) — 누르면 자막 칸에 들어간다(보내지 않는다). 앱 .qa-choice-chip 과 같은 모양 */
+.call-bubble .call-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.call-bubble .call-choice {
+  font: inherit; font-size: var(--ov-t-label); font-weight: var(--w-med); line-height: 1.3; min-height: 36px; padding: 6px 12px;
+  border: 1.5px solid var(--accent); border-radius: var(--r-pill, 999px); background: var(--surface); color: var(--accent);
+  cursor: pointer; text-align: left; word-break: keep-all;
+}
+.call-bubble .call-choice:hover { background: var(--accent-weak); }
+.call-bubble .call-choice:focus-visible { outline: 2.5px solid var(--ov-accent); outline-offset: 2px; }
+@media (pointer: coarse) { .call-bubble .call-choice { min-height: 44px; } }
+/* 폴백 한 줄 — 「자료 본문 없이 판정했어요」 「문헌 검색 없이 만들었어요」 (degraded_notes). 짧게, 본문보다 한 단 작게 */
+.call-bubble .call-note { margin-top: 6px; font-size: var(--ov-t-label); line-height: 1.45; color: var(--text-2); }
 @keyframes callPop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .call-bubble { animation: none; } }
 
@@ -449,6 +465,8 @@
 .call-dock-row > .booth-mic[data-state="dictating"], .call-dock-row > .booth-mic[data-state="recording"] { background: var(--ov-rec-bg); }
 .call-dock-row > .call-leave { height: var(--ov-target); border-radius: var(--r-pill, 999px); color: var(--ov-fg); background: var(--ov-danger-bg); text-shadow: var(--ov-text-shadow); }
 .call-dock-row > .call-leave:hover { filter: brightness(1.1); }
+/* 숨긴 것은 숨어 있어야 한다 — .btn 의 display 가 [hidden] 을 이겨, 마지막 질문에서 「통화 마치기」 가 둘 떴다 (09-30 M-13) */
+.call-dock-row > [hidden] { display: none !important; }
 
 /* 조작줄 — 캡슐 글라스. 주인공(답하기·다음)만 브랜드 틴트, 말하는 중엔 빨강 틴트 */
 .call-controls { position: relative; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -506,6 +524,10 @@
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12px); mask-image: linear-gradient(to bottom, transparent, #000 12px); padding-top: 12px;
     max-height: min(100%, calc(var(--call-h, 700px) * var(--ov-col-max, .36)), calc(var(--call-h, 700px) * .57 - var(--dock-h, 260px) - 14px - 54px));
   }
+  /* 가장 새 풍선이 판정이면 열을 말풍선 칸 끝까지 쓴다 (09-30 M-13). 폰은 아래 묶음(자막·조작줄)이 260px 이라 얼굴 비우기 규칙으로는
+     열이 130px 남짓 — 판정(요약·빠진 것·되묻기)이 잘려 「듣고 있어요」 띠 밑으로 사라졌다. 판정은 지금 읽어야 할 데이터다:
+     얼굴 아래쪽을 잠깐 덮더라도 다 보인다 (연출이 데이터를 가리면 연출을 버린다 — CLAUDE.md §3-4). 다음 질문이 오면 다시 줄어든다 */
+  .call[data-mode="qa"][data-main="self"] .call-bubbles:has(> .call-bubble.is-verdict:last-child) { max-height: 100%; }
   /* 아래 묶음을 조금 줄인다 — 누를 곳(48)은 그대로, 세로 여백만 4px 씩 */
   .call[data-mode="qa"] .call-caption textarea { padding-top: 6px; padding-bottom: 6px; }
   .call[data-mode="qa"] .call-controls { padding-top: 2px; padding-bottom: 2px; }
