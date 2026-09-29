@@ -1033,6 +1033,21 @@ function fillLiveAnswer(text) {
   ta.selectionStart = ta.selectionEnd = ta.value.length;
 }
 
+/** 서버가 다시 이어지면(conn_watch.js 의 chuckchuck:reconnected) 연결 끊김으로 실패한 판정을 한 번 다시 보낸다.
+    답은 실패 때 입력칸에 되살려 두었으므로 그대로 보낸다. 사용자가 그새 다른 걸 했으면(칸을 비웠거나 질문이 넘어갔으면) 안 보낸다. */
+function liveRetryAfterReconnect() {
+  const L = qa && qa.live;
+  if (!L || !L.retryOnReconnect || L.busy || !L.judgeFailed) return false;
+  if (typeof onQaRoute === 'function' && !onQaRoute()) return false;
+  const { giveUp } = L.retryOnReconnect;
+  L.retryOnReconnect = null;
+  const typed = (($('#liveAnswer') || {}).value || '').trim();
+  if (!giveUp && !typed) return false;
+  pushTurn({ who: 'sys', kind: 'won', text: '다시 연결됐어요 — 방금 답으로 다시 판정할게요' });
+  submitLiveAnswer({ giveUp });
+  return true;
+}
+
 async function submitLiveAnswer({ giveUp = false } = {}) {
   const L = qa.live;
   /* 마이크가 켜져 있어도 자막 칸에 쳐 둔 글은 언제든 보낼 수 있어야 한다
@@ -1161,6 +1176,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 아래 렌더에서 「답 보고 다시 말해보기」가 열려 서버 없이 다음 질문으로 간다.
     L.judgeFailed = true;
     failedAnswer = giveUp ? '' : answer;   // 포기 자리표시자는 되살릴 답이 아니다
+    // 서버에 못 닿아 실패했으면, 다시 연결될 때 같은 답으로 한 번 더 보낸다 (liveRetryAfterReconnect)
+    L.retryOnReconnect = err.code === 'server_unreachable' ? { giveUp } : null;
     // 자료 정보가 통째로 사라진 경우는 다시 눌러도 똑같이 실패한다. 「다시
     // 시도」로 유도하면 같은 자리를 맴돌 뿐이라, 원인과 빠져나갈 길을 따로 낸다.
     pushTurn({
@@ -1168,7 +1185,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       kind: 'lost',
       text: err.code === 'session_missing'
         ? '자료 정보가 사라져서 판정할 수 없어요. <a href="#/new">자료를 다시 올리면</a> 이어서 할 수 있어요 — 지금은 「답 보고 다시 말해보기」로 다음 질문에 갈 수 있어요'
-        : `판정 실패: ${escapeHtml(err.message || String(err))} — 다시 시도하거나 「답 보고 다시 말해보기」로 다음 질문에 갈 수 있어요`,
+        : err.code === 'server_unreachable'
+          ? '서버와 연결이 끊겨서 판정하지 못했어요. 다시 연결되면 방금 답으로 자동으로 다시 판정해요'
+          : `판정 실패: ${escapeHtml(err.message || String(err))} — 다시 시도하거나 「답 보고 다시 말해보기」로 다음 질문에 갈 수 있어요`,
     });
   }
   L.busy = false;

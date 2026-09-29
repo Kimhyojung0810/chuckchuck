@@ -423,6 +423,10 @@ function wireFreshPracticeButtons(root = document) {
 addEventListener('hashchange', () => {
   route();
 });
+// 포트 연결이 다시 이어지면(conn_watch.js) 연결 끊김으로 실패한 판정을 다시 보낸다
+addEventListener('chuckchuck:reconnected', () => {
+  if (typeof liveRetryAfterReconnect === 'function') liveRetryAfterReconnect();
+});
 // 탑바 초기 바인딩
 document.addEventListener('DOMContentLoaded', () => wireFreshPracticeButtons());
 wireFreshPracticeButtons();

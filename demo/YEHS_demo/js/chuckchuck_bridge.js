@@ -720,8 +720,18 @@ async function fetchWithTimeout(url, opts, timeoutMs, label) {
   try {
     return await fetch(url, { ...opts, signal: control.signal });
   } catch (err) {
+    // 시간 초과·네트워크 오류면 서버에 닿는지 한 번 두드려 원인을 가른다 (conn_watch.js).
+    // 포트 전달이 끊기면 요청이 오류 없이 매달렸다가 시간 초과로 끝나서, 판정이 고장 난 것처럼 보였다 (2026-09-29).
+    const conn = window.ChuckchuckConn;
+    const reachable = conn ? await conn.probe() : null;
+    if (reachable === false) {
+      conn.markDown();
+      const down = new Error('서버에 연결되지 않았어요. 포트 연결(VS Code Ports·SSH 터널)을 다시 이으면 자동으로 이어서 해요.');
+      down.code = 'server_unreachable';
+      throw down;
+    }
     if (err && err.name === 'AbortError') {
-      throw new Error(`${label}이(가) ${Math.round(timeoutMs / 1000)}초 안에 끝나지 않았어요.`);
+      throw new Error(`서버는 연결돼 있는데 ${label}이(가) ${Math.round(timeoutMs / 1000)}초 안에 끝나지 않았어요.`);
     }
     throw err;
   } finally {
