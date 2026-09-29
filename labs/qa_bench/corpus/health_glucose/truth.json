@@ -1,0 +1,185 @@
+{
+ "deck": "health_glucose",
+ "synthetic": true,
+ "context": {
+  "situation": "school_project",
+  "duration_min": 5
+ },
+ "control_tension": false,
+ "planted": [
+  {
+   "id": "T1",
+   "kind": "tension",
+   "expect": "probe",
+   "slides": [
+    1,
+    3
+   ],
+   "labels_any": [
+    "혈당 부하"
+   ],
+   "quote_any": [
+    "탄수화물 양보다 중요한",
+    "혈당 부하 ="
+   ],
+   "note": "탄수화물 양보다 중요하다면서 탄수화물 양이 혈당 부하의 요소 (식에 ÷ 100 이 붙어 있다)"
+  },
+  {
+   "id": "U1",
+   "kind": "unsolved",
+   "expect": "probe",
+   "slides": [
+    4,
+    5
+   ],
+   "labels_any": [
+    "야간 폭식",
+    "폭식"
+   ],
+   "quote_any": [
+    "야간 폭식"
+   ],
+   "note": "식사 순서가 졸림·허기만 다루고 야간 폭식은 비어 있다"
+  },
+  {
+   "id": "C1",
+   "kind": "unsupported_cause",
+   "expect": "probe",
+   "slides": [
+    7
+   ],
+   "labels_any": [
+    "야식",
+    "공복 혈당"
+   ],
+   "quote_any": [
+    "야식이 다음 날"
+   ],
+   "note": "7장에 수치·출처 없음"
+  },
+  {
+   "id": "C2",
+   "kind": "supported_cause",
+   "expect": "no_probe",
+   "slides": [
+    6
+   ],
+   "labels_any": [
+    "채소",
+    "식사 순서"
+   ],
+   "quote_any": [
+    "29% 낮았"
+   ],
+   "note": "수치·출처가 있는 인과"
+  },
+  {
+   "id": "A1",
+   "kind": "absolute_boundary",
+   "expect": "probe",
+   "slides": [
+    5
+   ],
+   "labels_any": [
+    "식사 순서",
+    "혈당 스파이크"
+   ],
+   "quote_any": [
+    "완전히 막을 수"
+   ],
+   "note": "단정"
+  },
+  {
+   "id": "H1",
+   "kind": "hedged",
+   "expect": "no_probe",
+   "slides": [
+    7
+   ],
+   "labels_any": [
+    "개인차",
+    "반응"
+   ],
+   "quote_any": [
+    "다를 수 있으니"
+   ],
+   "note": "유보"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "compare",
+   "slide": 1,
+   "quote_any": [
+    "탄수화물 양보다 중요한"
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 3,
+   "quote_any": [
+    "혈당 부하 ="
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 4,
+   "quote_any": [
+    "식후 졸림",
+    "세 가지 문제",
+    "야간 폭식",
+    "잦은 허기"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 5,
+   "quote_any": [
+    "채소 → 단백질",
+    "식후 졸림을 줄일"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 5,
+   "quote_any": [
+    "식이섬유를 먼저",
+    "잦은 허기를 막"
+   ]
+  },
+  {
+   "kind": "cause",
+   "slide": 7,
+   "quote_any": [
+    "야식이 다음 날"
+   ]
+  },
+  {
+   "kind": "absolute",
+   "slide": 5,
+   "quote_any": [
+    "완전히 막을 수"
+   ]
+  }
+ ],
+ "noise_lines": [
+  "1시",
+  "2시",
+  "3시 이후",
+  "01 / 08",
+  "02 / 08",
+  "03 / 08",
+  "04 / 08",
+  "05 / 08",
+  "06 / 08",
+  "07 / 08",
+  "08 / 08"
+ ],
+ "under_spoken_slides": [
+  3
+ ],
+ "under_spoken_labels_any": [
+  "혈당 부하",
+  "혈당 지수"
+ ]
+}

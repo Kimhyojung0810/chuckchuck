@@ -1,0 +1,126 @@
+{
+ "deck": "hum_novel",
+ "synthetic": true,
+ "context": {
+  "situation": "school_project",
+  "duration_min": 10
+ },
+ "control_tension": false,
+ "planted": [
+  {
+   "id": "T1",
+   "kind": "tension",
+   "expect": "probe",
+   "slides": [
+    1,
+    4
+   ],
+   "labels_any": [
+    "세책 문화",
+    "세책"
+   ],
+   "quote_any": [
+    "필사본보다 중요한",
+    "세책 문화 ="
+   ],
+   "note": "필사본보다 중요하다면서 필사본이 세책 문화의 요소"
+  },
+  {
+   "id": "C1",
+   "kind": "unsupported_cause",
+   "expect": "probe",
+   "slides": [
+    3
+   ],
+   "labels_any": [
+    "상업 발달",
+    "상업"
+   ],
+   "quote_any": [
+    "상업 발달이"
+   ],
+   "note": "3장에 수치·출처 없음"
+  },
+  {
+   "id": "A1",
+   "kind": "absolute_boundary",
+   "expect": "probe",
+   "slides": [
+    6
+   ],
+   "labels_any": [
+    "권선징악",
+    "서사",
+    "한글 소설"
+   ],
+   "quote_any": [
+    "항상 권선징악"
+   ],
+   "note": "단정"
+  },
+  {
+   "id": "H1",
+   "kind": "hedged",
+   "expect": "no_probe",
+   "slides": [
+    5
+   ],
+   "labels_any": [
+    "방각본"
+   ],
+   "quote_any": [
+    "보기도 합니다"
+   ],
+   "note": "유보 — absolute_boundary 가 나오면 오탐"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "compare",
+   "slide": 1,
+   "quote_any": [
+    "필사본보다 중요한"
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 4,
+   "quote_any": [
+    "세책 문화 ="
+   ]
+  },
+  {
+   "kind": "cause",
+   "slide": 3,
+   "quote_any": [
+    "상업 발달이"
+   ]
+  },
+  {
+   "kind": "absolute",
+   "slide": 6,
+   "quote_any": [
+    "항상 권선징악"
+   ]
+  },
+  {
+   "kind": "contrast",
+   "slide": 7,
+   "quote_any": [
+    "작가가 아니라"
+   ]
+  }
+ ],
+ "noise_lines": [
+  "① 있다",
+  "② 없다",
+  "③ 줄거리만 안다",
+  "01",
+  "02",
+  "03",
+  "04",
+  "05",
+  "06",
+  "07"
+ ]
+}

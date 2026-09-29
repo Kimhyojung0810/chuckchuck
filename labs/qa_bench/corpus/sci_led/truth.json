@@ -1,0 +1,68 @@
+{
+ "deck": "sci_led",
+ "synthetic": true,
+ "context": {
+  "situation": "school_project",
+  "duration_min": 5
+ },
+ "control_tension": true,
+ "planted": [
+  {
+   "id": "C2",
+   "kind": "supported_cause",
+   "expect": "no_probe",
+   "slides": [
+    5,
+    6
+   ],
+   "labels_any": [
+    "적색광",
+    "적색 LED"
+   ],
+   "quote_any": [
+    "39% 넓었"
+   ],
+   "note": "수치가 있는 인과(5장) — 6장의 해석에 cause 가 잡혀도 그 장엔 수치가 없어 경계 사례"
+  },
+  {
+   "id": "H1",
+   "kind": "hedged",
+   "expect": "no_probe",
+   "slides": [
+    6
+   ],
+   "labels_any": [
+    "온도",
+    "품종",
+    "해석"
+   ],
+   "quote_any": [
+    "달라질 수 있습니다"
+   ],
+   "note": "유보 표현 — absolute_boundary 가 나오면 오탐"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "compose",
+   "slide": 4,
+   "quote_any": [
+    "생장 지수 ="
+   ]
+  },
+  {
+   "kind": "compare",
+   "slide": 6,
+   "quote_any": [
+    "청색광보다 잎 면적",
+    "청색광보다"
+   ]
+  }
+ ],
+ "noise_lines": [
+  "1 / 7",
+  "3 / 7",
+  "5 / 7",
+  "7 / 7"
+ ]
+}

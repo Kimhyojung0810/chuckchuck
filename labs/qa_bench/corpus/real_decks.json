@@ -1,0 +1,51 @@
+{
+ "_note": "실제 덱 목록. 자료 본문(slidedoc·transcript)은 커밋하지 않는다 — 경로만 적는다. repo: --repo-root(주 체크아웃) 기준, wt: 이 작업 트리 기준. 세션 보관소(var/data/sessions)는 24시간 뒤 지워지므로 첫 실행 때 out/<deck>/slide_doc.json 으로 얼린다. group: tuned = 지금까지 규칙·프롬프트를 고칠 때 본 덱(튜닝에 쓴 덱) · heldout = 안 본 덱.",
+ "decks": [
+  {"name": "sleep", "group": "tuned", "slidedoc": "repo:docs/review/2026-09-28_QA_지엽성_자료/slidedoc_수면_세션.json",
+   "transcript": "repo:docs/review/2026-09-28_QA_지엽성_자료/transcript_수면_clova.json",
+   "context": {"situation": "school_project", "duration_min": 5},
+   "truth": {
+    "control_tension": false,
+    "planted": [
+     {"id": "T1", "kind": "tension", "expect": "probe", "slides": [1, 4], "labels_any": ["수면의 질"],
+      "quote_any": ["수면 시간보다 중요한", "수면의 질 ="], "note": "1장 비교와 4장 식의 긴장 (원래 사례)"},
+     {"id": "C1", "kind": "unsupported_cause", "expect": "probe", "slides": [5], "labels_any": ["카페인", "음주", "스트레스", "환경", "각성 요인", "연속성"],
+      "quote_any": ["카페인", "음주", "연속성을 끊는"], "note": "5장 원인 표 — 수치·출처 없음"},
+     {"id": "U0", "kind": "unsolved", "expect": "no_probe", "slides": [7], "labels_any": ["시간", "연속성", "규칙성"],
+      "quote_any": ["시간 부족", "연속성 저하", "규칙성 저하"], "note": "7장이 세 요소를 모두 다룬다 — unsolved 가 나오면 오탐"},
+     {"id": "H1", "kind": "hedged", "expect": "no_probe", "slides": [1], "labels_any": [], "quote_any": ["반드시 개운한 것은 아닙니다"],
+      "note": "부정된 「반드시」 — 단정이 아니다"},
+     {"id": "H2", "kind": "hedged", "expect": "no_probe", "slides": [6], "labels_any": [], "quote_any": ["완전히 회복되지는 않습니다"],
+      "note": "부정된 「완전히」"},
+     {"id": "H3", "kind": "hedged", "expect": "no_probe", "slides": [3], "labels_any": [], "quote_any": ["완전한 회복이 어렵습니다"],
+      "note": "부정된 「완전한」"}
+    ],
+    "claims": [
+     {"kind": "compare", "slide": 1, "quote_any": ["수면 시간보다 중요한"]},
+     {"kind": "compose", "slide": 4, "quote_any": ["수면의 질 ="]},
+     {"kind": "solve", "slide": 7, "quote_any": ["일정한 기상 시간", "규칙성 저하"]}
+    ],
+    "noise_lines": ["01 / 08", "03 / 08", "5시간 미만", "5–7시간", "7시간 이상"]
+   }},
+  {"name": "yield_gap", "group": "tuned", "slidedoc": "repo:var/data/sessions/2026/09/29/20260929T010009Z_8d99e152/slide_doc.json",
+   "context": {"situation": "competition", "duration_min": 10},
+   "truth": {
+    "control_tension": false,
+    "planted": [
+     {"id": "A1", "kind": "absolute_boundary", "expect": "probe", "slides": [14], "labels_any": ["시장 예측", "예측"],
+      "quote_any": ["하나도 없었다"], "note": "「하나도 없었다」 단정"},
+     {"id": "H1", "kind": "hedged", "expect": "no_probe", "slides": [14], "labels_any": [], "quote_any": ["완전히 없앨 수는 없지만"],
+      "note": "부정된 「완전히」"}
+    ],
+    "claims": [],
+    "noise_lines": []
+   }},
+  {"name": "focus", "group": "heldout", "slidedoc": "wt:fixtures/raw/focus_notification_demo_designed.slidedoc.json",
+   "context": {"situation": "school_project", "duration_min": 10},
+   "note": "예전 데모 자료 — 규칙 튜닝에는 안 썼지만 프롬프트 예시(알림·집중)가 이 덱에서 왔다 (overfit_scan 참고)",
+   "truth": null},
+  {"name": "sk_hynix", "group": "heldout", "slidedoc": "repo:var/data/sessions/2026/09/29/20260929T004602Z_46a3097e/slide_doc.json",
+   "context": {"situation": "competition", "duration_min": 10},
+   "truth": null}
+ ]
+}

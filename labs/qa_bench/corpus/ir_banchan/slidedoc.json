@@ -1,0 +1,242 @@
+{
+ "file_name": "한끼곳간_IR_시드라운드.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "동네 반찬 정기구독",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "01 / 08"
+    },
+    {
+     "category": "paragraph",
+     "text": "한끼곳간"
+    },
+    {
+     "category": "heading1",
+     "text": "동네 반찬 정기구독"
+    },
+    {
+     "category": "paragraph",
+     "text": "구독자 수보다 중요한 월 반복 매출"
+    },
+    {
+     "category": "paragraph",
+     "text": "시드 라운드 투자 제안 | 2026.09"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "왜 지금 반찬 구독인가",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "02 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "왜 지금 반찬 구독인가"
+    },
+    {
+     "category": "paragraph",
+     "text": "1인 가구 증가가 반찬 구독 수요를 늘립니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "퇴근 후 요리할 시간이 없는 직장인"
+    },
+    {
+     "category": "paragraph",
+     "text": "장을 봐도 재료가 남는 1인 가구"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "우리가 보는 숫자",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "03 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "우리가 보는 숫자"
+    },
+    {
+     "category": "paragraph",
+     "text": "월 반복 매출 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "구독자 수"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "객단가"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "유지율"
+    },
+    {
+     "category": "paragraph",
+     "text": "몇 명이 구독하는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "한 번에 얼마를 내는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "다음 달에도 남는가"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "수익성을 가로막는 세 가지 문제",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "04 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "수익성을 가로막는 세 가지 문제"
+    },
+    {
+     "category": "paragraph",
+     "text": "① 높은 배송비"
+    },
+    {
+     "category": "paragraph",
+     "text": "② 반찬 폐기 손실"
+    },
+    {
+     "category": "paragraph",
+     "text": "③ 첫 달 이탈"
+    },
+    {
+     "category": "paragraph",
+     "text": "세 문제가 모두 공헌이익을 깎습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "해결책",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "05 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "해결책"
+    },
+    {
+     "category": "paragraph",
+     "text": "권역 묶음 배송 — 같은 아파트 단지 주문을 한 번에 배송해 배송비를 낮춥니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "수요 예측 주문 마감 — 전날 18시에 주문을 마감해 폐기 손실을 줄입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "주문 마감 후 남는 반찬은 반드시 0개가 됩니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "파일럿 결과 (성수동 3개 단지, 12주)",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "06 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "파일럿 결과 (성수동 3개 단지, 12주)"
+    },
+    {
+     "category": "table",
+     "text": "| 지표 | 도입 전 | 도입 후 |"
+    },
+    {
+     "category": "table",
+     "text": "| 건당 배송비 | 3,200원 | 1,900원 |"
+    },
+    {
+     "category": "table",
+     "text": "| 폐기율 | 14% | 6% |"
+    },
+    {
+     "category": "paragraph",
+     "text": "묶음 배송 도입 후 건당 배송비가 3,200원에서 1,900원으로 41% 줄었습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "고객 반응",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "07 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "고객 반응"
+    },
+    {
+     "category": "paragraph",
+     "text": "대부분의 고객은 첫 달 안에 구독을 유지할지 결정하는 경향이 있습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "재구독 고객의 평균 객단가 32,000원"
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "투자 요청",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "08 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "투자 요청"
+    },
+    {
+     "category": "paragraph",
+     "text": "5억 원 · 18개월 런웨이"
+    },
+    {
+     "category": "paragraph",
+     "text": "권역 3곳 → 12곳 확장"
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    }
+   ]
+  }
+ ]
+}

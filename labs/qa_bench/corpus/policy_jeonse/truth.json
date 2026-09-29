@@ -1,0 +1,155 @@
+{
+ "deck": "policy_jeonse",
+ "synthetic": true,
+ "context": {
+  "situation": "competition",
+  "duration_min": 7
+ },
+ "control_tension": false,
+ "planted": [
+  {
+   "id": "T1",
+   "kind": "tension",
+   "expect": "probe",
+   "slides": [
+    1,
+    3
+   ],
+   "labels_any": [
+    "예방 체계",
+    "사전 예방",
+    "예방"
+   ],
+   "quote_any": [
+    "처벌 강화보다 중요한",
+    "예방 체계 ="
+   ],
+   "note": "처벌 강화보다 중요하다면서 처벌 강화가 예방 체계의 요소"
+  },
+  {
+   "id": "U1",
+   "kind": "unsolved",
+   "expect": "probe",
+   "slides": [
+    4,
+    5,
+    6
+   ],
+   "labels_any": [
+    "피해 회복",
+    "회복 지연"
+   ],
+   "quote_any": [
+    "피해 회복 지연"
+   ],
+   "note": "제안 ①② 가 정보 비대칭·보증 장벽만 다루고 피해 회복 지연은 비어 있다"
+  },
+  {
+   "id": "C1",
+   "kind": "unsupported_cause",
+   "expect": "probe",
+   "slides": [
+    2
+   ],
+   "labels_any": [
+    "시세 정보",
+    "깡통전세",
+    "정보"
+   ],
+   "quote_any": [
+    "시세 정보가 부족해서"
+   ],
+   "note": "2장에 수치·출처 없음"
+  },
+  {
+   "id": "A1",
+   "kind": "absolute_boundary",
+   "expect": "probe",
+   "slides": [
+    7
+   ],
+   "labels_any": [
+    "기대 효과",
+    "전세사기",
+    "제도"
+   ],
+   "quote_any": [
+    "완전히 사라집니다"
+   ],
+   "note": "단정"
+  },
+  {
+   "id": "H1",
+   "kind": "hedged",
+   "expect": "no_probe",
+   "slides": [
+    7
+   ],
+   "labels_any": [
+    "피해 규모",
+    "시범"
+   ],
+   "quote_any": [
+    "다를 수 있어"
+   ],
+   "note": "유보 — absolute_boundary 의 인용이 이 문장이면 오탐"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "compare",
+   "slide": 1,
+   "quote_any": [
+    "처벌 강화보다 중요한"
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 3,
+   "quote_any": [
+    "예방 체계 ="
+   ]
+  },
+  {
+   "kind": "compose",
+   "slide": 4,
+   "quote_any": [
+    "정보 비대칭",
+    "세 가지 문제",
+    "피해 회복 지연",
+    "보증 가입 장벽"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 5,
+   "quote_any": [
+    "시세 지도",
+    "정보 비대칭을 해소"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 6,
+   "quote_any": [
+    "보증료 전액 지원",
+    "보증 가입 장벽을 없앱"
+   ]
+  },
+  {
+   "kind": "cause",
+   "slide": 2,
+   "quote_any": [
+    "시세 정보가 부족해서"
+   ]
+  },
+  {
+   "kind": "absolute",
+   "slide": 7,
+   "quote_any": [
+    "완전히 사라집니다"
+   ]
+  }
+ ],
+ "noise_lines": []
+}

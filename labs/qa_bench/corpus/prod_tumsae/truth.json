@@ -1,0 +1,143 @@
+{
+ "deck": "prod_tumsae",
+ "synthetic": true,
+ "context": {
+  "situation": "competition",
+  "duration_min": 5
+ },
+ "control_tension": true,
+ "planted": [
+  {
+   "id": "U1",
+   "kind": "unsolved",
+   "expect": "probe",
+   "slides": [
+    3,
+    4
+   ],
+   "labels_any": [
+    "당일 취소",
+    "약속 취소",
+    "취소"
+   ],
+   "quote_any": [
+    "약속 당일 취소"
+   ],
+   "note": "기능이 시간표 불일치·낯선 부담만 다루고 당일 취소는 비어 있다"
+  },
+  {
+   "id": "C1",
+   "kind": "unsupported_cause",
+   "expect": "probe",
+   "slides": [
+    2
+   ],
+   "labels_any": [
+    "공강 시간",
+    "학교 만족도",
+    "공강"
+   ],
+   "quote_any": [
+    "공강 시간이 길수록"
+   ],
+   "note": "2장 「90분」 은 수치라 has_support 가 참이 될 수 있다 — 경계 사례로 따로 본다"
+  },
+  {
+   "id": "C2",
+   "kind": "supported_cause",
+   "expect": "no_probe",
+   "slides": [
+    5
+   ],
+   "labels_any": [
+    "시간표 연동",
+    "시간표 자동 연동"
+   ],
+   "quote_any": [
+    "2.1배"
+   ],
+   "note": "수치가 있는 인과 — unsupported_cause 가 나오면 오탐"
+  },
+  {
+   "id": "A1",
+   "kind": "absolute_boundary",
+   "expect": "probe",
+   "slides": [
+    6
+   ],
+   "labels_any": [
+    "알림"
+   ],
+   "quote_any": [
+    "절대 하루 3번"
+   ],
+   "note": "단정(설계 규칙)"
+  },
+  {
+   "id": "H1",
+   "kind": "hedged",
+   "expect": "no_probe",
+   "slides": [
+    6
+   ],
+   "labels_any": [
+    "선호 시간대",
+    "알림 시각"
+   ],
+   "quote_any": [
+    "다를 수 있어"
+   ],
+   "note": "유보"
+  }
+ ],
+ "claims": [
+  {
+   "kind": "compose",
+   "slide": 3,
+   "quote_any": [
+    "시간표 불일치",
+    "세 가지 이유",
+    "약속 당일 취소",
+    "낯선 사람"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 4,
+   "quote_any": [
+    "시간표 자동 연동"
+   ]
+  },
+  {
+   "kind": "solve",
+   "slide": 4,
+   "quote_any": [
+    "인증 배지",
+    "낯선 사람에 대한 부담을 줄입니다"
+   ]
+  },
+  {
+   "kind": "cause",
+   "slide": 2,
+   "quote_any": [
+    "공강 시간이 길수록"
+   ]
+  },
+  {
+   "kind": "absolute",
+   "slide": 6,
+   "quote_any": [
+    "절대 하루 3번"
+   ]
+  }
+ ],
+ "noise_lines": [
+  "1 / 7",
+  "2 / 7",
+  "3 / 7",
+  "4 / 7",
+  "5 / 7",
+  "6 / 7",
+  "7 / 7"
+ ]
+}
