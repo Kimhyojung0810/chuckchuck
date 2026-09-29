@@ -1,6 +1,6 @@
 """
 [F-17] 말 속도·시간 배분을 규칙으로 계산하는 모듈입니다.
-Transcript(+선택 ConceptDoc/Context) → PaceDoc. LLM을 쓰지 않습니다.
+Transcript(+선택 ConceptDoc/Context/AlignmentDoc) → PaceDoc. LLM을 쓰지 않습니다.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from collections import defaultdict
 
 from ._spoken import skip_targets, utterances
 from .contracts import (
+    AlignmentDoc,
     ConceptDoc,
     Context,
     PaceDoc,
@@ -201,16 +202,30 @@ def _tips(pace: PaceDoc) -> list[str]:
     return tips
 
 
+def _recording_unrelated(alignment: AlignmentDoc | None) -> bool:
+    """
+    녹음이 이 자료의 발표가 아닌가 — F-11 정합의 판정(speech_match·basis)을 그대로 읽는다. 따로 표시를 만들지 않는다.
+
+    정합이 전부 짐작(basis "fallback")인 것은 여기 들지 않는다 — 녹음은 이 발표의 것이라 속도·시간은 정합과 상관없이 맞다.
+    """
+    return alignment is not None and (alignment.speech_match == "unrelated" or alignment.basis == "skipped")
+
+
 def analyze_pace(
     transcript: Transcript | dict,
     context: Context | dict | None = None,
     concept_doc: ConceptDoc | dict | None = None,
+    alignment: AlignmentDoc | dict | None = None,
 ) -> PaceDoc:
     """
     슬라이드별 말 속도·권장/실제 시간을 계산한다.
 
     - 권장 시간 = 목표초 × (importance_weight / Σweight)
     - 목표 분이 없으면 실제 총시간을 목표로 써서 상대 배분만 본다.
+    - alignment(F-11)가 「녹음이 이 자료의 발표가 아니다」 면 재지 않는다 — 빈 PaceDoc(장·구간·팁 없음, 시간·속도 0)을 낸다.
+      이 자료의 장별 권장 시간·핵심 장 체류로 남의 발표를 재면 0점이 아니라 거짓 값이다 (09-30 녹음 대화 감사 REC-10:
+      「1번은 핵심인데 권장 600초 중 220초만 썼어요」 — 다른 발표 전체가 1장 구간이었다). 0 은 「안 쟀다」 는 뜻이라
+      받는 쪽(F-14·F-19·화면)은 같은 정합 판정을 보고 「재지 않았어요」 로 말한다.
     """
     if isinstance(transcript, dict):
         transcript = Transcript.from_dict(transcript)
@@ -218,9 +233,13 @@ def analyze_pace(
         context = Context.from_dict(context)
     if isinstance(concept_doc, dict):
         concept_doc = ConceptDoc.from_dict(concept_doc)
+    if isinstance(alignment, dict):
+        alignment = AlignmentDoc.from_dict(alignment)
 
     if not transcript.by_slide and not transcript.words:
         raise PaceError("Transcript 가 비어 있습니다. F-05 결과를 먼저 확인하세요.")
+    if _recording_unrelated(alignment):
+        return PaceDoc(recommended_cpm=f"{int(_REC_CPM[0])}~{int(_REC_CPM[1])}")
 
     buckets = _aggregate_by_slide(transcript)
     if not buckets:

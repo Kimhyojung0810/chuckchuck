@@ -208,8 +208,9 @@ def _fault_note(found: list[RubricFault], cap: int | None, raw: int) -> str:
     """상한·못 잰 까닭을 사람이 읽는 한 줄로. 숫자는 결과 그대로 적는다."""
     kinds = [f.kind for f in found]
     if "unrelated_speech" in kinds:
-        return ("녹음이 이 발표 자료와 다른 발표라서 말한 내용은 채점하지 않았어요 — 자료와 말하기 습관만 봤고, "
-                f"이 자료의 발표로는 {cap}점 위로 매기지 않아요")
+        # 말 내용만이 아니라 녹음으로 재는 것 전부(속도·시간·말버릇)를 안 쟀다 — 「말하기 습관은 봤다」 고 하면 거짓이다 (09-30 REC-10)
+        return ("녹음이 이 발표 자료와 다른 발표라서 녹음으로 재는 항목(말한 내용·말 속도·시간·말버릇)은 채점하지 않았어요 — "
+                f"자료만 봤고, 이 자료의 발표로는 {cap}점 위로 매기지 않아요")
     parts = []
     n_contra, n_skip = kinds.count("contradiction"), kinds.count("skipped_slide")
     if n_contra:
@@ -230,7 +231,7 @@ def _apply_faults(result: RubricScore, found: list[RubricFault]) -> RubricScore:
     """
     치명 결함이 있으면 총점에 상한을 건다. score == min(cap, round(Σ contribution)) — 상한과 까닭은 cap·faults·note 에 남긴다.
 
-    다른 발표 녹음은 CAP_FLOOR 다. 말 내용 항목을 빼고 나면 남는 건 자료·목소리 항목뿐이라 점수가 오히려 오른다 —
+    다른 발표 녹음은 CAP_FLOOR 다. 녹음으로 재는 항목을 빼고 나면 남는 건 자료 항목뿐이라 점수가 오히려 오른다 —
     09-30 재현(혈당 자료 + 수면 녹음): 38 → 81, 화면이 「A · 핵심은 잘 전달했어요」 가 된다. 이 자료의 발표는 하지 않았으니
     「했다」 구간에 두지 않는다(「이 자료의 발표로는」 이라는 까닭을 note 가 같이 말한다).
     """
@@ -281,7 +282,8 @@ def _score_deterministic(situation: str, ev: Evidence) -> tuple[list[RubricItemS
     """
     results: list[RubricItemScore] = []
     pending: list[int] = []
-    # 녹음이 다른 발표이거나 정합이 짐작뿐이면 발화를 자료와 견주는 항목은 매기지 않는다 — 0점이 아니라 「못 쟀다」 (09-30 C-07·G-A22)
+    # 녹음이 다른 발표면 녹음으로 재는 항목 전부, 정합이 짐작뿐이면 정합 결과를 쓰는 항목은 매기지 않는다 — 0점이 아니라 「못 쟀다」
+    # (09-30 C-07·G-A22 · 녹음 대화 감사 REC-10)
     blocked = speech_block(ev)
 
     for item in rubric_v3.ITEMS:

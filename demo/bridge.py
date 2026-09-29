@@ -2145,8 +2145,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         return self._json(200, payload)
 
     def _handle_pace(self, raw: bytes):
-        """F-17 · Transcript(+ConceptDoc/Context) → PaceDoc. LLM 없음."""
-        from chuckchuck.contracts import Transcript
+        """F-17 · Transcript(+ConceptDoc/Context/AlignmentDoc) → PaceDoc. LLM 없음."""
+        from chuckchuck.contracts import AlignmentDoc, Transcript
 
         body = json.loads(raw or b"{}")
         if not body.get("transcript"):
@@ -2157,10 +2157,13 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         transcript = Transcript.from_dict(body["transcript"])
         ctx = Context.from_dict(body.get("context") or {})
         concept_doc = ConceptDoc.from_dict(body["concept_doc"]) if body.get("concept_doc") else None
-        pace = analyze_pace(transcript, ctx, concept_doc)
+        # 정합(F-11)이 「녹음이 이 자료의 발표가 아니다」 라면 F-17 은 재지 않는다 — 빈 PaceDoc (09-30 녹음 대화 감사 REC-10)
+        alignment = AlignmentDoc.from_dict(body["alignment"]) if isinstance(body.get("alignment"), dict) else None
+        pace = analyze_pace(transcript, ctx, concept_doc, alignment)
+        unmeasured = " · 녹음이 이 자료의 발표가 아니라 재지 않음" if alignment is not None and not pace.slides else ""
         sys.stderr.write(
             f"[bridge] F-17 pace done slides={len(pace.slides)} "
-            f"actual={pace.actual_sec}s target={pace.target_sec}s\n"
+            f"actual={pace.actual_sec}s target={pace.target_sec}s{unmeasured}\n"
         )
         payload = pace.to_dict()
         self._archive(body, "pace_doc", payload)
@@ -2210,7 +2213,9 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         llm = _pick_llm(body)
         # 점수는 채점표(F-14)가 진실이다. rubric 을 같이 보내면 그 점수를 싣고,
         # 안 보내면 0 으로 둔다 — 여기서 두 번째 점수를 만들지 않는다.
-        report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), llm=llm)
+        # alignment 는 녹음이 이 자료의 발표인지만 본다 — 다른 발표면 LLM 없이 「재지 않았어요」 리포트 (09-30 REC-10)
+        alignment = body.get("alignment") if isinstance(body.get("alignment"), dict) else None
+        report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), alignment=alignment, llm=llm)
         sys.stderr.write(
             f"[bridge] F-19 report done score={report.score} model={report.model}\n"
         )

@@ -1,6 +1,9 @@
 """
 [F-19] F-17·F-18 수치를 받아 종합 진단 리포트를 쓰는 모듈입니다.
-PaceDoc + HabitDoc(+Context) → ReportDoc. 숫자는 다시 짐작하지 않습니다.
+PaceDoc + HabitDoc(+Context·RubricScore·AlignmentDoc) → ReportDoc. 숫자는 다시 짐작하지 않습니다.
+
+녹음이 이 자료의 발표가 아니면 LLM 을 부르지 않는다 — 녹음으로 잰 것(말 속도·시간·말버릇)을 이 발표의 것처럼 말하면 거짓이다
+(09-30 녹음 대화 감사 REC-10).
 """
 
 from __future__ import annotations
@@ -10,7 +13,17 @@ import os
 import re
 
 from ._json_text import extract_json_object
-from .contracts import RUBRIC_CAP_KINDS, Context, HabitDoc, PaceDoc, ReportDoc, ReportError, RubricFault, RubricScore
+from .contracts import (
+    RUBRIC_CAP_KINDS,
+    AlignmentDoc,
+    Context,
+    HabitDoc,
+    PaceDoc,
+    ReportDoc,
+    ReportError,
+    RubricFault,
+    RubricScore,
+)
 from .providers.llm_base import LLMProvider
 from .providers.llm_impl import get_llm
 
@@ -29,13 +42,59 @@ _SYSTEM = (
     "pace_summary, habit_summary. "
     "점수·등급은 쓰지 마세요 — 코드가 수치로 계산합니다. "
     "[먼저 짚을 것] 줄이 있으면 그것이 이 발표에서 가장 먼저 고칠 문제예요 — one_liner 와 weaknesses 첫 줄에 그 사실을 "
-    "쓰고, '잘 전달했다·자료와 일치한다·모순이 없다·정확하게 설명했다' 같은 말은 쓰지 마세요. "
-    "녹음이 자료와 다른 발표라는 줄이 있으면 발표 내용·슬라이드를 칭찬하거나 평가하지 말고 목소리·속도·말버릇만 말하세요."
+    "쓰고, '잘 전달했다·자료와 일치한다·모순이 없다·정확하게 설명했다' 같은 말은 쓰지 마세요."
 )
 
 #: LLM 응답 토큰 상한. 1200 이면 한국어 JSON 이 pace_summary 쯤에서 잘려 통째로 규칙 폴백이 됐다
 #: (09-30 수면 녹음 실측 — 837자에서 끊겨 닫는 괄호가 없었다). 잘린 JSON 도 아래에서 되살린다.
 MAX_TOKENS = 2000
+
+# ---------------------------------------------------------------------------
+# 녹음이 이 자료의 발표가 아닐 때 — LLM 없이 정해진 말만 (09-30 REC-10)
+# ---------------------------------------------------------------------------
+
+UNRELATED_ONE_LINER = ("녹음이 이 발표 자료와 다른 발표라서 말한 내용·말 속도·시간·말버릇은 분석하지 않았어요. "
+                       "이 자료로 발표한 녹음을 올리면 같이 볼게요.")
+UNRELATED_ACTION = "이 발표 자료로 한 녹음을 다시 올려 보세요 — 그래야 말한 내용과 말 속도·시간까지 볼 수 있어요."
+UNMEASURED_PACE = "녹음이 이 자료의 발표가 아니라서 말 속도와 시간 배분은 재지 않았어요."
+UNMEASURED_HABITS = "녹음이 이 자료의 발표가 아니라서 말버릇은 보지 않았어요."
+
+
+def _unrelated(rubric: RubricScore | None, alignment: AlignmentDoc | None) -> bool:
+    """
+    녹음이 이 자료의 발표가 아닌가 — 채점표 결함(unrelated_speech) 또는 F-11 정합(speech_match·basis) 그대로. 따로 표시를 만들지 않는다.
+
+    채점표가 폴백(F-13)으로 매겨져 결함 칸이 비어도 정합을 같이 보면 놓치지 않는다.
+    """
+    if rubric is not None and any(f.kind == "unrelated_speech" for f in rubric.faults):
+        return True
+    return alignment is not None and (alignment.speech_match == "unrelated" or alignment.basis == "skipped")
+
+
+def _unrelated_report(rubric: RubricScore | None, alignment: AlignmentDoc | None, score: int) -> ReportDoc:
+    """
+    다른 발표 녹음의 리포트. 녹음으로 잰 것은 어느 칸에도 싣지 않는다 — 0 이 아니라 「재지 않았어요」 다.
+
+    09-30 녹음 대화 감사(REC-10): 다른 발표 녹음 3벌 모두 리포트가 「93자/분 … 너무 느렸어요」 · 「말 속도를 … 빠르게 연습해 보세요」 ·
+    강점 「말 속도가 일정해서…」 를 실었다 — 목소리·습관은 된다고 LLM 에 남겨 둔 길이었다. 할 수 있는 말이 「다시 올려 달라」 뿐이라
+    LLM 을 부르지 않는다.
+    """
+    head = next((f.text for f in (rubric.faults if rubric else []) if f.kind == "unrelated_speech" and f.text), "")
+    if not head:
+        overlap = alignment.speech_overlap if alignment is not None else None
+        pct = "" if overlap is None else f" (발화 낱말 중 자료에도 있는 비중 {overlap:.0%})"
+        head = f"녹음이 이 발표 자료와 다른 발표예요{pct} — 녹음으로 재는 항목은 채점하지 않았어요"
+    return ReportDoc(
+        one_liner=UNRELATED_ONE_LINER,
+        score=score,
+        grade="",
+        strengths=[],
+        weaknesses=[head],
+        actions=[UNRELATED_ACTION],
+        pace_summary=UNMEASURED_PACE,
+        habit_summary=UNMEASURED_HABITS,
+        model="code",
+    )
 
 
 def _rubric_block(rubric: RubricScore) -> list[str]:
@@ -193,8 +252,6 @@ _CONSISTENT_RE = re.compile(
     r"일치|모순(?:이|은|도)?\s?없|어긋난\s?(?:곳|점)(?:이|은)?\s?없|정확(?:히|하게)?\s?(?:전달|설명|인용|제시)|자료대로|"
     r"빠짐없이|꼼꼼(?:히|하게)|핵심(?:을|은|이)?\s?(?:잘\s?|모두\s?|다\s?)?전(?:달|했)"
 )
-#: 발표 **내용**에 대한 칭찬·평가 — 녹음이 다른 발표면 이 자료 기준으로 말할 수 없다 (목소리·속도·습관만 남긴다).
-_CONTENT_RE = re.compile(r"슬라이드|자료|개념|내용|설명|근거|제시|결과|논리|구조|흐름|주장|사례|결론|핵심")
 #: 한 줄 총평이 결함을 이미 말했는가 — 장 번호나 이런 말이 있으면 그대로 둔다.
 _FAULT_WORDS_RE = re.compile(r"어긋|다르게|다른\s?수치|틀리|틀린|건너뛰|건너뛴|넘어가|넘어갔|빠뜨|모순")
 
@@ -226,24 +283,13 @@ def _honest(doc: ReportDoc, rubric: RubricScore | None, pace: PaceDoc, habits: H
     """
     채점표가 짚은 사실(faults)을 리포트 문장이 **먼저, 빠짐없이** 말하게 한다. LLM 이 규칙을 어겨도 여기서 막는다.
 
-    09-30 held-out: 혈당 녹음(6장 29%→49%, 핵심 3장 건너뜀)의 리포트가 「발표 완성도 B · 핵심은 전했고」 였고,
-    /temp 재현(반찬 IR 자료 + 집중·알림 녹음)은 「모든 슬라이드를 꼼꼼히 설명했고, 파일럿 결과와 고객 반응을 구체적으로
-    제시했어요」 라고 칭찬했다 — 녹음은 다른 발표였다.
+    09-30 held-out: 혈당 녹음(6장 29%→49%, 핵심 3장 건너뜀)의 리포트가 「발표 완성도 B · 핵심은 전했고」 였다.
+    다른 발표 녹음(unrelated_speech)은 여기 오지 않는다 — compose_report 가 LLM 없이 `_unrelated_report` 로 끝낸다.
     """
     found = list(rubric.faults) if rubric else []
     if not found:
         return doc
     kinds = {f.kind for f in found}
-    if "unrelated_speech" in kinds:
-        head = next(f.text for f in found if f.kind == "unrelated_speech")
-        doc.one_liner = ("녹음이 이 발표 자료와 다른 발표라서 말한 내용은 분석하지 않았어요. "
-                         "이 자료로 발표한 녹음을 올리면 개념·흐름까지 같이 볼게요.")
-        doc.strengths = [x for x in doc.strengths if not _CONTENT_RE.search(x)] or [
-            x for x in _fallback_report(pace, habits, doc.model).strengths if not _CONTENT_RE.search(x)]
-        doc.weaknesses = [head] + [x for x in doc.weaknesses if not _CONTENT_RE.search(x) and "다른 발표" not in x]
-        doc.actions = ["이 발표 자료로 한 녹음을 다시 올려 보세요 — 그래야 개념·흐름·자료와 맞게 말했는지 볼 수 있어요."] + [
-            x for x in doc.actions if not _CONTENT_RE.search(x) and "녹음" not in x]
-        return doc
     key = [f for f in found if f.kind in RUBRIC_CAP_KINDS]
     if key:
         if not _mentions(doc.one_liner, key):
@@ -274,6 +320,7 @@ def compose_report(
     context: Context | dict | None = None,
     *,
     rubric: RubricScore | dict | None = None,
+    alignment: AlignmentDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
 ) -> ReportDoc:
     """
@@ -283,6 +330,8 @@ def compose_report(
     예전에는 이 모듈이 45~92 로 클램프된 두 번째 점수를 따로 계산했는데, 화면에
     보이는 F-13 점수와 서로 달랐고 프론트는 그걸 아예 읽지도 않았다.
     `rubric` 이 없으면 0 을 싣는다 — 짐작하지 않는다.
+
+    `alignment`(F-11)는 녹음이 이 자료의 발표인지만 본다 — 채점표가 폴백이라 결함 칸이 비어도 다른 발표 녹음을 놓치지 않게.
     """
     if isinstance(pace, dict):
         pace = PaceDoc.from_dict(pace)
@@ -292,7 +341,12 @@ def compose_report(
         context = Context.from_dict(context)
     if isinstance(rubric, dict):
         rubric = RubricScore.from_dict(rubric)
+    if isinstance(alignment, dict):
+        alignment = AlignmentDoc.from_dict(alignment)
     score = rubric.score if rubric else 0
+
+    if _unrelated(rubric, alignment):
+        return _unrelated_report(rubric, alignment, score)
 
     # llm 미지정이면 get_llm 기본 경로 — REASONING_BACKEND 와 REASONING_FALLBACK(예비) 를 함께 읽는다
     engine = llm if isinstance(llm, LLMProvider) else get_llm(None if llm is None else str(llm))
