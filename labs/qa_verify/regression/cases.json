@@ -101,6 +101,218 @@
             "question": "창과의 거리는 잎의 생장과 어떤 관계인가요?",
             "gist": "화분이 창에서 가까울수록 잎의 생장이 느려지는 경향이 있어요.",
             "expect": {"gist_forbid_regex": ["가까울수록[^.]{0,20}느려지"]}}
+  },
+  {
+   "id": "absolute_observation_truism_off",
+   "title": "단정 탐침은 따질 주장에만 — 자기 자료에서 본 과거 관찰(「…하나도 없었다」)·늘어놓은 것 안에서 센 것(「다섯 요인 중 … 하나도 없다」)·비용이 붙는 기제(「매매할 때마다 수수료·세금은 반드시 발생」)에는 「들어맞지 않는 경우」 를 묻지 않는다",
+   "origin": "09-30 standard 8c48180·3d12c92 수익률격차 Q1·Q3 · WP-P2",
+   "kind": "probe_absolute",
+   "source": {"file": "var/data/sessions/2026/09/29/20260929T141953Z_99dde264/slide_doc.json", "base": "main", "slides": [5, 6, 14]},
+   "args": {
+    "nodes": [{"id": "gap", "label": "수익률 격차", "slide_nos": [14], "depth": 1, "weight": 1.0}, {"id": "factors", "label": "행동 요인", "slide_nos": [5], "depth": 2, "parent_id": "gap"}, {"id": "trading", "label": "과잉 매매", "slide_nos": [5, 6], "depth": 2, "parent_id": "gap"}, {"id": "cost", "label": "수수료", "slide_nos": [6], "depth": 3, "parent_id": "trading"}, {"id": "predict", "label": "시장 예측 능력", "slide_nos": [14], "depth": 2, "parent_id": "gap"}, {"id": "pick", "label": "종목 선정 능력", "slide_nos": [5], "depth": 2, "parent_id": "gap"}],
+    "absolute_off": ["하나도 없다", "반드시 발생", "하나도 없었다"]
+   }
+  },
+  {
+   "id": "absolute_observation_truism_off_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 목공 공방: 과장만 단정 탐침, 과거 관찰·센 것·재료비 기제는 아니다)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "probe_absolute",
+   "source": {"inline": {"slides": [{"slide_no": 1, "text": "주민 목공 공방\n참여자 수보다 중요한 작품 완성률"}, {"slide_no": 2, "text": "우리가 보는 숫자\n작품 완성률 =\n참여자 수\n×\n출석률\n×\n마감률"}, {"slide_no": 3, "text": "공방이 겪는 세 가지 문제\n공구 대기 시간\n먼지와 소음\n작업대 부족"}, {"slide_no": 4, "text": "개선 방법\n공구를 두 벌씩 갖춰 공구 대기 시간을 줄입니다.\n집진기를 달아 먼지와 소음을 줄입니다.\n안전 교육만 받으면 누구나 첫 수업부터 완벽하게 작품을 완성할 수 있습니다."}, {"slide_no": 5, "text": "지난 분기 돌아보기\n지난 분기 참여자 42명 가운데 수업 중 다친 사람은 아무도 없었습니다.\n조사한 다섯 가지 불만 가운데 강사에 관한 항목은 하나도 없다\n수업을 들을 때마다 나무 재료비는 반드시 발생합니다."}, {"slide_no": 6, "text": "맺음\n다만 손 기술에 따라 완성 속도는 다를 수 있습니다."}]}},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "absolute_on": ["완벽하게 작품을"],
+    "absolute_off": ["아무도 없었습니다", "하나도 없다", "반드시 발생"]
+   }
+  },
+  {
+   "id": "absolute_gist_names_condition",
+   "title": "단정 탐침의 모범답은 자료가 단 조건(「개인에 따라 반응이 다를 수 있으니」)과 그 장을 대고, 단정 줄을 되읊지 않는다 — 예전 「…모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만…」 은 조건이 없었다",
+   "origin": "09-30 standard 3d12c92 혈당 Q1 · WP-P2",
+   "kind": "probe_absolute",
+   "source": {"file": "labs/qa_bench/corpus/health_glucose/slidedoc.json", "base": "harness", "slides": [5, 7]},
+   "args": {
+    "nodes": [{"id": "spike", "label": "혈당 스파이크", "slide_nos": [2, 4, 5], "depth": 1, "weight": 1.0}, {"id": "load", "label": "혈당 부하", "slide_nos": [1, 3], "depth": 2, "parent_id": "spike", "weight": 0.8}, {"id": "sleepy", "label": "식후 졸림", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "hunger", "label": "잦은 허기", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "binge", "label": "야간 폭식", "slide_nos": [4], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "order", "label": "식사 순서", "slide_nos": [5, 8], "depth": 2, "parent_id": "spike", "weight": 0.7}, {"id": "night", "label": "야식", "slide_nos": [7], "depth": 2, "parent_id": "spike", "weight": 0.4}],
+    "absolute_on": ["완전히 막을 수"],
+    "gist_require": ["단정할 수는 없어요", "자료 7장", "개인에 따라 반응이 다를 수 있어요"],
+    "gist_forbid": ["식사 순서만 바꾸면", "자료가 보여 준 범위 안에서만"]
+   }
+  },
+  {
+   "id": "absolute_gist_names_condition_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 목공 공방: 맺음 장의 「손 기술에 따라 … 다를 수 있습니다」 를 조건으로 댄다)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "probe_absolute",
+   "source": {"inline": {"slides": [{"slide_no": 1, "text": "주민 목공 공방\n참여자 수보다 중요한 작품 완성률"}, {"slide_no": 2, "text": "우리가 보는 숫자\n작품 완성률 =\n참여자 수\n×\n출석률\n×\n마감률"}, {"slide_no": 3, "text": "공방이 겪는 세 가지 문제\n공구 대기 시간\n먼지와 소음\n작업대 부족"}, {"slide_no": 4, "text": "개선 방법\n공구를 두 벌씩 갖춰 공구 대기 시간을 줄입니다.\n집진기를 달아 먼지와 소음을 줄입니다.\n안전 교육만 받으면 누구나 첫 수업부터 완벽하게 작품을 완성할 수 있습니다."}, {"slide_no": 5, "text": "지난 분기 돌아보기\n지난 분기 참여자 42명 가운데 수업 중 다친 사람은 아무도 없었습니다.\n조사한 다섯 가지 불만 가운데 강사에 관한 항목은 하나도 없다\n수업을 들을 때마다 나무 재료비는 반드시 발생합니다."}, {"slide_no": 6, "text": "맺음\n다만 손 기술에 따라 완성 속도는 다를 수 있습니다."}]}},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "absolute_on": ["완벽하게 작품을"],
+    "gist_require": ["단정할 수는 없어요", "자료 6장", "손 기술에 따라 완성 속도는 다를 수 있어요"],
+    "gist_forbid": ["안전 교육만 받으면", "자료가 보여 준 범위 안에서만"]
+   }
+  },
+  {
+   "id": "absolute_gist_no_condition",
+   "title": "자료가 조건을 안 달았으면 모범답은 조건이 없다고 솔직히 말하고 무엇을 더할지(누구에게·언제·어떤 조건에서) 말한다",
+   "origin": "09-30 standard 8c48180 · WP-P2",
+   "kind": "probe_absolute",
+   "source": {"file": "labs/qa_bench/corpus/health_glucose/slidedoc.json", "base": "harness", "slides": [5]},
+   "args": {
+    "nodes": [{"id": "spike", "label": "혈당 스파이크", "slide_nos": [2, 4, 5], "depth": 1, "weight": 1.0}, {"id": "load", "label": "혈당 부하", "slide_nos": [1, 3], "depth": 2, "parent_id": "spike", "weight": 0.8}, {"id": "sleepy", "label": "식후 졸림", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "hunger", "label": "잦은 허기", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "binge", "label": "야간 폭식", "slide_nos": [4], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "order", "label": "식사 순서", "slide_nos": [5, 8], "depth": 2, "parent_id": "spike", "weight": 0.7}, {"id": "night", "label": "야식", "slide_nos": [7], "depth": 2, "parent_id": "spike", "weight": 0.4}],
+    "absolute_on": ["완전히 막을 수"],
+    "gist_require": ["조건이 아직 없어요", "누구에게, 언제, 어떤 조건에서"],
+    "gist_forbid": ["식사 순서만 바꾸면", "자료가 보여 준 범위 안에서만"]
+   }
+  },
+  {
+   "id": "absolute_gist_no_condition_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 목공 공방에서 유보 장을 뺀 것)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "probe_absolute",
+   "source": {"inline_from": "absolute_observation_truism_off_neutral", "slides": [1, 2, 3, 4, 5]},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "absolute_on": ["완벽하게 작품을"],
+    "gist_require": ["조건이 아직 없어요", "누구에게, 언제, 어떤 조건에서"],
+    "gist_forbid": ["안전 교육만 받으면"]
+   }
+  },
+  {
+   "id": "question_jargon_template",
+   "title": "질문에 우리 분석 말(「경계」)이 새면 정해진 문장으로 — 「…사라진다는 주장의 한계와 실제 적용 가능한 경계는 무엇인가요?」",
+   "origin": "09-30 standard e2e703b 전세 Q3 · 3d12c92 수익률격차 Q1·Q3 · WP-P2",
+   "kind": "f08_scripted",
+   "source": {"file": "labs/qa_bench/corpus/policy_jeonse/slidedoc.json", "base": "harness", "slides": [1, 3, 7]},
+   "args": {
+    "nodes": [{"id": "prev", "label": "예방 체계", "slide_nos": [1, 3], "depth": 1, "weight": 1.0}, {"id": "gone", "label": "전세사기 완전 사라짐", "slide_nos": [7], "depth": 2, "parent_id": "prev"}],
+    "claims": "rules",
+    "node_id": "gone",
+    "question": "이 제도가 도입되면 대학가 전세사기가 완전히 사라진다는 주장의 한계와 실제 적용 가능한 경계는 무엇인가요?",
+    "gist": "자료 7장은 완전히 사라진다고 했어요.",
+    "expect": {"question_forbid": ["경계"], "checks_require": ["question_jargon"]}
+   }
+  },
+  {
+   "id": "question_jargon_template_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 목공 공방 과장 줄에 「…주장의 경계는 무엇인가요?」)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "f08_scripted",
+   "source": {"inline_from": "absolute_observation_truism_off_neutral"},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "claims": "rules",
+    "node_id": "safety",
+    "question": "안전 교육만 받으면 누구나 완벽하게 작품을 완성할 수 있다는 주장의 경계는 무엇인가요?",
+    "gist": "누구나 완성할 수 있어요.",
+    "expect": {"question_forbid": ["경계"], "checks_require": ["question_jargon"]}
+   }
+  },
+  {
+   "id": "two_asks_single",
+   "title": "한 문장에 두 물음이면 질문의 근거(빈칸 탐침)에 묶인 물음 하나만 — 「…개선하는 방법은 무엇이며, 식후 졸림과는 어떤 차이가 있나요?」",
+   "origin": "09-30 standard 8c48180 혈당 Q3 · WP-P2",
+   "kind": "f08_scripted",
+   "source": {"file": "labs/qa_bench/corpus/health_glucose/slidedoc.json", "base": "harness", "slides": [2, 4, 5]},
+   "args": {
+    "nodes": [{"id": "spike", "label": "혈당 스파이크", "slide_nos": [2, 4, 5], "depth": 1, "weight": 1.0}, {"id": "load", "label": "혈당 부하", "slide_nos": [1, 3], "depth": 2, "parent_id": "spike", "weight": 0.8}, {"id": "sleepy", "label": "식후 졸림", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "hunger", "label": "잦은 허기", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "binge", "label": "야간 폭식", "slide_nos": [4], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "order", "label": "식사 순서", "slide_nos": [5, 8], "depth": 2, "parent_id": "spike", "weight": 0.7}, {"id": "night", "label": "야식", "slide_nos": [7], "depth": 2, "parent_id": "spike", "weight": 0.4}],
+    "claims": "rules",
+    "node_id": "binge",
+    "question": "야간 폭식을 개선하는 방법은 무엇이며, 식후 졸림과는 어떤 차이가 있나요?",
+    "gist": "",
+    "expect": {"question_equals": "야간 폭식을 개선하는 방법은 무엇인가요?", "question_single_ask": true, "checks_require": ["two_asks_split"]},
+    "extra_claims": [{"kind": "solve", "subject_id": "order", "object_ids": ["sleepy"], "slide_no": 5, "quote": "채소 → 단백질 → 탄수화물 순서로 먹으면 식후 졸림을 줄일 수 있습니다."}, {"kind": "solve", "subject_id": "order", "object_ids": ["hunger"], "slide_no": 5, "quote": "식이섬유를 먼저 먹으면 포만감이 오래가서 잦은 허기를 막습니다."}]
+   }
+  },
+  {
+   "id": "two_asks_unbound_template",
+   "title": "두 물음이 다 근거에서 벗어나면(연결 · 다른 대상) 정해진 문장 — 「야간 폭식이 … 어떻게 연결되며, 야식을 개선할 수 있는 … 방법은 무엇인가요?」",
+   "origin": "09-30 standard e2e703b 혈당 Q3 · WP-P2",
+   "kind": "f08_scripted",
+   "source": {"file": "labs/qa_bench/corpus/health_glucose/slidedoc.json", "base": "harness", "slides": [2, 4, 5]},
+   "args": {
+    "nodes": [{"id": "spike", "label": "혈당 스파이크", "slide_nos": [2, 4, 5], "depth": 1, "weight": 1.0}, {"id": "load", "label": "혈당 부하", "slide_nos": [1, 3], "depth": 2, "parent_id": "spike", "weight": 0.8}, {"id": "sleepy", "label": "식후 졸림", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "hunger", "label": "잦은 허기", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "binge", "label": "야간 폭식", "slide_nos": [4], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "order", "label": "식사 순서", "slide_nos": [5, 8], "depth": 2, "parent_id": "spike", "weight": 0.7}, {"id": "night", "label": "야식", "slide_nos": [7], "depth": 2, "parent_id": "spike", "weight": 0.4}],
+    "claims": "rules",
+    "node_id": "binge",
+    "question": "야간 폭식이 혈당 스파이크와 어떻게 연결되며, 야식을 개선할 수 있는 구체적인 방법은 무엇인가요?",
+    "gist": "",
+    "expect": {"question_single_ask": true, "checks_require": ["two_asks_dropped", "probe_template"]},
+    "extra_claims": [{"kind": "solve", "subject_id": "order", "object_ids": ["sleepy"], "slide_no": 5, "quote": "채소 → 단백질 → 탄수화물 순서로 먹으면 식후 졸림을 줄일 수 있습니다."}, {"kind": "solve", "subject_id": "order", "object_ids": ["hunger"], "slide_no": 5, "quote": "식이섬유를 먼저 먹으면 포만감이 오래가서 잦은 허기를 막습니다."}]
+   }
+  },
+  {
+   "id": "two_asks_single_neutral",
+   "title": "(위 두 사례의 도메인 중립 쌍둥이 — 목공 공방 「작업대 부족」 빈칸 탐침)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "f08_scripted",
+   "source": {"inline_from": "absolute_observation_truism_off_neutral", "slides": [3, 4]},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "claims": "rules",
+    "node_id": "bench",
+    "question": "작업대 부족을 개선하는 방법은 무엇이며, 먼지와 소음과는 어떤 차이가 있나요?",
+    "gist": "",
+    "expect": {"question_equals": "작업대 부족을 개선하는 방법은 무엇인가요?", "question_single_ask": true},
+    "extra_claims": [{"kind": "solve", "subject_id": "rate", "object_ids": ["tool"], "slide_no": 4, "quote": "공구를 두 벌씩 갖춰 공구 대기 시간을 줄입니다."}, {"kind": "solve", "subject_id": "rate", "object_ids": ["dust"], "slide_no": 4, "quote": "집진기를 달아 먼지와 소음을 줄입니다."}]
+   }
+  },
+  {
+   "id": "unanswerable_fallback_demoted",
+   "title": "코드가 답할 수 없다고 본 질문은 트랙에 여유 후보가 있으면 뒤로 밀린다 — 첫 질문이 「…왜 중요한지 자료 1, 5, 6장을 근거로 설명해 주세요」(question_unanswerable) 였다",
+   "origin": "09-30 standard e2e703b 혈당 Q1 · WP-P2 (조정자 a)",
+   "kind": "f08_scripted",
+   "source": {"file": "labs/qa_bench/corpus/health_glucose/slidedoc.json", "base": "harness"},
+   "args": {
+    "nodes": [{"id": "spike", "label": "혈당 스파이크", "slide_nos": [2, 4, 5], "depth": 1, "weight": 1.0}, {"id": "load", "label": "혈당 부하", "slide_nos": [1, 3], "depth": 2, "parent_id": "spike", "weight": 0.8}, {"id": "sleepy", "label": "식후 졸림", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "hunger", "label": "잦은 허기", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "binge", "label": "야간 폭식", "slide_nos": [4], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "order", "label": "식사 순서", "slide_nos": [5, 8], "depth": 2, "parent_id": "spike", "weight": 0.7}, {"id": "night", "label": "야식", "slide_nos": [7], "depth": 2, "parent_id": "spike", "weight": 0.4}],
+    "claims": "rules",
+    "track": "5",
+    "marks": [["spike", "core_weight"], ["load", "core_weight"], ["binge", "core_weight"], ["order", "core_weight"], ["night", "core_weight"]],
+    "questions": [{"node_id": "spike", "question": "혈당 스파이크의 신경학적 메커니즘은 무엇인가요?", "gist": ""}, {"node_id": "load", "question": "혈당 부하는 어떻게 구하나요?", "gist": "혈당 지수와 탄수화물 양을 곱하고 100으로 나눠요."}, {"node_id": "binge", "question": "야간 폭식은 어떻게 개선하나요?", "gist": ""}, {"node_id": "order", "question": "식사 순서를 바꾸면 무엇이 달라지나요?", "gist": "채소를 먼저 먹으면 식후 졸림이 줄어요."}, {"node_id": "night", "question": "야식은 다음 날 공복 혈당에 어떤 영향을 주나요?", "gist": "공복 혈당을 높여요."}],
+    "expect": {"node_absent": "spike", "count": 3}
+   }
+  },
+  {
+   "id": "unanswerable_fallback_demoted_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 목공 공방 5분 트랙, 루트 질문이 자료 밖 「신경학적 메커니즘」)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "f08_scripted",
+   "source": {"inline_from": "absolute_observation_truism_off_neutral"},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "track": "5",
+    "marks": [["root", "core_weight"], ["rate", "core_weight"], ["tool", "core_weight"], ["dust", "core_weight"], ["heads", "core_weight"]],
+    "questions": [{"node_id": "root", "question": "주민 목공 공방의 신경학적 메커니즘은 무엇인가요?", "gist": ""}, {"node_id": "rate", "question": "작품 완성률은 무엇으로 이루어지나요?", "gist": "참여자 수와 출석률, 마감률을 곱해요."}, {"node_id": "tool", "question": "공구 대기 시간은 어떻게 줄이나요?", "gist": "공구를 두 벌씩 갖춰요."}, {"node_id": "dust", "question": "먼지와 소음은 어떻게 줄이나요?", "gist": "집진기를 달아요."}, {"node_id": "heads", "question": "참여자 수는 작품 완성률에서 어떤 자리인가요?", "gist": "작품 완성률의 요소예요."}],
+    "expect": {"node_absent": "root", "count": 3}
+   }
+  },
+  {
+   "id": "fallback_gist_no_overclaim",
+   "title": "폴백 모범답에 과장 줄(「…완전히 막을 수 있습니다」)·다른 질문이 따지는 비교 줄(「탄수화물 양보다 중요한 혈당 부하」)을 싣지 않는다 — 「이렇게 말하면 완성이에요」 가 과장을 가르쳤다",
+   "origin": "09-30 standard e2e703b 혈당 Q1 · WP-P2 (조정자 b)",
+   "kind": "f08_scripted",
+   "source": {"file": "labs/qa_bench/corpus/health_glucose/slidedoc.json", "base": "harness"},
+   "args": {
+    "nodes": [{"id": "care", "label": "혈당 관리", "slide_nos": [1, 5, 6], "depth": 1, "weight": 1.0, "summary": "식사 순서로 혈당 스파이크를 줄이는 관리"}, {"id": "spike", "label": "혈당 스파이크", "slide_nos": [2, 4, 5], "depth": 1, "weight": 1.0}, {"id": "load", "label": "혈당 부하", "slide_nos": [1, 3], "depth": 2, "parent_id": "spike", "weight": 0.8}, {"id": "sleepy", "label": "식후 졸림", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "hunger", "label": "잦은 허기", "slide_nos": [4, 5], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "binge", "label": "야간 폭식", "slide_nos": [4], "depth": 2, "parent_id": "spike", "weight": 0.5}, {"id": "order", "label": "식사 순서", "slide_nos": [5, 8], "depth": 2, "parent_id": "spike", "weight": 0.7}, {"id": "night", "label": "야식", "slide_nos": [7], "depth": 2, "parent_id": "spike", "weight": 0.4}, {"id": "carb", "label": "탄수화물 양", "slide_nos": [1, 3], "depth": 3, "parent_id": "load", "weight": 0.4}, {"id": "gi", "label": "혈당 지수", "slide_nos": [3], "depth": 3, "parent_id": "load", "weight": 0.4}],
+    "claims": "rules",
+    "node_id": "care",
+    "question": "혈당 관리의 신경학적 메커니즘은 무엇인가요?",
+    "gist": "",
+    "expect": {"gist_forbid": ["완전히 막을 수", "탄수화물 양보다 중요한"], "checks_require": ["fallback_template"]}
+   }
+  },
+  {
+   "id": "fallback_gist_no_overclaim_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 목공 공방 루트: 비교 줄·과장 줄 대신 남는 자료 줄)",
+   "origin": "tests/test_probe2.py 와 같은 꼴",
+   "kind": "f08_scripted",
+   "source": {"inline_from": "absolute_observation_truism_off_neutral"},
+   "args": {
+    "nodes": [{"id": "root", "label": "주민 목공 공방", "slide_nos": [1, 4], "depth": 1, "weight": 1.0, "summary": "작품을 끝까지 만들게 돕는 동네 공방"}, {"id": "rate", "label": "작품 완성률", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.9}, {"id": "heads", "label": "참여자 수", "slide_nos": [1, 2], "depth": 2, "parent_id": "root", "weight": 0.6}, {"id": "tool", "label": "공구 대기 시간", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "dust", "label": "먼지와 소음", "slide_nos": [3, 4], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "bench", "label": "작업대 부족", "slide_nos": [3], "depth": 3, "parent_id": "rate", "weight": 0.4}, {"id": "safety", "label": "안전 교육", "slide_nos": [4], "depth": 2, "parent_id": "root", "weight": 0.7}, {"id": "injury", "label": "다친 사람", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "gripe", "label": "불만 항목", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}, {"id": "fee", "label": "나무 재료비", "slide_nos": [5], "depth": 3, "parent_id": "rate", "weight": 0.3}],
+    "claims": "rules",
+    "node_id": "root",
+    "question": "주민 목공 공방의 신경학적 메커니즘은 무엇인가요?",
+    "gist": "",
+    "expect": {"gist_forbid": ["완벽하게", "참여자 수보다 중요한"], "checks_require": ["fallback_template"]}
+   }
   }
  ]
 }

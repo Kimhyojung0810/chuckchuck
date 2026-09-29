@@ -408,3 +408,19 @@ def test_자료_줄_골자도_해요체로_끝내고_근거_인용은_원문_그
     q1 = next(x for x in doc.questions if x.node_id == "dropout")
     assert q1.answer_gist.startswith("자료는 이렇게 말해요 — ") and "없었어요" in q1.answer_gist
     assert "습니다" not in q1.answer_gist
+
+
+# ===========================================================================
+# 하네스 잣대 — 회귀 사례의 「두 물음」 검사는 대상 코드가 아니라 하네스 것이다 (같은 버그를 못 보지 않게)
+# ===========================================================================
+
+@pytest.mark.parametrize("question,two", [
+    ("주차 공간 부족을 개선하는 방법은 무엇이며, 추운 탈의실과는 어떤 차이가 있나요?", True),
+    ("재등록률을 올린다고 볼 근거는 무엇이며, 강사와의 관계는 어떻게 되는지 설명해 주세요.", True),
+    ("주차 공간 부족을 개선하는 방법은 무엇인가요?", False),
+    ("어떻게 보면 수강생 수도 출석 유지율의 요소이며, 그렇다면 둘 중 어느 쪽이 더 중요한가요?", False),
+    ("「새벽반만 등록하면 누구나 …」라고 했는데, 이 말이 들어맞지 않는 경우도 있나요?", False),
+])
+def test_하네스_두_물음_잣대(question, two):
+    from labs.qa_verify import regress as RG
+    assert RG.two_asks(question) is two
