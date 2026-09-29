@@ -24,13 +24,21 @@ from demo.session_archive import SessionArchive
 
 
 def turn(qid, label, verdict, *, at=1.0, score=0, missing=(), give_up=False, hints=(), node_id=""):
+    # 브리지(b675afd~)가 qa_turns 에 적는 모양 — 서버가 만든 질문으로 채점했고(question_source) 자료와 대조했다(grounded_on_deck).
+    # 이 둘이 없는 옛 기록은 기억에 넣지 않는다 (09-30 G-A23a, tests/test_papers_memory_wpp.py).
     return {
-        "at": at, "question_id": qid, "give_up": give_up, "hints_shown": list(hints),
+        "at": at, "question_id": qid, "give_up": give_up, "hints_shown": list(hints), "question_source": "server",
         "question": {"id": qid, "node_id": node_id or qid.split("-", 1)[-1], "label": label, "question": f"{label}?"},
         "answer": "…", "prior_answers": [],
         "judgement": {"verdict": verdict, "score": score, "missing_points": list(missing),
-                      "coach_stage": "narrow" if give_up else ""},
+                      "coach_stage": "narrow" if give_up else "", "grounded_on_deck": True},
     }
+
+
+def named(m, label):
+    """만든 기억에서 이름으로 꺼내 본다 (검사용). `MemoryDoc.concept` 은 이번 발표에 맞춰 거르지 않은 기억(scoped=False)의
+    지문 있는 기억을 이름만으로 돌려주지 않는다 (09-30 G-A23d — 다른 발표의 같은 이름)."""
+    return next(c for c in m.concepts if c.label == label)
 
 
 def rehearsals():
@@ -64,14 +72,14 @@ def graph():
 def test_기억은_기록에서만_세고_최신이_마지막이_된다():
     m = build_memory(rehearsals(), file_name="발표.pdf", learner_key="learner:ab12cd34")
     assert m.learner_key == "learner:ab12cd34" and [s.session_id for s in m.sessions] == ["s2", "s1"]
-    notif = m.concept("알림의 주의 비용")
+    notif = named(m, "알림의 주의 비용")
     assert notif.asked == 2 and notif.attempts == 3 and notif.give_ups == 0
     assert notif.verdicts == {"wrong": 1, "partial": 2} and notif.last_verdict == "partial" and notif.best_verdict == "partial"
     assert notif.last_score == 65 and notif.stalled
     assert notif.missing_points == ["통제 집단", "측정 조건"]         # 최신 우선 · 중복 없음
-    resid = m.concept("Attention residue")
+    resid = named(m, "Attention residue")
     assert resid.give_ups == 1 and resid.hints_max == 2 and resid.best_verdict == "good" and not resid.stalled
-    env = m.concept("환경 설계")
+    env = named(m, "환경 설계")
     assert env.cleared and env.asked == 1
     assert [c.key for c in m.stalled] == [memory_key("알림의 주의 비용")]   # 못 넘긴 개념이 앞
     s2, s1 = m.sessions
@@ -79,7 +87,7 @@ def test_기억은_기록에서만_세고_최신이_마지막이_된다():
     assert s1.score_mean == pytest.approx((30 + 60 + 85) / 3, abs=0.1)
     assert (s2.good, s2.partial) == (1, 1)
     again = MemoryDoc.from_dict(json.loads(json.dumps(m.to_dict(), ensure_ascii=False)))
-    assert again.concept("알림의 주의 비용").missing_points == notif.missing_points and again.to_dict() == m.to_dict()
+    assert named(again, "알림의 주의 비용").missing_points == notif.missing_points and again.to_dict() == m.to_dict()
 
 
 def test_기억이_없으면_note_와_빈_목록():
@@ -196,9 +204,11 @@ def test_지난번에도_포기한_개념이면_되물음을_건너뛰고_발판
     m = build_memory(rehearsals())
     q_resid = question("c3", "Attention residue")
     assert coach_stuck(q_resid, graph=graph(), memory=m, llm="mock").coach_stage == "narrow"
-    # 포기했고 한 번도 good 을 못 받은 개념 → scaffold (발판은 LLM 없이 골자에서 만든다)
+    # 포기했고 한 번도 good 을 못 받은 개념 → scaffold (발판은 LLM 없이 골자에서 만든다). 같은 발표에서 다른 개념도 물었다 —
+    # 한 개념만 물은 리허설은 발표를 가를 근거가 없어 이름만으로는 잇지 않는다 (tests/test_papers_memory_wpp.py)
     stuck = build_memory([{"session_id": "s9", "at": 300.0, "turns": [
-        turn("q01-c2", "알림 주의 비용", "unknown", at=301, give_up=True)]}])
+        turn("q01-c2", "알림 주의 비용", "unknown", at=301, give_up=True),
+        turn("q02-c1", "환경 설계", "partial", at=302, score=50)]}])
     j = coach_stuck(question(), graph=graph(), memory=stuck, llm="mock")
     assert j.coach_stage == "scaffold" and j.verdict == "unknown"
     # 기억 없으면 narrow
