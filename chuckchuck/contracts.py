@@ -1360,14 +1360,18 @@ QA_SEVERITY_FALLBACK = 2
 #: 확인된 결손이 앞이고 "그냥 중요하다" 는 맨 뒤다 —
 #: 모순(자료와 어긋남) > 누락(아예 안 다룸) > 얕음(중요한데 설명 부족)
 #: > 흐름 결손(연결을 안 지음) > 즉흥 개념(발화에만 있음) > 자료 비중 > 정당생략.
+#: 주장 그래프(F-26)의 탐침(PROBE_KINDS)도 근거다 — 자료 안의 긴장(tension)은 모순 바로 뒤,
+#: 해결 빠짐·근거 없는 인과·단정의 경계·형제 우선순위는 흐름 결손 뒤·즉흥 개념 앞이다.
+#: 탐침은 자료 원문 인용이 확인된 주장에서만 나오므로 "그냥 크다(core_weight)" 보다 근거가 확실하다.
 #: extra 가 core_weight 보다 앞인 것은 의도된 것이다 — 발표자가 **실제로 입 밖에 낸**
 #: 개념이라 되물을 근거가 확실하고, core_weight 는 크다는 이유뿐이기 때문이다.
 #: justified_skip 이 core_weight 보다도 뒤인 것도 의도된 것이다 — 리포트가
 #: "생략이 합리적" 이라 말한 개념을 자료 weight 가 크다는 이유로 앞세우면
 #: 두 화면이 어긋난다. 버리지는 않는다 — 트랙 상한에 여유가 있으면 여전히 물어본다.
 QA_SOURCES = (
-    "contradiction", "missing", "under_spoken", "weak_flow", "extra",
-    "core_weight", "justified_skip",
+    "contradiction", "tension", "missing", "under_spoken", "weak_flow",
+    "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority",
+    "extra", "core_weight", "justified_skip",
 )
 QA_SOURCE_FALLBACK = "core_weight"
 
@@ -1638,6 +1642,165 @@ class PaperDoc:
 
 
 # ---------------------------------------------------------------------------
+# F-26 주장 그래프 — 개념 사이의 "주장" 을 자료 원문 인용과 함께 (P2)
+# ---------------------------------------------------------------------------
+
+#: 주장 종류. subject → objects 방향의 뜻:
+#: compose  subject 는 objects 로 이뤄진다        (수면의 질 = 시간 × 연속성 × 규칙성)
+#: compare  subject 가 objects 보다 더 …하다       (수면의 질 > 수면 시간)
+#: cause    subject 가 objects 를 일으키거나 끊는다 (카페인 → 연속성 끊김)
+#: solve    subject 가 objects(문제·요소)를 해결한다 (일정한 기상 → 규칙성)
+#: absolute subject 에 대한 단정 — objects 는 비어도 된다 ("리듬까지 완전히 회복되지 않는다")
+#: contrast subject 와 objects 를 맞세운다          (깊은 수면 ↔ REM 수면)
+CLAIM_KINDS = ("compose", "compare", "cause", "solve", "absolute", "contrast")
+
+#: 주장 그래프에서 코드가 결정적으로 찾는 질문거리. QA_SOURCES 에도 같은 이름으로 들어 있다.
+#: tension            compare(A>B) 와 compose(A⊃B) 가 함께 있다 — "B 보다 중요" 인데 B 가 A 의 요소
+#: unsolved           compose 의 요소(문제)에 solve 연결이 없다 — 해결책이 모든 요소를 덮는다고 했는데 빠진 것
+#: unsupported_cause  cause 주장인데 그 장에 수치·출처가 없다
+#: absolute_boundary  absolute 주장 ("반드시·완전히·항상") — 반례·경계를 묻는다
+#: sibling_priority   같은 compose 의 형제 요소 — 하나만 지킬 수 있다면 어느 쪽인가
+PROBE_KINDS = ("tension", "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority")
+
+
+@dataclass
+class ClaimQuote:
+    """자료 원문에서 **그대로** 옮긴 한 줄과 장 번호. 코드가 slide 원문과 대조해 확인한 것만 남는다."""
+    slide_no: int
+    quote: str
+
+    def to_dict(self) -> dict:
+        return {"slide_no": self.slide_no, "quote": self.quote}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ClaimQuote":
+        return cls(slide_no=int(d.get("slide_no") or 0), quote=str(d.get("quote", "") or ""))
+
+
+@dataclass
+class Claim:
+    """
+    개념 사이의 주장 하나. subject_id·object_ids 는 ConceptGraph.nodes[].id 다 (그래프 밖 id 는 어댑터가 버린다).
+    evidence 는 비어 있으면 안 된다 — 원문 대조를 통과한 인용이 하나도 없는 주장은 F-26 이 버린다.
+    """
+    id: str                                  # "c01" — ClaimDoc 안에서 안정 키
+    kind: str                                # CLAIM_KINDS
+    subject_id: str
+    object_ids: list[str] = field(default_factory=list)
+    text: str = ""                           # 주장 한 줄 (자료 표현에 가깝게, 해요체 아님 — 내부 재료)
+    evidence: list[ClaimQuote] = field(default_factory=list)
+    has_support: bool = False                # 그 장에 수치·출처·연구 언급이 있는가 (코드가 채운다)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "kind": self.kind, "subject_id": self.subject_id,
+            "object_ids": list(self.object_ids), "text": self.text,
+            "evidence": [e.to_dict() for e in self.evidence], "has_support": self.has_support,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Claim":
+        kind = str(d.get("kind", "") or "")
+        return cls(
+            id=str(d["id"]),
+            kind=kind if kind in CLAIM_KINDS else "contrast",
+            subject_id=str(d.get("subject_id", "") or ""),
+            object_ids=[str(x) for x in (d.get("object_ids") or [])],
+            text=str(d.get("text", "") or ""),
+            evidence=[ClaimQuote.from_dict(e) for e in (d.get("evidence") or [])],
+            has_support=bool(d.get("has_support", False)),
+        )
+
+
+@dataclass
+class ClaimDoc:
+    """F-26 산출물. 그래프와 자료가 같으면 같다 — 세션에 한 번 만들고 트랙마다 재사용한다."""
+    file_name: str
+    claims: list[Claim] = field(default_factory=list)
+    model: str = ""
+    dropped: int = 0                         # 원문 대조·그래프 밖 id 로 버린 주장 수 (로그·측정용)
+
+    def to_dict(self) -> dict:
+        return {"file_name": self.file_name, "model": self.model, "dropped": self.dropped,
+                "claims": [c.to_dict() for c in self.claims]}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ClaimDoc":
+        return cls(
+            file_name=str(d.get("file_name", "") or ""),
+            claims=[Claim.from_dict(c) for c in (d.get("claims") or [])],
+            model=str(d.get("model", "") or ""),
+            dropped=int(d.get("dropped") or 0),
+        )
+
+    def claim(self, claim_id: str) -> "Claim | None":
+        return next((c for c in self.claims if c.id == claim_id), None)
+
+
+@dataclass
+class Probe:
+    """
+    주장 그래프에서 찾은 질문거리 하나 (F-08 이 결정적으로 만든다). node_ids[0] 이 질문의 대상 개념이다.
+    angle 은 코드가 조립한 각도 한 줄 — 질문 프롬프트에 그대로 실린다.
+    """
+    kind: str                                # PROBE_KINDS
+    node_ids: list[str] = field(default_factory=list)
+    claim_ids: list[str] = field(default_factory=list)
+    angle: str = ""
+    evidence: list[ClaimQuote] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"kind": self.kind, "node_ids": list(self.node_ids), "claim_ids": list(self.claim_ids),
+                "angle": self.angle, "evidence": [e.to_dict() for e in self.evidence]}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Probe":
+        kind = str(d.get("kind", "") or "")
+        return cls(
+            kind=kind if kind in PROBE_KINDS else PROBE_KINDS[0],
+            node_ids=[str(x) for x in (d.get("node_ids") or [])],
+            claim_ids=[str(x) for x in (d.get("claim_ids") or [])],
+            angle=str(d.get("angle", "") or ""),
+            evidence=[ClaimQuote.from_dict(e) for e in (d.get("evidence") or [])],
+        )
+
+
+@dataclass
+class QuestionBasis:
+    """
+    이 질문이 **왜·무엇을 근거로** 나왔는지 (P1). 화면의 「이 질문의 근거」 와 로그가 읽는다.
+
+    source 는 Question.source 와 같은 값, slot 은 트랙 배합 자리(theme·part·weak·"" = 배합 밖),
+    probe 는 탐침에서 나왔으면 그 Probe, evidence 는 자료 원문 인용들 (힌트 인용과 같은 출처),
+    checks 는 질문 문장에 대한 코드 검사 결과 이름들 (예: "mentions_probe_nodes", "undercut_rewritten").
+    """
+    source: str = QA_SOURCE_FALLBACK
+    slot: str = ""
+    rank: int = 0
+    probe: Probe | None = None
+    evidence: list[ClaimQuote] = field(default_factory=list)
+    checks: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"source": self.source, "slot": self.slot, "rank": self.rank,
+                "probe": self.probe.to_dict() if self.probe else None,
+                "evidence": [e.to_dict() for e in self.evidence], "checks": list(self.checks)}
+
+    @classmethod
+    def from_dict(cls, d: dict | None) -> "QuestionBasis":
+        d = d or {}
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            slot=str(d.get("slot", "") or ""),
+            rank=int(d.get("rank") or 0),
+            probe=Probe.from_dict(d["probe"]) if d.get("probe") else None,
+            evidence=[ClaimQuote.from_dict(e) for e in (d.get("evidence") or [])],
+            checks=[str(x) for x in (d.get("checks") or [])],
+        )
+
+
+# ---------------------------------------------------------------------------
 # F-25 리허설 기억 — 같은 사람이 같은 발표를 다시 연습할 때, 지난 답변 과정을 되짚는다
 # ---------------------------------------------------------------------------
 
@@ -1891,6 +2054,8 @@ class QaTriage:
     total_slides: int = 0
     marks: list[TriageMark] = field(default_factory=list)
     model: str = ""
+    #: 주장 그래프(F-26)에서 찾은 탐침. marks 중 source 가 PROBE_KINDS 인 것은 여기 같은 node_ids[0] 의 탐침이 있다.
+    probes: list[Probe] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -1898,6 +2063,7 @@ class QaTriage:
             "total_slides": self.total_slides,
             "model": self.model,
             "marks": [m.to_dict() for m in self.marks],
+            "probes": [p.to_dict() for p in self.probes],
         }
 
     @classmethod
@@ -1907,7 +2073,11 @@ class QaTriage:
             total_slides=int(d.get("total_slides", 0)),
             marks=[TriageMark.from_dict(m) for m in d.get("marks", [])],
             model=d.get("model", ""),
+            probes=[Probe.from_dict(p) for p in (d.get("probes") or [])],
         )
+
+    def probe_for(self, node_id: str) -> "Probe | None":
+        return next((p for p in self.probes if p.node_ids and p.node_ids[0] == node_id), None)
 
     def mark(self, node_id: str) -> TriageMark | None:
         for m in self.marks:
@@ -1955,6 +2125,8 @@ class Question:
     #: 이 질문이 근거로 든 문헌 (PaperDoc.refs[].id). F-08 이 papers 를 받았을 때만 채운다.
     #: 목록 밖 인용은 F-08 어댑터가 버리므로, 여기 있는 id 는 전부 PaperDoc 에 실재한다.
     paper_ids: list[str] = field(default_factory=list)
+    #: 이 질문이 나온 근거 묶음 (P1). 옛 세션은 None — 화면은 「근거」 칸을 안 그린다.
+    basis: QuestionBasis | None = None
 
     def __post_init__(self) -> None:
         # 불변식을 **타입에서** 지킨다. F-08 은 dataclass 로 직접 짓고 프론트·세션
@@ -1981,6 +2153,7 @@ class Question:
             "evidence_quote": self.evidence_quote,
             "speech_quote": self.speech_quote,
             "paper_ids": list(self.paper_ids),
+            "basis": self.basis.to_dict() if self.basis else None,
         }
 
     @classmethod
@@ -2010,6 +2183,7 @@ class Question:
             evidence_quote=str(d.get("evidence_quote", "") or ""),
             speech_quote=str(d.get("speech_quote", "") or ""),
             paper_ids=[str(x) for x in (d.get("paper_ids") or [])],
+            basis=QuestionBasis.from_dict(d["basis"]) if d.get("basis") else None,
         )
 
 
