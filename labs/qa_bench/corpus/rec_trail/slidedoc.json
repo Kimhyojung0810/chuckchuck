@@ -1,0 +1,226 @@
+{
+ "file_name": "주말_등산로_쓰레기_줄이기.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "주말 등산로, 쓰레기를 줄일 수 있을까",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "주말 등산로, 쓰레기를 줄일 수 있을까"
+    },
+    {
+     "category": "paragraph",
+     "text": "되가져가기 봉투를 나눠 주면 버리는 양이 줄어듭니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "산악회 환경 모임 제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "1"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "지금의 등산로",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "지금의 등산로"
+    },
+    {
+     "category": "paragraph",
+     "text": "주말 하루 등산객은 평균 1,200명입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "쉼터 3곳에서 나오는 쓰레기가 전체의 70%입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "2"
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "수거 비용 계산",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "수거 비용 계산"
+    },
+    {
+     "category": "paragraph",
+     "text": "월 수거 비용 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "수거 횟수"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "1회 인건비"
+    },
+    {
+     "category": "paragraph",
+     "text": "+"
+    },
+    {
+     "category": "paragraph",
+     "text": "운반 비용"
+    },
+    {
+     "category": "paragraph",
+     "text": "얼마나 자주 치우는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "한 번에 드는 사람값"
+    },
+    {
+     "category": "paragraph",
+     "text": "산 아래로 옮기는 값"
+    },
+    {
+     "category": "paragraph",
+     "text": "3"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "봉투 나눔 시범",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "봉투 나눔 시범"
+    },
+    {
+     "category": "table",
+     "text": "| 구분 | 주말 쓰레기 양 | 쉼터 투기 |"
+    },
+    {
+     "category": "table",
+     "text": "| 시범 전 | 180kg | 주 12건 |"
+    },
+    {
+     "category": "table",
+     "text": "| 시범 후 | 95kg | 주 4건 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "6주 동안 입구 2곳에서 봉투를 나눠 주었습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "4"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "안내판 효과",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "안내판 효과"
+    },
+    {
+     "category": "table",
+     "text": "| 안내판 | 투기 신고 |"
+    },
+    {
+     "category": "table",
+     "text": "| 없을 때 | 주 9건 |"
+    },
+    {
+     "category": "table",
+     "text": "| 있을 때 | 주 5건 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "안내판만으로는 효과가 작았습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "5"
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "예산",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "예산"
+    },
+    {
+     "category": "paragraph",
+     "text": "봉투 제작비는 한 해 320만 원입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "수거 인력 1명을 늘리는 비용(한 해 2,400만 원)보다 적습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "6"
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "한계",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "한계"
+    },
+    {
+     "category": "paragraph",
+     "text": "시범은 가을에만 했습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "비 오는 주말은 자료에서 뺐습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "7"
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "정리",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "정리"
+    },
+    {
+     "category": "paragraph",
+     "text": "봉투 나눔을 쉼터 정비와 함께 하면 수거 비용을 늘리지 않고 쓰레기를 줄일 수 있습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "8"
+    }
+   ]
+  }
+ ]
+}

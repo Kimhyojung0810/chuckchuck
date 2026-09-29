@@ -1,0 +1,98 @@
+{
+ "deck": "rec_laundry",
+ "synthetic": true,
+ "group": "f08rec_tuned_2026-09-30",
+ "context": {
+  "situation": "school_project",
+  "duration_min": 10
+ },
+ "total_slides": 8,
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "clova_file": "recording_r1.txt",
+   "transcript_file": "transcript.json",
+   "planted": [
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 3,
+     "skip_quote": "이 장은 대기 시간 계산식인데요, 시간 관계상 그냥 넘어갈게요.",
+     "note": "식 장 — 대표는 식 머리(평균 대기 시간)"
+    },
+    {
+     "id": "S2",
+     "kind": "skipped_slide",
+     "slide": 5,
+     "skip_quote": "알림 기능 부분은 오늘은 건너뛸게요.",
+     "note": "식 없는 장 — 대표는 장 제목의 개념(알림 기능)"
+    },
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 4,
+     "deck_value": "9분",
+     "speech_value": "4분"
+    },
+    {
+     "id": "A1",
+     "kind": "deck_only_statement",
+     "slide": 6,
+     "deck_quote": "예약 시스템 운영 비용은 연 180만 원입니다.",
+     "note": "발표자는 수를 말하지 않았다 — 질문이 「…라고 했는데」 로 발표자에게 붙이면 안 된다"
+    }
+   ],
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 35
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 35,
+     "end_sec": 75
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 75,
+     "end_sec": 83
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 83,
+     "end_sec": 130
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 130,
+     "end_sec": 136
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 136,
+     "end_sec": 170
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 170,
+     "end_sec": 205
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 205,
+     "end_sec": 235
+    }
+   ]
+  }
+ },
+ "expect": {
+  "skipped_slides": [
+   3,
+   5
+  ],
+  "contradiction_slides": [
+   4
+  ]
+ }
+}

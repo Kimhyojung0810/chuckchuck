@@ -1,0 +1,1081 @@
+{
+ "full_text": "안녕하세요, 생활관 자치회입니다. 오늘은 기숙사 세탁실 대기를 줄이는 방법을 말씀드릴게요. 핵심은 예약제예요. 지금 세탁실에는 세탁기 12대가 있고 학생 480명이 같이 써요. 특히 저녁 9시에서 11시 사이에 이용의 절반이 몰려요. 이 장은 대기 시간 계산식인데요, 시간 관계상 그냥 넘어갈게요. 그래서 예약제를 4주 동안 2개 층에서 시험해 봤어요. 평균 대기가 34분에서 4분으로 줄었고요, 헛걸음도 주 5회에서 1회로 줄었어요. 알림 기능 부분은 오늘은 건너뛸게요. 비용도 크지 않아요. 세탁기를 한 대 더 들이는 것보다 예약 시스템이 더 싸요. 한계도 있어요. 시범 운영이 2개 층뿐이었고, 시험 기간에는 이용 패턴이 달라질 수 있어요. 정리하면 예약제와 알림을 같이 쓰면 세탁기를 늘리지 않고도 대기를 줄일 수 있어요. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 2.92
+  },
+  {
+   "text": "생활관",
+   "start_sec": 2.92,
+   "end_sec": 5.83
+  },
+  {
+   "text": "자치회입니다.",
+   "start_sec": 5.83,
+   "end_sec": 8.75
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 8.75,
+   "end_sec": 11.67
+  },
+  {
+   "text": "기숙사",
+   "start_sec": 11.67,
+   "end_sec": 14.58
+  },
+  {
+   "text": "세탁실",
+   "start_sec": 14.58,
+   "end_sec": 17.5
+  },
+  {
+   "text": "대기를",
+   "start_sec": 17.5,
+   "end_sec": 20.42
+  },
+  {
+   "text": "줄이는",
+   "start_sec": 20.42,
+   "end_sec": 23.33
+  },
+  {
+   "text": "방법을",
+   "start_sec": 23.33,
+   "end_sec": 26.25
+  },
+  {
+   "text": "말씀드릴게요.",
+   "start_sec": 26.25,
+   "end_sec": 29.17
+  },
+  {
+   "text": "핵심은",
+   "start_sec": 29.17,
+   "end_sec": 32.08
+  },
+  {
+   "text": "예약제예요.",
+   "start_sec": 32.08,
+   "end_sec": 35.0
+  },
+  {
+   "text": "지금",
+   "start_sec": 35.0,
+   "end_sec": 37.35
+  },
+  {
+   "text": "세탁실에는",
+   "start_sec": 37.35,
+   "end_sec": 39.71
+  },
+  {
+   "text": "세탁기",
+   "start_sec": 39.71,
+   "end_sec": 42.06
+  },
+  {
+   "text": "12대가",
+   "start_sec": 42.06,
+   "end_sec": 44.41
+  },
+  {
+   "text": "있고",
+   "start_sec": 44.41,
+   "end_sec": 46.76
+  },
+  {
+   "text": "학생",
+   "start_sec": 46.76,
+   "end_sec": 49.12
+  },
+  {
+   "text": "480명이",
+   "start_sec": 49.12,
+   "end_sec": 51.47
+  },
+  {
+   "text": "같이",
+   "start_sec": 51.47,
+   "end_sec": 53.82
+  },
+  {
+   "text": "써요.",
+   "start_sec": 53.82,
+   "end_sec": 56.18
+  },
+  {
+   "text": "특히",
+   "start_sec": 56.18,
+   "end_sec": 58.53
+  },
+  {
+   "text": "저녁",
+   "start_sec": 58.53,
+   "end_sec": 60.88
+  },
+  {
+   "text": "9시에서",
+   "start_sec": 60.88,
+   "end_sec": 63.24
+  },
+  {
+   "text": "11시",
+   "start_sec": 63.24,
+   "end_sec": 65.59
+  },
+  {
+   "text": "사이에",
+   "start_sec": 65.59,
+   "end_sec": 67.94
+  },
+  {
+   "text": "이용의",
+   "start_sec": 67.94,
+   "end_sec": 70.29
+  },
+  {
+   "text": "절반이",
+   "start_sec": 70.29,
+   "end_sec": 72.65
+  },
+  {
+   "text": "몰려요.",
+   "start_sec": 72.65,
+   "end_sec": 75.0
+  },
+  {
+   "text": "이",
+   "start_sec": 75.0,
+   "end_sec": 75.89
+  },
+  {
+   "text": "장은",
+   "start_sec": 75.89,
+   "end_sec": 76.78
+  },
+  {
+   "text": "대기",
+   "start_sec": 76.78,
+   "end_sec": 77.67
+  },
+  {
+   "text": "시간",
+   "start_sec": 77.67,
+   "end_sec": 78.56
+  },
+  {
+   "text": "계산식인데요,",
+   "start_sec": 78.56,
+   "end_sec": 79.44
+  },
+  {
+   "text": "시간",
+   "start_sec": 79.44,
+   "end_sec": 80.33
+  },
+  {
+   "text": "관계상",
+   "start_sec": 80.33,
+   "end_sec": 81.22
+  },
+  {
+   "text": "그냥",
+   "start_sec": 81.22,
+   "end_sec": 82.11
+  },
+  {
+   "text": "넘어갈게요.",
+   "start_sec": 82.11,
+   "end_sec": 83.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 83.0,
+   "end_sec": 85.61
+  },
+  {
+   "text": "예약제를",
+   "start_sec": 85.61,
+   "end_sec": 88.22
+  },
+  {
+   "text": "4주",
+   "start_sec": 88.22,
+   "end_sec": 90.83
+  },
+  {
+   "text": "동안",
+   "start_sec": 90.83,
+   "end_sec": 93.44
+  },
+  {
+   "text": "2개",
+   "start_sec": 93.44,
+   "end_sec": 96.06
+  },
+  {
+   "text": "층에서",
+   "start_sec": 96.06,
+   "end_sec": 98.67
+  },
+  {
+   "text": "시험해",
+   "start_sec": 98.67,
+   "end_sec": 101.28
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 101.28,
+   "end_sec": 103.89
+  },
+  {
+   "text": "평균",
+   "start_sec": 103.89,
+   "end_sec": 106.5
+  },
+  {
+   "text": "대기가",
+   "start_sec": 106.5,
+   "end_sec": 109.11
+  },
+  {
+   "text": "34분에서",
+   "start_sec": 109.11,
+   "end_sec": 111.72
+  },
+  {
+   "text": "4분으로",
+   "start_sec": 111.72,
+   "end_sec": 114.33
+  },
+  {
+   "text": "줄었고요,",
+   "start_sec": 114.33,
+   "end_sec": 116.94
+  },
+  {
+   "text": "헛걸음도",
+   "start_sec": 116.94,
+   "end_sec": 119.56
+  },
+  {
+   "text": "주",
+   "start_sec": 119.56,
+   "end_sec": 122.17
+  },
+  {
+   "text": "5회에서",
+   "start_sec": 122.17,
+   "end_sec": 124.78
+  },
+  {
+   "text": "1회로",
+   "start_sec": 124.78,
+   "end_sec": 127.39
+  },
+  {
+   "text": "줄었어요.",
+   "start_sec": 127.39,
+   "end_sec": 130.0
+  },
+  {
+   "text": "알림",
+   "start_sec": 130.0,
+   "end_sec": 131.2
+  },
+  {
+   "text": "기능",
+   "start_sec": 131.2,
+   "end_sec": 132.4
+  },
+  {
+   "text": "부분은",
+   "start_sec": 132.4,
+   "end_sec": 133.6
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 133.6,
+   "end_sec": 134.8
+  },
+  {
+   "text": "건너뛸게요.",
+   "start_sec": 134.8,
+   "end_sec": 136.0
+  },
+  {
+   "text": "비용도",
+   "start_sec": 136.0,
+   "end_sec": 138.62
+  },
+  {
+   "text": "크지",
+   "start_sec": 138.62,
+   "end_sec": 141.23
+  },
+  {
+   "text": "않아요.",
+   "start_sec": 141.23,
+   "end_sec": 143.85
+  },
+  {
+   "text": "세탁기를",
+   "start_sec": 143.85,
+   "end_sec": 146.46
+  },
+  {
+   "text": "한",
+   "start_sec": 146.46,
+   "end_sec": 149.08
+  },
+  {
+   "text": "대",
+   "start_sec": 149.08,
+   "end_sec": 151.69
+  },
+  {
+   "text": "더",
+   "start_sec": 151.69,
+   "end_sec": 154.31
+  },
+  {
+   "text": "들이는",
+   "start_sec": 154.31,
+   "end_sec": 156.92
+  },
+  {
+   "text": "것보다",
+   "start_sec": 156.92,
+   "end_sec": 159.54
+  },
+  {
+   "text": "예약",
+   "start_sec": 159.54,
+   "end_sec": 162.15
+  },
+  {
+   "text": "시스템이",
+   "start_sec": 162.15,
+   "end_sec": 164.77
+  },
+  {
+   "text": "더",
+   "start_sec": 164.77,
+   "end_sec": 167.38
+  },
+  {
+   "text": "싸요.",
+   "start_sec": 167.38,
+   "end_sec": 170.0
+  },
+  {
+   "text": "한계도",
+   "start_sec": 170.0,
+   "end_sec": 172.69
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 172.69,
+   "end_sec": 175.38
+  },
+  {
+   "text": "시범",
+   "start_sec": 175.38,
+   "end_sec": 178.08
+  },
+  {
+   "text": "운영이",
+   "start_sec": 178.08,
+   "end_sec": 180.77
+  },
+  {
+   "text": "2개",
+   "start_sec": 180.77,
+   "end_sec": 183.46
+  },
+  {
+   "text": "층뿐이었고,",
+   "start_sec": 183.46,
+   "end_sec": 186.15
+  },
+  {
+   "text": "시험",
+   "start_sec": 186.15,
+   "end_sec": 188.85
+  },
+  {
+   "text": "기간에는",
+   "start_sec": 188.85,
+   "end_sec": 191.54
+  },
+  {
+   "text": "이용",
+   "start_sec": 191.54,
+   "end_sec": 194.23
+  },
+  {
+   "text": "패턴이",
+   "start_sec": 194.23,
+   "end_sec": 196.92
+  },
+  {
+   "text": "달라질",
+   "start_sec": 196.92,
+   "end_sec": 199.62
+  },
+  {
+   "text": "수",
+   "start_sec": 199.62,
+   "end_sec": 202.31
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 202.31,
+   "end_sec": 205.0
+  },
+  {
+   "text": "정리하면",
+   "start_sec": 205.0,
+   "end_sec": 207.31
+  },
+  {
+   "text": "예약제와",
+   "start_sec": 207.31,
+   "end_sec": 209.62
+  },
+  {
+   "text": "알림을",
+   "start_sec": 209.62,
+   "end_sec": 211.92
+  },
+  {
+   "text": "같이",
+   "start_sec": 211.92,
+   "end_sec": 214.23
+  },
+  {
+   "text": "쓰면",
+   "start_sec": 214.23,
+   "end_sec": 216.54
+  },
+  {
+   "text": "세탁기를",
+   "start_sec": 216.54,
+   "end_sec": 218.85
+  },
+  {
+   "text": "늘리지",
+   "start_sec": 218.85,
+   "end_sec": 221.15
+  },
+  {
+   "text": "않고도",
+   "start_sec": 221.15,
+   "end_sec": 223.46
+  },
+  {
+   "text": "대기를",
+   "start_sec": 223.46,
+   "end_sec": 225.77
+  },
+  {
+   "text": "줄일",
+   "start_sec": 225.77,
+   "end_sec": 228.08
+  },
+  {
+   "text": "수",
+   "start_sec": 228.08,
+   "end_sec": 230.38
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 230.38,
+   "end_sec": 232.69
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 232.69,
+   "end_sec": 235.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 35,
+   "text": "안녕하세요, 생활관 자치회입니다. 오늘은 기숙사 세탁실 대기를 줄이는 방법을 말씀드릴게요. 핵심은 예약제예요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 2.92
+    },
+    {
+     "text": "생활관",
+     "start_sec": 2.92,
+     "end_sec": 5.83
+    },
+    {
+     "text": "자치회입니다.",
+     "start_sec": 5.83,
+     "end_sec": 8.75
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 8.75,
+     "end_sec": 11.67
+    },
+    {
+     "text": "기숙사",
+     "start_sec": 11.67,
+     "end_sec": 14.58
+    },
+    {
+     "text": "세탁실",
+     "start_sec": 14.58,
+     "end_sec": 17.5
+    },
+    {
+     "text": "대기를",
+     "start_sec": 17.5,
+     "end_sec": 20.42
+    },
+    {
+     "text": "줄이는",
+     "start_sec": 20.42,
+     "end_sec": 23.33
+    },
+    {
+     "text": "방법을",
+     "start_sec": 23.33,
+     "end_sec": 26.25
+    },
+    {
+     "text": "말씀드릴게요.",
+     "start_sec": 26.25,
+     "end_sec": 29.17
+    },
+    {
+     "text": "핵심은",
+     "start_sec": 29.17,
+     "end_sec": 32.08
+    },
+    {
+     "text": "예약제예요.",
+     "start_sec": 32.08,
+     "end_sec": 35.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 35,
+   "end_sec": 75,
+   "text": "지금 세탁실에는 세탁기 12대가 있고 학생 480명이 같이 써요. 특히 저녁 9시에서 11시 사이에 이용의 절반이 몰려요.",
+   "words": [
+    {
+     "text": "지금",
+     "start_sec": 35.0,
+     "end_sec": 37.35
+    },
+    {
+     "text": "세탁실에는",
+     "start_sec": 37.35,
+     "end_sec": 39.71
+    },
+    {
+     "text": "세탁기",
+     "start_sec": 39.71,
+     "end_sec": 42.06
+    },
+    {
+     "text": "12대가",
+     "start_sec": 42.06,
+     "end_sec": 44.41
+    },
+    {
+     "text": "있고",
+     "start_sec": 44.41,
+     "end_sec": 46.76
+    },
+    {
+     "text": "학생",
+     "start_sec": 46.76,
+     "end_sec": 49.12
+    },
+    {
+     "text": "480명이",
+     "start_sec": 49.12,
+     "end_sec": 51.47
+    },
+    {
+     "text": "같이",
+     "start_sec": 51.47,
+     "end_sec": 53.82
+    },
+    {
+     "text": "써요.",
+     "start_sec": 53.82,
+     "end_sec": 56.18
+    },
+    {
+     "text": "특히",
+     "start_sec": 56.18,
+     "end_sec": 58.53
+    },
+    {
+     "text": "저녁",
+     "start_sec": 58.53,
+     "end_sec": 60.88
+    },
+    {
+     "text": "9시에서",
+     "start_sec": 60.88,
+     "end_sec": 63.24
+    },
+    {
+     "text": "11시",
+     "start_sec": 63.24,
+     "end_sec": 65.59
+    },
+    {
+     "text": "사이에",
+     "start_sec": 65.59,
+     "end_sec": 67.94
+    },
+    {
+     "text": "이용의",
+     "start_sec": 67.94,
+     "end_sec": 70.29
+    },
+    {
+     "text": "절반이",
+     "start_sec": 70.29,
+     "end_sec": 72.65
+    },
+    {
+     "text": "몰려요.",
+     "start_sec": 72.65,
+     "end_sec": 75.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 75,
+   "end_sec": 83,
+   "text": "이 장은 대기 시간 계산식인데요, 시간 관계상 그냥 넘어갈게요.",
+   "words": [
+    {
+     "text": "이",
+     "start_sec": 75.0,
+     "end_sec": 75.89
+    },
+    {
+     "text": "장은",
+     "start_sec": 75.89,
+     "end_sec": 76.78
+    },
+    {
+     "text": "대기",
+     "start_sec": 76.78,
+     "end_sec": 77.67
+    },
+    {
+     "text": "시간",
+     "start_sec": 77.67,
+     "end_sec": 78.56
+    },
+    {
+     "text": "계산식인데요,",
+     "start_sec": 78.56,
+     "end_sec": 79.44
+    },
+    {
+     "text": "시간",
+     "start_sec": 79.44,
+     "end_sec": 80.33
+    },
+    {
+     "text": "관계상",
+     "start_sec": 80.33,
+     "end_sec": 81.22
+    },
+    {
+     "text": "그냥",
+     "start_sec": 81.22,
+     "end_sec": 82.11
+    },
+    {
+     "text": "넘어갈게요.",
+     "start_sec": 82.11,
+     "end_sec": 83.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 83,
+   "end_sec": 130,
+   "text": "그래서 예약제를 4주 동안 2개 층에서 시험해 봤어요. 평균 대기가 34분에서 4분으로 줄었고요, 헛걸음도 주 5회에서 1회로 줄었어요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 83.0,
+     "end_sec": 85.61
+    },
+    {
+     "text": "예약제를",
+     "start_sec": 85.61,
+     "end_sec": 88.22
+    },
+    {
+     "text": "4주",
+     "start_sec": 88.22,
+     "end_sec": 90.83
+    },
+    {
+     "text": "동안",
+     "start_sec": 90.83,
+     "end_sec": 93.44
+    },
+    {
+     "text": "2개",
+     "start_sec": 93.44,
+     "end_sec": 96.06
+    },
+    {
+     "text": "층에서",
+     "start_sec": 96.06,
+     "end_sec": 98.67
+    },
+    {
+     "text": "시험해",
+     "start_sec": 98.67,
+     "end_sec": 101.28
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 101.28,
+     "end_sec": 103.89
+    },
+    {
+     "text": "평균",
+     "start_sec": 103.89,
+     "end_sec": 106.5
+    },
+    {
+     "text": "대기가",
+     "start_sec": 106.5,
+     "end_sec": 109.11
+    },
+    {
+     "text": "34분에서",
+     "start_sec": 109.11,
+     "end_sec": 111.72
+    },
+    {
+     "text": "4분으로",
+     "start_sec": 111.72,
+     "end_sec": 114.33
+    },
+    {
+     "text": "줄었고요,",
+     "start_sec": 114.33,
+     "end_sec": 116.94
+    },
+    {
+     "text": "헛걸음도",
+     "start_sec": 116.94,
+     "end_sec": 119.56
+    },
+    {
+     "text": "주",
+     "start_sec": 119.56,
+     "end_sec": 122.17
+    },
+    {
+     "text": "5회에서",
+     "start_sec": 122.17,
+     "end_sec": 124.78
+    },
+    {
+     "text": "1회로",
+     "start_sec": 124.78,
+     "end_sec": 127.39
+    },
+    {
+     "text": "줄었어요.",
+     "start_sec": 127.39,
+     "end_sec": 130.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 130,
+   "end_sec": 136,
+   "text": "알림 기능 부분은 오늘은 건너뛸게요.",
+   "words": [
+    {
+     "text": "알림",
+     "start_sec": 130.0,
+     "end_sec": 131.2
+    },
+    {
+     "text": "기능",
+     "start_sec": 131.2,
+     "end_sec": 132.4
+    },
+    {
+     "text": "부분은",
+     "start_sec": 132.4,
+     "end_sec": 133.6
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 133.6,
+     "end_sec": 134.8
+    },
+    {
+     "text": "건너뛸게요.",
+     "start_sec": 134.8,
+     "end_sec": 136.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 136,
+   "end_sec": 170,
+   "text": "비용도 크지 않아요. 세탁기를 한 대 더 들이는 것보다 예약 시스템이 더 싸요.",
+   "words": [
+    {
+     "text": "비용도",
+     "start_sec": 136.0,
+     "end_sec": 138.62
+    },
+    {
+     "text": "크지",
+     "start_sec": 138.62,
+     "end_sec": 141.23
+    },
+    {
+     "text": "않아요.",
+     "start_sec": 141.23,
+     "end_sec": 143.85
+    },
+    {
+     "text": "세탁기를",
+     "start_sec": 143.85,
+     "end_sec": 146.46
+    },
+    {
+     "text": "한",
+     "start_sec": 146.46,
+     "end_sec": 149.08
+    },
+    {
+     "text": "대",
+     "start_sec": 149.08,
+     "end_sec": 151.69
+    },
+    {
+     "text": "더",
+     "start_sec": 151.69,
+     "end_sec": 154.31
+    },
+    {
+     "text": "들이는",
+     "start_sec": 154.31,
+     "end_sec": 156.92
+    },
+    {
+     "text": "것보다",
+     "start_sec": 156.92,
+     "end_sec": 159.54
+    },
+    {
+     "text": "예약",
+     "start_sec": 159.54,
+     "end_sec": 162.15
+    },
+    {
+     "text": "시스템이",
+     "start_sec": 162.15,
+     "end_sec": 164.77
+    },
+    {
+     "text": "더",
+     "start_sec": 164.77,
+     "end_sec": 167.38
+    },
+    {
+     "text": "싸요.",
+     "start_sec": 167.38,
+     "end_sec": 170.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 170,
+   "end_sec": 205,
+   "text": "한계도 있어요. 시범 운영이 2개 층뿐이었고, 시험 기간에는 이용 패턴이 달라질 수 있어요.",
+   "words": [
+    {
+     "text": "한계도",
+     "start_sec": 170.0,
+     "end_sec": 172.69
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 172.69,
+     "end_sec": 175.38
+    },
+    {
+     "text": "시범",
+     "start_sec": 175.38,
+     "end_sec": 178.08
+    },
+    {
+     "text": "운영이",
+     "start_sec": 178.08,
+     "end_sec": 180.77
+    },
+    {
+     "text": "2개",
+     "start_sec": 180.77,
+     "end_sec": 183.46
+    },
+    {
+     "text": "층뿐이었고,",
+     "start_sec": 183.46,
+     "end_sec": 186.15
+    },
+    {
+     "text": "시험",
+     "start_sec": 186.15,
+     "end_sec": 188.85
+    },
+    {
+     "text": "기간에는",
+     "start_sec": 188.85,
+     "end_sec": 191.54
+    },
+    {
+     "text": "이용",
+     "start_sec": 191.54,
+     "end_sec": 194.23
+    },
+    {
+     "text": "패턴이",
+     "start_sec": 194.23,
+     "end_sec": 196.92
+    },
+    {
+     "text": "달라질",
+     "start_sec": 196.92,
+     "end_sec": 199.62
+    },
+    {
+     "text": "수",
+     "start_sec": 199.62,
+     "end_sec": 202.31
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 202.31,
+     "end_sec": 205.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 205,
+   "end_sec": 235,
+   "text": "정리하면 예약제와 알림을 같이 쓰면 세탁기를 늘리지 않고도 대기를 줄일 수 있어요. 감사합니다.",
+   "words": [
+    {
+     "text": "정리하면",
+     "start_sec": 205.0,
+     "end_sec": 207.31
+    },
+    {
+     "text": "예약제와",
+     "start_sec": 207.31,
+     "end_sec": 209.62
+    },
+    {
+     "text": "알림을",
+     "start_sec": 209.62,
+     "end_sec": 211.92
+    },
+    {
+     "text": "같이",
+     "start_sec": 211.92,
+     "end_sec": 214.23
+    },
+    {
+     "text": "쓰면",
+     "start_sec": 214.23,
+     "end_sec": 216.54
+    },
+    {
+     "text": "세탁기를",
+     "start_sec": 216.54,
+     "end_sec": 218.85
+    },
+    {
+     "text": "늘리지",
+     "start_sec": 218.85,
+     "end_sec": 221.15
+    },
+    {
+     "text": "않고도",
+     "start_sec": 221.15,
+     "end_sec": 223.46
+    },
+    {
+     "text": "대기를",
+     "start_sec": 223.46,
+     "end_sec": 225.77
+    },
+    {
+     "text": "줄일",
+     "start_sec": 225.77,
+     "end_sec": 228.08
+    },
+    {
+     "text": "수",
+     "start_sec": 228.08,
+     "end_sec": 230.38
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 230.38,
+     "end_sec": 232.69
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 232.69,
+     "end_sec": 235.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 235
+}

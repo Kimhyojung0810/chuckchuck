@@ -1,0 +1,1061 @@
+{
+ "full_text": "안녕하세요, 산악회 환경 모임입니다. 오늘은 주말 등산로 쓰레기를 줄이는 방법을 말씀드릴게요. 핵심은 되가져가기 봉투예요. 주말 하루에 등산객이 평균 1200명 정도 와요. 그리고 쉼터 세 곳에서 나오는 쓰레기가 전체의 70퍼센트예요. 이 계산 과정은 오늘은 건너뛰겠습니다. 그래서 입구 두 곳에서 6주 동안 봉투를 나눠 줘 봤어요. 주말 쓰레기는 95kg으로 줄었고요, 쉼터에 몰래 버리는 것도 주 2건까지 줄었어요. 이 부분은 시간상 생략할게요. 예산도 부담이 크지 않아요. 수거하는 사람을 한 명 더 쓰는 것보다 봉투가 훨씬 싸요. 한계도 있어요. 시범은 가을에만 했고요, 비 오는 주말은 뺐어요. 정리하면 봉투 나눔을 쉼터 정비와 같이 하면 수거 비용을 늘리지 않고도 쓰레기를 줄일 수 있어요. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 2.5
+  },
+  {
+   "text": "산악회",
+   "start_sec": 2.5,
+   "end_sec": 5.0
+  },
+  {
+   "text": "환경",
+   "start_sec": 5.0,
+   "end_sec": 7.5
+  },
+  {
+   "text": "모임입니다.",
+   "start_sec": 7.5,
+   "end_sec": 10.0
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 10.0,
+   "end_sec": 12.5
+  },
+  {
+   "text": "주말",
+   "start_sec": 12.5,
+   "end_sec": 15.0
+  },
+  {
+   "text": "등산로",
+   "start_sec": 15.0,
+   "end_sec": 17.5
+  },
+  {
+   "text": "쓰레기를",
+   "start_sec": 17.5,
+   "end_sec": 20.0
+  },
+  {
+   "text": "줄이는",
+   "start_sec": 20.0,
+   "end_sec": 22.5
+  },
+  {
+   "text": "방법을",
+   "start_sec": 22.5,
+   "end_sec": 25.0
+  },
+  {
+   "text": "말씀드릴게요.",
+   "start_sec": 25.0,
+   "end_sec": 27.5
+  },
+  {
+   "text": "핵심은",
+   "start_sec": 27.5,
+   "end_sec": 30.0
+  },
+  {
+   "text": "되가져가기",
+   "start_sec": 30.0,
+   "end_sec": 32.5
+  },
+  {
+   "text": "봉투예요.",
+   "start_sec": 32.5,
+   "end_sec": 35.0
+  },
+  {
+   "text": "주말",
+   "start_sec": 35.0,
+   "end_sec": 37.67
+  },
+  {
+   "text": "하루에",
+   "start_sec": 37.67,
+   "end_sec": 40.33
+  },
+  {
+   "text": "등산객이",
+   "start_sec": 40.33,
+   "end_sec": 43.0
+  },
+  {
+   "text": "평균",
+   "start_sec": 43.0,
+   "end_sec": 45.67
+  },
+  {
+   "text": "1200명",
+   "start_sec": 45.67,
+   "end_sec": 48.33
+  },
+  {
+   "text": "정도",
+   "start_sec": 48.33,
+   "end_sec": 51.0
+  },
+  {
+   "text": "와요.",
+   "start_sec": 51.0,
+   "end_sec": 53.67
+  },
+  {
+   "text": "그리고",
+   "start_sec": 53.67,
+   "end_sec": 56.33
+  },
+  {
+   "text": "쉼터",
+   "start_sec": 56.33,
+   "end_sec": 59.0
+  },
+  {
+   "text": "세",
+   "start_sec": 59.0,
+   "end_sec": 61.67
+  },
+  {
+   "text": "곳에서",
+   "start_sec": 61.67,
+   "end_sec": 64.33
+  },
+  {
+   "text": "나오는",
+   "start_sec": 64.33,
+   "end_sec": 67.0
+  },
+  {
+   "text": "쓰레기가",
+   "start_sec": 67.0,
+   "end_sec": 69.67
+  },
+  {
+   "text": "전체의",
+   "start_sec": 69.67,
+   "end_sec": 72.33
+  },
+  {
+   "text": "70퍼센트예요.",
+   "start_sec": 72.33,
+   "end_sec": 75.0
+  },
+  {
+   "text": "이",
+   "start_sec": 75.0,
+   "end_sec": 76.4
+  },
+  {
+   "text": "계산",
+   "start_sec": 76.4,
+   "end_sec": 77.8
+  },
+  {
+   "text": "과정은",
+   "start_sec": 77.8,
+   "end_sec": 79.2
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 79.2,
+   "end_sec": 80.6
+  },
+  {
+   "text": "건너뛰겠습니다.",
+   "start_sec": 80.6,
+   "end_sec": 82.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 82.0,
+   "end_sec": 84.29
+  },
+  {
+   "text": "입구",
+   "start_sec": 84.29,
+   "end_sec": 86.57
+  },
+  {
+   "text": "두",
+   "start_sec": 86.57,
+   "end_sec": 88.86
+  },
+  {
+   "text": "곳에서",
+   "start_sec": 88.86,
+   "end_sec": 91.14
+  },
+  {
+   "text": "6주",
+   "start_sec": 91.14,
+   "end_sec": 93.43
+  },
+  {
+   "text": "동안",
+   "start_sec": 93.43,
+   "end_sec": 95.71
+  },
+  {
+   "text": "봉투를",
+   "start_sec": 95.71,
+   "end_sec": 98.0
+  },
+  {
+   "text": "나눠",
+   "start_sec": 98.0,
+   "end_sec": 100.29
+  },
+  {
+   "text": "줘",
+   "start_sec": 100.29,
+   "end_sec": 102.57
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 102.57,
+   "end_sec": 104.86
+  },
+  {
+   "text": "주말",
+   "start_sec": 104.86,
+   "end_sec": 107.14
+  },
+  {
+   "text": "쓰레기는",
+   "start_sec": 107.14,
+   "end_sec": 109.43
+  },
+  {
+   "text": "95kg으로",
+   "start_sec": 109.43,
+   "end_sec": 111.71
+  },
+  {
+   "text": "줄었고요,",
+   "start_sec": 111.71,
+   "end_sec": 114.0
+  },
+  {
+   "text": "쉼터에",
+   "start_sec": 114.0,
+   "end_sec": 116.29
+  },
+  {
+   "text": "몰래",
+   "start_sec": 116.29,
+   "end_sec": 118.57
+  },
+  {
+   "text": "버리는",
+   "start_sec": 118.57,
+   "end_sec": 120.86
+  },
+  {
+   "text": "것도",
+   "start_sec": 120.86,
+   "end_sec": 123.14
+  },
+  {
+   "text": "주",
+   "start_sec": 123.14,
+   "end_sec": 125.43
+  },
+  {
+   "text": "2건까지",
+   "start_sec": 125.43,
+   "end_sec": 127.71
+  },
+  {
+   "text": "줄었어요.",
+   "start_sec": 127.71,
+   "end_sec": 130.0
+  },
+  {
+   "text": "이",
+   "start_sec": 130.0,
+   "end_sec": 131.25
+  },
+  {
+   "text": "부분은",
+   "start_sec": 131.25,
+   "end_sec": 132.5
+  },
+  {
+   "text": "시간상",
+   "start_sec": 132.5,
+   "end_sec": 133.75
+  },
+  {
+   "text": "생략할게요.",
+   "start_sec": 133.75,
+   "end_sec": 135.0
+  },
+  {
+   "text": "예산도",
+   "start_sec": 135.0,
+   "end_sec": 137.14
+  },
+  {
+   "text": "부담이",
+   "start_sec": 137.14,
+   "end_sec": 139.29
+  },
+  {
+   "text": "크지",
+   "start_sec": 139.29,
+   "end_sec": 141.43
+  },
+  {
+   "text": "않아요.",
+   "start_sec": 141.43,
+   "end_sec": 143.57
+  },
+  {
+   "text": "수거하는",
+   "start_sec": 143.57,
+   "end_sec": 145.71
+  },
+  {
+   "text": "사람을",
+   "start_sec": 145.71,
+   "end_sec": 147.86
+  },
+  {
+   "text": "한",
+   "start_sec": 147.86,
+   "end_sec": 150.0
+  },
+  {
+   "text": "명",
+   "start_sec": 150.0,
+   "end_sec": 152.14
+  },
+  {
+   "text": "더",
+   "start_sec": 152.14,
+   "end_sec": 154.29
+  },
+  {
+   "text": "쓰는",
+   "start_sec": 154.29,
+   "end_sec": 156.43
+  },
+  {
+   "text": "것보다",
+   "start_sec": 156.43,
+   "end_sec": 158.57
+  },
+  {
+   "text": "봉투가",
+   "start_sec": 158.57,
+   "end_sec": 160.71
+  },
+  {
+   "text": "훨씬",
+   "start_sec": 160.71,
+   "end_sec": 162.86
+  },
+  {
+   "text": "싸요.",
+   "start_sec": 162.86,
+   "end_sec": 165.0
+  },
+  {
+   "text": "한계도",
+   "start_sec": 165.0,
+   "end_sec": 168.33
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 168.33,
+   "end_sec": 171.67
+  },
+  {
+   "text": "시범은",
+   "start_sec": 171.67,
+   "end_sec": 175.0
+  },
+  {
+   "text": "가을에만",
+   "start_sec": 175.0,
+   "end_sec": 178.33
+  },
+  {
+   "text": "했고요,",
+   "start_sec": 178.33,
+   "end_sec": 181.67
+  },
+  {
+   "text": "비",
+   "start_sec": 181.67,
+   "end_sec": 185.0
+  },
+  {
+   "text": "오는",
+   "start_sec": 185.0,
+   "end_sec": 188.33
+  },
+  {
+   "text": "주말은",
+   "start_sec": 188.33,
+   "end_sec": 191.67
+  },
+  {
+   "text": "뺐어요.",
+   "start_sec": 191.67,
+   "end_sec": 195.0
+  },
+  {
+   "text": "정리하면",
+   "start_sec": 195.0,
+   "end_sec": 196.88
+  },
+  {
+   "text": "봉투",
+   "start_sec": 196.88,
+   "end_sec": 198.75
+  },
+  {
+   "text": "나눔을",
+   "start_sec": 198.75,
+   "end_sec": 200.62
+  },
+  {
+   "text": "쉼터",
+   "start_sec": 200.62,
+   "end_sec": 202.5
+  },
+  {
+   "text": "정비와",
+   "start_sec": 202.5,
+   "end_sec": 204.38
+  },
+  {
+   "text": "같이",
+   "start_sec": 204.38,
+   "end_sec": 206.25
+  },
+  {
+   "text": "하면",
+   "start_sec": 206.25,
+   "end_sec": 208.12
+  },
+  {
+   "text": "수거",
+   "start_sec": 208.12,
+   "end_sec": 210.0
+  },
+  {
+   "text": "비용을",
+   "start_sec": 210.0,
+   "end_sec": 211.88
+  },
+  {
+   "text": "늘리지",
+   "start_sec": 211.88,
+   "end_sec": 213.75
+  },
+  {
+   "text": "않고도",
+   "start_sec": 213.75,
+   "end_sec": 215.62
+  },
+  {
+   "text": "쓰레기를",
+   "start_sec": 215.62,
+   "end_sec": 217.5
+  },
+  {
+   "text": "줄일",
+   "start_sec": 217.5,
+   "end_sec": 219.38
+  },
+  {
+   "text": "수",
+   "start_sec": 219.38,
+   "end_sec": 221.25
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 221.25,
+   "end_sec": 223.12
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 223.12,
+   "end_sec": 225.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 35,
+   "text": "안녕하세요, 산악회 환경 모임입니다. 오늘은 주말 등산로 쓰레기를 줄이는 방법을 말씀드릴게요. 핵심은 되가져가기 봉투예요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 2.5
+    },
+    {
+     "text": "산악회",
+     "start_sec": 2.5,
+     "end_sec": 5.0
+    },
+    {
+     "text": "환경",
+     "start_sec": 5.0,
+     "end_sec": 7.5
+    },
+    {
+     "text": "모임입니다.",
+     "start_sec": 7.5,
+     "end_sec": 10.0
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 10.0,
+     "end_sec": 12.5
+    },
+    {
+     "text": "주말",
+     "start_sec": 12.5,
+     "end_sec": 15.0
+    },
+    {
+     "text": "등산로",
+     "start_sec": 15.0,
+     "end_sec": 17.5
+    },
+    {
+     "text": "쓰레기를",
+     "start_sec": 17.5,
+     "end_sec": 20.0
+    },
+    {
+     "text": "줄이는",
+     "start_sec": 20.0,
+     "end_sec": 22.5
+    },
+    {
+     "text": "방법을",
+     "start_sec": 22.5,
+     "end_sec": 25.0
+    },
+    {
+     "text": "말씀드릴게요.",
+     "start_sec": 25.0,
+     "end_sec": 27.5
+    },
+    {
+     "text": "핵심은",
+     "start_sec": 27.5,
+     "end_sec": 30.0
+    },
+    {
+     "text": "되가져가기",
+     "start_sec": 30.0,
+     "end_sec": 32.5
+    },
+    {
+     "text": "봉투예요.",
+     "start_sec": 32.5,
+     "end_sec": 35.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 35,
+   "end_sec": 75,
+   "text": "주말 하루에 등산객이 평균 1200명 정도 와요. 그리고 쉼터 세 곳에서 나오는 쓰레기가 전체의 70퍼센트예요.",
+   "words": [
+    {
+     "text": "주말",
+     "start_sec": 35.0,
+     "end_sec": 37.67
+    },
+    {
+     "text": "하루에",
+     "start_sec": 37.67,
+     "end_sec": 40.33
+    },
+    {
+     "text": "등산객이",
+     "start_sec": 40.33,
+     "end_sec": 43.0
+    },
+    {
+     "text": "평균",
+     "start_sec": 43.0,
+     "end_sec": 45.67
+    },
+    {
+     "text": "1200명",
+     "start_sec": 45.67,
+     "end_sec": 48.33
+    },
+    {
+     "text": "정도",
+     "start_sec": 48.33,
+     "end_sec": 51.0
+    },
+    {
+     "text": "와요.",
+     "start_sec": 51.0,
+     "end_sec": 53.67
+    },
+    {
+     "text": "그리고",
+     "start_sec": 53.67,
+     "end_sec": 56.33
+    },
+    {
+     "text": "쉼터",
+     "start_sec": 56.33,
+     "end_sec": 59.0
+    },
+    {
+     "text": "세",
+     "start_sec": 59.0,
+     "end_sec": 61.67
+    },
+    {
+     "text": "곳에서",
+     "start_sec": 61.67,
+     "end_sec": 64.33
+    },
+    {
+     "text": "나오는",
+     "start_sec": 64.33,
+     "end_sec": 67.0
+    },
+    {
+     "text": "쓰레기가",
+     "start_sec": 67.0,
+     "end_sec": 69.67
+    },
+    {
+     "text": "전체의",
+     "start_sec": 69.67,
+     "end_sec": 72.33
+    },
+    {
+     "text": "70퍼센트예요.",
+     "start_sec": 72.33,
+     "end_sec": 75.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 75,
+   "end_sec": 82,
+   "text": "이 계산 과정은 오늘은 건너뛰겠습니다.",
+   "words": [
+    {
+     "text": "이",
+     "start_sec": 75.0,
+     "end_sec": 76.4
+    },
+    {
+     "text": "계산",
+     "start_sec": 76.4,
+     "end_sec": 77.8
+    },
+    {
+     "text": "과정은",
+     "start_sec": 77.8,
+     "end_sec": 79.2
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 79.2,
+     "end_sec": 80.6
+    },
+    {
+     "text": "건너뛰겠습니다.",
+     "start_sec": 80.6,
+     "end_sec": 82.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 82,
+   "end_sec": 130,
+   "text": "그래서 입구 두 곳에서 6주 동안 봉투를 나눠 줘 봤어요. 주말 쓰레기는 95kg으로 줄었고요, 쉼터에 몰래 버리는 것도 주 2건까지 줄었어요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 82.0,
+     "end_sec": 84.29
+    },
+    {
+     "text": "입구",
+     "start_sec": 84.29,
+     "end_sec": 86.57
+    },
+    {
+     "text": "두",
+     "start_sec": 86.57,
+     "end_sec": 88.86
+    },
+    {
+     "text": "곳에서",
+     "start_sec": 88.86,
+     "end_sec": 91.14
+    },
+    {
+     "text": "6주",
+     "start_sec": 91.14,
+     "end_sec": 93.43
+    },
+    {
+     "text": "동안",
+     "start_sec": 93.43,
+     "end_sec": 95.71
+    },
+    {
+     "text": "봉투를",
+     "start_sec": 95.71,
+     "end_sec": 98.0
+    },
+    {
+     "text": "나눠",
+     "start_sec": 98.0,
+     "end_sec": 100.29
+    },
+    {
+     "text": "줘",
+     "start_sec": 100.29,
+     "end_sec": 102.57
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 102.57,
+     "end_sec": 104.86
+    },
+    {
+     "text": "주말",
+     "start_sec": 104.86,
+     "end_sec": 107.14
+    },
+    {
+     "text": "쓰레기는",
+     "start_sec": 107.14,
+     "end_sec": 109.43
+    },
+    {
+     "text": "95kg으로",
+     "start_sec": 109.43,
+     "end_sec": 111.71
+    },
+    {
+     "text": "줄었고요,",
+     "start_sec": 111.71,
+     "end_sec": 114.0
+    },
+    {
+     "text": "쉼터에",
+     "start_sec": 114.0,
+     "end_sec": 116.29
+    },
+    {
+     "text": "몰래",
+     "start_sec": 116.29,
+     "end_sec": 118.57
+    },
+    {
+     "text": "버리는",
+     "start_sec": 118.57,
+     "end_sec": 120.86
+    },
+    {
+     "text": "것도",
+     "start_sec": 120.86,
+     "end_sec": 123.14
+    },
+    {
+     "text": "주",
+     "start_sec": 123.14,
+     "end_sec": 125.43
+    },
+    {
+     "text": "2건까지",
+     "start_sec": 125.43,
+     "end_sec": 127.71
+    },
+    {
+     "text": "줄었어요.",
+     "start_sec": 127.71,
+     "end_sec": 130.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 130,
+   "end_sec": 135,
+   "text": "이 부분은 시간상 생략할게요.",
+   "words": [
+    {
+     "text": "이",
+     "start_sec": 130.0,
+     "end_sec": 131.25
+    },
+    {
+     "text": "부분은",
+     "start_sec": 131.25,
+     "end_sec": 132.5
+    },
+    {
+     "text": "시간상",
+     "start_sec": 132.5,
+     "end_sec": 133.75
+    },
+    {
+     "text": "생략할게요.",
+     "start_sec": 133.75,
+     "end_sec": 135.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 135,
+   "end_sec": 165,
+   "text": "예산도 부담이 크지 않아요. 수거하는 사람을 한 명 더 쓰는 것보다 봉투가 훨씬 싸요.",
+   "words": [
+    {
+     "text": "예산도",
+     "start_sec": 135.0,
+     "end_sec": 137.14
+    },
+    {
+     "text": "부담이",
+     "start_sec": 137.14,
+     "end_sec": 139.29
+    },
+    {
+     "text": "크지",
+     "start_sec": 139.29,
+     "end_sec": 141.43
+    },
+    {
+     "text": "않아요.",
+     "start_sec": 141.43,
+     "end_sec": 143.57
+    },
+    {
+     "text": "수거하는",
+     "start_sec": 143.57,
+     "end_sec": 145.71
+    },
+    {
+     "text": "사람을",
+     "start_sec": 145.71,
+     "end_sec": 147.86
+    },
+    {
+     "text": "한",
+     "start_sec": 147.86,
+     "end_sec": 150.0
+    },
+    {
+     "text": "명",
+     "start_sec": 150.0,
+     "end_sec": 152.14
+    },
+    {
+     "text": "더",
+     "start_sec": 152.14,
+     "end_sec": 154.29
+    },
+    {
+     "text": "쓰는",
+     "start_sec": 154.29,
+     "end_sec": 156.43
+    },
+    {
+     "text": "것보다",
+     "start_sec": 156.43,
+     "end_sec": 158.57
+    },
+    {
+     "text": "봉투가",
+     "start_sec": 158.57,
+     "end_sec": 160.71
+    },
+    {
+     "text": "훨씬",
+     "start_sec": 160.71,
+     "end_sec": 162.86
+    },
+    {
+     "text": "싸요.",
+     "start_sec": 162.86,
+     "end_sec": 165.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 165,
+   "end_sec": 195,
+   "text": "한계도 있어요. 시범은 가을에만 했고요, 비 오는 주말은 뺐어요.",
+   "words": [
+    {
+     "text": "한계도",
+     "start_sec": 165.0,
+     "end_sec": 168.33
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 168.33,
+     "end_sec": 171.67
+    },
+    {
+     "text": "시범은",
+     "start_sec": 171.67,
+     "end_sec": 175.0
+    },
+    {
+     "text": "가을에만",
+     "start_sec": 175.0,
+     "end_sec": 178.33
+    },
+    {
+     "text": "했고요,",
+     "start_sec": 178.33,
+     "end_sec": 181.67
+    },
+    {
+     "text": "비",
+     "start_sec": 181.67,
+     "end_sec": 185.0
+    },
+    {
+     "text": "오는",
+     "start_sec": 185.0,
+     "end_sec": 188.33
+    },
+    {
+     "text": "주말은",
+     "start_sec": 188.33,
+     "end_sec": 191.67
+    },
+    {
+     "text": "뺐어요.",
+     "start_sec": 191.67,
+     "end_sec": 195.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 195,
+   "end_sec": 225,
+   "text": "정리하면 봉투 나눔을 쉼터 정비와 같이 하면 수거 비용을 늘리지 않고도 쓰레기를 줄일 수 있어요. 감사합니다.",
+   "words": [
+    {
+     "text": "정리하면",
+     "start_sec": 195.0,
+     "end_sec": 196.88
+    },
+    {
+     "text": "봉투",
+     "start_sec": 196.88,
+     "end_sec": 198.75
+    },
+    {
+     "text": "나눔을",
+     "start_sec": 198.75,
+     "end_sec": 200.62
+    },
+    {
+     "text": "쉼터",
+     "start_sec": 200.62,
+     "end_sec": 202.5
+    },
+    {
+     "text": "정비와",
+     "start_sec": 202.5,
+     "end_sec": 204.38
+    },
+    {
+     "text": "같이",
+     "start_sec": 204.38,
+     "end_sec": 206.25
+    },
+    {
+     "text": "하면",
+     "start_sec": 206.25,
+     "end_sec": 208.12
+    },
+    {
+     "text": "수거",
+     "start_sec": 208.12,
+     "end_sec": 210.0
+    },
+    {
+     "text": "비용을",
+     "start_sec": 210.0,
+     "end_sec": 211.88
+    },
+    {
+     "text": "늘리지",
+     "start_sec": 211.88,
+     "end_sec": 213.75
+    },
+    {
+     "text": "않고도",
+     "start_sec": 213.75,
+     "end_sec": 215.62
+    },
+    {
+     "text": "쓰레기를",
+     "start_sec": 215.62,
+     "end_sec": 217.5
+    },
+    {
+     "text": "줄일",
+     "start_sec": 217.5,
+     "end_sec": 219.38
+    },
+    {
+     "text": "수",
+     "start_sec": 219.38,
+     "end_sec": 221.25
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 221.25,
+     "end_sec": 223.12
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 223.12,
+     "end_sec": 225.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 225
+}

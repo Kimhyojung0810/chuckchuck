@@ -1,0 +1,190 @@
+{
+ "file_name": "기숙사_세탁실_예약제_제안.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "기숙사 세탁실, 기다림을 줄일 수 있을까",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "기숙사 세탁실, 기다림을 줄일 수 있을까"
+    },
+    {
+     "category": "paragraph",
+     "text": "예약제로 바꾸면 대기가 줄어듭니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "생활관 자치회 개선 제안"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "지금의 세탁실",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "지금의 세탁실"
+    },
+    {
+     "category": "paragraph",
+     "text": "세탁기 12대를 학생 480명이 함께 씁니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "저녁 9시~11시에 이용의 절반이 몰립니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "대기 시간 계산",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "대기 시간 계산"
+    },
+    {
+     "category": "paragraph",
+     "text": "평균 대기 시간 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "대기 인원"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "한 번 세탁 시간"
+    },
+    {
+     "category": "paragraph",
+     "text": "÷"
+    },
+    {
+     "category": "paragraph",
+     "text": "세탁기 수"
+    },
+    {
+     "category": "paragraph",
+     "text": "몇 명이 줄을 서는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "한 번 돌리는 데 얼마나"
+    },
+    {
+     "category": "paragraph",
+     "text": "기계가 몇 대인가"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "예약제 시범 운영",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "예약제 시범 운영"
+    },
+    {
+     "category": "table",
+     "text": "| 구분 | 평균 대기 | 헛걸음 |"
+    },
+    {
+     "category": "table",
+     "text": "| 시범 전 | 34분 | 주 5회 |"
+    },
+    {
+     "category": "table",
+     "text": "| 시범 후 | 9분 | 주 1회 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "4주 동안 2개 층에서 시험했습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "알림 기능",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "알림 기능"
+    },
+    {
+     "category": "paragraph",
+     "text": "세탁이 끝나면 앱 알림을 보냅니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "알림을 켠 학생은 끝난 세탁물을 평균 6분 안에 꺼냈습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "알림을 끈 학생은 평균 21분 걸렸습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "비용",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "비용"
+    },
+    {
+     "category": "paragraph",
+     "text": "예약 시스템 운영 비용은 연 180만 원입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "세탁기 1대를 더 들이는 비용(연 250만 원)보다 적습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "한계",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "한계"
+    },
+    {
+     "category": "paragraph",
+     "text": "시범 운영은 2개 층에서만 했습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "시험 기간에는 이용 패턴이 달라질 수 있습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "정리",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "정리"
+    },
+    {
+     "category": "paragraph",
+     "text": "예약제와 알림을 함께 쓰면 세탁기를 늘리지 않고도 대기를 줄일 수 있습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    }
+   ]
+  }
+ ]
+}

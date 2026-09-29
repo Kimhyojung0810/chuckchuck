@@ -1,0 +1,98 @@
+{
+ "deck": "rec_trail",
+ "synthetic": true,
+ "group": "f08rec_heldout_2026-09-30",
+ "context": {
+  "situation": "school_project",
+  "duration_min": 10
+ },
+ "total_slides": 8,
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "clova_file": "recording_r1.txt",
+   "transcript_file": "transcript.json",
+   "planted": [
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 3,
+     "skip_quote": "이 계산 과정은 오늘은 건너뛰겠습니다.",
+     "note": "식 장(곱·합) — 대표는 식 머리(월 수거 비용)"
+    },
+    {
+     "id": "S2",
+     "kind": "skipped_slide",
+     "slide": 5,
+     "skip_quote": "이 부분은 시간상 생략할게요.",
+     "note": "표 장 — 대표는 장 제목의 개념(안내판 효과)"
+    },
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 4,
+     "deck_value": "주 4건",
+     "speech_value": "주 2건"
+    },
+    {
+     "id": "A1",
+     "kind": "deck_only_statement",
+     "slide": 6,
+     "deck_quote": "봉투 제작비는 한 해 320만 원입니다.",
+     "note": "발표자는 수를 말하지 않았다"
+    }
+   ],
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 35
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 35,
+     "end_sec": 75
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 75,
+     "end_sec": 82
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 82,
+     "end_sec": 130
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 130,
+     "end_sec": 135
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 135,
+     "end_sec": 165
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 165,
+     "end_sec": 195
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 195,
+     "end_sec": 225
+    }
+   ]
+  }
+ },
+ "expect": {
+  "skipped_slides": [
+   3,
+   5
+  ],
+  "contradiction_slides": [
+   4
+  ]
+ }
+}
