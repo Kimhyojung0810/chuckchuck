@@ -29,8 +29,9 @@
     OPENALEX_API_KEY   OpenAlex 키 (선택, 무료 발급) — 키 없는 하루 예산의 10배. `Authorization: Bearer` 머리로 보낸다
     S2_API_KEY         Semantic Scholar 키 (선택 — 없으면 공용 한도 100회/5분)
 
-키·메일은 환경변수에서만 읽고 값을 찍지 않는다 — 로그는 「설정됨/없음」 만(브리지 시작 배너 `config.masked` 와 같은 규칙),
-오류 문구는 `_redact` 로 값을 가린 뒤에 만든다.
+키·메일은 환경변수에서만 읽고 값을 찍지 않는다 — 로그는 「설정됨/없음/형식 오류」 만(브리지 시작 배너 `config.masked` 와 같은
+규칙), 오류 문구는 값을 가린 뒤에 만든다(`_redact`, 마지막 자리는 `scholar_base.redact_secrets` — ScholarCallError 가 받을 때).
+형식이 틀린 값(줄바꿈·한글·빈칸)은 보내지 않고, https 가 아닌 OPENALEX_BASE_URL 에는 키를 싣지 않는다 (09-30 WP-M 보안 검토).
     SCHOLAR_TIMEOUT_SEC  요청 시간 초과 (기본 8)
     SCHOLAR_QUEUE_WAIT_SEC  통로 요청 한도(LANES) 줄에서 기다릴 최대 초 (기본 10, 마감이 걸려 있으면 마감까지)
 
@@ -53,12 +54,20 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, wait
-from urllib.parse import quote, quote_plus
+from urllib.parse import quote, urlsplit
 
 import requests
 
 from ..contracts import PAPER_ABSTRACT_MAX, PaperRef
-from .scholar_base import ScholarCallError, ScholarProvider, SearchHits, dominant_state, remaining, status_of_error
+from .scholar_base import (
+    ScholarCallError,
+    ScholarProvider,
+    SearchHits,
+    dominant_state,
+    redact_secrets,
+    remaining,
+    status_of_error,
+)
 
 _WS_RE = re.compile(r"\s+")
 #: OpenAlex 는 `?`·`*` 가 든 검색어에 400 을 낸다 (와일드카드로 읽는다). 따옴표·콜론도 지운다.
@@ -94,51 +103,68 @@ _QUERY_STOP = {"the", "and", "for", "with", "from", "into", "over", "under", "us
 _UA = {"User-Agent": "chuckchuck/1.0 (F-24 papers; mailto:%s)"}
 
 
+#: 키·메일로 쓸 수 있는 값의 꼴 — 인쇄 가능한 ASCII, 빈칸 없음. 줄바꿈이 든 값은 requests 가 머리 오류(InvalidHeader)를 내며 값을
+#: repr 로 싣고(09-30 WP-M 보안 검토 M1), 한글이 든 값은 인코딩 오류로 **모든** 통로를 멈추며(User-Agent 에 들어간다), .env 줄 끝
+#: 주석(「키 # 메모」 — config.load_dotenv 는 주석을 떼지 않는다)은 빈칸으로 걸린다. 이런 값은 보내지 않고 「형식 오류」 로만 알린다.
+_CONFIG_VALUE_RE = re.compile(r"[\x21-\x7e]+")
+
+
+def _config_value(raw) -> tuple[str, str]:
+    """설정 값 → (쓸 값, 상태). 상태는 「설정됨」·「없음」·「형식 오류」 — 형식이 틀린 값은 쓰지 않는다 (값은 어디에도 찍지 않는다)."""
+    v = str(raw or "").strip()
+    if not v:
+        return "", "없음"
+    return (v, "설정됨") if _CONFIG_VALUE_RE.fullmatch(v) else ("", "형식 오류")
+
+
 def _mailto() -> str:
-    return os.environ.get("SCHOLAR_MAILTO") or os.environ.get("OPENALEX_MAILTO") or ""
+    """User-Agent·Crossref 의 polite pool 메일 — SCHOLAR_MAILTO, 없으면 OPENALEX_MAILTO (형식이 틀리면 싣지 않는다)."""
+    return _config_value(os.environ.get("SCHOLAR_MAILTO") or os.environ.get("OPENALEX_MAILTO"))[0]
 
 
-def _openalex_mailto() -> str:
-    """OpenAlex `mailto` 쿼리(polite pool) — OPENALEX_MAILTO, 없으면 SCHOLAR_MAILTO (09-30 까지는 OPENALEX_MAILTO 만 읽어서
+def _openalex_mailto_raw() -> str:
+    """OpenAlex `mailto` 쿼리(polite pool) 재료 — OPENALEX_MAILTO, 없으면 SCHOLAR_MAILTO (09-30 까지는 OPENALEX_MAILTO 만 읽어서
     .env.example 대로 SCHOLAR_MAILTO 만 넣으면 OpenAlex 쿼리에는 안 실렸다)."""
-    return (os.environ.get("OPENALEX_MAILTO") or os.environ.get("SCHOLAR_MAILTO") or "").strip()
+    return os.environ.get("OPENALEX_MAILTO") or os.environ.get("SCHOLAR_MAILTO") or ""
 
 
-def _openalex_api_key() -> str:
-    """OpenAlex 키 — OPENALEX_API_KEY 환경변수에서만. 값은 로그·오류 문구·응답에 싣지 않는다."""
-    return (os.environ.get("OPENALEX_API_KEY") or "").strip()
-
-
-def _state(value: str) -> str:
-    """설정 값의 상태만 — 브리지 시작 배너(`config.masked`)처럼 값의 어느 글자도 찍지 않는다."""
-    return "설정됨" if value else "없음"
-
-
-#: 오류 문구에서 가릴 설정 값. requests 의 연결 오류 문구는 요청 주소를 쿼리째 싣는다(「… with url: /works?…&mailto=…」) —
-#: 그 문구가 stderr·통로 사정(status)·응답의 까닭 글로 나간다.
-_SECRET_ENVS = ("OPENALEX_API_KEY", "OPENALEX_MAILTO", "SCHOLAR_MAILTO", "S2_API_KEY")
-#: 요청에 실어 보낸 값 가운데 가릴 것 — 쿼리 mailto·api_key, 머리 Authorization·x-api-key.
+#: 요청에 실어 보낸 값 가운데 오류 문구에서 가릴 것 (이름은 대소문자 무관) — 쿼리 mailto·api_key, 머리 Authorization·x-api-key.
+#: 환경변수 값은 `scholar_base.redact_secrets` 가 늘 가린다 — 여기는 생성자로 받은 값처럼 환경변수 밖의 값 몫이다.
 _SECRET_PARAMS = ("mailto", "api_key")
-_SECRET_HEADERS = ("Authorization", "x-api-key")
-#: 이보다 짧은 값은 가리지 않는다 — 한두 글자를 지우면 오류 문구가 뭉개진다 (키·메일은 이보다 길다).
-_SECRET_MIN = 4
+_SECRET_HEADERS = ("authorization", "x-api-key")
 
 
 def _redact(text, params: dict | None = None, headers: dict | None = None) -> str:
     """
-    글에서 키·연락 메일 값을 「***」 로 가린다 — 환경변수 값과 이번 요청에 실은 값(쿼리·머리) 모두, 날값과 주소 인코딩 값
-    (「%40」) 모두. 오류 문구를 만드는 곳(`_http_get`·`_checked_get`·통로)이 부른다.
+    글에서 키·연락 메일 값을 「***」 로 가린다 — 환경변수 값과 이번 요청에 실은 값(쿼리·머리) 모두, 날값·주소 인코딩(「%40」)·
+    repr 이스케이프 꼴 모두 (`redact_secrets`). 오류 문구를 만드는 곳(`_http_get`·`_checked_get`·통로)이 부른다.
     """
-    out = str(text or "")
-    values = {(os.environ.get(n) or "").strip() for n in _SECRET_ENVS}
-    values |= {str((params or {}).get(k) or "").strip() for k in _SECRET_PARAMS}
-    for h in _SECRET_HEADERS:
-        v = str((headers or {}).get(h) or "").strip()
-        values |= {v, v.split(" ", 1)[-1]}          # 「Bearer <키>」 는 키만 나와도 가린다
-    for v in sorted((v for v in values if len(v) >= _SECRET_MIN), key=len, reverse=True):
-        for form in {v, quote(v, safe=""), quote_plus(v)}:
-            out = out.replace(form, "***")
-    return out
+    extra = [str(v) for k, v in (params or {}).items() if str(k).lower() in _SECRET_PARAMS]
+    for k, v in (headers or {}).items():
+        if str(k).lower() in _SECRET_HEADERS:
+            extra += [str(v), *str(v).split()[1:]]        # 「Bearer <키>」 는 스킴 뒤 값만 나와도 가린다
+    return redact_secrets(text, extra)
+
+
+def _doi_path(doi: str) -> str:
+    """
+    자료에서 읽은 DOI → OpenAlex 주소의 경로 조각. DOI 꼴(「10.」 로 시작, 「/」 가 있음, 빈칸 없음)이 아니거나 「.」「..」 경로 칸이
+    있으면 "" — 호출자는 제목으로 찾는다. 나머지 글자는 경로 한 칸으로 인코딩한다(「?」「#」 → %3F·%23). 09-30 WP-M 보안 검토: 자료가
+    「10.1/x?per-page=200」 이나 「../../authors」 를 DOI 로 심으면 우리 키(하루 예산)로 다른 쿼리·경로를 부르게 됐다.
+    """
+    d = (doi or "").strip()
+    if not d.startswith("10.") or "/" not in d or re.search(r"\s", d) or any(seg in (".", "..") for seg in d.split("/")):
+        return ""
+    return quote(d, safe="/")
+
+
+def _bare_cause(etype: type, message: str) -> BaseException:
+    """원래 예외 대신 원인으로 달 **빈** 예외 — 같은 종류(브리지 `_upstream_error` 가 종류로 503·502 를 가른다), 값을 가린 문구만,
+    요청(`.request` — 머리에 키가 있다)은 없이."""
+    try:
+        return etype(message)
+    except Exception:  # noqa: BLE001 — 생성자 모양이 다른 예외면 공통 부모로
+        return requests.RequestException(message)
 
 
 #: 429(속도 제한)를 받으면 이만큼 쉬고 **한 번만** 다시 묻는다. Retry-After 가 있으면 그 값 — 단 RATE_LIMIT_WAIT_MAX 를 넘으면
@@ -281,17 +307,22 @@ def _http_get(who: str, url: str, params: dict | None = None, headers: dict | No
     """통로 줄(lane)을 지켜 GET 한 번. 줄에서 기다린 만큼 마감이 줄어드니 시간 초과는 자리를 잡은 **뒤에** 정한다."""
     ln = lane(who)
     ln.enter(_queue_wait(), after_backoff=after_backoff)
+    failure: tuple[str, str, type] | None = None
     try:
         return requests.get(url, params=params, timeout=_request_timeout(who, timeout),
                             headers={**_UA, "User-Agent": _UA["User-Agent"] % _mailto(), **(headers or {})})
-    # requests 의 오류 문구는 요청 주소를 쿼리째 싣는다 — 값을 가리고, 원래 예외는 잇지 않는다(from None). 브리지가 찍는
-    # traceback 에 이어진 예외(__cause__)의 문구가 그대로 나온다.
+    # requests 의 오류 문구는 요청 주소를 쿼리째 싣고(mailto), 머리 오류는 머리 값(키)을 repr 로 싣는다 — 값을 가린 문구만 쓴다.
+    except requests.exceptions.InvalidHeader:
+        failure = (f"{who} 요청 머리 값이 잘못됨 — 키·메일 설정의 형식을 확인", "network", requests.exceptions.InvalidHeader)
     except requests.Timeout as e:
-        raise ScholarCallError(f"{who} 시간 초과: {_redact(e, params, headers)}", kind="timeout", provider=who) from None
+        failure = (f"{who} 시간 초과: {_redact(e, params, headers)}", "timeout", type(e))
     except requests.RequestException as e:
-        raise ScholarCallError(f"{who} 요청 실패: {_redact(e, params, headers)}", kind="network", provider=who) from None
+        failure = (f"{who} 요청 실패: {_redact(e, params, headers)}", "network", type(e))
     finally:
         ln.leave()
+    # except 밖에서 던진다 — 원래 예외(주소·머리를 든 것)가 __context__ 로 붙지 않게. 원인으로는 같은 종류의 빈 예외를 단다.
+    message, kind, etype = failure
+    raise ScholarCallError(message, kind=kind, provider=who) from _bare_cause(etype, message)
 
 
 def _retry_after(res) -> float:
@@ -432,16 +463,33 @@ def _quality(cov: float, rank_score: float, rank_max: float, cited_by: int, cite
 #: 이 프로세스에서 이미 알린 OpenAlex 설정 상태 — (mailto, api_key) 상태 짝마다 한 번만 stderr 에 적는다.
 _OPENALEX_NOTED: set[tuple[str, str]] = set()
 _OPENALEX_NOTED_LOCK = threading.Lock()
+#: 키 없이 받은 429 를 stderr 에 다시 알리기까지의 초 — 쉬는 동안 줄 서 있던 검색마다 같은 줄을 찍지 않는다.
+KEYLESS_NOTE_EVERY_SEC = 300.0
+_keyless_noted_at: float | None = None
 
 
-def _note_openalex_config(mailto: str, api_key: str) -> None:
-    """OpenAlex 통로를 처음 만들 때 설정 **상태**만 한 줄 — 「mailto 설정됨 · api_key 없음」. 값은 찍지 않는다."""
-    state = (_state(mailto), _state(api_key))
+def _note_openalex_config(mailto_state: str, key_state: str) -> None:
+    """OpenAlex 통로를 처음 만들 때 설정 **상태**만 한 줄 — 「mailto 설정됨 · api_key 없음」(또는 「형식 오류」·「보류(https 아님)」).
+    값은 찍지 않는다 (브리지 시작 배너 `config.masked` 와 같은 규칙)."""
+    state = (mailto_state, key_state)
     with _OPENALEX_NOTED_LOCK:
         if state in _OPENALEX_NOTED:
             return
         _OPENALEX_NOTED.add(state)
     sys.stderr.write(f"[scholar] openalex mailto {state[0]} · api_key {state[1]}\n")
+
+
+def _note_keyless_429() -> None:
+    """키 없이 받은 429 — 운영자가 볼 stderr 에만 「키를 넣으면 예산이 는다」 를 적는다. 통로 사정(status)은 공개 응답(/papers)에
+    실리므로 서버가 키 없이 돈다는 사실은 거기 싣지 않는다 (09-30 WP-M 보안 검토)."""
+    global _keyless_noted_at
+    now = _now()
+    with _OPENALEX_NOTED_LOCK:
+        if _keyless_noted_at is not None and now - _keyless_noted_at < KEYLESS_NOTE_EVERY_SEC:
+            return
+        _keyless_noted_at = now
+    sys.stderr.write("[scholar] openalex 429 — api_key 없음: 키 없는 하루 예산을 이 서버 IP 가 나눠 써요. "
+                     "OPENALEX_API_KEY 를 넣으면 하루 예산이 10배예요\n")
 
 
 class OpenAlexScholar(ScholarProvider):
@@ -465,10 +513,19 @@ class OpenAlexScholar(ScholarProvider):
     def __init__(self, base_url: str | None = None, mailto: str | None = None, timeout: float | None = None,
                  api_key: str | None = None):
         self.base_url = (base_url or os.environ.get("OPENALEX_BASE_URL", "https://api.openalex.org")).rstrip("/")
-        self.mailto = mailto if mailto is not None else _openalex_mailto()
-        self._api_key = api_key if api_key is not None else _openalex_api_key()
+        # 형식이 틀린 값(줄바꿈·한글·빈칸)은 쓰지 않는다 — 생성자로 받은 값도 같은 잣대다 (`_config_value`)
+        self.mailto, mail_state = _config_value(mailto if mailto is not None else _openalex_mailto_raw())
+        self._api_key, key_state = _config_value(api_key if api_key is not None else os.environ.get("OPENALEX_API_KEY"))
+        if self._api_key and not self._key_transport_ok():
+            self._api_key, key_state = "", "보류(https 아님)"
         self.timeout = timeout or _timeout()
-        _note_openalex_config(self.mailto, self._api_key)
+        _note_openalex_config(mail_state, key_state)
+
+    def _key_transport_ok(self) -> bool:
+        """키를 실어도 되는 주소인가 — https, 또는 이 기계(실험실의 가짜 서버). OPENALEX_BASE_URL 을 http 로 바꾸면 키가 평문으로
+        가므로 싣지 않는다 (09-30 WP-M 보안 검토)."""
+        parts = urlsplit(self.base_url)
+        return parts.scheme == "https" or (parts.hostname or "") in ("127.0.0.1", "localhost", "::1")
 
     def _params(self, extra: dict) -> dict:
         return {**extra, "mailto": self.mailto} if self.mailto else dict(extra)
@@ -477,14 +534,13 @@ class OpenAlexScholar(ScholarProvider):
         return {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
 
     def _get(self, url: str, params: dict):
-        """통로 줄을 지켜 GET (`_checked_get`). 키 없이 받은 429 에는 키를 넣으면 예산이 는다고 덧붙인다 — 값이 아니라 상태만."""
+        """통로 줄을 지켜 GET (`_checked_get`). 키 없이 받은 429 는 운영자 stderr 에만 키 이야기를 적는다 (`_note_keyless_429`)."""
         try:
             return _checked_get(self.name, url, params, self._headers(), timeout=self.timeout)
         except ScholarCallError as e:
-            if e.kind != "rate_limited" or self._api_key:
-                raise
-            raise ScholarCallError(f"{e} (api_key 없음 — OPENALEX_API_KEY 를 넣으면 하루 예산 10배)", kind=e.kind,
-                                   provider=e.provider, status=e.status) from None
+            if e.kind == "rate_limited" and not self._api_key:
+                _note_keyless_429()
+            raise
 
     def _failed(self, res, params: dict) -> ScholarCallError:
         body = _redact(getattr(res, "text", ""), params, self._headers())[:200]
@@ -512,9 +568,10 @@ class OpenAlexScholar(ScholarProvider):
 
         제목 `search=` 는 어간 검색이라 옛 논문(초록 없는 Elsevier 등)을 놓친다 — 2026-09-22 실측에서
         Leroy(2009) 를 못 찾았다. 되찾기는 「있는 논문의 메타데이터」 라 초록 필터를 걸지 않는다."""
-        if doi:
+        path = _doi_path(doi)
+        if path:
             params = self._params({"select": self.SELECT})
-            res = self._get(f"{self.base_url}/works/https://doi.org/{doi}", params)
+            res = self._get(f"{self.base_url}/works/https://doi.org/{path}", params)
             if res.status_code == 404:
                 return []
             works = [self._json(res) or {}]

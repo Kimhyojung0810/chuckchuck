@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ from chuckchuck import _deck_lines as DL
 from chuckchuck import _evidence as E
 from chuckchuck._claim_quote import slide_lines
 from chuckchuck._graph_items import deck_lines as graph_deck_lines
+from chuckchuck.contracts import PaperError as PaperErrorLike
 from chuckchuck.providers import scholar_impl as si
 from chuckchuck.providers.scholar_base import ScholarCallError
 from chuckchuck.providers.scholar_impl import OpenAlexScholar, get_scholar
@@ -191,13 +193,22 @@ def fake_get(monkeypatch, res):
 @pytest.fixture
 def oa_env(monkeypatch):
     """OpenAlex 설정 환경변수를 비우고(.env 가 넣었을 수 있다), 통로 줄 간격을 0 으로, 설정 알림 기록을 비운다."""
-    for name in ("OPENALEX_API_KEY", "OPENALEX_MAILTO", "SCHOLAR_MAILTO", "S2_API_KEY", "OPENALEX_BASE_URL"):
+    for name in ("OPENALEX_API_KEY", "OPENALEX_MAILTO", "SCHOLAR_MAILTO", "S2_API_KEY", "OPENALEX_BASE_URL", "S2_BASE_URL"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(si, "LANES", {n: (slots, 0.0) for n, (slots, _) in si.LANES.items()})
     monkeypatch.setattr(si, "_OPENALEX_NOTED", set())
+    monkeypatch.setattr(si, "_keyless_noted_at", None)
     si.reset_lanes()
     yield monkeypatch
     si.reset_lanes()
+
+
+def closed_local_url() -> str:
+    """이 기계의 닫힌 포트 주소 — 진짜 requests 가 곧바로 연결 거부를 낸다 (바깥으로 나가지 않는다)."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    return f"http://127.0.0.1:{port}"
 
 
 def test_2_OPENALEX_MAILTO_는_mailto_쿼리로_가고_키가_없으면_머리도_없다(oa_env):
@@ -233,12 +244,14 @@ def test_2_OPENALEX_API_KEY_는_Authorization_머리로_보내고_주소에는_�
         assert FAKE_KEY not in c["url"] and FAKE_KEY not in json.dumps(c["params"]) and "api_key" not in c["params"]
 
 
-@pytest.mark.parametrize("err,kind", [
-    (requests.ConnectionError, "network"),
-    (requests.ConnectTimeout, "timeout"),
+@pytest.mark.parametrize("err,kind,code", [
+    (requests.ConnectionError, "network", "upstream_unavailable"),
+    (requests.ConnectTimeout, "timeout", "upstream_timeout"),
 ])
-def test_2_연결_오류_문구에_키와_메일이_없고_예외_사슬도_잇지_않는다(oa_env, err, kind):
-    """requests 의 연결 오류 문구는 요청 주소를 쿼리째 싣는다 — 브리지가 찍는 traceback 에 이어진 예외 문구도 나온다."""
+def test_2_연결_오류_문구에_키와_메일이_없고_예외_사슬에_원래_예외가_없다(oa_env, err, kind, code):
+    """requests 의 연결 오류 문구는 요청 주소를 쿼리째 싣고, 예외는 `.request` 에 머리(키)를 든다 — 브리지가 찍는 traceback 에
+    이어진 예외가 그대로 나온다. 원인에는 같은 종류의 **빈** 예외만 단다 — 브리지가 그 종류로 503 을 가른다."""
+    import demo.bridge as bridge
     oa_env.setenv("OPENALEX_API_KEY", FAKE_KEY)
     oa_env.setenv("OPENALEX_MAILTO", FAKE_MAIL)
     boom = err("HTTPSConnectionPool(host='api.openalex.org', port=443): Max retries exceeded with url: "
@@ -249,7 +262,83 @@ def test_2_연결_오류_문구에_키와_메일이_없고_예외_사슬도_잇�
     msg = str(ei.value)
     assert ei.value.kind == kind and "***" in msg
     assert FAKE_MAIL not in msg and "team%40example.com" not in msg and FAKE_KEY not in msg
-    assert ei.value.__cause__ is None and ei.value.__suppress_context__
+    cause = ei.value.__cause__
+    assert ei.value.__context__ is None and cause is not boom and isinstance(cause, err)
+    assert getattr(cause, "request", None) is None and FAKE_KEY not in str(cause) and "team%40example.com" not in str(cause)
+    assert bridge._upstream_error(ei.value)[1]["error"] == code          # 브리지의 503 가르기는 예전 그대로
+
+
+def test_2_진짜_requests_연결_오류_문구도_가린다(oa_env):
+    """손으로 쓴 문구가 아니라 requests·urllib3 가 실제로 만든 문구 — 닫힌 로컬 포트로 보낸다 (이 기계 주소라 키도 싣는다)."""
+    oa_env.setenv("OPENALEX_BASE_URL", closed_local_url())
+    oa_env.setenv("OPENALEX_API_KEY", FAKE_KEY)
+    oa_env.setenv("OPENALEX_MAILTO", "team+qa@example.com")
+    with pytest.raises(ScholarCallError) as ei:
+        OpenAlexScholar().search(QUERY, limit=1)
+    row = si.status_of_error("openalex", ei.value)
+    for text in (str(ei.value), str(ei.value.__cause__), row["error"]):
+        assert "example.com" not in text and "team%2Bqa" not in text and FAKE_KEY not in text, text
+    assert ei.value.kind == "network" and "***" in str(ei.value) and ei.value.__context__ is None
+
+
+def test_2_머리_오류는_값을_싣지_않은_정해진_문구다(oa_env):
+    """requests 의 머리 오류(InvalidHeader)는 값을 repr 로(줄바꿈이 「\\n」 두 글자) 싣는다 — 날값 대조로는 못 가렸다 (보안 검토 M1).
+    OpenAlex 는 그런 값을 아예 안 보내고(아래), 키를 그대로 머리에 싣는 다른 통로(Semantic Scholar)도 값 없는 문구로 끝난다."""
+    oa_env.setenv("S2_BASE_URL", closed_local_url())                   # 머리 검사에서 멈추지만, 혹시라도 바깥으로는 안 나간다
+    with pytest.raises(ScholarCallError) as ei:
+        si.SemanticScholarScholar(api_key="s2-test\n0000").search(QUERY, limit=1)
+    assert ei.value.kind == "network" and "s2-test" not in str(ei.value) and "0000" not in str(ei.value)
+    # 가리기도 repr·unicode_escape 꼴과 소문자 머리 이름·소문자 %xx 를 가린다
+    key = "oa-test\n0000"
+    text = f"Invalid header value: {('Bearer ' + key)!r} · url /works?mailto=team%2bqa%40example.com · TEAM+QA@EXAMPLE.COM"
+    oa_env.setenv("SCHOLAR_MAILTO", "team+qa@example.com")
+    out = si._redact(text, headers={"authorization": "Bearer " + key})
+    assert "oa-test" not in out and "example.com" not in out.lower() and "team%2bqa" not in out.lower()
+
+
+def test_2_형식이_틀린_키와_메일은_보내지_않고_형식_오류로만_알린다(oa_env, capsys):
+    oa_env.setenv("OPENALEX_API_KEY", "oa-test\n0000")                  # 줄바꿈 — requests 머리 오류
+    oa_env.setenv("SCHOLAR_MAILTO", "팀 메일")                            # 한글·빈칸 — 모든 통로의 User-Agent 가 깨진다
+    calls = fake_get(oa_env, Res(payload={"results": [WORK]}))
+    assert OpenAlexScholar().search(QUERY, limit=1)
+    assert "Authorization" not in calls[0]["headers"] and "mailto" not in calls[0]["params"]
+    assert calls[0]["headers"]["User-Agent"].isascii() and si._mailto() == ""
+    err = capsys.readouterr().err
+    assert "[scholar] openalex mailto 형식 오류 · api_key 형식 오류" in err and "oa-test" not in err and "팀 메일" not in err
+    # .env 줄 끝 주석이 붙은 값(「키 # 메모」)도 빈칸이라 쓰지 않는다
+    assert si._config_value("oa-test-0000 # 메모") == ("", "형식 오류") and si._config_value(FAKE_KEY) == (FAKE_KEY, "설정됨")
+
+
+def test_2_https_가_아닌_주소에는_키를_싣지_않는다(oa_env, capsys):
+    oa_env.setenv("OPENALEX_API_KEY", FAKE_KEY)
+    oa_env.setenv("OPENALEX_BASE_URL", "http://mirror.example.org")
+    calls = fake_get(oa_env, Res(payload={"results": [WORK]}))
+    OpenAlexScholar().search(QUERY, limit=1)
+    assert "Authorization" not in calls[0]["headers"]
+    assert "api_key 보류(https 아님)" in capsys.readouterr().err
+    oa_env.setenv("OPENALEX_BASE_URL", "http://127.0.0.1:8123")        # 이 기계(실험실 가짜 서버)는 싣는다
+    OpenAlexScholar().search(QUERY, limit=1)
+    assert calls[1]["headers"]["Authorization"] == "Bearer " + FAKE_KEY
+
+
+def test_2_통로_밖_예외와_그대로_실은_본문도_값을_가린다(oa_env):
+    """부르는 곳마다 가리기를 빠뜨려도 마지막 자리(ScholarCallError·status_of_error)가 가린다 — arXiv 의 응답 본문, 통로 밖 예외."""
+    oa_env.setenv("OPENALEX_API_KEY", FAKE_KEY)
+    oa_env.setenv("OPENALEX_MAILTO", FAKE_MAIL)
+    assert FAKE_KEY not in str(ScholarCallError(f"arxiv 응답 500: echo {FAKE_KEY}", kind="http"))
+    for e in (RuntimeError(f"boom {FAKE_MAIL} {FAKE_KEY}"), PaperErrorLike(f"실패 {FAKE_MAIL}")):
+        row = si.status_of_error("x", e)
+        assert FAKE_KEY not in row["error"] and FAKE_MAIL not in row["error"], row
+
+
+def test_2_자료에서_읽은_DOI_는_경로_한_칸으로만_부른다(oa_env):
+    """자료가 DOI 자리에 쿼리·경로를 심으면 우리 키(하루 예산)로 다른 것을 부르게 된다 (보안 검토 INFO)."""
+    calls = fake_get(oa_env, Res(payload={"results": [WORK]}))
+    OpenAlexScholar().resolve("Reward timing in dog training", doi="10.1/x?per-page=200&filter=x")
+    assert calls[0]["url"].endswith("/works/https://doi.org/10.1/x%3Fper-page%3D200%26filter%3Dx")
+    OpenAlexScholar().resolve("Reward timing in dog training", doi="10.1/../../authors")
+    assert calls[1]["url"].endswith("/works") and "title.search" in calls[1]["params"]["filter"]   # DOI 로 안 부르고 제목으로
+    assert si._doi_path("10.1016/S0022-3913(98)90121-1") == "10.1016/S0022-3913%2898%2990121-1"
 
 
 def test_2_오류_응답_본문이_값을_되읊어도_가린다(oa_env):
@@ -268,19 +357,25 @@ def test_2_가리기는_날값과_주소_인코딩_값을_모두_가린다(oa_en
     assert "example.com" not in out and FAKE_KEY not in out and out.count("***") == 3
 
 
-def test_2_키_없이_받은_하루_한도_429_는_키를_넣으라고_덧붙인다(oa_env):
-    """09-30: 키 없는 하루 예산을 이 서버 IP 가 다 써서 Retry-After ≈ 5.4시간. 몇 시간을 요청 안에서 기다리지 않는다."""
+def test_2_키_없이_받은_하루_한도_429_는_운영자_로그에만_키_이야기를_적는다(oa_env, capsys):
+    """09-30: 키 없는 하루 예산을 이 서버 IP 가 다 써서 Retry-After ≈ 5.4시간. 몇 시간을 요청 안에서 기다리지 않는다.
+    통로 사정(오류 문구)은 공개 응답(/papers)에 실리므로 「키 없이 돈다」 는 stderr 에만, 쉬는 동안 한 번만 적는다."""
     calls = fake_get(oa_env, Res(status=429, text="daily budget exhausted", headers={"Retry-After": "19517"}))
     with pytest.raises(ScholarCallError) as ei:
         OpenAlexScholar().search(QUERY, limit=1)
-    assert ei.value.kind == "rate_limited" and "api_key 없음" in str(ei.value) and "OPENALEX_API_KEY" in str(ei.value)
+    assert ei.value.kind == "rate_limited" and "api_key" not in str(ei.value) and "OPENALEX_API_KEY" not in str(ei.value)
     assert len(calls) == 1                                        # 다시 묻지 않는다
-    # 키가 있는데도 받은 429 는 덧붙이지 않는다 — 값도 안 싣는다
+    with pytest.raises(ScholarCallError):                         # 쉬는 중 — 보내지 않고, 로그도 다시 안 찍는다
+        OpenAlexScholar().search(QUERY, limit=1)
+    assert capsys.readouterr().err.count("openalex 429 — api_key 없음") == 1 and len(calls) == 1
+    # 키가 있는데도 받은 429 는 키 이야기를 안 한다 — 값도 안 싣는다
     si.reset_lanes()
     oa_env.setenv("OPENALEX_API_KEY", FAKE_KEY)
+    oa_env.setattr(si, "_keyless_noted_at", None)
     with pytest.raises(ScholarCallError) as ei2:
         OpenAlexScholar().search(QUERY, limit=1)
-    assert ei2.value.kind == "rate_limited" and "OPENALEX_API_KEY" not in str(ei2.value) and FAKE_KEY not in str(ei2.value)
+    assert ei2.value.kind == "rate_limited" and FAKE_KEY not in str(ei2.value)
+    assert "api_key 없음" not in capsys.readouterr().err
 
 
 def test_2_설정_상태는_설정됨_없음만_상태마다_한_번_적는다(oa_env, capsys):
