@@ -289,9 +289,13 @@ function g3dData(src) {
   const verdictOf = {};
   const noteOf = {};
   const speechOf = {};
-  ((src.alignment && src.alignment.items) || []).forEach((it) => {
+  /* 녹음이 이 자료의 발표가 아니면 정합은 판정을 하지 않았다(F-11 basis skipped) — item 이 missing 이어도 「아직 설명하지
+     않았어요」 빨강이 아니라 판정 전 색이다. 까닭(note)은 남긴다 (09-30 녹음 대화 감사 REC-10) */
+  const al = src.alignment || {};
+  const unjudged = al.speech_match === 'unrelated' || al.basis === 'skipped';
+  (al.items || []).forEach((it) => {
     if (!it || !it.node_id) return;
-    verdictOf[it.node_id] = it.verdict || '';
+    verdictOf[it.node_id] = unjudged ? '' : (it.verdict || '');
     noteOf[it.node_id] = it.note || it.evidence || '';
     speechOf[it.node_id] = it.speech_weight || 0;
   });
@@ -350,7 +354,7 @@ function g3dData(src) {
     (kin[l.target] || (kin[l.target] = new Set())).add(l.source);
   });
   shown.forEach((n) => { n.kin = kin[n.id] || new Set(); });
-  return { nodes: shown, links, total: nodes.length, totalLinks: (src.graph.edges || []).length };
+  return { nodes: shown, links, total: nodes.length, totalLinks: (src.graph.edges || []).length, unjudged };
 }
 
 
@@ -374,9 +378,13 @@ function g3dSubject(word) {
  * 숫자가 말해야 한다 — 특히 «자료가 힘줬는데 아직 말 안 한 개념»이 몇 개인가.
  * 전부 코드가 세는 값이라 지어낸 숫자가 아니다 (UI_REDESIGN §14).
  */
-function g3dSummaryHtml(nodes) {
+function g3dSummaryHtml(nodes, unjudged = false) {
   const judged = nodes.filter((n) => n.verdict);
-  if (!judged.length) return '<span class="g3d-sum-pending">판정은 아직이에요</span>';
+  if (!judged.length) {
+    return unjudged
+      ? '<span class="g3d-sum-pending">녹음이 이 자료의 발표가 아니라서 판정하지 않았어요</span>'
+      : '<span class="g3d-sum-pending">판정은 아직이에요</span>';
+  }
   const by = (v) => judged.filter((n) => n.verdict === v).length;
   return `
     <b class="g3d-k ok"><i></i>잘 설명함 ${by('aligned')}</b>
@@ -391,7 +399,14 @@ function g3dPriority(nodes) {
     .sort((a, b) => b.weight - a.weight)[0] || null;
 }
 
-function g3dInsightHtml(nodes) {
+function g3dInsightHtml(nodes, unjudged = false) {
+  /* 판정이 하나도 없으면 칭찬할 근거도 없다 — 예전엔 고칠 개념이 없다는 이유로 「핵심 개념을 안정적으로 설명했어요」 를 띄웠다.
+     녹음이 이 자료의 발표가 아니면 할 일은 녹음을 다시 올리는 것이다 (09-30 REC-10) */
+  if (!nodes.some((n) => n.verdict)) {
+    return unjudged
+      ? '<span class="g3d-diagnosis-label">이번 발표 진단</span><b>이 자료로 발표한 녹음을 다시 올려 주세요</b><p>녹음이 이 자료의 발표가 아니라서 개념마다 설명했는지 보지 않았어요.</p>'
+      : '<span class="g3d-diagnosis-label">이번 발표 진단</span><b>개념 판정이 아직 없어요</b><p>발표 녹음과 자료를 맞춰 보면 개념마다 설명했는지 알려 줄게요.</p>';
+  }
   const priority = g3dPriority(nodes);
   if (!priority) return '<span class="g3d-diagnosis-label">이번 발표 진단</span><b>핵심 개념을 안정적으로 설명했어요</b><p>연결 개념을 질문으로 점검하면 더 단단해져요.</p>';
   return `<span class="g3d-diagnosis-label">가장 먼저 고칠 개념 · ${escapeHtml(priority.label)}</span>
@@ -445,8 +460,8 @@ function renderGraph3D() {
           <h1>개념 그래프</h1>
           <p><strong>${data.total}개의 개념</strong> · <strong>${data.totalLinks}개의 연결</strong></p>
         </div>
-        <div class="g3d-summary">${g3dSummaryHtml(data.nodes)}</div>
-        <div class="g3d-insight">${g3dInsightHtml(data.nodes)}</div>
+        <div class="g3d-summary">${g3dSummaryHtml(data.nodes, data.unjudged)}</div>
+        <div class="g3d-insight">${g3dInsightHtml(data.nodes, data.unjudged)}</div>
       </div>
       <div class="g3d-workspace">
         <section class="g3d-graphpane">
@@ -790,7 +805,7 @@ function mountGraphCard(prefix) {
     // 자른 사실을 여기서도 말한다 — 안 그러면 «자료에 개념이 12개뿐» 으로 읽힌다
     const clip = data.total > data.nodes.length
       ? `<span class="g3d-clip">개념 ${data.total}개 중 자료가 힘준 ${data.nodes.length}개예요</span>` : '';
-    sum.innerHTML = g3dSummaryHtml(data.nodes) + clip;
+    sum.innerHTML = g3dSummaryHtml(data.nodes, data.unjudged) + clip;
   }
   const card = document.getElementById(`${prefix}Card`);
   const start = () => {

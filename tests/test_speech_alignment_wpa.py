@@ -429,24 +429,41 @@ def test_unrelated_talk_rubric_skips_speech_items_and_report_does_not_praise_con
     got = score_rubric(situation="school_project", slides=LIB, alignment=doc, transcript=t, llm="mock")
     for no in (1, 2, 4, 8, 27, 30):
         assert got.item(no).status == "unmeasured" and "발표가 아니라서" in got.item(no).note
-    # 말 내용을 빼면 자료·목소리 항목만 남아 점수가 오른다 — 「이 자료의 발표」 로는 가장 낮은 상한 (09-30: 38 → 81 「A」 였다)
+    # 녹음 자체로 재는 항목(말하기 습관·속도·간투어·정적·총 길이)도 이 발표의 값이 아니다 — 0점이 아니라 못 쟀다 (09-30 REC-10:
+    # 다른 발표 녹음인데 「여기부터 보세요: 시간 관리 0/100」·「말 속도를 … 빠르게 연습」 이었다)
+    for no in (17, 19, 20, 21, 22, 23, 24, 31):
+        assert got.item(no).status == "unmeasured" and "발표가 아니라서" in got.item(no).note, no
+    assert {i.no for i in got.items if i.status == "scored"} <= {34, 35, 36, 37, 38, 39}   # 남는 건 자료만 보는 항목
+    # 녹음으로 재는 것을 빼면 자료 항목만 남아 점수가 오른다 — 「이 자료의 발표」 로는 가장 낮은 상한 (09-30: 38 → 81 「A」 였다)
     from chuckchuck.f14_rubric import CAP_FLOOR
     assert got.cap == CAP_FLOOR and got.score <= CAP_FLOOR and [f.kind for f in got.faults] == ["unrelated_speech"]
-    assert "다른 발표" in got.note
+    assert "다른 발표" in got.note and "말하기 습관만 봤" not in got.note
 
     class Praise(LLMProvider):
         name = "praise"
 
+        def __init__(self):
+            self.calls = 0
+
         def complete(self, **_):
+            self.calls += 1
             return json.dumps({"one_liner": "모든 슬라이드를 꼼꼼히 설명했어요",
                                "strengths": ["파일럿 결과를 구체적으로 제시했어요", "말 속도가 일정해요"],
-                               "weaknesses": [], "actions": ["연습해 보세요"]}, ensure_ascii=False)
+                               "weaknesses": [], "actions": ["말 속도를 300~350자/분으로 빠르게 연습해 보세요"]},
+                              ensure_ascii=False)
 
-    rep = compose_report(PaceDoc(), __import__("chuckchuck").contracts.HabitDoc(), rubric=got, llm=Praise())
+    llm = Praise()
+    rep = compose_report(PaceDoc(), __import__("chuckchuck").contracts.HabitDoc(), rubric=got, llm=llm)
+    assert llm.calls == 0                               # 할 말이 「다시 올려 달라」 뿐이라 LLM 을 부르지 않는다
     assert "다른 발표" in rep.one_liner and "꼼꼼히" not in rep.one_liner
-    assert rep.strengths == ["말 속도가 일정해요"]
-    assert "다른 발표" in rep.weaknesses[0]
-    assert "녹음을 다시 올려" in rep.actions[0]
+    assert rep.strengths == []                          # 「말 속도가 일정해요」 도 이 발표의 값이 아니다
+    assert "다른 발표" in rep.weaknesses[0] and len(rep.weaknesses) == 1
+    assert rep.actions and all("자/분" not in a and "빠르게" not in a for a in rep.actions) and "녹음을 다시 올려" in rep.actions[0]
+    assert "재지 않았어요" in rep.pace_summary and "자/분" not in rep.pace_summary
+    assert "보지 않았어요" in rep.habit_summary
+    # 채점표가 폴백이라 결함 칸이 비어도 정합을 같이 보내면 알아본다
+    assert compose_report(PaceDoc(), __import__("chuckchuck").contracts.HabitDoc(), rubric=RubricScore(score=12),
+                          alignment=doc, llm=llm).strengths == [] and llm.calls == 0
 
 
 def test_report_leads_with_faults_and_drops_consistency_praise():
@@ -474,7 +491,7 @@ def _half_length_pace() -> PaceDoc:
     slides = [SlidePace(slide_no=i, importance="core", actual_sec=75.0, recommended_sec=150.0, delta_sec=-75.0,
                         status="short") for i in range(1, 5)]
     from chuckchuck.contracts import SectionAlloc
-    sections = [SectionAlloc("핵심(core)", [1, 2, 3, 4], recommended_sec=600.0, actual_sec=300.0, status="short")]
+    sections = [SectionAlloc("핵심 장", [1, 2, 3, 4], recommended_sec=600.0, actual_sec=300.0, status="short")]
     return PaceDoc(target_sec=600.0, actual_sec=300.0, slides=slides, sections=sections)
 
 

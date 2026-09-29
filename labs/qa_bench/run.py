@@ -566,7 +566,8 @@ def scaffold_choices(qd: dict, sd: dict, graph: dict) -> list[dict]:
     for q in qd.get("questions") or []:
         j = _scaffold_judgement(Question.from_dict(q), g, deck)
         out.append(dict(M.choice_quality(list(j.choices) if j else [], deck, q.get("evidence_quote", "")),
-                        q=q["id"], followup=j.followup if j else ""))
+                        q=q["id"], followup=j.followup if j else "",
+                        probe=((q.get("basis") or {}).get("probe") or {}).get("kind", "")))
     return out
 
 

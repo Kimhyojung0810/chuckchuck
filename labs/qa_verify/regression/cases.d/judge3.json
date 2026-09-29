@@ -1,0 +1,2152 @@
+{
+  "_note": "WP-J3 (qa/judge3) 회귀 사례 — cases.json 충돌을 피해 조각으로 옮김 (09-30 합류)",
+  "cases": [
+    {
+      "id": "gist_floor_probe_gist",
+      "title": "우리 골자를 글자 그대로 말한 답이 partial 70 「다만 구체적인 수치나 출처가 아직 제시되지 않아 근거가 부족해요」 — 같은 문장이 화면에는 「이렇게 말하면 완성이에요」 였다",
+      "origin": "09-30 standard 8c48180 전세 Q3(근거 없는 인과) · WP-J3 골자 바닥",
+      "kind": "judge_scripted",
+      "source": {
+        "file": "labs/qa_bench/corpus/policy_jeonse/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q03-jeongbo-gonggae",
+          "node_id": "jeongbo-gonggae",
+          "label": "정보 공개",
+          "question": "「예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화」라고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?",
+          "why": "원인과 결과를 말했지만 그 대목에 수치나 출처가 없어서 근거를 묻는 질문이에요",
+          "hint": "자료 3장의 그 문장 옆에 수치나 출처가 있는지부터 확인해 보세요.",
+          "severity": 2,
+          "trap": false,
+          "source": "unsupported_cause",
+          "slide_nos": [
+            3
+          ],
+          "doc_weight": 0.458,
+          "answer_gist": "자료 3장의 「예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 3,
+          "evidence_quote": "예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "unsupported_cause",
+            "slot": "weak",
+            "rank": 3,
+            "probe": {
+              "kind": "unsupported_cause",
+              "node_ids": [
+                "jeongbo-gonggae",
+                "guarantee-barrier"
+              ],
+              "claim_ids": [
+                "c03-37d9db"
+              ],
+              "angle": "「예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화」는 인과를 말하지만 그 줄에 수치·출처가 없다 — 그렇게 볼 수 있는 근거를 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 3,
+                  "quote": "예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화"
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 3,
+                "quote": "예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화"
+              }
+            ],
+            "checks": [
+              "probe_nodes_missing",
+              "probe_template",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_template",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "answer": "자료 3장의 「예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "react": "설명은 정확해요. 다만 구체적인 수치나 출처가 아직 제시되지 않아 근거가 부족해요.",
+          "summary_sentence": "요지는 맞지만 근거가 얕아요.",
+          "missing_points": [],
+          "followup": "구체적인 사례나 통계 자료가 있다면 어떤 것이 있을까요?"
+        },
+        "expect": {
+          "verdict_in": [
+            "good"
+          ],
+          "score_min": 80,
+          "react_forbid_regex": [
+            "다만",
+            "부족"
+          ],
+          "followup_forbid_regex": [
+            ".+"
+          ]
+        }
+      }
+    },
+    {
+      "id": "gist_floor_probe_gist_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 반납 안내 문자의 효과)",
+      "origin": "WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "inline": {
+          "slides": [
+            {
+              "slide_no": 1,
+              "text": "공유 자전거 되살리기\n대여 편의보다 중요한 반납 경험"
+            },
+            {
+              "slide_no": 2,
+              "text": "반납 경험 = 거치대 수 × 반납 안내 × 대여 편의"
+            },
+            {
+              "slide_no": 3,
+              "text": "해결해야 할 세 가지 문제\n거치대 부족\n반납 오류\n야간 도난"
+            },
+            {
+              "slide_no": 4,
+              "text": "제안\n거치대를 두 배로 늘리면 반납 오류를 줄일 수 있습니다.\n반납 안내 문자를 보내면 이용자가 늘어납니다.\n반납할 때마다 잠금 확인은 반드시 필요"
+            },
+            {
+              "slide_no": 5,
+              "text": "기대 효과\n거치대만 늘리면 반납 문제는 완전히 사라집니다."
+            },
+            {
+              "slide_no": 6,
+              "text": "운영 팁\n동네마다 이용 패턴이 다를 수 있어 시범 구역부터 시작합니다."
+            }
+          ]
+        }
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-cause",
+          "node_id": "notice",
+          "label": "반납 안내",
+          "slide_nos": [
+            4
+          ],
+          "evidence_slide_no": 4,
+          "evidence_quote": "반납 안내 문자를 보내면 이용자가 늘어납니다.",
+          "question": "「반납 안내 문자를 보내면 이용자가 늘어납니다」라고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?",
+          "answer_gist": "자료 4장의 「반납 안내 문자를 보내면 이용자가 늘어납니다」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요.",
+          "source": "unsupported_cause",
+          "basis": {
+            "source": "unsupported_cause",
+            "probe": {
+              "kind": "unsupported_cause",
+              "node_ids": [
+                "notice"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 4,
+                  "quote": "반납 안내 문자를 보내면 이용자가 늘어납니다."
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_template",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "answer": "자료 4장의 「반납 안내 문자를 보내면 이용자가 늘어납니다」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "react": "설명은 정확해요. 다만 구체적인 수치나 출처가 아직 제시되지 않아 근거가 부족해요.",
+          "summary_sentence": "요지는 맞지만 근거가 얕아요.",
+          "missing_points": [],
+          "followup": "구체적인 사례나 통계 자료가 있다면 어떤 것이 있을까요?"
+        },
+        "expect": {
+          "verdict_in": [
+            "good"
+          ],
+          "score_min": 80,
+          "react_forbid_regex": [
+            "다만",
+            "부족"
+          ],
+          "followup_forbid_regex": [
+            ".+"
+          ]
+        }
+      }
+    },
+    {
+      "id": "gist_not_restated_quote_split",
+      "title": "단정 탐침의 골자(인용 안에 「때마다」)를 그대로 말한 답이 「자료의 단정을 다시 말했어요」 55 — 절 나누기가 인용을 갈랐다",
+      "origin": "09-30 standard 3d12c92 수익률 Q3(단정의 경계) · WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "inline": {
+          "slides": [
+            {
+              "slide_no": 6,
+              "text": "원인 상세\n01. 과잉 매매 — 거래를 늘릴수록 성과가 낮아졌다\n연간 회전율 구간별 평균 수익률 (%)\n![image](/image/placeholder)\n- Chart Type: bar chart\n- The bar chart displays five categories with corresponding values: 7 for \"50% 미만\", 6 for \"50~150%\", 3 for \"150~400%\", 0 for \"400~1000%\", and -4 for \"1000% 초과\". The values decrease as the percentage thresholds increase, with the final category showing a negative value.\n| Category | Value |\n| --- | --- |\n| 50% 미만 | 7 |\n| 50~150% | 6 |\n| 150~400% | 3 |\n| 400~1000% | 0 |\n| 1000% 초과 | -4 |\n핵심 요지\n예외 없는 단조 감소\n구간 간 역전이 한 번도 없음\n비용은 확정, 수익은 불확실\n매매할 때마다 수수료·세금은 반드시 발생\n판단 횟수 ↑ = 오판 총량 ↑\n회당 오판률이 같아도 누적량이 증가\n매매 빈도는 실력 발휘 기회가 아니라 비용·오류 노출량을 결정한다"
+            }
+          ]
+        }
+      },
+      "args": {
+        "question": {
+          "id": "q02-overtrading",
+          "node_id": "overtrading",
+          "label": "과잉 매매",
+          "question": "매매할 때마다 수수료·세금은 반드시 발생한다는 주장의 경계는 무엇인가요?",
+          "why": "단정적으로 말한 대목이라 그 말이 통하지 않는 경우를 묻는 질문이에요",
+          "hint": "「반드시」라는 말이 들어맞지 않을 만한 상황을 하나 떠올려 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "absolute_boundary",
+          "slide_nos": [
+            5,
+            6,
+            13
+          ],
+          "doc_weight": 0.692,
+          "answer_gist": "자료 6장의 「매매할 때마다 수수료·세금은 반드시 발생」은 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 6,
+          "evidence_quote": "매매할 때마다 수수료·세금은 반드시 발생",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "absolute_boundary",
+            "slot": "weak",
+            "rank": 2,
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "overtrading"
+              ],
+              "claim_ids": [
+                "c06-d0c630"
+              ],
+              "angle": "「매매할 때마다 수수료·세금은 반드시 발생」는 단정이다 — 이 말이 들어맞지 않는 경우·경계를 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 6,
+                  "quote": "매매할 때마다 수수료·세금은 반드시 발생"
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 6,
+                "quote": "매매할 때마다 수수료·세금은 반드시 발생"
+              }
+            ],
+            "checks": [
+              "mentions_probe_nodes_partial",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "answer": "자료 6장의 「매매할 때마다 수수료·세금은 반드시 발생」은 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 75,
+          "react": "요지는 잡았어요.",
+          "summary_sentence": "",
+          "missing_points": [],
+          "followup": ""
+        },
+        "expect": {
+          "verdict_in": [
+            "good"
+          ],
+          "guard_in": [
+            ""
+          ],
+          "react_forbid_regex": [
+            "다시 말했어요"
+          ]
+        }
+      }
+    },
+    {
+      "id": "gist_not_restated_quote_split_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 「반납할 때마다 잠금 확인은 반드시 필요」)",
+      "origin": "WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-abs2",
+          "node_id": "error",
+          "label": "반납 오류",
+          "slide_nos": [
+            4
+          ],
+          "evidence_slide_no": 4,
+          "evidence_quote": "반납할 때마다 잠금 확인은 반드시 필요",
+          "question": "반납할 때마다 잠금 확인은 반드시 필요하다는 주장의 경계는 무엇인가요?",
+          "answer_gist": "자료 4장의 「반납할 때마다 잠금 확인은 반드시 필요」는 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+          "source": "absolute_boundary",
+          "basis": {
+            "source": "absolute_boundary",
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "error"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 4,
+                  "quote": "반납할 때마다 잠금 확인은 반드시 필요"
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "answer": "자료 4장의 「반납할 때마다 잠금 확인은 반드시 필요」는 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 75,
+          "react": "요지는 잡았어요.",
+          "summary_sentence": "",
+          "missing_points": [],
+          "followup": ""
+        },
+        "expect": {
+          "verdict_in": [
+            "good"
+          ],
+          "guard_in": [
+            ""
+          ],
+          "react_forbid_regex": [
+            "다시 말했어요"
+          ]
+        }
+      }
+    },
+    {
+      "id": "gap_absence_not_missing",
+      "title": "빈칸 탐침에 정직하게 「자료에 없어요」 — 「아직 안 나온 것: 피해 회복 지연을 개선하기 위한 구체적 방안」(골자가 없다고 한 그것) · 같은 답이 실행마다 70·50·55·75",
+      "origin": "09-30 standard 8c48180·4a7b750·3d12c92 전세 Q2(빈칸) · WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "file": "labs/qa_bench/corpus/policy_jeonse/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q02-delayed-recovery",
+          "node_id": "delayed-recovery",
+          "label": "피해 회복 지연",
+          "question": "피해 회복 지연을 개선하기 위한 구체적 방안은 무엇인가요?",
+          "why": "다른 요소에는 해결책을 냈는데 이 요소는 비어 있어서 묻는 질문이에요",
+          "hint": "자료가 해결책을 낸 문제와 피해 회복 지연을 나란히 놓고, 피해 회복 지연에 대한 방법이 있는지 확인해 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "unsolved",
+          "slide_nos": [
+            4
+          ],
+          "doc_weight": 0.636,
+          "answer_gist": "피해 회복 지연을 개선하는 방법은 아직 자료에 없어요 — 정보 비대칭에는 「정보 비대칭을 해소합니다」라는 해결책을 냈지만 피해 회복 지연은 아직 비어 있어요. 이 부분은 앞으로 보완할게요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 4,
+          "evidence_quote": "해결해야 할 세 가지 문제",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "unsolved",
+            "slot": "part",
+            "rank": 2,
+            "probe": {
+              "kind": "unsolved",
+              "node_ids": [
+                "delayed-recovery",
+                "information-asymmetry"
+              ],
+              "claim_ids": [
+                "c04-9a3f36",
+                "c05-5af5df",
+                "c05-fd2a80"
+              ],
+              "angle": "예방 체계의 요소 가운데 정보 비대칭에는 해결책이 있는데 피해 회복 지연을 개선하는 방법은 자료에 없다 — 피해 회복 지연은 어떻게 다루는지 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 4,
+                  "quote": "해결해야 할 세 가지 문제"
+                },
+                {
+                  "slide_no": 5,
+                  "quote": "정보 비대칭을 해소합니다."
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 4,
+                "quote": "해결해야 할 세 가지 문제"
+              },
+              {
+                "slide_no": 5,
+                "quote": "정보 비대칭을 해소합니다."
+              }
+            ],
+            "checks": [
+              "mentions_probe_nodes_partial",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "answer": "자료에는 그 내용이 나와 있지 않아요. 자료가 말하는 건 정보 비대칭을 해소한다고 하는 데까지예요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "react": "해소 방안까지는 짚었지만, 구체적 방안은 아직 자료에 없어요.",
+          "summary_sentence": "",
+          "missing_points": [
+            "피해 회복 지연을 개선하기 위한 구체적 방안"
+          ],
+          "followup": "피해 회복 지연을 개선하기 위한 구체적 방안 — 이 부분은 어떻게 봐요?"
+        },
+        "llm_variants": [
+          {
+            "verdict": "partial",
+            "score": 50,
+            "react": "해소 방안까지는 짚었지만, 구체적 방안은 아직 자료에 없어요.",
+            "summary_sentence": "",
+            "missing_points": [
+              "피해 회복 지연을 개선하기 위한 구체적 방안"
+            ],
+            "followup": "피해 회복 지연을 개선하기 위한 구체적 방안 — 이 부분은 어떻게 봐요?"
+          },
+          {
+            "verdict": "partial",
+            "score": 75,
+            "react": "해소 방안까지는 짚었지만, 구체적 방안은 아직 자료에 없어요.",
+            "summary_sentence": "",
+            "missing_points": [
+              "피해 회복 지연을 개선하는 구체적인 방법"
+            ],
+            "followup": "피해 회복 지연을 개선하는 구체적인 방법 — 이 부분은 어떻게 봐요?"
+          }
+        ],
+        "expect": {
+          "same_across": true,
+          "missing_forbid_regex": [
+            "구체적\\s*(?:인\\s*)?(?:방안|방법)"
+          ],
+          "hints_forbid_regex": [
+            "아직 안 나온 것: .*(?:방안|방법)"
+          ],
+          "followup_forbid_regex": [
+            "있었나요, 없었나요"
+          ]
+        }
+      }
+    },
+    {
+      "id": "gap_absence_not_missing_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 야간 도난 해결책이 자료에 없다)",
+      "origin": "WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-unsolved",
+          "node_id": "theft",
+          "label": "야간 도난",
+          "slide_nos": [
+            3
+          ],
+          "evidence_slide_no": 3,
+          "evidence_quote": "해결해야 할 세 가지 문제",
+          "question": "야간 도난을 개선하기 위한 구체적 방안은 무엇인가요?",
+          "answer_gist": "야간 도난을 개선하는 방법은 아직 자료에 없어요 — 반납 오류에는 「거치대를 두 배로 늘리면 반납 오류를 줄일 수 있습니다」라는 해결책을 냈지만 야간 도난은 아직 비어 있어요. 이 부분은 앞으로 보완할게요.",
+          "source": "unsolved",
+          "basis": {
+            "source": "unsolved",
+            "probe": {
+              "kind": "unsolved",
+              "node_ids": [
+                "theft",
+                "error"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 3,
+                  "quote": "해결해야 할 세 가지 문제"
+                },
+                {
+                  "slide_no": 4,
+                  "quote": "거치대를 두 배로 늘리면 반납 오류를 줄일 수 있습니다."
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "answer": "자료에는 그 내용이 나와 있지 않아요. 자료가 말하는 건 거치대를 늘려 반납 오류를 줄인다는 데까지예요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "react": "해소 방안까지는 짚었지만, 구체적 방안은 아직 자료에 없어요.",
+          "summary_sentence": "",
+          "missing_points": [
+            "야간 도난을 개선하기 위한 구체적 방안"
+          ],
+          "followup": "야간 도난을 개선하기 위한 구체적 방안 — 이 부분은 어떻게 봐요?"
+        },
+        "llm_variants": [
+          {
+            "verdict": "partial",
+            "score": 50,
+            "react": "해소 방안까지는 짚었지만, 구체적 방안은 아직 자료에 없어요.",
+            "summary_sentence": "",
+            "missing_points": [
+              "야간 도난을 개선하기 위한 구체적 방안"
+            ],
+            "followup": "야간 도난을 개선하기 위한 구체적 방안 — 이 부분은 어떻게 봐요?"
+          },
+          {
+            "verdict": "partial",
+            "score": 75,
+            "react": "해소 방안까지는 짚었지만, 구체적 방안은 아직 자료에 없어요.",
+            "summary_sentence": "",
+            "missing_points": [
+              "야간 도난을 막는 구체적인 방법"
+            ],
+            "followup": "야간 도난을 막는 구체적인 방법 — 이 부분은 어떻게 봐요?"
+          }
+        ],
+        "expect": {
+          "same_across": true,
+          "missing_forbid_regex": [
+            "구체적\\s*(?:인\\s*)?(?:방안|방법)"
+          ],
+          "hints_forbid_regex": [
+            "아직 안 나온 것: .*(?:방안|방법)"
+          ],
+          "followup_forbid_regex": [
+            "있었나요, 없었나요"
+          ]
+        }
+      }
+    },
+    {
+      "id": "no_reask_after_absence",
+      "title": "「자료에 없어요」 라고 한 다음 턴에 되물음 「…— 이건 자료에 있었나요, 없었나요?」 — 이미 답한 것을 되물었다",
+      "origin": "09-30 standard 8c48180 전세 Q2 · WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "file": "labs/qa_bench/corpus/policy_jeonse/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q02-delayed-recovery",
+          "node_id": "delayed-recovery",
+          "label": "피해 회복 지연",
+          "question": "피해 회복 지연을 개선하기 위한 구체적 방안은 무엇인가요?",
+          "why": "다른 요소에는 해결책을 냈는데 이 요소는 비어 있어서 묻는 질문이에요",
+          "hint": "자료가 해결책을 낸 문제와 피해 회복 지연을 나란히 놓고, 피해 회복 지연에 대한 방법이 있는지 확인해 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "unsolved",
+          "slide_nos": [
+            4
+          ],
+          "doc_weight": 0.636,
+          "answer_gist": "피해 회복 지연을 개선하는 방법은 아직 자료에 없어요 — 정보 비대칭에는 「정보 비대칭을 해소합니다」라는 해결책을 냈지만 피해 회복 지연은 아직 비어 있어요. 이 부분은 앞으로 보완할게요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 4,
+          "evidence_quote": "해결해야 할 세 가지 문제",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "unsolved",
+            "slot": "part",
+            "rank": 2,
+            "probe": {
+              "kind": "unsolved",
+              "node_ids": [
+                "delayed-recovery",
+                "information-asymmetry"
+              ],
+              "claim_ids": [
+                "c04-9a3f36",
+                "c05-5af5df",
+                "c05-fd2a80"
+              ],
+              "angle": "예방 체계의 요소 가운데 정보 비대칭에는 해결책이 있는데 피해 회복 지연을 개선하는 방법은 자료에 없다 — 피해 회복 지연은 어떻게 다루는지 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 4,
+                  "quote": "해결해야 할 세 가지 문제"
+                },
+                {
+                  "slide_no": 5,
+                  "quote": "정보 비대칭을 해소합니다."
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 4,
+                "quote": "해결해야 할 세 가지 문제"
+              },
+              {
+                "slide_no": 5,
+                "quote": "정보 비대칭을 해소합니다."
+              }
+            ],
+            "checks": [
+              "mentions_probe_nodes_partial",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "prior": [
+          "자료에는 그 내용이 나와 있지 않아요. 자료가 말하는 건 정보 비대칭을 해소한다고 하는 데까지예요."
+        ],
+        "answer": "자료에서는 정보 비대칭을 해소한다고 해요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "react": "정보 비대칭 해소까지는 짚었어요.",
+          "summary_sentence": "",
+          "missing_points": [
+            "정보 공개가 피해를 줄이는 과정"
+          ],
+          "followup": "정보 공개가 피해를 줄이는 과정 — 이건 자료에 있었나요, 없었나요?"
+        },
+        "expect": {
+          "followup_forbid_regex": [
+            "있었나요, 없었나요",
+            "^앞으로 어떻게"
+          ]
+        }
+      }
+    },
+    {
+      "id": "no_reask_after_absence_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거)",
+      "origin": "WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-unsolved",
+          "node_id": "theft",
+          "label": "야간 도난",
+          "slide_nos": [
+            3
+          ],
+          "evidence_slide_no": 3,
+          "evidence_quote": "해결해야 할 세 가지 문제",
+          "question": "야간 도난을 개선하기 위한 구체적 방안은 무엇인가요?",
+          "answer_gist": "야간 도난을 개선하는 방법은 아직 자료에 없어요 — 반납 오류에는 「거치대를 두 배로 늘리면 반납 오류를 줄일 수 있습니다」라는 해결책을 냈지만 야간 도난은 아직 비어 있어요. 이 부분은 앞으로 보완할게요.",
+          "source": "unsolved",
+          "basis": {
+            "source": "unsolved",
+            "probe": {
+              "kind": "unsolved",
+              "node_ids": [
+                "theft",
+                "error"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 3,
+                  "quote": "해결해야 할 세 가지 문제"
+                },
+                {
+                  "slide_no": 4,
+                  "quote": "거치대를 두 배로 늘리면 반납 오류를 줄일 수 있습니다."
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "prior": [
+          "자료에는 그 내용이 나와 있지 않아요. 자료가 말하는 건 거치대를 늘려 반납 오류를 줄인다는 데까지예요."
+        ],
+        "answer": "자료에서는 거치대를 늘리면 반납 오류가 준다고 해요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "react": "반납 오류 이야기는 짚었어요.",
+          "summary_sentence": "",
+          "missing_points": [
+            "반납 안내가 오류를 줄이는 과정"
+          ],
+          "followup": "반납 안내가 오류를 줄이는 과정 — 이건 자료에 있었나요, 없었나요?"
+        },
+        "expect": {
+          "followup_forbid_regex": [
+            "있었나요, 없었나요",
+            "^앞으로 어떻게"
+          ]
+        }
+      }
+    },
+    {
+      "id": "probe_stance_choices",
+      "title": "단정 탐침의 「모르겠어요」 첫 단계가 「'부하' 쪽인가요, '완전히' 쪽인가요?」 — 탐침은 입장(늘 맞나·조건이 붙나)을 묻고, 칩 답은 LLM 없이 읽는다",
+      "origin": "09-30 standard 8c48180·3d12c92 혈당 Q1(단정의 경계) · WP-J3 contracts.PROBE_STANCES",
+      "kind": "stuck_ladder",
+      "source": {
+        "file": "labs/qa_bench/corpus/health_glucose/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q04-blood-spike",
+          "node_id": "blood-spike",
+          "label": "혈당 스파이크",
+          "question": "식사 순서만 바꾸면 혈당 스파이크를 완전히 막을 수 있다는 단정이 맞지 않는 경우는 무엇인가요?",
+          "why": "단정적으로 말한 대목이라 그 말이 통하지 않는 경우를 묻는 질문이에요",
+          "hint": "「완전히」라는 말이 들어맞지 않을 만한 상황을 하나 떠올려 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "absolute_boundary",
+          "slide_nos": [
+            2,
+            4
+          ],
+          "doc_weight": 0.969,
+          "answer_gist": "자료 5장의 「식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다」는 모든 경우에 그렇다고 단정할 수는 없어요. 자료 7장에도 「개인에 따라 반응이 다를 수 있으니 무리하지 마세요」라고 적었어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 5,
+          "evidence_quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다.",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "absolute_boundary",
+            "slot": "theme",
+            "rank": 4,
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "blood-spike"
+              ],
+              "claim_ids": [
+                "c05-81a1da"
+              ],
+              "angle": "「식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다.」는 단정이다 — 이 말이 들어맞지 않는 경우·경계를 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 5,
+                  "quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다."
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 5,
+                "quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다."
+              }
+            ],
+            "checks": [
+              "mentions_probe_nodes",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "llm_followup": "이 장이 말하는 건 '부하' 쪽인가요, '완전히' 쪽인가요?",
+        "llm_choices": [
+          "부하",
+          "완전히"
+        ],
+        "chips": [
+          {
+            "answer": "조건이 붙어요",
+            "verdict_in": [
+              "partial"
+            ],
+            "followup_forbid_regex": [
+              "완전히 막기 위해"
+            ]
+          },
+          {
+            "answer": "늘 맞아요",
+            "verdict_in": [
+              "wrong"
+            ]
+          }
+        ],
+        "expect": {
+          "choices_equal": [
+            "늘 맞아요",
+            "조건이 붙어요"
+          ],
+          "narrow_forbid_regex": [
+            "쪽인가요"
+          ],
+          "choices_forbid": [
+            "부하",
+            "완전히"
+          ]
+        }
+      }
+    },
+    {
+      "id": "probe_stance_choices_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 「거치대만 늘리면 반납 문제는 완전히 사라집니다」)",
+      "origin": "WP-J3",
+      "kind": "stuck_ladder",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-abs",
+          "node_id": "rack",
+          "label": "거치대 부족",
+          "slide_nos": [
+            5
+          ],
+          "evidence_slide_no": 5,
+          "evidence_quote": "거치대만 늘리면 반납 문제는 완전히 사라집니다.",
+          "question": "거치대만 늘리면 반납 문제가 완전히 사라진다는 단정이 맞지 않는 경우는 무엇인가요?",
+          "answer_gist": "자료 5장의 「거치대만 늘리면 반납 문제는 완전히 사라집니다」는 모든 경우에 그렇다고 단정할 수는 없어요. 자료 6장에도 「동네마다 이용 패턴이 다를 수 있어 시범 구역부터 시작합니다」라고 적었어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+          "source": "absolute_boundary",
+          "basis": {
+            "source": "absolute_boundary",
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "rack"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 5,
+                  "quote": "거치대만 늘리면 반납 문제는 완전히 사라집니다."
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "llm_followup": "이 장이 말하는 건 '반납' 쪽인가요, '완전히' 쪽인가요?",
+        "llm_choices": [
+          "반납",
+          "완전히"
+        ],
+        "chips": [
+          {
+            "answer": "조건이 붙어요",
+            "verdict_in": [
+              "partial"
+            ]
+          },
+          {
+            "answer": "늘 맞아요",
+            "verdict_in": [
+              "wrong"
+            ]
+          }
+        ],
+        "expect": {
+          "choices_equal": [
+            "늘 맞아요",
+            "조건이 붙어요"
+          ],
+          "narrow_forbid_regex": [
+            "쪽인가요"
+          ],
+          "choices_forbid": [
+            "반납",
+            "완전히"
+          ]
+        }
+      }
+    },
+    {
+      "id": "scaffold_blank_not_in_question",
+      "title": "단정 탐침의 발판이 질문이 따지는 단정의 「완전히」 를 가렸다 — 질문에 보이는 말 말고 자료가 단 제한 조건(「___에 따라 반응이 다를 수 있으니」)을 가린다",
+      "origin": "09-30 standard 8c48180 혈당 Q1 발판 · WP-J3",
+      "kind": "stuck_ladder",
+      "source": {
+        "file": "labs/qa_bench/corpus/health_glucose/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q04-blood-spike",
+          "node_id": "blood-spike",
+          "label": "혈당 스파이크",
+          "question": "식사 순서만 바꾸면 혈당 스파이크를 완전히 막을 수 있다는 단정이 맞지 않는 경우는 무엇인가요?",
+          "why": "단정적으로 말한 대목이라 그 말이 통하지 않는 경우를 묻는 질문이에요",
+          "hint": "「완전히」라는 말이 들어맞지 않을 만한 상황을 하나 떠올려 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "absolute_boundary",
+          "slide_nos": [
+            2,
+            4
+          ],
+          "doc_weight": 0.969,
+          "answer_gist": "자료 5장의 「식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다」는 모든 경우에 그렇다고 단정할 수는 없어요. 자료 7장에도 「개인에 따라 반응이 다를 수 있으니 무리하지 마세요」라고 적었어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 5,
+          "evidence_quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다.",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "absolute_boundary",
+            "slot": "theme",
+            "rank": 4,
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "blood-spike"
+              ],
+              "claim_ids": [
+                "c05-81a1da"
+              ],
+              "angle": "「식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다.」는 단정이다 — 이 말이 들어맞지 않는 경우·경계를 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 5,
+                  "quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다."
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 5,
+                "quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다."
+              }
+            ],
+            "checks": [
+              "mentions_probe_nodes",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "expect": {
+          "blank_not_in_question": true,
+          "scaffold_forbid_regex": [
+            "완전히 ___",
+            "___ 막을 수"
+          ],
+          "scaffold_require_regex": [
+            "___에 따라 반응이 다를 수"
+          ]
+        }
+      }
+    },
+    {
+      "id": "scaffold_blank_not_in_question_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 「동네마다 이용 패턴이 다를 수 있어」)",
+      "origin": "WP-J3",
+      "kind": "stuck_ladder",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-abs",
+          "node_id": "rack",
+          "label": "거치대 부족",
+          "slide_nos": [
+            5
+          ],
+          "evidence_slide_no": 5,
+          "evidence_quote": "거치대만 늘리면 반납 문제는 완전히 사라집니다.",
+          "question": "거치대만 늘리면 반납 문제가 완전히 사라진다는 단정이 맞지 않는 경우는 무엇인가요?",
+          "answer_gist": "자료 5장의 「거치대만 늘리면 반납 문제는 완전히 사라집니다」는 모든 경우에 그렇다고 단정할 수는 없어요. 자료 6장에도 「동네마다 이용 패턴이 다를 수 있어 시범 구역부터 시작합니다」라고 적었어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.",
+          "source": "absolute_boundary",
+          "basis": {
+            "source": "absolute_boundary",
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "rack"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 5,
+                  "quote": "거치대만 늘리면 반납 문제는 완전히 사라집니다."
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "expect": {
+          "blank_not_in_question": true,
+          "scaffold_forbid_regex": [
+            "완전히 ___",
+            "___ 사라집니다"
+          ],
+          "scaffold_require_regex": [
+            "___마다 이용 패턴이 다를 수"
+          ]
+        }
+      }
+    },
+    {
+      "id": "hint_blank_not_label",
+      "title": "빈칸 탐침 힌트가 질문이 부른 개념 이름을 가렸다 — 「빈칸을 채워 보세요: ___을 개선하는 방법은 아직 자료에 없어요」",
+      "origin": "09-30 standard 8c48180 전세 Q2 힌트 3 · WP-J3",
+      "kind": "stuck_ladder",
+      "source": {
+        "file": "labs/qa_bench/corpus/policy_jeonse/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q02-delayed-recovery",
+          "node_id": "delayed-recovery",
+          "label": "피해 회복 지연",
+          "question": "피해 회복 지연을 개선하기 위한 구체적 방안은 무엇인가요?",
+          "why": "다른 요소에는 해결책을 냈는데 이 요소는 비어 있어서 묻는 질문이에요",
+          "hint": "자료가 해결책을 낸 문제와 피해 회복 지연을 나란히 놓고, 피해 회복 지연에 대한 방법이 있는지 확인해 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "unsolved",
+          "slide_nos": [
+            4
+          ],
+          "doc_weight": 0.636,
+          "answer_gist": "피해 회복 지연을 개선하는 방법은 아직 자료에 없어요 — 정보 비대칭에는 「정보 비대칭을 해소합니다」라는 해결책을 냈지만 피해 회복 지연은 아직 비어 있어요. 이 부분은 앞으로 보완할게요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 4,
+          "evidence_quote": "해결해야 할 세 가지 문제",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "unsolved",
+            "slot": "part",
+            "rank": 2,
+            "probe": {
+              "kind": "unsolved",
+              "node_ids": [
+                "delayed-recovery",
+                "information-asymmetry"
+              ],
+              "claim_ids": [
+                "c04-9a3f36",
+                "c05-5af5df",
+                "c05-fd2a80"
+              ],
+              "angle": "예방 체계의 요소 가운데 정보 비대칭에는 해결책이 있는데 피해 회복 지연을 개선하는 방법은 자료에 없다 — 피해 회복 지연은 어떻게 다루는지 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 4,
+                  "quote": "해결해야 할 세 가지 문제"
+                },
+                {
+                  "slide_no": 5,
+                  "quote": "정보 비대칭을 해소합니다."
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 4,
+                "quote": "해결해야 할 세 가지 문제"
+              },
+              {
+                "slide_no": 5,
+                "quote": "정보 비대칭을 해소합니다."
+              }
+            ],
+            "checks": [
+              "mentions_probe_nodes_partial",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "expect": {
+          "blank_not_in_question": true,
+          "hint_forbid_regex": [
+            "^빈칸을 채워 보세요: ___[을를] 개선하는"
+          ]
+        }
+      }
+    },
+    {
+      "id": "hint_blank_not_label_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 야간 도난)",
+      "origin": "WP-J3",
+      "kind": "stuck_ladder",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-unsolved",
+          "node_id": "theft",
+          "label": "야간 도난",
+          "slide_nos": [
+            3
+          ],
+          "evidence_slide_no": 3,
+          "evidence_quote": "해결해야 할 세 가지 문제",
+          "question": "야간 도난을 개선하기 위한 구체적 방안은 무엇인가요?",
+          "answer_gist": "야간 도난을 개선하는 방법은 아직 자료에 없어요 — 반납 오류에는 「거치대를 두 배로 늘리면 반납 오류를 줄일 수 있습니다」라는 해결책을 냈지만 야간 도난은 아직 비어 있어요. 이 부분은 앞으로 보완할게요.",
+          "source": "unsolved",
+          "basis": {
+            "source": "unsolved",
+            "probe": {
+              "kind": "unsolved",
+              "node_ids": [
+                "theft",
+                "error"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 3,
+                  "quote": "해결해야 할 세 가지 문제"
+                },
+                {
+                  "slide_no": 4,
+                  "quote": "거치대를 두 배로 늘리면 반납 오류를 줄일 수 있습니다."
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "expect": {
+          "blank_not_in_question": true,
+          "hint_forbid_regex": [
+            "^빈칸을 채워 보세요: ___[을를] 개선하는"
+          ]
+        }
+      }
+    },
+    {
+      "id": "stuck_p2_gist_condition",
+      "title": "WP-P2 새 단정 골자에서 「모르겠어요」 1단 react 가 「…완전히 막을 수 없다는 점을 짚어 줘서 감사해요」(하지 않은 말 칭찬·정답 흘림), 발판은 따지는 단정 인용의 「완전히」 를 가렸다",
+      "origin": "09-30 standard 4124984 혈당 Q1 (조정자) · WP-J3",
+      "kind": "stuck_ladder",
+      "source": {
+        "file": "labs/qa_bench/corpus/health_glucose/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q03-blood-spike",
+          "node_id": "blood-spike",
+          "label": "혈당 스파이크",
+          "question": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있다고 했는데, 이 말이 들어맞지 않는 경우나 조건이 있는지 설명해 주세요.",
+          "why": "단정적으로 말한 대목이라 그 말이 통하지 않는 경우를 묻는 질문이에요",
+          "hint": "「완전히」라는 말이 들어맞지 않을 만한 상황을 하나 떠올려 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "absolute_boundary",
+          "slide_nos": [
+            2,
+            4
+          ],
+          "doc_weight": 0.9,
+          "answer_gist": "「식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다」라고 단정할 수는 없어요 — 자료 7장에 적었듯 개인에 따라 반응이 다를 수 있어요. 이 조건을 붙여서 말할게요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 5,
+          "evidence_quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다.",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "absolute_boundary",
+            "slot": "part",
+            "rank": 3,
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "blood-spike"
+              ],
+              "claim_ids": [
+                "c05-81a1da"
+              ],
+              "angle": "「식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다.」는 예외 없이 말한 문장이다 — 이 말이 들어맞지 않는 경우나 조건이 있는지 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 5,
+                  "quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다."
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 5,
+                "quote": "식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다."
+              }
+            ],
+            "checks": [
+              "mentions_probe_nodes",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "llm_coach": {
+          "react": "식사 순서만으로 혈당 스파이크를 완전히 막을 수 없다는 점을 짚어 줘서 감사해요.",
+          "followup": "이 장이 말하는 건 '순서' 쪽인가요, '완전히' 쪽인가요?",
+          "choices": [
+            "순서",
+            "완전히"
+          ]
+        },
+        "llm_followup": "이 장이 말하는 건 '순서' 쪽인가요, '완전히' 쪽인가요?",
+        "llm_choices": [
+          "순서",
+          "완전히"
+        ],
+        "expect": {
+          "choices_equal": [
+            "늘 맞아요",
+            "조건이 붙어요"
+          ],
+          "blank_not_in_question": true,
+          "coach_react_forbid_regex": [
+            "감사",
+            "짚어 줘서",
+            "막을 수 없"
+          ],
+          "scaffold_forbid_regex": [
+            "완전히 ___",
+            "___ 막을 수"
+          ],
+          "scaffold_require_regex": [
+            "적었듯 ___에 따라 반응이 다를 수"
+          ]
+        }
+      }
+    },
+    {
+      "id": "stuck_p2_gist_condition_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 「동네마다 이용 패턴이 다를 수 있어요」)",
+      "origin": "WP-J3",
+      "kind": "stuck_ladder",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-abs",
+          "node_id": "rack",
+          "label": "거치대 부족",
+          "slide_nos": [
+            5
+          ],
+          "evidence_slide_no": 5,
+          "evidence_quote": "거치대만 늘리면 반납 문제는 완전히 사라집니다.",
+          "question": "거치대만 늘리면 반납 문제가 완전히 사라진다는 단정이 맞지 않는 경우는 무엇인가요?",
+          "answer_gist": "「거치대만 늘리면 반납 문제는 완전히 사라집니다」라고 단정할 수는 없어요 — 자료 6장에 적었듯 동네마다 이용 패턴이 다를 수 있어요. 이 조건을 붙여서 말할게요.",
+          "source": "absolute_boundary",
+          "basis": {
+            "source": "absolute_boundary",
+            "probe": {
+              "kind": "absolute_boundary",
+              "node_ids": [
+                "rack"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 5,
+                  "quote": "거치대만 늘리면 반납 문제는 완전히 사라집니다."
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "llm_coach": {
+          "react": "거치대만으로 반납 문제가 완전히 사라지지 않는다는 점을 짚어 줘서 감사해요.",
+          "followup": "이 장이 말하는 건 '반납' 쪽인가요, '완전히' 쪽인가요?",
+          "choices": [
+            "반납",
+            "완전히"
+          ]
+        },
+        "llm_followup": "이 장이 말하는 건 '반납' 쪽인가요, '완전히' 쪽인가요?",
+        "llm_choices": [
+          "반납",
+          "완전히"
+        ],
+        "expect": {
+          "choices_equal": [
+            "늘 맞아요",
+            "조건이 붙어요"
+          ],
+          "blank_not_in_question": true,
+          "coach_react_forbid_regex": [
+            "감사",
+            "짚어 줘서",
+            "사라지지 않"
+          ],
+          "scaffold_forbid_regex": [
+            "완전히 ___",
+            "___ 사라집니다"
+          ],
+          "scaffold_require_regex": [
+            "적었듯 ___마다 이용 패턴이 다를 수"
+          ]
+        }
+      }
+    },
+    {
+      "id": "polite_empty_not_pass",
+      "title": "공손한 빈말(「정말 중요한 포인트라고 생각하고 … 균형 잡힌 시각이 중요하다고 봐요」)이 「…보다 중요하다는 건」 질문에서 LLM partial 70 그대로 통과 — 겹친 말이 평가 말 「중요」 하나였다",
+      "origin": "09-30 standard fa02add 레드팀 polite_empty·자료 속 주입(3d12c92 코드도 같다) · WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "file": "labs/qa_bench/corpus/policy_jeonse/slidedoc.json",
+        "base": "harness"
+      },
+      "args": {
+        "question": {
+          "id": "q01-prevention",
+          "node_id": "prevention",
+          "label": "사전 예방",
+          "question": "처벌 강화도 예방 체계의 요소인데, 예방 체계가 처벌 강화보다 중요하다는 건 어떤 뜻인가요?",
+          "why": "자료 안의 두 표현이 서로 부딪혀서, 둘이 어떻게 함께 성립하는지 확인하는 질문이에요",
+          "hint": "두 문장이 각각 무엇을 말하는지 — 하나는 견주는 말, 하나는 구성 요소 — 나눠서 떠올려 보세요.",
+          "severity": 1,
+          "trap": false,
+          "source": "tension",
+          "slide_nos": [
+            1,
+            3
+          ],
+          "doc_weight": 0.684,
+          "answer_gist": "처벌 강화도 예방 체계의 요소예요 — 「예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화」. 그래서 「처벌 강화보다 중요한 예방 체계」는 처벌 강화 하나만 보지 말고 요소 전체를 함께 봐야 한다는 뜻이에요.",
+          "answer_gist_parts": [],
+          "evidence_slide_no": 3,
+          "evidence_quote": "예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화",
+          "speech_quote": "",
+          "paper_ids": [],
+          "basis": {
+            "source": "tension",
+            "slot": "theme",
+            "rank": 1,
+            "probe": {
+              "kind": "tension",
+              "node_ids": [
+                "prevention",
+                "punishment"
+              ],
+              "claim_ids": [
+                "c01-7b5cc5",
+                "c03-251ce3"
+              ],
+              "angle": "「처벌 강화보다 중요한 예방 체계」라면서 처벌 강화를 사전 예방의 요소로 둔다 — 두 말이 함께 성립하는 뜻을 묻는다",
+              "evidence": [
+                {
+                  "slide_no": 1,
+                  "quote": "처벌 강화보다 중요한 예방 체계"
+                },
+                {
+                  "slide_no": 3,
+                  "quote": "예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화"
+                }
+              ]
+            },
+            "evidence": [
+              {
+                "slide_no": 1,
+                "quote": "처벌 강화보다 중요한 예방 체계"
+              },
+              {
+                "slide_no": 3,
+                "quote": "예방 체계 = 정보 공개 × 보증 가입 × 처벌 강화"
+              }
+            ],
+            "checks": [
+              "probe_shape_mismatch",
+              "probe_template",
+              "why_from_probe",
+              "probe_evidence_quote",
+              "gist_template",
+              "gist_probe_code"
+            ],
+            "reason": [],
+            "background": [],
+            "contrast": [],
+            "contrast_quote": null
+          },
+          "trap_premise": null
+        },
+        "answer": "좋은 질문 감사해요. 그 부분은 정말 중요한 포인트라고 생각하고, 저희도 발표를 준비하면서 충분히 고민했던 부분이에요. 여러 측면을 종합적으로 고려하면 결국 균형 잡힌 시각이 중요하다고 봐요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "summary_sentence": "",
+          "followup": "",
+          "react": "다만 '처벌 강화보다 중요한 예방 체계'가 왜 중요한지 구체적으로 설명하지 않았어요.",
+          "missing_points": []
+        },
+        "llm_variants": [
+          {
+            "verdict": "partial",
+            "score": 75,
+            "summary_sentence": "",
+            "followup": "",
+            "react": "다만 '처벌 강화보다 중요한 예방 체계'가 왜 중요한지 구체적으로 설명하지 않았어요.",
+            "missing_points": []
+          }
+        ],
+        "expect": {
+          "passed": false,
+          "guard_in": [
+            "ungrounded"
+          ]
+        }
+      }
+    },
+    {
+      "id": "polite_empty_not_pass_neutral",
+      "title": "(위 사례의 처음 보는 분야 쌍둥이 — 공유 자전거: 「반납 경험이 대여 편의보다 중요하다는 건」)",
+      "origin": "WP-J3",
+      "kind": "judge_scripted",
+      "source": {
+        "inline_from": "gist_floor_probe_gist_neutral"
+      },
+      "args": {
+        "nodes": [
+          {
+            "id": "root",
+            "label": "공유 자전거",
+            "slide_nos": [
+              1
+            ],
+            "depth": 1,
+            "weight": 1.0
+          },
+          {
+            "id": "return",
+            "label": "반납 경험",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rack",
+            "label": "거치대 부족",
+            "slide_nos": [
+              3,
+              4,
+              5
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "error",
+            "label": "반납 오류",
+            "slide_nos": [
+              3,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "theft",
+            "label": "야간 도난",
+            "slide_nos": [
+              3
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "notice",
+            "label": "반납 안내",
+            "slide_nos": [
+              2,
+              4
+            ],
+            "parent_id": "root"
+          },
+          {
+            "id": "rent",
+            "label": "대여 편의",
+            "slide_nos": [
+              1,
+              2
+            ],
+            "parent_id": "root"
+          }
+        ],
+        "question": {
+          "id": "qn-tension",
+          "node_id": "return",
+          "label": "반납 경험",
+          "slide_nos": [
+            1,
+            2
+          ],
+          "evidence_slide_no": 2,
+          "evidence_quote": "반납 경험 = 거치대 수 × 반납 안내 × 대여 편의",
+          "question": "대여 편의도 반납 경험의 요소인데, 반납 경험이 대여 편의보다 중요하다는 건 어떤 뜻인가요?",
+          "answer_gist": "대여 편의도 반납 경험의 요소예요 — 「반납 경험 = 거치대 수 × 반납 안내 × 대여 편의」. 그래서 「대여 편의보다 중요한 반납 경험」은 대여 편의 하나만 보지 말고 요소 전체를 함께 봐야 한다는 뜻이에요.",
+          "source": "tension",
+          "basis": {
+            "source": "tension",
+            "probe": {
+              "kind": "tension",
+              "node_ids": [
+                "return",
+                "rent"
+              ],
+              "evidence": [
+                {
+                  "slide_no": 1,
+                  "quote": "대여 편의보다 중요한 반납 경험"
+                },
+                {
+                  "slide_no": 2,
+                  "quote": "반납 경험 = 거치대 수 × 반납 안내 × 대여 편의"
+                }
+              ]
+            },
+            "checks": [
+              "probe_evidence_quote",
+              "gist_probe_code"
+            ]
+          }
+        },
+        "answer": "좋은 질문 감사해요. 그 부분은 정말 중요한 포인트라고 생각하고, 저희도 발표를 준비하면서 충분히 고민했던 부분이에요. 여러 측면을 종합적으로 고려하면 결국 균형 잡힌 시각이 중요하다고 봐요.",
+        "llm": {
+          "verdict": "partial",
+          "score": 70,
+          "summary_sentence": "",
+          "followup": "",
+          "react": "다만 '처벌 강화보다 중요한 예방 체계'가 왜 중요한지 구체적으로 설명하지 않았어요.",
+          "missing_points": []
+        },
+        "llm_variants": [
+          {
+            "verdict": "partial",
+            "score": 75,
+            "summary_sentence": "",
+            "followup": "",
+            "react": "다만 '처벌 강화보다 중요한 예방 체계'가 왜 중요한지 구체적으로 설명하지 않았어요.",
+            "missing_points": []
+          }
+        ],
+        "expect": {
+          "passed": false,
+          "guard_in": [
+            "ungrounded"
+          ]
+        }
+      }
+    }
+  ]
+}

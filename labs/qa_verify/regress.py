@@ -16,6 +16,8 @@
 - align_contra            녹음 문장을 장마다 놓고 대상 F-11 코드 대조(`_align_checks.contradictions`)가 모순을 기대한 장·갈래
                           (number·direction·polarity)로 잡는지, 바르게 말한 문장은 안 잡는지 (09-30 녹음 감사 REC-01·02·03)
 - evidence_verified       대상 `_align_checks.resolve_evidence` 가 LLM 인용에서 녹음에 없는 문장을 빼는지 (REC-06)
+- judge_scripted          대상 `judge_answer` 에 실측의 LLM 판정을 넣고 코드가 낸 등급·결손·되물음·react 를 검사 (09-30 WP-J3)
+- stuck_ladder            「모르겠어요」 첫 단계 보기 · 발판 · 힌트 빈칸 · 칩 답 판정(LLM 없이)을 검사 (09-30 WP-J3)
 """
 
 from __future__ import annotations
@@ -432,6 +434,158 @@ def check_evidence_verified(doc: dict, args: dict) -> tuple[str, str, dict]:
     return "pass", f"근거 «{got[:60]}»" if got else "근거 비움 (개념을 받치는 말이 녹음에 없다)", obs
 
 
+def _judge_graph_of(args: dict, doc: dict):
+    """args.nodes(있으면)로 그래프 — f08_scripted 와 같은 꼴. 없으면 None."""
+    from chuckchuck.contracts import ConceptEdge, ConceptGraph, ConceptNode
+
+    if not args.get("nodes"):
+        return None
+    nodes = [ConceptNode(id=n["id"], label=n["label"], slide_nos=list(n.get("slide_nos") or []), summary=n.get("summary", ""),
+                         weight=float(n.get("weight", 0.5)), depth=int(n.get("depth", 2)), parent_id=n.get("parent_id"))
+             for n in args["nodes"]]
+    return ConceptGraph(file_name=doc.get("file_name", "case.pptx"), total_slides=len(doc.get("slides") or []), nodes=nodes,
+                        edges=[ConceptEdge(from_id=n.parent_id, to_id=n.id, kind="parent") for n in nodes if n.parent_id])
+
+
+def _forbid_llm():
+    from chuckchuck.providers.llm_base import LLMProvider
+
+    class Forbid(LLMProvider):
+        name = "forbid"
+
+        def complete(self, **kw):
+            raise RuntimeError("이 경로는 LLM 을 부르면 안 된다")
+
+    return Forbid()
+
+
+def check_judge_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
+    """
+    대상 `judge_answer` 에 **정해 둔 LLM 판정**(args.llm — 실측에서 LLM 이 한 말)을 넣고 코드가 낸 판정을 본다 (LLM 없음).
+    args.llm_variants 가 있으면 그 판정들 모두로 돌려 (등급, 점수)가 하나로 모이는지(`same_across`) 본다 — 실행마다 흔들리던 답.
+    expect: verdict_in · score_min · score_max · passed · guard_in · same_across ·
+            missing_forbid_regex · followup_forbid_regex · react_forbid_regex · hints_forbid_regex
+    """
+    from chuckchuck import judge_answer
+    from chuckchuck.f09_judge import clear_judge_cache
+
+    graph = _judge_graph_of(args, doc)
+    payloads = [args["llm"], *(args.get("llm_variants") or [])]
+    got = []
+    for payload in payloads:
+        clear_judge_cache()
+        j = judge_answer(args["question"], args["answer"], slidedoc=doc, graph=graph, prior_answers=list(args.get("prior") or []),
+                         history=list(args.get("history") or []), llm=make_scripted(payload)).to_dict()
+        got.append(j)
+    j = got[0]
+    exp = args.get("expect") or {}
+    problems = []
+    if exp.get("verdict_in") and j.get("verdict") not in exp["verdict_in"]:
+        problems.append(f"등급 {j.get('verdict')} ∉ {exp['verdict_in']}")
+    if exp.get("score_min") is not None and int(j.get("score") or 0) < exp["score_min"]:
+        problems.append(f"점수 {j.get('score')} < {exp['score_min']}")
+    if exp.get("score_max") is not None and int(j.get("score") or 0) > exp["score_max"]:
+        problems.append(f"점수 {j.get('score')} > {exp['score_max']}")
+    if exp.get("passed") is not None and bool(j.get("passed")) != exp["passed"]:
+        problems.append(f"통과 {j.get('passed')} ≠ {exp['passed']}")
+    if exp.get("guard_in") is not None and (j.get("guard") or "") not in exp["guard_in"]:
+        problems.append(f"가드 {j.get('guard')!r} ∉ {exp['guard_in']}")
+    if exp.get("same_across") and len({(x.get("verdict"), x.get("score")) for x in got}) > 1:
+        problems.append(f"LLM 판정마다 다름 {[(x.get('verdict'), x.get('score')) for x in got]}")
+    for field, key in (("missing_points", "missing_forbid_regex"), ("followup", "followup_forbid_regex"),
+                       ("react", "react_forbid_regex"), ("hints", "hints_forbid_regex")):
+        for pat in exp.get(key) or []:
+            for x in got:
+                vals = x.get(field) if isinstance(x.get(field), list) else [x.get(field) or ""]
+                bad = [v for v in vals if re.search(pat, str(v))]
+                if bad:
+                    problems.append(f"{field} 가 /{pat}/ 에 걸림: «{str(bad[0])[:60]}»")
+                    break
+    obs = {"judgements": [{k: x.get(k) for k in ("verdict", "score", "guard", "react", "followup", "missing_points")} for x in got]}
+    if problems:
+        return "fail", "; ".join(problems[:4]), obs
+    return "pass", f"{j.get('verdict')}/{j.get('score')} · 되물음 «{str(j.get('followup'))[:40]}»", obs
+
+
+def check_stuck_ladder(doc: dict, args: dict) -> tuple[str, str, dict]:
+    """
+    「모르겠어요」 사다리·힌트 사다리 (09-30 WP-J3) — 대상 `_narrow_followup`(LLM 보기 args.llm_choices 를 줘도) · `_scaffold_judgement` ·
+    `build_hint_ladder` · 칩 답 판정(LLM 없이, args.chips — [{answer, verdict_in}]).
+    expect: choices_equal · choices_forbid · narrow_forbid_regex · scaffold_forbid_regex · scaffold_require_regex ·
+            blank_not_in_question(발판·힌트 빈칸의 가린 말이 질문에 없다 — 잣대가 원문으로 되찾는다) · hint_forbid_regex ·
+            coach_react_forbid_regex(args.llm_coach — 실측의 코칭 LLM 응답을 대본으로 넣은 「모르겠어요」 1단 react 에 걸리면 안 되는 말)
+    """
+    from chuckchuck.contracts import Question
+    from chuckchuck.f08_questions import build_hint_ladder
+    from chuckchuck.f09_judge import _deck_text, _narrow_followup, _scaffold_judgement, clear_judge_cache
+    from chuckchuck.contracts import SlideDoc
+    from chuckchuck import judge_answer
+
+    from . import replay as RP
+
+    q = Question.from_dict(args["question"])
+    qd = args["question"]
+    graph = _judge_graph_of(args, doc)
+    deck_text = _deck_text(SlideDoc.from_dict(doc))
+    exp = args.get("expect") or {}
+    problems = []
+    fu, choices = _narrow_followup({"followup": args.get("llm_followup", ""), "choices": list(args.get("llm_choices") or [])},
+                                   q, graph, deck_text)
+    if exp.get("choices_equal") is not None and list(choices) != list(exp["choices_equal"]):
+        problems.append(f"보기 {choices} ≠ {exp['choices_equal']}")
+    bad = [c for c in choices if c in (exp.get("choices_forbid") or [])]
+    if bad:
+        problems.append(f"금지 보기 {bad}")
+    for pat in exp.get("narrow_forbid_regex") or []:
+        if re.search(pat, fu):
+            problems.append(f"첫 단계가 /{pat}/ 에 걸림: «{fu[:70]}»")
+    sj = _scaffold_judgement(q, graph, deck_text)
+    scaffold = sj.followup if sj else ""
+    for pat in exp.get("scaffold_forbid_regex") or []:
+        if re.search(pat, scaffold):
+            problems.append(f"발판이 /{pat}/ 에 걸림: «{scaffold[:70]}»")
+    for pat in exp.get("scaffold_require_regex") or []:
+        if not re.search(pat, scaffold):
+            problems.append(f"발판에 /{pat}/ 가 없음: «{scaffold[:70]}»")
+    rung = next((h for h in build_hint_ladder(q) if h.startswith("빈칸을 채워 보세요")), "")
+    for pat in exp.get("hint_forbid_regex") or []:
+        if re.search(pat, rung):
+            problems.append(f"힌트 빈칸이 /{pat}/ 에 걸림: «{rung[:70]}»")
+    if exp.get("blank_not_in_question"):
+        probe_quotes = [e.quote for e in (q.basis.probe.evidence if q.basis and q.basis.probe else [])]
+        sources = [q.answer_gist, q.evidence_quote, *probe_quotes, deck_text]
+        for label, text, ch in (("발판", scaffold, list(sj.choices) if sj else []), ("힌트", rung, [])):
+            if "___" not in text or T.stance_pair(ch) or re.search(r"'[^']+' 인가요, '[^']+' 인가요", text) and not ch:
+                continue
+            word = RP._fill(text, [] if T.stance_pair(ch) else ch, sources)
+            if word and RP._shown(word, qd):
+                problems.append(f"{label} 빈칸이 질문에 보인 말 「{word}」")
+    chips = []
+    for c in args.get("chips") or []:
+        clear_judge_cache()
+        j = judge_answer(qd, c["answer"], slidedoc=doc, graph=graph, llm=_forbid_llm()).to_dict()
+        chips.append({"answer": c["answer"], "verdict": j.get("verdict"), "score": j.get("score"), "followup": j.get("followup")})
+        if c.get("verdict_in") and j.get("verdict") not in c["verdict_in"]:
+            problems.append(f"칩 「{c['answer']}」 → {j.get('verdict')} ∉ {c['verdict_in']}")
+        for pat in c.get("followup_forbid_regex") or []:
+            if re.search(pat, j.get("followup") or ""):
+                problems.append(f"칩 「{c['answer']}」 되물음이 /{pat}/ 에 걸림")
+    coach = {}
+    if args.get("llm_coach"):
+        from chuckchuck import coach_stuck
+
+        clear_judge_cache()
+        cj = coach_stuck(qd, slidedoc=doc, graph=graph, llm=make_scripted(args["llm_coach"])).to_dict()
+        coach = {k: cj.get(k) for k in ("coach_stage", "react", "followup", "choices")}
+        for pat in exp.get("coach_react_forbid_regex") or []:
+            if re.search(pat, cj.get("react") or ""):
+                problems.append(f"「모르겠어요」 react 가 /{pat}/ 에 걸림: «{str(cj.get('react'))[:70]}»")
+    obs = {"narrow": fu, "choices": choices, "scaffold": scaffold, "hint_blank": rung, "chips": chips, "coach": coach}
+    if problems:
+        return "fail", "; ".join(problems[:4]), obs
+    return "pass", f"보기 {choices} · 발판 «{scaffold[:50]}»", obs
+
+
 KINDS = {
     "units_no_midword_start": check_units_no_midword_start,
     "best_quote_slide": check_best_quote_slide,
@@ -440,6 +594,8 @@ KINDS = {
     "probe_absolute": check_probe_absolute,
     "align_contra": check_align_contra,
     "evidence_verified": check_evidence_verified,
+    "judge_scripted": check_judge_scripted,
+    "stuck_ladder": check_stuck_ladder,
 }
 
 

@@ -392,7 +392,8 @@ def test_판정과_코칭_문장에_높임이_남지_않는다():
     llm = ScriptedLLM({"react": "측정 기준을 찾고 계신 것 같아요.", "followup": "과잉 매매 쪽인가요, 거래 비용 쪽인가요?",
                        "choices": ["과잉 매매", "거래 비용"]})
     j = coach_stuck(Q_BEHAVIOR, graph=GAP_GRAPH, slidedoc=GAP, llm=llm)
-    assert not _HONORIFIC_RE.search(j.react) and "찾고 있는" in j.react
+    # 09-30 WP-J3: 막힘 사다리의 react 는 코드 문장이다 — LLM 의 「…찾고 계신 것 같아요」 는 높임을 풀어도 하지 않은 말을 짐작해 붙인다
+    assert not _HONORIFIC_RE.search(j.react) and "찾고" not in j.react and j.react.startswith("괜찮아요")
 
 
 # ---------------------------------------------------------------------------

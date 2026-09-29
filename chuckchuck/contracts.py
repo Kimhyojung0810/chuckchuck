@@ -1810,6 +1810,46 @@ CLAIM_KINDS = ("compose", "compare", "cause", "solve", "absolute", "contrast")
 PROBE_KINDS = ("tension", "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority")
 
 
+@dataclass(frozen=True)
+class ProbeStance:
+    """
+    탐침 질문의 **입장 둘 중 하나** — 「모르겠어요」 첫 단계(F-09 코칭)와 힌트 사다리(F-08)가 같이 쓰는 한 벌 (09-30 WP-J3).
+
+    탐침은 「자료가 무엇을 말하나」 가 아니라 「자료의 그 말이 어디까지 맞나·무엇이 비었나」 를 묻는다. 그래서 첫 되물음이 골자의
+    낱말을 가린 「'A' 쪽인가요, 'B' 쪽인가요?」 이면 뜻이 없다 — 09-30 standard 실측 「'부하' 쪽인가요, '완전히' 쪽인가요?」.
+    묻는 것은 **입장**이다: 늘 맞나·조건이 붙나 / 자료에 나와 있었나·비어 있었나 / 전체와 일부인가·서로 다른 둘인가.
+
+    ask 는 앞 문장(「자료 N장은 «…» 라고 해요.」 · 「{개념} 이야기예요.」)이 가리키는 것을 「이 말」「이 문제」 로 받는다 — 덱 낱말이 없는
+    고정 문장이라 어느 발표에나 그대로 쓴다. choices 는 칩 글이고 **물음 속 순서**다(정답 자리가 종류마다 달라 누르는 자리로 못 맞힌다).
+    correct 가 맞는 쪽이다. 판정(F-09)은 칩 글과 같은 답을 이 표로 읽는다.
+    """
+    ask: str
+    choices: tuple[str, str]
+    correct: str
+
+    @property
+    def wrong(self) -> str:
+        return next(c for c in self.choices if c != self.correct)
+
+
+#: 탐침 종류 → 입장 둘 중 하나. **형제 우선순위(sibling_priority)는 없다** — 자료가 두 요소 가운데 어느 쪽에 순위를 뒀는지 코드가
+#: 모른다(`_probes._ranked` 는 순위를 말했는지만 본다). 그 질문은 검증된 대비 쌍이나 위치 단계로 간다 — 가린 낱말 쌍은 쓰지 않는다.
+#: 긴장(tension)은 비교(A가 B보다)와 구성(A = … × B)이 함께 있을 때만 생기므로 「전체와 그 일부를 견준 말」 이 늘 맞는 쪽이다.
+PROBE_STANCES: dict[str, ProbeStance] = {
+    "absolute_boundary": ProbeStance(
+        ask="이 말은 늘 맞는 말인가요, 조건이 붙는 말인가요?", choices=("늘 맞아요", "조건이 붙어요"), correct="조건이 붙어요"),
+    "unsolved": ProbeStance(
+        ask="자료에 이 문제를 푸는 방법이 나와 있었나요, 아직 비어 있었나요?", choices=("나와 있었어요", "아직 비어 있었어요"),
+        correct="아직 비어 있었어요"),
+    "unsupported_cause": ProbeStance(
+        ask="자료에 이 말을 받치는 수치나 출처가 나와 있었나요, 아직 비어 있었나요?", choices=("나와 있었어요", "아직 비어 있었어요"),
+        correct="아직 비어 있었어요"),
+    "tension": ProbeStance(
+        ask="이 말은 전체와 그 일부를 견준 말인가요, 서로 다른 두 가지를 견준 말인가요?", choices=("전체와 일부예요", "서로 다른 둘이에요"),
+        correct="전체와 일부예요"),
+}
+
+
 @dataclass
 class ClaimQuote:
     """자료 원문에서 **그대로** 옮긴 한 줄과 장 번호. 코드가 slide 원문과 대조해 확인한 것만 남는다."""

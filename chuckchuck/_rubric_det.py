@@ -748,15 +748,22 @@ DET_SCORERS = {
 # 발화를 못 믿을 때 · 치명 결함 (09-30 held-out C-06·C-07 · 레드팀 G-A22)
 # ---------------------------------------------------------------------------
 
-#: 녹음이 이 자료의 발표가 아닐 때(F-11 speech_match "unrelated") 매기지 않는 항목 — 말을 **이 자료와** 견주는 것 전부.
-#: 남는 것: 말하기 자체(17·19~24)·총 길이(31)·자료만 보는 항목(34~39, 29 제외). 다른 발표를 이 자료 기준으로 매기면
-#: 0점이 아니라 거짓 점수다 — 09-30 /temp 재현(반찬 IR 자료 + 집중·알림 녹음)에서 26점 D, 리포트가 「모든 슬라이드를 꼼꼼히
-#: 설명했고, 파일럿 결과와 고객 반응을 구체적으로 제시했어요」 라고 썼다.
+#: 녹음이 이 자료의 발표가 아닐 때(F-11 speech_match "unrelated") 매기지 않는 항목 ① — 말을 **이 자료와** 견주는 것 전부.
+#: 다른 발표를 이 자료 기준으로 매기면 0점이 아니라 거짓 점수다 — 09-30 /temp 재현(반찬 IR 자료 + 집중·알림 녹음)에서 26점 D,
+#: 리포트가 「모든 슬라이드를 꼼꼼히 설명했고, 파일럿 결과와 고객 반응을 구체적으로 제시했어요」 라고 썼다.
 SPEECH_DECK_ITEMS = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 27, 28, 29, 30, 32, 33})
+#: 매기지 않는 항목 ② — 녹음 **자체**에서 재는 것: 지시어(17)·문장(19)·반복(20)·신호어(21)·말속도(22)·간투어(23)·정적(24)·총 길이(31).
+#: 이 자료와 견주지는 않지만 녹음이 다른 발표면 **이 자료의 발표**를 잰 값이 아니다. 예전엔 이것만 남겨 채점했더니 09-30 녹음 대화 감사
+#: (REC-10, 다른 발표 녹음 3벌)에서 리포트 첫머리가 「여기부터 보세요: 시간 관리 0/100 — 핵심이 계획보다 63% 모자랐어요」 · 「말 속도를
+#: … 빠르게 연습해 보세요」 였다 — 이 자료로는 발표를 한 적도 없는데. 0점이 아니라 「못 쟀다」 다.
+RECORDING_ITEMS = frozenset({17, 19, 20, 21, 22, 23, 24, 31})
+#: 다른 발표 녹음이면 ①+② 를 매기지 않는다 — 남는 것은 자료만 보는 항목(34~39)뿐이다.
+UNRELATED_ITEMS = SPEECH_DECK_ITEMS | RECORDING_ITEMS
 #: 정합 판정이 LLM 없이 짐작으로 채워졌을 때(basis "fallback") 매기지 않는 항목 — 정합 결과를 그대로 쓰는 것.
 #: 짐작한 missing 을 커버리지 0 으로 매기면 판정 실패가 발표자의 실패가 된다 (레드팀 G-A22).
+#: 녹음은 이 발표의 것이라 말 속도·시간·말버릇(RECORDING_ITEMS)은 그대로 잰다 — 정합 실패와 상관없는 값이다.
 ALIGNMENT_ITEMS = frozenset({1, 4, 5, 30})
-UNRELATED_NOTE = "녹음이 이 자료의 발표가 아니라서 말한 내용은 채점하지 않았어요"
+UNRELATED_NOTE = "녹음이 이 자료의 발표가 아니라서 이번엔 재지 않았어요"
 #: 「자료가 힘준 개념」 의 선 — F-11 SKIP_GUARD_WEIGHT 와 같은 값 (정당생략을 믿지 않는 무게).
 HEAVY_WEIGHT = 0.35
 ALIGN_FALLBACK_NOTE = "발표와 자료를 대조하지 못해서(판정 응답 없음) 이번엔 못 쟀어요"
@@ -768,7 +775,7 @@ def speech_block(ev: Evidence) -> tuple[frozenset[int], str] | None:
     if a is None:
         return None
     if a.speech_match == "unrelated" or a.basis == "skipped":
-        return SPEECH_DECK_ITEMS, UNRELATED_NOTE
+        return UNRELATED_ITEMS, UNRELATED_NOTE
     if a.basis == "fallback":
         return ALIGNMENT_ITEMS, ALIGN_FALLBACK_NOTE
     return None
@@ -804,7 +811,7 @@ def faults(ev: Evidence) -> list[RubricFault]:
     a = ev.alignment
     if a is not None and (a.speech_match == "unrelated" or a.basis == "skipped"):
         pct = "" if a.speech_overlap is None else f" (발화 낱말 중 자료에도 있는 비중 {a.speech_overlap:.0%})"
-        return [RubricFault("unrelated_speech", f"녹음이 이 발표 자료와 다른 발표예요{pct} — 말한 내용은 채점하지 않았어요")]
+        return [RubricFault("unrelated_speech", f"녹음이 이 발표 자료와 다른 발표예요{pct} — 녹음으로 재는 항목은 채점하지 않았어요")]
     out: list[RubricFault] = []
     if a is not None and a.basis == "fallback":
         out.append(RubricFault("align_fallback", "발표와 자료를 대조하지 못했어요 — 개념 전달은 채점하지 않았어요"))
