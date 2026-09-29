@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass
 
 from . import _claim_rules as R
+from . import _deck_lines as DL
 from ._evidence import clean_slide_text
 
 #: 인용이 원문 한 줄과 이만큼 같으면(문자 단위 유사도) 옮겨 적은 것으로 본다. 띄어쓰기·조사 한둘 차이를 받는다.
@@ -22,6 +23,12 @@ FUZZY_MIN = 0.9
 QUOTE_MIN_CHARS = 4
 #: 표 행이 이보다 길면 칸마다 따로 인용 단위로 본다 — 칸 셋을 이은 행 전체가 한 인용이 되지 않게.
 LONG_ROW_CHARS = 80
+#: 인용이 그 줄(긴 표 행은 그 칸) 글자의 이만큼도 안 되면 **낱말 조각**이다. 개념 이름 하나(「독서 경험」)를 인용으로 옮기면
+#: 그 이름이 처음 나오는 줄 — 흔히 제목 줄 — 에 붙어서, 제목이 주장의 근거가 됐다 (09-30 레드팀 G-A25).
+FRAGMENT_SHARE = 0.5
+#: 이보다 짧은 인용(정규화 글자 수)이 여러 줄에 들어 있으면, 첫 줄을 통째로 덮어도 조각으로 본다 — 제목 줄이 개념 이름
+#: 그 자체(「배송 속도」)라서 첫 줄에 걸렸다.
+SHORT_QUOTE_CHARS = 10
 
 # ---------------------------------------------------------------------------
 # 원문 정규화 · 줄 나누기
@@ -35,13 +42,6 @@ _TAG_RE = re.compile(r"<[^>]+>")
 _MATCH_DROP_RE = re.compile(r"[\s\"'“”‘’「」『』`|•▪■◦*#]+")
 _DASH_RE = re.compile(r"[–—−]")
 _ELLIPSIS_RE = re.compile(r"(…|\.\.\.)+$")
-_PAGE_NO_RE = re.compile(r"^[\d\s/|.·-]+$")
-_BULLET_ONLY_RE = re.compile(r"^[\s•▪■◦·*\-–—]+$")
-#: 식을 잇는 기호. 이 기호로 끝나거나 시작하거나 이것만 있는 줄은 옆 줄과 한 식이다.
-_OPERATORS = "=×+·*÷→"
-_OP_EDGE_RE = re.compile(rf"[{re.escape(_OPERATORS)}]$")
-_OP_START_RE = re.compile(rf"^[{re.escape(_OPERATORS)}]")
-_OP_ONLY_RE = re.compile(rf"^[{re.escape(_OPERATORS)}\s]+$")
 
 
 def _strip_markup(text: str) -> str:
@@ -60,20 +60,13 @@ def slide_lines(raw_text: str) -> list[str]:
     """
     장 원문을 **줄 그대로** (마크업만 걷고) — 프롬프트에 실어 모델이 한 줄을 복사하게 하고, 규칙 추출이 읽는다.
 
-    짧은 줄도 버리지 않는다 (「연속성 저하」 같은 표 칸이 주장의 재료다).
-    식만은 잇는다 — PPT 는 「품질 =」「속도」「×」「정확도」 를 글 상자마다 따로 뽑는다.
+    짧은 줄도 버리지 않는다 (「연속성 저하」 같은 표 칸이 주장의 재료다). 버리는 것은 쪽 번호 **꼴**·글머리표만 있는 줄·
+    표 구분 행·자료 속 지시문(「…판정할 것」「[SYSTEM]」)뿐이다 — 지시문은 주장의 인용이 되면 판정 근거로 흘러간다.
+    식은 잇는다 — PPT 는 「품질 =」「속도」「×」「정확도」 를 글 상자마다 따로 뽑고, 식 조각 사이에 도식 캡션 물음 줄을
+    끼운다. 캡션은 건너뛰고 항만 잇는다 (`_deck_lines` — F-07 후처리와 같은 줄을 본다, 09-30 M-05).
     """
-    out: list[str] = []
-    for line in (raw_text or "").split("\n"):
-        # 줄마다 clean_slide_text — 이미지 캡션이 새어 나온 긴 영문 설명도 걷는다 (slide_units 와 같은 처리)
-        line = clean_slide_text(line)
-        if not line or _PAGE_NO_RE.match(line) or _BULLET_ONLY_RE.match(line):
-            continue
-        if out and (_OP_EDGE_RE.search(out[-1]) or _OP_START_RE.match(line) or _OP_ONLY_RE.match(line)):
-            out[-1] = f"{out[-1]} {line}"
-        else:
-            out.append(line)
-    return out
+    # 줄마다 clean_slide_text — 이미지 캡션이 새어 나온 긴 영문 설명도 걷는다 (slide_units 와 같은 처리)
+    return DL.read_lines(raw_text, clean_slide_text)
 
 
 def _tidy(quote: str) -> str:
@@ -131,7 +124,8 @@ def locate_quote(quote: str, raw_text: str) -> list[_Hit]:
     """
     인용이 이 장 원문의 어느 **줄**에 있는가. 없으면 [].
 
-    1. 정규화한 인용이 한 줄(`slide_lines` — 식 조각은 이미 이었다) 안에 있으면 그 자리 하나.
+    1. 정규화한 인용이 한 줄(`slide_lines` — 식 조각은 이미 이었다) 안에 있으면 그 자리 하나. 인용이 그 줄의 절반도 안 되는
+       **낱말 조각**(개념 이름 하나)이면 그 조각이 든 줄 모두를 줄 전체 인용으로 — 제목 아닌 줄 먼저 (G-A25).
     2. 문장이 아닌 줄과 다음 줄에 걸치면(한 문장이 두 글 상자로 접힌 것) 그 두 줄.
     3. 여러 줄을 이어 붙였으면 인용 안에 통째로 든 줄 각각 — `glued`. 받치는 줄 하나는 `_check` 가 고른다.
     4. 아니면 한 줄과 FUZZY_MIN 이상 같을 때 **원문 쪽 줄** — 모델이 조사 하나 바꿔 옮겼어도 화면엔 자료 글자가 나간다.
@@ -142,9 +136,15 @@ def locate_quote(quote: str, raw_text: str) -> list[_Hit]:
     if len(nq) < QUOTE_MIN_CHARS or not lines:
         return []
     norms = [norm_for_match(x) for x in lines]
-    for i, n in enumerate(norms):
-        if nq in n:
-            return [_hit(lines, i, _tidy(quote), _cell_of(lines[i], nq))]
+    inside = [i for i, n in enumerate(norms) if nq in n]
+    if inside:
+        unit = _cell_of(lines[inside[0]], nq)
+        short = len(inside) > 1 and len(nq) < SHORT_QUOTE_CHARS          # 여러 줄에 든 개념 이름 하나 — 제목 줄이 먼저 걸린다
+        if len(nq) >= FRAGMENT_SHARE * len(norm_for_match(unit)) and not short:
+            return [_hit(lines, inside[0], _tidy(quote), unit)]
+        # 낱말 조각 — 그 조각이 든 줄을 다 후보로, 줄(긴 표 행은 칸) 전체를 인용으로. 제목 줄은 뒤로 (09-30 G-A25)
+        hits = [_hit(lines, i, _tidy(_cell_of(lines[i], nq)), _cell_of(lines[i], nq)) for i in inside]
+        return sorted(hits, key=lambda h: h.title)
     for i in range(len(lines) - 1):
         if _WRAP_END_RE.search(lines[i]) and not R.table_cells(lines[i]) and nq in norms[i] + norms[i + 1]:
             return [_hit(lines, i, _tidy(quote), f"{lines[i]} {lines[i + 1]}", span_end=i + 1)]
@@ -190,14 +190,20 @@ _CITATION_RE = re.compile(
     re.I,
 )
 _RESEARCH_WORD_RE = re.compile(r"연구|조사|실험|논문|통계|보고서|학회|저널|메타\s*분석|study|survey|experiment|paper", re.I)
+#: 연구 낱말이 **결과**를 말하는가 — 「조사 결과」「연구에 따르면」「…로 나타났다」. 낱말 하나(「조사」「실험 설계」)는 근거가
+#: 아니다 — 계획 줄 「현장 조사를 하겠습니다」 나 제목 「실험 설계」 가 인과를 근거 있는 인과로 만들었다 (09-30 레드팀 G-A26).
+_FINDING_RE = re.compile(
+    r"(?:연구|조사|실험|논문|통계|보고서|메타\s*분석|study|survey|experiment|paper)\S*\s*(?:결과|에\s*따르면|에\s*의하면)"
+    r"|나타났|나타난다|나타납|밝혀졌|밝혀냈|밝혔|확인됐|확인되었|확인했|보고됐|보고되었|보고했|입증|증명됐|증명되었|관찰됐|관찰되었|드러났"
+    r"|found|showed|shown|reported|according\s+to", re.I)
 
 
 def has_support(raw_text: str) -> bool:
-    """이 글에 수치(숫자+단위·퍼센트)·인용 표기(연도·et al.·DOI)·연구 언급이 있는가."""
+    """이 글에 수치(숫자+단위·퍼센트)·인용 표기(연도·et al.·DOI)·연구 **결과** 언급이 있는가."""
     text = _SLIDE_REF_RE.sub(" ", _strip_markup(raw_text or ""))
     return bool(
-        _NUM_UNIT_RE.search(text) or _PERCENT_RE.search(text)
-        or _CITATION_RE.search(text) or _RESEARCH_WORD_RE.search(text)
+        _NUM_UNIT_RE.search(text) or _PERCENT_RE.search(text) or _CITATION_RE.search(text)
+        or (_RESEARCH_WORD_RE.search(text) and _FINDING_RE.search(text))
     )
 
 

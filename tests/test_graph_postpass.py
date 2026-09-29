@@ -65,7 +65,7 @@ def test_formula_split_across_boxes_skips_caption_questions():
     """식 조각 사이에 도식 캡션(물음 줄)이 끼어도 마지막 항까지 잇는다."""
     raw = "생산성 = 가동률 ×\n얼마나 돌았는가\n수율 ×\n품질 지수 얼마나\n좋았는가"
     lines = GI.deck_lines(raw)
-    assert lines[0] == "생산성 = 가동률 × 수율 × 품질 지수 얼마나"
+    assert lines[0] == "생산성 = 가동률 × 수율 × 품질 지수"           # 잇는 항 끝의 캡션 의문사 조각도 뗀다 (09-30)
     groups = GI.item_groups([(3, raw)])
     assert [(g.kind, g.head, g.items) for g in groups] == [("formula", "생산성", ["가동률", "수율", "품질 지수"])]
 
@@ -111,7 +111,11 @@ def test_interleaved_column_layout_with_wrong_count_is_skipped():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("item,labels,expected", [
-    ("가동률", ["가동률 저하"], True),                 # 수식어만 다르다
+    # 09-30: 극성이 다르면 다른 노드다 — 「X 저하」 는 F-07 규칙 D 가 「X」 밑에 두는 다른 개념. 식 항 「X」 를 「X 저하」 로
+    # 보고 안 더하면 긴장 질문이 「X 저하를 요소로 두는 것은…」 이 된다 (수면 벤치·도서관 감사)
+    ("가동률", ["가동률 저하"], False),
+    ("가동률 저하", ["가동률 감소"], True),            # 같은 극성, 수식어만 다르다
+    ("짧은 대기 시간", ["대기 시간 부족"], True),
     ("낡은 결제 시스템", ["결제 시스템"], True),       # 노드 이름 + 앞 수식어
     ("단가", ["평균 단가"], True),                     # 이름이 낱말 하나 더
     ("병원 방문 감소", ["병원"], False),               # 절반도 못 덮는다 — 다른 개념

@@ -10,6 +10,7 @@ QA **일반화 벤치** (`labs/qa_bench`) — 수면 덱 하나가 아니라 여
     .venv/bin/python labs/qa_bench/run.py all --decks ir_banchan,sleep --track 5
     .venv/bin/python labs/qa_bench/run.py base      # 자료→질문까지만      · judge · stability · recording · report
     .venv/bin/python labs/qa_bench/run.py report    # LLM 없이 캐시에서 지표만 다시 (코드 바꾼 뒤 결정적 단계는 다시 돈다)
+    .venv/bin/python labs/qa_bench/run.py claims    # 주장·탐침만 — F-07 원응답을 되써 새 코드로 그래프, 주장 새로, F-08 안 돌림
     .venv/bin/python labs/qa_bench/run.py all --fresh questions      # 이 단계부터 캐시 무시
 
 캐시: `out/<deck>/` 에 단계 산출물과 `keys.json`. 단계 키 = 앞 단계 산출물 해시 + 그 단계 모듈 소스 해시. 그래서
@@ -56,9 +57,11 @@ RECORDING_DEFAULT = ("health_glucose", "sleep")
 #: 단계 → 그 단계 산출물을 바꾸는 모듈 (소스 해시가 캐시 키에 들어간다)
 STAGE_MODULES = {
     "slides": ["chuckchuck/f01_parse.py"],
-    "concepts": ["chuckchuck/f06_concepts.py"],
-    "graph": ["chuckchuck/f07_graph.py", "chuckchuck/_graph_items.py", "chuckchuck/_claim_rules.py", "chuckchuck/_match.py"],
-    "claims": ["chuckchuck/f26_claims.py", "chuckchuck/_reason.py", "chuckchuck/_claim_quote.py", "chuckchuck/_claim_rules.py", "chuckchuck/_evidence.py", "chuckchuck/_match.py"],
+    "concepts": ["chuckchuck/f06_concepts.py", "chuckchuck/_deck_lines.py", "chuckchuck/_claim_rules.py"],
+    "graph": ["chuckchuck/f07_graph.py", "chuckchuck/_graph_items.py", "chuckchuck/_deck_lines.py", "chuckchuck/_claim_rules.py",
+              "chuckchuck/_evidence.py", "chuckchuck/_match.py"],
+    "claims": ["chuckchuck/f26_claims.py", "chuckchuck/_reason.py", "chuckchuck/_claim_quote.py", "chuckchuck/_claim_rules.py",
+               "chuckchuck/_deck_lines.py", "chuckchuck/_graph_items.py", "chuckchuck/_evidence.py", "chuckchuck/_match.py"],
     "triage": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_match.py"],
     "questions": ["chuckchuck/f08_questions.py", "chuckchuck/_reason.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_grounding.py", "chuckchuck/_probe_stance.py",
                   "chuckchuck/_evidence.py", "chuckchuck/_traps.py", "chuckchuck/_speech.py", "chuckchuck/_match.py"],
@@ -657,6 +660,98 @@ def run_judge(runs: list[DeckRun], force: bool) -> None:
             note(f"  ✗ 판정 {run.name}: {type(e).__name__}: {e}")
 
 
+class _GraphReplay(LLMProvider):
+    """
+    F-07 원응답 되쓰기 — 09-29 graph_ab 가 얼린 응답(out/_graph_ab/<덱>/llm_graph.json, main 프롬프트 표본 s0)을 지금 코드의
+    build_graph 에 넣는다. F-07 **후처리만** 바꿨을 때 LLM 을 다시 부르지 않고 그래프를 새 코드로 다시 만든다 (연결 보강 응답이
+    없으면 빈 연결). 얼린 응답이 없는 덱은 캐시 graph.json 을 응답인 척 넣는다.
+    """
+
+    def __init__(self, deck: str, graph_cache: dict | None):
+        self.store = read_json(OUT / "_graph_ab" / deck / "llm_graph.json") or {}
+        self.fallback = None
+        if graph_cache:
+            self.fallback = json.dumps({
+                "nodes": [{"id": n["id"], "label": n["label"], "slide_nos": n["slide_nos"], "summary": n.get("summary", ""),
+                           "importance": n.get("importance", "core"), "parent": n.get("parent_id")} for n in graph_cache["nodes"]],
+                "edges": [e for e in graph_cache.get("edges") or [] if e.get("kind") == "relates"],
+                "sections": graph_cache.get("sections") or []}, ensure_ascii=False)
+        self.name = "graph-replay"
+        self.source = ""
+
+    def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096,
+                 json_mode: bool = False) -> str:
+        got = self.store.get(h("s0", system, user))
+        if got is not None:
+            self.source = self.source or "graph_ab:s0"
+            return got["text"]
+        if "concept-links" in user:
+            return '{"links": []}'
+        if self.fallback is None:
+            raise RuntimeError("얼린 F-07 응답도 캐시 그래프도 없어요")
+        self.source = "graph.json"
+        return self.fallback
+
+
+def run_claims(runs: list[DeckRun]) -> dict:
+    """
+    주장·탐침만 — 그래프는 F-07 원응답을 되써서 **지금 코드**로 다시 조립하고(`_GraphReplay`), 주장은 새로(LLM 은 Replay 저장소,
+    프롬프트가 바뀌었으면 부른다), 탐침은 결정적으로. 1차 심사·질문(F-08)은 돌리지 않는다 — 주장 쪽을 고쳤을 때 F-08 LLM 을
+    덱마다 세 번씩 부르지 않고 재기 위해서다 (09-30 WP-C). 결과: out/claims_report.json, 머리 숫자는 held-out · tuned 로 나눈다.
+    """
+    from chuckchuck import build_graph
+    from chuckchuck._probes import derive_probes
+    from chuckchuck.contracts import ClaimDoc, ConceptDoc, ConceptGraph, Context, SlideDoc
+    from chuckchuck.f26_claims import build_claims
+
+    rows: dict = {}
+    for run in runs:
+        sd, cd = read_json(run.dir / "slide_doc.json"), read_json(run.dir / "concept_doc.json")
+        if not (sd and cd):
+            continue
+        replay = _GraphReplay(run.name, read_json(run.dir / "graph.json"))
+        try:
+            g = build_graph(ConceptDoc.from_dict(cd), Context.from_dict(run.spec["context"]), slide_doc=SlideDoc.from_dict(sd),
+                            llm=replay).to_dict()
+            c = build_claims(g, sd, llm=Replay(run.name, "claims", run.dir / "claims_llm.json")).to_dict()
+        except BudgetExceeded:
+            raise
+        except Exception as e:  # noqa: BLE001 — 한 덱이 죽어도 나머지는 잰다
+            note(f"  ✗ {run.name}: {type(e).__name__}: {e}")
+            continue
+        write_json(run.dir / "claims_wpc.json", c)
+        write_json(run.dir / "graph_wpc.json", g)
+        probes = [p.to_dict() for p in derive_probes(ConceptGraph.from_dict(g), ClaimDoc.from_dict(c))]
+        truth = run.spec.get("truth")
+        rows[run.name] = {"group": run.spec["group"], "graph_source": replay.source, "nodes": len(g["nodes"]),
+                          "claims": M.claim_metrics(c, sd, truth), "probes": M.probe_metrics(probes, g, truth)}
+        pm = rows[run.name]["probes"]
+        note(f"  [{run.name}] 그래프 {replay.source} {len(g['nodes'])}노드 · 주장 {len(c['claims'])} (버림 {c['dropped']}, {c['model']}) · "
+             f"탐침 {pm['n']} 재현 {pm.get('planted_hit')}/{pm.get('planted')}")
+    head: dict = {}
+    for grp in ("heldout", "new", "tuned"):
+        rs = [r for r in rows.values() if r["group"] == grp]
+        if not rs:
+            continue
+        cl = [r["claims"] for r in rs]
+        pr = [r["probes"] for r in rs]
+        head[grp] = {
+            "decks": len(rs),
+            "planted_claims": f"{sum(x.get('planted_hit') or 0 for x in cl)}/{sum(x.get('planted') or 0 for x in cl)}",
+            "planted_probes": f"{sum(x.get('planted_hit') or 0 for x in pr)}/{sum(x.get('planted') or 0 for x in pr)}",
+            "precision": f"{sum(x.get('plantable_tp') or 0 for x in pr)}/{sum(x.get('plantable_probes') or 0 for x in pr)}",
+            "negative_fp": sum(len(x.get('negative_fp') or []) for x in pr),
+            "false_tension_controls": sum(x.get("false_tension") or 0 for x in pr),
+            "verbatim": f"{sum(x['quotes_verbatim'] for x in cl)}/{sum(x['quotes'] for x in cl)}",
+            "multiline": sum(x["quotes_multiline"] for x in cl),
+            "absolute_no_marker": sum(len(x["absolute_no_marker"]) for x in cl),
+        }
+    out = {"head": head, "decks": rows}
+    write_json(OUT / "claims_report.json", out)
+    note(json.dumps(head, ensure_ascii=False, indent=1))
+    return out
+
+
 def cmd(ns: argparse.Namespace) -> int:
     BUDGET.limit = ns.budget
     decks = load_decks(Path(ns.repo_root), set(ns.live.split(",")) if ns.live else set())
@@ -667,6 +762,13 @@ def cmd(ns: argparse.Namespace) -> int:
     runs = [DeckRun(decks[n], ns.fresh) for n in names]
     tracks = [t.strip() for t in ns.track.split(",")]
     note(f"덱 {len(runs)}개 · 트랙 {tracks} · 예산 {BUDGET.limit} (지금까지 남긴 호출 {BUDGET.total_logged()})")
+    if ns.cmd == "claims":
+        try:
+            run_claims(runs)
+        except BudgetExceeded as e:
+            note(f"\n예산에서 멈췄어요: {e}")
+        note(f"\n이번 실행 LLM 호출 {BUDGET.used} · 누적 {BUDGET.total_logged()} · 결과 {(OUT / 'claims_report.json').relative_to(ROOT)}")
+        return 0
     try:
         if ns.cmd in ("all", "base"):
             run_base(runs, tracks)
@@ -697,7 +799,7 @@ def cmd(ns: argparse.Namespace) -> int:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="labs/qa_bench/run.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=("all", "base", "judge", "stability", "recording", "report"))
+    ap.add_argument("cmd", choices=("all", "base", "claims", "judge", "stability", "recording", "report"))
     ap.add_argument("--decks", default="all", help="쉼표로. 기본 all")
     ap.add_argument("--track", default="5,10")
     ap.add_argument("--repo-root", default=str(DEFAULT_REPO))

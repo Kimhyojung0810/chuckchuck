@@ -20,6 +20,8 @@ import re
 from dataclasses import dataclass, field
 
 from . import _claim_rules as R
+from . import _deck_lines as DL
+from ._evidence import clean_slide_text
 from ._match import norm_tokens
 
 #: 덱 하나에 후처리로 더할 노드 상한. 넘치면 식 → 문제 목록 → 그 밖 목록 순으로 앞 장부터 채운다.
@@ -32,34 +34,17 @@ ITEM_MAX_CHARS = 20
 ITEM_MAX_TOKENS = 4
 #: 개수 말 없는 목록(「…원인」)이 받는 항목 수. 이보다 많으면 레이아웃이 섞인 것이라 믿지 않는다.
 LIST_MAX_ITEMS = 6
-#: 식에서 연산 기호로 끝난 줄 뒤, 다음 항을 찾아 내려가 볼 줄 수. Upstage 가 식 조각 사이에 캡션 줄을 끼운다.
-FORMULA_LOOKAHEAD = 3
-
-_TAG_RE = re.compile(r"<figcaption>.*?</figcaption>|!\[[^\]]*\]\([^)]*\)|<[^>]+>", re.S | re.I)
-_PAGE_NO_RE = re.compile(r"^[\d\s/|.·\-–—]+$")
-_BULLET_ONLY_RE = re.compile(r"^[\s•▪■◦·*\-–—]+$")
-_OPS = "=×✕+·*÷"
-_OP_END_RE = re.compile(rf"[{re.escape(_OPS)}]\s*$")
-_OP_START_RE = re.compile(rf"^\s*[{re.escape(_OPS)}]")
-_FORMULA_SPLIT_RE = re.compile(r"\s*[×✕*+·÷]\s*|\s+x\s+")
 _QUOTE_RE = re.compile(r"[\"'“”‘’「」『』()\[\]]")
 _DIGIT_RE = re.compile(r"\d")
-_TABLE_SEP_RE = re.compile(r"^\|?\s*:?-{2,}")
-#: 문장 끝 — `_claim_rules.is_sentence` 보다 좁다. 그쪽은 「…음·함·됨·임」 명사형 끝도 문장으로 보는데,
-#: 항목 이름은 그 글자로 끝나기 쉽다 (「소음」「처리함」 같은 표 칸이 문장으로 잘려 목록이 끊겼다).
+_TABLE_SEP_RE = DL.TABLE_SEP_RE
 _TRAILING_WH_RE = re.compile(r"\s+(?:얼마나|어떻게|왜|무엇|언제|어디서?|누가|몇)$")
 _OBJ_TOK_RE = re.compile(r"[가-힣](?:을|를)$")
 _NOMINAL_END_RE = re.compile(r"(?:음|함|됨|임)$")
-_SENTENCE_END_RE = re.compile(r"(?:[.!。]|다|요|죠)\s*[.!]?\s*$")
 
 
 # ---------------------------------------------------------------------------
-# 자료 줄 — f26 slide_lines 의 최소 사본 (식 조각 잇기만 다르다)
+# 자료 줄 — F-26 slide_lines 와 **같은** 줄 읽기 (`_deck_lines`)
 # ---------------------------------------------------------------------------
-
-def _clean(line: str) -> str:
-    return " ".join(_TAG_RE.sub(" ", line or "").split())
-
 
 def _plain(line: str) -> str:
     """물음·문장 판정용 — 따옴표를 걷는다 (「“…시간은?”」 은 따옴표 때문에 물음 어미가 가려졌다)."""
@@ -67,13 +52,8 @@ def _plain(line: str) -> str:
 
 
 def _sentence(text: str) -> bool:
-    return bool(_SENTENCE_END_RE.search(text or ""))
-
-
-def _term_like(line: str) -> bool:
-    """식의 한 항이 될 만한 줄 — 짧고, 물음·문장이 아니다."""
-    p = _plain(line)
-    return bool(p) and len(p) <= ITEM_MAX_CHARS + 6 and not R.is_question(p) and not _sentence(p)
+    """문장 끝 — 명사형 끝(「…음·함·됨·임」)은 보지 않는다. 항목 이름은 그 글자로 끝나기 쉽다 (「소음」「처리함」 표 칸)."""
+    return R.is_sentence(text, nominal=False)
 
 
 def _item_line(line: str) -> bool:
@@ -89,34 +69,11 @@ def _item_line(line: str) -> bool:
 
 def deck_lines(raw_text: str) -> list[str]:
     """
-    장 원문을 줄로. 식 조각(「A =」「B ×」「C」)은 한 줄로 잇는다.
-
-    f26 slide_lines 와 다른 점 하나: 연산 기호로 끝난 줄 뒤에 **물음·문장 줄**이 오면 잇지 않고, 몇 줄 아래의
-    항 같은 줄을 찾아 잇는다. 09-29 새 덱: 「독서 경험 = 대출 권수 × 머문 시간 ×」 다음 줄이 도식 캡션
-    「얼마나 머물렀는가」 여서, 이어 붙인 식이 물음 줄이 되고 마지막 항이 사라졌다.
+    장 원문을 줄로 — F-26 `slide_lines` 와 같은 규칙(`_deck_lines.read_lines`)에 표 구분 행만 남긴다 (표 머리 행을 가르는 표시).
+    식 조각은 한 줄로 잇고, 연산 기호 뒤에 끼어든 도식 캡션 물음 줄은 건너뛴다. 09-29 까지는 이 규칙이 여기에만 있어서
+    F-07 에는 식 항이 노드로 있는데 F-26 은 같은 식을 물음 줄로 버렸다 (09-30 M-05).
     """
-    lines = [_clean(x) for x in (raw_text or "").split("\n")]
-    # 표 구분 행(「| --- |」)은 쪽 번호 꼴과 같아 보이지만 남긴다 — 표 머리 행을 가르는 표시다
-    lines = [x for x in lines if x and (_TABLE_SEP_RE.match(x.replace(" ", ""))
-                                        or not (_PAGE_NO_RE.match(x) or _BULLET_ONLY_RE.match(x)))]
-    out: list[str] = []
-    used: set[int] = set()
-    for i, line in enumerate(lines):
-        if i in used:
-            continue
-        # 「×」 로 시작하는(또는 「×」 만 있는) 줄은 앞 줄의 식에 붙이고, 그 뒤 항을 이어서 찾는다
-        cur = f"{out.pop()} {line}" if out and _OP_START_RE.match(line) else line
-        j = i
-        while _OP_END_RE.search(cur):
-            nxt = next((k for k in range(j + 1, min(len(lines), j + 1 + FORMULA_LOOKAHEAD))
-                        if k not in used and _term_like(lines[k])), None)
-            if nxt is None:
-                break
-            cur = f"{cur} {lines[nxt]}"
-            used.add(nxt)
-            j = nxt
-        out.append(cur)
-    return out
+    return DL.read_lines(raw_text, clean_slide_text, keep_table_sep=True)
 
 
 # ---------------------------------------------------------------------------
@@ -134,9 +91,13 @@ class ItemGroup:
     context: str = ""              # 제목 + 제목 밑 소개 문장 — 부모를 못 찾을 때 이 글에 이름이 나온 노드를 본다
 
 
+#: 각주 머리 — 「* 현금 = …」「** 차입금 = …」「※ …」「주) …」. 정의·출처를 다는 줄이라 개념 노드의 재료가 아니다.
+_FOOTNOTE_RE = re.compile(r"^\s*(?:\*+|※|주\s*[):]|[¹²³⁴⁵⁶⁷⁸⁹])")
+
+
 def clean_item(text: str) -> str:
     """항목 글 → 개념 이름 후보. 이름답지 않으면 "" (숫자·긴 글·물음·문장·식 기호·표 칸)."""
-    t = _plain(R.item_text(text)).strip(" .,:;·-–—")
+    t = _plain(R.item_text(text)).strip(" .,:;·-–—*※")
     # 끝에 붙은 의문사는 옆 도식 캡션(「얼마나 머물렀는가」)이 잘려 붙은 것이다 — 떼어 낸다
     t = _TRAILING_WH_RE.sub("", t).strip()
     if not t or len(t) > ITEM_MAX_CHARS or _DIGIT_RE.search(t):
@@ -158,8 +119,7 @@ def _formula_group(slide_no: int, line: str) -> ItemGroup | None:
     if not sides:
         return None
     lhs, rhs = sides
-    raw_parts = [p for p in _FORMULA_SPLIT_RE.split(rhs) if p.strip(" .")]
-    parts = [clean_item(p) for p in raw_parts]
+    parts = [clean_item(p) for p in R.formula_terms(rhs)]
     parts = [p for p in parts if p]
     head = clean_item(lhs)
     # 항이 둘 미만이면 식이 아니라 우연한 「=」 다 (「합계 = 100」)
@@ -169,13 +129,8 @@ def _formula_group(slide_no: int, line: str) -> ItemGroup | None:
 
 
 def _stated_count(head: str) -> int | None:
-    """제목의 개수 말(「세 가지」「4단계」) → 수. 없으면 None."""
-    m = re.search(r"(두|세|네|다섯|여섯|일곱|여덟|아홉|열|\d{1,2})\s*(?:가지|개|대|단계|요소|요인|조건|축|원칙)", head)
-    if not m:
-        return None
-    words = {"두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9, "열": 10}
-    w = m.group(1)
-    return words.get(w) if w in words else int(w)
+    """제목의 개수 말(「세 가지」「4단계」) → 수. 없으면 None. 「세대」「열대」「12개월」 은 개수 말이 아니다 (`_claim_rules.count_word`)."""
+    return R.count_word(head)
 
 
 def _is_column_names(head_row: str, rows: list[str]) -> bool:
@@ -228,6 +183,8 @@ def item_groups(slides: list[tuple[int, str]]) -> list[ItemGroup]:
     for no, raw in slides:
         lines = deck_lines(raw)
         for i, line in enumerate(lines):
+            if _FOOTNOTE_RE.match(line):
+                continue                  # 각주의 정의식(「* 현금 = … + …」)은 발표의 개념 구조가 아니다 (09-30 실적 덱)
             g = _formula_group(no, line) or _list_group(no, lines, i)
             if g is not None:
                 groups.append(g)
@@ -268,18 +225,30 @@ def present_index(item: str, labels: list[str]) -> int | None:
     항목이 이미 노드로 있으면 그 이름의 자리, 없으면 None. 새 노드를 만들지 가르는 잣대라 **넉넉하게** 있다고 본다
     (겹친 노드가 빠진 노드보다 해롭다 — 같은 개념이 둘이면 F-26 이 둘 중 하나로만 id 를 적는다).
 
-    - 이름이 같다 (`same_label`), 또는 수식어만 다르다 (`_claim_rules.same_concept` — 「대출 권수 감소」 ⊇ 「대출 권수」)
+    - 이름이 같다 (`same_label`), 또는 같은 극성에 수식어만 다르다 (`_claim_rules.same_concept`)
     - 노드 이름이 항목 안에 이어서 나오고 항목 낱말의 절반 이상을 덮는다 (「낡은 온라인 예약 시스템」 ∋ 「온라인 예약 시스템」).
       절반 미만이면 다른 개념이다 (「도서관 방문 감소」 ∌ 「도서관」).
     - 항목이 노드 이름 안에 이어서 나오고 이름이 낱말 하나만 더 가졌다 (「객단가」 ⊂ 「평균 객단가」).
+
+    넉넉해도 두 가지는 다른 개념으로 본다 (09-30):
+    - **극성이 다르면** 없는 것이다 — 「가동률」 과 「가동률 저하」, 「시간」 과 「시간 부족」. F-07 규칙 D 가 「X 저하」 를 「X」 밑
+      자식으로 두는 다른 개념이다. 식의 항 「시간」「대출 권수」 를 이미 있는 「시간 부족」「대출 권수 감소」 로 보고 안 더해서
+      긴장 질문이 「시간 부족을 수면의 질의 요소로 두는 것은…」 이 됐다 (09-29 벤치 수면 · 09-30 도서관 감사).
+    - **머리말이 다르면** 없는 것이다 — 「혈당 부하」 ∌ 「혈당」, 「혈당 부하」 ⊄ 「혈당 부하 계산」 (`_claim_rules.same_head`).
+      한국어 명사구는 머리가 끝에 온다 — 앞에 붙은 수식어만 다른 이름(「평균 객단가」)이 같은 개념이다.
     """
     itoks = R.content_tokens(item)
     for i, lab in enumerate(labels):
-        if same_label(item, lab) or R.same_concept(item, lab):
+        if same_label(item, lab):
             return i
+    pol = R.polarity(item)
     for i, lab in enumerate(labels):
+        if R.polarity(lab) != pol:
+            continue
+        if R.same_concept(item, lab):
+            return i
         ltoks = R.content_tokens(lab)
-        if not ltoks or not itoks:
+        if not ltoks or not itoks or not R.same_head(item, lab):
             continue
         if _seq_in(norm_tokens(item), norm_tokens(lab)) and _covered(ltoks, itoks) * 2 >= len(itoks):
             return i
@@ -307,6 +276,19 @@ def match_score(phrase: str, label: str) -> float:
     if not p or not lab:
         return 0.0
     return min(_covered(p, lab) / len(p), _covered(lab, p) / len(lab))
+
+
+def head_match(phrase: str, label: str) -> float:
+    """
+    `match_score` 에 머리말·극성을 더한 것 — 머리말이 안 통하거나(「혈당 부하」↔「혈당 스파이크」) 반의어면(「매출 증가」↔「매출 감소」) 0.
+    식 좌변·목록 제목·thesis 이름이 가리키는 노드를 고를 때 쓴다. 09-30 held-out 감사 M-05: 건강 덱 그래프에 「혈당 부하」 가
+    없는 실행에서 식 좌변 「혈당 부하」 가 낱말 「혈당」 하나로 「혈당 스파이크」 에 붙어, 좌변 노드가 안 생기고 긴장 T1 을 놓쳤다.
+    """
+    if same_label(phrase, label):
+        return 1.0
+    if R.antonyms(phrase, label) or not R.head_compatible(phrase, label):
+        return 0.0
+    return match_score(phrase, label)
 
 
 # ---------------------------------------------------------------------------

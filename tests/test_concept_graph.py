@@ -195,7 +195,7 @@ def test_out_of_range_slide_nos_are_dropped():
 
 def test_unknown_slide_role_falls_back_to_body():
     payload = """
-    {"nodes": [], "edges": [], "sections": [
+    {"nodes": [{"id": "a", "label": "A", "slide_nos": [1]}], "edges": [], "sections": [
       {"name": "이상한 구획", "slide_role": "결론부", "slide_nos": [1]},
       {"name": "정상 구획", "slide_role": "intro", "slide_nos": [2]}
     ]}
@@ -205,6 +205,17 @@ def test_unknown_slide_role_falls_back_to_body():
     assert graph.sections[0].slide_role == "body"
     assert graph.sections[1].slide_role == "intro"
     assert all(s.slide_role in SLIDE_ROLES for s in graph.sections)
+
+
+def test_zero_node_graph_is_a_failure_not_a_result():
+    """09-30 레드팀 G-A7: 노드 0개 그래프를 성공으로 돌려주면 화면이 「개념 없음」 을 분석 결과처럼 보인다 — 한 번 더 묻고, 또 비면 실패."""
+    empty = '{"nodes": [], "edges": [], "sections": [{"name": "본론", "slide_role": "body", "slide_nos": [1]}]}'
+    llm = SequenceLLM(empty, empty)
+    with pytest.raises(GraphError, match="노드"):
+        build_graph(make_doc(), llm=llm)
+    assert llm.calls == 2
+    ok = SequenceLLM(empty, '{"nodes": [{"id": "a", "label": "A", "slide_nos": [1]}], "edges": [], "sections": []}')
+    assert [n.id for n in build_graph(make_doc(), llm=ok).nodes] == ["a"]
 
 
 def test_importance_inherited_from_concept_doc():

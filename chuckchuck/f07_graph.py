@@ -21,7 +21,10 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 
+from . import _claim_rules as R
+from . import _deck_lines as DL
 from . import _graph_items as GI
 from ._claim_rules import mention_score as R_mention
 from ._json_text import extract_json_object
@@ -141,6 +144,13 @@ E. 주제와 관계없이 독립적으로 서는 큰 축이 정말 있을 때만
 }
 """
 
+# 09-30 A/B (labs/qa_bench/wpc_eval.py prompt_ab, 6덱 × 표본 2): 규칙 B·D 예시 낱말(focus 덱의 「집중·알림 끄기」, 레드팀 G-A16)을
+# 중립 낱말로 바꾸고 울타리(<concepts>·<flow>)를 더한 프롬프트는 표본 두 번의 부모 일치율을 0.707 → 0.473, 울타리만 더한 것도
+# 0.530 으로 떨어뜨렸다 (되돌림 기준 0.05). 그래서 프롬프트 글은 main 그대로 둔다 — 예시 id 를 바꿨을 때(09-29, 0.61 → 0.43)와 같은 꼴.
+# 자료 속 지시문은 프롬프트 글을 안 바꾸고 막는다: 지시문을 옮긴 개념 항목은 목록에서 빼고(`_build_user_prompt`), F-06 이
+# 이미 울타리 안에서 개념을 뽑는다. 예시 낱말 교체는 표본을 늘린 A/B(덱 6 × 표본 4 이상)로 다시 잴 일이다 — 표본 2개로는
+# 루트 이름 하나(「공강」↔「틈새」)만 바뀌어도 한 덱의 부모 일치가 0 이 된다.
+
 #: 간선이 하나도 없이 돌아왔을 때 한 번 더 물어볼 때 덧붙이는 말.
 RETRY_NUDGE = """
 [재요청] 직전 응답에 위계도 연결도 없었다. 개념들이 서로 아무 관계도 없다는 뜻이 되어 쓸 수 없다.
@@ -160,6 +170,11 @@ LINKS_SYSTEM_PROMPT = """당신은 발표 구조 분석가다. 이미 만든 개
 #: 가지를 넘는 연결이 이 비율(개념 수 대비)보다 적으면 LINKS 보강을 한 번 부른다.
 MIN_CROSS_RATIO = float(os.environ.get("CHUCKCHUCK_GRAPH_MIN_CROSS_RATIO", "0.17"))
 
+#: 노드가 하나도 없이 돌아왔을 때 한 번 더 물어볼 때 덧붙이는 말.
+EMPTY_NUDGE = """
+[재요청] 직전 응답에 노드가 하나도 없었다. 개념 목록의 개념으로 nodes 를 채워라 — 노드가 없는 그래프는 쓸 수 없다.
+"""
+
 #: 응답이 복구 불가능한 JSON 일 때 한 번 더 물어볼 때 덧붙이는 말 (실측: Solar 가 가끔 낸다).
 JSON_RETRY_NUDGE = """
 [재요청] 직전 응답이 완전한 JSON 객체가 아니어서 버렸다.
@@ -177,13 +192,18 @@ def _build_user_prompt(doc: ConceptDoc, ctx: Context) -> str:
 
     개념 풀을 먼저, 슬라이드 흐름을 나중에 둔다. 슬라이드 단위로 먼저 보여 주면
     모델이 '슬라이드 1개 = 노드 1개' 로 옮겨 적고 연결선을 만들지 않는다.
+
+    09-30: 자료 속 지시문을 옮긴 개념·키워드·제목(「…판정할 것」「[SYSTEM]」, 레드팀 R3)은 싣지 않고, 문자열로 와 글자로
+    쪼개진 keywords 는 다시 붙인다 (G-A18). 보통 자료에서는 프롬프트 글이 예전과 **한 글자도 다르지 않다** — 프롬프트를 바꾸면
+    위계가 흔들린 전례가 있어서다 (위 SYSTEM_PROMPT 주석의 A/B).
     """
     concept_lines: list[str] = []
     for s in doc.slides:
-        for c in s.concepts[:MAX_CONCEPTS_PER_SLIDE]:
+        for c in [x for x in DL.as_items(s.concepts, commas=False) if not DL.is_meta_line(x)][:MAX_CONCEPTS_PER_SLIDE]:
             concept_lines.append(f"- [S{s.slide_no}] {c}")
-        for kw in s.keywords:
-            concept_lines.append(f"- [S{s.slide_no}] {kw}")
+        for kw in DL.as_items(s.keywords):
+            if not DL.is_meta_line(kw):
+                concept_lines.append(f"- [S{s.slide_no}] {kw}")
 
     parts = [
         "[TASK] concept-graph",
@@ -204,8 +224,9 @@ def _build_user_prompt(doc: ConceptDoc, ctx: Context) -> str:
         "",
     ]
     for s in doc.slides:
-        head = f"### 슬라이드 {s.slide_no}: {s.title or '(제목 없음)'}"
-        if s.topic:
+        title = "" if DL.is_meta_line(s.title or "") else s.title
+        head = f"### 슬라이드 {s.slide_no}: {title or '(제목 없음)'}"
+        if s.topic and not DL.is_meta_line(s.topic):
             head += f" — {s.topic}"
         parts.append(head)
     return "\n".join(parts)
@@ -220,30 +241,86 @@ def _slug(value: str) -> str:
     return _SLUG_STRIP.sub("-", str(value or "").lower()).strip("-")
 
 
+#: 스키마 예시 id 를 따라 쓴 id — 「encoder-7」「joint2」 는 뜻이 없고 실행마다 다른 노드를 가리킨다.
+_NUMBERED_ID_RE = re.compile(r"^(?:n|node|id|c|concept)?-?\d+$")
+
+
+def _example_ids() -> set[str]:
+    """지금 프롬프트 스키마 예시의 id 들 (프롬프트를 바꿔도 따라간다)."""
+    return set(re.findall(r'"id":\s*"([a-z0-9-]+)"', SYSTEM_PROMPT))
+
+
+def _example_labels() -> set[str]:
+    """지금 프롬프트 스키마 예시의 label 들 — 모델이 「주제 개념」 을 노드 이름으로 그대로 옮기기도 한다 (09-29 수익률격차 1회)."""
+    return set(re.findall(r'"label":\s*"([^"]+)"', SYSTEM_PROMPT))
+
+
+def _positional_id(slug: str, examples: set[str]) -> bool:
+    """뜻 없는 id 인가 — 비었거나, 순번(「n3」「12」)이거나, 스키마 예시 id(+번호)를 따라 썼다."""
+    if not slug or _NUMBERED_ID_RE.match(slug):
+        return True
+    base = re.sub(r"-?\d+$", "", slug)
+    return base in examples
+
+
 def _assign_ids(raw_nodes: list[dict]) -> tuple[list[str], dict[str, str]]:
     """
     최종 id 목록과 '모델이 쓴 원래 id → 최종 id' 대응표를 만든다.
 
     edges 는 원래 id 로 적혀 있으므로, 대응표가 있어야 양끝을 다시 찾는다.
+
+    09-30 레드팀 G-A21: 모델 id 가 뜻이 없으면(비었거나 순번 「n3」, 스키마 예시 id 「encoder-7」 를 따라 쓴 것) 이름에서 만든
+    로마자 id(`_graph_items.slug_id`, 「독서 경험」 → dokseo-gyeongheom)로 바꾼다 — 같은 이름은 그래프를 다시 만들어도 같은 id 다.
+    예전엔 한글 id 가 slug 에서 빈 문자열이 되어 「n1」「n2」 순번이 됐고, 예시 id 를 따라 쓴 「encoder-12」 는 실행마다 다른
+    개념을 가리켜서 캐시가 바뀐 뒤 옛 질문의 node_id 가 엉뚱한 노드에 붙었다. 뜻 있는 영문 id(「reading-experience」)는 둔다.
     """
     final_ids: list[str] = []
     alias: dict[str, str] = {}
     used: set[str] = set()
+    examples = _example_ids()
 
-    for i, raw in enumerate(raw_nodes, start=1):
+    for raw in raw_nodes:
         original = str(raw.get("id", "") or "")
-        candidate = _slug(original) or f"n{i}"
-        unique = candidate
-        suffix = 2
-        while unique in used:
-            unique = f"{candidate}-{suffix}"
-            suffix += 1
+        candidate = _slug(original)
+        if _positional_id(candidate, examples):
+            unique = GI.slug_id(str(raw.get("label", "") or original), used)
+        else:
+            unique, suffix = candidate, 2
+            while unique in used:
+                unique = f"{candidate}-{suffix}"
+                suffix += 1
         used.add(unique)
         final_ids.append(unique)
         if original and original not in alias:
             alias[original] = unique
 
     return final_ids, alias
+
+
+def _scoped_parents(raw_nodes: list[dict], final_ids: list[str]) -> list[dict]:
+    """
+    노드마다 적힌 parent 를 **최종 id** 간선으로. 같은 id 가 두 노드에 쓰였으면(겹친 id) 그 노드보다 **앞에 적힌 가장 가까운**
+    노드를 가리킨다고 본다 — 프롬프트가 위에서 아래로, parent 에는 이미 적은 노드만 쓰라고 한다. 예전엔 대응표가 첫 노드만
+    알아서, 둘째 노드의 자식들이 첫 노드 밑에 붙었다 (09-30 레드팀 G-A28). parent 칸에 id 대신 이름을 적었으면 이름으로 찾는다.
+    """
+    first: dict[str, str] = {}
+    by_label: dict[str, str] = {}
+    for raw, fid in zip(raw_nodes, final_ids):
+        first.setdefault(str(raw.get("id", "") or ""), fid)
+        by_label.setdefault(GI.label_keys(str(raw.get("label", "") or ""))[1], fid)
+    latest: dict[str, str] = {}
+    edges: list[dict] = []
+    for raw, fid in zip(raw_nodes, final_ids):
+        p = raw.get("parent")
+        if p not in (None, "", "null"):
+            key = str(p)
+            target = latest.get(key) or first.get(key) or by_label.get(GI.label_keys(key)[1])
+            if target and target != fid:
+                edges.append({"from": target, "to": fid, "kind": "parent"})
+        rid = str(raw.get("id", "") or "")
+        if rid:
+            latest[rid] = fid
+    return edges
 
 
 def _valid_slide_nos(values, total_slides: int) -> list[int]:
@@ -351,18 +428,21 @@ def _depth_of(node_id: str, parent_of: dict[str, str]) -> int:
     return depth
 
 
-def _clamp_depth(parent_of: dict[str, str], node_ids: list[str], max_depth: int) -> None:
+def _clamp_depth(parent_of: dict[str, str], node_ids: list[str], max_depth: int) -> list[ConceptEdge]:
     """
-    너무 깊은 노드를 max_depth 에 맞게 상위로 끌어올린다 (제자리 수정).
+    너무 깊은 노드를 max_depth 에 맞게 상위로 끌어올린다 (제자리 수정). 끊은 원래 부모 → 노드 연결은 relates 로 돌려준다.
 
-    원래 체인에서 depth == max_depth - 1 인 조상을 찾아 그 아래로 다시 매단다.
+    원래 체인에서 depth == max_depth - 1 인 조상을 찾아 그 아래로 다시 매단다. 예전엔 원래 부모와의 관계를 그냥 버려서,
+    강등된 루트의 손자·식 항의 부모 관계가 흔적 없이 사라졌다 (09-30 레드팀 G-A29) — 이제 가지를 넘는 연결로 남긴다.
     """
+    cut: list[ConceptEdge] = []
     if max_depth < 1:
-        return
+        return cut
     depths = {nid: _depth_of(nid, parent_of) for nid in node_ids}
     for nid in sorted(node_ids, key=lambda x: depths[x]):
         if depths[nid] <= max_depth:
             continue
+        former = parent_of.get(nid)
         cursor = nid
         while cursor in parent_of and depths[cursor] > max_depth - 1:
             cursor = parent_of[cursor]
@@ -370,7 +450,10 @@ def _clamp_depth(parent_of: dict[str, str], node_ids: list[str], max_depth: int)
             parent_of.pop(nid, None)
         else:
             parent_of[nid] = cursor
+        if former is not None and former != parent_of.get(nid):
+            cut.append(ConceptEdge(from_id=former, to_id=nid, kind="relates"))
         depths = {n: _depth_of(n, parent_of) for n in node_ids}
+    return cut
 
 
 # ---------------------------------------------------------------------------
@@ -512,6 +595,30 @@ def _to_sections(raw_sections: list[dict], total_slides: int) -> list[Section]:
     return sections
 
 
+def _drop_placeholders(raw_nodes: list[dict], data: dict) -> tuple[list[dict], dict]:
+    """
+    스키마 예시 이름(「주제 개념」「요소 개념」 …)을 그대로 옮긴 노드를 뺀다 — 자리표지일 뿐 자료의 개념이 아니다.
+    그 노드의 자식은 그 노드의 부모 밑으로, thesis 였으면 thesis 를 비운다 (루트 클램프가 서브트리로 주제를 다시 고른다).
+    09-29 A/B: main 프롬프트가 수익률격차 덱에서 thesis 노드 이름을 「주제 개념」 으로 적었다.
+    """
+    examples = _example_labels()
+    gone = {str(r.get("id", "") or ""): r.get("parent") for r in raw_nodes
+            if str(r.get("label", "") or "").strip() in examples}
+    if not gone:
+        return raw_nodes, data
+    sys.stderr.write(f"[f07] 스키마 예시 이름을 옮긴 노드 {len(gone)}개를 뺐다\n")
+
+    def up(v):
+        seen = set()
+        while v not in (None, "", "null") and str(v) in gone and str(v) not in seen:
+            seen.add(str(v))
+            v = gone[str(v)]
+        return v
+    kept = [{**r, "parent": up(r.get("parent"))} for r in raw_nodes if str(r.get("label", "") or "").strip() not in examples]
+    thesis = data.get("thesis")
+    return kept, {**data, "thesis": None if str(thesis or "") in gone else thesis}
+
+
 def _assemble(
     data: dict,
     doc: ConceptDoc,
@@ -538,13 +645,7 @@ def _assemble(
                 raw["links"] = [moved(x) for x in raw["links"]]
         raw_edges = [{**e, "from": moved(e.get("from")), "to": moved(e.get("to"))} for e in raw_edges]
         data = {**data, "thesis": moved(data.get("thesis"))}
-    # 위계는 노드의 parent 칸으로 받는다 (edges 로 받던 때는 Solar 가 절반 넘는 노드의 부모를
-    # 빠뜨려 루트가 13~17개였다). 앞에 두어, edges 의 parent 와 겹치면 노드 칸이 이긴다.
-    raw_edges = [
-        {"from": raw["parent"], "to": raw.get("id"), "kind": "parent"}
-        for raw in raw_nodes
-        if raw.get("parent") not in (None, "", "null") and raw.get("id")
-    ] + raw_edges
+    raw_nodes, data = _drop_placeholders(raw_nodes, data)
     # 노드의 links 칸도 relates 로 받는다. 프롬프트는 더 요구하지 않는다 — 요구했더니 위계가 흔들렸다
     # (2026-09-29: form 덱 4회 중 2회 루트 12·2개). 가지를 넘는 연결은 _fill_links 가 따로 채운다.
     raw_edges += [
@@ -571,7 +672,15 @@ def _assemble(
         ))
 
     node_ids = {n.id for n in nodes}
-    parent_of, relates = _normalize_edges(raw_edges, alias, node_ids)
+    # 위계는 노드의 parent 칸으로 받는다 (edges 로 받던 때는 Solar 가 절반 넘는 노드의 부모를
+    # 빠뜨려 루트가 13~17개였다). 앞에 두어, edges 의 parent 와 겹치면 노드 칸이 이긴다.
+    # 노드 칸은 겹친 id 를 자리로 가려 **최종 id** 로 풀고(`_scoped_parents`), edges·links 는 대응표로 푼다.
+    def final(v):
+        return alias.get(str(v)) if v not in (None, "", "null") else None
+    edges_final = _scoped_parents(raw_nodes, final_ids) + [
+        {"from": final(e.get("from")), "to": final(e.get("to")), "kind": e.get("kind", "parent")}
+        for e in raw_edges if final(e.get("from")) and final(e.get("to"))]
+    parent_of, relates = _normalize_edges(edges_final, {}, node_ids)
     raw_thesis = str(data.get("thesis", "") or "")
     thesis = alias.get(raw_thesis, raw_thesis) if raw_thesis else None
     if thesis not in node_ids:
@@ -581,7 +690,7 @@ def _assemble(
         if not any({e.from_id, e.to_id} == {former, thesis} for e in relates):
             relates.append(ConceptEdge(from_id=former, to_id=thesis, kind="relates"))
     _break_parent_cycles(parent_of)
-    _clamp_depth(parent_of, [n.id for n in nodes], MAX_GRAPH_DEPTH)
+    relates += _clamp_depth(parent_of, [n.id for n in nodes], MAX_GRAPH_DEPTH)
 
     for node in nodes:
         node.parent_id = parent_of.get(node.id)
@@ -613,7 +722,7 @@ def _thesis_by_label(raw: str, nodes: list[ConceptNode], parent_of: dict[str, st
         return None
     scored = []
     for i, n in enumerate(nodes):
-        sc = 1.0 if GI.same_label(raw, n.label) else GI.match_score(raw, n.label)
+        sc = GI.head_match(raw, n.label)          # 머리말이 통해야 — 「혈당 부하」 가 「혈당 스파이크」 가 되지 않게 (09-30)
         if sc >= 0.5:
             scored.append((sc, n.id not in parent_of, -i, n.id))
     return max(scored)[3] if scored else None
@@ -670,6 +779,20 @@ def _without_parent_pairs(relates: list[ConceptEdge], parent_of: dict[str, str])
     # 주제(루트)에서 손자로 가는 선이었다. 주제는 모든 개념의 조상이라 그 선은 새 정보가 아니다.
     return [e for e in relates
             if e.from_id not in ancestors(e.to_id) and e.to_id not in ancestors(e.from_id)]
+
+
+def _dedupe_relates(edges: list[ConceptEdge]) -> list[ConceptEdge]:
+    """같은 두 노드를 잇는 relates 는 하나만 (방향 무관). parent 간선은 그대로."""
+    seen: set[frozenset] = set()
+    out: list[ConceptEdge] = []
+    for e in edges:
+        if e.kind == "relates":
+            key = frozenset((e.from_id, e.to_id))
+            if key in seen or e.from_id == e.to_id:
+                continue
+            seen.add(key)
+        out.append(e)
+    return out
 
 
 def _subtree_reach(
@@ -731,7 +854,7 @@ def _clamp_roots(
         parent_of[node.id] = _attach_target(node, kept, relates, thesis).id
 
     node_ids = [n.id for n in nodes]
-    _clamp_depth(parent_of, node_ids, MAX_GRAPH_DEPTH)
+    relates = relates + _clamp_depth(parent_of, node_ids, MAX_GRAPH_DEPTH)
     for node in nodes:
         node.parent_id = parent_of.get(node.id)
         node.depth = _depth_of(node.id, parent_of)
@@ -743,7 +866,7 @@ def _clamp_roots(
     ]
     # 강등된 루트를 relates 이웃 밑에 붙이면 같은 방향 relates 와 (from,to) 가
     # 겹칠 수 있다 (실측에서 발견). 위계로 승격된 쌍의 relates 는 지운다.
-    return new_edges + _without_parent_pairs(relates, parent_of)
+    return new_edges + _dedupe_relates(_without_parent_pairs(relates, parent_of))
 
 
 def _branch_of(node: ConceptNode, by: dict[str, ConceptNode]) -> str:
@@ -766,10 +889,13 @@ def _links_prompt(nodes: list[ConceptNode]) -> str:
     return "\n".join(lines)
 
 
-def _fill_links(engine: LLMProvider, nodes: list[ConceptNode], edges: list[ConceptEdge]) -> list[ConceptEdge]:
+def _fill_links(engine: LLMProvider, nodes: list[ConceptNode], edges: list[ConceptEdge],
+                degraded: list[str] | None = None) -> list[ConceptEdge]:
     """
     가지를 넘는 연결이 MIN_CROSS_RATIO 보다 적으면 트리만 보여 주고 연결을 한 번 더 묻는다.
-    실패하거나 JSON 이 깨지면 그대로 둔다 — 연결은 보조 정보라 그래프를 실패시킬 이유가 없다.
+    실패하거나 JSON 이 깨지면 그래프는 그대로 낸다 — 연결은 보조 정보라 그래프를 실패시킬 이유가 없다.
+    다만 **조용히 삼키지 않는다** (09-30 레드팀 G-A30): stderr 에 까닭을 남기고 `degraded` 에 「links」 를 적는다 —
+    계약에 칸이 있으면 그래프에 실린다 (`build_graph`).
     """
     if not nodes or MIN_CROSS_RATIO <= 0:
         return edges
@@ -784,7 +910,10 @@ def _fill_links(engine: LLMProvider, nodes: list[ConceptNode], edges: list[Conce
         raw = engine.complete(system=LINKS_SYSTEM_PROMPT, user=_links_prompt(nodes),
                               temperature=0.2, max_tokens=MAX_TOKENS // 2, json_mode=True)
         data = extract_json_object(raw)
-    except Exception:  # noqa: BLE001 — 보조 호출이 깨져도 그래프는 그대로 낸다
+    except Exception as e:  # noqa: BLE001 — 보조 호출이 깨져도 그래프는 낸다, 깨졌다고 적고
+        sys.stderr.write(f"[f07] 연결 보강 실패 — 가지를 넘는 연결 없이 그래프를 낸다: {type(e).__name__}: {str(e)[:160]}\n")
+        if degraded is not None:
+            degraded.append("links")
         return edges
     ids = {n.id for n in nodes}
     seen = {frozenset((e.from_id, e.to_id)) for e in relates}
@@ -817,12 +946,22 @@ def _root_of(nodes: list[ConceptNode], thesis: str | None) -> ConceptNode | None
 
 
 def _head_node(head: str, slide_no: int, nodes: list[ConceptNode]) -> ConceptNode | None:
-    """식 좌변·목록 제목이 가리키는 노드 — 두 쪽 낱말이 절반 이상 서로 덮어야 한다. 같은 점수면 그 장·얕은 노드."""
-    scored = [(GI.match_score(head, n.label), n) for n in nodes]
+    """
+    식 좌변·목록 제목이 가리키는 노드 — 두 쪽 낱말이 절반 이상 서로 덮고 **머리말이 통해야** 한다. 같은 점수면 그 장·얕은 노드.
+    09-30 held-out 감사 M-05: 건강 덱 한 실행에서 좌변 「혈당 부하」 가 낱말 「혈당」 하나로 「혈당 스파이크」 에 붙어 좌변 노드가
+    안 생겼고, 비교(1장)·식(3장)이 서로 다른 노드로 풀려 긴장 T1 을 놓쳤다 (`_graph_items.head_match`).
+    """
+    scored = [(GI.head_match(head, n.label), n) for n in nodes]
     scored = [(sc, n) for sc, n in scored if sc >= 0.5]
     if not scored:
         return None
     return max(scored, key=lambda x: (x[0], slide_no in x[1].slide_nos, -x[1].depth, x[1].weight))[1]
+
+
+def _head_in(label: str, text: str) -> bool:
+    """이름의 머리말이 글에 나오는가 — 한 글자 머리(「…의 질」)는 글자 그대로 찾는다 (토큰 대조는 두 글자부터)."""
+    head = R.head_token(label)
+    return bool(head) and (head in text if len(head) < R.TOKEN_MIN else R.mentioned(head, text, min_score=1.0))
 
 
 def _context_node(group: GI.ItemGroup, nodes: list[ConceptNode]) -> ConceptNode | None:
@@ -832,7 +971,9 @@ def _context_node(group: GI.ItemGroup, nodes: list[ConceptNode]) -> ConceptNode 
     09-29 수면 덱: 「자다가 깨는 대표적인 원인」 은 어느 노드도 아니지만 소개 줄 「수면의 연속성을 끊는 요인은…」 이
     「수면 연속성」 을 부른다. 그 밑이 발표 주제 밑보다 덜 틀린다.
     """
-    scored = [(R_mention(n.label, group.context), n) for n in nodes if group.slide_no in n.slide_nos]
+    # 이름의 머리말이 제목·소개 글에 나와야 한다 — 수식어 낱말 하나(「혈당」)로 「혈당 지수」 를 목록의 부모로 고르지 않게
+    scored = [(R_mention(n.label, group.context), n) for n in nodes if group.slide_no in n.slide_nos
+              and _head_in(n.label, group.context)]
     scored = [(sc, n) for sc, n in scored if sc >= 0.5]
     if not scored:
         return None
@@ -882,9 +1023,13 @@ def _add_items(
     for g in groups:
         labels = [n.label for n in nodes + added]
         missing = [it for it in g.items if GI.present_index(it, labels) is None]
-        if not missing:
-            continue
         pool = nodes + added
+        # 식의 좌변은 항이 다 있어도 없으면 더한다 — 비교(「X보다 중요한 Y」)와 식(「Y = … × X」)이 같은 노드 Y 로 만나야
+        # F-26 이 긴장을 적는다. 09-30 held-out 감사: 건강 덱 한 실행은 항(혈당 지수·탄수화물 양)만 있고 좌변 「혈당 부하」 가 없었다
+        head_missing = g.kind == "formula" and _head_node(g.head, g.slide_no, pool) is None \
+            and GI.present_index(g.head, labels) is None
+        if not missing and not head_missing:
+            continue
         parent = None
         if g.kind == "list":
             have = [pool[i] for it in g.items if (i := GI.present_index(it, labels)) is not None]
@@ -892,7 +1037,9 @@ def _add_items(
             if len(ups) == 1 and None not in ups:
                 parent = next(iter(ups))
         if parent is None:
-            got = _head_node(g.head, g.slide_no, pool) or _context_node(g, pool)
+            got = _head_node(g.head, g.slide_no, pool) or (_context_node(g, pool) if g.kind == "list" else None)
+            if got is None and g.kind == "formula" and (k := GI.present_index(g.head, labels)) is not None:
+                got = pool[k]                     # 좌변이 이미 노드면 그 밑에 — 같은 좌변을 또 더하지 않는다
             parent = got.id if got is not None else None
         new_head = None
         if parent is None and g.kind == "formula":
@@ -914,12 +1061,15 @@ def _add_items(
         return edges
     nodes.extend(added)
     ids = [n.id for n in nodes]
-    _clamp_depth(parent_of, ids, MAX_GRAPH_DEPTH)
+    cut = _clamp_depth(parent_of, ids, MAX_GRAPH_DEPTH)
     for node in nodes:
         node.parent_id = parent_of.get(node.id)
         node.depth = _depth_of(node.id, parent_of)
     _apply_weights(nodes, doc, slide_doc, only={n.id for n in added})
-    return edges + [ConceptEdge(from_id=parent_of[n.id], to_id=n.id, kind="parent") for n in added if n.id in parent_of]
+    # 더한 항목이 깊이 상한에 걸려 식 좌변 밑에 못 붙으면 할아버지 밑으로 가고, 좌변과의 관계는 relates 로 남는다
+    kept = [e for e in edges if e.kind != "parent" or e.to_id not in parent_of or parent_of[e.to_id] == e.from_id]
+    return _dedupe_relates(kept + [ConceptEdge(from_id=parent_of[n.id], to_id=n.id, kind="parent") for n in added
+                                   if n.id in parent_of] + _without_parent_pairs(cut, parent_of))
 
 
 def _is_degenerate(nodes: list[ConceptNode], edges: list[ConceptEdge]) -> bool:
@@ -997,6 +1147,15 @@ def build_graph(
         nodes, edges, sections, thesis = _call(
             engine, doc, ctx, slide_doc, extra_system=JSON_RETRY_NUDGE
         )
+    if not nodes:
+        # 노드 0개는 그래프가 아니다 — 한 번 더 묻고, 또 비면 실패로 올린다 (09-30 레드팀 G-A7: 예전엔 빈 그래프를 성공으로
+        # 돌려줘서 화면이 「개념 없음」 을 분석 결과처럼 보였다. 브리지는 예외를 오류 응답으로 낸다 — CLAUDE.md 「실패는 실패로」)
+        try:
+            nodes, edges, sections, thesis = _call(engine, doc, ctx, slide_doc, extra_system=EMPTY_NUDGE)
+        except GraphError:
+            nodes = []
+        if not nodes:
+            raise GraphError("F-07 이 개념 노드를 하나도 만들지 못했습니다 — 개념 그래프를 만들 수 없습니다.")
     if _is_degenerate(nodes, edges):
         try:
             retry = _call(engine, doc, ctx, slide_doc, extra_system=RETRY_NUDGE)
@@ -1005,13 +1164,14 @@ def build_graph(
         if retry and not _is_degenerate(retry[0], retry[1]):
             nodes, edges, sections, thesis = retry
 
+    degraded: list[str] = []
     edges = _clamp_roots(nodes, edges, doc, slide_doc, thesis)
-    edges = _fill_links(engine, nodes, edges)
+    edges = _fill_links(engine, nodes, edges, degraded)
     # 식·목록 항목 메우기는 연결 보강 **뒤**다 — 앞에 두면 노드 수가 늘어 보강 호출 여부(가지 간 연결 비율)가 바뀐다.
     # 더한 항목은 위계(부모 간선)로만 잇는다. 가지를 넘는 연결은 F-26 주장(compose)이 맡는다.
     edges = _add_items(nodes, edges, doc, slide_doc, thesis)
 
-    return ConceptGraph(
+    graph = ConceptGraph(
         file_name=doc.file_name,
         total_slides=doc.total_slides,
         nodes=nodes,
@@ -1019,3 +1179,14 @@ def build_graph(
         sections=sections,
         model=engine.name,
     )
+    # 계약(contracts.ConceptGraph)에 칸이 생기면 싣는다 — 칸이 없는 지금도 그대로 돈다 (09-30 G-A17·G-A30).
+    # thesis: 모델이 고른 발표 주제 노드 (F-08 theme 자리가 「가장 무거운 루트」 를 짐작하지 않게). 루트일 때만.
+    _set_contract_field(graph, "thesis", thesis if thesis in {n.id for n in nodes if n.parent_id is None} else None)
+    _set_contract_field(graph, "degraded", degraded)
+    return graph
+
+
+def _set_contract_field(obj, name: str, value) -> None:
+    """계약 dataclass 에 그 칸이 있을 때만 채운다 — 계약은 WP-J 몫이라, 칸이 생기기 전·후 모두 이 코드가 돈다."""
+    if name in getattr(type(obj), "__dataclass_fields__", {}):
+        setattr(obj, name, value)

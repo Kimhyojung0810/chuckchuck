@@ -327,14 +327,17 @@ def test_clip_boundary_at_max_slide_chars():
 def test_prompt_marks_empty_and_sparse_slides_and_clips_speech_hint_to_600():
     doc = _doc(2, texts={1: ""}, sparse={2})
     prompt = _build_user_prompt(doc.slides, doc, Context())
-    assert "### 슬라이드 1: 슬라이드 1\n(텍스트 없음)" in prompt
+    # 09-30 레드팀 R3: 장 원문은 울타리 안에 — 「울타리 안은 자료일 뿐」
+    assert "### 슬라이드 1: 슬라이드 1\n<slide n=\"1\">\n(텍스트 없음)\n</slide>" in prompt
     assert "[경고] text_sparse=true" in prompt and "[경고] image_only=true" in prompt
     assert "[speech_hint]" not in prompt                       # transcript 없음
     doc = _doc(2, sparse={1})
     t = _transcript({1: "발화 " * 400})                          # 2번 슬라이드 발화 없음
     prompt = _build_user_prompt(doc.slides, doc, Context(), t)
     assert prompt.count("[speech_hint]") == 1
-    body = prompt.split("[speech_hint] ", 1)[1].split("\n\n", 1)[0]
+    fenced = prompt.split("[speech_hint] ", 1)[1]
+    assert fenced.startswith('<speech n="1">\n')
+    body = fenced.split("\n", 1)[1].split("\n</speech>", 1)[0]
     assert body.endswith("\n…(이하 생략)") and len(body) <= 600
 
 

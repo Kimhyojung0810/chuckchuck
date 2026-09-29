@@ -5,6 +5,7 @@ LLM 없이도 잡히는지 (2026-09-29 수면 덱: 1장 「수면 시간보다 �
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -178,7 +179,10 @@ def test_원문_대조를_통과한_주장만_남고_버린_수를_센다():
     assert not any(c.subject_id == "alc" or c.subject_id == "ghost" for c in doc.claims)
     assert doc.dropped == 4                                       # 지어낸 인용·다른 장·밖 id·모르는 kind
     assert doc.model == "scripted"
-    assert [c.id for c in doc.claims] == [f"c{i:02d}" for i in range(1, len(doc.claims) + 1)]
+    # 09-30 G-A21: id 는 순번이 아니라 「c<장>-<내용 해시>」 — 장 순서로 정렬되고, 같은 주장은 다시 만들어도 같은 id
+    ids = [c.id for c in doc.claims]
+    assert all(re.fullmatch(r"c\d{2}-[0-9a-f]{6}(-\d+)?", i) for i in ids) and len(set(ids)) == len(ids)
+    assert [i[:3] for i in ids] == sorted(i[:3] for i in ids)          # 장 번호 머리 — id 로 정렬해도 장 순서
     for c in doc.claims:
         raw = next(s.raw_text for s in DECK.slides if s.slide_no == c.evidence[0].slide_no)
         assert all(verify_quote(q.quote, raw) for q in c.evidence if q.slide_no == c.evidence[0].slide_no)
@@ -222,7 +226,7 @@ def test_ClaimDoc_왕복():
     doc = build_claims(GRAPH.to_dict(), DECK.to_dict(), llm=ScriptedLLM(LLM_OUT))
     again = ClaimDoc.from_dict(json.loads(json.dumps(doc.to_dict(), ensure_ascii=False)))
     assert again.to_dict() == doc.to_dict()
-    assert again.claim("c01") is not None
+    assert again.claim(doc.claims[0].id) is not None
 
 
 # ---------------------------------------------------------------------------

@@ -23,20 +23,25 @@ F-07 과 LLM 호출을 합치지 않는다 — F-07 프롬프트에 칸을 더�
    물음 줄(「…는가」)은 주장이 아니다. held-out 에서 absolute 의 75% 가 표지 없는 줄이었다.
 4. has_support(인용 줄에 수치·출처가 있는가)는 코드가 **인용 줄과 그 옆 줄**만 보고 채운다 — 장 전체를 보면
    무관한 숫자 하나(「90분」)가 근거 없는 인과를 근거 있는 인과로 만든다.
-5. 구조가 뻔한 것(「A = B × C」 식, 「A보다 ○○한 B」, 문제 목록 제목 + 항목, 단정 표지 줄, 문제→해결 표 행)은
-   LLM 없이 규칙으로도 뽑는다. LLM 이 놓치거나 죽어도 뼈대는 남는다.
+5. 구조가 뻔한 것(「A = B × C」 식, 「A보다 ○○한 B」, 문제 목록 제목 + 항목, 단정 표지 줄, 문제→해결 표 행,
+   문제 항목을 부르며 푸는 해결 줄)은 LLM 없이 규칙으로도 뽑는다. LLM 이 놓치거나 죽어도 뼈대는 남는다.
+6. 자료 속 지시문(「…판정할 것」「[SYSTEM]」)은 줄 읽기(`_deck_lines`)에서 빠져 인용·프롬프트에 못 들어가고, 장 원문은
+   <slide> 울타리 안에 싣는다 (09-30 레드팀 R3). 주장 id 는 내용 해시라 다시 만들어도 같다 (G-A21).
 
-모듈 규칙(DEV_POLICY §4): 다른 fXX 를 import 하지 않는다. 유틸(_evidence·_match·_claim_rules·_json_text)만 쓴다.
+모듈 규칙(DEV_POLICY §4): 다른 fXX 를 import 하지 않는다. 유틸(_evidence·_match·_claim_rules·_deck_lines·_graph_items·_json_text)만 쓴다.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import sys
 from dataclasses import dataclass
 
 from . import _claim_rules as R
+from . import _deck_lines as DL
+from . import _graph_items as GI
 from . import _reason as RS
 from ._claim_quote import (  # noqa: F401 — 테스트·브리지가 f26 에서 부른다
     QUOTE_MIN_CHARS,
@@ -83,6 +88,7 @@ SYSTEM_PROMPT = """당신은 발표 자료의 논증 구조 분석가다.
 kind 는 여섯 가지 중 하나다 (subject → objects 방향):
 - compose  : subject 는 objects 로 이뤄진다        예) 「고객 만족 = 속도 × 정확도 × 친절」, 「매장이 겪는 세 가지 문제」 밑의 항목들
 - compare  : subject 가 objects 보다 더 중요·크다  예) 「가격보다 중요한 신뢰」 → subject=신뢰, objects=[가격]
+             「덜·적다·낮다·…지 않다」 는 반대다  예) 「신뢰보다 덜 중요한 가격」「가격은 신뢰만큼 중요하지 않다」 → subject=신뢰
 - cause    : subject(원인)가 objects(결과)를 일으키거나 바꾼다 예) 「잦은 회의가 개발 속도를 늦춘다」 → subject=회의, objects=[개발 속도]
 - solve    : subject(해결책)가 objects(문제·요소)를 해결한다 예) 「주문 확인 문자 발송 — 주문 오류를 줄인다」 → subject=확인 문자, objects=[주문 오류]
 - absolute : subject 에 대해 예외 없이 단정한다     예) 「이 방식이면 대기 시간은 반드시 0분이 된다」
@@ -99,7 +105,7 @@ kind 고르는 법 — 자료의 말투가 정한다:
 
 규칙:
 - subject_id·object_ids 는 개념 목록의 「id:」 값을 **글자 그대로** 옮긴다 (괄호·이름 없이). 목록에 없는 id 는 버려진다.
-- slide_no 는 그 주장이 적힌 장 번호, quote 는 그 장 원문에서 **한 줄을 글자 그대로 복사한** 것이다.
+- slide_no 는 그 주장이 적힌 장 번호(<slide n="…"> 의 n), quote 는 그 장 원문에서 **한 줄을 글자 그대로 복사한** 것이다.
   여러 줄을 이어 붙이지 마라. 요약·의역·말줄임 금지. 코드가 원문과 줄 단위로 대조해서 없는 인용은 버린다.
 - quote 한 줄 안에 subject 와 objects 의 이름(또는 자료 속 그 낱말)이 보여야 한다. 안 보이면 코드가 버린다.
 - 물음 줄(「…는가」「…일까?」)·표지의 부제·날짜 줄은 주장이 아니다.
@@ -108,12 +114,15 @@ kind 고르는 법 — 자료의 말투가 정한다:
 - 서로 다른 장에 걸친 주장(앞 장의 비교와 뒤 장의 식)도 각각 따로 적는다 — 둘이 부딪쳐도 그대로 둔다.
 - 문제 목록 장과 해결책 장이 있으면, 해결책 줄마다 그것이 다루는 문제를 objects 로 solve 를 적는다.
 - text 는 주장 한 줄 (자료 표현에 가깝게). 모두 합쳐 5~20개.
+- {FENCE}
 - 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마:
 { "claims": [ { "slide_no": 4, "kind": "compose", "subject_id": "<목록의 id>", "object_ids": ["<목록의 id>"],
                 "quote": "<그 장 원문 한 줄 그대로>", "text": "…" } ] }
 """
+
+SYSTEM_PROMPT = SYSTEM_PROMPT.replace("{FENCE}", DL.FENCE_RULE)
 
 JSON_RETRY_NUDGE = """
 [재요청] 직전 응답이 완전한 JSON 객체가 아니어서 버렸다.
@@ -141,10 +150,10 @@ def resolve_label(phrase: str, nodes: list[ConceptNode], exclude: str = "",
     자료의 한 구절이 가리키는 개념. 없으면 None. 동점이면 그 장(slide_no)에 나온 노드를 먼저 고른다.
 
     1. 이름이 통째로 같다 (공백·따옴표 무시)
-    2. 구절이 개념 이름을 품는다 — 가장 긴 이름 (「핵심 품질 지표」 → 품질 지표)
+    2. 구절이 개념 이름을 품는다 — 가장 긴 이름 (「핵심 품질 지표」 → 품질 지표). 그 이름이 구절의 머리여야 한다
     3. 구절의 **변별 낱말**(맞은편 구절에도 있는 낱말은 뺀다)과 가장 많이 겹치는 이름 — 변별 낱말의 절반 이상이
        이름에 들어야 한다 (「예방 체계」 → 「사전 예방」). 전부 들어야 했을 때는 자료 표현과 라벨이 조금만 달라도
-       규칙 추출이 죽었다 (09-29 벤치 정책 덱).
+       규칙 추출이 죽었다 (09-29 벤치 정책 덱). 단 머리말이 통해야 하고(`head_compatible`) 반의어는 안 된다 (09-30).
 
     같은 규칙을 compose·compare 가 함께 쓰므로, 같은 구절은 두 주장에서 같은 개념이 된다 —
     그래야 F-08 이 compare 와 compose 의 겹침(tension)을 id 로 찾는다.
@@ -159,7 +168,8 @@ def resolve_label(phrase: str, nodes: list[ConceptNode], exclude: str = "",
     contained = []
     for n in nodes:
         ltoks = norm_tokens(n.label)
-        if ltoks and sum(len(t) for t in ltoks) >= 2 and _seq_in(ptoks, ltoks):
+        # 구절이 이름을 품어도 그 이름이 구절의 **머리**여야 한다 — 「혈당 부하」 는 「혈당」 을 품지만 머리는 「부하」다 (09-30)
+        if ltoks and sum(len(t) for t in ltoks) >= 2 and _seq_in(ptoks, ltoks) and R.head_compatible(phrase, n.label):
             contained.append(n)
     if contained:
         return max(contained, key=lambda n: (len(_loose(n.label)), _on(n, slide_no), n.weight, n.id))
@@ -169,6 +179,10 @@ def resolve_label(phrase: str, nodes: list[ConceptNode], exclude: str = "",
         return None
     cands = []
     for n in nodes:
+        # 반쯤 겹치는 이름은 머리말이 통하고 반의어가 아닐 때만 — 「혈당 부하」 가 낱말 「혈당」 하나로 「혈당 스파이크」 가,
+        # 「매출 증가」 가 「매출 감소」 가 되지 않게 (09-30 M-05 · G-A3)
+        if not R.head_compatible(phrase, n.label) or R.antonyms(phrase, n.label):
+            continue
         ltoks = R.content_tokens(n.label)
         hits = sum(1 for t in distinct if any(R.tok_match(t, lt) or R.tok_match(lt, t) for lt in ltoks))
         if hits and hits / len(distinct) >= R.MENTION_MIN:
@@ -209,27 +223,12 @@ def best_node(text: str, nodes: list[ConceptNode], slide_no: int | None = None,
 # 규칙 추출 — LLM 없이 뻔한 구조
 # ---------------------------------------------------------------------------
 
-_FORMULA_SPLIT_RE = re.compile(r"\s*[×✕*+·÷]\s*|\s+x\s+")
-#: 「A보다 (더) <서술어의 관형형> B」 — 제목형. 서술어는 목록이 아니라 꼴로 받는다 (중요한·필요한·앞서는·큰 …).
-_COMPARE_HEAD_RE = re.compile(
-    r"^(?P<a>[^,.?!]{1,24}?)보다\s*(?:더\s*|훨씬\s*|더욱\s*)?(?P<pred>[가-힣]{0,8}(?:한|은|인|운|는|된|난|진|른|큰))"
-    r"\s+(?P<b>[^,.?!]{1,24}?)[.!]?$"
-)
-#: 「B는 (수식어) A보다 (더) <서술어>」 — 문장형.
-_COMPARE_SENT_RE = re.compile(
-    r"(?P<b>[^,.?!]{1,24}?)(?:은|는|이|가)\s+(?:[^,.?!\s]{1,10}\s+)?(?P<a>[^,.?!]{1,24}?)보다\s*"
-    r"(?:더\s*|훨씬\s*|더욱\s*)?(?P<pred>[가-힣]+)"
-)
-#: 「A 대비 B가 <서술어>」 — B 가 A 보다 두드러진다는 비교.
-_COMPARE_VS_RE = re.compile(r"(?P<a>[^,.?!]{1,24}?)\s*대비\s+(?P<b>[^,.?!]{1,24}?)(?:이|가|은|는)\s")
-
-
 def _formula_parts(line: str) -> tuple[str, list[str]] | None:
     sides = R.formula_sides(line)
     if not sides:
         return None
     lhs, rhs = sides
-    parts = [p.strip(" .") for p in _FORMULA_SPLIT_RE.split(rhs) if p.strip(" .")]
+    parts = R.formula_terms(rhs)
     return (lhs, parts) if len(parts) >= 2 else None
 
 
@@ -325,20 +324,20 @@ def rule_list_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
 
 
 def rule_compare(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
-    """「A보다 ○○한 B」·「B는 A보다 ○○」·「A 대비 B가 …」 줄에서 compare(B > A). 양쪽이 서로 다른 개념에 닿아야 남긴다."""
+    """
+    비교 줄(「A보다 ○○한 B」·「B는 A보다 ○○」·「A 대비 B가 …」·「B는 A만큼 …지 않다」) → compare(큰 쪽 > 작은 쪽).
+    방향은 `_claim_rules.compare_sides` 가 「덜·적다·않다」 까지 보고 정한다 (09-30 G-A1 — 예전엔 늘 B > A 였다).
+    양쪽이 서로 다른 개념에 닿아야 남긴다.
+    """
     out: list[Claim] = []
     for s in slidedoc.slides:
         for line in slide_lines(s.raw_text):
-            plain = _QUOTE_MARK_RE.sub("", line).strip()
-            if R.is_question(plain):
+            if R.is_question(_QUOTE_MARK_RE.sub("", line).strip()):
                 continue
             # 여러 꼴을 다 본다 — 문장형은 제목형 정규식에도 걸리지만(b=「개념입니다」) 개념에 안 닿는다. 닿는 첫 해석을 쓴다.
-            for m in (_COMPARE_HEAD_RE.match(plain), _COMPARE_SENT_RE.search(plain), _COMPARE_VS_RE.search(plain)):
-                if not m:
-                    continue
-                a, b = m.group("a").strip(), m.group("b").strip()
-                big = resolve_label(b, graph.nodes, exclude=a, slide_no=s.slide_no)
-                small = resolve_label(a, graph.nodes, exclude=b, slide_no=s.slide_no)
+            for big_phrase, small_phrase in R.compare_sides(line):
+                big = resolve_label(big_phrase, graph.nodes, exclude=small_phrase, slide_no=s.slide_no)
+                small = resolve_label(small_phrase, graph.nodes, exclude=big_phrase, slide_no=s.slide_no)
                 if big is None or small is None or big.id == small.id:
                     continue
                 out.append(Claim(id="", kind="compare", subject_id=big.id, object_ids=[small.id], text=line,
@@ -363,19 +362,29 @@ def rule_absolute(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     return out
 
 
+def _fix_node(fix_text: str, graph: ConceptGraph, slide_no: int, skip: set[str]) -> ConceptNode | None:
+    """
+    해결 칸이 **이름으로 부르는** 개념 — 칸 낱말의 절반 이상이 그 이름에 있어야 한다. 칸 안에 나온 목적어 하나는
+    해결책이 아니라 줄일 대상이다 (09-29 graph_ab 남은 문제 2: 「카페인·음주·빛·소음 줄이기」 의 주어가 후처리로 생긴
+    노드 「카페인」 이 되어, 해결 짝이 틀어지고 거짓 미해결 탐침이 났다).
+    """
+    n = best_node(fix_text, graph.nodes, slide_no=slide_no, skip=skip)
+    return n if n is not None and R.mention_score(fix_text, n.label) >= R.MENTION_MIN else None
+
+
 def rule_solve_rows(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     문제 칸과 해결 칸이 한 행에 있는 표(「| 문제 | 해결 |」) → solve(해결 칸의 개념 → 문제 칸의 개념).
 
-    해결 장이라는 표시(제목의 「방법·해결·대책·개선」, 문제 제목이 아닌 것)가 있고 해결 칸이 무엇을 하는 말
+    해결 장이라는 표시(제목이 해결 장 제목 — `is_solution_head`)가 있고 해결 칸이 무엇을 하는 말
     (「…확보」「…줄이기」)일 때만 읽는다 — 문제 장의 현황 칸(「평균 1년 이상」)은 해결이 아니다.
-    해결 칸이 가리키는 개념이 없으면 그 장 제목이 가리키는 개념, 그것도 없으면 문제의 부모 개념을 주어로 둔다 —
+    해결 칸이 **이름으로 부르는** 개념이 없으면 그 장 제목이 가리키는 개념, 그것도 없으면 문제의 부모 개념을 주어로 둔다 —
     짝(문제→해결)이 있다는 사실이 unsolved 판단의 재료다. 표 첫 칸의 개념(문제들)은 주어가 되지 못한다.
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
         lines = slide_lines(s.raw_text)
-        if not lines or not R.SOLVE_HEAD_RE.search(lines[0]) or R.is_problem_head(lines[0]):
+        if not lines or not R.is_solution_head(lines[0]):
             continue
         head = resolve_label(lines[0], graph.nodes, slide_no=s.slide_no)
         rows: list[tuple[ConceptNode, list[str], str]] = []
@@ -389,10 +398,58 @@ def rule_solve_rows(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
         firsts = {p.id for p, _, _ in rows}
         for prob, cells, line in rows:
             parent = next((n for n in graph.nodes if n.id == prob.parent_id), None)
-            fix = best_node(" ".join(cells[1:]), graph.nodes, slide_no=s.slide_no, skip=firsts) or head or parent
+            fix = _fix_node(" ".join(cells[1:]), graph, s.slide_no, firsts) or head or parent
             if fix is None or fix.id in firsts:
                 continue
             out.append(Claim(id="", kind="solve", subject_id=fix.id, object_ids=[prob.id], text=_tidy(line),
+                             evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
+    return out
+
+
+def _solver(lines: list[str], i: int, graph: ConceptGraph, slide_no: int, skip: set[str]) -> ConceptNode | None:
+    """해결 줄의 주어 — 그 줄에 뚜렷한 개념, 없으면 바로 앞 줄(「시세 지도 — …」 + 「정보 비대칭을 해소합니다」)에 뚜렷한 개념."""
+    for j in (i, i - 1):
+        if j < 1:
+            continue
+        n = best_node(lines[j], graph.nodes, slide_no=slide_no, skip=skip)
+        if n is not None and _clear(n.label, lines[j]):
+            return n
+    return None
+
+
+def rule_solve_lines(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
+    """
+    다른 장 문제·원인 목록의 항목을 **이름으로 부르며** 푸는 문장 → solve(해결책 → 그 항목). 주어는 그 줄(없으면 앞 줄)에
+    뚜렷한 개념, 그것도 없으면 장 제목이 가리키는 개념 — 해결 장 제목은 해결책의 이름이다.
+
+    09-30 실측: 규칙 주장만으로는 held-out 미해결 U1 을 한 덱도 못 찾았다 (벤치 그래프 규칙 경로 0/5). 해결 줄을 LLM 이 solve 로
+    적을 때만 찾았고, LLM 표본이 바뀌면 사라졌다 (건강 덱). 해결 짝은 줄의 꼴로 가를 수 있다 — 문제 항목의 변수 낱말이 다 나오고
+    (`names_variable`) 푸는 말투(`solves`: 줄이·막·해소·풀, 모자람이면 늘리·확충)가 있다.
+    """
+    deck = _Deck.of(graph, slidedoc)
+    rows = _problem_rows(deck)
+    if not rows:
+        return []
+    items = {nid for _, nid, _, _ in rows}
+    out: list[Claim] = []
+    for s in slidedoc.slides:
+        lines = deck.lines.get(s.slide_no) or []
+        title = resolve_label(lines[0], graph.nodes, slide_no=s.slide_no) if lines else None
+        for i in range(1, len(lines)):
+            line = lines[i]
+            if R.is_question(line) or not R.is_sentence(line):
+                continue
+            probs = []
+            for no, nid, _, _ in rows:
+                label = deck.labels[nid]
+                if no != s.slide_no and nid not in probs and R.names_variable(label, line) and R.solves(line, label):
+                    probs.append(nid)
+            if not probs:
+                continue
+            subj = _solver(lines, i, graph, s.slide_no, items) or (title if title is not None and title.id not in items else None)
+            if subj is None or subj.id in probs:
+                continue
+            out.append(Claim(id="", kind="solve", subject_id=subj.id, object_ids=probs, text=line,
                              evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
     return out
 
@@ -413,7 +470,7 @@ def rule_cause(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     for s in slidedoc.slides:
         lines = slide_lines(s.raw_text)
         heads = [ln for ln in lines[:2] if len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
-        solution_slide = any(R.SOLVE_HEAD_RE.search(h) for h in heads)
+        solution_slide = any(R.is_solution_head(h) for h in heads)
         for line in lines:
             if R.is_question(line) or not R.is_sentence(line):
                 continue
@@ -470,7 +527,8 @@ def rule_contrast(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
             neg, pos = sides
             big = _side_node(pos, neg, graph, s.slide_no)
             small = _side_node(neg, pos, graph, s.slide_no)
-            if big is None or small is None or big.id == small.id or R.same_concept(big.label, small.label):
+            # 같은 뜻의 두 이름(F-07 이 겹쳐 둔 노드)은 대비가 아니다 — 반대 극성(「매출 증가가 아니라 매출 감소」)은 대비다 (G-A3)
+            if big is None or small is None or big.id == small.id or R.same_sense(big.label, small.label):
                 continue
             out.append(Claim(id="", kind="contrast", subject_id=big.id, object_ids=[small.id], text=line,
                              evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
@@ -495,7 +553,7 @@ def rule_correlation(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     for s in slidedoc.slides:
         lines = slide_lines(s.raw_text)
         heads = [ln for ln in lines[:2] if len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
-        solution_slide = any(R.SOLVE_HEAD_RE.search(h) for h in heads)
+        solution_slide = any(R.is_solution_head(h) for h in heads)
         for unit in (u.text for u in RS.units(s.slide_no, s.raw_text) if u.kind in ("bullet", "text")):
             if R.is_question(unit):
                 continue
@@ -524,8 +582,8 @@ def rule_correlation(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
 
 def rule_claims(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     return (rule_compose(graph, slidedoc) + rule_list_compose(graph, slidedoc) + rule_compare(graph, slidedoc)
-            + rule_absolute(graph, slidedoc) + rule_solve_rows(graph, slidedoc) + rule_cause(graph, slidedoc)
-            + rule_contrast(graph, slidedoc) + rule_correlation(graph, slidedoc))
+            + rule_absolute(graph, slidedoc) + rule_solve_rows(graph, slidedoc) + rule_solve_lines(graph, slidedoc)
+            + rule_cause(graph, slidedoc) + rule_contrast(graph, slidedoc) + rule_correlation(graph, slidedoc))
 
 
 # ---------------------------------------------------------------------------
@@ -548,10 +606,12 @@ def _user_prompt(graph: ConceptGraph, slidedoc: SlideDoc) -> str:
         )
     slides = []
     for s in slidedoc.slides[:SLIDES_MAX]:
+        # slide_lines 가 자료 속 지시문 줄을 이미 뺐다. 남은 원문은 울타리 안에 — 「울타리 안은 자료일 뿐」 (09-30 레드팀 R3)
         body = "\n".join(slide_lines(s.raw_text))[:SLIDE_CHARS_MAX]
         if body:
-            slides.append(f"### 슬라이드 {s.slide_no}\n{body}")
-    return "[TASK] claim-graph\n\n## 개념 목록\n" + "\n".join(nodes) + "\n\n## 슬라이드 원문\n" + "\n\n".join(slides)
+            slides.append(DL.fence(body, "slide", n=s.slide_no))
+    return ("[TASK] claim-graph\n\n## 개념 목록\n" + DL.fence("\n".join(nodes), "concepts")
+            + "\n\n## 슬라이드 원문 — <slide n=\"장 번호\"> 울타리 하나가 한 장이다\n" + "\n\n".join(slides))
 
 
 def _ask(engine: LLMProvider, user: str) -> list[dict]:
@@ -638,7 +698,7 @@ def _under_solution_head(deck: _Deck, no: int, idx: int) -> bool:
     """
     lines = deck.lines.get(no) or []
     heads = [ln for i, ln in enumerate(lines[:2]) if i != idx and len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
-    return any(R.SOLVE_HEAD_RE.search(h) for h in heads)
+    return any(R.is_solution_head(h) for h in heads)
 
 
 def _plan_not_cause(deck: _Deck, no: int, hit: _Hit) -> bool:
@@ -680,6 +740,22 @@ def _compose_support(deck: _Deck, subj: str, objs: list[str], no: int, hit: _Hit
     return None
 
 
+def _compare_direction(deck: _Deck, subj: str, objs: list[str], unit: str) -> tuple[str, list[str]]:
+    """
+    LLM 이 적은 비교 방향을 인용 줄의 말투로 바로잡는다 — 줄이 「주어가 작은 쪽」 이라고 말하면(「B는 A보다 덜 …」
+    「B가 A보다 적다」「B는 A만큼 …지 않다」) 큰 쪽을 주어로 뒤집는다 (09-30 G-A1). 줄에서 두 쪽이 안 갈리면 그대로 둔다.
+    """
+    s_label = deck.labels[subj]
+    for big, small in R.compare_sides(unit):
+        if R.mentioned(s_label, small, exclude=big) and not R.mentioned(s_label, big, exclude=small):
+            flip = [o for o in objs if R.mentioned(deck.labels[o], big, exclude=small)]
+            if flip:
+                return flip[0], [subj]
+        if R.mentioned(s_label, big, exclude=small):
+            break
+    return subj, objs
+
+
 def _supported(deck: _Deck, kind: str, subj: str, objs: list[str], no: int,
                hit: _Hit) -> tuple[str, str, list[str]] | None:
     """
@@ -700,8 +776,10 @@ def _supported(deck: _Deck, kind: str, subj: str, objs: list[str], no: int,
         return ("absolute", n.id, []) if n is not None else None
     if kind == "compose":
         return _compose_support(deck, subj, objs, no, hit)
-    if kind == "compare" and not R.COMPARE_RE.search(unit):
-        return None
+    if kind == "compare":
+        if not R.COMPARE_RE.search(unit):
+            return None
+        subj, objs = _compare_direction(deck, subj, objs, unit)
     if kind == "contrast":
         ob = [o for o in objs if _men(deck, o, unit, [subj])]
         return ("contrast", subj, ob) if ob and _men(deck, subj, unit, objs) else None
@@ -712,11 +790,14 @@ def _supported(deck: _Deck, kind: str, subj: str, objs: list[str], no: int,
             ob = [o for o in objs if R.mentioned(deck.labels[o], cells[0])]
             if ob:
                 return "solve", subj, ob
-    if kind == "solve" and not R.SOLVE_RE.search(unit):
+    if kind == "solve" and not any(R.solves(unit, deck.labels[o]) for o in objs):
         # 해결 말투가 옆 줄에 있으면 그 줄이 목적어를 불러야 한다 (「시세 지도 — …」 + 「정보 비대칭을 해소합니다」)
-        near = [x for x in ctx.split("\n") if R.SOLVE_RE.search(x) and any(_men(deck, o, x, [subj]) for o in objs)]
+        near = [x for x in ctx.split("\n") if any(R.solves(x, deck.labels[o]) and _men(deck, o, x, [subj]) for o in objs)]
         if not near:
             return None
+    if kind == "solve" and deck.lines.get(no):
+        # 해결 장 제목은 해결책의 이름이다 — 주어가 줄·옆 줄에 없어도 제목이 부르면 받는다 (`rule_solve_lines`)
+        ctx = ctx + "\n" + deck.lines[no][0]
     if kind == "cause" and _plan_not_cause(deck, no, hit):
         return None
     if kind == "cause" and not R.CAUSE_RE.search(unit):
@@ -725,7 +806,8 @@ def _supported(deck: _Deck, kind: str, subj: str, objs: list[str], no: int,
             return None
     if not _men(deck, subj, ctx, objs):
         return None
-    ob = [o for o in objs if _men(deck, o, ctx, [subj])]
+    # 해결 줄은 문제를 반대 극성으로 부르기도 한다 — 「산책 시간 확보를 돕습니다」 가 「산책 시간 부족」 을 푼다 (변수를 다 부르면 받는다)
+    ob = [o for o in objs if _men(deck, o, ctx, [subj]) or (kind == "solve" and R.names_variable(deck.labels[o], ctx))]
     return (kind, subj, ob) if ob else None
 
 
@@ -752,8 +834,9 @@ def _check(raw: dict, deck: _Deck) -> Claim | str:
     objs: list[str] = []
     for o in raw.get("object_ids") or []:
         oid = _resolve_id(o, deck.ids, deck.by_label, deck.nodes)
-        # 주어와 같은 개념의 다른 이름(F-07 이 겹쳐 둔 노드)은 목적어가 아니다 — 「A 가 A 를 해결한다」
-        if oid and oid != subj and oid not in objs and not R.same_concept(deck.labels[oid], deck.labels[subj]):
+        # 주어와 같은 뜻의 다른 이름(F-07 이 겹쳐 둔 노드)은 목적어가 아니다 — 「A 가 A 를 해결한다」. 반대 극성은 짝이다:
+        # 「시간 확보」 가 「시간 부족」 을 푼다 (09-30 G-A3 — 예전엔 수식어를 떼고 같은 개념으로 봐서 이 주장을 버렸다)
+        if oid and oid != subj and oid not in objs and not R.same_sense(deck.labels[oid], deck.labels[subj]):
             objs.append(oid)
     if kind != "absolute" and not objs:
         return "objects"
@@ -834,6 +917,68 @@ def _absorb_subsets(claims: list[Claim]) -> list[Claim]:
     return keep
 
 
+def _problem_rows(deck: _Deck) -> list[tuple[int, str, str, str]]:
+    """
+    문제·원인 목록의 항목 줄 → (장, 노드 id, 항목 줄, 설명 칸 글). 목록 제목이 문제 명사로 끝나고(「…세 가지 문제」
+    「…대표적인 원인」), F-07 후처리가 믿는 목록(`_graph_items.item_groups` — 개수 말과 항목 수가 맞거나, 개수 말 없이
+    셋 이상)만 — 설명 문장·식 줄을 항목으로 읽지 않게. 표 행이면 첫 칸이 이름이고 나머지 칸이 설명이다.
+    """
+    out: list[tuple[int, str, str, str]] = []
+    for no, raw in deck.texts.items():
+        for g in GI.item_groups([(no, raw)]):
+            if g.kind != "list" or not R.is_problem_head(g.head):
+                continue
+            for item in g.items:
+                node = resolve_label(item, deck.nodes, slide_no=no)
+                if node is None or not R.mentioned(node.label, item):
+                    continue
+                row = next((ln for ln in deck.lines.get(no, []) if item in R.item_text(ln)), item)
+                out.append((no, node.id, _tidy(row), " ".join(R.table_cells(row)[1:])))
+    return out
+
+
+#: 설명 칸 낱말로 칠 수 없는 한 글자 말 — 의존 명사·접속어.
+_ONE_CHAR_STOP = frozenset("등수것및또더안밖중후전간곳점때개명원년월일")
+
+
+def _desc_tokens(desc: str) -> list[str]:
+    """설명 칸의 낱말 — 한 글자 말도 받는다(「빛·소음」 의 「빛」), 의존 명사·숫자는 뺀다."""
+    return [t for t in norm_tokens(desc) if not t.isdigit() and (len(t) >= 2 or (t not in _ONE_CHAR_STOP and _HANGUL_1.match(t)))]
+
+
+_HANGUL_1 = re.compile(r"^[가-힣]$")
+
+
+def _addressed_rows(claims: list[Claim], deck: _Deck) -> list[Claim]:
+    """
+    해결 줄이 다른 장 문제·원인 목록의 **항목 줄**(이름, 또는 그 줄에만 있는 설명 낱말 **둘 이상**)을 부르면 solve(해결 주어 →
+    그 항목)을 더한다 — 인용은 해결 줄 + 항목 줄. 09-29 graph_ab 남은 문제 2: 수면 덱 원인 표 「| 환경 | 빛·소음·높은 온도 |」 를
+    해결 행 「카페인·음주·빛·소음 줄이기」 가 다루는데 이름 「환경」 이 안 나와서 미해결 탐침이 났다. 설명 낱말 하나(「계약」)로는
+    짝을 짓지 않는다 — 전세 덱 「보증료 지원 — 첫 전세 계약의…」 가 「정보 비대칭(…계약 전에 알기 어렵다)」 을 푼 것이 됐다.
+    여러 항목 줄에 두루 나오는 낱말도 쓰지 않는다. 새 관계를 지어내지 않는다 — 두 줄이 다 원문이다.
+    """
+    rows = _problem_rows(deck)
+    if not rows:
+        return []
+    counts: dict[str, int] = {}
+    for _, _, _, desc in rows:
+        for t in set(_desc_tokens(desc)):
+            counts[t] = counts.get(t, 0) + 1
+    out: list[Claim] = []
+    for c in (x for x in claims if x.kind == "solve"):
+        for q in c.evidence:
+            words = norm_tokens(q.quote)
+            for no, nid, row, desc in rows:
+                if no == q.slide_no or nid in c.object_ids or nid == c.subject_id:
+                    continue
+                own = [t for t in _desc_tokens(desc) if counts.get(t) == 1]
+                shared = sum(1 for t in own if any(w == t or (len(t) >= 2 and R.tok_match(w, t)) for w in words))
+                if R.mention_score(deck.labels[nid], q.quote) >= 1 or (own and shared >= min(2, len(own))):
+                    out.append(Claim(id="", kind="solve", subject_id=c.subject_id, object_ids=[nid], text=q.quote,
+                                     evidence=[ClaimQuote(q.slide_no, q.quote), ClaimQuote(no, row)]))
+    return out
+
+
 def _backed_elsewhere(c: Claim, deck: _Deck) -> bool:
     """
     인과의 두 개념이 **덱의 다른 줄**에서 수치·출처와 함께 나오는가 — 가설 장의 「A가 높을수록 B가 는다」 를
@@ -893,17 +1038,66 @@ def validate_claims(raw_claims: list[dict], graph: ConceptGraph, slidedoc: Slide
     if dropped:
         # 무엇 때문에 버렸는지 남긴다 — 「주장이 왜 적지」 를 인용 탓인지 받침 탓인지 가를 수 있어야 한다.
         sys.stderr.write("[f26] 버린 후보 " + " ".join(f"{k}={v}" for k, v in sorted(reasons.items())) + "\n")
-    merged = _merge(kept)
+    merged = _merge(kept + _addressed_rows(kept, deck))
     for c in merged:
         c.has_support = any(line_support(deck.texts.get(q.slide_no, ""), q.quote) for q in c.evidence) \
             or (c.kind == "cause" and _backed_elsewhere(c, deck))
     _attach_joint_lines(merged, deck)
     order = {k: i for i, k in enumerate(CLAIM_KINDS)}
     merged.sort(key=lambda c: (min(q.slide_no for q in c.evidence), order[c.kind], c.subject_id, c.object_ids))
-    merged = merged[:CLAIM_MAX]
-    for i, c in enumerate(merged, 1):
-        c.id = f"c{i:02d}"
+    merged = _within_budget(merged, CLAIM_MAX)
+    _assign_ids(merged, deck)
     return merged, dropped
+
+
+def _within_budget(claims: list[Claim], cap: int) -> list[Claim]:
+    """
+    CLAIM_MAX 안에서 **장마다 고루** 남긴다 — 장 순서로 앞에서 자르면 결론·정리 장(발표 끝)의 주장이 먼저 잘렸다
+    (09-30 레드팀 G-A20). 장마다 한 개씩 돌아가며 채우고, 돌 때는 앞 장·끝 장을 번갈아 본다 (주장 있는 장이 상한보다
+    많아도 결론 장이 남는다). 한 장 안에서는 이미 정렬된 순서(kind 순)다. 결과는 다시 장 순서.
+    """
+    if len(claims) <= cap:
+        return claims
+    by_slide: dict[int, list[Claim]] = {}
+    for c in claims:
+        by_slide.setdefault(min(q.slide_no for q in c.evidence), []).append(c)
+    nos = sorted(by_slide)
+    ends = [nos[i // 2] if i % 2 == 0 else nos[-1 - i // 2] for i in range(len(nos))]
+    picked: set[int] = set()
+    depth = 0
+    while len(picked) < cap and any(len(by_slide[no]) > depth for no in nos):
+        for no in ends:
+            if len(picked) < cap and len(by_slide[no]) > depth:
+                picked.add(id(by_slide[no][depth]))
+        depth += 1
+    return [c for c in claims if id(c) in picked]
+
+
+def _claim_key(c: Claim, deck: _Deck) -> str:
+    """
+    주장의 **내용 열쇠** — kind · 주어 이름 · 목적어 이름 · 첫 인용(장 번호 포함)의 해시. 노드 id 가 아니라 이름으로 만든다 —
+    그래프를 다시 만들어 id 가 바뀌어도 같은 주장은 같은 열쇠다.
+    """
+    name = lambda i: _loose(deck.labels.get(i, i))  # noqa: E731
+    q = c.evidence[0]
+    parts = [c.kind, name(c.subject_id), *sorted(name(o) for o in c.object_ids), str(q.slide_no), norm_for_match(q.quote)]
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:6]
+
+
+def _assign_ids(claims: list[Claim], deck: _Deck) -> None:
+    """
+    주장 id — 「c<첫 인용 장>-<내용 해시>」 (예: c04-3fa2c1). 09-30 레드팀 G-A21: 순번(c01…)은 주장 하나가 늘거나 빠지면
+    뒤 id 가 전부 밀려서, 먼저 만든 탐침의 claim_ids 가 다시 만든 주장 문서의 **다른 주장**을 가리켰다. 장 번호를 앞에 둬서
+    id 로 정렬해도 장 순서가 유지된다 (`derive_probes` 가 claim_ids 로 동점을 가른다).
+    """
+    seen: set[str] = set()
+    for c in claims:
+        base = f"c{min(q.slide_no for q in c.evidence):02d}-{_claim_key(c, deck)}"
+        cid, k = base, 2
+        while cid in seen:
+            cid, k = f"{base}-{k}", k + 1
+        seen.add(cid)
+        c.id = cid
 
 
 # ---------------------------------------------------------------------------
@@ -928,6 +1122,10 @@ def build_claims(
         graph = ConceptGraph.from_dict(graph)
     if isinstance(slidedoc, dict):
         slidedoc = SlideDoc.from_dict(slidedoc)
+    meta = sum(len(DL.meta_lines(s.raw_text)) for s in slidedoc.slides)
+    if meta:
+        # 자료 속 지시문(「…판정할 것」「[SYSTEM]」)은 slide_lines 가 인용·프롬프트에서 뺐다 — 뺐다는 사실은 남긴다
+        sys.stderr.write(f"[f26] 자료 속 지시문 {meta}줄을 인용·프롬프트에서 뺐다\n")
     rules = rule_claims(graph, slidedoc)
     raw: list[dict] = []
     model = "rule"
