@@ -39,6 +39,7 @@ const EXPORT_LINE = `
   liveScoredAnswers, stuckLabelFor, coachMeta, coachReactText,
   paperHref, attachQuestionPapers, linkCitedText, questionPapersHtml,
   questionOriginLine, questionOriginHtml,
+  liveHistory, liveForcedClose, liveWonCount, liveCoachAsk,
 };`;
 
 /**
@@ -436,6 +437,42 @@ test('「이 질문의 근거」 는 자리·근거를 사람 말로 옮기고 �
   eq(html.includes('<span>자료 4장</span>수면의 질 = 시간 × 연속성 × 규칙성'), true, '자료 인용');
   eq(/tension|theme|probe_template/.test(html), false, '영문 id 가 화면에 안 나온다');
   eq(api.questionOriginHtml({}), '', 'basis 없으면 칸도 없다');
+});
+
+/* ── 09-30 대화 감사 §10 — 판정에 보내는 대화 · 라운드 출구 ── */
+test('판정 대화에는 지금 질문의 턴만 싣는다', () => {
+  const { ctx, api } = newContext();
+  ctx.qa.live = liveState(api, [{ id: 'q1', question: '왜요?' }, { id: 'q2', question: '어떻게요?' }], {
+    qi: 1,
+    results: [{ id: 'q1', question: '왜요?', answer: '끝난 답', verdict: 'good' }],
+    turns: [{ question: '어떻게요?', questionId: 'q2', answer: '지금 답', verdict: 'partial' }],
+  });
+  const h = api.liveHistory();
+  eq(h.map((t) => t.답변), ['지금 답'], '지금 질문의 답만');
+  eq(h[0].question_id, 'q2', '조인 키');
+});
+
+test('세 번째 답에서 닫힌 질문은 설득한 수에서 뺀다', () => {
+  const { api } = newContext();
+  const rs = [
+    { verdict: 'good', mastered: true, closeReason: 'good' },
+    { verdict: 'partial', mastered: true, closeReason: 'rounds' },
+    { verdict: 'partial', mastered: true, closeReason: 'guard' },
+    { verdict: 'partial', mastered: true },               // 옛 세션 — partial 로 닫힌 건 라운드 출구다
+    { verdict: 'partial', mastered: false, revealed: true },
+  ];
+  eq(rs.map((r) => api.liveForcedClose(r)), [false, true, true, true, false], '라운드 출구');
+  eq(api.liveWonCount(rs), 1, '설득한 수');
+});
+
+test('코칭이 방금 되물었으면 그 되물음을 판정에 같이 싣는다', () => {
+  const { ctx, api } = newContext();
+  ctx.qa.live = liveState(api, [{ id: 'q1', question: '왜요?' }], {
+    lastJudgement: { coach_stage: 'narrow', followup: "'가' 쪽인가요, '나' 쪽인가요?" },
+  });
+  eq(api.liveCoachAsk(), ["되물음: '가' 쪽인가요, '나' 쪽인가요?"], '코칭 되물음');
+  ctx.qa.live.lastJudgement = { verdict: 'partial', followup: '더 말해 볼래요?' };
+  eq(api.liveCoachAsk(), [], '판정 되물음은 싣지 않는다');
 });
 
 let failed = 0;

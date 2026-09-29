@@ -106,7 +106,8 @@ def auto_tags(turn: dict) -> list[str]:
             tags.append("consistency:pass_with_missing " + " / ".join(missing)[:80])
         if not done and v.get("passed"):
             tags.append(f"consistency:passed_not_mastered score={score}")
-        if not done and not missing and not v.get("coach_stage"):
+        # 09-30: 가드 사유는 결손이 아니라 guard_reason 으로 온다 — 가드가 건 답은 결손이 비어도 까닭이 있다
+        if not done and not missing and not v.get("coach_stage") and not v.get("guard_reason"):
             tags.append("relevance:fail_without_missing")
         if len(react) > 160:
             tags.append(f"ux:long_react {len(react)}자")

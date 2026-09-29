@@ -3574,15 +3574,51 @@ HINT_SLIDE_MAX = 3
 GIST_FRAGMENT_MIN = 4
 
 
+#: 힌트 칸에 쓸 인용의 최소 길이(띄어쓰기 뺀 글자). 이보다 짧은 조각(「수면 주기가 자주 끊기면」)은 가리키는 게 없다.
+HINT_QUOTE_MIN = 12
+#: 골자 낱말 가운데 인용에 이만큼 들었으면 **인용이 곧 답**이다 — 힌트 첫 칸들에서 뺀다.
+HINT_QUOTE_IS_GIST = 0.7
+_HINT_SENT_END_RE = re.compile(r"(?:다|요|음|함|임|됨|[.!?»」”])\s*$")
+_HINT_FRAGMENT_END_RE = re.compile(r"(?:면|고|며|는데|지만|서|,|·)\s*$")
+
+
+def _quote_usable(question: Question) -> bool:
+    """
+    인용을 힌트 한 칸으로 쓸 수 있는가 (09-30 대화 감사 §11). 함정 질문은 인용이 곧 바로잡을 사실이라 거르지 않는다 —
+    사다리 셋째 칸에서 스스로 대조해 보게 하는 것이 그 질문의 연습이다.
+
+    - 너무 짧거나 문장 조각(「…끊기면」)이면 뺀다.
+    - 문장 끝이 없는 이름표(「… 핵심 메시지」)면 뺀다 — 식(「= × →」)이나 숫자가 든 줄은 이름표가 아니다.
+    - 골자와 같거나 골자를 품으면(골자 낱말 70% 이상이 인용에 있음) 뺀다 — 1단 인용이 곧 정답이었다(수익률 Q7).
+    """
+    quote = (question.evidence_quote or "").strip()
+    flat = re.sub(r"\s+", "", quote)
+    if len(flat) < HINT_QUOTE_MIN or _HINT_FRAGMENT_END_RE.search(quote):
+        return False
+    if question.trap_premise is not None:
+        return True
+    if not _HINT_SENT_END_RE.search(quote) and not re.search(r"[=×→+\d]", quote):
+        return False
+    gist = (question.answer_gist or "").strip()
+    if gist:
+        g = re.sub(r"\s+", "", gist)
+        if flat in g or g in flat:
+            return False
+        stems = [w for w in dict.fromkeys(norm_tokens(gist)) if len(w) >= 2]
+        if stems and sum(1 for w in stems if w[:2] in flat) / len(stems) >= HINT_QUOTE_IS_GIST:
+            return False
+    return True
+
+
 def _hint_locate(question: Question) -> str:
     """
-    0단계 · 위치. **자료의 문장을 그대로** 보여 준다 — "자료 3장은 이렇게 말해요: «…»".
+    위치 · **자료의 문장을 그대로** 보여 준다 — "자료 3장은 이렇게 말해요: «…»".
 
     기억을 요구하는 대신 보고 짚게 한다. 장 번호가 문장에 있어서 화면이 그 장 그림을
     같이 띄운다 (qa_live.js `hintSlideNos`). F-08 이 slidedoc 없이 만든 질문은 인용이
-    없어 빈 문자열 — 그때 사다리는 예전 그대로다.
+    없어 빈 문자열 — 그때 사다리는 예전 그대로다. 쓸모없는 인용은 뺀다 (`_quote_usable`).
     """
-    if not question.evidence_quote:
+    if not question.evidence_quote or not _quote_usable(question):
         return ""
     where = f"자료 {question.evidence_slide_no}장은" if question.evidence_slide_no else "자료는"
     return _clip(f"{where} 이렇게 말해요: «{question.evidence_quote}»")
@@ -3683,14 +3719,14 @@ def build_hint_ladder(
     """
     Question (+선택 QaJudgement) → 힌트 사다리. **LLM 을 부르지 않는다.**
 
-    단계가 갈수록 구체적이다 — 방향 → 범위 → 접근 → 근접.
-    어느 단계에서도 답을 그대로 말해 주지 않는다.
+    단계가 갈수록 구체적이다 — **방향 → 범위 → 인용 → 조각 → 빈칸** (09-30 대화 감사 §11).
+    예전엔 인용이 첫 칸이라 1단이 곧 답이었고(수익률 Q7), 빈칸(골자에서 한 낱말만 가림)이 조각(골자 앞 절반)보다 먼저라
+    뒤 칸이 앞 칸보다 덜 보여 줬다. 함정 질문도 같은 순서다 — 사실 줄(인용)은 방향·범위 뒤에 온다(qa/trap).
 
-    판정이 없으면 3단계까지다. 4단계는 아직 답하지도 않은 사람에게
-    "뭘 빠뜨렸다" 고 말할 수 없어 성립하지 않는다.
+    판정이 있으면 넷째 칸(조각)을 **사용자가 실제로 빠뜨린 것**(`_hint_close`)으로 바꾼다 — 칸 수는 그대로다.
+    예전엔 판정 뒤 칸이 하나 늘어 화면 분모가 「1/5 → 1/6」 으로 흔들렸다. 조각이 없던 질문만 판정 뒤 한 칸 는다.
 
     재료가 없는 단계는 빈 문자열로 나오고, 여기서 걷어낸다. 중복도 마찬가지다 —
-    빠뜨린 포인트가 없으면 4단계가 3단계와 같은 골자 조각으로 떨어지는데,
     같은 말을 두 번 하면 사다리가 아니다.
     """
     if isinstance(question, dict):
@@ -3698,19 +3734,16 @@ def build_hint_ladder(
     if isinstance(judgement, dict):
         judgement = QaJudgement.from_dict(judgement)
 
+    near = _hint_gist(question)
+    if judgement is not None:
+        near = _hint_close(question, judgement) or near
     steps = [
-        _hint_locate(question),
         _hint_direction(question),
         _hint_scope(question),
+        _hint_locate(question),
+        near,
         _hint_scaffold(question),
-        _hint_gist(question),
     ]
-    if question.trap_premise is not None:
-        # 함정 질문의 인용은 전제가 뒤집은 바로 그 자료 줄이라, 첫 칸에 두면 답을 먼저 주는 것이다 (qa/trap).
-        # 장을 가리키는 힌트·범위부터 주고, 자료 줄은 그 뒤에 — 스스로 대조해 볼 기회를 먼저 준다.
-        steps = [steps[1], steps[2], steps[0], steps[3], steps[4]]
-    if judgement is not None:
-        steps.append(_hint_close(question, judgement))
 
     ladder: list[str] = []
     for step in steps:

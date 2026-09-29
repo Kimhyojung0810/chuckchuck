@@ -721,41 +721,110 @@ def _mentions_label(text: str, label: str, summary: str = "") -> bool:
     return bool(head) and grounding.mentions(text, head)
 
 
+#: 라벨 낱말이 이 몫보다 많은 장에 나오면 덱 주제어다 — 그 낱말 하나로는 「이 개념의 사실」 이라고 묶지 않는다.
+DISTINCTIVE_SLIDE_SHARE = 0.5
+
+
+def _distinctive(word: str, idx) -> bool:
+    """라벨 낱말이 이 덱에서 개념을 가려 주는 말인가 — 장 절반 이하에만 나온다. 09-30 실측: 「깊은 수면」 의 「수면」 은 수면
+    발표 모든 장에 있어서 「수면의 연속성을 끊는 요인」 줄이 「깊은 수면」 함정이 됐다."""
+    slides = [no for no, rows in idx.rows.items() if rows]
+    if not slides:
+        return False
+    hit = sum(1 for no in slides if any(grounding.mentions(r.text, word) for r in idx.rows[no]))
+    return hit <= DISTINCTIVE_SLIDE_SHARE * len(slides)
+
+
+def _tied(text: str, label: str, idx) -> bool:
+    """자료 줄이 **이 개념의** 사실인가 — 라벨 통째, 또는 덱 주제어가 아닌 라벨 낱말·머리 낱말을 부른다.
+    라벨이 비면(개념 없이 자료 줄만 훑을 때) 묶을 대상이 없어 거르지 않는다."""
+    if not (label or "").strip() or grounding.mentions(text, label):
+        return True
+    words = [w for w in grounding.label_words(label)] + [grounding.head_word(label)]
+    return any(w and grounding.mentions(text, w) and _distinctive(w, idx) for w in words)
+
+
+def _chart_rounded(row, idx) -> bool:
+    """
+    표 행의 정수 값이 같은 장 본문의 소수 값을 반올림한 것인가 — 문서 변환기가 차트 막대를 읽은 표다(「시장지수 | 9」 ↔ 본문 「8.7%」).
+    09-30 실측(수익률 Q4·Q5): 이런 행으로 만든 함정은 사실이 「9」 라서, 본문 값 「8.7」 로 바로잡은 정답이 동의로 읽혔다.
+    반올림한 값은 발표자가 말할 값이 아니다 — 함정 재료로 쓰지 않는다.
+    """
+    body = [n for r in idx.rows.get(row.slide_no, []) if not r.table for n in claim_numbers(r.text, skip_years=False)]
+    decimals = [n for n in body if n.decimals > 0]
+    if not decimals:
+        return False
+    for cell in row.cells[1:]:
+        for v in claim_numbers(cell, skip_years=False):
+            if v.decimals == 0 and any(v.close_value(d) and not v.same_value(d) for d in decimals):
+                return True
+    return False
+
+
+def _cover_slide(idx) -> int | None:
+    """
+    표지 장 — 덱 첫 장인데 **문장이 하나도 없다**(제목·부제·발표자 이름뿐). 첫 장이라도 문장으로 주장을 하면 표지가 아니다.
+    09-30 실측(focus): 표지 줄 「척척발표 데모 용 10분 발표 알림 하나를」 이 「집중 손실」 함정이 됐다 — 발표 길이를 뒤집은
+    전제라 답할 거리가 없었다. 표지·부제는 이름표지 자료의 사실이 아니다.
+    """
+    first = min((no for no, rows in idx.rows.items() if rows), default=None)
+    if first is None:
+        return None
+    rows = idx.rows[first]
+    return None if any(not r.table and _SENTENCE_END_RE.search(_clean(r.text)) for r in rows) else first
+
+
 def candidates(label: str, anchors: list[int], idx) -> list[Candidate]:
     """
     이 개념의 근거 장(anchors)에서 뒤집을 수 있는 자료 사실 전부 — 점수 높은 순.
 
     점수 = 종류 선호(KIND_PRIORITY) + 개념 이름을 부르는 줄이면 LABEL_BONUS. 자료가 없거나(idx None) 근거 장이 없으면 [].
     물음 줄(「…할까?」)·설문 보기처럼 주장이 아닌 줄은 쓰지 않는다.
+
+    09-30 대화 감사 §12 로 더 거른다 — 함정은 **이 개념의 자료 사실**이어야 연습이 된다.
+    - 표지(문장 없는 덱 첫 장)는 재료가 아니다 (`_cover_slide` — 「척척발표 데모 용 10분 발표」 가 「집중 손실」 함정이 됐다).
+    - 차트 반올림 값 표 행은 재료가 아니다 (`_chart_rounded`).
+    - 줄이 이 개념을 불러야 한다(`_tied`) — 덱 주제어 하나 겹친 줄은 다른 개념의 사실이다.
     """
     if idx is None:
         return []
     avoid = _deck_values(idx)
+    cover = _cover_slide(idx)
     out: list[Candidate] = []
     for no in anchors:
+        if no == cover:
+            continue
         rows = idx.rows.get(no, [])
+        heading_tied = any(_tied(r.text, label, idx) for r in rows[:grounding.HEADING_ROWS] if not r.table)
         for row in _joined(rows):
             if "?" in row.text or "？" in row.text:
                 continue
             if len(re.findall(r"[A-Za-z]", row.text)) > len(re.findall(r"[가-힣]", row.text)):
                 continue       # 차트 설명·영문 캡션(「(red bar)」) — 문서 변환기가 만든 줄이지 발표의 주장이 아니다
+            # 장 머리(제목·부제)가 이 개념을 부르면 그 장의 줄은 이 개념의 사실이다 (「격차를 만든 다섯 가지 행동 요인」 장의 표).
+            tied = (heading_tied or _tied(row.text, label, idx) or (row.table and _tied(row.header, label, idx)))
+            if not tied:
+                continue
             if row.table:
+                if _chart_rounded(row, idx):
+                    continue
                 made = [_number_from_table_row(row, idx, avoid)]
             else:
                 if len(_clean(row.text)) < TRAP_LINE_MIN:
                     continue
                 made = [_number_from_line(row, idx, avoid), _order_from_line(row, idx),
                         _direction_from_line(row, idx), _negation_from_line(row, idx)]
-            tied = _mentions_label(row.text, label) or (row.table and _mentions_label(row.header, label))
             for tp in made:
                 if tp is None or not verify(tp, idx):
                     continue
-                out.append(Candidate(tp, KIND_PRIORITY[tp.kind] + (LABEL_BONUS if tied else 0), row.text))
+                out.append(Candidate(tp, KIND_PRIORITY[tp.kind] + LABEL_BONUS, row.text))
         for block in _numeric_tables(rows):
+            tied = heading_tied or any(_tied(r.text, label, idx) for r in block) or _tied(block[0].header, label, idx)
+            if not tied:
+                continue
             tp = _extreme_from_table(block, idx)
             if tp is not None and verify(tp, idx):
-                tied = any(_mentions_label(r.text, label) for r in block) or _mentions_label(block[0].header, label)
-                out.append(Candidate(tp, KIND_PRIORITY["extreme"] + (LABEL_BONUS if tied else 0), block[0].header))
+                out.append(Candidate(tp, KIND_PRIORITY["extreme"] + LABEL_BONUS, block[0].header))
     out.sort(key=lambda c: -c.score)
     return out
 
@@ -845,37 +914,60 @@ def leaks_fact(text: str, tp: TrapPremise) -> bool:
     """글이 자료의 사실(정답 단서·사실 줄)을 흘리는가 — 함정 코칭 1·2단 문장 검사."""
     if not text:
         return False
-    return hits(text, tp.right, tp.kind) or (len(grounding.squash(tp.fact)) >= 8 and grounding.squash(tp.fact) in grounding.squash(text))
+    return hits(text, tp.right, tp.kind, tolerant=True) or (
+        len(grounding.squash(tp.fact)) >= 8 and grounding.squash(tp.fact) in grounding.squash(text))
 
 
 # ---------------------------------------------------------------------------
 # 단서 대조 — 질문이 전제를 실었나 (F-08) · 답이 어느 쪽을 말했나 (F-09)
 # ---------------------------------------------------------------------------
 
-def _num_cue_hit(text: str, cue: str) -> bool:
+def _num_cue_hit(text: str, cue: str, tolerant: bool = False) -> bool:
     want = claim_numbers(cue, skip_years=False)
     if not want:
         return False
     said = claim_numbers(text, skip_years=False)
+    if tolerant:
+        # 자료의 값은 반올림한 다른 표기로도 말할 수 있다 — 차트 「9」 ↔ 본문 「8.7」 (`Num.close_value`, 09-30 실측 수익률 Q4)
+        return any(any(w.close_value(n) for n in said) for w in want)
     return any(any(w.same_value(n) for n in said) for w in want)
 
 
-def _cue_hit(text: str, cue: str, kind: str) -> bool:
+#: 단서 머리 끝의 부정 서술어 → 활용이 바뀌어도 남는 줄기. 「상태가 아니다」 는 답에서 「상태가 아니라고·아니에요」 로 온다.
+_NEG_PRED_RE = re.compile(r"(아니다|아닙니다|아니에요|아니예요|않다|않습니다|않아요|없다|없습니다|없어요)$")
+_NEG_PRED_STEM = {"아니다": "아니", "아닙니다": "아니", "아니에요": "아니", "아니예요": "아니", "않다": "않", "않습니다": "않",
+                  "않아요": "않", "없다": "없", "없습니다": "없", "없어요": "없"}
+
+
+def _relaxed_heads(h: str) -> list[str]:
+    """자료 쪽 단서 머리의 다른 꼴 — 부정 서술어의 줄기(「상태가아니」), 「것은」↔「건」. 세 글자 미만은 우연히 걸려 버린다."""
+    out: list[str] = []
+    m = _NEG_PRED_RE.search(h)
+    if m:
+        out.append(h[: m.start()] + _NEG_PRED_STEM[m.group(1)])
+    out += [x.replace("것은", "건").replace("것이", "게") for x in [h, *out] if "것은" in x or "것이" in x]
+    return [x for x in out if len(x) >= 3 and x != h]
+
+
+def _cue_hit(text: str, cue: str, kind: str, tolerant: bool = False) -> bool:
     if kind == "number":
-        return _num_cue_hit(text, cue)
+        return _num_cue_hit(text, cue, tolerant)
     head, _, tail = cue.partition("|")
     sq = grounding.squash(text)
     h = grounding.squash(head)
     if len(h) < 1:
         return False
     if not tail:
-        return h in sq
+        # 자료 쪽 단서는 활용이 바뀐 꼴도 받는다 — 09-30 실측: 「…상태가 아니라고 했어요」 가 단서 「상태가 아니다」 를 못 맞혔다.
+        return h in sq or (tolerant and any(x in sq for x in _relaxed_heads(h)))
     # 꼬리는 코드가 만든 정규식 조각이다 (자료 글자는 re.escape 로만 들어간다)
     return re.search(re.escape(h) + _JOSA_ALT + (tail if tail.startswith("(") else re.escape(tail)), sq) is not None
 
 
-def hits(text: str, cues: list[str], kind: str) -> bool:
-    return any(_cue_hit(text, c, kind) for c in cues)
+def hits(text: str, cues: list[str], kind: str, tolerant: bool = False) -> bool:
+    """글에 단서가 있는가. tolerant 는 **자료 쪽 단서**(정답)에만 켠다 — 반올림 값·활용이 바뀐 부정도 같은 사실이다.
+    틀린 쪽 단서(전제)는 글자 그대로만 본다 — 느슨하게 보면 바로잡은 답을 동의로 읽는다."""
+    return any(_cue_hit(text, c, kind, tolerant) for c in cues)
 
 
 #: 질문이 스스로 전제를 의심하게 만드는 말 — 「실제 값은 어떻게 되나요」「맞나요」 는 함정을 드러낸다 (qa/trap 벤치:
@@ -952,9 +1044,15 @@ def strip_wrong(text: str, tp: TrapPremise) -> str:
     return out
 
 
-def _disputes(text: str, tp: TrapPremise) -> bool:
+#: 바로잡는다고 **분명히** 말하는 표지. 「오히려·사실은·달리」 는 전제를 받아들이면서도 쓴다 — 09-30 실측(focus Q2):
+#: 「알림이 와서 오히려 작업 흐름을 이어 주는 신호」(전제에 동의)가 「오히려」 하나로 바로잡은 답이 됐다.
+_STRONG_DISPUTE_MARKS = tuple(m for m in _DISPUTE_MARKS if m not in ("오히려", "사실은", "달리"))
+
+
+def _disputes(text: str, tp: TrapPremise, strong: bool = False) -> bool:
     """바로잡는 표지가 있는가 — 전제 문장에도 있는 표지(「…가 아니라」 전제의 「아니」)는 세지 않는다."""
-    return any(m in text and m not in tp.premise for m in _DISPUTE_MARKS)
+    marks = _STRONG_DISPUTE_MARKS if strong else _DISPUTE_MARKS
+    return any(m in text and m not in tp.premise for m in marks)
 
 
 def without_premise(answer: str, tp: TrapPremise) -> str:
@@ -973,9 +1071,10 @@ def premise_stance(answer: str, tp: TrapPremise | None) -> str:
     """
     if tp is None or not (answer or "").strip():
         return ""
-    right = hits(answer, tp.right, tp.kind)
+    right = hits(answer, tp.right, tp.kind, tolerant=True)
     wrong = hits(answer, tp.wrong, tp.kind)
-    dispute = _disputes(answer, tp)
+    # 틀린 단서를 말한 답은 **분명한** 반박이 있어야 바로잡은 것이다 — 「오히려」 는 동의 문장에도 온다.
+    dispute = _disputes(answer, tp, strong=wrong)
     if right and (not wrong or dispute):
         return "correct"
     if wrong and dispute:

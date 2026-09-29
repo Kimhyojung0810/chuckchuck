@@ -224,13 +224,16 @@ def test_무관한_답은_LLM_이_partial_을_줘도_wrong_이다():
     )
     assert v.verdict == "wrong" and v.score <= 35 and not v.passed
     assert "질문과 다른 이야기예요" in v.react
-    assert v.missing_points[0].startswith("질문이 묻는 것")
+    # 09-30 대화 감사 §6: 가드 사유는 결손이 아니라 guard_reason 으로 — 결손 칩·되물음 틀에 끼지 않는다
+    assert v.guard_reason.startswith("질문이 묻는 것") and not any(p.startswith("질문이 묻는 것") for p in v.missing_points)
 
 
 def test_낱말_하나만_겹쳐도_무관_가드는_비켜선다():
+    """자료와 한 낱말이라도 겹치면 **무관(wrong)** 으로 못 박지 않는다 — 다만 09-30 대화 감사 §3 부터 내용 낱말 셋 미만 답은
+    통과선 아래(65)다: 한 단어 답 「규칙」 이 good 80 으로 질문을 닫았다."""
     llm = ScriptedLLM(judge_payload(verdict="partial", score=72))
     v = judge_answer(question(), "알림 때문에요", graph=GRAPH, slidedoc=DECK, llm=llm)
-    assert v.verdict == "partial" and v.score == 72
+    assert v.verdict == "partial" and v.score <= 65 and not v.passed
 
 
 def test_다른_개념_이야기를_길게_한_답은_자료_낱말이_겹쳐도_wrong_이다():
@@ -244,15 +247,15 @@ def test_다른_개념_이야기를_길게_한_답은_자료_낱말이_겹쳐도
     # 자료와 무관하다고까지는 못 박지 않는다 — 통과만 막고 되묻기로 보낸다
     assert v.verdict == "partial" and v.score <= 65 and not v.passed
     assert "답으로는 조금 멀어요" in v.react
-    assert v.missing_points[0].startswith("질문이 묻는 것")
+    assert v.guard_reason.startswith("질문이 묻는 것")
 
 
-def test_짧은_바꿔_말하기는_집중_대조를_걸지_않는다():
-    """"빠진 개념을 찾아 주는 거예요" — 낱말은 안 겹치지만 뜻은 맞을 수 있다. 짧은 답은 LLM 판정 그대로."""
+def test_짧은_답은_집중_대조와_짧은_답_상한을_받는다():
+    """09-30 대화 감사 §3: 예전엔 8토큰 미만 답에 집중 대조를 안 걸어 「주말엔 보통 친구들이랑 놀러 나가요」(「주말」 한 낱말)가
+    75 로 통과했다. 이제 짧은 답에도 걸고, 내용 낱말 셋 미만이면 65 상한이다 — wrong 은 아니고 되묻기로 보낸다."""
     llm = ScriptedLLM(judge_payload(verdict="partial", score=72))
-    # 「알림」 은 근거 장에 있어 무관 가드는 비켜 가고, 짧아서 집중 대조도 걸지 않는다
     v = judge_answer(question(), "알림이 계속 와서 그래요", graph=GRAPH, slidedoc=DECK, llm=llm)
-    assert v.verdict == "partial" and v.score == 72
+    assert v.verdict == "partial" and v.score <= 65 and not v.passed
 
 
 def test_함정_동의는_무관_가드보다_먼저다():
@@ -286,7 +289,7 @@ def test_함정에_동의한_답은_premise_corrected_false_면_wrong():
                      graph=GRAPH, slidedoc=DECK, llm=llm)
     assert v.verdict == "wrong" and v.score <= 35
     assert v.react.startswith("질문의 전제부터")
-    assert v.missing_points[0] == "질문의 전제가 자료와 다르다는 점"
+    assert v.guard_reason == "질문의 전제가 자료와 다르다는 점"
 
 
 def test_함정을_바로잡은_답은_그대로_통과한다():
@@ -397,11 +400,12 @@ def test_F08_이_인용과_발화를_질문에_저장한다():
     assert back.evidence_quote == q.evidence_quote and back.speech_quote == q.speech_quote
 
 
-def test_인용이_있으면_사다리_첫_칸이_자료_인용이고_빈칸_칸이_생긴다():
+def test_인용이_있으면_사다리_셋째_칸이_자료_인용이고_마지막이_빈칸이다():
+    """09-30 대화 감사 §11: 방향 → 범위 → 인용 → 조각 → 빈칸. 인용이 첫 칸이면 1단이 곧 답이었다."""
     q = question(evidence_slide_no=2, evidence_quote="주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다")
     ladder = build_hint_ladder(q)
-    assert ladder[0] == "자료 2장은 이렇게 말해요: «주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다»"
-    assert any(step.startswith("빈칸을 채워 보세요: ") for step in ladder)
+    assert ladder[2] == "자료 2장은 이렇게 말해요: «주의 전환은 알림이 주의를 다른 대상으로 이동시키는 인지 과정이다»"
+    assert ladder[-1].startswith("빈칸을 채워 보세요: ")
 
 
 def test_인용이_없으면_사다리는_예전_그대로다():

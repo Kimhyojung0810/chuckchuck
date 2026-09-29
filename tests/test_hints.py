@@ -64,12 +64,16 @@ def test_판정_전에도_세_단계가_나온다():
     assert len(build_hint_ladder(make_question())) == 3
 
 
-def test_판정이_있으면_네_단계():
+def test_판정이_있어도_칸_수는_같다():
     """
-    4단계(근접)만 판정이 있어야 성립한다 — 아직 답하지도 않은 사람에게
-    '뭘 빠뜨렸다' 고 말할 수 없다.
+    근접(빠진 것)은 판정이 있어야 성립한다 — 아직 답하지도 않은 사람에게 '뭘 빠뜨렸다' 고 말할 수 없다.
+    09-30 대화 감사 §11: 예전엔 판정 뒤 칸이 하나 늘어 화면 분모가 「1/5 → 1/6」 으로 흔들렸다.
+    이제 근접은 골자 조각 칸을 **바꿔 끼운다** — 분모가 그대로다.
     """
-    assert len(build_hint_ladder(make_question(), make_judgement())) == 4
+    before = build_hint_ladder(make_question())
+    after = build_hint_ladder(make_question(), make_judgement())
+    assert len(after) == len(before) == 3
+    assert after[:2] == before[:2] and after[2].startswith("아직 안 나온 것")
 
 
 def test_삼단계는_기대_답의_앞_조각():
@@ -100,9 +104,9 @@ def test_근거_슬라이드가_많으면_다_나열하지_않는다():
     assert ladder[1].count(",") <= 2
 
 
-def test_사단계는_빠진_포인트를_짚는다():
+def test_근접_칸은_빠진_포인트를_짚는다():
     ladder = build_hint_ladder(make_question(), make_judgement())
-    assert "측정 도구" in ladder[3] and "표본 수" in ladder[3]
+    assert "측정 도구" in ladder[2] and "표본 수" in ladder[2]
 
 
 def test_단계가_갈수록_구체적이다():
@@ -167,7 +171,7 @@ def test_dict_입력도_받는다():
     ladder = build_hint_ladder(
         make_question().to_dict(), make_judgement().to_dict()
     )
-    assert len(ladder) == 4
+    assert len(ladder) == 3
 
 
 def test_같은_입력이면_같은_사다리():
@@ -184,5 +188,5 @@ def test_빈_문자열_단계는_나오지_않는다():
 @pytest.mark.parametrize("points", [["측정 도구"], ["a", "b", "c", "d", "e", "f"]])
 def test_빠진_포인트_개수가_달라도_한_줄로_묶인다(points):
     ladder = build_hint_ladder(make_question(), make_judgement(missing_points=points))
-    assert len(ladder) == 4
-    assert "\n" not in ladder[3]
+    assert len(ladder) == 3
+    assert "\n" not in ladder[2]

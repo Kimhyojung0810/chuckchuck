@@ -224,7 +224,8 @@ def test_판정_배경만_되풀이한_답은_통과하지_못하고_이유를_�
     bg = judge_answer(q, "월 오배송률이 0.8%에서 1.9%로 올랐고 반품 비용도 두 배로 늘었으니까요.",
                       graph=LOGI_GRAPH, slidedoc=LOGI, llm=llm)
     assert bg.verdict == "partial" and not qa_passed(bg.verdict, bg.score)
-    assert "결론을 받치는 이유" in bg.missing_points[0]
+    # 가드 사유는 결손 목록이 아니라 guard_reason 으로 간다 (qa/convo §6 — 사유가 되물음 템플릿에 끼면 문장이 깨졌다)
+    assert "결론을 받치는 이유" in bg.guard_reason and not any("결론을 받치는 이유" in p for p in bg.missing_points)
     assert "이 질문의 근거 줄" in llm.prompts[-1] and "배경 줄" in llm.prompts[-1]
     ok = judge_answer(q, "사람 수와는 상관이 약했고, 검수대까지 걷는 거리가 길수록 오배송이 많았어요.",
                       graph=LOGI_GRAPH, slidedoc=LOGI, llm=llm)
