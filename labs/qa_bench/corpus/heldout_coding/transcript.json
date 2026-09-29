@@ -1,0 +1,2321 @@
+{
+ "full_text": "안녕하세요, 저희는 1학년 5반 코딩 모둠이에요. 저희 학교에 방과후 코딩 교실이 있는데요, 학기 초에는 자리가 거의 꽉 차다가 학기 말만 되면 빈자리가 확 늘더라고요. 그래서 왜 그런지 조사해 봤어요. 결론부터 말하면, 짝 코딩을 한 주에는 빈자리가 줄었어요. 먼저 배경이에요. 방과후 코딩 교실에 등록한 학생은 48명이에요. 3월 첫 주에는 출석률이 92퍼센트였는데 7월 마지막 주에는 48퍼센트까지 떨어졌어요. 7월에는 출석률이 60퍼센트가 안 되는 주가 4주 연속이었고요. 조사는 세 가지로 했어요. 3월부터 7월까지 출석부 16주치를 모았고요, 수업 끝나고 설문을 4번 돌려서 41명이 답해 줬어요. 그리고 담당 선생님을 한 번 인터뷰했는데요, 선생님 말로는 다른 학교도 2학기가 되면 출석이 절반 아래로 떨어진대요. 출석률은 이렇게 셌어요. 그 주에 출석한 학생 수를 등록한 학생 수로 나누고 100을 곱했어요. 지각은 10분 안쪽이면 출석으로 쳤고요. 반별로 나눠 보면요, 블록 코딩 반이랑 파이썬 반이 24명씩이에요. 3월에는 두 반 다 출석이 좋았는데요, 7월에는 블록 코딩 반이 파이썬 반보다 출석률이 더 낮았어요. 이건 저희도 좀 의외였어요. 그다음은 짝 코딩이에요. 16주 중에 7주는 두 명이 컴퓨터 한 대로 같이 푸는 짝 코딩을 했고 나머지 9주는 혼자 했어요. 혼자 한 주는 다음 주 출석률이 64퍼센트, 짝 코딩을 한 주는 75퍼센트였어요. 짝 코딩을 한 주가 11퍼센트포인트 더 높았던 거죠. 다음 표는 설문 결과인데요, 시간이 좀 모자라서 이 표는 그냥 넘어가고 바로 제안으로 갈게요. 저희 제안은 두 가지예요. 첫째, 파이썬 반부터 격주로 짝 코딩을 하자는 거예요. 둘째, 두 번 연속 빠진 친구한테는 담당 선생님이 먼저 연락해 주시는 거예요. 들어 주셔서 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 1.22
+  },
+  {
+   "text": "저희는",
+   "start_sec": 1.22,
+   "end_sec": 2.43
+  },
+  {
+   "text": "1학년",
+   "start_sec": 2.43,
+   "end_sec": 3.65
+  },
+  {
+   "text": "5반",
+   "start_sec": 3.65,
+   "end_sec": 4.86
+  },
+  {
+   "text": "코딩",
+   "start_sec": 4.86,
+   "end_sec": 6.08
+  },
+  {
+   "text": "모둠이에요.",
+   "start_sec": 6.08,
+   "end_sec": 7.3
+  },
+  {
+   "text": "저희",
+   "start_sec": 7.3,
+   "end_sec": 8.51
+  },
+  {
+   "text": "학교에",
+   "start_sec": 8.51,
+   "end_sec": 9.73
+  },
+  {
+   "text": "방과후",
+   "start_sec": 9.73,
+   "end_sec": 10.95
+  },
+  {
+   "text": "코딩",
+   "start_sec": 10.95,
+   "end_sec": 12.16
+  },
+  {
+   "text": "교실이",
+   "start_sec": 12.16,
+   "end_sec": 13.38
+  },
+  {
+   "text": "있는데요,",
+   "start_sec": 13.38,
+   "end_sec": 14.59
+  },
+  {
+   "text": "학기",
+   "start_sec": 14.59,
+   "end_sec": 15.81
+  },
+  {
+   "text": "초에는",
+   "start_sec": 15.81,
+   "end_sec": 17.03
+  },
+  {
+   "text": "자리가",
+   "start_sec": 17.03,
+   "end_sec": 18.24
+  },
+  {
+   "text": "거의",
+   "start_sec": 18.24,
+   "end_sec": 19.46
+  },
+  {
+   "text": "꽉",
+   "start_sec": 19.46,
+   "end_sec": 20.68
+  },
+  {
+   "text": "차다가",
+   "start_sec": 20.68,
+   "end_sec": 21.89
+  },
+  {
+   "text": "학기",
+   "start_sec": 21.89,
+   "end_sec": 23.11
+  },
+  {
+   "text": "말만",
+   "start_sec": 23.11,
+   "end_sec": 24.32
+  },
+  {
+   "text": "되면",
+   "start_sec": 24.32,
+   "end_sec": 25.54
+  },
+  {
+   "text": "빈자리가",
+   "start_sec": 25.54,
+   "end_sec": 26.76
+  },
+  {
+   "text": "확",
+   "start_sec": 26.76,
+   "end_sec": 27.97
+  },
+  {
+   "text": "늘더라고요.",
+   "start_sec": 27.97,
+   "end_sec": 29.19
+  },
+  {
+   "text": "그래서",
+   "start_sec": 29.19,
+   "end_sec": 30.41
+  },
+  {
+   "text": "왜",
+   "start_sec": 30.41,
+   "end_sec": 31.62
+  },
+  {
+   "text": "그런지",
+   "start_sec": 31.62,
+   "end_sec": 32.84
+  },
+  {
+   "text": "조사해",
+   "start_sec": 32.84,
+   "end_sec": 34.05
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 34.05,
+   "end_sec": 35.27
+  },
+  {
+   "text": "결론부터",
+   "start_sec": 35.27,
+   "end_sec": 36.49
+  },
+  {
+   "text": "말하면,",
+   "start_sec": 36.49,
+   "end_sec": 37.7
+  },
+  {
+   "text": "짝",
+   "start_sec": 37.7,
+   "end_sec": 38.92
+  },
+  {
+   "text": "코딩을",
+   "start_sec": 38.92,
+   "end_sec": 40.14
+  },
+  {
+   "text": "한",
+   "start_sec": 40.14,
+   "end_sec": 41.35
+  },
+  {
+   "text": "주에는",
+   "start_sec": 41.35,
+   "end_sec": 42.57
+  },
+  {
+   "text": "빈자리가",
+   "start_sec": 42.57,
+   "end_sec": 43.78
+  },
+  {
+   "text": "줄었어요.",
+   "start_sec": 43.78,
+   "end_sec": 45.0
+  },
+  {
+   "text": "먼저",
+   "start_sec": 45.0,
+   "end_sec": 46.54
+  },
+  {
+   "text": "배경이에요.",
+   "start_sec": 46.54,
+   "end_sec": 48.08
+  },
+  {
+   "text": "방과후",
+   "start_sec": 48.08,
+   "end_sec": 49.62
+  },
+  {
+   "text": "코딩",
+   "start_sec": 49.62,
+   "end_sec": 51.15
+  },
+  {
+   "text": "교실에",
+   "start_sec": 51.15,
+   "end_sec": 52.69
+  },
+  {
+   "text": "등록한",
+   "start_sec": 52.69,
+   "end_sec": 54.23
+  },
+  {
+   "text": "학생은",
+   "start_sec": 54.23,
+   "end_sec": 55.77
+  },
+  {
+   "text": "48명이에요.",
+   "start_sec": 55.77,
+   "end_sec": 57.31
+  },
+  {
+   "text": "3월",
+   "start_sec": 57.31,
+   "end_sec": 58.85
+  },
+  {
+   "text": "첫",
+   "start_sec": 58.85,
+   "end_sec": 60.38
+  },
+  {
+   "text": "주에는",
+   "start_sec": 60.38,
+   "end_sec": 61.92
+  },
+  {
+   "text": "출석률이",
+   "start_sec": 61.92,
+   "end_sec": 63.46
+  },
+  {
+   "text": "92퍼센트였는데",
+   "start_sec": 63.46,
+   "end_sec": 65.0
+  },
+  {
+   "text": "7월",
+   "start_sec": 65.0,
+   "end_sec": 66.54
+  },
+  {
+   "text": "마지막",
+   "start_sec": 66.54,
+   "end_sec": 68.08
+  },
+  {
+   "text": "주에는",
+   "start_sec": 68.08,
+   "end_sec": 69.62
+  },
+  {
+   "text": "48퍼센트까지",
+   "start_sec": 69.62,
+   "end_sec": 71.15
+  },
+  {
+   "text": "떨어졌어요.",
+   "start_sec": 71.15,
+   "end_sec": 72.69
+  },
+  {
+   "text": "7월에는",
+   "start_sec": 72.69,
+   "end_sec": 74.23
+  },
+  {
+   "text": "출석률이",
+   "start_sec": 74.23,
+   "end_sec": 75.77
+  },
+  {
+   "text": "60퍼센트가",
+   "start_sec": 75.77,
+   "end_sec": 77.31
+  },
+  {
+   "text": "안",
+   "start_sec": 77.31,
+   "end_sec": 78.85
+  },
+  {
+   "text": "되는",
+   "start_sec": 78.85,
+   "end_sec": 80.38
+  },
+  {
+   "text": "주가",
+   "start_sec": 80.38,
+   "end_sec": 81.92
+  },
+  {
+   "text": "4주",
+   "start_sec": 81.92,
+   "end_sec": 83.46
+  },
+  {
+   "text": "연속이었고요.",
+   "start_sec": 83.46,
+   "end_sec": 85.0
+  },
+  {
+   "text": "조사는",
+   "start_sec": 85.0,
+   "end_sec": 86.3
+  },
+  {
+   "text": "세",
+   "start_sec": 86.3,
+   "end_sec": 87.61
+  },
+  {
+   "text": "가지로",
+   "start_sec": 87.61,
+   "end_sec": 88.91
+  },
+  {
+   "text": "했어요.",
+   "start_sec": 88.91,
+   "end_sec": 90.21
+  },
+  {
+   "text": "3월부터",
+   "start_sec": 90.21,
+   "end_sec": 91.52
+  },
+  {
+   "text": "7월까지",
+   "start_sec": 91.52,
+   "end_sec": 92.82
+  },
+  {
+   "text": "출석부",
+   "start_sec": 92.82,
+   "end_sec": 94.12
+  },
+  {
+   "text": "16주치를",
+   "start_sec": 94.12,
+   "end_sec": 95.42
+  },
+  {
+   "text": "모았고요,",
+   "start_sec": 95.42,
+   "end_sec": 96.73
+  },
+  {
+   "text": "수업",
+   "start_sec": 96.73,
+   "end_sec": 98.03
+  },
+  {
+   "text": "끝나고",
+   "start_sec": 98.03,
+   "end_sec": 99.33
+  },
+  {
+   "text": "설문을",
+   "start_sec": 99.33,
+   "end_sec": 100.64
+  },
+  {
+   "text": "4번",
+   "start_sec": 100.64,
+   "end_sec": 101.94
+  },
+  {
+   "text": "돌려서",
+   "start_sec": 101.94,
+   "end_sec": 103.24
+  },
+  {
+   "text": "41명이",
+   "start_sec": 103.24,
+   "end_sec": 104.55
+  },
+  {
+   "text": "답해",
+   "start_sec": 104.55,
+   "end_sec": 105.85
+  },
+  {
+   "text": "줬어요.",
+   "start_sec": 105.85,
+   "end_sec": 107.15
+  },
+  {
+   "text": "그리고",
+   "start_sec": 107.15,
+   "end_sec": 108.45
+  },
+  {
+   "text": "담당",
+   "start_sec": 108.45,
+   "end_sec": 109.76
+  },
+  {
+   "text": "선생님을",
+   "start_sec": 109.76,
+   "end_sec": 111.06
+  },
+  {
+   "text": "한",
+   "start_sec": 111.06,
+   "end_sec": 112.36
+  },
+  {
+   "text": "번",
+   "start_sec": 112.36,
+   "end_sec": 113.67
+  },
+  {
+   "text": "인터뷰했는데요,",
+   "start_sec": 113.67,
+   "end_sec": 114.97
+  },
+  {
+   "text": "선생님",
+   "start_sec": 114.97,
+   "end_sec": 116.27
+  },
+  {
+   "text": "말로는",
+   "start_sec": 116.27,
+   "end_sec": 117.58
+  },
+  {
+   "text": "다른",
+   "start_sec": 117.58,
+   "end_sec": 118.88
+  },
+  {
+   "text": "학교도",
+   "start_sec": 118.88,
+   "end_sec": 120.18
+  },
+  {
+   "text": "2학기가",
+   "start_sec": 120.18,
+   "end_sec": 121.48
+  },
+  {
+   "text": "되면",
+   "start_sec": 121.48,
+   "end_sec": 122.79
+  },
+  {
+   "text": "출석이",
+   "start_sec": 122.79,
+   "end_sec": 124.09
+  },
+  {
+   "text": "절반",
+   "start_sec": 124.09,
+   "end_sec": 125.39
+  },
+  {
+   "text": "아래로",
+   "start_sec": 125.39,
+   "end_sec": 126.7
+  },
+  {
+   "text": "떨어진대요.",
+   "start_sec": 126.7,
+   "end_sec": 128.0
+  },
+  {
+   "text": "출석률은",
+   "start_sec": 128.0,
+   "end_sec": 129.26
+  },
+  {
+   "text": "이렇게",
+   "start_sec": 129.26,
+   "end_sec": 130.53
+  },
+  {
+   "text": "셌어요.",
+   "start_sec": 130.53,
+   "end_sec": 131.79
+  },
+  {
+   "text": "그",
+   "start_sec": 131.79,
+   "end_sec": 133.05
+  },
+  {
+   "text": "주에",
+   "start_sec": 133.05,
+   "end_sec": 134.32
+  },
+  {
+   "text": "출석한",
+   "start_sec": 134.32,
+   "end_sec": 135.58
+  },
+  {
+   "text": "학생",
+   "start_sec": 135.58,
+   "end_sec": 136.84
+  },
+  {
+   "text": "수를",
+   "start_sec": 136.84,
+   "end_sec": 138.11
+  },
+  {
+   "text": "등록한",
+   "start_sec": 138.11,
+   "end_sec": 139.37
+  },
+  {
+   "text": "학생",
+   "start_sec": 139.37,
+   "end_sec": 140.63
+  },
+  {
+   "text": "수로",
+   "start_sec": 140.63,
+   "end_sec": 141.89
+  },
+  {
+   "text": "나누고",
+   "start_sec": 141.89,
+   "end_sec": 143.16
+  },
+  {
+   "text": "100을",
+   "start_sec": 143.16,
+   "end_sec": 144.42
+  },
+  {
+   "text": "곱했어요.",
+   "start_sec": 144.42,
+   "end_sec": 145.68
+  },
+  {
+   "text": "지각은",
+   "start_sec": 145.68,
+   "end_sec": 146.95
+  },
+  {
+   "text": "10분",
+   "start_sec": 146.95,
+   "end_sec": 148.21
+  },
+  {
+   "text": "안쪽이면",
+   "start_sec": 148.21,
+   "end_sec": 149.47
+  },
+  {
+   "text": "출석으로",
+   "start_sec": 149.47,
+   "end_sec": 150.74
+  },
+  {
+   "text": "쳤고요.",
+   "start_sec": 150.74,
+   "end_sec": 152.0
+  },
+  {
+   "text": "반별로",
+   "start_sec": 152.0,
+   "end_sec": 153.21
+  },
+  {
+   "text": "나눠",
+   "start_sec": 153.21,
+   "end_sec": 154.43
+  },
+  {
+   "text": "보면요,",
+   "start_sec": 154.43,
+   "end_sec": 155.64
+  },
+  {
+   "text": "블록",
+   "start_sec": 155.64,
+   "end_sec": 156.86
+  },
+  {
+   "text": "코딩",
+   "start_sec": 156.86,
+   "end_sec": 158.07
+  },
+  {
+   "text": "반이랑",
+   "start_sec": 158.07,
+   "end_sec": 159.29
+  },
+  {
+   "text": "파이썬",
+   "start_sec": 159.29,
+   "end_sec": 160.5
+  },
+  {
+   "text": "반이",
+   "start_sec": 160.5,
+   "end_sec": 161.71
+  },
+  {
+   "text": "24명씩이에요.",
+   "start_sec": 161.71,
+   "end_sec": 162.93
+  },
+  {
+   "text": "3월에는",
+   "start_sec": 162.93,
+   "end_sec": 164.14
+  },
+  {
+   "text": "두",
+   "start_sec": 164.14,
+   "end_sec": 165.36
+  },
+  {
+   "text": "반",
+   "start_sec": 165.36,
+   "end_sec": 166.57
+  },
+  {
+   "text": "다",
+   "start_sec": 166.57,
+   "end_sec": 167.79
+  },
+  {
+   "text": "출석이",
+   "start_sec": 167.79,
+   "end_sec": 169.0
+  },
+  {
+   "text": "좋았는데요,",
+   "start_sec": 169.0,
+   "end_sec": 170.21
+  },
+  {
+   "text": "7월에는",
+   "start_sec": 170.21,
+   "end_sec": 171.43
+  },
+  {
+   "text": "블록",
+   "start_sec": 171.43,
+   "end_sec": 172.64
+  },
+  {
+   "text": "코딩",
+   "start_sec": 172.64,
+   "end_sec": 173.86
+  },
+  {
+   "text": "반이",
+   "start_sec": 173.86,
+   "end_sec": 175.07
+  },
+  {
+   "text": "파이썬",
+   "start_sec": 175.07,
+   "end_sec": 176.29
+  },
+  {
+   "text": "반보다",
+   "start_sec": 176.29,
+   "end_sec": 177.5
+  },
+  {
+   "text": "출석률이",
+   "start_sec": 177.5,
+   "end_sec": 178.71
+  },
+  {
+   "text": "더",
+   "start_sec": 178.71,
+   "end_sec": 179.93
+  },
+  {
+   "text": "낮았어요.",
+   "start_sec": 179.93,
+   "end_sec": 181.14
+  },
+  {
+   "text": "이건",
+   "start_sec": 181.14,
+   "end_sec": 182.36
+  },
+  {
+   "text": "저희도",
+   "start_sec": 182.36,
+   "end_sec": 183.57
+  },
+  {
+   "text": "좀",
+   "start_sec": 183.57,
+   "end_sec": 184.79
+  },
+  {
+   "text": "의외였어요.",
+   "start_sec": 184.79,
+   "end_sec": 186.0
+  },
+  {
+   "text": "그다음은",
+   "start_sec": 186.0,
+   "end_sec": 187.1
+  },
+  {
+   "text": "짝",
+   "start_sec": 187.1,
+   "end_sec": 188.2
+  },
+  {
+   "text": "코딩이에요.",
+   "start_sec": 188.2,
+   "end_sec": 189.3
+  },
+  {
+   "text": "16주",
+   "start_sec": 189.3,
+   "end_sec": 190.4
+  },
+  {
+   "text": "중에",
+   "start_sec": 190.4,
+   "end_sec": 191.5
+  },
+  {
+   "text": "7주는",
+   "start_sec": 191.5,
+   "end_sec": 192.6
+  },
+  {
+   "text": "두",
+   "start_sec": 192.6,
+   "end_sec": 193.7
+  },
+  {
+   "text": "명이",
+   "start_sec": 193.7,
+   "end_sec": 194.8
+  },
+  {
+   "text": "컴퓨터",
+   "start_sec": 194.8,
+   "end_sec": 195.9
+  },
+  {
+   "text": "한",
+   "start_sec": 195.9,
+   "end_sec": 197.0
+  },
+  {
+   "text": "대로",
+   "start_sec": 197.0,
+   "end_sec": 198.1
+  },
+  {
+   "text": "같이",
+   "start_sec": 198.1,
+   "end_sec": 199.2
+  },
+  {
+   "text": "푸는",
+   "start_sec": 199.2,
+   "end_sec": 200.3
+  },
+  {
+   "text": "짝",
+   "start_sec": 200.3,
+   "end_sec": 201.4
+  },
+  {
+   "text": "코딩을",
+   "start_sec": 201.4,
+   "end_sec": 202.5
+  },
+  {
+   "text": "했고",
+   "start_sec": 202.5,
+   "end_sec": 203.6
+  },
+  {
+   "text": "나머지",
+   "start_sec": 203.6,
+   "end_sec": 204.7
+  },
+  {
+   "text": "9주는",
+   "start_sec": 204.7,
+   "end_sec": 205.8
+  },
+  {
+   "text": "혼자",
+   "start_sec": 205.8,
+   "end_sec": 206.9
+  },
+  {
+   "text": "했어요.",
+   "start_sec": 206.9,
+   "end_sec": 208.0
+  },
+  {
+   "text": "혼자",
+   "start_sec": 208.0,
+   "end_sec": 209.1
+  },
+  {
+   "text": "한",
+   "start_sec": 209.1,
+   "end_sec": 210.2
+  },
+  {
+   "text": "주는",
+   "start_sec": 210.2,
+   "end_sec": 211.3
+  },
+  {
+   "text": "다음",
+   "start_sec": 211.3,
+   "end_sec": 212.4
+  },
+  {
+   "text": "주",
+   "start_sec": 212.4,
+   "end_sec": 213.5
+  },
+  {
+   "text": "출석률이",
+   "start_sec": 213.5,
+   "end_sec": 214.6
+  },
+  {
+   "text": "64퍼센트,",
+   "start_sec": 214.6,
+   "end_sec": 215.7
+  },
+  {
+   "text": "짝",
+   "start_sec": 215.7,
+   "end_sec": 216.8
+  },
+  {
+   "text": "코딩을",
+   "start_sec": 216.8,
+   "end_sec": 217.9
+  },
+  {
+   "text": "한",
+   "start_sec": 217.9,
+   "end_sec": 219.0
+  },
+  {
+   "text": "주는",
+   "start_sec": 219.0,
+   "end_sec": 220.1
+  },
+  {
+   "text": "75퍼센트였어요.",
+   "start_sec": 220.1,
+   "end_sec": 221.2
+  },
+  {
+   "text": "짝",
+   "start_sec": 221.2,
+   "end_sec": 222.3
+  },
+  {
+   "text": "코딩을",
+   "start_sec": 222.3,
+   "end_sec": 223.4
+  },
+  {
+   "text": "한",
+   "start_sec": 223.4,
+   "end_sec": 224.5
+  },
+  {
+   "text": "주가",
+   "start_sec": 224.5,
+   "end_sec": 225.6
+  },
+  {
+   "text": "11퍼센트포인트",
+   "start_sec": 225.6,
+   "end_sec": 226.7
+  },
+  {
+   "text": "더",
+   "start_sec": 226.7,
+   "end_sec": 227.8
+  },
+  {
+   "text": "높았던",
+   "start_sec": 227.8,
+   "end_sec": 228.9
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 228.9,
+   "end_sec": 230.0
+  },
+  {
+   "text": "다음",
+   "start_sec": 230.0,
+   "end_sec": 230.79
+  },
+  {
+   "text": "표는",
+   "start_sec": 230.79,
+   "end_sec": 231.57
+  },
+  {
+   "text": "설문",
+   "start_sec": 231.57,
+   "end_sec": 232.36
+  },
+  {
+   "text": "결과인데요,",
+   "start_sec": 232.36,
+   "end_sec": 233.14
+  },
+  {
+   "text": "시간이",
+   "start_sec": 233.14,
+   "end_sec": 233.93
+  },
+  {
+   "text": "좀",
+   "start_sec": 233.93,
+   "end_sec": 234.71
+  },
+  {
+   "text": "모자라서",
+   "start_sec": 234.71,
+   "end_sec": 235.5
+  },
+  {
+   "text": "이",
+   "start_sec": 235.5,
+   "end_sec": 236.29
+  },
+  {
+   "text": "표는",
+   "start_sec": 236.29,
+   "end_sec": 237.07
+  },
+  {
+   "text": "그냥",
+   "start_sec": 237.07,
+   "end_sec": 237.86
+  },
+  {
+   "text": "넘어가고",
+   "start_sec": 237.86,
+   "end_sec": 238.64
+  },
+  {
+   "text": "바로",
+   "start_sec": 238.64,
+   "end_sec": 239.43
+  },
+  {
+   "text": "제안으로",
+   "start_sec": 239.43,
+   "end_sec": 240.21
+  },
+  {
+   "text": "갈게요.",
+   "start_sec": 240.21,
+   "end_sec": 241.0
+  },
+  {
+   "text": "저희",
+   "start_sec": 241.0,
+   "end_sec": 242.15
+  },
+  {
+   "text": "제안은",
+   "start_sec": 242.15,
+   "end_sec": 243.3
+  },
+  {
+   "text": "두",
+   "start_sec": 243.3,
+   "end_sec": 244.44
+  },
+  {
+   "text": "가지예요.",
+   "start_sec": 244.44,
+   "end_sec": 245.59
+  },
+  {
+   "text": "첫째,",
+   "start_sec": 245.59,
+   "end_sec": 246.74
+  },
+  {
+   "text": "파이썬",
+   "start_sec": 246.74,
+   "end_sec": 247.89
+  },
+  {
+   "text": "반부터",
+   "start_sec": 247.89,
+   "end_sec": 249.04
+  },
+  {
+   "text": "격주로",
+   "start_sec": 249.04,
+   "end_sec": 250.19
+  },
+  {
+   "text": "짝",
+   "start_sec": 250.19,
+   "end_sec": 251.33
+  },
+  {
+   "text": "코딩을",
+   "start_sec": 251.33,
+   "end_sec": 252.48
+  },
+  {
+   "text": "하자는",
+   "start_sec": 252.48,
+   "end_sec": 253.63
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 253.63,
+   "end_sec": 254.78
+  },
+  {
+   "text": "둘째,",
+   "start_sec": 254.78,
+   "end_sec": 255.93
+  },
+  {
+   "text": "두",
+   "start_sec": 255.93,
+   "end_sec": 257.07
+  },
+  {
+   "text": "번",
+   "start_sec": 257.07,
+   "end_sec": 258.22
+  },
+  {
+   "text": "연속",
+   "start_sec": 258.22,
+   "end_sec": 259.37
+  },
+  {
+   "text": "빠진",
+   "start_sec": 259.37,
+   "end_sec": 260.52
+  },
+  {
+   "text": "친구한테는",
+   "start_sec": 260.52,
+   "end_sec": 261.67
+  },
+  {
+   "text": "담당",
+   "start_sec": 261.67,
+   "end_sec": 262.81
+  },
+  {
+   "text": "선생님이",
+   "start_sec": 262.81,
+   "end_sec": 263.96
+  },
+  {
+   "text": "먼저",
+   "start_sec": 263.96,
+   "end_sec": 265.11
+  },
+  {
+   "text": "연락해",
+   "start_sec": 265.11,
+   "end_sec": 266.26
+  },
+  {
+   "text": "주시는",
+   "start_sec": 266.26,
+   "end_sec": 267.41
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 267.41,
+   "end_sec": 268.56
+  },
+  {
+   "text": "들어",
+   "start_sec": 268.56,
+   "end_sec": 269.7
+  },
+  {
+   "text": "주셔서",
+   "start_sec": 269.7,
+   "end_sec": 270.85
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 270.85,
+   "end_sec": 272.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 45,
+   "text": "안녕하세요, 저희는 1학년 5반 코딩 모둠이에요. 저희 학교에 방과후 코딩 교실이 있는데요, 학기 초에는 자리가 거의 꽉 차다가 학기 말만 되면 빈자리가 확 늘더라고요. 그래서 왜 그런지 조사해 봤어요. 결론부터 말하면, 짝 코딩을 한 주에는 빈자리가 줄었어요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 1.22
+    },
+    {
+     "text": "저희는",
+     "start_sec": 1.22,
+     "end_sec": 2.43
+    },
+    {
+     "text": "1학년",
+     "start_sec": 2.43,
+     "end_sec": 3.65
+    },
+    {
+     "text": "5반",
+     "start_sec": 3.65,
+     "end_sec": 4.86
+    },
+    {
+     "text": "코딩",
+     "start_sec": 4.86,
+     "end_sec": 6.08
+    },
+    {
+     "text": "모둠이에요.",
+     "start_sec": 6.08,
+     "end_sec": 7.3
+    },
+    {
+     "text": "저희",
+     "start_sec": 7.3,
+     "end_sec": 8.51
+    },
+    {
+     "text": "학교에",
+     "start_sec": 8.51,
+     "end_sec": 9.73
+    },
+    {
+     "text": "방과후",
+     "start_sec": 9.73,
+     "end_sec": 10.95
+    },
+    {
+     "text": "코딩",
+     "start_sec": 10.95,
+     "end_sec": 12.16
+    },
+    {
+     "text": "교실이",
+     "start_sec": 12.16,
+     "end_sec": 13.38
+    },
+    {
+     "text": "있는데요,",
+     "start_sec": 13.38,
+     "end_sec": 14.59
+    },
+    {
+     "text": "학기",
+     "start_sec": 14.59,
+     "end_sec": 15.81
+    },
+    {
+     "text": "초에는",
+     "start_sec": 15.81,
+     "end_sec": 17.03
+    },
+    {
+     "text": "자리가",
+     "start_sec": 17.03,
+     "end_sec": 18.24
+    },
+    {
+     "text": "거의",
+     "start_sec": 18.24,
+     "end_sec": 19.46
+    },
+    {
+     "text": "꽉",
+     "start_sec": 19.46,
+     "end_sec": 20.68
+    },
+    {
+     "text": "차다가",
+     "start_sec": 20.68,
+     "end_sec": 21.89
+    },
+    {
+     "text": "학기",
+     "start_sec": 21.89,
+     "end_sec": 23.11
+    },
+    {
+     "text": "말만",
+     "start_sec": 23.11,
+     "end_sec": 24.32
+    },
+    {
+     "text": "되면",
+     "start_sec": 24.32,
+     "end_sec": 25.54
+    },
+    {
+     "text": "빈자리가",
+     "start_sec": 25.54,
+     "end_sec": 26.76
+    },
+    {
+     "text": "확",
+     "start_sec": 26.76,
+     "end_sec": 27.97
+    },
+    {
+     "text": "늘더라고요.",
+     "start_sec": 27.97,
+     "end_sec": 29.19
+    },
+    {
+     "text": "그래서",
+     "start_sec": 29.19,
+     "end_sec": 30.41
+    },
+    {
+     "text": "왜",
+     "start_sec": 30.41,
+     "end_sec": 31.62
+    },
+    {
+     "text": "그런지",
+     "start_sec": 31.62,
+     "end_sec": 32.84
+    },
+    {
+     "text": "조사해",
+     "start_sec": 32.84,
+     "end_sec": 34.05
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 34.05,
+     "end_sec": 35.27
+    },
+    {
+     "text": "결론부터",
+     "start_sec": 35.27,
+     "end_sec": 36.49
+    },
+    {
+     "text": "말하면,",
+     "start_sec": 36.49,
+     "end_sec": 37.7
+    },
+    {
+     "text": "짝",
+     "start_sec": 37.7,
+     "end_sec": 38.92
+    },
+    {
+     "text": "코딩을",
+     "start_sec": 38.92,
+     "end_sec": 40.14
+    },
+    {
+     "text": "한",
+     "start_sec": 40.14,
+     "end_sec": 41.35
+    },
+    {
+     "text": "주에는",
+     "start_sec": 41.35,
+     "end_sec": 42.57
+    },
+    {
+     "text": "빈자리가",
+     "start_sec": 42.57,
+     "end_sec": 43.78
+    },
+    {
+     "text": "줄었어요.",
+     "start_sec": 43.78,
+     "end_sec": 45.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 45,
+   "end_sec": 85,
+   "text": "먼저 배경이에요. 방과후 코딩 교실에 등록한 학생은 48명이에요. 3월 첫 주에는 출석률이 92퍼센트였는데 7월 마지막 주에는 48퍼센트까지 떨어졌어요. 7월에는 출석률이 60퍼센트가 안 되는 주가 4주 연속이었고요.",
+   "words": [
+    {
+     "text": "먼저",
+     "start_sec": 45.0,
+     "end_sec": 46.54
+    },
+    {
+     "text": "배경이에요.",
+     "start_sec": 46.54,
+     "end_sec": 48.08
+    },
+    {
+     "text": "방과후",
+     "start_sec": 48.08,
+     "end_sec": 49.62
+    },
+    {
+     "text": "코딩",
+     "start_sec": 49.62,
+     "end_sec": 51.15
+    },
+    {
+     "text": "교실에",
+     "start_sec": 51.15,
+     "end_sec": 52.69
+    },
+    {
+     "text": "등록한",
+     "start_sec": 52.69,
+     "end_sec": 54.23
+    },
+    {
+     "text": "학생은",
+     "start_sec": 54.23,
+     "end_sec": 55.77
+    },
+    {
+     "text": "48명이에요.",
+     "start_sec": 55.77,
+     "end_sec": 57.31
+    },
+    {
+     "text": "3월",
+     "start_sec": 57.31,
+     "end_sec": 58.85
+    },
+    {
+     "text": "첫",
+     "start_sec": 58.85,
+     "end_sec": 60.38
+    },
+    {
+     "text": "주에는",
+     "start_sec": 60.38,
+     "end_sec": 61.92
+    },
+    {
+     "text": "출석률이",
+     "start_sec": 61.92,
+     "end_sec": 63.46
+    },
+    {
+     "text": "92퍼센트였는데",
+     "start_sec": 63.46,
+     "end_sec": 65.0
+    },
+    {
+     "text": "7월",
+     "start_sec": 65.0,
+     "end_sec": 66.54
+    },
+    {
+     "text": "마지막",
+     "start_sec": 66.54,
+     "end_sec": 68.08
+    },
+    {
+     "text": "주에는",
+     "start_sec": 68.08,
+     "end_sec": 69.62
+    },
+    {
+     "text": "48퍼센트까지",
+     "start_sec": 69.62,
+     "end_sec": 71.15
+    },
+    {
+     "text": "떨어졌어요.",
+     "start_sec": 71.15,
+     "end_sec": 72.69
+    },
+    {
+     "text": "7월에는",
+     "start_sec": 72.69,
+     "end_sec": 74.23
+    },
+    {
+     "text": "출석률이",
+     "start_sec": 74.23,
+     "end_sec": 75.77
+    },
+    {
+     "text": "60퍼센트가",
+     "start_sec": 75.77,
+     "end_sec": 77.31
+    },
+    {
+     "text": "안",
+     "start_sec": 77.31,
+     "end_sec": 78.85
+    },
+    {
+     "text": "되는",
+     "start_sec": 78.85,
+     "end_sec": 80.38
+    },
+    {
+     "text": "주가",
+     "start_sec": 80.38,
+     "end_sec": 81.92
+    },
+    {
+     "text": "4주",
+     "start_sec": 81.92,
+     "end_sec": 83.46
+    },
+    {
+     "text": "연속이었고요.",
+     "start_sec": 83.46,
+     "end_sec": 85.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 85,
+   "end_sec": 128,
+   "text": "조사는 세 가지로 했어요. 3월부터 7월까지 출석부 16주치를 모았고요, 수업 끝나고 설문을 4번 돌려서 41명이 답해 줬어요. 그리고 담당 선생님을 한 번 인터뷰했는데요, 선생님 말로는 다른 학교도 2학기가 되면 출석이 절반 아래로 떨어진대요.",
+   "words": [
+    {
+     "text": "조사는",
+     "start_sec": 85.0,
+     "end_sec": 86.3
+    },
+    {
+     "text": "세",
+     "start_sec": 86.3,
+     "end_sec": 87.61
+    },
+    {
+     "text": "가지로",
+     "start_sec": 87.61,
+     "end_sec": 88.91
+    },
+    {
+     "text": "했어요.",
+     "start_sec": 88.91,
+     "end_sec": 90.21
+    },
+    {
+     "text": "3월부터",
+     "start_sec": 90.21,
+     "end_sec": 91.52
+    },
+    {
+     "text": "7월까지",
+     "start_sec": 91.52,
+     "end_sec": 92.82
+    },
+    {
+     "text": "출석부",
+     "start_sec": 92.82,
+     "end_sec": 94.12
+    },
+    {
+     "text": "16주치를",
+     "start_sec": 94.12,
+     "end_sec": 95.42
+    },
+    {
+     "text": "모았고요,",
+     "start_sec": 95.42,
+     "end_sec": 96.73
+    },
+    {
+     "text": "수업",
+     "start_sec": 96.73,
+     "end_sec": 98.03
+    },
+    {
+     "text": "끝나고",
+     "start_sec": 98.03,
+     "end_sec": 99.33
+    },
+    {
+     "text": "설문을",
+     "start_sec": 99.33,
+     "end_sec": 100.64
+    },
+    {
+     "text": "4번",
+     "start_sec": 100.64,
+     "end_sec": 101.94
+    },
+    {
+     "text": "돌려서",
+     "start_sec": 101.94,
+     "end_sec": 103.24
+    },
+    {
+     "text": "41명이",
+     "start_sec": 103.24,
+     "end_sec": 104.55
+    },
+    {
+     "text": "답해",
+     "start_sec": 104.55,
+     "end_sec": 105.85
+    },
+    {
+     "text": "줬어요.",
+     "start_sec": 105.85,
+     "end_sec": 107.15
+    },
+    {
+     "text": "그리고",
+     "start_sec": 107.15,
+     "end_sec": 108.45
+    },
+    {
+     "text": "담당",
+     "start_sec": 108.45,
+     "end_sec": 109.76
+    },
+    {
+     "text": "선생님을",
+     "start_sec": 109.76,
+     "end_sec": 111.06
+    },
+    {
+     "text": "한",
+     "start_sec": 111.06,
+     "end_sec": 112.36
+    },
+    {
+     "text": "번",
+     "start_sec": 112.36,
+     "end_sec": 113.67
+    },
+    {
+     "text": "인터뷰했는데요,",
+     "start_sec": 113.67,
+     "end_sec": 114.97
+    },
+    {
+     "text": "선생님",
+     "start_sec": 114.97,
+     "end_sec": 116.27
+    },
+    {
+     "text": "말로는",
+     "start_sec": 116.27,
+     "end_sec": 117.58
+    },
+    {
+     "text": "다른",
+     "start_sec": 117.58,
+     "end_sec": 118.88
+    },
+    {
+     "text": "학교도",
+     "start_sec": 118.88,
+     "end_sec": 120.18
+    },
+    {
+     "text": "2학기가",
+     "start_sec": 120.18,
+     "end_sec": 121.48
+    },
+    {
+     "text": "되면",
+     "start_sec": 121.48,
+     "end_sec": 122.79
+    },
+    {
+     "text": "출석이",
+     "start_sec": 122.79,
+     "end_sec": 124.09
+    },
+    {
+     "text": "절반",
+     "start_sec": 124.09,
+     "end_sec": 125.39
+    },
+    {
+     "text": "아래로",
+     "start_sec": 125.39,
+     "end_sec": 126.7
+    },
+    {
+     "text": "떨어진대요.",
+     "start_sec": 126.7,
+     "end_sec": 128.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 128,
+   "end_sec": 152,
+   "text": "출석률은 이렇게 셌어요. 그 주에 출석한 학생 수를 등록한 학생 수로 나누고 100을 곱했어요. 지각은 10분 안쪽이면 출석으로 쳤고요.",
+   "words": [
+    {
+     "text": "출석률은",
+     "start_sec": 128.0,
+     "end_sec": 129.26
+    },
+    {
+     "text": "이렇게",
+     "start_sec": 129.26,
+     "end_sec": 130.53
+    },
+    {
+     "text": "셌어요.",
+     "start_sec": 130.53,
+     "end_sec": 131.79
+    },
+    {
+     "text": "그",
+     "start_sec": 131.79,
+     "end_sec": 133.05
+    },
+    {
+     "text": "주에",
+     "start_sec": 133.05,
+     "end_sec": 134.32
+    },
+    {
+     "text": "출석한",
+     "start_sec": 134.32,
+     "end_sec": 135.58
+    },
+    {
+     "text": "학생",
+     "start_sec": 135.58,
+     "end_sec": 136.84
+    },
+    {
+     "text": "수를",
+     "start_sec": 136.84,
+     "end_sec": 138.11
+    },
+    {
+     "text": "등록한",
+     "start_sec": 138.11,
+     "end_sec": 139.37
+    },
+    {
+     "text": "학생",
+     "start_sec": 139.37,
+     "end_sec": 140.63
+    },
+    {
+     "text": "수로",
+     "start_sec": 140.63,
+     "end_sec": 141.89
+    },
+    {
+     "text": "나누고",
+     "start_sec": 141.89,
+     "end_sec": 143.16
+    },
+    {
+     "text": "100을",
+     "start_sec": 143.16,
+     "end_sec": 144.42
+    },
+    {
+     "text": "곱했어요.",
+     "start_sec": 144.42,
+     "end_sec": 145.68
+    },
+    {
+     "text": "지각은",
+     "start_sec": 145.68,
+     "end_sec": 146.95
+    },
+    {
+     "text": "10분",
+     "start_sec": 146.95,
+     "end_sec": 148.21
+    },
+    {
+     "text": "안쪽이면",
+     "start_sec": 148.21,
+     "end_sec": 149.47
+    },
+    {
+     "text": "출석으로",
+     "start_sec": 149.47,
+     "end_sec": 150.74
+    },
+    {
+     "text": "쳤고요.",
+     "start_sec": 150.74,
+     "end_sec": 152.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 152,
+   "end_sec": 186,
+   "text": "반별로 나눠 보면요, 블록 코딩 반이랑 파이썬 반이 24명씩이에요. 3월에는 두 반 다 출석이 좋았는데요, 7월에는 블록 코딩 반이 파이썬 반보다 출석률이 더 낮았어요. 이건 저희도 좀 의외였어요.",
+   "words": [
+    {
+     "text": "반별로",
+     "start_sec": 152.0,
+     "end_sec": 153.21
+    },
+    {
+     "text": "나눠",
+     "start_sec": 153.21,
+     "end_sec": 154.43
+    },
+    {
+     "text": "보면요,",
+     "start_sec": 154.43,
+     "end_sec": 155.64
+    },
+    {
+     "text": "블록",
+     "start_sec": 155.64,
+     "end_sec": 156.86
+    },
+    {
+     "text": "코딩",
+     "start_sec": 156.86,
+     "end_sec": 158.07
+    },
+    {
+     "text": "반이랑",
+     "start_sec": 158.07,
+     "end_sec": 159.29
+    },
+    {
+     "text": "파이썬",
+     "start_sec": 159.29,
+     "end_sec": 160.5
+    },
+    {
+     "text": "반이",
+     "start_sec": 160.5,
+     "end_sec": 161.71
+    },
+    {
+     "text": "24명씩이에요.",
+     "start_sec": 161.71,
+     "end_sec": 162.93
+    },
+    {
+     "text": "3월에는",
+     "start_sec": 162.93,
+     "end_sec": 164.14
+    },
+    {
+     "text": "두",
+     "start_sec": 164.14,
+     "end_sec": 165.36
+    },
+    {
+     "text": "반",
+     "start_sec": 165.36,
+     "end_sec": 166.57
+    },
+    {
+     "text": "다",
+     "start_sec": 166.57,
+     "end_sec": 167.79
+    },
+    {
+     "text": "출석이",
+     "start_sec": 167.79,
+     "end_sec": 169.0
+    },
+    {
+     "text": "좋았는데요,",
+     "start_sec": 169.0,
+     "end_sec": 170.21
+    },
+    {
+     "text": "7월에는",
+     "start_sec": 170.21,
+     "end_sec": 171.43
+    },
+    {
+     "text": "블록",
+     "start_sec": 171.43,
+     "end_sec": 172.64
+    },
+    {
+     "text": "코딩",
+     "start_sec": 172.64,
+     "end_sec": 173.86
+    },
+    {
+     "text": "반이",
+     "start_sec": 173.86,
+     "end_sec": 175.07
+    },
+    {
+     "text": "파이썬",
+     "start_sec": 175.07,
+     "end_sec": 176.29
+    },
+    {
+     "text": "반보다",
+     "start_sec": 176.29,
+     "end_sec": 177.5
+    },
+    {
+     "text": "출석률이",
+     "start_sec": 177.5,
+     "end_sec": 178.71
+    },
+    {
+     "text": "더",
+     "start_sec": 178.71,
+     "end_sec": 179.93
+    },
+    {
+     "text": "낮았어요.",
+     "start_sec": 179.93,
+     "end_sec": 181.14
+    },
+    {
+     "text": "이건",
+     "start_sec": 181.14,
+     "end_sec": 182.36
+    },
+    {
+     "text": "저희도",
+     "start_sec": 182.36,
+     "end_sec": 183.57
+    },
+    {
+     "text": "좀",
+     "start_sec": 183.57,
+     "end_sec": 184.79
+    },
+    {
+     "text": "의외였어요.",
+     "start_sec": 184.79,
+     "end_sec": 186.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 186,
+   "end_sec": 230,
+   "text": "그다음은 짝 코딩이에요. 16주 중에 7주는 두 명이 컴퓨터 한 대로 같이 푸는 짝 코딩을 했고 나머지 9주는 혼자 했어요. 혼자 한 주는 다음 주 출석률이 64퍼센트, 짝 코딩을 한 주는 75퍼센트였어요. 짝 코딩을 한 주가 11퍼센트포인트 더 높았던 거죠.",
+   "words": [
+    {
+     "text": "그다음은",
+     "start_sec": 186.0,
+     "end_sec": 187.1
+    },
+    {
+     "text": "짝",
+     "start_sec": 187.1,
+     "end_sec": 188.2
+    },
+    {
+     "text": "코딩이에요.",
+     "start_sec": 188.2,
+     "end_sec": 189.3
+    },
+    {
+     "text": "16주",
+     "start_sec": 189.3,
+     "end_sec": 190.4
+    },
+    {
+     "text": "중에",
+     "start_sec": 190.4,
+     "end_sec": 191.5
+    },
+    {
+     "text": "7주는",
+     "start_sec": 191.5,
+     "end_sec": 192.6
+    },
+    {
+     "text": "두",
+     "start_sec": 192.6,
+     "end_sec": 193.7
+    },
+    {
+     "text": "명이",
+     "start_sec": 193.7,
+     "end_sec": 194.8
+    },
+    {
+     "text": "컴퓨터",
+     "start_sec": 194.8,
+     "end_sec": 195.9
+    },
+    {
+     "text": "한",
+     "start_sec": 195.9,
+     "end_sec": 197.0
+    },
+    {
+     "text": "대로",
+     "start_sec": 197.0,
+     "end_sec": 198.1
+    },
+    {
+     "text": "같이",
+     "start_sec": 198.1,
+     "end_sec": 199.2
+    },
+    {
+     "text": "푸는",
+     "start_sec": 199.2,
+     "end_sec": 200.3
+    },
+    {
+     "text": "짝",
+     "start_sec": 200.3,
+     "end_sec": 201.4
+    },
+    {
+     "text": "코딩을",
+     "start_sec": 201.4,
+     "end_sec": 202.5
+    },
+    {
+     "text": "했고",
+     "start_sec": 202.5,
+     "end_sec": 203.6
+    },
+    {
+     "text": "나머지",
+     "start_sec": 203.6,
+     "end_sec": 204.7
+    },
+    {
+     "text": "9주는",
+     "start_sec": 204.7,
+     "end_sec": 205.8
+    },
+    {
+     "text": "혼자",
+     "start_sec": 205.8,
+     "end_sec": 206.9
+    },
+    {
+     "text": "했어요.",
+     "start_sec": 206.9,
+     "end_sec": 208.0
+    },
+    {
+     "text": "혼자",
+     "start_sec": 208.0,
+     "end_sec": 209.1
+    },
+    {
+     "text": "한",
+     "start_sec": 209.1,
+     "end_sec": 210.2
+    },
+    {
+     "text": "주는",
+     "start_sec": 210.2,
+     "end_sec": 211.3
+    },
+    {
+     "text": "다음",
+     "start_sec": 211.3,
+     "end_sec": 212.4
+    },
+    {
+     "text": "주",
+     "start_sec": 212.4,
+     "end_sec": 213.5
+    },
+    {
+     "text": "출석률이",
+     "start_sec": 213.5,
+     "end_sec": 214.6
+    },
+    {
+     "text": "64퍼센트,",
+     "start_sec": 214.6,
+     "end_sec": 215.7
+    },
+    {
+     "text": "짝",
+     "start_sec": 215.7,
+     "end_sec": 216.8
+    },
+    {
+     "text": "코딩을",
+     "start_sec": 216.8,
+     "end_sec": 217.9
+    },
+    {
+     "text": "한",
+     "start_sec": 217.9,
+     "end_sec": 219.0
+    },
+    {
+     "text": "주는",
+     "start_sec": 219.0,
+     "end_sec": 220.1
+    },
+    {
+     "text": "75퍼센트였어요.",
+     "start_sec": 220.1,
+     "end_sec": 221.2
+    },
+    {
+     "text": "짝",
+     "start_sec": 221.2,
+     "end_sec": 222.3
+    },
+    {
+     "text": "코딩을",
+     "start_sec": 222.3,
+     "end_sec": 223.4
+    },
+    {
+     "text": "한",
+     "start_sec": 223.4,
+     "end_sec": 224.5
+    },
+    {
+     "text": "주가",
+     "start_sec": 224.5,
+     "end_sec": 225.6
+    },
+    {
+     "text": "11퍼센트포인트",
+     "start_sec": 225.6,
+     "end_sec": 226.7
+    },
+    {
+     "text": "더",
+     "start_sec": 226.7,
+     "end_sec": 227.8
+    },
+    {
+     "text": "높았던",
+     "start_sec": 227.8,
+     "end_sec": 228.9
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 228.9,
+     "end_sec": 230.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 230,
+   "end_sec": 241,
+   "text": "다음 표는 설문 결과인데요, 시간이 좀 모자라서 이 표는 그냥 넘어가고 바로 제안으로 갈게요.",
+   "words": [
+    {
+     "text": "다음",
+     "start_sec": 230.0,
+     "end_sec": 230.79
+    },
+    {
+     "text": "표는",
+     "start_sec": 230.79,
+     "end_sec": 231.57
+    },
+    {
+     "text": "설문",
+     "start_sec": 231.57,
+     "end_sec": 232.36
+    },
+    {
+     "text": "결과인데요,",
+     "start_sec": 232.36,
+     "end_sec": 233.14
+    },
+    {
+     "text": "시간이",
+     "start_sec": 233.14,
+     "end_sec": 233.93
+    },
+    {
+     "text": "좀",
+     "start_sec": 233.93,
+     "end_sec": 234.71
+    },
+    {
+     "text": "모자라서",
+     "start_sec": 234.71,
+     "end_sec": 235.5
+    },
+    {
+     "text": "이",
+     "start_sec": 235.5,
+     "end_sec": 236.29
+    },
+    {
+     "text": "표는",
+     "start_sec": 236.29,
+     "end_sec": 237.07
+    },
+    {
+     "text": "그냥",
+     "start_sec": 237.07,
+     "end_sec": 237.86
+    },
+    {
+     "text": "넘어가고",
+     "start_sec": 237.86,
+     "end_sec": 238.64
+    },
+    {
+     "text": "바로",
+     "start_sec": 238.64,
+     "end_sec": 239.43
+    },
+    {
+     "text": "제안으로",
+     "start_sec": 239.43,
+     "end_sec": 240.21
+    },
+    {
+     "text": "갈게요.",
+     "start_sec": 240.21,
+     "end_sec": 241.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 241,
+   "end_sec": 272,
+   "text": "저희 제안은 두 가지예요. 첫째, 파이썬 반부터 격주로 짝 코딩을 하자는 거예요. 둘째, 두 번 연속 빠진 친구한테는 담당 선생님이 먼저 연락해 주시는 거예요. 들어 주셔서 감사합니다.",
+   "words": [
+    {
+     "text": "저희",
+     "start_sec": 241.0,
+     "end_sec": 242.15
+    },
+    {
+     "text": "제안은",
+     "start_sec": 242.15,
+     "end_sec": 243.3
+    },
+    {
+     "text": "두",
+     "start_sec": 243.3,
+     "end_sec": 244.44
+    },
+    {
+     "text": "가지예요.",
+     "start_sec": 244.44,
+     "end_sec": 245.59
+    },
+    {
+     "text": "첫째,",
+     "start_sec": 245.59,
+     "end_sec": 246.74
+    },
+    {
+     "text": "파이썬",
+     "start_sec": 246.74,
+     "end_sec": 247.89
+    },
+    {
+     "text": "반부터",
+     "start_sec": 247.89,
+     "end_sec": 249.04
+    },
+    {
+     "text": "격주로",
+     "start_sec": 249.04,
+     "end_sec": 250.19
+    },
+    {
+     "text": "짝",
+     "start_sec": 250.19,
+     "end_sec": 251.33
+    },
+    {
+     "text": "코딩을",
+     "start_sec": 251.33,
+     "end_sec": 252.48
+    },
+    {
+     "text": "하자는",
+     "start_sec": 252.48,
+     "end_sec": 253.63
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 253.63,
+     "end_sec": 254.78
+    },
+    {
+     "text": "둘째,",
+     "start_sec": 254.78,
+     "end_sec": 255.93
+    },
+    {
+     "text": "두",
+     "start_sec": 255.93,
+     "end_sec": 257.07
+    },
+    {
+     "text": "번",
+     "start_sec": 257.07,
+     "end_sec": 258.22
+    },
+    {
+     "text": "연속",
+     "start_sec": 258.22,
+     "end_sec": 259.37
+    },
+    {
+     "text": "빠진",
+     "start_sec": 259.37,
+     "end_sec": 260.52
+    },
+    {
+     "text": "친구한테는",
+     "start_sec": 260.52,
+     "end_sec": 261.67
+    },
+    {
+     "text": "담당",
+     "start_sec": 261.67,
+     "end_sec": 262.81
+    },
+    {
+     "text": "선생님이",
+     "start_sec": 262.81,
+     "end_sec": 263.96
+    },
+    {
+     "text": "먼저",
+     "start_sec": 263.96,
+     "end_sec": 265.11
+    },
+    {
+     "text": "연락해",
+     "start_sec": 265.11,
+     "end_sec": 266.26
+    },
+    {
+     "text": "주시는",
+     "start_sec": 266.26,
+     "end_sec": 267.41
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 267.41,
+     "end_sec": 268.56
+    },
+    {
+     "text": "들어",
+     "start_sec": 268.56,
+     "end_sec": 269.7
+    },
+    {
+     "text": "주셔서",
+     "start_sec": 269.7,
+     "end_sec": 270.85
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 270.85,
+     "end_sec": 272.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 272
+}

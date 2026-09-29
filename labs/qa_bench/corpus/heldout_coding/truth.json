@@ -1,0 +1,318 @@
+{
+ "deck": "heldout_coding",
+ "synthetic": true,
+ "group": "rec_align_heldout_2026-09-30",
+ "context": {
+  "situation": "school_project",
+  "duration_min": 7
+ },
+ "holdout": "규칙 튜닝이 끝난 뒤 일반화 측정에만 쓴다 — 튜닝 중에 열어 보지 않는다",
+ "total_slides": 8,
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "방과후 코딩 교실 발표 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 2,
+     "form": "from_to_second_wrong",
+     "deck_quote": "3월 첫 주 출석률은 92%였지만 7월 마지막 주에는 58%로 떨어졌습니다.",
+     "speech_quote": "3월 첫 주에는 출석률이 92퍼센트였는데 7월 마지막 주에는 48퍼센트까지 떨어졌어요.",
+     "deck_value": "58%",
+     "speech_value": "48%",
+     "note": "처음→나중 쌍에서 처음 값(92%)은 맞고 나중 값만 틀렸다. 틀린 48 은 같은 장 「등록 학생 48명」 과 수만 같다(단위가 다르다)"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 5,
+     "form": "swapped_subject",
+     "deck_quote": "파이썬 반은 블록 코딩 반보다 7월 출석률이 25%p 낮았습니다.",
+     "speech_quote": "7월에는 블록 코딩 반이 파이썬 반보다 출석률이 더 낮았어요.",
+     "note": "주어와 비교 대상을 맞바꿨다 — 술어(낮다)는 같고 발화에 수가 없다. 같은 줄 앞쪽 「3월에는 두 반 다 출석이 좋았는데요」 는 맞는 말"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 7,
+     "form": "table_slide",
+     "deck_quote": "빠진 이유 (설문, 복수 응답)",
+     "speech_quote": "다음 표는 설문 결과인데요, 시간이 좀 모자라서 이 표는 그냥 넘어가고 바로 제안으로 갈게요.",
+     "skip_quote": "다음 표는 설문 결과인데요, 시간이 좀 모자라서 이 표는 그냥 넘어가고 바로 제안으로 갈게요.",
+     "labels_any": [
+      "빠진 이유",
+      "과제가 어려워서",
+      "학원 시간",
+      "집이 멀어서",
+      "2km"
+     ],
+     "skip_verb": "넘어가다",
+     "note": "표 한 장을 말로 넘긴다 — 이 장의 내용(이유 셋 · 29명 · 2km)은 발표 어디에서도 말하지 않는다"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "slide": 3,
+     "near_slide": 3,
+     "deck_quote": null,
+     "speech_quote": "선생님 말로는 다른 학교도 2학기가 되면 출석이 절반 아래로 떨어진대요.",
+     "note": "자료에 없는 주장(다른 학교 · 2학기 · 절반) — 2장 58% · 5장 46% 와 꼴이 비슷하지만 주어가 다르다. 모순으로 잡으면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     2,
+     5
+    ],
+    "skipped_slides": [
+     7
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 45
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 45,
+     "end_sec": 85
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 85,
+     "end_sec": 128
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 128,
+     "end_sec": 152
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 152,
+     "end_sec": 186
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 186,
+     "end_sec": 230
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 230,
+     "end_sec": 241
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 241,
+     "end_sec": 272
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "방과후 코딩 교실 발표 녹음 (R2)",
+   "planted": [],
+   "spoken_forms": [
+    {
+     "slide": 2,
+     "deck": "48명",
+     "speech": "마흔여덟 명"
+    },
+    {
+     "slide": 2,
+     "deck": "92%",
+     "speech": "구십이 퍼센트"
+    },
+    {
+     "slide": 2,
+     "deck": "58%",
+     "speech": "오십팔 퍼센트"
+    },
+    {
+     "slide": 3,
+     "deck": "16주치",
+     "speech": "열여섯 주치"
+    },
+    {
+     "slide": 3,
+     "deck": "41명",
+     "speech": "마흔한 명"
+    },
+    {
+     "slide": 4,
+     "deck": "× 100",
+     "speech": "백을 곱해서"
+    },
+    {
+     "slide": 5,
+     "deck": "24명",
+     "speech": "스물네 명"
+    },
+    {
+     "slide": 5,
+     "deck": "25%p",
+     "speech": "이십오 퍼센트포인트"
+    },
+    {
+     "slide": 6,
+     "deck": "11%p",
+     "speech": "십일 퍼센트포인트"
+    },
+    {
+     "slide": 7,
+     "deck": "29명",
+     "speech": "스물아홉 명"
+    },
+    {
+     "slide": 7,
+     "deck": "2km",
+     "speech": "이 킬로미터"
+    },
+    {
+     "slide": 2,
+     "deck": "4주 연속",
+     "speech": "네 주 내리"
+    },
+    {
+     "slide": 4,
+     "deck": "10분",
+     "speech": "십 분"
+    }
+   ],
+   "tricky_correct": [
+    {
+     "slide": 1,
+     "deck": "방과후 코딩 교실, 왜 학기 말이면 자리가 빌까",
+     "speech": "학기 말로 갈수록 빈자리가 늘어요.",
+     "why": "「늘다」 지만 대상이 빈자리 — 출석률이 떨어졌다(2장)와 같은 방향"
+    },
+    {
+     "slide": 2,
+     "deck": "3월 첫 주 출석률은 92%였지만 7월 마지막 주에는 58%로 떨어졌습니다.",
+     "speech": "출석률이 삼월 첫 주에는 구십이 퍼센트였는데, 칠월 마지막 주에는 오십팔 퍼센트로 떨어졌어요.",
+     "why": "처음→나중 두 값을 모두 맞게 한국어 수사로 말했다"
+    },
+    {
+     "slide": 2,
+     "deck": "7월에는 출석률 60% 미만인 주가 4주 연속 이어졌습니다.",
+     "speech": "칠월에는 출석률이 육십 퍼센트도 안 되는 주가 네 주 내리 이어졌고요.",
+     "why": "「60% 미만」 을 「육십 퍼센트도 안 되는」 으로 — 한계를 맞게 옮김"
+    },
+    {
+     "slide": 3,
+     "deck": "담당 선생님 인터뷰 1회",
+     "speech": "그럼 출석률을 어떻게 셌는지로 넘어갈게요.",
+     "why": "「넘어가다」 가 다음 장으로 가는 말일 뿐 — 3장 · 4장 모두 설명했다. 건너뛴 장으로 잡으면 오탐"
+    },
+    {
+     "slide": 4,
+     "deck": "지각 10분 이내는 출석으로 셌습니다.",
+     "speech": "십 분 안 넘게 늦은 친구는 출석으로 쳤어요.",
+     "why": "「10분 이내」 = 「십 분 안 넘게」 — 한계 표현"
+    },
+    {
+     "slide": 5,
+     "deck": "| 파이썬 반 (24명) | 88% | 46% |",
+     "speech": "파이썬 반이 약 구십 퍼센트로 둘 다 높았어요",
+     "why": "88% 를 「약 구십 퍼센트」 — 2%p 안의 어림"
+    },
+    {
+     "slide": 5,
+     "deck": "파이썬 반은 블록 코딩 반보다 7월 출석률이 25%p 낮았습니다.",
+     "speech": "칠월에는 블록 코딩 반이 파이썬 반보다 출석률이 이십오 퍼센트포인트 높았던 거예요.",
+     "why": "주어·비교 대상을 뒤집고 반의어(낮다→높다) — 같은 사실"
+    },
+    {
+     "slide": 6,
+     "deck": "혼자 코딩한 주에 비해 짝 코딩을 한 주가 다음 주 출석률이 11%p 높았습니다.",
+     "speech": "거꾸로 말하면 혼자 코딩할 때가 짝으로 코딩할 때보다 다음 주 출석률이 십일 퍼센트포인트 낮았어요.",
+     "why": "「…할 때가 …할 때보다」 로 순서를 뒤집고 반의어(높다→낮다) — 같은 사실"
+    },
+    {
+     "slide": 6,
+     "deck": "혼자 코딩한 주에 비해 짝 코딩을 한 주가 다음 주 출석률이 11%p 높았습니다.",
+     "speech": "짝이랑 같이 하면 다음 주에 빠지는 친구가 줄었다는 거죠.",
+     "why": "「줄다」 지만 대상이 결석 — 출석률이 높았다와 같은 방향"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 38
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 38,
+     "end_sec": 74
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 74,
+     "end_sec": 107
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 107,
+     "end_sec": 139
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 139,
+     "end_sec": 190
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 190,
+     "end_sec": 245
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 245,
+     "end_sec": 278
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 278,
+     "end_sec": 303
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "reuse": [
+    "heldout_subway",
+    "r2"
+   ],
+   "title": "3호선 약난방칸 제안 녹음",
+   "planted": [],
+   "source": "지하철 겨울 난방 민원 · 약난방칸 제안 (heldout_subway R2 — 다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": "다른 발표 — 장 대응 없음"
+  }
+ }
+}

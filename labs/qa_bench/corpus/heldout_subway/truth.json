@@ -1,0 +1,340 @@
+{
+ "deck": "heldout_subway",
+ "synthetic": true,
+ "group": "rec_align_heldout_2026-09-30",
+ "context": {
+  "situation": "competition",
+  "duration_min": 10
+ },
+ "holdout": "규칙 튜닝이 끝난 뒤 일반화 측정에만 쓴다 — 튜닝 중에 열어 보지 않는다",
+ "total_slides": 8,
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "3호선 약난방칸 제안 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 7,
+     "form": "approx_word_spoken_numeral",
+     "deck_quote": "추가 비용은 안내 스티커와 앱 알림 개발비 1,800만 원입니다.",
+     "speech_quote": "추가로 드는 돈은 안내 스티커랑 앱 알림 개발비까지 해서 약 삼천만 원입니다.",
+     "deck_value": "1,800만 원",
+     "speech_value": "약 삼천만 원 (≈3,000만 원)",
+     "note": "어림말 「약」 + 한국어 수사 · 만 단위 돈 — 어림으로 덮을 수 없을 만큼(1.7배) 다르다"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 5,
+     "form": "antonym_predicate",
+     "deck_quote": "'춥다' 민원은 한 달 평균 520건에서 560건으로 조금 늘었습니다.",
+     "speech_quote": "춥다는 민원도 오히려 조금 줄었고요.",
+     "note": "반의어(늘었다 → 줄었다) — 발화에 수가 없다. 바로 앞 문장 「덥다는 민원이 … 40퍼센트 줄었습니다」 는 맞는 말"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 4,
+     "form": "formula_slide",
+     "deck_quote": "설정 온도는 이렇게 정합니다",
+     "speech_quote": "여기 계산식이 있는데요, 이 부분은 오늘 따로 설명드리지 않겠습니다.",
+     "skip_quote": "여기 계산식이 있는데요, 이 부분은 오늘 따로 설명드리지 않겠습니다.",
+     "labels_any": [
+      "설정 온도",
+      "기준 온도",
+      "혼잡 보정값",
+      "보정값"
+     ],
+     "skip_verb": "설명드리지 않다",
+     "note": "식 한 장을 말로 넘긴다 — 식의 항(기준 온도 20℃ · 보정값 2℃)은 발표 어디에서도 말하지 않는다. 3장의 「혼잡도 150%」 · 5장의 「2도 낮게」 는 그 장의 내용"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "slide": 3,
+     "near_slide": 3,
+     "deck_quote": null,
+     "speech_quote": "사실 겨울에는 다들 두꺼운 외투를 입고 타니까 실제 온도보다 더 덥게 느끼는 거예요.",
+     "note": "자료에 없는 인과 주장 — 수가 없고 「보다 더」 비교꼴이지만 자료에 짝이 없다. 모순으로 잡으면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     5,
+     7
+    ],
+    "skipped_slides": [
+     4
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 33
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 33,
+     "end_sec": 83
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 83,
+     "end_sec": 150
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 150,
+     "end_sec": 158
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 158,
+     "end_sec": 200
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 200,
+     "end_sec": 237
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 237,
+     "end_sec": 265
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 265,
+     "end_sec": 288
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "3호선 약난방칸 제안 녹음 (R2)",
+   "planted": [],
+   "spoken_forms": [
+    {
+     "slide": 2,
+     "deck": "3호선",
+     "speech": "삼호선"
+    },
+    {
+     "slide": 2,
+     "deck": "3,900건",
+     "speech": "삼천구백 건"
+    },
+    {
+     "slide": 2,
+     "deck": "1,560건",
+     "speech": "천오백육십 건"
+    },
+    {
+     "slide": 2,
+     "deck": "2.5배",
+     "speech": "두 배 반"
+    },
+    {
+     "slide": 3,
+     "deck": "158%",
+     "speech": "백오십팔 퍼센트"
+    },
+    {
+     "slide": 3,
+     "deck": "24.6℃",
+     "speech": "이십사 점 육 도"
+    },
+    {
+     "slide": 3,
+     "deck": "3.2℃",
+     "speech": "삼 점 이 도"
+    },
+    {
+     "slide": 4,
+     "deck": "20℃",
+     "speech": "이십 도"
+    },
+    {
+     "slide": 6,
+     "deck": "612명",
+     "speech": "육백십이 분"
+    },
+    {
+     "slide": 7,
+     "deck": "1,800만 원",
+     "speech": "천팔백만 원"
+    },
+    {
+     "slide": 3,
+     "deck": "7~9시",
+     "speech": "일곱 시부터 아홉 시"
+    },
+    {
+     "slide": 5,
+     "deck": "1,300건",
+     "speech": "천삼백 건"
+    },
+    {
+     "slide": 5,
+     "deck": "780건",
+     "speech": "칠백팔십 건"
+    },
+    {
+     "slide": 6,
+     "deck": "9%",
+     "speech": "구 퍼센트"
+    }
+   ],
+   "tricky_correct": [
+    {
+     "slide": 2,
+     "deck": "시범 운행 전 겨울(12~2월) 3호선 냉난방 민원은 모두 5,460건이었습니다.",
+     "speech": "삼호선 냉난방 민원이 모두 합쳐 오천오백 건 가까이 들어왔습니다.",
+     "why": "5,460건을 「오천오백 건 가까이」 — 1% 안의 어림"
+    },
+    {
+     "slide": 2,
+     "deck": "'덥다' 민원이 '춥다' 민원보다 2.5배 많았습니다.",
+     "speech": "춥다는 민원은 덥다는 민원보다 훨씬 적었던 거죠.",
+     "why": "순서를 뒤집고 반의어(많다→적다) — 같은 사실"
+    },
+    {
+     "slide": 3,
+     "deck": "| 출근 7~9시 | 158% | 24.6℃ |",
+     "speech": "거의 이십오 도까지 올라갔습니다.",
+     "why": "24.6℃ 를 「거의 이십오 도」 — 0.4도 안의 어림"
+    },
+    {
+     "slide": 3,
+     "deck": "낮 시간대에 비해 출근 시간대 객실 온도가 3.2℃ 높았습니다.",
+     "speech": "그러니까 낮 시간대는 출근 시간대보다 객실이 삼 점 이 도 낮았던 겁니다.",
+     "why": "「B에 비해 A가 높다」 를 「B는 A보다 낮다」 로 — 같은 사실"
+    },
+    {
+     "slide": 3,
+     "deck": "'덥다' 민원의 71%가 혼잡도 150%를 넘는 시간에 들어왔습니다.",
+     "speech": "덥다는 민원의 칠십 퍼센트 넘게, 정확히는 칠십일 퍼센트가",
+     "why": "「칠십 퍼센트 넘게」 는 71% 의 맞는 한계 표현"
+    },
+    {
+     "slide": 4,
+     "deck": "객실 설정 온도 =",
+     "speech": "이 계산식을 간단히 설명드리겠습니다.",
+     "why": "「설명」 이 들어가지만 건너뛰는 말이 아니라 설명하는 말 — 4장은 설명했다. 건너뛴 장으로 잡으면 오탐"
+    },
+    {
+     "slide": 4,
+     "deck": "혼잡도 150% 이상일 때 보정값 2℃",
+     "speech": "보정값 이 도를 빼서 십팔 도로 맞추는 겁니다.",
+     "why": "십팔 도는 자료의 식(20 − 2)을 계산한 값 — 자료에 없는 수지만 모순이 아니다"
+    },
+    {
+     "slide": 5,
+     "deck": "'덥다' 민원은 한 달 평균 1,300건에서 780건으로 40% 줄었습니다.",
+     "speech": "덥다는 민원이 한 달 평균 천삼백 건에서 칠백팔십 건으로 사십 퍼센트 줄었습니다.",
+     "why": "처음→나중 두 값과 줄어든 비율이 모두 맞다"
+    },
+    {
+     "slide": 5,
+     "deck": "'춥다' 민원은 한 달 평균 520건에서 560건으로 조금 늘었습니다.",
+     "speech": "대신 춥다는 민원은 오백이십 건에서 오백육십 건으로 조금 늘었고요.",
+     "why": "같은 장에 「줄었다」 와 「늘었다」 가 함께 나온다 — 둘 다 자료와 같은 방향"
+    },
+    {
+     "slide": 5,
+     "deck": "'덥다' 민원은 한 달 평균 1,300건에서 780건으로 40% 줄었습니다.",
+     "speech": "그래도 두 민원을 합치면 전체 민원은 줄었습니다.",
+     "why": "합계(한 달 1,820건 → 1,340건)를 계산한 말 — 「줄다」 가 맞는 방향"
+    },
+    {
+     "slide": 6,
+     "deck": "'더 춥다'는 응답은 10% 미만이었습니다.",
+     "speech": "더 춥다고 하신 분은 구 퍼센트로 십 퍼센트에 못 미쳤습니다.",
+     "why": "「10% 미만」 = 「십 퍼센트에 못 미쳤다」"
+    },
+    {
+     "slide": 7,
+     "deck": "시범 칸의 난방 전력 사용량은 일반 칸보다 12% 적었습니다.",
+     "speech": "거꾸로 말하면 일반 칸이 시범 칸보다 전기를 더 많이 쓴 거죠.",
+     "why": "순서를 뒤집고 반의어(적다→많다) — 같은 사실"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 30
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 30,
+     "end_sec": 71
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 71,
+     "end_sec": 134
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 134,
+     "end_sec": 166
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 166,
+     "end_sec": 214
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 214,
+     "end_sec": 248
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 248,
+     "end_sec": 279
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 279,
+     "end_sec": 301
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "reuse": [
+    "heldout_badminton",
+    "r2"
+   ],
+   "title": "배드민턴 클럽 총회 보고 녹음",
+   "planted": [],
+   "source": "배드민턴 동호회 신입 정착 보고 (heldout_badminton R2 — 다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": "다른 발표 — 장 대응 없음"
+  }
+ }
+}

@@ -1,0 +1,240 @@
+{
+ "file_name": "deck.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "방과후 코딩 교실, 왜 학기 말이면 자리가 빌까"
+    },
+    {
+     "category": "paragraph",
+     "text": "짝 코딩을 한 주에는 빈자리가 줄었습니다\n정보 탐구 발표 | 1학년 5반 코딩 모둠"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 72,
+   "line_count": 3,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "방과후 코딩 교실, 왜 학기 말이면 자리가 빌까\n짝 코딩을 한 주에는 빈자리가 줄었습니다\n정보 탐구 발표 | 1학년 5반 코딩 모둠"
+  },
+  {
+   "slide_no": 2,
+   "title": "조사 배경",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "조사 배경"
+    },
+    {
+     "category": "paragraph",
+     "text": "우리 학교 방과후 코딩 교실 등록 학생은 48명입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "3월 첫 주 출석률은 92%였지만 7월 마지막 주에는 58%로 떨어졌습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "7월에는 출석률 60% 미만인 주가 4주 연속 이어졌습니다."
+    }
+   ],
+   "categories": [
+    "heading1",
+    "paragraph"
+   ],
+   "total_char_count": 110,
+   "line_count": 4,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "조사 배경\n우리 학교 방과후 코딩 교실 등록 학생은 48명입니다.\n3월 첫 주 출석률은 92%였지만 7월 마지막 주에는 58%로 떨어졌습니다.\n7월에는 출석률 60% 미만인 주가 4주 연속 이어졌습니다."
+  },
+  {
+   "slide_no": 3,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "조사 방법"
+    },
+    {
+     "category": "paragraph",
+     "text": "출석부 16주치 (3월~7월)\n수업 뒤 설문 4회 · 응답 41명\n담당 선생님 인터뷰 1회"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 55,
+   "line_count": 4,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "조사 방법\n출석부 16주치 (3월~7월)\n수업 뒤 설문 4회 · 응답 41명\n담당 선생님 인터뷰 1회"
+  },
+  {
+   "slide_no": 4,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "출석률은 이렇게 셌습니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "주간 출석률 = 출석 학생 수 ÷ 등록 학생 수 × 100"
+    },
+    {
+     "category": "paragraph",
+     "text": "지각 10분 이내는 출석으로 셌습니다."
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 66,
+   "line_count": 3,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "출석률은 이렇게 셌습니다\n주간 출석률 = 출석 학생 수 ÷ 등록 학생 수 × 100\n지각 10분 이내는 출석으로 셌습니다."
+  },
+  {
+   "slide_no": 5,
+   "title": "반별 출석률",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "반별 출석률"
+    },
+    {
+     "category": "table",
+     "text": "| 반 | 3월 첫 주 | 7월 마지막 주 |\n| --- | --- | --- |\n| 블록 코딩 반 (24명) | 96% | 71% |\n| 파이썬 반 (24명) | 88% | 46% |"
+    },
+    {
+     "category": "heading1",
+     "text": "파이썬 반은 블록 코딩 반보다 7월 출석률이 25%p 낮았습니다."
+    }
+   ],
+   "categories": [
+    "heading1",
+    "table"
+   ],
+   "total_char_count": 145,
+   "line_count": 6,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "반별 출석률\n| 반 | 3월 첫 주 | 7월 마지막 주 |\n| --- | --- | --- |\n| 블록 코딩 반 (24명) | 96% | 71% |\n| 파이썬 반 (24명) | 88% | 46% |\n파이썬 반은 블록 코딩 반보다 7월 출석률이 25%p 낮았습니다."
+  },
+  {
+   "slide_no": 6,
+   "title": "짝 코딩과 혼자 코딩",
+   "blocks": [
+    {
+     "category": "heading1",
+     "text": "짝 코딩과 혼자 코딩"
+    },
+    {
+     "category": "heading1",
+     "text": "혼자 코딩한 주에 비해 짝 코딩을 한 주가 다음 주 출석률이 11%p 높았습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 수업 방식 | 주 수 | 다음 주 평균 출석률 |\n| --- | --- | --- |\n| 혼자 코딩 | 9주 | 64% |\n| 짝 코딩 | 7주 | 75% |"
+    }
+   ],
+   "categories": [
+    "heading1",
+    "table"
+   ],
+   "total_char_count": 146,
+   "line_count": 6,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "짝 코딩과 혼자 코딩\n혼자 코딩한 주에 비해 짝 코딩을 한 주가 다음 주 출석률이 11%p 높았습니다.\n| 수업 방식 | 주 수 | 다음 주 평균 출석률 |\n| --- | --- | --- |\n| 혼자 코딩 | 9주 | 64% |\n| 짝 코딩 | 7주 | 75% |"
+  },
+  {
+   "slide_no": 7,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "빠진 이유 (설문, 복수 응답)"
+    },
+    {
+     "category": "paragraph",
+     "text": "빠진 적이 있다고 답한 29명에게 이유를 물었습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 이유 | 응답 수 |\n| --- | --- |\n| 과제가 어려워서 | 17명 |\n| 학원 시간과 겹쳐서 | 12명 |\n| 집이 멀어서 (2km 이상) | 6명 |"
+    }
+   ],
+   "categories": [
+    "paragraph",
+    "table"
+   ],
+   "total_char_count": 138,
+   "line_count": 7,
+   "has_visual": true,
+   "visual_type": [
+    "table"
+   ],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "빠진 이유 (설문, 복수 응답)\n빠진 적이 있다고 답한 29명에게 이유를 물었습니다.\n| 이유 | 응답 수 |\n| --- | --- |\n| 과제가 어려워서 | 17명 |\n| 학원 시간과 겹쳐서 | 12명 |\n| 집이 멀어서 (2km 이상) | 6명 |"
+  },
+  {
+   "slide_no": 8,
+   "title": "",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "제안"
+    },
+    {
+     "category": "paragraph",
+     "text": "파이썬 반부터 격주로 짝 코딩을 합니다.\n두 번 연속 빠진 학생에게는 담당 선생님이 먼저 연락합니다.\n감사합니다"
+    }
+   ],
+   "categories": [
+    "paragraph"
+   ],
+   "total_char_count": 64,
+   "line_count": 4,
+   "has_visual": false,
+   "visual_type": [],
+   "alignment": null,
+   "text_sparse": false,
+   "image_only": false,
+   "raw_text": "제안\n파이썬 반부터 격주로 짝 코딩을 합니다.\n두 번 연속 빠진 학생에게는 담당 선생님이 먼저 연락합니다.\n감사합니다"
+  }
+ ]
+}

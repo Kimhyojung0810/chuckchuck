@@ -1,0 +1,57 @@
+# 녹음 통째 대조 — 코드 /home/yehschuck/project/wt-qa-align2
+
+## heldout_coding (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(2, 'number'), (5, 'direction')] · 건너뜀 [7]
+    - 2장 number: «3월 첫 주에는 출석률이 92퍼센트였는데 7월 마지막 주에는 48퍼센트까지 떨어졌어요.» ↔ «3월 첫 주 출석률은 92%였지만 7월 마지막 주에는 58%로 떨어졌습니다.» · 발표에서는 48%라고 했는데 자료 2장은 58%예요
+    - 5장 direction: «3월에는 두 반 다 출석이 좋았는데요, 7월에는 블록 코딩 반이 파이썬 반보다 출석률이 더 낮았어요.» ↔ «파이썬 반은 블록 코딩 반보다 7월 출석률이 25%p 낮았습니다.» · 자료 5장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요
+    ✓ N1 contradiction_number 2장
+    ✓ D1 contradiction_direction 5장
+    ✓ S1 skipped_slide 7장
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(2, 'number'), (5, 'direction')] · 건너뜀 [7]
+    - 2장 number: «3월 첫 주에는 출석률이 92퍼센트였는데 7월 마지막 주에는 48퍼센트까지 떨어졌어요.» ↔ «3월 첫 주 출석률은 92%였지만 7월 마지막 주에는 58%로 떨어졌습니다.» · 발표에서는 48%라고 했는데 자료 2장은 58%예요
+    - 5장 direction: «3월에는 두 반 다 출석이 좋았는데요, 7월에는 블록 코딩 반이 파이썬 반보다 출석률이 더 낮았어요.» ↔ «파이썬 반은 블록 코딩 반보다 7월 출석률이 25%p 낮았습니다.» · 자료 5장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요
+    ✓ N1 contradiction_number 2장
+    ✓ D1 contradiction_direction 5장
+    ✓ S1 skipped_slide 7장
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [] · 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## heldout_subway (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(5, 'direction'), (7, 'number')] · 건너뜀 [4]
+    - 5장 direction: «춥다는 민원도 오히려 조금 줄었고요.» ↔ «'춥다' 민원은 한 달 평균 520건에서 560건으로 조금 늘었습니다.» · 자료 5장과 높고 낮은 방향이 반대예요
+    - 7장 number: «추가로 드는 돈은 안내 스티커랑 앱 알림 개발비까지 해서 약 삼천만 원입니다.» ↔ «추가 비용은 안내 스티커와 앱 알림 개발비 1,800만 원입니다.» · 발표에서는 3000만원이라고 했는데 자료 7장은 1800만원이에요
+    ✓ N1 contradiction_number 7장
+    ✓ D1 contradiction_direction 5장
+    ✓ S1 skipped_slide 4장
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(5, 'direction'), (7, 'number')] · 건너뜀 [4]
+    - 5장 direction: «춥다는 민원도 오히려 조금 줄었고요.» ↔ «'춥다' 민원은 한 달 평균 520건에서 560건으로 조금 늘었습니다.» · 자료 5장과 높고 낮은 방향이 반대예요
+    - 7장 number: «추가로 드는 돈은 안내 스티커랑 앱 알림 개발비까지 해서 약 삼천만 원입니다.» ↔ «추가 비용은 안내 스티커와 앱 알림 개발비 1,800만 원입니다.» · 발표에서는 3000만원이라고 했는데 자료 7장은 1800만원이에요
+    ✓ N1 contradiction_number 7장
+    ✓ D1 contradiction_direction 5장
+    ✓ S1 skipped_slide 4장
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [] · 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## heldout_badminton (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(4, 'direction'), (5, 'number')] · 건너뜀 [7]
+    - 4장 direction: «그런데 평일 저녁 모임은 토요일 오전 모임에 비해 대기 시간이 오히려 짧았어요.» ↔ «평일 저녁 모임은 토요일 오전 모임보다 대기 시간이 2배 넘게 길었습니다.» · 자료 4장과 높고 낮은 방향이 반대예요
+    - 5장 number: «석 달 뒤에 보니까 멘토가 있는 신입은 열 명 중에 여덟 명이 남았고, 멘토가 없는 신입은 30명 중에 6명만 남았어요.» ↔ «멘토 있음 | 10명 | 6명 (60%)» · 발표에서는 8명이라고 했는데 자료 5장은 6명이에요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 4장
+    ✓ S1 skipped_slide 7장
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(4, 'direction'), (5, 'number')] · 건너뜀 [7]
+    - 4장 direction: «그런데 평일 저녁 모임은 토요일 오전 모임에 비해 대기 시간이 오히려 짧았어요.» ↔ «평일 저녁 모임은 토요일 오전 모임보다 대기 시간이 2배 넘게 길었습니다.» · 자료 4장과 높고 낮은 방향이 반대예요
+    - 5장 number: «석 달 뒤에 보니까 멘토가 있는 신입은 열 명 중에 여덟 명이 남았고, 멘토가 없는 신입은 30명 중에 6명만 남았어요.» ↔ «멘토 있음 | 10명 | 6명 (60%)» · 발표에서는 8명이라고 했는데 자료 5장은 6명이에요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 4장
+    ✓ S1 skipped_slide 7장
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [] · 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## 합계 (장 경계 ui) — 심은 결함 9/9 · 바른·틀린 녹음의 오탐 0 · 다른 발표 알아봄 3/3 · 판정 대역 호출 12(LLM 0)

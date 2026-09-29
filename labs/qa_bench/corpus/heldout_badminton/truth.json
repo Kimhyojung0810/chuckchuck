@@ -1,0 +1,319 @@
+{
+ "deck": "heldout_badminton",
+ "synthetic": true,
+ "group": "rec_align_heldout_2026-09-30",
+ "context": {
+  "situation": "casual_peer",
+  "duration_min": 6
+ },
+ "holdout": "규칙 튜닝이 끝난 뒤 일반화 측정에만 쓴다 — 튜닝 중에 열어 보지 않는다",
+ "total_slides": 8,
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "배드민턴 클럽 총회 보고 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 5,
+     "form": "ratio_phrase",
+     "deck_quote": "| 멘토 있음 | 10명 | 6명 (60%) |",
+     "speech_quote": "석 달 뒤에 보니까 멘토가 있는 신입은 열 명 중에 여덟 명이 남았고, 멘토가 없는 신입은 30명 중에 6명만 남았어요.",
+     "deck_value": "10명 중 6명 (60%)",
+     "speech_value": "열 명 중 여덟 명 (80%)",
+     "note": "「열 명 중 …」 비율꼴 · 한국어 수사 — 같은 문장 뒤쪽 「30명 중에 6명」 은 맞는 말(표의 다음 줄)"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 4,
+     "form": "ni_bihae_antonym",
+     "deck_quote": "평일 저녁 모임은 토요일 오전 모임보다 대기 시간이 2배 넘게 길었습니다.",
+     "speech_quote": "그런데 평일 저녁 모임은 토요일 오전 모임에 비해 대기 시간이 오히려 짧았어요.",
+     "note": "「…에 비해」 + 반의어(길다 → 짧다) — 주어 순서는 자료와 같고 발화에 수가 없다"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 7,
+     "form": "text_slide",
+     "deck_quote": "하반기 운영안",
+     "speech_quote": "하반기 운영안은 단톡방에 따로 올려 둘게요. 여기는 스킵하고 바로 정리할게요.",
+     "skip_quote": "하반기 운영안은 단톡방에 따로 올려 둘게요. 여기는 스킵하고 바로 정리할게요.",
+     "labels_any": [
+      "하반기 운영안",
+      "신입 전용 코트",
+      "대기 명단",
+      "첫 달 회비",
+      "2만 원"
+     ],
+     "skip_verb": "스킵",
+     "note": "글 상자만 있는 장을 말로 넘긴다 — 장 제목만 부르고 내용(전용 코트 · 대기 명단 앱 · 첫 달 2만 원)은 말하지 않는다"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "slide": 8,
+     "near_slide": 8,
+     "deck_quote": null,
+     "speech_quote": "옆 동네 클럽은 신입 환영 대회를 열고 나서 가입자가 두 배로 늘었대요.",
+     "note": "자료에 없는 주장(다른 클럽 · 두 배 · 늘다) — 4장 「2배 넘게」 · 5장 「3배」 와 꼴이 비슷하지만 주어가 다르다. 모순으로 잡으면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     4,
+     5
+    ],
+    "skipped_slides": [
+     7
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 33
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 33,
+     "end_sec": 65
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 65,
+     "end_sec": 104
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 104,
+     "end_sec": 138
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 138,
+     "end_sec": 182
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 182,
+     "end_sec": 225
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 225,
+     "end_sec": 234
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 234,
+     "end_sec": 268
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "배드민턴 클럽 총회 보고 녹음 (R2)",
+   "planted": [],
+   "spoken_forms": [
+    {
+     "slide": 2,
+     "deck": "40명",
+     "speech": "마흔 명"
+    },
+    {
+     "slide": 2,
+     "deck": "28명",
+     "speech": "스물여덟 명"
+    },
+    {
+     "slide": 3,
+     "deck": "21명",
+     "speech": "스물한 분"
+    },
+    {
+     "slide": 4,
+     "deck": "4면",
+     "speech": "네 면"
+    },
+    {
+     "slide": 4,
+     "deck": "12분",
+     "speech": "십이 분"
+    },
+    {
+     "slide": 6,
+     "deck": "180만 원",
+     "speech": "백팔십만 원"
+    },
+    {
+     "slide": 6,
+     "deck": "60명",
+     "speech": "육십 명"
+    },
+    {
+     "slide": 6,
+     "deck": "4만 원",
+     "speech": "사만 원"
+    },
+    {
+     "slide": 7,
+     "deck": "9~10시",
+     "speech": "아홉 시부터 열 시까지"
+    },
+    {
+     "slide": 7,
+     "deck": "2만 원",
+     "speech": "이만 원"
+    },
+    {
+     "slide": 2,
+     "deck": "3개월",
+     "speech": "석 달"
+    },
+    {
+     "slide": 5,
+     "deck": "6명 (60%)",
+     "speech": "열 명 중 여섯 명, 육십 퍼센트"
+    }
+   ],
+   "tricky_correct": [
+    {
+     "slide": 2,
+     "deck": "3개월 이탈률은 작년 55%에서 올해 70%로 높아졌습니다.",
+     "speech": "석 달 이탈률이 작년 오십오 퍼센트에서 올해 칠십 퍼센트로 올라갔어요.",
+     "why": "처음→나중 두 값이 맞다 · 「높아졌다」 → 「올라갔다」, 「3개월」 → 「석 달」"
+    },
+    {
+     "slide": 2,
+     "deck": "3개월 이탈률은 작년 55%에서 올해 70%로 높아졌습니다.",
+     "speech": "그만두는 비율이 작년보다 늘어난 거죠.",
+     "why": "「늘다」 — 자료와 같은 방향"
+    },
+    {
+     "slide": 3,
+     "deck": "회비를 이유로 든 회원은 응답자의 15% 미만이었습니다.",
+     "speech": "회비 때문이라는 분은 십오 퍼센트도 안 됐던 거예요.",
+     "why": "「15% 미만」 = 「십오 퍼센트도 안 되는」"
+    },
+    {
+     "slide": 4,
+     "deck": "| 평일 저녁 (화·목) | 4면 | 31분 |",
+     "speech": "평일 저녁은 평균 삼십 분 넘게 기다렸고",
+     "why": "31분을 「삼십 분 넘게」 — 맞는 어림"
+    },
+    {
+     "slide": 4,
+     "deck": "평일 저녁 모임은 토요일 오전 모임보다 대기 시간이 2배 넘게 길었습니다.",
+     "speech": "토요일 오전은 평일 저녁보다 대기 시간이 훨씬 짧았어요.",
+     "why": "순서를 뒤집고 반의어(길다→짧다) — 같은 사실"
+    },
+    {
+     "slide": 4,
+     "deck": "평일 저녁 모임은 토요일 오전 모임보다 대기 시간이 2배 넘게 길었습니다.",
+     "speech": "절반도 안 됐으니까요.",
+     "why": "「2배 넘게 길다」 를 뒤집은 한계(12분 < 31분의 절반) — 맞는 말"
+    },
+    {
+     "slide": 5,
+     "deck": "멘토가 없는 신입에 비해 멘토가 있는 신입의 3개월 잔류율이 3배 높았습니다.",
+     "speech": "멘토가 없는 신입은 멘토가 있는 신입에 비해 남은 비율이 삼분의 일밖에 안 됐던 거죠.",
+     "why": "「…에 비해」 의 순서를 뒤집고 3배 ↔ 삼분의 일 — 같은 사실"
+    },
+    {
+     "slide": 5,
+     "deck": "멘토가 없는 신입에 비해 멘토가 있는 신입의 3개월 잔류율이 3배 높았습니다.",
+     "speech": "멘토를 붙이니까 그만두는 사람이 확 줄었어요.",
+     "why": "「줄다」 지만 대상이 그만두는 사람 — 잔류율이 높다와 같은 방향"
+    },
+    {
+     "slide": 6,
+     "deck": "180만 원 ÷ 60명 + 1만 원 = 4만 원",
+     "speech": "한 사람에 삼만 원, 여기에 셔틀콕값 만 원을 더해서 월 사만 원이에요.",
+     "why": "삼만 원은 자료 식의 중간값(180만 ÷ 60) — 자료에 따로 적혀 있지 않지만 모순이 아니다"
+    },
+    {
+     "slide": 7,
+     "deck": "대기 명단 앱으로 게임 순서 공개",
+     "speech": "누가 순서를 건너뛰는 일이 없게 할 거예요.",
+     "why": "「건너뛰다」 가 새치기 뜻 — 7장은 설명했다. 건너뛴 장으로 잡으면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 22
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 22,
+     "end_sec": 61
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 61,
+     "end_sec": 104
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 104,
+     "end_sec": 146
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 146,
+     "end_sec": 209
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 209,
+     "end_sec": 245
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 245,
+     "end_sec": 282
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 282,
+     "end_sec": 302
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "reuse": [
+    "heldout_coding",
+    "r2"
+   ],
+   "title": "방과후 코딩 교실 발표 녹음",
+   "planted": [],
+   "source": "방과후 코딩 교실 출석 탐구 (heldout_coding R2 — 다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": "다른 발표 — 장 대응 없음"
+  }
+ }
+}

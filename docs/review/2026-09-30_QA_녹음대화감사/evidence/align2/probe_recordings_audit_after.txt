@@ -1,0 +1,66 @@
+# 녹음 통째 대조 — 코드 /home/yehschuck/project/wt-qa-align2
+
+## audit_co2 (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(5, 'number'), (6, 'direction')] · 건너뜀 [4]
+    - 5장 number: «평균 농도가 60퍼센트나 낮아진 거예요.» ↔ «수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.» · 발표에서는 60%라고 했는데 자료 5장은 40%예요
+    - 6장 direction: «그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.» ↔ «앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다.» · 자료 6장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 6장
+    ✓ S1 skipped_slide 4장
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(5, 'number'), (6, 'direction')] · 건너뜀 [4]
+    - 5장 number: «평균 농도가 60퍼센트나 낮아진 거예요.» ↔ «수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.» · 발표에서는 60%라고 했는데 자료 5장은 40%예요
+    - 6장 direction: «그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.» ↔ «앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다.» · 자료 6장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 6장
+    ✓ S1 skipped_slide 4장
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [] · 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## audit_kiosk (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(5, 'number'), (6, 'direction')] · 건너뜀 [3]
+    - 5장 number: «혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요.» ↔ «혼자 주문 성공률 | 31% | 78%» · 발표에서는 88%라고 했는데 자료 5장은 78%예요
+    - 6장 direction: «큰 글씨 모드만 켜면 되지 않냐는 얘기도 있는데요, 사실 큰 글씨 모드만 켠 매장이 교육한 매장보다 성공률이 더 많이 올랐어요» ↔ «큰 글씨 모드만 켠 매장은 교육을 한 매장보다 주문 성공률 상승 폭이 작았습니다.» · 자료 6장과 높고 낮은 방향이 반대예요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 6장
+    ✓ S1 skipped_slide 3장
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(5, 'number'), (6, 'direction')] · 건너뜀 [3]
+    - 5장 number: «혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요.» ↔ «혼자 주문 성공률 | 31% | 78%» · 발표에서는 88%라고 했는데 자료 5장은 78%예요
+    - 6장 direction: «큰 글씨 모드만 켜면 되지 않냐는 얘기도 있는데요, 사실 큰 글씨 모드만 켠 매장이 교육한 매장보다 성공률이 더 많이 올랐어요» ↔ «큰 글씨 모드만 켠 매장은 교육을 한 매장보다 주문 성공률 상승 폭이 작았습니다.» · 자료 6장과 높고 낮은 방향이 반대예요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 6장
+    ✓ S1 skipped_slide 3장
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [] · 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## audit_bunt (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(5, 'number'), (6, 'direction')] · 건너뜀 [7]
+    - 5장 number: «우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.» ↔ «우리 리그 번트 성공률은 62%입니다.» · 발표에서는 72%라고 했는데 자료 5장은 62%예요
+    - 6장 direction: «무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요.» ↔ «무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.» · 자료 6장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 6장
+    ✓ S1 skipped_slide 7장
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(5, 'number'), (6, 'direction')] · 건너뜀 [7]
+    - 5장 number: «우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.» ↔ «우리 리그 번트 성공률은 62%입니다.» · 발표에서는 72%라고 했는데 자료 5장은 62%예요
+    - 6장 direction: «무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요.» ↔ «무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다.» · 자료 6장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 6장
+    ✓ S1 skipped_slide 7장
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [] · 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## 예전 녹음 (회귀 확인)
+### health_glucose · corpus transcript.json (장 경계 정답) — 정합 matched · 모순 [] · 건너뜀 [3]
+    판정 {'aligned': 7, 'justified_skip': 0, 'missing': 11, 'contradiction': 0} · 근거 있는 aligned 7
+### health_glucose · ppt/_held_health_glucose 전사 .txt (ui) — 정합 matched · 모순 [(6, 'number')] · 건너뜀 [3]
+    - 6장 number: «채소를 먼저 먹은 그룹은 식후 혈당 최고치가 평균 49퍼센트나 낮았다고 해요, 슈클라 연구팀이 2015년에 낸 거예요.» ↔ «채소를 먼저 먹은 그룹은 식후 혈당 최고치가 평균 29% 낮았습니다 (Shukla 외, 2015).» · 발표에서는 49%라고 했는데 자료 6장은 29%예요
+    판정 {'aligned': 10, 'justified_skip': 0, 'missing': 7, 'contradiction': 1} · 근거 있는 aligned 10
+### sleep · ppt/수면발표 전사 .txt (ui) — 정합 matched · 모순 [] · 건너뜀 []
+    판정 {'aligned': 13, 'justified_skip': 0, 'missing': 0, 'contradiction': 0} · 근거 있는 aligned 13
+
+## 합계 (장 경계 ui) — 심은 결함 9/9 · 바른·틀린 녹음의 오탐 0 · 다른 발표 알아봄 3/3 · 판정 대역 호출 12(LLM 0)
