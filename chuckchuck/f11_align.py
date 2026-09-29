@@ -411,7 +411,8 @@ def _apply_skips(
 ) -> list[SkippedSlide]:
     """
     말로 건너뛴 장의 개념 — 다른 문장이 그 개념을 이름으로 불러 설명하지 않았으면 missing (「시간 관계상 그냥 넘어갈게요」).
-    가벼운 개념(weight < SKIP_GUARD_WEIGHT)의 justified_skip 은 존중한다. 모순은 건드리지 않는다.
+    발표자가 스스로 건너뛴다고 말한 장이라 가벼운 개념이라도 「정당한 생략」(justified_skip)으로 두지 않는다 — 09-30 녹음 감사 REC-12:
+    「예외인 경우는 오늘은 빼고」 로 건너뛴 장이 LLM 의 justified_skip 으로 남아 결함도 상한도 없었다. 모순은 건드리지 않는다.
     """
     by_id = {n.id: n for n in graph.nodes}
     for it in items:
@@ -420,8 +421,6 @@ def _apply_skips(
         if not hit or it.verdict == "contradiction":
             continue
         if it.verdict == "aligned" and it.evidence and _names(node, it.evidence):
-            continue
-        if it.verdict == "justified_skip" and node.weight < SKIP_GUARD_WEIGHT:
             continue
         cue = skipped[hit[0]]
         it.verdict, it.decided_by = "missing", "code"
@@ -464,12 +463,14 @@ def _apply_contradictions(
         it.verdict, it.decided_by = "contradiction", "code"
         it.evidence, it.deck_slide_no = c.utterance.text, c.slide_no
         it.deck_quote = _strip_title(c.deck_line, (titles or {}).get(c.slide_no, ""))
+        # 모순의 갈래 — 질문·리포트가 「수치가 달라요」「방향이 반대예요」「맞다·아니다가 반대예요」 를 이것으로 고른다 (09-30 REC-03)
+        it.contra_kind = c.family
         if c.said and c.deck_said:
             it.note = f"발표에서는 {josa(c.said, '이라고', '라고')} 했는데 자료 {c.slide_no}장은 {josa(c.deck_said, '이에요', '예요')}"
         elif c.kind == "negation":
             it.note = f"자료 {c.slide_no}장과 맞다·아니다가 반대예요"
-        elif c.kind == "order":
-            it.note = f"자료 {c.slide_no}장과 크고 작은 순서가 반대예요"
+        elif c.kind == "order" or c.relation == "swapped":
+            it.note = f"자료 {c.slide_no}장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요"
         else:
             it.note = f"자료 {c.slide_no}장과 높고 낮은 방향이 반대예요"
     for it in items:

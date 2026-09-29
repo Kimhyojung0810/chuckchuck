@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ._deck_claims import Conflict, Deck, DeckLine, conflicts, content_stems, numbers
+from ._deck_claims import Conflict, Deck, DeckLine, conflict_family, conflicts, content_stems, num_label, numbers
 from ._match import contains_tokens, label_tokens, norm_tokens
-from ._spoken import Utterance, spoken_numbers
+from ._spoken import Utterance, split_sentences, spoken_numbers
 from ._spoken import count_hits as _count_hits
 from ._spoken import hit as _hit
 from .contracts import ConceptGraph, ConceptNode, SlideDoc
@@ -45,11 +45,10 @@ def slide_texts(graph: ConceptGraph, slide_doc: SlideDoc | None) -> dict[int, st
 
 #: 인용이 발화에 "있다" 로 보는 낱말 포함 비율. 이 아래면 발화 원문 문장으로 바꾼다.
 EVIDENCE_VERBATIM_MIN = 0.8
-#: 원문 문장을 인용으로 채택하는 최소 겹침. 이 아래면 LLM 인용을 그대로 두거나(애매) 버린다(지어냄).
+#: 원문 문장을 인용으로 채택하는 최소 겹침. 이 아래면 인용을 버린다 — 빈 문자열로 바꿔 "근거 없는 aligned/contradiction"
+#: 강등 규칙이 받게 한다. 2026-09-13: 백스톱 뒤에도 23% 가 남았고, 그 인용이 「이렇게 말했어요」 로 화면에 나가는 건 신뢰 문제(P4)다.
+#: 예전엔 0.15~0.35(「애매」)면 LLM 글을 그대로 뒀는데 그 글에 녹음에 없는 문장이 섞여 나갔다(09-30 녹음 감사 REC-06).
 EVIDENCE_WINDOW_MIN = 0.35
-#: 이 아래로도 안 겹치면 **지어낸 인용**이다 — 빈 문자열로 바꿔 "근거 없는 aligned/contradiction" 강등 규칙이 받게 한다.
-#: 2026-09-13: 백스톱 뒤에도 23% 가 남았고, 그 인용이 「이렇게 말했어요」 로 화면에 나가는 건 신뢰 문제(P4)다.
-EVIDENCE_FABRICATED_MAX = 0.15
 #: 인용 창에 잇는 문장 수 상한 — 한 구간 안에서도 이보다 길면 인용이 아니라 문단이다.
 EVIDENCE_MAX_SENTENCES = 3
 
@@ -95,16 +94,79 @@ def _touches_cue(ev_text: str, u: Utterance) -> bool:
                for i in range(0, max(1, len(u.text) - _CUE_OVERLAP_CHARS + 1), step))
 
 
+def _squash(text: str) -> str:
+    return "".join((text or "").split()).rstrip(".?!")
+
+
+def _verify_sentence(sentence: str, utts: list[Utterance]) -> tuple[str, int]:
+    """
+    LLM 인용의 한 문장이 발화에 **거의 그대로** 있으면 (그 발화 원문 — 한 구간 안의 이어진 문장 1~3개, 구간 번호), 없으면 ("", -1).
+    거의 그대로 = 글자째 들어 있거나, 그 문장 낱말의 EVIDENCE_VERBATIM_MIN 이상이 한 창에 있다.
+    """
+    flat = _squash(sentence)
+    if len(flat) < 2:
+        return "", -1
+    for u in utts:
+        if usable(u) and flat in _squash(u.text):
+            return u.text, u.seg
+    stems = _ev_stems(sentence)
+    if not stems:
+        return "", -1
+    best: list[Utterance] = []
+    best_score = 0.0
+    for run in _spans(utts):
+        score = _coverage(stems, " ".join(u.text for u in run))
+        if score > best_score + 1e-9 or (abs(score - best_score) <= 1e-9 and best and len(run) < len(best)):
+            best, best_score = run, score
+    if best_score < EVIDENCE_VERBATIM_MIN or not best:
+        return "", -1
+    return " ".join(u.text for u in best), best[0].seg
+
+
+def _supports(node: ConceptNode, text: str) -> bool:
+    """이 발화가 개념을 받치는가 — 개념 이름을 부르거나, 이름·요약 낱말을 SPOKEN_SUPPORT_MIN 개 이상 같이 말한다."""
+    if label_hit(norm_tokens(text), label_tokens(node.label)):
+        return True
+    wanted = content_stems(f"{node.label} {node.summary}")
+    return _count_hits(wanted, content_stems(text)) >= SPOKEN_SUPPORT_MIN
+
+
+def _trim_unsaid(ev_text: str, node: ConceptNode, utts: list[Utterance]) -> str | None:
+    """
+    여러 문장 인용을 문장마다 발화와 대조한다 (09-30 녹음 감사 REC-06).
+    일부만 확인되면 **확인된 문장의 발화 원문만** 남기고, 남은 말이 개념을 못 받치면 빈 문자열이다.
+    전부 확인되거나 하나도 확인되지 않으면 None — 원래 규칙(가장 겹치는 발화 창으로 바꾸기)대로 간다: 통째로 바꿔 말한 인용은
+    발화 원문으로 바뀌고, 발화와 애매하게만 겹치는 인용은 버려진다.
+    실측: 「앞문까지 다 열 필요는 없다는 거죠. 맞통풍은 한쪽 환기보다 농도가 2배 빨리 떨어집니다.」 — 뒤 문장은 녹음에 없었고
+    (발표자는 반대로 말했다) 전체 겹침이 0.15~0.35 라 LLM 글이 그대로 「이 슬라이드에서 한 말」 이 됐다.
+    """
+    sents = split_sentences(ev_text)
+    if len(sents) < 2:
+        return None
+    found = [_verify_sentence(x, utts) for x in sents]
+    hits = [(text, seg) for text, seg in found if text]
+    if not hits or len(hits) == len(found):
+        return None
+    # 한 구간 안의 말만 — 확인된 문장이 여러 구간에 흩어졌으면 가장 많이 남은 구간 하나
+    segs = [seg for _, seg in hits]
+    top = max(set(segs), key=segs.count)
+    kept = list(dict.fromkeys(text for text, seg in hits if seg == top))
+    remain = " ".join(kept)
+    return remain if _supports(node, remain) else ""
+
+
 def resolve_evidence(evidence: str, node: ConceptNode, utts: list[Utterance],
                      deck_texts: list[str] | None = None) -> str:
     """
     LLM 이 낸 인용을 **한 구간 안의 이어진 발화 문장**으로 맞춘다.
 
     - 인용이 한 구간 안에 그대로 있고 건너뛰기·미루기 말과 안 겹치면 그대로 둔다.
+    - 여러 문장 인용은 문장마다 발화와 대조한다 — 발화에 없는 문장(지어낸 말)은 빼고, 남은 말이 개념을 못 받치면 빈 문자열 (09-30 REC-06).
     - 아니면 그 개념의 근거 장 구간(없으면 전체)에서 가장 겹치는 문장 1~3개로 바꾼다 — 구간을 넘어 잇지 않는다.
       09-30 실측: 24어절 창이 1장 끝과 3장 머리를 이어 「…먹었느냐보다 그러니까 졸린 건 …」 가 탄수화물 양의 근거가 됐다.
     - 건너뛰기 말을 인용했으면 빈 문자열 — 근거가 아니다(혈당 지수 ← 「시간 관계상 그냥 넘어갈게요」).
     - 발화가 아니라 **자료 글**을 옮긴 인용(「혈당 부하 = 혈당 지수 × 탄수화물 양 ÷ 100」)이면 빈 문자열 — 발표자가 한 말이 아니다.
+    - 발화와 애매하게만 겹치는(EVIDENCE_WINDOW_MIN 아래) 인용은 빈 문자열 — 확인하지 못한 글을 「발표에서 한 말」 로 보이지 않는다.
     짧은 인용(낱말 3개 미만)은 판단할 근거가 없어 그대로 둔다.
     """
     ev_text = " ".join((evidence or "").split())
@@ -122,6 +184,9 @@ def resolve_evidence(evidence: str, node: ConceptNode, utts: list[Utterance],
         seg_texts[u.seg] = f"{seg_texts.get(u.seg, '')} {u.text}".strip()
     if any(ev_text in t for t in seg_texts.values()):
         return ev_text
+    trimmed = _trim_unsaid(ev_text, node, utts)
+    if trimmed is not None:
+        return trimmed
     own = [u for u in utts if u.slide_no in node.slide_nos]
     best, best_score, best_len = "", 0.0, 0
     for pool in (own, utts):
@@ -139,7 +204,9 @@ def resolve_evidence(evidence: str, node: ConceptNode, utts: list[Utterance],
     # (09-30 혈당 3장 식 「혈당 부하 = 혈당 지수 × 탄수화물 양 ÷ 100」). 예전처럼 LLM 글을 그대로 두면 안 한 말이 인용부호에 들어간다.
     if deck_texts and any(_coverage(ev, t) >= EVIDENCE_VERBATIM_MIN for t in deck_texts):
         return ""
-    return "" if best_score < EVIDENCE_FABRICATED_MAX else ev_text
+    # 확인하지 못한 글은 인용으로 쓰지 않는다 — 예전엔 0.15~0.35 겹침을 「애매」 로 보고 LLM 글을 그대로 둬서 녹음에 없는 문장이
+    # 「이 슬라이드에서 한 말」 로 보였다(09-30 REC-06).
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +303,8 @@ def spoken_sentence(node: ConceptNode, utts: list[Utterance], lines: list[NodeLi
 # 자료와 어긋난 발화 — 숫자·방향
 # ---------------------------------------------------------------------------
 
-#: 발화에서 받는 어긋남 종류. 숫자(자료에 있는 수를 다른 주어에 · 자료에 없는 수를 자료가 다른 값을 붙인 주어에)·표 서열·방향·부정.
+#: 발화에서 받는 어긋남 종류. 숫자(자료에 있는 수를 다른 주어에 · 자료에 없는 수를 자료가 다른 값을 붙인 주어에 · 앞뒤 값 짝)·
+#: 표 서열·글줄 비교(맞바꿈·반대 방향 — `_compare`)·방향·부정.
 CONTRA_KINDS = ("number", "number_unsupported", "order", "direction", "negation")
 _NUMBER_KINDS = ("number", "number_unsupported")
 #: 숫자가 아닌 어긋남은 발화 절이 그 자료 줄과 **같은 말**일 때만 — 자료 줄 낱말의 절반 이상, 두 개 이상.
@@ -255,6 +323,12 @@ class Contra:
     deck_line: str
     said: str = ""        # 발화 쪽 수치 (숫자 어긋남일 때)
     deck_said: str = ""   # 자료 쪽 수치
+    relation: str = ""    # 비교 어긋남의 꼴 — "swapped"(두 쪽을 맞바꿈) · "reversed"(방향 반대)
+
+    @property
+    def family(self) -> str:
+        """모순의 갈래 — "number" · "direction" · "polarity" (`AlignmentItem.contra_kind`)."""
+        return conflict_family(self.kind)
 
 
 def _same_statement(claim: str, deck_line: str) -> bool:
@@ -275,25 +349,33 @@ def _precise_line(c: Conflict, deck: Deck) -> DeckLine | None:
 
 
 def _num_label(n) -> str:
-    unit = {"pct": "%", "pp": "%p"}.get(n.unit or "", n.unit or "")
-    value = f"{n.value:g}"
-    return f"{'-' if n.negative else ''}{value}{unit}"
+    return num_label(n)
 
 
-def _number_pair(claim: str, deck_line: str) -> tuple[str, str]:
-    """발화 수치와 자료 수치 — 같은 단위이면서 값이 다른 첫 짝. 못 찾으면 빈 문자열 둘."""
+def _number_pair(claim: str, deck_line: str, c: Conflict | None = None) -> tuple[str, str]:
+    """
+    발화 수치와 자료 수치. 대조가 어느 수끼리 어긋났는지 알면(`Conflict.said·deck_value`) 그것, 아니면 같은 단위이면서
+    **한쪽에만 있는** 첫 짝 — 「31%에서 88%까지」 ↔ 「31% | 78%」 는 (88%, 78%) 다(예전엔 같은 31% 를 발화 쪽으로 골랐다).
+    """
+    if c is not None and c.said and c.deck_value:
+        return c.said, c.deck_value
     mine, theirs = numbers(claim), numbers(deck_line)
-    for n in mine:
-        for d in theirs:
-            if n.unit and d.unit == n.unit and not n.close_value(d):
+    mine_only = [n for n in mine if n.unit and not any(n.close_value(d) for d in theirs)]
+    theirs_only = [d for d in theirs if d.unit and not any(d.close_value(n) for n in mine)]
+    for n in mine_only:
+        for d in theirs_only:
+            if d.unit == n.unit:
                 return _num_label(n), _num_label(d)
     return "", ""
 
 
-def node_for(graph: ConceptGraph, slide_no: int, text: str) -> ConceptNode | None:
-    """어긋난 자료 줄의 주인 개념 — 그 장 개념 중 이름·요약 낱말이 가장 많이 겹치는 것(이름은 두 배). 비기면 무거운 쪽."""
+def node_for(graph: ConceptGraph, slide_no: int, text: str, taken: set[str] | frozenset[str] = frozenset()) -> ConceptNode | None:
+    """
+    어긋난 자료 줄의 주인 개념 — 그 장 개념 중 이름·요약 낱말이 가장 많이 겹치는 것(이름은 두 배). 비기면 무거운 쪽.
+    taken(이미 다른 모순을 받은 개념)은 빼고 고른다 — 여러 장에 걸친 개념 하나가 앞 장 모순을 받으면 뒤 장 모순이 통째로 버려졌다.
+    """
     said = content_stems(text)
-    cands = [n for n in graph.nodes if slide_no in n.slide_nos]
+    cands = [n for n in graph.nodes if slide_no in n.slide_nos and n.id not in taken]
     if not cands:
         return None
 
@@ -319,14 +401,16 @@ def contradictions(graph: ConceptGraph, utts: list[Utterance], deck: Deck) -> li
         for c in conflicts(text, deck):
             if c.kind not in CONTRA_KINDS:
                 continue
-            if c.kind not in _NUMBER_KINDS and not _same_statement(c.claim, c.deck_line):
+            # 같은 말인지 따로 본다 — 비교 대조(relation 이 있다)는 주어·대상 두 쪽이 서로 맞아야만 어긋남을 내므로 이미 같은 비교다.
+            if c.kind not in _NUMBER_KINDS and not c.relation and not _same_statement(c.claim, c.deck_line):
                 continue
             precise = _precise_line(c, deck)
             deck_line = precise.text if precise is not None else c.deck_line
-            node = node_for(graph, c.slide_no, f"{deck_line} {c.claim}")
-            if node is None or node.id in taken:
+            node = node_for(graph, c.slide_no, f"{deck_line} {c.claim}", taken)
+            if node is None:
                 continue
-            said, deck_said = _number_pair(c.claim, deck_line) if c.kind in _NUMBER_KINDS else ("", "")
+            said, deck_said = _number_pair(c.claim, deck_line, c) if c.kind in _NUMBER_KINDS else ("", "")
             taken.add(node.id)
-            out.append(Contra(node.id, u, c.kind, c.slide_no, deck_line, said, deck_said))
+            out.append(Contra(node.id, u, c.kind, c.slide_no, deck_line, said, deck_said, c.relation))
+            break                               # 문장 하나에 모순 하나 — 같은 문장이 두 개념의 모순이 되지 않게
     return out
