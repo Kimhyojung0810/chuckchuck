@@ -41,7 +41,8 @@ _NUM_RE = re.compile(
     # 「세·살」(나이) — 09-30 레드팀: 「만 36세가 아니라 만 25세」 의 두 수가 단위 없는 수로 읽혀 자료의 「29세」 와 단위로 가를 수
     # 없었다. 「세대·세기·세트·세계」 의 세는 단위가 아니다.
     # 「할」(타율·비율의 10분의 1 — 「2할 미만」) 은 「할 수·할 것·할 일」 의 할(하다)이 아닐 때만.
-    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만원|억원|억|원|분|시간|초|점|장|위|차|세(?![대기트계])|살|"
+    # 「1,800만 원」 처럼 띄어 쓴 돈 단위도 만원 · 억원 이다(한글 맞춤법대로 쓴 자료가 많다 — held-out 지하철 덱).
+    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만\s?원|억\s?원|억|원|분|시간|초|점|장|위|차|세(?![대기트계])|살|"
     rf"할(?!\s?(?:수|것|거|일|때|게|지|줄|까))|(?:{_LATIN_UNITS})(?![A-Za-z]))?",
     re.I,
 )
@@ -56,6 +57,7 @@ _GENERIC = (
     "이것", "그것", "저희", "우리", "이후", "생각", "때문", "그래서", "하지만", "그리고", "위해", "통해", "대해",
     "관해", "무엇", "어떤", "어느", "어떻게", "있어", "있었", "있는", "있다", "있습", "없어", "없었", "없는", "없다",
     "같아", "같은", "거예요", "이에요", "예요", "해요", "했어", "했다", "했습", "합니", "입니", "됩니", "됐어", "봤어",
+    "있음", "없음",
     "가장", "제일", "매우", "아주", "너무", "정말", "특히", "모두", "각각", "다른", "이런", "그런", "저런", "것은",
     "것이", "것을", "수는", "수가", "라고", "이라", "대한", "관련", "해서", "하는", "되는", "하고", "되고", "보면",
     "다만", "또한", "그러나", "오히려", "결국", "먼저", "다음", "그럼", "여기", "거기", "이번", "지금", "해당",
@@ -177,10 +179,10 @@ def _unit_class(unit: str) -> str | None:
     """단위 표기를 한 이름으로 — 「%p」「p.p.」 → pp, 「%」 → pct, 로마자는 소문자(「MB」「mb」), 「℃」 → 「°c」."""
     if not unit:
         return None
-    low = unit.lower()
+    low = re.sub(r"\s+", "", unit.lower())
     if low == "℃":
         return "°c"
-    return _UNIT_CLASS.get(low, low if re.match(r"[a-z°]", low) else unit)
+    return _UNIT_CLASS.get(low, low)
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +194,7 @@ _UP = ("높", "많", "늘", "증가", "상승", "오르", "올라", "올랐", "�
        # 09-30 verify 하네스 — 뒤집은 사실(「처벌 약화보다」「과제 수행이 좋아지는」「공강이 짧을수록」)을 못 잡던 짝. 어느 분야에나 쓰는 말.
        "강화", "확대", "좋아지", "좋아졌", "좋아져", "길수록", "길게", "클수록",
        # 09-30 녹음 감사 REC-01 — 「2배 빨리 떨어졌습니다」 의 빨리(부사) · 향상(바뀜 명사).
-       "빨리", "향상")
+       "빨리", "향상", "길었", "길고", "길면")
 _DOWN = ("낮", "적은", "적어", "적었", "적다", "줄", "감소", "하락", "떨어", "내려", "내렸", "작아", "작은", "작았", "작다",
          "약하", "약한", "약했", "약함", "약해", "짧", "느리", "느려", "느렸", "악화", "하회", "뒤지", "뒤졌", "뒤처", "못미", "못 미",
          "약화", "축소", "나빠지", "나빠졌", "나빠져", "적을", "작을",
@@ -610,7 +612,8 @@ def clauses(text: str) -> list[str]:
         for word in sentence.split():
             cur.append(word)
             bare = re.sub(r"[^가-힣A-Za-z0-9%]+$", "", word)
-            if _clause_end(bare):
+            # 따옴표로 닫힌 말(「'덥다' 민원이」「"좋다"는」)은 옮긴 말이라 절 끝이 아니다 (held-out 지하철 덱)
+            if _clause_end(bare) and not re.search(r"[\'\"”’」』]$", word):
                 out.append(" ".join(cur))
                 cur = []
         if cur:
@@ -697,7 +700,7 @@ def _number_conflicts(clause: str, deck: Deck, sentence: str = "") -> list[Confl
         # 표 행 이름이 문서 변환기(OCR)에서 한 글자 틀려도(「종목수」→「중목수」) 그 행이 이 숫자의 주인이다.
         # 09-30 실측(수익률 Q6): 「종목 수 12 대 3」 이 11장 표 「중목수 | 12 | 3」 을 못 알아보고 8장 「수익 종목 | 52」 와
         # 짝지어져 맞는 답이 네 턴 내리 55 를 받고 답 보기로만 빠져나갔다.
-        if any(r.is_row and _fuzzy_in(_row_key(r.text), clause) for r in holders):
+        if any(r.is_row and (_fuzzy_in(_row_key(r.text), clause) or _row_words_in(r.text, clause)) for r in holders):
             continue
         owners = [
             r for r in deck.regions
@@ -743,6 +746,23 @@ def _approx_near(num: Num, value: Num) -> bool:
         band = APPROX_PP_ROUND if abs(num.value) % 10 == 0 else APPROX_PP_EXACT
         return abs(num.value - value.value) <= band
     return bool(value.value) and abs(num.value - value.value) <= APPROX_RATIO * abs(value.value)
+
+
+#: 수 뒤의 한계 표지 — 「30분 넘게」「70% 이상」 은 그보다 큰 값, 「5,500건 가까이」「10% 미만」 은 그보다 작은 값을 말한다.
+#: 자료 값이 그 쪽에 있고 멀지 않으면(BOUND_SPAN 배 안) 맞는 말이다 (held-out 배드민턴 덱: 31분을 「삼십 분 넘게」 가 어긋남이었다).
+_LOWER_BOUND_RE = re.compile(r"^\s*(?:넘게|넘는|넘어|넘었|넘던|이상|초과|남짓|여(?=[\s,.]|$))")
+_UPPER_BOUND_RE = re.compile(r"^\s*(?:가까이|미만|이하|안\s?되|안\s?돼|안\s?됐|못\s?미치|못\s?미쳐|못\s?미친|채\s?안)")
+BOUND_SPAN = 1.5
+
+
+def _bound_ok(clause: str, num: Num, values: list[Num]) -> bool:
+    """수 뒤 한계 표지(넘게·가까이·미만…)대로 자료 값이 그 쪽에 있는가."""
+    tail = quantity_bounds(clause[num.end:])
+    if _LOWER_BOUND_RE.match(tail):
+        return any(num.value <= v.value <= num.value * BOUND_SPAN for v in values)
+    if _UPPER_BOUND_RE.match(tail):
+        return any(num.value / BOUND_SPAN <= v.value <= num.value for v in values)
+    return False
 
 
 def _near_value(num: Num, vals: list[Num], approx: bool, owned: list[Num] | None = None) -> bool:
@@ -802,7 +822,7 @@ def _subject_before(clause: str, idx: int, nums: list[Num], deck: Deck) -> tuple
     return [], -1
 
 
-def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: str = "") -> list[Conflict]:
+def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: str = "", lead: str = "") -> list[Conflict]:
     """
     답이 자료에 **없는** 수를 자료가 **다른 값**을 붙인 대상에 붙였다 — 지어낸(틀린) 숫자 (09-30 레드팀 R5).
 
@@ -822,6 +842,9 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
         if num.unit is None or deck.has_number(num) or any(num.same_value(q) for q in q_nums):
             continue
         subject, label_idx = _subject_before(clause, idx, nums, deck)
+        if not subject and idx == 0 and not content_stems(clause[:num.start]) and lead:
+            # 절 머리의 수 — 주어는 바로 앞 절 끝에 있다(「앱 알림 개발비까지 해서 | 약 3000만원입니다」, held-out 지하철 덱)
+            subject = [s for s in content_stems(lead)[-3:] if _has(deck.stems, s)]
         if not subject:
             continue
         # 표는 칸(행 이름 + 그 열 머리)으로 본다 — 행 줄 통째는 다른 열의 값까지 들고 있다.
@@ -835,8 +858,8 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
         if not vals:
             continue
         approx = _approx(clause, num)
-        owned = _owned_values(regions, subject, num.unit, lines_ids) if approx else None
-        if _near_value(num, vals, approx, owned) or _derived(num, vals):
+        owned = _owned_values(regions, subject, num.unit, lines_ids)
+        if _near_value(num, vals, approx, owned if approx else None) or _derived(num, vals) or _bound_ok(clause, num, owned):
             continue
         if any(v.close_value(a) for v in vals for j, a in enumerate(nums) if j not in (idx, label_idx)):
             continue
@@ -857,6 +880,8 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
 
 #: 앞 값 뒤 — 「에서·부터」 또는 화살표. 「A 가 B 로」(`_FROM_SUBJ_RE`)는 뒤 두세 낱말에 바뀜 말(줄었다·내려갔다)이 올 때만 짝이다.
 _FROM_RE = re.compile(r"^\s*(?:에서|부터|→|->|⇒)")
+#: 「A 중(에) B」 — 전체와 그 가운데 몫의 짝(「10명 중 6명」). 표 행의 (인원, 남은 인원) 칸과 같은 꼴이다.
+_PART_OF_RE = re.compile(r"^\s*중(?:에서|에)?\s")
 _FROM_SUBJ_RE = re.compile(r"^\s*(?:이|가|은|는)\s")
 #: 뒤 값 뒤 — 「으로·로·까지」 또는 「이/가 되·됐」.
 _TO_RE = re.compile(r"^\s*(?:으로|로|까지|이\s?되|가\s?되|이\s?됐|가\s?됐|이\s?돼|가\s?돼)")
@@ -865,14 +890,22 @@ FROM_TO_GAP_MAX = 24
 
 
 def from_to_pairs(text: str) -> list[tuple[Num, Num]]:
-    """「31%에서 88%까지」「110초에서 64초로」「1,450ppm이 870ppm으로 내려갔다」 — 같은 단위의 (앞 값, 뒤 값) 짝."""
+    """
+    같은 단위의 (앞 값, 뒤 값) 짝 — 「31%에서 88%까지」「110초에서 64초로」「1,450ppm이 870ppm으로 내려갔다」(바뀐 앞뒤),
+    「10명 중 6명」(전체와 몫).
+    """
     nums = numbers(text or "")
     out: list[tuple[Num, Num]] = []
     for a, b in zip(nums, nums[1:]):
         if a.unit is None or a.unit != b.unit:
             continue
         between, after = text[a.end:b.start], text[b.end:]
-        if len(between) > FROM_TO_GAP_MAX or not _TO_RE.match(after):
+        if len(between) > FROM_TO_GAP_MAX:
+            continue
+        if _PART_OF_RE.match(between):
+            out.append((a, b))
+            continue
+        if not _TO_RE.match(after):
             continue
         moved = any(direction(w) for w in _WORD_RE.findall(after)[:3])
         if _FROM_RE.match(between) or (_FROM_SUBJ_RE.match(between) and moved):
@@ -909,8 +942,13 @@ def _pair_conflicts(clause: str, deck: Deck) -> list[Conflict]:
                 key = content_stems(_row_key(line.text))
                 if not key or not all(_has(stems, k) for k in key):
                     continue
-            elif sum(1 for s in set(line.stems) if _has(stems, s)) < 2:
-                continue
+            else:
+                # 글줄은 거의 같은 말이어야 한다 — 「어르신 열 명 중 아홉 명은 한 달 뒤에도」 는 자료 「10명 중 6명이 포기한 적이」 와
+                # 꼴(10명 중 N명)만 같고 주어가 다르다(09-30 감사 kiosk U1).
+                own = [x for x in dict.fromkeys(line.stems)]
+                hit = sum(1 for x in own if _has(stems, x))
+                if hit < 2 or hit < 0.5 * len(own):
+                    continue
 
             def same(x: Num, y: Num) -> bool:
                 return x.close_value(y) or (_approx(clause, x) and _approx_near(x, y))
@@ -939,12 +977,23 @@ def _pair_conflicts(clause: str, deck: Deck) -> list[Conflict]:
 def _names_other_row(clause_stems: list[str], row: DeckLine, deck: Deck) -> bool:
     """절이 같은 장 표의 **다른 행** 이름을 부르는가."""
     for r in deck.lines:
-        if not r.is_row or r is row or r.slide_no != row.slide_no:
+        # 값이 없는 행(머리 행 「시간대 | 평균 혼잡도 | …」)은 다른 행이 아니다 — 그 열 이름이 행 이름을 가리키는 말이다.
+        if not r.is_row or r is row or r.slide_no != row.slide_no or not r.nums:
             continue
         key = content_stems(_row_key(r.text))
         if key and all(_has(clause_stems, k) for k in key):
             return True
     return False
+
+
+def _row_words_in(row_text: str, clause: str) -> bool:
+    """
+    행 이름의 한글 낱말(수·단위는 뺀다)이 모두 절에 낱말 머리로 있는가 — 「낮 11~15시」 처럼 한 글자 낱말뿐인 행 이름은 줄기가 없어서
+    (두 글자 미만은 버린다) 주인을 못 찾았다(held-out 지하철 덱: 자료대로 말한 「낮 시간대는 혼잡도 62%」 가 다른 줄과 어긋남).
+    """
+    key = re.sub(r"[\d.,~–\-]+[가-힣%]*", " ", _row_key(row_text))
+    words = re.findall(r"[가-힣]+", key)
+    return bool(words) and all(re.search(rf"(?:^|[\s(]){re.escape(w)}", clause) for w in words)
 
 
 def _nospace(text: str) -> str:
@@ -1103,6 +1152,8 @@ def _polarity_one(clause: str, deck: Deck, question_stems: tuple[str, ...] = ())
     if line is None or _quoted_by_question(line, question_stems):
         return []
     line_text = quantity_bounds(line.text)
+    if _NON_ASSERTIVE_RE.search(line_text) or _NON_ASSERTIVE_RE.search(clause):
+        return []
     line_stems = [s for s in content_stems(line_text, drop_units=True) if not direction(s)]
     # 양쪽 다 거의 같은 말이어야 한다 — 긴 절이 짧은 자료 줄을 품고 딴말을 덧붙인 것이면 부정·방향이 어느 말에 걸렸는지 모른다.
     if (hit < STRONG_MATCH_MIN or hit < STRONG_MATCH_RATIO * max(1, len(set(line_stems)))
@@ -1123,6 +1174,11 @@ def _polarity_one(clause: str, deck: Deck, question_stems: tuple[str, ...] = ())
     return []
 
 
+#: 단정이 아닌 말 — 목적(「석 달을 넘기게 하려면」)·물음(「왜 더울까」「…인가요?」). 제목에 흔하고, 무엇이 맞다고 말한 것이 아니라서
+#: 맞다·아니다·방향을 견줄 명제가 아니다 (held-out 배드민턴 덱: 제목 「신입 회원, 석 달을 넘기게 하려면」 ↔ 발화 「석 달을 못 넘기고
+#: 나가는 문제」 가 맞다·아니다 반대로 잡혔다).
+#: 「-나요」 는 넣지 않는다 — 「늘어나요」「나타나요」 의 나(동사 줄기)와 가를 수 없다. 물음은 물음표·「-ㄹ까」 로 본다.
+_NON_ASSERTIVE_RE = re.compile(r"(?:려면|려고|도록|을까|ㄹ까|까요|는가|인가|는지|을지|기\s?위해|기\s?위한)\s*[?!.…]*\s*$|\?\s*$")
 #: 「A 가 아니라 B」 의 B 쪽 (대조가 없으면 절 그대로).
 _CONTRAST_SPLIT_RE = re.compile(r"(?:이|가)?\s*아니(?:라(?![고서면며는])|고)[,\s]+")
 #: 부정 표지 없이 뜻으로 부정하는 말 — 「어렵다」「힘들다」「불가」「부족」「드물다」 는 「안 된다」 와 같은 쪽일 수 있다.
@@ -1207,7 +1263,7 @@ def conflicts(text: str, deck: Deck, question: str = "") -> list[Conflict]:
             out += _number_conflicts(clause, deck, text)
             out += _pair_conflicts(clause, deck)
             # 주인 고르기의 맥락은 답 전체다 — 쉼표에서 갈린 앞 절(「9장 차트에서 1종목이면 …,」)이 행·장을 부른다.
-            out += _unsupported_numbers(clause, deck, q_nums, text)
+            out += _unsupported_numbers(clause, deck, q_nums, text, prefix)
             out += _order_conflicts(clause, deck, prefix)
             compared, paired = comparison_check(clause, deck, q_stems)
             out += compared

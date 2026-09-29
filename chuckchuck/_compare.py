@@ -55,7 +55,9 @@ _SUBJ_END_RE = re.compile(r"(?:은|는|이|가|께서)$")
 #: 「은·는」 으로 끝나지만 관형형인 말 — 동사 줄기 + 는(하는·여는·켜는…) · 형용사 + 은(많은·높은…) · 받침 동사 + 은(받은·먹은…).
 _ADNOMINAL_RE = re.compile(
     r"(?:[하되있없않여켜쓰가오보주받드지치우추르먹읽찾쉬내]는|[같많적높낮작좋넓좁짧깊얕맑밝붉검굵얇젊늦짙옅싫]은"
-    r"|[먹받읽찾얻잃넣놓앉닫]은)$"
+    r"|[먹받읽찾얻잃넣놓앉닫]은"
+    # 인용 관형형 — 「덥다는 민원」「춥다는 민원」「쉽다는 평」 (held-out 지하철 덱)
+    r"|[다라냐자]는)$"
 )
 #: 「이」 로 끝나는 부사 — 주어 표지가 아니다.
 _ADVERB_I = frozenset({"많이", "같이", "높이", "깊이", "굳이", "없이", "일찍이", "틈틈이", "일일이"})
@@ -92,11 +94,21 @@ def _bare(word: str) -> str:
     return re.sub(r"^[^가-힣A-Za-z0-9%]+|[^가-힣A-Za-z0-9%]+$", "", word or "")
 
 
+#: 한 글자 내용 명사(「낮」「밤」「봄」「돈」) — 줄기는 두 글자부터라 버려지는데, 비교의 두 쪽을 가르는 말일 때가 많다
+#: (「낮 시간대에 비해 출근 시간대」 — held-out 지하철 덱). 한 글자 기능어·세는 말은 뺀다.
+_ONE_SYLLABLE_STOP = frozenset("더덜좀약그이저한두세네수것거때등및또안못잘꼭딱쭉확뚝싹왜뭐어음아예응제내곧늘다참막꽤훨첫새헌온전각매몇여총반배번명개분초년월일원층칸줄쪽곳날달해주시점중뒤앞위옆속밖간")
+_ONE_WORD_RE = re.compile(r"^([가-힣])(?:은|는|이|가|을|를|의|도|에|에는|에서|에서는|만|과|와|로|으로|보다)?$")
+
+
 def _side_stems(words: list[str]) -> tuple[str, ...]:
-    """한 쪽(주어·대상·잣대)의 내용 줄기 — 말머리 부사·정도 부사·한 글자 머리·가벼운 동사·방향 낱말은 뺀다."""
+    """한 쪽(주어·대상·잣대)의 내용 줄기 — 말머리 부사·정도 부사·한 글자 머리·가벼운 동사·방향 낱말은 뺀다. 한 글자 내용 명사는 넣는다."""
     kept = [w for w in words if _bare(w) not in _DISCOURSE and _bare(w) not in _FILLER]
     out = [s for s in content_stems(" ".join(kept), drop_units=True)
            if not _ONE_SYLLABLE_RE.match(s) and not _LIGHT_RE.match(s) and not direction(s)]
+    for w in kept:
+        m = _ONE_WORD_RE.match(_bare(w))
+        if m and m.group(1) not in _ONE_SYLLABLE_STOP:
+            out.append(m.group(1))
     return tuple(dict.fromkeys(out))
 
 

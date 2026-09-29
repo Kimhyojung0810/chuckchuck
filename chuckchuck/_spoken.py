@@ -169,7 +169,9 @@ _SKIP_REMOVE_INTENT_RE = re.compile(
     r"(?:빼|제외하)(?:겠|도록)|(?:뺄|제외할)\s?(?:게|께)|(?:뺍|제외합)(?:시다|니다)"
     r"|다루지\s?않(?:을\s?(?:게|께|거)|겠)|안\s?다(?:룰\s?(?:게|께)|루겠)"
     r"|안\s?(?:볼\s?(?:게|께)|보겠)|보지\s?않(?:을\s?(?:게|께)|겠)"
-    r"|설명(?:은|을|도)?\s?(?:안|못)\s?(?:할\s?(?:게|께)|하겠)|설명(?:은|을|도)?\s?하지\s?않(?:을\s?(?:게|께)|겠)"
+    r"|설명(?:은|을|도)?\s?(?:안|못)\s?(?:할\s?(?:게|께)|하겠|드릴\s?(?:게|께)|드리겠|해\s?드릴\s?(?:게|께))"
+    # 「설명드리지 않겠습니다」「설명해 드리지 않을게요」 — 드리다(하다·주다의 낮춤)도 같은 말이다 (held-out 지하철 덱)
+    r"|설명(?:은|을|도)?\s?(?:해\s?)?(?:하|드리)지\s?않(?:을\s?(?:게|께)|겠)"
 )
 #: 이어 가는 꼴 — 「빼고·제외하고·다루지 않고·설명 안 하고」. 뒤 서술이 **발표자가 지금 하겠다는 말**(갈게요·말씀드릴게요·가겠습니다)일 때만
 #: 건너뛰기다 — 「이 부분은 제외하고 계산했어요」 는 분석 방법(내용)이다.
@@ -272,9 +274,29 @@ def count_hits(wanted, have) -> int:
 
 #: 건너뛰기 말 자체의 낱말 — 어느 장을 건너뛰는지 가를 때 뺀다 (「시간」 은 수면 발표 본문에도 있다).
 _SKIP_WORD_HEADS = ("시간", "관계", "그냥", "넘어", "넘기", "넘겨", "건너", "생략", "스킵", "패스", "자세", "설명", "이건",
-                    "이거", "여기", "부분", "다음", "빼고", "빼겠", "뺄게", "제외", "다루", "오늘", "경우", "나머지")
+                    "이거", "여기", "부분", "다음", "빼고", "빼겠", "뺄게", "제외", "다루", "오늘", "경우", "나머지",
+                    # 건너뛰고 **할 일** — 「바로 정리할게요」「마무리할게요」 는 마지막 장(정리·결론)의 낱말이지 건너뛴 장이 아니다
+                    "바로", "정리", "마무리", "요약", "결론")
 #: 건너뛰고 **가는 곳** — 「바로 결론으로 가겠습니다」「결과로 넘어갈게요」 의 결론·결과는 건너뛴 장이 아니라 다음 장의 낱말이다.
 _SKIP_DESTINATION_RE = re.compile(r"\S+(?:으로|로)\s+(?:바로\s+)?(?:가|갈|갑|가겠|넘어가|넘어갈|넘어갑|넘기|넘길|넘깁|이동)\S*")
+
+
+#: 건너뛰는 말이 부르는 장의 **꼴** — 식(= 와 연산 기호) · 표(| 행) · 그래프·그림.
+_SHAPE_WORDS = (
+    (re.compile(r"(?:계산)?식|공식|수식|계산법"), re.compile(r"=.*[×÷+\-−*/]|[×÷+\-−*/].*=")),
+    (re.compile(r"(?:^|\s)(?:이\s?)?표(?:는|를|가|도|에|$|\s)|도표"), re.compile(r"^\s*\|.*\|", re.M)),
+    (re.compile(r"그래프|차트|그림|사진"), re.compile(r"!\[|Chart Type|\bchart\b", re.I)),
+)
+
+
+def _slide_has_shape(slide_text: str, cue: str) -> bool:
+    """건너뛰는 말이 부른 꼴(식·표·그래프)이 이 장에 있는가."""
+    return any(word.search(cue) and shape.search(slide_text or "") for word, shape in _SHAPE_WORDS)
+
+
+def _skip_words(text: str) -> list[str]:
+    """건너뛰는 말에서 장을 가를 낱말 — 건너뛰기 말 자체의 낱말·가는 곳(「결론으로 가겠습니다」)은 뺀다."""
+    return [s for s in content_stems(_SKIP_DESTINATION_RE.sub(" ", text)) if not s.startswith(_SKIP_WORD_HEADS)]
 
 
 def skip_targets(utts: list[Utterance], texts: dict[int, str]) -> dict[int, Utterance]:
@@ -285,15 +307,30 @@ def skip_targets(utts: list[Utterance], texts: dict[int, str]) -> dict[int, Utte
     """
     stems_by_slide = {no: content_stems(t) for no, t in texts.items()}
     out: dict[int, Utterance] = {}
-    for u in utts:
+    for k, u in enumerate(utts):
         if not u.skip:
             continue
-        said = [s for s in content_stems(_SKIP_DESTINATION_RE.sub(" ", u.text)) if not s.startswith(_SKIP_WORD_HEADS)]
+        said = _skip_words(u.text)
         cands = [u.slide_no, u.slide_no + 1, u.slide_no - 1] if u.slide_no else sorted(stems_by_slide)
-        scored = [(count_hits(said, stems_by_slide.get(no, [])), -i, no) for i, no in enumerate(cands)
-                  if no in stems_by_slide]
+
+        def score(words: list[str]) -> list[tuple[int, int, int]]:
+            return [(count_hits(words, stems_by_slide.get(no, [])), -i, no) for i, no in enumerate(cands) if no in stems_by_slide]
+
+        scored = score(said)
         if not scored:
             continue
+        # 건너뛰는 말에 그 장 낱말이 없으면: ① 말이 장의 **꼴**을 부른다(「여기 계산식이 있는데요」 → 식이 있는 장, 「이 표는」 → 표가 있는 장)
+        # ② 바로 앞 문장이 그 장을 부른 말이다(「하반기 운영안은 단톡방에 따로 올려 둘게요. 여기는 스킵하고…」). 장 경계는 추정이라
+        # 앞 문장이 앞 구간에 있을 수 있다 (held-out 지하철·배드민턴 덱).
+        if max(scored)[0] == 0:
+            shaped = [no for no in cands if no in texts and _slide_has_shape(texts[no], u.text)]
+            prev = utts[k - 1] if k > 0 and not utts[k - 1].skip else None
+            if len(shaped) == 1:
+                scored = [(1, 0, shaped[0])]
+            elif prev is not None:
+                pcands = list(dict.fromkeys([*cands, prev.slide_no]))
+                scored = [(count_hits(_skip_words(prev.text), stems_by_slide.get(no, [])), -i, no)
+                          for i, no in enumerate(pcands) if no in stems_by_slide] or scored
         hits, _, target = max(scored)          # 낱말이 많이 든 장 — 비기면 말이 놓인 장(cands 앞쪽)
         if hits == 0:
             if not u.slide_no:
@@ -308,7 +345,7 @@ def skip_targets(utts: list[Utterance], texts: dict[int, str]) -> dict[int, Utte
 # ---------------------------------------------------------------------------
 
 #: 단위 바로 뒤에 와도 되는 조사·어미의 첫머리 — 「49프로나」「20프로정도로」. 「프로그램·프로젝트」「이십 분석」 은 단위가 아니다.
-_AFTER_UNIT = (r"(?=$|[^가-힣]|나|가|는|도|의|를|로|요|예|에|이|였|정도|쯤|씩|가량|까지|만|은|을|과|와|보다|밖에|대|라|인|임|면)")
+_AFTER_UNIT = (r"(?=$|[^가-힣]|나|가|는|도|의|를|로|으로|요|예|에|이|였|입|정도|쯤|씩|가량|까지|만|은|을|과|와|보다|밖에|대|라|인|임|면|짜리)")
 _PCT_POINT_RE = re.compile(r"(\d)\s*(?:퍼센트|프로|%)\s?포인트")
 _PCT_WORD_RE = re.compile(r"(\d)\s*퍼센트")
 _PRO_RE = re.compile(r"(\d)\s*프로" + _AFTER_UNIT)
@@ -365,9 +402,35 @@ def _sino_sub(m: re.Match) -> str:
     return f"{value}{' ' if unit in _PCT_UNITS else ''}{unit}"
 
 
+#: 고유어 수 + 세는 말 — 「열 명 중에 여덟 명」「스물여섯 명」「여섯 분」「석 달」「두 배」. 세는 말 앞에서만 수다(「창문을 열 때」「네, 두 번」 은
+#: 아니다). 「한 번」 은 「한번 보세요」 와 못 가르므로 번은 세는 말에서 뺀다. 사람을 높여 세는 「분」 은 명으로 — 고유어 수 + 분은
+#: 시간이 아니다(시간은 「오 분」 처럼 한자어 수로 센다). held-out 배드민턴 덱: 「열 명 중에 여덟 명」(자료 10명 중 6명)을 수로 못 읽었다.
+_NATIVE_TENS = {"열": 10, "스물": 20, "스무": 20, "서른": 30, "마흔": 40, "쉰": 50, "예순": 60, "일흔": 70, "여든": 80, "아흔": 90}
+_NATIVE_ONES = {"한": 1, "두": 2, "세": 3, "석": 3, "네": 4, "넉": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9}
+#: 자료 대조가 단위로 읽는 세는 말만 — 단위 없는 맨 수(「세 가지」→「3」)는 자료의 아무 3 과 짝지어져 없는 모순을 만든다.
+_NATIVE_COUNTERS = ("명", "분", "사람", "개", "배", "달", "살", "시간")
+_NATIVE_RE = re.compile(
+    r"(?<![가-힣\d])(열|스물|스무|서른|마흔|쉰|예순|일흔|여든|아흔)?(한|두|세|석|네|넉|다섯|여섯|일곱|여덟|아홉)?"
+    r"\s?(" + "|".join(_NATIVE_COUNTERS) + r")" + _AFTER_UNIT
+)
+#: 「두 배 반」 = 2.5배.
+_HALF_TIMES_RE = re.compile(r"(\d+)배\s?반(?![가-힣])")
+
+
+def _native_sub(m: re.Match) -> str:
+    tens, ones, counter = m.group(1), m.group(2), m.group(3)
+    if not tens and not ones:
+        return m.group(0)
+    value = _NATIVE_TENS.get(tens or "", 0) + _NATIVE_ONES.get(ones or "", 0)
+    unit = {"분": "명", "사람": "명", "달": "개월"}.get(counter, counter)     # 「석 달」 → 3개월 (자료는 「3개월」 로 쓴다)
+    return f"{value}{unit}"
+
+
 def spoken_numbers(text: str) -> str:
-    """받아쓰기의 말로 적은 수·퍼센트를 자료 표기로 — 「이십구 퍼센트」→「29%」, 「3 퍼센트 포인트」→「3%p」."""
+    """받아쓰기의 말로 적은 수·퍼센트를 자료 표기로 — 「이십구 퍼센트」→「29%」, 「3 퍼센트 포인트」→「3%p」, 「열 명」→「10명」."""
     t = _SINO_RE.sub(_sino_sub, text or "")
+    t = _NATIVE_RE.sub(_native_sub, t)
+    t = _HALF_TIMES_RE.sub(lambda m: f"{m.group(1)}.5배", t)
     t = _MIXED_THOUSAND_RE.sub(lambda m: f"{float(m.group(1)) * 1000:g}{m.group(2)}", t)
     t = _MIXED_WON_RE.sub(r"\1\2원", t)
     t = _PCT_POINT_RE.sub(r"\1%p", t)

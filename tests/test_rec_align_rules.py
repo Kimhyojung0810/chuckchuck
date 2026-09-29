@@ -244,3 +244,96 @@ def test_skip_cue_removal_verbs(sentence, want):
     assert skip_cue(sentence) is want
 
 
+
+
+# ---------------------------------------------------------------------------
+# 2차 — 처음 보는 덱(held-out 1차)에서 드러난 한국어 꼴 (고유어 수 · 띄어 쓴 돈 · 드리다 · 꼴로 부른 장 · 한계 표지 ·
+# 따옴표 말 · 한 글자 명사 · 머리 행 · 단정 아닌 제목 · 「N명 중 M명」 · 절 머리의 수)
+# 분야: 목공 공방 · 수목원 해설 · 야간 소음 민원 · 해변 봉사단 (held-out 덱과 겹치지 않는다)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text, want", [
+    ("열두 명 중에 아홉 명이 남았어요", "12명 중에 9명이 남았어요"),
+    ("해설사 여섯 분이 맡았고요", "해설사 6명이 맡았고요"),              # 고유어 수 + 분 = 사람
+    ("석 달 동안 모았어요", "3개월 동안 모았어요"),
+    ("스물아홉 명으로 늘었어요", "29명으로 늘었어요"),
+    ("두 배 반 정도로 늘었죠", "2.5배 정도로 늘었죠"),
+    ("사십 퍼센트입니다", "40%입니다"),
+    ("세 가지를 바꿔요", "세 가지를 바꿔요"),                             # 단위로 못 읽는 세는 말은 두고
+    ("나무를 심을 때 열 때를 맞춰요", "나무를 심을 때 열 때를 맞춰요"),
+    ("네, 두 번 했어요", "네, 두 번 했어요"),
+])
+def test_native_numerals_with_counters(text, want):
+    assert spoken_numbers(text) == want
+
+
+def test_spaced_money_units_and_far_approximation():
+    assert [(n.value, n.unit) for n in numbers("장비 예산 1,200만 원 · 공구 3억 원")] == [(1200, "만원"), (3, "억원")]
+    shop = deck_of("목공 공방 예산", "공구 교체와 환기 설비 공사비 1,200만 원입니다.")
+    said = spoken_numbers("공구 교체랑 환기 설비 공사비까지 해서 약 이천만 원입니다.")   # 절 머리의 수 — 주어는 앞 절에
+    assert [(c.kind, c.said, c.deck_value) for c in conflicts(said, shop)] == [("number_unsupported", "2000만원", "1200만원")]
+    assert conflicts(spoken_numbers("공구 교체랑 환기 설비 공사비까지 해서 약 천이백만 원입니다."), shop) == []
+
+
+def test_humble_explain_forms_are_skip_cues():
+    assert skip_cue("여기 계산식이 있는데요, 이 부분은 오늘 따로 설명드리지 않겠습니다.")
+    assert skip_cue("이 표는 설명해 드리지 않을게요.")
+    assert not skip_cue("이 계산식을 간단히 설명드리겠습니다.")
+
+
+def test_quoted_words_do_not_end_clauses_and_quoted_adnominals_join_the_noun():
+    from chuckchuck._deck_claims import clauses
+    line = "'시끄럽다' 민원이 '조용하다' 민원보다 3배 많았습니다."
+    assert clauses(line) == [line.rstrip(".")]
+    noise = deck_of("야간 소음 민원\n" + line)
+    assert conflicts("조용하다는 민원은 시끄럽다는 민원보다 훨씬 적었던 거죠.", noise) == []      # 맞바꾸고 반의어 — 같은 말
+    assert [c.relation for c in conflicts("조용하다는 민원이 시끄럽다는 민원보다 더 많았어요.", noise)] == ["swapped"]
+
+
+def test_one_syllable_nouns_split_the_two_sides():
+    noise = deck_of("시간대별 소음\n낮 시간대에 비해 밤 시간대 소음이 12데시벨 높았습니다.")
+    assert conflicts("그러니까 낮 시간대는 밤 시간대보다 소음이 낮았던 겁니다.", noise) == []
+    assert [c.relation for c in conflicts("낮 시간대가 밤 시간대보다 소음이 더 높았어요.", noise)] == ["swapped"]
+
+
+def test_header_row_is_not_another_row_and_one_syllable_row_names_own_their_values():
+    noise = deck_of("측정값\n| 시간대 | 평균 소음 |\n| --- | --- |\n| 밤 22~24시 | 58% |\n| 낮 12~14시 | 31% |\n"
+                    "민원의 70%가 밤 시간대에 들어왔습니다.")
+    assert conflicts("낮 시간대는 평균 소음이 31%였고요.", noise) == []
+
+
+def test_purpose_and_question_titles_are_not_assertions():
+    guide = deck_of("해설 참여자, 한 번 더 오게 하려면\n수목원 해설 프로그램 운영 보고")
+    assert conflicts("주제는 해설 참여자가 한 번 더 못 오고 끊기는 문제예요.", guide) == []
+
+
+@pytest.mark.parametrize("said, flagged", [
+    ("평균 대기 시간은 삼십 분 넘게 걸렸어요.", False),       # 자료 34분 — 30분 넘게는 맞다
+    ("평균 대기 시간은 사십 분 가까이 걸렸어요.", False),
+    ("평균 대기 시간은 십 분 넘게 걸렸어요.", True),           # 34분을 「십 분 넘게」 — 한계 폭(1.5배) 밖
+    ("평균 대기 시간은 십오 분 정도 걸렸어요.", True),
+])
+def test_bound_markers_on_numbers(said, flagged):
+    guide = deck_of("해설 대기\n수목원 해설 평균 대기 시간은 34분입니다.")
+    got = [c.kind for c in conflicts(spoken_numbers(said), guide)]
+    assert bool(got) is flagged, got
+
+
+def test_part_of_whole_pairs_follow_the_row():
+    beach = deck_of("봉사단 잔류",
+                    "| 조 | 인원 | 석 달 뒤 남은 인원 |\n| --- | --- | --- |\n| 도우미 있음 | 12명 | 9명 |\n| 도우미 없음 | 30명 | 9명 |")
+    wrong = conflicts(spoken_numbers("도우미가 있는 조는 열두 명 중에 네 명이 남았어요."), beach)
+    assert [(c.kind, c.said, c.deck_value) for c in wrong] == [("number", "4명", "9명")]
+    assert conflicts(spoken_numbers("도우미가 있는 조는 열두 명 중에 아홉 명이 남았어요."), beach) == []
+    assert conflicts(spoken_numbers("도우미가 없는 조는 서른 명 중에 아홉 명이 남았어요."), beach) == []
+
+
+def test_skip_target_by_slide_shape_and_previous_sentence():
+    from chuckchuck._spoken import Utterance, skip_targets
+    texts = {3: "대기 현황\n평일 34분", 4: "대기 시간 계산\n대기 시간 = 도착 간격 ×\n해설 시간 ÷ 해설사 수", 5: "개선안\n예약제",
+             6: "하반기 계획\n해설사 2명 증원\n야간 해설 시범", 7: "정리\n감사합니다"}
+    cue = Utterance(5, 5, 0, "여기 계산식이 있는데요, 이 부분은 오늘 따로 설명드리지 않겠습니다.", skip=True)
+    assert list(skip_targets([cue], texts)) == [4]                      # 식이 있는 장 — 말이 놓인 구간(5장)이 아니라
+    prev = Utterance(6, 6, 0, "하반기 계획은 단톡방에 따로 올려 둘게요.")
+    cue2 = Utterance(7, 7, 0, "여기는 스킵하고 바로 정리할게요.", skip=True)
+    assert list(skip_targets([prev, cue2], texts)) == [6]               # 앞 문장이 그 장을 불렀다 — 「정리」 는 가는 곳
