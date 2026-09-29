@@ -2634,7 +2634,7 @@ def _mask_with_choices(question: Question, graph: ConceptGraph | None, deck_text
                 continue
             exclude = f"{exclude} {answer}"
             continue
-        if exclude_question and answer and got[0] and not fixed and (_verbish_blank(answer) or not _in_deck(answer, deck_text)):
+        if exclude_question and answer and got[0] and not fixed and (_verbish_blank(answer) or not _word_in_deck_text(answer, deck_text)):
             # 빈칸 정답은 **자료에서 찾을 수 있는 명사**여야 한다 — 질문 낱말을 빼고 나면 골자에만 있는 말(「독서 경험의 ___을
             # 결정해요」 의 「수준」)이나 용언(「키오스크를 ___ 포장이」 의 「두면」)이 남곤 했다. 자료를 봐도 못 채우는 칸은 발판이
             # 아니다 (09-30 WP-J3 quick replay.scaffold.in_deck · noun). 이런 건너뛰기는 SCAFFOLD_SKIPS 까지 따로 센다.
@@ -2651,8 +2651,10 @@ def _mask_with_choices(question: Question, graph: ConceptGraph | None, deck_text
     return _with_distractor(first, question, graph, deck_text) if exclude_question else (first or ("", "", ""))
 
 
-def _in_deck(word: str, deck_text: str) -> bool:
-    """낱말이 자료에 글자 그대로 있는가 (띄어쓰기 무시). 자료 글이 없으면(옛 호출) 따지지 않는다."""
+def _word_in_deck_text(word: str, deck_text: str) -> bool:
+    """낱말이 자료에 글자 그대로 있는가 (띄어쓰기 무시). 자료 글이 없으면(옛 호출) 따지지 않는다.
+
+    (09-30 합류: 처음엔 `_in_deck` 로 이름이 겹쳐 위의 선택지 검사 `_in_deck` 을 조용히 덮고 있었다.)"""
     hay = re.sub(r"\s+", "", deck_text or "")
     return not hay or re.sub(r"\s+", "", word or "") in hay
 

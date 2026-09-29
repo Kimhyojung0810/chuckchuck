@@ -366,7 +366,7 @@ def check_f08_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
     return "pass", f"골자 «{gist[:70]}»" + (f" · 질문 «{question[:50]}»" if asked else ""), obs
 
 
-def _graph_of(args: dict, doc: dict):
+def _judge_graph_of(args: dict, doc: dict):
     """args.nodes(있으면)로 그래프 — f08_scripted 와 같은 꼴. 없으면 None."""
     from chuckchuck.contracts import ConceptEdge, ConceptGraph, ConceptNode
 
@@ -401,7 +401,7 @@ def check_judge_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
     from chuckchuck import judge_answer
     from chuckchuck.f09_judge import clear_judge_cache
 
-    graph = _graph_of(args, doc)
+    graph = _judge_graph_of(args, doc)
     payloads = [args["llm"], *(args.get("llm_variants") or [])]
     got = []
     for payload in payloads:
@@ -457,7 +457,7 @@ def check_stuck_ladder(doc: dict, args: dict) -> tuple[str, str, dict]:
 
     q = Question.from_dict(args["question"])
     qd = args["question"]
-    graph = _graph_of(args, doc)
+    graph = _judge_graph_of(args, doc)
     deck_text = _deck_text(SlideDoc.from_dict(doc))
     exp = args.get("expect") or {}
     problems = []
