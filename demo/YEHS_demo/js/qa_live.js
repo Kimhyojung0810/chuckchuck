@@ -1245,6 +1245,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       stillWanted: stillHere,
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
+    // 이번 답이 「모르겠어요」 사다리의 되물음(둘 중 하나·빈칸)에 대한 답인가 — 바로 앞 응답이 그 단계였다 (liveRevealsHalf)
+    const prevJudgement = L.lastJudgement;
     L.turn += 1;
     // clarify 는 «질문을 못 알아들어 되물었다» 는 뜻이라 채점된 답이 아니다.
     // 대화에는 남기되 라운드에서는 뺀다 (liveScoredAnswers).
@@ -1307,7 +1309,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     } else {
       // 절반은 맞혔는데 또 물으면 뭘 더 말해야 하는지 모른 채 같은 답을 낸다.
       // 빠진 절반을 펼쳐 주고 되묻기는 그대로 이어 간다 (2026-08-08 사용자 요청).
-      const shownMissing = v.verdict === 'partial' ? revealHalf(q, v) : false;
+      const shownMissing = liveRevealsHalf(prevJudgement, v) ? revealHalf(q, v) : false;
       // 「N번째 답변」 은 서버가 센 라운드로 — 예전 L.turn 은 「모르겠어요」 턴까지 세어 서버(2라운드)와 어긋났다 (09-30 §10)
       askAgain(v, v.round_no || L.turn, { skipMissing: shownMissing });
     }
@@ -1638,6 +1640,20 @@ function autoHint(tier) {
   const want = tier === 'converge' ? 2 : (tier === 'focus' ? 1 : 0);
   if (L.hintLevel >= want) return;
   openNextHint({ auto: true });
+}
+
+/**
+ * 「절반만 설득했어요」 펼침(revealHalf)을 여는가 — partial 판정이고, 이번 답이 「모르겠어요」 사다리의 되물음(둘 중 하나·빈칸)에
+ * 대한 답이 **아닐** 때만. 사다리 도중에 완성 문장을 펼치면 1단 보기 하나 고른 사람에게 답이 통째로 보인다 — 막히면 정답 대신 간접
+ * 힌트를 단계적으로 주고, 답은 3단(해설)에서 연다 (MVP_SPEC §5.3 · 09-30 WP-J3, standard 4124984 혈당 Q1: 보기 「순서」 partial 65
+ * 바로 뒤에 「이렇게 말하면 완성이에요」 가 골자 전체를 보였다). 되물음을 못 알아들어 다시 푼 질문(clarify)의 답은 사다리 답이 아니다.
+ *
+ * @param {object|null} prev  바로 앞 서버 응답 (L.lastJudgement — 이번 응답으로 덮기 전)
+ * @param {object} v          이번 판정
+ */
+function liveRevealsHalf(prev, v) {
+  const stage = (prev && prev.coach_stage) || '';
+  return !!v && v.verdict === 'partial' && stage !== 'narrow' && stage !== 'scaffold';
 }
 
 /**

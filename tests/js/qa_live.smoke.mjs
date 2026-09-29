@@ -42,7 +42,7 @@ const EXPORT_LINE = `
   liveHistory, liveForcedClose, liveWonCount, liveCoachAsk,
   liveBucket, liveHintsUsed, liveWholeSentences, liveDegradedLines, liveQuestionWhy, liveJudgeFailure,
   liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
-  liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion,
+  liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion, liveRevealsHalf,
 };`;
 
 /**
@@ -572,6 +572,17 @@ test('코칭이 방금 되물었으면 그 되물음을 판정에 같이 싣는�
   eq(api.liveCoachAsk(), ["되물음: '가' 쪽인가요, '나' 쪽인가요?"], '코칭 되물음');
   ctx.qa.live.lastJudgement = { verdict: 'partial', followup: '더 말해 볼래요?' };
   eq(api.liveCoachAsk(), [], '판정 되물음은 싣지 않는다');
+});
+
+test('「모르겠어요」 사다리의 보기·빈칸에 답한 턴에는 완성 문장을 펼치지 않는다 — 답은 3단 해설에서 (WP-J3)', () => {
+  const { api } = newContext();
+  const partial = { verdict: 'partial', score: 65, missing_points: ['그 말이 들어맞지 않는 조건'] };
+  eq(api.liveRevealsHalf({ coach_stage: 'narrow', choices: ['늘 맞아요', '조건이 붙어요'] }, partial), false, '1단 보기에 답함');
+  eq(api.liveRevealsHalf({ coach_stage: 'scaffold' }, partial), false, '2단 빈칸에 답함');
+  eq(api.liveRevealsHalf({ coach_stage: 'clarify' }, partial), true, '다시 푼 질문에 답함은 사다리가 아니다');
+  eq(api.liveRevealsHalf({ verdict: 'partial', score: 60 }, partial), true, '보통 되묻기');
+  eq(api.liveRevealsHalf(null, partial), true, '첫 답');
+  eq(api.liveRevealsHalf(null, { verdict: 'wrong' }), false, 'partial 만');
 });
 
 /* ── 09-30 held-out C-09 — 결과 네 묶음 · 헤드라인은 스스로 설명만 ── */
