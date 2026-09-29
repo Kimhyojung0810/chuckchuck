@@ -26,6 +26,7 @@ import sys
 from itertools import groupby
 
 from . import _grounding as grounding
+from . import _traps as traps
 from ._evidence import (
     anchor_slides,
     best_quote,
@@ -77,6 +78,7 @@ from .contracts import (
     Slide,
     SlideDoc,
     Transcript,
+    TrapPremise,
     TriageMark,
 )
 from .providers.llm_base import LLMProvider
@@ -275,11 +277,13 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
   넘어가는 것을 막는다. **하나만 묻는 질문이면 빈 배열이다** — 억지로 쪼개면
   answer 하나로는 이길 수 없는 질문이 된다. 최대 3개, 각 요소는 answer_gist 안의 내용이다.
 
-trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 질문으로 쓴다
-("~라고 했는데, 사실 반대 아닌가요?" 꼴). trap=false 면 그냥 묻는다.
-- trap_premise: trap=true 질문이면 질문 문장 안에 얹은 **어긋난 주장 한 절을 질문에 쓴 글자 그대로** 옮긴다.
-  자료 줄을 그대로 옮긴 말은 어긋난 주장이 아니다 — 자료의 수치·비교·인과·조건 **하나를 바꿔서** 얹어라.
-  trap=false 면 "" 이다. 코드가 이 절이 질문에 있는지, 자료와 정말 어긋나는지 대조한다 — 아니면 함정 표시를 뗀다.
+함정=예 인 개념에는 「함정 전제」 줄이 붙어 있다. 코드가 자료의 사실 하나(수치·비교 순서·방향·부정)를 바꿔 만든
+**틀린 말**이다. 이 개념은 그 전제로 찔러 보는 질문으로 쓴다.
+- question: 그 전제를 **글자 그대로** 얹어 맞는 말처럼 묻는다 (「…」라고 했는데, … 꼴). 전제가 틀렸다고 말하지 말고,
+  자료의 실제 값·순서를 질문에 쓰지 마라. 전제가 빠지거나 바뀌면 코드가 정해진 문장으로 바꾼다.
+- trap_premise: 질문에 얹은 전제를 그대로 옮긴다. 함정이 아니면 "" 이다.
+- 함정 질문의 골자·힌트·이유는 코드가 자료 줄로 다시 쓴다.
+함정 전제 줄이 없는 개념에는 어긋난 주장을 스스로 지어 얹지 마라 — 그건 함정이 아니라 틀린 질문이다.
 
 규칙:
 1. questions 에는 '질문 대상' 의 node_id 만 쓴다. 지어내면 버려진다.
@@ -323,7 +327,7 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
       "why": "왜 묻는지 한 줄", "hint": "방향만 주는 힌트",
       "answer_gist": "기대하는 답의 골자 한두 줄",
       "answer_gist_parts": ["둘 이상을 묻는 질문일 때만 요소별로. 아니면 []"],
-      "trap_premise": "trap=true 일 때만 질문에 얹은 어긋난 주장 한 절. 아니면 빈 문자열" }
+      "trap_premise": "함정=예 일 때만 질문에 얹은 「함정 전제」 그대로. 아니면 빈 문자열" }
   ]
 }
 """
@@ -1728,8 +1732,10 @@ def _drop_twin_questions(
     kept: list[Question] = []
     spare: list[Question] = []
     for q in questions:
-        twin = any(
-            _gist_overlap(q.answer_gist, k.answer_gist) > QA_TWIN_GIST_MAX for k in kept
+        # 함정 질문은 쌍둥이 비교에서 뺀다 (qa/trap). 함정 골자는 전제를 바로잡는 자료 줄이라 같은 장을 인용한 다른 골자와
+        # 겹쳐 보이지만, 묻는 것(틀린 전제를 알아채는가)이 다르다 — 밀리면 트랙의 함정 허용치가 조용히 깎인다.
+        twin = not q.trap and any(
+            _gist_overlap(q.answer_gist, k.answer_gist) > QA_TWIN_GIST_MAX for k in kept if not k.trap
         )
         (spare if twin else kept).append(q)
 
@@ -1863,6 +1869,84 @@ def _pick_marks(
     return capped, deferred
 
 
+def _assign_traps(
+    marks: list[TriageMark],
+    deferred: list[str],
+    pool: list[TriageMark],
+    track: str,
+    by_id: dict[str, ConceptNode],
+    by_no: dict[int, Slide],
+    probes: dict[str, Probe],
+    slot_of: dict[str, str],
+) -> tuple[list[TriageMark], list[str], dict[str, TrapPremise]]:
+    """
+    함정을 **코드가** 고르고 전제를 만든다 (qa/trap). 트랙 허용치(QA_TRACK_TRAPS)만큼, 자료에서 뒤집을 사실이 있는 개념에만.
+
+    왜 triage 의 trap 표시를 그대로 안 쓰나: 09-29 기준선에서 LLM 이 붙인 함정 21/21 에 질문 속 전제가 없었고(골자대로 한
+    정답이 wrong 35), fix08 이 「LLM 이 전제를 적어 올 때만」 으로 조이자 solar 가 한 번도 안 적어 함정이 0개가 됐다.
+    전제는 `_traps.candidates` 가 근거 장의 자료 줄에서 만든다 — 없으면 그 개념은 함정이 아니다(자료 밖 말로 지어내지 않는다).
+
+    - 탐침에 묶인 개념·주제(theme) 자리·루트 개념은 함정으로 두지 않는다. 탐침은 자료 **안의** 진짜 긴장이라 거짓 전제가
+      아니고(일반화 벤치 §3), 주제 질문은 발표 전체의 주장을 묻는 자리다.
+    - 고르는 순서: 이미 물을 자리(트랙 상한 안)에 든 개념 → 전제 점수(수치·순서 > 방향 > 부정, 개념 이름을 부르는 줄이면
+      더) + 가지(깊이 2) → triage 가 함정으로 본 개념 → 순위. 같은 자료 줄로 함정을 둘 만들지 않는다.
+    - 상한 안에 맞는 개념이 모자라면 여유분·밀린 개념(pool)에서 데려와 **상한 안의 한 자리와 바꾼다** — 주제·탐침·함정이
+      아닌 뒤쪽 자리만 비킨다. 벤치 건식 실행(qa/trap): 바꾸기 전엔 5분 트랙 10덱 중 6덱이 함정 0개였다 — 여유분에 있던
+      함정감이 상한 밖이라 쌍둥이 정리에서 잘렸다.
+    triage 가 준 trap 표시는 새 객체에서 덮어쓴다 — 원본 triage 는 캐시돼 트랙마다 재사용된다.
+    """
+    budget = QA_TRACK_TRAPS.get(track, 0)
+    idx = grounding.build_index(by_no, list(by_id.values())) if (by_no and budget > 0) else None
+    limit = QA_TRACK_LIMITS.get(track, len(marks))
+    head, tail = list(marks[:limit]), list(marks[limit:])
+    in_marks = {m.node_id for m in marks}
+    extra = [m for nid in deferred for m in pool if m.node_id == nid and nid not in in_marks]
+
+    def probe_bound(m: TriageMark) -> bool:
+        return m.node_id in probes and probes[m.node_id].kind == m.source
+
+    options: list[tuple[tuple, TriageMark, list]] = []
+    for pos, mark in enumerate((head + tail + extra) if idx is not None else []):
+        node = by_id.get(mark.node_id)
+        if node is None or probe_bound(mark) or slot_of.get(mark.node_id) == "theme":
+            continue
+        if node.parent_id is None or (node.depth or 0) <= 1:
+            continue
+        cands = traps.candidates(node.label, _anchor_nos(node, by_no), idx)
+        if not cands:
+            continue
+        key = (pos >= limit, -(cands[0].score + (1 if node.depth == 2 else 0)), not mark.trap, mark.rank)
+        options.append((key, mark, cands))
+    options.sort(key=lambda o: o[0])
+
+    chosen: dict[str, TrapPremise] = {}
+    used_lines: set[str] = set()
+    for _, mark, cands in options:
+        if len(chosen) >= budget:
+            break
+        pick = next((c for c in cands if c.line not in used_lines), None)
+        if pick is None:
+            continue
+        if mark not in head:
+            # 비킬 자리: 뒤에서부터, 주제·탐침·이미 고른 함정이 아닌 자리. 탐침은 자료 안의 진짜 긴장·빈틈이라 비키지 않는다.
+            spots = [i for i in range(len(head) - 1, -1, -1)
+                     if slot_of.get(head[i].node_id) != "theme" and head[i].node_id not in chosen
+                     and not probe_bound(head[i])]
+            if not spots:
+                continue
+            i = spots[0]
+            victim = head[i]
+            head[i] = mark
+            slot_of[mark.node_id] = slot_of.pop(victim.node_id, "")
+            tail = [m for m in tail if m.node_id != mark.node_id]
+            deferred = [victim.node_id] + [n for n in deferred if n != mark.node_id]
+        chosen[mark.node_id] = pick.premise
+        used_lines.add(pick.line)
+    out = [TriageMark(node_id=m.node_id, severity=m.severity, trap=m.node_id in chosen, angle=m.angle, source=m.source,
+                      rank=m.rank, doc_weight=m.doc_weight) for m in head + tail]
+    return out, deferred, chosen
+
+
 def _build_question_prompt(
     graph: ConceptGraph,
     marks: list[TriageMark],
@@ -1877,6 +1961,7 @@ def _build_question_prompt(
     paper_plan: dict[str, list[PaperRef]] | None = None,
     rushed: dict[int, tuple[float, float]] | None = None,
     probe_of: dict[str, Probe] | None = None,
+    trap_of: dict[str, TrapPremise] | None = None,
 ) -> str:
     def refs_of(node: ConceptNode, anchors: list[int]) -> list[PaperRef]:
         if paper_plan is not None:
@@ -1936,6 +2021,10 @@ def _build_question_prompt(
             parts.append(f"    {relation}")
         if node.parent_id is None and node.depth == 1:
             parts.append("    주제: 발표 전체의 주장이다 — 되읊게 하지 말고 조건·경계·부딪히는 표현을 물어라 (규칙 3-5)")
+        tp = (trap_of or {}).get(node.id)
+        if tp is not None:
+            parts.append(f"    함정 전제: 「{tp.premise}」 ← 이 전제를 질문 문장에 글자 그대로 얹어 맞는 말처럼 물어라."
+                         " 틀렸다고 말하거나 자료의 실제 값·순서를 쓰지 마라")
         section = section_line(node, graph)
         if section:
             parts.append(f"    {section}")
@@ -2742,15 +2831,11 @@ def _evidence_gist(
     return _clip(f"{lead}{body} ({where}장)")
 
 
-def _trap_verdict(question: str, premise: str, idx) -> str:
-    """함정 표시를 뗄 이유. "" 이면 함정이다. 전제가 질문에 없거나(없는 전제) 자료가 그 전제를 사실로 말하면 뗀다."""
-    if not question:
-        return "no_question"
-    if not (premise or "").strip():
-        return "no_premise"
-    if not grounding.premise_in_question(premise, question):
-        return "premise_not_in_question"
-    return grounding.premise_drop_reason(premise, idx)
+def _verbatim_in_slide(text: str, slide_no: int, by_no: dict[int, Slide] | None) -> bool:
+    """글이 그 장 원문에 (띄어쓰기·문장부호 빼고) 그대로 있는가 — 표에서 읽어 만든 사실 문장은 인용이 아니다."""
+    if not by_no or slide_no not in by_no or not text:
+        return False
+    return grounding.squash(text) in grounding.squash(clean_slide_text(by_no[slide_no].raw_text or ""))
 
 
 #: 발화 인용에서 건너뛸 인사·진행 멘트. 발표 내용이 아니라 어느 발표에나 있는 말이다.
@@ -2795,6 +2880,7 @@ def _normalize_questions(
     probe_of: dict[str, Probe] | None = None,
     slot_of: dict[str, str] | None = None,
     claims: ClaimDoc | None = None,
+    trap_of: dict[str, TrapPremise] | None = None,
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
@@ -2849,7 +2935,9 @@ def _normalize_questions(
         # 근거 묶음에 남길 검사 이름 (P1). "이 질문이 왜 이 문장인가" 를 코드를 다시 안 돌려도 답할 수 있게 한다.
         checks: list[str] = []
         probe = (probe_of or {}).get(mark.node_id)
-        trap = mark.trap
+        # 함정은 코드가 만든 전제(trap_of)가 있을 때만이다 (qa/trap · `_assign_traps`). triage 표시만으로는 함정이 아니다.
+        tp = (trap_of or {}).get(mark.node_id)
+        trap = tp is not None
 
         fitted = _fit_question(_polite_question(_tidy("question")), trap=mark.trap)
         written_q = _drop_cite_claim(fitted, papers)
@@ -2866,17 +2954,6 @@ def _normalize_questions(
         if written_q and raw.get("_paper_stripped") and grounding.paper_residue(written_q, idx, paper_texts, novel=True):
             written_q = ""
             checks.append("paper_residue_dropped")
-        # 함정은 **질문에 얹힌 전제가 자료와 정말 어긋날 때만** 함정이다 (09-29 기준선 §5-1). triage 가 함정이라 해도
-        # 질문 문장에 전제가 없거나, 전제가 자료에 사실로 있으면 뗀다 — 그대로 두면 판정이 골자대로 한 정답을
-        # 「전제를 안 바로잡았다」 며 wrong 35 로 내린다 (두 덱 루트 질문 4/4).
-        if trap:
-            why_not = _trap_verdict(written_q, str(raw.get("trap_premise", "") or ""), idx)
-            if why_not:
-                trap = False
-                checks.append("trap_dropped")
-                sys.stderr.write(f"[f08] 함정 뗌 {mark.node_id}: {why_not}\n")
-            else:
-                checks.append("trap_premise_verified")
         if written_q and not trap:
             undercut = _undercut_question(written_q, node)
             if undercut != written_q:
@@ -2916,6 +2993,23 @@ def _normalize_questions(
             written_q = ""
             checks.append("method_unsupported")
 
+        # 함정 질문은 **코드가 만든 전제를 실어야** 함정이다. LLM 문장이 전제의 단서(바꾼 숫자·뒤집힌 순서 낱말)를 싣고
+        # 자료의 단서(정답)는 안 실었을 때만 그 문장을 쓰고, 아니면 전제를 얹은 정해진 문장으로 바꾼다 (`_traps.question_carries`).
+        # 09-29 기준선: 함정 질문 21/21 이 전제 없는 평범한 질문이었다 — 부탁(프롬프트)만으로는 안 지켜진다.
+        if tp is not None:
+            # 전제 밖의 숫자는 자료에 있어야 한다 — 함정이라고 숫자 검사를 통째로 건너뛰면 LLM 이 전제 옆에 지어낸 수치
+            # (qa/trap 벤치: 「차입금 87.96조원과 어떻게 연결되어…」)가 같이 나간다. 전제의 바꾼 값만 빼고 본다.
+            if written_q and number_sources and ungrounded_numbers(traps.strip_wrong(written_q, tp), number_sources):
+                written_q = ""
+                checks.append("ungrounded_number_dropped")
+            if written_q and traps.question_carries(written_q, tp):
+                checks.append("trap_llm_worded")
+            else:
+                if written_q:
+                    checks.append("trap_premise_missing")
+                written_q = traps.trap_question(tp)
+                checks.append("trap_template")
+            checks.append("trap_generated")
         if probe is not None:
             # (a) 탐침 개념 이름이 전부 문장에 있어야 탐침을 물은 것이다. 이름 하나라도 빠지면 탐침과 다른 것을
             # 물은 질문이라, 부탁(프롬프트)만 믿지 않고 코드가 탐침 템플릿으로 바꾼다 (09-12 교훈과 같은 규율).
@@ -2956,6 +3050,9 @@ def _normalize_questions(
         quote_no, quote = _probe_quote(node, probe, question_text, by_no) if probe is not None else (0, "")
         if quote:
             checks.append("probe_evidence_quote")
+        elif tp is not None and _verbatim_in_slide(tp.fact, tp.slide_no, by_no):
+            # 함정의 인용은 전제가 뒤집은 그 자료 줄이다 — 힌트 사다리가 (늦은 칸에서) 보여 줄 「자료는 이렇게 말해요」.
+            quote_no, quote = tp.slide_no, tp.fact
         else:
             quote_no, quote = _evidence_quote(node, anchors, by_no or {}, question_text)
         speech = _speech_quote(anchors, transcript, question_text, node) if quote else ""
@@ -2996,6 +3093,12 @@ def _normalize_questions(
             checks.append("gist_rebuilt_trap")
         gist = written_gist or _evidence_gist(node, question_text, anchors, by_no, trap=trap) \
             or _fallback_gist(node, trap=trap, slide_nos=anchors)
+        if tp is not None:
+            # 함정의 기대 답은 전제를 자료의 사실로 바로잡는 것 — 자료 줄 그대로다. 이유·힌트도 코드 문장이다:
+            # 이유는 질문과 함께 화면에 보이므로 함정의 답을 흘리지 않고, 힌트는 장만 가리키고 값·순서는 말하지 않는다.
+            gist = traps.trap_gist(tp)
+            written_why = traps.trap_why(node.label)
+            written_hint = traps.trap_hint(tp)
         # 요소 쪼개기. LLM 이 쓴 것을 먼저 믿고, 안 썼는데 문면이 둘 이상을 묻고
         # 있으면 코드가 골자를 갈라 백스톱을 세운다 (_followup·_OPEN_QUESTION_RE 와
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
@@ -3015,6 +3118,8 @@ def _normalize_questions(
             parts = []
         if len(parts) < 2 and _asks_multiple(question_text):
             parts = _split_gist_parts(gist)
+        if tp is not None:
+            parts = []       # 함정의 답은 하나다 — 전제를 바로잡는 것
         paper_ids = _paper_ids_of(
             raw, [question_text, written_why, written_hint, gist], papers,
         ) if written_q and "probe_template" not in checks else []   # 탐침 템플릿은 문헌을 인용하지 않는다
@@ -3039,6 +3144,7 @@ def _normalize_questions(
             speech_quote=speech,
             paper_ids=paper_ids,
             basis=_basis_of(mark, (slot_of or {}).get(mark.node_id, ""), probe, quote_no, quote, checks),
+            trap_premise=TrapPremise.from_dict(tp.to_dict()) if tp is not None else None,
         ))
     return questions
 
@@ -3229,10 +3335,14 @@ def build_questions(
     flow_of = _flow_issue_by_node(flow)
 
     by_no = _slides_by_no(slidedoc)
+    # 함정은 코드가 고르고 전제도 코드가 자료에서 만든다 (qa/trap). 자료가 없으면 함정도 없다.
+    marks, deferred, trap_of = _assign_traps(marks, deferred, known, track, by_id, by_no,
+                                             _probes_by_node(triage.probes), slot_of)
+    probe_of = {nid: p for nid, p in probe_of.items() if nid not in trap_of}
     paper_plan = _plan_papers(marks, by_id, by_no, papers, track)
     prompt = _build_question_prompt(
         graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of, paper_plan,
-        _rushed_slides(_as_pace(pace), graph), probe_of,
+        _rushed_slides(_as_pace(pace), graph), probe_of, trap_of,
     )
     remembered = any(m.node_id in memory_of for m in marks)
     raw_questions = _questions_with_papers(
@@ -3248,7 +3358,7 @@ def build_questions(
     # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.
     questions, twins = _drop_twin_questions(
         _normalize_questions(raw_questions, marks, by_id, flow_of, by_no, transcript, papers,
-                             probe_of, slot_of, claim_doc),
+                             probe_of, slot_of, claim_doc, trap_of),
         QA_TRACK_LIMITS[track],
     )
     _log_bases(questions)
@@ -3413,6 +3523,10 @@ def build_hint_ladder(
         _hint_scaffold(question),
         _hint_gist(question),
     ]
+    if question.trap_premise is not None:
+        # 함정 질문의 인용은 전제가 뒤집은 바로 그 자료 줄이라, 첫 칸에 두면 답을 먼저 주는 것이다 (qa/trap).
+        # 장을 가리키는 힌트·범위부터 주고, 자료 줄은 그 뒤에 — 스스로 대조해 볼 기회를 먼저 준다.
+        steps = [steps[1], steps[2], steps[0], steps[3], steps[4]]
     if judgement is not None:
         steps.append(_hint_close(question, judgement))
 

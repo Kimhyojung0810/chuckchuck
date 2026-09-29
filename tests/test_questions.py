@@ -457,17 +457,22 @@ def test_track_limit_respected(track):
 
 @pytest.mark.parametrize("track", sorted(QA_TRACK_TRAPS))
 def test_trap_budget_respected(track):
-    """LLM 이 전부 함정이라고 해도 트랙 허용치를 넘지 않는다. 1분 트랙은 0개."""
+    """LLM 이 전부 함정이라고 해도 트랙 허용치를 넘지 않는다. 1분 트랙은 0개.
+    함정 전제는 코드가 자료 줄에서 만든다 (qa/trap) — 자료를 줘야 함정이 생기고, 안 주면 0개다."""
+    from chuckchuck.contracts import Slide, SlideBlock, SlideDoc
     graph = make_graph(20)
     triage = triage_of(
         marks_payload(*[{"node_id": n.id, "trap": True} for n in graph.nodes]),
         graph=graph,
     )
-    # 함정은 질문에 전제가 실제로 얹혔을 때만 남는다 (09-29) — 예산을 보려면 전제를 단 질문을 준다
-    written = [{"node_id": n.id, "question": f"{n.label}은 늘 반대라고 했는데, 정말 그런가요?",
-                "trap_premise": f"{n.label}은 늘 반대"} for n in graph.nodes]
-    doc = doc_of(questions_payload(*written), graph=graph, triage=triage, track=track)
+    deck = SlideDoc(file_name="sample.pdf", total_slides=20, slides=[
+        Slide(slide_no=i, title=f"{i}장", blocks=[SlideBlock(category="paragraph", text=f"개념{i}의 비율은 {100 + i}명입니다")])
+        for i in range(1, 21)])
+    doc = doc_of(questions_payload(), graph=graph, triage=triage, track=track, slidedoc=deck)
     assert sum(q.trap for q in doc.questions) == QA_TRACK_TRAPS[track]
+    assert all(q.trap_premise is not None for q in doc.questions if q.trap)
+    bare = doc_of(questions_payload(), graph=graph, triage=triage, track=track)
+    assert sum(q.trap for q in bare.questions) == 0
 
 
 def test_unknown_track_falls_back():
