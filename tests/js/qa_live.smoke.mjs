@@ -770,6 +770,15 @@ test('WP-J2 녹음이 자료와 다른 발표면 질문 묶음에 한 번 조용
   eq(api.liveSpeechMismatch({ verdict: 'good' }), false, '판정 응답에는 질문이 없다');
 });
 
+test('REC-10 결과 화면 — 녹음이 다른 발표면 「근거 발화와 함께」 를 약속하지 않고 맞는 녹음을 올리라고 한다', () => {
+  const { api } = newContext();
+  const r = [{ verdict: 'wrong', passed: false, mastered: false }, { verdict: 'good', passed: true, mastered: true, turns: 1 }];
+  const sum = api.liveResultSummary(r, { speech: false, unrelated: true });
+  eq(sum.sub.includes('근거 발화'), false, '약속하지 않는다');
+  eq(sum.sub.includes('이 자료로 발표한 녹음을 올리면'), true, sum.sub);
+  eq(api.liveResultSummary(r, { speech: true }).sub.includes('근거 발화'), true, '맞는 녹음은 예전 그대로');
+});
+
 let failed = 0;
 for (const c of cases) {
   try {

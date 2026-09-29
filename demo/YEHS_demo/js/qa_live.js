@@ -1940,7 +1940,7 @@ function liveResultRow(r, bucket = liveBucket(r)) {
  * 결과 머리 — 헤드라인 숫자는 스스로 설명한 것만 (C-09). speech: 상세 리포트에 발화 분석이 있는가 (자료만 쓴 세션은 없다 —
  * 「근거 발화와 함께 짚어 줄게요」 는 그때만 약속한다).
  */
-function liveResultSummary(results, { speech = true } = {}) {
+function liveResultSummary(results, { speech = true, unrelated = false } = {}) {
   const rs = results || [];
   const count = { self: 0, helped: 0, retold: 0, skipped: 0 };
   rs.forEach((r) => { count[liveBucket(r)] += 1; });
@@ -1961,9 +1961,12 @@ function liveResultSummary(results, { speech = true } = {}) {
   const sub = !asked ? ''
     : allSelf
       ? (hinted ? `힌트를 본 질문이 ${hinted}개 있어요. 같은 질문으로 한 번 더 하면 힌트 없이도 될 거예요.` : '힌트 없이 전부 스스로 설명했어요. 같은 질문으로 한 번 더 하면 답이 더 짧아져요.')
-      : speech
+      : speech && !unrelated
         ? '다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.'
-        : '상세 리포트에 질문마다 내 답을 남겨 뒀어요. 발표를 녹음하면 말과 자료를 같이 짚어 줘요.';
+        /* 녹음은 받았는데 이 자료의 발표가 아니었다 — 「발표를 녹음하면」 이 아니라 맞는 녹음을 올리면이다 (09-30 REC-10) */
+        : unrelated
+          ? '상세 리포트에 질문마다 내 답을 남겨 뒀어요. 이 자료로 발표한 녹음을 올리면 말과 자료를 같이 짚어 줘요.'
+          : '상세 리포트에 질문마다 내 답을 남겨 뒀어요. 발표를 녹음하면 말과 자료를 같이 짚어 줘요.';
   return { count, asked, self, allSelf, head, stats, sub };
 }
 
@@ -1983,11 +1986,12 @@ function qaLiveEnd() {
   const L = qa.live;
   // 상세 리포트에 개념 판정(발화 분석)이 있는가 — 자료만 쓴 세션은 없다. 없으면 행 화살표도 안 단다 (09-30 L-03: 빈 리포트로 데려갔다)
   const speech = typeof qaReportHasJudge === 'function' ? qaReportHasJudge() : true;
+  const unrelated = typeof qaRecordingUnrelated === 'function' ? qaRecordingUnrelated() : false;
   /* 결과를 상태로 묶는다. 섞어 두면 "어디부터 손대야 하는지" 가 안 보인다.
      순서는 사용자가 다음에 할 일 순 — 도움 받은 것 → 답을 본 것 → 넘긴 것 → 스스로 한 것 */
   const grouped = { helped: [], retold: [], skipped: [], self: [] };
   (L.results || []).forEach((r, i) => grouped[liveBucket(r)].push({ r, i }));
-  const sum = liveResultSummary(L.results, { speech });
+  const sum = liveResultSummary(L.results, { speech, unrelated });
 
   /* 질문 원문은 길고 여섯 개가 다 "…설명해 주시겠어요?" 로 끝나 벽처럼 읽힌다.
      제목은 개념 이름으로, 질문은 한 줄로 줄여 보조 텍스트에 둔다 (TDS ListRow 2RowTypeA) */

@@ -514,6 +514,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   let habits = null;
   let voiceReport = null;
   const slim = slimTranscript(transcript);
+  /* 녹음이 이 자료의 발표가 아니면(F-11 speech_match·basis) 녹음으로 재는 것은 전부 「안 쟀다」 다 — F-17 은 빈 결과를,
+     F-19 는 정해진 말만 낸다. 진행 줄에도 0장·0초를 잰 값처럼 적지 않는다 (09-30 녹음 대화 감사 REC-10) */
+  const unrelated = !!(alignment && (alignment.speech_match === 'unrelated' || alignment.basis === 'skipped'));
   try {
     report('pace', '말 속도·시간 배분 계산 중', { transcript, concepts, graph, alignment, flow });
     const pRes = await fetch(apiBase() + '/api/v1/pace', {
@@ -524,13 +527,16 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
         transcript: slim,
         context: context || {},
         concept_doc: concepts || null,
+        alignment: alignment || null,
       }),
     });
     pace = await readJson(pRes, '말 속도');
     if (!pRes.ok || pace.error) {
       throw new Error(pace.message || pace.error || `pace HTTP ${pRes.status}`);
     }
-    report('pace_done', `배분 ${(pace.slides || []).length}장 · 실제 ${Math.round(pace.actual_sec || 0)}초`, {
+    report('pace_done', unrelated
+      ? '녹음이 이 자료의 발표가 아니라서 재지 않았어요'
+      : `배분 ${(pace.slides || []).length}장 · 실제 ${Math.round(pace.actual_sec || 0)}초`, {
       transcript, concepts, graph, alignment, flow, pace,
     });
 
@@ -544,7 +550,10 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     if (!hRes.ok || habits.error) {
       throw new Error(habits.message || habits.error || `habits HTTP ${hRes.status}`);
     }
-    report('habits_done', `REP ${habits.repeat_cnt || 0} · FIL ${habits.filler_cnt || 0} · PAUSE ${habits.pause_cnt || 0}`, {
+    // 내부 이름(REP·FIL·PAUSE)이 아니라 사람 말로 (REC-15). 다른 발표 녹음이면 센 값을 이 발표의 말버릇으로 적지 않는다
+    report('habits_done', unrelated
+      ? '녹음이 이 자료의 발표가 아니라서 이 발표의 말버릇으로 보지 않아요'
+      : `간투어 ${habits.filler_cnt || 0}번 · 같은 말 반복 ${habits.repeat_cnt || 0}번 · 긴 멈춤 ${habits.pause_cnt || 0}번`, {
       transcript, concepts, graph, alignment, flow, pace, habits,
     });
 
@@ -587,8 +596,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
     const rRes = await fetch(apiBase() + '/api/v1/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // 점수는 채점표가 진실이다 — F-19 가 두 번째 점수를 만들지 않게 같이 보낸다
-      body: JSON.stringify({ session_id: sessionId || null, pace, habits, rubric: score, context: context || {} }),
+      // 점수는 채점표가 진실이다 — F-19 가 두 번째 점수를 만들지 않게 같이 보낸다.
+      // 정합도 싣는다 — 채점표가 실패해도 F-19 가 다른 발표 녹음을 알아보고 LLM 없이 「재지 않았어요」 로 쓴다 (REC-10)
+      body: JSON.stringify({ session_id: sessionId || null, pace, habits, rubric: score, alignment: alignment || null, context: context || {} }),
     });
     voiceReport = await readJson(rRes, '리포트');
     if (!rRes.ok || voiceReport.error) {

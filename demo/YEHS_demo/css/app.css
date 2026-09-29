@@ -255,12 +255,15 @@ main.narrow { max-width: 640px; }
 .st-ct  { color: var(--ct);  background: var(--ct-bg); }
 .st-om  { color: var(--om);  background: var(--om-bg); }
 .st-fast { color: var(--mid); background: var(--mid-bg); }
+/* 판정 안 함 (녹음이 이 자료의 발표가 아닐 때) — 판정이 아니라서 판정 색 5종을 쓰지 않고 중립 회색 (09-30 REC-10) */
+.st-na  { color: var(--text-3); background: var(--fill); }
 .chip-plain { color: var(--text-2); background: var(--fill); font-weight: 500; }
 .chip-up { color: var(--green); background: var(--green-bg); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .dot.st-ok { background: var(--ok); } .dot.st-mid { background: var(--mid); }
 .dot.st-no { background: var(--no); } .dot.st-ct { background: var(--ct); }
 .dot.st-om { background: var(--om-soft); } .dot.st-fast { background: var(--mid); }
+.dot.st-na { background: var(--border); box-shadow: inset 0 0 0 1px var(--text-3); }
 
 /* 선택형 칩 */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -838,6 +841,7 @@ main.narrow { max-width: 640px; }
 .slidethumb.st-ct::before { background: var(--ct); }
 .slidethumb.st-om::before { background: var(--om); }
 .slidethumb.st-none::before { display: none; }
+.slidethumb.st-na::before { background: var(--text-3); }
 .slidethumb.has { cursor: pointer; }
 .slidethumb.has:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(24, 24, 27, .12); }
 .slidethumb.has::after {
@@ -948,6 +952,7 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .judge-slide.st-no { border-color: var(--no); }
 .judge-slide.st-ct { border-color: var(--ct); }
 .judge-slide.st-om { border-color: var(--text-3); }
+.judge-slide.st-na { border-color: var(--border); }
 
 .slide-strip { display: flex; gap: 4px; margin-bottom: 18px; }
 .slide-strip i {
@@ -2071,6 +2076,7 @@ table.plain tr:last-child td { border-bottom: 0; }
 .deck-stage.st-ct { border-color: var(--ct); } .deck-stage.st-ct em { color: var(--ct); }
 .deck-stage.st-om { border-color: var(--text-3); } .deck-stage.st-om em { color: var(--om); }
 .deck-stage.st-none { border-color: var(--border); } .deck-stage.st-none em { color: var(--text-3); }
+.deck-stage.st-na { border-color: var(--border); } .deck-stage.st-na em { color: var(--text-3); }
 .deck-panel .dp-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .deck-panel .dp-top b { font-size: 15px; font-weight: 700; }
 .dp-fix { margin-top: 12px; padding: 12px 14px; border-radius: var(--r-print); background: var(--accent-weak); }
@@ -3100,6 +3106,7 @@ table.plain tr:last-child td { border-bottom: 0; }
 .deck-film .slidethumb.st-ct::before { background: var(--ct); }
 .deck-film .slidethumb.st-om::before { background: var(--om); }
 .deck-film .slidethumb.st-none::before { display: none; }
+.deck-film .slidethumb.st-na::before { background: var(--text-3); }
 
 /* ══ 누르는 느낌 — 터치 피드백 ═══════════════════════════════════════════
    시연은 아이패드에서 한다. 그런데 아이패드에는 hover 가 없다. 지금 누를 수

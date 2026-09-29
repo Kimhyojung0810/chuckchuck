@@ -530,6 +530,16 @@ function nextFix() {
   const out = (nf && nf.pipelineOut) || null;
   if (!out) return null;
 
+  // 0) 녹음이 이 자료의 발표가 아니다 — 고칠 것은 발표가 아니라 녹음이다. 아래 음성·채점 축으로 내려가면 남의 발표 녹음으로 잰
+  //    시간·말버릇을 이 발표의 것처럼 고치라고 한다 (09-30 REC-10: 「중요한 슬라이드에 시간을 조금 더 쓰면…」)
+  if (recordingUnrelated(out.score, out.alignment)) {
+    return {
+      source: 'recording', who: 'ax', tab: 0, label: '녹음 확인',
+      headline: '녹음이 이 자료의 발표가 아니에요',
+      action: '이 자료로 발표한 녹음을 다시 올리면 말한 내용과 말 속도까지 같이 볼게요.',
+    };
+  }
+
   // 1) 논리 흐름 — flowVerdict 가 FLOW_PRIORITY 로 이미 1건을 뽑고 위치 문장까지 만든다
   const flowBad = ((out.flow && out.flow.issues) || [])
     .some(i => flowIssueRank(i.kind) < FLOW_PRIORITY.length);
@@ -3959,6 +3969,12 @@ function pipelineLogLine(phase) {
   if (/_error$/.test(phase)) {
     return { kind: 'error', text: `${pipelinePhaseLabel(phase)} · ${humanErrorText(detail)}` };
   }
+  // 녹음이 이 자료의 발표가 아니면 「시간 배분을 다 쟀어요 · 배분 0장 · 실제 0초」 가 아니다 — 재지 않았다 (REC-10)
+  if ((phase === 'pace_done' || phase === 'habits_done') && recordingUnrelated(out.score, out.alignment)) {
+    return { kind: 'done', text: phase === 'pace_done'
+      ? '말 속도·시간 배분은 재지 않았어요 · 녹음이 이 자료의 발표가 아니에요'
+      : '말버릇은 이 발표의 것으로 보지 않았어요 · 녹음이 이 자료의 발표가 아니에요' };
+  }
   if (/_done$/.test(phase)) {
     return { kind: 'done', text: detail ? `${pipelinePhaseLabel(phase)} · ${detail}` : pipelinePhaseLabel(phase) };
   }
@@ -4918,6 +4934,8 @@ function reportVerdict() {
       mood: faults.length ? 'neutral' : real.mood,
       faults,
       cap: real.cap,
+      // 녹음이 이 자료의 발표가 아니면 기둥의 「여기부터 보세요」 는 점수 축이 아니라 「녹음을 다시 올려 주세요」 한 줄이다 (REC-10)
+      unrelated: recordingUnrelated({ faults: real.faults }, out.alignment),
       /* 큰 글씨는 한 줄이다. 예전엔 안내 문구를 전부 ' · ' 로 이어 붙여
          22px 굵은 글씨로 3~4줄을 쌓았다 — 결과 화면에서 가장 먼저 읽는 자리에
          가장 안 중요한 말이 가장 크게 있었다. 판단은 헤드, 단서는 아래 작은 줄. */
@@ -5072,7 +5090,7 @@ async function renderReport() {
             <h2>${escapeHtml(v.headline)}</h2>
             ${reportFaultsHtml(v.faults, v.cap)}
             <div class="verdict-dims">
-              ${dimsHtml(v.dims)}
+              ${dimsHtml(v.dims, !!v.unrelated)}
             </div>
           </div>
         </div>
@@ -5315,7 +5333,7 @@ function goJudge(node) {
 /* 한 장에 여러 개념이 걸리면 가장 나쁜 판정을 그 장의 색으로 쓴다.
    필름 스트립·무대·개념 판정이 같은 장을 다른 색으로 칠하면 리포트가 거짓말이 된다 —
    그래서 세 곳이 이 한 함수만 본다. */
-const JUDGE_RANK = { ct: 0, no: 1, mid: 2, om: 3, ok: 4 };
+const JUDGE_RANK = { ct: 0, no: 1, mid: 2, om: 3, ok: 4, na: 5 };
 
 /** 그 장에 걸린 실제 개념 판정 — 나쁜 순 · 무거운 순. 실데이터가 없으면 null. */
 function slideJudgeNodes(no, tree = judgeTree()) {
@@ -5363,6 +5381,11 @@ function hasRealSlideImage(no) {
   return !String(deckImageSrc(no) || '').startsWith('data:image/svg+xml');
 }
 
+/** 개념이 안 걸린 장의 색 — 판정을 아예 안 한 발표(다른 발표 녹음)면 그 장도 「판정 안 함」 이다. 정당한 생략 색을 입히지 않는다 (REC-10) */
+function emptySlideStatus(tree) {
+  return (tree || []).length && tree.every(t => t.status === 'na') ? 'na' : 'om';
+}
+
 function deckThumbList() {
   const tree = judgeTree();
   const isReal = !!(tree[0] && tree[0].real);
@@ -5373,7 +5396,7 @@ function deckThumbList() {
     const nodes = isReal ? slideJudgeNodes(no, tree) : null;
     return {
       no,
-      status: isReal ? ((nodes[0] && nodes[0].status) || 'om') : (DATA.slideStatus[i] || 'om'),
+      status: isReal ? ((nodes[0] && nodes[0].status) || emptySlideStatus(tree)) : (DATA.slideStatus[i] || 'om'),
       title: deckTitle(no, live),
       // 업로드 PDF 가 있으면 렌더가 채운다.
       src: (uploadedPdf && uploadedPdf.pdf) ? '' : deckImageSrc(no, live),
@@ -5513,6 +5536,21 @@ const RUBRIC_STATUS = {
 };
 const RUBRIC_SOURCE = { det: '계산', llm: 'AI 판단', na: '' };
 
+/**
+ * 못 잰 항목을 까닭별로 센다. 예전엔 「N개 항목은 채점을 마치지 못해 이번엔 못 쟀어요」 하나로 뭉쳐, 다른 발표 녹음이라 안 잰 것
+ * (09-30 REC-10)·음향 특징을 안 뽑은 것까지 채점 실패로 읽혔다. 까닭은 채점표 항목의 note 그대로다 — 없으면 예전 문구.
+ */
+function unmeasuredLinesHtml(rows) {
+  const by = new Map();
+  (rows || []).forEach((r) => {
+    const why = String((r && r.note) || '').trim();
+    by.set(why, (by.get(why) || 0) + 1);
+  });
+  return [...by.entries()].map(([why, n]) => `<p class="rb-unmeasured">${why
+    ? `${n}개 항목 — ${escapeHtml(why)}`
+    : `${n}개 항목은 채점을 마치지 못해 ${RUBRIC_STATUS.unmeasured.t}`}</p>`).join('');
+}
+
 function rRubric() {
   const sc = reportScore();
   const items = (sc && sc.items) || [];
@@ -5589,7 +5627,7 @@ function rRubric() {
       </summary>
       <ol class="rb-list">${done.map(rowHtml).join('')}</ol>
       ${excluded.length ? `<p class="rb-unmeasured">${excluded.length}개 항목은 ${RUBRIC_STATUS.situation_excluded.t}</p>` : ''}
-      ${unmeasured.length ? `<p class="rb-unmeasured">${unmeasured.length}개 항목은 채점을 마치지 못해 ${RUBRIC_STATUS.unmeasured.t}</p>` : ''}
+      ${unmeasuredLinesHtml(unmeasured)}
     </details>`;
   }).join('');
 
@@ -5622,10 +5660,10 @@ function realSummary() {
     notes.push(`이 자리에서 안 보는 항목 ${sc.excluded.length}개는 빼고 봤어요`);
   }
   if ((sc.unmeasured || []).length) {
-    notes.push(
-      `${sc.unmeasured.length}개 항목은 이번엔 재지 못했어요. `
-      + '다음 연습에선 더 많이 알려드릴게요.'
-    );
+    /* 다른 발표 녹음이면 못 잰 까닭이 「이번엔」 이 아니라 녹음이다 — 다음 연습을 기다릴 일이 아니라 녹음을 다시 올릴 일이다 (REC-10) */
+    notes.push(recordingUnrelated(sc, (reportOut() || {}).alignment)
+      ? `${sc.unmeasured.length}개 항목은 녹음이 이 자료의 발표가 아니라서 재지 않았어요.`
+      : `${sc.unmeasured.length}개 항목은 이번엔 재지 못했어요. 다음 연습에선 더 많이 알려드릴게요.`);
   }
   if (sc.note) notes.push(sc.note);
   return {
@@ -5685,7 +5723,8 @@ function clusterReason(key) {
  * 두 칸짜리 조용한 목록으로 내린다 — 지우는 게 아니라 크기를 뺀다. 설명은
  * title 로 남겨서 눌러보지 않아도 마우스로 확인할 수 있다.
  */
-function dimsHtml(dims) {
+function dimsHtml(dims, reupload = false) {
+  if (reupload) return reuploadDimsHtml(dims);
   if (!dims || !dims.length) return '';
   /* 동점이면 예전엔 배열 순서(=클러스터 정의 순서)로 앞의 것이 이겼다. 학교
      프로젝트에서 논리 구조(23%)와 시간 관리(13%)가 나란히 0 이면 「여기부터
@@ -5712,27 +5751,43 @@ function dimsHtml(dims) {
       </div>`;
   };
 
-  /* 나머지 여섯 — 「이름 · 값 · 다음」 한 줄씩. 막대는 뺐다: 여섯 개가 나란히
-     차 있으면 어느 것도 눈에 안 들어오고, 어차피 옆의 숫자가 같은 말을 더
-     정확하게 한다. 누르면 그 항목의 채점 근거(채점표 탭)로 간다 —
-     값만 보여주고 끝나면 «그래서 왜 30점인데» 에 답할 데가 없다.
-     클러스터 키가 없는 샘플 데이터는 누를 곳이 없으므로 div 로 낸다. */
-  const restRow = (d) => {
-    const key = d[4] || '';
-    const hint = clusterReason(key) || DIM_HINT[d[0]] || '';
-    const attrs = `class="vd"${hint ? ` title="${escapeHtml(hint)}"` : ''}`;
-    const inner = `
+  const rest = dims.filter((_, i) => i !== weakIdx);
+  return weakCard(dims[weakIdx])
+    + (rest.length ? `<div class="vd-rest">${rest.map(dimRestRowHtml).join('')}</div>` : '');
+}
+
+/* 나머지 여섯 — 「이름 · 값 · 다음」 한 줄씩. 막대는 뺐다: 여섯 개가 나란히
+   차 있으면 어느 것도 눈에 안 들어오고, 어차피 옆의 숫자가 같은 말을 더
+   정확하게 한다. 누르면 그 항목의 채점 근거(채점표 탭)로 간다 —
+   값만 보여주고 끝나면 «그래서 왜 30점인데» 에 답할 데가 없다.
+   클러스터 키가 없는 샘플 데이터는 누를 곳이 없으므로 div 로 낸다. */
+function dimRestRowHtml(d) {
+  const key = d[4] || '';
+  const hint = clusterReason(key) || DIM_HINT[d[0]] || '';
+  const attrs = `class="vd"${hint ? ` title="${escapeHtml(hint)}"` : ''}`;
+  const inner = `
         <span class="lb">${escapeHtml(d[0])}</span>
         <span class="vl num">${d[1]}<span class="of">/100</span></span>
         ${key ? '<span class="vd-go" aria-hidden="true">›</span>' : ''}`;
-    return key
-      ? `<button type="button" ${attrs} data-cluster="${escapeHtml(key)}">${inner}</button>`
-      : `<div ${attrs}>${inner}</div>`;
-  };
+  return key
+    ? `<button type="button" ${attrs} data-cluster="${escapeHtml(key)}">${inner}</button>`
+    : `<div ${attrs}>${inner}</div>`;
+}
 
-  const rest = dims.filter((_, i) => i !== weakIdx);
-  return weakCard(dims[weakIdx])
-    + (rest.length ? `<div class="vd-rest">${rest.map(restRow).join('')}</div>` : '');
+/**
+ * 녹음이 이 자료의 발표가 아닐 때의 기둥 (09-30 녹음 대화 감사 REC-10).
+ *
+ * 예전엔 채점표가 녹음으로 잰 축(시간 관리 0/100)을 「여기부터 보세요」 로 세웠다 — 이 자료로는 발표한 적이 없는데.
+ * 할 일은 하나뿐이라 주인공 칸은 점수가 아니라 그 한 줄이다. 남은 축(자료만 보고 매긴 것)은 아래 목록에 그대로 둔다.
+ */
+function reuploadDimsHtml(dims) {
+  const rest = Array.isArray(dims) ? dims : [];
+  return `
+      <div class="vd vd-weak vd-reupload">
+        <span class="vd-tag">여기부터 보세요</span>
+        <span class="lb">이 자료로 발표한 녹음을 다시 올려 주세요</span>
+      </div>`
+    + (rest.length ? `<div class="vd-rest">${rest.map(dimRestRowHtml).join('')}</div>` : '');
 }
 
 /**
@@ -5773,6 +5828,25 @@ function verdictBasisHtml(v) {
    순수 함수 셋은 tests/js/report_faults.smoke.mjs 가 브라우저 없이 본다. */
 const REPORT_FAULT_ORDER = ['unrelated_speech', 'contradiction', 'skipped_slide', 'align_fallback'];
 const REPORT_FAULT_QUOTE_MAX = 90;
+
+/**
+ * 녹음이 이 자료의 발표가 아닌가 (09-30 녹음 대화 감사 REC-10). 새 표시를 만들지 않고 이미 있는 둘을 읽는다 —
+ * 채점표(F-14)의 결함 unrelated_speech, 정합(F-11)의 speech_match·basis. 채점표가 폴백이라 결함 칸이 비어도 정합이 말한다.
+ * 참이면 녹음으로 재는 것(말 속도·시간·말버릇·개념 판정)은 전부 「안 쟀다」 로 그린다 — 0 이나 「안 나옴」 으로 그리지 않는다.
+ */
+function recordingUnrelated(score, alignment) {
+  const faults = (score && Array.isArray(score.faults)) ? score.faults : [];
+  if (faults.some(f => f && f.kind === 'unrelated_speech')) return true;
+  const al = alignment || {};
+  return al.speech_match === 'unrelated' || al.basis === 'skipped';
+}
+
+/** 지금 보는 리포트가 다른 발표 녹음인가 — 샘플 리포트는 아니다 */
+function reportUnrelated() {
+  if (rSampleMode) return false;
+  const out = reportOut() || {};
+  return recordingUnrelated(out.score, out.alignment);
+}
 
 function faultClip(text, max = REPORT_FAULT_QUOTE_MAX) {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
@@ -5818,8 +5892,9 @@ function reportFaultRows(score, alignment, graph) {
       row.title = pct != null
         ? `녹음 낱말 가운데 이 자료에도 있는 말이 ${pct}%예요`
         : '녹음과 이 자료가 다루는 내용이 달라요';
-      // 예전 빨간 안내(「아래 정합·개념 판정은 참고만 해 주세요」)는 이 행이 대신한다 — 아래 개념 판정은 이 녹음 기준이라 전부 「안 나옴」 이다
-      row.sub = '말한 내용은 채점하지 않았어요. 아래 개념 판정은 참고만 하고, 이 자료로 발표한 녹음을 올리면 같이 볼게요.';
+      // 예전 빨간 안내(「아래 정합·개념 판정은 참고만 해 주세요」)는 이 행이 대신한다. 아래 개념은 「판정 안 함」, 말하기 탭은
+      // 「재지 않았어요」 로 그린다 — 녹음으로 재는 것은 전부 이 발표의 값이 아니다 (REC-10)
+      row.sub = '말한 내용·말 속도·시간·말버릇은 채점하지 않았어요. 이 자료로 발표한 녹음을 올리면 같이 볼게요.';
     } else {
       row.title = '발표와 자료를 대조하지 못해 개념 전달은 채점하지 않았어요';
       row.sub = '다시 분석하면 개념 전달까지 같이 볼게요.';
@@ -6138,7 +6213,16 @@ function qaHistoryRecord() {
 function qaReportHasJudge() {
   if (isShowcaseDemo() || !qaRealSession()) return true;   // 샘플·시연은 DATA 판정 트리가 있다
   const out = nf && nf.pipelineOut;
-  return !!(out && out.graph && out.alignment && (out.alignment.items || []).length);
+  // 녹음이 이 자료의 발표가 아니면 개념은 전부 「판정 안 함」 이다 — 행 화살표·「근거 발화와 함께」 를 약속하지 않는다 (REC-10)
+  return !!(out && out.graph && out.alignment && (out.alignment.items || []).length)
+    && !recordingUnrelated(out.score, out.alignment);
+}
+
+/** 결과 화면용 — 이 세션의 녹음이 자료와 다른 발표인가 (09-30 REC-10). 샘플·시연은 아니다. */
+function qaRecordingUnrelated() {
+  if (isShowcaseDemo() || !qaRealSession()) return false;
+  const out = nf && nf.pipelineOut;
+  return !!out && recordingUnrelated(out.score, out.alignment);
 }
 
 /**
@@ -6231,6 +6315,14 @@ function qaHistoryPanelHtml({ open = false } = {}) {
     </section>
       </div>
     </details>`;
+}
+
+/** 판정 범례 — 다른 발표 녹음이라 전부 「판정 안 함」 이면 그 하나만. 안 쓰는 판정 다섯을 늘어놓으면 판정을 한 것처럼 읽힌다 (REC-10) */
+function judgeLegendHtml(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const allNa = list.length > 0 && list.every(n => n.status === 'na');
+  const keys = allNa ? ['na'] : ['ok', 'mid', 'no', 'ct', 'om'];
+  return keys.map(k => `<span><i class="dot st-${k}"></i>${STATUS[k]}</span>`).join('');
 }
 
 function rSummary() {
@@ -6349,13 +6441,7 @@ function rSummary() {
             <span class="stnum">${t.no}</span>
           </button>`).join('')}
       </div>
-      <div class="legend">
-        <span><i class="dot st-ok"></i>설명함</span>
-        <span><i class="dot st-mid"></i>언급만 함</span>
-        <span><i class="dot st-no"></i>안 나옴</span>
-        <span><i class="dot st-ct"></i>자료와 모순</span>
-        <span><i class="dot st-om"></i>정당한 생략</span>
-      </div>
+      <div class="legend">${judgeLegendHtml(judgeRows)}</div>
     </div>
 
     ${judgeFold}
@@ -6746,7 +6832,7 @@ function deckHtml() {
   const node = isReal
     ? (nodes[0] || null)
     : (DATA.slideMainNode[n] ? DATA.tree.find(t => t.id === DATA.slideMainNode[n]) : null);
-  const st = isReal ? (node ? node.status : 'om') : (DATA.slideStatus[n - 1] || 'none');
+  const st = isReal ? (node ? node.status : emptySlideStatus(tree)) : (DATA.slideStatus[n - 1] || 'none');
   const title = deckTitle(n, live);
   /* "그 장에서 있었던 일" — 실데이터는 같은 장의 나머지 개념 판정으로 채운다.
      DATA.timeline 은 IMU2CLIP 고정 타임라인이라 실데이터에 대응이 없다. */
@@ -6761,7 +6847,7 @@ function deckHtml() {
       <span class="bubble-label" style="margin-top:0">이 슬라이드에서 한 말</span>
       <div class="bubble">${node.ev
         ? escapeHtml(node.ev)
-        : '<span class="note">이 개념에 해당하는 발화를 찾지 못했어요.</span>'}${node.evTime ? `<time>${escapeHtml(node.evTime)}</time>` : ''}</div>
+        : `<span class="note">${noEvidenceNote(node.status)}</span>`}${node.evTime ? `<time>${escapeHtml(node.evTime)}</time>` : ''}</div>
       ${node.why ? `<p class="note" style="margin-top:10px">${escapeHtml(node.why)}</p>` : ''}
       ${node.fix ? `<div class="dp-fix"><b>이렇게 말해보세요</b><p>${escapeHtml(node.fix)}</p></div>` : ''}
       <button class="btn btn-tint btn-sm" id="deckJudgeGo" data-node="${escapeHtml(node.id)}">판정 근거 자세히 보기</button>`;
@@ -6823,6 +6909,13 @@ function prioCard(p, num) {
     </div>`;
 }
 
+/** 근거 발화가 빈 개념의 한 줄 — 판정하지 않은 개념(na)은 「찾지 못했어요」 가 아니다. 찾아보지 않았다 (REC-10) */
+function noEvidenceNote(status) {
+  return status === 'na'
+    ? '녹음이 이 자료의 발표가 아니라서 이 개념의 말은 찾아보지 않았어요.'
+    : '이 개념에 해당하는 발화를 찾지 못했어요.';
+}
+
 /* 탭 2 — 개념별 판정 */
 /* API verdict → 화면 상태. 'mid'(언급만)는 사람이 쓰던 중간값이라 API 에 대응이 없다. */
 const STATUS_FROM_VERDICT = {
@@ -6832,6 +6925,8 @@ const STATUS_FROM_VERDICT = {
 /**
  * 실제 파이프라인 결과(F-07 그래프 + F-11 판정)를 판정 탭 트리로 옮긴다.
  * 결과가 없으면 null — 호출부가 DATA 샘플로 떨어지고 화면에 그렇게 표시한다.
+ * 녹음이 이 자료의 발표가 아니면 정합은 판정을 하지 않았다(basis skipped) — item 이 missing 이어도 「안 나옴」 이 아니라
+ * 「판정 안 함」(na)이다. 같은 화면이 「판정하지 않았어요」 와 「안 나옴 17개」 를 같이 말하던 자리다 (REC-10).
  */
 function realJudgeTree() {
   const out = reportOut();
@@ -6840,6 +6935,7 @@ function realJudgeTree() {
   (out.alignment.items || []).forEach(i => { itemBy[i.node_id] = i; });
   const nodes = (out.graph.nodes || []).filter(n => itemBy[n.id]);
   if (!nodes.length) return null;
+  const unjudged = recordingUnrelated(out.score, out.alignment);
 
   return nodes
     .slice()
@@ -6855,7 +6951,7 @@ function realJudgeTree() {
         parent: n.parent_id || null,
         w: n.weight || 0,
         slide: `S${String(slideNo).padStart(2, '0')}`,
-        status: STATUS_FROM_VERDICT[it.verdict] || 'no',
+        status: unjudged ? 'na' : (STATUS_FROM_VERDICT[it.verdict] || 'no'),
         conf: Math.round((it.confidence || 0) * 100),
         checks: it.checks || {},
         ev: it.evidence || '',
@@ -6892,7 +6988,7 @@ function judgeTree() {
    남기고 비율은 숫자로 읽힌다 — 이 탭에서 핵심 그래픽 하나는 아래 개념 목록이다. */
 const JUDGE_SPLIT = [
   ['ok', '설명함'], ['mid', '언급만 함'], ['no', '안 나옴'],
-  ['ct', '자료와 모순'], ['om', '정당한 생략'],
+  ['ct', '자료와 모순'], ['om', '정당한 생략'], ['na', '판정 안 함'],
 ];
 
 function judgeSplitHtml(tree) {
@@ -6900,6 +6996,14 @@ function judgeSplitHtml(tree) {
   if (!total) return '';
   const n = {};
   tree.forEach(t => { n[t.status] = (n[t.status] || 0) + 1; });
+  /* 녹음이 이 자료의 발표가 아니면 판정 자체가 없다 — 「0개를 설명했어요 · 다시 볼 곳 N개」 는 거짓이다 (REC-10) */
+  if (n.na === total) {
+    return `
+    <div class="card jsplit-card">
+      <p class="jsplit-head">녹음이 이 자료의 발표가 아니라서 개념 <b class="num">${total}</b>개를 판정하지 않았어요</p>
+      <p class="note">이 자료로 발표한 녹음을 올리면 개념마다 설명했는지 같이 볼게요.</p>
+    </div>`;
+  }
   const rows = JUDGE_SPLIT.filter(([k]) => n[k]);
   /* 짚어야 할 것 = 안 나옴 + 자료와 모순. 「설명함 3개」만 크게 쓰면 잘한 것만
      말하는 리포트가 된다 — 못 한 쪽도 같은 줄에 적는다 (§4) */
@@ -6933,7 +7037,11 @@ function rJudge() {
   }
   const counts = { all: tree.length };
   tree.forEach(n => counts[n.status] = (counts[n.status] || 0) + 1);
-  const filters = [['all', '전체'], ['ok', '설명함'], ['mid', '언급만'], ['no', '안 나옴'], ['ct', '모순'], ['om', '생략']];
+  /* 판정을 안 한 발표(다른 발표 녹음)면 판정 칩 다섯을 0 으로 늘어놓지 않는다 — 「안 나옴 0」 도 판정처럼 읽힌다 (REC-10) */
+  const filters = counts.na === tree.length
+    ? [['all', '전체'], ['na', '판정 안 함']]
+    : [['all', '전체'], ['ok', '설명함'], ['mid', '언급만'], ['no', '안 나옴'], ['ct', '모순'], ['om', '생략'],
+      ...(counts.na ? [['na', '판정 안 함']] : [])];
   const items = tree.filter(n => jFilter === 'all' || n.status === jFilter);
   if (!items.some(n => n.id === jSel) && items.length) jSel = items[0].id;
   const n = tree.find(t => t.id === jSel);
@@ -6954,7 +7062,9 @@ function rJudge() {
       </div>
       <div class="card" id="jdetail">${n ? jDetail(n, tree) : '<p class="note">이 상태의 개념이 없어요.</p>'}</div>
     </div>
-    <p class="ai-note">${(isReal || isShowcaseDemo())
+    <p class="ai-note">${isReal && tree.every(t => t.status === 'na')
+      ? '녹음이 이 자료의 발표가 아니라서 개념 판정은 하지 않았어요.'
+      : (isReal || isShowcaseDemo())
       ? '판정은 AI 분석 결과예요. 이상하다고 느껴지면 근거 발화를 직접 확인해보세요.'
       : (isLiveReportSession()
         ? '내 발표 분석 결과가 없어 개념 판정을 그리지 못했어요.'
@@ -7002,7 +7112,7 @@ function jDetail(n, tree = DATA.tree) {
       <div class="bubble fixup" style="background:var(--ct-bg)">${n.spokeSays}<time>${n.spokeTime}</time></div>
     </div>` : `
     <div class="drow"><b>근거 발화</b>
-      <div class="bubble">${n.ev ? escapeHtml(n.ev) : '<span class="note">이 개념에 해당하는 발화를 찾지 못했어요.</span>'}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
+      <div class="bubble">${n.ev ? escapeHtml(n.ev) : `<span class="note">${noEvidenceNote(n.status)}</span>`}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
     </div>`}
     ${n.why ? `<div class="drow"><b>판정 이유</b>${escapeHtml(n.why)}</div>` : ''}
     ${n.fix ? `<div class="fixbox"><b>이렇게 말해보세요</b><p>${escapeHtml(n.fix)}</p></div>` : ''}
@@ -7306,9 +7416,25 @@ function logicBreakToFeature(l) {
 
 function rLogic() {
   const flow = (reportOut() || {}).flow;
-  if (flow && Array.isArray(flow.issues) && flow.issues.length) {
+  if (flow && Array.isArray(flow.issues) && flow.issues.length && !reportUnrelated()) {
     $('#rbody').innerHTML = rLogicRealCards(flow);
     paintDeckThumbs($('#rbody'));
+    return;
+  }
+  /* 내 발표 리포트면 흐름 문제가 없어도 샘플 흐름(DATA.logicBreaks)을 그리지 않는다 — 남의 자료 장 번호·발화가 내 리포트에
+     떴다(09-30 녹음 대화 감사: 8장 자료 리포트에 「10번과 13번은 논리가 달라요」). 샘플로 위장하지 않고 사실을 말한다 (§4) */
+  if (isLiveReportSession()) {
+    const unrelated = reportUnrelated();
+    const verdict = unrelated
+      ? { headline: '흐름은 비교하지 않았어요',
+          action: '녹음이 이 자료의 발표가 아니에요. 이 자료로 발표한 녹음을 올리면 자료 순서와 말한 순서를 같이 볼게요.' }
+      : flow
+        ? { headline: '흐름에서 짚을 곳을 찾지 못했어요',
+            action: '자료 순서와 말한 순서를 맞춰 봤는데 끊긴 연결이나 건너뛴 근거가 잡히지 않았어요.' }
+        : { headline: '흐름 비교 결과가 없어요',
+            action: '흐름 비교가 끝나지 않아서 이번 리포트에는 싣지 못했어요.' };
+    // 흐름을 비교했으면 순서 일치도 한 줄(rLogicRealCards 의 끝줄)은 실측이라 남긴다
+    $('#rbody').innerHTML = tabVerdictHtml(verdict) + (flow && !unrelated ? rLogicRealCards(flow) : '');
     return;
   }
   // 샘플 경로도 같은 구조 — 끊긴 곳을 앞으로, 잘된 연결은 접는다 (샘플 배지는 판정 헤드가 단다)
@@ -7517,6 +7643,20 @@ function timeSplitCard(pace) {
 }
 
 function rPace(host = $('#rbody')) {
+  /* 녹음이 이 자료의 발표가 아니면 말 속도·시간 배분·말버릇은 이 발표의 값이 아니다 (09-30 REC-10). F-17 은 빈 결과를 내는데,
+     그대로 두면 아래 폴백이 샘플 속도표(DATA.pace)를 그린다 — 0 도 샘플도 아니고 「재지 않았어요」 다. 객석(#dlvAud)은 그대로 —
+     객석도 녹음을 못 믿는 까닭을 정해진 말로 한다 (F-12). */
+  if (reportUnrelated()) {
+    host.innerHTML = `
+      <div class="voice-stack">
+        ${tabVerdictHtml({
+          headline: '말 속도·시간 배분·말버릇은 재지 않았어요',
+          action: '녹음이 이 자료의 발표가 아니에요. 이 자료로 발표한 녹음을 올리면 같이 볼게요.',
+        })}
+        <div id="dlvAud"></div>
+      </div>`;
+    return;
+  }
   const livePace = (reportOut() || {}).pace;
   const liveHabits = (reportOut() || {}).habits;
   const liveReport = (reportOut() || {}).report;
@@ -7916,7 +8056,7 @@ function mapSvgString() {
   // 면·선·글자를 모두 상태색으로 칠하면 개요보다 AI 생성 다이어그램처럼 보인다.
   const NODE_FILL = '#FFFFFF';
   const NODE_LINE = '#D8E2DD';
-  const ACCENT = { ok: '#0A8F68', mid: '#A16207', no: '#C2413A', ct: '#526B61', om: '#6B7684' };
+  const ACCENT = { ok: '#0A8F68', mid: '#A16207', no: '#C2413A', ct: '#526B61', om: '#6B7684', na: '#A1A1AA' };
   // 실데이터 세션이면 개념 그래프·판정에서 만든 노드, 아니면 샘플.
   const all = liveMapNodes() || DATA.mapNodes;
   const nodes = all.filter(n => n.root || !mapWeakOnly || n.status !== 'ok');
