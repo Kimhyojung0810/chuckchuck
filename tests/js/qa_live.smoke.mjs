@@ -37,6 +37,7 @@ const EXPORT_LINE = `
   qaLiveActive, newLiveState, liveStalled, hintSlideNos,
   liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
   liveScoredAnswers, stuckLabelFor, coachMeta, coachReactText,
+  paperHref, attachQuestionPapers, linkCitedText, questionPapersHtml,
 };`;
 
 /**
@@ -394,6 +395,30 @@ test('react 에 붙어 온 자료 인용은 카드로 그리니 본문에서 뗀
   eq(api.coachReactText(react, '손실은 돌아오는 과정에서 커진다'), '괜찮아요, 같이 볼게요.', '인용 제거');
   eq(api.coachReactText(react, ''), react, '인용이 없으면 그대로');
   eq(api.coachReactText('그냥 한 마디', '인용'), '그냥 한 마디', '« 가 없으면 그대로');
+});
+
+test('논문 근거 질문은 그 논문으로 가는 링크를 단다', () => {
+  const { api } = newContext();
+  const papers = [
+    { id: 's04', cite_key: 'Paulsrud et al. (2026)', title: 'Sleep measures', url: 'https://doi.org/10.1016/j.sleep.2026.108965' },
+    { id: 's05', cite_key: 'Bad et al. (2020)', url: 'javascript:alert(1)', doi: '10.1234/abc' },
+    { id: 's06', cite_key: 'None et al. (2020)', url: 'javascript:alert(1)', doi: '' },
+  ];
+  const qs = api.attachQuestionPapers([
+    { id: 'q1', question: 'Paulsrud et al. (2026)는 그렇게 봤는데 맞나요?', paper_ids: ['s04', 'zz'] },
+    { id: 'q2', question: '자료만 묻는다', paper_ids: [] },
+    { id: 'q3', question: 'x', paper_ids: ['s05', 's06'] },
+  ], papers);
+  eq(qs[0].papers.length, 1, '없는 id 는 버린다');
+  eq(qs[0].papers[0].href, 'https://doi.org/10.1016/j.sleep.2026.108965', 'url 그대로');
+  eq(qs[1].papers, undefined, '인용 없는 질문은 그대로');
+  eq(qs[2].papers.map((r) => r.href).join(','), 'https://doi.org/10.1234/abc', 'http 아닌 url 은 DOI 로, 둘 다 없으면 뺀다');
+  const html = api.linkCitedText(qs[0].question, qs[0].papers);
+  eq(html.includes('<a class="msg-paper-link" href="https://doi.org/10.1016/j.sleep.2026.108965"'), true, '문장 속 인용에 링크');
+  eq(html.includes('rel="noopener noreferrer"'), true, '새 창은 opener 를 끊는다');
+  eq(api.questionPapersHtml([]), '', '문헌 없으면 줄도 없다');
+  eq(api.questionPapersHtml(qs[0].papers).includes('Sleep measures'), true, '아래 줄에 제목');
+  eq(api.attachQuestionPapers([{ id: 'q', paper_ids: ['s04'] }], undefined)[0].papers, undefined, 'papers 가 없는 옛 응답');
 });
 
 let failed = 0;

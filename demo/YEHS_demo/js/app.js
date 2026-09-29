@@ -7929,7 +7929,7 @@ function ensureLiveQuestions() {
     const questions = (doc && doc.questions) || [];
     if (questions.length) {
       // 어느 자료로 만든 질문인지 같이 새긴다 — 자료가 바뀌면 낡은 것이 된다.
-      qa.live = newLiveState(qaSessionId(), questions, qaDocKey());
+      qa.live = newLiveState(qaSessionId(), attachQuestionPapers(questions, doc.papers), qaDocKey());
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;
@@ -8306,6 +8306,7 @@ function streamRow(it) {
       <div class="msg-bubble">
         <span class="msg-meta">${it.meta || ''}${it.slide ? ` · ${slideNumber(it.slide)}번 슬라이드` : ''}</span>
         <p class="msg-q">${it.text}</p>
+        ${it.papers || ''}
         ${it.basis ? `<span class="msg-basis">${it.basis}</span>` : ''}
         ${(it.choices || []).length ? `<div class="qa-choices">${it.choices.map((c) => `<button type="button" class="qa-choice-chip">${c}</button>`).join('')}</div>` : ''}
         ${it.fb || ''}

@@ -421,6 +421,51 @@ function liveFeedbackHtml(kind, target, buttons, payload) {
   try { return fbButtonsHtml(kind, target, buttons, payload); } catch (_) { return ''; }
 }
 
+/* 논문을 근거로 든 질문은 그 논문으로 바로 갈 수 있어야 한다 (2026-09-29 사용자).
+   「Paulsrud et al. (2026)는 …라고 봤는데」 만 보고는 그 논문이 정말 그렇게 말했는지 확인할 길이
+   없었다 — 검색 문헌 요지를 LLM 이 한 절로 줄이다 보니 초록에 없는 주장이 붙기도 한다.
+   F-08 QuestionDoc 은 이미 인용한 문헌(papers, url·doi)과 질문별 paper_ids 를 준다. 화면만 버리고 있었다. */
+
+/** 문헌 링크 주소. http(s) 만 받는다 — 검색 API 가 준 값이라 javascript: 같은 것을 거른다. 없으면 DOI 로 */
+function paperHref(ref) {
+  const url = String((ref && ref.url) || '').trim();
+  if (/^https?:\/\//i.test(url)) return url;
+  const doi = String((ref && ref.doi) || '').trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, '');
+  return /^10\.\d{4,}\/\S+$/.test(doi) ? `https://doi.org/${doi}` : '';
+}
+
+/** 질문마다 인용한 문헌(링크 재료만)을 붙인 새 배열. 세션에 저장되므로 질문 문서의 papers 를 따로 안 들고 다닌다 */
+function attachQuestionPapers(questions, papers) {
+  const byId = new Map((papers || []).map((r) => [String(r.id), r]));
+  return (questions || []).map((q) => {
+    const refs = (q.paper_ids || []).map((id) => byId.get(String(id))).filter(Boolean)
+      .map((r) => ({ id: String(r.id), cite_key: r.cite_key || '', title: r.title || '', href: paperHref(r) }))
+      .filter((r) => r.href);
+    return refs.length ? { ...q, papers: refs } : q;
+  });
+}
+
+function paperAnchor(ref, label) {
+  return `<a class="msg-paper-link" href="${escapeHtml(ref.href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(ref.title || ref.cite_key)}">${label}</a>`;
+}
+
+/** 질문 문장 속 「저자 (연도)」 에 링크를 건다. 이스케이프한 뒤에 감싸므로 질문 본문이 HTML 로 새지 않는다 */
+function linkCitedText(text, refs) {
+  let html = escapeHtml(text);
+  (refs || []).forEach((ref) => {
+    const key = escapeHtml(ref.cite_key);
+    if (key && html.includes(key)) html = html.replace(key, paperAnchor(ref, key));
+  });
+  return html;
+}
+
+/** 질문 말풍선 아래 「근거 논문」 줄 — 문장 속 링크를 못 보고 지나쳐도 제목으로 찾아갈 수 있게 */
+function questionPapersHtml(refs) {
+  if (!(refs || []).length) return '';
+  return `<span class="msg-papers">근거 논문 ${refs.map((r) =>
+    paperAnchor(r, `${escapeHtml(r.cite_key)}${r.title ? ` · ${escapeHtml(r.title)}` : ''} ↗`)).join(' · ')}</span>`;
+}
+
 function presentLiveQuestion() {
   const L = qa.live;
   if (L.asked === L.qi) return;
@@ -430,7 +475,8 @@ function presentLiveQuestion() {
     who: 'ai',
     kind: q.trap ? 'claim' : 'question',
     meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · ${SEVERITY_LINE[q.severity] || '보통이에요'}`,
-    text: escapeHtml(q.question),
+    text: linkCitedText(q.question, q.papers),
+    papers: questionPapersHtml(q.papers),
     basis: q.why ? escapeHtml(q.why) : '',
     // 👍/👎 — 「이 자료에서 나올 만한 질문이었나」. 이것이 질문 생성의 라벨이다.
     fb: liveFeedbackHtml('question_vote', String(q.id), [['up', '👍 좋은 질문이에요'], ['down', '👎 이 질문은 별로예요']],
