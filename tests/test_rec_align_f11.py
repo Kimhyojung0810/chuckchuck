@@ -76,6 +76,7 @@ LAUNDRY_G = ConceptGraph("deck.pptx", 6, nodes=[
     ConceptNode(id="wait", label="평일 대기", slide_nos=[2, 3], summary="평일 저녁 평균 14분", weight=0.8, importance="core"),
     ConceptNode(id="formula", label="대기 시간 계산", slide_nos=[3], weight=0.6, importance="core"),
     ConceptNode(id="notice", label="알림 문자", slide_nos=[4], summary="재방문율 증가 폭이 컸다", weight=0.7, importance="core"),
+    ConceptNode(id="revisit", label="재방문율", slide_nos=[4], weight=0.4, importance="core"),
     ConceptNode(id="unmanned", label="무인 매장", slide_nos=[5], weight=0.2, importance="support"),
     ConceptNode(id="dryer", label="건조기 증설", slide_nos=[6], weight=0.5, importance="core"),
 ])
@@ -83,14 +84,14 @@ LAUNDRY_TALK = talk(
     (1, "오늘은 동네 빨래방 운영 개선을 제안할게요."),
     (2, "평일 저녁 평균 대기는 이십사 분이에요."),
     (3, "이 식은 오늘 다루지 않을게요."),
-    (4, "알림 문자를 보낸 매장이 안 보낸 매장보다 재방문율이 덜 늘었어요."),
+    (4, "그리고 매장끼리도 견줘 봤는데요, 알림 문자를 보낸 매장이 안 보낸 매장보다 재방문율이 덜 늘었어요."),
     (5, "예외 매장은 오늘은 빼고 바로 제안으로 가겠습니다."),
     (6, "그래서 건조기 두 대를 더 두면 대기가 절반으로 줄어들어요."),
 )
 
 
 def _aligned_all() -> list[dict]:
-    return [{"node_id": n.id, "verdict": "aligned", "evidence": seg.text}
+    return [{"node_id": n.id, "verdict": "aligned", "evidence": seg.text.rstrip(".")}
             for n in LAUNDRY_G.nodes for seg in LAUNDRY_TALK.by_slide if seg.slide_no == n.slide_nos[0]]
 
 
@@ -101,7 +102,12 @@ def test_align_carries_contradiction_kinds():
     assert "24분" in wait.note and "14분" in wait.note
     assert (notice.verdict, notice.contra_kind, notice.deck_slide_no) == ("contradiction", "direction", 4)
     assert "방향" in notice.note
+    # 발화 쪽 인용은 어긋난 절부터 — 앞의 딴 절(「그리고 매장끼리도 견줘 봤는데요,」)은 뗀다 (질문이 그 절을 따옴표로 들었다)
+    assert notice.evidence == "알림 문자를 보낸 매장이 안 보낸 매장보다 재방문율이 덜 늘었어요."
     assert all(i.contra_kind == "" for i in doc.items if i.verdict != "contradiction")
+    # 같은 문장을 설명함 근거로 쓴 다른 개념은 그 문장이 자료와 반대라는 말을 숨기지 않는다 (LLM 인용은 끝 부호를 곧잘 뺀다)
+    revisit = doc.item("revisit")
+    assert revisit.verdict == "aligned" and "4장과 방향이 반대" in revisit.note
 
 
 def test_skipped_slides_with_new_cues_are_not_justified_skips():
@@ -109,7 +115,7 @@ def test_skipped_slides_with_new_cues_are_not_justified_skips():
     items = [i for i in items if not (i["node_id"] == "unmanned" and i["verdict"] == "aligned")]
     doc = align_speech(LAUNDRY_G, LAUNDRY_TALK, llm=LLM(items), slide_doc=LAUNDRY)
     assert sorted(s.slide_no for s in doc.skipped_slides) == [3, 5]
-    assert doc.item("formula").verdict == "missing"
+    assert doc.item("formula").verdict == "missing" and doc.item("formula").evidence == ""   # 설명한 문장이 없다면서 인용을 남기지 않는다
     unmanned = doc.item("unmanned")                     # 가벼운 개념이라도 말로 건너뛴 장이면 정당한 생략이 아니다
     assert unmanned.verdict == "missing" and unmanned.decided_by == "code" and "5장" in unmanned.note
 

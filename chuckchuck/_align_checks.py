@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ._deck_claims import Conflict, Deck, DeckLine, conflict_family, conflicts, content_stems, num_label, numbers
+from ._deck_claims import Conflict, Deck, DeckLine, clauses, conflict_family, conflicts, content_stems, num_label, numbers
 from ._match import contains_tokens, label_tokens, norm_tokens
 from ._spoken import Utterance, split_sentences, spoken_numbers
 from ._spoken import count_hits as _count_hits
@@ -324,11 +324,31 @@ class Contra:
     said: str = ""        # 발화 쪽 수치 (숫자 어긋남일 때)
     deck_said: str = ""   # 자료 쪽 수치
     relation: str = ""    # 비교 어긋남의 꼴 — "swapped"(두 쪽을 맞바꿈) · "reversed"(방향 반대)
+    #: 발화 쪽 인용 — 어긋난 절부터 문장 끝까지(발화 원문 그대로). 앞 절이 딴 말이면 뗀다(`clause_quote`).
+    quote: str = ""
 
     @property
     def family(self) -> str:
         """모순의 갈래 — "number" · "direction" · "polarity" (`AlignmentItem.contra_kind`)."""
         return conflict_family(self.kind)
+
+
+def clause_quote(text: str, claim: str) -> str:
+    """
+    발화 문장에서 어긋난 절(claim)부터 문장 끝까지 — 원문 그대로. 앞에 붙은 딴 절(「그리고 여는 방법도 비교했는데요,」)을 뗀다.
+    09-30 실측(녹음 모드 화면): 모순 질문이 문장 첫 절을 따옴표로 들어 「발표에서 “여는 방법도 비교했는데요”라고 했는데 … 달라요」 가
+    됐다. claim 은 수를 자료 표기로 바꾼 글에서 나온 절이라, 원문을 같은 규칙(`clauses`)으로 갈라 낱말이 가장 많이 겹치는 절을 고른다.
+    """
+    parts = clauses(text)
+    if len(parts) < 2:
+        return text
+    want = content_stems(claim)
+    best = max(range(len(parts)), key=lambda i: (_count_hits(want, content_stems(spoken_numbers(parts[i]))), -i))
+    if best == 0:
+        return text
+    head = " ".join(parts[best].split()[:2])
+    i = text.find(head)
+    return text[i:].strip() if i > 0 else text
 
 
 def _same_statement(claim: str, deck_line: str) -> bool:
@@ -411,6 +431,7 @@ def contradictions(graph: ConceptGraph, utts: list[Utterance], deck: Deck) -> li
                 continue
             said, deck_said = _number_pair(c.claim, deck_line, c) if c.kind in _NUMBER_KINDS else ("", "")
             taken.add(node.id)
-            out.append(Contra(node.id, u, c.kind, c.slide_no, deck_line, said, deck_said, c.relation))
+            out.append(Contra(node.id, u, c.kind, c.slide_no, deck_line, said, deck_said, c.relation,
+                              clause_quote(u.text, c.claim)))
             break                               # 문장 하나에 모순 하나 — 같은 문장이 두 개념의 모순이 되지 않게
     return out
