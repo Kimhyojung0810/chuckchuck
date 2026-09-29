@@ -1275,7 +1275,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     if (v.react) {
       // 점수를 같이 싣는다. 「좋아지고 있다」는 말보다 62 → 78 이라는 진짜 숫자가
       // 세다 (UI_REDESIGN §14 — 숫자는 신성하다, 지어내지 않는다).
-      const quote = v.evidence_quote || '';
+      // 모순 질문의 인용은 자료 쪽 줄(= 답)이다 — 서버가 「모르겠어요」 1·2단에서 비워 보내지만, 화면도 3단 해설 전에는 인용 상자에
+      // 싣지 않는다 (09-30 WP-CONTRA · 녹음 감사 REC-08: 1단부터 자료 줄 상자가 떴다)
+      const quote = (liveContradiction(q) && v.coach_stage !== 'explain') ? '' : (v.evidence_quote || '');
       pushTurn({
         // 70~79 통과(요지는 맞음)는 「절반쯤」 이 아니다 — 서버의 passed 를 그대로 칩에 옮긴다 (09-30 §10)
         who: 'ai', kind: 'react', verdict: (!v.coach_stage && v.passed && v.verdict === 'partial') ? 'full' : m.react,
@@ -1665,6 +1667,16 @@ function autoHint(tier) {
  * @param {object|null} prev  바로 앞 서버 응답 (L.lastJudgement — 이번 응답으로 덮기 전)
  * @param {object} v          이번 판정
  */
+/**
+ * 코드가 확인한 모순 질문인가 — 「발표에서 “…”라고 했는데, 자료 N장과 달라요. 어느 쪽이 맞나요?」 (F-08 basis.source contradiction).
+ * 골자·자료 인용이 곧 자료 쪽 값(= 답)이라, 발표자가 통과하기 전에는 「빠진 절반」 에 완성 문장을 펼치지 않고 「모르겠어요」 1·2단 인용
+ * 상자에도 싣지 않는다 — 3단 해설·「답 보고 다시 말해보기」·마무리 카드에서 연다 (09-30 WP-CONTRA · 녹음 감사 REC-04·08).
+ */
+function liveContradiction(q) {
+  const src = (q && ((q.basis && q.basis.source) || q.source)) || '';
+  return src === 'contradiction';
+}
+
 function liveRevealsHalf(prev, v) {
   const stage = (prev && prev.coach_stage) || '';
   return !!v && v.verdict === 'partial' && stage !== 'narrow' && stage !== 'scaffold';
@@ -1692,7 +1704,8 @@ function revealHalf(q, v) {
   const points = (v.missing_points || []).filter(Boolean).slice(0, 3);
   // 함정 질문의 골자는 **바로잡은 사실 그 자체**다 — 아직 못 바로잡았는데 펼치면 정답을 흘린다 (09-30 §7).
   // 브리지는 함정의 전제·골자를 화면 사본에서 뺀다(gist_withheld · 09-30 WP-J2) — 함정인지는 q.trap 으로, 바로잡은 뒤의 골자는 판정 응답으로 온다.
-  const trapOpen = !!((q.trap || q.trap_premise || q.gist_withheld) && !v.passed);
+  // 모순 질문의 골자도 자료 쪽 값 그 자체다 — 통과하기 전에는 펼치지 않는다 (09-30 WP-CONTRA · REC-04: 발표 값을 고집한 75 통과 뒤 골자가 떴다).
+  const trapOpen = !!((q.trap || q.trap_premise || q.gist_withheld || liveContradiction(q)) && !v.passed);
   const answer = trapOpen ? '' : (liveRevealModel(q, v) || v.summary_sentence || '');
   // 둘 다 비면 열 것이 없다. 빈 카드를 띄우느니 되묻기만 이어 간다.
   if (!points.length && !answer) return false;

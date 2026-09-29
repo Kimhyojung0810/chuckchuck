@@ -43,7 +43,7 @@ const EXPORT_LINE = `
   liveBucket, liveHintsUsed, liveWholeSentences, liveDegradedLines, liveQuestionWhy, liveJudgeFailure,
   liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
   liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion, liveRevealsHalf,
-  liveEntryNotes,
+  liveEntryNotes, liveContradiction,
 };`;
 
 /**
@@ -762,6 +762,26 @@ test('WP-J2 함정 사본(trap_premise 없음)도 바로잡기 전에는 「빠�
   b.ctx.qa.live = liveState(b.api, [WITHHELD_TRAP]);
   b.api.revealHalf(WITHHELD_TRAP, { verdict: 'partial', passed: true, missing_points: [], answer_gist: '질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.' });
   eq(b.turns.filter((t) => t.kind === 'gist').map((t) => t.text), ['질문의 전제와 달리, 자료 2장은 「가장 크다」라고 해요.'], '바로잡은 뒤에는 판정이 싣고 온 골자');
+});
+
+/* ── WP-CONTRA · 모순 질문의 골자·인용은 자료 쪽 값(= 답)이다 ───────────────────────────── */
+
+const CONTRA_Q = { id: 'q1', label: '물 사용량', question: '발표에서 “물 사용량이 오십 퍼센트나 줄었어요”라고 했는데, 자료 4장의 수치와 달라요. 어느 쪽이 맞나요?',
+  source: 'contradiction', basis: { source: 'contradiction', checks: ['contradiction_reconcile'] },
+  answer_gist: '자료 4장은 “점적 관수로 바꾸자 물 사용량이 35% 줄었습니다.”라고 해요.', hints: ['방향', '범위', '빈칸'] };
+
+test('WP-CONTRA 모순 질문은 통과 전에는 「빠진 절반」 에 골자(자료 쪽 값)를 펼치지 않는다', () => {
+  const { ctx, api, turns } = newContext();
+  eq(api.liveContradiction(CONTRA_Q), true);
+  eq(api.liveContradiction({ source: 'core_weight' }), false);
+  eq(api.liveContradiction({ source: 'contradiction' }), true, 'basis 없는 옛 사본도 출처로 안다');
+  ctx.qa.live = liveState(api, [CONTRA_Q]);
+  api.revealHalf(CONTRA_Q, { verdict: 'partial', passed: false, missing_points: ['발표에서 한 말을 자료에 맞춰 고친 문장'], summary_sentence: '총평' });
+  eq(turns.filter((t) => t.kind === 'gist').length, 0, '못 바로잡았으면 완성 문장 칸이 없다');
+  const b = newContext();
+  b.ctx.qa.live = liveState(b.api, [CONTRA_Q]);
+  b.api.revealHalf(CONTRA_Q, { verdict: 'partial', passed: true, missing_points: [] });
+  eq(b.turns.filter((t) => t.kind === 'gist').length, 1, '통과한 뒤에는 편다');
 });
 
 test('WP-J2 함정 질문의 마무리 카드는 닫힌 판정이 싣고 온 골자를 쓴다 (사본에는 없다)', () => {
