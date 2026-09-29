@@ -515,7 +515,8 @@ function rubricWeakest(sc) {
     headline: `「${top.name}」부터 보면 좋아요`,
     action: '',
     hint: DIM_HINT[top.name] || '',
-    evidence: (worst && (worst.evidence || worst.note)) || '',
+    // 기둥의 「여기부터 보세요」 와 같은 근거 한 줄 — 마크다운 표째 오는 자료 인용을 글로 (plainEvidence)
+    evidence: worst ? (plainEvidence(worst.evidence) || plainEvidence(worst.note)) : '',
   };
 }
 
@@ -5705,7 +5706,52 @@ function clusterReason(key) {
   const worst = items
     .filter(it => it.cluster === key && it.status === 'scored' && (it.evidence || it.note))
     .sort((a, b) => (a.score || 0) - (b.score || 0))[0];
-  return worst ? (worst.evidence || worst.note) : '';
+  return worst ? (plainEvidence(worst.evidence) || plainEvidence(worst.note)) : '';
+}
+
+/** 「여기부터 보세요」 근거 한 줄의 글자 상한 — 기둥 카드에서 두세 줄이다 */
+const HINT_MAX = 90;
+/** 표 구분 칸(「---」「:--:」) */
+const MD_SEP_CELL_RE = /^:?-{3,}:?$/;
+/** 값이 빈 이름표 칸 — 「제목: -」「시각요소:」 */
+const MD_EMPTY_FIELD_RE = /^[^:：]{1,12}[:：]\s*-?\s*$/;
+
+/** 줄 하나의 마크다운 꾸밈을 걷는다 — 그림·링크(글만 남김)·굵게·취소선·코드 표시·줄머리 제목·인용·글머리표 */
+function stripMarkdownLine(line) {
+  return String(line || '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*|__|~~|`/g, '')
+    .replace(/^\s*(?:#{1,6}\s+|>\s*|[-*+•·▪]\s+|\d{1,2}[.)]\s+)/, '')
+    .trim();
+}
+
+/**
+ * 채점 근거(LLM 이 쓴 evidence·note)를 **짧은 글**로 — 「여기부터 보세요」·기둥 목록·홈 카드가 쓴다 (qa/tidy · WP-D 남은 것).
+ *
+ * 근거가 자료 인용이면 표가 마크다운째, 대개 한 줄로 눌려 온다(09-30 교실 공기 R1: 「측정 결과 | 조건 | 평균 농도 | … | --- | --- |
+ * … | 수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.」). 그대로 두면 기둥 카드가 파이프·대시로 찬다. 표가 있으면 표 칸은
+ * 버리고 표 밖의 글(앞의 제목·뒤의 문장)만, 표가 아닌 칸 나열(「제목: - | 본문: …」)은 값 있는 칸만 남긴다. 숫자는 고치지 않는다 —
+ * 글자를 지우기만 한다. 길면 문장 끝(없으면 낱말 경계)에서 자른다. 남는 글이 없으면 '' — 호출자가 다음 재료로 물러난다.
+ */
+function plainEvidence(text, max = HINT_MAX) {
+  const raw = String(text || '');
+  const hasTable = /\|\s*:?-{3,}:?\s*\|/.test(raw);
+  const kept = [];
+  raw.split(/\r?\n/).forEach((row) => {
+    const line = stripMarkdownLine(row);
+    if (!line) return;
+    if (!line.includes('|')) { kept.push(line); return; }
+    if (hasTable && line.startsWith('|')) return;                    // 여러 줄 표의 행
+    const cells = line.split('|').map(c => c.trim());
+    const pick = hasTable ? [cells[0], cells[cells.length - 1]] : cells;   // 한 줄로 눌린 표 — 표 밖의 글만
+    const vals = pick.filter(c => c && !MD_SEP_CELL_RE.test(c) && !MD_EMPTY_FIELD_RE.test(c));
+    if (vals.length) kept.push([...new Set(vals)].join(' · '));
+  });
+  const t = kept.join(' ').replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  const sentence = /^(.*[.!?。])\s/.exec(t.slice(0, max + 1));
+  return sentence && sentence[1].length >= max * 0.5 ? sentence[1] : faultClip(t, max);
 }
 
 /**
