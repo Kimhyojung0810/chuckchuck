@@ -373,8 +373,20 @@ KINDS = {
 }
 
 
+#: 작업 묶음마다 따로 두는 사례 파일 — 여러 묶음이 한 cases.json 끝에 동시에 덧붙이면 합칠 때마다 JSON 충돌이 난다 (09-30).
+CASES_DIR = C.HERE / "regression" / "cases.d"
+
+
 def load_cases(path: Path = CASES) -> list[dict]:
-    return (C.read_json(path) or {}).get("cases") or []
+    cases = list((C.read_json(path) or {}).get("cases") or [])
+    if path == CASES and CASES_DIR.is_dir():
+        for extra in sorted(CASES_DIR.glob("*.json")):
+            cases += (C.read_json(extra) or {}).get("cases") or []
+    seen: set[str] = set()
+    dup = sorted({c["id"] for c in cases if c["id"] in seen or seen.add(c["id"])})
+    if dup:
+        raise ValueError(f"회귀 사례 id 가 겹쳐요 (합치다 생긴 중복): {', '.join(dup)}")
+    return cases
 
 
 def run_cases(path: Path = CASES, only: set[str] | None = None) -> list[dict]:
