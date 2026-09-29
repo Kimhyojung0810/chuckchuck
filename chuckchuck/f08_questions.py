@@ -707,8 +707,10 @@ def _skipped_core(alignment: AlignmentDoc | None, graph: ConceptGraph) -> dict[s
 
 #: 발화 가운데 인용할 절을 자를 곳 — 쉼표·문장부호 뒤, 「…는데요,」 같은 이음 뒤.
 _CLAUSE_CUT_RE = re.compile(r"(?<=[,.?!])\s+")
-#: 절 머리의 군말 — 「음」「아」「어」「그」 (어느 발표에나 있는 말).
-_FILLER_HEAD_RE = re.compile(r"^(?:(?:음+|아+|어+|그+|저기|뭐)\s+)+")
+#: 절 머리의 군말 — 「음」「아」「어」「그」, 이음 말 「그리고·그래서·근데·그럼」 (어느 발표에나 있는 말). 이음 말로 시작한
+#: 인용(「“그리고 타율이 이 할도 안 되는…”」)은 앞 문장에 매달린 조각처럼 읽혔다 (09-30 녹음 감사 REC-17).
+_FILLER_HEAD_RE = re.compile(r"^(?:(?:음+|아+|어+|그+|저기|뭐|그리고|그래서|그런데|근데|그러니까|그니까|그러면|그럼|또한|또|아무튼|즉)"
+                             r"\s*,?\s+)+")
 
 
 def _clip_words(text: str, limit: int) -> str:
@@ -779,12 +781,20 @@ def _contra_leaks(text: str, item: AlignmentItem) -> bool:
                for i in range(0, max(0, len(deck) - _DECK_CHUNK + 1)))
 
 
+#: 모순 질문이 **답을 요구하는** 꼴 — 「어느 쪽이 맞나요」「무엇이 맞나요」「어떻게 다른가요」「어떤 차이가 있나요」. 「…다른가요?」
+#: 처럼 예/아니요로 닫히는 물음은 「네」 한 마디로 끝나 바로잡을 값을 말하게 하지 않는다 (09-30 녹음 감사 REC-17 — 「다른」 하나로
+#: `_RECONCILE_RE` 를 통과했다). 「왜 다르게 말했나요」 는 바로잡기가 아니라 변명을 묻는 꼴이라 넣지 않는다.
+_RECONCILE_ASK_RE = re.compile(
+    r"어느\s?쪽|(?:어떤|어느)\s?(?:게|것이|값이|수치가|말이)\s?맞|무엇이\s?맞|뭐가\s?맞|어떻게\s?(?:다르|다른|달라|어긋|바로잡|고치|맞추)|"
+    r"(?:무엇이|어디가|어떤\s?점이)\s?(?:다르|다른|달라)|(?:어떤|무슨)\s?차이")
+
+
 def _contra_asked(question: str, item: AlignmentItem) -> bool:
-    """LLM 질문을 모순 질문으로 둘 수 있는가 — 자료 쪽 값을 흘리지 않고, 그 장을 가리키며, 어느 쪽이 맞는지 묻는다."""
+    """LLM 질문을 모순 질문으로 둘 수 있는가 — 자료 쪽 값을 흘리지 않고, 그 장을 가리키며, 어느 쪽이 맞는지 **답을 요구하는** 꼴로 묻는다."""
     if not question or _contra_leaks(question, item):
         return False
     slide_ok = not item.deck_slide_no or bool(re.search(rf"(?<!\d){item.deck_slide_no}\s*장", question))
-    return slide_ok and bool(_RECONCILE_RE.search(question))
+    return slide_ok and bool(_RECONCILE_RE.search(question)) and bool(_RECONCILE_ASK_RE.search(question))
 
 
 def _contra_where(item: AlignmentItem) -> str:

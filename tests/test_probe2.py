@@ -424,3 +424,30 @@ def test_자료_줄_골자도_해요체로_끝내고_근거_인용은_원문_그
 def test_하네스_두_물음_잣대(question, two):
     from labs.qa_verify import regress as RG
     assert RG.two_asks(question) is two
+
+
+# ===========================================================================
+# 녹음 감사 REC-17 — 모순 질문은 답을 요구하는 꼴로, 인용은 이음 말 없이
+# ===========================================================================
+
+def _contra():
+    from chuckchuck.contracts import AlignmentItem
+    return AlignmentItem(node_id="keep", verdict="contradiction", evidence="그리고 출석 유지율이 구십 퍼센트로 올랐어요.",
+                         deck_quote="출석 유지율이 72%로 올랐습니다", deck_slide_no=2, decided_by="code")
+
+
+@pytest.mark.parametrize("question,ok", [
+    ("발표에서 말한 출석 유지율이 자료 2장과 다른가요?", False),                          # 예/아니요로 닫힌다
+    ("발표에서 말한 출석 유지율이 자료 2장의 수치와 다른데, 어느 쪽이 맞나요?", True),
+    ("발표에서 한 말은 자료 2장과 어떻게 다른가요?", True),
+    ("자료 2장과 어떤 차이가 있나요?", True),
+    ("자료 2장과 다르게 말한 까닭은 무엇인가요?", False),                              # 바로잡기가 아니라 변명
+])
+def test_모순_질문은_답을_요구하는_꼴만_LLM_문장으로_둔다(question, ok):
+    assert f08._contra_asked(question, _contra()) is ok
+
+
+def test_모순_인용은_이음_말로_시작하지_않는다():
+    said = f08._said_clause(_contra().evidence, numeric=True)
+    assert said.startswith("출석 유지율이 구십 퍼센트로") and not said.startswith("그리고")
+    assert "“그리고" not in f08._contra_question(_contra(), GRAPH.nodes[1])
