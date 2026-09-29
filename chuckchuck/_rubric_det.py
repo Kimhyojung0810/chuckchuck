@@ -22,7 +22,9 @@ from .contracts import (
     ConceptGraph,
     HabitDoc,
     PaceDoc,
+    RubricFault,
     SlideDoc,
+    SlidePace,
     Transcript,
 )
 
@@ -86,6 +88,8 @@ READING_MIN_CHARS = 40
 #: 시간 배분(28번) 감점. 핵심을 놓친 게 보조를 놓친 것보다 무겁다.
 ALLOC_CORE_PENALTY = 14.0
 ALLOC_SUPPORT_PENALTY = 6.0
+#: 배분(28·32번)이 어긋났다고 보는 폭 — f17_pace 의 권장 대비 ±25% 와 같다.
+ALLOC_TOL = 0.25
 
 #: 제한시간(31번) 허용 오차. 이 안이면 만점.
 TIME_FREE_DRIFT = 0.05
@@ -331,6 +335,10 @@ def _item_04_contradiction(ev: Evidence) -> Result:
         return 100, "자료와 어긋나게 말한 곳이 없어요"
     # weight 가 0 인 노드도 모순은 모순이라 최소 절반은 매긴다
     penalty = sum(CONTRADICTION_UNIT_PENALTY * max(0.5, min(1.0, i.doc_weight)) for i in bad)
+    # 코드가 자료 원문과 견줘 확인한 모순(deck_quote)이 있으면 그 설명(「발표에서는 49%라고 했는데 자료 6장은 29%예요」)을 먼저 보인다
+    checked = next((i.note for i in bad if i.deck_quote and i.note), "")
+    if checked:
+        return _penalize(penalty), f"자료와 어긋난 설명이 {len(bad)}곳 있어요 — {checked}"
     sample = next((i.evidence for i in bad if i.evidence), "")
     tail = f" — 예: “{_quote(sample)}”" if sample else ""
     return _penalize(penalty), f"자료와 어긋난 설명이 {len(bad)}곳 있어요{tail}"
@@ -521,20 +529,49 @@ def _item_27_reading(ev: Evidence) -> Result:
     return score, f"화면 문장과 겹치는 비율이 평균 {avg:.0%}로, 자기 말로 풀었어요"
 
 
+def _alloc_scale(pace: PaceDoc) -> float:
+    """
+    권장 배분을 **실제 발표 길이에 맞춘** 배율 (실제 총 길이 / 목표).
+
+    28·32·33번은 「중요도에 맞게 나눠 썼나」 — 비율의 문제다. 목표 10분에 5분 20초로 끝낸 발표를 목표 기준 권장 초로
+    견주면 모든 장·모든 구간이 「부족」 이 되어, 제한시간(31번)이 이미 매긴 한 가지 사실을 세 번 더 매긴다
+    (09-30 held-out 혈당 녹음: 시간 관리 5/100 — 31번 0 · 32번 0 · 33번 19). 총 길이는 31번에게 맡기고 여기선 나눈 모양만 본다.
+    """
+    if pace.target_sec > 0 and pace.actual_sec > 0:
+        return pace.actual_sec / pace.target_sec
+    return 1.0
+
+
+def _spoke_sec(s: SlidePace) -> float:
+    """설명한 시간 — 말로 건너뛴 장(skip_cue)은 머문 시간이 있어도 0 이다 (09-30 held-out C-06)."""
+    return 0.0 if s.skip_cue else max(0.0, s.recommended_sec + s.delta_sec)
+
+
 def _item_28_slide_alloc(ev: Evidence) -> Result:
-    """슬라이드별 설명시간 균형 — 중요도를 가중해서 어긋난 슬라이드를 센다."""
+    """슬라이드별 설명시간 균형 — 중요도를 가중해서 어긋난 슬라이드를 센다. 권장은 실제 길이에 맞춰 줄이거나 늘린다."""
     if not ev.pace or not ev.pace.slides:
         return None
+    scale = _alloc_scale(ev.pace)
     penalty = 0.0
     off: list[int] = []
+    skipped: list[int] = []
     for s in ev.pace.slides:
-        if s.status in ("short", "long"):
+        if s.skip_cue:
+            skipped.append(s.slide_no)
+            bad = True
+        elif s.recommended_sec > 0:
+            ratio = _spoke_sec(s) / (s.recommended_sec * scale)
+            bad = ratio < 1.0 - ALLOC_TOL or ratio > 1.0 + ALLOC_TOL
+        else:
+            bad = s.status in ("short", "long")    # 초를 모르면 F-17 판정을 따른다
+        if bad:
             penalty += ALLOC_CORE_PENALTY if s.importance == "core" else ALLOC_SUPPORT_PENALTY
             off.append(s.slide_no)
     score = _penalize(penalty)
     if not off:
         return score, "슬라이드마다 중요도에 맞게 시간을 나눠 썼어요"
-    return score, f"시간 배분이 어긋난 슬라이드가 {len(off)}개예요 ({', '.join(map(str, off[:5]))}번)"
+    tail = f" · {', '.join(map(str, skipped))}번은 말로 건너뛰었어요" if skipped else ""
+    return score, f"시간 배분이 어긋난 슬라이드가 {len(off)}개예요 ({', '.join(map(str, off[:5]))}번){tail}"
 
 
 def _item_30_emphasis_match(ev: Evidence) -> Result:
@@ -563,36 +600,58 @@ def _item_31_total_time(ev: Evidence) -> Result:
     )
 
 
+def _section_ratio(sec, slides: dict[int, SlidePace], scale: float) -> float | None:
+    """구간 실제(설명한) 시간 / 실제 길이에 맞춘 권장 시간. 권장을 모르면 None."""
+    if sec.recommended_sec <= 0:
+        return None
+    spoke = sec.actual_sec - sum(slides[n].actual_sec for n in sec.slide_nos if n in slides and slides[n].skip_cue)
+    return max(0.0, spoke) / (sec.recommended_sec * scale)
+
+
 def _item_32_section_alloc(ev: Evidence) -> Result:
-    """구간별 시간 배분 — 도입·본론·결론 비중."""
+    """구간별 시간 배분 — 도입·본론·결론 비중. 권장은 실제 길이에 맞춰 줄이거나 늘린다 (총 길이는 31번)."""
     if not ev.pace or not ev.pace.sections:
         return None
     sections = ev.pace.sections
-    off = [s for s in sections if s.status != "ok"]
+    scale = _alloc_scale(ev.pace)
+    by_no = {s.slide_no: s for s in ev.pace.slides}
+    off: list[str] = []
+    for s in sections:
+        r = _section_ratio(s, by_no, scale)
+        if r is None:
+            if s.status != "ok":                   # 초를 모르면 F-17 판정을 따른다
+                off.append(f"{s.name}{s.label or ''}")
+        elif r < 1.0 - ALLOC_TOL:
+            off.append(f"{s.name}-{int(round((1 - r) * 100))}% 부족")
+        elif r > 1.0 + ALLOC_TOL:
+            off.append(f"{s.name}+{int(round((r - 1) * 100))}% 초과")
     score = _band(len(off) / len(sections), good=0.0, bad=1.0)
     if not off:
         return score, f"{len(sections)}개 구간 모두 시간 비중이 알맞아요"
-    detail = ", ".join(f"{s.name}{s.label or ''}" for s in off[:3])
-    return score, f"{len(sections)}개 구간 중 {len(off)}개가 비중이 어긋났어요 ({detail})"
+    return score, f"{len(sections)}개 구간 중 {len(off)}개가 비중이 어긋났어요 ({', '.join(off[:3])})"
 
 
 def _item_33_core_dwell(ev: Evidence) -> Result:
-    """핵심 슬라이드 체류시간."""
+    """핵심 슬라이드 체류시간 — 실제 길이에 맞춘 권장 대비. 말로 건너뛴 핵심 장은 설명한 시간이 0 이다."""
     if not ev.pace or not ev.pace.slides:
         return None
     cores = [s for s in ev.pace.slides if s.importance == "core" and s.recommended_sec > 0]
     if not cores:
         return None
-    drifts = [abs(s.delta_sec) / s.recommended_sec for s in cores]
-    avg = sum(drifts) / len(drifts)
+    scale = _alloc_scale(ev.pace)
+
+    def drift(s: SlidePace) -> float:
+        want = s.recommended_sec * scale
+        return abs(_spoke_sec(s) - want) / want
+
+    avg = sum(drift(s) for s in cores) / len(cores)
     score = _band(avg, good=CORE_DWELL_FREE_DRIFT, bad=CORE_DWELL_ZERO_DRIFT)
     if avg <= CORE_DWELL_FREE_DRIFT:
         return score, f"핵심 슬라이드 {len(cores)}장에 권장 시간만큼 머물렀어요"
-    worst = max(cores, key=lambda s: abs(s.delta_sec) / s.recommended_sec)
-    return score, (
-        f"핵심 슬라이드 {len(cores)}장이 권장 시간과 평균 {avg:.0%} 어긋나요 "
-        f"({worst.slide_no}번이 {worst.delta_sec:+.0f}초)"
-    )
+    worst = max(cores, key=drift)
+    where = (f"{worst.slide_no}번은 말로 건너뛰었어요" if worst.skip_cue
+             else f"{worst.slide_no}번이 {_spoke_sec(worst) - worst.recommended_sec * scale:+.0f}초")
+    return score, f"핵심 슬라이드 {len(cores)}장이 권장 시간과 평균 {avg:.0%} 어긋나요 ({where})"
 
 
 def _item_34_density(ev: Evidence) -> Result:
@@ -683,6 +742,79 @@ DET_SCORERS = {
     36: _item_36_roadmap,
     38: _item_38_citation,
 }
+
+
+# ---------------------------------------------------------------------------
+# 발화를 못 믿을 때 · 치명 결함 (09-30 held-out C-06·C-07 · 레드팀 G-A22)
+# ---------------------------------------------------------------------------
+
+#: 녹음이 이 자료의 발표가 아닐 때(F-11 speech_match "unrelated") 매기지 않는 항목 — 말을 **이 자료와** 견주는 것 전부.
+#: 남는 것: 말하기 자체(17·19~24)·총 길이(31)·자료만 보는 항목(34~39, 29 제외). 다른 발표를 이 자료 기준으로 매기면
+#: 0점이 아니라 거짓 점수다 — 09-30 /temp 재현(반찬 IR 자료 + 집중·알림 녹음)에서 26점 D, 리포트가 「모든 슬라이드를 꼼꼼히
+#: 설명했고, 파일럿 결과와 고객 반응을 구체적으로 제시했어요」 라고 썼다.
+SPEECH_DECK_ITEMS = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 27, 28, 29, 30, 32, 33})
+#: 정합 판정이 LLM 없이 짐작으로 채워졌을 때(basis "fallback") 매기지 않는 항목 — 정합 결과를 그대로 쓰는 것.
+#: 짐작한 missing 을 커버리지 0 으로 매기면 판정 실패가 발표자의 실패가 된다 (레드팀 G-A22).
+ALIGNMENT_ITEMS = frozenset({1, 4, 5, 30})
+UNRELATED_NOTE = "녹음이 이 자료의 발표가 아니라서 말한 내용은 채점하지 않았어요"
+#: 「자료가 힘준 개념」 의 선 — F-11 SKIP_GUARD_WEIGHT 와 같은 값 (정당생략을 믿지 않는 무게).
+HEAVY_WEIGHT = 0.35
+ALIGN_FALLBACK_NOTE = "발표와 자료를 대조하지 못해서(판정 응답 없음) 이번엔 못 쟀어요"
+
+
+def speech_block(ev: Evidence) -> tuple[frozenset[int], str] | None:
+    """(매기지 않을 항목, 까닭) — 발화 판정을 믿을 수 없을 때만. 정상이면 None."""
+    a = ev.alignment
+    if a is None:
+        return None
+    if a.speech_match == "unrelated" or a.basis == "skipped":
+        return SPEECH_DECK_ITEMS, UNRELATED_NOTE
+    if a.basis == "fallback":
+        return ALIGNMENT_ITEMS, ALIGN_FALLBACK_NOTE
+    return None
+
+
+def _skipped_core(ev: Evidence) -> dict[int, str]:
+    """
+    말로 건너뛰어 **핵심 내용이 빠진** 장 → 건너뛴 말. 정합이 있으면 그 장 개념 중 설명 안 된 것(node_ids)이 핵심일 때만 —
+    다른 문장으로 다 설명했다면 결함이 아니다. 정합이 없으면 시간 배분(F-17)이 핵심 장이라 한 것만.
+    """
+    out: dict[int, str] = {}
+    core_slides = ev.core_slide_nos()
+    graph_core = {n.id for n in (ev.graph.nodes if ev.graph else []) if n.importance == "core"}
+    weight = {i.node_id: i.doc_weight for i in (ev.alignment.items if ev.alignment else [])}
+    if ev.alignment is not None:
+        for s in ev.alignment.skipped_slides:
+            heavy = [nid for nid in s.node_ids if nid in graph_core or weight.get(nid, 0.0) >= HEAVY_WEIGHT]
+            if heavy or (not s.node_ids and s.slide_no in core_slides and not ev.graph):
+                out[s.slide_no] = s.cue
+    elif ev.pace is not None:
+        for s in ev.pace.slides:
+            if s.skip_cue and s.importance == "core":
+                out[s.slide_no] = s.skip_cue
+    return out
+
+
+def faults(ev: Evidence) -> list[RubricFault]:
+    """
+    점수와 **따로** 알려야 하는 사실 — 코드가 자료 원문과 견줘 확인한 모순, 말로 건너뛴 핵심 장, 다른 발표 녹음, 정합 실패.
+    앞의 둘은 f14 가 총점 상한을 건다. 모순은 LLM 이 말한 것이 아니라 코드가 확인한 것(deck_quote 가 있는 것)만 센다 —
+    상한은 틀리면 멀쩡한 발표를 깎는다.
+    """
+    a = ev.alignment
+    if a is not None and (a.speech_match == "unrelated" or a.basis == "skipped"):
+        pct = "" if a.speech_overlap is None else f" (발화 낱말 중 자료에도 있는 비중 {a.speech_overlap:.0%})"
+        return [RubricFault("unrelated_speech", f"녹음이 이 발표 자료와 다른 발표예요{pct} — 말한 내용은 채점하지 않았어요")]
+    out: list[RubricFault] = []
+    if a is not None and a.basis == "fallback":
+        out.append(RubricFault("align_fallback", "발표와 자료를 대조하지 못했어요 — 개념 전달은 채점하지 않았어요"))
+    for it in (a.items if a is not None else []):
+        if it.verdict == "contradiction" and it.deck_quote:
+            out.append(RubricFault("contradiction", it.note or f"자료 {it.deck_slide_no}장과 다르게 말했어요",
+                                   it.deck_slide_no))
+    for no, cue in sorted(_skipped_core(ev).items()):
+        out.append(RubricFault("skipped_slide", f"핵심 {no}장을 「{_quote(cue)}」라고 하고 건너뛰었어요", no))
+    return out
 
 
 def score_item(no: int, ev: Evidence) -> Result:

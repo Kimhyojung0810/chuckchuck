@@ -29,15 +29,23 @@ LLM 을 쓰지 않는다 — 같은 입력이면 늘 같은 결과여야 하고(
 from __future__ import annotations
 
 import math
-import re
 from dataclasses import dataclass
 
+# 토큰·IDF·창·「아예 다른 내용」 문턱은 F-11 정합도 같은 자로 재야 해서 09-30 에 유틸로 옮겼다 (held-out C-07).
+# 이름은 여기서도 그대로 불러 쓸 수 있게 남긴다.
+from ._speech_overlap import (  # noqa: F401 — 예전 이름을 잇는다
+    UNRELATED_MAX_COVER,
+    UNRELATED_MAX_OVERLAP,
+    WINDOW_SEC,
+    idf as _idf,
+    measure,
+    slide_token_sets,
+    time_windows,
+    tokens as _tokens,
+)
 from .contracts import SlideDoc, SlideMark, Word
 
-__all__ = ["InferredMarks", "infer_slide_marks", "even_slide_marks"]
-
-#: 발화를 자르는 창 길이(초). 짧으면 잡음에 흔들리고 길면 경계가 뭉개진다.
-WINDOW_SEC = 6.0
+__all__ = ["InferredMarks", "infer_slide_marks", "even_slide_marks", "slide_texts"]
 
 #: 이 점수 아래면 정렬을 믿지 않고 균등 분할로 물러난다.
 #: 자료를 잘못 올렸거나 발화가 자료와 아예 다른 주제일 때 걸린다.
@@ -59,72 +67,23 @@ MIN_CONFIDENCE = 0.12
 #: 못 맞춘 것이다.
 MAX_EMPTY_RATIO = 0.25
 
-#: 「아예 다른 내용」 판정 — 아래 두 신호가 **모두** 이 값 아래일 때만 내린다.
-#:
-#: "잘 맞지 않아요" 는 구간을 못 맞췄다는 말이지 왜 못 맞췄는지가 아니다.
-#: 자료와 무관한 녹음을 올린 사용자에게 가장 필요한 정보는 "다른 파일을 올렸다"
-#: 이고, 그걸 뭉개면 애매한 분석 결과를 붙잡고 원인을 찾게 된다 (2026-08-08 제보).
-#:
-#: 2026-08-08 실측 — 실녹음 2종(집중·알림 547단어, 수면 728단어)을 서로의
-#: 자료와 무관 자료에 교차로 붙였다 (겹침 · 커버 순):
-#:   집중 녹음 ↔ 집중 자료 12장   0.403 · 0.966   ← 맞음. 판정하면 안 됨
-#:   수면 녹음 ↔ 수면 자료 8장    0.293 · 0.867   ← 맞음. 판정하면 안 됨
-#:   집중 녹음 ↔ 수면 자료(실사고) 0.131 · 0.431   ← 판정해야 함
-#:   수면 녹음 ↔ 집중 자료        0.122 · 0.518   ← 판정해야 함
-#:   집중 녹음 ↔ RINGLE 마케팅    0.258 · 0.828   ← 경계 — 안 내린다
-#:   녹음 불문 ↔ 영어 자료 2종    0.000~0.003     ← 판정해야 함
-#:
-#: 한국어끼리는 흔한 낱말이 겹쳐서(RINGLE 0.258 > 수면 맞음 0.293 코앞) 겹침
-#: 하나로는 못 가른다. 둘을 AND 로 묶으면 틀린 조합 넷은 다 잡히고, 맞는 조합
-#: 최솟값(0.293·0.867)과는 두 신호 모두 1.4배 이상 여유가 있다. 경계 사례
-#: (RINGLE)는 기존 "맞지 않아요" 문구로 남는다 — 확신 없는 단정은 안 한다.
-UNRELATED_MAX_OVERLAP = 0.2   # IDF 가중: 발화 어휘 중 자료에도 있는 비중
-UNRELATED_MAX_COVER = 0.6     # 발화가 있는 창 중 어느 슬라이드와든 겹친 비율
-
-#: 조사·접속어는 어느 슬라이드인지 못 가린다.
-_STOP = {
-    "그리고", "그래서", "하지만", "그런데", "이것", "저것", "그것", "이거", "저거",
-    "우리", "여기", "거기", "지금", "다음", "먼저", "이제", "정말", "가장", "조금",
-    "때문", "경우", "생각", "부분", "정도", "이렇게", "그렇게", "어떤", "무엇",
-    "합니다", "입니다", "있습니다", "됩니다", "습니다", "니다", "에서", "으로",
-}
-
-_TOKEN = re.compile(r"[0-9A-Za-z가-힣]+")
+# 「아예 다른 내용」 문턱(UNRELATED_MAX_OVERLAP · UNRELATED_MAX_COVER)과 그 실측 근거는 _speech_overlap 에 있다.
 
 
-def _tokens(text: str) -> list[str]:
-    """내용어만 남긴다. 두 글자 미만과 불용어는 버린다."""
+def slide_texts(doc: SlideDoc) -> list[str]:
+    """슬라이드마다 제목+본문 블록 글. F-11 이 같은 자로 겹침을 재도록 공개한다."""
     out: list[str] = []
-    for raw in _TOKEN.findall(str(text or "").lower()):
-        if len(raw) < 2 or raw in _STOP:
-            continue
-        out.append(raw)
-        # 한국어는 조사가 붙어 같은 낱말이 갈라진다. 어간 쪽도 넣어
-        # "임베딩을" 과 "임베딩" 이 만나게 한다.
-        if len(raw) > 3:
-            out.append(raw[: len(raw) - 1])
+    for s in doc.slides:
+        buf = [getattr(s, "title", "") or ""]
+        for b in (getattr(s, "blocks", None) or []):
+            buf.append(b.get("text", "") if isinstance(b, dict) else getattr(b, "text", str(b)))
+        out.append(" ".join(buf))
     return out
 
 
 def _slide_tokens(doc: SlideDoc) -> list[set[str]]:
     """슬라이드마다 토큰 집합. 제목과 본문 블록을 모두 본다."""
-    per: list[set[str]] = []
-    for s in doc.slides:
-        buf = [getattr(s, "title", "") or ""]
-        for b in (getattr(s, "blocks", None) or []):
-            buf.append(b.get("text", "") if isinstance(b, dict) else str(b))
-        per.append(set(_tokens(" ".join(buf))))
-    return per
-
-
-def _idf(per_slide: list[set[str]]) -> dict[str, float]:
-    """모든 슬라이드에 나오는 말은 슬라이드를 못 가린다 → 가중치를 낮춘다."""
-    n = max(1, len(per_slide))
-    df: dict[str, int] = {}
-    for toks in per_slide:
-        for t in toks:
-            df[t] = df.get(t, 0) + 1
-    return {t: math.log(1.0 + n / c) for t, c in df.items()}
+    return slide_token_sets(slide_texts(doc))
 
 
 @dataclass
@@ -199,12 +158,9 @@ def infer_slide_marks(
     idf = _idf(per_slide)
 
     # ── 3. 창 분할 ────────────────────────────────────────────────
-    n_win = max(n_slides, int(math.ceil(total / WINDOW_SEC)))
+    win_tokens = time_windows(seq, total, n_slides)
+    n_win = len(win_tokens)
     win_sec = total / n_win
-    win_tokens: list[list[str]] = [[] for _ in range(n_win)]
-    for w in seq:
-        i = min(n_win - 1, max(0, int(float(w.get("start_sec") or 0.0) / win_sec)))
-        win_tokens[i].extend(_tokens(w.get("text", "")))
 
     # ── 2·3. 점수: 창 × 슬라이드 ──────────────────────────────────
     score = [[0.0] * n_slides for _ in range(n_win)]
@@ -255,15 +211,10 @@ def infer_slide_marks(
     # ── 6. 아예 다른 내용인가 — 정렬과 무관한 전역 겹침 두 가지 ──────
     # 구간을 못 맞춘 것(아래 가드들)과 다른 파일을 올린 것은 다른 사실이고,
     # 사용자에게 필요한 안내도 다르다. 단정은 두 신호가 모두 낮을 때만 한다.
-    speech_vocab = {t for toks in win_tokens for t in toks}
-    deck_vocab = set().union(*per_slide)
-    hit_vocab = speech_vocab & deck_vocab
-    idf_all = sum(idf.get(t, 1.0) for t in speech_vocab) or 1.0
-    overlap = sum(idf.get(t, 1.0) for t in hit_vocab) / idf_all
-    spoken = [i for i, toks in enumerate(win_tokens) if toks]
-    cover = (sum(1 for i in spoken if any(score[i])) / len(spoken)) if spoken else 0.0
-    if overlap < UNRELATED_MAX_OVERLAP and cover < UNRELATED_MAX_COVER:
-        pct = round(100 * len(hit_vocab) / max(1, len(speech_vocab)))
+    # F-11 정합이 같은 판정을 스스로 내린다 — 같은 식(_speech_overlap.measure)이라 두 화면이 어긋나지 않는다.
+    ov = measure(per_slide, win_tokens, idf)
+    if ov.unrelated:
+        pct = ov.hit_pct
         return InferredMarks(
             marks=even_slide_marks(total, n_slides), estimated=False,
             confidence=confidence, match="unrelated",

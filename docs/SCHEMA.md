@@ -627,6 +627,26 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 | `extra_concepts[].quote` | string | ✅ | 발화 인용 |
 | `extra_concepts[].slide_no` | int \| null | ✅ | 언급 시점의 장. 범위 밖이면 null |
 | `summary` | object | ✅ | 아래 7-D. 전부 코드 계산 |
+| `items[].decided_by` | enum | ✅ | `llm` LLM 판정 그대로 · `code` 코드가 까닭을 대고 바꿈(모순·건너뛴 장·말한 문장) · `fallback` **LLM 판정이 없어** 언급 횟수로 짐작 (09-30) |
+| `items[].deck_quote` | string | ✅ | 코드가 잡은 모순의 **자료 쪽** 인용 (발화 쪽은 `evidence`). 비면 코드가 확인한 모순이 아니다 |
+| `items[].deck_slide_no` | int \| null | ✅ | `deck_quote` 의 장 |
+| `speech_match` | enum | ✅ | `matched` · `unrelated`(녹음이 이 자료의 발표가 아님 — 판정하지 않음). F-04 와 같은 겹침 문턱 |
+| `speech_overlap` | float \| null | ✅ | 발화 낱말 중 자료에도 있는 비중(IDF 가중). `speech_match` 를 가른 수 |
+| `basis` | enum | ✅ | `llm` 정상 · `fallback` LLM 이 두 번 다 판정을 비워 전 노드가 짐작 · `skipped` 다른 발표라 판정 안 함 |
+| `skipped_slides[]` | object | ✅ | 말로 건너뛴 장 `{slide_no, cue(발화 원문), node_ids(그 장 개념 중 끝내 missing)}` |
+
+**읽는 순서 (09-30 held-out C-06·C-07 · 레드팀 G-A22):** 판정을 쓰기 전에 `basis`·`speech_match` 를 본다.
+`basis != "llm"` 이거나 `speech_match == "unrelated"` 면 item 의 missing 은 「안 말했다」 는 확인이 아니다
+(`AlignmentDoc.speech_usable` 이 둘을 묶는다). `decided_by == "fallback"` 인 item 하나하나도 같다.
+질문(F-08)은 `speech_usable` 이 거짓이면 발화·정합 근거 없이 자료만으로 묻는다.
+
+**LLM 뒤 코드 대조 (`_align_checks`, 순서가 뜻이다):**
+1. 인용은 **한 장 구간 안의 이어진 문장**만 — 두 구간을 이어 붙이지 않는다. 건너뛰기(「시간 관계상 그냥 넘어갈게요」)·
+   미루기(「나중에 설명할게요」) 말과 **자료 글을 옮긴** 인용은 근거가 아니다.
+2. `missing`·`justified_skip` 인데 개념 이름 + 그 개념 자료 줄의 다른 낱말·수(값+단위)를 같이 말한 문장이 있으면 `aligned`.
+3. 말로 건너뛴 장의 개념은 다른 문장이 이름을 불러 설명하지 않았으면 `missing` (가벼운 개념의 정당생략은 존중).
+4. 발화의 숫자·방향이 자료 원문과 어긋나면 `contradiction` (`_deck_claims.conflicts` — 받아쓰기의 「49퍼센트」「이십구 프로」 는
+   먼저 「49%」「29%」 로). 반올림·어림(약·정도, 15%) 은 같은 수다. 자료 원문(`slide_doc`)이 없으면 이 대조는 건너뛴다.
 
 **보증(어댑터가 지키는 불변식):**
 
@@ -1231,16 +1251,16 @@ API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/
 | F-08 예상 질문 | `ConceptGraph` (+ 선택 `AlignmentDoc`·`FlowDiff`·`Transcript.by_slide`) → `QaTriage` → `QuestionDoc` (§8) |
 | F-09 답변 판정 | `Question` + 답변 (+ 선택 `ConceptGraph`·`AlignmentDoc`·`Transcript.by_slide`·history) → `QaJudgement` (§8) |
 | F-10 질문 코칭 (예정) | `QuestionDoc` + `QaJudgement[]` |
-| F-11 정합 판정 | `ConceptGraph` + `Transcript` → `AlignmentDoc` (§7) |
+| F-11 정합 판정 | `ConceptGraph` + `Transcript` (+ 선택 `SlideDoc` — 숫자·방향 대조, F-04 `marks_match` — 다른 발표) → `AlignmentDoc` (§7) |
 | 흐름 비교 (F-11 파생) | `ConceptGraph` + `AlignmentDoc` → `FlowDiff` (§7-E) |
 | 산점도·diff 뷰 (프론트) | `AlignmentDoc.items[]` (`doc_weight` × `speech_weight`) + `summary` |
 | 논리 흐름 탭 (프론트) | `FlowDiff.issues[]` + `order_tau` |
 | F-12 삐약 청중석 | `ConceptGraph` + `AlignmentDoc` + `FlowDiff` → `ChatterDoc` |
 | F-13 발표 점수 (폴백) | `AlignmentDoc` (+ `FlowDiff`) → `PresentationScore` |
 | **F-14 채점표 채점** | 파이프라인 산출물 전부(선택) → `RubricScore` |
-| F-17 말 속도·시간 배분 | `Transcript` + `Context` (+ `ConceptDoc`) → `PaceDoc` |
+| F-17 말 속도·시간 배분 | `Transcript` + `Context` (+ `ConceptDoc`) → `PaceDoc` — 말로 건너뛴 장은 `slides[].skip_cue`(발화 원문)·`status` short (F-11 과 같은 규칙, `_spoken`) |
 | F-18 음성 습관 | `Transcript` → `HabitDoc` (REP/FIL/PAUSE) |
-| F-19 음성 종합 리포트 | `PaceDoc` + `HabitDoc` (+ `RubricScore`) → `ReportDoc` |
+| F-19 음성 종합 리포트 | `PaceDoc` + `HabitDoc` (+ `RubricScore`) → `ReportDoc` — `RubricScore.faults` 가 있으면 한 줄 총평·약점 첫 줄이 그것부터 말한다 |
 
 ---
 
@@ -1266,8 +1286,16 @@ API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/
 최종          score = round(Σ(avg_c × eff_c))
 ```
 
-**불변식** — 살아 있는 클러스터의 `effective_weight` 합은 1.0 · `score == round(Σ contribution)` ·
-빠진 게 없으면 `effective_weight == weight/100` 으로 채점표 시트와 자릿수까지 같다.
+**불변식** — 살아 있는 클러스터의 `effective_weight` 합은 1.0 · `score == min(cap, round(Σ contribution))`
+(`cap` 이 null 이면 상한 없음) · 빠진 게 없으면 `effective_weight == weight/100` 으로 채점표 시트와 자릿수까지 같다.
+
+**치명 결함 상한 `cap` · `faults` (09-30 held-out C-06·C-07)** — `faults[]` 는 `{kind, text, slide_no}`.
+`contradiction`(정합이 **자료 원문과 견줘 확인한** 모순, `deck_quote` 가 있는 것만) · `skipped_slide`(말로 건너뛰어 핵심 개념이
+빠진 장) 는 총점에 상한을 건다 — 하나면 69(채점표 구간 「40~69 부분적으로만 했다」 꼭대기), 하나 늘 때마다 10씩(59·49), 39 아래로는 안 내린다.
+`unrelated_speech`(다른 발표 녹음)는 말을 이 자료와 견주는 항목(1~16·18·27~30·32·33)을 `unmeasured` 로 두고 총점은 39 까지 —
+남은 자료·목소리 항목만으로는 점수가 오히려 올라(09-30 재현 38 → 81 「A」) 「이 자료의 발표」 로 매길 수 없다.
+`align_fallback`(정합이 짐작뿐)은 1·4·5·30 을 `unmeasured` 로 둘 뿐 상한은 없다. `note` 가 한 줄로 같이 말한다.
+28·32·33(배분)은 권장 시간을 **실제 발표 길이에 맞춰** 견준다 — 총 길이의 어긋남은 31번만 매긴다(「시간 관리 5/100」 삼중 청구).
 
 ### 항목 상태 — 셋을 절대 섞지 않는다
 

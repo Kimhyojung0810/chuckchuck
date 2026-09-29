@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
+from ._spoken import skip_targets, utterances
 from .contracts import (
     ConceptDoc,
     Context,
@@ -146,8 +147,27 @@ def _section_allocs(slides: list[SlidePace]) -> list[SectionAlloc]:
     return out
 
 
+def _skipped_slides(transcript: Transcript, concept_doc: ConceptDoc | None, slide_nos: list[int]) -> dict[int, str]:
+    """
+    말로 건너뛴 장 → 그 말 원문. 「시간 관계상 그냥 넘어갈게요」「이건 건너뛸게요」 (F-11 정합과 같은 규칙 — `_spoken`).
+
+    09-30 held-out C-06(혈당 녹음): 3장(혈당 부하 식)을 「넘어갈게요」 로 건너뛰었는데 시간 배분은 3장에 24초를 머문 것으로
+    적었다. 머문 시간은 있어도 **설명한 시간은 없다** — 정합은 그 장 개념을 missing 으로 보는데 시간 배분만 「머물렀다」 고 하면
+    두 화면이 어긋난다. 어느 장을 건너뛰는지는 말에 나온 낱말로 앞뒤 장까지 본다(장 구간은 녹음에서 추정한 것일 수 있다).
+    """
+    if concept_doc and concept_doc.slides:
+        texts = {s.slide_no: f"{s.title} {s.topic} {s.raw_text}" for s in concept_doc.slides}
+    else:
+        texts = {no: "" for no in slide_nos}
+    return {no: u.text for no, u in skip_targets(utterances(transcript), texts).items()}
+
+
 def _tips(pace: PaceDoc) -> list[str]:
     tips: list[str] = []
+    for s in pace.slides:
+        if s.skip_cue and s.importance == "core":
+            tips.append(f"{s.slide_no}번(핵심)은 「{s.skip_cue}」라고 하고 넘어갔어요. "
+                        "핵심 장은 한 문장이라도 설명하고 넘어가 보세요.")
     if pace.target_sec > 0 and pace.actual_sec > pace.target_sec * 1.05:
         over = pace.actual_sec - pace.target_sec
         long_support = [
@@ -164,7 +184,7 @@ def _tips(pace: PaceDoc) -> list[str]:
     elif pace.target_sec > 0 and pace.actual_sec < pace.target_sec * 0.9:
         tips.append("목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요.")
 
-    short_core = [s for s in pace.slides if s.importance == "core" and s.status == "short"]
+    short_core = [s for s in pace.slides if s.importance == "core" and s.status == "short" and not s.skip_cue]
     for s in short_core[:2]:
         tips.append(
             f"{s.slide_no}번은 핵심인데 권장 {s.recommended_sec:.0f}초 중 "
@@ -214,6 +234,10 @@ def analyze_pace(
             "text": [text], "words": len(transcript.words),
         }}
 
+    skipped = _skipped_slides(transcript, concept_doc, sorted(buckets)) if transcript.by_slide else {}
+    for no in skipped:
+        # 건너뛴 장에 붙은 말이 없으면(앞뒤 장 구간에서 「이건 넘어갈게요」 라고만 했다) 0초 줄로라도 세운다 — 표에서 사라지면 안 된다
+        buckets.setdefault(no, {"sec": 0.0, "speak_sec": 0.0, "chars": 0, "syl": 0, "text": [], "words": 0})
     slide_nos = sorted(buckets)
     imp = _importance_map(concept_doc, slide_nos)
     titles = _title_map(concept_doc)
@@ -255,6 +279,10 @@ def analyze_pace(
         if importance == "core" and rec > 0 and act < rec * (1.0 - _TIME_TOL):
             st = "short"
             note = f"핵심 · 권장 대비 {int((1 - act / rec) * 100)}% 부족"
+        if n in skipped:
+            # 머문 시간과 상관없이 설명한 시간은 없다 — 정합(F-11)의 「건너뛴 장」 과 같은 말을 한다
+            st = "short"
+            note = f"{'핵심 · ' if importance == 'core' else ''}말로 건너뛴 장 · 「{skipped[n]}」"
         slides.append(SlidePace(
             slide_no=n,
             title=titles.get(n) or f"{n}번 슬라이드",
@@ -267,6 +295,7 @@ def analyze_pace(
             syllable_per_sec=round(sps, 2),
             status=st,
             note=note,
+            skip_cue=skipped.get(n, ""),
         ))
 
     max_slide = max(slides, key=lambda s: s.chars_per_min) if slides else None

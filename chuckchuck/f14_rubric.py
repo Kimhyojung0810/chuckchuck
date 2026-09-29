@@ -25,8 +25,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 from . import rubric_v3
 from ._json_text import extract_json_object
-from ._rubric_det import Evidence, score_item
+from ._rubric_det import Evidence, faults, score_item, speech_block
 from .contracts import (
+    RUBRIC_CAP_KINDS,
     AlignmentDoc,
     ConceptGraph,
     Context,
@@ -34,6 +35,7 @@ from .contracts import (
     HabitDoc,
     PaceDoc,
     RubricClusterScore,
+    RubricFault,
     RubricItemScore,
     RubricScore,
     SlideDoc,
@@ -191,6 +193,62 @@ def _aggregate(situation: str, items: list[RubricItemScore]) -> RubricScore:
     )
 
 
+#: 치명 결함 상한 — 결함(코드가 확인한 모순 · 말로 건너뛴 핵심 장) 하나면 총점 69, 하나 늘 때마다 10씩 내린다(59·49), 39 아래로는
+#: 안 내린다. 69 는 채점표 점수 구간 「40~69 부분적으로만 했다」 의 꼭대기다 — 자료와 다른 수치를 말했거나 핵심 장을 건너뛴 발표를
+#: 「했지만 아쉽다(70~)」 로 적지 않는다. 39 는 「1~39 거의 못했다」 의 꼭대기라, 결함만으로 그 아래로 끌어내리지 않는다.
+#:
+#: 09-30 held-out 혈당 녹음: 6장 29% 를 49% 로 말하고 핵심 3장(혈당 부하 식)을 「시간 관계상 그냥 넘어갈게요」 로 건너뛰었는데
+#: 모순 1건이 4번 항목(가중 8/50)에서 25점을 깎는 게 전부라 총점은 1점 남짓 내려갔고, 리포트는 「발표 완성도 B · 핵심은 전했고」 였다.
+CAP_FIRST = 69
+CAP_STEP = 10
+CAP_FLOOR = 39
+
+
+def _fault_note(found: list[RubricFault], cap: int | None, raw: int) -> str:
+    """상한·못 잰 까닭을 사람이 읽는 한 줄로. 숫자는 결과 그대로 적는다."""
+    kinds = [f.kind for f in found]
+    if "unrelated_speech" in kinds:
+        return ("녹음이 이 발표 자료와 다른 발표라서 말한 내용은 채점하지 않았어요 — 자료와 말하기 습관만 봤고, "
+                f"이 자료의 발표로는 {cap}점 위로 매기지 않아요")
+    parts = []
+    n_contra, n_skip = kinds.count("contradiction"), kinds.count("skipped_slide")
+    if n_contra:
+        parts.append(f"자료와 다르게 말한 곳 {n_contra}곳")
+    if n_skip:
+        parts.append(f"말로 건너뛴 핵심 장 {n_skip}장")
+    line = ""
+    if parts and cap is not None:
+        line = f"{' · '.join(parts)} — 총점은 {cap}점을 넘지 않아요"
+        if raw > cap:
+            line += f" ({raw}점에서 낮췄어요)"
+    if "align_fallback" in kinds:
+        line = " · ".join(x for x in (line, "발표와 자료를 대조하지 못해 개념 전달은 채점하지 않았어요") if x)
+    return line
+
+
+def _apply_faults(result: RubricScore, found: list[RubricFault]) -> RubricScore:
+    """
+    치명 결함이 있으면 총점에 상한을 건다. score == min(cap, round(Σ contribution)) — 상한과 까닭은 cap·faults·note 에 남긴다.
+
+    다른 발표 녹음은 CAP_FLOOR 다. 말 내용 항목을 빼고 나면 남는 건 자료·목소리 항목뿐이라 점수가 오히려 오른다 —
+    09-30 재현(혈당 자료 + 수면 녹음): 38 → 81, 화면이 「A · 핵심은 잘 전달했어요」 가 된다. 이 자료의 발표는 하지 않았으니
+    「했다」 구간에 두지 않는다(「이 자료의 발표로는」 이라는 까닭을 note 가 같이 말한다).
+    """
+    result.faults = list(found)
+    n = sum(1 for f in found if f.kind in RUBRIC_CAP_KINDS)
+    raw = result.score
+    if any(f.kind == "unrelated_speech" for f in found):
+        result.cap = CAP_FLOOR
+    elif n:
+        result.cap = max(CAP_FLOOR, CAP_FIRST - CAP_STEP * (n - 1))
+    if result.cap is not None:
+        result.score = min(raw, result.cap)
+    line = _fault_note(found, result.cap, raw)
+    if line:
+        result.note = " · ".join(x for x in (result.note, line) if x)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # 항목 준비 — 결정 채점까지
 # ---------------------------------------------------------------------------
@@ -223,6 +281,8 @@ def _score_deterministic(situation: str, ev: Evidence) -> tuple[list[RubricItemS
     """
     results: list[RubricItemScore] = []
     pending: list[int] = []
+    # 녹음이 다른 발표이거나 정합이 짐작뿐이면 발화를 자료와 견주는 항목은 매기지 않는다 — 0점이 아니라 「못 쟀다」 (09-30 C-07·G-A22)
+    blocked = speech_block(ev)
 
     for item in rubric_v3.ITEMS:
         weight = item.weight_for(situation)
@@ -232,6 +292,10 @@ def _score_deterministic(situation: str, ev: Evidence) -> tuple[list[RubricItemS
 
         if item.source == "na":
             results.append(_blank(item, situation, "unmeasured", _NA_NOTE))
+            continue
+
+        if blocked is not None and item.no in blocked[0]:
+            results.append(_blank(item, situation, "unmeasured", blocked[1]))
             continue
 
         if item.source == "det":
@@ -538,4 +602,4 @@ def score_rubric(
     result = _aggregate(resolved, items)
     result.model = model
     result.note = " · ".join(n for n in (situation_note, result.note) if n)
-    return result
+    return _apply_faults(result, faults(ev))
