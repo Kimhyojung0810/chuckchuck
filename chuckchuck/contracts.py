@@ -630,6 +630,19 @@ class ConceptGraph:
 #: items[].verdict 허용값. 이 밖의 값은 결정적 폴백으로 대체된다.
 ALIGN_VERDICTS = ("aligned", "justified_skip", "missing", "contradiction")
 
+#: items[].decided_by — 이 판정을 누가 내렸나 (09-30 held-out C-06 · 레드팀 G-A22).
+#: llm 은 LLM 판정 그대로 · code 는 코드가 까닭을 대고 바꿨다(숫자·방향 모순, 말로 건너뛴 장, 말한 문장을 찾음) ·
+#: fallback 은 **LLM 판정이 없어서** 언급 횟수로 채운 것이다. fallback 의 missing 은 「안 말했다」 는 확인이 아니라 짐작이라,
+#: 질문(F-08)·리포트가 진짜 누락으로 세면 안 된다.
+ALIGN_DECIDERS = ("llm", "code", "fallback")
+
+#: AlignmentDoc.speech_match — 녹음이 이 자료의 발표인가. unrelated 면 개념 판정을 하지 않는다(basis == "skipped").
+SPEECH_MATCHES = ("matched", "unrelated")
+
+#: AlignmentDoc.basis — 판정 전체의 출처. llm 정상 · fallback 은 LLM 이 두 번 다 판정을 비워 **전 노드가 짐작**이다 ·
+#: skipped 는 녹음이 다른 발표라 판정하지 않았다(모든 item 이 missing·fallback 이지만 뜻은 「판정 안 함」).
+ALIGN_BASES = ("llm", "fallback", "skipped")
+
 
 @dataclass
 class SpeechBasis:
@@ -667,8 +680,12 @@ class AlignmentItem:
     speech_weight: float = 0.0         # 0.0~1.0. 그래프 안에서 상대적 (최상위 = 1.0)
     speech_basis: SpeechBasis = field(default_factory=SpeechBasis)
     doc_weight: float = 0.0            # 파생: 해당 노드의 F-07 weight 복사 (산점도 편의)
-    evidence: str = ""                 # 판정 근거가 된 발화 인용
-    note: str = ""                     # LLM 한 줄 설명
+    evidence: str = ""                 # 판정 근거가 된 발화 인용 (한 장·한 구간 안의 문장 — 이어 붙이지 않는다)
+    note: str = ""                     # 한 줄 설명 (LLM, 코드가 판정을 바꿨으면 코드가 쓴 까닭)
+    #: 코드가 잡은 모순의 **자료 쪽** 인용과 그 장. 발화 쪽은 evidence 다. 비어 있으면 코드가 확인한 모순이 아니다.
+    deck_quote: str = ""
+    deck_slide_no: int | None = None
+    decided_by: str = "llm"            # ALIGN_DECIDERS
 
     def to_dict(self) -> dict:
         return {
@@ -679,11 +696,16 @@ class AlignmentItem:
             "doc_weight": self.doc_weight,
             "evidence": self.evidence,
             "note": self.note,
+            "deck_quote": self.deck_quote,
+            "deck_slide_no": self.deck_slide_no,
+            "decided_by": self.decided_by,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "AlignmentItem":
         verdict = d.get("verdict", "missing")
+        slide_no = d.get("deck_slide_no")
+        decided = str(d.get("decided_by", "llm") or "llm")
         return cls(
             node_id=str(d["node_id"]),
             verdict=verdict if verdict in ALIGN_VERDICTS else "missing",
@@ -692,6 +714,9 @@ class AlignmentItem:
             doc_weight=float(d.get("doc_weight", 0.0)),
             evidence=d.get("evidence", ""),
             note=d.get("note", ""),
+            deck_quote=str(d.get("deck_quote", "") or ""),
+            deck_slide_no=None if slide_no is None else int(slide_no),
+            decided_by=decided if decided in ALIGN_DECIDERS else "llm",
         )
 
 
@@ -742,6 +767,30 @@ class ExtraConcept:
 
 
 @dataclass
+class SkippedSlide:
+    """
+    발표자가 **말로 건너뛴** 장 — 「시간 관계상 그냥 넘어갈게요」「이건 건너뛸게요」 (09-30 held-out C-06).
+
+    그 말은 어떤 개념의 근거도 아니다. node_ids 는 이 장의 개념 중 다른 문장으로도 설명되지 않아
+    missing 으로 남은 것들이다 — 질문(F-08)이 「건너뛴 핵심 장」 을 물을 때 이 목록을 쓴다.
+    """
+    slide_no: int
+    cue: str = ""                      # 건너뛴다고 한 발화 원문
+    node_ids: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"slide_no": self.slide_no, "cue": self.cue, "node_ids": list(self.node_ids)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SkippedSlide":
+        return cls(
+            slide_no=int(d["slide_no"]),
+            cue=str(d.get("cue", "") or ""),
+            node_ids=[str(x) for x in d.get("node_ids", [])],
+        )
+
+
+@dataclass
 class AlignmentSummary:
     """발표 전체 요약 지표. 전부 코드가 계산한다 (LLM 아님)."""
     coverage: float = 0.0                    # weight 가중 커버리지 (0~1)
@@ -780,6 +829,10 @@ class AlignmentDoc:
     불변식은 f11_align.align_speech() 가 보장한다:
     그래프의 모든 노드에 item 정확히 1개 · verdict 는 enum 안 ·
     speech_edges 양끝이 존재하는 id · extra_concepts 는 그래프에 없는 개념만.
+
+    **판정을 읽기 전에 basis·speech_match 를 먼저 본다** (09-30 held-out C-07 · G-A22):
+    speech_match == "unrelated"(basis "skipped")면 녹음이 다른 발표라 item 은 전부 「판정 안 함」 이고,
+    basis == "fallback" 이면 LLM 판정이 없어 item 이 전부 언급 횟수 짐작이다. 둘 다 발화를 근거로 쓰면 안 된다.
     """
     file_name: str
     total_slides: int
@@ -788,6 +841,11 @@ class AlignmentDoc:
     extra_concepts: list[ExtraConcept] = field(default_factory=list)
     summary: AlignmentSummary = field(default_factory=AlignmentSummary)
     model: str = ""
+    speech_match: str = "matched"      # SPEECH_MATCHES
+    #: 발화 낱말 중 자료에도 있는 비중(드문 낱말일수록 무겁게, 0~1). speech_match 를 가른 수치. 못 쟀으면 None.
+    speech_overlap: float | None = None
+    basis: str = "llm"                 # ALIGN_BASES
+    skipped_slides: list[SkippedSlide] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -798,10 +856,17 @@ class AlignmentDoc:
             "speech_edges": [e.to_dict() for e in self.speech_edges],
             "extra_concepts": [c.to_dict() for c in self.extra_concepts],
             "summary": self.summary.to_dict(),
+            "speech_match": self.speech_match,
+            "speech_overlap": self.speech_overlap,
+            "basis": self.basis,
+            "skipped_slides": [s.to_dict() for s in self.skipped_slides],
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "AlignmentDoc":
+        match = str(d.get("speech_match", "matched") or "matched")
+        basis = str(d.get("basis", "llm") or "llm")
+        overlap = d.get("speech_overlap")
         return cls(
             file_name=d["file_name"],
             total_slides=int(d["total_slides"]),
@@ -810,7 +875,16 @@ class AlignmentDoc:
             extra_concepts=[ExtraConcept.from_dict(c) for c in d.get("extra_concepts", [])],
             summary=AlignmentSummary.from_dict(d.get("summary") or {}),
             model=d.get("model", ""),
+            speech_match=match if match in SPEECH_MATCHES else "matched",
+            speech_overlap=None if overlap is None else float(overlap),
+            basis=basis if basis in ALIGN_BASES else "llm",
+            skipped_slides=[SkippedSlide.from_dict(s) for s in d.get("skipped_slides", []) or []],
         )
+
+    @property
+    def speech_usable(self) -> bool:
+        """발화 판정을 근거로 써도 되는가 — 다른 발표 녹음(skipped)·전부 짐작(fallback)이면 아니다."""
+        return self.basis == "llm" and self.speech_match == "matched"
 
     # --- 조회 (diff 뷰·산점도가 쓴다) -------------------------------------
 
@@ -1107,6 +1181,9 @@ class SlidePace:
     syllable_per_sec: float = 0.0
     status: str = "ok"              # ok | short | long | fast | slow
     note: str = ""
+    #: 발표자가 이 장을 **말로 건너뛰었다** — 그 발화 원문(「시간 관계상 그냥 넘어갈게요」). 비면 건너뛴 게 아니다.
+    #: 머문 시간(actual_sec)이 있어도 설명한 시간이 아니라서 status 는 short 다 (09-30 held-out C-06).
+    skip_cue: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -1126,6 +1203,7 @@ class SlidePace:
             syllable_per_sec=float(d.get("syllable_per_sec", 0.0)),
             status=st if st in PACE_STATUSES else "ok",
             note=d.get("note", ""),
+            skip_cue=str(d.get("skip_cue", "") or ""),
         )
 
 
@@ -2637,13 +2715,39 @@ class RubricClusterScore:
         )
 
 
+#: RubricFault.kind — 채점표가 점수와 **따로** 알리는 사실 (09-30 held-out C-06·C-07).
+#: 앞의 둘은 발표자의 치명 결함이라 하나마다 총점 상한을 내린다(RUBRIC_CAP_KINDS) — 자료와 어긋나게 말한 수치·방향,
+#: 말로 건너뛴 핵심 장. 뒤의 둘은 결함이 아니라 「말 내용을 못 쟀다」 는 사실이다 — 다른 발표 녹음(이 자료의 발표로는
+#: 가장 낮은 상한을 건다 — f14 CAP_FLOOR), 정합 판정 실패(상한 없음).
+RUBRIC_FAULT_KINDS = ("contradiction", "skipped_slide", "unrelated_speech", "align_fallback")
+RUBRIC_CAP_KINDS = ("contradiction", "skipped_slide")
+
+
+@dataclass
+class RubricFault:
+    """점수 옆에 반드시 같이 읽혀야 하는 사실 한 줄. text 는 화면·F-19 가 그대로 쓴다."""
+
+    kind: str                      # RUBRIC_FAULT_KINDS
+    text: str = ""
+    slide_no: int | None = None
+
+    def to_dict(self) -> dict:
+        return {"kind": self.kind, "text": self.text, "slide_no": self.slide_no}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricFault":
+        slide_no = d.get("slide_no")
+        return cls(kind=str(d.get("kind", "") or ""), text=str(d.get("text", "") or ""),
+                   slide_no=None if slide_no is None else int(slide_no))
+
+
 @dataclass
 class RubricScore:
     """
     F-14 산출물. 발표 하나의 최종 점수와 그 근거 전부다.
 
     불변식은 f14_rubric.score_rubric() 이 보장한다:
-    살아 있는 클러스터의 effective_weight 합이 1.0 · score == round(Σ contribution) ·
+    살아 있는 클러스터의 effective_weight 합이 1.0 · score == min(cap, round(Σ contribution)) (cap 이 None 이면 상한 없음) ·
     excluded 와 unmeasured 는 서로 섞이지 않음 · 근거(evidence) 없는 점수는 채택하지 않음.
     """
 
@@ -2658,6 +2762,9 @@ class RubricScore:
     basis: str = "full"            # RUBRIC_BASES
     model: str = ""
     note: str = ""                 # 사용자에게 보일 한 줄 (상황 추정·폴백·전부 못 잼 등)
+    #: 치명 결함 상한 — 없으면 None. 있으면 score 는 이 값을 넘지 않는다 (까닭은 faults 의 RUBRIC_CAP_KINDS 줄).
+    cap: int | None = None
+    faults: list[RubricFault] = field(default_factory=list)
 
     def item(self, no: int) -> "RubricItemScore | None":
         for it in self.items:
@@ -2684,6 +2791,8 @@ class RubricScore:
             "basis": self.basis,
             "model": self.model,
             "note": self.note,
+            "cap": self.cap,
+            "faults": [f.to_dict() for f in self.faults],
         }
 
     @classmethod
@@ -2693,6 +2802,11 @@ class RubricScore:
             score = int(d.get("score", 0) or 0)
         except (TypeError, ValueError):
             score = 0
+        cap = d.get("cap")
+        try:
+            cap = None if cap is None else max(0, min(100, int(cap)))
+        except (TypeError, ValueError):
+            cap = None
         return cls(
             score=max(0, min(100, score)),
             situation=str(d.get("situation", "") or ""),
@@ -2705,6 +2819,9 @@ class RubricScore:
             basis=basis if basis in RUBRIC_BASES else "partial",
             model=str(d.get("model", "") or ""),
             note=str(d.get("note", "") or ""),
+            cap=cap,
+            faults=[f for f in ensure_dict_list(d.get("faults", []) or [], RubricFault.from_dict)
+                    if f.kind in RUBRIC_FAULT_KINDS],
         )
 
 

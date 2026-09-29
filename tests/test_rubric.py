@@ -311,9 +311,10 @@ def test_LLM_실패한_묶음만_빠진다():
 def test_직렬화가_계약을_지킨다():
     got = _aggregate("school_project", make_items("school_project"))
     d = got.to_dict()
+    # cap·faults 는 09-30 에 더했다 (치명 결함 상한 — 코드가 확인한 모순·말로 건너뛴 핵심 장 · 다른 발표 녹음)
     assert set(d) == {
         "score", "situation", "situation_label", "rubric_version", "clusters",
-        "items", "excluded", "unmeasured", "basis", "model", "note",
+        "items", "excluded", "unmeasured", "basis", "model", "note", "cap", "faults",
     }
     assert set(d["clusters"][0]) == {
         "key", "name", "weight", "effective_weight", "average",

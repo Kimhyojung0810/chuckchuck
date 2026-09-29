@@ -206,6 +206,13 @@ def build_flow_diff(
         )
 
     doc_order = _doc_orders(graph)
+    if alignment.speech_match == "unrelated" or alignment.basis == "skipped":
+        # 녹음이 이 자료의 발표가 아니다 — 우연히 겹친 낱말로 「순서가 거꾸로」「잇는 멘트가 없었어요」 를 지어내지 않는다 (09-30 C-07)
+        return FlowDiff(
+            file_name=graph.file_name,
+            steps=sorted((FlowStep(node_id=nid, doc_order=doc_order[nid]) for nid in by_id), key=lambda s: s.doc_order),
+            ghost_node_ids=[nid for nid in sorted(by_id, key=lambda n: doc_order[n])],
+        )
     speech_order = _speech_orders(items, doc_order)
 
     steps = sorted(
@@ -227,11 +234,11 @@ def build_flow_diff(
         if e.from_id != e.to_id
     }
 
-    issues = (
-        _order_jumps(graph, by_id, doc_order, speech_order)
-        + _missing_links(graph, by_id, items, spoken_pairs)
-        + _good_links(alignment, by_id)
-    )
+    issues = _order_jumps(graph, by_id, doc_order, speech_order)
+    if alignment.basis != "fallback":
+        # 말로 이은 연결(speech_edges)은 LLM 만 판정한다 — LLM 판정이 비었으면(폴백) 「잇는 멘트가 없었어요」 는 LLM 실패이지
+        # 발표자의 결함이 아니다 (레드팀 G-A22). 순서 점프는 첫 언급 시각(코드)이라 그대로 본다.
+        issues += _missing_links(graph, by_id, items, spoken_pairs) + _good_links(alignment, by_id)
 
     tau = _kendall_tau([
         (s.doc_order, s.speech_order) for s in steps if s.speech_order is not None

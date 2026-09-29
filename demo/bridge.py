@@ -1732,16 +1732,24 @@ class Handler(SimpleHTTPRequestHandler):
         transcript = Transcript.from_dict(body["transcript"])
         ctx = Context.from_dict(body.get("context") or {})
         llm = _pick_llm(body)
+        # 09-30 held-out C-06·C-07: 정합이 발화의 숫자·방향을 **자료 원문**과 견주고(모순), 녹음이 다른 발표면 판정을 건너뛴다.
+        # 프론트는 slidedoc·marks_match 를 이 요청에 안 싣는다 — /questions 처럼 세션 보관소(동의 무관 캐시)에서 id 로 찾는다.
+        sid = _session_id_of(body)
+        slidedoc = ARCHIVE.read_artifact(sid, "slide_doc") if sid else None
+        saved_tr = ARCHIVE.read_artifact(sid, "transcript") if sid else None
+        speech_match = (body["transcript"].get("marks_match") if isinstance(body["transcript"], dict) else None) or (
+            (saved_tr or {}).get("marks_match"))
         sys.stderr.write(
             f"[bridge] F-11 alignment start nodes={len(graph.nodes)} "
-            f"slides={graph.total_slides} mock={_mock()}\n"
+            f"slides={graph.total_slides} slide_doc={slidedoc is not None} marks_match={speech_match} mock={_mock()}\n"
         )
         _fake_delay("/api/v1/alignment")
-        alignment = align_speech(graph, transcript, ctx, llm=llm)
+        alignment = align_speech(graph, transcript, ctx, llm=llm, slide_doc=slidedoc, speech_match=speech_match)
         s = alignment.summary
         sys.stderr.write(
             f"[bridge] F-11 alignment done coverage={s.coverage} "
-            f"verdicts={s.verdict_counts}\n"
+            f"verdicts={s.verdict_counts} speech_match={alignment.speech_match} basis={alignment.basis} "
+            f"skipped={[x.slide_no for x in alignment.skipped_slides]}\n"
         )
         payload = alignment.to_dict()
         self._archive(body, "alignment_doc", payload)
