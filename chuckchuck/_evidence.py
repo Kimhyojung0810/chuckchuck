@@ -315,30 +315,89 @@ def _mask_candidates(text: str, exclude: set[str]) -> list[tuple[str, str]]:
     return out
 
 
-def mask_gist(gist: str, label: str, distractor_pool: list[str]) -> tuple[str, str, str]:
+#: 명사 줄기로 볼 수 없는 꼬리 — 활용·연결 어미·명사형. 자료에 낱말로 있어도 가리지 않는다.
+#: 09-29 두 덱 기준선: 「모르겠어요」 선택지 6건 중 5건이 '중요함'·'차지해'·'설명할'·'발생했음'·'늘릴수록' 이었다.
+_VERBAL_END_RE = re.compile(r"(수록|도록|는지|적인|적으로|하는|되는|하게|되게|하며|하고|해서|하여|되어|(?:했|었|았|였|겠|됐)[음다고지어]?|니다|요)$")
+#: 명사에도 흔한 꼬리 — 두 글자 명사(역할·이해·포함·제한)는 자료에 낱말로 있을 때만, 세 글자 이상은 활용형으로 본다
+#: ('설명할'·'차지해'·'중요함'·'일정한').
+_SHORT_NOUN_END_RE = re.compile(r"(함|해|할|한|된|될|됨|인|적|운|여)$")
+#: 명사에도 있는 꼬리 — 자료에 낱말로 있으면 명사다(주기·소음·광고), 없으면 활용형이다(들기·높여).
+_ATTESTED_END_RE = re.compile(r"(기|음|임|짐|게|고|서|면|며|려|러|져|워|어|아)$")
+#: 두 글자 영문 조각(et·al)은 용어가 아니다.
+_LATIN_MIN = 3
+
+
+def _attested(stem: str, source: str) -> bool:
+    """줄기가 source 에 **낱말로** 있는가 — 앞은 낱말 경계, 뒤는 조사 또는 경계."""
+    if not stem or not source:
+        return False
+    return bool(re.search(rf"(?<![가-힣]){re.escape(stem)}(?:{_PARTICLE_END_RE.pattern[:-1]})?(?![가-힣])", source))
+
+
+def _noun_like(stem: str, source: str) -> bool:
+    """가려도 답이 되는 명사 줄기인가. 영문·숫자 용어는 그대로 받는다(두 글자 영문은 뺀다)."""
+    if re.search(r"[0-9]", stem):
+        return True
+    if re.fullmatch(r"[A-Za-z]+", stem):
+        return len(stem) >= _LATIN_MIN
+    if _VERBAL_END_RE.search(stem):
+        return False
+    if _SHORT_NOUN_END_RE.search(stem):
+        return len(stem) <= 2 and _attested(stem, source)
+    if _ATTESTED_END_RE.search(stem):
+        return _attested(stem, source)
+    return True
+
+
+def mask_gist(
+    gist: str, label: str, distractor_pool: list[str], *, quote: str = "", deck_text: str = ""
+) -> tuple[str, str, str]:
     """
     골자에서 낱말 하나를 가린 **빈칸 문장**과 (정답, 오답).
 
-    가리는 낱말은 개념 이름이 아닌 것 중 가장 긴 것 — 이름을 가리면 질문이 곧 답이고,
-    짧은 낱말은 조사가 섞여 답이 안 된다. 오답은 이웃 개념 요약에서 같은 방식으로
-    고른다 (골자에 없는 낱말). 재료가 없으면 ("", "", "") — 억지로 만들지 않는다.
+    가리는 낱말은 **명사 줄기**만이다 — 활용형('중요함'·'차지해')을 가리면 발판이 아니라 말장난이다.
+    개념 이름은 가리지 않는다(질문이 곧 답이다). 고르는 순서는 ① 자료 인용(quote)에 있는 낱말
+    ② 자료 본문(deck_text)에 있는 낱말 ③ 긴 낱말 ④ 문장 뒤쪽 — 골자가 자료 밖 말(논문 저자 이름 등)을 담아도
+    화면이 보여 주는 인용에서 확인할 수 있는 낱말이 답이 된다.
+
+    오답은 distractor_pool 을 **앞에서부터** 보고 고른다 — 호출자가 이웃 개념 **이름**을 먼저 넣는다(같은 종류의 말).
+    한 글 안에서는 뒤쪽 명사(한국어 합성어의 머리)를 먼저 본다. 골자·인용에 있는 낱말, 정답과 종류(숫자/말)가
+    다른 낱말은 오답이 될 수 없다 — 인용에 둘 다 있으면 「이 장이 말하는 건 어느 쪽」 이 성립하지 않는다.
+    재료가 없으면 ("", "", "") — 억지로 만들지 않는다.
     """
     text = (gist or "").strip()
     if not text:
         return "", "", ""
+    source = f"{quote} {deck_text}"
     exclude = set(_content_tokens(label))
-    candidates = _mask_candidates(text, exclude)
+    flat_label = re.sub(r"\s+", "", label or "").lower()
+    candidates = [(w, s) for w, s in _mask_candidates(text, exclude)
+                  if _noun_like(s, source) and s.lower() not in flat_label]
     if not candidates:
         return "", "", ""
-    # 줄기가 긴 것, 같으면 문장에서 **뒤에** 있는 것 — 한국어 골자는 결론이 뒤에 오므로
-    # 뒤쪽 명사가 답에 더 가깝다. 동률 규칙이 있어야 같은 골자면 언제나 같은 빈칸이다.
-    word, answer = max(candidates, key=lambda c: (len(c[1]), text.rfind(c[0])))
+    # 동률 규칙이 있어야 같은 골자면 언제나 같은 빈칸이다.
+    word, answer = max(candidates, key=lambda c: (
+        _attested(c[1], quote), _attested(c[1], deck_text), len(c[1]), text.rfind(c[0]),
+    ))
     masked = text.replace(word, "___", 1)
-    gist_stems = {s.lower() for _, s in candidates}
-    pool = " ".join(s for s in distractor_pool if s)
-    others = [s for _, s in _mask_candidates(pool, exclude) if s.lower() not in gist_stems]
-    distractor = max(others, key=len) if others else ""
-    return masked, answer, distractor
+    taken = {s.lower() for _, s in _mask_candidates(text, set())} | {answer.lower()}
+    numeric = bool(re.search(r"[0-9]", answer))
+    # 자료에 낱말로 있는 오답을 먼저 — 자료 밖 말(이웃 요약에만 있는 말)은 「자료가 말하는 쪽」 과 견줄 거리가 못 된다.
+    for need_deck in ((True, False) if deck_text else (False,)):
+        for item in distractor_pool or []:
+            for _, stem in reversed(_mask_candidates(item or "", exclude)):
+                if (stem.lower() in taken or bool(re.search(r"[0-9]", stem)) != numeric
+                        or stem.lower() in flat_label or _attested(stem, quote)
+                        or not _noun_like(stem, f"{deck_text} {item}")
+                        or (need_deck and not _attested(stem, deck_text))):
+                    continue
+                return masked, answer, stem
+    return masked, answer, ""
+
+
+def term_in(term: str, source: str) -> bool:
+    """term 이 source 에 **낱말로** 있는가(뒤에 조사 허용). 코칭 선택지가 자료의 말인지 볼 때 쓴다."""
+    return _attested((term or "").strip(), source)
 
 
 # ---------------------------------------------------------------------------
