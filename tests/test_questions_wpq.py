@@ -411,7 +411,8 @@ def test_C02_거짓_전제_질문은_폴백으로_바꾸고_이유_힌트_골자
                 [("taste", False)])
     q = by["taste"]
     assert {"question_premise_conflict", "premise_comparison", "fallback_template"} <= set(q.basis.checks)
-    assert q.question == "맛 평가가 이 발표에서 왜 중요한지 자료 1, 3장을 근거로 설명해 주세요."
+    # 폴백 골자는 근거 장 자료 줄이라 묻는 것도 「자료가 어떻게 설명했나」 다 (09-30 WP-P2 — 「왜 중요한지」 에는 답이 못 됐다)
+    assert q.question == "맛 평가를 자료 1, 3장에서 어떻게 설명했나요?"
     # 버린 질문의 이유·힌트·골자도 새 질문 것으로 (통합 실측: 폴백 질문 밑에 LLM 이유·힌트가 남았다)
     assert q.why.startswith("자료 1, 3장에서 다룬 내용이라") and q.hint.endswith("이 개념을 둔 이유부터 떠올려 보세요")
     assert q.answer_gist.startswith("자료는 이렇게 말해요 — ")
@@ -570,7 +571,9 @@ def test_M03_폴백으로_바꾼_질문의_이유_힌트는_새_질문_것():
                         hint="4장의 특식을 보세요.")], [("fri", False)])
     q = by["fri"]
     assert "question_unanswerable" in q.basis.checks and "fallback_template" in q.basis.checks
-    assert q.question == "금요일 잔반이 이 발표에서 왜 중요한지 자료 4장을 근거로 설명해 주세요."
+    assert q.question == "금요일 잔반을 자료 4장에서 어떻게 설명했나요?"
+    # 코드가 답할 수 없다고 본 질문의 폴백은 다음 후보 뒤로 밀 표시를 단다 (여기선 후보가 하나라 그대로 남는다)
+    assert "unanswerable_fallback" in q.basis.checks
     assert "특식을 보세요" not in q.hint and "까닭을 짚는" not in q.why
 
 

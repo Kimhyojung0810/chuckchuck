@@ -345,3 +345,49 @@ def test_긴장_질문은_탐침_꼴을_통과한_LLM_문장이어도_한_꼴이
     q1 = next(x for x in doc.questions if x.node_id == "keep")
     assert q1.question == "수강생 수도 출석 유지율의 요소인데, 출석 유지율이 수강생 수보다 중요하다는 건 어떤 뜻인가요?"
     assert "tension_clean_form" in q1.basis.checks
+
+
+def test_폴백_모범답은_과장_줄과_따지는_줄을_싣지_않는다():
+    # 근거 장의 비교 줄(긴장 탐침이 따짐)·과장 줄은 빼고 남는 자료 줄로만 짓는다 — 제목만 남으면 답이 아니다(""）.
+    by_no = {s.slide_no: s for s in DECK.slides}
+    root = next(n for n in GRAPH.nodes if n.id == "root")
+    challenged = P.challenged_lines(P.derive_probes(GRAPH, CLAIMS, SLIDES))
+    assert "수강생 수보다 중요한 출석 유지율" in challenged and OVERCLAIM in challenged
+    ok = lambda line: P.usable_answer_line(line, challenged)                      # noqa: E731
+    assert f08._evidence_gist(root, "새벽 수영반을 어떻게 설명했나요?", [1], by_no, usable=ok) == ""
+    effect = node("effect", "기대 효과", [5, 6])
+    gist = f08._evidence_gist(effect, "기대 효과를 어떻게 설명했나요?", [5, 6], by_no, usable=ok)
+    assert "완벽하게" not in gist and gist.startswith("자료는 이렇게 말해요 — ")
+    # 따지는 줄이 없으면(탐침을 안 쓴 경로) 예전처럼 자료 줄 그대로다
+    assert "수강생 수보다 중요한" in f08._evidence_gist(root, "새벽 수영반을 어떻게 설명했나요?", [1], by_no)
+
+
+def test_답할_수_없는_질문의_폴백은_묻는_것과_골자가_맞는다():
+    doc = build([item("root", "새벽 수영반의 신경학적 메커니즘은 무엇인가요?")], [("root", "core_weight")], track="1")
+    q1 = doc.questions[0]
+    assert {"question_unanswerable", "fallback_template", "unanswerable_fallback"} <= set(q1.basis.checks)
+    assert q1.question == "새벽 수영반을 자료 1장에서 어떻게 설명했나요?"
+    assert "수강생 수보다 중요한" not in q1.answer_gist and "완벽하게" not in q1.answer_gist
+    assert q1.why == "자료 1장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요"
+
+
+def test_답할_수_없는_폴백은_여유_후보가_있으면_뒤로_밀린다():
+    # 5분 트랙은 상한 3 + 여유 2 — 답할 수 없는 질문 자리는 다음 후보가 받는다
+    qs = [item("root", "새벽 수영반의 신경학적 메커니즘은 무엇인가요?"),
+          item("keep", "출석 유지율은 어떻게 계산하나요?", gist="등록 인원과 출석률, 재등록률을 곱해요."),
+          item("cold", "추운 탈의실은 어떻게 해결했나요?", gist="탈의실에 난방기를 설치해 해소해요."),
+          item("short", "짧은 강습 시간은 어떻게 보완했나요?", gist="강습을 10분 늘려 보완해요."),
+          item("heads", "수강생 수는 출석 유지율에서 어떤 역할인가요?", gist="등록 인원으로 출석 유지율의 한 요소예요.")]
+    doc = build(qs, [("root", "core_weight"), ("keep", "core_weight"), ("cold", "core_weight"), ("short", "core_weight"),
+                     ("heads", "core_weight")], track="5", claims=None)
+    ids = [x.node_id for x in doc.questions]
+    assert "root" not in ids and len(ids) == 3 and "root" in doc.deferred_node_ids
+    filled = [x for x in doc.questions if "filled_for_unanswerable" in x.basis.checks]
+    assert len(filled) == 1
+
+
+def test_여유_후보가_없으면_폴백_문장_그대로_남는다():
+    doc = build([item("root", "새벽 수영반의 신경학적 메커니즘은 무엇인가요?")], [("root", "core_weight")], track="1")
+    assert [x.node_id for x in doc.questions] == ["root"]
+    assert "unanswerable_fallback" in doc.questions[0].basis.checks
+    assert not any("filled_for_unanswerable" in x.basis.checks for x in doc.questions)

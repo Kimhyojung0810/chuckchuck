@@ -900,6 +900,72 @@ _JARGON_RE = re.compile(
     re.I)
 
 
+#: 자료 줄 자체를 **따져 묻는** 탐침 — 이 탐침들의 근거 줄은 다른 질문의 모범답이 될 수 없다(`challenged_lines`).
+CHALLENGING_KINDS = ("absolute_boundary", "unsupported_cause", "tension")
+
+
+def challenged_lines(probes: list[Probe]) -> set[str]:
+    """
+    탐침이 **따져 묻는** 자료 줄(원문 그대로). 09-30 standard(혈당 t5): 폴백 질문의 모범답이 「자료는 이렇게
+    말해요 — 탄수화물 양보다 중요한 혈당 부하 · 식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다」 였다 — 다른 질문이
+    과장이라고 따지는 줄을 「이렇게 말하면 완성이에요」 로 가르쳤다.
+    단정·근거 없는 인과는 그 줄, 긴장은 **비교 줄**(식 줄은 정의라 그대로 답이 될 수 있다).
+    """
+    out: set[str] = set()
+    for p in probes or []:
+        if p.kind not in CHALLENGING_KINDS:
+            continue
+        for e in p.evidence:
+            q = (e.quote or "").strip()
+            if not q or (p.kind == "tension" and not compare_sides(q)):
+                continue
+            out.add(q)
+    return out
+
+
+def overclaim(line: str) -> bool:
+    """줄이 **따질 만한 강한 단정**인가(「…만 바꾸면 … 완전히 막을 수 있습니다」) — 모범답에 옮기면 과장을 정답으로 가르친다.
+    관찰·기제·정의(`_claim_rules.absolute_kind`)는 아니다."""
+    return bool(R.absolute_marker(line, strong_only=True)) and R.contestable_absolute(line, strong_only=True)
+
+
+def usable_answer_line(line: str, challenged: set[str] | None = None) -> bool:
+    """모범답에 **자료 줄로** 실어도 되는가 — 탐침이 따지는 줄도, 따질 만한 강한 단정도 아니다."""
+    sq = G.squash(line)
+    if not sq:
+        return False
+    for c in challenged or ():
+        cq = G.squash(c)
+        if cq and (sq == cq or (len(cq) >= 8 and (cq in sq or sq in cq))):
+            return False
+    return not overclaim(line)
+
+
+#: 글의 한 문장이 따지는 줄을 **되풀이한** 것으로 볼 겹침 — 그 줄 내용 낱말의 이만큼.
+RESTATE_SHARE = 0.6
+_QUOTED_RE = re.compile(r"「[^」]*」|«[^»]*»|“[^”]*”|\"[^\"]*\"")
+
+
+def teaches_challenged(text: str, challenged: set[str] | None = None) -> str:
+    """
+    글(모범답)이 탐침이 따지는 줄을 **단정 그대로** 되풀이하는가 → 그 줄(아니면 ""). 인용 「」 안은 보지 않는다(출처를 댄 것이다).
+    09-30 WP-P2: 다른 질문이 과장이라고 따지는 줄을 LLM 골자가 「…완전히 막을 수 있어요」 로 옮겨 정답으로 가르칠 수 있다.
+    단정 표지가 문장에 남아 있고(부정·유보되지 않음) 그 줄 낱말의 RESTATE_SHARE 이상을 말했을 때만 — 조건을 붙여 말한 것은 아니다.
+    """
+    for sent in re.split(r"(?<=[.!?。])\s+", _QUOTED_RE.sub(" ", text or "")):
+        if not R.absolute_marker(sent, strong_only=True):
+            continue
+        said = set(R.content_tokens(sent))
+        for c in challenged or ():
+            line = set(R.content_tokens(c))
+            if line and R.absolute_marker(c) and \
+                    sum(1 for t in line if any(R.tok_match(s, t) for s in said)) >= RESTATE_SHARE * len(line):
+                return c
+        if overclaim(sent):
+            return sent
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # 한 문장에 두 물음 — 질문의 근거에 묶인 물음 하나만 남긴다 (09-30 WP-P2)
 # ---------------------------------------------------------------------------
