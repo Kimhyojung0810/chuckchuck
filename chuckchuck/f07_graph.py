@@ -10,8 +10,9 @@ F-07 은 Transcript 를 받지 않습니다. 그건 node.id 로 조인하는 뒤
 
 LLM 응답 뒤에 **결정적 후처리**가 붙습니다 (2026-09-29, `_graph_items`): 이름이 같은 노드 합치기,
 thesis 칸에 적힌 이름 풀기, 자료의 식·목록 항목 중 노드가 없는 것 더하기. 프롬프트는 건드리지 않았습니다 —
-예시 id 를 바꾼 안은 A/B 에서 위계 일치율을 0.61 → 0.43 으로 떨어뜨렸습니다
-(docs/review/2026-09-29_QA_근거검증/graph_ab.md).
+예시 id 를 바꾼 안은 A/B 에서 위계 일치율을 0.61 → 0.43 으로 떨어뜨렸고
+(docs/review/2026-09-29_QA_근거검증/graph_ab.md), 예시 낱말만 중립으로 바꾼 안도 잣대를 고치고 표본을 늘린 2차 A/B 의
+사전 판정 규칙을 못 넘었습니다 (graph_ab2.md, SYSTEM_PROMPT 아래 주석).
 
     from chuckchuck.f07_graph import build_graph
     graph = build_graph(concept_doc, context, slide_doc=slide_doc, llm="solar")
@@ -144,12 +145,18 @@ E. 주제와 관계없이 독립적으로 서는 큰 축이 정말 있을 때만
 }
 """
 
-# 09-30 A/B (labs/qa_bench/wpc_eval.py prompt_ab, 6덱 × 표본 2): 규칙 B·D 예시 낱말(focus 덱의 「집중·알림 끄기」, 레드팀 G-A16)을
-# 중립 낱말로 바꾸고 울타리(<concepts>·<flow>)를 더한 프롬프트는 표본 두 번의 부모 일치율을 0.707 → 0.473, 울타리만 더한 것도
-# 0.530 으로 떨어뜨렸다 (되돌림 기준 0.05). 그래서 프롬프트 글은 main 그대로 둔다 — 예시 id 를 바꿨을 때(09-29, 0.61 → 0.43)와 같은 꼴.
+# 규칙 B·D 예시 낱말(「집중·집중 루틴·집중력 저하·알림 끄기」)은 focus 덱에서, 스키마 예시 id(contrast·joint·encoder·baseline)는
+# IMU2CLIP 에서 왔다 — 처음 보는 PPT 에서 도는 프롬프트에 남은 덱 글이다. 그래도 **그대로 둔다** (09-30 실측, WP-C2 graph_ab2.md):
+# - 앞선 A/B 두 번(표본 2개, 옛 「부모 일치율」)은 루트 이름 한 번 바뀜(「공강」↔「틈새」)에 덱 하나가 0 이 되는 잣대라 헛 하락이
+#   섞였다. 노드를 짝지은 뒤 부모가 짝인지 세는 apa(labs/qa_bench/hier_stab.py)로 바꾸고, 판정 규칙을 돌리기 전에 커밋(23f512f)했다.
+# - 10덱 × 표본 base 6·W 4 에서, 예시 낱말만 중립(「보온·보온 용품·보온성 저하·외풍 막기」)으로 바꾼 W 는 문 셋을 못 넘었다:
+#   apa 0.643 → 0.570 (문턱 0.05), 자전거 덱 0.67 → 0.33 (한 덱 무너짐 0.25), 세부(깊이 3) 비율 0.48 → 0.41. 루트 바로 밑 자식이
+#   6.4 → 8.3 개로 늘어 트리가 납작해졌다 (규칙 B 「3~6개」 지킨 표본 57% → 48%). 심은 주장·탐침은 그대로였다.
+# - 예시 id 중립화·입력 울타리 갈래는 W 위에 하나씩 더한 것이라, W 가 떨어지면 돌리지 않기로 미리 정했다.
+# - 남긴 대가는 작다: base 62표본에서 예시 낱말이 다른 덱 노드 이름으로 새지 않았다 (걸린 것은 자료에 있는 「알림 원칙」 같은 말).
+#   예시 id 를 따라 쓴 노드는 `_assign_ids` 가 이름에서 만든 id 로, 예시 이름 자리표지는 `_drop_placeholders` 가 뺀다.
 # 자료 속 지시문은 프롬프트 글을 안 바꾸고 막는다: 지시문을 옮긴 개념 항목은 목록에서 빼고(`_build_user_prompt`), F-06 이
-# 이미 울타리 안에서 개념을 뽑는다. 예시 낱말 교체는 표본을 늘린 A/B(덱 6 × 표본 4 이상)로 다시 잴 일이다 — 표본 2개로는
-# 루트 이름 하나(「공강」↔「틈새」)만 바뀌어도 한 덱의 부모 일치가 0 이 된다.
+# 이미 울타리 안에서 개념을 뽑는다.
 
 #: 간선이 하나도 없이 돌아왔을 때 한 번 더 물어볼 때 덧붙이는 말.
 RETRY_NUDGE = """
@@ -601,18 +608,26 @@ _STRUCTURAL_LABEL_RE = re.compile(
     r"목차|차례|발표\s*순서|발표자(?:\s*소개)?|마무리|맺음말|끝|thank\s*you|thanks|agenda|contents|q\s*and\s*a)$", re.I)
 
 
+#: 스키마 예시 이름 뒤의 번호 — 「세부 개념 3」「요소 개념 A」「주제 개념(2)」. 반복 루프가 예시 이름에 번호를 매겨 늘어놓는 꼴이다.
+_INDEX_TAIL_RE = re.compile(r"\s*\(?\s*(?:\d+|[A-Za-z])\s*\)?$")
+
+
 def _drop_placeholders(raw_nodes: list[dict], data: dict) -> tuple[list[dict], dict]:
     """
     개념이 아닌 노드를 뺀다 — 스키마 예시 이름(「주제 개념」「요소 개념」 …)을 그대로 옮긴 자리표지와, 발표 진행 칸(「감사 인사」
     「질의응답」「목차」)이다. 그 노드의 자식은 그 노드의 부모 밑으로, thesis 였으면 thesis 를 비운다 (루트 클램프가 서브트리로
     주제를 다시 고른다). 09-29 A/B: main 프롬프트가 수익률격차 덱에서 thesis 노드 이름을 「주제 개념」 으로 적었다. 09-30 WP-Q:
     도서관 덱 그래프에 루트 「감사 인사」 가 있었다 — 진행 칸이 질문 대상·루트 후보가 되면 안 된다.
+
+    09-30 WP-C2 루프 점검: 예시 이름에 번호를 매긴 루프(「세부 개념 1」 … 「세부 개념 98」)는 이름이 다 달라 겹친 이름 합치기가
+    못 접고, 노드 상한(80)까지 자리표지로 채웠다. 번호 붙은 예시 이름도 자리표지로 본다 (「1단계」 같은 진짜 번호 이름은 그대로).
     """
     examples = _example_labels()
 
     def dud(r: dict) -> bool:
         label = str(r.get("label", "") or "").strip()
-        return label in examples or bool(_STRUCTURAL_LABEL_RE.match(label))
+        return (label in examples or _INDEX_TAIL_RE.sub("", label).strip() in examples
+                or bool(_STRUCTURAL_LABEL_RE.match(label)))
     gone = {str(r.get("id", "") or ""): r.get("parent") for r in raw_nodes if dud(r)}
     if not gone:
         return raw_nodes, data
@@ -643,6 +658,9 @@ def _assemble(
     raw_nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict)]
     raw_edges = [e for e in (data.get("edges") or []) if isinstance(e, dict)]
     raw_sections = [s for s in (data.get("sections") or []) if isinstance(s, dict)]
+    # 자리표지·진행 칸을 **먼저** 뺀다 — 합치기가 노드 상한(80)에서 자르므로, 예시 이름에 번호를 매긴 루프가 상한을 먹으면
+    # 루프 뒤의 진짜 노드가 잘렸다 (09-30 WP-C2 루프 점검).
+    raw_nodes, data = _drop_placeholders(raw_nodes, data)
     # 이름이 같은 노드는 한 개념이다 — 먼저 합치고 나서 id 를 매긴다. 09-29 한 실행은 같은 이름이 98번
     # 되풀이된 113노드를 냈다 (반복 루프). 합친 노드를 가리키던 parent·edges·thesis 는 남은 노드로 옮긴다.
     raw_nodes, merged = GI.dedupe_raw_nodes(raw_nodes)
@@ -655,7 +673,6 @@ def _assemble(
                 raw["links"] = [moved(x) for x in raw["links"]]
         raw_edges = [{**e, "from": moved(e.get("from")), "to": moved(e.get("to"))} for e in raw_edges]
         data = {**data, "thesis": moved(data.get("thesis"))}
-    raw_nodes, data = _drop_placeholders(raw_nodes, data)
     # 노드의 links 칸도 relates 로 받는다. 프롬프트는 더 요구하지 않는다 — 요구했더니 위계가 흔들렸다
     # (2026-09-29: form 덱 4회 중 2회 루트 12·2개). 가지를 넘는 연결은 _fill_links 가 따로 채운다.
     raw_edges += [
