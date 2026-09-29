@@ -1204,7 +1204,10 @@ class Handler(SimpleHTTPRequestHandler):
         llm = _pick_llm(body)
         # F-07 은 Transcript 를 안 받는다 — 입력이 concept_doc·slide_doc·context 뿐이라
         # 같은 자료면 결과가 같다. 실측 2분 40초로 파이프라인에서 가장 긴 단계다
-        key = _stage_key("f07", _code_version("chuckchuck.f07_graph"), body["concept_doc"], body.get("slide_doc") or None,
+        # 09-29: F-07 후처리(식·목록 항목 메우기·겹친 이름 합치기)가 유틸 _graph_items·_claim_rules 에 있다.
+        # f07 소스만 해시하면 그쪽을 고쳐도 옛 그래프가 나온다 (7756058 과 같은 함정) — 셋 다 키에 넣는다.
+        key = _stage_key("f07", _code_version("chuckchuck.f07_graph"), _code_version("chuckchuck._graph_items"),
+                         _code_version("chuckchuck._claim_rules"), body["concept_doc"], body.get("slide_doc") or None,
                          body.get("context") or {}, llm)
         cached = _stage_cache_get("graph", key)
         if cached is not None:

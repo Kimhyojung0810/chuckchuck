@@ -8,6 +8,11 @@ parent 간선만 따라가면 트리 뷰가 나오고, relates 간선이 나머�
 발화 축(speech_weight)과 정합 판정(누락·모순)은 여기 없습니다.
 F-07 은 Transcript 를 받지 않습니다. 그건 node.id 로 조인하는 뒤 단계 몫입니다.
 
+LLM 응답 뒤에 **결정적 후처리**가 붙습니다 (2026-09-29, `_graph_items`): 이름이 같은 노드 합치기,
+thesis 칸에 적힌 이름 풀기, 자료의 식·목록 항목 중 노드가 없는 것 더하기. 프롬프트는 건드리지 않았습니다 —
+예시 id 를 바꾼 안은 A/B 에서 위계 일치율을 0.61 → 0.43 으로 떨어뜨렸습니다
+(docs/review/2026-09-29_QA_근거검증/graph_ab.md).
+
     from chuckchuck.f07_graph import build_graph
     graph = build_graph(concept_doc, context, slide_doc=slide_doc, llm="solar")
 """
@@ -17,6 +22,8 @@ from __future__ import annotations
 import os
 import re
 
+from . import _graph_items as GI
+from ._claim_rules import mention_score as R_mention
 from ._json_text import extract_json_object
 from ._match import contains_tokens, label_tokens, norm_tokens
 from .contracts import (
@@ -455,6 +462,7 @@ def _apply_weights(
     nodes: list[ConceptNode],
     doc: ConceptDoc,
     slide_doc: SlideDoc | None,
+    only: set[str] | None = None,
 ) -> None:
     """
     weight 를 채운다. 그래프 안에서 **상대적** 이라 최상위 개념이 1.0 이 된다.
@@ -464,7 +472,10 @@ def _apply_weights(
     char_by, visual_by, total_char = _slide_signals(slide_doc)
     entries, titles = _concept_signals(doc)
     mentions = [_mention_count(n.label, entries) for n in nodes]
-    top_mention = max(mentions, default=0)
+    # only 가 있으면 그 노드만 새로 매기고, 정규화(최고 언급·최고 점수)는 나머지 노드 기준이다 —
+    # 후처리로 더한 항목 노드가 LLM 노드의 weight 서열을 흔들지 않게 (F-08 정렬이 weight 를 본다).
+    base = [m for n, m in zip(nodes, mentions) if only is None or n.id not in only]
+    top_mention = max(base, default=0)
 
     raws = [
         _raw_weight(
@@ -479,9 +490,10 @@ def _apply_weights(
         )
         for n, m in zip(nodes, mentions)
     ]
-    top = max(raws, default=0.0)
+    top = max((r for n, r in zip(nodes, raws) if only is None or n.id not in only), default=0.0)
     for node, raw in zip(nodes, raws):
-        node.weight = round(min(1.0, raw / top), 3) if top > 0 else 0.0
+        if only is None or node.id in only:
+            node.weight = round(min(1.0, raw / top), 3) if top > 0 else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -514,6 +526,18 @@ def _assemble(
     raw_nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict)]
     raw_edges = [e for e in (data.get("edges") or []) if isinstance(e, dict)]
     raw_sections = [s for s in (data.get("sections") or []) if isinstance(s, dict)]
+    # 이름이 같은 노드는 한 개념이다 — 먼저 합치고 나서 id 를 매긴다. 09-29 한 실행은 같은 이름이 98번
+    # 되풀이된 113노드를 냈다 (반복 루프). 합친 노드를 가리키던 parent·edges·thesis 는 남은 노드로 옮긴다.
+    raw_nodes, merged = GI.dedupe_raw_nodes(raw_nodes)
+    if merged:
+        def moved(v):
+            return merged.get(str(v), v) if v not in (None, "", "null") else v
+        for raw in raw_nodes:
+            raw["parent"] = moved(raw.get("parent"))
+            if isinstance(raw.get("links"), list):
+                raw["links"] = [moved(x) for x in raw["links"]]
+        raw_edges = [{**e, "from": moved(e.get("from")), "to": moved(e.get("to"))} for e in raw_edges]
+        data = {**data, "thesis": moved(data.get("thesis"))}
     # 위계는 노드의 parent 칸으로 받는다 (edges 로 받던 때는 Solar 가 절반 넘는 노드의 부모를
     # 빠뜨려 루트가 13~17개였다). 앞에 두어, edges 의 parent 와 겹치면 노드 칸이 이긴다.
     raw_edges = [
@@ -551,7 +575,7 @@ def _assemble(
     raw_thesis = str(data.get("thesis", "") or "")
     thesis = alias.get(raw_thesis, raw_thesis) if raw_thesis else None
     if thesis not in node_ids:
-        thesis = None
+        thesis = _thesis_by_label(raw_thesis, nodes, parent_of)
     if thesis is not None and thesis in parent_of:
         former = parent_of.pop(thesis)
         if not any({e.from_id, e.to_id} == {former, thesis} for e in relates):
@@ -575,6 +599,24 @@ def _assemble(
     )
 
     return nodes, edges, _to_sections(raw_sections, doc.total_slides), thesis
+
+
+def _thesis_by_label(raw: str, nodes: list[ConceptNode], parent_of: dict[str, str]) -> str | None:
+    """
+    thesis 칸에 id 대신 **이름**이 적혔을 때 그 노드. 이름이 같거나, 두 쪽 낱말이 절반 이상 서로 덮는 노드 —
+    같은 점수면 부모가 없는 노드, 앞에 적힌 노드(위에서 아래로 적는다).
+
+    2026-09-29 A/B: main 프롬프트 응답 20회 중 11회가 thesis 에 「독서 경험」「한글 소설 확산」 같은 이름을 적었다.
+    id 가 아니라서 버려졌고, 주제를 모르는 루트 클램프가 주제를 남길지 운에 맡겼다 (주제가 루트인 덱 3.5/9).
+    """
+    if not raw:
+        return None
+    scored = []
+    for i, n in enumerate(nodes):
+        sc = 1.0 if GI.same_label(raw, n.label) else GI.match_score(raw, n.label)
+        if sc >= 0.5:
+            scored.append((sc, n.id not in parent_of, -i, n.id))
+    return max(scored)[3] if scored else None
 
 
 # ---------------------------------------------------------------------------
@@ -759,6 +801,127 @@ def _fill_links(engine: LLMProvider, nodes: list[ConceptNode], edges: list[Conce
     return edges + _without_parent_pairs(added, parent_of)
 
 
+# ---------------------------------------------------------------------------
+# 식·목록 항목 메우기 — LLM 이 빠뜨린 요소 개념을 자료 구조로 더한다
+# ---------------------------------------------------------------------------
+
+def _root_of(nodes: list[ConceptNode], thesis: str | None) -> ConceptNode | None:
+    """근거가 없을 때 매달 곳 — 발표 주제, 없으면 서브트리가 가장 큰 루트."""
+    by = {n.id: n for n in nodes}
+    if thesis in by and by[thesis].parent_id is None:
+        return by[thesis]
+    parent_of = {n.id: n.parent_id for n in nodes if n.parent_id}
+    _, size = _subtree_reach(nodes, parent_of)
+    roots = [n for n in nodes if n.parent_id is None]
+    return min(roots, key=lambda n: (-size[n.id], -n.weight, n.id)) if roots else None
+
+
+def _head_node(head: str, slide_no: int, nodes: list[ConceptNode]) -> ConceptNode | None:
+    """식 좌변·목록 제목이 가리키는 노드 — 두 쪽 낱말이 절반 이상 서로 덮어야 한다. 같은 점수면 그 장·얕은 노드."""
+    scored = [(GI.match_score(head, n.label), n) for n in nodes]
+    scored = [(sc, n) for sc, n in scored if sc >= 0.5]
+    if not scored:
+        return None
+    return max(scored, key=lambda x: (x[0], slide_no in x[1].slide_nos, -x[1].depth, x[1].weight))[1]
+
+
+def _context_node(group: GI.ItemGroup, nodes: list[ConceptNode]) -> ConceptNode | None:
+    """
+    제목이 노드를 못 가리킬 때 — 그 장 노드 중 이름이 제목·소개 문장에 가장 많이 나온 것 (낱말 절반 이상,
+    같으면 긴 이름·얕은 쪽). 09-29 건강 덱: 「스파이크가 만드는 세 가지 문제」 → 「혈당 스파이크」.
+    09-29 수면 덱: 「자다가 깨는 대표적인 원인」 은 어느 노드도 아니지만 소개 줄 「수면의 연속성을 끊는 요인은…」 이
+    「수면 연속성」 을 부른다. 그 밑이 발표 주제 밑보다 덜 틀린다.
+    """
+    scored = [(R_mention(n.label, group.context), n) for n in nodes if group.slide_no in n.slide_nos]
+    scored = [(sc, n) for sc, n in scored if sc >= 0.5]
+    if not scored:
+        return None
+    return max(scored, key=lambda x: (x[0], len(label_tokens(x[1].label)), -x[1].depth, x[1].weight))[1]
+
+
+def _item_slides(item: str, slide_no: int, lines_by: dict[int, list[str]]) -> list[int]:
+    """항목 이름이 줄에 통째로 나온 장들 (근거 장은 늘 포함) — weight 의 걸친 장 수가 여기서 온다."""
+    toks = label_tokens(item)
+    found = {no for no, lines in lines_by.items() if toks and any(contains_tokens(norm_tokens(x), toks) for x in lines)}
+    return sorted(found | {slide_no})
+
+
+def _add_items(
+    nodes: list[ConceptNode],
+    edges: list[ConceptEdge],
+    doc: ConceptDoc,
+    slide_doc: SlideDoc | None,
+    thesis: str | None,
+) -> list[ConceptEdge]:
+    """
+    자료의 식(「A = B × C × D」)·목록(「세 가지 문제」 + 항목 줄)에서 **노드가 없는 항목**을 노드로 더한다.
+
+    부모: 식이면 좌변 노드(없으면 좌변도 노드로 더해 주제 밑에), 목록이면 이미 노드인 항목들의 공통 부모 →
+    제목이 가리키는 노드 → 발표 주제 순. id 는 이름의 로마자 slug, weight 는 같은 배합(정규화는 LLM 노드 기준).
+    묶음 하나를 통째로 못 넣으면(상한 MAX_ADDED) 그 묶음은 건너뛴다 — 식의 항 일부만 있으면 compose 가 반쪽이 된다.
+    nodes 는 제자리에 늘리고 새 edges 를 돌려준다. slide_doc 이 없으면 아무것도 안 한다.
+    """
+    if slide_doc is None or GI.MAX_ADDED <= 0 or not nodes:
+        return edges
+    lines_by = {s.slide_no: GI.deck_lines(s.raw_text) for s in slide_doc.slides}
+    groups = GI.item_groups([(s.slide_no, s.raw_text) for s in slide_doc.slides])
+    by_slide_imp = {s.slide_no: s.importance for s in doc.slides}
+    used = {n.id for n in nodes}
+    parent_of = {n.id: n.parent_id for n in nodes if n.parent_id}
+    added: list[ConceptNode] = []
+
+    def make(label: str, group: GI.ItemGroup, parent: str | None) -> ConceptNode:
+        slides = _item_slides(label, group.slide_no, lines_by)
+        node = ConceptNode(id=GI.slug_id(label, used), label=label, slide_nos=slides, summary=group.line,
+                           importance=_inherit_importance(slides, by_slide_imp, "support"))
+        used.add(node.id)
+        if parent:
+            parent_of[node.id] = parent
+        return node
+
+    for g in groups:
+        labels = [n.label for n in nodes + added]
+        missing = [it for it in g.items if GI.present_index(it, labels) is None]
+        if not missing:
+            continue
+        pool = nodes + added
+        parent = None
+        if g.kind == "list":
+            have = [pool[i] for it in g.items if (i := GI.present_index(it, labels)) is not None]
+            ups = {n.parent_id for n in have}
+            if len(ups) == 1 and None not in ups:
+                parent = next(iter(ups))
+        if parent is None:
+            got = _head_node(g.head, g.slide_no, pool) or _context_node(g, pool)
+            parent = got.id if got is not None else None
+        new_head = None
+        if parent is None and g.kind == "formula":
+            root = _root_of(nodes, thesis)
+            new_head = (g.head, root.id if root else None)
+        if len(added) + len(missing) + (new_head is not None) > GI.MAX_ADDED:
+            continue
+        if new_head is not None:
+            head = make(new_head[0], g, new_head[1])
+            added.append(head)
+            parent = head.id
+        if parent is None:
+            root = _root_of(nodes, thesis)
+            parent = root.id if root else None
+        for it in missing:
+            added.append(make(it, g, parent))
+
+    if not added:
+        return edges
+    nodes.extend(added)
+    ids = [n.id for n in nodes]
+    _clamp_depth(parent_of, ids, MAX_GRAPH_DEPTH)
+    for node in nodes:
+        node.parent_id = parent_of.get(node.id)
+        node.depth = _depth_of(node.id, parent_of)
+    _apply_weights(nodes, doc, slide_doc, only={n.id for n in added})
+    return edges + [ConceptEdge(from_id=parent_of[n.id], to_id=n.id, kind="parent") for n in added if n.id in parent_of]
+
+
 def _is_degenerate(nodes: list[ConceptNode], edges: list[ConceptEdge]) -> bool:
     """
     노드가 둘 이상인데 간선이 하나도 없으면 그래프가 아니다.
@@ -844,6 +1007,9 @@ def build_graph(
 
     edges = _clamp_roots(nodes, edges, doc, slide_doc, thesis)
     edges = _fill_links(engine, nodes, edges)
+    # 식·목록 항목 메우기는 연결 보강 **뒤**다 — 앞에 두면 노드 수가 늘어 보강 호출 여부(가지 간 연결 비율)가 바뀐다.
+    # 더한 항목은 위계(부모 간선)로만 잇는다. 가지를 넘는 연결은 F-26 주장(compose)이 맡는다.
+    edges = _add_items(nodes, edges, doc, slide_doc, thesis)
 
     return ConceptGraph(
         file_name=doc.file_name,

@@ -501,13 +501,28 @@ class _Deck:
                    nodes=list(graph.nodes), texts=texts, lines={no: slide_lines(t) for no, t in texts.items()})
 
 
-def _resolve_id(value, ids: set[str], by_label: dict[str, str]) -> str:
-    """그래프 id 면 그대로, 아니면 이름이 통째로 같은 개념의 id (Solar 가 id 칸에 이름을 적는 일이 있다), 없으면 ""."""
+#: id 칸에 적힌 이름을 풀어 볼 최대 낱말 수. 이보다 길면 이름이 아니라 문장(인용을 id 칸에 옮긴 것)이다.
+RESOLVE_MAX_TOKENS = 4
+
+
+def _resolve_id(value, ids: set[str], by_label: dict[str, str], nodes: list[ConceptNode] | None = None) -> str:
+    """
+    그래프 id 면 그대로, 아니면 그 이름이 가리키는 개념의 id, 없으면 "".
+
+    Solar 는 id 칸에 이름을 자주 적는다. 이름이 통째로 같으면 바로 받고, 아니면 규칙 추출과 **같은 잣대**
+    (`resolve_label` — 이름 포함 → 변별 낱말 절반 이상)로 푼다. 09-29 P5: IR 덱의 LLM 주장 13개가 전부
+    id 칸에 「높은 배송비」「구독자 수」 같은 자료 표현을 적어서, 통째 일치만 받던 때는 13개 모두 버렸다
+    (그래프 id 가 프롬프트 예시 id 를 따라 한 「encoder-2」 꼴이라 뜻이 없었다).
+    """
     # 09-29 실측: 목록을 「- (gap) …」 꼴로 줬더니 Solar 가 "(gap)" 을 통째로 옮겼다. 괄호는 벗긴다.
     v = str(value or "").strip().strip("()[]{}<>「」 ").strip()
     if v in ids:
         return v
-    return by_label.get(_loose(v), "")
+    got = by_label.get(_loose(v), "")
+    if got or not nodes or not v or len(R.content_tokens(v)) > RESOLVE_MAX_TOKENS:
+        return got
+    node = resolve_label(v, nodes)
+    return node.id if node is not None else ""
 
 
 def _men(deck: _Deck, nid: str, text: str, others: list[str]) -> bool:
@@ -613,12 +628,12 @@ def _check(raw: dict, deck: _Deck) -> Claim | str:
     kind = str(raw.get("kind", "") or "").strip().lower()
     if kind not in CLAIM_KINDS:
         return "kind"
-    subj = _resolve_id(raw.get("subject_id"), deck.ids, deck.by_label)
+    subj = _resolve_id(raw.get("subject_id"), deck.ids, deck.by_label, deck.nodes)
     if not subj:
         return "id"
     objs: list[str] = []
     for o in raw.get("object_ids") or []:
-        oid = _resolve_id(o, deck.ids, deck.by_label)
+        oid = _resolve_id(o, deck.ids, deck.by_label, deck.nodes)
         # 주어와 같은 개념의 다른 이름(F-07 이 겹쳐 둔 노드)은 목적어가 아니다 — 「A 가 A 를 해결한다」
         if oid and oid != subj and oid not in objs and not R.same_concept(deck.labels[oid], deck.labels[subj]):
             objs.append(oid)
