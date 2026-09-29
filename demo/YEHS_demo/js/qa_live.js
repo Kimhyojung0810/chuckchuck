@@ -466,6 +466,55 @@ function questionPapersHtml(refs) {
     paperAnchor(r, `${escapeHtml(r.cite_key)}${r.title ? ` · ${escapeHtml(r.title)}` : ''} ↗`)).join(' · ')}</span>`;
 }
 
+/* 「이 질문의 근거」 (P1, 2026-09-29) — 사용자가 "이 질문은 어떤 근거로 나왔는지" 물었는데 답할 곳이 없었다.
+   F-08 이 질문마다 basis(배합 자리·근거·탐침·자료 인용)를 남긴다. 화면은 그걸 사람 말로만 옮긴다 —
+   영문 id(tension·weak…)는 보이지 않는다. 옛 세션 질문은 basis 가 없어 이 줄이 안 생긴다. */
+const QA_ORIGIN_SLOT = { theme: '발표 주제', part: '주제를 이루는 요소', weak: '더 짚어 볼 곳' };
+/** 탐침(자료 안에서 코드가 찾은 것) — 「자료 N장에서 …」 로 이어 읽힌다 */
+const QA_ORIGIN_PROBE = {
+  tension: '서로 부딪히는 표현',
+  unsolved: '해결책이 빠진 요소',
+  unsupported_cause: '근거 없이 말한 원인과 결과',
+  absolute_boundary: '단정적으로 말한 대목',
+  sibling_priority: '나란히 둔 요소 사이의 우선순위',
+};
+const QA_ORIGIN_SOURCE = {
+  contradiction: '발표에서 자료와 다르게 말한 곳',
+  missing: '자료에 있는데 발표에서 말하지 않은 개념',
+  under_spoken: '발표에서 짧게 지나간 개념',
+  weak_flow: '다른 개념과의 연결이 드러나지 않은 곳',
+  extra: '발표에서 새로 꺼낸 개념',
+  core_weight: '자료가 크게 다룬 개념',
+  justified_skip: '생략해도 괜찮았던 개념',
+};
+/** 근거 칸에 보여 줄 인용 수. 더 늘어놓으면 질문보다 근거가 길어진다 */
+const QA_ORIGIN_QUOTE_MAX = 3;
+
+/** 「발표 주제 · 자료 1·4장에서 서로 부딪히는 표현」. basis 가 없거나 모르는 근거면 빈 문자열 */
+function questionOriginLine(basis) {
+  if (!basis || typeof basis !== 'object') return '';
+  const kind = basis.probe && basis.probe.kind;
+  let what = '';
+  if (kind && QA_ORIGIN_PROBE[kind]) {
+    const nos = [...new Set(((basis.probe.evidence) || []).map((e) => Number(e.slide_no)).filter((n) => n > 0))].sort((a, b) => a - b);
+    what = `${nos.length ? `자료 ${nos.join('·')}장에서 ` : '자료에서 '}${QA_ORIGIN_PROBE[kind]}`;
+  } else {
+    what = QA_ORIGIN_SOURCE[basis.source] || '';
+  }
+  return [QA_ORIGIN_SLOT[basis.slot] || '', what].filter(Boolean).join(' · ');
+}
+
+/** 질문 말풍선 아래 접힌 「이 질문의 근거」 — 한 줄 설명 + 자료 원문 인용 */
+function questionOriginHtml(q) {
+  const basis = q && q.basis;
+  const line = questionOriginLine(basis);
+  if (!line) return '';
+  const quotes = ((basis.evidence) || []).filter((e) => e && e.quote).slice(0, QA_ORIGIN_QUOTE_MAX)
+    .map((e) => `<blockquote class="qa-evidence"><span>자료 ${Number(e.slide_no) > 0 ? `${Number(e.slide_no)}장` : ''}</span>${escapeHtml(e.quote)}</blockquote>`)
+    .join('');
+  return `<details class="msg-origin"><summary>이 질문의 근거</summary><p>${escapeHtml(line)}</p>${quotes}</details>`;
+}
+
 function presentLiveQuestion() {
   const L = qa.live;
   if (L.asked === L.qi) return;
@@ -478,6 +527,7 @@ function presentLiveQuestion() {
     text: linkCitedText(q.question, q.papers),
     papers: questionPapersHtml(q.papers),
     basis: q.why ? escapeHtml(q.why) : '',
+    origin: questionOriginHtml(q),
     // 👍/👎 — 「이 자료에서 나올 만한 질문이었나」. 이것이 질문 생성의 라벨이다.
     fb: liveFeedbackHtml('question_vote', String(q.id), [['up', '👍 좋은 질문이에요'], ['down', '👎 이 질문은 별로예요']],
       { question: q.question, node_id: q.node_id, slide_nos: q.slide_nos || [], trap: !!q.trap, source: q.source || '' }),

@@ -8350,6 +8350,7 @@ function streamRow(it) {
         <p class="msg-q">${it.text}</p>
         ${it.papers || ''}
         ${it.basis ? `<span class="msg-basis">${it.basis}</span>` : ''}
+        ${it.origin || ''}
         ${(it.choices || []).length ? `<div class="qa-choices">${it.choices.map((c) => `<button type="button" class="qa-choice-chip">${c}</button>`).join('')}</div>` : ''}
         ${it.fb || ''}
       </div></div>`;

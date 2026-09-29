@@ -36,8 +36,10 @@ from ._evidence import (
     section_line,
 )
 from ._json_text import extract_json_object
+from ._probes import as_claims, derive_probes, mentions, probe_question, probe_why
 from ._speech import to_haeyo, ungrounded_numbers
 from .contracts import (
+    PROBE_KINDS,
     QA_EXTRA_MAX,
     QA_SEVERITIES,
     QA_UNDER_SPOKEN_GAP,
@@ -49,6 +51,8 @@ from .contracts import (
     QA_TRACK_TRAPS,
     QA_TRACKS,
     AlignmentDoc,
+    ClaimDoc,
+    ClaimQuote,
     ConceptGraph,
     ConceptNode,
     Context,
@@ -60,9 +64,11 @@ from .contracts import (
     PAPER_ABSTRACT_MAX,
     PaperDoc,
     PaperRef,
+    Probe,
     QaJudgement,
     QaTriage,
     Question,
+    QuestionBasis,
     QuestionDoc,
     QuestionError,
     Slide,
@@ -108,9 +114,11 @@ _WHY_BY_FLOW_KIND = {
 
 #: LLM 이 severity 를 안 줬을 때의 결정적 폴백 (source 기반).
 #: justified_skip 은 3 이다 — 리포트가 생략을 승인한 개념이라 못 답해도 넘어간다.
+#: 탐침(PROBE_KINDS)도 확인된 사실이다 — 자료 안의 긴장(tension)은 모순처럼 치명, 나머지 빈틈은 보통이다.
 _SEVERITY_BY_SOURCE = {
     "contradiction": 1, "missing": 1, "under_spoken": 1, "weak_flow": 2, "extra": 2,
     "justified_skip": 3,
+    "tension": 1, "unsolved": 2, "unsupported_cause": 2, "absolute_boundary": 2, "sibling_priority": 2,
 }
 
 #: sections[].slide_role → 질문 가치 순위. 표지·맺음말에만 나오는 개념은 자료가
@@ -184,6 +192,7 @@ _WHY_BY_SOURCE = {
     "extra": "자료에는 없는데 발표에서 직접 꺼낸 개념이에요",
     "core_weight": "자료가 가장 큰 비중을 둔 핵심 개념이에요",
     "justified_skip": "발표에서 생략해도 괜찮았던 개념이지만, 질문이 나올 수 있어요",
+    **{kind: probe_why(Probe(kind=kind)) for kind in PROBE_KINDS},
 }
 
 TRIAGE_SYSTEM_PROMPT = """당신은 발표 심사위원의 질문을 예측하는 코치다.
@@ -303,6 +312,17 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
 }
 """
 
+#: 탐침(주장 그래프)이 붙은 개념이 있을 때만 시스템 프롬프트 뒤에 붙는 규칙. **없으면 프롬프트는 예전과 글자까지 같다.**
+PROBE_SYSTEM_ADDENDUM = """
+
+## 탐침 — 이 요청에만 붙는 규칙
+질문 대상 개념에 「탐침(종류): …」 줄이 붙어 있으면, 그 개념이 뽑힌 이유가 바로 그 탐침이다.
+- 질문은 **탐침이 짚은 긴장·빈틈 하나만** 물어라. 다른 각도로 새지 마라.
+- 「근거 원문」 은 자료에 그대로 있는 문장이다. 질문은 그 문장들이 가리키는 것을 묻되, 문장을 되읊게 하지 마라.
+- 화살표(←) 줄이 이름을 댄 개념은 **전부** 질문 문장에 넣어라. 빠지면 버려지고 정해진 문장으로 바뀐다.
+- answer_gist 는 근거 원문과 자료 본문에 있는 말로만 쓴다.
+"""
+
 #: 문헌(PaperDoc)이 있을 때만 시스템 프롬프트 뒤에 붙는 규칙. **없으면 프롬프트는 예전과 글자까지 같다.**
 #: 교수 페르소나의 「경험」 = 문헌이다 (docs/plan/audience-evidence-and-deck-consulting.plan.md §2-1).
 PAPER_SYSTEM_ADDENDUM = """
@@ -393,12 +413,15 @@ def _source_by_node(
     alignment: AlignmentDoc | None,
     flow: FlowDiff | None,
     pace: PaceDoc | None = None,
+    probes: list[Probe] | None = None,
 ) -> dict[str, str]:
     """
     노드마다 '왜 물을 만한가' 를 하나씩 정한다.
 
-    여러 근거가 겹치면 우선순위가 높은 것이 이긴다 (모순 > 누락 > 흐름 결손 > 자료 비중).
+    여러 근거가 겹치면 우선순위가 높은 것이 이긴다 (모순 > 긴장 > 누락 > 흐름 결손 > 탐침 빈틈 > 자료 비중).
     alignment·flow 가 없으면 전부 core_weight 다 — 녹음 없이 자료만 올린 경로다.
+    probes(주장 그래프 탐침)를 주면 그 대상 노드가 탐침 종류를 근거로 얻는다 — 자료만 올린 경로도
+    "크다" 말고 **자료 안의 긴장·빈틈** 이라는 근거를 갖게 된다 (2026-09-29, P3). 안 주면 예전과 같다.
     """
     found: dict[str, str] = {n.id: QA_SOURCE_FALLBACK for n in graph.nodes}
 
@@ -440,6 +463,12 @@ def _source_by_node(
         for node in graph.nodes:
             if any(no in rushed for no in node.slide_nos):
                 claim(node.id, "under_spoken")
+
+    # 탐침은 claim 으로 얹는다 — QA_SOURCES 순서가 그대로 이긴다. 모순은 긴장보다, 누락은 해결 빠짐보다 앞이다.
+    # 정당생략은 가장 뒤라 탐침이 덮는다: 생략이 합리적이어도 자료 **안에서** 부딪히는 말은 여전히 찔릴 자리다.
+    for probe in probes or []:
+        if probe.node_ids:
+            claim(probe.node_ids[0], probe.kind)
 
     return found
 
@@ -621,6 +650,7 @@ def _ordered_candidates(
     alignment: AlignmentDoc | None,
     flow: FlowDiff | None,
     pace: PaceDoc | None = None,
+    probes: list[Probe] | None = None,
 ) -> list[tuple[ConceptNode, str]]:
     """
     질문 후보를 결정적 우선순위로 정렬해 CANDIDATE_LIMIT 까지 자른다.
@@ -640,7 +670,7 @@ def _ordered_candidates(
 
     마지막 두 단계는 동률을 깨려고 있다 — 같은 그래프면 언제나 같은 순서가 나온다.
     """
-    source_of = _source_by_node(graph, alignment, flow, pace)
+    source_of = _source_by_node(graph, alignment, flow, pace, probes)
     # 발화에만 나온 개념도 같은 축에서 같은 규칙으로 줄 세운다.
     extras = _extra_nodes(alignment)
     for extra in extras:
@@ -1257,6 +1287,7 @@ def _build_triage_prompt(
     ctx: Context,
     flow: FlowDiff | None = None,
     rushed: dict[int, tuple[float, float]] | None = None,
+    probe_of: dict[str, Probe] | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-triage",
@@ -1292,6 +1323,10 @@ def _build_triage_prompt(
         rushed_line = _rushed_line(node, rushed or {})
         if rushed_line:
             parts.append(f"    {rushed_line}")
+        # 탐침 각도는 근거가 그 탐침인 개념에만 — 흐름 줄과 같은 이유다. 주장이 없으면 이 줄은 안 생긴다.
+        probe = (probe_of or {}).get(node.id)
+        if probe is not None and source == probe.kind:
+            parts.append(f"    {_probe_line(probe)}")
 
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
     spoken = []
@@ -1305,6 +1340,25 @@ def _build_triage_prompt(
     if spoken:
         parts += ["", "## 발표에서 실제로 한 말 (근거 장의 발화)", ""] + spoken
     return "\n".join(parts)
+
+
+def _probe_line(probe: Probe) -> str:
+    """프롬프트에 붙일 「탐침(kind): 각도」 한 줄."""
+    return f"탐침({probe.kind}): {probe.angle}"
+
+
+def _probe_evidence_line(probe: Probe) -> str:
+    """「근거 원문: S1 «…» · S4 «…»」 — 탐침을 받치는 자료 원문 인용 (F-26 이 원문과 대조한 것만 온다)."""
+    return "근거 원문: " + " · ".join(f"S{e.slide_no} «{e.quote}»" for e in probe.evidence)
+
+
+def _probes_by_node(probes: list[Probe]) -> dict[str, Probe]:
+    """노드 id → 그 노드의 가장 우선인 탐침. probes 는 derive_probes 가 종류 우선순위로 정렬해 뒀다."""
+    out: dict[str, Probe] = {}
+    for p in probes:
+        if p.node_ids and p.node_ids[0] not in out:
+            out[p.node_ids[0]] = p
+    return out
 
 
 def _normalize_marks(
@@ -1496,6 +1550,7 @@ def triage_questions(
     transcript: Transcript | dict | None = None,
     memory: MemoryDoc | dict | None = None,
     pace: PaceDoc | dict | None = None,
+    claims: ClaimDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QaTriage:
@@ -1516,6 +1571,10 @@ def triage_questions(
     alignment·flow·transcript 없이 그래프만으로도 동작한다 — 녹음 없이 자료만 올린
     경로에서 근거는 전부 core_weight 가 되고 자료 weight 순으로 후보가 나온다.
     트랙과 무관하므로 세션에 한 번만 만들어 재사용하면 된다.
+
+    claims(F-26 ClaimDoc) 를 주면 주장 그래프에서 탐침(derive_probes)을 찾아, 대상 노드의 근거가 탐침 종류가
+    되고 `QaTriage.probes` 에 실린다. 자료만 올린 경로도 weak 자리를 "자료 안의 긴장·빈틈" 으로 채울 수 있다.
+    안 주면(또는 주장이 비면) 프롬프트·순위가 예전과 글자까지 같다.
     """
     graph = _as_graph(graph)
     if isinstance(alignment, dict):
@@ -1527,13 +1586,15 @@ def triage_questions(
     ctx = _as_context(context)
 
     pace = _as_pace(pace)
-    pairs = _ordered_candidates(graph, alignment, flow, pace)
+    probes = derive_probes(graph, claims)
+    pairs = _ordered_candidates(graph, alignment, flow, pace, probes)
     engine = _engine(llm, llm_kwargs)
 
     data = _call_with_retry(
         engine,
         TRIAGE_SYSTEM_PROMPT,
-        _build_triage_prompt(graph, pairs, alignment, transcript, ctx, flow, _rushed_slides(pace, graph)),
+        _build_triage_prompt(graph, pairs, alignment, transcript, ctx, flow, _rushed_slides(pace, graph),
+                             _probes_by_node(probes)),
     )
     raw_marks = [m for m in (data.get("marks") or []) if isinstance(m, dict)]
     marks = _normalize_marks(raw_marks, pairs, graph, _rushed_ids(pace, graph))
@@ -1545,6 +1606,7 @@ def triage_questions(
         total_slides=graph.total_slides,
         marks=marks,
         model=engine.name,
+        probes=probes,
     )
 
 
@@ -1672,7 +1734,10 @@ QA_TRACK_MIX: dict[str, tuple[str, ...]] = {
 }
 
 #: weak 자리에 들어갈 근거. extra(발화에만 나온 개념)는 약점이 아니라 즉흥이라 뺀다.
-_WEAK_SOURCES = ("contradiction", "missing", "under_spoken", "weak_flow")
+#: 탐침(PROBE_KINDS)도 약점이다 — 자료 **안에서** 코드가 찾은 긴장·빈틈이라, 녹음이 없어도 근거가 있다.
+#: 2026-09-29: 자료만 경로는 근거가 전부 core_weight 라 weak 자리가 맞는 개념을 못 찾고 순위 1등(= weight 순)으로
+#: 채워졌다. 탐침이 있으면 그 자리를 탐침이 먼저 받는다 (주장이 없으면 탐침 근거가 아예 없어 예전과 같다).
+_WEAK_SOURCES = ("contradiction", "missing", "under_spoken", "weak_flow", *PROBE_KINDS)
 
 
 def _slot_fits(slot: str, mark: TriageMark, depth_of: dict[str, int], stalled: set[str]) -> bool:
@@ -1683,13 +1748,23 @@ def _slot_fits(slot: str, mark: TriageMark, depth_of: dict[str, int], stalled: s
     return mark.source in _WEAK_SOURCES or mark.node_id in stalled
 
 
+def _slot_prefers(slot: str, mark: TriageMark, depth_of: dict[str, int], stalled: set[str]) -> bool:
+    """자리에 맞는 개념 가운데 **먼저** 볼 것. theme 자리는 루트의 긴장 탐침이 있으면 그것 —
+    발표 전체의 주장이 자료 안에서 부딪히는 자리가 주제 질문으로 가장 날카롭다 (규칙 3-5)."""
+    return slot == "theme" and mark.source == "tension" and _slot_fits(slot, mark, depth_of, stalled)
+
+
 def _mixed_order(
     ordered: list[TriageMark],
     track: str,
     depth_of: dict[str, int] | None,
     stalled: set[str],
+    slots_out: dict[str, str] | None = None,
 ) -> list[TriageMark]:
-    """배합대로 앞자리를 채우고, 나머지는 원래 순위대로 뒤에 붙인다. depth 를 모르면 순위 그대로."""
+    """배합대로 앞자리를 채우고, 나머지는 원래 순위대로 뒤에 붙인다. depth 를 모르면 순위 그대로.
+
+    slots_out 을 주면 **자리에 맞아서** 뽑힌 개념의 자리 이름(theme·part·weak)을 적는다 (P1 — 질문 근거).
+    맞는 개념이 없어 순위 1등으로 채운 자리는 적지 않는다 — 그건 배합이 고른 게 아니라 순위가 고른 것이다."""
     plan = QA_TRACK_MIX.get(track) or ()
     if depth_of is None or not plan:
         return ordered
@@ -1698,7 +1773,11 @@ def _mixed_order(
     for slot in plan:
         if not rest:
             break
-        pick = next((m for m in rest if _slot_fits(slot, m, depth_of, stalled)), rest[0])
+        pick = next((m for m in rest if _slot_prefers(slot, m, depth_of, stalled)), None) \
+            or next((m for m in rest if _slot_fits(slot, m, depth_of, stalled)), None)
+        if pick is not None and slots_out is not None:
+            slots_out[pick.node_id] = slot
+        pick = pick or rest[0]
         rest.remove(pick)
         head.append(pick)
     return head + rest
@@ -1709,6 +1788,7 @@ def _pick_marks(
     track: str,
     depth_of: dict[str, int] | None = None,
     stalled: set[str] | None = None,
+    slots_out: dict[str, str] | None = None,
 ) -> tuple[list[TriageMark], list[str]]:
     """
     트랙 상한만큼 배합(QA_TRACK_MIX)대로 고르고, 함정 개수를 트랙 허용치로 깎는다.
@@ -1718,7 +1798,7 @@ def _pick_marks(
     상한에서 밀린 개념은 deferred 로 돌려준다 — "더 길게 하면 이것도 물어요" 안내용이다.
     """
     ordered = _mixed_order(
-        sorted(marks, key=lambda m: (m.rank, m.node_id)), track, depth_of, stalled or set()
+        sorted(marks, key=lambda m: (m.rank, m.node_id)), track, depth_of, stalled or set(), slots_out
     )
     limit = QA_TRACK_LIMITS[track]
     take = limit + _twin_slack(limit)
@@ -1756,6 +1836,7 @@ def _build_question_prompt(
     memory_of: dict[str, ConceptMemory] | None = None,
     paper_plan: dict[str, list[PaperRef]] | None = None,
     rushed: dict[int, tuple[float, float]] | None = None,
+    probe_of: dict[str, Probe] | None = None,
 ) -> str:
     def refs_of(node: ConceptNode, anchors: list[int]) -> list[PaperRef]:
         if paper_plan is not None:
@@ -1825,6 +1906,17 @@ def _build_question_prompt(
         rushed_line = _rushed_line(node, rushed or {})
         if rushed_line:
             parts.append(f"    {rushed_line}")
+
+        # 탐침 (P4) — 이 개념이 탐침 때문에 뽑혔으면 **그 각도를 그대로 묻게** 묶는다. 근거 원문은 F-26 이 원문과
+        # 대조해 확인한 인용이라 질문이 자료 밖으로 나갈 수 없다. 탐침 개념 이름이 문장에 빠지면 _normalize_questions 가
+        # 템플릿으로 바꾸므로 여기서 이름을 못 박아 둔다.
+        probe = (probe_of or {}).get(node.id)
+        if probe is not None:
+            names = "·".join(f"「{by_id[i].label if i in by_id else i}」" for i in probe.node_ids)
+            parts.append(f"    {_probe_line(probe)}")
+            if probe.evidence:
+                parts.append(f"    {_probe_evidence_line(probe)}")
+            parts.append(f"    ← 이 개념의 질문은 위 탐침이 짚은 것 하나만 그대로 물어라. {names} 를 문장에 넣고, 자료를 되읊게 하지 마라")
 
         # 이 개념에 붙은 문헌 — 자료가 그 장에서 인용했거나 이 개념으로 검색된 것.
         for ref in refs_of(node, anchors):
@@ -2372,6 +2464,9 @@ def _normalize_questions(
     by_no: dict[int, Slide] | None = None,
     transcript: Transcript | None = None,
     papers: PaperDoc | None = None,
+    probe_of: dict[str, Probe] | None = None,
+    slot_of: dict[str, str] | None = None,
+    claims: ClaimDoc | None = None,
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
@@ -2381,6 +2476,9 @@ def _normalize_questions(
     - id 는 rank·node_id 에서 결정적으로 만든다 — 같은 triage 면 같은 결과가 나온다
     - 모든 문장은 QA_TEXT_MAX 로 자른다
     - papers 가 있으면 **목록 밖 논문을 인용한 문장은 버리고** 템플릿으로 메운다 (citation_grounded = 1.0)
+    - 모든 질문에 근거 묶음(QuestionBasis)을 채운다 — 근거·배합 자리·순위·탐침·인용·걸린 검사 (P1)
+    - 탐침 질문(probe_of)은 탐침 개념 이름이 전부 문장에 있어야 한다. 없으면 탐침 템플릿이다 (P4).
+      힌트 인용도 탐침의 근거 원문에서 고른다 — 질문이 짚은 부딪힘을 그대로 보여 줘야 한다.
     """
     target_ids = {m.node_id for m in marks}
     number_sources = _number_sources(by_no, transcript, papers)
@@ -2410,15 +2508,27 @@ def _normalize_questions(
         def _tidy(key: str) -> str:
             return to_haeyo(_second_person(_plain_speech(_unslug(str(raw.get(key, "") or ""), node))))
 
-        written_q = _drop_cite_claim(_fit_question(_polite_question(_tidy("question")), trap=mark.trap), papers)
+        # 근거 묶음에 남길 검사 이름 (P1). "이 질문이 왜 이 문장인가" 를 코드를 다시 안 돌려도 답할 수 있게 한다.
+        checks: list[str] = []
+        probe = (probe_of or {}).get(mark.node_id)
+        trap = mark.trap
+
+        fitted = _fit_question(_polite_question(_tidy("question")), trap=mark.trap)
+        written_q = _drop_cite_claim(fitted, papers)
+        if fitted and not written_q:
+            checks.append("cite_claim_dropped")
         if written_q and not mark.trap:
-            written_q = _undercut_question(written_q, node)
+            undercut = _undercut_question(written_q, node)
+            if undercut != written_q:
+                checks.append("undercut_rewritten")
+            written_q = undercut
         written_gist = _drop_cite_claim(_clip(_tidy("answer_gist")), papers)
         written_why = _drop_cite_claim(_clip(_tidy("why")), papers)
         written_hint = _drop_cite_claim(_clip(_tidy("hint")), papers)
         # 자료·발화·문헌 어디에도 없는 숫자는 지어낸 것이다 — 아래 `or` 가 결정적 템플릿으로 보낸다 (_number_sources 참고).
         # 함정 질문의 문장은 거짓 전제가 설계라 보지 않는다. 골자·힌트·이유는 함정이어도 자료가 말하는 것이어야 한다.
         if number_sources:
+            before = (written_q, written_gist, written_why, written_hint)
             if not mark.trap and ungrounded_numbers(written_q, number_sources):
                 written_q = ""
             if ungrounded_numbers(written_gist, number_sources):
@@ -2427,6 +2537,9 @@ def _normalize_questions(
                 written_why = ""
             if ungrounded_numbers(written_hint, number_sources):
                 written_hint = ""
+            if before != (written_q, written_gist, written_why, written_hint):
+                checks.append("ungrounded_number_dropped")
+        before = (written_q, written_gist, written_why, written_hint)
         if _cites_scaffold(written_q) or _ungrounded_citation(written_q, papers):
             written_q = ""
         if _cites_scaffold(written_gist) or _ungrounded_citation(written_gist, papers):
@@ -2435,13 +2548,42 @@ def _normalize_questions(
             written_why = ""
         if _cites_scaffold(written_hint) or _ungrounded_citation(written_hint, papers):
             written_hint = ""
+        if before != (written_q, written_gist, written_why, written_hint):
+            checks.append("scaffold_or_citation_dropped")
+
+        if probe is not None:
+            # (a) 탐침 개념 이름이 전부 문장에 있어야 탐침을 물은 것이다. 이름 하나라도 빠지면 탐침과 다른 것을
+            # 물은 질문이라, 부탁(프롬프트)만 믿지 않고 코드가 탐침 템플릿으로 바꾼다 (09-12 교훈과 같은 규율).
+            labels = {i: (by_id[i].label if i in by_id else i) for i in probe.node_ids}
+            if written_q and all(mentions(written_q, labels[i]) for i in probe.node_ids):
+                checks.append("mentions_probe_nodes")
+            else:
+                if written_q:
+                    checks.append("probe_nodes_missing")
+                written_q = probe_question(probe, labels, by_id, claims)
+                checks.append("probe_template")
+                # 템플릿은 함정이 아니다 — 거짓 전제를 안 얹었는데 함정으로 두면 골자가 "전제가 달라요" 로 나간다.
+                trap = False
+            # why 가 비었거나 탐침 개념을 하나도 안 부르면 탐침에서 만든 이유를 쓴다 — 「이 질문의 근거」 와 같은 말이 된다.
+            if not written_why or not any(mentions(written_why, labels[i]) for i in probe.node_ids):
+                written_why = probe_why(probe)
+                checks.append("why_from_probe")
+        elif not written_q:
+            checks.append("fallback_template")
 
         question_text = written_q or fb_question
         # 힌트·코칭이 그대로 옮겨 보여 줄 인용 — LLM 없이 즉시 나와야 하므로 여기서 저장한다.
         # 질문 문장이 정해진 뒤에 고른다 — 힌트는 질문이 가리키는 자리를 보여 줘야 한다.
-        quote_no, quote = _evidence_quote(node, anchors, by_no or {}, question_text)
+        # (b) 탐침 질문은 탐침의 근거 원문 가운데서 고른다 — 질문이 짚은 부딪힘을 힌트가 그대로 보여 준다.
+        quote_no, quote = _probe_quote(node, probe, question_text, by_no) if probe is not None else (0, "")
+        if quote:
+            checks.append("probe_evidence_quote")
+        else:
+            quote_no, quote = _evidence_quote(node, anchors, by_no or {}, question_text)
         speech = _speech_quote(anchors, transcript) if quote else ""
-        gist = written_gist or _fallback_gist(node, trap=mark.trap, slide_nos=anchors)
+        gist = written_gist or _fallback_gist(node, trap=trap, slide_nos=anchors)
+        if not written_gist:
+            checks.append("gist_template")
         # 요소 쪼개기. LLM 이 쓴 것을 먼저 믿고, 안 썼는데 문면이 둘 이상을 묻고
         # 있으면 코드가 골자를 갈라 백스톱을 세운다 (_followup·_OPEN_QUESTION_RE 와
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
@@ -2460,7 +2602,7 @@ def _normalize_questions(
             parts = _split_gist_parts(gist)
         paper_ids = _paper_ids_of(
             raw, [question_text, written_why, written_hint, gist], papers,
-        ) if written_q else []
+        ) if written_q and "probe_template" not in checks else []   # 탐침 템플릿은 문헌을 인용하지 않는다
 
         questions.append(Question(
             id=f"q{mark.rank:02d}-{mark.node_id}",
@@ -2470,7 +2612,7 @@ def _normalize_questions(
             why=written_why or fb_why,
             hint=written_hint or fb_hint,
             severity=mark.severity,
-            trap=mark.trap,
+            trap=trap,
             source=mark.source,
             slide_nos=list(anchors),
             doc_weight=mark.doc_weight,
@@ -2481,8 +2623,44 @@ def _normalize_questions(
             evidence_quote=quote,
             speech_quote=speech,
             paper_ids=paper_ids,
+            basis=_basis_of(mark, (slot_of or {}).get(mark.node_id, ""), probe, quote_no, quote, checks),
         ))
     return questions
+
+
+def _basis_of(
+    mark: TriageMark, slot: str, probe: Probe | None, quote_no: int, quote: str, checks: list[str],
+) -> QuestionBasis:
+    """
+    이 질문의 근거 묶음 (P1). 인용은 탐침 근거 원문 전부 + 힌트 인용(없던 것이면 뒤에) — 화면 「이 질문의 근거」 와
+    로그가 같은 목록을 읽는다. 탐침은 트리아지 캐시의 것을 그대로 물지 않고 사본으로 싣는다.
+    """
+    evidence = [ClaimQuote(slide_no=e.slide_no, quote=e.quote) for e in (probe.evidence if probe else [])]
+    if quote and not any(e.slide_no == quote_no and e.quote == quote for e in evidence):
+        evidence.append(ClaimQuote(slide_no=quote_no, quote=quote))
+    return QuestionBasis(
+        source=mark.source,
+        slot=slot,
+        rank=mark.rank,
+        probe=Probe.from_dict(probe.to_dict()) if probe else None,
+        evidence=evidence,
+        checks=list(checks),
+    )
+
+
+def _probe_quote(
+    node: ConceptNode, probe: Probe, question: str, by_no: dict[int, Slide] | None = None,
+) -> tuple[int, str]:
+    """
+    탐침 근거 원문 가운데 이 질문을 가장 잘 받치는 한 줄 (`best_quote`). 인용이 인용 후보로 너무 짧으면
+    (QUOTE_MIN 미만) 그 인용이 나온 **장의 원문**에서 고른다 — 그래도 탐침이 가리킨 장이다. 없으면 (0, "").
+    """
+    texts = [(e.slide_no, e.quote) for e in probe.evidence if e.quote]
+    found = best_quote(node.label, node.summary, texts, question) if texts else (0, "")
+    if found[1] or not by_no:
+        return found
+    nos = sorted({e.slide_no for e in probe.evidence if e.slide_no in by_no})
+    return best_quote(node.label, node.summary, [(no, by_no[no].raw_text or "") for no in nos], question) if nos else (0, "")
 
 
 def _evidence_quote(
@@ -2508,6 +2686,45 @@ def _speech_quote(anchors: list[int], transcript: Transcript | None) -> str:
     return ""
 
 
+def _with_probes(triage: QaTriage, graph: ConceptGraph, claims: ClaimDoc | None) -> QaTriage:
+    """
+    탐침이 든 triage. 이미 들고 왔으면 그대로, 없는데 claims 가 오면 찾아서 근거를 올린 **새 triage** 를 준다.
+
+    순위(rank)는 안 바꾼다 — triage 의 순위는 LLM severity 까지 반영된 것이라 여기서 다시 매기면 1차 심사를
+    버리는 꼴이다. 근거(source)만 올라가서 weak 자리(_WEAK_SOURCES)가 탐침을 알아본다.
+    """
+    if triage.probes or claims is None:
+        return triage
+    probes = derive_probes(graph, claims)
+    if not probes:
+        return triage
+    best = _probes_by_node(probes)
+    marks = []
+    for m in triage.marks:
+        p = best.get(m.node_id)
+        source = p.kind if p is not None and _SOURCE_RANK[p.kind] < _SOURCE_RANK[m.source] else m.source
+        marks.append(TriageMark(node_id=m.node_id, severity=m.severity, trap=m.trap, angle=m.angle,
+                                source=source, rank=m.rank, doc_weight=m.doc_weight))
+    return QaTriage(file_name=triage.file_name, total_slides=triage.total_slides, marks=marks,
+                    model=triage.model, probes=probes)
+
+
+#: 로그 한 줄에 실을 인용 길이. 줄이 터미널 한 줄을 넘으면 다른 로그와 섞여 못 읽는다.
+LOG_QUOTE_MAX = 60
+
+
+def _log_bases(questions: list[Question]) -> None:
+    """질문마다 근거 한 줄 — 브리지 로그(stderr)에 「[f08] 인용 주장 검사」 와 나란히 남는다."""
+    for n, q in enumerate(questions, start=1):
+        b = q.basis or QuestionBasis(source=q.source)
+        ev = f"S{q.evidence_slide_no} «{q.evidence_quote[:LOG_QUOTE_MAX]}»" if q.evidence_quote else "-"
+        sys.stderr.write(
+            f"[f08] 질문 {n}: slot={b.slot or '-'} node={q.node_id} source={b.source} "
+            f"probe={b.probe.kind if b.probe else '-'} rank={b.rank} 근거={ev}"
+            f"{' 검사=' + ','.join(b.checks) if b.checks else ''}\n"
+        )
+
+
 def build_questions(
     graph: ConceptGraph | dict,
     triage: QaTriage | dict,
@@ -2521,6 +2738,7 @@ def build_questions(
     papers: PaperDoc | dict | None = None,
     memory: MemoryDoc | dict | None = None,
     pace: PaceDoc | dict | None = None,
+    claims: ClaimDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QuestionDoc:
@@ -2551,6 +2769,14 @@ def build_questions(
 
     triage 에는 자료 본문을 안 준다. 1차 심사는 «물을 만한 개념인가» 만 고르고
     순위는 결정적 신호에서 나오므로, 본문을 실어도 순위는 안 바뀌고 토큰만 는다.
+
+    탐침(P3·P4): triage 가 이미 probes 를 들고 오면(triage_questions(claims=…)) 그것을 쓴다. 옛 triage(탐침 없음)에
+    claims 만 따로 오면 여기서 탐침을 찾아 marks 의 근거를 올린 **사본**을 쓴다 — 캐시된 triage 는 안 건드린다.
+    탐침 개념의 질문은 탐침 각도·근거 원문에 묶이고(프롬프트), 탐침 개념 이름이 빠지면 템플릿으로 바뀐다(코드).
+
+    모든 질문에 `Question.basis`(근거·배합 자리·순위·탐침·인용·검사)가 채워지고, 질문마다 stderr 에
+    「[f08] 질문 n: slot=… node=… source=… probe=… 근거=S4 «…»」 한 줄을 남긴다 — "이 질문은 왜 나왔나" 를
+    코드를 다시 돌리지 않고 답하려고 (2026-09-29 사용자 질문).
     """
     graph = _as_graph(graph)
     if isinstance(triage, dict):
@@ -2574,6 +2800,9 @@ def build_questions(
 
     if track not in QA_TRACKS:
         track = QA_TRACK_FALLBACK
+    claim_doc = as_claims(claims)
+    triage = _with_probes(triage, graph, claim_doc)
+    probe_of = _probes_by_node(triage.probes)
 
     # 합성 노드(extra:)도 사전에 넣는다. triage 가 후보로 올렸는데 여기서 빠지면
     # `known` 필터가 조용히 떨어뜨려, 발화 개념 질문이 이유 없이 사라진다.
@@ -2587,7 +2816,11 @@ def build_questions(
 
     depth_of = {n.id: n.depth for n in graph.nodes}
     stalled = {nid for nid, cm in memory_of.items() if cm.stalled}
-    marks, deferred = _pick_marks(known, track, depth_of, stalled)
+    slot_of: dict[str, str] = {}
+    marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of)
+    # 탐침은 근거가 그 탐침인 개념에만 묶는다 — 모순·누락처럼 더 앞선 근거로 뽑힌 개념까지 탐침으로 끌면 근거가 섞인다.
+    probe_of = {m.node_id: probe_of[m.node_id] for m in marks
+                if m.node_id in probe_of and probe_of[m.node_id].kind == m.source}
     engine = _engine(llm, llm_kwargs)
     flow_of = _flow_issue_by_node(flow)
 
@@ -2595,23 +2828,26 @@ def build_questions(
     paper_plan = _plan_papers(marks, by_id, by_no, papers, track)
     prompt = _build_question_prompt(
         graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of, paper_plan,
-        _rushed_slides(_as_pace(pace), graph),
+        _rushed_slides(_as_pace(pace), graph), probe_of,
     )
     remembered = any(m.node_id in memory_of for m in marks)
     raw_questions = _questions_with_papers(
         engine, prompt, marks,
         QUESTION_SYSTEM_PROMPT
         + (PAPER_SYSTEM_ADDENDUM if paper_plan else "")
-        + (MEMORY_SYSTEM_ADDENDUM if remembered else ""),
+        + (MEMORY_SYSTEM_ADDENDUM if remembered else "")
+        + (PROBE_SYSTEM_ADDENDUM if probe_of else ""),
         by_id, by_no, papers, paper_plan,
     )
 
     # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의
     # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.
     questions, twins = _drop_twin_questions(
-        _normalize_questions(raw_questions, marks, by_id, flow_of, by_no, transcript, papers),
+        _normalize_questions(raw_questions, marks, by_id, flow_of, by_no, transcript, papers,
+                             probe_of, slot_of, claim_doc),
         QA_TRACK_LIMITS[track],
     )
+    _log_bases(questions)
 
     used = {pid for q in questions for pid in q.paper_ids}
     return QuestionDoc(

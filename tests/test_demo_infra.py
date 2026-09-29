@@ -74,6 +74,19 @@ def test_put_and_get_artifacts():
     assert store.artifacts("s1")["graph"] == {"nodes": []}
 
 
+def test_질문은_등록된_세션에만_트랙별로_붙는다():
+    """P1 — 질문(basis 포함)을 세션에 남겨 나중에 "왜 이 질문인가" 를 되짚는다. 세션을 새로 만들지는 않는다."""
+    store = SessionStore()
+    assert store.put_questions("s1", "5", {"questions": []}) is False
+    assert store.artifacts("s1") == {}
+
+    store.put_artifacts("s1", {"graph": {"nodes": []}})
+    assert store.put_questions("s1", "5", {"questions": [{"id": "q01", "basis": {"slot": "theme"}}]})
+    assert store.put_questions("s1", "1", {"questions": []})
+    stored = store.artifacts("s1")["questions"]
+    assert set(stored) == {"1", "5"} and stored["5"]["questions"][0]["basis"]["slot"] == "theme"
+
+
 def test_absent_key_keeps_registered_artifact():
     """본문에 아예 없는 키는 등록된 근거를 지우지 않는다 — 부분 재등록 보호."""
     store = SessionStore()

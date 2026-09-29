@@ -1862,6 +1862,8 @@ class Handler(SimpleHTTPRequestHandler):
         )
         payload = with_hint_ladders(doc.to_dict(), doc.questions)
         STORE.set_triage(q_key, payload)
+        # 질문마다 basis(근거·자리·탐침·인용·검사)가 실려 있다 — 세션에 트랙별로 붙여 두어 나중에 되짚는다 (P1).
+        STORE.put_questions(str(_session_id_of(body) or ""), track, payload)
         self._archive(body, "question_doc", payload)
         return self._json(200, payload)
 

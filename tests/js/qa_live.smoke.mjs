@@ -38,6 +38,7 @@ const EXPORT_LINE = `
   liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
   liveScoredAnswers, stuckLabelFor, coachMeta, coachReactText,
   paperHref, attachQuestionPapers, linkCitedText, questionPapersHtml,
+  questionOriginLine, questionOriginHtml,
 };`;
 
 /**
@@ -419,6 +420,22 @@ test('논문 근거 질문은 그 논문으로 가는 링크를 단다', () => {
   eq(api.questionPapersHtml([]), '', '문헌 없으면 줄도 없다');
   eq(api.questionPapersHtml(qs[0].papers).includes('Sleep measures'), true, '아래 줄에 제목');
   eq(api.attachQuestionPapers([{ id: 'q', paper_ids: ['s04'] }], undefined)[0].papers, undefined, 'papers 가 없는 옛 응답');
+});
+
+test('「이 질문의 근거」 는 자리·근거를 사람 말로 옮기고 영문 id 를 안 보인다', () => {
+  const { api } = newContext();
+  const probe = { kind: 'tension', node_ids: ['quality', 'time'],
+    evidence: [{ slide_no: 4, quote: '수면의 질 = 시간 × 연속성 × 규칙성' }, { slide_no: 1, quote: '수면 시간보다 중요한 수면의 질' }] };
+  const basis = { source: 'tension', slot: 'theme', rank: 1, probe, evidence: probe.evidence, checks: ['probe_template'] };
+  eq(api.questionOriginLine(basis), '발표 주제 · 자료 1·4장에서 서로 부딪히는 표현', '장 번호는 정렬해서 한 번씩');
+  eq(api.questionOriginLine({ source: 'core_weight', slot: '' }), '자료가 크게 다룬 개념', '배합 밖이면 근거만');
+  eq(api.questionOriginLine({ source: 'missing', slot: 'weak' }), '더 짚어 볼 곳 · 자료에 있는데 발표에서 말하지 않은 개념', '탐침 아닌 약점');
+  eq(api.questionOriginLine(null), '', '옛 세션 질문은 basis 가 없다');
+  const html = api.questionOriginHtml({ basis });
+  eq(html.startsWith('<details class="msg-origin"><summary>이 질문의 근거</summary>'), true, '접혀서 시작한다');
+  eq(html.includes('<span>자료 4장</span>수면의 질 = 시간 × 연속성 × 규칙성'), true, '자료 인용');
+  eq(/tension|theme|probe_template/.test(html), false, '영문 id 가 화면에 안 나온다');
+  eq(api.questionOriginHtml({}), '', 'basis 없으면 칸도 없다');
 });
 
 let failed = 0;

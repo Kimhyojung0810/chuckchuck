@@ -112,6 +112,24 @@ class SessionStore:
             self._evict_overflow()
         return stored
 
+    def put_questions(self, session_id: str, track: str, payload: dict) -> bool:
+        """
+        이 세션에서 만든 질문(QuestionDoc 직렬화 — 질문마다 basis 포함)을 트랙별로 붙여 둔다 (P1, 2026-09-29).
+
+        "이 질문은 어떤 근거로 나왔나" 를 나중에 코드를 다시 안 돌리고 답하려고 둔다. ARTIFACT_KEYS 에 넣지 않는다 —
+        그건 **프론트가 올리는** 키의 계약이고(tests/js 가 프론트가 전부 보내는지 검사한다), 질문은 서버가 만든 것이다.
+        등록된 세션에만 붙인다 — 질문 요청 하나로 세션을 새로 만들면 한도(세션 32개)를 질문이 먹는다.
+        """
+        if not session_id or not isinstance(payload, dict):
+            return False
+        with self._lock:
+            entry = self._sessions.get(session_id)
+            if entry is None:
+                return False
+            entry["data"]["questions"] = {**(entry["data"].get("questions") or {}), str(track): payload}
+            entry["at"] = self._clock()
+            return True
+
     def artifacts(self, session_id: str) -> dict:
         """세션에 등록된 아티팩트 사본. 없으면 빈 dict."""
         if not session_id:
