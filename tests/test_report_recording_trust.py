@@ -183,6 +183,19 @@ def test_pace_route_passes_the_alignment(no_archive):
     assert h.sent[-1][1]["slides"]
 
 
+def test_a_broken_alignment_body_does_not_break_pace_or_report(no_archive, monkeypatch):
+    """정합은 곁다리 칸이다 — 모양이 깨져 와도 /pace·/report 는 예전처럼 잰다·쓴다 (정합 없이)."""
+    monkeypatch.setattr(bridge, "_pick_llm", lambda body: "mock")
+    broken = {"speech_match": "unrelated"}                  # file_name·total_slides 가 없다
+    h = H()
+    h._handle_pace(json.dumps({"transcript": FESTIVAL.to_dict(), "context": CTX.to_dict(),
+                               "concept_doc": CONCEPTS.to_dict(), "alignment": broken}).encode())
+    code, pace = h.sent[-1]
+    assert code == 200 and pace["slides"]
+    h._handle_report(json.dumps({"pace": pace, "habits": HABITS.to_dict(), "alignment": broken}).encode())
+    assert h.sent[-1][0] == 200 and h.sent[-1][1]["model"] == "mock"
+
+
 def test_report_route_passes_the_alignment(no_archive, monkeypatch):
     monkeypatch.setattr(bridge, "_pick_llm", lambda body: "mock")
     pace = analyze_pace(FESTIVAL, CTX, CONCEPTS)

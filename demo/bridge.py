@@ -485,6 +485,23 @@ def _session_id_of(body: dict) -> str:
     return ARCHIVE.safe_id(body.get("session_id")) or ""
 
 
+def _optional_alignment(body: dict):
+    """
+    /pace·/report 본문의 정합(선택). 녹음이 이 자료의 발표인지만 읽는다 (09-30 REC-10) — 없거나 모양이 깨졌으면 None.
+    예전엔 이 칸이 없었던 요청이라, 곁다리 칸 하나가 깨졌다고 속도·리포트까지 500 으로 죽이지 않는다. 깨진 건 로그로 남긴다.
+    """
+    from chuckchuck.contracts import AlignmentDoc
+
+    raw = body.get("alignment")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return AlignmentDoc.from_dict(raw)
+    except (KeyError, TypeError, ValueError) as e:
+        sys.stderr.write(f"[bridge] alignment 본문을 못 읽어 정합 없이 진행: {type(e).__name__}: {e}\n")
+        return None
+
+
 # LibreOffice 는 macOS 앱 번들·snap 설치에서 PATH 에 링크를 만들지 않는다.
 # PATH 만 보면 설치돼 있어도 못 찾아 PPTX 원본 미리보기가 조용히 텍스트로 떨어진다.
 _SOFFICE_FALLBACK_PATHS = (
@@ -2245,7 +2262,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
 
     def _handle_pace(self, raw: bytes):
         """F-17 · Transcript(+ConceptDoc/Context/AlignmentDoc) → PaceDoc. LLM 없음."""
-        from chuckchuck.contracts import AlignmentDoc, Transcript
+        from chuckchuck.contracts import Transcript
 
         body = json.loads(raw or b"{}")
         if not body.get("transcript"):
@@ -2257,7 +2274,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         ctx = Context.from_dict(body.get("context") or {})
         concept_doc = ConceptDoc.from_dict(body["concept_doc"]) if body.get("concept_doc") else None
         # 정합(F-11)이 「녹음이 이 자료의 발표가 아니다」 라면 F-17 은 재지 않는다 — 빈 PaceDoc (09-30 녹음 대화 감사 REC-10)
-        alignment = AlignmentDoc.from_dict(body["alignment"]) if isinstance(body.get("alignment"), dict) else None
+        alignment = _optional_alignment(body)
         pace = analyze_pace(transcript, ctx, concept_doc, alignment)
         unmeasured = " · 녹음이 이 자료의 발표가 아니라 재지 않음" if alignment is not None and not pace.slides else ""
         sys.stderr.write(
@@ -2313,8 +2330,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         # 점수는 채점표(F-14)가 진실이다. rubric 을 같이 보내면 그 점수를 싣고,
         # 안 보내면 0 으로 둔다 — 여기서 두 번째 점수를 만들지 않는다.
         # alignment 는 녹음이 이 자료의 발표인지만 본다 — 다른 발표면 LLM 없이 「재지 않았어요」 리포트 (09-30 REC-10)
-        alignment = body.get("alignment") if isinstance(body.get("alignment"), dict) else None
-        report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), alignment=alignment, llm=llm)
+        report = compose_report(pace, habits, ctx, rubric=body.get("rubric"), alignment=_optional_alignment(body), llm=llm)
         sys.stderr.write(
             f"[bridge] F-19 report done score={report.score} model={report.model}\n"
         )
