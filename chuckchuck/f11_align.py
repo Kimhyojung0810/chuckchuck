@@ -472,6 +472,9 @@ def _apply_contradictions(
             it.note = f"자료 {c.slide_no}장과 맞다·아니다가 반대예요"
         elif c.kind == "order" or c.relation == "swapped":
             it.note = f"자료 {c.slide_no}장과 무엇이 더 큰지가 반대예요 — 견준 두 쪽이 뒤바뀌었어요"
+        elif c.family == "number":
+            # 값 한 쌍을 못 뽑은 수치 어긋남 — 방향 문구를 붙이면 수치를 잘못 말한 발표에 「방향이 반대」 라고 거짓말을 한다
+            it.note = f"자료 {c.slide_no}장과 수치가 달라요"
         else:
             it.note = f"자료 {c.slide_no}장과 높고 낮은 방향이 반대예요"
     for it in items:
@@ -488,11 +491,11 @@ def _apply_contradictions(
         else:
             # 방향·맞다아니다가 자료와 반대인 문장 — 수치가 아니어도 숨기지 않는다 (09-30 녹음 모드 화면: 「맞통풍보다 두 배 빨리」 를
             # 거꾸로 말한 문장이 「농도 감소 속도」 의 설명함 근거로 그대로 남았다)
-            it.note = f"{it.note} · 이 문장은 자료 {hit.slide_no}장과 {_CONTRA_WHAT.get(hit.family, '내용이')} 반대예요".lstrip(" ·")
+            it.note = f"{it.note} · 이 문장은 자료 {hit.slide_no}장과 {_CONTRA_WHAT.get(hit.family, '내용이 반대예요')}".lstrip(" ·")
 
 
-#: 설명함 근거가 어긋난 문장일 때 덧붙이는 말 — 갈래마다.
-_CONTRA_WHAT = {"direction": "방향이", "polarity": "맞다·아니다가"}
+#: 설명함 근거가 어긋난 문장일 때 덧붙이는 말 — 갈래마다. 값 한 쌍을 못 뽑은 수치 어긋남은 「반대」 가 아니라 「달라요」 다.
+_CONTRA_WHAT = {"direction": "방향이 반대예요", "polarity": "맞다·아니다가 반대예요", "number": "수치가 달라요"}
 
 
 def _quotes_same(sentence: str, evidence: str) -> bool:
