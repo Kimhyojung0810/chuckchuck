@@ -1423,9 +1423,24 @@ def _polarity_one(clause: str, deck: Deck, question_stems: tuple[str, ...] = ())
             and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line_text)):
         return [Conflict("direction", line.slide_no, line.text, clause, "높고 낮은 방향")]
     if (not a_dirs and not l_dirs and negated(clause) != negated(line_text)
-            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line_text)):
+            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line_text)
+            and not _other_side_counted(clause, line_text)):
         return [Conflict("negation", line.slide_no, line.text, clause, "맞다·아니다 쪽")]
     return []
+
+
+def _other_side_counted(clause: str, line_text: str) -> bool:
+    """
+    맞다·아니다가 반대인 두 말이 **나머지 쪽**을 센 말인가 — 「다시 한 학생이 62%」 ↔ 자료 「다시 하지 않은 학생이 38%」(더해 100),
+    「참여 안 한 학생이 80명」 ↔ 「참여한 학생은 120명」(다른 무리의 다른 수). 같은 수를 반대 쪽에 붙였으면 모순 그대로다.
+    비율은 더해 100 일 때만 나머지다 — 「다시 한 학생 50%」 ↔ 「다시 하지 않은 학생 38%」 는 맞지 않는다.
+    """
+    said = [n for n in numbers(clause) if n.unit]
+    theirs = [n for n in numbers(line_text) if n.unit]
+    pairs = [(a, b) for a in said for b in theirs if a.unit == b.unit]
+    if not pairs or any(a.close_value(b) for a, b in pairs):
+        return False
+    return all(a.unit != "pct" or abs(a.value + b.value - 100) <= COMPLEMENT_TOL for a, b in pairs)
 
 
 #: 단정이 아닌 말 — 목적(「석 달을 넘기게 하려면」)·물음(「왜 더울까」「…인가요?」). 제목에 흔하고, 무엇이 맞다고 말한 것이 아니라서
