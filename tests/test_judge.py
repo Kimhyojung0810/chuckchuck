@@ -756,9 +756,13 @@ def test_good_은_라운드와_무관하게_질문을_닫는다():
     assert judgement.probe_tier == "", "닫은 질문에 단계가 남으면 화면이 모순된다"
 
 
+#: 라운드를 세는 앞 답은 **서로 달라야** 한다 — 09-30 레드팀 R8: 같은 답을 되풀이하면 라운드가 오르지 않는다.
+DISTINCT_PRIORS = ["첫 답이에요", "두 번째로 덧붙인 설명이에요", "세 번째 보충이에요", "네 번째 말이에요"]
+
+
 def test_최대_라운드까지_가면_통과_수준에서_닫아_준다():
     """압박이 목적이지 고문이 목적이 아니다 — 지치면 이탈한다."""
-    priors = ["앞선 답"] * (QA_MAX_ROUNDS - 1)
+    priors = DISTINCT_PRIORS[:QA_MAX_ROUNDS - 1]
     judgement = judge_of(payload(verdict="partial", score=72), prior_answers=priors)
     assert judgement.round_no == QA_MAX_ROUNDS
     assert judgement.mastered, "상한 라운드에서 통과 수준이면 닫는다"
@@ -766,7 +770,7 @@ def test_최대_라운드까지_가면_통과_수준에서_닫아_준다():
 
 
 def test_상한_라운드라도_통과_못_하면_계속_묻는다():
-    priors = ["앞선 답"] * QA_MAX_ROUNDS
+    priors = DISTINCT_PRIORS[:QA_MAX_ROUNDS]
     judgement = judge_of(payload(verdict="wrong", score=20), prior_answers=priors)
     assert not judgement.mastered
     assert judgement.followup.strip()
@@ -776,7 +780,7 @@ def test_라운드가_오를수록_되묻기_단계가_좁아진다():
     """같은 넓이로 세 번 물으면 압박이 아니라 반복이다."""
     tiers = [
         judge_of(
-            payload(verdict="partial", score=60), prior_answers=["앞선 답"] * n
+            payload(verdict="partial", score=60), prior_answers=DISTINCT_PRIORS[:n]
         ).probe_tier
         for n in range(3)
     ]
@@ -931,8 +935,11 @@ def test_missing_element_becomes_the_first_missing_point():
 
 
 def test_all_elements_covered_keeps_good():
+    # 답이 두 요소를 **말로** 담아야 한다 — 09-30 레드팀 R1·R10: LLM 이 covered_parts 를 참으로 줘도 답에 그 요소의 낱말이 관계로
+    # 실리지 않았으면 안 나온 것이다(예전 픽스처는 요소와 무관한 GOOD_ANSWER 에 참/참을 줬다).
     v = judge_of(
         payload(verdict="good", score=90, covered_parts=[True, True]),
+        answer="깊은 수면이 신체를 회복시키고, 그 깊은 수면은 초반 주기에 몰려 있어요.",
         question=two_part_question(),
     )
     assert v.verdict == "good" and v.score == 90 and v.mastered
@@ -940,14 +947,19 @@ def test_all_elements_covered_keeps_good():
 
 def test_coverage_of_wrong_length_is_ignored_rather_than_guessed():
     """
-    어느 요소를 가리키는지 모르는 배열로 깎으면 맞힌 사람이 이유 없이 진다.
-    근거가 없으면 손대지 않는 것이 이 함수의 계약이다.
+    어느 요소를 가리키는지 모르는 배열은 **쓰지 않는다** — 짐작해서 맞추면 엉뚱한 요소를 빠졌다고 말한다.
+    대신 코드가 누적 답으로 요소마다 센다(09-30 레드팀 J16: 예전엔 배열이 없거나 어긋나면 손대지 않아서, covered_parts 를
+    빼먹은 판정의 good 이 요소 검사를 통째로 건너뛰었다). 두 요소를 다 말한 답은 그대로 good 이다.
     """
+    covering = "깊은 수면이 신체를 회복시키고, 그 깊은 수면은 초반 주기에 몰려 있어요."
     v = judge_of(
         payload(verdict="good", score=90, covered_parts=[False]),
+        answer=covering,
         question=two_part_question(),
     )
     assert v.verdict == "good" and v.score == 90
+    missing = judge_of(payload(verdict="good", score=90), question=two_part_question())   # 요소와 무관한 답 · 배열 없음
+    assert missing.verdict == "partial" and missing.passed
 
 
 def test_question_without_elements_is_untouched_by_the_checklist():

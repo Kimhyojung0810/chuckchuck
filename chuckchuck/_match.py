@@ -9,6 +9,7 @@ F-07(문서 개념·키워드 언급 대조)에서 만들었고, F-11(발화 언
 from __future__ import annotations
 
 import re
+import unicodedata
 
 #: 이보다 짧은 label 은 언급 대조를 하지 않는다 (한 글자는 우연히 다 걸린다).
 MIN_MATCH_LEN = 2
@@ -17,10 +18,24 @@ MIN_MATCH_LEN = 2
 _TOKEN_RE = re.compile(r"[a-z0-9]+|[가-힣]+")
 _HANGUL_RE = re.compile(r"^[가-힣]+$")
 
+#: 전각 영숫자·기호(「ＡＩ」「８.７」「％」)와 전각 공백을 반각으로 — NFKC 의 이 부분만 쓴다. 「…」「①」「cm²」 같은 호환 문자는
+#: 그대로 둬서 글자 수·문장 부호가 거의 바뀌지 않는다(숫자 위치를 원문 기준으로 쓰는 `_deck_claims.numbers` 가 이 글을 받는다).
+_WIDTH_FOLD = {0xFF01 + i: 0x21 + i for i in range(94)} | {0x3000: 0x20}
+
+
+def fold_text(value) -> str:
+    """
+    대조 전에 글을 한 모양으로 — NFC(풀어 쓴 한글 자모를 음절로) + 전각 영숫자를 반각으로.
+
+    09-30 레드팀 G-A11: 맥에서 만든 파일의 라벨이 NFD(「ᄉ+ᅮ+ᄆ+ᅧ+ᆫ」)로 오면 토큰이 0개라, 그 라벨을 쓰는 가드가 **조용히
+    꺼졌다**(낱말이 하나도 안 겹치니 「판단 근거 없음」). 부스에서는 어떤 기기에서 만든 자료가 올지 모른다.
+    """
+    return unicodedata.normalize("NFC", str(value or "")).translate(_WIDTH_FOLD)
+
 
 def norm_tokens(value: str) -> list[str]:
-    """대조용 토큰열. 'AI 기반추천' → ['ai', '기반추천']."""
-    return _TOKEN_RE.findall(str(value or "").lower())
+    """대조용 토큰열. 'AI 기반추천' → ['ai', '기반추천']. NFD 한글·전각 영숫자도 같은 토큰이 된다 (NFKC)."""
+    return _TOKEN_RE.findall(unicodedata.normalize("NFKC", str(value or "")).lower())
 
 
 def _token_eq(outer_tok: str, inner_tok: str) -> bool:
