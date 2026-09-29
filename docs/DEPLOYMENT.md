@@ -203,6 +203,9 @@ CLI 로 직접 만들고 싶으면 `demo/run_tunnel.sh` 머리말의 절차(`clo
 | 브리지 서비스 `chuckchuck-bridge` | active · 8799 · `chuckchuck-bridge.service.d/public.conf` = `TUNNEL_HOSTNAME=chuckchuck-present.com` (DEV_ROUTES·REQUIRE_ACCESS 없음) |
 | 개발 브리지 | 손으로 8800 · `DEMO_DEV_ROUTES=1` (로그 `var/log/bridge_8800.log`) |
 | 터널 `chuckchuck` | 만들어 둠(`~/.cloudflared/config.yml`, `/etc/cloudflared/config.yml`), DNS CNAME 연결됨. **서비스는 disabled** |
+| **Tailscale Funnel** (08:16 켬) | **공개 중** — `https://chuckchuck-present.tail79d9bc.ts.net` → 127.0.0.1:8799. 공개 DNS 는 켜고 7분 뒤(08:23)에 올라왔다. VM 은 UDP 가 막혀 DERP(홍콩) 경유, 응답 ~0.9초 |
+| 브리지 Host 허용 | `public.conf` 에 `DEMO_ALLOWED_HOSTS=chuckchuck-present.tail79d9bc.ts.net` 추가 |
+| `chuckchuck-present.com` | Cloudflare Redirect Rule(Dynamic, 302) 로 ts.net 에 넘긴다 — 규칙이 안 걸리면 멈춘 터널로 가서 **530** |
 
 **막힌 곳 — 이 VM 은 바깥으로 TCP 80·443 만 나간다.** 터널은 `region1/2.v2.argotunnel.com:7844`
 (TCP·UDP)가 필수이고 443 으로 대신할 수 없다 (Cloudflare 문서 「Tunnel with firewall」). 서비스를
