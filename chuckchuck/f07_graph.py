@@ -97,7 +97,9 @@ E. 주제와 관계없이 독립적으로 서는 큰 축이 정말 있을 때만
 
 연결선(edges) 규칙 — 위계가 아닌 연결만:
 5. edges 에는 kind="relates" 만 적는다. 근거·수단·대조·인과처럼 위계가 아닌 논리 연결이다.
-   한 개념이 다른 가지의 개념과도 이어질 때 쓴다. 위계는 edges 가 아니라 parent 칸에 적는다.
+   위계는 edges 가 아니라 parent 칸에 적는다.
+   **같은 가지의 위아래(부모-자식·조상-자손, 주제 포함)를 edges 에 다시 적지 마라** — 위계로 이미 이었다. 버려진다.
+   edges 는 **서로 다른 가지**의 개념을 잇는 자리다. 없으면 비워도 된다.
 
 그 밖:
 6. 자료에 없는 개념을 지어내지 마라. 주어진 개념 안에서만 묶어라.
@@ -119,10 +121,12 @@ E. 주제와 관계없이 독립적으로 서는 큰 축이 정말 있을 때만
     { "id": "joint", "label": "요소 개념", "slide_nos": [5, 6],
       "summary": "한 줄 설명", "importance": "core", "parent": "contrast" },
     { "id": "encoder", "label": "세부 개념", "slide_nos": [6],
-      "summary": "한 줄 설명", "importance": "support", "parent": "joint" }
+      "summary": "한 줄 설명", "importance": "support", "parent": "joint" },
+    { "id": "baseline", "label": "다른 요소 개념", "slide_nos": [7],
+      "summary": "한 줄 설명", "importance": "core", "parent": "contrast" }
   ],
   "edges": [
-    { "from": "encoder", "to": "contrast", "kind": "relates" }
+    { "from": "encoder", "to": "baseline", "kind": "relates" }
   ],
   "sections": [
     { "name": "본론 — 제안 방법", "slide_role": "body", "slide_nos": [6, 7, 8] }
@@ -135,6 +139,19 @@ RETRY_NUDGE = """
 [재요청] 직전 응답에 위계도 연결도 없었다. 개념들이 서로 아무 관계도 없다는 뜻이 되어 쓸 수 없다.
 이번에는 노드마다 parent 칸을 채워, 큰 개념 아래에 하위 개념을 매달아라.
 """
+
+#: 가지를 넘는 연결이 너무 적을 때 한 번 더 묻는 작은 과제. 위계는 이미 정해졌으니 트리만 보여 주고 연결만 받는다.
+#: 2026-09-29 실측: 수면 덱 3회 중 1회는 links 를 전부 비웠다 (위계는 멀쩡했다).
+LINKS_SYSTEM_PROMPT = """당신은 발표 구조 분석가다. 이미 만든 개념 위계(트리)를 받아, **서로 다른 가지**의 개념 사이 논리 연결만 찾는다.
+- 근거·수단·대조·인과·영향 관계만. 자료(요약)에 그 관계가 드러나는 것만 적는다. 지어내지 마라.
+- 목록의 「가지」가 서로 다른 두 개념만 잇는다. 같은 가지 안(위아래·형제)이나 최상위 주제와 잇는 것은 적지 마라 — 버려진다.
+- 개념 수의 절반 정도를 찾아라. 없으면 빈 배열.
+- 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+출력: { "links": [ { "from": "id", "to": "id" } ] }
+"""
+
+#: 가지를 넘는 연결이 이 비율(개념 수 대비)보다 적으면 LINKS 보강을 한 번 부른다.
+MIN_CROSS_RATIO = float(os.environ.get("CHUCKCHUCK_GRAPH_MIN_CROSS_RATIO", "0.17"))
 
 #: 응답이 복구 불가능한 JSON 일 때 한 번 더 물어볼 때 덧붙이는 말 (실측: Solar 가 가끔 낸다).
 JSON_RETRY_NUDGE = """
@@ -504,6 +521,14 @@ def _assemble(
         for raw in raw_nodes
         if raw.get("parent") not in (None, "", "null") and raw.get("id")
     ] + raw_edges
+    # 노드의 links 칸도 relates 로 받는다. 프롬프트는 더 요구하지 않는다 — 요구했더니 위계가 흔들렸다
+    # (2026-09-29: form 덱 4회 중 2회 루트 12·2개). 가지를 넘는 연결은 _fill_links 가 따로 채운다.
+    raw_edges += [
+        {"from": raw.get("id"), "to": other, "kind": "relates"}
+        for raw in raw_nodes
+        for other in (raw.get("links") or [] if isinstance(raw.get("links"), list) else [])
+        if raw.get("id") and other not in (None, "", "null")
+    ]
 
     final_ids, alias = _assign_ids(raw_nodes)
     importance_by_slide = {s.slide_no: s.importance for s in doc.slides}
@@ -545,7 +570,9 @@ def _assemble(
         ConceptEdge(from_id=parent, to_id=child, kind="parent")
         for child, parent in parent_of.items()
     ]
-    edges += [e for e in relates if e.from_id in node_ids and e.to_id in node_ids]
+    edges += _without_parent_pairs(
+        [e for e in relates if e.from_id in node_ids and e.to_id in node_ids], parent_of
+    )
 
     return nodes, edges, _to_sections(raw_sections, doc.total_slides), thesis
 
@@ -580,6 +607,27 @@ def _attach_target(
     if not candidates:
         candidates = [k for k in kept if k.id == thesis] or kept
     return sorted(candidates, key=lambda k: (-k.weight, k.id))[0]
+
+
+def _without_parent_pairs(relates: list[ConceptEdge], parent_of: dict[str, str]) -> list[ConceptEdge]:
+    """
+    같은 가지의 위아래(부모-자식·조상-자손, 방향 무관)를 이은 relates 를 뺀다.
+
+    2026-09-29: 노드의 parent 칸으로 위계를 받게 바꾼 뒤, 수면 덱에서 relates 15개가 전부 부모-자식을
+    되풀이했다 (가지를 넘는 연결 0). 남겨 두면 개수만 부풀고, 인접 강등(F-08)·연결 누락(F-11)이
+    이미 아는 부모-자식 관계를 '다른 연결' 로 잘못 센다.
+    """
+    def ancestors(node_id: str) -> set[str]:
+        out, cur = set(), parent_of.get(node_id)
+        while cur is not None and cur not in out:
+            out.add(cur)
+            cur = parent_of.get(cur)
+        return out
+
+    # 부모-자식뿐 아니라 조상-자손(같은 가지 위아래)도 뺀다 — 09-29 실측: 연결 보강 뒤 19개 중 다수가
+    # 주제(루트)에서 손자로 가는 선이었다. 주제는 모든 개념의 조상이라 그 선은 새 정보가 아니다.
+    return [e for e in relates
+            if e.from_id not in ancestors(e.to_id) and e.to_id not in ancestors(e.from_id)]
 
 
 def _subtree_reach(
@@ -653,8 +701,62 @@ def _clamp_roots(
     ]
     # 강등된 루트를 relates 이웃 밑에 붙이면 같은 방향 relates 와 (from,to) 가
     # 겹칠 수 있다 (실측에서 발견). 위계로 승격된 쌍의 relates 는 지운다.
-    parent_pairs = {(parent, child) for child, parent in parent_of.items()}
-    return new_edges + [e for e in relates if (e.from_id, e.to_id) not in parent_pairs]
+    return new_edges + _without_parent_pairs(relates, parent_of)
+
+
+def _branch_of(node: ConceptNode, by: dict[str, ConceptNode]) -> str:
+    """루트 바로 밑 조상(가지). 루트 자신은 '주제'."""
+    cur, seen = node, set()
+    while cur.parent_id in by and by[cur.parent_id].parent_id is not None and cur.id not in seen:
+        seen.add(cur.id)
+        cur = by[cur.parent_id]
+    return "주제" if node.parent_id is None else cur.label
+
+
+def _links_prompt(nodes: list[ConceptNode]) -> str:
+    by = {n.id: n for n in nodes}
+    lines = ["[TASK] concept-links", "",
+             "## 개념 위계 — (id) 이름 [장] · 가지 · 부모 · 요약",
+             "가지가 **다른** 두 개념만 이어라. 가지가 '주제' 인 개념(최상위)은 잇지 마라.", ""]
+    for n in nodes:
+        up = by[n.parent_id].label if n.parent_id in by else "없음"
+        lines.append(f"- ({n.id}) {n.label} [S{','.join(map(str, n.slide_nos))}] · 가지={_branch_of(n, by)} · 부모={up} · {n.summary}")
+    return "\n".join(lines)
+
+
+def _fill_links(engine: LLMProvider, nodes: list[ConceptNode], edges: list[ConceptEdge]) -> list[ConceptEdge]:
+    """
+    가지를 넘는 연결이 MIN_CROSS_RATIO 보다 적으면 트리만 보여 주고 연결을 한 번 더 묻는다.
+    실패하거나 JSON 이 깨지면 그대로 둔다 — 연결은 보조 정보라 그래프를 실패시킬 이유가 없다.
+    """
+    if not nodes or MIN_CROSS_RATIO <= 0:
+        return edges
+    parent_of = {n.id: n.parent_id for n in nodes if n.parent_id}
+    # 클램프로 위계가 바뀌었을 수 있다 — 지금 트리 기준으로 같은 가지 선을 한 번 더 걸러 센다
+    edges = [e for e in edges if e.kind != "relates"] + _without_parent_pairs(
+        [e for e in edges if e.kind == "relates"], parent_of)
+    relates = [e for e in edges if e.kind == "relates"]
+    if len(relates) >= MIN_CROSS_RATIO * len(nodes):
+        return edges
+    try:
+        raw = engine.complete(system=LINKS_SYSTEM_PROMPT, user=_links_prompt(nodes),
+                              temperature=0.2, max_tokens=MAX_TOKENS // 2, json_mode=True)
+        data = extract_json_object(raw)
+    except Exception:  # noqa: BLE001 — 보조 호출이 깨져도 그래프는 그대로 낸다
+        return edges
+    ids = {n.id for n in nodes}
+    seen = {frozenset((e.from_id, e.to_id)) for e in relates}
+    added: list[ConceptEdge] = []
+    for link in data.get("links") or []:
+        if not isinstance(link, dict):
+            continue
+        a, b = str(link.get("from", "") or ""), str(link.get("to", "") or "")
+        pair = frozenset((a, b))
+        if a == b or a not in ids or b not in ids or pair in seen:
+            continue
+        seen.add(pair)
+        added.append(ConceptEdge(from_id=a, to_id=b, kind="relates"))
+    return edges + _without_parent_pairs(added, parent_of)
 
 
 def _is_degenerate(nodes: list[ConceptNode], edges: list[ConceptEdge]) -> bool:
@@ -741,6 +843,7 @@ def build_graph(
             nodes, edges, sections, thesis = retry
 
     edges = _clamp_roots(nodes, edges, doc, slide_doc, thesis)
+    edges = _fill_links(engine, nodes, edges)
 
     return ConceptGraph(
         file_name=doc.file_name,

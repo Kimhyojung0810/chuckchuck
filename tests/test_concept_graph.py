@@ -26,6 +26,13 @@ from chuckchuck.providers.llm_base import LLMProvider
 # 헬퍼
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def _no_links_backfill(monkeypatch):
+    """이 파일의 호출 횟수·재시도 테스트는 F-07 본 호출만 센다. 연결 보강 호출(_fill_links)은 아래 전용 테스트가 켠다."""
+    from chuckchuck import f07_graph
+    monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.0)
+
+
 def make_doc(n_slides: int = 5) -> ConceptDoc:
     """작은 ConceptDoc. 1~3장은 core, 그 뒤는 support."""
     return ConceptDoc(
@@ -479,8 +486,8 @@ def test_demoted_root_attaches_to_relates_neighbor():
 
     assert graph.node("e").parent_id == "b"
     assert graph.node("e").depth == 2
-    # relates 간선은 정보 보존을 위해 그대로 남는다
-    assert ("e", "b") in [(x.from_id, x.to_id) for x in graph.relates_edges]
+    # 그 relates 는 위계 선이 됐다 — 같은 쌍을 relates 로 또 두지 않는다 (2026-09-29, _without_parent_pairs)
+    assert not any({x.from_id, x.to_id} == {"e", "b"} for x in graph.relates_edges)
 
 
 def test_demoted_root_attaches_by_slide_overlap():
@@ -882,3 +889,100 @@ def test_root_clamp_keeps_thesis_and_drops_childless_roots_first():
     assert "a" in roots, "자식이 있는 루트가 외톨이보다 먼저 남는다"
     assert len(roots) <= MAX_ROOTS
     assert graph.node("s").parent_id == "t", "장이 겹치는 남은 루트가 없으면 주제 밑"
+
+
+
+def test_relates_that_repeat_a_parent_pair_are_dropped():
+    """노드 parent 칸으로 이은 부모-자식을 edges 에 또 적으면 버린다. 가지를 넘는 연결은 남긴다."""
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null},
+      {"id": "a", "label": "요소 A", "slide_nos": [2], "parent": "t"},
+      {"id": "b", "label": "요소 B", "slide_nos": [3], "parent": "t"},
+      {"id": "a1", "label": "A 세부", "slide_nos": [2], "parent": "a"}
+    ], "edges": [
+      {"from": "a1", "to": "a", "kind": "relates"},
+      {"from": "t", "to": "b", "kind": "relates"},
+      {"from": "a1", "to": "b", "kind": "relates"}
+    ], "sections": []}
+    """
+    graph = graph_of(payload)
+    assert [(e.from_id, e.to_id) for e in graph.relates_edges] == [("a1", "b")]
+
+
+def test_node_links_field_becomes_relates_and_skips_parent_pairs():
+    """가지를 넘는 연결은 노드의 links 칸으로 받는다. 자기 부모·자식을 적은 것은 버린다."""
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null, "links": []},
+      {"id": "a", "label": "요소 A", "slide_nos": [2], "parent": "t", "links": ["t"]},
+      {"id": "b", "label": "요소 B", "slide_nos": [3], "parent": "t", "links": []},
+      {"id": "a1", "label": "A 세부", "slide_nos": [2], "parent": "a", "links": ["b", "없는노드"]}
+    ], "edges": [], "sections": []}
+    """
+    graph = graph_of(payload)
+    assert [(e.from_id, e.to_id) for e in graph.relates_edges] == [("a1", "b")]
+
+
+
+def test_scarce_links_trigger_one_backfill_call(monkeypatch):
+    """가지를 넘는 연결이 모자라면 트리만 보여 주고 연결을 한 번 더 묻는다. 부모-자식·없는 id·중복은 버린다."""
+    from chuckchuck import f07_graph
+    monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.17)
+    tree = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null, "links": []},
+      {"id": "a", "label": "요소 A", "slide_nos": [2], "parent": "t", "links": []},
+      {"id": "b", "label": "요소 B", "slide_nos": [3], "parent": "t", "links": []},
+      {"id": "a1", "label": "A 세부", "slide_nos": [2], "parent": "a", "links": []}
+    ], "edges": [], "sections": []}
+    """
+    links = '{"links": [{"from": "a1", "to": "b"}, {"from": "a", "to": "a1"}, {"from": "b", "to": "a1"}, {"from": "a1", "to": "zzz"}]}'
+    engine = SequenceLLM(tree, links)
+    graph = build_graph(make_doc(), llm=engine)
+    assert engine.calls == 2
+    assert [(e.from_id, e.to_id) for e in graph.relates_edges] == [("a1", "b")]
+
+
+def test_enough_links_skip_the_backfill_call(monkeypatch):
+    from chuckchuck import f07_graph
+    monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.17)
+    tree = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null, "links": []},
+      {"id": "a", "label": "요소 A", "slide_nos": [2], "parent": "t", "links": []},
+      {"id": "b", "label": "요소 B", "slide_nos": [3], "parent": "t", "links": []},
+      {"id": "a1", "label": "A 세부", "slide_nos": [2], "parent": "a", "links": ["b"]}
+    ], "edges": [], "sections": []}
+    """
+    engine = SequenceLLM(tree)
+    build_graph(make_doc(), llm=engine)
+    assert engine.calls == 1
+
+
+def test_broken_backfill_keeps_the_graph(monkeypatch):
+    from chuckchuck import f07_graph
+    monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.17)
+    tree = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null},
+      {"id": "a", "label": "요소 A", "slide_nos": [2], "parent": "t"}
+    ], "edges": [], "sections": []}
+    """
+    engine = SequenceLLM(tree, "이건 JSON 이 아니다")
+    graph = build_graph(make_doc(), llm=engine)
+    assert graph.node("a").parent_id == "t" and graph.relates_edges == []
+
+
+def test_links_between_ancestor_and_descendant_are_dropped():
+    """주제(루트)에서 손자로 가는 선은 같은 가지 위아래라 새 정보가 아니다."""
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "주제", "slide_nos": [1], "parent": null, "links": ["a1"]},
+      {"id": "a", "label": "요소 A", "slide_nos": [2], "parent": "t", "links": []},
+      {"id": "b", "label": "요소 B", "slide_nos": [3], "parent": "t", "links": []},
+      {"id": "a1", "label": "A 세부", "slide_nos": [2], "parent": "a", "links": ["b"]}
+    ], "edges": [], "sections": []}
+    """
+    graph = graph_of(payload)
+    assert [(e.from_id, e.to_id) for e in graph.relates_edges] == [("a1", "b")]

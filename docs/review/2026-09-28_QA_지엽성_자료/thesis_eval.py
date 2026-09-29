@@ -45,6 +45,9 @@ def one(name):
         "deck": name, "pre_roots": graph.nodes[0].__dict__.get('_pre_roots'),
         "roots": roots, "thesis_is_root": any(is_thesis(l) for l in roots),
         "parts_under_thesis": f"{under}/{len(parts)}", "nodes": len(graph.nodes),
+        # 가지를 넘는 연결 — 위계와 같은 쌍을 되풀이한 relates 는 세지 않는다
+        "cross": sum(1 for e in graph.relates_edges
+                     if e.from_id not in {a.id for a in ancestors(by[e.to_id])} and e.to_id not in {a.id for a in ancestors(by[e.from_id])}),
     }
 
 jobs = [n for n in DECKS for _ in range(runs)]

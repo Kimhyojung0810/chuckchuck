@@ -34,6 +34,7 @@
 | `graph_after_screen_0928.json` | 수정 후 — 9/28 화면 실행 수면 그래프 (stage_cache 사본) |
 | `graph_before_0926.png` · `graph_after_c.png` · `graph_after_screen_0928.png` | 수정 전·후 원본 그래프 그림 (트리 뷰) |
 | `network_before_0926.png` · `network_after_screen_0928.png` | 같은 그래프의 네트워크 뷰 |
+| `graph_after_links_0929.json` · `graph_after_links_0929.png` · `network_after_links_0929.png` | §12 가지 간 연결 보강 뒤 그래프 (트리·네트워크 뷰) |
 | `audio_path_before_5c345e5.json` · `audio_path_after_a149349.json` · `audio_path_after_pace.json` | §10·§11 녹음 경로 전후 |
 
 `transcript_*.json`·`slidedoc_*.json` 은 **올리지 않는다** — 발표자 음성 전문·덱 본문이다 (.gitignore 2026-08-08·09-10 규칙). 전사는 `make_transcript.py`(ppt/수면발표 의 .txt·.docx), 파싱본은 `verify_fix.py` 로 다시 만든다.
