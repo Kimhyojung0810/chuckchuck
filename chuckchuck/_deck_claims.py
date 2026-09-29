@@ -282,6 +282,26 @@ def _dir_family(word: str) -> str:
     return "mag"
 
 
+#: 관형형 끝 — 받침 ㄴ(줄어든·늘어난·오른·줄인·감소한)·「는」. 뒤에 잣대 머리가 오면 그 잣대를 꾸미는 말이다.
+_MEASURE_WORD_RE = re.compile(r"^(?:폭|양|량|비율|률|율|정도|규모|속도|수치|세|치|차이)")
+
+
+def _modifier_family(words: list[str], i: int) -> str:
+    """`_dir_family` + 「줄어든 폭」「늘어난 양」 처럼 관형형 바뀜 동사 뒤에 잣대 머리가 오면 바뀜 명사(noun)처럼 꾸미는 말로 본다."""
+    fam = _dir_family(words[i])
+    w = words[i]
+    if (fam == "change" and i + 1 < len(words) and _MEASURE_WORD_RE.match(words[i + 1])
+            and ("가" <= w[-1] <= "힣") and ((ord(w[-1]) - 0xAC00) % 28 == 4 or w.endswith("는"))):
+        return "noun"
+    return fam
+
+
+def modifier_signs(text: str) -> list[int]:
+    """글 속 **꾸미는** 바뀜 말(「상승 폭」「감소율」「줄어든 폭」)의 부호들 — 비교의 잣대가 비교 대상 앞에 올 때 서술 방향에 곱한다."""
+    words = _WORD_RE.findall(quantity_bounds(text or ""))
+    return [1 if direction(w) == "up" else -1 for i, w in enumerate(words) if direction(w) and _modifier_family(words, i) == "noun"]
+
+
 def signed_directions(text: str, comparative: bool | None = None) -> list[int]:
     """
     글의 방향 서술을 차례대로 +1(up)·−1(down) 로 — 꾸미는 방향 낱말(바뀜 명사·크기 부사)은 뒤 서술에 접는다 (위 「갈래」).
@@ -291,7 +311,7 @@ def signed_directions(text: str, comparative: bool | None = None) -> list[int]:
     if comparative is None:
         comparative = bool(_COMPARE_MARK_RE.search(text))
     words = _WORD_RE.findall(text)
-    terms = [(i, 1 if direction(w) == "up" else -1, _dir_family(w)) for i, w in enumerate(words) if direction(w)]
+    terms = [(i, 1 if direction(w) == "up" else -1, _modifier_family(words, i)) for i, w in enumerate(words) if direction(w)]
     out: list[int] = []
     carry, carrying = 1, False
     for k, (i, sign, fam) in enumerate(terms):
@@ -348,7 +368,8 @@ _CONCESSIVE_NEG_RE = re.compile(
 _SINO_NUM = r"[영일이삼사오육칠팔구십백천만]{1,6}"
 _NATIVE_NUM = r"(?:한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|스무|스물|서른|마흔|쉰|예순|일흔|여든|아흔)"
 _QTY_UNIT = r"(?:할|퍼센트|프로|명|개|곳|번|회|시간|분|초|일|달|주|년|개월|원|만\s?원|억|배|점|살|세|권|대|잔|장)"
-_QTY_NUM = rf"(?:(?<![^\s(])[^\s(]*\d[^\s]*?|(?<![가-힣]){_SINO_NUM}\s?{_QTY_UNIT}|(?<![가-힣]){_NATIVE_NUM}\s?{_QTY_UNIT})"
+_QTY_NUM = (rf"(?:(?<![^\s(])[^\s(]*\d[^\s]*?|(?<![가-힣]){_SINO_NUM}\s?{_QTY_UNIT}|(?<![가-힣]){_NATIVE_NUM}\s?{_QTY_UNIT}"
+            r"|(?<![가-힣])(?:절반|반))")
 _QTY_UNDER_RE = re.compile(
     rf"(?P<n>{_QTY_NUM})(?:도|이|가|은|는|에)?\s*(?:채\s*)?(?:안|못)\s*"
     r"(?:되|돼|됐|된|될|미치|미쳐|미친|미쳤|미칠|미달|차|찬|찼|찰|걸리|걸려|걸린|걸렸)[가-힣]*"

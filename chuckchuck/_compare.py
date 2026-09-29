@@ -37,6 +37,7 @@ from ._deck_claims import (
     clauses,
     content_stems,
     direction,
+    modifier_signs,
     negated,
     quantity_bounds,
     signed_directions,
@@ -73,7 +74,14 @@ _DISCOURSE = frozenset({"사실", "의외로", "실제로", "특히", "그리고
                         "그럼", "그러면", "게다가", "무엇보다"})
 #: 정도 부사·어림 말 — 잣대 줄기가 아니다.
 _FILLER = frozenset({"더", "훨씬", "조금", "약간", "좀", "매우", "아주", "너무", "가장", "제일", "거의", "무려", "대략", "정도",
-                     "한참", "꽤", "상당히", "비교적", "훨"})
+                     "한참", "꽤", "상당히", "비교적", "훨", "절반", "반", "미만", "이하", "이상", "수준", "쪽", "편"})
+#: 배수 말 — 「B의 2배가 넘었다」「B의 절반도 안 됐다」「B에 비해 절반 수준」. 곱하는 수가 1 보다 크면 더한 쪽, 작으면 덜한 쪽이다.
+_TIMES_RE = re.compile(r"^(\d+(?:\.\d+)?)배")
+_HALF_RE = re.compile(r"^(?:절반|반)(?![가-힣]*(?:대|정도로\s?줄))")
+_OVER_RE = re.compile(r"넘|이상|초과|많|높|크")
+_UNDER_RE = re.compile(r"미만|이하|못\s?미|적|낮|작")
+#: 비교 대상 뒤 주어가 「…쪽이」「…편이」 면 그것이 견주는 쪽이다(「참여 층보다 비참여 층 쪽이 더 컸어요」).
+_SIDE_RE = re.compile(r"(?:쪽|편)(?:이|은|는|이었|이에요|이죠)$")
 #: 비교 대상 머리가 이음 어미로 끝나면(「작아서보다」「가면보다」) 대상이 명사가 아니라 절이다 — 두 쪽을 못 가른다.
 _CLAUSE_HEAD_RE = re.compile(r"(?:서|고|면|며|니까)$")
 #: 자리·수단의 **화제**(「…만으로는」「…에서는」) — 다른 주어가 없을 때만 비교의 주어로 본다.
@@ -107,7 +115,8 @@ def _side_stems(words: list[str]) -> tuple[str, ...]:
            if not _ONE_SYLLABLE_RE.match(s) and not _LIGHT_RE.match(s) and not direction(s)]
     for w in kept:
         m = _ONE_WORD_RE.match(_bare(w))
-        if m and m.group(1) not in _ONE_SYLLABLE_STOP:
+        # 「많이」 처럼 활용 꼬리가 붙은 방향 낱말은 빼고, 홀로 선 한 글자(「낮 시간대」 의 낮)는 명사다
+        if m and m.group(1) not in _ONE_SYLLABLE_STOP and not (len(_bare(w)) > 1 and direction(_bare(w))):
             out.append(m.group(1))
     return tuple(dict.fromkeys(out))
 
@@ -210,7 +219,10 @@ def _modifies_short_head(word: str, adjacent: bool, head: str) -> bool:
 
 
 def _marker(words: list[str]) -> tuple[int, str, int] | None:
-    """(비교 대상 머리 어절 자리, 머리 글, 뒤 말이 시작하는 자리). 비교 표지가 없거나 둘 이상이면 None."""
+    """
+    (비교 대상 머리 어절 자리, 머리 글, 뒤 말이 시작하는 자리). 비교 표지가 없거나 둘 이상이면 None.
+    표지 — 「X보다(는/도)」「X에 비해」, 그리고 배수 비교 「X의 2배」「X의 절반」(뒤 말은 배수 낱말부터).
+    """
     found: list[tuple[int, str, int]] = []
     for i, w in enumerate(words):
         b = _bare(w)
@@ -219,9 +231,33 @@ def _marker(words: list[str]) -> tuple[int, str, int] | None:
             found.append((i, _bare(m.group("head")), i + 1))
         elif _BIHAE_WORD_RE.match(b) and i > 0 and _bare(words[i - 1]).endswith("에") and len(_bare(words[i - 1])) > 1:
             found.append((i - 1, _bare(words[i - 1])[:-1], i + 1))
+        elif (b.endswith("의") and len(b) > 1 and i + 1 < len(words)
+              and (_TIMES_RE.match(_bare(words[i + 1])) or _HALF_RE.match(_bare(words[i + 1])))):
+            found.append((i, b[:-1], i + 1))
     if len(found) != 1:
         return None
     return found[0]
+
+
+def _times_sign(rest: list[str]) -> int:
+    """
+    배수로 말한 비교의 방향 — 「2배가 넘었다」「2배였다」 는 +1, 「절반도 안 됐다(절반 미만)」「절반 수준」 은 −1.
+    1 보다 큰 배수에 「미만」, 1 보다 작은 배수에 「넘게」 가 붙으면 어느 쪽인지 모른다(0).
+    """
+    for k, w in enumerate(rest):
+        b = _bare(w)
+        m = _TIMES_RE.match(b)
+        ratio = float(m.group(1)) if m else (0.5 if _HALF_RE.match(b) else None)
+        if ratio is None:
+            continue
+        tail = " ".join(rest[k:])
+        over, under = bool(_OVER_RE.search(tail)), bool(_UNDER_RE.search(tail))
+        if ratio > 1:
+            return 0 if under and not over else 1
+        if ratio < 1:
+            return 0 if over and not under else -1
+        return 0
+    return 0
 
 
 def _subject_after(rest: list[str]) -> tuple[tuple[str, ...], list[str]]:
@@ -265,26 +301,52 @@ def read_comparison(text: str) -> Comparison | None:
                           or _modifies_short_head(words[j - 1], j - 1 == k - 1, head)):
         j -= 1
     other = _side_stems([*words[j:k], head])
-    subject = _side_stems(_without_adverbials(words[:j], parallel=_head_noun(head)))
+    pre = words[:j]
+    subject = _side_stems(_without_adverbials(pre, parallel=_head_noun(head)))
     rest = words[rest_at:]
+    pre_measure: list[str] = []
+    side = _side_subject(rest, head)
+    if side is not None:
+        # 「사용량이 줄어든 폭은 참여 층보다 비참여 층 쪽이 더 컸어요」 — 뒤의 「…쪽이」·같은 머리 명사가 견주는 쪽, 앞 말은 잣대다
+        pre_measure, (subject, rest) = pre, side
     if not subject:
         subject, rest = _subject_after(rest)
     if not subject:
-        subject = _side_stems(_without_adverbials(words[:j], keep_topic=True))
+        subject = _side_stems(_without_adverbials(pre, keep_topic=True))
     if not subject or not other or not rest:
         return None
     rest_text = " ".join(rest)
     signs = signed_directions(rest_text, comparative=True)
+    sign = signs[0] if len(signs) == 1 else 0
+    if not signs:
+        sign = _times_sign(rest)
+    # 비교 대상 앞의 꾸미는 바뀜 말(「줄인 폭은」「상승 폭이」)도 서술 방향에 곱한다 — 「덜 줄었다」 는 줄어든 폭이 작았다는 말이다
+    for mod in modifier_signs(" ".join(pre)):
+        sign *= mod
     return Comparison(
         subject=subject,
         other=other,
-        # 잣대는 서술어(끝 어절) 앞의 말 — 「득점 확률이 더 높았다」 의 득점 확률
-        measure=_side_stems(rest[:-1]),
-        sign=signs[0] if len(signs) == 1 else 0,
+        # 잣대는 서술어(끝 어절) 앞의 말 — 「득점 확률이 더 높았다」 의 득점 확률 (+ 앞으로 뺀 잣대 말)
+        measure=_side_stems([*pre_measure, *rest[:-1]]),
+        sign=sign,
         pred=_pred_key(rest[-1]),
         negated=negated(rest_text),
         text=text,
     )
+
+
+def _side_subject(rest: list[str], head: str) -> tuple[tuple[str, ...], list[str]] | None:
+    """비교 대상 뒤 첫 주어 말이 「…쪽이/편이」 거나 비교 대상과 머리 명사가 같으면 (그 주어 줄기, 나머지 서술) — 아니면 None."""
+    m = next((i for i, w in enumerate(rest) if _is_subject_word(w)), None)
+    if m is None:
+        return None
+    word = _bare(rest[m])
+    head_noun = _head_noun(head)
+    parallel = bool(head_noun) and any(_bare(w).startswith(head_noun) for w in rest[:m + 1])
+    if not (_SIDE_RE.search(word) or parallel):
+        return None
+    subject = _side_stems(rest[:m + 1])
+    return (subject, rest[m + 1:]) if subject and rest[m + 1:] else None
 
 
 def _lands(stems: tuple[str, ...], near: tuple[str, ...], far: tuple[str, ...]) -> bool:
