@@ -396,9 +396,20 @@ _SINO_DIGIT = {"영": 0, "공": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오"
 _SINO_MULT = {"십": 10, "백": 100, "천": 1000}
 #: 한자어 수 + 단위. 수 앞은 낱말 머리여야 한다(「일이 많아서」의 일이는 수가 아니다 — 아래 파서가 거른다).
 #: 앞이 숫자면(「3천 원」) 한자어 수가 아니라 섞어 쓴 수다 — `_MIXED_*` 가 받는다.
+#: 띄어 읽은 수(「삼만 이천 원」「이천 오백」「백 이십 명」)도 한 수다 — 앞 덩이가 자릿수 말(십·백·천·만)로 끝날 때만 잇는다
+#: (「이 이십 명」 의 「이」 는 가리키는 말이다).
 _SINO_RE = re.compile(
-    r"(?<![가-힣\d])([영공일이삼사오육칠팔구십백천만]+)\s?"
-    r"(퍼센트|프로|%|개월|시간|만원|억원|명|개|원|배|분|초|년|회|점|세|살|위|건|억|할)" + _AFTER_UNIT
+    r"(?<![가-힣\d])((?:[영공일이삼사오육칠팔구십백천만]*[십백천만]\s)*[영공일이삼사오육칠팔구십백천만]+)\s?"
+    r"(퍼센트|프로|%|개월|시간|만원|억원|조\s?원|명|개|원|배|분|초|년|회|점|세|살|위|건|억|할)" + _AFTER_UNIT
+)
+_SINO_UNITS = r"(?:퍼센트|프로|%|개월|시간|만원|억원|조\s?원|명|개|원|배|분|초|년|회|점|세|살|위|건|억|할)"
+#: 소수 「팔 점 칠 퍼센트」「일 점 육 배」「사 점 오 점」「이십사 점 육 도」 = 8.7% · 1.6배 · 4.5점 · 24.6, 「마이너스 영 점 육」 = -0.6.
+#: 소수 자리 뒤는 단위·조사·끝이어야 하고(「십 점 이상」 은 점수), 정수가 「이」 뿐이면 단위·부호가 있을 때만 — 「이 점이 중요해요」
+#: 「이 점 이상하죠」 의 점은 수의 점이 아니다. 소수 자리 뒤 「이」 는 조사일 수 있어(「영 점 육이라고」) 짧게 잡는다.
+_SINO_DECIMAL_RE = re.compile(
+    r"(?<![가-힣\d])(?P<sign>마이너스\s?)?(?P<int>[영공일이삼사오육칠팔구십백천만]+)\s?점\s?(?P<frac>[영공일이삼사오육칠팔구]+?)"
+    r"(?=\s?" + _SINO_UNITS + r"|(?:이라|라고|이에|예요|입니|이다|이고|이며|으로|로|이었|였|이|가|는|은|를|을|의|도|에)(?![영공일이삼사오육칠팔구])"
+    r"|\s|$|[,.?!])"
 )
 #: 「할」(10분의 1 — 타율 「이 할」「삼 할」) 은 바로 뒤에 조사가 붙을 때만 수다. 「이 할 일」「할 수」 의 할(하다)은 수가 아니다.
 #: 09-30 녹음 감사 REC-03: 「타율이 이 할도 안 되는」 이 수로 안 바뀌어 질문이 「자료 7장의 수치와 달라요」 라고 했다.
@@ -411,9 +422,9 @@ _MIXED_WON_RE = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s?(만|억)\s?원" + _AFT
 
 
 def _sino_value(word: str) -> int | None:
-    """「이십구」→29 · 「삼백」→300 · 「이십만」→200000. 숫자가 연달아 오면(「일이」) 수가 아니다 → None."""
+    """「이십구」→29 · 「삼백」→300 · 「이십만」→200000 · 「삼만 이천」→32000. 숫자가 연달아 오면(「일이」) 수가 아니다 → None."""
     total, block, digit = 0, 0, None
-    for ch in word:
+    for ch in word.replace(" ", ""):
         if ch in _SINO_DIGIT:
             if digit is not None:
                 return None
@@ -429,16 +440,34 @@ def _sino_value(word: str) -> int | None:
     return total + block + (digit or 0)
 
 
+def _sino_decimal_sub(m: re.Match) -> str:
+    whole, frac = _sino_value(m.group("int")), "".join(str(_SINO_DIGIT[c]) for c in m.group("frac"))
+    plain = m.group("int") != "이"          # 「이 점」 은 가리키는 말(this point)일 수 있다 — 단위·부호가 있어야 수다
+    unit_next = bool(re.match(r"\s?" + _SINO_UNITS, m.string[m.end():]))
+    if whole is None or not (unit_next or m.group("sign") or plain):
+        return m.group(0)
+    return f"{'-' if m.group('sign') else ''}{whole}.{frac}"
+
+
 def _sino_sub(m: re.Match) -> str:
     word, unit = m.group(1), m.group(2)
     if unit == "할" and not _HAL_NEXT_RE.match(m.string, m.end()):
         return m.group(0)
+    if " " in word and _sino_value(word) is None:
+        # 띄어 읽은 덩이가 한 수가 아니면(「오 이십 명」) 마지막 덩이만 수로 읽는다
+        head, _, last = word.rpartition(" ")
+        return f"{head} {_sino_sub_word(last, unit, m.group(0)[len(word):])}"
     # 한 글자 수(「오」「이」)는 퍼센트·할 앞에서만 — 「이 명」「오 분」 은 「이 사람」「오분」 과 가를 수 없다
     if len(word) < 2 and not any(c in _SINO_MULT for c in word) and unit not in (*_PCT_UNITS, "할"):
         return m.group(0)
+    return _sino_sub_word(word, unit, m.group(0)[len(word):])
+
+
+def _sino_sub_word(word: str, unit: str, tail: str) -> str:
+    """한자어 수 낱말 + 단위 → 자료 표기. 못 읽으면 원문(word + tail) 그대로."""
     value = _sino_value(word)
     if value is None:
-        return m.group(0)
+        return word + tail
     if value >= 10000 and value % 10000 == 0 and unit == "원":
         return f"{value // 10000}만원"          # 자료는 「30만 원」 이라 쓴다 — 같은 단위(만원)로 맞춰야 견줄 수 있다
     return f"{value}{' ' if unit in _PCT_UNITS else ''}{unit}"
@@ -470,7 +499,8 @@ def _native_sub(m: re.Match) -> str:
 
 def spoken_numbers(text: str) -> str:
     """받아쓰기의 말로 적은 수·퍼센트를 자료 표기로 — 「이십구 퍼센트」→「29%」, 「3 퍼센트 포인트」→「3%p」, 「열 명」→「10명」."""
-    t = _SINO_RE.sub(_sino_sub, text or "")
+    t = _SINO_DECIMAL_RE.sub(_sino_decimal_sub, text or "")
+    t = _SINO_RE.sub(_sino_sub, t)
     t = _NATIVE_RE.sub(_native_sub, t)
     t = _HALF_TIMES_RE.sub(lambda m: f"{m.group(1)}.5배", t)
     t = _MIXED_THOUSAND_RE.sub(lambda m: f"{float(m.group(1)) * 1000:g}{m.group(2)}", t)

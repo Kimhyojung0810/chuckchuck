@@ -459,3 +459,51 @@ def test_shares_counts_and_computed_values_are_not_deck_values():
 ])
 def test_skip_cue_set_aside_and_out_of_talk(sentence, want):
     assert skip_cue(sentence) is want
+
+
+# ---------------------------------------------------------------------------
+# 자료 줄을 소리 내어 읽은 말 — 소수(「팔 점 칠 퍼센트」)·띄어 읽은 수(「삼만 이천 원」)·자릿수 말(자료 「8만 명」)·조 원
+# (옛 말뭉치 덱 474줄을 한자어 수로 읽어 대조에 태우는 자동 점검에서 드러났다. 분야: 동네 영화제 — 어느 덱과도 겹치지 않는다)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("text, want", [
+    ("팔 점 칠 퍼센트", "8.7%"),
+    ("영 점 팔 퍼센트 포인트", "0.8%p"),
+    ("마이너스 영 점 육이라고", "-0.6이라고"),
+    ("평점이 사 점 이였어요", "평점이 4.2였어요"),
+    ("삼 점 이에서 사 점 일로 올랐어요", "3.2에서 4.1로 올랐어요"),
+    ("삼만 이천 원", "32000원"),
+    ("이천 오백 원", "2500원"),
+    ("백 이십 명", "120명"),
+    ("육십 점 오사 조 원", "60.54 조 원"),
+    # 수가 아닌 「점」 · 가리키는 말 「이」
+    ("이 점이 중요해요", "이 점이 중요해요"),
+    ("이 점 이상하죠", "이 점 이상하죠"),
+    ("십 점 이상", "10점 이상"),
+    ("일 점 차이로", "일 점 차이로"),
+    ("이 이십 명이", "이 20명이"),
+])
+def test_spoken_decimals_and_spaced_numbers(text, want):
+    assert spoken_numbers(text) == want
+
+
+@pytest.mark.parametrize("text, want", [
+    ("연간 관람객 8만 명", [(80000, "명")]),
+    ("후원금 3천만 원", [(3000, "만원")]),
+    ("누적 관람 12만 3천 명", [(123000, "명")]),
+    ("예매 1.2만 건", [(12000, "건")]),
+    ("입장료 3천 원", [(3000, "원")]),
+    ("상영관 대관료 8만 원", [(8, "만원")]),
+    ("매출 60.54조원", [(60.54, "조원")]),
+    ("3조가 발표해요", [(3, None)]),                     # 조(모둠)는 돈이 아니다
+])
+def test_deck_scale_words_are_part_of_the_value(text, want):
+    assert [(n.value, n.unit) for n in numbers(text)] == want
+
+
+def test_deck_read_aloud_is_never_a_contradiction():
+    fest = deck_of("동네 영화제\n연간 관람객 8만 명 · 관람객 만족도 평균 4.3점", "후원\n후원금 3천만 원 · 입장료 3천 원")
+    for said in ("연간 관람객은 팔만 명이에요.", "관람객 만족도는 평균 사 점 삼 점이에요.", "후원금은 삼천만 원이고요, 입장료는 삼천 원이에요."):
+        assert conflicts(spoken_numbers(said), fest) == [], said
+    assert [c.said for c in conflicts(spoken_numbers("관람객 만족도는 평균 사 점 팔 점이에요."), fest)] == ["4.8점"]
+    assert [c.said for c in conflicts(spoken_numbers("연간 관람객은 오만 명이에요."), fest)] == ["50000명"]

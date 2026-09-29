@@ -42,7 +42,7 @@ _NUM_RE = re.compile(
     # 없었다. 「세대·세기·세트·세계」 의 세는 단위가 아니다.
     # 「할」(타율·비율의 10분의 1 — 「2할 미만」) 은 「할 수·할 것·할 일」 의 할(하다)이 아닐 때만.
     # 「1,800만 원」 처럼 띄어 쓴 돈 단위도 만원 · 억원 이다(한글 맞춤법대로 쓴 자료가 많다 — held-out 지하철 덱).
-    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만\s?원|억\s?원|억|원|분|시간|초|점|장|위|차|세(?![대기트계])|살|"
+    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만\s?원|억\s?원|조\s?원|억|원|분|시간|초|점|장|위|차|세(?![대기트계])|살|"
     rf"할(?!\s?(?:수|것|거|일|때|게|지|줄|까))|(?:{_LATIN_UNITS})(?![A-Za-z]))?",
     re.I,
 )
@@ -166,6 +166,8 @@ def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
     text = _FRACTION_RE.sub(lambda m: " " * len(m.group(0)), text)
     out: list[Num] = []
     for m in _NUM_RE.finditer(text):
+        if out and m.start() < out[-1].end:
+            continue                                  # 「12만 3천 명」 의 3 — 앞 수가 이미 삼켰다
         sign, raw, unit = m.group(1), m.group(2), (m.group(3) or "")
         if unit in _STRUCTURAL_UNITS:
             continue
@@ -175,8 +177,24 @@ def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
         if skip_years and not unit and "." not in raw and 1900 <= value <= 2100:
             continue
         decimals = len(raw.split(".")[1]) if "." in raw else 0
-        out.append(Num(value, _unit_class(unit), bool(sign), m.start(), m.end(), decimals))
+        end = m.end()
+        scaled = _SCALED_UNIT_RE.match(text, m.end() - len(unit)) if unit in ("", "억") else None
+        if scaled is not None:
+            # 「8만 명」「3천 원」「1.2만 건」「2억 명」「3천만 원」 — 자릿수 말은 단위가 아니라 값의 일부다 (말 쪽은 「팔만 명」 → 80000명)
+            mult, unit = _SCALE[scaled.group("mult")], scaled.group("unit")
+            value = value * mult + (float(scaled.group("thou")) * 1000 if scaled.group("thou") else 0)   # 「12만 3천 명」
+            if unit == "원" and mult >= 10000:
+                value, unit = value / 10000, "만원"          # 돈은 만원 단위로 적는다(「30만 원」 = 30만원)
+            decimals, end = 0, scaled.end()
+        out.append(Num(value, _unit_class(unit), bool(sign), m.start(), end, decimals))
     return _join_durations(text, out)
+
+
+#: 자릿수 말 + 세는 말(돈은 천·천만·백만만 — 「만 원」「억 원」 은 그 자체가 단위다).
+_SCALE = {"천": 1000, "만": 10000, "억": 100000000, "천만": 10000000, "백만": 1000000}
+_SCALED_UNIT_RE = re.compile(
+    r"\s?(?P<mult>천만|백만|천|만|억)\s?(?:(?<=만)\s?(?P<thou>\d)\s?천\s?)?(?P<unit>명|개|건|회|번|곳|배|개월|년|일|시간|분|초|점|세|살|위|원)"
+)
 
 
 #: 「1시간 반」 의 반 — 「반복·반나절」 의 반은 아니다.
