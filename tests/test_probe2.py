@@ -527,3 +527,21 @@ def test_F08_은_최상급_전제_질문과_방법_줄_없는_조건_질문을_�
     assert {"question_premise_conflict", "premise_superlative", "fallback_template"} <= set(by["rain"].basis.checks)
     assert {"method_unsupported", "fallback_template"} <= set(by["saving"].basis.checks)
     assert "가장 중요한" not in by["rain"].question and "측정 방법" not in by["saving"].question
+
+
+def test_밀어내기는_트랙_함정_수를_바꾸지_않고_여유가_없으면_맨_뒤로_간다():
+    qs = [item("root", "새벽 수영반의 신경학적 메커니즘은 무엇인가요?"),
+          item("keep", "출석 유지율은 무엇으로 이루어지나요?", gist="등록 인원과 출석률, 재등록률을 곱해요."),
+          item("cold", "추운 탈의실은 어떻게 해결했나요?", gist="탈의실에 난방기를 설치해 해소해요."),
+          item("short", "짧은 강습 시간은 어떻게 보완했나요?", gist="강습을 10분 늘려 보완해요."),
+          item("heads", "수강생 수는 출석 유지율에서 어떤 역할인가요?", gist="등록 인원으로 출석 유지율의 한 요소예요."),
+          item("dropout", "지난 학기 중도 포기는 어땠나요?", gist="30명 가운데 그만둔 사람은 아무도 없었어요.")]
+    marks = [(n, "core_weight") for n in ("root", "keep", "cold", "short", "heads", "dropout")]
+    for track, traps_max in (("5", f08.QA_TRACK_TRAPS["5"]), ("10", f08.QA_TRACK_TRAPS["10"])):
+        doc = build_questions(GRAPH, triage(*marks), track=track, slidedoc=DECK, claims=None, llm=ScriptedLLM(qs))
+        got = [x.node_id for x in doc.questions]
+        assert sum(x.trap for x in doc.questions) <= traps_max
+        if track == "5":
+            assert "root" not in got and len(got) == 3 and sum(x.trap for x in doc.questions) == 1   # 함정은 그대로 남는다
+        else:
+            assert got[-1] == "root"                                                                  # 여유가 없으면 맨 뒤
