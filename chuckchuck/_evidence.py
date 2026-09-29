@@ -31,6 +31,10 @@ _TAG_RE = re.compile(r"<[^>]+>")
 #: 한글 자료에서 40자 넘는 순수 영문 구절은 본문이 아니라 이미지 설명이다.
 _LONG_LATIN_RE = re.compile(r"(?<![가-힣])[A-Za-z][A-Za-z0-9 ,.'\"()-]{40,}")
 _WS_RE = re.compile(r"\s+")
+#: Upstage 차트 설명 블록 — 「- Chart Type: bar chart」 줄과 바로 뒤 「- The bar chart …」 설명 줄. `_LONG_LATIN_RE` 는 한글
+#: 따옴표에서 끊겨 조각(「A red line connects the top of the "법인세차감순이익" bar」)을 남겼고, 그게 힌트 인용이 됐다
+#: (2026-09-29 일반화 벤치 §9). 표시 줄이 있을 때만 지운다 — 영문 발표의 「- 」 글머리는 본문이라 건드리지 않는다.
+_CHART_DESC_RE = re.compile(r"^[ \t]*-[ \t]*(?:Chart|Figure|Graph|Diagram|Image)[ \t]+Type[ \t]*:.*(?:\n[ \t]*-[ \t].*)?$", re.M | re.I)
 
 #: 한 개념에 붙일 근거 장 수. F-07 이 12장을 다 붙여도 여기서 이만큼만 남는다.
 #: f08 `HINT_SLIDE_MAX` 와 같은 값 — 힌트가 가리키는 장과 프롬프트에 실린 장이 같아야 한다.
@@ -53,11 +57,17 @@ def clean_slide_text(raw_text: str) -> str:
     text = raw_text or ""
     if not text.strip():
         return ""
+    text = _CHART_DESC_RE.sub(" ", text)
     text = _FIGCAPTION_RE.sub(" ", text)
     text = _IMAGE_MD_RE.sub(" ", text)
     text = _TAG_RE.sub(" ", text)
     text = _LONG_LATIN_RE.sub(" ", text)
     return _WS_RE.sub(" ", text).strip()
+
+
+def strip_chart_descriptions(raw_text: str) -> str:
+    """Upstage 차트 설명 블록(「- Chart Type: …」 + 설명 줄)을 지운 원문. 줄 구조는 그대로 둔다 — 줄 단위로 보는 호출자용."""
+    return _CHART_DESC_RE.sub("", raw_text or "")
 
 
 def markup_ratio(raw_text: str) -> float:
@@ -196,7 +206,7 @@ def slide_units(raw_text: str) -> list[str]:
     - 쉼표·조사·연결 어미로 끝난 줄 — 한 문장이 두 줄로 접힌 것
     - 아직 QUOTE_MIN 보다 짧은 덩이에 짧은 줄 — 낱말 칸들
     """
-    lines = [clean_slide_text(line) for line in (raw_text or "").split("\n")]
+    lines = [clean_slide_text(line) for line in strip_chart_descriptions(raw_text).split("\n")]
     lines = [line for line in lines if line and not _PAGE_NO_RE.match(line)]
     runs: list[list[str]] = []
     for line in lines:
@@ -224,6 +234,57 @@ def _overlap(query: list[str], tokens: list[str]) -> int:
     )
 
 
+#: 질문 문장에서 인용 대조에 안 쓰는 물음 낱말 (앞머리로 본다). 「무엇·어떻게·근거·설명」 은 어느 질문에나 있어서,
+#: 세면 제목 줄이 「근거」 한 낱말로 이긴다. 발표 내용과 무관한 물음의 뼈대만 둔다.
+_QUESTION_FRAME = ("무엇", "어떻", "어떤", "어느", "설명", "발표", "자료", "근거", "이유", "구체", "주장", "생각",
+                   "인가", "있나", "되나", "하나", "대해", "통해", "위해", "관련", "때문", "경우", "정도", "실제")
+
+
+def _asked_tokens(question: str) -> list[str]:
+    return [t for t in _content_tokens(question) if not t.startswith(_QUESTION_FRAME)]
+
+
+def ranked_quotes(
+    label: str,
+    summary: str,
+    texts: list[tuple[int, str]],
+    question: str = "",
+    k: int = 1,
+    max_len: int = QUOTE_MAX,
+) -> list[tuple[int, str]]:
+    """
+    근거 장의 줄을 **이 질문을 받치는 순서로** k 개. (장 번호, 인용). `best_quote` 가 첫째를 쓴다.
+
+    점수는 (질문 낱말 겹침, 개념 이름·요약 겹침 + 이름이 통째로 든 줄 +3) 순서로 견준다 — **질문이 먼저다.**
+    09-29 기준선: 예전엔 질문 낱말 가운데 개념 이름·요약에 든 것을 빼고 셌고, 이름 줄 +3 이 더해져서 「58%」 를
+    묻는 질문에 같은 장의 «상위 2개가 전체의 58%» 가 아니라 제목 줄이 이겼다 (질문과 겹치는 낱말 0개인 인용 3건).
+    질문과 한 낱말이라도 겹치는 줄이 있으면 겹치지 않는 줄은 절대 이기지 못한다. 동점이면 앞 장·앞 줄이다.
+    """
+    name = _content_tokens(label)
+    base = set(_content_tokens(f"{label} {summary}"))
+    asked = _asked_tokens(question)
+    scored: list[tuple[tuple[int, int, int, int], int, str]] = []
+    seen: set[str] = set()
+    for order, (no, raw) in enumerate(texts):
+        for pos, sentence in enumerate(slide_units(raw)):
+            if sentence in seen:
+                continue
+            seen.add(sentence)
+            tokens = _content_tokens(sentence)
+            present = set(tokens)
+            base_score = sum(1 for t in base if t in present)
+            if name and contains_tokens(tokens, name):
+                base_score += 3
+            scored.append(((_overlap(asked, tokens), base_score, -order, -pos), no, sentence))
+    scored.sort(key=lambda s: s[0], reverse=True)
+    out: list[tuple[int, str]] = []
+    for _, no, quote in scored[:max(1, k)]:
+        if len(quote) > max_len:
+            quote = quote[: max_len - 1].rstrip() + "…"
+        out.append((no, quote))
+    return out
+
+
 def best_quote(
     label: str,
     summary: str,
@@ -237,30 +298,10 @@ def best_quote(
     `texts` 는 (장 번호, 원문 raw_text) — 줄 구조가 살아 있어야 한다 (`slide_units`).
     예전엔 장을 앞에서부터 보고 첫 장의 문장을 썼다. 표지(1장)가 늘 먼저 걸려서, 질문이
     4장의 식을 묻는데 힌트는 1장 설문 보기를 보여 줬다 (09-29 수면). 이제 모든 장의 줄을
-    한 줄 세워 점수로 고르고, 동점이면 앞 장이다.
-
-    점수는 개념 이름이 통째로 든 줄 +3, 이름·요약 낱말 겹침, 그리고 **질문 문장** 낱말
-    겹침이다 — 힌트는 질문이 가리키는 자리를 보여 줘야 한다.
+    한 줄 세워 점수로 고른다 — 점수 순서는 `ranked_quotes`.
     """
-    name = _content_tokens(label)
-    base = set(_content_tokens(f"{label} {summary}"))
-    asked = [t for t in _content_tokens(question) if t not in base]
-    best: tuple[int, int, str] | None = None
-    for no, raw in texts:
-        for sentence in slide_units(raw):
-            tokens = _content_tokens(sentence)
-            present = set(tokens)
-            score = sum(1 for t in base if t in present) + _overlap(asked, tokens)
-            if name and contains_tokens(tokens, name):
-                score += 3
-            if best is None or score > best[0]:
-                best = (score, no, sentence)
-    if best is None:
-        return 0, ""
-    _, no, quote = best
-    if len(quote) > max_len:
-        quote = quote[: max_len - 1].rstrip() + "…"
-    return no, quote
+    found = ranked_quotes(label, summary, texts, question, k=1, max_len=max_len)
+    return found[0] if found else (0, "")
 
 
 def quote_for(label: str, summary: str, text: str, max_len: int = QUOTE_MAX) -> str:

@@ -74,16 +74,16 @@ QUERY_SYSTEM_PROMPT = """당신은 학술 검색 사서다.
 
 - query: 3~7 단어의 영어 명사구. 학술 데이터베이스(OpenAlex 등)에 그대로 넣을 검색어다.
   개념의 뜻을 영어 학술 용어로 옮기되, **'발표 주제' 의 맥락 낱말을 반드시 포함**해서 다른 분야의
-  논문이 걸리지 않게 하라. "환경 설계" 를 그냥 "environmental design" 으로 옮기면 환경경제학
-  논문이 온다 — 주제가 스마트폰 알림이면 "notification-free workspace design" 처럼 쓴다.
+  논문이 걸리지 않게 하라. "매장 동선" 을 그냥 "store layout" 으로 옮기면 건축·물류 논문이
+  온다 — 주제가 카페 재방문이면 "cafe store layout customer revisit" 처럼 쓴다.
   한국어·따옴표·불리언 연산자를 쓰지 마라.
-  (예: 주제 "스마트폰 알림과 집중" · 개념 "알림의 주의 비용" → "smartphone notification attention cost")
+  (예: 주제 "카페 재방문" · 개념 "대기 시간" → "cafe waiting time customer satisfaction")
 - node_id 는 개념 목록의 괄호 안 id 를 **글자 그대로** 옮긴다. label 은 개념 이름 그대로.
   예시의 id 를 베끼지 마라 — 목록에 없는 id 는 버려진다.
 - 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마 (id·label 은 목록의 것):
-{ "queries": [ { "node_id": "<목록의 id>", "label": "<목록의 개념 이름>", "query": "smartphone notification attention cost" } ] }
+{ "queries": [ { "node_id": "<목록의 id>", "label": "<목록의 개념 이름>", "query": "cafe waiting time customer satisfaction" } ] }
 """
 
 _HANGUL_RE = re.compile(r"[가-힣]")
@@ -277,6 +277,42 @@ def _relevant(hit: PaperRef, query: str, topic: str = "") -> bool:
     return _shares(_word_stems(query), have) and _shares(_word_stems(topic) - _word_stems(query), have)
 
 
+#: 관련성 바닥 — 검색어의 **내용 낱말**(수량·순위 낱말을 뺀 어간) 가운데 제목+초록에 있어야 할 비율.
+RELEVANCE_COVERAGE_MIN = 0.5
+#: 수량·순위를 말하는 낱말. 「top 25 percent」 같은 검색어에서 이것만 맞은 논문은 주제가 아니라 숫자 표현이 겹친 것이다.
+#: 2026-09-29 기준선 §5-5: 「개인 투자자 상위 25% 수익률」 개념에 「The Top 1 Percent in International and Historical
+#: Perspective」(소득 불평등)가 붙어, 질문 틀·골자(「노동 시장 협상 모델」)·채점 요소로 새어 나갔다. 겹친 낱말이
+#: top·percent·return·investment 였다 — 개념의 머리말(individual investor)은 제목에 없었다.
+_QUANTITY_WORDS = ("top", "bottom", "percent", "percentage", "percentile", "ratio", "rate", "average", "mean", "median",
+                   "high", "higher", "highest", "low", "lower", "lowest", "number", "amount", "total", "level", "degree",
+                   "first", "last", "increase", "decrease", "large", "small", "effect", "effects")
+_HANGUL_TOKEN_RE = re.compile(r"[가-힣]{2,}")
+
+
+def _quantity_stems() -> set[str]:
+    return _word_stems(" ".join(_QUANTITY_WORDS))
+
+
+def _above_floor(hit: PaperRef, concept: str, node: ConceptNode | None = None) -> bool:
+    """
+    개념 검색 결과의 관련성 바닥 (결정적). `_relevant` 는 검색어와 어간 **하나**만 나눠도 남긴다 — 그 위에 한 번 더 본다.
+
+    - 영문 논문: 검색어의 내용 어간(수량·순위 낱말 제외) 가운데 RELEVANCE_COVERAGE_MIN 이상이 제목+초록에 있고,
+      **제목**이 그중 하나 이상을 나눠야 한다. 제목은 논문이 무엇에 관한 것인지 스스로 말하는 줄이다.
+    - 한글 논문: 개념 라벨·요약의 낱말(두 글자 이상)이 제목+초록에 하나 이상 있어야 한다 (검색어는 영어라 못 견준다).
+    내용 어간이 하나도 없으면(검색어가 수량 낱말뿐) 판단하지 않는다.
+    """
+    if node is not None and _HANGUL_RE.search(hit.title or ""):
+        want_ko = set(_HANGUL_TOKEN_RE.findall(f"{node.label} {node.summary}"))
+        have_ko = " ".join([hit.title or "", hit.abstract or ""])
+        return not want_ko or any(w in have_ko for w in want_ko)
+    want = _word_stems(concept) - _quantity_stems()
+    if not want:
+        return True
+    have = _word_stems(hit.title) | _word_stems(hit.abstract)
+    return len(want & have) / len(want) >= RELEVANCE_COVERAGE_MIN and bool(want & _word_stems(hit.title))
+
+
 def _dropped_note(n: int) -> str:
     return f"관련성 없음 {n}건 버림" if n else ""
 
@@ -385,7 +421,7 @@ def build_papers(
         for hit in results.get(f"node:{node.id}") or []:
             # 검색어와 낱말 하나 안 나누는 결과는 버린다 — deck 과 겹치는지 보기 **전에** (엉뚱한 개념을 deck 에 붙이지 않게).
             # 보강된 검색어면 개념 낱말·주제 낱말을 각각 나눠야 한다. 다 떨어지면 그 개념은 문헌 없이 간다 (다른 논문을 끌어오지 않는다).
-            if not _relevant(hit, nq.concept, nq.topic):
+            if not _relevant(hit, nq.concept, nq.topic) or not _above_floor(hit, nq.concept, node):
                 dropped += 1
                 continue
             hit.query = hit.query or nq.query      # 디버깅용 — 실제로 보낸(보강된) 검색어

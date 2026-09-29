@@ -19,6 +19,12 @@ POLITE_END_RE = re.compile(r"(요|죠|세요|나요|가요|래요|습니까)\s*[
 QUOTE_SPAN_RE = re.compile(r"«[^»]*»|「[^」]*」")
 #: 코드가 조립한 폴백 질문의 흔적 (f08 `_fallback_text`).
 FALLBACK_QUESTION_RE = re.compile(r"— 설명해 주세요\.$|이 개념의 핵심과 자료에 넣은 근거를 설명해 주세요\.$")
+
+
+def is_fallback(q: dict) -> bool:
+    """코드 폴백 질문인가. 09-29 부터 폴백 문장이 자연스러운 해요체라 문면으로는 못 잡는다 — 근거 묶음의 검사 이름을 먼저 본다."""
+    checks = ((q.get("basis") or {}).get("checks") or [])
+    return "fallback_template" in checks or bool(FALLBACK_QUESTION_RE.search(str(q.get("question", "") or "")))
 #: 「발표자가 인용했다」 는 표현 (f08 `_PRESENTER_CITED_RE` 와 같은 식).
 PRESENTER_CITED_RE = re.compile(r"인용(?:했|하셨|하신|하였|한|하고|되었|됐|된)")
 #: 「저자 (연도)」 인용 표시.
@@ -122,7 +128,7 @@ def question_flags(q: dict, papers: dict | None = None, deck_texts: list[str] | 
         flags.append("잘림!")
     elif text and not POLITE_END_RE.search(text):
         flags.append("반말끝!")
-    if FALLBACK_QUESTION_RE.search(text):
+    if is_fallback(q):
         flags.append("폴백")
     n = honorifics(text, q.get("why", ""), q.get("hint", ""), q.get("answer_gist", ""))
     if n:
@@ -237,7 +243,7 @@ def real_value_checks(bundle: dict) -> list[tuple[str, str, str]]:
     qs = doc.get("questions") or []
     if doc:
         grounded = sum(1 for q in qs if quote_in_deck(q.get("evidence_quote", ""), texts))
-        fb = sum(1 for q in qs if FALLBACK_QUESTION_RE.search(str(q.get("question", "") or "")))
+        fb = sum(1 for q in qs if is_fallback(q))
         rows.append(("PASS" if grounded else "FAIL", "질문 근거",
                      f"인용문이 자료에 실제로 있는 질문 {grounded}/{len(qs)}"))
         rows.append(("PASS" if fb < len(qs) else "FAIL", "질문 폴백",
