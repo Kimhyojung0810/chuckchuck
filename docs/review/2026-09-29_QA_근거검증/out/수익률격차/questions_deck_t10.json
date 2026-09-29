@@ -1,0 +1,182 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "track": "10",
+ "questions": [
+  {
+   "id": "q01-contrast",
+   "node_id": "contrast",
+   "label": "수익률 격차",
+   "question": "수익률 격차가 종목 선택이 아닌 행동에서 비롯되었다는 근거는 무엇인가요?",
+   "why": "개인 투자자의 수익률 저하가 실력보다 행동 요인에서 기인한다는 주장을 검증하기 위해",
+   "hint": "회전율과 수익률 간의 역상관 관계를 보여주는 데이터를 찾아보세요",
+   "severity": 1,
+   "trap": true,
+   "source": "core_weight",
+   "slide_nos": [
+    1,
+    2,
+    3
+   ],
+   "doc_weight": 0.739,
+   "answer_gist": "개인 투자자 평균 수익률은 시장 지수 대비 연 4.8%p 낮으며, 매매 회전율과 수익률 간에 뚜렷한 역상관 관계가 확인되었어요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 1,
+   "evidence_quote": "실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q02-behavior",
+   "node_id": "behavior",
+   "label": "행동 요인",
+   "question": "다섯 가지 행동 요인 중 수익률 격차에 가장 큰 영향을 미친 요인은 무엇이며, 그 근거는 어떻게 측정했나요?",
+   "why": "행동 요인별 영향력 크기를 파악해 핵심 원인을 규명하기 위해",
+   "hint": "각 요인별 연간 수익률 감소 폭을 비교해보세요",
+   "severity": 1,
+   "trap": true,
+   "source": "core_weight",
+   "slide_nos": [
+    5,
+    6,
+    7
+   ],
+   "doc_weight": 1.0,
+   "answer_gist": "과잉 매매가 연간 수익률에 -1.6%p의 가장 큰 부정적 영향을 미쳤으며, 이는 회전율 구간별 수익률 감소 데이터로 측정되었어요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 5,
+   "evidence_quote": "격차를 만든 다섯 가지 행동 요인",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q04-marketindex",
+   "node_id": "marketindex",
+   "label": "시장 지수",
+   "question": "시장 지수와 개인 투자자 수익률의 차이가 발생하는 구체적인 메커니즘은 무엇인가요?",
+   "why": "수익률 격차의 구조적 원인을 파악해 행동 요인의 영향을 설명하기 위해",
+   "hint": "매매 빈도와 수익률 간의 관계를 보여주는 데이터를 찾아보세요",
+   "severity": 2,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    1,
+    2,
+    3
+   ],
+   "doc_weight": 0.6,
+   "answer_gist": "개인 투자자의 높은 매매 회전율(연간 11.8회)이 거래 비용 증가와 판단 오류 누적을 유발해 수익률 격차를 만들어요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 2,
+   "evidence_quote": "개인 평균은 지수 대비 연 4.8%p",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q06-compound",
+   "node_id": "compound",
+   "label": "복리 효과",
+   "question": "복리 효과가 장기 투자에서 수익률 격차에 미치는 구체적인 영향은 어떻게 계산되었나요?",
+   "why": "장기 투자 시 수익률 격차의 누적 효과를 이해하기 위해",
+   "hint": "10년 후 원금 규모 차이를 보여주는 시뮬레이션 데이터를 찾아보세요",
+   "severity": 2,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    4
+   ],
+   "doc_weight": 0.634,
+   "answer_gist": "연 4.8%p의 수익률 격차는 10년 후 원금의 84%에 해당하는 838만원의 차이를 발생시켜요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 4,
+   "evidence_quote": "복리 효과 연 4.8%p는 10년 뒤 원금 규모의 차이가 된다",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q07-institution",
+   "node_id": "institution",
+   "label": "기관",
+   "question": "기관 투자자의 수익률이 개인 투자자보다 높은 이유를 뒷받침하는 핵심 요인은 무엇인가요?",
+   "why": "기관 대비 개인 투자자의 수익률 차이를 설명하기 위해",
+   "hint": "기관의 투자 방식과 개인 투자자의 행동 지표를 비교해보세요",
+   "severity": 3,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    3
+   ],
+   "doc_weight": 0.477,
+   "answer_gist": "기관은 사전 매도 규칙 준수율이 71%로 개인 평균(18%)보다 훨씬 높아 불필요한 거래를 줄여 수익률을 개선했어요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 3,
+   "evidence_quote": "지수 8.7% vs 기관 7.9% — 0.8%p",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q03-top25",
+   "node_id": "top25",
+   "label": "상위 25%",
+   "question": "상위 25%: 상위 25% 개인 투자자의 수익률이 기관 대비 얼마나 차이가 나는지, 그 차이의 지속성은 어떻게 되는지 — 설명해 주세요.",
+   "why": "상위 성과 그룹과 기관 간 수익률 차이를 확인해 행동 요인의 영향을 평가하기 위해",
+   "hint": "상위 25%와 기관, 시장 지수의 연평균 수익률 비교 데이터를 찾아보세요",
+   "severity": 1,
+   "trap": true,
+   "source": "core_weight",
+   "slide_nos": [
+    2,
+    3,
+    11
+   ],
+   "doc_weight": 0.778,
+   "answer_gist": "상위 25% 개인 투자자는 연 6.1% 수익률로 시장 지수(8.7%)를 2.6%p 하회하며, 기관(7.9%)과는 0.8%p 차이만 보예요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 2,
+   "evidence_quote": "상위 25% 그룹도 지수를 2.6%p",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q05-individual",
+   "node_id": "individual",
+   "label": "개인 투자자",
+   "question": "개인 투자자 평균 수익률이 시장 지수보다 낮은 이유를 뒷받침하는 실증적 데이터는 무엇인가요?",
+   "why": "수익률 격차의 실재성을 입증하기 위해",
+   "hint": "연평균 수익률 비교 차트를 확인하세요",
+   "severity": 2,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    1,
+    2,
+    3
+   ],
+   "doc_weight": 0.593,
+   "answer_gist": "개인 투자자 집단의 평균 수익률 (1, 2, 3장 근거)",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 1,
+   "evidence_quote": "실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  }
+ ],
+ "deferred_node_ids": [
+  "turnover",
+  "holdingperiod",
+  "costrate",
+  "sellrule",
+  "cost",
+  "overtrading",
+  "diversification"
+ ],
+ "model": "solar",
+ "papers": []
+}

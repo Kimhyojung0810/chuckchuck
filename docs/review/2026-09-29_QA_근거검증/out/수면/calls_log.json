@@ -1,0 +1,55 @@
+[
+ {
+  "at": "2026-09-29T19:54:04",
+  "head": "8bf0082",
+  "calls": {
+   "graph": 3,
+   "questions": 4,
+   "triage": 2,
+   "papers": 1,
+   "align": 1
+  },
+  "total": 11
+ },
+ {
+  "at": "2026-09-29T19:56:05",
+  "head": "8bf0082",
+  "calls": {
+   "judge": 24,
+   "probes": 1
+  },
+  "total": 25
+ },
+ {
+  "at": "2026-09-29T19:57:26",
+  "head": "8bf0082",
+  "calls": {
+   "judge": 3,
+   "probes": 2
+  },
+  "total": 5
+ },
+ {
+  "at": "2026-09-29T20:01:37",
+  "head": "8bf0082",
+  "calls": {
+   "judge": 6
+  },
+  "total": 6
+ },
+ {
+  "at": "2026-09-29T20:02:56",
+  "head": "8bf0082",
+  "calls": {
+   "questions": 2,
+   "triage": 2
+  },
+  "total": 4
+ },
+ {
+  "at": "2026-09-29T20:04:25",
+  "head": "8bf0082",
+  "calls": {},
+  "total": 0
+ }
+]

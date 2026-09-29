@@ -1,0 +1,134 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "model": "solar",
+ "marks": [
+  {
+   "node_id": "contrast",
+   "severity": 1,
+   "trap": true,
+   "angle": "왜 개인 투자자는 시장 수익률을 이기지 못하는지, 실력보다 행동에서 비롯된 격차라는 주장의 근거는 무엇인가",
+   "source": "core_weight",
+   "rank": 1,
+   "doc_weight": 0.739
+  },
+  {
+   "node_id": "behavior",
+   "severity": 1,
+   "trap": true,
+   "angle": "수익률 격차를 만든 다섯 가지 행동 요인 중 과잉 매매와 타이밍 실패가 가장 큰 영향을 미치는 이유는 무엇인가",
+   "source": "core_weight",
+   "rank": 2,
+   "doc_weight": 1.0
+  },
+  {
+   "node_id": "top25",
+   "severity": 1,
+   "trap": true,
+   "angle": "상위 25% 개인 투자자 그룹의 수익률이 시장 지수 대비 얼마나 차이가 나며, 그 차이는 어떤 행동 요인에서 비롯되는가",
+   "source": "core_weight",
+   "rank": 3,
+   "doc_weight": 0.778
+  },
+  {
+   "node_id": "marketindex",
+   "severity": 2,
+   "trap": true,
+   "angle": "시장 지수와 개인 투자자 수익률 간의 격차가 실제로 존재하는지, 그 측정 방법과 기간은 어떻게 되는가",
+   "source": "core_weight",
+   "rank": 4,
+   "doc_weight": 0.6
+  },
+  {
+   "node_id": "individual",
+   "severity": 2,
+   "trap": true,
+   "angle": "개인 투자자 집단의 평균 수익률이 시장 지수보다 낮은 구체적인 수치와 그 원인은 무엇인가",
+   "source": "core_weight",
+   "rank": 5,
+   "doc_weight": 0.593
+  },
+  {
+   "node_id": "compound",
+   "severity": 2,
+   "trap": true,
+   "angle": "복리 효과가 장기 투자에서 수익률 격차에 미치는 구체적인 메커니즘과 실제 사례는 무엇인가",
+   "source": "core_weight",
+   "rank": 6,
+   "doc_weight": 0.634
+  },
+  {
+   "node_id": "institution",
+   "severity": 3,
+   "trap": false,
+   "angle": "기관 투자자의 수익률이 개인 투자자와 다른 이유는 무엇이며, 그 차이가 투자 전략에 어떤 시사점을 주는가",
+   "source": "core_weight",
+   "rank": 7,
+   "doc_weight": 0.477
+  },
+  {
+   "node_id": "turnover",
+   "severity": 2,
+   "trap": true,
+   "angle": "회전율이 높은 개인 투자자의 수익률이 낮은 이유는 무엇이며, 회전율 측정 기준은 어떻게 되는가",
+   "source": "core_weight",
+   "rank": 8,
+   "doc_weight": 0.675
+  },
+  {
+   "node_id": "holdingperiod",
+   "severity": 2,
+   "trap": true,
+   "angle": "보유 기간이 짧을수록 수익률이 낮아지는 구체적인 데이터와 그 원인은 무엇인가",
+   "source": "core_weight",
+   "rank": 9,
+   "doc_weight": 0.663
+  },
+  {
+   "node_id": "costrate",
+   "severity": 2,
+   "trap": true,
+   "angle": "거래 비용 비율이 수익률 격차에 미치는 정량적 영향과 실제 비용 발생 사례는 무엇인가",
+   "source": "core_weight",
+   "rank": 10,
+   "doc_weight": 0.601
+  },
+  {
+   "node_id": "sellrule",
+   "severity": 2,
+   "trap": true,
+   "angle": "사전 기준 문서화 및 준수된 매도 규칙이 수익률 개선에 기여한 구체적인 사례와 그 한계는 무엇인가",
+   "source": "core_weight",
+   "rank": 11,
+   "doc_weight": 0.584
+  },
+  {
+   "node_id": "cost",
+   "severity": 2,
+   "trap": true,
+   "angle": "매매 시 발생하는 수수료·세금 등 거래 비용이 수익률에 미치는 누적 효과와 관리 방안은 무엇인가",
+   "source": "core_weight",
+   "rank": 12,
+   "doc_weight": 0.564
+  },
+  {
+   "node_id": "overtrading",
+   "severity": 2,
+   "trap": true,
+   "angle": "매매 빈도를 늘릴수록 성과가 낮아지는 구체적인 연구 결과와 그 원인은 무엇인가",
+   "source": "core_weight",
+   "rank": 13,
+   "doc_weight": 0.527
+  },
+  {
+   "node_id": "diversification",
+   "severity": 3,
+   "trap": false,
+   "angle": "분산 효과가 수익률 격차 완화에 미치는 영향과 실제 포트폴리오 구성 사례는 무엇인가",
+   "source": "core_weight",
+   "rank": 14,
+   "doc_weight": 0.549
+  }
+ ],
+ "probes": []
+}

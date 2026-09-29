@@ -1,0 +1,211 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "total_slides": 8,
+ "track": "10",
+ "questions": [
+  {
+   "id": "q02-sleep-quality",
+   "node_id": "sleep-quality",
+   "label": "수면의 질",
+   "question": "수면의 질이 시간보다 회복 효과가 더 중요하다고 했는데, 구체적으로 어떤 조건에서 수면의 질이 수면의 시간보다 더 큰 영향을 미치는지 설명해 주세요.",
+   "why": "수면의 질이 시간보다 더 중요하다는 주장을 뒷받침하는 구체적인 조건을 파악하기 위해",
+   "hint": "수면의 질을 구성하는 세 가지 요소 중 어느 것이 시간보다 더 결정적인 역할을 하는지 생각해 보세요.",
+   "severity": 1,
+   "trap": true,
+   "source": "under_spoken",
+   "slide_nos": [
+    1,
+    4,
+    8
+   ],
+   "doc_weight": 0.729,
+   "answer_gist": "수면의 질은 시간, 연속성, 규칙성의 곱으로 정의되며, 특히 연속성과 규칙성이 깨지면 회복 효과가 크게 감소하기 때문에 시간보다 더 중요한 영향을 미쳐요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 1,
+   "evidence_quote": "수면 시간보다 중요한 수면의 질",
+   "speech_quote": "여러분 본격적으로 시작하기 전에 어젯밤에 몇 시간 정도 주무셨는지 떠올려 보셨으면 좋겠습니다.",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q01-recovery-time",
+   "node_id": "recovery-time",
+   "label": "회복 시간",
+   "question": "회복 시간이 '피곤함'이라고 했는데, 구체적으로 어떤 상황에서 침대에 누워 있는 시간이 실제 회복 시간과 달라지는지 설명해 주세요.",
+   "why": "회복 시간과 수면 시간의 차이를 구체적인 사례를 통해 이해하기 위해",
+   "hint": "침대에 누워 있는 시간과 실제로 몸이 회복한 시간이 다를 수 있는 구체적인 상황을 떠올려 보세요.",
+   "severity": 1,
+   "trap": false,
+   "source": "missing",
+   "slide_nos": [
+    1,
+    4,
+    8
+   ],
+   "doc_weight": 0.638,
+   "answer_gist": "침대에 누워 있는 시간이 실제 회복 시간과 달라지는 경우는 수면이 자주 깨거나 깊은 수면 단계가 충분히 이루어지지 않을 때예요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 1,
+   "evidence_quote": "“침대에 누운 시간”과 “회복한 시간”은 왜 다를까?",
+   "speech_quote": "여러분 본격적으로 시작하기 전에 어젯밤에 몇 시간 정도 주무셨는지 떠올려 보셨으면 좋겠습니다.",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q03-sleep-continuity",
+   "node_id": "sleep-continuity",
+   "label": "수면 연속성",
+   "question": "수면 연속성을 끊는 주요 원인 중 음주와 카페인의 구체적인 영향은 각각 어떤 차이가 있는지 설명해 주세요.",
+   "why": "수면 연속성을 끊는 원인들의 구체적인 영향을 비교하기 위해",
+   "hint": "음주와 카페인이 수면 주기에 미치는 영향은 시간대별로 다를 수 있어요.",
+   "severity": 1,
+   "trap": true,
+   "source": "under_spoken",
+   "slide_nos": [
+    4,
+    5,
+    7
+   ],
+   "doc_weight": 0.888,
+   "answer_gist": "음주는 수면 후반부에 각성을 유발하고, 카페인은 오후나 저녁에 섭취 시 수면 후반부에 각성을 유발하여 수면 연속성을 깨뜨려요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 5,
+   "evidence_quote": "수면의 연속성을 끊는 요인은 생각보다 일상적입니다.",
+   "speech_quote": "충분히 잤는데도 피곤한 이유는 수면 시간이 전부가 아니기 때문입니다.",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q04-regularity",
+   "node_id": "regularity",
+   "label": "규칙성",
+   "question": "Chaput et al. (2020)에서 규칙적인 기상 시간이 수면의 질에 미치는 영향을 어떻게 설명했는지, 발표 내용과 연결해 설명해 주세요.",
+   "why": "문헌에서 규칙적인 기상 시간의 중요성을 확인하고 발표 내용과 연결하기 위해",
+   "hint": "문헌에서 규칙적인 기상 시간이 수면의 질에 어떤 영향을 미치는지 찾아보세요.",
+   "severity": 2,
+   "trap": true,
+   "source": "under_spoken",
+   "slide_nos": [
+    4,
+    7,
+    8
+   ],
+   "doc_weight": 0.903,
+   "answer_gist": "Chaput et al. (2020)은 규칙적인 기상 시간이 수면의 질을 높이는 데 중요하다고 했으며, 발표에서는 일정한 기상 시간 유지가 수면의 질을 높이는 방법 중 하나로 제시되었어요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 4,
+   "evidence_quote": "수면의 질 = 시간 × 연속성 × 규칙성",
+   "speech_quote": "충분히 잤는데도 피곤한 이유는 수면 시간이 전부가 아니기 때문입니다.",
+   "paper_ids": [
+    "s07"
+   ],
+   "basis": null
+  },
+  {
+   "id": "q06-social-jetlag",
+   "node_id": "social-jetlag",
+   "label": "사회적 시차",
+   "question": "사회적 시차가 수면 리듬에 미치는 장기적 영향은 무엇이며, 몰아자기로 완전히 해결할 수 없는 이유는 무엇인가요?",
+   "why": "사회적 시차의 장기적 영향과 몰아자기의 한계를 이해하기 위해",
+   "hint": "평일과 주말의 수면 시간 차이가 리듬에 미치는 영향과 몰아자기의 한계를 생각해 보세요.",
+   "severity": 2,
+   "trap": false,
+   "source": "under_spoken",
+   "slide_nos": [
+    4,
+    6
+   ],
+   "doc_weight": 0.569,
+   "answer_gist": "사회적 시차는 평일과 주말의 수면 시간 차이로 인해 리듬이 깨지며, 몰아자기로 수면 시간은 보충할 수 있지만 리듬은 완전히 회복되지 않아요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 6,
+   "evidence_quote": "평일과 주말의 수면 시간이 크게 달라질 때 생기는 리듬 차이",
+   "speech_quote": "충분히 잤는데도 피곤한 이유는 수면 시간이 전부가 아니기 때문입니다.",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q07-sleep-stages",
+   "node_id": "sleep-stages",
+   "label": "수면 단계",
+   "question": "수면 단계 중 깊은 수면과 REM 수면이 각각 어떤 역할을 하며, 왜 두 단계 모두 충분한 시간이 필요한지 설명해 주세요.",
+   "why": "수면 단계의 역할과 두 단계가 모두 필요한 이유를 이해하기 위해",
+   "hint": "깊은 수면과 REM 수면의 기능을 각각 생각해 보세요.",
+   "severity": 1,
+   "trap": false,
+   "source": "under_spoken",
+   "slide_nos": [
+    2,
+    3
+   ],
+   "doc_weight": 0.83,
+   "answer_gist": "깊은 수면은 신체 피로 회복에, REM 수면은 기억 정리와 감정 처리에 관여하며, 두 단계 모두 충분한 시간이 필요해요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 2,
+   "evidence_quote": "밤새 얕은 수면, 깊은 수면, REM 수면이 반복됩니다.",
+   "speech_quote": "우리는 잠이 들면 아침까지 같은 상태로 자는 것처럼 느끼지만 실제 수면은 여러 단계로 나뉩니다.",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q05-sleep-time",
+   "node_id": "sleep-time",
+   "label": "수면 시간",
+   "question": "수면 시간이 침대에 누운 시간과 실제 회복 시간의 차이를 설명하는 구체적인 근거는 무엇인가요?",
+   "why": "수면 시간과 실제 회복 시간의 차이를 뒷받침하는 구체적인 근거를 확인하기 위해",
+   "hint": "침대에 누워 있는 시간과 실제로 몸이 회복한 시간이 다를 수 있는 구체적인 상황을 생각해 보세요.",
+   "severity": 2,
+   "trap": false,
+   "source": "under_spoken",
+   "slide_nos": [
+    1,
+    4,
+    8
+   ],
+   "doc_weight": 0.763,
+   "answer_gist": "수면 시간은 침대에 누운 시간이고, 회복 시간은 몸이 실제로 회복한 시간이에요. 중간에 자주 깨면 수면 주기가 끊겨 회복 시간이 짧아져요.",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 4,
+   "evidence_quote": "수면의 질 = 시간 × 연속성 × 규칙성",
+   "speech_quote": "여러분 본격적으로 시작하기 전에 어젯밤에 몇 시간 정도 주무셨는지 떠올려 보셨으면 좋겠습니다.",
+   "paper_ids": [],
+   "basis": null
+  }
+ ],
+ "deferred_node_ids": [
+  "deep-sleep",
+  "rem-sleep",
+  "sleep-cycle",
+  "sufficient-time",
+  "alcohol",
+  "caffeine",
+  "stress"
+ ],
+ "model": "solar",
+ "papers": [
+  {
+   "id": "s07",
+   "kind": "scholar",
+   "title": "Sleep timing, sleep consistency, and health in adults: a systematic review",
+   "authors": [
+    "Chaput",
+    "Dutil",
+    "Featherstone"
+   ],
+   "et_al": false,
+   "year": 2020,
+   "venue": "Applied Physiology Nutrition and Metabolism",
+   "doi": "10.1139/apnm-2020-0032",
+   "url": "https://doi.org/10.1139/apnm-2020-0032",
+   "abstract": "The objective of this systematic review was to examine the associations between sleep timing (e.g., bedtime/wake-up time, midpoint of sleep), sleep consistency/regularity (e.g., intra-individual variability in sleep duration, social jetlag, catch-up sleep), and health outcomes in adults aged 18 years and older. Four electronic databases were searched in December 2018 for articles published in the previous 10 years. Fourteen health outcomes were examined. A total of 41 articles, including 92 340 unique participants from 14 countries, met inclusion criteria. Sleep was assessed objectively in 37% of studies and subjectively in 63% of studies. Findings suggest that later sleep timing and greater sleep variability were generally associated with adverse health outcomes. However, because most studies reported linear associations, it was not possible to identify thresholds for “late sleep timing” or “large sleep variability”. In addition, social jetlag was associated with adverse health outcomes, while weekend catch-up sleep was associated with better health outcomes. The quality of evidence ranged from “very low” to “moderate” across study designs and health outcomes using GRADE. In conclusion, the available evidence supports that earlier sleep timing and regularity in sleep patterns with consistent bedtimes and wake-up times are favourably associated with health. (PROSPERO registration no.: CRD42019119534.) Novelty This is the first systematic review to examine the influence of sleep timing and sleep consistency on health outcomes. Later sleep timing and greater variability in sleep are both associated with adverse health outcomes in adults. Regularity in sleep patterns with consistent bedtimes and wake-up times should be encouraged.",
+   "cited_by": 370,
+   "slide_no": 0,
+   "node_ids": [
+    "regularity"
+   ],
+   "query": "sleep regularity consistent wake time",
+   "source": "openalex",
+   "cite_key": "Chaput et al. (2020)"
+  }
+ ]
+}

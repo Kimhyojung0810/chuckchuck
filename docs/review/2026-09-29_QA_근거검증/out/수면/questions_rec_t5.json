@@ -1,0 +1,103 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "total_slides": 8,
+ "track": "5",
+ "questions": [
+  {
+   "id": "q02-sleep-quality",
+   "node_id": "sleep-quality",
+   "label": "수면의 질",
+   "question": "수면의 질은 시간, 연속성, 규칙성 중 어느 요소가 가장 중요하다고 볼 수 있나요?",
+   "why": "수면의 질을 구성하는 세 요소의 상대적 중요도를 파악하기 위해",
+   "hint": "발표에서 '수면의 질 = 시간 × 연속성 × 규칙성'이라고 정의한 부분을 참고",
+   "severity": 1,
+   "trap": true,
+   "source": "under_spoken",
+   "slide_nos": [
+    1,
+    4,
+    8
+   ],
+   "doc_weight": 0.729,
+   "answer_gist": "수면의 질은 단순한 수면 시간보다 연속성과 규칙성이 더 중요하며, 특히 규칙성은 생체리듬에 직접적인 영향을 미친다.",
+   "answer_gist_parts": [
+    "수면의 질은 시간보다 연속성과 규칙성이 더 중요함",
+    "규칙성은 생체리듬의 안정성에 핵심적임"
+   ],
+   "evidence_slide_no": 1,
+   "evidence_quote": "수면 시간보다 중요한 수면의 질",
+   "speech_quote": "여러분 본격적으로 시작하기 전에 어젯밤에 몇 시간 정도 주무셨는지 떠올려 보셨으면 좋겠습니다.",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q01-recovery-time",
+   "node_id": "recovery-time",
+   "label": "회복 시간",
+   "question": "회복 시간은 왜 수면 시간보다 더 중요한 지표로 여겨질 수 있나요?",
+   "why": "침대에 누운 시간과 실제 회복 시간의 차이를 이해하기 위해",
+   "hint": "수면의 질이 '시간 × 연속성 × 규칙성'으로 정의된다는 점을 상기",
+   "severity": 1,
+   "trap": false,
+   "source": "missing",
+   "slide_nos": [
+    1,
+    4,
+    8
+   ],
+   "doc_weight": 0.638,
+   "answer_gist": "회복 시간은 실제 뇌와 신체가 충분히 휴식한 정도를 반영하며, 단순히 침대에 누워 있는 시간만으로는 측정될 수 없다.",
+   "answer_gist_parts": [
+    "침대에 누운 시간과 실제 회복 시간의 차이",
+    "회복 시간이 수면의 질을 판단하는 핵심 지표임"
+   ],
+   "evidence_slide_no": 1,
+   "evidence_quote": "“침대에 누운 시간”과 “회복한 시간”은 왜 다를까?",
+   "speech_quote": "여러분 본격적으로 시작하기 전에 어젯밤에 몇 시간 정도 주무셨는지 떠올려 보셨으면 좋겠습니다.",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q03-sleep-continuity",
+   "node_id": "sleep-continuity",
+   "label": "수면 연속성",
+   "question": "수면 연속성을 끊는 주요 원인 중 어떤 것이 가장 큰 영향을 미치나요?",
+   "why": "수면 주기 중단이 회복감에 미치는 영향을 파악하기 위해",
+   "hint": "자료에서 제시된 카페인, 음주, 스트레스, 환경 요인 중 하나를 선택",
+   "severity": 1,
+   "trap": false,
+   "source": "under_spoken",
+   "slide_nos": [
+    4,
+    5,
+    7
+   ],
+   "doc_weight": 0.888,
+   "answer_gist": "카페인, 음주, 스트레스, 환경 요인 모두 수면 연속성을 방해하지만, 개인별로 주요 원인은 다를 수 있다.",
+   "answer_gist_parts": [
+    "수면 연속성을 끊는 주요 원인들",
+    "개인별 주요 원인 차이"
+   ],
+   "evidence_slide_no": 5,
+   "evidence_quote": "수면의 연속성을 끊는 요인은 생각보다 일상적입니다.",
+   "speech_quote": "충분히 잤는데도 피곤한 이유는 수면 시간이 전부가 아니기 때문입니다.",
+   "paper_ids": [],
+   "basis": null
+  }
+ ],
+ "deferred_node_ids": [
+  "regularity",
+  "sleep-time",
+  "social-jetlag",
+  "sleep-stages",
+  "deep-sleep",
+  "rem-sleep",
+  "sleep-cycle",
+  "sufficient-time",
+  "alcohol",
+  "caffeine",
+  "stress"
+ ],
+ "model": "solar",
+ "papers": []
+}

@@ -1,0 +1,130 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "total_slides": 8,
+ "track": "5",
+ "questions": [
+  {
+   "id": "q01-sleep-quality",
+   "node_id": "sleep-quality",
+   "label": "수면의 질",
+   "question": "수면의 질이 수면 시간보다 회복 효과가 더 중요하다고 판단한 근거는 무엇인가요?",
+   "why": "발표 전체의 중심 주장을 뒷받침하는 핵심 논리를 확인하기 위해",
+   "hint": "수면의 질을 구성하는 세 가지 요소와 그 역할을 떠올려 보세요",
+   "severity": 1,
+   "trap": true,
+   "source": "core_weight",
+   "slide_nos": [
+    1,
+    4,
+    8
+   ],
+   "doc_weight": 0.729,
+   "answer_gist": "수면의 질은 시간, 연속성, 규칙성의 곱으로 정의되며, 특히 연속성과 규칙성이 회복 효과에 더 큰 영향을 미친다고 설명했어요.",
+   "answer_gist_parts": [
+    "수면의 질은 시간, 연속성, 규칙성의 곱으로 정의됨",
+    "연속성과 규칙성이 회복 효과에 더 큰 영향을 미침"
+   ],
+   "evidence_slide_no": 1,
+   "evidence_quote": "수면 시간보다 중요한 수면의 질",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q02-sleep-continuity",
+   "node_id": "sleep-continuity",
+   "label": "수면 연속성",
+   "question": "수면 주기가 자주 끊기면 회복감이 감소한다는 주장을 뒷받침하는 구체적인 측정 기준은 무엇인가요?",
+   "why": "수면 연속성의 영향에 대한 객관적 근거를 확인하기 위해",
+   "hint": "슬라이드에서 제시한 원인 목록과 그 효과를 참고해 보세요",
+   "severity": 1,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    4,
+    5,
+    7
+   ],
+   "doc_weight": 0.888,
+   "answer_gist": "카페인, 음주, 스트레스, 환경 요인 등이 수면 후반 각성을 유발해 수면 주기를 끊으며, 이로 인해 회복감이 감소한다고 설명했어요.",
+   "answer_gist_parts": [
+    "카페인, 음주, 스트레스, 환경 요인이 수면 후반 각성을 유발",
+    "수면 주기 단절로 인한 회복감 감소"
+   ],
+   "evidence_slide_no": 5,
+   "evidence_quote": "수면의 연속성을 끊는 요인은 생각보다 일상적입니다.",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q03-regularity",
+   "node_id": "regularity",
+   "label": "규칙성",
+   "question": "Chaput et al. (2020)의 연구에서 일정한 기상 시간 유지가 수면 질에 미치는 영향에 대해 어떻게 설명했나요?",
+   "why": "문헌에 제시된 근거를 바탕으로 규칙성의 중요성을 확인하기 위해",
+   "hint": "문헌 초록에서 언급된 'consistent bedtimes and wake-up times'의 효과를 떠올려 보세요",
+   "severity": 1,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    4,
+    7,
+    8
+   ],
+   "doc_weight": 0.903,
+   "answer_gist": "Chaput et al. (2020)은 일정한 기상 시간 유지가 수면 패턴의 규칙성을 높여 건강에 긍정적인 영향을 미친다고 보고했어요.",
+   "answer_gist_parts": [
+    "일정한 기상 시간 유지가 수면 패턴 규칙성 향상",
+    "규칙성이 건강에 긍정적 영향"
+   ],
+   "evidence_slide_no": 4,
+   "evidence_quote": "수면의 질 = 시간 × 연속성 × 규칙성",
+   "speech_quote": "",
+   "paper_ids": [
+    "s07"
+   ],
+   "basis": null
+  }
+ ],
+ "deferred_node_ids": [
+  "sleep-stages",
+  "sleep-time",
+  "recovery-time",
+  "social-jetlag",
+  "sufficient-time",
+  "time-shortage",
+  "stable-biorhythm",
+  "deep-sleep",
+  "rem-sleep",
+  "sleep-cycle",
+  "light-sleep"
+ ],
+ "model": "solar",
+ "papers": [
+  {
+   "id": "s07",
+   "kind": "scholar",
+   "title": "Sleep timing, sleep consistency, and health in adults: a systematic review",
+   "authors": [
+    "Chaput",
+    "Dutil",
+    "Featherstone"
+   ],
+   "et_al": false,
+   "year": 2020,
+   "venue": "Applied Physiology Nutrition and Metabolism",
+   "doi": "10.1139/apnm-2020-0032",
+   "url": "https://doi.org/10.1139/apnm-2020-0032",
+   "abstract": "The objective of this systematic review was to examine the associations between sleep timing (e.g., bedtime/wake-up time, midpoint of sleep), sleep consistency/regularity (e.g., intra-individual variability in sleep duration, social jetlag, catch-up sleep), and health outcomes in adults aged 18 years and older. Four electronic databases were searched in December 2018 for articles published in the previous 10 years. Fourteen health outcomes were examined. A total of 41 articles, including 92 340 unique participants from 14 countries, met inclusion criteria. Sleep was assessed objectively in 37% of studies and subjectively in 63% of studies. Findings suggest that later sleep timing and greater sleep variability were generally associated with adverse health outcomes. However, because most studies reported linear associations, it was not possible to identify thresholds for “late sleep timing” or “large sleep variability”. In addition, social jetlag was associated with adverse health outcomes, while weekend catch-up sleep was associated with better health outcomes. The quality of evidence ranged from “very low” to “moderate” across study designs and health outcomes using GRADE. In conclusion, the available evidence supports that earlier sleep timing and regularity in sleep patterns with consistent bedtimes and wake-up times are favourably associated with health. (PROSPERO registration no.: CRD42019119534.) Novelty This is the first systematic review to examine the influence of sleep timing and sleep consistency on health outcomes. Later sleep timing and greater variability in sleep are both associated with adverse health outcomes in adults. Regularity in sleep patterns with consistent bedtimes and wake-up times should be encouraged.",
+   "cited_by": 370,
+   "slide_no": 0,
+   "node_ids": [
+    "regularity"
+   ],
+   "query": "sleep regularity consistent wake time",
+   "source": "openalex",
+   "cite_key": "Chaput et al. (2020)"
+  }
+ ]
+}

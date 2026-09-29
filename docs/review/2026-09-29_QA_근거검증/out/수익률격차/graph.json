@@ -1,0 +1,666 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "contrast",
+   "label": "수익률 격차",
+   "slide_nos": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "summary": "개인 투자자는 시장 수익률을 이기지 못하며, 이는 실력보다 행동에서 비롯된 격차이다.",
+   "importance": "core",
+   "weight": 0.739,
+   "weight_basis": {
+    "slide_count": 4,
+    "char_share": 0.2381,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1
+  },
+  {
+   "id": "behavior",
+   "label": "행동 요인",
+   "slide_nos": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "summary": "수익률 격차를 만든 다섯 가지 행동 요인(과잉 매매, 타이밍 실패, 손실 회피, 집중 투자, 거래 비용)",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 9,
+    "char_share": 0.7148,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "contrast",
+   "depth": 2
+  },
+  {
+   "id": "overtrading",
+   "label": "과잉 매매",
+   "slide_nos": [
+    5,
+    6
+   ],
+   "summary": "매매 빈도를 늘릴수록 성과가 낮아지는 현상",
+   "importance": "core",
+   "weight": 0.527,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1669,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "timing",
+   "label": "타이밍 실패",
+   "slide_nos": [
+    5,
+    7
+   ],
+   "summary": "시장 최고 상승일을 놓치는 현상",
+   "importance": "core",
+   "weight": 0.524,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1598,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "lossaversion",
+   "label": "손실 회피",
+   "slide_nos": [
+    5,
+    8
+   ],
+   "summary": "손실 종목을 오래 보유하고 수익 종목을 빨리 매도하는 경향",
+   "importance": "core",
+   "weight": 0.484,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1363,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "concentration",
+   "label": "집중 투자",
+   "slide_nos": [
+    5,
+    9
+   ],
+   "summary": "종목 수가 적을수록 결과의 진폭이 커지는 현상",
+   "importance": "core",
+   "weight": 0.502,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1822,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "cost",
+   "label": "거래 비용",
+   "slide_nos": [
+    5,
+    10
+   ],
+   "summary": "매매 시 발생하는 수수료·세금 등 비용",
+   "importance": "core",
+   "weight": 0.564,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1837,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "compound",
+   "label": "복리 효과",
+   "slide_nos": [
+    4,
+    10
+   ],
+   "summary": "장기 투자 시 수익률 격차가 원금 규모에 미치는 영향",
+   "importance": "core",
+   "weight": 0.634,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.205,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "contrast",
+   "depth": 2
+  },
+  {
+   "id": "top25",
+   "label": "상위 25%",
+   "slide_nos": [
+    2,
+    3,
+    5,
+    11
+   ],
+   "summary": "개인 투자자 중 상위 25% 그룹의 수익률",
+   "importance": "core",
+   "weight": 0.778,
+   "weight_basis": {
+    "slide_count": 4,
+    "char_share": 0.2988,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "contrast",
+   "depth": 2
+  },
+  {
+   "id": "marketindex",
+   "label": "시장 지수",
+   "slide_nos": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "summary": "시장 전체의 평균 수익률",
+   "importance": "core",
+   "weight": 0.6,
+   "weight_basis": {
+    "slide_count": 4,
+    "char_share": 0.2381,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "contrast",
+   "depth": 2
+  },
+  {
+   "id": "individual",
+   "label": "개인 투자자",
+   "slide_nos": [
+    1,
+    2,
+    3
+   ],
+   "summary": "개인 투자자 집단의 평균 수익률",
+   "importance": "core",
+   "weight": 0.593,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.1397,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "contrast",
+   "depth": 2
+  },
+  {
+   "id": "institution",
+   "label": "기관",
+   "slide_nos": [
+    3
+   ],
+   "summary": "기관 투자자의 수익률",
+   "importance": "core",
+   "weight": 0.477,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0788,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "contrast",
+   "depth": 2
+  },
+  {
+   "id": "turnover",
+   "label": "회전율",
+   "slide_nos": [
+    6,
+    11
+   ],
+   "summary": "연간 매매 빈도",
+   "importance": "core",
+   "weight": 0.675,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1921,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 6,
+    "title_hit": true
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "holdingperiod",
+   "label": "보유 기간",
+   "slide_nos": [
+    8,
+    11
+   ],
+   "summary": "종목을 보유하는 기간",
+   "importance": "core",
+   "weight": 0.663,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1616,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 6,
+    "title_hit": true
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "diversification",
+   "label": "분산 효과",
+   "slide_nos": [
+    9,
+    12
+   ],
+   "summary": "종목 수가 많을수록 상단과 하단의 진폭이 줄어드는 현상",
+   "importance": "core",
+   "weight": 0.549,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1449,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "costrate",
+   "label": "비용률",
+   "slide_nos": [
+    10,
+    13
+   ],
+   "summary": "연간 거래 비용 비율",
+   "importance": "core",
+   "weight": 0.601,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1589,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": true
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "sellrule",
+   "label": "매도 규칙",
+   "slide_nos": [
+    11,
+    13
+   ],
+   "summary": "사전 기준 문서화 및 준수",
+   "importance": "core",
+   "weight": 0.584,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1547,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "buyrule",
+   "label": "매수 규칙",
+   "slide_nos": [
+    13
+   ],
+   "summary": "매수 시점에 보유 기한 사전 설정",
+   "importance": "core",
+   "weight": 0.359,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0523,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "costcontrol",
+   "label": "비용 관리",
+   "slide_nos": [
+    13
+   ],
+   "summary": "연간 총비용을 1% 이하로 관리",
+   "importance": "core",
+   "weight": 0.39,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0523,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "record",
+   "label": "기록",
+   "slide_nos": [
+    13
+   ],
+   "summary": "매매 사유 기록을 통해 오류 반복 방지",
+   "importance": "core",
+   "weight": 0.39,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0523,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "marketforecast",
+   "label": "시장 예측",
+   "slide_nos": [
+    12
+   ],
+   "summary": "공부와 분석 시간은 수익률과 약한 상관",
+   "importance": "core",
+   "weight": 0.262,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0398,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  },
+  {
+   "id": "lossrecovery",
+   "label": "손실 회복",
+   "slide_nos": [
+    12
+   ],
+   "summary": "개별 종목 원금 회복률 41%",
+   "importance": "core",
+   "weight": 0.231,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0398,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "behavior",
+   "depth": 3
+  }
+ ],
+ "edges": [
+  {
+   "from": "contrast",
+   "to": "behavior",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "overtrading",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "timing",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "lossaversion",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "concentration",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "cost",
+   "kind": "parent"
+  },
+  {
+   "from": "contrast",
+   "to": "compound",
+   "kind": "parent"
+  },
+  {
+   "from": "contrast",
+   "to": "top25",
+   "kind": "parent"
+  },
+  {
+   "from": "contrast",
+   "to": "marketindex",
+   "kind": "parent"
+  },
+  {
+   "from": "contrast",
+   "to": "individual",
+   "kind": "parent"
+  },
+  {
+   "from": "contrast",
+   "to": "institution",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "turnover",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "holdingperiod",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "diversification",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "costrate",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "sellrule",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "buyrule",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "costcontrol",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "record",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "marketforecast",
+   "kind": "parent"
+  },
+  {
+   "from": "behavior",
+   "to": "lossrecovery",
+   "kind": "parent"
+  },
+  {
+   "from": "overtrading",
+   "to": "cost",
+   "kind": "relates"
+  },
+  {
+   "from": "timing",
+   "to": "marketforecast",
+   "kind": "relates"
+  },
+  {
+   "from": "turnover",
+   "to": "holdingperiod",
+   "kind": "relates"
+  },
+  {
+   "from": "marketindex",
+   "to": "individual",
+   "kind": "relates"
+  },
+  {
+   "from": "individual",
+   "to": "top25",
+   "kind": "relates"
+  },
+  {
+   "from": "top25",
+   "to": "marketindex",
+   "kind": "relates"
+  },
+  {
+   "from": "compound",
+   "to": "cost",
+   "kind": "relates"
+  }
+ ],
+ "sections": [
+  {
+   "name": "서론 및 핵심 주장",
+   "slide_role": "cover",
+   "slide_nos": [
+    1
+   ]
+  },
+  {
+   "name": "본론 — 수익률 격차 분석",
+   "slide_role": "body",
+   "slide_nos": [
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "name": "본론 — 행동 요인 분석",
+   "slide_role": "body",
+   "slide_nos": [
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  {
+   "name": "본론 — 통제 가능한 변수",
+   "slide_role": "body",
+   "slide_nos": [
+    10,
+    11,
+    12,
+    13
+   ]
+  },
+  {
+   "name": "결론 및 마무리",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    14,
+    15
+   ]
+  }
+ ]
+}

@@ -1,0 +1,106 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "track": "5",
+ "questions": [
+  {
+   "id": "q01-contrast",
+   "node_id": "contrast",
+   "label": "수익률 격차",
+   "question": "수익률 격차가 실력보다 행동에서 비롯되었다는 주장을 뒷받침하는 실증적 근거는 무엇인가요?",
+   "why": "발표에서 격차가 행동 요인에서 발생한다고 주장했으므로, 이를 뒷받침하는 데이터가 있는지 확인하기 위함",
+   "hint": "차트나 수치 중 격차 원인을 설명하는 부분을 찾아보세요",
+   "severity": 1,
+   "trap": true,
+   "source": "core_weight",
+   "slide_nos": [
+    1,
+    2,
+    3
+   ],
+   "doc_weight": 0.739,
+   "answer_gist": "개인 평균 수익률은 시장 지수 대비 연 4.8%p 낮고, 상위 25% 그룹도 지수를 2.6%p 하회하며, 종목 선정 능력과 수익률 상관이 약하다는 점이 행동 요인에서 격차가 발생했음을 실증적으로 보여줘요.",
+   "answer_gist_parts": [
+    "개인 평균 수익률은 시장 지수 대비 연 4.8%p 낮음",
+    "상위 25% 그룹도 지수를 2.6%p 하회",
+    "종목 선정 능력과 수익률 상관이 약함"
+   ],
+   "evidence_slide_no": 1,
+   "evidence_quote": "실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q02-behavior",
+   "node_id": "behavior",
+   "label": "행동 요인",
+   "question": "다섯 가지 행동 요인 중 과잉 매매와 타이밍 실패가 수익률 격차에 미치는 영향의 상대적 크기는 어떻게 측정되었나요?",
+   "why": "행동 요인별 기여도 차이를 정량적으로 파악했는지 확인하기 위함",
+   "hint": "각 요인의 연간 수익률 감소 폭을 보여주는 차트를 참고하세요",
+   "severity": 1,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    5,
+    6,
+    7
+   ],
+   "doc_weight": 1.0,
+   "answer_gist": "과잉 매매는 연간 수익률에 -1.6%p, 타이밍 실패는 -1.2%p의 영향을 미치며, 두 요인이 전체 격차의 58%를 차지해 가장 큰 영향을 보였어요.",
+   "answer_gist_parts": [
+    "과잉 매매: 연간 수익률 -1.6%p",
+    "타이밍 실패: 연간 수익률 -1.2%p",
+    "두 요인이 전체 격차의 58% 차지"
+   ],
+   "evidence_slide_no": 5,
+   "evidence_quote": "격차를 만든 다섯 가지 행동 요인",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q03-top25",
+   "node_id": "top25",
+   "label": "상위 25%",
+   "question": "발표에서 상위 25% 개인 투자자의 수익률 격차가 구조적 요인 외에 어떤 행동적 요인으로 설명되는지 연결지어 설명할 수 있나요?",
+   "why": "문헌에서 제시된 구조적 설명과 발표의 행동적 설명을 비교하여 일관성을 확인하기 위함",
+   "hint": "문헌의 네 가지 요인 중 발표에서 다룬 행동 요인과 관련된 부분을 찾아보세요",
+   "severity": 1,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    2,
+    3,
+    11
+   ],
+   "doc_weight": 0.778,
+   "answer_gist": "발표는 상위 25% 수익률 격차를 과잉 매매와 타이밍 실패 같은 행동 요인으로 설명하며, 이는 문헌에서 제시한 '노동 시장 협상 모델'이나 '자본 소득'과는 다른 접근이지만, 행동 요인이 구조적 요인 외에 격차를 설명할 수 있음을 보여줘요.",
+   "answer_gist_parts": [
+    "과잉 매매와 타이밍 실패가 주요 행동 요인",
+    "문헌의 구조적 설명과 발표의 행동적 설명 비교",
+    "행동 요인이 구조적 요인 외에 격차 설명 가능"
+   ],
+   "evidence_slide_no": 11,
+   "evidence_quote": "상위 25% vs 하위 25% 행동 지표",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  }
+ ],
+ "deferred_node_ids": [
+  "marketindex",
+  "individual",
+  "compound",
+  "institution",
+  "turnover",
+  "holdingperiod",
+  "costrate",
+  "sellrule",
+  "cost",
+  "overtrading",
+  "diversification"
+ ],
+ "model": "solar",
+ "papers": []
+}

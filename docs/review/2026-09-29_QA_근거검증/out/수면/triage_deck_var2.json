@@ -1,0 +1,134 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "total_slides": 8,
+ "model": "solar",
+ "marks": [
+  {
+   "node_id": "sleep-quality",
+   "severity": 1,
+   "trap": true,
+   "angle": "왜 수면 시간보다 회복 효과가 더 중요하다고 판단했는지",
+   "source": "core_weight",
+   "rank": 1,
+   "doc_weight": 0.729
+  },
+  {
+   "node_id": "sleep-continuity",
+   "severity": 1,
+   "trap": true,
+   "angle": "수면 주기가 자주 끊기면 회복감이 감소한다는 인과 관계의 근거는 무엇인지",
+   "source": "core_weight",
+   "rank": 2,
+   "doc_weight": 0.888
+  },
+  {
+   "node_id": "regularity",
+   "severity": 1,
+   "trap": true,
+   "angle": "일정한 기상 시간 유지가 수면의 질 향상에 미치는 구체적 메커니즘은 무엇인지",
+   "source": "core_weight",
+   "rank": 3,
+   "doc_weight": 0.903
+  },
+  {
+   "node_id": "sleep-stages",
+   "severity": 1,
+   "trap": true,
+   "angle": "깊은 수면과 REM 수면이 각각 회복 및 기억 처리에 기여하는 생리학적 근거는 무엇인지",
+   "source": "core_weight",
+   "rank": 4,
+   "doc_weight": 0.83
+  },
+  {
+   "node_id": "sleep-time",
+   "severity": 2,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 5,
+   "doc_weight": 0.763
+  },
+  {
+   "node_id": "recovery-time",
+   "severity": 2,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 6,
+   "doc_weight": 0.638
+  },
+  {
+   "node_id": "social-jetlag",
+   "severity": 2,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 7,
+   "doc_weight": 0.569
+  },
+  {
+   "node_id": "sufficient-time",
+   "severity": 3,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 8,
+   "doc_weight": 0.427
+  },
+  {
+   "node_id": "time-shortage",
+   "severity": 3,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 9,
+   "doc_weight": 0.423
+  },
+  {
+   "node_id": "stable-biorhythm",
+   "severity": 3,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 10,
+   "doc_weight": 0.396
+  },
+  {
+   "node_id": "deep-sleep",
+   "severity": 1,
+   "trap": true,
+   "angle": "깊은 수면이 신체 피로 회복에 특히 중요한 이유는 무엇인지",
+   "source": "core_weight",
+   "rank": 11,
+   "doc_weight": 1.0
+  },
+  {
+   "node_id": "rem-sleep",
+   "severity": 2,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 12,
+   "doc_weight": 1.0
+  },
+  {
+   "node_id": "sleep-cycle",
+   "severity": 2,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 13,
+   "doc_weight": 0.94
+  },
+  {
+   "node_id": "light-sleep",
+   "severity": 2,
+   "trap": false,
+   "angle": "",
+   "source": "core_weight",
+   "rank": 14,
+   "doc_weight": 0.739
+  }
+ ],
+ "probes": []
+}

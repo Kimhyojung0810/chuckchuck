@@ -1,0 +1,134 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "model": "solar",
+ "marks": [
+  {
+   "node_id": "behavior",
+   "severity": 1,
+   "trap": true,
+   "angle": "왜 과잉 매매와 타이밍 실패가 수익률 격차의 58%를 차지하는지, 이 두 요인이 서로 독립적이라고 가정한 근거는 무엇인가?",
+   "source": "missing",
+   "rank": 1,
+   "doc_weight": 1.0
+  },
+  {
+   "node_id": "holdingperiod",
+   "severity": 2,
+   "trap": false,
+   "angle": "손실 회피와 보유 기간 52일 vs 187일의 차이가 포트폴리오 정렬에 미치는 구체적 메커니즘은?",
+   "source": "missing",
+   "rank": 2,
+   "doc_weight": 0.663
+  },
+  {
+   "node_id": "contrast",
+   "severity": 1,
+   "trap": true,
+   "angle": "개인 투자자 상위 25%가 시장 지수를 못 넘는다는 주장의 통계적 근거와 표본 범위는?",
+   "source": "under_spoken",
+   "rank": 3,
+   "doc_weight": 0.739
+  },
+  {
+   "node_id": "marketindex",
+   "severity": 1,
+   "trap": true,
+   "angle": "시장 지수와 개인 투자자 수익률 격차의 인과 관계를 어떻게 측정했는지, 다른 외부 변수는 통제했는가?",
+   "source": "under_spoken",
+   "rank": 4,
+   "doc_weight": 0.6
+  },
+  {
+   "node_id": "compound",
+   "severity": 1,
+   "trap": false,
+   "angle": "",
+   "source": "under_spoken",
+   "rank": 5,
+   "doc_weight": 0.634
+  },
+  {
+   "node_id": "diversification",
+   "severity": 2,
+   "trap": true,
+   "angle": "집중 투자와 분산 효과의 상충 관계에서 '수익 감소'가 아닌 '진폭 감소'라는 결론이 나온 근거는?",
+   "source": "under_spoken",
+   "rank": 6,
+   "doc_weight": 0.549
+  },
+  {
+   "node_id": "turnover",
+   "severity": 2,
+   "trap": true,
+   "angle": "회전율과 수익률 사이의 단조 감소 관계가 우연일 가능성을 어떻게 배제했는지?",
+   "source": "weak_flow",
+   "rank": 7,
+   "doc_weight": 0.675
+  },
+  {
+   "node_id": "timing",
+   "severity": 2,
+   "trap": true,
+   "angle": "타이밍 실패와 시장 예측 능력의 상관관계가 '공부를 많이 할수록 매매가 잦아진다'는 주장의 데이터 출처는?",
+   "source": "weak_flow",
+   "rank": 8,
+   "doc_weight": 0.524
+  },
+  {
+   "node_id": "marketforecast",
+   "severity": 3,
+   "trap": false,
+   "angle": "시장 예측 능력이 수익률에 미치는 영향이 약한 이유를 심리적 편향 관점에서 설명하라",
+   "source": "weak_flow",
+   "rank": 9,
+   "doc_weight": 0.262
+  },
+  {
+   "node_id": "extra:매매 빈도",
+   "severity": 3,
+   "trap": false,
+   "angle": "연간 매매 빈도 구간별 수익률 차이가 실제 투자 전략에 어떻게 적용될 수 있는지",
+   "source": "extra",
+   "rank": 10,
+   "doc_weight": 0.0
+  },
+  {
+   "node_id": "extra:보유 기한 사전 설정",
+   "severity": 3,
+   "trap": false,
+   "angle": "보유 기한을 사전에 설정하는 것이 실제 포트폴리오 관리에 미치는 실천적 효과는?",
+   "source": "extra",
+   "rank": 11,
+   "doc_weight": 0.0
+  },
+  {
+   "node_id": "extra:연간 총 비용",
+   "severity": 3,
+   "trap": false,
+   "angle": "연간 총 비용 1% 이하를 확인하는 구체적인 방법과 실제 증권사 수수료와의 차이는?",
+   "source": "extra",
+   "rank": 12,
+   "doc_weight": 0.0
+  },
+  {
+   "node_id": "top25",
+   "severity": 1,
+   "trap": true,
+   "angle": "상위 25% 개인 투자자의 수익률 데이터가 전체 개인 투자자 평균을 대표할 수 있는지, 표본 편향은 없는가?",
+   "source": "core_weight",
+   "rank": 13,
+   "doc_weight": 0.778
+  },
+  {
+   "node_id": "individual",
+   "severity": 1,
+   "trap": true,
+   "angle": "개인 투자자 평균 수익률이 시장 지수보다 낮은 이유를 행동 요인 외 다른 구조적 요인(예: 정보 비대칭)은 배제했는가?",
+   "source": "core_weight",
+   "rank": 14,
+   "doc_weight": 0.593
+  }
+ ],
+ "probes": []
+}

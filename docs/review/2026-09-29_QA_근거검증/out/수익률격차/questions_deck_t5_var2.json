@@ -1,0 +1,94 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "track": "5",
+ "questions": [
+  {
+   "id": "q01-contrast",
+   "node_id": "contrast",
+   "label": "수익률 격차",
+   "question": "수익률 격차가 실재한다는 것을 확인하기 위해 어떤 데이터를 제시했으며, 그 수치는 어떻게 되나요",
+   "why": "발표에서 격차의 실제 존재 여부를 입증하기 위해 사용한 구체적인 수치를 확인하기 위함",
+   "hint": "EXECUTIVE SUMMARY의 현황 진단 부분에서 연평균 수익률 비교 차트를 찾아보세요",
+   "severity": 1,
+   "trap": true,
+   "source": "core_weight",
+   "slide_nos": [
+    1,
+    2,
+    3
+   ],
+   "doc_weight": 0.739,
+   "answer_gist": "2016–2025년 기간 동안 시장지수 대비 개인 평균은 연 4.8%p, 상위 25%는 연 2.6%p 낮은 수익률을 기록했으며, 이는 종목 선정 능력보다 행동 요인에서 비롯된 격차임을 보여줘요",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 1,
+   "evidence_quote": "실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q02-behavior",
+   "node_id": "behavior",
+   "label": "행동 요인",
+   "question": "다섯 가지 행동 요인 중 과잉 매매와 타이밍 실패가 수익률 격차에 가장 큰 영향을 미친다고 판단한 근거는 무엇인가요",
+   "why": "행동 요인 간 상대적 영향력을 비교하기 위해 제시된 정량적 근거를 확인하기 위함",
+   "hint": "원인 구조 차트나 회전율 구간별 평균 수익률 차트를 참고하면 돼요",
+   "severity": 1,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    5,
+    6,
+    7
+   ],
+   "doc_weight": 1.0,
+   "answer_gist": "수익률 격차를 만든 다섯 가지 행동 요인(과잉 매매, 타이밍 실패, 손실 회피, 집중 투자, 거래 비용) (5, 6, 7장 근거)",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 5,
+   "evidence_quote": "격차를 만든 다섯 가지 행동 요인",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  },
+  {
+   "id": "q03-top25",
+   "node_id": "top25",
+   "label": "상위 25%",
+   "question": "상위 25%: 상위 25% 개인 투자자 그룹의 수익률이 시장 지수 대비 얼마나 차이가 나며, 그 차이는 어떤 행동 요인에서 비롯되는가 — 설명해 주세요.",
+   "why": "상위 25% 그룹의 성과 특성과 행동 요인 간 연관성을 확인하기 위함",
+   "hint": "상위 25%와 하위 25%의 행동 지표 비교 차트를 참고하세요",
+   "severity": 1,
+   "trap": false,
+   "source": "core_weight",
+   "slide_nos": [
+    2,
+    3,
+    11
+   ],
+   "doc_weight": 0.778,
+   "answer_gist": "상위 25%는 시장 지수 대비 연 2.6%p 낮은 수익률을 기록했으며, 회전율(1.4회 vs 11.8회)과 매도 규칙(71% vs 18%)에서 큰 차이를 보여 과잉 매매와 타이밍 실패가 주요 원인으로 작용해요",
+   "answer_gist_parts": [],
+   "evidence_slide_no": 2,
+   "evidence_quote": "상위 25% 그룹도 지수를 2.6%p",
+   "speech_quote": "",
+   "paper_ids": [],
+   "basis": null
+  }
+ ],
+ "deferred_node_ids": [
+  "marketindex",
+  "individual",
+  "compound",
+  "institution",
+  "turnover",
+  "holdingperiod",
+  "costrate",
+  "sellrule",
+  "cost",
+  "overtrading",
+  "diversification"
+ ],
+ "model": "solar",
+ "papers": []
+}
