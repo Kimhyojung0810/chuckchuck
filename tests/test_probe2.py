@@ -451,3 +451,74 @@ def test_모순_인용은_이음_말로_시작하지_않는다():
     said = f08._said_clause(_contra().evidence, numeric=True)
     assert said.startswith("출석 유지율이 구십 퍼센트로") and not said.startswith("그리고")
     assert "“그리고" not in f08._contra_question(_contra(), GRAPH.nodes[1])
+
+
+# ===========================================================================
+# 녹음 감사 REC-20 — 자료가 안 매긴 최상급을 전제로 까닭을 묻거나, 방법 줄 없이 방법·조건을 묻는 질문
+# ===========================================================================
+
+RAIN = {
+    1: "빗물 저금통 설치 제안\n지붕 면적보다 중요한 것은 저장 용량입니다",
+    2: "모으는 양 계산\n모으는 빗물 =\n지붕 면적\n×\n강수량\n×\n집수 효율",
+    3: "시범 설치 결과\n저금통을 단 집 12곳의 수돗물 사용량이 평균 18% 줄었습니다.",
+    4: "남은 과제\n여름철 모기가 가장 큰 불만입니다.",
+}
+
+
+def rain_idx(extra: dict[int, str] | None = None):
+    from chuckchuck import _grounding as G
+    slides = {**RAIN, **(extra or {})}
+    deck = {n: slide(n, t) for n, t in slides.items()}
+    nodes = [node(f"r{i}", lab, [1, 2, 3, 4]) for i, lab in enumerate(["빗물 저금통", "지붕 면적", "강수량", "저장 용량", "수돗물 사용량"])]
+    return G, G.build_index(deck, nodes)
+
+
+def test_자료가_안_매긴_최상급을_전제로_까닭을_물으면_전제_문제다():
+    G, idx = rain_idx()
+    assert G.question_premise_problems("모으는 빗물 식에서 강수량이 세 요소 중 가장 중요한 변수로 설정된 이유는 무엇인가요?", idx) \
+        == ["superlative"]
+    assert G.question_premise_problems("여름철 모기가 가장 큰 불만인 이유는 무엇인가요?", idx) == []     # 자료가 한 말
+    assert G.question_premise_problems("세 요소 중 무엇이 가장 중요한가요?", idx) == []                   # 순위를 묻는 것
+
+
+def test_방법_조건을_이름으로_묻는_질문은_방법_줄이_있어야_한다():
+    G, idx = rain_idx()
+    for q in ("시범 설치 집의 선정 기준은 무엇인가요?", "수돗물 사용량의 측정 방법과 조건은 무엇인가요?"):
+        assert G.asks_method(q) and not G.method_supported(q, [3], idx), q          # 수치 줄(18%)만으로는 답이 안 된다
+    _, idx2 = rain_idx({5: "측정 방법\n수도 계량기로 매주 기록했습니다\n아파트 12곳을 대상으로 모집했습니다"})
+    assert G.method_supported("수돗물 사용량의 측정 방법과 조건은 무엇인가요?", [3], idx2)
+    assert G.method_supported("시범 설치 집의 선정 기준은 무엇인가요?", [3], idx2)
+
+
+def test_실제와_같은지_묻는_질문은_자료가_실제와_같다고_적었을_때만():
+    G, idx = rain_idx()
+    q = "시범 결과가 실제 가정 환경과 일치하는지 설명해 주세요."
+    assert G.asks_method(q) and not G.method_supported(q, [3], idx)
+    _, idx2 = rain_idx({5: "설치 조건\n실제 가정과 같은 크기의 지붕에 달았습니다"})
+    assert G.method_supported(q, [3], idx2)
+
+
+def test_계산_물음은_근거_장의_식이_답이다():
+    G, idx = rain_idx()
+    assert G.method_supported("모으는 빗물은 어떻게 계산하나요?", [2], idx)
+    assert not G.method_supported("수돗물 사용량은 어떻게 측정했나요?", [2], idx)
+
+
+def test_F08_은_최상급_전제_질문과_방법_줄_없는_조건_질문을_폴백으로_바꾼다():
+    deck = SlideDoc(file_name="rain.pdf", total_slides=4, slides=[slide(n, t) for n, t in RAIN.items()])
+    graph = ConceptGraph(file_name="rain.pdf", total_slides=4, nodes=[
+        node("root", "빗물 저금통", [1, 3], depth=1, weight=1.0), node("rain", "강수량", [2]), node("saving", "수돗물 사용량", [3])])
+    qs = [item("rain", "모으는 빗물 식에서 강수량이 세 요소 중 가장 중요한 변수로 설정된 이유는 무엇인가요?"),
+          item("saving", "수돗물 사용량의 측정 방법과 조건은 무엇인가요?")]
+    saved = f08.QA_TRACK_TRAPS
+    f08.QA_TRACK_TRAPS = {k: 0 for k in saved}
+    try:
+        doc = build_questions(graph, QaTriage(file_name="rain.pdf", total_slides=4, model="scripted", marks=[
+            TriageMark(node_id=n, rank=i, severity=1, source="core_weight", doc_weight=1.0) for i, n in enumerate(("rain", "saving"), 1)]),
+            track="10", slidedoc=deck, llm=ScriptedLLM(qs))
+    finally:
+        f08.QA_TRACK_TRAPS = saved
+    by = {x.node_id: x for x in doc.questions}
+    assert {"question_premise_conflict", "premise_superlative", "fallback_template"} <= set(by["rain"].basis.checks)
+    assert {"method_unsupported", "fallback_template"} <= set(by["saving"].basis.checks)
+    assert "가장 중요한" not in by["rain"].question and "측정 방법" not in by["saving"].question
