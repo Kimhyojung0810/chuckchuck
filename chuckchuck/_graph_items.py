@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from . import _claim_rules as R
 from . import _deck_lines as DL
-from ._evidence import clean_slide_text
+from ._evidence import clean_slide_text, strip_chart_descriptions
 from ._match import norm_tokens
 
 #: 덱 하나에 후처리로 더할 노드 상한. 넘치면 식 → 문제 목록 → 그 밖 목록 순으로 앞 장부터 채운다.
@@ -67,13 +67,13 @@ def _item_line(line: str) -> bool:
     return len(p) <= 30 and not _sentence(p) and not R.is_question(p)
 
 
-def deck_lines(raw_text: str) -> list[str]:
+def deck_lines(raw_text: str, labels: list[str] | None = None) -> list[str]:
     """
     장 원문을 줄로 — F-26 `slide_lines` 와 같은 규칙(`_deck_lines.read_lines`)에 표 구분 행만 남긴다 (표 머리 행을 가르는 표시).
     식 조각은 한 줄로 잇고, 연산 기호 뒤에 끼어든 도식 캡션 물음 줄은 건너뛴다. 09-29 까지는 이 규칙이 여기에만 있어서
     F-07 에는 식 항이 노드로 있는데 F-26 은 같은 식을 물음 줄로 버렸다 (09-30 M-05).
     """
-    return DL.read_lines(raw_text, clean_slide_text, keep_table_sep=True)
+    return DL.read_lines(strip_chart_descriptions(raw_text), clean_slide_text, keep_table_sep=True, labels=labels)
 
 
 # ---------------------------------------------------------------------------

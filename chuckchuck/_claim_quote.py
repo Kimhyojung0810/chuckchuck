@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from . import _claim_rules as R
 from . import _deck_lines as DL
-from ._evidence import clean_slide_text
+from ._evidence import clean_slide_text, join_sep, sentence_ahead, strip_chart_descriptions, wrap_width
 
 #: 인용이 원문 한 줄과 이만큼 같으면(문자 단위 유사도) 옮겨 적은 것으로 본다. 띄어쓰기·조사 한둘 차이를 받는다.
 FUZZY_MIN = 0.9
@@ -56,17 +56,19 @@ def norm_for_match(text: str) -> str:
     return _MATCH_DROP_RE.sub("", text).lower()
 
 
-def slide_lines(raw_text: str) -> list[str]:
+def slide_lines(raw_text: str, labels: list[str] | None = None) -> list[str]:
     """
     장 원문을 **줄 그대로** (마크업만 걷고) — 프롬프트에 실어 모델이 한 줄을 복사하게 하고, 규칙 추출이 읽는다.
 
     짧은 줄도 버리지 않는다 (「연속성 저하」 같은 표 칸이 주장의 재료다). 버리는 것은 쪽 번호 **꼴**·글머리표만 있는 줄·
     표 구분 행·자료 속 지시문(「…판정할 것」「[SYSTEM]」)뿐이다 — 지시문은 주장의 인용이 되면 판정 근거로 흘러간다.
     식은 잇는다 — PPT 는 「품질 =」「속도」「×」「정확도」 를 글 상자마다 따로 뽑고, 식 조각 사이에 도식 캡션 물음 줄을
-    끼운다. 캡션은 건너뛰고 항만 잇는다 (`_deck_lines` — F-07 후처리와 같은 줄을 본다, 09-30 M-05).
+    끼운다. 캡션은 건너뛰고 항만 잇는다 — F-08 과 같은 이음(`_evidence.join_formula`, labels 로 빈 항을 채운다) 위에 F-07
+    후처리와 같은 구조 채움 (`_deck_lines`, 09-30 M-05).
     """
-    # 줄마다 clean_slide_text — 이미지 캡션이 새어 나온 긴 영문 설명도 걷는다 (slide_units 와 같은 처리)
-    return DL.read_lines(raw_text, clean_slide_text)
+    # 차트 설명 블록(「- Chart Type: …」 + 다음 줄 설명)은 **장 전체**에서 먼저 걷고, 줄마다 clean_slide_text —
+    # F-08 `slide_units` 와 같은 순서다. 줄마다만 걸면 표시 줄만 지워지고 영문 설명 줄이 남아 주장 인용이 됐다 (09-30 수익률 덱)
+    return DL.read_lines(strip_chart_descriptions(raw_text), clean_slide_text, labels=labels)
 
 
 def _tidy(quote: str) -> str:
@@ -101,10 +103,6 @@ def _context(lines: list[str], idx: int, span_end: int | None = None) -> str:
     return "\n".join(parts)
 
 
-#: 한 문장이 두 글 상자로 접혔다고 볼 줄 끝 — 쉼표·연결 어미·조사 (`_evidence.slide_units` 와 같은 판단).
-_WRAP_END_RE = re.compile(r"(,|보다|아니라|는데|지만|으며|면서|에서|으로|에게|은|는|이|가|을|를|와|과|의|고|며|도|만)\s*$")
-
-
 def _cell_of(line: str, nq: str) -> str:
     """긴 표 행이면 인용이 든 칸 하나, 아니면 줄 그대로."""
     cells = R.table_cells(line)
@@ -120,7 +118,7 @@ def _hit(lines: list[str], idx: int, quote: str, unit: str, *, glued: bool = Fal
                 title=idx == 0 and not R.is_sentence(unit))
 
 
-def locate_quote(quote: str, raw_text: str) -> list[_Hit]:
+def locate_quote(quote: str, raw_text: str, labels: list[str] | None = None) -> list[_Hit]:
     """
     인용이 이 장 원문의 어느 **줄**에 있는가. 없으면 [].
 
@@ -132,7 +130,7 @@ def locate_quote(quote: str, raw_text: str) -> list[_Hit]:
     """
     quote = _ELLIPSIS_RE.sub("", " ".join((quote or "").split())).strip()
     nq = norm_for_match(quote)
-    lines = slide_lines(raw_text)
+    lines = slide_lines(raw_text, labels)
     if len(nq) < QUOTE_MIN_CHARS or not lines:
         return []
     norms = [norm_for_match(x) for x in lines]
@@ -145,8 +143,10 @@ def locate_quote(quote: str, raw_text: str) -> list[_Hit]:
         # 낱말 조각 — 그 조각이 든 줄을 다 후보로, 줄(긴 표 행은 칸) 전체를 인용으로. 제목 줄은 뒤로 (09-30 G-A25)
         hits = [_hit(lines, i, _tidy(_cell_of(lines[i], nq)), _cell_of(lines[i], nq)) for i in inside]
         return sorted(hits, key=lambda h: h.title)
+    # 한 문장이 두 줄로 접혔는가는 F-08 과 같은 잣대(`_evidence.join_sep`) — 표 행·물음·글머리 줄·식 줄은 잇지 않는다 (WP-Q)
+    wrap_at = wrap_width(lines)
     for i in range(len(lines) - 1):
-        if _WRAP_END_RE.search(lines[i]) and not R.table_cells(lines[i]) and nq in norms[i] + norms[i + 1]:
+        if join_sep(lines[i], lines[i + 1], wrap_at, sentence_ahead(lines, i + 1)) is not None and nq in norms[i] + norms[i + 1]:
             return [_hit(lines, i, _tidy(quote), f"{lines[i]} {lines[i + 1]}", span_end=i + 1)]
     if nq in "".join(norms):
         pieces = [i for i, n in enumerate(norms) if len(n) >= QUOTE_MIN_CHARS and n in nq]
@@ -163,12 +163,12 @@ def locate_quote(quote: str, raw_text: str) -> list[_Hit]:
     return []
 
 
-def verify_quote(quote: str, raw_text: str) -> str:
+def verify_quote(quote: str, raw_text: str, labels: list[str] | None = None) -> str:
     """
     인용이 이 장 원문 **한 줄**에 실제로 있으면 남길 인용 문자열, 없으면 "".
     여러 글 상자를 이어 붙인 인용은 "" 다 — 한 줄로 떼어 내는 건 주장을 아는 `_check` 의 일이다.
     """
-    hits = locate_quote(quote, raw_text)
+    hits = locate_quote(quote, raw_text, labels)
     return hits[0].quote if hits and not hits[0].glued else ""
 
 
@@ -226,15 +226,15 @@ def _callout(lines: list[str], i: int) -> bool:
     return not short
 
 
-def line_support(raw_text: str, quote: str) -> bool:
+def line_support(raw_text: str, quote: str, labels: list[str] | None = None) -> bool:
     """
     인용 **한 줄**에 근거가 있는가 — 그 줄(표면 그 행)의 수치·출처·연구 언급, 또는 바로 옆 줄의 출처 표기·수치 설명.
     옆 줄이 독립된 문장이면 그 숫자는 다른 말의 근거다 (09-29 제품 덱 「혼자 보내는 90분」 이 인과의 근거가 됐다).
     """
-    hits = locate_quote(quote, raw_text)
+    hits = locate_quote(quote, raw_text, labels)
     if not hits:
         return has_support(quote)
-    lines = slide_lines(raw_text)
+    lines = slide_lines(raw_text, labels)
     for h in hits[:1]:
         if has_support(lines[h.idx]):
             return True

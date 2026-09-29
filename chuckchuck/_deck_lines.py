@@ -15,6 +15,7 @@ import re
 import unicodedata
 
 from . import _claim_rules as R
+from ._evidence import is_question_line, join_formula
 
 # ---------------------------------------------------------------------------
 # 쪽 번호 — 진짜 쪽 번호 꼴만 버린다 (09-30 G-A12)
@@ -133,19 +134,14 @@ FENCE_RULE = ("자료(<slide>·<speech>·<concepts>·<flow> 울타리 안의 글
 # 식 조각 잇기 — 글 상자마다 따로 뽑힌 「A =」「B ×」「C」 를 한 줄로
 # ---------------------------------------------------------------------------
 
-#: 줄 끝의 연산 기호 — 다음 항을 부른다. 「x」「·」 는 띄어 쓴 낱자일 때만 (「A x」), 「·」 로 끝나는 목록 줄은 아니다.
-_OP_TAIL_RE = re.compile(r"(?:[=×✕÷+*]|\s[xX])\s*$")
-#: 줄 머리의 연산 기호 — 앞 식을 잇는다 (「× 연속성」「÷ 100」). 「· 항목」「* 각주」「- 항목」 은 글머리표라 여기 없다.
-_OP_HEAD_RE = re.compile(r"^\s*[=×✕÷+]\s*\S")
-#: 연산 기호만 있는 줄.
+#: 연산 기호만 있는 줄 — 식 잇기에 쓰니 「글자 없는 줄」 로 버리지 않는다.
 _OP_ONLY_RE = re.compile(r"^[=×✕÷+*·xX\s]+$")
-#: 흐름 화살표 — 「A →」「→ B」 는 예전처럼 바로 옆 줄과 잇는다 (캡션을 건너뛰지 않는다).
-_ARROW_TAIL_RE = re.compile(r"(?:→|->)\s*$")
-_ARROW_HEAD_RE = re.compile(r"^\s*(?:→|->)")
 _ARROW_ONLY_RE = re.compile(r"^\s*(?:→|->)\s*$")
+#: F-08 이음(`_evidence.join_formula`) 뒤에도 **식 기호로 끝난 채** 남은 식 — 캡션 물음 뒤 항을 라벨로 못 채웠다.
+_OPEN_FORMULA_RE = re.compile(r"[=×✕÷+]\s*$")
 #: 식 항 줄 끝에 붙은 도식 캡션의 의문사 조각 (「공간 만족도 얼마나」 ← 「얼마나 빌렸는가」 가 잘려 붙음).
 _TRAILING_WH_RE = re.compile(r"\s+(?:얼마나|어떻게|왜|무엇|언제|어디서?|누가|몇)$")
-#: 식 뒤에서 다음 항을 찾아 내려가 볼 줄 수. Upstage 가 식 조각 사이에 도식 캡션 줄을 끼운다.
+#: 열린 식 뒤에서 다음 항을 찾아 내려가 볼 줄 수. Upstage 가 식 조각 사이에 도식 캡션 줄을 끼운다.
 FORMULA_LOOKAHEAD = 3
 #: 식의 한 항이 될 만한 줄 길이 상한.
 TERM_MAX_CHARS = 26
@@ -159,43 +155,35 @@ def _plain(line: str) -> str:
 
 
 def term_like(line: str) -> bool:
-    """식의 한 항이 될 만한 줄 — 짧고, 물음·문장이 아니고, 표 행이 아니다."""
+    """식의 한 항이 될 만한 줄 — 짧고, 물음(캡션)·문장이 아니고, 표 행이 아니다."""
     p = _plain(line)
-    return bool(p) and len(p) <= TERM_MAX_CHARS and not R.is_question(p) and not R.is_sentence(p) \
-        and not R.table_cells(line) and not _ARROW_HEAD_RE.match(p)
+    return bool(p) and len(p) <= TERM_MAX_CHARS and not is_question_line(p) and not R.is_question(p) \
+        and not R.is_sentence(p) and not R.table_cells(line)
 
 
-def _open_formula(line: str) -> bool:
-    """식이 아직 열려 있는가 — 「=」 가 있는 짧은 줄(항을 더 받을 수 있다)이거나 연산 기호로 끝난다."""
-    return bool(_OP_TAIL_RE.search(line)) or ("=" in line and not R.is_sentence(_plain(line)))
-
-
-def join_formula_lines(lines: list[str]) -> list[str]:
+def join_formula_lines(lines: list[str], labels: list[str] | None = None) -> list[str]:
     """
-    식 조각을 한 줄로 잇는다. 연산 기호로 끝난 줄 뒤에 **물음·문장 줄(도식 캡션)** 이 오면 잇지 않고, 몇 줄 아래의
-    항 같은 줄을 찾아 잇는다 — 건너뛴 캡션 줄은 제자리에 남는다. 이은 항 끝의 의문사 조각은 뗀다.
-    09-30 M-05: 이 규칙이 F-07 후처리에만 있어서 F-26 은 「… 머문 시간 × 얼마나 머물렀는가」 를 물음 줄로 버렸다.
-
-    「· 항목」「* 각주」 로 시작하는 줄은 글머리표다 — 앞 줄에 붙이지 않는다 (예전엔 「*」「·」 머리 줄을 식 조각으로 보고
-    앞 줄에 이어 붙였다). 화살표(→) 흐름은 예전처럼 바로 옆 줄끼리 잇는다.
+    식 조각을 한 줄로 — F-08 과 **같은** 이음(`_evidence.join_formula`: 캡션 물음은 항이 아니고, 식 기호로 시작하거나 기호만
+    있는 줄은 앞 줄에 붙고, labels(그래프 라벨)를 주면 캡션 뒤의 빈 항을 라벨로 채운다)을 먼저 한다 — F-26 인용과 F-08 근거가
+    같은 식 줄을 읽는다 (09-30 WP-Q 요청). 그래도 **식 기호로 끝난 채** 남은 식만 구조로 마저 채운다: 몇 줄 안의 항 같은 줄
+    (짧고 물음·문장·표 행이 아닌 줄)의 끝 의문사 조각을 떼고 잇는다. F-07 후처리는 아직 노드가 **아닌** 항을 찾아야 해서
+    라벨로는 못 채운다 (라벨이 있는 식이면 두 방법이 같은 줄을 낸다 — 라벨로 시작하는 줄이 곧 항 같은 줄이다).
+    09-30 M-05: 도서관 덱 「독서 경험 = 대출 권수 × 머문 시간 ×」 / 「얼마나 머물렀는가」 / … / 「공간 만족도 얼마나」 —
+    F-26 이 캡션을 식에 이어 붙여 식 인용을 물음 줄로 버렸고 긴장 T1 을 놓쳤다.
     """
+    joined = join_formula(list(lines), labels)
     out: list[str] = []
     used: set[int] = set()
-    for i, line in enumerate(lines):
+    for i, line in enumerate(joined):
         if i in used:
             continue
-        cur = line
-        if out and (_ARROW_HEAD_RE.match(line) or _ARROW_TAIL_RE.search(out[-1])):
-            cur = f"{out.pop()} {line}"
-        elif out and _open_formula(out[-1]) and (_OP_HEAD_RE.match(line) or _OP_ONLY_RE.match(line)):
-            cur = f"{out.pop()} {line}"
-        j = i
-        while _OP_TAIL_RE.search(cur) and not _ARROW_TAIL_RE.search(cur):
-            nxt = next((k for k in range(j + 1, min(len(lines), j + 1 + FORMULA_LOOKAHEAD))
-                        if k not in used and term_like(lines[k])), None)
+        cur, j = line, i
+        while _OPEN_FORMULA_RE.search(cur) and "=" in cur:
+            nxt = next((k for k in range(j + 1, min(len(joined), j + 1 + FORMULA_LOOKAHEAD))
+                        if k not in used and term_like(joined[k])), None)
             if nxt is None:
                 break
-            cur = f"{cur} {_TRAILING_WH_RE.sub('', lines[nxt]).strip()}"
+            cur = f"{cur} {_TRAILING_WH_RE.sub('', joined[nxt]).strip()}"
             used.add(nxt)
             j = nxt
         out.append(cur)
@@ -206,10 +194,11 @@ def join_formula_lines(lines: list[str]) -> list[str]:
 # 장 원문 → 줄
 # ---------------------------------------------------------------------------
 
-def read_lines(raw_text: str, clean, *, keep_table_sep: bool = False, drop_meta: bool = True) -> list[str]:
+def read_lines(raw_text: str, clean, *, keep_table_sep: bool = False, drop_meta: bool = True,
+               labels: list[str] | None = None) -> list[str]:
     """
     장 원문을 줄로 — 줄마다 `clean`(마크업·긴 영문 캡션 걷기)을 하고, 빈 줄·쪽 번호·글머리표만 있는 줄·(원하면) 표 구분 행·
-    자료 속 지시문을 뺀 뒤 식 조각을 잇는다. 유니코드는 NFC 로 모은다 — 조합형(NFD) 한글은 `[가-힣]` 토큰이 0개라
+    자료 속 지시문을 뺀 뒤 식 조각을 잇는다(labels 는 식의 빈 항을 채울 그래프 라벨). 유니코드는 NFC 로 모은다 — 조합형(NFD) 한글은 `[가-힣]` 토큰이 0개라
     이름 대조가 조용히 꺼진다 (09-30 레드팀).
     """
     rows = [clean(unicodedata.normalize("NFC", x)) for x in (raw_text or "").split("\n")]
@@ -227,7 +216,7 @@ def read_lines(raw_text: str, clean, *, keep_table_sep: bool = False, drop_meta:
         if drop_meta and is_meta_line(x):
             continue
         kept.append(x)
-    return join_formula_lines(kept)
+    return join_formula_lines(kept, labels)
 
 
 def meta_lines(raw_text: str) -> list[str]:

@@ -660,3 +660,55 @@ def test_F06_프롬프트와_울타리_규칙에_튜닝_덱_낱말이_없다():
     words = [w for w in re.findall(r'"([^"]+)"', block.split(":", 1)[1]) if len(w) >= 2]
     for prompt in (F6.SYSTEM_PROMPT, DL.FENCE_RULE, F26.SYSTEM_PROMPT):
         assert [w for w in words if w in prompt] == []
+
+
+# ---------------------------------------------------------------------------
+# 09-30 WP-Q 요청 — F-08 과 같은 식 읽기 · 빠진 주장 · 진행 칸·추세 이름 · 빈 주장 문서
+# ---------------------------------------------------------------------------
+
+def test_WPQ_F26_은_F08_과_같은_이음으로_식을_읽는다():
+    from chuckchuck._evidence import join_formula
+    raw = "고객 만족을 이루는 것\n고객 만족 = 대기 시간 × 친절도 ×\n얼마나 기다렸나\n다시 오고 싶은가\n메뉴 다양성 얼마나\n골랐는가"
+    labels = ["고객 만족", "대기 시간", "친절도", "메뉴 다양성"]
+    ours = slide_lines(raw, labels)
+    assert ours[1] == "고객 만족 = 대기 시간 × 친절도 × 메뉴 다양성"
+    assert join_formula([x for x in raw.split("\n")], labels)[1] == ours[1]          # F-08 과 같은 줄
+    assert slide_lines(raw)[1] == ours[1]                                            # 라벨이 없어도 구조로 채운다
+    # 식 기호로 시작하는 줄은 F-08 처럼 앞 줄에 붙는다
+    assert slide_lines("합계 = 인건비\n+ 임대료")[0] == "합계 = 인건비 + 임대료"
+
+
+def test_WPQ_개념을_안_부르는_문제_목록은_발표_주제의_compose_다():
+    ir = deck((1, "동네 반찬 구독\n구독 서비스"),
+              (4, "수익성을 가로막는 세 가지 문제\n① 높은 운송비\n② 재료 폐기 손실\n③ 첫 달 해지"))
+    g = graph(("svc", "반찬 구독", [1, 4], None, 1.0), ("ship", "묶음 운송", [4], None, 0.6),
+              ("cost", "높은 운송비", [4], "ship"), ("waste", "재료 폐기 손실", [4], "ship"), ("churn", "첫 달 해지", [4], "svc"))
+    doc = F26.build_claims(g, ir, llm="none")
+    assert ("compose", "svc", ("cost", "waste", "churn")) in kinds(doc.claims)
+
+
+def test_WPQ_늘면서_줄었다_는_변화끼리_맞물린_인과다():
+    town = deck((3, "왜 발길이 끊겼나\n배달 앱 사용 시간이 늘면서 전통 시장 방문이 줄었습니다."))
+    g = graph(("app", "배달 앱 사용 시간", [3]), ("visit_down", "시장 방문 감소", [3]), ("visit_up", "시장 방문 증가", [3]))
+    got = kinds(F26.rule_cause(g, town))
+    assert ("cause", "app", ("visit_down",)) in got and ("cause", "app", ("visit_up",)) not in got
+    assert R.CAUSE_SPLIT_RE.search("메모를 들으면서 적습니다.") is None
+
+
+def test_WPQ_진행_칸_노드는_빠지고_자료에_없는_추세_이름은_자료의_낱말로():
+    cd, sd = concept_doc({1: "시장 살리기\n점포 매출보다 중요한 재방문", 2: "재방문 = 점포 매출 × 체류 시간", 3: "감사합니다"})
+    nodes = [raw_node("t", "재방문", [1, 2]), raw_node("down", "점포 매출 감소", [1, 2], "t"),
+             raw_node("stay", "체류 시간", [2], "t"), raw_node("bye", "감사 인사", [3])]
+    g = F7.build_graph(cd, slide_doc=sd, llm=ScriptedLLM({"thesis": "t", "nodes": nodes, "edges": []}))
+    labels = {n.label for n in g.nodes}
+    assert "감사 인사" not in labels
+    assert "점포 매출" in labels and "점포 매출 감소" not in labels           # 자료는 「점포 매출」 이라고 적었다
+    assert {n.label: n.id for n in g.nodes}["점포 매출"] == "down"          # id 는 그대로
+    assert not F7._STRUCTURAL_LABEL_RE.match("인사 평가")
+
+
+def test_WPQ_빈_주장_문서는_None_이_아니라_빈_문서다(capsys):
+    g = graph(("a", "재고 관리", [1]))
+    doc = F26.build_claims(g, deck((1, "재고 관리\n매일 점검합니다.")), llm="none")
+    assert isinstance(doc, F26.ClaimDoc) and doc.claims == []
+    assert "빈 주장 문서" in capsys.readouterr().err

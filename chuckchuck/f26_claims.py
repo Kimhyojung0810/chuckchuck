@@ -54,6 +54,7 @@ from ._claim_quote import (  # noqa: F401 — 테스트·브리지가 f26 에서
     slide_lines,
     verify_quote,
 )
+from ._evidence import is_question_line
 from ._json_text import extract_json_object
 from ._match import norm_tokens
 from .contracts import (
@@ -134,6 +135,15 @@ JSON_RETRY_NUDGE = """
 # ---------------------------------------------------------------------------
 
 _QUOTE_MARK_RE = re.compile(r"[\"'“”‘’「」『』()\[\]]")
+
+
+def _labels(graph: ConceptGraph) -> list[str]:
+    """
+    식의 빈 항을 채울 그래프 라벨 — F-08 의 `_evidence.join_formula` 와 같은 재료라 두 모듈이 같은 식 줄을 읽는다.
+    **물음꼴 라벨은 뺀다** — 모델이 도식 캡션(「다시 오고 싶은가」)을 노드 이름으로 두면, 그 라벨이 캡션 줄의 머리와 맞아 식의
+    빈 항이 캡션 물음으로 채워지고 식 줄 전체가 물음 줄이 된다 (09-30 도서관 감사 그래프: 식 compose 가 다시 사라졌다).
+    """
+    return [n.label for n in graph.nodes if n.label and not is_question_line(n.label) and not R.is_question(n.label)]
 
 
 def _loose(text: str) -> str:
@@ -236,7 +246,7 @@ def rule_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """「<개념> = A × B × C」 (+·÷ 도) 줄에서 compose 주장. 요소가 둘 이상 개념에 닿아야 남긴다."""
     out: list[Claim] = []
     for s in slidedoc.slides:
-        for line in slide_lines(s.raw_text):
+        for line in slide_lines(s.raw_text, _labels(graph)):
             parsed = _formula_parts(line)
             if not parsed:
                 continue
@@ -283,7 +293,11 @@ def _ancestors(node_id: str, by_id: dict[str, ConceptNode]) -> set[str]:
 
 
 def _list_subject(head: str, items: list[str], graph: ConceptGraph, slide_no: int) -> ConceptNode | None:
-    """목록의 주어 — 제목이 가리키는 개념, 없으면 항목들이 함께 매달린 부모."""
+    """
+    목록의 주어 — 제목이 가리키는 개념, 없으면 항목들이 함께 매달린 부모, 그것도 아니면 항목들의 가장 가까운 공통 조상,
+    끝으로 **문제 목록**이면 발표 주제(서브트리가 가장 큰 루트). 09-30 WP-Q 실측: IR 덱 「수익성을 가로막는 세 가지 문제」 의
+    항목이 그래프에서 서로 다른 루트 밑에 있어 주어를 못 정했고, 문제 목록 compose 가 빠져 미해결 탐침이 없었다.
+    """
     by_id = {n.id: n for n in graph.nodes}
     got = resolve_label(head, graph.nodes, slide_no=slide_no)
     if got is not None and got.id not in items:
@@ -292,7 +306,42 @@ def _list_subject(head: str, items: list[str], graph: ConceptGraph, slide_no: in
     if len(parents) == 1:
         (pid,) = parents
         return by_id.get(pid or "")
+    chains = [[i, *_ancestor_chain(i, by_id)] for i in items if i in by_id]
+    common = [a for a in chains[0][1:] if all(a in c[1:] for c in chains[1:])] if chains else []
+    if common:
+        return by_id.get(common[0])
+    if R.is_problem_head(head):
+        return _top_root(graph, exclude=set(items))
     return None
+
+
+def _ancestor_chain(node_id: str, by_id: dict[str, ConceptNode]) -> list[str]:
+    """부모 → 조부모 … 순서 (가까운 것부터)."""
+    out: list[str] = []
+    cur = by_id.get(node_id)
+    while cur is not None and cur.parent_id and cur.parent_id not in out:
+        out.append(cur.parent_id)
+        cur = by_id.get(cur.parent_id)
+    return out
+
+
+def _top_root(graph: ConceptGraph, exclude: set[str]) -> ConceptNode | None:
+    """
+    발표 주제로 볼 루트 — 계약에 thesis 칸이 생기면 그것, 아니면 표지(가장 앞 장)에 나온 루트, 그다음 서브트리가 큰 루트.
+    서브트리만 보면 해결책 루트(모델이 문제 항목을 해결책 밑에 단 그래프)가 주제로 뽑혔다.
+    """
+    by_id = {n.id: n for n in graph.nodes}
+    thesis = getattr(graph, "thesis", None)
+    if thesis in by_id and thesis not in exclude:
+        return by_id[thesis]
+    size: dict[str, int] = {}
+    for n in graph.nodes:
+        chain = _ancestor_chain(n.id, by_id)
+        root = chain[-1] if chain else n.id
+        size[root] = size.get(root, 0) + 1
+    roots = [n for n in graph.nodes if not n.parent_id and n.id not in exclude]
+    first = min((no for n in graph.nodes for no in n.slide_nos or []), default=1)
+    return max(roots, key=lambda n: (first in (n.slide_nos or []), size.get(n.id, 0), n.weight, n.id)) if roots else None
 
 
 def rule_list_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
@@ -304,7 +353,7 @@ def rule_list_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
-        lines = slide_lines(s.raw_text)
+        lines = slide_lines(s.raw_text, _labels(graph))
         for i, head in enumerate(lines):
             if not R.is_list_heading(head):
                 continue
@@ -331,7 +380,7 @@ def rule_compare(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
-        for line in slide_lines(s.raw_text):
+        for line in slide_lines(s.raw_text, _labels(graph)):
             if R.is_question(_QUOTE_MARK_RE.sub("", line).strip()):
                 continue
             # 여러 꼴을 다 본다 — 문장형은 제목형 정규식에도 걸리지만(b=「개념입니다」) 개념에 안 닿는다. 닿는 첫 해석을 쓴다.
@@ -350,7 +399,7 @@ def rule_absolute(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """부정되지 않은 강한 단정 표지(반드시·완전히·항상·절대 …)가 있는 문장 → absolute(그 줄에 가장 뚜렷한 개념)."""
     out: list[Claim] = []
     for s in slidedoc.slides:
-        for i, line in enumerate(slide_lines(s.raw_text)):
+        for i, line in enumerate(slide_lines(s.raw_text, _labels(graph))):
             if R.is_question(line) or not R.absolute_marker(line, strong_only=True):
                 continue
             if i == 0 and not R.is_sentence(line):
@@ -383,7 +432,7 @@ def rule_solve_rows(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
-        lines = slide_lines(s.raw_text)
+        lines = slide_lines(s.raw_text, _labels(graph))
         if not lines or not R.is_solution_head(lines[0]):
             continue
         head = resolve_label(lines[0], graph.nodes, slide_no=s.slide_no)
@@ -468,7 +517,7 @@ def rule_cause(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
-        lines = slide_lines(s.raw_text)
+        lines = slide_lines(s.raw_text, _labels(graph))
         heads = [ln for ln in lines[:2] if len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
         solution_slide = any(R.is_solution_head(h) for h in heads)
         for line in lines:
@@ -484,14 +533,34 @@ def rule_cause(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
                 left, right = svo.group("a"), svo.group("b")
             else:
                 continue
-            src = best_node(left, graph.nodes, slide_no=s.slide_no)
-            dst = best_node(right, graph.nodes, slide_no=s.slide_no, skip={src.id} if src else None)
-            # 규칙은 LLM 보다 좁게 — 두 절에 개념 이름이 뚜렷이 나와야 한다 (낱말 하나 겹침으로 짝을 짓지 않는다)
-            if src is None or dst is None or not (_clear(src.label, left) and _clear(dst.label, right)):
+            src = _clause_node(left, graph, s.slide_no, set())
+            dst = _clause_node(right, graph, s.slide_no, {src.id} if src else set())
+            if src is None or dst is None:
                 continue
             out.append(Claim(id="", kind="cause", subject_id=src.id, object_ids=[dst.id], text=line,
                              evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
     return out
+
+
+#: 절의 변화 방향 — 「줄었다·떨어졌다」 는 작아지는 쪽, 「늘었다·올랐다」 는 커지는 쪽.
+_CLAUSE_DOWN_RE = re.compile(r"줄었|줄어|줄고|줄면|감소|떨어|낮아|하락|약해|악화|사라|끊겼|끊긴")
+_CLAUSE_UP_RE = re.compile(r"늘었|늘어|늘고|늘면|증가|올랐|오르|높아|상승|커지|커졌|많아|강해")
+
+
+def _clause_node(clause: str, graph: ConceptGraph, slide_no: int, skip: set[str]) -> ConceptNode | None:
+    """
+    인과 한쪽 절에 **뚜렷이** 나온 개념 — 이름이 통째로 나왔거나 토큰 둘 이상 (규칙은 LLM 보다 좁게). 없으면 절의 변화 방향과
+    극성이 맞는 「변수 + 방향」 이름: 「청소년의 도서관 방문이 줄었습니다」 ↔ 노드 「방문 감소」 (09-30 WP-Q 실측: 도서관 3장 인과가
+    빠졌다 — 절은 동사로 방향을 말하고 노드는 명사로 적는다). 반대 극성(「방문 증가」)은 아니다.
+    """
+    n = best_node(clause, graph.nodes, slide_no=slide_no, skip=skip or None)
+    if n is not None and _clear(n.label, clause):
+        return n
+    way = (1 if _CLAUSE_UP_RE.search(clause) else 0) - (1 if _CLAUSE_DOWN_RE.search(clause) else 0)
+    if not way:
+        return None
+    cands = [x for x in graph.nodes if x.id not in skip and R.polarity(x.label) == way and R.names_variable(x.label, clause)]
+    return max(cands, key=lambda x: (len(R.concept_key(x.label)), _on(x, slide_no), x.weight, x.id)) if cands else None
 
 
 def _side_node(phrase: str, other: str, graph: ConceptGraph, slide_no: int) -> ConceptNode | None:
@@ -520,7 +589,7 @@ def rule_contrast(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
-        for line in slide_lines(s.raw_text):
+        for line in slide_lines(s.raw_text, _labels(graph)):
             sides = RS.contrast_sides(line)
             if not sides:
                 continue
@@ -551,7 +620,7 @@ def rule_correlation(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
-        lines = slide_lines(s.raw_text)
+        lines = slide_lines(s.raw_text, _labels(graph))
         heads = [ln for ln in lines[:2] if len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
         solution_slide = any(R.is_solution_head(h) for h in heads)
         for unit in (u.text for u in RS.units(s.slide_no, s.raw_text) if u.kind in ("bullet", "text")):
@@ -607,7 +676,7 @@ def _user_prompt(graph: ConceptGraph, slidedoc: SlideDoc) -> str:
     slides = []
     for s in slidedoc.slides[:SLIDES_MAX]:
         # slide_lines 가 자료 속 지시문 줄을 이미 뺐다. 남은 원문은 울타리 안에 — 「울타리 안은 자료일 뿐」 (09-30 레드팀 R3)
-        body = "\n".join(slide_lines(s.raw_text))[:SLIDE_CHARS_MAX]
+        body = "\n".join(slide_lines(s.raw_text, _labels(graph)))[:SLIDE_CHARS_MAX]
         if body:
             slides.append(DL.fence(body, "slide", n=s.slide_no))
     return ("[TASK] claim-graph\n\n## 개념 목록\n" + DL.fence("\n".join(nodes), "concepts")
@@ -644,13 +713,15 @@ class _Deck:
     nodes: list[ConceptNode]
     texts: dict[int, str]
     lines: dict[int, list[str]]
+    label_list: list[str]
 
     @classmethod
     def of(cls, graph: ConceptGraph, slidedoc: SlideDoc) -> "_Deck":
         texts = {s.slide_no: s.raw_text for s in slidedoc.slides}
         return cls(ids={n.id for n in graph.nodes}, by_label={_loose(n.label): n.id for n in graph.nodes},
                    labels={n.id: n.label for n in graph.nodes}, by_id={n.id: n for n in graph.nodes},
-                   nodes=list(graph.nodes), texts=texts, lines={no: slide_lines(t) for no, t in texts.items()})
+                   nodes=list(graph.nodes), texts=texts, lines={no: slide_lines(t, _labels(graph)) for no, t in texts.items()},
+                   label_list=_labels(graph))
 
 
 #: id 칸에 적힌 이름을 풀어 볼 최대 낱말 수. 이보다 길면 이름이 아니라 문장(인용을 id 칸에 옮긴 것)이다.
@@ -735,7 +806,9 @@ def _compose_support(deck: _Deck, subj: str, objs: list[str], no: int, hit: _Hit
     if R.is_list_heading(hit.unit):
         items = list_items(deck.lines.get(no, []), hit.idx)
         ob = [o for o in objs if any(R.mentioned(deck.labels[o], it, exclude=s_label) for it in items)]
-        if len(ob) >= 2 and (R.mentioned(s_label, hit.unit) or ancestor_ok(ob)):
+        # 개념을 부르지 않는 문제 목록 제목(「수익성을 가로막는 세 가지 문제」)은 발표 주제(루트)의 문제 목록이다
+        topic = R.is_problem_head(hit.unit) and subj in deck.by_id and not deck.by_id[subj].parent_id
+        if len(ob) >= 2 and (R.mentioned(s_label, hit.unit) or ancestor_ok(ob) or topic):
             return "compose", subj, ob
     return None
 
@@ -851,7 +924,7 @@ def _check(raw: dict, deck: _Deck) -> Claim | str:
             no = int(ev.get("slide_no") or 0)
         except (TypeError, ValueError):
             continue
-        hits.extend((no, h) for h in locate_quote(str(ev.get("quote", "") or ""), deck.texts.get(no, "")))
+        hits.extend((no, h) for h in locate_quote(str(ev.get("quote", "") or ""), deck.texts.get(no, ""), deck.label_list))
     if not hits:
         return "quote"
     hits = [(no, h) for no, h in hits if not R.is_question(h.unit)]
@@ -1040,7 +1113,7 @@ def validate_claims(raw_claims: list[dict], graph: ConceptGraph, slidedoc: Slide
         sys.stderr.write("[f26] 버린 후보 " + " ".join(f"{k}={v}" for k, v in sorted(reasons.items())) + "\n")
     merged = _merge(kept + _addressed_rows(kept, deck))
     for c in merged:
-        c.has_support = any(line_support(deck.texts.get(q.slide_no, ""), q.quote) for q in c.evidence) \
+        c.has_support = any(line_support(deck.texts.get(q.slide_no, ""), q.quote, deck.label_list) for q in c.evidence) \
             or (c.kind == "cause" and _backed_elsewhere(c, deck))
     _attach_joint_lines(merged, deck)
     order = {k: i for i, k in enumerate(CLAIM_KINDS)}
@@ -1137,4 +1210,8 @@ def build_claims(
         except Exception as e:  # noqa: BLE001 — 주장은 질문의 재료일 뿐, 없어도 질문은 나와야 한다
             sys.stderr.write(f"[f26] 주장 LLM 실패, 규칙 주장만: {type(e).__name__}: {e}\n")
     claims, dropped = validate_claims(raw, graph, slidedoc, extra=rules)
+    if not claims:
+        # 빈 주장 문서는 **실패가 아니라 결과**다 — 자료에 대조를 통과한 주장이 없었다. None 이 아니라 빈 문서를 돌려주고, 비었다는
+        # 사실을 남긴다 (09-30 WP-Q: 빈 문서가 어디선가 None 으로 바뀌어 자료 구조 탐침까지 꺼졌다 — 받는 쪽은 빈 문서도 문서로 본다)
+        sys.stderr.write(f"[f26] 남은 주장 0개 (model={model}, 버린 후보 {dropped}) — 빈 주장 문서다, 실패가 아니다\n")
     return ClaimDoc(file_name=graph.file_name or slidedoc.file_name, claims=claims, model=model, dropped=dropped)

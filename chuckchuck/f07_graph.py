@@ -595,18 +595,28 @@ def _to_sections(raw_sections: list[dict], total_slides: int) -> list[Section]:
     return sections
 
 
+#: 발표의 **진행 칸**이지 개념이 아닌 이름 — 인사·질의응답·목차·발표자. 이름 전체가 이 꼴일 때만 (「인사 평가」 는 개념이다).
+_STRUCTURAL_LABEL_RE = re.compile(
+    r"^(?:감사(?:합니다|드립니다)?(?:\s*인사)?|(?:마무리|끝맺음|맺음)?\s*인사(?:말)?|질의\s*응답|질문과\s*답변|Q\s*&\s*A|QnA|"
+    r"목차|차례|발표\s*순서|발표자(?:\s*소개)?|마무리|맺음말|끝|thank\s*you|thanks|agenda|contents|q\s*and\s*a)$", re.I)
+
+
 def _drop_placeholders(raw_nodes: list[dict], data: dict) -> tuple[list[dict], dict]:
     """
-    스키마 예시 이름(「주제 개념」「요소 개념」 …)을 그대로 옮긴 노드를 뺀다 — 자리표지일 뿐 자료의 개념이 아니다.
-    그 노드의 자식은 그 노드의 부모 밑으로, thesis 였으면 thesis 를 비운다 (루트 클램프가 서브트리로 주제를 다시 고른다).
-    09-29 A/B: main 프롬프트가 수익률격차 덱에서 thesis 노드 이름을 「주제 개념」 으로 적었다.
+    개념이 아닌 노드를 뺀다 — 스키마 예시 이름(「주제 개념」「요소 개념」 …)을 그대로 옮긴 자리표지와, 발표 진행 칸(「감사 인사」
+    「질의응답」「목차」)이다. 그 노드의 자식은 그 노드의 부모 밑으로, thesis 였으면 thesis 를 비운다 (루트 클램프가 서브트리로
+    주제를 다시 고른다). 09-29 A/B: main 프롬프트가 수익률격차 덱에서 thesis 노드 이름을 「주제 개념」 으로 적었다. 09-30 WP-Q:
+    도서관 덱 그래프에 루트 「감사 인사」 가 있었다 — 진행 칸이 질문 대상·루트 후보가 되면 안 된다.
     """
     examples = _example_labels()
-    gone = {str(r.get("id", "") or ""): r.get("parent") for r in raw_nodes
-            if str(r.get("label", "") or "").strip() in examples}
+
+    def dud(r: dict) -> bool:
+        label = str(r.get("label", "") or "").strip()
+        return label in examples or bool(_STRUCTURAL_LABEL_RE.match(label))
+    gone = {str(r.get("id", "") or ""): r.get("parent") for r in raw_nodes if dud(r)}
     if not gone:
         return raw_nodes, data
-    sys.stderr.write(f"[f07] 스키마 예시 이름을 옮긴 노드 {len(gone)}개를 뺐다\n")
+    sys.stderr.write(f"[f07] 개념이 아닌 노드(예시 이름·진행 칸) {len(gone)}개를 뺐다\n")
 
     def up(v):
         seen = set()
@@ -614,7 +624,7 @@ def _drop_placeholders(raw_nodes: list[dict], data: dict) -> tuple[list[dict], d
             seen.add(str(v))
             v = gone[str(v)]
         return v
-    kept = [{**r, "parent": up(r.get("parent"))} for r in raw_nodes if str(r.get("label", "") or "").strip() not in examples]
+    kept = [{**r, "parent": up(r.get("parent"))} for r in raw_nodes if not dud(r)]
     thesis = data.get("thesis")
     return kept, {**data, "thesis": None if str(thesis or "") in gone else thesis}
 
@@ -671,6 +681,7 @@ def _assemble(
             ),
         ))
 
+    _natural_labels(nodes, slide_doc)
     node_ids = {n.id for n in nodes}
     # 위계는 노드의 parent 칸으로 받는다 (edges 로 받던 때는 Solar 가 절반 넘는 노드의 부모를
     # 빠뜨려 루트가 13~17개였다). 앞에 두어, edges 의 parent 와 겹치면 노드 칸이 이긴다.
@@ -708,6 +719,35 @@ def _assemble(
     )
 
     return nodes, edges, _to_sections(raw_sections, doc.total_slides), thesis
+
+
+#: 이름 끝의 추세 낱말 — 「대출 권수 감소」 의 「감소」. 행동·해결 말(절감·개선·강화)은 뜻이 달라져서 넣지 않는다.
+_TREND_TAIL_RE = re.compile(r"\s+(?:증가|감소|상승|하락|증대|늘어남|줄어듦)$")
+_SPACE_RE = re.compile(r"\s+")
+
+
+def _natural_labels(nodes: list[ConceptNode], slide_doc: SlideDoc | None) -> None:
+    """
+    자료에 없는 「변수 + 추세」 이름을 자료의 낱말로 — 「대출 권수 감소」 가 자료에 없고 「대출 권수」 는 있으면 이름을 「대출 권수」 로
+    (제자리 수정, id 는 그대로). 09-30 WP-Q: 모델이 표의 추세를 이름에 붙여, 질문이 「대출 권수 감소도 독서 경험의 요소인데…」 가
+    됐다 — 자료가 요소로 둔 것은 「대출 권수」 다. 변수가 낱말 둘 이상이고(「방문」 하나로는 뜻이 흐려진다), 같은 이름의 노드가
+    없을 때만 바꾼다. 자료에 그 이름이 그대로 있으면(「1인 가구 증가」) 둔다.
+    """
+    if slide_doc is None:
+        return
+    deck = _SPACE_RE.sub("", " ".join(s.raw_text or "" for s in slide_doc.slides))
+    taken = {GI.label_keys(n.label)[1] for n in nodes}
+    for n in nodes:
+        m = _TREND_TAIL_RE.search(n.label)
+        if not m:
+            continue
+        base = n.label[: m.start()].strip()
+        if len(R.content_tokens(base)) < 2 or _SPACE_RE.sub("", n.label) in deck or _SPACE_RE.sub("", base) not in deck:
+            continue
+        if GI.label_keys(base)[1] in taken:
+            continue
+        taken.add(GI.label_keys(base)[1])
+        n.label = base
 
 
 def _thesis_by_label(raw: str, nodes: list[ConceptNode], parent_of: dict[str, str]) -> str | None:
