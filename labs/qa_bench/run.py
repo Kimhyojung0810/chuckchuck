@@ -57,7 +57,7 @@ RECORDING_DEFAULT = ("health_glucose", "sleep")
 STAGE_MODULES = {
     "slides": ["chuckchuck/f01_parse.py"],
     "concepts": ["chuckchuck/f06_concepts.py"],
-    "graph": ["chuckchuck/f07_graph.py"],
+    "graph": ["chuckchuck/f07_graph.py", "chuckchuck/_graph_items.py", "chuckchuck/_claim_rules.py", "chuckchuck/_match.py"],
     "claims": ["chuckchuck/f26_claims.py", "chuckchuck/_claim_quote.py", "chuckchuck/_claim_rules.py", "chuckchuck/_evidence.py", "chuckchuck/_match.py"],
     "triage": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_match.py"],
     "questions": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_grounding.py",
