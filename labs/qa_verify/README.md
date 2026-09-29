@@ -154,6 +154,11 @@ quick 의 가드 감사도 같은 공격을 **LLM 없이** 넣는다 — `guard.
   `forbid_choices` 가 안 나오는지. `scan_deck: true` 면 자료의 「X 아니라 Y」 줄 전부에서 Y 가 보기에 드는지도 본다.
 - `f08_scripted` — `args.nodes`(그래프) · `node_id` · `question` · `gist` 를 정해 둔 LLM 응답으로 대상 `build_questions` 에 넣고
   `expect.gist_forbid` · `gist_forbid_regex` · `gist_require_any` · `question_not_self_contradicting` 으로 본다.
+- `align_contra` — `args.said`(`[{slide_no, text, expect}]`) 문장을 장마다 한 구간으로 놓고 대상 F-11 코드 대조
+  (`_align_checks.contradictions`, 그래프는 장마다 개념 하나)를 돌린다. `expect` 가 `"none"` 이면 모순이 없어야 하고,
+  `{family, slide}` 면 그 장에 그 갈래(`number`·`direction`·`polarity` — `AlignmentItem.contra_kind`)의 모순이 있어야 한다.
+- `evidence_verified` — `args.talk`(구간) · `node` · `quote`(LLM 인용)로 대상 `_align_checks.resolve_evidence` 를 불러
+  `expect.forbid`(녹음에 없는 조각이 남으면 실패) · `contains` · `empty` 로 본다.
 
 `source.file` 은 처음 읽을 때 `out/frozen/<id>.json` 에 얼려 둔다 — 부스 세션 보관소는 지워질 수 있다. 원본도 얼린 것도 없으면
 `inline`(또는 다른 사례의 inline 을 `inline_from` 으로), 그것도 없으면 skip(`quick.cases.skipped`). 발표자의 자료 본문을 새로
