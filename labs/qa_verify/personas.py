@@ -291,8 +291,32 @@ def contrast_pair(q: dict, lines: list[tuple[int, str]]) -> tuple[str, str]:
     return "", ""
 
 
+def no_binary_expected(q: dict) -> bool:
+    """
+    「모르겠어요」 첫 단계에 보기 둘이 **없어야 맞는** 질문 (09-30 WP-J3 정책) — 입장이 서지 않는 탐침(형제 우선순위)과 자리 표시 골자
+    (코드 틀·자료 줄 이어 붙이기)는 검증된 대비 쌍이 없으면 위치 단계다. 가린 낱말 쌍을 만들지 않는 것이 맞다.
+    """
+    b = q.get("basis") or {}
+    if len(b.get("contrast") or []) == 2:
+        return False
+    if ((b.get("probe") or {}).get("kind") or "") == "sibling_priority":
+        return True
+    checks = set(b.get("checks") or [])
+    rebuilt = {"gist_probe_code", "gist_probe_rebuilt", "gist_rebuilt_trap"}
+    return (bool({"gist_template", "fallback_template"} & checks) and not (rebuilt & checks)) or \
+        (q.get("answer_gist") or "").startswith("자료는 이렇게 말해요")
+
+
 def pick_chip(chips: list[str], persona: dict) -> int:
-    """보기 가운데 자료가 **세운** 쪽. 대비 쌍을 알면 그것, 모르면 좋은 답과 더 겹치고 부정된 절에 없는 쪽."""
+    """
+    보기 가운데 자료가 **세운** 쪽. 대비 쌍을 알면 그것, 모르면 좋은 답과 더 겹치고 부정된 절에 없는 쪽.
+    탐침 질문의 입장 보기 쌍(「늘 맞아요」/「조건이 붙어요」)이면 잣대의 입장 정의(`textkit.STANCE_TRUTH`)로 맞는 쪽을 고른다 (09-30 WP-J3).
+    """
+    kind = persona.get("probe") or ""
+    if kind and T.stance_pair(chips):
+        right = T.stance_correct(chips, kind)
+        if right in chips:
+            return chips.index(right)
     affirmed = persona.get("dunno_affirmed", "")
     good = persona.get("answers", {}).get("good", "")
     negated = set(T.negated_terms(good)) | set(T.tokens(persona.get("dunno_negated", "")))
