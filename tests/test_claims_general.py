@@ -379,7 +379,13 @@ def test_함께_필요하다고_한_요소에는_하나만_고르라고_묻지_�
     alone = ClaimDoc(file_name="x", claims=[
         Claim(id="c01", kind="compose", subject_id="mk", object_ids=["sns", "flyer"], evidence=[q(1, "홍보 효과 = SNS 게시 + 전단 배포")]),
     ])
-    assert [p.node_ids for p in derive_probes(g, alone) if p.kind == "sibling_priority"] == [["sns", "flyer"]]
+    # 09-29 P5 (qa/loop2): 나란히 둔 항에는 순위를 묻지 않는다 — 자료가 순위·맞바꿈을 말할 때만
+    assert not [p for p in derive_probes(g, alone) if p.kind == "sibling_priority"]
+    ranked = ClaimDoc(file_name="x", claims=[
+        Claim(id="c01", kind="compose", subject_id="mk", object_ids=["sns", "flyer"],
+              evidence=[q(1, "홍보 효과 = SNS 게시 + 전단 배포"), q(2, "예산이 빠듯하면 전단 배포보다 SNS 게시를 먼저 합니다.")]),
+    ])
+    assert [p.node_ids for p in derive_probes(g, ranked) if p.kind == "sibling_priority"] == [["sns", "flyer"]]
 
 
 def test_F26_이_함께_필요하다는_줄을_compose_인용에_붙인다():
@@ -396,8 +402,10 @@ def test_형제_우선순위_탐침은_다른_탐침이_있으면_덱에_하나�
     g = graph(("a", "매출", [1], None), ("x1", "방문객", [1], "a", 0.6), ("x2", "객단가", [1], "a", 0.5),
               ("b", "비용", [2], None), ("y1", "임대료", [2], "b", 0.6), ("y2", "인건비", [2], "b", 0.5))
     doc = ClaimDoc(file_name="x", claims=[
-        Claim(id="c01", kind="compose", subject_id="a", object_ids=["x1", "x2"], evidence=[q(1, "매출 = 방문객 × 객단가")]),
-        Claim(id="c02", kind="compose", subject_id="b", object_ids=["y1", "y2"], evidence=[q(2, "비용 = 임대료 + 인건비")]),
+        Claim(id="c01", kind="compose", subject_id="a", object_ids=["x1", "x2"],
+              evidence=[q(1, "매출 = 방문객 × 객단가"), q(1, "방문객을 늘리는 것이 객단가보다 먼저입니다.")]),
+        Claim(id="c02", kind="compose", subject_id="b", object_ids=["y1", "y2"],
+              evidence=[q(2, "비용 = 임대료 + 인건비"), q(2, "인건비 대신 임대료를 줄이는 쪽을 택합니다.")]),
         Claim(id="c03", kind="absolute", subject_id="b", evidence=[q(2, "임대료는 반드시 오른다.")]),
     ])
     kinds_ = [p.kind for p in derive_probes(g, doc)]

@@ -440,7 +440,8 @@ def hint_metrics(qdoc: dict, slide_doc: dict, truth: dict | None, ladders: dict[
 # 판정
 # ---------------------------------------------------------------------------
 
-EXPECT = {"gist": "pass", "paraphrase": "pass", "offtopic": "wrong", "wrong": "not_pass", "dunno": "coach"}
+EXPECT = {"gist": "pass", "paraphrase": "pass", "offtopic": "wrong", "wrong": "not_pass", "dunno": "coach",
+          "restate": "not_pass"}
 
 
 def judge_row(kind: str, j: dict) -> dict:

@@ -410,9 +410,14 @@ def rule_cause(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     """
     out: list[Claim] = []
     for s in slidedoc.slides:
-        for line in slide_lines(s.raw_text):
+        lines = slide_lines(s.raw_text)
+        heads = [ln for ln in lines[:2] if len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
+        solution_slide = any(R.SOLVE_HEAD_RE.search(h) for h in heads)
+        for line in lines:
             if R.is_question(line) or not R.is_sentence(line):
                 continue
+            if solution_slide and not _CAUSE_LINK_RE.search(line):
+                continue       # 해결 장의 계획 줄은 인과가 아니다 (09-29 P5 문제 7 · `_under_solution_head`)
             m = R.CAUSE_SPLIT_RE.search(line)
             svo = R.CAUSE_SVO_RE.match(line.strip().rstrip("."))
             if m:
@@ -515,6 +520,30 @@ def _men(deck: _Deck, nid: str, text: str, others: list[str]) -> bool:
     return R.mentioned(deck.labels[nid], text, exclude=[deck.labels[o] for o in others if o in deck.labels])
 
 
+#: 원인과 결과를 **잇는** 말 — 연결 어미·인과 명사·인과 동사. 「늘립니다」 같은 바꾸는 동사만으로는 인과가 아니라 계획일 수 있다.
+_CAUSE_LINK_RE = re.compile(
+    r"때문|해서|하여|[가-힣](?:아|어)서\s|(?:으로|로)\s*인해|탓|수록|면서|원인|이유|결과로|결과적으로|일으|야기|유발|초래|"
+    r"영향|좌우|이어지|이어집|이어져|가져오|가져와|→|->")
+#: 해결 장 제목으로 볼 길이 — 짧은 머리 줄만(「제안」「해결 방안」「개선 전략」).
+_SOLVE_HEAD_MAX = 20
+
+
+def _under_solution_head(deck: _Deck, no: int, idx: int) -> bool:
+    """
+    이 줄이 **해결 장**(제목·첫 줄이 제안·해결·방안 …)에 있는가. 09-29 P5 최종 평가 문제 7: 제안 장의
+    「자유열람실 확충 — 좌석을 40석 늘립니다」 가 근거 없는 인과로 읽혀 5분 트랙 weak 질문이 됐다. 해결 장의 줄은
+    계획이지 원인 주장이 아니다 — 인과를 잇는 말(`_CAUSE_LINK_RE`)이 있을 때만 인과로 본다.
+    """
+    lines = deck.lines.get(no) or []
+    heads = [ln for i, ln in enumerate(lines[:2]) if i != idx and len(ln.strip()) <= _SOLVE_HEAD_MAX and not R.is_sentence(ln)]
+    return any(R.SOLVE_HEAD_RE.search(h) for h in heads)
+
+
+def _plan_not_cause(deck: _Deck, no: int, hit: _Hit) -> bool:
+    """해결 장의 줄인데 원인·결과를 잇는 말이 없다 — cause 로 받지 않는다."""
+    return _under_solution_head(deck, no, hit.idx) and not _CAUSE_LINK_RE.search(hit.unit)
+
+
 def _as_cause(deck: _Deck, ids: list[str], unit: str) -> tuple[str, str, list[str]] | None:
     """비교 표지 없이 인과 말투인 줄 — 줄에 나온 순서대로 원인 → 결과 (「A할수록 B가 떨어진다」·「A해서 B가 는다」)."""
     shown = [i for i in ids if _men(deck, i, unit, [x for x in ids if x != i])]
@@ -586,6 +615,8 @@ def _supported(deck: _Deck, kind: str, subj: str, objs: list[str], no: int,
         near = [x for x in ctx.split("\n") if R.SOLVE_RE.search(x) and any(_men(deck, o, x, [subj]) for o in objs)]
         if not near:
             return None
+    if kind == "cause" and _plan_not_cause(deck, no, hit):
+        return None
     if kind == "cause" and not R.CAUSE_RE.search(unit):
         # 표 행·목록 칸은 인과를 제목·소개 줄이 말한다 (「흐름을 끊는 요인」 밑의 「| 소음 | 밤늦은 공사 |」)
         if not (R.table_cells(deck.lines[no][hit.idx]) and R.CAUSE_RE.search(ctx)):
@@ -601,7 +632,7 @@ def _reread(deck: _Deck, ids: list[str], no: int, hit: _Hit) -> tuple[str, str, 
     적힌 kind 로는 줄이 안 받칠 때 **줄의 말투**로 다시 읽는다 — 인과 말투면 cause(줄에 나온 순서),
     강한 단정 표지가 있으면 absolute. kind 는 자료의 말투가 정한다 (프롬프트 규칙을 코드가 지킨다).
     """
-    if R.CAUSE_RE.search(hit.unit) and (got := _as_cause(deck, ids, hit.unit)) is not None:
+    if R.CAUSE_RE.search(hit.unit) and not _plan_not_cause(deck, no, hit) and (got := _as_cause(deck, ids, hit.unit)) is not None:
         return got
     if R.absolute_marker(hit.unit, strong_only=True) and not hit.title:
         return _supported(deck, "absolute", ids[0], [], no, hit)

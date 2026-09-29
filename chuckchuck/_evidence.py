@@ -57,7 +57,7 @@ def clean_slide_text(raw_text: str) -> str:
     text = raw_text or ""
     if not text.strip():
         return ""
-    text = _CHART_DESC_RE.sub(" ", text)
+    text = strip_chart_descriptions(text)
     text = _FIGCAPTION_RE.sub(" ", text)
     text = _IMAGE_MD_RE.sub(" ", text)
     text = _TAG_RE.sub(" ", text)
@@ -65,9 +65,36 @@ def clean_slide_text(raw_text: str) -> str:
     return _WS_RE.sub(" ", text).strip()
 
 
+#: 그림 설명으로 볼 영문 줄 — 이만큼 길고, 글자 가운데 한글이 이 몫보다 적다.
+CAPTION_LINE_MIN = 30
+CAPTION_HANGUL_MAX = 0.3
+_HANGUL_RE = re.compile(r"[가-힣]")
+_LATIN_RE = re.compile(r"[A-Za-z]")
+
+
+def _hangul_share(line: str) -> float:
+    h, a = len(_HANGUL_RE.findall(line)), len(_LATIN_RE.findall(line))
+    return h / (h + a) if h + a else 1.0
+
+
 def strip_chart_descriptions(raw_text: str) -> str:
-    """Upstage 차트 설명 블록(「- Chart Type: …」 + 설명 줄)을 지운 원문. 줄 구조는 그대로 둔다 — 줄 단위로 보는 호출자용."""
-    return _CHART_DESC_RE.sub("", raw_text or "")
+    """
+    Upstage 그림·차트 설명을 지운 원문. 줄 구조는 그대로 둔다 — 줄 단위로 보는 호출자용.
+
+    - 「- Chart Type: …」「- Figure Type: …」 표시 줄과 바로 뒤 설명 줄.
+    - **한글 자료에서** 한글이 30% 도 안 되는 30자 넘는 줄(표 행 빼고). 09-29 P5 최종 평가(SK): 표시 줄 뒤에 이어진
+      「- “영업이익” (Operating Profit): 60,543 (orange bar)」「An orange line connects the top of the “영업이익” bar…」 가
+      남아 골자·힌트 인용이 됐다. 한글 따옴표가 섞여 `_LONG_LATIN_RE` 도 조각만 지웠다.
+      영문 발표(한글 본문 줄이 하나도 없는 장)는 건드리지 않는다 — 그 줄들이 본문이다.
+    """
+    text = _CHART_DESC_RE.sub("", raw_text or "")
+    lines = text.split("\n")
+    korean_body = any(_hangul_share(ln) >= 0.5 and len(_HANGUL_RE.findall(ln)) >= 4 for ln in lines)
+    if not korean_body:
+        return text
+    kept = [ln for ln in lines
+            if ln.lstrip().startswith("|") or len(ln.strip()) < CAPTION_LINE_MIN or _hangul_share(ln) >= CAPTION_HANGUL_MAX]
+    return "\n".join(kept)
 
 
 def markup_ratio(raw_text: str) -> float:

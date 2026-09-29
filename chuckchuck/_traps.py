@@ -46,8 +46,12 @@ TRAP_LINE_MAX = 70
 KIND_PRIORITY = {"number": 3, "order": 3, "extreme": 3, "direction": 2, "negation": 1}
 #: 자료 줄이 이 개념의 이름(또는 이름의 낱말)을 부르면 더하는 점수 — 개념과 묶인 사실을 먼저 고른다.
 LABEL_BONUS = 2
-#: 뒤집은 수치 후보 배율. 앞에서부터 자료에 없는 값이 나오면 쓴다.
-NUMBER_FACTORS = (2.0, 0.5, 3.0, 1.5)
+#: 뒤집은 수치 후보 배율 — ±20~50%. 줄마다 시작 자리를 달리한다(`_seed`).
+#: 09-29 P5 최종 평가: 예전 (2.0, 0.5, 3.0, 1.5) 는 거의 늘 ×2 라 「광주기 32시간」「만 58세」「3,800원(두 배)」 처럼
+#: 듣는 순간 틀린 줄 아는 값이 나왔다. 함정은 **믿을 만해야** 연습이 된다.
+NUMBER_FACTORS = (1.5, 0.6, 1.3, 0.7, 1.4, 0.8, 1.25, 0.75)
+#: 단위별 자연 상한 — 원래 값이 이 안이면 바꾼 값도 이 안에 둔다 (하루 24시간·100%·한 시간 60분…). 어느 분야에나 같은 단위 상식.
+_UNIT_CAP = {"%": 100.0, "시간": 24.0, "분": 60.0, "초": 60.0, "개월": 12.0, "세": 100.0, "살": 100.0, "점": 100.0}
 
 #: 숫자 뒤 단위 (긴 것 먼저). 시각(「18시」)·장 번호·서수는 단위로 받지 않는다 — 뒤집으면 말이 안 된다.
 _UNITS = ("%p", "%", "배", "회", "번", "개월", "개", "년", "주", "명", "건", "만 원", "만원", "억 원", "억원", "억",
@@ -230,17 +234,52 @@ def _fmt(value: float, raw: str, sign: str) -> str:
     return f"{sign}{body}"
 
 
-def _wrong_value(raw: str, sign: str, unit: str, avoid: set[float]) -> str:
-    """자료에 없는 뒤집힌 값. 퍼센트는 100 을 넘기지 않고, 정수는 정수로 남는 배율만."""
+def _seed(text: str) -> int:
+    """줄마다 다른(그러나 같은 줄이면 늘 같은) 시작 자리 — 모든 함정이 같은 배율로 바뀌지 않게."""
+    return sum(ord(ch) for ch in text or "") % len(NUMBER_FACTORS)
+
+
+def _grain(raw: str) -> float:
+    """원래 값의 반올림 단위 — 소수 자릿수, 정수면 끝 0 의 수(84,200 → 100), 5 의 배수면 5. 바꾼 값도 같은 결로 쓴다."""
+    digits = raw.replace(",", "")
+    if "." in digits:
+        return 10 ** -len(digits.split(".")[1])
+    zeros = len(digits) - len(digits.rstrip("0"))
+    if zeros and zeros < len(digits):
+        return float(10 ** zeros)
+    return 5.0 if digits.endswith("5") and len(digits) >= 2 else 1.0
+
+
+def _in_bounds(w: float, v: float, unit: str) -> bool:
+    cap = _UNIT_CAP.get(unit)
+    if cap is not None and abs(v) <= cap and abs(w) > cap:
+        return False
+    return (w > 0) == (v > 0) or v == 0
+
+
+def _wrong_value(raw: str, sign: str, unit: str, avoid: set[float], *, siblings: list[str] | tuple[str, ...] = (),
+                 seed: int = 0) -> str:
+    """
+    믿을 만한 틀린 값. ① 같은 열·같은 장에서 **같은 단위로 쓰인 다른 값**(발표자가 실제로 헷갈릴 값)이 먼저,
+    ② 없으면 ±20~50% 로 바꾸되 원래 값과 같은 결(자릿수·끝 0·5 단위)로 반올림하고 단위의 자연 상한을 지킨다.
+    ② 는 자료 어디에도 없는 값이어야 한다 — 답이 어느 쪽을 말했는지 가려야 하므로.
+    """
     v = float(raw.replace(",", ""))
     decimals = len(raw.split(".")[1]) if "." in raw else 0
-    for f in NUMBER_FACTORS:
-        w = round(v * f, decimals)
-        if unit == "%" and w > 100:
+    for sib in siblings:
+        try:
+            w = float(sib.replace(",", ""))
+        except ValueError:
             continue
+        if abs(w - v) > 1e-9 and w != 0 and _in_bounds(w, v, unit):
+            return sib
+    g = _grain(raw)
+    order = NUMBER_FACTORS[seed % len(NUMBER_FACTORS):] + NUMBER_FACTORS[:seed % len(NUMBER_FACTORS)]
+    for f in order:
+        w = round(round(v * f / g) * g, decimals)
         if decimals == 0 and abs(w - round(w)) > 1e-9:
             continue
-        if w == 0 or abs(w - v) < 1e-9 or abs(w) in avoid:
+        if w == 0 or abs(w - v) < 1e-9 or abs(w) in avoid or not _in_bounds(w, v, unit):
             continue
         return _fmt(w, raw, sign)
     return ""
@@ -255,6 +294,8 @@ def _eligible_number(m: re.Match, text: str, label_spans) -> bool:
     before = text[max(0, m.start() - 6):m.start()]
     if re.search(r"[’‘'`]\s*$", before):
         return False       # 「’26」 — 줄인 연도
+    if re.search(r"\d\s*[–~\-]\s*$", before) or re.match(r"\s*[–~]\s*\d", text[m.end():]):
+        return False       # 「90–110분」 — 범위의 한 끝을 바꾸면 「90–80분」 처럼 범위가 뒤집힌다 (loop2 dry-run)
     if re.search(r"(?:상위|하위|top|bottom)\s*$", before, re.I):
         return False       # 「상위 25%」 — 순위 구간은 집단의 이름이다
     if not unit:
@@ -272,15 +313,23 @@ def _eligible_number(m: re.Match, text: str, label_spans) -> bool:
     return "." in raw or whole >= 10
 
 
+#: 식 줄 — 「A = B × C ÷ 100」 의 상수는 사실이 아니라 정의다. 바꾸면 틀린 전제가 아니라 다른 식이 된다.
+_FORMULA_LINE_RE = re.compile(r"=.*[×✕*+÷/]")
+
+
 def _number_from_line(row, idx, avoid: set[float]) -> TrapPremise | None:
     text = row.text
+    if _FORMULA_LINE_RE.search(text):
+        return None
     spans = grounding.label_spans(text, idx.labels)
     found = [m for m in _GEN_NUM_RE.finditer(text) if _eligible_number(m, text, spans)]
     if not found:
         return None
     m = found[-1]              # 줄의 끝 숫자가 대개 결과다 (「3,200원에서 1,900원으로 41% 줄었습니다」 의 41%)
     sign, raw, space, unit = m.group(1), m.group(2), m.group(3), m.group(4) or ""
-    wrong = _wrong_value(raw, sign, unit, avoid)
+    # 글 줄은 같은 장의 다른 값을 빌리지 않는다 — 09-29 dry-run: 「1년차 1,000만원」「최상위 구간 평균 25%」 처럼 다른 대상의 값이
+    # 붙어 뜻이 없어졌다. 같은 줄 안의 대상이 무엇인지 코드가 모르니 ±20~50% 로만 바꾼다.
+    wrong = _wrong_value(raw, sign, unit, avoid, seed=_seed(text))
     if not wrong:
         return None
     changed = text[:m.start()] + wrong + space + unit + text[m.end():]
@@ -313,7 +362,37 @@ def _column_name(row, k: int) -> str:
     hdr = [c.strip() for c in row.header.strip().strip("|").split("|")]
     name = hdr[k] if k < len(hdr) else ""
     # 머리 행이 데이터 행이면(문서 변환기 버릇) 열 이름이 숫자다 — 이름으로 안 쓴다
-    return "" if not name or grounding.numbers(name) and not re.search(r"[가-힣A-Za-z]{2,}", name) else name
+    if not name or grounding.numbers(name) and not re.search(r"[가-힣A-Za-z]{2,}", name):
+        return ""
+    # 한글 자료에 영문이 대부분인 열 이름은 문서 변환기의 차트 설명 머리다(09-29 P5: 「Profit Margin (p.p., Annual)」) —
+    # 발표자가 쓴 말이 아니다. 머리 행 전체가 한글이면 그 표는 한글 표다.
+    # 한글이 없고 소문자 영단어가 든 이름(「Value」「Profit Margin (…)」)은 변환기가 차트에 붙인 머리다. 대문자 약어(「EBITDA」「Q/Q」)는 둔다.
+    if not re.search(r"[가-힣]", name) and re.search(r"[a-z]{3,}", name):
+        return ""
+    return name
+
+
+def _row_key(row) -> str:
+    """표 첫 열의 이름(「연도」「메뉴」) — 행 머리가 무엇인지. 없으면 ""."""
+    if not row.header:
+        return ""
+    first = row.header.strip().strip("|").split("|")[0].strip()
+    return first if re.fullmatch(r"[가-힣]{1,8}", first) else ""
+
+
+def _row_values(row, k: int, sign: str, unit: str) -> list[str]:
+    """
+    같은 행 **다른 열**의 값 가운데 부호·단위가 같은 것 (원문 표기) — 숫자 전제를 믿을 만한 값으로 바꿀 때 먼저 쓴다.
+    같은 행은 같은 대상의 같은 지표라(「도입 전 | 도입 후」「30분 | 60분」) 열을 헷갈린 값이 가장 그럴듯한 틀린 값이다.
+    같은 열의 다른 행은 쓰지 않는다 — 행마다 지표가 다른 표(행 머리가 지표 이름)에서 단위가 다른 값이 붙었다(09-29 dry-run).
+    """
+    out: list[str] = []
+    for j, cell in enumerate(row.cells[1:], start=1):
+        m = _GEN_NUM_RE.fullmatch(cell.strip() or "x")
+        if j == k or not m or (m.group(4) or "") != unit or bool(m.group(1)) != bool(sign):
+            continue
+        out.append(m.group(2))
+    return out
 
 
 def _number_from_table_row(row, idx, avoid: set[float]) -> TrapPremise | None:
@@ -326,10 +405,15 @@ def _number_from_table_row(row, idx, avoid: set[float]) -> TrapPremise | None:
         if not m or m.group(0).strip() != cell:
             continue
         sign, raw, _, unit = m.group(1), m.group(2), m.group(3), m.group(4) or ""
-        wrong = _wrong_value(raw, sign, unit, avoid)
+        col = _column_name(row, k)
+        numeric = sum(1 for c in row.cells[1:] if _GEN_NUM_RE.fullmatch(c.strip() or "x"))
+        if not col and numeric >= 2:
+            continue       # 값 칸이 여럿인데 열 이름을 모르면 「무엇의 값」 인지 말할 수 없다 (09-29 P5)
+        if float(raw.replace(",", "")) == 0:
+            continue       # 0 은 「없음」 이다 — 다른 값으로 바꾸면 뜻이 바뀌는 게 아니라 다른 사실이 된다
+        wrong = _wrong_value(raw, sign, unit, avoid, siblings=_row_values(row, k, sign, unit), seed=_seed(row.text))
         if not wrong:
             continue
-        col = _column_name(row, k)
         what = f"{head}의 「{col}」 값" if col else f"{head}의 값"
         premise = f"표에서 {josa(what, '이', '가')} {wrong}{unit}"
         fact = f"표에서 {josa(what, '은', '는')} {cell}"
@@ -355,7 +439,9 @@ def _numeric_tables(rows) -> list[list]:
         if r is not None and r.table and (not block or block[-1].header == r.header):
             block.append(r)
             continue
-        data = [x for x in block if x.cells and any(_cell_number(c) is not None for c in x.cells[1:])]
+        # 머리 행은 데이터가 아니다 — 「1인당 …」 처럼 열 이름에 숫자가 있으면 값 행으로 읽혔다 (09-29 P5: 극값 전제의 열 이름이 빠졌다)
+        data = [x for x in block if x.cells and x.text != x.header
+                and any(_cell_number(c) is not None for c in x.cells[1:])]
         if len(data) >= 3:
             out.append(data)
         block = [r] if (r is not None and r.table) else []
@@ -371,16 +457,22 @@ def _extreme_from_table(block, idx) -> TrapPremise | None:
         heads = [r.cells[0].strip() for _, r in vals]
         if any(len(grounding.squash(h)) < 2 for h in heads) or len(set(heads)) != len(heads):
             continue       # 행 머리가 「A」 처럼 짧으면 답에서 가려낼 수 없다
+        units = {u for h in heads for u in re.findall(r"\(([^)]{1,6})\)", h)}
+        if len(units) >= 2:
+            continue       # 행 머리마다 단위가 다르면(「회전율(회)」「보유(월)」) 행끼리 견줄 수 없는 표다 — 가장 큰 행이 뜻이 없다
         same_sign = all(v <= 0 for v, _ in vals) or all(v >= 0 for v, _ in vals)
         if not same_sign:
             continue
         key = (lambda t: abs(t[0]))
         top, low = max(vals, key=key), min(vals, key=key)
         col = _column_name(block[0], k) if block[0].header else ""
-        size = "크기가" if all(v <= 0 for v, _ in vals) else ""
-        what = f"「{col}」 {size or '값이'}" if col else (size or "값이")
-        premise = f"표에서 {what} 가장 큰 것은 {low[1].cells[0].strip()}"
-        fact = f"표에서 {what} 가장 큰 것은 {top[1].cells[0].strip()}({top[1].cells[k].strip()})"
+        if not col:
+            continue       # 어느 열의 끝인지 말할 수 없으면 만들지 않는다 (09-29 P5: 「값이 가장 큰 것은 2025」)
+        size = "크기가" if all(v <= 0 for v, _ in vals) else "값이"
+        key_name = _row_key(block[0])
+        who = f"{josa(key_name, '은', '는')}" if key_name else "것은"
+        premise = f"표에서 「{col}」 {size} 가장 큰 {who} {low[1].cells[0].strip()}"
+        fact = f"표에서 「{col}」 {size} 가장 큰 {who} {top[1].cells[0].strip()}({top[1].cells[k].strip()})"
         return _premise("extreme", premise, fact, block[0].slide_no, _cue(low[1].cells[0]), _cue(top[1].cells[0]))
     return None
 
@@ -407,29 +499,135 @@ def _order_from_line(row, idx) -> TrapPremise | None:
             return None
         return _premise("order", f"{y}보다 {adj} {x}", text, row.slide_no, _cue(y, "보다"), _cue(x, "보다"))
     for clause in grounding.clauses(text):
-        t = _THAN_TOKEN_RE.search(clause)
-        f = _FIRST_TOKEN_RE.match(clause)
-        if not t or not f or f.end("x") > t.start("y"):
+        swapped = _swap_compared(clause, idx)
+        if swapped is None:
             continue
-        x, y = f.group("x"), t.group("y")
-        if grounding.squash(x) == grounding.squash(y) or not (_deck_noun(x, idx) and _deck_noun(y, idx)):
-            continue
-        j = f.group("j") or ""
-        new_j = {"은": _josa_only(y, "은", "는"), "는": _josa_only(y, "은", "는"), "이": _josa_only(y, "이", "가"),
-                 "가": _josa_only(y, "이", "가"), "의": "의"}.get(j, "")
-        swapped = (clause[:f.start("x")] + y + new_j + clause[f.end("j") if j else f.end("x"):t.start("y")]
-                   + x + clause[t.end("y"):])
-        premise, fact = _clean(swapped), _clean(clause)
-        if not (TRAP_LINE_MIN <= len(premise) <= TRAP_LINE_MAX):
+        premise, x, y = swapped
+        fact = _clean(clause)
+        premise = _clean(premise)
+        if not (TRAP_LINE_MIN <= len(premise) <= TRAP_LINE_MAX) or grounding.squash(premise) == grounding.squash(fact):
             continue
         return _premise("order", premise, fact, row.slide_no, _cue(x, "보다"), _cue(y, "보다"))
     return None
+
+
+#: 명사 뒤 조사(떼고 명사구를 본다). 긴 것 먼저.
+_NP_JOSA_RE = re.compile(r"(?:에서는|으로는|에게는|에서|으로|에게|은|는|이|가|을|를|의|와|과|도|에|로|만)$")
+#: 주어·화제 조사 — 비교 대상 명사구 바로 앞 낱말이 이것으로 끝나면 그 낱말은 다른 비교 대상(주어)이다.
+_SUBJECT_JOSA = ("은", "는", "이", "가")
+#: 관형형 끝(「화면을 본 시간」 의 「본」, 「중요한 것」 의 「중요한」) — 명사구를 꾸미는 절이다. 어느 분야에나 같은 문법.
+_ADNOMINAL_RE = re.compile(r"(?:한|된|던|는|적인|같은|있는|없는|많은|작은|큰|높은|낮은|좋은|새로운)$")
+#: 닮음·가까움 서술어 — 「보다」 가 주어가 아니라 다른 말(「C에」)과 견준다.
+_SIMILAR_RE = re.compile(r"가깝|가까|비슷|닮|같")
+#: 「Y보다 … 것은 X입니다」 — 비교의 다른 쪽이 서술어 자리에 있는 꼴.
+_THING_IS_RE = re.compile(r"(?:것은|것이|건)\s+(?P<x>[^,.·]+?)(?:입니다|이다|예요|이에요|다)[.]?$")
+
+
+def _bare_noun(token: str, idx) -> bool:
+    """조사·관형형이 안 붙은 명사 낱말인가 — 자료에 두 번 이상 나오거나 개념 이름에 든다."""
+    if not re.fullmatch(r"[가-힣A-Za-z0-9]+", token or "") or _ADNOMINAL_RE.search(token) or _NP_JOSA_RE.search(token) and len(token) > 2:
+        return False
+    return _deck_noun(token, idx) or any(grounding.mentions(lab, token) for lab in idx.labels)
+
+
+def _np_before(tokens: list[str], end: int, idx, last: str) -> int:
+    """tokens[end] 의 줄기(last)로 끝나는 명사구의 첫 낱말 자리. 앞 낱말은 조사 없는 명사일 때만 붙인다 (「대출 권수」)."""
+    if not _bare_noun(last, idx):
+        return -1
+    start = end
+    while start > 0 and _bare_noun(tokens[start - 1], idx):
+        start -= 1
+    return start
+
+
+def _suffix_share(a: str, b: str) -> int:
+    n = 0
+    while n < min(len(a), len(b)) and a[-1 - n] == b[-1 - n]:
+        n += 1
+    return n
+
+
+def _with_josa(word: str, josa_after: str) -> str:
+    """낱말 뒤에 붙던 조사를 새 낱말의 받침에 맞춘다."""
+    pairs = {"은": ("은", "는"), "는": ("은", "는"), "이": ("이", "가"), "가": ("이", "가"), "을": ("을", "를"),
+             "를": ("을", "를"), "과": ("과", "와"), "와": ("과", "와")}
+    if josa_after in pairs:
+        return josa(word, *pairs[josa_after])
+    return word + josa_after
+
+
+def _swap_compared(clause: str, idx) -> tuple[str, str, str] | None:
+    """
+    문장 속 비교 「… Y보다 …」 의 두 대상을 **명사구째** 맞바꾼다 → (바꾼 절, 원래 X, 원래 Y). 못 가리면 None.
+
+    09-29 P5 최종 평가: 예전엔 문장 첫 낱말과 「보다」 앞 낱말 **하나씩**을 바꿔 「권수 대출보다」「시간은 화면을 본 손실보다」
+    가 나왔다. 이제는:
+    - Y 는 「보다」 앞의 조사 없는 명사 낱말 묶음(「대출 권수」)이다. 그 앞 낱말이 관형형·목적어면(「화면을 본 시간」)
+      Y 가 절의 꾸밈을 받는 것이라 바꾸지 않는다 — 주어 조사로 끝난 낱말만 앞에 올 수 있다.
+    - X 는 ① 「Y보다 … 것은 X입니다」 의 X, ② 앞쪽 명사구 가운데 Y 와 끝 글자가 겹치는 것(같은 종류의 이름), ③ 없으면
+      Y 바로 앞의 주어 명사구. 명사구는 조사 없는 명사 낱말 묶음이다.
+    """
+    tokens = clause.split()
+    y_end = next((i for i, t in enumerate(tokens) if re.search(r"[가-힣A-Za-z0-9]보다$", t)), -1)
+    if y_end < 0:
+        return None
+    y_last = tokens[y_end][: -len("보다")]
+    y_start = _np_before(tokens, y_end, idx, y_last)
+    if y_start < 0:
+        return None
+    y_words = tokens[y_start:y_end] + [y_last]
+    y = " ".join(y_words)
+    if any(y.startswith(b) for b in _THAN_BASELINE):
+        return None
+    before = tokens[y_start - 1] if y_start > 0 else ""
+    if before and not before.endswith(_SUBJECT_JOSA) and not before.endswith((",", "—", "-")):
+        return None        # 「화면을 본 시간보다」 — Y 가 꾸밈을 받는다
+    rest = " ".join(tokens[y_end + 1:])
+    if _SIMILAR_RE.search(rest):
+        return None        # 「A는 B보다 C에 가깝다」 — 견주는 쪽이 B·C 라 A 와 B 를 바꾸면 뜻이 없어진다 (09-29 P5 focus)
+    thing = _THING_IS_RE.search(rest)
+    if y_start == 0 and thing:
+        x = thing.group("x").strip()
+        if not all(_bare_noun(w, idx) for w in x.split()) or len(x.split()) > 4:
+            return None
+        head = " ".join(tokens[:y_start])
+        new_rest = rest[:thing.start("x")] + y + rest[thing.end("x"):]
+        return f"{head} {x}보다 {new_rest}".strip(), x, y
+    # 앞쪽 명사구 후보 (낱말 하나씩과 묶음) — 조사를 뗀 줄기로 본다
+    cands: list[tuple[int, int, str, str]] = []      # (시작, 끝, 명사구, 뒤 조사)
+    for i in range(y_start):
+        m = _NP_JOSA_RE.search(tokens[i])
+        stem = tokens[i][: m.start()] if m and len(tokens[i]) - len(m.group(0)) >= 1 else tokens[i]
+        j = m.group(0) if m and stem != tokens[i] else ""
+        s0 = _np_before(tokens, i, idx, stem)
+        if s0 >= 0:
+            cands.append((s0, i, " ".join(tokens[s0:i] + [stem]), j))
+            if s0 < i:
+                cands.append((i, i, stem, j))
+    if not cands:
+        return None
+    y_head = y_words[-1]
+    shared = [c for c in cands if _suffix_share(c[2].split()[-1], y_head) >= 1 and grounding.squash(c[2]) != grounding.squash(y)]
+    if shared:
+        pick = max(shared, key=lambda c: (_suffix_share(c[2].split()[-1], y_head), -c[0]))
+    else:
+        subj = [c for c in cands if c[1] == y_start - 1 and c[3] in _SUBJECT_JOSA]
+        if not subj:
+            return None
+        pick = subj[0]
+    s0, e0, x, jx = pick
+    if grounding.squash(x) == grounding.squash(y):
+        return None
+    out = tokens[:s0] + [_with_josa(y, jx)] + tokens[e0 + 1:y_start] + [f"{x}보다"] + tokens[y_end + 1:]
+    return " ".join(out), x, y
 
 
 def _direction_from_line(row, idx) -> TrapPremise | None:
     text = _clean(row.text)
     if row.table or not (TRAP_LINE_MIN <= len(text) <= TRAP_LINE_MAX):
         return None
+    if row.index == 0 and not _SENTENCE_END_RE.search(text):
+        return None        # 장 제목(「…을 끊는 4 단계」)은 주장이 아니라 이름표다 — 뒤집어도 물을 거리가 안 된다 (loop2 dry-run)
     spans = grounding.label_spans(text, idx.labels)
     for m in _DIRECTION_RE.finditer(text):
         nxt = text[m.end():m.end() + 1]
@@ -505,8 +703,10 @@ def _joined(rows: list) -> list:
             skip = False
             continue
         nxt = rows[i + 1] if i + 1 < len(rows) else None
+        # 뒤 줄이 그 자체로 존댓말 문장(「감사합니다」)이면 떨어진 서술어가 아니다 — 09-29 P5: 「연 6,800만 원 감사합니다」 가 전제가 됐다.
         if (nxt is not None and not row.table and not nxt.table and not _SENTENCE_END_RE.search(row.text)
-                and 0 < len(grounding.squash(nxt.text)) <= _TAIL_ROW_MAX and not grounding.numbers(nxt.text)):
+                and 0 < len(grounding.squash(nxt.text)) <= _TAIL_ROW_MAX and not grounding.numbers(nxt.text)
+                and not re.search(r"(?:니다|요)[.!]?\s*$", nxt.text)):
             out.append(grounding.Row(slide_no=row.slide_no, index=row.index, text=f"{row.text} {nxt.text}"))
             skip = True
             continue
@@ -574,10 +774,12 @@ def verify(tp: TrapPremise, idx) -> bool:
     if any(grounding.squash(r.text) == p for r in idx.all_rows()):
         return False
     if tp.kind == "number":
-        vals = _deck_values(idx)
-        for w in tp.wrong:
-            nums = grounding.numbers(w)
-            if not nums or abs(float(nums[0])) in vals:
+        # 바꾼 값이 **사실 줄**의 값이면 전제가 사실이다. 같은 표의 다른 행·같은 장 다른 줄의 값은 된다 — 발표자가 실제로
+        # 헷갈릴 값이 더 믿을 만한 함정이다 (09-29 P5). 그 줄에 없는 값인지는 사실 문장과 견준다.
+        fact_vals = {abs(float(n)) for n in grounding.numbers(tp.fact)}
+        for w, r in zip(tp.wrong, tp.right):
+            nums, rn = grounding.numbers(w), grounding.numbers(r)
+            if not nums or abs(float(nums[0])) in fact_vals or (rn and float(nums[0]) == float(rn[0])):
                 return False
     return True
 
@@ -629,6 +831,23 @@ def trap_hint(tp: TrapPremise) -> str:
     return f"{where} 다시 보고, 질문 속 {josa(_WHAT_CHANGED.get(tp.kind, '내용'), '이', '가')} 자료와 같은지 확인해 보세요."
 
 
+def trap_narrow(tp: TrapPremise) -> str:
+    """
+    함정 질문의 첫 「모르겠어요」 — **장만 가리킨다.** 자료의 값·순서·사실 줄은 말하지 않는다.
+    09-29 P5 최종 평가 문제 6: 코칭 1단(narrow)이 사실 줄을 인용 카드로 바로 보여 줘서 함정이 첫 「모르겠어요」 에 풀렸다.
+    """
+    where = f"자료 {tp.slide_no}장을" if tp.slide_no else "자료를"
+    what = josa(_WHAT_CHANGED.get(tp.kind, "내용"), "이", "가")
+    return f"{where} 떠올려 볼래요? 질문이 말한 {what} 그 장에 적힌 것과 같은지부터 짚어 보면 돼요."
+
+
+def leaks_fact(text: str, tp: TrapPremise) -> bool:
+    """글이 자료의 사실(정답 단서·사실 줄)을 흘리는가 — 함정 코칭 1·2단 문장 검사."""
+    if not text:
+        return False
+    return hits(text, tp.right, tp.kind) or (len(grounding.squash(tp.fact)) >= 8 and grounding.squash(tp.fact) in grounding.squash(text))
+
+
 # ---------------------------------------------------------------------------
 # 단서 대조 — 질문이 전제를 실었나 (F-08) · 답이 어느 쪽을 말했나 (F-09)
 # ---------------------------------------------------------------------------
@@ -661,17 +880,63 @@ def hits(text: str, cues: list[str], kind: str) -> bool:
 
 #: 질문이 스스로 전제를 의심하게 만드는 말 — 「실제 값은 어떻게 되나요」「맞나요」 는 함정을 드러낸다 (qa/trap 벤치:
 #: solar 문장 16개 중 2개가 「실제 값은…」 「실제 자료에서는 어떻게…」 로 물었다). 전제 문장에 있는 말은 세지 않는다.
-_REVEAL_MARKS = ("실제", "사실", "정말", "맞나요", "맞는지", "맞다면", "맞습니까", "정확한지", "확인해", "다시 보면")
+#: 09-29 P5: 「이 주장은 **자료와 어떻게 다른가요**?」 가 통과했다 — 다름·차이·오류를 묻는 말도 함정을 드러낸다.
+_REVEAL_MARKS = ("실제", "사실", "정말", "맞나요", "맞는지", "맞다면", "맞습니까", "정확한지", "확인해", "다시 보면",
+                 "다른가요", "다른지", "다릅니까", "어떻게 다른", "달라진", "차이가 있", "차이는", "틀린", "틀렸", "오류", "잘못")
+#: 전제 뒤 물음에 와도 되는 낱말 — 전제를 두고 **무엇을·왜** 묻는 뼈대. 이 밖의 낱말이 전제·사실·개념 이름에 없으면
+#: 전제와 따로 노는 둘째 질문이다 (09-29 P5: 「…18,416이라고 했는데, 차입금과 현금의 동시 보유가 재무 전략에 미치는 의미는?」).
+_TAIL_FRAME = ("무엇", "어떻", "어떤", "어느", "설명", "이유", "근거", "의미", "보여", "수치", "주장", "자료", "결과",
+               "까닭", "말해", "알려", "그렇", "이렇", "생각", "해석", "핵심", "발표", "이것", "그것", "나타", "시사", "가리키",
+               "되는", "하는", "있는", "그런", "이런", "얼마", "보나요", "보는", "볼", "뜻", "주세요", "주는", "주나", "인가요",
+               "나요", "하나", "되나", "할까", "까요", "해요", "했나", "였나", "왜", "그래서", "그러면", "이렇게", "그렇게",
+               "그게", "이게", "그건", "이건", "무슨", "어째서", "정도", "뭔가", "뭐", "뭘")
+#: 꼬리의 새 낱말이 이만큼이면 딴 질문이다. 하나(「비결이 뭔가요」)는 전제를 두고 **왜** 를 달리 말한 것이라 둔다.
+TAIL_NOVEL_MAX = 1
+#: 전제를 얹는 이음말 — 여기부터가 전제에 대해 묻는 꼬리다.
+_CARRY_RE = re.compile(r"(?:했는데|하는데|이라는데|라는데|인데|다는데|는데)\s*,?\s*")
 
 
-def question_carries(question: str, tp: TrapPremise) -> bool:
-    """질문 문장이 전제를 실었는가 — 바꾼 단서가 있고, 자료의 단서(정답)는 없고, 전제를 의심하는 말이 없다.
-    표의 순위 전제는 「가장」 까지."""
+def _carry_end(question: str) -> int:
+    """전제를 얹는 이음말이 끝나는 자리 — 없으면 -1 (「…라는 주장은 무엇인가요」 는 전제를 발표자의 말로 얹지 않은 꼴이다)."""
+    m = None
+    for m in _CARRY_RE.finditer(question or ""):
+        pass
+    return m.end() if m is not None else -1
+
+
+def _tail_novel(question: str, tp: TrapPremise, label: str = "") -> list[str]:
+    """전제 뒤 물음의 낱말 가운데 전제·사실·개념 이름·물음 뼈대 어디에도 없는 것 (+ 전제 밖 숫자)."""
+    end = _carry_end(question)
+    if end < 0:
+        return []
+    tail = question[end:]
+    known = grounding.squash(" ".join([tp.premise, tp.fact, label]))
+    out = [w for w in re.findall(r"[가-힣A-Za-z]{2,}", tail)
+           if not w.startswith(_TAIL_FRAME) and grounding.squash(grounding.stem(w)) not in known]
+    nums = [n for n in grounding.numbers(tail) if n not in grounding.numbers(tp.premise + " " + tp.fact)]
+    return out + nums
+
+
+def question_carries(question: str, tp: TrapPremise, label: str = "", deck_text: str = "") -> bool:
+    """
+    질문 문장이 전제를 실었는가 — 바꾼 단서가 있고, 자료의 단서(정답)는 없고, 전제를 의심하는 말이 없고,
+    전제를 발표자의 말로 얹었고(「…라고 했는데」), 그 뒤에 **딴 질문**을 붙이지 않았다(`_tail_novel`). 표의 순위 전제는 「가장」 까지.
+    deck_text 를 주면 꼬리의 새 낱말이 자료의 **다른 대상**(다른 행·다른 개념)이면 하나여도 딴 질문이다
+    (loop2 실측: 「…172라고 했는데, 채소 먼저의 60분 혈당 값은 얼마인가요?」 — 전제를 바로잡아도 답이 안 된다).
+    """
     if not question or not hits(question, tp.wrong, tp.kind) or hits(question, tp.right, tp.kind):
         return False
     if tp.kind == "extreme" and not _SUPERLATIVE_RE.search(question):
         return False
     if any(m in question and m not in tp.premise for m in _REVEAL_MARKS):
+        return False
+    if _carry_end(question) < 0:
+        return False
+    novel = _tail_novel(question, tp, label)
+    if len(novel) > TAIL_NOVEL_MAX or any(re.fullmatch(r"[\d.,]+", w) for w in novel):
+        return False
+    deck = grounding.squash(deck_text)
+    if deck and any(len(grounding.stem(w)) >= 2 and grounding.squash(grounding.stem(w)) in deck for w in novel):
         return False
     return not _disputes(question, tp)
 

@@ -41,6 +41,7 @@ from ._json_text import extract_json_object
 from ._match import norm_tokens
 from ._probes import as_claims, derive_probes, mentions, probe_question, probe_why
 from ._probes import josa as _probe_josa
+from ._probe_stance import gist_needs_rebuild, probe_gist
 from ._speech import to_haeyo, ungrounded_numbers
 from .contracts import (
     PROBE_KINDS,
@@ -1716,6 +1717,10 @@ def _gist_overlap(a: str, b: str) -> float:
     return len(ta & tb) / len(ta | tb)
 
 
+def _twin_exempt(q: Question) -> bool:
+    return q.trap or bool(q.basis and "gist_probe_rebuilt" in q.basis.checks)
+
+
 def _drop_twin_questions(
     questions: list[Question], limit: int
 ) -> tuple[list[Question], list[str]]:
@@ -1734,8 +1739,10 @@ def _drop_twin_questions(
     for q in questions:
         # 함정 질문은 쌍둥이 비교에서 뺀다 (qa/trap). 함정 골자는 전제를 바로잡는 자료 줄이라 같은 장을 인용한 다른 골자와
         # 겹쳐 보이지만, 묻는 것(틀린 전제를 알아채는가)이 다르다 — 밀리면 트랙의 함정 허용치가 조용히 깎인다.
-        twin = not q.trap and any(
-            _gist_overlap(q.answer_gist, k.answer_gist) > QA_TWIN_GIST_MAX for k in kept if not k.trap
+        # 탐침 골자를 코드 문장으로 다시 쓴 질문(gist_probe_rebuilt, qa/loop2)도 뺀다 — 틀 낱말(「…게 답이에요」)이 겹쳐
+        # 서로 다른 탐침이 쌍둥이로 읽혔다. 탐침은 서로 다른 자료 줄을 따지므로 쌍둥이가 아니다.
+        twin = not _twin_exempt(q) and any(
+            _gist_overlap(q.answer_gist, k.answer_gist) > QA_TWIN_GIST_MAX for k in kept if not _twin_exempt(k)
         )
         (spare if twin else kept).append(q)
 
@@ -2480,7 +2487,78 @@ def _plain_end_to_haeyo(sent: str) -> str:
     if m and (ord(m.group(1)) - 0xAC00) % 28 == 4:            # ㄴ받침 + 다 (한다·미친다·된다) → ㅂ니다 → 해요체
         ch = chr(ord(m.group(1)) - 4 + 17)
         return to_haeyo(sent[:m.start()] + ch + "니다" + sent[m.end():])
+    if m:
+        return _conjugate_da(sent, m)
     return sent
+
+
+#: 받침 없는 어간의 모음 → 해요체 합친 꼴 (보다→봐요 · 주다→줘요 · 되다→돼요 · 지다→져요). 중성 번호(0~20) 기준.
+_VOWEL_CONTRACT = {8: 9, 13: 14, 11: 10, 20: 6}      # ㅗ→ㅘ · ㅜ→ㅝ · ㅚ→ㅙ · ㅣ→ㅕ
+#: ㅂ 받침인데 규칙 활용하는 어간 (좁아요·잡아요·입어요) — 나머지 ㅂ 어간(어렵다·쉽다·가깝다)은 「워요」 다.
+_B_REGULAR = set("좁잡입씹업뽑굽")
+
+
+def _syll(ch: str) -> tuple[int, int, int]:
+    code = ord(ch) - 0xAC00
+    return code // 588, (code % 588) // 28, code % 28
+
+
+def _compose(cho: int, jung: int, jong: int = 0) -> str:
+    return chr(0xAC00 + cho * 588 + jung * 28 + jong)
+
+
+def _conjugate_da(sent: str, m: re.Match) -> str:
+    """
+    「…X다」 로 끝나는 한다체·해라체의 나머지 꼴 → 해요체. 09-29 P5 최종 평가: 골자 110개 중 16개가 「…촉진했다」「…기여했다」
+    「…제시되지 않았다」「…더 크다」 로 끝났다 — 기존 규칙은 ㄴ받침(한다)·있다·이다·하다만 풀었다.
+    과거 ㅆ(했다→했어요) · ㅡ 탈락(크다→커요) · 르(다르다→달라요) · 받침 어간(많다→많아요 · 적다→적어요) ·
+    ㅂ(어렵다→어려워요) · 모음 어간(보다→봐요). ㄷ·ㅅ·ㅎ 불규칙은 코드가 가를 수 없어 둔다 — 틀리게 바꾸는 것보다 남긴다.
+    """
+    ch = m.group(1)
+    if not ("가" <= ch <= "힣") or ch == "이":      # 「이다」 는 서술격 — 앞 낱말과 붙어 있을 때만 위 규칙이 푼다
+        return sent
+    head, tail = sent[:m.start()], sent[m.end():]
+    cho, jung, jong = _syll(ch)
+    prev = head[-1:] if head[-1:] and "가" <= head[-1:] <= "힣" else ""
+    bright = lambda j: j in (0, 8)                                   # ㅏ·ㅗ → 아요, 나머지 → 어요
+    if jong == 20:                                                   # ㅆ — 했다·되었다·않았다
+        return f"{head}{ch}어요{tail}"
+    if jong == 17:                                                   # ㅂ
+        if ch in _B_REGULAR:
+            return f"{head}{ch}{'아요' if bright(jung) else '어요'}{tail}"
+        return f"{head}{_compose(cho, jung)}워요{tail}"
+    if jong in (7, 19, 27):                                          # ㄷ·ㅅ·ㅎ — 불규칙이 섞여 있다
+        return sent
+    if jong:
+        return f"{head}{ch}{'아요' if bright(jung) else '어요'}{tail}"
+    if jung == 18:                                                   # ㅡ
+        if ch == "르" and prev:
+            pc, pj, pjong = _syll(prev)
+            if pjong == 0:
+                return f"{head[:-1]}{_compose(pc, pj, 8)}{'라요' if bright(pj) else '러요'}{tail}"
+            return sent
+        pj = _syll(prev)[1] if prev else 4
+        return f"{head}{_compose(cho, 0 if bright(pj) else 4)}요{tail}"
+    if jung in _VOWEL_CONTRACT:
+        return f"{head}{_compose(cho, _VOWEL_CONTRACT[jung])}요{tail}"
+    if jung in (0, 4, 1, 5):                                         # ㅏ·ㅓ·ㅐ·ㅔ — 가요·서요·내요·세요
+        return f"{head}{ch}요{tail}"
+    return sent
+
+
+#: 골자·힌트·이유에 새는 내부 장 표기 「S5에서」「S2에서」「(S3)」 — 화면에는 「자료 5장」 이다 (09-29 P5 최종 평가 문제 5).
+#: 뒤에 조사·닫는 괄호·가운뎃점이 올 때만 바꾼다 — 「S24」 같은 제품 이름을 건드리지 않게, 장 수를 넘는 번호도 둔다.
+_SLIDE_TAG_RE = re.compile(r"(?<![A-Za-z0-9])S(\d{1,3})(?=(?:에서|에게|에는|에|의|과|와|은|는|이|가|를|을|부터|까지|로|\)|·|,|\s*«))")
+#: 「S3 자료에」 — 장 표기 뒤에 「자료」 를 붙인 꼴은 「자료 3장에」 로 합친다 (loop2 dry-run 골자).
+_SLIDE_TAG_DECK_RE = re.compile(r"(?<![A-Za-z0-9])S(\d{1,3})\s+(?:자료|슬라이드)(?=[에의는를가])")
+
+
+def _slide_tags(text: str, n_slides: int = 0) -> str:
+    def ok(no: int) -> bool:
+        return no >= 1 and (not n_slides or no <= n_slides)
+
+    text = _SLIDE_TAG_DECK_RE.sub(lambda m: f"자료 {m.group(1)}장" if ok(int(m.group(1))) else m.group(0), text or "")
+    return _SLIDE_TAG_RE.sub(lambda m: f"자료 {m.group(1)}장" if ok(int(m.group(1))) else m.group(0), text)
 
 
 def _polite_statement(text: str) -> str:
@@ -2898,6 +2976,7 @@ def _normalize_questions(
       방법·수치·출처가 있을 때만, 검색 문헌은 질문의 대상이 될 수 없고 골자·힌트에 논문 이야기가 남지 않는다.
     """
     target_ids = {m.node_id for m in marks}
+    n_slides = max(by_no) if by_no else 0
     number_sources = _number_sources(by_no, transcript, papers)
     # 근거 검사 색인 (09-29 기준선 §5). 자료가 없으면 None — 검사들이 판단하지 않고 예전처럼 둔다.
     idx = grounding.build_index(by_no or {}, list(by_id.values()),
@@ -2926,7 +3005,11 @@ def _normalize_questions(
         # 합쇼체(to_haeyo)도 여기서 푼다 — 09-26 실측: "고민된다고 했습니다." 가 질문 가운데, "…할 수 있습니다." 가 골자에.
         # 질문은 자르지 않고 문장 단위로 줄인다(_fit_question) — 잘린 물음은 물음이 아니다.
         def _tidy(key: str) -> str:
-            return to_haeyo(_second_person(_plain_speech(_unslug(str(raw.get(key, "") or ""), node))))
+            val = raw.get(key, "") or ""
+            # 목록으로 온 칸(loop2 실측: 골자가 「['…', '…']」 로 화면에 나갔다)은 문장으로 잇는다 — str() 하면 파이썬 표기가 샌다.
+            if isinstance(val, (list, tuple)):
+                val = " ".join(str(x).strip() for x in val if str(x).strip())
+            return to_haeyo(_second_person(_plain_speech(_slide_tags(_unslug(str(val), node), n_slides))))
 
         def _tidy_statement(key: str) -> str:
             # 힌트·이유·골자는 해라체(「생각해 보라」)·한다체(「…근거로 한다」)도 푼다 — 09-29 기준선 §5-10.
@@ -3002,7 +3085,7 @@ def _normalize_questions(
             if written_q and number_sources and ungrounded_numbers(traps.strip_wrong(written_q, tp), number_sources):
                 written_q = ""
                 checks.append("ungrounded_number_dropped")
-            if written_q and traps.question_carries(written_q, tp):
+            if written_q and traps.question_carries(written_q, tp, node.label, idx.text if idx is not None else ""):
                 checks.append("trap_llm_worded")
             else:
                 if written_q:
@@ -3093,6 +3176,12 @@ def _normalize_questions(
             checks.append("gist_rebuilt_trap")
         gist = written_gist or _evidence_gist(node, question_text, anchors, by_no, trap=trap) \
             or _fallback_gist(node, trap=trap, slide_nos=anchors)
+        # 탐침 질문의 골자가 따져 묻는 줄을 되풀이하면(단정 그대로·인과 그대로) 정답 요지가 질문과 거꾸로다 — 판정(F-09)은
+        # 그런 답을 통과시키지 않는다(`_probe_stance`). 골자도 같은 규율로 다시 쓴다 (09-29 qa/loop2).
+        if probe is not None and tp is None and gist_needs_rebuild(gist, probe, question_text) and probe_gist(probe):
+            gist = probe_gist(probe)
+            written_gist = ""
+            checks.append("gist_probe_rebuilt")
         if tp is not None:
             # 함정의 기대 답은 전제를 자료의 사실로 바로잡는 것 — 자료 줄 그대로다. 이유·힌트도 코드 문장이다:
             # 이유는 질문과 함께 화면에 보이므로 함정의 답을 흘리지 않고, 힌트는 장만 가리키고 값·순서는 말하지 않는다.
@@ -3104,7 +3193,7 @@ def _normalize_questions(
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
         parts = [
             p for p in (
-                _drop_cite_claim(_clip(_polite_statement(to_haeyo(_plain_speech(_unslug(str(p) or "", node))))), papers)
+                _drop_cite_claim(_clip(_polite_statement(to_haeyo(_plain_speech(_slide_tags(_unslug(str(p) or "", node), n_slides))))), papers)
                 for p in (raw.get("answer_gist_parts") or [])
             )
             if p and not _cites_scaffold(p) and not _ungrounded_citation(p, papers)

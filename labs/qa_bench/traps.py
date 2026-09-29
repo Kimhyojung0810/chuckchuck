@@ -65,7 +65,8 @@ def check_trap(q: dict, sd: dict, graph: dict) -> dict:
         "has_premise": tp is not None,
         "premise_false": bool(tp) and traps.verify(tp, idx),
         "fact_is_deck": bool(tp) and fact_on_slide(tp, sd),
-        "carries": bool(tp) and traps.question_carries(qq.question, tp),
+        # F-08 과 같은 인자(개념 이름·자료 전문)로 잰다 — 안 주면 개념 이름이 「새 낱말」 로 세어져 F-08 이 받은 문장을 떨어뜨린다
+        "carries": bool(tp) and traps.question_carries(qq.question, tp, qq.label, idx.text if idx is not None else ""),
         "worded": "llm" if "trap_llm_worded" in (qq.basis.checks if qq.basis else []) else "template",
         "slot": qq.basis.slot if qq.basis else "", "probe": bool(qq.basis and qq.basis.probe),
     }

@@ -110,6 +110,9 @@ CLAIMS = ClaimDoc(file_name="sleep.pdf", claims=[
           evidence=[q(6, "주말에 몰아 자면 리듬은 반드시 무너집니다.")]),
     Claim(id="c07", kind="compose", subject_id="quality", object_ids=["sufficient-time", "continuity", "regularity"],
           text="잠을 망치는 세 가지 문제", evidence=[q(7, "잠을 망치는 세 가지 문제")]),
+    # 형제 우선순위는 자료가 두 요소 사이의 순위를 말할 때만 (qa/loop2) — 대조(contrast) 줄로 신호를 준다
+    Claim(id="c08", kind="contrast", subject_id="sufficient-time", object_ids=["continuity"],
+          evidence=[q(2, "바쁜 주에는 연속성보다 시간을 먼저 채웁니다.")]),
 ])
 
 

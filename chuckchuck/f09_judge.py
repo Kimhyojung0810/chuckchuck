@@ -53,9 +53,18 @@ from ._deck_claims import (
     opposes,
     states_reference,
     support,
+    without_lines,
+)
+from ._probe_stance import (
+    RESTATE_FOLLOWUP,
+    RESTATE_POINT,
+    RESTATE_REACT,
+    probe_brief,
+    probed_quotes,
+    restates_probe,
 )
 from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
-from ._traps import premise_stance, without_premise
+from ._traps import leaks_fact, premise_stance, trap_narrow, without_premise
 from ._match import norm_tokens
 from ._speech import to_haeyo
 from ._json_text import extract_json_object
@@ -202,6 +211,10 @@ _DECK_CONFLICT_FOLLOWUP = "자료 {no}장을 다시 보면, {what} — 방금 �
 _DECK_CONFLICT_SUMMARY = "{label} — 자료 {no}장과 어긋나게 설명한 부분이 있었어요."
 #: 판정이 답과 반대 명제를 「빠진 점」·react 로 들고 있을 때 — 통과선 아래로, 어느 쪽이 맞는지는 말하지 않는다.
 SELF_OPPOSED_SCORE_MAX = 60
+#: 탐침이 따지는 자료 줄을 되풀이·수긍만 한 답 (`_probe_stance.restates_probe`) — 통과 못 하는 partial.
+#: 09-29 P5 최종 평가: 단정 「완전히 막을 수 있다」 를 그대로 말한 오답이 good 85 였다. 틀린 말이라기보다 **묻는 것에 안 닿은**
+#: 답이라 wrong 이 아니라 partial 로 두고 되묻기를 남긴다.
+PROBE_RESTATE_SCORE_MAX = 55
 _SELF_OPPOSED_REACT = "방금 답에 자료와 방향이 거꾸로인 부분이 있어요. 늘고 주는 쪽, 맞다·아니다 쪽을 다시 확인해 보세요."
 #: 등급이 wrong 인데 LLM react 가 틀린 주장을 인정하는 말. 09-29 실측: 3장과 정반대인 답에 「…부분은 정확해요」.
 _PRAISE_RE = re.compile(r"정확해요|정확합니다|맞아요|맞습니다|잘 짚|훌륭|좋은 답")
@@ -821,6 +834,7 @@ def _normalize(
     evidence: str = "",
     focus: str = "",
     deck: Deck | None = None,
+    probed: tuple[str, ...] | list[str] = (),
 ) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
@@ -862,7 +876,16 @@ def _normalize(
     # 함정 전제를 되뇌며 바로잡은 답(「82%가 아니라 41%예요」)의 전제 절은 자료 대조·자기모순 검사에서 뺀다 — 그 숫자는
     # 답의 주장이 아니라 질문을 옮긴 것이다.
     claimed = without_premise(answer, question.trap_premise) if (question.trap and question.trap_premise) else answer
-    if not trap_agreed:
+    # 탐침이 따지는 자료 줄을 되풀이·수긍만 한 답 (09-29 P5 최종 평가 문제 1) — 자료와 어긋난 곳이 없어서 아래 가드는 못 잡는다.
+    restated = "" if trap_agreed else restates_probe(answer, question)
+    if restated:
+        lead = f"질문이 묻는 것: {RESTATE_POINT[restated]}"
+        if verdict in ("good", "partial"):
+            verdict = "partial"
+        score = min(score, PROBE_RESTATE_SCORE_MAX)
+        points = [lead] + [p for p in points if p != lead]
+        data = {**data, "followup": RESTATE_FOLLOWUP[restated]}
+    if not trap_agreed and not restated:
         # 자료와 어긋난 답은 이미 「이 질문」 에 답한 것이다 — 무관 가드보다 먼저 보고, 걸리면 무관 가드는 건너뛴다.
         verdict, score, points, conflict = _enforce_deck(claimed, deck, verdict, score, points, question.question)
         if conflict is None:
@@ -870,16 +893,19 @@ def _normalize(
                 answer, evidence, question, verdict, score, points, focus
             )
     # 판정이 스스로 「답과 반대 명제」 를 정답으로 들고 있으면서 통과를 준 자기모순 (09-29 벤치 held-out 오답 2건).
+    # 탐침이 따지는 줄을 뒤집은 절은 빼고 본다 — 판정 react 가 그 줄을 되풀이해도 그건 정답이 아니다 (09-29 P5 health 골자 60).
     self_opposed = False
-    if not trap_agreed and conflict is None and not guard and qa_passed(verdict, score) and claimed:
+    if not trap_agreed and not restated and conflict is None and not guard and qa_passed(verdict, score) and claimed:
         said_by_judge = " ".join([*points, str(data.get("react", "") or "")])
-        if opposes(claimed, said_by_judge):
+        if opposes(claimed, said_by_judge, exempt=tuple(probed)):
             verdict, score, self_opposed = "partial", min(score, SELF_OPPOSED_SCORE_MAX), True
 
     react = str(data.get("react", "") or "").strip() or _REACT_BY_VERDICT[verdict]
     # 가드가 등급을 뒤집었으면 LLM 의 react 는 그 등급과 어긋난 문장이다 — 코드 문구로.
     if trap_agreed:
         react = _TRAP_AGREED_REACT
+    elif restated:
+        react = RESTATE_REACT[restated]
     elif conflict is not None:
         react = _DECK_CONFLICT_REACT.format(no=conflict.slide_no, what=conflict.what)
     elif self_opposed:
@@ -1277,10 +1303,13 @@ def coach_stuck(
     # 발판 단계는 LLM 을 부르지 않는다 — 골자에서 낱말 하나를 가린 빈칸이 전부다.
     # 재료가 없으면(골자 없음) 이 단을 건너뛰고 해설로 간다.
     deck_text = _deck_text(slidedoc)
+    # 함정 질문은 1·2단에서 자료의 사실을 보여 주지 않는다 — 장만 가리킨다 (09-29 P5 최종 평가 문제 6).
+    # 사실 줄은 3단(해설)에서 연다. 힌트 사다리가 함정이면 사실 줄을 뒤로 미루는 것(f08 build_hint_ladder)과 같은 규율이다.
+    trap_tp = question.trap_premise if question.trap else None
     if stage == "scaffold":
         scaffold = _scaffold_judgement(question, graph, deck_text)
         if scaffold is not None:
-            return scaffold
+            return replace(scaffold, evidence_quote="") if trap_tp is not None else scaffold
         stage = "explain"
     said = "(질문을 못 알아들어 되물었다)" if stage == "clarify" else "(모르겠다고 했다)"
 
@@ -1320,6 +1349,10 @@ def coach_stuck(
             followup = ""
         followup = followup or _clip(question.question)
         explanation = ""
+    elif trap_tp is not None:
+        followup, choices, explanation = trap_narrow(trap_tp), [], ""
+        if leaks_fact(react, trap_tp):
+            react = _COACH_REACT_FALLBACK
     else:
         followup, choices = _narrow_followup(data, question, graph, deck_text)
         explanation = ""
@@ -1344,7 +1377,8 @@ def coach_stuck(
         coach_stage=stage if stage in QA_COACH_STAGES else "narrow",
         explanation=explanation,
         choices=choices,
-        evidence_quote=question.evidence_quote,
+        # 함정의 인용은 사실 줄이다 — 화면이 인용 카드로 그리므로 해설 전에는 싣지 않는다(장 번호는 둔다 — 장 그림으로 가리킨다).
+        evidence_quote="" if (trap_tp is not None and stage != "explain") else question.evidence_quote,
         evidence_slide_no=question.evidence_slide_no,
     )
 
@@ -1679,12 +1713,17 @@ def judge_answer(
     # 자료 본문이 정답의 원본이다 (모듈 머리 「판정은 무엇을 근거로 하나」). 자료가 없는 호출(옛 세션·flat 판정)은
     # 예전 그대로 골자가 기준이다.
     deck = deck_from_slidedoc(slidedoc)
-    question, gist_grounded = _ground_gist(question, deck)
+    # 탐침 질문이 **따져 묻는** 자료 줄은 채점 원본이 아니다 (09-29 P5 최종 평가 문제 1 · `_probe_stance`).
+    # 단정·근거 없는 인과·긴장의 모범답은 그 줄을 부정하거나 보탠다 — 그 줄과 어긋난다고 깎으면 거꾸로 채점한다.
+    probed = probed_quotes(question)
+    judge_deck = without_lines(deck, probed) if probed else deck
+    question, gist_grounded = _ground_gist(question, deck, judge_deck)
     user = _build_user_prompt(
         question, answer, turns, graph, alignment, transcript, ctx, prior_answers,
         slidedoc=slidedoc, memory_cm=_memory_concept(question, memory, graph),
     )
-    user += _deck_line_block(answer, prior_answers, deck)
+    user += _deck_line_block(answer, prior_answers, judge_deck)
+    user += probe_brief(question)
     # 정답 골자는 판정에도 싣는다 (규칙 3 의 참고 답). 코칭(coach_stuck)만 갖고
     # 있으면 이지선다 질문에 정답 단답이 와도 모델이 자료 발췌에서 확신을 못 얻어
     # unknown 으로 도망간다 — 이지선다 단답이 '너무 짧다' 로 거부된 실측(2026-08-07).
@@ -1754,11 +1793,12 @@ def judge_answer(
             *_speech_block(question, transcript),
         ]),
         focus="\n".join(focus_lines),
-        deck=deck,
+        deck=judge_deck,
+        probed=tuple(probed),
     )
 
 
-def _ground_gist(question: Question, deck: Deck) -> tuple[Question, bool]:
+def _ground_gist(question: Question, deck: Deck, against: Deck | None = None) -> tuple[Question, bool]:
     """
     골자가 자료로 받쳐지는가 — 그리고 받쳐지지 않는 **골자 요소**를 체크리스트에서 뺀 질문 사본.
 
@@ -1769,8 +1809,9 @@ def _ground_gist(question: Question, deck: Deck) -> tuple[Question, bool]:
     """
     if deck.empty:
         return question, True
-    grounded = support(question.answer_gist or "", deck, question.question).grounded
-    parts = [p for p in question.answer_gist_parts if support(p, deck, question.question).grounded]
+    # 어긋남은 against(탐침이 따지는 줄을 뺀 덱)로 본다 — 단정의 경계를 말한 골자가 그 단정과 어긋난다고 「참고만」 이 되지 않게.
+    grounded = support(question.answer_gist or "", deck, question.question, against).grounded
+    parts = [p for p in question.answer_gist_parts if support(p, deck, question.question, against).grounded]
     if parts != list(question.answer_gist_parts):
         question = replace(question, answer_gist_parts=parts)
     return question, grounded

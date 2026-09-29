@@ -303,6 +303,34 @@ def _joint(comp: Claim, claims: list[Claim]) -> bool:
     return any(R.both_needed(x) for x in quotes)
 
 
+#: 자료가 요소 사이에 **순위·맞바꿈**을 말하는 표지 — 우선·먼저·더 중요·대신·상충·둘 중 …. 어느 분야에나 쓰는 한국어 문법 낱말만.
+_RANKING_RE = re.compile(
+    r"우선|먼저|더\s*중요|더\s*큰|보다|대신|트레이드\s*오프|trade-?off|상충|둘\s*중|희생|포기|맞바꾸|맞바꿔|균형|택해|택할|택하|"
+    r"양자택일|반면|중요도|순위|비중", re.I)
+
+
+def _ranked(x: str, y: str, comp: Claim, claims: list[Claim], graph_by: dict[str, ConceptNode]) -> bool:
+    """
+    자료가 형제 x·y 사이에 **순위나 맞바꿈을 스스로 말하는가** — 그럴 때만 「하나만 챙긴다면」 을 물을 수 있다.
+
+    09-29 P5 최종 평가 문제 4: 형제 우선순위가 탐침 25개 중 7개였고, 자료에 없는 우선순위를 골자가 지어내거나(「정보 비대칭과
+    신축 빌라 중…」) 「둘 다 동등」 을 말한 모범답이 partial 65 를 받았다. 식·목록의 항은 대개 **나란히** 둔 것이다.
+    신호: x·y 를 **함께** 주어·목적어로 둔 비교 주장, 또는 식·목록 장이나 x·y 의 장에서 x·y 이름을 **둘 다** 부르는 인용 줄에 순위 표지.
+    """
+    pair = {x, y}
+    if any(c.kind == "compare" and pair <= ({c.subject_id} | set(c.object_ids)) for c in claims):
+        return True
+    slides = {q.slide_no for q in comp.evidence} | set(graph_by[x].slide_nos or []) | set(graph_by[y].slide_nos or [])
+    labels = [graph_by[x].label, graph_by[y].label]
+    # **둘 사이의** 순위여야 한다 — 한쪽만 다른 개념과 견준 줄(「A보다 중요한 C」)은 형제 순위가 아니다 (loop2 dry-run).
+    for c in claims:
+        for q in c.evidence:
+            # 이름은 **통째로** 나와야 한다 — 절반 겹침(R.mentioned)이면 덱 주제어(「수면 …」「매출 …」) 하나로 두 이름이 다 걸린다.
+            if q.slide_no in slides and _RANKING_RE.search(q.quote) and all(R.mention_score(lab, q.quote) >= 1 for lab in labels):
+                return True
+    return False
+
+
 def _sibling_priority(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
     """
     같은 compose 의 형제 요소(그래프에서 부모가 같은 요소 둘 이상) — 하나만 챙길 수 있다면 어느 쪽인가.
@@ -312,7 +340,8 @@ def _sibling_priority(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> 
     트랙의 part 자리가 뜻 있는 각도를 얻는다. 둘째 노드는 그다음 무거운 형제. compose 하나에 최대 하나.
 
     자료가 「둘 다 필요하다」「하나만으로는 …」 라고 말한 compose 는 건너뛴다 — 자료가 부정한 선택을 강요하면
-    골자가 자료에 없는 우선순위를 정답으로 가르친다 (09-29 벤치).
+    골자가 자료에 없는 우선순위를 정답으로 가르친다 (09-29 벤치). 그리고 자료가 두 요소 사이에 순위·맞바꿈을 **스스로**
+    말한 짝만 만든다(`_ranked`, 09-29 P5 최종 평가) — 나란히 둔 항에 순위를 묻지 않는다. 상한(SIBLING_MAX)은 그대로.
     """
     out: list[Probe] = []
     for comp in (c for c in claims if c.kind == "compose"):
@@ -328,7 +357,11 @@ def _sibling_priority(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> 
             continue
         order = {o: i for i, o in enumerate(comp.object_ids)}
         ranked = sorted(groups[0], key=lambda o: (-graph_by[o].weight, order[o]))
-        x, y = ranked[0], ranked[1]
+        # 자료가 순위·맞바꿈을 말한 짝만 — 무거운 순으로 첫 짝. 없으면 만들지 않는다 (09-29 P5 문제 4).
+        pair = next(((a, b) for i, a in enumerate(ranked) for b in ranked[i + 1:] if _ranked(a, b, comp, claims, graph_by)), None)
+        if pair is None:
+            continue
+        x, y = pair
         a_label = graph_by[comp.subject_id].label
         out.append(Probe(
             kind="sibling_priority",

@@ -42,7 +42,8 @@ from chuckchuck.providers.llm_base import LLMProvider  # noqa: E402
 
 OUT = HERE / "out"
 CORPUS = HERE / "corpus"
-REPORT_DIR = ROOT / "docs" / "review" / "2026-09-29_QA_근거검증" / "bench"
+#: 표를 쓸 곳 — 루프마다 따로 남기려면 QA_BENCH_REPORT_DIR 로 바꾼다 (qa/loop2 는 loop2/ 에 쓴다; P5 표를 덮지 않게).
+REPORT_DIR = Path(os.environ.get("QA_BENCH_REPORT_DIR") or ROOT / "docs" / "review" / "2026-09-29_QA_근거검증" / "bench")
 DEFAULT_REPO = Path(os.environ.get("QA_BENCH_REPO_ROOT", "/home/yehschuck/project/chuckchuck"))
 
 #: 라이브 경로(.pptx → f01)로 태울 합성 덱. deck.pptx 가 있어야 한다.
@@ -365,8 +366,10 @@ def stage_questions(run: DeckRun, sd: dict, graph: dict, claims: dict, triage: d
     from chuckchuck import build_questions
 
     t0, c0 = time.time(), BUDGET.used
+    # 질문 LLM 응답도 얼린다(Replay) — 코드 쪽 후처리(골자·함정 규칙)만 고쳤으면 프롬프트가 같아 다시 부르지 않는다 (qa/loop2).
     doc = build_questions(graph, triage, track=track, alignment=alignment, flow=flow, transcript=transcript,
-                          slidedoc=sd, context=run.spec["context"], claims=claims, llm=engine(run.name, f"{tag}{track}"))
+                          slidedoc=sd, context=run.spec["context"], claims=claims,
+                          llm=Replay(run.name, f"{tag}{track}", run.dir / f"{tag}_llm_t{track}.json"))
     log_stage(run.name, f"{tag}{track}", t0, c0)
     t1 = time.time()
     ladders_of(doc.to_dict())
@@ -388,6 +391,16 @@ def ladders_of(qdoc: dict) -> dict[str, list[str]]:
 
 #: 문항 A(탐침 질문이 있으면 그것): 골자 그대로 · 그럴듯한 오답 · 모르겠어요 / 문항 B: 바꿔 말한 좋은 답 · 무관한 답 · 그럴듯한 오답
 JUDGE_PLAN = {"A": ("gist", "wrong", "dunno"), "B": ("paraphrase", "offtopic", "wrong")}
+#: qa/loop2 (09-29): 탐침 질문이면 A 에 「따져 묻는 자료 줄을 되풀이한 답」(restate, LLM 없이 만든다)을 넣는다 — P5 에서 판정이
+#: 탐침 질문을 거꾸로 채점했다(단정에 동의한 답 good 85). 예산 때문에 탐침 A 는 모르겠어요 대신 restate·offtopic, B 는 바꿔 말한 답만.
+JUDGE_PLAN_PROBE = {"A": ("gist", "restate", "offtopic", "wrong"), "B": ("paraphrase",)}
+
+
+def restate_answer(q: dict) -> str:
+    """탐침 근거 줄을 그대로 받아들인 답 — 「자료에 그렇게 나와 있어요」. 통과하면 판정이 탐침을 거꾸로 채점한 것이다."""
+    ev = ((q.get("basis") or {}).get("probe") or {}).get("evidence") or []
+    quote = (ev[0].get("quote") or "").strip().rstrip(".") if ev else ""
+    return f"{quote}. 자료에 그렇게 나와 있어요." if quote else ""
 OFFTOPIC = ("저희 팀은 지난 분기에 물류 창고 세 곳의 재고 회전율을 비교했고, "
             "동절기 배송 지연이 반품률을 끌어올린다는 결론을 얻었어요.")
 
@@ -438,10 +451,13 @@ def stage_judge(run: DeckRun, sd: dict, graph: dict, qdoc: dict, answers: dict[s
     if STAGE_ORDER.index("judge") < run.fresh_idx and run.keys.get("judge") == key and (run.dir / fname).exists():
         return read_json(run.dir / fname)
     records = []
-    for slot, q in pick_sample(qdoc):
+    sample = pick_sample(qdoc)
+    plan = JUDGE_PLAN_PROBE if sample and (sample[0][1].get("basis") or {}).get("probe") else JUDGE_PLAN
+    for slot, q in sample:
         ans = answers.get(f"{run.name}|{q['id']}|{h(q['question'], q.get('answer_gist', ''))}") or {}
-        for kind in JUDGE_PLAN[slot]:
+        for kind in plan[slot]:
             text = {"gist": q.get("answer_gist", ""), "offtopic": OFFTOPIC, "dunno": "모르겠어요",
+                    "restate": restate_answer(q),
                     "paraphrase": ans.get("paraphrase", ""), "wrong": ans.get("wrong", "")}[kind]
             if not text:
                 continue

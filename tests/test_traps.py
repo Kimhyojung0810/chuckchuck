@@ -104,16 +104,19 @@ def kinds(cs):
 # ---------------------------------------------------------------------------
 
 def test_수치_전제는_자료에_없는_값으로_한_곳만_바꾼다():
+    """09-29 P5: 바꾼 값은 ×2 가 아니라 ±20~50% 안의 믿을 만한 값이다 (qa/loop2)."""
     tp = next(c.premise for c in cands(CAFE_GRAPH, CAFE, "kiosk") if c.premise.kind == "number")
     assert tp.fact == "무인 주문기 도입 후 평균 대기 시간이 12분에서 7분으로 42% 줄었습니다"
-    assert tp.premise == "무인 주문기 도입 후 평균 대기 시간이 12분에서 7분으로 84% 줄었습니다"
-    assert tp.wrong == ["84%"] and tp.right == ["42%"] and tp.slide_no == 2
+    wrong = int(tp.wrong[0].rstrip("%"))
+    assert tp.premise == f"무인 주문기 도입 후 평균 대기 시간이 12분에서 7분으로 {wrong}% 줄었습니다"
+    assert wrong != 42 and 42 * 0.5 <= wrong <= 42 * 1.5
+    assert tp.right == ["42%"] and tp.slide_no == 2
 
 
 def test_표의_수치와_표의_끝을_뒤집는다():
     cs = cands(CAFE_GRAPH, CAFE, "menu")
     ext = next(c.premise for c in cs if c.premise.kind == "extreme")
-    assert ext.premise == "표에서 「주간 판매량」 값이 가장 큰 것은 과일 스무디"
+    assert ext.premise == "표에서 「주간 판매량」 값이 가장 큰 메뉴는 과일 스무디"     # 첫 열 이름(「메뉴」)을 행 이름으로
     assert "아메리카노(420)" in ext.fact
     num = next(c.premise for c in cs if c.premise.kind == "number")
     assert num.premise.startswith("표에서 ") and "값이" in num.premise
@@ -264,7 +267,7 @@ def test_전제에_동의한_답은_함정_가드에_걸린다():
     q = _trap_question()
     assert q.trap_premise.kind == "number"
     for answer in ("네, 맞아요. 주문기 덕분에 대기가 확 줄었어요.",
-                   "무인 주문기를 들인 뒤 대기 시간이 84% 줄어든 건 주문이 분산됐기 때문이에요."):
+                   f"무인 주문기를 들인 뒤 대기 시간이 {q.trap_premise.wrong[0]} 줄어든 건 주문이 분산됐기 때문이에요."):
         j = _judge(q, answer, premise_corrected=None)
         assert j.verdict == "wrong" and j.score <= 35 and j.react == _TRAP_AGREED_REACT, answer
 

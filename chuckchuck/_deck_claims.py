@@ -584,7 +584,16 @@ def conflicts(text: str, deck: Deck, question: str = "") -> list[Conflict]:
 _META_RE = re.compile(r"답변|답에|언급|제시|설명|빠져|빠졌|빠진|부족|누락|말하지|짚지|다루지")
 
 
-def opposes(answer: str, judge_text: str) -> str:
+def _restates_line(stems: list[str], line: str) -> bool:
+    """절의 줄기가 자료 줄 하나를 **거의 그대로** 말하는가 — 그 줄 낱말(방향 낱말 빼고)의 60% 이상·셋 이상."""
+    line_stems = {s for s in content_stems(line) if not direction(s)}
+    if not line_stems:
+        return False
+    hit = sum(1 for s in line_stems if _has(stems, s))
+    return hit >= min(STRONG_MATCH_MIN, len(line_stems)) and hit >= STRONG_MATCH_RATIO * len(line_stems)
+
+
+def opposes(answer: str, judge_text: str, exempt: tuple[str, ...] | list[str] = ()) -> str:
     """
     판정 자신의 말(react·missing_points)이 답의 한 절을 **반대 방향·반대 부정으로** 다시 말하는가. 걸린 판정 절을 돌려준다.
 
@@ -596,6 +605,11 @@ def opposes(answer: str, judge_text: str) -> str:
     for a in clauses(answer):
         a_stems = [s for s in content_stems(a) if not direction(s)]
         if len(a_stems) < 2:
+            continue
+        # 질문이 **따져 보라고 한** 자료 줄(탐침 근거)을 뒤집는 절은 자기모순 대조에서 뺀다 — 그 줄을 부정하는 것이 정답일 수
+        # 있다. 09-29 P5 최종 평가(health): 판정 react 가 단정 줄 「완전히 막을 수 있다」 를 되풀이했고, 그 반대를 말한 골자가
+        # 「자기모순」 으로 partial 60 을 받았다.
+        if any(_restates_line(a_stems, line) for line in exempt):
             continue
         for j in clauses(judge_text):
             j_stems = [s for s in content_stems(j) if not direction(s)]
@@ -632,8 +646,11 @@ class Support:
         return self.ratio >= GIST_GROUNDED_MIN and not self.missing_numbers and not self.conflicts
 
 
-def support(text: str, deck: Deck, question: str = "") -> Support:
-    """글(골자·골자 요소)의 낱말·숫자가 자료에 있는가, 자료와 어긋나는 짝이 있는가. 자료가 비면 받쳐진 것으로 본다."""
+def support(text: str, deck: Deck, question: str = "", against: Deck | None = None) -> Support:
+    """
+    글(골자·골자 요소)의 낱말·숫자가 자료에 있는가, 자료와 어긋나는 짝이 있는가. 자료가 비면 받쳐진 것으로 본다.
+    against 를 주면 어긋남은 그 덱으로 본다 — 탐침 질문은 따져 묻는 줄을 뺀 덱(`without_lines`)이 대조 원본이다.
+    """
     if deck.empty or not (text or "").strip():
         return Support(1.0, (), ())
     stems = content_stems(text)
@@ -642,7 +659,31 @@ def support(text: str, deck: Deck, question: str = "") -> Support:
     missing = tuple(
         f"{n.value:g}" for n in numbers(text) if not any(n.same_value(d) for d in deck_nums)
     )
-    return Support(round(ratio, 2), missing, tuple(conflicts(text, deck, question)))
+    return Support(round(ratio, 2), missing, tuple(conflicts(text, against if against is not None else deck, question)))
+
+
+def _holds(line_text: str, quote: str) -> bool:
+    """자료 줄이 이 인용을 담거나 인용에 담기는가 (띄어쓰기 무시). 짧은 조각(8자 미만)은 우연히 걸리니 보지 않는다."""
+    a, q = _nospace(clean_slide_text(line_text)), _nospace(clean_slide_text(quote)).rstrip(".")
+    if len(q) < 8 or len(a) < 8:
+        return False
+    return q in a or a.rstrip(".") in q
+
+
+def without_lines(deck: Deck, quotes: list[str] | tuple[str, ...]) -> Deck:
+    """
+    이 인용들을 담은 줄을 뺀 덱 — 판정의 **대조 원본**에서 뺄 때 쓴다.
+
+    09-29 P5 최종 평가: 탐침 질문(단정의 경계 · 근거 없는 인과 · 긴장)은 자료 줄 **자체를 따져 보라는** 질문이다.
+    판정 가드는 그 줄을 정답으로 삼아, 단정을 반박한 모범답에 「자료와 방향이 거꾸로」 를 주고 단정에 동의한 답은 통과시켰다.
+    따져 묻는 줄은 채점 원본이 아니다 — 골자가 자료로 받쳐지는지 보는 낱말 집합(stems)은 그대로 둔다(낱말은 여전히 자료의 말이다).
+    """
+    wanted = [q for q in quotes if (q or "").strip()]
+    if deck.empty or not wanted:
+        return deck
+    keep = tuple(ln for ln in deck.lines if not any(_holds(ln.text, q) for q in wanted))
+    regions = tuple(r for r in deck.regions if not any(_holds(r.text, q) for q in wanted))
+    return Deck(keep, regions, deck.tables, deck.stems)
 
 
 def nearest_lines(text: str, deck: Deck, k: int = 6) -> list[DeckLine]:
