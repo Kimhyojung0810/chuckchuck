@@ -921,13 +921,15 @@ def _subject_before(clause: str, idx: int, nums: list[Num], deck: Deck) -> tuple
     """
     num = nums[idx]
     start = nums[idx - 1].end if idx > 0 else 0
-    got = [s for s in content_stems(clause[start:num.start])[-3:] if _has(deck.stems, s)]
+    # 수에 붙은 글자(「87.96조원」 의 조원 · 「2학년」 의 학년)는 주인이 아니라 단위 조각이다 — 주인으로 삼으면 같은 단위를 쓴
+    # 아무 줄이 주인이 된다(09-30 quick 가드 감사: 「33조원 87.96조원이라고 하고, 32조원 …」 이 「조원의 수치」 로 4장과 어긋남).
+    got = [s for s in content_stems(clause[start:num.start], drop_units=True)[-3:] if _has(deck.stems, s)]
     if got or idx == 0:
         return got, -1
     prev = nums[idx - 1]
     if re.fullmatch(r"\s*(?:이|가|은|는|의|에서|에)?\s*", clause[prev.end:num.start]) and deck.has_number(prev):
         start2 = nums[idx - 2].end if idx > 1 else 0
-        return [s for s in content_stems(clause[start2:prev.start])[-3:] if _has(deck.stems, s)], idx - 1
+        return [s for s in content_stems(clause[start2:prev.start], drop_units=True)[-3:] if _has(deck.stems, s)], idx - 1
     return [], -1
 
 
@@ -965,7 +967,7 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
         subject, label_idx = _subject_before(clause, idx, nums, deck)
         if not subject and idx == 0 and not content_stems(clause[:num.start]) and lead:
             # 절 머리의 수 — 주어는 바로 앞 절 끝에 있다(「앱 알림 개발비까지 해서 | 약 3000만원입니다」, held-out 지하철 덱)
-            subject = [s for s in content_stems(lead)[-3:] if _has(deck.stems, s)]
+            subject = [s for s in content_stems(lead, drop_units=True)[-3:] if _has(deck.stems, s)]
         if not subject:
             # 수 바로 앞이 주어가 아니어도(「오전 11시부터 오후 1시 사이는 90분 가까이」) 이름을 부른 표 행이 있으면 그 값과 견준다
             out += _row_value_conflict(clause, idx, nums, deck, lines_ids, lead)
