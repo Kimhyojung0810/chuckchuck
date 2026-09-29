@@ -1,0 +1,310 @@
+{
+ "alignment": {
+  "speech_match": "unrelated",
+  "speech_overlap": 0.0522,
+  "basis": "skipped",
+  "skipped_slides": [],
+  "items": [
+   {
+    "node_id": "classroom-air",
+    "label": "교실 공기",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "co2-concentration",
+    "label": "이산화탄소 농도",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation",
+    "label": "환기",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-time",
+    "label": "환기 시간",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-area",
+    "label": "환기 면적",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "wind-speed",
+    "label": "바람 속도",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-volume",
+    "label": "환기량",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-effect",
+    "label": "환기 효과",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "cross-ventilation",
+    "label": "맞통풍",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "one-side-ventilation",
+    "label": "한쪽 환기",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "concentration-reduction-speed",
+    "label": "농도 감소 속도",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "ventilation-efficiency",
+    "label": "환기 효율",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "temperature-change",
+    "label": "실내 온도 변화",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "student-count-variation",
+    "label": "학생 수 변동",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "sample-size-limit",
+    "label": "표본 크기 제한",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "optimal-ventilation-strategy",
+    "label": "최적 환기 전략",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "conclusion",
+    "label": "결론",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   }
+  ]
+ },
+ "score": {
+  "score": 38,
+  "cap": 39,
+  "basis": "partial",
+  "note": "녹음이 이 발표 자료와 다른 발표라서 말한 내용은 채점하지 않았어요 — 자료와 말하기 습관만 봤고, 이 자료의 발표로는 39점 위로 매기지 않아요",
+  "faults": [
+   {
+    "kind": "unrelated_speech",
+    "text": "녹음이 이 발표 자료와 다른 발표예요 (발화 낱말 중 자료에도 있는 비중 5%) — 말한 내용은 채점하지 않았어요",
+    "slide_no": null
+   }
+  ],
+  "unmeasured": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   13,
+   14,
+   18,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   32,
+   33
+  ]
+ },
+ "report": {
+  "one_liner": "녹음이 이 발표 자료와 다른 발표라서 말한 내용은 분석하지 않았어요. 이 자료로 발표한 녹음을 올리면 개념·흐름까지 같이 볼게요.",
+  "score": 38,
+  "grade": "",
+  "strengths": [],
+  "weaknesses": [
+   "녹음이 이 발표 자료와 다른 발표예요 (발화 낱말 중 자료에도 있는 비중 5%) — 말한 내용은 채점하지 않았어요"
+  ],
+  "actions": [
+   "이 발표 자료로 한 녹음을 다시 올려 보세요 — 그래야 개념·흐름·자료와 맞게 말했는지 볼 수 있어요.",
+   "2. 말 속도를 300~350자/분 정도로 빠르게 연습해 보세요."
+  ],
+  "pace_summary": "평균 93자/분으로 권장 구간보다 207자/분 느려서 말 속도가 너무 느렸어요.",
+  "habit_summary": "REP와 FIL이 0으로 눈에 띄는 반복이나 간투어가 적었어요.",
+  "model": "solar"
+ },
+ "pace": {
+  "target_sec": 600,
+  "actual_sec": 220,
+  "avg_chars_per_min": 93,
+  "slides": [
+   {
+    "slide_no": 1,
+    "title": "교실 공기, 쉬는 시간 환기로 충분할까",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 220,
+    "recommended_sec": 600,
+    "delta_sec": -380,
+    "chars_per_min": 93,
+    "syllable_per_sec": 1.4,
+    "status": "short",
+    "note": "핵심 · 권장 대비 63% 부족",
+    "skip_cue": ""
+   }
+  ],
+  "tips": [
+   "목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요.",
+   "1번은 핵심인데 권장 600초 중 220초만 썼어요. 여기 시간을 늘리세요."
+  ]
+ },
+ "transcript_by_slide": [],
+ "pipeline_log": [
+  {
+   "kind": "pre",
+   "text": "발표하는 동안 자료의 개념을 미리 정리해 뒀어요",
+   "phase": "queued",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말한 내용을 다 옮겼어요 · 단어 108개 · 슬라이드 구간 0개 · 녹음이 이 발표 자료와 아예 다른 내용으로 보여요 — 발화에 나온 낱말 중 자료에도 있는 낱말이 3%뿐이에요. 다른 발표의 자료나 녹음을 올렸는지 확인해 주세요. 슬라이드 구간은 길이를 균등하게 나눴어요.",
+   "phase": "stt_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "핵심 개념을 찾았어요 · 개념 슬라이드 8장",
+   "phase": "concepts_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "'교실 공기' · '이산화탄소 농도' 등 개념 17개를 발표와 대조할 준비를 했어요",
+   "phase": "graph_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "자료와 발표 대조를 마쳤어요 · 정합 판정 17개",
+   "phase": "align_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "흐름 비교를 마쳤어요 · 흐름 판정 0개",
+   "phase": "flow_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "시간 배분을 다 쟀어요 · 배분 1장 · 실제 220초",
+   "phase": "pace_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말버릇을 다 찾았어요 · REP 0 · FIL 0 · PAUSE 0",
+   "phase": "habits_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "점수를 매겼어요 · 38점 · 학교 프로젝트 (교수 대상)",
+   "phase": "score_done",
+   "sec": 2
+  },
+  {
+   "kind": "done",
+   "text": "리포트를 다 썼어요 · 녹음이 이 발표 자료와 다른 발표라서 말한 내용은 분석하지 않았어요. 이 자료로 발표한 녹음을 올리면 개념·흐름까지 같이 볼게요.",
+   "phase": "voice_report_done",
+   "sec": 4
+  },
+  {
+   "kind": "done",
+   "text": "상세 리포트까지 다 만들었어요 · 총 4초",
+   "phase": "done",
+   "sec": 4
+  }
+ ]
+}

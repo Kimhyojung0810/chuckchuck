@@ -1,0 +1,384 @@
+{
+  "prep": "20260930_050936_audit_co2_r1_audio_t5",
+  "deck": "audit_co2_r1",
+  "mode": "audio",
+  "track": "5",
+  "tag": "q1_typo_claim",
+  "script": "labs/qa_convo/answers/audit_rec_co2_r1_t5_q1_typo_claim.json",
+  "questions": [
+    {
+      "id": "q01-co2-concentration",
+      "node_id": "co2-concentration",
+      "label": "이산화탄소 농도",
+      "question": "발표에서 평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장의 수치는 어떻게 다른가요?",
+      "why": "발표에서 말한 수치가 자료 5장과 달라서, 어느 쪽이 맞는지 짚어 보는 질문이에요",
+      "hint": "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "contradiction",
+      "slide_nos": [
+        2,
+        3,
+        5
+      ],
+      "doc_weight": 0.821,
+      "answer_gist": "자료 5장은 “수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.”라고 해요. 발표에서 한 “평균 농도가 60퍼센트나 낮아진 거예요”는 이 수치로 바로잡아야 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.",
+      "speech_quote": "평균 농도가 60퍼센트나 낮아진 거예요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "contradiction",
+        "slot": "weak",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 5,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "contradiction_llm_worded",
+          "contradiction_reconcile",
+          "gist_clause_unsupported",
+          "gist_template",
+          "gist_contradiction_code",
+          "why_from_contradiction",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+        "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+      ]
+    },
+    {
+      "id": "q10-optimal-ventilation-strategy",
+      "node_id": "optimal-ventilation-strategy",
+      "label": "최적 환기 전략",
+      "question": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 주장하는 조건은 무엇인가요?",
+      "why": "주장의 경계와 조건을 명확히 하기 위해 묻는 질문이에요",
+      "hint": "자료에서 제시된 수치와 조건을 확인해 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        8
+      ],
+      "doc_weight": 0.316,
+      "answer_gist": "수업 중 5분 추가 환기로 평균 농도가 40% 낮아져 870ppm이 되었고, 이는 1,000ppm 기준 아래로 유지된다는 의미예요",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다.",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "theme",
+        "rank": 10,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다."
+          }
+        ],
+        "checks": [],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "자료에서 제시된 수치와 조건을 확인해 보세요",
+        "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 8장은 이렇게 말해요: «쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다.»",
+        "이 방향이에요 — 수업 중 5분 추가 환기로 평균 농도가 40% 낮아져 870ppm이 되었고",
+        "빈칸을 채워 보세요: 수업 중 5분 추가 환기로 평균 농도가 40% 낮아져 870ppm이 되었고, 이는 1,000ppm 기준 ___로 유지된다는 의미예요"
+      ]
+    },
+    {
+      "id": "q05-ventilation",
+      "node_id": "ventilation",
+      "label": "환기",
+      "question": "자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 1,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        5,
+        6
+      ],
+      "doc_weight": 1,
+      "answer_gist": "질문의 전제와 달리, 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분",
+        "fact": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분",
+        "slide_no": 6,
+        "wrong": [
+          "10분"
+        ],
+        "right": [
+          "14분"
+        ]
+      },
+      "hints": [
+        "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "1, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 ___이에요."
+      ]
+    }
+  ],
+  "turns": [
+    {
+      "q": 1,
+      "persona": "typo_claim",
+      "action": "answer",
+      "input": "자료 쪽이 오타고 발표 수치가 맞아요. 출처는 저희 측정 기록 원본 엑셀인데, 거기엔 60%로 나와 있어요. 자료 만들 때 잘못 옮겼어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "자료 쪽이 오타고 발표 수치가 맞아요. 출처는 저희 측정 기록 원본 엑셀인데, 거기엔 60%로 나와 있어요. 자료 만들 때 잘못 옮겼어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n39\n완성도\n\n이산화탄소 농도에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n이산화탄소 농도에 대한 질문이에요. 자료 5장을 다시 보고, 그 장이 이산화탄소 농도에 대해 하는 말을 한 문장으로 말해 볼래요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-co2-concentration",
+        "node_id": "co2-concentration",
+        "verdict": "wrong",
+        "score": 39,
+        "react": "이산화탄소 농도에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요.",
+        "summary_sentence": "자료 5장의 40% 감소 수치를 60%로 잘못 인용하여 사실과 다른 주장을 했어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "이산화탄소 농도에 대한 질문이에요. 자료 5장을 다시 보고, 그 장이 이산화탄소 농도에 대해 하는 말을 한 문장으로 말해 볼래요?",
+        "hints": [
+          "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+          "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "질문이 묻는 것: 이산화탄소 농도",
+        "guard": "focus_miss",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": true,
+        "grounded_on_deck": true,
+        "degraded": [],
+        "degraded_notes": []
+      },
+      "judge_req": {
+        "answer": "자료 쪽이 오타고 발표 수치가 맞아요. 출처는 저희 측정 기록 원본 엑셀인데, 거기엔 60%로 나와 있어요. 자료 만들 때 잘못 옮겼어요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.02
+        }
+      ],
+      "latency_sec": 1.9,
+      "judge_sec": 1.02,
+      "state": {
+        "qi": 0,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q1_typo_claim_01_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 1,
+      "persona": "typo_claim",
+      "action": "answer",
+      "input": "원본 기록에서 60%가 맞으니까 자료 5장을 고칠게요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "원본 기록에서 60%가 맞으니까 자료 5장을 고칠게요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n절반쯤\n65\n완성도\n+26\n\n이산화탄소 농도에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요."
+        },
+        {
+          "who": "ai",
+          "kind": "gist",
+          "meta": "",
+          "text": "교\n이렇게 말하면 완성이에요\n\n자료 5장은 “수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.”라고 해요. 발표에서 한 “평균 농도가 60퍼센트나 낮아진 거예요”는 이 수치로 바로잡아야 해요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "좁혀서 다시 물어볼게요 · 3번째 답변",
+          "text": "교\n좁혀서 다시 물어볼게요 · 3번째 답변\n\n이산화탄소 농도에 대한 질문이에요. 자료 5장을 다시 보고, 그 장이 이산화탄소 농도에 대해 하는 말을 한 문장으로 말해 볼래요?"
+        },
+        {
+          "who": "ai",
+          "kind": "hint",
+          "meta": "",
+          "text": "교\n힌트 1/3 · 좁혀 물으면서 같이 열었어요\n자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-co2-concentration",
+        "node_id": "co2-concentration",
+        "verdict": "partial",
+        "score": 65,
+        "react": "이산화탄소 농도에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요.",
+        "summary_sentence": "이산화탄소 농도 — 질문이 묻는 것에서 벗어난 답이었어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "이산화탄소 농도에 대한 질문이에요. 자료 5장을 다시 보고, 그 장이 이산화탄소 농도에 대해 하는 말을 한 문장으로 말해 볼래요?",
+        "hints": [
+          "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+          "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "focus",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "질문이 묻는 것: 이산화탄소 농도",
+        "guard": "focus_miss",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": true,
+        "grounded_on_deck": true,
+        "degraded": [],
+        "degraded_notes": []
+      },
+      "judge_req": {
+        "answer": "원본 기록에서 60%가 맞으니까 자료 5장을 고칠게요.",
+        "give_up": false,
+        "prior_answers": [
+          "자료 쪽이 오타고 발표 수치가 맞아요. 출처는 저희 측정 기록 원본 엑셀인데, 거기엔 60%로 나와 있어요. 자료 만들 때 잘못 옮겼어요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.23
+        }
+      ],
+      "latency_sec": 2.1,
+      "judge_sec": 1.23,
+      "state": {
+        "qi": 0,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 2,
+        "hintLevel": 1,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 2단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q1_typo_claim_02_answer.png",
+      "auto_tags": []
+    }
+  ],
+  "console": [],
+  "entry_turns": [
+    {
+      "who": "sys",
+      "kind": "note",
+      "text": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요."
+    },
+    {
+      "who": "ai",
+      "kind": "question",
+      "text": "발표에서 평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장의 수치는 어떻게 다른가요?"
+    }
+  ],
+  "entry_stream": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요.\n\n교\n예상 질문 1/3 · 꼭 넘어야 해요\n\n발표에서 평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장의 수치는 어떻게 다른가요?\n\n발표에서 말한 수치가 자료 5장과 달라서, 어느 쪽이 맞는지 짚어 보는 질문이에요\n이 질문의 근거",
+  "result_text": "← 내 발표로 나가기\n코칭 기록 저장됨\n\n실전 질문 코칭 결과\n\n다음엔 스스로 설명해 볼 질문 3개를 찾았어요\n0\n스스로 설명\n3\n넘김·안 물음\n\n다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.\n\n넘기거나 안 물은 질문\n3\n답하지 않았거나 묻기 전에 마쳤어요\n이산화탄소 농도\n발표에서 평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장의 수치는 어떻게 다른가요?\n넘김\n답하지 않고 넘겼어요\n›\n최적 환기 전략\n쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 주장하는 조건은 무엇…\n넘김\n답하지 않고 넘겼어요\n›\n환기\n자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 …\n넘김\n답하지 않고 넘겼어요\n›\n상세 리포트 보기\n같은 질문으로 다시\n홈으로"
+}

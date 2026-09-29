@@ -1,0 +1,227 @@
+{
+ "deck": "audit_kiosk",
+ "synthetic": true,
+ "group": "audit_rec_heldout_2026-09-30",
+ "context": {
+  "situation": "competition",
+  "duration_min": 10
+ },
+ "total_slides": 8,
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "키오스크 교실 제안 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 5,
+     "deck_quote": "| 혼자 주문 성공률 | 31% | 78% |",
+     "speech_quote": "교육 후 88퍼센트까지 올라갔어요.",
+     "deck_value": "78%",
+     "speech_value": "88%"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 6,
+     "deck_quote": "큰 글씨 모드만 켠 매장은 교육을 한 매장보다 주문 성공률 상승 폭이 작았습니다.",
+     "speech_quote": "사실 큰 글씨 모드만 켠 매장이 교육한 매장보다 성공률이 더 많이 올랐어요.",
+     "note": "반의어 방향(작았다 ↔ 더 많이 올랐다) — 발화에 수는 없다"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 3,
+     "skip_quote": "이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.",
+     "labels_any": [
+      "평균 주문 시간",
+      "주문 시간",
+      "메뉴 찾기",
+      "옵션 고르기",
+      "결제"
+     ],
+     "skip_verb": "패스"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "near_slide": 8,
+     "speech_quote": "교육을 들은 어르신 열 명 중 아홉 명은 한 달 뒤에도 혼자 주문하셨어요.",
+     "note": "자료에 없는 주장 — 2장 「10명 중 6명」 과 꼴이 같지만 주어가 다르다(포기 경험 ↔ 교육 뒤 유지). 모순으로 잡으면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     5,
+     6
+    ],
+    "skipped_slides": [
+     3
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 35
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 35,
+     "end_sec": 80
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 80,
+     "end_sec": 88
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 88,
+     "end_sec": 128
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 128,
+     "end_sec": 175
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 175,
+     "end_sec": 215
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 215,
+     "end_sec": 255
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 255,
+     "end_sec": 295
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "키오스크 교실 제안 녹음 (R2)",
+   "planted": [],
+   "spoken_forms": [
+    {
+     "slide": 5,
+     "deck": "78%",
+     "speech": "칠십팔 퍼센트"
+    },
+    {
+     "slide": 5,
+     "deck": "2.5배",
+     "speech": "두 배 반"
+    },
+    {
+     "slide": 5,
+     "deck": "64초",
+     "speech": "일 분 사 초"
+    },
+    {
+     "slide": 3,
+     "deck": "110초",
+     "speech": "백십 초 (두 분 가까이)"
+    },
+    {
+     "slide": 6,
+     "deck": "+12%p · +47%p",
+     "speech": "십이 퍼센트포인트 · 사십칠 퍼센트포인트"
+    },
+    {
+     "slide": 2,
+     "deck": "10명 중 6명",
+     "speech": "열 명 중 여섯 명"
+    },
+    {
+     "slide": 7,
+     "deck": "43%",
+     "speech": "사십삼 퍼센트"
+    },
+    {
+     "slide": 8,
+     "deck": "4,800만 원",
+     "speech": "사천팔백만 원"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 35
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 35,
+     "end_sec": 80
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 80,
+     "end_sec": 130
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 130,
+     "end_sec": 170
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 170,
+     "end_sec": 220
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 220,
+     "end_sec": 265
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 265,
+     "end_sec": 305
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 305,
+     "end_sec": 340
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "reuse": [
+    "audit_bunt",
+    "r2"
+   ],
+   "title": "번트 분석 발표 녹음 (다른 발표)",
+   "planted": [],
+   "source": "사회인 야구 번트 손익 발표 (audit_bunt R2 — 다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": "다른 발표 — 장 대응 없음"
+  }
+ }
+}

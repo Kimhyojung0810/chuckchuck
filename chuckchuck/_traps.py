@@ -167,7 +167,9 @@ def _josa_only(word: str, with_batchim: str, without: str) -> str:
 
 
 #: 줄 머리의 글머리표·번호(「· 」「05. 」「① 」「※ 」) — 문장이 아니라 꾸밈이다.
-_BULLET_RE = re.compile(r"^(?:[·•▪◦\-–—*※]+|\d{1,2}[.)]|[①-⑳])\s*")
+#: 줄 머리 글머리표. 대시는 뒤가 숫자가 아닐 때만(「-0.3점」 의 부호), 번호는 뒤가 숫자가 아닐 때만(「0.71」·「1.5배」 의 소수) —
+#: 09-30 녹음 감사 REC-13: 소수 머리를 번호로 떼어 「0.71」→「71」, 「1.5배」→「5배」 가 전제·사실 줄 둘 다에 들어갔다.
+_BULLET_RE = re.compile(r"^(?:[·•▪◦*※]+|[\-–—]+(?![\d.])|\d{1,2}[.)](?!\d)|[①-⑳])\s*")
 
 
 #: 줄 머리의 짧은 꼬리표(「정리 : 」「결론부터: 」) — 뒤에 문장이 이어질 때만 뗀다(「합격률: 42%」 는 꼬리표가 주어다).
@@ -261,6 +263,8 @@ def _in_bounds(w: float, v: float, unit: str) -> bool:
     cap = _UNIT_CAP.get(unit)
     if cap is not None and abs(v) <= cap and abs(w) > cap:
         return False
+    if unit == "배" and v > 0 and (abs(w - 1) < 1e-9 or (w > 1) != (v > 1)):
+        return False       # 배수는 1 의 같은 쪽에 — 「1.3배 높았다」 → 「0.8배 높았다」 는 틀린 값이 아니라 말이 안 되는 문장이다 (REC-13)
     return (w > 0) == (v > 0) or v == 0
 
 

@@ -1,0 +1,174 @@
+{
+  "deck": "audit_co2_r1",
+  "mode": "audio",
+  "track": "5",
+  "qa_mode": "5",
+  "session_id": "20260929T195402Z_36af1170",
+  "questions": [
+    {
+      "id": "q01-co2-concentration",
+      "node_id": "co2-concentration",
+      "label": "이산화탄소 농도",
+      "question": "발표에서 평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장의 수치는 어떻게 다른가요?",
+      "why": "발표에서 말한 수치가 자료 5장과 달라서, 어느 쪽이 맞는지 짚어 보는 질문이에요",
+      "hint": "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "contradiction",
+      "slide_nos": [
+        2,
+        3,
+        5
+      ],
+      "doc_weight": 0.821,
+      "answer_gist": "자료 5장은 “수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.”라고 해요. 발표에서 한 “평균 농도가 60퍼센트나 낮아진 거예요”는 이 수치로 바로잡아야 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.",
+      "speech_quote": "평균 농도가 60퍼센트나 낮아진 거예요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "contradiction",
+        "slot": "weak",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 5,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "contradiction_llm_worded",
+          "contradiction_reconcile",
+          "gist_clause_unsupported",
+          "gist_template",
+          "gist_contradiction_code",
+          "why_from_contradiction",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+        "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+      ]
+    },
+    {
+      "id": "q10-optimal-ventilation-strategy",
+      "node_id": "optimal-ventilation-strategy",
+      "label": "최적 환기 전략",
+      "question": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 주장하는 조건은 무엇인가요?",
+      "why": "주장의 경계와 조건을 명확히 하기 위해 묻는 질문이에요",
+      "hint": "자료에서 제시된 수치와 조건을 확인해 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        8
+      ],
+      "doc_weight": 0.316,
+      "answer_gist": "수업 중 5분 추가 환기로 평균 농도가 40% 낮아져 870ppm이 되었고, 이는 1,000ppm 기준 아래로 유지된다는 의미예요",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다.",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "theme",
+        "rank": 10,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다."
+          }
+        ],
+        "checks": [],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "자료에서 제시된 수치와 조건을 확인해 보세요",
+        "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 8장은 이렇게 말해요: «쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다.»",
+        "이 방향이에요 — 수업 중 5분 추가 환기로 평균 농도가 40% 낮아져 870ppm이 되었고",
+        "빈칸을 채워 보세요: 수업 중 5분 추가 환기로 평균 농도가 40% 낮아져 870ppm이 되었고, 이는 1,000ppm 기준 ___로 유지된다는 의미예요"
+      ]
+    },
+    {
+      "id": "q05-ventilation",
+      "node_id": "ventilation",
+      "label": "환기",
+      "question": "자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 1,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        5,
+        6
+      ],
+      "doc_weight": 1,
+      "answer_gist": "질문의 전제와 달리, 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분",
+        "fact": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분",
+        "slide_no": 6,
+        "wrong": [
+          "10분"
+        ],
+        "right": [
+          "14분"
+        ]
+      },
+      "hints": [
+        "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "1, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 ___이에요."
+      ]
+    }
+  ],
+  "from": "20260930_045352_audit_co2_r1_audio_t10",
+  "sec": 18.2
+}

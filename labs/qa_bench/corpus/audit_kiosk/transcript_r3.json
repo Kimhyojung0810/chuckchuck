@@ -1,0 +1,1961 @@
+{
+ "full_text": "안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전, 과연 손해일까 이득일까가 오늘 주제예요. 데이터는 저희 리그 열두 개 팀, 백팔십 경기, 타석으로는 칠천구백 개예요. 기록원분들이 경기마다 입력한 기록을 그대로 썼어요. 먼저 상황별 득점 기대값을 봤어요. 득점 기대값은 그 상황에서 이닝이 끝날 때까지 평균 몇 점이 나는지예요. 무사 1루는 영 점 팔육 점, 번트에 성공해서 1사 2루가 되면 영 점 칠일 점이에요. 그러니까 번트에 성공해도 기대값이 영 점 일오 점 줄어요. 이걸 식으로 쓰면 번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀 거예요. 0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요. 게다가 번트가 늘 성공하는 것도 아니에요. 우리 리그 번트 성공률은 육십이 퍼센트예요. 프로 리그가 팔십일 퍼센트니까 십구 퍼센트포인트나 낮아요. 그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서 강공을 했을 때 그 이닝에 점수가 날 확률이 사십사 퍼센트, 번트는 삼십사 퍼센트였어요. 강공이 번트보다 삼십 퍼센트 정도 더 높았던 거예요. 그렇다고 번트가 늘 나쁜 건 아니에요. 9회 동점이고 한 점만 필요할 때는 번트가 오히려 득점 확률을 높여요. 그리고 타율이 이 할도 안 되는 타자라면 번트가 나아요. 결론은 간단해요. 평소에는 강공, 한 점이 급할 때만 번트. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요.",
+   "start_sec": 0.0,
+   "end_sec": 1.54
+  },
+  {
+   "text": "저는",
+   "start_sec": 1.54,
+   "end_sec": 3.08
+  },
+  {
+   "text": "사회인",
+   "start_sec": 3.08,
+   "end_sec": 4.62
+  },
+  {
+   "text": "야구",
+   "start_sec": 4.62,
+   "end_sec": 6.15
+  },
+  {
+   "text": "리그",
+   "start_sec": 6.15,
+   "end_sec": 7.69
+  },
+  {
+   "text": "기록을",
+   "start_sec": 7.69,
+   "end_sec": 9.23
+  },
+  {
+   "text": "가지고",
+   "start_sec": 9.23,
+   "end_sec": 10.77
+  },
+  {
+   "text": "번트가",
+   "start_sec": 10.77,
+   "end_sec": 12.31
+  },
+  {
+   "text": "정말",
+   "start_sec": 12.31,
+   "end_sec": 13.85
+  },
+  {
+   "text": "점수를",
+   "start_sec": 13.85,
+   "end_sec": 15.38
+  },
+  {
+   "text": "만드는지",
+   "start_sec": 15.38,
+   "end_sec": 16.92
+  },
+  {
+   "text": "분석해",
+   "start_sec": 16.92,
+   "end_sec": 18.46
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 18.46,
+   "end_sec": 20.0
+  },
+  {
+   "text": "아웃",
+   "start_sec": 20.0,
+   "end_sec": 21.54
+  },
+  {
+   "text": "하나를",
+   "start_sec": 21.54,
+   "end_sec": 23.08
+  },
+  {
+   "text": "내주고",
+   "start_sec": 23.08,
+   "end_sec": 24.62
+  },
+  {
+   "text": "주자를",
+   "start_sec": 24.62,
+   "end_sec": 26.15
+  },
+  {
+   "text": "한",
+   "start_sec": 26.15,
+   "end_sec": 27.69
+  },
+  {
+   "text": "베이스",
+   "start_sec": 27.69,
+   "end_sec": 29.23
+  },
+  {
+   "text": "보내는",
+   "start_sec": 29.23,
+   "end_sec": 30.77
+  },
+  {
+   "text": "작전,",
+   "start_sec": 30.77,
+   "end_sec": 32.31
+  },
+  {
+   "text": "과연",
+   "start_sec": 32.31,
+   "end_sec": 33.85
+  },
+  {
+   "text": "손해일까",
+   "start_sec": 33.85,
+   "end_sec": 35.38
+  },
+  {
+   "text": "이득일까가",
+   "start_sec": 35.38,
+   "end_sec": 36.92
+  },
+  {
+   "text": "오늘",
+   "start_sec": 36.92,
+   "end_sec": 38.46
+  },
+  {
+   "text": "주제예요.",
+   "start_sec": 38.46,
+   "end_sec": 40.0
+  },
+  {
+   "text": "데이터는",
+   "start_sec": 40.0,
+   "end_sec": 42.06
+  },
+  {
+   "text": "저희",
+   "start_sec": 42.06,
+   "end_sec": 44.12
+  },
+  {
+   "text": "리그",
+   "start_sec": 44.12,
+   "end_sec": 46.18
+  },
+  {
+   "text": "열두",
+   "start_sec": 46.18,
+   "end_sec": 48.24
+  },
+  {
+   "text": "개",
+   "start_sec": 48.24,
+   "end_sec": 50.29
+  },
+  {
+   "text": "팀,",
+   "start_sec": 50.29,
+   "end_sec": 52.35
+  },
+  {
+   "text": "백팔십",
+   "start_sec": 52.35,
+   "end_sec": 54.41
+  },
+  {
+   "text": "경기,",
+   "start_sec": 54.41,
+   "end_sec": 56.47
+  },
+  {
+   "text": "타석으로는",
+   "start_sec": 56.47,
+   "end_sec": 58.53
+  },
+  {
+   "text": "칠천구백",
+   "start_sec": 58.53,
+   "end_sec": 60.59
+  },
+  {
+   "text": "개예요.",
+   "start_sec": 60.59,
+   "end_sec": 62.65
+  },
+  {
+   "text": "기록원분들이",
+   "start_sec": 62.65,
+   "end_sec": 64.71
+  },
+  {
+   "text": "경기마다",
+   "start_sec": 64.71,
+   "end_sec": 66.76
+  },
+  {
+   "text": "입력한",
+   "start_sec": 66.76,
+   "end_sec": 68.82
+  },
+  {
+   "text": "기록을",
+   "start_sec": 68.82,
+   "end_sec": 70.88
+  },
+  {
+   "text": "그대로",
+   "start_sec": 70.88,
+   "end_sec": 72.94
+  },
+  {
+   "text": "썼어요.",
+   "start_sec": 72.94,
+   "end_sec": 75.0
+  },
+  {
+   "text": "먼저",
+   "start_sec": 75.0,
+   "end_sec": 76.25
+  },
+  {
+   "text": "상황별",
+   "start_sec": 76.25,
+   "end_sec": 77.5
+  },
+  {
+   "text": "득점",
+   "start_sec": 77.5,
+   "end_sec": 78.75
+  },
+  {
+   "text": "기대값을",
+   "start_sec": 78.75,
+   "end_sec": 80.0
+  },
+  {
+   "text": "봤어요.",
+   "start_sec": 80.0,
+   "end_sec": 81.25
+  },
+  {
+   "text": "득점",
+   "start_sec": 81.25,
+   "end_sec": 82.5
+  },
+  {
+   "text": "기대값은",
+   "start_sec": 82.5,
+   "end_sec": 83.75
+  },
+  {
+   "text": "그",
+   "start_sec": 83.75,
+   "end_sec": 85.0
+  },
+  {
+   "text": "상황에서",
+   "start_sec": 85.0,
+   "end_sec": 86.25
+  },
+  {
+   "text": "이닝이",
+   "start_sec": 86.25,
+   "end_sec": 87.5
+  },
+  {
+   "text": "끝날",
+   "start_sec": 87.5,
+   "end_sec": 88.75
+  },
+  {
+   "text": "때까지",
+   "start_sec": 88.75,
+   "end_sec": 90.0
+  },
+  {
+   "text": "평균",
+   "start_sec": 90.0,
+   "end_sec": 91.25
+  },
+  {
+   "text": "몇",
+   "start_sec": 91.25,
+   "end_sec": 92.5
+  },
+  {
+   "text": "점이",
+   "start_sec": 92.5,
+   "end_sec": 93.75
+  },
+  {
+   "text": "나는지예요.",
+   "start_sec": 93.75,
+   "end_sec": 95.0
+  },
+  {
+   "text": "무사",
+   "start_sec": 95.0,
+   "end_sec": 96.25
+  },
+  {
+   "text": "1루는",
+   "start_sec": 96.25,
+   "end_sec": 97.5
+  },
+  {
+   "text": "영",
+   "start_sec": 97.5,
+   "end_sec": 98.75
+  },
+  {
+   "text": "점",
+   "start_sec": 98.75,
+   "end_sec": 100.0
+  },
+  {
+   "text": "팔육",
+   "start_sec": 100.0,
+   "end_sec": 101.25
+  },
+  {
+   "text": "점,",
+   "start_sec": 101.25,
+   "end_sec": 102.5
+  },
+  {
+   "text": "번트에",
+   "start_sec": 102.5,
+   "end_sec": 103.75
+  },
+  {
+   "text": "성공해서",
+   "start_sec": 103.75,
+   "end_sec": 105.0
+  },
+  {
+   "text": "1사",
+   "start_sec": 105.0,
+   "end_sec": 106.25
+  },
+  {
+   "text": "2루가",
+   "start_sec": 106.25,
+   "end_sec": 107.5
+  },
+  {
+   "text": "되면",
+   "start_sec": 107.5,
+   "end_sec": 108.75
+  },
+  {
+   "text": "영",
+   "start_sec": 108.75,
+   "end_sec": 110.0
+  },
+  {
+   "text": "점",
+   "start_sec": 110.0,
+   "end_sec": 111.25
+  },
+  {
+   "text": "칠일",
+   "start_sec": 111.25,
+   "end_sec": 112.5
+  },
+  {
+   "text": "점이에요.",
+   "start_sec": 112.5,
+   "end_sec": 113.75
+  },
+  {
+   "text": "그러니까",
+   "start_sec": 113.75,
+   "end_sec": 115.0
+  },
+  {
+   "text": "번트에",
+   "start_sec": 115.0,
+   "end_sec": 116.25
+  },
+  {
+   "text": "성공해도",
+   "start_sec": 116.25,
+   "end_sec": 117.5
+  },
+  {
+   "text": "기대값이",
+   "start_sec": 117.5,
+   "end_sec": 118.75
+  },
+  {
+   "text": "영",
+   "start_sec": 118.75,
+   "end_sec": 120.0
+  },
+  {
+   "text": "점",
+   "start_sec": 120.0,
+   "end_sec": 121.25
+  },
+  {
+   "text": "일오",
+   "start_sec": 121.25,
+   "end_sec": 122.5
+  },
+  {
+   "text": "점",
+   "start_sec": 122.5,
+   "end_sec": 123.75
+  },
+  {
+   "text": "줄어요.",
+   "start_sec": 123.75,
+   "end_sec": 125.0
+  },
+  {
+   "text": "이걸",
+   "start_sec": 125.0,
+   "end_sec": 126.9
+  },
+  {
+   "text": "식으로",
+   "start_sec": 126.9,
+   "end_sec": 128.81
+  },
+  {
+   "text": "쓰면",
+   "start_sec": 128.81,
+   "end_sec": 130.71
+  },
+  {
+   "text": "번트",
+   "start_sec": 130.71,
+   "end_sec": 132.62
+  },
+  {
+   "text": "손익은",
+   "start_sec": 132.62,
+   "end_sec": 134.52
+  },
+  {
+   "text": "성공",
+   "start_sec": 134.52,
+   "end_sec": 136.43
+  },
+  {
+   "text": "후",
+   "start_sec": 136.43,
+   "end_sec": 138.33
+  },
+  {
+   "text": "기대값에서",
+   "start_sec": 138.33,
+   "end_sec": 140.24
+  },
+  {
+   "text": "시도",
+   "start_sec": 140.24,
+   "end_sec": 142.14
+  },
+  {
+   "text": "전",
+   "start_sec": 142.14,
+   "end_sec": 144.05
+  },
+  {
+   "text": "기대값을",
+   "start_sec": 144.05,
+   "end_sec": 145.95
+  },
+  {
+   "text": "뺀",
+   "start_sec": 145.95,
+   "end_sec": 147.86
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 147.86,
+   "end_sec": 149.76
+  },
+  {
+   "text": "0.71에서",
+   "start_sec": 149.76,
+   "end_sec": 151.67
+  },
+  {
+   "text": "0.86을",
+   "start_sec": 151.67,
+   "end_sec": 153.57
+  },
+  {
+   "text": "빼면",
+   "start_sec": 153.57,
+   "end_sec": 155.48
+  },
+  {
+   "text": "마이너스",
+   "start_sec": 155.48,
+   "end_sec": 157.38
+  },
+  {
+   "text": "0.15점이죠.",
+   "start_sec": 157.38,
+   "end_sec": 159.29
+  },
+  {
+   "text": "성공해도",
+   "start_sec": 159.29,
+   "end_sec": 161.19
+  },
+  {
+   "text": "손해라는",
+   "start_sec": 161.19,
+   "end_sec": 163.1
+  },
+  {
+   "text": "뜻이에요.",
+   "start_sec": 163.1,
+   "end_sec": 165.0
+  },
+  {
+   "text": "게다가",
+   "start_sec": 165.0,
+   "end_sec": 167.11
+  },
+  {
+   "text": "번트가",
+   "start_sec": 167.11,
+   "end_sec": 169.21
+  },
+  {
+   "text": "늘",
+   "start_sec": 169.21,
+   "end_sec": 171.32
+  },
+  {
+   "text": "성공하는",
+   "start_sec": 171.32,
+   "end_sec": 173.42
+  },
+  {
+   "text": "것도",
+   "start_sec": 173.42,
+   "end_sec": 175.53
+  },
+  {
+   "text": "아니에요.",
+   "start_sec": 175.53,
+   "end_sec": 177.63
+  },
+  {
+   "text": "우리",
+   "start_sec": 177.63,
+   "end_sec": 179.74
+  },
+  {
+   "text": "리그",
+   "start_sec": 179.74,
+   "end_sec": 181.84
+  },
+  {
+   "text": "번트",
+   "start_sec": 181.84,
+   "end_sec": 183.95
+  },
+  {
+   "text": "성공률은",
+   "start_sec": 183.95,
+   "end_sec": 186.05
+  },
+  {
+   "text": "육십이",
+   "start_sec": 186.05,
+   "end_sec": 188.16
+  },
+  {
+   "text": "퍼센트예요.",
+   "start_sec": 188.16,
+   "end_sec": 190.26
+  },
+  {
+   "text": "프로",
+   "start_sec": 190.26,
+   "end_sec": 192.37
+  },
+  {
+   "text": "리그가",
+   "start_sec": 192.37,
+   "end_sec": 194.47
+  },
+  {
+   "text": "팔십일",
+   "start_sec": 194.47,
+   "end_sec": 196.58
+  },
+  {
+   "text": "퍼센트니까",
+   "start_sec": 196.58,
+   "end_sec": 198.68
+  },
+  {
+   "text": "십구",
+   "start_sec": 198.68,
+   "end_sec": 200.79
+  },
+  {
+   "text": "퍼센트포인트나",
+   "start_sec": 200.79,
+   "end_sec": 202.89
+  },
+  {
+   "text": "낮아요.",
+   "start_sec": 202.89,
+   "end_sec": 205.0
+  },
+  {
+   "text": "그럼",
+   "start_sec": 205.0,
+   "end_sec": 206.55
+  },
+  {
+   "text": "번트",
+   "start_sec": 206.55,
+   "end_sec": 208.1
+  },
+  {
+   "text": "대신",
+   "start_sec": 208.1,
+   "end_sec": 209.66
+  },
+  {
+   "text": "강공을",
+   "start_sec": 209.66,
+   "end_sec": 211.21
+  },
+  {
+   "text": "하면",
+   "start_sec": 211.21,
+   "end_sec": 212.76
+  },
+  {
+   "text": "어떨까요.",
+   "start_sec": 212.76,
+   "end_sec": 214.31
+  },
+  {
+   "text": "무사",
+   "start_sec": 214.31,
+   "end_sec": 215.86
+  },
+  {
+   "text": "1루에서",
+   "start_sec": 215.86,
+   "end_sec": 217.41
+  },
+  {
+   "text": "강공을",
+   "start_sec": 217.41,
+   "end_sec": 218.97
+  },
+  {
+   "text": "했을",
+   "start_sec": 218.97,
+   "end_sec": 220.52
+  },
+  {
+   "text": "때",
+   "start_sec": 220.52,
+   "end_sec": 222.07
+  },
+  {
+   "text": "그",
+   "start_sec": 222.07,
+   "end_sec": 223.62
+  },
+  {
+   "text": "이닝에",
+   "start_sec": 223.62,
+   "end_sec": 225.17
+  },
+  {
+   "text": "점수가",
+   "start_sec": 225.17,
+   "end_sec": 226.72
+  },
+  {
+   "text": "날",
+   "start_sec": 226.72,
+   "end_sec": 228.28
+  },
+  {
+   "text": "확률이",
+   "start_sec": 228.28,
+   "end_sec": 229.83
+  },
+  {
+   "text": "사십사",
+   "start_sec": 229.83,
+   "end_sec": 231.38
+  },
+  {
+   "text": "퍼센트,",
+   "start_sec": 231.38,
+   "end_sec": 232.93
+  },
+  {
+   "text": "번트는",
+   "start_sec": 232.93,
+   "end_sec": 234.48
+  },
+  {
+   "text": "삼십사",
+   "start_sec": 234.48,
+   "end_sec": 236.03
+  },
+  {
+   "text": "퍼센트였어요.",
+   "start_sec": 236.03,
+   "end_sec": 237.59
+  },
+  {
+   "text": "강공이",
+   "start_sec": 237.59,
+   "end_sec": 239.14
+  },
+  {
+   "text": "번트보다",
+   "start_sec": 239.14,
+   "end_sec": 240.69
+  },
+  {
+   "text": "삼십",
+   "start_sec": 240.69,
+   "end_sec": 242.24
+  },
+  {
+   "text": "퍼센트",
+   "start_sec": 242.24,
+   "end_sec": 243.79
+  },
+  {
+   "text": "정도",
+   "start_sec": 243.79,
+   "end_sec": 245.34
+  },
+  {
+   "text": "더",
+   "start_sec": 245.34,
+   "end_sec": 246.9
+  },
+  {
+   "text": "높았던",
+   "start_sec": 246.9,
+   "end_sec": 248.45
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 248.45,
+   "end_sec": 250.0
+  },
+  {
+   "text": "그렇다고",
+   "start_sec": 250.0,
+   "end_sec": 251.54
+  },
+  {
+   "text": "번트가",
+   "start_sec": 251.54,
+   "end_sec": 253.08
+  },
+  {
+   "text": "늘",
+   "start_sec": 253.08,
+   "end_sec": 254.62
+  },
+  {
+   "text": "나쁜",
+   "start_sec": 254.62,
+   "end_sec": 256.15
+  },
+  {
+   "text": "건",
+   "start_sec": 256.15,
+   "end_sec": 257.69
+  },
+  {
+   "text": "아니에요.",
+   "start_sec": 257.69,
+   "end_sec": 259.23
+  },
+  {
+   "text": "9회",
+   "start_sec": 259.23,
+   "end_sec": 260.77
+  },
+  {
+   "text": "동점이고",
+   "start_sec": 260.77,
+   "end_sec": 262.31
+  },
+  {
+   "text": "한",
+   "start_sec": 262.31,
+   "end_sec": 263.85
+  },
+  {
+   "text": "점만",
+   "start_sec": 263.85,
+   "end_sec": 265.38
+  },
+  {
+   "text": "필요할",
+   "start_sec": 265.38,
+   "end_sec": 266.92
+  },
+  {
+   "text": "때는",
+   "start_sec": 266.92,
+   "end_sec": 268.46
+  },
+  {
+   "text": "번트가",
+   "start_sec": 268.46,
+   "end_sec": 270.0
+  },
+  {
+   "text": "오히려",
+   "start_sec": 270.0,
+   "end_sec": 271.54
+  },
+  {
+   "text": "득점",
+   "start_sec": 271.54,
+   "end_sec": 273.08
+  },
+  {
+   "text": "확률을",
+   "start_sec": 273.08,
+   "end_sec": 274.62
+  },
+  {
+   "text": "높여요.",
+   "start_sec": 274.62,
+   "end_sec": 276.15
+  },
+  {
+   "text": "그리고",
+   "start_sec": 276.15,
+   "end_sec": 277.69
+  },
+  {
+   "text": "타율이",
+   "start_sec": 277.69,
+   "end_sec": 279.23
+  },
+  {
+   "text": "이",
+   "start_sec": 279.23,
+   "end_sec": 280.77
+  },
+  {
+   "text": "할도",
+   "start_sec": 280.77,
+   "end_sec": 282.31
+  },
+  {
+   "text": "안",
+   "start_sec": 282.31,
+   "end_sec": 283.85
+  },
+  {
+   "text": "되는",
+   "start_sec": 283.85,
+   "end_sec": 285.38
+  },
+  {
+   "text": "타자라면",
+   "start_sec": 285.38,
+   "end_sec": 286.92
+  },
+  {
+   "text": "번트가",
+   "start_sec": 286.92,
+   "end_sec": 288.46
+  },
+  {
+   "text": "나아요.",
+   "start_sec": 288.46,
+   "end_sec": 290.0
+  },
+  {
+   "text": "결론은",
+   "start_sec": 290.0,
+   "end_sec": 292.5
+  },
+  {
+   "text": "간단해요.",
+   "start_sec": 292.5,
+   "end_sec": 295.0
+  },
+  {
+   "text": "평소에는",
+   "start_sec": 295.0,
+   "end_sec": 297.5
+  },
+  {
+   "text": "강공,",
+   "start_sec": 297.5,
+   "end_sec": 300.0
+  },
+  {
+   "text": "한",
+   "start_sec": 300.0,
+   "end_sec": 302.5
+  },
+  {
+   "text": "점이",
+   "start_sec": 302.5,
+   "end_sec": 305.0
+  },
+  {
+   "text": "급할",
+   "start_sec": 305.0,
+   "end_sec": 307.5
+  },
+  {
+   "text": "때만",
+   "start_sec": 307.5,
+   "end_sec": 310.0
+  },
+  {
+   "text": "번트.",
+   "start_sec": 310.0,
+   "end_sec": 312.5
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 312.5,
+   "end_sec": 315.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 40,
+   "text": "안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전, 과연 손해일까 이득일까가 오늘 주제예요.",
+   "words": [
+    {
+     "text": "안녕하세요.",
+     "start_sec": 0.0,
+     "end_sec": 1.54
+    },
+    {
+     "text": "저는",
+     "start_sec": 1.54,
+     "end_sec": 3.08
+    },
+    {
+     "text": "사회인",
+     "start_sec": 3.08,
+     "end_sec": 4.62
+    },
+    {
+     "text": "야구",
+     "start_sec": 4.62,
+     "end_sec": 6.15
+    },
+    {
+     "text": "리그",
+     "start_sec": 6.15,
+     "end_sec": 7.69
+    },
+    {
+     "text": "기록을",
+     "start_sec": 7.69,
+     "end_sec": 9.23
+    },
+    {
+     "text": "가지고",
+     "start_sec": 9.23,
+     "end_sec": 10.77
+    },
+    {
+     "text": "번트가",
+     "start_sec": 10.77,
+     "end_sec": 12.31
+    },
+    {
+     "text": "정말",
+     "start_sec": 12.31,
+     "end_sec": 13.85
+    },
+    {
+     "text": "점수를",
+     "start_sec": 13.85,
+     "end_sec": 15.38
+    },
+    {
+     "text": "만드는지",
+     "start_sec": 15.38,
+     "end_sec": 16.92
+    },
+    {
+     "text": "분석해",
+     "start_sec": 16.92,
+     "end_sec": 18.46
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 18.46,
+     "end_sec": 20.0
+    },
+    {
+     "text": "아웃",
+     "start_sec": 20.0,
+     "end_sec": 21.54
+    },
+    {
+     "text": "하나를",
+     "start_sec": 21.54,
+     "end_sec": 23.08
+    },
+    {
+     "text": "내주고",
+     "start_sec": 23.08,
+     "end_sec": 24.62
+    },
+    {
+     "text": "주자를",
+     "start_sec": 24.62,
+     "end_sec": 26.15
+    },
+    {
+     "text": "한",
+     "start_sec": 26.15,
+     "end_sec": 27.69
+    },
+    {
+     "text": "베이스",
+     "start_sec": 27.69,
+     "end_sec": 29.23
+    },
+    {
+     "text": "보내는",
+     "start_sec": 29.23,
+     "end_sec": 30.77
+    },
+    {
+     "text": "작전,",
+     "start_sec": 30.77,
+     "end_sec": 32.31
+    },
+    {
+     "text": "과연",
+     "start_sec": 32.31,
+     "end_sec": 33.85
+    },
+    {
+     "text": "손해일까",
+     "start_sec": 33.85,
+     "end_sec": 35.38
+    },
+    {
+     "text": "이득일까가",
+     "start_sec": 35.38,
+     "end_sec": 36.92
+    },
+    {
+     "text": "오늘",
+     "start_sec": 36.92,
+     "end_sec": 38.46
+    },
+    {
+     "text": "주제예요.",
+     "start_sec": 38.46,
+     "end_sec": 40.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 40,
+   "end_sec": 75,
+   "text": "데이터는 저희 리그 열두 개 팀, 백팔십 경기, 타석으로는 칠천구백 개예요. 기록원분들이 경기마다 입력한 기록을 그대로 썼어요.",
+   "words": [
+    {
+     "text": "데이터는",
+     "start_sec": 40.0,
+     "end_sec": 42.06
+    },
+    {
+     "text": "저희",
+     "start_sec": 42.06,
+     "end_sec": 44.12
+    },
+    {
+     "text": "리그",
+     "start_sec": 44.12,
+     "end_sec": 46.18
+    },
+    {
+     "text": "열두",
+     "start_sec": 46.18,
+     "end_sec": 48.24
+    },
+    {
+     "text": "개",
+     "start_sec": 48.24,
+     "end_sec": 50.29
+    },
+    {
+     "text": "팀,",
+     "start_sec": 50.29,
+     "end_sec": 52.35
+    },
+    {
+     "text": "백팔십",
+     "start_sec": 52.35,
+     "end_sec": 54.41
+    },
+    {
+     "text": "경기,",
+     "start_sec": 54.41,
+     "end_sec": 56.47
+    },
+    {
+     "text": "타석으로는",
+     "start_sec": 56.47,
+     "end_sec": 58.53
+    },
+    {
+     "text": "칠천구백",
+     "start_sec": 58.53,
+     "end_sec": 60.59
+    },
+    {
+     "text": "개예요.",
+     "start_sec": 60.59,
+     "end_sec": 62.65
+    },
+    {
+     "text": "기록원분들이",
+     "start_sec": 62.65,
+     "end_sec": 64.71
+    },
+    {
+     "text": "경기마다",
+     "start_sec": 64.71,
+     "end_sec": 66.76
+    },
+    {
+     "text": "입력한",
+     "start_sec": 66.76,
+     "end_sec": 68.82
+    },
+    {
+     "text": "기록을",
+     "start_sec": 68.82,
+     "end_sec": 70.88
+    },
+    {
+     "text": "그대로",
+     "start_sec": 70.88,
+     "end_sec": 72.94
+    },
+    {
+     "text": "썼어요.",
+     "start_sec": 72.94,
+     "end_sec": 75.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 75,
+   "end_sec": 125,
+   "text": "먼저 상황별 득점 기대값을 봤어요. 득점 기대값은 그 상황에서 이닝이 끝날 때까지 평균 몇 점이 나는지예요. 무사 1루는 영 점 팔육 점, 번트에 성공해서 1사 2루가 되면 영 점 칠일 점이에요. 그러니까 번트에 성공해도 기대값이 영 점 일오 점 줄어요.",
+   "words": [
+    {
+     "text": "먼저",
+     "start_sec": 75.0,
+     "end_sec": 76.25
+    },
+    {
+     "text": "상황별",
+     "start_sec": 76.25,
+     "end_sec": 77.5
+    },
+    {
+     "text": "득점",
+     "start_sec": 77.5,
+     "end_sec": 78.75
+    },
+    {
+     "text": "기대값을",
+     "start_sec": 78.75,
+     "end_sec": 80.0
+    },
+    {
+     "text": "봤어요.",
+     "start_sec": 80.0,
+     "end_sec": 81.25
+    },
+    {
+     "text": "득점",
+     "start_sec": 81.25,
+     "end_sec": 82.5
+    },
+    {
+     "text": "기대값은",
+     "start_sec": 82.5,
+     "end_sec": 83.75
+    },
+    {
+     "text": "그",
+     "start_sec": 83.75,
+     "end_sec": 85.0
+    },
+    {
+     "text": "상황에서",
+     "start_sec": 85.0,
+     "end_sec": 86.25
+    },
+    {
+     "text": "이닝이",
+     "start_sec": 86.25,
+     "end_sec": 87.5
+    },
+    {
+     "text": "끝날",
+     "start_sec": 87.5,
+     "end_sec": 88.75
+    },
+    {
+     "text": "때까지",
+     "start_sec": 88.75,
+     "end_sec": 90.0
+    },
+    {
+     "text": "평균",
+     "start_sec": 90.0,
+     "end_sec": 91.25
+    },
+    {
+     "text": "몇",
+     "start_sec": 91.25,
+     "end_sec": 92.5
+    },
+    {
+     "text": "점이",
+     "start_sec": 92.5,
+     "end_sec": 93.75
+    },
+    {
+     "text": "나는지예요.",
+     "start_sec": 93.75,
+     "end_sec": 95.0
+    },
+    {
+     "text": "무사",
+     "start_sec": 95.0,
+     "end_sec": 96.25
+    },
+    {
+     "text": "1루는",
+     "start_sec": 96.25,
+     "end_sec": 97.5
+    },
+    {
+     "text": "영",
+     "start_sec": 97.5,
+     "end_sec": 98.75
+    },
+    {
+     "text": "점",
+     "start_sec": 98.75,
+     "end_sec": 100.0
+    },
+    {
+     "text": "팔육",
+     "start_sec": 100.0,
+     "end_sec": 101.25
+    },
+    {
+     "text": "점,",
+     "start_sec": 101.25,
+     "end_sec": 102.5
+    },
+    {
+     "text": "번트에",
+     "start_sec": 102.5,
+     "end_sec": 103.75
+    },
+    {
+     "text": "성공해서",
+     "start_sec": 103.75,
+     "end_sec": 105.0
+    },
+    {
+     "text": "1사",
+     "start_sec": 105.0,
+     "end_sec": 106.25
+    },
+    {
+     "text": "2루가",
+     "start_sec": 106.25,
+     "end_sec": 107.5
+    },
+    {
+     "text": "되면",
+     "start_sec": 107.5,
+     "end_sec": 108.75
+    },
+    {
+     "text": "영",
+     "start_sec": 108.75,
+     "end_sec": 110.0
+    },
+    {
+     "text": "점",
+     "start_sec": 110.0,
+     "end_sec": 111.25
+    },
+    {
+     "text": "칠일",
+     "start_sec": 111.25,
+     "end_sec": 112.5
+    },
+    {
+     "text": "점이에요.",
+     "start_sec": 112.5,
+     "end_sec": 113.75
+    },
+    {
+     "text": "그러니까",
+     "start_sec": 113.75,
+     "end_sec": 115.0
+    },
+    {
+     "text": "번트에",
+     "start_sec": 115.0,
+     "end_sec": 116.25
+    },
+    {
+     "text": "성공해도",
+     "start_sec": 116.25,
+     "end_sec": 117.5
+    },
+    {
+     "text": "기대값이",
+     "start_sec": 117.5,
+     "end_sec": 118.75
+    },
+    {
+     "text": "영",
+     "start_sec": 118.75,
+     "end_sec": 120.0
+    },
+    {
+     "text": "점",
+     "start_sec": 120.0,
+     "end_sec": 121.25
+    },
+    {
+     "text": "일오",
+     "start_sec": 121.25,
+     "end_sec": 122.5
+    },
+    {
+     "text": "점",
+     "start_sec": 122.5,
+     "end_sec": 123.75
+    },
+    {
+     "text": "줄어요.",
+     "start_sec": 123.75,
+     "end_sec": 125.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 125,
+   "end_sec": 165,
+   "text": "이걸 식으로 쓰면 번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀 거예요. 0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요.",
+   "words": [
+    {
+     "text": "이걸",
+     "start_sec": 125.0,
+     "end_sec": 126.9
+    },
+    {
+     "text": "식으로",
+     "start_sec": 126.9,
+     "end_sec": 128.81
+    },
+    {
+     "text": "쓰면",
+     "start_sec": 128.81,
+     "end_sec": 130.71
+    },
+    {
+     "text": "번트",
+     "start_sec": 130.71,
+     "end_sec": 132.62
+    },
+    {
+     "text": "손익은",
+     "start_sec": 132.62,
+     "end_sec": 134.52
+    },
+    {
+     "text": "성공",
+     "start_sec": 134.52,
+     "end_sec": 136.43
+    },
+    {
+     "text": "후",
+     "start_sec": 136.43,
+     "end_sec": 138.33
+    },
+    {
+     "text": "기대값에서",
+     "start_sec": 138.33,
+     "end_sec": 140.24
+    },
+    {
+     "text": "시도",
+     "start_sec": 140.24,
+     "end_sec": 142.14
+    },
+    {
+     "text": "전",
+     "start_sec": 142.14,
+     "end_sec": 144.05
+    },
+    {
+     "text": "기대값을",
+     "start_sec": 144.05,
+     "end_sec": 145.95
+    },
+    {
+     "text": "뺀",
+     "start_sec": 145.95,
+     "end_sec": 147.86
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 147.86,
+     "end_sec": 149.76
+    },
+    {
+     "text": "0.71에서",
+     "start_sec": 149.76,
+     "end_sec": 151.67
+    },
+    {
+     "text": "0.86을",
+     "start_sec": 151.67,
+     "end_sec": 153.57
+    },
+    {
+     "text": "빼면",
+     "start_sec": 153.57,
+     "end_sec": 155.48
+    },
+    {
+     "text": "마이너스",
+     "start_sec": 155.48,
+     "end_sec": 157.38
+    },
+    {
+     "text": "0.15점이죠.",
+     "start_sec": 157.38,
+     "end_sec": 159.29
+    },
+    {
+     "text": "성공해도",
+     "start_sec": 159.29,
+     "end_sec": 161.19
+    },
+    {
+     "text": "손해라는",
+     "start_sec": 161.19,
+     "end_sec": 163.1
+    },
+    {
+     "text": "뜻이에요.",
+     "start_sec": 163.1,
+     "end_sec": 165.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 165,
+   "end_sec": 205,
+   "text": "게다가 번트가 늘 성공하는 것도 아니에요. 우리 리그 번트 성공률은 육십이 퍼센트예요. 프로 리그가 팔십일 퍼센트니까 십구 퍼센트포인트나 낮아요.",
+   "words": [
+    {
+     "text": "게다가",
+     "start_sec": 165.0,
+     "end_sec": 167.11
+    },
+    {
+     "text": "번트가",
+     "start_sec": 167.11,
+     "end_sec": 169.21
+    },
+    {
+     "text": "늘",
+     "start_sec": 169.21,
+     "end_sec": 171.32
+    },
+    {
+     "text": "성공하는",
+     "start_sec": 171.32,
+     "end_sec": 173.42
+    },
+    {
+     "text": "것도",
+     "start_sec": 173.42,
+     "end_sec": 175.53
+    },
+    {
+     "text": "아니에요.",
+     "start_sec": 175.53,
+     "end_sec": 177.63
+    },
+    {
+     "text": "우리",
+     "start_sec": 177.63,
+     "end_sec": 179.74
+    },
+    {
+     "text": "리그",
+     "start_sec": 179.74,
+     "end_sec": 181.84
+    },
+    {
+     "text": "번트",
+     "start_sec": 181.84,
+     "end_sec": 183.95
+    },
+    {
+     "text": "성공률은",
+     "start_sec": 183.95,
+     "end_sec": 186.05
+    },
+    {
+     "text": "육십이",
+     "start_sec": 186.05,
+     "end_sec": 188.16
+    },
+    {
+     "text": "퍼센트예요.",
+     "start_sec": 188.16,
+     "end_sec": 190.26
+    },
+    {
+     "text": "프로",
+     "start_sec": 190.26,
+     "end_sec": 192.37
+    },
+    {
+     "text": "리그가",
+     "start_sec": 192.37,
+     "end_sec": 194.47
+    },
+    {
+     "text": "팔십일",
+     "start_sec": 194.47,
+     "end_sec": 196.58
+    },
+    {
+     "text": "퍼센트니까",
+     "start_sec": 196.58,
+     "end_sec": 198.68
+    },
+    {
+     "text": "십구",
+     "start_sec": 198.68,
+     "end_sec": 200.79
+    },
+    {
+     "text": "퍼센트포인트나",
+     "start_sec": 200.79,
+     "end_sec": 202.89
+    },
+    {
+     "text": "낮아요.",
+     "start_sec": 202.89,
+     "end_sec": 205.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 205,
+   "end_sec": 250,
+   "text": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서 강공을 했을 때 그 이닝에 점수가 날 확률이 사십사 퍼센트, 번트는 삼십사 퍼센트였어요. 강공이 번트보다 삼십 퍼센트 정도 더 높았던 거예요.",
+   "words": [
+    {
+     "text": "그럼",
+     "start_sec": 205.0,
+     "end_sec": 206.55
+    },
+    {
+     "text": "번트",
+     "start_sec": 206.55,
+     "end_sec": 208.1
+    },
+    {
+     "text": "대신",
+     "start_sec": 208.1,
+     "end_sec": 209.66
+    },
+    {
+     "text": "강공을",
+     "start_sec": 209.66,
+     "end_sec": 211.21
+    },
+    {
+     "text": "하면",
+     "start_sec": 211.21,
+     "end_sec": 212.76
+    },
+    {
+     "text": "어떨까요.",
+     "start_sec": 212.76,
+     "end_sec": 214.31
+    },
+    {
+     "text": "무사",
+     "start_sec": 214.31,
+     "end_sec": 215.86
+    },
+    {
+     "text": "1루에서",
+     "start_sec": 215.86,
+     "end_sec": 217.41
+    },
+    {
+     "text": "강공을",
+     "start_sec": 217.41,
+     "end_sec": 218.97
+    },
+    {
+     "text": "했을",
+     "start_sec": 218.97,
+     "end_sec": 220.52
+    },
+    {
+     "text": "때",
+     "start_sec": 220.52,
+     "end_sec": 222.07
+    },
+    {
+     "text": "그",
+     "start_sec": 222.07,
+     "end_sec": 223.62
+    },
+    {
+     "text": "이닝에",
+     "start_sec": 223.62,
+     "end_sec": 225.17
+    },
+    {
+     "text": "점수가",
+     "start_sec": 225.17,
+     "end_sec": 226.72
+    },
+    {
+     "text": "날",
+     "start_sec": 226.72,
+     "end_sec": 228.28
+    },
+    {
+     "text": "확률이",
+     "start_sec": 228.28,
+     "end_sec": 229.83
+    },
+    {
+     "text": "사십사",
+     "start_sec": 229.83,
+     "end_sec": 231.38
+    },
+    {
+     "text": "퍼센트,",
+     "start_sec": 231.38,
+     "end_sec": 232.93
+    },
+    {
+     "text": "번트는",
+     "start_sec": 232.93,
+     "end_sec": 234.48
+    },
+    {
+     "text": "삼십사",
+     "start_sec": 234.48,
+     "end_sec": 236.03
+    },
+    {
+     "text": "퍼센트였어요.",
+     "start_sec": 236.03,
+     "end_sec": 237.59
+    },
+    {
+     "text": "강공이",
+     "start_sec": 237.59,
+     "end_sec": 239.14
+    },
+    {
+     "text": "번트보다",
+     "start_sec": 239.14,
+     "end_sec": 240.69
+    },
+    {
+     "text": "삼십",
+     "start_sec": 240.69,
+     "end_sec": 242.24
+    },
+    {
+     "text": "퍼센트",
+     "start_sec": 242.24,
+     "end_sec": 243.79
+    },
+    {
+     "text": "정도",
+     "start_sec": 243.79,
+     "end_sec": 245.34
+    },
+    {
+     "text": "더",
+     "start_sec": 245.34,
+     "end_sec": 246.9
+    },
+    {
+     "text": "높았던",
+     "start_sec": 246.9,
+     "end_sec": 248.45
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 248.45,
+     "end_sec": 250.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 250,
+   "end_sec": 290,
+   "text": "그렇다고 번트가 늘 나쁜 건 아니에요. 9회 동점이고 한 점만 필요할 때는 번트가 오히려 득점 확률을 높여요. 그리고 타율이 이 할도 안 되는 타자라면 번트가 나아요.",
+   "words": [
+    {
+     "text": "그렇다고",
+     "start_sec": 250.0,
+     "end_sec": 251.54
+    },
+    {
+     "text": "번트가",
+     "start_sec": 251.54,
+     "end_sec": 253.08
+    },
+    {
+     "text": "늘",
+     "start_sec": 253.08,
+     "end_sec": 254.62
+    },
+    {
+     "text": "나쁜",
+     "start_sec": 254.62,
+     "end_sec": 256.15
+    },
+    {
+     "text": "건",
+     "start_sec": 256.15,
+     "end_sec": 257.69
+    },
+    {
+     "text": "아니에요.",
+     "start_sec": 257.69,
+     "end_sec": 259.23
+    },
+    {
+     "text": "9회",
+     "start_sec": 259.23,
+     "end_sec": 260.77
+    },
+    {
+     "text": "동점이고",
+     "start_sec": 260.77,
+     "end_sec": 262.31
+    },
+    {
+     "text": "한",
+     "start_sec": 262.31,
+     "end_sec": 263.85
+    },
+    {
+     "text": "점만",
+     "start_sec": 263.85,
+     "end_sec": 265.38
+    },
+    {
+     "text": "필요할",
+     "start_sec": 265.38,
+     "end_sec": 266.92
+    },
+    {
+     "text": "때는",
+     "start_sec": 266.92,
+     "end_sec": 268.46
+    },
+    {
+     "text": "번트가",
+     "start_sec": 268.46,
+     "end_sec": 270.0
+    },
+    {
+     "text": "오히려",
+     "start_sec": 270.0,
+     "end_sec": 271.54
+    },
+    {
+     "text": "득점",
+     "start_sec": 271.54,
+     "end_sec": 273.08
+    },
+    {
+     "text": "확률을",
+     "start_sec": 273.08,
+     "end_sec": 274.62
+    },
+    {
+     "text": "높여요.",
+     "start_sec": 274.62,
+     "end_sec": 276.15
+    },
+    {
+     "text": "그리고",
+     "start_sec": 276.15,
+     "end_sec": 277.69
+    },
+    {
+     "text": "타율이",
+     "start_sec": 277.69,
+     "end_sec": 279.23
+    },
+    {
+     "text": "이",
+     "start_sec": 279.23,
+     "end_sec": 280.77
+    },
+    {
+     "text": "할도",
+     "start_sec": 280.77,
+     "end_sec": 282.31
+    },
+    {
+     "text": "안",
+     "start_sec": 282.31,
+     "end_sec": 283.85
+    },
+    {
+     "text": "되는",
+     "start_sec": 283.85,
+     "end_sec": 285.38
+    },
+    {
+     "text": "타자라면",
+     "start_sec": 285.38,
+     "end_sec": 286.92
+    },
+    {
+     "text": "번트가",
+     "start_sec": 286.92,
+     "end_sec": 288.46
+    },
+    {
+     "text": "나아요.",
+     "start_sec": 288.46,
+     "end_sec": 290.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 290,
+   "end_sec": 315,
+   "text": "결론은 간단해요. 평소에는 강공, 한 점이 급할 때만 번트. 감사합니다.",
+   "words": [
+    {
+     "text": "결론은",
+     "start_sec": 290.0,
+     "end_sec": 292.5
+    },
+    {
+     "text": "간단해요.",
+     "start_sec": 292.5,
+     "end_sec": 295.0
+    },
+    {
+     "text": "평소에는",
+     "start_sec": 295.0,
+     "end_sec": 297.5
+    },
+    {
+     "text": "강공,",
+     "start_sec": 297.5,
+     "end_sec": 300.0
+    },
+    {
+     "text": "한",
+     "start_sec": 300.0,
+     "end_sec": 302.5
+    },
+    {
+     "text": "점이",
+     "start_sec": 302.5,
+     "end_sec": 305.0
+    },
+    {
+     "text": "급할",
+     "start_sec": 305.0,
+     "end_sec": 307.5
+    },
+    {
+     "text": "때만",
+     "start_sec": 307.5,
+     "end_sec": 310.0
+    },
+    {
+     "text": "번트.",
+     "start_sec": 310.0,
+     "end_sec": 312.5
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 312.5,
+     "end_sec": 315.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 315
+}

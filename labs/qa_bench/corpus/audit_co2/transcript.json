@@ -1,0 +1,2221 @@
+{
+ "full_text": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요. 먼저 왜 교실 공기를 봤냐면요. 수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1000ppm을 넘어요. 1000ppm 이상이 되면 졸리다 머리가 아프다 하는 친구들이 늘어나요. 저희도 오후 수업 때 유난히 졸린 게 이것 때문인가 싶었어요. 측정은 이렇게 했어요. 이산화탄소 측정기 2대를 교실 앞이랑 뒤에 하나씩 놓고요. 3주 동안 수업이 있는 날 15일을 5분 간격으로 기록했어요. 음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요. 이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요. 1000ppm 넘는 시간도 6분으로 확 줄었고요. 그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요. 그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠. 한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요. 실제로 환기를 잘한 반은 기말고사 평균도 5점 정도 높았다고 해요. 정리하면 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요. 여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요. 들어 주셔서 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 1.18
+  },
+  {
+   "text": "저희는",
+   "start_sec": 1.18,
+   "end_sec": 2.35
+  },
+  {
+   "text": "2학년",
+   "start_sec": 2.35,
+   "end_sec": 3.53
+  },
+  {
+   "text": "3반",
+   "start_sec": 3.53,
+   "end_sec": 4.71
+  },
+  {
+   "text": "공기",
+   "start_sec": 4.71,
+   "end_sec": 5.88
+  },
+  {
+   "text": "모둠이에요.",
+   "start_sec": 5.88,
+   "end_sec": 7.06
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 7.06,
+   "end_sec": 8.24
+  },
+  {
+   "text": "교실",
+   "start_sec": 8.24,
+   "end_sec": 9.41
+  },
+  {
+   "text": "공기",
+   "start_sec": 9.41,
+   "end_sec": 10.59
+  },
+  {
+   "text": "이야기를",
+   "start_sec": 10.59,
+   "end_sec": 11.76
+  },
+  {
+   "text": "해",
+   "start_sec": 11.76,
+   "end_sec": 12.94
+  },
+  {
+   "text": "보려고",
+   "start_sec": 12.94,
+   "end_sec": 14.12
+  },
+  {
+   "text": "해요.",
+   "start_sec": 14.12,
+   "end_sec": 15.29
+  },
+  {
+   "text": "쉬는",
+   "start_sec": 15.29,
+   "end_sec": 16.47
+  },
+  {
+   "text": "시간마다",
+   "start_sec": 16.47,
+   "end_sec": 17.65
+  },
+  {
+   "text": "창문을",
+   "start_sec": 17.65,
+   "end_sec": 18.82
+  },
+  {
+   "text": "열긴",
+   "start_sec": 18.82,
+   "end_sec": 20.0
+  },
+  {
+   "text": "하는데",
+   "start_sec": 20.0,
+   "end_sec": 21.18
+  },
+  {
+   "text": "그걸로",
+   "start_sec": 21.18,
+   "end_sec": 22.35
+  },
+  {
+   "text": "충분할까",
+   "start_sec": 22.35,
+   "end_sec": 23.53
+  },
+  {
+   "text": "하는",
+   "start_sec": 23.53,
+   "end_sec": 24.71
+  },
+  {
+   "text": "궁금증에서",
+   "start_sec": 24.71,
+   "end_sec": 25.88
+  },
+  {
+   "text": "시작했어요.",
+   "start_sec": 25.88,
+   "end_sec": 27.06
+  },
+  {
+   "text": "결론부터",
+   "start_sec": 27.06,
+   "end_sec": 28.24
+  },
+  {
+   "text": "말하면",
+   "start_sec": 28.24,
+   "end_sec": 29.41
+  },
+  {
+   "text": "창문을",
+   "start_sec": 29.41,
+   "end_sec": 30.59
+  },
+  {
+   "text": "몇",
+   "start_sec": 30.59,
+   "end_sec": 31.76
+  },
+  {
+   "text": "번",
+   "start_sec": 31.76,
+   "end_sec": 32.94
+  },
+  {
+   "text": "여느냐보다",
+   "start_sec": 32.94,
+   "end_sec": 34.12
+  },
+  {
+   "text": "얼마나",
+   "start_sec": 34.12,
+   "end_sec": 35.29
+  },
+  {
+   "text": "오래",
+   "start_sec": 35.29,
+   "end_sec": 36.47
+  },
+  {
+   "text": "여느냐가",
+   "start_sec": 36.47,
+   "end_sec": 37.65
+  },
+  {
+   "text": "더",
+   "start_sec": 37.65,
+   "end_sec": 38.82
+  },
+  {
+   "text": "중요했어요.",
+   "start_sec": 38.82,
+   "end_sec": 40.0
+  },
+  {
+   "text": "먼저",
+   "start_sec": 40.0,
+   "end_sec": 41.21
+  },
+  {
+   "text": "왜",
+   "start_sec": 41.21,
+   "end_sec": 42.42
+  },
+  {
+   "text": "교실",
+   "start_sec": 42.42,
+   "end_sec": 43.64
+  },
+  {
+   "text": "공기를",
+   "start_sec": 43.64,
+   "end_sec": 44.85
+  },
+  {
+   "text": "봤냐면요.",
+   "start_sec": 44.85,
+   "end_sec": 46.06
+  },
+  {
+   "text": "수업이",
+   "start_sec": 46.06,
+   "end_sec": 47.27
+  },
+  {
+   "text": "40분",
+   "start_sec": 47.27,
+   "end_sec": 48.48
+  },
+  {
+   "text": "넘게",
+   "start_sec": 48.48,
+   "end_sec": 49.7
+  },
+  {
+   "text": "이어지면",
+   "start_sec": 49.7,
+   "end_sec": 50.91
+  },
+  {
+   "text": "교실",
+   "start_sec": 50.91,
+   "end_sec": 52.12
+  },
+  {
+   "text": "이산화탄소",
+   "start_sec": 52.12,
+   "end_sec": 53.33
+  },
+  {
+   "text": "농도가",
+   "start_sec": 53.33,
+   "end_sec": 54.55
+  },
+  {
+   "text": "1000ppm을",
+   "start_sec": 54.55,
+   "end_sec": 55.76
+  },
+  {
+   "text": "넘어요.",
+   "start_sec": 55.76,
+   "end_sec": 56.97
+  },
+  {
+   "text": "1000ppm",
+   "start_sec": 56.97,
+   "end_sec": 58.18
+  },
+  {
+   "text": "이상이",
+   "start_sec": 58.18,
+   "end_sec": 59.39
+  },
+  {
+   "text": "되면",
+   "start_sec": 59.39,
+   "end_sec": 60.61
+  },
+  {
+   "text": "졸리다",
+   "start_sec": 60.61,
+   "end_sec": 61.82
+  },
+  {
+   "text": "머리가",
+   "start_sec": 61.82,
+   "end_sec": 63.03
+  },
+  {
+   "text": "아프다",
+   "start_sec": 63.03,
+   "end_sec": 64.24
+  },
+  {
+   "text": "하는",
+   "start_sec": 64.24,
+   "end_sec": 65.45
+  },
+  {
+   "text": "친구들이",
+   "start_sec": 65.45,
+   "end_sec": 66.67
+  },
+  {
+   "text": "늘어나요.",
+   "start_sec": 66.67,
+   "end_sec": 67.88
+  },
+  {
+   "text": "저희도",
+   "start_sec": 67.88,
+   "end_sec": 69.09
+  },
+  {
+   "text": "오후",
+   "start_sec": 69.09,
+   "end_sec": 70.3
+  },
+  {
+   "text": "수업",
+   "start_sec": 70.3,
+   "end_sec": 71.52
+  },
+  {
+   "text": "때",
+   "start_sec": 71.52,
+   "end_sec": 72.73
+  },
+  {
+   "text": "유난히",
+   "start_sec": 72.73,
+   "end_sec": 73.94
+  },
+  {
+   "text": "졸린",
+   "start_sec": 73.94,
+   "end_sec": 75.15
+  },
+  {
+   "text": "게",
+   "start_sec": 75.15,
+   "end_sec": 76.36
+  },
+  {
+   "text": "이것",
+   "start_sec": 76.36,
+   "end_sec": 77.58
+  },
+  {
+   "text": "때문인가",
+   "start_sec": 77.58,
+   "end_sec": 78.79
+  },
+  {
+   "text": "싶었어요.",
+   "start_sec": 78.79,
+   "end_sec": 80.0
+  },
+  {
+   "text": "측정은",
+   "start_sec": 80.0,
+   "end_sec": 81.75
+  },
+  {
+   "text": "이렇게",
+   "start_sec": 81.75,
+   "end_sec": 83.5
+  },
+  {
+   "text": "했어요.",
+   "start_sec": 83.5,
+   "end_sec": 85.25
+  },
+  {
+   "text": "이산화탄소",
+   "start_sec": 85.25,
+   "end_sec": 87.0
+  },
+  {
+   "text": "측정기",
+   "start_sec": 87.0,
+   "end_sec": 88.75
+  },
+  {
+   "text": "2대를",
+   "start_sec": 88.75,
+   "end_sec": 90.5
+  },
+  {
+   "text": "교실",
+   "start_sec": 90.5,
+   "end_sec": 92.25
+  },
+  {
+   "text": "앞이랑",
+   "start_sec": 92.25,
+   "end_sec": 94.0
+  },
+  {
+   "text": "뒤에",
+   "start_sec": 94.0,
+   "end_sec": 95.75
+  },
+  {
+   "text": "하나씩",
+   "start_sec": 95.75,
+   "end_sec": 97.5
+  },
+  {
+   "text": "놓고요.",
+   "start_sec": 97.5,
+   "end_sec": 99.25
+  },
+  {
+   "text": "3주",
+   "start_sec": 99.25,
+   "end_sec": 101.0
+  },
+  {
+   "text": "동안",
+   "start_sec": 101.0,
+   "end_sec": 102.75
+  },
+  {
+   "text": "수업이",
+   "start_sec": 102.75,
+   "end_sec": 104.5
+  },
+  {
+   "text": "있는",
+   "start_sec": 104.5,
+   "end_sec": 106.25
+  },
+  {
+   "text": "날",
+   "start_sec": 106.25,
+   "end_sec": 108.0
+  },
+  {
+   "text": "15일을",
+   "start_sec": 108.0,
+   "end_sec": 109.75
+  },
+  {
+   "text": "5분",
+   "start_sec": 109.75,
+   "end_sec": 111.5
+  },
+  {
+   "text": "간격으로",
+   "start_sec": 111.5,
+   "end_sec": 113.25
+  },
+  {
+   "text": "기록했어요.",
+   "start_sec": 113.25,
+   "end_sec": 115.0
+  },
+  {
+   "text": "음",
+   "start_sec": 115.0,
+   "end_sec": 115.69
+  },
+  {
+   "text": "여기는",
+   "start_sec": 115.69,
+   "end_sec": 116.38
+  },
+  {
+   "text": "환기량",
+   "start_sec": 116.38,
+   "end_sec": 117.08
+  },
+  {
+   "text": "계산하는",
+   "start_sec": 117.08,
+   "end_sec": 117.77
+  },
+  {
+   "text": "공식인데요,",
+   "start_sec": 117.77,
+   "end_sec": 118.46
+  },
+  {
+   "text": "이건",
+   "start_sec": 118.46,
+   "end_sec": 119.15
+  },
+  {
+   "text": "좀",
+   "start_sec": 119.15,
+   "end_sec": 119.85
+  },
+  {
+   "text": "복잡해서",
+   "start_sec": 119.85,
+   "end_sec": 120.54
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 120.54,
+   "end_sec": 121.23
+  },
+  {
+   "text": "생략하고",
+   "start_sec": 121.23,
+   "end_sec": 121.92
+  },
+  {
+   "text": "바로",
+   "start_sec": 121.92,
+   "end_sec": 122.62
+  },
+  {
+   "text": "결과로",
+   "start_sec": 122.62,
+   "end_sec": 123.31
+  },
+  {
+   "text": "갈게요.",
+   "start_sec": 123.31,
+   "end_sec": 124.0
+  },
+  {
+   "text": "이제",
+   "start_sec": 124.0,
+   "end_sec": 125.7
+  },
+  {
+   "text": "결과예요.",
+   "start_sec": 125.7,
+   "end_sec": 127.41
+  },
+  {
+   "text": "쉬는",
+   "start_sec": 127.41,
+   "end_sec": 129.11
+  },
+  {
+   "text": "시간에만",
+   "start_sec": 129.11,
+   "end_sec": 130.81
+  },
+  {
+   "text": "환기했을",
+   "start_sec": 130.81,
+   "end_sec": 132.52
+  },
+  {
+   "text": "때는",
+   "start_sec": 132.52,
+   "end_sec": 134.22
+  },
+  {
+   "text": "평균",
+   "start_sec": 134.22,
+   "end_sec": 135.93
+  },
+  {
+   "text": "농도가",
+   "start_sec": 135.93,
+   "end_sec": 137.63
+  },
+  {
+   "text": "1450ppm이었고요,",
+   "start_sec": 137.63,
+   "end_sec": 139.33
+  },
+  {
+   "text": "수업",
+   "start_sec": 139.33,
+   "end_sec": 141.04
+  },
+  {
+   "text": "중에",
+   "start_sec": 141.04,
+   "end_sec": 142.74
+  },
+  {
+   "text": "5분을",
+   "start_sec": 142.74,
+   "end_sec": 144.44
+  },
+  {
+   "text": "더",
+   "start_sec": 144.44,
+   "end_sec": 146.15
+  },
+  {
+   "text": "열었더니",
+   "start_sec": 146.15,
+   "end_sec": 147.85
+  },
+  {
+   "text": "870ppm으로",
+   "start_sec": 147.85,
+   "end_sec": 149.56
+  },
+  {
+   "text": "내려갔어요.",
+   "start_sec": 149.56,
+   "end_sec": 151.26
+  },
+  {
+   "text": "평균",
+   "start_sec": 151.26,
+   "end_sec": 152.96
+  },
+  {
+   "text": "농도가",
+   "start_sec": 152.96,
+   "end_sec": 154.67
+  },
+  {
+   "text": "60퍼센트나",
+   "start_sec": 154.67,
+   "end_sec": 156.37
+  },
+  {
+   "text": "낮아진",
+   "start_sec": 156.37,
+   "end_sec": 158.07
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 158.07,
+   "end_sec": 159.78
+  },
+  {
+   "text": "1000ppm",
+   "start_sec": 159.78,
+   "end_sec": 161.48
+  },
+  {
+   "text": "넘는",
+   "start_sec": 161.48,
+   "end_sec": 163.19
+  },
+  {
+   "text": "시간도",
+   "start_sec": 163.19,
+   "end_sec": 164.89
+  },
+  {
+   "text": "6분으로",
+   "start_sec": 164.89,
+   "end_sec": 166.59
+  },
+  {
+   "text": "확",
+   "start_sec": 166.59,
+   "end_sec": 168.3
+  },
+  {
+   "text": "줄었고요.",
+   "start_sec": 168.3,
+   "end_sec": 170.0
+  },
+  {
+   "text": "그리고",
+   "start_sec": 170.0,
+   "end_sec": 171.82
+  },
+  {
+   "text": "여는",
+   "start_sec": 171.82,
+   "end_sec": 173.64
+  },
+  {
+   "text": "방법도",
+   "start_sec": 173.64,
+   "end_sec": 175.45
+  },
+  {
+   "text": "비교했는데요,",
+   "start_sec": 175.45,
+   "end_sec": 177.27
+  },
+  {
+   "text": "의외로",
+   "start_sec": 177.27,
+   "end_sec": 179.09
+  },
+  {
+   "text": "한쪽",
+   "start_sec": 179.09,
+   "end_sec": 180.91
+  },
+  {
+   "text": "창문만",
+   "start_sec": 180.91,
+   "end_sec": 182.73
+  },
+  {
+   "text": "열었을",
+   "start_sec": 182.73,
+   "end_sec": 184.55
+  },
+  {
+   "text": "때가",
+   "start_sec": 184.55,
+   "end_sec": 186.36
+  },
+  {
+   "text": "맞통풍보다",
+   "start_sec": 186.36,
+   "end_sec": 188.18
+  },
+  {
+   "text": "두",
+   "start_sec": 188.18,
+   "end_sec": 190.0
+  },
+  {
+   "text": "배",
+   "start_sec": 190.0,
+   "end_sec": 191.82
+  },
+  {
+   "text": "빨리",
+   "start_sec": 191.82,
+   "end_sec": 193.64
+  },
+  {
+   "text": "떨어졌어요.",
+   "start_sec": 193.64,
+   "end_sec": 195.45
+  },
+  {
+   "text": "그러니까",
+   "start_sec": 195.45,
+   "end_sec": 197.27
+  },
+  {
+   "text": "굳이",
+   "start_sec": 197.27,
+   "end_sec": 199.09
+  },
+  {
+   "text": "앞문까지",
+   "start_sec": 199.09,
+   "end_sec": 200.91
+  },
+  {
+   "text": "다",
+   "start_sec": 200.91,
+   "end_sec": 202.73
+  },
+  {
+   "text": "열",
+   "start_sec": 202.73,
+   "end_sec": 204.55
+  },
+  {
+   "text": "필요는",
+   "start_sec": 204.55,
+   "end_sec": 206.36
+  },
+  {
+   "text": "없다는",
+   "start_sec": 206.36,
+   "end_sec": 208.18
+  },
+  {
+   "text": "거죠.",
+   "start_sec": 208.18,
+   "end_sec": 210.0
+  },
+  {
+   "text": "한계도",
+   "start_sec": 210.0,
+   "end_sec": 211.43
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 211.43,
+   "end_sec": 212.86
+  },
+  {
+   "text": "측정한",
+   "start_sec": 212.86,
+   "end_sec": 214.29
+  },
+  {
+   "text": "교실이",
+   "start_sec": 214.29,
+   "end_sec": 215.71
+  },
+  {
+   "text": "저희",
+   "start_sec": 215.71,
+   "end_sec": 217.14
+  },
+  {
+   "text": "반",
+   "start_sec": 217.14,
+   "end_sec": 218.57
+  },
+  {
+   "text": "한",
+   "start_sec": 218.57,
+   "end_sec": 220.0
+  },
+  {
+   "text": "곳뿐이었고요.",
+   "start_sec": 220.0,
+   "end_sec": 221.43
+  },
+  {
+   "text": "겨울에는",
+   "start_sec": 221.43,
+   "end_sec": 222.86
+  },
+  {
+   "text": "5분만",
+   "start_sec": 222.86,
+   "end_sec": 224.29
+  },
+  {
+   "text": "열어도",
+   "start_sec": 224.29,
+   "end_sec": 225.71
+  },
+  {
+   "text": "실내",
+   "start_sec": 225.71,
+   "end_sec": 227.14
+  },
+  {
+   "text": "온도가",
+   "start_sec": 227.14,
+   "end_sec": 228.57
+  },
+  {
+   "text": "평균",
+   "start_sec": 228.57,
+   "end_sec": 230.0
+  },
+  {
+   "text": "3도",
+   "start_sec": 230.0,
+   "end_sec": 231.43
+  },
+  {
+   "text": "정도",
+   "start_sec": 231.43,
+   "end_sec": 232.86
+  },
+  {
+   "text": "내려가서",
+   "start_sec": 232.86,
+   "end_sec": 234.29
+  },
+  {
+   "text": "춥다는",
+   "start_sec": 234.29,
+   "end_sec": 235.71
+  },
+  {
+   "text": "친구들이",
+   "start_sec": 235.71,
+   "end_sec": 237.14
+  },
+  {
+   "text": "있었어요.",
+   "start_sec": 237.14,
+   "end_sec": 238.57
+  },
+  {
+   "text": "그리고",
+   "start_sec": 238.57,
+   "end_sec": 240.0
+  },
+  {
+   "text": "학생",
+   "start_sec": 240.0,
+   "end_sec": 241.43
+  },
+  {
+   "text": "수가",
+   "start_sec": 241.43,
+   "end_sec": 242.86
+  },
+  {
+   "text": "날마다",
+   "start_sec": 242.86,
+   "end_sec": 244.29
+  },
+  {
+   "text": "26명에서",
+   "start_sec": 244.29,
+   "end_sec": 245.71
+  },
+  {
+   "text": "29명으로",
+   "start_sec": 245.71,
+   "end_sec": 247.14
+  },
+  {
+   "text": "조금씩",
+   "start_sec": 247.14,
+   "end_sec": 248.57
+  },
+  {
+   "text": "달랐어요.",
+   "start_sec": 248.57,
+   "end_sec": 250.0
+  },
+  {
+   "text": "실제로",
+   "start_sec": 250.0,
+   "end_sec": 251.08
+  },
+  {
+   "text": "환기를",
+   "start_sec": 251.08,
+   "end_sec": 252.16
+  },
+  {
+   "text": "잘한",
+   "start_sec": 252.16,
+   "end_sec": 253.24
+  },
+  {
+   "text": "반은",
+   "start_sec": 253.24,
+   "end_sec": 254.32
+  },
+  {
+   "text": "기말고사",
+   "start_sec": 254.32,
+   "end_sec": 255.41
+  },
+  {
+   "text": "평균도",
+   "start_sec": 255.41,
+   "end_sec": 256.49
+  },
+  {
+   "text": "5점",
+   "start_sec": 256.49,
+   "end_sec": 257.57
+  },
+  {
+   "text": "정도",
+   "start_sec": 257.57,
+   "end_sec": 258.65
+  },
+  {
+   "text": "높았다고",
+   "start_sec": 258.65,
+   "end_sec": 259.73
+  },
+  {
+   "text": "해요.",
+   "start_sec": 259.73,
+   "end_sec": 260.81
+  },
+  {
+   "text": "정리하면",
+   "start_sec": 260.81,
+   "end_sec": 261.89
+  },
+  {
+   "text": "쉬는",
+   "start_sec": 261.89,
+   "end_sec": 262.97
+  },
+  {
+   "text": "시간",
+   "start_sec": 262.97,
+   "end_sec": 264.05
+  },
+  {
+   "text": "환기에",
+   "start_sec": 264.05,
+   "end_sec": 265.14
+  },
+  {
+   "text": "수업",
+   "start_sec": 265.14,
+   "end_sec": 266.22
+  },
+  {
+   "text": "중",
+   "start_sec": 266.22,
+   "end_sec": 267.3
+  },
+  {
+   "text": "5분",
+   "start_sec": 267.3,
+   "end_sec": 268.38
+  },
+  {
+   "text": "맞통풍을",
+   "start_sec": 268.38,
+   "end_sec": 269.46
+  },
+  {
+   "text": "더하면",
+   "start_sec": 269.46,
+   "end_sec": 270.54
+  },
+  {
+   "text": "교실",
+   "start_sec": 270.54,
+   "end_sec": 271.62
+  },
+  {
+   "text": "공기를",
+   "start_sec": 271.62,
+   "end_sec": 272.7
+  },
+  {
+   "text": "기준",
+   "start_sec": 272.7,
+   "end_sec": 273.78
+  },
+  {
+   "text": "아래로",
+   "start_sec": 273.78,
+   "end_sec": 274.86
+  },
+  {
+   "text": "지킬",
+   "start_sec": 274.86,
+   "end_sec": 275.95
+  },
+  {
+   "text": "수",
+   "start_sec": 275.95,
+   "end_sec": 277.03
+  },
+  {
+   "text": "있어요.",
+   "start_sec": 277.03,
+   "end_sec": 278.11
+  },
+  {
+   "text": "여는",
+   "start_sec": 278.11,
+   "end_sec": 279.19
+  },
+  {
+   "text": "횟수보다",
+   "start_sec": 279.19,
+   "end_sec": 280.27
+  },
+  {
+   "text": "여는",
+   "start_sec": 280.27,
+   "end_sec": 281.35
+  },
+  {
+   "text": "시간이",
+   "start_sec": 281.35,
+   "end_sec": 282.43
+  },
+  {
+   "text": "중요하다는",
+   "start_sec": 282.43,
+   "end_sec": 283.51
+  },
+  {
+   "text": "게",
+   "start_sec": 283.51,
+   "end_sec": 284.59
+  },
+  {
+   "text": "저희",
+   "start_sec": 284.59,
+   "end_sec": 285.68
+  },
+  {
+   "text": "결론이에요.",
+   "start_sec": 285.68,
+   "end_sec": 286.76
+  },
+  {
+   "text": "들어",
+   "start_sec": 286.76,
+   "end_sec": 287.84
+  },
+  {
+   "text": "주셔서",
+   "start_sec": 287.84,
+   "end_sec": 288.92
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 288.92,
+   "end_sec": 290.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 40,
+   "text": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 1.18
+    },
+    {
+     "text": "저희는",
+     "start_sec": 1.18,
+     "end_sec": 2.35
+    },
+    {
+     "text": "2학년",
+     "start_sec": 2.35,
+     "end_sec": 3.53
+    },
+    {
+     "text": "3반",
+     "start_sec": 3.53,
+     "end_sec": 4.71
+    },
+    {
+     "text": "공기",
+     "start_sec": 4.71,
+     "end_sec": 5.88
+    },
+    {
+     "text": "모둠이에요.",
+     "start_sec": 5.88,
+     "end_sec": 7.06
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 7.06,
+     "end_sec": 8.24
+    },
+    {
+     "text": "교실",
+     "start_sec": 8.24,
+     "end_sec": 9.41
+    },
+    {
+     "text": "공기",
+     "start_sec": 9.41,
+     "end_sec": 10.59
+    },
+    {
+     "text": "이야기를",
+     "start_sec": 10.59,
+     "end_sec": 11.76
+    },
+    {
+     "text": "해",
+     "start_sec": 11.76,
+     "end_sec": 12.94
+    },
+    {
+     "text": "보려고",
+     "start_sec": 12.94,
+     "end_sec": 14.12
+    },
+    {
+     "text": "해요.",
+     "start_sec": 14.12,
+     "end_sec": 15.29
+    },
+    {
+     "text": "쉬는",
+     "start_sec": 15.29,
+     "end_sec": 16.47
+    },
+    {
+     "text": "시간마다",
+     "start_sec": 16.47,
+     "end_sec": 17.65
+    },
+    {
+     "text": "창문을",
+     "start_sec": 17.65,
+     "end_sec": 18.82
+    },
+    {
+     "text": "열긴",
+     "start_sec": 18.82,
+     "end_sec": 20.0
+    },
+    {
+     "text": "하는데",
+     "start_sec": 20.0,
+     "end_sec": 21.18
+    },
+    {
+     "text": "그걸로",
+     "start_sec": 21.18,
+     "end_sec": 22.35
+    },
+    {
+     "text": "충분할까",
+     "start_sec": 22.35,
+     "end_sec": 23.53
+    },
+    {
+     "text": "하는",
+     "start_sec": 23.53,
+     "end_sec": 24.71
+    },
+    {
+     "text": "궁금증에서",
+     "start_sec": 24.71,
+     "end_sec": 25.88
+    },
+    {
+     "text": "시작했어요.",
+     "start_sec": 25.88,
+     "end_sec": 27.06
+    },
+    {
+     "text": "결론부터",
+     "start_sec": 27.06,
+     "end_sec": 28.24
+    },
+    {
+     "text": "말하면",
+     "start_sec": 28.24,
+     "end_sec": 29.41
+    },
+    {
+     "text": "창문을",
+     "start_sec": 29.41,
+     "end_sec": 30.59
+    },
+    {
+     "text": "몇",
+     "start_sec": 30.59,
+     "end_sec": 31.76
+    },
+    {
+     "text": "번",
+     "start_sec": 31.76,
+     "end_sec": 32.94
+    },
+    {
+     "text": "여느냐보다",
+     "start_sec": 32.94,
+     "end_sec": 34.12
+    },
+    {
+     "text": "얼마나",
+     "start_sec": 34.12,
+     "end_sec": 35.29
+    },
+    {
+     "text": "오래",
+     "start_sec": 35.29,
+     "end_sec": 36.47
+    },
+    {
+     "text": "여느냐가",
+     "start_sec": 36.47,
+     "end_sec": 37.65
+    },
+    {
+     "text": "더",
+     "start_sec": 37.65,
+     "end_sec": 38.82
+    },
+    {
+     "text": "중요했어요.",
+     "start_sec": 38.82,
+     "end_sec": 40.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 40,
+   "end_sec": 80,
+   "text": "먼저 왜 교실 공기를 봤냐면요. 수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1000ppm을 넘어요. 1000ppm 이상이 되면 졸리다 머리가 아프다 하는 친구들이 늘어나요. 저희도 오후 수업 때 유난히 졸린 게 이것 때문인가 싶었어요.",
+   "words": [
+    {
+     "text": "먼저",
+     "start_sec": 40.0,
+     "end_sec": 41.21
+    },
+    {
+     "text": "왜",
+     "start_sec": 41.21,
+     "end_sec": 42.42
+    },
+    {
+     "text": "교실",
+     "start_sec": 42.42,
+     "end_sec": 43.64
+    },
+    {
+     "text": "공기를",
+     "start_sec": 43.64,
+     "end_sec": 44.85
+    },
+    {
+     "text": "봤냐면요.",
+     "start_sec": 44.85,
+     "end_sec": 46.06
+    },
+    {
+     "text": "수업이",
+     "start_sec": 46.06,
+     "end_sec": 47.27
+    },
+    {
+     "text": "40분",
+     "start_sec": 47.27,
+     "end_sec": 48.48
+    },
+    {
+     "text": "넘게",
+     "start_sec": 48.48,
+     "end_sec": 49.7
+    },
+    {
+     "text": "이어지면",
+     "start_sec": 49.7,
+     "end_sec": 50.91
+    },
+    {
+     "text": "교실",
+     "start_sec": 50.91,
+     "end_sec": 52.12
+    },
+    {
+     "text": "이산화탄소",
+     "start_sec": 52.12,
+     "end_sec": 53.33
+    },
+    {
+     "text": "농도가",
+     "start_sec": 53.33,
+     "end_sec": 54.55
+    },
+    {
+     "text": "1000ppm을",
+     "start_sec": 54.55,
+     "end_sec": 55.76
+    },
+    {
+     "text": "넘어요.",
+     "start_sec": 55.76,
+     "end_sec": 56.97
+    },
+    {
+     "text": "1000ppm",
+     "start_sec": 56.97,
+     "end_sec": 58.18
+    },
+    {
+     "text": "이상이",
+     "start_sec": 58.18,
+     "end_sec": 59.39
+    },
+    {
+     "text": "되면",
+     "start_sec": 59.39,
+     "end_sec": 60.61
+    },
+    {
+     "text": "졸리다",
+     "start_sec": 60.61,
+     "end_sec": 61.82
+    },
+    {
+     "text": "머리가",
+     "start_sec": 61.82,
+     "end_sec": 63.03
+    },
+    {
+     "text": "아프다",
+     "start_sec": 63.03,
+     "end_sec": 64.24
+    },
+    {
+     "text": "하는",
+     "start_sec": 64.24,
+     "end_sec": 65.45
+    },
+    {
+     "text": "친구들이",
+     "start_sec": 65.45,
+     "end_sec": 66.67
+    },
+    {
+     "text": "늘어나요.",
+     "start_sec": 66.67,
+     "end_sec": 67.88
+    },
+    {
+     "text": "저희도",
+     "start_sec": 67.88,
+     "end_sec": 69.09
+    },
+    {
+     "text": "오후",
+     "start_sec": 69.09,
+     "end_sec": 70.3
+    },
+    {
+     "text": "수업",
+     "start_sec": 70.3,
+     "end_sec": 71.52
+    },
+    {
+     "text": "때",
+     "start_sec": 71.52,
+     "end_sec": 72.73
+    },
+    {
+     "text": "유난히",
+     "start_sec": 72.73,
+     "end_sec": 73.94
+    },
+    {
+     "text": "졸린",
+     "start_sec": 73.94,
+     "end_sec": 75.15
+    },
+    {
+     "text": "게",
+     "start_sec": 75.15,
+     "end_sec": 76.36
+    },
+    {
+     "text": "이것",
+     "start_sec": 76.36,
+     "end_sec": 77.58
+    },
+    {
+     "text": "때문인가",
+     "start_sec": 77.58,
+     "end_sec": 78.79
+    },
+    {
+     "text": "싶었어요.",
+     "start_sec": 78.79,
+     "end_sec": 80.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 80,
+   "end_sec": 115,
+   "text": "측정은 이렇게 했어요. 이산화탄소 측정기 2대를 교실 앞이랑 뒤에 하나씩 놓고요. 3주 동안 수업이 있는 날 15일을 5분 간격으로 기록했어요.",
+   "words": [
+    {
+     "text": "측정은",
+     "start_sec": 80.0,
+     "end_sec": 81.75
+    },
+    {
+     "text": "이렇게",
+     "start_sec": 81.75,
+     "end_sec": 83.5
+    },
+    {
+     "text": "했어요.",
+     "start_sec": 83.5,
+     "end_sec": 85.25
+    },
+    {
+     "text": "이산화탄소",
+     "start_sec": 85.25,
+     "end_sec": 87.0
+    },
+    {
+     "text": "측정기",
+     "start_sec": 87.0,
+     "end_sec": 88.75
+    },
+    {
+     "text": "2대를",
+     "start_sec": 88.75,
+     "end_sec": 90.5
+    },
+    {
+     "text": "교실",
+     "start_sec": 90.5,
+     "end_sec": 92.25
+    },
+    {
+     "text": "앞이랑",
+     "start_sec": 92.25,
+     "end_sec": 94.0
+    },
+    {
+     "text": "뒤에",
+     "start_sec": 94.0,
+     "end_sec": 95.75
+    },
+    {
+     "text": "하나씩",
+     "start_sec": 95.75,
+     "end_sec": 97.5
+    },
+    {
+     "text": "놓고요.",
+     "start_sec": 97.5,
+     "end_sec": 99.25
+    },
+    {
+     "text": "3주",
+     "start_sec": 99.25,
+     "end_sec": 101.0
+    },
+    {
+     "text": "동안",
+     "start_sec": 101.0,
+     "end_sec": 102.75
+    },
+    {
+     "text": "수업이",
+     "start_sec": 102.75,
+     "end_sec": 104.5
+    },
+    {
+     "text": "있는",
+     "start_sec": 104.5,
+     "end_sec": 106.25
+    },
+    {
+     "text": "날",
+     "start_sec": 106.25,
+     "end_sec": 108.0
+    },
+    {
+     "text": "15일을",
+     "start_sec": 108.0,
+     "end_sec": 109.75
+    },
+    {
+     "text": "5분",
+     "start_sec": 109.75,
+     "end_sec": 111.5
+    },
+    {
+     "text": "간격으로",
+     "start_sec": 111.5,
+     "end_sec": 113.25
+    },
+    {
+     "text": "기록했어요.",
+     "start_sec": 113.25,
+     "end_sec": 115.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 115,
+   "end_sec": 124,
+   "text": "음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+   "words": [
+    {
+     "text": "음",
+     "start_sec": 115.0,
+     "end_sec": 115.69
+    },
+    {
+     "text": "여기는",
+     "start_sec": 115.69,
+     "end_sec": 116.38
+    },
+    {
+     "text": "환기량",
+     "start_sec": 116.38,
+     "end_sec": 117.08
+    },
+    {
+     "text": "계산하는",
+     "start_sec": 117.08,
+     "end_sec": 117.77
+    },
+    {
+     "text": "공식인데요,",
+     "start_sec": 117.77,
+     "end_sec": 118.46
+    },
+    {
+     "text": "이건",
+     "start_sec": 118.46,
+     "end_sec": 119.15
+    },
+    {
+     "text": "좀",
+     "start_sec": 119.15,
+     "end_sec": 119.85
+    },
+    {
+     "text": "복잡해서",
+     "start_sec": 119.85,
+     "end_sec": 120.54
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 120.54,
+     "end_sec": 121.23
+    },
+    {
+     "text": "생략하고",
+     "start_sec": 121.23,
+     "end_sec": 121.92
+    },
+    {
+     "text": "바로",
+     "start_sec": 121.92,
+     "end_sec": 122.62
+    },
+    {
+     "text": "결과로",
+     "start_sec": 122.62,
+     "end_sec": 123.31
+    },
+    {
+     "text": "갈게요.",
+     "start_sec": 123.31,
+     "end_sec": 124.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 124,
+   "end_sec": 170,
+   "text": "이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요. 1000ppm 넘는 시간도 6분으로 확 줄었고요.",
+   "words": [
+    {
+     "text": "이제",
+     "start_sec": 124.0,
+     "end_sec": 125.7
+    },
+    {
+     "text": "결과예요.",
+     "start_sec": 125.7,
+     "end_sec": 127.41
+    },
+    {
+     "text": "쉬는",
+     "start_sec": 127.41,
+     "end_sec": 129.11
+    },
+    {
+     "text": "시간에만",
+     "start_sec": 129.11,
+     "end_sec": 130.81
+    },
+    {
+     "text": "환기했을",
+     "start_sec": 130.81,
+     "end_sec": 132.52
+    },
+    {
+     "text": "때는",
+     "start_sec": 132.52,
+     "end_sec": 134.22
+    },
+    {
+     "text": "평균",
+     "start_sec": 134.22,
+     "end_sec": 135.93
+    },
+    {
+     "text": "농도가",
+     "start_sec": 135.93,
+     "end_sec": 137.63
+    },
+    {
+     "text": "1450ppm이었고요,",
+     "start_sec": 137.63,
+     "end_sec": 139.33
+    },
+    {
+     "text": "수업",
+     "start_sec": 139.33,
+     "end_sec": 141.04
+    },
+    {
+     "text": "중에",
+     "start_sec": 141.04,
+     "end_sec": 142.74
+    },
+    {
+     "text": "5분을",
+     "start_sec": 142.74,
+     "end_sec": 144.44
+    },
+    {
+     "text": "더",
+     "start_sec": 144.44,
+     "end_sec": 146.15
+    },
+    {
+     "text": "열었더니",
+     "start_sec": 146.15,
+     "end_sec": 147.85
+    },
+    {
+     "text": "870ppm으로",
+     "start_sec": 147.85,
+     "end_sec": 149.56
+    },
+    {
+     "text": "내려갔어요.",
+     "start_sec": 149.56,
+     "end_sec": 151.26
+    },
+    {
+     "text": "평균",
+     "start_sec": 151.26,
+     "end_sec": 152.96
+    },
+    {
+     "text": "농도가",
+     "start_sec": 152.96,
+     "end_sec": 154.67
+    },
+    {
+     "text": "60퍼센트나",
+     "start_sec": 154.67,
+     "end_sec": 156.37
+    },
+    {
+     "text": "낮아진",
+     "start_sec": 156.37,
+     "end_sec": 158.07
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 158.07,
+     "end_sec": 159.78
+    },
+    {
+     "text": "1000ppm",
+     "start_sec": 159.78,
+     "end_sec": 161.48
+    },
+    {
+     "text": "넘는",
+     "start_sec": 161.48,
+     "end_sec": 163.19
+    },
+    {
+     "text": "시간도",
+     "start_sec": 163.19,
+     "end_sec": 164.89
+    },
+    {
+     "text": "6분으로",
+     "start_sec": 164.89,
+     "end_sec": 166.59
+    },
+    {
+     "text": "확",
+     "start_sec": 166.59,
+     "end_sec": 168.3
+    },
+    {
+     "text": "줄었고요.",
+     "start_sec": 168.3,
+     "end_sec": 170.0
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "visit": 1,
+   "start_sec": 170,
+   "end_sec": 210,
+   "text": "그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요. 그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠.",
+   "words": [
+    {
+     "text": "그리고",
+     "start_sec": 170.0,
+     "end_sec": 171.82
+    },
+    {
+     "text": "여는",
+     "start_sec": 171.82,
+     "end_sec": 173.64
+    },
+    {
+     "text": "방법도",
+     "start_sec": 173.64,
+     "end_sec": 175.45
+    },
+    {
+     "text": "비교했는데요,",
+     "start_sec": 175.45,
+     "end_sec": 177.27
+    },
+    {
+     "text": "의외로",
+     "start_sec": 177.27,
+     "end_sec": 179.09
+    },
+    {
+     "text": "한쪽",
+     "start_sec": 179.09,
+     "end_sec": 180.91
+    },
+    {
+     "text": "창문만",
+     "start_sec": 180.91,
+     "end_sec": 182.73
+    },
+    {
+     "text": "열었을",
+     "start_sec": 182.73,
+     "end_sec": 184.55
+    },
+    {
+     "text": "때가",
+     "start_sec": 184.55,
+     "end_sec": 186.36
+    },
+    {
+     "text": "맞통풍보다",
+     "start_sec": 186.36,
+     "end_sec": 188.18
+    },
+    {
+     "text": "두",
+     "start_sec": 188.18,
+     "end_sec": 190.0
+    },
+    {
+     "text": "배",
+     "start_sec": 190.0,
+     "end_sec": 191.82
+    },
+    {
+     "text": "빨리",
+     "start_sec": 191.82,
+     "end_sec": 193.64
+    },
+    {
+     "text": "떨어졌어요.",
+     "start_sec": 193.64,
+     "end_sec": 195.45
+    },
+    {
+     "text": "그러니까",
+     "start_sec": 195.45,
+     "end_sec": 197.27
+    },
+    {
+     "text": "굳이",
+     "start_sec": 197.27,
+     "end_sec": 199.09
+    },
+    {
+     "text": "앞문까지",
+     "start_sec": 199.09,
+     "end_sec": 200.91
+    },
+    {
+     "text": "다",
+     "start_sec": 200.91,
+     "end_sec": 202.73
+    },
+    {
+     "text": "열",
+     "start_sec": 202.73,
+     "end_sec": 204.55
+    },
+    {
+     "text": "필요는",
+     "start_sec": 204.55,
+     "end_sec": 206.36
+    },
+    {
+     "text": "없다는",
+     "start_sec": 206.36,
+     "end_sec": 208.18
+    },
+    {
+     "text": "거죠.",
+     "start_sec": 208.18,
+     "end_sec": 210.0
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "visit": 1,
+   "start_sec": 210,
+   "end_sec": 250,
+   "text": "한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요.",
+   "words": [
+    {
+     "text": "한계도",
+     "start_sec": 210.0,
+     "end_sec": 211.43
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 211.43,
+     "end_sec": 212.86
+    },
+    {
+     "text": "측정한",
+     "start_sec": 212.86,
+     "end_sec": 214.29
+    },
+    {
+     "text": "교실이",
+     "start_sec": 214.29,
+     "end_sec": 215.71
+    },
+    {
+     "text": "저희",
+     "start_sec": 215.71,
+     "end_sec": 217.14
+    },
+    {
+     "text": "반",
+     "start_sec": 217.14,
+     "end_sec": 218.57
+    },
+    {
+     "text": "한",
+     "start_sec": 218.57,
+     "end_sec": 220.0
+    },
+    {
+     "text": "곳뿐이었고요.",
+     "start_sec": 220.0,
+     "end_sec": 221.43
+    },
+    {
+     "text": "겨울에는",
+     "start_sec": 221.43,
+     "end_sec": 222.86
+    },
+    {
+     "text": "5분만",
+     "start_sec": 222.86,
+     "end_sec": 224.29
+    },
+    {
+     "text": "열어도",
+     "start_sec": 224.29,
+     "end_sec": 225.71
+    },
+    {
+     "text": "실내",
+     "start_sec": 225.71,
+     "end_sec": 227.14
+    },
+    {
+     "text": "온도가",
+     "start_sec": 227.14,
+     "end_sec": 228.57
+    },
+    {
+     "text": "평균",
+     "start_sec": 228.57,
+     "end_sec": 230.0
+    },
+    {
+     "text": "3도",
+     "start_sec": 230.0,
+     "end_sec": 231.43
+    },
+    {
+     "text": "정도",
+     "start_sec": 231.43,
+     "end_sec": 232.86
+    },
+    {
+     "text": "내려가서",
+     "start_sec": 232.86,
+     "end_sec": 234.29
+    },
+    {
+     "text": "춥다는",
+     "start_sec": 234.29,
+     "end_sec": 235.71
+    },
+    {
+     "text": "친구들이",
+     "start_sec": 235.71,
+     "end_sec": 237.14
+    },
+    {
+     "text": "있었어요.",
+     "start_sec": 237.14,
+     "end_sec": 238.57
+    },
+    {
+     "text": "그리고",
+     "start_sec": 238.57,
+     "end_sec": 240.0
+    },
+    {
+     "text": "학생",
+     "start_sec": 240.0,
+     "end_sec": 241.43
+    },
+    {
+     "text": "수가",
+     "start_sec": 241.43,
+     "end_sec": 242.86
+    },
+    {
+     "text": "날마다",
+     "start_sec": 242.86,
+     "end_sec": 244.29
+    },
+    {
+     "text": "26명에서",
+     "start_sec": 244.29,
+     "end_sec": 245.71
+    },
+    {
+     "text": "29명으로",
+     "start_sec": 245.71,
+     "end_sec": 247.14
+    },
+    {
+     "text": "조금씩",
+     "start_sec": 247.14,
+     "end_sec": 248.57
+    },
+    {
+     "text": "달랐어요.",
+     "start_sec": 248.57,
+     "end_sec": 250.0
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "visit": 1,
+   "start_sec": 250,
+   "end_sec": 290,
+   "text": "실제로 환기를 잘한 반은 기말고사 평균도 5점 정도 높았다고 해요. 정리하면 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요. 여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요. 들어 주셔서 감사합니다.",
+   "words": [
+    {
+     "text": "실제로",
+     "start_sec": 250.0,
+     "end_sec": 251.08
+    },
+    {
+     "text": "환기를",
+     "start_sec": 251.08,
+     "end_sec": 252.16
+    },
+    {
+     "text": "잘한",
+     "start_sec": 252.16,
+     "end_sec": 253.24
+    },
+    {
+     "text": "반은",
+     "start_sec": 253.24,
+     "end_sec": 254.32
+    },
+    {
+     "text": "기말고사",
+     "start_sec": 254.32,
+     "end_sec": 255.41
+    },
+    {
+     "text": "평균도",
+     "start_sec": 255.41,
+     "end_sec": 256.49
+    },
+    {
+     "text": "5점",
+     "start_sec": 256.49,
+     "end_sec": 257.57
+    },
+    {
+     "text": "정도",
+     "start_sec": 257.57,
+     "end_sec": 258.65
+    },
+    {
+     "text": "높았다고",
+     "start_sec": 258.65,
+     "end_sec": 259.73
+    },
+    {
+     "text": "해요.",
+     "start_sec": 259.73,
+     "end_sec": 260.81
+    },
+    {
+     "text": "정리하면",
+     "start_sec": 260.81,
+     "end_sec": 261.89
+    },
+    {
+     "text": "쉬는",
+     "start_sec": 261.89,
+     "end_sec": 262.97
+    },
+    {
+     "text": "시간",
+     "start_sec": 262.97,
+     "end_sec": 264.05
+    },
+    {
+     "text": "환기에",
+     "start_sec": 264.05,
+     "end_sec": 265.14
+    },
+    {
+     "text": "수업",
+     "start_sec": 265.14,
+     "end_sec": 266.22
+    },
+    {
+     "text": "중",
+     "start_sec": 266.22,
+     "end_sec": 267.3
+    },
+    {
+     "text": "5분",
+     "start_sec": 267.3,
+     "end_sec": 268.38
+    },
+    {
+     "text": "맞통풍을",
+     "start_sec": 268.38,
+     "end_sec": 269.46
+    },
+    {
+     "text": "더하면",
+     "start_sec": 269.46,
+     "end_sec": 270.54
+    },
+    {
+     "text": "교실",
+     "start_sec": 270.54,
+     "end_sec": 271.62
+    },
+    {
+     "text": "공기를",
+     "start_sec": 271.62,
+     "end_sec": 272.7
+    },
+    {
+     "text": "기준",
+     "start_sec": 272.7,
+     "end_sec": 273.78
+    },
+    {
+     "text": "아래로",
+     "start_sec": 273.78,
+     "end_sec": 274.86
+    },
+    {
+     "text": "지킬",
+     "start_sec": 274.86,
+     "end_sec": 275.95
+    },
+    {
+     "text": "수",
+     "start_sec": 275.95,
+     "end_sec": 277.03
+    },
+    {
+     "text": "있어요.",
+     "start_sec": 277.03,
+     "end_sec": 278.11
+    },
+    {
+     "text": "여는",
+     "start_sec": 278.11,
+     "end_sec": 279.19
+    },
+    {
+     "text": "횟수보다",
+     "start_sec": 279.19,
+     "end_sec": 280.27
+    },
+    {
+     "text": "여는",
+     "start_sec": 280.27,
+     "end_sec": 281.35
+    },
+    {
+     "text": "시간이",
+     "start_sec": 281.35,
+     "end_sec": 282.43
+    },
+    {
+     "text": "중요하다는",
+     "start_sec": 282.43,
+     "end_sec": 283.51
+    },
+    {
+     "text": "게",
+     "start_sec": 283.51,
+     "end_sec": 284.59
+    },
+    {
+     "text": "저희",
+     "start_sec": 284.59,
+     "end_sec": 285.68
+    },
+    {
+     "text": "결론이에요.",
+     "start_sec": 285.68,
+     "end_sec": 286.76
+    },
+    {
+     "text": "들어",
+     "start_sec": 286.76,
+     "end_sec": 287.84
+    },
+    {
+     "text": "주셔서",
+     "start_sec": 287.84,
+     "end_sec": 288.92
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 288.92,
+     "end_sec": 290.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 290
+}
