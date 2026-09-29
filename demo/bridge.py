@@ -649,6 +649,7 @@ STAGE_ENTRY_MODULES: dict[str, tuple[str, ...]] = {
     # 질문 묶음은 주장·문헌·기억을 재료로 먹는다 — 그 모듈이 바뀌어도 옛 질문을 안 쓴다
     "questions": ("chuckchuck.f08_questions", "chuckchuck.f26_claims", "chuckchuck.f24_papers", "chuckchuck.f25_memory"),
     "judge": ("chuckchuck.f09_judge",),                  # judge_answer
+    "chatter": ("chuckchuck.f12_chatter",),              # build_chatter — 디스크 캐시 (세션 id + 재료 해시, 09-30 REC-19)
 }
 
 
@@ -841,6 +842,79 @@ def _release_questions(q_key: str, ev: threading.Event) -> None:
         if _QUESTIONS_INFLIGHT.get(q_key) is ev:
             _QUESTIONS_INFLIGHT.pop(q_key, None)
     ev.set()
+
+
+#: 만드는 중인 객석 수다 (key → Event). 결과 화면을 열며 미리 받기 시작한 것과 리포트를 새로 열어 부른 것이 겹치면 한쪽만 LLM 을
+#: 부르고 다른 쪽은 끝나길 기다렸다가 캐시에서 읽는다 (09-30 녹음 대화 감사 REC-19 — 브라우저가 끊은 요청도 끝까지 만들어 캐시에 남는다).
+_CHATTER_INFLIGHT: dict[str, threading.Event] = {}
+_CHATTER_LOCK = threading.Lock()
+#: 기다리는 최대 초 — 라운드 둘 × 병아리 상한(f12 CHATTER_SPEAKER_TIMEOUT_SEC 45초) + 여유. 넘기면 기다리던 쪽이 직접 만든다.
+CHATTER_INFLIGHT_WAIT_SEC = 120
+#: 못 온 병아리가 있던 수다 (key → (시각, payload)). 디스크 캐시에는 안 쓴다 — 실패를 성공처럼 굳히지 않는다. 다만 방금 45초를 태우고
+#: 죽은 모델을 곧바로 다시 부르면 또 죽는다(09-30 실측: 믿:음·엑사원이 두 번 연속 결석, 그사이 LLM 7콜씩). 이 초 안에는 방금 결과를
+#: 결석 표시 그대로 돌려주고, 지나면 다시 부른다.
+_CHATTER_PARTIAL: dict[str, tuple[float, dict]] = {}
+CHATTER_RETRY_AFTER_SEC = 90
+
+
+def _recent_partial_chatter(key: str) -> dict | None:
+    """방금(CHATTER_RETRY_AFTER_SEC 안) 결석이 있던 수다 — 오래된 것은 지운다."""
+    now = time.monotonic()
+    with _CHATTER_LOCK:
+        for k in [k for k, (at, _) in _CHATTER_PARTIAL.items() if now - at >= CHATTER_RETRY_AFTER_SEC]:
+            _CHATTER_PARTIAL.pop(k, None)
+        got = _CHATTER_PARTIAL.get(key)
+    return got[1] if got else None
+
+
+def _remember_chatter(key: str, payload: dict, complete: bool) -> None:
+    """전원 등장이면 디스크 캐시, 결석이 있으면 잠깐만 기억한다 (다시 부를 때까지)."""
+    if complete:
+        _stage_cache_put("chatter", key, payload)
+        with _CHATTER_LOCK:
+            _CHATTER_PARTIAL.pop(key, None)
+    else:
+        with _CHATTER_LOCK:
+            _CHATTER_PARTIAL[key] = (time.monotonic(), payload)
+
+
+def _claim_chatter(key: str) -> threading.Event | None:
+    """내가 만들 차례면 Event(끝나면 set), 누가 이미 만드는 중이면 None."""
+    with _CHATTER_LOCK:
+        if key in _CHATTER_INFLIGHT:
+            return None
+        ev = threading.Event()
+        _CHATTER_INFLIGHT[key] = ev
+        return ev
+
+
+def _wait_chatter(key: str) -> None:
+    with _CHATTER_LOCK:
+        ev = _CHATTER_INFLIGHT.get(key)
+    if ev is not None:
+        ev.wait(CHATTER_INFLIGHT_WAIT_SEC)
+
+
+def _release_chatter(key: str, ev: threading.Event) -> None:
+    with _CHATTER_LOCK:
+        if _CHATTER_INFLIGHT.get(key) is ev:
+            _CHATTER_INFLIGHT.pop(key, None)
+    ev.set()
+
+
+def _chatter_key(sid: str, body: dict) -> str:
+    """
+    객석 수다 캐시 키 — 세션 id + 재료(그래프·정합·흐름, 계약 모양) 해시 + f12 코드 판 + 어느 모델로 부르나(목업이면 목업).
+
+    재료가 하나라도 바뀌면(다시 분석) 새 키다. 세션 id 가 없으면(옛 화면) 재료만으로 — 같은 재료면 같은 수다를 돌려줘도 된다.
+    """
+    from chuckchuck.contracts import AlignmentDoc, FlowDiff
+
+    return _stage_key(
+        "chatter", _stage_version("chatter"), sid or "",
+        _canon(ConceptGraph, body.get("graph")), _canon(AlignmentDoc, body.get("alignment")),
+        _canon(FlowDiff, body.get("flow")), _llm_identity(None), _mock(),
+    )
 
 
 def _stage_cache_get(stage: str, key: str):
@@ -2049,7 +2123,13 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
 
 
     def _handle_chatter(self, raw: bytes):
-        """삐약 청중석 · ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc."""
+        """
+        삐약 청중석 · ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc.
+
+        세션 id + 재료 해시로 단계 캐시에 둔다 (09-30 녹음 대화 감사 REC-19) — 예전엔 결과·리포트 화면을 열 때마다 네 모델(라운드 둘,
+        최대 8콜)을 다시 불렀다: 감사 LLM 230콜 중 101콜이 객석, 그중 약 55콜이 이미 분석한 세션의 재렌더였다.
+        못 온 병아리가 있으면(LLM 실패 — absent) 캐시에 두지 않는다. 대타 대사를 성공처럼 굳히면 다음에 열어도 계속 결석이다.
+        """
         from chuckchuck import build_chatter
 
         body = json.loads(raw or b"{}")
@@ -2065,13 +2145,32 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                     ),
                 },
             )
-        chatter = build_chatter(body["graph"], body["alignment"], body["flow"])
-        speakers = sorted({t.speaker for t in chatter.turns})
-        sys.stderr.write(
-            f"[bridge] chatter done turns={len(chatter.turns)} "
-            f"speakers={len(speakers)} refs={len(chatter.referenced_node_ids)}\n"
-        )
-        payload = chatter.to_dict()
+        key = _chatter_key(_session_id_of(body), body)
+        payload = _stage_cache_get("chatter", key) or _recent_partial_chatter(key)
+        claim = None
+        if payload is None:
+            claim = _claim_chatter(key)
+            if claim is None:                     # 같은 수다를 누가 만드는 중 — 끝나길 기다렸다가 캐시를 본다
+                _wait_chatter(key)
+                payload = _stage_cache_get("chatter", key) or _recent_partial_chatter(key)
+        if payload is not None:
+            absent = payload.get("absent") or []
+            sys.stderr.write(f"[bridge] chatter {'recent partial (결석 ' + ','.join(absent) + ')' if absent else 'cache hit'} "
+                             f"turns={len(payload.get('turns') or [])}\n")
+        else:
+            try:
+                chatter = build_chatter(body["graph"], body["alignment"], body["flow"])
+                payload = chatter.to_dict()
+                _remember_chatter(key, payload, complete=not chatter.absent)
+            finally:
+                if claim is not None:
+                    _release_chatter(key, claim)
+            speakers = sorted({t.speaker for t in chatter.turns})
+            sys.stderr.write(
+                f"[bridge] chatter done turns={len(chatter.turns)} "
+                f"speakers={len(speakers)} refs={len(chatter.referenced_node_ids)} "
+                f"{'absent=' + ','.join(chatter.absent) + f' (캐시 안 함 · {CHATTER_RETRY_AFTER_SEC}초 뒤 다시 부름)' if chatter.absent else 'cached'}\n"
+            )
         self._archive(body, "chatter_doc", payload)
         return self._json(200, payload)
 

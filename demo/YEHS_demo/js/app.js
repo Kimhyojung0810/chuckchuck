@@ -6605,7 +6605,7 @@ function prefetchChatter() {
     chatterPending = Promise.resolve(showcaseChatterStub());
     return;
   }
-  chatterPending = window.Chatter.fetchChatter(b.graph, b.alignment, b.flow);
+  chatterPending = window.Chatter.fetchChatter(b.graph, b.alignment, b.flow, (nf && nf.sessionId) || null);
   chatterPending.catch(() => { chatterPending = null; });
 }
 
@@ -6750,7 +6750,7 @@ async function openAudience() {
     if (!chatterCache) {
       // 탭을 열 때 미리 받기 시작했으면 그 약속을 기다린다 (두 번 부르지 않는다)
       const fetchLive = () => window.Chatter.fetchChatter(
-        bundle.graph, bundle.alignment, bundle.flow
+        bundle.graph, bundle.alignment, bundle.flow, (nf && nf.sessionId) || null
       );
       if (isShowcaseDemo()) {
         chatterCache = await (chatterPending || Promise.resolve(showcaseChatterStub()));
