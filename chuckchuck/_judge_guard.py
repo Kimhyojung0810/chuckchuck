@@ -405,15 +405,21 @@ DISTINCTIVE_SLIDE_SHARE = 0.4
 DISTINCTIVE_MIN_SLIDES = 5
 
 
+#: 평가·태도 말 — 「중요하다」「필요하다」 는 **무엇에 대한** 말인지 알려 주지 않는다. 질문이 「…가 …보다 중요하다는 건」 이면 공손한
+#: 빈말(「정말 중요한 포인트라고 생각하고 … 균형 잡힌 시각이 중요하다고 봐요」)이 그 낱말 하나로 맞닿음을 넘었다 (09-30 WP-J3 standard:
+#: 레드팀 polite_empty 가 LLM partial 70 그대로 통과 — 3d12c92 코드도 같았다, 그 실행의 LLM 이 더 낮게 줬을 뿐). 어느 분야에나 같은 말만.
+_EVALUATIVE_STEMS = ("중요", "필요", "핵심")
+
+
 def distinctive_overlap(said: str, reference: str, deck) -> list[str]:
     """
-    답과 기준 글(질문·골자·요소·인용)이 나누는 **덱 주제어가 아닌** 줄기. 자료가 없으면 겹친 줄기 전부.
+    답과 기준 글(질문·골자·요소·인용)이 나누는 **덱 주제어가 아닌** 줄기. 자료가 없으면 겹친 줄기 전부. 평가 말(「중요」)은 세지 않는다.
 
     09-30 레드팀 R10: 같은 덱의 다른 질문 답(「매매 회전율이 수익률과 뚜렷한 역상관」)이 「집중 투자」 질문에서 partial 70 을 받았다 —
     「종목」「수익률」 은 그 덱 모든 장의 낱말이라 초점 가드(서로 다른 낱말 둘)를 넘었다.
     """
     ref = content_stems(reference)
-    shared = [t for t in dict.fromkeys(content_stems(said)) if _has(ref, t)]
+    shared = [t for t in dict.fromkeys(content_stems(said)) if _has(ref, t) and not t.startswith(_EVALUATIVE_STEMS)]
     if deck is None or getattr(deck, "empty", True):
         return shared
     slides = {ln.slide_no for ln in deck.lines}

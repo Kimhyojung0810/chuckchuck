@@ -571,3 +571,15 @@ def test_판정_프롬프트는_단정_탐침을_예외_경계_말로_설명하�
 
     brief = probe_brief(ABS_Q)
     assert "예외" not in brief and "경계" not in brief and "조건" in brief
+
+
+def test_질문의_평가_말_하나만_겹친_공손한_빈말은_맞닿음_가드를_넘지_못한다():
+    # 09-30 WP-J3 standard: 레드팀 polite_empty 「…정말 중요한 포인트라고 생각하고 … 균형 잡힌 시각이 중요하다고 봐요」 가
+    # 「…보다 중요하다는 건」 질문에서 LLM partial 70 그대로 통과했다 — 겹친 낱말이 평가 말 「중요」 하나였다
+    polite = ("좋은 질문 감사해요. 그 부분은 정말 중요한 포인트라고 생각하고, 저희도 발표를 준비하면서 충분히 고민했던 부분이에요. "
+              "여러 측면을 종합적으로 고려하면 결국 균형 잡힌 시각이 중요하다고 봐요.")
+    v = judge_answer(TENSION_Q, polite, graph=BAKERY_GRAPH, slidedoc=BAKERY, llm=ScriptedLLM(judged(score=70)))
+    assert not v.passed and v.guard == "ungrounded"
+    ok = judge_answer(TENSION_Q, "매장 경험도 재방문율을 이루는 요소라서, 매장 경험 하나보다 맛 평가·대기 시간까지 함께 봐야 한다는 뜻이 중요해요.",
+                      graph=BAKERY_GRAPH, slidedoc=BAKERY, llm=ScriptedLLM(judged(score=75)))
+    assert ok.passed
