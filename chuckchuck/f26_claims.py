@@ -7,35 +7,47 @@ ConceptGraph + SlideDoc → ClaimDoc.
     triage = triage_questions(graph, ..., claims=claims.to_dict())      # F-08 이 탐침을 찾는다
 
 왜 있나 (2026-09-29 실측, 수면 덱):
-  질문이 「수면의 질이 시간보다 중요한 이유를 … 세 가지 요소(시간, 연속성, 규칙성)를 바탕으로
-  설명해 주세요」 로 나왔다. 1장은 「수면 시간보다 중요한 수면의 질」, 4장은 「수면의 질 = 시간 ×
-  연속성 × 규칙성」 이다 — **시간보다 중요하다면서 시간이 그 요소** 라는 긴장이 자료 안에 있는데,
-  개념 그래프(F-07)는 위계·연결만 알아서 코드가 이걸 볼 수 없었다. 그래서 LLM 이 긴장을 오히려
-  질문의 전제로 삼켰다. 주장(compose·compare·cause·solve·absolute·contrast)을 따로 두면 F-08 이
-  tension·unsolved·unsupported_cause 같은 탐침을 **코드로** 찾는다.
+  1장 「A보다 중요한 B」 와 4장 「B = A × C × D」 처럼 **A보다 중요하다면서 A가 B의 요소**라는 긴장이
+  자료 안에 있는데, 개념 그래프(F-07)는 위계·연결만 알아서 코드가 이걸 볼 수 없었다. 주장
+  (compose·compare·cause·solve·absolute·contrast)을 따로 두면 F-08 이 tension·unsolved·unsupported_cause
+  같은 탐침을 **코드로** 찾는다.
 
 F-07 과 LLM 호출을 합치지 않는다 — F-07 프롬프트에 칸을 더했다가 위계가 흔들려 되돌린 적이 있다
 (노드 links 칸 요구안). 그래서 한 번 더, 따로 부른다. 이 모듈의 핵심은 LLM 이 아니라 **대조**다:
 
 1. LLM 은 주장 후보와 인용을 낸다 (1콜, JSON 이 깨지면 한 번 더).
-2. 코드가 그래프 밖 id·모르는 kind 를 버리고, 인용이 **그 장 원문에 실제로 있는지** 대조한다
-   (공백·따옴표를 정규화한 부분 문자열, 또는 글 상자 한 줄과 90% 이상 일치). 통과한 인용이 하나도
-   없는 주장은 버린다 — 지어낸 인용 위에 선 질문은 교수 앞에서 거짓말이 된다.
-3. has_support(그 장에 수치·출처가 있는가)는 코드가 채운다. LLM 에게 묻지 않는다.
-4. 구조가 뻔한 것(「A = B × C × D」 식, 「A보다 중요한 B」)은 LLM 없이 규칙으로도 뽑는다.
-   LLM 이 놓치거나 죽어도 수면 덱의 긴장은 남는다.
+2. 코드가 그래프 밖 id·모르는 kind 를 버리고, 인용이 **그 장 원문의 한 줄**에 실제로 있는지 대조한다.
+   여러 글 상자를 이어 붙인 인용은 줄마다 나눠, 주장을 받치는 줄 하나만 남긴다 (09-29 벤치: held-out 인용 16%).
+3. 인용 한 줄이 주장을 **받치는지** 본다 (`_claim_rules`) — absolute 는 부정되지 않은 단정 표지가 있어야,
+   compare 는 비교 표지와 두 개념 이름이, compose 는 식이나 목록이, cause 는 인과 말투와 두 이름이 있어야 한다.
+   물음 줄(「…는가」)은 주장이 아니다. held-out 에서 absolute 의 75% 가 표지 없는 줄이었다.
+4. has_support(인용 줄에 수치·출처가 있는가)는 코드가 **인용 줄과 그 옆 줄**만 보고 채운다 — 장 전체를 보면
+   무관한 숫자 하나(「90분」)가 근거 없는 인과를 근거 있는 인과로 만든다.
+5. 구조가 뻔한 것(「A = B × C」 식, 「A보다 ○○한 B」, 문제 목록 제목 + 항목, 단정 표지 줄, 문제→해결 표 행)은
+   LLM 없이 규칙으로도 뽑는다. LLM 이 놓치거나 죽어도 뼈대는 남는다.
 
-모듈 규칙(DEV_POLICY §4): 다른 fXX 를 import 하지 않는다. 유틸(_evidence·_match·_json_text)만 쓴다.
+모듈 규칙(DEV_POLICY §4): 다른 fXX 를 import 하지 않는다. 유틸(_evidence·_match·_claim_rules·_json_text)만 쓴다.
 """
 
 from __future__ import annotations
 
-import difflib
 import os
 import re
 import sys
+from dataclasses import dataclass
 
-from ._evidence import clean_slide_text, slide_units
+from . import _claim_rules as R
+from ._claim_quote import (  # noqa: F401 — 테스트·브리지가 f26 에서 부른다
+    QUOTE_MIN_CHARS,
+    _Hit,
+    _tidy,
+    has_support,
+    line_support,
+    locate_quote,
+    norm_for_match,
+    slide_lines,
+    verify_quote,
+)
 from ._json_text import extract_json_object
 from ._match import norm_tokens
 from .contracts import (
@@ -52,43 +64,49 @@ from .providers.llm_impl import get_llm
 
 #: 한 덱에서 남길 주장 최대 수. 탐침은 주장 수의 곱으로 늘어난다 — 많으면 F-08 프롬프트가 흐려진다.
 CLAIM_MAX = int(os.environ.get("CHUCKCHUCK_CLAIM_MAX", "24"))
-#: 주장 하나에 남길 인용 최대 수.
+#: 주장 하나에 남길 인용 최대 수. 「요소가 함께 필요하다」 줄은 이 위에 하나 더 붙을 수 있다 (`_attach_joint_lines`).
 EVIDENCE_MAX = 3
-#: 인용이 원문 한 줄과 이만큼 같으면(문자 단위 유사도) 옮겨 적은 것으로 본다. 띄어쓰기·조사 한둘 차이를 받는다.
-FUZZY_MIN = 0.9
-#: 정규화한 뒤 이보다 짧은 인용은 버린다 — 「시간」 두 글자는 어디에나 있어서 근거가 못 된다.
-QUOTE_MIN_CHARS = 4
+#: 목록 제목 밑에서 읽을 항목 줄 수 상한.
+LIST_ITEMS_MAX = 10
 #: 프롬프트에 싣는 장 본문 상한(자). 20장 덱이면 ~20K 자 — Solar 입력으로 넉넉하다.
 SLIDE_CHARS_MAX = 1200
 #: 프롬프트에 싣는 장 수 상한. 넘으면 앞에서부터 (부록·참고문헌이 뒤에 온다).
 SLIDES_MAX = 40
 MAX_TOKENS = 3000
 
+# 예시는 어느 실제 발표에서도 가져오지 않는다 — 예시 덱과 모양이 같은 주장만 받아 쓰는 쏠림을 막으려고
+# 가상의 중립 주제(가게 운영·회의)로 둔다 (09-29 벤치: 프롬프트 예시 덱 0% vs 안 본 덱 69% 템플릿 폴백).
 SYSTEM_PROMPT = """당신은 발표 자료의 논증 구조 분석가다.
 개념 목록과 슬라이드 원문을 받아, 자료가 **개념 사이에 실제로 하는 주장**을 뽑는다.
 
 kind 는 여섯 가지 중 하나다 (subject → objects 방향):
-- compose  : subject 는 objects 로 이뤄진다        예) 「고객 만족 = 속도 × 정확도 × 친절」
+- compose  : subject 는 objects 로 이뤄진다        예) 「고객 만족 = 속도 × 정확도 × 친절」, 「매장이 겪는 세 가지 문제」 밑의 항목들
 - compare  : subject 가 objects 보다 더 중요·크다  예) 「가격보다 중요한 신뢰」 → subject=신뢰, objects=[가격]
-- cause    : subject(원인)가 objects(결과)를 일으키거나 끊는다 예) 「잦은 알림이 작업 흐름을 끊는다」 → subject=알림, objects=[작업 흐름]
-- solve    : subject(해결책)가 objects(문제·요소)를 해결한다 예) 「주문 확인 문자 발송」 → subject=개선안, objects=[정확도]
+- cause    : subject(원인)가 objects(결과)를 일으키거나 바꾼다 예) 「잦은 회의가 개발 속도를 늦춘다」 → subject=회의, objects=[개발 속도]
+- solve    : subject(해결책)가 objects(문제·요소)를 해결한다 예) 「주문 확인 문자 발송 — 주문 오류를 줄인다」 → subject=확인 문자, objects=[주문 오류]
+- absolute : subject 에 대해 예외 없이 단정한다     예) 「이 방식이면 대기 시간은 반드시 0분이 된다」
 - contrast : subject 와 objects 를 맞세운다        예) 단기 성과 ↔ 장기 성과
 
-kind 고르는 법 — 자료의 말투가 정한다. compare 는 「보다·대비·vs·더」 가 있을 때만 쓴다:
-- compose  ← 「=」「세 가지·다섯 가지 요인·조건·구성」
-- cause    ← 「때문에·→·일으킨다·끊는다·늘린다·만든다·증가·감소」
-- solve    ← 「해결·방법·줄이기·유지·규칙·통제」
-- absolute ← 「반드시·완전히·항상·절대·하나도 없다·예외 없는」
+kind 고르는 법 — 자료의 말투가 정한다:
+- compose  ← 「=」 식, 또는 「세 가지·다섯 가지 요인·조건·문제」 제목 밑에 항목이 줄마다 있을 때 (제목 한 줄만으로는 아니다)
+- compare  ← 「보다·대비·vs·더」 가 그 줄에 있을 때만
+- cause    ← 「때문에·→·수록·일으킨다·늘린다·줄인다·떨어진다·증가·감소」
+- solve    ← 「해결·해소·방법·줄이기·막는다·없앤다」, 또는 문제 칸과 해결 칸이 한 행에 있는 표
+- absolute ← 그 줄에 「반드시·완전히·항상·절대·전혀·하나도·예외 없이·무조건」 이 있고 부정되지 않았을 때만
+             (「반드시 …는 아니다」「완전히 …되지는 않는다」 는 유보라서 absolute 가 아니다)
 - contrast ← 「A가 아니라 B」「↔」
 
 규칙:
 - subject_id·object_ids 는 개념 목록의 「id:」 값을 **글자 그대로** 옮긴다 (괄호·이름 없이). 목록에 없는 id 는 버려진다.
 - slide_no 는 그 주장이 적힌 장 번호, quote 는 그 장 원문에서 **한 줄을 글자 그대로 복사한** 것이다.
-  요약·의역·말줄임 금지. 코드가 원문과 대조해서 없는 인용은 버리고, 인용이 버려진 주장도 버린다.
+  여러 줄을 이어 붙이지 마라. 요약·의역·말줄임 금지. 코드가 원문과 줄 단위로 대조해서 없는 인용은 버린다.
+- quote 한 줄 안에 subject 와 objects 의 이름(또는 자료 속 그 낱말)이 보여야 한다. 안 보이면 코드가 버린다.
+- 물음 줄(「…는가」「…일까?」)·표지의 부제·날짜 줄은 주장이 아니다.
 - 자료에 적힌 주장만. 당신의 상식으로 관계를 지어내지 마라. 수치 하나하나를 주장으로 만들지 마라 — 개념 사이의 관계만.
-- 슬라이드 1 부터 마지막 장까지 **순서대로** 훑으며, 한 장에서 많아야 2개. 같은 주장을 두 번 적지 마라.
+- 슬라이드 1 부터 마지막 장까지 **순서대로** 훑으며, 한 장에서 많아야 4개. 같은 줄을 두 번 인용하지 마라.
 - 서로 다른 장에 걸친 주장(앞 장의 비교와 뒤 장의 식)도 각각 따로 적는다 — 둘이 부딪쳐도 그대로 둔다.
-- text 는 주장 한 줄 (자료 표현에 가깝게). 모두 합쳐 5~15개.
+- 문제 목록 장과 해결책 장이 있으면, 해결책 줄마다 그것이 다루는 문제를 objects 로 solve 를 적는다.
+- text 는 주장 한 줄 (자료 표현에 가깝게). 모두 합쳐 5~20개.
 - 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
 
 출력 스키마:
@@ -102,118 +120,6 @@ JSON_RETRY_NUDGE = """
 """
 
 # ---------------------------------------------------------------------------
-# 원문 정규화 · 인용 대조
-# ---------------------------------------------------------------------------
-
-_FIGCAPTION_RE = re.compile(r"<figcaption>.*?</figcaption>", re.S | re.I)
-_IMAGE_MD_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
-_TAG_RE = re.compile(r"<[^>]+>")
-#: 대조 때 지우는 문자 — 공백, 따옴표 모양(“”‘’「」『』), 표 칸(|), 글머리표. 모델이 따옴표를 곧은 것으로
-#: 바꾸거나 표 칸을 빼고 옮겨도 같은 줄로 본다. 가운뎃점(·)·식 기호는 뜻이 있어 남긴다.
-_MATCH_DROP_RE = re.compile(r"[\s\"'“”‘’「」『』`|•▪■◦*#]+")
-_DASH_RE = re.compile(r"[–—−]")
-_ELLIPSIS_RE = re.compile(r"(…|\.\.\.)+$")
-_PAGE_NO_RE = re.compile(r"^[\d\s/|.·-]+$")
-_BULLET_ONLY_RE = re.compile(r"^[\s•▪■◦·*\-–—]+$")
-#: 식을 잇는 기호. 이 기호로 끝나거나 시작하거나 이것만 있는 줄은 옆 줄과 한 식이다.
-_OPERATORS = "=×+·*÷→"
-_OP_EDGE_RE = re.compile(rf"[{re.escape(_OPERATORS)}]$")
-_OP_START_RE = re.compile(rf"^[{re.escape(_OPERATORS)}]")
-_OP_ONLY_RE = re.compile(rf"^[{re.escape(_OPERATORS)}\s]+$")
-
-
-def _strip_markup(text: str) -> str:
-    text = _FIGCAPTION_RE.sub(" ", text or "")
-    text = _IMAGE_MD_RE.sub(" ", text)
-    return _TAG_RE.sub(" ", text)
-
-
-def norm_for_match(text: str) -> str:
-    """대조용 정규화 — 마크업·공백·따옴표·표 칸을 지우고 대시를 하나로, 영문은 소문자로."""
-    text = _DASH_RE.sub("-", _strip_markup(text))
-    return _MATCH_DROP_RE.sub("", text).lower()
-
-
-def slide_lines(raw_text: str) -> list[str]:
-    """
-    장 원문을 **줄 그대로** (마크업만 걷고) — 프롬프트에 실어 모델이 한 줄을 복사하게 하고, 규칙 추출이 읽는다.
-
-    `slide_units` 와 달리 짧은 줄도 버리지 않는다 (「연속성 저하」 같은 표 칸이 주장의 재료다).
-    식만은 잇는다 — PPT 는 「수면의 질 =」「시간」「×」「연속성」 을 글 상자마다 따로 뽑는다.
-    """
-    out: list[str] = []
-    for line in (raw_text or "").split("\n"):
-        # 줄마다 clean_slide_text — 이미지 캡션이 새어 나온 긴 영문 설명(「The bar chart compares…」)도 걷는다 (slide_units 와 같은 처리)
-        line = clean_slide_text(line)
-        if not line or _PAGE_NO_RE.match(line) or _BULLET_ONLY_RE.match(line):
-            continue
-        if out and (_OP_EDGE_RE.search(out[-1]) or _OP_START_RE.match(line) or _OP_ONLY_RE.match(line)):
-            out[-1] = f"{out[-1]} {line}"
-        else:
-            out.append(line)
-    return out
-
-
-def verify_quote(quote: str, raw_text: str) -> str:
-    """
-    인용이 이 장 원문에 **실제로 있으면** 남길 인용 문자열, 없으면 "".
-
-    - 정규화한 인용이 정규화한 원문의 부분 문자열이면 인용(공백만 접은 것)을 그대로 남긴다.
-    - 아니면 원문의 글 상자 한 줄(`slide_units`·`slide_lines`)과 FUZZY_MIN 이상 같을 때 **원문 쪽 줄**을 남긴다 —
-      모델이 조사 하나 바꿔 옮겼어도, 화면에 나가는 건 자료에 있는 글자다.
-    """
-    quote = _ELLIPSIS_RE.sub("", " ".join((quote or "").split())).strip()
-    nq = norm_for_match(quote)
-    if len(nq) < QUOTE_MIN_CHARS or not raw_text:
-        return ""
-    if nq in norm_for_match(raw_text):
-        return _tidy(quote)
-    best, best_ratio = "", 0.0
-    for unit in (*slide_units(raw_text), *slide_lines(raw_text)):
-        nu = norm_for_match(unit)
-        if not nu:
-            continue
-        ratio = difflib.SequenceMatcher(None, nq, nu, autojunk=False).ratio()
-        if ratio > best_ratio:
-            best, best_ratio = unit, ratio
-    return _tidy(best) if best_ratio >= FUZZY_MIN else ""
-
-
-def _tidy(quote: str) -> str:
-    """표 한 행을 인용하면 「| 음주 | 수면 후반 각성 |」 이 된다 — 바깥 칸막이만 걷는다 (대조는 칸막이를 무시하니 그대로 통과한다)."""
-    return quote.strip().strip("|").strip()
-
-
-# ---------------------------------------------------------------------------
-# 근거 표시 (has_support) — 코드가 정한다
-# ---------------------------------------------------------------------------
-
-#: 숫자+단위. 「4번 슬라이드」 같은 자료 안 참조는 수치가 아니다 (09-29 수면 7장) — 먼저 지운다.
-_SLIDE_REF_RE = re.compile(r"\d+\s*(?:번\s*)?(?:슬라이드|장|쪽|페이지|page|slide)", re.I)
-_NUM_UNIT_RE = re.compile(
-    r"\d[\d,.]*\s*(?:%|퍼센트|배|명|회|번|시간|분|초|년|개월|주|일|세|살|kg|g|mg|ml|l|km|m|cm|원|달러|점|건|개|곳|hz|ms|db|위)(?![가-힣a-z])"
-    r"|\d[\d,.]*\s*[-–~]\s*\d[\d,.]*\s*(?:%|시간|분|회|명|배|년)",
-    re.I,
-)
-_PERCENT_RE = re.compile(r"\d\s*%")
-_CITATION_RE = re.compile(
-    r"\((?:[^()]*?)(?:19|20)\d{2}[a-z]?\)|et\s+al\.?|(?<!\d)(?:19|20)\d{2}(?:년)?\s*(?:연구|조사|보고|발표)"
-    r"|\[\d{1,3}\]|doi\s*:|10\.\d{4,9}/",
-    re.I,
-)
-_RESEARCH_WORD_RE = re.compile(r"연구|조사|실험|논문|통계|보고서|학회|저널|메타\s*분석|study|survey|experiment|paper", re.I)
-
-
-def has_support(raw_text: str) -> bool:
-    """이 장에 수치(숫자+단위·퍼센트)·인용 표기(연도·et al.·DOI)·연구 언급이 있는가."""
-    text = _SLIDE_REF_RE.sub(" ", _strip_markup(raw_text or ""))
-    return bool(
-        _NUM_UNIT_RE.search(text) or _PERCENT_RE.search(text)
-        or _CITATION_RE.search(text) or _RESEARCH_WORD_RE.search(text)
-    )
-
-
-# ---------------------------------------------------------------------------
 # 개념 이름 대조 — 규칙 추출이 쓴다
 # ---------------------------------------------------------------------------
 
@@ -224,29 +130,30 @@ def _loose(text: str) -> str:
     return re.sub(r"\s+", "", _QUOTE_MARK_RE.sub("", text or "")).lower()
 
 
-def _tok_in(outer: str, inner: str) -> bool:
-    """토큰 하나가 다른 토큰에 든다 — 한글은 조사가 붙어도 같다 (「시간보다」 ∋ 「시간」)."""
-    return outer == inner or (len(inner) >= 2 and inner in outer)
+def _on(n: ConceptNode, slide_no: int | None) -> bool:
+    return slide_no is not None and slide_no in (n.slide_nos or [])
 
 
-def resolve_label(phrase: str, nodes: list[ConceptNode], exclude: str = "") -> ConceptNode | None:
+def resolve_label(phrase: str, nodes: list[ConceptNode], exclude: str = "",
+                  slide_no: int | None = None) -> ConceptNode | None:
     """
-    자료의 한 구절이 가리키는 개념. 없으면 None.
+    자료의 한 구절이 가리키는 개념. 없으면 None. 동점이면 그 장(slide_no)에 나온 노드를 먼저 고른다.
 
     1. 이름이 통째로 같다 (공백·따옴표 무시)
-    2. 구절이 개념 이름을 품는다 — 가장 긴 이름 (「핵심 수면의 질」 → 수면의 질)
-    3. 구절의 **변별 낱말**(맞은편 구절에도 있는 낱말은 뺀다 — 「수면 시간보다 … 수면의 질」 의 「수면」)이
-       모두 이름에 든다 — 이름의 군더더기 낱말이 적은 쪽, weight 큰 쪽, id 순.
+    2. 구절이 개념 이름을 품는다 — 가장 긴 이름 (「핵심 품질 지표」 → 품질 지표)
+    3. 구절의 **변별 낱말**(맞은편 구절에도 있는 낱말은 뺀다)과 가장 많이 겹치는 이름 — 변별 낱말의 절반 이상이
+       이름에 들어야 한다 (「예방 체계」 → 「사전 예방」). 전부 들어야 했을 때는 자료 표현과 라벨이 조금만 달라도
+       규칙 추출이 죽었다 (09-29 벤치 정책 덱).
 
-    같은 규칙을 compose·compare 가 함께 쓰므로, 같은 「시간」 은 두 주장에서 같은 개념이 된다 —
+    같은 규칙을 compose·compare 가 함께 쓰므로, 같은 구절은 두 주장에서 같은 개념이 된다 —
     그래야 F-08 이 compare 와 compose 의 겹침(tension)을 id 로 찾는다.
     """
     want = _loose(phrase)
     if not want:
         return None
-    for n in nodes:
-        if _loose(n.label) == want:
-            return n
+    exact = [n for n in nodes if _loose(n.label) == want]
+    if exact:
+        return max(exact, key=lambda n: (_on(n, slide_no), n.weight))
     ptoks = norm_tokens(_QUOTE_MARK_RE.sub(" ", phrase))
     contained = []
     for n in nodes:
@@ -254,54 +161,79 @@ def resolve_label(phrase: str, nodes: list[ConceptNode], exclude: str = "") -> C
         if ltoks and sum(len(t) for t in ltoks) >= 2 and _seq_in(ptoks, ltoks):
             contained.append(n)
     if contained:
-        return max(contained, key=lambda n: (len(_loose(n.label)), n.weight, n.id))
-    xtoks = norm_tokens(_QUOTE_MARK_RE.sub(" ", exclude))
-    distinct = [t for t in ptoks if len(t) >= 2 and not any(_tok_in(x, t) or _tok_in(t, x) for x in xtoks)]
+        return max(contained, key=lambda n: (len(_loose(n.label)), _on(n, slide_no), n.weight, n.id))
+    distinct = R.distinct_tokens(_QUOTE_MARK_RE.sub(" ", phrase), _QUOTE_MARK_RE.sub(" ", exclude)) if exclude \
+        else R.content_tokens(_QUOTE_MARK_RE.sub(" ", phrase))
     if not distinct:
         return None
     cands = []
     for n in nodes:
-        ltoks = norm_tokens(n.label)
-        if all(any(_tok_in(lt, t) for lt in ltoks) for t in distinct):
-            extra = sum(1 for lt in ltoks if not any(_tok_in(lt, t) for t in distinct))
-            cands.append((extra, -n.weight, n.id, n))
-    return min(cands, key=lambda c: c[:3])[3] if cands else None
+        ltoks = R.content_tokens(n.label)
+        hits = sum(1 for t in distinct if any(R.tok_match(t, lt) or R.tok_match(lt, t) for lt in ltoks))
+        if hits and hits / len(distinct) >= R.MENTION_MIN:
+            extra = sum(1 for lt in ltoks if not any(R.tok_match(t, lt) or R.tok_match(lt, t) for t in distinct))
+            cands.append((-hits, extra, not _on(n, slide_no), -n.weight, n.id, n))
+    return min(cands, key=lambda c: c[:5])[5] if cands else None
 
 
 def _seq_in(outer: list[str], inner: list[str]) -> bool:
     n = len(inner)
-    return any(all(_tok_in(outer[i + j], inner[j]) for j in range(n)) for i in range(len(outer) - n + 1))
+
+    def tin(o: str, i: str) -> bool:
+        return o == i or (len(i) >= 2 and i in o)
+    return any(all(tin(outer[i + j], inner[j]) for j in range(n)) for i in range(len(outer) - n + 1))
+
+
+def best_node(text: str, nodes: list[ConceptNode], slide_no: int | None = None,
+              skip: set[str] | None = None) -> ConceptNode | None:
+    """
+    한 줄에 가장 뚜렷이 나온 개념 — 이름이 통째로 나온 것, 이름 토큰이 많이 나온 것, 비율 높은 것, 먼저 나온 것,
+    그 장에 나온 것 순. 이름 토큰의 절반도 안 나오면 후보가 아니다. 통째로 나온 이름이 먼저인 까닭: 질문이 그 개념을
+    부를 때 자료의 낱말 그대로라야 자연스럽다 (반쯤 걸친 「소설 확산」 보다 줄에 있는 「권선징악」).
+    """
+    cands = []
+    for n in nodes:
+        if skip and n.id in skip:
+            continue
+        toks = R.content_tokens(n.label)
+        score = R.mention_score(n.label, text)
+        if not toks or score < R.MENTION_MIN:
+            continue
+        cands.append((score < 1, -round(score * len(toks)), -score, R.first_position(n.label, text), not _on(n, slide_no),
+                      -n.weight, n.id, n))
+    return min(cands, key=lambda c: c[:7])[7] if cands else None
 
 
 # ---------------------------------------------------------------------------
-# 규칙 추출 — LLM 없이 뻔한 구조 (compose 식, compare 「보다」)
+# 규칙 추출 — LLM 없이 뻔한 구조
 # ---------------------------------------------------------------------------
 
-_FORMULA_RE = re.compile(r"^(?P<lhs>[^=]{1,30}?)\s*=\s*(?P<rhs>.+)$")
-_FORMULA_SPLIT_RE = re.compile(r"\s*[×✕*+·]\s*|\s+x\s+")
-_ADJ_FORM = r"중요한|넓은|큰|높은|강한|효과적인|결정적인|나은|본질적인|근본적인|우선인"
-_ADJ_STEM = r"중요|넓|크|큰|높|강하|효과적|결정적|낫|나은|본질적|근본적|우선"
-#: 「A보다 (더) 중요한 B」 — 제목형. subject 는 뒤쪽 B 다.
+_FORMULA_SPLIT_RE = re.compile(r"\s*[×✕*+·÷]\s*|\s+x\s+")
+#: 「A보다 (더) <서술어의 관형형> B」 — 제목형. 서술어는 목록이 아니라 꼴로 받는다 (중요한·필요한·앞서는·큰 …).
 _COMPARE_HEAD_RE = re.compile(
-    rf"^(?P<a>[^,.?!]{{1,24}}?)보다\s*(?:더\s*|훨씬\s*)?(?:{_ADJ_FORM})\s+(?P<b>[^,.?!]{{1,24}}?)[.!]?$"
+    r"^(?P<a>[^,.?!]{1,24}?)보다\s*(?:더\s*|훨씬\s*|더욱\s*)?(?P<pred>[가-힣]{0,8}(?:한|은|인|운|는|된|난|진|른|큰))"
+    r"\s+(?P<b>[^,.?!]{1,24}?)[.!]?$"
 )
-#: 「B는 (단순한) A보다 (더) 넓은 …」 — 문장형.
+#: 「B는 (수식어) A보다 (더) <서술어>」 — 문장형.
 _COMPARE_SENT_RE = re.compile(
-    rf"(?P<b>[^,.?!]{{1,24}}?)(?:은|는|이|가)\s+(?:단순한\s+|단순히\s+|그냥\s+)?(?P<a>[^,.?!]{{1,24}}?)보다\s*"
-    rf"(?:더\s*|훨씬\s*)?(?:{_ADJ_STEM})"
+    r"(?P<b>[^,.?!]{1,24}?)(?:은|는|이|가)\s+(?:[^,.?!\s]{1,10}\s+)?(?P<a>[^,.?!]{1,24}?)보다\s*"
+    r"(?:더\s*|훨씬\s*|더욱\s*)?(?P<pred>[가-힣]+)"
 )
+#: 「A 대비 B가 <서술어>」 — B 가 A 보다 두드러진다는 비교.
+_COMPARE_VS_RE = re.compile(r"(?P<a>[^,.?!]{1,24}?)\s*대비\s+(?P<b>[^,.?!]{1,24}?)(?:이|가|은|는)\s")
 
 
 def _formula_parts(line: str) -> tuple[str, list[str]] | None:
-    m = _FORMULA_RE.match(line.strip())
-    if not m:
+    sides = R.formula_sides(line)
+    if not sides:
         return None
-    parts = [p.strip(" .") for p in _FORMULA_SPLIT_RE.split(m.group("rhs")) if p.strip(" .")]
-    return (m.group("lhs").strip(), parts) if len(parts) >= 2 else None
+    lhs, rhs = sides
+    parts = [p.strip(" .") for p in _FORMULA_SPLIT_RE.split(rhs) if p.strip(" .")]
+    return (lhs, parts) if len(parts) >= 2 else None
 
 
 def rule_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
-    """「<개념> = A × B × C」 (+·· 도) 줄에서 compose 주장. 요소가 둘 이상 개념에 닿아야 남긴다."""
+    """「<개념> = A × B × C」 (+·÷ 도) 줄에서 compose 주장. 요소가 둘 이상 개념에 닿아야 남긴다."""
     out: list[Claim] = []
     for s in slidedoc.slides:
         for line in slide_lines(s.raw_text):
@@ -309,12 +241,12 @@ def rule_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
             if not parsed:
                 continue
             lhs, parts = parsed
-            subj = resolve_label(lhs, graph.nodes)
+            subj = resolve_label(lhs, graph.nodes, slide_no=s.slide_no)
             if subj is None:
                 continue
             objs: list[str] = []
             for p in parts:
-                n = resolve_label(p, graph.nodes, exclude=lhs)
+                n = resolve_label(p, graph.nodes, exclude=lhs, slide_no=s.slide_no)
                 if n is not None and n.id != subj.id and n.id not in objs:
                     objs.append(n.id)
             if len(objs) >= 2:
@@ -323,20 +255,89 @@ def rule_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     return out
 
 
+def list_items(lines: list[str], head_idx: int) -> list[str]:
+    """
+    목록 제목 밑의 항목 글 — 번호·글머리표·표 첫 칸. 문장이 나오면 목록이 끝난다.
+    제목 바로 밑의 소개 문장 하나(「흔한 이유는 이렇습니다.」)는 건너뛴다.
+    """
+    items: list[str] = []
+    start = head_idx + 1
+    if start < len(lines) and not R.is_item_line(lines[start]):
+        start += 1
+    for line in lines[start: start + LIST_ITEMS_MAX]:
+        if not R.is_item_line(line):
+            break
+        text = R.item_text(line)
+        if text:
+            items.append(text)
+    return items
+
+
+def _ancestors(node_id: str, by_id: dict[str, ConceptNode]) -> set[str]:
+    out: set[str] = set()
+    cur = by_id.get(node_id)
+    while cur is not None and cur.parent_id and cur.parent_id not in out:
+        out.add(cur.parent_id)
+        cur = by_id.get(cur.parent_id)
+    return out
+
+
+def _list_subject(head: str, items: list[str], graph: ConceptGraph, slide_no: int) -> ConceptNode | None:
+    """목록의 주어 — 제목이 가리키는 개념, 없으면 항목들이 함께 매달린 부모."""
+    by_id = {n.id: n for n in graph.nodes}
+    got = resolve_label(head, graph.nodes, slide_no=slide_no)
+    if got is not None and got.id not in items:
+        return got
+    parents = {by_id[i].parent_id for i in items if i in by_id}
+    if len(parents) == 1:
+        (pid,) = parents
+        return by_id.get(pid or "")
+    return None
+
+
+def rule_list_compose(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
+    """
+    목록 제목(「해결해야 할 세 가지 문제」「매출을 이루는 네 요소」) + 항목 줄 → compose(주어 ⊃ 항목).
+
+    인용은 제목 줄이다 — 제목에 「문제·원인·이유」 가 있으면 F-08 이 문제 목록으로 읽는다 (unsolved 재료).
+    항목이 둘 이상 서로 다른 개념에 닿아야 남긴다.
+    """
+    out: list[Claim] = []
+    for s in slidedoc.slides:
+        lines = slide_lines(s.raw_text)
+        for i, head in enumerate(lines):
+            if not R.is_list_heading(head):
+                continue
+            objs: list[str] = []
+            for item in list_items(lines, i):
+                n = resolve_label(item, graph.nodes, slide_no=s.slide_no)
+                if n is not None and R.mentioned(n.label, item) and n.id not in objs:
+                    objs.append(n.id)
+            if len(objs) < 2:
+                continue
+            subj = _list_subject(head, objs, graph, s.slide_no)
+            if subj is None or subj.id in objs:
+                continue
+            out.append(Claim(id="", kind="compose", subject_id=subj.id, object_ids=objs, text=head,
+                             evidence=[ClaimQuote(s.slide_no, head)]))
+    return out
+
+
 def rule_compare(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
-    """「A보다 중요한 B」·「B는 A보다 넓은 …」 줄에서 compare(B > A) 주장. 양쪽이 서로 다른 개념에 닿아야 남긴다."""
+    """「A보다 ○○한 B」·「B는 A보다 ○○」·「A 대비 B가 …」 줄에서 compare(B > A). 양쪽이 서로 다른 개념에 닿아야 남긴다."""
     out: list[Claim] = []
     for s in slidedoc.slides:
         for line in slide_lines(s.raw_text):
             plain = _QUOTE_MARK_RE.sub("", line).strip()
-            # 두 꼴을 다 본다 — 문장형 「수면의 질은 단순한 시간보다 넓은 개념입니다」 는 제목형 정규식에도
-            # 걸리지만(b=「개념입니다」) 개념에 안 닿는다. 닿는 첫 해석을 쓴다.
-            for m in (_COMPARE_HEAD_RE.match(plain), _COMPARE_SENT_RE.search(plain)):
+            if R.is_question(plain):
+                continue
+            # 여러 꼴을 다 본다 — 문장형은 제목형 정규식에도 걸리지만(b=「개념입니다」) 개념에 안 닿는다. 닿는 첫 해석을 쓴다.
+            for m in (_COMPARE_HEAD_RE.match(plain), _COMPARE_SENT_RE.search(plain), _COMPARE_VS_RE.search(plain)):
                 if not m:
                     continue
                 a, b = m.group("a").strip(), m.group("b").strip()
-                big = resolve_label(b, graph.nodes, exclude=a)
-                small = resolve_label(a, graph.nodes, exclude=b)
+                big = resolve_label(b, graph.nodes, exclude=a, slide_no=s.slide_no)
+                small = resolve_label(a, graph.nodes, exclude=b, slide_no=s.slide_no)
                 if big is None or small is None or big.id == small.id:
                     continue
                 out.append(Claim(id="", kind="compare", subject_id=big.id, object_ids=[small.id], text=line,
@@ -345,8 +346,94 @@ def rule_compare(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
     return out
 
 
+def rule_absolute(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
+    """부정되지 않은 강한 단정 표지(반드시·완전히·항상·절대 …)가 있는 문장 → absolute(그 줄에 가장 뚜렷한 개념)."""
+    out: list[Claim] = []
+    for s in slidedoc.slides:
+        for i, line in enumerate(slide_lines(s.raw_text)):
+            if R.is_question(line) or not R.absolute_marker(line, strong_only=True):
+                continue
+            if i == 0 and not R.is_sentence(line):
+                continue                      # 제목 한 줄은 단정이 아니라 표어다
+            n = best_node(line, graph.nodes, slide_no=s.slide_no)
+            if n is not None:
+                out.append(Claim(id="", kind="absolute", subject_id=n.id, text=line,
+                                 evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
+    return out
+
+
+def rule_solve_rows(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
+    """
+    문제 칸과 해결 칸이 한 행에 있는 표(「| 문제 | 해결 |」) → solve(해결 칸의 개념 → 문제 칸의 개념).
+
+    해결 장이라는 표시(제목의 「방법·해결·대책·개선」, 문제 제목이 아닌 것)가 있고 해결 칸이 무엇을 하는 말
+    (「…확보」「…줄이기」)일 때만 읽는다 — 문제 장의 현황 칸(「평균 1년 이상」)은 해결이 아니다.
+    해결 칸이 가리키는 개념이 없으면 그 장 제목이 가리키는 개념, 그것도 없으면 문제의 부모 개념을 주어로 둔다 —
+    짝(문제→해결)이 있다는 사실이 unsolved 판단의 재료다. 표 첫 칸의 개념(문제들)은 주어가 되지 못한다.
+    """
+    out: list[Claim] = []
+    for s in slidedoc.slides:
+        lines = slide_lines(s.raw_text)
+        if not lines or not R.SOLVE_HEAD_RE.search(lines[0]) or R.is_problem_head(lines[0]):
+            continue
+        head = resolve_label(lines[0], graph.nodes, slide_no=s.slide_no)
+        rows: list[tuple[ConceptNode, list[str], str]] = []
+        for line in lines[1:]:
+            cells = R.table_cells(line)
+            if len(cells) < 2 or not R.SOLVE_ACT_RE.search(" ".join(cells[1:])):
+                continue
+            prob = resolve_label(cells[0], graph.nodes, slide_no=s.slide_no)
+            if prob is not None and R.mentioned(prob.label, cells[0]) and R.mentioned(cells[0], prob.label):
+                rows.append((prob, cells, line))
+        firsts = {p.id for p, _, _ in rows}
+        for prob, cells, line in rows:
+            parent = next((n for n in graph.nodes if n.id == prob.parent_id), None)
+            fix = best_node(" ".join(cells[1:]), graph.nodes, slide_no=s.slide_no, skip=firsts) or head or parent
+            if fix is None or fix.id in firsts:
+                continue
+            out.append(Claim(id="", kind="solve", subject_id=fix.id, object_ids=[prob.id], text=_tidy(line),
+                             evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
+    return out
+
+
+def _clear(label: str, text: str) -> bool:
+    """이름이 글에 **뚜렷이** 나왔는가 — 통째로 나왔거나, 토큰 둘 이상이 나왔다."""
+    toks = R.content_tokens(label)
+    score = R.mention_score(label, text)
+    return score >= 1 or (score >= R.MENTION_MIN and round(score * len(toks)) >= 2)
+
+
+def rule_cause(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
+    """
+    원인 절과 결과 절이 연결 어미로 이어진 문장(「A가 부족해서 B가 는다」「A할수록 B가 떨어진다」「A 때문에 B」)
+    → cause(원인 절에 가장 뚜렷한 개념 → 결과 절에 가장 뚜렷한 개념). 두 절이 서로 다른 개념에 닿아야 남긴다.
+    """
+    out: list[Claim] = []
+    for s in slidedoc.slides:
+        for line in slide_lines(s.raw_text):
+            if R.is_question(line) or not R.is_sentence(line):
+                continue
+            m = R.CAUSE_SPLIT_RE.search(line)
+            svo = R.CAUSE_SVO_RE.match(line.strip().rstrip("."))
+            if m:
+                left, right = line[:m.end()], line[m.end():]
+            elif svo and R.CAUSE_RE.search(svo.group("v")):
+                left, right = svo.group("a"), svo.group("b")
+            else:
+                continue
+            src = best_node(left, graph.nodes, slide_no=s.slide_no)
+            dst = best_node(right, graph.nodes, slide_no=s.slide_no, skip={src.id} if src else None)
+            # 규칙은 LLM 보다 좁게 — 두 절에 개념 이름이 뚜렷이 나와야 한다 (낱말 하나 겹침으로 짝을 짓지 않는다)
+            if src is None or dst is None or not (_clear(src.label, left) and _clear(dst.label, right)):
+                continue
+            out.append(Claim(id="", kind="cause", subject_id=src.id, object_ids=[dst.id], text=line,
+                             evidence=[ClaimQuote(s.slide_no, _tidy(line))]))
+    return out
+
+
 def rule_claims(graph: ConceptGraph, slidedoc: SlideDoc) -> list[Claim]:
-    return rule_compose(graph, slidedoc) + rule_compare(graph, slidedoc)
+    return (rule_compose(graph, slidedoc) + rule_list_compose(graph, slidedoc) + rule_compare(graph, slidedoc)
+            + rule_absolute(graph, slidedoc) + rule_solve_rows(graph, slidedoc) + rule_cause(graph, slidedoc))
 
 
 # ---------------------------------------------------------------------------
@@ -395,35 +482,152 @@ def _ask(engine: LLMProvider, user: str) -> list[dict]:
 # 대조 — 이 모듈의 본체
 # ---------------------------------------------------------------------------
 
+@dataclass
+class _Deck:
+    """대조에 쓰는 덱 한 벌 — 그래프 이름·장 원문·장별 줄."""
+    ids: set[str]
+    by_label: dict[str, str]
+    labels: dict[str, str]
+    by_id: dict[str, ConceptNode]
+    nodes: list[ConceptNode]
+    texts: dict[int, str]
+    lines: dict[int, list[str]]
+
+    @classmethod
+    def of(cls, graph: ConceptGraph, slidedoc: SlideDoc) -> "_Deck":
+        texts = {s.slide_no: s.raw_text for s in slidedoc.slides}
+        return cls(ids={n.id for n in graph.nodes}, by_label={_loose(n.label): n.id for n in graph.nodes},
+                   labels={n.id: n.label for n in graph.nodes}, by_id={n.id: n for n in graph.nodes},
+                   nodes=list(graph.nodes), texts=texts, lines={no: slide_lines(t) for no, t in texts.items()})
+
+
 def _resolve_id(value, ids: set[str], by_label: dict[str, str]) -> str:
     """그래프 id 면 그대로, 아니면 이름이 통째로 같은 개념의 id (Solar 가 id 칸에 이름을 적는 일이 있다), 없으면 ""."""
-    # 09-29 수익률 실측: 목록을 「- (gap) 수익률 격차」 꼴로 줬더니 Solar 가 "(gap)" 을 통째로 옮겼다. 괄호는 벗긴다.
+    # 09-29 실측: 목록을 「- (gap) …」 꼴로 줬더니 Solar 가 "(gap)" 을 통째로 옮겼다. 괄호는 벗긴다.
     v = str(value or "").strip().strip("()[]{}<>「」 ").strip()
     if v in ids:
         return v
     return by_label.get(_loose(v), "")
 
 
-def _check(raw: dict, ids: set[str], by_label: dict[str, str], texts: dict[int, str],
-           labels: dict[str, str]) -> Claim | str:
-    """후보 하나 → 대조를 통과한 Claim, 아니면 버린 까닭(kind·id·objects·quote) — 로그로 센다."""
+def _men(deck: _Deck, nid: str, text: str, others: list[str]) -> bool:
+    """개념 nid 가 text 에 나왔는가 — 맞은편 개념들과 겹치는 낱말은 빼고 본다."""
+    return R.mentioned(deck.labels[nid], text, exclude=[deck.labels[o] for o in others if o in deck.labels])
+
+
+def _as_cause(deck: _Deck, ids: list[str], unit: str) -> tuple[str, str, list[str]] | None:
+    """비교 표지 없이 인과 말투인 줄 — 줄에 나온 순서대로 원인 → 결과 (「A할수록 B가 떨어진다」·「A해서 B가 는다」)."""
+    shown = [i for i in ids if _men(deck, i, unit, [x for x in ids if x != i])]
+    if len(shown) < 2:
+        return None
+    shown.sort(key=lambda i: R.first_position(deck.labels[i], unit))
+    if re.search(r"때문(?:이|입)", unit):
+        shown.reverse()                     # 「B는 A 때문이다」 — 결과가 먼저 나온다
+    return "cause", shown[0], shown[1:]
+
+
+def _compose_support(deck: _Deck, subj: str, objs: list[str], no: int, hit: _Hit) -> tuple[str, str, list[str]] | None:
+    """compose 받침 — 식(좌변=주어, 우변=요소) / 요소 둘 이상을 나열한 문장 / 목록 제목 + 항목."""
+    s_label = deck.labels[subj]
+    sides = R.formula_sides(hit.unit)
+    if sides:
+        lhs, rhs = sides
+        if not R.mentioned(s_label, lhs):
+            return None
+        ob = [o for o in objs if R.mentioned(deck.labels[o], rhs, exclude=s_label)]
+        return ("compose", subj, ob) if len(ob) >= 2 else None
+    ancestor_ok = lambda ob: all(subj in _ancestors(o, deck.by_id) for o in ob)  # noqa: E731
+    if not hit.title:
+        ob = [o for o in objs if _men(deck, o, hit.unit, [subj])]
+        if len(ob) >= 2 and (_men(deck, subj, hit.context, ob) or ancestor_ok(ob)):
+            return "compose", subj, ob
+    if R.is_list_heading(hit.unit):
+        items = list_items(deck.lines.get(no, []), hit.idx)
+        ob = [o for o in objs if any(R.mentioned(deck.labels[o], it, exclude=s_label) for it in items)]
+        if len(ob) >= 2 and (R.mentioned(s_label, hit.unit) or ancestor_ok(ob)):
+            return "compose", subj, ob
+    return None
+
+
+def _supported(deck: _Deck, kind: str, subj: str, objs: list[str], no: int,
+               hit: _Hit) -> tuple[str, str, list[str]] | None:
+    """
+    인용 한 줄이 주장을 받치면 (kind, subject, objects) — 받치는 만큼으로 고친 것, 아니면 None.
+
+    고침은 좁히기만 한다: 줄에 안 나온 objects 는 빼고, absolute 의 주어가 줄에 없으면 줄에 가장 뚜렷한 개념으로,
+    비교 표지 없는 「compare」 가 인과 말투면 cause 로. 새 관계를 지어내지 않는다.
+    """
+    unit, ctx = hit.unit, hit.context
+    if kind == "absolute":
+        if not R.absolute_marker(unit) or hit.title:
+            return None
+        # 주어는 그 줄이 **통째로** 부르는 개념 — 반쯤 걸친 이름보다 줄에 그대로 있는 이름이 질문에서 자연스럽다
+        n = best_node(unit, deck.nodes, slide_no=no)
+        if R.mention_score(deck.labels[subj], unit) >= 1 or (
+                R.mentioned(deck.labels[subj], unit) and (n is None or R.mention_score(n.label, unit) < 1)):
+            return "absolute", subj, []
+        return ("absolute", n.id, []) if n is not None else None
+    if kind == "compose":
+        return _compose_support(deck, subj, objs, no, hit)
+    if kind == "compare" and not R.COMPARE_RE.search(unit):
+        return None
+    if kind == "contrast":
+        ob = [o for o in objs if _men(deck, o, unit, [subj])]
+        return ("contrast", subj, ob) if ob and _men(deck, subj, unit, objs) else None
+    if kind == "solve":
+        # 문제 칸 + 해결 칸이 한 행인 표 — 짝 자체가 받침이다 (주어는 해결 칸·장 제목에서 온 것이라 행에 없을 수 있다)
+        cells = R.table_cells(deck.lines[no][hit.idx])
+        if len(cells) >= 2 and R.SOLVE_ACT_RE.search(" ".join(cells[1:])):
+            ob = [o for o in objs if R.mentioned(deck.labels[o], cells[0])]
+            if ob:
+                return "solve", subj, ob
+    if kind == "solve" and not R.SOLVE_RE.search(unit):
+        # 해결 말투가 옆 줄에 있으면 그 줄이 목적어를 불러야 한다 (「시세 지도 — …」 + 「정보 비대칭을 해소합니다」)
+        near = [x for x in ctx.split("\n") if R.SOLVE_RE.search(x) and any(_men(deck, o, x, [subj]) for o in objs)]
+        if not near:
+            return None
+    if kind == "cause" and not R.CAUSE_RE.search(unit):
+        # 표 행·목록 칸은 인과를 제목·소개 줄이 말한다 (「흐름을 끊는 요인」 밑의 「| 소음 | 밤늦은 공사 |」)
+        if not (R.table_cells(deck.lines[no][hit.idx]) and R.CAUSE_RE.search(ctx)):
+            return None
+    if not _men(deck, subj, ctx, objs):
+        return None
+    ob = [o for o in objs if _men(deck, o, ctx, [subj])]
+    return (kind, subj, ob) if ob else None
+
+
+def _reread(deck: _Deck, ids: list[str], no: int, hit: _Hit) -> tuple[str, str, list[str]] | None:
+    """
+    적힌 kind 로는 줄이 안 받칠 때 **줄의 말투**로 다시 읽는다 — 인과 말투면 cause(줄에 나온 순서),
+    강한 단정 표지가 있으면 absolute. kind 는 자료의 말투가 정한다 (프롬프트 규칙을 코드가 지킨다).
+    """
+    if R.CAUSE_RE.search(hit.unit) and (got := _as_cause(deck, ids, hit.unit)) is not None:
+        return got
+    if R.absolute_marker(hit.unit, strong_only=True) and not hit.title:
+        return _supported(deck, "absolute", ids[0], [], no, hit)
+    return None
+
+
+def _check(raw: dict, deck: _Deck) -> Claim | str:
+    """후보 하나 → 대조·받침을 통과한 Claim, 아니면 버린 까닭(kind·id·objects·quote·question·support) — 로그로 센다."""
     kind = str(raw.get("kind", "") or "").strip().lower()
     if kind not in CLAIM_KINDS:
         return "kind"
-    subj = _resolve_id(raw.get("subject_id"), ids, by_label)
+    subj = _resolve_id(raw.get("subject_id"), deck.ids, deck.by_label)
     if not subj:
         return "id"
     objs: list[str] = []
     for o in raw.get("object_ids") or []:
-        oid = _resolve_id(o, ids, by_label)
-        if oid and oid != subj and oid not in objs:
+        oid = _resolve_id(o, deck.ids, deck.by_label)
+        # 주어와 같은 개념의 다른 이름(F-07 이 겹쳐 둔 노드)은 목적어가 아니다 — 「A 가 A 를 해결한다」
+        if oid and oid != subj and oid not in objs and not R.same_concept(deck.labels[oid], deck.labels[subj]):
             objs.append(oid)
     if kind != "absolute" and not objs:
         return "objects"
-    quotes: list[ClaimQuote] = []
-    # 프롬프트는 주장마다 인용 하나를 평평하게(slide_no·quote) 받는다 — 09-29 수익률 덱에서 중첩 evidence 스키마는
-    # Solar 가 3장 한 줄을 30번 되풀이하다 토큰이 끊겼다. 규칙 주장·옛 모양(evidence 목록)도 같이 받는다.
+    # 프롬프트는 주장마다 인용 하나를 평평하게(slide_no·quote) 받는다 — 중첩 evidence 스키마는 Solar 가 한 줄을
+    # 30번 되풀이하다 토큰이 끊겼다 (09-29). 규칙 주장·옛 모양(evidence 목록)도 같이 받는다.
     flat = [{"slide_no": raw.get("slide_no"), "quote": raw.get("quote")}] if raw.get("quote") else []
+    hits: list[tuple[int, _Hit]] = []
     for ev in flat + list(raw.get("evidence") or []):
         if not isinstance(ev, dict):
             continue
@@ -431,16 +635,26 @@ def _check(raw: dict, ids: set[str], by_label: dict[str, str], texts: dict[int, 
             no = int(ev.get("slide_no") or 0)
         except (TypeError, ValueError):
             continue
-        kept = verify_quote(str(ev.get("quote", "") or ""), texts.get(no, ""))
-        if kept and all(norm_for_match(q.quote) != norm_for_match(kept) or q.slide_no != no for q in quotes):
-            quotes.append(ClaimQuote(no, kept))
-    if not quotes:
+        hits.extend((no, h) for h in locate_quote(str(ev.get("quote", "") or ""), deck.texts.get(no, "")))
+    if not hits:
         return "quote"
+    hits = [(no, h) for no, h in hits if not R.is_question(h.unit)]
+    if not hits:
+        return "question"
+    backed = [(r, no, h) for no, h in hits if (r := _supported(deck, kind, subj, objs, no, h)) is not None]
+    if not backed:
+        backed = [(r, no, h) for no, h in hits if (r := _reread(deck, [subj, *objs], no, h)) is not None]
+    if not backed:
+        return "support"
+    (kind2, subj2, objs2), _, first = backed[0]
+    quotes: list[ClaimQuote] = []
+    for r, no, h in backed:
+        if r[:2] == (kind2, subj2) and all((q.slide_no, norm_for_match(q.quote)) != (no, norm_for_match(h.quote)) for q in quotes):
+            quotes.append(ClaimQuote(no, h.quote))
     text = " ".join(str(raw.get("text", "") or "").split())[:160]
-    if not text:
-        text = f"{labels.get(subj, subj)} {kind} " + ", ".join(labels.get(o, o) for o in objs)
-    return Claim(id="", kind=kind, subject_id=subj, object_ids=objs, text=text,
-                 evidence=quotes[:EVIDENCE_MAX])
+    if not text or kind2 != kind or first.glued:
+        text = first.quote[:160] or f"{deck.labels.get(subj2, subj2)} {kind2} " + ", ".join(deck.labels.get(o, o) for o in objs2)
+    return Claim(id="", kind=kind2, subject_id=subj2, object_ids=objs2, text=text, evidence=quotes[:EVIDENCE_MAX])
 
 
 def _merge(claims: list[Claim]) -> list[Claim]:
@@ -448,6 +662,9 @@ def _merge(claims: list[Claim]) -> list[Claim]:
     out: dict[tuple, Claim] = {}
     for c in claims:
         key = (c.kind, c.subject_id, tuple(sorted(c.object_ids)))
+        if c.kind == "absolute":
+            # 단정은 줄이 주장이다 — 같은 줄을 주어만 달리 두 번 적으면(LLM·규칙) 탐침이 같은 줄을 두 번 묻는다
+            key = ("absolute", c.evidence[0].slide_no, norm_for_match(c.evidence[0].quote))
         have = out.get(key)
         if have is None:
             out[key] = c
@@ -468,8 +685,8 @@ def _absorb_subsets(claims: list[Claim]) -> list[Claim]:
     """
     같은 kind·subject 에 **같은 인용**을 든 두 주장 중 objects 가 부분집합인 쪽은 큰 쪽에 합친다.
 
-    09-29 수면 실측: LLM 은 「수면의 질 = 시간 × 연속성 × 규칙성」 을 연속성·규칙성 둘로만 적었다(「시간」
-    노드가 그래프에 없어서). 규칙은 셋을 다 잡았다. 둘 다 남기면 F-08 의 형제 우선순위 탐침이 같은 식을 두 번 센다.
+    09-29 실측: LLM 은 「A = B × C × D」 를 C·D 둘로만 적었다(B 노드 이름이 자료 표현과 달라서). 규칙은 셋을
+    다 잡았다. 둘 다 남기면 F-08 의 형제 우선순위 탐침이 같은 식을 두 번 센다.
     """
     keep: list[Claim] = []
     for c in sorted(claims, key=lambda c: -len(c.object_ids)):
@@ -484,32 +701,70 @@ def _absorb_subsets(claims: list[Claim]) -> list[Claim]:
     return keep
 
 
+def _backed_elsewhere(c: Claim, deck: _Deck) -> bool:
+    """
+    인과의 두 개념이 **덱의 다른 줄**에서 수치·출처와 함께 나오는가 — 가설 장의 「A가 높을수록 B가 는다」 를
+    결과 장의 「A 조건의 B가 39% 컸다」 가 받치는 구조 (09-29 벤치 과학 덱). 두 이름이 다 나와야 한다.
+    """
+    s_label = deck.labels.get(c.subject_id, "")
+    o_labels = [deck.labels[o] for o in c.object_ids if o in deck.labels]
+    for lines in deck.lines.values():
+        for line in lines:
+            if not (has_support(line) and R.mentioned(s_label, line, exclude=o_labels)):
+                continue
+            if any(R.mentioned(o, line, exclude=s_label) for o in o_labels):
+                return True
+    return False
+
+
+def _attach_joint_lines(claims: list[Claim], deck: _Deck) -> None:
+    """
+    compose 의 요소가 **함께** 필요하다는 줄(「둘 다 필요하다」「하나만으로는 …」「A뿐 아니라 B도」)을 그 compose 의
+    인용에 붙인다 — F-08 의 형제 우선순위 탐침이 자료가 부정한 「하나만 고른다면」 을 묻지 않게 (_probes 가 본다).
+    찾는 장: compose 인용 장 + 요소 둘 이상이 함께 나온 장 (그래프 slide_nos).
+    """
+    for c in claims:
+        if c.kind != "compose":
+            continue
+        slides = {q.slide_no for q in c.evidence}
+        counts: dict[int, int] = {}
+        for o in c.object_ids:
+            for no in deck.by_id[o].slide_nos if o in deck.by_id else []:
+                counts[no] = counts.get(no, 0) + 1
+        slides |= {no for no, k in counts.items() if k >= 2}
+        have = _quote_keys(c)
+        for no in sorted(slides):
+            line = next((x for x in deck.lines.get(no, []) if R.both_needed(x) and not R.is_question(x)), "")
+            if line and (no, norm_for_match(line)) not in have:
+                c.evidence.append(ClaimQuote(no, _tidy(line)))
+                break
+
+
 def validate_claims(raw_claims: list[dict], graph: ConceptGraph, slidedoc: SlideDoc,
                     extra: list[Claim] | None = None) -> tuple[list[Claim], int]:
     """
     LLM 후보(dict) + 규칙 주장 → (대조를 통과한 Claim 목록, 버린 후보 수). id·has_support 는 여기서 채운다.
 
-    규칙 주장도 **같은 대조를 거친다** — 규칙이 만든 인용도 원문에 없으면 버린다 (둘에 다른 잣대를 대지 않는다).
+    규칙 주장도 **같은 대조를 거친다** — 규칙이 만든 인용도 원문 한 줄에 없거나 주장을 안 받치면 버린다.
     """
-    ids = {n.id for n in graph.nodes}
-    by_label = {_loose(n.label): n.id for n in graph.nodes}
-    labels = {n.id: n.label for n in graph.nodes}
-    texts = {s.slide_no: s.raw_text for s in slidedoc.slides}
+    deck = _Deck.of(graph, slidedoc)
     kept: list[Claim] = []
     reasons: dict[str, int] = {}
     for raw in list(raw_claims) + [c.to_dict() for c in (extra or [])]:
-        c = _check(raw, ids, by_label, texts, labels)
+        c = _check(raw, deck)
         if isinstance(c, str):
             reasons[c] = reasons.get(c, 0) + 1
         else:
             kept.append(c)
     dropped = sum(reasons.values())
     if dropped:
-        # 무엇 때문에 버렸는지 남긴다 — 「주장이 왜 적지」 를 인용 탓인지 id 탓인지 가를 수 있어야 한다.
+        # 무엇 때문에 버렸는지 남긴다 — 「주장이 왜 적지」 를 인용 탓인지 받침 탓인지 가를 수 있어야 한다.
         sys.stderr.write("[f26] 버린 후보 " + " ".join(f"{k}={v}" for k, v in sorted(reasons.items())) + "\n")
     merged = _merge(kept)
     for c in merged:
-        c.has_support = any(has_support(texts.get(q.slide_no, "")) for q in c.evidence)
+        c.has_support = any(line_support(deck.texts.get(q.slide_no, ""), q.quote) for q in c.evidence) \
+            or (c.kind == "cause" and _backed_elsewhere(c, deck))
+    _attach_joint_lines(merged, deck)
     order = {k: i for i, k in enumerate(CLAIM_KINDS)}
     merged.sort(key=lambda c: (min(q.slide_no for q in c.evidence), order[c.kind], c.subject_id, c.object_ids))
     merged = merged[:CLAIM_MAX]

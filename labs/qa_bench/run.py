@@ -57,10 +57,10 @@ STAGE_MODULES = {
     "slides": ["chuckchuck/f01_parse.py"],
     "concepts": ["chuckchuck/f06_concepts.py"],
     "graph": ["chuckchuck/f07_graph.py"],
-    "claims": ["chuckchuck/f26_claims.py", "chuckchuck/_evidence.py", "chuckchuck/_match.py"],
-    "triage": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_match.py"],
-    "questions": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_evidence.py",
-                  "chuckchuck/_speech.py", "chuckchuck/_match.py"],
+    "claims": ["chuckchuck/f26_claims.py", "chuckchuck/_claim_quote.py", "chuckchuck/_claim_rules.py", "chuckchuck/_evidence.py", "chuckchuck/_match.py"],
+    "triage": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_match.py"],
+    "questions": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py",
+                  "chuckchuck/_evidence.py", "chuckchuck/_speech.py", "chuckchuck/_match.py"],
     "align": ["chuckchuck/f11_align.py", "chuckchuck/f11_flow.py"],
     "judge": ["chuckchuck/f09_judge.py", "chuckchuck/f08_questions.py"],
 }
@@ -120,6 +120,41 @@ def engine(deck: str, stage: str) -> Counted:
     from chuckchuck.providers.llm_impl import get_llm
 
     return Counted(get_llm(None), deck, stage)
+
+
+class Replay(LLMProvider):
+    """
+    응답을 (system, user) 해시로 얼려 두는 겉감 — 같은 프롬프트면 LLM 을 다시 부르지 않고 얼린 응답을 준다.
+
+    F-26 은 LLM 후보를 코드가 대조·받침 검사로 거른다. 대조 규칙만 고쳤을 때 프롬프트는 그대로라, 주장 단계를
+    새로 돌려도 LLM 을 다시 부를 까닭이 없다 (예산 150콜 안에서 규칙을 여러 번 고쳐 잰다). 프롬프트가 바뀌면
+    해시가 달라져 새로 부른다.
+    """
+
+    def __init__(self, deck: str, stage: str, path: Path):
+        self.deck, self.stage, self.path = deck, stage, path
+        self.name = ""
+        self.inner: Counted | None = None
+
+    def _engine(self) -> Counted:
+        if self.inner is None:
+            self.inner = engine(self.deck, self.stage)
+        return self.inner
+
+    def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096,
+                 json_mode: bool = False) -> str:
+        store = read_json(self.path) or {}
+        key = h(system, user)
+        got = store.get(key)
+        if got is not None:
+            self.name = got.get("model", "replay")
+            return got["text"]
+        eng = self._engine()
+        text = eng.complete(system=system, user=user, temperature=temperature, max_tokens=max_tokens, json_mode=json_mode)
+        self.name = eng.name
+        store[key] = {"model": eng.name, "text": text}
+        write_json(self.path, store)
+        return text
 
 
 # ---------------------------------------------------------------------------
@@ -282,7 +317,7 @@ def stage_claims(run: DeckRun, sd: dict, graph: dict) -> dict:
     from chuckchuck.f26_claims import build_claims
 
     t0 = time.time()
-    c = build_claims(graph, sd, llm=engine(run.name, "claims"))
+    c = build_claims(graph, sd, llm=Replay(run.name, "claims", run.dir / "claims_llm.json"))
     note(f"  [{run.name}] F-26 주장 {time.time() - t0:.1f}s · {len(c.claims)}개 (버림 {c.dropped}) model={c.model}")
     run.save("claims", "claims.json", key, c.to_dict())
     return c.to_dict()

@@ -58,6 +58,7 @@ def agg(rows: list[dict], track: str) -> dict[str, str]:
         "음성 대조군 오탐 (유보→단정·수치 인과→근거없음·다룬 요소→unsolved)": str(_sum(truthy, lambda r: len(r['probes']['negative_fp']))),
         "대조군 덱의 거짓 긴장": f"{_sum(ctrl, lambda r: r['probes']['false_tension'])} (대조군 {len(ctrl)}덱)",
         "sibling_priority 탐침 / 전체 탐침": f"{_sum(rows, lambda r: r['probes']['by_kind'].get('sibling_priority', 0))} / {_sum(rows, lambda r: r['probes']['n'])}",
+        "탐침 개념 이름이 전부 근거 인용 속 낱말": pct(_sum(rows, lambda r: r['probes'].get('natural', 0)), _sum(rows, lambda r: r['probes']['n'])),
         f"질문 수 (t{track})": str(nq),
         "근거(basis) 있음": pct(_sum(qrows, lambda q: q['basis_share'] * q['n']), nq),
         "근거 인용이 전부 원문 그대로": pct(_sum(qrows, lambda q: q['basis_verbatim_share'] * q['n']), nq),
