@@ -22,6 +22,7 @@ from chuckchuck._judge_guard import covers_gist
 from chuckchuck._judge_post import critique_beyond_deck, critique_of_praised, mechanism_beyond, sentences
 from chuckchuck._deck_claims import deck_from_slidedoc
 from chuckchuck._probe_stance import (
+    RESTATE_FOLLOWUP,
     demands_gap,
     plans_gap,
     presupposes_claim,
@@ -504,3 +505,69 @@ def test_근거_질문에_자료의_결론_줄만_옮긴_답은_통과하지_못
     ok = judge_answer(q, "줄이 10분을 넘은 날은 재방문이 절반으로 줄었어요.", graph=BAKERY_GRAPH, slidedoc=deck,
                       llm=ScriptedLLM(judged(score=75)))
     assert ok.passed
+
+
+# ---------------------------------------------------------------------------
+# WP-P2 합류 뒤 골자 꼴 — 단정 모범답이 조건을 댄다 (「… 단정할 수는 없어요 — 자료 6장에 적었듯 …」)
+# ---------------------------------------------------------------------------
+
+#: WP-P2 `_probes._absolute_gist` 의 두 꼴 — 자료가 단 조건을 해요체 절로 옮긴 것 · 조건이 아직 없다는 것
+ABS_P2_HEDGE = ("「유기농 밀가루만 쓰면 모든 손님이 만족합니다」라고 단정할 수는 없어요 — 자료 6장에 적었듯 동네마다 입맛이 다를 수 있어요. "
+                "이 조건을 붙여서 말할게요.")
+ABS_P2_NONE = ("「유기농 밀가루만 쓰면 모든 손님이 만족합니다」라고 단정할 수는 없어요 — 자료 5장에는 이 말이 들어맞는 조건이 아직 없어요. "
+               "누구에게, 언제, 어떤 조건에서 그런지 정해서 보완할게요.")
+
+
+def test_조건_절로_옮긴_단정_골자도_두_사다리가_조건_낱말을_가리고_단정의_말은_안_가린다():
+    # 09-30 standard 4124984 혈당 Q1: 새 골자에서 발판이 따지는 단정 인용의 「완전히」 를 가렸다 — 조건 절을 가려야 한다
+    from chuckchuck._probe_stance import limit_of
+    from chuckchuck.f09_judge import _stance_next
+
+    q = replace(ABS_Q, answer_gist=ABS_P2_HEDGE)
+    assert limit_of(q) == (6, "동네마다 입맛이 다를 수 있어요.", False)
+    text, word, chips = probe_scaffold(q)
+    assert (text, word, chips) == ("자료 6장에 적었듯 ___마다 입맛이 다를 수 있어요.", "동네", [])
+    deck_text = " ".join(s.raw_text for s in BAKERY.slides)
+    j = _scaffold_judgement(q, BAKERY_GRAPH, deck_text)
+    assert j.followup.startswith("빈칸을 채워 보세요: 자료 6장에 적었듯 ___마다 입맛이 다를 수 있어요.") and "동네" in j.choices
+    assert "「" not in j.followup.split(" — ")[0]           # 골자가 옮긴 말이라 자료 인용(「」)처럼 싸지 않는다
+    assert "빈칸을 채워 보세요: 자료 6장에 적었듯 ___마다 입맛이 다를 수 있어요." in build_hint_ladder(q)
+    assert _stance_next(q) == "자료 6장에 그 조건이 적혀 있어요. 어떤 조건인지 한 문장으로 말해 볼래요?"
+    # 모범답 그대로면 good · 자체 가드에 안 걸린다
+    assert gist_self_check(q, slidedoc=BAKERY, graph=BAKERY_GRAPH) == ""
+    v = judge_answer(q, ABS_P2_HEDGE, graph=BAKERY_GRAPH, slidedoc=BAKERY, llm=ScriptedLLM(judged(score=70)))
+    assert v.verdict == "good"
+
+
+def test_조건이_없다는_단정_골자는_보완_다짐을_조건으로_읽지_않고_입장_빈칸으로():
+    from chuckchuck._probe_stance import limit_of
+    from chuckchuck.f09_judge import _stance_next
+
+    q = replace(ABS_Q, answer_gist=ABS_P2_NONE)
+    assert limit_of(q) == (0, "", False)                    # 「어떤 조건에서 그런지 정해서 보완할게요」 는 조건이 아니다
+    text, word, chips = probe_scaffold(q)
+    assert chips == ["늘 맞아요", "조건이 붙어요"] and word == "조건이 붙어요" and "완전히" not in text
+    assert _stance_next(q) == RESTATE_FOLLOWUP["absolute_boundary"]
+    assert gist_self_check(q, slidedoc=BAKERY, graph=BAKERY_GRAPH) == ""
+
+
+def test_모르겠어요_react_는_코드_문장이라_하지_않은_말을_칭찬하거나_답을_흘리지_않는다():
+    # 09-30 standard 4124984 혈당 Q1 1턴: 「모르겠어요」 만 눌렀는데 「…완전히 막을 수 없다는 점을 짚어 줘서 감사해요」
+    leak = {"react": "모든 손님이 만족하지는 않는다는 점을 짚어 줘서 감사해요.",
+            "followup": "이 장이 말하는 건 '밀가루' 쪽인가요, '손님' 쪽인가요?", "choices": ["밀가루", "손님"],
+            "explanation": "동네마다 입맛이 다를 수 있다는 점을 짚어 줘서 고마워요. 조건이 붙는 말이에요."}
+    one = coach_stuck(ABS_Q, graph=BAKERY_GRAPH, slidedoc=BAKERY, llm=ScriptedLLM(leak))
+    assert one.coach_stage == "narrow" and one.react.startswith("괜찮아요") and "감사" not in one.react and "만족하지는" not in one.react
+    assert one.choices == ["늘 맞아요", "조건이 붙어요"]
+    gave_up = [QaTurn(question="q", answer="(모르겠어요)", verdict="unknown", question_id=ABS_Q.id, gave_up=True)] * 2
+    last = coach_stuck(ABS_Q, graph=BAKERY_GRAPH, slidedoc=BAKERY, history=gave_up, llm=ScriptedLLM(leak))
+    assert last.coach_stage == "explain" and "감사" not in last.react
+    clar = coach_stuck(ABS_Q, graph=BAKERY_GRAPH, slidedoc=BAKERY, stage="clarify", llm=ScriptedLLM(leak))
+    assert "감사" not in clar.react and clar.react.startswith("제가 어렵게 물었어요")
+
+
+def test_판정_프롬프트는_단정_탐침을_예외_경계_말로_설명하지_않는다():
+    from chuckchuck._probe_stance import probe_brief
+
+    brief = probe_brief(ABS_Q)
+    assert "예외" not in brief and "경계" not in brief and "조건" in brief

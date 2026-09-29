@@ -162,8 +162,11 @@ def probe_brief(question) -> str:
     probe = probe_of(question)
     first = _short(quotes[0])
     if probe.kind == "absolute_boundary":
-        body = (f"이 질문은 자료의 단정 「{first}」의 예외·경계를 묻는다 — 단정을 되풀이하거나 그대로 받아들이는 답은 답이 아니다"
-                " (통과 아님). 그 말이 들어맞지 않는 경우·조건·한계를 든 답이 정답 쪽이다.")
+        # 「예외·경계」 라는 말은 쓰지 않는다 — 판정 LLM 이 그 낱말을 react 로 옮겨 「예외를 짚었어요」 같은 분석 말이 화면에 샜다
+        # (09-30 WP-P2 지적). 모범답(F-08 `_absolute_gist`)처럼 **조건**으로 말한다.
+        body = (f"이 질문은 자료의 단정 「{first}」이 어떤 조건에서만 맞는지 묻는다 — 단정을 되풀이하거나 그대로 받아들이는 답은"
+                " 답이 아니다 (통과 아님). 그 말에 붙는 조건(누구에게·언제·어떤 상황에서)을 든 답, 또는 자료에 그 조건이 아직 없다고"
+                " 밝히고 어떻게 보완할지 말한 답이 정답 쪽이다.")
     elif probe.kind == "unsupported_cause":
         body = (f"이 질문은 자료의 인과 「{first}」를 받치는 근거(수치·출처·사례)를 묻는다 — 자료의 그 줄에는 근거가 없다."
                 " 인과를 되풀이하거나 「근거가 명확하다」 고만 하는 답은 답이 아니다 (통과 아님). 근거를 대거나,"
@@ -367,8 +370,10 @@ def probe_gist(probe) -> str:
     first = _short(quotes[0].quote, 70)
     where = f"자료 {quotes[0].slide_no}장" if quotes[0].slide_no else "자료"
     if probe.kind == "absolute_boundary":
-        return (f"{where}의 「{first}」{josa_of(first, '은', '는')} 모든 경우에 그렇다고 단정할 수는 없어요."
-                " 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.")
+        # 예전 「…는 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만…」 은 조건을 하나도 말하지 않아 그대로
+        # 답하면 단정 줄을 다시 말한 것과 같았다 (09-30 standard · WP-P2 지적). 폴백은 자료를 못 보니 「조건이 아직 없다 → 보완」 꼴이다.
+        return (f"「{first}」{josa_of(first, '이라고', '라고')} 단정할 수는 없어요 — {where}에는 이 말이 들어맞는 조건이 아직 없어요."
+                " 누구에게, 언제, 어떤 조건에서 그런지 정해서 보완할게요.")
     if probe.kind == "unsupported_cause":
         return f"{where}의 「{first}」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요."
     if probe.kind == "tension" and len(quotes) >= 2:
@@ -650,6 +655,40 @@ def limit_line(texts: list[str], question) -> str:
     return ""
 
 
+#: 골자가 조건 절 앞에 다는 머리 — 「자료 7장에 적었듯 …」「자료 7장에도 …」「자료 7장처럼 …」. 떼고 조건 절만 받는다.
+_CLAUSE_HEAD_RE = re.compile(
+    r"자료\s*(\d+)\s*장(?:에서도|에서|에도|에는|에)?\s*(?:적었듯(?:이)?|말했듯(?:이)?|적은\s*대로|처럼|따르면|보면)?\s*,?\s*")
+#: 인용 앞 「자료 N장…」 — 인용 바로 앞 머리(「자료 7장에도 「…」」「자료 7장에 적었듯 「…」」)에서 장 번호를 읽는다.
+_QUOTE_HEAD_RE = re.compile(r"자료\s*(\d+)\s*장[^「«.!?]{0,14}[「«]\s*$")
+
+
+def limit_of(question) -> tuple[int, str, bool]:
+    """
+    단정 탐침 골자의 **제한 조건** — (장, 글, 자료 인용인가). 없으면 (0, "", False).
+
+    골자가 「」 로 인용한 자료 줄이 먼저다(「자료 7장에도 「개인에 따라 반응이 다를 수 있으니 무리하지 마세요」라고 적었어요」).
+    없으면 골자가 해요체로 옮긴 조건 절(09-30 WP-P2 골자 「… — 자료 7장에 적었듯 개인에 따라 반응이 다를 수 있어요.」) — 이 글은
+    자료 원문이 아니라 골자의 말이라, 쓰는 쪽이 「」 로 싸서 자료 인용처럼 보이면 안 된다(quoted=False).
+    """
+    gist = getattr(question, "answer_gist", "") or ""
+    line = limit_line(quoted_spans(gist), question)
+    if line:
+        at = gist.find(line)
+        m = _QUOTE_HEAD_RE.search(gist[:max(0, at)]) if at > 0 else None
+        return (int(m.group(1)) if m else 0), line, True
+    bare = re.sub(r"「[^」]*」|«[^»]*»", " ", gist)
+    for seg in re.split(r"(?<=[.!?])\s+|\s+[—–]\s+", bare):
+        seg = seg.strip()
+        # 보완 다짐(「어떤 조건에서 그런지 정해서 보완할게요」)은 조건이 아니라 조건이 **없다**는 골자의 꼬리다
+        if not seg or not _LIMIT_LINE_RE.search(seg) or R.absolute_marker(seg, strong_only=True) or plans_gap(seg):
+            continue
+        m = _CLAUSE_HEAD_RE.match(seg)
+        clause = (seg[m.end():] if m else seg).strip()
+        if clause and _LIMIT_LINE_RE.search(clause):
+            return (int(m.group(1)) if m else 0), clause, False
+    return 0, "", False
+
+
 def condition_word(line: str, question) -> str:
     """제한 조건 줄의 조건 낱말(「개인」「지역」) — 질문에 이미 보이는 낱말이면 ""."""
     for m in _CONDITION_WORD_RE.finditer(line or ""):
@@ -700,16 +739,20 @@ def _formula_blank(question) -> tuple[str, str]:
 
 
 def _limit_blank_text(question) -> tuple[str, str]:
-    """단정 탐침 — 골자가 인용한 **제한 조건** 줄에서 조건 낱말을 가린 (빈칸 글, 가린 말). 없으면 ("", "")."""
-    gist = getattr(question, "answer_gist", "") or ""
-    line = limit_line(quoted_spans(gist), question)
+    """
+    단정 탐침 — 골자의 **제한 조건**(`limit_of`)에서 조건 낱말을 가린 (빈칸 글, 가린 말). 없으면 ("", "").
+    자료 인용이면 「」 안 원문 그대로(「자료 7장은 「___에 따라 반응이 다를 수 있으니 …」이라고 해요.」), 골자가 옮긴 조건 절이면
+    골자의 말 그대로(「자료 7장에 적었듯 ___에 따라 반응이 다를 수 있어요.」) — 따지는 단정 줄의 말(「완전히」)은 가리지 않는다.
+    """
+    no, line, quoted = limit_of(question)
     word = condition_word(line, question) if line else ""
     if not word or word not in line:
         return "", ""
-    at = gist.find(line)
-    m = re.search(r"자료\s*(\d+)\s*장(?:에도|에는|에서는|에서|은|는|의|에)?\s*[「«]\s*$", gist[:max(0, at)]) if at > 0 else None
-    where = f"자료 {m.group(1)}장은" if m else "자료는"
-    return f"{where} 「{line.replace(word, '___', 1)}」{josa_of(line, '이라고', '라고')} 해요.", word
+    masked = line.replace(word, "___", 1)
+    if quoted:
+        where = f"자료 {no}장은" if no else "자료는"
+        return f"{where} 「{masked}」{josa_of(line, '이라고', '라고')} 해요.", word
+    return (f"자료 {no}장에 적었듯 {masked}" if no else masked), word
 
 
 def _stance_frame(question) -> str:

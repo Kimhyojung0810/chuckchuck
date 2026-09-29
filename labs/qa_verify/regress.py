@@ -330,7 +330,8 @@ def check_stuck_ladder(doc: dict, args: dict) -> tuple[str, str, dict]:
     「모르겠어요」 사다리·힌트 사다리 (09-30 WP-J3) — 대상 `_narrow_followup`(LLM 보기 args.llm_choices 를 줘도) · `_scaffold_judgement` ·
     `build_hint_ladder` · 칩 답 판정(LLM 없이, args.chips — [{answer, verdict_in}]).
     expect: choices_equal · choices_forbid · narrow_forbid_regex · scaffold_forbid_regex · scaffold_require_regex ·
-            blank_not_in_question(발판·힌트 빈칸의 가린 말이 질문에 없다 — 잣대가 원문으로 되찾는다) · hint_forbid_regex
+            blank_not_in_question(발판·힌트 빈칸의 가린 말이 질문에 없다 — 잣대가 원문으로 되찾는다) · hint_forbid_regex ·
+            coach_react_forbid_regex(args.llm_coach — 실측의 코칭 LLM 응답을 대본으로 넣은 「모르겠어요」 1단 react 에 걸리면 안 되는 말)
     """
     from chuckchuck.contracts import Question
     from chuckchuck.f08_questions import build_hint_ladder
@@ -387,7 +388,17 @@ def check_stuck_ladder(doc: dict, args: dict) -> tuple[str, str, dict]:
         for pat in c.get("followup_forbid_regex") or []:
             if re.search(pat, j.get("followup") or ""):
                 problems.append(f"칩 「{c['answer']}」 되물음이 /{pat}/ 에 걸림")
-    obs = {"narrow": fu, "choices": choices, "scaffold": scaffold, "hint_blank": rung, "chips": chips}
+    coach = {}
+    if args.get("llm_coach"):
+        from chuckchuck import coach_stuck
+
+        clear_judge_cache()
+        cj = coach_stuck(qd, slidedoc=doc, graph=graph, llm=make_scripted(args["llm_coach"])).to_dict()
+        coach = {k: cj.get(k) for k in ("coach_stage", "react", "followup", "choices")}
+        for pat in exp.get("coach_react_forbid_regex") or []:
+            if re.search(pat, cj.get("react") or ""):
+                problems.append(f"「모르겠어요」 react 가 /{pat}/ 에 걸림: «{str(cj.get('react'))[:70]}»")
+    obs = {"narrow": fu, "choices": choices, "scaffold": scaffold, "hint_blank": rung, "chips": chips, "coach": coach}
     if problems:
         return "fail", "; ".join(problems[:4]), obs
     return "pass", f"보기 {choices} · 발판 «{scaffold[:50]}»", obs

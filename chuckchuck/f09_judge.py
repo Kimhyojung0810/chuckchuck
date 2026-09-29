@@ -83,6 +83,7 @@ from ._probe_stance import (
     demands_gap,
     evidence_gist,
     limit_line,
+    limit_of,
     plans_gap,
     presupposes_claim,
     probe_brief,
@@ -198,8 +199,8 @@ SLIDE_BODY_MAX = int(os.environ.get("CHUCKCHUCK_JUDGE_SLIDE_BODY_MAX", "1200"))
 NEIGHBOR_MAX = 5
 
 #: CLAUDE.md §3-1 이 금지한 높임. 프롬프트가 해요체를 시켜도 실 LLM 이 「좋아요」 판정에
-#: "정확히 짚으셨습니다" 를 냈다 (2026-09-13 Solar A/B, 2문장). 코칭 경로의 _COACH_PRAISE_RE 와
-#: 같은 규율 — 문장은 LLM, 말투 계약은 코드. 걸리면 그 등급의 결정적 문구로 바꾼다.
+#: "정확히 짚으셨습니다" 를 냈다 (2026-09-13 Solar A/B, 2문장). 문장은 LLM, 말투 계약은 코드
+#: (막힘 사다리의 react 는 아예 코드 문장이다 — `_COACH_REACT`). 걸리면 그 등급의 결정적 문구로 바꾼다.
 #: examples/qa_eval.py 의 HONORIFIC_RE 와 같은 낱말이라 하네스가 세는 것과 코드가 막는 것이 일치한다.
 #: 09-29 두 덱 기준선: 「추정하신」「정량화하신」「찾고 계신」「설명해 주실 수 있나요」 가 빠져나갔다 — 관형형 ~신·~실 과
 #: 「계신」 을 못 잡았다. 명사 속에서 안 나오는 꼴(하신·계신·주실…)만 둔다 — 「자신」「혁신」 을 잡으면 안 된다.
@@ -2136,9 +2137,15 @@ choices 에 그 두 선택지를 각각 20자 이내의 **자료에 나오는 �
 
 
 _COACH_REACT_FALLBACK = "괜찮아요. 여기서 같이 짚어 볼게요."
-#: 포기한 사람에게 나올 수 없는 말. 프롬프트가 금지해도 실 LLM 이 "핵심을 잘 짚으셨어요" 를
-#: 냈다 (2026-09-10). 높임 '~셨' 도 여기서 같이 걸린다 (CLAUDE.md §3-1).
-_COACH_PRAISE_RE = re.compile(r"잘 짚|정확합니다|정확해요|맞습니다|맞아요|훌륭|잘 하셨|셨어요|셨습니다")
+#: 막힘 사다리의 react 는 **코드 문장**이다 (09-30 WP-J3 · standard 4124984 혈당 Q1: 「모르겠어요」 만 누른 사람에게 LLM react 가
+#: 「식사 순서만으로 혈당 스파이크를 완전히 막을 수 없다는 점을 짚어 줘서 감사해요」 — 하지 않은 말을 칭찬하며 1단에서 정답을 흘렸다).
+#: 막힌 사람은 아무 말도 안 했다 — 칭찬·「짚었다」·답의 내용이 들어갈 자리가 없다. 안심 한 마디와 다음 걸음만 말한다.
+#: 예전 칭찬 낱말 거름(「잘 짚」「정확해요」 — 2026-09-10 「핵심을 잘 짚으셨어요」)으로는 「짚어 줘서 감사해요」 같은 공 돌리기를 다 못 막았다.
+_COACH_REACT = {
+    "narrow": _COACH_REACT_FALLBACK,
+    "clarify": "제가 어렵게 물었어요. 같은 질문을 쉽게 다시 물어볼게요.",
+    "explain": "괜찮아요. 이번엔 답을 같이 볼게요.",
+}
 
 
 def coach_stuck(
@@ -2225,9 +2232,7 @@ def coach_stuck(
         data = _call_coach(engine, user, extra_system=JSON_RETRY_NUDGE)
     data = _haeyo_data(data)
 
-    react = _clip(scrub(str(data.get("react", "") or ""))) or _COACH_REACT_FALLBACK
-    if _COACH_PRAISE_RE.search(react) or _HONORIFIC_RE.search(react):
-        react = _COACH_REACT_FALLBACK
+    react = _COACH_REACT.get(stage, _COACH_REACT_FALLBACK)
     choices: list[str] = []
     # 폴백은 F-08 이 이미 만들어 둔 것을 쓴다 — 코칭이 빈손으로 끝나면 안 된다
     if stage == "explain":
@@ -2696,16 +2701,6 @@ def _pick_distractor(answer: str, pool: list[str], deck_text: str, avoid: str) -
             continue
         return cand
     return ""
-
-
-#: 골자가 인용한 줄 앞의 장 표기 — 「자료 7장에도 「…」」 의 7.
-_QUOTE_SLIDE_RE = re.compile(r"자료\s*(\d+)\s*장(?:에도|에는|에서는|에서|은|는|의|에)?\s*[「«]\s*$")
-
-
-def _quote_slide(text: str, quote: str) -> int:
-    at = (text or "").find(quote)
-    m = _QUOTE_SLIDE_RE.search((text or "")[:max(0, at)]) if at > 0 else None
-    return int(m.group(1)) if m else 0
 
 
 def _blank_lines(question: Question) -> list[tuple[int, str]]:
@@ -3495,9 +3490,9 @@ def _stance_next(question: Question) -> str:
     """입장을 고른 다음 물음 — 자료로 받쳐지는 다음 한 걸음. 단정은 골자가 인용한 제한 조건 줄의 장을 가리킨다(줄은 말하지 않는다)."""
     kind = stance_kind(question)
     if kind == "absolute_boundary":
-        line = limit_line(quoted_spans(question.answer_gist or ""), question)
-        no = _quote_slide(question.answer_gist or "", line) if line else 0
-        return _STANCE_LIMIT_FOLLOWUP.format(no=no) if no else RESTATE_FOLLOWUP["absolute_boundary"]
+        # 골자가 인용한 제한 조건 줄이든 해요체로 옮긴 조건 절이든(09-30 WP-P2 골자 「자료 7장에 적었듯 …」) 그 장을 가리킨다
+        no, line, _ = limit_of(question)
+        return _STANCE_LIMIT_FOLLOWUP.format(no=no) if (line and no) else RESTATE_FOLLOWUP["absolute_boundary"]
     if kind in _GAP_PROBES:
         return _gap_followup(question, "", acked=True)
     if kind == "tension":

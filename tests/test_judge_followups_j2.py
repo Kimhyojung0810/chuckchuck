@@ -332,8 +332,10 @@ def test_탐침_폴백_골자는_채점_지시가_아니라_발표자_모범답(
         assert g and not any(m in g for m in ("게 답이에요", "점을 인정하고", "말하는 게", "설명하는 게")), g
     assert probe_gist(CAUSE_PROBE) == ("자료 3장의 「야간 연장 개방을 하면 직장인 이용이 늘어납니다」에는 아직 수치나 출처가 없어요. "
                                        "설문이나 통계, 비교 자료로 보강할게요.")
-    assert "「전해질이 고체라 불이 절대 붙지 않습니다」는 모든 경우에" in probe_gist(
-        Probe(kind="absolute_boundary", node_ids=["safe"], evidence=[ClaimQuote(3, "전해질이 고체라 불이 절대 붙지 않습니다.")]))
+    # 09-30 WP-J3 (WP-P2 지적): 단정 폴백도 조건을 말한다 — 예전 「…는 모든 경우에 그렇다고 단정할 수는 없어요」 는 조건이 없어
+    # 그대로 말하면 단정 줄을 다시 말한 것과 같았다. 자료를 못 보는 폴백이라 「조건이 아직 없다 → 보완」 꼴이다.
+    g = probe_gist(Probe(kind="absolute_boundary", node_ids=["safe"], evidence=[ClaimQuote(3, "전해질이 고체라 불이 절대 붙지 않습니다.")]))
+    assert g.startswith("「전해질이 고체라 불이 절대 붙지 않습니다」라고 단정할 수는 없어요") and "조건" in g and "모든 경우에" not in g
 
 
 # ---------------------------------------------------------------------------
