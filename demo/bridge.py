@@ -2682,11 +2682,18 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         sid = _session_id_of(body)
         if not sid or _mock():
             return None
-        key = "memory:" + sid
+        # 이번 발표의 그래프·자료를 넘겨야 다른 발표의 리허설이 기억·요약에서 빠지고(scoped), 지난 결손이 지금 자료로 다시
+        # 확인된다 (09-30 WP-P). 그래프가 나중에 생기는 세션도 있어 캐시 열쇠에 그래프 지문을 넣는다 — 그래프 없이 만든
+        # 기억(scoped=False)이 그래프를 가진 요청에 재사용되지 않게.
+        graph = self._resolve(body, "graph").get("graph") or None
+        slidedoc = ARCHIVE.read_artifact(sid, "slide_doc")
+        # 실패 표시는 세션 열쇠에 둔다 — `_memory_failed(sid)` 가 degraded 를 알릴 때 그 열쇠를 본다
+        fail_key = "memory:" + sid
+        if STORE.get_triage(fail_key) == MEMORY_FAILED_MARK:
+            return None                    # 방금 실패했다 — FALLBACK_TTL_SEC 뒤에 다시 읽어 본다
+        key = fail_key + ":" + (fingerprint(graph)[:8] if graph else "nograph")
         cached = STORE.get_triage(key)
         if cached is not None:
-            if cached == MEMORY_FAILED_MARK:
-                return None                # 방금 실패했다 — FALLBACK_TTL_SEC 뒤에 다시 읽어 본다
             return cached or None          # 빈 dict 는 「지난 리허설 없음」 을 캐시한 것
         try:
             rehearsals, learner_key = ARCHIVE.rehearsals_for(sid)
@@ -2694,11 +2701,12 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 STORE.set_triage(key, {})
                 return None
             me = ARCHIVE.manifest(sid)
-            memory = build_memory(rehearsals, file_name=(me.file_name if me else ""), learner_key=learner_key)
+            memory = build_memory(rehearsals, file_name=(me.file_name if me else ""), learner_key=learner_key,
+                                  graph=graph, slidedoc=slidedoc)
         except Exception as e:  # noqa: BLE001 — 기억 없이도 질문·판정은 나와야 한다
             sys.stderr.write(f"[bridge] F-25 memory 실패, 기억 없이 진행: {type(e).__name__}: {e}\n")
             # 예전엔 {}(「지난 리허설 없음」)로 6시간 담아 실패가 없던 일이 됐다
-            STORE.set_triage(key, dict(MEMORY_FAILED_MARK), ttl=FALLBACK_TTL_SEC)
+            STORE.set_triage(fail_key, dict(MEMORY_FAILED_MARK), ttl=FALLBACK_TTL_SEC)
             return None
         sys.stderr.write(
             f"[bridge] F-25 memory key={memory.learner_key} sessions={len(memory.sessions)} "
