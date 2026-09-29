@@ -111,6 +111,14 @@ def is_meta_line(line: str) -> bool:
     return graded and target and imperative
 
 
+def names_grade_target(line: str) -> bool:
+    """
+    줄에 채점의 대상·결과 말(답변·응답·정답·good·N점·만점·높게)이 있는가 — `is_meta_line` 의 「채점 대상」 과 같은 잣대.
+    질문·판정 쪽 거름(`_evidence.is_meta_instruction`)이 채점 명령 꼴(「평가하세요」「점수를 주세요」)과 함께 볼 때 쓴다 (09-30 WP-M).
+    """
+    return bool(_GRADE_TARGET_RE.search(unicodedata.normalize("NFKC", line or "")))
+
+
 #: 울타리 표지와 같은 모양이 자료 안에 있으면 무디게 한다 — 자료가 울타리를 닫고 밖으로 나오지 못하게.
 _FENCE_TAG_RE = re.compile(r"<\s*/?\s*(?:slide|speech|concepts|flow|deck|자료)\b[^>]*>", re.I)
 

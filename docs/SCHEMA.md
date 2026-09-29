@@ -1097,7 +1097,13 @@ LLM 문장이 흘리면 정해진 문장으로 바꾼다. `answer_gist` 는 두 
 `basis.evidence[].quote` 가 `""`(장 번호만)이고 `reason`·`background`·`contrast` 가 비며 `checks` 에 `basis_quote_hidden` 이 붙는다.
 `trap_premise.fact` 와 함정 질문의 `answer_gist` 는 통과(`passed`)하거나 닫힌 뒤에만 펼친다(09-30 §7). 함정 질문의 `why` 는
 함정임을 알려 주므로 화면이 장만 가리키는 중립 문장으로 바꾼다(09-30 B-01·H-07).
-`trap=true` 인데 `trap_premise` 가 null 이면 옛 세션이다 — 판정은 예전 규칙으로 간다.
+
+**함정의 사실은 서버가 쥐고 있다 (09-30 WP-J2, `demo/bridge.py client_questions`).** `/questions` 응답의 함정 질문
+(`trap` 이 참이거나 `trap_premise` 가 있는 것)은 **화면용 사본**이다 — `trap_premise: null` · `answer_gist: ""` · `answer_gist_parts: []` ·
+`gist_withheld: true`. 채점은 서버가 제 원본으로 한다(§8-F). 사실·기대 답은 판정 응답이 싣는다 — 판정이 통과(`passed`)·닫힘(`mastered`)·
+해설 단계(`coach_stage == "explain"`)일 때 `answer_gist`·`reveal_quote`(자료의 사실 줄)·`reveal_slide_no`, 그리고 「답 보고 다시 말해보기」 는
+판정 요청에 `reveal: true` 를 실어 받는다(§8-F). 화면: `gist_withheld` 면 「답 펼치기」 를 판정 응답의 칸으로만 그린다.
+`gist_withheld` 가 없는데 `trap=true` · `trap_premise: null` 이면 옛 세션이다 — 판정은 예전 규칙으로 간다.
 
 **응답의 폴백 표시 (09-30 WP-B):** `POST /api/v1/questions` 응답(QuestionDoc + 힌트 사다리)에는 `degraded`(코드 목록)·`degraded_notes`
 (같은 순서의 사람 말)가 **언제나** 있다 — 폴백이 없으면 둘 다 `[]`. 코드는 `slide_doc_missing` · `claims_rule_only`·`claims_failed`·
@@ -1326,6 +1332,13 @@ ClaimDoc(+ 자료 원문)에서 결정적으로 만든다(`_probes.derive_probes
 | `grounded_on_deck` | bool | 자료 본문(`slide_doc`)과 대조해서 판정했나. 화면: 거짓이면 「자료 본문 없이 판정했어요」 한 줄 |
 | `degraded` | string[] | 폴백 코드 — `slide_doc_missing` · `question_unverified`(서버 질문을 못 찾아 본문 질문으로) · `question_mismatch`(화면 질문이 서버 것과 달라 서버 판으로) · `memory_failed`. 없으면 `[]` |
 | `degraded_notes` | string[] | 같은 순서의 사람 말 (§10-E). 화면: `question_unverified`·`question_mismatch` 의 말은 띄우지 않고 나머지만 |
+
+**함정 질문의 사실 펼치기 (09-30 WP-J2)** — `/questions` 가 화면용 사본에서 뺀 칸(§8-E `gist_withheld`)을 판정 응답이 싣는다.
+
+| 필드 | 언제 | 뜻 · 화면 |
+|------|------|------|
+| `answer_gist` · `reveal_quote` · `reveal_slide_no` | 함정 질문 판정이 `passed`·`mastered` 이거나 `coach_stage == "explain"` 일 때만 | 기대 답 · 자료의 사실 줄(`trap_premise.fact`, 없으면 `evidence_quote`) · 그 장. 화면의 「빠진 절반·완성 문장」·마무리 카드·해설 뒤 다시 말하기가 읽는다 |
+| 요청 `reveal: true` | 「답 보고 다시 말해보기」 | 판정이 아니다 — LLM 을 부르지 않고 `qa_turns` 에도 안 남는다. 응답은 `{question_id, reveal: true, grounded_on_server, answer_gist, reveal_quote, reveal_slide_no}` 뿐 (서버가 만든 질문으로만 — 본문 질문이면 그 본문 그대로) |
 
 세션 id 는 본문 `session_id` 가 먼저, 없으면 경로의 `{id}`. 발급 모양 또는 `"flat"`(발급 id 가 없는 경로의 자리표시자)만 받는다 —
 그 밖이면 400. `question_id` 로 서버 질문을 찾으므로 **`question_id` 와 `question`(문장 비교·폴백용)을 같이 보낸다.**
@@ -1633,7 +1646,7 @@ id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬,
 
 ## 10-E. 09-29~09-30 QA 보강 — 프론트가 기대도 되는 필드
 
-09-29 주장 그래프·함정 전제와 09-30 감사·레드팀 수정(`91d4c3d..f6d3854`)이 계약·응답에 더한 칸의 색인이다. **전부 더한 칸**이라
+09-29 주장 그래프·함정 전제와 09-30 감사·레드팀 수정(`91d4c3d..3d12c92` — WP-J2·WP-S2 합류분까지)이 계약·응답에 더한 칸의 색인이다. **전부 더한 칸**이라
 모르는 클라이언트는 무시해도 되고, 옛 세션·저장본은 기본값(null · `[]` · `""` · 키 없음)으로 읽힌다. 응답에만 붙는 칸(`degraded`·
 `grounded_on_*`·429/502/503 본문)은 **데모 브리지(`demo/bridge.py`) 기준**이다 — `server/app.py` 는 아직 싣지 않는다.
 
@@ -1642,6 +1655,10 @@ id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬,
 | `Question.basis` (`source`·`slot`·`rank`·`probe`·`evidence`·`checks`) | `QuestionDoc.questions[]` · `/questions` | 09-29 | 접힌 「이 질문의 근거」 — 한 줄 + 장 번호까지만. null 이면 안 그린다 | §8-E |
 | `basis.reason`·`background`·`contrast`·`contrast_quote` | `QuestionBasis` | 09-30 | `contrast` 쌍은 「모르겠어요」 보기. 인용문은 답하기 전에 안 보인다 | §8-E |
 | `Question.trap_premise` | `QuestionDoc.questions[]` | 09-29 | 통과·닫힘 전에는 `fact`·골자를 펼치지 않는다. 함정 `why` 는 중립 문장으로 | §8-E |
+| `gist_withheld` (함정 질문의 화면용 사본) | `/questions` 응답 `questions[]` — `trap_premise: null`·`answer_gist: ""`·`answer_gist_parts: []` 와 함께 | 09-30 | 참이면 기대 답·사실은 판정 응답의 칸으로만 그린다 | §8-E |
+| `answer_gist`·`reveal_quote`·`reveal_slide_no` · 요청 `reveal: true` | `/qa/judge` 응답(함정 질문이 통과·닫힘·해설 단계일 때) · 「답 보고 다시 말해보기」 요청 | 09-30 | 「빠진 절반·완성 문장」·마무리 카드·다시 말하기의 재료 | §8-F |
+| `QuestionDoc.speech_unused`·`speech_note` | `/questions` (언제나, 비면 `""`) | 09-30 | 값이 있으면 `speech_note`(「…자료만 보고 질문을 만들었어요. …」)를 첫 질문 앞에 한 번 | §8-E |
+| `source: "skipped_slide"` | `QuestionDoc.questions[].source` (`QA_SOURCES`) | 09-30 | 말로 건너뛴 핵심 장을 묻는 질문 — 근거 한 줄에 그 장 번호 | §8-B |
 | `QaJudgement.guard`·`guard_reason` | `/qa/judge` | 09-30 | `guard_reason` 은 되물음·결손과 따로 한 줄. `guard` 이름은 하네스·리포트용 | §8-F |
 | `QaJudgement.close_reason` (파생) | `/qa/judge` | 09-30 | 결과 화면은 `good` 만 「자기 말로 지켰어요」, `rounds`·`guard` 는 「다시 볼 곳」 | §8-F |
 | `guard_blocked` | 계약 속성 — **직렬화하지 않는다** | 09-30 | 없음 (요청 바디로 출구를 못 열게) | §8-F |
