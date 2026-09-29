@@ -328,12 +328,26 @@ def _squash(text: str) -> str:
     return re.sub(r"[\s\W_]+", "", fold_text(text).lower())
 
 
+def _number_keys(text: str) -> list[tuple[float, str, bool]]:
+    from ._deck_claims import numbers
+
+    return sorted((n.value, n.unit or "", n.negative) for n in numbers(text or "", skip_years=False))
+
+
 def repeats(answer: str, prior: list[str] | tuple[str, ...]) -> bool:
-    """이번 답이 같은 질문의 앞 답 하나와 90% 이상 같은가."""
+    """
+    이번 답이 같은 질문의 앞 답 하나와 90% 이상 같은가 — 단, **수가 바뀐 답**은 되풀이가 아니다.
+
+    09-30 WP-J2 standard 실측(전세 함정): 「만 36세 이하 …」(전제 동의, wrong) 다음에 같은 문장을 「만 29세 이하 …」 로 고쳐 말한 답이
+    글자 97% 같다고 「앞에서 한 답과 같아요」 partial 65 — 바로잡은 사람을 되풀이로 막았다(conv.wrong_recover 0%). 수 하나를 고친 것이
+    그 답의 새 내용이다.
+    """
     a = _squash(answer)
     if len(a) < 2:
         return False
-    return any(SequenceMatcher(None, a, _squash(p)).ratio() >= REPEAT_RATIO for p in prior if _squash(p))
+    nums = _number_keys(answer)
+    return any(SequenceMatcher(None, a, _squash(p)).ratio() >= REPEAT_RATIO and _number_keys(p) == nums
+               for p in prior if _squash(p))
 
 
 def distinct_answers(answers: list[str] | tuple[str, ...]) -> int:

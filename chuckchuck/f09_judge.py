@@ -1300,7 +1300,10 @@ def _normalize(
     verdict, score, points = _enforce_good(data, question, verdict, score, points, said=said)
     tp = question.trap_premise if question.trap else None
     # 코드가 만든 전제면 답이 어느 쪽 단서를 말했는지 안다 — 누적 답으로 본다(앞 턴에 동의했다가 이번에 바로잡은 답도 바로잡은 것이다).
-    stance = premise_stance(said, tp) if tp is not None else ""
+    # 누적 답에는 앞 턴의 동의(틀린 단서)도 남아 모름·동의로 읽힌다 — **이번 답만으로** 바로잡았으면 바로잡은 것이다 (09-30 WP-J2:
+    # 「…줄어든다고 해요」 다음 「…늘어난다고 해요」 가 누적으로 agree 가 돼 되풀이 가드에 막혔다).
+    stance_now = premise_stance(answer, tp) if tp is not None else ""
+    stance = stance_now if stance_now == "correct" else (premise_stance(said, tp) if tp is not None else "")
     # 함정 동의가 먼저다 — "네, 맞아요" 는 질문에 답한 것이라 무관 가드가 볼 일이 아니다 (09-26 실측: 무관 문구가 먼저 붙었다).
     verdict, score, trap_agreed = _enforce_trap(data, question, verdict, score, answer, deck)
     guard, guard_reason = ("trap", "질문의 전제가 자료와 다르다는 점") if trap_agreed else ("", "")
@@ -1415,7 +1418,8 @@ def _normalize(
     if (not absent and not capped and not guard and stance != "correct" and verdict in ("good", "partial")
             and echoes_question(said, f"{question.question} {question.label or ''}")):
         verdict, score, capped = "partial", min(score, ECHO_SCORE_MAX), "echo"
-    if repeated and not capped and verdict in ("good", "partial") and score > REPEAT_SCORE_MAX:
+    # 함정 전제를 바로잡은 답은 되풀이가 아니다 — 앞 답(전제 동의)에서 방향 낱말 하나만 고쳐도 글자는 90% 넘게 같다 (09-30 WP-J2).
+    if repeated and stance != "correct" and not capped and verdict in ("good", "partial") and score > REPEAT_SCORE_MAX:
         verdict, score, capped = "partial", REPEAT_SCORE_MAX, "repeat"
     # 통과인데 답이 이 질문의 기준과 맞닿지 않는다 — LLM 이 골자·자료를 발표자가 말한 것처럼 읽었다 (R10).
     if (not absent and not capped and not guard and stance != "correct" and qa_passed(verdict, score)

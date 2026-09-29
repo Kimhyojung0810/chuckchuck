@@ -538,6 +538,31 @@ def test_빈칸_탐침에_자료에_나와_있지_않다고_한_답은_초점_�
         assert v.guard == "" and v.passed, a
 
 
+def test_함정에_동의한_답을_값만_고쳐_다시_말하면_되풀이가_아니다():
+    # 09-30 standard 실측(conv.wrong_recover 0%): 「만 36세 …」(동의) 다음 같은 문장의 「만 29세 …」 가 글자 97% 같다고 「앞에서 한 답과
+    # 같아요」 65 — 바로잡은 사람을 되풀이로 막았다
+    from chuckchuck._judge_guard import repeats
+    wrong = "자료 2장은 충전 5000회 뒤에도 용량의 70%가 남는다고 해요. 그래서 수명이 길다는 걸 보여 줘요."
+    fixed = wrong.replace("70%", "90%")
+    assert not repeats(fixed, [wrong]) and repeats(wrong, [wrong])
+    v = judge_answer(TRAP_Q, fixed, graph=BATTERY_GRAPH, slidedoc=BATTERY, prior_answers=[wrong],
+                     llm=ScriptedLLM(judged(verdict="good", score=85, premise_corrected=True)))
+    assert v.passed and v.guard == ""
+    # 방향 함정 — 수는 그대로고 낱말 하나(「줄어든다」→「늘어난다」)만 고쳐도 이번 답이 바로잡았으면 되풀이가 아니다
+    tp = TrapPremise(kind="direction", premise="야간 연장 개방을 하면 직장인 이용이 줄어듭니다",
+                     fact="야간 연장 개방을 하면 직장인 이용이 늘어납니다", slide_no=3, wrong=["줄어듭니다"], right=["늘어납니다"])
+    q = Question(id="q09-night", node_id="night", label="야간 연장 개방", slide_nos=[3], evidence_slide_no=3,
+                 question=traps.trap_question(tp), answer_gist=traps.trap_gist(tp), trap=True, trap_premise=tp)
+    agree = "자료 3장은 야간 연장 개방을 하면 직장인 이용이 줄어든다고 해요. 그래서 개방 시간을 줄여야 해요."
+    turned = agree.replace("줄어든다고", "늘어난다고")
+    ok = judge_answer(q, turned, graph=LIB_GRAPH, slidedoc=LIB, prior_answers=[agree],
+                      llm=ScriptedLLM(judged(verdict="good", score=85, premise_corrected=True)))
+    assert ok.passed and ok.guard == ""
+    again = judge_answer(q, agree, graph=LIB_GRAPH, slidedoc=LIB, prior_answers=[agree],
+                         llm=ScriptedLLM(judged(verdict="good", score=85, premise_corrected=False)))
+    assert not again.passed                                        # 같은 동의를 다시 하면 여전히 막힌다
+
+
 COMMUTE = doc("commute.pdf", slide(1, "지각 줄이기"),
               slide(2, "지각은 거리 문제가 아니라 출발 시각의 문제다\n집이 먼 사원과 가까운 사원의 지각률 차이는 작음\n"
                        "8시 이후에 집을 나선 사원의 지각률은 세 배"))
