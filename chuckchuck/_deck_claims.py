@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass, field
 
 from ._evidence import clean_slide_text
+from ._match import fold_text
 
 # ---------------------------------------------------------------------------
 # 낱말 · 숫자
@@ -31,13 +32,15 @@ from ._evidence import clean_slide_text
 #: 숫자 + 단위. 앞이 영문·숫자면 숫자로 보지 않는다(「N1」「v2」). 시각(03:00)은 버린다.
 _NUM_RE = re.compile(
     r"(?<![A-Za-z\d.,:])([-−–]?)(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?![\d:])\s?"
-    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만원|억원|억|원|분|시간|초|점|장|위|차)?",
+    # 「세·살」(나이) — 09-30 레드팀: 「만 36세가 아니라 만 25세」 의 두 수가 단위 없는 수로 읽혀 자료의 「29세」 와 단위로 가를 수
+    # 없었다. 「세대·세기·세트·세계」 의 세는 단위가 아니다.
+    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만원|억원|억|원|분|시간|초|점|장|위|차|세(?![대기트계])|살)?",
     re.I,
 )
 _WORD_RE = re.compile(r"[가-힣]+|[A-Za-z]+")
 #: 자료 구조를 가리키는 숫자 — 「5장」「2차」. 사실 숫자가 아니다.
 _STRUCTURAL_UNITS = frozenset({"장", "차"})
-_UNIT_CLASS = {"%p": "pp", "p.p": "pp", "p.p.": "pp", "%": "pct"}
+_UNIT_CLASS = {"%p": "pp", "p.p": "pp", "p.p.": "pp", "%": "pct", "살": "세"}
 
 #: 이것만으로는 무엇에 대한 말인지 알 수 없는 낱말(앞머리 일치). 어느 발표에나 나오는 말만 둔다.
 _GENERIC = (
@@ -88,7 +91,8 @@ def content_stems(text: str, *, drop_units: bool = False) -> list[str]:
     부정 어긋남 55 를 받았다. 숫자 짝 대조에서는 단위 조각이 「그 숫자의 줄」 을 알아보는 단서라 남긴다.
     """
     out: list[str] = []
-    src = text or ""
+    # NFD 한글·전각 글자도 같은 줄기로 (09-30 레드팀 G-A11 — NFD 라벨은 줄기 0개라 가드가 조용히 꺼졌다). 위치를 돌려주지 않으니 접어도 된다.
+    src = fold_text(text)
     for m in _WORD_RE.finditer(src):
         w = m.group(0)
         if drop_units and m.start() > 0 and src[m.start() - 1].isdigit():
@@ -166,9 +170,12 @@ def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
 # ---------------------------------------------------------------------------
 
 _UP = ("높", "많", "늘", "증가", "상승", "오르", "올라", "올랐", "커지", "커졌", "커진", "큰", "컸", "크다", "크고",
-       "강하", "강한", "강했", "강함", "강해", "커져", "커요", "길어", "길다", "긴", "빠르", "빨라", "빨랐", "개선", "상회", "앞서", "앞섰", "넘었", "넘는")
+       "강하", "강한", "강했", "강함", "강해", "커져", "커요", "길어", "길다", "긴", "빠르", "빨라", "빨랐", "개선", "상회", "앞서", "앞섰", "넘었", "넘는",
+       # 09-30 verify 하네스 — 뒤집은 사실(「처벌 약화보다」「과제 수행이 좋아지는」「공강이 짧을수록」)을 못 잡던 짝. 어느 분야에나 쓰는 말.
+       "강화", "확대", "좋아지", "좋아졌", "좋아져", "길수록", "길게", "클수록")
 _DOWN = ("낮", "적은", "적어", "적었", "적다", "줄", "감소", "하락", "떨어", "내려", "내렸", "작아", "작은", "작았", "작다",
-         "약하", "약한", "약했", "약함", "약해", "짧", "느리", "느려", "느렸", "악화", "하회", "뒤지", "뒤졌", "뒤처", "못미", "못 미")
+         "약하", "약한", "약했", "약함", "약해", "짧", "느리", "느려", "느렸", "악화", "하회", "뒤지", "뒤졌", "뒤처", "못미", "못 미",
+         "약화", "축소", "나빠지", "나빠졌", "나빠져", "적을", "작을")
 
 
 #: 방향 줄기 뒤에 와도 되는 꼬리 — 활용 어미·명사형·조사. 09-30 레드팀: 앞머리만 보니 「낮잠·줄거리」 가 감소, 「긴장·개선안」 이
@@ -234,6 +241,10 @@ class DeckLine:
     #: 표 행의 **맥락 낱말** — 표 바로 위 제목 줄(「연간 회전율 구간별 평균 수익률 (%)」)과 머리 행. 행 이름이 숫자 구간(「50% 미만」)
     #: 이면 행 자체에는 무엇의 값인지 말하는 낱말이 없다. 숫자의 주인을 찾을 때만 쓴다.
     context: tuple[str, ...] = ()
+    #: **이름표 숫자** — 표 머리 칸(「30분 혈당」「1인당 대출 권수」)·행 이름(「50% 미만」「상위 25%」)에 든 수. 값(nums)이 아니다.
+    #: 09-30 held-out C-08: 머리 행의 「30분」「1인당」 이 값으로 잡혀 자료대로 말한 「30분에 122」 가 「채소의 수치」 어긋남 55 를
+    #: 받았다. 「자료에 있는 수인가」 를 볼 때만 같이 센다(`Deck.every_num`).
+    labels: tuple[Num, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -250,10 +261,16 @@ class Deck:
     regions: tuple[DeckLine, ...] = ()
     tables: tuple[Table, ...] = ()
     stems: frozenset[str] = field(default_factory=frozenset)
+    #: 자료에 나오는 **모든** 수 — 값과 이름표(표 머리·행 이름). 「이 수가 자료에 있나」 는 이것으로 본다.
+    every_num: tuple[Num, ...] = ()
 
     @property
     def empty(self) -> bool:
         return not self.lines
+
+    def has_number(self, num: "Num") -> bool:
+        """이 수가 자료 어딘가에 (반올림한 표기까지) 있는가 — 값이든 이름표든."""
+        return any(num.close_value(d) for d in self.every_num)
 
 
 _PAGE_NO_RE = re.compile(r"^[\d\s/|.·-]+$")
@@ -274,9 +291,40 @@ def _line(slide_no: int, text: str, is_row: bool = False) -> DeckLine:
     return DeckLine(slide_no, text, tuple(content_stems(text)), tuple(numbers(text)), is_row)
 
 
+#: 표 제목·열 머리가 괄호로 밝힌 값의 단위 — 「(%)」「(2016–2025, %)」「(p.p., Annual)」「(억 원)」. 괄호 밖의 「상위 10%」 는 이름이다.
+_PAREN_RE = re.compile(r"\(([^()]{0,40})\)")
+_PAREN_UNIT_RE = re.compile(r"(?:^|[\s,/])(억\s*원|만\s*원|원|명|건|개|회|시간|분|초|점|세|년|배|개월)(?:$|[\s,/])")
+
+
+def _unit_hint(text: str) -> str | None:
+    """표 칸의 단위 없는 수에 붙일 단위 (제목·열 머리의 괄호 속). 모르면 None — 짝을 모르면 놓친다."""
+    for inner in _PAREN_RE.findall(text or ""):
+        if re.search(r"%\s*p|p\.\s*p\.?", inner, re.I):
+            return "pp"
+        if "%" in inner:
+            return "pct"
+        m = _PAREN_UNIT_RE.search(inner)
+        if m:
+            unit = re.sub(r"\s+", "", m.group(1))
+            return _UNIT_CLASS.get(unit, unit)
+    return None
+
+
+def _cell_nums(cell: str, hint: str | None) -> tuple[Num, ...]:
+    """표 칸 하나의 값. 칸에 단위가 없으면 제목·열 머리의 단위를 붙인다 (「| 1종목 | 70 |」 + 「(%)」 → 70%)."""
+    out = []
+    for n in numbers(cell):
+        out.append(n if n.unit is not None or hint is None else Num(n.value, hint, n.negative, n.start, n.end, n.decimals))
+    return tuple(out)
+
+
 def build_deck(slides) -> Deck:
     """
     [(장 번호, raw_text)] → Deck. SlideDoc 의 raw_text 를 그대로 받는다 (줄 구조가 살아 있어야 한다).
+
+    표는 세 층으로 싣는다 (09-30 held-out C-08) — ① 행 한 줄(nums = 값 칸들, 이름표 숫자는 labels),
+    ② 머리 행(값 없음 — 「30분 혈당」 의 30분은 이름표), ③ **칸 하나씩**(행 이름 + 열 머리 낱말 + 그 칸의 값). 행 줄에는 열 머리
+    낱말이 없어서 「대출 권수가 3.1권」 의 주인을 못 찾고 머리 행의 「1인당」 이 주인으로 뽑혔다.
     """
     lines: list[DeckLine] = []
     regions: list[DeckLine] = []
@@ -293,7 +341,7 @@ def build_deck(slides) -> Deck:
                     tables.append(t)
                 table_rows.clear()
 
-        for raw_line in (raw or "").split("\n"):
+        for raw_line in fold_text(raw).split("\n"):
             stripped = raw_line.strip()
             if not stripped:
                 continue
@@ -301,10 +349,32 @@ def build_deck(slides) -> Deck:
                 cells = [clean_slide_text(c) for c in stripped.strip("|").split("|")]
                 if all(_ROW_SEP_RE.match(c.replace(" ", "")) or not c for c in cells):
                     continue
+                is_header = not table_rows
                 table_rows.append(cells)
-                row = _line(slide_no, " | ".join(c for c in cells if c), is_row=True)
+                text = " | ".join(c for c in cells if c)
                 ctx = tuple(content_stems(f"{caption} {' '.join(table_rows[0])}"))
-                row = DeckLine(row.slide_no, row.text, row.stems, row.nums, True, ctx)
+                if is_header:
+                    row = DeckLine(slide_no, text, tuple(content_stems(text)), (), True, ctx, tuple(numbers(text, skip_years=False)))
+                    lines.append(row)
+                    regions.append(row)
+                    continue
+                head = table_rows[0]
+                key = cells[0]
+                key_labels = tuple(numbers(key, skip_years=False))
+                vals: list[Num] = []
+                for k, cell in enumerate(cells[1:], start=1):
+                    col = head[k] if k < len(head) else ""
+                    got = _cell_nums(cell, _unit_hint(f"{caption} {col}"))
+                    vals.extend(got)
+                    if got and key:
+                        # 칸 하나 — 「행 이름 | 열 머리 | 값」. 줄기(stems)는 **행 이름만**, 열 머리는 맥락(context)이다 — 열 머리는 그
+                        # 열의 모든 행이 나눠 가져서, 줄기에 넣으면 「리튬인산철은 5000회」(전고체 행의 값)가 「충전 횟수」 한 낱말로
+                        # 제 주인을 만난 것처럼 보인다.
+                        cell_text = f"{key} | {col} | {cell}" if col else f"{key} | {cell}"
+                        regions.append(DeckLine(slide_no, cell_text, tuple(content_stems(key)), got, True,
+                                                tuple(content_stems(f"{caption} {col}")),
+                                                key_labels + tuple(numbers(col, skip_years=False))))
+                row = DeckLine(slide_no, text, tuple(content_stems(text)), tuple(vals), True, ctx, key_labels)
                 lines.append(row)
                 regions.append(row)
                 continue
@@ -327,7 +397,8 @@ def build_deck(slides) -> Deck:
             if i + 1 < len(text_units):
                 regions.append(_line(slide_no, f"{unit} {text_units[i + 1]}"))
     stems = frozenset(s for ln in lines for s in ln.stems)
-    return Deck(tuple(lines), tuple(regions), tuple(tables), stems)
+    every = tuple(n for ln in (*lines, *regions) for n in (*ln.nums, *ln.labels))
+    return Deck(tuple(lines), tuple(regions), tuple(tables), stems, every)
 
 
 def deck_from_slidedoc(slidedoc) -> Deck:
@@ -359,6 +430,31 @@ _CLAUSE_END_RE = re.compile(r"(고|며|서|면서|지만|는데|은데|거나|�
 _SENTENCE_SPLIT_RE = re.compile(r"(?<!\d)[.;!?\n]+|[.;!?\n]+(?!\d)|,(?=\s*[^\d\s])|\s+[—–-]\s+")
 
 
+#: 「…서」 로 끝나는 연결형 — 「해서·어서·아서·라서·려서·돼서」. 「에서·로서」(조사)와 「독서·순서·문서」(명사)는 절 끝이 아니다.
+#: 09-30 verify 하네스: 「…받은 조건에서 | 과제 수행이 좋아지는」「자료를 보면 독서 | 경험보다」 처럼 절이 조사·명사에서 갈려,
+#: 뒤집은 사실이 자료 줄과 「거의 같은 말」 로 안 잡혔다.
+#: 「-아서/-어서」 가 줄어든 음절의 모음 — ㅏ ㅐ ㅓ ㅔ ㅕ ㅘ ㅙ ㅝ, 받침 없이 (「나서·해서·라서·커서·져서·봐서·줘서」).
+_SEO_VOWELS = frozenset({0, 1, 4, 5, 6, 9, 10, 14})
+
+
+def _seo_connective(bare: str) -> bool:
+    if len(bare) < 2 or bare.endswith(("에서", "로서")):
+        return False
+    ch = bare[-2]
+    if not ("가" <= ch <= "힣"):
+        return False
+    code = ord(ch) - 0xAC00
+    return code % 28 == 0 and (code % 588) // 28 in _SEO_VOWELS
+
+
+def _clause_end(bare: str) -> bool:
+    if not _CLAUSE_END_RE.search(bare) or bare.endswith(("보다", "처럼")):
+        return False
+    if bare.endswith("서") and not bare.endswith("면서"):
+        return _seo_connective(bare)
+    return True
+
+
 def clauses(text: str) -> list[str]:
     """문장 부호와 연결 어미에서 자른다. 「…보다」 는 비교의 앞말이라 자르지 않는다."""
     out: list[str] = []
@@ -367,7 +463,7 @@ def clauses(text: str) -> list[str]:
         for word in sentence.split():
             cur.append(word)
             bare = re.sub(r"[^가-힣A-Za-z0-9%]+$", "", word)
-            if _CLAUSE_END_RE.search(bare) and not bare.endswith(("보다", "처럼")):
+            if _clause_end(bare):
                 out.append(" ".join(cur))
                 cur = []
         if cur:
@@ -381,7 +477,7 @@ def clauses(text: str) -> list[str]:
 
 @dataclass(frozen=True)
 class Conflict:
-    kind: str          # number · order · direction · negation
+    kind: str          # number · number_unsupported · order · direction · negation
     slide_no: int
     deck_line: str
     claim: str         # 답에서 걸린 절
@@ -443,6 +539,98 @@ def _number_conflicts(clause: str, deck: Deck) -> list[Conflict]:
             continue
         owner = min(owners, key=lambda r: (not r.is_row, len(r.text)))
         out.append(Conflict("number", owner.slide_no, owner.text, clause, " ".join(before) + "의 수치"))
+    return out
+
+
+#: 어림 표지 — 「약 10%」「20% 정도」 는 자료 값(8.7%)을 둥글게 말한 것일 수 있다.
+_APPROX_BEFORE_RE = re.compile(r"(?:약|대략|거의|얼추|한)\s*$")
+_APPROX_AFTER_RE = re.compile(r"^\s*(?:정도|쯤|가량|안팎|남짓|내외|근처)")
+#: 어림한 수가 자료 값에서 이만큼(상대) 안이면 같은 수로 본다.
+APPROX_RATIO = 0.15
+#: 문장이 부른 장 번호 — 「9장 차트에서」. 주인 후보가 여럿이면 그 장이 먼저다.
+_SLIDE_MENTION_RE = re.compile(r"(\d{1,3})\s*(?:장|번\s*슬라이드|페이지)")
+
+
+def _signed(n: Num) -> float:
+    return -n.value if n.negative else n.value
+
+
+def _approx(clause: str, num: Num) -> bool:
+    return bool(_APPROX_BEFORE_RE.search(clause[:num.start]) or _APPROX_AFTER_RE.match(clause[num.end:]))
+
+
+def _near_value(num: Num, vals: list[Num], approx: bool) -> bool:
+    if any(num.close_value(v) for v in vals):
+        return True
+    return approx and any(v.value and abs(num.value - v.value) <= APPROX_RATIO * abs(v.value) for v in vals)
+
+
+def _derived(num: Num, vals: list[Num]) -> bool:
+    """자료 값으로 **계산한** 수인가 — 그 주인의 값을 다 더한 합, 또는 두 값의 차 (「합치면 25억」「격차 1.3%p」)."""
+    tol = 0.5 * 10 ** -num.decimals + 1e-9
+    signed = [_signed(v) for v in vals]
+    if len(signed) >= 2 and abs(abs(sum(signed)) - num.value) <= tol:
+        return True
+    return any(abs(abs(a - b) - num.value) <= tol for i, a in enumerate(signed) for b in signed[i + 1:])
+
+
+def _subject_before(clause: str, idx: int, nums: list[Num], deck: Deck) -> tuple[list[str], int]:
+    """
+    숫자 앞 세 낱말 가운데 자료에 있는 줄기(그 수의 주인)와, 주인의 일부로 쓴 **이름표 숫자**의 자리(없으면 -1).
+    바로 앞이 이름표 숫자면(「하위 10%가 −90%」 — 10% 는 이름이다) 그 이름표 앞까지 본다.
+    """
+    num = nums[idx]
+    start = nums[idx - 1].end if idx > 0 else 0
+    got = [s for s in content_stems(clause[start:num.start])[-3:] if _has(deck.stems, s)]
+    if got or idx == 0:
+        return got, -1
+    prev = nums[idx - 1]
+    if re.fullmatch(r"\s*(?:이|가|은|는|의|에서|에)?\s*", clause[prev.end:num.start]) and deck.has_number(prev):
+        start2 = nums[idx - 2].end if idx > 1 else 0
+        return [s for s in content_stems(clause[start2:prev.start])[-3:] if _has(deck.stems, s)], idx - 1
+    return [], -1
+
+
+def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: str = "") -> list[Conflict]:
+    """
+    답이 자료에 **없는** 수를 자료가 **다른 값**을 붙인 대상에 붙였다 — 지어낸(틀린) 숫자 (09-30 레드팀 R5).
+
+    `_number_conflicts` 는 자료에 있는 수만 짝을 본다(「자료에 없는 숫자는 짝을 모르니 건드리지 않는다」). 그래서 정답에 숫자 하나만
+    지어 넣은 답 — 「최상위 회전율 구간 평균은 −8.6%」(자료 −3.6%) · 「예산은 연 12억 원」(자료 21억) — 이 good 85 로 통과했다.
+
+    놓치는 쪽이 안전하다. 이렇게 **다** 맞을 때만 잡는다.
+    - 수에 단위가 있고, 자료 어디에도(값·표 머리·행 이름, 반올림 표기 포함) 없고, 질문의 수도 아니다.
+    - 수 앞 낱말(주인)이 자료에 있고, 그 낱말을 가진 자료 줄·표 칸에 **같은 단위의 다른 값**이 있다.
+    - 그 값들로 계산한 수(합·차)가 아니고, 어림 표지(약·정도)가 붙었으면 15% 밖이다.
+    - 답이 그 주인의 자료 값을 같은 절에서 이미 말하지 않았다(말했으면 덧붙인 수는 계산한 것일 수 있다).
+    """
+    out: list[Conflict] = []
+    nums = numbers(clause)
+    lines_ids = {id(x) for x in deck.lines}
+    for idx, num in enumerate(nums):
+        if num.unit is None or deck.has_number(num) or any(num.same_value(q) for q in q_nums):
+            continue
+        subject, label_idx = _subject_before(clause, idx, nums, deck)
+        if not subject:
+            continue
+        # 표는 칸(행 이름 + 그 열 머리)으로 본다 — 행 줄 통째는 다른 열의 값까지 들고 있다.
+        regions = [
+            r for r in deck.regions
+            if not (r.is_row and id(r) in lines_ids)
+            and all(_has((*r.stems, *r.context), t) for t in subject)
+            and any(n.unit == num.unit for n in r.nums)
+        ]
+        vals = [n for r in regions for n in r.nums if n.unit == num.unit]
+        if not vals or _near_value(num, vals, _approx(clause, num)) or _derived(num, vals):
+            continue
+        if any(v.close_value(a) for v in vals for j, a in enumerate(nums) if j not in (idx, label_idx)):
+            continue
+        said = content_stems(f"{sentence} {clause}")
+        mention = {int(m.group(1)) for m in _SLIDE_MENTION_RE.finditer(f"{sentence} {clause}")}
+        # 주인 후보가 여럿이면: 문장이 부른 장 → 문장이 부른 행 이름(「1종목이면」) → 맥락 낱말 → 짧은 줄.
+        owner = min(regions, key=lambda r: (r.slide_no not in mention, -sum(1 for t in said if _has(r.stems, t)),
+                                            -sum(1 for t in said if _has(r.context, t)), len(r.text)))
+        out.append(Conflict("number_unsupported", owner.slide_no, owner.text, clause, " ".join(subject) + "의 수치"))
     return out
 
 
@@ -545,6 +733,42 @@ def _order_conflicts(clause: str, deck: Deck, prefix: str = "") -> list[Conflict
     return out
 
 
+_THAN_SPLIT_RE = re.compile(r"([가-힣A-Za-z0-9]+)(?:보다는|보다|보단)(?=\s|$)")
+
+
+def _than_sides(text: str) -> tuple[list[str], list[str]] | None:
+    """「X보다 … Y」 의 (X 줄기, 「보다」 뒤 줄기). 「보다」 가 없거나 둘 이상이면 None."""
+    found = list(_THAN_SPLIT_RE.finditer(text or ""))
+    if len(found) != 1:
+        return None
+    m = found[0]
+    before = content_stems(text[:m.end()])[-2:]
+    after = content_stems(text[m.end():])
+    return (before, after) if before and after else None
+
+
+def _swapped_comparison(clause: str, deck: Deck, question_stems: tuple[str, ...] = ()) -> list[Conflict]:
+    """
+    표가 아닌 글줄의 비교를 **맞바꾼** 말 — 자료 「대출 권수보다 더 중요한 것은 독서 경험」 ↔ 답 「독서 경험보다 더 중요한 것은
+    대출 권수」 (09-30 verify 하네스). 자료 줄의 「보다」 앞 대상이 답의 「보다」 뒤에, 답의 「보다」 앞 대상이 자료 줄의 「보다」 뒤에
+    있으면 뒤집은 것이다. 질문이 옮겨 와 따지는 줄은 뺀다.
+    """
+    mine = _than_sides(clause)
+    if mine is None:
+        return []
+    a_before, a_after = mine
+    for line in deck.lines:
+        theirs = _than_sides(line.text)
+        if theirs is None or _quoted_by_question(line, question_stems):
+            continue
+        l_before, l_after = theirs
+        if any(_has(l_before, x) for x in a_before):
+            continue                     # 같은 쪽을 기준으로 말했다 — 맞바꾼 게 아니다
+        if any(_has(a_after, x) for x in l_before) and any(_has(l_after, x) for x in a_before):
+            return [Conflict("order", line.slide_no, line.text, clause, "무엇보다 무엇이 더한지")]
+    return []
+
+
 #: 절과 자료 줄이 「같은 말을 하고 있다」 고 볼 최소 겹침. 방향·부정을 견주려면 주어가 같아야 한다.
 STRONG_MATCH_MIN = 3
 STRONG_MATCH_RATIO = 0.6
@@ -578,7 +802,26 @@ def _best_line(stems: list[str], deck: Deck) -> tuple[DeckLine | None, int]:
     return scored[0][2], scored[0][1]
 
 
-def _polarity_conflicts(clause: str, deck: Deck, question_stems: tuple[str, ...] = ()) -> list[Conflict]:
+def _dir_list(text: str) -> list[str]:
+    """방향 낱말의 방향들 (나온 차례대로, 겹쳐도 센다). 「못 미」 는 하나로."""
+    out = [d for d in (direction(w) for w in _WORD_RE.findall(text or "")) if d]
+    if re.search(r"못\s*미", text or "") and "down" not in out:
+        out.append("down")
+    return out
+
+
+#: 원인·조건으로 끝나는 절 — 뒤 절(결과)만으로는 자료 줄과 짝이 안 맞아서(「…부족해서 | 깡통전세가 줄어든다고」) 붙여서 본다.
+_CAUSAL_END_RE = re.compile(r"(?:서|니까|므로|면|수록|해서|어서|아서|라서)[^가-힣A-Za-z0-9]*$")
+
+
+def _polarity_conflicts(clause: str, deck: Deck, question_stems: tuple[str, ...] = (), lead: str = "") -> list[Conflict]:
+    found = _polarity_one(clause, deck, question_stems)
+    if not found and lead and _CAUSAL_END_RE.search(lead) and _dir_list(clause):
+        found = _polarity_one(f"{lead} {clause}", deck, question_stems)
+    return found
+
+
+def _polarity_one(clause: str, deck: Deck, question_stems: tuple[str, ...] = ()) -> list[Conflict]:
     """
     절이 자료 한 줄과 **거의 같은 말**을 하는데(주어·대상 낱말이 셋 이상, 그 줄 낱말의 60% 이상 겹침)
     방향(늘다/줄다·강하다/약하다)이나 부정이 반대다. 09-29 실측: 「종목 선정 능력과 수익률의 상관이 강하게 나왔고」
@@ -599,6 +842,12 @@ def _polarity_conflicts(clause: str, deck: Deck, question_stems: tuple[str, ...]
         return []
     a_dirs, l_dirs = directions(clause), directions(line.text)
     if len(a_dirs) == 1 and len(l_dirs) == 1 and a_dirs != l_dirs:
+        return [Conflict("direction", line.slide_no, line.text, clause, "높고 낮은 방향")]
+    # 방향 낱말이 둘인 말(「공강이 길수록 만족도가 떨어진다」·「1인 가구 증가가 수요를 늘린다」)은 짝 수로 견준다 — 순서는 안 본다
+    # (바꿔 말하면 순서가 바뀐다). 수가 같은데 짝이 다르면 한쪽을 뒤집은 것이다.
+    a_seq, l_seq = sorted(_dir_list(clause)), sorted(_dir_list(line.text))
+    if (2 <= len(a_seq) == len(l_seq) <= 3 and a_seq != l_seq and negated(clause) == negated(line.text)
+            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line.text)):
         return [Conflict("direction", line.slide_no, line.text, clause, "높고 낮은 방향")]
     if (not a_dirs and not l_dirs and negated(clause) != negated(line.text)
             and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line.text)):
@@ -679,15 +928,21 @@ def conflicts(text: str, deck: Deck, question: str = "") -> list[Conflict]:
     if deck.empty or not (text or "").strip():
         return []
     q_stems = tuple(content_stems(question))
+    q_nums = numbers(question)
     out: list[Conflict] = []
+    lead = ""
     for sentence in _SENTENCE_SPLIT_RE.split(text):
         prefix = ""
         for clause in clauses(sentence):
             out += _number_conflicts(clause, deck)
+            # 주인 고르기의 맥락은 답 전체다 — 쉼표에서 갈린 앞 절(「9장 차트에서 1종목이면 …,」)이 행·장을 부른다.
+            out += _unsupported_numbers(clause, deck, q_nums, text)
             out += _order_conflicts(clause, deck, prefix)
-            out += _polarity_conflicts(clause, deck, q_stems)
+            out += _swapped_comparison(clause, deck, q_stems)
+            out += _polarity_conflicts(clause, deck, q_stems, lead)
             out += _definition_conflicts(clause, deck, q_stems)
             prefix = f"{prefix} {clause}".strip()
+            lead = clause
     seen: set[tuple[str, str]] = set()
     unique: list[Conflict] = []
     for c in out:
@@ -710,6 +965,9 @@ def _reported(clause: str, following: str = "") -> bool:
         return True
     return bool(_REPORTED_END_RE.search(clause) and (_REPORT_SOURCE_RE.search(clause) or _REPORT_VERB_RE.search(following)))
 
+#: 자료의 **부재**를 말하는 절 — 「자료에는 …이 없어요」「발표에서 다루지 못했어요」.
+_DECK_ABSENCE_RE = re.compile(
+    r"(?:자료|발표|슬라이드)(?:에는|에서는|에서|에|엔|는)?\s*(?:[가-힣]+\s*){0,6}?(?:없|안\s*나|나오지\s*않|다루지|제시되지\s*않|제시하지\s*않|안\s*넣|넣지\s*않)")
 #: 판정이 **답을 평하는** 말 — 명제가 아니다.
 _META_RE = re.compile(r"답변|답에|언급|제시|설명|빠져|빠졌|빠진|부족|누락|말하지|짚지|다루지")
 
@@ -738,6 +996,10 @@ def opposes(answer: str, judge_text: str, exempt: tuple[str, ...] | list[str] = 
         # 어미가 바뀌어(「아니다」→「아니라고」) 글자로는 뒤집힌 것처럼 보인다 (09-30 실측 녹음 수면 Q2: 자료대로 답한
         # 정답이 자기모순 60). 「…다고 봤어요」 는 자기 생각이라 인용이 아니다.
         if _reported(a, parts[i + 1] if i + 1 < len(parts) else ""):
+            continue
+        # 「자료에는 X 를 푸는 해결책이 없어요」 는 **자료에 대한** 말이지 세상에 대한 명제가 아니다 — 판정이 「X 해결책이 필요」 를
+        # 결손으로 들고 있어도 자기모순이 아니다 (09-30 레드팀 대조군: 정직한 「자료에 없다」 답이 self_opposed 60).
+        if _DECK_ABSENCE_RE.search(a):
             continue
         a = _contrast_kept(a)
         a_stems = [s for s in content_stems(a, drop_units=True) if not direction(s)]
@@ -792,10 +1054,7 @@ def support(text: str, deck: Deck, question: str = "", against: Deck | None = No
         return Support(1.0, (), ())
     stems = content_stems(text)
     ratio = (sum(1 for s in stems if _has(deck.stems, s)) / len(stems)) if stems else 1.0
-    deck_nums = [n for r in deck.lines for n in r.nums]
-    missing = tuple(
-        f"{n.value:g}" for n in numbers(text) if not any(n.close_value(d) for d in deck_nums)
-    )
+    missing = tuple(f"{n.value:g}" for n in numbers(text) if not deck.has_number(n))
     return Support(round(ratio, 2), missing, tuple(conflicts(text, against if against is not None else deck, question)))
 
 
@@ -820,7 +1079,7 @@ def without_lines(deck: Deck, quotes: list[str] | tuple[str, ...]) -> Deck:
         return deck
     keep = tuple(ln for ln in deck.lines if not any(_holds(ln.text, q) for q in wanted))
     regions = tuple(r for r in deck.regions if not any(_holds(r.text, q) for q in wanted))
-    return Deck(keep, regions, deck.tables, deck.stems)
+    return Deck(keep, regions, deck.tables, deck.stems, deck.every_num)
 
 
 def line_support(text: str, deck: Deck) -> int:
@@ -909,7 +1168,7 @@ def echoes_unsupported_number(answer: str, question: str, deck: Deck, reference:
     # 「80%가 아니라 58%예요」 — 되풀이해도 바로잡는 말이면 동의가 아니다.
     if deck.empty or _CORRECT_RE.search(answer or ""):
         return False
-    deck_nums = [n for r in deck.lines for n in r.nums] + numbers(reference)
+    deck_nums = [*deck.every_num, *numbers(reference)]
     q_only = [n for n in numbers(question) if not any(n.same_value(d) for d in deck_nums)]
     said = numbers(answer)
     return any(any(n.same_value(a) for a in said) for n in q_only)

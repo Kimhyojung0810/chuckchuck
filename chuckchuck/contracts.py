@@ -1418,6 +1418,17 @@ def qa_passed(verdict: str, score: int) -> bool:
     return min(score, ceiling) >= QA_PASS_SCORE
 
 
+#: F-09 코드 가드 이름 — `QaJudgement.guard`. 등급·점수를 코드가 정했을 때 어느 규칙이었는지 (f09_judge `_normalize`).
+#:   trap(함정 전제 동의) · trap_misfixed(전제를 틀린 값으로 고침) · trap_open(함정인데 전제를 짚지 않음) · injection(답 속 채점 지시)
+#:   · deck(자료와 수치·서열·방향·부정 어긋남) · number_unsupported(자료에 없는 수를 다른 값의 대상에 붙임) · self_opposed
+#:   · restated(탐침 줄 되풀이) · reason(근거 질문에 배경만) · off_topic · focus_miss · list(낱말 나열·서술어 없음)
+#:   · echo(질문 되읊기) · repeat(앞 답 되풀이) · ungrounded(답이 골자·자료와 맞닿지 않음) · short(한두 낱말) · choice(되물음 칩)
+#:   · language(한국어가 아닌 답)
+QA_JUDGE_GUARDS = ("", "trap", "trap_misfixed", "trap_open", "injection", "deck", "number_unsupported", "self_opposed",
+                   "restated", "reason", "off_topic", "focus_miss", "list", "echo", "repeat", "ungrounded", "short", "choice",
+                   "language")
+
+
 #: 한 질문을 붙들 최대 라운드. 넘어가면 통과 수준(qa_passed)에서 닫아 준다 —
 #: 소크라테스식 압박이 목적이지 고문이 목적이 아니다. 지치면 이탈한다.
 QA_MAX_ROUNDS = 3
@@ -2411,6 +2422,9 @@ class QaJudgement:
     guard_reason: str = ""
     #: 코드 가드만 통과를 막았는가 (qa_mastered 참고). 3라운드 출구를 연다.
     guard_blocked: bool = False
+    #: 등급·점수를 정한 코드 가드의 **이름** (QA_JUDGE_GUARDS). "" 면 LLM 판정 그대로다.
+    #: 09-30 레드팀: 가드 사유(guard_reason)는 사람에게 보일 문장이라, 하네스·화면이 「어느 가드였나」 를 문장에서 짐작하고 있었다.
+    guard: str = ""
 
     @property
     def close_reason(self) -> str:
@@ -2459,6 +2473,7 @@ class QaJudgement:
             "evidence_quote": self.evidence_quote,
             "evidence_slide_no": self.evidence_slide_no,
             "guard_reason": self.guard_reason,
+            "guard": self.guard,
             # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다.
             # 둘을 다 보낸다: passed 는 리포트가 세는 값, mastered 는 대화가 닫는 값.
             "passed": self.passed,
@@ -2498,6 +2513,7 @@ class QaJudgement:
             evidence_quote=str(d.get("evidence_quote", "") or ""),
             evidence_slide_no=int(d.get("evidence_slide_no") or 0),
             guard_reason=str(d.get("guard_reason", "") or ""),
+            guard=str(d.get("guard", "") or "") if str(d.get("guard", "") or "") in QA_JUDGE_GUARDS else "",
             # `passed`·`mastered`·`guard_blocked` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
             # round_no 는 읽는다: 파생값이 아니라 서버가 센 사실이고, 판정을 저장했다가
             # 다시 읽을 때(옛 세션 복원) 이 값이 없으면 mastered 가 1라운드로 되돌아간다.
