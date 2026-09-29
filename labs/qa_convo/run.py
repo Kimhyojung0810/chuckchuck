@@ -499,6 +499,20 @@ def play(args) -> Path | None:
                 page.wait_for_timeout(1500)
                 record["result_text"] = page.inner_text("#app")[:3000]
                 page.screenshot(path=str(out / "99_result.png"), full_page=True)
+                # 상세 리포트(#/report) — Q&A 결과를 정직하게 옮기는지 본다 (2026-09-30 held-out 감사)
+                try:
+                    page.click('a[href="#/report"]')
+                    page.wait_for_timeout(4000)
+                    # 접힌 「질문 코칭 내역」과 그 안의 질문별 줄을 모두 편다
+                    page.evaluate("() => document.querySelectorAll('details.qa-log-fold, details.qa-log-item').forEach(d => d.open = true)")
+                    page.wait_for_timeout(500)
+                    record["report_qa_log"] = page.evaluate("() => { const f = document.querySelector('.qa-log-fold'); return f ? f.innerText : null; }")
+                    record["report_text"] = page.inner_text("#app")[:12000]
+                    page.screenshot(path=str(out / "99_report.png"), full_page=True)
+                    tabs = page.locator("[data-tab], .rep-tab, .tab").all()
+                    record["report_tabs"] = [t.inner_text()[:40] for t in tabs][:12]
+                except Exception as e:  # noqa: BLE001
+                    record["report_error"] = str(e)[:200]
         except Exception as e:  # noqa: BLE001
             record["error"] = f"{type(e).__name__}: {e}"[:500]
             print("  ✕", record["error"])
