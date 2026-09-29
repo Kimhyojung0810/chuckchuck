@@ -32,6 +32,8 @@ STANDARD_DECKS = ("수익률격차", "_held_health_glucose", "_held_policy_jeons
 FULL_DECKS = ("수면발표", "수익률격차", "focus_notification", "_held_health_glucose", "_held_ir_banchan",
               "_held_policy_jeonse", "_held_lib_reopen", "_held_hum_novel")
 AUDIO_DECK = "_held_health_glucose"
+#: 트랙별 함정 질문 수 설계 (contracts.QA_TRACK_TRAPS 와 같은 값 — 잣대라 여기 적어 둔다)
+TRACK_TRAPS = {"1": 0, "5": 1, "10": 3}
 CONV_SHARE = 0.55
 
 
@@ -372,9 +374,18 @@ def _booth(target: Target, bridge: Bridge, run_dir: Path) -> dict[str, dict] | N
 
 def _pipeline_metrics(preps: list[dict], bridge: Bridge) -> dict[str, dict]:
     failed = [f"{p['deck']} {p['mode']} t{p['track']}: {p.get('error')}" for p in preps if not p.get("ok")]
+    short = []
+    for p in preps:
+        if not p.get("ok"):
+            continue
+        got = sum(1 for q in p.get("questions") or [] if q.get("trap") or q.get("trap_premise"))
+        want = TRACK_TRAPS.get(str(p.get("track")), 0)
+        if got < want:
+            short.append((want - got, f"{p['deck']} {p['mode']} t{p['track']}: 함정 {got}/{want}"))
     audio = [p for p in preps if p.get("mode") == "audio"]
     out = {
         "pipeline.failed_decks": S.metric(len(failed), len(preps), failed),
+        "pipeline.traps_missing": S.metric(sum(n for n, _ in short), len(preps), [x for _, x in short]),
         "pipeline.questions": S.metric(sum(len(p.get("questions") or []) for p in preps if p.get("ok"))),
         "pipeline.llm_calls": S.metric(sum(p.get("llm_calls", 0) for p in preps)),
         "pipeline.wall_sec": S.metric(round(sum(p.get("wall", 0) for p in preps), 1)),

@@ -17,7 +17,7 @@ from . import tags as TG
 from .ui import Driver, launch
 
 MAX_JUDGE = 4
-ORDER = ("GOOD", "WRONG", "DUNNO", "PARTIAL", "OFFTOPIC", "HINTS", "ONEWORD")
+ORDER = ("GOOD", "WRONG", "DUNNO", "OFFTOPIC", "ONEWORD", "PARTIAL", "HINTS")
 #: 페르소나별 판정 호출 어림 (계획용) — 대본이 짧게 끝나면 덜 쓴다
 COST = {"GOOD": 2, "WRONG": 2, "DUNNO": 3, "PARTIAL": 2, "OFFTOPIC": 2, "HINTS": 2, "ONEWORD": 2, "TRAP": 2}
 
@@ -35,22 +35,27 @@ def available(name: str, pack: dict, q: dict) -> bool:
 
 
 def assign(questions: list[dict], packs: list[dict], budget: int, start: int = 0) -> tuple[list[str], int]:
-    """질문마다 페르소나 하나 (예산이 모자라면 "SKIP"). 덱 사이에 이어 돌도록 회전 시작점(start)을 받고 돌려준다."""
-    plan, cost, rot = [], 0, start
-    for q, pack in zip(questions, packs):
-        if pack.get("trap"):
-            name = "TRAP"
-        else:
-            name = next((ORDER[(rot + i) % len(ORDER)] for i in range(len(ORDER))
-                         if available(ORDER[(rot + i) % len(ORDER)], pack, q)), "SKIP")
-            rot += 1
-        c = COST.get(name, 0)
-        if name == "SKIP" or cost + c > budget:
-            plan.append("SKIP")
+    """
+    질문마다 페르소나 하나 (예산이 모자라면 "SKIP"). 함정 질문의 TRAP 을 먼저 담는다 — 5분 트랙에 하나뿐이라 회전에 맡기면 빠진다.
+    나머지는 ORDER 를 돌린다. 덱 사이에 이어 돌도록 회전 시작점(start)을 받고 돌려준다.
+    """
+    names: list[str] = [""] * len(questions)
+    cost = 0
+    for i, (q, pack) in enumerate(zip(questions, packs)):
+        if pack.get("trap") and available("TRAP", pack, q) and cost + COST["TRAP"] <= budget:
+            names[i], cost = "TRAP", cost + COST["TRAP"]
+    rot = start
+    for i, (q, pack) in enumerate(zip(questions, packs)):
+        if names[i]:
             continue
-        plan.append(name)
-        cost += c
-    return plan, rot
+        name = next((ORDER[(rot + k) % len(ORDER)] for k in range(len(ORDER))
+                     if available(ORDER[(rot + k) % len(ORDER)], pack, q)), "SKIP")
+        rot += 1
+        if name == "SKIP" or cost + COST.get(name, 0) > budget:
+            names[i] = "SKIP"
+            continue
+        names[i], cost = name, cost + COST[name]
+    return names, rot
 
 
 def _judged(turns: list[dict]) -> list[dict]:

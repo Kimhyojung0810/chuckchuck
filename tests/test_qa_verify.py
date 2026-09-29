@@ -426,3 +426,35 @@ def test_inline_자료와_장_고르기_이어받기():
 ])
 def test_자기모순_질문_잣대(question, hit):
     assert RG.self_contradicting(question) == hit
+
+
+# ---------------------------------------------------------------------------
+# 대화 배정 · 페르소나 채점 (브라우저 없이 — 턴 기록만)
+# ---------------------------------------------------------------------------
+
+def test_배정은_함정_질문의_TRAP_을_먼저_담고_예산을_넘지_않는다():
+    from labs.qa_verify import conversation as CV
+
+    plain = {"trap": False, "answers": {"good": "g", "wrong": "w", "one_word": "o", "offtopic": "x", "partial": "p"}}
+    trap = {"trap": True, "answers": {"good": "c", "trap_agree": "a", "trap_correct": "c"}}
+    plan, _ = CV.assign([{}, {}, {}], [plain, trap, plain], 4)
+    assert plan == ["GOOD", "TRAP", "SKIP"]
+    plan, rot = CV.assign([{}, {}], [plain, plain], 99, start=1)
+    assert plan == ["WRONG", "DUNNO"] and rot == 3
+    assert CV.assign([{}], [trap], 1)[0] == ["SKIP"]
+
+
+def test_페르소나_채점은_판정_턴만_보고_판정이_없으면_채점하지_않는다():
+    from labs.qa_verify import conversation as CV
+
+    def turn(step, verdict, score, react="음", **kw):
+        return {"step": step, "action": "answer", "judge": dict(verdict=verdict, score=score, react=react,
+                                                                 passed=verdict == "good" or score >= 70, **kw), "tags": []}
+
+    assert CV.score_persona("GOOD", [turn("good", "partial", 60), turn("good_more", "good", 85)])["good_pass"]
+    got = CV.score_persona("WRONG", [turn("wrong", "wrong", 20, "정확해요"), turn("good", "good", 85)])
+    assert got["wrong_rejected"] is False and got["wrong_recover"] is True          # 틀린 답에 칭찬하면 기대 실패
+    got = CV.score_persona("TRAP", [turn("trap_agree", "wrong", 30, TG.TRAP_AGREED_LEAD + " — 자료는…"),
+                                    turn("trap_correct", "good", 85)])
+    assert got["trap_agree_caught"] and got["trap_correct_pass"]
+    assert CV.score_persona("GOOD", []) == {"persona": "GOOD", "incomplete": True}

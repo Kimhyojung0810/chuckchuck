@@ -250,7 +250,8 @@ def reported(line: str) -> str:
         return s[:-1] + "라고"
     if s.endswith("이다"):
         return s[:-1] + "라고"
-    if len(s) >= 3 and "가" <= s[-2] <= "힣" and not batchim(s[-2]) and not s[:-1].endswith(_ADJ_STEMS):
+    if (len(s) >= 3 and "가" <= s[-2] <= "힣" and not batchim(s[-2]) and s[-2] not in ("하", "되")
+            and not s[:-1].endswith(_ADJ_STEMS)):
         return s[:-1] + "라고"          # 「…횟수다」 — 받침 없는 명사 + 서술격 조사
     return s + "고"
 
