@@ -58,3 +58,55 @@ def test_1_세탁소_표_목록도_첫_칸의_캡션을_뗀다():
                      "| 수거 시간 언제 왔나 | 9 |", "| 단추 파손 | 4 |"])
     groups = GI.item_groups([(2, raw)])
     assert groups and groups[0].items == ["세제 냄새", "수거 시간", "단추 파손"]
+
+
+# ===========================================================================
+# 2. 캡션 물음 뒤의 「× 항」 줄은 캡션이 아니라 식에 잇는다
+# ===========================================================================
+
+#: (덱, 파싱본 줄, 기대하는 식 줄)
+FORMULAS = [
+    ("캠핑장 재예약", ["캠핑장 재예약 = 사이트 청결", "몇 번 치웠는가", "× 화장실 거리"],
+     "캠핑장 재예약 = 사이트 청결 × 화장실 거리"),
+    # 캡션이 둘, 기호 줄이 둘
+    ("빵집 단골", ["단골 정도 = 빵 맛", "무엇이 맛있었나", "얼마나 자주", "× 방문 빈도", "× 계산 속도"],
+     "단골 정도 = 빵 맛 × 방문 빈도 × 계산 속도"),
+    # 기호만 있는 줄이 캡션 뒤에 오고 항은 다음 줄
+    ("반려식물 생장", ["생장 속도 = 햇빛 시간", "하루 몇 시간", "×", "물 주기"],
+     "생장 속도 = 햇빛 시간 × 물 주기"),
+    # 식이 이미 기호로 끝났으면 기호를 겹쳐 쓰지 않는다
+    ("요가원 재등록", ["재등록 = 강사 설명 ×", "누가 가르쳤나", "× 수업 난이도"],
+     "재등록 = 강사 설명 × 수업 난이도"),
+    # 기호 줄에 붙은 캡션 조각은 걷는다
+    ("세탁소 재방문", ["재방문 = 세탁 품질", "어땠나", "× 수거 시간 몇 분", "걸렸나"],
+     "재방문 = 세탁 품질 × 수거 시간"),
+]
+IDS = [f[0] for f in FORMULAS]
+
+
+@pytest.mark.parametrize("name,lines,want", FORMULAS, ids=IDS)
+def test_2_캡션_뒤의_기호_줄은_앞의_식에_잇는다(name, lines, want):
+    for got in (E.join_formula(lines), DL.join_formula_lines(lines)):
+        assert want in got, got
+        # 캡션 물음은 식에 붙지 않았다 — 제 줄로 남거나(물음 줄) 캡션 꼬리로 남는다
+        assert not any(E.is_question_line(x) and "×" in x for x in got), got
+
+
+@pytest.mark.parametrize("name,lines,want", FORMULAS, ids=IDS)
+def test_2_질문_인용_주장_그래프가_같은_식을_읽는다(name, lines, want):
+    raw = "이번 장의 식\n" + "\n".join(lines)
+    assert want in slide_lines(raw)                                            # F-26
+    assert want in GI.deck_lines(raw)                                          # F-07 후처리
+    assert want in E.slide_units(raw)                                          # F-08 인용 후보 — 닫힌 식이라 인용이 된다
+    terms = want.split("=")[1].replace(" ", "").split("×")
+    groups = [g for g in GI.item_groups([(1, raw)]) if g.kind == "formula"]
+    assert groups and [t.replace(" ", "") for t in groups[0].items] == terms   # 식의 항이 전부 노드 재료가 된다
+
+
+def test_2_캡션_앞이_식이_아니면_그_줄을_건드리지_않는다():
+    got = E.join_formula(["예약 안내", "몇 번 치웠는가", "× 화장실 거리"])
+    assert got[0] == "예약 안내"
+
+
+def test_2_캡션이_없으면_예전처럼_바로_앞_식에_잇는다():
+    assert E.join_formula(["캠핑장 재예약 = 사이트 청결", "× 화장실 거리"]) == ["캠핑장 재예약 = 사이트 청결 × 화장실 거리"]
