@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 
 from . import _claim_rules as R
+from ._contra import CONTRA, contra_prompt, contra_stance
 from ._deck_claims import _has, content_stems, direction, numbers
 from ._speech import josa_of
 from .contracts import PROBE_STANCES, QA_TEXT_MAX, ProbeStance
@@ -432,7 +433,10 @@ _THAN_RE = re.compile(r"보다")
 #: 보기가 **질문마다 다른** 입장을 더할 자리 — 종류 이름 → (질문 → ProbeStance | None). 예: 모순 질문의 (자료 값, 발화 값)은 표에 고정 글로
 #: 둘 수 없다 — 여기에 보기를 짓는 함수를 더하면 사다리(F-08 힌트·F-09 「모르겠어요」)와 칩 판정(F-09 `stance_pick`)이 그대로 쓴다.
 #: 종류 이름은 탐침 종류, 탐침이 아닌 질문은 질문 출처(`Question.source` — 「contradiction」 따위)다.
-STANCE_RESOLVERS: dict = {}
+STANCE_RESOLVERS: dict = {
+    # 모순 질문 — (자료 값, 발표 값) 칩, 값을 모르면 표의 「자료 쪽 / 발표 쪽」 (09-30 WP-CONTRA · 녹음 감사 REC-08)
+    CONTRA: contra_stance,
+}
 
 
 def stance_kind(question) -> str:
@@ -485,6 +489,10 @@ def stance_prompt(question) -> tuple[str, list[str]] | None:
         return None
     probe = probe_of(question)
     label = (getattr(question, "label", "") or "").strip()
+    if stance_kind(question) == CONTRA:
+        # 모순 질문 — 근거 인용(자료 쪽 줄)이 곧 답이다. 발표 쪽 인용과 장 번호만 싣는다 (09-30 WP-CONTRA · 녹음 감사 REC-08)
+        text = contra_prompt(question, st)
+        return (text if len(text) <= QA_TEXT_MAX else st.ask), list(st.choices)
     if probe is None:
         # 표 밖 종류(STANCE_RESOLVERS) — 근거 인용이 있으면 그 줄, 없으면 개념 이름으로 받는다
         quote = " ".join((getattr(question, "evidence_quote", "") or "").split())

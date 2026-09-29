@@ -74,6 +74,7 @@ from ._deck_claims import (
 from ._probe_stance import (
     EVIDENCE_GIST_LEAD,
     GIST_REBUILT_CHECKS,
+    STANCE_RESOLVERS,
     RESTATE_FOLLOWUP,
     RESTATE_POINT,
     RESTATE_REACT,
@@ -100,6 +101,8 @@ from ._probe_stance import (
     template_gist,
 )
 from . import _reason as RS
+from ._contra import is_contra, leaks as contra_leaks, revealed as contra_revealed, sides_of as contra_sides
+from ._contra import contra_brief, contra_scaffold, table_support, take_of
 from ._evidence import _noun_like, _stem as _ev_stem, anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
 from ._judge_post import _has as _stem_in
 from ._judge_post import (
@@ -366,6 +369,40 @@ _GAP_HONEST_SUMMARY = {
 _FLIPPED_REACT = "결론을 자료와 거꾸로 맺었어요. 앞에서 댄 근거가 받치는 결론은 그 반대예요."
 _FLIPPED_FOLLOWUP = "그 근거에서 나오는 결론을 한 문장으로 다시 말해 볼래요?"
 _FLIPPED_SUMMARY = "{label} — 근거는 댔지만 결론을 자료와 거꾸로 맺었어요."
+
+#: 모순 질문(「발표에서 “…”라고 했는데, 자료 N장과 달라요. 어느 쪽이 맞나요?」)에 **발표 쪽을 다시 고른** 답 — 코드가 매긴다
+#: (09-30 WP-CONTRA · 녹음 감사 REC-04·09). 녹음 co2 R1: 「60퍼센트가 맞다고 생각해요. 제가 직접 측정했어요」 가 75(5분 70) 통과,
+#: 「자료 쪽이 오타고 …」 반박을 근거 없이 되풀이하자 35 → 65. 까닭을 달아도, 되풀이해도 같은 점수다 — 입장 칩의 틀린 쪽과 같은 값.
+CONTRA_SAID_SCORE = 35
+#: 자료 쪽 장 **안의 숫자**(표의 전·후 값)가 발표 쪽 값으로 계산된다 — 자료의 그 줄이 제 표와 어긋났다. 까닭을 댄 반박은 통과선,
+#: 까닭 없이 고른 답은 그 아래(무엇을 보고 그랬는지 한 번 더 묻는다).
+CONTRA_TABLE_SAID_DISPUTE = 70
+CONTRA_TABLE_SAID_PLAIN = 60
+_CONTRA_SAID_REACT = "발표에서 한 말을 다시 골랐어요. {where}에는 다르게 적혀 있어요 — 그 장을 다시 보고 견줘 보세요."
+#: 반박 — 코치가 확인할 수 있는 것은 발표자의 원본이 아니라 자료 스스로의 숫자다. 자료 쪽 값은 말하지 않는다(3단 해설 전).
+_CONTRA_DISPUTE_REACT = {
+    "deck": "발표 쪽이 맞다는 근거는 제가 확인할 수 없어요. 제가 볼 수 있는 {where}의 {what}으로 계산하면 자료에 적힌 값이 나와요. "
+            "자료나 발표 가운데 한쪽을 고쳐 둘을 맞춰 주세요.",
+    "": "발표 쪽이 맞다는 근거는 제가 확인할 수 없어요. 제가 볼 수 있는 건 {where} 안의 숫자예요. 자료나 발표 가운데 한쪽을 고쳐 둘을 맞춰 주세요.",
+    "said": "{where}의 {what}으로 계산하면 발표에서 한 값이 나와요 — 그 장의 줄이 같은 장의 숫자와 어긋나 보여요. {where_obj} 고쳐 둘을 맞춰 주세요.",
+}
+_CONTRA_SAID_FOLLOWUP = {
+    True: "{where}에는 그 값이 얼마로 적혀 있나요? 발표에서 한 말과 견줘 한 문장으로 말해 볼래요?",
+    False: "{where}에는 어떻게 적혀 있나요? 발표에서 한 말과 견줘 한 문장으로 말해 볼래요?",
+}
+_CONTRA_DISPUTE_FOLLOWUP = {
+    "deck": "{where}의 {what}으로 직접 계산하면 얼마가 나오는지 한 문장으로 말해 볼래요?",
+    "": "자료와 발표 가운데 어느 쪽을 고칠지 한 문장으로 말해 볼래요?",
+    "said": "{where}의 어느 줄을 어떻게 고칠지 한 문장으로 말해 볼래요?",
+}
+_CONTRA_SUMMARY = {
+    "contra_said": "{label} — 발표에서 한 쪽을 다시 골랐어요. {where_and} 맞춰 볼 곳이 남았어요.",
+    "contra_dispute": "{label} — 발표 쪽이 맞다고 했지만 {where} 안의 숫자로는 확인되지 않았어요.",
+}
+#: 반응·되물음이 자료 쪽(= 답)을 발표자보다 먼저 말했을 때 대신 쓰는 말.
+_CONTRA_LEAK_REACT = "{where}에 적힌 것과 발표에서 한 말을 나란히 놓고 다시 견줘 보세요."
+#: 자료 쪽 값을 대고 발표를 고친다고 한 답 — 모범답 그대로다 (골자 바닥과 같은 자격).
+_CONTRA_FIXED_REACT = "맞아요, {where}에 맞춰 바로잡았어요."
 #: 등급이 wrong 인데 LLM react 가 틀린 주장을 인정하는 말. 09-29 실측: 3장과 정반대인 답에 「…부분은 정확해요」.
 _PRAISE_RE = re.compile(r"정확해요|정확합니다|맞아요|맞습니다|잘 짚|훌륭|좋은 답")
 
@@ -914,22 +951,24 @@ def _content_tokens(text: str) -> list[str]:
     return [t for t in norm_tokens(text or "") if len(t) >= 2]
 
 
-def _is_generic(token: str) -> bool:
-    return any(token.startswith(g) for g in _GENERIC_TOKENS)
+def _is_generic(token: str, keep: tuple[str, ...] = ()) -> bool:
+    return any(token.startswith(g) for g in _GENERIC_TOKENS) and not any(_stem_in([k], token) for k in keep)
 
 
-def _overlap_count(answer: str, evidence: str, *, drop_generic: bool = False) -> tuple[int, int, int]:
+def _overlap_count(answer: str, evidence: str, *, drop_generic: bool = False,
+                   keep: tuple[str, ...] = ()) -> tuple[int, int, int]:
     """
     (답의 **서로 다른** 낱말 가운데 근거와 겹친 수, 답의 낱말 수, 근거의 낱말 수). 조사가 붙은 토큰("알림을"·"알림")은
-    앞머리 일치로 같은 낱말로 본다. drop_generic 이면 상투어(_GENERIC_TOKENS)를 양쪽에서 뺀다.
+    앞머리 일치로 같은 낱말로 본다. drop_generic 이면 상투어(_GENERIC_TOKENS)를 양쪽에서 뺀다 — keep 에 든 낱말(모순 질문의
+    두 인용의 낱말, 09-30 WP-CONTRA)은 상투어여도 빼지 않는다.
     """
     # 조사를 뗀 줄기로 견준다(`_deck_claims.content_stems`) — 「복구에서」 와 「복구하는」 은 같은 낱말이다 (09-30: 한 줄기만 겹친다고
     # 초점 가드에 걸리던 바꿔 말하기). 세 글자 이상끼리는 앞 두 글자가 같으면 같은 낱말로 본다(`_judge_post._has`).
     a_tokens = list(dict.fromkeys(content_stems(answer)))
     e_all = content_stems(evidence)
     if drop_generic:
-        a_tokens = [t for t in a_tokens if not _is_generic(t)]
-        e_all = [t for t in e_all if not _is_generic(t)]
+        a_tokens = [t for t in a_tokens if not _is_generic(t, keep)]
+        e_all = [t for t in e_all if not _is_generic(t, keep)]
     e_tokens = list(dict.fromkeys(e_all))
     hit = sum(1 for a in a_tokens if _stem_in(e_tokens, a))
     # 근거의 크기는 겹친 낱말까지 센다 — 「근거가 얇은가」 는 글의 길이 문제다
@@ -938,13 +977,13 @@ def _overlap_count(answer: str, evidence: str, *, drop_generic: bool = False) ->
 
 def _shares_vocabulary(
     answer: str, evidence: str, min_tokens: int = ON_TOPIC_MIN_EVIDENCE_TOKENS, *, drop_generic: bool = False,
-    need: int = 1,
+    need: int = 1, keep: tuple[str, ...] = (),
 ) -> bool:
     """
     답변과 근거가 낱말을 need 개 이상 공유하는가(답의 낱말이 그보다 적으면 답의 낱말 수만큼). 둘 중 하나가 비거나
     근거가 얇으면(자료 본문·발화 없이 질문 한 줄뿐) 판단할 수 없어 True 다.
     """
-    hit, n_answer, n_evidence = _overlap_count(answer, evidence, drop_generic=drop_generic)
+    hit, n_answer, n_evidence = _overlap_count(answer, evidence, drop_generic=drop_generic, keep=keep)
     if not n_answer or n_evidence < min_tokens:
         return True
     return hit >= min(need, n_answer)
@@ -957,7 +996,7 @@ ON_TOPIC_FOCUS_NEED = 2
 
 def _enforce_on_topic(
     answer: str, evidence: str, question: Question, verdict: str, score: int, focus: str = "",
-    prior: list[str] | tuple[str, ...] = (),
+    prior: list[str] | tuple[str, ...] = (), keep: tuple[str, ...] = (),
 ) -> tuple[str, int, str]:
     """
     **질문·자료와 아무 낱말도 안 겹치는 답은 wrong 이다.** 코드가 막는다.
@@ -980,7 +1019,8 @@ def _enforce_on_topic(
     def missed(text: str) -> str:
         if not _shares_vocabulary(text, evidence):
             return "off_topic"
-        if focus and not _shares_vocabulary(text, focus, ON_TOPIC_MIN_FOCUS_TOKENS, drop_generic=True, need=ON_TOPIC_FOCUS_NEED):
+        if focus and not _shares_vocabulary(text, focus, ON_TOPIC_MIN_FOCUS_TOKENS, drop_generic=True, need=ON_TOPIC_FOCUS_NEED,
+                                            keep=keep):
             return "focus_miss"
         return ""
 
@@ -1103,7 +1143,7 @@ def _enforce_trap(
 
 
 def _enforce_deck(
-    answer: str, deck: Deck | None, verdict: str, score: int, question: str = ""
+    answer: str, deck: Deck | None, verdict: str, score: int, question: str = "", *, skip_numbers: bool = False,
 ) -> tuple[str, int, Conflict | None]:
     """
     **자료와 수치·표 서열·방향·부정이 어긋난 답은 통과하지 못한다.** 코드가 막는다.
@@ -1116,10 +1156,16 @@ def _enforce_deck(
     어긋남은 `_deck_claims.conflicts` 가 **구조로만** 잡는다(숫자 짝·단일 값 표의 서열·강한 줄 일치에서의 방향/부정).
     잘못 잡으면 맞힌 사람이 진다 — 그래서 wrong 이 아니라 **통과 못 하는 partial** 까지만 내리고 되묻기를 남긴다.
     LLM 이 이미 wrong 이면 그대로 둔다. 3라운드까지 가드만 막고 있으면 질문은 닫힌다 (`qa_mastered` guard_blocked).
+
+    skip_numbers — 모순 질문에 **자료 쪽 값을 댄** 답은 숫자 짝 가드(number·number_unsupported)로 깎지 않는다 (09-30 WP-CONTRA · 녹음
+    감사 REC-04: 「5장 표에서 1,450ppm이 870ppm으로 내려갔으니 40%」 가 로마자 단위를 못 읽은 짝 대조에 걸려 2장 줄과 어긋났다며 55 —
+    `_deck_claims` 가 단위를 읽게 된 뒤에도 그 답의 수는 질문이 따지는 바로 그 장의 값이다). 방향·서열·부정 어긋남은 그대로 본다.
     """
     if deck is None or deck.empty or verdict == "unknown":
         return verdict, score, None
     found = conflicts(answer, deck, question)
+    if skip_numbers:
+        found = [c for c in found if c.kind not in ("number", "number_unsupported")]
     if not found:
         return verdict, score, None
     # 어긋남(수치 짝·서열·방향·부정)이 먼저다 — 자료에 **없는** 수(R5)는 계산한 수일 수도 있어 한 칸 너그럽다(65).
@@ -1127,6 +1173,52 @@ def _enforce_deck(
     demoted = "partial" if verdict in ("good", "partial") else verdict
     cap = UNSUPPORTED_NUMBER_SCORE_MAX if first.kind == "number_unsupported" else DECK_CONFLICT_SCORE_MAX
     return demoted, min(score, cap), first
+
+
+@dataclass(frozen=True)
+class _ContraCall:
+    """모순 질문에 발표 쪽을 다시 고른 답 — 코드가 정한 등급·점수·문장 (`_contra_call`)."""
+    verdict: str
+    score: int
+    guard: str
+    reason: str
+    react: str
+    followup: str
+    summary: str
+
+
+def _contra_call(sides, take_now, take_all, deck: Deck | None, label: str) -> _ContraCall | None:
+    """
+    모순 질문(09-30 WP-CONTRA · 녹음 감사 REC-04·09) — 답이 **발표 쪽**(발표에서 한 값·방향, 「발표가 맞아요」 「자료가 오타예요」)을
+    골랐으면 코드가 매긴다. 이번 답이 쪽을 안 골랐으면 누적 답으로 본다. 발표 쪽이 아니면 None (판정은 LLM·다른 가드 몫).
+
+    - 까닭 없이 고름 → wrong 35 + 그 장을 가리키는 코드 반응 (자료 쪽 값은 말하지 않는다 — 3단 해설 전이다).
+    - 까닭을 댄 반박(출처·원본·측정·「자료가 오타」) → wrong 35 + 「그 근거는 확인할 수 없어요. 제가 볼 수 있는 자료 안의 숫자로는 …」 —
+      출처는 코치가 확인할 수 없고, 자료 스스로의 숫자(표의 전·후 값)는 확인할 수 있다(`_contra.table_support`). 한쪽을 고치라고 한다.
+      되풀이해도 같은 점수다 — 예전엔 같은 반박을 되풀이하자 35 → 65 로 올랐다.
+    - 자료 안의 숫자가 **발표 쪽** 값으로 계산되면 그 줄이 제 표와 어긋난 것이다 — 반박은 통과선(70), 까닭 없이 고른 답은 60.
+    """
+    side = take_now.side or take_all.side
+    if sides is None or side != "said":
+        return None
+    dispute = take_now.dispute if take_now.side else take_all.dispute
+    support, from_table = table_support(sides, deck)
+    where = sides.where
+    fmt = dict(where=where, what="표 값" if from_table else "두 값", where_obj=f"{where}{josa_of(where, '을', '를')}",
+               where_and=f"{where}{josa_of(where, '과', '와')}", label=label)
+    guard = "contra_dispute" if dispute else "contra_said"
+    if support == "said":
+        return _ContraCall("partial", CONTRA_TABLE_SAID_DISPUTE if dispute else CONTRA_TABLE_SAID_PLAIN, guard,
+                           f"{where} 안의 숫자가 발표 쪽 값으로 계산됨",
+                           _CONTRA_DISPUTE_REACT["said"].format(**fmt), _CONTRA_DISPUTE_FOLLOWUP["said"].format(**fmt),
+                           f"{label} — {where} 안의 숫자로는 발표 쪽 값이 맞아 보여요. 그 장의 줄을 고쳐 둘을 맞춰야 해요.")
+    if dispute:
+        return _ContraCall("wrong", CONTRA_SAID_SCORE, guard, f"발표 쪽을 까닭을 들어 고름 — {where} 안의 숫자로만 확인",
+                           _CONTRA_DISPUTE_REACT[support].format(**fmt), _CONTRA_DISPUTE_FOLLOWUP[support].format(**fmt),
+                           _CONTRA_SUMMARY[guard].format(**fmt))
+    return _ContraCall("wrong", CONTRA_SAID_SCORE, guard, f"발표 쪽을 다시 고름 — {fmt['where_and']} 다른 쪽",
+                       _CONTRA_SAID_REACT.format(**fmt), _CONTRA_SAID_FOLLOWUP[sides.numeric].format(**fmt),
+                       _CONTRA_SUMMARY[guard].format(**fmt))
 
 
 #: 3라운드에서 **가드만** 통과를 막고 있을 때 여는 출구에 드는 가드 — 글자 대조라 틀릴 수 있는 것들.
@@ -1388,6 +1480,18 @@ def _normalize(
         guard, guard_reason = "trap_misfixed", f"전제를 고쳐 말한 값({misfix})이 {where}과 다르다는 점"
     conflict: Conflict | None = None
     reason_missed = False
+    # 모순 질문 (09-30 WP-CONTRA · 녹음 감사 REC-04·09) — 답이 발표 쪽(발표에서 한 값·방향)을 다시 골랐으면 코드가 매긴다(`_contra_call`).
+    # 자료 쪽을 골랐으면 아래 숫자 짝 가드로 깎지 않고, 쪽을 고르거나 두 값 가운데 하나를 말한 답은 초점 가드가 볼 일이 아니다.
+    csides = contra_sides(question) if (tp is None and (answer or "").strip()) else None
+    ctake_now = take_of(answer, csides)
+    ctake_all = take_of(said, csides)
+    cside = ctake_now.side or ctake_all.side
+    ccall = None if (csides is None or guard or injection(answer)) else _contra_call(
+        csides, ctake_now, ctake_all, topic_deck if topic_deck is not None else deck, label)
+    if ccall is not None:
+        verdict, score = ccall.verdict, ccall.score
+        guard, guard_reason = ccall.guard, ccall.reason
+        data = {**data, "followup": ccall.followup}
     # 함정 전제를 되뇌며 바로잡은 답(「82%가 아니라 41%예요」)의 전제 절은 자료 대조·자기모순 검사에서 뺀다 — 그 숫자는
     # 답의 주장이 아니라 질문을 옮긴 것이다.
     claimed = without_premise(answer, tp) if tp is not None else answer
@@ -1413,9 +1517,14 @@ def _normalize(
     gap_answered = probe_now is not None and (answers_gap(answer, probe_now.kind)
                                               or (probe_now.kind in _GAP_PROBES and says_not_in_deck(answer)))
     short_miss = False
+    # 모순 질문에 쪽을 골랐거나 두 값 가운데 하나를 말한 답은 「이 질문」 에 답한 것이다 — 두 인용의 열쇠 말(자료·발표·값)이 초점 대조의
+    # 상투어(`_GENERIC_TOKENS`)로 빠지고 숫자는 낱말로 안 세어, 「자료 쪽이 오타고 발표 수치가 맞아요 …」 가 「답으로는 조금 멀어요」 였다 (REC-09).
+    contra_on_topic = csides is not None and bool(cside or ctake_all.deck_named or ctake_all.said_named)
     if not guard:
         # 자료와 어긋난 답은 이미 「이 질문」 에 답한 것이다 — 무관 가드보다 먼저 보고, 걸리면 무관 가드는 건너뛴다.
-        verdict, score, conflict = _enforce_deck(claimed, deck, verdict, score, deck_q)
+        verdict, score, conflict = _enforce_deck(
+            claimed, deck, verdict, score, deck_q,
+            skip_numbers=csides is not None and cside != "said" and ctake_all.deck_named)
         if conflict is not None:
             if conflict.kind == "number_unsupported":
                 guard, guard_reason = "number_unsupported", f"자료 {conflict.slide_no}장에 없는 수치: {conflict.what}"
@@ -1430,11 +1539,16 @@ def _normalize(
             score, reason_missed = min(score, REASON_MISS_SCORE_MAX), True
             guard, guard_reason = "reason", f"질문이 묻는 것: 결론을 받치는 이유 (자료 {missed.slide_no}장)"
             data = {**data, "followup": _REASON_MISS_FOLLOWUP.format(no=missed.slide_no)}
-        elif stance != "correct" and not ad and not gap_answered:
+        elif stance != "correct" and not ad and not gap_answered and not contra_on_topic:
             # 코드 단서로 전제를 바로잡은 답은 「이 질문」 에 답한 것이다 — 한 단어(「끊는」)여도 초점 가드가 볼 일이 아니다.
             # 함정 질문은 **질문·전제·사실 줄**과 견준다 — 자료 전체와 낱말 하나가 겹친다고 넘기지 않는다 (held-out C-05).
             ev, fo = (trap_evidence, trap_evidence) if (tp is not None and trap_evidence) else (evidence, focus)
-            verdict, score, topic = _enforce_on_topic(answer, ev, question, verdict, score, fo, prior=prior)
+            keep: tuple[str, ...] = ()
+            if csides is not None:
+                # 모순 질문은 두 인용(발표 쪽 문장 · 자료 쪽 줄)이 초점이다 — 그 인용의 낱말은 상투어 목록에 걸려도 빼지 않는다 (REC-09)
+                fo = "\n".join(x for x in (fo, csides.said_full, csides.deck_quote) if x)
+                keep = tuple(content_stems(f"{csides.said_full} {csides.deck_quote}"))
+            verdict, score, topic = _enforce_on_topic(answer, ev, question, verdict, score, fo, prior=prior, keep=keep)
             if topic == "focus_miss" and content_word_count(said) < SHORT_ANSWER_WORDS:
                 short_miss = True        # 한두 낱말이 초점에 덜 닿은 것은 「다른 이야기」 가 아니라 짧은 답이다 (H-01)
             elif topic:
@@ -1564,6 +1678,16 @@ def _normalize(
             sys.stderr.write(f"[f09] 골자 바닥이 가드를 넘었다 {question.id}: {guard or capped} ({llm_verdict}/{llm_score} → good)\n")
         verdict, score = "good", max(llm_score if llm_verdict == "good" else 0, GIST_FLOOR_SCORE)
         guard, guard_reason, capped, restated, reason_missed, points = "", "", "", "", False, []
+    # 모순 질문에 **자료 쪽 값을 대고 발표를 고친다고(잘못 말했다고) 한** 답 — F-08 모범답(「자료 N장은 “…”라고 해요. 발표에서 한 “…”는
+    # 이 수치로 바로잡아야 해요」) 그대로다 (09-30 WP-CONTRA · 녹음 감사 REC-04: 「다시 보니 자료가 맞아요. 5장 표에서 … 40% 낮아진 거예요.
+    # 발표에서 잘못 말했어요」 55). 골자 되읽기(`covers_gist`)는 골자가 거의 인용뿐이라 못 잰다 — 두 쪽 읽기(`_contra.take_of`)로 매긴다.
+    # 값을 코드가 아는 수치 모순만 — 방향 모순은 자료 쪽 말을 제대로 옮겼는지 코드가 모른다(LLM 몫, 숫자 가드만 빠진다).
+    contra_fixed = False
+    if (csides is not None and csides.numeric and not floored and not gap_honest and not inj and verdict != "good"
+            and cside == "deck" and ctake_all.deck_named and (ctake_now.owned or ctake_all.owned)
+            and not guard and conflict is None and not flipped_clause and not listy and capped in ("", "echo", "ungrounded")):
+        verdict, score = "good", max(llm_score if llm_verdict == "good" else 0, GIST_FLOOR_SCORE)
+        capped, points, contra_fixed = "", [], True
     final_guard = "injection" if inj else (guard or ("short" if capped == "gap_absent" else capped))
 
     # 안 풀린 함정 질문 — 정답 단서가 react·결손·되물음·총평으로 새면 안 된다 (§7). 바로잡았거나 통과했으면 볼 일이 없다.
@@ -1581,6 +1705,12 @@ def _normalize(
         react = _TRAP_AGREED_REACT
     elif misfix:
         react = _TRAP_MISFIX_REACT.format(value=misfix, no=tp.slide_no or "")
+    elif ccall is not None:
+        react = ccall.react
+    elif contra_fixed:
+        # 코드가 LLM 의 부분 점수를 이겼다 — 인정하는 문장만 남긴다(지적·물음은 뺀다)
+        react = keep_sentences(trim_missing_talk(react), lambda x: not _PRAISE_SENTENCE_RE.search(x)
+                               or bool(_QUESTION_SENT_RE.search(x))) or _CONTRA_FIXED_REACT.format(where=csides.where)
     elif restated:
         react = RESTATE_REACT[restated]
     elif conflict is not None and conflict.kind == "number_unsupported":
@@ -1639,6 +1769,8 @@ def _normalize(
         summary = _DECK_CONFLICT_SUMMARY.format(label=label, no=conflict.slide_no)
     elif final_guard == "self_opposed" and flipped_clause:
         summary = _FLIPPED_SUMMARY.format(label=label)
+    elif ccall is not None and not inj:
+        summary = ccall.summary
     elif final_guard in _GUARD_SUMMARY and (flipped or inj):
         summary = _GUARD_SUMMARY[final_guard].format(label=label)
     elif trap_lifted:
@@ -1647,7 +1779,7 @@ def _normalize(
         summary = f"{label} — 자료에 없다는 걸 짚고 자료가 말하는 범위 안에서 답했어요."
     elif gap_honest:
         summary = _GAP_HONEST_SUMMARY[gap_honest].format(label=label)
-    elif floored:
+    elif floored or contra_fixed:
         summary = trim_missing_talk(summary) or _SUMMARY_BY_VERDICT["good"].format(label=label)
     if conflict is not None:
         # LLM 의 후속 질문은 틀린 주장을 받아들인 채 다음을 묻는다 — 어긋난 곳을 되묻는 코드 문장으로.
@@ -1666,7 +1798,9 @@ def _normalize(
         # 닫힌 질문에 「빠진 것」 을 달면 「부분 인정 ✓」 옆에서 또 요구하는 화면이 된다 (§5).
         points = []
         if guard_blocked:
-            no = conflict.slide_no if conflict is not None else question.evidence_slide_no
+            # 모순 질문은 그 질문의 장이다 — 가짜 어긋남의 장(「자료 2장과 한 번 더 맞춰 볼 부분」 — 모순은 5장)을 닫는 말에 싣지 않는다
+            # (09-30 WP-CONTRA · 녹음 감사 REC-04)
+            no = (question.evidence_slide_no if is_contra(question) or conflict is None else conflict.slide_no)
             react = _GUARD_CLOSE_REACT.format(where=f"자료 {no}장" if no else "자료")
             summary = _GUARD_CLOSE_SUMMARY.format(label=label)
         elif verdict != "good":
@@ -1685,6 +1819,26 @@ def _normalize(
         react = keep_sentences(react, lambda x: bool(_QUESTION_SENT_RE.search(x))) or (
             _PASS_REACT if verdict == "good" else _REACT_BY_VERDICT["partial"])
 
+    followup = _followup(
+        data, question, points, mastered,
+        followup_tier or qa_probe_tier(round_no),
+        verdict=verdict, guard=("gap_absent" if capped == "gap_absent" else final_guard), tp=tp,
+        leak_guard=leak_guard,
+        # 되물음이 자료 밖을 묻는지는 **전체** 자료로 본다 — 탐침 줄을 뺀 판정용 덱에는 따져 묻는 그 줄이 없다
+        deck=topic_deck if topic_deck is not None else deck, said=said,
+        code_written=(bool(restated) or reason_missed or conflict is not None or bool(flipped_clause) or gap_honest == "ack"
+                      or ccall is not None),
+        keep_written=gap_honest == "ack" or ccall is not None,
+    )
+    # 모순 질문에서 발표자가 아직 자료 쪽을 말하지 않았다 — 반응·되물음·결손이 자료 쪽 값·줄(= 답)을 먼저 말하면 안 된다. 그 말은 3단
+    # 해설과 닫는 카드에서 연다 (09-30 WP-CONTRA · 녹음 감사 REC-04: 발표 값을 고집한 첫 답에 「자료에서는 … 40% 낮아졌다고 명시되어 있어요」).
+    if csides is not None and not mastered and not contra_revealed(said, csides):
+        if contra_leaks(react, csides, said):
+            react = keep_sentences(react, lambda x: contra_leaks(x, csides, said)) or _CONTRA_LEAK_REACT.format(where=csides.where)
+        points = [p for p in points if not contra_leaks(p, csides, said)]
+        if contra_leaks(followup, csides, said):
+            followup = _clip(_CONTRA_SAID_FOLLOWUP[csides.numeric].format(where=csides.where))
+
     judgement = QaJudgement(
         question_id=question.id,
         node_id=question.node_id,
@@ -1700,16 +1854,7 @@ def _normalize(
         # probe_tier 는 **라운드 그대로** 둔다 — 화면이 「2차 확인」 을 세는 축이다.
         # 좁히는 것은 followup 의 모양뿐이라 그 인자만 따로 받는다.
         probe_tier="" if mastered else qa_probe_tier(round_no),
-        followup=_followup(
-            data, question, points, mastered,
-            followup_tier or qa_probe_tier(round_no),
-            verdict=verdict, guard=("gap_absent" if capped == "gap_absent" else final_guard), tp=tp,
-            leak_guard=leak_guard,
-            # 되물음이 자료 밖을 묻는지는 **전체** 자료로 본다 — 탐침 줄을 뺀 판정용 덱에는 따져 묻는 그 줄이 없다
-            deck=topic_deck if topic_deck is not None else deck, said=said,
-            code_written=bool(restated) or reason_missed or conflict is not None or bool(flipped_clause) or gap_honest == "ack",
-            keep_written=gap_honest == "ack",
-        ),
+        followup=followup,
         guard_reason=guard_reason,
         guard_blocked=guard_blocked,
         guard=final_guard,
@@ -2207,7 +2352,8 @@ def coach_stuck(
     trap_tp = question.trap_premise if question.trap else None
     # 인용이 곧 기대 답인 질문(F-08 basis_quote_hidden — 함정의 사실 줄 · 골자가 그 줄인 보통 질문)은 1·2단에서 인용을 보이지 않는다
     # (09-30 WP-J2). 질문 밑 「이 질문의 근거」 칸에서 숨긴 줄을 첫 「모르겠어요」 의 인용 카드·「자료 N장은 «…» 라고 해요」 가 다시 보였다.
-    hidden = trap_tp is not None or "basis_quote_hidden" in checks
+    # 모순 질문도 같다 — 자료 쪽 줄이 곧 답이다 (09-30 WP-CONTRA · 녹음 감사 REC-08, basis_quote_hidden 이 없는 옛 세션까지).
+    hidden = trap_tp is not None or "basis_quote_hidden" in checks or is_contra(question)
     if stage == "scaffold":
         scaffold = _scaffold_judgement(question, graph, deck_text)
         if scaffold is not None:
@@ -2460,6 +2606,11 @@ def _narrow_hidden(question: Question, graph: ConceptGraph | None, deck_text: st
     """인용을 숨긴 질문의 1단 되물음 — 장만 가리키고 보기 둘 (탐침 입장 → 대비 쌍 → 골자 빈칸의 정답·오답). 재료가 없으면 F-08 힌트."""
     no = question.evidence_slide_no or (question.slide_nos[0] if question.slide_nos else 0)
     stance = stance_of(question)
+    if stance is not None and stance_kind(question) in STANCE_RESOLVERS:
+        # 보기를 질문마다 짓는 종류는 머리말도 제 것이다 — 모순은 발표 쪽 인용 + 장 번호 (09-30 WP-CONTRA · 녹음 감사 REC-08)
+        got = stance_prompt(question)
+        if got is not None:
+            return _clip(got[0]), got[1]
     if stance is not None:
         lead = f"자료 {no}장을 떠올려 볼래요?" if no else "자료를 떠올려 볼래요?"
         return _clip(f"{lead} {stance.ask}"), list(stance.choices)
@@ -2848,6 +2999,13 @@ def _scaffold_judgement(question: Question, graph: ConceptGraph | None, deck_tex
     """
     masked, choices = (_trap_scaffold(question, deck_text, graph) if (question.trap and question.trap_premise is not None)
                        else ("", []))
+    contra = is_contra(question)
+    if not masked and contra:
+        # 모순 질문의 발판은 **발표 쪽 인용**에서 어긋난 값을 가린 문장(값을 모르면 입장 칩이 들어가는 틀) — 자료 쪽 줄은 3단 해설에서만
+        # 연다 (09-30 WP-CONTRA · 녹음 감사 REC-08: 자료 줄 빈칸과 인용 상자가 2단에 떴다)
+        masked, _, choices = contra_scaffold(question)
+        if not masked:
+            return None              # 두 쪽을 못 읽은 모순(옛 세션) — 자료 줄 빈칸으로 떨어지지 않고 해설로 간다
     if not masked:
         answer = distractor = ""
         if template_gist(question) or evidence_gist(question):
@@ -2887,7 +3045,7 @@ def _scaffold_judgement(question: Question, graph: ConceptGraph | None, deck_tex
         hints=build_hint_ladder(question, None),
         coach_stage="scaffold",
         choices=choices,
-        evidence_quote=question.evidence_quote,
+        evidence_quote="" if contra else question.evidence_quote,
         evidence_slide_no=question.evidence_slide_no,
     )
 
@@ -3158,6 +3316,7 @@ def judge_answer(
     )
     user += _deck_line_block(answer, prior_answers, judge_deck)
     user += probe_brief(question)
+    user += contra_brief(question)
     user += _reason_block(question)
     # 정답 골자는 판정에도 싣는다 (규칙 3 의 참고 답). 코칭(coach_stuck)만 갖고
     # 있으면 이지선다 질문에 정답 단답이 와도 모델이 자료 발췌에서 확신을 못 얻어
@@ -3470,12 +3629,15 @@ _STANCE_RIGHT_REACT = {
     "unsolved": "맞아요, 자료엔 그 방법이 아직 비어 있어요.",
     "unsupported_cause": "맞아요, 그 말을 받치는 수치나 출처는 자료에 아직 비어 있어요.",
     "tension": "맞아요, 전체와 그 일부를 견준 말이에요.",
+    "contradiction": "맞아요, 그쪽이 자료에 적힌 쪽이에요.",
 }
 _STANCE_WRONG_REACT = {
     "absolute_boundary": "자료를 다시 보면 이 말에는 조건이 붙어요.",
     "unsolved": "자료를 다시 보면 그 방법은 아직 비어 있어요.",
     "unsupported_cause": "자료를 다시 보면 그 말 옆에 수치나 출처는 아직 비어 있어요.",
     "tension": "자료의 식을 다시 보면 견준 쪽도 그 개념의 요소예요 — 전체와 그 일부를 견준 말이에요.",
+    # 모순 — 틀린 쪽을 골라도 자료 쪽(= 답)은 말하지 않는다. 장을 다시 보게 한다 (09-30 WP-CONTRA)
+    "contradiction": "그건 발표에서 한 쪽이에요. 자료를 다시 보면 다른 쪽이 적혀 있어요.",
 }
 #: 입장을 고른 뒤 **다음 한 걸음** — 단정은 그 제한 조건, 빈틈은 채울 계획, 긴장은 전체를 봐야 하는 까닭 (결손 칩에도 같은 말).
 _STANCE_NEXT_POINT = {
@@ -3483,14 +3645,21 @@ _STANCE_NEXT_POINT = {
     "unsolved": "앞으로 어떻게 보완할지",
     "unsupported_cause": "어떤 자료로 보강할지",
     "tension": "일부만 볼 때와 전체를 볼 때의 차이",
+    "contradiction": "발표에서 한 말을 자료에 맞춰 고친 문장",
 }
+#: 모순 입장 칩 다음 걸음 — 맞는 쪽이면 발표 말을 자료에 맞춰 고쳐 말하게, 틀린 쪽이면 그 장을 다시 보게 한다.
+_STANCE_CONTRA_FOLLOWUP = "그럼 발표에서 한 말을 {where}에 맞춰 고쳐서 한 문장으로 말해 볼래요?"
 _STANCE_LIMIT_FOLLOWUP = "자료 {no}장에 그 조건이 적혀 있어요. 어떤 조건인지 한 문장으로 말해 볼래요?"
 _STANCE_TENSION_FOLLOWUP = "그럼 그 일부 하나만 볼 때와 전체를 볼 때 무엇이 다른지 한 문장으로 말해 볼래요?"
 
 
-def _stance_next(question: Question) -> str:
-    """입장을 고른 다음 물음 — 자료로 받쳐지는 다음 한 걸음. 단정은 골자가 인용한 제한 조건 줄의 장을 가리킨다(줄은 말하지 않는다)."""
+def _stance_next(question: Question, right: bool = True) -> str:
+    """입장을 고른 다음 물음 — 자료로 받쳐지는 다음 한 걸음. 단정은 골자가 인용한 제한 조건 줄의 장을 가리킨다(줄은 말하지 않는다).
+    모순은 맞는 쪽이면 발표 말을 자료에 맞춰 고쳐 말하게, 틀린 쪽이면 그 장에 무엇이 적혔는지 보게 한다 — 자료 쪽 값은 말하지 않는다."""
     kind = stance_kind(question)
+    sides = contra_sides(question)
+    if sides is not None:
+        return (_STANCE_CONTRA_FOLLOWUP if right else _CONTRA_SAID_FOLLOWUP[sides.numeric]).format(where=sides.where)
     if kind == "absolute_boundary":
         # 골자가 인용한 제한 조건 줄이든 해요체로 옮긴 조건 절이든(09-30 WP-P2 골자 「자료 7장에 적었듯 …」) 그 장을 가리킨다
         no, line, _ = limit_of(question)
@@ -3514,7 +3683,7 @@ def _stance_judgement(question: Question, pick: str, round_no: int) -> QaJudgeme
     label = question.label or "이 개념"
     react = (_STANCE_RIGHT_REACT if right else _STANCE_WRONG_REACT).get(kind) or (
         _CHOICE_REACT if right else "자료를 다시 보면 다른 쪽이 맞아요.")
-    followup = _clip(_stance_next(question))
+    followup = _clip(_stance_next(question, right))
     verdict, score = ("partial", STANCE_RIGHT_SCORE) if right else ("wrong", STANCE_WRONG_SCORE)
     j = _normalize({"verdict": verdict, "score": score, "react": react, "followup": followup}, question, model="",
                    round_no=round_no)

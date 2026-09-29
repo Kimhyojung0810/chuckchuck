@@ -36,6 +36,7 @@ from chuckchuck._probe_stance import (
 from chuckchuck.contracts import (
     PROBE_KINDS,
     PROBE_STANCES,
+    QA_SOURCES,
     ClaimQuote,
     ConceptEdge,
     ConceptGraph,
@@ -342,7 +343,9 @@ def test_통과한_답의_react_에는_물음이_없다():
 # ---------------------------------------------------------------------------
 
 def test_입장_표는_탐침_종류만_쓰고_보기_둘에_맞는_쪽이_하나다():
-    assert set(PROBE_STANCES) <= set(PROBE_KINDS) and "sibling_priority" not in PROBE_STANCES
+    # 표의 열쇠는 탐침 종류 — 탐침이 아닌 질문은 질문 출처(QA_SOURCES)다. J3 가 「새 종류(예: contradiction)는 표 한 줄 + STANCE_RESOLVERS
+    # 한 줄」 로 짰고, 09-30 WP-CONTRA 가 모순 질문 줄을 더했다(값을 모르는 모순의 「자료 쪽이에요 / 발표 쪽이에요」).
+    assert set(PROBE_STANCES) <= set(PROBE_KINDS) | set(QA_SOURCES) and "sibling_priority" not in PROBE_STANCES
     for kind, st in PROBE_STANCES.items():
         assert len(st.choices) == 2 and st.correct in st.choices and st.wrong in st.choices and st.wrong != st.correct, kind
         assert st.ask.endswith("?") and all(c.endswith("요") for c in st.choices), kind       # 해요체 칩

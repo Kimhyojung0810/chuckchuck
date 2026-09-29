@@ -1529,10 +1529,11 @@ def qa_passed(verdict: str, score: int) -> bool:
 #:   · deck(자료와 수치·서열·방향·부정 어긋남) · number_unsupported(자료에 없는 수를 다른 값의 대상에 붙임) · self_opposed
 #:   · restated(탐침 줄 되풀이) · reason(근거 질문에 배경만) · off_topic · focus_miss · list(낱말 나열·서술어 없음)
 #:   · echo(질문 되읊기) · repeat(앞 답 되풀이) · ungrounded(답이 골자·자료와 맞닿지 않음) · short(한두 낱말) · choice(되물음 칩)
-#:   · language(한국어가 아닌 답)
+#:   · language(한국어가 아닌 답) · contra_said(모순 질문에 발표 쪽을 다시 고름 · wrong 35)
+#:   · contra_dispute(모순 질문에 발표 쪽을 출처·자료 오류를 들어 고름 — 자료 안의 숫자로만 확인한다 · wrong 35)
 QA_JUDGE_GUARDS = ("", "trap", "trap_misfixed", "trap_open", "injection", "deck", "number_unsupported", "self_opposed",
                    "restated", "reason", "off_topic", "focus_miss", "list", "echo", "repeat", "ungrounded", "short", "choice",
-                   "language")
+                   "language", "contra_said", "contra_dispute")
 
 
 #: 한 질문을 붙들 최대 라운드. 넘어가면 통과 수준(qa_passed)에서 닫아 준다 —
@@ -1838,6 +1839,11 @@ PROBE_STANCES: dict[str, ProbeStance] = {
     "tension": ProbeStance(
         ask="이 말은 전체와 그 일부를 견준 말인가요, 서로 다른 두 가지를 견준 말인가요?", choices=("전체와 일부예요", "서로 다른 둘이에요"),
         correct="전체와 일부예요"),
+    # 모순 질문(질문 출처 contradiction — 탐침이 아니다, 09-30 WP-CONTRA · 녹음 감사 REC-08). 두 값을 코드가 알면 (자료 값, 발표 값) 칩이
+    # 질문마다 따로 선다(`_contra.contra_stance` — `_probe_stance.STANCE_RESOLVERS` 한 줄). 이 줄은 값을 모르는 모순(방향·부정)의 칩이다.
+    # 자료 쪽이 맞는 쪽이다 — F-08 골자가 「자료 N장은 “…”라고 해요. 발표에서 한 “…”는 이 수치로 바로잡아야 해요」 다.
+    "contradiction": ProbeStance(ask="맞는 건 자료 쪽인가요, 발표 쪽인가요?", choices=("자료 쪽이에요", "발표 쪽이에요"),
+                                 correct="자료 쪽이에요"),
 }
 
 
