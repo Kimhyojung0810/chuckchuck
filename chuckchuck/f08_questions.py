@@ -3305,7 +3305,8 @@ def _hint_scaffold(question: Question) -> str:
     """
     if not question.evidence_quote:
         return ""
-    masked, _, _ = mask_gist(question.answer_gist, question.label, [])
+    # 인용에 있는 낱말을 먼저 가린다 — 화면이 같이 보여 주는 인용에서 답을 찾을 수 있게 (f09 _narrow_followup 과 같은 규칙).
+    masked, _, _ = mask_gist(question.answer_gist, question.label, [], quote=question.evidence_quote)
     return _clip(f"빈칸을 채워 보세요: {masked}") if masked else ""
 
 
