@@ -6,6 +6,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 from __future__ import annotations
 
 import hashlib
+import inspect
 import io
 import json
 import os
@@ -111,6 +112,8 @@ PAID_PATHS = frozenset({
     # F-24 는 학술 검색 API(+검색어 번역 LLM 1콜)를 부른다
     "/api/v1/papers",
     "/api/v1/papers/search",
+    # F-26 주장 그래프도 LLM 1콜이다 (세션에 한 번 — 캐시가 받지만 입력을 바꿔 가며 두드리면 매번 부른다)
+    "/api/v1/claims",
 })
 
 #: CORS 허용 origin. 기본은 브리지 자신(같은 출처)이라 헤더가 필요 없고,
@@ -621,6 +624,22 @@ def _stage_cache_put(stage: str, key: str, payload: dict) -> None:
         sys.stderr.write(f"[bridge] {stage} 캐시 저장 실패(무시): {e}\n")
 
 
+def _claims_kw(fn, claims) -> dict:
+    """
+    F-08 에 주장(F-26)을 넘길 kwargs. 받는 쪽 시그니처에 `claims` 가 있을 때만 싣는다.
+
+    F-08 의 claims 인자는 다른 갈래(P1/P3/P4)가 붙이는 중이다 — 합쳐지기 전 트리에서도 브리지가
+    TypeError 없이 돌아야 한다. 테스트가 끼워 넣는 가짜 build_questions(**_) 에도 싣지 않는다.
+    """
+    if claims is None:
+        return {}
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return {}
+    return {"claims": claims.to_dict()} if "claims" in params else {}
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -779,6 +798,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_papers(raw)
             if parsed.path == "/api/v1/papers/search":
                 return self._handle_papers_search(raw)
+            if parsed.path == "/api/v1/claims":
+                return self._handle_claims(raw)
             if parsed.path == "/api/v1/strategy":
                 return self._handle_strategy(raw)
             # F-09: /api/v1/sessions/{id}/qa/judge — 세션 없이도 body.question 으로 판정
@@ -1779,6 +1800,8 @@ class Handler(SimpleHTTPRequestHandler):
             found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(), track, str(llm),
             str(_session_id_of(body) or ""), bool(slidedoc), pace, body.get("papers") is False, body.get("memory") is False,
             _code_version("chuckchuck.f08_questions"),
+            # 주장(F-26)도 그래프·본문에서 나오므로 입력 대신 모듈 판과 끄기 여부만 넣는다 — 주장 프롬프트를 고치면 옛 질문을 안 쓴다
+            _code_version("chuckchuck.f26_claims"), body.get("claims") is False,
         )
         label = "미리 만들기" if body.get("prefetch") else "요청"
         sys.stderr.write(f"[bridge] F-08 questions key={q_key[10:22]} track={track} ({label}) parts="
@@ -1805,17 +1828,22 @@ class Handler(SimpleHTTPRequestHandler):
             papers = None if body.get("papers") is False else self._papers_for(body, found["graph"], slidedoc, llm)
             # 지난 리허설 기억 (F-25). 같은 사람·같은 파일의 동의한 지난 세션에서. body.memory=false 면 끈다.
             memory = None if body.get("memory") is False else self._memory_for(body)
+            # 주장 그래프 (F-26). 세션에 한 번 — 1장 「시간보다 중요한 질」 과 4장 「질 = 시간 × …」 의 긴장 같은 것을
+            # F-08 이 코드로 찾게 하는 재료다. 본문(slidedoc)이 없으면 인용을 대조할 수 없어 안 만든다. body.claims=false 면 끈다.
+            claims = None if body.get("claims") is False else self._claims_for(body, found["graph"], slidedoc, llm)
             cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm),
-                                    memory.to_dict() if memory else None, pace)
+                                    memory.to_dict() if memory else None, pace,
+                                    claims.to_dict() if claims else None)
             return self._build_questions_payload(
                 q_key, graph, alignment, flow, transcript, ctx, track, llm, body, found, slidedoc, papers, memory, pace, cache_key,
+                claims=claims,
             )
         finally:
             if mine is not None:
                 _release_questions(q_key, mine)
 
     def _build_questions_payload(self, q_key, graph, alignment, flow, transcript, ctx, track, llm, body, found,
-                                 slidedoc, papers, memory, pace, cache_key):
+                                 slidedoc, papers, memory, pace, cache_key, claims=None):
         from chuckchuck import build_questions, triage_questions
         from chuckchuck.contracts import QuestionError
 
@@ -1823,7 +1851,8 @@ class Handler(SimpleHTTPRequestHandler):
             triage = STORE.get_triage(cache_key)
             if triage is None:
                 triage = triage_questions(
-                    graph, alignment, flow, ctx, transcript=transcript, memory=memory, pace=pace, llm=llm
+                    graph, alignment, flow, ctx, transcript=transcript, memory=memory, pace=pace, llm=llm,
+                    **_claims_kw(triage_questions, claims),
                 )
                 STORE.set_triage(cache_key, triage)
             else:
@@ -1845,6 +1874,7 @@ class Handler(SimpleHTTPRequestHandler):
                 memory=memory,
                 pace=pace,
                 llm=llm,
+                **_claims_kw(build_questions, claims),
             )
         except QuestionError as e:
             sys.stderr.write(f"[bridge] F-08 questions failed: {e}\n")
@@ -1858,7 +1888,7 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} "
             f"model={doc.model} 본문={'yes' if slidedoc else '-'} "
             f"문헌={len(papers.refs) if papers else '-'} 인용질문={cited} "
-            f"기억={remembered if memory else '-'}\n"
+            f"기억={remembered if memory else '-'} 주장={len(claims.claims) if claims else '-'}\n"
         )
         payload = with_hint_ladders(doc.to_dict(), doc.questions)
         STORE.set_triage(q_key, payload)
@@ -1946,6 +1976,58 @@ class Handler(SimpleHTTPRequestHandler):
         STORE.set_triage(key, papers)
         self._archive(body, "paper_doc", papers.to_dict())
         return papers
+
+    def _claims_for(self, body: dict, graph_raw: dict | None, slidedoc, llm):
+        """
+        F-26 ClaimDoc. 메모리 캐시 → 디스크 단계 캐시 → 새로 만들기 순. 본문(slidedoc)이 없으면 None.
+
+        보관소(claim_doc)에서 되읽지 않는다 — 그래프가 다시 만들어지면 옛 주장의 id 가 안 맞는다. 키는 그래프·본문·
+        모듈 소스 해시(`_code_version`)라 프롬프트·대조 규칙을 고치면 저절로 새로 만든다 (7756058 과 같은 규율).
+        LLM 이 죽어 규칙 주장만 나온 것(model="rule")은 디스크에 남기지 않는다 — 다음 요청이 다시 LLM 을 불러 볼 수 있게.
+        실패해도 None — 주장은 질문의 재료지 필수가 아니다.
+        """
+        from chuckchuck import build_claims
+        from chuckchuck.contracts import ClaimDoc
+
+        if not graph_raw or not slidedoc:
+            return None
+        key = _stage_key("f26", _code_version("chuckchuck.f26_claims"), graph_raw, slidedoc, llm)
+        cached = STORE.get_triage("claims:" + key)
+        if cached is not None:
+            return cached
+        disk = _stage_cache_get("claims", key)
+        if disk is not None:
+            claims = ClaimDoc.from_dict(disk)
+            sys.stderr.write(f"[bridge] F-26 claims 캐시 적중 {key} n={len(claims.claims)}\n")
+        else:
+            try:
+                claims = build_claims(graph_raw, slidedoc, llm=llm)
+            except Exception as e:  # noqa: BLE001 — 주장 없이도 질문은 나와야 한다
+                sys.stderr.write(f"[bridge] F-26 claims 실패, 주장 없이 진행: {type(e).__name__}: {e}\n")
+                return None
+            sys.stderr.write(
+                f"[bridge] F-26 claims n={len(claims.claims)} dropped={claims.dropped} model={claims.model}\n"
+            )
+            if claims.model != "rule":
+                _stage_cache_put("claims", key, claims.to_dict())
+        STORE.set_triage("claims:" + key, claims)
+        self._archive(body, "claim_doc", claims.to_dict())
+        return claims
+
+    def _handle_claims(self, raw: bytes):
+        """F-26 · {graph | session_id} → ClaimDoc. 본문(slide_doc)은 파싱 보관소에서 session_id 로 찾는다 (body.slide_doc 도 받는다)."""
+        body = json.loads(raw or b"{}")
+        found = self._resolve(body, "graph")
+        if not found["graph"]:
+            return self._json(400, {"error": "bad_request", "message": "graph 또는 session_id 가 필요합니다."})
+        slidedoc = body.get("slide_doc") or ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        if not slidedoc:
+            return self._json(409, {"error": "slide_doc_missing",
+                                    "message": "자료 본문이 있어야 주장을 원문과 대조할 수 있어요. 자료를 다시 올려 주세요."})
+        claims = self._claims_for(body, found["graph"], slidedoc, _pick_llm(body))
+        if claims is None:
+            return self._json(502, {"error": "claims_failed", "message": "주장 그래프를 만들지 못했어요."})
+        return self._json(200, claims.to_dict())
 
     def _handle_papers(self, raw: bytes):
         """F-24 · {graph | session_id} → PaperDoc. 화면이 「교수가 읽고 온 문헌」 카드를 그릴 때."""

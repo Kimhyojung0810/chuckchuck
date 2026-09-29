@@ -1,0 +1,161 @@
+{
+ "file_name": "척척발표_수면발표_정상슬라이드.pptx",
+ "model": "solar",
+ "dropped": 5,
+ "claims": [
+  {
+   "id": "c01",
+   "kind": "compare",
+   "subject_id": "sleep-quality",
+   "object_ids": [
+    "sufficient-time"
+   ],
+   "text": "수면 시간보다 중요한 수면의 질",
+   "evidence": [
+    {
+     "slide_no": 1,
+     "quote": "수면 시간보다 중요한 수면의 질"
+    },
+    {
+     "slide_no": 4,
+     "quote": "수면의 질은 단순한 “시간”보다 넓은 개념입니다."
+    }
+   ],
+   "has_support": true
+  },
+  {
+   "id": "c02",
+   "kind": "absolute",
+   "subject_id": "sleep-quality",
+   "object_ids": [],
+   "text": "잠을 오래 잤다고 반드시 개운한 것은 아닙니다.",
+   "evidence": [
+    {
+     "slide_no": 1,
+     "quote": "잠을 오래 잤다고 반드시 개운한 것은 아닙니다."
+    }
+   ],
+   "has_support": true
+  },
+  {
+   "id": "c03",
+   "kind": "compose",
+   "subject_id": "sleep-quality",
+   "object_ids": [
+    "deep-sleep",
+    "rem-sleep"
+   ],
+   "text": "잠은 하나의 상태가 아니다 밤새 얕은 수면, 깊은 수면, REM 수면이 반복됩니다.",
+   "evidence": [
+    {
+     "slide_no": 2,
+     "quote": "잠은 하나의 상태가 아니다 밤새 얕은 수면, 깊은 수면, REM 수면이 반복됩니다."
+    }
+   ],
+   "has_support": true
+  },
+  {
+   "id": "c04",
+   "kind": "cause",
+   "subject_id": "continuous-sleep",
+   "object_ids": [
+    "sleep-quality"
+   ],
+   "text": "수면 주기가 자주 끊기면 회복감이 달라집니다.",
+   "evidence": [
+    {
+     "slide_no": 2,
+     "quote": "잠든 시간이 같아도 수면 주기가 자주 끊기면 회복감은 달라집니다."
+    }
+   ],
+   "has_support": true
+  },
+  {
+   "id": "c05",
+   "kind": "compose",
+   "subject_id": "sleep-quality",
+   "object_ids": [
+    "sufficient-time",
+    "continuous-sleep",
+    "regular-pattern"
+   ],
+   "text": "수면의 질 = 시간 × 연속성 × 규칙성",
+   "evidence": [
+    {
+     "slide_no": 4,
+     "quote": "수면의 질 = 시간 × 연속성 × 규칙성"
+    }
+   ],
+   "has_support": false
+  },
+  {
+   "id": "c06",
+   "kind": "contrast",
+   "subject_id": "weekend-binge",
+   "object_ids": [
+    "regular-pattern"
+   ],
+   "text": "주말 몰아자기는 사회적 시차를 유발하여 규칙성을 해칩니다.",
+   "evidence": [
+    {
+     "slide_no": 6,
+     "quote": "사회적 시차 평일과 주말의 수면 시간이 크게 달라질 때 생기는 리듬 차이"
+    }
+   ],
+   "has_support": false
+  },
+  {
+   "id": "c07",
+   "kind": "solve",
+   "subject_id": "practice-method",
+   "object_ids": [
+    "caffeine",
+    "alcohol",
+    "light-noise-temp"
+   ],
+   "text": "카페인, 음주, 빛, 소음 줄이기는 연속성 저하를 해결합니다.",
+   "evidence": [
+    {
+     "slide_no": 7,
+     "quote": "연속성 저하 | 카페인·음주·빛·소음 줄이기"
+    }
+   ],
+   "has_support": false
+  },
+  {
+   "id": "c08",
+   "kind": "solve",
+   "subject_id": "regular-pattern",
+   "object_ids": [
+    "weekend-binge"
+   ],
+   "text": "일정한 기상 시간 유지는 규칙성 저하를 해결합니다.",
+   "evidence": [
+    {
+     "slide_no": 7,
+     "quote": "규칙성 저하 | 일정한 기상 시간 유지"
+    }
+   ],
+   "has_support": false
+  },
+  {
+   "id": "c09",
+   "kind": "compose",
+   "subject_id": "sleep-quality",
+   "object_ids": [
+    "sufficient-time",
+    "regular-pattern",
+    "uninterrupted-sleep",
+    "circadian-stability"
+   ],
+   "text": "수면의 질은 충분한 시간, 규칙적인 리듬, 끊기지 않는 수면, 생체리듬의 안정성으로 구성됩니다.",
+   "evidence": [
+    {
+     "slide_no": 8,
+     "quote": "충분한 시간 규칙적인 리듬 몸이 회복할 최소량 끊기지 않는 수면 수면 주기의 연속성 생체리듬의 안정성"
+    }
+   ],
+   "has_support": false
+  }
+ ]
+}
