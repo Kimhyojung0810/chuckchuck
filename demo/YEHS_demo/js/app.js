@@ -5934,61 +5934,111 @@ const QA_VERDICT = {
   none: { label: '설명 못함', cls: 'no' },
 };
 
+/* 실전 기록 한 줄의 칩 (결과 화면 liveResultRow 가 없을 때의 폴백 — 같은 말) */
+const QA_LOG_CHIP = {
+  self: { label: '스스로 설명', cls: 'st-ok' },
+  helped: { label: '도움 받아 닫힘', cls: 'st-mid' },
+  retold: { label: '답 보고 다시 말함', cls: 'st-om' },
+  skipped: { label: '넘김', cls: 'st-om' },
+};
+
+/**
+ * 리포트가 보여 줄 코칭 기록을 고른다.
+ * - 주소에 id 가 있으면 그 기록. 'last'(저장 리포트)는 가장 최근, 'sample-investor'(샘플 리포트)는 목 시나리오.
+ * - 내 발표 리포트면 **이 발표에서 한 코칭만** — 가장 최근 기록을 그대로 쓰면 다른 자료의 코칭이 이 발표 것처럼 떴다.
+ *   세션 id 가 같아도('flat') 자료 지문(docKey)이 다르면 남의 기록이다.
+ * - 샘플 리포트는 목 시나리오 기록만 (내 실제 코칭이 샘플 밑에 뜨지 않게).
+ */
+function qaHistoryRecord() {
+  const H = window.QaHistory;
+  const hashId = location.hash.replace(/^#\/?/, '').split('/')[1];
+  if (hashId === 'last') return H.get((H.list()[0] || {}).id);
+  if (hashId === 'sample-investor') return H.get('investor');
+  if (hashId) return H.get(hashId);
+  if (isLiveReportSession()) {
+    const own = H.get(qaSessionId());
+    const key = typeof qaDocKey === 'function' ? qaDocKey() : '';
+    return own && own.live !== false && (!own.docKey || !key || own.docKey === key) ? own : null;
+  }
+  return H.get('investor');
+}
+
+/**
+ * 상세 리포트에 개념 판정(발화 분석)이 있는가 — 결과 화면이 행 화살표·「근거 발화와 함께 짚어 줄게요」 를 약속해도 되는지
+ * (09-30 held-out L-03: 자료만 쓴 세션의 결과 행 화살표가 빈 리포트로 데려갔다). 판정 트리는 정합(F-11)에서 나온다.
+ */
+function qaReportHasJudge() {
+  if (isShowcaseDemo() || !qaRealSession()) return true;   // 샘플·시연은 DATA 판정 트리가 있다
+  const out = nf && nf.pipelineOut;
+  return !!(out && out.graph && out.alignment && (out.alignment.items || []).length);
+}
+
 /**
  * 지난 발표의 질문 코칭 내역.
  * 기록이 없으면(코칭 전) 아무것도 그리지 않는다 — 빈 껍데기를 두지 않는다.
+ * open: 처음부터 펼친다 (발화 분석이 없는 리포트에서는 이게 주인공이다).
  */
-function qaHistoryPanelHtml() {
+function qaHistoryPanelHtml({ open = false } = {}) {
   if (!window.QaHistory) return '';
-  // 해시에 id 가 없으면 **가장 최근 기록**을 보여준다. 실전 코칭은 'flat' 키로
-  // 저장되는데 예전 기본값만 읽어서, 방금 끝낸 코칭이
-  // 리포트에 안 뜨거나 목 시나리오가 내 기록인 양 떴다.
-  /* 'last'(저장 리포트)·'sample-investor'(샘플 리포트)은 QaHistory 의 키가
-     아니라 리포트 주소다 — 그대로 get() 에 넣으면 항상 빈손이라, 저장 리포트를
-     열면 방금 한 코칭 내역이 소리 없이 사라졌다. 저장 리포트는 가장 최근 기록,
-     샘플은 목 시나리오 키('investor')로 조회한다. */
-  const hashId = location.hash.replace(/^#\/?/, '').split('/')[1];
-  const latestId = (window.QaHistory.list()[0] || {}).id;
-  const reportId = hashId === 'last' ? latestId
-    : hashId === 'sample-investor' ? 'investor'
-      : (hashId || latestId || 'investor');
-  const rec = reportId ? window.QaHistory.get(reportId) : null;
+  // 해시에 id 가 없으면 이 발표의 기록을 보여준다 (qaHistoryRecord). 실전 코칭은 세션 id 로 저장된다.
+  const rec = qaHistoryRecord();
   if (!rec || !rec.beats || !rec.beats.length) return '';
 
   const when = new Date(rec.at);
   const stamp = `${when.getFullYear()}.${String(when.getMonth() + 1).padStart(2, '0')}.${String(when.getDate()).padStart(2, '0')}`;
+  const isDemo = rec.live === false;
 
   /* 코칭의 결론은 「몇 개를 주고받았나」가 아니라 「대화로 몇 개가 늘었나」다.
-     before/after/total 은 기록에 이미 있는데 화면에는 개수와 날짜만 나가고 있었다 —
-     제일 중요한 값이 저장만 되고 안 보이던 셈이다. 프로필 리포트의 final-insight 가
-     같은 값을 이미 이렇게 말한다 */
+     before/after 는 「첫 시도에 설명 → 끝까지 설명」 이다 (09-30 C-09 — 예전 이름 「질문 전 → 질문 후」 는 사전 측정처럼
+     읽혔지만 실제로는 첫 답·힌트 없이 설명한 수 → 대화 끝에 설명한 수다). 새 기록의 「끝까지 설명」 은 스스로 설명한 질문만 센다. */
   const hasGain = typeof rec.before === 'number' && typeof rec.after === 'number' && rec.total;
   const gained = hasGain ? rec.after - rec.before : 0;
+
+  /* 주고받은 질문 수 — 넘기거나 안 물은 것은 뺀다 (M-12: 「3개 질문」 에 넘긴 질문이 섞였다) */
+  const exchanged = rec.beats.filter(b => !b.unasked && !(b.skipped && !b.a)).length;
+  const weakCount = rec.beats.filter(b => (b.bucket ? b.bucket !== 'self' && !b.unasked : b.verdict === 'none')).length;
+  // 청중 이름 — 실전 기록은 발표 정보에서 찾은 말(qaAudienceWord), 옛 실전 기록의 기본값 「교수님」 은 중립 말로
+  const aud = !isDemo && rec.live && !rec.docKey && rec.aud === '교수님' ? '질문자' : (rec.aud || '질문자');
 
   /* 리포트가 「정보의 바다」가 된 자리라 통째로 예고형 접기로 둔다.
      접힌 줄이 결론(대화로 몇 개 늘었나)과 다시 볼 곳 유무를 먼저 말해야
      열지 말지를 정할 수 있다 — judge-fold 와 같은 규율. */
-  const weakCount = rec.beats.filter(b => b.verdict === 'none').length;
+  const rowOf = (b) => {
+    if (b.bucket) {
+      // 결과 화면과 같은 칩·곁말 (qa_live liveResultRow) — 한 줄이 스스로 모순되지 않는다
+      const row = typeof liveResultRow === 'function' ? liveResultRow(b, b.bucket) : null;
+      const chip = row || { chip: (QA_LOG_CHIP[b.bucket] || QA_LOG_CHIP.skipped).label, cls: (QA_LOG_CHIP[b.bucket] || QA_LOG_CHIP.skipped).cls, meta: '' };
+      const answer = b.unasked ? '<i class="ql-empty">묻기 전에 마쳤어요</i>'
+        : b.a ? escapeHtml(b.a) : '<i class="ql-empty">답하지 않고 넘겼어요</i>';
+      return { chipHtml: `<span class="chip chip-sm ${chip.cls}">${escapeHtml(chip.chip)}</span>`, answer, meta: chip.meta };
+    }
+    // 옛 기록 — 판정 3단계. 넘긴 질문에는 「N번 만에 방어」 를 달지 않는다 (한 줄 모순 방지)
+    const v = QA_VERDICT[b.verdict] || QA_VERDICT.partial;
+    const answer = b.skipped ? '<i class="ql-empty">답하지 않고 넘겼어요</i>' : (escapeHtml(b.a) || '<i class="ql-empty">기록 없음</i>');
+    const meta = b.skipped ? '' : [b.turns ? `${b.turns}번 만에 방어` : '', b.hint ? `힌트 ${b.hint}단계` : ''].filter(Boolean).join(' · ');
+    return { chipHtml: `<span class="chip chip-sm st-${v.cls}">${v.label}</span>`, answer, meta };
+  };
   return `
-    <details class="fold qa-log-fold">
+    <details class="fold qa-log-fold"${open ? ' open' : ''}>
       <summary>
-        <span>질문 코칭 내역</span>
-        <span class="fold-meta">${weakCount ? '<i class="dot st-no"></i> ' : ''}${escapeHtml(rec.aud)}${josa(rec.aud, '과', '와')} 주고받은 ${rec.beats.length}개 질문${
+        <span>질문 코칭 내역${isDemo ? ' · 데모 질문' : ''}</span>
+        <span class="fold-meta">${weakCount ? '<i class="dot st-no"></i> ' : ''}${escapeHtml(aud)}${josa(aud, '과', '와')} 주고받은 ${exchanged}개 질문${
           hasGain && gained > 0 ? ` · 대화로 <b class="num">${gained}</b>개 늘었어요` : ''} · ${stamp}</span>
       </summary>
       <div class="fold-body">
     <section class="qa-log">
+      ${isDemo ? '<p class="ql-note">데모 질문(샘플 발표)으로 연습한 기록이에요. 내 자료로 만든 질문이 아니에요.</p>' : ''}
       ${hasGain ? `
       <p class="qa-log-gain">
-        <span class="qg-step"><i>질문 전</i><b class="num">${rec.before}</b></span>
+        <span class="qg-step"><i>첫 시도에 설명</i><b class="num">${rec.before}</b></span>
         <em class="qg-arrow" aria-hidden="true">→</em>
-        <span class="qg-step qg-after"><i>질문 후</i><b class="num">${rec.after}</b></span>
-        <span class="qg-note">${rec.total}개 개념 중 설명할 수 있게 된 개수예요${
+        <span class="qg-step qg-after"><i>끝까지 설명</i><b class="num">${rec.after}</b></span>
+        <span class="qg-note">${rec.total}개 질문 중 ${rec.metric === 'first_try_to_self' ? '힌트·보기 없이 스스로 설명한 개수예요' : '설명한 개수예요'}${
           gained > 0 ? ` · 대화로 <b>${gained}개</b> 늘었어요` : ''}</span>
       </p>` : ''}
       <div class="qa-log-list">
         ${rec.beats.map((b, i) => {
-          const v = QA_VERDICT[b.verdict] || QA_VERDICT.partial;
+          const row = rowOf(b);
           return `
           <details class="qa-log-item">
             <summary>
@@ -5996,20 +6046,16 @@ function qaHistoryPanelHtml() {
                    규칙에도 안 걸려서, 판정 셋이 전부 같은 회색 글씨로 떨어졌다 —
                    리포트에서 제일 먼저 읽어야 할 신호가 색을 잃고 있었다. 앱이 다른
                    데서 쓰는 chip 관용구를 그대로 쓴다 (판정 색 5종은 §3-3 불변) -->
-              <span class="chip chip-sm st-${v.cls}">${v.label}</span>
+              ${row.chipHtml}
               <span class="ql-concept">${escapeHtml(b.label || '')}</span>
               <span class="ql-slide num">${escapeHtml(b.slide || '')}</span>
               <span class="ql-n num">${String(i + 1).padStart(2, '0')}</span>
             </summary>
             <div class="qa-log-body">
               <p class="ql-line"><b>질문</b>${escapeHtml(b.q) || '<i class="ql-empty">기록 없음</i>'}</p>
-              <p class="ql-line ql-answer"><b>내 답변</b>${
-                b.skipped ? '<i class="ql-empty">답하지 않고 넘겼어요</i>' : (escapeHtml(b.a) || '<i class="ql-empty">기록 없음</i>')}</p>
+              <p class="ql-line ql-answer"><b>내 답변</b>${row.answer}</p>
               ${b.note ? `<p class="ql-note">${escapeHtml(b.note)}</p>` : ''}
-              ${(b.turns || b.hint) ? `<p class="ql-meta">${[
-                b.turns ? `${b.turns}번 만에 방어` : '',
-                b.hint ? `힌트 ${b.hint}단계` : '',
-              ].filter(Boolean).join(' · ')}</p>` : ''}
+              ${row.meta ? `<p class="ql-meta">${escapeHtml(row.meta)}</p>` : ''}
             </div>
           </details>`;
         }).join('')}
@@ -6031,6 +6077,26 @@ function rSummary() {
 
   // 올린 자료인데 분석이 없으면 IMU2CLIP 샘플을 절대 보여주지 않는다
   if (live && !real && !isRealTree) {
+    /* 질문 코칭 기록은 발화 분석과 따로 있다 — 자료만으로 코칭한 세션도 여기 남긴다 (09-30 held-out C-09: 자료만 쓴 5덱 전부
+       리포트에 Q&A 가 없었는데, 결과 화면은 「리포트에서 같이 다시 볼게요」 라고 약속했다). 펼친 채로 둔다 — 이 화면의 주인공이다 */
+    const qaLog = qaHistoryPanelHtml({ open: true });
+    const out = reportOut() || {};
+    // 녹음 없이 자료만으로 연습했다 — 분석이 「아직」 이 아니라 원래 없다. 기다리라고 하지 않는다
+    const deckOnly = !!(out.graph && !out.transcript && !out.alignment && !(nf && nf.pipelineError));
+    if (deckOnly) {
+      $('#rbody').innerHTML = `
+        <div class="card empty-card">
+          ${emptyBirdHtml('solar', 'neutral')}
+          <h2 class="section-title">자료로만 연습해서 말하기 분석은 없어요</h2>
+          <p class="note" style="margin:8px 0 14px">녹음 없이 <b>${escapeHtml(meta.title)}</b> 자료만으로 질문 코칭을 했어요. 발표를 녹음하면 말한 내용과 자료를 같이 짚어 줘요.</p>
+          <div class="step-actions">
+            <a class="btn btn-primary" href="#/new">발표 녹음하러 가기</a>
+            <a class="btn btn-text" href="#/qa">질문 연습 다시 하기</a>
+          </div>
+        </div>
+        ${qaLog}`;
+      return;
+    }
     const why = (nf && nf.pipelineError)
       || ((reportOut() || {}).conceptsError)
       || (nf && nf.pipelineDetail)
@@ -6045,7 +6111,8 @@ function rSummary() {
           <a class="btn btn-primary" href="#/new">발표 연습으로 돌아가기</a>
           <a class="btn btn-text" href="#/">홈으로</a>
         </div>
-      </div>`;
+      </div>
+      ${qaLog}`;
     return;
   }
 
@@ -7972,6 +8039,8 @@ function ensureLiveQuestions() {
     if (questions.length) {
       // 어느 자료로 만든 질문인지 같이 새긴다 — 자료가 바뀌면 낡은 것이 된다.
       qa.live = newLiveState(qaSessionId(), attachQuestionPapers(questions, doc.papers), qaDocKey());
+      // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes · qa_live presentLiveQuestion)
+      qa.live.notes = typeof liveDegradedLines === 'function' ? liveDegradedLines(doc) : [];
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;
@@ -8337,6 +8406,8 @@ function streamRow(it) {
   if (it.who === 'sys' && it.kind === 'finale') {
     return `<div class="qa-finale"><b>${it.text}</b><p>주고받은 내용을 위로 올려 다시 볼 수 있어요.</p></div>`;
   }
+  /* 안내 한 줄 — 「자료 본문 없이 판정했어요」·「요청이 몰려서 판정을 아직 못 받았어요」 같은 것. 판정 표식(✓·✕)이 아니다 (09-30 WP-B·H-15) */
+  if (it.who === 'sys' && it.kind === 'note') return `<p class="qa-note-line" role="status">${it.text}</p>`;
   if (it.who === 'sys') return `<div class="qa-flag ${it.kind}"><i>${it.kind === 'won' ? '✓' : it.kind === 'lost' ? '✕' : '🔥'}</i>${it.text}</div>`;
   if (it.who === 'me') {
     const tag = it.kind === 'choice' ? '<span class="mb-tag">내 선택</span>' : '';
@@ -8858,9 +8929,25 @@ function qaDecide(push) {
  * qa 상태는 sessionStorage 한 칸이라 새 코칭이 시작되면 덮어써진다.
  * 지난 발표에서 다시 보려면 세션 id 를 키로 따로 적어두어야 한다.
  */
-/* 실데이터 판정 코드 → 내역 3단계. 넘김·보류는 '설명 못함'으로 모으되
-   skipped 플래그로 "못 한 것"과 "안 한 것"을 구분해 둔다. */
-const QA_LOG_VERDICT = { good: 'full', partial: 'partial', wrong: 'none', unknown: 'none', skipped: 'none' };
+/* 실데이터 결과 → 내역 한 줄의 판정. 결과 화면의 네 묶음(qa_live.js liveBucket)을 그대로 옮긴다 (09-30 held-out C-09):
+   self → full(스스로 설명) · helped → partial(도움 받아 설명) · retold(답 보고 다시 말함) · skipped(넘김·안 물음·멈춤).
+   예전엔 판정 등급을 옮겨서 3라운드 강제 닫힘·힌트 셋째 칸(정답 인용)으로 본 답도 「설명함」, 답을 보고 다시 말한 것은
+   「설명 못함 · 답하지 않고 넘겼어요 · 5번 만에 방어」 가 한 줄에 같이 섰다. */
+const QA_LOG_BY_BUCKET = { self: 'full', helped: 'partial', retold: 'retold', skipped: 'skipped' };
+
+/* 질문 코칭 내역의 「○○과 주고받은」. 실전 코칭엔 청중을 고르는 칸이 없어 qa.aud 가 늘 기본값 「교수님」 이었다
+   (09-30 M-12: /temp 맥락은 스타트업 경진대회 심사위원인데 「교수님과 주고받은 3개 질문」). 발표 정보(청중 설명 → 상황)에서
+   한 가지로 읽히면 그것, 아니면 중립 「질문자」. */
+const QA_AUD_BY_OCC = {
+  '학교 프로젝트 (교수 대상)': '교수님', '신제품 설명 (대중 대상)': '청중', '업무 보고 (상사 대상)': '상사', '동료 간 캐주얼 PR': '동료',
+};
+const QA_AUD_WORDS = [['심사위원', /심사/], ['투자자', /투자자|벤처캐피털|\bVC\b/i], ['교수님', /교수/], ['상사', /상사|팀장|임원/], ['동료', /동료/], ['청중', /청중|대중/]];
+function qaAudienceWord() {
+  const ctx = String((nf && nf.ctx) || '');
+  const hits = QA_AUD_WORDS.filter(([, re]) => re.test(ctx)).map(([w]) => w);
+  if (hits.length === 1) return hits[0];
+  return QA_AUD_BY_OCC[String((nf && nf.occ) || '').trim()] || '질문자';
+}
 
 /** 코칭 기록을 저장한다. @returns {boolean} 저장 성공 여부 — 종료 화면이
  *  "저장됨"이라고 말해도 되는지 이 값으로 정한다 (실패를 성공으로 표시하지 않기). */
@@ -8871,37 +8958,50 @@ function recordQaHistory() {
 
   // 실데이터 경로 — qa.live.results 가 실제 주고받은 기록이다
   if (L && Array.isArray(L.results) && L.results.length) {
+    const bucketOf = typeof liveBucket === 'function' ? liveBucket : () => 'skipped';
     const beats = L.results.map((r, i) => {
       const src = (L.questions && L.questions[i]) || {};
+      const bucket = bucketOf(r);
       return {
         concept: src.concept || src.node || '',
         label: src.label || src.conceptLabel || src.concept || `질문 ${i + 1}`,
         slide: src.slide || (src.slide_no ? `S${String(src.slide_no).padStart(2, '0')}` : ''),
         q: r.question || src.question || src.q || '',
         // a 는 「내 답변」 칸이다. summary 는 코치의 총평이라 사용자 발화가 아니다 —
-        // 실제로 친 답(r.answer)을 싣고, 총평은 note 줄로 따로 남긴다.
-        a: r.answer || '',
-        verdict: QA_LOG_VERDICT[r.verdict] || 'partial',
+        // 실제로 한 답(다시 말한 답·멈추기 전 마지막 답 포함)을 싣고, 총평은 note 줄로 따로 남긴다.
+        a: r.answer && r.answer !== '(넘김)' && r.answer !== '(lab skip)' ? r.answer : '',
+        verdict: QA_LOG_BY_BUCKET[bucket],
+        bucket,
         note: r.summary || '',
         turns: r.turns || 0,
-        hint: r.hintLevel || 0,
-        skipped: r.verdict === 'skipped' || !!r.revealed,
+        answers: r.answers || 0,
+        // hintUsed = 사용자가 누른 힌트 (저절로 열린 칸은 안 센다 — 09-30 L-05), hintLevel = 본 사다리 칸의 끝
+        hintUsed: typeof liveHintsUsed === 'function' ? liveHintsUsed(r) : (r.hintLevel || 0),
+        hintLevel: r.hintLevel || 0,
+        closeReason: r.closeReason || '',
+        viaCoach: !!r.viaCoach,
+        retold: !!r.retold, revealed: !!r.revealed, unasked: !!r.unasked, stopped: !!r.stopped,
+        // 옛 읽는 쪽 호환 — 답이 아예 없는 것만
+        skipped: bucket === 'skipped' && !r.stopped && !r.retold,
       };
     });
-    /* before/after 를 샘플(DATA.session.qa)의 3/5 로 적으면 실전 기록이
-       거짓말을 한다 — 질문이 4개면 「4개 중 5개 늘었어요」도 가능했다.
-       실기록에서 센다: 질문 후 = 최종적으로 설명해낸 것(full),
-       질문 전 = 그중 힌트·재시도 없이 첫 답에 설명한 것. */
-    const fullBeats = beats.filter(b => b.verdict === 'full');
-    const firstTryFull = fullBeats.filter(b => !b.hint && (!b.turns || b.turns <= 1));
+    /* 「첫 시도에 설명 → 끝까지 설명」 (예전 이름 「질문 전 → 질문 후」 는 사전 측정처럼 읽혔다 — C-09).
+       끝까지 설명 = 스스로 설명한 질문(결과 헤드라인과 같은 수), 첫 시도에 설명 = 그중 첫 답·힌트 없이 설명한 것.
+       total 은 실제로 띄운 질문(안 물은 것 제외). */
+    const selfBeats = beats.filter(b => b.bucket === 'self');
+    const firstTry = selfBeats.filter(b => !b.hintUsed && (!b.turns || b.turns <= 1));
+    const asked = beats.filter(b => !b.unasked);
     return window.QaHistory.save(L.sessionId || 'live', {
       live: true,
-      aud: qa.aud || '청중',
+      // 어느 자료의 코칭인가 — 리포트가 다른 발표의 기록을 이 발표 것처럼 보이지 않게 (qaHistoryPanelHtml)
+      docKey: L.docKey || '',
+      aud: qaAudienceWord(),
       mode: qa.mode || 'full',
-      turns: beats.length,
-      before: firstTryFull.length, after: fullBeats.length, total: beats.length,
-      mastered: beats.filter(b => b.verdict === 'full').map(b => b.label),
-      weak: beats.filter(b => b.verdict === 'none').map(b => b.label),
+      turns: asked.length,
+      metric: 'first_try_to_self',
+      before: firstTry.length, after: selfBeats.length, total: asked.length,
+      mastered: selfBeats.map(b => b.label),
+      weak: asked.filter(b => b.bucket !== 'self').map(b => b.label),
       beats,
     });
   }

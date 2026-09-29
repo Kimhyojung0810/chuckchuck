@@ -151,33 +151,218 @@ export function voiceCommand(chunk, allowed = {}) {
 /* ─── 판정 · 읽어 주기 ──────────────────────────────────────────────────── */
 
 export const VERDICT_WORD = { good: '잘 답했어요', partial: '반쯤 왔어요', wrong: '자료와 달라요', unknown: '아직 모르겠어요' };
+/** 「모르겠어요」에 온 응답은 판정이 아니다 — pill 에 판정 낱말 대신 코치가 지금 하는 일을 적는다 (앱 qa_live coachMeta 와 같은 뜻) */
+export const COACH_WORD = { narrow: '같이 찾아봐요', scaffold: '빈칸을 채워요', explain: '답을 같이 풀어요', clarify: '질문을 다시 풀었어요' };
+/** 요지는 맞았는데(passed) 서버가 한 걸음 더 묻는 판정의 pill */
+export const PASSED_WORD = '요지는 맞아요';
+/** 3라운드 출구로 닫힌 질문 (서버 close_reason) — 설득(good)과 따로 말한다. 앱 결과 화면 칩과 같은 말 */
+export const CLOSE_WORD = { rounds: '요지는 통과했어요', guard: '자료와 다시 맞춰 봐요' };
+/** 이 칸(방향·범위·인용 다음)까지 힌트를 연 질문은 「도움 받아 답했어요」로 센다 — 셋째 칸부터 답에 가까워진다 */
+export const HINT_HELP_LEVEL = 3;
+
+const isText = (s) => typeof s === 'string' && !!s.trim();
 
 /** 질문의 힌트 사다리. 새 계약(hints[])이 있으면 그것, 없으면 옛 hint 한 칸. */
 export function hintLadder(q) {
-  if (Array.isArray(q && q.hints) && q.hints.length) return q.hints.filter((h) => typeof h === 'string' && h.trim());
-  return q && typeof q.hint === 'string' && q.hint.trim() ? [q.hint] : [];
+  if (Array.isArray(q && q.hints) && q.hints.length) return q.hints.filter(isText);
+  return q && isText(q.hint) ? [q.hint] : [];
 }
 
-/** 마지막 화면의 질문별 결과. 마지막 판정이 그 질문의 결과다 (다시 답하면 덮는다). */
-export function tally(questions, perQ) {
-  return (questions || []).map((q, i) => {
-    const vs = (perQ && perQ[q.id] && perQ[q.id].verdicts) || [];
-    const verdict = vs.length ? vs[vs.length - 1] : 'unknown';
-    return { no: i + 1, label: q.label || '질문', verdict, word: VERDICT_WORD[verdict] || verdict };
-  });
+/**
+ * 판정이 준 사다리와 지금 들고 있는 사다리 중 쓸 것. 판정본이 **짧지 않으면** 갈아탄다 — 짧아지면 안 버린다
+ * (분모가 「힌트 2/4」 다음에 「3/3」 으로 줄지 않게). 같은 길이도 갈아탄다 — 서버가 판정 뒤 넷째 칸을
+ * 「아직 안 나온 것」 으로 바꿔 끼운다 (앱 qa_live submitLiveAnswer 와 같은 규칙).
+ */
+export function mergeLadder(kept, incoming) {
+  const inc = Array.isArray(incoming) ? incoming.filter(isText) : [];
+  const cur = Array.isArray(kept) ? kept : [];
+  return inc.length && inc.length >= cur.length ? inc : cur;
+}
+
+/**
+ * 판정에 「보여 준 힌트」 로 실어 보낼 것 (09-30 H-14·B-08) — **사용자가 실제로 연 칸만**, 연 그때의 글 그대로.
+ * 예전엔 판정이 붙여 준 사다리 여섯 칸을 통째로 넣어, 한 번도 안 연 힌트까지 「본 힌트」 가 됐다.
+ * 「모르겠어요」 코칭이 방금 보기·빈칸으로 되물었으면 그 되물음도 싣는다 — 이번 답은 그 물음의 답이다.
+ */
+export function hintsForJudge(seen, lastJudgement) {
+  const opened = (Array.isArray(seen) ? seen : []).filter(isText);
+  return opened.concat(coachAsk(lastJudgement));
+}
+
+/** 방금 코칭이 던진 되물음(보기·빈칸). 코칭이 아니면 빈 배열 — 앱 qa_live liveCoachAsk 와 같은 모양 */
+export function coachAsk(j) {
+  return j && ['narrow', 'scaffold'].includes(j.coach_stage) && isText(j.followup) ? [`되물음: ${j.followup.trim()}`] : [];
+}
+
+/** 판정에 보낼 대화 — **이 질문의 턴만** (09-30 M-08: 끝난 질문 Q/A 가 react 에 새어 들었다). 앱 liveHistory 와 같다 */
+export function questionHistory(history, questionId) {
+  return (Array.isArray(history) ? history : []).filter((t) => t && t.question_id === questionId);
+}
+
+/**
+ * 이 질문에 **채점된** 답들 — 서버가 이 개수로 라운드를 센다 (f09 `_round_no`). 「모르겠어요」 턴과 되물음(clarify) 턴은 뺀다
+ * (09-30 B-10: 부스는 되물음 턴까지 누적 답으로 보내 라운드가 이유 없이 올랐다). 앱 liveScoredAnswers 와 같다.
+ */
+export function scoredAnswers(turns) {
+  return (Array.isArray(turns) ? turns : []).filter((t) => t && !t.giveUp && !t.clarify && isText(t.answer)).map((t) => t.answer.trim());
+}
+
+/** 서버가 이 질문을 닫았는가 (mastered). 옛 브리지(mastered 없음)는 good 만 닫는다. 코칭 응답은 닫지 않는다 (H-12·B-10) */
+export function judgementClosed(j) {
+  if (!j || j.coach_stage) return false;
+  return typeof j.mastered === 'boolean' ? j.mastered : j.verdict === 'good';
+}
+
+/**
+ * 서버가 길이 상한에서 자른 글(끝이 「…」)을 **마지막 온전한 문장까지**로 되돌린다 — 문장 한가운데서 끊긴 채 보이지 않게 (09-30 H-10:
+ * 「…PoC 단계에서 아이디어 및 개념 검증을 진행」 에서 끊긴 골자). 온전한 문장이 하나도 없으면 말줄임을 단 그대로 둔다.
+ * 안 잘린 글은 건드리지 않는다.
+ */
+export function wholeSentences(text) {
+  const t = String(text || '').trim();
+  if (!/(?:…|\.\.\.)$/.test(t)) return t;
+  const body = t.replace(/(?:…|\.\.\.)$/, '');
+  const end = /[.!?。](?:["'」』”’»)\]]*)(?=\s|$)/g;
+  let cut = -1;
+  for (let m = end.exec(body); m; m = end.exec(body)) cut = m.index + m[0].length;
+  return cut > 0 ? body.slice(0, cut).trim() : t;
+}
+
+/** 판정 풍선의 「빠진 것」 — 가드 사유 표기(「질문이 묻는 것:」「자료 N장과 어긋난 곳:」)는 결손이 아니다 (09-30 H-11·M-02) */
+export function cleanMissing(points) {
+  return (Array.isArray(points) ? points : [])
+    .filter(isText).map((m) => m.trim())
+    .filter((m) => !/^(?:질문이 묻는 것|자료\s*\d*\s*장?과 어긋난 곳)\s*:/.test(m));
+}
+
+/**
+ * 판정 한 풍선이 무엇을 보이고 무엇을 숨길지 (09-30 held-out H-10·H-11·H-12). 화면·읽어 주기가 같은 결과를 쓴다.
+ *
+ * - 머리: pill 한 낱말 + react. 총평(summary_sentence)은 **닫혔거나(mastered) 해설 단계일 때만** 붙인다 — 오답·절반
+ *   풍선에 붙이면 모범답을 흘린다 (H-11: 「…두 가지 과금 구조로 설계되어야 해요」 가 「자료와 달라요」 아래 붙었다).
+ * - 「모르겠어요」는 서버의 코칭 단계를 따른다 (H-10): narrow·scaffold 는 되물음 + 보기 칩 · explain 은 해설 · clarify 는
+ *   다시 푼 질문. 골자(answer_gist)는 **해설 단계에서 해설이 비었을 때만**, 함정이 아니면 쓴다. 예전엔 첫 「모르겠어요」에
+ *   (잘리고 틀린) 골자를 바로 보여 주고 답칸을 잠갔다.
+ * - 닫혔으면 되묻지 않는다 (H-12). 3라운드 출구로 닫힌 것은 pill 이 그렇다고 말한다(CLOSE_WORD).
+ * 판정 색은 pill 의 data-v(good·partial·wrong·unknown)로만 — 코칭 응답은 판정이 아니라 unknown(회색)이다.
+ */
+export function judgementView(j, { giveUp = false, answerGist = '', trap = false } = {}) {
+  if (!j) return null;
+  const stage = j.coach_stage || '';
+  const closed = judgementClosed(j);
+  // 닫힌 까닭 — 옛 브리지(close_reason 없음)는 good 이 아닌 닫힘을 라운드 출구로 읽는다 (qa_mastered 가 그 길뿐이다)
+  const reason = closed ? (j.close_reason || (j.verdict === 'good' ? 'good' : 'rounds')) : '';
+  let verdict = stage ? 'unknown' : (j.verdict || 'unknown');
+  let word = stage ? (COACH_WORD[stage] || COACH_WORD.narrow) : (VERDICT_WORD[verdict] || verdict);
+  if (CLOSE_WORD[reason]) { word = CLOSE_WORD[reason]; verdict = 'partial'; }
+  // 70~79 통과(요지는 맞음)인데 아직 한 걸음 더 묻는 판정 — 「반쯤 왔어요」 가 아니다. 앱 qa_live 칩과 같은 규칙 (09-30 §10)
+  else if (!stage && !closed && j.verdict === 'partial' && j.passed === true) { word = PASSED_WORD; verdict = 'good'; }
+  const showSummary = closed || stage === 'explain';
+  const text = [j.react, showSummary ? j.summary_sentence : ''].filter(isText).map((s) => s.trim()).join(' ');
+  const missing = reason === 'good' || stage ? [] : cleanMissing(j.missing_points);
+  let tail = null;
+  if (stage === 'explain' || (giveUp && !stage && isText(j.explanation))) {
+    // 해설 — 서버 해설이 먼저. 비었을 때만 골자로 (함정의 골자는 바로잡은 사실 그 자체라 안 쓴다)
+    const ex = wholeSentences(j.explanation) || (trap ? '' : wholeSentences(answerGist));
+    if (ex) tail = { kind: 'explain', text: ex, choices: [] };
+  } else if (!closed && isText(j.followup)) {
+    const choices = stage ? (Array.isArray(j.choices) ? j.choices.filter(isText).map((c) => c.trim()).slice(0, 4) : []) : [];
+    tail = { kind: 'followup', text: j.followup.trim(), choices };
+  }
+  return { verdict, word, text, missing, missingHead: closed ? '다시 볼 것' : '빠진 것', tail, closed, stage };
 }
 
 /**
  * 코치가 소리 내어 읽을 문장. **화면에 있는 말만** 읽는다 — 화면과 다른 말을 하면
- * 소리가 데이터를 가린다 (UI_REDESIGN §14). 포기했거나 코치가 설명 단계면 정답 요지를,
- * 아니면 되묻기를 붙인다.
+ * 소리가 데이터를 가린다 (UI_REDESIGN §14). judgementView 가 풍선에 담은 것(반응·총평·되묻기/해설)을 그대로 읽는다.
  */
-export function speakableJudgement(j, { giveUp = false, answerGist = '' } = {}) {
-  if (!j) return '';
-  const parts = [j.react, j.summary_sentence];
-  if (giveUp || j.coach_stage === 'explain') parts.push(j.explanation || answerGist);
-  else parts.push(j.followup);
-  return parts.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()).join(' ');
+export function speakableJudgement(j, opts = {}) {
+  const v = judgementView(j, opts);
+  if (!v) return '';
+  return [v.text, v.tail ? v.tail.text : ''].filter(isText).map((s) => s.trim()).join(' ');
+}
+
+/** 「모르겠어요」 버튼 이름 — 서버 사다리(narrow → scaffold → explain)를 따라 다음에 무슨 일이 생길지 미리 말한다.
+    앱 qa_live stuckLabelFor 와 같은 말 (09-30 L-01: 첫 「모르겠어요」 부터 「답 볼게요」 라고 했는데 서버는 되물음 단계였다) */
+export function giveupLabel(gaveUpCount) {
+  if (gaveUpCount >= 2) return '그래도 모르겠어요 · 답 보기';
+  if (gaveUpCount === 1) return '그래도 모르겠어요 · 빈칸으로';
+  return '모르겠어요';
+}
+
+/** 내 말풍선에 남길 「모르겠어요」 — 자리표시자 「(모르겠어요)」 가 그대로 보이지 않게. 적어 둔 글이 있으면 그 글이다 */
+export function giveupSaid(typed) {
+  return isText(typed) ? typed.trim() : '모르겠어요';
+}
+
+/**
+ * 판정·질문 응답의 폴백 표시를 짧은 사람 말로 (09-30 WP-B degraded). 자료 본문 없이 판정했으면(grounded_on_deck=false) 그렇다고 한다.
+ * 서버가 만든 질문을 못 찾은 것(grounded_on_server=false · question_unverified·question_mismatch)은 사용자가 할 일이 없어
+ * 화면에 싣지 않는다 — 개발 로그 몫이다.
+ */
+const DEV_ONLY_DEGRADED = new Set(['question_unverified', 'question_mismatch']);
+export function degradedLines(res) {
+  if (!res || typeof res !== 'object') return [];
+  const codes = Array.isArray(res.degraded) ? res.degraded : [];
+  const notes = Array.isArray(res.degraded_notes) ? res.degraded_notes : [];
+  const out = [];
+  notes.forEach((n, i) => { if (isText(n) && !DEV_ONLY_DEGRADED.has(codes[i])) out.push(n.trim()); });
+  if (res.grounded_on_deck === false && !codes.includes('slide_doc_missing')) out.push('자료 본문 없이 판정했어요.');
+  return [...new Set(out)];
+}
+
+/** 개발 로그로만 남길 폴백 (화면에는 안 싣는다) */
+export function devOnlyDegraded(res) {
+  if (!res || typeof res !== 'object') return [];
+  const codes = Array.isArray(res.degraded) ? res.degraded.filter((c) => DEV_ONLY_DEGRADED.has(c)) : [];
+  return res.grounded_on_server === false && !codes.length ? ['grounded_on_server=false'] : codes;
+}
+
+/**
+ * 질문 아래 이유 한 줄. 함정 질문은 서버 이유가 「질문이 말한 내용이 자료와 같은지 먼저 따져 보는 연습이에요」 라 **함정임을
+ * 알려 준다** (09-30 B-01·H-07) — 다른 질문과 같은 모양이어야 하므로 장만 가리키는 중립 문장으로 바꾼다.
+ */
+export function questionWhy(q) {
+  if (!q) return '';
+  if (q.trap) {
+    const nos = [...new Set((q.slide_nos || []).map(Number).filter((n) => n > 0))];
+    return `${nos.length ? `자료 ${nos.join('·')}장을` : '자료를'} 근거로 설명할 수 있는지 보려고 물어요.`;
+  }
+  return isText(q.why) ? q.why.trim() : '';
+}
+
+/** 요청 제한·AI 서버 지연으로 기다렸다가 다시 보낼 때의 안내 (09-30 H-15). 몇 초 남았는지 보인다 */
+export function retryWaitText(secondsLeft, reason = 'rate') {
+  const n = Math.max(0, Math.ceil(Number(secondsLeft) || 0));
+  if (reason === 'upstream') return n > 0 ? `AI 서버가 늦어서 ${n}초 뒤에 한 번 더 보낼게요.` : '한 번 더 보내는 중이에요.';
+  return n > 0 ? `요청이 몰려서 잠깐 기다렸다 다시 보낼게요 · ${n}초` : '다시 보내는 중이에요.';
+}
+
+/**
+ * 마지막 화면의 질문별 결과 (09-30 held-out H-12·H-13) — 마지막 판정 낱말을 그대로 옮기지 않고 무슨 일이 있었는지 적는다.
+ *   안 물었어요 (한 번도 안 띄웠다) · 답하기 전에 마쳤어요 (띄웠는데 답이 없다)
+ *   잘 답했어요 (도움 없이 닫힘) · 도움 받아 답했어요 (코칭·해설·힌트 셋째 칸 뒤에 닫힘)
+ *   요지는 통과했어요 · 자료와 다시 맞춰 봐요 (3라운드 출구) · 답을 같이 풀었어요 (해설을 봤고 안 닫힘)
+ *   그 밖 — 닫히지 않은 마지막 판정 낱말 (반쯤 왔어요·자료와 달라요·아직 모르겠어요)
+ * verdict(data-v)는 판정 색 넷(good·partial·wrong·unknown) + 회색 unasked 만 쓴다.
+ * 옛 모양(verdicts 만 있고 closed 가 없는 기록)은 마지막 판정이 good 이면 닫힌 것으로 읽는다.
+ */
+export function tally(questions, perQ) {
+  return (questions || []).map((q, i) => {
+    const p = (perQ && perQ[q.id]) || {};
+    const vs = Array.isArray(p.verdicts) ? p.verdicts : [];
+    const row = (verdict, word) => ({ no: i + 1, label: q.label || '질문', verdict, word });
+    if (!vs.length) return p.asked ? row('unasked', '답하기 전에 마쳤어요') : row('unasked', '안 물었어요');
+    const last = vs[vs.length - 1];
+    const closed = p.closed === undefined ? last === 'good' : !!p.closed;
+    if (closed) {
+      if (CLOSE_WORD[p.closeReason]) return row('partial', CLOSE_WORD[p.closeReason]);
+      const helped = !!(p.coached || p.explained || (p.hintLevel || 0) >= HINT_HELP_LEVEL);
+      return helped ? row('partial', '도움 받아 답했어요') : row('good', VERDICT_WORD.good);
+    }
+    if (p.explained) return row('unknown', '답을 같이 풀었어요');
+    return row(VERDICT_WORD[last] ? last : 'unknown', VERDICT_WORD[last] || VERDICT_WORD.unknown);
+  });
 }
 
 /* ─── 통화 모드 — 화상통화처럼 내 모습 위로 질문·자막·판정이 오간다 ─────── */
@@ -208,38 +393,27 @@ export function countdownText(secondsLeft) {
 }
 
 /**
- * 상대 말풍선 목록 — 판정 하나를 통화의 말풍선 몇 개로 나눈다.
- * 화면 카드와 같은 재료(react·summary·missing·followup·explanation)만 쓴다. 판정 색은 pill 로만.
+ * 상대 말풍선 목록 — 판정 하나를 통화의 말풍선 몇 개로 나눈다 (judgementView 를 조각으로 편 것).
+ * 화면 카드와 같은 재료만 쓴다. 판정 색은 pill 로만.
  */
-export function judgementBubbles(j, { giveUp = false, answerGist = '' } = {}) {
-  if (!j) return [];
-  const v = j.verdict || 'unknown';
-  const out = [];
-  const head = [j.react, j.summary_sentence].filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()).join(' ');
-  out.push({ kind: 'verdict', verdict: v, text: head });
-  const missing = Array.isArray(j.missing_points) ? j.missing_points.filter((m) => typeof m === 'string' && m.trim()) : [];
-  if (missing.length) out.push({ kind: 'missing', verdict: v, items: missing });
-  if (giveUp || j.coach_stage === 'explain') {
-    const ex = (typeof j.explanation === 'string' && j.explanation.trim()) || (answerGist || '').trim();
-    if (ex) out.push({ kind: 'explain', verdict: v, text: ex });
-  } else if (typeof j.followup === 'string' && j.followup.trim()) {
-    out.push({ kind: 'followup', verdict: v, text: j.followup.trim() });
-  }
+export function judgementBubbles(j, opts = {}) {
+  const v = judgementView(j, opts);
+  if (!v) return [];
+  const out = [{ kind: 'verdict', verdict: v.verdict, text: v.text }];
+  if (v.missing.length) out.push({ kind: 'missing', verdict: v.verdict, items: v.missing });
+  if (v.tail) out.push({ kind: v.tail.kind, verdict: v.verdict, text: v.tail.text });
   return out;
 }
 
 /**
  * 판정 한 풍선 — 9/23 사용자: "판정 뒤에 말풍선 쌓이는 것도 최근 하나만 남게".
- * judgementBubbles 의 조각(반응+요약 · 빠진 것 · 되묻기/정답 요지)을 버리지 않고 한 풍선에 담는다.
+ * judgementView 의 조각(반응+요약 · 빠진 것 · 되묻기/해설 · 보기)을 버리지 않고 한 풍선에 담는다.
  * 화면은 이 풍선 하나로 앞 풍선(질문·내 답·힌트)을 갈아 끼운다. 판정 색은 pill 로만 — 숫자·판정은 잃지 않는다.
  */
 export function judgementBubble(j, opts = {}) {
-  const parts = judgementBubbles(j, opts);
-  if (!parts.length) return null;
-  const head = parts.find((b) => b.kind === 'verdict');
-  const missing = parts.find((b) => b.kind === 'missing');
-  const tail = parts.find((b) => b.kind === 'followup' || b.kind === 'explain') || null;
-  return { verdict: head.verdict, text: head.text, missing: missing ? missing.items : [], tail: tail ? { kind: tail.kind, text: tail.text } : null };
+  const v = judgementView(j, opts);
+  if (!v) return null;
+  return { verdict: v.verdict, word: v.word, text: v.text, missing: v.missing, missingHead: v.missingHead, tail: v.tail, closed: v.closed, stage: v.stage };
 }
 
 /* ─── 발표 모드 — 실시간 말하기 피드백 (9/23) ───────────────────────────────

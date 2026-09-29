@@ -193,8 +193,18 @@ body.cf-open .sidenav, body.cf-open .topbar { visibility: hidden; }
   .cf-rec { order: -1; flex-basis: 100%; }
   /* Q&A: 작은 창은 오른쪽 위, 말은 화면 아래 절반 */
   .cf-call[data-mode="qa"] .cf-slides { top: calc(var(--cf-top-h) + 2 * var(--cf-gap)); bottom: auto; }
-  .cf-talk { width: auto; right: var(--cf-gap); top: 38%; }
-  .cf-answer.card.qa-live-input { max-height: 55%; }
+  .cf-talk { width: auto; right: var(--cf-gap); top: 34%; gap: 8px; }
+  /* 답 칸은 내용만큼만 — 390px 에서 답 칸이 화면 아래 40% 를 덮어 코칭 말풍선·보기 칩을 가렸고, 「답 보고 다시 말해보기」
+     「여기까지 하고 저장」 은 칸 안 스크롤 밑(화면 밖)으로 밀렸다 (09-30 held-out M-13). 머리말·빈칸 높이·버튼 여백을 줄여
+     버튼이 전부 한 화면에 들어오게 한다. 누를 곳은 36px 아래로 줄이지 않는다 */
+  .cf-answer.card.qa-live-input { max-height: none; overflow: visible; padding: 10px; gap: 6px; }
+  .cf-answer .qa-input-label:not(.is-retell):not(.is-end) { display: none; }   /* 빈칸 안내(placeholder)가 같은 말을 한다 */
+  .cf-answer textarea { min-height: 48px; height: 52px; padding-top: 8px; padding-bottom: 8px; }
+  .cf-answer .step-actions { margin-top: 0; gap: 6px; }
+  .cf-answer .step-actions .btn { min-height: 44px; height: 44px; padding: 0 14px; font-size: 14px; }
+  .cf-answer .step-actions-sub { margin-top: 0; gap: 0 2px; }
+  .cf-answer .step-actions-sub .btn { min-height: 36px; height: 36px; padding: 0 8px; font-size: 13px; }
+  .cf-stream .qa-note-line { box-shadow: 0 4px 14px rgba(0, 0, 0, .22); }
 }
 @media (prefers-reduced-motion: reduce) {
   .cf-stage, .cf-call .btn { transition: none; }

@@ -754,9 +754,60 @@ async function qaApi(path, { method = 'GET', json, form, timeoutMs = QA_TIMEOUT_
     const err = new Error(d.message || d.error || `HTTP ${res.status}`);
     err.code = d.error || '';
     err.status = res.status;
+    // 429·503 이 주는 기다릴 초와 요청 제한 표시 — judgeRetryPlan 이 읽는다 (09-30 H-15)
+    err.retryAfter = Number(d.retry_after) || 0;
+    err.rateLimited = d.rate_limited === true || res.status === 429;
     throw err;
   }
   return data;
+}
+
+/** 요청 제한(429)이면 몇 번까지 기다렸다 다시 보내나. 세 번째도 막히면 사람에게 넘긴다 */
+const JUDGE_RATE_RETRIES = 2;
+
+/**
+ * 판정 요청이 실패했을 때 다시 보낼지 (09-30 held-out H-15). 순수 함수 — tests/js/qa_live.smoke.mjs 가 이 이름으로 잘라 시험한다.
+ *
+ * - 요청 제한(429 rate_limited): 서버가 준 retry_after(없으면 5초, 1~60초로 자름)만큼 기다렸다가 다시 — 두 번까지.
+ *   예전엔 한 번 막히면 「판정 실패」 로 끝나 「답 보고 다시 말해보기」 출구가 열렸고, 그 질문이 결과·리포트에 「넘긴 질문」 으로 남았다.
+ * - AI 서버 지연·끊김(503 upstream_*): 한 번만 다시 (retry_after, 1~10초).
+ * - 그 밖(세션 없음·서버 끊김·잘못된 요청 등)은 다시 보내지 않는다 — 호출부가 따로 다룬다.
+ * @returns {{ retry: boolean, waitSec: number, reason: '' | 'rate' | 'upstream' }}
+ */
+function judgeRetryPlan(err, attempt) {
+  const code = (err && err.code) || '';
+  const clampWait = (sec, fallback, max) => {
+    const n = Number(sec);
+    return Math.min(max, Math.max(1, Number.isFinite(n) && n > 0 ? Math.ceil(n) : fallback));
+  };
+  if (err && (err.rateLimited || err.status === 429 || code === 'rate_limited')) {
+    return attempt < JUDGE_RATE_RETRIES
+      ? { retry: true, waitSec: clampWait(err.retryAfter, 5, 60), reason: 'rate' }
+      : { retry: false, waitSec: 0, reason: 'rate' };
+  }
+  if (err && err.status === 503 && /^upstream_/.test(code)) {
+    return attempt < 1
+      ? { retry: true, waitSec: clampWait(err.retryAfter, 3, 10), reason: 'upstream' }
+      : { retry: false, waitSec: 0, reason: 'upstream' };
+  }
+  return { retry: false, waitSec: 0, reason: '' };
+}
+
+/**
+ * sec 초를 기다리며 1초마다 onWait({ left, total, reason }) 를 부른다. 마지막에 left=0 으로 한 번 더 (「다시 보내는 중」).
+ * stillWanted() 가 거짓이 되면(다음 질문으로 갔다) 바로 멈춘다 — 60초를 다 기다리는 동안 새 질문의 답이 막히지 않게.
+ */
+async function waitWithCountdown(sec, reason, onWait, stillWanted = null) {
+  const until = Date.now() + sec * 1000;
+  for (;;) {
+    if (typeof stillWanted === 'function' && !stillWanted()) return;
+    const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+    if (typeof onWait === 'function') {
+      try { onWait({ left, total: sec, reason }); } catch (_) { /* 화면 쪽 오류가 재시도를 막지 않게 */ }
+    }
+    if (left <= 0) return;
+    await new Promise((resolve) => setTimeout(resolve, Math.max(50, Math.min(1000, until - Date.now()))));
+  }
 }
 
 /**
@@ -816,8 +867,31 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
  * **자료 근거(graph·alignment·transcript)도 반드시 실린다.** 없으면 "자료와 어긋난다"를
  * 대조할 원본이 없고 함정 질문의 핵심 규칙(잘못된 전제를 바로잡았는가)이 짐작이 된다.
  * 평소에는 session_id 로만 보내고, 세션이 날아갔으면(브리지 재시작) 다시 등록하고 재시도한다.
+ *
+ * 요청 제한(429)·AI 서버 지연(503 upstream_*)이면 judgeRetryPlan 대로 기다렸다가 같은 답을 다시 보낸다 (09-30 H-15).
+ * 기다리는 동안 onWait({ left, total, reason }) 로 남은 초를 알린다 — 화면이 「잠깐 기다렸다 다시 보낼게요」 를 센다.
+ * stillWanted() 가 거짓이면(그새 다음 질문으로 갔거나 화면을 떠났으면) 다시 보내지 않고 code='cancelled' 로 끝낸다.
+ * 끝까지 막히면 마지막 오류를 그대로 던진다 (err.rateLimited 가 참이면 요청 제한 — 판정 실패 출구로 세지 않는다).
  */
-export async function judgeQaAnswer(sessionId, { questionId, answer, history, question, giveUp, priorAnswers, hintsShown, artifacts }) {
+export async function judgeQaAnswer(sessionId, { onWait = null, stillWanted = null, ...req }) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await judgeOnce(sessionId, req);
+    } catch (err) {
+      const plan = judgeRetryPlan(err, attempt);
+      if (!plan.retry) throw err;
+      console.info(`[chuckchuck] 판정 ${plan.reason === 'rate' ? '요청 제한' : 'AI 서버 지연'} — ${plan.waitSec}초 뒤 다시 보내요 (${attempt + 1}번째)`);
+      await waitWithCountdown(plan.waitSec, plan.reason, onWait, stillWanted);
+      if (typeof stillWanted === 'function' && !stillWanted()) {
+        const cancelled = new Error('판정을 기다리는 사이 화면이 바뀌어서 다시 보내지 않았어요.');
+        cancelled.code = 'cancelled';
+        throw cancelled;
+      }
+    }
+  }
+}
+
+async function judgeOnce(sessionId, { questionId, answer, history, question, giveUp, priorAnswers, hintsShown, artifacts }) {
   const sid = sessionId || 'flat';
   const body = {
     session_id: sid,
@@ -975,21 +1049,35 @@ export async function startAnswerRecording({ onAutoStop } = {}) {
 }
 
 /**
+ * 답변 받아쓰기에 세션 id 를 실을지 (09-30 H-15 — 브리지는 요청 제한을 세션마다 센다. 세션 id 가 없으면 한 공유기 뒤 여러 기기가
+ * IP 칸 하나를 나눠 쓴다). **지금은 끈다:** 브리지 `_handle_transcribe` 가 session_id 가 실린 받아쓰기 결과를 그 세션의
+ * 발표 받아쓰기 캐시(transcript.json — 동의와 무관하게 남는 캐시 종류)로 보관한다. 답변 한 마디가 리허설 받아쓰기를 덮으면
+ * 새로고침 복구(/api/v1/cached/transcript)·「저장해 둔 녹음으로 이어서」·기억(F-25)이 남의 말(답변)을 읽는다.
+ * 브리지가 purpose=qa_answer 받아쓰기를 보관하지 않게 바뀌면 true 로 켠다.
+ */
+const ANSWER_STT_SENDS_SESSION = false;
+
+/** 답변 받아쓰기 요청 본문. 순수 함수 — tests/js/qa_live.smoke.mjs 가 이 이름으로 잘라 시험한다 */
+function answerSttBody({ sessionId = null, audioBase64 = '', ext = '', sendSession = ANSWER_STT_SENDS_SESSION } = {}) {
+  // session_id 를 맨 앞에 둔다 — 브리지는 큰 본문(녹음)을 다 풀지 않고 정규식으로 이 열쇠를 찾는다 (_SESSION_ID_RE). 앞에 있으면 바로 걸린다
+  const head = sendSession && sessionId ? { session_id: String(sessionId) } : {};
+  return { ...head, purpose: 'qa_answer', marks: [], audio_base64: audioBase64, ext };
+}
+
+/**
  * 답변 녹음 한 덩이 → 텍스트 (F-05). 슬라이드 마크 없이 전문만 쓴다.
  *
  * **여기서 답을 보내지 않는다.** 잘못 알아들은 문장을 고칠 틈 없이 판정으로
  * 넘어가면, 마이크가 타이핑보다 못한 입력이 된다.
  */
-export async function transcribeAnswer(blob) {
+export async function transcribeAnswer(blob, { sessionId = null } = {}) {
   if (!blob || !blob.size) throw new Error('녹음된 소리가 없어요.');
   const res = await fetchWithTimeout(apiBase() + '/api/v1/transcribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      marks: [],
-      audio_base64: await blobToBase64(blob),
-      ext: audioExt({ mimeType: blob.type }),
-    }),
+    body: JSON.stringify(answerSttBody({
+      sessionId, audioBase64: await blobToBase64(blob), ext: audioExt({ mimeType: blob.type }),
+    })),
   }, TRANSCRIBE_TIMEOUT_MS, '받아쓰기');
   const t = await readJson(res, '받아쓰기');
   if (!res.ok || t.error) {
