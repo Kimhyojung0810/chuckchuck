@@ -42,12 +42,13 @@ from chuckchuck import (  # noqa: E402
     parse_document,
     transcribe,
 )
-from chuckchuck.contracts import ConceptDoc, HabitDoc, PaceDoc, SlideDoc, SlideMark  # noqa: E402
+from chuckchuck.contracts import ConceptDoc, HabitDoc, PaceDoc, SlideDoc, SlideMark, Transcript  # noqa: E402
 
 from demo.learning_jobs import refresh_learning_assets  # noqa: E402
 from demo.rate_limit import RateLimiter  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
+from demo import clova_transcript  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
@@ -837,6 +838,15 @@ class Handler(SimpleHTTPRequestHandler):
                 "audio_sec": _probe_audio_sec(audio) if audio else 0,
                 "cached_session_id": None,
             }
+            # 오디오 없이 클로바 전사(.txt)만 있으면 그걸 녹음처럼 쓴다 — 받을 땐 표식 박힌 무음 WAV,
+            # /transcribe 가 그 표식을 보면 STT 대신 전사로 Transcript 를 만든다 (demo/clova_transcript.py).
+            if audio is None and entry.is_dir():
+                clova = clova_transcript.find_clova_txt(files)
+                if clova is not None:
+                    row["audio"] = clova.stem + " (전사).wav"
+                    row["audio_sec"] = clova_transcript.duration_of(clova)
+                    row["audio_bytes"] = int(row["audio_sec"] * 8000)
+                    row["clova_txt"] = clova.name
             try:
                 sha = hashlib.sha256(deck.read_bytes()).hexdigest()
                 row["cached_session_id"] = ARCHIVE.find_by_sha256(sha)
@@ -863,6 +873,14 @@ class Handler(SimpleHTTPRequestHandler):
         if row is None:
             return self._json(404, {"error": "no_deck", "message": "그 이름의 발표자료 폴더가 없어요."})
         base = DECKS_DIR / key
+        if kind == "audio" and row.get("clova_txt"):
+            data = clova_transcript.marked_silence(key, float(row["audio_sec"] or 0))
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/wav")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         fname = row["deck"] if kind == "deck" else row["audio"]
         if not fname:
             return self._json(404, {"error": "no_audio", "message": "이 덱에는 녹음 파일이 없어요."})
@@ -1431,6 +1449,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         audio_b64 = body.get("audio_base64")
         audio_path: str | None = None
+        clova_out: dict | None = None
         if audio_b64:
             import base64
             import binascii
@@ -1450,6 +1469,13 @@ class Handler(SimpleHTTPRequestHandler):
             # 확장자가 실제 포맷과 다르면 STT 가 파일을 못 읽는다 — 프런트가 파일명에서 뽑아 보낸다
             ext = _safe_audio_ext(body.get("ext"))
             sys.stderr.write(f"[bridge] F-05 transcribe audio bytes={len(audio_bytes)} ext={ext}\n")
+            # 개발용: #/test/qa 가 내려준 표식 박힌 무음 WAV 면 STT 대신 그 덱 폴더의 클로바 전사를 쓴다.
+            marked = clova_transcript.marked_deck_key(audio_bytes) if DEV_ROUTES else None
+            if marked is not None:
+                row = next((r for r in self._deck_entries() if r["key"] == marked and r.get("clova_txt")), None)
+                if row is not None:
+                    clova_out = clova_transcript.transcript_dict(DECKS_DIR / marked / row["clova_txt"])
+                    sys.stderr.write(f"[bridge] F-05 transcribe → 클로바 전사 {row['clova_txt']} (개발용)\n")
             with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
                 tmp.write(audio_bytes)
                 audio_path = tmp.name
@@ -1472,7 +1498,7 @@ class Handler(SimpleHTTPRequestHandler):
             Path(audio_path).write_text("", encoding="utf-8")
 
         try:
-            t = transcribe(audio_path, marks, provider=provider)
+            t = Transcript.from_dict(clova_out) if clova_out else transcribe(audio_path, marks, provider=provider)
             out = t.to_dict()
 
             # 업로드본에는 슬라이드 전환 기록이 없어 프런트가 균등 분할 marks 를
