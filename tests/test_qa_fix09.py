@@ -218,7 +218,7 @@ def test_요인의_수치를_바꿔_붙인_답은_통과하지_못한다():
     v = judge_answer(Q_BEHAVIOR, BEHAVIOR_C, graph=GAP_GRAPH, slidedoc=GAP, llm=llm)
     assert not v.passed and v.score <= 55
     assert "정확" not in v.react and "자료 5장" in v.react
-    assert v.missing_points[0].startswith("자료 5장과 어긋난 곳")
+    assert v.guard_reason.startswith("자료 5장과 어긋난 곳")     # 09-30 §6: 가드 사유는 결손과 따로
     assert "5장" in v.followup
 
 

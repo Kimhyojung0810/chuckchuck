@@ -79,10 +79,20 @@ def _same(a: str, b: str) -> bool:
     return a.startswith(b) or b.startswith(a)
 
 
-def content_stems(text: str) -> list[str]:
-    """대조용 줄기 목록 (문장 순서). 한 글자·상투어는 버린다."""
+def content_stems(text: str, *, drop_units: bool = False) -> list[str]:
+    """대조용 줄기 목록 (문장 순서). 한 글자·상투어는 버린다.
+
+    drop_units 면 숫자에 바로 붙은 글자(「48만원」의 만원 · 「1년차엔」의 년차)를 단위 조각으로 보고 뺀다 — 「같은 말을 하는
+    줄인가」(방향·부정 대조)를 볼 때만. 09-30 실측(수익률 함정 Q3): 「1,000만원 넣었을 때 1년차엔 48만원 차이라 체감이 안
+    되지만」 이 자료 줄 「체감하기 어려운 수준의 차이 5년차 307만원」 과 **만원·년차** 덕에 「거의 같은 말」(겹침 4/6)로 잡혀
+    부정 어긋남 55 를 받았다. 숫자 짝 대조에서는 단위 조각이 「그 숫자의 줄」 을 알아보는 단서라 남긴다.
+    """
     out: list[str] = []
-    for w in _WORD_RE.findall(text or ""):
+    src = text or ""
+    for m in _WORD_RE.finditer(src):
+        w = m.group(0)
+        if drop_units and m.start() > 0 and src[m.start() - 1].isdigit():
+            continue
         if len(w) < MIN_STEM or _is_generic(w):
             continue
         s = _stem(w)
@@ -102,11 +112,30 @@ class Num:
     negative: bool
     start: int
     end: int
+    #: 소수 자릿수 — 「8.7」 은 1, 「9」 는 0. 반올림한 같은 값인지(`close_value`) 볼 때 덜 정밀한 쪽에 맞춘다.
+    decimals: int = 0
 
     def same_value(self, other: "Num") -> bool:
         if abs(self.value - other.value) > 1e-9:
             return False
         return self.unit is None or other.unit is None or self.unit == other.unit
+
+    def close_value(self, other: "Num") -> bool:
+        """
+        같은 값이거나, **덜 정밀한 쪽으로 반올림하면 같은 값**인가 (8.7 ↔ 9 · 7.9 ↔ 8 · 11.8 ↔ 12).
+
+        09-30 실측(수익률 함정 Q4·Q5): 자료 3장 차트 표는 「시장지수 9 · 기관 8」, 본문은 「지수 8.7% vs 기관 7.9%」 — 같은 사실의
+        두 표기다. 본문 값 「8.7」 로 바로잡은 답이 차트 값 9 와 다르다고 함정 동의 wrong 30 을 받았다.
+        두 값의 정밀도가 같으면 반올림 허용이 없다(8 ↔ 9 는 다른 값).
+        """
+        if self.unit is not None and other.unit is not None and self.unit != other.unit:
+            return False
+        if abs(self.value - other.value) <= 1e-9:
+            return True
+        if self.decimals == other.decimals:
+            return False
+        prec = min(self.decimals, other.decimals)
+        return abs(self.value - other.value) <= 0.5 * 10 ** -prec + 1e-9
 
 
 #: 「1, 2, 3장」「4~7장」 — 나열 전체가 장 번호다. 마지막 숫자에만 「장」 이 붙어 앞 숫자가 사실 숫자로 잡힌다.
@@ -127,7 +156,8 @@ def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
         value = float(raw.replace(",", ""))
         if skip_years and not unit and "." not in raw and 1900 <= value <= 2100:
             continue
-        out.append(Num(value, _UNIT_CLASS.get(unit.lower(), unit or None), bool(sign), m.start(), m.end()))
+        decimals = len(raw.split(".")[1]) if "." in raw else 0
+        out.append(Num(value, _UNIT_CLASS.get(unit.lower(), unit or None), bool(sign), m.start(), m.end(), decimals))
     return out
 
 
@@ -141,12 +171,21 @@ _DOWN = ("낮", "적은", "적어", "적었", "적다", "줄", "감소", "하락
          "약하", "약한", "약했", "약함", "약해", "짧", "느리", "느려", "느렸", "악화", "하회", "뒤지", "뒤졌", "뒤처", "못미", "못 미")
 
 
+#: 방향 줄기 뒤에 와도 되는 꼬리 — 활용 어미·명사형·조사. 09-30 레드팀: 앞머리만 보니 「낮잠·줄거리」 가 감소, 「긴장·개선안」 이
+#: 증가로 읽혔다. 줄기 뒤가 이 꼴일 때만 방향 낱말이다(어느 분야에나 같은 한국어 문법).
+_DIR_TAIL_RE = re.compile(
+    r"^(?:$|하|되|된|돼|했|됐|함|됨|해|아|어|았|었|여|였|게|고|다|은|는|을|음|지|기|면|며|겠|습|니|이|인|일|임|던|도록|수록|"
+    r"리|려|렸|린|릴|립|추|춰|췄|춘|출|춥|입|합|됩|집|웁|"
+    r"가|를|의|로|와|과|에|도|만|요|세요|죠|네)"
+)
+
+
 def direction(word: str) -> str:
-    """낱말 하나의 방향 — 'up' · 'down' · ''."""
+    """낱말 하나의 방향 — 'up' · 'down' · ''. 방향 줄기 + 활용 꼬리일 때만 (`_DIR_TAIL_RE`)."""
     w = word.lower()
-    if any(w.startswith(p) for p in _UP):
+    if any(w.startswith(p) and _DIR_TAIL_RE.match(w[len(p):]) for p in _UP):
         return "up"
-    if any(w.startswith(p) for p in _DOWN):
+    if any(w.startswith(p) and _DIR_TAIL_RE.match(w[len(p):]) for p in _DOWN):
         return "down"
     return ""
 
@@ -159,11 +198,22 @@ def directions(text: str) -> set[str]:
 
 
 #: 서술의 부정. 「A 가 아니라 B」 「A 가 아닌 B」 는 대조라 부정이 아니다. 「없이」 는 부사다.
-_NEG_RE = re.compile(r"않|(?:^|\s)못(?:\s|하|했|해)|(?:^|\s)안\s+[가-힣]|없(?!이)|아니(?!라)|아닙|아닌(?=\s*(?:$|[.,]))")
+#: 「아니라고·아니라서·아니라면」 은 대조가 아니라 **부정**이다(인용·이유·조건) — 09-30 실측(녹음 수면 Q2): 「자료는 반대로 잠은
+#: 하나의 상태가 **아니라고** 했어요」 가 긍정으로 읽혀, 판정 react 의 「…아니다」 와 반대라는 자기모순 partial 60 을 받았다.
+#: 「X 아니고 Y」 도 대조다(09-30 레드팀) · 「없애다·없앴다」 는 부정이 아니라 동사다.
+_NEG_RE = re.compile(
+    r"않|(?:^|\s)못(?:\s|하|했|해)|(?:^|\s)안\s+[가-힣]|없(?![이애앴앤앨])|아니(?!라(?![고서면며는]))(?!고(?:\s|,))|아닙|"
+    r"아닌(?=\s*(?:$|[.,]))"
+)
+#: 양보의 부정 — 「확인 안 해도」「가까이 없어도」「않아도」 는 「…해도 그렇다」 는 말이지 명제를 뒤집는 부정이 아니다.
+#: 09-30 실측(focus Q6): 「알림은 확인 안 해도 주의를 끌고」 ↔ 판정 「확인 없이도 주의가 끌리는」 이 부정 반대로 읽혔다.
+_CONCESSIVE_NEG_RE = re.compile(
+    r"(?:^|\s)안\s+[가-힣]*(?:도|더라도)(?=[\s,.]|$)|[가-힣]*(?:않|없|아니)(?:어도|아도|더라도|이도|어서도)(?=[\s,.]|$)"
+)
 
 
 def negated(text: str) -> bool:
-    return bool(_NEG_RE.search(text or ""))
+    return bool(_NEG_RE.search(_CONCESSIVE_NEG_RE.sub(" ", text or "")))
 
 
 _SUPERLATIVE_RE = re.compile(r"가장|제일")
@@ -181,6 +231,9 @@ class DeckLine:
     stems: tuple[str, ...]
     nums: tuple[Num, ...]
     is_row: bool = False
+    #: 표 행의 **맥락 낱말** — 표 바로 위 제목 줄(「연간 회전율 구간별 평균 수익률 (%)」)과 머리 행. 행 이름이 숫자 구간(「50% 미만」)
+    #: 이면 행 자체에는 무엇의 값인지 말하는 낱말이 없다. 숫자의 주인을 찾을 때만 쓴다.
+    context: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -231,6 +284,7 @@ def build_deck(slides) -> Deck:
     for slide_no, raw in slides:
         text_units: list[str] = []
         table_rows: list[list[str]] = []
+        caption = ""        # 표 바로 위 글줄 — 표의 제목인 경우가 많다
 
         def close_table() -> None:
             if table_rows:
@@ -249,6 +303,8 @@ def build_deck(slides) -> Deck:
                     continue
                 table_rows.append(cells)
                 row = _line(slide_no, " | ".join(c for c in cells if c), is_row=True)
+                ctx = tuple(content_stems(f"{caption} {' '.join(table_rows[0])}"))
+                row = DeckLine(row.slide_no, row.text, row.stems, row.nums, True, ctx)
                 lines.append(row)
                 regions.append(row)
                 continue
@@ -256,6 +312,8 @@ def build_deck(slides) -> Deck:
             line = clean_slide_text(stripped)
             if not line or _PAGE_NO_RE.match(line) or _is_caption(line):
                 continue
+            if not stripped.startswith(("-", "!")):
+                caption = line
             if text_units and (_CONTINUES_RE.search(text_units[-1])
                                or (len(line) <= _TAIL_MAX and not re.search(r"[.?!]$", text_units[-1]))):
                 text_units[-1] = f"{text_units[-1]} {line}"
@@ -353,7 +411,8 @@ def _number_conflicts(clause: str, deck: Deck) -> list[Conflict]:
         before, after = _terms_around(clause, num, deck)
         if not before:
             continue
-        holders = [r for r in deck.regions if any(num.same_value(n) for n in r.nums)]
+        # 반올림한 같은 값도 그 값이다 — 차트 표 「9」 와 본문 「8.7」 은 같은 사실이다 (`Num.close_value`).
+        holders = [r for r in deck.regions if any(num.close_value(n) for n in r.nums)]
         if not holders:
             continue
         # 자료와 같은 짝인지는 **절 전체**로 본다 — 「전체 4.8%p 격차의 58%」 처럼 한 절에 숫자가 여럿이면
@@ -361,10 +420,24 @@ def _number_conflicts(clause: str, deck: Deck) -> list[Conflict]:
         near = before + after + [s for s in content_stems(clause) if _has(deck.stems, s)]
         if any(any(_has(r.stems, t) for t in near) for r in holders):
             continue
+        # 행 이름이 숫자 구간(「50% 미만 | 7」)이면 표 제목·머리 행이 그 값의 주인을 말한다 — 절이 그 표의 **다른 행**을 부르지
+        # 않을 때만 (「리튬인산철은 5000회」 는 같은 표 「전고체 | 5000」 의 값을 다른 행에 붙인 어긋남이다).
+        clause_stems = content_stems(clause)
+        if any(r.is_row and any(_has(r.context, t) for t in near) and not _names_other_row(clause_stems, r, deck)
+               for r in holders):
+            continue
+        # 표 행 이름이 문서 변환기(OCR)에서 한 글자 틀려도(「종목수」→「중목수」) 그 행이 이 숫자의 주인이다.
+        # 09-30 실측(수익률 Q6): 「종목 수 12 대 3」 이 11장 표 「중목수 | 12 | 3」 을 못 알아보고 8장 「수익 종목 | 52」 와
+        # 짝지어져 맞는 답이 네 턴 내리 55 를 받고 답 보기로만 빠져나갔다.
+        if any(r.is_row and _fuzzy_in(_row_key(r.text), clause) for r in holders):
+            continue
         owners = [
             r for r in deck.regions
             if all(_has(r.stems, t) for t in before)
             and any(n.unit is None or num.unit is None or n.unit == num.unit for n in r.nums)
+            # 표 행이 주인이려면 행 이름의 낱말이 **전부** 답의 절에 있어야 한다 — 「종목」 한 낱말로 「수익 종목」 행을 주인으로
+            # 삼지 않는다(주어가 겹치는 정도가 약하면 어느 행의 값인지 모른다. 놓치는 쪽이 안전하다).
+            and (not r.is_row or all(_has(near, t) for t in content_stems(_row_key(r.text))))
         ]
         if not owners:
             continue
@@ -373,8 +446,36 @@ def _number_conflicts(clause: str, deck: Deck) -> list[Conflict]:
     return out
 
 
+def _names_other_row(clause_stems: list[str], row: DeckLine, deck: Deck) -> bool:
+    """절이 같은 장 표의 **다른 행** 이름을 부르는가."""
+    for r in deck.lines:
+        if not r.is_row or r is row or r.slide_no != row.slide_no:
+            continue
+        key = content_stems(_row_key(r.text))
+        if key and all(_has(clause_stems, k) for k in key):
+            return True
+    return False
+
+
 def _nospace(text: str) -> str:
     return re.sub(r"\s+", "", text or "").lower()
+
+
+def _row_key(row_text: str) -> str:
+    """표 행 줄(「중목수 | 12 | 3」)의 행 이름 칸. 괄호 단위(「회전율(회)」 의 「(회)」)는 뗀다."""
+    return re.sub(r"\([^)]*\)", "", (row_text or "").split("|")[0]).strip()
+
+
+#: 한 글자 틀림을 같은 이름으로 볼 최소 길이 — 두 글자 이름은 한 글자만 달라도 다른 낱말이 된다.
+FUZZY_KEY_MIN = 3
+
+
+def _fuzzy_in(key: str, text: str) -> bool:
+    """행 이름(key)이 글에 **한 글자까지 틀린 채** 들어 있는가 (띄어쓰기 무시). 문서 변환기의 글자 오인을 견딘다."""
+    k, t = _nospace(key), _nospace(text)
+    if len(k) < FUZZY_KEY_MIN or len(t) < len(k):
+        return False
+    return any(sum(a != b for a, b in zip(k, t[i:i + len(k)])) <= 1 for i in range(len(t) - len(k) + 1))
 
 
 def _lcs(a: str, b: str) -> int:
@@ -484,11 +585,14 @@ def _polarity_conflicts(clause: str, deck: Deck, question_stems: tuple[str, ...]
     ↔ 자료 「종목 선정 능력과 수익률의 상관은 약함」.
     한쪽에 방향 낱말이 둘 이상이면(「늘수록 낮아진다」) 짝을 모르니 보지 않는다.
     """
-    stems = [s for s in content_stems(clause) if not direction(s)]
+    # 「X 가 아니라 Y」 는 X 를 버리고 Y 를 세우는 말이다 — 대조는 **Y 쪽만** 한다. X 쪽 낱말로 자료 줄과 짝지으면
+    # 버린 명제가 자료와 반대라고 잡힌다 (09-30 실측 수익률 함정 Q3: 「38만원이 아니라 48만원」 이 55).
+    clause = _contrast_kept(clause)
+    stems = [s for s in content_stems(clause, drop_units=True) if not direction(s)]
     line, hit = _best_line(stems, deck)
     if line is None or _quoted_by_question(line, question_stems):
         return []
-    line_stems = [s for s in line.stems if not direction(s)]
+    line_stems = [s for s in content_stems(line.text, drop_units=True) if not direction(s)]
     # 양쪽 다 거의 같은 말이어야 한다 — 긴 절이 짧은 자료 줄을 품고 딴말을 덧붙인 것이면 부정·방향이 어느 말에 걸렸는지 모른다.
     if (hit < STRONG_MATCH_MIN or hit < STRONG_MATCH_RATIO * max(1, len(set(line_stems)))
             or hit < STRONG_MATCH_RATIO * max(1, len(set(stems)))):
@@ -496,9 +600,22 @@ def _polarity_conflicts(clause: str, deck: Deck, question_stems: tuple[str, ...]
     a_dirs, l_dirs = directions(clause), directions(line.text)
     if len(a_dirs) == 1 and len(l_dirs) == 1 and a_dirs != l_dirs:
         return [Conflict("direction", line.slide_no, line.text, clause, "높고 낮은 방향")]
-    if not a_dirs and not l_dirs and negated(clause) != negated(line.text):
+    if (not a_dirs and not l_dirs and negated(clause) != negated(line.text)
+            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line.text)):
         return [Conflict("negation", line.slide_no, line.text, clause, "맞다·아니다 쪽")]
     return []
+
+
+#: 「A 가 아니라 B」 의 B 쪽 (대조가 없으면 절 그대로).
+_CONTRAST_SPLIT_RE = re.compile(r"(?:이|가)?\s*아니(?:라(?![고서면며는])|고)[,\s]+")
+#: 부정 표지 없이 뜻으로 부정하는 말 — 「어렵다」「힘들다」「불가」「부족」「드물다」 는 「안 된다」 와 같은 쪽일 수 있다.
+#: 이런 말이 한쪽에라도 있으면 부정의 짝을 글자로 못 가린다 — 놓친다 (09-30 실측: 「체감이 안 되지만」 ↔ 「체감하기 어려운」).
+_SOFT_NEG_RE = re.compile(r"어렵|어려|힘들|힘든|불가|불충분|부족|드물|드문|무관|모르|몰라|없이|미흡|미미")
+
+
+def _contrast_kept(clause: str) -> str:
+    parts = _CONTRAST_SPLIT_RE.split(clause or "", maxsplit=1)
+    return parts[1] if len(parts) == 2 and parts[1].strip() else clause
 
 
 #: 자료의 **정의형 부정** 한 줄 — 「S 는 O 가 아니다」. 제목·요지에 흔한 꼴이고, 뜻이 분명해 짝이 짧아도 믿을 만하다.
@@ -580,6 +697,19 @@ def conflicts(text: str, deck: Deck, question: str = "") -> list[Conflict]:
     return unique
 
 
+#: 남의 말을 옮기는 꼴 — 절이 「…다고/라고」 로 끝나고, 출처(자료·N장·표·연구…)를 부르거나 다음 절이 「했어요·돼 있어요·적혀 있어요」 다.
+_REPORTED_END_RE = re.compile(r"(?:다|라|자|냐)고\s*$")
+_REPORTED_INLINE_RE = re.compile(r"(?:다|라)고\s*(?:했|말했|적혀|적었|돼\s*있|되어\s*있|써\s*있|쓰여|나와|나왔)")
+_REPORT_SOURCE_RE = re.compile(r"자료|\d+\s*장|슬라이드|표에|그래프|연구|논문|발표에서")
+_REPORT_VERB_RE = re.compile(r"^\s*(?:했|말했|적혀|적었|돼\s*있|되어\s*있|써\s*있|쓰여|나와|나왔|하더)")
+
+
+def _reported(clause: str, following: str = "") -> bool:
+    """이 절이 **출처의 말을 옮긴** 것인가 (「자료는 …가 아니라고」 + 「했어요」)."""
+    if _REPORTED_INLINE_RE.search(clause) and _REPORT_SOURCE_RE.search(clause):
+        return True
+    return bool(_REPORTED_END_RE.search(clause) and (_REPORT_SOURCE_RE.search(clause) or _REPORT_VERB_RE.search(following)))
+
 #: 판정이 **답을 평하는** 말 — 명제가 아니다.
 _META_RE = re.compile(r"답변|답에|언급|제시|설명|빠져|빠졌|빠진|부족|누락|말하지|짚지|다루지")
 
@@ -602,8 +732,15 @@ def opposes(answer: str, judge_text: str, exempt: tuple[str, ...] | list[str] = 
     답 「완전히 막을 수 **있다**는 말은」 에 react 「막을 수 **없다**는 점을 정확히 짚었어요」(답에 없는 말을 칭찬).
     판정이 반대 명제를 정답으로 들고 있으면서 통과를 준 것은 자기모순이라, 코드가 통과를 막는다.
     """
-    for a in clauses(answer):
-        a_stems = [s for s in content_stems(a) if not direction(s)]
+    parts = clauses(answer)
+    for i, a in enumerate(parts):
+        # 「자료는 …라고 했어요」 처럼 **자료가 한 말을 옮긴** 절은 답의 주장이 아니라 인용이다 — 인용의 부정·방향은 옮기면서
+        # 어미가 바뀌어(「아니다」→「아니라고」) 글자로는 뒤집힌 것처럼 보인다 (09-30 실측 녹음 수면 Q2: 자료대로 답한
+        # 정답이 자기모순 60). 「…다고 봤어요」 는 자기 생각이라 인용이 아니다.
+        if _reported(a, parts[i + 1] if i + 1 < len(parts) else ""):
+            continue
+        a = _contrast_kept(a)
+        a_stems = [s for s in content_stems(a, drop_units=True) if not direction(s)]
         if len(a_stems) < 2:
             continue
         # 질문이 **따져 보라고 한** 자료 줄(탐침 근거)을 뒤집는 절은 자기모순 대조에서 뺀다 — 그 줄을 부정하는 것이 정답일 수
@@ -657,7 +794,7 @@ def support(text: str, deck: Deck, question: str = "", against: Deck | None = No
     ratio = (sum(1 for s in stems if _has(deck.stems, s)) / len(stems)) if stems else 1.0
     deck_nums = [n for r in deck.lines for n in r.nums]
     missing = tuple(
-        f"{n.value:g}" for n in numbers(text) if not any(n.same_value(d) for d in deck_nums)
+        f"{n.value:g}" for n in numbers(text) if not any(n.close_value(d) for d in deck_nums)
     )
     return Support(round(ratio, 2), missing, tuple(conflicts(text, against if against is not None else deck, question)))
 
@@ -684,6 +821,12 @@ def without_lines(deck: Deck, quotes: list[str] | tuple[str, ...]) -> Deck:
     keep = tuple(ln for ln in deck.lines if not any(_holds(ln.text, q) for q in wanted))
     regions = tuple(r for r in deck.regions if not any(_holds(r.text, q) for q in wanted))
     return Deck(keep, regions, deck.tables, deck.stems)
+
+
+def line_support(text: str, deck: Deck) -> int:
+    """글의 내용 낱말을 **자료 한 곳**(한 줄 또는 이어진 두 줄)이 가장 많이 같이 말하는 수. 흩어진 낱말을 이어 붙인 요구인지 가린다."""
+    stems = list(dict.fromkeys(content_stems(text)))
+    return max((sum(1 for s in stems if _has(r.stems, s)) for r in deck.regions), default=0)
 
 
 def nearest_lines(text: str, deck: Deck, k: int = 6) -> list[DeckLine]:

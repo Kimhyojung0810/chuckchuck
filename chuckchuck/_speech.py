@@ -29,6 +29,17 @@ _HAPSYO_MAP: dict[str, str] = {
     "겁니다": "거예요", "큽니다": "커요", "깁니다": "길어요", "납니다": "나요", "삽니다": "사요", "섭니다": "서요",
     "있습니까": "있나요", "없습니까": "없나요", "합니까": "하나요", "됩니까": "되나요", "입니까": "인가요",
     "맞습니까": "맞나요", "같습니까": "같나요",
+    # 09-30 대화 감사 §9 — 규칙 활용 표가 틀리게 바꾸던 꼴. 「아닙니다」 는 ㅂ 규칙이 「아녀요」 로, 「보입니다」 는 서술격 규칙이
+    # 「보예요」 로 만들었다. 「것입니다」 는 「것이에요」 도 틀리진 않지만 입말은 「거예요」 다.
+    "아닙니다": "아니에요", "아닙니까": "아닌가요", "것입니다": "거예요", "것입니까": "건가요",
+    "보입니다": "보여요", "쓰입니다": "쓰여요", "줄입니다": "줄여요", "높입니다": "높여요", "붙입니다": "붙여요",
+    "쌓입니다": "쌓여요", "놓입니다": "놓여요", "움직입니다": "움직여요", "기울입니다": "기울여요", "들입니다": "들여요",
+    "보입니까": "보이나요",
+    # ㄷ 불규칙 — 아래 받침 어간 규칙이 「듣어요」 로 만들지 않게 먼저 둔다
+    "듣습니다": "들어요", "묻습니다": "물어요", "걷습니다": "걸어요", "싣습니다": "실어요", "깨닫습니다": "깨달아요",
+    # ㅅ·ㅎ 불규칙 — 받침 어간 규칙이 건너뛰는 꼴 가운데 흔한 것
+    "짓습니다": "지어요", "붓습니다": "부어요", "잇습니다": "이어요", "그렇습니다": "그래요", "이렇습니다": "이래요",
+    "저렇습니다": "저래요", "어떻습니까": "어때요",
 }
 _MAP_RE = re.compile("(" + "|".join(sorted(map(re.escape, _HAPSYO_MAP), key=len, reverse=True)) + ")" + _END)
 _IPNIDA_RE = re.compile(r"입니다" + _END)
@@ -77,13 +88,43 @@ def _bnida(m: re.Match, tail: str) -> str:
     return chr(0xAC00 + lead * 588 + joined * 28) + tail
 
 
+#: ㅂ 불규칙 형용사 「아쉽습니다」 → 「아쉬워요」. 어간 끝 음절 꼴로만 잡는다 — 「잡습니다·좁습니다」 같은 규칙 활용은 이 꼴이 아니다.
+#: 09-30 실측: 판정 총평 「…가 아쉽습니다」 가 그대로 나갔다(표에 없는 어간이라 to_haeyo 가 건너뛰었다).
+_B_IRREGULAR_RE = re.compile(r"([가-힣]*(?:럽|롭|깝|겁|볍|렵|쉽|갑|맙|섭|덥|춥|엽|깁|겹|껍))습니다" + _END)
+
+
+def _b_irregular(m: re.Match) -> str:
+    word = m.group(1)
+    last = word[-1]
+    code = ord(last) - 0xAC00
+    return word[:-1] + chr(0xAC00 + (code - 17)) + "워요"      # ㅂ 받침(17)을 떼고 「워요」
+
+
 def _haeyo_span(text: str) -> str:
     t = _PAST_RE.sub(r"\1어요", text)
     t = _PAST_Q_RE.sub(r"\1나요", t)
+    t = _B_IRREGULAR_RE.sub(_b_irregular, t)
     t = _MAP_RE.sub(lambda m: _HAPSYO_MAP[m.group(1)], t)
     t = _IPNIDA_RE.sub(_ipnida, t)
     t = _BNIDA_RE.sub(lambda m: _bnida(m, "요"), t)
+    t = _BATCHIM_SEUMNIDA_RE.sub(_batchim_seumnida, t)
     return _BNIDA_Q_RE.sub(_bnida_q, t)
+
+
+#: 받침 어간 + 「습니다」 (표에 없는 규칙 활용) → 모음 조화로 「아요/어요」. 09-30 실측: 코칭 react 「괜찮습니다」 가 그대로 나갔다.
+#: ㅂ·ㄷ 불규칙은 위 규칙·표가 먼저 받는다.
+_BATCHIM_SEUMNIDA_RE = re.compile(r"([가-힣])습니다" + _END)
+
+
+def _batchim_seumnida(m: re.Match) -> str:
+    ch = m.group(1)
+    code = ord(ch) - 0xAC00
+    final = code % 28
+    # 받침 없음·ㅅ(19)·ㅎ(27) 받침은 불규칙일 수 있어(「파랗습니다」→「파래요」) 두고 넘어간다 — 틀리게 바꾸느니 남긴다
+    if final in (0, 19, 27):
+        return m.group(0)
+    vowel = (code % 588) // 28
+    return ch + ("아요" if vowel in (0, 8) else "어요")
 
 
 def _bnida_q(m: re.Match) -> str:
@@ -104,6 +145,64 @@ def to_haeyo(text: str) -> str:
         return text
     parts = _QUOTE_SPAN_RE.split(text)
     return "".join(p if i % 2 else _haeyo_span(p) for i, p in enumerate(parts))
+
+
+# ---------------------------------------------------------------------------
+# 해라체 「…했다.」 → 해요체 — 판정 총평이 보고서 말투로 오는 것 (09-30 대화 감사 §9: 해라체 총평 7건)
+# ---------------------------------------------------------------------------
+
+#: 문장 끝 해라체 어절. 뒤가 문장부호·끝일 때만 — 「…했다는 점」 처럼 이어지는 말은 건드리지 않는다.
+_HAERA_RE = re.compile(r"([가-힣]+)다(?=\s*(?:[.!]|$))")
+_PAST_SYLLABLES = set("았었였했됐겼렸났왔봤줬쳤졌켰혔섰썼랐웠팠캤탔갔냈셨")
+_ONE_SYLLABLE_OK = set("크")
+
+
+def _to_hapsyo(word: str) -> str:
+    """해라체 어절(「…다」 뗀 앞) → 합쇼체. 모르는 꼴은 빈 문자열 — 틀리게 바꾸느니 둔다."""
+    if not word:
+        return ""
+    last = word[-1]
+    code = ord(last) - 0xAC00
+    if not (0 <= code < 11172):
+        return ""
+    final = code % 28
+    if last in _PAST_SYLLABLES:                      # 했다 → 했습니다
+        return word + "습니다"
+    if word.endswith("는"):                          # 먹는다 → 먹습니다 (현재 동사 — 어간은 「는」 앞)
+        return word[:-1] + "습니다" if len(word) >= 2 else ""
+    if final == 4:                                   # 설명한다·보여준다(ㄴ 받침 + 다) → 설명합니다·보여줍니다
+        return word[:-1] + chr(0xAC00 + code - 4 + 17) + "니다"
+    if last == "이":                                 # …이다 → …입니다 (서술격)
+        return word[:-1] + "입니다"
+    if final == 0:                                   # 크다·아니다(모음 어간) → 큽니다·아닙니다
+        return word[:-1] + chr(0xAC00 + code + 17) + "니다"
+    return word + "습니다"                            # 많다·없다·좋다(받침 어간) → 많습니다
+
+
+def plain_to_haeyo(text: str) -> str:
+    """
+    문장 끝 해라체(「…설명했다.」「…부족하다.」「…것이다.」)를 해요체로. 인용 «…»·「…」 안은 그대로.
+
+    합쇼체로 한 번 옮긴 뒤 `to_haeyo` 표를 탄다 — 그 표가 모르는 꼴(바꿔도 「…습니다」 로 남는 것)은 원문을 둔다.
+    판정 문장(F-09)에만 쓴다. 자료 인용이 섞인 F-08 골자에 걸면 자료 원문 말투까지 바뀐다.
+    """
+    if not text:
+        return text
+
+    def one(m: re.Match) -> str:
+        word = m.group(1)
+        # 「…습니다·…입니다」 가 표에 없어 남은 합쇼체는 해라체가 아니다(「잡습니다」 의 「잡습니」+다). 한 음절 어절은 명사 끝일 수
+        # 있어(「바다」) 받침 있는 형용사 어간·흔한 동사 활용만 받는다.
+        if word.endswith("니") or (len(word) == 1 and not _has_batchim(word) and word not in _ONE_SYLLABLE_OK):
+            return m.group(0)
+        hapsyo = _to_hapsyo(word)
+        if not hapsyo:
+            return m.group(0)
+        out = _haeyo_span(hapsyo)
+        return m.group(0) if out == hapsyo or "니다" in out else out
+
+    parts = _QUOTE_SPAN_RE.split(text)
+    return "".join(p if i % 2 else _HAERA_RE.sub(one, p) for i, p in enumerate(parts))
 
 
 # ---------------------------------------------------------------------------

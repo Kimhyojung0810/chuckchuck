@@ -25,7 +25,7 @@ from chuckchuck.contracts import (
     SlideSpeech,
     Transcript,
 )
-from chuckchuck.f09_judge import judge_answer
+from chuckchuck.f09_judge import _HONORIFIC_RE, judge_answer
 from chuckchuck.providers.llm_base import LLMProvider
 
 GOOD_ANSWER = "두 벡터를 같은 공간에 놓고 대조 손실로 정렬합니다"
@@ -288,9 +288,11 @@ def test_blank_react_replaced():
     "자료를 보시나요?",
 ])
 def test_honorific_react_replaced_by_verdict_phrase(react):
-    """§3-1: 판정문에 높임이 나오면 그 등급의 결정적 문구로 바꾼다 (코칭 경로와 같은 규율)."""
+    """§3-1: 판정문에 높임이 나오면 평이한 말로 풀고, 못 푸는 문장만 뺀다. 다 빠지면 그 등급의 결정적 문구다.
+    09-30 대화 감사 §10: 예전엔 한 글자만 걸려도 react 통째를 폴백 문구로 갈아 good react 28/37 이 폴백이었다."""
     judgement = judge_of(payload(verdict="good", react=react))
-    assert judgement.react == "네, 그 설명이면 충분해요."
+    assert judgement.react.strip() and not _HONORIFIC_RE.search(judgement.react)
+    assert "셨" not in judgement.react and "주시" not in judgement.react
 
 
 def test_polite_haeyo_react_is_kept():

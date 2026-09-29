@@ -421,7 +421,20 @@ def _attested(stem: str, source: str) -> bool:
     """줄기가 source 에 **낱말로** 있는가 — 앞은 낱말 경계, 뒤는 조사 또는 경계."""
     if not stem or not source:
         return False
-    return bool(re.search(rf"(?<![가-힣]){re.escape(stem)}(?:{_PARTICLE_END_RE.pattern[:-1]})?(?![가-힣])", source))
+    # 서술격(「회전율이다·회전율입니다」)도 그 명사다 — 09-30: 자료 줄 끝의 「…이다」 명사가 「자료에 없는 말」 로 읽혀 보기에서 빠졌다.
+    return bool(re.search(rf"(?<![가-힣]){re.escape(stem)}(?:이다|입니다|이에요|예요|이고|이며|{_PARTICLE_END_RE.pattern[1:-2]})?(?![가-힣])", source))
+
+
+#: 연결·보조 활용 꼬리 — 「제시하지(않았다)」「복구해야」「좋아지(는)」. 09-30 대화 감사 §8: 「모르겠어요」 보기 12세트 중
+#: 「'방해' 쪽인가요, '제시하지' 쪽인가요?」「방해/좋아지」「복구해야/자원」 처럼 활용형이 보기가 됐다.
+#: 명사에도 드물게 이 꼴이 있어서(「강아지」) 자료에 **명사 조사**를 달고 나온 적이 있으면 명사로 둔다.
+_AUX_TAIL_RE = re.compile(r"(하지|되지|해야|돼야|되야|아지|어지|여지|워지|와지|해져|아져|어져|워져)$")
+_NOUN_JOSA = r"(?:이|가|을|를|의|와|과|로|으로|에서|에게|도|만)(?![가-힣])"
+
+
+def _noun_particle_attested(stem: str, source: str) -> bool:
+    """줄기가 source 에 **명사 조사**를 달고 나오는가 — 「강아지가」 는 명사, 「좋아지는」 은 활용이다(「는」 은 어미와 겹쳐 뺀다)."""
+    return bool(stem and source and re.search(rf"(?<![가-힣]){re.escape(stem)}{_NOUN_JOSA}", source))
 
 
 def _noun_like(stem: str, source: str) -> bool:
@@ -432,6 +445,8 @@ def _noun_like(stem: str, source: str) -> bool:
         return len(stem) >= _LATIN_MIN
     if _VERBAL_END_RE.search(stem):
         return False
+    if _AUX_TAIL_RE.search(stem):
+        return _noun_particle_attested(stem, source)
     if _SHORT_NOUN_END_RE.search(stem):
         return len(stem) <= 2 and _attested(stem, source)
     if _ATTESTED_END_RE.search(stem):

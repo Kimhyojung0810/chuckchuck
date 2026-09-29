@@ -143,11 +143,15 @@ function liveScoredAnswers() {
     .map((t) => t.answer);
 }
 
+/**
+ * 판정에 실어 보낼 대화 — **지금 질문의 턴만** 보낸다.
+ *
+ * 예전엔 끝난 질문의 Q/A 까지 실어 보내, 판정 react 가 다른 질문의 문장으로 답했다
+ * (09-30 대화 감사 §10: 「…비교 근거는 어디서 가져왔나요?」 가 다음 질문의 react 로 나왔다).
+ * 서버가 이 대화로 세는 것(코칭 단계·되물음 뒤 답)은 전부 이 질문 안의 일이다.
+ */
 function liveHistory() {
   const L = qa.live;
-  const done = (L.results || []).map((r) => ({
-    질문: r.question, 답변: r.answer, 판정: r.verdict, 포기: !!r.gaveUp,
-  }));
   const q = L.questions[L.qi];
   // 「모르겠어요」는 **의사**라 답변 글에서 역추정할 수 없다. 서버가 코칭 단계를
   // 정할 때 쓰므로(narrow → explain) 플래그를 그대로 실어 보낸다.
@@ -160,7 +164,7 @@ function liveHistory() {
     // 서버(_coach_stage)가 이 id 로 "같은 질문에 몇 번 막혔는지" 를 센다.
     question_id: t.questionId || (q && q.id) || '',
   }));
-  return done.concat(current);
+  return current;
 }
 
 /** 판정에 실어 보낼 자료 근거. 없으면 판정이 "자료와 어긋난다"를 대조할 원본을 잃는다. */
@@ -1162,7 +1166,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       // 포기 턴의 "(모르겠어요)" 자리표시자는 답이 아니라 뺀다.
       priorAnswers: liveScoredAnswers(),
       // 지금까지 펼쳐 본 힌트. 코치가 힌트와 이어지는 말로 반응한다.
-      hintsShown: liveHints().slice(0, L.hintLevel || 0),
+      // 「모르겠어요」 코칭이 방금 둘 중 하나·빈칸으로 되물었으면 그 되물음도 싣는다 — 이번 답은 그 물음의 답이다
+      // (09-30 대화 감사 §3: 칩 「항목」 이 원래 질문의 답으로 채점돼 good 85 로 닫혔다).
+      hintsShown: liveHints().slice(0, L.hintLevel || 0).concat(liveCoachAsk()),
       artifacts: liveArtifacts(),
     });
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
@@ -1175,10 +1181,11 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       clarify: v.coach_stage === 'clarify',
     });
     L.lastJudgement = v;
-    // 판정 사다리가 지금 들고 있는 것보다 길면 그걸로 갈아탄다. **짧아져도 안 버린다** —
-    // 버리면 다음 말풍선의 분모가 줄어 "힌트 2/4" 뒤에 "힌트 3/3" 이 뜬다.
+    // 판정 사다리가 지금 들고 있는 것보다 짧지 않으면 그걸로 갈아탄다. **짧아지면 안 버린다** —
+    // 버리면 다음 말풍선의 분모가 줄어 "힌트 2/4" 뒤에 "힌트 3/3" 이 뜬다. 길이가 같아도 갈아탄다 —
+    // 서버가 판정 뒤 넷째 칸(골자 조각)을 「아직 안 나온 것」 으로 바꿔 끼운다(칸 수는 그대로, 09-30 §11).
     const judgedHints = Array.isArray(v.hints) ? v.hints : [];
-    if (judgedHints.length > ((L.hintList || []).length)) L.hintList = judgedHints;
+    if (judgedHints.length && judgedHints.length >= ((L.hintList || liveQuestionHints()).length)) L.hintList = judgedHints;
     L.judgeFailed = false;
     hideCoachThinking();
     if (v.react) {
@@ -1186,7 +1193,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       // 세다 (UI_REDESIGN §14 — 숫자는 신성하다, 지어내지 않는다).
       const quote = v.evidence_quote || '';
       pushTurn({
-        who: 'ai', kind: 'react', verdict: m.react,
+        // 70~79 통과(요지는 맞음)는 「절반쯤」 이 아니다 — 서버의 passed 를 그대로 칩에 옮긴다 (09-30 §10)
+        who: 'ai', kind: 'react', verdict: (!v.coach_stage && v.passed && v.verdict === 'partial') ? 'full' : m.react,
         text: escapeHtml(v.coach_stage ? coachReactText(v.react, quote) : v.react),
         score: v.score || 0, before,
         // 자료 인용 카드 재료 — 코칭 응답에만 실린다. 옛 세션 턴에는 없다.
@@ -1218,7 +1226,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       // 절반은 맞혔는데 또 물으면 뭘 더 말해야 하는지 모른 채 같은 답을 낸다.
       // 빠진 절반을 펼쳐 주고 되묻기는 그대로 이어 간다 (2026-08-08 사용자 요청).
       const shownMissing = v.verdict === 'partial' ? revealHalf(q, v) : false;
-      askAgain(v, L.turn, { skipMissing: shownMissing });
+      // 「N번째 답변」 은 서버가 센 라운드로 — 예전 L.turn 은 「모르겠어요」 턴까지 세어 서버(2라운드)와 어긋났다 (09-30 §10)
+      askAgain(v, v.round_no || L.turn, { skipMissing: shownMissing });
     }
   } catch (err) {
     hideCoachThinking();
@@ -1360,18 +1369,39 @@ function enterRetell(model, record) {
  */
 function liveWonCount(results) {
   return (results || []).filter((r) => {
-    if (r.gaveUp || r.revealed) return false;
+    if (r.gaveUp || r.revealed || liveForcedClose(r)) return false;
     return r.mastered === undefined ? !!r.passed : !!r.mastered;
   }).length;
+}
+
+/**
+ * 3라운드 출구로 닫힌 질문인가 — 설득(good)이 아니라 「세 번째 답이라 닫은」 것. 옛 세션(closeReason 없음)은
+ * partial 로 닫힌 것을 그렇게 본다 (qa_mastered 가 partial 을 닫는 길은 라운드 출구뿐이다).
+ * 09-30 대화 감사 §10: 결과 「7개를 모두 자기 말로 지켰어요」 중 4개가 이 출구였다.
+ */
+function liveForcedClose(r) {
+  if (!r || r.revealed || r.gaveUp) return false;
+  if (r.closeReason) return r.closeReason === 'rounds' || r.closeReason === 'guard';
+  return !!r.mastered && r.verdict !== 'good';
 }
 
 /* 되묻기 머리말. 서버가 좁혀 온 단계를 말로 옮긴다 — 같은 「이어서 묻습니다」를
    세 번 붙이면 사용자는 질문이 좁아진 걸 못 알아채고 벽에 세 번 부딪힌 걸로 읽는다. */
 const TIER_META = {
-  probe: '이어서 묻습니다',
-  focus: '좁혀서 다시 묻습니다',
+  // 해요체 (CLAUDE.md §3-1) — 09-30 대화 감사 §9: 「이어서 묻습니다」 합쇼체 머리말이 58번 나갔다
+  probe: '이어서 물어볼게요',
+  focus: '좁혀서 다시 물어볼게요',
   converge: '마지막 한 걸음이에요',
 };
+
+/**
+ * 방금 「모르겠어요」 코칭이 던진 되물음(둘 중 하나·빈칸). 다음 답은 그 물음에 대한 답이라 판정에 같이 싣는다.
+ * 코칭이 아니면 빈 배열이다.
+ */
+function liveCoachAsk() {
+  const v = (qa.live || {}).lastJudgement || {};
+  return (['narrow', 'scaffold'].includes(v.coach_stage) && v.followup) ? [`되물음: ${v.followup}`] : [];
+}
 
 function askAgain(v, turn, { skipMissing = false } = {}) {
   const points = (v.missing_points || []).filter(Boolean);
@@ -1432,7 +1462,9 @@ function revealHalf(q, v) {
   const L = qa.live;
   if (L.halfShown) return false;
   const points = (v.missing_points || []).filter(Boolean).slice(0, 3);
-  const answer = v.explanation || q.answer_gist || v.summary_sentence || '';
+  // 함정 질문의 골자는 **바로잡은 사실 그 자체**다 — 아직 못 바로잡았는데 펼치면 정답을 흘린다 (09-30 §7)
+  const trapOpen = !!(q.trap_premise && !v.passed);
+  const answer = trapOpen ? '' : (v.explanation || q.answer_gist || v.summary_sentence || '');
   // 둘 다 비면 열 것이 없다. 빈 카드를 띄우느니 되묻기만 이어 간다.
   if (!points.length && !answer) return false;
   L.halfShown = true;
@@ -1498,6 +1530,8 @@ function finishLiveQuestion(q, v, answer) {
     // 「연속 정복」·퀘스트 표식이 이 값을 센다. passed 로 세면 답을 보고 넘어간
     // 질문까지 연속에 들어가 숫자가 거짓말을 한다.
     mastered: true,
+    // 왜 닫혔나 — good(설득) · rounds(3라운드에서 통과 수준) · guard(가드에 막힌 채 3라운드). 결과 화면이 나눠 센다 (09-30 §10)
+    closeReason: v.close_reason || (v.verdict === 'good' ? 'good' : 'rounds'),
     summary: v.summary_sentence || '',
   });
 }
@@ -1614,17 +1648,20 @@ function qaLiveEnd() {
      순서는 사용자가 다음에 할 일 순 — 다시 볼 것 → 넘긴 것 → 이미 지킨 것 */
   const bucketOf = (r) => {
     if (r.revealed || r.verdict === 'skipped') return 'skipped';
+    // 세 번째 답에서 닫힌 것은 「지켜낸」 것과 따로 센다 — 요지는 맞았지만 한 가지가 끝까지 남았다 (09-30 §10)
+    if (liveForcedClose(r)) return 'part';
     if (r.verdict === 'good' || r.verdict === 'partial') return 'won';
     return 'redo';
   };
   const GROUPS = [
     { key: 'redo', title: '다시 볼 질문', hint: '자료엔 있는데 말로 못 지킨 것' },
+    { key: 'part', title: '세 번째 답에서 넘어간 질문', hint: '요지는 맞았지만 한 가지가 끝까지 남은 것' },
     { key: 'skipped', title: '넘긴 질문', hint: '답을 보거나 건너뛴 것' },
     { key: 'won', title: '지켜낸 질문', hint: '자기 말로 방어한 것' },
   ];
-  const grouped = { redo: [], skipped: [], won: [] };
+  const grouped = { redo: [], part: [], skipped: [], won: [] };
   (L.results || []).forEach((r, i) => grouped[bucketOf(r)].push({ r, i }));
-  const redoCount = grouped.redo.length + grouped.skipped.length;
+  const redoCount = grouped.redo.length + grouped.part.length + grouped.skipped.length;
 
   /* 질문 원문은 길고 여섯 개가 다 "…설명해 주시겠어요?" 로 끝나 벽처럼 읽힌다.
      제목은 개념 이름으로, 질문은 한 줄로 줄여 보조 텍스트에 둔다 (TDS ListRow 2RowTypeA) */
@@ -1655,7 +1692,7 @@ function qaLiveEnd() {
       <span class="qres-side">
         <!-- 답을 본 질문도 둘로 갈린다. 보고 나서 한 번 말해 본 것과 보기만 한 것은
              다음에 할 일이 다르다 — 뭉뚱그려 「답 확인」 이라고 하면 그게 안 보인다 -->
-        <span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? (r.retold ? '다시 말했어요' : '답만 봤어요') : (chipWord[r.verdict] || r.verdict)}</span>
+        <span class="chip chip-sm ${chipCls[r.verdict] || 'st-om'}">${r.revealed ? (r.retold ? '다시 말했어요' : '답만 봤어요') : (liveForcedClose(r) ? (r.closeReason === 'guard' ? '자료와 다시 맞춰 봐요' : '세 번째에 넘어갔어요') : (chipWord[r.verdict] || r.verdict))}</span>
         ${r.turns ? `<em class="qres-meta">${r.turns}번 만에${r.hintLevel ? ` · 힌트 ${r.hintLevel}단계` : ''}</em>` : ''}
       </span>
       ${node ? '<span class="qres-chev" aria-hidden="true">›</span>' : ''}

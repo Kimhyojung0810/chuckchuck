@@ -1409,8 +1409,13 @@ def qa_passed(verdict: str, score: int) -> bool:
 
     verdict 가 good 이면 점수와 무관하게 통과다. 등급과 점수가 어긋날 때는
     등급을 믿는다 — 사용자에게 보이는 것이 등급이기 때문이다.
+    그래서 점수는 **등급의 구간 안으로** 잘라 본다(partial ≤ 79 · wrong ≤ 39 · unknown 0). 09-30 레드팀: 예전엔
+    qa_passed("wrong", 80)·("unknown", 75) 가 참이라, 가드가 등급만 내리고 점수를 안 내린 판정이 통과로 세였다.
     """
-    return verdict == "good" or score >= QA_PASS_SCORE
+    if verdict == "good":
+        return True
+    ceiling = {"partial": 79, "wrong": 39, "unknown": 0}.get(verdict, 0)
+    return min(score, ceiling) >= QA_PASS_SCORE
 
 
 #: 한 질문을 붙들 최대 라운드. 넘어가면 통과 수준(qa_passed)에서 닫아 준다 —
@@ -1418,7 +1423,7 @@ def qa_passed(verdict: str, score: int) -> bool:
 QA_MAX_ROUNDS = 3
 
 
-def qa_mastered(verdict: str, score: int, round_no: int) -> bool:
+def qa_mastered(verdict: str, score: int, round_no: int, guard_blocked: bool = False) -> bool:
     """
     이 답변으로 질문을 닫을지. **되묻기를 멈추는 유일한 출구다.**
 
@@ -1437,10 +1442,15 @@ def qa_mastered(verdict: str, score: int, round_no: int) -> bool:
     round_no 는 이 질문에 낸 답변의 순번(1부터)이다. **서버가 누적 답변 수로 센다** —
     프론트가 보내면 옛 세션에서 비고, 질문마다 초기화하는 것도 빠뜨리기 쉽다
     (f09_judge `_coach_stage` 와 같은 이유).
+
+    guard_blocked 는 **코드 가드만** 통과를 막았다는 표시다 — LLM 판정은 통과였는데 결정적 대조(자료 어긋남·자기모순·초점)가
+    70 아래로 내렸다. 가드는 글자로만 대조해서 틀릴 수 있다. 09-30 대화 감사 §2: 자료대로 답한 사람이 가드에 걸려 네 턴 내리
+    55 를 받고 「답 보기」 로만 빠져나갔다 — 그 질문은 영원히 안 닫혔다. 3라운드에서는 이런 질문도 닫는다(화면은 「다시 볼 곳」 으로
+    정직하게 남긴다, QaJudgement.close_reason). 기본값이면 예전과 같다.
     """
     if verdict == "good":
         return True
-    return round_no >= QA_MAX_ROUNDS and qa_passed(verdict, score)
+    return round_no >= QA_MAX_ROUNDS and (qa_passed(verdict, score) or guard_blocked)
 
 
 #: 되묻기 압박 단계. 라운드가 오를수록 질문이 좁아진다 — 같은 넓이로 세 번
@@ -2380,6 +2390,23 @@ class QaJudgement:
     #: 코칭이 근거로 든 자료 인용과 장 번호 (Question 에서 승계). 화면이 카드로 그린다.
     evidence_quote: str = ""
     evidence_slide_no: int = 0
+    #: 코드 가드가 등급을 내린 까닭 (「자료 4장과 어긋난 곳: …」「질문이 묻는 것: …」). **결손(missing_points)과 따로 둔다** —
+    #: 09-30 대화 감사 §6: 가드 사유가 결손 맨 앞에 끼어 되물음 틀에 들어가 「질문이 묻는 것: 인지 비용 — 이 부분은 어떻게 봐요?」 가 나갔다.
+    guard_reason: str = ""
+    #: 코드 가드만 통과를 막았는가 (qa_mastered 참고). 3라운드 출구를 연다.
+    guard_blocked: bool = False
+
+    @property
+    def close_reason(self) -> str:
+        """
+        질문이 닫힌 까닭 — "" (안 닫힘) · "good" (설득) · "rounds" (3라운드에서 통과 수준으로 닫음) · "guard" (가드에 막힌 채 3라운드에서 닫음).
+        결과 화면이 **진짜 설득과 라운드 출구를 나눠** 세게 한다 (09-30 §10: 「7개를 모두 자기 말로 지켰어요」 중 4개가 라운드 출구였다).
+        """
+        if not self.mastered:
+            return ""
+        if self.verdict == "good":
+            return "good"
+        return "rounds" if self.passed else "guard"
 
     @property
     def passed(self) -> bool:
@@ -2394,7 +2421,7 @@ class QaJudgement:
         passed 보다 엄격하다 — 절반만 맞힌 답에 한 걸음 더 묻기 위해서다.
         자세한 이유는 `qa_mastered` 를 보라.
         """
-        return qa_mastered(self.verdict, self.score, self.round_no)
+        return qa_mastered(self.verdict, self.score, self.round_no, self.guard_blocked)
 
     def to_dict(self) -> dict:
         return {
@@ -2415,10 +2442,12 @@ class QaJudgement:
             "choices": list(self.choices),
             "evidence_quote": self.evidence_quote,
             "evidence_slide_no": self.evidence_slide_no,
+            "guard_reason": self.guard_reason,
             # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다.
             # 둘을 다 보낸다: passed 는 리포트가 세는 값, mastered 는 대화가 닫는 값.
             "passed": self.passed,
             "mastered": self.mastered,
+            "close_reason": self.close_reason,
         }
 
     @classmethod
@@ -2452,7 +2481,8 @@ class QaJudgement:
             choices=[str(c) for c in (d.get("choices") or []) if str(c).strip()],
             evidence_quote=str(d.get("evidence_quote", "") or ""),
             evidence_slide_no=int(d.get("evidence_slide_no") or 0),
-            # `passed`·`mastered` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
+            guard_reason=str(d.get("guard_reason", "") or ""),
+            # `passed`·`mastered`·`guard_blocked` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
             # round_no 는 읽는다: 파생값이 아니라 서버가 센 사실이고, 판정을 저장했다가
             # 다시 읽을 때(옛 세션 복원) 이 값이 없으면 mastered 가 1라운드로 되돌아간다.
         )

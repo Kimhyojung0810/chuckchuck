@@ -125,8 +125,16 @@ def test_표의_수치와_표의_끝을_뒤집는다():
 
 
 def test_비교_순서를_뒤집는다_제목_꼴과_문장_꼴():
-    idx = idx_of(CAFE_GRAPH, CAFE)
-    title = traps.candidates("대기 시간", [1], idx)
+    # 09-30 대화 감사 §12: 문장 없는 덱 첫 장(표지)은 함정 재료가 아니다 — CAFE 1장은 제목·부제뿐이라 표지다.
+    assert traps.candidates("대기 시간", [1], idx_of(CAFE_GRAPH, CAFE)) == []
+    # 제목 꼴 비교는 본문 장의 머리에 있으면 그대로 뒤집는다
+    deck = SlideDoc(file_name="cafe2.pdf", total_slides=2, slides=[
+        slide(1, "동네 카페 운영 개선안\n2026 가을"),
+        slide(2, "가격보다 중요한 대기 시간\n무인 주문기 도입 후 대기 시간이 줄었습니다."),
+    ])
+    graph = ConceptGraph(file_name="cafe2.pdf", total_slides=2, nodes=[
+        node("root", "카페 운영", [1, 2], depth=1, weight=1.0), node("wait", "대기 시간", [2])])
+    title = traps.candidates("대기 시간", [2], idx_of(graph, deck))
     tp = next(c.premise for c in title if c.premise.kind == "order")
     assert tp.premise == "대기 시간보다 중요한 가격" and tp.fact == "가격보다 중요한 대기 시간"
     sent = next(c.premise for c in cands(PLANT_GRAPH, PLANT, "water") if c.premise.kind == "order")
