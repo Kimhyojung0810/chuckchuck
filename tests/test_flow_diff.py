@@ -171,13 +171,32 @@ def test_order_tau_none_when_fewer_than_two_spoken():
 # order_jump : 위계상 부모→자식 역행만
 # ---------------------------------------------------------------------------
 
+def _three_level_graph() -> ConceptGraph:
+    """r(루트·1장) ─ c1(2장) ─ c2(3장). c1 은 루트가 아닌 부모다."""
+    nodes = [
+        ConceptNode(id="r", label="주제", slide_nos=[1], weight=1.0, depth=1),
+        ConceptNode(id="c1", label="요소", slide_nos=[2], weight=0.8, parent_id="r", depth=2),
+        ConceptNode(id="c2", label="세부", slide_nos=[3], weight=0.6, parent_id="c1", depth=3),
+    ]
+    edges = [ConceptEdge(from_id="r", to_id="c1", kind="parent"),
+             ConceptEdge(from_id="c1", to_id="c2", kind="parent")]
+    return ConceptGraph(file_name="sample.pdf", total_slides=3, nodes=nodes, edges=edges)
+
+
 def test_order_jump_child_spoken_before_parent():
-    flow = flow_of(first={"c1": 10.0, "c2": 1.0, "c3": 20.0})
+    g = _three_level_graph()
+    flow = build_flow_diff(g, make_alignment(g, first={"r": 0.5, "c1": 10.0, "c2": 1.0}))
     jumps = issues_of(flow, "order_jump")
     assert len(jumps) == 1
     assert jumps[0].node_ids == ["c1", "c2"]
-    assert jumps[0].slide_nos == [1, 2]
+    assert jumps[0].slide_nos == [2, 3]
     assert jumps[0].note
+
+
+def test_부모가_루트면_순서_역행이_아니다():
+    """도입에서 요소를 먼저 꺼내고 주제로 모으는 것은 정상 전개다 (2026-09-29 실측)."""
+    flow = flow_of(first={"c1": 10.0, "c2": 1.0, "c3": 20.0})
+    assert issues_of(flow, "order_jump") == []
 
 
 def test_no_order_jump_when_order_matches():
@@ -337,7 +356,9 @@ def test_fixture_scenario_end_to_end_mock_pipeline():
     alignment = align_speech(graph, transcript, ctx, llm="mock")
     flow = build_flow_diff(graph, alignment)
 
-    assert issues_of(flow, "order_jump"), "자식을 부모보다 먼저 말한 시나리오가 걸려야 한다"
+    # 이 fixture 의 역행은 전부 부모가 루트(주제)다 — 도입에서 요소를 먼저 꺼내는 정상 전개라 치지 않는다 (2026-09-29).
+    roots = {n.id for n in graph.nodes if n.parent_id is None}
+    assert all(i.node_ids[0] not in roots for i in issues_of(flow, "order_jump"))
     assert issues_of(flow, "missing_link"), "잇는 멘트 없는 문서 간선이 걸려야 한다"
     assert issues_of(flow, "good_link"), "말로 이은 문서 간선이 걸려야 한다"
     assert flow.ghost_node_ids, "한 번도 말하지 않은 개념이 유령 노드로 남아야 한다"

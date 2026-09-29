@@ -54,6 +54,7 @@ from .contracts import (
     FlowIssue,
     ConceptMemory,
     MemoryDoc,
+    PaceDoc,
     PaperDoc,
     PaperRef,
     QaJudgement,
@@ -273,6 +274,9 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
    주어를 빼거나 "발표에서" 로 쓴다.  (X) 발표자는 이 공식을 어떻게 설명했나요?  (O) 이 공식을 어떻게 설명했나요?
 3-3. **"왜 A 를 B 보다 먼저 말했나" 같은 순서 질문은 「흐름(order_jump):」 줄이 붙은 개념에만** 쓴다. 그 줄이 없으면
    순서가 문제라는 근거가 없다 — 순서 대신 그 개념의 내용·근거·한계를 물어라.
+3-4. 「시간배분:」 줄이 붙은 개념은 그 장을 제 몫보다 짧게 넘긴 것이다. 정의를 되묻지 말고, 그 장에서
+   설명하지 못했을 **개념 사이의 관계·조건·우선순위**를 물어라.
+   (예) "알림을 한 번만 확인해도 집중이 크게 무너지나요, 아니면 여러 번 쌓여야 무너지나요?"
 4. '발표에서 한 말' 이 (aligned) 인 개념은 이미 설명에 성공한 개념이다.
    같은 설명을 되풀이하게 하지 말고 **심화·응용·한계**를 묻는 질문을 써라.
 5. 말투는 해요체다. '~시', '~시겠어요', '하셨는데' 같은 높임을 쓰지 마라.
@@ -376,6 +380,7 @@ def _source_by_node(
     graph: ConceptGraph,
     alignment: AlignmentDoc | None,
     flow: FlowDiff | None,
+    pace: PaceDoc | None = None,
 ) -> dict[str, str]:
     """
     노드마다 '왜 물을 만한가' 를 하나씩 정한다.
@@ -417,7 +422,71 @@ def _source_by_node(
                 # justified_skip 은 위 분기에서 이미 갈라졌다.
                 claim(item.node_id, "under_spoken")
 
+    # 시간을 크게 덜 쓴 장의 개념도 '덜 말함' 이다 (_rushed_slides). 이미 누락·모순이면 그대로 둔다.
+    rushed = _rushed_slides(pace, graph)
+    if rushed:
+        for node in graph.nodes:
+            if any(no in rushed for no in node.slide_nos):
+                claim(node.id, "under_spoken")
+
     return found
+
+
+#: 시간을 크게 덜 쓴 장. (실제 시간 몫) ÷ (권장 시간 몫) 이 이보다 작으면 그 장의 개념을 '덜 말함' 으로 본다.
+#: 몫으로 보는 것은 총시간이 목표를 넘겨도(9/29 전사: 목표 5분 · 실제 8분 15초) 배분만 재기 위해서다.
+#: 2026-09-29 수면 대본: 핵심 4장을 50초로 일부러 줄였다 → 0.60. 다른 본론 장은 0.79 이상.
+RUSHED_RATIO = float(os.environ.get("CHUCKCHUCK_QA_RUSHED_RATIO", "0.7"))
+
+#: 시간 배분을 볼 구획. 도입·맺음말·결론이 짧은 것은 정상이다.
+_RUSHED_ROLES = ("body",)
+
+
+def _rushed_slides(pace: PaceDoc | None, graph: ConceptGraph) -> dict[int, tuple[float, float]]:
+    """
+    본론의 가장 중요한 장 중 시간을 크게 덜 쓴 장 → (실제 초, 몫 기준 권장 초).
+
+    개념 단위 정합(F-11)은 이걸 못 본다 — 4장에서 짧게 넘긴 요소도 7·8장에서 이름이 다시 나오면
+    '말함' 이 된다. 발표자가 약속을 어긴 것은 개념이 아니라 **장의 시간 배분**이다.
+    """
+    if pace is None or not pace.slides:
+        return {}
+    total_act = sum(max(s.actual_sec, 0.0) for s in pace.slides)
+    total_rec = sum(max(s.recommended_sec, 0.0) for s in pace.slides)
+    if total_act <= 0 or total_rec <= 0:
+        return {}
+    top = max(s.importance_weight for s in pace.slides)
+    body = {no for sec in graph.sections if sec.slide_role in _RUSHED_ROLES for no in sec.slide_nos}
+    out: dict[int, tuple[float, float]] = {}
+    for sp in pace.slides:
+        if sp.importance_weight < top or sp.recommended_sec <= 0:
+            continue
+        if graph.sections and sp.slide_no not in body:
+            continue
+        fair = total_act * sp.recommended_sec / total_rec
+        if sp.actual_sec / fair < RUSHED_RATIO:
+            out[sp.slide_no] = (round(sp.actual_sec), round(fair))
+    return out
+
+
+def _rushed_ids(pace: PaceDoc | None, graph: ConceptGraph) -> set[str]:
+    """시간을 크게 덜 쓴 장에 앉은 개념 id. 같은 근거·같은 깊이 안에서 먼저 세운다."""
+    rushed = _rushed_slides(pace, graph)
+    return {n.id for n in graph.nodes if any(no in rushed for no in n.slide_nos)} if rushed else set()
+
+
+def _rushed_line(node: ConceptNode, rushed: dict[int, tuple[float, float]]) -> str:
+    """이 개념의 장 중 시간을 덜 쓴 장이 있으면 프롬프트에 붙일 한 줄."""
+    hits = [no for no in node.slide_nos if no in rushed]
+    if not hits:
+        return ""
+    no = hits[0]
+    act, fair = rushed[no]
+    return (f"시간배분: {no}장을 제 몫 약 {int(fair)}초 중 {int(act)}초만 말했다 — "
+            f"이 장에서 이 개념이 다른 개념과 어떻게 이어지는지(관계·조건·우선순위)를 설명하지 못했을 수 있다")
+
+
+def _as_pace(pace: PaceDoc | dict | None) -> PaceDoc | None:
+    return PaceDoc.from_dict(pace) if isinstance(pace, dict) else pace
 
 
 def _extra_nodes(alignment: AlignmentDoc | None) -> list[ConceptNode]:
@@ -539,6 +608,7 @@ def _ordered_candidates(
     graph: ConceptGraph,
     alignment: AlignmentDoc | None,
     flow: FlowDiff | None,
+    pace: PaceDoc | None = None,
 ) -> list[tuple[ConceptNode, str]]:
     """
     질문 후보를 결정적 우선순위로 정렬해 CANDIDATE_LIMIT 까지 자른다.
@@ -558,7 +628,7 @@ def _ordered_candidates(
 
     마지막 두 단계는 동률을 깨려고 있다 — 같은 그래프면 언제나 같은 순서가 나온다.
     """
-    source_of = _source_by_node(graph, alignment, flow)
+    source_of = _source_by_node(graph, alignment, flow, pace)
     # 발화에만 나온 개념도 같은 축에서 같은 규칙으로 줄 세운다.
     extras = _extra_nodes(alignment)
     for extra in extras:
@@ -566,12 +636,15 @@ def _ordered_candidates(
 
     everyone = [*graph.nodes, *extras]
     hierarchy_of = _hierarchy_of(graph, everyone)
+    rushed = _rushed_ids(pace, graph)
 
     def sort_key(node: ConceptNode) -> tuple:
         return (
             _SOURCE_RANK[source_of[node.id]],
             _role_rank_of(graph, node),
-            *hierarchy_of[node.id],
+            hierarchy_of[node.id][0],
+            node.id not in rushed,
+            hierarchy_of[node.id][1],
             -node.weight,
             0 if (node.summary or "").strip() else 1,
             min(node.slide_nos) if node.slide_nos else _NO_SLIDE,
@@ -906,6 +979,7 @@ def _build_triage_prompt(
     transcript: Transcript | None,
     ctx: Context,
     flow: FlowDiff | None = None,
+    rushed: dict[int, tuple[float, float]] | None = None,
 ) -> str:
     parts = [
         "[TASK] qa-triage",
@@ -938,6 +1012,9 @@ def _build_triage_prompt(
         issue = flow_of.get(node.id)
         if issue is not None and source == "weak_flow":
             parts.append(f"    {_flow_line(issue)}")
+        rushed_line = _rushed_line(node, rushed or {})
+        if rushed_line:
+            parts.append(f"    {rushed_line}")
 
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
     spoken = []
@@ -957,6 +1034,7 @@ def _normalize_marks(
     raw_marks: list[dict],
     pairs: list[tuple[ConceptNode, str]],
     graph: ConceptGraph | None = None,
+    rushed: set[str] | None = None,
 ) -> list[TriageMark]:
     """
     raw 심사를 후보마다 정확히 1개씩으로 정리한다.
@@ -991,7 +1069,7 @@ def _normalize_marks(
             rank=0,                      # 아래에서 severity 를 반영해 다시 매긴다
             doc_weight=node.weight,
         ))
-    return _rerank(marks, pairs, graph)
+    return _rerank(marks, pairs, graph, rushed)
 
 
 def _spread_adjacent(
@@ -1060,6 +1138,7 @@ def _rerank(
     marks: list[TriageMark],
     pairs: list[tuple[ConceptNode, str]],
     graph: ConceptGraph | None = None,
+    rushed: set[str] | None = None,
 ) -> list[TriageMark]:
     """
     LLM 이 매긴 severity 를 반영해 최종 순위(rank)를 다시 매긴다.
@@ -1104,6 +1183,9 @@ def _rerank(
             _SOURCE_RANK[m.source],
             role_of.get(m.node_id, _ROLE_RANK_FALLBACK),
             hierarchy_of[m.node_id][0],
+            # 시간을 크게 덜 쓴 장의 개념이 같은 근거·깊이 안에서 먼저다 — LLM 짐작(severity)보다
+            # 발표 시간표라는 관측이 위다 (2026-09-29 수면 전사: 2·3장 '덜 말함' 이 4장 요소를 밀어냈다).
+            m.node_id not in (rushed or set()),
             m.severity,
             hierarchy_of[m.node_id][1],
             -m.doc_weight,
@@ -1136,6 +1218,7 @@ def triage_questions(
     *,
     transcript: Transcript | dict | None = None,
     memory: MemoryDoc | dict | None = None,
+    pace: PaceDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QaTriage:
@@ -1166,16 +1249,17 @@ def triage_questions(
         transcript = Transcript.from_dict(transcript)
     ctx = _as_context(context)
 
-    pairs = _ordered_candidates(graph, alignment, flow)
+    pace = _as_pace(pace)
+    pairs = _ordered_candidates(graph, alignment, flow, pace)
     engine = _engine(llm, llm_kwargs)
 
     data = _call_with_retry(
         engine,
         TRIAGE_SYSTEM_PROMPT,
-        _build_triage_prompt(graph, pairs, alignment, transcript, ctx, flow),
+        _build_triage_prompt(graph, pairs, alignment, transcript, ctx, flow, _rushed_slides(pace, graph)),
     )
     raw_marks = [m for m in (data.get("marks") or []) if isinstance(m, dict)]
-    marks = _normalize_marks(raw_marks, pairs, graph)
+    marks = _normalize_marks(raw_marks, pairs, graph, _rushed_ids(pace, graph))
     if memory is not None:
         marks = _stalled_first(marks, graph, MemoryDoc.from_dict(memory) if isinstance(memory, dict) else memory)
 
@@ -1394,6 +1478,7 @@ def _build_question_prompt(
     papers: PaperDoc | None = None,
     memory_of: dict[str, ConceptMemory] | None = None,
     paper_plan: dict[str, list[PaperRef]] | None = None,
+    rushed: dict[int, tuple[float, float]] | None = None,
 ) -> str:
     def refs_of(node: ConceptNode, anchors: list[int]) -> list[PaperRef]:
         if paper_plan is not None:
@@ -1458,6 +1543,9 @@ def _build_question_prompt(
         issue = (flow_of or {}).get(node.id)
         if issue is not None and mark.source == "weak_flow":
             parts.append(f"    {_flow_line(issue)}")
+        rushed_line = _rushed_line(node, rushed or {})
+        if rushed_line:
+            parts.append(f"    {rushed_line}")
 
         # 이 개념에 붙은 문헌 — 자료가 그 장에서 인용했거나 이 개념으로 검색된 것.
         for ref in refs_of(node, anchors):
@@ -2103,6 +2191,7 @@ def build_questions(
     context: Context | dict | None = None,
     papers: PaperDoc | dict | None = None,
     memory: MemoryDoc | dict | None = None,
+    pace: PaceDoc | dict | None = None,
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> QuestionDoc:
@@ -2176,7 +2265,8 @@ def build_questions(
     by_no = _slides_by_no(slidedoc)
     paper_plan = _plan_papers(marks, by_id, by_no, papers, track)
     prompt = _build_question_prompt(
-        graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of, paper_plan
+        graph, marks, by_id, alignment, transcript, ctx, flow_of, by_no, papers, memory_of, paper_plan,
+        _rushed_slides(_as_pace(pace), graph),
     )
     remembered = any(m.node_id in memory_of for m in marks)
     raw_questions = _questions_with_papers(

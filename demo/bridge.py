@@ -1325,6 +1325,10 @@ class Handler(SimpleHTTPRequestHandler):
         )
         payload = pace.to_dict()
         self._archive(body, "pace_doc", payload)
+        # 질문 생성(F-08)이 장 단위 시간 배분을 약점으로 쓴다. 동의 없는 세션은 보관소가 pace_doc 을
+        # 안 남기므로, 트리아지 캐시처럼 메모리에만 세션 id 로 들고 있는다.
+        if _session_id_of(body):
+            STORE.set_triage("pace:" + _session_id_of(body), payload)
         return self._json(200, payload)
 
     def _handle_habits(self, raw: bytes):
@@ -1706,14 +1710,17 @@ class Handler(SimpleHTTPRequestHandler):
         papers = None if body.get("papers") is False else self._papers_for(body, found["graph"], slidedoc, llm)
         # 지난 리허설 기억 (F-25). 같은 사람·같은 파일의 동의한 지난 세션에서. body.memory=false 면 끈다.
         memory = None if body.get("memory") is False else self._memory_for(body)
+        # 장 단위 시간 배분 (F-17). 방금 /pace 가 concept_doc 과 함께 남긴 것만 쓴다 — 발화만으로 다시 재면
+        # 장 중요도가 없어 보조 장(원인·사례)이 '덜 쓴 핵심 장' 으로 잘못 잡힌다 (09-29 수면 전사: 5·6장 0.37·0.46).
+        pace = body.get("pace") or STORE.get_triage("pace:" + str(_session_id_of(body) or ""))
 
         cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm),
-                                memory.to_dict() if memory else None)
+                                memory.to_dict() if memory else None, pace)
         try:
             triage = STORE.get_triage(cache_key)
             if triage is None:
                 triage = triage_questions(
-                    graph, alignment, flow, ctx, transcript=transcript, memory=memory, llm=llm
+                    graph, alignment, flow, ctx, transcript=transcript, memory=memory, pace=pace, llm=llm
                 )
                 STORE.set_triage(cache_key, triage)
             else:
@@ -1733,6 +1740,7 @@ class Handler(SimpleHTTPRequestHandler):
                 context=ctx,
                 papers=papers,
                 memory=memory,
+                pace=pace,
                 llm=llm,
             )
         except QuestionError as e:

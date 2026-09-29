@@ -144,9 +144,9 @@ def questions_payload(*questions: dict) -> str:
     return json.dumps({"questions": list(questions)}, ensure_ascii=False)
 
 
-def triage_of(payload: str, *, graph=None, alignment=None, flow=None) -> QaTriage:
+def triage_of(payload: str, *, graph=None, alignment=None, flow=None, pace=None) -> QaTriage:
     return triage_questions(
-        graph or make_graph(), alignment, flow, llm=ScriptedLLM(payload)
+        graph or make_graph(), alignment, flow, pace=pace, llm=ScriptedLLM(payload)
     )
 
 
@@ -1781,3 +1781,49 @@ def test_깊이를_모르면_예전처럼_순위대로다():
     marks = make_triage(graph).marks
     picked, _ = _pick_marks(marks, "5")
     assert [m.node_id for m in picked][:3] == [m.node_id for m in marks][:3]
+
+
+# ---------------------------------------------------------------------------
+# 장 단위 시간 배분 — 제 몫보다 크게 짧게 넘긴 핵심 장의 개념은 '덜 말함' (F-17 PaceDoc)
+# ---------------------------------------------------------------------------
+
+def _pace(actual: dict[int, float], weight: dict[int, float] | None = None):
+    from chuckchuck.contracts import PaceDoc, SlidePace
+    return PaceDoc(slides=[
+        SlidePace(slide_no=no, importance_weight=(weight or {}).get(no, 1.0),
+                  importance="core" if (weight or {}).get(no, 1.0) >= 1.0 else "support",
+                  actual_sec=sec, recommended_sec=60.0)
+        for no, sec in actual.items()
+    ])
+
+
+def test_시간을_크게_덜_쓴_장의_개념은_덜_말함이_된다():
+    graph = _tree_graph()                                  # leaf1 은 2·3장
+    pace = _pace({1: 60, 2: 10, 3: 60, 4: 60, 5: 60})      # 2장: 제 몫 50초 중 10초
+    marks = {m.node_id: m for m in make_triage(graph, pace=pace).marks}
+    assert marks["leaf1"].source == "under_spoken"
+    assert marks["leaf2"].source == "core_weight"
+
+
+def test_결론_장이_짧은_것은_약점이_아니다():
+    from chuckchuck.f08_questions import _rushed_slides
+    graph = _tree_graph()
+    graph.sections = [Section(name="본론", slide_role="body", slide_nos=[1, 2, 3, 4]),
+                      Section(name="결론", slide_role="conclusion", slide_nos=[5])]
+    assert _rushed_slides(_pace({1: 60, 2: 60, 3: 60, 4: 60, 5: 5}), graph) == {}
+
+
+def test_덜_중요한_장이_짧은_것은_약점이_아니다():
+    from chuckchuck.f08_questions import _rushed_slides
+    graph = _tree_graph()
+    pace = _pace({1: 60, 2: 5, 3: 60, 4: 60, 5: 60}, weight={2: 0.35})
+    assert _rushed_slides(pace, graph) == {}
+
+
+def test_같은_근거면_시간을_덜_쓴_장의_개념이_먼저다():
+    """leaf1(2·3장)과 leaf2(4장)가 둘 다 '덜 말함' 이면, 시간을 크게 덜 쓴 4장의 leaf2 가 앞선다."""
+    graph = _tree_graph()
+    alignment = make_alignment({}, graph, speech_weights={"leaf1": 0.0})    # leaf1: 정합상 덜 말함
+    pace = _pace({1: 60, 2: 60, 3: 60, 4: 10, 5: 60})                     # 4장만 크게 짧다
+    ids = [m.node_id for m in make_triage(graph, alignment=alignment, pace=pace).marks]
+    assert ids.index("leaf2") < ids.index("leaf1")

@@ -93,13 +93,21 @@ def _order_jumps(
     doc_order: dict[str, int],
     speech_order: dict[str, int],
 ) -> list[FlowIssue]:
-    """parent 간선에서 자식을 부모보다 먼저 말한 경우. 문서 순서도 역행이어야 한다."""
+    """
+    parent 간선에서 자식을 부모보다 먼저 말한 경우. 문서 순서도 역행이어야 한다.
+
+    부모가 **루트(발표 주제)** 면 치지 않는다. 도입에서 요소("몇 시간 잤어?")를 먼저 꺼내고 주제
+    ("핵심은 수면의 질")로 모으는 것은 흔한 전개다. 위계가 맞아진 뒤(F-07 thesis) 주제가 order_jump 의
+    단골이 되어, 첫 질문이 「왜 '시간'을 '수면의 질'보다 먼저 설명했나」 가 됐다 (2026-09-29 실측).
+    """
     out: list[FlowIssue] = []
     for edge in graph.edges:
         if edge.kind != "parent":
             continue
         p, c = edge.from_id, edge.to_id
         if p not in speech_order or c not in speech_order:
+            continue
+        if by_id[p].parent_id is None:
             continue
         if doc_order[p] < doc_order[c] and speech_order[p] > speech_order[c]:
             parent, child = by_id[p], by_id[c]

@@ -1,0 +1,431 @@
+[
+ {
+  "run": 0,
+  "roots": [
+   "수면의 질"
+  ],
+  "verdicts": {
+   "수면의 질": "aligned",
+   "수면 질 구성 요소": "aligned",
+   "충분한 시간": "aligned",
+   "연속성": "aligned",
+   "규칙성": "aligned",
+   "수면 단계": "aligned",
+   "깊은 수면": "aligned",
+   "REM 수면": "aligned",
+   "수면 주기": "aligned",
+   "수면 연속성 방해 요인": "aligned",
+   "사회적 시차": "aligned",
+   "주말 몰아자기": "aligned",
+   "환경 요인": "aligned",
+   "스트레스": "aligned",
+   "카페인": "aligned",
+   "음주": "aligned"
+  },
+  "tracks": {
+   "1": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질이 시간보다 중요한 이유를 발표에서 어떻게 설명했나요?"
+    }
+   ],
+   "5": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질이 수면 시간보다 중요한 이유는 무엇인가요?"
+    },
+    {
+     "label": "수면 질 구성 요소",
+     "slides": [
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면 시간, 연속성, 규칙성 중 어느 요소가 수면의 질에 가장 큰 영향을 미치나요?"
+    },
+    {
+     "label": "수면 단계",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "깊은 수면과 REM 수면이 각각 신체 회복과 기억 정리에 미치는 구체적인 역할은 무엇인가요?"
+    }
+   ],
+   "10": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질이 수면 시간보다 더 중요한 핵심 개념으로 제시된 이유는 무엇인가요?"
+    },
+    {
+     "label": "수면 질 구성 요소",
+     "slides": [
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면 질 구성 요소 중 시간, 연속성, 규칙성의 상대적 중요도는 어떻게 되나요?"
+    },
+    {
+     "label": "수면 단계",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면 단계와 수면의 질 사이의 인과 관계는 무엇인가요?"
+    },
+    {
+     "label": "REM 수면",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "REM 수면이 기억 정리와 감정 처리에 미치는 구체적 메커니즘은 무엇인가요?"
+    },
+    {
+     "label": "침실 환경",
+     "slides": [
+      5
+     ],
+     "source": "extra",
+     "cited": false,
+     "q": "침실 환경: 침실 환경 개선이 수면 연속성에 미치는 효과 — 설명해 주세요."
+    },
+    {
+     "label": "수면 리듬",
+     "slides": [
+      6
+     ],
+     "source": "extra",
+     "cited": false,
+     "q": "수면 리듬: 사회적 시차가 수면 질에 미치는 장기적 영향 — 설명해 주세요."
+    },
+    {
+     "label": "수면 시간",
+     "slides": [
+      1
+     ],
+     "source": "extra",
+     "cited": false,
+     "q": "수면 시간: 이 개념의 핵심과 자료에 넣은 근거를 설명해 주세요."
+    }
+   ]
+  }
+ },
+ {
+  "run": 1,
+  "roots": [
+   "수면의 질"
+  ],
+  "verdicts": {
+   "수면의 질": "aligned",
+   "수면 질 구성 요소": "aligned",
+   "수면 시간": "aligned",
+   "연속성": "aligned",
+   "규칙성": "aligned",
+   "수면 단계": "aligned",
+   "수면 주기": "aligned",
+   "깊은 수면": "aligned",
+   "REM 수면": "aligned",
+   "사회적 시차": "aligned",
+   "주말 몰아자기": "aligned",
+   "카페인": "aligned",
+   "음주": "aligned",
+   "스트레스": "aligned",
+   "환경 요인": "aligned",
+   "시간 부족": "aligned",
+   "연속성 유지": "aligned",
+   "규칙성 유지": "aligned"
+  },
+  "tracks": {
+   "1": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질이 수면 시간보다 중요한 이유는 무엇인가요?"
+    }
+   ],
+   "5": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질이 수면 시간보다 중요한 핵심 주장으로 삼은 이유는 무엇인가요?"
+    },
+    {
+     "label": "수면 질 구성 요소",
+     "slides": [
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질 구성 요소(시간·연속성·규칙성)가 서로 어떻게 보완적으로 작용하는지 설명했나요?"
+    },
+    {
+     "label": "REM 수면",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "Nishida et al. (2008)에 따르면 REM 수면이 기억 정리와 감정 처리에 미치는 구체적인 메커니즘은 무엇인가요?"
+    }
+   ],
+   "10": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질이 수면 시간보다 중요한 핵심 주장으로 삼은 이유는 무엇인가요?"
+    },
+    {
+     "label": "수면 질 구성 요소",
+     "slides": [
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질 구성 요소인 시간·연속성·규칙성이 서로 어떻게 보완되는지 설명해 주세요."
+    },
+    {
+     "label": "REM 수면",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "Nishida et al. (2008)은 REM 수면이 기억 정리와 감정 처리에 미치는 영향을 어떻게 설명했나요?"
+    },
+    {
+     "label": "수면 단계",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "Perslev et al. (2021)은 수면 단계와 수면의 질 간의 관계를 어떻게 규명했나요?"
+    },
+    {
+     "label": "연속성",
+     "slides": [
+      4,
+      5,
+      7
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "연속성 저하가 깊은 수면과 REM 수면에 구체적으로 어떤 영향을 미치나요?"
+    },
+    {
+     "label": "깊은 수면",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "깊은 수면이 신체 회복에 미치는 생리적 메커니즘은 무엇인가요?"
+    },
+    {
+     "label": "수면 시간",
+     "slides": [
+      4,
+      7
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면 시간 부족이 신체적 회복에 구체적으로 어떤 영향을 미치나요?"
+    }
+   ]
+  }
+ },
+ {
+  "run": 2,
+  "roots": [
+   "수면의 질"
+  ],
+  "verdicts": {
+   "수면의 질": "aligned",
+   "수면 주기": "aligned",
+   "수면 단계": "aligned",
+   "깊은 수면": "aligned",
+   "REM 수면": "aligned",
+   "시간": "aligned",
+   "연속성": "aligned",
+   "규칙성": "missing",
+   "카페인": "aligned",
+   "음주": "aligned",
+   "스트레스": "aligned",
+   "환경 요인": "aligned",
+   "사회적 시차": "aligned",
+   "주말 몰아자기": "aligned",
+   "시간 부족": "aligned",
+   "연속성 저하": "aligned",
+   "규칙성 저하": "missing",
+   "충분한 시간": "justified_skip",
+   "규칙적인 리듬": "aligned",
+   "연속성 유지": "aligned",
+   "규칙성 유지": "aligned",
+   "피곤함": "aligned"
+  },
+  "tracks": {
+   "1": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4,
+      8
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질은 시간, 연속성, 규칙성을 어떻게 종합적으로 평가하는지 구체적으로 설명해 주세요."
+    }
+   ],
+   "5": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4,
+      8
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질은 시간, 연속성, 규칙성을 어떻게 종합적으로 적용해 평가하는지 구체적으로 설명해 주세요."
+    },
+    {
+     "label": "규칙성",
+     "slides": [
+      4,
+      7
+     ],
+     "source": "missing",
+     "cited": false,
+     "q": "규칙성 저하가 수면 주기와 연속성에 구체적으로 어떤 영향을 미치는지 설명해 주세요."
+    },
+    {
+     "label": "수면 주기",
+     "slides": [
+      2
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "수면 주기(약 90-110분)가 실제 수면 단계 진행에 어떤 영향을 미치는지 Waterhouse et al. (2012)와 관련해 설명해 주세요."
+    }
+   ],
+   "10": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4,
+      8
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면의 질을 평가할 때 시간, 연속성, 규칙성 세 가지 기준을 어떻게 종합적으로 적용하는지 구체적으로 설명해 주세요."
+    },
+    {
+     "label": "규칙성",
+     "slides": [
+      4,
+      7
+     ],
+     "source": "missing",
+     "cited": false,
+     "q": "규칙성 저하가 수면 주기와 연속성에 구체적으로 어떤 영향을 미치는지 설명해 주세요."
+    },
+    {
+     "label": "수면 주기",
+     "slides": [
+      2
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "수면 주기(90-110분)가 실제 수면 단계 진행에 어떤 영향을 미치는지 Waterhouse et al. (2012)의 연구를 근거로 설명해 주세요."
+    },
+    {
+     "label": "시간",
+     "slides": [
+      4,
+      7
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "수면 시간이 부족한 경우 Taheri et al. (2004)의 연구 결과를 바탕으로 어떤 건강 문제가 발생할 수 있는지 설명해 주세요."
+    },
+    {
+     "label": "피곤함",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "피곤함이 회복한 시간과 침대에 누운 시간의 차이로 나타나는 이유를 수면의 질 관점에서 설명해 주세요."
+    },
+    {
+     "label": "규칙성 저하",
+     "slides": [
+      7
+     ],
+     "source": "missing",
+     "cited": false,
+     "q": "규칙성 저하가 수면의 질에 미치는 영향을 발표에서 언급한 '일정한 기상 시간 유지'와 연결지어 설명해 주세요."
+    },
+    {
+     "label": "연속성",
+     "slides": [
+      4,
+      5,
+      7
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "연속성 저하의 주요 원인(카페인, 음주, 빛, 소음)이 수면 주기에 구체적으로 어떤 영향을 미치는지 설명해 주세요."
+    }
+   ]
+  }
+ }
+]
