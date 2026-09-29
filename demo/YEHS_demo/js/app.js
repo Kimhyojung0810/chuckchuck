@@ -369,6 +369,7 @@ function route() {
   // 그대로 보여준다. nf.completed 는 QA 를 끝내야 서므로 진행 중인 코칭이
   // 여기서 지워질 일은 없고, 끝난 코칭 기록은 qa-history(localStorage)에 남아 있다.
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) { resetNf(); resetQa(); }
+  if (BETA_ROUTES.has(key) && !ccTeam) { renderBetaLock(); return; }
   (routes[key] || renderHome)();
   syncTopbar();
   syncSideNav(key);
@@ -670,7 +671,7 @@ function renderHome() {
       <div class="h-wall">${window.Playbill.wallHtml()}</div>
     </section>` : ''}
 
-    <section class="h-sec">
+    ${sampleOpen() ? `<section class="h-sec">
       <div class="h-sec-head">
         <h2>${isShowcaseDemo() ? '연습 기록' : '샘플 발표'}</h2><span>${DATA.sessions.length}건</span>
       </div>
@@ -690,7 +691,7 @@ function renderHome() {
           </tr>`).join('')}
         </tbody>
       </table>
-    </section>
+    </section>` : ''}
 
 `;
 
@@ -727,7 +728,7 @@ function nextBandHtml() {
         <p>자료에 있는 개념과 실제로 말한 것을 하나씩 대조해서, 설명이 빠진 곳을 짚어줘요.</p>
         <span class="h-start-act">
           <a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>자료 올리기</a>
-          <a class="h-start-alt" href="#/report/sample-investor">${isShowcaseDemo() ? '최근 리포트 보기 →' : '샘플 리포트 먼저 보기 →'}</a>
+          ${sampleOpen() ? `<a class="h-start-alt" href="#/report/sample-investor">${isShowcaseDemo() ? '최근 리포트 보기 →' : '샘플 리포트 먼저 보기 →'}</a>` : ''}
         </span>
       </section>`;
   }
@@ -875,6 +876,41 @@ function isShowcaseDemo() {
   /* nf.showcaseDemo 는 보지 않는다. sessionStorage 에 남은 옛 시연 세션의 표시가
      새로 올린 실제 자료까지 더미로 끌고 간다 — 스위치는 빌드 상수 하나다. */
   return SHOWCASE_DEMO;
+}
+/* 공개 사이트(chuckchuck-present.com)의 방문자는 자기가 올린 자료로 만든 결과만 본다.
+   샘플 발표·샘플 리포트·샘플 데모는 /auth 를 거친 팀 브라우저에서만 연다 (브리지 /api/v1/team).
+   기본은 닫힘 — 확인이 늦거나 실패해도 샘플이 새지 않는다. */
+let ccTeam = false;
+let ccTeamChecked = false;
+/* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 개발자 모드를 켠 브라우저에만 연다 */
+const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay']);
+function renderBetaLock() {
+  app.className = 'narrow';
+  app.innerHTML = ccTeamChecked ? `
+    <div class="card empty-card">
+      ${emptyBirdHtml('solar', 'neutral')}
+      <h2 class="section-title">개발자 모드에서 볼 수 있는 베타 화면이에요</h2>
+      <p class="note" style="margin:8px 0 14px">팀 코드를 넣으면 이 브라우저에서 베타 화면이 열려요.</p>
+      <div class="step-actions">
+        <a class="btn btn-primary" href="/auth">개발자 모드 켜기</a>
+        <a class="btn btn-text" href="#/">홈으로 가기</a>
+      </div>
+    </div>` : '<p class="note">확인하고 있어요…</p>';
+}
+function sampleOpen() {
+  return ccTeam || isShowcaseDemo();
+}
+function loadTeamFlag() {
+  return fetch('/api/v1/team', { credentials: 'same-origin' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      const was = ccTeam;
+      ccTeam = !!(j && j.team);
+      ccTeamChecked = true;
+      const key = location.hash.replace(/^#\/?/, '').split('/')[0];
+      if (BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
+    })
+    .catch(() => { ccTeamChecked = true; if (BETA_ROUTES.has(location.hash.replace(/^#\/?/, '').split('/')[0])) route(); });
 }
 function showcaseReportHref() {
   return SHOWCASE_REPORT_HASH;
@@ -1970,9 +2006,9 @@ function nfStep1() {
   } else if (nf.gate === 'fail') {
     box.innerHTML = `
       ${stageAccidentHtml(nf.parseError || 'PDF나 PPTX 파일만 분석할 수 있어요. 다른 파일로 올려주세요.', { title: '죄송해요, 대본을 못 받았어요!' })}
-      <div class="step-actions"><button class="btn btn-secondary" id="retry">다시 올리기</button><button class="btn btn-primary" id="sampleDemo">샘플 데모로 계속하기</button></div>`;
+      <div class="step-actions"><button class="btn btn-${sampleOpen() ? 'secondary' : 'primary'}" id="retry">다시 올리기</button>${sampleOpen() ? '<button class="btn btn-primary" id="sampleDemo">샘플 데모로 계속하기</button>' : ''}</div>`;
     $('#retry').addEventListener('click', () => { nf.gate = null; nf.parseError = null; nfStep1(); });
-    $('#sampleDemo').addEventListener('click', () => startParse({ fixture: true }));
+    if ($('#sampleDemo')) $('#sampleDemo').addEventListener('click', () => startParse({ fixture: true }));
   } else {
     const titles = activeTitles();
     const images = activeImages();
@@ -4940,6 +4976,12 @@ async function renderReport() {
     location.replace(showcaseReportHref());
     return;
   }
+  /* 공개 방문자는 샘플 리포트(sample-*·DATA.reportProfiles)를 못 연다 — 자기 결과(#/report)와
+     이 브라우저에 저장한 마지막 리포트(#/report/last)만 */
+  if (reportId && reportId !== 'last' && !sampleOpen()) {
+    location.replace('#/report');
+    return;
+  }
   rSampleMode = reportId === 'sample-investor';
   dropSampleDeckForRealSession();
   /* 시연·샘플 리포트는 슬라이드 이미지가 비어 있다. 로컬 preview PDF 를 먼저 붙여
@@ -4960,7 +5002,7 @@ async function renderReport() {
         </p>
         <div class="step-actions">
           <a class="btn btn-primary" href="#/new">발표 연습 시작하기</a>
-          <a class="btn btn-text" href="#/report/sample-investor">${isShowcaseDemo() ? '리포트 보기' : '샘플 리포트 보기'}</a>
+          ${sampleOpen() ? `<a class="btn btn-text" href="#/report/sample-investor">${isShowcaseDemo() ? '리포트 보기' : '샘플 리포트 보기'}</a>` : ''}
         </div>
       </div>`;
     return;
@@ -9201,7 +9243,7 @@ async function renderTestQa() {
   let dir = '';
   try {
     const res = await fetch('/api/v1/dev/decks');
-    if (res.status === 404) throw new Error('개발용 경로가 닫혀 있어요. 브리지를 DEMO_DEV_ROUTES=1 로 띄우면 열려요.');
+    if (res.status === 404) throw new Error('개발자 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
     const body = (await res.json()) || {};
     decks = body.decks || [];
     dir = body.dir || '';
@@ -9383,6 +9425,7 @@ async function renderReplay() {
   let takes = [];
   try {
     const res = await fetch('/api/v1/cached-takes');
+    if (res.status === 404) throw new Error('개발자 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
     takes = ((await res.json()) || {}).takes || [];
   } catch (err) {
     // 실패를 성공처럼 보이게 두지 않는다 — 빈 목록과 못 불러온 것은 다른 일이다
@@ -9449,3 +9492,4 @@ async function startReplay(sessionId, title, btn) {
 
 /* ── 시작 ── */
 route();
+loadTeamFlag();

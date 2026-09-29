@@ -6,6 +6,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 from __future__ import annotations
 
 import hashlib
+import hmac
 import inspect
 import io
 import json
@@ -22,7 +23,7 @@ import unicodedata
 import zipfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 DEMO_DIR = ROOT / "demo" / "YEHS_demo"
@@ -206,6 +207,28 @@ ALLOWED_HOSTS = frozenset(
 )
 
 
+#: 팀 인증 (/auth). 공개 사이트는 누구나 쓰고, 개발용 경로(세션 목록·ppt/ 덱·벤치 모델 선택)만
+#: /auth 에서 이 코드를 넣은 브라우저에 연다. 비어 있으면 /auth 도 닫힌다 (DEV_ROUTES 만 남는다).
+#: 값은 .env 에 둔다 — 저장소에 적지 않는다.
+TEAM_CODE = os.environ.get("DEMO_TEAM_CODE", "").strip()
+TEAM_COOKIE = "cc_team"
+TEAM_COOKIE_MAX_AGE = 7 * 24 * 3600
+#: 코드 맞히기를 막는다 — IP당 분당 5번. 과금 제한(LIMITER)과 통을 나누지 않는다.
+AUTH_LIMITER = RateLimiter(limit=5, window_sec=60.0)
+#: 요청 하나 = 스레드 하나(ThreadingHTTPServer)라, 핸들러 밖의 함수(_dev_choice)도 이 요청이 팀인지 안다.
+_REQ = threading.local()
+
+
+def _team_token() -> str:
+    """쿠키에 싣는 값. 코드 자체는 싣지 않는다 — 코드를 바꾸면 이전 쿠키가 모두 풀린다."""
+    return hmac.new(TEAM_CODE.encode("utf-8"), b"chuckchuck-team-v1", hashlib.sha256).hexdigest()
+
+
+def _dev_open() -> bool:
+    """개발용 경로를 여는가 — 브리지를 DEMO_DEV_ROUTES=1 로 띄웠거나, 이 요청이 /auth 를 거친 팀 브라우저다."""
+    return DEV_ROUTES or bool(getattr(_REQ, "team", False))
+
+
 def _host_name(raw: str) -> str:
     """Host 헤더에서 포트를 뗀 이름. `[::1]:8799` 도 처리한다."""
     h = (raw or "").strip().lower()
@@ -224,8 +247,8 @@ DEV_HABIT_CHOICES = frozenset({"lora", "heuristic"})
 
 
 def _dev_choice(value, allowed: frozenset[str]) -> str | None:
-    """DEMO_DEV_ROUTES 일 때만, 허용 목록에 있는 값만 통과. `a+b`(주+예비) 꼴은 양쪽 다 허용돼야 한다."""
-    if not DEV_ROUTES or not isinstance(value, str):
+    """개발용 경로가 열렸을 때만(_dev_open), 허용 목록에 있는 값만 통과. `a+b`(주+예비) 꼴은 양쪽 다 허용돼야 한다."""
+    if not _dev_open() or not isinstance(value, str):
         return None
     v = value.strip().lower()
     parts = [p.strip() for p in v.split("+")]
@@ -1125,7 +1148,92 @@ class Handler(SimpleHTTPRequestHandler):
         if REQUIRE_ACCESS and not (self.headers.get("Cf-Access-Jwt-Assertion") or "").strip():
             self._json(403, {"error": "access_required", "message": "로그인한 뒤에 열 수 있어요."})
             return False
+        _REQ.team = self._team_ok()
         return True
+
+    # ── 팀 인증 (/auth) ─────────────────────────────────────────────────────────
+    # 공개 사이트(chuckchuck-present.com)는 로그인 없이 누구나 자기 자료로 쓴다. 팀이 쓰는 개발용 경로만
+    # 이 쿠키 뒤에 둔다. 코드는 .env 의 DEMO_TEAM_CODE — 비어 있으면 /auth 가 404 다.
+
+    def _cookie(self, name: str) -> str:
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == name:
+                return v.strip()
+        return ""
+
+    def _team_ok(self) -> bool:
+        tok = self._cookie(TEAM_COOKIE)
+        return bool(TEAM_CODE and tok) and hmac.compare_digest(tok, _team_token())
+
+    def _https(self) -> bool:
+        """터널 뒤면 Cloudflare 가 붙인 헤더로 안다 — 로컬 http 에서 Secure 쿠키는 안 남는다."""
+        return "https" in (self.headers.get("Cf-Visitor") or "") or \
+            (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+
+    def _auth_page(self, code: int, *, team: bool, note: str = "", cookie: str | None = None):
+        esc = lambda t: t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")  # noqa: E731
+        if team:
+            body = """<p class="ok">개발자 모드가 켜져 있어요. 이 브라우저에서 베타 화면이 열려요.</p>
+<ul><li><a href="/index.html#/vision">#/vision — 얼굴과 삐약이를 보며 발표하는 비전 리허설</a></li>
+<li><a href="/index.html#/temp">#/temp — 통화 배치로 도는 전체 흐름</a></li>
+<li><a href="/index.html#/test/qa">#/test/qa — ppt/ 덱으로 질문 코칭</a></li>
+<li><a href="/index.html#/replay">#/replay — 저장된 세션 다시 보기</a></li>
+<li><a href="/index.html#/">홈 — 샘플 발표·샘플 리포트가 보여요</a></li></ul>
+<form method="post" action="/auth"><input type="hidden" name="logout" value="1"><button class="ghost">개발자 모드 끄기</button></form>"""
+        else:
+            body = f"""<form method="post" action="/auth">
+<label for="code">팀 코드</label>
+<input id="code" name="code" type="password" autocomplete="current-password" autofocus required>
+<button>개발자 모드 켜기</button></form>{f'<p class="err">{esc(note)}</p>' if note else ''}"""
+        html = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>개발자 모드 · 척척발표</title><style>
+body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f5f1;color:#1d1d1b;
+font-family:"Pretendard",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif}}
+main{{width:min(360px,calc(100vw - 32px));background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 6px 24px #0000000f}}
+h1{{font-size:20px;margin:0 0 4px}} .sub{{margin:0 0 20px;color:#6b6b66;font-size:14px}}
+label{{display:block;font-size:13px;color:#6b6b66;margin-bottom:6px}}
+input{{width:100%;box-sizing:border-box;font-size:16px;padding:12px;border:1px solid #d9d7d0;border-radius:10px}}
+button{{margin-top:12px;width:100%;padding:12px;font-size:15px;font-weight:600;border:0;border-radius:10px;background:#0f8a55;color:#fff;cursor:pointer}}
+button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:14px}} .ok{{color:#0f8a55}}
+ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
+</style></head><body><main><h1>개발자 모드</h1><p class="sub">척척발표 팀이 쓰는 베타 화면을 여는 곳이에요.</p>
+{body}</main></body></html>""".encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(html)))
+        self.send_header("X-Robots-Tag", "noindex")
+        if cookie is not None:
+            self.send_header("Set-Cookie", cookie)
+        self.end_headers()
+        self.wfile.write(html)
+
+    def _team_cookie(self, value: str, max_age: int) -> str:
+        return (f"{TEAM_COOKIE}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax"
+                + ("; Secure" if self._https() else ""))
+
+    def _handle_auth_get(self):
+        if not TEAM_CODE:
+            return self._json(404, {"error": "not found"})
+        return self._auth_page(200, team=self._team_ok())
+
+    def _handle_auth_post(self, raw: bytes):
+        if not TEAM_CODE:
+            return self._json(404, {"error": "not found"})
+        form = parse_qs(raw.decode("utf-8", "replace"))
+        if (form.get("logout") or [""])[0]:
+            return self._auth_page(200, team=False, note="개발자 모드를 껐어요.", cookie=self._team_cookie("", 0))
+        key = self._client_key()
+        if not AUTH_LIMITER.allow(key):
+            wait = AUTH_LIMITER.retry_after(key)
+            return self._auth_page(429, team=False, note=f"너무 많이 시도했어요. {wait}초 뒤에 다시 해 주세요.")
+        code = (form.get("code") or [""])[0].strip()
+        if not hmac.compare_digest(code.encode("utf-8"), TEAM_CODE.encode("utf-8")):
+            sys.stderr.write("[bridge] /auth 실패\n")
+            return self._auth_page(401, team=False, note="코드가 맞지 않아요.")
+        sys.stderr.write("[bridge] /auth 성공\n")
+        return self._auth_page(200, team=True, cookie=self._team_cookie(_team_token(), TEAM_COOKIE_MAX_AGE))
 
     def list_directory(self, path):  # noqa: D102 — 정적 서빙의 디렉터리 목록은 끈다 (MVP_SPEC·로그·실측 JSON 이 보였다)
         self.send_error(404)
@@ -1140,6 +1248,10 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._serve_sdk(parsed.path[len("/sdk/") :])
             if parsed.path == "/api/health":
                 return self._json(200, {"ok": True, "mock": _mock()})
+            if parsed.path.rstrip("/") == "/auth":
+                return self._handle_auth_get()
+            if parsed.path == "/api/v1/team":
+                return self._json(200, {"team": _dev_open()})
             if parsed.path == "/api/v1/cached-slidedoc":
                 return self._handle_cached_slidedoc(parsed)
             if parsed.path == "/api/v1/cached-transcript":
@@ -1200,6 +1312,10 @@ class Handler(SimpleHTTPRequestHandler):
             # 교차 출처 요청에 preflight 가 붙어 막힌다 (text/plain·form 은 preflight 없이 날아온다).
             # 자료 업로드(/parse)만 multipart 를 받는다.
             ctype = (self.headers.get("Content-Type") or "").lower()
+            # /auth 는 HTML 폼이라 JSON 이 아니다. 교차 출처 폼 제출로 할 수 있는 건 코드 맞히기뿐이고
+            # 그건 AUTH_LIMITER 가 막는다 (쿠키는 SameSite=Lax 라 남의 사이트에서 로그인시켜도 쓸모가 없다).
+            if parsed.path.rstrip("/") == "/auth":
+                return self._handle_auth_post(self.rfile.read(min(length, 4096)) if length else b"")
             if parsed.path != "/api/v1/parse" and "application/json" not in ctype:
                 return self._json(415, {"error": "json_required", "message": "Content-Type: application/json 으로 보내 주세요."})
             raw = self.rfile.read(length) if length else b""
@@ -1311,7 +1427,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         **개발자용이라 DEMO_DEV_ROUTES=1 일 때만 연다.** 목록은 곧 남의 발표 기록이다.
         """
-        if not DEV_ROUTES:
+        if not _dev_open():
             return self._json(404, {"error": "not found"})
         return self._json(200, {"takes": ARCHIVE.list_sessions()})
 
@@ -1371,7 +1487,7 @@ class Handler(SimpleHTTPRequestHandler):
         return rows
 
     def _handle_dev_decks(self):
-        if not DEV_ROUTES:
+        if not _dev_open():
             return self._json(404, {"error": "not found"})
         return self._json(200, {"dir": str(DECKS_DIR), "decks": self._deck_entries()})
 
@@ -1379,7 +1495,7 @@ class Handler(SimpleHTTPRequestHandler):
         """?deck=<폴더 이름>&kind=deck|audio → 파일 그대로. ppt/ 밖으로는 못 나간다."""
         from urllib.parse import parse_qs
 
-        if not DEV_ROUTES:
+        if not _dev_open():
             return self._json(404, {"error": "not found"})
         qs = parse_qs(parsed.query or "")
         key = (qs.get("deck") or [""])[0]
@@ -1945,6 +2061,9 @@ class Handler(SimpleHTTPRequestHandler):
 
         # 실데이터 스왑 지점의 더미 — 시나리오가 심긴 Transcript fixture 를 그대로 준다.
         # 실 녹음이 들어오면 이 분기를 안 타고 아래 provider 경로로 흐른다 (코드 수정 0줄).
+        # 샘플 받아쓰기는 이미 있는 데이터다 — 공개 방문자에게는 주지 않는다 (mock 이거나 팀일 때만).
+        if body.get("fixture") and not (_mock() or _dev_open()):
+            return self._json(400, {"error": "fixture_disabled", "message": "녹음을 올리거나 직접 말하면 분석할 수 있어요."})
         if body.get("fixture"):
             name = body.get("fixture_name") or "sample_transcript.json"
             # 경로 탈출 방지
@@ -2013,7 +2132,7 @@ class Handler(SimpleHTTPRequestHandler):
             ext = _safe_audio_ext(body.get("ext"))
             sys.stderr.write(f"[bridge] F-05 transcribe audio bytes={len(audio_bytes)} ext={ext}\n")
             # 개발용: #/test/qa 가 내려준 표식 박힌 무음 WAV 면 STT 대신 그 덱 폴더의 클로바 전사를 쓴다.
-            marked = clova_transcript.marked_deck_key(audio_bytes) if DEV_ROUTES else None
+            marked = clova_transcript.marked_deck_key(audio_bytes) if _dev_open() else None
             if marked is not None:
                 row = next((r for r in self._deck_entries() if r["key"] == marked and r.get("clova_txt")), None)
                 if row is not None:
@@ -3016,7 +3135,8 @@ def main():
             flush=True,
         )
     print(settings.masked(), flush=True)
-    print(f"  세션 보관: {DATA_DIR} · 개발 목록 경로={'열림' if DEV_ROUTES else '닫힘'}", flush=True)
+    print(f"  세션 보관: {DATA_DIR} · 개발 목록 경로={'열림' if DEV_ROUTES else '닫힘'}"
+          f" · 팀 인증(/auth)={'켜짐' if TEAM_CODE else '꺼짐'}", flush=True)
     if not _mock() and not shutil.which("ffmpeg"):
         # A.X 앞단 WAF 는 10MiB 미만 업로드를 검사하다 막을 수 있고, 그 우회(PCM WAV 로 키우기)는 ffmpeg 이 있어야 돈다.
         # 질문 코칭의 답변 녹음은 10초 안팎(수백 KB)이라 정확히 그 구간이다 — 조용히 넘어가면 부스에서 "받아쓰기 실패" 로 나타난다.
