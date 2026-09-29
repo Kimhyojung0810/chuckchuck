@@ -43,7 +43,7 @@ from chuckchuck import (  # noqa: E402
     parse_document,
     transcribe,
 )
-from chuckchuck.contracts import ConceptDoc, HabitDoc, PaceDoc, SlideDoc, SlideMark, Transcript  # noqa: E402
+from chuckchuck.contracts import ConceptDoc, ConceptGraph, HabitDoc, PaceDoc, SlideDoc, SlideMark, Transcript  # noqa: E402
 
 from demo.learning_jobs import refresh_learning_assets  # noqa: E402
 from demo.rate_limit import RateLimiter  # noqa: E402
@@ -89,7 +89,35 @@ DERIVED_DIR = DATA_DIR / "derived"
 #: 과금 호출(파싱·STT·LLM)이 붙은 엔드포인트의 IP당 분당 상한.
 #: 0 이하면 제한을 끈다 (오프라인 시연·자동화).
 PAID_RATE_LIMIT = int(os.environ.get("DEMO_RATE_LIMIT_PER_MIN", "30"))
-LIMITER = RateLimiter(limit=PAID_RATE_LIMIT, window_sec=60.0)
+#: 같은 IP 전체의 분당 천장 — 남용 방지용. 세션 상한(PAID_RATE_LIMIT)보다 넉넉하다 (아래 PaidLimiter).
+PAID_RATE_LIMIT_IP = int(os.environ.get("DEMO_RATE_LIMIT_IP_PER_MIN", str(6 * PAID_RATE_LIMIT)))
+
+
+class PaidLimiter:
+    """
+    과금 경로 요청 제한 — **세션마다** PAID_RATE_LIMIT, **IP 전체**로는 PAID_RATE_LIMIT_IP (09-30 H-15).
+
+    예전엔 IP 하나에 분당 30회였다. held-out UI 감사에서 한 IP 의 세션 다섯이 동시에 판정하자 97회 중 67회가 429 였고,
+    부스는 여러 기기가 공유기 하나(NAT) 뒤에 있어 실전에서 그대로 난다. 그래서 세는 칸을 세션으로 바꾸고, IP 는 넉넉한
+    천장만 둔다. 세션 id 가 없는 요청(자료 업로드·답변 받아쓰기)은 IP 칸(세션 상한)으로 센다.
+    열쇠가 "ip:" 로 시작하면 천장, 나머지는 세션 칸 — `allow(key)` 하나로 두 층을 다 센다 (테스트가 allow 를 바꿔 끈다).
+    """
+
+    def __init__(self, *, limit: int, ip_limit: int, window_sec: float = 60.0, clock=time.monotonic) -> None:
+        self.session = RateLimiter(limit=limit, window_sec=window_sec, clock=clock)
+        self.ip = RateLimiter(limit=ip_limit, window_sec=window_sec, clock=clock)
+
+    def _tier(self, key: str) -> RateLimiter:
+        return self.ip if str(key).startswith("ip:") else self.session
+
+    def allow(self, key: str) -> bool:
+        return self._tier(key).allow(key)
+
+    def retry_after(self, key: str) -> int:
+        return self._tier(key).retry_after(key)
+
+
+LIMITER = PaidLimiter(limit=PAID_RATE_LIMIT, ip_limit=PAID_RATE_LIMIT_IP, window_sec=60.0)
 
 #: 제한을 거는 경로. 전부 외부 API 를 부르거나 GPU 를 태운다.
 PAID_PATHS = frozenset({
@@ -114,6 +142,9 @@ PAID_PATHS = frozenset({
     "/api/v1/papers/search",
     # F-26 주장 그래프도 LLM 1콜이다 (세션에 한 번 — 캐시가 받지만 입력을 바꿔 가며 두드리면 매번 부른다)
     "/api/v1/claims",
+    # F-25 기억은 과금이 없지만 요청마다 보관소의 manifest 를 전부 훑는다 (related_sessions) — 무제한이면
+    # 새로고침 루프 하나가 디스크를 긁는다 (09-30 B-18). 사람이 분당 30번 부를 일은 없다.
+    "/api/v1/memory",
 })
 
 #: CORS 허용 origin. 기본은 브리지 자신(같은 출처)이라 헤더가 필요 없고,
@@ -271,6 +302,25 @@ def _max_slides() -> int:
     return MAX_SLIDES
 
 
+#: 판정 기록(history) 한 줄에서 받는 키 — QaTurn.from_dict 가 읽는 것만 (한글·영문 둘 다).
+HISTORY_ITEM_KEYS = ("질문", "답변", "판정", "포기", "question_id", "question", "answer", "verdict", "gave_up")
+
+
+def _clip_history_item(item: dict) -> dict:
+    """
+    기록 한 줄을 판정이 읽는 키만, 글자는 ANSWER_MAX_CHARS 까지 (09-30 B-18).
+
+    예전엔 줄 수·전체 길이만 봐서, 한 줄에 3만 자짜리 「답변」 이나 모르는 키를 실어도 그대로 프롬프트까지 갔다.
+    """
+    out: dict = {}
+    for key in HISTORY_ITEM_KEYS:
+        if key not in item:
+            continue
+        value = item[key]
+        out[key] = value if value is None or isinstance(value, (bool, int, float)) else str(value)[:ANSWER_MAX_CHARS]
+    return out
+
+
 def _clip_judge_inputs(body: dict) -> tuple[dict, str]:
     """
     F-09 판정 프롬프트에 실리는 필드의 길이를 제한한다 → (다듬은 본문, 거절 문구 또는 "").
@@ -281,7 +331,7 @@ def _clip_judge_inputs(body: dict) -> tuple[dict, str]:
     """
     if len(str(body.get("answer", "") or "")) > ANSWER_MAX_CHARS:
         return body, f"답변은 {ANSWER_MAX_CHARS}자까지 판정할 수 있어요. 핵심만 줄여서 다시 답해 주세요."
-    history = [h for h in (body.get("history") or []) if isinstance(h, dict)][-HISTORY_MAX_ITEMS:] \
+    history = [_clip_history_item(h) for h in (body.get("history") or []) if isinstance(h, dict)][-HISTORY_MAX_ITEMS:] \
         if isinstance(body.get("history"), list) else []
     while history and len(json.dumps(history, ensure_ascii=False)) > HISTORY_MAX_CHARS:
         history = history[1:]
@@ -541,20 +591,189 @@ def _fake_delay(path: str) -> None:
 # 이름이 같은 다른 자료가 조용히 붙을 수 있어서 그쪽은 근사 매치 폴백을 금지해 뒀다.
 # 여기서는 아예 내용이 1비트라도 다르면 다른 키가 되게 한다 — 근사 매치가 존재할 수 없다.
 STAGE_CACHE_ON = os.environ.get("DEMO_STAGE_CACHE", "1").lower() not in ("0", "false", "off")
-STAGE_CACHE_DIR = ARCHIVE.stage_dir
+#: 단계 캐시 폴더. None 이면 **지금의** 보관소(ARCHIVE.stage_dir)를 따른다 — 보관소를 바꿔 끼우면(테스트·DEMO_DATA_DIR)
+#: 캐시도 따라간다. 예전엔 시작 때 경로를 굳혀서, 보관소만 임시 폴더로 바꾼 테스트가 실제 var/data 캐시를 읽고 썼다.
+STAGE_CACHE_DIR: Path | None = None
+
+
+def _stage_dir() -> Path:
+    return STAGE_CACHE_DIR or ARCHIVE.stage_dir
+
+
+# ─── 코드 판 — 캐시 키가 **지금 돌고 있는 코드**를 가리키게 (09-30 B-02·G-A4/A5/A34) ─────────────────────
+#
+# 2026-09-28: F-07 위계를 고쳤는데 캐시가 같은 자료에 옛 그래프를 그대로 돌려줬다 → 키에 모듈 소스 해시를 넣었다(7756058).
+# 09-30 감사에서 그 해시에 구멍이 둘 더 나왔다.
+#  ① 키에 넣은 모듈이 **손으로 적은 목록**이었다. F-26 키는 f26 하나뿐이라 대조 규칙(_claim_rules·_claim_quote·_evidence·
+#     _match)을 고쳐도 옛 주장이 나왔고, F-06 키는 받아쓰기 조각(f05)을, F-07 키는 _match·_json_text 를 빠뜨렸다.
+#     → 단계의 진입 모듈에서 import 를 따라가 닫힌 목록을 **자동으로** 모은다 (함수 안의 지연 import 까지 — ast 로 본다).
+#  ② 해시를 **요청 때 디스크에서** 읽었다. 이 VM 에서는 8799 가 도는 동안 다른 세션이 파일을 고친다 — 그러면 새 소스의
+#     키 자리를 **메모리에 올라 있는 옛 코드**의 결과가 채우고, 재시작한 새 코드가 그 옛 결과를 제 것인 줄 알고 쓴다.
+#     → 소스는 브리지가 뜰 때(= 모듈을 올린 직후) 한 번만 읽어 둔다. 키는 언제나 지금 돌고 있는 코드의 판이다.
+
+import chuckchuck as _chuckchuck_pkg  # noqa: E402
+
+#: 단계 → 그 단계의 출력을 만드는 진입 모듈. 키에 넣을 모듈 목록은 여기서 import 를 따라가 모은다.
+#: 새 단계 캐시를 만들면 여기에 한 줄 — tests/test_bridge_stage_cache.py 가 진입 함수가 이 모듈에 있는지 검사한다.
+STAGE_ENTRY_MODULES: dict[str, tuple[str, ...]] = {
+    "parse": ("chuckchuck.f01_parse",),                  # parse_document·merge_slidedocs — 디스크 캐시 (올린 파일 sha256)
+    "concepts": ("chuckchuck.f06_concepts",),            # extract_concepts — 디스크 캐시
+    "graph": ("chuckchuck.f07_graph",),                  # build_graph — 디스크 캐시
+    "claims": ("chuckchuck.f26_claims",),                # build_claims — 디스크 캐시
+    "papers": ("chuckchuck.f24_papers",),                # build_papers — 보관소
+    "memory": ("chuckchuck.f25_memory",),                # build_memory
+    "triage": ("chuckchuck.f08_questions",),             # triage_questions
+    # 질문 묶음은 주장·문헌·기억을 재료로 먹는다 — 그 모듈이 바뀌어도 옛 질문을 안 쓴다
+    "questions": ("chuckchuck.f08_questions", "chuckchuck.f26_claims", "chuckchuck.f24_papers", "chuckchuck.f25_memory"),
+    "judge": ("chuckchuck.f09_judge",),                  # judge_answer
+}
+
+
+def _snapshot_sources(pkg_dir: Path) -> dict[str, tuple[str, bytes, bool]]:
+    """패키지 폴더 아래 모든 모듈의 소스를 **지금** 한 번 읽는다 → {모듈 이름: (sha1 앞 12자, 소스, 패키지 __init__ 인가)}."""
+    out: dict[str, tuple[str, bytes, bool]] = {}
+    for path in sorted(pkg_dir.rglob("*.py")):
+        parts = path.relative_to(pkg_dir.parent).with_suffix("").parts
+        is_pkg = parts[-1] == "__init__"
+        name = ".".join(parts[:-1] if is_pkg else parts)
+        try:
+            src = path.read_bytes()
+        except OSError:
+            continue
+        out[name] = (hashlib.sha1(src).hexdigest()[:12], src, is_pkg)
+    return out
+
+
+def _imports_of(name: str, source: bytes, is_pkg: bool, known) -> set[str]:
+    """
+    모듈 소스가 import 하는 **같은 패키지** 모듈들. 함수 안의 지연 import(`from ._deck_claims import clauses`)도 센다.
+
+    `from . import _graph_items` 는 하위 모듈, `from .contracts import X` 는 contracts 모듈을 가리킨다.
+    `from 패키지 import 이름` 에서 이름이 하위 모듈이 아니면 그 패키지 __init__ 자체를 넣는다 (넓게 잡는 쪽이 안전하다).
+    """
+    import ast
+
+    pkg = name if is_pkg else name.rpartition(".")[0]
+    out: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            out.update(a.name for a in node.names if a.name in known)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = pkg.split(".")
+                if node.level > 1:
+                    base = base[: len(base) - (node.level - 1)]
+                mod = ".".join([*base, node.module] if node.module else base)
+            else:
+                mod = node.module or ""
+            for a in node.names:
+                if f"{mod}.{a.name}" in known:
+                    out.add(f"{mod}.{a.name}")
+                elif mod in known:
+                    out.add(mod)
+    return out
+
+
+def _import_closure(entries, sources: dict[str, tuple[str, bytes, bool]]) -> frozenset[str]:
+    """진입 모듈들에서 import 를 따라가 닿는 같은 패키지 모듈 전부 (자기 자신 포함)."""
+    seen: set[str] = set()
+    stack = [e for e in entries if e in sources]
+    while stack:
+        mod = stack.pop()
+        if mod in seen:
+            continue
+        seen.add(mod)
+        _, src, is_pkg = sources[mod]
+        stack.extend(_imports_of(mod, src, is_pkg, sources) - seen)
+    return frozenset(seen)
+
+
+def _version_of(modules, hashes: dict[str, str]) -> str:
+    h = hashlib.sha1()
+    for mod in sorted(modules):
+        h.update(f"{mod}={hashes.get(mod, '')}\n".encode("utf-8"))
+    return h.hexdigest()[:12]
+
+
+_PKG_DIR = Path(_chuckchuck_pkg.__file__).resolve().parent
+_SOURCES_AT_START = _snapshot_sources(_PKG_DIR)
+#: 브리지가 뜰 때 읽은 모듈 소스 해시. 이후 디스크가 바뀌어도 이 값은 안 바뀐다 — 돌고 있는 코드가 안 바뀌니까.
+SOURCE_HASHES: dict[str, str] = {name: h for name, (h, _, _) in _SOURCES_AT_START.items()}
+#: 단계 → 키에 들어가는 모듈 (import 닫힘).
+STAGE_MODULES: dict[str, frozenset[str]] = {
+    stage: _import_closure(entries, _SOURCES_AT_START) for stage, entries in STAGE_ENTRY_MODULES.items()
+}
+#: 단계 → 코드 판. 키에는 이것만 넣는다.
+STAGE_VERSIONS: dict[str, str] = {stage: _version_of(mods, SOURCE_HASHES) for stage, mods in STAGE_MODULES.items()}
+del _SOURCES_AT_START   # 소스 본문(≈1MB)은 닫힘을 셀 때만 필요하다
+
+# 닫힘 안의 모듈이 아직 안 올라왔으면(함수 안에서 늦게 import 하는 것) 지금 올린다 — 해시를 읽은 소스와 같은 판이 돌게.
+import importlib  # noqa: E402
+
+for _mod in sorted(set().union(*STAGE_MODULES.values())):
+    if _mod not in sys.modules:
+        importlib.import_module(_mod)
+
+#: 디스크 소스가 브리지 시작 뒤 바뀌었는지 다시 볼 간격(초). 캐시 키와는 무관하다 — 사람에게 재시작하라고 알리는 용도.
+SOURCE_DRIFT_CHECK_SEC = 30.0
+_DRIFT_STATE = {"checked_at": 0.0, "warned": set()}
+_DRIFT_LOCK = threading.Lock()
+
+
+def _warn_source_drift(modules) -> None:
+    """돌고 있는 코드와 디스크 소스가 갈라졌으면 한 번 알린다. 키는 그대로 **돌고 있는 코드**의 판이다."""
+    now = time.monotonic()
+    with _DRIFT_LOCK:
+        if now - _DRIFT_STATE["checked_at"] < SOURCE_DRIFT_CHECK_SEC:
+            return
+        _DRIFT_STATE["checked_at"] = now
+    for mod in sorted(modules):
+        if mod in _DRIFT_STATE["warned"]:
+            continue
+        parts = mod.split(".")
+        base = _PKG_DIR.parent.joinpath(*parts)
+        path = base / "__init__.py" if (base / "__init__.py").is_file() else base.with_suffix(".py")
+        try:
+            now_hash = hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+        except OSError:
+            continue
+        if now_hash != SOURCE_HASHES.get(mod):
+            _DRIFT_STATE["warned"].add(mod)
+            sys.stderr.write(f"[bridge] ⚠ {mod} 소스가 브리지를 띄운 뒤 바뀌었어요 — 돌고 있는 건 옛 코드예요. "
+                             "캐시 키도 옛 코드 판으로 남기니, 새 코드를 쓰려면 브리지를 다시 띄워요.\n")
+
+
+def _stage_version(stage: str) -> str:
+    """단계의 코드 판 — 그 단계 진입 모듈의 import 닫힘 전체를 브리지 시작 때 읽은 소스로 센 해시."""
+    _warn_source_drift(STAGE_MODULES[stage])
+    return STAGE_VERSIONS[stage]
 
 
 def _code_version(module_name: str) -> str:
-    """
-    단계 모듈 소스의 해시. 캐시 키에 넣어, 프롬프트·후처리를 고치면 옛 결과가 안 맞게 한다.
+    """모듈 하나의 소스 해시 (브리지 시작 때 읽은 것). 키에는 `_stage_version` 을 쓴다 — 모듈 하나로는 닫히지 않는다."""
+    return SOURCE_HASHES.get(module_name, "")
 
-    2026-09-28: F-07 위계를 고쳤는데 캐시가 같은 자료에 옛 그래프(주제가 잎 밑에 붙은 것)를
-    그대로 돌려줘서, 브리지를 재시작해도 화면은 옛 질문 순서였다.
-    """
-    import importlib
 
-    path = Path(importlib.import_module(module_name).__file__)
-    return hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+def _llm_identity(llm) -> str:
+    """
+    키에 넣을 LLM. 본문이 고른 것(개발 경로)이 없으면 환경변수가 정한 주·예비다.
+
+    예전엔 실 모드의 llm(None)을 그대로 넣어, REASONING_BACKEND 를 바꿔 다시 띄워도 옛 모델의 그래프·주장을 돌려줬다.
+    """
+    if llm:
+        return str(llm)
+    primary = (os.environ.get("REASONING_BACKEND") or "solar").strip().lower()   # llm_impl.get_llm 의 기본값과 같다
+    return f"env:{primary}+{(os.environ.get('REASONING_FALLBACK') or '').strip().lower()}"
+
+
+def _canon(cls, raw):
+    """계약 모양(cls.from_dict → to_dict). 단계가 실제로 읽는 것만 남긴다 — 세션 표시·프론트가 붙인 키는 빠진다. 못 읽으면 날 것."""
+    if raw is None:
+        return None
+    try:
+        return cls.from_dict(raw).to_dict() if isinstance(raw, dict) else raw.to_dict()
+    except Exception:  # noqa: BLE001 — 키 계산이 요청을 죽이면 안 된다. 날 것으로 세면 캐시가 덜 맞을 뿐이다
+        return raw
 
 
 def _stage_key(*parts) -> str:
@@ -605,7 +824,7 @@ def _stage_cache_get(stage: str, key: str):
     if not STAGE_CACHE_ON:
         return None
     try:
-        raw = (STAGE_CACHE_DIR / f"{stage}-{key}.json").read_text(encoding="utf-8")
+        raw = (_stage_dir() / f"{stage}-{key}.json").read_text(encoding="utf-8")
         return json.loads(raw)
     except (OSError, ValueError):
         return None
@@ -615,10 +834,13 @@ def _stage_cache_put(stage: str, key: str, payload: dict) -> None:
     if not STAGE_CACHE_ON:
         return
     try:
-        STAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        (STAGE_CACHE_DIR / f"{stage}-{key}.json").write_text(
-            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
-        )
+        _stage_dir().mkdir(parents=True, exist_ok=True)
+        # tmp 에 쓰고 rename — 두 트랙이 같은 단계를 동시에 끝내도 반쪽 JSON 이 남지 않는다.
+        # tmp 도 .json 으로 끝나게 둔다 — 쓰다 죽어 남으면 보관소 청소(prune, mtime)가 같이 지운다
+        path = _stage_dir() / f"{stage}-{key}.json"
+        tmp = path.with_name(f"{path.stem}.{threading.get_ident()}.tmp.json")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, path)
     except OSError as e:
         # 캐시 저장 실패는 분석 실패가 아니다. 삼키되 조용히는 안 한다
         sys.stderr.write(f"[bridge] {stage} 캐시 저장 실패(무시): {e}\n")
@@ -638,6 +860,242 @@ def _claims_kw(fn, claims) -> dict:
     except (TypeError, ValueError):
         return {}
     return {"claims": claims.to_dict()} if "claims" in params else {}
+
+
+# ─── 세션 id — 메모리 저장소와 디스크 보관소 (09-30 B-06) ─────────────────────────────────────────────
+#
+# 프론트는 서버가 발급한 id 가 없으면(샘플·mock·보관소 쓰기 실패) 'flat' 하나로 질문·판정을 주고받는다
+# (app.js FLAT_QA_SESSION_ID · chuckchuck_bridge.js judgeQaAnswer). 그런데 등록(/session/artifacts)은 발급 모양만 받아
+# 'flat' 을 400 으로 거절하고, 판정의 _resolve 는 날 문자열로 찾았다 — 그래서 flat 판정은 409(세션 없음) → 재등록 400 으로
+# **언제나** 실패했다. 이제 메모리 저장소 쪽은 발급 모양 + 'flat' 을 같은 규칙으로 받고, 디스크 보관소는 발급 모양만 받는다.
+
+#: 서버가 발급하지 않은 세션의 자리표시자. 메모리 저장소에만 쓰고 디스크에는 절대 안 쓴다.
+FLAT_SESSION_ID = "flat"
+#: 큰 본문에서 요청 제한 칸(session_id)만 찾는 표식. 값 모양은 _store_sid 가 다시 거른다.
+_SESSION_ID_RE = re.compile(rb'"session_id"\s*:\s*"([A-Za-z0-9_]{1,64})"')
+
+
+def _store_sid(raw) -> str:
+    """메모리 저장소(STORE) 열쇠. 발급 모양의 id 또는 'flat'. 그 밖은 빈 문자열 — 아무 문자열이나 받으면 자리를 채워 남의 세션을 민다."""
+    if raw == FLAT_SESSION_ID:
+        return FLAT_SESSION_ID
+    return ARCHIVE.safe_id(raw) or ""
+
+
+# ─── 같은 일은 한 번만 (09-30 B-04) ─────────────────────────────────────────────────────────────────────
+#
+# 분석이 끝나면 프론트가 10분 트랙을 미리 만들고, 시간을 고르면 5분 트랙도 미리 만든다 — 둘이 겹치면 트랙과 무관한
+# 주장(F-26)·문헌(F-24)·1차 심사(triage)를 **두 번씩** 돌렸다 (LLM 3콜 + 학술 검색 한 벌이 헛돈다).
+# 질문 묶음 단위의 기다림(_QUESTIONS_INFLIGHT)은 트랙이 다르면 서로를 모른다 — 재료 단위로 한 번 더 묶는다.
+
+class _Flights:
+    """열쇠가 같은 일을 동시에 두 번 하지 않는다. 먼저 온 쪽이 뒤 스레드에서 돌리고, 나머지는 같은 Future 를 받는다."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._jobs: dict[str, "Future"] = {}
+
+    def run(self, key: str, fn) -> "Future":
+        from concurrent.futures import Future
+
+        with self._lock:
+            fut = self._jobs.get(key)
+            if fut is not None:
+                return fut
+            fut = Future()
+            self._jobs[key] = fut
+
+        def work() -> None:
+            try:
+                fut.set_result(fn())
+            except BaseException as e:  # noqa: BLE001 — 기다리는 쪽에 그대로 넘긴다
+                fut.set_exception(e)
+            finally:
+                with self._lock:
+                    if self._jobs.get(key) is fut:
+                        self._jobs.pop(key, None)
+
+        # 데몬 스레드 — 기다리는 요청이 제한 시간에 먼저 떠나도 일은 끝까지 해서 캐시를 채운다
+        threading.Thread(target=work, name=f"flight:{key[:40]}", daemon=True).start()
+        return fut
+
+    def busy(self) -> list[str]:
+        with self._lock:
+            return list(self._jobs)
+
+
+_FLIGHTS = _Flights()
+
+
+# ─── 폴백은 폴백이라고 말한다 (09-30 B-03·G-A13/A19) ────────────────────────────────────────────────────
+#
+# 주장 LLM 이 죽어 규칙 주장만 나온 것, 학술 검색이 429·시간 초과로 빈 문헌, 지난 리허설을 못 읽은 것 —
+# 셋 다 예외를 삼키고 **성공처럼** 캐시·보관돼 같은 세션 끝까지 반쪽 질문을 만들었고, 응답에는 아무 표시가 없었다.
+# 이제 응답에 degraded(코드)·degraded_notes(사람 말)를 싣고, 폴백 결과는 짧게만 들고 있다가 다시 시도한다.
+
+#: 폴백 결과(규칙 주장·실패한 문헌·그걸로 만든 질문 묶음)를 들고 있는 초. 미리 만들기 → 시작 한 쌍은 이 안에서 나눠 쓴다.
+FALLBACK_TTL_SEC = float(os.environ.get("DEMO_FALLBACK_TTL_SEC", "120") or 120)
+#: 질문 생성이 문헌을 기다리는 최대 초 (주장과 **같이** 돌리므로 주장이 더 오래 걸리면 그만큼 더 기다린 셈이다).
+#: 09-30 실측(G-A9): 검색 통로가 막히면 /questions 가 ~60초 서 있었다 — 프론트 제한이 60초라 질문이 통째로 실패했다.
+PAPERS_DEADLINE_SEC = float(os.environ.get("DEMO_PAPERS_DEADLINE_SEC", "6") or 6)
+#: 검색 통로가 실패하면 이 초 동안은 부르지 않고 자료 인용만 쓴다 (4갈래 arXiv 가 줄줄이 429 를 받던 것 — B-14/B-15).
+PAPERS_NEGATIVE_TTL_SEC = float(os.environ.get("DEMO_PAPERS_NEGATIVE_TTL_SEC", "180") or 180)
+#: 주장(F-26) 을 기다리는 최대 초. LLM 한 콜 + 재시도 — 넘기면 주장 없이 간다.
+CLAIMS_WAIT_SEC = float(os.environ.get("DEMO_CLAIMS_WAIT_SEC", "90") or 90)
+
+#: 응답의 degraded 코드 → 화면에 그대로 띄워도 되는 한 문장 (프론트 몫은 따로 — 여기서는 사실만 싣는다).
+DEGRADED_NOTES = {
+    "slide_doc_missing": "자료 본문을 찾지 못해 자료와 대조하지 않고 진행했어요. 자료를 다시 올리면 대조해요.",
+    "question_unverified": "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요.",
+    "question_mismatch": "화면의 질문이 서버가 만든 질문과 달라서 서버의 질문으로 판정했어요.",
+    "claims_rule_only": "주장 그래프를 AI 로 만들지 못해 규칙으로 찾은 주장만 썼어요.",
+    "claims_failed": "주장 그래프를 만들지 못해 주장 없이 질문을 만들었어요.",
+    "claims_timeout": "주장 그래프가 늦어져 주장 없이 질문을 만들었어요.",
+    "papers_timeout": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요.",
+    "papers_unavailable": "문헌 검색이 잠시 안 돼서 자료가 인용한 문헌만으로 질문을 만들었어요.",
+    "papers_partial": "문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.",
+    "papers_failed": "문헌을 불러오지 못해 문헌 없이 질문을 만들었어요.",
+    "memory_failed": "지난 리허설 기억을 읽지 못해 기억 없이 진행했어요.",
+}
+#: 잠깐 뒤 다시 하면 나아질 수 있는 것 — 이걸로 만든 질문 묶음은 FALLBACK_TTL_SEC 만 들고 있는다.
+#: slide_doc_missing 은 안 넣는다 (다시 해도 본문이 생기지 않는다 — 짧게 들면 같은 질문을 LLM 으로 계속 다시 만든다).
+TRANSIENT_DEGRADED = frozenset({
+    "claims_rule_only", "claims_failed", "claims_timeout",
+    "papers_timeout", "papers_unavailable", "papers_partial", "papers_failed", "memory_failed",
+})
+
+
+def _with_degraded(payload: dict, degraded: list[str]) -> dict:
+    """응답에 degraded(코드 목록)·degraded_notes(같은 순서의 문장)를 싣는다. 폴백이 없으면 빈 목록 — 키는 언제나 있다."""
+    codes = list(dict.fromkeys(degraded))
+    return {**payload, "degraded": codes, "degraded_notes": [DEGRADED_NOTES.get(c, c) for c in codes]}
+
+
+#: 학술 검색이 실패했을 때 f24 가 note 에 남기는 표식 (_search_many · MultiScholar). 코드가 아니라 문장이라 여기 모아 둔다.
+_PAPERS_FAIL_MARKS = ("검색 실패", "검색 오류", "모든 통로 실패")
+PAPERS_RESTING_NOTE = "검색 통로가 최근 실패해서 잠시 쉬어요 — 자료가 인용한 문헌만"
+PAPERS_TIMEOUT_NOTE = "문헌 검색이 제한 시간을 넘겨 자료가 인용한 문헌만 — 검색은 뒤에서 마저 해요"
+#: 보관한 paper_doc 에 붙이는 그래프 지문 키 (09-30 B-11). PaperDoc.from_dict 는 모르는 키를 무시한다.
+PAPERS_GRAPH_FP_KEY = "graph_fp"
+_PAPERS_DOWN: dict[str, float] = {}
+_PAPERS_DOWN_LOCK = threading.Lock()
+
+
+def _papers_spec(scholar) -> str:
+    """부정 캐시 열쇠 — 어떤 검색 통로 묶음인가 (SCHOLAR_PROVIDER). none 이면 실패할 게 없다."""
+    return str(scholar) if scholar else (os.environ.get("SCHOLAR_PROVIDER") or "none").strip().lower()
+
+
+def _papers_down_left(spec: str) -> float:
+    """이 통로를 앞으로 몇 초 더 쉬나. 0 이면 불러도 된다."""
+    with _PAPERS_DOWN_LOCK:
+        return max(0.0, _PAPERS_DOWN.get(spec, 0.0) - time.monotonic())
+
+
+def _mark_papers_down(spec: str, why: str) -> None:
+    if not spec or spec == "none":
+        return
+    with _PAPERS_DOWN_LOCK:
+        _PAPERS_DOWN[spec] = time.monotonic() + PAPERS_NEGATIVE_TTL_SEC
+    sys.stderr.write(f"[bridge] F-24 검색 통로 {spec} 를 {PAPERS_NEGATIVE_TTL_SEC:.0f}초 쉬어요 ({why})\n")
+
+
+def _papers_degraded(papers) -> str:
+    """PaperDoc 이 폴백인가 → degraded 코드. 정상이면 "". 검색을 끈 것(none)·결과가 없던 것은 폴백이 아니다."""
+    note = str(getattr(papers, "note", "") or "")
+    if PAPERS_TIMEOUT_NOTE in note:
+        return "papers_timeout"
+    if PAPERS_RESTING_NOTE in note:
+        return "papers_unavailable"
+    if any(m in note for m in _PAPERS_FAIL_MARKS):
+        return "papers_partial" if getattr(papers, "scholar_refs", None) else "papers_unavailable"
+    return ""
+
+
+def _deck_only_papers(graph_raw: dict, slidedoc, note: str):
+    """검색 없이 자료가 인용한 문헌만 (scholar=none — LLM·네트워크 0). 이마저 안 되면 None."""
+    from chuckchuck import build_papers
+
+    try:
+        doc = build_papers(graph_raw, slidedoc, scholar="none")
+    except Exception as e:  # noqa: BLE001 — 폴백의 폴백. 없으면 문헌 없이 간다
+        sys.stderr.write(f"[bridge] F-24 자료 인용 폴백 실패: {type(e).__name__}: {e}\n")
+        return None
+    doc.note = note
+    return doc
+
+
+def _claims_rule_only(claims, graph_raw, slidedoc) -> bool:
+    """LLM 을 불렀어야 했는데 규칙 주장만 나왔나 (f26: LLM 이 죽으면 model='rule'). 노드·장이 없으면 원래 규칙뿐이다."""
+    if claims is None or getattr(claims, "model", "") != "rule":
+        return False
+    return bool((graph_raw or {}).get("nodes")) and bool((slidedoc or {}).get("slides"))
+
+
+#: 기억(F-25)을 못 읽었다는 표시. 「지난 리허설 없음」({}) 과 구분한다 — 예전엔 실패도 {} 로 6시간 담아 없던 일처럼 됐다.
+MEMORY_FAILED_MARK = {"__memory_failed__": True}
+
+
+def _memory_failed(sid: str) -> bool:
+    return bool(sid) and STORE.get_triage("memory:" + sid) == MEMORY_FAILED_MARK
+
+
+# ─── 외부 AI·검색 장애는 장애라고 말한다 (09-30 J25) ────────────────────────────────────────────────────
+
+def _upstream_error(e: BaseException) -> tuple[int, dict] | None:
+    """
+    외부 LLM·검색 호출이 죽어서 난 예외 → (상태, 본문). 우리 코드의 버그면 None (500 으로 남긴다).
+
+    09-30 실측(J25): 판정 중 LLM 게이트웨이가 읽기 타임아웃을 내면 requests.ReadTimeout·ConceptError 가 그대로 올라와
+    500 「요청을 처리하지 못했어요」 가 됐다 — 서버 버그처럼 보이고, 잠깐 뒤 다시 하면 되는 일인지 알 길이 없었다.
+    프론트(qaApi·buildQuestions·booth)는 상태와 무관하게 {error, message} 를 읽어 message 를 그대로 띄운다.
+    벤더 응답 본문은 싣지 않는다 (stderr 에만) — ConceptError 문구에는 벤더 본문이 섞여 있다.
+    """
+    import requests
+
+    from chuckchuck.contracts import ConceptError, PaperError
+
+    seen: list[BaseException] = []
+    x: BaseException | None = e
+    while x is not None and len(seen) < 6 and x not in seen:
+        seen.append(x)
+        x = x.__cause__ or x.__context__
+    if any(isinstance(x, (requests.Timeout, TimeoutError)) for x in seen):
+        return 503, {"error": "upstream_timeout", "retry_after": 10,
+                     "message": "AI 서버가 제시간에 답하지 않았어요. 잠시 뒤 다시 해 주세요."}
+    if any(isinstance(x, requests.ConnectionError) for x in seen) or (
+            isinstance(e, ConceptError) and "연결 실패" in str(e)):
+        return 503, {"error": "upstream_unavailable", "retry_after": 10,
+                     "message": "AI 서버에 연결하지 못했어요. 잠시 뒤 다시 해 주세요."}
+    if isinstance(e, (ConceptError, PaperError, requests.RequestException)):
+        return 502, {"error": "upstream_failed",
+                     "message": "AI 서버가 오류로 답했어요. 잠시 뒤 다시 해 주세요."}
+    return None
+
+
+# ─── 판정의 채점 기준은 서버가 정한다 (09-30 R4·B-07·B-12) ─────────────────────────────────────────────
+
+#: 서버에 없는 질문(클라이언트 본문)을 판정 프롬프트에 실을 때의 상한. 서버 질문의 대사 상한(QA_TEXT_MAX 200)보다 넉넉하다.
+CLIENT_TEXT_MAX = 600
+CLIENT_LIST_MAX = 12
+#: Question → basis → probe → evidence[] → {quote} 가 다섯 겹이다. 그보다 깊은 것은 버린다.
+CLIENT_DEPTH_MAX = 6
+
+
+def _capped(value, depth: int = 0):
+    """클라이언트가 보낸 JSON 을 판정 프롬프트에 실어도 되는 크기로 — 글자·목록·깊이를 자른다 (너무 깊은 것은 뺀다)."""
+    if isinstance(value, str):
+        return value[:CLIENT_TEXT_MAX]
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if depth >= CLIENT_DEPTH_MAX:
+        return None
+    if isinstance(value, list):
+        items = (_capped(v, depth + 1) for v in value[:CLIENT_LIST_MAX])
+        return [v for v in items if v is not None]
+    if isinstance(value, dict):
+        return {str(k)[:64]: _capped(v, depth + 1) for k, v in list(value.items())[:40]}
+    return str(value)[:CLIENT_TEXT_MAX]
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -746,17 +1204,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(415, {"error": "json_required", "message": "Content-Type: application/json 으로 보내 주세요."})
             raw = self.rfile.read(length) if length else b""
 
-            # 과금 경로는 IP당 분당 상한을 건다. 본문을 다 읽은 뒤에 막는다 —
+            # 과금 경로는 세션마다 분당 상한 + IP 천장을 건다 (PaidLimiter). 본문을 다 읽은 뒤에 막는다 —
             # 안 읽고 끊으면 클라이언트가 응답 대신 연결 오류를 본다.
-            if ((parsed.path in PAID_PATHS
-                 or (parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path))
-                    and not LIMITER.allow(self._client_key())):
-                wait = LIMITER.retry_after(self._client_key())
-                return self._json(429, {
-                    "error": "rate_limited",
-                    "message": f"요청이 너무 잦아요. {wait}초 뒤에 다시 시도해 주세요.",
-                    "retry_after": wait,
-                })
+            if parsed.path in PAID_PATHS or (parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path):
+                limited = self._rate_limited(parsed.path, raw)
+                if limited is not None:
+                    return self._json(429, limited)
 
             if parsed.path == "/api/v1/session/artifacts":
                 return self._handle_session_artifacts(raw)
@@ -802,9 +1255,9 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._handle_claims(raw)
             if parsed.path == "/api/v1/strategy":
                 return self._handle_strategy(raw)
-            # F-09: /api/v1/sessions/{id}/qa/judge — 세션 없이도 body.question 으로 판정
+            # F-09: /api/v1/sessions/{id}/qa/judge — 채점 기준은 서버가 만든 질문, 없으면 body.question (표시를 달고)
             if parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path:
-                return self._handle_qa_judge(raw)
+                return self._handle_qa_judge(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
             if parsed.path == "/api/v1/qa/judge":
                 return self._handle_qa_judge(raw)
             return self._json(404, {"error": "not found"})
@@ -814,8 +1267,14 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001 — 데모 브리지
             # 상세(벤더 응답 본문·서버 경로)는 stderr 에만. 응답에는 사용자가 고칠 수 있는 사실만 싣는다.
             traceback.print_exc()
+            # 외부 AI·검색이 죽은 것은 우리 버그(500)가 아니라 「잠시 뒤 다시」 다 — 502/503 으로 가른다 (J25)
+            upstream = _upstream_error(e)
             try:
-                self._json(500, {"error": type(e).__name__, "message": _public_message(e)})
+                if upstream is not None:
+                    sys.stderr.write(f"[bridge] {parsed.path} 외부 호출 실패 → {upstream[0]} {upstream[1]['error']}\n")
+                    self._json(*upstream)
+                else:
+                    self._json(500, {"error": type(e).__name__, "message": _public_message(e)})
             except Exception:  # noqa: BLE001
                 return
 
@@ -1056,11 +1515,21 @@ class Handler(SimpleHTTPRequestHandler):
                 tmp.write(data)
                 tmp_paths.append(tmp.name)
         try:
-            if len(tmp_paths) == 1:
+            # 같은 파일(바이트)을 다시 올리면 Upstage 를 다시 안 부른다 (09-30 M-14). 09-30 실측: 8799 보관소에서 같은 파일을
+            # 여러 번 올린 5묶음(13세션) 중 2묶음은 파싱 결과가 달랐다 — 그러면 개념·그래프 캐시(내용 해시)도 빗나가 4분을 다시 태운다.
+            # 열쇠는 올린 바이트의 sha256 + 파서 설정 + 코드 판이라, 파일이 1비트라도 다르면 다른 키다 (근사 매치 없음).
+            parse_key = self._parse_cache_key(uploads, exts)
+            cached_doc = _stage_cache_get("parse", parse_key)
+            if cached_doc is not None:
+                doc = SlideDoc.from_dict(cached_doc)
+                sys.stderr.write(f"[bridge] F-01 parse 캐시 적중 {parse_key}\n")
+            elif len(tmp_paths) == 1:
                 doc = parse_document(tmp_paths[0])
             else:
                 # 캡처 한 장 = 1페이지 문서. 올린 순서대로 번호를 다시 매겨 한 자료로 만든다.
                 doc = merge_slidedocs([parse_document(tp) for tp in tmp_paths], file_name=filename)
+            if cached_doc is None:
+                _stage_cache_put("parse", parse_key, doc.to_dict())
             sys.stderr.write(f"[bridge] F-01 parse done slides={doc.total_slides}\n")
             # 파서는 임시 경로 이름을 그대로 담는다. 원래 업로드 이름으로 되돌린다.
             doc.file_name = filename
@@ -1095,6 +1564,16 @@ class Handler(SimpleHTTPRequestHandler):
         finally:
             for tp in tmp_paths:
                 Path(tp).unlink(missing_ok=True)
+
+    @staticmethod
+    def _parse_cache_key(uploads: list[tuple[str, bytes]], exts: list[str | None]) -> str:
+        """파싱 캐시 열쇠 — 올린 파일들의 sha256(순서대로)·형식 + 파서 설정(모델·모드·OCR·출력·좌표) + F-01 코드 판."""
+        from chuckchuck import f01_parse as F01
+
+        return _stage_key(
+            "f01", _stage_version("parse"), [hashlib.sha256(b).hexdigest() for _, b in uploads], list(exts),
+            F01.MODEL, F01.MODE, F01.OCR, F01.OUTPUT_FORMATS, F01.COORDINATES,
+        )
 
     def _handle_suggest_context(self, raw: bytes):
         """[F-23] 자료만 보고 발표 상황을 추정한다. 결정론·호출 0 — 과금 경로가 아니다.
@@ -1135,9 +1614,13 @@ class Handler(SimpleHTTPRequestHandler):
         transcript = None
         if body.get("transcript"):
             transcript = Transcript.from_dict(body["transcript"])
-        # 같은 자료·같은 발표 정보면 결과가 같다. 부스 2회차부터 1분 43초를 안 태운다
-        key = _stage_key("f06", _code_version("chuckchuck.f06_concepts"), body["slide_doc"], body.get("context") or {}, llm,
-                         body.get("transcript") or None)
+        # 같은 자료·같은 발표 정보면 결과가 같다. 부스 2회차부터 1분 43초를 안 태운다.
+        # 코드 판은 f06 의 import 닫힘 전체다 (09-30: 예전엔 f06 하나라 발화 조각을 만드는 f05 를 고쳐도 옛 개념이 나왔다).
+        # 입력은 **계약 모양**(from_dict→to_dict)으로 센다 (09-30 M-14). /parse 응답에는 session_id·preview_pdf·consent_learning 이
+        # 붙어 있고 프론트는 그걸 그대로 보낸다 — 날 본문을 키에 넣으면 같은 덱을 다시 올릴 때마다(새 세션) 키가 달라져
+        # 개념·그래프(합 4분)를 다시 돌렸다. F-06 이 실제로 읽는 것도 이 계약 모양뿐이다.
+        key = _stage_key("f06", _stage_version("concepts"), _llm_identity(llm), doc.to_dict(), ctx.to_dict(),
+                         transcript.to_dict() if transcript is not None else None)
         # 발표 정보는 manifest 에 붙인다 — 또래 기준(상황×시간) 을 만들 때의 버킷 키다.
         if not _mock() and _session_id_of(body) and body.get("context"):
             ARCHIVE.set_context(_session_id_of(body), body["context"])
@@ -1205,10 +1688,11 @@ class Handler(SimpleHTTPRequestHandler):
         # F-07 은 Transcript 를 안 받는다 — 입력이 concept_doc·slide_doc·context 뿐이라
         # 같은 자료면 결과가 같다. 실측 2분 40초로 파이프라인에서 가장 긴 단계다
         # 09-29: F-07 후처리(식·목록 항목 메우기·겹친 이름 합치기)가 유틸 _graph_items·_claim_rules 에 있다.
-        # f07 소스만 해시하면 그쪽을 고쳐도 옛 그래프가 나온다 (7756058 과 같은 함정) — 셋 다 키에 넣는다.
-        key = _stage_key("f07", _code_version("chuckchuck.f07_graph"), _code_version("chuckchuck._graph_items"),
-                         _code_version("chuckchuck._claim_rules"), body["concept_doc"], body.get("slide_doc") or None,
-                         body.get("context") or {}, llm)
+        # f07 소스만 해시하면 그쪽을 고쳐도 옛 그래프가 나온다 (7756058 과 같은 함정). 09-30 부터는 손으로 적지 않고
+        # f07 의 import 닫힘 전체(_match·_json_text·contracts·LLM 제공자까지)를 브리지 시작 때 판으로 센다.
+        # 입력은 계약 모양으로 센다 — /concepts 와 같은 이유 (M-14: slide_doc 에 붙은 session_id 가 키를 세션마다 갈랐다)
+        key = _stage_key("f07", _stage_version("graph"), _llm_identity(llm), doc.to_dict(),
+                         slide_doc.to_dict() if slide_doc is not None else None, ctx.to_dict())
         cached = _stage_cache_get("graph", key)
         if cached is not None:
             sys.stderr.write(f"[bridge] F-07 graph 캐시 적중 {key}\n")
@@ -1636,6 +2120,55 @@ class Handler(SimpleHTTPRequestHandler):
                 return forwarded
         return addr
 
+    def _rate_bucket(self, path: str, raw: bytes) -> str:
+        """
+        요청 제한 칸. 세션 id(본문 → /sessions/{id}/ 경로)가 발급 모양이면 그 세션, 아니면 IP (`_client_key`).
+
+        'flat' 은 발급 id 가 없는 모든 사람이 나눠 쓰는 자리라 세션으로 세지 않는다 — IP 칸이다.
+        본문을 여기서 한 번 더 읽는다 (핸들러도 읽는다). 과금 경로 본문은 수 MB 안이라 LLM 한 콜에 비하면 공짜다.
+        """
+        sid_raw = None
+        if path != "/api/v1/parse" and raw:
+            if len(raw) <= JSON_BODY_MAX:
+                try:
+                    body = json.loads(raw)
+                except (ValueError, UnicodeDecodeError):
+                    body = None
+                if isinstance(body, dict):
+                    sid_raw = body.get("session_id")
+            else:
+                # 녹음(base64)처럼 큰 본문은 다 풀지 않고 열쇠 자리만 찾는다 — 42MB 를 칸 하나 정하려고 두 번 풀 수는 없다
+                m = _SESSION_ID_RE.search(raw)
+                sid_raw = m.group(1).decode("ascii") if m else None
+        if not sid_raw and "/api/v1/sessions/" in path:
+            sid_raw = self._path_segment_after(path, "sessions")
+        sid = _store_sid(sid_raw)
+        if sid and sid != FLAT_SESSION_ID:
+            return "session:" + sid
+        return "client:" + self._client_key()
+
+    def _rate_limited(self, path: str, raw: bytes) -> dict | None:
+        """과금 경로 요청 제한 → 막으면 429 본문, 통과면 None. IP 천장을 먼저 보고, 그다음 세션 칸 (H-15)."""
+        client = "ip:" + self._client_key()
+        if not LIMITER.allow(client):
+            key, scope = client, "ip"
+        else:
+            key = self._rate_bucket(path, raw)
+            if LIMITER.allow(key):
+                return None
+            scope = "session" if key.startswith("session:") else "ip"
+        wait = LIMITER.retry_after(key)
+        sys.stderr.write(f"[bridge] 요청 제한 {path} scope={scope} retry_after={wait}\n")
+        # error·message·retry_after 는 예전 그대로 (프론트 qaApi 가 error→code, message 를 띄운다). rate_limited·scope 는
+        # 프론트가 자동 재시도·출구 조건에서 이 턴을 뺄 때 쓰라고 더한 기계용 표시다.
+        return {
+            "error": "rate_limited",
+            "rate_limited": True,
+            "scope": scope,
+            "retry_after": wait,
+            "message": f"요청이 너무 잦아요. {wait}초 뒤에 다시 시도해 주세요.",
+        }
+
     @staticmethod
     def _archive(body: dict, kind: str, payload: dict) -> None:
         """
@@ -1658,9 +2191,10 @@ class Handler(SimpleHTTPRequestHandler):
         판정마다 그래프·발화를 통째로 재업로드하던 것을 없애는 자리다.
         """
         body = json.loads(raw or b"{}")
-        # 파싱 때 발급한 모양의 id 만 받는다. 아무 문자열이나 받으면 로그에 가짜 줄을 심거나,
-        # 한도(세션 32개)를 채워 남의 세션을 밀어낼 수 있다. 크기는 do_POST 의 경로별 상한이 막는다.
-        session_id = _session_id_of(body)
+        # 파싱 때 발급한 모양의 id 와 'flat'(발급 id 가 없는 경로의 자리표시자)만 받는다. 아무 문자열이나 받으면 로그에
+        # 가짜 줄을 심거나, 한도(세션 32개)를 채워 남의 세션을 밀어낼 수 있다. 크기는 do_POST 의 경로별 상한이 막는다.
+        # 판정(_resolve)도 같은 _store_sid 로 찾는다 — 둘이 다르게 거르면 flat 판정이 409 → 재등록 400 에 갇힌다 (B-06).
+        session_id = _store_sid(body.get("session_id"))
         if not session_id:
             return self._json(400, {"error": "bad_request", "message": "session_id 가 필요합니다."})
 
@@ -1673,9 +2207,14 @@ class Handler(SimpleHTTPRequestHandler):
     @staticmethod
     def _path_session_id(path: str) -> str:
         """`/api/v1/sessions/{id}/…` 의 id. 모양이 틀리면 빈 문자열."""
+        return ARCHIVE.safe_id(Handler._path_segment_after(path, "sessions")) or ""
+
+    @staticmethod
+    def _path_segment_after(path: str, name: str) -> str:
+        """경로에서 name 바로 뒤 조각 (검사 없음 — 쓰는 쪽이 _store_sid·safe_id 로 거른다)."""
         parts = path.split("/")
         try:
-            return ARCHIVE.safe_id(parts[parts.index("sessions") + 1]) or ""
+            return parts[parts.index(name) + 1]
         except (ValueError, IndexError):
             return ""
 
@@ -1740,12 +2279,15 @@ class Handler(SimpleHTTPRequestHandler):
         본문에 없는 아티팩트를 세션 저장소에서 채운다.
 
         본문이 이긴다 — 방금 만든 결과를 들고 온 요청이 오래된 캐시에 밀리면 안 된다.
+        **키가 없는 것과 null 은 다르다** (put_artifacts 와 같은 계약, 09-30 B-13). null 은 「이번 발표엔 이게 없다」 는
+        선언이라 채우지 않는다 — 채우면 지운 줄 알았던 옛 발표의 flow·정합이 질문·판정 근거로 되살아난다.
+        빈 값({}·[]·"")은 예전처럼 「안 보냄」 으로 보고 채운다.
         """
         found = {k: body.get(k) for k in keys}
-        missing = [k for k in keys if not found[k]]
+        missing = [k for k in keys if not found[k] and not (k in body and body[k] is None)]
         if not missing:
             return found
-        stored = STORE.artifacts(str(body.get("session_id") or ""))
+        stored = STORE.artifacts(_store_sid(body.get("session_id")))
         for key in missing:
             found[key] = stored.get(key)
         return found
@@ -1802,9 +2344,9 @@ class Handler(SimpleHTTPRequestHandler):
         q_key = "questions:" + fingerprint(
             found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(), track, str(llm),
             str(_session_id_of(body) or ""), bool(slidedoc), pace, body.get("papers") is False, body.get("memory") is False,
-            _code_version("chuckchuck.f08_questions"),
-            # 주장(F-26)도 그래프·본문에서 나오므로 입력 대신 모듈 판과 끄기 여부만 넣는다 — 주장 프롬프트를 고치면 옛 질문을 안 쓴다
-            _code_version("chuckchuck.f26_claims"), body.get("claims") is False,
+            # 코드 판 — F-08 과 재료(주장 F-26·문헌 F-24·기억 F-25)의 import 닫힘 전체. 주장·문헌의 **결과**는 넣지 않는다
+            # (위 주석 — 넣으면 미리 만들기와 실제 요청이 서로를 못 알아본다). 대신 폴백으로 만든 묶음은 짧게만 든다.
+            _stage_version("questions"), body.get("claims") is False,
         )
         label = "미리 만들기" if body.get("prefetch") else "요청"
         sys.stderr.write(f"[bridge] F-08 questions key={q_key[10:22]} track={track} ({label}) parts="
@@ -1815,6 +2357,7 @@ class Handler(SimpleHTTPRequestHandler):
             ready = _questions_ready(q_key)
             if ready is not None:
                 sys.stderr.write(f"[bridge] F-08 questions track={track} 미리 만든 질문을 씀 ({label})\n")
+                self._index_questions(body, track, ready)
                 return self._json(200, ready)
             mine = _claim_questions(q_key)
             if mine is None:
@@ -1824,42 +2367,135 @@ class Handler(SimpleHTTPRequestHandler):
                 ready = _questions_ready(q_key)
                 if ready is not None:
                     sys.stderr.write(f"[bridge] F-08 questions track={track} 만들던 것을 {time.time() - t0:.1f}초 기다려 씀 ({label})\n")
+                    self._index_questions(body, track, ready)
                     return self._json(200, ready)
         try:
-            # 교수가 읽고 온 문헌 (F-24). 세션에 한 번 만들고 재사용한다 — 트랙을 바꿔도 외부 검색을
-            # 다시 안 한다. body.papers=false 면 끈다 (비교 벤치용). 없으면 F-08 은 예전 프롬프트다.
-            papers = None if body.get("papers") is False else self._papers_for(body, found["graph"], slidedoc, llm)
-            # 지난 리허설 기억 (F-25). 같은 사람·같은 파일의 동의한 지난 세션에서. body.memory=false 면 끈다.
-            memory = None if body.get("memory") is False else self._memory_for(body)
-            # 주장 그래프 (F-26). 세션에 한 번 — 1장 「시간보다 중요한 질」 과 4장 「질 = 시간 × …」 의 긴장 같은 것을
-            # F-08 이 코드로 찾게 하는 재료다. 본문(slidedoc)이 없으면 인용을 대조할 수 없어 안 만든다. body.claims=false 면 끈다.
-            claims = None if body.get("claims") is False else self._claims_for(body, found["graph"], slidedoc, llm)
-            cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], str(llm),
-                                    memory.to_dict() if memory else None, pace,
-                                    claims.to_dict() if claims else None)
+            papers, memory, claims, degraded = self._question_inputs(body, found["graph"], slidedoc, llm)
+            if not slidedoc:
+                # 본문이 없으면 근거 인용·주장·함정 전제가 전부 빠진다 — 조용히 옛 프롬프트로 가지 않고 표시한다
+                degraded.insert(0, "slide_doc_missing")
+            # 1차 심사(triage)의 입력 전부. 09-30: 예전 키에 context·transcript 가 빠져, 발표 상황을 바꿔 다시 만들어도
+            # 옛 상황으로 고른 후보를 그대로 썼다 (triage 프롬프트는 둘 다 싣는다).
+            cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(),
+                                    str(llm), memory.to_dict() if memory else None, pace,
+                                    claims.to_dict() if claims else None, _stage_version("triage"))
             return self._build_questions_payload(
                 q_key, graph, alignment, flow, transcript, ctx, track, llm, body, found, slidedoc, papers, memory, pace, cache_key,
-                claims=claims,
+                claims=claims, degraded=degraded,
             )
         finally:
             if mine is not None:
                 _release_questions(q_key, mine)
 
+    def _index_questions(self, body: dict, track: str, payload: dict) -> None:
+        """서버가 만든(또는 들고 있던) 질문을 이 세션의 채점 기준으로 남긴다 — 캐시로 돌려준 요청도 빠짐없이 (R4)."""
+        sid = _store_sid(body.get("session_id"))
+        if not sid:
+            return
+        STORE.remember_questions(sid, track, payload)
+        # 질문마다 basis(근거·자리·탐침·인용·검사)가 실려 있다 — 세션에 트랙별로 붙여 두어 나중에 되짚는다 (P1).
+        STORE.put_questions(sid, track, payload)
+
+    def _question_inputs(self, body: dict, graph_raw: dict, slidedoc, llm) -> tuple:
+        """
+        질문의 재료 셋 — 문헌(F-24)·주장(F-26)·기억(F-25) → (papers, memory, claims, degraded).
+
+        09-30 전엔 문헌 → 기억 → 주장을 **차례로** 불렀다. 학술 검색이 막히면 문헌만 ~60초 서 있었고(G-A9, 프론트 제한 60초),
+        그 뒤에야 주장 LLM 이 돌았다. 이제 문헌과 주장을 **같이** 띄우고, 문헌은 PAPERS_DEADLINE_SEC(주장이 더 걸리면 그만큼)
+        안에 안 오면 자료가 인용한 문헌만으로 간다 — 검색은 뒤에서 마저 끝나 캐시를 채우고, 다음 요청이 그걸 쓴다.
+        같은 재료를 두 트랙이 동시에 만들면 한 번만 돈다 (_FLIGHTS, B-04). 못 쓴 재료는 degraded 에 코드로 남긴다.
+
+        body.papers / body.memory / body.claims = false 면 끈다 (비교 벤치용) — 끈 것은 폴백이 아니다.
+        """
+        degraded: list[str] = []
+        t0 = time.monotonic()
+        sid = _session_id_of(body)
+        want_papers = body.get("papers") is not False
+        # 주장은 본문이 있어야 인용을 원문과 대조할 수 있다 — 본문이 없으면 안 만든다 (slide_doc_missing 이 따로 알린다)
+        want_claims = body.get("claims") is not False and bool(slidedoc)
+        # 열쇠에 세션을 안 넣는다 — 메모리 캐시(papers:·claims:)가 원래 세션과 무관하게 입력으로 걸려 있다.
+        # 부스처럼 여러 사람이 같은 샘플을 동시에 올리면 한 번만 검색한다.
+        papers_fut = _FLIGHTS.run(
+            "papers:" + fingerprint(graph_raw, bool(slidedoc), str(llm)),
+            lambda: self._papers_for(body, graph_raw, slidedoc, llm),
+        ) if want_papers else None
+        claims_fut = _FLIGHTS.run(
+            "claims:" + fingerprint(_canon(ConceptGraph, graph_raw), _canon(SlideDoc, slidedoc), str(llm)),
+            lambda: self._claims_for(body, graph_raw, slidedoc, llm),
+        ) if want_claims else None
+
+        memory = None
+        if body.get("memory") is not False:
+            memory = self._memory_for(body)
+            if memory is None and _memory_failed(sid):
+                degraded.append("memory_failed")
+
+        claims = None
+        if claims_fut is not None:
+            try:
+                claims = claims_fut.result(timeout=CLAIMS_WAIT_SEC)
+            except TimeoutError:
+                sys.stderr.write(f"[bridge] F-26 claims {CLAIMS_WAIT_SEC:.0f}초 안에 안 끝남 — 주장 없이 진행\n")
+                degraded.append("claims_timeout")
+            except Exception as e:  # noqa: BLE001 — 주장은 재료다. 없으면 없다고 적고 간다
+                sys.stderr.write(f"[bridge] F-26 claims 실패, 주장 없이 진행: {type(e).__name__}: {e}\n")
+                degraded.append("claims_failed")
+            else:
+                if claims is None:
+                    degraded.append("claims_failed")
+                elif _claims_rule_only(claims, graph_raw, slidedoc):
+                    degraded.append("claims_rule_only")
+
+        papers = None
+        if papers_fut is not None:
+            wait = max(0.0, PAPERS_DEADLINE_SEC - (time.monotonic() - t0))
+            try:
+                papers = papers_fut.result(timeout=wait)
+            except TimeoutError:
+                sys.stderr.write(f"[bridge] F-24 papers {time.monotonic() - t0:.1f}초 — 제한({PAPERS_DEADLINE_SEC:.0f}초)을 넘겨 "
+                                 "자료 인용만으로 진행 (검색은 뒤에서 마저 한다)\n")
+                papers = _deck_only_papers(graph_raw, slidedoc, PAPERS_TIMEOUT_NOTE)
+                degraded.append("papers_timeout")
+            except Exception as e:  # noqa: BLE001
+                sys.stderr.write(f"[bridge] F-24 papers 실패, 문헌 없이 진행: {type(e).__name__}: {e}\n")
+                degraded.append("papers_failed")
+            else:
+                if papers is None:
+                    degraded.append("papers_failed")
+                elif _papers_degraded(papers):
+                    degraded.append(_papers_degraded(papers))
+        return papers, memory, claims, degraded
+
+    def _triage_for(self, cache_key: str, graph, alignment, flow, ctx, transcript, memory, pace, llm, claims):
+        """1차 심사 — 캐시 → 같은 입력으로 도는 중이면 그걸 기다림 → 새로. 두 트랙이 동시에 불러도 LLM 은 한 번 (B-04)."""
+        from chuckchuck import triage_questions
+
+        triage = STORE.get_triage(cache_key)
+        if triage is not None:
+            sys.stderr.write("[bridge] F-08 triage cache hit\n")
+            return triage
+
+        def work():
+            hit = STORE.get_triage(cache_key)       # 앞선 일이 막 끝났으면 그걸 쓴다
+            if hit is not None:
+                return hit
+            fresh = triage_questions(
+                graph, alignment, flow, ctx, transcript=transcript, memory=memory, pace=pace, llm=llm,
+                **_claims_kw(triage_questions, claims),
+            )
+            STORE.set_triage(cache_key, fresh)
+            return fresh
+
+        return _FLIGHTS.run("triage:" + cache_key, work).result()
+
     def _build_questions_payload(self, q_key, graph, alignment, flow, transcript, ctx, track, llm, body, found,
-                                 slidedoc, papers, memory, pace, cache_key, claims=None):
-        from chuckchuck import build_questions, triage_questions
+                                 slidedoc, papers, memory, pace, cache_key, claims=None, degraded=None):
+        from chuckchuck import build_questions
         from chuckchuck.contracts import QuestionError
 
+        degraded = list(degraded or [])
         try:
-            triage = STORE.get_triage(cache_key)
-            if triage is None:
-                triage = triage_questions(
-                    graph, alignment, flow, ctx, transcript=transcript, memory=memory, pace=pace, llm=llm,
-                    **_claims_kw(triage_questions, claims),
-                )
-                STORE.set_triage(cache_key, triage)
-            else:
-                sys.stderr.write("[bridge] F-08 triage cache hit\n")
+            triage = self._triage_for(cache_key, graph, alignment, flow, ctx, transcript, memory, pace, llm, claims)
             doc = build_questions(
                 graph,
                 triage,
@@ -1891,12 +2527,14 @@ class Handler(SimpleHTTPRequestHandler):
             f"[bridge] F-08 questions track={doc.track} n={len(doc.questions)} "
             f"model={doc.model} 본문={'yes' if slidedoc else '-'} "
             f"문헌={len(papers.refs) if papers else '-'} 인용질문={cited} "
-            f"기억={remembered if memory else '-'} 주장={len(claims.claims) if claims else '-'}\n"
+            f"기억={remembered if memory else '-'} 주장={len(claims.claims) if claims else '-'}"
+            f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}\n"
         )
-        payload = with_hint_ladders(doc.to_dict(), doc.questions)
-        STORE.set_triage(q_key, payload)
-        # 질문마다 basis(근거·자리·탐침·인용·검사)가 실려 있다 — 세션에 트랙별로 붙여 두어 나중에 되짚는다 (P1).
-        STORE.put_questions(str(_session_id_of(body) or ""), track, payload)
+        payload = _with_degraded(with_hint_ladders(doc.to_dict(), doc.questions), degraded)
+        # 폴백 재료로 만든 묶음은 짧게만 든다 — 미리 만들기 → 시작 한 쌍은 나눠 쓰고, 그 뒤 요청은 재료부터 다시 시도한다 (B-03)
+        transient = [c for c in degraded if c in TRANSIENT_DEGRADED]
+        STORE.set_triage(q_key, payload, ttl=FALLBACK_TTL_SEC if transient else None)
+        self._index_questions(body, track, payload)
         self._archive(body, "question_doc", payload)
         return self._json(200, payload)
 
@@ -1906,6 +2544,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         같은 사람(learner_id)·같은 파일(sha256)의 **동의한** 세션만 잇는다 — session_archive.related_sessions 가 거른다.
         만든 기억은 이 세션의 memory_doc 아티팩트로 남긴다 (동의 세션만 저장된다). 실패해도 None — 기억은 있으면 좋은 재료다.
+        단 실패는 「지난 리허설 없음」 과 다르게 남긴다 (MEMORY_FAILED_MARK, 짧게) — 질문 응답의 degraded 가 읽는다 (B-03).
         """
         from chuckchuck import build_memory
 
@@ -1915,6 +2554,8 @@ class Handler(SimpleHTTPRequestHandler):
         key = "memory:" + sid
         cached = STORE.get_triage(key)
         if cached is not None:
+            if cached == MEMORY_FAILED_MARK:
+                return None                # 방금 실패했다 — FALLBACK_TTL_SEC 뒤에 다시 읽어 본다
             return cached or None          # 빈 dict 는 「지난 리허설 없음」 을 캐시한 것
         try:
             rehearsals, learner_key = ARCHIVE.rehearsals_for(sid)
@@ -1925,7 +2566,8 @@ class Handler(SimpleHTTPRequestHandler):
             memory = build_memory(rehearsals, file_name=(me.file_name if me else ""), learner_key=learner_key)
         except Exception as e:  # noqa: BLE001 — 기억 없이도 질문·판정은 나와야 한다
             sys.stderr.write(f"[bridge] F-25 memory 실패, 기억 없이 진행: {type(e).__name__}: {e}\n")
-            STORE.set_triage(key, {})
+            # 예전엔 {}(「지난 리허설 없음」)로 6시간 담아 실패가 없던 일이 됐다
+            STORE.set_triage(key, dict(MEMORY_FAILED_MARK), ttl=FALLBACK_TTL_SEC)
             return None
         sys.stderr.write(
             f"[bridge] F-25 memory key={memory.learner_key} sessions={len(memory.sessions)} "
@@ -1943,17 +2585,26 @@ class Handler(SimpleHTTPRequestHandler):
         if not _session_id_of(body):
             return self._json(400, {"error": "bad_request", "message": "session_id 가 필요합니다."})
         memory = self._memory_for(body)
+        if memory is None and _memory_failed(_session_id_of(body)):
+            # 못 읽은 것을 「지난 리허설 없음」 으로 말하면 거짓이다 (CLAUDE.md §4 — 실패는 실패로)
+            return self._json(503, {"error": "memory_failed", "retry_after": int(FALLBACK_TTL_SEC),
+                                    "message": "지난 리허설 기억을 읽지 못했어요. 잠시 뒤 다시 해 주세요."})
         if memory is None:
             return self._json(200, MemoryDoc(note="지난 리허설 없음 — 학습 동의를 켠 지난 세션이 있어야 이어져요").to_dict())
         return self._json(200, memory.to_dict())
 
     def _papers_for(self, body: dict, graph_raw: dict | None, slidedoc, llm):
         """
-        F-24 PaperDoc. 보관소(paper_doc) → 메모리 캐시 → 새로 만들기 순.
+        F-24 PaperDoc. 보관소(paper_doc, **같은 그래프로 만든 것만**) → 메모리 캐시 → 새로 만들기 순.
 
         mock 모드에서는 검색을 부르지 않는다 (scholar="none") — 자료 인용(deck)만 나온다.
         실 API 모드의 provider 는 SCHOLAR_PROVIDER 환경변수가 정한다 (기본 none).
         실패해도 None 을 돌려주고 질문 생성은 그대로 간다 — 문헌은 있으면 좋은 재료지 필수가 아니다.
+
+        09-30 (B-03·B-11·B-14): ① 보관본은 그래프 지문이 같을 때만 쓴다 — 같은 세션에서 그래프를 다시 만들면 옛 문헌의
+        node_ids 가 새 그래프와 안 맞았다. ② 검색이 실패한 문헌(429·시간 초과로 자료 인용만 남은 것)은 **보관하지 않고**
+        짧게만 든다 — 보관본은 다음 요청이 그대로 다시 써서 세션 끝까지 빈 문헌이었다. ③ 실패한 통로는 잠시 쉰다
+        (PAPERS_NEGATIVE_TTL_SEC) — 그동안은 부르지 않고 자료 인용만 쓴다 (note 로 알린다).
         """
         from chuckchuck import build_papers
         from chuckchuck.contracts import PaperDoc
@@ -1961,25 +2612,41 @@ class Handler(SimpleHTTPRequestHandler):
         if not graph_raw:
             return None
         sid = _session_id_of(body)
+        graph_fp = fingerprint(graph_raw, bool(slidedoc))
         stored = ARCHIVE.read_artifact(sid, "paper_doc") if sid else None
-        if stored:
+        if stored and stored.get(PAPERS_GRAPH_FP_KEY) == graph_fp:
             return PaperDoc.from_dict(stored)
+        if stored:
+            sys.stderr.write("[bridge] F-24 보관된 문헌은 다른 그래프(또는 옛 판)로 만든 것 — 새로 만든다\n")
         scholar = "none" if _mock() else None
         key = "papers:" + fingerprint(graph_raw, bool(slidedoc), str(scholar), str(llm))
         cached = STORE.get_triage(key)   # 지문별 캐시 — triage 와 같은 통을 쓴다 (키 접두어로 구분)
         if cached is not None:
             return cached
+        spec = _papers_spec(scholar)
+        resting = _papers_down_left(spec)
+        if resting > 0:
+            sys.stderr.write(f"[bridge] F-24 검색 통로 {spec} 쉬는 중({resting:.0f}초 남음) — 자료 인용만\n")
+            return _deck_only_papers(graph_raw, slidedoc, PAPERS_RESTING_NOTE)
         try:
             papers = build_papers(graph_raw, slidedoc, scholar=scholar, llm=llm)
         except Exception as e:  # noqa: BLE001 — 문헌 없이도 질문은 나와야 한다
             sys.stderr.write(f"[bridge] F-24 papers 실패, 문헌 없이 진행: {type(e).__name__}: {e}\n")
+            _mark_papers_down(spec, type(e).__name__)
             return None
+        degraded = _papers_degraded(papers)
         sys.stderr.write(
             f"[bridge] F-24 papers provider={papers.provider} deck={len(papers.deck_refs)} "
-            f"scholar={len(papers.scholar_refs)}{(' · ' + papers.note) if papers.note else ''}\n"
+            f"scholar={len(papers.scholar_refs)}{(' · ' + papers.note) if papers.note else ''}"
+            f"{(' → 폴백 ' + degraded) if degraded else ''}\n"
         )
+        if degraded:
+            if degraded == "papers_unavailable":
+                _mark_papers_down(spec, papers.note[:80])
+            STORE.set_triage(key, papers, ttl=FALLBACK_TTL_SEC)
+            return papers
         STORE.set_triage(key, papers)
-        self._archive(body, "paper_doc", papers.to_dict())
+        self._archive(body, "paper_doc", {**papers.to_dict(), PAPERS_GRAPH_FP_KEY: graph_fp})
         return papers
 
     def _claims_for(self, body: dict, graph_raw: dict | None, slidedoc, llm):
@@ -1987,16 +2654,20 @@ class Handler(SimpleHTTPRequestHandler):
         F-26 ClaimDoc. 메모리 캐시 → 디스크 단계 캐시 → 새로 만들기 순. 본문(slidedoc)이 없으면 None.
 
         보관소(claim_doc)에서 되읽지 않는다 — 그래프가 다시 만들어지면 옛 주장의 id 가 안 맞는다. 키는 그래프·본문·
-        모듈 소스 해시(`_code_version`)라 프롬프트·대조 규칙을 고치면 저절로 새로 만든다 (7756058 과 같은 규율).
-        LLM 이 죽어 규칙 주장만 나온 것(model="rule")은 디스크에 남기지 않는다 — 다음 요청이 다시 LLM 을 불러 볼 수 있게.
-        실패해도 None — 주장은 질문의 재료지 필수가 아니다.
+        코드 판(`_stage_version` — f26 의 import 닫힘: 대조 규칙 _claim_rules·_claim_quote·_evidence·_match 까지)이라
+        프롬프트·대조 규칙을 고치면 저절로 새로 만든다 (7756058 과 같은 규율 — 09-30 전엔 f26 파일 하나만 셌다).
+        LLM 이 죽어 규칙 주장만 나온 것(model="rule")은 디스크에 남기지 않고 메모리에도 FALLBACK_TTL_SEC 만 든다 —
+        09-30 전엔 메모리에 6시간 담겨, 다음 요청이 LLM 을 다시 불러 볼 기회가 세션 끝까지 없었다 (B-03).
+        실패해도 None — 주장은 질문의 재료지 필수가 아니다 (질문 응답의 degraded 가 알린다).
         """
         from chuckchuck import build_claims
         from chuckchuck.contracts import ClaimDoc
 
         if not graph_raw or not slidedoc:
             return None
-        key = _stage_key("f26", _code_version("chuckchuck.f26_claims"), graph_raw, slidedoc, llm)
+        # 계약 모양으로 센다 — 보관된 slide_doc 에는 파싱 때 붙인 session_id·preview_pdf 가 있어 날 본문이면 세션마다 키가 갈린다 (M-14)
+        key = _stage_key("f26", _stage_version("claims"), _llm_identity(llm), _canon(ConceptGraph, graph_raw),
+                         _canon(SlideDoc, slidedoc))
         cached = STORE.get_triage("claims:" + key)
         if cached is not None:
             return cached
@@ -2015,7 +2686,8 @@ class Handler(SimpleHTTPRequestHandler):
             )
             if claims.model != "rule":
                 _stage_cache_put("claims", key, claims.to_dict())
-        STORE.set_triage("claims:" + key, claims)
+        rule_only = _claims_rule_only(claims, graph_raw, slidedoc)
+        STORE.set_triage("claims:" + key, claims, ttl=FALLBACK_TTL_SEC if rule_only else None)
         self._archive(body, "claim_doc", claims.to_dict())
         return claims
 
@@ -2032,7 +2704,8 @@ class Handler(SimpleHTTPRequestHandler):
         claims = self._claims_for(body, found["graph"], slidedoc, _pick_llm(body))
         if claims is None:
             return self._json(502, {"error": "claims_failed", "message": "주장 그래프를 만들지 못했어요."})
-        return self._json(200, claims.to_dict())
+        rule_only = _claims_rule_only(claims, found["graph"], slidedoc)
+        return self._json(200, _with_degraded(claims.to_dict(), ["claims_rule_only"] if rule_only else []))
 
     def _handle_papers(self, raw: bytes):
         """F-24 · {graph | session_id} → PaperDoc. 화면이 「교수가 읽고 온 문헌」 카드를 그릴 때."""
@@ -2045,7 +2718,8 @@ class Handler(SimpleHTTPRequestHandler):
         papers = self._papers_for(body, found["graph"], slidedoc, llm)
         if papers is None:
             return self._json(502, {"error": "papers_failed", "message": "문헌을 만들지 못했어요."})
-        return self._json(200, papers.to_dict())
+        code = _papers_degraded(papers)
+        return self._json(200, _with_degraded(papers.to_dict(), [code] if code else []))
 
     def _handle_papers_search(self, raw: bytes):
         """F-24 · {query, limit?} → PaperDoc. 자유 질문에 대한 논문 검색 (품질 순)."""
@@ -2071,42 +2745,57 @@ class Handler(SimpleHTTPRequestHandler):
         )
         return self._json(200, papers.to_dict())
 
-    def _handle_qa_judge(self, raw: bytes):
-        """F-09 · {question_id, answer, history?, question, give_up?} → QaJudgement.
+    def _handle_qa_judge(self, raw: bytes, path_sid: str = ""):
+        """F-09 · {session_id?, question_id, answer, history?, question?, give_up?} → QaJudgement (+근거 표시).
 
-        데모 브리지는 세션 저장소가 없다. 프론트가 보낸 question 본문으로 판정한다.
+        **채점 기준(질문)은 서버가 정한다** (09-30 감사 R4·B-07·B-12). 예전엔 프론트가 보낸 question 본문으로 판정해서,
+        본문의 trap·trap_premise·basis 를 지우거나 answer_gist 를 고쳐 보내는 것만으로 채점이 바뀌었다 — HTTP 재현:
+        함정에 동의한 답이 wrong 0 → good 80 (labs/qa_redteam bridge_tamper2). 그리고 그 턴이 qa_turns 에 남아 F-25 기억과
+        학습 묶음으로 흘러갔다.
+
+        이제 이 세션에서 서버가 만든 질문(질문 색인 → 동의 세션의 보관본)을 question_id 로 찾아 **그걸로** 판정한다.
+        본문의 question 은 트랙이 여럿일 때 어느 판인지 고르는 데만 쓴다 (문장이 같은 것). 서버에 없는 질문일 때만 본문으로
+        판정하되 길이를 자르고 grounded_on_server=false 로 알리며, 그 턴은 기록에 남기지 않는다.
+
+        응답에는 판정과 함께 grounded_on_server · grounded_on_deck(자료 본문 대조 여부) · degraded · degraded_notes 가 실린다.
+        세션 id 는 본문이 먼저, 없으면 경로(/sessions/{id}/qa/judge)의 것. 발급 모양 또는 'flat' 만 받는다 (B-06).
         """
         from chuckchuck import judge_answer
         from chuckchuck.contracts import (
             AlignmentDoc,
             ConceptGraph,
             JudgeError,
-            Question,
             Transcript,
         )
 
         body = json.loads(raw or b"{}")
-        qraw = body.get("question")
-        if not qraw:
-            return self._json(
-                400,
-                {
-                    "error": "bad_request",
-                    "message": "question 이 필요합니다. (데모 브리지는 세션 캐시가 없어요)",
-                },
-            )
-        question = Question.from_dict(qraw)
-        if not question.question.strip():
-            return self._json(400, {"error": "bad_request", "message": "질문 문장이 비어 있어요."})
+        raw_sid = body.get("session_id") if body.get("session_id") is not None else (path_sid or None)
+        store_sid = _store_sid(raw_sid)
+        if raw_sid and not store_sid:
+            return self._json(400, {"error": "bad_request", "message": "session_id 모양이 맞지 않아요."})
+        # 이후 _resolve·_session_id_of·_memory_for 가 모두 이 id 를 본다 ('flat' 은 보관소 쪽에서 저절로 빈 id 가 된다)
+        body = {**body, "session_id": store_sid or None}
         body, too_long = _clip_judge_inputs(body)
         if too_long:
             return self._json(413, {"error": "too_large", "message": too_long})
+
+        qraw = body.get("question") if isinstance(body.get("question"), dict) else None
+        qid = str(body.get("question_id") or (qraw or {}).get("id") or "")
+        try:
+            question, qsrc = self._resolve_question(store_sid, _session_id_of(body), qid, qraw)
+        except (AttributeError, KeyError, TypeError, ValueError):   # 본문 질문의 모양이 계약과 다르다
+            return self._json(400, {"error": "bad_request", "message": "질문 형식이 맞지 않아요."})
+        if question is None:
+            return self._json(400, {"error": "bad_request",
+                                    "message": "판정할 질문이 없어요. question_id 와 question 을 같이 보내 주세요."})
+        if not question.question.strip():
+            return self._json(400, {"error": "bad_request", "message": "질문 문장이 비어 있어요."})
         # 자료 근거 없이 판정하면 '자료와 어긋난다'(wrong)를 대조할 원본이 없고
         # 함정 질문의 핵심 규칙도 짐작이 된다. 본문에 없으면 세션에서 끌어온다.
         found = self._resolve(body, "graph", "alignment", "transcript", "context")
         # session_id 를 들고 왔는데 근거가 통째로 비었다면 세션이 날아간 것이다
         # (브리지 재시작). 조용히 근거 없이 판정하지 말고 다시 등록하게 알린다.
-        if body.get("session_id") and not any(found[k] for k in ("graph", "alignment", "transcript")):
+        if store_sid and not any(found[k] for k in ("graph", "alignment", "transcript")):
             return self._json(409, {
                 "error": "session_missing",
                 "message": "세션 아티팩트가 없어요. 다시 등록하고 시도해 주세요.",
@@ -2119,6 +2808,19 @@ class Handler(SimpleHTTPRequestHandler):
         # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본. F-08 과 같은 디스크
         # 보관소에서 session_id 로 찾는다 (프론트는 slidedoc 을 안 들고 있다).
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        degraded: list[str] = []
+        if not slidedoc:
+            # 09-30: 세션 id 를 들고 왔는데 본문이 없으면(하루 캐시 만료·보관 실패·flat) 예전엔 로그의 doc=- 한 글자로만
+            # 남기고 조용히 대조 없이 판정했다. 409 로 막지 않는다 — 판정 화면은 409 를 「자료 정보가 사라졌다」 로 보여
+            # 이어서 연습할 길을 끊는다(qa_live·booth). 판정은 하되 응답이 대조하지 않았다고 말한다.
+            degraded.append("slide_doc_missing")
+        if qsrc == "mismatch":
+            degraded.append("question_mismatch")
+        elif qsrc == "client":
+            degraded.append("question_unverified")
+        memory = self._memory_for(body)
+        if memory is None and _memory_failed(_session_id_of(body)):
+            degraded.append("memory_failed")
         try:
             judgement = judge_answer(
                 question,
@@ -2136,21 +2838,26 @@ class Handler(SimpleHTTPRequestHandler):
                 llm=llm,
                 slidedoc=slidedoc,
                 # 지난 리허설 기억 (F-25) — 지난번에 빠졌던 점이 이번엔 나왔는지 본다. 포기하면 코칭 단계도 이것이 정한다
-                memory=self._memory_for(body),
+                memory=memory,
             )
         except JudgeError as e:
             sys.stderr.write(f"[bridge] F-09 judge failed: {e}\n")
             return self._json(502, {"error": "judge_failed",
                                     "message": "답변을 판정하지 못했어요. 잠시 뒤 다시 답해 주세요."})
+        on_server = qsrc in ("server", "archive", "mismatch")
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
-            f"passed={judgement.passed} stage={judgement.coach_stage!r} "
+            f"passed={judgement.passed} stage={judgement.coach_stage!r} 질문={qsrc} "
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
-            f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}\n"
+            f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}"
+            f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}\n"
         )
-        payload = judgement.to_dict()
+        payload = _with_degraded(
+            {**judgement.to_dict(), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)}, degraded)
         # 질문·답·판정 한 턴을 남긴다 (동의 세션만). 사람이 고친 판정과 짝을 맞출 원본이다.
-        if not _mock() and _session_id_of(body):
+        # **서버가 만든 질문으로 채점한 턴만** 남긴다 — 본문 질문으로 채점한 턴은 기준을 믿을 수 없고, 남기면 F-25 기억과
+        # 학습 묶음(learning_jobs)으로 흘러가 다음 리허설의 질문·판정 프롬프트에 실린다.
+        if not _mock() and _session_id_of(body) and on_server:
             ARCHIVE.append(_session_id_of(body), "qa_turns", {
                 "at": time.time(),
                 "question_id": question.id,
@@ -2160,8 +2867,44 @@ class Handler(SimpleHTTPRequestHandler):
                 "hints_shown": [str(h) for h in (body.get("hints_shown") or [])],
                 "give_up": bool(body.get("give_up")),
                 "judgement": payload,
+                "question_source": qsrc,
             })
+        elif not on_server and _session_id_of(body):
+            sys.stderr.write(f"[bridge] F-09 판정 기록 안 함 — 서버가 만든 질문이 아님 (q={question.id})\n")
         return self._json(200, payload)
+
+    def _resolve_question(self, store_sid: str, archive_sid: str, qid: str, qraw: dict | None):
+        """
+        채점 기준이 될 질문 → (Question | None, 출처).
+
+        출처: server(이 세션 질문 색인) · archive(동의 세션의 question_doc 보관본 — 브리지를 다시 띄운 뒤) ·
+        mismatch(서버 것이 있지만 화면 문장과 달라 서버의 최신 판으로 채점) · client(서버에 없어 본문 그대로, 길이 자름) ·
+        missing(아무것도 없음).
+
+        같은 id 가 트랙마다 있으면(트랙끼리 triage 를 나눠 써 id 가 같다) **문장이 같은 판**을 고른다. 'flat' 은 모두가 나눠 쓰는
+        자리라 다른 덱의 같은 id(q01-c1 …)가 있을 수 있다 — flat 에서는 문장까지 같을 때만 서버 판을 쓴다.
+        """
+        from chuckchuck.contracts import Question
+
+        client_text = str((qraw or {}).get("question") or "").strip()
+        src = "server"
+        candidates = STORE.find_questions(store_sid, qid) if store_sid and qid else []
+        if not candidates and archive_sid and qid:
+            doc = ARCHIVE.read_artifact(archive_sid, "question_doc") or {}
+            candidates = [q for q in (doc.get("questions") or []) if isinstance(q, dict) and str(q.get("id", "")) == qid]
+            src = "archive"
+        if candidates and store_sid != FLAT_SESSION_ID and not client_text:
+            return Question.from_dict(candidates[0]), src          # 본문 질문 없이 id 만 — 서버의 최신 판 (고를 문장이 없다)
+        exact = next((q for q in candidates if str(q.get("question") or "").strip() == client_text), None)
+        if exact is not None and client_text:
+            return Question.from_dict(exact), src
+        if candidates and store_sid != FLAT_SESSION_ID:
+            return Question.from_dict(candidates[0]), "mismatch"
+        if not qraw:
+            return None, "missing"
+        capped = _capped(qraw)
+        capped["id"] = str(capped.get("id") or qid or "q-client")[:120]
+        return Question.from_dict(capped), "client"
 
     def _json(self, code: int, payload: dict):
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -2260,7 +3003,8 @@ def main():
     print(f"척척발표 demo bridge → http://{host}:{port}/", flush=True)
     print(f"  SDK:  http://{host}:{port}/sdk/index.js", flush=True)
     print(f"  MOCK_EXTERNAL_APIS={_mock()}", flush=True)
-    print(f"  요청 제한: IP당 {PAID_RATE_LIMIT}회/분 (0=끔) · CORS 허용={sorted(ALLOWED_ORIGINS) or '없음(같은 출처만)'}", flush=True)
+    print(f"  요청 제한: 세션당 {PAID_RATE_LIMIT}회/분 · IP 천장 {PAID_RATE_LIMIT_IP}회/분 (0=끔) · "
+          f"CORS 허용={sorted(ALLOWED_ORIGINS) or '없음(같은 출처만)'}", flush=True)
     print(f"  Access 헤더 필수={'예' if REQUIRE_ACCESS else '아니오'} · Host 허용={sorted(ALLOWED_HOSTS)}", flush=True)
     if host not in LOOPBACK_HOSTS:
         print(
