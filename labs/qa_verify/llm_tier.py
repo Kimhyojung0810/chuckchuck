@@ -218,9 +218,11 @@ def _result_checks(records: list[dict]) -> tuple[list[str], list[str]]:
                     forced.append(f"{r['deck']} Q{qn}: {last.get('verdict')}/{last.get('score')} r{last.get('round_no')} 닫힘 → 「스스로 설명」 칸에 셈")
             else:
                 forced.append(f"{r['deck']} Q{qn}: {last.get('verdict')}/{last.get('score')} r{last.get('round_no')} 닫힘 → 결과 화면 「지킨 질문」(옛 화면)")
-        m = re.search(r"(\d+)개 중 (\d+)개를 (?:자기 말로 지켰어요|스스로 설명했어요)", text)
+        m = re.search(r"(\d+)개 중 (\d+)개를 (자기 말로 지켰어요|스스로 설명했어요)", text)
+        # 새 화면(「…스스로 설명했어요」)은 스스로 설명한 질문이 0개면 그 칸을 아예 그리지 않는다 — 칸이 없으면 0개다 (09-30 표준 단계 오탐)
+        new_ui = bool(m and m.group(3) == "스스로 설명했어요")
         if m:
-            if self_sec:
+            if self_sec or new_ui:
                 shown = sum(1 for x in results if x.get("label") and _listed(x["label"], self_sec))
             else:
                 shown = len([x for x in results if not x.get("revealed") and x.get("verdict") in ("good", "partial")])
