@@ -140,7 +140,7 @@ quick 의 가드 감사도 같은 공격을 **LLM 없이** 넣는다 — `guard.
 ```json
 {
   "id": "짧은_영문_id", "title": "무엇이 어떻게 틀렸었나 (한 줄)", "origin": "언제·어디서 · 고친 커밋",
-  "kind": "units_no_midword_start | best_quote_slide | contrast_choice | f08_scripted | probe_absolute",
+  "kind": "units_no_midword_start | best_quote_slide | contrast_choice | f08_scripted | probe_absolute | f08_recording",
   "source": {"file": "주 체크아웃 기준 경로", "base": "main", "slides": [2],
              "inline": {"slides": [{"slide_no": 2, "text": "원본이 사라져도 돌도록 넣어 두는 자료 (선택)"}]}},
   "args": { … kind 마다 … }
@@ -160,6 +160,11 @@ quick 의 가드 감사도 같은 공격을 **LLM 없이** 넣는다 — `guard.
 - `probe_absolute` — 대상 F-26 규칙 주장 → `derive_probes` 의 단정 탐침이 `absolute_on` 줄에만 나오고 `absolute_off` 줄(관찰·셈·기제)엔
   안 나오는지, 그 코드 골자가 `gist_require`·`gist_require_any` 를 담고 `gist_forbid`(골자 전체)·`gist_bare_forbid`(「」 인용 밖)를
   안 담는지 (09-30 WP-P2).
+- `f08_recording` — 녹음 모드. `args.items`(정합 판정 — 코드가 확인한 모순은 `deck_quote`·`deck_slide_no`) · `skipped`(말로 건너뛴 장
+  `{slide_no, cue, node_ids}`) · `speech`(장 번호 → 받아쓰기) · `track` · `traps`(false 면 함정 허용치 0) · `questions`(정해 둔 LLM 응답)로
+  대상 `triage_questions`·`build_questions` 를 부른다. 기대: `node_id` 질문의 `question_equals`·`question_startswith`·`question_forbid`·
+  `checks_require`·`speech_quote_equals`, 트랙 전체의 `slide_questions_max {slide, max}`·`no_trap_on_slides`·`trap_count_max`·`trap_count_min`·
+  `node_absent`·`node_present`·`slot_of` (09-30 녹음 감사 REC-05·07·11·18·02, 사례는 `cases.d/f08rec.json`).
 
 `source.file` 은 처음 읽을 때 `out/frozen/<id>.json` 에 얼려 둔다 — 부스 세션 보관소는 지워질 수 있다. 원본도 얼린 것도 없으면
 `inline`(또는 다른 사례의 inline 을 `inline_from` 으로), 그것도 없으면 skip(`quick.cases.skipped`). 발표자의 자료 본문을 새로

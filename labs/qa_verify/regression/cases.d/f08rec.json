@@ -1,0 +1,2142 @@
+{
+ "cases": [
+  {
+   "id": "rec_skip_why_template",
+   "title": "건너뛴 장 질문이 건너뛴 까닭을 물으면(「왜 4장을 생략하고 바로 결과로 넘어갔는지」) 명세 문장 「발표에서 N장은 넘어갔는데, 그 장의 …을 설명해 주세요」 로",
+   "origin": "09-30 녹음 감사 REC-05 교실 Q4 (「시간이 없어서요」 로 70 통과)",
+   "kind": "f08_recording",
+   "source": {
+    "file": "labs/qa_bench/corpus/audit_co2/slidedoc_parsed_upstage.json",
+    "base": "harness"
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "교실 공기 관리",
+      "slide_nos": [
+       1,
+       8
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "co2",
+      "label": "이산화탄소 농도",
+      "slide_nos": [
+       2,
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "vent",
+      "label": "환기 방법",
+      "slide_nos": [
+       5,
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.8
+     },
+     {
+      "id": "volume",
+      "label": "시간당 환기량",
+      "slide_nos": [
+       4
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.59
+     },
+     {
+      "id": "area",
+      "label": "창문 개방 면적",
+      "slide_nos": [
+       4
+      ],
+      "depth": 3,
+      "parent_id": "volume",
+      "weight": 0.5
+     },
+     {
+      "id": "wind",
+      "label": "바람 속도",
+      "slide_nos": [
+       4
+      ],
+      "depth": 3,
+      "parent_id": "volume",
+      "weight": 0.76
+     },
+     {
+      "id": "limit",
+      "label": "측정 한계",
+      "slide_nos": [
+       7
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     }
+    ],
+    "items": [
+     {
+      "node_id": "co2",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "평균 농도가 60퍼센트나 낮아진 거예요.",
+      "deck_quote": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.",
+      "deck_slide_no": 5,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "vent",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.8
+     },
+     {
+      "node_id": "volume",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.59,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "wind",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.76,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠. 한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 4,
+      "cue": "음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+      "node_ids": [
+       "area",
+       "wind",
+       "volume"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요.",
+     "2": "먼저 왜 교실 공기를 봤냐면요. 수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1000ppm을 넘어요. 1000ppm 이상이 되면 졸리다",
+     "3": "머리가 아프다 하는 친구들이 늘어나요. 저희도 오후 수업 때 유난히 졸린 게 이것 때문인가 싶었어요. 측정은 이렇게 했어요. 이산화탄소 측정기 2대를 교실 앞이랑 뒤에 하나씩 놓고요. 3주 동안 수업이 있는 날 15일을 5분 간격으로 기록했어요.",
+     "4": "음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+     "5": "이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요.",
+     "6": "1000ppm 넘는 시간도 6분으로 확 줄었고요. 그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.",
+     "7": "그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠. 한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요.",
+     "8": "실제로 환기를 잘한 반은 기말고사 평균도 5점 정도 높았다고 해요. 정리하면 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요. 여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요. 들어 주셔서 감사합니다."
+    },
+    "track": "10",
+    "node_id": "volume",
+    "questions": [
+     {
+      "node_id": "volume",
+      "question": "왜 4장을 생략하고 바로 결과로 넘어갔는지 설명해 주세요"
+     }
+    ],
+    "expect": {
+     "question_equals": "발표에서 4장은 넘어갔는데, 그 장의 시간당 환기량을 설명해 주세요.",
+     "checks_require": [
+      "skip_why_asked",
+      "skip_template"
+     ]
+    }
+   }
+  },
+  {
+   "id": "rec_skip_why_template_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 텃밭 물 사용량 3장, 「3장을 건너뛴 이유는 무엇인가요?」)",
+   "origin": "tests/test_f08_recording_rec.py 와 같은 꼴",
+   "kind": "f08_recording",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "동네 텃밭 물 주기\n물을 언제 주느냐가 수확을 가릅니다"
+      },
+      {
+       "slide_no": 2,
+       "text": "왜 물 주기인가\n여름철 텃밭 20곳 중 12곳에서 채소가 시들었습니다"
+      },
+      {
+       "slide_no": 3,
+       "text": "물 사용량 계산\n물 사용량 = 텃밭 면적 × 하루 증발량 × 물 주는 날\n아침 10분 + 점심 8분 + 저녁 7분 = 25분"
+      },
+      {
+       "slide_no": 4,
+       "text": "아침 물 주기 효과\n| 시간 | 수확량 |\n| --- | --- |\n| 아침 | 13kg |\n| 저녁 | 10kg |\n아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다"
+      },
+      {
+       "slide_no": 5,
+       "text": "한계\n관찰한 텃밭이 8곳뿐입니다"
+      },
+      {
+       "slide_no": 6,
+       "text": "정리\n아침에 물을 주면 같은 물로 더 많이 거둡니다"
+      }
+     ]
+    }
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "텃밭 물 주기",
+      "slide_nos": [
+       1,
+       6
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "need",
+      "label": "채소 시듦",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "usage",
+      "label": "물 사용량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.5
+     },
+     {
+      "id": "area",
+      "label": "텃밭 면적",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.8
+     },
+     {
+      "id": "evap",
+      "label": "하루 증발량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.4
+     },
+     {
+      "id": "morning",
+      "label": "아침 물 주기",
+      "slide_nos": [
+       4
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "limit",
+      "label": "관찰 범위",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     }
+    ],
+    "items": [
+     {
+      "node_id": "morning",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+      "deck_quote": "아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다",
+      "deck_slide_no": 4,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "need",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "usage",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.8,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "evap",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.4,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "관찰 범위가 좁다는 한계가 있어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 3,
+      "cue": "이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+      "node_ids": [
+       "area",
+       "usage",
+       "evap"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+     "2": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+     "3": "그래서 물 주기가 중요해요. 이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+     "4": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+     "5": "관찰 범위가 좁다는 한계가 있어요.",
+     "6": "정리하면 아침에 물을 주면 같은 물로 더 많이 거둬요. 감사합니다."
+    },
+    "track": "10",
+    "node_id": "usage",
+    "questions": [
+     {
+      "node_id": "usage",
+      "question": "3장을 건너뛴 이유는 무엇인가요?"
+     }
+    ],
+    "expect": {
+     "question_equals": "발표에서 3장은 넘어갔는데, 그 장의 물 사용량을 설명해 주세요.",
+     "checks_require": [
+      "skip_why_asked",
+      "skip_template"
+     ]
+    }
+   }
+  },
+  {
+   "id": "rec_skip_value_leak",
+   "title": "건너뛴 장 질문이 그 장의 답(「48초 … 110초」)을 실으면 명세 문장 · 대표는 식 머리(「평균 주문 시간」) · 「발표에서 한 말」 은 옆 장 문장이 아니라 건너뛴다는 말",
+   "origin": "09-30 녹음 감사 REC-05·REC-18 키오스크 Q3 (한 줄 답 75 통과 · speech_quote 가 2장 문장)",
+   "kind": "f08_recording",
+   "source": {
+    "file": "labs/qa_bench/corpus/audit_kiosk/slidedoc_parsed_upstage.json",
+    "base": "harness"
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "어르신 주문 교육",
+      "slide_nos": [
+       1,
+       8
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "problem",
+      "label": "주문 포기",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.7
+     },
+     {
+      "id": "total",
+      "label": "평균 주문 시간",
+      "slide_nos": [
+       3,
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "menu",
+      "label": "메뉴 찾기",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "total",
+      "weight": 0.7
+     },
+     {
+      "id": "option",
+      "label": "옵션 고르기",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "total",
+      "weight": 0.5
+     },
+     {
+      "id": "result",
+      "label": "교육 결과",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.8
+     }
+    ],
+    "items": [
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그리고 교육을 들은 어르신 열 명 중 아홉 명은 한 달 뒤에도 혼자 주문하셨어요. 그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요. 감사합니다.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "problem",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그런데 65세 이상 어르신 10명 중 6명이 키오스크 주문을 포기해 본 적이 있대요. 포기한 이유 1위가 뒤에 사람이 기다려서, 이게 41퍼센트였어요.",
+      "doc_weight": 0.7,
+      "speech_weight": 0.7
+     },
+     {
+      "node_id": "total",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "menu",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.7,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "option",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "result",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.8
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 3,
+      "cue": "이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.",
+      "node_ids": [
+       "menu",
+       "option"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요. 오늘은 어르신 키오스크 주문 교실을 제안드리려고 해요. 핵심은 기계를 바꾸기 전에 사람을 먼저 돕는 교육이 필요하다는 거예요. 요즘 식당이나 카페에 가면 대부분 키오스크로 주문하잖아요.",
+     "2": "그런데 65세 이상 어르신 10명 중 6명이 키오스크 주문을 포기해 본 적이 있대요. 포기한 이유 1위가 뒤에 사람이 기다려서, 이게 41퍼센트였어요.",
+     "3": "글씨가 작아서보다 눈치가 보여서가 더 컸던 거죠. 이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.",
+     "4": "교실은 이렇게 운영했어요. 일주일에 두 번 4주 동안 한 번에 90분씩이에요. 강사 한 명이 어르신 여섯 분을 맡았고요 실제 매장이랑 똑같은 연습용 키오스크로 연습했어요. 결과는 참여하신 72분 기준이에요.",
+     "5": "혼자 주문 성공률이 교육 전 31퍼센트에서 교육 후 88퍼센트까지 올라갔어요. 평균 주문 시간도 110초에서 64초로 줄었고요.",
+     "6": "큰 글씨 모드만 켜면 되지 않냐는 얘기도 있는데요, 사실 큰 글씨 모드만 켠 매장이 교육한 매장보다 성공률이 더 많이 올랐어요. 그래도 교육을 같이 하는 게 좋다고 봐요.",
+     "7": "남은 과제도 있어요. 결제 단계에서 멈추시는 경우가 여전히 제일 많고요. 현금을 안 받는 키오스크가 43퍼센트나 돼서 현금만 쓰시는 분들은 아예 주문을 못 하세요.",
+     "8": "그리고 교육을 들은 어르신 열 명 중 아홉 명은 한 달 뒤에도 혼자 주문하셨어요. 그래서 저희 제안은 구마다 교실 한 곳, 1년에 4800만 원이에요. 교육이랑 화면 개선을 같이 가야 한다는 게 결론이에요. 감사합니다."
+    },
+    "track": "10",
+    "node_id": "total",
+    "questions": [
+     {
+      "node_id": "total",
+      "question": "메뉴 찾기 평균 48초와 옵션 고르기 평균 35초, 결제 평균 27초를 합한 총 평균 주문 시간 110초가 주문 포기 문제와 어떤 관련이 있는지 설명해 주세요."
+     }
+    ],
+    "expect": {
+     "question_equals": "발표에서 3장은 넘어갔는데, 그 장의 평균 주문 시간을 설명해 주세요.",
+     "checks_require": [
+      "skip_value_leak",
+      "skip_template"
+     ],
+     "question_forbid": [
+      "48",
+      "110"
+     ],
+     "speech_quote_equals": "이 장은 주문 시간을 계산한 건데요, 시간이 없어서 패스하겠습니다.",
+     "node_absent": [
+      "menu",
+      "option"
+     ]
+    }
+   }
+  },
+  {
+   "id": "rec_skip_value_leak_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 텃밭 3장 합 줄의 「25분」 을 실은 질문 · 3장 구간 머리의 앞 장 문장)",
+   "origin": "tests/test_f08_recording_rec.py 와 같은 꼴",
+   "kind": "f08_recording",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "동네 텃밭 물 주기\n물을 언제 주느냐가 수확을 가릅니다"
+      },
+      {
+       "slide_no": 2,
+       "text": "왜 물 주기인가\n여름철 텃밭 20곳 중 12곳에서 채소가 시들었습니다"
+      },
+      {
+       "slide_no": 3,
+       "text": "물 사용량 계산\n물 사용량 = 텃밭 면적 × 하루 증발량 × 물 주는 날\n아침 10분 + 점심 8분 + 저녁 7분 = 25분"
+      },
+      {
+       "slide_no": 4,
+       "text": "아침 물 주기 효과\n| 시간 | 수확량 |\n| --- | --- |\n| 아침 | 13kg |\n| 저녁 | 10kg |\n아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다"
+      },
+      {
+       "slide_no": 5,
+       "text": "한계\n관찰한 텃밭이 8곳뿐입니다"
+      },
+      {
+       "slide_no": 6,
+       "text": "정리\n아침에 물을 주면 같은 물로 더 많이 거둡니다"
+      }
+     ]
+    }
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "텃밭 물 주기",
+      "slide_nos": [
+       1,
+       6
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "need",
+      "label": "채소 시듦",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "usage",
+      "label": "물 사용량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.5
+     },
+     {
+      "id": "area",
+      "label": "텃밭 면적",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.8
+     },
+     {
+      "id": "evap",
+      "label": "하루 증발량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.4
+     },
+     {
+      "id": "morning",
+      "label": "아침 물 주기",
+      "slide_nos": [
+       4
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "limit",
+      "label": "관찰 범위",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     }
+    ],
+    "items": [
+     {
+      "node_id": "morning",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+      "deck_quote": "아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다",
+      "deck_slide_no": 4,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "need",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "usage",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.8,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "evap",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.4,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "관찰 범위가 좁다는 한계가 있어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 3,
+      "cue": "이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+      "node_ids": [
+       "area",
+       "usage",
+       "evap"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+     "2": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+     "3": "그래서 물 주기가 중요해요. 이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+     "4": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+     "5": "관찰 범위가 좁다는 한계가 있어요.",
+     "6": "정리하면 아침에 물을 주면 같은 물로 더 많이 거둬요. 감사합니다."
+    },
+    "track": "10",
+    "node_id": "usage",
+    "questions": [
+     {
+      "node_id": "usage",
+      "question": "아침 10분과 점심 8분, 저녁 7분을 더한 25분이 물 사용량과 어떤 관계인가요?"
+     }
+    ],
+    "expect": {
+     "question_equals": "발표에서 3장은 넘어갔는데, 그 장의 물 사용량을 설명해 주세요.",
+     "checks_require": [
+      "skip_value_leak",
+      "skip_template"
+     ],
+     "question_forbid": [
+      "25"
+     ],
+     "speech_quote_equals": "이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요."
+    }
+   }
+  },
+  {
+   "id": "rec_skip_one_question",
+   "title": "건너뛴 장 하나에 질문 하나 — 대표는 무거운 식 칸(「바람 속도」)이 아니라 식 머리(「시간당 환기량」), 나머지는 골자에 접고 그 장에 함정 없음",
+   "origin": "09-30 녹음 감사 REC-11 교실 10분 (7문항 중 3개가 건너뛴 4장)",
+   "kind": "f08_recording",
+   "source": {
+    "file": "labs/qa_bench/corpus/audit_co2/slidedoc_parsed_upstage.json",
+    "base": "harness"
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "교실 공기 관리",
+      "slide_nos": [
+       1,
+       8
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "co2",
+      "label": "이산화탄소 농도",
+      "slide_nos": [
+       2,
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "vent",
+      "label": "환기 방법",
+      "slide_nos": [
+       5,
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.8
+     },
+     {
+      "id": "volume",
+      "label": "시간당 환기량",
+      "slide_nos": [
+       4
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.59
+     },
+     {
+      "id": "area",
+      "label": "창문 개방 면적",
+      "slide_nos": [
+       4
+      ],
+      "depth": 3,
+      "parent_id": "volume",
+      "weight": 0.5
+     },
+     {
+      "id": "wind",
+      "label": "바람 속도",
+      "slide_nos": [
+       4
+      ],
+      "depth": 3,
+      "parent_id": "volume",
+      "weight": 0.76
+     },
+     {
+      "id": "limit",
+      "label": "측정 한계",
+      "slide_nos": [
+       7
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     }
+    ],
+    "items": [
+     {
+      "node_id": "co2",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "평균 농도가 60퍼센트나 낮아진 거예요.",
+      "deck_quote": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.",
+      "deck_slide_no": 5,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "vent",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.8
+     },
+     {
+      "node_id": "volume",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.59,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "wind",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.76,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠. 한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 4,
+      "cue": "음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+      "node_ids": [
+       "area",
+       "wind",
+       "volume"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요.",
+     "2": "먼저 왜 교실 공기를 봤냐면요. 수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1000ppm을 넘어요. 1000ppm 이상이 되면 졸리다",
+     "3": "머리가 아프다 하는 친구들이 늘어나요. 저희도 오후 수업 때 유난히 졸린 게 이것 때문인가 싶었어요. 측정은 이렇게 했어요. 이산화탄소 측정기 2대를 교실 앞이랑 뒤에 하나씩 놓고요. 3주 동안 수업이 있는 날 15일을 5분 간격으로 기록했어요.",
+     "4": "음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+     "5": "이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요.",
+     "6": "1000ppm 넘는 시간도 6분으로 확 줄었고요. 그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.",
+     "7": "그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠. 한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요.",
+     "8": "실제로 환기를 잘한 반은 기말고사 평균도 5점 정도 높았다고 해요. 정리하면 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요. 여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요. 들어 주셔서 감사합니다."
+    },
+    "track": "10",
+    "traps": true,
+    "node_id": "volume",
+    "questions": [],
+    "expect": {
+     "slide_questions_max": {
+      "slide": 4,
+      "max": 1
+     },
+     "node_absent": [
+      "area",
+      "wind"
+     ],
+     "no_trap_on_slides": [
+      4,
+      5
+     ],
+     "checks_require": [
+      "skip_folded"
+     ],
+     "trap_count_max": 3
+    }
+   }
+  },
+  {
+   "id": "rec_skip_one_question_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 텃밭 3장 「물 사용량 = 텃밭 면적 × 하루 증발량 × …」, 합 줄이 있어도 3장 함정 없음)",
+   "origin": "tests/test_f08_recording_rec.py 와 같은 꼴",
+   "kind": "f08_recording",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "동네 텃밭 물 주기\n물을 언제 주느냐가 수확을 가릅니다"
+      },
+      {
+       "slide_no": 2,
+       "text": "왜 물 주기인가\n여름철 텃밭 20곳 중 12곳에서 채소가 시들었습니다"
+      },
+      {
+       "slide_no": 3,
+       "text": "물 사용량 계산\n물 사용량 = 텃밭 면적 × 하루 증발량 × 물 주는 날\n아침 10분 + 점심 8분 + 저녁 7분 = 25분"
+      },
+      {
+       "slide_no": 4,
+       "text": "아침 물 주기 효과\n| 시간 | 수확량 |\n| --- | --- |\n| 아침 | 13kg |\n| 저녁 | 10kg |\n아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다"
+      },
+      {
+       "slide_no": 5,
+       "text": "한계\n관찰한 텃밭이 8곳뿐입니다"
+      },
+      {
+       "slide_no": 6,
+       "text": "정리\n아침에 물을 주면 같은 물로 더 많이 거둡니다"
+      }
+     ]
+    }
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "텃밭 물 주기",
+      "slide_nos": [
+       1,
+       6
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "need",
+      "label": "채소 시듦",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "usage",
+      "label": "물 사용량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.5
+     },
+     {
+      "id": "area",
+      "label": "텃밭 면적",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.8
+     },
+     {
+      "id": "evap",
+      "label": "하루 증발량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.4
+     },
+     {
+      "id": "morning",
+      "label": "아침 물 주기",
+      "slide_nos": [
+       4
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "limit",
+      "label": "관찰 범위",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     }
+    ],
+    "items": [
+     {
+      "node_id": "morning",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+      "deck_quote": "아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다",
+      "deck_slide_no": 4,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "need",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "usage",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.8,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "evap",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.4,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "관찰 범위가 좁다는 한계가 있어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 3,
+      "cue": "이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+      "node_ids": [
+       "area",
+       "usage",
+       "evap"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+     "2": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+     "3": "그래서 물 주기가 중요해요. 이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+     "4": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+     "5": "관찰 범위가 좁다는 한계가 있어요.",
+     "6": "정리하면 아침에 물을 주면 같은 물로 더 많이 거둬요. 감사합니다."
+    },
+    "track": "10",
+    "traps": true,
+    "node_id": "usage",
+    "questions": [],
+    "expect": {
+     "slide_questions_max": {
+      "slide": 3,
+      "max": 1
+     },
+     "node_absent": [
+      "area",
+      "evap"
+     ],
+     "no_trap_on_slides": [
+      3,
+      4
+     ],
+     "checks_require": [
+      "skip_folded"
+     ],
+     "trap_count_max": 3
+    }
+   }
+  },
+  {
+   "id": "rec_trap_waits_for_skip",
+   "title": "5분 트랙 — 건너뛴 장 질문이 배합에서 밀리면 함정이 그 자리를 차지하지 않고 건너뛴 장 질문이 받는다",
+   "origin": "09-30 녹음 감사 REC-07 조정자 주 (교실 5분: 건너뛴 4장이 밀리고 함정 「10분」)",
+   "kind": "f08_recording",
+   "source": {
+    "file": "labs/qa_bench/corpus/audit_co2/slidedoc_parsed_upstage.json",
+    "base": "harness"
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "교실 공기 관리",
+      "slide_nos": [
+       1,
+       8
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "co2",
+      "label": "이산화탄소 농도",
+      "slide_nos": [
+       2,
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "vent",
+      "label": "환기 방법",
+      "slide_nos": [
+       5,
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.8
+     },
+     {
+      "id": "volume",
+      "label": "시간당 환기량",
+      "slide_nos": [
+       4
+      ],
+      "depth": 3,
+      "parent_id": "vent",
+      "weight": 0.59
+     },
+     {
+      "id": "area",
+      "label": "창문 개방 면적",
+      "slide_nos": [
+       4
+      ],
+      "depth": 4,
+      "parent_id": "volume",
+      "weight": 0.5
+     },
+     {
+      "id": "wind",
+      "label": "바람 속도",
+      "slide_nos": [
+       4
+      ],
+      "depth": 4,
+      "parent_id": "volume",
+      "weight": 0.76
+     },
+     {
+      "id": "limit",
+      "label": "측정 한계",
+      "slide_nos": [
+       7
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     }
+    ],
+    "items": [
+     {
+      "node_id": "co2",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "평균 농도가 60퍼센트나 낮아진 거예요.",
+      "deck_quote": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.",
+      "deck_slide_no": 5,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "vent",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.8
+     },
+     {
+      "node_id": "volume",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.59,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "wind",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.76,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠. 한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 4,
+      "cue": "음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+      "node_ids": [
+       "area",
+       "wind",
+       "volume"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요, 저희는 2학년 3반 공기 모둠이에요. 오늘은 교실 공기 이야기를 해 보려고 해요. 쉬는 시간마다 창문을 열긴 하는데 그걸로 충분할까 하는 궁금증에서 시작했어요. 결론부터 말하면 창문을 몇 번 여느냐보다 얼마나 오래 여느냐가 더 중요했어요.",
+     "2": "먼저 왜 교실 공기를 봤냐면요. 수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1000ppm을 넘어요. 1000ppm 이상이 되면 졸리다",
+     "3": "머리가 아프다 하는 친구들이 늘어나요. 저희도 오후 수업 때 유난히 졸린 게 이것 때문인가 싶었어요. 측정은 이렇게 했어요. 이산화탄소 측정기 2대를 교실 앞이랑 뒤에 하나씩 놓고요. 3주 동안 수업이 있는 날 15일을 5분 간격으로 기록했어요.",
+     "4": "음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.",
+     "5": "이제 결과예요. 쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요. 평균 농도가 60퍼센트나 낮아진 거예요.",
+     "6": "1000ppm 넘는 시간도 6분으로 확 줄었고요. 그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.",
+     "7": "그러니까 굳이 앞문까지 다 열 필요는 없다는 거죠. 한계도 있어요. 측정한 교실이 저희 반 한 곳뿐이었고요. 겨울에는 5분만 열어도 실내 온도가 평균 3도 정도 내려가서 춥다는 친구들이 있었어요. 그리고 학생 수가 날마다 26명에서 29명으로 조금씩 달랐어요.",
+     "8": "실제로 환기를 잘한 반은 기말고사 평균도 5점 정도 높았다고 해요. 정리하면 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있어요. 여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요. 들어 주셔서 감사합니다."
+    },
+    "track": "5",
+    "traps": true,
+    "node_id": "volume",
+    "questions": [],
+    "expect": {
+     "node_present": [
+      "co2",
+      "volume"
+     ],
+     "trap_count_max": 0,
+     "slot_of": {
+      "volume": "weak"
+     }
+    }
+   }
+  },
+  {
+   "id": "rec_trap_waits_for_skip_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 텃밭 5분, 대표가 깊이 3 이라 요소 자리에 안 맞는다)",
+   "origin": "tests/test_f08_recording_rec.py 와 같은 꼴",
+   "kind": "f08_recording",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "동네 텃밭 물 주기\n물을 언제 주느냐가 수확을 가릅니다"
+      },
+      {
+       "slide_no": 2,
+       "text": "왜 물 주기인가\n여름철 텃밭 20곳 중 12곳에서 채소가 시들었습니다"
+      },
+      {
+       "slide_no": 3,
+       "text": "물 사용량 계산\n물 사용량 = 텃밭 면적 × 하루 증발량 × 물 주는 날\n아침 10분 + 점심 8분 + 저녁 7분 = 25분"
+      },
+      {
+       "slide_no": 4,
+       "text": "아침 물 주기 효과\n| 시간 | 수확량 |\n| --- | --- |\n| 아침 | 13kg |\n| 저녁 | 10kg |\n아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다"
+      },
+      {
+       "slide_no": 5,
+       "text": "한계\n관찰한 텃밭이 8곳뿐입니다"
+      },
+      {
+       "slide_no": 6,
+       "text": "정리\n아침에 물을 주면 같은 물로 더 많이 거둡니다"
+      }
+     ]
+    }
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "텃밭 물 주기",
+      "slide_nos": [
+       1,
+       6
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "need",
+      "label": "채소 시듦",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "usage",
+      "label": "물 사용량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "plan",
+      "weight": 0.5
+     },
+     {
+      "id": "area",
+      "label": "텃밭 면적",
+      "slide_nos": [
+       3
+      ],
+      "depth": 4,
+      "parent_id": "usage",
+      "weight": 0.8
+     },
+     {
+      "id": "evap",
+      "label": "하루 증발량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 4,
+      "parent_id": "usage",
+      "weight": 0.4
+     },
+     {
+      "id": "morning",
+      "label": "아침 물 주기",
+      "slide_nos": [
+       4
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "limit",
+      "label": "관찰 범위",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     },
+     {
+      "id": "plan",
+      "label": "물 주기 계획",
+      "slide_nos": [
+       3,
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.85
+     }
+    ],
+    "items": [
+     {
+      "node_id": "morning",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+      "deck_quote": "아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다",
+      "deck_slide_no": 4,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "need",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "usage",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.8,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "evap",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.4,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "관찰 범위가 좁다는 한계가 있어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     },
+     {
+      "node_id": "plan",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그래서 물 주기가 중요해요. 이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+      "doc_weight": 0.85,
+      "speech_weight": 0.85
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 3,
+      "cue": "이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+      "node_ids": [
+       "area",
+       "usage",
+       "evap"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+     "2": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+     "3": "그래서 물 주기가 중요해요. 이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+     "4": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+     "5": "관찰 범위가 좁다는 한계가 있어요.",
+     "6": "정리하면 아침에 물을 주면 같은 물로 더 많이 거둬요. 감사합니다."
+    },
+    "track": "5",
+    "traps": true,
+    "node_id": "usage",
+    "questions": [],
+    "expect": {
+     "node_present": [
+      "morning",
+      "usage"
+     ],
+     "trap_count_max": 0,
+     "slot_of": {
+      "usage": "weak"
+     }
+    }
+   }
+  },
+  {
+   "id": "rec_attribution_deck",
+   "title": "녹음 모드 「…19%p 낮다고 했는데」 — 발표자는 그 말을 안 했다(자료 5장의 말). 자료에 붙인다: 「자료 5장에서 …라고 했는데」",
+   "origin": "09-30 녹음 감사 REC-02 번트 Q6",
+   "kind": "f08_recording",
+   "source": {
+    "file": "labs/qa_bench/corpus/audit_bunt/slidedoc_parsed_upstage.json",
+    "base": "harness"
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "번트 손익",
+      "slide_nos": [
+       1,
+       8
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "rate",
+      "label": "번트 성공률",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "adv",
+      "label": "강공의 상대적 우위",
+      "slide_nos": [
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.8
+     },
+     {
+      "id": "prob",
+      "label": "득점 확률 수치",
+      "slide_nos": [
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.7
+     },
+     {
+      "id": "expect",
+      "label": "득점 기대값",
+      "slide_nos": [
+       3
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.5
+     }
+    ],
+    "items": [
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전 과연 손해일까",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "rate",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "거예요. 0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요. 게다가 번트가 늘 성공하는 것도 아니에요. 우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "adv",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요. 그래서 번트 자체가 나쁜 작전은 아니에요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.8
+     },
+     {
+      "node_id": "prob",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요. 그래서 번트 자체가 나쁜 작전은 아니에요.",
+      "doc_weight": 0.7,
+      "speech_weight": 0.7
+     },
+     {
+      "node_id": "expect",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "먼저 상황별 득점 기대값을 봤어요. 득점 기대값은 그 상황에서 이닝이 끝날 때까지 평균 몇 점이 나는지예요. 무사 1루는 0.86점, 번트에 성공해서 1사 2루가 되면 0.71점이에요. 그러니까 번트에 성공해도 기대값이 0.15점 줄어요. 이걸 식으로 쓰면 번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀",
+      "doc_weight": 0.5,
+      "speech_weight": 0.5
+     }
+    ],
+    "skipped": [],
+    "speech": {
+     "1": "안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전 과연 손해일까",
+     "2": "이득일까가 오늘 주제예요. 데이터는 저희 리그 12개 팀 180경기 타석으로는 7900개예요. 기록원분들이 경기마다 입력한 기록을 그대로 썼어요.",
+     "3": "먼저 상황별 득점 기대값을 봤어요. 득점 기대값은 그 상황에서 이닝이 끝날 때까지 평균 몇 점이 나는지예요. 무사 1루는 0.86점, 번트에 성공해서 1사 2루가 되면 0.71점이에요. 그러니까 번트에 성공해도 기대값이 0.15점 줄어요. 이걸 식으로 쓰면 번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀",
+     "4": "",
+     "5": "거예요. 0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요. 게다가 번트가 늘 성공하는 것도 아니에요. 우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.",
+     "6": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요. 그래서 번트 자체가 나쁜 작전은 아니에요.",
+     "7": "예외인 경우는 오늘은 빼고 바로 결론으로 가겠습니다. 메이저리그에서도 번트가 10년 사이에 절반으로 줄었다고 하죠.",
+     "8": "결론은 간단해요. 평소에는 강공 한 점이 급할 때만 번트. 감사합니다."
+    },
+    "track": "10",
+    "node_id": "rate",
+    "questions": [
+     {
+      "node_id": "rate",
+      "question": "우리 리그 번트 성공률이 프로 리그 대비 19%p 낮다고 했는데, 이 비교의 타당성은 어떻게 되나요?"
+     }
+    ],
+    "expect": {
+     "question_startswith": "자료 5장에서 우리 리그 번트 성공률이",
+     "checks_require": [
+      "attribution_deck"
+     ]
+    }
+   }
+  },
+  {
+   "id": "rec_attribution_deck_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 텃밭 「관찰한 텃밭이 8곳뿐이라고 했는데」, 발표자는 수를 말하지 않았다)",
+   "origin": "tests/test_f08_recording_rec.py 와 같은 꼴",
+   "kind": "f08_recording",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "동네 텃밭 물 주기\n물을 언제 주느냐가 수확을 가릅니다"
+      },
+      {
+       "slide_no": 2,
+       "text": "왜 물 주기인가\n여름철 텃밭 20곳 중 12곳에서 채소가 시들었습니다"
+      },
+      {
+       "slide_no": 3,
+       "text": "물 사용량 계산\n물 사용량 = 텃밭 면적 × 하루 증발량 × 물 주는 날\n아침 10분 + 점심 8분 + 저녁 7분 = 25분"
+      },
+      {
+       "slide_no": 4,
+       "text": "아침 물 주기 효과\n| 시간 | 수확량 |\n| --- | --- |\n| 아침 | 13kg |\n| 저녁 | 10kg |\n아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다"
+      },
+      {
+       "slide_no": 5,
+       "text": "한계\n관찰한 텃밭이 8곳뿐입니다"
+      },
+      {
+       "slide_no": 6,
+       "text": "정리\n아침에 물을 주면 같은 물로 더 많이 거둡니다"
+      }
+     ]
+    }
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "텃밭 물 주기",
+      "slide_nos": [
+       1,
+       6
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "need",
+      "label": "채소 시듦",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "usage",
+      "label": "물 사용량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.5
+     },
+     {
+      "id": "area",
+      "label": "텃밭 면적",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.8
+     },
+     {
+      "id": "evap",
+      "label": "하루 증발량",
+      "slide_nos": [
+       3
+      ],
+      "depth": 3,
+      "parent_id": "usage",
+      "weight": 0.4
+     },
+     {
+      "id": "morning",
+      "label": "아침 물 주기",
+      "slide_nos": [
+       4
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "limit",
+      "label": "관찰 범위",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.3
+     }
+    ],
+    "items": [
+     {
+      "node_id": "morning",
+      "verdict": "contradiction",
+      "decided_by": "code",
+      "evidence": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+      "deck_quote": "아침에 물을 준 텃밭은 저녁에 준 텃밭보다 수확량이 30% 많았습니다",
+      "deck_slide_no": 4,
+      "doc_weight": 0.9,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "need",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "usage",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.5,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "area",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.8,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "evap",
+      "verdict": "missing",
+      "decided_by": "code",
+      "evidence": "",
+      "doc_weight": 0.4,
+      "speech_weight": 0.0
+     },
+     {
+      "node_id": "limit",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "관찰 범위가 좁다는 한계가 있어요.",
+      "doc_weight": 0.3,
+      "speech_weight": 0.3
+     }
+    ],
+    "skipped": [
+     {
+      "slide_no": 3,
+      "cue": "이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+      "node_ids": [
+       "area",
+       "usage",
+       "evap"
+      ]
+     }
+    ],
+    "speech": {
+     "1": "안녕하세요 오늘은 동네 텃밭 물 주기 이야기를 할게요. 물을 언제 주느냐가 수확을 가르거든요.",
+     "2": "여름에 텃밭 20곳 중 12곳에서 채소가 시들었어요.",
+     "3": "그래서 물 주기가 중요해요. 이 장은 물 사용량을 계산한 건데요, 시간 관계상 그냥 넘어갈게요.",
+     "4": "아침에 물을 준 텃밭이 저녁보다 수확량이 오십 퍼센트나 많았어요.",
+     "5": "관찰 범위가 좁다는 한계가 있어요.",
+     "6": "정리하면 아침에 물을 주면 같은 물로 더 많이 거둬요. 감사합니다."
+    },
+    "track": "10",
+    "node_id": "limit",
+    "questions": [
+     {
+      "node_id": "limit",
+      "question": "관찰한 텃밭이 8곳뿐이라고 했는데, 이 한계가 결론에 어떤 영향을 주나요?"
+     }
+    ],
+    "expect": {
+     "question_equals": "자료 5장에서 관찰한 텃밭이 8곳뿐이라고 했는데, 이 한계가 결론에 어떤 영향을 주나요?",
+     "checks_require": [
+      "attribution_deck"
+     ]
+    }
+   }
+  },
+  {
+   "id": "rec_under_spoken_once",
+   "title": "같은 장·같은 틀의 「…는 발표에서 짧게 지나갔어요. 자료 6장의 핵심을 …」 는 한 번만",
+   "origin": "09-30 녹음 감사 REC-11 번트 Q5·Q7",
+   "kind": "f08_recording",
+   "source": {
+    "file": "labs/qa_bench/corpus/audit_bunt/slidedoc_parsed_upstage.json",
+    "base": "harness"
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "번트 손익",
+      "slide_nos": [
+       1,
+       8
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "rate",
+      "label": "번트 성공률",
+      "slide_nos": [
+       5
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.6
+     },
+     {
+      "id": "adv",
+      "label": "강공의 상대적 우위",
+      "slide_nos": [
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.8
+     },
+     {
+      "id": "prob",
+      "label": "득점 확률 수치",
+      "slide_nos": [
+       6
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.7
+     },
+     {
+      "id": "expect",
+      "label": "득점 기대값",
+      "slide_nos": [
+       3
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.5
+     }
+    ],
+    "items": [
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전 과연 손해일까",
+      "doc_weight": 1.0,
+      "speech_weight": 1.0
+     },
+     {
+      "node_id": "rate",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "거예요. 0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요. 게다가 번트가 늘 성공하는 것도 아니에요. 우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.",
+      "doc_weight": 0.6,
+      "speech_weight": 0.6
+     },
+     {
+      "node_id": "adv",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요. 그래서 번트 자체가 나쁜 작전은 아니에요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.2
+     },
+     {
+      "node_id": "prob",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요. 그래서 번트 자체가 나쁜 작전은 아니에요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.2
+     },
+     {
+      "node_id": "expect",
+      "verdict": "aligned",
+      "decided_by": "llm",
+      "evidence": "먼저 상황별 득점 기대값을 봤어요. 득점 기대값은 그 상황에서 이닝이 끝날 때까지 평균 몇 점이 나는지예요. 무사 1루는 0.86점, 번트에 성공해서 1사 2루가 되면 0.71점이에요. 그러니까 번트에 성공해도 기대값이 0.15점 줄어요. 이걸 식으로 쓰면 번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀",
+      "doc_weight": 0.5,
+      "speech_weight": 0.5
+     }
+    ],
+    "skipped": [],
+    "speech": {
+     "1": "안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전 과연 손해일까",
+     "2": "이득일까가 오늘 주제예요. 데이터는 저희 리그 12개 팀 180경기 타석으로는 7900개예요. 기록원분들이 경기마다 입력한 기록을 그대로 썼어요.",
+     "3": "먼저 상황별 득점 기대값을 봤어요. 득점 기대값은 그 상황에서 이닝이 끝날 때까지 평균 몇 점이 나는지예요. 무사 1루는 0.86점, 번트에 성공해서 1사 2루가 되면 0.71점이에요. 그러니까 번트에 성공해도 기대값이 0.15점 줄어요. 이걸 식으로 쓰면 번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀",
+     "4": "",
+     "5": "거예요. 0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요. 게다가 번트가 늘 성공하는 것도 아니에요. 우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.",
+     "6": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요. 그래서 번트 자체가 나쁜 작전은 아니에요.",
+     "7": "예외인 경우는 오늘은 빼고 바로 결론으로 가겠습니다. 메이저리그에서도 번트가 10년 사이에 절반으로 줄었다고 하죠.",
+     "8": "결론은 간단해요. 평소에는 강공 한 점이 급할 때만 번트. 감사합니다."
+    },
+    "track": "10",
+    "questions": [],
+    "expect": {
+     "slide_questions_max": {
+      "slide": 6,
+      "max": 1
+     }
+    }
+   }
+  },
+  {
+   "id": "rec_under_spoken_once_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 수영 강습 2장의 덜 말한 개념 둘)",
+   "origin": "tests/test_f08_recording_rec.py 와 같은 꼴",
+   "kind": "f08_recording",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "마을 수영장 강습\n강습 시간표를 바꾸면 대기가 줄어듭니다"
+      },
+      {
+       "slide_no": 2,
+       "text": "초급반 결과\n초급반 수강생의 완주율이 60%에서 85%로 올랐습니다\n중급반은 70%를 유지했습니다"
+      },
+      {
+       "slide_no": 3,
+       "text": "정리\n시간표 조정이 먼저입니다"
+      }
+     ]
+    }
+   },
+   "args": {
+    "nodes": [
+     {
+      "id": "root",
+      "label": "수영 강습",
+      "slide_nos": [
+       1,
+       3
+      ],
+      "depth": 1,
+      "weight": 1.0
+     },
+     {
+      "id": "finish",
+      "label": "완주율",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.9
+     },
+     {
+      "id": "beginner",
+      "label": "초급반",
+      "slide_nos": [
+       2
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.8
+     },
+     {
+      "id": "table",
+      "label": "시간표 조정",
+      "slide_nos": [
+       1,
+       3
+      ],
+      "depth": 2,
+      "parent_id": "root",
+      "weight": 0.5
+     }
+    ],
+    "items": [
+     {
+      "node_id": "root",
+      "verdict": "aligned",
+      "evidence": "오늘은 마을 수영장 강습 이야기를 할게요.",
+      "doc_weight": 1.0,
+      "speech_weight": 0.9
+     },
+     {
+      "node_id": "finish",
+      "verdict": "aligned",
+      "evidence": "초급반은 좋아졌어요.",
+      "doc_weight": 0.9,
+      "speech_weight": 0.1
+     },
+     {
+      "node_id": "beginner",
+      "verdict": "aligned",
+      "evidence": "초급반은 좋아졌어요.",
+      "doc_weight": 0.8,
+      "speech_weight": 0.1
+     },
+     {
+      "node_id": "table",
+      "verdict": "aligned",
+      "evidence": "시간표 조정이 먼저예요.",
+      "doc_weight": 0.5,
+      "speech_weight": 0.5
+     }
+    ],
+    "skipped": [],
+    "speech": {
+     "1": "오늘은 마을 수영장 강습 이야기를 할게요.",
+     "2": "초급반은 좋아졌어요.",
+     "3": "시간표 조정이 먼저예요."
+    },
+    "track": "10",
+    "questions": [],
+    "expect": {
+     "slide_questions_max": {
+      "slide": 2,
+      "max": 1
+     }
+    }
+   }
+  }
+ ]
+}

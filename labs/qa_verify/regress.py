@@ -13,6 +13,8 @@
                           여러 개념·트랙을 준다(여유 후보·밀어내기).
 - probe_absolute          대상 F-26 규칙 주장 → `derive_probes` 에서 단정 탐침이 **따질 줄에만** 나오는지(`absolute_on`·`absolute_off`),
                           그 탐침의 코드 골자(`probe_code_gist`)가 조건을 대는지·단정 줄을 되읊지 않는지 (09-30 WP-P2)
+- f08_recording           녹음 모드 — 정합(모순·말로 건너뛴 장)과 받아쓰기를 같이 넣고 정해 둔 LLM 응답으로 질문을 만든다. 건너뛴 장 질문의
+                          꼴·장마다 하나·그 장 함정 없음·밀린 약점 질문과 함정 자리·「…라고 했는데」 의 주인 (09-30 녹음 감사 REC-05·07·11·18·02)
 """
 
 from __future__ import annotations
@@ -364,12 +366,124 @@ def check_f08_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
     return "pass", f"골자 «{gist[:70]}»" + (f" · 질문 «{question[:50]}»" if asked else ""), obs
 
 
+def _recording_inputs(doc: dict, args: dict):
+    """녹음 모드 입력 — 정합(판정·건너뛴 장)과 받아쓰기. 사례 데이터의 dict 를 대상 계약의 from_dict 로 읽는다(필드가 늘어도 돈다)."""
+    from chuckchuck.contracts import AlignmentDoc, SlideDoc, Transcript
+
+    total = len(doc.get("slides") or [])
+    speech = {int(k): v for k, v in (args.get("speech") or {}).items()}
+    items = [dict({"decided_by": "llm", "doc_weight": 0.5, "speech_weight": 0.5}, **it) for it in args.get("items") or []]
+    alignment = AlignmentDoc.from_dict({
+        "file_name": doc.get("file_name", "case.pptx"), "total_slides": total, "items": items, "model": "scripted",
+        "speech_match": "matched", "speech_overlap": 0.4, "basis": "llm", "skipped_slides": args.get("skipped") or []})
+    transcript = Transcript.from_dict({
+        "full_text": " ".join(speech[k] for k in sorted(speech)), "duration_sec": 30.0 * max(1, len(speech)),
+        "by_slide": [{"slide_no": k, "visit": 1, "start_sec": (k - 1) * 30.0, "end_sec": k * 30.0, "text": speech[k]}
+                     for k in sorted(speech)]})
+    return alignment, transcript, SlideDoc.from_dict(dict(doc, total_slides=total))
+
+
+def check_f08_recording(doc: dict, args: dict) -> tuple[str, str, dict]:
+    """
+    녹음 모드 F-08 (09-30 녹음 대화 감사 REC-05·07·11·18·02) — 정합(판정·코드가 확인한 모순·말로 건너뛴 장)과 받아쓰기를 넣고,
+    1차 심사는 빈 응답(결정적 폴백), 질문은 정해 둔 응답으로 대상 `triage_questions`·`build_questions` 를 부른다.
+    args: nodes · items · skipped · speech(장 → 받아쓰기) · track · traps(false 면 함정 허용치 0) · questions · node_id
+    expect: question_equals · question_startswith · question_forbid · checks_require · speech_quote_equals(대상 node_id 질문),
+            slide_questions_max {slide, max}(근거 장이 그 장 하나인 질문 수) · no_trap_on_slides · trap_count_max · trap_count_min ·
+            node_absent · node_present · slot_of {node: slot}
+    """
+    from chuckchuck import build_questions, triage_questions
+    from chuckchuck.providers.llm_base import LLMProvider
+
+    questions = [{"node_id": q["node_id"], "question": q["question"], "answer_gist": q.get("gist", ""),
+                  **({"hint": q["hint"]} if q.get("hint") else {})} for q in args.get("questions") or []]
+
+    class Scripted(LLMProvider):
+        name = "scripted"
+
+        def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
+            if "[TASK] qa-triage" in user:
+                return json.dumps({"marks": []})
+            return json.dumps({"questions": questions}, ensure_ascii=False)
+
+    import chuckchuck.f08_questions as F08
+
+    graph = _graph_of(doc, args)
+    alignment, transcript, slidedoc = _recording_inputs(doc, args)
+    llm = Scripted()
+    saved = F08.QA_TRACK_TRAPS
+    if not args.get("traps"):
+        F08.QA_TRACK_TRAPS = {k: 0 for k in saved}
+    try:
+        kw = {"transcript": transcript, "llm": llm}
+        if "slidedoc" in inspect.signature(triage_questions).parameters:
+            kw["slidedoc"] = slidedoc
+        triage = triage_questions(graph, alignment, None, None, **kw)
+        qdoc = build_questions(graph, triage, track=str(args.get("track", "10")), alignment=alignment, transcript=transcript,
+                               slidedoc=slidedoc, llm=llm)
+    finally:
+        F08.QA_TRACK_TRAPS = saved
+    exp = args.get("expect") or {}
+    qs = list(qdoc.questions)
+    obs = {"questions": [{"node": q.node_id, "q": q.question, "trap": q.trap, "slides": list(q.slide_nos),
+                          "checks": list(q.basis.checks) if q.basis else []} for q in qs]}
+    problems: list[str] = []
+    q = next((x for x in qs if x.node_id == args.get("node_id")), None) if args.get("node_id") else None
+    if args.get("node_id") and q is None and not exp.get("node_absent"):
+        return "fail", f"「{args['node_id']}」 질문이 없음 — {[x.node_id for x in qs]}", obs
+    if q is not None:
+        text = q.question or ""
+        if exp.get("question_equals") and text != exp["question_equals"]:
+            problems.append(f"질문 «{text[:70]}» ≠ «{exp['question_equals'][:70]}»")
+        if exp.get("question_startswith") and not text.startswith(exp["question_startswith"]):
+            problems.append(f"질문 «{text[:70]}» 이 «{exp['question_startswith']}» 로 시작하지 않음")
+        for x in exp.get("question_forbid") or []:
+            if x in text:
+                problems.append(f"질문에 「{x}」 가 남음")
+        have = set(q.basis.checks) if q.basis else set()
+        for c in exp.get("checks_require") or []:
+            if c not in have:
+                problems.append(f"검사 「{c}」 가 없음")
+        if "speech_quote_equals" in exp and (q.speech_quote or "") != exp["speech_quote_equals"]:
+            problems.append(f"발표에서 한 말 «{(q.speech_quote or '')[:60]}» ≠ «{exp['speech_quote_equals'][:60]}»")
+    lim = exp.get("slide_questions_max")
+    if lim:
+        on = [x.node_id for x in qs if list(x.slide_nos) == [int(lim["slide"])]]
+        if len(on) > int(lim["max"]):
+            problems.append(f"{lim['slide']}장만 묻는 질문이 {len(on)}개 {on}")
+    for no in exp.get("no_trap_on_slides") or []:
+        bad = [x.node_id for x in qs if x.trap and x.trap_premise is not None and x.trap_premise.slide_no == int(no)]
+        if bad:
+            problems.append(f"{no}장에 함정 {bad}")
+    n_trap = sum(1 for x in qs if x.trap)
+    if "trap_count_max" in exp and n_trap > int(exp["trap_count_max"]):
+        problems.append(f"함정 {n_trap}개 > {exp['trap_count_max']}")
+    if "trap_count_min" in exp and n_trap < int(exp["trap_count_min"]):
+        problems.append(f"함정 {n_trap}개 < {exp['trap_count_min']}")
+    ids = [x.node_id for x in qs]
+    for nid in ([exp["node_absent"]] if isinstance(exp.get("node_absent"), str) else exp.get("node_absent") or []):
+        if nid in ids:
+            problems.append(f"「{nid}」 질문이 트랙에 있음")
+    for nid in exp.get("node_present") or []:
+        if nid not in ids:
+            problems.append(f"「{nid}」 질문이 트랙에 없음 {ids}")
+    for nid, slot in (exp.get("slot_of") or {}).items():
+        got = next((x.basis.slot for x in qs if x.node_id == nid and x.basis is not None), None)
+        if got != slot:
+            problems.append(f"「{nid}」 자리 {got} ≠ {slot}")
+    if problems:
+        return "fail", "; ".join(problems[:4]), obs
+    head = f"질문 «{q.question[:60]}»" if q is not None else f"트랙 {ids}"
+    return "pass", f"{head} · 함정 {n_trap}", obs
+
+
 KINDS = {
     "units_no_midword_start": check_units_no_midword_start,
     "best_quote_slide": check_best_quote_slide,
     "contrast_choice": check_contrast_choice,
     "f08_scripted": check_f08_scripted,
     "probe_absolute": check_probe_absolute,
+    "f08_recording": check_f08_recording,
 }
 
 
