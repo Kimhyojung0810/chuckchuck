@@ -41,18 +41,25 @@ from ._evidence import (
     ranked_quotes,
     section_line,
 )
+from ._claim_rules import is_sentence as _is_sentence
 from ._json_text import extract_json_object
 from ._match import norm_tokens
 from ._probes import (
     as_claims,
+    challenged_lines,
     derive_probes,
+    jargon_terms,
     mentions,
+    overclaim,
     probe_code_gist,
     probe_hint,
     probe_question,
     probe_shaped,
     probe_why,
+    split_asks,
+    teaches_challenged,
     tension_terms,
+    usable_answer_line,
 )
 from ._probes import josa as _probe_josa
 from ._probe_stance import gist_needs_rebuild, probe_gist
@@ -327,7 +334,7 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
    설명하지 못했을 **개념 사이의 관계·조건·우선순위**를 물어라.
    (예) "대기 시간이 한 번만 길어도 재방문이 줄어드나요, 아니면 여러 번 쌓여야 줄어드나요?"
 3-5. 「주제:」 줄이 붙은 개념은 발표 전체의 주장이다. 자료의 두 문구를 이어 붙여 "…를 바탕으로 설명해 주세요" 로
-   **주장을 되읊게 하지 마라.** 주장이 성립하는 조건·경계·반례, 또는 자료 안에서 **서로 부딪히는 표현**
+   **주장을 되읊게 하지 마라.** 주장이 들어맞는 조건이나 들어맞지 않는 경우, 또는 자료 안에서 **서로 부딪히는 표현**
    (예: "X보다 중요하다" 면서 X 를 요소로 넣음)을 한 가지 골라 물어라.
    (X) 만족도가 가격보다 중요한 이유를 세 가지 요소(가격, 맛, 분위기)를 바탕으로 설명해 주세요.
    (O) 가격도 만족도의 요소인데, 만족도가 가격보다 중요하다는 건 어떤 뜻인가요?
@@ -700,8 +707,10 @@ def _skipped_core(alignment: AlignmentDoc | None, graph: ConceptGraph) -> dict[s
 
 #: 발화 가운데 인용할 절을 자를 곳 — 쉼표·문장부호 뒤, 「…는데요,」 같은 이음 뒤.
 _CLAUSE_CUT_RE = re.compile(r"(?<=[,.?!])\s+")
-#: 절 머리의 군말 — 「음」「아」「어」「그」 (어느 발표에나 있는 말).
-_FILLER_HEAD_RE = re.compile(r"^(?:(?:음+|아+|어+|그+|저기|뭐)\s+)+")
+#: 절 머리의 군말 — 「음」「아」「어」「그」, 이음 말 「그리고·그래서·근데·그럼」 (어느 발표에나 있는 말). 이음 말로 시작한
+#: 인용(「“그리고 타율이 이 할도 안 되는…”」)은 앞 문장에 매달린 조각처럼 읽혔다 (09-30 녹음 감사 REC-17).
+_FILLER_HEAD_RE = re.compile(r"^(?:(?:음+|아+|어+|그+|저기|뭐|그리고|그래서|그런데|근데|그러니까|그니까|그러면|그럼|또한|또|아무튼|즉)"
+                             r"\s*,?\s+)+")
 
 
 def _clip_words(text: str, limit: int) -> str:
@@ -772,12 +781,20 @@ def _contra_leaks(text: str, item: AlignmentItem) -> bool:
                for i in range(0, max(0, len(deck) - _DECK_CHUNK + 1)))
 
 
+#: 모순 질문이 **답을 요구하는** 꼴 — 「어느 쪽이 맞나요」「무엇이 맞나요」「어떻게 다른가요」「어떤 차이가 있나요」. 「…다른가요?」
+#: 처럼 예/아니요로 닫히는 물음은 「네」 한 마디로 끝나 바로잡을 값을 말하게 하지 않는다 (09-30 녹음 감사 REC-17 — 「다른」 하나로
+#: `_RECONCILE_RE` 를 통과했다). 「왜 다르게 말했나요」 는 바로잡기가 아니라 변명을 묻는 꼴이라 넣지 않는다.
+_RECONCILE_ASK_RE = re.compile(
+    r"어느\s?쪽|(?:어떤|어느)\s?(?:게|것이|값이|수치가|말이)\s?맞|무엇이\s?맞|뭐가\s?맞|어떻게\s?(?:다르|다른|달라|어긋|바로잡|고치|맞추)|"
+    r"(?:무엇이|어디가|어떤\s?점이)\s?(?:다르|다른|달라)|(?:어떤|무슨)\s?차이")
+
+
 def _contra_asked(question: str, item: AlignmentItem) -> bool:
-    """LLM 질문을 모순 질문으로 둘 수 있는가 — 자료 쪽 값을 흘리지 않고, 그 장을 가리키며, 어느 쪽이 맞는지 묻는다."""
+    """LLM 질문을 모순 질문으로 둘 수 있는가 — 자료 쪽 값을 흘리지 않고, 그 장을 가리키며, 어느 쪽이 맞는지 **답을 요구하는** 꼴로 묻는다."""
     if not question or _contra_leaks(question, item):
         return False
     slide_ok = not item.deck_slide_no or bool(re.search(rf"(?<!\d){item.deck_slide_no}\s*장", question))
-    return slide_ok and bool(_RECONCILE_RE.search(question))
+    return slide_ok and bool(_RECONCILE_RE.search(question)) and bool(_RECONCILE_ASK_RE.search(question))
 
 
 def _contra_where(item: AlignmentItem) -> str:
@@ -2093,10 +2110,17 @@ def _drop_twin_questions(
     (여유분이 0인 트랙에서는 이 되채우기 때문에 결과가 종전과 완전히 같아진다.)
 
     앞선 것을 남긴다 — marks 는 rank 순이라 앞이 더 중요한 개념이다.
+
+    코드가 답할 수 없다고 본 폴백 질문(`unanswerable_fallback`, 09-30 WP-P2)도 뒤로 민다 — 쌍둥이보다도 뒤다. 여유 후보가 있으면
+    그 후보가 자리를 받고(`filled_for_unanswerable`), 없으면 되채우기로 돌아온다(개수는 줄지 않는다).
     """
     kept: list[Question] = []
     spare: list[Question] = []
+    demoted: list[Question] = []
     for q in questions:
+        if q.basis is not None and "unanswerable_fallback" in (q.basis.checks or []):
+            demoted.append(q)
+            continue
         # 함정 질문은 쌍둥이 비교에서 뺀다 (qa/trap). 함정 골자는 전제를 바로잡는 자료 줄이라 같은 장을 인용한 다른 골자와
         # 겹쳐 보이지만, 묻는 것(틀린 전제를 알아채는가)이 다르다 — 밀리면 트랙의 함정 허용치가 조용히 깎인다.
         # 탐침 골자를 코드 문장으로 다시 쓴 질문(gist_probe_rebuilt, qa/loop2)도 뺀다 — 틀 낱말(「…게 답이에요」)이 겹쳐
@@ -2108,8 +2132,20 @@ def _drop_twin_questions(
 
     while len(kept) < limit and spare:
         kept.append(spare.pop(0))
+    while len(kept) < limit and demoted:
+        kept.append(demoted.pop(0))
 
     keep_ids = {q.id for q in kept[:limit]}
+    first_ids = {q.id for q in questions[:limit]}
+    pushed = [q for q in questions[:limit] if q.id not in keep_ids and q.basis is not None
+              and "unanswerable_fallback" in (q.basis.checks or [])]
+    if pushed:
+        # 새로 든 질문 가운데 **뒤쪽 것**이 밀린 자리를 받은 것이다 (앞쪽은 쌍둥이 자리를 받은 것일 수 있다)
+        entering = [q for q in kept[:limit] if q.id not in first_ids and q.basis is not None]
+        for q in entering[-len(pushed):]:
+            q.basis.checks.append("filled_for_unanswerable")
+        sys.stderr.write(f"[f08] 답할 수 없는 질문 {len(pushed)}개를 다음 후보 뒤로: "
+                         + ", ".join(q.node_id for q in pushed) + "\n")
     dropped = [q.node_id for q in questions if q.id not in keep_ids]
     return kept[:limit], dropped
 
@@ -2463,7 +2499,7 @@ def _build_question_prompt(
         if relation:
             parts.append(f"    {relation}")
         if node.parent_id is None and node.depth == 1:
-            parts.append("    주제: 발표 전체의 주장이다 — 되읊게 하지 말고 조건·경계·부딪히는 표현을 물어라 (규칙 3-5)")
+            parts.append("    주제: 발표 전체의 주장이다 — 되읊게 하지 말고 그 주장이 들어맞는 조건이나 서로 부딪히는 표현을 물어라 (규칙 3-5)")
         tp = (trap_of or {}).get(node.id)
         if tp is not None:
             parts.append(f"    함정 전제: 「{tp.premise}」 ← 이 전제를 질문 문장에 글자 그대로 얹어 맞는 말처럼 물어라."
@@ -2703,7 +2739,10 @@ def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssu
         return f"{josa(label, '은', '는')} 자료에 없는데 발표에서 꺼냈어요. 이 내용을 넣은 이유는 무엇인가요?"
     if mark.source == "justified_skip":
         return f"{josa(label, '은', '는')} 발표에서 생략했는데, 누가 물으면 한 문장으로 어떻게 답할 건가요?"
-    return f"{josa(label, '이', '가')} 이 발표에서 왜 중요한지 {josa(where, '을', '를')} 근거로 설명해 주세요."
+    # 폴백 골자는 근거 장의 자료 줄이다(`_evidence_gist`) — 묻는 것도 「자료가 어떻게 설명했나」 여야 골자가 답이 된다.
+    # 09-30 standard(혈당 t5): 「…이 발표에서 왜 중요한지 …근거로 설명해 주세요」 의 골자가 제목 줄·과장 줄을 늘어놓은 것이라
+    # 「이렇게 말하면 완성이에요」 가 물음에 답하지 않았다 (WP-P2).
+    return f"{josa(label, '을', '를')} {where}에서 어떻게 설명했나요?"
 
 
 def _fallback_text(
@@ -2753,7 +2792,8 @@ def _fallback_gist(
     "이렇게 말하면 완성" 칸에 전제 반박이 없는 답이 실려 질문과 어긋난다.
     """
     summary = (node.summary or "").strip()
-    if not summary:
+    if not summary or (not trap and overclaim(summary)):
+        # 요약이 따질 만한 단정이면(그래프 요약이 과장 줄을 옮긴 것) 모범답으로 싣지 않는다 (WP-P2)
         summary = f"{node.label} 의 핵심"
     if trap:
         summary = f"질문의 전제가 자료와 달라요 — 자료가 말하는 것: {summary}"
@@ -3497,10 +3537,12 @@ _NOT_IN_DECK_RE = re.compile(
 _ADMITS_ABSENT_RE = re.compile(r"자료에\s*없|나와\s*있지\s*않|제시되지\s*않|명시되지\s*않|언급되지\s*않|범위")
 
 
-def _out_of_deck_gist(quote_no: int, quote: str) -> str:
-    """자료가 답을 담지 않은 질문의 기대 답 — 없다고 먼저 말하고, 자료가 보여 준 범위에서 답한다."""
+def _out_of_deck_gist(quote_no: int, quote: str, usable=None) -> str:
+    """자료가 답을 담지 않은 질문의 기대 답 — 없다고 먼저 말하고, 자료가 보여 준 범위에서 답한다.
+    usable 을 주면 그 줄만 범위로 든다 — 과장 줄을 「여기까지 말할 수 있어요」 로 가르치지 않는다 (WP-P2)."""
     # 발표자가 그대로 말할 모범답으로 — 「…게 답이에요」 채점 지시문은 모범답 칸에 지시문으로 떴다 (09-30 standard 실측).
-    where = f"자료 {quote_no}장에서 보여 준 «{quote}»" if quote and quote_no else "자료가 보여 준 범위"
+    ok = bool(quote) and quote_no and (usable is None or usable(quote))
+    where = f"자료 {quote_no}장에서 보여 준 «{quote}»" if ok else "자료가 보여 준 범위"
     return _clip(f"그 부분은 이번 자료에 나와 있지 않아요. {where}까지만 말할 수 있어요.")
 
 
@@ -3513,7 +3555,7 @@ EVIDENCE_GIST_LINES = 2
 
 def _evidence_gist(
     node: ConceptNode, question: str, anchors: list[int], by_no: dict[int, Slide] | None, *, trap: bool = False,
-    labels: list[str] | None = None,
+    labels: list[str] | None = None, usable=None,
 ) -> str:
     """
     근거 장에서 **이 질문을 받치는 자료 줄** 로 조립한 골자. 자료가 없으면 "".
@@ -3521,15 +3563,19 @@ def _evidence_gist(
     LLM 골자가 근거 검사에서 떨어졌을 때 쓴다 (gist_rebuilt). 예전 폴백은 개념 요약 + 「(1, 2, 3장 근거)」 라 답이 아니었고
     (09-29 기준선 §5-8: 「개인 투자자 집단의 평균 수익률 (1, 2, 3장 근거)」 를 말하면 good 85), 판정은 그걸 채점 기준으로 썼다.
     자료 줄 그대로라 지어낸 것이 없다. 함정 질문이면 「전제와 달리」 로 연다 — 정답은 전제를 바로잡는 것이다.
+
+    usable(줄 → bool)을 주면 그 줄만 싣는다 — 탐침이 따지는 줄·따질 만한 강한 단정은 모범답이 못 된다 (`_probes.usable_answer_line`,
+    09-30 WP-P2: 폴백 모범답이 「…완전히 막을 수 있습니다」 를 정답으로 실었다). 남는 줄이 없으면 "" — 답할 재료가 없다는 뜻이다.
     """
     if not by_no:
         return ""
     texts = [(no, by_no[no].raw_text or "") for no in anchors if no in by_no]
     # 문장 조각(「수면 주기가 자주 끊기면」 — 연결 어미로 끝난 줄)은 골자의 한 줄이 못 된다 — 넉넉히 뽑아 거른다
     ranked = ranked_quotes(node.label, node.summary, texts, question, k=EVIDENCE_GIST_LINES + 3, labels=labels)
-    found = [(no, q) for no, q in ranked if q and not _HINT_FRAGMENT_END_RE.search(q)][:EVIDENCE_GIST_LINES]
-    if not found:
-        return ""
+    found = [(no, q) for no, q in ranked if q and not _HINT_FRAGMENT_END_RE.search(q)
+             and (usable is None or usable(q))][:EVIDENCE_GIST_LINES]
+    if not found or (usable is not None and not any(_content_line(q) for _, q in found)):
+        return ""          # 장 제목만 남았으면 답이 아니다 — 호출자가 「답할 재료가 없다」 로 본다 (WP-P2)
     # 가장 맞는 줄의 장에 설명 표가 있으면 둘째 줄 대신 그 표 — 사실은 표에 있고 글 줄은 제목인 장이 많다.
     # 09-29 재실행: 「수면 주기를 끊는 구체적인 원인은?」 의 다시 쓴 골자가 제목 두 줄이었고 원인 표(카페인 | 오후·저녁 섭취 …)가 빠졌다.
     table = grounding.described_table(found[0][0], by_no[found[0][0]].raw_text or "") if found[0][0] in by_no else ""
@@ -3540,6 +3586,17 @@ def _evidence_gist(
     where = ", ".join(str(n) for n in nos)
     lead = "질문의 전제와 달리, 자료는 이렇게 말해요 — " if trap else "자료는 이렇게 말해요 — "
     return _clip(f"{lead}{body} ({where}장)")
+
+
+#: 제목이 아니라 **내용**을 말하는 줄로 볼 길이 (띄어쓰기 뺀 글자) — 문장·수치·표 행이 아니어도 이만큼이면 주장이 든 줄이다.
+CONTENT_LINE_MIN = 12
+
+
+def _content_line(line: str) -> bool:
+    """자료 줄이 제목이 아니라 내용을 말하는가 — 문장으로 끝나거나, 수치·표 행이거나, 충분히 길다."""
+    t = (line or "").strip()
+    return (_is_sentence(t) or bool(re.search(r"\d", t)) or t.startswith("|")
+            or len(re.sub(r"\s+", "", t)) >= CONTENT_LINE_MIN)
 
 
 def _verbatim_in_slide(text: str, slide_no: int, by_no: dict[int, Slide] | None) -> bool:
@@ -3624,6 +3681,8 @@ def _why_ok(why: str, question: str, gist: str, idx) -> bool:
     w = (why or "").strip()
     if not w or len(w) > WHY_MAX or not _HAEYO_END_RE.search(w) or _WHY_FRAGMENT_RE.search(w.rstrip(" .요")):
         return False
+    if jargon_terms(w, idx.text if idx is not None else ""):
+        return False       # 우리 분석 말(「경계·탐침」)이 샌 이유 줄 (09-30 WP-P2)
     if _leaks(w, gist, question, WHY_LEAK_SHARE):
         return False
     wn = _nouns(w)
@@ -3633,7 +3692,7 @@ def _why_ok(why: str, question: str, gist: str, idx) -> bool:
 
 
 def _code_why(mark: TriageMark, probe: Probe | None, flow_issue: FlowIssue | None, anchors: list[int], slot: str,
-              skip: SkippedSlide | None = None) -> str:
+              skip: SkippedSlide | None = None, *, fallback: bool = False) -> str:
     """
     근거 종류로 코드가 쓰는 이유 한 줄 (09-30 held-out M-03 — 이유 줄을 결정적으로). 함정 질문도 **같은 근거면 같은 문장**이다 —
     예전엔 함정만 「…질문이 말한 내용이 자료와 같은지 먼저 따져 보는 연습이에요」 라 이유 줄 하나로 함정이 들통났다 (H-07).
@@ -3646,7 +3705,8 @@ def _code_why(mark: TriageMark, probe: Probe | None, flow_issue: FlowIssue | Non
         return _skip_why(skip)
     if mark.source in ("contradiction", "skipped_slide", "missing", "under_spoken", "weak_flow", "extra", "justified_skip"):
         return _WHY_BY_SOURCE[mark.source]
-    if slot == "theme":
+    if slot == "theme" and not fallback:
+        # 폴백 질문(「…자료 N장에서 어떻게 설명했나요?」)은 어디까지 맞는지를 묻지 않는다 — 아래 문장이 그 질문의 이유다
         return "발표 전체를 꿰는 주장이라, 그 주장이 어디까지 맞는지 확인하는 질문이에요"
     shown = ", ".join(str(n) for n in anchors[:HINT_SLIDE_MAX])
     where = f"자료 {shown}장에서" if shown else "자료에서"
@@ -3657,7 +3717,7 @@ def _hint_ok(hint: str, question: str, gist: str, anchors: list[int], idx) -> bo
     """LLM 힌트(사다리 1단)를 둘 수 있는가 — 해요체 권유로 끝나고, 답을 흘리지 않고, 질문의 근거 장 밖을 가리키지 않고,
     자료에 없는 연구·통계를 찾으라 하지 않는다 (09-30 held-out M-06: 1단이 곧 정답 식, 「5장에 인용된 연구를 찾아보세요」 는 6장)."""
     h = (hint or "").strip()
-    if not h or not _HAEYO_END_RE.search(h):
+    if not h or not _HAEYO_END_RE.search(h) or jargon_terms(h, idx.text if idx is not None else ""):
         return False
     if _leaks(h, gist, question, HINT_LEAK_SHARE):
         return False
@@ -3739,6 +3799,20 @@ def _recited_lines(question: str, anchors: list[int], idx) -> list[str]:
     return out
 
 
+def _bound_to_basis(text: str, probe: Probe | None, node: ConceptNode, by_id: dict[str, ConceptNode]) -> bool:
+    """물음 하나가 **이 질문의 근거**에 묶였는가 — 탐침이면 탐침 개념을 부르고 탐침 꼴이다, 아니면 개념 이름을 부른다."""
+    if probe is not None:
+        labels = {i: (by_id[i].label if i in by_id else i) for i in probe.node_ids}
+        return bool(_probe_mentions(text, probe, labels)) and probe_shaped(text, probe)
+    return _mentions_loosely(text, node.label, [])
+
+
+def _haeyo_outside_quotes(text: str) -> str:
+    """인용 「」·«» 밖의 합쇼체를 해요체로 (`_to_haeyo` — 인용 안은 그대로 둔다). 이미 해요체면 그대로."""
+    t = text or ""
+    return _to_haeyo(t) if t and ("니다" in t or "니까" in t) else t
+
+
 def _label_vocab(by_id: dict[str, ConceptNode]) -> set[str]:
     """그래프 라벨의 낱말 줄기 — 「자료 어디에도 없는 낱말」 판단에 더한다 (라벨은 자료를 읽고 지은 이름이다)."""
     return {grounding.stem(w) for n in by_id.values() for w in grounding.words(n.label or "")}
@@ -3758,9 +3832,16 @@ def _normalize_questions(
     trap_of: dict[str, TrapPremise] | None = None,
     contra_of: dict[str, AlignmentItem] | None = None,
     skip_of: dict[str, SkippedSlide] | None = None,
+    challenged: set[str] | None = None,
 ) -> list[Question]:
     """
     raw 질문을 대상마다 정확히 1개씩으로 정리한다.
+
+    challenged(탐침이 따지는 자료 줄 — `_probes.challenged_lines`)는 **다른 질문의 모범답**에 싣지 않는다. 따질 만한 강한 단정 줄도
+    같다(`_probes.usable_answer_line`, 09-30 WP-P2). 질문 문장은 한 가지만 묻고(`_probes.split_asks` — 근거에 묶인 물음만 남긴다),
+    우리 분석 말(`_probes.jargon_terms` — 「경계·탐침」)이 없어야 한다 — 걸리면 정해진 문장이다. 코드가 「답할 수 없다」 고 본 질문의
+    폴백은 `unanswerable_fallback` 표시를 달아 `_drop_twin_questions` 가 다음 후보 뒤로 민다. 화면에 나가는 네 칸(질문·이유·힌트·골자)은
+    인용 「」·«» 밖을 해요체로 마무리한다 (`_haeyo_outside_quotes`).
 
     녹음 경로의 코드 확인 사실 (09-30 WP-S2): contra_of(자료 원문과 다른 수치·방향 — `deck_quote`)로 뽑힌 개념은 「어느 쪽이 맞나」
     질문이다 — LLM 문장이 자료 쪽 값(= 답)을 흘리거나 어긋남을 안 물으면 정해진 문장으로 바꾸고(`_contra_asked`), 골자는 두 인용을
@@ -3792,6 +3873,10 @@ def _normalize_questions(
     labels_all = {i: n.label for i, n in by_id.items()}
     labels_list = [n.label for n in by_id.values() if n.label]
     slides_text = {no: s.raw_text or "" for no, s in (by_no or {}).items()}
+    deck_all = "\n".join(slides_text.values())
+
+    def usable(line: str) -> bool:
+        return usable_answer_line(line, challenged)
     # 되읊은 자료 줄 — 한 줄은 한 질문만 (09-30 held-out M-04). 함정이 뒤집은 사실 줄도 넣는다: 다른 질문이 그 줄을 되읊으면
     # 함정의 답이 옆 질문에서 보인다.
     recited_seen: set[str] = set()
@@ -3855,6 +3940,20 @@ def _normalize_questions(
         if written_q and raw.get("_paper_stripped") and grounding.paper_residue(written_q, idx, paper_texts, novel=True):
             written_q = ""
             checks.append("paper_residue_dropped")
+        # 한 문장에 두 물음 (09-30 WP-P2) — 질문의 근거(탐침 꼴·개념 이름)에 묶인 물음 하나만 남긴다. 어느 쪽도 안 묶였으면
+        # 정해진 문장이다(아래 `or`). 함정·모순 질문은 전제·발화를 얹은 문장이라 가르지 않는다.
+        split_one = False
+        if written_q and tp is None and contra is None:
+            asks = split_asks(written_q)
+            if len(asks) >= 2:
+                bound = next((a for a in asks if a and _bound_to_basis(a, probe, node, by_id)), "")
+                checks.append("two_asks_split" if bound else "two_asks_dropped")
+                written_q, split_one = bound, bool(bound)
+        # 우리 분석 말(「경계·탐침·긴장」 — 자료가 스스로 쓰지 않는 말)이 샌 질문은 정해진 문장으로 (09-30 WP-P2: 「…주장의 경계는
+        # 무엇인가요?」). 탐침은 탐침 템플릿, 함정·모순은 제 템플릿, 나머지는 폴백 문장이 된다.
+        if written_q and jargon_terms(written_q, deck_all):
+            checks.append("question_jargon")
+            written_q = ""
         if written_q and not trap:
             undercut = _undercut_question(written_q, node)
             if undercut != written_q:
@@ -3955,6 +4054,14 @@ def _normalize_questions(
             if hit and not probe_shaped(written_q, probe):
                 checks.append("probe_shape_mismatch")
                 hit = ""
+            if hit and probe.kind == "tension" and all(tension_terms(probe)):
+                # 긴장 질문은 언제나 한 꼴 — 「B도 A의 요소인데, A가 B보다 ○○하다는 건 어떤 뜻인가요?」 (09-30 WP-P2). 탐침 꼴 검사를
+                # 통과한 LLM 문장도 「…라는 표현과 … ÷ 100이라는 공식이 함께 성립하는 의미는」「…모순은 어떻게 해결되나요?」 처럼 덱마다
+                # 달랐다. 비교 줄에서 두 쪽을 읽을 수 있을 때만 — 못 읽으면 그래프 이름이 자료의 말과 달라 LLM 문장이 낫다.
+                clean = probe_question(probe, labels, by_id, claims)
+                if clean and clean != written_q:
+                    written_q = clean
+                    checks.append("tension_clean_form")
             if hit:
                 checks.append("mentions_probe_nodes" if hit == "all" else "mentions_probe_nodes_partial")
             else:
@@ -4032,6 +4139,15 @@ def _normalize_questions(
             if len(kept) != len(grounding.sentences(written_gist)):
                 checks.append("gist_paper_stripped")
                 written_gist = " ".join(kept)
+        # 다른 질문이 따지는 줄(과장·근거 없는 인과·긴장의 비교 줄)을 단정 그대로 되풀이한 골자는 모범답이 못 된다 (09-30 WP-P2) — 우리
+        # 분석 말이 샌 골자도 같다. 근거 장 자료 줄(따지는 줄은 뺀 것)로 다시 쓴다.
+        if written_gist and tp is None and probe is None and contra is None:
+            if teaches_challenged(written_gist, challenged):
+                written_gist = ""
+                checks.append("gist_overclaim_dropped")
+            elif jargon_terms(written_gist, deck_all):
+                written_gist = ""
+                checks.append("gist_jargon")
         # 골자 근거 검사 — 숫자의 주어·비교·표의 행 (`_grounding.gist_problems`). 떨어지면 근거 장 자료 줄로 다시 쓴다.
         problems = grounding.gist_problems(written_gist, idx)
         if problems:
@@ -4058,8 +4174,14 @@ def _normalize_questions(
         if trap and written_gist and not _CORRECTS_PREMISE_RE.search(written_gist):
             written_gist = ""
             checks.append("gist_rebuilt_trap")
-        gist = written_gist or _evidence_gist(node, question_text, anchors, by_no, trap=trap, labels=labels_list) \
-            or _fallback_gist(node, trap=trap, slide_nos=anchors)
+        ev_gist = "" if written_gist else _evidence_gist(node, question_text, anchors, by_no, trap=trap, labels=labels_list,
+                                                          usable=None if trap else usable)
+        gist = written_gist or ev_gist or _fallback_gist(node, trap=trap, slide_nos=anchors)
+        # 코드가 답할 수 없다고 본 질문(묻는 것이 자료에 없다), 또는 폴백인데 모범답에 실을 자료 줄이 하나도 없는 질문은 **다음 후보 뒤로**
+        # 민다 (09-30 WP-P2 — 혈당 t5 첫 질문이 이것이었다). 트랙에 여유 후보가 없으면 폴백 문장 그대로 남는다(개수는 줄이지 않는다).
+        if "fallback_template" in checks and tp is None and probe is None and contra is None and (
+                "question_unanswerable" in checks or (by_no and not written_gist and not ev_gist)):
+            checks.append("unanswerable_fallback")
         # 탐침 질문의 골자는 **언제나** 탐침 종류로 코드가 조립한다 (09-30 held-out C-01(a)) — LLM 골자는 해결책을 지어내거나
         # (「신속한 반환 절차 도입이 필요해요」) 근거 없는 인과를 근거 있는 것처럼 풀었다. 인용은 탐침 근거·덱 전체 대조에서만 온다.
         if probe is not None and tp is None:
@@ -4087,7 +4209,7 @@ def _normalize_questions(
             written_why = ""
             checks.append("why_absence_contradicted")
         elif why_absent and not _ADMITS_ABSENT_RE.search(gist):
-            gist = _out_of_deck_gist(quote_no, quote)
+            gist = _out_of_deck_gist(quote_no, quote, usable)
             written_gist = ""
             checks.append("gist_out_of_deck")
         if tp is not None:
@@ -4148,9 +4270,9 @@ def _normalize_questions(
             and not grounding.gist_problems(p, idx)
         ]
         # 골자가 템플릿·자료 줄로 떨어졌으면 LLM 의 요소도 같은 출처다 — 지어낸 골자의 조각을 요소로 남기지 않는다.
-        if not written_gist:
-            parts = []
-        if len(parts) < 2 and _asks_multiple(question_text):
+        if not written_gist or split_one:
+            parts = []       # 두 물음 가운데 하나만 남긴 질문이면 요소도 하나다 — LLM 요소는 버린 물음의 것까지 담았다
+        if len(parts) < 2 and _asks_multiple(question_text) and not split_one:
             parts = _split_gist_parts(gist)
         if tp is not None or contra is not None:
             parts = []       # 함정·모순의 답은 하나다 — 전제(발표에서 한 말)를 자료로 바로잡는 것
@@ -4170,7 +4292,7 @@ def _normalize_questions(
         elif probe is not None or tp is not None or not llm_kept or not _why_ok(written_why, question_text, gist, idx):
             if written_why and llm_kept and probe is None and tp is None:
                 checks.append("why_code")
-            written_why = _code_why(mark, probe, flow_issue, anchors, slot, skip)
+            written_why = _code_why(mark, probe, flow_issue, anchors, slot, skip, fallback="fallback_template" in checks)
         # 힌트 1단(방향) — 탐침은 탐침 종류로, 함정은 위의 코드 힌트, LLM 힌트는 답을 흘리지 않고 근거 장을 벗어나지 않을 때만 (M-06).
         # 모순 질문은 위(골자 자리)에서 코드 힌트로 정했다.
         if probe is not None and tp is None:
@@ -4183,13 +4305,20 @@ def _normalize_questions(
             raw, [question_text, written_why, written_hint, gist], papers,
         ) if written_q and "probe_template" not in checks else []   # 탐침 템플릿은 문헌을 인용하지 않는다
 
+        # 인용이 곧 답인가는 **자료 줄 그대로인** 골자로 본다 — 아래 해요체 마무리가 줄 끝을 바꾸기 전에.
+        answer_quote = probe is None and _quote_is_answer(quote, gist)
+        # 화면에 나가는 네 칸은 인용 「」·«» 밖을 해요체로 마무리한다 (09-30 WP-P2 — replay 합쇼체 9.3% 가 전부 「자료는 이렇게 말해요 —
+        # …현상입니다」 꼴의 자료 줄 골자였다). 인용 안의 자료 원문은 글자 그대로 둔다.
+        question_text = _haeyo_outside_quotes(question_text)
+        gist = _haeyo_outside_quotes(gist)
+        parts = [_haeyo_outside_quotes(x) for x in parts]
         questions.append(Question(
             id=f"q{mark.rank:02d}-{mark.node_id}",
             node_id=mark.node_id,
             label=node.label,
             question=question_text,
-            why=written_why or fb_why,
-            hint=written_hint or fb_hint,
+            why=_haeyo_outside_quotes(written_why or fb_why),
+            hint=_haeyo_outside_quotes(written_hint or fb_hint),
             severity=mark.severity,
             trap=trap,
             source=mark.source,
@@ -4208,8 +4337,7 @@ def _normalize_questions(
             basis=_basis_of(mark, slot, probe, quote_no, quote, checks, reason_ev=reason_ev, contrast=contrast,
                             trap_slide=tp.slide_no if tp is not None else 0,
                             # 모순의 자료 쪽 인용은 곧 답이다 — 질문 밑 「이 질문의 근거」 에는 장 번호만
-                            hide_quote=tp is not None or contra is not None
-                            or (probe is None and _quote_is_answer(quote, gist))),
+                            hide_quote=tp is not None or contra is not None or answer_quote),
             trap_premise=TrapPremise.from_dict(tp.to_dict()) if tp is not None else None,
         ))
     return questions
@@ -4574,7 +4702,8 @@ def build_questions(
     # 중복이 여기서 걸린다 — 대신 개수는 안 줄고, 밀린 개념은 deferred 로 간다.
     questions, twins = _drop_twin_questions(
         _normalize_questions(raw_questions, marks, by_id, flow_of, by_no, transcript, papers,
-                             probe_of, slot_of, claim_doc, trap_of, contra_of, skip_of),
+                             probe_of, slot_of, claim_doc, trap_of, contra_of, skip_of,
+                             challenged=challenged_lines(triage.probes)),
         QA_TRACK_LIMITS[track],
     )
     if unused:

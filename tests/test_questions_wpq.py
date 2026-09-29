@@ -179,9 +179,11 @@ def test_C01a_탐침_골자는_종류별_모범답과_자료_줄_인용으로만
 
     absolute = Probe(kind="absolute_boundary", node_ids=["light"], evidence=[ClaimQuote(5, "조명은 모든 손님이 만족합니다")])
     g_abs = P.probe_code_gist(absolute, CAFE_LABELS, CAFE_SLIDES)
-    # 자료가 스스로 단 유보 줄이 있으면 그 줄에 기댄다 (`hedge_line`) — 없는 반례를 지어내지 않는다
-    assert "「조명은 모든 손님이 만족합니다」는 모든 경우에 그렇다고 단정할 수는 없어요." in g_abs
-    assert "「취향에 따라 조명 만족은 다를 수 있습니다」라고 적었어요." in g_abs
+    # 자료가 스스로 단 유보 줄이 있으면 그 조건과 장을 댄다 (`hedge_line`) — 없는 반례를 지어내지 않고, 단정 줄을 되읊지 않는다
+    # (09-30 WP-P2: 「모든 경우에 그렇다고 단정할 수는 없어요」 는 조건을 하나도 말하지 않았다)
+    assert g_abs.startswith("「조명은 모든 손님이 만족합니다」라고 단정할 수는 없어요")
+    assert "자료 5장에 적었듯 취향에 따라 조명 만족은 다를 수 있어요." in g_abs
+    assert "만족합니다" not in g_abs.split("」", 1)[1]          # 단정 줄은 인용으로만 든다
 
     sibling = Probe(kind="sibling_priority", node_ids=["kind", "menu"])
     g_sib = P.probe_code_gist(sibling, CAFE_LABELS)
@@ -251,8 +253,10 @@ def test_C01b_자료에_없다는_골자가_자료와_어긋나면_그_줄로_�
                 [("temp", False)])
     q = by["temp"]
     assert "gist_absence_contradicted" in q.basis.checks
-    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있습니다 (4장)"
+    # 자료 줄 골자도 인용 밖이라 해요체로 마무리한다 (09-30 WP-P2) — 근거 인용(evidence_quote)은 자료 원문 그대로다
+    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있어요 (4장)"
     assert q.evidence_slide_no == 4          # 근거 인용도 그 줄로 — 다른 장의 식을 근거로 보여 주지 않는다
+    assert q.evidence_quote == "배식 순서를 바꾸면 잔반을 줄일 수 있습니다"
 
 
 def test_C01b_이유_줄의_자료에_없다도_덱과_대조한다():
@@ -262,7 +266,7 @@ def test_C01b_이유_줄의_자료에_없다도_덱과_대조한다():
                         why="잔반을 줄이는 구체적인 방법이 자료에 명시되지 않아 묻는 질문이에요.")], [("temp", False)])
     q = by["temp"]
     assert "why_absence_contradicted" in q.basis.checks and "gist_out_of_deck" not in q.basis.checks
-    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있습니다 (4장)"
+    assert q.answer_gist == "자료는 이렇게 말해요 — 배식 순서를 바꾸면 잔반을 줄일 수 있어요 (4장)"
     assert "명시되지 않아" not in q.why
 
 
@@ -409,7 +413,8 @@ def test_C02_거짓_전제_질문은_폴백으로_바꾸고_이유_힌트_골자
                 [("taste", False)])
     q = by["taste"]
     assert {"question_premise_conflict", "premise_comparison", "fallback_template"} <= set(q.basis.checks)
-    assert q.question == "맛 평가가 이 발표에서 왜 중요한지 자료 1, 3장을 근거로 설명해 주세요."
+    # 폴백 골자는 근거 장 자료 줄이라 묻는 것도 「자료가 어떻게 설명했나」 다 (09-30 WP-P2 — 「왜 중요한지」 에는 답이 못 됐다)
+    assert q.question == "맛 평가를 자료 1, 3장에서 어떻게 설명했나요?"
     # 버린 질문의 이유·힌트·골자도 새 질문 것으로 (통합 실측: 폴백 질문 밑에 LLM 이유·힌트가 남았다)
     assert q.why.startswith("자료 1, 3장에서 다룬 내용이라") and q.hint.endswith("이 개념을 둔 이유부터 떠올려 보세요")
     assert q.answer_gist.startswith("자료는 이렇게 말해요 — ")
@@ -568,7 +573,9 @@ def test_M03_폴백으로_바꾼_질문의_이유_힌트는_새_질문_것():
                         hint="4장의 특식을 보세요.")], [("fri", False)])
     q = by["fri"]
     assert "question_unanswerable" in q.basis.checks and "fallback_template" in q.basis.checks
-    assert q.question == "금요일 잔반이 이 발표에서 왜 중요한지 자료 4장을 근거로 설명해 주세요."
+    assert q.question == "금요일 잔반을 자료 4장에서 어떻게 설명했나요?"
+    # 코드가 답할 수 없다고 본 질문의 폴백은 다음 후보 뒤로 밀 표시를 단다 (여기선 후보가 하나라 그대로 남는다)
+    assert "unanswerable_fallback" in q.basis.checks
     assert "특식을 보세요" not in q.hint and "까닭을 짚는" not in q.why
 
 

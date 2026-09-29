@@ -8,7 +8,11 @@
 - best_quote_slide        대상 `_evidence.best_quote` 가 기대한 장·글을 고르는지
 - contrast_choice         대상 `_evidence.mask_gist` · `f09_judge._narrow_followup` 의 보기 쌍이 (세운 쪽, 부정한 쪽)인지,
                           세는 단위가 보기로 안 나오는지 (덱의 모든 「X 아니라 Y」 줄도 훑는다)
-- f08_scripted            대상 `build_questions` 에 정해 둔 LLM 응답(질문·골자)을 넣고 나온 골자·질문을 검사
+- f08_scripted            대상 `build_questions` 에 정해 둔 LLM 응답(질문·골자)을 넣고 나온 골자·질문을 검사. `claims: "rules"` 면
+                          대상 F-26 규칙 주장(`build_claims(llm="none")`)을 같이 넣어 탐침이 묶이게 하고, `marks`·`track`·`questions` 로
+                          여러 개념·트랙을 준다(여유 후보·밀어내기).
+- probe_absolute          대상 F-26 규칙 주장 → `derive_probes` 에서 단정 탐침이 **따질 줄에만** 나오는지(`absolute_on`·`absolute_off`),
+                          그 탐침의 코드 골자(`probe_code_gist`)가 조건을 대는지·단정 줄을 되읊지 않는지 (09-30 WP-P2)
 """
 
 from __future__ import annotations
@@ -192,13 +196,101 @@ def make_scripted(payload: dict):
     return Scripted()
 
 
-def _call_build(graph, triage, doc, llm):
+def _call_build(graph, triage, doc, llm, *, track: str = "1", claims=None):
     from chuckchuck import build_questions
 
-    kw = {"track": "1", "slidedoc": doc, "llm": llm}
+    kw = {"track": track, "slidedoc": doc, "llm": llm}
     if "claims" in inspect.signature(build_questions).parameters:
-        kw["claims"] = None
+        kw["claims"] = claims
     return build_questions(graph, triage, **kw)
+
+
+def _graph_of(doc: dict, args: dict):
+    from chuckchuck.contracts import ConceptEdge, ConceptGraph, ConceptNode
+
+    nodes = [ConceptNode(id=n["id"], label=n["label"], slide_nos=list(n.get("slide_nos") or []), summary=n.get("summary", ""),
+                         weight=float(n.get("weight", 0.5)), depth=int(n.get("depth", 2)), parent_id=n.get("parent_id"))
+             for n in args["nodes"]]
+    return ConceptGraph(file_name=doc.get("file_name", "case.pptx"), total_slides=len(doc.get("slides") or []), nodes=nodes,
+                        edges=[ConceptEdge(from_id=n.parent_id, to_id=n.id, kind="parent") for n in nodes if n.parent_id])
+
+
+def _rule_claims(graph, doc: dict, extra: list[dict] | None = None):
+    """
+    대상 F-26 의 **규칙 주장** (LLM 없이) — 탐침을 묶을 재료. extra 는 LLM 이 냈을 주장을 사례 데이터로 더한 것
+    ({kind, subject_id, object_ids, slide_no, quote} — quote 는 그 장 원문 한 줄 그대로).
+    """
+    from chuckchuck.contracts import Claim, ClaimDoc, ClaimQuote
+    from chuckchuck.f26_claims import build_claims
+
+    doc_ = build_claims(graph, doc, llm="none")
+    more = [Claim(id=f"x{i}", kind=c["kind"], subject_id=c["subject_id"], object_ids=list(c.get("object_ids") or []),
+                  evidence=[ClaimQuote(int(c["slide_no"]), c["quote"])]) for i, c in enumerate(extra or [], 1)]
+    return ClaimDoc(file_name=doc_.file_name, claims=[*doc_.claims, *more], model=doc_.model, dropped=doc_.dropped)
+
+
+def _slides_text(doc: dict) -> dict[int, str]:
+    return {int(s["slide_no"]): _raw(s) for s in doc.get("slides") or []}
+
+
+def check_probe_absolute(doc: dict, args: dict) -> tuple[str, str, dict]:
+    from chuckchuck._probes import derive_probes, probe_code_gist
+
+    graph = _graph_of(doc, args)
+    slides = _slides_text(doc)
+    probes = derive_probes(graph, _rule_claims(graph, doc, args.get("extra_claims")), slides)
+    ab = [p for p in probes if p.kind == "absolute_boundary"]
+    said = [e.quote for p in ab for e in p.evidence]
+    problems = []
+    for x in args.get("absolute_on") or []:
+        if not any(x in q for q in said):
+            problems.append(f"「{x}」 에 단정 탐침이 없음")
+    for x in args.get("absolute_off") or []:
+        if any(x in q for q in said):
+            problems.append(f"「{x}」 에 단정 탐침이 나옴 (따질 주장이 아니다)")
+    gist = ""
+    want_gist = any(args.get(k) for k in ("gist_require", "gist_require_any", "gist_forbid", "gist_bare_forbid"))
+    if want_gist:
+        target = next((p for p in ab if any(x in e.quote for x in args.get("absolute_on") or [] for e in p.evidence)), None)
+        if target is None:
+            problems.append("골자를 볼 단정 탐침이 없음")
+        else:
+            gist = probe_code_gist(target, {n.id: n.label for n in graph.nodes}, slides)
+            for x in args.get("gist_require") or []:
+                if x not in gist:
+                    problems.append(f"골자에 「{x}」 가 없음")
+            any_of = args.get("gist_require_any") or []
+            if any_of and not any(x in gist for x in any_of):
+                problems.append(f"골자에 {any_of} 가운데 하나도 없음")
+            for x in args.get("gist_forbid") or []:
+                if x in gist:
+                    problems.append(f"골자에 「{x}」 가 남음")
+            bare = re.sub(r"「[^」]*」", " ", gist)
+            for x in args.get("gist_bare_forbid") or []:
+                if x in bare:
+                    problems.append(f"골자 인용 밖에 「{x}」 가 남음 (단정 줄을 되읊었다)")
+    obs = {"absolute": said, "gist": gist}
+    if problems:
+        return "fail", "; ".join(problems[:4]) + (f" — 골자 «{gist[:70]}»" if gist else ""), obs
+    return "pass", f"단정 탐침 {len(ab)}개 «{(said or [''])[0][:40]}»" + (f" · 골자 «{gist[:60]}»" if gist else ""), obs
+
+
+#: 잣대 쪽 「한 문장에 두 물음」 — 대상 코드(`_probes.split_asks`)를 쓰지 않는다(같은 버그를 못 본다). 물음 낱말이 든 앞 절이
+#: 이음 어미 + 쉼표로 끝나고 뒤 절도 물음이면 두 물음이다. 관용(「어떻게 보면」「무엇보다」「누구나」)은 물음 낱말이 아니다.
+_ASK_W_RE = re.compile(r"(?<![가-힣])(?:무엇|무슨|어떤|어떻게|왜|얼마|누가|누구|어디|언제|몇)")
+_ASK_IDIOM_W_RE = re.compile(r"어떻게\s*보면|어떻게든|무엇보다|무엇이든|누구나|누구든|언제나|언제든|어디서든|얼마든지|어떤\s*경우(?:에도|든)")
+_ASK_JOIN_W_RE = re.compile(r"(?:이며|며|이고|고|인지|는지|은지|한지)\s*,\s*")
+_ASK_END_W_RE = re.compile(r"(?:나요|가요|까요|습니까)\s*[?？]?\s*$|[?？]\s*$")
+
+
+def two_asks(question: str) -> bool:
+    q = question or ""
+    for m in _ASK_JOIN_W_RE.finditer(q):
+        head, tail = q[: m.start()], q[m.end():]
+        if _ASK_W_RE.search(_ASK_IDIOM_W_RE.sub(" ", head)) and (
+                _ASK_W_RE.search(_ASK_IDIOM_W_RE.sub(" ", tail)) or _ASK_END_W_RE.search(tail)):
+            return True
+    return False
 
 
 def self_contradicting(question: str) -> str:
@@ -213,25 +305,46 @@ def self_contradicting(question: str) -> str:
 
 
 def check_f08_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
-    from chuckchuck.contracts import ConceptEdge, ConceptGraph, ConceptNode, QaTriage, TriageMark
+    from chuckchuck.contracts import QaTriage, TriageMark
 
-    nodes = [ConceptNode(id=n["id"], label=n["label"], slide_nos=list(n.get("slide_nos") or []), summary=n.get("summary", ""),
-                         weight=float(n.get("weight", 0.5)), depth=int(n.get("depth", 2)), parent_id=n.get("parent_id"))
-             for n in args["nodes"]]
-    graph = ConceptGraph(file_name=doc.get("file_name", "case.pptx"), total_slides=len(doc.get("slides") or []), nodes=nodes,
-                         edges=[ConceptEdge(from_id=n.parent_id, to_id=n.id, kind="parent") for n in nodes if n.parent_id])
+    graph = _graph_of(doc, args)
+    marks = args.get("marks") or [[args["node_id"], "core_weight"]]
     triage = QaTriage(file_name=graph.file_name, marks=[
-        TriageMark(node_id=args["node_id"], rank=1, source="core_weight", severity=1, doc_weight=1.0)])
-    item = {"node_id": args["node_id"], "question": args["question"], "answer_gist": args["gist"]}
-    if args.get("why"):
-        item["why"] = args["why"]
-    qdoc = _call_build(graph, triage, doc, make_scripted({"questions": [item]}))
+        TriageMark(node_id=nid, rank=i, source=src, severity=1, doc_weight=1.0) for i, (nid, src) in enumerate(marks, 1)])
+    items = []
+    for raw in args.get("questions") or [{"node_id": args["node_id"], "question": args["question"], "gist": args.get("gist", ""),
+                                          "why": args.get("why", "")}]:
+        item = {"node_id": raw["node_id"], "question": raw["question"], "answer_gist": raw.get("gist", "")}
+        if raw.get("why"):
+            item["why"] = raw["why"]
+        items.append(item)
+    claims = _rule_claims(graph, doc, args.get("extra_claims")) if args.get("claims") == "rules" else None
+    qdoc = _call_build(graph, triage, doc, make_scripted({"questions": items}), track=str(args.get("track", "1")), claims=claims)
+    exp = args.get("expect") or {}
+    got_ids = [x.node_id for x in qdoc.questions]
+    if exp.get("node_absent"):
+        # 코드가 답할 수 없다고 본 질문을 다음 후보 뒤로 밀었는가 (09-30 WP-P2)
+        if exp["node_absent"] in got_ids:
+            return "fail", f"「{exp['node_absent']}」 질문이 여전히 트랙에 있음 — {got_ids}", {"questions": got_ids}
+        if len(got_ids) < int(exp.get("count", 0) or 0):
+            return "fail", f"질문 수가 줄었음 {len(got_ids)}", {"questions": got_ids}
+        return "pass", f"밀려남 — 트랙 {got_ids}", {"questions": got_ids}
     q = next((x for x in qdoc.questions if x.node_id == args["node_id"]), None)
     if q is None:
         return "fail", "F-08 이 질문을 버렸다", {"questions": [x.question for x in qdoc.questions]}
     gist, question = q.answer_gist or "", q.question or ""
-    exp = args.get("expect") or {}
     problems = []
+    for x in exp.get("question_forbid") or []:
+        if x in question:
+            problems.append(f"질문에 「{x}」 가 남음")
+    if exp.get("question_equals") and question != exp["question_equals"]:
+        problems.append(f"질문 «{question[:60]}» ≠ «{exp['question_equals'][:60]}»")
+    if exp.get("question_single_ask") and two_asks(question):
+        problems.append(f"질문이 여전히 두 물음 «{question[:60]}»")
+    checks_now = set(q.basis.checks) if getattr(q, "basis", None) else set()
+    for c in exp.get("checks_require") or []:
+        if c not in checks_now:
+            problems.append(f"검사 「{c}」 가 없음")
     for x in exp.get("gist_forbid") or []:
         if x in gist:
             problems.append(f"골자에 「{x}」 가 남음")
@@ -247,7 +360,8 @@ def check_f08_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
     obs = {"question": question, "gist": gist, "checks": checks}
     if problems:
         return "fail", "; ".join(problems) + f" — 골자 «{gist[:80]}»", obs
-    return "pass", f"골자 «{gist[:70]}»" + (f" · 질문 «{question[:50]}»" if exp.get("question_not_self_contradicting") else ""), obs
+    asked = any(exp.get(k) for k in ("question_not_self_contradicting", "question_equals", "question_forbid", "question_single_ask"))
+    return "pass", f"골자 «{gist[:70]}»" + (f" · 질문 «{question[:50]}»" if asked else ""), obs
 
 
 KINDS = {
@@ -255,6 +369,7 @@ KINDS = {
     "best_quote_slide": check_best_quote_slide,
     "contrast_choice": check_contrast_choice,
     "f08_scripted": check_f08_scripted,
+    "probe_absolute": check_probe_absolute,
 }
 
 

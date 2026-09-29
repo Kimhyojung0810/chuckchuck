@@ -303,7 +303,9 @@ def _unsupported_cause(graph_by: dict[str, ConceptNode], claims: list[Claim]) ->
             kind="unsupported_cause",
             node_ids=nodes,
             claim_ids=[c.id],
-            angle=f"「{said}」는 인과를 말하지만 그 줄에 수치·출처가 없다 — 그렇게 볼 수 있는 근거를 묻는다",
+            # 「인과」 는 우리 분석 말이다 — 각도에 쓰면 질문이 「인과적 효과를 가진다고 볼 수 있는 근거」 가 됐다 (09-30 standard)
+            angle=f"「{said}」{_quote_josa(said, '은', '는')} 원인과 결과를 말하지만 그 줄에 수치나 출처가 없다 — "
+                  f"그렇게 볼 수 있는 근거를 묻는다",
             evidence=_evidence_of(c),
         ))
     return out
@@ -311,14 +313,19 @@ def _unsupported_cause(graph_by: dict[str, ConceptNode], claims: list[Claim]) ->
 
 def _absolute_boundary(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
     """
-    단정("반드시·완전히·항상") — 그 말이 통하지 않는 경우·경계를 묻는다.
-    인용 줄에 **부정되지 않은** 단정 표지가 있을 때만 (「반드시 …는 아니다」 는 유보다 — F-26 이 거르지만 한 번 더).
+    단정("반드시·완전히·항상") — 그 말이 들어맞지 않는 경우나 조건을 묻는다.
+    인용 줄에 **부정되지 않은** 단정 표지가 있고(「반드시 …는 아니다」 는 유보다 — F-26 이 거르지만 한 번 더), 그 단정이
+    **따져 물을 주장**일 때만 (`_claim_rules.absolute_kind` — 09-30 WP-P2). 자기 자료에서 본 것(「…하나도 없었다」)·늘어놓은 것
+    안에서 센 것·비용이 붙는 기제·정의는 반례를 물을 말이 아니다.
+
+    각도(angle)는 프롬프트에 그대로 실린다 — 「경계」 같은 우리 말을 쓰면 LLM 이 질문에 옮긴다(09-30 standard: 「…주장의 경계는
+    무엇인가요?」). 발표자에게 그대로 물을 수 있는 말로 쓴다.
     """
     out: list[Probe] = []
     for c in claims:
         if c.kind != "absolute":
             continue
-        marked = [e for e in c.evidence if R.absolute_marker(e.quote)]
+        marked = [e for e in c.evidence if R.absolute_marker(e.quote) and R.contestable_absolute(e.quote)]
         if not marked:
             continue
         said = marked[0].quote
@@ -326,7 +333,7 @@ def _absolute_boundary(graph_by: dict[str, ConceptNode], claims: list[Claim]) ->
             kind="absolute_boundary",
             node_ids=[c.subject_id],
             claim_ids=[c.id],
-            angle=f"「{said}」는 단정이다 — 이 말이 들어맞지 않는 경우·경계를 묻는다",
+            angle=f"「{said}」{_quote_josa(said, '은', '는')} 예외 없이 말한 문장이다 — 이 말이 들어맞지 않는 경우나 조건이 있는지 묻는다",
             evidence=_evidence_of(c),
         ))
     return out
@@ -525,7 +532,9 @@ def probe_question(probe: Probe, labels: dict[str, str], graph_by: dict[str, Con
         big, part = tension_terms(probe)
         a, b = (big or lab[0]), (part or lab[1])
         compare = claims.claim(probe.claim_ids[0]) if claims is not None and probe.claim_ids else None
-        pred = _compare_pred(compare, b) if compare is not None else _pred_from_quotes(probe, b)
+        # 서술어도 비교 줄에서 — 「탄수화물 양보다 중요한」 의 앞말은 여러 낱말이라 한 낱말만 보는 `_compare_pred` 가 「양」 을
+        # 「탄수화물 양」 과 못 맞춰 「더 중요하다」 폴백이 났다 (09-30 standard 혈당).
+        pred = tension_pred(probe) or (_compare_pred(compare, b) if compare is not None else _pred_from_quotes(probe, b))
         text = f"{b}도 {a}의 요소인데, {josa(a, '이', '가')} {b}보다 {pred}는 건 어떤 뜻인가요?"
     elif probe.kind == "unsolved" and len(lab) >= 2:
         text = f"{lab[1]}에는 해결책을 제시했는데, {josa(lab[0], '은', '는')} 어떻게 개선하나요?"
@@ -871,12 +880,170 @@ _SHAPE = {
 _OFF_PROBE_RE = re.compile(r"메커니즘|기제|경로는|심리적|생리적|어떻게\s*다른|차이는|차이가\s*무엇")
 
 
+#: 빈틈 탐침(해결책 빠짐·근거 없는 인과)의 답은 「자료에 없다」 인데 질문이 그걸 먼저 말하는 꼴 — 「…개선하는 방법이 자료에 없는데,
+#: …어떻게 적용할 수 있나요?」(09-30 standard 전세 Q2). 답을 흘리고 다른 것을 묻는다.
+_GAP_TOLD_RE = re.compile(
+    r"(?:자료|발표)(?:에|에서|에는|에서는|엔)\s*[^,.?]{0,24}?(?:없|나와\s*있지\s*않|제시(?:되어\s*있|돼\s*있)?지\s*않|"
+    r"다루(?:어\s*있)?지\s*않|빠져)[^,.?]{0,8}?(?:는데|지만|으니|니까|어서|아서|다는\s*점|고)")
+
+
 def probe_shaped(text: str, probe: Probe) -> bool:
-    """질문 문장이 이 탐침을 묻는 꼴인가 — 종류별 물음 말이 (다) 있고, 탐침과 다른 것을 묻는 말이 없다."""
+    """질문 문장이 이 탐침을 묻는 꼴인가 — 종류별 물음 말이 (다) 있고, 탐침과 다른 것을 묻는 말이 없고, 빈틈 탐침이면 답
+    (「자료에 없다」)을 먼저 말하지 않는다."""
     t = text or ""
     if not t.strip() or _OFF_PROBE_RE.search(t):
         return False
+    if probe.kind in ("unsolved", "unsupported_cause") and _GAP_TOLD_RE.search(t):
+        return False
     return all(rx.search(t) for rx in _SHAPE.get(probe.kind, ()))
+
+
+# ---------------------------------------------------------------------------
+# 우리 분석 말 거르기 — 질문은 발표자에게 그대로 읽어 줄 말이다 (09-30 WP-P2)
+# ---------------------------------------------------------------------------
+
+#: 탐침 각도·프롬프트·코드 이름에서 새어 나온 말. 09-30 standard: 「…반드시 발생한다는 주장의 경계는 무엇인가요?」 — 각도의
+#: 「경계」 가 질문이 됐다. 영문은 코드 이름(probe·trap·tension …)이 그대로 샌 것이다.
+_JARGON_RE = re.compile(
+    r"경계|탐침|긴장|함정|형제\s*요소|노드|트리아지|"
+    r"(?<![A-Za-z])(?:probe|trap|tension|boundary|absolute|unsolved|unsupported|sibling|triage|gist|node_id|slot)(?![A-Za-z])",
+    re.I)
+
+
+#: 자료 줄 자체를 **따져 묻는** 탐침 — 이 탐침들의 근거 줄은 다른 질문의 모범답이 될 수 없다(`challenged_lines`).
+CHALLENGING_KINDS = ("absolute_boundary", "unsupported_cause", "tension")
+
+
+def challenged_lines(probes: list[Probe]) -> set[str]:
+    """
+    탐침이 **따져 묻는** 자료 줄(원문 그대로). 09-30 standard(혈당 t5): 폴백 질문의 모범답이 「자료는 이렇게
+    말해요 — 탄수화물 양보다 중요한 혈당 부하 · 식사 순서만 바꾸면 혈당 스파이크는 완전히 막을 수 있습니다」 였다 — 다른 질문이
+    과장이라고 따지는 줄을 「이렇게 말하면 완성이에요」 로 가르쳤다.
+    단정·근거 없는 인과는 그 줄, 긴장은 **비교 줄**(식 줄은 정의라 그대로 답이 될 수 있다).
+    """
+    out: set[str] = set()
+    for p in probes or []:
+        if p.kind not in CHALLENGING_KINDS:
+            continue
+        for e in p.evidence:
+            q = (e.quote or "").strip()
+            if not q or (p.kind == "tension" and not compare_sides(q)):
+                continue
+            out.add(q)
+    return out
+
+
+def overclaim(line: str) -> bool:
+    """줄이 **따질 만한 강한 단정**인가(「…만 바꾸면 … 완전히 막을 수 있습니다」) — 모범답에 옮기면 과장을 정답으로 가르친다.
+    관찰·기제·정의(`_claim_rules.absolute_kind`)는 아니다."""
+    return bool(R.absolute_marker(line, strong_only=True)) and R.contestable_absolute(line, strong_only=True)
+
+
+def usable_answer_line(line: str, challenged: set[str] | None = None) -> bool:
+    """모범답에 **자료 줄로** 실어도 되는가 — 탐침이 따지는 줄도, 따질 만한 강한 단정도 아니다."""
+    sq = G.squash(line)
+    if not sq:
+        return False
+    for c in challenged or ():
+        cq = G.squash(c)
+        if cq and (sq == cq or (len(cq) >= 8 and (cq in sq or sq in cq))):
+            return False
+    return not overclaim(line)
+
+
+#: 글의 한 문장이 따지는 줄을 **되풀이한** 것으로 볼 겹침 — 그 줄 내용 낱말의 이만큼.
+RESTATE_SHARE = 0.6
+_QUOTED_RE = re.compile(r"「[^」]*」|«[^»]*»|“[^”]*”|\"[^\"]*\"")
+
+
+def teaches_challenged(text: str, challenged: set[str] | None = None) -> str:
+    """
+    글(모범답)이 탐침이 따지는 줄을 **단정 그대로** 되풀이하는가 → 그 줄(아니면 ""). 인용 「」 안은 보지 않는다(출처를 댄 것이다).
+    09-30 WP-P2: 다른 질문이 과장이라고 따지는 줄을 LLM 골자가 「…완전히 막을 수 있어요」 로 옮겨 정답으로 가르칠 수 있다.
+    단정 표지가 문장에 남아 있고(부정·유보되지 않음) 그 줄 낱말의 RESTATE_SHARE 이상을 말했을 때만 — 조건을 붙여 말한 것은 아니다.
+    """
+    for sent in re.split(r"(?<=[.!?。])\s+", _QUOTED_RE.sub(" ", text or "")):
+        if not R.absolute_marker(sent, strong_only=True):
+            continue
+        said = set(R.content_tokens(sent))
+        for c in challenged or ():
+            line = set(R.content_tokens(c))
+            if line and R.absolute_marker(c) and \
+                    sum(1 for t in line if any(R.tok_match(s, t) for s in said)) >= RESTATE_SHARE * len(line):
+                return c
+        if overclaim(sent):
+            return sent
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# 한 문장에 두 물음 — 질문의 근거에 묶인 물음 하나만 남긴다 (09-30 WP-P2)
+# ---------------------------------------------------------------------------
+# 09-30 standard: 「야간 폭식을 개선하는 방법은 무엇이며, 식후 졸림과는 어떤 차이가 있나요?」(빈칸 탐침) · 「…근거는 무엇이며, 보증
+# 가입 장벽과의 관계는 어떻게 되는지 설명해 주세요」(근거 없는 인과) · 「…어떻게 연결되며, …방법은 무엇인가요?」. 프롬프트 규칙 5-1
+# (한 가지만)은 부탁일 뿐이라 코드가 가른다. 물음 낱말이 든 앞 절이 이음 어미(「…며,」「…고,」「…인지,」)로 끝나고 뒤 절도 물음이면
+# 두 물음이다. 물음 낱말처럼 생긴 관용(「어떻게 보면」「무엇보다」「누구나」「무엇을 …느냐에 따라」)은 물음이 아니다.
+
+_ASK_WORD_RE = re.compile(r"(?<![가-힣])(?:무엇|무슨|어떤|어떻게|어째서|왜|얼마|누가|누구|어디|언제|몇)")
+_ASK_IDIOM_RE = re.compile(
+    r"어떻게\s*보면|어떻게든|무엇보다|무엇이든|무엇이나|누구나|누구든|언제나|언제든|어디서든|어디든|얼마든지|어떤\s*경우(?:에도|든|라도)|"
+    r"(?:무엇|무슨|어떤|어떻게|얼마|누가|누구|어디|언제)[^,.?]{0,20}?(?:느냐|는지|은지|인지|든지|이든|든)\s*"
+    r"(?:에\s*따라|와\s*상관없이|과\s*상관없이|에\s*관계없이)")
+#: 앞 물음을 잇는 끝 — 「…무엇이며,」「…연결되며,」「…있으며,」「…중요하고,」「…무엇인지,」.
+_ASK_JOIN_RE = re.compile(r"(이며|이고|인지|한지|는지|은지|으며|며|고)\s*,\s*")
+#: 뒤 절이 물음인가 — 물음 낱말 또는 물음 어미.
+_ASK_END_RE = re.compile(r"(?:나요|가요|까요|죠|습니까|니까)\s*[?？]?\s*$|[?？]\s*$")
+_LEAD_CONJ_RE = re.compile(r"^(?:그리고|또한|또|아울러|그렇다면|그럼|그러면)(?:\s*,\s*|\s+)")
+
+
+def _asks(text: str) -> bool:
+    return bool(_ASK_WORD_RE.search(_ASK_IDIOM_RE.sub(" ", text or "")))
+
+
+def _head_question(head: str, join: str) -> str:
+    """이음 어미로 끝난 앞 물음 → 해요체 물음 한 문장. 옮길 수 없으면 ""."""
+    h = head.rstrip()
+    if join in ("이며", "이고", "인지"):
+        return f"{h}인가요?"
+    if join == "한지":
+        return f"{h}한가요?"
+    if join == "은지":
+        return f"{h}은가요?"
+    if join in ("는지", "으며", "며", "고"):
+        return f"{h}나요?" if h and "가" <= h[-1] <= "힣" else ""
+    return ""
+
+
+def split_asks(text: str) -> list[str]:
+    """
+    한 문장에 물음이 둘이면 [앞 물음, 뒤 물음] (각각 해요체 물음 한 문장), 아니면 [text].
+    앞 절의 이음 어미를 물음 어미로 바꾼다(「무엇이며」→「무엇인가요?」, 「연결되며」→「연결되나요?」). 못 바꾸면 앞 물음은 "".
+    """
+    t = (text or "").strip()
+    for m in _ASK_JOIN_RE.finditer(t):
+        head, tail = t[: m.start()], t[m.end():].strip()
+        if not tail or not _asks(head + m.group(1)):
+            continue
+        if not (_asks(tail) or _ASK_END_RE.search(tail)):
+            continue
+        return [_head_question(head, m.group(1)), _LEAD_CONJ_RE.sub("", tail)]
+    return [t]
+
+
+def jargon_terms(text: str, deck_text: str = "") -> list[str]:
+    """
+    글에 든 **우리 분석 말** — 자료(deck_text)에도 나오는 말은 뺀다. 「국경의 경계」「근육 긴장」 처럼 발표가 스스로 쓰는 낱말은 우리
+    말이 아니라 자료의 말이다. 빈 목록이면 걸린 것이 없다.
+    """
+    deck = re.sub(r"\s+", "", deck_text or "").lower()
+    out: list[str] = []
+    for m in _JARGON_RE.finditer(text or ""):
+        word = m.group(0)
+        if re.sub(r"\s+", "", word).lower() in deck:
+            continue
+        if word not in out:
+            out.append(word)
+    return out
 
 
 def tension_terms(probe: Probe) -> tuple[str, str]:
@@ -886,6 +1053,36 @@ def tension_terms(probe: Probe) -> tuple[str, str]:
         if sides:
             return sides[1], sides[0]
     return "", ""
+
+
+#: 비교 서술어의 관형형 → 「…다」 꼴. 「중요한→중요하다」「넓은→넓다」「큰→크다」. 모르는 꼴은 "" (호출자가 폴백).
+_ADN_TO_PLAIN = (("한", "하다"), ("은", "다"))
+
+
+def _plain_pred(p: str) -> str:
+    p = (p or "").strip()
+    if not p or R.less_predicate(p):
+        return ""                      # 「X보다 적은 Y」 는 큰 쪽이 X 다 — 템플릿의 「A가 B보다 …」 와 방향이 어긋난다
+    if p == "큰":
+        return "크다"
+    for tail, repl in _ADN_TO_PLAIN:
+        if p.endswith(tail) and len(p) > len(tail):
+            return p[: -len(tail)] + repl
+    return ""
+
+
+def tension_pred(probe: Probe) -> str:
+    """긴장 탐침 비교 줄의 서술어 — 「X보다 중요한 Y」 → 「중요하다」. 비교 줄 꼴(`_THAN_TITLE_RE`)이 아니면 ""."""
+    for e in probe.evidence:
+        text = (e.quote or "").strip()
+        if not compare_sides(text):
+            continue
+        m = _THAN_TITLE_RE.search(text)
+        if m:
+            got = _plain_pred(m.group("p"))
+            if got:
+                return got
+    return ""
 
 
 def _q(text: str, limit: int = 50) -> str:
@@ -904,14 +1101,49 @@ def _quote_josa(quote: str, with_batchim: str, without: str) -> str:
 _HEDGE_RE = re.compile(r"다를\s*수|달라질\s*수|경우에\s*따라|사람마다|지역마다|개인에\s*따라|마다\s*다르|조건에\s*따라|않을\s*수\s*있|아닐\s*수\s*있")
 
 
-def hedge_line(slides: dict[int, str] | None, near: set[int] | None = None) -> tuple[int, str] | None:
-    """자료가 스스로 단 유보 줄 (가까운 장 먼저). 단정 탐침의 골자가 「자료도 …라고 했어요」 로 기댈 곳."""
+def hedge_line(slides: dict[int, str] | None, near: set[int] | None = None, about: str = "") -> tuple[int, str] | None:
+    """
+    자료가 스스로 단 유보 줄 (가까운 장 먼저). 단정 탐침의 골자가 「자료에 적었듯 …」 으로 기댈 곳.
+
+    about(단정 줄·대상 이름)을 주면 **그 단정의 조건일 수 있는 줄**만 — 가까운 장(HEDGE_NEAR 안)이거나 낱말을 나눈다.
+    덱 끝의 「날씨에 따라 일정이 달라질 수 있습니다」 를 다른 장의 효과 단정의 조건이라고 말하면 모범답이 거짓이 된다 (WP-P2).
+    """
     if not slides:
         return None
     cands = [(no, ln) for no, ln in _deck_lines(slides, []) if _HEDGE_RE.search(ln) and not is_question_line(ln)
              and not R.absolute_marker(ln, strong_only=True)]
-    cands.sort(key=lambda x: (0 if near and x[0] in near else 1, x[0]))
+    anchor = min(near) if near else 0
+    if about and anchor:
+        # 낱말은 **내용 명사**로 견준다 — 「있습니다」 같은 서술어 하나로 먼 장의 다른 이야기가 붙었다 (WP-P2 테스트)
+        own = set(G.content_nouns(about))
+        cands = [(no, ln) for no, ln in cands
+                 if abs(no - anchor) <= HEDGE_NEAR
+                 or any(R.tok_match(t, o) or R.tok_match(o, t) for t in G.content_nouns(ln) for o in own)]
+    cands.sort(key=lambda x: (0 if near and x[0] in near else 1, abs(x[0] - anchor) if anchor else 0, x[0]))
     return cands[0] if cands else None
+
+
+#: 단정 줄과 이만큼 떨어진 장까지의 유보 줄은 그 단정의 조건으로 읽는다 (낱말을 안 나눠도).
+HEDGE_NEAR = 2
+#: 유보 줄에서 「…수 있」 까지 — 조건을 해요체 한 절로 옮긴다(「개인에 따라 반응이 다를 수 있어요」).
+_CAN_RE = re.compile(r"수\s*(?:도\s*)?있")
+
+
+#: 유보 줄 머리의 접속 말 — 「다만 …」 을 「자료에 적었듯 다만 …」 으로 옮기면 어색하다.
+_HEDGE_LEAD_RE = re.compile(r"^(?:다만|단|하지만|그러나|물론|또한|그리고)(?:\s*,\s*|\s+)")
+
+
+def _hedge_clause(line: str) -> str:
+    """유보 줄 → 조건을 말하는 해요체 한 절. 「…수 있」 꼴이 아니면 "" (호출자가 인용으로)."""
+    text = _HEDGE_LEAD_RE.sub("", " ".join((line or "").split()).rstrip(" ."))
+    m = _CAN_RE.search(text)
+    if not m or not _HEDGE_RE.search(text[: m.end()]) or len(text[: m.end()]) > HEDGE_CLAUSE_MAX:
+        return ""
+    return text[: m.end()] + "어요."
+
+
+#: 조건 절의 상한 — 골자 한 칸(200자) 안에 단정 표지·장 번호·보완 말까지 들어가야 한다.
+HEDGE_CLAUSE_MAX = 48
 
 
 def probe_code_gist(probe: Probe, labels: dict[str, str], slides: dict[int, str] | None = None) -> str:
@@ -949,15 +1181,36 @@ def probe_code_gist(probe: Probe, labels: dict[str, str], slides: dict[int, str]
         return (f"{where}의 「{_q(first.quote)}」에는 아직 수치나 출처가 없어요. "
                 f"설문이나 통계, 비교 자료로 보강할게요.")
     if probe.kind == "absolute_boundary" and first is not None:
-        hedge = hedge_line(slides, {first.slide_no}) if slides else None
-        also = (f" 자료 {hedge[0]}장에도 「{_q(hedge[1], 45)}」{_quote_josa(_q(hedge[1], 45), '이라고', '라고')} 적었어요."
-                if hedge else "")
-        return (f"{where}의 「{_q(first.quote)}」{_quote_josa(first.quote, '은', '는')} 모든 경우에 그렇다고 단정할 수는 "
-                f"없어요.{also} 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.")
+        return _absolute_gist(first, lab[0] if lab else "", where, slides)
     if probe.kind == "sibling_priority" and len(lab) >= 2:
         return (f"{josa(lab[0], '과', '와')} {lab[1]}{josa(lab[1], '은', '는')[len(lab[1]):]} 둘 다 필요해요. 어느 하나만 고르기보다, "
                 f"상황에 따라 먼저 챙길 쪽을 정하면 돼요.")
     return ""
+
+
+def _absolute_gist(first: ClaimQuote, target: str, where: str, slides: dict[int, str] | None) -> str:
+    """
+    단정 탐침의 모범답 (09-30 WP-P2) — 발표자 목소리, 해요체. 단정 줄은 인용(「」)으로만 들고 인용 밖에서 되읊지 않는다. 첫 절의
+    인용 밖에 열쇠 말 「단정」 을 둔다(빈칸 칸).
+
+    예전 골자 「…는 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.」 는 **조건을
+    하나도 말하지 않아서**, 그대로 답하면 단정 줄을 다시 말한 것과 같았다(09-30 standard: 이 골자를 답한 사람이 「자료의 단정을
+    다시 말했어요」 55).
+    - 자료가 스스로 단 조건(`hedge_line` — 「개인에 따라 반응이 다를 수 있으니」)이 있으면 그 조건과 장을 댄다.
+    - 없으면 자료에 조건이 없다고 솔직히 말하고 무엇을 더할지(누구에게·언제·어떤 조건에서) 말한다 — 빈칸·근거 없는 인과 골자와
+      같은 「비어 있다 → 보완할게요」 꼴.
+    """
+    # 무엇을 단정할 수 없는지는 단정 줄을 **인용으로** 든다 — 모범답만 읽어도 무엇에 조건을 붙이는지 알게. 인용 밖의 말이 조건이다.
+    quote = _q(first.quote)
+    said = f"「{quote}」{_quote_josa(quote, '이라고', '라고')}"
+    hedge = hedge_line(slides, {first.slide_no}, about=f"{first.quote} {target}") if slides else None
+    if hedge is not None:
+        clause = _hedge_clause(hedge[1])
+        cond = (f"자료 {hedge[0]}장에 적었듯 {clause}" if clause
+                else f"자료 {hedge[0]}장에도 「{_q(hedge[1], 45)}」{_quote_josa(_q(hedge[1], 45), '이라고', '라고')} 적었어요.")
+        return f"{said} 단정할 수는 없어요 — {cond} 이 조건을 붙여서 말할게요."
+    return (f"{said} 단정할 수는 없어요 — {where}에는 이 말이 들어맞는 조건이 아직 없어요. "
+            f"누구에게, 언제, 어떤 조건에서 그런지 정해서 보완할게요.")
 
 
 def probe_hint(probe: Probe, labels: dict[str, str]) -> str:
