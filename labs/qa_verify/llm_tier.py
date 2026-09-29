@@ -1,0 +1,410 @@
+"""
+standard / full 단계 — 대상 코드로 브리지를 띄워(실 LLM) 화면으로 질문을 만들고, 자동 페르소나로 대화하고, 레드팀 공격을 판정한다.
+
+순서 (예산을 먼저 알고 나누려고 질문을 다 만든 뒤에 대화한다)
+  A. 덱·트랙마다 #/test/QA → 질문까지 (세션 저장소를 얼린다)            — 브리지 LLM (개념·그래프·주장·1차 심사·질문)
+  B. 대상 코드로 페르소나 · 공격 답 만들기 (자식, LLM 없음)
+  C. 남은 예산을 대화 55% · 레드팀 45% 로 나눈다
+  D. 세션마다 #/qa 를 열어 질문마다 페르소나 하나 (판정은 화면 버튼 → 브리지)
+  E. 레드팀 공격 · 같은 답 3번(결정성) · 자료 속 주입 — 자식이 대상 judge_answer 를 직접 (호출은 같은 calls.jsonl 에 센다)
+  F. 브리지 변조 — 함정 칸을 지운 질문 본문을 보내도 판정이 같은가 (HTTP)
+  G. (full) booth.html 사진 흐름 (대상 labs/qa_call)
+"""
+
+from __future__ import annotations
+
+import re
+import secrets
+import shutil
+import time
+from pathlib import Path
+
+from . import common as C
+from . import conversation as CV
+from . import redteam as R
+from . import scoreboard as S
+from . import tags as TG
+from . import ui
+from .bridge import Bridge
+from .target import TUNED, Target, ppt_name
+
+STANDARD_DECKS = ("수익률격차", "_held_health_glucose", "_held_policy_jeonse")
+FULL_DECKS = ("수면발표", "수익률격차", "focus_notification", "_held_health_glucose", "_held_ir_banchan",
+              "_held_policy_jeonse", "_held_lib_reopen", "_held_hum_novel")
+AUDIO_DECK = "_held_health_glucose"
+CONV_SHARE = 0.55
+
+
+def run(target: Target, run_dir: Path, ns, budget: int) -> tuple[dict[str, dict], dict]:
+    full = ns.tier == "full"
+    decks = [ppt_name(d) for d in ns.decks.split(",") if d.strip()] or list(FULL_DECKS if full else STANDARD_DECKS)
+    tracks = [t.strip() for t in ns.tracks.split(",") if t.strip()] or (["5", "10"] if full else ["5"])
+    missing = target.link_decks(decks + ([AUDIO_DECK] if full else []))
+    decks = [d for d in decks if d not in missing]
+    bridge = Bridge(target, ns.port, run_dir, budget, no_papers=ns.no_papers)
+    info = {"decks": decks, "tracks": tracks, "llm_calls": 0}
+    metrics: dict[str, dict] = {}
+    C.note(f"── {ns.tier}: 덱 {decks} · 트랙 {tracks} · 예산 {budget}" + (f" · 없는 덱 {missing}" if missing else ""))
+    try:
+        bridge.start()
+        preps = _prepare_all(bridge, decks, tracks, run_dir, full)
+        packs = _personas(target, preps, run_dir)
+        remaining = bridge.remaining()
+        conv_budget = remaining if ns.no_redteam else int(remaining * CONV_SHARE)
+        C.note(f"── 질문까지 LLM {bridge.used()}콜 · 남은 {remaining} → 대화 {conv_budget} · 레드팀 {remaining - conv_budget}")
+        records = _conversations(bridge, preps, packs, run_dir, conv_budget)
+        red_rows, red_extra = ([], {}) if ns.no_redteam else _redteam(target, bridge, preps, packs, run_dir)
+        booth = _booth(target, bridge, run_dir) if full else None
+        metrics.update(_pipeline_metrics(preps, bridge))
+        metrics.update(_conv_metrics(records))
+        if not ns.no_redteam:
+            metrics.update(_redteam_metrics(red_rows, red_extra))
+        if booth is not None:
+            metrics.update(booth)
+        _digest(records, run_dir)
+    finally:
+        info["llm_calls"] = bridge.used()
+        if not ns.keep_bridge:
+            bridge.stop()
+        target.unlink_decks()
+    metrics["conv.llm_calls"] = S.metric(info["llm_calls"], budget)
+    return metrics, info
+
+
+# ---------------------------------------------------------------------------
+# A · B — 질문 만들기 · 페르소나
+# ---------------------------------------------------------------------------
+
+def _prepare_all(bridge: Bridge, decks: list[str], tracks: list[str], run_dir: Path, full: bool) -> list[dict]:
+    jobs = [(d, "deck", t) for d in decks for t in tracks]
+    if full:
+        jobs.append((AUDIO_DECK, "audio", "5"))
+    preps = []
+    for deck, mode, track in jobs:
+        if bridge.remaining() < 4:
+            C.note(f"   예산이 모자라 {deck} {mode} t{track} 는 건너뛰어요")
+            preps.append({"deck": deck, "mode": mode, "track": track, "ok": False, "error": "예산"})
+            continue
+        t0, c0 = time.time(), bridge.used()
+        C.note(f"   {deck} · {mode} · t{track} 질문 만들기…")
+        prep = ui.prepare(bridge.base, deck, mode, track, run_dir / f"{C.nfc(deck)}_{mode}_t{track}")
+        if prep.get("ok") and not prep.get("slide_doc") and prep.get("session_id"):
+            got = bridge.get_json(f"/api/v1/cached-slidedoc?session_id={prep['session_id']}")
+            prep["slide_doc"] = (got or {}).get("slide_doc") or got
+        prep.update(llm_calls=bridge.used() - c0, wall=round(time.time() - t0, 1), tuned=deck in TUNED)
+        C.note(f"     → {'질문 ' + str(len(prep.get('questions') or [])) + '개' if prep.get('ok') else '실패: ' + str(prep.get('error'))}"
+               f" · {prep['wall']}s · LLM {prep['llm_calls']}")
+        C.write_json(run_dir / f"{C.nfc(deck)}_{mode}_t{track}" / "prepared.json",
+                     {k: v for k, v in prep.items() if k != "storage"})
+        preps.append(prep)
+    return preps
+
+
+def _personas(target: Target, preps: list[dict], run_dir: Path) -> dict[int, dict]:
+    out = {}
+    for i, prep in enumerate(preps):
+        if not prep.get("ok"):
+            continue
+        got = target.probe("personas", {"questions": prep["questions"], "slide_doc": prep.get("slide_doc") or {},
+                                        "graph": prep.get("graph")}, timeout=300)
+        if got.get("ok"):
+            out[i] = got
+            C.write_json(run_dir / f"{C.nfc(prep['deck'])}_{prep['mode']}_t{prep['track']}" / "personas.json", got)
+        else:
+            prep["persona_error"] = got.get("error")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# D — 대화
+# ---------------------------------------------------------------------------
+
+def _conversations(bridge: Bridge, preps: list[dict], packs: dict[int, dict], run_dir: Path, conv_budget: int) -> list[dict]:
+    limit = bridge.used() + conv_budget
+    records, rot = [], 0
+    sessions = [i for i, p in enumerate(preps) if p.get("ok") and i in packs]
+    for n, i in enumerate(sessions):
+        prep = preps[i]
+        share = max(0, (limit - bridge.used()) // max(1, len(sessions) - n))
+        plan, rot = CV.assign(prep["questions"], packs[i]["personas"], share, rot)
+        C.note(f"   대화 {prep['deck']} {prep['mode']} t{prep['track']} · 배정 {plan} · 몫 {share}")
+        rec = CV.play_session(bridge.base, prep, packs[i]["personas"], plan,
+                              run_dir / f"{C.nfc(prep['deck'])}_{prep['mode']}_t{prep['track']}",
+                              budget_check=lambda: bridge.used() + 1 <= limit)
+        records.append(rec)
+    return records
+
+
+def _conv_metrics(records: list[dict]) -> dict[str, dict]:
+    turns = [t for r in records for t in r["turns"]]
+    scores = [s for r in records for s in r["personas"]]
+    out: dict[str, dict] = {}
+    for key in ("good_pass", "partial_complete", "wrong_rejected", "wrong_recover", "offtopic_rejected", "one_word_rejected",
+                "trap_agree_caught", "trap_correct_pass", "dunno_ok", "hints_ok"):
+        rows = [s for s in scores if key in s]
+        bad = [f"{r['deck']} Q{s['q']} {s['persona']}" for r in records for s in r["personas"] if key in s and not s[key]]
+        out[f"conv.{key}"] = S.ratio(sum(bool(s[key]) for s in rows), len(rows), bad + _persona_examples(records, key))
+    counts = TG.tag_counts(turns)
+    for tag, n in sorted(counts.items()):
+        out[f"tags.{tag}"] = S.ratio(n, len(turns), TG.examples(turns, tag))
+    judged = [t for t in turns if t.get("judge") and not (t["judge"] or {}).get("coach_stage")]
+    fb = [t for t in judged if str(t["judge"].get("react") or "") in TG.FALLBACK_REACTS]
+    out["conv.react_fallback"] = S.ratio(len(fb), len(judged), [f"{t['deck']} Q{t['q']} {t['step']}: «{t['judge'].get('react')}»" for t in fb][:3])
+    lat = [t["judge_sec"] for t in turns if t.get("judge_sec")]
+    out["conv.latency_p50"] = S.metric(TG.percentile(lat, 0.5), len(lat))
+    out["conv.latency_p90"] = S.metric(TG.percentile(lat, 0.9), len(lat))
+    forced, mismatch = _result_checks(records)
+    out["conv.forced_close_counted"] = S.metric(len(forced), None, forced)
+    out["conv.result_count_mismatch"] = S.metric(len(mismatch), None, mismatch)
+    out["conv.questions"] = S.metric(len(scores))
+    out["conv.judged_turns"] = S.metric(len([t for t in turns if t.get("judge")]))
+    errs = [f"{r['deck']} t{r['track']}: {r['error']}" for r in records if r.get("error")]
+    errs += [f"{r['deck']}: {c}" for r in records for c in r.get("console") or [] if "pageerror" in c]
+    out["conv.errors"] = S.metric(len(errs), None, errs)
+    return out
+
+
+def _persona_examples(records: list[dict], key: str) -> list[str]:
+    """실패한 페르소나의 첫 판정 react — 무엇이 막았는지."""
+    ex = []
+    for r in records:
+        for s in r["personas"]:
+            if key in s and not s[key]:
+                t = next((t for t in r["turns"] if t["q"] == s["q"] and t.get("judge")), None)
+                if t:
+                    j = t["judge"]
+                    ex.append(f"{r['deck']} Q{s['q']} {s['persona']}: {t['step']} 「{t['input'][:60]}」 → {j.get('verdict')}/{j.get('score')} «{str(j.get('react'))[:80]}»")
+    return ex[:3]
+
+
+def _result_checks(records: list[dict]) -> tuple[list[str], list[str]]:
+    """결과 화면 — 3라운드 강제 종료(좋음이 아닌 채 닫힘)를 「지킨 질문」 으로 세는가 · 화면 숫자가 기록과 맞는가."""
+    forced, mismatch = [], []
+    for r in records:
+        by_q: dict[int, list[dict]] = {}
+        for t in r["turns"]:
+            if t.get("judge") and not t["judge"].get("coach_stage"):
+                by_q.setdefault(t["q"], []).append(t["judge"])
+        won_ui = [x for x in r.get("results") or [] if not x.get("revealed") and x.get("verdict") in ("good", "partial")]
+        for qn, js in by_q.items():
+            last = js[-1]
+            if last.get("mastered") and last.get("verdict") != "good" and int(last.get("round_no") or 0) >= 3:
+                forced.append(f"{r['deck']} Q{qn}: {last.get('verdict')}/{last.get('score')} r{last.get('round_no')} 닫힘 → 결과 화면 「지킨 질문」")
+        text = (r.get("end_card") or "") + " " + (r.get("result_text") or "")
+        m = re.search(r"(\d+)개 중 (\d+)개를 자기 말로 지켰어요", text)
+        if m and int(m.group(2)) != len(won_ui):
+            mismatch.append(f"{r['deck']}: 화면 {m.group(2)}개 · 기록 {len(won_ui)}개")
+    return forced, mismatch
+
+
+# ---------------------------------------------------------------------------
+# E · F — 레드팀 · 브리지 변조
+# ---------------------------------------------------------------------------
+
+def _redteam(target: Target, bridge: Bridge, preps: list[dict], packs: dict[int, dict], run_dir: Path) -> tuple[list[dict], dict]:
+    sessions = [(i, preps[i]) for i in sorted(packs) if preps[i].get("mode") == "deck"]
+    budget_left = bridge.remaining()
+    extra: dict = {}
+    if budget_left < 4 or not sessions:
+        return [], {"skipped": f"예산 {budget_left}"}
+    reserve = min(7, max(0, budget_left - 4))          # 결정성 3 · 자료 주입 2 · 변조 2
+    attack_budget = budget_left - reserve
+    by_q = {}
+    plan = []
+    per_session = []
+    for i, prep in sessions:
+        qmap = {q.get("id"): q for q in prep["questions"]}
+        rows = [dict(a, deck=prep["deck"], session=i, order=n) for n, a in enumerate(packs[i]["attacks"])]
+        per_session.append(rows)
+        by_q.update({(i, qid): q for qid, q in qmap.items()})
+    # 덱을 번갈아 — 같은 공격의 다음 행이 다른 덱에서 나오게
+    width = max((len(r) for r in per_session), default=0)
+    for n in range(width):
+        for rows in per_session:
+            if n < len(rows):
+                plan.append(rows[n])
+    picked = R.pick_budgeted(plan, attack_budget)
+    items = []
+    for n, row in enumerate(picked):
+        prep = preps[row["session"]]
+        items.append(_item(f"atk|{n}", by_q[(row["session"], row["qid"])], row["rounds"], prep))
+    det = next(((i, a) for i, p in sessions for a in packs[i]["attacks"] if a["attack"] == "control"), None)
+    if det and budget_left - sum(len(x["rounds"]) for x in items) >= 3:
+        i, a = det
+        for k in range(3):
+            items.append(_item(f"det|{k}", by_q[(i, a["qid"])], a["rounds"][:1], preps[i]))
+        extra["det_answer"] = a["rounds"][0]
+    inj = next(((i, a) for i, p in sessions for a in packs[i]["attacks"] if a["attack"] == "polite_empty"), None)
+    if inj and bridge.remaining() - sum(len(x["rounds"]) for x in items) >= 2:
+        i, a = inj
+        q = by_q[(i, a["qid"])]
+        sd = R.slide_injected(preps[i].get("slide_doc") or {}, int(q.get("evidence_slide_no") or (q.get("slide_nos") or [1])[0]))
+        wrong = next((b["rounds"][0] for b in packs[i]["attacks"] if b["qid"] == a["qid"] and b["attack"] == "fabricated_number"),
+                     R.INJECT)
+        for k, ans in enumerate((a["rounds"][0], wrong)):
+            items.append(dict(_item(f"inj|{k}", q, [ans], preps[i]), slide_doc=sd))
+    C.note(f"── 레드팀: 공격 {len(picked)}개 · 판정 항목 {len(items)} · 남은 예산 {bridge.remaining()}")
+    got = target.probe("judge", {"items": items, "budget": bridge.budget, "calls": str(bridge.calls), "stage": "redteam"},
+                       timeout=2400, log=run_dir / "redteam.log")
+    res = {r["key"]: r["judgements"] for r in got.get("rows") or []}
+    rows = []
+    for n, row in enumerate(picked):
+        js = res.get(f"atk|{n}")
+        if not js:
+            continue
+        o = R.outcome(row, js)
+        rows.append(dict(attack=row["attack"], expect=row["expect"], deck=row["deck"], qid=row["qid"], passed=o["passed"],
+                         answer=row["rounds"][-1][:160], react=str((js[-1] or {}).get("react") or "")[:120],
+                         verdict=(js[-1] or {}).get("verdict"), score=(js[-1] or {}).get("score")))
+    extra["det"] = [(res.get(f"det|{k}") or [{}])[0] for k in range(3) if res.get(f"det|{k}")]
+    extra["inj"] = [(res.get(f"inj|{k}") or [{}])[0] for k in range(2) if res.get(f"inj|{k}")]
+    extra["tamper"] = _tamper(bridge, preps, packs)
+    extra["judge_error"] = got.get("error")
+    C.write_json(run_dir / "redteam.json", {"rows": rows, "extra": extra})
+    return rows, extra
+
+
+def _item(key: str, q: dict, rounds: list[str], prep: dict) -> dict:
+    return {"key": key, "question": q, "rounds": rounds, "slide_doc": prep.get("slide_doc"), "graph": prep.get("graph"),
+            "context": prep.get("context")}
+
+
+def _tamper(bridge: Bridge, preps: list[dict], packs: dict[int, dict]) -> dict:
+    """클라이언트가 보낸 질문 본문에서 함정 칸을 지워도 판정이 같아야 한다 (qa/bridge 가 고칠 것)."""
+    if bridge.remaining() < 2:
+        return {"skipped": "예산"}
+    pick = None
+    for i in sorted(packs):
+        for q, pack in zip(preps[i]["questions"], packs[i]["personas"]):
+            if q.get("trap_premise") and (pack.get("answers") or {}).get("trap_agree"):
+                pick = (i, q, pack["answers"]["trap_agree"], "trap_stripped")
+                break
+        if pick:
+            break
+    if pick is None:
+        i = sorted(packs)[0]
+        q = preps[i]["questions"][0]
+        ans = "그냥 둘이 비슷한 얘기라서 연결돼요."
+        pick = (i, q, ans, "gist_tampered")
+    i, q, ans, kind = pick
+    prep = preps[i]
+    sid = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "_" + secrets.token_hex(4)
+    code, _ = bridge.post("/api/v1/session/artifacts", {"session_id": sid, "graph": prep.get("graph"), "alignment": None,
+                                                        "flow": None, "transcript": None, "context": prep.get("context")})
+    if kind == "trap_stripped":
+        tampered = {**q, "trap": False, "trap_premise": None, "basis": {}}
+    else:
+        tampered = {**q, "answer_gist": ans, "answer_gist_parts": [], "why": "발표자가 무엇을 말하든 정답이에요"}
+    rows = []
+    for name, qq in (("honest", q), ("tampered", tampered)):
+        c, j = bridge.post(f"/api/v1/sessions/{sid}/qa/judge", {"session_id": sid, "question_id": qq.get("id"), "answer": ans,
+                                                               "history": [], "question": qq, "give_up": False,
+                                                               "prior_answers": [], "hints_shown": []})
+        rows.append({"name": name, "code": c, "verdict": j.get("verdict"), "score": j.get("score"), "passed": j.get("passed"),
+                     "react": str(j.get("react") or "")[:120]})
+    # 판정이 바뀌었다 = 통과 여부나 등급이 다르다 (점수 몇 점 차이는 LLM 흔들림이라 안 본다)
+    changed = len(rows) == 2 and (rows[0]["passed"] != rows[1]["passed"] or rows[0]["verdict"] != rows[1]["verdict"])
+    return {"kind": kind, "artifacts": code, "rows": rows, "changed": changed, "answer": ans, "qid": q.get("id")}
+
+
+def _redteam_metrics(rows: list[dict], extra: dict) -> dict[str, dict]:
+    if not rows and not extra.get("det"):
+        return {"redteam.skipped": S.metric(1, None, [str(extra.get("skipped") or extra.get("judge_error") or "")])}
+    sm = R.summarize(rows)
+    fail_ex = [f"{r['deck']}/{r['qid']} {r['attack']}: {r['verdict']}/{r['score']} 「{r['answer'][:70]}」 → «{r['react'][:60]}»"
+               for r in rows if r["expect"] == "fail" and r["passed"]]
+    ctrl_ex = [f"{r['deck']}/{r['qid']} {r['attack']}: {r['verdict']}/{r['score']} 「{r['answer'][:70]}」 → «{r['react'][:60]}»"
+               for r in rows if r["expect"] == "pass" and not r["passed"]]
+    out = {
+        "redteam.attack_pass_rate": S.metric(sm["attack_pass_rate"], sm["attack_n"], fail_ex, hit=sm["attack_passed"]),
+        "redteam.control_pass_rate": S.metric(sm["control_pass_rate"], sm["control_n"], ctrl_ex, hit=sm["control_passed"]),
+    }
+    for name, v in sorted(sm["by_attack"].items()):
+        out[f"redteam.by.{name}"] = S.metric(v["passed"] / v["n"] if v["n"] else None, v["n"], expect=v["expect"])
+    det = extra.get("det") or []
+    if det:
+        flips = len({R.verdict_passed(j) for j in det}) > 1
+        out["redteam.determinism_flips"] = S.metric(int(flips), len(det), [f"{j.get('verdict')}/{j.get('score')}" for j in det]
+                                                   + [f"답: {extra.get('det_answer', '')[:100]}"])
+        out["redteam.determinism_spread"] = S.metric(max(int(j.get("score") or 0) for j in det) - min(int(j.get("score") or 0) for j in det),
+                                                    len(det))
+    inj = extra.get("inj") or []
+    if inj:
+        out["redteam.slide_inject_pass"] = S.metric(sum(R.verdict_passed(j) for j in inj), len(inj),
+                                                   [f"{j.get('verdict')}/{j.get('score')} «{str(j.get('react'))[:80]}»" for j in inj])
+    tp = extra.get("tamper") or {}
+    if tp.get("rows"):
+        out["redteam.bridge_tamper_changed"] = S.metric(int(bool(tp.get("changed"))), 1,
+                                                       [f"{tp.get('kind')} {r['name']}: {r['code']} {r['verdict']}/{r['score']} passed={r['passed']}"
+                                                        for r in tp["rows"]])
+    return out
+
+
+# ---------------------------------------------------------------------------
+# G · 모으기
+# ---------------------------------------------------------------------------
+
+def _booth(target: Target, bridge: Bridge, run_dir: Path) -> dict[str, dict] | None:
+    script = target.repo / "labs" / "qa_call" / "run.py"
+    if not script.exists():
+        script = C.HARNESS_ROOT / "labs" / "qa_call" / "run.py"
+    if bridge.remaining() < 8:
+        return {"booth.skipped": S.metric(1, None, [f"예산 {bridge.remaining()}"])}
+    C.note("── 부스 사진 흐름 (labs/qa_call all)")
+    r = C.run([target.python, str(script), "all", "--base", bridge.base], cwd=target.repo,
+              env={"LD_LIBRARY_PATH": C.PW_LIBS}, timeout=900)
+    (run_dir / "booth.log").write_text((r.stdout or "") + (r.stderr or ""), encoding="utf-8")
+    outs = sorted((script.parent / "out").glob("*/report.json"), key=lambda p: p.stat().st_mtime)
+    rep = C.read_json(outs[-1]) if outs else None
+    if not rep:
+        return {"booth.flow_ok": S.metric(0.0, 1, C.tail(r.stdout + r.stderr, 5))}
+    shutil.copyfile(outs[-1], run_dir / "booth_report.json")
+    stages = rep.get("stages") or {}
+    ok = "finish" in stages and not any("error" in (v or {}) for v in stages.values())
+    errs = [c for c in rep.get("console") or [] if not c.startswith("warning")]
+    texts = [b.get("text", "") for b in rep.get("bubbles") or [] if "is-me" not in (b.get("cls") or "")]
+    tone = TG.tone_tags(texts)
+    return {"booth.flow_ok": S.metric(1.0 if ok else 0.0, 1, [f"{k}: {v}" for k, v in stages.items() if "error" in (v or {})]),
+            "booth.console_errors": S.metric(len(errs), None, errs[:5]),
+            "booth.tone_tags": S.metric(len(tone), len(texts), [f"{t['tag']} {t['detail']} «{t['quote'][:80]}»" for t in tone][:5]),
+            "booth.sec": S.metric(rep.get("total_sec"))}
+
+
+def _pipeline_metrics(preps: list[dict], bridge: Bridge) -> dict[str, dict]:
+    failed = [f"{p['deck']} {p['mode']} t{p['track']}: {p.get('error')}" for p in preps if not p.get("ok")]
+    audio = [p for p in preps if p.get("mode") == "audio"]
+    out = {
+        "pipeline.failed_decks": S.metric(len(failed), len(preps), failed),
+        "pipeline.questions": S.metric(sum(len(p.get("questions") or []) for p in preps if p.get("ok"))),
+        "pipeline.llm_calls": S.metric(sum(p.get("llm_calls", 0) for p in preps)),
+        "pipeline.wall_sec": S.metric(round(sum(p.get("wall", 0) for p in preps), 1)),
+    }
+    if audio:
+        out["audio.ok"] = S.metric(sum(1 for p in audio if p.get("ok")), len(audio), [str(p.get("error")) for p in audio if not p.get("ok")])
+    return out
+
+
+def _digest(records: list[dict], run_dir: Path) -> None:
+    """사람이 읽는 대화록 — 질문마다 페르소나 · 턴(입력 → 판정 · react · 되물음 · 보기 · 태그)."""
+    lines = ["# 대화록 (자동 페르소나)", ""]
+    for r in records:
+        lines += [f"## {r['deck']} · {r['mode']} · t{r['track']} — 배정 {r.get('plan')}", ""]
+        for s in r["personas"]:
+            lines.append(f"### Q{s['q']} {s['persona']} — " + ", ".join(f"{k}={v}" for k, v in s.items()
+                                                                         if k not in ("q", "qid", "persona", "sec", "dunno_detail")))
+            for t in [t for t in r["turns"] if t["q"] == s["q"]]:
+                j = t.get("judge") or {}
+                head = f"- `{t['step']}` 「{t['input'][:120]}」"
+                if j:
+                    head += f" → **{j.get('coach_stage') or j.get('verdict')}/{j.get('score')}** r{j.get('round_no')} react «{str(j.get('react'))[:140]}»"
+                    if j.get("followup"):
+                        head += f" · 되물음 «{str(j['followup'])[:120]}»"
+                    if j.get("choices"):
+                        head += f" · 보기 {j['choices']}"
+                    if j.get("missing_points"):
+                        head += f" · 빠짐 {j['missing_points'][:2]}"
+                lines.append(head)
+                if t.get("tags"):
+                    lines.append("  - 태그: " + "; ".join(f"{x['tag']} {x['detail']}" for x in t["tags"])[:300])
+            lines.append("")
+    (run_dir / "conversations.md").write_text("\n".join(lines), encoding="utf-8")

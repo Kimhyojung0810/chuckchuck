@@ -1,0 +1,106 @@
+{
+ "version": 1,
+ "note": "사용자가 보고한 버그를 **데이터**로 둔다. 규칙 코드는 regress.py 의 검사 종류(kind)에만 있다 — 여기에는 입력과 기대만. source.file 은 base(main=주 체크아웃) 기준 경로이고, 처음 읽을 때 labs/qa_verify/out/frozen/ 에 얼려 둔다(보관소는 지워질 수 있다). 원본도 얼린 것도 없으면 source.inline 으로, 그것도 없으면 skip. 사례 추가는 README 「회귀 사례 추가」.",
+ "cases": [
+  {
+   "id": "hint_quote_ocr_wrap",
+   "title": "사진 OCR 로 폭에서 꺾인 줄 — 인용 후보·힌트 인용이 낱말 조각(「반 Q&A를 통해…」)으로 시작하지 않는다",
+   "origin": "09-29 부스 사진 덱 · 986dd43",
+   "kind": "units_no_midword_start",
+   "source": {"file": "var/data/sessions/2026/09/29/20260929T142228Z_11540ecb/slide_doc.json", "base": "main"},
+   "args": {"min_wraps": 1}
+  },
+  {
+   "id": "hint_quote_ocr_wrap_neutral",
+   "title": "(위 사례의 도메인 중립 쌍둥이 — 원본이 없어도 돈다)",
+   "origin": "tests/test_qa_evidence.py 와 같은 꼴",
+   "kind": "units_no_midword_start",
+   "source": {"inline": {"slides": [{"slide_no": 1, "text": "신청서 한 줄 소개를 적어 주세요 *\n주문 앱 - 매장 대기열 예측 기반 픽업 알림 서비스\n매장 대기열과 조리 시간을 함께 분석해 픽업 시각을 예측하고, 혼잡 구간 기\n반 알림을 통해 고객의 대기 시간을 줄이는 모바일 주문 서비스입니다."}]}},
+   "args": {"min_wraps": 1}
+  },
+  {
+   "id": "formula_quote_not_poll",
+   "title": "식을 묻는 질문의 힌트 인용은 설문 보기 장(1장)이 아니라 식 장(4장)에서 — 「수면의 질 = 시간 × 연속성 × 규칙성」",
+   "origin": "09-28~29 수면 발표 · 지엽성",
+   "kind": "best_quote_slide",
+   "source": {"file": "docs/review/2026-09-28_QA_지엽성_자료/slidedoc_수면_세션.json", "base": "main", "slides": [1, 4],
+              "inline": {"slides": [
+                {"slide_no": 1, "text": "01 / 08\n수면의 질\n분명 잤는데\n왜 피곤할까?\n수면 시간보다 중요한 수면의 질\n“어젯밤 몇 시간 잤나요?”\n5시간 미만\n5–7시간\n7시간 이상\n잠을 오래 잤다고 반드시 개운한 것은 아닙니다."},
+                {"slide_no": 4, "text": "충분히 자도 피곤한 진짜 이유\n수면의 질은 단순한 “시간”보다 넓은 개념입니다.\n수면의 질 =\n시간\n×\n연속성\n×\n규칙성\n얼마나 잤는가\n얼마나 끊기지 않았는가\n언제 자고 일어났는가"}]}},
+   "args": {"label": "수면의 질", "summary": "시간 × 연속성 × 규칙성",
+            "question": "수면의 질이 시간보다 중요한 이유를 발표에서 제시한 세 가지 요소(시간, 연속성, 규칙성)를 바탕으로 설명해 주세요.",
+            "expect_slide": 4, "quote_contains": ["=", "×"], "quote_forbid": ["5시간 미만", "7시간 이상", "몇 시간 잤나요"]}
+  },
+  {
+   "id": "dunno_pair_contrast",
+   "title": "「모르겠어요」 보기 = (자료가 세운 쪽, 부정한 쪽) — 「격차는 종목 선택이 아니라 행동에서」 에 '행동' 이 정답, '가지'(세는 단위)는 보기가 아니다",
+   "origin": "09-29 부스 수익률 덱 · aadf68f",
+   "kind": "contrast_choice",
+   "source": {"file": "var/data/sessions/2026/09/29/20260929T141953Z_99dde264/slide_doc.json", "base": "main", "slides": [1, 2],
+              "inline": {"slides": [
+                {"slide_no": 1, "text": "개인 투자자는 왜\n시장을 이기지 못하는가\n실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인"},
+                {"slide_no": 2, "text": "EXECUTIVE SUMMARY\n결론부터: 격차는 종목 선택이 아니라 행동에서 만들어진다\n01\n02\n격차는 실재한다\n· 개인 평균은 지수 대비 연 4.8%p\n낮음\n· 상위 25% 그룹도 지수를 2.6%p\n하회\n·\n일부의 실수가 아닌 전반적 현상\n원인은 종목이 아니다\n· 종목 선정 능력과 수익률의 상관은\n약함\n· 매매 회전율은 수익률과 뚜렷한\n역상관\n·\n최상위 회전율 구간 평균 −3.6%\n무엇을 샀는가가 아니라, 얼마나 자주 사고팔았는가가 결과를 갈랐다\n03\n통제 가능한 변수다\n· 빈도·기간·종목수·비용은 본인이\n결정\n·\n격차의 상당 부분은 좁힐 수 있음"}]}},
+   "args": {"quote": "결론부터: 격차는 종목 선택이 아니라 행동에서 만들어진다", "label": "수익률 격차",
+            "gist": "개인 투자자의 수익률 격차는 종목 선택이 아니라 행동에서 만들어져요", "pool": ["다섯 가지 원인", "시장 예측"],
+            "affirmed": "행동", "negated": "종목", "forbid_choices": ["가지"], "scan_deck": true}
+  },
+  {
+   "id": "reason_gist_drops_background",
+   "title": "근거를 묻는 질문의 골자는 배경 절(4.8%p·2.6%p 현상)을 빼고 이유 줄(「얼마나 자주 사고팔았는가가 결과를 갈랐다」)을 싣는다",
+   "origin": "09-30 부스 수익률 덱 2장 · b5c20f4",
+   "kind": "f08_scripted",
+   "source": {"file": "var/data/sessions/2026/09/29/20260929T141953Z_99dde264/slide_doc.json", "base": "main", "slides": [2],
+              "inline_from": "dunno_pair_contrast"},
+   "args": {"nodes": [{"id": "gap", "label": "개인 투자자 수익률 격차", "slide_nos": [1, 2], "depth": 1, "weight": 1.0},
+                      {"id": "behavior", "label": "투자 행동", "slide_nos": [2], "depth": 2, "parent_id": "gap", "weight": 0.6}],
+            "node_id": "behavior",
+            "question": "개인 투자자의 수익률 격차가 종목 선택이 아닌 행동에서 발생한다고 결론지은 근거는 무엇인가요?",
+            "gist": "개인 평균은 지수 대비 연 4.8%p 낮고 상위 25% 그룹도 2.6%p 하회하며, 종목 선정 능력과 수익률의 상관은 약하고 매매 회전율은 수익률과 뚜렷한 역상관이에요.",
+            "expect": {"gist_forbid": ["4.8%p", "2.6%p"], "gist_require_any": ["얼마나 자주 사고팔았는가", "−3.6%"]}}
+  },
+  {
+   "id": "undercut_question_rewritten",
+   "title": "견준 대상을 요소로 다시 넣은 자기모순 질문 「시간보다 … (시간, 연속성, 규칙성)」 은 그 모순을 묻는 말로 다시 쓴다",
+   "origin": "09-29 수면 발표 주제 질문",
+   "kind": "f08_scripted",
+   "source": {"file": "docs/review/2026-09-28_QA_지엽성_자료/slidedoc_수면_세션.json", "base": "main", "slides": [1, 4],
+              "inline_from": "formula_quote_not_poll"},
+   "args": {"nodes": [{"id": "sleep-quality", "label": "수면의 질", "slide_nos": [1, 4], "depth": 1, "weight": 1.0},
+                      {"id": "continuity", "label": "연속성", "slide_nos": [4], "depth": 2, "parent_id": "sleep-quality", "weight": 0.5}],
+            "node_id": "sleep-quality",
+            "question": "수면의 질이 시간보다 중요한 이유를 발표에서 제시한 세 가지 요소(시간, 연속성, 규칙성)를 바탕으로 설명해 주세요.",
+            "gist": "수면의 질은 시간·연속성·규칙성을 곱한 것이라 시간만 길어서는 개운하지 않아요.",
+            "expect": {"question_not_self_contradicting": true}}
+  },
+  {
+   "id": "antonym_gist_rejected",
+   "title": "자료와 방향이 반대인 골자(「가까울수록 … 좋아지는」 ↔ 자료 「멀어질수록 … 좋아지는」)는 골자로 남지 않는다",
+   "origin": "09-29 대화 감사 §1 focus Q7 · b5c20f4",
+   "kind": "f08_scripted",
+   "source": {"inline": {"slides": [
+     {"slide_no": 1, "text": "알림 하나를 확인했을 뿐인데\n왜 다시 집중하기 어려울까?"},
+     {"slide_no": 6, "text": "폰이 보이는 것만으로도 인지 자원을 쓴다\n알림이 꺼져 있어도 , 가까운 스마트폰은 일부 주의를 차지할 수 있다 .\n스마트폰 위치가 멀어질수록\n인지 과제 수행이 좋아지는 경향\n핵심은 “폰을 안 봤다”가 아니라\n“폰을 무시하는 데도 자원이 든다”는 점이다 ."}]}},
+   "args": {"nodes": [{"id": "focus", "label": "집중 흐름", "slide_nos": [1, 6], "depth": 1, "weight": 1.0},
+                      {"id": "distance", "label": "스마트폰 위치", "slide_nos": [6], "depth": 2, "parent_id": "focus", "weight": 0.6}],
+            "node_id": "distance",
+            "question": "스마트폰 위치는 인지 과제 수행과 어떤 관계인가요?",
+            "gist": "스마트폰이 가까울수록 인지 과제 수행이 좋아지는 경향이 있어요.",
+            "expect": {"gist_forbid_regex": ["가까울수록[^.]{0,20}좋아지"]}}
+  },
+  {
+   "id": "antonym_gist_rejected_neutral",
+   "title": "(위 사례의 다른 분야 쌍둥이 — 원예: 창에서 멀어질수록 생장이 느려짐)",
+   "origin": "tests/test_reason_graph.py 와 같은 꼴",
+   "kind": "f08_scripted",
+   "source": {"inline": {"slides": [
+     {"slide_no": 1, "text": "실내 원예 관찰\n화분 위치와 생장"},
+     {"slide_no": 2, "text": "빛과 생장\n화분이 창에서 멀어질수록 잎의 생장이 느려지는 경향\n관찰 기간 8주"}]}},
+   "args": {"nodes": [{"id": "root", "label": "실내 원예", "slide_nos": [1, 2], "depth": 1, "weight": 1.0},
+                      {"id": "light", "label": "창과의 거리", "slide_nos": [2], "depth": 2, "parent_id": "root", "weight": 0.5}],
+            "node_id": "light",
+            "question": "창과의 거리는 잎의 생장과 어떤 관계인가요?",
+            "gist": "화분이 창에서 가까울수록 잎의 생장이 느려지는 경향이 있어요.",
+            "expect": {"gist_forbid_regex": ["가까울수록[^.]{0,20}느려지"]}}
+  }
+ ]
+}
