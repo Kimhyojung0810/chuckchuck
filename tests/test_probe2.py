@@ -224,3 +224,124 @@ def test_조건이_가까운_장이나_같은_낱말이면_받는다():
     assert "개인에 따라 효과가 다를 수 있어요" in P.probe_code_gist(AB, LABELS, near)
     far_same_word = {5: S[5], 11: "부록\n자유형 속도는 사람마다 다를 수 있습니다"}
     assert "사람마다 다를 수 있어요" in P.probe_code_gist(AB, LABELS, far_same_word)
+
+
+# ===========================================================================
+# 3. 우리 분석 말 · 4. 두 물음 · 6. 긴장 꼴 — 코드
+# ===========================================================================
+
+def test_우리_분석_말은_자료가_쓰지_않을_때만_걸린다():
+    assert P.jargon_terms("이 주장의 경계는 무엇인가요?", "새벽 수영반 운영 개선") == ["경계"]
+    assert P.jargon_terms("두 표현 사이의 긴장은 어떻게 풀리나요?", "") == ["긴장"]
+    assert P.jargon_terms("이 probe 의 답은?", "") == ["probe"]
+    assert P.jargon_terms("국경의 경계는 어떻게 정했나요?", "국경의 경계를 다시 긋는다") == []
+    assert P.jargon_terms("근육 긴장을 푸는 방법은 무엇인가요?", "근육 긴장 완화 체조") == []
+    assert P.jargon_terms("「모든」이라고 단정할 수는 없어요", "") == []
+
+
+@pytest.mark.parametrize("text,head,tail", [
+    ("주차 공간 부족을 개선하는 방법은 무엇이며, 추운 탈의실과는 어떤 차이가 있나요?",
+     "주차 공간 부족을 개선하는 방법은 무엇인가요?", "추운 탈의실과는 어떤 차이가 있나요?"),
+    ("주차 공간 부족이 출석 유지율과 어떻게 연결되며, 주차를 개선할 방법은 무엇인가요?",
+     "주차 공간 부족이 출석 유지율과 어떻게 연결되나요?", "주차를 개선할 방법은 무엇인가요?"),
+    ("재등록률을 올린다고 볼 근거는 무엇이며, 강사와의 관계는 어떻게 되는지 설명해 주세요.",
+     "재등록률을 올린다고 볼 근거는 무엇인가요?", "강사와의 관계는 어떻게 되는지 설명해 주세요."),
+    ("강습 시간이 왜 중요하고, 어떻게 늘리나요?", "강습 시간이 왜 중요하나요?", "어떻게 늘리나요?"),
+    ("등록 인원이 무엇인지, 그리고 왜 늘었는지 설명해 주세요.", "등록 인원이 무엇인가요?", "왜 늘었는지 설명해 주세요."),
+])
+def test_한_문장에_두_물음을_가른다(text, head, tail):
+    assert P.split_asks(text) == [head, tail]
+
+
+@pytest.mark.parametrize("text", [
+    "어떻게 보면 수강생 수도 출석 유지율의 요소이며, 그렇다면 둘 중 어느 쪽이 더 중요한가요?",
+    "무엇보다 중요한 요소이며, 그 까닭은 자료 2장에 있나요?",
+    "무엇을 배우느냐에 따라 속도가 달라지며, 이 차이는 왜 생기나요?",
+    "누구나 쓸 수 있으며, 대여료는 얼마인가요?",
+    "언제나 붐비는 시간대이며, 대기 시간은 어떻게 줄이나요?",
+    "출석 유지율이 왜 중요한지 자료 2장을 근거로 설명해 주세요.",
+    "「새벽반만 등록하면 누구나 …」라고 했는데, 이 말이 들어맞지 않는 경우도 있나요?",
+    "수강생 수도 출석 유지율의 요소인데, 출석 유지율이 수강생 수보다 중요하다는 건 어떤 뜻인가요?",
+    "추운 탈의실에는 해결책을 제시했는데, 주차 공간 부족은 어떻게 개선하나요?",
+    "등록 인원과 출석률 중 하나만 챙길 수 있다면, 출석 유지율에는 어느 쪽이 더 중요한가요?",
+    "학생이 스스로 계획하며, 교사는 어떤 역할을 하나요?",
+])
+def test_물음_낱말처럼_생긴_관용과_전제_절은_두_물음이_아니다(text):
+    assert P.split_asks(text) == [text]
+
+
+def test_긴장_서술어는_비교_줄에서_여러_낱말_앞말도():
+    t = Probe(kind="tension", node_ids=["keep", "heads"], claim_ids=["c1", "c2"],
+              evidence=[q(1, "수강생 수보다 중요한 출석 유지율"), q(2, "출석 유지율 = 등록 인원 × 출석률 × 재등록률")])
+    assert P.tension_pred(t) == "중요하다"
+    assert P.probe_question(t, LABELS, {n.id: n for n in GRAPH.nodes}, CLAIMS) == \
+        "수강생 수도 출석 유지율의 요소인데, 출석 유지율이 수강생 수보다 중요하다는 건 어떤 뜻인가요?"
+    wide = Probe(kind="tension", node_ids=["keep", "heads"], evidence=[q(1, "수강생 수보다 넓은 개념인 출석 유지율")])
+    assert P.tension_pred(wide) == "넓다"
+    less = Probe(kind="tension", node_ids=["keep", "heads"], evidence=[q(1, "수강생 수보다 적은 출석 유지율")])
+    assert P.tension_pred(less) == ""                    # 작은 쪽 서술어는 템플릿 방향과 어긋난다 — 폴백
+
+
+# ===========================================================================
+# F-08 을 통째로 — 질문 문장·골자·자리 (LLM 은 정해 둔 응답)
+# ===========================================================================
+
+def triage(*marks: tuple[str, str]) -> QaTriage:
+    return QaTriage(file_name="swim.pdf", total_slides=7, model="scripted", marks=[
+        TriageMark(node_id=nid, rank=i, severity=1, trap=False, source=src, doc_weight=1.0)
+        for i, (nid, src) in enumerate(marks, 1)])
+
+
+def build(questions, marks, *, track="10", claims=CLAIMS):
+    saved = f08.QA_TRACK_TRAPS
+    f08.QA_TRACK_TRAPS = {k: 0 for k in saved}
+    try:
+        doc = build_questions(GRAPH, triage(*marks), track=track, slidedoc=DECK, claims=claims,
+                              llm=ScriptedLLM(questions))
+    finally:
+        f08.QA_TRACK_TRAPS = saved
+    return doc
+
+
+def item(nid, question, gist="자료 1장의 줄로 설명해요.", why="이 개념을 확인하는 질문이에요.", hint="자료를 다시 보세요."):
+    return {"node_id": nid, "question": question, "answer_gist": gist, "why": why, "hint": hint}
+
+
+def test_우리_분석_말이_샌_탐침_질문은_정해진_문장이다():
+    doc = build([item("crawl", "새벽반만 등록하면 자유형을 완벽하게 익힌다는 주장의 경계는 무엇인가요?")],
+                [("crawl", "core_weight")])
+    q1 = next(x for x in doc.questions if x.node_id == "crawl")
+    assert "question_jargon" in q1.basis.checks and "probe_template" in q1.basis.checks
+    assert "경계" not in q1.question and q1.question.endswith("이 말이 들어맞지 않는 경우도 있나요?")
+
+
+def test_두_물음이면_근거에_묶인_물음만_남긴다():
+    doc = build([item("park", "주차 공간 부족을 개선하는 방법은 무엇이며, 추운 탈의실과는 어떤 차이가 있나요?")],
+                [("park", "core_weight")])
+    q1 = next(x for x in doc.questions if x.node_id == "park")
+    assert q1.question == "주차 공간 부족을 개선하는 방법은 무엇인가요?"
+    assert "two_asks_split" in q1.basis.checks and q1.answer_gist_parts == []
+
+
+def test_두_물음_가운데_뒤_물음만_근거에_묶이면_뒤_물음():
+    doc = build([item("park", "주차 공간 부족이 출석 유지율과 어떻게 연결되며, 주차를 개선할 방법은 무엇인가요?")],
+                [("park", "core_weight")])
+    q1 = next(x for x in doc.questions if x.node_id == "park")
+    assert q1.question == "주차를 개선할 방법은 무엇인가요?" and "two_asks_split" in q1.basis.checks
+
+
+def test_두_물음이_다_근거에서_벗어나면_탐침_템플릿():
+    doc = build([item("park", "주차 공간 부족이 출석 유지율과 어떻게 연결되며, 강사 교육은 어떻게 하나요?")],
+                [("park", "core_weight")])
+    q1 = next(x for x in doc.questions if x.node_id == "park")
+    assert "two_asks_dropped" in q1.basis.checks and "probe_template" in q1.basis.checks
+    assert q1.question == "추운 탈의실에는 해결책을 제시했는데, 주차 공간 부족은 어떻게 개선하나요?"
+
+
+def test_긴장_질문은_탐침_꼴을_통과한_LLM_문장이어도_한_꼴이다():
+    doc = build([item("keep", "수강생 수보다 중요한 출석 유지율이라는 표현과 출석 유지율 = 등록 인원 × 출석률 × 재등록률이라는 "
+                              "공식이 함께 성립하는 의미는 무엇인가요?")],
+                [("keep", "core_weight")])
+    q1 = next(x for x in doc.questions if x.node_id == "keep")
+    assert q1.question == "수강생 수도 출석 유지율의 요소인데, 출석 유지율이 수강생 수보다 중요하다는 건 어떤 뜻인가요?"
+    assert "tension_clean_form" in q1.basis.checks

@@ -46,12 +46,14 @@ from ._match import norm_tokens
 from ._probes import (
     as_claims,
     derive_probes,
+    jargon_terms,
     mentions,
     probe_code_gist,
     probe_hint,
     probe_question,
     probe_shaped,
     probe_why,
+    split_asks,
     tension_terms,
 )
 from ._probes import josa as _probe_josa
@@ -327,7 +329,7 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
    설명하지 못했을 **개념 사이의 관계·조건·우선순위**를 물어라.
    (예) "대기 시간이 한 번만 길어도 재방문이 줄어드나요, 아니면 여러 번 쌓여야 줄어드나요?"
 3-5. 「주제:」 줄이 붙은 개념은 발표 전체의 주장이다. 자료의 두 문구를 이어 붙여 "…를 바탕으로 설명해 주세요" 로
-   **주장을 되읊게 하지 마라.** 주장이 성립하는 조건·경계·반례, 또는 자료 안에서 **서로 부딪히는 표현**
+   **주장을 되읊게 하지 마라.** 주장이 들어맞는 조건이나 들어맞지 않는 경우, 또는 자료 안에서 **서로 부딪히는 표현**
    (예: "X보다 중요하다" 면서 X 를 요소로 넣음)을 한 가지 골라 물어라.
    (X) 만족도가 가격보다 중요한 이유를 세 가지 요소(가격, 맛, 분위기)를 바탕으로 설명해 주세요.
    (O) 가격도 만족도의 요소인데, 만족도가 가격보다 중요하다는 건 어떤 뜻인가요?
@@ -2463,7 +2465,7 @@ def _build_question_prompt(
         if relation:
             parts.append(f"    {relation}")
         if node.parent_id is None and node.depth == 1:
-            parts.append("    주제: 발표 전체의 주장이다 — 되읊게 하지 말고 조건·경계·부딪히는 표현을 물어라 (규칙 3-5)")
+            parts.append("    주제: 발표 전체의 주장이다 — 되읊게 하지 말고 그 주장이 들어맞는 조건이나 서로 부딪히는 표현을 물어라 (규칙 3-5)")
         tp = (trap_of or {}).get(node.id)
         if tp is not None:
             parts.append(f"    함정 전제: 「{tp.premise}」 ← 이 전제를 질문 문장에 글자 그대로 얹어 맞는 말처럼 물어라."
@@ -3624,6 +3626,8 @@ def _why_ok(why: str, question: str, gist: str, idx) -> bool:
     w = (why or "").strip()
     if not w or len(w) > WHY_MAX or not _HAEYO_END_RE.search(w) or _WHY_FRAGMENT_RE.search(w.rstrip(" .요")):
         return False
+    if jargon_terms(w, idx.text if idx is not None else ""):
+        return False       # 우리 분석 말(「경계·탐침」)이 샌 이유 줄 (09-30 WP-P2)
     if _leaks(w, gist, question, WHY_LEAK_SHARE):
         return False
     wn = _nouns(w)
@@ -3657,7 +3661,7 @@ def _hint_ok(hint: str, question: str, gist: str, anchors: list[int], idx) -> bo
     """LLM 힌트(사다리 1단)를 둘 수 있는가 — 해요체 권유로 끝나고, 답을 흘리지 않고, 질문의 근거 장 밖을 가리키지 않고,
     자료에 없는 연구·통계를 찾으라 하지 않는다 (09-30 held-out M-06: 1단이 곧 정답 식, 「5장에 인용된 연구를 찾아보세요」 는 6장)."""
     h = (hint or "").strip()
-    if not h or not _HAEYO_END_RE.search(h):
+    if not h or not _HAEYO_END_RE.search(h) or jargon_terms(h, idx.text if idx is not None else ""):
         return False
     if _leaks(h, gist, question, HINT_LEAK_SHARE):
         return False
@@ -3739,6 +3743,14 @@ def _recited_lines(question: str, anchors: list[int], idx) -> list[str]:
     return out
 
 
+def _bound_to_basis(text: str, probe: Probe | None, node: ConceptNode, by_id: dict[str, ConceptNode]) -> bool:
+    """물음 하나가 **이 질문의 근거**에 묶였는가 — 탐침이면 탐침 개념을 부르고 탐침 꼴이다, 아니면 개념 이름을 부른다."""
+    if probe is not None:
+        labels = {i: (by_id[i].label if i in by_id else i) for i in probe.node_ids}
+        return bool(_probe_mentions(text, probe, labels)) and probe_shaped(text, probe)
+    return _mentions_loosely(text, node.label, [])
+
+
 def _label_vocab(by_id: dict[str, ConceptNode]) -> set[str]:
     """그래프 라벨의 낱말 줄기 — 「자료 어디에도 없는 낱말」 판단에 더한다 (라벨은 자료를 읽고 지은 이름이다)."""
     return {grounding.stem(w) for n in by_id.values() for w in grounding.words(n.label or "")}
@@ -3792,6 +3804,7 @@ def _normalize_questions(
     labels_all = {i: n.label for i, n in by_id.items()}
     labels_list = [n.label for n in by_id.values() if n.label]
     slides_text = {no: s.raw_text or "" for no, s in (by_no or {}).items()}
+    deck_all = "\n".join(slides_text.values())
     # 되읊은 자료 줄 — 한 줄은 한 질문만 (09-30 held-out M-04). 함정이 뒤집은 사실 줄도 넣는다: 다른 질문이 그 줄을 되읊으면
     # 함정의 답이 옆 질문에서 보인다.
     recited_seen: set[str] = set()
@@ -3855,6 +3868,20 @@ def _normalize_questions(
         if written_q and raw.get("_paper_stripped") and grounding.paper_residue(written_q, idx, paper_texts, novel=True):
             written_q = ""
             checks.append("paper_residue_dropped")
+        # 한 문장에 두 물음 (09-30 WP-P2) — 질문의 근거(탐침 꼴·개념 이름)에 묶인 물음 하나만 남긴다. 어느 쪽도 안 묶였으면
+        # 정해진 문장이다(아래 `or`). 함정·모순 질문은 전제·발화를 얹은 문장이라 가르지 않는다.
+        split_one = False
+        if written_q and tp is None and contra is None:
+            asks = split_asks(written_q)
+            if len(asks) >= 2:
+                bound = next((a for a in asks if a and _bound_to_basis(a, probe, node, by_id)), "")
+                checks.append("two_asks_split" if bound else "two_asks_dropped")
+                written_q, split_one = bound, bool(bound)
+        # 우리 분석 말(「경계·탐침·긴장」 — 자료가 스스로 쓰지 않는 말)이 샌 질문은 정해진 문장으로 (09-30 WP-P2: 「…주장의 경계는
+        # 무엇인가요?」). 탐침은 탐침 템플릿, 함정·모순은 제 템플릿, 나머지는 폴백 문장이 된다.
+        if written_q and jargon_terms(written_q, deck_all):
+            checks.append("question_jargon")
+            written_q = ""
         if written_q and not trap:
             undercut = _undercut_question(written_q, node)
             if undercut != written_q:
@@ -3955,6 +3982,14 @@ def _normalize_questions(
             if hit and not probe_shaped(written_q, probe):
                 checks.append("probe_shape_mismatch")
                 hit = ""
+            if hit and probe.kind == "tension" and all(tension_terms(probe)):
+                # 긴장 질문은 언제나 한 꼴 — 「B도 A의 요소인데, A가 B보다 ○○하다는 건 어떤 뜻인가요?」 (09-30 WP-P2). 탐침 꼴 검사를
+                # 통과한 LLM 문장도 「…라는 표현과 … ÷ 100이라는 공식이 함께 성립하는 의미는」「…모순은 어떻게 해결되나요?」 처럼 덱마다
+                # 달랐다. 비교 줄에서 두 쪽을 읽을 수 있을 때만 — 못 읽으면 그래프 이름이 자료의 말과 달라 LLM 문장이 낫다.
+                clean = probe_question(probe, labels, by_id, claims)
+                if clean and clean != written_q:
+                    written_q = clean
+                    checks.append("tension_clean_form")
             if hit:
                 checks.append("mentions_probe_nodes" if hit == "all" else "mentions_probe_nodes_partial")
             else:
@@ -4032,6 +4067,10 @@ def _normalize_questions(
             if len(kept) != len(grounding.sentences(written_gist)):
                 checks.append("gist_paper_stripped")
                 written_gist = " ".join(kept)
+        # 우리 분석 말(「경계·탐침」)이 샌 골자는 모범답이 못 된다 (09-30 WP-P2) — 근거 장 자료 줄로 다시 쓴다.
+        if written_gist and tp is None and probe is None and contra is None and jargon_terms(written_gist, deck_all):
+            written_gist = ""
+            checks.append("gist_jargon")
         # 골자 근거 검사 — 숫자의 주어·비교·표의 행 (`_grounding.gist_problems`). 떨어지면 근거 장 자료 줄로 다시 쓴다.
         problems = grounding.gist_problems(written_gist, idx)
         if problems:
@@ -4148,9 +4187,9 @@ def _normalize_questions(
             and not grounding.gist_problems(p, idx)
         ]
         # 골자가 템플릿·자료 줄로 떨어졌으면 LLM 의 요소도 같은 출처다 — 지어낸 골자의 조각을 요소로 남기지 않는다.
-        if not written_gist:
-            parts = []
-        if len(parts) < 2 and _asks_multiple(question_text):
+        if not written_gist or split_one:
+            parts = []       # 두 물음 가운데 하나만 남긴 질문이면 요소도 하나다 — LLM 요소는 버린 물음의 것까지 담았다
+        if len(parts) < 2 and _asks_multiple(question_text) and not split_one:
             parts = _split_gist_parts(gist)
         if tp is not None or contra is not None:
             parts = []       # 함정·모순의 답은 하나다 — 전제(발표에서 한 말)를 자료로 바로잡는 것

@@ -303,7 +303,9 @@ def _unsupported_cause(graph_by: dict[str, ConceptNode], claims: list[Claim]) ->
             kind="unsupported_cause",
             node_ids=nodes,
             claim_ids=[c.id],
-            angle=f"「{said}」는 인과를 말하지만 그 줄에 수치·출처가 없다 — 그렇게 볼 수 있는 근거를 묻는다",
+            # 「인과」 는 우리 분석 말이다 — 각도에 쓰면 질문이 「인과적 효과를 가진다고 볼 수 있는 근거」 가 됐다 (09-30 standard)
+            angle=f"「{said}」{_quote_josa(said, '은', '는')} 원인과 결과를 말하지만 그 줄에 수치나 출처가 없다 — "
+                  f"그렇게 볼 수 있는 근거를 묻는다",
             evidence=_evidence_of(c),
         ))
     return out
@@ -530,7 +532,9 @@ def probe_question(probe: Probe, labels: dict[str, str], graph_by: dict[str, Con
         big, part = tension_terms(probe)
         a, b = (big or lab[0]), (part or lab[1])
         compare = claims.claim(probe.claim_ids[0]) if claims is not None and probe.claim_ids else None
-        pred = _compare_pred(compare, b) if compare is not None else _pred_from_quotes(probe, b)
+        # 서술어도 비교 줄에서 — 「탄수화물 양보다 중요한」 의 앞말은 여러 낱말이라 한 낱말만 보는 `_compare_pred` 가 「양」 을
+        # 「탄수화물 양」 과 못 맞춰 「더 중요하다」 폴백이 났다 (09-30 standard 혈당).
+        pred = tension_pred(probe) or (_compare_pred(compare, b) if compare is not None else _pred_from_quotes(probe, b))
         text = f"{b}도 {a}의 요소인데, {josa(a, '이', '가')} {b}보다 {pred}는 건 어떤 뜻인가요?"
     elif probe.kind == "unsolved" and len(lab) >= 2:
         text = f"{lab[1]}에는 해결책을 제시했는데, {josa(lab[0], '은', '는')} 어떻게 개선하나요?"
@@ -884,6 +888,88 @@ def probe_shaped(text: str, probe: Probe) -> bool:
     return all(rx.search(t) for rx in _SHAPE.get(probe.kind, ()))
 
 
+# ---------------------------------------------------------------------------
+# 우리 분석 말 거르기 — 질문은 발표자에게 그대로 읽어 줄 말이다 (09-30 WP-P2)
+# ---------------------------------------------------------------------------
+
+#: 탐침 각도·프롬프트·코드 이름에서 새어 나온 말. 09-30 standard: 「…반드시 발생한다는 주장의 경계는 무엇인가요?」 — 각도의
+#: 「경계」 가 질문이 됐다. 영문은 코드 이름(probe·trap·tension …)이 그대로 샌 것이다.
+_JARGON_RE = re.compile(
+    r"경계|탐침|긴장|함정|형제\s*요소|노드|트리아지|"
+    r"(?<![A-Za-z])(?:probe|trap|tension|boundary|absolute|unsolved|unsupported|sibling|triage|gist|node_id|slot)(?![A-Za-z])",
+    re.I)
+
+
+# ---------------------------------------------------------------------------
+# 한 문장에 두 물음 — 질문의 근거에 묶인 물음 하나만 남긴다 (09-30 WP-P2)
+# ---------------------------------------------------------------------------
+# 09-30 standard: 「야간 폭식을 개선하는 방법은 무엇이며, 식후 졸림과는 어떤 차이가 있나요?」(빈칸 탐침) · 「…근거는 무엇이며, 보증
+# 가입 장벽과의 관계는 어떻게 되는지 설명해 주세요」(근거 없는 인과) · 「…어떻게 연결되며, …방법은 무엇인가요?」. 프롬프트 규칙 5-1
+# (한 가지만)은 부탁일 뿐이라 코드가 가른다. 물음 낱말이 든 앞 절이 이음 어미(「…며,」「…고,」「…인지,」)로 끝나고 뒤 절도 물음이면
+# 두 물음이다. 물음 낱말처럼 생긴 관용(「어떻게 보면」「무엇보다」「누구나」「무엇을 …느냐에 따라」)은 물음이 아니다.
+
+_ASK_WORD_RE = re.compile(r"(?<![가-힣])(?:무엇|무슨|어떤|어떻게|어째서|왜|얼마|누가|누구|어디|언제|몇)")
+_ASK_IDIOM_RE = re.compile(
+    r"어떻게\s*보면|어떻게든|무엇보다|무엇이든|무엇이나|누구나|누구든|언제나|언제든|어디서든|어디든|얼마든지|어떤\s*경우(?:에도|든|라도)|"
+    r"(?:무엇|무슨|어떤|어떻게|얼마|누가|누구|어디|언제)[^,.?]{0,20}?(?:느냐|는지|은지|인지|든지|이든|든)\s*"
+    r"(?:에\s*따라|와\s*상관없이|과\s*상관없이|에\s*관계없이)")
+#: 앞 물음을 잇는 끝 — 「…무엇이며,」「…연결되며,」「…있으며,」「…중요하고,」「…무엇인지,」.
+_ASK_JOIN_RE = re.compile(r"(이며|이고|인지|한지|는지|은지|으며|며|고)\s*,\s*")
+#: 뒤 절이 물음인가 — 물음 낱말 또는 물음 어미.
+_ASK_END_RE = re.compile(r"(?:나요|가요|까요|죠|습니까|니까)\s*[?？]?\s*$|[?？]\s*$")
+_LEAD_CONJ_RE = re.compile(r"^(?:그리고|또한|또|아울러|그렇다면|그럼|그러면)\s*,?\s*")
+
+
+def _asks(text: str) -> bool:
+    return bool(_ASK_WORD_RE.search(_ASK_IDIOM_RE.sub(" ", text or "")))
+
+
+def _head_question(head: str, join: str) -> str:
+    """이음 어미로 끝난 앞 물음 → 해요체 물음 한 문장. 옮길 수 없으면 ""."""
+    h = head.rstrip()
+    if join in ("이며", "이고", "인지"):
+        return f"{h}인가요?"
+    if join == "한지":
+        return f"{h}한가요?"
+    if join == "은지":
+        return f"{h}은가요?"
+    if join in ("는지", "으며", "며", "고"):
+        return f"{h}나요?" if h and "가" <= h[-1] <= "힣" else ""
+    return ""
+
+
+def split_asks(text: str) -> list[str]:
+    """
+    한 문장에 물음이 둘이면 [앞 물음, 뒤 물음] (각각 해요체 물음 한 문장), 아니면 [text].
+    앞 절의 이음 어미를 물음 어미로 바꾼다(「무엇이며」→「무엇인가요?」, 「연결되며」→「연결되나요?」). 못 바꾸면 앞 물음은 "".
+    """
+    t = (text or "").strip()
+    for m in _ASK_JOIN_RE.finditer(t):
+        head, tail = t[: m.start()], t[m.end():].strip()
+        if not tail or not _asks(head + m.group(1)):
+            continue
+        if not (_asks(tail) or _ASK_END_RE.search(tail)):
+            continue
+        return [_head_question(head, m.group(1)), _LEAD_CONJ_RE.sub("", tail)]
+    return [t]
+
+
+def jargon_terms(text: str, deck_text: str = "") -> list[str]:
+    """
+    글에 든 **우리 분석 말** — 자료(deck_text)에도 나오는 말은 뺀다. 「국경의 경계」「근육 긴장」 처럼 발표가 스스로 쓰는 낱말은 우리
+    말이 아니라 자료의 말이다. 빈 목록이면 걸린 것이 없다.
+    """
+    deck = re.sub(r"\s+", "", deck_text or "").lower()
+    out: list[str] = []
+    for m in _JARGON_RE.finditer(text or ""):
+        word = m.group(0)
+        if re.sub(r"\s+", "", word).lower() in deck:
+            continue
+        if word not in out:
+            out.append(word)
+    return out
+
+
 def tension_terms(probe: Probe) -> tuple[str, str]:
     """긴장 탐침의 (큰 쪽, 요소 쪽) 을 **자료의 말 그대로** — 비교 줄에서. 못 찾으면 ("", "")."""
     for e in probe.evidence:
@@ -891,6 +977,36 @@ def tension_terms(probe: Probe) -> tuple[str, str]:
         if sides:
             return sides[1], sides[0]
     return "", ""
+
+
+#: 비교 서술어의 관형형 → 「…다」 꼴. 「중요한→중요하다」「넓은→넓다」「큰→크다」. 모르는 꼴은 "" (호출자가 폴백).
+_ADN_TO_PLAIN = (("한", "하다"), ("은", "다"))
+
+
+def _plain_pred(p: str) -> str:
+    p = (p or "").strip()
+    if not p or R.less_predicate(p):
+        return ""                      # 「X보다 적은 Y」 는 큰 쪽이 X 다 — 템플릿의 「A가 B보다 …」 와 방향이 어긋난다
+    if p == "큰":
+        return "크다"
+    for tail, repl in _ADN_TO_PLAIN:
+        if p.endswith(tail) and len(p) > len(tail):
+            return p[: -len(tail)] + repl
+    return ""
+
+
+def tension_pred(probe: Probe) -> str:
+    """긴장 탐침 비교 줄의 서술어 — 「X보다 중요한 Y」 → 「중요하다」. 비교 줄 꼴(`_THAN_TITLE_RE`)이 아니면 ""."""
+    for e in probe.evidence:
+        text = (e.quote or "").strip()
+        if not compare_sides(text):
+            continue
+        m = _THAN_TITLE_RE.search(text)
+        if m:
+            got = _plain_pred(m.group("p"))
+            if got:
+                return got
+    return ""
 
 
 def _q(text: str, limit: int = 50) -> str:

@@ -488,6 +488,11 @@ _NEG_TAIL_RE = re.compile(r"지\s*(?:는|도|가)?\s*(?:않|못)|(?:는|은)\s*�
 _CMP_QUOTE_RE = re.compile(r"[\"'“”‘’「」『』()\[\]]")
 
 
+def less_predicate(pred: str) -> bool:
+    """비교 서술어가 작은 쪽을 말하는가 (「적은·낮은·짧은·못한」)."""
+    return bool(_LESS_PRED_RE.match(pred or ""))
+
+
 def _less(adv: str, pred: str, rest: str) -> bool:
     """작은 쪽 비교인가 — 「덜」, 작은 쪽 서술어, 서술어 부정 중 홀수 개 (「작지 않다」 는 두 번 뒤집혀 큰 쪽이다)."""
     flags = ["덜" in (adv or "").split(), bool(_LESS_PRED_RE.match(pred or "")), bool(_NEG_TAIL_RE.search((pred or "") + (rest or "")))]
