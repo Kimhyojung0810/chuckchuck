@@ -83,6 +83,10 @@ def main() -> None:
     ev = "앞문까지 다 열 필요는 없다는 거죠. 맞통풍은 한쪽 환기보다 농도가 2배 빨리 떨어집니다."
     kept = A.resolve_evidence(ev, node, utterances(tr))
     print(f"- LLM 인용 «{ev}»\n  → resolve_evidence 결과 «{kept}» (뒤 문장은 녹음에 없다 — 발표자는 반대로 말했다)")
+    print("\n## 7. 함정 전제의 소수 앞머리 (_traps._clean 의 글머리표 떼기)")
+    from chuckchuck import _traps as T
+    for line in ["0.71 − 0.86 = −0.15점", "1.5배 늘었습니다", "2.4% 줄었습니다"]:
+        print(f"- _clean({line!r}) = {T._clean(line)!r}")
 
 
 if __name__ == "__main__":
