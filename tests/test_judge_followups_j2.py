@@ -14,6 +14,7 @@
 """
 
 import json
+import re
 
 import pytest
 
@@ -170,9 +171,13 @@ def test_빈틈_탐침에_빈틈을_인정하거나_보강_계획을_말한_답�
     first = "자료 3장의 그 말에는 수치나 출처가 없어요 — 근거가 아직 없다는 점을 인정하고요."
     one = judge_answer(CAUSE_Q, first, graph=LIB_GRAPH, slidedoc=LIB, llm=llm)
     assert one.guard == "" and one.verdict == "partial"
-    for second in ("그리고 어떤 자료(설문·통계·비교)로 보강할지 말하는 게 답이에요.", "설문조사로 보강할게요."):
-        two = judge_answer(CAUSE_Q, second, graph=LIB_GRAPH, slidedoc=LIB, prior_answers=[first], llm=llm)
-        assert two.guard != "off_topic" and two.verdict == "partial" and two.score == 75, second
+    # 09-30 WP-J3: 빈틈을 정직하게 인정한 답의 등급은 코드가 정한다 — 인정만 하면 70(한 걸음 더), 채울 계획을 다짐하면 good.
+    # 「어떤 자료로 보강할지 말하는 게 답이에요」 는 다짐이 아니라 말에 대한 말이라 인정만 한 것과 같다.
+    two = judge_answer(CAUSE_Q, "그리고 어떤 자료(설문·통계·비교)로 보강할지 말하는 게 답이에요.", graph=LIB_GRAPH, slidedoc=LIB,
+                       prior_answers=[first], llm=llm)
+    assert two.guard != "off_topic" and two.verdict == "partial" and two.score == 70
+    two = judge_answer(CAUSE_Q, "설문조사로 보강할게요.", graph=LIB_GRAPH, slidedoc=LIB, prior_answers=[first], llm=llm)
+    assert two.guard != "off_topic" and two.verdict == "good" and two.passed
 
 
 def test_이음말이_있어도_앞_턴이_질문과_무관했으면_누적으로_봐주지_않는다():
@@ -269,7 +274,13 @@ def test_자료_줄로_조립한_골자의_합쇼체는_발판과_해설에서_�
                  answer_gist="자료는 이렇게 말해요 — 적색광 조건의 잎 면적이 청색광보다 39% 넓었습니다 (5장)")
     deck_text = " ".join(s.raw_text for s in PLANT.slides)
     j = _scaffold_judgement(q, PLANT_GRAPH, deck_text)
-    assert j is not None and "습니다" not in j.followup and "넓었어요" in j.followup
+    # 09-30 WP-J3 (standard e2e703b): 자료 줄을 이어 붙인 골자는 가리지 않는다 — 머리말(「자료는 이렇게 말해요 —」)·장 목록째 가린 빈칸이
+    # 자료의 「있습니다」 를 「있어요」 로 바꿨다. 빈칸은 근거 인용(자료 줄)을 **원문 그대로** 「」 안에 두고 그 안의 한 낱말을 가린다.
+    assert j is not None and "이렇게 말해요" not in j.followup and "(5장)" not in j.followup
+    quoted = re.search(r"「([^」]*___[^」]*)」", j.followup).group(1)
+    pre, post = quoted.split("___", 1)
+    assert re.fullmatch(re.escape(pre) + r"\S+?" + re.escape(post), q.evidence_quote)   # 자료 줄 그대로, 한 낱말만 빈칸
+    assert quoted.endswith("넓어진다.")                       # 자료 줄의 말투는 그대로다
     ex = _explain_text(q, "", deck_from_slidedoc(PLANT))
     assert "넓었습니다 (5장)" not in ex and "넓었어요" in ex
 
