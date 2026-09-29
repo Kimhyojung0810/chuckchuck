@@ -5484,8 +5484,10 @@ function realTrophy() {
   const graph = out && out.graph;
   if (!al || !graph) return null;
   const slideOf = {};
+  const itemBy = {};
+  (al.items || []).forEach(i => { itemBy[i.node_id] = i; });
   (graph.nodes || []).forEach(n => {
-    if (n.slide_nos && n.slide_nos.length) slideOf[n.id] = Math.min(...n.slide_nos);
+    if (n.slide_nos && n.slide_nos.length) slideOf[n.id] = judgeSlideOf(n, itemBy[n.id]);
   });
   const withText = (al.items || []).filter(i => (i.suggestion || '').trim() && slideOf[i.node_id]);
   if (!withText.length) return null;
@@ -6716,10 +6718,12 @@ async function openAudience() {
     return;
   }
 
-  // 근거 배지에 슬라이드 번호를 쓰려면 node → slide 매핑이 필요하다
+  // 근거 배지에 슬라이드 번호를 쓰려면 node → slide 매핑이 필요하다 — 모순 개념은 어긋난 장 (REC-16 judgeSlideOf)
   const nodeSlides = {};
+  const itemOf = {};
+  ((bundle.alignment && bundle.alignment.items) || []).forEach(i => { itemOf[i.node_id] = i; });
   (bundle.graph.nodes || []).forEach(n => {
-    if (n.slide_nos && n.slide_nos.length) nodeSlides[n.id] = Math.min(...n.slide_nos);
+    if (n.slide_nos && n.slide_nos.length) nodeSlides[n.id] = judgeSlideOf(n, itemOf[n.id]);
   });
 
   /** 진입 카드의 상태 한 줄. 실패일 때만 판정 색을 입힌다 */
@@ -6923,6 +6927,17 @@ const STATUS_FROM_VERDICT = {
 };
 
 /**
+ * 개념을 어느 장에 세울까 (09-30 녹음 대화 감사 REC-16). 자료와 어긋나게 말한 개념은 어긋난 그 장(F-11 deck_slide_no)에 둔다 —
+ * 개념이 처음 나온 장에 세우면 5장의 모순을 「1번 슬라이드」 에서 찾게 된다. 나머지는 개념이 처음 나온 장이다.
+ */
+function judgeSlideOf(node, item) {
+  const deck = item && item.verdict === 'contradiction' ? Number(item.deck_slide_no) : 0;
+  if (deck >= 1) return deck;
+  const nos = ((node && node.slide_nos) || []).map(Number).filter(no => no >= 1);
+  return nos.length ? Math.min(...nos) : 1;
+}
+
+/**
  * 실제 파이프라인 결과(F-07 그래프 + F-11 판정)를 판정 탭 트리로 옮긴다.
  * 결과가 없으면 null — 호출부가 DATA 샘플로 떨어지고 화면에 그렇게 표시한다.
  * 녹음이 이 자료의 발표가 아니면 정합은 판정을 하지 않았다(basis skipped) — item 이 missing 이어도 「안 나옴」 이 아니라
@@ -6943,7 +6958,7 @@ function realJudgeTree() {
     .map((n) => {
       const it = itemBy[n.id];
       const basis = it.speech_basis || {};
-      const slideNo = (n.slide_nos && n.slide_nos.length) ? Math.min(...n.slide_nos) : 1;
+      const slideNo = judgeSlideOf(n, it);
       return {
         id: n.id,
         label: n.label || n.id,

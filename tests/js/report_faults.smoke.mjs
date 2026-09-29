@@ -61,7 +61,7 @@ function extractBlockConst(src, name) {
 
 const NAMES = ['faultClip', 'reportFaultRows', 'reportFaultHeadline', 'reportFaultsHtml', 'scoreGrade',
   'recordingUnrelated', 'reuploadDimsHtml', 'dimRestRowHtml', 'realJudgeTree', 'judgeSplitHtml', 'judgeLegendHtml',
-  'noEvidenceNote', 'unmeasuredLinesHtml', 'fmtMarkSec'];
+  'noEvidenceNote', 'unmeasuredLinesHtml', 'fmtMarkSec', 'judgeSlideOf'];
 /* 다른 발표 녹음(REC-10)을 그리는 함수들이 기대는 전역 — 리포트 재료(reportOut)만 흉내 내고 나머지는 원본을 잘라 올린다 */
 function load(src = APP_SRC) {
   const ctx = vm.createContext({
@@ -240,6 +240,18 @@ test('채점 근거 — 못 잰 항목은 까닭별로 센다 (다른 발표 녹
   ok(html.includes('1개 항목 — 음향 특징을 뽑지 않아서 이번엔 못 쟀어요'), html);
   ok(html.includes('1개 항목은 채점을 마치지 못해 이번엔 못 쟀어요'), '까닭이 없으면 예전 문구');
   eq(A.unmeasuredLinesHtml([]), '', '없으면 빈 문자열');
+});
+
+/* ── 모순 개념은 어긋난 장에 (09-30 녹음 대화 감사 REC-16) ──────────────────────────────────────── */
+test('모순 개념의 장은 어긋난 그 장(deck_slide_no) — 개념이 처음 나온 장(1번)이 아니다', () => {
+  const graph = { nodes: [{ id: 'avg', label: '평균 농도', slide_nos: [1, 5], weight: 1 }, { id: 'air', label: '교실 공기', slide_nos: [3, 1], weight: 0.5 }] };
+  A.setOut({ graph, score: { score: 59, faults: [] }, alignment: { speech_match: 'matched', basis: 'llm', items: [
+    { node_id: 'avg', verdict: 'contradiction', deck_slide_no: 5, deck_quote: '평균 농도가 40% 낮아졌습니다' },
+    { node_id: 'air', verdict: 'aligned', deck_slide_no: 3 }] } });
+  const tree = A.realJudgeTree();
+  eq(tree.map(t => [t.id, t.status, t.slide]), [['avg', 'ct', 'S05'], ['air', 'ok', 'S01']], '장');
+  eq(A.judgeSlideOf({ slide_nos: [1, 5] }, { verdict: 'contradiction', deck_slide_no: null }), 1, '어긋난 장을 모르면 처음 나온 장');
+  eq(A.judgeSlideOf({ slide_nos: [] }, null), 1, '장이 없으면 1');
 });
 
 /* ── 하네스 자기 검사 — 헤드가 결함을 무시하도록 원본을 망가뜨리면 위 케이스가 떨어져야 한다 ─────────── */
