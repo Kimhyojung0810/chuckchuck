@@ -66,3 +66,21 @@ exports/qa_eval/
 exports/graph_eval/
 labs/qa_call/out/
 labs/qa_lab/out/
+
+# 덱 폴더(ppt/<덱>/) — 위 규칙대로 PDF 만 올린다. PPTX·녹음·클로바 전사·대본은 로컬에만 (2026-09-29, ppt/README.md)
+ppt/**/*.pptx
+ppt/**/*.txt
+ppt/**/*.docx
+ppt/**/*.m4a
+ppt/**/*.mp3
+ppt/**/*.wav
+ppt/**/*.webm
+ppt/**/*.ogg
+ppt/**/*.aac
+ppt/**/*.flac
+ppt/**/*.mp4
+labs/test_qa/out/
+labs/temp_flow/out/
+# 분석 자료 폴더의 전사·파싱본 — 발표자 음성 전문·덱 본문이다. 스크립트로 다시 만든다 (2026-09-29)
+docs/review/**/transcript_*.json
+docs/review/**/slidedoc_*.json
