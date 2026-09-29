@@ -25,6 +25,7 @@ import re
 import sys
 from itertools import groupby
 
+from . import _grounding as grounding
 from ._evidence import (
     anchor_slides,
     best_quote,
@@ -32,11 +33,13 @@ from ._evidence import (
     find_citations,
     mask_gist,
     neighbor_lines,
-    quote_for,
+    ranked_quotes,
     section_line,
 )
 from ._json_text import extract_json_object
+from ._match import norm_tokens
 from ._probes import as_claims, derive_probes, mentions, probe_question, probe_why
+from ._probes import josa as _probe_josa
 from ._speech import to_haeyo, ungrounded_numbers
 from .contracts import (
     PROBE_KINDS,
@@ -256,9 +259,14 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
   "이렇게 답했어야 한다" 로 보여 줄 내용이다. **자료에 있는 내용만** 쓰고 지어내지 마라.
   질문이 아니라 답을 써라 — 물음표로 끝나면 안 된다.
   **개념에 「자료 본문」 줄이 붙어 있으면 거기 있는 말로만 쓴다.** 그 줄에 없는
-  사실·용어·수치를 보태지 마라. 자료엔 "약 90–110분" 만 있는데 "뇌파 측정을 통해
+  사실·용어·수치를 보태지 마라. 자료엔 "주 3회" 만 있는데 "임상 시험으로
   입증되었으며" 라고 쓰는 것이 정확히 금지되는 것이다 — 발표자가 방어할 수 없는
   답이 된다. 본문 줄이 없는 개념은 요약과 발표에서 한 말까지만 쓴다.
+  **숫자는 자료에서 그 숫자가 붙은 대상 그대로 쓴다.** 표의 「그룹 A | 71%」 를 다른 그룹의 값으로 옮기지 마라.
+  **자료가 말하지 않은 서열·비교(「X 가 더 중요」·「가장 큰 요인」)를 만들지 마라.** 자료가 「A = B × C」 처럼
+  나란히 두기만 했으면 골자도 나란히 둔다.
+  **trap=true 질문의 골자는 전제에 동의하지 않는다.** 질문이 얹은 어긋난 주장을 뒤집는 **자료의 사실**을 쓴다
+  (「자료는 X 가 아니라 Y 라고 해요」 꼴).
   **근거는 자료 본문이나 발표에서 한 말에서만 든다.** "경로에 …로 표시되어 있다"
   처럼 우리가 준 배경을 근거로 인용하지 마라 — 발표자는 그걸 본 적이 없어서
   그 답은 애초에 쓸 수 없는 답이 된다.
@@ -269,6 +277,9 @@ QUESTION_SYSTEM_PROMPT = """당신은 발표 심사위원이다.
 
 trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 질문으로 쓴다
 ("~라고 했는데, 사실 반대 아닌가요?" 꼴). trap=false 면 그냥 묻는다.
+- trap_premise: trap=true 질문이면 질문 문장 안에 얹은 **어긋난 주장 한 절을 질문에 쓴 글자 그대로** 옮긴다.
+  자료 줄을 그대로 옮긴 말은 어긋난 주장이 아니다 — 자료의 수치·비교·인과·조건 **하나를 바꿔서** 얹어라.
+  trap=false 면 "" 이다. 코드가 이 절이 질문에 있는지, 자료와 정말 어긋나는지 대조한다 — 아니면 함정 표시를 뗀다.
 
 규칙:
 1. questions 에는 '질문 대상' 의 node_id 만 쓴다. 지어내면 버려진다.
@@ -280,20 +291,24 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
    우리가 자료를 읽고 추론한 것이지 발표자가 만든 것이 아니다.
    관계를 묻고 싶으면 배치가 아니라 **내용**으로 물어라.
    (X) 왜 다른 정렬 방식 대신 이 방식을 선택했나요?
-   (O) 회복이 신체적인 것과 정신적인 것을 모두 포함한다면, 둘 중 어느 쪽이
-       수면의 질에 더 크게 좌우되나요?
+   (O) 만족도가 맛과 분위기를 모두 포함한다면, 둘 중 어느 쪽이 재방문에 더 크게
+       좌우되나요?
 3-2. **발표자에게 직접 묻는다.** "발표자는 어떻게 설명했나요" 처럼 발표자를 3인칭으로 부르지 마라.
    주어를 빼거나 "발표에서" 로 쓴다.  (X) 발표자는 이 공식을 어떻게 설명했나요?  (O) 이 공식을 어떻게 설명했나요?
 3-3. **"왜 A 를 B 보다 먼저 말했나" 같은 순서 질문은 「흐름(order_jump):」 줄이 붙은 개념에만** 쓴다. 그 줄이 없으면
    순서가 문제라는 근거가 없다 — 순서 대신 그 개념의 내용·근거·한계를 물어라.
 3-4. 「시간배분:」 줄이 붙은 개념은 그 장을 제 몫보다 짧게 넘긴 것이다. 정의를 되묻지 말고, 그 장에서
    설명하지 못했을 **개념 사이의 관계·조건·우선순위**를 물어라.
-   (예) "알림을 한 번만 확인해도 집중이 크게 무너지나요, 아니면 여러 번 쌓여야 무너지나요?"
+   (예) "대기 시간이 한 번만 길어도 재방문이 줄어드나요, 아니면 여러 번 쌓여야 줄어드나요?"
 3-5. 「주제:」 줄이 붙은 개념은 발표 전체의 주장이다. 자료의 두 문구를 이어 붙여 "…를 바탕으로 설명해 주세요" 로
    **주장을 되읊게 하지 마라.** 주장이 성립하는 조건·경계·반례, 또는 자료 안에서 **서로 부딪히는 표현**
    (예: "X보다 중요하다" 면서 X 를 요소로 넣음)을 한 가지 골라 물어라.
-   (X) 수면의 질이 시간보다 중요한 이유를 세 가지 요소(시간, 연속성, 규칙성)를 바탕으로 설명해 주세요.
-   (O) 시간도 수면의 질의 요소인데, 수면의 질이 시간보다 중요하다는 건 어떤 뜻인가요?
+   (X) 만족도가 가격보다 중요한 이유를 세 가지 요소(가격, 맛, 분위기)를 바탕으로 설명해 주세요.
+   (O) 가격도 만족도의 요소인데, 만족도가 가격보다 중요하다는 건 어떤 뜻인가요?
+3-6. **「어떻게 측정·계산·통제했나요」 는 근거 장 자료 본문에 수치·방법·출처가 있을 때만** 묻는다. 자료에 없는
+   측정·실험을 전제하면 발표자가 답할 수 없다 — 코드가 그런 질문을 버리고 정해진 문장으로 바꾼다.
+3-7. 검색 문헌(교수가 읽고 온 논문)을 **질문의 대상**으로 삼지 마라. 「X (연도)는 어떻게 설명했나요」·
+   「X 를 왜 인용했나요」·「X 를 어떻게 반영했나요」 는 발표자가 본 적 없는 논문을 묻는 것이다.
 4. '발표에서 한 말' 이 (aligned) 인 개념은 이미 설명에 성공한 개념이다.
    같은 설명을 되풀이하게 하지 말고 **심화·응용·한계**를 묻는 질문을 써라.
 5. 말투는 해요체다. '~시', '~시겠어요', '하셨는데' 같은 높임을 쓰지 마라.
@@ -307,7 +322,8 @@ trap=true 인 개념은 **자료와 어긋난 주장을 얹어** 찔러 보는 �
     { "node_id": "joint", "question": "질문 한 문장",
       "why": "왜 묻는지 한 줄", "hint": "방향만 주는 힌트",
       "answer_gist": "기대하는 답의 골자 한두 줄",
-      "answer_gist_parts": ["둘 이상을 묻는 질문일 때만 요소별로. 아니면 []"] }
+      "answer_gist_parts": ["둘 이상을 묻는 질문일 때만 요소별로. 아니면 []"],
+      "trap_premise": "trap=true 일 때만 질문에 얹은 어긋난 주장 한 절. 아니면 빈 문자열" }
   ]
 }
 """
@@ -334,11 +350,11 @@ PAPER_SYSTEM_ADDENDUM = """
 - **[검색: …] 문헌은 발표자가 본 적도 인용한 적도 없다.** 교수가 따로 찾아 읽고 온 것이다.
   그 문헌에 "인용했는데"·"인용하셨는데"·"N장에서 인용한" 을 붙이지 마라 — 없는 전제를 세운 질문이 된다.
   검색 문헌은 **문헌을 주어로 세워 자료·발표와 견주는** 꼴로만 쓴다.
-  (검색 문헌 예: "Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데,
-  발표가 말한 집중 저하도 알림을 확인하지 않은 경우를 포함하나요?")
+  (검색 문헌 예: "Kim et al. (2020)는 대기 시간이 짧아도 좌석이 부족하면 만족도가 떨어진다고 봤는데,
+  발표가 말한 재방문 감소도 좌석이 부족한 경우를 포함하나요?")
 - "N장에서 인용한 …" 은 **[자료 N장이 인용] 문헌에만** 쓴다 — 자료가 실제로 인용한 것이라서.
-  (자료 인용 문헌 전용 예: "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않은 조건을
-  쟀어요. 이 실험은 어느 조건인가요?")
+  (자료 인용 문헌 전용 예: "5장에서 인용한 Kim et al. (2020)는 좌석이 부족한 조건을
+  쟀어요. 이 조사는 어느 조건인가요?")
 - 높임을 쓰지 마라 — "하셨는데"·"판단하신" 이 아니라 "했는데"·"판단한".
 - **인용은 목록에 있는 문헌만, 적힌 인용 표시(저자 (연도)) 그대로.** 목록 밖의 논문·저자·
   연도를 쓰면 그 질문은 통째로 버려지고 템플릿 문장으로 바뀐다.
@@ -372,15 +388,15 @@ MEMORY_SYSTEM_ADDENDUM = """
 CITE_SYSTEM_PROMPT = """당신은 논문을 읽고 온 심사위원이다. 이미 쓴 질문을 받아, 붙어 있는 문헌을 근거로 찌르는 질문으로 고쳐 쓴다.
 
 규칙
-- question 문장 **안에** 문헌의 인용 표시를 **적힌 그대로** 넣어라 (예: "Stothart et al. (2015)"). 표시를 바꾸거나 다른 논문을 끌어오지 마라.
+- question 문장 **안에** 문헌의 인용 표시를 **적힌 그대로** 넣어라 (예: "Kim et al. (2020)"). 표시를 바꾸거나 다른 논문을 끌어오지 마라.
   인용은 문장의 주어나 전제로 들어간다. **문장 끝에 덧붙이지 말고, «제목» 은 넣지 마라.**
-  나쁨: "…메커니즘은 무엇인가요? Stothart et al. (2015) «The attentional cost …»"
-  좋음(검색 문헌): "Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표가 말한 집중 저하도 알림을 확인하지 않은 경우를 포함하나요?"
+  나쁨: "…메커니즘은 무엇인가요? Kim et al. (2020) «Seating and satisfaction …»"
+  좋음(검색 문헌): "Kim et al. (2020)는 대기 시간이 짧아도 좌석이 부족하면 만족도가 떨어진다고 봤는데, 발표가 말한 재방문 감소도 좌석이 부족한 경우를 포함하나요?"
 - **[검색: …] 문헌은 발표자가 본 적도 인용한 적도 없다.** 교수가 따로 찾아 읽고 온 것이다. 그 문헌에
   "인용했는데"·"인용하셨는데"·"N장에서 인용한" 을 쓰지 마라 — 없는 전제를 세운 질문이 되어 통째로 버려진다.
   검색 문헌은 위 「좋음」 처럼 **문헌을 주어로 세워** "X (연도)는 …라고 봤는데, 발표(자료)는 …인가요?" 꼴로만 쓴다.
 - "N장에서 인용한 …" 은 **[자료 N장이 인용] 문헌에만** 쓴다.
-  좋음(자료 인용 문헌 전용): "5장에서 인용한 Stothart et al. (2015)는 알림을 확인하지 않아도 수행이 떨어진다고 봤는데, 발표가 말한 집중 저하도 알림을 확인하지 않은 경우를 포함하나요?"
+  좋음(자료 인용 문헌 전용): "5장에서 인용한 Kim et al. (2020)는 대기 시간이 짧아도 좌석이 부족하면 만족도가 떨어진다고 봤는데, 발표가 말한 재방문 감소도 좌석이 부족한 경우를 포함하나요?"
 - 문헌에 대해 말할 수 있는 것은 「초록」 줄에 적힌 것뿐이다. 초록에 없는 결과·수치·조건을 논문의 것으로 말하지 마라.
   "…라고 봤는데" 의 「…」 는 초록의 결과·결론 문장에서 가져온다. 초록이 그런 결론을 말하지 않으면 논문이 무엇을 쟀는지로
   끌어온다("X 는 …를 …와 견줘 쟀는데"). **발표의 주장을 논문의 주장처럼 쓰지 마라** — 코드가 초록과 대조해 없으면 버린다.
@@ -1045,6 +1061,9 @@ def _strip_paper_claim(q: dict, ref: PaperRef) -> None:
         if ref.cite_key and ref.cite_key in str(q.get(key, "") or ""):
             q[key] = ""
     q["paper_ids"] = []
+    # 논문 절을 뗐다는 표시 — 골자·요소에 남은 논문 이야기를 `_normalize_questions` 가 걷어 낸다. 09-29 기준선 §5-5:
+    # 질문의 논문 절만 떼고 골자의 「문헌의 '노동 시장 협상 모델'」 은 남아 채점 기준이 됐다.
+    q["_paper_stripped"] = ref.id
 
 
 def _rewrite_miss(rewrite: str, ref: PaperRef, c: dict, papers: PaperDoc | None) -> str:
@@ -1754,6 +1773,19 @@ def _slot_prefers(slot: str, mark: TriageMark, depth_of: dict[str, int], stalled
     return slot == "theme" and mark.source == "tension" and _slot_fits(slot, mark, depth_of, stalled)
 
 
+def _theme_pick(rest: list[TriageMark], depth_of: dict[str, int], stalled: set[str]) -> TriageMark | None:
+    """theme 자리 — 긴장 탐침 루트가 먼저, 없으면 루트 가운데 치명도(1차 심사)가 가장 높은 것, 그중 **자료 비중(doc_weight)이
+    가장 큰 것**, 같으면 순위. 일반화 벤치 §7: 루트가 넷인 덱에서 순위 1등의 가벼운 루트(가짜 단정 탐침)가 주제 자리를 먹었다 —
+    같은 치명도면 실제 주제는 가장 무거운 루트다. 치명도는 그대로 앞에 둔다 (1분 트랙은 「가장 치명적인 개념 하나」)."""
+    tension = next((m for m in rest if _slot_prefers("theme", m, depth_of, stalled)), None)
+    if tension is not None:
+        return tension
+    roots = [m for m in rest if _slot_fits("theme", m, depth_of, stalled)]
+    # 확인된 근거(모순·누락·덜 말함)는 리포트가 이미 말한 것이라 앞에 둔다 (_ADJACENCY_EXEMPT 와 같은 이유). 탐침 근거는 여기서
+    # 앞세우지 않는다 — 벤치의 가벼운 루트는 가짜 단정 탐침으로 순위가 올라와 있었다.
+    return min(roots, key=lambda m: (m.source not in _ADJACENCY_EXEMPT, m.severity, -m.doc_weight, rest.index(m))) if roots else None
+
+
 def _mixed_order(
     ordered: list[TriageMark],
     track: str,
@@ -1773,10 +1805,18 @@ def _mixed_order(
     for slot in plan:
         if not rest:
             break
-        pick = next((m for m in rest if _slot_prefers(slot, m, depth_of, stalled)), None) \
-            or next((m for m in rest if _slot_fits(slot, m, depth_of, stalled)), None)
+        if slot == "theme":
+            pick = _theme_pick(rest, depth_of, stalled)
+        else:
+            pick = next((m for m in rest if _slot_prefers(slot, m, depth_of, stalled)), None) \
+                or next((m for m in rest if _slot_fits(slot, m, depth_of, stalled)), None)
         if pick is not None and slots_out is not None:
             slots_out[pick.node_id] = slot
+        # 맞는 개념이 없으면 순위 1등 — 단 weak 자리는 잎(깊이 3 이상)보다 가지·다른 축(깊이 ≤2)을 먼저 본다. 09-29 기준선:
+        # 자료만 경로의 weak 자리는 늘 순위로 찼고, 잎 개념에 검색 문헌이 붙어 발표자가 인용하지 않은 논문 질문이 됐다.
+        # 가지 개념은 자료 여러 장에 걸쳐 있어 자료로 답할 거리가 더 많다. 자리 이름은 여전히 적지 않는다 (배합이 고른 것이 아니다).
+        if pick is None and slot == "weak":
+            pick = next((m for m in rest if 1 <= depth_of.get(m.node_id, 99) <= 2), None)
         pick = pick or rest[0]
         rest.remove(pick)
         head.append(pick)
@@ -1872,6 +1912,9 @@ def _build_question_prompt(
                     shelf.append(ref)
         parts += _paper_shelf_lines(papers, shelf)
     judged = {i.node_id: i for i in alignment.items} if alignment else {}
+    # 각도(triage 메모)에 자료·발화·문헌 어디에도 없는 숫자가 있으면 싣지 않는다. 일반화 벤치 §9: 각도의 「당기순이익 93.923조원」
+    # (자료는 93,923 십억원)이 질문 재료가 됐다 — LLM 이 각도의 숫자를 사실로 옮긴다.
+    number_sources = _number_sources(by_no, transcript, papers)
     for mark in marks:
         node = by_id[mark.node_id]
         # 자료가 있으면 근거 장을 anchor 로 좁힌다. 12장짜리 개념이 세 개면 셋이
@@ -1882,7 +1925,7 @@ def _build_question_prompt(
             f"- ({node.id}) {node.label} [S{nos}] · 치명도={mark.severity}"
             f" · 함정={'예' if mark.trap else '아니오'}"
         )
-        if mark.angle:
+        if mark.angle and not (number_sources and ungrounded_numbers(mark.angle, number_sources)):
             line += f" · 각도={mark.angle}"
         if node.summary:
             line += f" — {node.summary}"
@@ -2029,9 +2072,12 @@ def _plan_papers(
             node = by_id.get(mark.node_id)
             if node is None or mark.node_id in plan:
                 continue
+            # 제목도 초록도 없는 자료 인용은 붙이지 않는다 — 물을 거리가 없고, 대개 「Skills (2019)」 처럼 본문 낱말을 인용으로
+            # 잘못 읽은 것이다 (09-29 held-out 링글 덱: 「Skills (2019)는 … 근거는 무엇인가요?」·「Land (2016)는 …」).
             ref = next(
                 (r for r in _papers_for_node(papers, node, _anchor_nos(node, by_no or {}))
-                 if (r.kind == "deck") == want_deck and r.id not in used and r.cite_key not in used),
+                 if (r.kind == "deck") == want_deck and r.id not in used and r.cite_key not in used
+                 and (r.title or r.abstract)),
                 None,
             )
             if ref is not None:
@@ -2076,6 +2122,46 @@ def _paper_ids_of(raw: dict, texts: list[str], papers: PaperDoc | None) -> list[
     return [r.id for r in papers.refs if r.id in claimed or r.id in cited]
 
 
+#: 숫자로 끝나는 라벨은 읽는 소리로 받침을 본다 (영·일·삼·육·칠·팔). 09-29: 폴백 문장에 「개념1가」 가 나왔다.
+#: `_probes.josa` 는 한글이 아니면 받침 없음으로 본다 — 그 모듈은 F-26 쪽 담당이라 여기서 숫자만 받는다.
+_DIGIT_BATCHIM = {"0": True, "1": True, "2": False, "3": True, "4": False, "5": False, "6": True, "7": True, "8": True, "9": False}
+
+
+def josa(word: str, with_batchim: str, without: str) -> str:
+    last = (word or "").rstrip()[-1:]
+    if last in _DIGIT_BATCHIM:
+        return word + (with_batchim if _DIGIT_BATCHIM[last] else without)
+    return _probe_josa(word, with_batchim, without)
+
+
+def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssue | None, nos_all: list[int]) -> str:
+    """
+    LLM 문장이 없을 때의 질문 — 근거(source)마다 **해요체로 끝나는 자연스러운 한 문장**.
+
+    예전엔 「{개념}: {angle} — 설명해 주세요.」 였다. angle 은 triage 프롬프트용 한다체 메모라 그대로 붙이면
+    「…근거는 무엇인가? — 설명해 주세요」 처럼 해라체·메모가 화면에 나갔다 (09-29 기준선 §5-8, 두 덱 3회).
+    angle 은 쓰지 않는다 — 근거와 장 번호만으로 문장을 만든다. '~시겠어요' 도 쓰지 않는다 (CLAUDE.md §3-1).
+    """
+    label = node.label
+    shown = nos_all[:HINT_SLIDE_MAX]
+    where = f"자료 {', '.join(str(n) for n in shown)}장" if shown else "자료"
+    if mark.source == "contradiction":
+        return f"{josa(label, '은', '는')} 발표에서 한 설명이 자료와 조금 달랐어요. {where} 기준으로 다시 설명해 주세요."
+    if mark.source == "missing":
+        return f"{where}에 있는 {josa(label, '을', '를')} 발표에서는 다루지 않았어요. 이 발표에서 {josa(label, '은', '는')} 어떤 역할을 하나요?"
+    if mark.source == "under_spoken":
+        return f"{josa(label, '은', '는')} 발표에서 짧게 지나갔어요. {where}의 핵심을 한 문장으로 말하면 무엇인가요?"
+    if mark.source == "weak_flow" and flow_issue is not None and flow_issue.kind == "order_jump":
+        return f"{josa(label, '을', '를')} 자료와 다른 순서로 설명했는데, 그렇게 한 이유가 있나요?"
+    if mark.source == "weak_flow":
+        return f"{josa(label, '이', '가')} 앞뒤 내용과 어떻게 이어지는지 설명해 주세요."
+    if mark.source == "extra":
+        return f"{josa(label, '은', '는')} 자료에 없는데 발표에서 꺼냈어요. 이 내용을 넣은 이유는 무엇인가요?"
+    if mark.source == "justified_skip":
+        return f"{josa(label, '은', '는')} 발표에서 생략했는데, 누가 물으면 한 문장으로 어떻게 답할 건가요?"
+    return f"{josa(label, '이', '가')} 이 발표에서 왜 중요한지 {josa(where, '을', '를')} 근거로 설명해 주세요."
+
+
 def _fallback_text(
     node: ConceptNode,
     mark: TriageMark,
@@ -2085,12 +2171,7 @@ def _fallback_text(
     """LLM 이 이 개념을 빠뜨렸을 때 쓰는 결정적 문장 3종 (question, why, hint).
     `slide_nos` 는 anchor 장 — 안 주면 node.slide_nos 다."""
     nos_all = node.slide_nos if slide_nos is None else slide_nos
-    # '~시겠어요' 는 쓰지 않는다 (CLAUDE.md §3-1). 이 문장은 용어 카드의
-    # 「이런 질문이 와요」로도 그대로 나가므로 제품 말투를 따른다.
-    if mark.angle:
-        question = f"{node.label}: {mark.angle} — 설명해 주세요."
-    else:
-        question = f"{node.label}: 이 개념의 핵심과 자료에 넣은 근거를 설명해 주세요."
+    question = _fallback_question(node, mark, flow_issue, nos_all)
 
     if mark.source == "weak_flow" and flow_issue is not None:
         # 이슈 종류를 알면 why 도 그 종류로 말한다 — 순서 역행에 "연결이 안
@@ -2232,12 +2313,23 @@ _IMPOLITE_END_RULES: tuple[tuple[re.Pattern, str], ...] = (
 )
 
 
+#: 명사구 + 주제 조사로 끝난 물음 — 「…재무 건전성에 미치는 영향은?」. 서술어가 통째로 빠진 꼴이라 「무엇인가요?」 를 붙인다.
+#: 일반화 벤치 §9: SK하이닉스 덱 5분 트랙에서 반말 끝으로 화면에 나갔다.
+_INDIRECT_END_RE = re.compile(r"((?:는|은|인|할|될|을|일|던|한|된)지)\s*[?？.]?\s*$")
+_TOPIC_END_RE = re.compile(r"([가-힣])(은|는)\s*[?？]?\s*$")
+
+
 def _polite_question(text: str) -> str:
     """반말 의문 어미를 해요체로 바꾼다. 문장 끝만 본다 — 본문의 낱말은 건드리지 않는다.
     문장부호는 있는 그대로 둔다 (LLM 이 쓴 문장을 어미 말고는 바꾸지 않는다). 이미 해요체면 그대로."""
     t = text or ""
     if not t.strip() or _POLITE_END_RE.search(t):
         return t
+    if _INDIRECT_END_RE.search(t):                          # 「…어떻게 연결되는지」 — 간접 물음으로 끝났다 (09-29 held-out IR 덱)
+        return _INDIRECT_END_RE.sub(r"\1 설명해 주세요.", t)
+    m = _TOPIC_END_RE.search(t)
+    if m and not re.search(r"(?:하|되|있|없|이|같|않)(?:는|은)\s*[?？]?\s*$", t):   # 「…하는?」 같은 관형형 끝은 명사구가 아니다
+        return t[:m.end(2)] + " 무엇인가요?"
     for pat, rep in _IMPOLITE_END_RULES:
         m = pat.search(t)
         if not m:
@@ -2247,6 +2339,67 @@ def _polite_question(text: str) -> str:
             continue
         return pat.sub(rep, t)
     return t
+
+
+#: 힌트·이유·골자 끝의 해라체·한다체 → 해요체. 09-29 기준선 §5-10: rec/10 힌트 7개 중 6개가 「생각해 보라」·「참고하라」,
+#: 골자 끝이 「…근거로 한다」·「…미친다」 였다. `to_haeyo` 는 합쇼체만 풀고 `_polite_question` 은 물음 끝만 본다.
+_PLAIN_IMPERATIVE_RE = re.compile(r"(보|하)라(?=[.!]?\s*$)")
+_PLAIN_COPULA_RE = re.compile(r"([가-힣])이다(?=[.!]?\s*$)")
+_PLAIN_EXIST_RE = re.compile(r"(있|없)다(?=[.!]?\s*$)")
+_PLAIN_NDA_RE = re.compile(r"([가-힣])다(?=[.!]?\s*$)")
+_PLAIN_HADA_RE = re.compile(r"하다(?=[.!]?\s*$)")
+_NOMINAL_END_RE = re.compile(r"([가-힣]?)(있음|없음|함|됨|임)(?=[.!]?\s*$)")
+#: `to_haeyo` 가 「보입니다」(보이+ㅂ니다)를 서술격 「입니다」 로 읽어 「보예요」 를 낸다 (09-29 수익률·링글 골자 「차이만 보예요」).
+#: 「정보예요」 처럼 명사 끝은 맞는 꼴이라 앞이 글자가 아닐 때만 고친다.
+_BOYEYO_RE = re.compile(r"(?<![가-힣])보예요")
+_PLAIN_NEUNDA_RE = re.compile(r"([가-힣])는다(?=[.!]?\s*$)")
+#: 문장 경계 — 마침표·느낌표 뒤 공백.
+_STATEMENT_SPLIT_RE = re.compile(r"(?<=[.!])\s+")
+
+
+def _plain_end_to_haeyo(sent: str) -> str:
+    """한 문장의 끝 어미만. 이미 해요체면 그대로. 모르는 꼴은 두고 넘어간다 — 틀리게 바꾸는 것보다 남기는 쪽이 낫다."""
+    if _POLITE_END_RE.search(sent):
+        return sent
+    t = _PLAIN_IMPERATIVE_RE.sub(r"\1세요", sent)          # 생각해 보라 → 생각해 보세요 · 참고하라 → 참고하세요
+    if t != sent:
+        return t
+    m = _NOMINAL_END_RE.search(sent)                          # 개조식 끝(…하게 함 · 발생함 · 있음 · 중심임) — 09-29 held-out(링글) 골자
+    if m and not (m.group(2) == "함" and m.group(1) == "포"):   # 「…포함」 은 명사다
+        tail = {"함": "해요", "됨": "돼요", "있음": "있어요", "없음": "없어요"}.get(m.group(2))
+        if tail is None:                                      # 명사 + 임 → 이에요/예요
+            prev = m.group(1)
+            tail = "이에요" if _has_batchim(prev) else "예요"
+            return sent[:m.start()] + prev + tail + sent[m.end():]
+        return sent[:m.start()] + m.group(1) + tail + sent[m.end():]
+    t = _PLAIN_EXIST_RE.sub(r"\1어요", sent)               # 있다 → 있어요
+    if t != sent:
+        return t
+    m = _PLAIN_COPULA_RE.search(sent)                         # 것이다 → 것이에요 · 차이다 → 차이예요
+    if m:
+        return sent[:m.start()] + m.group(1) + ("이에요" if _has_batchim(m.group(1)) else "예요") + sent[m.end():]
+    m = _PLAIN_HADA_RE.search(sent)                           # 필요하다 → 필요해요 · 가능하다 → 가능해요
+    if m:
+        return sent[:m.start()] + "해요" + sent[m.end():]
+    m = _PLAIN_NEUNDA_RE.search(sent)                         # 않는다 → 않아요 · 먹는다 → 먹어요 (받침 어간 + 는다)
+    if m:
+        vowel = ((ord(m.group(1)) - 0xAC00) % 588) // 28
+        return sent[:m.start()] + m.group(1) + ("아요" if vowel in (0, 8) else "어요") + sent[m.end():]
+    m = _PLAIN_NDA_RE.search(sent)
+    if m and m.group(1) == "인":                               # 쌓인다·보인다 → 쌓여요·보여요 (이+어). 「입니다」 로 돌리면 서술격으로 읽힌다
+        return sent[:m.start()] + "여요" + sent[m.end():]
+    if m and (ord(m.group(1)) - 0xAC00) % 28 == 4:            # ㄴ받침 + 다 (한다·미친다·된다) → ㅂ니다 → 해요체
+        ch = chr(ord(m.group(1)) - 4 + 17)
+        return to_haeyo(sent[:m.start()] + ch + "니다" + sent[m.end():])
+    return sent
+
+
+def _polite_statement(text: str) -> str:
+    """힌트·이유·골자의 문장 끝마다 해라체·한다체를 해요체로. 결정적이고 멱등이다."""
+    t = text or ""
+    if not t.strip():
+        return t
+    return _BOYEYO_RE.sub("보여요", " ".join(_plain_end_to_haeyo(x) for x in _STATEMENT_SPLIT_RE.split(t.strip())))
 
 
 # ---------------------------------------------------------------------------
@@ -2456,6 +2609,181 @@ def _number_sources(
     return [x for x in out if x]
 
 
+# ---------------------------------------------------------------------------
+# 근거 검사 (09-29 기준선 §5 — docs/review/2026-09-29_QA_근거검증/baseline.md). 규칙 본체는 `_grounding` 에 있다.
+# ---------------------------------------------------------------------------
+
+#: 발표자가 검색 문헌을 「인용·반영·참고」 했다고 전제하는 꼴.
+_SCHOLAR_ADOPTED_RE = re.compile(r"(?:인용|반영|참고|활용|참조)(?:했|하였|한|하셨|하신|된|됐|되었|하고|할)")
+#: 인용 표시 바로 뒤가 「논문 안에서」 를 뜻하는 꼴 — 답이 논문 속에 있다는 물음이다.
+_SCHOLAR_LOCUS_RE = re.compile(r"\s?(?:의\s?(?:연구|논문|결과|분석|리뷰)(?:에서|는|은|에\s?따르면)|에서는?\s|에\s?따르면|의\s?연구\s)")
+
+
+def _label_keys(label: str, others: list[str]) -> list[str]:
+    """라벨을 부른 것으로 칠 낱말 — 다른 탐침 라벨에 없는 낱말(두 글자 이상). 다 겹치면 라벨의 낱말 전부."""
+    own = [t for t in norm_tokens(label) if len(t) >= 2]
+    shared = {t for o in others for t in norm_tokens(o)}
+    keys = [t for t in own if t not in shared]
+    return keys or own
+
+
+def _mentions_loosely(text: str, label: str, others: list[str]) -> bool:
+    """문장이 라벨을 부르는가 — 라벨 통째(`mentions`)거나, 라벨의 변별 낱말 하나가 문장 낱말에 든다 (조사 허용).
+    일반화 벤치 §요약: held-out 덱의 라벨은 길고 합성어라(「혈당 스파이크 영향」) LLM 이 풀어 쓰면 통째 대조가 떨어졌다 —
+    탐침 질문의 69% 가 템플릿으로 갔다 (튜닝 덱은 0%)."""
+    if mentions(text, label):
+        return True
+    words = norm_tokens(text)
+    return any(any(k == w or (len(k) >= 2 and w.startswith(k)) for w in words) for k in _label_keys(label, others))
+
+
+def _probe_mentions(text: str, probe: Probe, labels: dict[str, str]) -> str:
+    """탐침 질문이 탐침 개념을 부르는가. "all" = 전부 통째로, "partial" = 대상 개념 + (둘 이상이면) 다른 개념 하나를 느슨하게,
+    "" = 못 부름 (템플릿으로). 대상 개념(node_ids[0])은 반드시 불러야 한다 — 다른 것을 물은 질문이 된다."""
+    ids = probe.node_ids
+    if not ids:
+        return "all"
+    if all(mentions(text, labels[i]) for i in ids):
+        return "all"
+    labs = [labels[i] for i in ids]
+    target = _mentions_loosely(text, labs[0], labs[1:])
+    other = len(ids) < 2 or any(_mentions_loosely(text, labs[k], [x for j, x in enumerate(labs) if j != k])
+                                 for k in range(1, len(ids)))
+    return "partial" if target and other else ""
+
+
+def _asks_about_scholar(text: str, papers: PaperDoc | None) -> bool:
+    """
+    검색 문헌(kind≠deck)이 질문의 **대상**인가 — 「X (연도)는 어떻게 설명했나요」·「X 를 어떻게 반영했나요」.
+
+    허용하는 꼴은 하나다: 논문을 앞 절의 주어로 세우고(「X (연도)는 …라고 봤는데,」) 물음은 발표에 하는 것
+    (`_drop_paper_clause` 가 본론을 떼어 낼 수 있는 꼴). 09-29 기준선: 수면 발표 규칙성 자리에 3/3 번
+    「Chaput et al. (2020)의 연구에서 … 어떻게 설명했나요?」 가 나왔다 — 발표자가 인용하지도 읽지도 않은 논문이다.
+    """
+    if papers is None:
+        return False
+    by_id = {r.id: r for r in papers.refs}
+    for pid in _cited_ids(text, papers):
+        ref = by_id.get(pid)
+        if ref is None or ref.kind == "deck":
+            continue
+        if _SCHOLAR_ADOPTED_RE.search(text or ""):
+            return True
+        at = (text or "").find(ref.cite_key) if ref.cite_key else -1
+        # 논문이 답의 자리인 꼴 — 「X (연도)의 연구에서 …?」·「X (연도)에서 …?」·「X (연도)에 따르면 …?」. 앞 절(「…는데,」)로
+        # 끝나 본론이 발표를 묻는 꼴이면 허용한다. 「X 의 개념이 여기 어떻게 적용되나요」 처럼 논문을 재료로만 쓰는 물음도 허용한다.
+        if at >= 0 and _SCHOLAR_LOCUS_RE.match(text[at + len(ref.cite_key):]) and not _drop_paper_clause(text, ref):
+            return True
+    return False
+
+
+#: 프롬프트 예시(카페 재방문 — 어느 실측 덱과도 겹치지 않게 고른 가상 도메인)의 낱말. 09-29 재실행(solar): 인용 재작성이
+#: 예시 문장 「발표가 말한 재방문 감소도 좌석이 부족한 경우를 포함하나요?」 를 수면 발표 질문에 그대로 베꼈다 (09-29 앞선 실측의
+#: 「비가시적 집중 손실」 베낌과 같은 버릇). 자료에 없는 예시 낱말이 둘 이상이면 베낀 문장으로 본다.
+_PROMPT_EXAMPLE_WORDS = ("카페", "재방문", "좌석", "대기 시간", "만족도", "매장", "분위기", "동선")
+
+
+def _copies_prompt_example(text: str, idx) -> bool:
+    hits = [w for w in _PROMPT_EXAMPLE_WORDS if grounding.mentions(text, w) and (idx is None or not grounding.mentions(idx.text, w))]
+    return len(hits) >= 2
+
+
+def _touched_paper_texts(raw: dict, papers: PaperDoc | None) -> list[str]:
+    """이 질문(raw)이 건드린 검색 문헌의 제목·초록 — 문장에서 인용했거나, paper_ids 에 적었거나, 인용 검사가 떼어 낸 것."""
+    if papers is None:
+        return []
+    ids = {str(x) for x in (raw.get("paper_ids") or [])}
+    ids |= {str(raw.get("_paper_stripped"))} if raw.get("_paper_stripped") else set()
+    for key in ("question", "why", "hint", "answer_gist"):
+        ids.update(_cited_ids(str(raw.get(key, "") or ""), papers))
+    return [f"{r.title} {r.abstract}" for r in papers.refs if r.id in ids and r.kind != "deck"]
+
+
+def _cites_scholar(text: str, papers: PaperDoc | None) -> bool:
+    """글이 검색 문헌을 인용 표시로 부르는가 (자료가 인용한 문헌은 뺀다)."""
+    if papers is None:
+        return False
+    kind_of = {r.id: r.kind for r in papers.refs}
+    return any(kind_of.get(pid) != "deck" for pid in _cited_ids(text, papers))
+
+
+#: 골자가 전제를 바로잡는 표지 — 부정·대조 (어느 발표에나 쓰는 말이다).
+_CORRECTS_PREMISE_RE = re.compile(r"아니라|아니에요|아닙니다|아니고|달리|다르|반대|사실은|오히려|않|없|틀렸|전제")
+
+#: 증거로 다시 쓰는 골자에 실을 자료 줄 수. 셋이면 화면 한 칸을 넘는다.
+EVIDENCE_GIST_LINES = 2
+
+
+def _evidence_gist(
+    node: ConceptNode, question: str, anchors: list[int], by_no: dict[int, Slide] | None, *, trap: bool = False,
+) -> str:
+    """
+    근거 장에서 **이 질문을 받치는 자료 줄** 로 조립한 골자. 자료가 없으면 "".
+
+    LLM 골자가 근거 검사에서 떨어졌을 때 쓴다 (gist_rebuilt). 예전 폴백은 개념 요약 + 「(1, 2, 3장 근거)」 라 답이 아니었고
+    (09-29 기준선 §5-8: 「개인 투자자 집단의 평균 수익률 (1, 2, 3장 근거)」 를 말하면 good 85), 판정은 그걸 채점 기준으로 썼다.
+    자료 줄 그대로라 지어낸 것이 없다. 함정 질문이면 「전제와 달리」 로 연다 — 정답은 전제를 바로잡는 것이다.
+    """
+    if not by_no:
+        return ""
+    texts = [(no, by_no[no].raw_text or "") for no in anchors if no in by_no]
+    found = [(no, q) for no, q in ranked_quotes(node.label, node.summary, texts, question, k=EVIDENCE_GIST_LINES) if q]
+    if not found:
+        return ""
+    # 가장 맞는 줄의 장에 설명 표가 있으면 둘째 줄 대신 그 표 — 사실은 표에 있고 글 줄은 제목인 장이 많다.
+    # 09-29 재실행: 「수면 주기를 끊는 구체적인 원인은?」 의 다시 쓴 골자가 제목 두 줄이었고 원인 표(카페인 | 오후·저녁 섭취 …)가 빠졌다.
+    table = grounding.described_table(found[0][0], by_no[found[0][0]].raw_text or "") if found[0][0] in by_no else ""
+    if table:
+        found = [found[0], (found[0][0], table)]
+    nos = sorted({no for no, _ in found})
+    body = " · ".join(q.rstrip(" .") for _, q in found)
+    where = ", ".join(str(n) for n in nos)
+    lead = "질문의 전제와 달리, 자료는 이렇게 말해요 — " if trap else "자료는 이렇게 말해요 — "
+    return _clip(f"{lead}{body} ({where}장)")
+
+
+def _trap_verdict(question: str, premise: str, idx) -> str:
+    """함정 표시를 뗄 이유. "" 이면 함정이다. 전제가 질문에 없거나(없는 전제) 자료가 그 전제를 사실로 말하면 뗀다."""
+    if not question:
+        return "no_question"
+    if not (premise or "").strip():
+        return "no_premise"
+    if not grounding.premise_in_question(premise, question):
+        return "premise_not_in_question"
+    return grounding.premise_drop_reason(premise, idx)
+
+
+#: 발화 인용에서 건너뛸 인사·진행 멘트. 발표 내용이 아니라 어느 발표에나 있는 말이다.
+_FILLER_SPEECH_RE = re.compile(
+    r"안녕하세요|안녕하십니까|감사합니다|고맙습니다|시작하겠습니다|마치겠습니다|질문\s*받겠습니다|"
+    r"발표를?\s*(?:시작|마치)|시작하기\s*전에|오늘\s*(?:주제|발표)는|제\s*발표|저희\s*(?:팀|조)은"
+)
+#: STT 는 문장부호가 없다 — 해요체·합쇼체 끝에서 자른다.
+_SPEECH_SENT_RE = re.compile(r"(?<=[.?!])\s+|(?<=니다)\s+|(?<=[요죠])\s+")
+
+
+def _speech_quote(anchors: list[int], transcript: Transcript | None, question: str = "",
+                  node: ConceptNode | None = None) -> str:
+    """
+    anchor 장에서 실제로 한 말 가운데 **이 질문과 겹치는** 한 구절. 인사·진행 멘트는 건너뛴다. 없으면 "".
+
+    09-29 기준선 §5-12: 예전엔 근거 장 발화의 앞 120자라 「아 안녕하세요 오늘 주제는…」·「여러분 … 떠올려 보셨으면」 이
+    explain 해설 끝에 「발표에서는 «…» 라고 말했어요」 로 붙었다.
+    """
+    if transcript is None:
+        return ""
+    lines: list[str] = []
+    for no in anchors:
+        for sent in _SPEECH_SENT_RE.split(transcript.text_for_slide(no) or ""):
+            sent = sent.strip()
+            if sent and not _FILLER_SPEECH_RE.search(sent):
+                lines.append(sent)
+    if not lines:
+        return ""
+    label, summary = (node.label, node.summary) if node is not None else ("", "")
+    return best_quote(label, summary, [(0, "\n".join(lines))], question)[1]
+
+
 def _normalize_questions(
     raw_questions: list[dict],
     marks: list[TriageMark],
@@ -2477,11 +2805,17 @@ def _normalize_questions(
     - 모든 문장은 QA_TEXT_MAX 로 자른다
     - papers 가 있으면 **목록 밖 논문을 인용한 문장은 버리고** 템플릿으로 메운다 (citation_grounded = 1.0)
     - 모든 질문에 근거 묶음(QuestionBasis)을 채운다 — 근거·배합 자리·순위·탐침·인용·걸린 검사 (P1)
-    - 탐침 질문(probe_of)은 탐침 개념 이름이 전부 문장에 있어야 한다. 없으면 탐침 템플릿이다 (P4).
-      힌트 인용도 탐침의 근거 원문에서 고른다 — 질문이 짚은 부딪힘을 그대로 보여 줘야 한다.
+    - 탐침 질문(probe_of)은 탐침의 대상 개념(+둘 이상이면 다른 하나)을 불러야 한다 — 라벨 통째거나 변별 낱말.
+      못 부르면 탐침 템플릿이다 (P4). 힌트 인용도 탐침의 근거 원문에서 고른다. 탐침 질문은 함정이 아니다.
+    - 근거 검사 (09-29 기준선 §5 · 규칙은 `_grounding`): 함정은 질문에 얹힌 전제(trap_premise)가 자료와 정말 어긋날 때만,
+      골자는 숫자의 주어·비교·표의 행이 자료와 맞을 때만 (아니면 근거 장 자료 줄로 다시 쓴다), 방법·측정 질문은 근거 장에
+      방법·수치·출처가 있을 때만, 검색 문헌은 질문의 대상이 될 수 없고 골자·힌트에 논문 이야기가 남지 않는다.
     """
     target_ids = {m.node_id for m in marks}
     number_sources = _number_sources(by_no, transcript, papers)
+    # 근거 검사 색인 (09-29 기준선 §5). 자료가 없으면 None — 검사들이 판단하지 않고 예전처럼 둔다.
+    idx = grounding.build_index(by_no or {}, list(by_id.values()),
+                                transcript.full_text if transcript is not None else "")
     written: dict[str, dict] = {}
     for raw in raw_questions:
         node_id = str(raw.get("node_id", "") or "")
@@ -2508,6 +2842,10 @@ def _normalize_questions(
         def _tidy(key: str) -> str:
             return to_haeyo(_second_person(_plain_speech(_unslug(str(raw.get(key, "") or ""), node))))
 
+        def _tidy_statement(key: str) -> str:
+            # 힌트·이유·골자는 해라체(「생각해 보라」)·한다체(「…근거로 한다」)도 푼다 — 09-29 기준선 §5-10.
+            return _drop_cite_claim(_clip(_polite_statement(_tidy(key))), papers)
+
         # 근거 묶음에 남길 검사 이름 (P1). "이 질문이 왜 이 문장인가" 를 코드를 다시 안 돌려도 답할 수 있게 한다.
         checks: list[str] = []
         probe = (probe_of or {}).get(mark.node_id)
@@ -2517,19 +2855,41 @@ def _normalize_questions(
         written_q = _drop_cite_claim(fitted, papers)
         if fitted and not written_q:
             checks.append("cite_claim_dropped")
-        if written_q and not mark.trap:
+        # 검색 문헌을 질문의 대상으로 삼은 문장은 버린다 (`_asks_about_scholar`, 규칙 3-7).
+        if written_q and _asks_about_scholar(written_q, papers):
+            written_q = ""
+            checks.append("scholar_question_dropped")
+        # 논문에서 온 흔적 (09-29 기준선 §5-5). 이 질문 칸들이 불렀거나 인용 검사가 떼어 낸 검색 문헌의 제목·초록이 대조 원본이다.
+        # 논문 절을 뗐거나 논문 질문을 버렸으면(suspect) 자료·발화에 없는 낱말이 절반 넘는 문장도 흔적으로 본다.
+        paper_texts = _touched_paper_texts(raw, papers)
+        suspect = bool(raw.get("_paper_stripped")) or "scholar_question_dropped" in checks
+        if written_q and raw.get("_paper_stripped") and grounding.paper_residue(written_q, idx, paper_texts, novel=True):
+            written_q = ""
+            checks.append("paper_residue_dropped")
+        # 함정은 **질문에 얹힌 전제가 자료와 정말 어긋날 때만** 함정이다 (09-29 기준선 §5-1). triage 가 함정이라 해도
+        # 질문 문장에 전제가 없거나, 전제가 자료에 사실로 있으면 뗀다 — 그대로 두면 판정이 골자대로 한 정답을
+        # 「전제를 안 바로잡았다」 며 wrong 35 로 내린다 (두 덱 루트 질문 4/4).
+        if trap:
+            why_not = _trap_verdict(written_q, str(raw.get("trap_premise", "") or ""), idx)
+            if why_not:
+                trap = False
+                checks.append("trap_dropped")
+                sys.stderr.write(f"[f08] 함정 뗌 {mark.node_id}: {why_not}\n")
+            else:
+                checks.append("trap_premise_verified")
+        if written_q and not trap:
             undercut = _undercut_question(written_q, node)
             if undercut != written_q:
                 checks.append("undercut_rewritten")
             written_q = undercut
-        written_gist = _drop_cite_claim(_clip(_tidy("answer_gist")), papers)
-        written_why = _drop_cite_claim(_clip(_tidy("why")), papers)
-        written_hint = _drop_cite_claim(_clip(_tidy("hint")), papers)
+        written_gist = _tidy_statement("answer_gist")
+        written_why = _tidy_statement("why")
+        written_hint = _tidy_statement("hint")
         # 자료·발화·문헌 어디에도 없는 숫자는 지어낸 것이다 — 아래 `or` 가 결정적 템플릿으로 보낸다 (_number_sources 참고).
         # 함정 질문의 문장은 거짓 전제가 설계라 보지 않는다. 골자·힌트·이유는 함정이어도 자료가 말하는 것이어야 한다.
         if number_sources:
             before = (written_q, written_gist, written_why, written_hint)
-            if not mark.trap and ungrounded_numbers(written_q, number_sources):
+            if not trap and ungrounded_numbers(written_q, number_sources):
                 written_q = ""
             if ungrounded_numbers(written_gist, number_sources):
                 written_gist = ""
@@ -2540,23 +2900,34 @@ def _normalize_questions(
             if before != (written_q, written_gist, written_why, written_hint):
                 checks.append("ungrounded_number_dropped")
         before = (written_q, written_gist, written_why, written_hint)
-        if _cites_scaffold(written_q) or _ungrounded_citation(written_q, papers):
+        if _cites_scaffold(written_q) or _ungrounded_citation(written_q, papers) or _copies_prompt_example(written_q, idx):
             written_q = ""
-        if _cites_scaffold(written_gist) or _ungrounded_citation(written_gist, papers):
+        if _cites_scaffold(written_gist) or _ungrounded_citation(written_gist, papers) or _copies_prompt_example(written_gist, idx):
             written_gist = ""
-        if _cites_scaffold(written_why) or _ungrounded_citation(written_why, papers):
+        if _cites_scaffold(written_why) or _ungrounded_citation(written_why, papers) or _copies_prompt_example(written_why, idx):
             written_why = ""
-        if _cites_scaffold(written_hint) or _ungrounded_citation(written_hint, papers):
+        if _cites_scaffold(written_hint) or _ungrounded_citation(written_hint, papers) or _copies_prompt_example(written_hint, idx):
             written_hint = ""
         if before != (written_q, written_gist, written_why, written_hint):
             checks.append("scaffold_or_citation_dropped")
+        # 방법·측정 질문은 근거 장에 방법·수치·출처가 있을 때만 (규칙 3-6). 09-29 기준선 §5-4: 「어떻게 측정/계산/정량화했나요」
+        # 4건이 자료에 없는 것을 물었고, 골자는 「실험적 관찰을 바탕으로」 처럼 전제에 동의하며 지어냈다.
+        if written_q and grounding.asks_method(written_q) and not grounding.method_supported(written_q, anchors, idx):
+            written_q = ""
+            checks.append("method_unsupported")
 
         if probe is not None:
             # (a) 탐침 개념 이름이 전부 문장에 있어야 탐침을 물은 것이다. 이름 하나라도 빠지면 탐침과 다른 것을
             # 물은 질문이라, 부탁(프롬프트)만 믿지 않고 코드가 탐침 템플릿으로 바꾼다 (09-12 교훈과 같은 규율).
             labels = {i: (by_id[i].label if i in by_id else i) for i in probe.node_ids}
-            if written_q and all(mentions(written_q, labels[i]) for i in probe.node_ids):
-                checks.append("mentions_probe_nodes")
+            # 탐침 질문은 함정이 아니다 — 탐침은 자료 **안에** 진짜로 있는 긴장·빈틈이라 거짓 전제가 아니다 (일반화 벤치 §3:
+            # 수면 긴장 질문이 함정으로 나가 골자를 그대로 말한 답이 wrong 35).
+            if trap:
+                trap = False
+                checks.append("trap_dropped")
+            hit = _probe_mentions(written_q, probe, labels) if written_q else ""
+            if hit:
+                checks.append("mentions_probe_nodes" if hit == "all" else "mentions_probe_nodes_partial")
             else:
                 if written_q:
                     checks.append("probe_nodes_missing")
@@ -2570,32 +2941,76 @@ def _normalize_questions(
                 checks.append("why_from_probe")
         elif not written_q:
             checks.append("fallback_template")
+        if not written_q and trap:
+            trap = False     # 폴백 문장에는 전제가 없다 — 함정 폴백 골자(「전제가 자료와 달라요」)가 참인 질문에 붙지 않게
+            checks.append("trap_dropped")
+        if not written_q:
+            # 폴백 문장에는 LLM 골자·요소가 맞지 않는다 — 버린 질문에 대한 답이다. 09-29 재실행: 논문 질문을 버린 자리의
+            # 골자가 그 논문 초록(「SRQ 는 … 약한 상관」)을 그대로 말했다. 근거 장 자료 줄로 다시 쓴다 (아래 `or`).
+            written_gist = ""
 
         question_text = written_q or fb_question
         # 힌트·코칭이 그대로 옮겨 보여 줄 인용 — LLM 없이 즉시 나와야 하므로 여기서 저장한다.
-        # 질문 문장이 정해진 뒤에 고른다 — 힌트는 질문이 가리키는 자리를 보여 줘야 한다.
+        # 질문 문장이 정해진 뒤에 고른다 — 힌트는 질문이 가리키는 자리를 보여 줘야 한다 (폴백·템플릿 문장이어도 같다).
         # (b) 탐침 질문은 탐침의 근거 원문 가운데서 고른다 — 질문이 짚은 부딪힘을 힌트가 그대로 보여 준다.
         quote_no, quote = _probe_quote(node, probe, question_text, by_no) if probe is not None else (0, "")
         if quote:
             checks.append("probe_evidence_quote")
         else:
             quote_no, quote = _evidence_quote(node, anchors, by_no or {}, question_text)
-        speech = _speech_quote(anchors, transcript) if quote else ""
-        gist = written_gist or _fallback_gist(node, trap=trap, slide_nos=anchors)
-        if not written_gist:
+        speech = _speech_quote(anchors, transcript, question_text, node) if quote else ""
+
+        # 문헌에서 온 말 (09-29 기준선 §5-5). 질문이 문헌을 인용하지 않았으면 이유·힌트도 문헌을 말하지 않는다.
+        # 골자는 언제나 자료로만 쓴다(PAPER_SYSTEM_ADDENDUM) — 검색 문헌 인용·「문헌·논문」 이야기는 문장째 뗀다.
+        # 논문 절을 뗀 질문이면(_paper_stripped) 자료·발화에 없는 낱말이 절반 넘는 문장도 뗀다 — 논문 절의 흔적이다.
+        question_cites = bool(_cited_ids(question_text, papers))
+        for key in ("why", "hint"):
+            val = written_why if key == "why" else written_hint
+            if val and not question_cites and (_cites_scholar(val, papers) or grounding.paper_talk(val, idx)
+                                               or grounding.paper_residue(val, idx, paper_texts)):
+                checks.append(f"{key}_paper_dropped")
+                if key == "why":
+                    written_why = ""
+                else:
+                    written_hint = ""
+        if written_gist:
+            kept = [x for x in grounding.sentences(written_gist)
+                    if not _cites_scholar(x, papers) and not grounding.paper_talk(x, idx)
+                    and not grounding.paper_residue(x, idx, paper_texts, novel=suspect)]
+            if len(kept) != len(grounding.sentences(written_gist)):
+                checks.append("gist_paper_stripped")
+                written_gist = " ".join(kept)
+        # 골자 근거 검사 — 숫자의 주어·비교·표의 행 (`_grounding.gist_problems`). 떨어지면 근거 장 자료 줄로 다시 쓴다.
+        problems = grounding.gist_problems(written_gist, idx)
+        if problems:
+            sys.stderr.write(f"[f08] 골자 다시 씀 {mark.node_id}: {','.join(problems)} · 골자: {written_gist[:80]}\n")
+            written_gist = ""
+            checks.append("gist_rebuilt")
+        elif not written_gist:
             checks.append("gist_template")
+        # 남은 함정의 골자는 전제를 바로잡아야 한다 (규칙: trap 골자는 자료의 사실로 전제를 뒤집는다). 일반화 벤치 §3: 함정 21개 모두
+        # 골자에 바로잡는 말이 없었다 — 그 골자를 그대로 말해도 판정은 「전제를 안 바로잡았다」 로 내린다. 바로잡는 말이 없으면
+        # 「질문의 전제와 달리, 자료는 …」 로 근거 장 자료 줄을 쓴다.
+        if trap and written_gist and not _CORRECTS_PREMISE_RE.search(written_gist):
+            written_gist = ""
+            checks.append("gist_rebuilt_trap")
+        gist = written_gist or _evidence_gist(node, question_text, anchors, by_no, trap=trap) \
+            or _fallback_gist(node, trap=trap, slide_nos=anchors)
         # 요소 쪼개기. LLM 이 쓴 것을 먼저 믿고, 안 썼는데 문면이 둘 이상을 묻고
         # 있으면 코드가 골자를 갈라 백스톱을 세운다 (_followup·_OPEN_QUESTION_RE 와
         # 같은 규율 — 프롬프트로 부탁만 해서는 안 지켜지는 것을 코드가 받는다).
         parts = [
             p for p in (
-                _drop_cite_claim(_clip(to_haeyo(_plain_speech(_unslug(str(p) or "", node)))), papers)
+                _drop_cite_claim(_clip(_polite_statement(to_haeyo(_plain_speech(_unslug(str(p) or "", node))))), papers)
                 for p in (raw.get("answer_gist_parts") or [])
             )
             if p and not _cites_scaffold(p) and not _ungrounded_citation(p, papers)
             and not (number_sources and ungrounded_numbers(p, number_sources))
+            and not _cites_scholar(p, papers) and not grounding.paper_talk(p, idx)
+            and not grounding.paper_residue(p, idx, paper_texts, novel=suspect)
+            and not grounding.gist_problems(p, idx)
         ]
-        # 골자가 템플릿으로 떨어졌으면 LLM 의 요소도 같은 출처다 — 지어낸 골자의 조각을 요소로 남기지 않는다.
+        # 골자가 템플릿·자료 줄로 떨어졌으면 LLM 의 요소도 같은 출처다 — 지어낸 골자의 조각을 요소로 남기지 않는다.
         if not written_gist:
             parts = []
         if len(parts) < 2 and _asks_multiple(question_text):
@@ -2673,17 +3088,6 @@ def _evidence_quote(
     """
     texts = [(no, by_no[no].raw_text or "") for no in anchors if no in by_no]
     return best_quote(node.label, node.summary, texts, question)
-
-
-def _speech_quote(anchors: list[int], transcript: Transcript | None) -> str:
-    """anchor 장에서 실제로 한 말 한 구절. STT 는 문장부호가 없어 앞 120자가 된다."""
-    if transcript is None:
-        return ""
-    for no in anchors:
-        said = quote_for("", "", transcript.text_for_slide(no))
-        if said:
-            return said
-    return ""
 
 
 def _with_probes(triage: QaTriage, graph: ConceptGraph, claims: ClaimDoc | None) -> QaTriage:

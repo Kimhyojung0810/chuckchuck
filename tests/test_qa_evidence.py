@@ -170,7 +170,8 @@ def test_폴백_골자는_근거_장을_세_개까지만_적는다():
     doc = build_questions(GRAPH, triage(), track="5", slidedoc=DECK, llm=llm)
     q = next(q for q in doc.questions if q.node_id == "switch")
     assert "12장" not in q.answer_gist
-    assert q.answer_gist.endswith("장 근거)")
+    # 09-29: 폴백 골자는 개념 요약이 아니라 근거 장의 자료 줄이다 (요약은 답이 아니었다 — 기준선 §5-8)
+    assert q.answer_gist.startswith("자료는 이렇게 말해요 — ") and q.answer_gist.endswith("장)")
 
 
 # ---------------------------------------------------------------------------

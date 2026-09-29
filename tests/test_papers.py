@@ -757,11 +757,15 @@ def test_보강_검색어에서_개념과_주제가_둘_다_맞는_결과는_남
     assert kept[0].query == "B2C AI Presentation Coaching" and "관련성 없음" not in doc.note
 
 
-def test_세_토큰_이상_검색어는_예전처럼_낱말_하나만_겹쳐도_남는다():
-    hit = scholar_ref("Scoring rubrics for oral exams", ["Lee"], 2019)            # 'scoring' 하나만 겹친다
-    fake = FakeScholar({"Slide-Speech Alignment Scoring Method": [hit]})
+def test_세_토큰_이상_검색어도_낱말_하나만_겹치면_관련성_바닥에서_떨어진다():
+    # 09-29 기준선 §5-5: 낱말 하나(수량 표현)만 겹친 소득 불평등 논문이 투자 발표의 질문·골자로 새어 나갔다 — 바닥을 둔다.
+    off = scholar_ref("Scoring rubrics for oral exams", ["Lee"], 2019)            # 'scoring' 하나만 겹친다
+    on = scholar_ref("Automatic alignment of slides and speech for scoring talks", ["Kim"], 2021,
+                     abstract="We align slide text with speech transcripts to score presentations.")
+    fake = FakeScholar({"Slide-Speech Alignment Scoring Method": [off, on]})
     doc = build_papers(make_en_graph(), None, scholar=fake, llm=ScriptedLLM({}), node_max=3)
-    assert [r.title for r in doc.scholar_refs if "align" in r.node_ids] == ["Scoring rubrics for oral exams"]
+    assert [r.title for r in doc.scholar_refs if "align" in r.node_ids] == [on.title]
+    assert "관련성 없음 1건" in doc.note
 
 
 def test_주제_토큰은_weight_가_높은_지엽이_아니라_core_개념에서_온다():

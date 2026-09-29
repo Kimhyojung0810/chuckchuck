@@ -463,7 +463,10 @@ def test_trap_budget_respected(track):
         marks_payload(*[{"node_id": n.id, "trap": True} for n in graph.nodes]),
         graph=graph,
     )
-    doc = doc_of(questions_payload(), graph=graph, triage=triage, track=track)
+    # 함정은 질문에 전제가 실제로 얹혔을 때만 남는다 (09-29) — 예산을 보려면 전제를 단 질문을 준다
+    written = [{"node_id": n.id, "question": f"{n.label}은 늘 반대라고 했는데, 정말 그런가요?",
+                "trap_premise": f"{n.label}은 늘 반대"} for n in graph.nodes]
+    doc = doc_of(questions_payload(*written), graph=graph, triage=triage, track=track)
     assert sum(q.trap for q in doc.questions) == QA_TRACK_TRAPS[track]
 
 
@@ -543,13 +546,16 @@ def test_omitted_target_filled_with_deterministic_fallback():
     assert filled.hint
 
 
-def test_fallback_question_uses_triage_angle():
+def test_fallback_question_is_a_natural_sentence_not_the_angle_memo():
+    """09-29 기준선 §5-8: 「{개념}: {angle} — 설명해 주세요.」 가 화면에 그대로 나갔다 (angle 은 한다체 메모다)."""
     graph = make_graph()
     triage = triage_of(
         marks_payload({"node_id": "c1", "angle": "왜 이 방식을 골랐는지"}), graph=graph
     )
     doc = doc_of(questions_payload(), graph=graph, triage=triage)
-    assert "왜 이 방식을 골랐는지" in doc.questions[0].question
+    q = doc.questions[0].question
+    assert "왜 이 방식을 골랐는지" not in q and "—" not in q and ":" not in q
+    assert q.endswith(("요.", "요?")) and "개념1이" in q
 
 
 def test_fallback_why_explains_the_source():
@@ -573,7 +579,7 @@ def test_overlong_question_keeps_trailing_sentences_that_fit():
 def test_overlong_single_sentence_falls_back_to_template():
     doc = doc_of(questions_payload({"node_id": "c1", "question": "개념1은 " + "정말 " * 100 + "무엇인가요?"}))
     q = doc.questions[0].question
-    assert q.startswith("개념1:") and not q.endswith("…")
+    assert "fallback_template" in doc.questions[0].basis.checks and not q.endswith("…")
 
 
 def test_overlong_trap_question_is_not_trimmed_but_templated():
@@ -1443,7 +1449,7 @@ def test_written_gist_parts_survive_to_the_question():
         "answer_gist": "A 이고 B 때문이다",
         "answer_gist_parts": ["A 이다", "B 때문이다"],
     }))
-    assert _first(doc).answer_gist_parts == ["A 이다", "B 때문이다"]
+    assert _first(doc).answer_gist_parts == ["A 이다", "B 때문이에요"]   # 한다체 끝은 해요체로 (09-29 기준선 §5-10)
 
 
 def test_a_single_element_is_dropped_because_it_is_not_a_checklist():
