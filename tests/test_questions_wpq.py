@@ -181,9 +181,9 @@ def test_C01a_탐침_골자는_종류별_모범답과_자료_줄_인용으로만
     g_abs = P.probe_code_gist(absolute, CAFE_LABELS, CAFE_SLIDES)
     # 자료가 스스로 단 유보 줄이 있으면 그 조건과 장을 댄다 (`hedge_line`) — 없는 반례를 지어내지 않고, 단정 줄을 되읊지 않는다
     # (09-30 WP-P2: 「모든 경우에 그렇다고 단정할 수는 없어요」 는 조건을 하나도 말하지 않았다)
-    assert g_abs.startswith("「모든」이라고 단정할 수는 없어요")
+    assert g_abs.startswith("「조명은 모든 손님이 만족합니다」라고 단정할 수는 없어요")
     assert "자료 5장에 적었듯 취향에 따라 조명 만족은 다를 수 있어요." in g_abs
-    assert "조명은 모든 손님이 만족합니다" not in g_abs
+    assert "만족합니다" not in g_abs.split("」", 1)[1]          # 단정 줄은 인용으로만 든다
 
     sibling = Probe(kind="sibling_priority", node_ids=["kind", "menu"])
     g_sib = P.probe_code_gist(sibling, CAFE_LABELS)

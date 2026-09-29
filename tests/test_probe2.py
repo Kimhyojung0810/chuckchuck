@@ -195,21 +195,26 @@ def test_단정_각도는_우리_말_없이_묻는다():
 AB = Probe(kind="absolute_boundary", node_ids=["crawl"], claim_ids=["c3"], evidence=[q(5, OVERCLAIM)])
 
 
+def _bare(text: str) -> str:
+    """「」 인용 밖의 글."""
+    return "".join(part for i, part in enumerate(text.replace("」", "「").split("「")) if i % 2 == 0)
+
+
 def test_자료가_단_조건이_있으면_그_조건과_장을_댄다():
     gist = P.probe_code_gist(AB, LABELS, SLIDES)
-    assert gist.startswith("「완벽하게」라고 단정할 수는 없어요")                 # 첫 절에 열쇠 말(빈칸 칸이 가린다)
+    assert gist.startswith("「새벽반만 등록하면 누구나") and "」라고 단정할 수는 없어요 — " in gist   # 첫 절 인용 밖에 열쇠 말
     assert "자료 7장에 적었듯 체력에 따라 익히는 속도는 다를 수 있어요." in gist
-    assert "누구나 한 달 안에" not in gist                                       # 단정 줄을 되읊지 않는다
+    assert "누구나" not in _bare(gist) and "습니다" not in _bare(gist)            # 단정 줄은 인용으로만 — 인용 밖은 조건과 해요체
     assert restates_line(gist, AB, "") == ""                                     # 이 모범답을 그대로 말하면 판정 가드가 막지 않는다
-    assert "습니다" not in gist.replace("「", "").split("」")[-1]
+    assert len(gist) <= 200
 
 
 def test_조건이_없으면_없다고_말하고_무엇을_더할지_말한다():
     slides = {n: t for n, t in SLIDES.items() if n != 7}
     gist = P.probe_code_gist(AB, LABELS, slides)
-    assert gist.startswith("「완벽하게」라고 단정할 수는 없어요 — 자료 5장에는 이 말이 들어맞는 조건이 아직 없어요.")
+    assert "」라고 단정할 수는 없어요 — 자료 5장에는 이 말이 들어맞는 조건이 아직 없어요." in gist
     assert "누구에게, 언제, 어떤 조건에서" in gist and gist.endswith("보완할게요.")
-    assert restates_line(gist, AB, "") == ""
+    assert "누구나" not in _bare(gist) and restates_line(gist, AB, "") == "" and len(gist) <= 200
 
 
 def test_멀리_떨어진_다른_이야기의_유보는_이_단정의_조건이_아니다():

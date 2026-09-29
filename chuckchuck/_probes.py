@@ -1180,7 +1180,8 @@ def probe_code_gist(probe: Probe, labels: dict[str, str], slides: dict[int, str]
 
 def _absolute_gist(first: ClaimQuote, target: str, where: str, slides: dict[int, str] | None) -> str:
     """
-    단정 탐침의 모범답 (09-30 WP-P2) — 발표자 목소리, 해요체, 단정 줄을 되읊지 않는다. 첫 절에 열쇠 말 「단정」 을 둔다(빈칸 칸).
+    단정 탐침의 모범답 (09-30 WP-P2) — 발표자 목소리, 해요체. 단정 줄은 인용(「」)으로만 들고 인용 밖에서 되읊지 않는다. 첫 절의
+    인용 밖에 열쇠 말 「단정」 을 둔다(빈칸 칸).
 
     예전 골자 「…는 모든 경우에 그렇다고 단정할 수는 없어요. 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.」 는 **조건을
     하나도 말하지 않아서**, 그대로 답하면 단정 줄을 다시 말한 것과 같았다(09-30 standard: 이 골자를 답한 사람이 「자료의 단정을
@@ -1189,8 +1190,9 @@ def _absolute_gist(first: ClaimQuote, target: str, where: str, slides: dict[int,
     - 없으면 자료에 조건이 없다고 솔직히 말하고 무엇을 더할지(누구에게·언제·어떤 조건에서) 말한다 — 빈칸·근거 없는 인과 골자와
       같은 「비어 있다 → 보완할게요」 꼴.
     """
-    marker = R.absolute_marker(first.quote) or R.absolute_marker(first.quote, strong_only=True)
-    said = f"「{marker}」{_quote_josa(marker, '이라고', '라고')}" if marker else "그렇게"
+    # 무엇을 단정할 수 없는지는 단정 줄을 **인용으로** 든다 — 모범답만 읽어도 무엇에 조건을 붙이는지 알게. 인용 밖의 말이 조건이다.
+    quote = _q(first.quote)
+    said = f"「{quote}」{_quote_josa(quote, '이라고', '라고')}"
     hedge = hedge_line(slides, {first.slide_no}, about=f"{first.quote} {target}") if slides else None
     if hedge is not None:
         clause = _hedge_clause(hedge[1])

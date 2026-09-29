@@ -249,7 +249,7 @@ def check_probe_absolute(doc: dict, args: dict) -> tuple[str, str, dict]:
         if any(x in q for q in said):
             problems.append(f"「{x}」 에 단정 탐침이 나옴 (따질 주장이 아니다)")
     gist = ""
-    want_gist = any(args.get(k) for k in ("gist_require", "gist_require_any", "gist_forbid"))
+    want_gist = any(args.get(k) for k in ("gist_require", "gist_require_any", "gist_forbid", "gist_bare_forbid"))
     if want_gist:
         target = next((p for p in ab if any(x in e.quote for x in args.get("absolute_on") or [] for e in p.evidence)), None)
         if target is None:
@@ -264,7 +264,11 @@ def check_probe_absolute(doc: dict, args: dict) -> tuple[str, str, dict]:
                 problems.append(f"골자에 {any_of} 가운데 하나도 없음")
             for x in args.get("gist_forbid") or []:
                 if x in gist:
-                    problems.append(f"골자에 「{x}」 가 남음 (단정 줄을 되읊었다)")
+                    problems.append(f"골자에 「{x}」 가 남음")
+            bare = re.sub(r"「[^」]*」", " ", gist)
+            for x in args.get("gist_bare_forbid") or []:
+                if x in bare:
+                    problems.append(f"골자 인용 밖에 「{x}」 가 남음 (단정 줄을 되읊었다)")
     obs = {"absolute": said, "gist": gist}
     if problems:
         return "fail", "; ".join(problems[:4]) + (f" — 골자 «{gist[:70]}»" if gist else ""), obs
