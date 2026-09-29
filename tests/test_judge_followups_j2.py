@@ -449,6 +449,18 @@ def test_함정의_발판_빈칸은_바로잡을_값이다_사실_줄의_다른_
     assert _scaffold_judgement(TRAP_Q, BATTERY_GRAPH, richer).choices == ["60%", "90%"]
 
 
+def test_용언_함정의_발판은_사실_줄의_명사를_가려_보기_둘을_세운다():
+    # 09-30 자체 점검: 방향 함정(「늘어납니다」↔「줄어듭니다」)은 보기 없는 용언 빈칸이 돼 replay.scaffold.two_choices 91% → 86%
+    tp = TrapPremise(kind="direction", premise="야간 연장 개방을 하면 직장인 이용이 줄어듭니다",
+                     fact="야간 연장 개방을 하면 직장인 이용이 늘어납니다", slide_no=3, wrong=["줄어듭니다"], right=["늘어납니다"])
+    q = Question(id="q09-night", node_id="night", label="야간 연장 개방", slide_nos=[3], evidence_slide_no=3,
+                 question=traps.trap_question(tp), answer_gist=traps.trap_gist(tp), trap=True, trap_premise=tp)
+    deck_text = " ".join(s.raw_text for s in LIB.slides)
+    j = _scaffold_judgement(q, LIB_GRAPH, deck_text)
+    assert len(j.choices) == 2 and all(c in deck_text for c in j.choices)
+    assert j.followup.startswith("빈칸을 채워 보세요: 자료 3장은 「") and "질문의 전제" not in j.followup   # 머리 낱말은 빈칸이 아니다
+
+
 def test_순서_함정의_보기는_전제가_맞바꾼_두_자료_낱말이다():
     tp = TrapPremise(kind="order", premise="혈당 부하보다 중요한 탄수화물 양", fact="탄수화물 양보다 중요한 혈당 부하", slide_no=1,
                      wrong=["혈당 부하|보다"], right=["탄수화물 양|보다"])
@@ -484,6 +496,67 @@ def test_빈틈_인정_잣대():
     assert acknowledges_gap("그 말에는 수치나 출처가 없어요")
     assert acknowledges_gap("좌석을 늘리는 방법은 자료에 없어요")
     assert not acknowledges_gap("추가 확인이 필요해요")
+
+
+# ---------------------------------------------------------------------------
+# standard 실측 뒤 — 수치 함정의 침묵 · 「나와 있지 않아요」 · 결론만 되읊은 근거 답
+# ---------------------------------------------------------------------------
+
+def test_수치_함정에_틀린_값도_자료_값도_말하지_않은_답은_바로잡은_게_아니다():
+    # 09-30 standard 실측: 「거래 비용 -0.5」 함정에 옆 줄의 다른 수치만 옮긴 답이 LLM 「바로잡음」 으로 good 85 — 값을 안 짚었다
+    silent = "자료 2장은 충전 횟수가 늘어도 용량이 천천히 줄어든다고 해요."
+    v = judge_answer(TRAP_Q, silent, graph=BATTERY_GRAPH, slidedoc=BATTERY,
+                     llm=ScriptedLLM(judged(verdict="good", score=85, premise_corrected=True)))
+    assert not v.passed and v.guard == "trap_open"
+    fixed = "자료에는 70%가 아니라 90%가 남는다고 나와요."
+    ok = judge_answer(TRAP_Q, fixed, graph=BATTERY_GRAPH, slidedoc=BATTERY,
+                      llm=ScriptedLLM(judged(verdict="good", score=85, premise_corrected=True)))
+    assert ok.passed
+
+
+def test_수치_함정_값_대조는_단위와_부호를_본다():
+    from chuckchuck.f09_judge import _names_trap_value
+    tp = TrapPremise(kind="number", premise="거래 비용의 값이 -0.5", fact="거래 비용의 값이 -1.5", slide_no=4,
+                     wrong=["-0.5"], right=["-1.5"])
+    assert not _names_trap_value("비용 0.2% vs 2.5% — 원금 차이가 커요", tp)     # 옆 줄의 % 값은 표 칸 값이 아니다
+    assert _names_trap_value("거래 비용은 0.5가 아니라 1.5예요", tp)             # 입말은 빼기 부호를 떨군다
+    assert _names_trap_value("거래 비용은 -1.5예요", tp)
+    assert not _names_trap_value("1.5%예요", tp)                                 # 단위 없는 칸 값에 % 를 붙이면 다른 값
+
+
+def test_빈칸_탐침에_자료에_나와_있지_않다고_한_답은_초점_가드에_안_걸린다():
+    # 09-30 standard·레드팀 대조군: 「자료에는 그 내용이 나와 있지 않아요」 가 자료에 없다는 말로 안 읽혀 focus_miss 65
+    for a in ("자료에는 그 내용이 나와 있지 않아요. 자료가 말하는 건 좌석이 부족하다는 문제예요.",
+              "좌석 부족을 해결하는 방법은 자료에 나와 있지 않아요."):
+        v = judge_answer(UNSOLVED_Q, a, graph=LIB_GRAPH, slidedoc=LIB, llm=ScriptedLLM(judged(verdict="good", score=80)))
+        assert v.guard == "" and v.passed, a
+
+
+COMMUTE = doc("commute.pdf", slide(1, "지각 줄이기"),
+              slide(2, "지각은 거리 문제가 아니라 출발 시각의 문제다\n집이 먼 사원과 가까운 사원의 지각률 차이는 작음\n"
+                       "8시 이후에 집을 나선 사원의 지각률은 세 배"))
+COMMUTE_GRAPH = ConceptGraph(file_name="commute.pdf", total_slides=2,
+                             nodes=[node("root", "지각", [1], None, 1), node("depart", "출발 시각", [2])],
+                             edges=[ConceptEdge(from_id="root", to_id="depart", kind="parent")])
+REASON_Q = Question(
+    id="q02-depart", node_id="depart", label="출발 시각", slide_nos=[2], evidence_slide_no=2,
+    evidence_quote="지각은 거리 문제가 아니라 출발 시각의 문제다",
+    question="지각이 거리 문제가 아니라 출발 시각에서 비롯된다는 결론을 뒷받침하는 근거는 무엇인가요?",
+    answer_gist="집이 먼 사원과 가까운 사원의 지각률 차이는 작고, 8시 이후에 나선 사원의 지각률은 세 배라서 그래요.",
+    basis=QuestionBasis(source="core_weight", reason=[ClaimQuote(2, "집이 먼 사원과 가까운 사원의 지각률 차이는 작음"),
+                                                     ClaimQuote(2, "8시 이후에 집을 나선 사원의 지각률은 세 배")]),
+)
+
+
+def test_근거_질문에_결론_줄만_옮긴_답은_이유를_안_댄_것이다():
+    # 09-30 verify 레드팀 quote_copy: 「실력의 문제가 아니라 행동의 문제다」(질문의 결론) 만 옮긴 답이 partial 75 통과
+    echo = judge_answer(REASON_Q, "지각은 거리 문제가 아니라 출발 시각의 문제예요.", graph=COMMUTE_GRAPH, slidedoc=COMMUTE,
+                        llm=ScriptedLLM(judged(score=75)))
+    assert not echo.passed and echo.guard == "reason"
+    assert echo.react.startswith("질문에 있는 결론을 다시 말했어요") and "맞아요" not in echo.react and echo.followup == "그 결론을 받치는 이유는 자료 2장 어디에 있나요?"
+    good = judge_answer(REASON_Q, "집이 먼 사원과 가까운 사원의 지각률 차이는 작고, 8시 이후에 나선 사원은 지각률이 세 배예요.",
+                        graph=COMMUTE_GRAPH, slidedoc=COMMUTE, llm=ScriptedLLM(judged(score=75)))
+    assert good.passed and good.guard == ""
 
 
 # ---------------------------------------------------------------------------
@@ -632,3 +705,66 @@ def test_1차_심사에_자료_본문을_넘긴다(bridge_env):
     sid, seen = bridge_env
     _questions(sid)
     assert seen["triage"] and seen["triage"][-1] == BRIDGE_SD
+
+
+def test_서버_사본_개발_경로는_DEV_ROUTES_에서만_열린다(bridge_env, monkeypatch):
+    sid, _ = bridge_env
+    _questions(sid)
+
+    def get(path: str) -> tuple[int, dict]:
+        h = _Handler(path, b"")
+        h.command = "GET"
+        h.do_GET()
+        return h.sent[-1]
+
+    assert get(f"/api/v1/dev/questions?session_id={sid}&id={TRAP_Q.id}")[0] == 404        # 기본은 닫혀 있다 — 곧 정답지다
+    monkeypatch.setattr(bridge, "DEV_ROUTES", True)
+    code, body = get(f"/api/v1/dev/questions?session_id={sid}&id={TRAP_Q.id}")
+    assert code == 200 and body["questions"][0]["trap_premise"]["fact"] == TRAP_Q.trap_premise.fact
+
+
+def test_하네스는_화면_사본의_함정_칸을_서버_사본으로_채운다():
+    from labs.qa_verify.llm_tier import server_copies
+
+    class FakeBridge:
+        def __init__(self):
+            self.paths = []
+
+        def get_json(self, path):
+            self.paths.append(path)
+            return {"questions": [TRAP_Q.to_dict()]}
+
+    client = [bridge.client_questions({"questions": [TRAP_Q.to_dict(), PLAIN_Q.to_dict()]})["questions"][0], PLAIN_Q.to_dict()]
+    fb = FakeBridge()
+    got = server_copies(fb, "s1", client)
+    assert got[0]["trap_premise"]["fact"] == TRAP_Q.trap_premise.fact and got[0]["answer_gist"] == TRAP_Q.answer_gist
+    assert got[1] == PLAIN_Q.to_dict() and len(fb.paths) == 1                 # 보통 질문은 묻지 않는다
+
+
+def test_하네스_결과_화면은_스스로_설명_칸이_없어도_네_묶음으로_읽는다():
+    # 09-30 WP-J2 standard: 스스로 설명 0개면 그 칸이 안 그려져 옛 화면으로 읽고 「헤드라인 0 · 칸 1」 불일치를 거짓으로 냈다
+    from labs.qa_verify.llm_tier import _result_checks
+    rec = {"deck": "d", "turns": [], "end_card": "오늘 질문은 여기까지예요\n3개 중 0개를 스스로 설명했어요",
+           "result_text": "도움 받아 닫은 질문\n1\n혈당 부하\n넘기거나 안 물은 질문\n2\n상세 리포트 보기",
+           "results": [{"id": "q1", "label": "혈당 부하", "verdict": "good", "revealed": False}]}
+    assert _result_checks([rec]) == ([], [])
+
+
+def test_하네스_변조_검사는_질문을_만든_세션으로_보낸다():
+    from labs.qa_verify.llm_tier import _tamper
+
+    class FakeBridge:
+        def __init__(self):
+            self.posts = []
+
+        def remaining(self):
+            return 10
+
+        def post(self, path, payload):
+            self.posts.append(path)
+            return 200, {"verdict": "wrong", "score": 30, "passed": False, "react": ""}
+
+    fb = FakeBridge()
+    prep = {"session_id": "S1", "questions": [PLAIN_Q.to_dict()], "graph": BRIDGE_GRAPH, "context": None}
+    got = _tamper(fb, [prep], {0: {"personas": [{"answers": {}}]}})
+    assert fb.posts == ["/api/v1/sessions/S1/qa/judge"] * 2 and got["changed"] is False

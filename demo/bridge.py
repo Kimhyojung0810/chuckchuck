@@ -1312,6 +1312,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 return self._handle_dev_decks()
             if parsed.path == "/api/v1/dev/decks/file":
                 return self._handle_dev_deck_file(parsed)
+            if parsed.path == "/api/v1/dev/questions":
+                return self._handle_dev_questions(parsed)
             # 주소창에 /test/QA 라고 쳐도 열리게 — 앱은 해시 라우팅이라 경로를 해시로 돌려보낸다.
             # /temp 도 같다 — 통화 배치로 도는 전체 흐름(업로드→발표→질문 코칭)의 입구 (js/call_flow.js).
             hash_route = {"/test/qa": "#/test/qa", "/temp": "#/temp"}.get(parsed.path.lower().rstrip("/"))
@@ -1533,6 +1535,23 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 pass
             rows.append(row)
         return rows
+
+    def _handle_dev_questions(self, parsed):
+        """
+        ?session_id=<id>&id=<질문 id> → 이 세션에서 서버가 만든 그 질문의 **채점 기준 사본**(함정의 전제·사실·골자 포함), 트랙마다.
+
+        화면 사본(`client_questions`)은 함정의 사실 칸을 뺀다 (09-30 WP-J2) — 검증 하네스(labs/qa_verify)는 이 사본으로 함정 페르소나
+        (전제 동의·정정 답)와 사실 누설 태그를 짓는다. 곧 정답지라 **DEMO_DEV_ROUTES=1 로 띄운 브리지에서만** 연다(팀 브라우저 /auth 로도
+        안 연다 — 부스 기기가 팀 인증을 거쳤어도 참가자가 정답을 못 꺼내게).
+        """
+        if not DEV_ROUTES:
+            return self._json(404, {"error": "not found"})
+        qs = parse_qs(parsed.query)
+        sid = _store_sid((qs.get("session_id") or [""])[0])
+        qid = (qs.get("id") or [""])[0]
+        if not sid or not qid:
+            return self._json(400, {"error": "bad_request", "message": "session_id 와 id 가 필요합니다."})
+        return self._json(200, {"session_id": sid, "id": qid, "questions": STORE.find_questions(sid, qid)})
 
     def _handle_dev_decks(self):
         if not _dev_open():
@@ -3048,7 +3067,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         )
         payload = _with_degraded(
             {**judgement.to_dict(), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)}, degraded)
-        if question.trap and question.trap_premise is not None and (
+        if (question.trap or question.trap_premise is not None) and (
                 judgement.passed or judgement.mastered or judgement.coach_stage == "explain"):
             # 화면 사본에서 뺀 기대 답(`client_questions`)은 **바로잡았거나(통과)·닫혔거나·해설 단계일 때** 판정 응답으로 준다 — 화면의
             # 「빠진 절반·완성 문장」(revealHalf)·마무리 카드(finishLiveQuestion)·해설 뒤 다시 말하기가 이것을 읽는다 (09-30 WP-J2).
