@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 
+from . import _claim_rules as R
 from ._match import contains_tokens, label_tokens, norm_tokens
 from .contracts import (
     PROBE_KINDS,
@@ -74,11 +75,14 @@ def mentions(text: str, label: str) -> bool:
 
 
 def _related(a: str, b: str) -> bool:
-    """두 라벨이 같은 개념을 가리키는가 — 한쪽 토큰열이 다른 쪽 안에 있다 ("수면 시간" ⊇ "시간")."""
+    """
+    두 라벨이 같은 개념을 가리키는가 — 한쪽 토큰열이 다른 쪽 안에 있거나("작업 시간" ⊇ "시간"),
+    양·방향 수식어만 다르다("충분한 시간" = "시간 부족" — F-07 이 같은 개념을 두 노드로 둔 경우).
+    """
     ta, tb = label_tokens(a), label_tokens(b)
     if not ta or not tb:
         return bool(a) and a == b
-    return contains_tokens(ta, tb) or contains_tokens(tb, ta)
+    return contains_tokens(ta, tb) or contains_tokens(tb, ta) or R.same_concept(a, b)
 
 
 # ---------------------------------------------------------------------------
@@ -148,57 +152,140 @@ def _tension(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Prob
     return out
 
 
+def _is_problem_list(comp: Claim, graph_by: dict[str, ConceptNode]) -> bool:
+    """
+    compose 가 **문제 목록**인가 — 인용 줄이 문제 명사로 끝나는 제목(「해결해야 할 세 가지 문제」「…실패하는 이유」)이거나,
+    요소 이름이 전부 문제 낱말(저하·부족·장벽·지연 …)이다. 식(「A = B × C」)은 구성 요소·해결 축이지 문제 목록이 아니다
+    (09-29 벤치: 해결 축 식을 문제 목록으로 읽어 「처벌 강화는 어떻게 개선하나요?」 가 나왔다).
+    """
+    if any(R.is_formula(q.quote) for q in comp.evidence):
+        return False
+    if any(R.is_problem_head(q.quote) for q in comp.evidence):
+        return True
+    labels = [graph_by[o].label for o in comp.object_ids if o in graph_by]
+    return len(labels) >= 2 and all(R.is_problem_label(x) for x in labels)
+
+
+def _common_tokens(graph_by: dict[str, ConceptNode]) -> set[str]:
+    """노드 이름 셋 중 하나 이상에 나오는 토큰 — 덱의 주제어(「OO 효과」「OO의 질」)라 짝 맞추기에 쓰지 않는다."""
+    counts: dict[str, int] = {}
+    for n in graph_by.values():
+        for t in set(R.content_tokens(n.label)):
+            counts[t] = counts.get(t, 0) + 1
+    limit = max(3, len(graph_by) // 3)
+    return {t for t, k in counts.items() if k >= limit}
+
+
+def _shares_token(a: str, b: str, common: set[str]) -> bool:
+    ta = [t for t in R.content_tokens(a) if t not in common]
+    tb = [t for t in R.content_tokens(b) if t not in common]
+    return any(R.tok_match(x, y) or R.tok_match(y, x) for x in ta for y in tb)
+
+
 def _unsolved(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
-    """compose 의 요소 가운데 solve 가 안 닿은 것 — 단, 형제 중 하나라도 solve 가 있어야 한다 (자료가 해결책을 내놓는 발표일 때만)."""
+    """
+    **문제 목록**(compose) 가운데 해결책이 안 닿은 문제. 코드가 구조로 가른다:
+
+    - 문제 목록만 본다 (`_is_problem_list`). 식·조건 목록은 아니다.
+    - 해결 장이 있어야 한다 — 목록 장 밖에 solve 주장이 하나 이상. 해결 장이 없는 발표에는 만들지 않는다.
+    - 문제 하나가 풀렸다고 보는 경우: solve 의 objects 에 있다(같은 개념의 다른 이름 포함) / solve 인용 줄에 그 이름이
+      나온다 / 해결 장에 나온 개념(solve 주어·그 장 노드)이 그 문제의 자식이거나 변별 낱말을 나눈다
+      (「일정 자동 공유」 ↔ 「일정 불일치」). 짝을 넉넉히 잡을수록 오탐이 준다 — 빈 칸이 확실할 때만 묻는다.
+    - 형제 중 적어도 하나는 풀렸어야 한다 (자료가 해결책을 내놓는 발표일 때만).
+    """
     out: list[Probe] = []
     solves = [c for c in claims if c.kind == "solve"]
-    for comp in (c for c in claims if c.kind == "compose"):
-        solved_by = {o: [s for s in solves if o in s.object_ids] for o in comp.object_ids}
-        solved = [o for o in comp.object_ids if solved_by[o]]
-        if not solved:
+    common = _common_tokens(graph_by)
+    for comp in (c for c in claims if c.kind == "compose" and _is_problem_list(c, graph_by)):
+        items = [o for o in comp.object_ids if o in graph_by]
+        list_slides = {q.slide_no for q in comp.evidence}
+        fixes = [s for s in solves if any(q.slide_no not in list_slides for q in s.evidence)]
+        if not fixes:
             continue
-        sib = solved[0]
-        for e in comp.object_ids:
-            if solved_by[e]:
+        fix_slides = {q.slide_no for s in fixes for q in s.evidence}
+        fix_nodes = {s.subject_id for s in fixes} | {
+            n.id for n in graph_by.values() if fix_slides & set(n.slide_nos or [])}
+        # 문제 항목 자신과 그 겹친 이름(F-07 이 같은 개념을 두 노드로 둔 것)은 해결 쪽 개념이 아니다
+        fix_nodes = {n for n in fix_nodes - set(items)
+                     if n in graph_by and not any(_related(graph_by[n].label, graph_by[i].label) for i in items)}
+
+        def solved_by(o: str) -> list[Claim]:
+            label = graph_by[o].label
+            return [s for s in fixes if any(x == o or (x in graph_by and _related(graph_by[x].label, label)) for x in s.object_ids)
+                    or any(R.mentioned(label, q.quote) for q in s.evidence)]
+
+        def solved(o: str) -> bool:
+            label = graph_by[o].label
+            return bool(solved_by(o)) or any(
+                graph_by[n].parent_id == o or _shares_token(graph_by[n].label, label, common) for n in fix_nodes if n in graph_by)
+
+        done = [o for o in items if solved(o)]
+        if not done:
+            continue
+        sib = next((o for o in done if solved_by(o)), done[0])
+        for e in items:
+            if e in done:
                 continue
             e_label, sib_label = graph_by[e].label, graph_by[sib].label
             out.append(Probe(
                 kind="unsolved",
                 node_ids=[e, sib],
-                claim_ids=[comp.id, *(s.id for s in solved_by[sib])],
+                claim_ids=[comp.id, *(s.id for s in solved_by(sib))],
                 angle=(f"{graph_by[comp.subject_id].label}의 요소 가운데 {sib_label}에는 해결책이 있는데 "
                        f"{josa(e_label, '을', '를')} 개선하는 방법은 자료에 없다 — {josa(e_label, '은', '는')} 어떻게 다루는지 묻는다"),
-                evidence=_evidence_of(comp, *solved_by[sib]),
+                evidence=_evidence_of(comp, *solved_by(sib)),
             ))
     return out
 
 
+def _cause_nodes(c: Claim, graph_by: dict[str, ConceptNode]) -> list[str]:
+    """
+    인과 탐침의 대상 — 주어(원인)와, 인용 줄에 **이름이 나온** 결과 하나. 인용에 안 나온 결과를 붙이면
+    「1인 가구 증가가 직장인에 영향을」 같은 자료에 없는 문장이 된다 (09-29 벤치). 결과가 안 나왔으면 주어만,
+    주어도 안 나왔으면 [] (탐침을 버린다).
+    """
+    said = c.evidence[0].quote if c.evidence else ""
+    s_label = graph_by[c.subject_id].label
+    others = [graph_by[o].label for o in c.object_ids if o in graph_by]
+    if not said or not R.mentioned(s_label, said, exclude=others):
+        return []
+    shown = [o for o in c.object_ids if o in graph_by and R.mentioned(graph_by[o].label, said, exclude=s_label)]
+    return [c.subject_id, *shown[:1]]
+
+
 def _unsupported_cause(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
-    """cause 주장인데 그 장에 수치·출처가 없다 (has_support 는 F-26 코드가 채운다)."""
+    """cause 주장인데 인용 줄(과 옆 줄)에 수치·출처가 없다 (has_support 는 F-26 코드가 줄 단위로 채운다)."""
     out: list[Probe] = []
     for c in claims:
         if c.kind != "cause" or c.has_support:
             continue
-        s_label = graph_by[c.subject_id].label
-        objs = [o for o in c.object_ids if o in graph_by][:1]
-        said = c.evidence[0].quote if c.evidence else c.text
+        nodes = _cause_nodes(c, graph_by)
+        if not nodes:
+            continue
+        said = c.evidence[0].quote
         out.append(Probe(
             kind="unsupported_cause",
-            node_ids=[c.subject_id, *objs],
+            node_ids=nodes,
             claim_ids=[c.id],
-            angle=f"「{said}」는 인과를 말하지만 그 장에 수치·출처가 없다 — 그렇게 볼 수 있는 근거를 묻는다",
+            angle=f"「{said}」는 인과를 말하지만 그 줄에 수치·출처가 없다 — 그렇게 볼 수 있는 근거를 묻는다",
             evidence=_evidence_of(c),
         ))
     return out
 
 
 def _absolute_boundary(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
-    """단정("반드시·완전히·항상") — 그 말이 통하지 않는 경우·경계를 묻는다."""
+    """
+    단정("반드시·완전히·항상") — 그 말이 통하지 않는 경우·경계를 묻는다.
+    인용 줄에 **부정되지 않은** 단정 표지가 있을 때만 (「반드시 …는 아니다」 는 유보다 — F-26 이 거르지만 한 번 더).
+    """
     out: list[Probe] = []
     for c in claims:
         if c.kind != "absolute":
             continue
-        said = c.evidence[0].quote if c.evidence else c.text
+        marked = [e for e in c.evidence if R.absolute_marker(e.quote)]
+        if not marked:
+            continue
+        said = marked[0].quote
         out.append(Probe(
             kind="absolute_boundary",
             node_ids=[c.subject_id],
@@ -209,16 +296,28 @@ def _absolute_boundary(graph_by: dict[str, ConceptNode], claims: list[Claim]) ->
     return out
 
 
+def _joint(comp: Claim, claims: list[Claim]) -> bool:
+    """compose 의 요소가 함께 필요하다고 자료가 말하는가 — compose 인용(F-26 이 그런 줄을 붙인다)이나 같은 장의 다른 인용."""
+    slides = {q.slide_no for q in comp.evidence}
+    quotes = [q.quote for q in comp.evidence] + [q.quote for c in claims for q in c.evidence if q.slide_no in slides]
+    return any(R.both_needed(x) for x in quotes)
+
+
 def _sibling_priority(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
     """
     같은 compose 의 형제 요소(그래프에서 부모가 같은 요소 둘 이상) — 하나만 챙길 수 있다면 어느 쪽인가.
 
     **대상은 형제 중 가장 무거운 요소다** (weight 내림차순 → compose 에 적힌 순서). compose 의 주어(A)로 하면
-    A 에 이미 tension 이 있는 흔한 경우(수면의 질)에 개념당 질문이 하나라 이 탐침이 늘 죽는다 — 요소에 두면
+    A 에 이미 tension 이 있는 흔한 경우에 개념당 질문이 하나라 이 탐침이 늘 죽는다 — 요소에 두면
     트랙의 part 자리가 뜻 있는 각도를 얻는다. 둘째 노드는 그다음 무거운 형제. compose 하나에 최대 하나.
+
+    자료가 「둘 다 필요하다」「하나만으로는 …」 라고 말한 compose 는 건너뛴다 — 자료가 부정한 선택을 강요하면
+    골자가 자료에 없는 우선순위를 정답으로 가르친다 (09-29 벤치).
     """
     out: list[Probe] = []
     for comp in (c for c in claims if c.kind == "compose"):
+        if _joint(comp, claims):
+            continue
         by_parent: dict[str, list[str]] = {}
         for o in comp.object_ids:
             parent = graph_by[o].parent_id
@@ -283,13 +382,33 @@ def derive_probes(graph: ConceptGraph, claims: ClaimDoc | dict | None) -> list[P
     node_order = {n.id: i for i, n in enumerate(graph.nodes)}
     found.sort(key=lambda p: (_KIND_RANK[p.kind], node_order.get(p.node_ids[0], len(node_order)), p.claim_ids))
     out: list[Probe] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple] = set()
     for p in found:
-        key = (p.kind, p.node_ids[0])
+        # 같은 이름·같은 개념의 두 노드(F-07 이 겹쳐 둔 것)는 한 대상이다
+        label = graph_by[p.node_ids[0]].label
+        key = (p.kind, R.concept_key(label) or label)
         if key not in seen:
             seen.add(key)
             out.append(p)
-    return out
+    return _cap_sibling(out)
+
+
+#: 형제 우선순위 탐침은 덱에 하나만 — 다른 탐침이 하나도 없을 때만 더 둔다. 목록마다 하나씩 나오면
+#: 「A와 B 중 하나만」 질문이 트랙을 채운다 (09-29 벤치: 탐침 10개 중 3개).
+SIBLING_MAX = 1
+
+
+def _cap_sibling(probes: list[Probe]) -> list[Probe]:
+    if all(p.kind == "sibling_priority" for p in probes):
+        return probes
+    kept, n = [], 0
+    for p in probes:
+        if p.kind == "sibling_priority":
+            n += 1
+            if n > SIBLING_MAX:
+                continue
+        kept.append(p)
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -313,7 +432,12 @@ def probe_question(probe: Probe, labels: dict[str, str], graph_by: dict[str, Con
     elif probe.kind == "unsolved" and len(lab) >= 2:
         text = f"{lab[1]}에는 해결책을 제시했는데, {josa(lab[0], '은', '는')} 어떻게 개선하나요?"
     elif probe.kind == "unsupported_cause":
-        if len(lab) >= 2:
+        cause = claims.claim(probe.claim_ids[0]) if claims is not None and probe.claim_ids else None
+        quote = _short_quote(cause) if cause is not None else ""
+        if quote:
+            # 인용 원문을 그대로 — 라벨로 문장을 지으면 자료에 없는 방향·목적어가 끼어든다 (09-29 벤치)
+            text = f"「{quote}」라고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?"
+        elif len(lab) >= 2:
             text = f"{josa(lab[0], '이', '가')} {lab[1]}에 영향을 준다고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?"
         else:
             text = f"{lab[0]}에 대해 말한 원인과 결과는 어떤 근거로 볼 수 있나요?"
@@ -338,7 +462,7 @@ def probe_question(probe: Probe, labels: dict[str, str], graph_by: dict[str, Con
 _PROBE_WHY = {
     "tension": "자료 안의 두 표현이 서로 부딪혀서, 둘이 어떻게 함께 성립하는지 확인하는 질문이에요",
     "unsolved": "다른 요소에는 해결책을 냈는데 이 요소는 비어 있어서 묻는 질문이에요",
-    "unsupported_cause": "원인과 결과를 말했지만 그 장에 수치나 출처가 없어서 근거를 묻는 질문이에요",
+    "unsupported_cause": "원인과 결과를 말했지만 그 대목에 수치나 출처가 없어서 근거를 묻는 질문이에요",
     "absolute_boundary": "단정적으로 말한 대목이라 그 말이 통하지 않는 경우를 묻는 질문이에요",
     "sibling_priority": "나란히 둔 요소 사이에서 무엇이 더 중요한지 묻는 질문이에요",
 }

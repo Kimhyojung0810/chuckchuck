@@ -61,10 +61,13 @@ S1 = "수면의 질\n분명 잤는데 왜 피곤할까?\n수면 시간보다 중
 S2 = "충분한 시간\n하루 7시간 이상 잠자리에 머무는 계획을 세웁니다."
 S4 = "충분히 자도 피곤한 진짜 이유\n수면의 질 =\n시간\n×\n연속성\n×\n규칙성\n얼마나 잤는가 얼마나 끊기지 않았는가"
 S5 = "끊기는 잠\n카페인은 수면 주기를 끊어 연속성을 떨어뜨립니다."
-S6 = "규칙적인 리듬\n매일 같은 시각에 일어나면 규칙성이 돌아옵니다.\n주말에 몰아 자도 리듬은 완전히 회복되지 않습니다."
+S6 = "규칙적인 리듬\n매일 같은 시각에 일어나면 규칙성이 돌아옵니다.\n주말에 몰아 자면 리듬은 반드시 무너집니다."
+# 문제 목록 장 — unsolved 는 식(4장)이 아니라 문제 목록에서만 찾는다 (09-29 벤치: 해결 축 식을 문제 목록으로 읽었다)
+S7 = "잠을 망치는 세 가지 문제\n시간 부족\n연속성 저하\n규칙성 저하"
 
-DECK = SlideDoc(file_name="sleep.pdf", total_slides=6,
-                slides=[slide(1, S1), slide(2, S2), slide(3, "정리 없음 그림 위주 장입니다"), slide(4, S4), slide(5, S5), slide(6, S6)])
+DECK = SlideDoc(file_name="sleep.pdf", total_slides=7,
+                slides=[slide(1, S1), slide(2, S2), slide(3, "정리 없음 그림 위주 장입니다"), slide(4, S4), slide(5, S5), slide(6, S6),
+                        slide(7, S7)])
 
 GRAPH = ConceptGraph(
     file_name="sleep.pdf", total_slides=6,
@@ -104,7 +107,9 @@ CLAIMS = ClaimDoc(file_name="sleep.pdf", claims=[
     Claim(id="c05", kind="cause", subject_id="caffeine", object_ids=["continuity"], has_support=False,
           evidence=[q(5, "카페인은 수면 주기를 끊어 연속성을 떨어뜨립니다.")]),
     Claim(id="c06", kind="absolute", subject_id="regularity",
-          evidence=[q(6, "주말에 몰아 자도 리듬은 완전히 회복되지 않습니다.")]),
+          evidence=[q(6, "주말에 몰아 자면 리듬은 반드시 무너집니다.")]),
+    Claim(id="c07", kind="compose", subject_id="quality", object_ids=["sufficient-time", "continuity", "regularity"],
+          text="잠을 망치는 세 가지 문제", evidence=[q(7, "잠을 망치는 세 가지 문제")]),
 ])
 
 
@@ -276,11 +281,11 @@ def test_단정과_형제_우선순위_템플릿():
     labels = {n.id: n.label for n in GRAPH.nodes}
     by = {n.id: n for n in GRAPH.nodes}
     assert probe_question(probes["absolute_boundary"], labels, by, CLAIMS) == \
-        "규칙성에 대해 「주말에 몰아 자도 리듬은 완전히 회복되지 않습니다.」라고 했는데, 이 말이 들어맞지 않는 경우도 있나요?"
+        "규칙성에 대해 「주말에 몰아 자면 리듬은 반드시 무너집니다.」라고 했는데, 이 말이 들어맞지 않는 경우도 있나요?"
     assert probe_question(probes["sibling_priority"], labels, by, CLAIMS) == \
         "시간과 연속성 중 하나만 챙길 수 있다면, 수면의 질에는 어느 쪽이 더 중요한가요?"
     assert probe_question(probes["unsupported_cause"], labels, by, CLAIMS) == \
-        "카페인이 연속성에 영향을 준다고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?"
+        "「카페인은 수면 주기를 끊어 연속성을 떨어뜨립니다.」라고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?"
 
 
 def test_힌트_인용은_탐침_근거_원문에서_고른다():

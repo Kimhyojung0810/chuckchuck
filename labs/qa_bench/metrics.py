@@ -143,9 +143,23 @@ def probe_matches(p: dict, item: dict, graph_by: dict[str, dict]) -> bool:
     return any(_has_any(e.get("quote", ""), item.get("quote_any") or []) for e in p.get("evidence") or [])
 
 
+def label_natural(label: str, quotes: list[str]) -> bool:
+    """
+    개념 이름이 **자료의 낱말**인가 — 이름의 토큰이 전부 근거 인용 안에 나온다(조사 허용).
+    F-08 은 LLM 질문이 탐침 개념 이름을 다 불러야 받는다. 이름이 자료에 없는 말(「전세사기 완전 소멸」)이면
+    LLM 이 그 말을 안 쓰고, 코드가 템플릿으로 떨어진다 — 템플릿 폴백률의 앞쪽 원인을 따로 잰다.
+    """
+    from chuckchuck._claim_rules import mention_score
+
+    text = " ".join(quotes)
+    return bool(label) and mention_score(label, text) >= 1.0
+
+
 def probe_metrics(probes: list[dict], graph: dict, truth: dict | None) -> dict:
     by = _labels(graph)
-    out: dict = {"n": len(probes), "by_kind": dict(Counter(p["kind"] for p in probes)),
+    natural = [all(label_natural(by.get(i, {}).get("label", ""), [e.get("quote", "") for e in p.get("evidence") or []])
+                   for i in p["node_ids"]) for p in probes]
+    out: dict = {"n": len(probes), "by_kind": dict(Counter(p["kind"] for p in probes)), "natural": sum(natural),
                  "list": [{"kind": p["kind"], "target": by.get(p["node_ids"][0], {}).get("label", p["node_ids"][0]),
                            "nodes": [by.get(i, {}).get("label", i) for i in p["node_ids"]],
                            "evidence": [f"S{e['slide_no']} «{e['quote'][:60]}»" for e in p.get("evidence") or []]}

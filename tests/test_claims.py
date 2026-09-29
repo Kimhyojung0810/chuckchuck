@@ -57,9 +57,10 @@ DECK = SlideDoc(
         slide(1, "01 / 08", "수면의 질", "수면 시간보다 중요한 수면의 질", "5시간 미만", "7시간 이상"),
         slide(4, "충분히 자도 피곤한 진짜 이유", "수면의 질은 단순한 “시간”보다 넓은 개념입니다.",
               "수면의 질 =", "시간", "×", "연속성", "×", "규칙성"),
-        slide(5, "자다가 깨는 대표적인 원인", "| 카페인 | 오후·<br>저녁 섭취 |", "| 음주 | 수면 후반 각성 |"),
+        slide(5, "자다가 깨는 대표적인 원인", "연속성을 끊는 요인은 생각보다 일상적입니다.",
+              "| 카페인 | 오후·<br>저녁 섭취 |", "| 음주 | 수면 후반 각성 |"),
         slide(7, "수면의 질을 높이는 방법", "해결책은 4번 슬라이드의 세 가지 문제와 직접 연결됩니다.",
-              "필요한 수면 시간 확보", "카페인·음주·빛·소음 줄이기", "일정한 기상 시간 유지"),
+              "필요한 수면 시간 확보", "카페인·음주·빛·소음 줄이기", "일정한 기상 시간 유지로 규칙성을 지킵니다"),
     ],
 )
 
@@ -78,7 +79,7 @@ GRAPH = ConceptGraph(
         node("reg", "규칙성", [4, 7], "sq", 0.7),
         node("caf", "카페인", [5], "cont", 0.3),
         node("alc", "음주", [5], "cont", 0.3),
-        node("fix", "실천 방법", [7], "sq", 0.3),
+        node("fix", "일정한 기상", [7], "sq", 0.3),
     ],
 )
 
@@ -147,16 +148,16 @@ LLM_OUT = {"claims": [
      "quote": "음주는 수면 효율을 30% 떨어뜨린다", "text": "음주가 연속성을 끊는다"},
     # 인용이 다른 장에 있다 — 그 장 원문에 없으면 버린다
     {"slide_no": 1, "kind": "solve", "subject_id": "fix", "object_ids": ["reg"],
-     "quote": "일정한 기상 시간 유지", "text": "기상 시간 고정이 규칙성을 해결한다"},
+     "quote": "일정한 기상 시간 유지로 규칙성을 지킵니다", "text": "기상 시간 고정이 규칙성을 해결한다"},
     # 그래프 밖 id — 버린다
     {"slide_no": 7, "kind": "solve", "subject_id": "ghost", "object_ids": ["reg"],
-     "quote": "일정한 기상 시간 유지"},
+     "quote": "일정한 기상 시간 유지로 규칙성을 지킵니다"},
     # 모르는 kind — 버린다
     {"slide_no": 7, "kind": "implies", "subject_id": "fix", "object_ids": ["reg"],
-     "quote": "일정한 기상 시간 유지"},
+     "quote": "일정한 기상 시간 유지로 규칙성을 지킵니다"},
     # 괄호로 감싼 id·옛 evidence 모양 — 받는다
     {"kind": "solve", "subject_id": "(fix)", "object_ids": ["(reg)"],
-     "evidence": [{"slide_no": 7, "quote": "일정한 기상 시간 유지"}]},
+     "evidence": [{"slide_no": 7, "quote": "일정한 기상 시간 유지로 규칙성을 지킵니다"}]},
     # 규칙이 잡은 것과 같은 compose 의 부분집합 — 규칙 쪽(셋)에 합쳐진다
     {"slide_no": 4, "kind": "compose", "subject_id": "sq", "object_ids": ["cont", "reg"],
      "quote": "수면의 질 = 시간 × 연속성 × 규칙성"},
@@ -187,7 +188,8 @@ def test_has_support_는_코드가_채운다():
     doc = build_claims(GRAPH, DECK, llm=ScriptedLLM(LLM_OUT))
     by = {(c.kind, c.subject_id): c for c in doc.claims}
     assert by[("cause", "caf")].has_support is False             # 5장엔 수치·출처가 없다 → unsupported_cause 재료
-    assert by[("compare", "sq")].has_support is True             # 1장 「5시간 미만」
+    # 1장 「5시간 미만」「7시간 이상」 은 설문 보기다 — 비교 줄의 근거가 아니다 (09-29 벤치: 장 전체를 보던 때는 참이었다)
+    assert by[("compare", "sq")].has_support is False
     assert by[("solve", "fix")].has_support is False             # 「4번 슬라이드」 는 수치가 아니다
 
 
@@ -202,7 +204,8 @@ def test_LLM_이_죽어도_규칙_주장은_남는다(llm):
     doc = build_claims(GRAPH, DECK, llm=llm)
     assert doc.model == "rule"
     kinds = sorted((c.kind, c.subject_id, tuple(c.object_ids)) for c in doc.claims)
-    assert kinds == [("compare", "sq", ("time",)), ("compose", "sq", ("time", "cont", "reg"))]
+    assert kinds == [("compare", "sq", ("time",)), ("compose", "cont", ("caf", "alc")),
+                     ("compose", "sq", ("time", "cont", "reg"))]     # 5장 「…원인」 제목 + 표 항목 → 목록 compose
 
 
 def test_깨진_JSON_이면_한_번_더_묻는다():
