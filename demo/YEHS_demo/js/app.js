@@ -8347,11 +8347,9 @@ function ensureLiveQuestions() {
     if (questions.length) {
       // 어느 자료로 만든 질문인지 같이 새긴다 — 자료가 바뀌면 낡은 것이 된다.
       qa.live = newLiveState(qaSessionId(), attachQuestionPapers(questions, doc.papers), qaDocKey());
-      // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes · qa_live presentLiveQuestion)
-      qa.live.notes = typeof liveDegradedLines === 'function' ? liveDegradedLines(doc) : [];
-      // 녹음을 받았는데 질문 재료로 못 썼으면(다른 발표 · 판정이 짐작뿐) 그 까닭도 같은 자리에 한 번 (09-30 WP-S2 QuestionDoc.speech_note).
-      // 같은 문장이 이미 있으면 한 번만 — 질문 묶음의 문서 단위 신호는 이 한 칸이다
-      if (doc && doc.speech_unused && doc.speech_note && !qa.live.notes.includes(doc.speech_note)) qa.live.notes.push(doc.speech_note);
+      // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes · qa_live presentLiveQuestion).
+      // 녹음을 받았는데 질문 재료로 못 썼으면(다른 발표 · 판정이 짐작뿐 — QuestionDoc.speech_note) 그 까닭이 맨 앞이다 (REC-14 liveEntryNotes)
+      qa.live.notes = typeof liveEntryNotes === 'function' ? liveEntryNotes(doc) : [];
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;

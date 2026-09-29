@@ -43,6 +43,7 @@ const EXPORT_LINE = `
   liveBucket, liveHintsUsed, liveWholeSentences, liveDegradedLines, liveQuestionWhy, liveJudgeFailure,
   liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
   liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion,
+  liveEntryNotes,
 };`;
 
 /**
@@ -768,6 +769,21 @@ test('WP-J2 녹음이 자료와 다른 발표면 질문 묶음에 한 번 조용
   eq(api.liveDegradedLines({ speech_mismatch_deck_only: true }), ['녹음이 이 자료와 달라서 자료만 보고 질문했어요.'], '묶음 머리 표시도 받는다');
   eq(api.liveDegradedLines({ questions: [{ id: 'q1', basis: { checks: [] } }, { id: 'q2', basis: null }] }), [], '녹음이 맞으면 조용히');
   eq(api.liveSpeechMismatch({ verdict: 'good' }), false, '판정 응답에는 질문이 없다');
+});
+
+test('REC-14 녹음이 다른 발표라는 알림이 첫 줄 — 문헌 알림 뒤에 묻지 않고, 같은 사실을 두 번 말하지 않는다', () => {
+  const { api } = newContext();
+  const note = '녹음이 이 자료와 다른 발표라서 자료만 보고 질문을 만들었어요. 이 자료로 발표한 녹음을 올리면 발표 내용도 같이 물어볼게요.';
+  const doc = {
+    degraded: ['papers_partial'], degraded_notes: ['문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.'],
+    speech_unused: 'unrelated_speech', speech_note: note,
+    questions: [{ id: 'q1', basis: { checks: ['speech_mismatch_deck_only'] } }],
+  };
+  eq(api.liveEntryNotes(doc), [note, '문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.'], '까닭이 맨 앞 · 줄인 같은 말은 뺀다');
+  eq(api.liveEntryNotes({ ...doc, speech_unused: '', speech_note: '' }),
+    ['문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요.', '녹음이 이 자료와 달라서 자료만 보고 질문했어요.'],
+    '문서 단위 까닭이 없으면 예전 그대로');
+  eq(api.liveEntryNotes({ questions: [] }), [], '녹음이 맞으면 조용히');
 });
 
 test('REC-10 결과 화면 — 녹음이 다른 발표면 「근거 발화와 함께」 를 약속하지 않고 맞는 녹음을 올리라고 한다', () => {

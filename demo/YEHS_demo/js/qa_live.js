@@ -1524,6 +1524,20 @@ function liveDegradedLines(res) {
 }
 
 /**
+ * 첫 질문 앞에 한 번 띄우는 알림 줄 (09-30 녹음 대화 감사 REC-14).
+ *
+ * 녹음을 받았는데 질문 재료로 못 썼으면(QuestionDoc.speech_unused — 다른 발표 · 판정이 짐작뿐) 그 까닭(speech_note)이 **맨 앞**이다.
+ * 예전엔 끝에 붙여 「문헌 검색 일부가 실패해서…」 뒤에 묻혔다 — 녹음이 다른 발표라는 건 질문 전체의 재료가 바뀐 일이라 문헌보다 먼저다.
+ * speech_note 가 있으면 같은 사실을 줄여 말한 LIVE_SPEECH_MISMATCH_NOTE 는 뺀다 — 한 사실을 두 번 말하지 않는다.
+ */
+function liveEntryNotes(doc) {
+  const lines = liveDegradedLines(doc);
+  const note = doc && doc.speech_unused && typeof doc.speech_note === 'string' ? doc.speech_note.trim() : '';
+  if (!note) return lines;
+  return [note, ...lines.filter((n) => n !== note && n !== LIVE_SPEECH_MISMATCH_NOTE)];
+}
+
+/**
  * 질문 묶음이 녹음을 버리고 자료만으로 만들어졌나 — F-08 은 질문마다 basis.checks 에 speech_mismatch_deck_only 를 남긴다
  * (문서 단위 칸이 계약에 없어서). 묶음 머리에 같은 이름의 참 값이 오면 그것도 받는다. 판정 응답에는 questions 가 없어 늘 거짓이다.
  */
