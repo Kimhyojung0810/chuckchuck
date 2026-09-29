@@ -613,13 +613,13 @@ def test_gist_with_numbers_absent_from_deck_falls_back():
         "node_id": "c1", "question": "개념1의 근거는 무엇인가요?",
         "answer_gist": "정확도는 70~80% 수준이고 전환율 15%를 목표로 해요",
         "answer_gist_parts": ["정확도 70~80%", "전환율 15% 목표"],
-        "hint": "15% 를 떠올려 보세요", "why": "근거를 보기 위해",
+        "hint": "15% 를 떠올려 보세요", "why": "근거를 먼저 봐야 설득력이 생겨요",
     })
     with_deck = doc_of(payload, slidedoc=make_slidedoc()).questions[0]
     assert "70" not in with_deck.answer_gist and "15%" not in with_deck.answer_gist
     assert with_deck.answer_gist_parts == []           # 지어낸 골자의 조각도 남기지 않는다
     assert "15%" not in with_deck.hint
-    assert with_deck.why == "근거를 보기 위해"          # 숫자 없는 문장은 그대로
+    assert with_deck.why == "근거를 먼저 봐야 설득력이 생겨요"   # 숫자 없는 온전한 해요체 문장은 그대로 (조각은 코드 이유로 — M-03)
     assert with_deck.question == "개념1의 근거는 무엇인가요?"
     # 자료 글이 없으면 판단하지 않는다 — 예전과 같다
     without = doc_of(payload).questions[0]
@@ -1589,8 +1589,12 @@ def test_a_long_body_is_clipped_at_the_cap(monkeypatch):
         ln for ln in question_prompt(slidedoc=doc).splitlines()
         if ln.strip().startswith("자료 본문")
     )
-    assert line.rstrip().endswith("…")
-    assert len(line.split(": ", 1)[1]) == 20
+    # 자료 본문은 <deck>…</deck> 울타리 안에 실린다 (09-30 레드팀 Q-A7 — 원문 안의 명령은 데이터일 뿐이다)
+    body = line.split(": ", 1)[1]
+    assert body.startswith("<deck>") and body.endswith("</deck>")
+    body = body[len("<deck>"):-len("</deck>")]
+    assert body.endswith("…")
+    assert len(body) == 20
 
 
 def test_newlines_in_the_body_do_not_break_the_one_line_item_shape():

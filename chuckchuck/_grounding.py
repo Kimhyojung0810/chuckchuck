@@ -16,11 +16,12 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 
-from ._evidence import clean_slide_text, strip_chart_descriptions
+from ._evidence import clean_slide_text, join_sep, noise_lines, sentence_ahead, strip_chart_descriptions, wrap_width
 
 # ---------------------------------------------------------------------------
 # 자료 줄 — 글 상자 한 줄, 표는 행 하나가 한 줄
@@ -53,6 +54,9 @@ def slide_rows(slide_no: int, raw_text: str) -> list[Row]:
     rows: list[Row] = []
     header = ""
     in_table = False
+    # 설문 보기·축 눈금은 자료의 사실이 아니다 — 골자·함정·근거 대조의 재료에서 뺀다 (09-30 held-out C-01: 설문 보기 「3시 이후」 가
+    # 골자의 사실이 됐다). 명령 줄(「…로 판정할 것」)은 clean_slide_text 가 이미 지운다.
+    noise = noise_lines(raw_text)
     for line in strip_chart_descriptions(raw_text).split("\n"):
         s = line.strip()
         if not s:
@@ -62,7 +66,7 @@ def slide_rows(slide_no: int, raw_text: str) -> list[Row]:
         if table and _TABLE_SEP_RE.match(s):
             continue
         text = clean_slide_text(s)
-        if not text or (not table and _PAGE_NO_RE.match(text)):
+        if not text or (not table and (_PAGE_NO_RE.match(text) or text in noise)):
             continue     # 표 행(「| 1 | 1100 | 1050 |」)은 숫자뿐이어도 쪽 번호가 아니다
         cells: tuple[str, ...] = ()
         if table:
@@ -73,7 +77,30 @@ def slide_rows(slide_no: int, raw_text: str) -> list[Row]:
             in_table = False
         rows.append(Row(slide_no=slide_no, index=len(rows), text=text, table=table,
                         header=header if table else "", cells=cells))
-    return rows
+    return _join_wrapped(rows)
+
+
+def _join_wrapped(rows: list[Row]) -> list[Row]:
+    """
+    두 줄로 접힌 글 줄을 한 줄로 (`_evidence.continues_to` — 인용 후보와 같은 판단). 표 행·물음 줄·글머리 줄은 그대로.
+    09-30 검증 하네스(antonym_gist_rejected): 자료 줄 「스마트폰 위치가 멀어질수록」 / 「인지 과제 수행이 좋아지는 경향」 을 따로 봐서,
+    방향이 반대인 골자 「스마트폰이 가까울수록 인지 과제 수행이 좋아지는 경향」 이 방향 검사를 통과했다 (한 줄짜리 같은 문장은 걸렸다).
+    """
+    texts = [r.text for r in rows if not r.table]
+    wrap_at = wrap_width(texts)
+    all_texts = [r.text for r in rows]
+    out: list[Row] = []
+    last_line = ""          # 앞 **물리 줄** — 이어 붙인 덩어리 길이로 폭을 재지 않는다
+    for k, r in enumerate(rows):
+        prev = out[-1] if out else None
+        sep = (join_sep(last_line, r.text, wrap_at, sentence_ahead(all_texts, k))
+               if (prev is not None and not prev.table and not r.table) else None)
+        last_line = r.text
+        if sep is not None:
+            out[-1] = Row(slide_no=prev.slide_no, index=prev.index, text=f"{prev.text}{sep}{r.text}")
+            continue
+        out.append(Row(slide_no=r.slide_no, index=len(out), text=r.text, table=r.table, header=r.header, cells=r.cells))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +222,8 @@ class DeckIndex:
     topic: set[str] = field(default_factory=set)
     vocab: set[str] = field(default_factory=set)
     text: str = ""
+    #: vocab 의 줄기(조사 뗀 꼴) — `known` 이 쓴다.
+    vocab_stems: set[str] = field(default_factory=set)
 
     @property
     def labels(self) -> list[str]:
@@ -263,11 +292,11 @@ class DeckIndex:
         return None
 
     def known(self, word: str) -> bool:
-        """낱말이 자료(·발화)에 있는가. 조사가 붙은 꼴(「구조적」 ∋ 「구조」)도 같은 낱말로 본다."""
-        w = word.lower()
-        if w in self.vocab:
-            return True
-        return any(w[:k] in self.vocab for k in range(2, len(w)))
+        """낱말이 자료(·발화)에 있는가. 조사·어미만 다른 꼴(「구조를」 ∋ 「구조」, 「방문객」 ∋ 「방문」)도 같은 낱말로 본다.
+
+        예전엔 **앞 두 글자**만 맞아도 있다고 봤다 — 09-30 레드팀(Q-B): 「가격정책」 이 「가격」 하나로, 「심리적」 이 「심리」 로 통과해
+        자료 밖 낱말 비율이 낮게 나왔다. 이제 줄기(조사 뗀 꼴)가 같거나, 한쪽이 다른 쪽 앞머리이면서 **남는 글자가 둘 이하**일 때만."""
+        return known_in(word, self.vocab_stems or {stem(w) for w in self.vocab})
 
 
 def build_index(slides: dict, nodes: list, transcript_text: str = "") -> DeckIndex | None:
@@ -286,7 +315,22 @@ def build_index(slides: dict, nodes: list, transcript_text: str = "") -> DeckInd
             topic.add(label)
     text = " ".join(r.text for no in sorted(rows) for r in rows[no])
     vocab = set(words(text)) | set(words(transcript_text))
-    return DeckIndex(rows=rows, label_slides=label_slides, topic=topic, vocab=vocab, text=text)
+    return DeckIndex(rows=rows, label_slides=label_slides, topic=topic, vocab=vocab, text=text,
+                     vocab_stems={stem(w) for w in vocab})
+
+
+def known_in(word: str, stems: set[str]) -> bool:
+    """낱말(의 줄기)이 줄기 집합에 있는가 — 같거나, 앞머리가 같고 남는 글자가 둘 이하(어미·접미)."""
+    w = stem((word or "").lower())
+    if not w:
+        return False
+    if w in stems:
+        return True
+    for s in stems:
+        if len(s) >= 2 and len(w) >= 2 and (w.startswith(s) or s.startswith(w)) and abs(len(w) - len(s)) <= 2 \
+                and w[0] >= "가" and s[0] >= "가":
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -361,9 +405,16 @@ def _cell_value(cell: str) -> float | None:
         return None
 
 
-def _table_extreme(named: set[str], idx: DeckIndex) -> bool:
-    """「가장 ○○」 을 표가 받치는가 — 절이 부르는 라벨이 한 표의 행 머리이고, 그 행이 어떤 수치 열에서 절댓값이 가장
-    크거나 작다. 차트 표(「요인 | -1.6」)는 「가장 크다」 를 글로 안 쓰고 값으로만 말한다."""
+#: 「가장 ○○」 의 방향 — 큰 쪽(크다·높다·많다·최대) · 작은 쪽(작다·낮다·적다·최소).
+_SUPER_UP_RE = re.compile(r"(?:가장|제일)\s*(?:크|큰|높|많|길|긴|빠르|넓|강하|강한)|최대|최고|최장|최다")
+_SUPER_DOWN_RE = re.compile(r"(?:가장|제일)\s*(?:작|낮|적|짧|느리|느린|좁|약하|약한)|최소|최저|최단")
+
+
+def _table_extreme(named: set[str], idx: DeckIndex, clause: str = "") -> bool:
+    """「가장 ○○」 을 표가 받치는가 — 절이 부르는 라벨이 한 표의 행 머리이고, 그 행이 어떤 수치 열에서 절댓값이 **절이 말한 쪽의**
+    끝(가장 큰 → 최댓값, 가장 작은 → 최솟값)이다. 차트 표(「요인 | -1.6」)는 「가장 크다」 를 글로 안 쓰고 값으로만 말한다.
+    09-30 레드팀(Q-A6): 예전엔 최솟값인 행도 「가장 큰」 의 근거로 받았다. 방향을 못 읽으면(「가장 중요한」) 양 끝 다 받는다."""
+    want_up, want_down = bool(_SUPER_UP_RE.search(clause)), bool(_SUPER_DOWN_RE.search(clause))
     for block in _tables(idx):
         keyed = [r for r in block if r.cells and any(squash(r.cells[0]) == squash(lab) or mentions(r.cells[0], lab) for lab in named)]
         if not keyed:
@@ -375,7 +426,8 @@ def _table_extreme(named: set[str], idx: DeckIndex) -> bool:
                 continue
             hi = max(v for v, _ in vals)
             lo = min(v for v, _ in vals)
-            if any(r in keyed and v in (hi, lo) for v, r in vals):
+            ends = (hi,) if want_up and not want_down else (lo,) if want_down and not want_up else (hi, lo)
+            if any(r in keyed and v in ends for v, r in vals):
                 return True
     return False
 
@@ -407,7 +459,7 @@ def unbacked_comparisons(text: str, idx: DeckIndex | None) -> list[str]:
         named = {s.label for s in label_spans(clause, idx.labels + _table_heads(idx))}
         if not named:
             continue
-        backed = _SUPERLATIVE_RE.search(clause) is not None and _table_extreme(named, idx)
+        backed = _SUPERLATIVE_RE.search(clause) is not None and _table_extreme(named, idx, clause)
         for row in ([] if backed else rows):
             win = " ".join(idx.window(row)[:3] if not row.table else idx.window(row)[:2])
             if (has_comparison(win) or _COMPARE_ROW_RE.search(win)) and all(
@@ -511,6 +563,11 @@ def described_table(slide_no: int, raw_text: str) -> str:
     """이 장의 **설명 표**(값 칸이 낱말 둘 이상인 행이 있는 표)를 「머리: 값 · 머리: 값」 한 줄로. 없으면 "".
     숫자만 든 차트 표는 넣지 않는다 — 문서 변환기가 막대 길이를 반올림한 값이라 본문 숫자와 어긋난다."""
     rows = [r for r in slide_rows(slide_no, raw_text) if r.table and len(r.cells) >= 2]
+    # 한글 자료에 영문이 대부분인 표(차트 범례 「Stage | Label / Color」 「N3 | 깊은 수면 / Blue」)는 문서 변환기가 그림을 읽은
+    # 것이지 발표자의 설명 표가 아니다 — 09-30 벤치: 다시 쓴 골자에 「Stage: Label / Color · N1-N2: …/ Blue」 가 실렸다.
+    if any(_LATIN_WORD_RE.search(c) and not re.search(r"[가-힣]", c) for r in rows for c in r.cells[1:]) \
+            and re.search(r"[가-힣]", raw_text or ""):
+        rows = [r for r in rows if not any(_LATIN_WORD_RE.search(c) and not re.search(r"[가-힣]", c) for c in r.cells)]
     if not any(len(_value_words(c)) >= 2 for r in rows for c in r.cells[1:]):
         return ""
     return " · ".join(f"{r.cells[0]}: {' / '.join(c for c in r.cells[1:] if c)}" for r in rows if r.cells[0])
@@ -567,8 +624,13 @@ def direction_conflicts(text: str, idx: DeckIndex | None) -> list[str]:
                 if not mine.search(clause) or theirs.search(clause):
                     continue
                 for r in rows:
-                    if theirs.search(r.text) and not mine.search(r.text) and not _CLAUSE_NEG_RE.search(r.text) \
-                            and len(cw & _pole_free_words(r.text)) >= DIRECTION_SHARED_MIN:
+                    if not theirs.search(r.text) or mine.search(r.text) or _CLAUSE_NEG_RE.search(r.text):
+                        continue
+                    rw = _pole_free_words(r.text)
+                    shared = cw & rw
+                    # 같은 말을 해야 방향을 견준다 — 낱말 둘만 겹친 **다른 조건**의 줄(「알림을 받은 조건에서 과제 수행이 나빠지는
+                    # 결과」)과 견주면 자료대로 쓴 골자(「멀어질수록 … 좋아지는」)가 걸렸다. 셋 이상, 또는 그 줄 낱말의 절반 이상.
+                    if len(shared) >= DIRECTION_SHARED_MIN and (len(shared) >= 3 or len(shared) * 2 >= len(rw)):
                         hit = True
                         break
                 if hit:
@@ -677,6 +739,15 @@ def asks_method(question: str) -> bool:
     return bool(_METHOD_ASK_RE.search(question or ""))
 
 
+_CITATION_MARK_RE = re.compile(r"\((?:[^()]*?)(?:19|20)\d{2}[a-z]?\)|et\s+al\.?|doi\s*:|10\.\d{4,9}/", re.I)
+#: 장 머리로 보는 줄 길이 상한 — 제목·부제는 짧다.
+HEADING_MAX = 24
+
+
+def _is_heading(row: Row) -> bool:
+    return not row.table and row.index < HEADING_ROWS and len(row.text) <= HEADING_MAX and not _DATA_RE.search(row.text)
+
+
 def _has_data(row: Row) -> bool:
     if row.table:
         return any(numbers(c) for c in row.cells[1:])
@@ -692,7 +763,9 @@ def method_supported(question: str, anchors: list[int], idx: DeckIndex | None) -
     if idx is None:
         return True
     rows = [r for no in anchors for r in idx.rows.get(no, [])]
-    if any(_SOURCE_RE.search(r.text) for r in rows):
+    # 장 머리(제목·부제)의 「연구 배경」「조사 개요」 는 출처가 아니다 — 09-30 레드팀(Q-B): 제목 한 줄로 방법 질문이 통과했다.
+    # 머리 줄은 인용 표기(「(2019)」·et al.)가 있을 때만 출처로 친다.
+    if any(_SOURCE_RE.search(r.text) and (not _is_heading(r) or _CITATION_MARK_RE.search(r.text)) for r in rows):
         return True
     data = [r for r in rows if _has_data(r)]
     if not data:
@@ -751,7 +824,10 @@ def paper_residue(text: str, idx: DeckIndex | None, paper_texts: list[str], *, n
     return novel and novel_share(text, idx) >= NOVEL_SHARE_MAX
 
 
-_SENT_RE = re.compile(r"(?<=[가-힣][.?!])\s+|(?<=요)\s+(?=[가-힣A-Z])")
+#: 문장 경계 — 마침표류 뒤, 또는 마침표 없이 「…요」 로 끝난 뒤. 단 **「요」 로 끝나는 한자어 명사**(주요·필요·중요·수요·
+#: 소요·강요·개요·긴요·적요)는 문장 끝이 아니다. 09-30 WP-Q: 골자 「… 이용 감소의 주요 원인이에요.」 가 「주요」 에서 잘려
+#: 문장째 거르는 `supported_sentences` 가 반쪽 「원인이에요.」 를 남겼다 (판정의 `keep_sentences` 도 같은 칼을 쓴다).
+_SENT_RE = re.compile(r"(?<=[가-힣][.?!])\s+|(?<=[^주필중수소강개긴적]요)\s+(?=[가-힣A-Z])")
 
 
 def sentences(text: str) -> list[str]:
@@ -763,3 +839,480 @@ def strip_paper_sentences(text: str, idx: DeckIndex | None, *, novel: bool) -> s
     keep = [s for s in sentences(text)
             if not paper_talk(s, idx) and not (novel and novel_share(s, idx) >= NOVEL_SHARE_MAX)]
     return " ".join(keep)
+
+
+# ---------------------------------------------------------------------------
+# (e) 절 단위 지지 — 골자의 **절마다** 자료 한 곳이 받쳐야 한다 (09-30 held-out 감사 C-01)
+#
+# 숫자·비교·표·방향 검사(gist_problems)는 **틀린 짝**만 봤다. held-out 5덱에서 무너진 골자는 대부분 짝이 틀린 게 아니라
+# **자료에 없는 말을 지어낸** 것이었다 — 「…인슐린 과다 분비가 졸림을 유발해요」「야간 폭식은 심리적·생리적 반응으로」
+# 「독서 경험 감소가 방문객 감소의 주요 원인이며」. 절의 **내용 명사**가 자료 한 곳(줄과 앞뒤 줄·표 행과 머리)에 모여 있는지 본다.
+# 서술어는 활용이 달라 글자로 못 맞추니 명사만 센다. 관계·평가를 말하는 흔한 추상 명사(영향·역할·원인·현상 …)는 어느 발표에나
+# 쓰는 말이라 세지 않는다 — 특정 발표의 낱말은 목록에 없다.
+# ---------------------------------------------------------------------------
+
+#: 관계·평가·질문 틀의 추상 명사 — 바꿔 말하기(paraphrase)에 흔히 붙는 말이라 「자료에 있어야 하는 낱말」 로 세지 않는다.
+GENERIC_NOUNS = frozenset("""
+자료 발표 질문 답 답변 설명 언급 제시 강조 주장 내용 개념 의미 뜻 핵심 중심 주요 중요 필요 가능 가능성 정도 수준 측면 부분 요소 구성
+관계 연결 연관 연관성 관련 관련성 영향 역할 기여 작용 효과 결과 원인 이유 근거 요인 조건 경우 상황 문제 방법 방안 대책 해결 해결책
+개선 방식 과정 단계 구조 형태 현상 변화 차이 비교 기준 범위 한계 예외 경계 전제 목적 의도 기능 특징 특성 성격 지표 수치 출처 데이터
+통계 연구 사례 예시 증거 결론 판단 생각 시각 관점 입장 전체 일부 대부분 모두 각각 여러 다양 구체적 구체 실제 직접 간접 주로 특히 또한
+결국 따라서 그래서 이는 이것 그것 이러한 그러한 이번 이후 이전 동시 함께 그대로 다시 먼저 나중 가장 제일 더 덜 매우 크게 작게
+실질 실질적 전반 전반적 일반 일반적 기본 기본적 핵심적 결정적 중요성 필요성 점 것 수 때 등 중 간 곳 쪽 편 번 가지 개 명 해 보강 인정
+사람 모든 어느 이런 그런 저런 어떤 무슨 각 모든 여러 적용 해당 주체 자체 변수 매개 매개체 수단 도구
+장치 계기 바탕 토대 기반 필수 필수적 행위 행동 활동 상태 모습 방향 흐름 모델 전략 체계 시스템 요구 문제점 장점 단점 이점
+연간 월간 연평균 평균 전체 총 누적 합계 비율 비중 규모 크기 수준 값 수치 단위 상대적 절대적 대비
+무엇 누구 어디 언제 얼마 얼마나 어떻게 어째서 어느쪽 무엇인지 무엇인가요 대상 전후 이상 이하 미만 초과 일반 경향 가능성 확인 검토 활용 이용 제공
+이로 인해 이로써 통해 위해 대해 관해 따라 의해 비해 달리 반해 향해 걸쳐 거쳐 이에 이와 그에 그와 이를 그를 이라 이란 라는 라고 이라는
+하나 둘 셋 넷 다섯 여섯 일곱 여덟 아홉 첫째 둘째 셋째 전부 서로 각자 나머지 어떤것 무엇이든
+""".split())
+#: 서술어로 보는 낱말 꼬리 — 명사가 아니라 활용형이다 (「발생해요」「올랐다가」「줄일」「막는」). 명사만 지지 대조에 쓴다.
+_PREDICATE_TAIL_RE = re.compile(
+    r"(?:다|요|니다|습니다|어요|아요|해요|했|했다|된다|한다|하는|되는|하고|되고|하며|되며|하여|되어|해서|돼서|하면|되면|하게|되게|"
+    r"해야|돼야|어야|아야|여야|해도|돼도|어도|아도|하지만|하는데|했는데|"
+    r"하지|되지|했고|됐고|한|된|할|될|인|일|던|은|는|을|ㄹ|고|며|면|서|게|지|도록|수록|면서|지만|는데|으나|다가|어서|아서|어야|아야|"
+    r"였|었|았|겠|려|러|기|음|함|됨|임)$")
+#: 절 경계 — 문장 끝·쉼표(수 안의 쉼표 말고)·줄표·가운뎃점·연결 어미 뒤 빈칸.
+_SUPPORT_CLAUSE_RE = re.compile(
+    r"(?<=[.?!])\s+|\s+[—–]\s+|(?<!\d),(?!\d)\s*|\s+·\s+|(?:(?<=[가-힣]고)|(?<=[가-힣]며)|(?<=면서)|(?<=지만)|(?<=는데)|(?<=으나))\s+")
+#: 지지 대조에서 빼는 인용 — 「…」·«…» 안은 자료 줄을 옮긴 것이라 따로 본다(인용이 자료에 있는지는 호출자가 본다).
+_QUOTED_RE = re.compile(r"«[^»]*»|「[^」]*」|“[^”]*”")
+#: 절을 「받쳐졌다」 고 보는 몫 — 자료 한 곳(줄과 앞뒤 줄)이 절의 내용 명사를 이만큼 담는다.
+CLAUSE_REGION_SHARE = 0.6
+#: 한 장 전체로 보면 더 엄하게 — 흩어진 낱말을 이어 붙인 문장일 수 있다.
+CLAUSE_SLIDE_SHARE = 0.75
+
+
+#: 「는」 앞에 와서 관형형(동사)으로 읽히는 줄기 끝 음절 — 「해치는」「보이는」「주는」. 명사 + 는(「회의는」「교사는」)과 가른다.
+_VERB_STEM_END = frozenset("치리기히이우주두보오가지시키드르트")
+#: ㄴ·ㄹ 관형형 받침을 뗀 음절 가운데 용언 줄기 끝으로 흔한 것.
+_ADN_BASE = frozenset("치리기히이우주두보오가지시키드르트하되해나느으려러워와")
+
+
+def _adnominal_like(word: str) -> bool:
+    """관형형 활용처럼 끝나는 낱말 — 조사가 안 붙었는데 끝 음절 받침이 ㄴ·ㄹ(「넓힌」「퍼진」「줄일」)이거나, 「던」 으로 끝나거나,
+    동사 줄기 끝 음절 + 「는」(「해치는」). 조사가 붙은 명사(「메커니즘은」「시간을」)는 아니다.
+    명사도 이렇게 끝나기에(「기간」「공간」) 자료에 있는 낱말이면 명사로 둔다 (`content_nouns`)."""
+    last = word[-1:]
+    if not ("가" <= last <= "힣"):
+        return False
+    if word.endswith("던"):
+        return True
+    if word.endswith("는") and len(word) >= 2:
+        return word[-2] in _VERB_STEM_END
+    code = ord(last) - 0xAC00
+    if stem(word) != word or code % 28 not in (4, 8):
+        return False
+    # ㄴ·ㄹ 받침을 뗀 음절이 용언 줄기 끝으로 흔한 꼴일 때만 — 「넓힌(히)」「퍼진(지)」「중요한(하)」「좋은(으)」. 「기존(조)」
+    # 「방안(아)」「전환(화)」 같은 한자어 명사는 아니다.
+    return chr(0xAC00 + code - code % 28) in _ADN_BASE
+
+
+#: 보조 용언 활용(「않아」「없는」「있어」「나와 있지」) — 꼬리 규칙(`_PREDICATE_TAIL_RE`)이 못 거르는 꼴. 이 음절로 시작하는 내용
+#: 명사는 드물다.
+_AUX_PRED_RE = re.compile(r"^(?:않|없|있|나와|나오)[가-힣]{0,3}$")
+
+
+def content_nouns(text: str, deck_bag: set[str] | None = None) -> list[str]:
+    """글의 **내용 명사** 줄기 (순서대로, 중복 없이) — 숫자·서술어·흔한 추상 명사 뺀 것.
+    deck_bag(자료 줄기)을 주면 관형형처럼 끝나는 낱말(`_adnominal_like`)은 자료에 있을 때만 명사로 센다 — 형태소 분석 없이
+    「넓힌·퍼진·해치는」 을 명사로 읽어 「자료에 없는 낱말」 로 세던 것을 막는다. 대신 「인슐린」 같은 ㄴ 받침 명사도 빠지므로
+    **질문을 버릴지** 볼 때(`unknown_terms`)만 쓴다 — 골자 지지 대조는 넉넉히 세는 쪽(다시 쓰는 쪽)이 안전하다."""
+    out: list[str] = []
+    src = text or ""
+    for m in _WORD_RE.finditer(src):
+        w = m.group(0).lower()
+        if m.start() > 0 and src[m.start() - 1].isdigit():
+            continue       # 숫자에 붙은 단위(「8분으로」「9%에서」)는 낱말이 아니다
+        if w[0].isdigit() or _ONE_CHAR_NOUN_RE.match(w) or _PREDICATE_TAIL_RE.search(w) and not _noun_with_josa(w) \
+                or _AUX_PRED_RE.match(w):
+            continue
+        s = _cstem(w)
+        if len(s) < 2 or s in GENERIC_NOUNS or any(s.startswith(g) and len(s) - len(g) <= 1 for g in GENERIC_NOUNS if len(g) >= 2):
+            continue
+        if deck_bag is not None and _adnominal_like(w) and not known_in(s, deck_bag):
+            continue
+        if s not in out:
+            out.append(s)
+    return out
+
+
+def _noun_with_josa(word: str) -> bool:
+    """「인슐린이」「시간은」 처럼 명사 + 조사 한 겹이면 참 — 꼬리(은·는·을·이 …)가 서술어 꼬리와 겹쳐서 따로 본다.
+    줄기가 「하·되·시키」 로 끝나면(「유발하는」→「유발하」) 명사가 아니라 동사 활용이다."""
+    s = stem(word)
+    return s != word and len(s) >= 2 and not _PREDICATE_TAIL_RE.search(s) and not re.search(r"(?:하|되|시키|해지|돼)$", s)
+
+
+def _stem_hit(stem_: str, bag: set[str]) -> bool:
+    return known_in(stem_, bag)
+
+
+#: 서술격 꼬리 — 「독자였다」「요인입니다」「요소인데」 의 명사 줄기를 꺼낸다 (지지 대조 전용; `stem` 은 조사만 뗀다).
+_COPULA_TAIL_RE = re.compile(
+    r"(?:이었다|였다|이다|입니다|이에요|예요|였어요|이었어요|이며|이고|이라서|이라|이란|인데|이지만|인지|이어서|이니까|인|임|였고|이었고)$")
+#: 한 글자 명사 + 조사(「질의」「질이」「양을」) — 한 글자 명사는 어디에나 있어 대조에 못 쓴다. 조사 한 겹을 뗀 한 글자면 뺀다.
+#: 앞 글자는 **흔한 한 글자 명사**만 — 예전엔 아무 글자나 받아 조사 없이 선 두 글자 명사(「평가」「온도」「도로」「회의」「결과」)가
+#: 「평+가」「온+도」 로 읽혀 통째로 빠졌다 (WP-Q 테스트: 식 줄 「… = 맛 평가 × 음식 온도 × …」 의 내용 명사가 반만 남았다).
+_ONE_CHAR_NOUN_RE = re.compile(r"^[질양수것등때곳점뒤앞밖속위옆쪽편번값몫힘말글빛돈길집차맛국밥물불몸손발눈귀입꿈]"
+                               r"(?:은|는|이|가|을|를|의|에|도|만|과|와|로)$")
+
+
+def _cstem(word: str) -> str:
+    s = stem(word)
+    c = _COPULA_TAIL_RE.sub("", s)
+    return c if len(c) >= 2 and c != s else s
+
+
+def _bag(texts) -> set[str]:
+    out: set[str] = set()
+    for t in texts:
+        for w in words(t):
+            out.add(stem(w))
+            out.add(_cstem(w))
+    return out
+
+
+def _row_bag(idx: DeckIndex, row: Row) -> set[str]:
+    return _bag(idx.window(row))
+
+
+def _slide_bags(idx: DeckIndex) -> dict[int, set[str]]:
+    return {no: _bag(r.text for r in rows) for no, rows in idx.rows.items()}
+
+
+def clause_supported(clause: str, idx: DeckIndex | None, extra_vocab: set[str] | None = None) -> bool:
+    """
+    절 하나가 자료로 받쳐지는가. 내용 명사가 없으면(틀 문장) 참.
+    - 자료 한 곳(줄+앞뒤 줄, 표 행+머리)이 내용 명사의 CLAUSE_REGION_SHARE 이상을 담거나,
+    - 한 장이 CLAUSE_SLIDE_SHARE 이상을 담고 자료 어디에도 없는 명사가 없으면 참.
+    - 자료 어디에도 없는 명사가 둘 이상이면 거짓 (「인슐린 과다 분비」 처럼 지어낸 말).
+    extra_vocab(그래프 라벨 줄기 등)은 「자료 어디에도 없는」 판단에만 더한다 — 라벨은 자료를 읽고 지은 이름이라 지지 근거는 못 된다.
+    """
+    if idx is None:
+        return True
+    deck_bag = (idx.vocab_stems or {stem(w) for w in idx.vocab}) | {_cstem(w) for w in idx.vocab}
+    # 관형형처럼 끝나고 자료에 없는 말(「곱해진」「넓힌」)은 동사 활용일 수 있다 — 지어낸 명사로도, 몫의 분모로도 세지 않는다.
+    # WP-Q 테스트: 「반납 편의성은 …, 앱 안내가 곱해진 것이에요」 가 「곱해진」 하나 때문에 받쳐지지 않는 절이 됐다. 조사가 붙은
+    # 명사(「인슐린이」)는 관형형으로 안 읽혀 그대로 센다 — 지어낸 절은 대개 이런 명사가 둘 이상이다.
+    nouns = content_nouns(_QUOTED_RE.sub(" ", clause), deck_bag)
+    if not nouns:
+        return True
+    novel = [n for n in nouns if not _stem_hit(n, deck_bag) and not (extra_vocab and _stem_hit(n, extra_vocab))]
+    if len(novel) >= 2:
+        return False
+    need = max(1, math.ceil(CLAUSE_REGION_SHARE * len(nouns) - 1e-9))
+    nums = [n for n in numbers(clause) if significant(n)]
+    for row in idx.all_rows():
+        bag = _row_bag(idx, row)
+        hits = sum(1 for n in nouns if _stem_hit(n, bag))
+        if hits >= need:
+            return True
+        # 숫자가 절의 명사와 같은 곳(표 행·줄)에 있으면 그 숫자의 주인을 말한 절이다 — 표는 「| 과잉 매매 | -1.6 |」 처럼 값의
+        # 뜻(연간 수익률 %p)을 행에 안 쓴다. 나머지 명사는 자료 어딘가에 있어야 한다(아래 novel 이 없을 때만).
+        if nums and hits >= 1 and not novel and all(n in numbers(" ".join(idx.window(row))) for n in nums):
+            return True
+    if novel:
+        return False
+    need_slide = CLAUSE_SLIDE_SHARE * len(nouns)
+    return any(sum(1 for n in nouns if _stem_hit(n, bag)) >= need_slide for bag in _slide_bags(idx).values())
+
+
+def support_clauses(text: str) -> list[str]:
+    """지지 대조에 쓰는 절 목록 (`_SUPPORT_CLAUSE_RE`)."""
+    return [c.strip(" .") for c in _SUPPORT_CLAUSE_RE.split(text or "") if c and len(c.strip(" .")) >= 4]
+
+
+def unsupported_clauses(text: str, idx: DeckIndex | None, extra_vocab: set[str] | None = None) -> list[str]:
+    """자료가 받치지 않는 절 목록 (`clause_supported`). 자료가 없으면 빈 목록."""
+    if idx is None or not (text or "").strip():
+        return []
+    return [c for c in support_clauses(text) if not clause_supported(c, idx, extra_vocab)]
+
+
+def supported_sentences(text: str, idx: DeckIndex | None, extra_vocab: set[str] | None = None) -> tuple[str, list[str]]:
+    """문장마다 절을 대조해 **모든 절이 받쳐진 문장만** 남긴다 → (남은 글, 버린 절). 절 하나만 떼면 연결 어미가 매달려
+    말이 안 되므로(「…현상으로,」) 문장째 버린다."""
+    if idx is None or not (text or "").strip():
+        return text or "", []
+    kept: list[str] = []
+    dropped: list[str] = []
+    for sent in sentences(text) or [text]:
+        bad = unsupported_clauses(sent, idx, extra_vocab)
+        if bad:
+            dropped.extend(bad)
+        else:
+            kept.append(sent.strip())
+    return " ".join(kept).strip(), dropped
+
+
+# ---------------------------------------------------------------------------
+# (f) 「자료에 없다」 는 말도 자료와 대조한다 (09-30 held-out C-01)
+# 혈당 t10: 골자 「식후 졸림을 개선하는 구체적인 방법은 자료에 제시되지 않았어요」 — 5장 첫 줄이 「… 순서로 먹으면 식후 졸림을
+# 줄일 수 있습니다」 였다. 코치는 한 질문 안에서 1턴엔 「줄일 수 있다고 나와 있어요」, 3턴엔 「제시되지 않았어요」 로 스스로 뒤집었다.
+# ---------------------------------------------------------------------------
+
+_ABSENCE_RE = re.compile(
+    r"(?:자료|발표|슬라이드)(?:에|에서는?|에는|엔)?\s*(?:\S+\s*){0,4}?(?:없|제시(?:되지|하지|돼\s*있지|되어\s*있지)\s*않|나와\s*있지\s*않|"
+    r"나오지\s*않|언급(?:되지|하지)\s*않|명시(?:되지|하지)\s*않|다루지\s*않|찾을\s*수\s*없|확인할\s*수\s*없)"
+    r"|(?:제시|언급|명시)(?:되지|하지)\s*않|나와\s*있지\s*않|빠져\s*있")
+#: 해결·방법이 없다는 말인지 — 그러면 자료의 「해결 줄」 을 찾는다.
+_REMEDY_ASK_RE = re.compile(r"방법|방안|해결책|대책|대안|개선|해결|해소|줄이|줄일|막|낮추|다루|대응|보완")
+#: 해결·개선을 말하는 서술어 (어느 분야에나 쓰는 한국어 동사 줄기).
+REMEDY_VERB_RE = re.compile(
+    r"줄이|줄일|줄입|줄여|줄어|막|낮추|낮춥|낮춰|개선|해결|해소|풀|없애|없앱|늘리|늘립|늘려|높이|높입|높여|지원|확충|도입|바꾸|바꿉|바꿔|"
+    r"예방|방지|완화|단축|보완|대응|채우|채웁|지키|지킵|유지")
+#: 근거(수치·출처)가 없다는 말인지.
+_EVIDENCE_ASK_RE = re.compile(r"수치|출처|근거|데이터|연구|통계|자료\s*조사")
+_SOURCE_OR_DATA_RE = re.compile(r"\d|연구|조사|설문|통계|실험|보고서|논문|et\s+al|\(\s*(?:19|20)\d{2}\s*\)", re.I)
+
+
+#: 목적어 한 덩이 — 「집중을」「원인을」. 개념과 해결 동사 사이에 끼면 동사가 받는 것은 그 목적어다.
+_OBJECT_RE = re.compile(r"[가-힣A-Za-z0-9]{2,}(?:을|를)(?=\s|$)")
+#: 개념 이름 뒤에 와서 「개념이 동사의 대상·화제」 로 읽히는 조사 (「소음을 줄이다」「소음은 …로 줄인다」「소음도 해결된다」).
+_TARGET_JOSA = ("을", "를", "은", "는", "도", "만")
+
+
+def remedy_of(label: str, line: str) -> bool:
+    """
+    줄이 **이 개념을** 해결한다고 말하는가 — 개념 이름 + 대상·화제 조사 뒤에 해결 동사(`REMEDY_VERB_RE`)가 오고, 그 사이에 다른
+    목적어가 없다. 「흡음재를 붙이면 소음을 줄일 수 있습니다」「소음은 흡음재로 줄입니다」 는 참, 「소음이 집중을 낮춥니다」(개념이
+    주어 · 동사는 다른 목적어를 받는다)와 제목 「급식 잔반 줄이기」(조사 없는 명사구)는 거짓이다.
+    """
+    toks = [t for t in (label or "").split() if t]
+    if not toks:
+        return False
+    for m in re.finditer(r"\s*".join(map(re.escape, toks)) + r"(?P<j>을|를|은|는|도|만|이|가|의)?", line or ""):
+        if m.group("j") not in _TARGET_JOSA:
+            continue
+        rest = line[m.end():]
+        verb = REMEDY_VERB_RE.search(rest)
+        if verb and not _OBJECT_RE.search(rest[:verb.start()]):
+            return True
+    return False
+
+
+def absence_contradicted(text: str, idx: DeckIndex | None, question: str = "", *, plain: bool = True) -> str:
+    """
+    글이 「자료에 없다」 고 하는데 자료가 그것을 **말하고 있으면** 그 자료 줄 (없으면 "").
+    - 해결·방법이 없다는 말 → 대상 명사와 해결 동사가 한 줄에 같이 있으면 그 줄.
+    - 수치·출처가 없다는 말 → 대상 명사가 든 줄 곁에 수치·출처가 있으면 그 줄.
+    - 그냥 없다는 말 → 대상 명사가 전부 한 줄에 있으면 그 줄.
+    대상 명사는 그 문장(없으면 질문)의 내용 명사다. 「그냥 없다」 는 대상이 **그 문장에서** 나왔을 때만 본다 — 질문의 명사는
+    주제일 뿐이라(「국 온도는 얼마나 달라지나요」), 주제 줄이 있다고 「달라지는 폭」 이 자료에 있는 것은 아니다. plain=False 면
+    해결·수치 두 갈래만 본다 (이유 줄처럼 무엇이 없다는지 흐린 글).
+    """
+    if idx is None:
+        return ""
+    for sent in sentences(text) or [text]:
+        if not _ABSENCE_RE.search(sent or ""):
+            continue
+        deck_bag = idx.vocab_stems or {stem(w) for w in idx.vocab}
+        targets = [n for n in content_nouns(_QUOTED_RE.sub(" ", sent), deck_bag) if not REMEDY_VERB_RE.match(n)]
+        own = bool(targets)
+        if not targets:
+            targets = [n for n in content_nouns(question, deck_bag) if not REMEDY_VERB_RE.match(n)]
+        if not targets:
+            continue
+        remedy = bool(_REMEDY_ASK_RE.search(sent))
+        evidence = bool(_EVIDENCE_ASK_RE.search(sent))
+        need = targets if len(targets) <= 2 else targets[:2] if remedy else targets
+        rows = [r for r in idx.all_rows() if all(_stem_hit(t, {stem(w) for w in words(r.text)}) for t in need)]
+        if remedy:
+            # 개념이 해결 동사의 **대상**인 줄이 먼저 (`remedy_of`) — 제목 「급식 잔반 줄이기」 는 해결을 말한 줄이 아니다 (WP-Q 테스트:
+            # 4장 「배식 순서를 바꾸면 잔반을 줄일 수 있습니다」 대신 1장 제목이 골자가 됐다). 없으면 장 머리가 아닌 해결 동사 줄.
+            hit = next((r for r in rows if any(t in r.text and remedy_of(t, r.text) for t in need)), None) \
+                or next((r for r in rows if REMEDY_VERB_RE.search(r.text) and not _is_heading(r)), None)
+            if hit is not None:
+                return f"S{hit.slide_no} «{hit.text}»"
+        for row in rows:
+            if evidence and not remedy and any(_SOURCE_OR_DATA_RE.search(t) for t in idx.window(row)[:3]):
+                return f"S{row.slide_no} «{row.text}»"
+            if not remedy and not evidence and plain and own:
+                return f"S{row.slide_no} «{row.text}»"
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# (g) 질문 문장의 전제 — 함정이 아닌 질문이 자료와 반대 방향·뒤집힌 비교·자료에 없는 말을 전제로 깔면 거짓 전제다 (C-02)
+# 도서관 t5 Q1: 「독서 경험보다 대출 권수가 더 중요하다고 했는데, …」 — 자료 1장은 「대출 권수보다 더 중요한 것은 독서 경험」.
+# 같은 세트의 함정 질문과 같은 뒤집힌 문장이 **함정 표시 없이** 나갔고, 정정한 답이 「질문과 다른 이야기」 가 됐다.
+# ---------------------------------------------------------------------------
+
+#: 비교 서술어의 방향 — 큰·중요한 쪽(UP) · 작은 쪽(DOWN). 어느 분야에나 쓰는 형용사 줄기.
+_CMP_UP = ("중요", "크", "큰", "커", "높", "많", "앞서", "앞선", "우선", "필요", "효과적", "강하", "강한", "넓", "길", "긴", "빠르", "빠른", "낫", "나은", "좋")
+_CMP_DOWN = ("작", "낮", "적", "덜", "약하", "약한", "좁", "짧", "느리", "느린", "못하", "못한", "나쁘", "나쁜")
+_NP = r"[가-힣A-Za-z0-9·]+(?:\s[가-힣A-Za-z0-9·]+){0,2}?"
+#: 끝이 정해진 명사구(제목꼴의 Y)는 욕심껏 — 게으르게 잡으면 「… 것은 반납 편의성입니다」 의 Y 가 첫 낱말 「반납」 에서 멈춘다.
+#: 서술격 꼬리(「편의성입니다」)는 `_np_key` 가 뗀다.
+_NP_G = r"[가-힣A-Za-z0-9·]+(?:\s[가-힣A-Za-z0-9·]+){0,2}"
+#: Y 와 「X보다」 사이에 올 수 있는 부사 — 아무 낱말이나 받으면 X 의 앞 낱말(「반납 편의성」 의 「반납」)을 먹는다 (WP-Q 테스트).
+_CMP_ADV = r"(?:(?:오히려|훨씬|사실|실제로|정말|특히|더|더욱)\s+)?"
+#: 「X보다 (더) P Y」(제목꼴) · 「X보다 (더) P 것은 Y」 · 「X보다 Y(가) (더) P」 · 「Y(는) X보다 (더) P」.
+_CMP_TITLE_RE = re.compile(rf"(?P<x>{_NP})보다\s+(?:더\s+|훨씬\s+|더욱\s+)?(?P<p>[가-힣]{{1,6}}(?:한|은|인|운|른|큰|진|난|된|선))\s+(?:것은\s+|건\s+)?(?P<y>{_NP_G})(?=$|[\s.,?!]|이다|입니다|이에요|예요|라고|이라고|라는|이라는)")
+_CMP_XY_RE = re.compile(rf"(?P<x>{_NP})보다\s+(?P<y>{_NP})(?:이|가|은|는)\s+(?:더\s+|훨씬\s+)?(?P<p>[가-힣]{{1,6}})")
+_CMP_YX_RE = re.compile(rf"(?P<y>{_NP})(?:이|가|은|는)\s+{_CMP_ADV}(?P<x>{_NP_G})보다\s+(?:더\s+|훨씬\s+|더욱\s+)?(?P<p>[가-힣]{{1,6}})")
+
+
+def _cmp_dir(pred: str) -> str:
+    p = pred or ""
+    if p.startswith(_CMP_DOWN):
+        return "down"
+    if p.startswith(_CMP_UP):
+        return "up"
+    return ""
+
+
+#: 명사구 열쇠에서 빼는 한 글자 말 — 「것은」「더」 처럼 대상이 아닌 말. 「수면의 질」 의 「질」, 「대여소 수」 의 「수」 는 남긴다
+#: (한 글자를 다 빼면 「수면의 질」 과 「수면 시간」 이 같은 열쇠 「수면」 을 가져 비교 쪽을 못 가렸다).
+_NP_STOP_ONE = frozenset("것 등 점 건 더 중 때 곳 쪽 편 번".split())
+
+
+def _np_key(phrase: str) -> tuple[str, ...]:
+    out = []
+    for w in words(phrase):
+        s_ = _cstem(w)
+        if w[0].isdigit() or not s_ or (len(s_) < 2 and s_ in _NP_STOP_ONE) or s_ in GENERIC_NOUNS:
+            continue
+        out.append(s_)
+    return tuple(out)
+
+
+def comparisons(text: str) -> list[tuple[tuple[str, ...], tuple[str, ...], str]]:
+    """글이 말하는 비교 (작은 쪽 명사구, 큰 쪽 명사구, 방향) — 방향은 서술어가 UP 이면 「y 가 x 보다 크다」."""
+    out = []
+    for rx in (_CMP_TITLE_RE, _CMP_XY_RE, _CMP_YX_RE):
+        for m in rx.finditer(text or ""):
+            d = _cmp_dir(m.group("p"))
+            x, y = _np_key(m.group("x")), _np_key(m.group("y"))
+            if d and x and y and x != y:
+                out.append((x, y, d))
+    return out
+
+
+def _np_same(a: tuple[str, ...], b: tuple[str, ...]) -> bool:
+    """명사구 둘이 같은 대상인가 — 한쪽 낱말이 다른 쪽에 다 들어 있다(「대출 권수」 ⊂ 「1인당 대출 권수」)."""
+    if not a or not b:
+        return False
+    short, long_ = (a, b) if len(a) <= len(b) else (b, a)
+    return all(any(known_in(w, {v}) for v in long_) for w in short)
+
+
+def _np_sim(a: tuple[str, ...], b: tuple[str, ...]) -> float:
+    """같은 대상이면(`_np_same`) 낱말이 얼마나 겹치나 (0~1), 아니면 0."""
+    if not _np_same(a, b):
+        return 0.0
+    hits = sum(1 for w in a if any(known_in(w, {v}) for v in b))
+    return hits / max(len(a), len(b))
+
+
+def comparison_flips(text: str, idx: DeckIndex | None) -> list[str]:
+    """글의 비교가 자료 줄의 비교를 **뒤집은** 곳 (자료 줄 목록). 같은 두 대상인데 큰 쪽이 바뀌었다.
+    두 쪽이 낱말을 나눠 가지면(「수면 시간」·「수면의 질」) 한쪽이 다른 쪽에 다 들어 있어 바로 대응·뒤집은 대응이 둘 다 「같다」 로
+    나온다 — 겹침이 더 큰 대응을 고른다 (WP-Q 테스트: 안 뒤집은 질문을 뒤집었다고 볼 뻔했다)."""
+    if idx is None:
+        return []
+    mine = comparisons(text)
+    if not mine:
+        return []
+    out: list[str] = []
+    for row in idx.all_rows():
+        for dx, dy, dd in comparisons(row.text):
+            for qx, qy, qd in mine:
+                a, b = _np_sim(qx, dx), _np_sim(qy, dy)
+                c, d = _np_sim(qx, dy), _np_sim(qy, dx)
+                direct = a + b if a and b else 0.0
+                swapped = c + d if c and d else 0.0
+                if (swapped > direct and qd == dd) or (direct > swapped and qd != dd):
+                    if row.text not in out:
+                        out.append(row.text)
+    return out
+
+
+#: 질문이 자료·발표의 말로 **얹은** 전제 절 — 「…라고 했는데,」「…라는 내용이 있는데,」「…다고 했는데,」.
+_ATTRIBUTED_RE = re.compile(r"^(?P<p>.+?)(?:이?라고|다고|라는\s*내용이\s*있는데|이라는\s*내용이\s*있는데|라는\s*말이\s*있는데)\s*(?:했는데|하셨는데|말했는데|설명했는데|주장했는데|제시했는데|,)")
+
+
+def attributed_premise(question: str) -> str:
+    """질문 앞머리의 「…라고 했는데」 전제 절 (없으면 "")."""
+    m = _ATTRIBUTED_RE.search(question or "")
+    return m.group("p").strip(" 「」“”\"'") if m else ""
+
+
+def question_premise_problems(question: str, idx: DeckIndex | None, extra_vocab: set[str] | None = None) -> list[str]:
+    """
+    함정이 아닌 질문 문장이 자료와 어긋나는 전제를 까는가 → 사유 목록 (빈 목록이면 통과).
+    - "direction": 같은 대상을 반대 방향 말로 (가까울수록↔멀어질수록 · 늘다↔줄다)
+    - "comparison": 자료의 비교를 뒤집었다 (X보다 중요한 Y ↔ Y보다 X 가 더 중요)
+    - "unsupported_premise": 「…라고 했는데」 로 자료의 말처럼 얹은 절이 자료에 없다 (자료 밖 명사 둘 이상 또는 받치는 곳 없음)
+    """
+    if idx is None or not (question or "").strip():
+        return []
+    out: list[str] = []
+    if direction_conflicts(question, idx):
+        out.append("direction")
+    if comparison_flips(question, idx):
+        out.append("comparison")
+    premise = attributed_premise(question)
+    if premise and len(content_nouns(premise)) >= 2 and not clause_supported(premise, idx, extra_vocab):
+        out.append("unsupported_premise")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# (h) 답할 수 있는 질문인가 — 질문이 묻는 대상 명사가 자료에 없으면 발표자는 답할 재료가 없다 (09-30 held-out M-04)
+# 「다른 유사 서비스와 차별화되는 핵심 요소」「B2C·B2B 가격 정책」「다른 연령층과 어떻게 다른가요」「핵심 메커니즘은」.
+# ---------------------------------------------------------------------------
+
+#: 묻는 대상 자리 — 「…X는 무엇인가요」「…X를 어떻게」「X는 어떤가요」 의 X (조사 앞 낱말).
+_ASK_HEAD_RE = re.compile(r"([가-힣A-Za-z]{2,})(?:은|는|이|가|을|를)\s+(?:무엇|어떤|어떻게|어디|누구|왜|얼마)")
+
+
+#: 질문이 묻는 **틀** 낱말 — 방향·인과·경로처럼 물음에 흔히 붙는 말. 답할 수 있는지 볼 때만 뺀다(골자 지지 대조에서는 센다).
+ASK_FRAME_NOUNS = frozenset("증가 감소 상승 하락 인과 경로 흐름 원리 작동 구체 순서 우선 영향력 효과성 타당성 설득력 한계점 반례".split())
+
+
+def unknown_terms(question: str, idx: DeckIndex | None, extra_vocab: set[str] | None = None) -> list[str]:
+    """질문의 내용 명사 가운데 자료(·그래프 라벨)에 없는 것. 따옴표 인용 안은 뺀다(자료 줄을 옮긴 것이다)."""
+    if idx is None:
+        return []
+    deck_bag = (idx.vocab_stems or {stem(w) for w in idx.vocab}) | {_cstem(w) for w in idx.vocab}
+    return [n for n in content_nouns(_QUOTED_RE.sub(" ", question or ""), deck_bag | (extra_vocab or set()))
+            if n not in ASK_FRAME_NOUNS and not _stem_hit(n, deck_bag) and not (extra_vocab and _stem_hit(n, extra_vocab))]
+
+
+def unanswerable(question: str, idx: DeckIndex | None, extra_vocab: set[str] | None = None) -> list[str]:
+    """
+    자료로 답할 수 없는 질문이면 자료에 없는 낱말들 (아니면 빈 목록). 자료 밖 명사가 둘 이상이거나, 묻는 대상 자리의 명사
+    (「…메커니즘은 무엇인가요」)가 자료 밖이면. 한 낱말 바꿔 말하기(「방문객」↔「방문자」)는 `known_in` 이 받는다.
+    """
+    unknown = unknown_terms(question, idx, extra_vocab)
+    if len(unknown) >= 2:
+        return unknown
+    head = [stem(m.group(1)) for m in _ASK_HEAD_RE.finditer(_QUOTED_RE.sub(" ", question or ""))]
+    return unknown if any(h in unknown for h in head) else []
+
+
+# ---------------------------------------------------------------------------
+# (i) 녹음이 자료와 같은 발표인가 — 겹침이 아주 낮으면 F-08 은 녹음을 무시하고 자료만으로 묻는다 (09-30 held-out C-07)
+# /temp: 다른 발표 녹음(겹침 3%)으로 「한끼곳간 … 알림이 집중을 크게 방해하는 이유」 가 나왔다. 리포트(F-04)는 알고 있었는데
+# F-08 은 몰랐다. F-04 를 import 하지 않고(모듈 규칙) 같은 뜻의 겹침을 여기서 잰다.
+# ---------------------------------------------------------------------------
+
+#: 겹침을 재기에 발화가 너무 짧으면 판단하지 않는다 (내용 낱말 수).
+SPEECH_MIN_WORDS = 20
+_SPEECH_STOP = frozenset("""
+그리고 그래서 하지만 그런데 이것 저것 그것 이거 저거 우리 여기 거기 지금 다음 먼저 이제 정말 가장 조금 때문 경우 생각 부분 정도 이렇게 그렇게
+어떤 무엇 합니다 입니다 있습니다 됩니다 습니다 니다 에서 으로 오늘 여러분 발표 슬라이드 감사합니다 안녕하세요 그럼 이번 제가 저희 이렇게
+""".split())
+
+
+def speech_overlap(speech_text: str, deck_text: str) -> tuple[float, int]:
+    """발화 낱말(두 글자 이상·불용어 뺀 것) 가운데 자료에도 있는 비율과 발화 낱말 수. 조사 뗀 줄기·앞머리로 맞춘다."""
+    speech = {stem(w) for w in words(speech_text) if not w[0].isdigit() and w not in _SPEECH_STOP}
+    speech = {w for w in speech if len(w) >= 2 and w not in _SPEECH_STOP}
+    if not speech:
+        return 0.0, 0
+    deck = {stem(w) for w in words(deck_text) if not w[0].isdigit()}
+    hit = sum(1 for w in speech if known_in(w, deck))
+    return hit / len(speech), len(speech)

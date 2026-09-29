@@ -19,6 +19,8 @@ from __future__ import annotations
 import re
 
 from . import _claim_rules as R
+from . import _grounding as G
+from ._evidence import is_question_line, join_formula, noise_lines, slide_units
 from ._match import contains_tokens, label_tokens, norm_tokens
 from .contracts import (
     PROBE_KINDS,
@@ -125,6 +127,26 @@ def _short_quote(claim: Claim) -> str:
     return quotes[0] if quotes and len(quotes[0]) <= ABSOLUTE_QUOTE_MAX else ""
 
 
+def _short_evidence(probe: Probe) -> str:
+    """탐침 근거 가운데 가장 짧은 인용 (상한 안) — 주장 id 가 옛 것이라 주장을 못 찾을 때(캐시된 triage) 쓴다."""
+    quotes = sorted((e.quote.strip() for e in probe.evidence if (e.quote or "").strip()), key=len)
+    return quotes[0] if quotes and len(quotes[0]) <= ABSOLUTE_QUOTE_MAX else ""
+
+
+def _pred_from_quotes(probe: Probe, b_label: str) -> str:
+    """주장 없이(자료 구조 긴장) 비교 서술어를 탐침 인용에서 — 「B보다 ○○한」 → 「○○하다」."""
+    for e in probe.evidence:
+        for m in _COMPARE_RE.finditer(e.quote or ""):
+            pred = m.group(2)
+            if pred.endswith("하다"):
+                return pred
+            if pred.endswith("한") and len(pred) > 1:
+                return pred[:-1] + "하다"
+            if pred in ("더",):
+                continue
+    return _PRED_FALLBACK
+
+
 def _tension(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Probe]:
     """compare(A>B) 와 compose(A⊃B) 가 함께 있다. B 는 compose 의 요소 id 이거나, 라벨이 요소 라벨과 겹친다."""
     out: list[Probe] = []
@@ -145,7 +167,7 @@ def _tension(graph_by: dict[str, ConceptNode], claims: list[Claim]) -> list[Prob
                     kind="tension",
                     node_ids=[a, element],
                     claim_ids=[cmp.id, comp.id],
-                    angle=f"「{said}」라면서 {josa(el_label, '을', '를')} {a_label}의 요소로 둔다 — 두 말이 함께 성립하는 뜻을 묻는다",
+                    angle=f"「{said}」{_quote_josa(said, '이라면서', '라면서')} {josa(el_label, '을', '를')} {a_label}의 요소로 둔다 — 두 말이 함께 성립하는 뜻을 묻는다",
                     evidence=_evidence_of(cmp, comp),
                 ))
                 break
@@ -395,23 +417,33 @@ def as_claims(claims: ClaimDoc | dict | None) -> ClaimDoc | None:
     return claims if claims.claims else None
 
 
-def derive_probes(graph: ConceptGraph, claims: ClaimDoc | dict | None) -> list[Probe]:
+def derive_probes(graph: ConceptGraph, claims: ClaimDoc | dict | None,
+                  slides: dict[int, str] | None = None) -> list[Probe]:
     """
-    ConceptGraph + ClaimDoc → 탐침 목록. 결정적이고 LLM 을 부르지 않는다.
+    ConceptGraph + ClaimDoc (+ 선택 slides: 장 번호 → 원문) → 탐침 목록. 결정적이고 LLM 을 부르지 않는다.
 
     정렬: PROBE_KINDS 순서(= QA_SOURCES 우선순위) → 대상 노드의 그래프 순서 → 주장 id.
     같은 (종류, 대상) 은 하나만 남긴다 — 개념당 질문이 하나라 둘째는 쓸 자리가 없다.
     이 정렬 덕분에 `QaTriage.probe_for(node_id)` 가 그 노드의 **가장 우선인** 탐침을 돌려준다.
+
+    slides 를 주면 (09-30 held-out 감사 C-01·M-05):
+    - **자료 구조의 긴장**(`structural_tensions`) — 「X보다 중요한 Y」 줄과 「Y = … × X × …」 식 줄이 함께 있으면, F-26 이
+      식을 못 읽었어도(캡션이 식 가운데 끼어 compose 주장이 빠졌다) 긴장 탐침을 세운다.
+    - **덱 전체 대조**(`validate_probes`) — 해결책 빠짐(unsolved)은 형제 한 줄이 아니라 덱의 모든 해결 줄을 본다.
+    안 주면 예전과 같다.
     """
     doc = as_claims(claims)
-    if doc is None or not graph.nodes:
+    if not graph.nodes or (doc is None and not slides):
         return []
     graph_by = {n.id: n for n in graph.nodes}
-    usable = _usable(doc.claims, graph_by)
+    usable = _usable(doc.claims, graph_by) if doc is not None else []
     found = [
         *_tension(graph_by, usable), *_unsolved(graph_by, usable), *_unsupported_cause(graph_by, usable),
         *_absolute_boundary(graph_by, usable), *_sibling_priority(graph_by, usable),
     ]
+    if slides:
+        found += structural_tensions(graph, slides, found)
+        found = validate_probes(found, graph, slides)
     node_order = {n.id: i for i, n in enumerate(graph.nodes)}
     found.sort(key=lambda p: (_KIND_RANK[p.kind], node_order.get(p.node_ids[0], len(node_order)), p.claim_ids))
     out: list[Probe] = []
@@ -458,27 +490,34 @@ def probe_question(probe: Probe, labels: dict[str, str], graph_by: dict[str, Con
     ids = probe.node_ids
     lab = [labels.get(i, i) for i in ids]
     if probe.kind == "tension" and len(lab) >= 2:
-        a, b = lab[0], lab[1]
+        # 자료의 말 그대로 부른다 — 그래프 이름은 자료의 낱말과 다를 수 있다 (09-30 held-out 도서관: 식의 항 「대출 권수」 가 개념
+        # 「대출 권수 감소」 에 붙어 「대출 권수 감소도 독서 경험의 요소인데」 가 됐다). 비교 줄에서 두 쪽을 못 읽으면 이름으로.
+        big, part = tension_terms(probe)
+        a, b = (big or lab[0]), (part or lab[1])
         compare = claims.claim(probe.claim_ids[0]) if claims is not None and probe.claim_ids else None
-        pred = _compare_pred(compare, b) if compare is not None else _PRED_FALLBACK
+        pred = _compare_pred(compare, b) if compare is not None else _pred_from_quotes(probe, b)
         text = f"{b}도 {a}의 요소인데, {josa(a, '이', '가')} {b}보다 {pred}는 건 어떤 뜻인가요?"
     elif probe.kind == "unsolved" and len(lab) >= 2:
         text = f"{lab[1]}에는 해결책을 제시했는데, {josa(lab[0], '은', '는')} 어떻게 개선하나요?"
     elif probe.kind == "unsupported_cause":
         cause = claims.claim(probe.claim_ids[0]) if claims is not None and probe.claim_ids else None
         quote = _short_quote(cause) if cause is not None else ""
+        quote = quote or _short_evidence(probe)
         if quote:
             # 인용 원문을 그대로 — 라벨로 문장을 지으면 자료에 없는 방향·목적어가 끼어든다 (09-29 벤치)
-            text = f"「{quote}」라고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?"
+            q = quote.strip()
+            text = f"「{q}」{_quote_josa(q, '이라고', '라고')} 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?"
         elif len(lab) >= 2:
             text = f"{josa(lab[0], '이', '가')} {lab[1]}에 영향을 준다고 했는데, 그렇게 볼 수 있는 근거는 무엇인가요?"
         else:
             text = f"{lab[0]}에 대해 말한 원인과 결과는 어떤 근거로 볼 수 있나요?"
     elif probe.kind == "absolute_boundary":
         absolute = claims.claim(probe.claim_ids[0]) if claims is not None and probe.claim_ids else None
-        quote = _short_quote(absolute) if absolute is not None else ""
-        said = f"「{quote}」라고 했는데" if quote else "단정적으로 말했는데"
-        text = f"{lab[0]}에 대해 {said}, 이 말이 들어맞지 않는 경우도 있나요?"
+        quote = (_short_quote(absolute) if absolute is not None else "") or _short_evidence(probe)
+        # 인용이 있으면 개념 이름을 머리에 달지 않는다 — 그래프 이름(「전세사기 완전 사라짐」)은 자료의 말이 아닐 수 있다.
+        q = quote.strip()
+        text = (f"「{q}」{_quote_josa(q, '이라고', '라고')} 했는데, 이 말이 들어맞지 않는 경우도 있나요?" if quote
+                else f"{lab[0]}에 대해 단정적으로 말했는데, 이 말이 들어맞지 않는 경우도 있나요?")
     elif probe.kind == "sibling_priority" and len(lab) >= 2:
         parent = ""
         if graph_by is not None and ids[0] in graph_by:
@@ -488,7 +527,32 @@ def probe_question(probe: Probe, labels: dict[str, str], graph_by: dict[str, Con
         text = f"{josa(lab[0], '과', '와')} {lab[1]} 중 하나만 챙길 수 있다면, {where}어느 쪽이 더 중요한가요?"
     else:
         text = f"{lab[0]}에 대해 자료가 말한 것을 어떤 근거로 볼 수 있나요?"
-    return text if len(text) <= QA_TEXT_MAX else text[: QA_TEXT_MAX - 1].rstrip() + "…"
+    if len(text) <= QUESTION_TEXT_MAX:
+        return text
+    # 길면 **뒤를 자르지 않는다** — 09-30 레드팀(Q-C): 200자에서 잘려 물음표가 사라진 문장이 화면에 나갔다. 인용을 뺀 짧은 꼴로 바꾼다.
+    short = _short_template(probe, lab)
+    return short if len(short) <= QUESTION_TEXT_MAX else f"{lab[0]}에 대해 자료가 말한 것은 어디까지 맞나요?"
+
+
+#: 질문 한 문장의 상한 — 화면 말풍선 두 줄 (09-30 held-out 감사 M-04: 120자를 넘는 한 문장 질문은 읽다가 놓친다).
+QUESTION_TEXT_MAX = 120
+
+
+def _short_template(probe: Probe, lab: list[str]) -> str:
+    """인용을 뺀 짧은 탐침 문장 — 긴 인용·긴 라벨로 상한을 넘을 때."""
+    a = lab[0]
+    b = lab[1] if len(lab) >= 2 else ""
+    if probe.kind == "tension" and b:
+        return f"{b}도 {a}의 요소인데, {josa(a, '이', '가')} {b}보다 중요하다는 건 어떤 뜻인가요?"
+    if probe.kind == "unsolved":
+        return f"{josa(a, '은', '는')} 어떻게 개선하나요?"
+    if probe.kind == "unsupported_cause":
+        return f"{a}에 대해 말한 원인과 결과는 어떤 근거로 볼 수 있나요?"
+    if probe.kind == "absolute_boundary":
+        return f"{a}에 대해 단정적으로 말했는데, 들어맞지 않는 경우도 있나요?"
+    if probe.kind == "sibling_priority" and b:
+        return f"{josa(a, '과', '와')} {b} 중 하나만 챙길 수 있다면 어느 쪽인가요?"
+    return f"{a}에 대해 자료가 말한 것은 어디까지 맞나요?"
 
 
 #: 탐침 질문의 「왜 묻는지」 (화면에 나간다 — 해요체). angle 은 프롬프트용 한다체라 그대로 못 보여 준다.
@@ -503,3 +567,310 @@ _PROBE_WHY = {
 
 def probe_why(probe: Probe) -> str:
     return _PROBE_WHY.get(probe.kind, _PROBE_WHY["tension"])
+
+
+# ---------------------------------------------------------------------------
+# 자료 구조로 찾는 긴장 · 덱 전체로 다시 보는 탐침 (09-30 held-out 감사 C-01·M-05)
+# ---------------------------------------------------------------------------
+
+#: 「X보다 (더) <형용사 관형형> Y」 제목꼴 · 「X보다 (더) <관형형> 것은 Y(입니다)」 · 「Y는 X보다 (더) <서술어>」 — 비교의 두 쪽.
+_THAN_TITLE_RE = re.compile(
+    r"(?P<x>[가-힣A-Za-z0-9·]+(?:\s[가-힣A-Za-z0-9·]+){0,2}?)보다\s+(?:더\s+|훨씬\s+)?(?P<p>[가-힣]{1,6}(?:한|은|인|운|른|큰|진|된|선|는))"
+    r"\s+(?:것은\s+|건\s+)?(?P<y>[가-힣A-Za-z0-9·]+(?:\s[가-힣A-Za-z0-9·]+){0,2}?)(?:입니다|이다|예요|이에요|다)?[.!]?$")
+_THAN_SENT_RE = re.compile(
+    r"^(?P<y>[가-힣A-Za-z0-9·]+(?:\s[가-힣A-Za-z0-9·]+){0,2}?)(?:은|는|이|가)\s+(?P<x>[가-힣A-Za-z0-9·]+(?:\s[가-힣A-Za-z0-9·]+){0,2}?)보다\s+"
+    r"(?:더\s+|훨씬\s+)?(?P<p>중요|크|큰|높|많|앞서|우선|넓)")
+
+
+def compare_sides(line: str) -> tuple[str, str] | None:
+    """비교 줄 → (작은 쪽, 큰 쪽) 명사구. 「X보다 중요한 Y」 는 (X, Y). 물음 줄·식 줄은 아니다."""
+    text = (line or "").strip()
+    if not text or is_question_line(text) or R.is_formula(text):
+        return None
+    for rx in (_THAN_TITLE_RE, _THAN_SENT_RE):
+        m = rx.search(text)
+        if m:
+            x, y = m.group("x").strip(), _COPULA_END_RE.sub("", m.group("y").strip()).strip()
+            if x and y and x != y:
+                return x, y
+    return None
+
+
+#: 명사구 끝의 서술격 — 「…것은 독서 경험입니다」 의 「입니다」.
+_COPULA_END_RE = re.compile(r"(?:입니다|이다|예요|이에요|이었다|였다)$")
+
+
+def _formula_terms(line: str) -> tuple[str, list[str]] | None:
+    sides = R.formula_sides(line)
+    if not sides:
+        return None
+    parts = [p.strip(" .") for p in re.split(r"\s*[×✕*+·÷]\s*|\s+x\s+", sides[1]) if p.strip(" .")]
+    parts = [p for p in parts if not re.fullmatch(r"[\d.,%]+", p)]
+    return (sides[0].strip(), parts) if len(parts) >= 2 else None
+
+
+def _node_for(term: str, graph_by: dict[str, ConceptNode], slide_no: int = 0) -> ConceptNode | None:
+    """자료의 낱말(식 항·비교 쪽)에 맞는 개념 — 이름이 그 낱말과 같거나, 이름 토큰이 그 낱말에 다 들거나, 그 낱말 토큰이
+    이름에 다 든다. 여럿이면 이름이 짧고(더 곧은 이름) 그 장에 걸친 것."""
+    tt = label_tokens(term)
+    if not tt:
+        return None
+    cands = []
+    for n in graph_by.values():
+        lt = label_tokens(n.label)
+        if not lt:
+            continue
+        exact = G.squash(n.label) == G.squash(term)
+        if exact or contains_tokens(tt, lt) or contains_tokens(lt, tt):
+            cands.append((not exact, slide_no not in (n.slide_nos or []), abs(len(lt) - len(tt)), n.id, n))
+    return min(cands)[4] if cands else None
+
+
+def _deck_lines(slides: dict[int, str], labels: list[str]) -> list[tuple[int, str]]:
+    """덱의 줄 (장, 줄) — 식은 라벨로 잇고(캡션은 항이 아니다), 설문 보기·쪽 번호는 뺀다."""
+    out: list[tuple[int, str]] = []
+    for no in sorted(slides):
+        raw = slides[no] or ""
+        noise = noise_lines(raw)
+        lines = [ln.strip() for ln in raw.split("\n")]
+        lines = [G.clean_slide_text(ln) for ln in lines if ln and ln.strip() not in noise]
+        out += [(no, ln) for ln in join_formula([ln for ln in lines if ln], labels) if ln]
+    return out
+
+
+def structural_tensions(graph: ConceptGraph, slides: dict[int, str], existing: list[Probe] | None = None) -> list[Probe]:
+    """
+    「X보다 중요한 Y」 줄 + 「Y = … × X × …」 식 줄 → 긴장 탐침 (주장 그래프 없이, 자료 줄만으로).
+
+    09-30 held-out(도서관): 1장 「대출 권수보다 더 중요한 것은 독서 경험입니다」 와 4장 식이 있는데, 식 가운데 캡션이 끼어
+    F-26 이 식(compose)을 못 읽어 긴장 탐침이 없었다. 식은 `join_formula` 가 그래프 라벨로 잇는다. 이미 같은 대상의 긴장이
+    있으면 만들지 않는다. 대상 노드는 식의 좌변(Y)·항(X)에 맞는 개념 — 못 찾으면 만들지 않는다.
+    """
+    graph_by = {n.id: n for n in graph.nodes}
+    labels = [n.label for n in graph.nodes]
+    lines = _deck_lines(slides, labels)
+    have = {(p.node_ids[0], p.node_ids[1]) for p in existing or [] if p.kind == "tension" and len(p.node_ids) >= 2}
+    have_targets = {p.node_ids[0] for p in existing or [] if p.kind == "tension"}
+    out: list[Probe] = []
+    for c_no, c_line in lines:
+        sides = compare_sides(c_line)
+        if sides is None:
+            continue
+        lesser, greater = sides
+        for f_no, f_line in lines:
+            parsed = _formula_terms(f_line)
+            if parsed is None:
+                continue
+            lhs, terms = parsed
+            if not (contains_tokens(label_tokens(lhs), label_tokens(greater)) or contains_tokens(label_tokens(greater), label_tokens(lhs))):
+                continue
+            term = next((t for t in terms if contains_tokens(label_tokens(t), label_tokens(lesser))
+                         or contains_tokens(label_tokens(lesser), label_tokens(t))), "")
+            if not term:
+                continue
+            a = _node_for(lhs, graph_by, f_no) or _node_for(greater, graph_by, c_no)
+            b = _node_for(term, graph_by, f_no) or _node_for(lesser, graph_by, c_no)
+            if a is None or b is None or a.id == b.id or (a.id, b.id) in have or a.id in have_targets:
+                continue
+            have.add((a.id, b.id))
+            out.append(Probe(
+                kind="tension",
+                node_ids=[a.id, b.id],
+                claim_ids=[],
+                angle=f"「{c_line}」{_quote_josa(c_line, '이라면서', '라면서')} {josa(term, '을', '를')} {lhs}의 요소로 둔다 — 두 말이 함께 성립하는 뜻을 묻는다",
+                evidence=[ClaimQuote(slide_no=c_no, quote=c_line), ClaimQuote(slide_no=f_no, quote=f_line)],
+            ))
+            break
+    return out
+
+
+def solution_line(label: str, slides: dict[int, str], exclude_slides: set[int] | None = None,
+                  labels: list[str] | None = None, *, strict: bool = False) -> tuple[int, str] | None:
+    """
+    덱 전체에서 이 개념의 **해결 줄** — 개념 이름과 해결 동사(줄이다·막다·낮추다·지원·도입 …)가 한 줄에 있다. 이름이 통째로
+    나온 줄이 먼저, 없으면(strict 가 아니면) 변별 토큰의 절반 이상이 나온 줄. 문제 목록 장(exclude_slides)의 줄·식 줄은 문제나
+    구성을 늘어놓은 것이라 뺀다 (09-30 전세 덱: 식 「예방 체계 = 정보 공개 × …」 의 「예방」 이 해결 줄로 잡혔다). 없으면 None.
+    """
+    lines = [(no, ln) for no, ln in _deck_lines(slides, labels or [])
+             if not (exclude_slides and no in exclude_slides) and not is_question_line(ln) and not R.is_formula(ln)
+             and G.REMEDY_VERB_RE.search(ln)]
+    for need in ((1.0,) if strict else (1.0, R.MENTION_MIN)):
+        for no, ln in lines:
+            if R.mention_score(label, ln) >= need:
+                return no, ln
+    return None
+
+
+def remedies_target(label: str, line: str) -> bool:
+    """줄이 이 개념을 해결한다고 말하는가 (`_grounding.remedy_of` — 「자료에 없다」 대조와 같은 판단)."""
+    return G.remedy_of(label, line)
+
+
+def validate_probes(probes: list[Probe], graph: ConceptGraph, slides: dict[int, str]) -> list[Probe]:
+    """
+    덱 전체로 탐침을 다시 본다 — 틀린 탐침은 버리고, 형제 근거는 실제 해결 줄로 바꾼다.
+
+    - unsolved: 대상 문제가 **덱 어딘가의 해결 줄**에 나오면 해결된 것이다 — 버린다. 09-30 held-out(혈당 t10): 5장 첫 줄
+      「… 순서로 먹으면 식후 졸림을 줄일 수 있습니다」 가 있는데 F-26 이 해결 주장을 다른 줄에 붙여 「식후 졸림」 이 빈칸 탐침이
+      됐고, 골자가 「개선 방법은 자료에 제시되지 않았어요」 로 거짓을 가르쳤다.
+    - unsolved 의 형제(해결된 쪽) 근거는 그 형제의 해결 줄로 — 「잦은 허기를 막습니다」 줄을 「졸림」 의 해결로 인용하지 않게.
+    """
+    graph_by = {n.id: n for n in graph.nodes}
+    labels = [n.label for n in graph.nodes]
+    out: list[Probe] = []
+    for p in probes:
+        if p.kind != "unsolved" or not p.node_ids or p.node_ids[0] not in graph_by:
+            out.append(p)
+            continue
+        list_slides = {e.slide_no for e in p.evidence[:1]}
+        target = graph_by[p.node_ids[0]].label
+        if solution_line(target, slides, list_slides, labels, strict=True) is not None:
+            continue
+        # 근거가 나온 장(문제 목록일 수 있다)도 본다 — 개념이 해결 동사의 **대상**인 줄만 해결 줄로 친다 (`remedies_target`).
+        # WP-Q 테스트: 한 장에 「좌석 부족은 주말에 심합니다」 와 「흡음재를 붙이면 소음을 줄일 수 있습니다」 가 같이 있으면 그 장을
+        # 통째로 빼서 「소음」 이 빈칸 탐침으로 남았고, 골자가 「자료에는 소음을 개선하는 방법이 나와 있지 않아요」 로 거짓을 가르쳤다.
+        if any(no in list_slides and not R.is_formula(ln) and not is_question_line(ln) and remedies_target(target, ln)
+               for no, ln in _deck_lines(slides, labels)):
+            continue
+        ev = list(p.evidence[:1])
+        sib = p.node_ids[1] if len(p.node_ids) >= 2 and p.node_ids[1] in graph_by else ""
+        fix = solution_line(graph_by[sib].label, slides, list_slides, labels) if sib else None
+        if sib and fix is None:
+            # 형제의 해결 줄이 근거와 같은 장에 있으면 그 줄 (개념이 해결 동사의 대상인 줄만 — `remedies_target`)
+            fix = next(((no, ln) for no, ln in _deck_lines(slides, labels)
+                        if no in list_slides and not R.is_formula(ln) and not is_question_line(ln)
+                        and remedies_target(graph_by[sib].label, ln)), None)
+        if fix is not None:
+            ev.append(ClaimQuote(slide_no=fix[0], quote=fix[1]))
+        else:
+            ev += [e for e in p.evidence[1:]]
+        out.append(Probe(kind=p.kind, node_ids=list(p.node_ids), claim_ids=list(p.claim_ids), angle=p.angle, evidence=ev))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 탐침 질문의 꼴 · 코드가 쓰는 골자와 힌트 (09-30 held-out C-01(a) · 레드팀 R9)
+# ---------------------------------------------------------------------------
+
+#: 종류별로 질문이 **그 탐침을 묻는다**고 볼 말. 탐침 개념 이름만 부르고 딴 것을 묻는 문장(「월 반복 매출이 구독자 수보다 더 중요한
+#: 이유는?」 — 긴장이 아니라 한쪽 주장의 이유)은 탐침 질문이 아니다. 어느 발표에나 쓰는 물음 말만 둔다.
+_SHAPE = {
+    "tension": (re.compile(r"보다|더\s*중요|우선|앞서"),
+                re.compile(r"요소|구성|포함|이루|곱|식|=|계산|들어가|함께\s*성립|모순|부딪|동시에|라면서|이면서|하면서도|어떤\s*뜻|무슨\s*뜻")),
+    "unsolved": (re.compile(r"어떻게\s*(?:개선|해결|줄이|줄일|막|다루|대응|풀|보완|채우|낮추)|방법|방안|대책|해결책|대응책|계획"),),
+    "unsupported_cause": (re.compile(r"근거|출처|수치|데이터|증거|뒷받침|입증|어떻게\s*알|확인할\s*수|자료로\s*보|볼\s*수\s*있"),),
+    "absolute_boundary": (re.compile(r"경우|예외|한계|조건|경계|들어맞지|않을\s*수|아닐\s*수|안\s*될|못\s*할|반례|항상\s*그런|언제나\s*그런"),),
+    "sibling_priority": (re.compile(r"어느\s*쪽|둘\s*중|하나만|우선|먼저|더\s*중요"),),
+}
+#: 탐침과 다른 것을 묻는 말 — 기제·경로·차이(「심리적·생리적 경로는 무엇이며, 졸림과는 어떻게 다른가요」).
+_OFF_PROBE_RE = re.compile(r"메커니즘|기제|경로는|심리적|생리적|어떻게\s*다른|차이는|차이가\s*무엇")
+
+
+def probe_shaped(text: str, probe: Probe) -> bool:
+    """질문 문장이 이 탐침을 묻는 꼴인가 — 종류별 물음 말이 (다) 있고, 탐침과 다른 것을 묻는 말이 없다."""
+    t = text or ""
+    if not t.strip() or _OFF_PROBE_RE.search(t):
+        return False
+    return all(rx.search(t) for rx in _SHAPE.get(probe.kind, ()))
+
+
+def tension_terms(probe: Probe) -> tuple[str, str]:
+    """긴장 탐침의 (큰 쪽, 요소 쪽) 을 **자료의 말 그대로** — 비교 줄에서. 못 찾으면 ("", "")."""
+    for e in probe.evidence:
+        sides = compare_sides(e.quote)
+        if sides:
+            return sides[1], sides[0]
+    return "", ""
+
+
+def _q(text: str, limit: int = 50) -> str:
+    t = " ".join((text or "").split()).rstrip(" .")
+    return t if len(t) <= limit else t[: limit - 1].rstrip() + "…"
+
+
+def _quote_josa(quote: str, with_batchim: str, without: str) -> str:
+    """「인용」 뒤 조사 — 인용 마지막 글자의 받침으로 (「…매출」과 · 「…시간」은)."""
+    last = re.sub(r"[\s.…」”\"']+$", "", quote or "")[-1:]
+    b = bool(last) and "가" <= last <= "힣" and (ord(last) - 0xAC00) % 28 != 0
+    return with_batchim if b else without
+
+
+#: 단정의 경계를 자료가 스스로 말한 줄 — 「…다를 수 있으니」「지역마다」「경우에 따라」「예외」. 어느 분야에나 쓰는 유보 말.
+_HEDGE_RE = re.compile(r"다를\s*수|달라질\s*수|경우에\s*따라|사람마다|지역마다|개인에\s*따라|마다\s*다르|조건에\s*따라|않을\s*수\s*있|아닐\s*수\s*있")
+
+
+def hedge_line(slides: dict[int, str] | None, near: set[int] | None = None) -> tuple[int, str] | None:
+    """자료가 스스로 단 유보 줄 (가까운 장 먼저). 단정 탐침의 골자가 「자료도 …라고 했어요」 로 기댈 곳."""
+    if not slides:
+        return None
+    cands = [(no, ln) for no, ln in _deck_lines(slides, []) if _HEDGE_RE.search(ln) and not is_question_line(ln)
+             and not R.absolute_marker(ln, strong_only=True)]
+    cands.sort(key=lambda x: (0 if near and x[0] in near else 1, x[0]))
+    return cands[0] if cands else None
+
+
+def probe_code_gist(probe: Probe, labels: dict[str, str], slides: dict[int, str] | None = None) -> str:
+    """
+    탐침 종류로 코드가 조립하는 기대 답 — LLM 골자 대신 **언제나** 이것을 쓴다 (09-30 held-out C-01(a)).
+    held-out 5덱에서 탐침 질문의 LLM 골자는 해결책을 지어내거나(「신속한 반환 절차 도입이 필요해요」), 근거 없는 인과를 근거가
+    있는 것처럼 풀었다(「…를 근거로 제시돼요」). 탐침 질문의 답은 **자료가 비어 있거나 단정했다는 사실**이 중심이라, 자료 줄
+    인용과 정해진 틀로 쓴다. 인용은 탐침 근거(F-26 이 원문과 대조한 것)나 덱 전체 대조(`solution_line`·`hedge_line`)에서만 온다.
+
+    **발표자가 그대로 말할 모범답**으로 쓴다 — 화면이 「이렇게 말하면 완성이에요 — 」 뒤에 싣는다. 09-30 standard 실측:
+    「…점을 인정하고, 어떤 자료로 보강할지 말하는 게 답이에요」 처럼 채점 지시로 써서 모범답 칸이 지시문이 됐다.
+    첫 절(`_gist_fragment` 가 자르는 곳)에 탐침의 열쇠 말(빈칸 탐침 이름·「수치」·「단정」·요소 이름)을 둔다 — 빈칸 칸이 그 말을 가린다.
+    """
+    ids = probe.node_ids
+    lab = [labels.get(i, i) for i in ids]
+    quotes = [e for e in probe.evidence if (e.quote or "").strip()]
+    first = quotes[0] if quotes else None
+    where = f"자료 {first.slide_no}장" if first and first.slide_no else "자료"
+    if probe.kind == "tension" and len(quotes) >= 2:
+        big, part = tension_terms(probe)
+        big = big or (lab[0] if lab else "")
+        part = part or (lab[1] if len(lab) >= 2 else "")
+        formula = next((e.quote for e in quotes if R.is_formula(e.quote)), quotes[1].quote)
+        compare = next((e.quote for e in quotes if compare_sides(e.quote)), quotes[0].quote)
+        return (f"{part}도 {big}의 요소예요 — 「{_q(formula, 50)}」. 그래서 「{_q(compare, 36)}」"
+                f"{_quote_josa(compare, '은', '는')} {part} 하나만 보지 말고 요소 전체를 함께 봐야 한다는 뜻이에요.")
+    if probe.kind == "unsolved" and lab:
+        target = lab[0]
+        fix = next((e for e in quotes[1:]), None)
+        tail = (f" {lab[1]}에는 「{_q(fix.quote, 45)}」{_quote_josa(fix.quote, '이라는', '라는')} 해결책을 냈지만 "
+                f"{josa(target, '은', '는')} 아직 비어 있어요." if fix is not None and len(lab) >= 2 else "")
+        return (f"{josa(target, '을', '를')} 개선하는 방법은 아직 자료에 없어요 —{tail or ' 이번 자료에서는 다루지 못했어요.'} "
+                f"이 부분은 앞으로 보완할게요.")
+    if probe.kind == "unsupported_cause" and first is not None:
+        return (f"{where}의 「{_q(first.quote)}」에는 아직 수치나 출처가 없어요. "
+                f"설문이나 통계, 비교 자료로 보강할게요.")
+    if probe.kind == "absolute_boundary" and first is not None:
+        hedge = hedge_line(slides, {first.slide_no}) if slides else None
+        also = (f" 자료 {hedge[0]}장에도 「{_q(hedge[1], 45)}」{_quote_josa(_q(hedge[1], 45), '이라고', '라고')} 적었어요."
+                if hedge else "")
+        return (f"{where}의 「{_q(first.quote)}」{_quote_josa(first.quote, '은', '는')} 모든 경우에 그렇다고 단정할 수는 "
+                f"없어요.{also} 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.")
+    if probe.kind == "sibling_priority" and len(lab) >= 2:
+        return (f"{josa(lab[0], '과', '와')} {lab[1]}{josa(lab[1], '은', '는')[len(lab[1]):]} 둘 다 필요해요. 어느 하나만 고르기보다, "
+                f"상황에 따라 먼저 챙길 쪽을 정하면 돼요.")
+    return ""
+
+
+def probe_hint(probe: Probe, labels: dict[str, str]) -> str:
+    """탐침 질문의 첫 힌트(방향) — 답을 말하지 않고 **무엇을 확인할지**만. LLM 힌트는 「관련 연구를 찾아보세요」 처럼 자료에 없는
+    것을 찾게 했다 (09-30 held-out M-06: 근거 없는 인과 질문에 「실험 결과를 찾아보세요」)."""
+    lab = [labels.get(i, i) for i in probe.node_ids]
+    first = next((e for e in probe.evidence if (e.quote or "").strip()), None)
+    where = f"자료 {first.slide_no}장" if first and first.slide_no else "자료"
+    if probe.kind == "tension":
+        return "두 문장이 각각 무엇을 말하는지 — 하나는 견주는 말, 하나는 구성 요소 — 나눠서 떠올려 보세요."
+    if probe.kind == "unsolved" and lab:
+        return f"자료가 해결책을 낸 문제와 {josa(lab[0], '을', '를')} 나란히 놓고, {lab[0]}에 대한 방법이 있는지 확인해 보세요."
+    if probe.kind == "unsupported_cause":
+        return f"{where}의 그 문장 옆에 수치나 출처가 있는지부터 확인해 보세요."
+    if probe.kind == "absolute_boundary":
+        marker = R.absolute_marker(first.quote) if first else ""
+        said = f"「{marker}」라는 말이" if marker else "그 말이"
+        return f"{said} 들어맞지 않을 만한 상황을 하나 떠올려 보세요."
+    if probe.kind == "sibling_priority":
+        return "자료가 두 요소 사이의 우선순위를 직접 말한 곳이 있는지부터 찾아보세요."
+    return ""

@@ -244,7 +244,9 @@ def test_함정_힌트_사다리는_자료_줄을_첫_칸에_두지_않는다():
     q = next(q for q in doc.questions if q.trap)
     ladder = build_hint_ladder(q)
     assert q.trap_premise.fact not in ladder[0] and "2장" in ladder[0]
-    assert any(q.trap_premise.fact in step for step in ladder[1:])
+    # 09-30 WP-Q(프런트 실측): 사다리는 질문 묶음에 통째로 실려 화면으로 간다 — 사실 줄은 어느 칸에도 없다. 판정·해설이 연다.
+    assert not any(q.trap_premise.fact in step for step in ladder)
+    assert "같은지" not in ladder[0]          # 「질문 속 수치가 자료와 같은지」 — 첫 칸이 함정임을 드러내지 않는다
 
 
 def test_계약_왕복():
