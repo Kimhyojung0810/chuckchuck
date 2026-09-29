@@ -95,14 +95,18 @@ def _numbers(text: str) -> set[str]: return set(re.findall(r"\d+(?:\.\d+)?", tex
 def test_facts_block_carries_every_source_number_verbatim():
     pace, habits, rubric = _pace(), _habits(), _rubric()
     block = _facts_block(pace, habits, Context(situation="수업", audience="교수", duration_min=10), rubric)
-    for expected in ("목표초=600.0", "실제초=590.0", "평균자분=312.0", "평균SPS=4.7",
-                     "최대자분=421.0(슬라이드 2)", "권장=31.0s 실제=50.0s", "cpm=421.0",
-                     "REP=2 FIL=5 PAUSE=1 provider=heuristic", "- 1번 REP=2 FIL=5 PAUSE=1 h1",
+    for expected in ("목표 시간 600.0초 · 실제 590.0초", "평균 말 속도 312.0자/분 — 권장 300~350자/분이라 권장 구간 안이에요",
+                     "가장 빠른 장 2번 421.0자/분", "권장 31.0초 · 실제 50.0초", "421.0자/분",
+                     "말버릇 합계: 간투어 5번 · 같은 말 반복 2번 · 5초 넘게 멈춘 곳 1번",
+                     "- 1번: 간투어 5번 · 같은 말 반복 2번 · 멈춤 1번 · h1", "- 2번(핵심) 제목: 핵심 A",
                      "상황=수업 / 청중=교수 / 목표분=10", "총점 64점", "구조 70점",
                      "약한 항목: 속도 40점 — e2", "측정 못 한 항목 번호: [5]"):
         assert expected in block, expected
+    # 내부 이름은 싣지 않는다 — 실으면 LLM 이 「평균 자분 144.9, 평균 SPS 2.26」 「핵심(core)이」 로 되받아 쓴다 (09-30 REC-15)
+    for leaked in ("자분", "SPS", "REP", "FIL", "PAUSE", "provider", "core", "support", "cpm", "status="):
+        assert leaked not in block, leaked
     assert "상호작용" not in block                 # omitted 클러스터는 싣지 않는다
-    assert "- 2번 REP=0" not in block               # 습관 0 인 슬라이드는 줄을 만들지 않는다
+    assert "- 2번:" not in block                    # 습관 0 인 슬라이드는 줄을 만들지 않는다
     weak = [ln for ln in block.splitlines() if "약한 항목" in ln]
     assert [w.split()[3] for w in weak] == ["속도", "시선", "논리"]   # 낮은 점수 3개, 오름차순
     block = _facts_block(_pace(), _habits(), None, None)

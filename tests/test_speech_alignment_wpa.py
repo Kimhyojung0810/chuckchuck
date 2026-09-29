@@ -491,7 +491,7 @@ def _half_length_pace() -> PaceDoc:
     slides = [SlidePace(slide_no=i, importance="core", actual_sec=75.0, recommended_sec=150.0, delta_sec=-75.0,
                         status="short") for i in range(1, 5)]
     from chuckchuck.contracts import SectionAlloc
-    sections = [SectionAlloc("핵심(core)", [1, 2, 3, 4], recommended_sec=600.0, actual_sec=300.0, status="short")]
+    sections = [SectionAlloc("핵심 장", [1, 2, 3, 4], recommended_sec=600.0, actual_sec=300.0, status="short")]
     return PaceDoc(target_sec=600.0, actual_sec=300.0, slides=slides, sections=sections)
 
 

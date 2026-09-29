@@ -104,7 +104,7 @@ def test_pace_golden_without_concepts():
     # 2번: 30/30 ok 범위, cpm 144 ≤ 218.18*0.75 = 163.6 → slow
     assert s2.status == "slow"
     # 섹션: core 없음 → support 만. rec 60, act 40 → r 0.667 → short "-33% 부족"
-    assert [(x.name, x.status, x.label) for x in p.sections] == [("보조(support)", "short", "-33% 부족")]
+    assert [(x.name, x.status, x.label) for x in p.sections] == [("보조 장", "short", "-33% 부족")]
     assert p.tips == ["목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요."]
 
 
@@ -119,7 +119,7 @@ def test_pace_golden_with_core_concept():
     assert (s1.status, s1.note) == ("short", "핵심 · 권장 대비 77% 부족")
     assert (s2.status, s2.note) == ("long", "권장 대비 92% 초과")
     assert [(x.name, x.slide_nos, x.status) for x in p.sections] == [
-        ("핵심(core)", [1], "short"), ("보조(support)", [2], "long"),
+        ("핵심 장", [1], "short"), ("보조 장", [2], "long"),   # 사람 말 — 내부 라벨(core)이 화면에 샜다 (09-30 REC-15)
     ]
     assert any(t.startswith("1번은 핵심인데 권장 44초 중 10초만") for t in p.tips)
 

@@ -116,9 +116,10 @@ def _section_allocs(slides: list[SlidePace]) -> list[SectionAlloc]:
             ("후반", slides[(2 * n) // 3:]),
         ]
     else:
+        # 구간 이름은 화면·채점 근거·리포트에 그대로 나간다 — 「핵심(core)이 계획보다 63% 모자랐어요」 가 된 적이 있다 (09-30 REC-15)
         groups = [
-            ("핵심(core)", [s for s in slides if s.importance == "core"]),
-            ("보조(support)", [s for s in slides if s.importance != "core"]),
+            ("핵심 장", [s for s in slides if s.importance == "core"]),
+            ("보조 장", [s for s in slides if s.importance != "core"]),
         ]
 
     out: list[SectionAlloc] = []
