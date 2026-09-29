@@ -30,12 +30,19 @@ from ._match import fold_text
 # 낱말 · 숫자
 # ---------------------------------------------------------------------------
 
+#: 로마자 단위 — 뒤에 로마자가 이어지지 않을 때만 단위다(「5GHz」 는 GHz, 「3D」 는 단위 없음). 09-30 녹음 감사 REC-04:
+#: 「1,450ppm이 870ppm으로」 의 ppm 이 단위가 아니라 **낱말**로 읽혀 주어 줄기가 됐고, 「ppm」 이 든 아무 줄(2장 「1,000ppm 이상에서는…」)이
+#: 맞는 답의 주인이 되어 자료대로 말한 답이 어긋남 55 를 받았다. 어느 분야에나 쓰는 SI·정보 단위만 둔다.
+_LATIN_UNITS = (r"ppm|ppb|kwh|mwh|kw|mah|mbps|gbps|kbps|khz|mhz|ghz|hz|db|tb|gb|mb|kb|km|cm|mm|kg|mg|ml|ms|"
+                r"m|g|l|w|°c|℃")
 #: 숫자 + 단위. 앞이 영문·숫자면 숫자로 보지 않는다(「N1」「v2」). 시각(03:00)은 버린다.
 _NUM_RE = re.compile(
     r"(?<![A-Za-z\d.,:])([-−–]?)(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?![\d:])\s?"
     # 「세·살」(나이) — 09-30 레드팀: 「만 36세가 아니라 만 25세」 의 두 수가 단위 없는 수로 읽혀 자료의 「29세」 와 단위로 가를 수
     # 없었다. 「세대·세기·세트·세계」 의 세는 단위가 아니다.
-    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만원|억원|억|원|분|시간|초|점|장|위|차|세(?![대기트계])|살)?",
+    # 「할」(타율·비율의 10분의 1 — 「2할 미만」) 은 「할 수·할 것·할 일」 의 할(하다)이 아닐 때만.
+    r"(%p|%|p\.p\.?|배|회|번|개월|개|일|년|월|주|명|건|만원|억원|억|원|분|시간|초|점|장|위|차|세(?![대기트계])|살|"
+    rf"할(?!\s?(?:수|것|거|일|때|게|지|줄|까))|(?:{_LATIN_UNITS})(?![A-Za-z]))?",
     re.I,
 )
 _WORD_RE = re.compile(r"[가-힣]+|[A-Za-z]+")
@@ -162,8 +169,18 @@ def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
         if skip_years and not unit and "." not in raw and 1900 <= value <= 2100:
             continue
         decimals = len(raw.split(".")[1]) if "." in raw else 0
-        out.append(Num(value, _UNIT_CLASS.get(unit.lower(), unit or None), bool(sign), m.start(), m.end(), decimals))
+        out.append(Num(value, _unit_class(unit), bool(sign), m.start(), m.end(), decimals))
     return out
+
+
+def _unit_class(unit: str) -> str | None:
+    """단위 표기를 한 이름으로 — 「%p」「p.p.」 → pp, 「%」 → pct, 로마자는 소문자(「MB」「mb」), 「℃」 → 「°c」."""
+    if not unit:
+        return None
+    low = unit.lower()
+    if low == "℃":
+        return "°c"
+    return _UNIT_CLASS.get(low, low if re.match(r"[a-z°]", low) else unit)
 
 
 # ---------------------------------------------------------------------------
@@ -173,24 +190,37 @@ def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
 _UP = ("높", "많", "늘", "증가", "상승", "오르", "올라", "올랐", "커지", "커졌", "커진", "큰", "컸", "크다", "크고",
        "강하", "강한", "강했", "강함", "강해", "커져", "커요", "길어", "길다", "긴", "빠르", "빨라", "빨랐", "개선", "상회", "앞서", "앞섰", "넘었", "넘는",
        # 09-30 verify 하네스 — 뒤집은 사실(「처벌 약화보다」「과제 수행이 좋아지는」「공강이 짧을수록」)을 못 잡던 짝. 어느 분야에나 쓰는 말.
-       "강화", "확대", "좋아지", "좋아졌", "좋아져", "길수록", "길게", "클수록")
+       "강화", "확대", "좋아지", "좋아졌", "좋아져", "길수록", "길게", "클수록",
+       # 09-30 녹음 감사 REC-01 — 「2배 빨리 떨어졌습니다」 의 빨리(부사) · 향상(바뀜 명사).
+       "빨리", "향상")
 _DOWN = ("낮", "적은", "적어", "적었", "적다", "줄", "감소", "하락", "떨어", "내려", "내렸", "작아", "작은", "작았", "작다",
          "약하", "약한", "약했", "약함", "약해", "짧", "느리", "느려", "느렸", "악화", "하회", "뒤지", "뒤졌", "뒤처", "못미", "못 미",
-         "약화", "축소", "나빠지", "나빠졌", "나빠져", "적을", "작을")
+         "약화", "축소", "나빠지", "나빠졌", "나빠져", "적을", "작을",
+         "적게", "천천히", "저하")
 
 
 #: 방향 줄기 뒤에 와도 되는 꼬리 — 활용 어미·명사형·조사. 09-30 레드팀: 앞머리만 보니 「낮잠·줄거리」 가 감소, 「긴장·개선안」 이
 #: 증가로 읽혔다. 줄기 뒤가 이 꼴일 때만 방향 낱말이다(어느 분야에나 같은 한국어 문법).
+#: 「-지다」「-가다」 활용(떨어졌다·떨어진·내려갔다·올라간) — 09-30 녹음 감사 REC-01: 「농도가 2배 빨리 떨어졌습니다」 가 방향 낱말이 아니었다.
 _DIR_TAIL_RE = re.compile(
     r"^(?:$|하|되|된|돼|했|됐|함|됨|해|아|어|았|었|여|였|게|고|다|은|는|을|음|지|기|면|며|겠|습|니|이|인|일|임|던|도록|수록|"
     r"리|려|렸|린|릴|립|추|춰|췄|춘|출|춥|입|합|됩|집|웁|"
+    r"졌|진$|진다|져|질|짐|갔|간$|간다|갈|감$|갑|"
     r"가|를|의|로|와|과|에|도|만|요|세요|죠|네)"
 )
+#: 「덜」 은 한 글자 낱말 그대로일 때만 — 「덜어」(빼다) 는 다른 말이다.
+_LESS_WORD = "덜"
 
 
 def direction(word: str) -> str:
-    """낱말 하나의 방향 — 'up' · 'down' · ''. 방향 줄기 + 활용 꼬리일 때만 (`_DIR_TAIL_RE`)."""
+    """낱말 하나의 방향 — 'up' · 'down' · ''. 방향 줄기 + 활용 꼬리일 때만 (`_DIR_TAIL_RE`).
+    바뀜 명사 + 잣대 명사 머리(「상승폭」「감소율」「증가세」)도 그 바뀜의 방향이다."""
     w = word.lower()
+    if w == _LESS_WORD:
+        return "down"
+    noun = next((p for p in _CHANGE_NOUNS if w.startswith(p) and _MEASURE_HEAD_RE.match(w[len(p):])), "")
+    if noun:
+        return "up" if noun in _UP else "down"
     if any(w.startswith(p) and _DIR_TAIL_RE.match(w[len(p):]) for p in _UP):
         return "up"
     if any(w.startswith(p) and _DIR_TAIL_RE.match(w[len(p):]) for p in _DOWN):
@@ -198,11 +228,100 @@ def direction(word: str) -> str:
     return ""
 
 
+# --- 방향 낱말의 갈래 (09-30 녹음 감사 REC-01) ------------------------------------------------------------
+#
+# 「주문 성공률 **상승** 폭이 **작았**습니다」 에서 두 방향 낱말은 한 서술이다 — 상승은 잣대(무엇이 바뀌었나), 작았다는 그 크기.
+# 예전엔 둘을 따로 세어 {up, down} 이 되고, 한쪽에 방향이 둘이면 짝을 모른다며 방향 대조를 건너뛰었다.
+# 갈래를 둬서 한 서술로 접는다.
+#   바뀜(change)  — 늘다·줄다·오르다·떨어지다·증가·감소…, 그리고 크기 말의 「-아지다/-어지다」(높아지다·빨라졌다)
+#   크기(mag)     — 높다·많다·크다·빠르다·길다… (바뀜이 아닌 방향 줄기 전부)
+# 접는 법은 문장이 비교(「보다」「에 비해」)인지에 따라 다르다.
+#   비교가 아닐 때 — 크기 말은 바뀜을 꾸밀 뿐 방향을 바꾸지 않는다: 「상승 폭이 작았다」 는 올랐다(up), 「많이 줄었다」 는 줄었다(down).
+#   비교일 때     — 방향은 곱이다: 「X 는 Y 보다 상승 폭이 작았다」 = X 가 덜 올랐다(down), 「X 가 Y 보다 많이 줄었다」(down),
+#                   「X 가 Y 보다 적게 줄었다」 = 덜 줄었다(up). (이 접기를 `_compare` 가 비교 세 칸의 서술 방향으로 쓴다.)
+
+#: 바뀜을 말하는 명사 — 뒤가 활용 어미가 아니면(「상승 폭」「감소율」「증가가」) 잣대를 꾸미는 명사다.
+_CHANGE_NOUNS = ("증가", "감소", "상승", "하락", "개선", "악화", "확대", "축소", "강화", "약화", "향상", "저하")
+#: 잣대 명사 머리 — 바뀜 명사에 붙어 「상승폭·감소율·증가세·증가분」 을 만든다.
+_MEASURE_HEAD_RE = re.compile(r"^(?:폭|률|율|량|세|치|분|규모)")
+#: 바뀜 동사 줄기 (크기 말의 「-아/어지다」 는 꼴로 따로 본다 — `_BECOME_RE`).
+_CHANGE_VERBS = ("늘", "줄", "오르", "올라", "올랐", "떨어", "내려", "내렸", "좋아지", "좋아졌", "좋아져", "나빠지", "나빠졌", "나빠져",
+                 "커지", "커졌", "커진", "커져")
+#: 명사 뒤의 꼬리 — 잣대 명사 머리나 조사. 활용 어미(하·되·했·한…)면 동사다.
+_NOUN_TAIL_RE = re.compile(r"^(?:$|폭|률|율|량|세|치|분|규모|이|가|은|는|을|를|의|도|만|에|로|으로|와|과|보다)")
+#: 크기 말의 「-아지다/-어지다」 — 높아졌다·빨라진·길어져·강해졌다 는 바뀜이다(「빨라요」 는 크기).
+_BECOME_RE = re.compile(r"(?:아|어|해|라|러|려)(?:지|졌|져|진|질|짐)")
+#: 크기 부사 — 바로 뒤 방향 낱말을 꾸민다(「많이 늘었다」「2배 빨리 떨어졌다」). 「-게」 부사형과 굳은 부사.
+_DEGREE_WORDS = ("많이", "빨리", "천천히", _LESS_WORD, "적게")
+#: 비교 표지 — 이 말이 있으면 방향을 곱으로 접는다.
+_COMPARE_MARK_RE = re.compile(r"보다|에\s?비해|에\s?비하면|에\s?비해서")
+
+
+def _stem_of(word: str) -> str:
+    w = word.lower()
+    if w == _LESS_WORD:
+        return w
+    noun = next((p for p in _CHANGE_NOUNS if w.startswith(p) and _NOUN_TAIL_RE.match(w[len(p):])), "")
+    return noun or next((p for p in (*_UP, *_DOWN) if w.startswith(p) and _DIR_TAIL_RE.match(w[len(p):])), "")
+
+
+def _dir_family(word: str) -> str:
+    """'noun'(바뀜 명사) · 'change'(바뀜 동사) · 'degree'(크기 부사) · 'mag'(크기 말). 방향 낱말이 아니면 ''."""
+    if not direction(word):
+        return ""
+    w = word.lower()
+    stem = _stem_of(w)
+    if stem in _CHANGE_NOUNS and _NOUN_TAIL_RE.match(w[len(stem):]):
+        return "noun"
+    if stem in _CHANGE_NOUNS or any(w.startswith(v) for v in _CHANGE_VERBS) or _BECOME_RE.search(w):
+        return "change"
+    if w in _DEGREE_WORDS or (w.endswith("게") and len(w) >= 2):
+        return "degree"
+    return "mag"
+
+
+def signed_directions(text: str, comparative: bool | None = None) -> list[int]:
+    """
+    글의 방향 서술을 차례대로 +1(up)·−1(down) 로 — 꾸미는 방향 낱말(바뀜 명사·크기 부사)은 뒤 서술에 접는다 (위 「갈래」).
+    comparative 를 안 주면 글에 비교 표지(「보다」「에 비해」)가 있는지로 정한다. 수량 한계(「N도 안 되는」)는 먼저 푼다.
+    """
+    text = quantity_bounds(text or "")
+    if comparative is None:
+        comparative = bool(_COMPARE_MARK_RE.search(text))
+    words = _WORD_RE.findall(text)
+    terms = [(i, 1 if direction(w) == "up" else -1, _dir_family(w)) for i, w in enumerate(words) if direction(w)]
+    out: list[int] = []
+    carry, carrying = 1, False
+    for k, (i, sign, fam) in enumerate(terms):
+        nxt = terms[k + 1] if k + 1 < len(terms) else None
+        if fam == "noun" and nxt is not None:
+            if comparative:
+                carry, carrying = carry * sign, True
+                continue
+            if nxt[2] in ("mag", "degree"):
+                # 「상승 폭이 작았다」 — 크기 말은 이 바뀜의 크기다. 바뀜의 방향을 남기고 크기 말은 건너뛴다.
+                out.append(sign * carry)
+                carry, carrying = 1, False
+                terms[k + 1] = (nxt[0], 0, "skip")
+                continue
+        if fam == "degree" and nxt is not None and nxt[0] - i <= 2 and nxt[2] != "skip":
+            if comparative:
+                carry, carrying = carry * sign, True
+            continue                              # 비교가 아니면 「많이 늘었다」 의 많이는 방향을 안 바꾼다
+        if fam == "skip":
+            continue
+        out.append(sign * carry)
+        carry, carrying = 1, False
+    if carrying:
+        out.append(carry)
+    if re.search(r"못\s*미", text) and -1 not in out:
+        out.append(-1)
+    return out
+
+
 def directions(text: str) -> set[str]:
-    found = {direction(w) for w in _WORD_RE.findall(text or "")} - {""}
-    if re.search(r"못\s*미", text or ""):
-        found.add("down")
-    return found
+    """글의 방향 서술 — {'up','down'} 의 부분집합. 꾸미는 방향 낱말은 서술에 접어서 센다 (`signed_directions`)."""
+    return {"up" if s > 0 else "down" for s in signed_directions(text)}
 
 
 #: 서술의 부정. 「A 가 아니라 B」 「A 가 아닌 B」 는 대조라 부정이 아니다. 「없이」 는 부사다.
@@ -220,8 +339,31 @@ _CONCESSIVE_NEG_RE = re.compile(
 )
 
 
+#: 수량의 한계 — 「N도 안 되는」「N이 채 안 되는」「N에 못 미치는」「N도 안 걸리는」 은 「N 미만」, 「N을 넘지 않는」「N을 못 넘는」 은
+#: 「N 이하」 다. 명제를 뒤집는 부정이 아니다. 09-30 녹음 감사 REC-03: 바른 녹음의 「타율이 이 할도 안 되는 타자라면」(= 자료 「2할 미만」)이
+#: 부정 반대로 읽혀 첫 질문·「먼저 짚을 것」·등급 상한(78→69)이 됐다.
+#: N 은 숫자가 든 어절, 또는 수 낱말 + 단위(「이 할」「열 명」「한 시간」) — 수 없이 「안 되는」 은 그대로 부정이다.
+_SINO_NUM = r"[영일이삼사오육칠팔구십백천만]{1,6}"
+_NATIVE_NUM = r"(?:한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|스무|스물|서른|마흔|쉰|예순|일흔|여든|아흔)"
+_QTY_UNIT = r"(?:할|퍼센트|프로|명|개|곳|번|회|시간|분|초|일|달|주|년|개월|원|만\s?원|억|배|점|살|세|권|대|잔|장)"
+_QTY_NUM = rf"(?:(?<![^\s(])[^\s(]*\d[^\s]*?|(?<![가-힣]){_SINO_NUM}\s?{_QTY_UNIT}|(?<![가-힣]){_NATIVE_NUM}\s?{_QTY_UNIT})"
+_QTY_UNDER_RE = re.compile(
+    rf"(?P<n>{_QTY_NUM})(?:도|이|가|은|는|에)?\s*(?:채\s*)?(?:안|못)\s*"
+    r"(?:되|돼|됐|된|될|미치|미쳐|미친|미쳤|미칠|미달|차|찬|찼|찰|걸리|걸려|걸린|걸렸)[가-힣]*"
+)
+_QTY_EVEN_RE = re.compile(rf"(?P<n>{_QTY_NUM})도\s*안\s*(?:하|해|한|했|할)[가-힣]*")
+_QTY_ATMOST_RE = re.compile(rf"(?P<n>{_QTY_NUM})(?:을|를|은|는|도)?\s*(?:(?:안|못)\s*넘|넘지\s*(?:않|못))[가-힣]*")
+
+
+def quantity_bounds(text: str) -> str:
+    """수량의 한계를 「N 미만」「N 이하」 로 풀어 쓴다 — 부정 표지가 아니라 크기의 경계다 (`negated`·방향 대조가 먼저 거친다)."""
+    t = _QTY_UNDER_RE.sub(lambda m: f"{m.group('n')} 미만", text or "")
+    t = _QTY_EVEN_RE.sub(lambda m: f"{m.group('n')} 미만", t)
+    return _QTY_ATMOST_RE.sub(lambda m: f"{m.group('n')} 이하", t)
+
+
 def negated(text: str) -> bool:
-    return bool(_NEG_RE.search(_CONCESSIVE_NEG_RE.sub(" ", text or "")))
+    return bool(_NEG_RE.search(_CONCESSIVE_NEG_RE.sub(" ", quantity_bounds(text or ""))))
 
 
 _SUPERLATIVE_RE = re.compile(r"가장|제일")
@@ -487,6 +629,27 @@ class Conflict:
     deck_line: str
     claim: str         # 답에서 걸린 절
     what: str          # 사람에게 보여 줄 「다시 볼 곳」 — 답의 낱말로만 쓴다(정답을 흘리지 않게)
+    #: 숫자 어긋남에서 어느 수끼리 어긋났는지 — 말한 수 · 자료의 수 (표기 그대로, 「88%」·「78%」). 모르면 빈 문자열.
+    said: str = ""
+    deck_value: str = ""
+    #: 비교 어긋남의 꼴 — "swapped"(견준 두 쪽을 뒤바꿈) · "reversed"(더한 쪽은 같은데 방향이 반대). 비교가 아니면 빈 문자열.
+    relation: str = ""
+
+
+#: 어긋남 종류 → 모순의 갈래 (질문·리포트가 「수치」「방향」「맞다·아니다」 로 말을 고른다 — `AlignmentItem.contra_kind`).
+CONFLICT_FAMILY = {"number": "number", "number_unsupported": "number", "order": "direction", "direction": "direction",
+                   "negation": "polarity"}
+
+
+def conflict_family(kind: str) -> str:
+    """Conflict.kind → "number" · "direction" · "polarity" (모르면 빈 문자열)."""
+    return CONFLICT_FAMILY.get(kind, "")
+
+
+def num_label(n: "Num") -> str:
+    """수 하나를 사람이 읽는 표기로 — 「88%」「19%p」「1450ppm」 (천 단위 쉼표 없이)."""
+    unit = {"pct": "%", "pp": "%p"}.get(n.unit or "", n.unit or "")
+    return f"{'-' if n.negative else ''}{n.value:g}{unit}"
 
 
 def _terms_around(clause: str, num: Num, deck: Deck) -> tuple[list[str], list[str]]:
@@ -500,21 +663,25 @@ def _terms_around(clause: str, num: Num, deck: Deck) -> tuple[list[str], list[st
     return before, after
 
 
-def _number_conflicts(clause: str, deck: Deck) -> list[Conflict]:
+def _number_conflicts(clause: str, deck: Deck, sentence: str = "") -> list[Conflict]:
     """
     답이 낱말 X 에 숫자 N 을 붙였는데, 자료는 X 에 **다른** 숫자를 붙였고 N 은 자료에서 **다른** 낱말의 것이다.
     09-29 실측: 「타이밍 실패가 연 1.6%p로 가장 컸고 과잉 매매는 0.2%p」 — 자료 표는 타이밍 −1.2 · 과잉 매매 −1.6 ·
     거래 비용 −0.2. 숫자 자체는 다 자료에 있어서 F-08 식 「자료 밖 숫자」 검사로는 안 잡힌다.
     자료에 없는 숫자(계산한 합·반올림)는 짝을 모르니 건드리지 않는다.
+
+    sentence(답 전체)가 장을 부르면(「5장 표에서 870ppm」) 그 장에 이 수가 있으면 짝이 맞는 것이고, 주인 후보도 그 장이 먼저다
+    (09-30 녹음 감사 REC-04: 맞는 답이 「ppm」 이 든 2장 줄과 어긋났다는 55 를 받았다).
     """
     out: list[Conflict] = []
+    mention = {int(m.group(1)) for m in _SLIDE_MENTION_RE.finditer(f"{sentence} {clause}")}
     for num in numbers(clause):
         before, after = _terms_around(clause, num, deck)
         if not before:
             continue
         # 반올림한 같은 값도 그 값이다 — 차트 표 「9」 와 본문 「8.7」 은 같은 사실이다 (`Num.close_value`).
         holders = [r for r in deck.regions if any(num.close_value(n) for n in r.nums)]
-        if not holders:
+        if not holders or any(r.slide_no in mention for r in holders):
             continue
         # 자료와 같은 짝인지는 **절 전체**로 본다 — 「전체 4.8%p 격차의 58%」 처럼 한 절에 숫자가 여럿이면
         # 숫자 바로 앞 낱말이 다른 숫자의 것일 수 있다. 짝이 하나라도 맞으면 어긋남으로 보지 않는다(놓치는 쪽이 안전하다).
@@ -542,16 +709,22 @@ def _number_conflicts(clause: str, deck: Deck) -> list[Conflict]:
         ]
         if not owners:
             continue
-        owner = min(owners, key=lambda r: (not r.is_row, len(r.text)))
-        out.append(Conflict("number", owner.slide_no, owner.text, clause, " ".join(before) + "의 수치"))
+        owner = min(owners, key=lambda r: (r.slide_no not in mention, not r.is_row, len(r.text)))
+        theirs = next((n for n in owner.nums if n.unit == num.unit and not num.close_value(n)), None)
+        out.append(Conflict("number", owner.slide_no, owner.text, clause, " ".join(before) + "의 수치",
+                            said=num_label(num), deck_value=num_label(theirs) if theirs is not None else ""))
     return out
 
 
-#: 어림 표지 — 「약 10%」「20% 정도」 는 자료 값(8.7%)을 둥글게 말한 것일 수 있다.
+#: 어림 표지 — 「약 10%」「20% 정도」「30% 가까이」 는 자료 값(8.7%)을 둥글게 말한 것일 수 있다.
 _APPROX_BEFORE_RE = re.compile(r"(?:약|대략|거의|얼추|한)\s*$")
-_APPROX_AFTER_RE = re.compile(r"^\s*(?:정도|쯤|가량|안팎|남짓|내외|근처)")
-#: 어림한 수가 자료 값에서 이만큼(상대) 안이면 같은 수로 본다.
+_APPROX_AFTER_RE = re.compile(r"^\s*(?:정도|쯤|가량|안팎|남짓|내외|근처|가까이|언저리)")
+#: 어림한 수가 자료 값에서 이만큼(상대) 안이면 같은 수로 본다 — 퍼센트가 아닌 수(원·명·초…).
 APPROX_RATIO = 0.15
+#: 퍼센트·퍼센트포인트의 어림 폭(%p). 비율에 상대 오차를 쓰면 큰 값일수록 너무 너그럽다 — 「72% 정도」 가 81% 에 붙었다(09-30 REC-02).
+#: 말한 수가 10 의 배수(「70% 정도」)면 둥근 수라 폭이 넓고, 아니면(「72% 정도」) 그 자리까지 말한 것이라 좁다.
+APPROX_PP_ROUND = 5.0
+APPROX_PP_EXACT = 3.0
 #: 문장이 부른 장 번호 — 「9장 차트에서」. 주인 후보가 여럿이면 그 장이 먼저다.
 _SLIDE_MENTION_RE = re.compile(r"(\d{1,3})\s*(?:장|번\s*슬라이드|페이지)")
 
@@ -564,10 +737,43 @@ def _approx(clause: str, num: Num) -> bool:
     return bool(_APPROX_BEFORE_RE.search(clause[:num.start]) or _APPROX_AFTER_RE.match(clause[num.end:]))
 
 
-def _near_value(num: Num, vals: list[Num], approx: bool) -> bool:
+def _approx_near(num: Num, value: Num) -> bool:
+    """어림으로 말한 수가 이 자료 값을 둥글게 말한 것으로 볼 만큼 가까운가 — 퍼센트는 %p 폭, 나머지는 상대 오차."""
+    if num.unit in ("pct", "pp"):
+        band = APPROX_PP_ROUND if abs(num.value) % 10 == 0 else APPROX_PP_EXACT
+        return abs(num.value - value.value) <= band
+    return bool(value.value) and abs(num.value - value.value) <= APPROX_RATIO * abs(value.value)
+
+
+def _near_value(num: Num, vals: list[Num], approx: bool, owned: list[Num] | None = None) -> bool:
+    """자료 값 가운데 같은(반올림 포함) 수가 있거나, 어림 표지가 붙었고 **주어가 가리키는 값**(owned)에 가까운가."""
     if any(num.close_value(v) for v in vals):
         return True
-    return approx and any(v.value and abs(num.value - v.value) <= APPROX_RATIO * abs(v.value) for v in vals)
+    return approx and any(_approx_near(num, v) for v in (vals if owned is None else owned))
+
+
+def _owned_values(regions: list[DeckLine], subject: list[str], unit: str | None, lines_ids: set[int]) -> list[Num]:
+    """
+    주어(subject)가 가리키는 자료 값 — 줄 안에서 그 값 바로 앞(앞 수 뒤부터)에 주어 낱말이 가장 많이 든 값.
+    표 칸은 칸 전체가 행 이름의 것이다. 09-30 녹음 감사 REC-02: 「우리 리그 번트 성공률이 72% 정도」 가 같은 줄의
+    「프로 리그(81%)」 에 붙어 어림으로 통과했다 — 81% 의 주인은 프로 리그다.
+    """
+    scored: list[tuple[int, Num]] = []
+    for r in regions:
+        vals = [n for n in r.nums if n.unit == unit]
+        if not vals:
+            continue
+        if r.is_row and id(r) not in lines_ids:          # 표 칸 — 위치가 칸 글 기준이라 칸 전체가 주인
+            hits = sum(1 for t in subject if _has(r.stems, t) or _has(r.context, t))
+            scored += [(hits, n) for n in vals]
+            continue
+        every = numbers(r.text, skip_years=False)
+        for n in vals:
+            prev_end = max((m.end for m in every if m.end <= n.start), default=0)
+            window = content_stems(r.text[prev_end:n.start])
+            scored.append((sum(1 for t in subject if _has(window, t)), n))
+    top = max((h for h, _ in scored), default=0)
+    return [n for h, n in scored if h == top] if top > 0 else [n for _, n in scored]
 
 
 def _derived(num: Num, vals: list[Num]) -> bool:
@@ -626,7 +832,11 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
             and any(n.unit == num.unit for n in r.nums)
         ]
         vals = [n for r in regions for n in r.nums if n.unit == num.unit]
-        if not vals or _near_value(num, vals, _approx(clause, num)) or _derived(num, vals):
+        if not vals:
+            continue
+        approx = _approx(clause, num)
+        owned = _owned_values(regions, subject, num.unit, lines_ids) if approx else None
+        if _near_value(num, vals, approx, owned) or _derived(num, vals):
             continue
         if any(v.close_value(a) for v in vals for j, a in enumerate(nums) if j not in (idx, label_idx)):
             continue
@@ -635,7 +845,94 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
         # 주인 후보가 여럿이면: 문장이 부른 장 → 문장이 부른 행 이름(「1종목이면」) → 맥락 낱말 → 짧은 줄.
         owner = min(regions, key=lambda r: (r.slide_no not in mention, -sum(1 for t in said if _has(r.stems, t)),
                                             -sum(1 for t in said if _has(r.context, t)), len(r.text)))
-        out.append(Conflict("number_unsupported", owner.slide_no, owner.text, clause, " ".join(subject) + "의 수치"))
+        mine = _owned_values([owner], subject, num.unit, lines_ids)
+        out.append(Conflict("number_unsupported", owner.slide_no, owner.text, clause, " ".join(subject) + "의 수치",
+                            said=num_label(num), deck_value=num_label(mine[0]) if mine else ""))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 「A 에서 B 로」 — 바뀐 앞뒤 값의 짝 (09-30 녹음 감사 REC-02)
+# ---------------------------------------------------------------------------
+
+#: 앞 값 뒤 — 「에서·부터」 또는 화살표. 「A 가 B 로」(`_FROM_SUBJ_RE`)는 뒤 두세 낱말에 바뀜 말(줄었다·내려갔다)이 올 때만 짝이다.
+_FROM_RE = re.compile(r"^\s*(?:에서|부터|→|->|⇒)")
+_FROM_SUBJ_RE = re.compile(r"^\s*(?:이|가|은|는)\s")
+#: 뒤 값 뒤 — 「으로·로·까지」 또는 「이/가 되·됐」.
+_TO_RE = re.compile(r"^\s*(?:으로|로|까지|이\s?되|가\s?되|이\s?됐|가\s?됐|이\s?돼|가\s?돼)")
+#: 짝의 두 값 사이가 이보다 길면(글자) 앞뒤 값의 짝이 아니라 따로 한 말이다.
+FROM_TO_GAP_MAX = 24
+
+
+def from_to_pairs(text: str) -> list[tuple[Num, Num]]:
+    """「31%에서 88%까지」「110초에서 64초로」「1,450ppm이 870ppm으로 내려갔다」 — 같은 단위의 (앞 값, 뒤 값) 짝."""
+    nums = numbers(text or "")
+    out: list[tuple[Num, Num]] = []
+    for a, b in zip(nums, nums[1:]):
+        if a.unit is None or a.unit != b.unit:
+            continue
+        between, after = text[a.end:b.start], text[b.end:]
+        if len(between) > FROM_TO_GAP_MAX or not _TO_RE.match(after):
+            continue
+        moved = any(direction(w) for w in _WORD_RE.findall(after)[:3])
+        if _FROM_RE.match(between) or (_FROM_SUBJ_RE.match(between) and moved):
+            out.append((a, b))
+    return out
+
+
+def _deck_pairs(line: DeckLine) -> list[tuple[Num, Num]]:
+    """자료 줄의 앞뒤 값 짝 — 표 행은 같은 단위 값의 모든 (앞 칸, 뒤 칸), 글줄은 「A 에서 B 로」."""
+    if line.is_row:
+        vals = list(line.nums)
+        return [(a, b) for i, a in enumerate(vals) for b in vals[i + 1:] if a.unit is not None and a.unit == b.unit]
+    return from_to_pairs(line.text)
+
+
+def _pair_conflicts(clause: str, deck: Deck) -> list[Conflict]:
+    """
+    「A 에서 B 로/까지」 로 말한 앞뒤 값이 **같은 대상**의 자료 짝과 한쪽만 맞는다 — 맞는 쪽이 짝을 확인해 주므로 다른 쪽은 틀린 값이다.
+    09-30 녹음 감사 REC-02: 「교육 전 31퍼센트에서 교육 후 88퍼센트까지」(자료 표 31% → 78%) — 앞 값이 자료와 같아서
+    `_unsupported_numbers` 가 뒤 값을 「계산한 수일 수 있다」 며 면제했다. 짝은 계산이 아니라 두 시점의 값이다.
+    같은 대상 — 표 행이면 행 이름 낱말이 절에 다 있고, 글줄이면 내용 줄기가 둘 이상 겹친다. 어림 표지가 붙은 값은 어림 폭 안이면 맞다.
+    """
+    pairs = from_to_pairs(clause)
+    if not pairs:
+        return []
+    stems = content_stems(clause)
+    out: list[Conflict] = []
+    for a, b in pairs:
+        for line in deck.lines:
+            theirs = _deck_pairs(line)
+            if not theirs:
+                continue
+            if line.is_row:
+                key = content_stems(_row_key(line.text))
+                if not key or not all(_has(stems, k) for k in key):
+                    continue
+            elif sum(1 for s in set(line.stems) if _has(stems, s)) < 2:
+                continue
+
+            def same(x: Num, y: Num) -> bool:
+                return x.close_value(y) or (_approx(clause, x) and _approx_near(x, y))
+
+            if any(same(a, x) and same(b, y) for x, y in theirs if x.unit == a.unit):
+                break                                     # 맞는 짝이 있다
+            fronts = [(x, y) for x, y in theirs if x.unit == a.unit and same(a, x)]
+            backs = [(x, y) for x, y in theirs if y.unit == b.unit and same(b, y)]
+            if fronts and not backs:
+                wrong, right = b, fronts[0][1]
+            elif backs and not fronts:
+                wrong, right = a, backs[0][0]
+            else:
+                continue
+            if deck.has_number(wrong):
+                # 틀렸다는 값도 자료에 있다 — 표를 다른 길(행이 아니라 열, 「1종목 70 → 16종목 이상 20」)로 읽었을 수 있다. 놓치는 쪽이 안전하다.
+                continue
+            subj = [x for x in content_stems(clause[:a.start])[-3:] if _has(deck.stems, x)]
+            what = " ".join(subj or stems[:2]) + "의 수치"
+            out.append(Conflict("number", line.slide_no, line.text, clause, what,
+                                said=num_label(wrong), deck_value=num_label(right)))
+            break
     return out
 
 
@@ -738,40 +1035,7 @@ def _order_conflicts(clause: str, deck: Deck, prefix: str = "") -> list[Conflict
     return out
 
 
-_THAN_SPLIT_RE = re.compile(r"([가-힣A-Za-z0-9]+)(?:보다는|보다|보단)(?=\s|$)")
-
-
-def _than_sides(text: str) -> tuple[list[str], list[str]] | None:
-    """「X보다 … Y」 의 (X 줄기, 「보다」 뒤 줄기). 「보다」 가 없거나 둘 이상이면 None."""
-    found = list(_THAN_SPLIT_RE.finditer(text or ""))
-    if len(found) != 1:
-        return None
-    m = found[0]
-    before = content_stems(text[:m.end()])[-2:]
-    after = content_stems(text[m.end():])
-    return (before, after) if before and after else None
-
-
-def _swapped_comparison(clause: str, deck: Deck, question_stems: tuple[str, ...] = ()) -> list[Conflict]:
-    """
-    표가 아닌 글줄의 비교를 **맞바꾼** 말 — 자료 「대출 권수보다 더 중요한 것은 독서 경험」 ↔ 답 「독서 경험보다 더 중요한 것은
-    대출 권수」 (09-30 verify 하네스). 자료 줄의 「보다」 앞 대상이 답의 「보다」 뒤에, 답의 「보다」 앞 대상이 자료 줄의 「보다」 뒤에
-    있으면 뒤집은 것이다. 질문이 옮겨 와 따지는 줄은 뺀다.
-    """
-    mine = _than_sides(clause)
-    if mine is None:
-        return []
-    a_before, a_after = mine
-    for line in deck.lines:
-        theirs = _than_sides(line.text)
-        if theirs is None or _quoted_by_question(line, question_stems):
-            continue
-        l_before, l_after = theirs
-        if any(_has(l_before, x) for x in a_before):
-            continue                     # 같은 쪽을 기준으로 말했다 — 맞바꾼 게 아니다
-        if any(_has(a_after, x) for x in l_before) and any(_has(l_after, x) for x in a_before):
-            return [Conflict("order", line.slide_no, line.text, clause, "무엇보다 무엇이 더한지")]
-    return []
+# 글줄 비교의 맞바꿈·반대 방향(「A는 B보다 …」 ↔ 「B가 A보다 …」)은 `_compare` 가 (주어, 비교 대상, 잣대, 서술 방향) 으로 읽어 견준다.
 
 
 #: 절과 자료 줄이 「같은 말을 하고 있다」 고 볼 최소 겹침. 방향·부정을 견주려면 주어가 같아야 한다.
@@ -808,11 +1072,8 @@ def _best_line(stems: list[str], deck: Deck) -> tuple[DeckLine | None, int]:
 
 
 def _dir_list(text: str) -> list[str]:
-    """방향 낱말의 방향들 (나온 차례대로, 겹쳐도 센다). 「못 미」 는 하나로."""
-    out = [d for d in (direction(w) for w in _WORD_RE.findall(text or "")) if d]
-    if re.search(r"못\s*미", text or "") and "down" not in out:
-        out.append("down")
-    return out
+    """방향 서술의 방향들 (나온 차례대로, 겹쳐도 센다). 꾸미는 방향 낱말은 접는다 (`signed_directions`). 「못 미」 는 하나로."""
+    return ["up" if d > 0 else "down" for d in signed_directions(text)]
 
 
 #: 원인·조건으로 끝나는 절 — 뒤 절(결과)만으로는 자료 줄과 짝이 안 맞아서(「…부족해서 | 깡통전세가 줄어든다고」) 붙여서 본다.
@@ -835,27 +1096,29 @@ def _polarity_one(clause: str, deck: Deck, question_stems: tuple[str, ...] = ())
     """
     # 「X 가 아니라 Y」 는 X 를 버리고 Y 를 세우는 말이다 — 대조는 **Y 쪽만** 한다. X 쪽 낱말로 자료 줄과 짝지으면
     # 버린 명제가 자료와 반대라고 잡힌다 (09-30 실측 수익률 함정 Q3: 「38만원이 아니라 48만원」 이 55).
-    clause = _contrast_kept(clause)
+    # 수량의 한계(「N도 안 되는」 = N 미만)는 부정이 아니다 — 양쪽을 같은 말(「N 미만」)로 풀어 둔다 (09-30 녹음 감사 REC-03).
+    clause = quantity_bounds(_contrast_kept(clause))
     stems = [s for s in content_stems(clause, drop_units=True) if not direction(s)]
     line, hit = _best_line(stems, deck)
     if line is None or _quoted_by_question(line, question_stems):
         return []
-    line_stems = [s for s in content_stems(line.text, drop_units=True) if not direction(s)]
+    line_text = quantity_bounds(line.text)
+    line_stems = [s for s in content_stems(line_text, drop_units=True) if not direction(s)]
     # 양쪽 다 거의 같은 말이어야 한다 — 긴 절이 짧은 자료 줄을 품고 딴말을 덧붙인 것이면 부정·방향이 어느 말에 걸렸는지 모른다.
     if (hit < STRONG_MATCH_MIN or hit < STRONG_MATCH_RATIO * max(1, len(set(line_stems)))
             or hit < STRONG_MATCH_RATIO * max(1, len(set(stems)))):
         return []
-    a_dirs, l_dirs = directions(clause), directions(line.text)
+    a_dirs, l_dirs = directions(clause), directions(line_text)
     if len(a_dirs) == 1 and len(l_dirs) == 1 and a_dirs != l_dirs:
         return [Conflict("direction", line.slide_no, line.text, clause, "높고 낮은 방향")]
     # 방향 낱말이 둘인 말(「공강이 길수록 만족도가 떨어진다」·「1인 가구 증가가 수요를 늘린다」)은 짝 수로 견준다 — 순서는 안 본다
     # (바꿔 말하면 순서가 바뀐다). 수가 같은데 짝이 다르면 한쪽을 뒤집은 것이다.
-    a_seq, l_seq = sorted(_dir_list(clause)), sorted(_dir_list(line.text))
-    if (2 <= len(a_seq) == len(l_seq) <= 3 and a_seq != l_seq and negated(clause) == negated(line.text)
-            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line.text)):
+    a_seq, l_seq = sorted(_dir_list(clause)), sorted(_dir_list(line_text))
+    if (2 <= len(a_seq) == len(l_seq) <= 3 and a_seq != l_seq and negated(clause) == negated(line_text)
+            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line_text)):
         return [Conflict("direction", line.slide_no, line.text, clause, "높고 낮은 방향")]
-    if (not a_dirs and not l_dirs and negated(clause) != negated(line.text)
-            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line.text)):
+    if (not a_dirs and not l_dirs and negated(clause) != negated(line_text)
+            and not _SOFT_NEG_RE.search(clause) and not _SOFT_NEG_RE.search(line_text)):
         return [Conflict("negation", line.slide_no, line.text, clause, "맞다·아니다 쪽")]
     return []
 
@@ -932,6 +1195,8 @@ def conflicts(text: str, deck: Deck, question: str = "") -> list[Conflict]:
     """
     if deck.empty or not (text or "").strip():
         return []
+    from ._compare import comparison_check   # 비교 읽기는 이 모듈의 낱말·방향 도구를 쓴다 — 서로 부르지 않게 여기서 불러온다
+
     q_stems = tuple(content_stems(question))
     q_nums = numbers(question)
     out: list[Conflict] = []
@@ -939,12 +1204,15 @@ def conflicts(text: str, deck: Deck, question: str = "") -> list[Conflict]:
     for sentence in _SENTENCE_SPLIT_RE.split(text):
         prefix = ""
         for clause in clauses(sentence):
-            out += _number_conflicts(clause, deck)
+            out += _number_conflicts(clause, deck, text)
+            out += _pair_conflicts(clause, deck)
             # 주인 고르기의 맥락은 답 전체다 — 쉼표에서 갈린 앞 절(「9장 차트에서 1종목이면 …,」)이 행·장을 부른다.
             out += _unsupported_numbers(clause, deck, q_nums, text)
             out += _order_conflicts(clause, deck, prefix)
-            out += _swapped_comparison(clause, deck, q_stems)
-            out += _polarity_conflicts(clause, deck, q_stems, lead)
+            compared, paired = comparison_check(clause, deck, q_stems)
+            out += compared
+            if not paired:                       # 자료의 비교와 짝지어 읽은 절은 방향 낱말만 세는 대조를 거치지 않는다
+                out += _polarity_conflicts(clause, deck, q_stems, lead)
             out += _definition_conflicts(clause, deck, q_stems)
             prefix = f"{prefix} {clause}".strip()
             lead = clause

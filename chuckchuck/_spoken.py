@@ -157,12 +157,65 @@ _TRANSITION_RE = re.compile(r"다음\s?(?:으로|장|슬라이드|내용|페이�
 #: 넘어가기 **전에** · 여기까지 하고 넘어가기 — 설명을 마친 뒤의 말이다.
 _BEFORE_MOVE_RE = re.compile(r"넘어\s?가기\s?전|넘어가기에\s?앞서|여기까지")
 
+# --- 빼기·안 다루기 (09-30 녹음 감사 REC-12) -----------------------------------------------------------------
+# 「예외인 경우는 오늘은 빼고 바로 결론으로 가겠습니다」「여기는 제외하고」「이 부분은 오늘 다루지 않을게요」「이 장은 오늘은 안 볼게요」 —
+# 닫힌 동사 목록(건너뛰·생략·스킵·패스·넘어가·넘기)에 없어 건너뛴 장이 비고, 정합 LLM 은 「정당한 생략」 을 줬다.
+# 이 동사들은 발표 **내용**에도 흔하다(「설탕을 빼고 만들면」「흡연자는 제외하고 분석했어요」「그 연구는 청소년을 다루지 않았어요」) —
+# 그래서 ① 지금 하겠다는 꼴(빼고·빼겠·뺄게·제외하고·다루지 않을게…)이고 ② 빼는 것이 **발표의 이 자리**일 때만 건너뛰기다:
+# 가리키는 말(이 장·이 부분·여기는·이건 — `_SKIP_TOPIC_RE`), 발표의 한 자리를 이르는 화제(「…경우는」「예외는」「나머지는」「설명은」),
+# 또는 「오늘은」 + 목적어 없이 빼는 말(「오늘은 빼고」 — 「오늘은 설탕을 빼고」 는 내용이다).
+#: 지금 하겠다는 꼴 그 자체 — 「빼겠습니다·뺄게요·제외할게요·다루지 않을게요·안 볼게요·설명은 안 할게요」.
+_SKIP_REMOVE_INTENT_RE = re.compile(
+    r"(?:빼|제외하)(?:겠|도록)|(?:뺄|제외할)\s?(?:게|께)|(?:뺍|제외합)(?:시다|니다)"
+    r"|다루지\s?않(?:을\s?(?:게|께|거)|겠)|안\s?다(?:룰\s?(?:게|께)|루겠)"
+    r"|안\s?(?:볼\s?(?:게|께)|보겠)|보지\s?않(?:을\s?(?:게|께)|겠)"
+    r"|설명(?:은|을|도)?\s?(?:안|못)\s?(?:할\s?(?:게|께)|하겠)|설명(?:은|을|도)?\s?하지\s?않(?:을\s?(?:게|께)|겠)"
+)
+#: 이어 가는 꼴 — 「빼고·제외하고·다루지 않고·설명 안 하고」. 뒤 서술이 **발표자가 지금 하겠다는 말**(갈게요·말씀드릴게요·가겠습니다)일 때만
+#: 건너뛰기다 — 「이 부분은 제외하고 계산했어요」 는 분석 방법(내용)이다.
+_SKIP_REMOVE_CONNECT_RE = re.compile(
+    r"(?:빼|제외하)고(?=[\s,.]|$)|다루지\s?않고(?=[\s,.]|$)|설명(?:은|을|도)?\s?(?:안|못)\s?하고(?=[\s,.]|$)"
+    r"|설명(?:은|을|도)?\s?하지\s?않고(?=[\s,.]|$)"
+)
+#: 발표자가 지금 하겠다는 끝맺음 — 「-ㄹ게(요)」(받침 ㄹ + 게), 「-겠습니다/-겠어요」, 「-(ㅂ)시다」.
+_PROMISSIVE_RE = re.compile(r"([가-힣])\s?[게께]요?(?=[\s.,!?]|$)")
+_WILL_RE = re.compile(r"겠(?:습니다|어요|죠)|(?:합|갑|봅|넘어갑)시다")
+
+
+def _speaker_intent(s: str) -> bool:
+    """문장이 발표자가 지금 하겠다는 말로 끝맺는가 (「…결론으로 가겠습니다」「…결론만 말씀드릴게요」)."""
+    if _WILL_RE.search(s):
+        return True
+    return any((ord(m.group(1)) - 0xAC00) % 28 == 8 for m in _PROMISSIVE_RE.finditer(s))   # 받침 ㄹ + 게
+#: 발표의 한 자리를 이르는 화제 — 「예외인 경우는」「나머지는」「자세한 설명은」.
+_SKIP_META_TOPIC_RE = re.compile(
+    r"(?:경우|예외|나머지|사례|부분|내용|설명|계산|공식|과정|얘기|이야기|세부|자세한\s?(?:건|것|내용|설명))(?:는|은|도)(?=\s|$)"
+)
+_SKIP_TODAY_RE = re.compile(r"(?:^|\s)오늘은(?=\s|$)")
+
+
+def _skip_removal(s: str) -> bool:
+    """빼기·안 다루기 동사가 **발표의 이 자리**를 빼는 말인가 (위 주석)."""
+    m = _SKIP_REMOVE_INTENT_RE.search(s)
+    if m is None:
+        m = _SKIP_REMOVE_CONNECT_RE.search(s)
+        if m is None or not _speaker_intent(s[m.end():]):
+            return False
+    if _SKIP_TOPIC_RE.search(s) or _SKIP_META_TOPIC_RE.search(s):
+        return True
+    if not _SKIP_TODAY_RE.search(s):
+        return False
+    before = s[:m.start()].split()
+    return not (before and re.search(r"(?:을|를)$", before[-1]))       # 「오늘은 설탕을 빼고」 는 내용이다
+
 
 def skip_cue(sentence: str) -> bool:
     """발표자가 이 자리의 내용을 **설명하지 않고 넘긴다**고 말한 문장인가."""
     s = " ".join((sentence or "").split())
     if not s or _BEFORE_MOVE_RE.search(s):
         return False
+    if _skip_removal(s):
+        return True
     intent = _SKIP_INTENT_RE.search(s)
     connect = None if intent else _SKIP_CONNECT_RE.search(s)
     verb = intent or connect
@@ -219,7 +272,9 @@ def count_hits(wanted, have) -> int:
 
 #: 건너뛰기 말 자체의 낱말 — 어느 장을 건너뛰는지 가를 때 뺀다 (「시간」 은 수면 발표 본문에도 있다).
 _SKIP_WORD_HEADS = ("시간", "관계", "그냥", "넘어", "넘기", "넘겨", "건너", "생략", "스킵", "패스", "자세", "설명", "이건",
-                    "이거", "여기", "부분", "다음")
+                    "이거", "여기", "부분", "다음", "빼고", "빼겠", "뺄게", "제외", "다루", "오늘", "경우", "나머지")
+#: 건너뛰고 **가는 곳** — 「바로 결론으로 가겠습니다」「결과로 넘어갈게요」 의 결론·결과는 건너뛴 장이 아니라 다음 장의 낱말이다.
+_SKIP_DESTINATION_RE = re.compile(r"\S+(?:으로|로)\s+(?:바로\s+)?(?:가|갈|갑|가겠|넘어가|넘어갈|넘어갑|넘기|넘길|넘깁|이동)\S*")
 
 
 def skip_targets(utts: list[Utterance], texts: dict[int, str]) -> dict[int, Utterance]:
@@ -233,7 +288,7 @@ def skip_targets(utts: list[Utterance], texts: dict[int, str]) -> dict[int, Utte
     for u in utts:
         if not u.skip:
             continue
-        said = [s for s in content_stems(u.text) if not s.startswith(_SKIP_WORD_HEADS)]
+        said = [s for s in content_stems(_SKIP_DESTINATION_RE.sub(" ", u.text)) if not s.startswith(_SKIP_WORD_HEADS)]
         cands = [u.slide_no, u.slide_no + 1, u.slide_no - 1] if u.slide_no else sorted(stems_by_slide)
         scored = [(count_hits(said, stems_by_slide.get(no, [])), -i, no) for i, no in enumerate(cands)
                   if no in stems_by_slide]
@@ -264,8 +319,11 @@ _SINO_MULT = {"십": 10, "백": 100, "천": 1000}
 #: 앞이 숫자면(「3천 원」) 한자어 수가 아니라 섞어 쓴 수다 — `_MIXED_*` 가 받는다.
 _SINO_RE = re.compile(
     r"(?<![가-힣\d])([영공일이삼사오육칠팔구십백천만]+)\s?"
-    r"(퍼센트|프로|%|개월|시간|만원|억원|명|개|원|배|분|초|년|회|점|세|살|위|건|억)" + _AFTER_UNIT
+    r"(퍼센트|프로|%|개월|시간|만원|억원|명|개|원|배|분|초|년|회|점|세|살|위|건|억|할)" + _AFTER_UNIT
 )
+#: 「할」(10분의 1 — 타율 「이 할」「삼 할」) 은 바로 뒤에 조사가 붙을 때만 수다. 「이 할 일」「할 수」 의 할(하다)은 수가 아니다.
+#: 09-30 녹음 감사 REC-03: 「타율이 이 할도 안 되는」 이 수로 안 바뀌어 질문이 「자료 7장의 수치와 달라요」 라고 했다.
+_HAL_NEXT_RE = re.compile(r"(?:도|이|가|은|는|을|를|에|의|대|짜리|쯤|정도|미만|이상|이하)")
 _PCT_UNITS = ("퍼센트", "프로", "%")
 #: 숫자 + 천 — 「3천 원」「2천 명」 → 3000원 · 2000명. 자료는 「3,200원」 처럼 쓴다.
 _MIXED_THOUSAND_RE = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s?천\s?(원|명|개|건|회|번|배)" + _AFTER_UNIT)
@@ -294,8 +352,10 @@ def _sino_value(word: str) -> int | None:
 
 def _sino_sub(m: re.Match) -> str:
     word, unit = m.group(1), m.group(2)
-    # 한 글자 수(「오」「이」)는 퍼센트 앞에서만 — 「이 명」「오 분」 은 「이 사람」「오분」 과 가를 수 없다
-    if len(word) < 2 and not any(c in _SINO_MULT for c in word) and unit not in _PCT_UNITS:
+    if unit == "할" and not _HAL_NEXT_RE.match(m.string, m.end()):
+        return m.group(0)
+    # 한 글자 수(「오」「이」)는 퍼센트·할 앞에서만 — 「이 명」「오 분」 은 「이 사람」「오분」 과 가를 수 없다
+    if len(word) < 2 and not any(c in _SINO_MULT for c in word) and unit not in (*_PCT_UNITS, "할"):
         return m.group(0)
     value = _sino_value(word)
     if value is None:
