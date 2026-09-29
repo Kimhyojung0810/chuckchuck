@@ -240,7 +240,9 @@ def test_검색_꺼지면_자료_인용만_남고_note_에_사정을_적는다()
 
 def test_영문_개념은_그대로_한글_개념은_LLM_번역으로_검색한다():
     hit_en = scholar_ref("Attention residue paper", ["Leroy"], 2009, doi="10.1016/j.obhdp.2009.04.002", abstract="residue")
-    hit_ko = scholar_ref("Notification cost paper", ["Stothart", "Mitchum"], 2015, doi="10.1037/xhp0000100", abstract="cost", cited=500)
+    # 09-30: 검색어 변별 낱말이 셋 이상이면 이웃한 짝 하나가 논문에서도 이웃해야 한다 — 초록이 개념의 두 낱말을 붙여 쓴다
+    hit_ko = scholar_ref("Notification cost paper", ["Stothart", "Mitchum"], 2015, doi="10.1037/xhp0000100",
+                         abstract="Smartphone notifications carry an attention cost.", cited=500)
     fake = FakeScholar({"Attention residue": [hit_en], "smartphone notification attention cost": [hit_ko]})
     llm = ScriptedLLM({"paper-queries": {"queries": [{"node_id": "c1", "query": "smartphone notification attention cost"}]}})
     doc = build_papers(make_graph(), None, scholar=fake, llm=llm, node_max=2, per_node=2)
@@ -262,7 +264,9 @@ def test_자료_인용을_되찾아_DOI_초록을_채우되_kind_는_deck_그대
 
 
 def test_검색_결과가_자료_인용과_같은_논문이면_합친다():
-    dup = scholar_ref("The attentional cost of receiving a cell phone notification", ["Stothart"], 2015, doi="10.1037/xhp0000100")
+    # 09-30 G-A31: 검색어와 「attention」 하나만 나누는 논문은 이제 붙지 않는다 — 합치기를 보려면 개념과 맞는 초록이어야 한다.
+    dup = scholar_ref("The attentional cost of receiving a cell phone notification", ["Stothart"], 2015, doi="10.1037/xhp0000100",
+                      abstract="Notifications leave attention residue that lowers performance on the next task.")
     fake = FakeScholar({"Attention residue": [dup]})
     doc = build_papers(make_graph(), make_slidedoc(), scholar=fake, llm=ScriptedLLM({}), node_max=2)
     assert not doc.scholar_refs
@@ -287,7 +291,8 @@ def test_왕복():
 # ---------------------------------------------------------------------------
 
 def test_자유_질문_한글이면_번역해서_검색한다():
-    hit = scholar_ref("IR survey", ["Manning"], 2008, cited=9000)
+    # 제목이 상투어(survey)만 나누면 버린다 (09-30 G-A31) — 검색어의 내용 낱말을 말하는 제목으로
+    hit = scholar_ref("Dense retrieval for information retrieval: a survey", ["Manning"], 2008, cited=9000)
     fake = FakeScholar({"information retrieval dense retrieval survey": [hit]})
     llm = ScriptedLLM({"paper-queries": {"queries": [{"node_id": "q", "query": "information retrieval dense retrieval survey"}]}})
     doc = search_papers("IR에서 dense retrieval 관련 최신 논문 있어?", scholar=fake, llm=llm, limit=3)
@@ -496,15 +501,17 @@ def test_build_papers_는_DOI_있는_자료_인용을_resolve_로_되찾는다()
     assert doc.ref("d01").abstract == "Notifications disrupt" and doc.ref("d01").kind == "deck"
 
 
-def test_번역_응답의_id_가_틀려도_label_과_순서로_받는다():
+def test_번역_응답은_id_와_표기만_다른_이름으로만_받고_순서로는_붙이지_않는다():
+    # 09-30 G-A32: 예전엔 id·label 이 안 맞는 줄을 **순서**로 붙였다 — LLM 이 순서를 바꾸면 다른 개념의 검색어가 붙었다.
     from chuckchuck.f24_papers import _translate_queries
     llm = ScriptedLLM({"paper-queries": {"queries": [
-        {"node_id": "c1", "label": "알림의 주의 비용", "query": "notification attention cost"},   # 예시 id 를 베낀 경우
-        {"node_id": "c2", "query": "attention residue"},                                       # label 도 없음 → 순서
-        {"node_id": "zzz", "query": "한국어 검색어"},                                             # 한글은 버린다
+        {"node_id": "c1", "label": "알림 주의 비용", "query": "notification attention cost"},   # 예시 id 를 베낌 · 이름은 조사만 다르다
+        {"node_id": "c2", "query": "attention residue"},                                     # id 도 이름도 없다 → 버린다
+        {"node_id": "zzz", "label": "기타", "query": "한국어 검색어"},                            # 한글 검색어 → 그 개념은 까닭만
     ]}})
-    out = _translate_queries([("notification", "알림의 주의 비용 — 요약"), ("residue", "주의 잔류"), ("x", "기타")], llm, None)
-    assert out == {"notification": "notification attention cost", "residue": "attention residue"}
+    out, failed = _translate_queries([("notification", "알림의 주의 비용 — 요약"), ("residue", "주의 잔류"), ("x", "기타")], llm, None)
+    assert out == {"notification": "notification attention cost"}
+    assert failed == {"residue": "unmatched", "x": "hangul"}
 
 
 def test_문헌이_있는데_인용_0_이면_그_질문만_qa_cite_로_한_번_고쳐_쓴다():

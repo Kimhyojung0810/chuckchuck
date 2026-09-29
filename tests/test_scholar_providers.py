@@ -25,6 +25,15 @@ from chuckchuck.providers.scholar_impl import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_lane_gaps(monkeypatch):
+    """통로 줄(LANES)의 요청 간격을 0 으로 — 여기서는 파싱·순위만 본다 (줄 간격은 test_papers_memory_wpp.py 가 본다)."""
+    monkeypatch.setattr(si, "LANES", {name: (slots, 0.0) for name, (slots, _) in si.LANES.items()})
+    si.reset_lanes()
+    yield
+    si.reset_lanes()
+
+
 class Res:
     def __init__(self, status=200, payload=None, text="", content=b"", headers=None):
         self.status_code, self._payload, self.text, self.content = status, payload, text, content
@@ -93,6 +102,7 @@ def test_429_는_한_번_쉬고_다시_묻고_두_번째도_429_면_PaperError(m
     refs = SemanticScholarScholar().search("attention residue task switching", limit=1)
     assert len(calls) == 2 and slept == [2.0] and refs[0].title.startswith("Attention residue")
 
+    si.reset_lanes()                    # 앞의 429 가 건 통로 쉼(cool_down)을 지운다 — 여기서는 재시도 규칙만 본다
     fake_get(monkeypatch, [Res(429, text="slow down"), Res(429, text="slow down")])
     with pytest.raises(PaperError):
         SemanticScholarScholar().search("attention residue task switching", limit=1)
