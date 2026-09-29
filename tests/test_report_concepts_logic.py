@@ -135,9 +135,9 @@ def test_llm_failure_falls_back_without_losing_numbers(payload):
     assert report.model == "scripted-fallback"
     assert report.score == 64
     assert report.one_liner == "2번은 핵심인데 권장 88초 중 28초만 썼어요."
-    assert report.actions[0] == "1번(보조) 설명을 한 문장으로 줄여 목표 시간을 맞추세요."
-    assert report.actions[1] == "2번(핵심)에 예시 한 줄을 추가해 권장 88초에 가깝게."
-    assert report.actions[2] == "1번에서 반복한 구절을 한 번만 말하고 다음으로 넘기세요."
+    assert report.actions[0] == "1번(보조) 설명을 한 문장으로 줄여 목표 시간에 맞춰 보세요."
+    assert report.actions[1] == "2번(핵심)에 예시 한 줄을 더해 권장 88초에 가깝게 말해 보세요."
+    assert report.actions[2] == "1번에서 반복한 구절은 한 번만 말하고 다음으로 넘어가 보세요."
 
 
 @pytest.mark.parametrize("raw", [
@@ -159,14 +159,14 @@ def test_fallback_with_zero_habits_and_no_tips_uses_defaults():
     pace = PaceDoc(avg_chars_per_min=320.0, slides=[
         SlidePace(slide_no=1, importance="core", status="ok", recommended_sec=60.0)])
     report = _fallback_report(pace, HabitDoc(), model="m", score=0)
-    assert report.strengths == ["평균 말 속도 320자/분이 권장 구간에 가깝습니다.",
-                                "1번 핵심 슬라이드 시간 배분이 안정적입니다."]
-    assert report.weaknesses == ["특별히 큰 배분·습관 문제는 보이지 않습니다."]
+    assert report.strengths == ["평균 말 속도 320자/분이 권장 구간에 가까워요.",
+                                "1번 핵심 슬라이드 시간 배분이 안정적이에요."]
+    assert report.weaknesses == ["특별히 큰 배분·습관 문제는 보이지 않아요."]
     assert len(report.actions) == 3 and len(set(report.actions)) == 1      # 3개로 채움
     assert report.one_liner == "시간 배분과 음성 습관을 함께 점검했어요."
     assert report.habit_summary == "" and report.pace_summary == ""
     empty = _fallback_report(PaceDoc(), HabitDoc(), model="m")
-    assert empty.strengths == ["슬라이드 전환과 발화 기록이 남아 코칭 근거를 만들 수 있습니다."]
+    assert empty.strengths == ["슬라이드 전환과 발화 기록이 남아 코칭 근거를 만들 수 있어요."]
 
 
 def test_fallback_numbers_all_come_from_source_docs():
@@ -180,7 +180,7 @@ def test_fallback_numbers_all_come_from_source_docs():
     allowed.add(f"{pace.avg_chars_per_min:.0f}")
     for tip in pace.tips + habits.tips:
         allowed |= _numbers(tip)
-    allowed.add("3")   # 고정 문구 "3초 쉬어" 의 상수
+    allowed.add("3")   # 고정 문구 "3초 쉬며" 의 상수
     prose = " ".join([report.one_liner, report.pace_summary, report.habit_summary,
                       *report.strengths, *report.weaknesses, *report.actions])
     assert _numbers(prose) <= allowed, _numbers(prose) - allowed

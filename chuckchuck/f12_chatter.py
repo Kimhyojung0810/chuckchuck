@@ -104,7 +104,9 @@ def _midm_points(graph: ConceptGraph, alignment: AlignmentDoc) -> list[TalkingPo
     by_id = {n.id: n for n in graph.nodes}
     out: list[TalkingPoint] = []
 
-    broken = [i for i in alignment.items if i.verdict in ("missing", "contradiction")]
+    # LLM 판정이 없어 언급 횟수로 채운 missing(decided_by fallback)은 「안 다뤘다」 는 확인이 아니다 (09-30 레드팀 G-A22) — 투덜대지 않는다
+    broken = [i for i in alignment.items
+              if i.verdict in ("missing", "contradiction") and i.decided_by != "fallback"]
     broken.sort(key=lambda i: (-i.doc_weight, i.node_id))
     for item in broken:
         node = by_id.get(item.node_id)
@@ -116,7 +118,10 @@ def _midm_points(graph: ConceptGraph, alignment: AlignmentDoc) -> list[TalkingPo
             )
         else:
             quote = f' 발표자는 "{item.evidence}"라고 말했다' if item.evidence else ""
-            fact = f"'{label}' {_slide_hint(node)}은(는) 자료와 어긋나게 설명됐다.{quote}"
+            # 코드가 자료 원문과 견줘 확인한 모순이면 자료 쪽도 든다 — 믿:음의 「어? 자료엔 이렇게 적혀 있던데」 가 리포트와 같은 말이 된다
+            deck = (f' 자료 {item.deck_slide_no}장에는 "{item.deck_quote}"라고 적혀 있다' if item.deck_slide_no
+                    else f' 자료에는 "{item.deck_quote}"라고 적혀 있다') if item.deck_quote else ""
+            fact = f"'{label}' {_slide_hint(node)}은(는) 자료와 어긋나게 설명됐다.{quote}{deck}"
         out.append(TalkingPoint(fact=" ".join(fact.split()), source="alignment",
                                 node_ids=(item.node_id,)))
 
@@ -180,7 +185,8 @@ def _exaone_points(
     labels = _labels(graph)
     out: list[TalkingPoint] = []
 
-    good = [i for i in alignment.items if i.verdict == "aligned"]
+    # 짐작으로 채운 aligned(decided_by fallback — 이름이 한 번 나왔을 뿐)는 「제대로 설명했다」 의 근거가 아니다
+    good = [i for i in alignment.items if i.verdict == "aligned" and i.decided_by != "fallback"]
     good.sort(key=lambda i: (-i.doc_weight, i.node_id))
     for item in good:
         node = by_id.get(item.node_id)
@@ -240,6 +246,91 @@ def _ax_points(
     return out[:MAX_POINTS]
 
 
+def _duration_word(sec: float) -> str:
+    return f"{int(sec // 60)}분 {int(sec % 60)}초" if sec else ""
+
+
+def _deck_root(graph: ConceptGraph) -> ConceptNode | None:
+    """자료의 주제 — 루트(깊이 1) 가운데 가장 무거운 것 → 앞 장 → id."""
+    roots = [n for n in graph.nodes if n.parent_id is None or n.depth == 1] or list(graph.nodes)
+    if not roots:
+        return None
+    return min(roots, key=lambda n: (-n.weight, min(n.slide_nos) if n.slide_nos else 10 ** 9, n.id))
+
+
+def _unusable_points(graph: ConceptGraph, alignment: AlignmentDoc) -> dict[str, list[TalkingPoint]]:
+    """
+    녹음을 발표 판정의 근거로 쓸 수 없을 때(`AlignmentDoc.speech_usable` 거짓)의 말할 거리 (09-30 WP-S2).
+
+    다른 발표의 녹음(speech_match unrelated)이면 item 은 전부 「판정 안 함」 인 missing 이고, 정합이 전부 짐작(basis fallback)이면
+    언급 횟수 짐작이다. 그걸 그대로 쓰면 믿:음은 모든 개념을 「한 번도 다루지 않았다」 고 투덜대고(09-30 /temp 재현) 엑사원은
+    짐작으로 「제대로 설명했다」 고 칭찬한다 — 둘 다 거짓이다. 그래서 발화 판정·흐름에서 나온 사실은 하나도 안 쓰고,
+    **확실한 것만** 준다: 녹음이 이 자료의 발표가 아니었다(또는 판정이 비었다)는 사실, 녹음 길이, 자료의 주제.
+    """
+    unrelated = alignment.speech_match == "unrelated" or alignment.basis == "skipped"
+    dur = _duration_word(alignment.summary.speech_total_sec)
+    root = _deck_root(graph)
+    # 자료의 주제 이름은 싣되 「그래서 순서를 볼 수 없었다」 까지 한 문장으로 준다 — 이름만 주면 쏠라가 「그 설명이 빠져서
+    # 아쉬웠어」 를 지어냈다 (09-30 WP-S2 실측: 혈당 자료 + 수면 녹음, 쏠라 두 줄 모두 자료에 없는 「빠진 설명」 투정).
+    # 「…부터 이어지는」 이라고 쓰지 않는다 — 가장 무거운 주제가 덱 첫 장이 아닐 수 있다(같은 실측: 「5번부터 시작했는지」).
+    # 사실마다 자료의 개념 이름 하나를 붙인다 — 말투 규칙이 「개념 이름을 넣어라」 라서, 이름 없는 사실을 받은 엑씨가 말투 규칙의
+    # 예시 개념(「Contrastive Learning」「공동 임베딩」)을 이 발표의 것처럼 읊었다 (같은 실측).
+    topic = f"'{root.label}' {_slide_hint(root)} 같은 이 자료의 내용" if root else "이 자료의 내용"
+    if unrelated:
+        midm = f"들은 녹음이 이 자료의 발표가 아니었다. 그래서 {topic}과 발표가 어긋났는지는 따질 수 없다 — 이 자료로 한 발표를 들어야 한다"
+        solar = f"들은 녹음이 이 자료의 발표가 아니라서, {topic}을 어떤 순서로 말했는지는 볼 수 없었다"
+        exaone = f"{topic}으로 한 발표를 들어야 잘한 대목을 콕 집어 줄 수 있다"
+        ax = (f"녹음은 {dur} 동안 들렸는데, {topic}과는 다른 이야기였다" if dur
+              else f"들은 녹음이 {topic}과는 다른 이야기였다")
+    else:
+        midm = f"이번엔 자료와 발표를 맞춰 보는 판정이 비었다. 그래서 {topic}을 말했는지는 따지지 않는다"
+        solar = f"판정이 비어서 {topic}을 어떤 순서로 말했는지는 이번엔 따지지 않는다"
+        exaone = f"판정이 비어서 이번엔 {topic}에서 잘한 대목을 콕 집어 줄 수 없다"
+        ax = (f"녹음은 {dur} 동안 들렸다. 판정이 비어서 {topic}을 몇 번 말했는지는 세지 않았다" if dur
+              else f"녹음은 들렸는데 판정이 비어서 {topic}을 몇 번 말했는지는 세지 않았다")
+    refs = (root.id,) if root else ()
+    return {
+        sp: [TalkingPoint(fact=" ".join(fact.split()), source=src, node_ids=refs)]
+        for sp, fact, src in (("midm", midm, "alignment"), ("solar", solar, "graph"),
+                              ("exaone", exaone, "alignment"), ("ax", ax, "alignment"))
+    }
+
+
+def _unusable_lines(graph: ConceptGraph, alignment: AlignmentDoc) -> list[ChatterTurn]:
+    """
+    녹음을 발표 판정의 근거로 쓸 수 없을 때(`speech_usable` 거짓) 병아리 넷이 하는 **정해진 말** — LLM 을 부르지 않는다 (09-30 WP-S2).
+
+    말할 수 있는 사실이 「이 자료의 발표가 아니었다(또는 판정이 비었다)」 하나뿐이면 말투를 입힐 LLM 이 할 일이 없고, 부르면 지어낸다.
+    실측(혈당 자료 + 수면 녹음): 사실을 「순서를 볼 수 없었다」 로 줘도 쏠라는 「5번 장 … 한 줄만 설명하면 더 좋을 텐데」 로 없는 결함을
+    말했고, 엑씨는 말투 규칙 예시의 다른 발표 개념(「Contrastive Learning」「공동 임베딩」)을 읊었고, 엑사원은 「대사」 한 낱말을 적어
+    왔다. 금지 규칙을 프롬프트에 더해도 줄지 않았다 — 그래서 코드가 말한다. 반말·1~2문장·시그니처 감탄사·개념 이름은 사실 그대로.
+    """
+    unrelated = alignment.speech_match == "unrelated" or alignment.basis == "skipped"
+    dur = _duration_word(alignment.summary.speech_total_sec)
+    root = _deck_root(graph)
+    anchor = f"'{root.label}' {_slide_hint(root)}".strip() if root else "이 자료"
+    refs = [ChatterRef(node_id=root.id, source="graph")] if root else []
+    if unrelated:
+        lines = {
+            "midm": (f"흥, 들은 녹음이 이 자료 발표가 아니었어. {anchor} 같은 내용이랑 어긋났는지는 따질 수가 없네.", "neutral"),
+            "solar": (f"오홍, 녹음이 다른 발표라서 {anchor} 같은 내용을 어떤 순서로 말했는지는 못 봤어.", "curious"),
+            "exaone": ("히히, 이 자료로 한 발표를 들려주면 잘한 대목을 콕 집어 줄게!", "happy"),
+            "ax": ((f"헐, {dur} 동안 들었는데 이 자료랑은 다른 이야기였어." if dur else "헐, 들은 녹음이 이 자료랑은 다른 이야기였어."),
+                   "curious"),
+        }
+    else:
+        lines = {
+            "midm": (f"흥, 이번엔 자료랑 발표를 맞춰 보는 판정이 비었어. {anchor} 같은 내용을 말했는지는 안 따질게.", "neutral"),
+            "solar": (f"오홍, 판정이 비어서 {anchor} 같은 내용을 어떤 순서로 말했는지는 이번엔 못 봤어.", "curious"),
+            "exaone": ("히히, 판정이 돌아오면 잘한 대목을 콕 집어 줄게!", "happy"),
+            "ax": ((f"헐, {dur} 동안 잘 들었는데 판정이 비어서 개념별로는 못 셌어." if dur
+                    else "헐, 잘 들었는데 판정이 비어서 개념별로는 못 셌어."), "curious"),
+        }
+    return [ChatterTurn(speaker=sp, text=" ".join(lines[sp][0].split()), mood=lines[sp][1],
+                        refs=list(refs) if anchor in lines[sp][0] else [])
+            for sp in CHATTER_SPEAKERS]
+
+
 def pick_talking_points(
     graph: ConceptGraph, alignment: AlignmentDoc, flow: FlowDiff
 ) -> dict[str, list[TalkingPoint]]:
@@ -247,7 +338,10 @@ def pick_talking_points(
     병아리별 말할 거리. 전부 결정적 — 같은 입력이면 항상 같은 배정이다.
 
     배정 근거가 곧 그 모델의 정체성이라, 여기를 바꾸면 캐릭터가 바뀐다.
+    녹음을 판정 근거로 쓸 수 없으면(다른 발표 · 전부 짐작) 발화 판정·흐름 사실은 쓰지 않는다 (`_unusable_points`, 09-30 WP-S2).
     """
+    if not alignment.speech_usable:
+        return _unusable_points(graph, alignment)
     return {
         "midm": _midm_points(graph, alignment),
         "solar": _solar_points(graph, flow),
@@ -455,6 +549,15 @@ def _has_banned(text: str) -> bool:
     return any(bad in text for bad in BANNED_PATTERNS)
 
 
+#: 출력 형식 예시(OUTPUT_SCHEMA 의 "text": "대사")를 그대로 베낀 대사 — 말이 아니라 자리표시다.
+#: 09-30 WP-S2 실측(엑사원): 사실이 「이 자료로 한 발표를 들어야…」 한 줄뿐일 때 대사 칸에 「대사」 만 적어 왔고, 그게 객석에 떴다.
+_SCHEMA_EXAMPLE_TEXTS = frozenset({"대사"})
+
+
+def _copies_schema(text: str) -> bool:
+    return text.strip(" .\"'“”") in _SCHEMA_EXAMPLE_TEXTS
+
+
 def _normalize_turn(
     raw: dict, speaker: str, allowed: set[str], point_source: dict[str, str]
 ) -> ChatterTurn | None:
@@ -463,10 +566,10 @@ def _normalize_turn(
 
     - 배정 밖 node_id 는 ref 에서 뺀다 (전부 빠지면 스몰토크로 강등)
     - mood 는 enum 밖이면 neutral
-    - 빈 대사 · 200자 초과 · 금칙어 포함이면 버린다
+    - 빈 대사 · 200자 초과 · 금칙어 포함 · 출력 형식 예시를 베낀 대사면 버린다
     """
     text = _clean_text(raw.get("text", ""))
-    if not text or len(text) > MAX_TEXT_LEN or _has_banned(text):
+    if not text or len(text) > MAX_TEXT_LEN or _has_banned(text) or _copies_schema(text):
         return None
 
     mood = str(raw.get("mood", "") or "")
@@ -598,6 +701,9 @@ def build_chatter(
 
     모델 하나가 죽어도 그 병아리만 조는 대사로 대체되고 전체는 성공한다 —
     청중석이 안 열리는 것보다 한 마리가 조는 편이 낫다.
+
+    녹음을 판정 근거로 쓸 수 없으면(`AlignmentDoc.speech_usable` 거짓 — 다른 발표 녹음 · 판정이 전부 짐작) LLM 을 부르지 않고
+    정해진 말(`_unusable_lines`)로 넷이 선다 — 할 수 있는 말이 「그래서 못 봤다」 뿐이라, 부르면 없는 결함·칭찬을 지어낸다 (09-30 WP-S2).
     """
     if isinstance(graph, dict):
         graph = ConceptGraph.from_dict(graph)
@@ -610,6 +716,17 @@ def build_chatter(
         raise ChatterError("ConceptGraph 에 노드가 없습니다. F-07 결과를 먼저 확인하세요.")
     if not alignment.items:
         raise ChatterError("AlignmentDoc 에 판정이 없습니다. F-11 결과를 먼저 확인하세요.")
+
+    if not alignment.speech_usable:
+        # 녹음이 다른 발표이거나 판정이 전부 짐작이면 말할 사실이 「그래서 못 봤다」 하나뿐이다 — 정해진 말로 선다 (`_unusable_lines`)
+        return ChatterDoc(
+            file_name=graph.file_name,
+            total_slides=graph.total_slides,
+            turns=_unusable_lines(graph, alignment),
+            speaker_models=dict(CHATTER_BADGES),
+            speaker_names=dict(CHATTER_NAMES),
+            absent=[],
+        )
 
     factory = llm_factory or default_llm_factory
     points = pick_talking_points(graph, alignment, flow)

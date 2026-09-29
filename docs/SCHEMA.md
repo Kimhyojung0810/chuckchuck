@@ -823,6 +823,11 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
    절대 지우지 않는다** (1번과 충돌 방지).
 6. JSON 파싱 실패는 1회 재요청, 두 번째도 깨지면 그 speaker 는 대타로 간다.
 7. `ConceptGraph` 에 노드가 없거나 `AlignmentDoc` 에 판정이 없으면 `ChatterError`.
+8. **녹음을 판정 근거로 못 쓰면(`AlignmentDoc.speech_usable` 거짓 — 다른 발표 녹음 · 판정이 전부 짐작) LLM 을 부르지 않는다**
+   (09-30 WP-S2). 넷이 정해진 말(「이 자료의 발표가 아니라 못 봤다」 류, 자료 주제 이름 하나)로 서고 `absent` 는 비어 있다 —
+   부르면 없는 결함·칭찬·다른 발표의 예시 개념을 지어냈다. 쓸 수 있는 녹음에서도 `decided_by == "fallback"`(짐작) 판정은
+   누락 투정·칭찬의 재료가 아니고, 코드가 확인한 모순(`deck_quote`)은 자료 쪽 줄까지 사실에 싣는다. 출력 형식 예시(「대사」)를
+   베낀 대사는 버린다.
 
 **호출 방식:** 한 라운드 안에서 네 모델을 **병렬** 호출한다(기본 2라운드).
 순차로 부르면 대기가 모델 수만큼 곱해져 시연이 불가능하다. 같은 히스토리를 보고
@@ -876,8 +881,10 @@ LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict
 
 | `source` | 어디서 오나 |
 |------|------|
-| `contradiction` | `AlignmentDoc.items[].verdict == "contradiction"` |
-| `missing` | 같은 곳 `verdict == "missing"` |
+| `contradiction` | `AlignmentDoc.items[].verdict == "contradiction"` — `deck_quote` 가 있는 것(코드가 자료 원문과 견줘 확인)은 **맨 앞**에 서고 「발표에서 한 말 vs 자료 N장, 어느 쪽이 맞나」 로 묻는다 (09-30 WP-S2) |
+| `tension` | 주장 그래프(F-26) 탐침 — 자료 안의 긴장 (`QaTriage.probes`) |
+| `skipped_slide` | `AlignmentDoc.skipped_slides` — 말로 건너뛴 **핵심** 장마다 대표 개념 하나(그 장에서 missing 으로 남은 핵심 개념 중 자료 비중이 가장 큰 것). 나머지는 `missing` (09-30 WP-S2) |
+| `missing` | 같은 곳 `verdict == "missing"` — **`decided_by == "fallback"`(LLM 판정이 없어 언급 횟수로 짐작) 은 누락이 아니다** |
 | `under_spoken` | `doc_weight − speech_weight > QA_UNDER_SPOKEN_GAP` (정당생략 제외) |
 | `weak_flow` | `FlowDiff.issues` 중 `missing_link`·`order_jump` 에 등장하는 `node_ids` |
 | `extra` | `AlignmentDoc.extra_concepts` — 발화에만 나온 개념 (`extra:` 합성 노드) |
@@ -886,6 +893,11 @@ LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict
 
 **`AlignmentDoc`·`FlowDiff` 없이 그래프만으로도 동작한다** — 녹음 없이 자료만 올린
 경로에서는 전부 `core_weight` 가 되고, 빈 질문 세트가 나오지 않는다.
+
+**녹음을 받았는데 못 쓰면 자료만으로 묻는다 (09-30 WP-S2 `speech_unused_reason`).** 정합이 있으면 그 판정을 따른다 —
+`speech_match == "unrelated"`(또는 `basis == "skipped"`) → `unrelated_speech`, `basis == "fallback"` → `align_fallback`
+(`AlignmentDoc.speech_usable` 과 같은 뜻). 정합이 겹침을 못 쟀거나 받아쓰기만 왔으면 자료 원문과의 낱말 겹침으로 가른다.
+까닭은 `QuestionDoc.speech_unused` 한 칸으로 나간다(§8-E).
 
 `weak_flow` 개념에는 해당 `FlowIssue` 의 상세(`kind`·`note`)가 **프롬프트 재료로**
 붙는다 — `order_jump` 는 "왜 이 순서로 설명했나요?", `missing_link` 는 "두 개념은
@@ -995,9 +1007,20 @@ LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 �
       "paper_ids": ["d01"] }
   ],
   "deferred_node_ids": ["s7", "s2"],
-  "papers": [ { "id": "d01", "kind": "deck", "cite_key": "Stothart et al. (2015)", "title": "…", "…": "§8-G PaperRef" } ]
+  "papers": [ { "id": "d01", "kind": "deck", "cite_key": "Stothart et al. (2015)", "title": "…", "…": "§8-G PaperRef" } ],
+  "speech_unused": "",
+  "speech_note": ""
 }
 ```
+
+`speech_unused`·`speech_note` (09-30 WP-S2) — **녹음을 받았는데 질문 재료로 쓰지 않은 까닭**. 문서 단위 신호는 이것 하나다.
+`speech_unused` 는 `""`(녹음을 썼거나 원래 없었다) · `"unrelated_speech"`(녹음이 이 자료의 발표가 아님) · `"align_fallback"`(정합
+판정이 짐작뿐) — `RubricFault.kind` 와 같은 말이다. 값이 있으면 모든 질문이 자료만으로 만든 것이고, `speech_note` 는 화면이 첫 질문
+앞에 한 번 띄울 해요체 한 줄이다. 질문마다 `basis.checks` 에도 `speech_mismatch_deck_only` / `align_fallback_deck_only` 가 남는다(로그용).
+
+코드가 확인한 모순 질문(`basis.checks` 에 `contradiction_reconcile`)은 **자료 쪽 값을 질문·이유·힌트 1단·「이 질문의 근거」 에 싣지 않는다** —
+LLM 문장이 흘리면 정해진 문장으로 바꾼다. `answer_gist` 는 두 인용(자료 쪽이 맞고 발표에서 한 말을 바로잡는다), `evidence_quote` 는
+자료 쪽 줄, `speech_quote` 는 어긋난 발화 문장이다. 힌트 사다리는 방향 → 범위 → 어긋난 값만 가린 자료 줄이다.
 
 `paper_ids`·`papers` 는 F-08 이 `PaperDoc`(§8-G) 을 받았을 때만 채운다 (2026-09-22). `paper_ids` 는
 이 질문이 인용한 문헌이고, `papers` 는 질문들이 인용한 문헌만 모은 `PaperDoc.refs` 의 부분집합이라

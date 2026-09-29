@@ -113,6 +113,38 @@ main > .verdict:first-child { margin-top: -24px; }
   width: 3px; height: 3px; border-radius: 50%; background: #52796C;
 }
 
+/* ── 먼저 짚을 것 (09-30 WP-S2) — 채점표가 점수와 따로 알리는 사실 (app.js reportFaultsHtml).
+   헤드 한 줄 바로 밑, 기둥 위다: 등급이 왜 그 자리에 멈췄는지를 등급 다음에 바로 읽게. 판정 색(--ct 등)은 밝은 면 위 색이라
+   다크 헤드에서는 쓰지 않는다 — 머리 칩은 헤드의 「아직 못 채운 것」 계열(앰버, .vb-count 와 같은 값), 인용은 헤드의 보조 글자색.
+   면은 주인공 카드(.vd-weak)와 같은 반투명 한 장이라 새 색을 들이지 않는다. */
+.verdict-faults {
+  margin-top: 16px; padding: 14px 16px 16px;
+  border-radius: var(--r-inner, 8px);
+  background: rgba(255, 255, 255, .08);
+}
+.verdict-faults .vf-head {
+  display: inline-block; margin: 0 0 10px; padding: 3px 9px; border-radius: 999px;
+  background: rgba(232, 201, 131, .16); color: #E8C983;
+  font-size: 11px; font-weight: var(--w-bold); white-space: nowrap;
+}
+.verdict-faults .vf-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.verdict-faults .vf-item + .vf-item { padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .1); }
+.verdict-faults .vf-title {
+  display: block; color: #fff; font-size: 14px; font-weight: var(--w-med); line-height: 1.5; word-break: keep-all;
+}
+.verdict-faults .vf-quote {
+  margin: 8px 0 0;
+  color: #CBEBDC; font-size: 13px; font-weight: var(--w-body); line-height: 1.55; overflow-wrap: anywhere;
+}
+/* 「발표」「자료 6장」 — 두 인용을 견주는 머리. 인용 위에 한 줄로 얹는다: 리포트 기둥(268px)에서 옆 칸으로 두면
+   인용이 150px 폭에 여섯 줄로 쌓였다 (09-30 실측 사진) */
+.verdict-faults .vf-quote span {
+  display: block; margin-bottom: 2px;
+  color: #7FB3A2; font-size: 12px; font-weight: var(--w-med);
+}
+.verdict-faults .vf-sub { margin: 6px 0 0; color: #9FC9B6; font-size: 12px; line-height: 1.5; word-break: keep-all; }
+.verdict-faults .vf-cap { margin: 12px 0 0; color: #E8C983; font-size: 12px; font-weight: var(--w-med); }
+
 /* 7개를 똑같이 늘어놓던 자리다. 「이름 + 큰 숫자 + 막대 + 설명 한 줄」이 일곱 벌
    서면서 기둥의 절반을 설명이 먹었고, 정작 결론(점수·한 줄 판정)이 스크롤 위로
    밀려났다 (2026-08-08 지적). 주인공 하나(제일 낮은 축)만 카드로 세우고 나머지

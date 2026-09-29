@@ -1446,12 +1446,18 @@ QA_SEVERITY_FALLBACK = 2
 #: justified_skip 이 core_weight 보다도 뒤인 것도 의도된 것이다 — 리포트가
 #: "생략이 합리적" 이라 말한 개념을 자료 weight 가 크다는 이유로 앞세우면
 #: 두 화면이 어긋난다. 버리지는 않는다 — 트랙 상한에 여유가 있으면 여전히 물어본다.
+#: skipped_slide(09-30 WP-S2)는 발표자가 **말로 건너뛴 핵심 장**(AlignmentDoc.skipped_slides — 「시간 관계상 그냥 넘어갈게요」)의
+#: 대표 개념이다. 코드가 건너뛰는 말을 찾아 확인한 누락이라 LLM 이 판정한 누락(missing)보다 앞이다 — 채점표도 이것으로 상한을 건다.
 QA_SOURCES = (
-    "contradiction", "tension", "missing", "under_spoken", "weak_flow",
+    "contradiction", "tension", "skipped_slide", "missing", "under_spoken", "weak_flow",
     "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority",
     "extra", "core_weight", "justified_skip",
 )
 QA_SOURCE_FALLBACK = "core_weight"
+
+#: QuestionDoc.speech_unused 허용값 — 녹음을 받았는데 질문 재료로 안 쓴 까닭. RubricFault.kind 와 같은 말이라 리포트·질문이
+#: 한 낱말로 같은 사실을 말한다 (09-30 WP-S2). 빈 문자열은 「녹음을 썼거나 원래 없었다」.
+QA_SPEECH_UNUSED = ("unrelated_speech", "align_fallback")
 
 #: doc_weight − speech_weight 가 이만큼 벌어지면 '중요도 대비 설명 부족'(under_spoken).
 #: SCHEMA §7-F 가 같은 격차를 쓰고 있어 값을 맞춘다 — 리포트와 질문이 같은 선을 봐야
@@ -2369,6 +2375,12 @@ class QuestionDoc:
     #: 질문들이 실제로 인용한 문헌만 (PaperDoc 의 부분집합). 화면이 질문 카드 옆에
     #: 「이 논문을 보고 묻는 질문이에요」 를 그릴 때 PaperDoc 을 따로 안 들고 있어도 되게.
     papers: list[PaperRef] = field(default_factory=list)
+    #: 녹음을 **받았는데** 질문 재료로 쓰지 않은 까닭 (09-30 WP-S2 — 문서 단위 신호는 이것 하나다). "" 이면 녹음을 썼거나
+    #: 원래 녹음이 없었다(자료만 올린 경로). 값은 RubricFault.kind 와 같은 말이다 — "unrelated_speech"(녹음이 이 자료의 발표가
+    #: 아님) · "align_fallback"(정합 판정이 짐작뿐). 값이 있으면 모든 질문이 자료만으로 만든 것이다.
+    speech_unused: str = ""
+    #: 위 까닭을 화면에 그대로 띄울 한 줄 (해요체). speech_unused 가 비면 빈 문자열.
+    speech_note: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -2379,11 +2391,14 @@ class QuestionDoc:
             "deferred_node_ids": list(self.deferred_node_ids),
             "model": self.model,
             "papers": [p.to_dict() for p in self.papers],
+            "speech_unused": self.speech_unused,
+            "speech_note": self.speech_note,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "QuestionDoc":
         track = str(d.get("track", QA_TRACK_FALLBACK))
+        unused = str(d.get("speech_unused", "") or "")
         return cls(
             file_name=d["file_name"],
             total_slides=int(d.get("total_slides", 0)),
@@ -2392,6 +2407,8 @@ class QuestionDoc:
             deferred_node_ids=[str(x) for x in d.get("deferred_node_ids", [])],
             model=d.get("model", ""),
             papers=[PaperRef.from_dict(p) for p in (d.get("papers") or [])],
+            speech_unused=unused if unused in QA_SPEECH_UNUSED else "",
+            speech_note=str(d.get("speech_note", "") or "") if unused in QA_SPEECH_UNUSED else "",
         )
 
     def question(self, question_id: str) -> Question | None:

@@ -4906,20 +4906,27 @@ function reportVerdict() {
   if (live && !real && !isRealTree) return { hasAnalysis: false, isSample: false };
 
   if (real) {
+    /* 먼저 짚을 것 (09-30 WP-S2) — 채점표가 확인한 결함이 있으면 헤드 한 줄은 그 사실이다. 등급 구간 문장
+       (「핵심은 잘 전달했어요」 · 「핵심은 전했고」)은 결함이 없을 때만 — 상한이 걸린 등급 옆에서 거짓말이 된다 */
+    const out = reportOut() || {};
+    const faults = reportFaultRows({ faults: real.faults }, out.alignment, out.graph);
+    const faultHeadline = reportFaultHeadline(faults);
     return {
       hasAnalysis: true, isSample: false,
       score: real.score,
       dims: real.dims,
-      mood: real.mood,
+      mood: faults.length ? 'neutral' : real.mood,
+      faults,
+      cap: real.cap,
       /* 큰 글씨는 한 줄이다. 예전엔 안내 문구를 전부 ' · ' 로 이어 붙여
          22px 굵은 글씨로 3~4줄을 쌓았다 — 결과 화면에서 가장 먼저 읽는 자리에
          가장 안 중요한 말이 가장 크게 있었다. 판단은 헤드, 단서는 아래 작은 줄. */
       /* '전달됐어요' 를 '전달했어요' 로 바꾼 이유: 발표를 한 사람은 사용자다.
          피동으로 쓰면 잘한 게 누구 덕인지 흐려진다 (토스 능동적 말하기) */
-      headline: real.score >= 90 ? '아주 잘 전달했어요'
+      headline: faultHeadline || (real.score >= 90 ? '아주 잘 전달했어요'
         : real.score >= 75 ? '핵심은 잘 전달했어요'
           : real.score >= 60 ? '핵심은 전했고, 다듬을 곳이 보여요'
-            : '다음 발표에서 더 좋아질 수 있어요',
+            : '다음 발표에서 더 좋아질 수 있어요'),
       subnotes: real.notes,
       excludedCount: real.excludedCount,
       unmeasuredCount: real.unmeasuredCount,
@@ -5020,7 +5027,9 @@ async function renderReport() {
      말한다. 검증 로그에만 두면 점수·정합을 다 읽고 나서야 원인을 알게 된다 —
      아래 판정 전체가 균등 분할 위에 서 있다는 사실이 숫자보다 먼저다. */
   const outForNote = reportOut();
-  const unrelatedNote = (!rSampleMode && outForNote && outForNote.transcript
+  // 판정 헤드의 「먼저 짚을 것」 이 이미 다른 발표 녹음이라고 말했으면 아래 줄은 되풀이다 (09-30 WP-S2)
+  const saidUnrelated = (v.faults || []).some(r => r.kind === 'unrelated_speech');
+  const unrelatedNote = (!rSampleMode && !saidUnrelated && outForNote && outForNote.transcript
     && outForNote.transcript.marks_match === 'unrelated')
     ? (outForNote.transcript.marks_reason
       || '녹음이 이 발표 자료와 아예 다른 내용으로 보여요.')
@@ -5061,6 +5070,7 @@ async function renderReport() {
           </div>
           <div class="verdict-judgement">
             <h2>${escapeHtml(v.headline)}</h2>
+            ${reportFaultsHtml(v.faults, v.cap)}
             <div class="verdict-dims">
               ${dimsHtml(v.dims)}
             </div>
@@ -5628,6 +5638,9 @@ function realSummary() {
     isFallback: String(sc.rubric_version || '').endsWith('-fallback'),
     // 점수는 판결이 아니라 박수다 — 낮아도 응원(neutral)이지 우는 표정은 없다
     mood: sc.score >= 90 ? 'excited' : sc.score >= 75 ? 'happy' : 'neutral',
+    // 치명 결함 상한과 그 까닭 (09-30 WP-S2) — 판정 헤드의 「먼저 짚을 것」 이 읽는다
+    cap: typeof sc.cap === 'number' ? sc.cap : null,
+    faults: Array.isArray(sc.faults) ? sc.faults : [],
   };
 }
 
@@ -5750,6 +5763,119 @@ function verdictBasisHtml(v) {
       <ul class="verdict-subnotes">${notes
         .map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>
     </details>`;
+}
+
+/* ── 먼저 짚을 것 (09-30 WP-S2) ─────────────────────────────────────────────
+   채점표(F-14)가 점수와 **따로** 알리는 사실 — RubricScore.faults. 자료와 다르게 말한 수치(코드가 자료 원문과 견줘 확인한 것),
+   말로 건너뛴 핵심 장, 다른 발표의 녹음, 판정이 비어 짐작뿐인 정합. 앞의 둘은 총점 상한(cap)을 건다.
+   09-30 held-out 혈당 녹음(6장 29% 를 「49퍼센트」로, 3장은 「시간 관계상 그냥 넘어갈게요」): 서버는 C+ 로 낮췄는데 화면은 까닭을 안
+   보여 줬다 — 등급만 보면 「왜 C+?」 에 답할 데가 없다. 판정 헤드의 한 줄 바로 밑에 사실 그대로(두 인용·장 번호·건너뛴 말)를 둔다.
+   순수 함수 셋은 tests/js/report_faults.smoke.mjs 가 브라우저 없이 본다. */
+const REPORT_FAULT_ORDER = ['unrelated_speech', 'contradiction', 'skipped_slide', 'align_fallback'];
+const REPORT_FAULT_QUOTE_MAX = 90;
+
+function faultClip(text, max = REPORT_FAULT_QUOTE_MAX) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const at = cut.lastIndexOf(' ');
+  return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,.]+$/, '')}…`;
+}
+
+/**
+ * 결함 한 줄씩 → 화면 행. 모순은 정합(F-11)의 그 항목에서 두 인용(발화·자료)을, 건너뛴 장은 건너뛴 말과 빠진 개념 이름을 붙인다.
+ * 채점표에 결함이 없는데 정합이 「다른 발표」 라고 하면(채점표 폴백 등) 그 한 줄은 정합에서 세운다 — 남의 발표 녹음 위의 점수를
+ * 까닭 없이 보여 주지 않는다.
+ * @returns {{kind:string, title:string, slide:number|null, said:string, deck:string, cue:string, concepts:string[], sub:string}[]}
+ */
+function reportFaultRows(score, alignment, graph) {
+  const faults = (score && Array.isArray(score.faults)) ? score.faults.filter(f => f && REPORT_FAULT_ORDER.includes(f.kind)) : [];
+  const al = alignment || {};
+  const items = Array.isArray(al.items) ? al.items : [];
+  const label = {};
+  ((graph && graph.nodes) || []).forEach(n => { label[n.id] = n.label; });
+  if (!faults.length && al.speech_match === 'unrelated') faults.push({ kind: 'unrelated_speech', text: '', slide_no: null });
+  const used = new Set();
+  const rows = faults.map((f) => {
+    const slide = f.slide_no == null ? null : Number(f.slide_no);
+    const row = { kind: f.kind, title: '', slide, said: '', deck: '', cue: '', concepts: [], sub: '' };
+    if (f.kind === 'contradiction') {
+      const it = items.find(x => !used.has(x.node_id) && x.verdict === 'contradiction' && x.deck_quote
+        && Number(x.deck_slide_no) === slide && (x.note === f.text || !f.text))
+        || items.find(x => !used.has(x.node_id) && x.verdict === 'contradiction' && x.deck_quote && Number(x.deck_slide_no) === slide);
+      if (it) used.add(it.node_id);
+      row.title = f.text || (slide ? `자료 ${slide}장과 다르게 말했어요` : '자료와 다르게 말했어요');
+      row.said = faultClip(it && it.evidence);
+      row.deck = faultClip(it && it.deck_quote);
+    } else if (f.kind === 'skipped_slide') {
+      const sk = (al.skipped_slides || []).find(s => Number(s.slide_no) === slide);
+      row.title = slide ? `핵심 ${slide}장을 말로 건너뛰었어요` : '핵심 장을 말로 건너뛰었어요';
+      row.cue = faultClip((sk && sk.cue) || '', 60);
+      row.concepts = ((sk && sk.node_ids) || []).map(id => label[id]).filter(Boolean).slice(0, 4);
+    } else if (f.kind === 'unrelated_speech') {
+      // 헤드 한 줄이 이미 「다른 발표라서 말 분석은 안 했다」 를 말한다 — 행은 그렇게 본 까닭(겹침)과 할 일을 말한다
+      const pct = typeof al.speech_overlap === 'number' ? Math.round(al.speech_overlap * 100) : null;
+      row.title = pct != null
+        ? `녹음 낱말 가운데 이 자료에도 있는 말이 ${pct}%예요`
+        : '녹음과 이 자료가 다루는 내용이 달라요';
+      // 예전 빨간 안내(「아래 정합·개념 판정은 참고만 해 주세요」)는 이 행이 대신한다 — 아래 개념 판정은 이 녹음 기준이라 전부 「안 나옴」 이다
+      row.sub = '말한 내용은 채점하지 않았어요. 아래 개념 판정은 참고만 하고, 이 자료로 발표한 녹음을 올리면 같이 볼게요.';
+    } else {
+      row.title = '발표와 자료를 대조하지 못해 개념 전달은 채점하지 않았어요';
+      row.sub = '다시 분석하면 개념 전달까지 같이 볼게요.';
+    }
+    return row;
+  });
+  return rows.sort((a, b) => REPORT_FAULT_ORDER.indexOf(a.kind) - REPORT_FAULT_ORDER.indexOf(b.kind));
+}
+
+/**
+ * 결함이 있을 때의 헤드 한 줄. 없으면 '' — 등급 구간 문장(「핵심은 잘 전달했어요」 …)을 그대로 쓴다.
+ * 결함이 있으면 등급 구간 문장을 쓰지 않는다: 상한이 걸린 발표에 「핵심은 전했고」 를 붙이면 헤드가 스스로 거짓말을 한다.
+ */
+function reportFaultHeadline(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const count = k => list.filter(r => r.kind === k).length;
+  if (count('unrelated_speech')) return '녹음이 이 자료와 다른 발표라서 말 분석은 하지 않았어요';
+  const nc = count('contradiction');
+  const skipped = list.filter(r => r.kind === 'skipped_slide');
+  if (nc && skipped.length) return '자료와 다르게 말한 곳과 말로 건너뛴 핵심 장이 있어요';
+  if (nc) return nc > 1 ? `자료와 다르게 말한 곳이 ${nc}곳 있어요` : '자료와 다르게 말한 곳이 있어요';
+  if (skipped.length) {
+    const nos = skipped.map(r => r.slide).filter(n => n);
+    return nos.length ? `핵심 ${nos.join('·')}장을 말로 건너뛰었어요` : '핵심 장을 말로 건너뛰었어요';
+  }
+  // 판정이 짐작뿐이면 상한은 없지만 「전달했어요」 는 잰 적 없는 말이다 — 등급이 무엇을 뺀 것인지만 말한다
+  if (count('align_fallback')) return '개념 전달은 빼고 매긴 등급이에요';
+  return '';
+}
+
+/** 판정 헤드 안의 「먼저 짚을 것」 — 행이 없으면 빈 문자열. cap 이 있으면 등급을 어디까지 줬는지 한 줄. */
+function reportFaultsHtml(rows, cap) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return '';
+  const quote = (who, text) => (text ? `<p class="vf-quote"><span>${escapeHtml(who)}</span>“${escapeHtml(text)}”</p>` : '');
+  const items = list.map((r) => {
+    const concepts = r.concepts && r.concepts.length
+      ? `<p class="vf-sub">설명하지 않은 개념 · ${r.concepts.map(c => escapeHtml(c)).join(' · ')}</p>` : '';
+    return `
+      <li class="vf-item is-${escapeHtml(r.kind)}">
+        <b class="vf-title">${escapeHtml(r.title)}</b>
+        ${quote('발표', r.said)}${quote(r.slide ? `자료 ${r.slide}장` : '자료', r.deck)}${quote('발표', r.cue)}
+        ${concepts}${r.sub ? `<p class="vf-sub">${escapeHtml(r.sub)}</p>` : ''}
+      </li>`;
+  }).join('');
+  const capped = list.filter(r => r.kind === 'contradiction' || r.kind === 'skipped_slide').length;
+  const unrelated = list.some(r => r.kind === 'unrelated_speech');
+  const capLine = (cap == null || cap === '') ? ''
+    : unrelated ? `이 자료의 발표가 아니라서 등급은 ${scoreGrade(cap)}까지만 매겼어요.`
+      : capped ? `${capped > 1 ? `이 ${capped}가지` : '이 문제'} 때문에 등급은 ${scoreGrade(cap)}까지만 매겼어요.` : '';
+  return `
+    <div class="verdict-faults" role="group" aria-label="먼저 짚을 것">
+      <p class="vf-head">먼저 짚을 것 ${list.length}가지</p>
+      <ul class="vf-list">${items}</ul>
+      ${capLine ? `<p class="vf-cap">${escapeHtml(capLine)}</p>` : ''}
+    </div>`;
 }
 
 /* 점수 옆에 앉는 한 마리. 엑씨(헤드폰)는 발표를 귀로 들은 관객이라
@@ -8083,6 +8209,9 @@ function ensureLiveQuestions() {
       qa.live = newLiveState(qaSessionId(), attachQuestionPapers(questions, doc.papers), qaDocKey());
       // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes · qa_live presentLiveQuestion)
       qa.live.notes = typeof liveDegradedLines === 'function' ? liveDegradedLines(doc) : [];
+      // 녹음을 받았는데 질문 재료로 못 썼으면(다른 발표 · 판정이 짐작뿐) 그 까닭도 같은 자리에 한 번 (09-30 WP-S2 QuestionDoc.speech_note).
+      // 같은 문장이 이미 있으면 한 번만 — 질문 묶음의 문서 단위 신호는 이 한 칸이다
+      if (doc && doc.speech_unused && doc.speech_note && !qa.live.notes.includes(doc.speech_note)) qa.live.notes.push(doc.speech_note);
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;
