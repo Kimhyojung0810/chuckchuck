@@ -1,0 +1,284 @@
+[
+ {
+  "run": 0,
+  "roots": [
+   "수면의 질"
+  ],
+  "verdicts": {
+   "수면의 질": "aligned",
+   "시간": "aligned",
+   "연속성": "aligned",
+   "규칙성": "missing",
+   "수면 단계": "aligned",
+   "얕은 수면": "aligned",
+   "깊은 수면": "aligned",
+   "REM 수면": "aligned",
+   "신체 회복": "aligned",
+   "기억 정리": "aligned",
+   "감정 처리": "aligned",
+   "카페인": "aligned",
+   "음주": "aligned",
+   "스트레스": "aligned",
+   "환경 요인": "aligned",
+   "사회적 시차": "aligned",
+   "주말 몰아자기": "aligned",
+   "시간 부족": "missing",
+   "연속성 저하": "missing",
+   "규칙성 저하": "missing",
+   "충분한 시간": "aligned",
+   "규칙적인 리듬": "aligned",
+   "생체리듬의 안정성": "aligned"
+  },
+  "tracks": {
+   "1": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "수면의 질이 시간보다 중요한 이유는 무엇인가요?"
+    }
+   ],
+   "5": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "수면의 질이 시간보다 먼저 언급되었는데, 왜 '시간'을 상위 개념 '수면의 질'보다 먼저 설명했는지 궁금해요."
+    },
+    {
+     "label": "규칙성",
+     "slides": [
+      4,
+      7,
+      8
+     ],
+     "source": "missing",
+     "cited": true,
+     "q": "Phillips et al. (2017)는 불규칙한 수면 패턴이 학업 성과와 생체리듬에 영향을 준다고 했는데, 발표에서 규칙성을 수면의 질 하위 요소로 배치한 이유는 무엇인가요?"
+    },
+    {
+     "label": "연속성 저하",
+     "slides": [
+      7
+     ],
+     "source": "missing",
+     "cited": false,
+     "q": "연속성 저하를 줄이기 위한 환경 조절 전략으로는 어떤 구체적인 방법들이 제시되었는지 설명해 주세요."
+    }
+   ],
+   "10": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "수면의 질이 시간보다 중요한 개념이라면, 왜 '시간'을 먼저 언급했는지 설명해 주세요."
+    },
+    {
+     "label": "규칙성",
+     "slides": [
+      4,
+      7,
+      8
+     ],
+     "source": "missing",
+     "cited": true,
+     "q": "Phillips et al. (2017)는 불규칙한 수면/각성 패턴이 학업 성취도 저하와 지연된 일주기·수면/각성 타이밍과 연관된다고 봤는데, 발표에서 규칙성을 수면의 질 하위 요소로 배치한 이유는 무엇인가요?"
+    },
+    {
+     "label": "연속성 저하",
+     "slides": [
+      7
+     ],
+     "source": "missing",
+     "cited": false,
+     "q": "연속성 저하를 줄이기 위한 환경 조절 전략은 무엇인가요?"
+    },
+    {
+     "label": "연속성",
+     "slides": [
+      4,
+      7,
+      8
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "Wesensten et al. (1999)는 수면 연속성이 깨질 때 어떤 영향을 준다고 했나요?"
+    },
+    {
+     "label": "규칙성 저하",
+     "slides": [
+      7
+     ],
+     "source": "missing",
+     "cited": false,
+     "q": "규칙성 저하를 개선하기 위한 구체적인 실천 방안은 무엇인가요?"
+    },
+    {
+     "label": "수면 단계",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면 단계 간 전환이 원활하지 않을 때 발생하는 문제점은 무엇인가요?"
+    },
+    {
+     "label": "시간 부족",
+     "slides": [
+      7
+     ],
+     "source": "missing",
+     "cited": false,
+     "q": "시간 부족을 정량적으로 측정하는 기준은 무엇인가요?"
+    }
+   ]
+  }
+ },
+ {
+  "run": 1,
+  "roots": [
+   "수면의 질"
+  ],
+  "verdicts": {
+   "수면의 질": "aligned",
+   "수면의 질 구성 요소": "aligned",
+   "수면 시간": "aligned",
+   "연속성": "justified_skip",
+   "규칙성": "aligned",
+   "수면 단계": "aligned",
+   "얕은 수면": "aligned",
+   "깊은 수면": "aligned",
+   "REM 수면": "aligned",
+   "사회적 시차": "aligned",
+   "주말 몰아자기": "aligned",
+   "수면 연속성 방해 요인": "aligned",
+   "수면 질 개선 최소 기준": "aligned"
+  },
+  "tracks": {
+   "1": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "수면의 질은 시간, 연속성, 규칙성 세 요소로 구성된다고 했는데, 이 중 어느 요소가 회복 효과에 가장 큰 영향을 미치는지 발표에서 구체적으로 설명했나요?"
+    }
+   ],
+   "5": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "수면의 질이 시간보다 중요한 이유는 무엇인가요?"
+    },
+    {
+     "label": "수면 단계",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "Stevner et al. (2019)의 연구에 따르면 수면 단계 간 전환이 수면 질에 어떤 영향을 미치나요?"
+    },
+    {
+     "label": "사회적 시차",
+     "slides": [
+      6
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "사회적 시차가 수면 리듬 회복에 미치는 한계는 무엇인가요?"
+    }
+   ],
+   "10": [
+    {
+     "label": "수면의 질",
+     "slides": [
+      1,
+      4
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "수면의 질이 시간보다 중요한 개념으로 제시된 이유는 무엇인가요?"
+    },
+    {
+     "label": "수면 단계",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "Stevner et al. (2019)는 수면 단계 간 전이가 수면의 질에 어떤 영향을 준다고 보았나요?"
+    },
+    {
+     "label": "수면 질 개선 최소 기준",
+     "slides": [
+      7
+     ],
+     "source": "under_spoken",
+     "cited": false,
+     "q": "수면 연속성을 방해하는 구체적인 요인들은 무엇이며, 각각 어떤 영향을 미치나요?"
+    },
+    {
+     "label": "사회적 시차",
+     "slides": [
+      6
+     ],
+     "source": "weak_flow",
+     "cited": false,
+     "q": "사회적 시차가 수면 리듬 회복에 미치는 한계는 무엇인가요?"
+    },
+    {
+     "label": "수면 주기",
+     "slides": [
+      2
+     ],
+     "source": "extra",
+     "cited": false,
+     "q": "수면 주기: 이 개념의 핵심과 자료에 넣은 근거를 설명해 주세요."
+    },
+    {
+     "label": "REM 수면",
+     "slides": [
+      2,
+      3
+     ],
+     "source": "under_spoken",
+     "cited": true,
+     "q": "Nishida et al. (2008)는 REM 수면이 감정 처리에 어떤 역할을 한다고 보았나요?"
+    },
+    {
+     "label": "수면의 질 구성 요소",
+     "slides": [
+      4
+     ],
+     "source": "core_weight",
+     "cited": false,
+     "q": "수면 연속성 방해 요인이 수면의 질 구성 요소 중 연속성에 미치는 영향은 무엇인가요?"
+    }
+   ]
+  }
+ }
+]
