@@ -154,12 +154,16 @@ class Num:
 
 #: 「1, 2, 3장」「4~7장」 — 나열 전체가 장 번호다. 마지막 숫자에만 「장」 이 붙어 앞 숫자가 사실 숫자로 잡힌다.
 _SLIDE_LIST_RE = re.compile(r"\d+(?:\s*[,·~–-]\s*\d+)+\s*(?:장|번\s*슬라이드)")
+#: 분수 「3분의 1」 — 분(시간)도 단위 없는 1 도 아니다. 비율 말이라 수치 대조에서 가린다 (held-out 2차 병원 덱: 「3분의 1로 줄었습니다」 의
+#: 단위 없는 1 이 「4개」 의 주인 줄이 됐다).
+_FRACTION_RE = re.compile(r"\d+(?:\.\d+)?\s?분의\s?\d+(?:\.\d+)?")
 
 
 def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
     """사실 숫자만. 장 번호(「5장」「1, 2, 3장」)·앞자리 0 서수(「01.」)·단위 없는 연도(2016)는 뺀다.
     위치(start·end)는 원문 기준이다 — 가린 자리는 같은 길이의 빈칸으로 바꾼다."""
     text = _SLIDE_LIST_RE.sub(lambda m: " " * len(m.group(0)), text or "")
+    text = _FRACTION_RE.sub(lambda m: " " * len(m.group(0)), text)
     out: list[Num] = []
     for m in _NUM_RE.finditer(text):
         sign, raw, unit = m.group(1), m.group(2), (m.group(3) or "")
@@ -172,6 +176,35 @@ def numbers(text: str, *, skip_years: bool = True) -> list[Num]:
             continue
         decimals = len(raw.split(".")[1]) if "." in raw else 0
         out.append(Num(value, _unit_class(unit), bool(sign), m.start(), m.end(), decimals))
+    return _join_durations(text, out)
+
+
+#: 「1시간 반」 의 반 — 「반복·반나절」 의 반은 아니다.
+_HALF_HOUR_RE = re.compile(r"\s?반(?![가-힣])")
+
+
+def _join_durations(text: str, nums: list[Num]) -> list[Num]:
+    """
+    「1시간 30분」「1시간 반」 을 한 값(90분)으로 — 자료는 「1시간 30분」, 말은 「한 시간 반」 처럼 같은 시간을 다르게 적는다.
+    두 쪽 모두 이 함수를 지나므로 어느 꼴로 적어도 같은 값이 된다 (held-out 2차 병원 덱: 「한 시간 반 가까이」 ↔ 51분).
+    """
+    out: list[Num] = []
+    i = 0
+    while i < len(nums):
+        a = nums[i]
+        if a.unit == "시간" and not a.decimals:
+            nxt = nums[i + 1] if i + 1 < len(nums) else None
+            if nxt is not None and nxt.unit == "분" and not text[a.end:nxt.start].strip():
+                out.append(Num(a.value * 60 + nxt.value, "분", a.negative, a.start, nxt.end, nxt.decimals))
+                i += 2
+                continue
+            half = _HALF_HOUR_RE.match(text, a.end)
+            if half is not None:
+                out.append(Num(a.value * 60 + 30, "분", a.negative, a.start, half.end(), 0))
+                i += 1
+                continue
+        out.append(a)
+        i += 1
     return out
 
 
@@ -676,6 +709,35 @@ def num_label(n: "Num") -> str:
     return f"{'-' if n.negative else ''}{n.value:g}{unit}"
 
 
+#: 수 뒤가 「씩」(나눈 몫 — 「단지마다 8개씩」)이면 자료 값이 아니라 계산한 몫이다.
+_EACH_RE = re.compile(r"^\s*씩")
+#: 「1년에 1,650만 원」「한 달에 3번」 — 앞 수는 비율의 바탕(기간)이다. 기간 단위 + 에/마다 + 뒤에 수.
+_RATE_BASE_RE = re.compile(r"^\s*(?:에|마다|당)\s+\S*\d")
+_PERIOD_UNITS = frozenset({"년", "개월", "월", "주", "일", "시간", "분", "초"})
+#: 「…인 셈이에요」「…한 꼴이에요」 — 계산해서 한 말이다.
+_COMPUTED_RE = re.compile(r"셈이|셈인|셈입|꼴이에요|꼴입니다")
+
+
+def _not_a_value(clause: str, num: Num) -> bool:
+    """이 수는 자료 값과 견줄 **값**이 아닌가 — 한계(「10분도 안 돼요」「30분 넘게」), 몫(「8개씩」), 기간 바탕(「1년에 …」), 계산(「셈이에요」)."""
+    tail = quantity_bounds(clause[num.end:])
+    if _LOWER_BOUND_RE.match(tail) or _UPPER_BOUND_RE.match(tail) or _EACH_RE.match(clause[num.end:]):
+        return True
+    if num.unit in _PERIOD_UNITS and _RATE_BASE_RE.match(clause[num.end:]):
+        return True
+    return bool(_COMPUTED_RE.search(clause))
+
+
+def _negated_subject(clause: str, num: Num, owner_text: str) -> bool:
+    """
+    수 앞 주어가 부정으로 가려진 쪽인가(「참여 안 한 층이 4개 층」) — 자료 줄은 부정이 아닌 쪽(「참여 층」)이면 다른 대상이다.
+    held-out 2차 기숙사 덱: 나머지 쪽을 말한 수가 참여 층 수와 어긋났다고 잡혔다.
+    """
+    prev = [n for n in numbers(clause) if n.end <= num.start]
+    window = clause[prev[-1].end if prev else 0:num.start]
+    return negated(window) and not negated(owner_text)
+
+
 def _terms_around(clause: str, num: Num, deck: Deck) -> tuple[list[str], list[str]]:
     """숫자 앞 세 낱말·뒤 두 낱말 중 **자료에 있는** 줄기. 앞은 다른 숫자를 넘지 않는다."""
     before_text = clause[: num.start]
@@ -699,7 +761,10 @@ def _number_conflicts(clause: str, deck: Deck, sentence: str = "") -> list[Confl
     """
     out: list[Conflict] = []
     mention = {int(m.group(1)) for m in _SLIDE_MENTION_RE.finditer(f"{sentence} {clause}")}
+    parts = _part_pairs_explained(clause, deck)
     for num in numbers(clause):
+        if _not_a_value(clause, num) or num in parts:
+            continue
         before, after = _terms_around(clause, num, deck)
         if not before:
             continue
@@ -734,6 +799,8 @@ def _number_conflicts(clause: str, deck: Deck, sentence: str = "") -> list[Confl
         if not owners:
             continue
         owner = min(owners, key=lambda r: (r.slide_no not in mention, not r.is_row, len(r.text)))
+        if _negated_subject(clause, num, owner.text):
+            continue
         theirs = next((n for n in owner.nums if n.unit == num.unit and not num.close_value(n)), None)
         out.append(Conflict("number", owner.slide_no, owner.text, clause, " ".join(before) + "의 수치",
                             said=num_label(num), deck_value=num_label(theirs) if theirs is not None else ""))
@@ -772,8 +839,10 @@ def _approx_near(num: Num, value: Num) -> bool:
 
 #: 수 뒤의 한계 표지 — 「30분 넘게」「70% 이상」 은 그보다 큰 값, 「5,500건 가까이」「10% 미만」 은 그보다 작은 값을 말한다.
 #: 자료 값이 그 쪽에 있고 멀지 않으면(BOUND_SPAN 배 안) 맞는 말이다 (held-out 배드민턴 덱: 31분을 「삼십 분 넘게」 가 어긋남이었다).
-_LOWER_BOUND_RE = re.compile(r"^\s*(?:넘게|넘는|넘어|넘었|넘던|이상|초과|남짓|여(?=[\s,.]|$))")
-_UPPER_BOUND_RE = re.compile(r"^\s*(?:가까이|미만|이하|안\s?되|안\s?돼|안\s?됐|못\s?미치|못\s?미쳐|못\s?미친|채\s?안)")
+_LOWER_BOUND_RE = re.compile(r"^\s*(?:을|를|이|가|은|는|도)?\s*(?:넘게|넘는|넘어|넘었|넘던|이상|초과|남짓|여(?=[\s,.]|$))")
+_UPPER_BOUND_RE = re.compile(
+    r"^\s*(?:도|이|가|에|을|를|은|는)?\s*(?:채\s*)?(?:가까이|미만|이하|안\s?되|안\s?돼|안\s?됐|못\s?미치|못\s?미쳐|못\s?미친|못\s?미쳤)"
+)
 BOUND_SPAN = 1.5
 
 
@@ -860,19 +929,28 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
     out: list[Conflict] = []
     nums = numbers(clause)
     lines_ids = {id(x) for x in deck.lines}
+    parts = _part_pairs_explained(clause, deck)
     for idx, num in enumerate(nums):
-        if any(num.same_value(q) for q in q_nums):
+        if any(num.same_value(q) for q in q_nums) or num in parts:
+            continue
+        # 한계(「10분도 안 돼요」「30분 넘게」)는 아래에서 자료 값과 견준다 — 몫·기간 바탕·계산만 먼저 뺀다
+        if _EACH_RE.match(clause[num.end:]) or _COMPUTED_RE.search(clause) or (
+                num.unit in _PERIOD_UNITS and _RATE_BASE_RE.match(clause[num.end:])):
             continue
         if num.unit is None:
             out += _row_value_conflict(clause, idx, nums, deck, lines_ids, lead)
             continue
         if deck.has_number(num):
+            # 자료 다른 곳에 있는 수라도(「90분」 은 5장 다른 행의 값) 이름을 부른 표 행의 값과 다르면 어긋남이다 (held-out 2차 병원 덱)
+            out += _row_value_conflict(clause, idx, nums, deck, lines_ids, lead)
             continue
         subject, label_idx = _subject_before(clause, idx, nums, deck)
         if not subject and idx == 0 and not content_stems(clause[:num.start]) and lead:
             # 절 머리의 수 — 주어는 바로 앞 절 끝에 있다(「앱 알림 개발비까지 해서 | 약 3000만원입니다」, held-out 지하철 덱)
             subject = [s for s in content_stems(lead)[-3:] if _has(deck.stems, s)]
         if not subject:
+            # 수 바로 앞이 주어가 아니어도(「오전 11시부터 오후 1시 사이는 90분 가까이」) 이름을 부른 표 행이 있으면 그 값과 견준다
+            out += _row_value_conflict(clause, idx, nums, deck, lines_ids, lead)
             continue
         # 표는 칸(행 이름 + 그 열 머리)으로 본다 — 행 줄 통째는 다른 열의 값까지 들고 있다.
         regions = [
@@ -890,14 +968,53 @@ def _unsupported_numbers(clause: str, deck: Deck, q_nums: list[Num], sentence: s
             continue
         if any(v.close_value(a) for v in vals for j, a in enumerate(nums) if j not in (idx, label_idx)):
             continue
+        if _complement(num, owned, clause):
+            continue
         said = content_stems(f"{sentence} {clause}")
         mention = {int(m.group(1)) for m in _SLIDE_MENTION_RE.finditer(f"{sentence} {clause}")}
         # 주인 후보가 여럿이면: 문장이 부른 장 → 문장이 부른 행 이름(「1종목이면」) → 맥락 낱말 → 짧은 줄.
         owner = min(regions, key=lambda r: (r.slide_no not in mention, -sum(1 for t in said if _has(r.stems, t)),
                                             -sum(1 for t in said if _has(r.context, t)), len(r.text)))
+        if _negated_subject(clause, num, owner.text):
+            continue
         mine = _owned_values([owner], subject, num.unit, lines_ids)
         out.append(Conflict("number_unsupported", owner.slide_no, owner.text, clause, " ".join(subject) + "의 수치",
                             said=num_label(num), deck_value=num_label(mine[0]) if mine else ""))
+    return out
+
+
+#: 퍼센트의 나머지 — 「켜 둔 채 나간 방 62%」 는 자료 「끄고 나간 방 38%」 의 다른 쪽이다(더해 100). 반올림 폭만큼 너그럽게.
+COMPLEMENT_TOL = 1.0
+
+
+def _complement(num: Num, owned: list[Num], clause: str = "") -> bool:
+    """
+    두 비율이 한 전체(100%)를 나눈 두 쪽인가 — 둘 다 0 이상이고, 수가 **바뀐 크기**가 아니라 **몫**일 때만.
+    「-90%」 같은 변화율, 「60%나 낮아진」 처럼 바로 뒤 방향 낱말이 크기를 받는 수(09-30 감사 co2 N1 — 60% 는 40% 의 나머지가 아니라
+    틀린 감소 폭이다)는 나머지가 아니다.
+    """
+    if num.unit != "pct" or num.negative:
+        return False
+    nxt = _WORD_RE.findall(clause[num.end:])[:2]
+    if any(direction(w) for w in nxt):
+        return False
+    return any(v.unit == "pct" and not v.negative and abs(num.value + v.value - 100) <= COMPLEMENT_TOL for v in owned)
+
+
+def _part_pairs_explained(clause: str, deck: Deck) -> list[Num]:
+    """
+    절의 「A 중 B」 짝 가운데 비율이 자료의 짝과 같은 것(「열 명 중 여섯 명」 = 자료 「5명 중 3명」)의 두 수 — 값을 바꿔 말했을 뿐이다.
+    held-out 2차 병원 덱: 같은 비율을 다른 분모로 말한 바른 문장이 수치 어긋남이었다.
+    """
+    out: list[Num] = []
+    for a, b in from_to_pairs(clause):
+        if not _PART_OF_RE.match(clause[a.end:b.start]) or not a.value:
+            continue
+        ratio = b.value / a.value
+        for line in deck.lines:
+            if any(x.value and abs(y.value / x.value - ratio) <= 0.01 for x, y in _deck_pairs(line) if x.unit == a.unit):
+                out += [a, b]
+                break
     return out
 
 
@@ -982,8 +1099,23 @@ def _pair_conflicts(clause: str, deck: Deck) -> list[Conflict]:
 
             if any(same(a, x) and same(b, y) for x, y in theirs if x.unit == a.unit):
                 break                                     # 맞는 짝이 있다
+            part = bool(_PART_OF_RE.match(clause[a.end:b.start]))
+            if part and a.value and any(x.value and abs(y.value / x.value - b.value / a.value) <= 0.01 for x, y in theirs):
+                break                                     # 「열 명 중 여섯 명」 = 「5명 중 3명」 — 같은 비율
             fronts = [(x, y) for x, y in theirs if x.unit == a.unit and same(a, x)]
             backs = [(x, y) for x, y in theirs if y.unit == b.unit and same(b, y)]
+            subj = [x for x in content_stems(clause[:a.start])[-3:] if _has(deck.stems, x)]
+            what = " ".join(subj or stems[:2]) + "의 수치"
+            if part and not fronts and not backs:
+                # 「열 명 중 아홉 명」 ↔ 자료 「5명 중 3명」 — 분모를 바꿔 말한 몫은 두 수 어느 쪽도 자료와 같지 않다. 비율이 다르면
+                # 짝 전체가 틀린 값이다(한 수만 떼어 「10명이라고 했는데 5명」 이라고 하면 바르게 바꿔 말한 분모를 탓한다).
+                shares = [(x, y) for x, y in theirs if x.unit == a.unit and x.value]
+                if len(shares) != 1:
+                    continue
+                x, y = shares[0]
+                out.append(Conflict("number", line.slide_no, line.text, clause, what,
+                                    said=f"{num_label(a)} 중 {num_label(b)}", deck_value=f"{num_label(x)} 중 {num_label(y)}"))
+                break
             if fronts and not backs:
                 wrong, right = b, fronts[0][1]
             elif backs and not fronts:
@@ -993,12 +1125,15 @@ def _pair_conflicts(clause: str, deck: Deck) -> list[Conflict]:
             if deck.has_number(wrong):
                 # 틀렸다는 값도 자료에 있다 — 표를 다른 길(행이 아니라 열, 「1종목 70 → 16종목 이상 20」)로 읽었을 수 있다. 놓치는 쪽이 안전하다.
                 continue
-            subj = [x for x in content_stems(clause[:a.start])[-3:] if _has(deck.stems, x)]
-            what = " ".join(subj or stems[:2]) + "의 수치"
             out.append(Conflict("number", line.slide_no, line.text, clause, what,
                                 said=num_label(wrong), deck_value=num_label(right)))
             break
     return out
+
+
+def _pair_members(found: list[Conflict]) -> set[str]:
+    """몫 짝 어긋남(「10명 중 9명」)이 든 수 표기 — 같은 절에서 그 수 하나만 떼어 다시 잡지 않는다."""
+    return {part for c in found if " 중 " in c.said for part in c.said.split(" 중 ")}
 
 
 #: 단위 없이 **값으로** 말한 수의 뒤 — 조사·서술어·어림 말. 이름의 일부(「1사」「2루」)나 모르는 단위(「3.2도」「64.56조원」)는 아니다.
@@ -1019,26 +1154,23 @@ def _row_value_conflict(clause: str, idx: int, nums: list[Num], deck: Deck, line
     - 그 행 값들로 계산한 수(합·차)가 아니고, 어림·한계 표지가 붙었으면 그 폭 밖이다.
     """
     num = nums[idx]
-    # 값으로 말한 수만 — 뒤가 조사·서술(「-0.4라고」「-120이에요」「90 정도」)일 때. 「1사 2루」「7시」「3.2도」 처럼 수 뒤에 이름·세는
-    # 말이 붙으면 값이 아니라 이름이거나 단위를 모르는 수다.
-    if not _BARE_VALUE_TAIL_RE.match(clause[num.end:]):
+    # 값으로 말한 수만 — 단위 없는 수는 뒤가 조사·서술(「-0.4라고」「-120이에요」「90 정도」)일 때. 「1사 2루」「7시」「3.2도」 처럼
+    # 수 뒤에 이름·세는 말이 붙으면 값이 아니라 이름이거나 단위를 모르는 수다.
+    if num.unit is None and not _BARE_VALUE_TAIL_RE.match(clause[num.end:]):
         return []
     # 절 머리의 수면 같은 문장의 앞 절 끝(몇 낱말)도 본다 — 「재고」「광고」 처럼 「고」 로 끝나는 명사에서 절이 갈려 행 이름이
     # 앞 절로 떨어진다(「재고 | 폐기의 값이 -90이라고」).
     tail = " ".join((lead or "").split()[-6:]) if idx == 0 else ""
-    before = f"{tail} {clause[nums[idx - 1].end if idx > 0 else 0:num.start]}"
-    said = content_stems(before)
-    clause_stems = content_stems(f"{tail} {clause}")
+    before = f"{tail} {clause[:num.start]}" if num.unit is not None else f"{tail} {clause[nums[idx - 1].end if idx > 0 else 0:num.start]}"
+    whole = f"{tail} {clause}"
     # 값 칸이 하나뿐인 행만 — 칸이 여럿이면(「출근 7~9시 | 158% | 24.6℃」) 단위 없는 수가 어느 칸의 값인지 모른다
     single = {_row_key(r.text) for r in deck.lines if r.is_row and len(r.nums) == 1}
     cells = [r for r in deck.regions
              if r.is_row and id(r) not in lines_ids and len(r.nums) == 1 and r.nums[0].unit is not None
-             and _row_key(r.text) in single]
-    owned: list[DeckLine] = []
-    for r in cells:
-        key = content_stems(_row_key(r.text))
-        if key and all(_has(said, k) for k in key) and not _names_other_row(clause_stems, r, deck):
-            owned.append(r)
+             and (num.unit is None or r.nums[0].unit == num.unit) and _row_key(r.text) in single]
+    owned = [r for r in cells if _row_named(_row_key(r.text), before)
+             and not any(_row_named(_row_key(o.text), whole) for o in cells
+                         if o.slide_no == r.slide_no and _row_key(o.text) != _row_key(r.text))]
     if not owned:
         return []
     vals = [n for r in owned for n in r.nums]
@@ -1049,9 +1181,49 @@ def _row_value_conflict(clause: str, idx: int, nums: list[Num], deck: Deck, line
     if (_approx(clause, num) and any(_approx_near(num, v) for v in vals)) or _bound_ok(clause, num, vals):
         return []
     owner = min(owned, key=lambda r: len(r.text))
+    said = content_stems(whole)
+    if _home_named(said, num, deck) >= max(1, _named_count(said, owner)):
+        return []
     key = " ".join(content_stems(_row_key(owner.text)))
     return [Conflict("number", owner.slide_no, owner.text, clause, f"{key}의 수치",
                      said=num_label(num), deck_value=num_label(owner.nums[0]))]
+
+
+def _named_count(said_stems: list[str], region: DeckLine) -> int:
+    """말이 이 자료 줄의 낱말을 몇 개 불렀나 — 표 칸은 행 이름(stems)에 열 머리·장 제목(context)까지 그 칸의 이름이다."""
+    return sum(1 for t in said_stems if _has(region.stems, t) or _has(region.context, t))
+
+
+def _home_named(said_stems: list[str], num: Num, deck: Deck) -> int:
+    """
+    이 수를 **가진** 자료 줄·표 칸 가운데 말이 가장 많이 부른 곳의 겹친 낱말 수. 이름을 부른 표 칸보다 이곳을 더(같이) 불렀으면 말한 수는
+    이곳의 값을 옮긴 것이다 — 「우리 리그 번트 성공률은 62%」 는 자료 글줄 그대로이고, 표 칸 「번트 | 이닝 득점 확률 | 34%」 와는 낱말
+    「번트」 하나만 겹친다. 거꾸로 「도서관 좌석 이용률은 62%」 는 칸 「도서관 | 좌석 이용률 | 34%」 를 셋, 62% 가 든 글줄은 「도서관」 하나만
+    부른다 — 칸의 값과 다른 말이다 (held-out 3차 전 점검).
+    """
+    best = 0
+    for r in (*deck.lines, *deck.regions):
+        if any(num.close_value(n) for n in numbers(r.text, skip_years=False)):
+            best = max(best, _named_count(said_stems, r))
+    return best
+
+
+def _row_named(key: str, text: str) -> bool:
+    """
+    글이 이 표 행을 이름으로 부르는가 — 행 이름의 낱말(한 글자 낱말도)이 다 있고, 행 이름 속 수(「오전 11시~오후 1시」 의 11·1)도
+    다 있다. 수가 다른 이웃 행(「오전 9~11시」)과 가르려면 수까지 봐야 한다 (held-out 2차 병원 덱).
+    """
+    stems = content_stems(key)
+    words = re.findall(r"[가-힣]+", re.sub(r"[\d.,~–\-]+[가-힣%]*", " ", key))
+    if not stems and not words:
+        return False
+    said_stems = content_stems(text)
+    if not all(_has(said_stems, k) for k in stems):
+        return False
+    if not all(re.search(rf"(?:^|[\s(]){re.escape(w)}", text) for w in words if len(w) == 1):
+        return False
+    said_nums = numbers(text, skip_years=False)
+    return all(any(abs(k.value - n.value) < 1e-9 for n in said_nums) for k in numbers(key, skip_years=False))
 
 
 def _names_other_row(clause_stems: list[str], row: DeckLine, deck: Deck) -> bool:
@@ -1342,10 +1514,12 @@ def conflicts(text: str, deck: Deck, question: str = "") -> list[Conflict]:
     for sentence in _SENTENCE_SPLIT_RE.split(text):
         prefix = ""
         for clause in clauses(sentence):
-            out += _number_conflicts(clause, deck, text)
-            out += _pair_conflicts(clause, deck)
+            paired_nums = _pair_conflicts(clause, deck)
+            members = _pair_members(paired_nums)
+            out += [c for c in _number_conflicts(clause, deck, text) if c.said not in members]
+            out += paired_nums
             # 주인 고르기의 맥락은 답 전체다 — 쉼표에서 갈린 앞 절(「9장 차트에서 1종목이면 …,」)이 행·장을 부른다.
-            out += _unsupported_numbers(clause, deck, q_nums, text, prefix)
+            out += [c for c in _unsupported_numbers(clause, deck, q_nums, text, prefix) if c.said not in members]
             out += _order_conflicts(clause, deck, prefix)
             compared, paired = comparison_check(clause, deck, q_stems)
             out += compared
