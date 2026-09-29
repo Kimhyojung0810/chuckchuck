@@ -23,6 +23,8 @@
     --bad-soft: #ffeeee;
     --dim: #d1d6db;
     --skip-c: #8b95a1;
+    /* 판정 안 함(na) — 앱 .st-na 와 같은 중립 회색(app.css --text-3 · --fill). 판정 5색(--good·#C88A2E·--dim·--bad·--faint)이 아니다 */
+    --na: #71717a; --na-bg: #f4f4f5;
     --shadow: 0 6px 24px rgba(0, 23, 51, 0.08);
   }
   @media (prefers-color-scheme: dark) {
@@ -33,6 +35,7 @@
       --good: #15c47e; --good-soft: #12281f;
       --bad: #f66570; --bad-soft: #331a1d;
       --dim: #3b3b46; --skip-c: #7a7a85;
+      --na: #a1a1aa; --na-bg: #26262c;
       --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
     }
   }
@@ -43,6 +46,7 @@
     --good: #03b26c; --good-soft: #f0faf6;
     --bad: #f04452; --bad-soft: #ffeeee;
     --dim: #d1d6db; --skip-c: #8b95a1;
+    --na: #71717a; --na-bg: #f4f4f5;
     --shadow: 0 6px 24px rgba(0, 23, 51, 0.08);
   }
   :root[data-theme="dark"] {
@@ -52,6 +56,7 @@
     --good: #15c47e; --good-soft: #12281f;
     --bad: #f66570; --bad-soft: #331a1d;
     --dim: #3b3b46; --skip-c: #7a7a85;
+    --na: #a1a1aa; --na-bg: #26262c;
     --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
   }
 
@@ -216,6 +221,11 @@
   .node.v-skip text { fill: var(--sub); }
   .node.v-contra circle.body { stroke: var(--bad); fill: var(--bad-soft); animation: pulse 1.1s ease-in-out 2; }
   .node.v-contra .gauge { stroke: var(--bad); }
+  /* 판정 안 함 — 다른 발표 녹음이거나 AI 판정이 비어 짐작만 남은 개념 (qa/tidy). 판정 5색 어느 것도 쓰지 않는다:
+     중립 회색(--na) 점선 테두리 — 칠한 판정이 아니라 비워 둔 자리로 읽힌다. 도장(fx.stamp)도 찍지 않는다 */
+  .node.v-na circle.body { stroke: var(--na); stroke-dasharray: 1.5 3.5; stroke-linecap: round; fill: var(--na-bg); }
+  .node.v-na text { fill: var(--na); }
+  .node.v-na .gauge { stroke: var(--na); }
   @keyframes pulse {
     0%, 100% { stroke-width: 2; } 50% { stroke-width: 5; }
   }
@@ -318,6 +328,7 @@
   }
   .v-row.show { opacity: 1; transform: none; }
   .v-row .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .v-row .dot.dot-na { background: var(--na-bg); box-shadow: inset 0 0 0 1.5px var(--na); }
   .v-row .cnt { margin-left: auto; color: var(--sub); font-variant-numeric: tabular-nums; }
   /* 결론 한 줄이 늘어난 만큼 요약이 길어졌다. CTA 가 접히면 오버레이를 닫을 길이 사라진다 —
      아래에 붙여 둔다 (나갈 선택지 없는 화면 금지, consumer-ux-guide 다크패턴 방지) */
@@ -640,6 +651,7 @@
         <div class="v-row" id="vr3"><span class="dot" style="background:var(--dim)"></span>아직 설명하지 않았어요<span class="cnt">2개</span></div>
         <div class="v-row" id="vr4"><span class="dot" style="background:var(--bad)"></span>자료와 다르게 말했어요<span class="cnt">1개</span></div>
         <div class="v-row" id="vr5"><span class="dot" style="background:var(--faint)"></span>생략해도 괜찮았어요<span class="cnt">1개</span></div>
+        <div class="v-row" id="vr6" style="display:none"><span class="dot dot-na"></span>판정하지 않았어요<span class="cnt">0개</span></div>
       </div>
       <div class="mini-scatter" id="miniScatter"></div>
       <div class="cta-wrap">
@@ -718,6 +730,71 @@ const CAPTIONS = [
   { h: "자료와 발표를 나란히 놓으면", p: "오른쪽 위일수록 힘준 만큼 말한 개념이에요. 점선에서 멀수록 자료와 발표의 온도차가 커요" },
   { h: "분석을 마쳤어요", p: "자료와 발표를 개념 단위로 맞춰 봤어요" },
 ];
+/* 판정 씬·요약 씬 캡션의 기본값 — 정합이 올 때마다 여기서 다시 고른다 (revealCaptions). 다시 보기로 다른 판이 와도 섞이지 않게 */
+const CAPTION_VERDICT = { ...CAPTIONS[3] };
+const CAPTION_DONE = { ...CAPTIONS[5] };
+
+/* ---------------------------------------------------------------
+ * 판정으로 세우지 않는 정합 (qa/tidy · WP-D 남은 것)
+ *
+ * 녹음이 이 자료의 발표가 아니면(F-11 speech_match unrelated · basis skipped) 정합은 판정을 하지 않았다 — item 은 계약상 전부
+ * missing 이지만 뜻은 「판정 안 함」 이다. AI 판정이 비어 코드가 언급 횟수로 채운 개념(decided_by fallback — basis fallback 이면
+ * 거의 전부)도 「안 나옴」 을 확인한 것이 아니다. 예전 리빌은 둘 다 「안 나왔어요」 로 칠하고 「아직 설명하지 않은 개념이 있어요」·
+ * 「0% 설명」·「연결 28개 중 0개」 를 말했다 — 같은 앱의 리포트가 「판정하지 않았어요」 라고 하는 녹음을. app.js 의
+ * recordingUnrelated·conceptUnjudgedWhy 와 같은 잣대다. 판정 안 함은 판정 5색이 아닌 중립 회색(--na)이다.
+ * ------------------------------------------------------------- */
+/** "" 판정 그대로 · "unrelated" 녹음이 다른 발표(발화 축도 이 발표의 것이 아니다) · "guess" AI 판정이 통째로 비어 전부 짐작(basis fallback) */
+let REVEAL_MODE = "";
+/** 녹음 낱말 가운데 자료에도 있는 비중 (F-11 speech_overlap, 0~1). 못 쟀으면 null */
+let REVEAL_OVERLAP = null;
+/** 판정별 개수 — 그래프 개념 전부(화면에 그린 12개가 아니라) · 판정 안 함 포함 */
+let REVEAL_COUNTS = null;
+
+function alignUnjudged(align) {
+  const a = align || {};
+  return a.speech_match === "unrelated" || a.basis === "skipped";
+}
+
+/** 정합 항목 하나 → 리빌 판정. 다른 발표 녹음이거나 짐작이거나 항목이 없으면 "na" */
+function revealVerdict(item, unrelated) {
+  if (unrelated || !item || item.decided_by === "fallback") return "na";
+  return VERDICT_FROM_API[item.verdict] || "missing";
+}
+
+function revealMode(align) {
+  if (alignUnjudged(align)) return "unrelated";
+  return (align || {}).basis === "fallback" ? "guess" : "";
+}
+
+/** 판정별 개수 — 항목 전부로 센다 (리포트 「개념 전달」 탭이 세는 것과 같은 판) */
+function revealCounts(align) {
+  const unrelated = alignUnjudged(align);
+  const counts = { aligned: 0, partial: 0, missing: 0, contra: 0, skip: 0, na: 0 };
+  ((align || {}).items || []).forEach((it) => { counts[revealVerdict(it, unrelated)] += 1; });
+  return counts;
+}
+
+/** 판정 씬·요약 씬 캡션 — 다른 발표 녹음이면 그 사실과 겹침 비중, 판정 안 한 개념이 있으면 그 수 */
+function revealCaptions(mode, counts, overlap) {
+  const total = Object.values(counts).reduce((s, n) => s + n, 0);
+  const verdict = { ...CAPTION_VERDICT };
+  const done = { ...CAPTION_DONE };
+  if (mode === "unrelated") {
+    verdict.h = "녹음이 이 자료의 발표가 아니에요";
+    verdict.p = (typeof overlap === "number"
+      ? `녹음 낱말 가운데 이 자료에도 있는 말이 ${Math.round(overlap * 100)}%예요. `
+      : "녹음과 이 자료가 다루는 내용이 달라요. ") + "그래서 개념마다 판정하지 않았어요";
+    done.p = "자료의 개념은 정리했고, 녹음은 이 자료의 발표가 아니었어요";
+  } else if (total && counts.na === total) {
+    verdict.h = "개념 판정이 비었어요";
+    verdict.p = `AI 판정이 비어서 개념 ${total}개를 판정하지 않았어요. 다시 분석하면 같이 볼게요`;
+    done.p = "말한 양은 쟀고, AI 판정이 비어서 개념 판정은 하지 않았어요";
+  } else if (counts.na) {
+    verdict.p = `${CAPTION_VERDICT.p}. 회색 점선 ${counts.na}개는 AI 판정이 비어서 판정하지 않은 개념이에요`;
+    if (mode === "guess") done.p = "AI 판정이 비어서 발화로 직접 확인한 개념만 판정했어요";
+  }
+  return { verdict, done };
+}
 
 /* ---------------------------------------------------------------
  * 유틸
@@ -1194,21 +1271,27 @@ function applyGraphOnly(graph) {
 function applyAlignment(align) {
   const itemBy = {};
   (align.items || []).forEach((i) => (itemBy[i.node_id] = i));
+  const unrelated = alignUnjudged(align);
+  REVEAL_MODE = revealMode(align);
+  REVEAL_OVERLAP = typeof align.speech_overlap === "number" ? align.speech_overlap : null;
+  REVEAL_COUNTS = revealCounts(align);
   for (const n of NODES) {
-    const it = itemBy[n.id] || {};
-    const basis = it.speech_basis || {};
-    n.speech = it.speech_weight || 0;
-    n.verdict = VERDICT_FROM_API[it.verdict] || "missing";
-    n.first = basis.first_mention_sec != null ? basis.first_mention_sec : null;
-    n.evidence = it.verdict === "contradiction" && it.evidence
+    const it = itemBy[n.id];
+    const basis = (it && it.speech_basis) || {};
+    n.verdict = revealVerdict(it, unrelated);
+    // 다른 발표 녹음이면 발화 축(말한 양·첫 언급)은 이 발표의 것이 아니다 — 링을 채우지 않고 두 씬(훑기·산점도)을 건너뛴다
+    n.speech = unrelated ? 0 : ((it && it.speech_weight) || 0);
+    n.first = !unrelated && basis.first_mention_sec != null ? basis.first_mention_sec : null;
+    n.evidence = n.verdict === "contra" && it.evidence
       ? `“${it.evidence}” — 자료와 어긋나요` : undefined;
   }
   paintCrail();   // 판정이 도착했다 — 빈 칸을 채운다
+  // 발표가 실제로 다룬 개념만 키워드로 띄운다. 없으면 띄우지 않는다 — 자료의 상위 개념을 대신 띄우면 말하지 않은 개념이 말한 것처럼 뜬다
   REAL_KEYWORDS = NODES.filter((n) => n.verdict === "aligned").slice(0, 4).map((n) => n.label);
-  if (!REAL_KEYWORDS.length) REAL_KEYWORDS = NODES.slice(0, 3).map((n) => n.label);
 
   const ids = new Set(NODES.map((n) => n.id));
-  SPOKEN_EDGES = (align.speech_edges || [])
+  // 말로 이은 연결은 LLM 판정에서 온다 — 판정을 안 했거나(다른 발표) 판정이 비었으면(짐작) 「0개를 이어줬어요」 는 잰 값이 아니다
+  SPOKEN_EDGES = REVEAL_MODE ? [] : (align.speech_edges || [])
     .filter((e) => ids.has(e.from) && ids.has(e.to))
     .map((e) => [e.from, e.to]);
 
@@ -1221,17 +1304,36 @@ function applyAlignment(align) {
     counts: s.verdict_counts || {},
   };
 
-  const counts = s.verdict_counts || {};
-  [["vr1", "aligned"], ["vr2", "partial"], ["vr3", "missing"], ["vr4", "contradiction"], ["vr5", "justified_skip"]]
-    .forEach(([id, k]) => {
-      const el = $(id);
-      if (!el) return;
-      const cnt = el.querySelector(".cnt");
-      if (cnt) cnt.textContent = `${counts[k] || 0}개`;
-    });
+  const caps = revealCaptions(REVEAL_MODE, REVEAL_COUNTS, REVEAL_OVERLAP);
+  CAPTIONS[3] = caps.verdict;
+  CAPTIONS[5] = caps.done;
+  paintVerdictRows(REVEAL_COUNTS);
   const mini = $("miniScatter");
   mini.replaceChildren();
   delete mini.dataset.built;
+}
+
+/**
+ * 요약의 판정별 줄 — 개수는 리포트 「개념 전달」 탭과 같은 판(그래프 개념 전부)으로 센다. 판정을 안 한 발표면 「판정하지 않았어요」
+ * 한 줄만(판정 다섯을 0 으로 늘어놓으면 판정을 한 것처럼 읽힌다), 판정 안 한 개념이 섞였으면 다섯 뒤에 그 줄을 단다.
+ */
+const VERDICT_ROWS = [["vr1", "aligned"], ["vr2", "partial"], ["vr3", "missing"], ["vr4", "contra"], ["vr5", "skip"], ["vr6", "na"]];
+
+function verdictRowsShown(counts) {
+  const total = Object.values(counts).reduce((s, n) => s + n, 0);
+  if (total && counts.na === total) return ["vr6"];
+  return ["vr1", "vr2", "vr3", "vr4", "vr5", ...(counts.na ? ["vr6"] : [])];
+}
+
+function paintVerdictRows(counts) {
+  const shown = verdictRowsShown(counts);
+  VERDICT_ROWS.forEach(([id, k]) => {
+    const el = $(id);
+    if (!el) return;
+    el.style.display = shown.includes(id) ? "" : "none";
+    const cnt = el.querySelector(".cnt");
+    if (cnt) cnt.textContent = `${counts[k] || 0}개`;
+  });
 }
 
 function applyRealData(graph, align) {
@@ -1467,6 +1569,8 @@ const CRAIL_VERDICT = {
   contradiction: { t: "자료와 달라요",     c: "var(--bad)" },
   contra:        { t: "자료와 달라요",     c: "var(--bad)" }, // applyAlignment 내부 키
   skip:          { t: "생략해도 괜찮아요", c: "var(--faint)" },
+  // 판정 안 함 — 다른 발표 녹음이거나 AI 판정이 비어 짐작만 있는 개념. 판정 5색이 아닌 중립 회색 (리포트의 「판정 안 함」)
+  na:            { t: "판정 안 했어요",   c: "var(--na)" },
 };
 
 /**
@@ -1480,11 +1584,15 @@ function paintCrail() {
   if (!box || !NODES || !NODES.length) return;
   box.classList.add("on");
   const done = NODES.filter((n) => n.verdict).length;
+  // 판정 안 함(na)은 판정한 수에 넣지 않는다 — 「12개 판정했어요」 옆에 「판정 안 했어요」 열두 줄이 서면 제목이 거짓말이다
+  const judged = NODES.filter((n) => n.verdict && n.verdict !== "na").length;
   const ttl = $("crailTtl");
   if (ttl) {
-    ttl.textContent = done
-      ? `내 자료의 핵심 개념 ${NODES.length}개 · ${done}개 판정했어요`
-      : `내 자료의 핵심 개념 ${NODES.length}개를 찾았어요`;
+    ttl.textContent = !done
+      ? `내 자료의 핵심 개념 ${NODES.length}개를 찾았어요`
+      : judged
+        ? `내 자료의 핵심 개념 ${NODES.length}개 · ${judged}개 판정했어요`
+        : `내 자료의 핵심 개념 ${NODES.length}개 · 판정하지 않았어요`;
   }
   const list = $("crailList");
   if (!list) return;
@@ -1808,12 +1916,13 @@ async function sceneSweep() {
 
 async function sceneVerdict() {
   setScene(3);
-  const marks = { aligned: "✓", partial: "·", contra: "!", missing: "", skip: "" };
+  const marks = { aligned: "✓", partial: "·", contra: "!", missing: "", skip: "", na: "" };
   let stampIdx = 0;
   for (const ne of nodeEls) {
     const v = ne.n.verdict;
     ne.g.classList.add("v-" + v);
-    fx.stamp(ne, 0);           // 판정이 도장처럼 한 번 눌렸다 돌아온다
+    // 판정이 도장처럼 한 번 눌렸다 돌아온다. 판정 안 한 개념(na)에는 찍지 않는다 — 찍을 판정이 없다
+    if (v !== "na") fx.stamp(ne, 0);
     stampIdx += 1;
     if (marks[v]) {
       ne.badge.textContent = marks[v];
@@ -1831,6 +1940,9 @@ async function sceneVerdict() {
   }
   await sleep(2400);
   $("quoteBubble").classList.remove("show");
+  /* 말로 이은 연결은 LLM 판정에서 온다 — 다른 발표 녹음이거나 판정이 비었으면(REVEAL_MODE) 잰 것이 없다.
+     예전엔 여기서 「연결 28개 중 0개를 말로 이어줬어요」 를 띄웠다 — 0 은 잰 값이 아니었다 */
+  if (REVEAL_MODE) return;
   for (const { line } of edgeEls) line.style.opacity = 0;
   await sleep(350);
   // 문서 간선 중 말로 이은 것만 다시 켠다
@@ -1870,7 +1982,7 @@ async function sceneScatter() {
 
 const VERDICT_COLOR = {
   aligned: "var(--good)", partial: "#C88A2E", missing: "var(--dim)",
-  skip: "var(--faint)", contra: "var(--bad)",
+  skip: "var(--faint)", contra: "var(--bad)", na: "var(--na)",
 };
 
 function buildMiniScatter() {
@@ -1912,6 +2024,10 @@ function buildMiniScatter() {
  * 근거가 하나도 없으면 없다고 말한다. 지어내지 않는다.
  */
 function summaryFinding() {
+  // 다른 발표 녹음 — 개념마다 판정하지 않았다. 「아직 설명하지 않은 개념이 있어요」 는 이 발표를 두고 한 말이 아니다
+  if (REVEAL_MODE === "unrelated") {
+    return { finding: "녹음이 이 자료의 발표가 아니라서<br>개념 판정은 하지 않았어요", target: null };
+  }
   const byDoc = [...NODES].sort((a, b) => b.doc - a.doc);
   const rankOf = (n) => byDoc.findIndex((x) => x.id === n.id) + 1;
   const line = (head, n) =>
@@ -1929,6 +2045,11 @@ function summaryFinding() {
   const gap = [...NODES].sort((a, b) => (b.doc - b.speech) - (a.doc - a.speech))[0];
   if (gap && gap.doc - gap.speech >= 0.1) {
     return { finding: line("힘준 만큼 말하지 않은 개념이 있어요", gap), target: gap };
+  }
+  /* AI 판정이 통째로 비었다 — 연결·순서 지표는 판정·짐작 위에서 잰 것이라 채점(F-13)도 뺀다. 판정 안 한 수를 말한다 */
+  if (REVEAL_MODE === "guess") {
+    const na = (REVEAL_COUNTS && REVEAL_COUNTS.na) || 0;
+    return { finding: `AI 판정이 비어서<br>개념 <b>${na}</b>개를 판정하지 않았어요`, target: null };
   }
   if (SUMMARY.edge != null && SUMMARY.edge < 100) {
     return {
@@ -1951,24 +2072,38 @@ async function sceneSummary() {
   /* CTA 힌트는 항상 다음 행동으로 끝난다 — 짚을 개념이 없어도 질문이 남아 있다 */
   $("ctaHint").innerHTML = target
     ? `<b>${escHtml(target.label)}</b>부터 보완하면<br>발표가 더 탄탄해져요`
-    : "이제 질문으로 더 단단하게 만들어봐요";
-  countUp($("covNum"), SUMMARY.coverage, 1100, (v) => Math.round(v));
-  await sleep(500);
-  $("mc1").classList.add("show");
-  if (SUMMARY.rank == null) $("rankNum").textContent = "–";
-  else countUp($("rankNum"), SUMMARY.rank, 900, (v) => v.toFixed(2));
-  await sleep(180);
-  $("mc2").classList.add("show");
-  if (SUMMARY.edge == null) $("edgeNum").textContent = "–";
-  else countUp($("edgeNum"), SUMMARY.edge, 900, (v) => Math.round(v) + "%");
-  for (const id of ["vr1", "vr2", "vr3", "vr4", "vr5"]) {
-    await sleep(160);
-    const row = $(id);
-    if (row) row.classList.add("show");
+    : (REVEAL_MODE === "unrelated"
+      ? "질문 코칭은 자료만으로 할 수 있어요"
+      : "이제 질문으로 더 단단하게 만들어봐요");
+  /* 설명한 비중·순서·연결 — 판정을 안 했거나(다른 발표) 판정이 비었으면(짐작) 잰 값이 아니다. 0% 나 「–」 로 세우지 않고 칸을 뺀다.
+     채점(F-13)도 같은 경우에 이 셋을 뺀다. 산점도는 발화 축이 이 발표의 것일 때만 (다른 발표 녹음이면 뺀다) */
+  const measured = !REVEAL_MODE;
+  document.querySelector(".big-metric").style.display = measured ? "" : "none";
+  document.querySelector(".metric-row").style.display = measured ? "" : "none";
+  $("miniScatter").style.display = REVEAL_MODE === "unrelated" ? "none" : "";
+  if (REVEAL_COUNTS) paintVerdictRows(REVEAL_COUNTS);
+  if (measured) {
+    countUp($("covNum"), SUMMARY.coverage, 1100, (v) => Math.round(v));
+    await sleep(500);
+    $("mc1").classList.add("show");
+    if (SUMMARY.rank == null) $("rankNum").textContent = "–";
+    else countUp($("rankNum"), SUMMARY.rank, 900, (v) => v.toFixed(2));
+    await sleep(180);
+    $("mc2").classList.add("show");
+    if (SUMMARY.edge == null) $("edgeNum").textContent = "–";
+    else countUp($("edgeNum"), SUMMARY.edge, 900, (v) => Math.round(v) + "%");
   }
-  buildMiniScatter();
-  await sleep(160);
-  $("miniScatter").classList.add("show");
+  for (const [id] of VERDICT_ROWS) {
+    const row = $(id);
+    if (!row || row.style.display === "none") continue;
+    await sleep(160);
+    row.classList.add("show");
+  }
+  if (REVEAL_MODE !== "unrelated") {
+    buildMiniScatter();
+    await sleep(160);
+    $("miniScatter").classList.add("show");
+  }
   $("skipBtn").style.visibility = "hidden";
 }
 
@@ -1991,7 +2126,7 @@ function resetAll() {
   }
   $("finding").innerHTML = "";
   showWaitBar(false);
-  ["mc1", "mc2", "vr1", "vr2", "vr3", "vr4", "vr5"].forEach((id) => {
+  ["mc1", "mc2", "vr1", "vr2", "vr3", "vr4", "vr5", "vr6"].forEach((id) => {
     const el = $(id); if (el) el.classList.remove("show");
   });
   for (const ne of nodeEls) {
@@ -2112,7 +2247,11 @@ async function run() {
   }
   showWaitBar(false);
 
-  const scenes = [sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
+  /* 다른 발표 녹음이면 발화 축(말한 양·첫 언급 시각)은 이 발표의 것이 아니다 — 링을 채우는 훑기와 산점도를 건너뛰고
+     판정 안 함을 보여 준 뒤 요약으로 간다 */
+  const scenes = REVEAL_MODE === "unrelated"
+    ? [sceneVerdict, sceneSummary]
+    : [sceneSweep, sceneVerdict, sceneScatter, sceneSummary];
   for (const scene of scenes) {
     if (token !== runToken) return;
     await scene();
@@ -2126,16 +2265,23 @@ function jumpToEnd() {
   $("sttScene").style.opacity = 0;
   $("quoteBubble").classList.remove("show");
   tlLayer.classList.remove("show");
+  // 다른 발표 녹음이면 산점도로 옮기지 않는다 — 발화 축이 이 발표의 것이 아니다 (그래프 자리에 판정 안 함으로 둔다)
+  const scatter = REVEAL_MODE !== "unrelated";
   for (const ne of nodeEls) {
     ne.g.classList.add("pop", "v-" + ne.n.verdict, "moving");
-    ne.g.style.transform =
-      `translate(${scatterX(ne.n.doc)}px, ${scatterY(ne.n.speech)}px)`;
+    ne.g.style.transform = scatter
+      ? `translate(${scatterX(ne.n.doc)}px, ${scatterY(ne.n.speech)}px)`
+      : `translate(${ne.n.x}px, ${ne.n.y}px)`;
     ne.ring.style.strokeDashoffset = ne.circ * (1 - ne.n.speech);
     // 건너뛴 시점에 이름표 스태거가 덜 끝났을 수 있다 — 최종 화면에서는 전부 보인다
     ne.label.style.opacity = "1";
   }
-  for (const { line } of edgeEls) line.style.opacity = 0;
-  axesLayer.classList.add("show");
+  for (const { e, line } of edgeEls) {
+    // 산점도에서는 선을 걷는다. 그래프 자리에 둘 때는 다 그린 선으로 남긴다 (자료의 짜임은 녹음과 무관하게 맞는 정보다)
+    if (scatter) line.style.opacity = 0;
+    else { if (e.kind !== "relates") line.style.strokeDashoffset = 0; line.style.opacity = 1; }
+  }
+  if (scatter) axesLayer.classList.add("show");
   sceneSummary();
 }
 
