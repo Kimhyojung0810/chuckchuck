@@ -1053,9 +1053,9 @@ export async function startAnswerRecording({ onAutoStop } = {}) {
  * IP 칸 하나를 나눠 쓴다). **지금은 끈다:** 브리지 `_handle_transcribe` 가 session_id 가 실린 받아쓰기 결과를 그 세션의
  * 발표 받아쓰기 캐시(transcript.json — 동의와 무관하게 남는 캐시 종류)로 보관한다. 답변 한 마디가 리허설 받아쓰기를 덮으면
  * 새로고침 복구(/api/v1/cached/transcript)·「저장해 둔 녹음으로 이어서」·기억(F-25)이 남의 말(답변)을 읽는다.
- * 브리지가 purpose=qa_answer 받아쓰기를 보관하지 않게 바뀌면 true 로 켠다.
+ * 09-30 브리지가 purpose=qa_answer 받아쓰기를 보관하지 않게 바뀌어서 켰다 (bridge `_handle_transcribe`).
  */
-const ANSWER_STT_SENDS_SESSION = false;
+const ANSWER_STT_SENDS_SESSION = true;
 
 /** 답변 받아쓰기 요청 본문. 순수 함수 — tests/js/qa_live.smoke.mjs 가 이 이름으로 잘라 시험한다 */
 function answerSttBody({ sessionId = null, audioBase64 = '', ext = '', sendSession = ANSWER_STT_SENDS_SESSION } = {}) {

@@ -707,11 +707,13 @@ test('H-15 끝내 막힌 요청 제한은 출구(답 보기)를 열지 않고 �
   eq(api.liveJudgeFailure({ code: 'rate_limited' }, true).restore, false, '포기 자리표시자는 되살리지 않는다');
   eq(api.liveRetryWaitText(9.1), '요청이 몰려서 잠깐 기다렸다 다시 보낼게요 · 10초');
 });
-test('답변 받아쓰기 본문 — 세션 id 는 브리지가 답변을 보관하지 않게 될 때까지 끈다 (켜면 맨 앞에)', () => {
-  eq(BRIDGE.ANSWER_STT_SENDS_SESSION, false, '지금은 끔 — 브리지가 session_id 받아쓰기를 발표 받아쓰기로 보관한다');
-  const off = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm' });
+test('답변 받아쓰기 본문 — 세션 id 를 맨 앞에 싣는다 (브리지가 purpose=qa_answer 는 보관하지 않는다, 09-30)', () => {
+  eq(BRIDGE.ANSWER_STT_SENDS_SESSION, true, '켬 — 요청 제한을 세션마다 세게 한다 (H-15)');
+  const def = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm' });
+  eq(Object.keys(def)[0], 'session_id');
+  eq([def.purpose, def.marks, def.audio_base64, def.ext], ['qa_answer', [], 'AAA', '.webm']);
+  const off = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm', sendSession: false });
   eq('session_id' in off, false);
-  eq([off.purpose, off.marks, off.audio_base64, off.ext], ['qa_answer', [], 'AAA', '.webm']);
   const on = BRIDGE.answerSttBody({ sessionId: '20260930T015107Z_abcdef12', audioBase64: 'AAA', ext: '.webm', sendSession: true });
   eq(Object.keys(on)[0], 'session_id', '켜면 맨 앞 — 큰 본문에서 정규식이 바로 찾는다');
   eq('session_id' in BRIDGE.answerSttBody({ sessionId: null, sendSession: true }), false, '세션이 없으면 안 싣는다');

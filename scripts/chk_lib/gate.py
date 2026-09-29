@@ -90,7 +90,8 @@ def check_node_smoke(files: list[str]) -> Check:
 ASSET_HOSTS: dict[str, str] = {
     "index.html": r"^(css/.+\.css|js/.+\.js)$",
     "booth.html": r"^(css/.+\.css|js/.+\.js)$",
-    "js/booth.js": r"^js/booth_(logic|overlay_state)\.js$",
+    # 부스는 API·마이크·받아쓰기를 chuckchuck_bridge.js 에서 가져온다 — ?v= 없이 물면 부스 노트북이 옛 파일(429 재시도 없음)을 쓴다 (09-30)
+    "js/booth.js": r"^js/(booth_(logic|overlay_state)|chuckchuck_bridge)\.js$",
     # 오버레이 상태 모듈도 booth_logic 을 ?v= 로 문다 — 둘의 값이 다르면 모듈이 두 벌 올라온다 (2026-09-24)
     "js/booth_overlay_state.js": r"^js/booth_logic\.js$",
 }
