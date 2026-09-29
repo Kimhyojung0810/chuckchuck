@@ -335,3 +335,33 @@ def test_함정_규칙에_발표_낱말이_없다():
     code_wo_docs = code.replace('"""', "\x00").split("\x00")[::2]
     assert not [w for w in BENCH_WORDS if any(w in part for part in code_wo_docs)]
     assert not [w for w in BENCH_WORDS if w in QUESTION_SYSTEM_PROMPT]
+
+
+# ---------------------------------------------------------------------------
+# 5. 수를 망가뜨리지 않는다 (09-30 녹음 감사 REC-13) — 소수 머리·음수 부호·배수의 1 쪽
+# ---------------------------------------------------------------------------
+
+def test_줄_머리_소수와_음수는_글머리표가_아니다():
+    assert traps._clean("0.71 − 0.86 = −0.15점") == "0.71 − 0.86 = −0.15점"
+    assert traps._clean("1.5배 늘었습니다") == "1.5배 늘었습니다"
+    assert traps._clean("10.5% 올랐어요") == "10.5% 올랐어요"
+    assert traps._clean("-0.3점 손실이에요") == "-0.3점 손실이에요"
+    # 진짜 글머리표는 그대로 뗀다
+    assert traps._clean("1. 결론부터 말해요") == "결론부터 말해요"
+    assert traps._clean("2) 두 번째 이유") == "두 번째 이유"
+    assert traps._clean("- 모임 인원은 12명이에요") == "모임 인원은 12명이에요"
+    assert traps._clean("— 핵심만 남겨요") == "핵심만 남겨요"
+    assert traps._clean("① 첫째 조건") == "첫째 조건"
+
+
+def test_배수_틀린_값은_1의_같은_쪽에_있다():
+    for raw in ("1.3", "2", "1.5", "3"):
+        for seed in range(8):
+            w = traps._wrong_value(raw, "", "배", set(), seed=seed)
+            assert w and float(w) > 1 and float(w) != float(raw), (raw, seed, w)
+    for raw in ("0.8", "0.5"):
+        for seed in range(8):
+            w = traps._wrong_value(raw, "", "배", set(), seed=seed)
+            assert w and 0 < float(w) < 1, (raw, seed, w)
+    # 같은 장 값(형제)도 1 을 건너가면 쓰지 않는다
+    assert traps._wrong_value("1.4", "", "배", set(), siblings=("0.7", "1.9")) == "1.9"
