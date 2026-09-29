@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from . import _claim_rules as R
 from . import _deck_lines as DL
-from ._evidence import clean_slide_text, strip_chart_descriptions
+from ._evidence import caption_cut, clean_slide_text, strip_chart_descriptions
 from ._match import norm_tokens
 
 #: 덱 하나에 후처리로 더할 노드 상한. 넘치면 식 → 문제 목록 → 그 밖 목록 순으로 앞 장부터 채운다.
@@ -37,7 +37,6 @@ LIST_MAX_ITEMS = 6
 _QUOTE_RE = re.compile(r"[\"'“”‘’「」『』()\[\]]")
 _DIGIT_RE = re.compile(r"\d")
 _TABLE_SEP_RE = DL.TABLE_SEP_RE
-_TRAILING_WH_RE = re.compile(r"\s+(?:얼마나|어떻게|왜|무엇|언제|어디서?|누가|몇)$")
 _OBJ_TOK_RE = re.compile(r"[가-힣](?:을|를)$")
 _NOMINAL_END_RE = re.compile(r"(?:음|함|됨|임)$")
 
@@ -98,8 +97,12 @@ _FOOTNOTE_RE = re.compile(r"^\s*(?:\*+|※|주\s*[):]|[¹²³⁴⁵⁶⁷⁸⁹]
 def clean_item(text: str) -> str:
     """항목 글 → 개념 이름 후보. 이름답지 않으면 "" (숫자·긴 글·물음·문장·식 기호·표 칸)."""
     t = _plain(R.item_text(text)).strip(" .,:;·-–—*※")
-    # 끝에 붙은 의문사는 옆 도식 캡션(「얼마나 머물렀는가」)이 잘려 붙은 것이다 — 떼어 낸다
-    t = _TRAILING_WH_RE.sub("", t).strip()
+    # 옆 도식 캡션(「얼마나 머물렀는가」「몇 번 왔는가」)의 조각은 항목 글 **어디에** 붙어 있든 떼어 낸다 — 식 항과 같은 규칙
+    # (`_evidence.caption_cut`). 09-30 까지는 줄 끝의 물음 낱말만 뗐다: 「대기 시간 몇 분 기다렸나」·「몇 번 불렀나 직원 응대」 는 물음·
+    # 긴 글로 떨어져 항목이 빠졌다. 캡션을 걷고 남는 말이 이름이 아니면(「하루에 몇 번」 → 「하루에」) 항목이 아니다.
+    head, cut = caption_cut(t)
+    if cut:
+        t = head.strip(" .,:;·-–—*※")
     if not t or len(t) > ITEM_MAX_CHARS or _DIGIT_RE.search(t):
         return ""
     if any(op in t for op in "=→:|") or R.is_question(t) or _sentence(t):
