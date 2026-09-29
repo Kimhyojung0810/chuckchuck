@@ -11,14 +11,48 @@ F-08 과 짝입니다. F-08 이 "무엇을 물을지" 를 결정적으로 정했
 판정 자체는 LLM 이 하지만 **계약은 코드가 지킵니다** — verdict 는 enum 안,
 score 는 0~100, node_id 는 질문에서 승계, react·summary_sentence 는 항상 채워집니다.
 프론트가 이 넷으로 말풍선을 그리기 때문에 비어 있으면 화면이 빕니다.
+
+판정은 무엇을 근거로 하나 (2026-09-29 개정)
+--------------------------------------------
+**정답의 원본은 자료 본문이고, F-08 의 골자(answer_gist)는 그 요약일 뿐입니다.**
+
+09-29 두 덱 기준선(docs/review/2026-09-29_QA_근거검증/baseline.md)에서 판정은 골자를 채점 기준으로 삼았습니다.
+골자가 자료에 없는 서열·다른 대상에 붙인 숫자를 담아도 그 골자를 옮긴 답이 good 85 를 받았고, 자료대로 한 정답은
+골자와 다르다고 깎였습니다. 그래서 순서를 바꿨습니다.
+
+1. 자료 본문 — 근거 장 본문(`_slide_block`)과, 답의 절마다 가장 가까운 자료 줄(`_deck_line_block`, 근거 장 밖 포함).
+2. 골자 — 자료로 받쳐질 때만 「채점 기준」 이라고 싣습니다. 낱말·숫자가 자료에 없거나 자료와 어긋나는 짝이 있으면
+   「참고 — 자료와 다르면 자료가 맞다」 로 싣고, 받쳐지지 않는 골자 요소는 체크리스트(`answer_gist_parts`)에서 뺍니다.
+3. 코드 가드 (LLM 판정 뒤, 순서대로):
+   - `_enforce_good` — 요소 미달 good → partial ≤ 79
+   - `_enforce_trap` — **함정 표시만 보고 내리지 않습니다.** 답이 전제에 동의했을 때만(「네, 맞아요」·질문에만 있는
+     숫자를 되풀이·LLM 이 바로잡지 않았다고 했는데 기대 답의 사실도 안 말함) wrong ≤ 35. 09-29 에 전제가 없는
+     질문에 붙은 함정 표시 때문에 골자 그대로·자료대로 한 정답이 4/4 wrong 35 였습니다.
+   - `_enforce_deck` — 답이 자료와 **수치·표 서열·방향·부정**이 어긋나면 partial ≤ 55 · 칭찬 react 금지
+     (`_deck_claims.conflicts`, 규칙은 구조로만 — 어느 발표에나 같은 규칙).
+   - `_enforce_on_topic` — 자료와 무관 → wrong ≤ 35, 이 질문만 벗어남 → partial ≤ 65.
 """
 
 from __future__ import annotations
 
 import os
 import re
+from dataclasses import replace
 
-from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_lines
+from ._deck_claims import (
+    Conflict,
+    Deck,
+    conflicts,
+    deck_from_slidedoc,
+    echoes_unsupported_number,
+    explicit_agreement,
+    gist_corrects_premise,
+    nearest_lines,
+    opposes,
+    states_reference,
+    support,
+)
+from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
 from ._match import norm_tokens
 from ._speech import to_haeyo
 from ._json_text import extract_json_object
@@ -42,6 +76,7 @@ from .contracts import (
     SlideDoc,
     Transcript,
     qa_mastered,
+    qa_passed,
     qa_probe_tier,
 )
 from .f08_questions import build_hint_ladder
@@ -74,7 +109,29 @@ NEIGHBOR_MAX = 5
 #: "정확히 짚으셨습니다" 를 냈다 (2026-09-13 Solar A/B, 2문장). 코칭 경로의 _COACH_PRAISE_RE 와
 #: 같은 규율 — 문장은 LLM, 말투 계약은 코드. 걸리면 그 등급의 결정적 문구로 바꾼다.
 #: examples/qa_eval.py 의 HONORIFIC_RE 와 같은 낱말이라 하네스가 세는 것과 코드가 막는 것이 일치한다.
-_HONORIFIC_RE = re.compile(r"셨|시겠|십니|십시오|시나요|시는지|계시|여쭈|께\s")
+#: 09-29 두 덱 기준선: 「추정하신」「정량화하신」「찾고 계신」「설명해 주실 수 있나요」 가 빠져나갔다 — 관형형 ~신·~실 과
+#: 「계신」 을 못 잡았다. 명사 속에서 안 나오는 꼴(하신·계신·주실…)만 둔다 — 「자신」「혁신」 을 잡으면 안 된다.
+_HONORIFIC_RE = re.compile(
+    r"셨|시겠|십니|십시오|시나요|시는지|계시|여쭈|께\s|께서|하신|하실|계신|계실|주신|주실|되신|되실|보신|보실|시면|"
+    r"님(?=[,.!?])"          # 「발표자님,」 — 부르는 말 높임 (09-29 실측 코칭 react)
+)
+#: 문장 가운데 높임을 평이한 말로 푼다 — 문장을 버리기 전에 한 번 살린다. 그래도 남으면 결정적 문구로 바꾼다.
+_PLAIN_RULES: tuple[tuple[re.Pattern, str], ...] = (
+    (re.compile(r"하셨"), "했"), (re.compile(r"되셨"), "됐"), (re.compile(r"하시는"), "하는"),
+    (re.compile(r"하신"), "한"), (re.compile(r"되신"), "된"), (re.compile(r"하실"), "할"),
+    (re.compile(r"계신"), "있는"), (re.compile(r"계셨"), "있었"), (re.compile(r"주실\s*수"), "줄 수"),
+    (re.compile(r"주신"), "준"), (re.compile(r"보신"), "본"), (re.compile(r"보실"), "볼"), (re.compile(r"말씀"), "말"),
+    (re.compile(r"(하|주|되|보)시면"), r"\1면"),
+    (re.compile(r"겠습니다(?=$|[\s.,!?])"), "겠어요"),   # to_haeyo 표에 없는 꼴 (09-29: 「좋겠습니다」「짚어보겠습니다」)
+)
+
+
+def _plain(text: str) -> str:
+    """높임을 풀어 본다(결정적·멱등). 못 푸는 꼴은 그대로 두고 _HONORIFIC_RE 가 잡는다."""
+    out = text or ""
+    for pat, rep in _PLAIN_RULES:
+        out = pat.sub(rep, out)
+    return out
 
 #: react 가 비어 돌아왔을 때 채워 넣는 결정적 문구.
 #: 프론트가 이걸로 말풍선을 그리므로 비워 둘 수 없다.
@@ -133,6 +190,18 @@ _GENERIC_TOKENS = (
     "있습니다", "없습니다", "합니다", "입니다", "했어요", "했습니다", "서비스", "프로젝트", "사용자", "기능",
 )
 TRAP_AGREED_SCORE_MAX = 35
+#: 자료와 어긋난 주장이 있는 답의 점수 상한. 통과선(70) 아래, 「방향만 겨우 맞다」 구간(40~59) 안이다.
+#: wrong 까지 내리지 않는 것은 결정적 대조가 틀릴 수 있어서다 — 되묻기 한 바퀴로 피해를 줄인다.
+DECK_CONFLICT_SCORE_MAX = 55
+#: 어긋남이 잡혔을 때의 react·후속 질문. 무엇이 맞는지는 말하지 않는다(정답을 흘리지 않게) — 볼 장과 볼 곳만.
+_DECK_CONFLICT_REACT = "자료 {no}장과 어긋나는 부분이 있어요. 다시 볼 곳: {what}."
+_DECK_CONFLICT_FOLLOWUP = "자료 {no}장을 다시 보면, {what} — 방금 말한 것과 같나요?"
+_DECK_CONFLICT_SUMMARY = "{label} — 자료 {no}장과 어긋나게 설명한 부분이 있었어요."
+#: 판정이 답과 반대 명제를 「빠진 점」·react 로 들고 있을 때 — 통과선 아래로, 어느 쪽이 맞는지는 말하지 않는다.
+SELF_OPPOSED_SCORE_MAX = 60
+_SELF_OPPOSED_REACT = "방금 답에 자료와 방향이 거꾸로인 부분이 있어요. 늘고 주는 쪽, 맞다·아니다 쪽을 다시 확인해 보세요."
+#: 등급이 wrong 인데 LLM react 가 틀린 주장을 인정하는 말. 09-29 실측: 3장과 정반대인 답에 「…부분은 정확해요」.
+_PRAISE_RE = re.compile(r"정확해요|정확합니다|맞아요|맞습니다|잘 짚|훌륭|좋은 답")
 
 #: 되묻기 단계별 지시. **질문의 넓이는 코드가 정하고 LLM 은 그 넓이의 문장만 쓴다.**
 #: 단계가 안 좁혀지면 사용자는 같은 벽을 세 번 만나고, 세 번째에 창을 닫는다.
@@ -144,7 +213,7 @@ _PROBE_TIER_BRIEF = {
     "focus": (
         "2라운드다. 같은 넓이로 또 물으면 안 된다. followup 은 **예/아니오나 둘 중 "
         "하나, 혹은 한 단어**로 답할 수 있어야 한다. **선택지를 질문 안에 넣어라.**\n"
-        "  쓸 수 있는 모양: \"A인가요, B인가요?\" · \"자료에 있었나요, 없었나요?\" · "
+        "  쓸 수 있는 모양: \"(자료의 낱말) 쪽인가요, (다른 낱말) 쪽인가요?\" · \"자료에 있었나요, 없었나요?\" · "
         "\"한 단어로 말하면 무엇인가요?\"\n"
         "  쓰면 안 되는 모양: \"왜 …인가요?\" · \"…는 무엇인가요?\" · \"설명해 주시겠어요?\"\n"
         "  — 이건 1라운드의 넓이다. 좁혀 준다고 해 놓고 같은 벽을 다시 세우는 셈이다.\n"
@@ -213,15 +282,20 @@ verdict 는 다음 넷 중 하나다:
    대조 원본이지 발표자가 말한 것이 아니다. 답변 본문에 없는 내용을 답변이 말한
    것으로 치지 마라. 답변이 질문·자료와 무관한 이야기면 wrong 이다.
 2. **선택형 질문(둘 중 하나·예/아니오)은 맞는 쪽을 고른 것 자체가 완전한 답이다.**
-   "얕은 수면인가요, 깊은 수면인가요?" 에 "얕은 수면이요" 라고만 답해도,
+   "X 쪽인가요, Y 쪽인가요?" 에 "X 쪽이요" 라고만 답해도,
    그 선택이 맞으면 근거가 없어도 good 이다.
-3. '기대하는 답의 골자' 가 주어지면 **그것이 채점 기준이다.** 표현·용어가 달라도
-   뜻이 같으면 정답으로 본다. 골자의 문장을 react·followup 에 그대로 옮겨
-   정답을 흘리지 마라.
-4. 이 질문이 '함정' 이라면, 발표자가 그 잘못된 전제를 **바로잡았을 때** good 이다.
-   함정에 그대로 동의했으면 wrong 이다. 함정 질문에는 출력에 premise_corrected 를
-   **반드시** 적는다 — 전제가 틀렸다고 지적·정정했으면 true, 받아들였거나 언급이
-   없으면 false. 이 값은 코드가 등급에 그대로 반영한다.
+3. **정답의 원본은 '자료 근거 장 본문'·'답변과 맞닿은 자료 줄' 이다.** '기대하는 답의 골자' 는
+   그 자료를 요약한 참고 답이다. 골자와 자료가 어긋나거나 골자에 자료에 없는 말이 있으면
+   **자료 편을 든다** — 자료대로 답했으면 골자와 달라도 정답이고, 골자대로 답했어도 자료와
+   어긋나면 정답이 아니다. 표현·용어가 달라도 뜻이 같으면 정답으로 본다.
+   골자의 문장을 react·followup 에 그대로 옮겨 정답을 흘리지 마라.
+4. '함정 표시' 는 질문을 만든 쪽이 붙인 표시라 **틀릴 수 있다.** 질문 문장에 자료와 어긋난
+   주장(자료에 없는 수치·뒤집힌 방향·자료가 부정한 것)이 **실제로 있을 때만** 함정으로 본다.
+   - 그런 주장이 있으면: 발표자가 그 전제를 **바로잡았을 때** good 이고, 그대로 동의했으면
+     wrong 이다. premise_corrected 를 **반드시** 적는다 — 지적·정정했으면 true, 받아들였으면 false.
+   - 그런 주장이 없으면: 평소 질문처럼 채점하고 premise_corrected 는 null 로 둔다.
+     자료대로 답한 사람을 「전제를 안 바로잡았다」 고 깎지 마라.
+   이 값은 코드가 등급에 반영한다.
 5. react 는 심사위원이 그 자리에서 할 한 마디다. 존댓말, 한 문장.
    **답변 안에서 맞힌 것을 먼저 이름 붙이고 나서** 남은 것을 가리켜라 — "…까지는 정확합니다.
    그럼 …은요?" 처럼. 틀린 데부터 말하면 발표자는 다음 답을 시도하지 않는다.
@@ -237,6 +311,10 @@ verdict 는 다음 넷 중 하나다:
    - wrong: 39 이하
    표현이나 용어가 자료와 달라도 **요지가 같으면 70~79 를 줘라.**
    완벽한 문장을 받아내는 것이 목적이 아니다.
+   **단, 자료와 어긋난 주장이 하나라도 있으면 70 이상을 주지 마라** — 수치를 다른 항목에
+   붙였거나, 자료의 크기·순서(더 크다·가장)를 뒤집었거나, 방향(늘다/줄다)이나
+   긍정·부정을 거꾸로 말한 경우다. 요지가 맞아 보여도 틀린 사실을 통과시키면 발표장에서
+   그대로 말한다. 그 주장을 react 에서 「정확해요」「맞아요」 로 인정하지 마라.
 9. followup 은 **이어서 던질 질문 한 문장**이다. verdict 가 good 이 아니면
    **반드시 쓴다.** 요지를 맞힌 답에도 쓴다 — 절반 맞힌 사람을 거기서 놓아 주면
    스스로 깨우칠 기회를 뺏는 것이다. good 일 때만 빈 문자열이다.
@@ -634,24 +712,81 @@ def _enforce_on_topic(
     return verdict, score, points, ""
 
 
+def _trap_agreed(data: dict, question: Question, answer: str, deck: Deck | None) -> bool:
+    """
+    함정 질문에 **전제를 받아들였는가.** 함정 표시(`question.trap`)만으로는 정하지 않는다.
+
+    09-29 두 덱 기준선: F-08 이 두 덱의 주제 질문(5분 트랙)에 매번 trap=True 를 붙였는데 질문 문장에 거짓 전제가
+    있는 경우는 0건이었다. LLM 은 「바로잡은 전제가 없다」 며 premise_corrected=false 를 줬고, 예전 가드는 그 값만 보고
+    골자를 그대로 옮긴 답 4/4 와 자료대로 한 정답(수익률 d)까지 wrong 35 로 내렸다. 사용자는 바로잡을 전제가 없는
+    질문에 「질문의 전제부터 확인해 보세요」 를 받았다. F-08 이 표시를 고쳐도 판정은 표시가 틀린 경우를 견뎌야 한다.
+
+    동의로 보는 것 (하나라도):
+    1. 「네, 맞아요」「질문한 대로예요」 처럼 **받아들인다고 말함** — 바로잡는 말이 없을 때. premise_corrected 가 없어도
+       본다 (09-29 수익률 rec: LLM 이 값을 안 줘서 함정 가드를 건너뛰고 무관 문구가 나갔다).
+    2. 질문에만 있고 자료·기대 답에는 없는 **숫자를 되풀이** — 거짓 전제의 숫자를 받아들인 것이다.
+    3. LLM 이 premise_corrected=false 라고 했고, **골자가 전제를 바로잡는 답이며**(`gist_corrects_premise` — 아니면
+       거짓 전제가 없는 질문이다), 답이 그 기대 답(골자·자료 인용)의 사실을 말하지도 않았다
+       (기대 답의 낱말·숫자를 충분히 말한 답은 자료대로 답한 것이다 — `states_reference`).
+    """
+    if not question.trap:
+        return False
+    reference = " ".join([question.answer_gist or "", question.evidence_quote or "", *question.answer_gist_parts])
+    if explicit_agreement(answer):
+        return True
+    if deck is not None and echoes_unsupported_number(answer, question.question, deck, reference):
+        return True
+    corrected = data.get("premise_corrected")
+    if corrected is None or bool(corrected):
+        return False
+    # 골자가 전제를 바로잡지 않는다 = 질문에 거짓 전제가 없다(함정 표시가 틀렸다). 바로잡을 것이 없으니 흠이 아니다.
+    # 09-29 벤치 held-out: 판정 불일치 10건 중 5건이 이 경우였다.
+    if not gist_corrects_premise(question.answer_gist, question.question):
+        return False
+    return not states_reference(answer, question.question, reference)
+
+
 def _enforce_trap(
-    data: dict, question: Question, verdict: str, score: int, points: list[str]
+    data: dict, question: Question, verdict: str, score: int, points: list[str],
+    answer: str = "", deck: Deck | None = None,
 ) -> tuple[str, int, list[str], bool]:
     """
     함정 질문에 **전제를 받아들인 답은 통과하지 못한다.** 코드가 막는다.
 
     규칙 4 는 처음부터 "동의했으면 wrong" 이었는데 실 LLM 은 "네, 맞습니다" 에
-    partial 60~70 을 줬다 (2026-09-10 실측). 판정에 premise_corrected 를 함께 받아
-    false 면 등급을 되돌린다. 값이 없으면 판단 근거가 없는 것이라 손대지 않는다
-    (`_enforce_good` 과 같은 규율 — 근거 없이 깎으면 맞힌 사람이 이유 없이 진다).
+    partial 60~70 을 줬다 (2026-09-10 실측). 무엇을 동의로 보는지는 `_trap_agreed` —
+    함정 표시만 보고 내리지 않는다 (09-29 기준선).
     """
-    if not question.trap:
-        return verdict, score, points, False
-    corrected = data.get("premise_corrected")
-    if corrected is None or bool(corrected):
+    if not _trap_agreed(data, question, answer, deck):
         return verdict, score, points, False
     lead = "질문의 전제가 자료와 다르다는 점"
     return "wrong", min(score, TRAP_AGREED_SCORE_MAX), [lead] + [p for p in points if p != lead], True
+
+
+def _enforce_deck(
+    answer: str, deck: Deck | None, verdict: str, score: int, points: list[str], question: str = ""
+) -> tuple[str, int, list[str], Conflict | None]:
+    """
+    **자료와 수치·표 서열·방향·부정이 어긋난 답은 통과하지 못한다.** 코드가 막는다.
+
+    09-29 두 덱 기준선: 그럴듯한 오답 6건 중 3건이 통과했다 — 요인별 %p 를 서로 바꿔 붙인 답(partial 75),
+    자료 표에서 더 낮은 쪽을 「더 높다」 고 한 답(partial 70, react 「…부분은 정확해요」), 자료 6장과 정반대인 답.
+    규칙 8 은 「요지는 맞고 근거만 얕다」 에 70~79 를 주라 하고 통과선이 70 이라, 같은 주제의 낱말로 틀린 사실을
+    말하면 통과했다. 무관 가드는 낱말이 **겹치면** 비켜 간다.
+
+    어긋남은 `_deck_claims.conflicts` 가 **구조로만** 잡는다(숫자 짝·단일 값 표의 서열·강한 줄 일치에서의 방향/부정).
+    잘못 잡으면 맞힌 사람이 진다 — 그래서 wrong 이 아니라 **통과 못 하는 partial** 까지만 내리고 되묻기를 남긴다.
+    LLM 이 이미 wrong 이면 그대로 둔다.
+    """
+    if deck is None or deck.empty or verdict == "unknown":
+        return verdict, score, points, None
+    found = conflicts(answer, deck, question)
+    if not found:
+        return verdict, score, points, None
+    first = found[0]
+    lead = f"자료 {first.slide_no}장과 어긋난 곳: {first.what}"
+    demoted = "partial" if verdict in ("good", "partial") else verdict
+    return demoted, min(score, DECK_CONFLICT_SCORE_MAX), [lead] + [p for p in points if p != lead], first
 
 
 def _normalize(
@@ -665,6 +800,7 @@ def _normalize(
     answer: str = "",
     evidence: str = "",
     focus: str = "",
+    deck: Deck | None = None,
 ) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
@@ -700,26 +836,44 @@ def _normalize(
     # 등급이 뒤집힌 판정에 "충분합니다" 라는 good 폴백이 붙지 않는다.
     verdict, score, points = _enforce_good(data, question, verdict, score, points)
     # 함정 동의가 먼저다 — "네, 맞아요" 는 질문에 답한 것이라 무관 가드가 볼 일이 아니다 (09-26 실측: 무관 문구가 먼저 붙었다).
-    verdict, score, points, trap_agreed = _enforce_trap(data, question, verdict, score, points)
+    verdict, score, points, trap_agreed = _enforce_trap(data, question, verdict, score, points, answer, deck)
     guard = ""
+    conflict: Conflict | None = None
     if not trap_agreed:
-        verdict, score, points, guard = _enforce_on_topic(
-            answer, evidence, question, verdict, score, points, focus
-        )
+        # 자료와 어긋난 답은 이미 「이 질문」 에 답한 것이다 — 무관 가드보다 먼저 보고, 걸리면 무관 가드는 건너뛴다.
+        verdict, score, points, conflict = _enforce_deck(answer, deck, verdict, score, points, question.question)
+        if conflict is None:
+            verdict, score, points, guard = _enforce_on_topic(
+                answer, evidence, question, verdict, score, points, focus
+            )
+    # 판정이 스스로 「답과 반대 명제」 를 정답으로 들고 있으면서 통과를 준 자기모순 (09-29 벤치 held-out 오답 2건).
+    self_opposed = False
+    if not trap_agreed and conflict is None and not guard and qa_passed(verdict, score) and answer:
+        said_by_judge = " ".join([*points, str(data.get("react", "") or "")])
+        if opposes(answer, said_by_judge):
+            verdict, score, self_opposed = "partial", min(score, SELF_OPPOSED_SCORE_MAX), True
 
     react = str(data.get("react", "") or "").strip() or _REACT_BY_VERDICT[verdict]
     # 가드가 등급을 뒤집었으면 LLM 의 react 는 그 등급과 어긋난 문장이다 — 코드 문구로.
     if trap_agreed:
         react = _TRAP_AGREED_REACT
+    elif conflict is not None:
+        react = _DECK_CONFLICT_REACT.format(no=conflict.slide_no, what=conflict.what)
+    elif self_opposed:
+        react = _SELF_OPPOSED_REACT
     elif guard == "off_topic":
         react = _OFF_TOPIC_REACT.format(label=question.label or "이 개념")
     elif guard == "focus_miss":
         react = _FOCUS_MISS_REACT.format(label=question.label or "이 개념")
-    elif _HONORIFIC_RE.search(react):
+    elif _HONORIFIC_RE.search(react) or (verdict == "wrong" and _PRAISE_RE.search(react)):
         react = _REACT_BY_VERDICT[verdict]
     summary = str(data.get("summary_sentence", "") or "").strip()
     if _HONORIFIC_RE.search(summary):
         summary = ""
+    if conflict is not None:
+        summary = _DECK_CONFLICT_SUMMARY.format(label=question.label or "이 개념", no=conflict.slide_no)
+        # LLM 의 후속 질문은 틀린 주장을 받아들인 채 다음을 묻는다 — 어긋난 곳을 되묻는 코드 문장으로.
+        data = {**data, "followup": _DECK_CONFLICT_FOLLOWUP.format(no=conflict.slide_no, what=conflict.what)}
     if not summary:
         summary = _SUMMARY_BY_VERDICT[verdict].format(
             label=question.label or question.node_id or "이 개념"
@@ -763,7 +917,8 @@ def _haeyo_data(data: dict) -> dict:
     for k in _HAEYO_FIELDS:
         v = out.get(k)
         if isinstance(v, str) and v:
-            out[k] = to_haeyo(v)
+            # 합쇼체 끝 어미는 to_haeyo, 문장 가운데 높임(「추정하신」「찾고 계신」)은 _plain 이 푼다 (09-29 기준선).
+            out[k] = to_haeyo(_plain(v))      # 높임을 먼저 푼다 — 「말씀하셨습니다」 → 「말했습니다」 → 「말했어요」
     return out
 
 
@@ -806,7 +961,7 @@ def _followup(
 
     point = points[0] if points else (question.label or "이 개념")
     written = _clip(str(data.get("followup", "") or ""))
-    if _HONORIFIC_RE.search(written):
+    if _HONORIFIC_RE.search(written) or _PLACEHOLDER_RE.search(written):
         written = ""
     # probe(1라운드)는 열린 질문이 맞는 모양이라 그대로 쓴다.
     if written and (tier == "probe" or _is_narrow(written)):
@@ -1010,8 +1165,10 @@ react 는 **막힌 상황에 맞는 말**이다 — 발표자는 답을 못 했�
 같은 빈말 칭찬은 쓰지 마라. 안심과 다음 발걸음만 말한다.
 
 [단계=narrow] 답을 알려 주지 마라. '자료 인용' 이 주어지면 **그 문장에 대해** 둘 중
-하나를 고르게 하는 되물음 하나를 쓴다 — "A인가요, B인가요?" 꼴. choices 에 그 두
-선택지를 각각 20자 이내로 적는다: 하나는 자료가 말하는 쪽, 하나는 그럴듯한 반대쪽.
+하나를 고르게 하는 되물음 하나를 쓴다 — 두 선택지를 **실제 낱말로** 문장 안에 넣은
+「…쪽인가요, …쪽인가요?」 꼴이다. 자리 표시 글자(A·B)를 쓰지 마라 — 그런 문장은 버려진다.
+choices 에 그 두 선택지를 각각 20자 이내의 **자료에 나오는 낱말**로 적는다: 하나는 자료가
+말하는 쪽, 하나는 같은 자료의 다른 항목(그럴듯한 반대쪽).
 인용이 없으면 근거 슬라이드에서 출발해 예/아니오로 답할 수 있을 만큼 좁힌다.
 발표자가 스스로 첫 발을 떼게 하는 것이 목적이다.
 
@@ -1031,7 +1188,7 @@ react 는 **막힌 상황에 맞는 말**이다 — 발표자는 답을 못 했�
 {
   "react": "안심시키는 한 마디",
   "followup": "narrow 단계에서 쓸 둘 중 하나 되물음 · clarify 단계에서 쓸 다시 쓴 질문 한 문장",
-  "choices": ["narrow 단계의 선택지 A", "선택지 B"],
+  "choices": ["<narrow 단계의 첫 선택지>", "<둘째 선택지>"],
   "explanation": "explain 단계에서 쓸 해설 두세 문장"
 }"""
 
@@ -1096,8 +1253,9 @@ def coach_stuck(
         stage = "scaffold"
     # 발판 단계는 LLM 을 부르지 않는다 — 골자에서 낱말 하나를 가린 빈칸이 전부다.
     # 재료가 없으면(골자 없음) 이 단을 건너뛰고 해설로 간다.
+    deck_text = _deck_text(slidedoc)
     if stage == "scaffold":
-        scaffold = _scaffold_judgement(question, graph)
+        scaffold = _scaffold_judgement(question, graph, deck_text)
         if scaffold is not None:
             return scaffold
         stage = "explain"
@@ -1134,10 +1292,13 @@ def coach_stuck(
     elif stage == "clarify":
         # 폴백은 **원래 질문 그대로**다. 여기서 힌트로 갈아타면 묻는 대상이 바뀌어,
         # 못 알아들었다고 말한 사람이 다른 질문을 받게 된다.
-        followup = _clip(str(data.get("followup", "") or "")) or _clip(question.question)
+        followup = _clip(str(data.get("followup", "") or ""))
+        if _HONORIFIC_RE.search(followup) or _PLACEHOLDER_RE.search(followup):
+            followup = ""
+        followup = followup or _clip(question.question)
         explanation = ""
     else:
-        followup, choices = _narrow_followup(data, question, graph)
+        followup, choices = _narrow_followup(data, question, graph, deck_text)
         explanation = ""
         react = _with_quote(react, question)
 
@@ -1167,6 +1328,11 @@ def coach_stuck(
 
 #: 선택형 되물음의 모양. 이게 아니면 LLM 이 넓게 물은 것이라 결정적 문장으로 간다.
 _CHOICE_FORM_RE = re.compile(r"(인가요|였나요|있었나요|없었나요|맞나요)[^?]*?(인가요|였나요|있었나요|없었나요|아닌가요)|둘 중")
+#: 프롬프트의 자리 표시자를 베낀 문장. 09-29 수면 1번: 「…무엇인가요? A인가요, B인가요? (자료 1장)」 이
+#: 선택형 모양 검사를 통과해 화면에 나갔다. 모양만 보면 통과하므로 자리 표시자를 따로 잡는다.
+_PLACEHOLDER_RE = re.compile(r"(?<![A-Za-z0-9])[AB](?![A-Za-z0-9])\s*(?:인가요|쪽|이요|요\b)|\((?:자료의|다른)\s*낱말\)|선택지\s*[AB12]")
+#: 선택지 하나의 최대 길이. 프롬프트는 20자를 부탁한다 — 문장 통째(09-29: 40자 넘는 골자 문장)는 선택지가 아니다.
+CHOICE_MAX_CHARS = 24
 
 
 def _quote_lines(question: Question) -> list[str]:
@@ -1185,12 +1351,46 @@ def _slide_tag(question: Question) -> str:
 
 
 def _distractor_pool(question: Question, graph: ConceptGraph | None) -> list[str]:
+    """
+    오답 선택지 재료 — **이웃 개념 이름**이 먼저, 요약은 그 뒤. 이름은 정답(골자의 명사)과 같은 종류의 말이다.
+    09-29 기준선: 요약에서 「가장 긴 낱말」 을 뽑아 '중요함'·'차지해' 같은 활용형이 오답이 됐다.
+    """
     if graph is None:
         return []
-    return [n.summary for n in graph.neighbors_of(question.node_id) if n.summary]
+    ranked = sorted(graph.neighbors_of(question.node_id), key=lambda n: (-n.weight, n.id))
+    return [n.label for n in ranked if n.label] + [n.summary for n in ranked if n.summary]
 
 
-def _narrow_followup(data: dict, question: Question, graph: ConceptGraph | None) -> tuple[str, list[str]]:
+def _deck_text(slidedoc: SlideDoc | None) -> str:
+    if slidedoc is None:
+        return ""
+    return " ".join(clean_slide_text(s.raw_text or "") for s in slidedoc.slides)
+
+
+def _in_deck(choice: str, source: str) -> bool:
+    """
+    선택지가 자료에 나오는 말인가 — 선택지의 내용 낱말이 **전부** 자료에 낱말로 있어야 한다(뒤에 조사 허용).
+    09-29 기준선: LLM 선택지 '중요함' 은 자료의 「중요한」 과 앞 두 글자만 같았다 — 활용형은 자료의 말이 아니다.
+    """
+    words = [w for w in re.findall(r"[가-힣]{2,}|[A-Za-z]{3,}|\d+(?:\.\d+)?%?", choice or "") if not _is_generic(w)]
+    return bool(words) and all(term_in(w, source) or term_in(re.sub(r"(은|는|이|가|을|를|의|도|에|와|과|로)$", "", w), source)
+                               for w in words)
+
+
+def _llm_choice_ok(followup: str, choices: list[str], source: str) -> bool:
+    """LLM 이 쓴 선택형 되물음을 그대로 써도 되는가. 자료(source)가 없으면 모양만 본다."""
+    if len(choices) != 2 or not followup or not _CHOICE_FORM_RE.search(followup):
+        return False
+    if _PLACEHOLDER_RE.search(followup) or any(_PLACEHOLDER_RE.search(c) or re.fullmatch(r"[AB]", c.strip()) for c in choices):
+        return False
+    if any(len(c) > CHOICE_MAX_CHARS for c in choices) or _HONORIFIC_RE.search(followup):
+        return False
+    return not source or all(_in_deck(c, source) for c in choices)
+
+
+def _narrow_followup(
+    data: dict, question: Question, graph: ConceptGraph | None, deck_text: str = ""
+) -> tuple[str, list[str]]:
     """
     위치 단계의 되물음. **둘 중 하나 모양이 아니면 코드 문장으로 간다.**
 
@@ -1205,12 +1405,18 @@ def _narrow_followup(data: dict, question: Question, graph: ConceptGraph | None)
         # 인용이 없는 옛 질문 — 선택형을 강제할 재료가 없다. 예전 그대로 LLM 되물음이고,
         # 선택지는 둘 다 왔을 때만 싣는다.
         fallback = _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?")
-        return (followup or fallback), (choices if len(choices) == 2 else [])
-    if followup and len(choices) == 2 and _CHOICE_FORM_RE.search(followup):
+        if _PLACEHOLDER_RE.search(followup) or _HONORIFIC_RE.search(followup):
+            return fallback, []
+        return (followup or fallback), (choices if len(choices) == 2 and followup else [])
+    # 모양(둘 중 하나)만 보면 프롬프트 예시를 베낀 문장·자료에 없는 선택지가 통과한다 (09-29 기준선) — _llm_choice_ok.
+    if _llm_choice_ok(followup, choices, f"{deck_text} {question.evidence_quote}".strip() if deck_text else ""):
         if question.evidence_slide_no and "장" not in followup:
             followup = _clip(followup + _slide_tag(question))
         return followup, choices
-    _, answer, distractor = mask_gist(question.answer_gist, question.label, _distractor_pool(question, graph))
+    _, answer, distractor = mask_gist(
+        question.answer_gist, question.label, _distractor_pool(question, graph),
+        quote=question.evidence_quote, deck_text=deck_text,
+    )
     if answer and distractor and question.evidence_quote:
         where = f"자료 {question.evidence_slide_no}장은" if question.evidence_slide_no else "자료는"
         pair = sorted([answer, distractor])
@@ -1247,13 +1453,14 @@ def _with_citation(explanation: str, question: Question) -> str:
     return body + tail
 
 
-def _scaffold_judgement(question: Question, graph: ConceptGraph | None) -> QaJudgement | None:
+def _scaffold_judgement(question: Question, graph: ConceptGraph | None, deck_text: str = "") -> QaJudgement | None:
     """
     발판 단계 — LLM 없이. 골자에서 낱말 하나를 가린 빈칸과 선택지 둘.
     골자가 없어 빈칸을 못 만들면 None (호출자가 해설로 넘긴다).
     """
     masked, answer, distractor = mask_gist(
-        question.answer_gist, question.label, _distractor_pool(question, graph)
+        question.answer_gist, question.label, _distractor_pool(question, graph),
+        quote=question.evidence_quote, deck_text=deck_text,
     )
     if not masked:
         return None
@@ -1446,18 +1653,28 @@ def judge_answer(
         ctx = context
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
+    # 자료 본문이 정답의 원본이다 (모듈 머리 「판정은 무엇을 근거로 하나」). 자료가 없는 호출(옛 세션·flat 판정)은
+    # 예전 그대로 골자가 기준이다.
+    deck = deck_from_slidedoc(slidedoc)
+    question, gist_grounded = _ground_gist(question, deck)
     user = _build_user_prompt(
         question, answer, turns, graph, alignment, transcript, ctx, prior_answers,
         slidedoc=slidedoc, memory_cm=_memory_concept(question, memory, graph),
     )
-    # 정답 골자는 판정에도 싣는다 (규칙 3 의 채점 기준). 코칭(coach_stuck)만 갖고
+    user += _deck_line_block(answer, prior_answers, deck)
+    # 정답 골자는 판정에도 싣는다 (규칙 3 의 참고 답). 코칭(coach_stuck)만 갖고
     # 있으면 이지선다 질문에 정답 단답이 와도 모델이 자료 발췌에서 확신을 못 얻어
-    # unknown 으로 도망간다 — "얕은 수면이야" 가 '너무 짧다' 로 거부된 실측(2026-08-07).
+    # unknown 으로 도망간다 — 이지선다 단답이 '너무 짧다' 로 거부된 실측(2026-08-07).
     # _build_user_prompt 안에 넣지 않는 것은 coach_stuck 이 같은 함수를 쓰면서
     # 골자를 따로 붙이기 때문이다 — 두 번 실리면 안 된다.
     gist = (question.answer_gist or "").strip()
-    if gist:
+    if gist and gist_grounded:
         user += f"\n\n## 기대하는 답의 골자 (채점 기준 — 발표자에게는 보이지 않는다)\n{gist}"
+    elif gist:
+        user += (
+            "\n\n## 기대하는 답의 골자 (참고만 — 일부가 자료 본문에서 확인되지 않는다. 자료와 다르면 자료가 맞다."
+            " 발표자에게는 보이지 않는다)\n" + gist
+        )
     user += _gist_parts_block(question)
 
     # 부분 포기 — «X 는 모르겠고 Y 는 …». 판정은 그대로 하되, 스스로 모른다고
@@ -1514,4 +1731,42 @@ def judge_answer(
             *_speech_block(question, transcript),
         ]),
         focus="\n".join(focus_lines),
+        deck=deck,
+    )
+
+
+def _ground_gist(question: Question, deck: Deck) -> tuple[Question, bool]:
+    """
+    골자가 자료로 받쳐지는가 — 그리고 받쳐지지 않는 **골자 요소**를 체크리스트에서 뺀 질문 사본.
+
+    09-29 기준선: 골자 요소 「문헌의 구조적 설명과 발표의 행동적 설명 비교」(관련 없는 논문에서 온 말)가 채점 기준이 돼,
+    자료대로 한 정답이 「빠진 점」 으로 partial 75 를 받았다. 자료에 없는 요소를 요구하면 자료대로 답한 사람이 진다.
+    원본은 바꾸지 않는다(dataclasses.replace) — 요소가 하나만 남으면 Question 이 빈 목록으로 접는다.
+    자료가 비면 판단 근거가 없는 것이라 그대로 둔다.
+    """
+    if deck.empty:
+        return question, True
+    grounded = support(question.answer_gist or "", deck, question.question).grounded
+    parts = [p for p in question.answer_gist_parts if support(p, deck, question.question).grounded]
+    if parts != list(question.answer_gist_parts):
+        question = replace(question, answer_gist_parts=parts)
+    return question, grounded
+
+
+def _deck_line_block(answer: str, prior_answers: list[str] | None, deck: Deck) -> str:
+    """
+    답의 절마다 가장 가까운 **자료 줄** (근거 장 밖 포함). 판정이 「자료와 어긋나는가」 를 대조할 원본을 넓힌다.
+    09-29 실측: 오답을 반박하는 줄이 근거 장(anchor) 밖에 있어 프롬프트에 없었고, 판정이 「맞아요」 partial 75 를 줬다.
+    """
+    if deck.empty:
+        return ""
+    said = " ".join([*(prior_answers or [])[-PRIOR_ANSWERS_MAX:], answer or ""])
+    lines = nearest_lines(said, deck)
+    if not lines:
+        return ""
+    body = "\n".join(f"- {ln.slide_no}장: {ln.text[:160]}" for ln in lines)
+    return (
+        "\n\n## 답변과 맞닿은 자료 줄 (근거 장 밖 포함 — 대조 원본, 발표자가 말한 것이 아니다)\n"
+        + body
+        + "\n답변의 수치·크기 순서·방향·긍정/부정이 이 줄들과 어긋나면 규칙 8 의 단서를 따른다."
     )
