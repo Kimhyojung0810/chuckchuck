@@ -347,3 +347,115 @@ def test_unitless_value_against_a_named_row_with_the_unit_in_the_header():
     assert conflicts("재고 폐기는 -120이에요.", bakery) == []
     assert conflicts("재고 폐기는 120 정도 손해예요.", bakery) == []            # 부호를 빼고 말해도 크기가 같으면 맞다
     assert conflicts("재고 폐기와 배달 수수료 차이는 40이에요.", bakery) == []  # 두 행을 부른 계산
+
+
+# ---------------------------------------------------------------------------
+# 3차 — 처음 보는 덱(held-out 2차)에서 드러난 한국어 꼴 (배수 비교 · 비교 대상 뒤 「…쪽이」 · 분수 · 「한 시간 반」 ·
+# 다른 곳에 있는 수를 부른 표 행 · 수를 가진 줄 · 나머지 쪽 · 몫 짝 · 제쳐 두기·발표 밖으로 미루기)
+# 분야: 동네 도서관 · 주민 텃밭 · 자전거 대여소 · 헌혈 캠페인 (held-out 덱과 겹치지 않는다)
+# ---------------------------------------------------------------------------
+
+def test_multiplier_comparisons_read_their_direction():
+    lib = deck_of("동네 도서관 대출\n올해 주말 대출 권수는 작년의 절반 수준으로 줄었습니다.")
+    wrong = conflicts(spoken_numbers("올해 주말 대출 권수는 작년의 두 배가 넘었어요."), lib)
+    assert [(c.kind, c.relation) for c in wrong] == [("direction", "reversed")]
+    assert conflicts(spoken_numbers("올해 주말 대출 권수는 작년의 절반도 안 됐어요."), lib) == []
+    assert conflicts(spoken_numbers("올해 주말 대출 권수는 작년의 절반 정도였어요."), lib) == []
+
+
+def test_side_subject_after_the_comparand_and_measure_before_it():
+    garden = deck_of("주민 텃밭\n텃밭 참여 가구가 비참여 가구보다 음식물 쓰레기가 더 많이 줄었습니다.")
+    swapped = conflicts("음식물 쓰레기가 줄어든 폭은 참여 가구보다 비참여 가구 쪽이 더 컸어요.", garden)
+    assert [(c.kind, c.relation) for c in swapped] == [("order", "swapped")]
+    assert conflicts("음식물 쓰레기가 줄어든 폭은 비참여 가구보다 참여 가구 쪽이 더 컸어요.", garden) == []
+    assert conflicts("음식물 쓰레기는 참여 가구보다 비참여 가구 쪽이 덜 줄었어요.", garden) == []   # 맞바꾸고 「덜」 — 같은 말
+
+
+def test_fractions_are_not_minutes_and_hour_durations_are_one_value():
+    assert numbers("반납 대기 줄이 3분의 1로 줄었습니다") == []
+    assert [(n.value, n.unit) for n in numbers(spoken_numbers("수리는 한 시간 반, 점검은 1시간 20분"))] == [(90, "분"), (80, "분")]
+    assert [(n.value, n.unit) for n in numbers("1시간 반복 · 2시간 반나절")] == [(1, "시간"), (2, "시간")]
+    bike = deck_of("자전거 대여소\n고장 자전거 수리는 평균 1시간 30분 걸렸습니다.")
+    assert conflicts(spoken_numbers("고장 자전거 수리는 평균 한 시간 반 걸렸어요."), bike) == []
+    wrong = conflicts(spoken_numbers("고장 자전거 수리는 평균 두 시간 반 걸렸어요."), bike)
+    assert [(c.said, c.deck_value) for c in wrong] == [("150분", "90분")]
+
+
+def test_named_row_is_checked_even_when_the_number_lives_elsewhere():
+    bike = deck_of("대여소 대기\n| 시간대 | 평균 대기 |\n| --- | --- |\n| 오전 7~9시 | 25분 |\n| 오후 5~7시 | 40분 |",
+                   "주말 행사\n| 행사 | 소요 |\n| --- | --- |\n| 자전거 축제 | 90분 |")
+    wrong = conflicts(spoken_numbers("오후 5시부터 7시 사이는 구십 분 가까이 기다렸어요."), bike)
+    assert [(c.kind, c.said, c.deck_value, c.slide_no) for c in wrong] == [("number", "90분", "40분", 1)]
+    assert conflicts(spoken_numbers("오후 5시부터 7시 사이는 사십 분 가까이 기다렸어요."), bike) == []
+    assert conflicts(spoken_numbers("자전거 축제는 구십 분 걸렸어요."), bike) == []
+
+
+def test_number_follows_the_line_that_holds_it():
+    lib = deck_of("도서관 좌석\n| 구분 | 좌석 이용률 |\n| --- | --- |\n| 도서관 | 34% |\n| 주민센터 | 44% |",
+                  "대출 변화\n우리 동네 도서관 대출 증가율은 62%입니다.")
+    # 62% 가 든 글줄을 그대로 옮긴 말 — 표 칸 「도서관 | 34%」 와는 행 이름 하나만 겹친다
+    assert conflicts(spoken_numbers("우리 동네 도서관 대출 증가율은 육십이 퍼센트예요."), lib) == []
+    # 행 이름 + 열 머리(좌석 이용률)를 부른 말 — 62% 는 이 칸의 값이 아니다
+    wrong = conflicts(spoken_numbers("도서관 좌석 이용률은 육십이 퍼센트예요."), lib)
+    assert [(c.kind, c.said, c.deck_value) for c in wrong] == [("number", "62%", "34%")]
+
+
+@pytest.mark.parametrize("said, kinds", [
+    ("캠페인 뒤에 헌혈을 다시 한 학생이 육십이 퍼센트예요.", []),                    # 38% 의 나머지 — 같은 말
+    ("캠페인 뒤에 헌혈을 다시 한 학생이 삼십팔 퍼센트예요.", ["negation"]),          # 같은 수를 반대 쪽에
+    ("캠페인 뒤에 헌혈을 다시 한 학생이 오십 퍼센트예요.", ["number_unsupported", "negation"]),
+])
+def test_other_side_share_is_not_a_polarity_flip(said, kinds):
+    blood = deck_of("헌혈 캠페인\n캠페인 뒤에도 헌혈을 다시 하지 않은 학생이 38%였습니다.")
+    assert [c.kind for c in conflicts(spoken_numbers(said), blood)] == kinds
+
+
+def test_other_group_count_is_not_a_polarity_flip():
+    blood = deck_of("헌혈 캠페인\n캠페인에 참여한 학생은 120명입니다.")
+    assert conflicts(spoken_numbers("캠페인에 참여 안 한 학생이 팔십 명이에요."), blood) == []
+    assert [c.kind for c in conflicts(spoken_numbers("캠페인에 참여 안 한 학생이 백이십 명이에요."), blood)] == ["negation"]
+    assert [c.said for c in conflicts(spoken_numbers("캠페인에 참여한 학생은 팔십 명이에요."), blood)] == ["80명"]
+
+
+def test_complement_share_but_not_a_change_size():
+    late = deck_of("반납 지연\n반납 지연 비율은 40%입니다.")
+    assert conflicts(spoken_numbers("제때 반납한 비율은 육십 퍼센트예요."), late) == []
+    moved = deck_of("반납 지연\n반납 지연 비율은 40% 줄었습니다.")
+    assert [(c.said, c.deck_value) for c in conflicts(spoken_numbers("반납 지연 비율은 육십 퍼센트나 줄었어요."), moved)] == [("60%", "40%")]
+
+
+def test_part_of_whole_restated_with_another_base():
+    again = deck_of("재대여\n첫 대여 회원 5명 중 3명이 한 달 안에 다시 빌렸습니다.")
+    assert conflicts(spoken_numbers("첫 대여 회원 열 명 중 여섯 명이 한 달 안에 다시 빌렸어요."), again) == []
+    wrong = conflicts(spoken_numbers("첫 대여 회원 열 명 중 아홉 명이 한 달 안에 다시 빌렸어요."), again)
+    # 짝 전체가 틀린 값 — 분모 「10명」 만 떼어 탓하지 않는다
+    assert [(c.said, c.deck_value) for c in wrong] == [("10명 중 9명", "5명 중 3명")]
+
+
+def test_shares_counts_and_computed_values_are_not_deck_values():
+    garden = deck_of("텃밭 상자\n텃밭 상자 24개를 세 모둠에 나눴습니다.", "운영비\n텃밭 연간 운영비는 1,650만 원입니다. 운영은 3년째입니다.")
+    assert conflicts(spoken_numbers("세 모둠이니까 모둠마다 텃밭 상자 여덟 개씩 받았어요."), garden) == []
+    assert conflicts(spoken_numbers("텃밭 운영비는 1년에 1,650만 원이 들어요."), garden) == []
+    assert conflicts(spoken_numbers("그러면 텃밭 상자 하나에 한 달 운영비가 약 오만 원인 셈이에요."), garden) == []
+
+
+@pytest.mark.parametrize("sentence, want", [
+    ("대출 통계 표는 오늘은 제쳐 두고, 설문 얘기로 바로 갈게요.", True),
+    ("이 장은 접어 두겠습니다.", True),
+    ("이 문제는 잠시 미뤄 두고 결론부터 볼게요.", True),
+    ("텃밭 수확량 결과는 궁금하신 분만 발표 끝나고 따로 물어봐 주세요.", True),
+    ("대여 요금표는 나눠 드린 자료에 다 나와 있어요.", True),
+    ("자세한 내용은 나눠 드린 자료에 있으니 참고해 주세요.", True),
+    # 발표 내용·진행 안내
+    ("우산을 접어 두고 들어오세요.", False),
+    ("오늘은 우산을 접어 두고 갈게요.", False),
+    ("텃밭 상자는 창고에 접어 두고 쓰면 돼요.", False),
+    ("질문은 발표 끝나고 받을게요.", False),
+    ("질문은 발표 끝나고 따로 물어봐 주세요.", False),
+    ("봉사자들은 발표 끝나고 남아 주세요.", False),
+    ("오늘 나눠 드린 자료는 발표 뒤에 걷어 갈게요.", False),
+    ("발표 끝나고 다 같이 사진 찍어요.", False),
+    ("이 부분은 따로 한 장으로 설명드릴게요.", False),                   # 「따로」 만으로는 발표 밖인지 모른다
+])
+def test_skip_cue_set_aside_and_out_of_talk(sentence, want):
+    assert skip_cue(sentence) is want

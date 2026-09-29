@@ -171,3 +171,25 @@ def test_verbatim_and_paraphrased_quotes_keep_their_old_behaviour():
     assert got == "저희는 호흡 훈련을 먼저 했어요."
     # 발화와 애매하게만 겹치는 인용은 버린다 — 예전엔 LLM 글을 그대로 「발표에서 한 말」 로 보였다
     assert resolve_evidence("호흡 훈련은 무대 공포를 줄이고 고음을 안정시키는 핵심 비결입니다.", CHOIR_NODE, utts) == ""
+
+
+def test_number_contradiction_without_a_value_pair_says_numbers_differ(monkeypatch):
+    """값 한 쌍을 못 뽑은 수치 어긋남에 「방향이 반대」 라고 쓰지 않는다 — 수치를 잘못 말한 발표에 거짓 설명이 된다."""
+    from chuckchuck import _align_checks as chk
+
+    utts = utterances(LAUNDRY_TALK)
+    said = next(u for u in utts if "이십사" in u.text)
+    fake = chk.Contra("wait", said, "number_unsupported", 2, "평일 저녁 평균 대기는 14분입니다")
+    monkeypatch.setattr(chk, "contradictions", lambda graph, utts, deck: [fake])
+    g = ConceptGraph("deck.pptx", 6, nodes=[
+        ConceptNode(id="wait", label="평일 대기", slide_nos=[2], weight=0.8, importance="core"),
+        ConceptNode(id="evening", label="저녁 시간대", slide_nos=[2], weight=0.4, importance="core"),
+    ])
+    items = [{"node_id": "wait", "verdict": "aligned", "evidence": said.text},
+             {"node_id": "evening", "verdict": "aligned", "evidence": said.text}]
+    doc = align_speech(g, LAUNDRY_TALK, llm=LLM(items), slide_doc=LAUNDRY)
+    wait = doc.item("wait")
+    assert (wait.verdict, wait.contra_kind) == ("contradiction", "number")
+    assert wait.note == "자료 2장과 수치가 달라요"
+    evening = doc.item("evening")                      # 같은 문장을 근거로 쓴 다른 개념 — 「내용이 반대」 가 아니라 「수치가 달라요」
+    assert evening.verdict == "aligned" and evening.note.endswith("이 문장은 자료 2장과 수치가 달라요"), evening.note

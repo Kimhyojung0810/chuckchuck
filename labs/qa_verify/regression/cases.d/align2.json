@@ -514,6 +514,270 @@
      }
     ]
    }
+  },
+  {
+   "id": "rec_named_row_elsewhere",
+   "title": "이름을 부른 표 행(「오전 11시부터 오후 1시 사이」)의 값과 다른 수(「한 시간 반 가까이」 = 90분)는 그 수가 자료 다른 행(5장 당일 접수 90분)에 있어도 수치 어긋남",
+   "origin": "held-out 2차 병원 덱 N1 · held-out 2차(병원·재활용·기숙사) 측정 뒤 3차 수정 · WP 정합 대조 2 (qa/align2)",
+   "kind": "align_contra",
+   "source": {
+    "file": "labs/qa_bench/corpus/heldout2_clinic/slidedoc_parsed_upstage.json",
+    "base": "harness",
+    "slides": [
+     5,
+     6
+    ]
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 6,
+      "text": "오전 11시부터 오후 1시 사이는 한 시간 반 가까이 기다렸어요.",
+      "expect": {
+       "family": "number",
+       "slide": 6
+      }
+     },
+     {
+      "slide_no": 6,
+      "text": "오전 11시부터 오후 1시 사이는 오십 분 정도 기다렸어요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 5,
+      "text": "당일 접수 환자는 진료 대기가 구십 분이었어요.",
+      "expect": "none"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_named_row_elsewhere_neutral",
+   "title": "(위 사례의 다른 분야 쌍둥이 — 자전거 대여소 시간대별 대기 표 + 다른 장 행사 표의 90분)",
+   "origin": "tests/test_rec_align_rules.py 와 같은 꼴",
+   "kind": "align_contra",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "대여소 대기\n| 시간대 | 평균 대기 |\n| --- | --- |\n| 오전 7~9시 | 25분 |\n| 오후 5~7시 | 40분 |"
+      },
+      {
+       "slide_no": 2,
+       "text": "주말 행사\n| 행사 | 소요 |\n| --- | --- |\n| 자전거 축제 | 90분 |"
+      }
+     ]
+    }
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 1,
+      "text": "오후 5시부터 7시 사이는 구십 분 가까이 기다렸어요.",
+      "expect": {
+       "family": "number",
+       "slide": 1
+      }
+     },
+     {
+      "slide_no": 1,
+      "text": "오후 5시부터 7시 사이는 사십 분 가까이 기다렸어요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 2,
+      "text": "자전거 축제는 구십 분 걸렸어요.",
+      "expect": "none"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_home_line_not_row",
+   "title": "자료 글줄을 그대로 옮긴 수(「우리 리그 번트 성공률은 62%」)는 행 이름 하나만 겹친 표 칸(「번트 | 이닝 득점 확률 | 34%」)과 대조하지 않는다 — 칸 이름을 다 부른 말은 대조한다",
+   "origin": "3차 수정 중 감사 덱 bunt R2 에서 난 오탐 · held-out 2차(병원·재활용·기숙사) 측정 뒤 3차 수정 · WP 정합 대조 2 (qa/align2)",
+   "kind": "align_contra",
+   "source": {
+    "file": "labs/qa_bench/corpus/audit_bunt/slidedoc_parsed_upstage.json",
+    "base": "harness",
+    "slides": [
+     5,
+     6
+    ]
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 5,
+      "text": "우리 리그 번트 성공률은 육십이 퍼센트예요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 6,
+      "text": "번트의 이닝 득점 확률은 육십이 퍼센트예요.",
+      "expect": {
+       "family": "number",
+       "slide": 6
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_home_line_not_row_neutral",
+   "title": "(위 사례의 다른 분야 쌍둥이 — 동네 도서관 좌석 이용률 표 + 대출 증가율 글줄)",
+   "origin": "tests/test_rec_align_rules.py 와 같은 꼴",
+   "kind": "align_contra",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "도서관 좌석\n| 구분 | 좌석 이용률 |\n| --- | --- |\n| 도서관 | 34% |\n| 주민센터 | 44% |"
+      },
+      {
+       "slide_no": 2,
+       "text": "대출 변화\n우리 동네 도서관 대출 증가율은 62%입니다."
+      }
+     ]
+    }
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 2,
+      "text": "우리 동네 도서관 대출 증가율은 육십이 퍼센트예요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 1,
+      "text": "도서관 좌석 이용률은 육십이 퍼센트예요.",
+      "expect": {
+       "family": "number",
+       "slide": 1
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_part_ratio",
+   "title": "분모를 바꿔 말한 몫(「열 명 중 여섯 명」 ↔ 자료 「5명 중 3명」)은 같은 말, 비율이 다르면(「열 명 중 아홉 명」) 짝 전체가 수치 어긋남",
+   "origin": "held-out 2차 병원 덱 R2 오탐 · held-out 2차(병원·재활용·기숙사) 측정 뒤 3차 수정 · WP 정합 대조 2 (qa/align2)",
+   "kind": "align_contra",
+   "source": {
+    "file": "labs/qa_bench/corpus/heldout2_clinic/slidedoc_parsed_upstage.json",
+    "base": "harness",
+    "slides": [
+     2
+    ]
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 2,
+      "text": "그래서인지 환자 열 명 중 여섯 명이 가장 큰 불만으로 긴 대기를 꼽았어요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 2,
+      "text": "그래서인지 환자 열 명 중 아홉 명이 가장 큰 불만으로 긴 대기를 꼽았어요.",
+      "expect": {
+       "family": "number",
+       "slide": 2
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_part_ratio_neutral",
+   "title": "(위 사례의 다른 분야 쌍둥이 — 자전거 재대여 회원)",
+   "origin": "tests/test_rec_align_rules.py 와 같은 꼴",
+   "kind": "align_contra",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "재대여\n첫 대여 회원 5명 중 3명이 한 달 안에 다시 빌렸습니다."
+      }
+     ]
+    }
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 1,
+      "text": "첫 대여 회원 열 명 중 여섯 명이 한 달 안에 다시 빌렸어요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 1,
+      "text": "첫 대여 회원 열 명 중 아홉 명이 한 달 안에 다시 빌렸어요.",
+      "expect": {
+       "family": "number",
+       "slide": 1
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_other_side",
+   "title": "나머지 쪽을 센 말(「참여하지 않은 층이 네 개 층」 ↔ 표 「캠페인 참여 층 | 6개 층」)은 맞다·아니다 반대도 수치 어긋남도 아니다",
+   "origin": "held-out 2차 기숙사 덱 R2 오탐 · held-out 2차(병원·재활용·기숙사) 측정 뒤 3차 수정 · WP 정합 대조 2 (qa/align2)",
+   "kind": "align_contra",
+   "source": {
+    "file": "labs/qa_bench/corpus/heldout2_dorm/slidedoc_parsed_upstage.json",
+    "base": "harness",
+    "slides": [
+     4
+    ]
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 4,
+      "text": "층별로 보면요, 캠페인에 참여한 층이 여섯 개 층, 참여하지 않은 층이 네 개 층이었어요.",
+      "expect": "none"
+     }
+    ]
+   }
+  },
+  {
+   "id": "rec_other_side_neutral",
+   "title": "(위 사례의 다른 분야 쌍둥이 — 헌혈 캠페인: 나머지 비율 62% 는 같은 말, 같은 수 38% 를 반대 쪽에 붙이면 맞다·아니다 반대)",
+   "origin": "tests/test_rec_align_rules.py 와 같은 꼴",
+   "kind": "align_contra",
+   "source": {
+    "inline": {
+     "slides": [
+      {
+       "slide_no": 1,
+       "text": "헌혈 캠페인\n캠페인 뒤에도 헌혈을 다시 하지 않은 학생이 38%였습니다."
+      }
+     ]
+    }
+   },
+   "args": {
+    "said": [
+     {
+      "slide_no": 1,
+      "text": "캠페인 뒤에 헌혈을 다시 한 학생이 육십이 퍼센트예요.",
+      "expect": "none"
+     },
+     {
+      "slide_no": 1,
+      "text": "캠페인 뒤에 헌혈을 다시 한 학생이 삼십팔 퍼센트예요.",
+      "expect": {
+       "family": "polarity",
+       "slide": 1
+      }
+     }
+    ]
+   }
   }
  ]
 }
