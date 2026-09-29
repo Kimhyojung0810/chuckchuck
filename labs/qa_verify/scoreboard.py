@@ -75,7 +75,7 @@ SPECS: list[tuple[str, Spec]] = [
     ("guard.n_*", Spec("표본 수", "info", unit="count")),
     # ── standard/full: 화면 대화 (실 LLM) ─────────────────────────────────
     ("conv.good_pass", Spec("GOOD — 2턴 안에 통과", "higher", 0.8, 0.0, llm=True)),
-    ("conv.partial_complete", Spec("PARTIAL→COMPLETE — 2턴째 통과·되물음 없음", "higher", 0.6, llm=True)),
+    ("conv.partial_complete", Spec("PARTIAL→COMPLETE — 2턴 안에 통과 (70~79 는 한 걸음 더 묻는 게 설계라 닫힘은 요구하지 않는다)", "higher", 0.6, llm=True)),
     ("conv.wrong_rejected", Spec("WRONG — 통과 못 함·칭찬 없음", "higher", 0.9, llm=True)),
     ("conv.wrong_recover", Spec("WRONG 뒤 GOOD — 통과", "higher", 0.7, llm=True)),
     ("conv.offtopic_rejected", Spec("OFF-TOPIC — wrong 또는 「질문과 다른 이야기」", "higher", 0.9, llm=True)),
@@ -100,6 +100,8 @@ SPECS: list[tuple[str, Spec]] = [
     ("tags.ground.*", Spec("근거 태그 비율 (판정 턴당)", "lower", 0, llm=True)),
     ("tags.consistency.loose_pass", Spec("느슨한 통과 비율", "lower", 0, llm=True)),
     ("tags.consistency.good_demoted_guard", Spec("맞는 답 가드 강등 비율", "lower", 0, llm=True)),
+    # 70~79 는 통과(리포트)지만 닫힘은 아니다 — 한 걸음 더 묻는 것이 설계다 (contracts.qa_mastered). 참고로만 센다.
+    ("tags.consistency.passed_but_followup", Spec("통과(70~79) 뒤 한 걸음 더 묻기 — 설계상 정상, 참고", "info", None, llm=True)),
     ("tags.consistency.*", Spec("일관성 태그 비율", "lower", 0.10, llm=True)),
     ("tags.relevance.*", Spec("관련성 태그 비율", "lower", 0.10, llm=True)),
     ("tags.tone.*", Spec("말투 태그 비율", "lower", 0.05, llm=True)),

@@ -75,7 +75,7 @@ def score_persona(name: str, turns: list[dict]) -> dict:
         out["good_pass"] = any(passed(t) for t in js[:2] if t["step"] in ("good", "good_more"))
     elif name == "PARTIAL":
         hit = next((t for t in js[:2] if passed(t)), None)
-        out["partial_complete"] = bool(hit) and bool(hit["judge"].get("mastered"))
+        out["partial_complete"] = bool(hit)       # 통과면 된다 — 70~79 에서 한 걸음 더 묻는 것은 설계다 (contracts.qa_mastered)
         out["partial_early_pass"] = bool(js) and passed(js[0])
     elif name == "WRONG":
         out["wrong_rejected"] = bool(js) and not passed(js[0]) and not TG.PRAISE_RE.search(str(first.get("react") or ""))
