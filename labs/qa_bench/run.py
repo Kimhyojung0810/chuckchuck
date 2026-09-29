@@ -60,10 +60,10 @@ STAGE_MODULES = {
     "graph": ["chuckchuck/f07_graph.py", "chuckchuck/_graph_items.py", "chuckchuck/_claim_rules.py", "chuckchuck/_match.py"],
     "claims": ["chuckchuck/f26_claims.py", "chuckchuck/_claim_quote.py", "chuckchuck/_claim_rules.py", "chuckchuck/_evidence.py", "chuckchuck/_match.py"],
     "triage": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_match.py"],
-    "questions": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_grounding.py",
+    "questions": ["chuckchuck/f08_questions.py", "chuckchuck/_probes.py", "chuckchuck/_claim_rules.py", "chuckchuck/_grounding.py", "chuckchuck/_probe_stance.py",
                   "chuckchuck/_evidence.py", "chuckchuck/_traps.py", "chuckchuck/_speech.py", "chuckchuck/_match.py"],
     "align": ["chuckchuck/f11_align.py", "chuckchuck/f11_flow.py"],
-    "judge": ["chuckchuck/f09_judge.py", "chuckchuck/f08_questions.py", "chuckchuck/_traps.py", "chuckchuck/_deck_claims.py"],
+    "judge": ["chuckchuck/f09_judge.py", "chuckchuck/f08_questions.py", "chuckchuck/_traps.py", "chuckchuck/_deck_claims.py", "chuckchuck/_probe_stance.py"],
 }
 STAGE_ORDER = ["slides", "concepts", "graph", "claims", "triage", "questions", "judge", "stability", "recording"]
 
