@@ -971,41 +971,14 @@ def _slidedoc_kw(fn, slidedoc) -> dict:
     return {"slidedoc": slidedoc} if "slidedoc" in params else {}
 
 
-#: 함정 질문에서 **화면으로 보내지 않는** 칸 — 틀린 전제·자료의 사실(trap_premise), 전제를 바로잡은 기대 답(answer_gist = 사실 줄),
-#: 그 요소. 채점은 서버가 제 사본으로 한다(WP-B `_resolve_question`) — 이 칸들은 클라이언트에 있을 까닭이 없다 (09-30 WP-J2).
-TRAP_WITHHELD = ("trap_premise", "answer_gist", "answer_gist_parts")
-
-
-def _withheld(q: dict) -> bool:
-    return bool(q.get("trap")) or bool(q.get("trap_premise"))
-
-
-def client_questions(payload: dict) -> dict:
-    """
-    질문 묶음의 **화면용 사본** — 함정 질문의 사실이 든 칸(TRAP_WITHHELD)을 비우고 gist_withheld=true 를 단다. 원본은 그대로 둔다.
-
-    09-30 WP-J2: WP-Q 가 근거 칸(basis·evidence_quote·speech_quote·힌트 사다리)에서 사실 줄을 뺐지만, 같은 질문 객체의 trap_premise.fact 와
-    answer_gist(「질문의 전제와 달리, 자료 N장은 「…」이라고 해요」)가 그대로 화면으로 갔다 — 개발자 도구 한 번이면 정답이었고, 화면의
-    「답 펼치기」 경로 하나만 잘못 그려도 바로잡기 전에 사실이 떴다. 사실은 판정 응답이 **바로잡았거나·닫혔거나·해설 단계일 때**만
-    싣는다(`_reveal_fields`) — 그리고 「답 보고 다시 말해보기」 는 reveal 요청으로 받는다.
-    """
-    qs = payload.get("questions") if isinstance(payload, dict) else None
-    if not isinstance(qs, list) or not any(isinstance(q, dict) and _withheld(q) for q in qs):
-        return payload
-    out = []
-    for q in qs:
-        if isinstance(q, dict) and _withheld(q):
-            q = {**q, "trap_premise": None, "answer_gist": "", "answer_gist_parts": [], "gist_withheld": True}
-        out.append(q)
-    return {**payload, "questions": out}
-
-
-def _reveal_fields(question) -> dict:
-    """함정 질문을 펼칠 때 판정 응답에 싣는 기대 답·사실 줄 (클라이언트 사본에서 뺀 것)."""
-    tp = question.trap_premise
-    return {"answer_gist": question.answer_gist or "",
-            "reveal_quote": (tp.fact if tp is not None else "") or question.evidence_quote or "",
-            "reveal_slide_no": (tp.slide_no if tp is not None else 0) or question.evidence_slide_no or 0}
+# 함정 질문의 화면 사본 규칙(뺄 칸 · 언제 다시 실을지)은 FastAPI 서버와 같은 것을 쓴다 — `chuckchuck._client_payload`.
+# 09-30 WP-J2 에 여기서 먼저 넣었는데 server/app.py 는 사실 칸을 그대로 내보냈다. 규칙이 두 벌이면 두 서버가 다시 갈라진다.
+from chuckchuck._client_payload import (  # noqa: E402
+    TRAP_WITHHELD,  # noqa: F401 — 예전처럼 bridge.TRAP_WITHHELD 로도 읽힌다 (labs/qa_verify 가 이름을 말한다)
+    client_questions,
+    reveal_due,
+    reveal_fields,
+)
 
 
 def _claims_kw(fn, claims) -> dict:
@@ -3217,7 +3190,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             on_server = qsrc in ("server", "archive", "mismatch")
             sys.stderr.write(f"[bridge] F-09 reveal q={question.id} 질문={qsrc}\n")
             return self._json(200, {"question_id": question.id, "reveal": True, "grounded_on_server": on_server,
-                                    **_reveal_fields(question)})
+                                    **reveal_fields(question)})
         # 자료 근거 없이 판정하면 '자료와 어긋난다'(wrong)를 대조할 원본이 없고
         # 함정 질문의 핵심 규칙도 짐작이 된다. 본문에 없으면 세션에서 끌어온다.
         found = self._resolve(body, "graph", "alignment", "transcript", "context")
@@ -3282,11 +3255,10 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         )
         payload = _with_degraded(
             {**judgement.to_dict(), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)}, degraded)
-        if (question.trap or question.trap_premise is not None) and (
-                judgement.passed or judgement.mastered or judgement.coach_stage == "explain"):
+        if reveal_due(question, judgement):
             # 화면 사본에서 뺀 기대 답(`client_questions`)은 **바로잡았거나(통과)·닫혔거나·해설 단계일 때** 판정 응답으로 준다 — 화면의
             # 「빠진 절반·완성 문장」(revealHalf)·마무리 카드(finishLiveQuestion)·해설 뒤 다시 말하기가 이것을 읽는다 (09-30 WP-J2).
-            payload = {**payload, **_reveal_fields(question)}
+            payload = {**payload, **reveal_fields(question)}
         # 질문·답·판정 한 턴을 남긴다 (동의 세션만). 사람이 고친 판정과 짝을 맞출 원본이다.
         # **서버가 만든 질문으로 채점한 턴만** 남긴다 — 본문 질문으로 채점한 턴은 기준을 믿을 수 없고, 남기면 F-25 기억과
         # 학습 묶음(learning_jobs)으로 흘러가 다음 리허설의 질문·판정 프롬프트에 실린다.
