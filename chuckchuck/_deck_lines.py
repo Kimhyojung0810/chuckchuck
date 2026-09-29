@@ -15,7 +15,7 @@ import re
 import unicodedata
 
 from . import _claim_rules as R
-from ._evidence import is_question_line, join_formula
+from ._evidence import caption_cut, is_question_line, join_formula
 
 # ---------------------------------------------------------------------------
 # 쪽 번호 — 진짜 쪽 번호 꼴만 버린다 (09-30 G-A12)
@@ -139,8 +139,6 @@ _OP_ONLY_RE = re.compile(r"^[=×✕÷+*·xX\s]+$")
 _ARROW_ONLY_RE = re.compile(r"^\s*(?:→|->)\s*$")
 #: F-08 이음(`_evidence.join_formula`) 뒤에도 **식 기호로 끝난 채** 남은 식 — 캡션 물음 뒤 항을 라벨로 못 채웠다.
 _OPEN_FORMULA_RE = re.compile(r"[=×✕÷+]\s*$")
-#: 식 항 줄 끝에 붙은 도식 캡션의 의문사 조각 (「공간 만족도 얼마나」 ← 「얼마나 빌렸는가」 가 잘려 붙음).
-_TRAILING_WH_RE = re.compile(r"\s+(?:얼마나|어떻게|왜|무엇|언제|어디서?|누가|몇)$")
 #: 열린 식 뒤에서 다음 항을 찾아 내려가 볼 줄 수. Upstage 가 식 조각 사이에 도식 캡션 줄을 끼운다.
 FORMULA_LOOKAHEAD = 3
 #: 식의 한 항이 될 만한 줄 길이 상한.
@@ -154,11 +152,35 @@ def _plain(line: str) -> str:
     return _QUOTE_RE.sub("", line or "").strip()
 
 
-def term_like(line: str) -> bool:
-    """식의 한 항이 될 만한 줄 — 짧고, 물음(캡션)·문장이 아니고, 표 행이 아니다."""
+def term_of(line: str) -> str:
+    """
+    식의 한 항이 될 만한 줄이면 그 **항 이름**, 아니면 "". 줄이 짧고(TERM_MAX_CHARS) 서술 문장·표 행이 아니어야 하고, 도식 캡션
+    조각은 줄 어디에 있든 걷는다(`_evidence.caption_cut` — 「메뉴 구성 몇 가지」 → 「메뉴 구성」, 「방문 횟수 몇 번 왔는가」 →
+    「방문 횟수」, 「빌렸는가 좌석 수」 → 「좌석 수」). 캡션뿐인 줄(「몇 번 왔는가」「얼마나 오래」「다시 오고 싶은가」)과 캡션을 걷고
+    남은 말이 절의 앞머리인 줄(「하루에 몇 번」「고객은 왜 떠났나」)은 항이 아니다.
+    """
     p = _plain(line)
-    return bool(p) and len(p) <= TERM_MAX_CHARS and not is_question_line(p) and not R.is_question(p) \
-        and not R.is_sentence(p) and not R.table_cells(line)
+    if not p or len(p) > TERM_MAX_CHARS or R.table_cells(line):
+        return ""
+    asked = is_question_line(p) or R.is_question(p)
+    if R.is_sentence(p) and not asked:
+        return ""
+    head, cut = caption_cut(line)
+    return head if cut or not asked else ""
+
+
+def term_like(line: str) -> bool:
+    """식의 한 항이 될 만한 줄인가 — `term_of` 가 항 이름을 낸다."""
+    return bool(term_of(line))
+
+
+def _next_term(joined: list[str], after: int, used: set[int]) -> tuple[int, str] | None:
+    """열린 식 뒤 FORMULA_LOOKAHEAD 줄 안에서 첫 항 (줄 번호, 캡션을 걷은 항 이름). 없으면 None."""
+    for k in range(after + 1, min(len(joined), after + 1 + FORMULA_LOOKAHEAD)):
+        term = "" if k in used else term_of(joined[k])
+        if term:
+            return k, term
+    return None
 
 
 def join_formula_lines(lines: list[str], labels: list[str] | None = None) -> list[str]:
@@ -166,10 +188,11 @@ def join_formula_lines(lines: list[str], labels: list[str] | None = None) -> lis
     식 조각을 한 줄로 — F-08 과 **같은** 이음(`_evidence.join_formula`: 캡션 물음은 항이 아니고, 식 기호로 시작하거나 기호만
     있는 줄은 앞 줄에 붙고, labels(그래프 라벨)를 주면 캡션 뒤의 빈 항을 라벨로 채운다)을 먼저 한다 — F-26 인용과 F-08 근거가
     같은 식 줄을 읽는다 (09-30 WP-Q 요청). 그래도 **식 기호로 끝난 채** 남은 식만 구조로 마저 채운다: 몇 줄 안의 항 같은 줄
-    (짧고 물음·문장·표 행이 아닌 줄)의 끝 의문사 조각을 떼고 잇는다. F-07 후처리는 아직 노드가 **아닌** 항을 찾아야 해서
-    라벨로는 못 채운다 (라벨이 있는 식이면 두 방법이 같은 줄을 낸다 — 라벨로 시작하는 줄이 곧 항 같은 줄이다).
+    (짧고 서술 문장·표 행이 아닌 줄)에서 캡션 조각을 걷은 항 이름(`term_of`)을 잇는다. F-07 후처리는 아직 노드가 **아닌** 항을
+    찾아야 해서 라벨로는 못 채운다 (라벨이 있는 식이면 두 방법이 같은 줄을 낸다 — 라벨로 시작하는 줄이 곧 항 같은 줄이다).
     09-30 M-05: 도서관 덱 「독서 경험 = 대출 권수 × 머문 시간 ×」 / 「얼마나 머물렀는가」 / … / 「공간 만족도 얼마나」 —
-    F-26 이 캡션을 식에 이어 붙여 식 인용을 물음 줄로 버렸고 긴장 T1 을 놓쳤다.
+    F-26 이 캡션을 식에 이어 붙여 식 인용을 물음 줄로 버렸고 긴장 T1 을 놓쳤다. 09-30 WP-M: 끝의 물음 낱말만 떼던 탓에
+    가운데 낀 캡션 조각(「메뉴 다양성 몇 가지」)은 항 이름에 그대로 남았다 — 이제 줄 어디에 있든 걷는다.
     """
     joined = join_formula(list(lines), labels)
     out: list[str] = []
@@ -179,13 +202,12 @@ def join_formula_lines(lines: list[str], labels: list[str] | None = None) -> lis
             continue
         cur, j = line, i
         while _OPEN_FORMULA_RE.search(cur) and "=" in cur:
-            nxt = next((k for k in range(j + 1, min(len(joined), j + 1 + FORMULA_LOOKAHEAD))
-                        if k not in used and term_like(joined[k])), None)
+            nxt = _next_term(joined, j, used)
             if nxt is None:
                 break
-            cur = f"{cur} {_TRAILING_WH_RE.sub('', joined[nxt]).strip()}"
-            used.add(nxt)
-            j = nxt
+            j, term = nxt
+            cur = f"{cur} {term}"
+            used.add(j)
         out.append(cur)
     return out
 

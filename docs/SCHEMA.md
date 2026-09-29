@@ -333,8 +333,12 @@ python examples/dump_parse_raw.py /path/to/deck.pdf
 | `slides[].concepts` | string[] | `"이름: 설명"` 형식 |
 | `slides[].importance` | `"core"`\|`"support"` | 맥락 가중 |
 | `slides[].raw_text` | string | 근거 대조용 원문 보존 |
+| `slides[].missing` | `true` \| (키 없음) | (09-30 G-A8) 모델이 이 장의 개념을 **두 번 물어도** 안 돌려줬다 — `concepts` 가 빈 것은 「개념 없는 장」 이 아니라 「못 받은 장」 이다. 거짓이면 키가 없다(옛 캐시·저장본 모양 그대로). 화면: 그 장에 「개념을 못 받았어요 — 다시 분석하면 채워요」. 빠진 장이 `MISSING_MAX`(2)장을 넘고 전체의 25%(`MISSING_SHARE_MAX`)도 넘으면 결과 대신 502 `concepts_incomplete` 다 (§10-E) |
 
 **안 함:** 부모-자식 트리 → **F-07 책임**
+
+`POST /api/v1/concepts` 는 빠진 장이 있으면 ConceptDoc 에 `degraded: ["concepts_missing"]` · `degraded_notes` · `missing_slides`(장 번호)를
+더해 돌려주고 단계 캐시에 담지 않는다 — 다음 분석이 그 장을 다시 받는다. 온전하면 응답 모양이 예전과 같다(세 키 없음).
 
 코드: `f06_concepts.extract_concepts()` → `ConceptDoc`
 
@@ -461,6 +465,11 @@ F-11  ConceptGraph + Transcript  → AlignmentDoc    (발화 축 + 4-class, §7)
 | `sections[].name` | string | ✅ | 구획 이름 (예: `"본론 — 제안 방법"`) |
 | `sections[].slide_role` | enum | ✅ | `cover`\|`intro`\|`body`\|`conclusion`\|`closing` |
 | `sections[].slide_nos` | int[] | ✅ | 이 구획에 속한 장 번호 |
+| `thesis` | string | — | (09-30 G-A17) 모델이 고른 **발표 주제 노드의 `id`** (문장이 아니다). 루트(`parent_id` null)일 때만 남고, 모르면 키가 없다. F-08 주제 자리(theme)·F-26 탐침이 「가장 무거운 루트」 를 짐작하지 않게 쓴다. 화면: 있으면 그 노드를 주제로 강조, 없으면 예전처럼 weight 1.0 루트 |
+| `degraded` | string[] | — | (09-30 G-A30) 만들다 떨어진 단계 이름. 지금 값은 `links` 하나(연결 보강 LLM 실패 → 처음 그린 연결로 그래프를 만듦). 비면 키가 없다. 이런 그래프는 단계 캐시에 담지 않는다 — 다시 분석하면 채울 수 있다. 화면: `/graph` 응답의 `degraded_notes` 를 한 줄로 (§10-E) |
+
+`thesis`·`degraded` 는 **값이 있을 때만** 직렬화한다 — 옛 그래프 캐시·저장본과 모양이 같다. `POST /api/v1/graph` 는 `degraded` 가
+있으면 `degraded_notes` 를 더해 돌려준다. 노드를 하나도 못 만들면 그래프 대신 502 `graph_empty` 다 (§10-E).
 
 **보증(어댑터가 지키는 불변식):**
 
@@ -573,7 +582,8 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 
 ### 7-B. 후처리 — `AlignmentDoc`
 
-입력: `ConceptGraph` + `Transcript` (+ 선택 `Context`)
+입력: `ConceptGraph` + `Transcript` (+ 선택 `Context`, + 선택 `SlideDoc`·F-04 `marks_match` — 09-30 부터. 브리지는 둘 다
+요청 본문이 아니라 세션 보관소에서 `session_id` 로 찾는다)
 출력:
 
 ```jsonc
@@ -639,6 +649,13 @@ F-07은 골격과 슬라이드 축만 만들고, 나머지는 뒤 단계가 `id`
 `basis != "llm"` 이거나 `speech_match == "unrelated"` 면 item 의 missing 은 「안 말했다」 는 확인이 아니다
 (`AlignmentDoc.speech_usable` 이 둘을 묶는다). `decided_by == "fallback"` 인 item 하나하나도 같다.
 질문(F-08)은 `speech_usable` 이 거짓이면 발화·정합 근거 없이 자료만으로 묻는다.
+
+**화면이 할 일 (09-30, 새 칸은 전부 `to_dict` 에 언제나 있다 — 옛 저장본을 읽으면 `matched`·`llm`·`[]`·`""`·null):**
+- `speech_match == "unrelated"` → 산점도·누락 목록 대신 「녹음이 이 자료의 발표가 아니에요」 한 줄. 누락 개수를 세지 않는다.
+- `basis == "fallback"` 이거나 item 의 `decided_by == "fallback"` → 「누락」 을 확정으로 쓰지 않는다(「AI 판정 없이 언급 횟수로 짐작」).
+- `contradiction` 인 item 에 `deck_quote` 가 있으면 자료 쪽 인용(`deck_slide_no` 장)과 발화 인용(`evidence`)을 나란히 보인다.
+- `skipped_slides[]` → 「N장을 말로 건너뛰었어요: «cue»」 + 그 장에서 끝내 missing 인 개념(`node_ids`) 칩. 비면 안 그린다.
+- `speech_overlap` 은 못 쟀으면 null — 숫자를 화면에 낼 일은 없다(판정 근거 로그용).
 
 **LLM 뒤 코드 대조 (`_align_checks`, 순서가 뜻이다):**
 1. 인용은 **한 장 구간 안의 이어진 문장**만 — 두 구간을 이어 붙이지 않는다. 건너뛰기(「시간 관계상 그냥 넘어갈게요」)·
@@ -847,6 +864,7 @@ FlowDiff`, **LLM 호출 없는 순수 함수**다 — 같은 입력이면 언제
 | `AlignmentDoc` | 선택 | `verdict` → `source`(모순·누락), `evidence` → 발화 인용 |
 | `FlowDiff` | 선택 | `issues` → `source`(`weak_flow`) |
 | `Transcript.by_slide` | 선택 | 근거 장에서 **실제로 한 말** (`slide_no` 로 조인) |
+| `ClaimDoc` (F-26, 09-29) | 선택 | 탐침(`tension`·`unsolved` …) → `source`·`basis.probe` (§8-I). 자료 본문(`SlideDoc`)이 있어야 만든다 |
 
 선택 입력이 없어도 동작한다 — 녹음 없이 자료만 올린 경로에서도 질문이 나온다.
 
@@ -972,6 +990,10 @@ LLM 을 두 번 부른다. 개념의 **중요도**는 §6 `weight`·§7 `verdict
 LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 폴백으로 채운다
 (모순·누락 → 1, 흐름 결손 → 2, 자료 비중 → weight ≥ 0.5 면 2 아니면 3).
 
+`probes[]` (2026-09-29, F-26) — 주장 그래프에서 코드가 찾은 탐침(`Probe`, §8-I). `marks` 중 `source` 가 `PROBE_KINDS`
+(`tension`·`unsolved`·`unsupported_cause`·`absolute_boundary`·`sibling_priority`)인 것은 같은 `node_ids[0]` 의 탐침이 여기 있다
+(`QaTriage.probe_for`). QaTriage 는 브리지 안의 캐시라 응답으로 나가지 않는다 — 화면은 `questions[].basis.probe` 로 본다.
+
 ### 8-E. 후처리 — `QuestionDoc` (F-08 2차)
 
 ```jsonc
@@ -1010,6 +1032,55 @@ LLM 이 어떤 후보를 빠뜨리면 `severity` 는 `source` 기반 결정적 �
 `evidence_slide_no`·`evidence_quote`·`speech_quote` 는 F-08 이 slidedoc 을 받았을 때만
 채운다 — 「모르겠어요」 사다리가 "자료 5장은 이렇게 말해요: «…»" 로 LLM 없이 즉시 쓴다.
 없으면 빈 값이고 사다리는 예전(방향·범위·접근) 그대로다.
+
+**질문의 근거·함정 전제 (2026-09-29 P1·qa/trap, 09-30 qa/reason)** — 질문마다 두 칸이 더 실린다. 옛 세션은 둘 다 null 이다.
+
+```jsonc
+"basis": {                                   // QuestionBasis — 이 질문이 왜·무엇을 근거로 나왔나. 옛 세션은 null
+  "source": "tension", "slot": "theme", "rank": 1,
+  "probe": { "kind": "tension", "node_ids": ["revisit", "price"], "claim_ids": ["c01", "c02"],
+             "angle": "…", "evidence": [ { "slide_no": 1, "quote": "…" } ] },   // 탐침에서 나왔으면 (§8-I), 아니면 null
+  "evidence": [ { "slide_no": 4, "quote": "자료 원문 그대로" } ],
+  "checks": ["mentions_probe_nodes", "gist_probe_code"],
+  "reason": [], "background": [], "contrast": [], "contrast_quote": null        // 09-30 qa/reason — 근거 질문일 때만 찬다
+},
+"trap_premise": {                            // TrapPremise — 함정 질문일 때만. 아니면 null
+  "kind": "number", "premise": "질문에 얹은 틀린 말", "fact": "자료가 실제로 말하는 것",
+  "slide_no": 3, "wrong": ["40%"], "right": ["25%"]
+}
+```
+
+| 필드 | 타입 | 뜻 · 화면 |
+|------|------|------|
+| `basis.source` | string | `Question.source` 와 같은 값 (탐침에서 나왔으면 `PROBE_KINDS` 이름) |
+| `basis.slot` | `"theme"`\|`"part"`\|`"weak"`\|`""` | 트랙 배합 자리 — 주제 · 요소 · 약점. `""` 은 배합 밖 |
+| `basis.rank` | int | 1차 심사 순위 (`TriageMark.rank`) |
+| `basis.probe` | `Probe` \| null | 탐침에서 나온 질문이면 그 탐침 (§8-I) |
+| `basis.evidence[]` | `{slide_no, quote}` | 자료 원문 인용 — 힌트 인용과 같은 출처 |
+| `basis.checks[]` | string[] | 질문 문장에 대한 코드 검사 이름 (`trap_generated`·`probe_template`·`fallback_template`·`gist_rebuilt` …). **열린 목록** — 로그·하네스용, 화면은 읽지 않는다 |
+| `basis.reason[]` | `{slide_no, quote}` | (09-30) 근거·이유를 묻는 질문이면 결론을 받치는 **이유 줄**. F-09 가 채점 기준으로 싣는다 |
+| `basis.background[]` | `{slide_no, quote}` | (09-30) 현상이 있다는 **배경 줄** — 이유가 아니다(배경 수치를 이유처럼 답하면 `reason` 가드) |
+| `basis.contrast` | string[] (0 또는 2) | (09-30) 「모르겠어요」 보기 쌍 `[자료가 세운 쪽, 부정한 쪽]`. 쌍이 아니면 빈 목록 |
+| `basis.contrast_quote` | `{slide_no, quote}` \| null | (09-30) 그 대비가 적힌 자료 줄 |
+| `trap_premise.kind` | enum | `TRAP_KINDS` — `number` 수치 · `order` 비교 순서 · `extreme` 표의 가장 큰 쪽 · `direction` 방향 · `negation` 부정·대조 |
+| `trap_premise.premise` | string | 질문에 얹은 **틀린 말** — 코드(`_traps`)가 자료 줄 하나에서 한 곳만 뒤집어 만든다 (LLM 이 지어내지 않는다) |
+| `trap_premise.fact` | string | 자료가 실제로 말하는 것 (자료 줄 그대로 또는 표 행에서 읽은 값) |
+| `trap_premise.slide_no` | int | `fact` 의 장 |
+| `trap_premise.wrong[]` · `right[]` | string[] | 전제에만 있는 단서 · 자료에만 있는 단서. F-09 가 답이 어느 쪽을 말했는지로 「전제에 동의했나」 를 정한다 |
+
+**화면 규칙 — 답하기 전에 답을 흘리지 않는다:** 「이 질문의 근거」 칸은 한 줄 설명과 **장 번호까지만** 보인다 — `basis.evidence`·
+`reason`·`contrast_quote` 의 인용문은 질문을 띄울 때 싣지 않는다(09-30 held-out C-03: 함정은 근거 인용이 곧 바로잡은 사실이라
+15개 중 13개가 정답을 질문 밑에 펼쳤다). 서버도 먼저 가린다 — 함정 질문(`trap_premise` 있음)과 인용이 곧 기대 답인 질문은
+`basis.evidence[].quote` 가 `""`(장 번호만)이고 `reason`·`background`·`contrast` 가 비며 `checks` 에 `basis_quote_hidden` 이 붙는다.
+`trap_premise.fact` 와 함정 질문의 `answer_gist` 는 통과(`passed`)하거나 닫힌 뒤에만 펼친다(09-30 §7). 함정 질문의 `why` 는
+함정임을 알려 주므로 화면이 장만 가리키는 중립 문장으로 바꾼다(09-30 B-01·H-07).
+`trap=true` 인데 `trap_premise` 가 null 이면 옛 세션이다 — 판정은 예전 규칙으로 간다.
+
+**응답의 폴백 표시 (09-30 WP-B):** `POST /api/v1/questions` 응답(QuestionDoc + 힌트 사다리)에는 `degraded`(코드 목록)·`degraded_notes`
+(같은 순서의 사람 말)가 **언제나** 있다 — 폴백이 없으면 둘 다 `[]`. 코드는 `slide_doc_missing` · `claims_rule_only`·`claims_failed`·
+`claims_timeout` · `papers_timeout`·`papers_unavailable`·`papers_partial`·`papers_failed` · `memory_failed` (§10-E). `slide_doc_missing` 을 뺀
+나머지로 만든 질문 묶음은 `DEMO_FALLBACK_TTL_SEC`(120초)만 들고 있다가 재료부터 다시 만든다. 화면: `degraded_notes` 를 첫 질문 앞에
+한 번 짧게.
 
 **보증 (불변식):** ① 질문 `id` 유일 · `node_id` 중복 없음 ② 질문 수 ≤
 `QA_TRACK_LIMITS[track]` ③ `trap=true` 수 ≤ `QA_TRACK_TRAPS[track]` (1분 트랙은 0)
@@ -1073,6 +1144,25 @@ LLM 은 한 번만 쓴다 — 한글 개념 이름을 영어 검색어로 바꾸
 아티팩트로 보관, 그래프가 바뀌면 지운다) · `POST /api/v1/papers/search` `{query, limit?}` → PaperDoc
 (자유 질문의 논문 검색, 전부 `kind=scholar`). `/api/v1/questions` 는 `papers=false` 로 끌 수 있다.
 
+**`status[]` — 검색 한 건 한 건의 사정 (09-30 G-A9·G-A32).** `note` 한 줄로는 「어느 개념이 왜 문헌 없이 갔나」 를 못 가른다.
+항목은 dict 이고 `kind` 로 나뉜다. `to_dict` 에 언제나 있고, 비면 검색을 안 했거나(scholar=none) 옛 문서다.
+
+| `kind` | 칸 |
+|------|------|
+| `concept` | `{node_id, label, query, query_source, state, kept, dropped, reason}` — 개념 하나의 검색. `query_source`: `label`(영문 이름 그대로)·`llm`(번역)·`ascii`·`none`. `kept`/`dropped` 는 그 개념의 관련성 바닥(`_keeps`)을 넘은/떨어진 검색 결과 수. `/papers/search` 는 `node_id: ""` 한 줄 |
+| `resolve` | `{cite_key, state}` — 자료 인용 되찾기. 못 찾으면 `state: "not_found"` |
+| `provider` | `{provider, calls, ok, empty, failed, rate_limited, timeout, throttled, not_searched, error}` — 통로마다 센 수와 첫 오류 한 줄 |
+
+`state`: `ok`·`empty`(성공) · `failed`·`rate_limited`·`timeout`·`http`·`network`·`parse`·`error`(실패) · `throttled`(우리 요청 한도로 참음) ·
+`not_searched`(시간 예산으로 시작 못 함) · `no_query`(검색어 없음). 화면: 문헌 카드가 비었을 때 `rate_limited`·`timeout` 이면 「검색이 잠시
+막혔어요」, `no_query`·`empty` 면 「맞는 논문을 못 찾았어요」 로 가른다.
+
+**폴백 표시 (09-30 B-03·B-11·B-14):** `POST /api/v1/papers` 응답에는 `degraded`·`degraded_notes` 가 언제나 있다 — `papers_unavailable`
+(검색 실패·통로 쉬는 중 → 자료 인용 문헌만)·`papers_partial`(일부 통로만 실패) 중 하나 또는 `[]` (§10-E). `papers_timeout` 은 질문 생성이
+문헌을 6초(`DEMO_PAPERS_DEADLINE_SEC`)까지만 기다릴 때 `/questions` 에만 나온다. `/papers/search` 응답에는 `degraded` 가 없다. 검색이 실패한 PaperDoc(429·시간
+초과로 자료 인용만 남은 것)은 보관하지 않고 120초만 들며, 실패한 통로는 `DEMO_PAPERS_NEGATIVE_TTL_SEC`(180초) 동안 부르지 않는다.
+보관한 `paper_doc` 은 그래프 지문(`graph_fp` 키)이 같을 때만 다시 쓴다.
+
 ### 8-H. `MemoryDoc` — 리허설을 기억하는 Q&A (F-25, 2026-09-23)
 
 **책임 한 줄:** 같은 사람·같은 발표의 지난 리허설(동의 세션의 `qa_turns.jsonl`)에서 개념별 답변 과정을 **세어** 다음 Q&A 에 잇는다.
@@ -1082,31 +1172,91 @@ LLM 은 한 번만 쓴다 — 한글 개념 이름을 영어 검색어로 바꾸
 |------|------|------|
 | 지난 세션 `qa_turns` | ✅ | `{question{label,node_id}, hints_shown, give_up, judgement{verdict,score,missing_points}}` → 개념별 집계. **LLM 0** |
 | 잇는 열쇠 | ✅ | `learner_id`(브라우저 난수, 업로드 쿼리 `?learner=`)만. 요청 세션도 동의해야 한다. **같은 파일(`sha256`)·파일 이름만으로는 안 잇는다** — 부스에서 남의 기록이 붙는다. `sessions[].session_id` 는 불투명한 `past-…` 표시다 |
-| 이번 `ConceptGraph` | 선택 | `MemoryDoc.by_node(graph)` — 이름을 글자 2-gram Dice ≥ 0.6 으로 잇는다 (노드 id 는 세션마다 다르다) |
+| 이번 `ConceptGraph` | 선택 | `MemoryDoc.by_node(graph)` — 이름을 글자 2-gram Dice ≥ 0.6 으로 잇는다 (노드 id 는 세션마다 다르다). 09-30 부터 반대말·한 낱말 치환은 잇지 않고(「인력 부족」≠「인력 부족 해소」, `memory_similarity`), 표기만 다른 이름은 0.95, 발표 지문(`deck_keys`)이 이번 그래프와 맞는 기억만 잇는다. 브리지는 그래프·자료를 넘겨 이번 발표로 거른 기억(`scoped`)을 만든다 |
 
 ```jsonc
 {
   "learner_key": "learner:3f9a2c7e",     // "learner:<id 앞 8자>" | "" (못 이음). 같은 파일만으로는 잇지 않는다
   "file_name": "발표.pdf", "note": "",
+  "scoped": true,                          // 09-30 — 이번 발표(그래프)로 거른 기억인가
   "sessions": [                            // 최신이 먼저, 최대 MEMORY_SESSIONS_MAX(5)
     { "session_id": "past-3f9a2c7e1b04", "at": 1758550000.0, "title": "발표",
       "questions": 3, "good": 1, "partial": 1, "wrong": 0, "give_ups": 1, "score_mean": 58.3 }
   ],
-  "concepts": [                            // stalled(한 번도 good 을 못 받음)가 먼저
+  "concepts": [                            // stalled(한 번도 통과선을 못 넘음)가 먼저
     { "key": "알림의주의비용", "label": "알림의 주의 비용", "node_ids": ["notification"],
       "asked": 2, "attempts": 3, "give_ups": 0, "verdicts": { "wrong": 1, "partial": 2 },
       "last_verdict": "partial", "best_verdict": "partial", "last_score": 65, "last_at": 1758550201.0,
       "missing_points": ["통제 집단", "측정 조건"],   // 최근 판정이 짚은 것, 최신 우선, 최대 3
-      "hints_max": 1, "stalled": true }
+      "hints_max": 1,
+      "passes": 0, "closes": {}, "deck_keys": ["알림의주의비용", "주의잔여", "측정조건"],   // 09-30
+      "stalled": true }
   ]
 }
 ```
+
+| 필드 (09-30 WP-P) | 타입 | 뜻 · 화면 |
+|------|------|------|
+| `scoped` | bool | f25 가 이번 그래프를 받아 **다른 발표의 리허설을 빼고** 만든 기억이다(요약 `sessions` 까지). 참이면 이름만으로 찾아도(`concept`) 안전하고 `by_node` 는 지문 대조를 건너뛴다. 거짓(이번 발표를 모르고 만든 기억)이면 지문이 있는 기억은 그래프와 견줘서만 잇는다 |
+| `concepts[].passes` | int | 통과선(`qa_passed`)을 넘은 턴 수 — 70~79 partial 도 센다. 옛 기억은 0 |
+| `concepts[].closes` | `{close_reason: 횟수}` | 닫힌 까닭별 횟수 — `good`·`rounds`·`guard` (§8-F `close_reason`). 화면: 「설득해 닫음」 은 `good` 만 센다 |
+| `concepts[].deck_keys` | string[] | 발표 지문 — 같은 발표로 묶인 지난 리허설에서 물은 개념 이름 열쇠 전부(정렬, 최대 40). 이름 하나(「비용」)가 같다고 다른 발표의 기억을 잇지 않게 한다. 비면(옛 기억) 예전처럼 이름으로만 잇는다 |
+| `concepts[].stalled` | bool (파생) | **뜻이 바뀌었다** — 「물어봤는데 한 번도 통과선을 못 넘었다」(`attempts > 0 && passes == 0 && best_verdict != "good"`). 예전엔 good 이 없으면 전부 stalled 라 partial 70~79 로 통과한 개념이 다음 리허설 맨 앞에 다시 섰다(09-30 G-A23). 가드에 막힌 채 3라운드에서 닫힌 턴은 통과가 아니라 여기 남는다 |
 
 **프롬프트에 싣는 것:** `ConceptMemory.prompt_line` 한 줄 — 「지난 리허설: 2번 물음 · 마지막 판정 반쯤 · 빠졌던 점: 통제 집단 / 측정 조건」.
 **싣지 않는 것:** 답변 원문(지난 답을 이번 답으로 착각한다), 오디오, 동의 없는 세션. memory 가 없으면 F-08·F-09 프롬프트는 예전과 글자까지 같다.
 
 **경로:** `POST /api/v1/memory {session_id}` → MemoryDoc (없으면 `note` 에 사유). `/api/v1/questions`·`/api/v1/qa/judge` 는 세션에 기억이 있으면
 자동으로 싣고, 본문 `"memory": false` 로 끈다. 만든 기억은 이 세션의 `memory_doc` 아티팩트(동의 세션만)로 남는다.
+
+`POST /api/v1/memory` 는 기억을 **못 읽었으면** 「지난 리허설 없음」(200 + `note`)이 아니라 503 `memory_failed`(`retry_after` 120)다 —
+실패는 120초만 들고 다시 읽어 본다. `/questions`·`/qa/judge` 는 같은 실패를 막지 않고 응답 `degraded` 에 `memory_failed` 로 싣는다 (§10-E).
+
+### 8-I. `ClaimDoc` · `Probe` — 주장 그래프와 탐침 (F-26, 2026-09-29)
+
+**책임 한 줄:** 개념 사이의 **주장**(「A = B × C」 · 「A 가 B 보다 중요」 · 「A 가 B 를 일으킨다」 …)을 자료 원문 인용과 함께 뽑아,
+F-08 이 자료 안의 긴장·빈칸을 **코드로** 찾게 한다. `ConceptGraph` + `SlideDoc`(필수 — 인용을 원문과 대조한다) → `ClaimDoc`.
+LLM 1콜 + 규칙 주장(식·비교·인과·목록). LLM 이 죽으면 규칙 주장만 낸다(`model: "rule"`). 탐침(`Probe`)은 F-08 이
+ClaimDoc(+ 자료 원문)에서 결정적으로 만든다(`_probes.derive_probes`, LLM 0).
+
+```jsonc
+{
+  "file_name": "cafe.pdf", "model": "solar", "dropped": 2,
+  "claims": [
+    { "id": "c01", "kind": "compose", "subject_id": "revisit", "object_ids": ["taste", "price", "mood"],
+      "text": "재방문은 맛·가격·분위기로 이뤄진다",
+      "evidence": [ { "slide_no": 2, "quote": "재방문 = 맛 × 가격 × 분위기" } ], "has_support": false }
+  ],
+  "degraded": [], "degraded_notes": []          // /api/v1/claims 응답에만 (09-30) — 규칙 주장만이면 ["claims_rule_only"]
+}
+```
+
+| 필드 | 타입 | 뜻 |
+|------|------|------|
+| `model` | string | 주장을 뽑은 LLM · `rule`(LLM 없이 규칙 주장만) |
+| `dropped` | int | 원문 대조 실패·그래프 밖 id 로 버린 주장 수 (로그·측정용) |
+| `claims[].id` | string | `c01` … 문서 안 안정 키 |
+| `claims[].kind` | enum | `CLAIM_KINDS` — `compose`(subject 는 objects 로 이뤄진다) · `compare`(subject 가 objects 보다 더 …) · `cause`(일으키거나 끊는다) · `solve`(해결한다) · `absolute`(단정 — objects 는 비어도 된다) · `contrast`(맞세운다). 밖이면 `contrast` |
+| `claims[].subject_id` · `object_ids[]` | string | `ConceptGraph.nodes[].id`. 그래프 밖 id 는 어댑터가 버린다 |
+| `claims[].text` | string | 주장 한 줄 — 자료 표현에 가까운 **내부 재료**(해요체 아님). 화면 문구로 쓰지 않는다 |
+| `claims[].evidence[]` | `{slide_no, quote}` (`ClaimQuote`) | 자료 원문 **그대로** — 코드가 원문과 대조해 통과한 것만. 하나도 없으면 그 주장은 버린다 |
+| `claims[].has_support` | bool | 그 장에 수치·출처·연구 언급이 있나 (코드가 채운다) — `unsupported_cause` 탐침이 본다 |
+
+| `Probe` 필드 | 타입 | 뜻 |
+|------|------|------|
+| `kind` | enum | `PROBE_KINDS` — `tension`(compare A>B 와 compose A⊃B 가 함께) · `unsolved`(compose 의 요소에 solve 가 없음) · `unsupported_cause`(수치·출처 없는 cause) · `absolute_boundary`(「반드시·완전히·항상」 단정 — 반례·경계) · `sibling_priority`(같은 compose 의 형제 — 하나만 지킨다면). `QA_SOURCES` 에도 같은 이름으로 있다 |
+| `node_ids[]` | string[] | `[0]` 이 질문의 대상 개념 |
+| `claim_ids[]` | string[] | 근거 주장 id (자료 구조 탐침이면 빌 수 있다) |
+| `angle` | string | 코드가 조립한 질문 각도 한 줄 — 질문 프롬프트에 그대로 실린다 |
+| `evidence[]` | `{slide_no, quote}` | 자료 원문 인용 |
+
+**빈 주장 문서도 문서다 (09-30 WP-Q2):** 주장이 0개인 ClaimDoc 은 실패가 아니라 결과다 — F-08 은 그래도 자료 구조 탐침(「X보다 중요한 Y」
+줄 + 「Y = … × X」 식 줄의 긴장)을 찾는다. 「주장을 안 돌렸다」 는 ClaimDoc 이 null 일 때뿐이다.
+
+**경로:** `POST /api/v1/claims` `{graph | session_id, slide_doc?}` → ClaimDoc + `degraded`·`degraded_notes`(언제나, 09-30). 자료 본문이
+없으면 409 `slide_doc_missing`, 못 만들면 502 `claims_failed`. 세션에 한 번 만들어 `claim_doc` 아티팩트로 남기지만 **되읽지 않는다**(그래프를
+다시 만들면 id 가 안 맞는다). 규칙 주장만 나온 문서는 단계 캐시에 안 담고 120초만 든다. `/api/v1/questions` 는 `claims=false` 로 끈다.
+화면이 직접 그리는 문서가 아니다 — 질문의 `basis.probe`·`basis.evidence` 로 보인다(§8-E).
 
 ### 8-F. 후처리 — `QaJudgement` (F-09)
 
@@ -1143,6 +1293,19 @@ LLM 은 한 번만 쓴다 — 한글 개념 이름을 영어 검색어로 바꾸
 고유 낱말과 안 닿음 · 65) · `trap_misfixed`(수치 함정을 틀린 값으로 고침 · wrong 35) · `trap_open`(함정인데 전제를 짚었는지 모름 · 65) ·
 `language`(한국어가 아닌 답 — 채점하지 않고 `unknown`) 와 예전 가드들(`trap` · `deck` · `self_opposed` · `restated` · `reason` ·
 `off_topic` · `focus_miss` · `short` · `choice`). 화면은 문장(`guard_reason`)을, 하네스·리포트는 이름을 읽는다.
+
+**판정 응답에만 붙는 네 칸 (09-30 R4·B-07·B-12, `POST /api/v1/sessions/{id}/qa/judge` · `/api/v1/qa/judge`)** — QaJudgement 계약 밖이라
+`from_dict` 는 읽지 않는다. 네 칸은 판정 응답에 **언제나** 있다.
+
+| 필드 | 타입 | 뜻 · 화면 |
+|------|------|------|
+| `grounded_on_server` | bool | 채점 기준이 **서버가 만든 질문**이었나 (이 세션 질문 색인 · 동의 세션의 `question_doc` 보관본 · 문장이 달라 서버 최신 판으로 채점한 것 모두 참). 거짓이면 본문 질문으로 채점했고 그 턴은 `qa_turns` 에 남기지 않는다(F-25 기억·학습 묶음으로 안 흘러간다). 화면: 사용자가 할 일이 없어 띄우지 않는다(로그만) |
+| `grounded_on_deck` | bool | 자료 본문(`slide_doc`)과 대조해서 판정했나. 화면: 거짓이면 「자료 본문 없이 판정했어요」 한 줄 |
+| `degraded` | string[] | 폴백 코드 — `slide_doc_missing` · `question_unverified`(서버 질문을 못 찾아 본문 질문으로) · `question_mismatch`(화면 질문이 서버 것과 달라 서버 판으로) · `memory_failed`. 없으면 `[]` |
+| `degraded_notes` | string[] | 같은 순서의 사람 말 (§10-E). 화면: `question_unverified`·`question_mismatch` 의 말은 띄우지 않고 나머지만 |
+
+세션 id 는 본문 `session_id` 가 먼저, 없으면 경로의 `{id}`. 발급 모양 또는 `"flat"`(발급 id 가 없는 경로의 자리표시자)만 받는다 —
+그 밖이면 400. `question_id` 로 서버 질문을 찾으므로 **`question_id` 와 `question`(문장 비교·폴백용)을 같이 보낸다.**
 
 #### 막힘 코칭 — `coach_stage` (「모르겠어요」)
 
@@ -1222,6 +1385,11 @@ API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/
 > 세션이 사라졌을 때를 대비해 요청 바디의 `question`(=`Question.to_dict()`)을 폴백으로
 > 받는다. 서버 저장소가 인메모리라 재시작하면 세션이 날아가는데, 질문 세트는 브라우저에
 > 남아 있기 때문이다. 세션 아티팩트가 정본이고, 없을 때만 바디를 쓴다.
+>
+> **09-30 부터 채점 기준(질문)도 서버가 정한다** (감사 R4·B-07·B-12 — 본문의 `trap`·`trap_premise`·`basis` 를 지우거나 `answer_gist` 를
+> 고쳐 보내면 함정에 동의한 답이 wrong 0 → good 80 이 됐다). 서버 질문(이 세션 색인 → 동의 세션 보관본)을 `question_id` 로 찾아 **그걸로**
+> 판정하고, 본문 `question` 은 같은 id 가 트랙마다 있을 때 문장이 같은 판을 고르는 데만 쓴다. 서버에 없을 때만 본문으로 판정하되
+> 길이·깊이를 자르고 `grounded_on_server: false` · `degraded: ["question_unverified"]` 로 알리며 그 턴은 기록하지 않는다.
 
 ---
 
@@ -1261,6 +1429,7 @@ API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/
 | F-17 말 속도·시간 배분 | `Transcript` + `Context` (+ `ConceptDoc`) → `PaceDoc` — 말로 건너뛴 장은 `slides[].skip_cue`(발화 원문)·`status` short (F-11 과 같은 규칙, `_spoken`) |
 | F-18 음성 습관 | `Transcript` → `HabitDoc` (REP/FIL/PAUSE) |
 | F-19 음성 종합 리포트 | `PaceDoc` + `HabitDoc` (+ `RubricScore`) → `ReportDoc` — `RubricScore.faults` 가 있으면 한 줄 총평·약점 첫 줄이 그것부터 말한다 |
+| F-26 주장 그래프 | `ConceptGraph` + `SlideDoc` → `ClaimDoc` → F-08 탐침(`Probe`) (§8-I) |
 
 ---
 
@@ -1334,9 +1503,15 @@ API: `POST /api/v1/sessions/{id}/questions` (202+job) · `POST /api/v1/sessions/
   "unmeasured": [25, 26],
   "basis": "full",
   "model": "solar",
-  "note": ""
+  "note": "",
+  "cap": null,                         // 09-30 — 치명 결함 상한 (없으면 null). 있으면 score ≤ cap
+  "faults": []                         // 09-30 — [{kind, text, slide_no}] · kind: contradiction | skipped_slide | unrelated_speech | align_fallback
 }
 ```
+
+`cap`·`faults` 는 `to_dict` 에 언제나 있다(옛 저장본을 읽으면 null·`[]`, 모르는 `kind` 는 버린다). **화면이 할 일:** `faults` 가 있으면
+점수보다 먼저 `text` 를 보이고(F-19 총평도 그것부터 말한다), `cap` 이 있으면 「상한 N점 — 까닭」 을 점수 옆에 붙인다.
+`unrelated_speech` 면 등급 대신 「이 자료의 발표 녹음이 아니에요」 를 앞세운다.
 
 **보증 (불변식):** ① 입력은 **전부 optional** — 없는 자료에 기대는 항목만 빠지고
 나머지는 정상 채점된다 ② 아무것도 못 재면 0점 + `note`, 예외를 던지지 않는다
@@ -1383,7 +1558,7 @@ id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬,
 | `slide_doc` · `transcript` | `slide_doc.json` · `transcript.json` | ✅ 캐시 (24h) |
 | `concept_doc` `concept_graph` `alignment_doc` `flow_diff` `chatter_doc` `pace_doc` `habit_doc` `rubric_score` `report_doc` `question_doc` | `artifacts/<kind>.json` | ❌ 동의 세션만 |
 | 원본 | `original.pdf` / `original.pptx` | ❌ 동의 세션만 |
-| QA 턴 | `qa_turns.jsonl` `{at, question_id, question, answer, prior_answers, hints_shown, give_up, judgement}` | ❌ |
+| QA 턴 | `qa_turns.jsonl` `{at, question_id, question, answer, prior_answers, hints_shown, give_up, judgement, question_source}` — 09-30 부터 **서버가 만든 질문으로 채점한 턴만** 남고 `question_source` 는 `server`·`archive`·`mismatch` 중 하나 | ❌ |
 | 피드백 | `feedback.jsonl` (아래) | ❌ |
 
 `POST /api/v1/sessions/{id}/feedback` · `{ "events": [FeedbackEvent…] }` → `{session_id, accepted}`.
@@ -1433,6 +1608,100 @@ id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬,
 - 낱말 신호라 `present` 는 과대평가될 수 있다. 화면(Festa 뒤)은 **missing 을 먼저**, present 는 근거 장을 같이 낸다.
 - 계약 타입은 아직 dict — LLM 2단을 붙이며 `DeckGapDoc` 으로 올린다 (로드맵 B6).
 
+## 10-E. 09-29~09-30 QA 보강 — 프론트가 기대도 되는 필드
+
+09-29 주장 그래프·함정 전제와 09-30 감사·레드팀 수정(`91d4c3d..f6d3854`)이 계약·응답에 더한 칸의 색인이다. **전부 더한 칸**이라
+모르는 클라이언트는 무시해도 되고, 옛 세션·저장본은 기본값(null · `[]` · `""` · 키 없음)으로 읽힌다. 응답에만 붙는 칸(`degraded`·
+`grounded_on_*`·429/502/503 본문)은 **데모 브리지(`demo/bridge.py`) 기준**이다 — `server/app.py` 는 아직 싣지 않는다.
+
+| 필드 | 어디 (계약 / 라우트) | 날짜 | 화면이 할 일 | 자세히 |
+|------|------|------|------|------|
+| `Question.basis` (`source`·`slot`·`rank`·`probe`·`evidence`·`checks`) | `QuestionDoc.questions[]` · `/questions` | 09-29 | 접힌 「이 질문의 근거」 — 한 줄 + 장 번호까지만. null 이면 안 그린다 | §8-E |
+| `basis.reason`·`background`·`contrast`·`contrast_quote` | `QuestionBasis` | 09-30 | `contrast` 쌍은 「모르겠어요」 보기. 인용문은 답하기 전에 안 보인다 | §8-E |
+| `Question.trap_premise` | `QuestionDoc.questions[]` | 09-29 | 통과·닫힘 전에는 `fact`·골자를 펼치지 않는다. 함정 `why` 는 중립 문장으로 | §8-E |
+| `QaJudgement.guard`·`guard_reason` | `/qa/judge` | 09-30 | `guard_reason` 은 되물음·결손과 따로 한 줄. `guard` 이름은 하네스·리포트용 | §8-F |
+| `QaJudgement.close_reason` (파생) | `/qa/judge` | 09-30 | 결과 화면은 `good` 만 「자기 말로 지켰어요」, `rounds`·`guard` 는 「다시 볼 곳」 | §8-F |
+| `guard_blocked` | 계약 속성 — **직렬화하지 않는다** | 09-30 | 없음 (요청 바디로 출구를 못 열게) | §8-F |
+| `grounded_on_server`·`grounded_on_deck` | `/qa/judge` 응답 | 09-30 | `grounded_on_deck: false` 면 「자료 본문 없이 판정했어요」 | §8-F |
+| `degraded`·`degraded_notes` | `/questions`·`/qa/judge`·`/claims`·`/papers` 응답(언제나) · `/concepts`·`/graph`(반쪽일 때만) | 09-30 | `degraded_notes` 를 한 줄로. `question_unverified`·`question_mismatch` 는 띄우지 않는다 | 아래 |
+| `missing_slides` | `/concepts` 응답(반쪽일 때) · 502 `concepts_incomplete` 본문 | 09-30 | 「N장 개념을 못 받았어요 — 다시 분석」 | §5-B |
+| `SlideConcepts.missing` | `ConceptDoc.slides[]` (참일 때만 키) | 09-30 | 그 장에 「개념을 못 받았어요」 | §5-B |
+| `ConceptGraph.thesis` | `/graph` (있을 때만 키) — 주제 **노드 id** | 09-30 | 주제 노드 강조 | §6-B |
+| `ConceptGraph.degraded` | `/graph` (있을 때만 키) — `links` | 09-30 | 「연결 보강을 못 했어요」 한 줄 | §6-B |
+| `AlignmentDoc.speech_match`·`speech_overlap`·`basis`·`skipped_slides` | `/alignment` | 09-30 | `unrelated` 면 「다른 발표 녹음」, `fallback` 이면 누락을 확정으로 안 쓴다, 건너뛴 장 카드 | §7-B |
+| `AlignmentItem.decided_by`·`deck_quote`·`deck_slide_no` | `/alignment` `items[]` | 09-30 | 모순 카드에 자료·발화 인용을 나란히 | §7-B |
+| `SlidePace.skip_cue` | `/pace` `slides[]` (언제나, 비면 `""`) | 09-30 | 비지 않으면 「말로 건너뛴 장: «cue»」 — 머문 시간이 있어도 `status` 는 `short` | §10 F-17 |
+| `RubricScore.cap`·`faults` | `/rubric` (언제나, null·`[]`) | 09-30 | `faults[].text` 를 점수보다 먼저, `cap` 은 「상한 N점」 | §10-A |
+| `PaperDoc.status` | `/papers`·`/papers/search` (언제나) | 09-30 | 문헌이 비었을 때 「검색이 막힘」 과 「맞는 논문 없음」 을 가른다 | §8-G |
+| `MemoryDoc.scoped` | `/memory` | 09-30 | (로그) 거짓이면 이번 발표를 모르고 만든 기억 | §8-H |
+| `ConceptMemory.passes`·`closes`·`deck_keys` (+ `stalled` 뜻) | `/memory` `concepts[]` | 09-30 | 「지난번에 못 넘긴 개념」 은 `stalled` 만. 설득 횟수는 `closes.good` | §8-H |
+| `ClaimDoc`·`Claim`·`ClaimQuote` | `/claims` (+ `degraded` 09-30) | 09-29 | 직접 안 그린다 (`text` 는 해요체가 아니다) | §8-I |
+| `Probe` · `QaTriage.probes` | `basis.probe` · 브리지 내부 | 09-29 | `basis.probe.kind` 로 근거 한 줄을 고른다 | §8-I |
+| `qa_turns[].question_source` | 세션 보관소 `qa_turns.jsonl` | 09-30 | 없음 (F-25 기억·학습 묶음이 읽는다) | §10-B |
+| `GET /api/v1/team` → `{ "team": bool }` | 새 라우트 | 09-30 | 참이면 샘플 발표·샘플 리포트·개발 화면을 연다 | 아래 |
+| 요청 `purpose: "qa_answer"` | `POST /api/v1/transcribe` 요청 칸 | 09-30 | 답변 받아쓰기에 싣는다 | 아래 |
+
+### `degraded` 코드 — 폴백은 폴백이라고 말한다
+
+`degraded` 는 코드 목록, `degraded_notes` 는 **같은 순서**의 해요체 한 문장(`DEGRADED_NOTES`)이라 그대로 띄워도 된다. 모르는 코드는
+코드 문자열이 그대로 문장 자리에 온다.
+
+| 코드 | 어느 응답 | 뜻 | 다시 하면 |
+|------|------|------|------|
+| `slide_doc_missing` | `/questions`·`/qa/judge` | 자료 본문을 못 찾아 자료와 대조하지 않았다 (근거 인용·주장·함정 전제가 빠진다) | 자료를 다시 올려야 한다 |
+| `question_unverified` | `/qa/judge` | 서버가 만든 질문을 못 찾아 화면의 질문으로 판정 — 기록에 안 남는다 | — |
+| `question_mismatch` | `/qa/judge` | 화면 질문이 서버 것과 달라 서버 질문으로 판정 | — |
+| `claims_rule_only` | `/questions`·`/claims` | 주장 LLM 이 죽어 규칙 주장만 | 120초 뒤 다시 만든다 |
+| `claims_failed` · `claims_timeout` | `/questions` | 주장 없이 (실패 · `DEMO_CLAIMS_WAIT_SEC` 90초 넘김) | 120초 뒤 |
+| `papers_timeout` | `/questions` | 문헌 검색이 6초를 넘겨 자료 인용 문헌만 — 검색은 뒤에서 마저 해 캐시를 채운다 | 다음 요청 |
+| `papers_unavailable` · `papers_partial` | `/questions`·`/papers` | 검색 실패·통로 쉬는 중(180초) → 자료 인용만 · 일부 통로만 실패 | 120~180초 뒤 |
+| `papers_failed` | `/questions` | 문헌 없이 | 120초 뒤 |
+| `memory_failed` | `/questions`·`/qa/judge` | 지난 리허설 기억 없이 | 120초 뒤 |
+| `concepts_missing` | `/concepts` | 개념을 못 받은 장(`missing_slides`)은 개념 없이 | 다시 분석 (캐시에 안 담았다) |
+| `links` | `/graph` | 연결 보강을 못 해 처음 그린 연결로 | 다시 분석 (캐시에 안 담았다) |
+
+### HTTP 오류 본문 (09-30 추가분)
+
+오류 본문은 언제나 `{error, message}` 다 — `message` 는 그대로 띄워도 되는 해요체 한 문장이고, 벤더 응답 본문·서버 경로는 싣지 않는다.
+`retry_after` 는 초(int).
+
+| 상태 | `error` | 어느 경로 | 더 실리는 칸 |
+|------|------|------|------|
+| 429 | `rate_limited` | 과금 경로 전부(`PAID_PATHS`: `/parse`·`/concepts`·`/transcribe`·`/graph`·`/alignment`·`/chatter`·`/habits`·`/report`·`/questions`·`/rubric`·`/qa/judge`·`/strategy`·`/papers`·`/papers/search`·`/claims`·`/memory`) + `/sessions/{id}/qa/judge` | `rate_limited: true` · `scope` · `retry_after` |
+| 503 | `upstream_timeout` | POST 전부 — 외부 LLM·검색이 제시간에 안 답했다 | `retry_after: 10` |
+| 503 | `upstream_unavailable` | POST 전부 — 외부에 연결하지 못했다 | `retry_after: 10` |
+| 502 | `upstream_failed` | POST 전부 — 외부가 오류로 답했다 | — |
+| 502 | `concepts_incomplete` | `/concepts` — 빠진 장이 너무 많아 분석을 멈췄다 | `missing_slides: int[]` · `retry_after: 10` |
+| 502 | `graph_empty` | `/graph` — 노드를 하나도 못 만들었다 | `retry_after: 10` |
+| 502 | `graph_failed` | `/graph` — 알아볼 수 없는 모양으로 답했다 | `retry_after: 10` |
+| 400 | `bad_request` | `/graph` — 개념 문서에 장이 없다 · `/qa/judge` — `session_id` 모양·질문 형식·질문 없음 | — |
+| 503 | `memory_failed` | `/memory` — 기억을 못 읽었다 (「없음」 과 다르다) | `retry_after: 120` |
+| 400 | `fixture_disabled` | `/transcribe` — 공개 방문자가 샘플 받아쓰기(`fixture`)를 요청 (mock·팀만) | — |
+
+```jsonc
+// 429 — 예전 칸(error·message·retry_after)은 그대로, rate_limited·scope 를 더했다 (09-30 H-15)
+{ "error": "rate_limited", "rate_limited": true, "scope": "session", "retry_after": 12,
+  "message": "요청이 너무 잦아요. 12초 뒤에 다시 시도해 주세요." }
+```
+
+`scope`: `session` = 이 세션의 분당 상한(`DEMO_RATE_LIMIT_PER_MIN`, 기본 30) · `ip` = IP 전체 천장(`DEMO_RATE_LIMIT_IP_PER_MIN`, 기본 180)
+이거나 세션 id 없는 요청(업로드·`"flat"`)을 IP 칸으로 센 것(상한 30). 세션 id 는 본문 `session_id` → `/sessions/{id}/` 경로 순으로 찾는다.
+`/concepts`·`/graph` 는 외부 지연·끊김이면 위 503 과 같은 본문이다. 예전부터 있던 코드(`session_missing` 409 · `judge_failed`·
+`questions_failed`·`claims_failed`·`papers_failed` 502 · `too_large` 413 · `/claims` 의 `slide_doc_missing` 409)는 그대로다.
+
+지금 프론트(`chuckchuck_bridge.js judgeRetryPlan`)의 판정 재시도: 429 는 `retry_after`(없으면 5초, 1~60초)만큼 기다려 두 번까지 — 판정
+실패로 세지 않는다. 503 `upstream_*` 은 한 번(1~10초). 502 는 다시 보내지 않고 `message` 를 띄운다.
+
+### 새 라우트 · 요청 칸
+
+- `GET /api/v1/team` → `{ "team": bool }` — 이 브라우저가 `/auth`(팀 코드, `cc_team` 쿠키)를 거쳤거나 브리지를 `DEMO_DEV_ROUTES=1` 로
+  띄웠나. 참이면 샘플 발표·샘플 리포트·개발용 화면(`#/replay`·`#/test/qa` …)을 연다. `/auth` 는 HTML 폼이라 JSON 계약이 아니다
+  (`DEMO_TEAM_CODE` 가 비면 404).
+- `POST /api/v1/transcribe` 요청 `purpose: "qa_answer"` — 질문 코칭의 답변 한 마디. 세션의 발표 받아쓰기(`transcript` 아티팩트)로
+  **보관하지 않는다**(보관하면 새로고침 복구·기억이 답변 한 줄을 발표로 읽었다). 그래서 `session_id` 를 실어도 되고, 실으면 요청 제한을
+  세션 칸으로 센다.
+- `/api/v1/qa/judge` 본문 `session_id` 는 발급 모양 또는 `"flat"` — 경로 `{id}` 보다 본문이 먼저다 (§8-F).
+
 ## 11. 구현 파일
 
 | 파일 | 역할 |
@@ -1448,6 +1717,7 @@ id 는 `YYYYMMDDTHHMMSSZ_{8 hex}` — 앞은 사람·배치용 시간순 정렬,
 | `chuckchuck/f09_judge.py` | Question+답변 → QaJudgement |
 | `chuckchuck/f11_align.py` | ConceptGraph+Transcript → AlignmentDoc |
 | `chuckchuck/f11_flow.py` | ConceptGraph+AlignmentDoc → FlowDiff (LLM 없음) |
+| `chuckchuck/f26_claims.py` · `chuckchuck/_probes.py` | ConceptGraph+SlideDoc → ClaimDoc · ClaimDoc(+자료 원문) → Probe[] (§8-I) |
 | `chuckchuck/sdk/rehearsal-recorder.js` | audio + SlideMark[] |
 
 질문·이슈 올릴 때 **ours JSON 예시**만 붙여 주세요. raw는 어댑터 담당자만 보면 됩니다.

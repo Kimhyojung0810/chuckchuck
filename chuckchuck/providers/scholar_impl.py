@@ -24,8 +24,13 @@
 환경변수:
     SCHOLAR_PROVIDER   openalex | semanticscholar | arxiv | crossref | europepmc | all | none,
                        쉼표로 여러 개 (기본 none). all = openalex,arxiv,europepmc (+semanticscholar, S2_API_KEY 가 있을 때)
-    SCHOLAR_MAILTO     polite pool 용 연락 메일 (OpenAlex·Crossref). OPENALEX_MAILTO 도 읽는다
+    SCHOLAR_MAILTO     polite pool 용 연락 메일 (OpenAlex·Crossref — User-Agent 와 `mailto` 쿼리)
+    OPENALEX_MAILTO    OpenAlex 만 쓸 polite pool 메일 (`mailto` 쿼리). 없으면 SCHOLAR_MAILTO
+    OPENALEX_API_KEY   OpenAlex 키 (선택, 무료 발급) — 키 없는 하루 예산의 10배. `Authorization: Bearer` 머리로 보낸다
     S2_API_KEY         Semantic Scholar 키 (선택 — 없으면 공용 한도 100회/5분)
+
+키·메일은 환경변수에서만 읽고 값을 찍지 않는다 — 로그는 「설정됨/없음」 만(브리지 시작 배너 `config.masked` 와 같은 규칙),
+오류 문구는 `_redact` 로 값을 가린 뒤에 만든다.
     SCHOLAR_TIMEOUT_SEC  요청 시간 초과 (기본 8)
     SCHOLAR_QUEUE_WAIT_SEC  통로 요청 한도(LANES) 줄에서 기다릴 최대 초 (기본 10, 마감이 걸려 있으면 마감까지)
 
@@ -48,6 +53,7 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, wait
+from urllib.parse import quote, quote_plus
 
 import requests
 
@@ -90,6 +96,49 @@ _UA = {"User-Agent": "chuckchuck/1.0 (F-24 papers; mailto:%s)"}
 
 def _mailto() -> str:
     return os.environ.get("SCHOLAR_MAILTO") or os.environ.get("OPENALEX_MAILTO") or ""
+
+
+def _openalex_mailto() -> str:
+    """OpenAlex `mailto` 쿼리(polite pool) — OPENALEX_MAILTO, 없으면 SCHOLAR_MAILTO (09-30 까지는 OPENALEX_MAILTO 만 읽어서
+    .env.example 대로 SCHOLAR_MAILTO 만 넣으면 OpenAlex 쿼리에는 안 실렸다)."""
+    return (os.environ.get("OPENALEX_MAILTO") or os.environ.get("SCHOLAR_MAILTO") or "").strip()
+
+
+def _openalex_api_key() -> str:
+    """OpenAlex 키 — OPENALEX_API_KEY 환경변수에서만. 값은 로그·오류 문구·응답에 싣지 않는다."""
+    return (os.environ.get("OPENALEX_API_KEY") or "").strip()
+
+
+def _state(value: str) -> str:
+    """설정 값의 상태만 — 브리지 시작 배너(`config.masked`)처럼 값의 어느 글자도 찍지 않는다."""
+    return "설정됨" if value else "없음"
+
+
+#: 오류 문구에서 가릴 설정 값. requests 의 연결 오류 문구는 요청 주소를 쿼리째 싣는다(「… with url: /works?…&mailto=…」) —
+#: 그 문구가 stderr·통로 사정(status)·응답의 까닭 글로 나간다.
+_SECRET_ENVS = ("OPENALEX_API_KEY", "OPENALEX_MAILTO", "SCHOLAR_MAILTO", "S2_API_KEY")
+#: 요청에 실어 보낸 값 가운데 가릴 것 — 쿼리 mailto·api_key, 머리 Authorization·x-api-key.
+_SECRET_PARAMS = ("mailto", "api_key")
+_SECRET_HEADERS = ("Authorization", "x-api-key")
+#: 이보다 짧은 값은 가리지 않는다 — 한두 글자를 지우면 오류 문구가 뭉개진다 (키·메일은 이보다 길다).
+_SECRET_MIN = 4
+
+
+def _redact(text, params: dict | None = None, headers: dict | None = None) -> str:
+    """
+    글에서 키·연락 메일 값을 「***」 로 가린다 — 환경변수 값과 이번 요청에 실은 값(쿼리·머리) 모두, 날값과 주소 인코딩 값
+    (「%40」) 모두. 오류 문구를 만드는 곳(`_http_get`·`_checked_get`·통로)이 부른다.
+    """
+    out = str(text or "")
+    values = {(os.environ.get(n) or "").strip() for n in _SECRET_ENVS}
+    values |= {str((params or {}).get(k) or "").strip() for k in _SECRET_PARAMS}
+    for h in _SECRET_HEADERS:
+        v = str((headers or {}).get(h) or "").strip()
+        values |= {v, v.split(" ", 1)[-1]}          # 「Bearer <키>」 는 키만 나와도 가린다
+    for v in sorted((v for v in values if len(v) >= _SECRET_MIN), key=len, reverse=True):
+        for form in {v, quote(v, safe=""), quote_plus(v)}:
+            out = out.replace(form, "***")
+    return out
 
 
 #: 429(속도 제한)를 받으면 이만큼 쉬고 **한 번만** 다시 묻는다. Retry-After 가 있으면 그 값 — 단 RATE_LIMIT_WAIT_MAX 를 넘으면
@@ -235,10 +284,12 @@ def _http_get(who: str, url: str, params: dict | None = None, headers: dict | No
     try:
         return requests.get(url, params=params, timeout=_request_timeout(who, timeout),
                             headers={**_UA, "User-Agent": _UA["User-Agent"] % _mailto(), **(headers or {})})
+    # requests 의 오류 문구는 요청 주소를 쿼리째 싣는다 — 값을 가리고, 원래 예외는 잇지 않는다(from None). 브리지가 찍는
+    # traceback 에 이어진 예외(__cause__)의 문구가 그대로 나온다.
     except requests.Timeout as e:
-        raise ScholarCallError(f"{who} 시간 초과: {e}", kind="timeout", provider=who) from e
+        raise ScholarCallError(f"{who} 시간 초과: {_redact(e, params, headers)}", kind="timeout", provider=who) from None
     except requests.RequestException as e:
-        raise ScholarCallError(f"{who} 요청 실패: {e}", kind="network", provider=who) from e
+        raise ScholarCallError(f"{who} 요청 실패: {_redact(e, params, headers)}", kind="network", provider=who) from None
     finally:
         ln.leave()
 
@@ -270,9 +321,11 @@ def _checked_get(who: str, url: str, params: dict | None = None, headers: dict |
         res = _http_get(who, url, params, headers, timeout=timeout, after_backoff=True)
         if res.status_code == 429:
             lane(who).cool_down(_retry_after(res))
-            raise ScholarCallError(f"{who} 응답 429: {str(getattr(res, 'text', ''))[:120]}", kind="rate_limited", provider=who)
+            body = _redact(getattr(res, "text", ""), params, headers)[:120]
+            raise ScholarCallError(f"{who} 응답 429: {body}", kind="rate_limited", provider=who)
     if res.status_code not in (200, 404):
-        raise ScholarCallError(f"{who} 응답 {res.status_code}: {str(getattr(res, 'text', ''))[:200]}", kind="http", provider=who)
+        body = _redact(getattr(res, "text", ""), params, headers)[:200]
+        raise ScholarCallError(f"{who} 응답 {res.status_code}: {body}", kind="http", provider=who)
     return res
 
 
@@ -376,8 +429,29 @@ def _quality(cov: float, rank_score: float, rank_max: float, cited_by: int, cite
     return 0.5 * cov + 0.2 * rel + 0.2 * cit + 0.1 * recent
 
 
+#: 이 프로세스에서 이미 알린 OpenAlex 설정 상태 — (mailto, api_key) 상태 짝마다 한 번만 stderr 에 적는다.
+_OPENALEX_NOTED: set[tuple[str, str]] = set()
+_OPENALEX_NOTED_LOCK = threading.Lock()
+
+
+def _note_openalex_config(mailto: str, api_key: str) -> None:
+    """OpenAlex 통로를 처음 만들 때 설정 **상태**만 한 줄 — 「mailto 설정됨 · api_key 없음」. 값은 찍지 않는다."""
+    state = (_state(mailto), _state(api_key))
+    with _OPENALEX_NOTED_LOCK:
+        if state in _OPENALEX_NOTED:
+            return
+        _OPENALEX_NOTED.add(state)
+    sys.stderr.write(f"[scholar] openalex mailto {state[0]} · api_key {state[1]}\n")
+
+
 class OpenAlexScholar(ScholarProvider):
-    """OpenAlex Works API (https://docs.openalex.org). 키 없이 동작한다."""
+    """
+    OpenAlex Works API (https://docs.openalex.org). 키 없이도 동작한다 — 다만 키 없는 요청은 **하루 예산**을 IP 로 나눠 쓴다.
+    09-30 이 서버가 그 예산을 다 써서 429 · Retry-After ≈ 5.4시간을 받았다. OPENALEX_API_KEY(무료 발급)를 넣으면 예산이 10배고
+    자정(UTC)에 다시 찬다 (help.openalex.org/api/authentication). 키는 `Authorization: Bearer` 머리로 보낸다 — 문서는 쿼리
+    `api_key=` 도 받지만 주소는 requests 오류 문구·프록시·접근 로그에 쿼리째 남는다. polite pool 메일은 예전처럼 `mailto` 쿼리
+    (OPENALEX_MAILTO, 없으면 SCHOLAR_MAILTO).
+    """
 
     name = "openalex"
 
@@ -388,27 +462,48 @@ class OpenAlexScholar(ScholarProvider):
         "is_retracted", "type", "relevance_score",
     ))
 
-    def __init__(self, base_url: str | None = None, mailto: str | None = None, timeout: float | None = None):
+    def __init__(self, base_url: str | None = None, mailto: str | None = None, timeout: float | None = None,
+                 api_key: str | None = None):
         self.base_url = (base_url or os.environ.get("OPENALEX_BASE_URL", "https://api.openalex.org")).rstrip("/")
-        self.mailto = mailto if mailto is not None else os.environ.get("OPENALEX_MAILTO", "")
+        self.mailto = mailto if mailto is not None else _openalex_mailto()
+        self._api_key = api_key if api_key is not None else _openalex_api_key()
         self.timeout = timeout or _timeout()
+        _note_openalex_config(self.mailto, self._api_key)
+
+    def _params(self, extra: dict) -> dict:
+        return {**extra, "mailto": self.mailto} if self.mailto else dict(extra)
+
+    def _headers(self) -> dict:
+        return {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+
+    def _get(self, url: str, params: dict):
+        """통로 줄을 지켜 GET (`_checked_get`). 키 없이 받은 429 에는 키를 넣으면 예산이 는다고 덧붙인다 — 값이 아니라 상태만."""
+        try:
+            return _checked_get(self.name, url, params, self._headers(), timeout=self.timeout)
+        except ScholarCallError as e:
+            if e.kind != "rate_limited" or self._api_key:
+                raise
+            raise ScholarCallError(f"{e} (api_key 없음 — OPENALEX_API_KEY 를 넣으면 하루 예산 10배)", kind=e.kind,
+                                   provider=e.provider, status=e.status) from None
+
+    def _failed(self, res, params: dict) -> ScholarCallError:
+        body = _redact(getattr(res, "text", ""), params, self._headers())[:200]
+        return ScholarCallError(f"openalex 응답 {res.status_code}: {body}", kind="http", provider=self.name)
 
     def search(self, query: str, *, limit: int = 5) -> list[PaperRef]:
         q = clean_query(query)
         if not q:
             return []
-        params = {
+        params = self._params({
             "search": q,
             # 품질 재정렬을 위해 넉넉히 받는다. 철회 논문·초록 없는 항목은 API 에서 거른다.
             "per-page": max(limit * 5, 10),
             "filter": "is_retracted:false,has_abstract:true",
             "select": self.SELECT,
-        }
-        if self.mailto:
-            params["mailto"] = self.mailto
-        res = _checked_get(self.name, f"{self.base_url}/works", params, timeout=self.timeout)
+        })
+        res = self._get(f"{self.base_url}/works", params)
         if res.status_code != 200:
-            raise ScholarCallError(f"openalex 응답 {res.status_code}: {str(res.text)[:200]}", kind="http", provider=self.name)
+            raise self._failed(res, params)
         works = (self._json(res) or {}).get("results") or []
         return self._rank(self._to_refs(works, q), limit)
 
@@ -417,11 +512,9 @@ class OpenAlexScholar(ScholarProvider):
 
         제목 `search=` 는 어간 검색이라 옛 논문(초록 없는 Elsevier 등)을 놓친다 — 2026-09-22 실측에서
         Leroy(2009) 를 못 찾았다. 되찾기는 「있는 논문의 메타데이터」 라 초록 필터를 걸지 않는다."""
-        params = {"select": self.SELECT}
-        if self.mailto:
-            params["mailto"] = self.mailto
         if doi:
-            res = _checked_get(self.name, f"{self.base_url}/works/https://doi.org/{doi}", params, timeout=self.timeout)
+            params = self._params({"select": self.SELECT})
+            res = self._get(f"{self.base_url}/works/https://doi.org/{doi}", params)
             if res.status_code == 404:
                 return []
             works = [self._json(res) or {}]
@@ -429,10 +522,10 @@ class OpenAlexScholar(ScholarProvider):
             q = clean_query(title)
             if not q:
                 return []
-            params.update({"filter": f"is_retracted:false,title.search:{q}", "per-page": 3})
-            res = _checked_get(self.name, f"{self.base_url}/works", params, timeout=self.timeout)
+            params = self._params({"select": self.SELECT, "filter": f"is_retracted:false,title.search:{q}", "per-page": 3})
+            res = self._get(f"{self.base_url}/works", params)
             if res.status_code != 200:
-                raise ScholarCallError(f"openalex 응답 {res.status_code}: {str(res.text)[:200]}", kind="http", provider=self.name)
+                raise self._failed(res, params)
             works = (self._json(res) or {}).get("results") or []
         return [ref for _, ref in self._to_refs(works, title)][:1]
 
