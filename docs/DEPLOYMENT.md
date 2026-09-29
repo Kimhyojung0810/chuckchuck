@@ -191,6 +191,35 @@ CLI 로 직접 만들고 싶으면 `demo/run_tunnel.sh` 머리말의 절차(`clo
 - **과금**: Access 를 통과한 사람은 누구나 실 API 를 부른다. 허용 이메일을 최소로 두고
   시연이 끝나면 Access 정책을 끄거나 `sudo systemctl stop cloudflared`.
 
+### 10-4. chuckchuck-present.com 현황 (2026-09-30 새벽)
+
+**결정:** Access 로그인 없이 공개한다. 방문자는 자기 자료로만 쓰고, 이미 있는 데이터(세션 목록·ppt/ 덱·
+샘플 발표/리포트/받아쓰기)와 베타 화면(#/vision·#/temp·#/test/qa·#/replay)은 `/auth` 에 팀 코드
+(`.env` 의 `DEMO_TEAM_CODE`)를 넣은 브라우저에만 연다 — 커밋 261156b, `tests/test_bridge_team_auth.py`.
+
+| 조각 | 상태 |
+|---|---|
+| 도메인 | Cloudflare 에서 구매, 네임서버 Cloudflare |
+| 브리지 서비스 `chuckchuck-bridge` | active · 8799 · `chuckchuck-bridge.service.d/public.conf` = `TUNNEL_HOSTNAME=chuckchuck-present.com` (DEV_ROUTES·REQUIRE_ACCESS 없음) |
+| 개발 브리지 | 손으로 8800 · `DEMO_DEV_ROUTES=1` (로그 `var/log/bridge_8800.log`) |
+| 터널 `chuckchuck` | 만들어 둠(`~/.cloudflared/config.yml`, `/etc/cloudflared/config.yml`), DNS CNAME 연결됨. **서비스는 disabled** |
+
+**막힌 곳 — 이 VM 은 바깥으로 TCP 80·443 만 나간다.** 터널은 `region1/2.v2.argotunnel.com:7844`
+(TCP·UDP)가 필수이고 443 으로 대신할 수 없다 (Cloudflare 문서 「Tunnel with firewall」). 서비스를
+켜면 precheck 가 `QUIC connection failed` · `HTTP/2 connection is blocked` 로 끝나 시작 시간 초과가 난다.
+사설 IP(10.26.0.2) NAT 뒤라 들어오는 연결도 없다.
+
+여는 길 (고르는 건 사람 몫):
+
+1. **네트워크 관리자에게 7844 아웃바운드를 연다** — 가장 깔끔하다. 열리면 `sudo systemctl enable --now cloudflared`
+   하나로 끝난다. 확인: `timeout 5 bash -c '</dev/tcp/region1.v2.argotunnel.com/7844' && echo open`
+2. **Tailscale Funnel (무료, 443 만 씀)** — tailscale 1.102.4 는 설치돼 있다. `sudo tailscale up --hostname=chuckchuck-present`
+   → 로그인 → 관리 콘솔에서 HTTPS·Funnel 켜기 → `sudo tailscale funnel --bg 8799`.
+   브리지 Host 허용 목록에 ts.net 이름을 더한다 (`public.conf` 에 `Environment=DEMO_ALLOWED_HOSTS=chuckchuck-present.<tailnet>.ts.net`).
+   `chuckchuck-present.com` 은 Cloudflare Redirect Rule 로 그 주소에 넘긴다 — 주소창은 ts.net 이 된다
+   (무료 요금제는 Origin Rules 의 Host 헤더 덮어쓰기가 Enterprise 전용이라 프록시로 감출 수 없다).
+3. ngrok 유료(커스텀 도메인) — 443 으로 나가고 주소창이 우리 도메인으로 남는다. 월 과금.
+
 ## 9. 개발 환경 (참고)
 
 로컬 개발은 Claude Code 플러그인 **ECC**를 쓰고(`.claude/settings.json`이 저장소에
