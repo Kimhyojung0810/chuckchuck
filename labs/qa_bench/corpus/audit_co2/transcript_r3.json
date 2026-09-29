@@ -1,0 +1,1134 @@
+{
+ "full_text": "안녕하세요, 학생회 축제 준비팀이에요. 오늘은 작년 축제 부스 결산을 말씀드릴게요. 작년에는 반마다 부스를 하나씩 열었는데 수익이 반마다 크게 달랐어요. 먼저 전체 숫자부터 볼게요. 부스가 모두 24개였고 평균 매출은 38만 원이었어요. 가장 많이 번 부스는 떡볶이 부스로 92만 원, 가장 적은 곳은 11만 원이었어요. 차이를 만든 건 위치였어요. 정문 쪽 부스는 운동장 안쪽 부스보다 손님이 1.8배 많았어요. 그리고 오후 2시부터 4시 사이에 손님의 절반이 몰렸어요. 그래서 올해는 부스 배치를 추첨으로 바꾸고, 인기 시간대에는 부스마다 두 명씩 더 배치하려고 해요. 재료비는 학생회가 먼저 빌려주고 끝나면 정산하는 방식으로 바꿀 거예요. 올해 목표는 전체 수익 천만 원, 그리고 남는 재료 줄이기예요. 작년에는 남은 재료가 전체의 15퍼센트였어요. 질문 있으시면 편하게 해 주세요. 감사합니다.",
+ "words": [
+  {
+   "text": "안녕하세요,",
+   "start_sec": 0.0,
+   "end_sec": 2.37
+  },
+  {
+   "text": "학생회",
+   "start_sec": 2.37,
+   "end_sec": 4.74
+  },
+  {
+   "text": "축제",
+   "start_sec": 4.74,
+   "end_sec": 7.11
+  },
+  {
+   "text": "준비팀이에요.",
+   "start_sec": 7.11,
+   "end_sec": 9.47
+  },
+  {
+   "text": "오늘은",
+   "start_sec": 9.47,
+   "end_sec": 11.84
+  },
+  {
+   "text": "작년",
+   "start_sec": 11.84,
+   "end_sec": 14.21
+  },
+  {
+   "text": "축제",
+   "start_sec": 14.21,
+   "end_sec": 16.58
+  },
+  {
+   "text": "부스",
+   "start_sec": 16.58,
+   "end_sec": 18.95
+  },
+  {
+   "text": "결산을",
+   "start_sec": 18.95,
+   "end_sec": 21.32
+  },
+  {
+   "text": "말씀드릴게요.",
+   "start_sec": 21.32,
+   "end_sec": 23.68
+  },
+  {
+   "text": "작년에는",
+   "start_sec": 23.68,
+   "end_sec": 26.05
+  },
+  {
+   "text": "반마다",
+   "start_sec": 26.05,
+   "end_sec": 28.42
+  },
+  {
+   "text": "부스를",
+   "start_sec": 28.42,
+   "end_sec": 30.79
+  },
+  {
+   "text": "하나씩",
+   "start_sec": 30.79,
+   "end_sec": 33.16
+  },
+  {
+   "text": "열었는데",
+   "start_sec": 33.16,
+   "end_sec": 35.53
+  },
+  {
+   "text": "수익이",
+   "start_sec": 35.53,
+   "end_sec": 37.89
+  },
+  {
+   "text": "반마다",
+   "start_sec": 37.89,
+   "end_sec": 40.26
+  },
+  {
+   "text": "크게",
+   "start_sec": 40.26,
+   "end_sec": 42.63
+  },
+  {
+   "text": "달랐어요.",
+   "start_sec": 42.63,
+   "end_sec": 45.0
+  },
+  {
+   "text": "먼저",
+   "start_sec": 45.0,
+   "end_sec": 46.88
+  },
+  {
+   "text": "전체",
+   "start_sec": 46.88,
+   "end_sec": 48.75
+  },
+  {
+   "text": "숫자부터",
+   "start_sec": 48.75,
+   "end_sec": 50.62
+  },
+  {
+   "text": "볼게요.",
+   "start_sec": 50.62,
+   "end_sec": 52.5
+  },
+  {
+   "text": "부스가",
+   "start_sec": 52.5,
+   "end_sec": 54.38
+  },
+  {
+   "text": "모두",
+   "start_sec": 54.38,
+   "end_sec": 56.25
+  },
+  {
+   "text": "24개였고",
+   "start_sec": 56.25,
+   "end_sec": 58.12
+  },
+  {
+   "text": "평균",
+   "start_sec": 58.12,
+   "end_sec": 60.0
+  },
+  {
+   "text": "매출은",
+   "start_sec": 60.0,
+   "end_sec": 61.88
+  },
+  {
+   "text": "38만",
+   "start_sec": 61.88,
+   "end_sec": 63.75
+  },
+  {
+   "text": "원이었어요.",
+   "start_sec": 63.75,
+   "end_sec": 65.62
+  },
+  {
+   "text": "가장",
+   "start_sec": 65.62,
+   "end_sec": 67.5
+  },
+  {
+   "text": "많이",
+   "start_sec": 67.5,
+   "end_sec": 69.38
+  },
+  {
+   "text": "번",
+   "start_sec": 69.38,
+   "end_sec": 71.25
+  },
+  {
+   "text": "부스는",
+   "start_sec": 71.25,
+   "end_sec": 73.12
+  },
+  {
+   "text": "떡볶이",
+   "start_sec": 73.12,
+   "end_sec": 75.0
+  },
+  {
+   "text": "부스로",
+   "start_sec": 75.0,
+   "end_sec": 76.88
+  },
+  {
+   "text": "92만",
+   "start_sec": 76.88,
+   "end_sec": 78.75
+  },
+  {
+   "text": "원,",
+   "start_sec": 78.75,
+   "end_sec": 80.62
+  },
+  {
+   "text": "가장",
+   "start_sec": 80.62,
+   "end_sec": 82.5
+  },
+  {
+   "text": "적은",
+   "start_sec": 82.5,
+   "end_sec": 84.38
+  },
+  {
+   "text": "곳은",
+   "start_sec": 84.38,
+   "end_sec": 86.25
+  },
+  {
+   "text": "11만",
+   "start_sec": 86.25,
+   "end_sec": 88.12
+  },
+  {
+   "text": "원이었어요.",
+   "start_sec": 88.12,
+   "end_sec": 90.0
+  },
+  {
+   "text": "차이를",
+   "start_sec": 90.0,
+   "end_sec": 92.14
+  },
+  {
+   "text": "만든",
+   "start_sec": 92.14,
+   "end_sec": 94.29
+  },
+  {
+   "text": "건",
+   "start_sec": 94.29,
+   "end_sec": 96.43
+  },
+  {
+   "text": "위치였어요.",
+   "start_sec": 96.43,
+   "end_sec": 98.57
+  },
+  {
+   "text": "정문",
+   "start_sec": 98.57,
+   "end_sec": 100.71
+  },
+  {
+   "text": "쪽",
+   "start_sec": 100.71,
+   "end_sec": 102.86
+  },
+  {
+   "text": "부스는",
+   "start_sec": 102.86,
+   "end_sec": 105.0
+  },
+  {
+   "text": "운동장",
+   "start_sec": 105.0,
+   "end_sec": 107.14
+  },
+  {
+   "text": "안쪽",
+   "start_sec": 107.14,
+   "end_sec": 109.29
+  },
+  {
+   "text": "부스보다",
+   "start_sec": 109.29,
+   "end_sec": 111.43
+  },
+  {
+   "text": "손님이",
+   "start_sec": 111.43,
+   "end_sec": 113.57
+  },
+  {
+   "text": "1.8배",
+   "start_sec": 113.57,
+   "end_sec": 115.71
+  },
+  {
+   "text": "많았어요.",
+   "start_sec": 115.71,
+   "end_sec": 117.86
+  },
+  {
+   "text": "그리고",
+   "start_sec": 117.86,
+   "end_sec": 120.0
+  },
+  {
+   "text": "오후",
+   "start_sec": 120.0,
+   "end_sec": 122.14
+  },
+  {
+   "text": "2시부터",
+   "start_sec": 122.14,
+   "end_sec": 124.29
+  },
+  {
+   "text": "4시",
+   "start_sec": 124.29,
+   "end_sec": 126.43
+  },
+  {
+   "text": "사이에",
+   "start_sec": 126.43,
+   "end_sec": 128.57
+  },
+  {
+   "text": "손님의",
+   "start_sec": 128.57,
+   "end_sec": 130.71
+  },
+  {
+   "text": "절반이",
+   "start_sec": 130.71,
+   "end_sec": 132.86
+  },
+  {
+   "text": "몰렸어요.",
+   "start_sec": 132.86,
+   "end_sec": 135.0
+  },
+  {
+   "text": "그래서",
+   "start_sec": 135.0,
+   "end_sec": 136.96
+  },
+  {
+   "text": "올해는",
+   "start_sec": 136.96,
+   "end_sec": 138.91
+  },
+  {
+   "text": "부스",
+   "start_sec": 138.91,
+   "end_sec": 140.87
+  },
+  {
+   "text": "배치를",
+   "start_sec": 140.87,
+   "end_sec": 142.83
+  },
+  {
+   "text": "추첨으로",
+   "start_sec": 142.83,
+   "end_sec": 144.78
+  },
+  {
+   "text": "바꾸고,",
+   "start_sec": 144.78,
+   "end_sec": 146.74
+  },
+  {
+   "text": "인기",
+   "start_sec": 146.74,
+   "end_sec": 148.7
+  },
+  {
+   "text": "시간대에는",
+   "start_sec": 148.7,
+   "end_sec": 150.65
+  },
+  {
+   "text": "부스마다",
+   "start_sec": 150.65,
+   "end_sec": 152.61
+  },
+  {
+   "text": "두",
+   "start_sec": 152.61,
+   "end_sec": 154.57
+  },
+  {
+   "text": "명씩",
+   "start_sec": 154.57,
+   "end_sec": 156.52
+  },
+  {
+   "text": "더",
+   "start_sec": 156.52,
+   "end_sec": 158.48
+  },
+  {
+   "text": "배치하려고",
+   "start_sec": 158.48,
+   "end_sec": 160.43
+  },
+  {
+   "text": "해요.",
+   "start_sec": 160.43,
+   "end_sec": 162.39
+  },
+  {
+   "text": "재료비는",
+   "start_sec": 162.39,
+   "end_sec": 164.35
+  },
+  {
+   "text": "학생회가",
+   "start_sec": 164.35,
+   "end_sec": 166.3
+  },
+  {
+   "text": "먼저",
+   "start_sec": 166.3,
+   "end_sec": 168.26
+  },
+  {
+   "text": "빌려주고",
+   "start_sec": 168.26,
+   "end_sec": 170.22
+  },
+  {
+   "text": "끝나면",
+   "start_sec": 170.22,
+   "end_sec": 172.17
+  },
+  {
+   "text": "정산하는",
+   "start_sec": 172.17,
+   "end_sec": 174.13
+  },
+  {
+   "text": "방식으로",
+   "start_sec": 174.13,
+   "end_sec": 176.09
+  },
+  {
+   "text": "바꿀",
+   "start_sec": 176.09,
+   "end_sec": 178.04
+  },
+  {
+   "text": "거예요.",
+   "start_sec": 178.04,
+   "end_sec": 180.0
+  },
+  {
+   "text": "올해",
+   "start_sec": 180.0,
+   "end_sec": 181.9
+  },
+  {
+   "text": "목표는",
+   "start_sec": 181.9,
+   "end_sec": 183.81
+  },
+  {
+   "text": "전체",
+   "start_sec": 183.81,
+   "end_sec": 185.71
+  },
+  {
+   "text": "수익",
+   "start_sec": 185.71,
+   "end_sec": 187.62
+  },
+  {
+   "text": "천만",
+   "start_sec": 187.62,
+   "end_sec": 189.52
+  },
+  {
+   "text": "원,",
+   "start_sec": 189.52,
+   "end_sec": 191.43
+  },
+  {
+   "text": "그리고",
+   "start_sec": 191.43,
+   "end_sec": 193.33
+  },
+  {
+   "text": "남는",
+   "start_sec": 193.33,
+   "end_sec": 195.24
+  },
+  {
+   "text": "재료",
+   "start_sec": 195.24,
+   "end_sec": 197.14
+  },
+  {
+   "text": "줄이기예요.",
+   "start_sec": 197.14,
+   "end_sec": 199.05
+  },
+  {
+   "text": "작년에는",
+   "start_sec": 199.05,
+   "end_sec": 200.95
+  },
+  {
+   "text": "남은",
+   "start_sec": 200.95,
+   "end_sec": 202.86
+  },
+  {
+   "text": "재료가",
+   "start_sec": 202.86,
+   "end_sec": 204.76
+  },
+  {
+   "text": "전체의",
+   "start_sec": 204.76,
+   "end_sec": 206.67
+  },
+  {
+   "text": "15퍼센트였어요.",
+   "start_sec": 206.67,
+   "end_sec": 208.57
+  },
+  {
+   "text": "질문",
+   "start_sec": 208.57,
+   "end_sec": 210.48
+  },
+  {
+   "text": "있으시면",
+   "start_sec": 210.48,
+   "end_sec": 212.38
+  },
+  {
+   "text": "편하게",
+   "start_sec": 212.38,
+   "end_sec": 214.29
+  },
+  {
+   "text": "해",
+   "start_sec": 214.29,
+   "end_sec": 216.19
+  },
+  {
+   "text": "주세요.",
+   "start_sec": 216.19,
+   "end_sec": 218.1
+  },
+  {
+   "text": "감사합니다.",
+   "start_sec": 218.1,
+   "end_sec": 220.0
+  }
+ ],
+ "by_slide": [
+  {
+   "slide_no": 1,
+   "visit": 1,
+   "start_sec": 0,
+   "end_sec": 45,
+   "text": "안녕하세요, 학생회 축제 준비팀이에요. 오늘은 작년 축제 부스 결산을 말씀드릴게요. 작년에는 반마다 부스를 하나씩 열었는데 수익이 반마다 크게 달랐어요.",
+   "words": [
+    {
+     "text": "안녕하세요,",
+     "start_sec": 0.0,
+     "end_sec": 2.37
+    },
+    {
+     "text": "학생회",
+     "start_sec": 2.37,
+     "end_sec": 4.74
+    },
+    {
+     "text": "축제",
+     "start_sec": 4.74,
+     "end_sec": 7.11
+    },
+    {
+     "text": "준비팀이에요.",
+     "start_sec": 7.11,
+     "end_sec": 9.47
+    },
+    {
+     "text": "오늘은",
+     "start_sec": 9.47,
+     "end_sec": 11.84
+    },
+    {
+     "text": "작년",
+     "start_sec": 11.84,
+     "end_sec": 14.21
+    },
+    {
+     "text": "축제",
+     "start_sec": 14.21,
+     "end_sec": 16.58
+    },
+    {
+     "text": "부스",
+     "start_sec": 16.58,
+     "end_sec": 18.95
+    },
+    {
+     "text": "결산을",
+     "start_sec": 18.95,
+     "end_sec": 21.32
+    },
+    {
+     "text": "말씀드릴게요.",
+     "start_sec": 21.32,
+     "end_sec": 23.68
+    },
+    {
+     "text": "작년에는",
+     "start_sec": 23.68,
+     "end_sec": 26.05
+    },
+    {
+     "text": "반마다",
+     "start_sec": 26.05,
+     "end_sec": 28.42
+    },
+    {
+     "text": "부스를",
+     "start_sec": 28.42,
+     "end_sec": 30.79
+    },
+    {
+     "text": "하나씩",
+     "start_sec": 30.79,
+     "end_sec": 33.16
+    },
+    {
+     "text": "열었는데",
+     "start_sec": 33.16,
+     "end_sec": 35.53
+    },
+    {
+     "text": "수익이",
+     "start_sec": 35.53,
+     "end_sec": 37.89
+    },
+    {
+     "text": "반마다",
+     "start_sec": 37.89,
+     "end_sec": 40.26
+    },
+    {
+     "text": "크게",
+     "start_sec": 40.26,
+     "end_sec": 42.63
+    },
+    {
+     "text": "달랐어요.",
+     "start_sec": 42.63,
+     "end_sec": 45.0
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "visit": 1,
+   "start_sec": 45,
+   "end_sec": 90,
+   "text": "먼저 전체 숫자부터 볼게요. 부스가 모두 24개였고 평균 매출은 38만 원이었어요. 가장 많이 번 부스는 떡볶이 부스로 92만 원, 가장 적은 곳은 11만 원이었어요.",
+   "words": [
+    {
+     "text": "먼저",
+     "start_sec": 45.0,
+     "end_sec": 46.88
+    },
+    {
+     "text": "전체",
+     "start_sec": 46.88,
+     "end_sec": 48.75
+    },
+    {
+     "text": "숫자부터",
+     "start_sec": 48.75,
+     "end_sec": 50.62
+    },
+    {
+     "text": "볼게요.",
+     "start_sec": 50.62,
+     "end_sec": 52.5
+    },
+    {
+     "text": "부스가",
+     "start_sec": 52.5,
+     "end_sec": 54.38
+    },
+    {
+     "text": "모두",
+     "start_sec": 54.38,
+     "end_sec": 56.25
+    },
+    {
+     "text": "24개였고",
+     "start_sec": 56.25,
+     "end_sec": 58.12
+    },
+    {
+     "text": "평균",
+     "start_sec": 58.12,
+     "end_sec": 60.0
+    },
+    {
+     "text": "매출은",
+     "start_sec": 60.0,
+     "end_sec": 61.88
+    },
+    {
+     "text": "38만",
+     "start_sec": 61.88,
+     "end_sec": 63.75
+    },
+    {
+     "text": "원이었어요.",
+     "start_sec": 63.75,
+     "end_sec": 65.62
+    },
+    {
+     "text": "가장",
+     "start_sec": 65.62,
+     "end_sec": 67.5
+    },
+    {
+     "text": "많이",
+     "start_sec": 67.5,
+     "end_sec": 69.38
+    },
+    {
+     "text": "번",
+     "start_sec": 69.38,
+     "end_sec": 71.25
+    },
+    {
+     "text": "부스는",
+     "start_sec": 71.25,
+     "end_sec": 73.12
+    },
+    {
+     "text": "떡볶이",
+     "start_sec": 73.12,
+     "end_sec": 75.0
+    },
+    {
+     "text": "부스로",
+     "start_sec": 75.0,
+     "end_sec": 76.88
+    },
+    {
+     "text": "92만",
+     "start_sec": 76.88,
+     "end_sec": 78.75
+    },
+    {
+     "text": "원,",
+     "start_sec": 78.75,
+     "end_sec": 80.62
+    },
+    {
+     "text": "가장",
+     "start_sec": 80.62,
+     "end_sec": 82.5
+    },
+    {
+     "text": "적은",
+     "start_sec": 82.5,
+     "end_sec": 84.38
+    },
+    {
+     "text": "곳은",
+     "start_sec": 84.38,
+     "end_sec": 86.25
+    },
+    {
+     "text": "11만",
+     "start_sec": 86.25,
+     "end_sec": 88.12
+    },
+    {
+     "text": "원이었어요.",
+     "start_sec": 88.12,
+     "end_sec": 90.0
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "visit": 1,
+   "start_sec": 90,
+   "end_sec": 135,
+   "text": "차이를 만든 건 위치였어요. 정문 쪽 부스는 운동장 안쪽 부스보다 손님이 1.8배 많았어요. 그리고 오후 2시부터 4시 사이에 손님의 절반이 몰렸어요.",
+   "words": [
+    {
+     "text": "차이를",
+     "start_sec": 90.0,
+     "end_sec": 92.14
+    },
+    {
+     "text": "만든",
+     "start_sec": 92.14,
+     "end_sec": 94.29
+    },
+    {
+     "text": "건",
+     "start_sec": 94.29,
+     "end_sec": 96.43
+    },
+    {
+     "text": "위치였어요.",
+     "start_sec": 96.43,
+     "end_sec": 98.57
+    },
+    {
+     "text": "정문",
+     "start_sec": 98.57,
+     "end_sec": 100.71
+    },
+    {
+     "text": "쪽",
+     "start_sec": 100.71,
+     "end_sec": 102.86
+    },
+    {
+     "text": "부스는",
+     "start_sec": 102.86,
+     "end_sec": 105.0
+    },
+    {
+     "text": "운동장",
+     "start_sec": 105.0,
+     "end_sec": 107.14
+    },
+    {
+     "text": "안쪽",
+     "start_sec": 107.14,
+     "end_sec": 109.29
+    },
+    {
+     "text": "부스보다",
+     "start_sec": 109.29,
+     "end_sec": 111.43
+    },
+    {
+     "text": "손님이",
+     "start_sec": 111.43,
+     "end_sec": 113.57
+    },
+    {
+     "text": "1.8배",
+     "start_sec": 113.57,
+     "end_sec": 115.71
+    },
+    {
+     "text": "많았어요.",
+     "start_sec": 115.71,
+     "end_sec": 117.86
+    },
+    {
+     "text": "그리고",
+     "start_sec": 117.86,
+     "end_sec": 120.0
+    },
+    {
+     "text": "오후",
+     "start_sec": 120.0,
+     "end_sec": 122.14
+    },
+    {
+     "text": "2시부터",
+     "start_sec": 122.14,
+     "end_sec": 124.29
+    },
+    {
+     "text": "4시",
+     "start_sec": 124.29,
+     "end_sec": 126.43
+    },
+    {
+     "text": "사이에",
+     "start_sec": 126.43,
+     "end_sec": 128.57
+    },
+    {
+     "text": "손님의",
+     "start_sec": 128.57,
+     "end_sec": 130.71
+    },
+    {
+     "text": "절반이",
+     "start_sec": 130.71,
+     "end_sec": 132.86
+    },
+    {
+     "text": "몰렸어요.",
+     "start_sec": 132.86,
+     "end_sec": 135.0
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "visit": 1,
+   "start_sec": 135,
+   "end_sec": 180,
+   "text": "그래서 올해는 부스 배치를 추첨으로 바꾸고, 인기 시간대에는 부스마다 두 명씩 더 배치하려고 해요. 재료비는 학생회가 먼저 빌려주고 끝나면 정산하는 방식으로 바꿀 거예요.",
+   "words": [
+    {
+     "text": "그래서",
+     "start_sec": 135.0,
+     "end_sec": 136.96
+    },
+    {
+     "text": "올해는",
+     "start_sec": 136.96,
+     "end_sec": 138.91
+    },
+    {
+     "text": "부스",
+     "start_sec": 138.91,
+     "end_sec": 140.87
+    },
+    {
+     "text": "배치를",
+     "start_sec": 140.87,
+     "end_sec": 142.83
+    },
+    {
+     "text": "추첨으로",
+     "start_sec": 142.83,
+     "end_sec": 144.78
+    },
+    {
+     "text": "바꾸고,",
+     "start_sec": 144.78,
+     "end_sec": 146.74
+    },
+    {
+     "text": "인기",
+     "start_sec": 146.74,
+     "end_sec": 148.7
+    },
+    {
+     "text": "시간대에는",
+     "start_sec": 148.7,
+     "end_sec": 150.65
+    },
+    {
+     "text": "부스마다",
+     "start_sec": 150.65,
+     "end_sec": 152.61
+    },
+    {
+     "text": "두",
+     "start_sec": 152.61,
+     "end_sec": 154.57
+    },
+    {
+     "text": "명씩",
+     "start_sec": 154.57,
+     "end_sec": 156.52
+    },
+    {
+     "text": "더",
+     "start_sec": 156.52,
+     "end_sec": 158.48
+    },
+    {
+     "text": "배치하려고",
+     "start_sec": 158.48,
+     "end_sec": 160.43
+    },
+    {
+     "text": "해요.",
+     "start_sec": 160.43,
+     "end_sec": 162.39
+    },
+    {
+     "text": "재료비는",
+     "start_sec": 162.39,
+     "end_sec": 164.35
+    },
+    {
+     "text": "학생회가",
+     "start_sec": 164.35,
+     "end_sec": 166.3
+    },
+    {
+     "text": "먼저",
+     "start_sec": 166.3,
+     "end_sec": 168.26
+    },
+    {
+     "text": "빌려주고",
+     "start_sec": 168.26,
+     "end_sec": 170.22
+    },
+    {
+     "text": "끝나면",
+     "start_sec": 170.22,
+     "end_sec": 172.17
+    },
+    {
+     "text": "정산하는",
+     "start_sec": 172.17,
+     "end_sec": 174.13
+    },
+    {
+     "text": "방식으로",
+     "start_sec": 174.13,
+     "end_sec": 176.09
+    },
+    {
+     "text": "바꿀",
+     "start_sec": 176.09,
+     "end_sec": 178.04
+    },
+    {
+     "text": "거예요.",
+     "start_sec": 178.04,
+     "end_sec": 180.0
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "visit": 1,
+   "start_sec": 180,
+   "end_sec": 220,
+   "text": "올해 목표는 전체 수익 천만 원, 그리고 남는 재료 줄이기예요. 작년에는 남은 재료가 전체의 15퍼센트였어요. 질문 있으시면 편하게 해 주세요. 감사합니다.",
+   "words": [
+    {
+     "text": "올해",
+     "start_sec": 180.0,
+     "end_sec": 181.9
+    },
+    {
+     "text": "목표는",
+     "start_sec": 181.9,
+     "end_sec": 183.81
+    },
+    {
+     "text": "전체",
+     "start_sec": 183.81,
+     "end_sec": 185.71
+    },
+    {
+     "text": "수익",
+     "start_sec": 185.71,
+     "end_sec": 187.62
+    },
+    {
+     "text": "천만",
+     "start_sec": 187.62,
+     "end_sec": 189.52
+    },
+    {
+     "text": "원,",
+     "start_sec": 189.52,
+     "end_sec": 191.43
+    },
+    {
+     "text": "그리고",
+     "start_sec": 191.43,
+     "end_sec": 193.33
+    },
+    {
+     "text": "남는",
+     "start_sec": 193.33,
+     "end_sec": 195.24
+    },
+    {
+     "text": "재료",
+     "start_sec": 195.24,
+     "end_sec": 197.14
+    },
+    {
+     "text": "줄이기예요.",
+     "start_sec": 197.14,
+     "end_sec": 199.05
+    },
+    {
+     "text": "작년에는",
+     "start_sec": 199.05,
+     "end_sec": 200.95
+    },
+    {
+     "text": "남은",
+     "start_sec": 200.95,
+     "end_sec": 202.86
+    },
+    {
+     "text": "재료가",
+     "start_sec": 202.86,
+     "end_sec": 204.76
+    },
+    {
+     "text": "전체의",
+     "start_sec": 204.76,
+     "end_sec": 206.67
+    },
+    {
+     "text": "15퍼센트였어요.",
+     "start_sec": 206.67,
+     "end_sec": 208.57
+    },
+    {
+     "text": "질문",
+     "start_sec": 208.57,
+     "end_sec": 210.48
+    },
+    {
+     "text": "있으시면",
+     "start_sec": 210.48,
+     "end_sec": 212.38
+    },
+    {
+     "text": "편하게",
+     "start_sec": 212.38,
+     "end_sec": 214.29
+    },
+    {
+     "text": "해",
+     "start_sec": 214.29,
+     "end_sec": 216.19
+    },
+    {
+     "text": "주세요.",
+     "start_sec": 216.19,
+     "end_sec": 218.1
+    },
+    {
+     "text": "감사합니다.",
+     "start_sec": 218.1,
+     "end_sec": 220.0
+    }
+   ]
+  }
+ ],
+ "provider": "synthetic",
+ "duration_sec": 220
+}

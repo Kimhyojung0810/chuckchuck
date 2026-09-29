@@ -1,0 +1,1733 @@
+{
+  "prep": "20260930_045352_audit_co2_r1_audio_t10",
+  "deck": "audit_co2_r1",
+  "mode": "audio",
+  "track": "10",
+  "tag": "main",
+  "script": "labs/qa_convo/answers/audit_rec_co2_r1_t10_main.json",
+  "questions": [
+    {
+      "id": "q01-co2-concentration",
+      "node_id": "co2-concentration",
+      "label": "이산화탄소 농도",
+      "question": "평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장과 수치가 다른가요?",
+      "why": "발표에서 말한 수치가 자료 5장과 달라서, 어느 쪽이 맞는지 짚어 보는 질문이에요",
+      "hint": "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "contradiction",
+      "slide_nos": [
+        2,
+        3,
+        5
+      ],
+      "doc_weight": 0.821,
+      "answer_gist": "자료 5장은 “수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.”라고 해요. 발표에서 한 “평균 농도가 60퍼센트나 낮아진 거예요”는 이 수치로 바로잡아야 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.",
+      "speech_quote": "평균 농도가 60퍼센트나 낮아진 거예요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "contradiction",
+        "slot": "weak",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 5,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "contradiction_llm_worded",
+          "contradiction_reconcile",
+          "gist_clause_unsupported",
+          "gist_template",
+          "gist_contradiction_code",
+          "why_from_contradiction",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+        "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+      ]
+    },
+    {
+      "id": "q07-classroom-air",
+      "node_id": "classroom-air",
+      "label": "교실 공기",
+      "question": "교실 공기 상태와 이산화탄소 농도 사이의 인과 관계는 어떻게 되나요?",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "이산화탄소 농도가 증가하는 원인과 교실 공기 상태의 관계를 설명해 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        2
+      ],
+      "doc_weight": 0.466,
+      "answer_gist": "수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 상태가 악화되어 발생하는 현상이에요",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 2,
+      "evidence_quote": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다.",
+      "speech_quote": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1000ppm을 넘어요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "theme",
+        "rank": 7,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 2,
+            "quote": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다."
+          }
+        ],
+        "checks": [
+          "why_code"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "이산화탄소 농도가 증가하는 원인과 교실 공기 상태의 관계를 설명해 보세요",
+        "1, 2장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 2장은 이렇게 말해요: «수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다.»",
+        "이 방향이에요 — 수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며",
+        "빈칸을 채워 보세요: 수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 ___가 악화되어 발생하는 현상이에요"
+      ]
+    },
+    {
+      "id": "q05-ventilation",
+      "node_id": "ventilation",
+      "label": "환기",
+      "question": "자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "weak_flow",
+      "slide_nos": [
+        1,
+        5,
+        6
+      ],
+      "doc_weight": 1,
+      "answer_gist": "질문의 전제와 달리, 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "part",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분",
+        "fact": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분",
+        "slide_no": 6,
+        "wrong": [
+          "10분"
+        ],
+        "right": [
+          "14분"
+        ]
+      },
+      "hints": [
+        "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "1, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 ___이에요."
+      ]
+    },
+    {
+      "id": "q02-wind-speed",
+      "node_id": "wind-speed",
+      "label": "바람 속도",
+      "question": "왜 4장을 생략하고 바로 결과로 넘어갔는지 설명해 주세요",
+      "why": "“이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요”라고 하고 넘어간 4장의 핵심이라, 그 내용을 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "바람 속도가 환기에 미치는 영향을 설명해 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "skipped_slide",
+      "slide_nos": [
+        4
+      ],
+      "doc_weight": 0.764,
+      "answer_gist": "자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도 (4장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "skipped_slide",
+        "slot": "",
+        "rank": 2,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_clause_unsupported",
+          "gist_template",
+          "why_from_skip",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "바람 속도가 환기에 미치는 영향을 설명해 보세요",
+        "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 시간당 환기량 창문 개방…",
+        "빈칸을 채워 보세요: 시간당 환기량 창문 개방 ___ × = 바람 속도"
+      ]
+    },
+    {
+      "id": "q06-cross-ventilation",
+      "node_id": "cross-ventilation",
+      "label": "맞통풍",
+      "question": "왜 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌는지 설명해 주세요",
+      "why": "다른 개념과의 연결이 발표에서 드러나지 않았어요",
+      "hint": "두 방식의 환기량 차이를 설명해 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "weak_flow",
+      "slide_nos": [
+        6
+      ],
+      "doc_weight": 0.417,
+      "answer_gist": "자료는 이렇게 말해요 — 앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다 · 방법: 1,000ppm 아래까지 걸린 시간 · 한쪽 창문: 14분 · 맞통풍: 7분 (6장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다.",
+      "speech_quote": "그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "weak_flow",
+        "slot": "weak",
+        "rank": 6,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_rebuilt",
+          "gist_rank_unbacked",
+          "why_code",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "두 방식의 환기량 차이를 설명해 보세요",
+        "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 6장은 이렇게 말해요: «앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다.»",
+        "이 방향이에요 — 앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다",
+        "빈칸을 채워 보세요: 앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다 · 방법: 1,000ppm 아래까지 걸린 시간 · 한쪽 ___: 14분 · 맞통풍: 7분"
+      ]
+    },
+    {
+      "id": "q03-ventilation-area",
+      "node_id": "ventilation-area",
+      "label": "환기 면적",
+      "question": "환기 면적과 이산화탄소 농도 감소 사이의 관계는 어떻게 되나요?",
+      "why": "환기 면적이 이산화탄소 농도 감소에 미치는 영향을 명확히 하기 위해 묻는 질문이에요",
+      "hint": "창문을 얼마나 넓게 열었는지가 환기량에 어떤 영향을 주는지 설명해 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "missing",
+      "slide_nos": [
+        4,
+        5,
+        6
+      ],
+      "doc_weight": 0.745,
+      "answer_gist": "자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 5분 추가 환기 (4, 5장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "쉬는 시간에만 환기했을 때는 평균 농도가 1450ppm이었고요, 수업 중에 5분을 더 열었더니 870ppm으로 내려갔어요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "missing",
+        "slot": "weak",
+        "rank": 3,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_rebuilt",
+          "gist_rank_unbacked",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "창문을 얼마나 넓게 열었는지가 환기량에 어떤 영향을 주는지 설명해 보세요",
+        "4, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+        "빈칸을 채워 보세요: 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 ___ 추가 환기"
+      ]
+    },
+    {
+      "id": "q04-ventilation-volume",
+      "node_id": "ventilation-volume",
+      "label": "환기량",
+      "question": "시간당 환기량 계산에서 창문 개방 면적 × 바람 속도 × 개방 시간이 실제 측정값과 일치하는가요?",
+      "why": "자료에는 있는데 발표에서 설명하지 않은 개념이에요",
+      "hint": "계산 공식과 자료 5장의 측정 결과를 비교해 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "missing",
+      "slide_nos": [
+        4,
+        5,
+        6
+      ],
+      "doc_weight": 0.594,
+      "answer_gist": "자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도 · 1,000ppm 초과 시간 (4, 5장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "그리고 여는 방법도 비교했는데요, 의외로 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌어요.",
+      "paper_ids": [],
+      "basis": {
+        "source": "missing",
+        "slot": "",
+        "rank": 4,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_rebuilt",
+          "gist_rank_unbacked",
+          "why_code",
+          "basis_quote_hidden"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "계산 공식과 자료 5장의 측정 결과를 비교해 보세요",
+        "4, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+        "빈칸을 채워 보세요: 시간당 환기량 창문 개방 면적 × = 바람 속도 · ___m 초과 시간"
+      ]
+    }
+  ],
+  "turns": [
+    {
+      "q": 1,
+      "persona": "side_speech",
+      "action": "answer",
+      "input": "아니요, 발표에서 말한 60퍼센트가 맞아요. 농도가 확 떨어졌거든요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "아니요, 발표에서 말한 60퍼센트가 맞아요. 농도가 확 떨어졌거든요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n\n발표에서 언급한 60% 감소 수치는 자료 5장의 40% 감소와 일치하지 않아요. 자료에서는 수업 중 5분 추가 환기 시 평균 농도가 40% 낮아졌다고 명시되어 있어요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n자료 5장에서 제시한 평균 농도 감소율은 몇 퍼센트인가요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-co2-concentration",
+        "node_id": "co2-concentration",
+        "verdict": "wrong",
+        "score": 0,
+        "react": "발표에서 언급한 60% 감소 수치는 자료 5장의 40% 감소와 일치하지 않아요. 자료에서는 수업 중 5분 추가 환기 시 평균 농도가 40% 낮아졌다고 명시되어 있어요.",
+        "summary_sentence": "발표에서 제시한 60% 감소 수치는 자료 5장의 40% 감소 결과와 일치하지 않아 수정이 필요해요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "자료 5장에서 제시한 평균 농도 감소율은 몇 퍼센트인가요?",
+        "hints": [
+          "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+          "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "아니요, 발표에서 말한 60퍼센트가 맞아요. 농도가 확 떨어졌거든요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.32
+        }
+      ],
+      "latency_sec": 2.2,
+      "judge_sec": 1.32,
+      "state": {
+        "qi": 0,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q1_side_speech_01_answer.png",
+      "auto_tags": [
+        "relevance:fail_without_missing"
+      ]
+    },
+    {
+      "q": 1,
+      "persona": "side_speech",
+      "action": "answer",
+      "input": "60퍼센트가 맞다고 생각해요. 제가 직접 측정했어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "60퍼센트가 맞다고 생각해요. 제가 직접 측정했어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n75\n완성도\n\n60퍼센트라고 직접 측정했다고 했는데, 자료 5장에서는 수업 중 5분 추가 환기 시 평균 농도가 40% 낮아졌다고 나와 있어요. 측정 방법과 조건을 확인해 볼 필요가 있겠네요."
+        },
+        {
+          "who": "ai",
+          "kind": "gist",
+          "meta": "",
+          "text": "교\n이렇게 말하면 완성이에요\n\n자료 5장은 “수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.”라고 해요. 발표에서 한 “평균 농도가 60퍼센트나 낮아진 거예요”는 이 수치로 바로잡아야 해요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "좁혀서 다시 물어볼게요 · 3번째 답변",
+          "text": "교\n좁혀서 다시 물어볼게요 · 3번째 답변\n\n자료 5장을 다시 보면, 이산화탄소 농도에 대해 뭐라고 하나요? 한 문장으로 말해 볼래요?"
+        },
+        {
+          "who": "ai",
+          "kind": "hint",
+          "meta": "",
+          "text": "교\n힌트 1/3 · 좁혀 물으면서 같이 열었어요\n자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-co2-concentration",
+        "node_id": "co2-concentration",
+        "verdict": "partial",
+        "score": 75,
+        "react": "60퍼센트라고 직접 측정했다고 했는데, 자료 5장에서는 수업 중 5분 추가 환기 시 평균 농도가 40% 낮아졌다고 나와 있어요. 측정 방법과 조건을 확인해 볼 필요가 있겠네요.",
+        "summary_sentence": "발표에서 주장한 60% 감소 수치는 자료 5장의 40% 감소 결과와 일치하지 않아, 측정 조건이나 방법에 대한 추가 설명이 필요해요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "자료 5장을 다시 보면, 이산화탄소 농도에 대해 뭐라고 하나요? 한 문장으로 말해 볼래요?",
+        "hints": [
+          "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+          "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "focus",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "60퍼센트가 맞다고 생각해요. 제가 직접 측정했어요.",
+        "give_up": false,
+        "prior_answers": [
+          "아니요, 발표에서 말한 60퍼센트가 맞아요. 농도가 확 떨어졌거든요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.49
+        }
+      ],
+      "latency_sec": 2.3,
+      "judge_sec": 1.49,
+      "state": {
+        "qi": 0,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 2,
+        "hintLevel": 1,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 2단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q1_side_speech_02_answer.png",
+      "auto_tags": [
+        "consistency:passed_not_mastered score=75",
+        "relevance:fail_without_missing"
+      ]
+    },
+    {
+      "q": 1,
+      "persona": "side_speech",
+      "action": "answer",
+      "input": "다시 보니 자료가 맞아요. 5장 표에서 1,450ppm이 870ppm으로 내려갔으니 40% 낮아진 거예요. 발표에서 잘못 말했어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "다시 보니 자료가 맞아요. 5장 표에서 1,450ppm이 870ppm으로 내려갔으니 40% 낮아진 거예요. 발표에서 잘못 말했어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n절반쯤\n55\n완성도\n-20\n\n세 번째 답이라 여기서 마무리할게요. 자료 2장과 한 번 더 맞춰 볼 부분은 결과에 다시 볼 곳으로 남겨 둘게요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n이산화탄소 농도\n자료와 다시 맞춰 봐요\n총평에 적었어요\n\n이산화탄소 농도 — 자료와 맞춰 볼 곳을 남기고 넘어갔어요.\n\n질문 1/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 2/7 · 보통이에요",
+          "text": "교\n예상 질문 2/7 · 보통이에요\n\n교실 공기 상태와 이산화탄소 농도 사이의 인과 관계는 어떻게 되나요?\n\n다른 개념과의 연결이 발표에서 드러나지 않았어요\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-co2-concentration",
+        "node_id": "co2-concentration",
+        "verdict": "partial",
+        "score": 55,
+        "react": "세 번째 답이라 여기서 마무리할게요. 자료 2장과 한 번 더 맞춰 볼 부분은 결과에 다시 볼 곳으로 남겨 둘게요.",
+        "summary_sentence": "이산화탄소 농도 — 자료와 맞춰 볼 곳을 남기고 넘어갔어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
+          "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 5장은 「수업 중 5분을 더 열자 평균 농도가 ___ 낮아졌습니다.」라고 해요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 3,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "자료 2장과 어긋난 곳: ppm의 수치",
+        "guard": "deck",
+        "passed": false,
+        "mastered": true,
+        "close_reason": "guard",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "다시 보니 자료가 맞아요. 5장 표에서 1,450ppm이 870ppm으로 내려갔으니 40% 낮아진 거예요. 발표에서 잘못 말했어요.",
+        "give_up": false,
+        "prior_answers": [
+          "아니요, 발표에서 말한 60퍼센트가 맞아요. 농도가 확 떨어졌거든요.",
+          "60퍼센트가 맞다고 생각해요. 제가 직접 측정했어요."
+        ],
+        "hints_shown": [
+          "자료 5장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요"
+        ]
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.15
+        }
+      ],
+      "latency_sec": 2.0,
+      "judge_sec": 1.15,
+      "state": {
+        "qi": 1,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q1_side_speech_03_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 2,
+      "persona": "off_then_good",
+      "action": "answer",
+      "input": "저희 모둠은 이번 발표 준비를 정말 열심히 했어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "저희 모둠은 이번 발표 준비를 정말 열심히 했어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n\n교실 공기에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n교실 공기에 대한 질문이에요. 자료 2장을 다시 보고, 그 장이 교실 공기에 대해 하는 말을 한 문장으로 말해 볼래요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q07-classroom-air",
+        "node_id": "classroom-air",
+        "verdict": "wrong",
+        "score": 0,
+        "react": "교실 공기에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요.",
+        "summary_sentence": "교실 공기 상태와 이산화탄소 농도 사이의 인과 관계는 수업이 40분 이상 지속될 때 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하는 것으로 설명돼요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "교실 공기에 대한 질문이에요. 자료 2장을 다시 보고, 그 장이 교실 공기에 대해 하는 말을 한 문장으로 말해 볼래요?",
+        "hints": [
+          "이산화탄소 농도가 증가하는 원인과 교실 공기 상태의 관계를 설명해 보세요",
+          "1, 2장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 2장은 이렇게 말해요: «수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다.»",
+          "이 방향이에요 — 수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며",
+          "빈칸을 채워 보세요: 수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 ___가 악화되어 발생하는 현상이에요"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "질문이 묻는 것: 교실 공기",
+        "guard": "focus_miss",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "저희 모둠은 이번 발표 준비를 정말 열심히 했어요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.58
+        }
+      ],
+      "latency_sec": 2.4,
+      "judge_sec": 1.58,
+      "state": {
+        "qi": 1,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q2_off_then_good_04_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 2,
+      "persona": "off_then_good",
+      "action": "answer",
+      "input": "수업이 40분 넘게 이어지면 이산화탄소 농도가 1,000ppm을 넘고, 그러면 졸음과 두통을 호소하는 학생이 늘어나요. 그래서 교실 공기 상태가 나빠지는 걸 이산화탄소 농도로 본 거예요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "수업이 40분 넘게 이어지면 이산화탄소 농도가 1,000ppm을 넘고, 그러면 졸음과 두통을 호소하는 학생이 늘어나요. 그래서 교실 공기 상태가 나빠지는 걸 이산화탄소 농도로 본 거예요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n\n수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발한다는 점까지 정확히 설명했어요. 교실 공기 상태가 악화되는 원인도 잘 연결했네요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n교실 공기\n설득 완료\n총평에 적었어요\n\n수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 상태가 악화되는 주요 원인이에요.\n\n질문 2/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 3/7 · 보통이에요",
+          "text": "교\n예상 질문 3/7 · 보통이에요\n\n자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n자료 1·5·6장을 근거로 설명할 수 있는지 보려고 물어요.\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q07-classroom-air",
+        "node_id": "classroom-air",
+        "verdict": "good",
+        "score": 85,
+        "react": "수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발한다는 점까지 정확히 설명했어요. 교실 공기 상태가 악화되는 원인도 잘 연결했네요.",
+        "summary_sentence": "수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 상태가 악화되는 주요 원인이에요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "이산화탄소 농도가 증가하는 원인과 교실 공기 상태의 관계를 설명해 보세요",
+          "1, 2장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 2장은 이렇게 말해요: «수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다.»",
+          "이 방향이에요 — 수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며",
+          "빈칸을 채워 보세요: 수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 ___가 악화되어 발생하는 현상이에요"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "수업이 40분 넘게 이어지면 이산화탄소 농도가 1,000ppm을 넘고, 그러면 졸음과 두통을 호소하는 학생이 늘어나요. 그래서 교실 공기 상태가 나빠지는 걸 이산화탄소 농도로 본 거예요.",
+        "give_up": false,
+        "prior_answers": [
+          "저희 모둠은 이번 발표 준비를 정말 열심히 했어요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.98
+        }
+      ],
+      "latency_sec": 2.8,
+      "judge_sec": 1.98,
+      "state": {
+        "qi": 2,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q2_off_then_good_05_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 3,
+      "persona": "trap_agree",
+      "action": "answer",
+      "input": "네, 한쪽 창문은 10분 걸렸다는 건 한쪽만 열어도 금방 좋아진다는 걸 보여 줘요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "네, 한쪽 창문은 10분 걸렸다는 건 한쪽만 열어도 금방 좋아진다는 걸 보여 줘요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n35\n완성도\n\n질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n자료 6장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요."
+        }
+      ],
+      "judge": {
+        "question_id": "q05-ventilation",
+        "node_id": "ventilation",
+        "verdict": "wrong",
+        "score": 35,
+        "react": "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요.",
+        "summary_sentence": "환기 — 자료와 어긋나게 설명했어요. 다시 보세요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "자료 6장을 떠올려 볼래요? 질문이 말한 수치가 그 장에 적힌 것과 같은지부터 짚어 보면 돼요.",
+        "hints": [
+          "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "1, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 ___이에요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "질문의 전제가 자료와 다르다는 점",
+        "guard": "trap",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "네, 한쪽 창문은 10분 걸렸다는 건 한쪽만 열어도 금방 좋아진다는 걸 보여 줘요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 0.88
+        }
+      ],
+      "latency_sec": 1.7,
+      "judge_sec": 0.88,
+      "state": {
+        "qi": 2,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q3_trap_agree_06_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 3,
+      "persona": "trap_agree",
+      "action": "answer",
+      "input": "아 제가 잘못 봤어요. 자료 6장 표에서 한쪽 창문은 14분, 맞통풍은 7분이라 맞통풍이 두 배 빨랐어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "아 제가 잘못 봤어요. 자료 6장 표에서 한쪽 창문은 14분, 맞통풍은 7분이라 맞통풍이 두 배 빨랐어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n+50\n\n10분이 아닌 14분이라는 수치를 확인하고, 맞통풍이 두 배 빠르다는 점도 언급했네요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n환기\n설득 완료\n총평에 적었어요\n\n한쪽 창문만 열면 1,000ppm 이하로 떨어지는 데 14분이 걸리며, 맞통풍은 7분으로 더 빠르게 농도를 낮출 수 있어요.\n\n질문 3/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 4/7 · 꼭 넘어야 해요",
+          "text": "교\n예상 질문 4/7 · 꼭 넘어야 해요\n\n왜 4장을 생략하고 바로 결과로 넘어갔는지 설명해 주세요\n\n“이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요”라고 하고 넘어간 4장의 핵심이라, 그 내용을 설명할 수 있는지 확인하는 질문이에요"
+        }
+      ],
+      "judge": {
+        "question_id": "q05-ventilation",
+        "node_id": "ventilation",
+        "verdict": "good",
+        "score": 85,
+        "react": "10분이 아닌 14분이라는 수치를 확인하고, 맞통풍이 두 배 빠르다는 점도 언급했네요.",
+        "summary_sentence": "한쪽 창문만 열면 1,000ppm 이하로 떨어지는 데 14분이 걸리며, 맞통풍은 7분으로 더 빠르게 농도를 낮출 수 있어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+          "1, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "빈칸을 채워 보세요: 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 ___이에요."
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "아 제가 잘못 봤어요. 자료 6장 표에서 한쪽 창문은 14분, 맞통풍은 7분이라 맞통풍이 두 배 빨랐어요.",
+        "give_up": false,
+        "prior_answers": [
+          "네, 한쪽 창문은 10분 걸렸다는 건 한쪽만 열어도 금방 좋아진다는 걸 보여 줘요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.18
+        }
+      ],
+      "latency_sec": 2.0,
+      "judge_sec": 1.18,
+      "state": {
+        "qi": 3,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 4,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q3_trap_agree_07_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 4,
+      "persona": "literal_then_content",
+      "action": "answer",
+      "input": "발표 시간이 모자랄 것 같아서 공식 설명은 생략하고 결과로 바로 넘어갔어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "발표 시간이 모자랄 것 같아서 공식 설명은 생략하고 결과로 바로 넘어갔어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n70\n완성도\n\n시간 부족 때문에 공식 설명을 생략하고 결과로 넘어간 점은 이해했어요."
+        },
+        {
+          "who": "ai",
+          "kind": "missing",
+          "meta": "",
+          "text": "교\n아직 안 나온 것\n시간당 환기량 계산 공식에서 창문 개방 면적과 바람 속도의 관계"
+        },
+        {
+          "who": "ai",
+          "kind": "gist",
+          "meta": "",
+          "text": "교\n이렇게 말하면 완성이에요\n\n자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도 (4장)"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n시간당 환기량 계산 공식에서 창문 개방 면적이 바람 속도에 어떤 영향을 미치는지 구체적으로 설명해 줄래요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q02-wind-speed",
+        "node_id": "wind-speed",
+        "verdict": "partial",
+        "score": 70,
+        "react": "시간 부족 때문에 공식 설명을 생략하고 결과로 넘어간 점은 이해했어요.",
+        "summary_sentence": "시간 부족 때문에 공식 설명을 생략하고 결과로 넘어갔으나, 시간당 환기량 계산 공식의 핵심 요소인 창문 개방 면적과 바람 속도의 관계를 명확히 설명하지 않아 개념 이해가 부족했어요.",
+        "missing_points": [
+          "시간당 환기량 계산 공식에서 창문 개방 면적과 바람 속도의 관계"
+        ],
+        "model": "solar",
+        "followup": "시간당 환기량 계산 공식에서 창문 개방 면적이 바람 속도에 어떤 영향을 미치는지 구체적으로 설명해 줄래요?",
+        "hints": [
+          "바람 속도가 환기에 미치는 영향을 설명해 보세요",
+          "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "아직 안 나온 것: 시간당 환기량 계산 공식에서 창문 개방 면적과 바람 속도의 관계",
+          "빈칸을 채워 보세요: 시간당 환기량 창문 개방 ___ × = 바람 속도"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "발표 시간이 모자랄 것 같아서 공식 설명은 생략하고 결과로 바로 넘어갔어요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.4
+        }
+      ],
+      "latency_sec": 2.2,
+      "judge_sec": 1.4,
+      "state": {
+        "qi": 3,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 4,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q4_literal_then_content_08_answer.png",
+      "auto_tags": [
+        "consistency:passed_not_mastered score=70"
+      ]
+    },
+    {
+      "q": 4,
+      "persona": "literal_then_content",
+      "action": "answer",
+      "input": "4장은 시간당 환기량 공식이에요. 창문 개방 면적에 바람 속도와 개방 시간을 곱해서 구하고, 얼마나 넓게, 바람이 얼마나 들게, 얼마나 오래 여는지가 다 들어가요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "4장은 시간당 환기량 공식이에요. 창문 개방 면적에 바람 속도와 개방 시간을 곱해서 구하고, 얼마나 넓게, 바람이 얼마나 들게, 얼마나 오래 여는지가 다 들어가요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n+15\n\n4장의 핵심 내용인 시간당 환기량 공식을 정확히 설명했어요. 창문 개방 면적에 바람 속도와 개방 시간을 곱하는 관계까지 언급했네요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n바람 속도\n설득 완료\n총평에 적었어요\n\n4장은 시간당 환기량을 계산하는 공식으로, 창문 개방 면적에 바람 속도와 개방 시간을 곱해 환기량을 산출하는 내용이에요.\n\n질문 4/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 5/7 · 보통이에요",
+          "text": "교\n예상 질문 5/7 · 보통이에요\n\n왜 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌는지 설명해 주세요\n\n다른 개념과의 연결이 발표에서 드러나지 않았어요\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q02-wind-speed",
+        "node_id": "wind-speed",
+        "verdict": "good",
+        "score": 85,
+        "react": "4장의 핵심 내용인 시간당 환기량 공식을 정확히 설명했어요. 창문 개방 면적에 바람 속도와 개방 시간을 곱하는 관계까지 언급했네요.",
+        "summary_sentence": "4장은 시간당 환기량을 계산하는 공식으로, 창문 개방 면적에 바람 속도와 개방 시간을 곱해 환기량을 산출하는 내용이에요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "바람 속도가 환기에 미치는 영향을 설명해 보세요",
+          "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "이 방향이에요 — 시간당 환기량 창문 개방…",
+          "빈칸을 채워 보세요: 시간당 환기량 창문 개방 ___ × = 바람 속도"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "4장은 시간당 환기량 공식이에요. 창문 개방 면적에 바람 속도와 개방 시간을 곱해서 구하고, 얼마나 넓게, 바람이 얼마나 들게, 얼마나 오래 여는지가 다 들어가요.",
+        "give_up": false,
+        "prior_answers": [
+          "발표 시간이 모자랄 것 같아서 공식 설명은 생략하고 결과로 바로 넘어갔어요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 2.15
+        }
+      ],
+      "latency_sec": 3.0,
+      "judge_sec": 2.15,
+      "state": {
+        "qi": 4,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q4_literal_then_content_09_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 5,
+      "persona": "premise_follow_then_fix",
+      "action": "answer",
+      "input": "한쪽 창문만 열면 바람이 한 방향으로 모여서 공기가 더 빨리 빠져나가기 때문이에요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "한쪽 창문만 열면 바람이 한 방향으로 모여서 공기가 더 빨리 빠져나가기 때문이에요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n\n답변에서 '한쪽 창문만 열면 바람이 한 방향으로 모여서 공기가 더 빨리 빠져나가기 때문'이라고 했는데, 자료에서는 맞통풍이 앞문과 뒤 창문을 함께 열어 공기 흐름이 교실 전체를 순환시켜 농도가 2배 빨리…"
+        },
+        {
+          "who": "ai",
+          "kind": "missing",
+          "meta": "",
+          "text": "교\n아직 안 나온 것\n맞통풍은 앞문과 뒤 창문을 함께 여는 방식이라는 점\n한쪽 창문만 열었을 때 농도가 2배 빨리 떨어진 것이 아니라 맞통풍이 더 빨리 떨어진다는 점\n1,000ppm까지 걸린 시간 수치(7분 vs 14분)"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n맞통풍이 한쪽 창문만 열었을 때보다 농도가 2배 빨리 떨어진 구체적인 메커니즘은 무엇인가요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q06-cross-ventilation",
+        "node_id": "cross-ventilation",
+        "verdict": "wrong",
+        "score": 0,
+        "react": "답변에서 '한쪽 창문만 열면 바람이 한 방향으로 모여서 공기가 더 빨리 빠져나가기 때문'이라고 했는데, 자료에서는 맞통풍이 앞문과 뒤 창문을 함께 열어 공기 흐름이 교실 전체를 순환시켜 농도가 2배 빨리…",
+        "summary_sentence": "맞통풍은 앞문과 뒤 창문을 동시에 열어 교실 내 공기 순환을 촉진함으로써 환기 효율을 높이는 방법이에요.",
+        "missing_points": [
+          "맞통풍은 앞문과 뒤 창문을 함께 여는 방식이라는 점",
+          "한쪽 창문만 열었을 때 농도가 2배 빨리 떨어진 것이 아니라 맞통풍이 더 빨리 떨어진다는 점",
+          "1,000ppm까지 걸린 시간 수치(7분 vs 14분)"
+        ],
+        "model": "solar",
+        "followup": "맞통풍이 한쪽 창문만 열었을 때보다 농도가 2배 빨리 떨어진 구체적인 메커니즘은 무엇인가요?",
+        "hints": [
+          "두 방식의 환기량 차이를 설명해 보세요",
+          "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 6장은 이렇게 말해요: «앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다.»",
+          "아직 안 나온 것: 맞통풍은 앞문과 뒤 창문을 함께 여는 방식이라는 점, 한쪽 창문만 열었을 때 농도가 2배 빨리 떨어진 것이 아니라 맞통풍이 더 빨리 떨어진다는 점, 1,000ppm까지 걸린 시간 수치(7분 vs 14분)",
+          "빈칸을 채워 보세요: 앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다 · 방법: 1,000ppm 아래까지 걸린 시간 · 한쪽 ___: 14분 · 맞통풍: 7분"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "한쪽 창문만 열면 바람이 한 방향으로 모여서 공기가 더 빨리 빠져나가기 때문이에요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.98
+        }
+      ],
+      "latency_sec": 2.8,
+      "judge_sec": 1.98,
+      "state": {
+        "qi": 4,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 5,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q5_premise_follow_then_fix_10_answer.png",
+      "auto_tags": [
+        "tone:truncated  창문을 함께 열어 공기 흐름이 교실 전체를 순환시켜 농도가 2배 빨리…"
+      ]
+    },
+    {
+      "q": 5,
+      "persona": "premise_follow_then_fix",
+      "action": "answer",
+      "input": "사실 제가 발표에서 거꾸로 말했어요. 자료 6장처럼 맞통풍이 한쪽 창문만 열 때보다 두 배 빨리 떨어졌어요. 한쪽 창문은 14분, 맞통풍은 7분 걸렸어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "사실 제가 발표에서 거꾸로 말했어요. 자료 6장처럼 맞통풍이 한쪽 창문만 열 때보다 두 배 빨리 떨어졌어요. 한쪽 창문은 14분, 맞통풍은 7분 걸렸어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n\n맞통풍과 한쪽 창문 환기 모두 자료에 있는 내용을 정확히 언급했어요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n맞통풍\n설득 완료\n총평에 적었어요\n\n맞통풍은 앞문과 뒤 창문을 함께 열어 공기 흐름을 양방향으로 만들기 때문에 한쪽 창문만 열 때보다 이산화탄소 농도가 2배 빠르게 감소해요.\n\n질문 5/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 6/7 · 보통이에요",
+          "text": "교\n예상 질문 6/7 · 보통이에요\n\n환기 면적과 이산화탄소 농도 감소 사이의 관계는 어떻게 되나요?\n\n환기 면적이 이산화탄소 농도 감소에 미치는 영향을 명확히 하기 위해 묻는 질문이에요\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q06-cross-ventilation",
+        "node_id": "cross-ventilation",
+        "verdict": "good",
+        "score": 85,
+        "react": "맞통풍과 한쪽 창문 환기 모두 자료에 있는 내용을 정확히 언급했어요.",
+        "summary_sentence": "맞통풍은 앞문과 뒤 창문을 함께 열어 공기 흐름을 양방향으로 만들기 때문에 한쪽 창문만 열 때보다 이산화탄소 농도가 2배 빠르게 감소해요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "두 방식의 환기량 차이를 설명해 보세요",
+          "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "자료 6장은 이렇게 말해요: «앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다.»",
+          "이 방향이에요 — 앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다",
+          "빈칸을 채워 보세요: 앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다 · 방법: 1,000ppm 아래까지 걸린 시간 · 한쪽 ___: 14분 · 맞통풍: 7분"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "사실 제가 발표에서 거꾸로 말했어요. 자료 6장처럼 맞통풍이 한쪽 창문만 열 때보다 두 배 빨리 떨어졌어요. 한쪽 창문은 14분, 맞통풍은 7분 걸렸어요.",
+        "give_up": false,
+        "prior_answers": [
+          "한쪽 창문만 열면 바람이 한 방향으로 모여서 공기가 더 빨리 빠져나가기 때문이에요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 1.69
+        }
+      ],
+      "latency_sec": 2.5,
+      "judge_sec": 1.69,
+      "state": {
+        "qi": 5,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 4,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q5_premise_follow_then_fix_11_answer.png",
+      "auto_tags": []
+    },
+    {
+      "q": 6,
+      "persona": "short_then_long",
+      "action": "answer",
+      "input": "면적이요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "면적이요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n아직\n\n답변이 너무 짧아서 환기 면적과 이산화탄소 농도 감소 사이의 관계를 설명하지 못했어요. 환기 면적이 클수록 이산화탄소 농도가 더 빨리 감소한다는 점을 구체적으로 설명해 주세요."
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "이어서 물어볼게요 · 2번째 답변",
+          "text": "교\n이어서 물어볼게요 · 2번째 답변\n\n환기 면적이 클수록 이산화탄소 농도가 얼마나 더 빨리 감소하는지 구체적인 수치나 예시를 들어 설명해 줄래요?"
+        }
+      ],
+      "judge": {
+        "question_id": "q03-ventilation-area",
+        "node_id": "ventilation-area",
+        "verdict": "wrong",
+        "score": 0,
+        "react": "답변이 너무 짧아서 환기 면적과 이산화탄소 농도 감소 사이의 관계를 설명하지 못했어요. 환기 면적이 클수록 이산화탄소 농도가 더 빨리 감소한다는 점을 구체적으로 설명해 주세요.",
+        "summary_sentence": "환기 면적이 클수록 이산화탄소 농도가 더 빠르게 감소하며, 맞통풍 시 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어져요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "환기 면적이 클수록 이산화탄소 농도가 얼마나 더 빨리 감소하는지 구체적인 수치나 예시를 들어 설명해 줄래요?",
+        "hints": [
+          "창문을 얼마나 넓게 열었는지가 환기량에 어떤 영향을 주는지 설명해 보세요",
+          "4, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "이 방향이에요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+          "빈칸을 채워 보세요: 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 ___ 추가 환기"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "probe",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": false,
+        "mastered": false,
+        "close_reason": "",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "면적이요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 0.89
+        }
+      ],
+      "latency_sec": 1.7,
+      "judge_sec": 0.89,
+      "state": {
+        "qi": 5,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 1,
+        "hintLevel": 0,
+        "nhints": 4,
+        "buttons": [
+          "liveSend|보완해서 다시 답하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q6_short_then_long_12_answer.png",
+      "auto_tags": [
+        "relevance:fail_without_missing"
+      ]
+    },
+    {
+      "q": 6,
+      "persona": "short_then_long",
+      "action": "answer",
+      "input": "창문을 넓게 열수록 시간당 환기량이 커져요. 시간당 환기량이 창문 개방 면적 곱하기 바람 속도 곱하기 개방 시간이라서, 면적이 크면 같은 시간에 더 많은 공기가 바뀌고 이산화탄소 농도도 더 빨리 내려가요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "창문을 넓게 열수록 시간당 환기량이 커져요. 시간당 환기량이 창문 개방 면적 곱하기 바람 속도 곱하기 개방 시간이라서, 면적이 크면 같은 시간에 더 많은 공기가 바뀌고 이산화탄소 농도도 더 빨리 내려가요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n\n창문을 넓게 열수록 시간당 환기량이 커진다는 점은 정확해요. 그럼 맞통풍(한쪽 창문 vs 양쪽 창문) 효과는 어떻게 되나요?"
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n환기 면적\n설득 완료\n총평에 적었어요\n\n환기 면적이 클수록 시간당 환기량이 증가해 이산화탄소 농도가 더 빨리 감소한다는 관계를 정확히 설명했어요.\n\n질문 6/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 7/7 · 보통이에요",
+          "text": "교\n예상 질문 7/7 · 보통이에요\n\n시간당 환기량 계산에서 창문 개방 면적 × 바람 속도 × 개방 시간이 실제 측정값과 일치하는가요?\n\n자료에는 있는데 발표에서 설명하지 않은 개념이에요\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q03-ventilation-area",
+        "node_id": "ventilation-area",
+        "verdict": "good",
+        "score": 85,
+        "react": "창문을 넓게 열수록 시간당 환기량이 커진다는 점은 정확해요. 그럼 맞통풍(한쪽 창문 vs 양쪽 창문) 효과는 어떻게 되나요?",
+        "summary_sentence": "환기 면적이 클수록 시간당 환기량이 증가해 이산화탄소 농도가 더 빨리 감소한다는 관계를 정확히 설명했어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "창문을 얼마나 넓게 열었는지가 환기량에 어떤 영향을 주는지 설명해 보세요",
+          "4, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "이 방향이에요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+          "빈칸을 채워 보세요: 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 ___ 추가 환기"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 2,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": false,
+        "grounded_on_deck": true,
+        "degraded": [
+          "question_unverified"
+        ],
+        "degraded_notes": [
+          "서버가 만든 질문을 찾지 못해 화면의 질문으로 판정했어요. 이 판정은 기록에 남기지 않아요."
+        ]
+      },
+      "judge_req": {
+        "answer": "창문을 넓게 열수록 시간당 환기량이 커져요. 시간당 환기량이 창문 개방 면적 곱하기 바람 속도 곱하기 개방 시간이라서, 면적이 크면 같은 시간에 더 많은 공기가 바뀌고 이산화탄소 농도도 더 빨리 내려가요.",
+        "give_up": false,
+        "prior_answers": [
+          "면적이요."
+        ],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 0.87
+        }
+      ],
+      "latency_sec": 1.7,
+      "judge_sec": 0.87,
+      "state": {
+        "qi": 6,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 4,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q6_short_then_long_13_answer.png",
+      "auto_tags": []
+    }
+  ],
+  "console": [],
+  "entry_turns": [
+    {
+      "who": "sys",
+      "kind": "note",
+      "text": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요."
+    },
+    {
+      "who": "ai",
+      "kind": "question",
+      "text": "평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장과 수치가 다른가요?"
+    }
+  ],
+  "entry_stream": "문헌 검색이 늦어져 자료가 인용한 문헌만으로 질문을 만들었어요.\n\n교\n예상 질문 1/7 · 꼭 넘어야 해요\n\n평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장과 수치가 다른가요?\n\n발표에서 말한 수치가 자료 5장과 달라서, 어느 쪽이 맞는지 짚어 보는 질문이에요\n이 질문의 근거",
+  "result_text": "← 내 발표로 나가기\n코칭 기록 저장됨\n\n실전 질문 코칭 결과\n\n질문 7개 중 5개를 스스로 설명했어요\n5\n스스로 설명\n1\n도움 받아 닫음\n1\n넘김·안 물음\n\n다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.\n\n도움 받아 닫은 질문\n1\n힌트·보기·세 번째 답으로 닫았어요\n이산화탄소 농도\n이산화탄소 농도 — 자료와 맞춰 볼 곳을 남기고 넘어갔어요.\n도움 받아 닫힘\n자료와 다시 맞춰 볼 곳이 남았어요\n›\n넘기거나 안 물은 질문\n1\n답하지 않았거나 묻기 전에 마쳤어요\n환기량\n시간당 환기량 계산에서 창문 개방 면적 × 바람 속도 × 개방 시간이 실제 측정값과 일치하는가요?\n넘김\n답하지 않고 넘겼어요\n›\n스스로 설명한 질문\n5\n힌트·보기 없이 내 말로 닫았어요\n교실 공기\n수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 …\n스스로 설명\n2번 만에 설명했어요\n›\n환기\n한쪽 창문만 열면 1,000ppm 이하로 떨어지는 데 14분이 걸리며, 맞통풍은 7분으로 더 빠르게 농도를 낮…\n스스로 설명\n2번 만에 설명했어요\n›\n바람 속도\n4장은 시간당 환기량을 계산하는 공식으로, 창문 개방 면적에 바람 속도와 개방 시간을 곱해 환기량을 산출하는 …\n스스로 설명\n2번 만에 설명했어요\n›\n맞통풍\n맞통풍은 앞문과 뒤 창문을 함께 열어 공기 흐름을 양방향으로 만들기 때문에 한쪽 창문만 열 때보다 이산화탄소 …\n스스로 설명\n2번 만에 설명했어요\n›\n환기 면적\n환기 면적이 클수록 시간당 환기량이 증가해 이산화탄소 농도가 더 빨리 감소한다는 관계를 정확히 설명했어요.\n스스로 설명\n2번 만에 설명했어요\n›\n상세 리포트 보기\n같은 질문으로 다시\n홈으로",
+  "report_qa_log": "질문 코칭 내역\n 교수님과 주고받은 6개 질문 · 대화로 5개 늘었어요 · 2026.09.30\n\n첫 시도에 설명\n0\n→\n끝까지 설명\n5\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요 · 대화로 5개 늘었어요\n\n도움 받아 닫힘\n이산화탄소 농도\n01\n\n질문\n평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장과 수치가 다른가요?\n\n내 답변\n다시 보니 자료가 맞아요. 5장 표에서 1,450ppm이 870ppm으로 내려갔으니 40% 낮아진 거예요. 발표에서 잘못 말했어요.\n\n이산화탄소 농도 — 자료와 맞춰 볼 곳을 남기고 넘어갔어요.\n\n자료와 다시 맞춰 볼 곳이 남았어요\n\n스스로 설명\n교실 공기\n02\n\n질문\n교실 공기 상태와 이산화탄소 농도 사이의 인과 관계는 어떻게 되나요?\n\n내 답변\n수업이 40분 넘게 이어지면 이산화탄소 농도가 1,000ppm을 넘고, 그러면 졸음과 두통을 호소하는 학생이 늘어나요. 그래서 교실 공기 상태가 나빠지는 걸 이산화탄소 농도로 본 거예요.\n\n수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 상태가 악화되는 주요 원인이에요.\n\n2번 만에 설명했어요\n\n스스로 설명\n환기\n03\n\n질문\n자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n아 제가 잘못 봤어요. 자료 6장 표에서 한쪽 창문은 14분, 맞통풍은 7분이라 맞통풍이 두 배 빨랐어요.\n\n한쪽 창문만 열면 1,000ppm 이하로 떨어지는 데 14분이 걸리며, 맞통풍은 7분으로 더 빠르게 농도를 낮출 수 있어요.\n\n2번 만에 설명했어요\n\n스스로 설명\n바람 속도\n04\n\n질문\n왜 4장을 생략하고 바로 결과로 넘어갔는지 설명해 주세요\n\n내 답변\n4장은 시간당 환기량 공식이에요. 창문 개방 면적에 바람 속도와 개방 시간을 곱해서 구하고, 얼마나 넓게, 바람이 얼마나 들게, 얼마나 오래 여는지가 다 들어가요.\n\n4장은 시간당 환기량을 계산하는 공식으로, 창문 개방 면적에 바람 속도와 개방 시간을 곱해 환기량을 산출하는 내용이에요.\n\n2번 만에 설명했어요\n\n스스로 설명\n맞통풍\n05\n\n질문\n왜 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌는지 설명해 주세요\n\n내 답변\n사실 제가 발표에서 거꾸로 말했어요. 자료 6장처럼 맞통풍이 한쪽 창문만 열 때보다 두 배 빨리 떨어졌어요. 한쪽 창문은 14분, 맞통풍은 7분 걸렸어요.\n\n맞통풍은 앞문과 뒤 창문을 함께 열어 공기 흐름을 양방향으로 만들기 때문에 한쪽 창문만 열 때보다 이산화탄소 농도가 2배 빠르게 감소해요.\n\n2번 만에 설명했어요\n\n스스로 설명\n환기 면적\n06\n\n질문\n환기 면적과 이산화탄소 농도 감소 사이의 관계는 어떻게 되나요?\n\n내 답변\n창문을 넓게 열수록 시간당 환기량이 커져요. 시간당 환기량이 창문 개방 면적 곱하기 바람 속도 곱하기 개방 시간이라서, 면적이 크면 같은 시간에 더 많은 공기가 바뀌고 이산화탄소 농도도 더 빨리 내려가요.\n\n환기 면적이 클수록 시간당 환기량이 증가해 이산화탄소 농도가 더 빨리 감소한다는 관계를 정확히 설명했어요.\n\n2번 만에 설명했어요\n\n넘김\n환기량\n07\n\n질문\n시간당 환기량 계산에서 창문 개방 면적 × 바람 속도 × 개방 시간이 실제 측정값과 일치하는가요?\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요",
+  "report_text": "수업에서 발표해요\n슬라이드 8개\n4분 50초\n\n교실공기_환기_탐구발표\n발표 완성도\nC+\n?\n자료와 다르게 말한 곳과 말로 건너뛴 핵심 장이 있어요\n\n먼저 짚을 것 2가지\n\n발표에서는 60%라고 했는데 자료 5장은 40%예요\n\n발표\n“평균 농도가 60퍼센트나 낮아진 거예요.”\n\n자료 5장\n“수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다.”\n\n핵심 4장을 말로 건너뛰었어요\n\n발표\n“음 여기는 환기량 계산하는 공식인데요, 이건 좀 복잡해서 오늘은 생략하고 바로 결과로 갈게요.”\n\n설명하지 않은 개념 · 환기 면적 · 바람 속도 · 환기량\n\n이 2가지 때문에 등급은 C+까지만 매겼어요.\n\n여기부터 보세요\n시간 관리\n47/100\n전반이 계획보다 70% 모자랐어요.\n내용 충실도\n83/100\n›\n논리 구조\n89/100\n›\n목적·청중 적합성\n87/100\n›\n언어적 명료성\n79/100\n›\n음성적 전달\n66/100\n›\n시각자료 활용\n65/100\n›\n‘수업에서 발표해요’에 맞춰 봤어요\n안 본 항목 3개 · 못 잰 항목 8개\n이 자리에서 안 보는 항목 3개는 빼고 봤어요\n8개 항목은 이번엔 재지 못했어요. 다음 연습에선 더 많이 알려드릴게요.\n자료와 다르게 말한 곳 1곳 · 말로 건너뛴 핵심 장 1장 — 총점은 59점을 넘지 않아요 (76점에서 낮췄어요)\n요약\n말하기\n개념 전달\n흐름\n채점 근거\n연습 도구\n발표 구성\n슬라이드로 보는 발표\n슬라이드를 누르거나 ←→ 로 넘겨요\n8 / 8\n8번 슬라이드\n설명함\n결론\n이 슬라이드에서 한 말\n여는 횟수보다 여는 시간이 중요하다는 게 저희 결론이에요.00:27\n\n결론 및 최적 환기 전략 제시\n\n판정 근거 자세히 보기\n설명함\n최적 환기 전략\n1\n2\n3\n4\n5\n6\n7\n8\n설명함\n언급만 함\n안 나옴\n자료와 모순\n정당한 생략\n개념별 판정 전체 보기\n 17개 · 다시 볼 곳 4개\n환기\n1번 슬라이드\n설명함\n이산화탄소 농도\n1번 슬라이드\n자료와 모순\n바람 속도\n1번 슬라이드\n안 나옴\n환기 시간\n1번 슬라이드\n설명함\n환기 면적\n1번 슬라이드\n안 나옴\n환기량\n4번 슬라이드\n안 나옴\n환기 효과\n5번 슬라이드\n설명함\n교실 공기\n1번 슬라이드\n설명함\n맞통풍\n6번 슬라이드\n설명함\n한쪽 환기\n6번 슬라이드\n설명함\n결론\n8번 슬라이드\n설명함\n환기 효율\n6번 슬라이드\n설명함\n농도 감소 속도\n6번 슬라이드\n설명함\n최적 환기 전략\n8번 슬라이드\n설명함\n실내 온도 변화\n7번 슬라이드\n설명함\n학생 수 변동\n7번 슬라이드\n설명함\n표본 크기 제한\n7번 슬라이드\n설명함\n질문 코칭 내역\n 교수님과 주고받은 6개 질문 · 대화로 5개 늘었어요 · 2026.09.30\n\n첫 시도에 설명\n0\n→\n끝까지 설명\n5\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요 · 대화로 5개 늘었어요\n\n도움 받아 닫힘\n이산화탄소 농도\n01\n\n질문\n평균 농도가 60퍼센트나 낮아졌다고 했는데 자료 5장과 수치가 다른가요?\n\n내 답변\n다시 보니 자료가 맞아요. 5장 표에서 1,450ppm이 870ppm으로 내려갔으니 40% 낮아진 거예요. 발표에서 잘못 말했어요.\n\n이산화탄소 농도 — 자료와 맞춰 볼 곳을 남기고 넘어갔어요.\n\n자료와 다시 맞춰 볼 곳이 남았어요\n\n스스로 설명\n교실 공기\n02\n\n질문\n교실 공기 상태와 이산화탄소 농도 사이의 인과 관계는 어떻게 되나요?\n\n내 답변\n수업이 40분 넘게 이어지면 이산화탄소 농도가 1,000ppm을 넘고, 그러면 졸음과 두통을 호소하는 학생이 늘어나요. 그래서 교실 공기 상태가 나빠지는 걸 이산화탄소 농도로 본 거예요.\n\n수업이 40분 이상 지속되면 이산화탄소 농도가 1000ppm을 넘어 졸음과 두통을 유발하며, 이는 교실 공기 상태가 악화되는 주요 원인이에요.\n\n2번 만에 설명했어요\n\n스스로 설명\n환기\n03\n\n질문\n자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n아 제가 잘못 봤어요. 자료 6장 표에서 한쪽 창문은 14분, 맞통풍은 7분이라 맞통풍이 두 배 빨랐어요.\n\n한쪽 창문만 열면 1,000ppm 이하로 떨어지는 데 14분이 걸리며, 맞통풍은 7분으로 더 빠르게 농도를 낮출 수 있어요.\n\n2번 만에 설명했어요\n\n스스로 설명\n바람 속도\n04\n\n질문\n왜 4장을 생략하고 바로 결과로 넘어갔는지 설명해 주세요\n\n내 답변\n4장은 시간당 환기량 공식이에요. 창문 개방 면적에 바람 속도와 개방 시간을 곱해서 구하고, 얼마나 넓게, 바람이 얼마나 들게, 얼마나 오래 여는지가 다 들어가요.\n\n4장은 시간당 환기량을 계산하는 공식으로, 창문 개방 면적에 바람 속도와 개방 시간을 곱해 환기량을 산출하는 내용이에요.\n\n2번 만에 설명했어요\n\n스스로 설명\n맞통풍\n05\n\n질문\n왜 한쪽 창문만 열었을 때가 맞통풍보다 두 배 빨리 떨어졌는지 설명해 주세요\n\n내 답변\n사실 제가 발표에서 거꾸로 말했어요. 자료 6장처럼 맞통풍이 한쪽 창문만 열 때보다 두 배 빨리 떨어졌어요. 한쪽 창문은 14분, 맞통풍은 7분 걸렸어요.\n\n맞통풍은 앞문과 뒤 창문을 함께 열어 공기 흐름을 양방향으로 만들기 때문에 한쪽 창문만 열 때보다 이산화탄소 농도가 2배 빠르게 감소해요.\n\n2번 만에 설명했어요\n\n스스로 설명\n환기 면적\n06\n\n질문\n환기 면적과 이산화탄소 농도 감소 사이의 관계는 어떻게 되나요?\n\n내 답변\n창문을 넓게 열수록 시간당 환기량이 커져요. 시간당 환기량이 창문 개방 면적 곱하기 바람 속도 곱하기 개방 시간이라서, 면적이 크면 같은 시간에 더 많은 공기가 바뀌고 이산화탄소 농도도 더 빨리 내려가요.\n\n환기 면적이 클수록 시간당 환기량이 증가해 이산화탄소 농도가 더 빨리 감소한다는 관계를 정확히 설명했어요.\n\n2번 만에 설명했어요\n\n넘김\n환기량\n07\n\n질문\n시간당 환기량 계산에서 창문 개방 면적 × 바람 속도 × 개방 시간이 실제 측정값과 일치하는가요?\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.\n\n새 발표 연습\n질문 연습 다시 하기"
+}

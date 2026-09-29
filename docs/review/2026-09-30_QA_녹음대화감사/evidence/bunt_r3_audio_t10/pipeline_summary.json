@@ -1,0 +1,260 @@
+{
+ "alignment": {
+  "speech_match": "unrelated",
+  "speech_overlap": 0.0285,
+  "basis": "skipped",
+  "skipped_slides": [],
+  "items": [
+   {
+    "node_id": "bunt-loss",
+    "label": "번트 전략의 순손실",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-success-rate",
+    "label": "번트 성공률",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-success-rate-comparison",
+    "label": "프로 리그 대비 성공률",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-expectation",
+    "label": "번트 전후 득점 기대값",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-expectation-decrease",
+    "label": "득점 기대값",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-profit-formula",
+    "label": "번트 손익 계산 공식",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "hard-hit-vs-bunt",
+    "label": "강공과 번트 비교",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "hard-hit-probability",
+    "label": "득점 확률 수치",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "hard-hit-advantage",
+    "label": "강공의 상대적 우위",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "special-situation",
+    "label": "특수 상황에서의 번트 효용성",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "regular-strategy",
+    "label": "평소 전략",
+    "verdict": "missing",
+    "decided_by": "fallback",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   }
+  ]
+ },
+ "score": {
+  "score": 39,
+  "cap": 39,
+  "basis": "partial",
+  "note": "녹음이 이 발표 자료와 다른 발표라서 말한 내용은 채점하지 않았어요 — 자료와 말하기 습관만 봤고, 이 자료의 발표로는 39점 위로 매기지 않아요",
+  "faults": [
+   {
+    "kind": "unrelated_speech",
+    "text": "녹음이 이 발표 자료와 다른 발표예요 (발화 낱말 중 자료에도 있는 비중 3%) — 말한 내용은 채점하지 않았어요",
+    "slide_no": null
+   }
+  ],
+  "unmeasured": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   13,
+   14,
+   18,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   32,
+   33,
+   35,
+   37
+  ]
+ },
+ "report": {
+  "one_liner": "녹음이 이 발표 자료와 다른 발표라서 말한 내용은 분석하지 않았어요. 이 자료로 발표한 녹음을 올리면 개념·흐름까지 같이 볼게요.",
+  "score": 39,
+  "grade": "",
+  "strengths": [
+   "말 속도가 일정해서 청중이 따라가기 편해요."
+  ],
+  "weaknesses": [
+   "녹음이 이 발표 자료와 다른 발표예요 (발화 낱말 중 자료에도 있는 비중 3%) — 말한 내용은 채점하지 않았어요"
+  ],
+  "actions": [
+   "이 발표 자료로 한 녹음을 다시 올려 보세요 — 그래야 개념·흐름·자료와 맞게 말했는지 볼 수 있어요.",
+   "간투어를 더 줄이기 위해 말하기 전에 잠시 멈추고 문장을 정리해 보세요."
+  ],
+  "pace_summary": "평균 자분 144.9, 평균 SPS 2.26으로 말 속도가 일정하고 빠르지 않아요.",
+  "habit_summary": "REP 0, FIL 2, PAUSE 0으로 눈에 띄는 반복이나 긴 휴지는 거의 없어요.",
+  "model": "solar"
+ },
+ "pace": {
+  "target_sec": 600,
+  "actual_sec": 320,
+  "avg_chars_per_min": 144.9,
+  "slides": [
+   {
+    "slide_no": 1,
+    "title": "번트, 정말 점수를 만들까",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 320,
+    "recommended_sec": 600,
+    "delta_sec": -280,
+    "chars_per_min": 144.9,
+    "syllable_per_sec": 2.26,
+    "status": "short",
+    "note": "핵심 · 권장 대비 46% 부족",
+    "skip_cue": ""
+   }
+  ],
+  "tips": [
+   "목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요.",
+   "1번은 핵심인데 권장 600초 중 320초만 썼어요. 여기 시간을 늘리세요."
+  ]
+ },
+ "transcript_by_slide": [],
+ "pipeline_log": [
+  {
+   "kind": "pre",
+   "text": "발표하는 동안 자료의 개념을 미리 정리해 뒀어요",
+   "phase": "queued",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말한 내용을 다 옮겼어요 · 단어 263개 · 슬라이드 구간 0개 · 녹음이 이 발표 자료와 아예 다른 내용으로 보여요 — 발화에 나온 낱말 중 자료에도 있는 낱말이 1%뿐이에요. 다른 발표의 자료나 녹음을 올렸는지 확인해 주세요. 슬라이드 구간은 길이를 균등하게 나눴어요.",
+   "phase": "stt_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "핵심 개념을 찾았어요 · 개념 슬라이드 8장",
+   "phase": "concepts_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "'번트 전략의 순손실' · '번트 성공률' 등 개념 11개를 발표와 대조할 준비를 했어요",
+   "phase": "graph_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "자료와 발표 대조를 마쳤어요 · 정합 판정 11개",
+   "phase": "align_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "흐름 비교를 마쳤어요 · 흐름 판정 0개",
+   "phase": "flow_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "시간 배분을 다 쟀어요 · 배분 1장 · 실제 320초",
+   "phase": "pace_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말버릇을 다 찾았어요 · REP 0 · FIL 2 · PAUSE 0",
+   "phase": "habits_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "점수를 매겼어요 · 39점 · 학교 프로젝트 (교수 대상)",
+   "phase": "score_done",
+   "sec": 2
+  },
+  {
+   "kind": "done",
+   "text": "리포트를 다 썼어요 · 녹음이 이 발표 자료와 다른 발표라서 말한 내용은 분석하지 않았어요. 이 자료로 발표한 녹음을 올리면 개념·흐름까지 같이 볼게요.",
+   "phase": "voice_report_done",
+   "sec": 4
+  },
+  {
+   "kind": "done",
+   "text": "상세 리포트까지 다 만들었어요 · 총 4초",
+   "phase": "done",
+   "sec": 4
+  }
+ ]
+}

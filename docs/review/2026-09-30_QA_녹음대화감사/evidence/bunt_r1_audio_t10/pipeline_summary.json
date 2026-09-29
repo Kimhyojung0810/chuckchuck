@@ -1,0 +1,369 @@
+{
+ "alignment": {
+  "speech_match": "matched",
+  "speech_overlap": 0.3965,
+  "basis": "llm",
+  "skipped_slides": [],
+  "items": [
+   {
+    "node_id": "bunt-loss",
+    "label": "번트 전략의 순손실",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-success-rate",
+    "label": "번트 성공률",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-success-rate-comparison",
+    "label": "프로 리그 대비 성공률",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-expectation",
+    "label": "번트 전후 득점 기대값",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "무사 1루는 0.86점, 번트에 성공해서 1사 2루가 되면 0.71점이에요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-expectation-decrease",
+    "label": "득점 기대값",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "먼저 상황별 득점 기대값을 봤어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "bunt-profit-formula",
+    "label": "번트 손익 계산 공식",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "hard-hit-vs-bunt",
+    "label": "강공과 번트 비교",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "hard-hit-probability",
+    "label": "득점 확률 수치",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "번트 34%, 강공 44%",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "hard-hit-advantage",
+    "label": "강공의 상대적 우위",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요.",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "special-situation",
+    "label": "특수 상황에서의 번트 효용성",
+    "verdict": "justified_skip",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "",
+    "deck_quote": ""
+   },
+   {
+    "node_id": "regular-strategy",
+    "label": "평소 전략",
+    "verdict": "aligned",
+    "decided_by": "llm",
+    "deck_slide_no": null,
+    "evidence": "평소에는 강공 한 점이 급할 때만 번트.",
+    "deck_quote": ""
+   }
+  ]
+ },
+ "score": {
+  "score": 69,
+  "cap": null,
+  "basis": "partial",
+  "note": "",
+  "faults": [],
+  "unmeasured": [
+   6,
+   25,
+   26,
+   39
+  ]
+ },
+ "report": {
+  "one_liner": "청중 맞춤 설명이 전혀 없고, 말 속도가 너무 느려서 핵심 내용을 충분히 전달하지 못했어요.",
+  "score": 69,
+  "grade": "",
+  "strengths": [
+   "반복이나 간투어가 거의 없고, 눈에 띄는 긴 휴지도 없어요."
+  ],
+  "weaknesses": [
+   "청중 수준에 맞는 설명이 전혀 없고, 말 속도가 권장 구간보다 181자/분 느려서 전달력이 떨어져요."
+  ],
+  "actions": [
+   "청중(교수님)이 이해할 수 있도록 전문 용어를 쉬운 말로 바꿔서 설명해보세요.",
+   "말 속도를 300~350자/분 수준으로 올리기 위해 문장을 조금 더 빠르게 말해보세요.",
+   "핵심 슬라이드(1, 2, 3, 5, 6, 8)에 예시나 한 문장을 더 넣어 권장 시간을 채우세요."
+  ],
+  "pace_summary": "평균 118.6자/분으로 권장 구간(300~350)보다 181자/분 느리며, 최대 171.2자/분(슬라이드 7)만 기록됐어요.",
+  "habit_summary": "REP(반복) 0, FIL(간투어) 3, PAUSE(휴지) 0으로 눈에 띄는 말버릇은 적지만, 청중 맞춤 설명이 전혀 없어 전달력이 부족해요.",
+  "model": "solar"
+ },
+ "pace": {
+  "target_sec": 600,
+  "actual_sec": 262.1,
+  "avg_chars_per_min": 118.6,
+  "slides": [
+   {
+    "slide_no": 1,
+    "title": "번트, 정말 점수를 만들까",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 29.79,
+    "recommended_sec": 94.49,
+    "delta_sec": -64.7,
+    "chars_per_min": 132.9,
+    "syllable_per_sec": 2.15,
+    "status": "short",
+    "note": "핵심 · 권장 대비 68% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 2,
+    "title": "분석한 데이터",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 35.74,
+    "recommended_sec": 94.49,
+    "delta_sec": -58.75,
+    "chars_per_min": 109.1,
+    "syllable_per_sec": 1.48,
+    "status": "short",
+    "note": "핵심 · 권장 대비 62% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 3,
+    "title": "상황별 득점 기대값",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 59.58,
+    "recommended_sec": 94.49,
+    "delta_sec": -34.91,
+    "chars_per_min": 131.9,
+    "syllable_per_sec": 1.86,
+    "status": "short",
+    "note": "핵심 · 권장 대비 36% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 5,
+    "title": "번트 성공률",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 47.66,
+    "recommended_sec": 94.49,
+    "delta_sec": -46.83,
+    "chars_per_min": 134.7,
+    "syllable_per_sec": 1.78,
+    "status": "short",
+    "note": "핵심 · 권장 대비 49% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 6,
+    "title": "강공과 비교",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 41.7,
+    "recommended_sec": 94.49,
+    "delta_sec": -52.79,
+    "chars_per_min": 97.8,
+    "syllable_per_sec": 1.53,
+    "status": "short",
+    "note": "핵심 · 권장 대비 55% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 7,
+    "title": "예외: 번트가 이득인 때",
+    "importance": "support",
+    "importance_weight": 0.35,
+    "actual_sec": 17.87,
+    "recommended_sec": 33.07,
+    "delta_sec": -15.2,
+    "chars_per_min": 171.2,
+    "syllable_per_sec": 2.63,
+    "status": "short",
+    "note": "권장 대비 45% 부족",
+    "skip_cue": ""
+   },
+   {
+    "slide_no": 8,
+    "title": "결론",
+    "importance": "core",
+    "importance_weight": 1,
+    "actual_sec": 29.79,
+    "recommended_sec": 94.49,
+    "delta_sec": -64.7,
+    "chars_per_min": 60.4,
+    "syllable_per_sec": 0.91,
+    "status": "short",
+    "note": "핵심 · 권장 대비 68% 부족",
+    "skip_cue": ""
+   }
+  ],
+  "tips": [
+   "목표 시간보다 짧아요. 핵심 슬라이드에 예시나 한 문장을 더 넣어 보세요.",
+   "1번은 핵심인데 권장 94초 중 30초만 썼어요. 여기 시간을 늘리세요.",
+   "2번은 핵심인데 권장 94초 중 36초만 썼어요. 여기 시간을 늘리세요."
+  ]
+ },
+ "transcript_by_slide": [
+  {
+   "slide_no": 1,
+   "start_sec": 0,
+   "end_sec": 29.79,
+   "text": "안녕하세요. 저는 사회인 야구 리그 기록을 가지고 번트가 정말 점수를 만드는지 분석해 봤어요. 아웃 하나를 내주고 주자를 한 베이스 보내는 작전 과연 손해일까"
+  },
+  {
+   "slide_no": 2,
+   "start_sec": 29.79,
+   "end_sec": 65.53,
+   "text": "이득일까가 오늘 주제예요. 데이터는 저희 리그 12개 팀 180경기 타석으로는 7900개예요. 기록원분들이 경기마다 입력한 기록을 그대로 썼어요."
+  },
+  {
+   "slide_no": 3,
+   "start_sec": 65.53,
+   "end_sec": 125.11,
+   "text": "먼저 상황별 득점 기대값을 봤어요. 득점 기대값은 그 상황에서 이닝이 끝날 때까지 평균 몇 점이 나는지예요. 무사 1루는 0.86점, 번트에 성공해서 1사 2루가 되면 0.71점이에요. 그러니까 번트에 성공해도 기대값이 0.15점 줄어요. 이걸 식으로 쓰면 번트 손익은 성공 후 기대값에서 시도 전 기대값을 뺀"
+  },
+  {
+   "slide_no": 4,
+   "start_sec": 125.11,
+   "end_sec": 142.98,
+   "text": ""
+  },
+  {
+   "slide_no": 5,
+   "start_sec": 142.98,
+   "end_sec": 190.64,
+   "text": "거예요. 0.71에서 0.86을 빼면 마이너스 0.15점이죠. 성공해도 손해라는 뜻이에요. 게다가 번트가 늘 성공하는 것도 아니에요. 우리 리그 번트 성공률이 72퍼센트 정도 되는데요, 프로 리그가 81퍼센트니까 생각보다 차이가 크진 않아요."
+  },
+  {
+   "slide_no": 6,
+   "start_sec": 190.64,
+   "end_sec": 232.34,
+   "text": "그럼 번트 대신 강공을 하면 어떨까요. 무사 1루에서는 번트를 했을 때가 강공보다 그 이닝 득점 확률이 더 높게 나왔어요. 그래서 번트 자체가 나쁜 작전은 아니에요."
+  },
+  {
+   "slide_no": 7,
+   "start_sec": 232.34,
+   "end_sec": 250.21,
+   "text": "예외인 경우는 오늘은 빼고 바로 결론으로 가겠습니다. 메이저리그에서도 번트가 10년 사이에 절반으로 줄었다고 하죠."
+  },
+  {
+   "slide_no": 8,
+   "start_sec": 250.21,
+   "end_sec": 280,
+   "text": "결론은 간단해요. 평소에는 강공 한 점이 급할 때만 번트. 감사합니다."
+  }
+ ],
+ "pipeline_log": [
+  {
+   "kind": "start",
+   "text": "녹음을 넘겨받았어요",
+   "phase": "queued",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "말한 내용을 다 옮겼어요 · 단어 161개 · 슬라이드 구간 8개 · 발화 내용을 자료와 맞춰 슬라이드 구간을 추정했어요.",
+   "phase": "stt_done",
+   "sec": 0
+  },
+  {
+   "kind": "done",
+   "text": "핵심 개념을 찾았어요 · 개념 슬라이드 8장",
+   "phase": "concepts_done",
+   "sec": 6
+  },
+  {
+   "kind": "done",
+   "text": "'번트 전략의 순손실' · '번트 성공률' 등 개념 11개를 발표와 대조할 준비를 했어요",
+   "phase": "graph_done",
+   "sec": 19
+  },
+  {
+   "kind": "done",
+   "text": "자료와 발표 대조를 마쳤어요 · 정합 판정 11개",
+   "phase": "align_done",
+   "sec": 26
+  },
+  {
+   "kind": "done",
+   "text": "흐름 비교를 마쳤어요 · 흐름 판정 0개",
+   "phase": "flow_done",
+   "sec": 26
+  },
+  {
+   "kind": "done",
+   "text": "시간 배분을 다 쟀어요 · 배분 7장 · 실제 262초",
+   "phase": "pace_done",
+   "sec": 26
+  },
+  {
+   "kind": "done",
+   "text": "말버릇을 다 찾았어요 · REP 0 · FIL 3 · PAUSE 0",
+   "phase": "habits_done",
+   "sec": 26
+  },
+  {
+   "kind": "done",
+   "text": "점수를 매겼어요 · 69점 · 학교 프로젝트 (교수 대상)",
+   "phase": "score_done",
+   "sec": 30
+  },
+  {
+   "kind": "done",
+   "text": "리포트를 다 썼어요 · 청중 맞춤 설명이 전혀 없고, 말 속도가 너무 느려서 핵심 내용을 충분히 전달하지 못했어요.",
+   "phase": "voice_report_done",
+   "sec": 32
+  },
+  {
+   "kind": "done",
+   "text": "상세 리포트까지 다 만들었어요 · 총 32초",
+   "phase": "done",
+   "sec": 32
+  }
+ ]
+}

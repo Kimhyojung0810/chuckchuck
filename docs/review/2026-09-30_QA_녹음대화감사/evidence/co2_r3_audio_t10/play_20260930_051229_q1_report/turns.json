@@ -1,0 +1,519 @@
+{
+  "prep": "20260930_050223_audit_co2_r3_audio_t10",
+  "deck": "audit_co2_r3",
+  "mode": "audio",
+  "track": "10",
+  "tag": "q1_report",
+  "script": "labs/qa_convo/answers/audit_rec_co2_r3_t10_q1.json",
+  "questions": [
+    {
+      "id": "q01-conclusion",
+      "node_id": "conclusion",
+      "label": "결론",
+      "question": "결론에서 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 했는데, 이 전략이 적용 가능한 조건은 무엇인가요?",
+      "why": "결론의 주장을 뒷받침하는 구체적인 조건을 확인해 발표의 타당성을 평가하기 위해 묻는 질문이에요.",
+      "hint": "기준 아래로 지키는 조건을 측정 결과에서 찾아보세요.",
+      "severity": 1,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        8
+      ],
+      "doc_weight": 0.357,
+      "answer_gist": "자료는 이렇게 말해요 — 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다 (8장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다.",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "theme",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_rebuilt",
+          "gist_number_misplaced",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "기준 아래로 지키는 조건을 측정 결과에서 찾아보세요.",
+        "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 쉬는 시간 환기에 수업 중 5분 맞통풍을…",
+        "빈칸을 채워 보세요: 쉬는 시간 환기에 수업 중 5분 맞통풍을 ___ 교실 공기를 기준 아래로 지킬 수 있습니다"
+      ]
+    },
+    {
+      "id": "q03-ventilation",
+      "node_id": "ventilation",
+      "label": "환기",
+      "question": "자료 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료 1, 5, 6장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "core_weight",
+      "slide_nos": [
+        1,
+        5,
+        6
+      ],
+      "doc_weight": 1,
+      "answer_gist": "질문의 전제와 달리, 자료 5장 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값은 32분이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "part",
+        "rank": 3,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 5,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분",
+        "fact": "표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값은 32분",
+        "slide_no": 5,
+        "wrong": [
+          "48분"
+        ],
+        "right": [
+          "32분"
+        ]
+      },
+      "hints": [
+        "1, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "1, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 5장 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값은 ___이에요."
+      ]
+    },
+    {
+      "id": "q04-co2-concentration",
+      "node_id": "co2-concentration",
+      "label": "이산화탄소 농도",
+      "question": "자료에서 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 2,000ppm을 넘습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료 2, 3, 5장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "2, 3, 5장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "core_weight",
+      "slide_nos": [
+        2,
+        3,
+        5
+      ],
+      "doc_weight": 0.821,
+      "answer_gist": "질문의 전제와 달리, 자료 2장은 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 2,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "part",
+        "rank": 4,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 2,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "paper_residue_dropped",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 2,000ppm을 넘습니다",
+        "fact": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다",
+        "slide_no": 2,
+        "wrong": [
+          "2,000"
+        ],
+        "right": [
+          "1,000"
+        ]
+      },
+      "hints": [
+        "2, 3, 5장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "2, 3, 5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 2장은 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 ___ppm을 넘습니다」라고 해요."
+      ]
+    },
+    {
+      "id": "q05-wind-speed",
+      "node_id": "wind-speed",
+      "label": "바람 속도",
+      "question": "바람 속도가 환기량 계산에 어떤 영향을 미치는지 설명해 주세요.",
+      "why": "자료 4장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "환기량 계산 공식에서 바람 속도의 역할을 찾아보세요.",
+      "severity": 2,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        4
+      ],
+      "doc_weight": 0.764,
+      "answer_gist": "시간당 환기량은 창문 개방 면적 × 바람 속도 × 개방 시간으로 계산되며, 바람 속도가 높을수록 환기량이 증가해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "why_code",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "환기량 계산 공식에서 바람 속도의 역할을 찾아보세요.",
+        "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 시간당 환기량은 창문 개방 면적 × 바람 속도 × 개방 시간으로 계산되며",
+        "빈칸을 채워 보세요: 시간당 환기량은 창문 개방 면적 × 바람 속도 × 개방 시간으로 계산되며, 바람 속도가 높을수록 ___이 증가해요."
+      ]
+    },
+    {
+      "id": "q10-cross-ventilation",
+      "node_id": "cross-ventilation",
+      "label": "맞통풍",
+      "question": "자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료 6장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "core_weight",
+      "slide_nos": [
+        6
+      ],
+      "doc_weight": 0.417,
+      "answer_gist": "질문의 전제와 달리, 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "",
+        "rank": 10,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분",
+        "fact": "표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 14분",
+        "slide_no": 6,
+        "wrong": [
+          "10분"
+        ],
+        "right": [
+          "14분"
+        ]
+      },
+      "hints": [
+        "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 6장 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값은 ___이에요."
+      ]
+    },
+    {
+      "id": "q02-optimal-ventilation-strategy",
+      "node_id": "optimal-ventilation-strategy",
+      "label": "최적 환기 전략",
+      "question": "최적 환기 전략이 이 발표에서 왜 중요한지 자료 8장을 근거로 설명해 주세요.",
+      "why": "자료 8장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 1,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        8
+      ],
+      "doc_weight": 0.316,
+      "answer_gist": "자료는 이렇게 말해요 — 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다 (8장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다.",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "",
+        "rank": 2,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "question_unanswerable",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 쉬는 시간 환기에 수업 중 5분 맞통풍을…",
+        "빈칸을 채워 보세요: 쉬는 시간 환기에 수업 중 5분 맞통풍을 ___ 교실 공기를 기준 아래로 지킬 수 있습니다"
+      ]
+    },
+    {
+      "id": "q06-ventilation-area",
+      "node_id": "ventilation-area",
+      "label": "환기 면적",
+      "question": "환기 면적이 이 발표에서 왜 중요한지 자료 4, 5, 6장을 근거로 설명해 주세요.",
+      "why": "자료 4, 5, 6장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "4, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        4,
+        5,
+        6
+      ],
+      "doc_weight": 0.745,
+      "answer_gist": "자료는 이렇게 말해요 — 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 5분 추가 환기 (4, 5장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "시간당 환기량 창문 개방 면적 × = 바람 속도",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "",
+        "rank": 6,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "question_unanswerable",
+          "fallback_template",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "4, 5, 6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "4, 5, 6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 시간당 환기량 창문 개방 면적 × = 바람 속도",
+        "빈칸을 채워 보세요: 시간당 환기량 창문 개방 면적 × = 바람 속도 · 수업 중 ___ 추가 환기"
+      ]
+    }
+  ],
+  "turns": [
+    {
+      "q": 1,
+      "persona": "good",
+      "action": "answer",
+      "input": "쉬는 시간 환기만으로는 평균 농도가 1,450ppm이었지만 수업 중 5분 맞통풍을 더하면 870ppm으로 내려가 기준 아래로 지킬 수 있어요. 다만 측정한 교실이 한 곳뿐이고 겨울에는 실내 온도가 평균 3도 내려가서, 교실 크기나 계절이 다르면 조건이 달라질 수 있어요.",
+      "bubbles": [
+        {
+          "who": "me",
+          "kind": "say",
+          "meta": "",
+          "text": "쉬는 시간 환기만으로는 평균 농도가 1,450ppm이었지만 수업 중 5분 맞통풍을 더하면 870ppm으로 내려가 기준 아래로 지킬 수 있어요. 다만 측정한 교실이 한 곳뿐이고 겨울에는 실내 온도가 평균 3도 내려가서, 교실 크기나 계절이 다르면 조건이 달라질 수 있어요."
+        },
+        {
+          "who": "ai",
+          "kind": "react",
+          "meta": "",
+          "text": "교\n제대로 설명했어요\n85\n완성도\n\n평균 농도가 1,450ppm에서 870ppm으로 내려 기준 아래로 지킬 수 있다는 점은 정확해요."
+        },
+        {
+          "who": "sys",
+          "kind": "done",
+          "meta": "",
+          "text": "✓\n결론\n설득 완료\n총평에 적었어요\n\n결론에서 제시한 맞통풍 전략은 특정 교실 환경에서 효과적이지만, 교실 크기나 계절 등 조건에 따라 적용 가능성이 달라질 수 있음을 명확히 설명했어요.\n\n질문 1/7 마무리 — 다음 질문으로 이어가요"
+        },
+        {
+          "who": "ai",
+          "kind": "question",
+          "meta": "예상 질문 2/7 · 보통이에요",
+          "text": "교\n예상 질문 2/7 · 보통이에요\n\n자료 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n자료 1·5·6장을 근거로 설명할 수 있는지 보려고 물어요.\n이 질문의 근거"
+        }
+      ],
+      "judge": {
+        "question_id": "q01-conclusion",
+        "node_id": "conclusion",
+        "verdict": "good",
+        "score": 85,
+        "react": "평균 농도가 1,450ppm에서 870ppm으로 내려 기준 아래로 지킬 수 있다는 점은 정확해요.",
+        "summary_sentence": "결론에서 제시한 맞통풍 전략은 특정 교실 환경에서 효과적이지만, 교실 크기나 계절 등 조건에 따라 적용 가능성이 달라질 수 있음을 명확히 설명했어요.",
+        "missing_points": [],
+        "model": "solar",
+        "followup": "",
+        "hints": [
+          "기준 아래로 지키는 조건을 측정 결과에서 찾아보세요.",
+          "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+          "이 방향이에요 — 쉬는 시간 환기에 수업 중 5분 맞통풍을…",
+          "빈칸을 채워 보세요: 쉬는 시간 환기에 수업 중 5분 맞통풍을 ___ 교실 공기를 기준 아래로 지킬 수 있습니다"
+        ],
+        "coach_stage": "",
+        "explanation": "",
+        "round_no": 1,
+        "probe_tier": "",
+        "choices": [],
+        "evidence_quote": "",
+        "evidence_slide_no": 0,
+        "guard_reason": "",
+        "guard": "",
+        "passed": true,
+        "mastered": true,
+        "close_reason": "good",
+        "grounded_on_server": true,
+        "grounded_on_deck": true,
+        "degraded": [],
+        "degraded_notes": []
+      },
+      "judge_req": {
+        "answer": "쉬는 시간 환기만으로는 평균 농도가 1,450ppm이었지만 수업 중 5분 맞통풍을 더하면 870ppm으로 내려가 기준 아래로 지킬 수 있어요. 다만 측정한 교실이 한 곳뿐이고 겨울에는 실내 온도가 평균 3도 내려가서, 교실 크기나 계절이 다르면 조건이 달라질 수 있어요.",
+        "give_up": false,
+        "prior_answers": [],
+        "hints_shown": []
+      },
+      "calls": [
+        {
+          "status": 200,
+          "sec": 0.85
+        }
+      ],
+      "latency_sec": 1.7,
+      "judge_sec": 0.85,
+      "state": {
+        "qi": 1,
+        "busy": false,
+        "retell": false,
+        "awaitEnd": false,
+        "turn": 0,
+        "hintLevel": 0,
+        "nhints": 3,
+        "buttons": [
+          "liveSend|이 답변 확인하기",
+          "liveMic|말해서 답하기",
+          "liveStuck|모르겠어요",
+          "liveHint|힌트 1단계 보기",
+          "liveFinish|여기까지 하고 저장"
+        ]
+      },
+      "shot": "q1_good_01_answer.png",
+      "auto_tags": []
+    }
+  ],
+  "console": [],
+  "entry_turns": [
+    {
+      "who": "sys",
+      "kind": "note",
+      "text": "문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요. 녹음이 이 자료와 다른 발표라서 자료만 보고 질문을 만들었어요. 이 자료로 발표한 녹음을 올리면 발표 내용도 같이 물어볼게요."
+    },
+    {
+      "who": "ai",
+      "kind": "question",
+      "text": "결론에서 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 했는데, 이 전략이 적용 가능한 조건은 무엇인가요?"
+    }
+  ],
+  "entry_stream": "문헌 검색 일부가 실패해서 찾은 문헌만으로 질문을 만들었어요. 녹음이 이 자료와 다른 발표라서 자료만 보고 질문을 만들었어요. 이 자료로 발표한 녹음을 올리면 발표 내용도 같이 물어볼게요.\n\n교\n예상 질문 1/7 · 꼭 넘어야 해요\n\n결론에서 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 했는데, 이 전략이 적용 가능한 조건은 무엇인가요?\n\n결론의 주장을 뒷받침하는 구체적인 조건을 확인해 발표의 타당성을 평가하기 위해 묻는 질문이에요.\n이 질문의 근거",
+  "result_text": "← 내 발표로 나가기\n코칭 기록 저장됨\n\n실전 질문 코칭 결과\n\n질문 7개 중 1개를 스스로 설명했어요\n1\n스스로 설명\n6\n넘김·안 물음\n\n다시 볼 곳은 상세 리포트에서 근거 발화와 함께 짚어 줄게요.\n\n넘기거나 안 물은 질문\n6\n답하지 않았거나 묻기 전에 마쳤어요\n환기\n자료 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분이라고 했는데, 이 수치가 무엇을 보…\n넘김\n답하지 않고 넘겼어요\n›\n이산화탄소 농도\n자료에서 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 2,000ppm을 넘습니다」라고 했는데, 이 수…\n넘김\n답하지 않고 넘겼어요\n›\n바람 속도\n바람 속도가 환기량 계산에 어떤 영향을 미치는지 설명해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n맞통풍\n자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 …\n넘김\n답하지 않고 넘겼어요\n›\n최적 환기 전략\n최적 환기 전략이 이 발표에서 왜 중요한지 자료 8장을 근거로 설명해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n환기 면적\n환기 면적이 이 발표에서 왜 중요한지 자료 4, 5, 6장을 근거로 설명해 주세요.\n넘김\n답하지 않고 넘겼어요\n›\n스스로 설명한 질문\n1\n힌트·보기 없이 내 말로 닫았어요\n결론\n결론에서 제시한 맞통풍 전략은 특정 교실 환경에서 효과적이지만, 교실 크기나 계절 등 조건에 따라 적용 가능성…\n스스로 설명\n첫 답에 설명했어요\n›\n상세 리포트 보기\n같은 질문으로 다시\n홈으로",
+  "report_qa_log": "질문 코칭 내역\n 교수님과 주고받은 1개 질문 · 2026.09.30\n\n첫 시도에 설명\n1\n→\n끝까지 설명\n1\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요\n\n스스로 설명\n결론\n01\n\n질문\n결론에서 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 했는데, 이 전략이 적용 가능한 조건은 무엇인가요?\n\n내 답변\n쉬는 시간 환기만으로는 평균 농도가 1,450ppm이었지만 수업 중 5분 맞통풍을 더하면 870ppm으로 내려가 기준 아래로 지킬 수 있어요. 다만 측정한 교실이 한 곳뿐이고 겨울에는 실내 온도가 평균 3도 내려가서, 교실 크기나 계절이 다르면 조건이 달라질 수 있어요.\n\n결론에서 제시한 맞통풍 전략은 특정 교실 환경에서 효과적이지만, 교실 크기나 계절 등 조건에 따라 적용 가능성이 달라질 수 있음을 명확히 설명했어요.\n\n첫 답에 설명했어요\n\n넘김\n환기\n02\n\n질문\n자료 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n이산화탄소 농도\n03\n\n질문\n자료에서 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 2,000ppm을 넘습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n바람 속도\n04\n\n질문\n바람 속도가 환기량 계산에 어떤 영향을 미치는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n맞통풍\n05\n\n질문\n자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n최적 환기 전략\n06\n\n질문\n최적 환기 전략이 이 발표에서 왜 중요한지 자료 8장을 근거로 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n환기 면적\n07\n\n질문\n환기 면적이 이 발표에서 왜 중요한지 자료 4, 5, 6장을 근거로 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요",
+  "report_text": "수업에서 발표해요\n슬라이드 8개\n3분 40초\n\n교실공기_환기_탐구발표\n발표 완성도\nD\n?\n녹음이 이 자료와 다른 발표라서 말 분석은 하지 않았어요\n\n먼저 짚을 것 1가지\n\n녹음 낱말 가운데 이 자료에도 있는 말이 5%예요\n\n말한 내용은 채점하지 않았어요. 아래 개념 판정은 참고만 하고, 이 자료로 발표한 녹음을 올리면 같이 볼게요.\n\n이 자료의 발표가 아니라서 등급은 D까지만 매겼어요.\n\n여기부터 보세요\n시간 관리\n0/100\n핵심(core)이 계획보다 63% 모자랐어요.\n언어적 명료성\n79/100\n›\n음성적 전달\n64/100\n›\n시각자료 활용\n29/100\n›\n‘수업에서 발표해요’에 맞춰 봤어요\n안 본 항목 3개 · 못 잰 항목 22개\n이 자리에서 안 보는 항목 3개는 빼고 봤어요\n22개 항목은 이번엔 재지 못했어요. 다음 연습에선 더 많이 알려드릴게요.\n녹음이 이 발표 자료와 다른 발표라서 말한 내용은 채점하지 않았어요 — 자료와 말하기 습관만 봤고, 이 자료의 발표로는 39점 위로 매기지 않아요\n요약\n말하기\n개념 전달\n흐름\n채점 근거\n연습 도구\n발표 구성\n슬라이드로 보는 발표\n슬라이드를 누르거나 ←→ 로 넘겨요\n8 / 8\n8번 슬라이드\n안 나옴\n결론\n이 슬라이드에서 한 말\n이 개념에 해당하는 발화를 찾지 못했어요.\n\n녹음이 이 자료의 발표가 아니라서 판정하지 않았어요 (발화 낱말이 자료와 겹치는 비중 5%)\n\n판정 근거 자세히 보기\n안 나옴\n최적 환기 전략\n1\n2\n3\n4\n5\n6\n7\n8\n설명함\n언급만 함\n안 나옴\n자료와 모순\n정당한 생략\n개념별 판정 전체 보기\n 17개 · 다시 볼 곳 17개\n환기\n1번 슬라이드\n안 나옴\n이산화탄소 농도\n1번 슬라이드\n안 나옴\n바람 속도\n1번 슬라이드\n안 나옴\n환기 시간\n1번 슬라이드\n안 나옴\n환기 면적\n1번 슬라이드\n안 나옴\n환기량\n4번 슬라이드\n안 나옴\n환기 효과\n5번 슬라이드\n안 나옴\n교실 공기\n1번 슬라이드\n안 나옴\n맞통풍\n6번 슬라이드\n안 나옴\n한쪽 환기\n6번 슬라이드\n안 나옴\n결론\n8번 슬라이드\n안 나옴\n환기 효율\n6번 슬라이드\n안 나옴\n농도 감소 속도\n6번 슬라이드\n안 나옴\n최적 환기 전략\n8번 슬라이드\n안 나옴\n실내 온도 변화\n7번 슬라이드\n안 나옴\n학생 수 변동\n7번 슬라이드\n안 나옴\n표본 크기 제한\n7번 슬라이드\n안 나옴\n질문 코칭 내역\n 교수님과 주고받은 1개 질문 · 2026.09.30\n\n첫 시도에 설명\n1\n→\n끝까지 설명\n1\n7개 질문 중 힌트·보기 없이 스스로 설명한 개수예요\n\n스스로 설명\n결론\n01\n\n질문\n결론에서 쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있다고 했는데, 이 전략이 적용 가능한 조건은 무엇인가요?\n\n내 답변\n쉬는 시간 환기만으로는 평균 농도가 1,450ppm이었지만 수업 중 5분 맞통풍을 더하면 870ppm으로 내려가 기준 아래로 지킬 수 있어요. 다만 측정한 교실이 한 곳뿐이고 겨울에는 실내 온도가 평균 3도 내려가서, 교실 크기나 계절이 다르면 조건이 달라질 수 있어요.\n\n결론에서 제시한 맞통풍 전략은 특정 교실 환경에서 효과적이지만, 교실 크기나 계절 등 조건에 따라 적용 가능성이 달라질 수 있음을 명확히 설명했어요.\n\n첫 답에 설명했어요\n\n넘김\n환기\n02\n\n질문\n자료 표에서 쉬는 시간만 환기의 「1,000ppm 초과 시간」 값이 48분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n이산화탄소 농도\n03\n\n질문\n자료에서 「수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 2,000ppm을 넘습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n바람 속도\n04\n\n질문\n바람 속도가 환기량 계산에 어떤 영향을 미치는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n맞통풍\n05\n\n질문\n자료 표에서 한쪽 창문의 「1,000ppm 아래까지 걸린 시간」 값이 10분이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n최적 환기 전략\n06\n\n질문\n최적 환기 전략이 이 발표에서 왜 중요한지 자료 8장을 근거로 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n넘김\n환기 면적\n07\n\n질문\n환기 면적이 이 발표에서 왜 중요한지 자료 4, 5, 6장을 근거로 설명해 주세요.\n\n내 답변\n답하지 않고 넘겼어요\n\n답하지 않고 넘겼어요\n\n이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.\n\n새 발표 연습\n질문 연습 다시 하기"
+}

@@ -1,0 +1,404 @@
+{
+  "deck": "audit_bunt_r3",
+  "mode": "audio",
+  "track": "10",
+  "qa_mode": "10",
+  "session_id": "20260929T195406Z_8e162233",
+  "questions": [
+    {
+      "id": "q01-bunt-loss",
+      "node_id": "bunt-loss",
+      "label": "번트 전략의 순손실",
+      "question": "번트 전략의 순손실 0.15점이 전체 득점에 미치는 영향은 무엇인가요?",
+      "why": "번트 전략이 전체 득점에 미치는 실제 손실을 확인하기 위해 묻는 질문이에요.",
+      "hint": "번트 전후 득점 기대값 차이와 번트 성공률을 함께 고려해 보세요.",
+      "severity": 1,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        4
+      ],
+      "doc_weight": 0.668,
+      "answer_gist": "자료는 이렇게 말해요 — 번트 손익 = 성공 후 기대값 − · 0.71 − 0.86 = −0.15점 (4장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 4,
+      "evidence_quote": "번트 손익 = 성공 후 기대값 −",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "theme",
+        "rank": 1,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_clause_unsupported",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "번트 전후 득점 기대값 차이와 번트 성공률을 함께 고려해 보세요.",
+        "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 번트 손익 = 성공 후 기대값 −",
+        "빈칸을 채워 보세요: 번트 손익 = 성공 후 기대값 − · 0.71 − 0.86 = −___"
+      ]
+    },
+    {
+      "id": "q02-bunt-expectation",
+      "node_id": "bunt-expectation",
+      "label": "번트 전후 득점 기대값",
+      "question": "자료 표에서 무사 1루의 「득점 기대값」 값이 0.52점이라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료 3장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "core_weight",
+      "slide_nos": [
+        3
+      ],
+      "doc_weight": 0.89,
+      "answer_gist": "질문의 전제와 달리, 자료 3장 표에서 무사 1루의 「득점 기대값」 값은 0.86점이에요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 3,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "part",
+        "rank": 2,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 3,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "표에서 무사 1루의 「득점 기대값」 값이 0.52점",
+        "fact": "표에서 무사 1루의 「득점 기대값」 값은 0.86점",
+        "slide_no": 3,
+        "wrong": [
+          "0.52점"
+        ],
+        "right": [
+          "0.86점"
+        ]
+      },
+      "hints": [
+        "3장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "3장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 3장 표에서 무사 1루의 「득점 기대값」 값은 ___이에요."
+      ]
+    },
+    {
+      "id": "q03-hard-hit-vs-bunt",
+      "node_id": "hard-hit-vs-bunt",
+      "label": "강공과 번트 비교",
+      "question": "자료에서 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 0.8배 높았습니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료 6장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 2,
+      "trap": true,
+      "source": "core_weight",
+      "slide_nos": [
+        6
+      ],
+      "doc_weight": 0.834,
+      "answer_gist": "질문의 전제와 달리, 자료 6장은 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 6,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "",
+        "rank": 3,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 6,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 0.8배 높았습니다",
+        "fact": "무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 1.3배 높았습니다",
+        "slide_no": 6,
+        "wrong": [
+          "0.8배"
+        ],
+        "right": [
+          "1.3배"
+        ]
+      },
+      "hints": [
+        "6장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "6장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 6장은 「무사 1루에서 강공은 번트보다 그 이닝 득점 확률이 ___ 높았습니다」라고 해요."
+      ]
+    },
+    {
+      "id": "q04-bunt-success-rate",
+      "node_id": "bunt-success-rate",
+      "label": "번트 성공률",
+      "question": "자료에서 「우리 리그 번트 성공률은 43%입니다」라고 했는데, 이 수치가 무엇을 보여 주는지 설명해 주세요.",
+      "why": "자료 5장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "5장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 3,
+      "trap": true,
+      "source": "core_weight",
+      "slide_nos": [
+        5
+      ],
+      "doc_weight": 0.773,
+      "answer_gist": "질문의 전제와 달리, 자료 5장은 「우리 리그 번트 성공률은 62%입니다」라고 해요.",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 5,
+      "evidence_quote": "",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "part",
+        "rank": 4,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 5,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "ungrounded_number_dropped",
+          "trap_premise_missing",
+          "trap_template",
+          "trap_generated",
+          "gist_template",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": {
+        "kind": "number",
+        "premise": "우리 리그 번트 성공률은 43%입니다",
+        "fact": "우리 리그 번트 성공률은 62%입니다",
+        "slide_no": 5,
+        "wrong": [
+          "43%"
+        ],
+        "right": [
+          "62%"
+        ]
+      },
+      "hints": [
+        "5장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "5장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "빈칸을 채워 보세요: 자료 5장은 「우리 리그 번트 성공률은 ___입니다」라고 해요."
+      ]
+    },
+    {
+      "id": "q05-bunt-profit-formula",
+      "node_id": "bunt-profit-formula",
+      "label": "번트 손익 계산 공식",
+      "question": "번트 손익 계산 공식의 변수와 그 의미는 무엇인가요?",
+      "why": "자료 4장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 3,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        4
+      ],
+      "doc_weight": 0.663,
+      "answer_gist": "번트 손익 계산 공식은 '성공 후 기대값 - 시도 전 기대값'으로, 번트 시도 전후의 득점 기대값 차이를 계산하여 순손익을 구해요.",
+      "answer_gist_parts": [
+        "번트 손익 계산 공식은 '성공 후 기대값 - 시도 전 기대값'이에요.",
+        "이 공식은 번트 시도 전후의 득점 기대값 차이를 계산하여 순손익을 구해요."
+      ],
+      "evidence_slide_no": 4,
+      "evidence_quote": "번트 손익 = 성공 후 기대값 −",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "",
+        "rank": 5,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 4,
+            "quote": "번트 손익 = 성공 후 기대값 −"
+          }
+        ],
+        "checks": [
+          "why_code",
+          "hint_code",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "4장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "4장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 4장은 이렇게 말해요: «번트 손익 = 성공 후 기대값 −»",
+        "이 방향이에요 — 번트 손익 계산 공식은 '성공 후 기대값 - 시도 전 기대값'으로",
+        "빈칸을 채워 보세요: 번트 손익 계산 공식은 '성공 후 기대값 - 시도 전 기대값'으로, 번트 시도 전후의 득점 ___ 차이를 계산하여 순손익을 구해요."
+      ]
+    },
+    {
+      "id": "q07-special-situation",
+      "node_id": "special-situation",
+      "label": "특수 상황에서의 번트 효용성",
+      "question": "9회 동점 1점 필요 상황에서 번트가 득점 확률을 실제로 높이는가요?",
+      "why": "자료 7장에서 다룬 내용이라, 자료가 말한 대로 설명할 수 있는지 확인하는 질문이에요",
+      "hint": "자료 본문에 제시된 예외 상황을 확인해 보세요.",
+      "severity": 3,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        7
+      ],
+      "doc_weight": 0.303,
+      "answer_gist": "9회 동점 1점 필요 상황에서는 번트가 득점 확률을 높이며, 타율 2할 미만 타자라면 번트가 더 나은 선택이에요.",
+      "answer_gist_parts": [
+        "9회 동점 1점 필요 상황에서는 번트가 득점 확률을 높여요.",
+        "타율 2할 미만 타자라면 번트가 더 나은 선택이에요."
+      ],
+      "evidence_slide_no": 7,
+      "evidence_quote": "9회 동점에서 1점만 필요할 때는 번트가 득점 확률을 높입니다.",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "",
+        "rank": 7,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 7,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "why_code",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "자료 본문에 제시된 예외 상황을 확인해 보세요.",
+        "7장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "자료 7장은 이렇게 말해요: «9회 동점에서 1점만 필요할 때는 번트가 득점 확률을 높입니다.»",
+        "이 방향이에요 — 9회 동점 1점 필요 상황에서는 번트가 득점 확률을 높이며",
+        "빈칸을 채워 보세요: 9회 동점 1점 필요 상황에서는 번트가 득점 확률을 높이며, 타율 2할 ___ 타자라면 번트가 더 나은 선택이에요."
+      ]
+    },
+    {
+      "id": "q06-regular-strategy",
+      "node_id": "regular-strategy",
+      "label": "평소 전략",
+      "question": "평소 전략에서 강공 우선을 선택한 근거는 무엇인가요?",
+      "why": "평소 전략의 선택 근거를 심화적으로 이해하기 위해 묻는 질문이에요.",
+      "hint": "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+      "severity": 3,
+      "trap": false,
+      "source": "core_weight",
+      "slide_nos": [
+        8
+      ],
+      "doc_weight": 0.47,
+      "answer_gist": "자료는 이렇게 말해요 — 평소에는 강공, 1점이 급할 때만 번트 (8장)",
+      "answer_gist_parts": [],
+      "evidence_slide_no": 8,
+      "evidence_quote": "평소에는 강공, 1점이 급할 때만 번트",
+      "speech_quote": "",
+      "paper_ids": [],
+      "basis": {
+        "source": "core_weight",
+        "slot": "part",
+        "rank": 6,
+        "probe": null,
+        "evidence": [
+          {
+            "slide_no": 8,
+            "quote": ""
+          }
+        ],
+        "checks": [
+          "gist_clause_unsupported",
+          "gist_template",
+          "hint_code",
+          "basis_quote_hidden",
+          "speech_mismatch_deck_only"
+        ],
+        "reason": [],
+        "background": [],
+        "contrast": [],
+        "contrast_quote": null
+      },
+      "trap_premise": null,
+      "hints": [
+        "8장에 이 개념을 둔 이유부터 떠올려 보세요",
+        "8장을 같이 볼게요 — 여기서 이 개념을 어떻게 설명했는지 짚어 보세요",
+        "이 방향이에요 — 평소에는 강공…",
+        "빈칸을 채워 보세요: 평소에는 강공, 1점이 급할 때만 ___"
+      ]
+    }
+  ],
+  "sec": 23.8
+}

@@ -1,0 +1,234 @@
+{
+ "file_name": "교실공기_환기_탐구발표.pptx",
+ "total_slides": 8,
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "교실 공기, 쉬는 시간 환기로 충분할까",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "01 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "교실 공기, 쉬는 시간 환기로 충분할까"
+    },
+    {
+     "category": "paragraph",
+     "text": "창문을 여는 횟수보다 중요한 것은 여는 시간입니다"
+    },
+    {
+     "category": "paragraph",
+     "text": "과학 탐구 발표 | 2학년 3반 공기 모둠"
+    }
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "왜 교실 공기인가",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "02 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "왜 교실 공기인가"
+    },
+    {
+     "category": "paragraph",
+     "text": "수업이 40분 넘게 이어지면 교실 이산화탄소 농도가 1,000ppm을 넘습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "1,000ppm 이상에서는 졸음과 두통을 호소하는 학생이 늘어납니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "측정 방법",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "03 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "측정 방법"
+    },
+    {
+     "category": "paragraph",
+     "text": "이산화탄소 측정기 2대 (교실 앞·뒤)"
+    },
+    {
+     "category": "paragraph",
+     "text": "3주 동안 수업일 15일"
+    },
+    {
+     "category": "paragraph",
+     "text": "5분 간격으로 기록"
+    }
+   ]
+  },
+  {
+   "slide_no": 4,
+   "title": "환기량 계산",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "04 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "환기량 계산"
+    },
+    {
+     "category": "paragraph",
+     "text": "시간당 환기량 ="
+    },
+    {
+     "category": "paragraph",
+     "text": "창문 개방 면적"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "바람 속도"
+    },
+    {
+     "category": "paragraph",
+     "text": "×"
+    },
+    {
+     "category": "paragraph",
+     "text": "개방 시간"
+    },
+    {
+     "category": "paragraph",
+     "text": "얼마나 넓게 여는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "바람이 얼마나 드는가"
+    },
+    {
+     "category": "paragraph",
+     "text": "얼마나 오래 여는가"
+    }
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "측정 결과",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "05 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "측정 결과"
+    },
+    {
+     "category": "table",
+     "text": "| 조건 | 평균 농도 | 1,000ppm 초과 시간 |"
+    },
+    {
+     "category": "table",
+     "text": "| 쉬는 시간만 환기 | 1,450ppm | 32분 |"
+    },
+    {
+     "category": "table",
+     "text": "| 수업 중 5분 추가 환기 | 870ppm | 6분 |"
+    },
+    {
+     "category": "paragraph",
+     "text": "수업 중 5분을 더 열자 평균 농도가 40% 낮아졌습니다."
+    }
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "맞통풍과 한쪽 환기",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "06 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "맞통풍과 한쪽 환기"
+    },
+    {
+     "category": "paragraph",
+     "text": "앞문과 뒤 창문을 함께 여는 맞통풍은 한쪽 창문만 열 때보다 농도가 2배 빨리 떨어졌습니다."
+    },
+    {
+     "category": "table",
+     "text": "| 방법 | 1,000ppm 아래까지 걸린 시간 |"
+    },
+    {
+     "category": "table",
+     "text": "| 한쪽 창문 | 14분 |"
+    },
+    {
+     "category": "table",
+     "text": "| 맞통풍 | 7분 |"
+    }
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "한계",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "07 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "한계"
+    },
+    {
+     "category": "paragraph",
+     "text": "측정한 교실이 1곳뿐입니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "겨울에는 5분 환기로 실내 온도가 평균 3도 내려갔습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "학생 수가 날마다 달랐습니다 (26~29명)."
+    }
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "결론",
+   "blocks": [
+    {
+     "category": "paragraph",
+     "text": "08 / 08"
+    },
+    {
+     "category": "heading1",
+     "text": "결론"
+    },
+    {
+     "category": "paragraph",
+     "text": "쉬는 시간 환기에 수업 중 5분 맞통풍을 더하면 교실 공기를 기준 아래로 지킬 수 있습니다."
+    },
+    {
+     "category": "paragraph",
+     "text": "감사합니다"
+    }
+   ]
+  }
+ ]
+}
