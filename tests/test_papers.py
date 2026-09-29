@@ -836,13 +836,15 @@ class _ClaimLLM(LLMProvider):
     name = "claim"
 
     def __init__(self, question: str, check):
-        self.question, self.check, self.check_calls = question, check, 0
+        self.question, self.check, self.check_calls, self.check_user = question, check, 0, ""
 
     def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
         if "[TASK] qa-paper-check" in user:
             self.check_calls += 1
-            self.check_user = user
-            return self.check if isinstance(self.check, str) else json.dumps(self.check, ensure_ascii=False)
+            self.check_user = self.check_user if self.check_calls > 1 else user
+            # 목록이면 차례로 (고친 문장 재검사용), 아니면 매번 같은 응답
+            reply = self.check[min(self.check_calls, len(self.check)) - 1] if isinstance(self.check, list) else self.check
+            return reply if isinstance(reply, str) else json.dumps(reply, ensure_ascii=False)
         return json.dumps({"questions": [
             {"node_id": "c1", "question": self.question, "why": "Paulsrud et al. (2026) 근거", "hint": "h", "answer_gist": "g"},
             {"node_id": "c2", "question": "잔여 주의란 무엇인가요?", "why": "w", "hint": "h", "answer_gist": "g"},
@@ -879,8 +881,8 @@ def test_초록에_글자_그대로_있는_근거면_원문_질문을_지킨다(
 
 def test_근거가_없으면_초록이_말하는_것으로_고친_문장을_받는다():
     fixed = "Paulsrud et al. (2026)는 아이들의 주관·객관 수면 측정이 얼마나 맞는지 쟀는데, 발표의 '연속성과 규칙성'은 어떻게 쟀나요?"
-    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "evidence": "", "rewrite": fixed,
-        "rewrite_evidence": "To evaluate the correlation between subjective and objective sleep measures in children"}]})
+    llm = _ClaimLLM(PAULSRUD_CLAIM, [{"checks": [{"node_id": "c1", "supported": False, "evidence": "", "rewrite": fixed,
+        "rewrite_evidence": "To evaluate the correlation between subjective and objective sleep measures in children"}]}, {"checks": [{"node_id": "c1", "supported": True, "evidence_no": 2}]}])
     doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
     assert _q(doc).question == fixed and _q(doc).paper_ids == ["s04"]
 
@@ -923,8 +925,8 @@ def test_프롬프트에_초록_전문이_실린다():
 def test_검사_응답의_node_id_가_문헌_id_여도_순서로_받는다():
     # 09-29 실측(solar): node_id 자리에 문헌 id(s05)를 적어 옳은 재작성이 통째로 버려졌다
     fixed = "Paulsrud et al. (2026)는 수면 시간에서 주관·객관 측정이 가장 잘 맞는다고 봤는데, 발표는 왜 질을 앞세웠나요?"
-    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "s04", "supported": False, "rewrite": fixed,
-                                                   "rewrite_evidence": "The strongest correlations were observed for sleep duration."}]})
+    llm = _ClaimLLM(PAULSRUD_CLAIM, [{"checks": [{"node_id": "s04", "supported": False, "rewrite": fixed,
+                                                   "rewrite_evidence": "The strongest correlations were observed for sleep duration."}]}, {"checks": [{"node_id": "c1", "supported": True, "evidence_no": 2}]}])
     doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
     assert _q(doc).question == fixed and _q(doc).paper_ids == ["s04"]
 
@@ -941,7 +943,7 @@ def test_근거_없는_논문_절만_떼고_본론을_살린다():
 def test_근거는_초록_문장_번호로도_받고_질문을_베낀_근거는_받지_않는다():
     # 09-29 실측(solar): rewrite_evidence 에 고친 질문 문장을 그대로 베꼈다 — 번호로 받으면 초록 밖 문장을 가리킬 수 없다
     fixed = "Paulsrud et al. (2026)는 수면 시간에서 주관·객관 측정이 가장 잘 맞는다고 봤는데, 발표는 왜 질을 앞세웠나요?"
-    llm = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed, "rewrite_evidence_no": 2}]})
+    llm = _ClaimLLM(PAULSRUD_CLAIM, [{"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed, "rewrite_evidence_no": 2}]}, {"checks": [{"node_id": "c1", "supported": True, "evidence_no": 2}]}])
     doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
     assert _q(doc).question == fixed and "[2] Results The strongest correlations" in llm.check_user
     copied = _ClaimLLM(PAULSRUD_CLAIM, {"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed,
@@ -986,3 +988,37 @@ def test_이유_칸의_논문_주장은_질문이_검사를_통과한_문헌일_
     ]}})
     q = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm).questions[0]
     assert "Paulsrud" not in q.why and q.why and q.paper_ids == []
+
+
+def test_논문이_주어인_절은_동사가_무엇이든_주장으로_검사한다():
+    # 09-29 실측: 「Driller et al. (2026)는 …로 구분했는데」 — 동사 목록에 없어 검사를 비껴갔다
+    claim = "Paulsrud et al. (2026)는 수면의 질을 주관적 지각과 객관적 지표로 구분했는데, 발표의 정의는 둘 다 포함하나요?"
+    llm = _ClaimLLM(claim, {"checks": [{"node_id": "c1", "supported": False}]})
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert llm.check_calls == 1 and "Paulsrud" not in _q(doc).question
+
+
+def test_고친_문장도_재검사에서_근거가_없으면_버린다():
+    fixed = "Paulsrud et al. (2026)는 REM 중 부정적 정서가 해소된다고 봤는데, 발표의 연속성은 이를 설명하나요?"
+    llm = _ClaimLLM(PAULSRUD_CLAIM, [
+        {"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed, "rewrite_evidence_no": 2}]},
+        {"checks": [{"node_id": "c1", "supported": False, "evidence_no": 0}]},
+    ])
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert llm.check_calls == 2 and "Paulsrud" not in _q(doc).question
+
+
+def test_논문_내용을_발표자에게_묻는_재작성은_받지_않는다():
+    fixed = "Paulsrud et al. (2026)는 수면 시간에서 주관·객관 측정이 가장 잘 맞는다고 했나요?"
+    llm = _ClaimLLM(PAULSRUD_CLAIM, [{"checks": [{"node_id": "c1", "supported": False, "rewrite": fixed, "rewrite_evidence_no": 2}]}])
+    doc = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm)
+    assert llm.check_calls == 1 and "Paulsrud" not in _q(doc).question
+
+
+def test_골자_칸의_논문_주장도_비운다():
+    llm = ScriptedLLM({"qa-questions": {"questions": [
+        {"node_id": "c1", "question": "발표는 질을 어떻게 쟀나요?", "why": "w", "hint": "h",
+         "answer_gist": "Paulsrud et al. (2026)는 질이 시간보다 중요하다고 봤는데, 그 점을 들어 답한다"},
+    ]}})
+    q = build_questions(make_graph(), triage(), track="5", papers=sleep_papers(), llm=llm).questions[0]
+    assert "Paulsrud" not in q.answer_gist and q.answer_gist and q.paper_ids == []
