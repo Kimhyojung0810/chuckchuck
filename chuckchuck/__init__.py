@@ -18,6 +18,9 @@ from .contracts import (
     ChatterRef,
     ChatterTurn,
     ChuckchuckError,
+    Claim,
+    ClaimDoc,
+    ClaimQuote,
     ConceptDoc,
     ConceptEdge,
     ConceptGraph,
@@ -81,6 +84,7 @@ from .f19_report import compose_report
 from .f23_context import suggest_context
 from .f24_papers import build_papers, search_papers
 from .f25_memory import build_memory, link_memory
+from .f26_claims import build_claims
 
 __all__ = [
     "suggest_context",
@@ -89,6 +93,10 @@ __all__ = [
     "MemoryDoc",
     "ConceptMemory",
     "RehearsalSummary",
+    "build_claims",
+    "Claim",
+    "ClaimDoc",
+    "ClaimQuote",
     "build_papers",
     "search_papers",
     "PaperDoc",
