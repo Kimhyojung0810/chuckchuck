@@ -1,0 +1,353 @@
+{
+ "deck": "heldout2_clinic",
+ "synthetic": true,
+ "group": "rec_align_heldout2_2026-09-30",
+ "topic": "지역 종합병원 외래 대기 시간 현장 조사 — 보건행정학과 조별 과제 발표",
+ "context": {
+  "situation": "school_project",
+  "duration_min": 10
+ },
+ "page_style": "「3/8」 (띄어쓰기 없는 분수꼴)",
+ "total_slides": 8,
+ "deck_comparisons": [
+  {
+   "slide": 1,
+   "quote": "의사를 만나는 시간보다 기다리는 시간이 훨씬 깁니다",
+   "construction": "A보다 B가 …"
+  },
+  {
+   "slide": 5,
+   "quote": "당일 접수 환자의 진료 대기는 예약 환자의 2배가 넘었습니다.",
+   "construction": "A는 B의 N배"
+  },
+  {
+   "slide": 6,
+   "quote": "오후 2~5시 대기는 오전 9~11시에 비해 절반 수준이었습니다.",
+   "construction": "A는 B에 비해 …"
+  }
+ ],
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "외래 대기 시간 조사 발표 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 6,
+     "deck_quote": "| 오전 11시~오후 1시 | 51분 |",
+     "speech_quote": "오전 11시부터 오후 1시 사이는 한 시간 반 가까이 기다렸어요.",
+     "form": "time_hours_in_words_vs_deck_minutes",
+     "deck_value": "51분",
+     "speech_value": "한 시간 반 가까이 (약 90분)",
+     "note": "분으로 적힌 값을 「시간 반」 말꼴로 틀리게 — 가까이(어림)가 붙어도 51분과 거리가 멀다"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 5,
+     "deck_quote": "당일 접수 환자의 진료 대기는 예약 환자의 2배가 넘었습니다.",
+     "speech_quote": "그런데 당일 접수하신 분들은 진료 대기가 예약 환자의 절반도 안 됐어요.",
+     "form": "half_not_reached_for_larger_side",
+     "note": "자료는 당일 접수 > 예약(2배 넘음), 발화는 당일 접수 < 예약의 절반 — 이 발화 구간에는 표의 수(41분·90분)를 말하지 않는다"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 7,
+     "deck_quote": "시범 개선: 모바일 수납 안내",
+     "speech_quote": "어 모바일 수납 시범 결과는 궁금하신 분만 발표 끝나고 따로 물어봐 주세요.",
+     "skip_quote": "어 모바일 수납 시범 결과는 궁금하신 분만 발표 끝나고 따로 물어봐 주세요.",
+     "form": "defer_to_after_talk",
+     "skip_verb": "따로 물어봐 주세요",
+     "labels_any": [
+      "모바일 수납",
+      "시범 개선",
+      "수납 대기",
+      "이용률"
+     ],
+     "absent_elsewhere": [
+      "모바일",
+      "이용률",
+      "31"
+     ],
+     "note": "발표 뒤로 미루며 건너뜀 — 금지 목록의 말도, 「다음으로 간다」 는 말도 없다. 7장 내용(모바일 수납 이용률·수납 대기 변화)은 R1 어디에서도 설명하지 않는다"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "slide": 2,
+     "near_slide": 2,
+     "deck_quote": null,
+     "speech_quote": "요즘 이 병원 외래 환자가 작년보다 20퍼센트쯤 늘었다고 하더라고요.",
+     "form": "hearsay_trend_claim",
+     "note": "자료에 없는 주장 (수·비교 포함) — 모순·건너뜀이 아니므로 잘못으로 나오면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     5,
+     6
+    ],
+    "skipped_slides": [
+     7
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 39
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 39,
+     "end_sec": 78
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 78,
+     "end_sec": 118
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 118,
+     "end_sec": 154
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 154,
+     "end_sec": 187
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 187,
+     "end_sec": 215
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 215,
+     "end_sec": 228
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 228,
+     "end_sec": 262
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "외래 대기 시간 조사 발표 녹음 (R2)",
+   "planted": [],
+   "tricky_correct": [
+    {
+     "slide": 1,
+     "trap": "reverse_order_antonym",
+     "deck": "의사를 만나는 시간보다 기다리는 시간이 훨씬 깁니다",
+     "speech": "기다리는 시간에 비해 의사를 만나는 시간은 턱없이 짧았어요.",
+     "why": "비교 양쪽을 뒤집고 형용사도 반의어(길다→짧다)로 — 뜻은 자료와 같다"
+    },
+    {
+     "slide": 2,
+     "trap": "close_approximation",
+     "deck": "외래 환자 한 명이 병원에 머무는 시간은 평균 94분입니다.",
+     "speech": "평균 구십사 분, 한 시간 반 남짓이에요.",
+     "why": "94분 = 1시간 34분 — 「한 시간 반 남짓」 은 맞는 어림"
+    },
+    {
+     "slide": 2,
+     "trap": "quantity_bound",
+     "deck": "그중 의사를 만나는 진료 시간은 7분뿐입니다.",
+     "speech": "그런데 정작 의사를 만나는 시간은 칠 분, 십 분도 안 돼요.",
+     "why": "7 < 10 — 「십 분도 안 돼요」 는 참"
+    },
+    {
+     "slide": 2,
+     "trap": "n_of_m",
+     "deck": "환자 5명 중 3명이 가장 큰 불만으로 '긴 대기'를 꼽았습니다.",
+     "speech": "환자 열 명 중 여섯 명이 가장 큰 불만으로 긴 대기를 꼽았어요.",
+     "why": "5명 중 3명 = 10명 중 6명 (같은 비율, 고유어)"
+    },
+    {
+     "slide": 3,
+     "trap": "content_meaning_exclude",
+     "deck": "응급 환자와 당일 입원 환자는 분석에서 제외",
+     "speech": "응급 환자랑 당일 입원한 환자는 분석에서 제외했어요.",
+     "why": "「제외」 는 분석 대상 이야기 — 장을 건너뛰는 말이 아니다"
+    },
+    {
+     "slide": 4,
+     "trap": "computed_value",
+     "deck": "11분 + 58분 + 7분 + 18분 = 94분",
+     "speech": "여기서 진료 칠 분을 빼면 기다리는 데만 팔십칠 분을 쓰는 셈이에요.",
+     "why": "94 − 7 = 87 (자료에 없는 차) · 「빼면」 도 셈의 뜻"
+    },
+    {
+     "slide": 5,
+     "trap": "question_shaped",
+     "deck": "당일 접수 환자의 진료 대기는 예약 환자의 2배가 넘었습니다.",
+     "speech": "그럼 예약한 사람이 더 오래 기다렸을까요?",
+     "why": "뒤집힌 방향을 묻는 질문 — 바로 「반대예요」 로 부정한다"
+    },
+    {
+     "slide": 5,
+     "trap": "time_unit_conversion",
+     "deck": "| 당일 접수 환자 | 144명 | 90분 |",
+     "speech": "예약 환자는 사십일 분을 기다렸는데, 당일 접수 환자는 한 시간 반을 기다렸어요.",
+     "why": "90분 = 한 시간 반"
+    },
+    {
+     "slide": 5,
+     "trap": "computed_value",
+     "deck": "| 예약 환자 | 268명 | 41분 |",
+     "speech": "같은 진료를 받으려고 사십구 분을 더 기다린 거고, 두 배가 넘어요.",
+     "why": "90 − 41 = 49 (자료에 없는 차), 90/41 ≈ 2.2"
+    },
+    {
+     "slide": 6,
+     "trap": "close_approximation",
+     "deck": "오후 2~5시 대기는 오전 9~11시에 비해 절반 수준이었습니다.",
+     "speech": "오후 대기는 오전 첫 두 시간의 절반 남짓이었던 거죠.",
+     "why": "38/72 ≈ 0.53 — 「절반 남짓」 은 맞는 어림"
+    },
+    {
+     "slide": 7,
+     "trap": "before_after_pair",
+     "deck": "| 평균 수납 대기 | 18분 | 6분 |",
+     "speech": "평균 수납 대기가 십팔 분에서 육 분으로 줄었어요.",
+     "why": "전후 두 값이 모두 맞다"
+    },
+    {
+     "slide": 7,
+     "trap": "change_verb_other_subject",
+     "deck": "수납 대기가 3분의 1로 줄었습니다.",
+     "speech": "대기는 줄었지만 모바일 수납을 쓰는 분은 사 퍼센트에서 삼십일 퍼센트로, 여덟 배 가까이 늘었어요.",
+     "why": "「늘었어요」 의 주어는 이용률(4%→31%) — 옆 줄의 「줄었습니다」(수납 대기)와 주어가 다르다. 31/4 ≈ 7.8"
+    },
+    {
+     "slide": 8,
+     "trap": "computed_value",
+     "deck": "안내 인력 2명 · 연 5,400만 원",
+     "speech": "비용은 일 년에 오천사백만 원, 한 달로 치면 사백오십만 원이에요.",
+     "why": "5,400만 ÷ 12 = 450만 (자료에 없는 몫)"
+    }
+   ],
+   "spoken_forms": [
+    {
+     "slide": 2,
+     "deck": "94분",
+     "speech": "구십사 분"
+    },
+    {
+     "slide": 3,
+     "deck": "10일",
+     "speech": "열흘"
+    },
+    {
+     "slide": 3,
+     "deck": "412명",
+     "speech": "사백십이 명"
+    },
+    {
+     "slide": 5,
+     "deck": "268명",
+     "speech": "이백육십팔 명"
+    },
+    {
+     "slide": 5,
+     "deck": "90분",
+     "speech": "한 시간 반"
+    },
+    {
+     "slide": 6,
+     "deck": "72분",
+     "speech": "칠십이 분"
+    },
+    {
+     "slide": 7,
+     "deck": "31%",
+     "speech": "삼십일 퍼센트"
+    },
+    {
+     "slide": 8,
+     "deck": "5,400만 원",
+     "speech": "오천사백만 원"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 39
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 39,
+     "end_sec": 72
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 72,
+     "end_sec": 111
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 111,
+     "end_sec": 150
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 150,
+     "end_sec": 194
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 194,
+     "end_sec": 228
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 228,
+     "end_sec": 264
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 264,
+     "end_sec": 298
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "reuse": [
+    "heldout2_recycle",
+    "r2"
+   ],
+   "title": "투명 페트병 시범사업 발표 녹음 (다른 발표)",
+   "planted": [],
+   "source": "투명 페트병 분리배출 시범사업 확대 제안 (heldout2_recycle R2 — 다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": "다른 발표 — 장 대응 없음"
+  }
+ }
+}

@@ -1,0 +1,67 @@
+# 녹음 통째 대조 — 코드 /home/yehschuck/project/wt-qa-int3
+
+## heldout2_clinic (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(2, 'polarity'), (6, 'direction')] · 건너뜀 []
+    - 2장 polarity: «그런데 그중에 실제로 의사를 만나는 시간은 7분밖에 안 돼요.» ↔ «그중 의사를 만나는 진료 시간은 7분뿐입니다.» · 자료 2장과 맞다·아니다가 반대예요
+    - 6장 direction: «오전 11시부터 오후 1시 사이는 한 시간 반 가까이 기다렸어요.» ↔ «오후 2~5시 | 38분» · 자료 6장과 높고 낮은 방향이 반대예요
+    ✗ N1 contradiction_number 6장
+    ✗ D1 contradiction_direction 5장
+    ✗ S1 skipped_slide 7장
+    ! 오탐 모순 [(2, 'polarity', '그런데 그중에 실제로 의사를 만나는 시간은 7분밖에 안 돼요.')] · 오탐 건너뜀 []
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(2, 'polarity'), (6, 'direction')] · 건너뜀 []
+    - 2장 polarity: «그런데 그중에 실제로 의사를 만나는 시간은 7분밖에 안 돼요.» ↔ «그중 의사를 만나는 진료 시간은 7분뿐입니다.» · 자료 2장과 맞다·아니다가 반대예요
+    - 6장 direction: «오전 11시부터 오후 1시 사이는 한 시간 반 가까이 기다렸어요.» ↔ «오후 2~5시 | 38분» · 자료 6장과 높고 낮은 방향이 반대예요
+    ✗ N1 contradiction_number 6장
+    ✗ D1 contradiction_direction 5장
+    ✗ S1 skipped_slide 7장
+    ! 오탐 모순 [(2, 'polarity', '그런데 그중에 실제로 의사를 만나는 시간은 7분밖에 안 돼요.')] · 오탐 건너뜀 []
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [(2, 'number')] · 건너뜀 []
+    - 2장 number: «그런데 정작 의사를 만나는 시간은 칠 분, 십 분도 안 돼요.» ↔ «그중 의사를 만나는 진료 시간은 7분뿐입니다.» · 발표에서는 10분이라고 했는데 자료 2장은 7분이에요
+    ! 오탐 모순 [(2, 'number', '그런데 정작 의사를 만나는 시간은 칠 분, 십 분도 안 돼요.')] · 오탐 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [(2, 'number')] · 건너뜀 []
+    - 2장 number: «그런데 정작 의사를 만나는 시간은 칠 분, 십 분도 안 돼요.» ↔ «그중 의사를 만나는 진료 시간은 7분뿐입니다.» · 발표에서는 10분이라고 했는데 자료 2장은 7분이에요
+    ! 오탐 모순 [(2, 'number', '그런데 정작 의사를 만나는 시간은 칠 분, 십 분도 안 돼요.')] · 오탐 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## heldout2_recycle (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(7, 'direction'), (5, 'number')] · 건너뜀 []
+    - 7장 direction: «음 그리고 수거함 주변 무단 투기 신고는 오히려 늘었어요.» ↔ «수거함 주변 무단 투기 신고는 월 26건에서 11건으로 줄었습니다.» · 자료 7장과 높고 낮은 방향이 반대예요
+    - 5장 number: «이물질이 섞인 비율도 34퍼센트에서 19퍼센트로 떨어졌고요.» ↔ «이물질 섞임 비율 | 시범 후 | 9%» · 발표에서는 34%라고 했는데 자료 5장은 9%예요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 7장
+    ✗ S1 skipped_slide 3장
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(7, 'direction'), (5, 'number')] · 건너뜀 []
+    - 7장 direction: «음 그리고 수거함 주변 무단 투기 신고는 오히려 늘었어요.» ↔ «수거함 주변 무단 투기 신고는 월 26건에서 11건으로 줄었습니다.» · 자료 7장과 높고 낮은 방향이 반대예요
+    - 5장 number: «이물질이 섞인 비율도 34퍼센트에서 19퍼센트로 떨어졌고요.» ↔ «이물질 섞임 비율 | 시범 후 | 9%» · 발표에서는 34%라고 했는데 자료 5장은 9%예요
+    ✓ N1 contradiction_number 5장
+    ✓ D1 contradiction_direction 7장
+    ✗ S1 skipped_slide 3장
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [] · 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## heldout2_dorm (Upstage 파싱본)
+### r1 (flawed) · 장 경계 ui — 정합 matched · 모순 [(8, 'number')] · 건너뜀 []
+    - 8장 number: «층별로 나눠 보면, 캠페인에 참여한 층이 6개 층, 참여 안 한 층이 4개 층이었어요.» ↔ «참여 층을 6개 층에서 10개 층 전체로» · 발표에서는 4개라고 했는데 자료 8장은 6개예요
+    ✗ N1 contradiction_number 7장
+    ✗ D1 contradiction_direction 4장
+    ✗ S1 skipped_slide 6장
+    ! 오탐 모순 [(8, 'number', '층별로 나눠 보면, 캠페인에 참여한 층이 6개 층, 참여 안 한 층이 4')] · 오탐 건너뜀 []
+### r1 (flawed) · 장 경계 truth — 정합 matched · 모순 [(8, 'number')] · 건너뜀 []
+    - 8장 number: «층별로 나눠 보면, 캠페인에 참여한 층이 6개 층, 참여 안 한 층이 4개 층이었어요.» ↔ «참여 층을 6개 층에서 10개 층 전체로» · 발표에서는 4개라고 했는데 자료 8장은 6개예요
+    ✗ N1 contradiction_number 7장
+    ✗ D1 contradiction_direction 4장
+    ✗ S1 skipped_slide 6장
+    ! 오탐 모순 [(8, 'number', '층별로 나눠 보면, 캠페인에 참여한 층이 6개 층, 참여 안 한 층이 4')] · 오탐 건너뜀 []
+### r2 (clean) · 장 경계 ui — 정합 matched · 모순 [(6, 'number')] · 건너뜀 []
+    - 6장 number: «거꾸로 멀티탭을 켜 둔 채 나간 방은 육십이 퍼센트에서 삼십삼 퍼센트로 줄었어요.» ↔ «1~4주 | 멀티탭 끄고 나간 방 비율 | 38%» · 발표에서는 62%라고 했는데 자료 6장은 38%예요
+    ! 오탐 모순 [(6, 'number', '거꾸로 멀티탭을 켜 둔 채 나간 방은 육십이 퍼센트에서 삼십삼 퍼센트로 ')] · 오탐 건너뜀 []
+### r2 (clean) · 장 경계 truth — 정합 matched · 모순 [(6, 'number')] · 건너뜀 []
+    - 6장 number: «거꾸로 멀티탭을 켜 둔 채 나간 방은 육십이 퍼센트에서 삼십삼 퍼센트로 줄었어요.» ↔ «1~4주 | 멀티탭 끄고 나간 방 비율 | 38%» · 발표에서는 62%라고 했는데 자료 6장은 38%예요
+    ! 오탐 모순 [(6, 'number', '거꾸로 멀티탭을 켜 둔 채 나간 방은 육십이 퍼센트에서 삼십삼 퍼센트로 ')] · 오탐 건너뜀 []
+### r3 (unrelated) · 장 경계 ui — 정합 unrelated · 모순 [] · 건너뜀 []
+### r3 (unrelated) · 장 경계 truth — 정합 unrelated · 모순 [] · 건너뜀 []
+
+## 합계 (장 경계 ui) — 심은 결함 2/9 · 바른·틀린 녹음의 오탐 4 · 다른 발표 알아봄 3/3 · 판정 대역 호출 12(LLM 0)

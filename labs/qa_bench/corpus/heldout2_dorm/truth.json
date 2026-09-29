@@ -1,0 +1,355 @@
+{
+ "deck": "heldout2_dorm",
+ "synthetic": true,
+ "group": "rec_align_heldout2_2026-09-30",
+ "topic": "기숙사 전기 절약 캠페인 한 학기 결과 — 생활관 자치회 결과 보고",
+ "context": {
+  "situation": "work_report",
+  "duration_min": 10
+ },
+ "page_style": "숫자만 「3」 (오른쪽 아래)",
+ "total_slides": 8,
+ "deck_comparisons": [
+  {
+   "slide": 2,
+   "quote": "3년 전보다 22% 올랐습니다.",
+   "construction": "(주어 생략) B보다 N% 올랐다"
+  },
+  {
+   "slide": 4,
+   "quote": "참여 층은 비참여 층보다 1인당 사용량이 더 많이 줄었습니다.",
+   "construction": "A는 B보다 더 …"
+  },
+  {
+   "slide": 7,
+   "quote": "멀티탭 불편에 비해 더위 불만이 2배 넘게 많았습니다.",
+   "construction": "B에 비해 A가 N배"
+  }
+ ],
+ "recordings": {
+  "r1": {
+   "kind": "flawed",
+   "title": "기숙사 전기 절약 캠페인 발표 녹음 (R1)",
+   "planted": [
+    {
+     "id": "N1",
+     "kind": "contradiction_number",
+     "slide": 7,
+     "deck_quote": "에어컨 26도가 덥다: 41%",
+     "speech_quote": "에어컨 26도가 덥다는 학생이 열 명 중에 여섯 명이나 됐어요.",
+     "form": "native_korean_n_of_m",
+     "deck_value": "41%",
+     "speech_value": "열 명 중 여섯 명 (60%)",
+     "note": "고유어 수사 「열 명 중에 여섯 명」 으로 말한 비율이 자료의 41% 와 다르다 (맞는 말꼴은 R2 의 「열 명 중 네 명꼴」)"
+    },
+    {
+     "id": "D1",
+     "kind": "contradiction_direction",
+     "slide": 4,
+     "deck_quote": "참여 층은 비참여 층보다 1인당 사용량이 더 많이 줄었습니다.",
+     "speech_quote": "그런데 1인당 사용량이 줄어든 폭은 참여 층보다 비참여 층 쪽이 더 컸어요.",
+     "form": "sides_swapped_with_new_construction",
+     "note": "비교 양쪽을 뒤바꾸고 자료에 없는 꼴(「줄어든 폭은 … 쪽이 더 컸다」)로 — 발화에 수는 없다"
+    },
+    {
+     "id": "S1",
+     "kind": "skipped_slide",
+     "slide": 6,
+     "deck_quote": "주차별 실천율",
+     "speech_quote": "음 주차별 실천율 표는 오늘은 제쳐 두고, 설문 얘기로 바로 갈게요.",
+     "skip_quote": "음 주차별 실천율 표는 오늘은 제쳐 두고, 설문 얘기로 바로 갈게요.",
+     "form": "set_aside",
+     "skip_verb": "제쳐 두고",
+     "labels_any": [
+      "주차별 실천율",
+      "실천율",
+      "멀티탭 끄고 나간 방",
+      "실천하는 방"
+     ],
+     "absent_elsewhere": [
+      "실천",
+      "38",
+      "52",
+      "67",
+      "지날수록"
+     ],
+     "note": "「제쳐 두고」 로 건너뜀 — 6장 내용(주차별 38%→52%→67%)은 R1 어디에서도 말하지 않는다"
+    },
+    {
+     "id": "U1",
+     "kind": "unsupported_speech_claim",
+     "slide": 3,
+     "near_slide": 3,
+     "deck_quote": null,
+     "speech_quote": "에어컨을 26도에 맞추면 감기도 덜 걸린다고 하더라고요.",
+     "form": "hearsay_health_claim",
+     "note": "자료에 없는 주장 — 자료의 「26도」 를 품고 있지만 건강 효과는 자료가 한 번도 말하지 않는다. 잘못으로 나오면 오탐"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [
+     4,
+     7
+    ],
+    "skipped_slides": [
+     6
+    ],
+    "faults": 3,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript.json",
+   "clova_file": "recording_r1.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 38
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 38,
+     "end_sec": 68
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 68,
+     "end_sec": 100
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 100,
+     "end_sec": 126
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 126,
+     "end_sec": 160
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 160,
+     "end_sec": 169
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 169,
+     "end_sec": 200
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 200,
+     "end_sec": 240
+    }
+   ]
+  },
+  "r2": {
+   "kind": "clean",
+   "title": "기숙사 전기 절약 캠페인 발표 녹음 (R2)",
+   "planted": [],
+   "tricky_correct": [
+    {
+     "slide": 2,
+     "trap": "computed_value",
+     "deck": "3년 전보다 22% 올랐습니다.",
+     "speech": "거꾸로 계산하면 삼 년 전에는 오천만 원 정도였던 거죠.",
+     "why": "6,100만 ÷ 1.22 = 5,000만 (자료에 없는 역산값)"
+    },
+    {
+     "slide": 3,
+     "trap": "question_shaped",
+     "deck": "② 에어컨 설정 온도 26도 지키기",
+     "speech": "에어컨을 아예 끄자는 거였냐고요?",
+     "why": "자료와 다른 내용을 묻는 질문 — 바로 「아니에요」 로 부정한다"
+    },
+    {
+     "slide": 4,
+     "trap": "question_shaped",
+     "deck": "참여 층은 비참여 층보다 1인당 사용량이 더 많이 줄었습니다.",
+     "speech": "그럼 참여 안 한 층이 더 많이 줄였을까요?",
+     "why": "뒤집힌 방향(R1 D1 과 같은 명제)을 묻는 질문 — 바로 부정한다"
+    },
+    {
+     "slide": 4,
+     "trap": "reverse_order_antonym",
+     "deck": "참여 층은 비참여 층보다 1인당 사용량이 더 많이 줄었습니다.",
+     "speech": "비참여 층이 줄인 폭은 참여 층에 비해 훨씬 작았고, 차이가 십일 퍼센트포인트나 나요.",
+     "why": "주어를 뒤집고 반의어(더 많이 → 훨씬 작았고) — 뜻은 같다"
+    },
+    {
+     "slide": 4,
+     "trap": "computed_value",
+     "deck": "| 캠페인 참여 층 | 6개 층 | −14% |",
+     "speech": "차이가 십일 퍼센트포인트나 나요.",
+     "why": "14 − 3 = 11%p (자료에 없는 차)"
+    },
+    {
+     "slide": 4,
+     "trap": "sign_as_change_verb",
+     "deck": "| 비참여 층 | 4개 층 | −3% |",
+     "speech": "비참여 층은 삼 퍼센트 줄었어요.",
+     "why": "표의 부호 「−3%」 를 「삼 퍼센트 줄었어요」 로 — 같은 값"
+    },
+    {
+     "slide": 5,
+     "trap": "quantity_bound",
+     "deck": "11,500kWh × 160원 = 184만 원",
+     "speech": "백팔십만 원 넘게 아낀 거죠.",
+     "why": "184만 > 180만 — 「넘게」 는 참"
+    },
+    {
+     "slide": 6,
+     "trap": "content_meaning_move_on",
+     "deck": "| 9~16주 | 67% |",
+     "speech": "구 주 차로 넘어가면서부터는 육십칠 퍼센트까지 올라갔어요.",
+     "why": "「넘어가면서」 는 기간이 바뀌는 뜻 — 장을 건너뛰는 말이 아니다"
+    },
+    {
+     "slide": 6,
+     "trap": "change_verb_other_subject",
+     "deck": "주가 지날수록 실천하는 방이 늘었습니다.",
+     "speech": "거꾸로 멀티탭을 켜 둔 채 나간 방은 육십이 퍼센트에서 삼십삼 퍼센트로 줄었어요.",
+     "why": "「줄었어요」 의 주어는 실천하지 않은 방(100−38=62 → 100−67=33) — 옆 줄의 「늘었습니다」 와 주어가 다르다"
+    },
+    {
+     "slide": 7,
+     "trap": "close_approximation_n_of_m",
+     "deck": "에어컨 26도가 덥다: 41%",
+     "speech": "에어컨 이십육 도가 덥다는 응답이 사십일 퍼센트, 열 명 중 네 명꼴이었어요.",
+     "why": "41% ≈ 10명 중 4명 (R1 N1 과 짝)"
+    },
+    {
+     "slide": 7,
+     "trap": "quantity_bound",
+     "deck": "외출 때 멀티탭 끄기가 번거롭다: 19%",
+     "speech": "외출할 때 멀티탭 끄기가 번거롭다는 응답은 십구 퍼센트로, 스무 퍼센트가 안 됐고요.",
+     "why": "19 < 20 — 참"
+    },
+    {
+     "slide": 7,
+     "trap": "comparison_new_construction",
+     "deck": "멀티탭 불편에 비해 더위 불만이 2배 넘게 많았습니다.",
+     "speech": "더위 불만이 멀티탭 불편의 두 배를 넘은 거죠.",
+     "why": "「B에 비해 A가 2배 넘게」 를 「A가 B의 두 배를 넘은」 으로 — 41/19 ≈ 2.2"
+    },
+    {
+     "slide": 8,
+     "trap": "before_after_pair",
+     "deck": "참여 층을 6개 층에서 10개 층 전체로",
+     "speech": "참여 층은 여섯 개 층에서 열 개 층 전체로 늘려요.",
+     "why": "전후 두 값이 모두 맞다 (고유어 수사)"
+    }
+   ],
+   "spoken_forms": [
+    {
+     "slide": 2,
+     "deck": "6,100만 원",
+     "speech": "육천백만 원"
+    },
+    {
+     "slide": 2,
+     "deck": "480명",
+     "speech": "사백팔십 명"
+    },
+    {
+     "slide": 4,
+     "deck": "6개 층",
+     "speech": "여섯 개 층"
+    },
+    {
+     "slide": 4,
+     "deck": "−14%",
+     "speech": "십사 퍼센트 줄었고"
+    },
+    {
+     "slide": 5,
+     "deck": "11,500kWh",
+     "speech": "만 천오백 킬로와트시"
+    },
+    {
+     "slide": 5,
+     "deck": "184만 원",
+     "speech": "백팔십사만 원"
+    },
+    {
+     "slide": 7,
+     "deck": "212명",
+     "speech": "이백십이 명"
+    },
+    {
+     "slide": 8,
+     "deck": "150만 원",
+     "speech": "백오십만 원"
+    }
+   ],
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults": 0,
+    "speech_unused": false
+   },
+   "transcript_file": "transcript_r2.json",
+   "clova_file": "recording_r2.txt",
+   "slide_segments_truth": [
+    {
+     "slide_no": 1,
+     "start_sec": 0,
+     "end_sec": 35
+    },
+    {
+     "slide_no": 2,
+     "start_sec": 35,
+     "end_sec": 74
+    },
+    {
+     "slide_no": 3,
+     "start_sec": 74,
+     "end_sec": 109
+    },
+    {
+     "slide_no": 4,
+     "start_sec": 109,
+     "end_sec": 151
+    },
+    {
+     "slide_no": 5,
+     "start_sec": 151,
+     "end_sec": 190
+    },
+    {
+     "slide_no": 6,
+     "start_sec": 190,
+     "end_sec": 230
+    },
+    {
+     "slide_no": 7,
+     "start_sec": 230,
+     "end_sec": 267
+    },
+    {
+     "slide_no": 8,
+     "start_sec": 267,
+     "end_sec": 305
+    }
+   ]
+  },
+  "r3": {
+   "kind": "unrelated",
+   "reuse": [
+    "heldout2_clinic",
+    "r2"
+   ],
+   "title": "외래 대기 시간 조사 발표 녹음 (다른 발표)",
+   "planted": [],
+   "source": "외래 대기 시간 현장 조사 발표 (heldout2_clinic R2 — 다른 발표)",
+   "expect": {
+    "contradiction_slides": [],
+    "skipped_slides": [],
+    "faults_speech_content": 0,
+    "speech_unused": true
+   },
+   "transcript_file": "transcript_r3.json",
+   "clova_file": "recording_r3.txt",
+   "slide_segments_truth": "다른 발표 — 장 대응 없음"
+  }
+ }
+}
