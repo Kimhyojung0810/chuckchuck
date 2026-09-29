@@ -13,6 +13,7 @@
 | `wording_eval.py` | 3인칭·순서 질문 세기 | §7-2 | Solar |
 | `paper_diag.py` | 문헌 경로 — 인용 수·재사용·대체 문구 (인자: 작업 폴더·횟수·태그) | §9 | Solar+검색 |
 | `render_graph_png.py` | 그래프 JSON → PNG (좌→우 나무, 위계 실선·relates 점선) | 부록 | 없음 |
+| `render_network_png.py` | 그래프 JSON → PNG (네트워크 배치, 위계와 같은 쌍의 relates 는 뺀다) | 부록 | 없음 |
 | `make_transcript.py` | 클로바 전사 + 대본 docx → 슬라이드별 Transcript | §10 | 없음 |
 | `audio_path_eval.py` | 녹음 경로 끝까지 (정합·흐름·pace·문헌·질문 1/5/10분) | §10·§11 | Solar+검색 |
 
@@ -31,7 +32,8 @@
 | `graph_rerun1·2.json` | §1-5 F-07 재실행 (slide_doc 없음) |
 | `graph_fixed_a·b·c.json` | §5·§6 수정 후 그래프 |
 | `graph_after_screen_0928.json` | 수정 후 — 9/28 화면 실행 수면 그래프 (stage_cache 사본) |
-| `graph_before_0926.png` · `graph_after_c.png` · `graph_after_screen_0928.png` | 수정 전·후 원본 그래프 그림 |
+| `graph_before_0926.png` · `graph_after_c.png` · `graph_after_screen_0928.png` | 수정 전·후 원본 그래프 그림 (트리 뷰) |
+| `network_before_0926.png` · `network_after_screen_0928.png` | 같은 그래프의 네트워크 뷰 |
 | `audio_path_before_5c345e5.json` · `audio_path_after_a149349.json` · `audio_path_after_pace.json` | §10·§11 녹음 경로 전후 |
 
 `transcript_*.json`·`slidedoc_*.json` 은 **올리지 않는다** — 발표자 음성 전문·덱 본문이다 (.gitignore 2026-08-08·09-10 규칙). 전사는 `make_transcript.py`(ppt/수면발표 의 .txt·.docx), 파싱본은 `verify_fix.py` 로 다시 만든다.
