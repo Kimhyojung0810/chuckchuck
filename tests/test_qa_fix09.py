@@ -15,7 +15,7 @@ import json
 
 from chuckchuck import coach_stuck, judge_answer
 from chuckchuck._deck_claims import build_deck, conflicts, explicit_agreement, states_reference, support
-from chuckchuck._evidence import mask_gist
+from chuckchuck._evidence import _negated_in, mask_gist
 from chuckchuck.contracts import ConceptEdge, ConceptGraph, ConceptNode, Question, Slide, SlideBlock, SlideDoc
 from chuckchuck.f09_judge import _HONORIFIC_RE, _plain
 from chuckchuck.providers.llm_base import LLMProvider
@@ -322,7 +322,11 @@ def test_빈칸은_활용형이_아니라_명사_줄기를_가린다():
                                           quote=q.evidence_quote, deck_text=deck_text)
         assert answer and answer not in INFLECTED and distractor not in INFLECTED
         assert answer in q.evidence_quote                    # 화면에 보이는 인용에서 확인할 수 있는 낱말이 먼저다
-        assert distractor and distractor not in q.evidence_quote
+        # 인용이 「X 아니라 Y」 로 스스로 대비를 세우면 보기는 그 둘이다(09-29 부스) — 아니면 오답은 인용 밖 말이다
+        if " 아니라" in q.evidence_quote:
+            assert distractor and _negated_in(distractor.split()[-1], q.evidence_quote)
+        else:
+            assert distractor and distractor not in q.evidence_quote
     # 기준선에서 활용형이 나온 골자들
     for gist in ("수면의 질이 수면 시간보다 회복에 더 중요함을 보여줘요",
                  "두 요인이 전체 격차의 58%를 차지해 가장 큰 영향을 보였어요",

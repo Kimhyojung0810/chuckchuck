@@ -439,6 +439,53 @@ def _noun_like(stem: str, source: str) -> bool:
     return True
 
 
+#: 세는 단위·의존 명사 — 명사지만 「이 장이 말하는 건 A 쪽인가요」 의 보기가 못 된다
+#: (09-29 부스: 「'가지' 쪽인가요, '종목' 쪽인가요?」 — 「다섯 가지 원인」 의 '가지').
+_BOUND_NOUNS = frozenset({
+    "가지", "개", "명", "번", "회", "곳", "점", "등", "것", "수", "때", "중", "개월", "년", "주", "일", "분", "초",
+    "배", "차", "쪽", "부분", "경우", "정도", "이상", "이하", "대비", "위", "편",
+})
+#: 「X(이/가) 아니라 Y」 — 자료가 X 를 부정하고 Y 를 세운다. X 는 앞 두 낱말까지, Y 는 뒤 첫 낱말.
+_CONTRAST_RE = re.compile(r"((?:[가-힣A-Za-z0-9·]+\s+)?[가-힣A-Za-z0-9·]+?)(?:이|가)?\s+아니라[,\s]+([가-힣A-Za-z0-9·]+)")
+#: 대비 자리에 와도 보기가 못 되는 말 — 의문·정도 부사.
+_NOT_CHOICE = frozenset({"얼마", "얼마나", "어떻게", "무엇", "무엇을", "누가", "언제", "어디", "가장", "매우", "더욱"})
+#: 물음꼴로 끝난 구절(「샀는가」·「되는지」)은 명사가 아니다.
+_QUESTION_END_RE = re.compile(r"(는가|은가|인가|는지|은지|던가)(가|이)?$")
+#: 부정 꼴 — 이 앞 절에 든 낱말은 자료가 **아니라고** 한 쪽이다.
+_NEGATION_RE = re.compile(r"아니라|아닌|아니다|아닙니다|않")
+
+
+def _contrast_pair(quote: str) -> tuple[str, str]:
+    """인용의 「X 아니라 Y」 → (Y 줄기, X 구절). 없으면 ("", "")."""
+    m = _CONTRAST_RE.search(quote or "")
+    if not m:
+        return "", ""
+    neg_words = [w for w in m.group(1).split() if w not in ("은", "는")]
+    # 앞 낱말이 주제(「격차는」)면 부정된 것은 뒤 낱말뿐이다
+    if len(neg_words) == 2 and re.search(r"(은|는)$", neg_words[0]):
+        neg_words = neg_words[1:]
+    if not neg_words:
+        return "", ""
+    neg_head = _stem(neg_words[-1])
+    pos = _stem(m.group(2))
+    # 둘 다 명사 줄기여야 보기가 된다 — 「무엇을 샀는가가 아니라, 얼마나 …」 · 「잠이 아니라, 몸과 뇌가 …」 는 대비지만 보기감이 아니다
+    for stem, word in ((neg_head, neg_words[-1]), (pos, m.group(2))):
+        if (not stem or len(stem) < MASK_MIN or stem in _BOUND_NOUNS or stem in _NOT_CHOICE
+                or _QUESTION_END_RE.search(word) or not _noun_like(stem, quote)):
+            return "", ""
+    neg = " ".join(neg_words[:-1] + [neg_head])
+    return ("", "") if neg == pos else (pos, neg)
+
+
+def _negated_in(stem: str, quote: str) -> bool:
+    """stem 이 인용에서 부정된 절(「… 아니라」 앞) 안에 있는가."""
+    for m in _NEGATION_RE.finditer(quote or ""):
+        clause = re.split(r"[:.·,]", quote[: m.start()])[-1]
+        if _attested(stem, clause):
+            return True
+    return False
+
+
 def mask_gist(
     gist: str, label: str, distractor_pool: list[str], *, quote: str = "", deck_text: str = ""
 ) -> tuple[str, str, str]:
@@ -462,7 +509,17 @@ def mask_gist(
     exclude = set(_content_tokens(label))
     flat_label = re.sub(r"\s+", "", label or "").lower()
     candidates = [(w, s) for w, s in _mask_candidates(text, exclude)
-                  if _noun_like(s, source) and s.lower() not in flat_label]
+                  if _noun_like(s, source) and s.lower() not in flat_label
+                  and s not in _BOUND_NOUNS and not _negated_in(s, quote)]
+    # 인용이 「X 아니라 Y」 면 보기는 그 둘이다 — 자료가 스스로 세운 대비라 「어느 쪽」 이 그대로 성립한다.
+    pos, neg = _contrast_pair(quote)
+    if pos and neg:
+        hit = next(((w, s) for w, s in candidates if s == pos), None)
+        if hit:
+            return text.replace(hit[0], "___", 1), pos, neg
+        # 골자에 Y 가 없으면 빈칸 문장은 아래 규칙으로 만들고 보기만 대비 쌍이다 — 빈칸 없는 골자를 내면 답이 통째로 보인다
+        masked, _, _ = mask_gist(gist, label, [], deck_text=deck_text)
+        return masked, pos, neg
     if not candidates:
         return "", "", ""
     # 동률 규칙이 있어야 같은 골자면 언제나 같은 빈칸이다.
@@ -476,7 +533,7 @@ def mask_gist(
     for need_deck in ((True, False) if deck_text else (False,)):
         for item in distractor_pool or []:
             for _, stem in reversed(_mask_candidates(item or "", exclude)):
-                if (stem.lower() in taken or bool(re.search(r"[0-9]", stem)) != numeric
+                if (stem.lower() in taken or stem in _BOUND_NOUNS or bool(re.search(r"[0-9]", stem)) != numeric
                         or stem.lower() in flat_label or _attested(stem, quote)
                         or not _noun_like(stem, f"{deck_text} {item}")
                         or (need_deck and not _attested(stem, deck_text))):

@@ -514,3 +514,19 @@ def test_폭에서_꺾인_OCR_줄은_잇고_앞_장_꼬리_조각은_인용으�
     tail = "(매장)과 본사 대상 구독형 도입을 주요 수익모델로 검토하고 있습니다.\n본사 대상 구독형 도입이 가장 빠른 수익 경로입니다."
     no, quote = best_quote("본사 구독", "", [(2, tail)], "본사 대상 구독형 도입이 왜 유리한가요?")
     assert quote.startswith("본사 대상")
+
+
+def test_모르겠어요_보기는_인용이_세운_대비_쌍이고_세는_단위는_쓰지_않는다():
+    # 09-29 부스 실측: 「격차는 종목 선택이 아니라 행동에서」 에 보기가 '가지'·'종목' 으로 나왔다 (둘 다 틀린 보기)
+    from chuckchuck._evidence import mask_gist
+    quote = "결론부터: 매출 차이는 메뉴 구성이 아니라 회전율에서 만들어진다"
+    gist = "평균 매출이 상권 대비 낮고, 메뉴 구성과 매출의 상관은 약하며 회전율이 매출과 뚜렷하게 연결돼요"
+    _, answer, distractor = mask_gist(gist, "매출 차이", ["다섯 가지 원인", "좌석 수"], quote=quote)
+    assert (answer, distractor) == ("회전율", "메뉴 구성")
+    # 대비가 없으면 부정된 쪽 낱말은 정답이 못 되고, 세는 단위는 오답이 못 된다
+    _, answer, distractor = mask_gist("대기 시간이 길면 재방문이 줄어요", "재방문", ["세 가지 요인"],
+                                      quote="재방문을 줄이는 것은 가격이 아닌 대기 시간이다")
+    assert answer != "가격" and distractor != "가지"
+    # 물음꼴·부사 대비는 보기감이 아니다
+    from chuckchuck._evidence import _contrast_pair
+    assert _contrast_pair("무엇을 샀는가가 아니라, 얼마나 자주 사고팔았는가가 결과를 갈랐다") == ("", "")
