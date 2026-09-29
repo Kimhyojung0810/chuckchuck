@@ -108,13 +108,15 @@ def _facts_block(
 
 
 def _fallback_report(pace: PaceDoc, habits: HabitDoc, model: str, score: int = 0) -> ReportDoc:
+    # 규칙 폴백도 해요체다 (CLAUDE.md §3-1). 09-30 WP-A 가 토큰을 늘려 폴백이 드물어졌지만, LLM 이 죽은 날 화면에 합쇼체
+    # (「…가깝습니다」「…맞추세요」)가 LLM 문장과 섞여 나갔다. 행동은 LLM 과 같은 「~해 보세요」 권유로 맞춘다 (_SYSTEM actions).
     strengths = []
     weaknesses = []
     if pace.avg_chars_per_min and 280 <= pace.avg_chars_per_min <= 360:
-        strengths.append(f"평균 말 속도 {pace.avg_chars_per_min:.0f}자/분이 권장 구간에 가깝습니다.")
+        strengths.append(f"평균 말 속도 {pace.avg_chars_per_min:.0f}자/분이 권장 구간에 가까워요.")
     for s in pace.slides:
         if s.importance == "core" and s.status == "ok":
-            strengths.append(f"{s.slide_no}번 핵심 슬라이드 시간 배분이 안정적입니다.")
+            strengths.append(f"{s.slide_no}번 핵심 슬라이드 시간 배분이 안정적이에요.")
             break
     for tip in pace.tips[:2]:
         weaknesses.append(tip)
@@ -122,25 +124,25 @@ def _fallback_report(pace: PaceDoc, habits: HabitDoc, model: str, score: int = 0
         if tip not in weaknesses:
             weaknesses.append(tip)
     if not strengths:
-        strengths.append("슬라이드 전환과 발화 기록이 남아 코칭 근거를 만들 수 있습니다.")
+        strengths.append("슬라이드 전환과 발화 기록이 남아 코칭 근거를 만들 수 있어요.")
     if not weaknesses:
-        weaknesses.append("특별히 큰 배분·습관 문제는 보이지 않습니다.")
+        weaknesses.append("특별히 큰 배분·습관 문제는 보이지 않아요.")
 
     actions = []
     for s in pace.slides:
         if s.importance != "core" and s.status == "long":
-            actions.append(f"{s.slide_no}번(보조) 설명을 한 문장으로 줄여 목표 시간을 맞추세요.")
+            actions.append(f"{s.slide_no}번(보조) 설명을 한 문장으로 줄여 목표 시간에 맞춰 보세요.")
             break
     for s in pace.slides:
         if s.importance == "core" and s.status == "short":
-            actions.append(f"{s.slide_no}번(핵심)에 예시 한 줄을 추가해 권장 {s.recommended_sec:.0f}초에 가깝게.")
+            actions.append(f"{s.slide_no}번(핵심)에 예시 한 줄을 더해 권장 {s.recommended_sec:.0f}초에 가깝게 말해 보세요.")
             break
     for h in habits.by_slide:
         if h.repeat_cnt >= 2:
-            actions.append(f"{h.slide_no}번에서 반복한 구절을 한 번만 말하고 다음으로 넘기세요.")
+            actions.append(f"{h.slide_no}번에서 반복한 구절은 한 번만 말하고 다음으로 넘어가 보세요.")
             break
     while len(actions) < 3:
-        actions.append("리허설 때 타이머를 켜고 핵심 장 앞에서 3초 쉬어 속도를 조절하세요.")
+        actions.append("리허설 때 타이머를 켜고 핵심 장 앞에서 3초 쉬며 속도를 조절해 보세요.")
 
     return ReportDoc(
         one_liner=pace.tips[0] if pace.tips else "시간 배분과 음성 습관을 함께 점검했어요.",

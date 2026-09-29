@@ -23,6 +23,7 @@ import re
 
 from . import _claim_rules as R
 from ._deck_claims import _has, content_stems, direction, numbers
+from ._speech import josa_of
 
 #: 자료 줄 자체를 따져 묻는 탐침 — 이 종류의 근거 줄은 채점 원본이 아니다.
 PROBED_LINE_KINDS = frozenset({"absolute_boundary", "unsupported_cause", "tension", "sibling_priority"})
@@ -68,6 +69,38 @@ _EVIDENCE_GAP_RE = re.compile(
     r"(?:근거|수치|출처|자료|데이터|통계|연구|실험|증거|사례|숫자)[^.?!\n]{0,14}"
     r"(?:없|부족|모자라|빠져|안\s*나와|안\s*나오|제시되지\s*않|제시하지\s*않|확인되지\s*않|밝혀지지\s*않|달지\s*않|안\s*달)"
 )
+#: 해결 방법이 **비었다고 밝힌** 말 — 빈칸 탐침(unsolved)의 절반 답 (「개선 방법은 자료에 없어요」).
+_REMEDY_GAP_RE = re.compile(
+    r"(?:방법|방안|해결책|해결\s*방법|대책|개선책)[^.?!\n]{0,14}(?:없|부족|안\s*나와|안\s*나오|제시되지\s*않|다루지\s*않|못\s*했|아직)")
+
+
+#: 해결책이 빈 문제를 **앞으로 어떻게 채울지** 말하는 꼴 — 「보완할게요」「다음 발표에 더해 볼게요」「개선할 계획이에요」.
+_REMEDY_PLAN_RE = re.compile(r"(?:보완|보강|개선|해결|더해|추가|채우|마련)\S*\s*(?:할게|하겠|할\s*거|해\s*볼|볼게|할\s*예정|할\s*계획|하려고)")
+
+
+def answers_gap(answer: str, kind: str) -> bool:
+    """
+    빈틈 탐침(근거 없는 인과·해결 방법 없음)에 **답한** 말인가 — 빈틈을 인정했거나(「수치나 출처가 없어요」) 어떻게 채울지 말했다
+    (「설문·통계로 보강할게요」「좌석은 예약제로 보완할게요」). 그런 답은 자료 낱말을 안 써도 이 질문에 답한 것이라 무관 가드가 볼 일이
+    아니다 (09-30 WP-J2, standard 실측: 「그리고 어떤 자료(설문·통계·비교)로 보강할지…」 가 「질문과 다른 이야기」 35).
+    """
+    if kind not in ("unsupported_cause", "unsolved"):
+        return False
+    t = answer or ""
+    if acknowledges_gap(t):
+        return True
+    if any(_SOURCE_RE.search(x) and _PLAN_VERB_RE.search(x) for x in _sentences(t)):
+        return True
+    return bool(_REMEDY_PLAN_RE.search(t))
+
+
+def acknowledges_gap(text: str) -> bool:
+    """답이 자료의 **빈틈을 인정**했는가 — 근거(수치·출처)가 없다 · 해결 방법이 없다. 빈틈 탐침의 되물음을 「어떻게 보강할래요?」 로
+    좁힐지 정할 때 쓴다 (09-30 WP-J2). 막연한 「추가 확인이 필요해요」 는 인정이 아니다(`_EVIDENCE_GAP_RE` 와 같은 규율)."""
+    t = text or ""
+    return bool(_EVIDENCE_GAP_RE.search(t) or _REMEDY_GAP_RE.search(t))
+
+
 #: 근거를 **어떻게 보강할지** 말하는 동사 — 출처 낱말(설문·통계…)과 같은 문장에 있을 때만 보강 계획이다.
 _PLAN_VERB_RE = re.compile(r"보강|보완|조사|모으|모아|측정|비교|찾아|구해|확인|검증|받아|받으|수집|분석|추적|물어")
 #: 필요·당위 — 「연구가 필요해요」 는 출처를 댄 말이 아니라 유보다.
@@ -296,9 +329,12 @@ RESTATE_POINT = {
 }
 
 
-#: 탐침 질문의 결정적 골자 — LLM 골자가 따져 묻는 줄을 **되풀이**했을 때 쓴다 (화면의 「정답 요지」 이자 판정의 채점 기준).
+#: 탐침 질문의 결정적 골자 — LLM 골자가 따져 묻는 줄을 **되풀이**했을 때 쓴다 (화면의 「정답 요지」 이자 판정의 참고 답).
 #: 09-29 loop2 dry-run: 단정 탐침의 LLM 골자가 「연장 개방을 하면 퇴근 후 이용자는 반드시 늘어나요」(단정 그대로),
 #: 근거 없는 인과 탐침의 골자가 프롬프트의 「S3 «…»」 꼴을 베낀 인용 한 줄이었다. 되풀이를 정답으로 가르치면 판정과 모순이다.
+#: **발표자가 그대로 말할 모범답**으로 쓴다 (09-30 WP-J2) — F-08 `_probes.probe_code_gist` 가 못 지을 때(요소 이름·해결 줄이
+#: 없을 때)의 폴백이라 같은 목소리여야 한다. 예전엔 「…점을 인정하고, …말하는 게 답이에요」 채점 지시라 「이렇게 말하면 완성이에요」
+#: 칸에 지시문이 떴고(09-30 standard), 판정 하네스의 좋은 답이 그 지시문을 입말로 옮겼다. 첫 절에 탐침의 열쇠 말(「단정」·「수치」)을 둔다.
 def probe_gist(probe) -> str:
     quotes = [e for e in probe.evidence if (e.quote or "").strip()]
     if not quotes:
@@ -306,15 +342,14 @@ def probe_gist(probe) -> str:
     first = _short(quotes[0].quote, 70)
     where = f"자료 {quotes[0].slide_no}장" if quotes[0].slide_no else "자료"
     if probe.kind == "absolute_boundary":
-        return (f"{where}의 「{first}」는 모든 경우에 맞는다고 단정할 수 없어요 — 들어맞지 않는 경우나 조건을 하나 들고,"
-                " 자료가 보여 준 범위까지만 말하는 게 답이에요.")
+        return (f"{where}의 「{first}」{josa_of(first, '은', '는')} 모든 경우에 그렇다고 단정할 수는 없어요."
+                " 자료가 보여 준 범위 안에서만 그렇게 말할 수 있어요.")
     if probe.kind == "unsupported_cause":
-        return (f"{where}의 「{first}」에는 수치나 출처가 없어요 — 근거가 아직 없다는 점을 인정하고,"
-                " 어떤 자료(설문·통계·비교)로 보강할지 말하는 게 답이에요.")
+        return f"{where}의 「{first}」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요."
     if probe.kind == "tension" and len(quotes) >= 2:
-        second = _short(quotes[1].quote, 50)
-        return (f"「{_short(quotes[0].quote, 50)}」와 「{second}」는 함께 성립할 수 있어요 — 두 말이 가리키는 범위·조건이"
-                " 어떻게 다른지 이어서 설명하는 게 답이에요.")
+        one, two = _short(quotes[0].quote, 50), _short(quotes[1].quote, 50)
+        return (f"「{one}」{josa_of(one, '과', '와')} 「{two}」{josa_of(two, '은', '는')} 함께 성립해요."
+                " 두 말은 가리키는 범위와 조건이 달라서 둘 다 맞아요.")
     return ""
 
 

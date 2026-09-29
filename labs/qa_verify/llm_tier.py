@@ -18,6 +18,7 @@ import secrets
 import shutil
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 from . import common as C
 from . import conversation as CV
@@ -93,6 +94,8 @@ def _prepare_all(bridge: Bridge, decks: list[str], tracks: list[str], run_dir: P
         if prep.get("ok") and not prep.get("slide_doc") and prep.get("session_id"):
             got = bridge.get_json(f"/api/v1/cached-slidedoc?session_id={prep['session_id']}")
             prep["slide_doc"] = (got or {}).get("slide_doc") or got
+        if prep.get("ok"):
+            prep["questions"] = server_copies(bridge, prep.get("session_id") or "flat", prep.get("questions") or [])
         prep.update(llm_calls=bridge.used() - c0, wall=round(time.time() - t0, 1), tuned=deck in TUNED)
         C.note(f"     → {'질문 ' + str(len(prep.get('questions') or [])) + '개' if prep.get('ok') else '실패: ' + str(prep.get('error'))}"
                f" · {prep['wall']}s · LLM {prep['llm_calls']}")
@@ -100,6 +103,29 @@ def _prepare_all(bridge: Bridge, decks: list[str], tracks: list[str], run_dir: P
                      {k: v for k, v in prep.items() if k != "storage"})
         preps.append(prep)
     return preps
+
+
+#: 화면 사본에서 브리지가 뺀 함정 칸 (demo/bridge.py `TRAP_WITHHELD`) — 잣대(페르소나·누설 태그)는 서버 사본의 값을 쓴다.
+WITHHELD = ("trap_premise", "answer_gist", "answer_gist_parts")
+
+
+def server_copies(bridge: Bridge, sid: str, questions: list[dict]) -> list[dict]:
+    """
+    화면 사본의 질문(함정은 전제·골자가 빈 gist_withheld 사본 — 09-30 WP-J2)에 **서버 사본의 함정 칸**을 채운다 — 하네스는 잣대라
+    정답지를 봐도 된다(개발 경로 `/api/v1/dev/questions`, 브리지를 DEMO_DEV_ROUTES=1 로 띄울 때만 열린다). 판정은 어차피 서버 사본으로
+    한다. 문장이 같은 판을 고르고, 못 찾으면 화면 사본 그대로 둔다(함정 페르소나가 빠질 뿐 대화는 돈다).
+    """
+    out = []
+    for q in questions:
+        if not (isinstance(q, dict) and q.get("gist_withheld")):
+            out.append(q)
+            continue
+        got = bridge.get_json(f"/api/v1/dev/questions?session_id={quote(sid)}&id={quote(str(q.get('id', '')))}") or {}
+        cands = [c for c in got.get("questions") or [] if isinstance(c, dict)]
+        same = next((c for c in cands if str(c.get("question") or "").strip() == str(q.get("question") or "").strip()), None)
+        src = same or (cands[0] if cands else None)
+        out.append({**q, **{k: src.get(k) for k in WITHHELD}} if src else q)
+    return out
 
 
 def _personas(target: Target, preps: list[dict], run_dir: Path) -> dict[int, dict]:
@@ -186,6 +212,20 @@ def _self_explained_section(text: str) -> str:
     return m.group(1) if m else ""
 
 
+#: 네 묶음 결과 화면의 표지 — 칸 제목이나 새 헤드라인 중 하나라도 있으면 새 화면이다.
+_FOUR_BUCKETS_RE = re.compile(r"스스로 설명한 질문|도움 받아 닫은 질문|답 보고 다시 말한 질문|넘기거나 안 물은 질문|스스로 설명했어요")
+
+
+def _four_buckets(text: str) -> bool:
+    """
+    결과 화면이 네 묶음(qa/front)인가.
+
+    09-30 WP-J2 standard 실측: 스스로 설명한 질문이 **0개**면 그 칸이 아예 안 그려진다 — 칸이 비었다고 옛 화면으로 보고
+    「판정 good·partial 수」(도움 받아 닫은 것까지)와 헤드라인 0 을 견줘 결과 숫자 불일치 2 를 거짓으로 냈다.
+    """
+    return bool(_FOUR_BUCKETS_RE.search(text or ""))
+
+
 def _listed(label: str, section: str) -> bool:
     """질문 이름이 칸 안에 **한 줄로** 있는가 — 다른 질문의 요약 문장 속 낱말(「…다섯 가지 행동 요인(…)」)은 세지 않는다."""
     return any(line.strip() == label.strip() for line in (section or "").splitlines())
@@ -208,12 +248,13 @@ def _result_checks(records: list[dict]) -> tuple[list[str], list[str]]:
         results = r.get("results") or []
         text = (r.get("end_card") or "") + " " + (r.get("result_text") or "")
         self_sec = _self_explained_section(text)
+        buckets = _four_buckets(text)
         for qn, js in by_q.items():
             last = js[-1]
             if not (last.get("mastered") and last.get("verdict") != "good" and int(last.get("round_no") or 0) >= 3):
                 continue
             label = next((x.get("label") for x in results if x.get("id") == last.get("question_id")), "") or ""
-            if self_sec:
+            if buckets:
                 if label and _listed(label, self_sec):
                     forced.append(f"{r['deck']} Q{qn}: {last.get('verdict')}/{last.get('score')} r{last.get('round_no')} 닫힘 → 「스스로 설명」 칸에 셈")
             else:
@@ -222,7 +263,7 @@ def _result_checks(records: list[dict]) -> tuple[list[str], list[str]]:
         # 새 화면(「…스스로 설명했어요」)은 스스로 설명한 질문이 0개면 그 칸을 아예 그리지 않는다 — 칸이 없으면 0개다 (09-30 표준 단계 오탐)
         new_ui = bool(m and m.group(3) == "스스로 설명했어요")
         if m:
-            if self_sec or new_ui:
+            if buckets or new_ui:
                 shown = sum(1 for x in results if x.get("label") and _listed(x["label"], self_sec))
             else:
                 shown = len([x for x in results if not x.get("revealed") and x.get("verdict") in ("good", "partial")])
@@ -322,9 +363,15 @@ def _tamper(bridge: Bridge, preps: list[dict], packs: dict[int, dict]) -> dict:
         pick = (i, q, ans, "gist_tampered")
     i, q, ans, kind = pick
     prep = preps[i]
-    sid = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "_" + secrets.token_hex(4)
-    code, _ = bridge.post("/api/v1/session/artifacts", {"session_id": sid, "graph": prep.get("graph"), "alignment": None,
-                                                        "flow": None, "transcript": None, "context": prep.get("context")})
+    # 질문을 만든 그 세션으로 채점한다 — 브리지는 그 세션의 질문 색인(서버 판)으로 채점하므로 본문을 바꿔도 판정이 같아야 한다.
+    # 09-30 WP-J2 standard 실측: 새 세션(색인 없음)으로 보내 두 본문이 **그대로** 채점됐다 — 골자를 답으로 바꾼 본문이
+    # wrong/35 → partial/55 로 갈려 「변조로 판정이 바뀜」 1 이 났다. 브리지가 아니라 하네스가 변조를 통과시킨 것이다.
+    sid = str(prep.get("session_id") or "")
+    code = 0
+    if not sid:
+        sid = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "_" + secrets.token_hex(4)
+        code, _ = bridge.post("/api/v1/session/artifacts", {"session_id": sid, "graph": prep.get("graph"), "alignment": None,
+                                                            "flow": None, "transcript": None, "context": prep.get("context")})
     if kind == "trap_stripped":
         tampered = {**q, "trap": False, "trap_premise": None, "basis": {}}
     else:

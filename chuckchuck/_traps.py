@@ -878,12 +878,19 @@ def _from_table(text: str) -> bool:
     return text.startswith("표에서 ")
 
 
+def _quoted_josa(text: str, with_batchim: str, without: str) -> str:
+    """「인용」 뒤 조사 — 인용 **안** 마지막 소리의 받침으로 (「…낮음」이라고 · 「…줄었다」라고). 모르는 소리는 받침 없는 쪽.
+    09-30 WP-Q: 받침과 상관없이 「라고」 를 붙여 「개인 평균은 지수 대비 연 4.8%p 낮음」라고 가 질문·골자에 그대로 나갔다."""
+    b = _batchim(text)
+    return with_batchim if b else without
+
+
 def trap_question(tp: TrapPremise) -> str:
     """전제를 맞는 말처럼 얹은 질문 — 「자료에서 「…」라고 했는데, …」. 표에서 읽은 전제는 따옴표 없이 「자료 표에서 …」."""
     tail = _QUESTION_TAIL.get(tp.kind, _QUESTION_TAIL["number"])
     if _from_table(tp.premise):
         return f"자료 {josa(tp.premise, '이라고', '라고')} 했는데, {tail}"
-    return f"자료에서 「{tp.premise}」라고 했는데, {tail}"
+    return f"자료에서 「{tp.premise}」{_quoted_josa(tp.premise, '이라고', '라고')} 했는데, {tail}"
 
 
 def trap_gist(tp: TrapPremise) -> str:
@@ -892,7 +899,7 @@ def trap_gist(tp: TrapPremise) -> str:
         where = f"자료 {tp.slide_no}장" if tp.slide_no else "자료"
         return f"질문의 전제와 달리, {where} {josa(tp.fact, '이에요', '예요')}."
     where = f"자료 {tp.slide_no}장은" if tp.slide_no else "자료는"
-    return f"질문의 전제와 달리, {where} 「{tp.fact}」라고 해요."
+    return f"질문의 전제와 달리, {where} 「{tp.fact}」{_quoted_josa(tp.fact, '이라고', '라고')} 해요."
 
 
 def trap_why(label: str) -> str:

@@ -8,7 +8,7 @@
  * 말풍선 기록(bubble)은 아직 여기 없다 — P1 에서 옮긴다.
  * import 의 ?v= 는 booth.js 가 booth_logic.js 를 무는 값과 같아야 한다 (다르면 모듈이 두 벌 올라온다).
  */
-import { partnerMood } from './booth_logic.js?v=b9';
+import { partnerMood } from './booth_logic.js?v=b10';
 
 /** 단계별 삐약이 이름표 아래 한 줄. 판정이 난 뒤에는 말풍선이 말하므로 비운다 */
 export const PHASE_STATUS = {

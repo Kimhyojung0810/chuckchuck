@@ -74,6 +74,8 @@ from ._probe_stance import (
     RESTATE_FOLLOWUP,
     RESTATE_POINT,
     RESTATE_REACT,
+    acknowledges_gap,
+    answers_gap,
     probe_brief,
     probe_of,
     probed_quotes,
@@ -83,10 +85,12 @@ from . import _reason as RS
 from ._evidence import _noun_like, _stem as _ev_stem, anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
 from ._judge_post import _has as _stem_in
 from ._judge_post import (
+    asks_deck_presence,
     beyond_deck_terms,
     cap_length,
     clean_points,
     content_word_count,
+    followup_beyond_deck,
     keep_sentences,
     point_covered,
     sentences,
@@ -99,10 +103,11 @@ from ._judge_post import (
     to_noun_phrase,
     trim_missing_talk,
 )
-from ._traps import leaks_fact, misfixed_value, premise_stance, trap_narrow, without_premise
+from ._traps import leaks_fact, misfixed_value, premise_stance, trap_gist, trap_narrow, without_premise
 from ._judge_guard import (
     absence_or_dispute,
     block as _fenced,
+    conclusion_flipped,
     distinctive_overlap,
     distinct_answers,
     echoes_question,
@@ -116,7 +121,7 @@ from ._judge_guard import (
     sanitize_slidedoc,
 )
 from ._match import fold_text, norm_tokens
-from ._speech import plain_to_haeyo, to_haeyo
+from ._speech import fix_question_endings, josa_of, plain_to_haeyo, to_haeyo
 from ._json_text import extract_json_object
 from .contracts import (
     ClaimQuote,
@@ -278,6 +283,11 @@ _FOCUS_MISS_REACT = "{label}에 대한 답으로는 조금 멀어요. 질문이 
 REASON_MISS_SCORE_MAX = 65
 _REASON_MISS_REACT = "현상이 있다는 점은 맞아요. 질문은 그렇게 결론 낸 이유를 물어요 — 자료 {no}장의 근거를 짚어 보세요."
 _REASON_MISS_FOLLOWUP = "그 결론을 받치는 이유는 자료 {no}장 어디에 있나요?"
+#: 배경이 아니라 **질문의 결론**을 되읊은 답 — 「현상이 있다는 점은 맞아요」 는 그 사람이 한 말이 아니다 (09-30 WP-J2).
+#: 「결론은 맞아요」 도 쓰지 않는다 — 질문을 되물은 답·낱말만 늘어놓은 답(가드 감사 echo_question·stuff_visible)도 여기로 온다.
+_REASON_ECHO_REACT = "질문에 있는 결론을 다시 말했어요. 질문은 그 결론을 받치는 이유를 물어요 — 자료 {no}장의 근거를 짚어 보세요."
+#: 근거 질문에 이유 없이 **질문의 결론만** 되읊었다고 볼 겹침 — 질문 낱말(물음 뼈대 빼고) 이만큼 (09-30 WP-J2).
+REASON_ECHO_MIN = 3
 #: 이 발표 어디에나 있는 상투어 — 이것만 겹치는 답은 「이 질문」 에 답한 것이 아니다.
 #: 2026-09-26 실험대 실측: 개념 그래프 질문에 타깃 시장 이야기가 partial 75 로 통과했다 — 자료 본문과 「발표」 한 낱말이 겹쳐서.
 _GENERIC_TOKENS = (
@@ -927,7 +937,12 @@ def _enforce_on_topic(
     # 앞 턴을 **이어 말한** 답은 누적 답으로 본다 (09-30 라이브 스모크: 2턴 「반드시는 과장이었어요 … 8주짜리 시범이라서」 75 뒤
     # 3턴 「8주 시범에서 77% 는 거라, 기간이나 계절이 바뀌면 다를 수 있어요」 가 한 턴만 보고 「질문과 다른 이야기」 35 였다).
     # 이어 말했다 = 이번 답이 앞 답과 내용 낱말·숫자를 나눈다. 그런 답은 누적 답이 질문에 닿으면 통과다.
-    if hit and prior and _continues(answer, prior) and not missed(" ".join([*prior, answer])):
+    # 09-30 WP-J2 (standard 실측, 근거 없는 인과 탐침): 1턴 「…수치나 출처가 없어요 — 근거가 없다는 점을 인정하고요」 partial 75 뒤
+    # 2턴 「그리고 어떤 자료(설문·통계·비교)로 보강할지 말하는 게 답이에요」 가 앞 답과 나눈 낱말이 없어 「질문과 다른 이야기」 wrong 35
+    # 였다 — 초점 쪽만 고쳤고 무관 쪽은 한 턴만 봤다. 그래서 **앞 턴이 이 질문에 닿았고** 이번 답이 이음말(「그리고·또·게다가」)이나
+    # 앞 답을 가리키는 말(「그 근거는·이 효과를」)로 시작하면 이어 말한 것으로 보고 누적 답으로 잰다.
+    if hit and prior and not missed(" ".join([*prior, answer])) and (
+            _continues(answer, prior) or (_CONTINUATION_RE.search(answer) and not missed(" ".join(prior)))):
         hit = ""
     if hit == "off_topic":
         return "wrong", min(score, OFF_TOPIC_SCORE_MAX), "off_topic"
@@ -935,6 +950,16 @@ def _enforce_on_topic(
         demoted = "partial" if verdict in ("good", "partial") else verdict
         return demoted, min(score, FOCUS_MISS_SCORE_MAX), "focus_miss"
     return verdict, score, ""
+
+
+#: 앞 답을 **이어 가는** 말머리 — 이음말(「그리고·또·게다가·그래서」)로 시작하거나, 앞 답의 것을 가리키는 말(「그 근거는」「이 효과를」
+#: 「그걸」「거기에」)로 시작한다. 어느 발표에나 쓰는 한국어 이음말·지시어만 둔다.
+_CONTINUATION_RE = re.compile(
+    r"^\s*(?:그리고|또한?|게다가|덧붙이면|덧붙여|추가로|아울러|나아가|이어서|그다음|그\s+다음|더불어|그래서|그러니까|그러면|그럼|"
+    r"따라서|그러므로|즉|결국|특히|다만|하지만|그런데|또는|아니면)(?=[\s,.]|$)"
+    r"|^\s*(?:그|이|저|그런|이런|그러한|이러한|앞의|위의)\s+[가-힣]"
+    r"|^\s*(?:그것|이것|그걸|이걸|그게|이게|거기|여기|앞서|방금|위에서)(?=[\s,은는이가을를의에도로]|$)"
+)
 
 
 def _continues(answer: str, prior: list[str] | tuple[str, ...]) -> bool:
@@ -946,6 +971,23 @@ def _continues(answer: str, prior: list[str] | tuple[str, ...]) -> bool:
         return True
     from ._deck_claims import numbers as _nums
     return any(any(n.same_value(m) for m in _nums(before)) for n in _nums(answer))
+
+
+def _names_trap_value(said: str, tp) -> bool:
+    """
+    답이 수치 함정의 **틀린 값이나 자료의 값**을 말했는가. 단위 없는 값(표의 칸)은 답도 단위 없이 — 옆 줄의 「0.2%」 는 「-0.2」 가
+    아니다. 단위 있는 값은 같은 단위이거나 단위를 뺀 수. 입말은 빼기 부호를 자주 떨구므로 부호 없는 수는 음수 값으로도 받는다.
+    """
+    from ._deck_claims import numbers as _nums
+
+    cues = [n for c in [*(tp.wrong or []), *(tp.right or [])] for n in _nums(c.partition("|")[0])]
+    for n in _nums(said or ""):
+        for c in cues:
+            units_ok = (n.unit is None) if c.unit is None else (n.unit in (None, c.unit))
+            sign_ok = n.negative == c.negative or not n.negative
+            if units_ok and sign_ok and abs(n.value - c.value) <= 1e-9:
+                return True
+    return False
 
 
 def _trap_agreed(data: dict, question: Question, answer: str, deck: Deck | None) -> bool:
@@ -1075,7 +1117,20 @@ TRAP_OPEN_SCORE_MAX = 65
 _TRAP_DISPUTE_REACT = "전제가 자료와 다르다는 걸 짚었어요. 자료에는 뭐라고 돼 있는지 한 문장으로 말해 볼래요?"
 #: 「없어요」「반대예요」 같은 짧은 부재·반박 답 (held-out H-01) — 「질문과 다른 이야기」 가 아니다.
 _GAP_ABSENT_REACT = "맞아요, 자료엔 그 근거가 없어요. 그럼 어떻게 보강할지 한 문장으로 말해 볼래요?"
+#: 빈칸 탐침(해결 방법이 자료에 없다)에 「없어요」 — 빈 것은 근거가 아니라 해결 방법이다 (09-30 WP-J2).
+_GAP_FIX_ABSENT_REACT = "맞아요, 자료엔 그 해결 방법이 없어요. 그럼 앞으로 어떻게 보완할지 한 문장으로 말해 볼래요?"
 _GAP_PLAN_FOLLOWUP = "그 근거를 보강하려면 어떤 자료(설문·통계·사례)를 더하면 될까요?"
+#: 빈칸 탐침(해결 방법이 자료에 없다)의 되물음 — 없는 해결책을 대라고 하지 않고, 자료를 보게 하거나 보완 계획을 묻는다 (09-30 WP-J2).
+_GAP_FIX_FOLLOWUP = "{obj} 개선하는 방법이 자료에 있나요? 없다면 앞으로 어떻게 보완할지 한 문장으로 말해 볼래요?"
+_GAP_FIX_PLAN_FOLLOWUP = "그럼 {obj} 앞으로 어떻게 보완할지 한 문장으로 말해 볼래요?"
+#: 빈틈 탐침이 **자료에 없다고 정한 것**을 달라는 되물음 — 근거 없는 인과엔 수치·출처·연구, 빈칸엔 해결 방법 (09-30 WP-J2 standard 실측:
+#: 「이 효과를 뒷받침하는 연구나 실험에서 보고된 구체적인 수치는 무엇인가요?」). 어느 발표에나 쓰는 근거·해결 낱말만 둔다.
+_GAP_ASK_RE = {
+    "unsupported_cause": re.compile(r"수치|숫자|데이터|통계|연구|실험|조사|출처|증거|비율|퍼센트|\d+\s*%|결과값|표본"),
+    "unsolved": re.compile(r"방법|방안|대책|해결책|개선책|전략|어떻게\s*(?:개선|해결|줄이|줄일|막|보완|낮추)"),
+}
+#: 보강·보완 **계획**을 묻는 되물음 — 빈틈 탐침이 바라는 물음이다(버리지 않는다).
+_PLAN_ASK_RE = re.compile(r"보강|보완|보충|채우|더하|모으|앞으로")
 _DISPUTE_SHORT_REACT = "무엇이 다른지 조금 더 풀어서, 자료의 말로 한 문장 말해 볼래요?"
 #: 부재·반박 답으로 보는 길이 — 내용 낱말 이만큼 미만일 때만(긴 답은 평소대로 본다).
 ABSENCE_SHORT_WORDS = 6
@@ -1186,6 +1241,7 @@ def _normalize(
     trap_evidence: str = "",
     gist_grounded: bool = True,
     topic_deck: Deck | None = None,
+    absence_denied: bool = False,
 ) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
@@ -1226,8 +1282,11 @@ def _normalize(
     # 결손 칩도 말투 규율을 탄다 (J10) — 높임을 풀고 해요체로 옮긴 뒤 명사구로 다듬고, 그래도 높임이 남은 칩은 뺀다.
     raw_points = [plain_to_haeyo(to_haeyo(_plain(str(p).strip()))) for p in (data.get("missing_points") or [])
                   if str(p).strip()]
-    points, unsupported = clean_points(raw_points, deck=deck, said=said, anchor_text=anchor_text,
-                                       question=question.question)
+    # 질문 문장이 옮긴 자료 줄은 방향·부정 대조에서 빠진다(`_deck_claims._quoted_by_question` — 탐침처럼 그 줄을 따지는 질문용). F-08 이
+    # 질문의 전제가 자료와 어긋난다고 본 질문(question_premise_conflict — 폴백 문장으로 바꿨다)은 그 문장을 대조의 면제 근거로 쓰지 않는다
+    # (09-30 WP-J2). 틀린 전제를 옮긴 문장이 그 줄을 「따지는」 질문으로 읽히면, 전제대로 말한 답이 어긋남 가드를 비켜 간다.
+    deck_q = "" if "question_premise_conflict" in _checks_of(question) else question.question
+    points, unsupported = clean_points(raw_points, deck=deck, said=said, anchor_text=anchor_text, question=deck_q)
     points = [cap_length(p, POINT_MAX) for p in points if not _HONORIFIC_RE.search(p)]
     # 스스로 «이건 모르겠다» 고 밝힌 조각은 **반드시** 결손 목록에 오른다.
     # 여기 없으면 힌트 사다리 4단이 그걸 열어 주지 못해서, 모른다고 말한 보람이
@@ -1241,7 +1300,10 @@ def _normalize(
     verdict, score, points = _enforce_good(data, question, verdict, score, points, said=said)
     tp = question.trap_premise if question.trap else None
     # 코드가 만든 전제면 답이 어느 쪽 단서를 말했는지 안다 — 누적 답으로 본다(앞 턴에 동의했다가 이번에 바로잡은 답도 바로잡은 것이다).
-    stance = premise_stance(said, tp) if tp is not None else ""
+    # 누적 답에는 앞 턴의 동의(틀린 단서)도 남아 모름·동의로 읽힌다 — **이번 답만으로** 바로잡았으면 바로잡은 것이다 (09-30 WP-J2:
+    # 「…줄어든다고 해요」 다음 「…늘어난다고 해요」 가 누적으로 agree 가 돼 되풀이 가드에 막혔다).
+    stance_now = premise_stance(answer, tp) if tp is not None else ""
+    stance = stance_now if stance_now == "correct" else (premise_stance(said, tp) if tp is not None else "")
     # 함정 동의가 먼저다 — "네, 맞아요" 는 질문에 답한 것이라 무관 가드가 볼 일이 아니다 (09-26 실측: 무관 문구가 먼저 붙었다).
     verdict, score, trap_agreed = _enforce_trap(data, question, verdict, score, answer, deck)
     guard, guard_reason = ("trap", "질문의 전제가 자료와 다르다는 점") if trap_agreed else ("", "")
@@ -1266,10 +1328,14 @@ def _normalize(
         data = {**data, "followup": RESTATE_FOLLOWUP[restated]}
     # 「없어요」「반대예요」 처럼 짧게 부재·반박을 말한 답 — 질문과 다른 이야기가 아니다 (held-out H-01).
     ad = absence_or_dispute(answer) if content_word_count(answer) < ABSENCE_SHORT_WORDS else ""
+    # 빈틈 탐침에 빈틈을 인정하거나 보강 계획을 말한 답도 「이 질문」 에 답한 것이다 — 자료 낱말을 안 써도 된다 (09-30 WP-J2).
+    probe_now = probe_of(question)
+    gap_answered = probe_now is not None and (answers_gap(answer, probe_now.kind)
+                                              or (probe_now.kind in _GAP_PROBES and says_not_in_deck(answer)))
     short_miss = False
     if not guard:
         # 자료와 어긋난 답은 이미 「이 질문」 에 답한 것이다 — 무관 가드보다 먼저 보고, 걸리면 무관 가드는 건너뛴다.
-        verdict, score, conflict = _enforce_deck(claimed, deck, verdict, score, question.question)
+        verdict, score, conflict = _enforce_deck(claimed, deck, verdict, score, deck_q)
         if conflict is not None:
             if conflict.kind == "number_unsupported":
                 guard, guard_reason = "number_unsupported", f"자료 {conflict.slide_no}장에 없는 수치: {conflict.what}"
@@ -1284,7 +1350,7 @@ def _normalize(
             score, reason_missed = min(score, REASON_MISS_SCORE_MAX), True
             guard, guard_reason = "reason", f"질문이 묻는 것: 결론을 받치는 이유 (자료 {missed.slide_no}장)"
             data = {**data, "followup": _REASON_MISS_FOLLOWUP.format(no=missed.slide_no)}
-        elif stance != "correct" and not ad:
+        elif stance != "correct" and not ad and not gap_answered:
             # 코드 단서로 전제를 바로잡은 답은 「이 질문」 에 답한 것이다 — 한 단어(「끊는」)여도 초점 가드가 볼 일이 아니다.
             # 함정 질문은 **질문·전제·사실 줄**과 견준다 — 자료 전체와 낱말 하나가 겹친다고 넘기지 않는다 (held-out C-05).
             ev, fo = (trap_evidence, trap_evidence) if (tp is not None and trap_evidence) else (evidence, focus)
@@ -1294,9 +1360,12 @@ def _normalize(
             elif topic:
                 guard, guard_reason = topic, f"질문이 묻는 것: {label}"
     # 함정 질문인데 전제를 짚었는지 코드가 모른다 — LLM 이 바로잡았다고 하고 답이 질문·전제에 닿을 때만 통과할 수 있다 (C-05).
+    # 수치 함정은 값을 말하지 않고는 바로잡을 수 없다 — 틀린 값도 자료의 값도 말하지 않은 답은 LLM 이 「바로잡았다」 해도 모름이다
+    # (09-30 WP-J2 standard 실측: 「거래 비용 -0.5」 함정에 옆 줄 「비용 0.2% vs 2.5%」 를 옮긴 답이 good 85 — 판정이 0.2% 를 -0.2 로 읽었다).
     if tp is not None and not guard and stance != "correct":
         on_q = bool(trap_evidence) and _shares_vocabulary(said, trap_evidence, 1, drop_generic=True, need=2)
-        if not (_tri(data.get("premise_corrected")) is True and on_q):
+        silent = tp.kind == "number" and not _names_trap_value(said, tp)
+        if silent or not (_tri(data.get("premise_corrected")) is True and on_q):
             verdict = "partial" if verdict in ("good", "partial") else verdict
             score = min(score, TRAP_OPEN_SCORE_MAX)
             guard, guard_reason = "trap_open", "질문의 전제가 자료와 같은지"
@@ -1307,6 +1376,13 @@ def _normalize(
         said_by_judge = " ".join([*raw_points, *points, str(data.get("react", "") or "")])
         if opposes(claimed, said_by_judge, exempt=tuple(probed)):
             verdict, score, guard = "partial", min(score, SELF_OPPOSED_SCORE_MAX), "self_opposed"
+    # 근거는 자료대로 대고 **결론만 뒤집은** 답 (09-30 WP-J 레드팀 남은 둘 ②, WP-J2): 「…곱해지는 요소라고 했어요. 그러니까 이건 모순이
+    # 맞고 시간은 빼야 해요」 가 partial 70·75 통과. 근거 줄이 자료와 같아 자료 대조는 못 잡는다 — 결론 이음말 뒤 절의 서술 머리가 기대 답
+    # (자료로 받쳐지는 골자)의 같은 머리와 부정이 반대거나, 결론을 스스로 「반대」 라고 했으면 자기모순과 같이 60 으로 둔다.
+    # 함정 질문은 전제를 뒤집는 것이 정답이라 보지 않는다. 기대 답이 자료로 안 받쳐지면 머리 대조는 하지 않고 「반대」 선언만 본다.
+    if not guard and tp is None and qa_passed(verdict, score):
+        if conclusion_flipped(said, (question.answer_gist or "") if gist_grounded else ""):
+            verdict, score, guard = "partial", min(score, SELF_OPPOSED_SCORE_MAX), "self_opposed"
 
     # 코드 단서로 바로잡은 함정 답을 LLM 이 wrong 으로 둔 경우 (§2) — 바로잡았으니 틀린 답이 아니다. 통과 여부는 LLM·상한이 정한다.
     trap_lifted = False
@@ -1314,8 +1390,9 @@ def _normalize(
         verdict, score, trap_lifted = "partial", max(score, TRAP_CORRECTED_SCORE_MIN), True
 
     # 질문이 자료 밖을 묻는데(측정 방법·순위…) 「자료에 없다」 고 밝히고 범위 안에서 답했다 (§4). 남은 결손이 없을 때만.
+    # F-08 이 「자료에 없다」 를 덱 전체와 대조해 **자료에 있다**고 고친 질문은 받지 않는다 (absence_denied, 09-30 WP-J2).
     absent = ""
-    if (not guard and not points and tp is None and says_not_in_deck(said)
+    if (not guard and not points and tp is None and not absence_denied and says_not_in_deck(said)
             and (unsupported or says_not_in_deck(question.answer_gist)
                  or beyond_deck_terms(question.question, deck, question.label))):
         if content_word_count(said) >= SHORT_ANSWER_WORDS:
@@ -1341,7 +1418,8 @@ def _normalize(
     if (not absent and not capped and not guard and stance != "correct" and verdict in ("good", "partial")
             and echoes_question(said, f"{question.question} {question.label or ''}")):
         verdict, score, capped = "partial", min(score, ECHO_SCORE_MAX), "echo"
-    if repeated and not capped and verdict in ("good", "partial") and score > REPEAT_SCORE_MAX:
+    # 함정 전제를 바로잡은 답은 되풀이가 아니다 — 앞 답(전제 동의)에서 방향 낱말 하나만 고쳐도 글자는 90% 넘게 같다 (09-30 WP-J2).
+    if repeated and stance != "correct" and not capped and verdict in ("good", "partial") and score > REPEAT_SCORE_MAX:
         verdict, score, capped = "partial", REPEAT_SCORE_MAX, "repeat"
     # 통과인데 답이 이 질문의 기준과 맞닿지 않는다 — LLM 이 골자·자료를 발표자가 말한 것처럼 읽었다 (R10).
     if (not absent and not capped and not guard and stance != "correct" and qa_passed(verdict, score)
@@ -1381,7 +1459,8 @@ def _normalize(
     elif guard == "self_opposed":
         react = _SELF_OPPOSED_REACT
     elif reason_missed:
-        react = _REASON_MISS_REACT.format(no=(question.basis.reason[0].slide_no if question.basis else 0))
+        tpl = _REASON_ECHO_REACT if _echoes_conclusion(answer, question) else _REASON_MISS_REACT
+        react = tpl.format(no=(question.basis.reason[0].slide_no if question.basis else 0))
     elif guard == "off_topic":
         react = _OFF_TOPIC_REACT.format(label=label)
     elif guard == "focus_miss":
@@ -1393,7 +1472,7 @@ def _normalize(
     elif absent:
         react = _ABSENT_GOOD_REACT if absent == "good" else _ABSENT_SHORT_REACT
     elif capped == "gap_absent":
-        react = _GAP_ABSENT_REACT
+        react = _GAP_FIX_ABSENT_REACT if (probe is not None and probe.kind == "unsolved") else _GAP_ABSENT_REACT
     elif capped == "short":
         react = _DISPUTE_SHORT_REACT if ad else _SHORT_REACT
     elif capped == "list":
@@ -1469,6 +1548,9 @@ def _normalize(
             followup_tier or qa_probe_tier(round_no),
             verdict=verdict, guard=("gap_absent" if capped == "gap_absent" else final_guard), tp=tp,
             leak_guard=leak_guard,
+            # 되물음이 자료 밖을 묻는지는 **전체** 자료로 본다 — 탐침 줄을 뺀 판정용 덱에는 따져 묻는 그 줄이 없다
+            deck=topic_deck if topic_deck is not None else deck, said=said,
+            code_written=bool(restated) or reason_missed or conflict is not None,
         ),
         guard_reason=guard_reason,
         guard_blocked=guard_blocked,
@@ -1492,7 +1574,8 @@ def _haeyo_data(data: dict) -> dict:
         v = out.get(k)
         if isinstance(v, str) and v:
             # 합쇼체 끝 어미는 to_haeyo, 문장 가운데 높임(「추정하신」「찾고 계신」)은 _plain 이 푼다 (09-29 기준선).
-            out[k] = plain_to_haeyo(to_haeyo(_plain(v)))      # 높임을 먼저 푼다 — 「말씀하셨습니다」 → 「말했습니다」 → 「말했어요」
+            # 물음 끝 「…알고 있는가요?」「…고려하고 있는가요?」 → 「…있나요?」 (09-30 WP-J2, standard 실측 되물음 2건).
+            out[k] = fix_question_endings(plain_to_haeyo(to_haeyo(_plain(v))))   # 높임을 먼저 푼다 — 「말씀하셨습니다」 → 「말했어요」
     return out
 
 
@@ -1520,6 +1603,35 @@ _FOLLOWUP_TRAP = "질문이 말한 내용이 {where} 적힌 것과 같은지부�
 _FOLLOWUP_LIST = "{label}에서 그 낱말들이 서로 어떻게 이어지는지 한 문장으로 말해 볼래요?"
 
 
+def _gap_followup(question: Question, said: str) -> str:
+    """
+    빈틈 탐침(근거 없는 인과·해결 방법 없음)의 **자료로 받쳐지는** 되물음 (09-30 WP-J2). 빈틈을 이미 인정한 답에는 「어떻게 보강할래요?」,
+    아니면 「자료에 있나요? 없다면 어떻게 보강할래요?」 — 자료에 없는 수치·방법을 대라고 하지 않는다. 빈틈 탐침이 아니면 "".
+    """
+    probe = probe_of(question)
+    if probe is None or probe.kind not in _GAP_PROBES:
+        return ""
+    ack = acknowledges_gap(said) or says_not_in_deck(said)
+    if probe.kind == "unsupported_cause":
+        return _GAP_PLAN_FOLLOWUP if ack else RESTATE_FOLLOWUP["unsupported_cause"]
+    label = question.label or "이 부분"
+    obj = f"{label}{josa_of(label, '을', '를')}"
+    return (_GAP_FIX_PLAN_FOLLOWUP if ack else _GAP_FIX_FOLLOWUP).format(obj=obj)
+
+
+def _asks_missing(written: str, question: Question, deck: Deck | None) -> bool:
+    """
+    LLM 되물음이 **자료에 없는 것**을 대라고 하는가 (09-30 WP-J2). 두 갈래:
+    - 빈틈 탐침이 자료에 없다고 정한 것 — 근거 없는 인과에 수치·출처·연구, 빈칸에 해결 방법 — 을 달라는 말(「자료에 있나요?」 꼴은 뺀다).
+    - 결손과 같은 잣대로 자료가 받치지 못하는 말(`_judge_post.followup_beyond_deck`).
+    """
+    probe = probe_of(question)
+    if probe is not None and probe.kind in _GAP_ASK_RE and _GAP_ASK_RE[probe.kind].search(written) \
+            and not asks_deck_presence(written) and not _PLAN_ASK_RE.search(written):
+        return True
+    return bool(followup_beyond_deck(written, deck, question.question, question.label or ""))
+
+
 def _followup(
     data: dict,
     question: Question,
@@ -1531,6 +1643,9 @@ def _followup(
     guard: str = "",
     tp=None,
     leak_guard: bool = False,
+    deck: Deck | None = None,
+    said: str = "",
+    code_written: bool = False,
 ) -> str:
     """
     되물을 후속 질문. **정복(mastered)했을 때만 비운다.**
@@ -1553,6 +1668,10 @@ def _followup(
 
     09-30 대화 감사 §6·§7: 가드가 걸린 답(함정 동의·초점·무관)은 가드의 되물음이 먼저다 — 가드 사유 문자열을 틀에 넣지 않는다.
     결손이 없으면(틀린 답 포함) 근거 장을 가리킨다. 안 풀린 함정에서 정답 단서가 든 LLM 문장은 버린다.
+
+    09-30 WP-J2: LLM 되물음이 **자료에 없는 것**(자료에 없는 연구 수치·현황·해결책)을 대라고 하면 버린다 — 결손(§4)과 같은 잣대
+    (`_asks_missing`). 그 자리는 자료로 받쳐지는 되물음이다: 빈틈 탐침은 「어떻게 보강할래요?」(`_gap_followup`), 다른 탐침은 탐침이
+    묻는 것(경계·두 말의 이음), 보통 질문은 결손 틀 또는 근거 장을 가리키는 물음.
     """
     if mastered:
         return ""
@@ -1567,7 +1686,8 @@ def _followup(
         no = question.evidence_slide_no or (question.slide_nos[0] if question.slide_nos else 0)
         return _clip(trap_narrow(tp) if tp is not None else _FOLLOWUP_TRAP.format(where=f"자료 {no}장에" if no else "자료에"))
     if guard == "gap_absent":
-        return _clip(_GAP_PLAN_FOLLOWUP)
+        # 빈틈을 인정한 짧은 답 — 탐침 종류대로 「어떻게 보강·보완할래요?」 (빈칸 탐침은 근거가 아니라 해결 방법이 빈 것이다)
+        return _clip(_gap_followup(question, said or "없어요") or _GAP_PLAN_FOLLOWUP)
     if guard == "list":
         return _clip(_FOLLOWUP_LIST.format(label=label))
     if guard in ("off_topic", "focus_miss", "echo", "injection"):
@@ -1581,11 +1701,19 @@ def _followup(
         written = ""
     if written and leak_guard and tp is not None and leaks_fact(written, tp):
         written = ""
+    # 가드가 코드로 쓴 되물음(이유·되풀이·자료 어긋남)은 자료 낱말로 짠 틀이라 거르지 않는다 — 「그 결론을 받치는 이유는 자료 2장
+    # 어디에 있나요?」 의 「받치·어디」 를 자료에 없는 요구로 읽어 근거 장 폴백으로 바꿨다 (09-30 WP-J2 자체 점검).
+    beyond = bool(written) and not code_written and _asks_missing(written, question, deck)
+    if beyond:
+        written = ""
     # probe(1라운드)는 열린 질문이 맞는 모양이라 그대로 쓴다.
     if written and (tier == "probe" or _is_narrow(written)):
         return written
     if leak_guard and tp is not None:
         return _clip(trap_narrow(tp))
+    gap_ask = _gap_followup(question, said) if beyond else ""
+    if gap_ask:
+        return _clip(gap_ask)
     if not point:
         return _clip(probe_ask or _FOLLOWUP_SLIDE.format(where=where, label=label))
 
@@ -1861,6 +1989,10 @@ def coach_stuck(
         slidedoc = SlideDoc.from_dict(slidedoc)
     # 코칭도 자료 속 채점 지시 줄은 보지 않는다 (R3) — 보기·인용 재료가 그 줄에서 나오면 안 된다.
     slidedoc, _ = sanitize_slidedoc(slidedoc)
+    checks = _checks_of(question)
+    if "speech_mismatch_deck_only" in checks:
+        # 녹음이 이 자료와 다른 발표다 (F-08 C-07) — 질문도 자료만으로 만들었다. 해설이 남의 녹음을 「발표 때 한 말」 로 옮기지 않게.
+        alignment, transcript = None, None
 
     turns = [t if isinstance(t, QaTurn) else QaTurn.from_dict(t) for t in (history or [])]
     ctx = Context() if context is None else (
@@ -1876,10 +2008,13 @@ def coach_stuck(
     # 함정 질문은 1·2단에서 자료의 사실을 보여 주지 않는다 — 장만 가리킨다 (09-29 P5 최종 평가 문제 6).
     # 사실 줄은 3단(해설)에서 연다. 힌트 사다리가 함정이면 사실 줄을 뒤로 미루는 것(f08 build_hint_ladder)과 같은 규율이다.
     trap_tp = question.trap_premise if question.trap else None
+    # 인용이 곧 기대 답인 질문(F-08 basis_quote_hidden — 함정의 사실 줄 · 골자가 그 줄인 보통 질문)은 1·2단에서 인용을 보이지 않는다
+    # (09-30 WP-J2). 질문 밑 「이 질문의 근거」 칸에서 숨긴 줄을 첫 「모르겠어요」 의 인용 카드·「자료 N장은 «…» 라고 해요」 가 다시 보였다.
+    hidden = trap_tp is not None or "basis_quote_hidden" in checks
     if stage == "scaffold":
         scaffold = _scaffold_judgement(question, graph, deck_text)
         if scaffold is not None:
-            return replace(scaffold, evidence_quote="") if trap_tp is not None else scaffold
+            return replace(scaffold, evidence_quote="") if hidden else scaffold
         stage = "explain"
     said = "(질문을 못 알아들어 되물었다)" if stage == "clarify" else "(모르겠다고 했다)"
 
@@ -1889,7 +2024,7 @@ def coach_stuck(
         _build_user_prompt(
             question, said, turns, graph, alignment, transcript, ctx, slidedoc=slidedoc
         ),
-        *_quote_lines(question),
+        *_quote_lines(question, stage, hidden=hidden),
         "",
         f"기대하는 답의 골자: {question.answer_gist or '(없음)'}",
     ])
@@ -1921,9 +2056,10 @@ def coach_stuck(
         if leaks_fact(react, trap_tp):
             react = _COACH_REACT_FALLBACK
     else:
-        followup, choices = _narrow_followup(data, question, graph, deck_text)
+        followup, choices = _narrow_followup(data, question, graph, deck_text, hide_quote=hidden)
         explanation = ""
-        react = _with_quote(react, question)
+        if not hidden:
+            react = _with_quote(react, question)
 
     label = question.label or "이 개념"
     summary = (
@@ -1945,8 +2081,9 @@ def coach_stuck(
         explanation=explanation,
         choices=choices,
         # 함정의 인용은 사실 줄이다 — 화면이 인용 카드로 그리므로 해설 전에는 싣지 않는다(장 번호는 둔다 — 장 그림으로 가리킨다).
-        evidence_quote="" if (trap_tp is not None and stage != "explain") else question.evidence_quote,
-        evidence_slide_no=question.evidence_slide_no,
+        # 해설(3단)에서는 연다. WP-Q 뒤 함정 질문의 evidence_quote 는 비어 있다(묶음에서 사실 줄을 뺐다) — 사실은 trap_premise.fact 에서.
+        evidence_quote="" if (hidden and stage != "explain") else _quote_of(question),
+        evidence_slide_no=_quote_slide_of(question),
     )
 
 
@@ -1959,12 +2096,43 @@ _PLACEHOLDER_RE = re.compile(r"(?<![A-Za-z0-9])[AB](?![A-Za-z0-9])\s*(?:인가�
 CHOICE_MAX_CHARS = 24
 
 
-def _quote_lines(question: Question) -> list[str]:
-    """코치 프롬프트에 싣는 자료 인용·발화 인용. 없으면 빈 목록."""
+def _checks_of(question: Question) -> frozenset[str]:
+    """F-08 이 질문 근거 묶음에 남긴 코드 검사 이름 (basis.checks). 옛 세션은 빈 집합."""
+    b = question.basis
+    return frozenset(b.checks) if b is not None else frozenset()
+
+
+def _quote_of(question: Question) -> str:
+    """
+    이 질문의 **근거 인용** — 보통은 F-08 의 evidence_quote, 함정은 전제가 뒤집은 사실 줄(`trap_premise.fact`).
+    09-30 WP-Q 뒤 함정 질문은 evidence_quote 가 비어 있다(화면으로 가는 묶음에서 사실 줄을 뺐다) — 해설의 인용 카드는 서버의 사실에서 읽는다.
+    표에서 읽은 사실(「표에서 …」)은 줄 그대로가 아니지만 해설 카드에는 그 말을 싣는다.
+    """
+    tp = question.trap_premise if question.trap else None
+    if tp is not None and (tp.fact or "").strip():
+        return tp.fact.strip()
+    return question.evidence_quote
+
+
+def _quote_slide_of(question: Question) -> int:
+    tp = question.trap_premise if question.trap else None
+    if tp is not None and tp.slide_no:
+        return tp.slide_no
+    return question.evidence_slide_no
+
+
+def _quote_lines(question: Question, stage: str = "explain", *, hidden: bool = False) -> list[str]:
+    """
+    코치 프롬프트에 싣는 자료 인용·발화 인용. 없으면 빈 목록.
+    인용이 곧 기대 답인 질문(함정·basis_quote_hidden)은 해설 단계에서만 싣는다 — 1단 되물음이 그 줄을 옮겨 쓰지 않게 (09-30 WP-J2).
+    """
     lines: list[str] = []
-    if question.evidence_quote:
-        where = f"자료 {question.evidence_slide_no}장" if question.evidence_slide_no else "자료"
-        lines += ["", f"자료 인용: {where} — «{question.evidence_quote}»"]
+    if hidden and stage != "explain":
+        return lines
+    quote, no = _quote_of(question), _quote_slide_of(question)
+    if quote:
+        where = f"자료 {no}장" if no else "자료"
+        lines += ["", f"자료 인용: {where} — «{quote}»"]
     if question.speech_quote:
         lines.append(f"발표 때 한 말: «{question.speech_quote}»")
     return lines
@@ -2032,7 +2200,7 @@ def _llm_choice_ok(followup: str, choices: list[str], source: str) -> bool:
 
 
 def _narrow_followup(
-    data: dict, question: Question, graph: ConceptGraph | None, deck_text: str = ""
+    data: dict, question: Question, graph: ConceptGraph | None, deck_text: str = "", *, hide_quote: bool = False,
 ) -> tuple[str, list[str]]:
     """
     위치 단계의 되물음. **둘 중 하나 모양이 아니면 코드 문장으로 간다.**
@@ -2041,7 +2209,12 @@ def _narrow_followup(
     가린 빈칸에서 정답·오답을 뽑아 "자료 N장은 «…» 라고 해요. 이 장이 말하는 건
     A 쪽인가요, B 쪽인가요?" 를 만든다. 그것도 안 되면 예전 폴백(F-08 힌트)이다.
     장 번호를 문장에 남긴다 — 화면이 그 번호로 장 그림을 붙인다.
+
+    hide_quote(인용이 곧 기대 답 — F-08 basis_quote_hidden)면 줄을 옮기지 않고 장만 가리킨다(「자료 N장을 떠올려 보면, …」).
+    그 줄을 옮겨 쓸 수 있는 LLM 되물음은 쓰지 않는다 (09-30 WP-J2).
     """
+    if hide_quote:
+        return _narrow_hidden(question, graph, deck_text)
     followup = _clip(str(data.get("followup", "") or ""))
     choices = [_clip(str(c)) for c in (data.get("choices") or []) if str(c).strip()][:2]
     # 자료가 스스로 세운 대비가 먼저다 (qa/reason) — F-08 이 주장 그래프(대비 주장)·근거 장의 대비 줄에서 고른 [세운 쪽, 부정한 쪽].
@@ -2076,6 +2249,24 @@ def _narrow_followup(
         return _clip(text), pair
     fallback = _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?")
     return fallback, []
+
+
+def _narrow_hidden(question: Question, graph: ConceptGraph | None, deck_text: str = "") -> tuple[str, list[str]]:
+    """인용을 숨긴 질문의 1단 되물음 — 장만 가리키고 보기 둘 (대비 쌍 → 골자 빈칸의 정답·오답). 재료가 없으면 F-08 힌트."""
+    no = question.evidence_slide_no or (question.slide_nos[0] if question.slide_nos else 0)
+    where = f"자료 {no}장을 떠올려 보면, 그 장이" if no else "자료를 떠올려 보면, 자료가"
+    pair = _contrast_of(question)
+    if pair is not None:
+        shown = sorted(pair[0])
+        return _clip(f"{where} 말하는 건 '{shown[0]}' 쪽인가요, '{shown[1]}' 쪽인가요?"), shown
+    _, answer, distractor = mask_gist(
+        question.answer_gist, question.label, _distractor_pool(question, graph),
+        quote=question.evidence_quote, deck_text=deck_text,
+    )
+    if answer and distractor:
+        shown = sorted([answer, distractor])
+        return _clip(f"{where} 말하는 건 '{shown[0]}' 쪽인가요, '{shown[1]}' 쪽인가요?"), shown
+    return _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?"), []
 
 
 def _contrast_of(question: Question) -> tuple[tuple[str, str], ClaimQuote] | None:
@@ -2128,13 +2319,17 @@ def _explain_text(question: Question, llm_text: str, deck: Deck | None) -> str:
     if not core:
         gist = (question.answer_gist or "").strip()
         if gist and (deck is None or deck.empty or support(gist, deck, question.question).grounded):
-            core = gist
-    if not core and not question.evidence_quote:
+            # 자료 줄로 조립한 골자(「자료는 이렇게 말해요 — …넓었습니다」)는 합쇼체 자료 말투를 그대로 싣는다 — 해설은 우리 말이라 해요체로
+            # (09-30 WP-J2 · verify guard.tone 2건). 인용 «…»·「…」 안은 그대로다.
+            core = to_haeyo(gist)
+    # 함정의 근거 인용은 사실 줄이다(WP-Q 뒤 evidence_quote 는 비어 있다) — 해설에서는 연다.
+    quote, quote_no = _quote_of(question), _quote_slide_of(question)
+    if not core and not quote:
         core = f"{question.label or '이 개념'}은 자료의 근거 장을 다시 보면 좋아요."
     tails: list[str] = []
-    if question.evidence_quote and question.evidence_quote not in core:
-        where = f"자료 {question.evidence_slide_no}장" if question.evidence_slide_no else "자료"
-        tails.append(f"{where}: «{question.evidence_quote}»")
+    if quote and quote not in core:
+        where = f"자료 {quote_no}장" if quote_no else "자료"
+        tails.append(f"{where}: «{quote}»")
     if question.speech_quote and question.speech_quote not in core:
         tails.append(f"발표에서는 «{question.speech_quote}» 라고 말했어요.")
     out = core
@@ -2151,20 +2346,155 @@ def _explain_text(question: Question, llm_text: str, deck: Deck | None) -> str:
     return out
 
 
+#: 발판 보기로 못 쓰는 꼴 — 용언 끝(「넓어진다」「높아요」). 명사 보기 둘이어야 「어느 쪽」 이 선다 (09-30 WP-J2 · verify scaffold.noun).
+_VERB_CHOICE_RE = re.compile(r"(?:[가-힣]다|[가-힣]요)$")
+#: 빈칸을 다시 고를 횟수 — 첫 빈칸에 오답 짝이 없거나(수치 빈칸에 같은 단위 수가 없다) 용언이면 그 낱말을 빼고 다음 빈칸을 본다.
+SCAFFOLD_RETRIES = 2
+
+
+def _mask_with_choices(question: Question, graph: ConceptGraph | None, deck_text: str,
+                       pair: tuple[tuple[str, str], ClaimQuote] | None, within: str = "") -> tuple[str, str, str]:
+    """
+    발판 빈칸 — (빈칸 글, 정답, 오답). 첫 빈칸에 **보기 둘**이 안 서면 그 낱말을 빼고 다시 가린다 (최대 SCAFFOLD_RETRIES 번).
+
+    09-30 WP-J2: WP-Q 가 수치를 통째로 가리게 고친 뒤(「2.1배」) 같은 단위의 오답 수가 없는 골자는 보기 없는 빈칸이 됐다
+    (verify replay.scaffold.two_choices 128 → 127) — 예전엔 같은 골자의 명사(「시간표」 · 보기 「공강」)를 가려 보기가 섰다.
+    용언 빈칸(「넓어진다」)도 같은 길로 다시 고른다. 대비 쌍(자료가 세운 보기)은 다시 고르지 않는다. 끝내 못 서면 첫 빈칸 그대로다.
+    함정 질문도 다시 고르지 않는다 — 빈칸은 **바로잡을 값**이어야 한다. 다른 낱말을 가리면 사실 줄의 값(정답)이 빈칸 밖에 드러난다.
+    within 이 있으면 빈칸은 그 글(사실 줄) 안의 낱말이어야 한다 — 「자료 3장은」 의 「자료」「3장」 은 빈칸이 아니다.
+    """
+    pool = _distractor_pool(question, graph)
+    exclude = question.label or ""
+    first: tuple[str, str, str] | None = None
+    fixed = pair is not None or (question.trap and question.trap_premise is not None)
+    inside = re.sub(r"\s+", "", within)
+    for _ in range(SCAFFOLD_RETRIES + 1):
+        got = mask_gist(question.answer_gist, exclude, pool, quote=question.evidence_quote, deck_text=deck_text,
+                        pair=list(pair[0]) if pair else None)
+        masked, answer, distractor = got
+        if inside and answer and re.sub(r"\s+", "", answer) not in inside:
+            got = ("", "", "")
+        first = first or (got if got[0] else None)
+        if not masked or not answer or fixed:
+            break
+        if distractor and got[0] and not _VERB_CHOICE_RE.search(answer) and not _VERB_CHOICE_RE.search(distractor):
+            return got
+        exclude = f"{exclude} {answer}"      # mask_gist 는 개념 이름(label)의 낱말을 가리지 않는다 — 이 답을 그 자리에 얹어 뺀다
+    return first or ("", "", "")
+
+
+_BLANK_LEAD = "빈칸을 채워 보세요: "
+
+
+#: 함정 골자의 머리 — 발판의 사실 줄 빈칸에서는 뗀다(「질문」 을 빈칸으로 가린 적이 있다: 「___의 전제와 달리」).
+_TRAP_GIST_LEAD = "질문의 전제와 달리, "
+
+
+def _trap_scaffold(question: Question, deck_text: str = "", graph: ConceptGraph | None = None) -> tuple[str, list[str]]:
+    """
+    함정 질문의 발판 — 사실 줄에서 **바로잡을 값·낱말**만 가린 빈칸 (F-08 힌트 사다리의 빈칸 칸과 같은 글). 재료가 없으면 ("", []).
+    수치면 보기는 (자료의 값, 자료의 **다른** 같은 단위 값) — 전제의 값은 자료에 없는 수라 보기로 쓰지 않는다(보기는 자료의 말이어야 한다).
+
+    09-30 WP-J2: WP-Q 뒤 함정 질문은 evidence_quote 가 비어, 골자 빈칸(mask_gist)이 「자료의 인용에 있는 낱말」 을 못 골라 사실 줄의
+    **다른 낱말**을 가렸다 — 「용량의 90%가 남습니다」 에서 「용량」 을 가리면 바로잡을 값 90% 가 빈칸 밖에 그대로 보인다.
+
+    용언 단서(「끊는다」「늘어납니다」)는 자료 낱말 보기 둘을 세울 수 없고, 보기 없는 용언 빈칸(「흐름을 ___」)은 어떤 꼴로 채울지도
+    모호하다 — 그때는 사실 줄의 **명사**를 가리고 자료 낱말 보기 둘을 세운다. 두 번 막힌 사람에게 빈칸만 던지면 세 번째도 막힌다
+    (09-30 WP-J2 자체 점검: replay.scaffold.two_choices 91% → 86%). 사실 줄의 방향이 보이지만 발판은 해설 바로 앞 칸이다.
+    수치 함정은 그러지 않는다 — 수 빈칸은 한 낱말로 채울 수 있고, 명사를 가리면 바로잡을 값이 그대로 보인다(짝 없는 수는 빈칸만).
+    """
+    tp = question.trap_premise
+    rung = next((h for h in build_hint_ladder(question, None) if h.startswith(_BLANK_LEAD) and "___" in h), "")
+    if tp is None or not rung:
+        return "", []
+    choices = _trap_choices(tp, deck_text)
+    if len(choices) == 2 or not deck_text or tp.kind == "number":
+        return rung[len(_BLANK_LEAD):], choices
+    fact_q = replace(question, trap=False, trap_premise=None, evidence_quote=tp.fact,
+                     answer_gist=trap_gist(tp).removeprefix(_TRAP_GIST_LEAD))
+    masked, answer, distractor = _mask_with_choices(fact_q, graph, deck_text, None, within=tp.fact)
+    if masked and answer and distractor:
+        return masked, sorted([answer, distractor])
+    return rung[len(_BLANK_LEAD):], choices
+
+
+#: 수치 함정 보기의 오답을 찾는 거리(글자) — 사실 줄 가까이(같은 장·같은 표)의 값이 「그럴듯한 반대쪽」 이다.
+TRAP_CHOICE_WINDOW = 200
+
+
+def _trap_choices(tp, deck_text: str) -> list[str]:
+    """
+    수치 함정의 보기 둘 — 자료의 값과, 사실 줄 **가까이**에 있는 다른 같은 단위 값(전제의 값은 빼고 — 자료에 없는 수라 보기가 못 된다).
+    단위 없는 수는 같은 자릿수·같은 규모(10배 안)이고 사실 줄 가까이에 있을 때만 — 연도·날짜 같은 딴 수를 보기로 세우지 않는다.
+    못 찾으면 빈 목록이다(빈칸만).
+    """
+    from ._deck_claims import numbers as _nums
+
+    if not deck_text:
+        return []
+    if tp.kind != "number":
+        return _trap_word_choices(tp, deck_text)
+    right = next((c.partition("|")[0].strip() for c in (tp.right or []) if re.search(r"\d", c.partition("|")[0])), "")
+    got = _nums(right)
+    if not right or not got:
+        return []
+    r = got[0]
+    wrong = [n for c in (tp.wrong or []) for n in _nums(c.partition("|")[0])]
+    anchor = deck_text.find(right)
+
+    def fits(n) -> bool:
+        if n.unit != r.unit or n.same_value(r) or any(n.same_value(w) for w in wrong):
+            return False
+        if r.unit is not None:
+            return True
+        near = anchor >= 0 and abs(n.start - anchor) <= TRAP_CHOICE_WINDOW
+        yearish = n.decimals == 0 and 1900 <= abs(n.value) <= 2100
+        scale = abs(n.value) / abs(r.value) if r.value else 0.0
+        return near and not yearish and n.decimals == r.decimals and 0.1 <= scale <= 10
+
+    cands = [(abs(n.start - anchor) if anchor >= 0 else n.start, deck_text[n.start:n.end].strip())
+             for n in _nums(deck_text) if fits(n)]
+    for _, raw in sorted(cands):
+        if raw and len(raw) <= CHOICE_MAX_CHARS and raw != right:
+            return sorted([right, raw])
+    return []
+
+
+#: 보기로 못 쓰는 용언 끝 — 방향·부정 함정의 단서(「끊는다」「이어 주는」「상태가 아니다」)는 명사 보기가 아니다.
+_VERBISH_CHOICE_RE = re.compile(r"(?:다|요|는|은|을|던|게|고|며|서|면|기|지)$")
+
+
+def _trap_word_choices(tp, deck_text: str) -> list[str]:
+    """
+    순서·최고·대비 함정의 보기 둘 — (자료의 단서, 전제가 바꿔 넣은 단서). 전제는 자료의 두 말을 맞바꾼 것이라 둘 다 자료의 낱말이다
+    (「탄수화물 양보다 중요한 혈당 부하」 → 보기 '탄수화물 양'·'혈당 부하'). 둘 다 자료에 그대로 있고 명사일 때만.
+    """
+    def head(cues) -> str:
+        return next((c.partition("|")[0].strip().strip("“”\"'‘’「」") for c in (cues or []) if c.partition("|")[0].strip()), "")
+
+    right, wrong = head(tp.right), head(tp.wrong)
+    flat = re.sub(r"\s+", "", deck_text)
+    ok = [w for w in (right, wrong)
+          if w and len(w) <= CHOICE_MAX_CHARS and re.sub(r"\s+", "", w) in flat and not _VERBISH_CHOICE_RE.search(w)]
+    return sorted(ok) if len(ok) == 2 and right != wrong else []
+
+
 def _scaffold_judgement(question: Question, graph: ConceptGraph | None, deck_text: str = "") -> QaJudgement | None:
     """
     발판 단계 — LLM 없이. 골자에서 낱말 하나를 가린 빈칸과 선택지 둘.
     골자가 없어 빈칸을 못 만들면 None (호출자가 해설로 넘긴다).
+    함정 질문은 바로잡을 값을 가린 사실 줄이다 (`_trap_scaffold`).
     """
-    pair = _contrast_of(question)
-    masked, answer, distractor = mask_gist(
-        question.answer_gist, question.label, _distractor_pool(question, graph),
-        quote=question.evidence_quote, deck_text=deck_text, pair=list(pair[0]) if pair else None,
-    )
+    masked, choices = (_trap_scaffold(question, deck_text, graph) if (question.trap and question.trap_premise is not None)
+                       else ("", []))
     if not masked:
-        return None
-    choices = sorted([answer, distractor]) if distractor else []
-    followup = f"빈칸을 채워 보세요: {masked}"
+        pair = _contrast_of(question)
+        masked, answer, distractor = _mask_with_choices(question, graph, deck_text, pair)
+        if not masked:
+            return None
+        choices = sorted([answer, distractor]) if distractor else []
+    # 자료 줄로 조립한 골자는 자료의 합쇼체를 싣고 온다(「…39% 넓었습니다」) — 빈칸 문장은 발표자가 말할 문장이라 해요체로 (09-30 WP-J2).
+    followup = f"{_BLANK_LEAD}{to_haeyo(masked)}"
     if choices:
         followup += f" — '{choices[0]}' 인가요, '{choices[1]}' 인가요?"
     followup += _slide_tag(question)
@@ -2353,6 +2683,12 @@ def judge_answer(
         question = Question.from_dict(question)
     if not question.question.strip():
         raise JudgeError("판정할 질문이 비어 있습니다. F-08 결과를 먼저 확인하세요.")
+    # F-08 이 질문마다 남긴 코드 검사(basis.checks)를 판정도 읽는다 (09-30 WP-J2 — WP-Q 가 남기기 시작한 것들).
+    checks = _checks_of(question)
+    if "speech_mismatch_deck_only" in checks:
+        # 녹음이 이 자료와 다른 발표다(F-08 C-07: 녹음·자료 낱말 겹침 0.2 밑) — 질문도 자료만으로 만들었다. 판정이 남의 녹음을 「발표 때
+        # 한 말」 로 싣고 대조 근거로 쓰면 자료대로 한 답을 녹음과 다르다고 깎거나, 녹음의 낱말로 무관 가드를 비켜 간다.
+        alignment, transcript = None, None
     # 한 모양으로 — NFD 한글·전각 영숫자(「８.７％」)도 대조가 되게 (G-A11). 글자 수가 거의 그대로라 표시에도 문제가 없다.
     answer = fold_text(answer)
     prior_answers = [fold_text(x) for x in (prior_answers or [])]
@@ -2437,6 +2773,12 @@ def judge_answer(
     # 단정·근거 없는 인과·긴장의 모범답은 그 줄을 부정하거나 보탠다 — 그 줄과 어긋난다고 깎으면 거꾸로 채점한다.
     probed = probed_quotes(question)
     judge_deck = without_lines(deck, probed) if probed else deck
+    # 탐침 질문의 코드 골자(F-08 gist_probe_code)는 **모범답 한 벌**이지 채점표가 아니다 — 「설문이나 통계, 비교 자료로 보강할게요」 를
+    # 그대로 말해야 통과하는 게 아니라, 탐침이 따지는 것(빈틈 인정·보강 계획·경계·두 말의 이음)에 답했는지로 본다. 그래서 그 골자를
+    # 쪼갠 요소를 체크리스트로 요구하지 않고(`_enforce_good`·`_ungrounded`), 프롬프트에도 「모범답 예시」 로 싣는다 (09-30 WP-J2).
+    sample_gist = "gist_probe_code" in checks
+    if sample_gist and question.answer_gist_parts:
+        question = replace(question, answer_gist_parts=[])
     question, gist_grounded = _ground_gist(question, deck, judge_deck)
     user = _build_user_prompt(
         question, answer, turns, graph, alignment, transcript, ctx, prior_answers,
@@ -2451,7 +2793,10 @@ def judge_answer(
     # _build_user_prompt 안에 넣지 않는 것은 coach_stuck 이 같은 함수를 쓰면서
     # 골자를 따로 붙이기 때문이다 — 두 번 실리면 안 된다.
     gist = (question.answer_gist or "").strip()
-    if gist and gist_grounded:
+    if gist and sample_gist:
+        user += ("\n\n## 모범답 예시 (탐침 질문 — 이 문장 그대로가 아니라 이 질문이 따지는 것에 답했는지로 본다. 표현·순서가 달라도 된다."
+                 f" 발표자에게는 보이지 않는다)\n{gist}")
+    elif gist and gist_grounded:
         user += f"\n\n## 기대하는 답의 골자 (채점 기준 — 발표자에게는 보이지 않는다)\n{gist}"
     elif gist:
         user += (
@@ -2475,7 +2820,17 @@ def judge_answer(
             "맞았어도 원래 질문에서 아직 안 나온 것 하나를 missing_points 에 남기고 followup 으로 그것을 물어라."
         )
     # 질문이 자료에 없는 것을 물을 수 있다 (09-30 §4: 「어떻게 측정했나요」「가장 큰 영향」 — 자료에 측정·순위가 없다).
-    beyond = beyond_deck_terms(question.question, deck, question.label)
+    # 단 F-08 이 「자료에 없다」 는 골자·이유를 덱 전체와 대조해 **자료에 있다**고 고친 질문(gist_absence_contradicted ·
+    # why_absence_contradicted)은 답이 자료에 있다 — 「자료에 없어요」 를 정답으로 받지 않는다 (09-30 WP-J2, standard 실측 혈당 t5:
+    # 「자료에는 그 내용이 나와 있지 않아요」 가 partial 70 통과였는데 5장 첫 줄이 그 방법이었다).
+    absence_denied = bool({"gist_absence_contradicted", "why_absence_contradicted"} & checks)
+    beyond = [] if absence_denied else beyond_deck_terms(question.question, deck, question.label)
+    if absence_denied:
+        no = question.evidence_slide_no or (question.slide_nos[0] if question.slide_nos else 0)
+        user += (
+            f"\n\n## 이 질문의 답은 자료에 있다 ({f'자료 {no}장' if no else '근거 장'})\n"
+            "「자료에 없다·안 나온다」 고 한 답은 자료를 놓친 답이다 — 통과시키지 말고 그 장을 다시 보게 하라."
+        )
     if beyond:
         user += (
             "\n\n## 질문의 이 낱말은 자료에 없다: " + ", ".join(beyond[:4]) + "\n"
@@ -2545,6 +2900,7 @@ def judge_answer(
         gist_grounded=gist_grounded,
         # 덱 주제어를 가리는 것은 **전체** 자료로 — 탐침 줄을 뺀 판정용 덱에서는 주제어가 드물어 보인다.
         topic_deck=deck,
+        absence_denied=absence_denied,
     )
 
 
@@ -2629,9 +2985,13 @@ def _reason_missed(answer: str, question: Question) -> ClaimQuote | None:
     이유 줄의 낱말 가운데 배경 줄·질문에도 있는 낱말은 뺀다 — 둘 다 같은 주제어(개념 이름)를 쓰므로 그걸로는 이유를 말했는지
     알 수 없다. 남은 이유 낱말이 답에 하나도 없고 배경 줄과는 둘 이상 겹칠 때만 — 바꿔 말한 답(「자주 사고팔수록 …」)은
     이유 낱말 하나로 통과한다. 낱말 대조는 «이유를 댔는가» 만 알지 «맞는 이유인가» 는 모른다 — 그건 LLM·자료 대조 몫이다.
+
+    09-30 WP-J2 (WP-J 레드팀 남은 둘 ① · verify 레드팀 quote_copy): 근거 질문에 **질문의 결론 줄만** 옮긴 답(「실력의 문제가 아니라 행동의
+    문제다」 — 질문이 「…행동에서 비롯된다는 결론을 뒷받침하는 근거는?」)이 partial 75 로 통과했다. 이유 낱말이 하나도 없고 질문의 낱말을
+    셋 이상 되읊었으면 결론을 되풀이한 것이다 — 배경 줄이 없어도 본다. 하네스 좋은 답(이유 줄을 입말로)은 이유 낱말로 비켜 간다.
     """
     b = question.basis
-    if b is None or not b.reason or not b.background or not (answer or "").strip():
+    if b is None or not b.reason or not (answer or "").strip():
         return None
     back = RS.tokens(" ".join(q.quote for q in b.background))
     asked = RS.tokens(question.question)
@@ -2640,7 +3000,16 @@ def _reason_missed(answer: str, question: Question) -> ClaimQuote | None:
     said = RS.tokens(answer)
     if not reason_only or RS.overlap(reason_only, said) >= 1:
         return None
-    return b.reason[0] if RS.overlap(said, back) >= 2 else None
+    if back and RS.overlap(said, back) >= 2:
+        return b.reason[0]
+    return b.reason[0] if RS.overlap(said, asked) >= REASON_ECHO_MIN else None
+
+
+def _echoes_conclusion(answer: str, question: Question) -> bool:
+    """이유를 못 댄 답이 배경 줄이 아니라 질문의 결론을 되읊은 쪽인가 — 반응 문구만 가른다 (09-30 WP-J2)."""
+    b = question.basis
+    back = RS.tokens(" ".join(q.quote for q in b.background)) if b is not None else set()
+    return not (back and RS.overlap(RS.tokens(answer), back) >= 2)
 
 
 def _anchor_text(question: Question, slidedoc: SlideDoc | None) -> str:

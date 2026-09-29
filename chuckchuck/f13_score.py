@@ -83,7 +83,7 @@ class PresentationScore:
     omitted: list[str] = field(default_factory=list)      # 계산 못 한 지표
     contradiction_penalty: float = 0.0
     contradiction_count: int = 0
-    basis: str = "full"                                    # full | partial | coverage-only
+    basis: str = "full"                                    # full | partial | coverage-only | none(녹음을 못 써 잰 항이 없음)
 
     def to_dict(self) -> dict:
         return {
@@ -114,8 +114,12 @@ def _contradiction_penalty(doc: AlignmentDoc) -> tuple[float, int]:
     모순 감점. 자료에서 비중이 컸던 개념을 틀리게 말했을수록 크게 깎는다.
 
     doc_weight 는 최상위가 1.0 인 상대값이라, 곁가지 개념의 모순은 자연히 가볍다.
+    녹음이 다른 발표면 감점하지 않는다(판정 자체가 없다). 정합이 전부 짐작이면 코드가 자료 원문과 견줘 확인한 모순(deck_quote)만 센다.
     """
-    items = [i for i in doc.items if i.verdict == "contradiction"]
+    blocked = _speech_omit(doc)
+    if blocked == UNRELATED_OMIT:
+        return 0.0, 0
+    items = [i for i in doc.items if i.verdict == "contradiction" and (not blocked or i.deck_quote)]
     if not items:
         return 0.0, 0
     # weight 가 0 인 노드도 모순은 모순이라 최소 절반은 매긴다
@@ -126,6 +130,22 @@ def _contradiction_penalty(doc: AlignmentDoc) -> tuple[float, int]:
     return min(MAX_CONTRADICTION_PENALTY, penalty), len(items)
 
 
+#: 녹음을 판정 근거로 못 쓸 때 빼는 항 (09-30 WP-S2 — `AlignmentDoc.speech_usable` 거짓).
+#: 다른 발표 녹음(speech_match unrelated)은 네 항이 전부 남의 발표 말로 잰 것이라 전부 뺀다.
+#: 정합이 전부 짐작(basis fallback)이면 LLM 판정·언급 횟수로 잰 셋(커버리지·비중 일치·연결)을 뺀다 — 채점표(F-14)가 같은 경우에
+#: 1·4·5·30 번을 「못 쟀다」 로 두는 것과 같은 선이다. 순서(첫 언급 시각, 코드)는 흐름(F-11)도 그대로 보므로 남긴다.
+UNRELATED_OMIT = frozenset(COMPONENT_WEIGHTS)
+FALLBACK_OMIT = frozenset({"coverage", "rank", "edge"})
+
+
+def _speech_omit(alignment: AlignmentDoc) -> frozenset[str]:
+    if alignment.speech_match == "unrelated" or alignment.basis == "skipped":
+        return UNRELATED_OMIT
+    if alignment.basis == "fallback":
+        return FALLBACK_OMIT
+    return frozenset()
+
+
 def score_presentation(
     alignment: AlignmentDoc,
     flow: FlowDiff | None = None,
@@ -134,8 +154,13 @@ def score_presentation(
     정합 판정(+선택 흐름 비교) → 0~100 점.
 
     flow 를 주면 '흐름 순서' 항이 살아난다. 안 주면 그 가중치는 나머지에 재분배된다.
+
+    녹음을 판정 근거로 못 쓰면(`AlignmentDoc.speech_usable` 거짓 — 다른 발표 녹음 · 정합이 전부 짐작) 그 판정으로 잰 항은 0 이 아니라
+    '없음'이다 (설계 4번). 전부 빠지면 0점 + basis "none" — 남의 발표로 이 자료를 매기지 않는다 (09-30 held-out C-07 · 레드팀 G-A22).
+    모순 감점은 코드가 자료 원문과 견줘 확인한 것(deck_quote)만 짐작 판정 위에서도 남는다 — 그건 짐작이 아니다.
     """
     summary = alignment.summary
+    blocked = _speech_omit(alignment)
 
     # 원지표 수집 — None 은 '계산 불가'라 항 자체를 뺀다 (0 점 처리가 아니다)
     raw: dict[str, float | None] = {
@@ -147,13 +172,14 @@ def score_presentation(
         "order": None if flow is None or flow.order_tau is None
         else _from_correlation(flow.order_tau),
     }
+    raw = {k: (None if k in blocked else v) for k, v in raw.items()}
 
     present = {k: v for k, v in raw.items() if v is not None}
     omitted = sorted(k for k, v in raw.items() if v is None)
 
     if not present:
-        # coverage 는 항상 float 이라 여기 오지 않지만, 계약이 바뀌어도 안 터지게
-        return PresentationScore(score=0, omitted=omitted, basis="coverage-only")
+        # 녹음이 다른 발표면 여기 온다. coverage 는 항상 float 이라 그 밖에는 오지 않지만, 계약이 바뀌어도 안 터지게
+        return PresentationScore(score=0, omitted=omitted, basis="none" if blocked else "coverage-only")
 
     # 빠진 항의 가중치를 남은 항에 비례 재분배
     total_weight = sum(COMPONENT_WEIGHTS[k] for k in present)

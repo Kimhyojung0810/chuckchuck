@@ -43,10 +43,10 @@ import {
   hintLadder, hintsForJudge, judgementBubble, judgementClosed, meterText, mergeLadder, newPen, paintDictation, presentCommand,
   questionHistory, questionWhy, retryWaitText, scoredAnswers, selfViewErrorText, shotFileName, shotsAdvice,
   speakableJudgement, speechSettled, tally, voiceCommand,
-} from './booth_logic.js?v=b9';
+} from './booth_logic.js?v=b10';
 import {
   askQuestion, createOverlayState, enterPresent, enterQa, renderOverlay, setCaption, setMainOf, setPhaseOf,
-} from './booth_overlay_state.js?v=o4';
+} from './booth_overlay_state.js?v=o5';
 
 const PARSE_TIMEOUT_MS = 120000;
 const SOUND_KEY = 'cheokcheok:booth-sound';

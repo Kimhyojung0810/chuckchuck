@@ -484,6 +484,8 @@ const QA_ORIGIN_PROBE = {
 };
 const QA_ORIGIN_SOURCE = {
   contradiction: '발표에서 자료와 다르게 말한 곳',
+  // WP-S2: 발표자가 말로 건너뛴 핵심 장(「시간 관계상 넘어갈게요」)의 개념 — 없으면 근거 줄에 자리(slot)만 남았다
+  skipped_slide: '발표에서 말로 건너뛴 장',
   missing: '자료에 있는데 발표에서 말하지 않은 개념',
   under_spoken: '발표에서 짧게 지나간 개념',
   weak_flow: '다른 개념과의 연결이 드러나지 않은 곳',
@@ -855,7 +857,7 @@ function renderLiveCheckpoint() {
   // explanation 이 먼저다 — 「모르겠어요」 2회로 받은 맞춤 해설인데, gist 를
   // 앞세우면 F-08 폴백이 항상 차 있어 이 분기가 영영 죽는다. explanation 은
   // explain 코칭에서만 채워지므로 일반 경로의 표시는 변하지 않는다.
-  const modelAnswer = v.explanation || q.answer_gist || v.summary_sentence || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
+  const modelAnswer = liveRevealModel(q, v) || v.summary_sentence || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
   const nextLabel = L.qi + 1 >= L.questions.length ? '결과 확인하기' : `다음 질문으로 · ${L.qi + 2}/${L.questions.length}`;
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 ${L.qi + 1}/${L.questions.length}</span></div>
@@ -1401,7 +1403,7 @@ function liveLastScore() {
  * 다르면 어느 문으로 나갔느냐가 결과를 바꾼다.
  */
 function coachedRetell(q, v, answer) {
-  enterRetell(v.explanation || q.answer_gist || v.summary_sentence, {
+  enterRetell(liveRevealModel(q, v) || v.summary_sentence, {
     id: q.id, label: q.label, question: q.question, answer,
     verdict: 'unknown', score: 0, passed: false, mastered: false, gaveUp: true,
     summary: v.summary_sentence || '', revealed: true, coached: true,
@@ -1506,6 +1508,8 @@ function liveWholeSentences(text) {
  * 부스 booth_logic.degradedLines 와 같은 규칙.
  */
 const LIVE_DEV_ONLY_DEGRADED = ['question_unverified', 'question_mismatch'];
+/** 녹음이 이 자료와 다른 발표라 F-08 이 자료만 보고 물었다 — 질문 묶음에 한 번, 조용히 (09-30 WP-J2 · F-08 speech_mismatch_deck_only) */
+const LIVE_SPEECH_MISMATCH_NOTE = '녹음이 이 자료와 달라서 자료만 보고 질문했어요.';
 function liveDegradedLines(res) {
   if (!res || typeof res !== 'object') return [];
   const codes = Array.isArray(res.degraded) ? res.degraded : [];
@@ -1515,7 +1519,19 @@ function liveDegradedLines(res) {
     if (typeof n === 'string' && n.trim() && !LIVE_DEV_ONLY_DEGRADED.includes(codes[i])) out.push(n.trim());
   });
   if (res.grounded_on_deck === false && !codes.includes('slide_doc_missing')) out.push('자료 본문 없이 판정했어요.');
+  if (liveSpeechMismatch(res)) out.push(LIVE_SPEECH_MISMATCH_NOTE);
   return [...new Set(out)];
+}
+
+/**
+ * 질문 묶음이 녹음을 버리고 자료만으로 만들어졌나 — F-08 은 질문마다 basis.checks 에 speech_mismatch_deck_only 를 남긴다
+ * (문서 단위 칸이 계약에 없어서). 묶음 머리에 같은 이름의 참 값이 오면 그것도 받는다. 판정 응답에는 questions 가 없어 늘 거짓이다.
+ */
+function liveSpeechMismatch(res) {
+  if (!res || typeof res !== 'object') return false;
+  if (res.speech_mismatch_deck_only === true) return true;
+  const qs = Array.isArray(res.questions) ? res.questions : [];
+  return qs.some((q) => q && q.basis && Array.isArray(q.basis.checks) && q.basis.checks.includes('speech_mismatch_deck_only'));
 }
 
 /**
@@ -1644,9 +1660,10 @@ function revealHalf(q, v) {
   const L = qa.live;
   if (L.halfShown) return false;
   const points = (v.missing_points || []).filter(Boolean).slice(0, 3);
-  // 함정 질문의 골자는 **바로잡은 사실 그 자체**다 — 아직 못 바로잡았는데 펼치면 정답을 흘린다 (09-30 §7)
-  const trapOpen = !!(q.trap_premise && !v.passed);
-  const answer = trapOpen ? '' : (v.explanation || q.answer_gist || v.summary_sentence || '');
+  // 함정 질문의 골자는 **바로잡은 사실 그 자체**다 — 아직 못 바로잡았는데 펼치면 정답을 흘린다 (09-30 §7).
+  // 브리지는 함정의 전제·골자를 화면 사본에서 뺀다(gist_withheld · 09-30 WP-J2) — 함정인지는 q.trap 으로, 바로잡은 뒤의 골자는 판정 응답으로 온다.
+  const trapOpen = !!((q.trap || q.trap_premise || q.gist_withheld) && !v.passed);
+  const answer = trapOpen ? '' : (liveRevealModel(q, v) || v.summary_sentence || '');
   // 둘 다 비면 열 것이 없다. 빈 카드를 띄우느니 되묻기만 이어 간다.
   if (!points.length && !answer) return false;
   L.halfShown = true;
@@ -1706,6 +1723,8 @@ function finishLiveQuestion(q, v, answer) {
   const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
   // 왜 닫혔나 — good(설득) · rounds(3라운드에서 통과 수준) · guard(가드에 막힌 채 3라운드). 결과 화면이 나눠 센다 (09-30 §10)
   const closeReason = v.close_reason || (v.verdict === 'good' ? 'good' : 'rounds');
+  // 함정의 골자는 화면 사본에 없다(gist_withheld) — 닫힌 판정 응답이 싣고 온다 (09-30 WP-J2)
+  const closeGist = v.answer_gist || q.answer_gist || '';
   pushTurn({
     who: 'sys', kind: 'done',
     flag: m.flag, outcome: v.verdict, word: CLOSE_CHIP[closeReason] || m.word,
@@ -1713,7 +1732,7 @@ function finishLiveQuestion(q, v, answer) {
     summary: v.summary_sentence || '',
     // 좋은 답(good)으로 닫혔으면 「이렇게 답하면 좋았어요」 를 붙이지 않는다 — 방금 한 답보다 못한 골자(라벨 나열)가
     // 뜨곤 했다 (09-30 held-out M-10). 되묻기 도중 이미 펼친 문장이어도 다시 싣지 않는다 (revealHalf 가 halfGist 를 남긴다).
-    gist: (closeReason !== 'good' && q.answer_gist && q.answer_gist !== L.halfGist) ? escapeHtml(liveWholeSentences(q.answer_gist)) : '',
+    gist: (closeReason !== 'good' && closeGist && closeGist !== L.halfGist) ? escapeHtml(liveWholeSentences(closeGist)) : '',
     // 카드 발치에 «몇 번째가 닫혔고 다음이 있는가» 를 적는다. 끝이 보이지 않으면
     // 사용자는 이 카드가 마무리인지 중간 안내인지 구분할 수 없다.
     idx: L.qi + 1, total: L.questions.length,
@@ -1744,17 +1763,74 @@ function revealLiveAnswer() {
   const q = L.questions[L.qi];
   const v = L.lastJudgement || {};
   const last = L.turns[L.turns.length - 1] || {};
+  if (L.busy) return;
   pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답을 펼쳐 볼게요` });
-  // 해설(explain 코칭)이 있으면 그게 낫다 — 이 사람이 실제로 막힌 지점에 맞춰
-  // 쓴 글이라서다. 없으면 F-08 이 미리 만들어 둔 골자를 쓴다.
-  enterRetell(v.explanation || q.answer_gist || v.summary_sentence, {
+  const record = {
     id: q.id, label: q.label, question: q.question, answer: last.answer || '',
     verdict: v.verdict || 'unknown', score: v.score || 0,
     passed: !!v.passed, mastered: false,
     summary: v.summary_sentence || '', revealed: true,
+  };
+  // 해설(explain 코칭)이 있으면 그게 낫다 — 이 사람이 실제로 막힌 지점에 맞춰
+  // 쓴 글이라서다. 없으면 F-08 이 미리 만들어 둔 골자를 쓴다.
+  const model = liveRevealModel(q, v);
+  if (model || !liveNeedsReveal(q, v) || L.judgeFailed) {
+    enterRetell(model || v.summary_sentence, record);
+    growStream();
+    refreshLiveChrome();
+    return;
+  }
+  // 함정 질문의 골자는 화면 사본에 없다(브리지 client_questions · 09-30 WP-J2) — 펼치겠다고 누른 지금 서버에서 받는다.
+  // 판정이 아니라 LLM 을 안 부르는 reveal 요청이라 곧바로 온다. 실패하면 총평으로 물러난다(서버 없이도 다음 질문으로 간다).
+  L.busy = true;
+  setLiveBusy(true);
+  showCoachThinking();
+  liveFetchReveal(q).then((gist) => {
+    hideCoachThinking();
+    L.busy = false;
+    setLiveBusy(false);
+    if (qa.live !== L || L.questions[L.qi] !== q || L.retell) return;
+    enterRetell(gist || v.summary_sentence, record);
+    saveSession('qa-flow', qa);
+    growStream();
+    refreshLiveChrome();
   });
-  growStream();
-  refreshLiveChrome();
+}
+
+/**
+ * 다시 말하기·펼치기에 쓸 기대 답 — 해설(explain) → 판정 응답의 골자(함정은 바로잡았거나 닫혔을 때만 서버가 싣는다) → 질문의 골자.
+ * 함정 질문은 질문 사본에 골자가 없다(gist_withheld · 09-30 WP-J2). 없으면 ''.
+ */
+function liveRevealModel(q, v) {
+  const j = v || {};
+  return j.explanation || j.answer_gist || (q && q.answer_gist) || '';
+}
+
+/** 펼칠 골자를 서버에서 받아 와야 하는가 — 화면 사본에서 뺀 함정 질문(gist_withheld)인데 판정 응답에도 아직 없다 */
+function liveNeedsReveal(q, v) {
+  return !!(q && q.gist_withheld) && !liveRevealModel(q, v);
+}
+
+/**
+ * 화면에 없는 함정의 기대 답을 서버에서 받는다 — 「답 보고 다시 말해보기」 를 누른 때만 (09-30 WP-J2). 브리지 판정 경로의 reveal 요청이라
+ * LLM 을 부르지 않고 기록도 안 남는다. 실패하면 '' — 호출자가 총평으로 물러난다.
+ */
+async function liveFetchReveal(q) {
+  const L = qa.live || {};
+  const bridge = window.ChuckchuckBridge;
+  if (!q || !bridge || typeof bridge.qaApiBase !== 'function' || typeof fetch !== 'function') return '';
+  const sid = L.sessionId || 'flat';
+  try {
+    const res = await fetch(`${bridge.qaApiBase()}/api/v1/sessions/${encodeURIComponent(sid)}/qa/judge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sid, question_id: q.id, question: q, answer: '', reveal: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return res.ok && data && typeof data.answer_gist === 'string' ? data.answer_gist : '';
+  } catch (_) {
+    return '';
+  }
 }
 
 /**
