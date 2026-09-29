@@ -126,8 +126,17 @@ def triage(graph: ConceptGraph, *marks: tuple[str, bool]) -> QaTriage:
 
 
 def ask(graph, deck, marks, questions, **kw):
-    llm = ScriptedLLM({"questions": questions})
-    doc = build_questions(graph, triage(graph, *marks), track="10", slidedoc=deck, llm=llm, **kw)
+    """함정은 코드가 트랙 허용치만큼 고른다 (qa/trap). 함정이 아닌 동작을 보는 테스트(표시가 전부 False)는 허용치를 0 으로
+    둬서 함정 선택이 끼어들지 않게 한다 — 실제로는 triage 표시와 상관없이 전제를 만들 수 있는 개념이 함정이 된다."""
+    import chuckchuck.f08_questions as f08
+    saved = f08.QA_TRACK_TRAPS
+    if not any(trap for _, trap in marks):
+        f08.QA_TRACK_TRAPS = {k: 0 for k in saved}
+    try:
+        llm = ScriptedLLM({"questions": questions})
+        doc = build_questions(graph, triage(graph, *marks), track="10", slidedoc=deck, llm=llm, **kw)
+    finally:
+        f08.QA_TRACK_TRAPS = saved
     return {q.node_id: q for q in doc.questions}, llm
 
 
@@ -139,48 +148,67 @@ def idx_of(graph, deck):
 # 1. 함정 — 전제가 질문에 있고 자료와 어긋날 때만
 # ---------------------------------------------------------------------------
 
-def test_전제_없는_함정은_함정_표시를_뗀다_루트_질문():
-    """기준선 §5-1: 루트 개념이 매번 trap=True 인데 질문엔 거짓 전제가 없었다 → 골자대로 한 답이 wrong 35."""
+def test_루트_질문은_함정이_아니다():
+    """기준선 §5-1: 루트 개념이 매번 trap=True 인데 질문엔 거짓 전제가 없었다 → 골자대로 한 답이 wrong 35.
+    qa/trap: 주제(루트) 자리는 함정 자리가 아니다 — triage 가 함정이라 해도 코드가 전제를 만들지 않는다."""
     q, _ = ask(INVEST_GRAPH, INVEST, [("root", True)], [{
         "node_id": "root", "question": "수익률 격차가 실력보다 행동에서 비롯되었다는 주장을 뒷받침하는 실증적 근거는 무엇인가요?",
         "answer_gist": "개인 평균은 지수 대비 연 4.8%p 낮고, 상위 25% 그룹도 지수를 2.6%p 하회해요."}])
     got = q["root"]
-    assert got.trap is False and "trap_dropped" in got.basis.checks
+    assert got.trap is False and got.trap_premise is None and "trap_generated" not in got.basis.checks
     assert "전제" not in got.answer_gist
 
 
-def test_자료에_사실로_있는_전제는_함정이_아니다_58퍼센트():
-    """기준선 rec/10 #1: 전제(58%)가 5장에 사실로 있는데 함정 폴백 골자가 「질문의 전제가 자료와 달라요」 라고 가르쳤다."""
+def test_함정_전제는_코드가_자료_줄에서_만들고_자료와_어긋난다():
+    """solar 는 trap_premise 를 한 번도 안 적었다(fix08 뒤 함정 0개). LLM 이 사실(58%)을 전제로 적어 와도 쓰지 않고,
+    코드가 근거 장의 자료 줄 하나를 뒤집어 만든 전제를 얹는다 — 그 전제는 자료 어느 줄과도 같지 않다."""
     text = "과잉 매매와 타이밍 실패가 전체의 58%를 차지한다는데, 그 근거는 무엇인가요?"
     q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [{
         "node_id": "behavior", "question": text, "trap_premise": "과잉 매매와 타이밍 실패가 전체의 58%를 차지한다"}])
     got = q["behavior"]
-    assert got.trap is False and "trap_dropped" in got.basis.checks
-    assert "질문의 전제" not in got.answer_gist
+    tp = got.trap_premise
+    assert got.trap is True and tp is not None and "trap_generated" in got.basis.checks
+    assert "trap_template" in got.basis.checks            # LLM 문장은 코드 전제를 안 실었다
+    assert tp.premise in got.question
+    idx = idx_of(INVEST_GRAPH, INVEST)
+    assert all(grounding.squash(r.text) != grounding.squash(tp.premise) for r in idx.all_rows())
+    assert got.answer_gist.startswith("질문의 전제와 달리, 자료 5장") and tp.fact in got.answer_gist
+    assert got.answer_gist_parts == []
 
 
-def test_자료와_어긋난_숫자를_얹은_전제는_함정으로_남는다():
-    text = "과잉 매매가 전체 격차의 80%를 차지한다고 했는데, 그렇다면 나머지 요인은 무시해도 되나요?"
-    q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [{
-        "node_id": "behavior", "question": text, "trap_premise": "과잉 매매가 전체 격차의 80%를 차지한다",
-        "answer_gist": "자료는 상위 2개 요인을 합쳐 58%라고 해요."}])
+def test_LLM_이_코드_전제를_실은_문장은_그대로_쓴다():
+    q0, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [])
+    tp = q0["behavior"].trap_premise
+    worded = f"{tp.premise}라고 하셨는데, 그게 무슨 뜻인가요?"
+    q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [{"node_id": "behavior", "question": worded}])
     got = q["behavior"]
-    assert got.trap is True and "trap_premise_verified" in got.basis.checks
+    assert got.trap is True and "trap_llm_worded" in got.basis.checks and tp.premise in got.question
 
 
-def test_질문에_없는_전제는_함정이_아니다():
-    q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [{
-        "node_id": "behavior", "question": "다섯 요인 가운데 어느 것이 가장 통제하기 쉬운가요?",
-        "trap_premise": "과잉 매매가 전체 격차의 80%를 차지한다"}])
-    assert q["behavior"].trap is False
+def test_전제에_자료의_정답_단서가_섞인_문장은_버린다():
+    q0, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [])
+    tp = q0["behavior"].trap_premise
+    leak = f"{tp.premise}라고 했는데, 사실은 {tp.fact} 아닌가요?"
+    q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [{"node_id": "behavior", "question": leak}])
+    assert "trap_template" in q["behavior"].basis.checks and "trap_premise_missing" in q["behavior"].basis.checks
 
 
-def test_폴백_질문에는_함정도_함정_골자도_없다():
-    """LLM 이 빠뜨려 폴백 문장이 나가면 전제가 없다 — 「전제가 자료와 달라요」 골자가 붙으면 안 된다."""
+def test_폴백_자리에도_함정은_전제를_얹은_문장이다():
+    """LLM 이 빠뜨려도 함정 문장은 코드가 전제로 만든다 — 전제 없는 함정 질문이 나가지 않는다."""
     q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [])
     got = q["behavior"]
-    assert got.trap is False and "fallback_template" in got.basis.checks
-    assert "전제" not in got.answer_gist
+    assert got.trap is True and got.trap_premise.premise in got.question
+    assert got.question.startswith("자료") and got.question.endswith(("요.", "요?"))
+
+
+def test_힌트와_이유는_답을_흘리지_않는다():
+    q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [])
+    got = q["behavior"]
+    tp = got.trap_premise
+    assert "5장" in got.hint and tp.fact not in got.hint and tp.fact not in got.why
+    for cue in tp.right:
+        head = cue.partition("|")[0]
+        assert head not in got.hint and head not in got.why
 
 
 def test_전제_판정_규칙():
@@ -471,14 +499,13 @@ def test_탐침_질문은_함정이_아니다():
     assert got.basis.probe is not None and got.trap is False
 
 
-def test_남은_함정의_골자가_전제를_안_바로잡으면_자료_줄로_바로잡는다():
-    text = "과잉 매매가 전체 격차의 80%를 차지한다고 했는데, 그렇다면 나머지 요인은 무시해도 되나요?"
+def test_함정의_골자는_LLM_골자와_상관없이_자료_줄로_전제를_바로잡는다():
     q, _ = ask(INVEST_GRAPH, INVEST, [("behavior", True)], [{
-        "node_id": "behavior", "question": text, "trap_premise": "과잉 매매가 전체 격차의 80%를 차지한다",
+        "node_id": "behavior", "question": "다섯 요인 가운데 어느 것이 가장 통제하기 쉬운가요?",
         "answer_gist": "과잉 매매와 타이밍 실패에 집중해야 해요."}])
     got = q["behavior"]
-    assert got.trap is True and "gist_rebuilt_trap" in got.basis.checks
-    assert got.answer_gist.startswith("질문의 전제와 달리, 자료는 이렇게 말해요 — ")
+    assert got.trap is True
+    assert got.answer_gist.startswith("질문의 전제와 달리, 자료 ")
 
 
 def test_주제_자리는_같은_치명도면_가장_무거운_루트다():

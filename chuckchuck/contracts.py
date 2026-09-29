@@ -1765,6 +1765,50 @@ class Probe:
         )
 
 
+#: 함정 전제의 종류 — 자료의 사실 하나를 어떻게 뒤집었나. number 수치 · order 비교 순서(A보다 B) ·
+#: extreme 표의 가장 큰 쪽 · direction 방향(늘다/줄다·원인↔결과) · negation 부정·대조(아니다/아니라).
+TRAP_KINDS = ("number", "order", "extreme", "direction", "negation")
+
+
+@dataclass
+class TrapPremise:
+    """
+    함정 질문에 얹은 **틀린 전제**와 그걸 바로잡는 **자료의 사실** (2026-09-29 qa/trap).
+
+    코드(`_traps`)가 근거 장의 자료 줄 하나를 골라 수치·순서·방향·부정 하나만 뒤집어 만든다 — LLM 이 전제를
+    지어내지 않는다. 09-29 기준선: LLM 이 붙인 함정 표시에는 질문에 전제가 없어 골자대로 한 정답이 wrong 35 였고,
+    fix08 이 「LLM 이 전제를 적어 올 때만」 으로 막자 solar 가 한 번도 안 적어 함정이 0개가 됐다.
+
+    wrong 은 전제에만 있는 단서(바꾼 숫자·뒤집힌 순서 낱말), right 는 자료에만 있는 단서다. F-08 은 질문 문장에 wrong 이
+    있고 right 가 없는지 보고, F-09 는 답이 어느 쪽을 말했는지로 「전제에 동의했나」 를 정한다 (`_traps.premise_stance`).
+    단서 문법은 `_traps` 가 안다 — 계약은 문자열만 나른다.
+    """
+    kind: str
+    premise: str                               # 질문에 얹은 틀린 말 (자료 줄에서 하나만 바꾼 것)
+    fact: str                                  # 자료가 실제로 말하는 것 (자료 줄 그대로 또는 표 행에서 읽은 값)
+    slide_no: int = 0
+    wrong: list[str] = field(default_factory=list)
+    right: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"kind": self.kind, "premise": self.premise, "fact": self.fact, "slide_no": self.slide_no,
+                "wrong": list(self.wrong), "right": list(self.right)}
+
+    @classmethod
+    def from_dict(cls, d: dict | None) -> "TrapPremise | None":
+        if not d or not str(d.get("premise", "") or "").strip():
+            return None
+        kind = str(d.get("kind", "") or "")
+        return cls(
+            kind=kind if kind in TRAP_KINDS else "number",
+            premise=str(d.get("premise", "") or ""),
+            fact=str(d.get("fact", "") or ""),
+            slide_no=int(d.get("slide_no") or 0),
+            wrong=[str(x) for x in (d.get("wrong") or [])],
+            right=[str(x) for x in (d.get("right") or [])],
+        )
+
+
 @dataclass
 class QuestionBasis:
     """
@@ -2127,6 +2171,8 @@ class Question:
     paper_ids: list[str] = field(default_factory=list)
     #: 이 질문이 나온 근거 묶음 (P1). 옛 세션은 None — 화면은 「근거」 칸을 안 그린다.
     basis: QuestionBasis | None = None
+    #: 함정 질문이면 얹은 틀린 전제와 자료의 사실 (qa/trap). trap=True 인데 None 이면 옛 세션이다 — 판정은 예전 규칙으로.
+    trap_premise: TrapPremise | None = None
 
     def __post_init__(self) -> None:
         # 불변식을 **타입에서** 지킨다. F-08 은 dataclass 로 직접 짓고 프론트·세션
@@ -2154,6 +2200,7 @@ class Question:
             "speech_quote": self.speech_quote,
             "paper_ids": list(self.paper_ids),
             "basis": self.basis.to_dict() if self.basis else None,
+            "trap_premise": self.trap_premise.to_dict() if self.trap_premise else None,
         }
 
     @classmethod
@@ -2184,6 +2231,7 @@ class Question:
             speech_quote=str(d.get("speech_quote", "") or ""),
             paper_ids=[str(x) for x in (d.get("paper_ids") or [])],
             basis=QuestionBasis.from_dict(d["basis"]) if d.get("basis") else None,
+            trap_premise=TrapPremise.from_dict(d.get("trap_premise")),
         )
 
 

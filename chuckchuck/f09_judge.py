@@ -28,6 +28,8 @@ score 는 0~100, node_id 는 질문에서 승계, react·summary_sentence 는 �
    - `_enforce_trap` — **함정 표시만 보고 내리지 않습니다.** 답이 전제에 동의했을 때만(「네, 맞아요」·질문에만 있는
      숫자를 되풀이·LLM 이 바로잡지 않았다고 했는데 기대 답의 사실도 안 말함) wrong ≤ 35. 09-29 에 전제가 없는
      질문에 붙은 함정 표시 때문에 골자 그대로·자료대로 한 정답이 4/4 wrong 35 였습니다.
+     질문이 코드가 만든 전제(`Question.trap_premise`, qa/trap)를 들고 있으면 그 단서로 정합니다 — 틀린 값·순서·방향을
+     되뇌거나 「네」 로 받으면 동의, 자료의 값을 말하거나 전제를 반박하면 바로잡음(`_traps.premise_stance`).
    - `_enforce_deck` — 답이 자료와 **수치·표 서열·방향·부정**이 어긋나면 partial ≤ 55 · 칭찬 react 금지
      (`_deck_claims.conflicts`, 규칙은 구조로만 — 어느 발표에나 같은 규칙).
    - `_enforce_on_topic` — 자료와 무관 → wrong ≤ 35, 이 질문만 벗어남 → partial ≤ 65.
@@ -53,6 +55,7 @@ from ._deck_claims import (
     support,
 )
 from ._evidence import anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
+from ._traps import premise_stance, without_premise
 from ._match import norm_tokens
 from ._speech import to_haeyo
 from ._json_text import extract_json_object
@@ -455,6 +458,12 @@ def _build_user_prompt(
         f"질문: {question.question}",
         f"함정 질문인가: {'예' if question.trap else '아니오'}",
     ]
+    tp = question.trap_premise if question.trap else None
+    if tp is not None:
+        # 코드가 자료 줄 하나를 뒤집어 만든 전제다 (qa/trap) — 판정이 「질문에 전제가 있나」 를 짐작하지 않게 그대로 준다.
+        where = f"자료 {tp.slide_no}장" if tp.slide_no else "자료"
+        parts += [f"질문에 얹은 틀린 전제: «{tp.premise}»", f"{where}의 사실: «{tp.fact}»",
+                  "이 질문은 함정이다 — 전제를 바로잡으면 good, 전제를 받아들이면 wrong 이다. premise_corrected 를 반드시 적어라."]
     if question.why:
         parts.append(f"이 질문을 던진 이유: {question.why}")
 
@@ -731,6 +740,17 @@ def _trap_agreed(data: dict, question: Question, answer: str, deck: Deck | None)
     """
     if not question.trap:
         return False
+    tp = question.trap_premise
+    if tp is not None:
+        # 전제를 코드가 만들었으면(qa/trap) 무엇이 틀린 말이고 무엇이 자료의 사실인지 안다 — 짐작하지 않고 단서로 본다.
+        stance = premise_stance(answer, tp)
+        if stance:
+            return stance == "agree"
+        # 단서도 반박도 동의도 없는 답: 질문·전제·자료 사실과 낱말이 하나도 안 겹치면 딴 이야기다 — 무관 가드 몫으로 넘긴다.
+        if not _shares_vocabulary(answer, " ".join([question.question, tp.premise, tp.fact, question.label or ""]), 1):
+            return False
+        corrected = data.get("premise_corrected")
+        return corrected is not None and not bool(corrected)
     reference = " ".join([question.answer_gist or "", question.evidence_quote or "", *question.answer_gist_parts])
     if explicit_agreement(answer):
         return True
@@ -839,18 +859,21 @@ def _normalize(
     verdict, score, points, trap_agreed = _enforce_trap(data, question, verdict, score, points, answer, deck)
     guard = ""
     conflict: Conflict | None = None
+    # 함정 전제를 되뇌며 바로잡은 답(「82%가 아니라 41%예요」)의 전제 절은 자료 대조·자기모순 검사에서 뺀다 — 그 숫자는
+    # 답의 주장이 아니라 질문을 옮긴 것이다.
+    claimed = without_premise(answer, question.trap_premise) if (question.trap and question.trap_premise) else answer
     if not trap_agreed:
         # 자료와 어긋난 답은 이미 「이 질문」 에 답한 것이다 — 무관 가드보다 먼저 보고, 걸리면 무관 가드는 건너뛴다.
-        verdict, score, points, conflict = _enforce_deck(answer, deck, verdict, score, points, question.question)
+        verdict, score, points, conflict = _enforce_deck(claimed, deck, verdict, score, points, question.question)
         if conflict is None:
             verdict, score, points, guard = _enforce_on_topic(
                 answer, evidence, question, verdict, score, points, focus
             )
     # 판정이 스스로 「답과 반대 명제」 를 정답으로 들고 있으면서 통과를 준 자기모순 (09-29 벤치 held-out 오답 2건).
     self_opposed = False
-    if not trap_agreed and conflict is None and not guard and qa_passed(verdict, score) and answer:
+    if not trap_agreed and conflict is None and not guard and qa_passed(verdict, score) and claimed:
         said_by_judge = " ".join([*points, str(data.get("react", "") or "")])
-        if opposes(answer, said_by_judge):
+        if opposes(claimed, said_by_judge):
             verdict, score, self_opposed = "partial", min(score, SELF_OPPOSED_SCORE_MAX), True
 
     react = str(data.get("react", "") or "").strip() or _REACT_BY_VERDICT[verdict]
