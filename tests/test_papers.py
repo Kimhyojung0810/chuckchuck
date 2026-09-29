@@ -356,7 +356,7 @@ def test_papers_가_있으면_서가와_개념별_문헌_줄이_실린다():
     user, system = llm.users[0], llm.systems[0]
     assert "## 교수가 읽고 온 문헌" in user
     assert "(d01) Stothart et al. (2015) «The attentional cost" in user and "[자료 3장이 인용]" in user
-    assert "초록: Notifications alone disrupt performance" in user
+    assert "초록: <abstract>Notifications alone disrupt performance" in user
     assert "    문헌 (d01) Stothart et al. (2015)" in user and "    문헌 (s01) Leroy (2009)" in user
     assert system == QUESTION_SYSTEM_PROMPT + PAPER_SYSTEM_ADDENDUM
 
@@ -519,7 +519,8 @@ def test_문헌이_있는데_인용_0_이면_그_질문만_qa_cite_로_한_번_�
             self.users.append(user)
             if "[TASK] qa-cite" in user:
                 return json.dumps({"questions": [
-                    {"node_id": "c1", "question": "3장에서 인용한 Stothart et al. (2015)는 무엇을 쟀나요?", "why": "문헌 근거",
+                    {"node_id": "c1", "question": "3장에서 인용한 Stothart et al. (2015)는 무엇을 쟀나요?",
+                     "why": "자료가 인용한 연구가 무엇을 쟀는지 알아야 결론을 믿을 수 있어요",
                      "hint": "조건", "paper_ids": ["d01"]},
                     {"node_id": "c2", "question": "Smith (2020)는 어떻게 보나요?", "paper_ids": ["s01"]},   # 목록 밖 인용 → 안 받는다
                 ]}, ensure_ascii=False)
@@ -536,7 +537,9 @@ def test_문헌이_있는데_인용_0_이면_그_질문만_qa_cite_로_한_번_�
     assert "문헌 (d01) Stothart et al. (2015)" in cite_user and "문헌 (s01) Leroy (2009)" in cite_user
     assert "## 교수가 읽고 온 문헌" not in cite_user
     q1, q2 = (next(q for q in doc.questions if q.node_id == n) for n in ("c1", "c2"))
-    assert "Stothart et al. (2015)" in q1.question and q1.paper_ids == ["d01"] and q1.why == "문헌 근거"
+    # 이유는 온전한 해요체 문장일 때만 LLM 것을 둔다 (09-30 held-out M-03 — 「문헌 근거」 같은 조각은 코드 이유로 바뀐다)
+    assert "Stothart et al. (2015)" in q1.question and q1.paper_ids == ["d01"] \
+        and q1.why == "자료가 인용한 연구가 무엇을 쟀는지 알아야 결론을 믿을 수 있어요"
     assert q1.answer_gist == "원래 골자"                         # 골자는 고치지 않는다
     assert "Smith" not in q2.question and q2.question == "잔여 주의란 무엇인가요?" and q2.paper_ids == []   # 원문 유지
     # 인용이 이미 있으면 qa-cite 를 부르지 않는다
@@ -613,7 +616,8 @@ class _CiteRewrite(LLMProvider):
             return json.dumps({"questions": self.rewrites}, ensure_ascii=False)
         return json.dumps({"questions": [
             {"node_id": "c1", "question": "알림 비용은 왜 생기나요?", "why": "w", "hint": "h", "answer_gist": "g"},
-            {"node_id": "c2", "question": "잔여 주의란 무엇인가요?", "why": "w2", "hint": "h2", "answer_gist": "g2"},
+            {"node_id": "c2", "question": "잔여 주의란 무엇인가요?", "why": "잔여 주의가 발표의 중심 개념이라 묻는 질문이에요",
+             "hint": "h2", "answer_gist": "g2"},
         ]}, ensure_ascii=False)
 
 
@@ -622,7 +626,8 @@ def test_qa_cite_검색_문헌만_인용하며_인용하셨는데_라고_쓴_재
                          "why": "문헌 근거", "hint": "전환", "paper_ids": ["s01"]}])
     doc = build_questions(make_graph(), triage(), track="5", papers=papers_doc(), llm=llm)
     q2 = doc.questions[1]
-    assert q2.question == "잔여 주의란 무엇인가요?" and q2.paper_ids == [] and q2.why == "w2"
+    assert q2.question == "잔여 주의란 무엇인가요?" and q2.paper_ids == [] \
+        and q2.why == "잔여 주의가 발표의 중심 개념이라 묻는 질문이에요"
 
 
 def test_qa_cite_자료_인용_문헌을_N장에서_인용한_으로_쓴_재작성은_받는다():
