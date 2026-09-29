@@ -503,3 +503,81 @@ def conclusion_flipped(said: str, reference: str) -> str:
 
 #: 자료의 부재를 말하는 절 — 명제가 아니라 자료에 대한 말이다 (`_deck_claims._DECK_ABSENCE_RE` 와 같은 뜻).
 _DECK_ABSENCE_HINT_RE = re.compile(r"(?:자료|발표|슬라이드)(?:에는|에서는|에서|에|엔|는)?\s*(?:[가-힣]+\s*){0,6}?(?:없|안\s*나|나오지\s*않|다루지)")
+
+
+# ---------------------------------------------------------------------------
+# 골자 되읽기 — 답이 우리 모범답(골자)을 담았는가 (09-30 WP-J3)
+# ---------------------------------------------------------------------------
+
+#: 골자 **입장 부분**(인용을 뺀 말)의 내용 줄기 가운데 답에 있어야 하는 몫.
+GIST_COVER_MIN = 0.7
+#: 입장 부분의 줄기가 이보다 적으면(골자가 거의 인용뿐) 골자 전체 줄기로 잰다.
+GIST_CORE_MIN_STEMS = 3
+#: 셀 줄기가 이보다 적은 골자는 되읽기로 판정하지 않는다 — 두 낱말짜리 골자는 두 낱말 답이 「담는다」.
+GIST_MIN_STEMS = 4
+#: 골자 되읽기에서 세지 않는 뼈대 줄기 — 자료를 가리키는 말·지시어·말끝. 어느 발표에나 같은 말이다.
+_COVER_FRAME = ("자료", "장의", "장은", "장에", "이렇", "그렇", "저렇", "말해", "말할", "말하", "했어", "해요", "있어", "돼요", "거예",
+                "것이", "부분", "이것", "그것", "이건", "그건", "정도", "경우에", "말이", "뜻이", "뜻은")
+#: 인용 — 골자가 옮긴 자료 줄. 발표자는 그 줄을 다시 읊지 않고 「그 말」 로 받아도 된다.
+_COVER_QUOTE_RE = re.compile(r"「[^」]*」|«[^»]*»|“[^”]*”|\"[^\"]*\"")
+_COVER_LEAD_RE = re.compile(r"^(?:질문의 전제와 달리,\s*|자료는 이렇게 말해요\s*—\s*)+")
+_COVER_TAIL_RE = re.compile(r"\s*\(\d+(?:,\s*\d+)*장\)\s*$")
+
+
+def _cover_stems(text: str) -> list[str]:
+    return [s for s in dict.fromkeys(content_stems(text)) if not s.startswith(_COVER_FRAME) and not re.fullmatch(r"\d+장?", s)]
+
+
+def gist_core(gist: str) -> str:
+    """골자의 **입장 부분** — 틀 머리말·장 꼬리·인용(자료 줄)을 뺀 말. 「…에는 아직 수치나 출처가 없어요. 설문이나 통계로 보강할게요.」"""
+    body = _COVER_TAIL_RE.sub("", _COVER_LEAD_RE.sub("", (gist or "").strip()))
+    return re.sub(r"\s+", " ", _COVER_QUOTE_RE.sub(" ※ ", body)).strip()
+
+
+def gist_recall(said: str, gist: str) -> tuple[float, int]:
+    """(골자 줄기 가운데 답에 있는 몫, 센 줄기 수). 입장 부분 줄기가 모자라면 골자 전체로 잰다."""
+    core = _cover_stems(gist_core(gist))
+    if len(core) < GIST_CORE_MIN_STEMS:
+        core = _cover_stems(_COVER_TAIL_RE.sub("", _COVER_LEAD_RE.sub("", gist or "")))
+    if not core:
+        return 0.0, 0
+    s = content_stems(said)
+    return sum(1 for x in core if _has(s, x)) / len(core), len(core)
+
+
+def _stance_kept(said: str, gist: str) -> bool:
+    """
+    골자의 부정이 든 절(「…방법은 아직 자료에 없어요」)을 답이 **같은 낱말로** 말했으면 부정도 같아야 한다 — 낱말은 다 있는데
+    「있어요」 로 뒤집은 답(「…에는 수치나 출처가 충분히 있어요」)을 골자를 담은 답으로 보지 않는다. 방향 낱말(늘다·줄다)도 같다.
+    """
+    from ._deck_claims import negated
+
+    said_parts = clauses(said) or [said]
+    for g in clauses(gist_core(gist)) or []:
+        g_stems = [x for x in content_stems(g) if not x.startswith(_COVER_FRAME)]
+        if len(g_stems) < 2:
+            continue
+        need = max(2, (len(g_stems) + 1) // 2)
+        match = [c for c in said_parts if sum(1 for x in g_stems if _has(content_stems(c), x)) >= need]
+        if not match:
+            continue
+        if not any(negated(c) == negated(g) for c in match):
+            return False
+        g_dirs = directions(g)
+        if len(g_dirs) == 1 and not any(directions(c) in (set(), g_dirs) for c in match):
+            return False
+    return True
+
+
+def covers_gist(said: str, gist: str, *, min_recall: float = GIST_COVER_MIN) -> bool:
+    """
+    답이 **우리 골자를 담았는가** — 골자 입장 부분의 내용 줄기 70% 이상이 답에 있고(인용한 자료 줄은 「그 말」 로 받아도 된다),
+    골자의 부정·방향을 뒤집지 않았다. 낱말만 늘어놓은 답(`list_like`)·결론을 뒤집은 답은 호출자가 따로 막는다 — 여기는 되읽기만 본다.
+
+    09-30 standard 실측: 우리 골자를 글자 그대로 말한 답이 「다만 구체적인 수치나 출처가 아직 제시되지 않아 근거가 부족해요」 partial 70,
+    곧바로 이어진 말풍선이 같은 문장을 「이렇게 말하면 완성이에요」 로 보여 줬다. 판정이 제 모범답과 다른 잣대를 썼다.
+    """
+    recall, n = gist_recall(said, gist)
+    if n < GIST_MIN_STEMS or recall < min_recall:
+        return False
+    return _stance_kept(said, gist)
