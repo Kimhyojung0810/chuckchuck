@@ -564,6 +564,7 @@ function renderQaLive() {
   if (!L.awaitEnd) presentLiveQuestion();
   saveSession('qa-flow', qa);
   if (typeof callFlowOn === 'function' && callFlowOn()) return renderQaLiveCall();
+  if (typeof boothQaOn === 'function' && boothQaOn()) return renderQaLiveBooth();
   app.innerHTML = `
     <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
     <div class="qa-shell">
@@ -2014,6 +2015,8 @@ function liveResultSummary(results, { speech = true, unrelated = false } = {}) {
 }
 
 function qaLiveEnd() {
+  // 부스 Q&A 무대(#/booth/qa)는 결과도 부스 마무리 카드로 — 기록은 남기지 않는다 (js/booth_qa.js)
+  if (typeof boothQaOn === 'function' && boothQaOn()) return boothQaFinale();
   // 통화 배치로 코칭했으면 층과 카메라를 거둔다 — 결과 화면은 일반 배치다
   if (typeof callFlowUnmount === 'function') callFlowUnmount();
   qa.ended = true;

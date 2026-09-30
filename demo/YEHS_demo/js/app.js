@@ -295,6 +295,8 @@ const routes = {
   'temp': () => window.renderCallEntry(),
   // 비전 리허설 (#/vision) — 카메라 앞에 슬라이드와 삐약이 (js/vision_rehearsal.js)
   'vision': () => { if (typeof renderVisionEntry === 'function') renderVisionEntry(); },
+  // 부스 Q&A 무대 (#/booth/qa · 주소창 /booth/qa) — Festa 부스 운영 중에 Q&A 세션을 보여 주는 전용 입구 (js/booth_qa.js)
+  'booth': () => (location.hash.replace(/^#\/?/, '').split('/')[1] === 'qa' && typeof renderBoothQa === 'function' ? renderBoothQa() : renderHome()),
   // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
   'landing': () => window.renderLanding(),
   // 개념 그래프 3D 무대 (js/graph3d.js). 데모 경로 밖이라 여기가 죽어도 시연은 돈다.
@@ -360,6 +362,8 @@ function route() {
   // 통화 층(#cfCall)은 #app 밖에 떠 있어서 화면이 바뀌어도 안 지워진다 — 먼저 걷는다
   if (typeof callFlowOnRoute === 'function') callFlowOnRoute(key);
   if (typeof visionFlowOnRoute === 'function') visionFlowOnRoute(key);
+  // 부스 Q&A 층(#bqStage)도 #app 밖이다 — 같은 이유로 먼저 걷는다. 부스 흐름을 벗어나면 카메라까지 끈다
+  if (typeof boothQaOnRoute === 'function') boothQaOnRoute(key);
   /* 샘플 모드는 renderReport() 안에서만 켜져서, 샘플 리포트를 보고 #/qa 로 나가면
      켜진 채로 남았다. reportOut() 이 이 값을 보고 결과를 가리므로 리포트를
      벗어나는 순간 꺼 준다 — 안 그러면 질문 코칭이 제 데이터를 못 읽는다 */
@@ -897,7 +901,7 @@ function isShowcaseDemo() {
 let ccTeam = false;
 let ccTeamChecked = false;
 /* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 개발자 모드를 켠 브라우저에만 연다 */
-const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay']);
+const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
 function renderBetaLock() {
   app.className = 'narrow';
   app.innerHTML = ccTeamChecked ? `
