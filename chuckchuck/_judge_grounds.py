@@ -366,8 +366,8 @@ def finalize_grounds(
             mine = list(dict.fromkeys(content_stems(g.quote)))
             hit = sum(1 for s in mine if _stem_in(said_stems, s))
             role = "covered" if mine and (hit >= 2 or hit >= 0.5 * len(mine)) else "missing"
-        if role == "covered" and _overlap(g.quote, said_stems) == 0:
-            continue                    # 답과 낱말 하나 안 겹치는 줄을 「짚었다」 고 보이지 않는다
+        if role == "covered" and not _said_enough(g.quote, said_stems):
+            continue                    # 답과 낱말 한둘만 겹치는 줄을 「짚었다」 고 보이지 않는다
         if role == "conflict" and (passed or conflict is not None):
             continue                    # 통과한 답엔 어긋남이 없다 · 가드가 찾은 어긋남이 있으면 그 줄이 먼저다
         if role == "covered" and guard in DROP_COVERED_GUARDS:
@@ -409,10 +409,11 @@ def finalize_grounds(
             note = ""
         finals.append(JudgeGround(g.slide_no, _clip_quote(g.quote), g.role, cap_length(note, NOTE_MAX) if note else "", g.ref))
 
+    # 어긋난 줄 하나 · 짚은 줄 하나 · 빠진 줄 둘까지. 빠진 줄이 없으면 짚은 줄을 하나 더(둘까지) — 좋은 답에 카드 셋은 무겁다 (실측).
     by_role = {r: [g for g in finals if g.role == r] for r in QA_GROUND_ROLES}
     picked = by_role["conflict"][:1] + by_role["covered"][:1] + by_role["missing"][:2]
-    rest = [g for g in finals if g not in picked and g.role != "conflict"]
-    picked += rest[: max(0, QA_GROUNDS_MAX - len(picked))]
+    if not by_role["missing"]:
+        picked += by_role["covered"][1:COVERED_MAX]
     picked = picked[:QA_GROUNDS_MAX]
     return sorted(picked, key=lambda g: _ROLE_ORDER.get(g.role, 3))
 
@@ -442,6 +443,19 @@ def note_haeyo(text: str) -> str:
             rep = _EUM_TO_HAEYO.get(end, _EUM_TO_HAEYO.get(end.replace(" ", ""), end))
         out.append(f"{head}{rep}.")
     return " ".join(out)
+
+
+#: 짚은 줄로 보이려면 답과 겹쳐야 하는 낱말 수 (줄의 낱말이 이보다 적으면 그 줄의 낱말 수). 「시간」 한 낱말로 엉뚱한 줄이 「짚은 것」 이 됐다 (실측).
+COVERED_MIN_OVERLAP = 2
+#: 짚은 줄은 많아야 둘.
+COVERED_MAX = 2
+
+
+def _said_enough(quote: str, said_stems: list[str]) -> bool:
+    mine = list(dict.fromkeys(content_stems(quote)))
+    if not mine:
+        return False
+    return _overlap(quote, said_stems) >= min(COVERED_MIN_OVERLAP, len(mine))
 
 
 def _echoes_quote(note: str, quote: str) -> bool:

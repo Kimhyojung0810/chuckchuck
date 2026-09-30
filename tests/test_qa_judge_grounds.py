@@ -370,3 +370,15 @@ def test_짚은_줄만_댄_판정에도_결손이_있으면_빠진_줄을_코드
                            passed=True, points=["시간 × 연속성 × 규칙성의 관계"], anchors=[1, 4])
     assert [g.role for g in got] == ["covered", "missing"]
     assert got[1].slide_no == 4 and "연속성" in got[1].quote
+
+
+def test_좋은_답의_짚은_줄은_둘까지고_낱말_하나만_겹친_줄은_짚은_것이_아니다():
+    """실측: good 85 에 짚은 줄 카드 셋 — 그중 하나는 답과 「시간」 한 낱말만 겹쳤다."""
+    deck = build_deck([(4, "수면의 질은 단순한 “시간”보다 넓은 개념입니다.\n수면의 질 = 시간\n×\n연속성\n×\n규칙성\n"
+                           "핵심 침대에 누워 있던 시간과 실제로 회복한 시간은 다를 수 있습니다.")])
+    idx = index_lines(deck)
+    said = "수면의 질은 시간 × 연속성 × 규칙성이라서 시간은 세 요소 가운데 하나일 뿐이에요. 오래 자도 자주 깨면 질이 낮아요."
+    cands = [JudgeGround(4, r.text, "covered", "", r.ref) for r in idx.in_slide(4)]
+    got = finalize_grounds(cands, index=idx, deck=deck, said=said, verdict="good", passed=True)
+    assert [g.role for g in got] == ["covered", "covered"]
+    assert all("침대" not in g.quote for g in got)
