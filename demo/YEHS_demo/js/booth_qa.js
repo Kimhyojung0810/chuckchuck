@@ -456,9 +456,13 @@ async function bqShowPick() {
 
 function bqCoverPdf(sessionId) {
   if (!bq.covers.has(sessionId)) {
-    if (!window.pdfjsLib) return Promise.reject(new Error('pdf.js 가 없어요'));
     const url = `/api/v1/preview-pdf?session_id=${encodeURIComponent(sessionId)}`;
-    const p = pdfjsLib.getDocument({ url }).promise;
+    // pdf.js 는 한가할 때 받는다 (js/lazy.js) — 아직이면 기다린다
+    const ready = typeof ccEnsurePdfjs === 'function' ? ccEnsurePdfjs() : Promise.resolve(!!window.pdfjsLib);
+    const p = ready.then((ok) => {
+      if (!ok) throw new Error('pdf.js 가 없어요');
+      return pdfjsLib.getDocument({ url }).promise;
+    });
     p.catch(() => bq.covers.delete(sessionId));
     bq.covers.set(sessionId, p);
   }

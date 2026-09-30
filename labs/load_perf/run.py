@@ -3,7 +3,7 @@
 
 왜 — 공개 경로(Cloudflare → Tailscale Funnel 도쿄 입구 → DERP 홍콩 → VM)는 새 연결 하나에 ~1초,
 이어 쓰는 연결의 요청 하나에 ~0.2초가 든다 (2026-10-01 실측). 그 길을 몇 번 타느냐가 체감 속도다.
-이 실험실은 헤드리스 크롬으로 페이지를 두 번(처음 방문 · 다시 방문) 열고
+이 실험실은 헤드리스 크롬으로 페이지를 두 번(처음 방문 · 다시 방문) 열고 첫 그림(FCP) · 앱이 첫 화면을 그린 시각(app) ·
 요청 수 · 받은 바이트 · 캐시에서 온 수 · 화면이 뜬 시각 · 가장 긴 요청 사슬을 남긴다.
 
     .venv/bin/python labs/load_perf/run.py --base http://127.0.0.1:8810                  # 로컬 그대로
@@ -30,13 +30,26 @@ OUT = HERE / "out"
 # 앱이 첫 화면을 그렸다는 표시 — route() 가 #app 을 채운다
 READY_JS = "() => { const a = document.querySelector('#app'); return !!(a && a.childElementCount); }"
 
+# 페이지 안에서 잰다 — #app 이 처음 채워진 시각(앱이 첫 화면을 그림)
+INIT_JS = """(() => {
+  window.__ccAppAt = 0;
+  const tick = () => {
+    const a = document.querySelector('#app');
+    if (a && a.childElementCount) { window.__ccAppAt = performance.now(); return; }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+})();"""
+
 PERF_JS = """() => {
   const nav = performance.getEntriesByType('navigation')[0] || {};
   const res = performance.getEntriesByType('resource').map(r => ({
     name: r.name, type: r.initiatorType, start: r.startTime, end: r.responseEnd,
     transfer: r.transferSize, body: r.encodedBodySize, decoded: r.decodedBodySize,
   }));
-  return { dcl: nav.domContentLoadedEventEnd, load: nav.loadEventEnd, html_ttfb: nav.responseStart, res };
+  const fcp = (performance.getEntriesByName('first-contentful-paint')[0] || {}).startTime || 0;
+  return { dcl: nav.domContentLoadedEventEnd, load: nav.loadEventEnd, html_ttfb: nav.responseStart, res,
+           fcp, app_at: window.__ccAppAt || 0 };
 }"""
 
 
@@ -74,7 +87,11 @@ def one_visit(page, url: str, same_origin: str) -> dict:
     net = [r for r in mine if r["transfer"] > 0]           # 망을 탄 것 (304 도 헤더만큼 transfer>0)
     cached = [r for r in mine if r["transfer"] == 0 and r["decoded"] > 0]  # 브라우저 캐시에서 바로
     revalidated = [r for r in mine if 0 < r["transfer"] < 600 and r["decoded"] > 2000]
+    app_at = perf["app_at"] or 0
     return {
+        "fcp_ms": round(perf["fcp"]), "app_ms": round(app_at),
+        "load_ms": round(perf["load"] or 0),
+        "before_app": len([r for r in mine if r["start"] <= app_at]) + 1,
         "load_s": round(t_load, 3), "ready_s": round(t_ready, 3), "idle_s": round(t_idle, 3),
         "dcl_ms": round(perf["dcl"] or 0), "html_ttfb_ms": round(perf["html_ttfb"] or 0),
         "requests_same_origin": len(mine) + 1, "net_same_origin": len(net) + 1,
@@ -111,6 +128,7 @@ def main() -> int:
         b = p.chromium.launch()
         for i in range(a.runs):
             ctx = b.new_context(viewport={"width": 1280, "height": 860})
+            ctx.add_init_script(INIT_JS)
             page = ctx.new_page()
             if a.latency or a.down:
                 cdp = ctx.new_cdp_session(page)
@@ -132,7 +150,7 @@ def main() -> int:
             ctx.close()
         b.close()
 
-    keys = ["ready_s", "idle_s", "requests_same_origin", "net_same_origin", "from_browser_cache",
+    keys = ["fcp_ms", "app_ms", "load_ms", "before_app", "idle_s", "requests_same_origin", "net_same_origin", "from_browser_cache",
             "revalidated_304ish", "bytes_same_origin", "last_same_origin_end_ms"]
     summary = {}
     for kind in ("first", "again"):
@@ -143,12 +161,13 @@ def main() -> int:
     (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
 
     print(f"{url}  latency+{a.latency}ms  down={a.down or '∞'}KB/s  runs={a.runs}  → {out}")
-    print(f"{'':10}" + "".join(f"{k:>14}" for k in ("ready_s", "idle_s", "reqs", "net", "cache", "304", "KB", "last_ms")))
+    cols = ("fcp_ms", "app_ms", "load_ms", "reqs<app", "reqs", "net", "cache", "KB")
+    print(f"{'':8}" + "".join(f"{k:>10}" for k in cols))
     for kind in ("first", "again"):
         s = summary[kind]
-        vals = [s["ready_s"], s["idle_s"], s["requests_same_origin"], s["net_same_origin"], s["from_browser_cache"],
-                s["revalidated_304ish"], round(s["bytes_same_origin"] / 1024), s["last_same_origin_end_ms"]]
-        print(f"{kind:10}" + "".join(f"{v:>14}" for v in vals), " cf=", ",".join(s["cf_status"]) or "-")
+        vals = [round(s["fcp_ms"]), round(s["app_ms"]), round(s["load_ms"]), s["before_app"], s["requests_same_origin"],
+                s["net_same_origin"], s["from_browser_cache"], round(s["bytes_same_origin"] / 1024)]
+        print(f"{kind:8}" + "".join(f"{v:>10}" for v in vals), " cf=", ",".join(s["cf_status"]) or "-")
     print("slowest (first):", ", ".join(f"{x['url']} {x['ms']}ms@{x['start']}" for x in summary["first"]["slowest"][:4]))
     return 0
 

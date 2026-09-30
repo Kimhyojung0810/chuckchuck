@@ -1298,6 +1298,7 @@ def _capped(value, depth: int = 0):
 
 #: 정적 파일 해시·gzip 기억 (demo/static_assets.py). 첫 화면 파일을 오래 캐시해도 옛 판이 안 남게 한다.
 STATIC = AssetCache({"/": DEMO_DIR, "/sdk/": SDK_DIR})
+CDN_HTML_CACHE = "max-age=60, stale-while-revalidate=86400"
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -1763,19 +1764,25 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         ctype = self.guess_type(str(path))
         if ctype.startswith("text/") and "charset" not in ctype:
             ctype += "; charset=utf-8"
+        extra = []
         if path.suffix.lower() == ".html":
             cache = REVALIDATE  # 입구는 늘 재검증 — 새 판의 해시 주소를 바로 물게
+            # Cloudflare 에게만: 60초 들고 있다가 그 뒤엔 가진 걸 먼저 내주며 뒤에서 새로 받는다. HTML 은 누구에게나
+            # 같아서(팀 여부는 /api/v1/team) 나눠 써도 되고, 첫 방문의 VM 왕복(0.2~1.8초)이 빠진다.
+            # Cloudflare 는 HTML 을 기본으로 저장하지 않아서 캐시 규칙을 켜야 쓰인다 (docs/DEPLOYMENT.md §10-5)
+            extra.append(("CDN-Cache-Control", CDN_HTML_CACHE))
         else:
             v = (parse_qs(parsed.query).get("v") or [""])[0]
             cache = IMMUTABLE if v and v == digest else REVALIDATE
-        self._send_static_bytes(path, data, ctype, cache, head_only)
+        self._send_static_bytes(path, data, ctype, cache, head_only, extra)
         return None
 
-    def _send_static_bytes(self, path: Path, data: bytes, ctype: str, cache: str, head_only: bool) -> None:
+    def _send_static_bytes(self, path: Path, data: bytes, ctype: str, cache: str, head_only: bool,
+                           extra: list[tuple[str, str]] = ()) -> None:
         compressible = path.suffix.lower() in COMPRESSIBLE and len(data) >= MIN_GZIP_BYTES
         gz = compressible and accepts_gzip(self.headers.get("Accept-Encoding") or "")
         etag = f'"{content_digest(data)}{"-gz" if gz else ""}"'
-        headers = [("ETag", etag), ("Cache-Control", cache)]
+        headers = [("ETag", etag), ("Cache-Control", cache), *extra]
         if compressible:
             headers.append(("Vary", "Accept-Encoding"))
         if etag_matches(self.headers.get("If-None-Match") or "", etag):

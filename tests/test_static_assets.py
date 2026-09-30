@@ -183,3 +183,9 @@ def test_SDK_는_sdk_마운트에서_오고_마운트_밖은_404(served_site):
     assert status == 200 and "./a.js?v=h" in body.decode()
     assert hdrs["content-type"].startswith("text/javascript")
     assert _get("/sdk/../../secret.env")[0] == 404
+
+
+def test_HTML_만_Cloudflare_에_잠깐_맡기고_파일과_API_에는_안_붙인다(served_site):
+    assert _get("/")[1].get("cdn-cache-control") == bridge.CDN_HTML_CACHE
+    assert "cdn-cache-control" not in _get("/css/app.css")[1]
+    assert "cdn-cache-control" not in _get("/api/health")[1]
