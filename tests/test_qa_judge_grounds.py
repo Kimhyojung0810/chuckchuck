@@ -388,3 +388,11 @@ def test_어느_근거_줄과도_안_겹치는_문장의_자료에는_장을_달
     """코드 문장 「자료의 한쪽 말만 다시 했어요」 — 그 자료는 빠진 줄의 장이 아니다(되풀이한 쪽의 장이다)."""
     text = "자료의 한쪽 말만 다시 했어요. 질문은 두 말이 어떻게 함께 성립하는지 묻고 있어요."
     assert cite_slides(text, [G4]) == text
+
+
+def test_장_번호는_LLM_이_쓴_문장에만_달고_개념_이름_겹침은_세지_않는다():
+    code = "수면의 질 — 질문이 따지는 자료 줄을 다시 말하는 데 그쳤어요."
+    assert cite_slides(code, [G4], only=[]) == code                         # 코드 문장
+    assert cite_slides(code, [G4], ignore="수면의 질") == code               # 개념 이름만 겹친다
+    llm = "수면의 질은 자료에서 제시한 연속성까지 봐야 해요."
+    assert cite_slides(llm, [G4], only=[llm], ignore="수면의 질") == "수면의 질은 자료 4장에서 제시한 연속성까지 봐야 해요."

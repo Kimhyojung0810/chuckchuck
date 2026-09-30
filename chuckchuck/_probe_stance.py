@@ -285,11 +285,13 @@ def _tension_restated(text: str, quotes: list[str], q_text: str, missing: str) -
     said = _stems(text)
     if not any(_restates_near(said, q) for q in quotes):
         return False
-    # 두 줄은 같은 개념 이름을 나눠 가져서 「한쪽만」 을 겹침으로는 못 가른다 — 각 줄에만 있는 낱말을 본다.
+    # 줄들은 같은 개념 이름을 나눠 가져서 「한쪽만」 을 겹침으로는 못 가른다 — 각 줄에만 있는 낱말을 본다. 탐침 근거가 셋이면(비교 줄 ·
+    # 정의 줄 · 식 줄) 셋 다 본다 — 실측(10-01): 둘째 줄(「…넓은 개념」)만 보고 식 줄(「…× 연속성 × 규칙성」)을 안 봐서, 판정이 식 줄을
+    # 결손으로 짚었는데도 「짚지 않았다」 로 읽었다.
     untouched: list[str] = []
-    for i, q in enumerate(quotes[:2]):
-        other = quotes[1 - i]
-        own = [x for x in _stems(q) if not any(_near(x, y) for y in _stems(other))]
+    for i, q in enumerate(quotes):
+        others = [y for j, o in enumerate(quotes) if j != i for y in _stems(o)]
+        own = [x for x in _stems(q) if not any(_near(x, y) for y in others)]
         if own and not any(_near(x, y) for x in own for y in said):
             untouched += own
     if not untouched:

@@ -1752,6 +1752,7 @@ def _normalize(
     react = _clean_react(str(data.get("react", "") or ""), said, question.answer_gist,
                          deck=topic_deck if topic_deck is not None else deck,
                          known=f"{said} {question.question} {question.label or ''}") or _REACT_BY_VERDICT[verdict]
+    llm_react = react           # 근거 줄의 장 번호는 LLM 이 쓴 문장에만 단다 — 코드 문장은 이미 제 장을 말하거나 다른 자료를 가리킨다
     # 가드가 등급을 뒤집었으면 LLM 의 react 는 그 등급과 어긋난 문장이다 — 코드 문구로.
     if inj:
         react = _INJECTION_REACT
@@ -1817,6 +1818,7 @@ def _normalize(
         react = _TRAP_AGREED_REACT if trap_agreed else _TRAP_NEUTRAL_REACT
 
     summary = _clean_summary(str(data.get("summary_sentence", "") or ""), deck, question, tp, leak_guard)
+    llm_summary = summary
     # 가드가 등급이나 통과를 뒤집었으면 LLM 총평은 뒤집히기 전 등급의 말이다 — 리포트에 남는 총평을 코드 문장으로 (J7).
     flipped = verdict != llm_verdict or qa_passed(verdict, score) != qa_passed(llm_verdict, llm_score)
     if conflict is not None and conflict.kind != "number_unsupported":
@@ -1912,8 +1914,9 @@ def _normalize(
             # 자료에 없다는 것이 정답인 판정(부재·빈틈 인정)에는 코드가 줄을 짐작해 붙이지 않는다
             fallback=not (absent or gap_honest or capped == "gap_absent"),
         )
-        react = cite_slides(react, grounds)
-        summary = cite_slides(summary, grounds)
+        # LLM 이 쓴 문장만(코드 문장 「질문이 따지는 자료 줄을 …」 에 개념 이름 겹침으로 엉뚱한 장이 붙었다 — 10-01 실측), 개념 이름 낱말은 빼고 겹침을 센다
+        react = cite_slides(react, grounds, only=sentences(llm_react), ignore=question.label or "")
+        summary = cite_slides(summary, grounds, only=sentences(llm_summary), ignore=question.label or "")
 
     judgement = QaJudgement(
         question_id=question.id,

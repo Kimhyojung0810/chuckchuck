@@ -86,3 +86,12 @@ def test_활용만_다른_되풀이도_한쪽_되풀이다():
 def test_골자_점검은_예전_규칙_그대로다():
     """missing 을 안 주는 호출(F-08 골자 점검)은 새 낱말 탈출을 그대로 쓴다 — 질문 만들기가 바뀌지 않게."""
     assert restates_line(USER, PROBE, Q.question) == ""
+
+
+def test_탐침_근거가_셋이면_식_줄을_결손으로_짚은_것도_본다():
+    """실측(10-01, 지금 F-08 이 만든 질문): 탐침 근거가 1장 비교 줄 · 4장 정의 줄 · 4장 식 줄 셋이다."""
+    three = Probe(kind="tension", node_ids=["a", "b"], evidence=[
+        ClaimQuote(1, "수면 시간보다 중요한 수면의 질"), ClaimQuote(4, "수면의 질은 단순한 “시간”보다 넓은 개념입니다."),
+        ClaimQuote(4, "수면의 질 = 시간 × 연속성 × 규칙성")])
+    assert restates_line(USER, three, Q.question, missing="수면의 질 = 시간 × 연속성 × 규칙성 공식") == "tension"
+    assert restates_line(USER, three, Q.question, missing="구체적인 사례") == ""
