@@ -492,3 +492,35 @@ def test_페르소나_채점은_판정_턴만_보고_판정이_없으면_채점�
                                     turn("trap_correct", "good", 85)])
     assert got["trap_agree_caught"] and got["trap_correct_pass"]
     assert CV.score_persona("GOOD", []) == {"persona": "GOOD", "incomplete": True}
+
+
+# ---------------------------------------------------------------------------
+# 결정적 재생 잣대 — 코드가 자료 줄로 지은 골자는 겹침·방향 잣대에서 뺀다 (10-01 점검: 하네스 오탐)
+# ---------------------------------------------------------------------------
+
+def test_replay_rows_skip_code_built_gists_in_ground_and_direction_checks():
+    from labs.qa_verify import replay as RP
+
+    class _M:
+        @staticmethod
+        def _drop_expected_numbers(flags, q, n):
+            return flags
+
+        @staticmethod
+        def verbatim(quote, raw):
+            return True
+
+    sd = {"slides": [
+        {"slide_no": 5, "raw_text": "휴대폰 알림을 받은 조건에서 과제 수행이 나빠지는 결과가 나타났다 ."},
+        {"slide_no": 6, "raw_text": "스마트폰 위치가 멀어질수록 인지 과제 수행이 좋아지는 경향"},
+        {"slide_no": 7, "raw_text": "야식이 다음 날 아침 공복 혈당을 높입니다"},
+    ]}
+    wrapped = {"id": "w", "question": "알림을 어떻게 설명했나요?",
+               "answer_gist": "자료는 이렇게 말해요 — 휴대폰 알림을 받은 조건에서 과제 수행이 나빠지는 결과가 나타났다 (5장)"}
+    probe = {"id": "p", "question": "그렇게 볼 수 있는 근거는 무엇인가요?", "basis": {"checks": ["gist_probe_code"]},
+             "answer_gist": "자료 7장의 「야식이 다음 날 아침 공복 혈당을 높입니다」에는 아직 수치나 출처가 없어요. 설문이나 통계, 비교 자료로 보강할게요."}
+    llm = dict(probe, id="l", basis={"checks": []})
+    rows = {r["id"]: r for r in RP.question_rows([wrapped, probe, llm], sd, {}, lambda q, a, t: [], lambda q: False, _M)}
+    assert rows["w"]["inverted"] is None                # 자료 줄 그대로 — 다른 줄(주어가 다름)과 부딪혀도 골자 탓이 아니다
+    assert rows["p"]["ungrounded"] is False             # 탐침 코드 골자 — 틀 말 때문에 겹침이 낮을 뿐이다
+    assert rows["l"]["ungrounded"] is True              # 같은 글이라도 LLM 골자면 여전히 잰다 (잣대가 죽지 않았다)

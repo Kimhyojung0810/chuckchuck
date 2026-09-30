@@ -1517,6 +1517,48 @@ def test_prompt_asks_for_gist_parts():
     assert "answer_gist_parts" in QUESTION_SYSTEM_PROMPT
 
 
+def test_llm_parts_on_a_single_ask_question_are_dropped():
+    """
+    10-01 점검(yield_gap t5): 「…하회하는 이유는 무엇인가요?」 에 LLM 이 수치 두 줄을 요소로 달았다. 요소가 있으면 F-09 가
+    요소마다 답을 대조해서, 골자의 이유를 그대로 말한 답이 partial 65 로 막히고 「개인 평균 연 4.8%p 낮음 — 이 부분은 어떻게 봐요?」
+    를 되물었다. 하나만 묻는 질문의 요소는 프롬프트 규칙대로 빈 배열이다.
+    """
+    doc = doc_of(questions_payload({
+        "node_id": "c1", "question": "개념1이 지수보다 낮은 이유는 무엇인가요?",
+        "answer_gist": "개념1 한 줄이라서 그래요",
+        "answer_gist_parts": ["개념1 한 줄", "개념1 지수 하회"],
+    }))
+    q = _first(doc)
+    assert q.answer_gist_parts == []
+    assert "gist_parts_single_ask" in q.basis.checks
+
+
+# ---------------------------------------------------------------------------
+# 1차 심사 각도 — 배치를 방어하라는 각도는 질문 재료로 싣지 않는다 (10-01 점검)
+# ---------------------------------------------------------------------------
+
+def test_arrangement_angle_from_triage_is_dropped():
+    """벤치 캐시 yield_gap: 1차 심사가 프롬프트 예시 각도 「왜 다른 정렬 방식 대신 이걸 골랐는지」 를 14개 개념 모두에 베꼈고,
+    질문 LLM 이 그대로 「…왜 다른 정렬 방식 대신 이걸 골랐는지 설명해 주세요.」 를 썼다 (질문 규칙 3-1 위반)."""
+    from chuckchuck.f08_questions import TRIAGE_SYSTEM_PROMPT, _usable_angle
+
+    assert _usable_angle("왜 다른 정렬 방식 대신 이걸 골랐는지") == ""
+    assert _usable_angle("왜 이렇게 분류했는지") == ""
+    assert _usable_angle("이 수치의 출처와 측정 조건") == "이 수치의 출처와 측정 조건"
+    assert _usable_angle("정렬 방식이 표현 학습에 주는 영향") != ""          # 자료가 쓰는 말 「정렬」 은 막지 않는다
+    assert "정렬 방식 대신" not in TRIAGE_SYSTEM_PROMPT and "다른 방식 대신" not in TRIAGE_SYSTEM_PROMPT
+
+    triage = triage_of(marks_payload({"node_id": "c1", "severity": 1, "trap": False,
+                                      "angle": "왜 다른 정렬 방식 대신 이걸 골랐는지"}))
+    assert all(m.angle == "" for m in triage.marks if m.node_id == "c1")
+    # 저장된 예전 1차 심사(각도가 이미 들어 있는 것)도 질문 프롬프트에 싣지 않는다
+    stale = QaTriage.from_dict({**triage.to_dict(), "marks": [
+        {**m.to_dict(), "angle": "왜 다른 정렬 방식 대신 이걸 골랐는지"} for m in triage.marks]})
+    llm = ScriptedLLM(questions_payload())
+    build_questions(make_graph(), stale, track="10", llm=llm)
+    assert llm.prompts and all("정렬 방식" not in p for p in llm.prompts)
+
+
 # ---------------------------------------------------------------------------
 # D · 자료 본문을 F-08 까지 (백로그 #4)
 #

@@ -120,6 +120,10 @@ def _replay_f08(B, run, sd, graph, claims, triage, track, ctx, llm=None):
     return doc.to_dict(), ""
 
 
+#: F-08 이 골자를 **자료 줄로 코드가 지었다**는 표시 (탐침 코드 골자·탐침 폴백 골자) — 겹침 잣대(gist_ungrounded)에서 뺀다.
+_CODE_GIST_CHECKS = frozenset({"gist_probe_code", "gist_probe_rebuilt"})
+
+
 def question_rows(qs: list[dict], sd: dict, cached: dict[str, dict], question_flags, is_fallback, M) -> list[dict]:
     raw = TG_raw(sd)
     lines = [x for _, x in T.deck_lines(sd)]
@@ -131,11 +135,16 @@ def question_rows(qs: list[dict], sd: dict, cached: dict[str, dict], question_fl
         wrapped = gist.startswith("자료는 이렇게 말해요")
         flags = M._drop_expected_numbers(question_flags(q, None, texts), q, len(raw))
         quote, no = q.get("evidence_quote", ""), int(q.get("evidence_slide_no") or 0)
-        inv = TG.inverted_against(gist, lines) if not q.get("trap") else None
+        # 자료 줄을 그대로 이은 골자(「자료는 이렇게 말해요 — …」)는 자료와 방향이 거꾸로일 수 없다 — 다른 줄과 부딪히면 자료가 스스로 그렇다.
+        # 10-01 점검: focus 「알림을 받은 조건에서 과제 수행이 나빠지는」 ↔ 「폰이 멀어질수록 수행이 좋아지는」(주어가 다른 줄)이 걸렸다.
+        inv = TG.inverted_against(gist, lines) if not q.get("trap") and not wrapped else None
+        # 탐침 코드 골자(자료 줄 인용 + 「…보강할게요」 같은 틀 말)는 틀 말 때문에 겹침이 낮다 — 코드가 자료 줄로 지은 골자라 잣대 밖이다.
+        code_built = bool(_CODE_GIST_CHECKS & set((q.get("basis") or {}).get("checks") or []))
         old = cached.get(q.get("id", "")) or {}
         rows.append({
             "id": q.get("id"), "question": q.get("question", ""), "gist": gist, "trap": bool(q.get("trap")),
-            "inverted": inv, "ungrounded": (not wrapped and len(T.tokens(gist)) >= 4 and T.coverage(gist, deck) < TG.GIST_GROUNDED_MIN),
+            "inverted": inv, "ungrounded": (not wrapped and not code_built and len(T.tokens(gist)) >= 4
+                           and T.coverage(gist, deck) < TG.GIST_GROUNDED_MIN),
             "trap_uncorrected": bool(q.get("trap")) and not _PREMISE_RE.search(gist),
             "bad_flags": [f for f in flags if "!" in f], "hapsyo": any(f.startswith("합쇼체") for f in flags),
             "undercut": RG.self_contradicting(q.get("question", "")), "fallback": bool(is_fallback(q)),
