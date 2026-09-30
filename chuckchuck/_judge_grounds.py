@@ -227,7 +227,8 @@ def _best_in_slide(index: LineIndex, slide_no: int, clue: str) -> LineRef | None
 
 
 def _clip_quote(text: str) -> str:
-    text = (text or "").strip()
+    # 문서 변환이 문장 부호 앞에 띄어 쓴 것(「짧지만 , 작업 맥락」)만 붙인다 — 글자는 자료 그대로다
+    text = re.sub(r"\s+([,.?!)])", r"\1", (text or "").strip())
     return text if len(text) <= QUOTE_MAX else text[: QUOTE_MAX - 1].rstrip() + "…"
 
 

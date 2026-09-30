@@ -396,3 +396,11 @@ def test_장_번호는_LLM_이_쓴_문장에만_달고_개념_이름_겹침은_�
     assert cite_slides(code, [G4], ignore="수면의 질") == code               # 개념 이름만 겹친다
     llm = "수면의 질은 자료에서 제시한 연속성까지 봐야 해요."
     assert cite_slides(llm, [G4], only=[llm], ignore="수면의 질") == "수면의 질은 자료 4장에서 제시한 연속성까지 봐야 해요."
+
+
+def test_인용은_문장_부호_앞_띄어쓰기만_붙이고_글자는_자료_그대로다():
+    deck = build_deck([(8, "알림 확인은 짧지만 , 작업 맥락 복구는 보이지 않는 비용이다 .")])
+    idx = index_lines(deck)
+    got = finalize_grounds([JudgeGround(8, idx.get("S8-1").text, "covered", "", "S8-1")], index=idx, deck=deck,
+                           said="알림 확인은 짧지만 작업 맥락 복구에 비용이 들어요", verdict="partial", passed=True)
+    assert got[0].quote == "알림 확인은 짧지만, 작업 맥락 복구는 보이지 않는 비용이다."
