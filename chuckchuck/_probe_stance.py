@@ -244,22 +244,73 @@ def _new_number(answer: str, question_text: str, quotes: list[str]) -> bool:
     return any(not any(n.same_value(k) for k in known) for n in numbers(answer))
 
 
-def restates_probe(answer: str, question) -> str:
-    """Question 을 받는 판정용 입구 — 탐침·질문 문장을 꺼내 `restates_line` 에 넘긴다."""
+def restates_probe(answer: str, question, missing: str = "") -> str:
+    """
+    Question 을 받는 판정용 입구 — 탐침·질문 문장을 꺼내 `restates_line` 에 넘긴다.
+    missing 은 판정 LLM 이 적은 결손(다듬기 전) — 긴장 탐침에서 새 낱말 탈출을 믿을지 정한다 (2026-10-01 A-03, `restates_line`).
+    """
     probe = probe_of(question)
     if probe is None:
         return ""
-    return restates_line(answer, probe, getattr(question, "question", "") or "")
+    return restates_line(answer, probe, getattr(question, "question", "") or "", missing=missing)
 
 
-def restates_line(answer: str, probe, q_text: str = "") -> str:
+#: 부분·전체·한정 표지 — 「…의 한 요소일 뿐」「…만으로는」「…말고도」. 긴장(「A보다 중요한 B」 인데 A 가 B 의 요소)을 푸는 말의 뼈대다.
+#: 「밖에 없다」(「피곤할 수밖에 없다」)는 한정이 아니라 강조다 — 「밖에도」 만 센다.
+_PART_WHOLE_RE = re.compile(r"요소|부분|일부|구성|이루|포함|뿐|불과|말고도|외에도|밖에도|(?<=[가-힣])만(?:으로|이\s|은\s|는\s|\s)")
+
+
+def _restates_near(stems: list[str], quote: str) -> bool:
+    """`_restates` 와 같되 활용만 다른 낱말(「중요한」·「중요하다」)도 같은 낱말로 센다 — 앞 두 글자(`_near`)."""
+    line = {x for x in _stems(quote)}
+    if len(line) < RESTATE_MIN:
+        return False
+    hit = sum(1 for x in line if _has(stems, x) or any(_near(x, y) for y in stems))
+    return hit >= RESTATE_MIN and hit >= RESTATE_RATIO * len(line)
+
+
+def _tension_restated(text: str, quotes: list[str], q_text: str, missing: str) -> bool:
+    """
+    긴장 탐침(판정용, 2026-10-01 A-03) — 두 줄 중 한쪽만 되풀이하고 다른 쪽을 건드리지 않았는가.
+
+    09-30 규칙은 질문·탐침 줄에 없는 새 낱말이 NOVEL_MIN 개면 곧바로 「되풀이 아님」 이었다. 새 낱말은 다른 쪽을 풀어 말한 것일 수도
+    있지만(「자다가 자주 깨면」), 한쪽 주장을 제 말로 부풀린 것일 수도 있다 — 10-01 사용자 보고(수면 덱): 「아무리 잠을 많이 자더라도
+    수면의 질적이 미흡하면 피곤하다」 는 1장 주장만 되풀이했는데 새 낱말(피곤·미흡·많이)로 가드를 비켜 partial 75 통과였다.
+    이제 새 낱말은 **판정 LLM 이 건드리지 않은 쪽을 결손으로 짚지 않았을 때만** 풀어 말한 것으로 믿는다(결손이 그 쪽의 고유 낱말이나
+    부분·전체 표지를 말하면 되풀이다). 부분·전체 표지(「한 요소일 뿐」「…만으로는」)는 긴장을 푸는 말이라 그대로 탈출이다.
+    되풀이 대조는 활용만 다른 낱말(「중요한」·「중요하다」)도 센다.
+    """
+    if _RECONCILE_RE.search(text) or _PART_WHOLE_RE.search(text):
+        return False
+    said = _stems(text)
+    if not any(_restates_near(said, q) for q in quotes):
+        return False
+    # 두 줄은 같은 개념 이름을 나눠 가져서 「한쪽만」 을 겹침으로는 못 가른다 — 각 줄에만 있는 낱말을 본다.
+    untouched: list[str] = []
+    for i, q in enumerate(quotes[:2]):
+        other = quotes[1 - i]
+        own = [x for x in _stems(q) if not any(_near(x, y) for y in _stems(other))]
+        if own and not any(_near(x, y) for x in own for y in said):
+            untouched += own
+    if not untouched:
+        return False
+    if len(_novel(text, q_text, quotes)) >= NOVEL_MIN:
+        flagged = _stems(missing)
+        if not (_PART_WHOLE_RE.search(missing or "") or any(_near(x, y) for x in untouched for y in flagged)):
+            return False
+    return True
+
+
+def restates_line(answer: str, probe, q_text: str = "", *, missing: str | None = None) -> str:
     """
     답이 탐침이 따지는 자료 줄을 **되풀이하거나 그대로 받아들이기만** 했는가 — 그렇다면 탐침 종류, 아니면 "".
 
     - 단정의 경계: 단정 줄을 거의 그대로 말하면서 단정 표지를 부정하지 않았고(`absolute_marker`), 경계·예외·조건 표지가 없다.
     - 근거 없는 인과: 근거를 댄 흔적(새 숫자·출처 낱말)도, 근거가 비었다는 인정도 없이 ① 인과 줄을 되풀이만 했거나
       (새 낱말 NOVEL_MIN 미만) ② 「근거가 명확하다·제시되어 있다」 고 주장만 했다.
-    - 긴장: 두 줄 중 하나만 되풀이하고, 다른 줄의 낱말도 잇는 표지도 새 낱말도 없다.
+    - 긴장: 두 줄 중 하나만 되풀이하고, 다른 줄의 낱말도 잇는 표지도 새 낱말도 없다. 판정(missing 을 준 호출)에서는
+      `_tension_restated` — 새 낱말은 판정 LLM 이 다른 쪽을 결손으로 짚지 않았을 때만 믿는다 (2026-10-01 A-03). missing 을 안 주면
+      (F-08 골자 점검) 예전 규칙 그대로다.
     - 형제 우선순위는 보지 않는다(「둘 다 필요」 도 정답이라 되풀이와 가르기 어렵다 — 대조 원본에서 빼는 것만 한다).
     """
     if probe is None or probe.kind not in PROBED_LINE_KINDS:
@@ -323,6 +374,8 @@ def restates_line(answer: str, probe, q_text: str = "") -> str:
         if any(_restates(said, q) for q in quotes) and len(_novel(core, q_text, quotes)) < NOVEL_MIN:
             return kind
         return kind if _SUPPORT_CLAIM_RE.search(text) else ""
+    if kind == "tension" and len(quotes) >= 2 and missing is not None:
+        return kind if _tension_restated(text, quotes, q_text, missing) else ""
     if kind == "tension" and len(quotes) >= 2:
         if _RECONCILE_RE.search(text) or len(_novel(text, q_text, quotes)) >= NOVEL_MIN:
             return ""

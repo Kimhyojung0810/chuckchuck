@@ -314,10 +314,10 @@ G1 = JudgeGround(1, "수면 시간보다 중요한 수면의 질", "covered", ""
 
 
 def test_맨_자료에_장_번호를_끼우고_조사를_받침에_맞춘다():
-    assert cite_slides("자료에서 제시한 식을 보세요.", [G4]) == "자료 4장에서 제시한 식을 보세요."
-    assert cite_slides("자료를 다시 보세요.", [G4]) == "자료 4장을 다시 보세요."
-    assert cite_slides("자료가 말하는 관계예요.", [G4]) == "자료 4장이 말하는 관계예요."
-    assert cite_slides("자료와 같아요.", [G4]) == "자료 4장과 같아요."
+    assert cite_slides("자료에서 제시한 연속성 식을 보세요.", [G4]) == "자료 4장에서 제시한 연속성 식을 보세요."
+    assert cite_slides("자료를 다시 보면 규칙성이 있어요.", [G4]) == "자료 4장을 다시 보면 규칙성이 있어요."
+    assert cite_slides("자료가 말하는 연속성 관계예요.", [G4]) == "자료 4장이 말하는 연속성 관계예요."
+    assert cite_slides("규칙성은 자료와 같아요.", [G4]) == "규칙성은 자료 4장과 같아요."
 
 
 def test_장_번호가_이미_있거나_자료가_아닌_낱말이면_두고_근거가_없으면_그대로다():
@@ -382,3 +382,9 @@ def test_좋은_답의_짚은_줄은_둘까지고_낱말_하나만_겹친_줄은
     got = finalize_grounds(cands, index=idx, deck=deck, said=said, verdict="good", passed=True)
     assert [g.role for g in got] == ["covered", "covered"]
     assert all("침대" not in g.quote for g in got)
+
+
+def test_어느_근거_줄과도_안_겹치는_문장의_자료에는_장을_달지_않는다():
+    """코드 문장 「자료의 한쪽 말만 다시 했어요」 — 그 자료는 빠진 줄의 장이 아니다(되풀이한 쪽의 장이다)."""
+    text = "자료의 한쪽 말만 다시 했어요. 질문은 두 말이 어떻게 함께 성립하는지 묻고 있어요."
+    assert cite_slides(text, [G4]) == text

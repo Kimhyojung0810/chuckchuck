@@ -514,7 +514,8 @@ def _cite_quotes(sent: str, grounds: list[JudgeGround]) -> str:
 def cite_slides(text: str, grounds: list[JudgeGround]) -> str:
     """
     「자료에서 제시한 …」 처럼 장 번호 없이 자료를 든 문장에 **근거 줄의 장 번호**를 끼운다(문장마다 첫 자리 하나). 이미 「N장」 이
-    있는 문장은 두지 않는다. 어느 장인지는 그 문장과 가장 많이 겹치는 근거 줄로 — 동률이면 conflict·missing 줄이 먼저다.
+    있는 문장은 두지 않는다. 어느 장인지는 그 문장과 가장 많이 겹치는 근거 줄로 — 동률이면 conflict·missing 줄이 먼저다. 어느 근거 줄과도
+    낱말이 안 겹치는 문장(「자료의 한쪽 말만 다시 했어요」)은 근거 줄이 아닌 자료를 말할 수 있어 그대로 둔다.
     「자료」 라는 말 없이 근거 줄을 따옴표로 옮긴 문장(「'…'이라는 관계를 …」)은 옮긴 글 뒤에 「(자료 N장)」 을 단다.
     """
     if not text or not grounds:
@@ -532,8 +533,12 @@ def cite_slides(text: str, grounds: list[JudgeGround]) -> str:
             changed = changed or quoted != sent
             out.append(quoted)
             continue
-        stems = content_stems(sent)
+        stems = [x for x in content_stems(sent) if not x.startswith("자료")]
         pick = max(order, key=lambda g: _overlap(g.quote, stems))   # max 는 동률이면 앞(order 순)을 준다
+        if _overlap(pick.quote, stems) == 0:
+            # 문장이 어느 근거 줄과도 낱말이 안 겹친다 — 「자료의 한쪽 말만 다시 했어요」(코드 문장)처럼 근거 줄이 아닌 자료를 말한다
+            out.append(sent)
+            continue
         josa = m.group(1) or ""
         josa = _JOSA_AFTER_JANG.get(josa, josa)
         out.append(f"{sent[:m.start()]}자료 {pick.slide_no}장{josa}{sent[m.end():]}")

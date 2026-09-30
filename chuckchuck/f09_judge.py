@@ -1557,7 +1557,8 @@ def _normalize(
         verdict = "partial" if verdict in ("good", "partial") else verdict
         score = min(score, SELF_OPPOSED_SCORE_MAX)
     # 탐침이 따지는 자료 줄을 되풀이·수긍만 한 답 (09-29 P5 최종 평가 문제 1) — 자료와 어긋난 곳이 없어서 아래 가드는 못 잡는다.
-    restated = "" if guard else restates_probe(answer, question)
+    # 판정 LLM 의 결손(다듬기 전)을 같이 준다 — 긴장 탐침에서 새 낱말로 가드를 비켜 간 한쪽 되풀이를 LLM 이 짚었는지 본다 (10-01 A-03)
+    restated = "" if guard else restates_probe(answer, question, missing=" ".join(raw_points))
     if restated:
         guard, guard_reason = "restated", f"질문이 묻는 것: {RESTATE_POINT[restated]}"
         if verdict in ("good", "partial"):
