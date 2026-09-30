@@ -43,7 +43,7 @@ const EXPORT_LINE = `
   liveBucket, liveHintsUsed, liveWholeSentences, liveDegradedLines, liveQuestionWhy, liveJudgeFailure,
   liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
   liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion, liveRevealsHalf,
-  liveEntryNotes, liveContradiction,
+  liveEntryNotes, liveContradiction, liveGroundsView, liveGroundSlides,
 };`;
 
 /**
@@ -824,6 +824,31 @@ test('REC-10 결과 화면 — 녹음이 다른 발표면 「근거 발화와 �
   eq(sum.sub.includes('근거 발화'), false, '약속하지 않는다');
   eq(sum.sub.includes('이 자료로 발표한 녹음을 올리면'), true, sum.sub);
   eq(api.liveResultSummary(r, { speech: true }).sub.includes('근거 발화'), true, '맞는 녹음은 예전 그대로');
+});
+
+test('판정 근거 줄 — 역할을 모르는 줄·빈 줄은 빼고, 코칭 인용과 같은 줄은 한 번만, 다시 볼 장은 빠진·어긋난 줄만 (2026-10-01)', () => {
+  const { api } = newContext();
+  const v = { grounds: [
+    { slide_no: 1, quote: '제목 줄', role: 'covered', note: '짚었어요.' },
+    { slide_no: 4, quote: '식 = 가 × 나 × 다', role: 'missing', note: '관계를 말해요.' },
+    { slide_no: 4, quote: '  ', role: 'missing' },
+    { slide_no: 9, quote: '모르는 역할', role: 'maybe' },
+    { slide_no: 6, quote: '어긋난 줄', role: 'conflict', note: '' },
+  ] };
+  const got = api.liveGroundsView(v);
+  eq(got.map((g) => [g.slide, g.label]), [[1, '짚은 것'], [4, '빠진 것'], [6, '다시 볼 곳']]);
+  eq(got[1].note, '관계를 말해요.');
+  eq(api.liveGroundsView(v, '“식 = 가 × 나 × 다”').map((g) => g.slide), [1, 6], '코칭 인용과 같은 줄은 뺀다');
+  eq(api.liveGroundsView({}), [], '옛 판정(grounds 없음)');
+  eq(api.liveGroundSlides(v), [4, 6], '짚은 줄의 장은 다시 볼 장이 아니다');
+  eq(api.liveGroundSlides({ grounds: [{ slide_no: 4, role: 'missing', quote: 'a' }, { slide_no: 4, role: 'conflict', quote: 'b' }] }), [4]);
+});
+test('결과 한 줄은 판정이 가리킨 다시 볼 장을 적는다 — 스스로 설명한 줄은 빼고, 가드 출구는 장을 넣어 한 말로', () => {
+  const { api } = newContext();
+  eq(api.liveResultRow({ revealed: true, lookSlides: [4] }).meta, '답만 보고 넘어갔어요 · 자료 4장 다시 보기');
+  eq(api.liveResultRow({ closeReason: 'guard', lookSlides: [5] }, 'helped').meta, '자료 5장과 다시 맞춰 볼 곳이 남았어요');
+  eq(api.liveResultRow({ verdict: 'good', passed: true, mastered: true, turns: 1, lookSlides: [4] }).meta, '첫 답에 설명했어요');
+  eq(api.liveResultRow({ revealed: true }).meta, '답만 보고 넘어갔어요', '옛 기록(lookSlides 없음)은 예전 그대로');
 });
 
 let failed = 0;

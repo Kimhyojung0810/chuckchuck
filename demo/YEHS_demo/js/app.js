@@ -8865,6 +8865,14 @@ function streamRow(it) {
     return `<div class="msg ai hint">${av}<div class="msg-bubble"><b>힌트 ${it.level}/${it.total || 3}${it.auto ? ' · 좁혀 물으면서 같이 열었어요' : ''}</b>${it.text}${slides}</div></div>`;
   }
   if (it.kind === 'react') {
+    /* 판정 근거 줄 (2026-10-01 · qa_live.js liveGroundsView) — 판정이 기댄 자료 줄 그대로. 「자료 4장 · 빠진 것」 + 줄 + 왜 그 줄인지.
+       글은 liveGroundsView 가 이미 escape 했다. 빠진 줄·어긋난 줄의 장은 힌트처럼 조그맣게 같이 띄운다(진짜 렌더가 있는 장만). */
+    const groundSlides = (it.groundSlides || []).length ? `<div class="hint-slides">${it.groundSlides.map((no) => `
+      <figure><img data-thumb-page="${no}" src="${deckImageSrc(no)}" alt="${no}번 슬라이드" loading="lazy"><figcaption>${no}번</figcaption></figure>`).join('')}</div>` : '';
+    const grounds = (it.grounds || []).length ? `<div class="qa-grounds" role="group" aria-label="판정 근거">
+      <b class="qa-grounds-h">판정 근거</b>${it.grounds.map((g) => `
+      <blockquote class="qa-evidence qa-ground is-${g.role}"><span>${g.slide ? `자료 ${g.slide}장 · ` : ''}${g.label}</span>“${g.quote}”${g.note ? `<small>${g.note}</small>` : ''}</blockquote>`).join('')}${groundSlides}
+    </div>` : '';
     /* 「모르겠어요」에 온 응답은 판정이 아니다 (f09_judge.coach_stuck 이 점수를
        안 매기고 verdict 자리에 폴백을 넣는다). 판정 칩으로 그리면 솔직하게
        모르겠다고 누른 사람이 **틀린 답과 똑같은 빨간 칩**을 받는다 — 그리고
@@ -8882,7 +8890,7 @@ function streamRow(it) {
       <figure><img data-thumb-page="${no}" src="${deckImageSrc(no)}" alt="${no}번 슬라이드" loading="lazy"><figcaption>${no}번</figcaption></figure>`).join('')}</div>` : '';
       return `<div class="msg ai react is-coach">${av}<div class="msg-bubble">
         <span class="msg-meta">${line}</span>
-        <p>${it.text}</p>${quote}${slides}</div></div>`;
+        <p>${it.text}</p>${quote}${slides}${grounds}</div></div>`;
     }
     // 맵 밖 값이면 칩에 문자 그대로 "undefined" 가 그려진다 — 보류 쪽으로 떨어뜨린다.
     const lab = { full: '제대로 설명했어요', partial: '절반쯤', none: '아직' }[it.verdict] || '아직';
@@ -8895,7 +8903,7 @@ function streamRow(it) {
     const meter = it.score ? `<b class="msg-score num">${it.score}</b><small>완성도</small>${delta}` : '';
     return `<div class="msg ai react">${av}<div class="msg-bubble">
       <span class="react-head"><span class="chip chip-sm ${cls}">${lab}</span>${meter}</span>
-      <p>${it.text}</p>${it.fb || ''}</div></div>`;
+      <p>${it.text}</p>${grounds}${it.fb || ''}</div></div>`;
   }
   if (it.kind === 'missing') {
     return `<div class="msg ai miss">${av}<div class="msg-bubble">

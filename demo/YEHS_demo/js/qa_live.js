@@ -290,6 +290,41 @@ function coachReactText(react, quote) {
   return at > 0 ? text.slice(0, at).trim() : text;
 }
 
+/**
+ * 판정 근거 줄(v.grounds — 2026-10-01 qa/judge-grounds)의 화면 모양. 판정이 기댄 **자료 줄 그대로**와 장 번호·역할·설명이다
+ * (서버가 LLM 이 댄 줄 번호를 자료 글로 되찾아 싣는다 — f09_judge · _judge_grounds). 사용자 보고: 「자료에서 제시한 …」 이 몇 장
+ * 어느 줄인지, 왜 그 줄이 답인지가 안 보였다.
+ *
+ * shownQuote: 같은 말풍선에 이미 그리는 코칭 인용(evidence_quote) — 같은 줄이면 두 번 그리지 않는다. 역할을 모르면 뺀다.
+ * 글은 여기서 escape 한다(말풍선은 innerHTML 로 그린다).
+ */
+const LIVE_GROUND_ROLE = { covered: '짚은 것', missing: '빠진 것', conflict: '다시 볼 곳' };
+const LIVE_GROUNDS_MAX = 3;
+function liveGroundsView(v, shownQuote = '') {
+  const squash = (t) => String(t || '').replace(/[\s“”"'‘’«»「」]/g, '');
+  const shown = squash(shownQuote);
+  return (Array.isArray(v && v.grounds) ? v.grounds : [])
+    .filter((g) => g && LIVE_GROUND_ROLE[g.role] && String(g.quote || '').trim())
+    .filter((g) => !shown || squash(g.quote) !== shown)
+    .slice(0, LIVE_GROUNDS_MAX)
+    .map((g) => ({
+      slide: Math.max(0, Number(g.slide_no) || 0),
+      role: g.role,
+      label: LIVE_GROUND_ROLE[g.role],
+      quote: escapeHtml(String(g.quote).trim()),
+      note: escapeHtml(String(g.note || '').trim()),
+    }));
+}
+
+/** 다시 볼 장 — 빠진 줄·어긋난 줄의 장 번호(겹침 없이, 나온 차례로 둘까지). 결과 한 줄(liveResultRow)과 장 그림이 쓴다. */
+function liveGroundSlides(v) {
+  const nos = (Array.isArray(v && v.grounds) ? v.grounds : [])
+    .filter((g) => g && (g.role === 'missing' || g.role === 'conflict'))
+    .map((g) => Number(g.slide_no) || 0)
+    .filter((n) => n > 0);
+  return [...new Set(nos)].slice(0, 2);
+}
+
 /* ── 개념 퀘스트 (왼쪽 칸) ──────────────────────────────────────────────────
    질문 하나 = 개념 하나다 (F-08 규칙 2: "대상마다 정확히 하나씩"). 그래서 질문
    목록을 그대로 세우면 «오늘 채워야 할 개념 목록»이 된다. 지나온 것·지금 것·
@@ -1288,6 +1323,12 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
         quote: v.coach_stage && quote ? escapeHtml(quote) : '',
         quoteSlide: v.coach_stage ? (v.evidence_slide_no || 0) : 0,
         slides: v.coach_stage && v.evidence_slide_no ? hintSlideNos(`${v.evidence_slide_no}장`) : [],
+        // 판정 근거 줄 — 판정마다(코칭이 아니어도) 「자료 N장 · 빠진 것」 + 줄 그대로 + 왜 그 줄인지. 코칭 인용과 같은 줄은 한 번만 (2026-10-01)
+        grounds: liveGroundsView(v, v.coach_stage ? quote : ''),
+        groundSlides: (() => {
+          const nos = liveGroundSlides(v).filter((n) => !(v.coach_stage && n === v.evidence_slide_no));
+          return nos.length ? hintSlideNos(`${nos.join(', ')}장`) : [];
+        })(),
         // 「모르겠어요」에 온 응답은 **판정이 아니다** — 서버가 점수를 안 매기고
         // verdict 자리에 폴백을 넣어 보낸다 (f09_judge.coach_stuck). 그걸 판정표로
         // 그리면 솔직하게 모르겠다고 누른 사람이 틀린 답과 똑같은 빨간 칩을 받는다.
@@ -1791,6 +1832,8 @@ function finishLiveQuestion(q, v, answer) {
     // 「모르겠어요」 코칭(보기·빈칸)을 거쳐 닫혔나 — 결과에서 「도움 받아 닫힘」 으로 센다 (liveBucket · 09-30 C-09)
     viaCoach: (L.turns || []).some((t) => t.gaveUp),
     summary: v.summary_sentence || '',
+    // 닫는 판정이 가리킨 다시 볼 장 (빠진 줄·어긋난 줄 — 2026-10-01). 결과 한 줄이 「자료 N장 다시 보기」 로 적는다
+    lookSlides: v.verdict === 'good' ? [] : liveGroundSlides(v),
   });
 }
 
@@ -1814,6 +1857,7 @@ function revealLiveAnswer() {
     verdict: v.verdict || 'unknown', score: v.score || 0,
     passed: !!v.passed, mastered: false,
     summary: v.summary_sentence || '', revealed: true,
+    lookSlides: liveGroundSlides(v),
   };
   // 해설(explain 코칭)이 있으면 그게 낫다 — 이 사람이 실제로 막힌 지점에 맞춰
   // 쓴 글이라서다. 없으면 F-08 이 미리 만들어 둔 골자를 쓴다.
@@ -1960,6 +2004,19 @@ const LIVE_STAT_WORD = { self: '스스로 설명', helped: '도움 받아 닫음
  * 리포트 「질문 코칭 내역」(app.js qaHistoryPanelHtml)도 저장한 묶음(bucket)을 넘겨 같은 말을 쓴다.
  */
 function liveResultRow(r, bucket = liveBucket(r)) {
+  const row = liveResultRowBase(r, bucket);
+  // 판정이 가리킨 다시 볼 장 (2026-10-01) — 스스로 설명한 줄에는 달지 않는다. 가드 출구의 「자료와 다시 맞춰 볼 곳」 은 장을 넣어 한 말로.
+  const nos = bucket === 'self' ? [] : (Array.isArray(r && r.lookSlides) ? r.lookSlides : []).filter((n) => Number(n) > 0);
+  if (!nos.length) return row;
+  const where = `자료 ${nos.join(', ')}장`;
+  const guardLine = '자료와 다시 맞춰 볼 곳이 남았어요';
+  const meta = row.meta.includes(guardLine)
+    ? row.meta.replace(guardLine, `${where}과 다시 맞춰 볼 곳이 남았어요`)
+    : [row.meta, `${where} 다시 보기`].filter(Boolean).join(' · ');
+  return { ...row, meta };
+}
+
+function liveResultRowBase(r, bucket) {
   const used = liveHintsUsed(r);
   if (bucket === 'self') {
     const how = (r.turns || 0) <= 1 ? '첫 답에 설명했어요' : `${r.turns}번 만에 설명했어요`;
