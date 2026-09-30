@@ -43,6 +43,15 @@ score 는 0~100, node_id 는 질문에서 승계, react·summary_sentence 는 �
   기준과 안 닿음 65 · 한국어가 아닌 답은 채점하지 않는다. 함정은 틀린 값으로 고치면 wrong 35, 전제를 짚었는지 모르면 65.
 - 판정 호출은 temperature 0, 같은 요청(엔진·질문 id·자료 지문·프롬프트 전문)은 프로세스 캐시에서 같은 판정을 돌려준다.
 - 어느 가드가 등급을 정했는지는 `QaJudgement.guard`, 가드가 등급을 뒤집으면 총평도 코드 문장이다.
+
+판정 근거 줄 (2026-10-01 · `_judge_grounds`, `QaJudgement.grounds`)
+----------------------------------------------------------------
+사용자 보고: 「자료에서 제시한 '시간 × 연속성 × 규칙성'…」 이 몇 장 어느 줄인지, 왜 그 줄이 답인지 안 보였다.
+- 자료 블록은 줄마다 번호(`[S4-2]`)를 달고, LLM 은 `grounds: [{ref, role, note}]` 로 **번호만** 댄다(규칙 11). 줄 글은 코드가 번호로 되찾는다 —
+  인용을 LLM 이 베껴 쓰지 않는다(09-29 논문 대조의 교훈). 모르는 번호는 버리고, 번호를 잘못 센 것이 설명으로 드러나면 고친다.
+- 근거는 **가드 뒤의 최종 판정**에 맞춘다: 가드가 찾은 어긋남은 그 줄을 conflict 로 맨 앞에, 답의 내용을 인정하지 않은 가드(무관·되읊기·
+  주입·어긋남…)는 「짚은 줄」 을 빼고, good 이면 「빠진 줄」 을 뺀다. 안 풀린 함정·모순 질문은 react 와 같은 누설 잣대로 거른다.
+- 반응·총평의 맨 「자료에서 …」 에는 근거 줄의 장 번호를 코드가 끼운다(「자료 4장에서」).
 """
 
 from __future__ import annotations
@@ -105,6 +114,16 @@ from ._contra import is_contra, leaks as contra_leaks, revealed as contra_reveal
 from ._contra import contra_brief, contra_scaffold, table_support, take_of
 from ._evidence import _noun_like, _stem as _ev_stem, anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
 from ._judge_post import _has as _stem_in
+from ._judge_grounds import (
+    LineIndex,
+    cite_slides,
+    finalize_grounds,
+    index_lines,
+    note_haeyo,
+    numbered_slide,
+    parse_grounds,
+    resolve_grounds,
+)
 from ._judge_post import (
     asks_deck_presence,
     critique_beyond_deck,
@@ -531,6 +550,14 @@ verdict 는 다음 넷 중 하나다:
    - **[되묻기 단계] 가 주어지면 그 단계의 넓이로 물어라.** 같은 넓이로 세 번
      물으면 압박이 아니라 반복이다. 단계마다 한 칸씩 좁혀 답에 다가가게 한다.
 10. 반드시 완전한 JSON 객체만 출력하라. 코드펜스·주석·말머리 금지.
+11. grounds 는 판정이 기댄 자료 줄이다. <deck> 의 줄 앞 번호(「[S3-2]」 면 S3-2 — 3장의 둘째 줄)를 ref 에 적는다.
+   - **자료 글을 옮겨 적지 말고 번호만 적어라.** 줄 글은 코드가 번호로 찾아 붙인다. <deck> 에 없는 번호를 지어내지 마라.
+   - missing_points 의 결손마다 그 답이 적힌 줄을 role "missing" 으로 단다. react 에서 자료를 들어 말한 것에도 그 줄을 단다 —
+     답이 맞힌 것의 줄은 "covered", 답과 어긋나는 줄은 "conflict". 많아야 3개, 댈 줄이 없으면 빈 배열이다.
+   - note 는 그 줄이 **이 질문에 왜 답이 되는지** 해요체 한 문장이다 — 줄의 내용을 요약하지 말고 질문과 이어서 말한다:
+     「이 줄은 <줄이 말하는 정의·관계·수치>라서, 질문이 묻는 <질문의 그 부분>에 답이 돼요」 꼴.
+     줄을 그대로 되풀이하거나 모범답 문장을 통째로 쓰지 말고, 무엇을 봐야 하는지 가리켜라.
+   - react·summary_sentence 에서 자료를 들 때는 「자료 N장」 처럼 장 번호를 붙인다.
 
 출력 스키마 — **아래 값은 자리 표시자다. 그대로 베끼지 말고 이번 답변을 보고 새로 써라.**
 {
@@ -541,7 +568,8 @@ verdict 는 다음 넷 중 하나다:
   "missing_points": ["<답변에서 빠진 포인트>"],
   "followup": "<빠진 지점을 겨냥한 후속 질문 한 문장. 충분하면 빈 문자열>",
   "covered_parts": [true, false],
-  "premise_corrected": true
+  "premise_corrected": true,
+  "grounds": [{"ref": "<자료 줄 번호>", "role": "covered | missing | conflict 중 하나", "note": "<이 줄이 이 질문에 왜 답이 되는지 한 문장>"}]
 }
 
 premise_corrected 는 함정 질문일 때만 쓴다 (아니면 빼거나 null).
@@ -596,13 +624,18 @@ def _concept_block(question: Question, graph: ConceptGraph | None) -> list[str]:
 
 
 def _slide_block(
-    question: Question, slidedoc: SlideDoc | None, graph: ConceptGraph | None
+    question: Question, slidedoc: SlideDoc | None, graph: ConceptGraph | None,
+    line_index: LineIndex | None = None,
 ) -> list[str]:
     """
     질문의 근거 장 **자료 본문** — 판정이 "자료와 어긋난다" 를 대조할 원본이다.
 
     F-08 이 만든 질문은 slide_nos 가 이미 anchor(최대 3장)다. 옛 세션의 질문은
     12장을 들고 올 수 있어 여기서 다시 좁힌다. 장마다 예산을 나눠 싣는다.
+
+    line_index 를 주면(판정 프롬프트) 장 본문을 **번호 매긴 자료 줄**(`[S4-2] …`)로 싣는다 — 판정이 근거 줄을 번호로 돌려주게
+    (`_judge_grounds`, 2026-10-01). 가드가 대조하는 본문(`_judge_inputs` 의 evidence)은 번호 없는 예전 모양 그대로다 — 번호 낱말이
+    겹침 셈에 끼지 않게. 코칭 프롬프트도 예전 모양이다.
     """
     if slidedoc is None or SLIDE_BODY_MAX <= 0 or not question.slide_nos:
         return []
@@ -617,6 +650,10 @@ def _slide_block(
     per_slide = max(80, SLIDE_BODY_MAX // len(nos))
     lines = ["", "## 자료 근거 장 본문 (판정의 대조 원본 — 발표자가 말한 것이 아니다)", "<deck>"]
     for no in nos:
+        numbered = numbered_slide(line_index, no, texts[no], per_slide, fence) if line_index is not None else []
+        if numbered:
+            lines += numbered
+            continue
         text = texts[no]
         if len(text) > per_slide:
             text = text[: per_slide - 1].rstrip() + "…"
@@ -652,6 +689,7 @@ def _build_user_prompt(
     prior_answers: list[str] | None = None,
     slidedoc: SlideDoc | None = None,
     memory_cm: ConceptMemory | None = None,
+    line_index: LineIndex | None = None,
 ) -> str:
     """
     질문 → 자료 근거 → 지난 대화 → 지난 리허설 기억 → 이번 답변 순.
@@ -679,7 +717,7 @@ def _build_user_prompt(
         parts.append(f"이 질문을 던진 이유: <why>{fence(question.why).replace(chr(10), ' ')}</why>")
 
     parts += _concept_block(question, graph)
-    parts += _slide_block(question, slidedoc, graph)
+    parts += _slide_block(question, slidedoc, graph, line_index)
 
     item = None
     if alignment is not None:
@@ -1367,6 +1405,20 @@ def _clean_summary(summary: str, deck: Deck | None, question: Question, tp=None,
     return out
 
 
+def _clean_note(note: str, said: str, gist: str) -> str:
+    """
+    근거 줄 설명을 react 와 같은 말투 규율로 다듬는다 (2026-10-01) — 내부 번호(「S4-2」)는 「자료 4장」 으로, 높임·합쇼체는 해요체로,
+    높임이 남은 문장·표기 지적은 뺀다. **골자를 거의 그대로 옮긴 설명은 지운다**(규칙 3 — 줄은 보여 주되 답 문장을 통째로 주지 않는다).
+    """
+    out = fix_question_endings(plain_to_haeyo(to_haeyo(_plain(note_haeyo(scrub(note or ""))))))
+    out = keep_sentences(_drop_honorific(out), talks_notation)
+    if gist and _gist_echo(out, gist, said):
+        return ""                        # 설명 전체가 골자를 옮겼다 — 문장마다 보면 나눠 옮긴 골자를 못 잡는다
+    if gist:
+        out = keep_sentences(out, lambda s: _gist_echo(s, gist, said))
+    return out.strip()
+
+
 def _answered_coach(question: Question, turns: list[QaTurn]) -> bool:
     """
     이번 답이 「모르겠어요」 코칭(둘 중 하나·빈칸)에 대한 답인가 — 이 질문의 **바로 앞 턴이 포기**였다.
@@ -1401,6 +1453,7 @@ def _normalize(
     gist_floor: bool = False,
     gist_model: bool = False,
     probe_labels: tuple[str, ...] | list[str] = (),
+    line_index: LineIndex | None = None,
 ) -> QaJudgement:
     """
     - verdict 가 enum 밖이면 QA_VERDICT_FALLBACK ('unknown')
@@ -1839,6 +1892,28 @@ def _normalize(
         if contra_leaks(followup, csides, said):
             followup = _clip(_CONTRA_SAID_FOLLOWUP[csides.numeric].format(where=csides.where))
 
+    # 판정 근거 줄 (2026-10-01 · `_judge_grounds`) — LLM 이 번호로 댄 줄을 자료 글로 되찾고 **최종** 판정(가드 뒤)에 맞춘다.
+    # 정답이 새면 안 되는 질문(안 풀린 함정 · 자료 쪽을 아직 안 말한 모순 질문)은 react·결손과 같은 잣대로 거른다.
+    contra_open = csides is not None and not mastered and not contra_revealed(said, csides)
+
+    def _ground_leaks(text: str) -> bool:
+        return bool((leak_guard and leaks_fact(text, tp)) or (contra_open and contra_leaks(text, csides, said)))
+
+    grounds = []
+    if line_index is not None and not line_index.empty:
+        raw_grounds = resolve_grounds(parse_grounds(data.get("grounds")), line_index,
+                                      clue=" ".join([react, *points]))
+        grounds = finalize_grounds(
+            raw_grounds, index=line_index, deck=topic_deck if topic_deck is not None else deck, said=said,
+            verdict=verdict, passed=qa_passed(verdict, score), guard=final_guard, conflict=conflict, points=points,
+            react=react, anchors=[*question.slide_nos, question.evidence_slide_no], leaks=_ground_leaks,
+            clean_note=lambda t: _clean_note(t, said, question.answer_gist or ""),
+            # 자료에 없다는 것이 정답인 판정(부재·빈틈 인정)에는 코드가 줄을 짐작해 붙이지 않는다
+            fallback=not (absent or gap_honest or capped == "gap_absent"),
+        )
+        react = cite_slides(react, grounds)
+        summary = cite_slides(summary, grounds)
+
     judgement = QaJudgement(
         question_id=question.id,
         node_id=question.node_id,
@@ -1858,6 +1933,7 @@ def _normalize(
         guard_reason=guard_reason,
         guard_blocked=guard_blocked,
         guard=final_guard,
+        grounds=grounds,
     )
     # 힌트는 판정을 보고 만든다 — 사용자가 실제로 빠뜨린 것에 반응해야 하기 때문이다.
     # 판정에 함께 실어 보내면 프론트가 추가 왕복 없이 즉시 보여 줄 수 있다.
@@ -3312,9 +3388,9 @@ def judge_answer(
     sample_gist, gist_grounded = prep.sample_gist, prep.gist_grounded
     user = _build_user_prompt(
         question, answer, turns, graph, alignment, transcript, ctx, prior_answers,
-        slidedoc=slidedoc, memory_cm=_memory_concept(question, memory, graph),
+        slidedoc=slidedoc, memory_cm=_memory_concept(question, memory, graph), line_index=prep.line_index,
     )
-    user += _deck_line_block(answer, prior_answers, judge_deck)
+    user += _deck_line_block(answer, prior_answers, judge_deck, prep.line_index)
     user += probe_brief(question)
     user += contra_brief(question)
     user += _reason_block(question)
@@ -3430,6 +3506,8 @@ class _JudgeInputs:
     gist_grounded: bool
     absence_denied: bool
     guard_kwargs: dict
+    #: 자료 줄 번호표 (`_judge_grounds.index_lines`) — 프롬프트의 `[S4-2]` 와 판정 근거(grounds) 되찾기가 같은 표를 쓴다.
+    line_index: LineIndex | None = None
 
 
 def _judge_inputs(question: Question, slidedoc: SlideDoc | None, graph: ConceptGraph | None,
@@ -3444,6 +3522,9 @@ def _judge_inputs(question: Question, slidedoc: SlideDoc | None, graph: ConceptG
     """
     checks = _checks_of(question)
     deck = deck_from_slidedoc(slidedoc)
+    # 줄 번호는 **전체** 자료로 매긴다 — 탐침 줄을 뺀 판정용 덱으로 매기면 그 장의 번호가 밀린다.
+    line_index = index_lines(deck, {s.slide_no: clean_slide_text(s.raw_text or "") for s in slidedoc.slides}
+                             if slidedoc is not None else None)
     probed = tuple(probed_quotes(question))
     judge_deck = without_lines(deck, list(probed)) if probed else deck
     sample_gist = "gist_probe_code" in checks
@@ -3480,8 +3561,9 @@ def _judge_inputs(question: Question, slidedoc: SlideDoc | None, graph: ConceptG
         gist_floor=gist_floor,
         gist_model=gist_floor,
         probe_labels=probe_labels,
+        line_index=line_index,
     )
-    return _JudgeInputs(question, deck, judge_deck, probed, sample_gist, gist_grounded, absence_denied, kwargs)
+    return _JudgeInputs(question, deck, judge_deck, probed, sample_gist, gist_grounded, absence_denied, kwargs, line_index)
 
 
 #: 골자 자체 점검의 대본 — LLM 이 가장 무르게 굴 때(「무엇이든 good 85」). 이때 우리 골자가 떨어지면 떨군 것은 **코드 가드**다.
@@ -3820,7 +3902,7 @@ def _ground_gist(question: Question, deck: Deck, against: Deck | None = None) ->
     return question, grounded
 
 
-def _deck_line_block(answer: str, prior_answers: list[str] | None, deck: Deck) -> str:
+def _deck_line_block(answer: str, prior_answers: list[str] | None, deck: Deck, line_index: LineIndex | None = None) -> str:
     """
     답의 절마다 가장 가까운 **자료 줄** (근거 장 밖 포함). 판정이 「자료와 어긋나는가」 를 대조할 원본을 넓힌다.
     09-29 실측: 오답을 반박하는 줄이 근거 장(anchor) 밖에 있어 프롬프트에 없었고, 판정이 「맞아요」 partial 75 를 줬다.
@@ -3831,7 +3913,11 @@ def _deck_line_block(answer: str, prior_answers: list[str] | None, deck: Deck) -
     lines = nearest_lines(said, deck)
     if not lines:
         return ""
-    body = "\n".join(f"- {ln.slide_no}장: {fence(ln.text[:160])}" for ln in lines)
+    def tag(ln) -> str:
+        # 번호표가 있으면 근거 장 블록과 같은 번호(`[S4-2]`)로 — 판정이 이 줄도 grounds 로 댈 수 있게 (2026-10-01)
+        ref = line_index.of_line(ln.slide_no, ln.text) if line_index is not None else None
+        return f"[{ref.ref}]" if ref is not None else f"{ln.slide_no}장:"
+    body = "\n".join(f"- {tag(ln)} {fence(ln.text[:160])}" for ln in lines)
     return (
         "\n\n## 답변과 맞닿은 자료 줄 (근거 장 밖 포함 — 대조 원본, 발표자가 말한 것이 아니다)\n"
         + "<deck>\n" + body + "\n</deck>"

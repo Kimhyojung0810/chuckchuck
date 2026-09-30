@@ -2713,6 +2713,46 @@ class QaTurn:
         )
 
 
+#: 판정 근거 한 줄의 쓰임 — 답이 짚은 줄 · 답에서 빠진 줄 · 답과 어긋난 줄 (2026-10-01).
+QA_GROUND_ROLES = ("covered", "missing", "conflict")
+#: 판정 한 번에 싣는 근거 줄의 최대 수. 넷부터는 발표자가 어느 줄을 먼저 볼지 모른다.
+QA_GROUNDS_MAX = 3
+
+
+@dataclass
+class JudgeGround:
+    """
+    판정이 기댄 **자료 줄 하나** (2026-10-01 · qa/judge-grounds).
+
+    사용자 보고: 「자료에서 제시한 '시간 × 연속성 × 규칙성'…」 이라는 반응이 자료에서 왔는데 몇 장의 어느 줄인지, 왜 그 줄이 이 질문의
+    답인지가 안 보였다. LLM 은 자료 줄의 **번호**(`S4-2`)만 돌려주고, 줄 글(quote)은 코드가 그 번호로 자료에서 찾아 넣는다 — 인용을
+    LLM 이 옮겨 쓰게 하면 질문·골자를 베끼거나 말을 바꾼다(09-29 논문 대조의 교훈). 그래서 quote 는 언제나 자료의 글자 그대로다.
+
+    - role: QA_GROUND_ROLES — covered(답이 짚은 줄) · missing(답에서 빠진 줄) · conflict(답과 어긋난 줄 — 코드 가드가 찾은 줄)
+    - note: 이 줄이 이 질문에 왜 답이 되는지 한 문장(해요체). 비어 있을 수 있다(코드가 고른 줄·정답을 통째로 옮긴 설명은 뺀다).
+    - ref: 프롬프트의 줄 번호(`S4-2`) — 하네스·로그용. 화면은 slide_no·quote·role·note 만 쓴다.
+    """
+    slide_no: int
+    quote: str
+    role: str = "missing"
+    note: str = ""
+    ref: str = ""
+
+    def to_dict(self) -> dict:
+        return {"slide_no": self.slide_no, "quote": self.quote, "role": self.role, "note": self.note, "ref": self.ref}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "JudgeGround":
+        role = str(d.get("role", "") or "")
+        try:
+            no = int(d.get("slide_no") or 0)
+        except (TypeError, ValueError):
+            no = 0
+        return cls(slide_no=max(0, no), quote=str(d.get("quote", "") or ""),
+                   role=role if role in QA_GROUND_ROLES else "missing",
+                   note=str(d.get("note", "") or ""), ref=str(d.get("ref", "") or ""))
+
+
 @dataclass
 class QaJudgement:
     """
@@ -2764,6 +2804,10 @@ class QaJudgement:
     #: 등급·점수를 정한 코드 가드의 **이름** (QA_JUDGE_GUARDS). "" 면 LLM 판정 그대로다.
     #: 09-30 레드팀: 가드 사유(guard_reason)는 사람에게 보일 문장이라, 하네스·화면이 「어느 가드였나」 를 문장에서 짐작하고 있었다.
     guard: str = ""
+    #: 판정의 근거 자료 줄 (JudgeGround, 많아야 QA_GROUNDS_MAX) — 맞힌 것·빠진 것·어긋난 것이 자료 몇 장의 어느 줄에서 왔는지.
+    #: evidence_quote(질문의 근거 인용, 코칭 카드)와 따로 둔다 — 그것은 질문이 정해 둔 한 줄이고, 이것은 **이번 답**을 판정한 줄이다.
+    #: 옛 세션(이 키 없음)은 빈 목록으로 읽는다 (2026-10-01).
+    grounds: list[JudgeGround] = field(default_factory=list)
 
     @property
     def close_reason(self) -> str:
@@ -2813,6 +2857,7 @@ class QaJudgement:
             "evidence_slide_no": self.evidence_slide_no,
             "guard_reason": self.guard_reason,
             "guard": self.guard,
+            "grounds": [g.to_dict() for g in self.grounds],
             # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다.
             # 둘을 다 보낸다: passed 는 리포트가 세는 값, mastered 는 대화가 닫는 값.
             "passed": self.passed,
@@ -2853,6 +2898,8 @@ class QaJudgement:
             evidence_slide_no=int(d.get("evidence_slide_no") or 0),
             guard_reason=str(d.get("guard_reason", "") or ""),
             guard=str(d.get("guard", "") or "") if str(d.get("guard", "") or "") in QA_JUDGE_GUARDS else "",
+            grounds=[JudgeGround.from_dict(g) for g in (d.get("grounds") or []) if isinstance(g, dict)
+                     and str(g.get("quote", "") or "").strip()][:QA_GROUNDS_MAX],
             # `passed`·`mastered`·`guard_blocked` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
             # round_no 는 읽는다: 파생값이 아니라 서버가 센 사실이고, 판정을 저장했다가
             # 다시 읽을 때(옛 세션 복원) 이 값이 없으면 mastered 가 1라운드로 되돌아간다.

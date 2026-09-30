@@ -42,8 +42,10 @@ def keep_sentences(text: str, drop) -> str:
 
 #: 판정 프롬프트의 장 꼬리표 「[S4]」 가 문장에 새어 나온 꼴 — 「S4, S7, S8의」 「(S3)」. 앞뒤가 영문·숫자면 낱말의 일부다.
 #: 앞이 영문 낱말 + 띄어쓰기면(「Galaxy S23」) 제품 이름이다 — 건드리지 않는다.
+#: 2026-10-01: 자료 **줄** 번호 「S4-2」(판정 근거 ref, `_judge_grounds`)도 같은 꼴로 본다 — 줄 번호는 사람에게 뜻이 없어 장만 남긴다.
 _S_RUN_RE = re.compile(
-    r"\[?(?<![A-Za-z0-9])(?<![A-Za-z] )S(\d{1,2})\]?(?:\s*(?:,|·|와|과|및|그리고)\s*\[?S(\d{1,2})\]?)*(?![A-Za-z0-9])"
+    r"\[?(?<![A-Za-z0-9])(?<![A-Za-z] )S(\d{1,2})(?:-\d{1,3})?\]?"
+    r"(?:\s*(?:,|·|와|과|및|그리고)\s*\[?S(\d{1,2})(?:-\d{1,3})?\]?)*(?![A-Za-z0-9])"
 )
 _S_ONE_RE = re.compile(r"S(\d{1,2})")
 #: 발표자를 3인칭으로 부르는 말 — 화면은 발표자에게 직접 말한다. 주어를 빼도 한국어는 선다.
@@ -59,7 +61,7 @@ _NOTATION_RE = re.compile(r"표기|오타|오기(?:가|를|로)|철자|맞춤법
 
 
 def _slides_phrase(m: re.Match) -> str:
-    nums = _S_ONE_RE.findall(m.group(0))
+    nums = list(dict.fromkeys(_S_ONE_RE.findall(m.group(0))))   # 「S4-1, S4-2」 → 「자료 4장」 (같은 장을 두 번 부르지 않는다)
     return f"자료 {', '.join(nums)}장"
 
 

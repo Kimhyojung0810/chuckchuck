@@ -975,8 +975,9 @@ def _slidedoc_kw(fn, slidedoc) -> dict:
 # 09-30 WP-J2 에 여기서 먼저 넣었는데 server/app.py 는 사실 칸을 그대로 내보냈다. 규칙이 두 벌이면 두 서버가 다시 갈라진다.
 from chuckchuck._client_payload import (  # noqa: E402
     TRAP_WITHHELD,  # noqa: F401 — 예전처럼 bridge.TRAP_WITHHELD 로도 읽힌다 (labs/qa_verify 가 이름을 말한다)
+    client_judgement,
     client_questions,
-    reveal_due,
+    reveal_due,  # noqa: F401 — 판정 응답은 client_judgement 가 부른다. 이름은 두 서버가 같은 규칙을 쓰는지 테스트가 본다
     reveal_fields,
 )
 
@@ -3257,12 +3258,12 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}"
             f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}\n"
         )
+        # 화면 사본에서 뺀 기대 답(`client_questions`)은 **바로잡았거나(통과)·닫혔거나·해설 단계일 때** 판정 응답으로 준다 — 화면의
+        # 「빠진 절반·완성 문장」(revealHalf)·마무리 카드(finishLiveQuestion)·해설 뒤 다시 말하기가 이것을 읽는다 (09-30 WP-J2).
+        # 그 전의 함정 질문은 판정 근거 줄(grounds)에서도 사실 줄·빠진 줄을 뺀다 (`client_judgement`, 2026-10-01).
         payload = _with_degraded(
-            {**judgement.to_dict(), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)}, degraded)
-        if reveal_due(question, judgement):
-            # 화면 사본에서 뺀 기대 답(`client_questions`)은 **바로잡았거나(통과)·닫혔거나·해설 단계일 때** 판정 응답으로 준다 — 화면의
-            # 「빠진 절반·완성 문장」(revealHalf)·마무리 카드(finishLiveQuestion)·해설 뒤 다시 말하기가 이것을 읽는다 (09-30 WP-J2).
-            payload = {**payload, **reveal_fields(question)}
+            {**client_judgement(question, judgement), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)},
+            degraded)
         # 질문·답·판정 한 턴을 남긴다 (동의 세션만). 사람이 고친 판정과 짝을 맞출 원본이다.
         # **서버가 만든 질문으로 채점한 턴만** 남긴다 — 본문 질문으로 채점한 턴은 기준을 믿을 수 없고, 남기면 F-25 기억과
         # 학습 묶음(learning_jobs)으로 흘러가 다음 리허설의 질문·판정 프롬프트에 실린다.

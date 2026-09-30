@@ -9,6 +9,7 @@
 - `client_questions` — 질문 묶음(QuestionDoc dict)의 화면 사본. 함정 질문은 세 칸을 비우고 `gist_withheld=true` 를 단다.
 - `reveal_due` · `reveal_fields` — 뺀 기대 답을 **언제** 판정 응답에 실어 줄지(바로잡았거나·닫혔거나·해설 단계)와 무엇을 실을지.
   「답 보고 다시 말해보기」 는 판정이 아니라 reveal 요청으로 받는다(LLM 없이 `reveal_fields` 만).
+- `client_grounds` · `client_judgement` — 판정 근거 줄(grounds, 2026-10-01)의 화면 사본. 함정 질문은 기대 답을 싣기 전까지 사실 줄·빠진 줄을 뺀다.
 
 계약(`contracts.Question`)은 그대로다 — 여기서는 dict 사본만 만들고 질문 객체는 속성으로만 읽는다. F-모듈을 import 하지 않는다.
 """
@@ -56,3 +57,28 @@ def reveal_fields(question) -> dict:
             "reveal_quote": (getattr(tp, "fact", "") if tp is not None else "") or getattr(question, "evidence_quote", "") or "",
             "reveal_slide_no": (getattr(tp, "slide_no", 0) if tp is not None else 0)
             or getattr(question, "evidence_slide_no", 0) or 0}
+
+
+def client_grounds(question, grounds: list) -> list:
+    """
+    판정 근거 줄(`QaJudgement.grounds` dict 목록)의 화면 사본 (2026-10-01). 판정(`f09_judge`)이 이미 정답 누설을 거르지만, 함정 질문은
+    화면 사본의 규칙을 한 번 더 건다 — **기대 답을 싣기 전(`reveal_due` 가 아닐 때)** 에는 자료의 사실 줄(trap_premise.fact)을 담은 줄과
+    「빠진 줄(missing)」 을 싣지 않는다. 함정의 빠진 것은 곧 바로잡은 사실이라서다. 그 밖의 질문은 그대로 돌려준다.
+    """
+    if not isinstance(grounds, list):
+        return []
+    is_trap = bool(getattr(question, "trap", False)) or getattr(question, "trap_premise", None) is not None
+    if not is_trap:
+        return grounds
+    tp = getattr(question, "trap_premise", None)
+    fact = ((getattr(tp, "fact", "") if tp is not None else "") or "").strip()
+    return [g for g in grounds if isinstance(g, dict) and g.get("role") != "missing"
+            and not (fact and (fact in str(g.get("quote", "")) or str(g.get("quote", "")).strip() in fact))]
+
+
+def client_judgement(question, judgement) -> dict:
+    """판정 응답의 화면 사본 — `judgement.to_dict()` 에 기대 답을 실을 때면 싣고(`reveal_due`), 아니면 근거 줄을 거른다(`client_grounds`)."""
+    body = judgement.to_dict()
+    if reveal_due(question, judgement):
+        return {**body, **reveal_fields(question)}
+    return {**body, "grounds": client_grounds(question, body.get("grounds") or [])}

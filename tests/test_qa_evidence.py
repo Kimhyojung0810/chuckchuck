@@ -198,7 +198,8 @@ def test_판정_프롬프트에_자료_근거_장_본문이_실린다():
     judge_answer(question(), "맥락 복구에서 커집니다", graph=GRAPH, slidedoc=DECK, llm=llm)
     prompt = llm.prompts[0]
     assert "## 자료 근거 장 본문" in prompt
-    assert "[S2] 주의 전환은" in prompt and "[S3]" in prompt
+    # 2026-10-01: 장 본문은 번호 매긴 자료 줄로 싣는다 — 판정이 근거 줄을 번호(grounds.ref)로 댄다
+    assert "[S2-1] 주의 전환은" in prompt and "[S3-1]" in prompt
     assert "modern desk" not in prompt
 
 

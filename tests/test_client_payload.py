@@ -92,6 +92,7 @@ def test_기대_답은_바로잡았거나_해설_단계일_때만_싣는다(verd
 def test_브리지는_같은_규칙을_쓴다():
     assert bridge.client_questions is CP.client_questions
     assert bridge.reveal_fields is CP.reveal_fields and bridge.reveal_due is CP.reveal_due
+    assert bridge.client_judgement is CP.client_judgement          # 판정 응답의 화면 사본 (근거 줄 포함, 2026-10-01)
     assert bridge.TRAP_WITHHELD == CP.TRAP_WITHHELD == ("trap_premise", "answer_gist", "answer_gist_parts")
 
 

@@ -41,7 +41,7 @@ from chuckchuck import (
     transcribe,
     triage_questions,
 )
-from chuckchuck._client_payload import client_questions, reveal_due, reveal_fields, withheld
+from chuckchuck._client_payload import client_judgement, client_questions, reveal_fields, withheld
 from chuckchuck.contracts import (
     QA_TRACK_FALLBACK,
     QA_TRACKS,
@@ -428,8 +428,8 @@ async def judge_qa_answer(session_id: str, payload: dict):
             memory=payload.get("memory") if isinstance(payload.get("memory"), dict) else None,
         )
     )
-    body = judgement.to_dict()
-    return {**body, **reveal_fields(question)} if reveal_due(question, judgement) else body
+    # 기대 답을 실을 때면 싣고, 아니면 함정 질문의 근거 줄에서 사실 줄·빠진 줄을 뺀다 — 브리지와 같은 규칙 (`client_judgement`)
+    return client_judgement(question, judgement)
 
 
 @app.get("/api/v1/jobs/{job_id}")

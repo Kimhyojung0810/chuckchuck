@@ -299,7 +299,8 @@ def test_근거_장_밖의_반박_줄도_판정_프롬프트에_실린다():
     llm = ScriptedLLM(judged(verdict="partial", score=60))
     judge_answer(Q_REG, REG_C, slidedoc=SLEEP, llm=llm)
     assert "## 답변과 맞닿은 자료 줄" in llm.prompts[0]
-    assert "- 6장: 잠을 보충할 수는 있어도 리듬까지 완전히 회복되지는 않습니다." in llm.prompts[0]
+    # 2026-10-01: 줄 번호(「[S6-2]」 — 6장의 둘째 줄)로 싣는다 — 판정이 이 줄도 근거(grounds.ref)로 댈 수 있게
+    assert "- [S6-2] 잠을 보충할 수는 있어도 리듬까지 완전히 회복되지는 않습니다." in llm.prompts[0]
 
 
 def test_골자_근거_판정():
