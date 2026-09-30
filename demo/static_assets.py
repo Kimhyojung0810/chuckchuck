@@ -13,6 +13,8 @@
 - 요청의 `v` 가 지금 내줄 내용의 해시와 같을 때만 1년 `immutable` 로 캐시한다 — 브라우저도 Cloudflare 도.
   다르거나 없으면 `no-cache`(ETag 로 재검증, 안 바뀌었으면 304)라 옛 내용이 남을 수 없다.
 - 글자 파일은 gzip 으로 줄여 보낸다 (Funnel 로 바로 오는 방문자는 압축 없이 1.5MB 를 받았다).
+- 공개 서비스에서는 JS·CSS 의 주석·공백을 esbuild 로 걷는다 (Minifier). 이 코드는 한국어 주석이 많아
+  압축 뒤 크기의 절반 가까이가 주석이었다 (첫 화면 JS·CSS gzip 539KB → 301KB). 이름·문법은 건드리지 않는다.
 """
 
 from __future__ import annotations
@@ -21,6 +23,8 @@ import gzip
 import hashlib
 import posixpath
 import re
+import subprocess
+import sys
 import threading
 from pathlib import Path
 from urllib.parse import unquote
@@ -54,21 +58,22 @@ class AssetCache:
         self.mounts = sorted(((p if p.endswith("/") else p + "/", Path(d).resolve()) for p, d in mounts.items()),
                              key=lambda m: -len(m[0]))
         self._lock = threading.Lock()
-        self._raw: dict[tuple, str] = {}
+        self._raw: dict[tuple, tuple[str, str]] = {}  # (원본 해시, 'html'·'module'·'')
         self._gz: dict[tuple, bytes] = {}
 
     # ── 주소 ─────────────────────────────────────────────────────────────────
     def locate(self, url_path: str) -> Path | None:
         """URL 경로(쿼리 없이) → 마운트 안의 실제 경로(파일·폴더). 밖으로 나가거나 없으면 None."""
-        if "\x00" in url_path:
+        decoded = unquote(url_path)
+        if "\x00" in decoded or "\x00" in url_path:
             return None
-        norm = posixpath.normpath("/" + unquote(url_path).lstrip("/"))
+        norm = posixpath.normpath("/" + decoded.lstrip("/"))
         for prefix, root in self.mounts:
             if norm == prefix.rstrip("/") or norm.startswith(prefix) or prefix == "/":
                 rel = norm[len(prefix):] if norm.startswith(prefix) else ""
                 try:
                     p = (root / rel).resolve() if rel else root
-                except OSError:
+                except (OSError, ValueError):
                     return None
                 if p != root and root not in p.parents:
                     return None
@@ -90,7 +95,8 @@ class AssetCache:
             return None
         return (str(path), st.st_mtime_ns, st.st_size)
 
-    def _raw_digest(self, path: Path) -> str | None:
+    def _info(self, path: Path) -> tuple[str, str] | None:
+        """(원본 해시, 종류). 파일 상태(mtime·크기)로 기억해서 HTML 을 낼 때마다 참조 파일을 다시 읽지 않는다."""
         key = self._key(path)
         if key is None or not path.is_file():
             return None
@@ -98,10 +104,44 @@ class AssetCache:
             hit = self._raw.get(key)
         if hit:
             return hit
-        d = content_digest(path.read_bytes())
+        raw = path.read_bytes()
+        kind = self.rewrites(path, raw.decode("utf-8", errors="replace")) if self._maybe_rewrites(path) else ""
+        info = (content_digest(raw), kind)
         with self._lock:
-            self._raw[key] = d
-        return d
+            if len(self._raw) > 4096:
+                self._raw.clear()
+            self._raw[key] = info
+        return info
+
+    @staticmethod
+    def _maybe_rewrites(path: Path) -> bool:
+        return path.suffix.lower() in (".html", ".js", ".mjs")
+
+    def _imports(self, url_path: str) -> list[str]:
+        """모듈이 정적으로 import 하는 URL 들 (고리 찾기용 — 원본 글에서 읽는다)."""
+        path = self.locate(url_path)
+        if path is None or not path.is_file() or path.suffix.lower() not in (".js", ".mjs"):
+            return []
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if not _MODULE_LINE.search(text):
+            return []
+        base = posixpath.dirname(posixpath.normpath("/" + unquote(url_path).lstrip("/")))
+        return [t for m in _IMPORT.finditer(text) if (t := self.join(base, m.group(3)))]
+
+    def in_cycle(self, url_path: str) -> bool:
+        """이 모듈에서 import 를 따라가면 자기에게 돌아오는가. 고리 안의 모듈은 어느 쪽에서 들어오느냐에 따라
+        해시가 달라져 같은 모듈이 두 주소로 두 번 실행되므로, 고리에는 해시를 넣지 않는다 (예전 주소 그대로)."""
+        seen: set[str] = set()
+        todo = list(self._imports(url_path))
+        while todo:
+            u = todo.pop()
+            if u == url_path:
+                return True
+            if u in seen or len(seen) > 200:
+                continue
+            seen.add(u)
+            todo.extend(self._imports(u))
+        return False
 
     @staticmethod
     def rewrites(path: Path, text: str | None = None) -> str:
@@ -121,20 +161,26 @@ class AssetCache:
         if path is None or not path.is_file():
             return None
         raw = path.read_bytes()
-        if path.suffix.lower() not in (".html", ".js", ".mjs"):
-            return raw, self._raw_digest(path) or content_digest(raw)
+        # 해시는 방금 읽은 바이트로 매긴다 — 읽는 사이 파일이 바뀌어도 내보내는 본문과 해시가 어긋나지 않게
+        if not self._maybe_rewrites(path):
+            return raw, content_digest(raw)
         text = raw.decode("utf-8", errors="replace")
         kind = self.rewrites(path, text)
-        if not kind:
-            return raw, self._raw_digest(path) or content_digest(raw)
+        if not kind or (kind == "module" and self.in_cycle(url_path)):
+            return raw, content_digest(raw)
         base = posixpath.dirname(posixpath.normpath("/" + unquote(url_path).lstrip("/")))
         stack = _stack | {url_path}
 
         def digest_of(ref: str) -> str | None:
             target = self.join(base, ref)
-            if not target or target in stack:  # 서로 import 하는 고리는 원본 해시로 끊는다
-                p = self.locate(target) if target else None
-                return self._raw_digest(p) if p and p.is_file() else None
+            p = self.locate(target) if target else None
+            info = self._info(p) if p is not None else None
+            if not info:
+                return None
+            if not info[1]:
+                return info[0]  # 바꿔 쓰지 않는 파일 — 기억한 원본 해시 (다시 읽지 않는다)
+            if target in stack or (info[1] == "module" and self.in_cycle(target)):
+                return None  # 고리 — 주소를 건드리지 않는다
             got = self.served(target, stack)
             return got[1] if got else None
 
@@ -182,3 +228,48 @@ def etag_matches(if_none_match: str, etag: str) -> bool:
         return True
     bare = etag.removeprefix("W/")
     return any(t.strip().removeprefix("W/") == bare for t in if_none_match.split(","))
+
+
+class Minifier:
+    """
+    esbuild 로 주석·공백만 걷는다 (--minify-whitespace — 이름 바꾸기·문법 줄이기는 안 한다, 한글은 그대로 utf-8).
+    바이너리가 없거나 실패하면 원본을 그대로 돌려준다 — 줄이지 못해도 화면은 돈다.
+    결과는 입력 내용의 해시로 기억한다.
+    """
+
+    def __init__(self, binary: str | None) -> None:
+        self.binary = binary
+        self._lock = threading.Lock()
+        self._memo: dict[tuple[str, str], bytes] = {}
+        self._warned = False
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.binary)
+
+    def __call__(self, data: bytes, loader: str, name: str = "") -> bytes:
+        if not self.binary or loader not in ("js", "css") or name.endswith(".min.js"):
+            return data
+        key = (loader, hashlib.sha1(data).hexdigest())
+        with self._lock:
+            hit = self._memo.get(key)
+        if hit is not None:
+            return hit
+        try:
+            r = subprocess.run([self.binary, f"--loader={loader}", "--minify-whitespace", "--legal-comments=none",
+                                "--charset=utf8", "--log-level=error"], input=data, capture_output=True, timeout=20)
+            out = r.stdout if r.returncode == 0 and r.stdout else data
+            if out is data:
+                self._warn(f"{name}: {r.stderr.decode('utf-8', 'replace')[:200]}")
+        except (OSError, subprocess.SubprocessError) as e:
+            out = data
+            self._warn(f"{name}: {e}")
+        with self._lock:
+            if len(self._memo) > 256:
+                self._memo.clear()
+            self._memo[key] = out
+        return out
+
+    def _warn(self, msg: str) -> None:
+        sys.stderr.write(f"[bridge] 주석·공백을 못 걷고 원본을 보내요 — {msg}\n")
+

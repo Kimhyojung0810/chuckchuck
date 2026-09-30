@@ -51,7 +51,7 @@ from demo.rate_limit import RateLimiter  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
-from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, accepts_gzip, content_digest, etag_matches  # noqa: E402
+from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
@@ -1301,6 +1301,26 @@ STATIC = AssetCache({"/": DEMO_DIR, "/sdk/": SDK_DIR})
 CDN_HTML_CACHE = "max-age=60, stale-while-revalidate=86400"
 
 
+def _minifier() -> Minifier:
+    """
+    공개 서비스(TUNNEL_HOSTNAME 이 있을 때)에서만 JS·CSS 주석·공백을 걷는다 — 개발 브리지(8800)는 원본 그대로라
+    개발자 도구에서 읽기 쉽다. DEMO_MINIFY=1/0 으로 강제. 바이너리는 ESBUILD_BIN · tools/bin/esbuild · PATH 순
+    (scripts/get_esbuild.sh 가 받는다). 없으면 원본을 보낸다.
+    """
+    flag = os.environ.get("DEMO_MINIFY", "").strip()
+    on = flag == "1" or (flag != "0" and bool(os.environ.get("TUNNEL_HOSTNAME", "").strip()))
+    if not on:
+        return Minifier(None)
+    cand = [os.environ.get("ESBUILD_BIN", "").strip(), str(ROOT / "tools" / "bin" / "esbuild"), shutil.which("esbuild") or ""]
+    binary = next((c for c in cand if c and os.path.isfile(c) and os.access(c, os.X_OK)), None)
+    if not binary:
+        sys.stderr.write("[bridge] esbuild 가 없어 JS·CSS 를 줄이지 않고 보내요 — scripts/get_esbuild.sh\n")
+    return Minifier(binary)
+
+
+MINIFY = _minifier()
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -1475,6 +1495,12 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return self._serve_static(parsed, head_only=True)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
+        except Exception:  # noqa: BLE001 — HEAD 도 GET 처럼 연결을 끊지 않고 500 으로 답한다
+            traceback.print_exc()
+            try:
+                self.send_error(500)
+            except Exception:  # noqa: BLE001
+                return
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -1764,8 +1790,11 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         ctype = self.guess_type(str(path))
         if ctype.startswith("text/") and "charset" not in ctype:
             ctype += "; charset=utf-8"
+        suffix = path.suffix.lower()
+        if suffix in (".js", ".mjs", ".css"):
+            data = MINIFY(data, "css" if suffix == ".css" else "js", path.name)
         extra = []
-        if path.suffix.lower() == ".html":
+        if suffix == ".html":
             cache = REVALIDATE  # 입구는 늘 재검증 — 새 판의 해시 주소를 바로 물게
             # Cloudflare 에게만: 60초 들고 있다가 그 뒤엔 가진 걸 먼저 내주며 뒤에서 새로 받는다. HTML 은 누구에게나
             # 같아서(팀 여부는 /api/v1/team) 나눠 써도 되고, 첫 방문의 VM 왕복(0.2~1.8초)이 빠진다.

@@ -189,3 +189,94 @@ def test_HTML_만_Cloudflare_에_잠깐_맡기고_파일과_API_에는_안_붙�
     assert _get("/")[1].get("cdn-cache-control") == bridge.CDN_HTML_CACHE
     assert "cdn-cache-control" not in _get("/css/app.css")[1]
     assert "cdn-cache-control" not in _get("/api/health")[1]
+
+
+# ─── 주석·공백 걷기 (esbuild) ───────────────────────────────────────────────
+
+from demo.static_assets import Minifier  # noqa: E402
+
+
+def _fake_esbuild(tmp_path, body: str) -> str:
+    """esbuild 흉내 — 부를 때마다 calls 파일에 한 줄 남긴다."""
+    exe = tmp_path / "fake_esbuild"
+    exe.write_text(f"#!/bin/sh\necho x >> {tmp_path}/calls\ncat > /dev/null\n{body}\n")
+    exe.chmod(0o755)
+    return str(exe)
+
+
+def test_바이너리가_없으면_원본_그대로(tmp_path):
+    assert Minifier(None)(b"/* a */ x", "js") == b"/* a */ x"
+
+
+def test_줄인_결과를_쓰고_같은_내용은_다시_부르지_않는다(tmp_path):
+    m = Minifier(_fake_esbuild(tmp_path, "printf 'MIN'"))
+    assert m("/* 주석 */ let a = 1;".encode(), "js", "a.js") == b"MIN"
+    assert m("/* 주석 */ let a = 1;".encode(), "js", "a.js") == b"MIN"
+    assert (tmp_path / "calls").read_text().count("x") == 1
+
+
+def test_esbuild_가_실패하거나_빈_결과면_원본을_보낸다(tmp_path):
+    assert Minifier(_fake_esbuild(tmp_path, "exit 1"))(b"let a;", "js") == b"let a;"
+    assert Minifier(_fake_esbuild(tmp_path, "true"))(b"let b;", "js") == b"let b;"
+
+
+def test_이미_줄인_파일과_HTML_은_건드리지_않는다(tmp_path):
+    m = Minifier(_fake_esbuild(tmp_path, "printf 'MIN'"))
+    assert m(b"x", "js", "motion.min.js") == b"x"
+    assert m(b"<p>", "html", "index.html") == b"<p>"
+
+
+def test_브리지는_줄인_본문을_보내도_주소_해시는_원본_기준이다(served_site, monkeypatch, tmp_path):
+    _, c = served_site
+    monkeypatch.setattr(bridge, "MINIFY", Minifier(_fake_esbuild(tmp_path, "printf 'MIN'")))
+    good = c.served("/js/app.js")[1]
+    status, hdrs, body = _get(f"/js/app.js?v={good}")
+    assert body == b"MIN" and hdrs["cache-control"] == IMMUTABLE
+    _, _, css = _get("/css/app.css")
+    assert css == b"MIN"
+    _, _, html = _get("/index.html")
+    assert html.startswith(b"<link")  # HTML 은 그대로
+
+
+@pytest.mark.skipif(not (bridge.ROOT / "tools/bin/esbuild").exists(), reason="scripts/get_esbuild.sh 로 받은 esbuild 없음")
+def test_진짜_esbuild_는_한글_주석을_걷고_한글_문자열은_그대로_둔다():
+    m = Minifier(str(bridge.ROOT / "tools/bin/esbuild"))
+    src = "/* 한국어 주석 */\nconst 말 = `해요 ${1 + 1}`; // 끝\nconst re = /\\/\\/not-comment/;\n".encode()
+    out = m(src, "js", "t.js").decode()
+    assert "주석" not in out and "끝" not in out
+    assert "`해요 ${1+1}`" in out and "/\\/\\/not-comment/" in out
+
+
+# ─── 검토에서 나온 것 (2026-10-01) ─────────────────────────────────────────
+
+
+def test_import_고리_안의_모듈에는_해시를_넣지_않아_두_주소로_두_번_실행되지_않는다(site):
+    root, c = site
+    web = root / "web"
+    (web / "js" / "a.js").write_text("import { b } from './b.js?v=m1';\nexport const a = 1;\n")
+    (web / "js" / "b.js").write_text("import { a } from './a.js?v=m1';\nexport const b = 2;\n")
+    (web / "cyc.html").write_text('<script type="module" src="js/a.js?v=m1"></script>\n')
+    html = c.served("/cyc.html")[0].decode()
+    a_body = c.served("/js/a.js")[0].decode()
+    b_body = c.served("/js/b.js")[0].decode()
+    assert 'src="js/a.js?v=m1"' in html  # 예전 주소 그대로
+    assert "./b.js?v=m1" in a_body and "./a.js?v=m1" in b_body
+    # 고리 밖의 모듈은 여전히 해시를 받는다
+    assert re.search(r"/sdk/index\.js\?v=h", c.served("/js/bridge.js")[0].decode())
+
+
+def test_파일이_바뀌면_읽은_바이트의_해시로_낸다(site):
+    root, c = site
+    c.served("/js/app.js")  # 기억을 채운다
+    (root / "web" / "js" / "app.js").write_text("changed();\n")
+    body, digest = c.served("/js/app.js")
+    from demo.static_assets import content_digest
+    assert digest == content_digest(body)
+
+
+@pytest.mark.parametrize("url", ["/js/app.js%00.png", "/%00", "/js/%2500"])
+def test_NUL_이_섞인_주소는_500_이_아니라_404(served_site, url):
+    assert _get(url)[0] == 404
+    h = RawHandler(url, command="HEAD")
+    h.do_HEAD()
+    assert h.response()[0] == 404

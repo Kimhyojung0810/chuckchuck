@@ -88,3 +88,4 @@ labs/booth_qa/out/
 docs/review/**/transcript_*.json
 docs/review/**/slidedoc_*.json
 labs/load_perf/out/
+tools/bin/

@@ -223,6 +223,48 @@ CLI 로 직접 만들고 싶으면 `demo/run_tunnel.sh` 머리말의 절차(`clo
    (무료 요금제는 Origin Rules 의 Host 헤더 덮어쓰기가 Enterprise 전용이라 프록시로 감출 수 없다).
 3. ngrok 유료(커스텀 도메인) — 443 으로 나가고 주소창이 우리 도메인으로 남는다. 월 과금.
 
+### 10-5. 공개 사이트 속도 (2026-10-01)
+
+**왜 느린가 — 길이 멀고, 예전엔 매번 전부 새로 받았다.** 이 VM 은 삼성SDS 망 뒤라 바깥으로 UDP 는 53(DNS)만,
+TCP 는 80·443 만 나간다(STUN·7844·22 막힘 — 망 바깥 방화벽이라 VMware 설정으로는 안 풀린다). Tailscale 이 직접
+연결을 못 맺어 모든 요청이 **Cloudflare(인천) → Funnel 입구(도쿄) → DERP 중계(홍콩, TCP) → VM** 을 탄다.
+Tailscale 은 한국에 DERP 가 없다. 실측:
+
+| 구간 | 값 |
+|---|---|
+| 브리지 직접 | 1ms |
+| 새 연결 하나 (TLS 가 도쿄·홍콩을 거쳐 VM 까지 여러 번 오간다) | ~1초 |
+| 이어 쓰는 연결의 요청 하나 | 0.17~0.26초 |
+| 내려받기 | ~330KB/s |
+
+예전엔 모든 응답이 `no-store` 라 첫 화면 파일 36개(1.5MB)를 방문마다 이 길로 받았고 Cloudflare 도 저장하지 못했다
+(도메인 기준 첫 방문 7.0초 · 재방문 3.8초, labs/load_perf).
+
+**고친 것** (`demo/static_assets.py`, `js/lazy.js`)
+- 브리지가 HTML·ES 모듈의 `?v=` 를 **내용 해시**로 바꿔 내고, 해시가 맞는 요청만 1년 `immutable` 로 캐시한다.
+  나머지 정적 파일은 `no-cache`+ETag(304), API 는 그대로 `no-store`. 글자 파일은 gzip.
+  → 파일을 고쳐도 해시가 바뀌므로 옛 판이 남지 않는다 (손으로 올리는 `?v=` 는 브리지 밖 호스팅용으로 남긴다).
+- 베타 화면(통화·비전·부스)·랜딩은 들어갈 때, 모션·pdf.js 는 첫 화면 뒤 한가할 때 받는다.
+- HTML 에 `CDN-Cache-Control: max-age=60, stale-while-revalidate=86400` — 아래 캐시 규칙을 켜야 쓰인다.
+
+**Cloudflare 에서 할 것 (대시보드, 사람 몫)** — 도메인이 Cloudflare 를 거쳐 오고 있을 때만 해당한다.
+1. 정적 파일(js·css·png·ico)은 **따로 할 것 없다.** Cloudflare 는 이 확장자를 기본으로 저장하고 원본의 `immutable` 을 따른다.
+   배포 뒤 `curl -sI 'https://chuckchuck-present.com/js/app.js?v=<해시>' | grep cf-cache-status` 가 두 번째부터 `HIT` 면 된다
+   (해시는 `curl -s https://chuckchuck-present.com/ | grep -o 'app.js?v=[^"]*'`).
+2. (선택) **HTML 도 인천에서 내주기** — Caching → Cache Rules → 새 규칙:
+   조건 `URI Path equals "/"` 또는 `URI Path equals "/index.html"` → **Eligible for cache**,
+   Edge TTL = **Use cache-control header if present**(브리지의 `CDN-Cache-Control` 을 따른다).
+   → 첫 방문에서 VM 왕복이 빠진다. 배포 뒤 최대 60초는 옛 HTML 이 나갈 수 있다(해시 주소라 섞여도 안 깨진다).
+   `/auth`·`/api/*` 는 조건에 넣지 않는다 (그쪽은 `no-store` 라 넣어도 저장되지 않지만 규칙을 좁게 둔다).
+
+**남은 한계** — API 요청(업로드·받아쓰기·질문 코칭)은 여전히 요청마다 0.2초 안팎을 이 길로 탄다. 없애려면
+공인 IP 가 있는 국내 서버(NCP·AWS 서울·가비아 g클라우드·Oracle 무료 등)로 브리지를 옮겨야 한다.
+Tailscale 정책 파일에서 홍콩 DERP 를 빼 도쿄로 붙이는 건 왕복 ~40ms 차이라 들일 품에 비해 작다.
+
+**재는 법**: `.venv/bin/python labs/load_perf/run.py --base https://chuckchuck-present.com --runs 3`
+(로컬 비교는 `--base http://127.0.0.1:8800 --latency 200`). 이 VM 에서 자기 공개 도메인으로 가는 값은 흔들리니
+여러 번 재서 중앙값을 본다.
+
 ## 9. 개발 환경 (참고)
 
 로컬 개발은 Claude Code 플러그인 **ECC**를 쓰고(`.claude/settings.json`이 저장소에
