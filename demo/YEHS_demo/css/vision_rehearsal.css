@@ -1,0 +1,322 @@
+/* 비전 리허설 (#/vision) — 카메라가 바탕, 그 앞에 슬라이드와 삐약이.
+   가운데 빈 칸으로 얼굴이 보이게 두고, 자료와 삐약이는 크게 둔다.
+   글라스 값은 통화 배치(call_flow.css)와 같다. */
+
+.vr-call {
+  --vr-gap: 16px;
+  --vr-top: 44px;
+  --vr-dock: 76px;
+  --vr-glass: rgba(16, 20, 32, .56);
+  --vr-edge: rgba(255, 255, 255, .28);
+  --vr-blur: blur(18px) saturate(1.6);
+  position: fixed; inset: 0; z-index: 900;
+  background: #0B1411; color: #fff;
+  font-family: inherit; overflow: hidden;
+}
+body.vr-open { overflow: hidden; }
+@media (min-width: 900px) {
+  body.vr-open {
+    position: static; width: auto; height: auto; min-height: 0;
+    transform: none; padding-left: 0; box-shadow: none;
+  }
+}
+body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
+
+.vr-glass {
+  background: var(--vr-glass); color: #fff;
+  -webkit-backdrop-filter: var(--vr-blur); backdrop-filter: var(--vr-blur);
+  border: 1px solid var(--vr-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 8px 24px rgba(0, 0, 0, .22);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .vr-call { --vr-glass: rgba(16, 20, 32, .9); }
+}
+
+/* 내 모습 — 창 전체. 거울 (오른손을 들면 화면 오른쪽) */
+.vr-self { position: absolute; inset: 0; background: #111A17; }
+.vr-self video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+.vr-self[data-camera="off"] video { visibility: hidden; }
+.vr-self-note {
+  position: absolute; left: 12%; right: 12%; top: 18%;
+  margin: 0; text-align: center; font-size: 16px; line-height: 1.5; color: rgba(255, 255, 255, .9);
+}
+.vr-self[data-camera="on"] .vr-self-note:empty { display: none; }
+
+/* 앞 — 자료 | 얼굴이 비치는 칸 | 삐약이 */
+.vr-fore {
+  position: absolute; z-index: 2;
+  left: var(--vr-gap); right: var(--vr-gap);
+  top: calc(var(--vr-top) + 2 * var(--vr-gap));
+  bottom: calc(var(--vr-dock) + 2 * var(--vr-gap));
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(160px, .46fr) minmax(240px, .9fr);
+  gap: 18px;
+  align-items: stretch;
+  pointer-events: none;
+}
+.vr-gap { pointer-events: none; }
+
+.vr-slide-slot { min-width: 0; min-height: 0; pointer-events: none; }
+
+/* 자료는 격자 칸 위에 떠 있는 글래스 창. 옮기기·크기·불투명도는 이 창만 바꾼다. */
+.vr-slide {
+  --vr-slide-alpha: .78;
+  position: absolute; z-index: 3;
+  pointer-events: auto;
+  display: flex; flex-direction: column;
+  color: var(--text, #1c2430);
+  container-type: inline-size;
+  background: rgba(255, 255, 255, .34);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, .55);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 22px 50px rgba(0, 0, 0, .28);
+  overflow: hidden;
+}
+.vr-slide.is-drag, .vr-slide.is-resize { user-select: none; }
+.vr-slide-stage {
+  position: relative; flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+}
+.vr-slide-canvas, .vr-slide-img, .vr-slide-doc {
+  opacity: var(--vr-slide-alpha);
+}
+.vr-slide-canvas, .vr-slide-img {
+  display: block; max-width: 100%; max-height: 100%; width: auto; height: auto;
+  object-fit: contain; background: #fff;
+}
+.vr-slide-doc {
+  width: 100%; height: 100%; overflow: auto; padding: 8px 12px; color: var(--text, #1c2430);
+}
+.vr-slide-cap {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 28px 8px 8px;
+  border-top: 1px solid rgba(255, 255, 255, .45);
+  background: rgba(255, 255, 255, .62);
+  font-size: 14px;
+}
+.vr-drag {
+  flex: none; width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: #3d4a44;
+  font-size: 16px; line-height: 1; cursor: grab; touch-action: none;
+}
+.vr-slide.is-drag .vr-drag { cursor: grabbing; }
+.vr-drag:hover, .vr-drag:focus-visible { background: rgba(16, 20, 32, .08); }
+.vr-slide-cap strong {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700;
+}
+.vr-slide-cap .num { flex: none; color: var(--text-3, #5c6b64); font-variant-numeric: tabular-nums; }
+.vr-alpha {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: #3d4a44; cursor: default;
+}
+.vr-alpha input {
+  width: 84px; height: 28px; margin: 0; accent-color: #12815a; cursor: pointer;
+}
+@container (max-width: 460px) {
+  .vr-alpha span { display: none; }
+  .vr-alpha input { width: 64px; }
+}
+.vr-resize {
+  position: absolute; right: 2px; bottom: 2px; z-index: 2;
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; cursor: nwse-resize; touch-action: none;
+}
+.vr-resize::before {
+  content: "";
+  position: absolute; right: 4px; bottom: 4px;
+  width: 9px; height: 9px;
+  border-right: 2px solid rgba(28, 36, 48, .55);
+  border-bottom: 2px solid rgba(28, 36, 48, .55);
+}
+.vr-caption {
+  margin: 0; min-height: 0; padding: 0 28px 8px 16px;
+  font-size: 13px; line-height: 1.4; color: var(--text-3, #5c6b64);
+}
+.vr-caption:empty { display: none; }
+
+.vr-side {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 64px; border: 0; border-radius: 10px;
+  background: rgba(16, 20, 32, .45); color: #fff; font-size: 28px; cursor: pointer;
+}
+.vr-side:hover { background: rgba(16, 20, 32, .62); }
+.vr-side-prev { left: 10px; }
+.vr-side-next { right: 10px; }
+.vr-side[hidden] { display: none; }
+.vr-side:focus-visible, .vr-call .btn:focus-visible, .vr-drag:focus-visible, .vr-resize:focus-visible {
+  outline: 2.5px solid var(--cyan, #3fd599); outline-offset: 2px;
+}
+
+/* 삐약이 — 객석용 작은 크기·어두운 필터를 벗기고 앞에 세운다 */
+.vr-bird {
+  pointer-events: none;
+  min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  padding-bottom: 4px;
+}
+.vr-chickbox { position: relative; width: min(46vh, 100%); max-width: 460px; }
+#vrCall .vr-chickbox .ch-seat {
+  width: 100%; opacity: 1; filter: none; transform: none; animation: none;
+}
+#vrCall .vr-chickbox .ch-chick { width: 100%; cursor: default; }
+#vrCall .ch-prop { display: none; }
+.vr-paws { position: absolute; left: 0; top: 0; width: 100%; height: auto; pointer-events: none; z-index: 2; }
+.vr-paw { opacity: 0; transform-box: fill-box; }
+.vr-name {
+  margin: -8px 0 0; font-size: 18px; font-weight: 800;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .55);
+}
+.vr-status {
+  margin: 2px 0 0; font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .88);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .5);
+}
+.vr-ear {
+  pointer-events: auto; margin-top: 8px; height: 40px; padding: 0 14px;
+  border: 0; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1c2430;
+  font-weight: 700; cursor: pointer;
+}
+#vrCall .vr-bird[data-cue="listen"] .ch-eye-ball { transform: scale(1.12); }
+#vrCall .vr-bird[data-cue="listen"] .ch-chick { animation: vrNod .7s ease-in-out infinite; }
+@keyframes vrNod {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(6px) rotate(2deg); }
+}
+.vr-line {
+  margin: 0 0 6px; padding: 8px 16px; border-radius: 999px;
+  background: rgba(255, 255, 255, .94); color: #1c2430;
+  font-size: 28px; font-weight: 800; line-height: 1.2;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .28);
+}
+.vr-line[hidden] { display: none; }
+
+/* 빠름 — 눈이 커지고 물음표, 살짝 떤다 */
+#vrCall .vr-bird[data-cue="fast"] .ch-eye-ball { transform: scale(1.35); }
+#vrCall .vr-bird[data-cue="fast"] .ch-mark { opacity: 1; }
+#vrCall .vr-bird[data-cue="fast"] .ch-blush { opacity: .95; }
+#vrCall .vr-bird[data-cue="fast"] .ch-chick { animation: vrShiver .34s ease-in-out infinite; }
+@keyframes vrShiver {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-4px) rotate(-3deg); }
+  75% { transform: translateX(4px) rotate(3deg); }
+}
+
+/* 느림 — 눈을 감고 부리를 벌려 하품 */
+#vrCall .vr-bird[data-cue="slow"] .ch-eyes { animation: vrYawn 2.4s ease-in-out infinite; }
+#vrCall .vr-bird[data-cue="slow"] .ch-beak {
+  transform-box: fill-box; transform-origin: center top;
+  animation: vrBeak 2.4s ease-in-out infinite;
+}
+#vrCall .vr-bird[data-cue="slow"] .ch-head { transform: rotate(8deg); }
+@keyframes vrYawn {
+  0%, 100% { transform: scaleY(.62); }
+  35%, 68% { transform: scaleY(.1); }
+}
+@keyframes vrBeak {
+  0%, 100% { transform: scale(1, 1); }
+  35%, 68% { transform: scale(1.15, 2.3); }
+}
+
+/* 작음 — 한쪽 발을 귀에 대고 기울인다 */
+#vrCall .vr-bird[data-cue="quiet"] .vr-paw-l { opacity: 1; }
+#vrCall .vr-bird[data-cue="quiet"] .ch-figure { animation: vrLean 1.8s ease-in-out infinite; }
+#vrCall .vr-bird[data-cue="quiet"] .ch-head { transform: rotate(-10deg); }
+@keyframes vrLean {
+  0%, 100% { transform: translate(-2px, 2px) rotate(-3deg); }
+  50% { transform: translate(-8px, 6px) rotate(-6deg); }
+}
+
+/* 큼 — 두 발을 귀에 대고 살짝 움츠린다 */
+#vrCall .vr-bird[data-cue="loud"] .vr-paw { opacity: 1; }
+#vrCall .vr-bird[data-cue="loud"] .ch-eyes { transform: scaleY(.28); animation: none; }
+#vrCall .vr-bird[data-cue="loud"] .ch-figure { transform: translateY(6px) scale(.96); animation: none; }
+
+.vr-top {
+  position: absolute; z-index: 4;
+  top: var(--vr-gap); left: var(--vr-gap); right: var(--vr-gap);
+  display: flex; align-items: center; gap: 8px; min-height: var(--vr-top);
+  pointer-events: none;
+}
+.vr-top > * { pointer-events: auto; }
+.vr-pill {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 14px;
+  border-radius: 999px; font-size: 14px; font-weight: 700; white-space: nowrap;
+}
+.vr-top-fill { flex: 1; min-width: 0; }
+.vr-top-fill .pre-note {
+  display: inline-flex; align-items: center; max-width: 100%; margin: 0; padding: 6px 12px;
+  border-radius: 999px; background: var(--vr-glass); color: rgba(255, 255, 255, .9); font-size: 13px;
+}
+.vr-call .btn.vr-glass {
+  height: 44px; min-height: 44px; padding: 0 14px; border-radius: 999px;
+  font-size: 14px; white-space: nowrap;
+}
+.vr-call .btn.vr-glass:hover { background: rgba(16, 20, 32, .72); }
+.vr-call .btn:active { transform: scale(.96); }
+
+.vr-hear {
+  position: absolute; z-index: 4;
+  left: 50%; top: calc(var(--vr-top) + var(--vr-gap) + 8px);
+  transform: translateX(-50%);
+  margin: 0; max-width: min(520px, 70vw); padding: 8px 14px;
+  border-radius: 12px; font-size: 13px; line-height: 1.45; text-align: center;
+}
+.vr-hear[hidden] { display: none; }
+
+.vr-dock {
+  position: absolute; z-index: 4;
+  left: var(--vr-gap); right: var(--vr-gap); bottom: var(--vr-gap);
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 16px;
+}
+.vr-nav {
+  flex: none; height: 44px; min-height: 44px; padding: 0 16px;
+  background: rgba(255, 255, 255, .12); color: #fff; border: 0; border-radius: 10px;
+}
+.vr-nav:hover { background: rgba(255, 255, 255, .2); }
+.vr-nav[hidden] { display: none; }
+.vr-rec {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
+}
+.vr-rec .rec-copy { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: rgba(255, 255, 255, .92); }
+.vr-rec .rec-copy p { margin: 0; font-size: 12px; color: rgba(255, 255, 255, .72); }
+.vr-rec .rec-status, .vr-rec .rec-status > div { display: flex; align-items: center; gap: 10px; }
+.vr-rec .rec-live { color: #FF8A80; }
+.vr-rec .rec-clock { font-size: 22px; color: #fff; }
+.vr-rec .meter i { background: var(--cyan, #3fd599); }
+.vr-rec .rec-log-fold { display: none; }
+.vr-rec .rec-upload { display: flex; align-items: center; gap: 6px; }
+.vr-rec .rec-upload .btn-text { color: rgba(255, 255, 255, .8); height: 40px; }
+.vr-rec .rec-upload .note:empty { display: none; }
+.vr-rec .rec-upload .note { margin: 0; color: rgba(255, 255, 255, .8); font-size: 12px; }
+.vr-rec .mic-denied { display: flex; flex-direction: column; font-size: 13px; }
+.vr-rec .btn-secondary { background: rgba(255, 255, 255, .92); color: #1c2430; }
+
+@media (max-width: 800px) {
+  .vr-fore {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 18vh minmax(0, 1fr);
+    gap: 10px;
+  }
+  .vr-slide-slot { grid-column: 1; }
+  .vr-gap { grid-column: 1 / -1; }
+  .vr-bird { grid-column: 2; }
+  .vr-alpha span { display: none; }
+  .vr-line { font-size: 20px; }
+  .vr-top-fill { display: none; }
+  .vr-call .btn.vr-glass { padding: 0 10px; font-size: 13px; }
+  .vr-side { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #vrCall .vr-bird[data-cue="fast"] .ch-chick,
+  #vrCall .vr-bird[data-cue="slow"] .ch-eyes,
+  #vrCall .vr-bird[data-cue="slow"] .ch-beak,
+  #vrCall .vr-bird[data-cue="quiet"] .ch-figure { animation: none; }
+  #vrCall .vr-bird[data-cue="slow"] .ch-eyes { transform: scaleY(.2); }
+  #vrCall .vr-bird[data-cue="slow"] .ch-beak { transform: scale(1.1, 2); }
+  .vr-call .btn:active { transform: none; }
+}

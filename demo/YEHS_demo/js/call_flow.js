@@ -35,6 +35,7 @@ function callFlowSet(on) {
 
 /** #/temp — 새 연습을 열고 통화 흐름을 켠다. 지난 발표·코칭이 남아 있으면 남의 질문이 뜨므로 지운다 */
 function renderCallEntry() {
+  if (typeof visionFlowSet === 'function') visionFlowSet(false);
   callFlowSet(true);
   resetNf();
   resetQa();
@@ -218,7 +219,9 @@ function nfStep3Call() {
     nf._previewLoading = true;
     ensurePreviewPdf(nfSlideDoc).then((pdf) => {
       nf._previewLoading = false;
-      if (pdf && nf.step === 2 && callFlowOn()) nfStep3Call();
+      // vision 리허설도 통화 흐름을 켜 둔다(질문 코칭을 통화 배치로 잇기 위해) — 그 발표 화면을 덮어 그리지 않는다
+      const vision = typeof visionFlowOn === 'function' && visionFlowOn();
+      if (pdf && nf.step === 2 && callFlowOn() && !vision) nfStep3Call();
     }).catch(() => { nf._previewLoading = false; });
   }
   const nPages = rehearsalCount();
