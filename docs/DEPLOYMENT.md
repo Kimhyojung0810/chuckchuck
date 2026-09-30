@@ -247,6 +247,15 @@ Tailscale 은 한국에 DERP 가 없다. 실측:
 - 베타 화면(통화·비전·부스)·랜딩은 들어갈 때, 모션·pdf.js 는 첫 화면 뒤 한가할 때 받는다.
 - HTML 에 `CDN-Cache-Control: max-age=60, stale-while-revalidate=86400` — 아래 캐시 규칙을 켜야 쓰인다.
 
+**배포 순서** (main 작업 폴더에서)
+```bash
+scripts/get_esbuild.sh                         # 처음 한 번 — tools/bin/esbuild (없으면 줄이지 않고 보낸다)
+sudo systemctl restart chuckchuck-bridge
+python3 scripts/warm_edge.py --check           # Cloudflare 서울 캐시를 채우고, 두 번째에 HIT 인지 본다
+```
+공개 서비스는 `TUNNEL_HOSTNAME` 이 있어서 JS·CSS 주석·공백 걷기가 켜진다 (`DEMO_MINIFY=0` 이면 끈다).
+`warm_edge.py --check` 가 「HIT 이 하나도 없다」 면 도메인이 Cloudflare 캐시를 거치지 않는 구성(Worker 등)이다.
+
 **Cloudflare 에서 할 것 (대시보드, 사람 몫)** — 도메인이 Cloudflare 를 거쳐 오고 있을 때만 해당한다.
 1. 정적 파일(js·css·png·ico)은 **따로 할 것 없다.** Cloudflare 는 이 확장자를 기본으로 저장하고 원본의 `immutable` 을 따른다.
    배포 뒤 `curl -sI 'https://chuckchuck-present.com/js/app.js?v=<해시>' | grep cf-cache-status` 가 두 번째부터 `HIT` 면 된다
@@ -254,7 +263,9 @@ Tailscale 은 한국에 DERP 가 없다. 실측:
 2. (선택) **HTML 도 인천에서 내주기** — Caching → Cache Rules → 새 규칙:
    조건 `URI Path equals "/"` 또는 `URI Path equals "/index.html"` → **Eligible for cache**,
    Edge TTL = **Use cache-control header if present**(브리지의 `CDN-Cache-Control` 을 따른다).
-   → 첫 방문에서 VM 왕복이 빠진다. 배포 뒤 최대 60초는 옛 HTML 이 나갈 수 있다(해시 주소라 섞여도 안 깨진다).
+   → 첫 방문에서 VM 왕복이 빠진다. 대신 배포 뒤 첫 요청은 옛 HTML 을 받는다(뒤에서 새로 받는다) —
+   배포 순서의 `warm_edge.py` 가 HTML 을 두 번 받아 그 한 번을 대신 치른다. 캐시에서 옛 파일이 밀려난 드문 경우
+   옛 HTML 에 새 JS 가 붙을 수 있으니, 화면 구조를 크게 바꾼 배포는 대시보드에서 Purge Everything 을 한 번 누른다.
    `/auth`·`/api/*` 는 조건에 넣지 않는다 (그쪽은 `no-store` 라 넣어도 저장되지 않지만 규칙을 좁게 둔다).
 
 **남은 한계** — API 요청(업로드·받아쓰기·질문 코칭)은 여전히 요청마다 0.2초 안팎을 이 길로 탄다. 없애려면
