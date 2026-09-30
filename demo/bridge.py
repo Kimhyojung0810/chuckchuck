@@ -51,6 +51,7 @@ from demo.rate_limit import RateLimiter  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
+from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, accepts_gzip, content_digest, etag_matches  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
@@ -1295,6 +1296,10 @@ def _capped(value, depth: int = 0):
     return str(value)[:CLIENT_TEXT_MAX]
 
 
+#: 정적 파일 해시·gzip 기억 (demo/static_assets.py). 첫 화면 파일을 오래 캐시해도 옛 판이 안 남게 한다.
+STATIC = AssetCache({"/": DEMO_DIR, "/sdk/": SDK_DIR})
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -1418,8 +1423,6 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return
         try:
             parsed = urlparse(self.path)
-            if parsed.path.startswith("/sdk/"):
-                return self._serve_sdk(parsed.path[len("/sdk/") :])
             if parsed.path == "/api/health":
                 return self._json(200, {"ok": True, "mock": _mock()})
             if parsed.path.rstrip("/") == "/auth":
@@ -1453,7 +1456,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return None
-            return super().do_GET()
+            return self._serve_static(parsed)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
         except Exception:  # noqa: BLE001
@@ -1468,9 +1471,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return
         try:
             parsed = urlparse(self.path)
-            if parsed.path.startswith("/sdk/"):
-                return self._serve_sdk(parsed.path[len("/sdk/") :], head_only=True)
-            return super().do_HEAD()
+            return self._serve_static(parsed, head_only=True)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
 
@@ -1741,19 +1742,60 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         self.end_headers()
         self.wfile.write(data)
 
-    def _serve_sdk(self, rel: str, head_only: bool = False):
-        path = (SDK_DIR / rel).resolve()
-        if not str(path).startswith(str(SDK_DIR.resolve())) or not path.is_file():
+    def _serve_static(self, parsed, head_only: bool = False):
+        """
+        데모 화면 파일과 /sdk/ 모듈 (demo/static_assets.py). HTML·ES 모듈은 참조 주소에 내용 해시를 넣어 내고,
+        요청의 v 가 지금 해시와 같으면 1년 immutable, 아니면 no-cache + ETag.
+        폴더 주소에 / 가 없으면 SimpleHTTPRequestHandler 의 리다이렉트에 맡긴다.
+        """
+        url = parsed.path
+        path = STATIC.locate(url)
+        if path is not None and path.is_dir():
+            if not url.endswith("/"):
+                return super().do_HEAD() if head_only else super().do_GET()
+            url += "index.html"
+        got = STATIC.served(url)
+        if got is None:
             self.send_error(404)
+            return None
+        data, digest = got
+        path = STATIC.locate(url)
+        ctype = self.guess_type(str(path))
+        if ctype.startswith("text/") and "charset" not in ctype:
+            ctype += "; charset=utf-8"
+        if path.suffix.lower() == ".html":
+            cache = REVALIDATE  # 입구는 늘 재검증 — 새 판의 해시 주소를 바로 물게
+        else:
+            v = (parse_qs(parsed.query).get("v") or [""])[0]
+            cache = IMMUTABLE if v and v == digest else REVALIDATE
+        self._send_static_bytes(path, data, ctype, cache, head_only)
+        return None
+
+    def _send_static_bytes(self, path: Path, data: bytes, ctype: str, cache: str, head_only: bool) -> None:
+        compressible = path.suffix.lower() in COMPRESSIBLE and len(data) >= MIN_GZIP_BYTES
+        gz = compressible and accepts_gzip(self.headers.get("Accept-Encoding") or "")
+        etag = f'"{content_digest(data)}{"-gz" if gz else ""}"'
+        headers = [("ETag", etag), ("Cache-Control", cache)]
+        if compressible:
+            headers.append(("Vary", "Accept-Encoding"))
+        if etag_matches(self.headers.get("If-None-Match") or "", etag):
+            self.send_response(304)
+            for k, v in headers:
+                self.send_header(k, v)
+            self.end_headers()
             return
-        data = path.read_bytes()
+        body = STATIC.gzipped(path, data) if gz else data
         self.send_response(200)
-        self.send_header("Content-Type", "text/javascript; charset=utf-8")
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        if gz:
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Last-Modified", self.date_time_string(int(path.stat().st_mtime)))
+        for k, v in headers:
+            self.send_header(k, v)
         self.end_headers()
         if not head_only:
-            self.wfile.write(data)
+            self.wfile.write(body)
 
     def _handle_parse(self, raw: bytes):
         ctype = self.headers.get("Content-Type", "")
@@ -3324,9 +3366,17 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         self.end_headers()
         self.wfile.write(data)
 
+    def send_header(self, keyword, value):
+        if keyword.lower() == "cache-control":
+            self._cache_header_sent = True
+        super().send_header(keyword, value)
+
     def end_headers(self):
-        # 데모는 수정이 잦다. 캐시된 옛 app.js 가 새 흐름을 가리는 사고 방지
-        self.send_header("Cache-Control", "no-store")
+        # 캐시 규칙을 따로 정하지 않은 응답(API·오류·리다이렉트)은 저장하지 않는다.
+        # 정적 파일은 _serve_static 이 정한다 — 주소에 내용 해시가 있어 오래 캐시해도 옛 판이 안 남는다
+        if not getattr(self, "_cache_header_sent", False):
+            self.send_header("Cache-Control", "no-store")
+        self._cache_header_sent = False  # keep-alive 로 이어지는 다음 응답은 처음부터
         # CORS 는 허용 목록에 있는 origin 에만 연다. 브리지가 UI 를 같이 서빙하므로
         # 기본 경로는 같은 출처라 헤더가 아예 필요 없다 — '*' 는 브리지를 외부에
         # 노출했을 때 아무 페이지나 과금 API 를 부를 수 있게 하는 문이었다.

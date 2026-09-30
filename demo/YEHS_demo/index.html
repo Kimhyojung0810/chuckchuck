@@ -28,6 +28,15 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr3">
 <!-- 부스 Q&A 무대 #/booth/qa (주소창 /booth/qa) — Festa 부스 운영용 -->
 <link rel="stylesheet" href="css/booth_qa.css?v=bq1">
+<!-- 녹음 SDK 모듈 사슬(chuckchuck_bridge → /sdk/index.js → recorder·slide_marks·rehearsal → rehearsal-recorder)을
+     처음부터 나란히 받는다. 안 그러면 한 단을 받아야 다음 단을 알아서 공개 경로의 왕복(~0.2초)이 세 번 줄을 선다.
+     브리지가 ?v= 를 내용 해시로 바꿔 넣어 모듈 안의 import 주소와 같아진다 (demo/static_assets.py) -->
+<link rel="modulepreload" href="js/chuckchuck_bridge.js?v=qkx7">
+<link rel="modulepreload" href="/sdk/index.js?v=s1">
+<link rel="modulepreload" href="/sdk/recorder.js?v=s1">
+<link rel="modulepreload" href="/sdk/slide_marks.js?v=s1">
+<link rel="modulepreload" href="/sdk/rehearsal.js?v=s1">
+<link rel="modulepreload" href="/sdk/rehearsal-recorder.js?v=s1">
 <script>
   /* 1336×1024 내부 레이아웃은 유지하고, 실제 창에 들어가는 배율만 계산한다. */
   (() => {

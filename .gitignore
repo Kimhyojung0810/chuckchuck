@@ -87,3 +87,4 @@ labs/booth_qa/out/
 # 분석 자료 폴더의 전사·파싱본 — 발표자 음성 전문·덱 본문이다. 스크립트로 다시 만든다 (2026-09-29)
 docs/review/**/transcript_*.json
 docs/review/**/slidedoc_*.json
+labs/load_perf/out/
