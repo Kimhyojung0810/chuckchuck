@@ -237,6 +237,18 @@ _WHY_BY_SOURCE = {
     **{kind: probe_why(Probe(kind=kind)) for kind in PROBE_KINDS},
 }
 
+#: 1차 심사 각도로 쓰면 안 되는 말 — **우리 배치(정렬·분류·위계)를 방어하라는 각도**(질문 규칙 3-1). 예전 심사 프롬프트의 예시
+#: 각도(「왜 다른 정렬 방식 대신 이걸 골랐는지」)를 LLM 이 개념마다 그대로 베꼈고(벤치 캐시 yield_gap 14/14), 질문 LLM 이 그 각도를
+#: 따라 「…라고 했는데, 왜 다른 정렬 방식 대신 이걸 골랐는지 설명해 주세요.」 를 썼다 (10-01 점검). 예시는 바꿨고, 새어 나온 각도는 여기서 비운다.
+_ARRANGEMENT_ANGLE_RE = re.compile(r"다른\s*(?:정렬|분류|배치|위계)\s*방식|(?:정렬|분류|배치|위계)\s*방식\s*대신|왜\s*이렇게\s*(?:정렬|분류|배치)")
+
+
+def _usable_angle(angle: str) -> str:
+    """1차 심사 각도 — 배치를 방어하라는 각도(`_ARRANGEMENT_ANGLE_RE`)면 "" (질문 프롬프트에 싣지 않는다)."""
+    angle = _clip(angle)
+    return "" if _ARRANGEMENT_ANGLE_RE.search(angle) else angle
+
+
 TRIAGE_SYSTEM_PROMPT = """당신은 발표 심사위원의 질문을 예측하는 코치다.
 '개념 목록'(발표 자료에서 뽑은 개념들)을 보고, 개념마다 **질문 가치**를 심사한다.
 
@@ -259,7 +271,7 @@ severity=1 을 준 개념 하나만 물어보게 된다. 그러니 severity 는 
   애매하면 false 로 둬라. 함정을 남발하면 연습이 말장난이 된다.
 
 - angle: 어느 각도로 물을지 한 줄. 질문 문장이 아니라 **각도**만 적어라.
-  (예: "왜 다른 방식 대신 이걸 골랐는지", "이 수치의 출처와 측정 조건")
+  (예: "이 결론이 어떤 조건에서만 성립하는지", "이 수치의 출처와 측정 조건")
 
 규칙:
 1. marks 에는 개념 목록의 id 만 쓴다. id 를 지어내지 마라 — 버려진다.
@@ -278,7 +290,7 @@ severity=1 을 준 개념 하나만 물어보게 된다. 그러니 severity 는 
 {
   "marks": [
     { "node_id": "joint", "severity": 1, "trap": true,
-      "angle": "왜 다른 정렬 방식 대신 이걸 골랐는지" }
+      "angle": "이 수치의 출처와 측정 조건" }
   ]
 }
 """
@@ -2160,7 +2172,7 @@ def _normalize_marks(
             node_id=node.id,
             severity=severity,
             trap=bool(raw.get("trap", False)),
-            angle=_clip(str(raw.get("angle", "") or "")),
+            angle=_usable_angle(str(raw.get("angle", "") or "")),
             source=source,
             rank=0,                      # 아래에서 severity 를 반영해 다시 매긴다
             doc_weight=node.weight,
@@ -2909,8 +2921,9 @@ def _build_question_prompt(
             f"- ({node.id}) {node.label} [S{nos}] · 치명도={mark.severity}"
             f" · 함정={'예' if mark.trap else '아니오'}"
         )
-        if mark.angle and not (number_sources and ungrounded_numbers(mark.angle, number_sources)):
-            line += f" · 각도={mark.angle}"
+        angle = _usable_angle(mark.angle or "")     # 저장된 1차 심사(캐시·예전 판)의 각도도 같은 거름을 거친다
+        if angle and not (number_sources and ungrounded_numbers(angle, number_sources)):
+            line += f" · 각도={angle}"
         if node.summary:
             line += f" — {node.summary}"
         parts.append(line)
@@ -4755,6 +4768,12 @@ def _normalize_questions(
         # 골자가 템플릿·자료 줄로 떨어졌으면 LLM 의 요소도 같은 출처다 — 지어낸 골자의 조각을 요소로 남기지 않는다.
         if not written_gist or split_one:
             parts = []       # 두 물음 가운데 하나만 남긴 질문이면 요소도 하나다 — LLM 요소는 버린 물음의 것까지 담았다
+        # 하나만 묻는 질문의 LLM 요소는 버린다 — 프롬프트 규칙(「하나만 묻는 질문이면 빈 배열」)을 코드가 받는다. 10-01 점검: 「…하회하는
+        # 이유는 무엇인가요?」 에 LLM 이 수치 두 줄(「개인 평균 연 4.8%p 낮음」·「상위 25% 연 2.6%p 하회」)을 요소로 달아, 골자의 이유를
+        # 그대로 말한 답이 F-09 요소 가드에 partial 65 로 막히고 되물음이 「개인 평균 연 4.8%p 낮음 — 이 부분은 어떻게 봐요?」 였다.
+        if parts and not _asks_multiple(question_text):
+            parts = []
+            checks.append("gist_parts_single_ask")
         if len(parts) < 2 and _asks_multiple(question_text) and not split_one:
             parts = _split_gist_parts(gist)
         if tp is not None or contra is not None:
