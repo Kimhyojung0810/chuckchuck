@@ -1323,6 +1323,31 @@ def _minifier() -> Minifier:
 MINIFY = _minifier()
 
 
+
+#: 주소창 경로 중 화면이 아닌 것 — API·로그인·SDK 모듈. 이 아래는 해시로 돌려보내지 않는다.
+_NOT_SCREEN_PREFIXES = ("/api/", "/sdk/", "/auth")
+#: 화면 주소로 받는 글자 — 앱 해시 주소는 영문·숫자·-·_ 마디뿐이다. %00 같은 이상한 주소는 예전처럼 404.
+_SCREEN_PATH = re.compile(r"^(/[A-Za-z0-9_-]+)+$")
+
+
+def hash_route_for(url_path: str, locate) -> str | None:
+    """
+    주소창 경로 → 앱 해시 주소(``#/booth/call``). 화면 주소가 아니면 None.
+
+    파일(마지막 마디에 점이 있음)이나 실제로 있는 파일·폴더, API·로그인 경로는 그대로 둔다.
+    대소문자는 앱 해시 규칙에 맞춰 소문자로 (주소창에 /test/QA 라고 쳐도 열리게). ``locate`` 는 STATIC.locate.
+    """
+    path = (url_path or "").rstrip("/")
+    if not path or path == "/index.html":
+        return None
+    if any(path == p.rstrip("/") or path.startswith(p) for p in _NOT_SCREEN_PREFIXES):
+        return None
+    if not _SCREEN_PATH.match(path):
+        return None
+    if locate(url_path) is not None:
+        return None
+    return "#" + path.lower()
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -1466,13 +1491,10 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 return self._handle_dev_deck_file(parsed)
             if parsed.path == "/api/v1/dev/questions":
                 return self._handle_dev_questions(parsed)
-            # 주소창에 /test/QA 라고 쳐도 열리게 — 앱은 해시 라우팅이라 경로를 해시로 돌려보낸다.
-            # /temp 도 같다 — 통화 배치로 도는 전체 흐름(업로드→발표→질문 코칭)의 입구 (js/call_flow.js).
-            # /vision 은 비전 리허설(js/vision_rehearsal.js). /booth/qa 는 Festa 부스 운영 중에 Q&A 세션을 보여 주는 무대
-            # (js/booth_qa.js) — 개발용 /test/qa 와 짝이다. /booth/call 은 같은 부스 흐름의 화상 통화판(js/booth_call.js).
-            hash_route = {"/test/qa": "#/test/qa", "/temp": "#/temp", "/vision": "#/vision", "/booth/qa": "#/booth/qa", "/booth/call": "#/booth/call"}.get(
-                parsed.path.lower().rstrip("/")
-            )
+            # 주소창의 화면 주소(/booth/call · /test/QA · /temp …)는 앱의 해시 주소로 자동으로 돌려보낸다 — 앱이 해시 라우팅이라.
+            # 예전엔 고정 표(/test/qa · /temp · /vision · /booth/qa)라 새 화면을 만들 때마다 여기를 고치고 8799 를 재시작해야 했고,
+            # 그걸 빠뜨리면 404 가 났다 (2026-10-01 /booth/call). 이제 파일이 아닌 주소면 다 해시로 간다 — 앱이 모르는 화면은 홈이 그린다.
+            hash_route = hash_route_for(parsed.path, STATIC.locate)
             if hash_route:
                 self.send_response(302)
                 self.send_header("Location", "/index.html" + hash_route)
