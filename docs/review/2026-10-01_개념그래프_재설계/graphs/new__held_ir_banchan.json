@@ -1,0 +1,812 @@
+{
+ "file_name": "ir_banchan.pptx",
+ "total_slides": 8,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "label": "구독자 수보다 중요한 월 반복 매출",
+   "slide_nos": [
+    1
+   ],
+   "summary": "구독자 수보다 중요한 월 반복 매출",
+   "importance": "core",
+   "weight": 0.757,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0866,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1,
+   "kind": "thesis"
+  },
+  {
+   "id": "1in-gagu-jeunggaga-banchan-gudok-suyoreu",
+   "label": "1인 가구 증가가 반찬 구독 수요를 늘립니다.",
+   "slide_nos": [
+    2
+   ],
+   "summary": "왜 지금 반찬 구독인가",
+   "importance": "core",
+   "weight": 0.643,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1175,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "label": "세 문제가 모두 공헌이익을 깎습니다.",
+   "slide_nos": [
+    4
+   ],
+   "summary": "수익성을 가로막는 세 가지 문제",
+   "importance": "core",
+   "weight": 0.575,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0974,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "label": "권역 묶음 배송 — 같은 아파트 단지 주문을 한 번에 배송해 배송비를 낮춥니다.",
+   "slide_nos": [
+    5
+   ],
+   "summary": "해결책",
+   "importance": "core",
+   "weight": 0.63,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1793,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "mukeum-baesong-doip-hu-geondang-baesongb",
+   "label": "묶음 배송 도입 후 건당 배송비가 3,200원에서 1,900원으로 41% 줄었습니다.",
+   "slide_nos": [
+    6
+   ],
+   "summary": "파일럿 결과 (성수동 3개 단지, 12주)",
+   "importance": "core",
+   "weight": 0.946,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2442,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "건당 배송비 3,200원에서 1,900원으로 41% 감소",
+    "폐기율 14%에서 6%로 감소",
+    "12주 (테스트 기간)"
+   ]
+  },
+  {
+   "id": "daebubunui-gogaekeun-cheot-dal-ane-gudok",
+   "label": "대부분의 고객은 첫 달 안에 구독을 유지할지 결정하는 경향이 있습니다.",
+   "slide_nos": [
+    7
+   ],
+   "summary": "고객 반응",
+   "importance": "support",
+   "weight": 0.207,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1036,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "hankkigotgan",
+   "label": "한끼곳간",
+   "slide_nos": [
+    1
+   ],
+   "summary": "동네 반찬 정기구독 서비스",
+   "importance": "core",
+   "weight": 0.757,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0866,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "sideu-raundeu",
+   "label": "시드 라운드",
+   "slide_nos": [
+    1
+   ],
+   "summary": "초기 투자 라운드",
+   "importance": "core",
+   "weight": 0.622,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0866,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "wol-banbok-maechul",
+   "label": "월 반복 매출",
+   "slide_nos": [
+    1,
+    3
+   ],
+   "summary": "구독자 수 × 객단가 × 유지율",
+   "importance": "core",
+   "weight": 0.851,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1947,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "1in-gagu",
+   "label": "1인 가구",
+   "slide_nos": [
+    2
+   ],
+   "summary": "혼자 사는 가구",
+   "importance": "core",
+   "weight": 0.507,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1175,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "1in-gagu-jeunggaga-banchan-gudok-suyoreu",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "banchan-gudok-suyo",
+   "label": "반찬 구독 수요",
+   "slide_nos": [
+    2
+   ],
+   "summary": "반찬 정기구독 서비스 이용 수요",
+   "importance": "core",
+   "weight": 0.507,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1175,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "1in-gagu-jeunggaga-banchan-gudok-suyoreu",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gudokja-su",
+   "label": "구독자 수",
+   "slide_nos": [
+    3
+   ],
+   "summary": "서비스 구독자 수",
+   "importance": "core",
+   "weight": 0.609,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1082,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "wol-banbok-maechul",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gaekdanga",
+   "label": "객단가",
+   "slide_nos": [
+    3
+   ],
+   "summary": "한 번 구독 시 평균 결제 금액",
+   "importance": "core",
+   "weight": 0.718,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1082,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "wol-banbok-maechul",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "yujiyul",
+   "label": "유지율",
+   "slide_nos": [
+    3
+   ],
+   "summary": "다음 달에도 구독을 유지하는 비율",
+   "importance": "core",
+   "weight": 0.609,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1082,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "wol-banbok-maechul",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "nopeun-baesongbi",
+   "label": "높은 배송비",
+   "slide_nos": [
+    4
+   ],
+   "summary": "개별 배송 시 발생하는 비용",
+   "importance": "core",
+   "weight": 0.493,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0974,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "banchan-pyegi-sonsil",
+   "label": "반찬 폐기 손실",
+   "slide_nos": [
+    4
+   ],
+   "summary": "주문 후 남은 반찬 폐기 비용",
+   "importance": "core",
+   "weight": 0.493,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0974,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "cheot-dal-ital",
+   "label": "첫 달 이탈",
+   "slide_nos": [
+    4,
+    7
+   ],
+   "summary": "구독 시작 후 첫 달에 구독을 취소하는 현상",
+   "importance": "core",
+   "weight": 0.774,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.2009,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gongheoniik",
+   "label": "공헌이익",
+   "slide_nos": [
+    4
+   ],
+   "summary": "매출에서 변동비를 뺀 이익",
+   "importance": "core",
+   "weight": 0.493,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0974,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gwonyeok-mukeum-baesong",
+   "label": "권역 묶음 배송",
+   "slide_nos": [
+    5
+   ],
+   "summary": "같은 아파트 단지 주문을 한 번에 배송해 배송비를 낮춤",
+   "importance": "core",
+   "weight": 0.549,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1793,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "suyo-yecheuk-jumun-magam",
+   "label": "수요 예측 주문 마감",
+   "slide_nos": [
+    5
+   ],
+   "summary": "전날 18시에 주문을 마감해 폐기 손실을 줄임",
+   "importance": "core",
+   "weight": 0.549,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1793,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "jumun-magam-hu-namneun-banchan",
+   "label": "주문 마감 후 남는 반찬",
+   "slide_nos": [
+    5
+   ],
+   "summary": "주문 마감 후 남는 반찬은 반드시 0개가 됨",
+   "importance": "core",
+   "weight": 0.549,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1793,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "seongsudong",
+   "label": "성수동",
+   "slide_nos": [
+    6
+   ],
+   "summary": "파일럿 테스트 지역",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2442,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "mukeum-baesong-doip-hu-geondang-baesongb",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "3gae-danji",
+   "label": "3개 단지",
+   "slide_nos": [
+    6
+   ],
+   "summary": "테스트 대상 아파트 단지 수",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2442,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "mukeum-baesong-doip-hu-geondang-baesongb",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gogaek-baneung",
+   "label": "고객 반응",
+   "slide_nos": [
+    7
+   ],
+   "summary": "고객 구독 유지 패턴",
+   "importance": "support",
+   "weight": 0.262,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1036,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": true
+   },
+   "parent_id": "daebubunui-gogaekeun-cheot-dal-ane-gudok",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "대부분의 고객은 첫 달 안에 구독을 유지할지 결정"
+   ]
+  },
+  {
+   "id": "jaegudok-gogaek",
+   "label": "재구독 고객",
+   "slide_nos": [
+    7
+   ],
+   "summary": "첫 달 이후 구독을 유지하는 고객",
+   "importance": "support",
+   "weight": 0.234,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1036,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "daebubunui-gogaekeun-cheot-dal-ane-gudok",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "pyeonggyun-gaekdanga",
+   "label": "평균 객단가",
+   "slide_nos": [
+    7
+   ],
+   "summary": "재구독 고객의 평균 결제 금액",
+   "importance": "support",
+   "weight": 0.099,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1036,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "jaegudok-gogaek",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "tuja-yocheong",
+   "label": "투자 요청",
+   "slide_nos": [
+    8
+   ],
+   "summary": "5억 원 투자 유치 요청",
+   "importance": "core",
+   "weight": 0.687,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0634,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": true
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "reonwei",
+   "label": "런웨이",
+   "slide_nos": [
+    8
+   ],
+   "summary": "18개월 동안 운영 가능한 자금",
+   "importance": "core",
+   "weight": 0.606,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0634,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "gwonyeok-hwakjang",
+   "label": "권역 확장",
+   "slide_nos": [
+    8
+   ],
+   "summary": "권역 3곳 → 12곳 확장 계획",
+   "importance": "core",
+   "weight": 0.552,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0634,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "depth": 2,
+   "kind": "concept"
+  }
+ ],
+ "edges": [
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "1in-gagu-jeunggaga-banchan-gudok-suyoreu",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "mukeum-baesong-doip-hu-geondang-baesongb",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "daebubunui-gogaekeun-cheot-dal-ane-gudok",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "hankkigotgan",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "sideu-raundeu",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "wol-banbok-maechul",
+   "kind": "parent"
+  },
+  {
+   "from": "1in-gagu-jeunggaga-banchan-gudok-suyoreu",
+   "to": "1in-gagu",
+   "kind": "parent"
+  },
+  {
+   "from": "1in-gagu-jeunggaga-banchan-gudok-suyoreu",
+   "to": "banchan-gudok-suyo",
+   "kind": "parent"
+  },
+  {
+   "from": "wol-banbok-maechul",
+   "to": "gudokja-su",
+   "kind": "parent"
+  },
+  {
+   "from": "wol-banbok-maechul",
+   "to": "gaekdanga",
+   "kind": "parent"
+  },
+  {
+   "from": "wol-banbok-maechul",
+   "to": "yujiyul",
+   "kind": "parent"
+  },
+  {
+   "from": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "to": "nopeun-baesongbi",
+   "kind": "parent"
+  },
+  {
+   "from": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "to": "banchan-pyegi-sonsil",
+   "kind": "parent"
+  },
+  {
+   "from": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "to": "cheot-dal-ital",
+   "kind": "parent"
+  },
+  {
+   "from": "se-munjega-modu-gongheoniikeul-kkakseupn",
+   "to": "gongheoniik",
+   "kind": "parent"
+  },
+  {
+   "from": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "to": "gwonyeok-mukeum-baesong",
+   "kind": "parent"
+  },
+  {
+   "from": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "to": "suyo-yecheuk-jumun-magam",
+   "kind": "parent"
+  },
+  {
+   "from": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "to": "jumun-magam-hu-namneun-banchan",
+   "kind": "parent"
+  },
+  {
+   "from": "mukeum-baesong-doip-hu-geondang-baesongb",
+   "to": "seongsudong",
+   "kind": "parent"
+  },
+  {
+   "from": "mukeum-baesong-doip-hu-geondang-baesongb",
+   "to": "3gae-danji",
+   "kind": "parent"
+  },
+  {
+   "from": "daebubunui-gogaekeun-cheot-dal-ane-gudok",
+   "to": "gogaek-baneung",
+   "kind": "parent"
+  },
+  {
+   "from": "daebubunui-gogaekeun-cheot-dal-ane-gudok",
+   "to": "jaegudok-gogaek",
+   "kind": "parent"
+  },
+  {
+   "from": "jaegudok-gogaek",
+   "to": "pyeonggyun-gaekdanga",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "tuja-yocheong",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "reonwei",
+   "kind": "parent"
+  },
+  {
+   "from": "gudokja-suboda-jungyohan-wol-banbok-maec",
+   "to": "gwonyeok-hwakjang",
+   "kind": "parent"
+  },
+  {
+   "from": "daebubunui-gogaekeun-cheot-dal-ane-gudok",
+   "to": "cheot-dal-ital",
+   "kind": "relates"
+  },
+  {
+   "from": "gwonyeok-mukeum-baesong-gateun-apateu-da",
+   "to": "nopeun-baesongbi",
+   "kind": "relates"
+  },
+  {
+   "from": "mukeum-baesong-doip-hu-geondang-baesongb",
+   "to": "nopeun-baesongbi",
+   "kind": "relates"
+  }
+ ],
+ "sections": [
+  {
+   "name": "도입",
+   "slide_role": "intro",
+   "slide_nos": [
+    1,
+    2
+   ]
+  },
+  {
+   "name": "본론",
+   "slide_role": "body",
+   "slide_nos": [
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  {
+   "name": "결론",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    8
+   ]
+  }
+ ],
+ "thesis": "gudokja-suboda-jungyohan-wol-banbok-maec"
+}

@@ -27,6 +27,7 @@ import sys
 from . import _claim_rules as R
 from . import _deck_lines as DL
 from . import _graph_items as GI
+from . import _typed_graph as TG
 from ._claim_rules import mention_score as R_mention
 from ._json_text import extract_json_object
 from ._match import contains_tokens, label_tokens, norm_tokens
@@ -1347,6 +1348,9 @@ def build_graph(
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
 
+    if TG.is_typed(doc):
+        return _build_typed(engine, doc, ctx, slide_doc)
+
     try:
         nodes, edges, sections, thesis = _call(engine, doc, ctx, slide_doc)
     except GraphError:
@@ -1389,6 +1393,27 @@ def build_graph(
     # 계약(contracts.ConceptGraph)에 칸이 생기면 싣는다 — 칸이 없는 지금도 그대로 돈다 (09-30 G-A17·G-A30).
     # thesis: 모델이 고른 발표 주제 노드 (F-08 theme 자리가 「가장 무거운 루트」 를 짐작하지 않게). 루트일 때만.
     _set_contract_field(graph, "thesis", thesis if thesis in {n.id for n in nodes if n.parent_id is None} else None)
+    _set_contract_field(graph, "degraded", degraded)
+    return graph
+
+
+def _build_typed(engine: LLMProvider, doc: ConceptDoc, ctx: Context, slide_doc: SlideDoc | None) -> ConceptGraph:
+    """
+    종류가 있는 F-06 (2026-10-01~) 의 길 — 노드는 자료에서 코드가, 뼈대 판단만 LLM 이 (`_typed_graph`).
+    루트는 늘 핵심 주장 하나라 루트 클램프가 필요 없고, 가지 간 연결은 자료가 밝힌 것만 받아 개수 보강(`_fill_links`)을 부르지 않는다.
+    뼈대 판단이 끝내 깨지면 모든 장을 핵심 주장 밑에 두고 degraded 에 「skeleton」 을 적는다.
+    """
+    degraded: list[str] = []
+    data = TG.call_structure(engine, doc, ctx, MAX_TOKENS)
+    if data is None:
+        degraded.append("skeleton")
+    nodes, edges, sections, thesis = TG.assemble(doc, data, slide_doc)
+    cov = TG.coverage(doc, nodes)
+    if cov["lost"]:
+        sys.stderr.write(f"[f07] 그래프에 없는 F-06 항목 {cov['lost']}/{cov['total']}: {cov['missing']}\n")
+    graph = ConceptGraph(file_name=doc.file_name, total_slides=doc.total_slides, nodes=nodes, edges=edges,
+                         sections=sections, model=engine.name)
+    _set_contract_field(graph, "thesis", thesis)
     _set_contract_field(graph, "degraded", degraded)
     return graph
 

@@ -22,8 +22,10 @@ ConceptGraph + Transcript → AlignmentDoc.
 from __future__ import annotations
 
 import os
+import re
 
 from . import _align_checks as chk
+from . import _claim_rules as R
 from ._deck_claims import Deck, deck_from_slidedoc
 from ._json_text import extract_json_object
 from ._match import (
@@ -80,6 +82,9 @@ SKIP_GUARD_WEIGHT = float(os.environ.get("CHUCKCHUCK_SKIP_GUARD_WEIGHT", "0.35")
 # LLM 이 '누락' 이라 판정해도 코드가 '설명함' 으로 뒤집어서, 리포트가 실제보다
 # 후해진다 (2026-08-10: 개념 18개 중 누락 0개가 나온 원인).
 MENTION_MIN = max(1, int(os.environ.get("CHUCKCHUCK_ALIGN_MENTION_MIN", "5")))
+#: 주장·핵심 주장 노드(이름이 문장)의 언급 — 발화 문장 하나가 그 주장의 낱말을 이 몫 이상 부르면 한 번 (2026-10-01 종류 있는 그래프).
+CLAIM_MENTION_MIN = float(os.environ.get("CHUCKCHUCK_ALIGN_CLAIM_MENTION_MIN", "0.6"))
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?。])\s+|\n+")
 
 SYSTEM_PROMPT = """당신은 발표 리허설 평가자다.
 '개념 목록'(발표 자료에서 뽑은 개념들)과 '슬라이드별 발화'를 대조해,
@@ -227,8 +232,26 @@ def _speech_bases(
     ]
     timed_tokens = [t for t, _ in timed]
 
+    # 주장 노드(문장 이름)는 이름 토큰이 그대로 이어 나올 수 없다 — 발화 문장 단위로 낱말 몫을 본다 (`_claim_mentions`)
+    if cues and transcript.by_slide:
+        sentences = [(u.slide_no, u.text) for u in utts if chk.usable(u)]
+    else:
+        sentences = [(no, t) for no in sec_by_slide for t in _SENT_SPLIT_RE.split(transcript.text_for_slide(no)) if t.strip()]
+    if not sentences:
+        sentences = [(0, t) for t in _SENT_SPLIT_RE.split(transcript.full_text or "") if t.strip()]
+
     bases: dict[str, SpeechBasis] = {}
     for node in graph.nodes:
+        if getattr(node, "kind", "") in ("claim", "thesis"):
+            hits = [no for no, t in sentences if R.mention_score(node.label, t) >= CLAIM_MENTION_MIN]
+            bases[node.id] = SpeechBasis(
+                speech_sec=round(sum(sec_by_slide.get(no, 0.0) for no in node.slide_nos), 2),
+                time_share=round(sum(sec_by_slide.get(no, 0.0) for no in node.slide_nos) / total_sec, 4) if total_sec else 0.0,
+                mention_count=len(hits),
+                mentioned_slide_count=len(set(hits) & set(node.slide_nos)),
+                first_mention_sec=None,
+            )
+            continue
         speech_sec = sum(sec_by_slide.get(no, 0.0) for no in node.slide_nos)
         tokens = label_tokens(node.label)
         mentioned_slides = sum(
@@ -274,9 +297,13 @@ def _apply_speech_weights(items: list[AlignmentItem], graph: ConceptGraph) -> No
 # 판정 후처리 — LLM 판정을 결정적 신호와 대조해 다듬는다
 # ---------------------------------------------------------------------------
 
-def _fallback_verdict(basis: SpeechBasis) -> str:
-    """LLM 판정이 없거나 못 믿을 때: 충분히 언급했으면 정합, 아니면 누락."""
-    return "aligned" if basis.mention_count >= MENTION_MIN else "missing"
+def _fallback_verdict(basis: SpeechBasis, kind: str = "") -> str:
+    """
+    LLM 판정이 없거나 못 믿을 때: 충분히 언급했으면 정합, 아니면 누락.
+    주장 노드(이름이 문장)는 언급을 발화 문장 단위로 센다(`_speech_bases`) — 한 문장이 주장 낱말 60% 이상을 부르면 이미 말한 것이라 1회면 된다.
+    """
+    need = 1 if kind in ("claim", "thesis") else MENTION_MIN
+    return "aligned" if basis.mention_count >= need else "missing"
 
 
 def _normalize_items(
@@ -321,8 +348,9 @@ def _normalize_items(
 
         verdict = str((raw or {}).get("verdict", "") or "")
         decided = "llm"
+        kind = getattr(node, "kind", "")
         if verdict not in ALIGN_VERDICTS:
-            verdict, decided = _fallback_verdict(basis), "fallback"
+            verdict, decided = _fallback_verdict(basis, kind), "fallback"
         if verdict == "missing" and basis.mention_count >= MENTION_MIN:
             verdict, decided = "aligned", "code"
         # 근거 없는 모순은 그대로 둘 수 없다(계약). 다만 폴백으로 보내면 언급
@@ -337,7 +365,7 @@ def _normalize_items(
         # 실측으로 17개 개념이 전부 aligned, coverage 1.0 이 나왔다.
         # "틀렸다"를 근거 없이 말하지 않는다면 "잘했다"도 마찬가지여야 한다.
         if verdict == "aligned" and not evidence:
-            verdict = _fallback_verdict(basis)
+            verdict = _fallback_verdict(basis, kind)
             if decided == "llm":
                 decided = "fallback"
         if (
@@ -727,6 +755,33 @@ def _call(
         raise AlignError(f"LLM 응답에서 판정 JSON 을 찾지 못했습니다: {e}") from e
 
 
+#: 노드가 이만큼 넘는 그래프에서 LLM 이 판정을 UNJUDGED_RETRY_MIN 개 이상 빠뜨리면 그 노드만 모아 한 번 더 묻는다.
+#: 작은 그래프에서 빠진 판정은 모델이 볼 수 있었는데 안 본 것이라 폴백에 맡긴다 — 큰 그래프는 한 번에 다 못 보는 것이다.
+UNJUDGED_RETRY_NODES = int(os.environ.get("CHUCKCHUCK_ALIGN_UNJUDGED_RETRY_NODES", "40"))
+UNJUDGED_RETRY_MIN = int(os.environ.get("CHUCKCHUCK_ALIGN_UNJUDGED_RETRY_MIN", "3"))
+
+
+def _judge_unjudged(engine: LLMProvider, graph: ConceptGraph, transcript: Transcript, ctx: Context,
+                    raw_items: list[dict]) -> list[dict]:
+    """
+    판정이 빠진 노드만 담은 그래프로 한 번 더 묻는다 (실패하면 빈 목록 — 폴백이 채운다).
+    2026-10-01 종류 있는 그래프(수익률격차 116노드): 한 번에 다 못 보고 20여 개를 비워, 말한 주장도 폴백 「누락」 이 됐다.
+    """
+    judged = {str(i.get("node_id", "") or "") for i in raw_items}
+    left = [n for n in graph.nodes if n.id not in judged]
+    if not raw_items or len(graph.nodes) < UNJUDGED_RETRY_NODES or len(left) < UNJUDGED_RETRY_MIN:
+        return []
+    keep = {n.id for n in left}
+    sub = ConceptGraph(file_name=graph.file_name, total_slides=graph.total_slides, nodes=left,
+                       edges=[e for e in graph.edges if e.from_id in keep and e.to_id in keep],
+                       sections=graph.sections, model=graph.model)
+    try:
+        data = _call(engine, sub, transcript, ctx)
+    except AlignError:
+        return []
+    return [i for i in (data.get("items") or []) if isinstance(i, dict) and str(i.get("node_id", "")) in keep]
+
+
 # ---------------------------------------------------------------------------
 # 공개 함수
 # ---------------------------------------------------------------------------
@@ -808,6 +863,7 @@ def align_speech(
         except AlignError:
             pass
 
+    raw_items += _judge_unjudged(engine, graph, transcript, ctx, raw_items)
     deck = deck_from_slidedoc(slide_doc) if slide_doc is not None else Deck()
     deck_texts = _deck_slide_texts(slide_doc) if slide_doc is not None else None
     items = _normalize_items(raw_items, graph, bases, utts, deck_texts)

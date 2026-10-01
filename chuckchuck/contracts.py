@@ -298,11 +298,29 @@ class SlideConcepts:
     #: F-06 이 이 장의 개념을 끝내 못 받았다 (다시 물어도 빈손) — 빈 core 로 조용히 채우던 것을 표시한다 (09-30 G-A8).
     #: 거짓이면 직렬화하지 않는다 — 옛 캐시 키·저장본과 같은 모양을 지킨다.
     missing: bool = False
+    #: 2026-10-01 종류가 있는 추출 — 무더기 목록(개념·주장 문장·수치·조건이 한 칸)이 그래프 위계를 흔들었다
+    #: (docs/review/2026-10-01_개념그래프_일반원인). 비어 있으면 직렬화하지 않는다 — 옛 저장본은 옛 모양 그대로다.
+    #: title_kind: 장 제목의 성격 — claim(주장 문장) · question(질문) · topic(주제어·목차 말) · structural(목차·감사·참고문헌)
+    title_kind: str = ""
+    #: 이 장이 내세우는 주장(참·거짓을 따질 수 있는 평서문). 첫 줄이 이 장의 핵심 메시지다.
+    claims: list[str] = field(default_factory=list)
+    #: 주장·개념을 받치는 수치·결과·사례·출처·조건(기간·대상·장소) — 노드가 아니라 노드에 붙는 근거다.
+    evidence: list[str] = field(default_factory=list)
+    #: 같은 장 안 개념의 위아래 — {하위 개념 이름: 상위 개념 이름} (「구독자 수」 → 「월 반복 매출」).
+    concept_of: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def typed(self) -> bool:
+        """종류가 있는 추출(F-06 2026-10-01~)의 장인가 — 옛 저장본은 거짓."""
+        return bool(self.title_kind or self.claims or self.evidence or self.concept_of)
 
     def to_dict(self) -> dict:
         d = asdict(self)
         if not self.missing:
             d.pop("missing", None)
+        for k in ("title_kind", "claims", "evidence", "concept_of"):
+            if not d.get(k):
+                d.pop(k, None)
         return d
 
 
@@ -360,6 +378,10 @@ class ConceptDoc:
                 raw_text=s.get("raw_text", ""),
                 importance=s.get("importance", "core"),
                 missing=bool(s.get("missing", False)),
+                title_kind=str(s.get("title_kind", "") or ""),
+                claims=[str(x) for x in (s.get("claims") or [])],
+                evidence=[str(x) for x in (s.get("evidence") or [])],
+                concept_of={str(k): str(v) for k, v in (s.get("concept_of") or {}).items()},
             ))
         return cls(
             file_name=d["file_name"],
@@ -387,6 +409,8 @@ SLIDE_ROLE_FALLBACK = "body"
 
 #: edges[].kind 허용값. parent 는 위계, relates 는 그 밖의 논리 연결.
 EDGE_KINDS = ("parent", "relates")
+#: ConceptNode.kind 값 — 빈 값은 옛 그래프(종류 모름).
+NODE_KINDS = ("thesis", "claim", "concept")
 EDGE_KIND_FALLBACK = "relates"
 
 #: nodes[].weight_basis.position 허용값. 발표 안에서 개념이 등장하는 위치.
@@ -460,9 +484,13 @@ class ConceptNode:
     weight_basis: WeightBasis = field(default_factory=WeightBasis)
     parent_id: str | None = None   # 파생: 첫 parent 간선
     depth: int = 1                 # 파생: 루트=1
+    #: 노드 종류 — thesis(발표의 핵심 주장, 루트) · claim(장이 내세우는 주장 문장) · concept(개념). 빈 값은 옛 그래프(종류 모름).
+    kind: str = ""
+    #: 이 노드를 받치는 자료의 수치·결과·사례·조건 (F-06 evidence). 노드로 세우지 않고 여기 단다 — 「성수동」「12주」 가 루트가 되던 것.
+    evidence: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "id": self.id,
             "label": self.label,
             "slide_nos": list(self.slide_nos),
@@ -473,6 +501,11 @@ class ConceptNode:
             "parent_id": self.parent_id,
             "depth": self.depth,
         }
+        if self.kind:
+            d["kind"] = self.kind
+        if self.evidence:
+            d["evidence"] = list(self.evidence)
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "ConceptNode":
@@ -486,6 +519,8 @@ class ConceptNode:
             weight_basis=WeightBasis.from_dict(d.get("weight_basis") or {}),
             parent_id=d.get("parent_id"),
             depth=int(d.get("depth", 1)),
+            kind=str(d.get("kind", "") or ""),
+            evidence=[str(x) for x in (d.get("evidence") or [])],
         )
 
 

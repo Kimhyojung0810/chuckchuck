@@ -1,0 +1,800 @@
+{
+ "file_name": "health_glucose.pptx",
+ "total_slides": 8,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "label": "탄수화물 양보다 중요한 혈당 부하",
+   "slide_nos": [
+    1
+   ],
+   "summary": "탄수화물 양보다 중요한 혈당 부하",
+   "importance": "core",
+   "weight": 0.767,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0998,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1,
+   "kind": "thesis",
+   "evidence": [
+    "스파이크가 만드는 세 가지 문제"
+   ]
+  },
+  {
+   "id": "sikhu-hyeoldangi-jjaleun-sigane-geuphage",
+   "label": "식후 혈당이 짧은 시간에 급하게 올랐다가 떨어지는 현상입니다.",
+   "slide_nos": [
+    2
+   ],
+   "summary": "혈당 스파이크란",
+   "importance": "core",
+   "weight": 0.472,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0749,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "chaeso-danbaekjil-tansuhwamul-sunseoro-m",
+   "label": "채소 → 단백질 → 탄수화물 순서로 먹으면 식후 졸림을 줄일 수 있습니다.",
+   "slide_nos": [
+    5
+   ],
+   "summary": "식사 순서 바꾸기",
+   "importance": "core",
+   "weight": 0.75,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2139,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "식후 졸림을 줄일 수 있습니다",
+    "포만감이 오래가서 잦은 허기를 막습니다",
+    "혈당 스파이크는 완전히 막을 수 있습니다"
+   ]
+  },
+  {
+   "id": "chaesoreul-meonjeo-meokeun-geurupeun-sik",
+   "label": "채소를 먼저 먹은 그룹은 식후 혈당 최고치가 평균 29% 낮았습니다 (Shukla 외, 2015).",
+   "slide_nos": [
+    6
+   ],
+   "summary": "연구로 본 효과",
+   "importance": "core",
+   "weight": 0.965,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2727,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "label": "야식이 다음 날 아침 공복 혈당을 높입니다.",
+   "slide_nos": [
+    7
+   ],
+   "summary": "생활 속 팁",
+   "importance": "support",
+   "weight": 0.272,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.107,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "mueoteul-meokneunyamankeum-eotteon-sunse",
+   "label": "무엇을 먹느냐만큼 어떤 순서로 먹느냐도 중요합니다.",
+   "slide_nos": [
+    8
+   ],
+   "summary": "정리",
+   "importance": "core",
+   "weight": 0.503,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0642,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "정리"
+   ]
+  },
+  {
+   "id": "hyeoldang-buha",
+   "label": "혈당 부하",
+   "slide_nos": [
+    1,
+    3
+   ],
+   "summary": "혈당 부하 = 혈당 지수 × 탄수화물 양 ÷ 100",
+   "importance": "core",
+   "weight": 0.967,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.2068,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": true
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "jolrim",
+   "label": "졸림",
+   "slide_nos": [
+    1
+   ],
+   "summary": "점심 식사 후 졸린 현상",
+   "importance": "core",
+   "weight": 0.64,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0998,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "bap-meokgo-jolrin-iyu",
+   "label": "밥 먹고 졸린 이유",
+   "slide_nos": [
+    1
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.526,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0998,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "hyeoldang-seupaikeu",
+   "label": "혈당 스파이크",
+   "slide_nos": [
+    2
+   ],
+   "summary": "식후 혈당이 짧은 시간에 급하게 올랐다가 떨어지는 현상",
+   "importance": "core",
+   "weight": 0.548,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0749,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "sikhu-hyeoldangi-jjaleun-sigane-geuphage",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "hyeoldang-jisu",
+   "label": "혈당 지수",
+   "slide_nos": [
+    3
+   ],
+   "summary": "음식이 혈당을 얼마나 빨리 올리는지 나타내는 지표",
+   "importance": "core",
+   "weight": 0.48,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.107,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "hyeoldang-buha",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "tansuhwamul-yang",
+   "label": "탄수화물 양",
+   "slide_nos": [
+    3
+   ],
+   "summary": "섭취한 탄수화물의 양",
+   "importance": "core",
+   "weight": 0.556,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.107,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "hyeoldang-buha",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "hyeoldang-buha-gyesan",
+   "label": "혈당 부하 계산",
+   "slide_nos": [
+    3
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.733,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.107,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": true
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "sikhu-jolrim",
+   "label": "식후 졸림",
+   "slide_nos": [
+    4
+   ],
+   "summary": "스파이크가 만드는 문제 중 하나",
+   "importance": "core",
+   "weight": 0.577,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0606,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "jateun-heogi",
+   "label": "잦은 허기",
+   "slide_nos": [
+    4
+   ],
+   "summary": "스파이크가 만드는 문제 중 하나",
+   "importance": "core",
+   "weight": 0.539,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0606,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "yagan-poksik",
+   "label": "야간 폭식",
+   "slide_nos": [
+    4
+   ],
+   "summary": "스파이크가 만드는 문제 중 하나",
+   "importance": "core",
+   "weight": 0.539,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0606,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "siksa-sunseo",
+   "label": "식사 순서",
+   "slide_nos": [
+    5,
+    8
+   ],
+   "summary": "채소 → 단백질 → 탄수화물 순서로 먹는 방법",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.2781,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 8,
+    "title_hit": true
+   },
+   "parent_id": "chaeso-danbaekjil-tansuhwamul-sunseoro-m",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "chaeso",
+   "label": "채소",
+   "slide_nos": [
+    5
+   ],
+   "summary": "식사 순서에서 먼저 섭취해야 하는 음식",
+   "importance": "core",
+   "weight": 0.497,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2139,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "siksa-sunseo",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "danbaekjil",
+   "label": "단백질",
+   "slide_nos": [
+    5
+   ],
+   "summary": "식사 순서에서 채소 다음에 섭취해야 하는 음식",
+   "importance": "core",
+   "weight": 0.421,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2139,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "siksa-sunseo",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "tansuhwamul",
+   "label": "탄수화물",
+   "slide_nos": [
+    5
+   ],
+   "summary": "식사 순서에서 마지막에 섭취해야 하는 음식",
+   "importance": "core",
+   "weight": 0.573,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2139,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 7,
+    "title_hit": false
+   },
+   "parent_id": "siksa-sunseo",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "siksa-sunseo-bakkugi",
+   "label": "식사 순서 바꾸기",
+   "slide_nos": [
+    5
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.674,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2139,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": true
+   },
+   "parent_id": "chaeso-danbaekjil-tansuhwamul-sunseoro-m",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "yeongu-gyeolgwa",
+   "label": "연구 결과",
+   "slide_nos": [
+    6
+   ],
+   "summary": "채소를 먼저 먹은 그룹은 식후 혈당 최고치가 평균 29% 낮았습니다",
+   "importance": "core",
+   "weight": 0.762,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2727,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "chaesoreul-meonjeo-meokeun-geurupeun-sik",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "hyeoldang-choegochi",
+   "label": "혈당 최고치",
+   "slide_nos": [
+    6
+   ],
+   "summary": "식후 혈당 최고치",
+   "importance": "core",
+   "weight": 0.711,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2727,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "yeongu-gyeolgwa",
+   "depth": 4,
+   "kind": "concept",
+   "evidence": [
+    "채소를 먼저 먹은 그룹은 식후 혈당 최고치가 평균 29% 낮았습니다 (Shukla 외, 2015)",
+    "탄수화물 먼저: 30분 혈당 172, 60분 혈당 180",
+    "채소 먼저: 30분 혈당 122, 60분 혈당 128"
+   ]
+  },
+  {
+   "id": "shukla-oe-2015",
+   "label": "Shukla 외, 2015",
+   "slide_nos": [
+    6
+   ],
+   "summary": "2015년 Shukla 연구팀의 연구",
+   "importance": "core",
+   "weight": 0.673,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2727,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "yeongu-gyeolgwa",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "yeonguro-bon-hyogwa",
+   "label": "연구로 본 효과",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.889,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2727,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": true
+   },
+   "parent_id": "chaesoreul-meonjeo-meokeun-geurupeun-sik",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "yasik",
+   "label": "야식",
+   "slide_nos": [
+    7
+   ],
+   "summary": "야식이 다음 날 아침 공복 혈당을 높이는 현상",
+   "importance": "support",
+   "weight": 0.145,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.107,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "야식이 다음 날 아침 공복 혈당을 높입니다"
+   ]
+  },
+  {
+   "id": "gaein-chai",
+   "label": "개인 차이",
+   "slide_nos": [
+    7
+   ],
+   "summary": "개인에 따라 반응이 다를 수 있음",
+   "importance": "support",
+   "weight": 0.107,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.107,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "개인에 따라 반응이 다를 수 있으니 무리하지 마세요"
+   ]
+  },
+  {
+   "id": "saenghwal-sok-tip",
+   "label": "생활 속 팁",
+   "slide_nos": [
+    7
+   ],
+   "summary": "",
+   "importance": "support",
+   "weight": 0.234,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.107,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": true
+   },
+   "parent_id": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "depth": 3,
+   "kind": "concept"
+  }
+ ],
+ "edges": [
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "sikhu-hyeoldangi-jjaleun-sigane-geuphage",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "chaeso-danbaekjil-tansuhwamul-sunseoro-m",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "chaesoreul-meonjeo-meokeun-geurupeun-sik",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "mueoteul-meokneunyamankeum-eotteon-sunse",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "hyeoldang-buha",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "jolrim",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "bap-meokgo-jolrin-iyu",
+   "kind": "parent"
+  },
+  {
+   "from": "sikhu-hyeoldangi-jjaleun-sigane-geuphage",
+   "to": "hyeoldang-seupaikeu",
+   "kind": "parent"
+  },
+  {
+   "from": "hyeoldang-buha",
+   "to": "hyeoldang-jisu",
+   "kind": "parent"
+  },
+  {
+   "from": "hyeoldang-buha",
+   "to": "tansuhwamul-yang",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "hyeoldang-buha-gyesan",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "sikhu-jolrim",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "jateun-heogi",
+   "kind": "parent"
+  },
+  {
+   "from": "tansuhwamul-yangboda-jungyohan-hyeoldang",
+   "to": "yagan-poksik",
+   "kind": "parent"
+  },
+  {
+   "from": "chaeso-danbaekjil-tansuhwamul-sunseoro-m",
+   "to": "siksa-sunseo",
+   "kind": "parent"
+  },
+  {
+   "from": "siksa-sunseo",
+   "to": "chaeso",
+   "kind": "parent"
+  },
+  {
+   "from": "siksa-sunseo",
+   "to": "danbaekjil",
+   "kind": "parent"
+  },
+  {
+   "from": "siksa-sunseo",
+   "to": "tansuhwamul",
+   "kind": "parent"
+  },
+  {
+   "from": "chaeso-danbaekjil-tansuhwamul-sunseoro-m",
+   "to": "siksa-sunseo-bakkugi",
+   "kind": "parent"
+  },
+  {
+   "from": "chaesoreul-meonjeo-meokeun-geurupeun-sik",
+   "to": "yeongu-gyeolgwa",
+   "kind": "parent"
+  },
+  {
+   "from": "yeongu-gyeolgwa",
+   "to": "hyeoldang-choegochi",
+   "kind": "parent"
+  },
+  {
+   "from": "yeongu-gyeolgwa",
+   "to": "shukla-oe-2015",
+   "kind": "parent"
+  },
+  {
+   "from": "chaesoreul-meonjeo-meokeun-geurupeun-sik",
+   "to": "yeonguro-bon-hyogwa",
+   "kind": "parent"
+  },
+  {
+   "from": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "to": "yasik",
+   "kind": "parent"
+  },
+  {
+   "from": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "to": "gaein-chai",
+   "kind": "parent"
+  },
+  {
+   "from": "yasiki-daeum-nal-achim-gongbok-hyeoldang",
+   "to": "saenghwal-sok-tip",
+   "kind": "parent"
+  },
+  {
+   "from": "mueoteul-meokneunyamankeum-eotteon-sunse",
+   "to": "siksa-sunseo",
+   "kind": "relates"
+  },
+  {
+   "from": "hyeoldang-buha",
+   "to": "sikhu-hyeoldangi-jjaleun-sigane-geuphage",
+   "kind": "relates"
+  },
+  {
+   "from": "chaeso-danbaekjil-tansuhwamul-sunseoro-m",
+   "to": "sikhu-jolrim",
+   "kind": "relates"
+  }
+ ],
+ "sections": [
+  {
+   "name": "도입",
+   "slide_role": "intro",
+   "slide_nos": [
+    1,
+    2
+   ]
+  },
+  {
+   "name": "본론",
+   "slide_role": "body",
+   "slide_nos": [
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  {
+   "name": "결론",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    8
+   ]
+  }
+ ],
+ "thesis": "tansuhwamul-yangboda-jungyohan-hyeoldang"
+}
