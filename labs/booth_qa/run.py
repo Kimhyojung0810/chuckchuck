@@ -93,7 +93,10 @@ LAYOUT_JS = """() => {
     center_cover, phone_cover, overlaps, cam_on: camOn,
     // 아래로 잘린 버튼 — 화면(층) 밖으로 나간 눌러야 할 것
     // 폰(≤900)은 화면이 스크롤로 이어져서 재지 않는다
-    cut_off: innerWidth <= 900 ? [] : [...L.querySelectorAll('button, .bq-deck-go')].filter((b) => b.offsetParent).filter((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && (r.bottom > innerHeight + 1 || r.right > innerWidth + 1); }).map((b) => (b.id || b.textContent.trim()).slice(0, 24)),
+    // 스크롤로 닿는 칸(.bq-body 가 스크롤된다) 안이면 잘린 게 아니다
+    cut_off: innerWidth <= 900 ? [] : [...L.querySelectorAll('button, .bq-deck-go')].filter((b) => b.offsetParent).filter((b) => { const r = b.getBoundingClientRect();
+      const sc = b.closest('.bq-body'); const scrolls = sc && /auto|scroll/.test(getComputedStyle(sc).overflowY) && sc.scrollHeight > sc.clientHeight + 1;
+      return r.width > 0 && !scrolls && (r.bottom > innerHeight + 1 || r.right > innerWidth + 1); }).map((b) => (b.id || b.textContent.trim()).slice(0, 24)),
     host: r(L.querySelector('.bc-host')), talk: r(L.querySelector('.bc-talk')), dock: r(L.querySelector('.bc-dock')),
     now_q: r(L.querySelector('#stream .msg.is-now .msg-bubble')),
     glass: (() => { const g = L.querySelector('.bc-glass'); return g ? getComputedStyle(g).backdropFilter || getComputedStyle(g).webkitBackdropFilter : null; })(),
@@ -613,6 +616,8 @@ def run_full(args) -> Path:
         cam = plain_cam(OUT / "whitecam.mjpeg", (246, 246, 242))
     elif args.cam == "dark":
         cam = plain_cam(OUT / "darkcam.mjpeg", (22, 24, 28))
+    elif args.cam.endswith(".mjpeg"):
+        cam = Path(args.cam)   # 다른 실험실이 만든 영상(역광 · 밝은 방 등)
     R: dict = {"args": vars(args), "stages": {}, "layout": {}, "fonts": {}, "turns": [], "console": [], "requests": [],
                "loop": {}, "texts": {}, "contrast": {}}
     state: dict = {"judge_calls": 0, "judge_log": []}
@@ -631,7 +636,7 @@ def run_full(args) -> Path:
             n["i"] += 1
             png = out / f"{n['i']:02d}_{name}.png"
             page.screenshot(path=str(png))
-            if args.cam in ("white", "dark") and page.evaluate("(document.getElementById('bqStage')||{dataset:{}}).dataset.screen === 'qa'"):
+            if args.cam != "face" and page.evaluate("(document.getElementById('bqStage')||{dataset:{}}).dataset.screen === 'qa'"):
                 R["contrast"][name] = glass_contrast(page, png)
 
         def lay(tag: str) -> dict:
@@ -973,7 +978,7 @@ def main() -> int:
     ap.add_argument("--replay", default="", help="--full: --record 로 남긴 응답을 재생한다 (과금 없음)")
     ap.add_argument("--wait-home", action="store_true", help="--full: 결과 화면에서 40초 자동 처음으로까지 기다린다")
     ap.add_argument("--dpr", type=float, default=1, help="--full: devicePixelRatio (맥북 레티나는 2)")
-    ap.add_argument("--cam", default="face", choices=["face", "white", "dark"], help="--full: 가짜 카메라 — 얼굴 · 흰 벽 · 어두운 방 (white/dark 면 글자 대비를 사진에서 잰다)")
+    ap.add_argument("--cam", default="face", help="--full: 가짜 카메라 — 얼굴 · 흰 벽 · 어두운 방 (white/dark 면 글자 대비를 사진에서 잰다)")
     ap.add_argument("--reload", action="store_true", help="단계마다 새로고침·뒤로 가기 — 일반 앱 화면으로 새는지 (10-02)")
     ap.add_argument("--old-js", default="", help="--reload: 이 파일들을 --old-rev 판으로 내 옛 코드를 재현 (예: js/booth_qa.js,js/app.js)")
     ap.add_argument("--old-rev", default="HEAD")

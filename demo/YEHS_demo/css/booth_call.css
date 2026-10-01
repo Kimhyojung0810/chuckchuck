@@ -624,3 +624,32 @@
   .bq[data-variant="call"] .bc-slide { background: var(--lg-sheen), rgba(16, 20, 30, .5); }
   .bq[data-variant="call"] .bc-call .bc-host-text { padding: 6px 16px 6px 10px; }
 }
+
+/* ── 10-02 버그 사냥 3 #2 — 판은 투명하게 두되 글이 있는 블록 뒤에만 진한 면 ─────────────────────────────
+   글자 테(halo)는 2배 화면에서 번져 보였다 → 얇게. 답 칸(제목 · 버튼 · 끝 카드 초읽기)은 .6 면, 자료 근거 칸은 어둡게 */
+.bq[data-variant="call"] { --lg-halo: 0 1px 2px rgba(0, 0, 0, .5), 0 0 6px rgba(0, 0, 0, .22); }
+.bq[data-variant="call"] .bc-call .bc-dock { background: var(--lg-sheen), rgba(16, 20, 30, .62); }
+.bq[data-variant="call"] .bc-call .bc-host-text em { color: #c4fbe2; }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="sys"] .qa-evidence { background: rgba(0, 0, 0, .3); }
+/* 근거 인용 — 머리(자료 N장 · 빠진 것)는 그대로 두고 인용 글만 세 줄로 자른다(머리가 block 이라 4번째 줄이 반쯤 보였다) */
+.bq[data-variant="call"] .bc-stream .qa-evidence.qa-ground { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.bq[data-variant="call"] .bc-stream .qa-evidence.qa-ground .bc-q-clip { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+
+/* 위 띠는 전체 폭 투명 층이라 아래 대화 칸 칩 클릭을 가로챘다 — 띠는 통과, 안의 버튼 · 알약만 받는다 */
+.bq[data-variant="call"][data-screen="qa"] .bq-top { pointer-events: none; }
+.bq[data-variant="call"][data-screen="qa"] .bq-top :is(button, a, .bq-brand) { pointer-events: auto; }
+
+/* 확대 125%(1280×700 → 1024×560) 처럼 높이 650 이하 — 자료 창 · 질문 목록은 접고(이름표의 「질문 n/3」 이 말한다), 버튼 줄은 한 줄로 */
+@media (min-width: 901px) and (max-height: 650px) {
+  .bq[data-variant="call"] .bc-side .bc-slide, .bq[data-variant="call"] .bc-privacy, .bq[data-variant="call"] .bc-call .bc-prog { display: none; }
+  .bq[data-variant="call"] .bc-side { bottom: auto; }
+  .bq[data-variant="call"] .bc-dock .qa-input-label { margin-bottom: 4px; }
+  .bq[data-variant="call"] .bc-dock textarea { height: 48px; font-size: 16px; }
+  .bq[data-variant="call"] .bc-dock .step-actions { flex-wrap: nowrap; margin-top: 6px; }
+  .bq[data-variant="call"] .bc-dock .step-actions .btn { white-space: nowrap; padding: 0 12px; font-size: 14px; }
+  .bq[data-variant="call"] .bc-dock .step-actions-sub { flex-wrap: wrap; }
+  .bq[data-variant="call"] .bc-call .bc-host-bird { width: 64px; }
+}
+/* 흐림은 비싸다(헤드리스 23fps vs 흐림 끔 60fps, 사냥 3) — 삐약이 쪽 말풍선은 지금 질문만 흐리고 나머지는 조금 더 진한 연한 면으로 */
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"]:not(.is-now) .msg-bubble,
+.bq[data-variant="call"] .bc-call .bc-stream > .qa-done[data-side="ai"] { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(244, 252, 248, .8); }

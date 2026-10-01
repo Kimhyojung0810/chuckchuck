@@ -272,6 +272,7 @@ function bcSync() {
   bcLinkAnswer(now);
   bcDimPast(stream);
   bcMarkSides(stream);
+  bcClipGrounds(stream);
   bcThinking(thinking);
 
   const host = document.getElementById('bcHost');
@@ -379,8 +380,9 @@ function bcStickBottom(stream) {
     if (!keep) { stream.scrollTop = max; return; }
     const at = (el) => el.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop;
     // 둘 다 들어가면 맨 아래. 안 들어가면 판정 윗머리를 지키되, 지금 질문은 첫 두 줄(72px)은 꼭 보이게 — 질문이 더 먼저다
+    // 지금 질문은 140px(대개 질문 전체 · 긴 되묻기면 앞 서너 줄)까지 먼저 보이게 — 72px 만 지켰더니 1440×780 에서 긴 되묻기가 절반만 보였다 (사냥 3)
     const now = stream.querySelector(':scope > .msg.is-now');
-    const floor = now ? at(now) + 72 - stream.clientHeight : 0;
+    const floor = now ? at(now) + Math.min(now.offsetHeight, 140) - stream.clientHeight : 0;
     stream.scrollTop = Math.max(0, Math.min(max, Math.max(floor, at(keep) - 6)));
   };
   requestAnimationFrame(down);
@@ -529,4 +531,16 @@ function bcSyncProg() {
   if (!prog) return;
   const next = bcProgHtml();
   if (prog.dataset.html !== next) { prog.dataset.html = next; prog.innerHTML = next; }
+}
+
+/** 근거 인용 — 머리(자료 N장 · 빠진 것)는 두고 인용 글만 감싸 세 줄로 자른다 (css .bc-q-clip). 한 번만 감싼다 */
+function bcClipGrounds(stream) {
+  stream.querySelectorAll('.qa-evidence.qa-ground:not([data-clip])').forEach((q) => {
+    q.dataset.clip = '1';
+    const head = q.querySelector(':scope > span');
+    const wrap = document.createElement('span');
+    wrap.className = 'bc-q-clip';
+    [...q.childNodes].filter((n) => n !== head).forEach((n) => wrap.appendChild(n));
+    q.appendChild(wrap);
+  });
 }

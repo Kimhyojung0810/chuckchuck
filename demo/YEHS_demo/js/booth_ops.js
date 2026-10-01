@@ -147,7 +147,19 @@ function bqConfirmHome() {
       </div>
     </div>`;
   layer.appendChild(sheet);
-  const close = () => { sheet.remove(); if (back && back.focus) back.focus(); };
+  // 시트가 떠 있는 동안 뒤 층은 inert — Tab 세 번이면 뒤 버튼으로 빠져나갔다 (사냥 3). 시트 안에서 Tab 이 돈다
+  const behind = [...layer.children].filter((el) => el !== sheet);
+  behind.forEach((el) => { el.inert = true; });
+  const release = () => behind.forEach((el) => { el.inert = false; });
+  new MutationObserver((recs, mo) => { if (!sheet.isConnected) { release(); mo.disconnect(); } }).observe(layer, { childList: true });
+  sheet.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const items = [...sheet.querySelectorAll('button')];
+    const i = items.indexOf(document.activeElement);
+    e.preventDefault();
+    items[(i + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+  });
+  const close = () => { sheet.remove(); release(); if (back && back.focus) back.focus(); };
   sheet.addEventListener('click', (e) => {
     const act = e.target.closest('[data-sheet]');
     if (e.target === sheet || (act && act.dataset.sheet === 'close')) close();
