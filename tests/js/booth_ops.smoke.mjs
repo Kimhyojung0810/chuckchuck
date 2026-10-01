@@ -108,6 +108,45 @@ test('판정 근거가 장을 가리키면 그 장이 질문 장보다 먼저', 
   eq(f.why, '판정이 가리키는', '까닭');
 });
 
+/* ── 부스 켜짐 표시 — app.js 가 「'1' 이면 부스 파일을 먼저 받는다」 로 읽는다 (10-02 새로고침 버그) ── */
+const QA_SRC = readFileSync(path.join(ROOT, 'demo/YEHS_demo/js/booth_qa.js'), 'utf8');
+const APP_SRC = readFileSync(path.join(ROOT, 'demo/YEHS_demo/js/app.js'), 'utf8');
+function loadBoothQa() {
+  const store = new Map();
+  const ctx = { console, sessionStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) } };
+  vm.createContext(ctx);
+  vm.runInContext(QA_SRC, ctx, { filename: 'booth_qa.js' });
+  return { ctx, store };
+}
+/** app.js lazyFlowFlagOn 원본 그대로 — 부스 켜짐을 읽는 쪽 */
+function appFlagOn(store) {
+  const m = APP_SRC.match(/const LAZY_FLOW_FLAGS = (\[[^\]]*\]);\s*function lazyFlowFlagOn\(\) \{([\s\S]*?)\n\}/);
+  if (!m) throw new Error('app.js lazyFlowFlagOn 모양이 바뀌었어요 — 이 시험도 같이 고쳐요');
+  const ctx = { sessionStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null) } };
+  vm.createContext(ctx);
+  return vm.runInContext(`const LAZY_FLOW_FLAGS = ${m[1]}; (function () {${m[2]}\n})()`, ctx);
+}
+
+test('화상판을 켜도 app.js 가 부스 켜짐으로 읽는다 — #/qa 새로고침이 일반 질문 코칭으로 새지 않게', () => {
+  const { ctx, store } = loadBoothQa();
+  ctx.boothQaSet(true, 'call');
+  eq(ctx.boothQaVariant(), 'call', '무대');
+  eq(appFlagOn(store), true, 'app.js 가 부스 파일을 먼저 받는다');
+  ctx.boothQaSet(true, 'stage');
+  eq(ctx.boothQaVariant(), 'stage', '무대판');
+  eq(appFlagOn(store), true, '무대판도');
+  ctx.boothQaSet(false);
+  eq(ctx.boothQaVariant(), '', '꺼짐');
+  eq(appFlagOn(store), false, 'app.js 도 꺼짐');
+});
+
+test('옛 탭의 값(\'call\')도 켜짐이다', () => {
+  const { ctx, store } = loadBoothQa();
+  store.set('cheokcheok:booth-qa', 'call');
+  eq(ctx.boothQaVariant(), 'call', '무대');
+  eq(appFlagOn(store), true, 'app.js');
+});
+
 /* 자기검사 — 「바뀔 때만 쓴다」 를 빼면 첫 시험이 깨져야 한다 */
 const GUARD_LINE = 'if (el && el.textContent !== text) el.textContent = text;';
 test('「바뀔 때만 쓴다」 를 빼면 P0 시험이 깨진다', () => {

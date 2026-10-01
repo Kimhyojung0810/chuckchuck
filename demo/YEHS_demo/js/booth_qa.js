@@ -84,12 +84,20 @@ const bq = {
   sampleIdx: 0,
 };
 
-/** 부스 흐름이 켜져 있으면 'stage' 또는 'call', 아니면 '' — 탭 단위로 기억해 #/qa 로 넘어가도 어느 무대인지 안다 */
+/**
+ * 부스 흐름이 켜져 있으면 'stage' 또는 'call', 아니면 '' — 탭 단위로 기억해 #/qa 로 넘어가도 어느 무대인지 안다.
+ * 켜짐 표시(BOOTH_QA_KEY)는 무대와 상관없이 늘 '1' 이다 — app.js LAZY_FLOW_FLAGS 가 「'1' 이면 부스 파일을 먼저 받는다」 로 읽어서,
+ * 화상판이 'call' 을 적던 때는 #/qa 에서 새로고침하면 부스 파일 없이 일반 질문 코칭 화면이 떴다 (10-02 사용자 · 맥 Chrome).
+ * 무대는 BOOTH_VARIANT_KEY 에 따로 적는다. 옛 값 'call' 도 읽는다.
+ */
+const BOOTH_VARIANT_KEY = 'cheokcheok:booth-variant';
+
 function boothQaVariant() {
   try {
     const v = sessionStorage.getItem(BOOTH_QA_KEY);
     if (v === 'call') return 'call';
-    return v === '1' ? 'stage' : '';
+    if (v !== '1') return '';
+    return sessionStorage.getItem(BOOTH_VARIANT_KEY) === 'call' ? 'call' : 'stage';
   } catch (_) { return ''; }
 }
 
@@ -99,9 +107,43 @@ function boothQaOn() {
 
 function boothQaSet(on, variant = 'stage') {
   try {
-    if (on) sessionStorage.setItem(BOOTH_QA_KEY, variant === 'call' ? 'call' : '1');
-    else sessionStorage.removeItem(BOOTH_QA_KEY);
+    if (on) {
+      sessionStorage.setItem(BOOTH_QA_KEY, '1');
+      sessionStorage.setItem(BOOTH_VARIANT_KEY, variant === 'call' ? 'call' : 'stage');
+    } else {
+      sessionStorage.removeItem(BOOTH_QA_KEY);
+      sessionStorage.removeItem(BOOTH_VARIANT_KEY);
+    }
   } catch (_) { /* 사생활 모드 — 이번 화면만 */ }
+}
+
+/**
+ * route() 가 화면을 그리기 직전에 부른다 — 부스 탭에서는 일반 앱 화면이 보이면 안 된다 (10-02 사용자).
+ * #/qa 인데 되살릴 질문이 없으면(탭 기억이 비었다 · 다른 발표 상태) 일반 질문 코칭(트랙 고르기 · 질문 생성)을 그리지 말고
+ * 부스 처음 화면으로 돌린다. true 면 route() 가 여기서 멈춘다. 되살릴 수 있으면 같은 질문 자리로 그대로 간다.
+ */
+function boothQaGuard(key) {
+  if (key !== 'qa' || !boothQaOn()) return false;
+  const live = typeof qaLiveActive === 'function' && qaLiveActive();
+  if (live || (qa && qa.ended && qa.live)) return false;
+  // 새로고침 뒤라 bq.variant 는 아직 기본값이다 — 탭이 기억한 무대로
+  location.replace(boothQaVariant() === 'call' ? BOOTH_CALL_HASH : BOOTH_QA_HASH);
+  return true;
+}
+
+/**
+ * 뒤로 가기로 부스 밖(그 전에 보던 앱 화면)으로 새지 않게 — 부스 처음 화면에 같은 주소 한 칸을 더 쌓고,
+ * 그 칸에서 뒤로 가면 다시 쌓는다(주소가 같아 화면은 안 바뀐다). 주소창에 다른 주소를 치면 나갈 수 있다(운영진 출구).
+ */
+function bqTrapBack() {
+  if (!bq.backTrap) {
+    bq.backTrap = true;
+    window.addEventListener('popstate', () => {
+      if (!boothQaOn() || !bqIsBoothHash() || (history.state && history.state.bq)) return;
+      history.pushState({ bq: 1 }, '', location.href);
+    });
+  }
+  if (!(history.state && history.state.bq)) history.pushState({ bq: 1 }, '', location.href);
 }
 
 /** 지금 주소의 부스 무대 — #/booth/qa → stage, #/booth/call → call, 그 밖이면 '' */
@@ -142,6 +184,7 @@ function renderBoothQa(variant = bqHashVariant() || 'stage') {
   if (typeof liveDictationDead !== 'undefined') liveDictationDead = false;
   if (typeof bqInstallKeys === 'function') bqInstallKeys();
   boothQaSet(true, bq.variant);
+  bqTrapBack();
   bq.prepToken += 1;         // 준비 중이던 체험이 있으면 그 결과를 버린다
   bqStopMic();
   resetNf();

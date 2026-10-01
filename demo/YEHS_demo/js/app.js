@@ -365,6 +365,8 @@ function route() {
   if (typeof visionFlowOnRoute === 'function') visionFlowOnRoute(key);
   // 부스 Q&A 층(#bqStage)도 #app 밖이다 — 같은 이유로 먼저 걷는다. 부스 흐름을 벗어나면 카메라까지 끈다
   if (typeof boothQaOnRoute === 'function') boothQaOnRoute(key);
+  // 부스 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 부스 처음 화면으로 (booth_qa.js boothQaGuard · 10-02)
+  if (typeof boothQaGuard === 'function' && boothQaGuard(key)) return;
   /* 샘플 모드는 renderReport() 안에서만 켜져서, 샘플 리포트를 보고 #/qa 로 나가면
      켜진 채로 남았다. reportOut() 이 이 값을 보고 결과를 가리므로 리포트를
      벗어나는 순간 꺼 준다 — 안 그러면 질문 코칭이 제 데이터를 못 읽는다 */
@@ -907,7 +909,8 @@ const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
 const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], landing: ['landing'] };
 const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa'];
 function lazyFlowFlagOn() {
-  try { return LAZY_FLOW_FLAGS.some((k) => sessionStorage.getItem(k) === '1'); } catch (_) { return false; }
+  // 부스 화상판의 옛 값 'call' 도 켜짐이다 — 그 탭에서 #/qa 를 새로 고치면 부스 파일 없이 일반 질문 코칭이 떴다 (10-02 · booth_qa.js boothQaSet)
+  try { return LAZY_FLOW_FLAGS.some((k) => ['1', 'call'].includes(sessionStorage.getItem(k))); } catch (_) { return false; }
 }
 function lazyBundlesFor(key) {
   if (!window.ccLazy) return [];

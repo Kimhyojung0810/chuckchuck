@@ -550,7 +550,7 @@ def run_full(args) -> Path:
             flags.insert(0, "--use-fake-ui-for-media-stream")
         b = p.chromium.launch(args=flags)
         ctx = b.new_context(viewport={"width": VW, "height": VH}, permissions=[] if "camdeny" in fails else ["camera", "microphone"],
-                            locale="ko-KR", is_mobile=VW < 600, has_touch=VW < 600)
+                            locale="ko-KR", is_mobile=VW < 600, has_touch=VW < 600, device_scale_factor=args.dpr)
         page = ctx.new_page()
 
         def shot(name: str) -> None:
@@ -747,6 +747,109 @@ def run_full(args) -> Path:
     return out
 
 
+RELOAD_CHECK_JS = """() => {
+  const L = document.getElementById('bqStage');
+  const appVisible = (sel) => { const el = document.querySelector('#app ' + sel); return !!el && !!el.offsetParent; };
+  return { hash: location.hash, layer: !!L, screen: L ? L.dataset.screen : null, variant: L ? L.dataset.variant : null,
+    // 일반 앱 화면이 보이면 안 된다 — 질문 코칭(트랙 고르기·대화) · 홈
+    general_qa: appVisible('.qa-shell') || appVisible('.coach-nav') || appVisible('.qa-mode-gate') || appVisible('.mode-gate'),
+    app_text: (document.getElementById('app') || {}).innerText ? document.getElementById('app').innerText.slice(0, 80) : '',
+    flag: sessionStorage.getItem('cheokcheok:booth-qa'), live: typeof qaLiveActive === 'function' ? qaLiveActive() : null,
+    qi: (window.qa && qa.live) ? qa.live.qi : null };
+}"""
+
+
+def run_reload(args) -> Path:
+    """부스 탭 새로고침 · 뒤로 가기 — 어느 단계에서도 일반 앱 화면이 안 보이는지 (10-02 사용자 버그)"""
+    from playwright.sync_api import sync_playwright
+    import subprocess
+
+    out = OUT / (datetime.now().strftime("%Y%m%dT%H%M%S") + f"_reload_{args.route}" + (f"_{args.tag}" if args.tag else ""))
+    out.mkdir(parents=True, exist_ok=True)
+    VW, VH = (int(x) for x in args.viewport.split("x"))
+    cam = face_cam(OUT / "facecam.mjpeg")
+    R: dict = {"args": vars(args), "checks": {}, "console": []}
+    state: dict = {"judge_calls": 0, "judge_log": []}
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
+                                    f"--use-file-for-fake-video-capture={cam}", "--autoplay-policy=no-user-gesture-required"])
+        ctx = b.new_context(viewport={"width": VW, "height": VH}, permissions=["camera", "microphone"], locale="ko-KR", device_scale_factor=args.dpr)
+        page = ctx.new_page()
+        page.on("pageerror", lambda e: R["console"].append(f"pageerror: {e}"[:300]))
+        page.on("console", lambda m: R["console"].append(f"{m.type}: {m.text}"[:300]) if m.type == "error" else None)
+        for rel in filter(None, (args.old_js or "").split(",")):
+            # 옛 코드로 재현 — 지정한 파일을 HEAD~ 판으로 바꿔 낸다 (예: --old-js js/booth_qa.js,js/app.js --old-rev HEAD)
+            body = subprocess.run(["git", "show", f"{args.old_rev}:demo/YEHS_demo/{rel}"], cwd=ROOT, capture_output=True, text=True).stdout
+            page.route(f"**/{rel}*", _js_server(body))
+        install_routes(page, args, state)
+
+        def check(tag: str, *, reload: bool = True) -> dict:
+            if reload:
+                page.reload(wait_until="load")
+            page.wait_for_timeout(3500)
+            c = page.evaluate(RELOAD_CHECK_JS)
+            R["checks"][tag] = c
+            page.screenshot(path=str(out / f"{len(R['checks']):02d}_{tag}.png"))
+            bad = c["general_qa"] or not c["layer"]
+            print(f"  {tag:22s} {'✗ 일반 화면' if bad else '✓ 부스'}  {json.dumps(c, ensure_ascii=False)[:220]}", flush=True)
+            return c
+
+        try:
+            page.goto(f"{args.base}/booth/{args.route}", wait_until="load")
+            page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            check("attract")
+            page.click("#bqStart")
+            page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
+            check("pick")
+            page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            page.click("#bqStart")
+            page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
+            page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')
+            page.wait_for_selector("#bqStage #bqSkimCanvas")
+            page.wait_for_function("!document.getElementById('bqGo').disabled", timeout=args.prep_timeout * 1000)
+            check("prep_ready")
+            # 다시 준비해서 질문 화면으로
+            page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            page.click("#bqStart")
+            page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
+            page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')
+            page.wait_for_function("!document.getElementById('bqGo') || !document.getElementById('bqGo').disabled", timeout=args.prep_timeout * 1000)
+            page.click("#bqGo")
+            page.wait_for_selector("#bqStage[data-screen='qa']", timeout=20000)
+            check("qa_ask1")
+            page.fill("#liveAnswer", ANSWERS.get(args.deck, ANSWERS["수익률격차"]))
+            page.click("#liveSend")
+            page.wait_for_function("qa.live && !qa.live.busy", timeout=60000)
+            check("qa_after_answer")
+            # 질문 상태를 비운 채 새로고침 — 되살릴 수 없으면 부스 처음 화면이어야 한다
+            page.evaluate("sessionStorage.removeItem('cheokcheok:qa-flow')")
+            check("qa_state_lost")
+            # 뒤로 가기 — 부스 처음 화면에서 뒤로 가도 부스 안
+            page.goto(f"{args.base}/#/about", wait_until="load")
+            page.goto(f"{args.base}/booth/{args.route}", wait_until="load")
+            page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            page.go_back()
+            check("back_from_attract", reload=False)
+            page.go_back()
+            check("back_twice", reload=False)
+        except Exception as e:  # noqa: BLE001
+            R["error"] = f"{type(e).__name__}: {e}"[:500]
+            print("  실패:", R["error"])
+            page.screenshot(path=str(out / "error.png"))
+        finally:
+            (out / "report.json").write_text(json.dumps(R, ensure_ascii=False, indent=1))
+            b.close()
+    leaks = [k for k, c in R["checks"].items() if c.get("general_qa") or not c.get("layer")]
+    print(f"일반 화면으로 샌 단계 {len(leaks)}개 {leaks} · 오류 {len(R['console'])}건 → {out.relative_to(ROOT)}")
+    return out
+
+
+def _js_server(body: str):
+    def handle(route):
+        route.fulfill(status=200, content_type="application/javascript", body=body)
+    return handle
+
+
 def summarize(out: Path) -> None:
     R = json.loads((out / "report.json").read_text())
     bad = []
@@ -784,10 +887,17 @@ def main() -> int:
     ap.add_argument("--record", default="", help="--full: 개념·그래프·질문 응답을 이 폴더에 남긴다")
     ap.add_argument("--replay", default="", help="--full: --record 로 남긴 응답을 재생한다 (과금 없음)")
     ap.add_argument("--wait-home", action="store_true", help="--full: 결과 화면에서 40초 자동 처음으로까지 기다린다")
+    ap.add_argument("--dpr", type=float, default=1, help="--full: devicePixelRatio (맥북 레티나는 2)")
+    ap.add_argument("--reload", action="store_true", help="단계마다 새로고침·뒤로 가기 — 일반 앱 화면으로 새는지 (10-02)")
+    ap.add_argument("--old-js", default="", help="--reload: 이 파일들을 --old-rev 판으로 내 옛 코드를 재현 (예: js/booth_qa.js,js/app.js)")
+    ap.add_argument("--old-rev", default="HEAD")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
     t = time.time()
+    if args.reload:
+        run_reload(args)
+        return 0
     if args.full:
         out = run_full(args)
         print(f"끝 {time.time() - t:.0f}s → {out.relative_to(ROOT)}")
