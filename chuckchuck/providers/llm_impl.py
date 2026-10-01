@@ -181,8 +181,9 @@ class MockLLM(LLMProvider):
         items.append({"node_id": ids[-1], "verdict": "missing", "evidence": "", "note": ""})
 
         edges = []
-        if len(ids) >= 2:
-            edges.append({"from": ids[0], "to": ids[1], "cue": "그래서 이어서 설명하면"})
+        # 맨 앞 개념을 나머지 모두와 잇는다 — 그래프 모양(종류 있는 길은 핵심 주장 밑이 넓다)에 상관없이 문서 간선 하나쯤은 겹치게
+        for other in ids[1:]:
+            edges.append({"from": ids[0], "to": other, "cue": "그래서 이어서 설명하면"})
 
         extras = [{"label": "모의 추가 개념", "quote": "자료에 없는 보충 설명", "slide_no": 1}]
         return json.dumps(
@@ -426,7 +427,9 @@ class MockLLM(LLMProvider):
         concept_ids = [f"k{n}.{i}" for k, n, i in ids if k == "k"]
         links = []
         if len(concept_ids) >= 2:              # 앞 두 장의 개념을 잇는다 — 장이 다르면 받아들여진다
-            links.append({"from": concept_ids[0], "to": concept_ids[1], "why": "모의 연결"})
+            m = re.search(rf"^- {re.escape(concept_ids[0])} \(개념\) ([^—\n\[]+)", user, flags=re.M)
+            links.append({"from": concept_ids[0], "to": concept_ids[1],
+                          "why": (m.group(1).strip() if m else "모의 연결")})   # 근거 표현은 자료 줄에서
         return json.dumps({
             "thesis_from": claims[0] if claims else None,
             "thesis_claim": "",

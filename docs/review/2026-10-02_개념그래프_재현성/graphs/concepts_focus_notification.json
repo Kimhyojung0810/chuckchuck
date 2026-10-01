@@ -1,0 +1,394 @@
+{
+ "file_name": "focus_notification_demo_designed.pptx",
+ "total_slides": 12,
+ "model": "solar",
+ "slides": [
+  {
+   "slide_no": 1,
+   "title": "척척발표 데모용 10 분 발표",
+   "topic": "알림 확인 후 집중이 어려운 이유",
+   "keywords": [
+    "알림",
+    "집중",
+    "흐름"
+   ],
+   "concepts": [
+    "알림: 스마트폰 알림"
+   ],
+   "raw_text": "척척발표 데모용 10 분 발표\n알림 하나를\n확인했을 뿐인데 ,\n왜 다시 집중하기\n어려울까 ?\n스마트폰 알림이 우리의 작업 맥락을 끊는 방식\n핵심 메시지\n알림은 시간을 훔치는 게 아니라 ,\n머릿속 흐름을 끊는다 .",
+   "importance": "core",
+   "title_kind": "topic",
+   "claims": [
+    "알림은 시간을 훔치는 게 아니라, 머릿속 흐름을 끊는다."
+   ],
+   "evidence": [
+    "작업 맥락",
+    "집중"
+   ]
+  },
+  {
+   "slide_no": 2,
+   "title": "손실은 화면을 본 시간보다 , 다시 돌아오는 과정에서 커진다 .",
+   "topic": "알림 확인 후 집중 손실의 본질",
+   "keywords": [
+    "손실",
+    "집중",
+    "흐름"
+   ],
+   "concepts": [
+    "집중 손실: 하던 일이 멈추고 맥락을 다시 찾는 과정",
+    "맥락 복구: 하던 일이 멈춘 후 맥락을 다시 찾는 과정"
+   ],
+   "raw_text": "“5 초만 봤는데”가 왜 오래 남을까 ?\n손실은 화면을 본 시간보다 , 다시 돌아오는 과정에서 커진다 .\n| 5 초 | ≠ 5 초 |\n| --- | --- |\n| 알림 확인 | 집중 손실 |\n알림\n주의가 튄다\n확인\n다른 정보로 이동\n전환\n하던 일이 멈춘다\n복구\n맥락을 다시 찾는다\n그래서 알림의 비용은 “초”가 아니라 “흐름”으로 봐야 한다 .",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "손실은 화면을 본 시간보다, 다시 돌아오는 과정에서 커진다."
+   ],
+   "evidence": [
+    "알림 확인",
+    "집중 손실",
+    "주의가 튄다",
+    "확인",
+    "다른 정보로 이동",
+    "전환",
+    "하던 일이 멈춘다",
+    "복구",
+    "맥락을 다시 찾는다",
+    "알림 확인 → 집중 손실",
+    "하던 일이 멈춘다 → 복구 → 맥락을 다시 찾는다",
+    "알림의 비용은 “초”가 아니라 “흐름”으로 봐야 한다.",
+    "그래서 알림의 비용은 “초”가 아니라 “흐름”으로 봐야 한다."
+   ]
+  },
+  {
+   "slide_no": 3,
+   "title": "알림은 눈길만 빼앗는 것이 아니라 , 머릿속 작업 상태를 바꾼다 .",
+   "topic": "알림이 작업 맥락에 미치는 영향",
+   "keywords": [
+    "알림",
+    "작업 맥락",
+    "집중"
+   ],
+   "concepts": [
+    "작업 맥락: 머릿속에 잠깐 올라와 있는 상태값",
+    "목표: 지금 무엇을 끝내려 했는가",
+    "현재 단계: 지금 어느 문장 · 문제를 보고 있었는가",
+    "규칙: 해야 하는 조건과 기준은 무엇인가",
+    "임시 기억: 방금 떠올린 생각과 다음 행동",
+    "알림: 눈길만 빼앗는 것이 아니라 머릿속 작업 상태를 바꾼다"
+   ],
+   "raw_text": "집중은 “시선”이 아니라 “작업 맥락”이다\n알림은 눈길만 빼앗는 것이 아니라 , 머릿속 작업 상태를 바꾼다 .\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">natural image,table,product photography,interior scene</p>\n    <p class=\"figure-description\">A well-lit, modern wooden desk setup is captured in a natural indoor setting, with soft natural light streaming through a large window revealing green foliage outside. On the desk, from left to right: a black smartphone lies flat; next to it, an open notebook with blank cream-colored pages and a black pen resting on top; beside the notebook, a silver laptop (likely a MacBook) is partially visible; and to the right, a textured ceramic mug with a handle sits beside a small potted green plant in a light gray cylindrical pot. The composition suggests a calm, productive workspace, possibly for remote work or study. The image is styled for lifestyle or product marketing, emphasizing minimalism, functionality, and natural ambiance.</p>\n  </figcaption>\n작업 맥락은 머릿속에 잠깐 올라와 있는 상태값이다\n| 목표 | 지금 무엇을 끝내려 했는가 |\n| --- | --- |\n| 현재 단계 | 지금 어느 문장 · 문제를 보고 있었는가 |\n| 규칙 | 해야 하는 조건과 기준은 무엇인가 |\n| 임시 기억 | 방금 떠올린 생각과 다음 행동 |\n| 알림은 이 네 가지를 한 번에 흔든다 . | 알림은 이 네 가지를 한 번에 흔든다 . |",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "집중은 “시선”이 아니라 “작업 맥락”이다",
+    "알림은 눈길만 빼앗는 것이 아니라, 머릿속 작업 상태를 바꾼다."
+   ],
+   "evidence": [
+    "알림은 이 네 가지를 한 번에 흔든다 ."
+   ],
+   "concept_of": {
+    "목표": "작업 맥락",
+    "현재 단계": "작업 맥락",
+    "규칙": "작업 맥락",
+    "임시 기억": "작업 맥락"
+   }
+  },
+  {
+   "slide_no": 4,
+   "title": "알림이 집중을 끊는 4 단계",
+   "topic": "알림이 집중을 끊는 4 단계",
+   "keywords": [
+    "알림",
+    "집중",
+    "맥락"
+   ],
+   "concepts": [
+    "맥락 복구"
+   ],
+   "raw_text": "알림이 집중을 끊는 4 단계\n핵심은 “알림을 본 순간”보다 , 다시 원래 일로 돌아오는 과정이다 .\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">infographic,diagram,illustration</p>\n    <p class=\"figure-description\">This is a stylized, horizontally arranged infographic illustrating a workflow or cognitive process involving digital interaction and decision-making. The image is composed of four circular vignettes connected by curved arrows, suggesting a sequence or cyclical relationship.\n\n1. **First panel (leftmost)**: A smartphone with a glowing notification bubble (containing a red dot) is shown on a desk with a potted plant. A large blue eye icon with a white pupil is positioned below, symbolizing observation or awareness.\n\n2. **Second panel**: A man in a blue shirt sits at a desk, holding a smartphone in his right hand. He appears to be interacting with a laptop or tablet in front of him. A yellow circular icon with a white hand cursor (indicating touch or interaction) is placed below, reinforcing the digital interaction theme.\n\n3. **Third panel**: A silhouette of a person is shown in deep thought, with their hand on their chin. Surrounding them are abstract icons including a brain, gears, and a thought bubble with arrows, suggesting analysis, problem-solving, or cognitive processing.\n\n4. **Fourth panel**: A man is seated at a computer, looking at a screen with a grid layout. A blue circular icon with a white clock face is placed below, indicating time management, scheduling, or task completion.\n\nThe overall color palette is cool-toned (blues, cyans) with warm accents (yellow, orange), and the design uses flat vector illustration style. The arrows between panels imply a progression from observation → interaction → analysis → action or decision-making. No text is present beyond the symbolic icons.</p>\n  </figcaption>\n1\n알림 발생\n소리 · 진동 · 팝업\n2\n주의 포획\n무슨 일인지 궁금해짐\n3\n과제 전환\n작업 ↔ 메시지 전환\n4\n맥락 복구\n원래 흐름 재구성",
+   "importance": "core",
+   "title_kind": "topic",
+   "claims": [
+    "핵심은 “알림을 본 순간”보다, 다시 원래 일로 돌아오는 과정이다."
+   ],
+   "evidence": [
+    "알림이 집중을 끊는 4 단계",
+    "알림을 본 순간",
+    "주의 튐"
+   ]
+  },
+  {
+   "slide_no": 5,
+   "title": "알림은 확인하지 않아도 방해된다",
+   "topic": "확인하지 않은 알림의 방해 효과",
+   "keywords": [
+    "알림",
+    "방해",
+    "과제 수행"
+   ],
+   "concepts": [
+    "주의: 주의가 필요한 과제",
+    "과제 수행: 과제 수행이 나빠지는 결과"
+   ],
+   "raw_text": "알림은 확인하지 않아도 방해된다\n짧은 알림 자체가 과제와 무관한 생각을 만들 수 있다 .\nStothart et al. (2015)\n주의가 필요한 과제 중 휴대폰 알림을 받은 조건에서\n과제 수행이 나빠지는 결과가 나타났다 .\n확인하지 않아도\n주의는 이미 흔들릴 수 있다\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,infographic,flowchart</p>\n    <p class=\"figure-description\">This is a minimalist Korean-language diagram illustrating a conceptual or psychological relationship between two entities: “알림” (Notification) and “메시지 관련 생각” (Thought related to message). The diagram uses two gray arrows to show directional relationships. The top arrow, labeled “알림” in blue text on the left, points right to “메시지 관련 생각” in black text on the right, suggesting a causal or associative flow. The bottom arrow, labeled “알림” in blue text on the left, points diagonally downward to “현재 과제에서 주의가 빠져나감” (Attention escapes from the current task) in red text on the right, indicating a secondary or consequence-based relationship. The layout is clean, with a light beige background and rounded corners, typical of educational or presentation infographics. The text is clearly legible and uses color coding (blue for “알림”, red for the consequence) to distinguish categories or emphasis.</p>\n  </figcaption>",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "알림은 확인하지 않아도 방해된다",
+    "주의가 필요한 과제 중 휴대폰 알림을 받은 조건에서 과제 수행이 나빠지는 결과가 나타났다."
+   ],
+   "evidence": [
+    "Stothart et al. (2015)",
+    "주의가 필요한 과제 중 휴대폰 알림을 받은 조건에서 과제 수행이 나빠지는 결과가 나타났다 .",
+    "주의가 필요한 과제 중 휴대폰 알림을 받은 조건에서 과제 수행이 나빠지는 결과",
+    "짧은 알림 자체가 과제와 무관한 생각을 만들 수 있다",
+    "알림은 확인하지 않아도 과제와 무관한 생각을 만들 수 있다."
+   ]
+  },
+  {
+   "slide_no": 6,
+   "title": "폰이 보이는 것만으로도 인지 자원을 쓴다",
+   "topic": "스마트폰 가시성의 인지 자원 소모",
+   "keywords": [
+    "스마트폰",
+    "인지 자원",
+    "주의"
+   ],
+   "concepts": [
+    "인지 자원",
+    "스마트폰 위치: 책상 위, 가방·주머니, 다른 방"
+   ],
+   "raw_text": "폰이 보이는 것만으로도 인지 자원을 쓴다\n알림이 꺼져 있어도 , 가까운 스마트폰은 일부 주의를 차지할 수 있다 .\n스마트폰 위치가 멀어질수록\n인지 과제 수행이 좋아지는 경향\n핵심은 “폰을 안 봤다”가 아니라\n“폰을 무시하는 데도 자원이 든다”는 점이다 .\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">diagram,infographic,flowchart</p>\n    <p class=\"figure-description\">This is a horizontal flowchart-style diagram composed of three vertically aligned, rounded rectangular panels, each with a distinct pastel color and Korean text. From left to right, the panels are:\n\n1. **Left panel (pink)**: Contains a black line icon resembling a stylized “X” or a folded paper icon. Below it, the text reads “책상 위” (On the desk), followed by a gray subtext “가장 가까움” (Closest). This panel represents the starting point or origin.\n\n2. **Middle panel (yellow)**: Also features the same black “X” icon. The text reads “가방 · 주머니” (Bag · Pouch), with the gray subtext “가까이 있음” (Nearby). An arrow points from the left panel to this one, indicating progression.\n\n3. **Right panel (light green)**: Contains the same black “X” icon. The text reads “다른 방” (Other room), with the gray subtext “가장 멀리 있음” (Farthest). Another arrow points from the middle panel to this one, completing the directional flow.\n\nThe diagram visually represents a spatial or conceptual progression from “On the desk” → “Nearby bag/pouch” → “Farther room,” using color-coding and directional arrows to guide the viewer. The consistent icon and text style across panels suggest a thematic or categorical relationship, possibly for navigation, categorization, or user experience design.</p>\n  </figcaption>",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "폰이 보이는 것만으로도 인지 자원을 쓴다",
+    "알림이 꺼져 있어도, 가까운 스마트폰은 일부 주의를 차지할 수 있다.",
+    "핵심은 “폰을 안 봤다”가 아니라 “폰을 무시하는 데도 자원이 든다”는 점이다."
+   ],
+   "evidence": [
+    "알림이 꺼져 있어도 , 가까운 스마트폰은 일부 주의를 차지할 수 있다 .",
+    "스마트폰 위치가 멀어질수록 인지 과제 수행이 좋아지는 경향",
+    "인지 과제 수행: 인지 과제 수행이 좋아지는 경향"
+   ]
+  },
+  {
+   "slide_no": 7,
+   "title": "끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있다 .",
+   "topic": "attention residue 현상",
+   "keywords": [
+    "attention residue",
+    "맥락",
+    "집중"
+   ],
+   "concepts": [
+    "attention residue: 작업을 바꾼 뒤에도 이전 작업에 대한 생각이 남아 다음 수행을 방해하는 현상"
+   ],
+   "raw_text": "다시 집중하기 어려운 이유 : attention residue\n끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있다 .\nTask A\n보고서 작성\n알림\n메시지 확인\nTask A 복귀\n맥락 재구성\nAttention residue\n작업을 바꾼 뒤에도 이전 작업에 대한 생각이 남아 다음 수행을 방해하는 현상",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있다."
+   ],
+   "evidence": [
+    "작업을 바꾼 뒤에도 이전 작업에 대한 생각이 남아 다음 수행을 방해하는 현상",
+    "Attention residue",
+    "Task A: 보고서 작성",
+    "Task A 복귀: 맥락 재구성"
+   ]
+  },
+  {
+   "slide_no": 8,
+   "title": "손실은 “시간”보다 “흐름”에서 커진다",
+   "topic": "알림 손실의 본질",
+   "keywords": [
+    "손실",
+    "흐름",
+    "맥락 복구"
+   ],
+   "concepts": [],
+   "raw_text": "손실은 “시간”보다 “흐름”에서 커진다\n알림 확인은 짧지만 , 작업 맥락 복구는 보이지 않는 비용이다 .\n눈에 보이는 손실\n5 초\n메시지를 보고\n다시 앱을 닫는 시간\n진짜 손실\n맥락 복구\n• 어디까지 읽었지 ?\n• 다음에 뭘 하려 했지 ?\n• 방금 떠올린 생각이 뭐였지 ?\n핵심은 알림의 길이가 아니라 ,\n복구해야 하는 생각의 양이다 .",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "손실은 “시간”보다 “흐름”에서 커진다",
+    "핵심은 알림의 길이가 아니라, 복구해야 하는 생각의 양이다."
+   ],
+   "evidence": [
+    "메시지를 보고",
+    "다시 앱을 닫는 시간",
+    "• 어디까지 읽었지 ?",
+    "• 다음에 뭘 하려 했지 ?",
+    "• 방금 떠올린 생각이 뭐였지 ?",
+    "눈에 보이는 손실: 5 초",
+    "진짜 손실: 맥락 복구",
+    "진짜 손실: 맥락 복구 (어디까지 읽었지?, 다음에 뭘 하려 했지?, 방금 떠올린 생각이 뭐였지?)",
+    "손실: 알림 확인은 짧지만 , 작업 맥락 복구는 보이지 않는 비용",
+    "작업 맥락 복구: 복구해야 하는 생각의 양",
+    "눈에 보이는 손실",
+    "맥락 복구: 어디까지 읽었지 ?, 다음에 뭘 하려 했지 ?, 방금 떠올린 생각이 뭐였지 ?",
+    "알림은 짧지만, 작업 맥락 복구는 보이지 않는 비용이다."
+   ]
+  },
+  {
+   "slide_no": 9,
+   "title": "집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 한다",
+   "topic": "집중을 의지의 문제가 아니라 환경 설계의 문제로 재정의",
+   "keywords": [
+    "집중",
+    "환경 설계",
+    "방해"
+   ],
+   "concepts": [
+    "집중: 의지의 문제가 아니라 환경 설계의 문제로 재정의",
+    "환경 설계: 집중을 방해하는 요소를 줄이는 설계"
+   ],
+   "raw_text": "해결책은 “더 참기”가 아니라 “덜 끊기게 만들기”\n집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 한다 .\n![image](/image/placeholder)\n\n  <figcaption>\n    <p class=\"figure-type\">natural image,infographic,illustration</p>\n    <p class=\"figure-description\">An illustrated natural image depicts a young woman with dark, curly hair tied in a messy bun, seated at a wooden desk in a cozy, softly lit library or study environment. She is wearing a dark blue sweater and appears stressed or overwhelmed, with her right hand resting on her forehead and her eyes looking downward at a silver laptop. Surrounding her head are floating digital icons representing various types of digital communication: speech bubbles with text lines, email envelopes, a heart symbol, a user profile icon, a notification bell, and a chat bubble with three dots. These icons are connected by curved, glowing lines, suggesting a whirlwind of notifications or messages. On the desk, to her left, is a disposable coffee cup with a black lid, and to her right, a blank notebook and a black pen. The background features blurred bookshelves and ambient lighting, enhancing the atmosphere of focused, yet mentally taxing, digital engagement. The image functions as an infographic-style illustration to visually represent the concept of digital overload or mental fatigue from constant communication.</p>\n  </figcaption>\n알림 줄이기\n1\n꼭 필요한 앱만 즉시 알림을 켠다 .\n묶어서 확인하기\n2\n메시지 확인 시간을 따로 정한다 .\n3\n폰을 멀리 두기\n시야 밖 , 가방 안 , 다른 방을 활용한다 .\n핵심은 알림을 참는 능력이 아니라 ,\n알림이 끼어들 기회를 줄이는 것이다 .",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "해결책은 “더 참기”가 아니라 “덜 끊기게 만들기”",
+    "집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 한다"
+   ],
+   "evidence": [
+    "집중을 방해하는 알림·메시지·메일 등",
+    "알림"
+   ],
+   "concept_of": {
+    "환경 설계": "집중"
+   }
+  },
+  {
+   "slide_no": 10,
+   "title": "오늘 바로 바꿀 수 있는 집중 루틴",
+   "topic": "오늘 바로 적용 가능한 집중 루틴",
+   "keywords": [
+    "집중 루틴",
+    "방해 경로",
+    "알림",
+    "메신저",
+    "화면",
+    "전환 전 메모"
+   ],
+   "concepts": [
+    "집중 루틴: 오늘 바로 바꿀 수 있는 집중 방법",
+    "방해 경로: 집중을 방해하는 알림·메시지·메일 등"
+   ],
+   "raw_text": "APPLICATION\n오늘 바로 바꿀 수 있는 집중 루틴\n큰 결심보다 , 방해가 들어오는 경로를 하나씩 줄이는 게 낫다 .\nBefore\n시작 전\nDuring\n집중 중\nAfter\n전환 전\n폰은 시야 밖으로\n알림은 집중모드로\n메신저 · 메일은 닫기\n한 화면만 남기기\n다음 할 일을 적고\n작업을 닫기\n전환 전 한 줄 메모는 “다시 돌아올 길”을 남기는 작은 장치다 .",
+   "importance": "core",
+   "title_kind": "topic",
+   "claims": [
+    "큰 결심보다, 방해가 들어오는 경로를 하나씩 줄이는 게 낫다."
+   ],
+   "evidence": [
+    "폰은 시야 밖으로",
+    "알림은 집중모드로",
+    "메신저·메일은 닫기",
+    "한 화면만 남기기",
+    "다음 할 일을 적고 작업을 닫기",
+    "전환 전 한 줄 메모는 다시 돌아올 길을 남기는 작은 장치다",
+    "Before: 폰은 시야 밖으로",
+    "During: 알림은 집중모드로",
+    "During: 메신저·메일은 닫기",
+    "During: 한 화면만 남기기",
+    "After: 다음 할 일을 적고 작업을 닫기",
+    "After: 전환 전 한 줄 메모는 '다시 돌아올 길'을 남기는 작은 장치다",
+    "알림",
+    "화면: 한 화면만 남기기",
+    "전환 전 메모: 다시 돌아올 길을 남기는 작은 장치"
+   ],
+   "concept_of": {
+    "방해 경로": "집중 루틴"
+   }
+  },
+  {
+   "slide_no": 11,
+   "title": "정리 : 알림은 시간을 훔치는 게 아니라 흐름을 끊는다",
+   "topic": "알림과 집중 흐름의 관계 정리",
+   "keywords": [
+    "알림",
+    "집중 흐름",
+    "스마트폰 사용 시간",
+    "의지",
+    "환경 설계"
+   ],
+   "concepts": [
+    "알림: 시간을 훔치는 것이 아니라 흐름을 끊는다",
+    "집중 흐름: 집중이 끊기는 횟수",
+    "인지 자원: 폰이 가까울수록 소모되는 정신적 자원",
+    "작업 맥락"
+   ],
+   "raw_text": "TAKEAWAY\n정리 : 알림은 시간을 훔치는 게 아니라 흐름을 끊는다\n우리가 관리해야 할 것은 스마트폰 사용 시간이 아니라 , 집중이 끊기는 횟수다 .\n1 알림은 확인하지 않아도 주의를 끌 수 있다 .\n2 폰이 가까울수록 일부 인지 자원이 쓰일 수 있다 .\n3 다시 집중하려면 작업 맥락을 복구해야 한다 .\n4 그래서 해결은 의지보다 환경 설계에 가깝다 .",
+   "importance": "core",
+   "title_kind": "claim",
+   "claims": [
+    "알림은 시간을 훔치는 게 아니라 흐름을 끊는다",
+    "우리가 관리해야 할 것은 스마트폰 사용 시간이 아니라 집중이 끊기는 횟수다",
+    "알림은 확인하지 않아도 주의를 끌 수 있다",
+    "폰이 가까울수록 일부 인지 자원이 쓰일 수 있다"
+   ],
+   "evidence": [
+    "1 알림은 확인하지 않아도 주의를 끌 수 있다",
+    "2 폰이 가까울수록 일부 인지 자원이 쓰일 수 있다",
+    "3 다시 집중하려면 작업 맥락을 복구해야 한다",
+    "4 그래서 해결은 의지보다 환경 설계에 가깝다",
+    "다시 집중하려면 작업 맥락을 복구해야 한다",
+    "그래서 해결은 의지보다 환경 설계에 가깝다",
+    "우리가 관리해야 할 것은 스마트폰 사용 시간이 아니라 집중이 끊기는 횟수다",
+    "스마트폰 사용 시간",
+    "의지",
+    "환경 설계",
+    "해결은 의지보다 환경 설계에 가깝다"
+   ],
+   "concept_of": {
+    "집중 흐름": "알림"
+   }
+  },
+  {
+   "slide_no": 12,
+   "title": "Leroy (2009)",
+   "topic": "참고 연구 목록",
+   "keywords": [
+    "Stothart, Mitchum & Yehnert",
+    "Ward, Duke, Gneezy & Bos",
+    "Leroy",
+    "Mark, Gonzalez & Harris",
+    "Peng et al.",
+    "CHI 2021",
+    "Say It All"
+   ],
+   "concepts": [
+    "참고 연구: 핵심 주장을 뒷받침하는 연구들"
+   ],
+   "raw_text": "REFERENCES\n참고 연구\n발표 안의 핵심 주장을 뒷받침하는 연구들\nStothart, Mitchum & Yehnert (2015)\nThe attentional cost of receiving a cell phone notification. Journal of Experimental Psychology: HPP. DOI: 10.1037/xhp0000100\nWard, Duke, Gneezy & Bos (2017)\nBrain Drain: The Mere Presence of One’s Own Smartphone Reduces Available Cognitive Capacity. DOI: 10.10 86/691462\nWhy is it so hard to do my work? The challenge of attention residue when switching between work tasks. DOI:\n10.1016/j.obhdp.2009.04.002\nLeroy (2009)\nMark, Gonzalez & Harris (2005)\nPeng et al. (CHI 2021)\nNo task left behind? Examining the nature of fragmented work. CHI Extended Abstracts.\nSay It All: Feedback for Improving Non-Visual Presentation Accessibility.",
+   "importance": "support",
+   "title_kind": "topic",
+   "claims": [
+    "No task left behind? Examining the nature of fragmented work. CHI Extended Abstracts.",
+    "Say It All: Feedback for Improving Non-Visual Presentation Accessibility."
+   ],
+   "evidence": [
+    "Stothart, Mitchum & Yehnert (2015) The attentional cost of receiving a cell phone notification. Journal of Experimental Psychology: HPP. DOI: 10.1037/xhp0000100",
+    "Ward, Duke, Gneezy & Bos (2017) Brain Drain: The Mere Presence of One’s Own Smartphone Reduces Available Cognitive Capacity. DOI: 10.1086/691462",
+    "Why is it so hard to do my work? The challenge of attention residue when switching between work tasks. DOI: 10.1016/j.obhdp.2009.04.002",
+    "Leroy (2009)",
+    "Mark, Gonzalez & Harris (2005)",
+    "Peng et al. (CHI 2021) No task left behind? Examining the nature of fragmented work. CHI Extended Abstracts.",
+    "Say It All: Feedback for Improving Non-Visual Presentation Accessibility.",
+    "Ward, Duke, Gneezy & Bos (2017) Brain Drain: The Mere Presence of One's Own Smartphone Reduces Available Cognitive Capacity. DOI: 10.1086/691462",
+    "Stothart, Mitchum & Yehnert (2015) DOI: 10.1037/xhp0000100",
+    "Ward, Duke, Gneezy & Bos (2017) DOI: 10.1086/691462",
+    "Mark, Gonzalez & Harris (2005) DOI: 10.1016/j.obhdp.2009.04.002",
+    "Peng et al. (CHI 2021) No task left behind? Examining the nature of fragmented work",
+    "Leroy (2009) (참고 연구)",
+    "Stothart, Mitchum & Yehnert (2015) (Journal of Experimental Psychology: HPP)",
+    "Ward, Duke, Gneezy & Bos (2017) (Brain Drain: The Mere Presence of One's Own Smartphone Reduces Available Cognitive Capacity)",
+    "Mark, Gonzalez & Harris (2005) (DOI: 10.1086/691462)",
+    "Peng et al. (CHI 2021) (No task left behind? Examining the nature of fragmented work)",
+    "Say It All: Feedback for Improving Non-Visual Presentation Accessibility: CHI Extended Abstracts"
+   ]
+  }
+ ]
+}

@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -37,6 +38,8 @@ MISSING_MAX = int(os.environ.get("CHUCKCHUCK_CONCEPT_MISSING_MAX", "2"))
 CONCEPT_MAX_WORKERS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_WORKERS", "4"))
 MAX_SLIDE_CHARS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_SLIDE_CHARS", "1200"))
 MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_TOKENS", "8192"))
+#: 같은 자료면 같은 개념이 나와야 한다 (10-02 재현성) — 0.2 에서 0 으로.
+TEMPERATURE = float(os.environ.get("CHUCKCHUCK_CONCEPT_TEMPERATURE", "0"))
 
 
 def _max_workers() -> int:
@@ -234,13 +237,13 @@ def _call_batch(
     if batch_n > 1:
         note = f"배치 {batch_i}/{batch_n}: 이 응답에는 이 배치의 슬라이드만 포함."
     user = _build_user_prompt(slides, doc, ctx, transcript, batch_note=note)
-    raw = engine.complete(system=SYSTEM_PROMPT, user=user, temperature=0.2, max_tokens=MAX_TOKENS, json_mode=True)
+    raw = engine.complete(system=SYSTEM_PROMPT, user=user, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, json_mode=True)
     try:
         data = _extract_json(raw)
     except ConceptError as e:
         # 2026-10-01 실측: Solar 가 JSON 대신 풀이 글(「The user wants me to …」)을 낸 배치가 있었다 — 그 배치만 한 번 더 묻는다
         sys.stderr.write(f"[f06] 배치 {batch_i}/{batch_n} JSON 이 깨져 다시 묻는다: {str(e)[:120]}\n")
-        raw = engine.complete(system=SYSTEM_PROMPT + JSON_RETRY_NUDGE, user=user, temperature=0.2,
+        raw = engine.complete(system=SYSTEM_PROMPT + JSON_RETRY_NUDGE, user=user, temperature=TEMPERATURE,
                               max_tokens=MAX_TOKENS, json_mode=True)
         data = _extract_json(raw)
     out = data.get("slides", [])
@@ -382,7 +385,7 @@ def _typed_concepts(value) -> tuple[list[str], dict[str, str]]:
 
 
 #: 수치 꼴 이름의 끝 단위.
-_UNIT_TAIL_RE = re.compile(r"\d[\d,.]*\s*(?:%p?|주|개월|년|월|일|원|만원|억|명|곳|건|배|회|개|시간|분|초|점|℃|kg|km)$")
+_UNIT_TAIL_RE = re.compile(r"\d[\d,.]*\s*(?:(?:억|만|천)\s*원|%p?|주|개월|년|월|일|원|만원|억|명|곳|건|배|회|개|시간|분|초|점|℃|kg|km)$")
 
 
 #: 조건·출처를 이름으로 단 개념 — 「분석 기간: 2024.1~2025.6」 「조사 대상: 수도권 매장 3,200곳」. 개념이 아니라 근거(조건)다.
@@ -394,6 +397,20 @@ _GENERIC_NAMES = frozenset("결론 사실 오해 평균 결과 개선 요약 핵
 _CITATION_RE = re.compile(r"\((?:19|20)\d{2}[a-z]?\)|\bet\s+al\b|(?:19|20)\d{2}\s*[,)]", re.I)
 #: 주장 앞 목록 번호 — 「1 알림은 …」 「2) 폰이 …」 (「4.7은」 「10년 뒤」 는 번호가 아니다).
 _CLAIM_NUM_RE = re.compile(r"^\(?\d{1,2}[.)]?\s+(?=[가-힣A-Za-z“\"'「])")
+
+
+def _only_in_parens(name: str, text: str) -> bool:
+    """
+    원문에서 괄호 안에만 나오는 이름 — 「파일럿 결과 (성수동 3개 단지, 12주)」 의 「성수동」 은 실험 조건이지 개념이 아니다
+    (10-02 반찬 IR: 「성수동」 「3개 단지」 가 핵심 개념 열에 섰다).
+    """
+    flat = re.sub(r"\s+", "", text or "")
+    key = re.sub(r"\s+", "", name or "")
+    if not key or key not in flat:
+        return False
+    inside = "".join(re.findall(r"[(（][^)）]*[)）]", flat))
+    outside = re.sub(r"[(（][^)）]*[)）]", "|", flat)
+    return key in inside and key not in outside
 
 
 def _is_figure(name: str) -> bool:
@@ -480,6 +497,19 @@ def sentence_claims(raw_text: str) -> list[str]:
     return out
 
 
+#: 목차·진행 말 — 장 제목이 이 낱말로만 되어 있으면 개념이 아니라 구획 이름이다 (10-02: 「복리 효과」 는 개념, 「현황 진단」 은 아니다).
+_SECTION_WORDS = frozenset((
+    "현황 진단 원인 상세 구조 요인 성공 실패 체크리스트 실행 결론 요약 정리 사실 오해 개요 배경 소개 해결책 해결 방안 방법 결과 분석 "
+    "제안 계획 향후 기대 효과 목표 문제 문제점 한계 시사점 비교 사례 예시 이유 까닭 질문 연구 실험 데이터 자료 부록 마무리 도입 본론 "
+    "들어가며 executive summary conclusion overview background introduction results method methods discussion agenda appendix"
+).split())
+
+
+def is_section_word(title: str) -> bool:
+    words = [re.sub(r"(?<=..)[와과]$", "", w) for w in re.findall(r"[가-힣a-z]+", (title or "").lower()) if w not in ("와", "과", "및", "의", "and", "of")]
+    return bool(words) and all(w in _SECTION_WORDS for w in words)
+
+
 def _first_line(raw_text: str) -> str:
     """제목 칸이 비었을 때 — 장 맨 위의 말머리 아닌 첫 줄 (파서가 제목을 못 잡은 장이 있다: 반찬 IR 2·4·7장)."""
     for line in GI.deck_lines(raw_text or ""):
@@ -499,6 +529,16 @@ def _typed_slide(got: dict, title: str, raw_text: str = "", cover: bool = False)
     """
     concepts, concept_of = _typed_concepts(got.get("concepts"))
     evidence = [x for x in DL.as_items(got.get("evidence"), commas=False) if not DL.is_meta_line(x)]
+    if raw_text:
+        # 근거·개념 설명도 원문에서 — 모델이 덧붙인 풀이(「공헌이익: 매출에서 변동비를 제외한 이익」 「…는 수익성을 가로막는 문제입니다」)는
+        # 원문에 없는 말이다 (10-02). 근거는 빼고, 설명은 비운다 (이름은 아래에서 따로 검사)
+        src = f"{title}\n{raw_text}"
+        dropped = [x for x in evidence if grounded_share(x, src) < CLAIM_GROUNDED_MIN]
+        evidence = [x for x in evidence if x not in dropped]
+        if dropped:
+            sys.stderr.write(f"[f06] 원문에 없는 근거 {len(dropped)}줄을 뺐다: {dropped[0][:40]}\n")
+        concepts = [c if not c.partition(":")[2].strip() or grounded_share(c.partition(":")[2], src) >= CLAIM_GROUNDED_MIN
+                    else c.partition(":")[0].strip() for c in concepts]
     claims: list[str] = []
     names = {_norm(c.partition(":")[0]) for c in concepts}
     for line in _claims(got.get("claims")):
@@ -517,10 +557,17 @@ def _typed_slide(got: dict, title: str, raw_text: str = "", cover: bool = False)
     kept = []
     for c in concepts:
         name, _, desc = c.partition(":")
-        if _norm(name) and _norm(name) == _norm(title) and claims:
-            continue                    # 장 제목을 옮긴 개념 — 제목은 그 장 주장 노드의 요약으로 남는다
+        if raw_text and grounded_share(name, f"{title}\n{raw_text}") < CLAIM_GROUNDED_MIN:
+            # 원문에 없는 이름 — 모델이 지은 말이라 실행마다 바뀐다 (10-02 재현성: 노드 일치 0.48~0.63). 설명이 원문에 있으면 근거로
+            if desc.strip() and grounded_share(desc, raw_text) >= CLAIM_GROUNDED_MIN:
+                evidence.append(desc.strip())
+            sys.stderr.write(f"[f06] 원문에 없는 개념 이름을 뺐다: {name.strip()[:40]}\n")
+            concept_of.pop(name.strip(), None)
+            continue
+        if _norm(name) and _norm(name) == _norm(title) and claims and is_section_word(title):
+            continue                    # 목차 말 제목(「현황 진단」「원인 상세」)을 옮긴 개념 — 개념이 아니다. 「복리 효과」 같은 제목은 그 장의 중심 개념이라 남긴다
         if (_is_figure(name.strip()) or _META_NAME_RE.match(name.strip()) or _CITATION_RE.search(c)
-                or name.strip() in _GENERIC_NAMES):
+                or name.strip() in _GENERIC_NAMES or _only_in_parens(name.strip(), f"{title}\n{raw_text}")):
             evidence.append(f"{name.strip()} ({desc.strip()})" if desc.strip() else name.strip())
             concept_of.pop(name.strip(), None)
         else:
@@ -551,38 +598,108 @@ def _typed_slide(got: dict, title: str, raw_text: str = "", cover: bool = False)
     claims = [c for i, c in enumerate(claims)
               if (i == 0 and head) or not any(grounded_share(c, k) >= 0.8 for k in kept)]
     live = {c.partition(":")[0].strip() for c in kept}
-    return {"concepts": kept, "concept_of": {k: v for k, v in concept_of.items() if k in live and v in live},
-            "claims": claims, "evidence": evidence, "title_kind": kind}
+    of = {k: v for k, v in concept_of.items() if k in live and v in live}
+    claims, kept, of, evidence = _cap(claims, kept, of, evidence)
+    return {"concepts": kept, "concept_of": of, "claims": claims, "evidence": evidence, "title_kind": kind}
 
 
-def extract_concepts(
-    doc: SlideDoc,
-    context: Context | dict | None = None,
-    *,
-    transcript: Transcript | None = None,
-    llm: str | LLMProvider | None = None,
-    llm_kwargs: dict | None = None,
-    batch_size: int | None = None,
-) -> ConceptDoc:
+#: 장마다 노드가 될 주장·개념 상한 (프롬프트 규칙을 코드가 지킨다). 넘친 것은 그 장의 근거로 — 10-02 수익률 12장: 주장이 실행마다 1~9개.
+MAX_CLAIMS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_CLAIMS", "4"))
+MAX_NODE_CONCEPTS = int(os.environ.get("CHUCKCHUCK_CONCEPT_MAX_NODE_CONCEPTS", "6"))
+
+
+def _cap(claims: list[str], concepts: list[str], concept_of: dict, evidence: list[str]):
+    """상한을 넘는 주장·개념을 근거로 옮긴다. 개념은 상위 개념(of 의 부모)부터 남긴다 — 목록 머리가 잘리면 항목이 떠돈다."""
+    over_claims = claims[MAX_CLAIMS:]
+    parents = set(concept_of.values())
+    ranked = sorted(range(len(concepts)), key=lambda i: (concepts[i].partition(":")[0].strip() not in parents, i))
+    keep_idx = sorted(ranked[:MAX_NODE_CONCEPTS])
+    kept = [concepts[i] for i in keep_idx]
+    over = [concepts[i] for i in range(len(concepts)) if i not in keep_idx]
+    live = {c.partition(":")[0].strip() for c in kept}
+    of = {k: v for k, v in concept_of.items() if k in live and v in live}
+    ev = list(evidence)
+    for line in over_claims + over:
+        if _norm(line) not in {_norm(e) for e in ev}:
+            ev.append(line)
+    return claims[:MAX_CLAIMS], kept, of, ev
+
+
+def concept_votes(engine: LLMProvider | None = None) -> int:
+    """다수결 횟수 — CHUCKCHUCK_CONCEPT_VOTES (기본 3). 가짜 LLM(mock)은 늘 같은 답이라 1."""
+    if engine is not None and getattr(engine, "name", "") == "mock":
+        return 1
+    return max(1, int(os.environ.get("CHUCKCHUCK_CONCEPT_VOTES", "3")))
+
+
+def _mode(values: list):
+    vals = [v for v in values if v not in (None, "")]
+    return Counter(vals).most_common(1)[0][0] if vals else ""
+
+
+def vote_slides(runs: list[list[SlideConcepts]]) -> list[SlideConcepts]:
     """
-    SlideDoc(+Context, 선택적 Transcript) → ConceptDoc.
-
-    transcript 를 넘기면 text_sparse 슬라이드를 발화로 보완한다.
-    장수가 많으면 batch_size 단위로 나눠 호출한다.
+    F-06 여러 번의 결과를 장마다 다수결로 합친다. 노드가 될 개념·주장·상하 관계는 과반(3번 중 2번)에 나온 것만,
+    과반에 못 든 개념·주장은 버리지 않고 그 장의 근거(「이름: 설명」 · 원문 문장)로 둔다. 근거는 합집합.
     """
-    if context is None:
-        ctx = Context()
-    elif isinstance(context, dict):
-        ctx = Context.from_dict(context)
-    else:
-        ctx = context
+    need = len(runs) // 2 + 1
+    out: list[SlideConcepts] = []
+    for i, base in enumerate(runs[0]):
+        scs = [r[i] for r in runs if i < len(r) and not r[i].missing]
+        if not scs:
+            out.append(base)
+            continue
+        # 개념 — 열쇠별로 몇 번 나왔나, 이름은 가장 흔한 표기, 설명은 가장 흔한 비지 않은 설명
+        seen: dict[str, list[tuple[str, str]]] = {}
+        order: list[str] = []
+        for sc in scs:
+            got = set()
+            for c in sc.concepts:
+                name, _, desc = str(c).partition(":")
+                k = _norm(name)
+                if not k or k in got:
+                    continue
+                got.add(k)
+                seen.setdefault(k, []).append((name.strip(), desc.strip()))
+                if k not in order:
+                    order.append(k)
+        kept, minority = [], []
+        names: dict[str, str] = {}
+        for k in order:
+            name = _mode([n for n, _ in seen[k]])
+            desc = _mode([d for _, d in seen[k]])
+            line = f"{name}: {desc}" if desc else name
+            names[k] = name
+            (kept if len(seen[k]) >= need else minority).append(line)
+        live = {_norm(c.partition(":")[0]) for c in kept}
+        pairs = Counter((_norm(ch), _norm(up)) for sc in scs for ch, up in sc.concept_of.items())
+        concept_of = {names[ch]: names[up] for (ch, up), cnt in pairs.items()
+                      if cnt >= need and ch in live and up in live and ch != up}
+        # 주장 — 과반에 나온 문장만, 순서는 평균 자리 (헤드라인은 늘 첫 자리라 첫째로 남는다)
+        ckeys: dict[str, list[tuple[int, str]]] = {}
+        for sc in scs:
+            for pos, c in enumerate(sc.claims):
+                ckeys.setdefault(_norm(c), []).append((pos, c))
+        claims = [_mode([c for _, c in v]) for k, v in sorted(ckeys.items(), key=lambda kv: sum(p for p, _ in kv[1]) / len(kv[1]))
+                  if len(v) >= need]
+        minority_claims = [_mode([c for _, c in v]) for v in ckeys.values() if len(v) < need]
+        evidence: list[str] = []
+        for line in [e for sc in scs for e in sc.evidence] + minority + minority_claims:
+            if line and _norm(line) not in {_norm(e) for e in evidence}:
+                evidence.append(line)
+        claims, kept, concept_of, evidence = _cap(claims, kept, concept_of, evidence)
+        out.append(SlideConcepts(
+            slide_no=base.slide_no, title=_mode([sc.title for sc in scs]) or base.title, topic=scs[0].topic,
+            keywords=scs[0].keywords, concepts=kept, raw_text=base.raw_text,
+            importance=_mode([sc.importance for sc in scs]) or "core", title_kind=_mode([sc.title_kind for sc in scs]),
+            claims=claims, evidence=evidence, concept_of=concept_of,
+        ))
+    return out
 
-    engine = (
-        llm
-        if isinstance(llm, LLMProvider)
-        else get_llm(llm, **(llm_kwargs or {}))
-    )
 
+def _extract_once(engine: LLMProvider, doc: SlideDoc, ctx: Context, transcript: Transcript | None,
+                  batch_size: int | None) -> list[SlideConcepts]:
+    """F-06 한 번 — 배치로 나눠 묻고, 빠진 장을 다시 묻고, 장마다 종류를 다시 검사한다."""
     size = batch_size or BATCH_SIZE
     size = max(1, size)
     chunks = [doc.slides[i : i + size] for i in range(0, len(doc.slides), size)]
@@ -636,6 +753,59 @@ def extract_concepts(
         if got is None:
             _set_contract_field(sc, "missing", True)
         slides.append(sc)
+
+    return slides
+
+
+def extract_concepts(
+    doc: SlideDoc,
+    context: Context | dict | None = None,
+    *,
+    transcript: Transcript | None = None,
+    llm: str | LLMProvider | None = None,
+    llm_kwargs: dict | None = None,
+    batch_size: int | None = None,
+    votes: int | None = None,
+) -> ConceptDoc:
+    """
+    SlideDoc(+Context, 선택적 Transcript) → ConceptDoc.
+
+    transcript 를 넘기면 text_sparse 슬라이드를 발화로 보완한다.
+    장수가 많으면 batch_size 단위로 나눠 호출한다.
+    """
+    if context is None:
+        ctx = Context()
+    elif isinstance(context, dict):
+        ctx = Context.from_dict(context)
+    else:
+        ctx = context
+
+    engine = (
+        llm
+        if isinstance(llm, LLMProvider)
+        else get_llm(llm, **(llm_kwargs or {}))
+    )
+
+    n = votes if votes is not None else concept_votes(engine)
+    runs: list[list[SlideConcepts]] = []
+    errors: list[Exception] = []
+    if n <= 1:
+        runs.append(_extract_once(engine, doc, ctx, transcript, batch_size))
+    else:
+        # 같은 자료를 n 번 따로 읽고 다수결 (10-02 재현성: temperature 0 에서도 Solar 는 개념 단위·상하 관계를 실행마다 다르게 냈다 —
+        # 노드 일치 0.49~0.77). 병렬이라 걸리는 시간은 한 번과 비슷하다
+        with ThreadPoolExecutor(max_workers=n) as pool:
+            futs = [pool.submit(_extract_once, engine, doc, ctx, transcript, batch_size) for _ in range(n)]
+            for fut in futs:
+                try:
+                    runs.append(fut.result())
+                except ConceptError as e:
+                    errors.append(e)
+        if not runs:
+            raise errors[0]
+        if errors:
+            sys.stderr.write(f"[f06] 다수결 {n}회 중 {len(errors)}회 실패 — 나머지 {len(runs)}회로 정한다\n")
+    slides = runs[0] if len(runs) == 1 else vote_slides(runs)
 
     return ConceptDoc(
         file_name=doc.file_name,

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from dataclasses import dataclass
@@ -34,6 +35,10 @@ from .providers.llm_base import LLMProvider
 
 #: 「핵심 주장 → 장 주장 → 개념 → 하위 개념」 이 4단, 개요 장의 요인을 뒤 장이 풀면 그 밑으로 2단이 더 붙는다.
 MAX_TYPED_DEPTH = 6
+#: 뼈대 판단 온도 — 같은 자료면 같은 핵심 주장을 고르게 (10-02 재현성).
+TEMPERATURE = float(os.environ.get("CHUCKCHUCK_GRAPH_SKELETON_TEMPERATURE", "0"))
+#: 주장이 개념을 「부른다」 고 볼 몫 — 이름 낱말 중 문장에 나온 비율.
+NAMED_MIN = 0.6
 
 STRUCT_SYSTEM_PROMPT = """당신은 발표 논증 구조 분석가다. 장마다 이미 나눠 둔 주장·개념 목록을 보고 발표 전체의 뼈대만 정한다.
 항목은 이미 정해졌다 — 새 항목을 만들거나 고쳐 쓰지 마라. 항목은 id 로만 가리킨다.
@@ -153,12 +158,68 @@ def build_prompt(doc: ConceptDoc, ctx: Context) -> str:
     return "\n".join(parts)
 
 
+def skeleton_votes(engine: LLMProvider | None = None) -> int:
+    """뼈대 판단 다수결 횟수 — CHUCKCHUCK_GRAPH_SKELETON_VOTES (기본 3). mock 은 1."""
+    if engine is not None and getattr(engine, "name", "") == "mock":
+        return 1
+    return max(1, int(os.environ.get("CHUCKCHUCK_GRAPH_SKELETON_VOTES", "3")))
+
+
 def call_structure(engine: LLMProvider, doc: ConceptDoc, ctx: Context, max_tokens: int) -> dict | None:
-    """뼈대 판단 한 번 (JSON 이 깨지면 한 번 더). 끝내 못 받으면 None — 그래프는 결정적 뼈대로 나온다."""
+    """
+    뼈대 판단을 n 번 따로 받아 다수결로 합친다 (10-02 재현성: 수익률격차 핵심 주장이 10회 중 6:4 로 갈렸다).
+    핵심 주장 후보·장 부모는 최빈값, 같은 뜻 주장·연결은 과반에 나온 것만. 하나도 못 받으면 None.
+    """
+    n = skeleton_votes(engine)
+    if n <= 1:
+        return _call_structure_once(engine, doc, ctx, max_tokens)
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        got = [d for d in pool.map(lambda _: _call_structure_once(engine, doc, ctx, max_tokens), range(n)) if d]
+    return vote_structure(got) if got else None
+
+
+def vote_structure(runs: list[dict]) -> dict:
+    from collections import Counter
+    need = len(runs) // 2 + 1
+
+    def first(v):
+        return v[0] if isinstance(v, list) and v else v
+    tfs = Counter(str(first(r.get("thesis_from")) or "") for r in runs)
+    tf, cnt = tfs.most_common(1)[0]
+    claim = ""
+    if not tf:
+        claims = Counter(re.sub(r"\s+", " ", str(r.get("thesis_claim") or "")).strip() for r in runs if not first(r.get("thesis_from")))
+        claim = claims.most_common(1)[0][0] if claims else ""
+    same = Counter(str(k) for r in runs for k in set(r.get("thesis_same") or []) if isinstance(k, (str, int)))
+    parents: dict[str, Counter] = {}
+    for r in runs:
+        for row in r.get("slides") or []:
+            if isinstance(row, dict):
+                parents.setdefault(str(row.get("slide_no")), Counter())[str(row.get("parent") or "")] += 1
+    links: Counter = Counter()
+    why: dict = {}
+    for r in runs:
+        for ln in r.get("links") or []:
+            if isinstance(ln, dict):
+                k = frozenset((str(ln.get("from") or ""), str(ln.get("to") or "")))
+                links[k] += 1
+                why.setdefault(k, ln)
+    return {
+        "thesis_from": tf or None, "thesis_claim": claim,
+        "thesis_same": [k for k, c in same.items() if c >= need],
+        "slides": [{"slide_no": no, "parent": c.most_common(1)[0][0]} for no, c in parents.items()],
+        "links": [why[k] for k, c in links.items() if c >= need],
+        "sections": next((r["sections"] for r in runs if r.get("sections")), []),
+    }
+
+
+def _call_structure_once(engine: LLMProvider, doc: ConceptDoc, ctx: Context, max_tokens: int) -> dict | None:
+    """뼈대 판단 한 번 (JSON 이 깨지면 한 번 더). 끝내 못 받으면 None."""
     user = build_prompt(doc, ctx)
     for extra in ("", JSON_RETRY_NUDGE):
         try:
-            raw = engine.complete(system=STRUCT_SYSTEM_PROMPT + extra, user=user, temperature=0.2,
+            raw = engine.complete(system=STRUCT_SYSTEM_PROMPT + extra, user=user, temperature=TEMPERATURE,
                                   max_tokens=max_tokens, json_mode=True)
             data = extract_json_object(raw)
             if isinstance(data, dict):
@@ -194,6 +255,34 @@ def _evidence_target(ev: str, candidates: list[ConceptNode]) -> ConceptNode | No
         if sc >= 0.5 and (sc, len(toks)) > (best_sc, len(_tokens(best.label)) if best else 0):
             best, best_sc = n, sc
     return best
+
+
+def _name_share(label: str, text: str) -> float:
+    """
+    이름 토큰 중 글에 나온 몫 — 한 글자 식별자(「가설 A」 의 「A」, 「2C」)도 센다. 낱말 몫(`_overlap`)은 두 글자 이상만 봐서
+    「세 가설 가운데 …」 가 「가설 A」 를 부르는 것으로 잡혔다 (10-02: 가설 B·C 가 가설 A 의 하위 개념이 됐다).
+    """
+    from .f06_concepts import _PARTICLE_TAIL_RE
+    toks = norm_tokens(label)
+    if not toks:
+        return 0.0
+    flat = re.sub(r"\s+", "", (text or "").lower())
+    hit = 0
+    for t in toks:
+        stem = _PARTICLE_TAIL_RE.sub("", t) if len(t) > 2 else t
+        if len(t) == 1:
+            hit += bool(re.search(rf"(?<![0-9a-z]){re.escape(t)}(?![0-9a-z])", (text or "").lower()))
+        else:
+            hit += (stem or t) in flat
+    return hit / len(toks)
+
+
+def _names(label: str, line: str) -> bool:
+    """줄이 이 노드를 부르는가 — 개념은 이름 토큰 60%, 주장 문장은 낱말 60%."""
+    from . import _claim_rules as R
+    if len(_tokens(label)) > 4:
+        return _overlap(label, line) >= 0.6
+    return _name_share(label, line) >= 0.6 or R.names_variable(label, line)    # 「높은 배송비」 ↔ 「…배송비를 낮춥니다」
 
 
 def _overlap(a: str, b: str) -> float:
@@ -245,6 +334,12 @@ def assemble(
     chosen = by_key.get(str(tf or ""))
     named = [by_key[str(k)] for k in (data.get("thesis_same") or []) if str(k) in by_key and by_key[str(k)].kind == "claim"]
     label, sources = "", []
+    # 표지(첫 내용 장)에 저자가 적은 주장이 있으면 그것이 핵심 주장이다 — 결정적으로 (10-02 재현성: 수익률 「표지 부제 ↔ 2장 요약」 이
+    # 10회 중 6:4 로 갈렸다). 표지가 질문·주제어뿐일 때만 뼈대 판단을 따른다
+    first_no = min(items) if items else None
+    cover = [it for it in items.get(first_no, []) if it.kind == "claim"] if first_no is not None else []
+    if cover:
+        chosen = cover[0]
     if chosen is not None and chosen.kind == "claim":
         label, sources = chosen.label, [chosen]
     else:
@@ -275,42 +370,22 @@ def assemble(
     thesis = new_node(label, "thesis", [it.slide_no for it in sources],
                       " / ".join(dict.fromkeys(it.label for it in sources)))
 
-    # 2. 주장 노드 — 장마다 첫 주장이 닻, 나머지 주장은 닻 밑
+    # 2. 주장 노드 — 같은 문장은 장을 넘어 한 노드. 핵심 주장에 흡수된 주장은 노드를 세우지 않는다
     node_of_key: dict[str, ConceptNode] = {k: thesis for k in absorbed}
-    anchor: dict[int, ConceptNode | None] = {}
     parent_of: dict[str, str] = {}
     claim_by_text: dict[str, ConceptNode] = {_key(thesis.label): thesis}
-    later_claims: list[tuple[ConceptNode, int]] = []       # 장의 둘째 주장부터 — 부모는 장 부모가 정해진 뒤에
-
-    def claim_node(it: Item, summary: str = "") -> tuple[ConceptNode, bool]:
-        """같은 문장의 주장은 장을 넘어 한 노드 — (노드, 새로 만들었나)."""
-        k = _key(it.label)
-        if k in claim_by_text:
-            got = claim_by_text[k]
-            got.slide_nos = sorted(set(got.slide_nos) | {it.slide_no})
-            return got, False
-        n = new_node(it.label, "claim", [it.slide_no], summary)
-        claim_by_text[k] = n
-        return n, True
-
     for no, its in items.items():
-        claims = [it for it in its if it.kind == "claim"]
-        head = None
-        if claims and claims[0].key in absorbed:
-            head = thesis
-        elif claims:
-            head, fresh = claim_node(claims[0], slide_of[no].title or "")
-            node_of_key[claims[0].key] = head
-            if not fresh:
-                head = None                            # 앞 장 주장을 되풀이한 장 — 닻은 그 장의 부모 쪽으로
-        anchor[no] = head
-        for it in claims[1:]:
+        for i, it in enumerate(x for x in its if x.kind == "claim"):
             if it.key in absorbed:
                 continue
-            n, fresh = claim_node(it)
-            node_of_key[it.key] = n
-            if fresh:
-                later_claims.append((n, no))
+            k = _key(it.label)
+            if k in claim_by_text:
+                got = claim_by_text[k]
+                got.slide_nos = sorted(set(got.slide_nos) | {no})
+            else:
+                got = new_node(it.label, "claim", [no], (slide_of[no].title or "") if i == 0 else "")
+                claim_by_text[k] = got
+            node_of_key[it.key] = got
 
     # 3. 개념 노드 — 이름이 같으면 장을 넘어 하나. 집은 핵심 주장에 흡수되지 않은 첫 장(요약·결론 장보다 설명 장)
     occ: dict[str, list[Item]] = {}
@@ -338,9 +413,27 @@ def assemble(
         for it in its:
             node_of_key[it.key] = n
 
-    # 4. 장의 부모 (뼈대 판단) — 없거나 틀린 id 거나 그 장 원문이 부르지 않으면 핵심 주장
-    slide_parent: dict[int, ConceptNode] = {}
+    # 4. 장의 중심 개념 — 「X — 주장」 헤드라인의 X > 첫 주장이 이름을 부르는 개념 > 장 안 하위 개념을 가장 많이 거느린 개념 >
+    #    뼈대 판단이 고른 부모(그 장 원문이 이름을 다 부를 때만). 그래프는 「핵심 주장 → 핵심 개념 → 하위 개념 → 주장 → 근거」 층으로 선다
+    #    (10-02 사용자: 「연결은 잘 되어 있지만 시각적으로는 여전히 마인드맵」 — 주장 밑에 개념이 매달려 층이 섞였다)
     slide_text = {s.slide_no: " ".join([s.title or "", s.raw_text or "", *s.claims, *s.concepts]) for s in doc.slides}
+    concepts_on = {no: [] for no in items}
+    for n in nodes:
+        if n.kind == "concept":
+            for no in n.slide_nos:
+                if no in concepts_on:
+                    concepts_on[no].append(n)
+
+    def named_in(label: str, text: str) -> bool:
+        return bool(_tokens(label)) and _name_share(label, text) >= 0.99
+
+    def best_named(text: str, pool: list[ConceptNode]) -> ConceptNode | None:
+        """문장이 이름 낱말을 가장 많이 부르는 개념 (60% 이상). 같으면 이름이 긴 쪽 — 「상위 25% 그룹」 ↔ 「성과 상위 그룹조차 …」."""
+        hits = [(_name_share(c.label, text), c) for c in pool if _tokens(c.label)]
+        hits = [(sc, c) for sc, c in hits if sc >= NAMED_MIN]
+        return max(hits, key=lambda x: (x[0], len(_tokens(x[1].label)), -min(x[1].slide_nos)))[1] if hits else None
+
+    llm_parent: dict[int, ConceptNode] = {}
     for row in data.get("slides") or []:
         if not isinstance(row, dict):
             continue
@@ -348,68 +441,90 @@ def assemble(
             no = int(row.get("slide_no"))
         except (TypeError, ValueError):
             continue
-        pk = str(row.get("parent") or "")
-        p, src_item = node_of_key.get(pk), by_key.get(pk)
-        if no not in items or p is None or src_item is None or src_item.slide_no == no or p is thesis:
-            continue
-        # 그 장 원문이 부모를 불러야 받는다 — 개념이면 이름 낱말이 다, 주장이면 절반 이상 (10-01: 모델이 장마다 바로 앞 장 주장을
-        # 부모로 적어 15장 덱이 7단 사슬이 됐다)
-        need = 0.99 if p.kind == "concept" else 0.5
-        if _overlap(p.label, slide_text.get(no, "")) >= need:
-            slide_parent[no] = p
-    # 「X — 주장」 헤드라인(F-06 headline)의 X 가 앞 장의 개념이면 그 개념을 푸는 장이다 — 뼈대 판단보다 자료 꼴이 이긴다
+        p = node_of_key.get(str(row.get("parent") or ""))
+        if no in items and p is not None and p.kind == "concept" and named_in(p.label, slide_text.get(no, "")):
+            llm_parent[no] = p
+
+    # 장 주제(topic) — 자료가 **명시한** 것만: 「X — 주장」 헤드라인의 X, 장 제목이 곧 개념 이름(「복리 효과」). 장의 개념·주장이 그 밑에 선다.
+    # 주장이 이름을 부르는 개념(named)은 그 주장만 데려간다 — 장의 다른 개념까지 그 밑에 넣으면 사실이 아닌 위계가 생긴다
+    # (10-02: 「…리뷰 이벤트만 데이터로 지지됐다」 → 가설 A/B/C 가 「리뷰 이벤트」 의 하위 개념이 됐다)
+    topic: dict[int, ConceptNode | None] = {}
+    subject: dict[int, ConceptNode | None] = {}
     for no, its in items.items():
         claims = [it for it in its if it.kind == "claim"]
-        if not claims:
+        if claims and all(it.key in absorbed for it in claims):
+            topic[no] = subject[no] = None             # 표지·결론처럼 핵심 주장을 말한 장 — 그 장 개념은 핵심 주장 바로 밑
             continue
-        parts = re.split(r"\s+[—–-]\s+", claims[0].label, maxsplit=1)
-        if len(parts) != 2:
-            continue
-        n = concept_node.get(_key(parts[0]))
-        if n is not None and home[n.id].slide_no < no:
-            slide_parent[no] = n
+        pick = None
+        if claims:
+            parts = re.split(r"\s+[—–-]\s+", claims[0].label, maxsplit=1)
+            if len(parts) == 2:
+                pick = concept_node.get(_key(parts[0]))
+        if pick is None:
+            t = _key(slide_of[no].title or "")
+            pick = next((c for c in concepts_on[no] if t and _key(c.label) == t), None)
+        if pick is None and no in llm_parent:
+            pick = llm_parent[no]                      # 뼈대 판단이 고른 부모 — 그 장 원문이 이름을 다 부를 때만 받았다
+        topic[no] = pick
+        subject[no] = pick or (best_named(claims[0].label, concepts_on[no]) if claims else None)
 
-    def up_of(no: int) -> ConceptNode:
-        return slide_parent.get(no, thesis)
+    # 장 한정 곁가지 개념을 근거로 내리는 규칙은 두지 않는다 — 「세 가지 문제」 목록 항목까지 내려 정보 성격을 바꿨다 (10-02)
+    demoted: dict[str, tuple[int, str]] = {}
+    gone: set[str] = set()
 
-    for no, head in anchor.items():
-        if head is not None and head is not thesis:
-            parent_of[head.id] = up_of(no).id
-    for n, no in later_claims:
-        parent_of[n.id] = (anchor.get(no) or up_of(no)).id
+    # 6. 위계 — 개념: of 의 상위 개념 > 그 장 중심 개념 > 핵심 주장. 주장: 문장이 부르는 가장 구체적인 개념 > 그 장 중심 개념 > 핵심 주장
     for n in nodes:
         if n.kind != "concept":
             continue
         h = home[n.id]
         up = concept_node.get(_key(h.of)) if h.of else None
-        if up is not None and up is not n:
-            parent_of[n.id] = up.id
-        else:
-            parent_of[n.id] = (anchor.get(h.slide_no) or up_of(h.slide_no)).id
+        if up is None or up is n or up.id in gone:
+            up = topic.get(h.slide_no)
+        parent_of[n.id] = (up if up is not None and up is not n else thesis).id
+    for no, its in items.items():
+        for it in its:
+            if it.kind != "claim":
+                continue
+            c = node_of_key.get(it.key)
+            if c is None or c is thesis or c.kind != "claim" or c.id in parent_of:
+                continue
+            pool = concepts_on[no] + ([subject[no]] if subject.get(no) and subject[no] not in concepts_on[no] else [])
+            target = best_named(it.label, pool) or topic.get(no)
+            parent_of[c.id] = (target or thesis).id
     parent_of.pop(thesis.id, None)
     _break_cycles(parent_of, thesis.id)
 
-    # 5. 장을 넘어 같은 개념을 다시 다룬 장 — 그 장의 닻과 개념을 잇는다 (자료가 그 장에서 그 개념을 말했다). 위계와 겹치면 뺀다
+    # 7. 관계 — 다른 장에서 다시 나온 개념: 그 장 주장이 이름을 부를 때만 잇는다. 뼈대 판단의 연결: 근거 표현이 원문에 있어야 받는다
     relates: list[ConceptEdge] = []
+    claim_nodes_on = {no: [node_of_key[it.key] for it in its if it.kind == "claim" and node_of_key.get(it.key) is not None]
+                      for no, its in items.items()}
     for n in nodes:
         if n.kind != "concept":
             continue
         for no in n.slide_nos:
-            a = anchor.get(no)
-            if no == home[n.id].slide_no or a is None or a is thesis or a is n:
+            if no == home[n.id].slide_no:
                 continue
-            relates.append(ConceptEdge(from_id=a.id, to_id=n.id, kind="relates"))
-
-    # 6. 자료가 밝힌 장 간 논리 연결 (뼈대 판단) — why 가 있어야, 핵심 주장과는 잇지 않는다
+            for c in claim_nodes_on.get(no, []):
+                if c is not thesis and named_in(n.label, c.label):
+                    relates.append(ConceptEdge(from_id=c.id, to_id=n.id, kind="relates"))
+    # 근거 표현은 **한 줄**에서 찾는다 — 낱말을 덱 여기저기서 주워 모으면 짐작한 관계도 통과한다 (「묶음 배송이 월 반복 매출을 지킨다」)
+    deck_lines = [ln for s in doc.slides for ln in [*GI.deck_lines(s.raw_text or ""), *s.claims, *s.evidence]]
     for link in data.get("links") or []:
-        if not isinstance(link, dict) or not str(link.get("why") or "").strip():
+        if not isinstance(link, dict):
+            continue
+        why = str(link.get("why") or "").strip()
+        if not why:
             continue
         ka, kb = str(link.get("from") or ""), str(link.get("to") or "")
         a, b = node_of_key.get(ka), node_of_key.get(kb)
-        if a is None or b is None or a is b or thesis in (a, b):
+        if a is None or b is None or a is b or thesis in (a, b) or a.id in gone or b.id in gone:
             continue
         if ka in by_key and kb in by_key and by_key[ka].slide_no == by_key[kb].slide_no:
             continue                                   # 같은 장 안은 장 안 위계가 이미 잇는다
+        # 원문 한 줄이 두 끝을 **함께** 불러야 받는다 — 근거 표현이 한쪽 끝 문장을 그대로 옮기면 통과하던 것을 막는다
+        # (10-02 수익률: 「사후 판단의 개입을 줄인다」 ↔ 11·12·14장 주장 — 둘을 함께 말한 줄이 없다)
+        if not any(_names(a.label, ln) and _names(b.label, ln) for ln in deck_lines):
+            continue
         relates.append(ConceptEdge(from_id=a.id, to_id=b.id, kind="relates"))
 
     relates += solve_links(nodes, home, {sl.slide_no: sl.title or "" for sl in doc.slides})
@@ -418,25 +533,26 @@ def assemble(
         n.parent_id = parent_of.get(n.id)
         n.depth = F._depth_of(n.id, parent_of)
 
-    # 7. 근거 — 그 장의 개념 중 근거 줄이 이름을 부르는 것, 없으면 그 장의 닻, 진행 칸·닻 없는 장은 장의 부모·핵심 주장
+    # 8. 근거 — 같은 장 주장 중 근거 줄과 낱말이 가장 많이 겹치는 것 > 근거 줄이 이름을 부르는 개념 > 장 첫 주장 > 중심 개념 > 핵심 주장
+    def ev_target(no: int, ev: str) -> ConceptNode:
+        cl = [c for c in claim_nodes_on.get(no, []) if c.id not in gone]
+        best = max(cl, key=lambda c: _overlap(ev, c.label), default=None)
+        if best is not None and _overlap(ev, best.label) >= 0.3:
+            return best
+        named = _evidence_target(ev, [c for c in concepts_on.get(no, [])])
+        return named or (cl[0] if cl else None) or subject.get(no) or thesis
     for s in doc.slides:
-        if not s.evidence:
-            continue
-        here = [n for n in nodes if n.kind == "concept" and s.slide_no in n.slide_nos]
-        fallback = anchor.get(s.slide_no) or (up_of(s.slide_no) if s.slide_no in items else thesis)
-        for ev in s.evidence:
-            ev = ev.strip()
-            if not ev or DL.is_meta_line(ev):
-                continue
-            target = _evidence_target(ev, here) or fallback
-            if ev not in target.evidence:
-                target.evidence.append(ev)
+        lines = [e.strip() for e in s.evidence if e.strip() and not DL.is_meta_line(e)]
+        lines += [txt for nid, (no, txt) in demoted.items() if no == s.slide_no]
+        for ev in lines:
+            t = ev_target(s.slide_no, ev) if s.slide_no in items else thesis
+            _add_evidence(t, ev)
     # 진행 칸의 주장·개념(「본 자료는 가상 데이터」 · 참고문헌)도 버리지 않는다 — 발표 전체의 근거·조건으로 핵심 주장에
     for s in doc.slides:
         if s.title_kind == "structural" and not s.missing:
             for line in [*s.claims, *[str(c) for c in s.concepts]]:
-                if line.strip() and line not in thesis.evidence:
-                    thesis.evidence.append(line.strip())
+                if line.strip():
+                    _add_evidence(thesis, line.strip())
 
     F._apply_weights(nodes, doc, slide_doc)
     edges = [ConceptEdge(from_id=p, to_id=c, kind="parent") for c, p in parent_of.items()]
@@ -445,6 +561,19 @@ def assemble(
     if not sections or not _covers_all(sections, doc.total_slides):
         sections = _default_sections(doc)
     return nodes, edges, sections, thesis.id
+
+
+def _add_evidence(node: ConceptNode, ev: str) -> None:
+    """
+    근거를 붙이되 거의 같은 문장(낱말 80% 이상 서로 겹침)은 하나만 — 긴 쪽을 남긴다. 다수결 추출은 근거를 합집합으로 모아,
+    실행마다 조금씩 다르게 옮긴 같은 문장이 셋씩 붙었다 (10-02 배달 별점 「…텍스트로 추정」 「…추정했다」 「…추정한 값 (정확도 91%)」).
+    """
+    for i, old in enumerate(node.evidence):
+        if old == ev or min(_overlap(ev, old), _overlap(old, ev)) >= 0.8 or (_overlap(old, ev) >= 0.9 and len(ev) > len(old)):
+            if len(ev) > len(old):
+                node.evidence[i] = ev
+            return
+    node.evidence.append(ev)
 
 
 def solve_links(nodes: list[ConceptNode], home: dict[str, Item], titles: dict[int, str] | None = None) -> list[ConceptEdge]:
@@ -516,6 +645,10 @@ def coverage(doc: ConceptDoc, nodes: list[ConceptNode]) -> dict:
     labels = {_key(n.label) for n in nodes}
     thesis_src = {_key(x) for n in nodes if n.kind == "thesis" for x in n.summary.split(" / ")}
     evid = {e for n in nodes for e in n.evidence}
+
+    def in_evid(x: str) -> bool:
+        x = x.strip()
+        return x in evid or any(_overlap(x, e) >= 0.8 for e in evid)
     missing: dict[str, list[str]] = {"claims": [], "concepts": [], "evidence": []}
     total = 0
     for s in doc.slides:
@@ -524,18 +657,20 @@ def coverage(doc: ConceptDoc, nodes: list[ConceptNode]) -> dict:
         structural = s.title_kind == "structural"
         for c in s.claims:
             total += 1
-            if (c.strip() not in evid) if structural else (_key(c) not in labels and _key(c) not in thesis_src):
+            if (not in_evid(c)) if structural else (_key(c) not in labels and _key(c) not in thesis_src):
                 missing["claims"].append(f"S{s.slide_no} {c}")
         for c in s.concepts:
             total += 1
             name = str(c).partition(":")[0].strip()
-            if (str(c).strip() not in evid) if structural else (_key(name) not in labels):
+            # 장 한정 곁가지 개념은 노드 대신 근거(「이름: 설명」)로 옮겨진다 — 그것도 그래프 안이다
+            as_ev = any(e == name or e.startswith(name + ":") for e in evid)
+            if (not in_evid(str(c))) if structural else (_key(name) not in labels and not as_ev):
                 missing["concepts"].append(f"S{s.slide_no} {name}")
         for e in s.evidence:
             if DL.is_meta_line(e) or not e.strip():
                 continue
             total += 1
-            if e.strip() not in evid:
+            if not in_evid(e):                         # 거의 같은 근거로 합쳐졌으면 있는 것
                 missing["evidence"].append(f"S{s.slide_no} {e}")
     lost = sum(len(v) for v in missing.values())
     return {"total": total, "lost": lost, "missing": missing}

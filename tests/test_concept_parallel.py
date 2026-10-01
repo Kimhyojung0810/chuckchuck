@@ -28,7 +28,7 @@ def make_doc(n_slides: int) -> SlideDoc:
             Slide(
                 slide_no=i,
                 title=f"슬라이드 {i}",
-                blocks=[SlideBlock(category="paragraph", text=f"{i}번 내용")],
+                blocks=[SlideBlock(category="paragraph", text=f"개념{i} 내용")],
                 total_char_count=20,
             )
             for i in range(1, n_slides + 1)

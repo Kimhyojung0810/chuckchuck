@@ -1,0 +1,78 @@
+{
+ "_held_ir_banchan": {
+  "runs": 10,
+  "node_jaccard": 0.627,
+  "parent_jaccard": 0.478,
+  "relates_jaccard": 0.379,
+  "thesis_mode_share": 1.0,
+  "skeleton_jaccard": 0.669,
+  "stable_node_share": 0.698,
+  "nodes_min_max": [
+   24,
+   30
+  ],
+  "node_own_slide_grounded": 0.974,
+  "relates_grounded": 0.875,
+  "relates_mean": 3.7,
+  "parent_grounded": 1.0,
+  "thesis_grounded": 1.0,
+  "theses": [
+   [
+    "구독자 수보다 중요한 월 반복 매출",
+    10
+   ]
+  ]
+ },
+ "배달앱별점인플레이션": {
+  "runs": 10,
+  "node_jaccard": 0.528,
+  "parent_jaccard": 0.408,
+  "relates_jaccard": 0.8,
+  "thesis_mode_share": 1.0,
+  "skeleton_jaccard": 0.526,
+  "stable_node_share": 0.536,
+  "nodes_min_max": [
+   12,
+   21
+  ],
+  "node_own_slide_grounded": 0.966,
+  "relates_grounded": 0.0,
+  "relates_mean": 0.1,
+  "parent_grounded": 1.0,
+  "thesis_grounded": 1.0,
+  "theses": [
+   [
+    "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+    10
+   ]
+  ]
+ },
+ "수익률격차": {
+  "runs": 10,
+  "node_jaccard": 0.48,
+  "parent_jaccard": 0.265,
+  "relates_jaccard": 0.069,
+  "thesis_mode_share": 0.6,
+  "skeleton_jaccard": 0.521,
+  "stable_node_share": 0.499,
+  "nodes_min_max": [
+   68,
+   117
+  ],
+  "node_own_slide_grounded": 0.96,
+  "relates_grounded": 0.82,
+  "relates_mean": 7,
+  "parent_grounded": 0.999,
+  "thesis_grounded": 1.0,
+  "theses": [
+   [
+    "격차는 종목 선택이 아니라 행동에서 만들어진다",
+    6
+   ],
+   [
+    "실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인",
+    4
+   ]
+  ]
+ }
+}
