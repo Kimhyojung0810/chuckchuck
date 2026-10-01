@@ -8508,6 +8508,13 @@ function ensureLiveQuestions() {
 
   qaBuilding = true;
   qaBuildStartedAt = Date.now();
+  // 이 요청의 표 — 결과가 늦게 와서 그 사이 코칭이 새로 시작됐거나(resetQa · 부스 다음 방문객) 자료가 바뀌었으면 버린다.
+  // 앞 방문객의 늦은 질문이 다음 방문객(다른 덱)에 붙었다 (10-02 버그 사냥 P0-B)
+  const buildToken = ++qaBuildToken;
+  const buildQa = qa;
+  const buildDocKey = qaDocKey();
+  const buildSid = qaSessionId();
+  const stale = () => buildToken !== qaBuildToken || qa !== buildQa || qaDocKey() !== buildDocKey;
   qa.liveNotice = '';
   qa.liveError = '';
   // 아티팩트를 세션에 먼저 등록해 둔다 — 이후 판정은 session_id 만 보내면 되고,
@@ -8520,13 +8527,14 @@ function ensureLiveQuestions() {
     : Promise.resolve();
 
   registered.then(() => bridge.buildQuestions(liveQuestionArgs(out, (qa && qa.mode) || '10'))).then((doc) => {
+    if (stale()) { console.info('[chuckchuck] 늦게 온 질문 생성 결과를 버려요 (코칭이 새로 시작됐어요)'); return; }
     // 「기다리지 않고 데모 질문으로 진행」을 눌렀으면 늦게 도착한 결과를 버린다.
     // 여기서 안 버리면 데모 질문에 답하던 대화가 통째로 갈아치워진다.
     if (qaBuildFailed) return;
     const questions = (doc && doc.questions) || [];
     if (questions.length) {
       // 어느 자료로 만든 질문인지 같이 새긴다 — 자료가 바뀌면 낡은 것이 된다.
-      qa.live = newLiveState(qaSessionId(), attachQuestionPapers(questions, doc.papers), qaDocKey());
+      qa.live = newLiveState(buildSid, attachQuestionPapers(questions, doc.papers), buildDocKey);
       // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes · qa_live presentLiveQuestion).
       // 녹음을 받았는데 질문 재료로 못 썼으면(다른 발표 · 판정이 짐작뿐 — QuestionDoc.speech_note) 그 까닭이 맨 앞이다 (REC-14 liveEntryNotes)
       qa.live.notes = typeof liveEntryNotes === 'function' ? liveEntryNotes(doc) : [];
@@ -8540,11 +8548,13 @@ function ensureLiveQuestions() {
       qa.liveError = '질문 생성은 끝났는데 돌아온 질문이 0개예요.';
     }
   }).catch((err) => {
+    if (stale()) { console.info('[chuckchuck] 늦게 온 질문 생성 실패를 버려요 (코칭이 새로 시작됐어요)', err); return; }
     qaBuildFailed = true;
     console.warn('[chuckchuck] build questions', err);
     qa.liveNotice = `내 발표로 질문을 만들지 못했어요 (${err.message || err}). 데모 질문으로 진행해요.`;
     qa.liveError = humanErrorText(err.message || String(err));
   }).finally(() => {
+    if (buildToken !== qaBuildToken) return;   // 새 요청이 「생성 중」 을 쥐고 있다 — 옛 요청이 풀지 않는다
     qaBuilding = false;
     saveSession('qa-flow', qa);
     if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa') renderQa();
@@ -8674,6 +8684,8 @@ function renderQaBuilding() {
 /* 질문 생성이 진행 중인지. sessionStorage 밖에 둔다 —
  * 생성 도중 새로고침하면 저장된 true 가 영원히 재생성을 막기 때문이다. */
 let qaBuilding = false;
+/* 질문 생성 요청의 표 — 새 요청 · resetQa 마다 올라가고, 늦게 온 결과는 표가 다르면 버린다 (10-02 P0-B) */
+let qaBuildToken = 0;
 /* 생성을 시작한 시각. 경과 초를 화면에 그대로 보여 주려고 둔다.
  * qaBuilding 과 같이 sessionStorage 밖이다 — 새로고침하면 생성도 새로 시작한다. */
 let qaBuildStartedAt = 0;
@@ -8693,6 +8705,10 @@ function resetQa() {
     liveNotice: '', liveError: '',
   };
   qaBuildFailed = false;
+  // 돌던 질문 생성은 앞 코칭의 것이다 — 표를 올려 그 결과를 버리고, 새 코칭은 제 요청을 새로 보낸다 (10-02 P0-B).
+  // 안 풀면 ensureLiveQuestions 가 「생성 중」 만 보고 기다리다 앞 사람(다른 덱)의 질문을 받았다
+  qaBuilding = false;
+  qaBuildToken += 1;
   // 질문 생성 모듈 폴링 카운터도 새 코칭에서 다시 센다 — 안 그러면 한 번
   // 소진된 뒤로는 새 코칭에서도 재시도 없이 곧장 실패로 떨어진다.
   qaBridgeTries = 0;
