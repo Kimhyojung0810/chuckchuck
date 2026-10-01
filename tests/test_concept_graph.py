@@ -1067,3 +1067,21 @@ def test_long_claim_is_shortened_to_subject_and_last_clause():
             "취약 개념 기반 Q&A를 통해 발표자의 실질적인 이해와 설명 능력을 향상시킨다")
     assert _shorten_claim(long) == "AI 발표 코칭 서비스는 취약 개념 기반 Q&A를 통해 발표자의 실질적인 이해와 설명 능력을 향상시킨다"
     assert _shorten_claim("짧은 주장은 그대로 둔다") == "짧은 주장은 그대로 둔다"
+
+
+def test_childless_slide_title_node_gets_that_slides_items_as_children():
+    """장 제목 그대로인 노드가 자식 없이 끝나면 그 장 개념 목록 항목을 자식으로 단다. 이미 있는 이름은 건너뛴다."""
+    doc = ConceptDoc(file_name="s.pdf", total_slides=2, model="mock", slides=[
+        SlideConcepts(slide_no=1, title="행동이 문제다", topic="t", keywords=[], concepts=["행동이 문제다: 실력이 아니다"], importance="core"),
+        SlideConcepts(slide_no=2, title="실행 체크리스트", topic="t", keywords=[],
+                      concepts=["종목 수 하한: 8종목 이상", "연간 총비용: 1% 이하 관리", "회전율: 가장 강한 역상관 변수"],
+                      importance="core"),
+    ])
+    payload = json.dumps({"thesis": "t", "nodes": [
+        {"id": "t", "label": "행동이 문제다", "slide_nos": [1], "summary": "실력이 아니다", "parent": None},
+        {"id": "turn", "label": "회전율", "slide_nos": [2], "summary": "가장 강한 역상관 변수", "parent": "t"},
+        {"id": "ck", "label": "실행 체크리스트", "slide_nos": [2], "summary": "", "parent": "t"},
+    ], "edges": [], "sections": []}, ensure_ascii=False)
+    g = graph_of(payload, doc=doc)
+    kids = sorted(n.label for n in g.nodes if n.parent_id == "ck")
+    assert kids == ["연간 총비용", "종목 수 하한"]

@@ -51,7 +51,9 @@ from .providers.llm_impl import get_llm
 MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_TOKENS", "8192"))
 MAX_CONCEPTS_PER_SLIDE = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_CONCEPTS", "6"))
 #: 계약상 얕은 그래프를 요구한다. 이보다 깊으면 상위로 끌어올린다.
-MAX_GRAPH_DEPTH = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_DEPTH", "3"))
+#: 2026-10-01: 3 → 4. 「주장 → 요인 묶음 → 요인 → 세부」(수익률격차: 다섯 가지 행동 요인 → 과잉 매매 → 회전율)가 3단에 막혀
+#: 세부가 요인과 형제로 올라왔다 (6회 중 6회 깊이 3, 세부 자리 틀림 2~12개).
+MAX_GRAPH_DEPTH = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_DEPTH", "4"))
 #: 프롬프트가 요구하는 최상위 개념 상한. 실측에서 13/28 이 루트로 떠서 후처리로 잡는다.
 MAX_ROOTS = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_ROOTS", "4"))
 
@@ -107,8 +109,9 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
 
 가장 중요한 것 — 노드는 슬라이드가 아니라 '개념'이다:
 - 노드는 반드시 '개념 목록'의 항목에서 만든다.
-- 슬라이드 제목("자사 분석", "경쟁사 분석" 같은 것)을 노드 label 로 쓰지 마라.
-  그건 목차지 개념이 아니다.
+- 슬라이드 제목("자사 분석", "경쟁사 분석", "기대 효과", "향후 계획" 같은 것)을 노드 label 로 쓰지 마라.
+  그건 목차지 개념이 아니다. 그 장을 그래프에 담으려면 **그 장의 개념 목록 항목들**을 노드로 만든다
+  (「향후 계획」 노드 하나가 아니라, 그 장에 나열된 항목 하나하나).
 - 노드 개수가 슬라이드 개수와 같으면 슬라이드를 그대로 옮긴 것이므로 잘못 만든 것이다.
 - 같은 개념이 여러 [S번호]에 나오면 하나의 노드로 합치고 slide_nos 에 그 번호를 모두 적어라.
 - '개념명: 설명' 꼴이 아니라 **낱말만 있는 줄**(키워드)은, 그 낱말을 이미 다루는 개념 노드가 있으면
@@ -121,7 +124,8 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
    하위 개념 하나에 상위 개념은 하나만.
 2. **parent 가 null 인 노드는 많아야 4개다.** 5개 이상이면 위계를 안 만든 것이므로 잘못 만든 것이다.
    개념 하나하나마다 "이건 어느 개념을 설명하거나 이루는가" 를 묻고, 그 답을 parent 에 적어라.
-3. 위계 깊이는 3단계를 넘기지 마라.
+3. 위계 깊이는 4단계를 넘기지 마라. 한 장에만 나오는 세부는 그 장을 대표하는 요소 밑으로 내려라
+   (예: 어느 원인의 상세 장에만 나오는 지표는 그 원인 밑). 목록에 없는 묶음 이름을 새로 짓지 마라.
 4. nodes 는 **위에서 아래 순서**로 적는다 — 주제 먼저, 그 자식들, 그 손자들. parent 에는 이미 적은 노드의 id 만 쓴다.
 
 위계는 이 순서로 만든다 — 위에서 아래로:
@@ -761,6 +765,7 @@ def _assemble(
         if not any({e.from_id, e.to_id} == {former, thesis} for e in relates):
             relates.append(ConceptEdge(from_id=former, to_id=thesis, kind="relates"))
     _break_parent_cycles(parent_of)
+    _expand_title_nodes(nodes, parent_of, doc, thesis)
     relates += _clamp_depth(parent_of, [n.id for n in nodes], MAX_GRAPH_DEPTH)
 
     for node in nodes:
@@ -901,6 +906,43 @@ def _dedupe_relates(edges: list[ConceptEdge]) -> list[ConceptEdge]:
             seen.add(key)
         out.append(e)
     return out
+
+
+def _expand_title_nodes(nodes: list[ConceptNode], parent_of: dict[str, str], doc: ConceptDoc, thesis: str | None) -> None:
+    """
+    장 제목을 그대로 이름으로 단 노드(「실행 체크리스트」「오해와 사실」)가 자식 없이 끝났으면, 그 장의 개념 목록 항목을 자식으로 단다 (제자리).
+
+    프롬프트로 막아도 6회 중 6회 2~3개씩 나왔다 (2026-10-01 수익률격차). 지우면 그 장이 그래프에서 통째로 빠지고,
+    그대로 두면 「실행 체크리스트란?」 같은 목차 질문이 된다. 그 장 항목(「종목 수 하한: 8종목 이상」 …)은 자료에 적힌 개념이라
+    지어내는 것이 없고, 1-2 대조에서 「발표에만 나온 개념」 으로 떨어지던 것들이다. 이름이 이미 그래프에 있는 항목은 건너뛴다.
+    """
+    norm = lambda t: re.sub(r"[\s·:\-—]+", "", (t or "").lower())
+    with_children = set(parent_of.values())
+    used = {n.id for n in nodes}
+    have = [set(w for w in label_tokens(n.label) if len(w) >= 2) for n in nodes]
+    added: list[ConceptNode] = []
+    for node in list(nodes):
+        if node.id == thesis or node.id in with_children:
+            continue
+        for slide in (s for s in doc.slides if s.title and norm(s.title) == norm(node.label)):
+            for item in slide.concepts[:MAX_CONCEPTS_PER_SLIDE]:
+                name, _, desc = str(item).partition(":")
+                name, desc = name.strip(), desc.strip()
+                toks = set(w for w in label_tokens(name) if len(w) >= 2)
+                if not name or norm(name) == norm(node.label) or not toks:
+                    continue
+                if any(len(toks & t) >= max(1, 0.6 * len(toks)) for t in have):
+                    continue
+                cid, k = _slug(name) or "item", 2
+                base = cid
+                while cid in used:
+                    cid, k = f"{base}-{k}", k + 1
+                used.add(cid)
+                have.append(toks)
+                added.append(ConceptNode(id=cid, label=name, slide_nos=[slide.slide_no], summary=desc,
+                                         importance=slide.importance if slide.importance in _IMPORTANCE_SCORE else "support"))
+                parent_of[cid] = node.id
+    nodes.extend(added)
 
 
 def _claim_label(node: ConceptNode) -> None:
