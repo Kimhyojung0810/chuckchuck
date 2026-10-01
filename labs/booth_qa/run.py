@@ -83,7 +83,8 @@ LAYOUT_JS = """() => {
   const box = (sel) => { const el = L.querySelector(sel); if (!el || !el.offsetParent) return null; return el.getBoundingClientRect(); };
   const hit2 = (a, b) => !!a && !!b && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
   const overlaps = isCallQa ? [['.bc-prog .bq-prog', '.bc-privacy'], ['.bc-prog .bq-prog', '#bqSlide'], ['.bc-dock', '#bqSlide'], ['.bc-dock', '.bc-privacy'],
-    ['.bc-dock', '.bc-prog .bq-prog'], ['.bc-host', '.bc-dock'], ['.bc-talk', '.bc-dock'], ['.bc-hint:not([hidden])', '#bqSlide']]
+    ['.bc-dock', '.bc-prog .bq-prog'], ['.bc-host', '.bc-dock'], ['.bc-talk', '.bc-dock'], ['.bc-hint:not([hidden])', '#bqSlide'],
+    ['.bc-talk', '.bc-host'], ['#stream > .msg.is-now', '.bc-host']]
     .filter(([a, b]) => hit2(box(a), box(b))).map(([a, b]) => `${a} × ${b}`) : null;
   return { layer: true, screen: L.dataset.screen, variant: L.dataset.variant, present: L.dataset.present, W: innerWidth, H: innerHeight,
     center_cover, phone_cover, overlaps, cam_on: camOn,
@@ -462,6 +463,65 @@ def _replayer(body: str):
     return handle
 
 
+def plain_cam(path: Path, rgb: tuple[int, int, int]) -> Path:
+    """흰 벽 · 어두운 방 — 글라스 대비를 가장 나쁜 배경에서 잰다 (10-02). 얼굴 영상 왼쪽 반에 판을 덮는 것과 같은 바탕"""
+    from PIL import Image
+    frames = []
+    for k in range(30):
+        im = Image.new("RGB", (1280, 720), rgb)
+        b = io.BytesIO()
+        im.save(b, "JPEG", quality=85)
+        frames.append(b.getvalue())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"".join(frames))
+    return path
+
+
+GLASS_TEXT = ["#stream > .msg.is-now .msg-q", "#stream > .msg.ai.react:not(.is-past) .msg-bubble > p", "#stream > .msg.me:not(.is-past) .msg-bubble",
+              "#bqJudgeSay", "#bcHost .bc-host-text b", "#bqSlide figcaption", ".bc-dock .qa-input-label b", "#stream > .is-past .msg-bubble",
+              "#stream > .qa-flag:not(.is-past)", ".bc-privacy"]
+
+
+def glass_contrast(page, png: Path) -> dict:
+    """사진에서 글자 대비를 잰다 — 글자 심(밝은 픽셀)과 그 바로 둘레(2~4px 띠, 심 제외)의 밝은 쪽 75% 값.
+    판 · 흐림 · 글자 둘레 테를 다 거친 화면 그대로라, 「글자 쪽으로 읽힘을 지킨다」 가 실제로 4.5:1 을 넘는지 본다"""
+    import numpy as np
+    from PIL import Image
+    dpr = page.evaluate("devicePixelRatio")
+    boxes = page.evaluate("""(sels) => sels.map((s) => { const el = document.querySelector(s); if (!el || !el.offsetParent) return null;
+      const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })""", GLASS_TEXT)
+    im = np.asarray(Image.open(png).convert("RGB")).astype(float) / 255
+    lin = np.where(im <= 0.04045, im / 12.92, ((im + 0.055) / 1.055) ** 2.4)
+    lum = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
+    out = {}
+    for sel, bx in zip(GLASS_TEXT, boxes):
+        if not bx or bx[2] < 4 or bx[3] < 4:
+            continue
+        x0, y0 = int(bx[0] * dpr), int(bx[1] * dpr)
+        x1, y1 = int((bx[0] + bx[2]) * dpr), int((bx[1] + bx[3]) * dpr)
+        crop = lum[max(0, y0):y1, max(0, x0):x1]
+        if crop.size < 50:
+            continue
+        core = crop >= max(0.6, np.percentile(crop, 97) * 0.92)
+        if core.sum() < 10:
+            continue
+
+        def dil(m, r):
+            o = m.copy()
+            for dy in range(-r, r + 1):
+                for dx in range(-r, r + 1):
+                    o |= np.roll(np.roll(m, dy, 0), dx, 1)
+            return o
+        r1, r2 = max(1, round(2 * dpr)), max(2, round(4 * dpr))
+        ring = dil(core, r2) & ~dil(core, r1 - 1 if r1 > 1 else 1)
+        if ring.sum() < 10:
+            continue
+        lt = float(np.median(crop[core]))
+        lb = float(np.percentile(crop[ring], 75))
+        out[sel] = round((max(lt, lb) + 0.05) / (min(lt, lb) + 0.05), 2)
+    return out
+
+
 def install_routes(page, args, state: dict) -> None:
     """실패 주입 · 기록 재생 · 가짜 판정. state 에 판정 호출 수와 받은 요청을 남긴다"""
     fails = set(filter(None, (args.fail or "").split(",")))
@@ -539,8 +599,12 @@ def run_full(args) -> Path:
     VW, VH = (int(x) for x in args.viewport.split("x"))
     sizes = [tuple(int(x) for x in s.split("x")) for s in (args.sizes or "").split(",") if s]
     cam = face_cam(OUT / "facecam.mjpeg")
+    if args.cam == "white":
+        cam = plain_cam(OUT / "whitecam.mjpeg", (246, 246, 242))
+    elif args.cam == "dark":
+        cam = plain_cam(OUT / "darkcam.mjpeg", (22, 24, 28))
     R: dict = {"args": vars(args), "stages": {}, "layout": {}, "fonts": {}, "turns": [], "console": [], "requests": [],
-               "loop": {}, "texts": {}}
+               "loop": {}, "texts": {}, "contrast": {}}
     state: dict = {"judge_calls": 0, "judge_log": []}
     n = {"i": 0}
     t_start = time.time()
@@ -555,7 +619,10 @@ def run_full(args) -> Path:
 
         def shot(name: str) -> None:
             n["i"] += 1
-            page.screenshot(path=str(out / f"{n['i']:02d}_{name}.png"))
+            png = out / f"{n['i']:02d}_{name}.png"
+            page.screenshot(path=str(png))
+            if args.cam in ("white", "dark") and page.evaluate("(document.getElementById('bqStage')||{dataset:{}}).dataset.screen === 'qa'"):
+                R["contrast"][name] = glass_contrast(page, png)
 
         def lay(tag: str) -> dict:
             L = page.evaluate(LAYOUT_JS)
@@ -862,6 +929,12 @@ def summarize(out: Path) -> None:
         if L.get("hscroll"):
             bad.append(f"{tag}: 가로 넘침")
     errs = [c for c in R.get("console", []) if c.startswith(("error", "pageerror"))]
+    if R.get("contrast"):
+        allv = [(tag, sel, v) for tag, d in R["contrast"].items() for sel, v in d.items()]
+        low = [x for x in allv if x[2] < 4.5]
+        print(f"글자 대비(사진) {len(allv)}곳 · 최저 {min(v for *_, v in allv) if allv else '-'} · 4.5 아래 {len(low)}곳")
+        for x in low[:12]:
+            print("  ▽", x)
     print(f"배치 문제 {len(bad)}건 · 콘솔 오류 {len(errs)}건 · 고리 {R.get('loop')} · 질문별 누름 {R.get('clicks_per_question')}")
     for x in bad[:40]:
         print("  -", x)
@@ -888,6 +961,7 @@ def main() -> int:
     ap.add_argument("--replay", default="", help="--full: --record 로 남긴 응답을 재생한다 (과금 없음)")
     ap.add_argument("--wait-home", action="store_true", help="--full: 결과 화면에서 40초 자동 처음으로까지 기다린다")
     ap.add_argument("--dpr", type=float, default=1, help="--full: devicePixelRatio (맥북 레티나는 2)")
+    ap.add_argument("--cam", default="face", choices=["face", "white", "dark"], help="--full: 가짜 카메라 — 얼굴 · 흰 벽 · 어두운 방 (white/dark 면 글자 대비를 사진에서 잰다)")
     ap.add_argument("--reload", action="store_true", help="단계마다 새로고침·뒤로 가기 — 일반 앱 화면으로 새는지 (10-02)")
     ap.add_argument("--old-js", default="", help="--reload: 이 파일들을 --old-rev 판으로 내 옛 코드를 재현 (예: js/booth_qa.js,js/app.js)")
     ap.add_argument("--old-rev", default="HEAD")

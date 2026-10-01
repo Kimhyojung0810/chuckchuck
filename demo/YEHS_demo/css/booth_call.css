@@ -10,18 +10,22 @@
    · 대화 기둥에 mask-image 를 걸면 그 안의 흐림이 영상까지 닿지 않는다(마스크 부모가 흐림의 바닥이 된다) — 마스크를 뺐다. */
 
 .bq[data-variant="call"] {
-  --lg-blur: blur(20px) saturate(1.7);
-  --lg-tint: rgba(16, 20, 30, .64);          /* 작은 표 · 버튼 — 흐림 없이 */
-  --lg-tint-text: rgba(16, 20, 30, .68);     /* 글이 있는 말풍선 · 삐약이 · 답 칸 — 흰 벽 위에서도 흰 글자 5.5:1 (10-01 2차: .62 는 4.8:1) */
-  --lg-tint-past: rgba(16, 20, 30, .76);     /* 지난 말 — 흐림 · 빛 없이 납작하게, 글자는 옅게(.86) 해도 7:1 */
-  --lg-tint-now: rgba(16, 20, 30, .70);      /* 지금 답할 질문 */
-  --lg-tint-me: rgba(21, 92, 70, .86);       /* 내 말 — 다크 그린(--navy 색조), 흰 벽 위 흰 글자 5.5:1 (.80 은 4.8:1) */
-  --lg-tint-mid: rgba(150, 68, 8, .94);      /* 내 말 · 절반 — --mid 색조를 한 단 어둡게 (180,83,9,.92 는 흰 벽 위 4.4:1) */
-  --lg-tint-field: rgba(255, 255, 255, .12); /* 답 칸 안 글 입력 면 */
+  /* 10-02 사용자: 글라스를 더 투명하게 — 뒤의 얼굴·방이 비쳐 보이게. 판은 옅게(.34) 두고, 읽힘은 판 대신 ① 흐림 뒤 배경을 살짝 어둡게(brightness)
+     ② 글자 둘레의 은은한 그림자 테(--lg-halo) 로 지킨다. 흰 벽 · 어두운 방 사진에서 글자와 그 바로 둘레의 대비를 재어 4.5:1 위 (labs/booth_qa --cam white|dark) */
+  --lg-blur: blur(18px) saturate(1.5) brightness(.7);
+  --lg-tint: rgba(16, 20, 30, .64);          /* 작은 표 · 버튼 — 흐림 없이, 판이 대비를 낸다 */
+  --lg-tint-flat: rgba(16, 20, 30, .62);     /* 흐림 없는 글 줄(안내 · 실패 표식 · 진행 칩) — 판이 대비를 낸다 */
+  --lg-tint-text: rgba(16, 20, 30, .34);     /* 글라스 — 말풍선 · 삐약이 · 답 칸 · 자료 창 (.68 → .34) */
+  --lg-tint-past: rgba(16, 20, 30, .60);     /* 지난 말 — 흐림 · 빛 없이 납작하고 작게 (글자 .94, 흰 벽 위 4.6:1) */
+  --lg-tint-now: rgba(16, 20, 30, .40);      /* 지금 답할 질문 */
+  --lg-tint-me: rgba(21, 92, 70, .66);       /* 내 말 — 다크 그린(--navy 색조) */
+  --lg-tint-mid: rgba(150, 68, 8, .68);      /* 내 말 · 절반 — --mid 색조 */
+  --lg-tint-field: rgba(0, 0, 0, .24);       /* 답 칸 안 글 입력 면 — 흰 면을 덧대면 흰 글자가 묻힌다 */
+  --lg-halo: 0 0 1px rgba(0, 0, 0, .85), 0 0 2px rgba(0, 0, 0, .75), 0 1px 3px rgba(0, 0, 0, .6), 0 0 8px rgba(0, 0, 0, .45), 0 0 16px rgba(0, 0, 0, .25);
   --lg-edge: rgba(255, 255, 255, .30);
-  --lg-sheen: linear-gradient(135deg, rgba(255, 255, 255, .08) 0%, rgba(255, 255, 255, .03) 40%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .04) 100%);
+  --lg-sheen: linear-gradient(135deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, .02) 40%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .03) 100%);
   --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .40), inset 0 -1px 0 rgba(255, 255, 255, .08), 0 10px 30px rgba(0, 0, 0, .22);
-  --lg-soft: rgba(255, 255, 255, .9);        /* 보조 글자 */
+  --lg-soft: rgba(255, 255, 255, .94);       /* 보조 글자 */
   --bc-gap: clamp(12px, 1.6vw, 24px);
   --bc-talk-w: min(36vw, 520px);
   --bc-focus: 0 0 0 3px #fff, 0 0 0 6px rgba(4, 48, 39, .95);   /* 밝은 영상 위에서도 보이는 두 겹 고리 */
@@ -103,10 +107,11 @@
 .bc-btn { cursor: pointer; }
 .bc-btn:active { transform: scale(.96); }
 .bq[data-variant="call"] .bc-slide {
+  background: var(--lg-sheen), var(--lg-tint-now);   /* 장 이름 줄이 흰 벽 위에서도 읽히게 한 단 진하게 */
   width: 100%; margin: 0; padding: 8px; border-radius: var(--r-inner); display: flex; flex-direction: column; gap: 6px;
   min-height: 0; aspect-ratio: auto;
 }
-.bq[data-variant="call"] .bc-slide figcaption { order: 2; padding: 0 4px 2px; color: var(--lg-soft); font-size: 13px; }
+.bq[data-variant="call"] .bc-slide figcaption { order: 2; padding: 0 4px 2px; color: #fff; font-size: 14px; }
 .bq[data-variant="call"] .bc-slide figcaption b { color: #fff; }
 .bq[data-variant="call"] .bc-slide .bq-slide-pic { display: block; }
 .bq[data-variant="call"] .bc-slide .bq-slide-pic canvas,
@@ -128,7 +133,7 @@
 
 /* 진행 칩 — 오른쪽 아래, 답 칸 위. 판정 색은 아래쪽 띠로만 (면은 진하게, 글자는 흰색) */
 .bq[data-variant="call"] .bc-prog { position: absolute; z-index: 2; right: var(--bc-gap); bottom: calc(var(--bc-dock-h, 168px) + var(--bc-gap) + 8px); }
-.bq[data-variant="call"] .bc-prog .bq-prog li { color: #fff; background: var(--lg-tint-text); border-color: var(--lg-edge); }
+.bq[data-variant="call"] .bc-prog .bq-prog li { color: #fff; background: var(--lg-tint-flat); border-color: var(--lg-edge); }
 .bq[data-variant="call"] .bc-prog .bq-prog li em { color: #fff; }
 .bq[data-variant="call"] .bc-prog .bq-prog li.now { border-color: var(--cyan); box-shadow: inset 0 -3px 0 var(--cyan); }
 .bq[data-variant="call"] .bc-prog .bq-prog li.st-ok { box-shadow: inset 0 -3px 0 var(--ok); }
@@ -161,7 +166,7 @@
 /* ── 주고받은 말 — 삐약이 위로 쌓이는 기둥 ─────────────────────────────── */
 .bc-talk {
   position: absolute; z-index: 2; left: var(--bc-gap); width: var(--bc-talk-w);
-  top: 80px; bottom: calc(var(--bc-gap) + 104px + 12px);
+  top: 80px; bottom: calc(var(--bc-gap) + var(--bc-host-h, 104px) + 12px);
   display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none;
 }
 .bq[data-variant="call"] .bc-stream {
@@ -170,7 +175,9 @@
 }
 .bq[data-variant="call"] .bc-stream::-webkit-scrollbar { display: none; }
 .bq[data-variant="call"] .bc-stream:focus-visible { outline: none; box-shadow: var(--bc-focus); scrollbar-width: thin; }
-.bc-stream > * { animation: bcIn 420ms var(--ease) both; }
+/* fill 은 backwards — both 로 두면 끝난 뒤에도 투명도 애니메이션이 살아 있어 말풍선이 「흐림의 바닥」 이 되고, 뒤 영상이 안 흐려지고 안 어두워졌다 (10-02) */
+.bq[data-variant="call"] .bc-stream > *,
+.bq[data-variant="call"] .bc-stream > .msg.enter { animation: bcIn 420ms var(--ease) backwards; }   /* app.css .msg.enter(msgIn · both) 도 이긴다 */
 .bc-stream .msg-avatar { display: none; }           /* 말하는 사람은 왼쪽 아래 삐약이다 */
 .bc-stream .msg { gap: 0; }
 
@@ -179,7 +186,7 @@
   max-width: 92%; padding: 12px 16px; color: #fff; font-size: 16px; line-height: 1.55;
   border-radius: 22px; border-bottom-left-radius: 8px; border-top-left-radius: 22px;
   background: var(--lg-sheen), var(--lg-tint-text); border: 1px solid var(--lg-edge); box-shadow: var(--lg-shadow);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+  text-shadow: var(--lg-halo);
 }
 .bq[data-variant="call"] .bc-stream > :not(.is-past) .msg-bubble,
 .bq[data-variant="call"] .bc-stream > .qa-done:not(.is-past) {
@@ -238,8 +245,8 @@
    면은 오히려 진하게 두고 글자만 옅게 한다 (10-01 2차 · 7:1). 손으로 올리거나 키보드로 닿으면 다시 또렷하다 */
 .bq[data-variant="call"] .bc-stream > .is-past .msg-bubble,
 .bq[data-variant="call"] .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag, .qa-finale) {
-  background: var(--lg-tint-past); border-color: rgba(255, 255, 255, .16); box-shadow: none; text-shadow: none;
-  color: rgba(255, 255, 255, .86); font-size: 14px; line-height: 1.5; padding: 9px 14px;
+  background: var(--lg-tint-past); border-color: rgba(255, 255, 255, .16); box-shadow: none;
+  color: rgba(255, 255, 255, .94); font-size: 14px; line-height: 1.5; padding: 9px 14px; text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
 }
 .bq[data-variant="call"] .bc-stream > .is-past :is(.msg-q, .msg-bubble > p, .qa-done p) { font-size: 14px; font-weight: var(--w-med); color: inherit; }
 .bq[data-variant="call"] .bc-stream > .is-past :is(.msg-meta, .react-head .chip, .qa-evidence, .qa-evidence span, h4, .qd-foot) { font-size: 12px; }
@@ -267,7 +274,7 @@
 .bq[data-variant="call"] .bc-stream .qa-done p { color: #fff; }
 .bq[data-variant="call"] .bc-stream .qa-note-line,
 .bq[data-variant="call"] .bc-stream .qa-flag {
-  align-self: flex-start; color: #fff; font-size: 14px; background: var(--lg-tint-text); border: 1px solid var(--lg-edge);
+  align-self: flex-start; color: #fff; font-size: 14px; background: var(--lg-tint-flat); border: 1px solid var(--lg-edge);
 }
 /* 판정 실패 · 막힘 — 빨간 표식은 지킨다 (안내 줄과 섞이지 않게) */
 .bq[data-variant="call"] .bc-stream .qa-flag.lost { border-color: rgba(252, 165, 165, .8); box-shadow: inset 4px 0 0 var(--no); }
@@ -343,7 +350,7 @@
   .bc-side { top: 70px; width: 124px; gap: 6px; }
   .bc-side #bqGazeNow, .bc-privacy { display: none; }
   .bc-side .bc-btn { font-size: 13px; padding: 0 12px; }
-  .bq[data-variant="call"] .bc-slide figcaption { font-size: 11px; }
+  .bq[data-variant="call"] .bc-slide figcaption { font-size: 12px; }
   .bq[data-variant="call"] .bc-prog { display: none; }
   .bc-host {
     top: 70px; bottom: auto; width: auto; max-width: calc(100vw - 124px - var(--bc-gap) * 3);
@@ -402,8 +409,21 @@
   .bq[data-variant="call"] .bc-dock textarea { height: 64px; font-size: 17px; }
   .bq[data-variant="call"] .bc-dock .step-actions-sub .btn { padding: 0 10px; font-size: 14px; }
   .bc-host { min-height: 92px; }
-  .bc-talk { bottom: calc(var(--bc-gap) + 92px + 10px); top: 72px; }
+  .bc-talk { bottom: calc(var(--bc-gap) + var(--bc-host-h, 92px) + 10px); top: 72px; }
   /* 카메라를 끄면 자료 창이 가운데를 쓴다 — 오른쪽 기둥 답 칸 왼쪽까지만 */
   .bc-call:has(> .bc-self[data-camera="off"]) .bc-side { right: calc(var(--bc-gap) * 2 + var(--bc-talk-w)); bottom: var(--bc-gap); }
   .bc-call:has(> .bc-self[data-camera="off"]) .bc-slide { max-width: none; align-self: stretch; }
 }
+
+/* ── 10-02 투명 글라스 — 글자 둘레 테 · 진한 버튼 면 ─────────────────────────────────────────────
+   판이 옅어진 만큼 글자 쪽이 대비를 낸다. 색 칩(판정 칩 · 보기 칩)은 밝은 면 위 어두운 글자라 테를 빼고, 답 칸의 보조 버튼 면은 흰 덧칠 대신 어둡게 */
+.bq[data-variant="call"] :is(.bc-glass, .bc-stream .msg-bubble, .bc-stream .qa-done, .bc-stream .qa-finale, .bc-stream .qa-sum) { text-shadow: var(--lg-halo); }
+.bq[data-variant="call"] :is(.chip, .qa-choice-chip, .bc-dock .btn-primary, .bc-dock #liveMic) { text-shadow: none; }
+.bq[data-variant="call"] .bc-dock textarea { text-shadow: var(--lg-halo); }
+.bq[data-variant="call"] .bc-dock .btn-voice:not(.is-rec),
+.bq[data-variant="call"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveSend,
+.bq[data-variant="call"] .bc-dock :is(#liveReveal, #liveSkipRetell):not(:disabled) { background: rgba(0, 0, 0, .3); }
+.bq[data-variant="call"] .bc-dock .btn:not(.btn-primary):not(.btn-text):not(.btn-voice) { background: rgba(0, 0, 0, .3); color: #fff; border: 1px solid rgba(255, 255, 255, .34); }
+.bq[data-variant="call"] .bc-dock textarea::placeholder { color: rgba(255, 255, 255, .78); }
+.bq[data-variant="call"] .bc-stream > .is-past.msg.me .msg-bubble { background: rgba(21, 92, 70, .78); }   /* 흐림 없는 지난 내 말 — 판이 대비를 낸다 */
+.bq[data-variant="call"] .bc-host { background: var(--lg-sheen), var(--lg-tint-now); }   /* 삐약이 줄(상태 · 진행 멘트)이 흰 벽 위에서도 4.5:1 */

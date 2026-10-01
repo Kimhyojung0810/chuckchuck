@@ -30,6 +30,7 @@ const bc = {
   sayCount: 0, rowCount: 0, speakTimer: 0, thinkSince: 0, slowTimer: 0, dockH: 0, mounted: false,
   syncAt: 0, syncN: 0, syncLater: 0,
   mcQi: -1, mc: '', mcUntil: 0, mcTimer: 0,   // 삐약이 진행 멘트 (bcMcSync)
+  hostH: 0,
 };
 
 function bcRole() {
@@ -148,6 +149,7 @@ function renderQaLiveBoothCall() {
   bc.rowCount = 0;
   bc.thinkSince = 0;
   bc.dockH = 0;
+  bc.hostH = 0;
   bc.mounted = false;
   bc.mcQi = -1;
   bc.mc = '';
@@ -200,12 +202,17 @@ function bcWatchDock() {
   const dock = layer && layer.querySelector('.bc-dock');
   const stream = document.getElementById('stream');
   if (!dock || !window.ResizeObserver) return;
+  const host = layer.querySelector('.bc-host');
   bq.dockWatch = new ResizeObserver((entries) => {
     const h = Math.round(dock.getBoundingClientRect().height);
     if (h !== bc.dockH) { bc.dockH = h; layer.style.setProperty('--bc-dock-h', `${h}px`); }
+    // 삐약이 카드도 진행 멘트·큰 글자로 두 줄이 되면 높아진다 — 대화 기둥 밑동을 그 위로 (10-02 맥 1512×860: 지금 질문이 카드 뒤로 숨었다)
+    const hh = host ? Math.round(host.getBoundingClientRect().height) : 0;
+    if (hh && hh !== bc.hostH) { bc.hostH = hh; layer.style.setProperty('--bc-host-h', `${hh}px`); }
     if (stream && entries.some((e) => e.target === stream)) bcStickBottom(stream);
   });
   bq.dockWatch.observe(dock);
+  if (host) bq.dockWatch.observe(host);
   if (stream) bq.dockWatch.observe(stream);
 }
 
@@ -362,8 +369,11 @@ function bcStickBottom(stream) {
     const max = stream.scrollHeight - stream.clientHeight;
     const keep = bcFreshVerdict(stream);
     if (!keep) { stream.scrollTop = max; return; }
-    const top = keep.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop - 6;
-    stream.scrollTop = Math.max(0, Math.min(max, top));
+    const at = (el) => el.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop;
+    // 둘 다 들어가면 맨 아래. 안 들어가면 판정 윗머리를 지키되, 지금 질문은 첫 두 줄(72px)은 꼭 보이게 — 질문이 더 먼저다
+    const now = stream.querySelector(':scope > .msg.is-now');
+    const floor = now ? at(now) + 72 - stream.clientHeight : 0;
+    stream.scrollTop = Math.max(0, Math.min(max, Math.max(floor, at(keep) - 6)));
   };
   requestAnimationFrame(down);
   setTimeout(down, 450);
