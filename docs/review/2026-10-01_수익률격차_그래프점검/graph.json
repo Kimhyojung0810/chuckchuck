@@ -1,0 +1,731 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "label": "개인 투자자는 왜 시장을 이기지 못하는가",
+   "slide_nos": [
+    1,
+    15
+   ],
+   "summary": "개인 투자자는 실력 문제가 아닌 행동 문제로 시장을 이기지 못한다",
+   "importance": "core",
+   "weight": 0.441,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.0355,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": true
+   },
+   "parent_id": null,
+   "depth": 1
+  },
+  {
+   "id": "gap",
+   "label": "수익률 격차",
+   "slide_nos": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "summary": "개인 평균 연 4.8%p 낮은 수익률, 10년 뒤 원금 규모 차이 84%",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 15,
+    "char_share": 1.0,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "gap-real",
+   "label": "격차는 실재한다",
+   "slide_nos": [
+    2,
+    3
+   ],
+   "summary": "개인 평균은 지수 대비 연 4.8%p 낮음, 종목 선정 능력과 수익률 상관 약함",
+   "importance": "core",
+   "weight": 0.374,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1257,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "gap-control",
+   "label": "통제 가능한 변수",
+   "slide_nos": [
+    2,
+    3,
+    10
+   ],
+   "summary": "빈도·기간·종목수·비용은 본인 결정 가능",
+   "importance": "core",
+   "weight": 0.519,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.2247,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "gap-top",
+   "label": "성과 상위 그룹",
+   "slide_nos": [
+    3,
+    11
+   ],
+   "summary": "개인 투자 방식 자체를 봐야 한다는 신호",
+   "importance": "core",
+   "weight": 0.386,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1691,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "gap-calc",
+   "label": "복리 효과",
+   "slide_nos": [
+    4,
+    14
+   ],
+   "summary": "연 4.8%p는 10년 뒤 원금 규모의 차이가 된다",
+   "importance": "core",
+   "weight": 0.401,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1411,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "gap",
+   "depth": 3
+  },
+  {
+   "id": "gap-calc-detail",
+   "label": "10년 누적 평가액",
+   "slide_nos": [
+    4
+   ],
+   "summary": "1년차 48만원, 5년차 307만원, 10년차 838만원",
+   "importance": "core",
+   "weight": 0.285,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1008,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gap",
+   "depth": 3
+  },
+  {
+   "id": "gap-five",
+   "label": "다섯 가지 행동 요인",
+   "slide_nos": [
+    5,
+    14
+   ],
+   "summary": "과잉 매매, 타이밍 실패, 손실 회피, 집중 투자, 거래 비용",
+   "importance": "core",
+   "weight": 0.423,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1362,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "factor1",
+   "label": "과잉 매매",
+   "slide_nos": [
+    5,
+    6,
+    14
+   ],
+   "summary": "거래를 늘릴수록 성과가 낮아졌다, 회전율 구간별 평균 수익률 단조 감소",
+   "importance": "core",
+   "weight": 0.517,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.2179,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": true
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor2",
+   "label": "타이밍 실패",
+   "slide_nos": [
+    5,
+    7,
+    14
+   ],
+   "summary": "단 며칠이 10년 수익을 결정한다, 최고 상승일 제외 시 연평균 수익률 8.7%→1.5%",
+   "importance": "core",
+   "weight": 0.495,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.2223,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": true
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor3",
+   "label": "손실 회피",
+   "slide_nos": [
+    5,
+    8,
+    14
+   ],
+   "summary": "오른 종목은 팔고 내린 종목은 남긴다, 손실 종목을 3.6배 더 오래 보유",
+   "importance": "core",
+   "weight": 0.442,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.202,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor4",
+   "label": "집중 투자",
+   "slide_nos": [
+    5,
+    9,
+    14
+   ],
+   "summary": "종목 수가 적을수록 결과의 진폭이 커진다, 분산 투자 시 평균 수익률 상승",
+   "importance": "core",
+   "weight": 0.392,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.2269,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor5",
+   "label": "거래 비용",
+   "slide_nos": [
+    5,
+    6,
+    10,
+    14
+   ],
+   "summary": "연 단위로는 작지만 20년 단위로는 큰 격차 발생, 비용 0.2% vs 2.5%",
+   "importance": "core",
+   "weight": 0.487,
+   "weight_basis": {
+    "slide_count": 4,
+    "char_share": 0.3169,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor1-detail",
+   "label": "회전율",
+   "slide_nos": [
+    6,
+    11
+   ],
+   "summary": "상위 25%는 연 1.4회, 하위 25%는 연 11.8회(8.4배 차이), 연간 총비용 1% 이하 관리",
+   "importance": "core",
+   "weight": 0.445,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1706,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor2-detail",
+   "label": "최고 상승일",
+   "slide_nos": [
+    7
+   ],
+   "summary": "2,500일 중 20일=0.8%, 이 20일을 놓치면 8.7%→1.5%",
+   "importance": "core",
+   "weight": 0.304,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor2-detail2",
+   "label": "급등일",
+   "slide_nos": [
+    7
+   ],
+   "summary": "급등일은 급락 직후에 몰린다, 불안을 피하려는 시도와 상승을 놓치는 결과는 같은 행동의 앞뒷면",
+   "importance": "core",
+   "weight": 0.304,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor2-detail3",
+   "label": "하락",
+   "slide_nos": [
+    7
+   ],
+   "summary": "두 번 맞혀야 성립: 팔 시점과 다시 살 시점 모두 필요",
+   "importance": "core",
+   "weight": 0.304,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor3-detail",
+   "label": "보유 기간",
+   "slide_nos": [
+    8,
+    11
+   ],
+   "summary": "손실 종목을 더 오래 보유하는 정도: 3.6배, 매도 규칙이 없으면 시간이 갈수록 부진한 종목만 남는 구조",
+   "importance": "core",
+   "weight": 0.417,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1547,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor3-detail2",
+   "label": "포트폴리오",
+   "slide_nos": [
+    8
+   ],
+   "summary": "포트폴리오가 자동으로 나빠진다: 오른 종목은 빠지고 내린 종목만 축적",
+   "importance": "core",
+   "weight": 0.298,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor4-detail",
+   "label": "분산 투자",
+   "slide_nos": [
+    9
+   ],
+   "summary": "분산할수록 오히려 평균 수익률이 개선됨, 상위 그룹 수익률 하락, 하위 그룹 수익률 상승",
+   "importance": "core",
+   "weight": 0.305,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0906,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "factor5-detail",
+   "label": "비용률",
+   "slide_nos": [
+    10
+   ],
+   "summary": "비용 0.2% vs 2.5%, 20년 후 평가액 차이 1,617만원",
+   "importance": "core",
+   "weight": 0.285,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0991,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gap-five",
+   "depth": 3
+  },
+  {
+   "id": "misconception",
+   "label": "오해와 사실",
+   "slide_nos": [
+    12
+   ],
+   "summary": "공부하면 시장을 이길 수 있다, 손실은 버티면 언젠가 회복된다, 분산하면 수익이 줄어든다",
+   "importance": "core",
+   "weight": 0.246,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0447,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": true
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "checklist",
+   "label": "실행 체크리스트",
+   "slide_nos": [
+    13
+   ],
+   "summary": "회전율: 매매 빈도 상한, 최소 보유 기간: 사후 판단 개입 감소, 종목 수 하한: 8종목 이상, 매도 규칙 사전 설정, 연간 총비용 확인, 매매 사유 기록",
+   "importance": "core",
+   "weight": 0.246,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": true
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  }
+ ],
+ "edges": [
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "gap",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "gap-real",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "gap-control",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "gap-top",
+   "kind": "parent"
+  },
+  {
+   "from": "gap",
+   "to": "gap-calc",
+   "kind": "parent"
+  },
+  {
+   "from": "gap",
+   "to": "gap-calc-detail",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "gap-five",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor1",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor2",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor3",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor4",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor5",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor1-detail",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor2-detail",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor2-detail2",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor2-detail3",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor3-detail",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor3-detail2",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor4-detail",
+   "kind": "parent"
+  },
+  {
+   "from": "gap-five",
+   "to": "factor5-detail",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "misconception",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "checklist",
+   "kind": "parent"
+  },
+  {
+   "from": "gap",
+   "to": "gap-real",
+   "kind": "relates"
+  },
+  {
+   "from": "gap",
+   "to": "gap-control",
+   "kind": "relates"
+  },
+  {
+   "from": "gap",
+   "to": "gap-top",
+   "kind": "relates"
+  },
+  {
+   "from": "gap",
+   "to": "gap-five",
+   "kind": "relates"
+  },
+  {
+   "from": "factor1",
+   "to": "factor5",
+   "kind": "relates"
+  },
+  {
+   "from": "gap-calc",
+   "to": "gap-calc-detail",
+   "kind": "relates"
+  },
+  {
+   "from": "factor1",
+   "to": "factor1-detail",
+   "kind": "relates"
+  },
+  {
+   "from": "factor2",
+   "to": "factor2-detail",
+   "kind": "relates"
+  },
+  {
+   "from": "factor2",
+   "to": "factor2-detail2",
+   "kind": "relates"
+  },
+  {
+   "from": "factor2",
+   "to": "factor2-detail3",
+   "kind": "relates"
+  },
+  {
+   "from": "factor3",
+   "to": "factor3-detail",
+   "kind": "relates"
+  },
+  {
+   "from": "factor3",
+   "to": "factor3-detail2",
+   "kind": "relates"
+  },
+  {
+   "from": "factor4",
+   "to": "factor4-detail",
+   "kind": "relates"
+  },
+  {
+   "from": "factor5",
+   "to": "factor5-detail",
+   "kind": "relates"
+  }
+ ],
+ "sections": [
+  {
+   "name": "서론 — 문제 제기",
+   "slide_role": "cover",
+   "slide_nos": [
+    1
+   ]
+  },
+  {
+   "name": "본론 — 원인 분석",
+   "slide_role": "body",
+   "slide_nos": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "본론 — 해결책 제시",
+   "slide_role": "body",
+   "slide_nos": [
+    11,
+    12,
+    13
+   ]
+  },
+  {
+   "name": "결론 — 요약 및 마무리",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    14
+   ]
+  },
+  {
+   "name": "마무리 — Q&A",
+   "slide_role": "closing",
+   "slide_nos": [
+    15
+   ]
+  }
+ ],
+ "thesis": "gaein-tujajaneun-wae-sijangeul-igiji-mot"
+}
