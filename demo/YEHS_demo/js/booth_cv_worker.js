@@ -16,6 +16,8 @@ let clf = null;
 let mats = null;
 let matsKey = '';
 const MOTION_W = 80;
+/** 이 평균 밝기(0~255) 아래면 어두운 방 — 센서 잡음이 움직임처럼 보여 움직임 판단을 끈다 (얼굴만 본다) */
+const DARK_MEAN = 38;
 
 function post(msg) { self.postMessage(msg); }
 
@@ -88,6 +90,10 @@ function frame(msg) {
   } finally {
     rgba.delete();
   }
+  // 움직임은 평활화 **전** 회색으로 잰다 — 평활화 뒤에 재면 어두운 빈 방의 센서 잡음이 키워져 사람으로 보였다(93%, 10-02 사냥 2 #6).
+  // 평균 밝기가 낮으면(어두운 방) 움직임 판단을 끄고 얼굴만 본다
+  cv.resize(m.gray, m.small, new cv.Size(MOTION_W, Math.max(1, Math.round((MOTION_W * h) / w))), 0, 0, cv.INTER_AREA);
+  const dark = cv.mean(m.small)[0] < DARK_MEAN;
   cv.equalizeHist(m.gray, m.gray);
   clf.detectMultiScale(m.gray, m.faces, 1.1, 4, 0, new cv.Size(28, 28), new cv.Size(0, 0));
   const rects = [];
@@ -97,11 +103,10 @@ function frame(msg) {
   }
   const face = BoothCvLogic.pickLargestFace(rects, w, h);
 
-  // 움직임 — 80px 로 더 줄인 흑백 두 장의 차이. 조명 잡음은 흐림 + 문턱 25 로 거른다
-  cv.resize(m.gray, m.small, new cv.Size(MOTION_W, Math.max(1, Math.round((MOTION_W * h) / w))), 0, 0, cv.INTER_AREA);
+  // 움직임 — 80px 로 더 줄인 흑백(평활화 전) 두 장의 차이. 조명 잡음은 흐림 + 문턱 25 로 거른다
   cv.GaussianBlur(m.small, m.small, new cv.Size(3, 3), 0);
   let motion = 0;
-  if (!m.prev.empty() && m.prev.rows === m.small.rows && m.prev.cols === m.small.cols) {
+  if (!dark && !m.prev.empty() && m.prev.rows === m.small.rows && m.prev.cols === m.small.cols) {
     cv.absdiff(m.small, m.prev, m.diff);
     cv.threshold(m.diff, m.diff, 25, 255, cv.THRESH_BINARY);
     motion = cv.countNonZero(m.diff) / (m.diff.rows * m.diff.cols);

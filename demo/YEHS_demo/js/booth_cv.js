@@ -142,7 +142,7 @@
      로컬 사본이 있으면 먼저 쓴다 — 부스 인터넷이 느릴 때를 대비해 js/vendor/ 에 받아 둘 수 있다(git 에는 안 올린다).
      없으면 CDN. index.html 이 pdf.js 를 받는 곳과 같은 jsdelivr 다. */
   // ⚠️ 워커와 워커가 다시 읽는 이 파일의 ?v= 는 여기서 손으로 올린다 — scripts/chk bump 는 index.html 만 본다 (CLAUDE.md §2 캐시 함정)
-  const WORKER_SRC = 'js/booth_cv_worker.js?v=bq1';
+  const WORKER_SRC = 'js/booth_cv_worker.js?v=bq2';   // 워커를 고치면 여기를 손으로 올린다
   const LOGIC_SRC = 'js/booth_cv.js?v=bq1';
   const OPENCV_SRCS = [
     'js/vendor/opencv.js',
