@@ -949,19 +949,39 @@ function renderBetaLock() {
 function sampleOpen() {
   return ccTeam || isShowcaseDemo();
 }
+/* 마지막으로 확인한 팀 표시 — 새로고침 때 /api/v1/team 이 한 번 실패해도 부스 노트북이 베타 잠금에 갇히지 않게 (10-02 버그 사냥 P1-3) */
+const TEAM_OK_KEY = 'cheokcheok:team-ok';
+let teamRetryMs = 0;
 function loadTeamFlag() {
+  const applyTeam = (team) => {
+    const was = ccTeam;
+    ccTeam = team;
+    ccTeamChecked = true;
+    // 팀 브라우저는 베타 화면으로 넘어갈 일이 있다 — 한가할 때 미리 받아 둔다
+    if (ccTeam && window.ccLazy) ccLazy.whenIdle(['beta']);
+    const key = location.hash.replace(/^#\/?/, '').split('/')[0];
+    if (BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
+  };
   return fetch('/api/v1/team', { credentials: 'same-origin' })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((j) => {
-      const was = ccTeam;
-      ccTeam = !!(j && j.team);
-      ccTeamChecked = true;
-      // 팀 브라우저는 베타 화면으로 넘어갈 일이 있다 — 한가할 때 미리 받아 둔다
-      if (ccTeam && window.ccLazy) ccLazy.whenIdle(['beta']);
-      const key = location.hash.replace(/^#\/?/, '').split('/')[0];
-      if (BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
+    .then((r) => {
+      if (!r.ok) throw new Error(`team ${r.status}`);
+      return r.json();
     })
-    .catch(() => { ccTeamChecked = true; if (BETA_ROUTES.has(location.hash.replace(/^#\/?/, '').split('/')[0])) route(); });
+    .then((j) => {
+      teamRetryMs = 0;
+      const team = !!(j && j.team);
+      try { if (team) sessionStorage.setItem(TEAM_OK_KEY, '1'); else sessionStorage.removeItem(TEAM_OK_KEY); } catch (_) { /* 사생활 모드 */ }
+      applyTeam(team);
+    })
+    .catch((err) => {
+      // 서버가 「팀 아님」 이라고 답한 게 아니라 못 물어본 것이다 — 이 탭에서 마지막으로 확인한 값을 쓰고, 잠깐 뒤 다시 묻는다(2초부터 두 배, 30초까지)
+      let last = false;
+      try { last = sessionStorage.getItem(TEAM_OK_KEY) === '1'; } catch (_) { /* 사생활 모드 */ }
+      console.warn('[chuckchuck] team check failed — retrying', err && err.message);
+      teamRetryMs = Math.min(30000, teamRetryMs ? teamRetryMs * 2 : 2000);
+      setTimeout(loadTeamFlag, teamRetryMs);
+      if (last || !ccTeamChecked) applyTeam(last || ccTeam);
+    });
 }
 function showcaseReportHref() {
   return SHOWCASE_REPORT_HASH;
