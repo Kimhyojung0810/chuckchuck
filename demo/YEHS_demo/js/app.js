@@ -9686,7 +9686,10 @@ async function renderTestQa() {
   }
   // 묶음·이름표는 ppt/decks.json 에서 온다 (브리지 _deck_manifest). 폴더 이름은 부스 화면·검증 도구의 키라 그대로 두고
   // 보이는 이름만 바꾼다 — 2026-10-01 「급속충전배터리열화A」 만으로는 어떤 발표 버전인지 안 보였다.
-  const sec = (n) => (n > 0 ? `${Math.floor(n / 60)}분 ${String(Math.round(n % 60)).padStart(2, '0')}초` : '');
+  // 초를 먼저 반올림한다 — 119.6초를 「1분 60초」 로 쓰던 것
+  const sec = (n) => { const t = Math.round(n); return t > 0 ? `${Math.floor(t / 60)}분 ${String(t % 60).padStart(2, '0')}초` : ''; };
+  const parsed = (d) => (d.cached_session_id ? '파싱본 있음' : '처음 파싱');
+  const audioWord = (d) => (/\(전사\)/.test(d.audio || '') ? '전사' : '녹음');
   const groupsMeta = new Map((body.groups || []).map((g) => [g.id, g]));
   const order = [...groupsMeta.keys(), 'other', 'held'].filter((v, i, a) => a.indexOf(v) === i);
   const byGroup = new Map();
@@ -9697,12 +9700,7 @@ async function renderTestQa() {
   });
   const card = (d) => {
     const kind = (d.deck.split('.').pop() || '').toUpperCase();
-    const isTranscript = /\(전사\)/.test(d.audio || '');
-    const meta = [
-      kind,
-      d.audio ? `${isTranscript ? '전사' : '녹음'} ${sec(d.audio_sec)}` : '녹음 없음',
-      d.cached_session_id ? '파싱본 있음' : '처음 파싱',
-    ].join(' · ');
+    const meta = [kind, d.audio ? `${audioWord(d)} ${sec(d.audio_sec)}` : '녹음 없음', parsed(d)].join(' · ');
     return `<div class="tq-deck" data-deck="${escapeHtml(d.key)}">
       <div class="tq-main">
         <b class="tq-title">${escapeHtml(d.title || d.name)}</b>
@@ -9715,11 +9713,50 @@ async function renderTestQa() {
       </div>
     </div>`;
   };
+  // 같은 자료를 여러 버전으로 발표한 덱(decks.json 의 topic) — 한 카드로 묶는다. 자료가 같으니 「자료만」 은 주제마다 한 번,
+  // 버전 차이는 녹음뿐이라 「녹음까지」 는 버전 줄마다 (부스 세트 A-1·A-2 …).
+  const topicCard = (rows) => {
+    const first = rows[0];
+    const kind = (first.deck.split('.').pop() || '').toUpperCase();
+    return `<div class="tq-deck tq-topic" data-deck="${escapeHtml(first.key)}">
+      <div class="tq-topic-head">
+        <span class="tq-letter" aria-hidden="true">${escapeHtml(first.topic)}</span>
+        <div class="tq-main">
+          <b class="tq-title">${escapeHtml(first.topic_title || first.title)}</b>
+          <span class="tq-meta">${escapeHtml(`${kind} 하나 · 발표 ${rows.length}버전 · ${parsed(first)}`)}</span>
+        </div>
+        <div class="tq-actions"><button class="btn btn-sm btn-secondary" data-run="deck" type="button">자료만</button></div>
+      </div>
+      <div class="tq-versions">${rows.map((d) => `
+        <div class="tq-version-row" data-deck="${escapeHtml(d.key)}">
+          <span class="tq-label">${escapeHtml(d.label || d.title)}</span>
+          <div class="tq-main">
+            <span class="tq-version">${escapeHtml(d.version || '')}</span>
+            <span class="tq-meta">${escapeHtml(d.audio ? `${audioWord(d)} ${sec(d.audio_sec)}` : '녹음 없음')}</span>
+          </div>
+          <div class="tq-actions">${d.audio ? '<button class="btn btn-sm btn-primary" data-run="audio" type="button">녹음까지</button>' : ''}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  };
+  const cards = (rows) => {
+    const out = [];
+    const seen = new Set();
+    rows.forEach((d) => {
+      if (!d.topic) { out.push(card(d)); return; }
+      if (seen.has(d.topic)) return;
+      seen.add(d.topic);
+      out.push(topicCard(rows.filter((x) => x.topic === d.topic)));
+    });
+    return out.join('');
+  };
   box.innerHTML = order.filter((g) => byGroup.has(g)).map((g) => {
     const meta = groupsMeta.get(g) || { title: g === 'held' ? '보류' : '그 밖', note: '' };
     const rows = byGroup.get(g).sort((a, b) => (a.order - b.order) || String(a.key).localeCompare(String(b.key)));
-    const head = `${escapeHtml(meta.title)} <span class="tq-count">${rows.length}</span>`;
-    const inner = `${meta.note ? `<p class="note">${escapeHtml(meta.note)}</p>` : ''}<div class="tq-list">${rows.map(card).join('')}</div>`;
+    const topics = new Set(rows.map((d) => d.topic).filter(Boolean)).size;
+    const count = topics ? `주제 ${topics} · 발표 ${rows.length}` : String(rows.length);
+    const head = `${escapeHtml(meta.title)} <span class="tq-count">${count}</span>`;
+    const inner = `${meta.note ? `<p class="note">${escapeHtml(meta.note)}</p>` : ''}<div class="tq-list">${cards(rows)}</div>`;
     return meta.folded
       ? `<details class="tq-group"><summary class="tq-group-title">${head}</summary>${inner}</details>`
       : `<section class="tq-group"><h2 class="tq-group-title">${head}</h2>${inner}</section>`;

@@ -3259,3 +3259,14 @@ details.tq-group > summary { cursor: pointer; list-style: revert; }
 .tq-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .tq-actions .btn-sm { height: 36px; padding: 0 14px; }
 .tq-deck .test-deck-note { flex-basis: 100%; margin: 0; }
+/* #/test/qa — 같은 자료 여러 버전(부스 세트)은 한 카드: 머리에 「자료만」, 버전 줄마다 「녹음까지」 */
+.tq-topic { display: grid; gap: 0; padding: 0; justify-content: stretch; align-items: stretch; }
+.tq-topic-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; }
+.tq-letter { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: var(--r-inner);
+  background: var(--navy, #155C46); color: #fff; font-weight: 700; font-size: 15px; }
+.tq-versions { display: grid; border-top: 1px solid var(--border); }
+.tq-version-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px 10px 58px; }
+.tq-version-row + .tq-version-row { border-top: 1px dashed var(--border); }
+.tq-label { font-size: 13px; font-weight: 700; color: var(--text-2); min-width: 32px; font-variant-numeric: tabular-nums; }
+.tq-version-row .tq-version { color: var(--text); }
+@media (max-width: 480px) { .tq-version-row { padding-left: 14px; } }

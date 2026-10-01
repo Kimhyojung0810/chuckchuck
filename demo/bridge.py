@@ -1739,6 +1739,10 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             row["title"] = str(meta.get("title") or row["name"])
             row["version"] = str(meta.get("version") or "")
             row["order"] = meta.get("order") if isinstance(meta.get("order"), (int, float)) else 999
+            # 같은 자료를 여러 버전으로 발표한 덱 — 화면이 한 카드로 묶는다 (부스 세트 A-1·A-2 …)
+            for key in ("topic", "topic_title", "label"):
+                if meta.get(key):
+                    row[key] = str(meta[key])
         return self._json(200, {"dir": str(DECKS_DIR), "decks": rows, "groups": manifest["groups"]})
 
     def _handle_dev_deck_file(self, parsed):
