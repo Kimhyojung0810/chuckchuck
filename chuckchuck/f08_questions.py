@@ -1343,7 +1343,13 @@ def _role_rank_of(graph: ConceptGraph, node: ConceptNode) -> int:
 
     slide_nos 가 조인 키다 (SCHEMA §6-B). sections 를 안 만든 그래프에서는
     전부 폴백(본론)이 되어 기존 순서와 같아진다.
+
+    발표의 핵심 주장(kind thesis)은 구획과 무관하게 본론으로 본다. 주장은 대개 표지 부제·「결론부터」 요약 장에 앉아
+    intro 로 밀리는데, 그러면 본론 개념들 뒤로 가 후보 창(CANDIDATE_LIMIT)에서 잘린다 — 10-02 질문 코치 벤치(수익률격차):
+    「격차는 종목 선택이 아니라 행동에서 만들어진다」 가 질문 7개는커녕 후보 14개에도 없었다 (labs/qcoach_bench).
     """
+    if node.kind == "thesis":
+        return _ROLE_RANK["body"]
     if not node.slide_nos or not graph.sections:
         return _ROLE_RANK_FALLBACK
     covered = set(node.slide_nos)
@@ -2406,12 +2412,27 @@ def triage_questions(
     )
 
 
+def _understood(cm) -> bool:
+    """지난 리허설에서 good 으로 설득해 닫았고 마지막 판정도 good 이다 — 이번엔 먼저 물을 까닭이 없다."""
+    return cm.cleared and cm.last_verdict == "good" and not cm.stalled
+
+
 def _stalled_first(marks: list[TriageMark], graph: ConceptGraph, memory: MemoryDoc) -> list[TriageMark]:
-    """지난 리허설에서 한 번도 good 을 못 받은 개념을 앞으로. 그 안팎의 상대 순서는 유지하고 rank 를 다시 매긴다."""
-    stalled = {nid for nid, cm in memory.by_node(graph).items() if cm.stalled}
-    if not stalled:
+    """
+    지난 리허설에서 한 번도 통과를 못 한 개념을 앞으로, 이미 good 으로 닫은 개념(`_understood`)은 맨 뒤로.
+    그 안팎의 상대 순서는 유지하고 rank 를 다시 매긴다.
+
+    뒤로 미는 까닭 (10-02 질문 코치 벤치 시나리오 B·E): 핵심 개념을 정확히 답해 닫은 사람에게 다음 리허설이 같은 개념을 또 첫 질문으로
+    냈다 — 이해 상태가 질문 순서를 못 바꿨다. 빼지는 않는다, 트랙이 길면 뒤에서 다시 확인한다.
+    """
+    by_node = memory.by_node(graph)
+    stalled = {nid for nid, cm in by_node.items() if cm.stalled}
+    known = {nid for nid, cm in by_node.items() if _understood(cm)}
+    if not stalled and not known:
         return marks
-    ordered = [m for m in marks if m.node_id in stalled] + [m for m in marks if m.node_id not in stalled]
+    ordered = ([m for m in marks if m.node_id in stalled]
+               + [m for m in marks if m.node_id not in stalled and m.node_id not in known]
+               + [m for m in marks if m.node_id in known])
     for rank, mark in enumerate(ordered, start=1):
         mark.rank = rank
     return ordered
@@ -2670,6 +2691,7 @@ def _pick_marks(
     stalled: set[str] | None = None,
     slots_out: dict[str, str] | None = None,
     front: list[str] | None = None,
+    cleared: set[str] | None = None,
 ) -> tuple[list[TriageMark], list[str]]:
     """
     트랙 상한만큼 배합(QA_TRACK_MIX)대로 고르고, 함정 개수를 트랙 허용치로 깎는다.
@@ -2678,10 +2700,15 @@ def _pick_marks(
     1분 트랙은 방어 연습할 시간이 없어 함정이 0개다 (QA_TRACK_TRAPS).
     상한에서 밀린 개념은 deferred 로 돌려준다 — "더 길게 하면 이것도 물어요" 안내용이다.
     front(코드가 확인한 모순의 개념 id)는 약점 자리를 먼저 써서 맨 앞에 선다 (`_front_first`, 09-30 WP-S2).
+    cleared(지난 리허설에서 good 으로 닫은 개념)는 주제·요소 자리를 맡지 않고 맨 뒤로 간다 — 주제 자리가 깊이만 보고 이미 이해한 루트를
+    또 첫 질문으로 세우던 것 (10-02 질문 코치 벤치 시나리오 E). 트랙이 남으면 뒤에서 다시 묻는다.
     """
+    cleared = cleared or set()
+    ranked = sorted(marks, key=lambda m: (m.rank, m.node_id))
+    # 이해한 개념은 배합에 넣지 않는다 — 깊이로 주제·요소 자리를, 근거(탐침)로 약점 자리를 맡을 수 있어서다 (벤치 E: 탐침 개념이 약점 자리로 다시 3번째)
     ordered = _mixed_order(
-        sorted(marks, key=lambda m: (m.rank, m.node_id)), track, depth_of, stalled or set(), slots_out, front
-    )
+        [m for m in ranked if m.node_id not in cleared], track, depth_of, stalled or set(), slots_out, front
+    ) + [m for m in ranked if m.node_id in cleared]
     limit = QA_TRACK_LIMITS[track]
     take = limit + _twin_slack(limit)
     picked, deferred = ordered[:take], [m.node_id for m in ordered[take:]]
@@ -2782,7 +2809,8 @@ def _assign_traps(
         # 한 장에 함정 하나 · 전제 줄이 **이 개념의** 사실일 때만 (09-30 held-out H-07): 반찬 덱은 두 함정이 6장 같은 표에,
         # 혈당 덱은 두 함정이 6장에 몰렸고, 「효과」「연구」「대출 권수 감소」 처럼 전제 줄에 없는 개념 이름이 함정 라벨이 됐다.
         pick = next((c for c in cands if c.line not in used_lines and c.premise.slide_no not in used_slides
-                     and _trap_owned(by_id[mark.node_id].label, c.premise, labels, idx)), None)
+                     and _trap_owned(by_id[mark.node_id].label, c.premise, labels, idx,
+                                     claim=by_id[mark.node_id].kind in _CLAIM_KINDS)), None)
         if pick is None:
             continue
         if any(m is mark for m in head):
@@ -2824,9 +2852,11 @@ def _assign_traps(
 
 
 _TABLE_COL_RE = re.compile(r"「([^」]+)」")
+#: 이름이 문장인 노드 — 함정 전제가 그 문장의 낱말을 직접 불러야 그 주장의 함정이다 (`_trap_owned`)
+_CLAIM_KINDS = ("claim", "thesis")
 
 
-def _trap_owned(label: str, tp: TrapPremise, labels: list[str], idx=None) -> bool:
+def _trap_owned(label: str, tp: TrapPremise, labels: list[str], idx=None, *, claim: bool = False) -> bool:
     """
     함정 전제가 **이 개념의** 사실인가 (09-30 held-out H-07 — 라벨은 전제 줄의 개념에서).
 
@@ -2837,10 +2867,17 @@ def _trap_owned(label: str, tp: TrapPremise, labels: list[str], idx=None) -> boo
     2. 사실 줄이 **다른 개념의 이름**을 통째로 부르면 그 개념의 것이다 — 이 개념의 함정으로 쓰지 않는다.
     3. 표에서 읽은 사실이면 이 개념 낱말이 표 머리의 **다른 열** 이름에 있을 때 다른 열의 개념이다.
     4. 아니면(장 제목이 이 개념을 부른 표·줄) 이 개념의 것으로 둔다 — 「격차를 만든 다섯 가지 행동 요인」 장의 요인 표.
+       단 주장(claim·thesis — 이름이 문장인 노드)은 1 만, 그것도 낱말 둘 이상을 불러야 받는다. 주장의 사실은 그 주장이 부르는 낱말에 있다 — 같은 장의 다른
+       수치를 가져오면 질문이 주장은 안 묻고 남의 수치만 캐묻는다 (10-02 질문 코치 벤치: 주장 「다섯 요인 중 종목 선정 능력에
+       해당하는 항목은 하나도 없다」 자리가 같은 장 「상위 2개가 전체의 58%」 를 46% 로 뒤집은 함정이 되어 핵심 주장을 한 번도 안 물었다).
     """
     text = tp.fact or ""
     words = [w for w in [label, *grounding.label_words(label), grounding.head_word(label)] if w]
-    if any(grounding.mentions(text, w) for w in words):
+    hits = {w for w in words if grounding.mentions(text, w)}
+    if claim:
+        # 주장 이름은 문장이라 낱말 하나(「요인」)는 같은 장의 다른 줄과도 겹친다 — 둘 이상 불러야 그 주장의 사실이다
+        return grounding.mentions(text, label) or len(hits) >= 2
+    if hits:
         return True
     if any(other != label and grounding.mentions(text, other) for other in labels if len(grounding.squash(other)) >= 2):
         return False
@@ -3821,13 +3858,17 @@ def _first_ask(text: str) -> str:
 
 def _fit_question(text: str, *, trap: bool = False, limit: int = QUESTION_MAX) -> str:
     """limit 를 넘는 질문을 줄인다 — 두 물음을 한 문장에 담았으면 앞 물음만(`_first_ask`), 아니면 **문장 단위로** 앞 문장부터 버린다.
-    남은 것이 해요체 물음으로 끝나야 한다. 물음 어미로 끝났으면 물음표를 단다.
+    남은 것이 해요체 물음으로 끝나야 한다 (길이와 무관하게 — 서술문은 ""). 물음 어미로 끝났으면 물음표를 단다.
 
     2026-09-24 모바일 실측: LLM 이 225자를 써서 `_clip` 이 199자에서 잘라 "…연구했는데, 이…" 로 나갔다 — 물음이 통째로
     사라진 질문이 화면에 그대로 떴다. qa-cite 재작성 경로(`_apply_cite_rewrite`)는 09-23 교훈으로 길이·끝맺음을 검사했지만
     첫 응답 경로에는 없었다. 못 줄이면 "" — 호출자가 결정적 템플릿으로 보낸다 (잘린 문장보다 템플릿이 낫다).
     함정 질문은 문장을 버리지 않는다(거짓 전제가 앞 문장에 있을 수 있다) — 넘치면 바로 템플릿."""
     t = _question_mark((text or "").strip())
+    # 물음도 요청도 아닌 문장은 질문이 아니다 — 10-02 질문 코치 벤치: LLM 이 개념 요약(「격차는 … 만들어진다 / 실력의 문제가 아니라 …」)을
+    # question 칸에 그대로 보내 화면에 서술문이 질문으로 떴다. 길이만 볼 때는 이 검사가 넘칠 때만 돌았다.
+    if t and not t.endswith(("?", "？")) and not _POLITE_END_RE.search(t):
+        return ""
     if len(t) <= limit:
         return t
     if trap:
@@ -4237,6 +4278,19 @@ def _recited_lines(question: str, anchors: list[int], idx) -> list[str]:
     return out
 
 
+def _names_other_target(text: str, node: ConceptNode, marks: list[TriageMark], by_id: dict[str, ConceptNode]) -> bool:
+    """문장이 이번 질문 묶음의 **다른** 대상 개념 이름을 통째로 부르는가. 이름이 이 개념 이름 안에 든 경우(상위어)는 뺀다."""
+    own = grounding.squash(node.label or "")
+    for m in marks:
+        other = by_id.get(m.node_id)
+        if other is None or other.id == node.id:
+            continue
+        name = grounding.squash(other.label or "")
+        if len(name) >= 2 and name not in own and mentions(text, other.label):
+            return True
+    return False
+
+
 def _bound_to_basis(text: str, probe: Probe | None, node: ConceptNode, by_id: dict[str, ConceptNode]) -> bool:
     """물음 하나가 **이 질문의 근거**에 묶였는가 — 탐침이면 탐침 개념을 부르고 탐침 꼴이다, 아니면 개념 이름을 부른다."""
     if probe is not None:
@@ -4393,6 +4447,13 @@ def _normalize_questions(
                 bound = next((a for a in asks if a and _bound_to_basis(a, probe, node, by_id)), "")
                 checks.append("two_asks_split" if bound else "two_asks_dropped")
                 written_q, split_one = bound, bool(bound)
+        # 다른 개념의 질문 (10-02 질문 코치 벤치): LLM 이 이 개념 자리에 같은 묶음 다른 개념의 질문을 써 넣었다 — 「상위 그룹을 구분한
+        # 것은 … 사전에 정해둔 규칙」 자리에 옆 자리 「예외 없는 단조 감소」 질문이 똑같이 들어가 한 화면에 같은 질문이 둘, 이 개념은 0번.
+        # 이 개념을 안 부르고 다른 대상 개념 이름을 통째로 부르면 정해진 문장으로 (탐침·함정·모순·건너뛴 장은 제 검사가 따로 있다).
+        if (written_q and tp is None and contra is None and skip is None and probe is None
+                and not _bound_to_basis(written_q, None, node, by_id) and _names_other_target(written_q, node, marks, by_id)):
+            checks.append("other_target_dropped")
+            written_q = ""
         # 우리 분석 말(「경계·탐침·긴장」 — 자료가 스스로 쓰지 않는 말)이 샌 질문은 정해진 문장으로 (09-30 WP-P2: 「…주장의 경계는
         # 무엇인가요?」). 탐침은 탐침 템플릿, 함정·모순은 제 템플릿, 나머지는 폴백 문장이 된다.
         if written_q and jargon_terms(written_q, deck_all):
@@ -4652,6 +4713,15 @@ def _normalize_questions(
                 quote_no, quote = said_line     # 근거 인용도 기대 답이 된 그 줄로 (다른 장의 식을 근거로 보여 주지 않게)
         if not written_gist and not problems:
             checks.append("gist_template")
+            # LLM 모범답의 절이 자료에 받쳐지지 않아(gist_clause_unsupported) 골자만 템플릿(근거 장 줄 되읊기)이 됐으면, 그 질문의 답은 자료에
+            # 없다 — 질문과 골자가 어긋난다. 폴백 질문과 같은 원칙(「묻는 것도 자료가 어떻게 설명했나여야 골자가 답이 된다」)으로 질문·이유·
+            # 힌트도 폴백 문장으로 맞춘다. 10-02 질문 코치 벤치: 「격차가 실제로 존재하는지 확인하는 방법은?」 의 모범답이 주장 문장 되읊기라,
+            # 모범답 그대로 답해도 partial 70 에서 되물음이 이어졌다 (6회 중 2회). 골자만 나빴던 경우(지어낸 수치·발판 인용)는 질문을 살린다.
+            if ("gist_clause_unsupported" in checks and written_q and question_text == written_q and tp is None
+                    and probe is None and contra is None and skip is None):
+                question_text = fb_question
+                written_why = written_hint = ""
+                checks.append("question_follows_gist")
         # 남은 함정의 골자는 전제를 바로잡아야 한다 (규칙: trap 골자는 자료의 사실로 전제를 뒤집는다). 일반화 벤치 §3: 함정 21개 모두
         # 골자에 바로잡는 말이 없었다 — 그 골자를 그대로 말해도 판정은 「전제를 안 바로잡았다」 로 내린다. 바로잡는 말이 없으면
         # 「질문의 전제와 달리, 자료는 …」 로 근거 장 자료 줄을 쓴다.
@@ -4875,7 +4945,10 @@ def _basis_of(
             probe=Probe.from_dict(probe.to_dict()) if probe else None,
             evidence=[ClaimQuote(slide_no=n, quote="") for n in nos],
             checks=[*checks, "basis_quote_hidden"],
-            reason=[], background=[], contrast=[], contrast_quote=None,
+            # 보기 쌍 낱말은 남긴다 — 화면 근거 칸은 그리지 않고, F-09 「모르겠어요」 가 자료 줄(서버 쪽 evidence_quote)과 함께 쓴다.
+            # 10-02 질문 코치 벤치 D: 인용이 곧 답인 질문(폴백 질문)에서 쌍까지 버려 「종목 선택 쪽인가요, 행동 쪽인가요?」 대신
+            # 「자료 2장을 다시 보면 뭐라고 하나요?」 로만 좁혔다. 줄 자체(contrast_quote)는 예전처럼 싣지 않는다.
+            reason=[], background=[], contrast=[contrast.affirmed, contrast.negated] if contrast else [], contrast_quote=None,
         )
     evidence = [ClaimQuote(slide_no=e.slide_no, quote=e.quote) for e in (probe.evidence if probe else [])]
     if quote and not any(e.slide_no == quote_no and e.quote == quote for e in evidence):
@@ -5242,6 +5315,7 @@ def build_questions(
 
     depth_of = {n.id: n.depth for n in graph.nodes}
     stalled = {nid for nid, cm in memory_of.items() if cm.stalled}
+    cleared = {nid for nid, cm in memory_of.items() if _understood(cm)}
     slot_of: dict[str, str] = {}
     # 코드가 확인한 녹음 사실 (09-30 WP-S2) — 자료와 다른 수치(모순)는 맨 앞, 말로 건너뛴 핵심 장은 약점 자리의 근거.
     contra_of = _verified_contradictions(alignment)
@@ -5254,7 +5328,10 @@ def build_questions(
     if set_aside:
         sys.stderr.write(f"[f08] 같은 장을 두 번 묻지 않게 뺀 후보: {', '.join(set_aside)}\n")
     front = [m.node_id for m in known if m.node_id in contra_of and m.source == "contradiction"]
-    marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of, front=front)
+    # 지난 리허설에서 못 넘긴 개념도 맨 앞에 선다 (모순 다음) — triage 가 앞으로 당겨도 주제 자리가 루트를 먼저 세워
+    # 3번째로 밀렸다. triage 머리말의 약속(「지난번에 막혔으면 이번엔 먼저 물어본다」)을 배합에서도 지킨다.
+    front += [m.node_id for m in sorted(known, key=lambda m: m.rank) if m.node_id in stalled and m.node_id not in front]
+    marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of, front=front, cleared=cleared)
     deferred += [nid for nid in set_aside if nid not in deferred]
     # 탐침은 근거가 그 탐침인 개념에만 묶는다 — 모순·누락처럼 더 앞선 근거로 뽑힌 개념까지 탐침으로 끌면 근거가 섞인다.
     probe_of = {m.node_id: probe_of[m.node_id] for m in marks

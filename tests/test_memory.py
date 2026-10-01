@@ -117,9 +117,10 @@ def marks():
     ]
 
 
-def test_지난번에_못_넘긴_개념이_앞으로_오고_나머지_순서는_그대로():
+def test_지난번에_못_넘긴_개념이_앞으로_오고_good_으로_닫은_개념은_뒤로_간다():
+    # c2 못 넘김 → 맨 앞 · c1(good 85)·c3(포기 뒤 good 90)은 이미 이해 → 맨 뒤, 그 안의 상대 순서는 그대로 (10-02 질문 코치 벤치)
     ordered = _stalled_first(marks(), graph(), build_memory(rehearsals()))
-    assert [(m.node_id, m.rank) for m in ordered] == [("c2", 1), ("c1", 2), ("c4", 3), ("c3", 4)]
+    assert [(m.node_id, m.rank) for m in ordered] == [("c2", 1), ("c4", 2), ("c1", 3), ("c3", 4)]
     assert [m.node_id for m in _stalled_first(marks(), graph(), build_memory([]))] == ["c1", "c4", "c2", "c3"]
 
 
@@ -151,7 +152,8 @@ def test_기억이_있으면_개념_줄에_지난_리허설이_붙고_없으면_
     assert "지난 리허설: 1번 물음 · 마지막 판정 통과" in user          # 환경 설계 — 통과한 개념도 알려 준다 (더 깊게 묻도록)
     assert "…" not in user.split("지난 리허설")[1][:200]              # 답변 원문은 싣지 않는다
     assert system == QUESTION_SYSTEM_PROMPT + MEMORY_SYSTEM_ADDENDUM
-    assert doc.questions and doc.questions[0].node_id == "c1"          # 순서는 받은 triage 그대로 — 앞세우기는 triage_questions 몫
+    # 못 넘긴 개념(c2)은 받은 triage 순서와 무관하게 맨 앞 — 배합(주제 자리)이 triage 순서를 덮어 3번째로 밀던 것 (10-02 질문 코치 벤치)
+    assert doc.questions and doc.questions[0].node_id == "c2"
 
     llm2 = Scripted()
     build_questions(g, triage, track="5", llm=llm2)
@@ -278,3 +280,15 @@ def test_이름_잇기는_조사_하나_차이를_넘고_다른_개념은_안_�
     assert memory_similarity(memory_key("Attention residue"), memory_key("attention residue task")) >= 0.6
     assert memory_similarity(memory_key("환경 설계"), memory_key("환경 요인")) < 0.6
     assert memory_similarity("", "x") == 0.0
+
+
+def test_good_으로_닫은_루트는_주제_자리를_맡지_않고_뒤로_간다():
+    """10-02 질문 코치 벤치 시나리오 E: 주제 자리가 깊이만 보고 이미 이해한 루트를 또 첫 질문으로 세웠다."""
+    from chuckchuck.f08_questions import _pick_marks
+
+    ms = [TriageMark(node_id=n, rank=i, source="core_weight") for i, n in enumerate(["root", "a", "b", "c"], start=1)]
+    depth = {"root": 1, "a": 2, "b": 2, "c": 3}
+    before, _ = _pick_marks(ms, "10", depth)
+    after, _ = _pick_marks(ms, "10", depth, cleared={"root"})
+    assert before[0].node_id == "root"
+    assert after[0].node_id != "root" and after[-1].node_id == "root"
