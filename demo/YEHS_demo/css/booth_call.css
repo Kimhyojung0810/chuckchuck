@@ -120,7 +120,7 @@
 .bc-call:has(> .bc-self[data-camera="off"]) .bc-privacy { align-self: flex-end; }
 /* 진행 칩 위에서 멈추게 — 16:9 장의 높이를 남은 세로 공간에 맞춘다 */
 .bc-call:has(> .bc-self[data-camera="off"]) .bc-slide {
-  max-width: min(760px, calc((100vh - var(--bc-dock-h, 168px) - 250px) * 16 / 9)); align-self: center;
+  max-width: min(760px, calc((100vh - var(--bc-dock-h, 168px) - 290px) * 16 / 9)); align-self: center;
 }
 /* 커진 자료 창이 그 자리를 쓴다 — 「카메라 켜기」 버튼이 상태를 말한다 */
 .bc-call:has(> .bc-self[data-camera="off"]) .bc-self-off,
@@ -309,6 +309,10 @@
   background: rgba(255, 255, 255, .14); color: #fff; box-shadow: none; border: 1px solid rgba(255, 255, 255, .3);
 }
 .bq[data-variant="call"] .bc-dock .btn:disabled { opacity: .55; }
+/* 막힌 질문에서 빠져나가는 길 — 「답 보고 넘어가기」 · 「이건 건너뛰고 다음 질문」 은 글자 버튼보다 한 단 또렷하게 (10-01 2차) */
+.bq[data-variant="call"] .bc-dock :is(#liveReveal, #liveSkipRetell):not(:disabled) {
+  color: #fff; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .34); border-radius: var(--r-pill);
+}
 .bq[data-variant="call"] .bc-call :focus-visible,
 .bq[data-variant="call"][data-screen="qa"] .bq-top :focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(4, 48, 39, .95); }
 

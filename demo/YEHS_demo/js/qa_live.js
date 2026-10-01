@@ -654,6 +654,8 @@ function liveContextHtml() {
 function liveInputHtml() {
   const L = qa.live;
   if (L.awaitEnd) return liveEndCardHtml();
+  // 부스(/booth/qa · /booth/call) — 버튼 표시·문구만 갈린다. 사다리·판정은 그대로 (liveBoothExitHtml)
+  const booth = typeof boothQaOn === 'function' && boothQaOn();
   if (L.retell) {
     return `
       <div class="qa-input-label is-retell">
@@ -665,7 +667,7 @@ function liveInputHtml() {
         ${micBtnHTML(false)}
       </div>
       <div class="step-actions step-actions-sub">
-        <button class="btn btn-text" id="liveSkipRetell" type="button">이건 건너뛰고 다음 질문</button>
+        <button class="btn btn-text" id="liveSkipRetell" type="button">${booth && L.qi + 1 >= L.questions.length ? '이건 건너뛰고 마치기' : '이건 건너뛰고 다음 질문'}</button>
         <button class="btn btn-text qa-exit-action" id="liveFinish" type="button">여기까지 하고 저장</button>
       </div>`;
   }
@@ -681,9 +683,19 @@ function liveInputHtml() {
     <div class="step-actions step-actions-sub">
       <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>${stuckLabel()}</button>
       ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
-      ${liveStalled() ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>답 보고 다시 말해보기</button>` : ''}
+      ${liveStalled() || liveBoothExit(booth) ? `<button class="btn btn-text" id="liveReveal" type="button" ${L.busy ? 'disabled' : ''}>${booth ? '답 보고 넘어가기' : '답 보고 다시 말해보기'}</button>` : ''}
       <button class="btn btn-text qa-exit-action" id="liveFinish" type="button" ${L.busy ? 'disabled' : ''}>여기까지 하고 저장</button>
     </div>`;
+}
+
+/**
+ * 부스에서만 — 「모르겠어요」를 한 번 누른 뒤부터 「답 보고 넘어가기」(= 기존 「답 보고 다시 말해보기」, revealLiveAnswer)를 연다.
+ * 부스 체험은 3분이라, 막힌 질문 하나를 넘기는 데 「모르겠어요」 세 번 + 「건너뛰고 다음 질문」 네 번을 눌러야 했다 (10-01 2차 점검).
+ * 사다리(막힘 1·2·3단)·판정 요청은 그대로다 — 이미 있는 출구 버튼을 더 일찍 보일 뿐이다. 앱 화면(#/qa)은 그대로 liveStalled 만 본다.
+ */
+function liveBoothExit(booth) {
+  const L = qa.live;
+  return !!booth && !L.retell && (L.turns || []).some((t) => t.gaveUp);
 }
 
 /**
@@ -953,6 +965,8 @@ function completeLiveCheckpoint() {
 function finishLiveQaEarly() {
   const L = qa.live;
   if (!L || L.busy) return;
+  // 부스는 코칭 기록을 남기지 않는다 — 「리포트에 남겨둘게요」 는 거기서 거짓말이다 (문구만 갈린다)
+  const keep = !(typeof boothQaOn === 'function' && boothQaOn());
   if (L.qi < L.questions.length && !L.awaitEnd) {
     const q = L.questions[L.qi];
     const scored = (L.turns || []).filter((t) => !t.gaveUp && !t.clarify);
@@ -960,10 +974,10 @@ function finishLiveQaEarly() {
     if (L.retell) {
       const base = L.retell.record || { id: q.id, label: q.label, question: q.question, verdict: 'unknown', score: 0, passed: false, mastered: false, summary: '', revealed: true };
       L.retell = null;
-      pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답만 보고 마쳤어요. 리포트에 남겨둘게요` });
+      pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답만 보고 마쳤어요${keep ? '. 리포트에 남겨둘게요' : ''}` });
       closeLiveQuestion({ ...base, retold: false });
     } else if (last) {
-      pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답 ${scored.length}번 하고 멈췄어요. 한 답을 리포트에 남겨둘게요` });
+      pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답 ${scored.length}번 하고 멈췄어요${keep ? '. 한 답을 리포트에 남겨둘게요' : ''}` });
       closeLiveQuestion({
         id: q.id, label: q.label, question: q.question, answer: last.answer,
         verdict: last.verdict || 'unknown', score: last.score || 0, passed: false, mastered: false,
@@ -971,7 +985,7 @@ function finishLiveQaEarly() {
       });
     } else {
       const said = (L.turns || []).some((t) => t.gaveUp) ? '모르겠다고 한 뒤 마쳤어요' : '답하지 않고 넘겼어요';
-      pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — ${said}. 리포트에 남겨둘게요` });
+      pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — ${said}${keep ? '. 리포트에 남겨둘게요' : ''}` });
       closeLiveQuestion({
         id: q.id, label: q.label, question: q.question, answer: '',
         verdict: 'skipped', score: 0, passed: false, mastered: false, skipped: true, summary: '',
@@ -1635,7 +1649,7 @@ function liveJudgeFailure(err, giveUp = false) {
       judgeFailed: true, retryOnReconnect: null, restore: !giveUp,
       text: code === 'session_missing'
         ? '자료 정보가 사라져서 판정하지 못했어요. 「처음으로」를 누르면 다시 시작할 수 있어요'
-        : '판정을 받지 못했어요. 답은 그대로 두었어요 — 다시 보내거나 「답 보고 다시 말해보기」로 넘어갈 수 있어요',
+        : '판정을 받지 못했어요. 답은 그대로 두었어요 — 다시 보내거나 「답 보고 넘어가기」로 넘어갈 수 있어요',
     };
   }
   return {
