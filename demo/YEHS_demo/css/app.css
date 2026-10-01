@@ -3243,3 +3243,30 @@ details.fold summary:active,
 .conn-banner.is-back { border: 1px solid var(--ok); }
 .conn-banner.is-back b { color: var(--ok); }
 .conn-retry { margin-left: auto; padding: 6px 12px; border: 0; border-radius: var(--r-ctl); background: var(--accent-weak); color: var(--accent); font: inherit; font-size: 13px; font-weight: var(--w-med); cursor: pointer; }
+
+/* #/test/qa — 덱 목록을 묶음별 한 줄 카드로 (2026-10-01) */
+.tq-group { display: grid; gap: 10px; margin-top: 28px; }
+.tq-group-title { font-size: 17px; font-weight: var(--w-bold, 700); color: var(--text); display: flex; align-items: center; gap: 8px; cursor: default; }
+details.tq-group > summary { cursor: pointer; list-style: revert; }
+.tq-count { font-size: 12px; font-weight: 600; color: var(--text-3); background: var(--canvas); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.tq-list { display: grid; gap: 8px; }
+.tq-deck { display: flex; align-items: center; gap: 14px; justify-content: space-between; flex-wrap: wrap;
+  padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-inner); }
+.tq-main { display: grid; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.tq-title { font-size: 15px; color: var(--text); }
+.tq-version { font-size: 13.5px; color: var(--text-2); }
+.tq-meta { font-size: 12px; color: var(--text-3); }
+.tq-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tq-actions .btn-sm { height: 36px; padding: 0 14px; }
+.tq-deck .test-deck-note { flex-basis: 100%; margin: 0; }
+/* #/test/qa — 같은 자료 여러 버전(부스 세트)은 한 카드: 머리에 「자료만」, 버전 줄마다 「녹음까지」 */
+.tq-topic { display: grid; gap: 0; padding: 0; justify-content: stretch; align-items: stretch; }
+.tq-topic-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; }
+.tq-letter { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: var(--r-inner);
+  background: var(--navy, #155C46); color: #fff; font-weight: 700; font-size: 15px; }
+.tq-versions { display: grid; border-top: 1px solid var(--border); }
+.tq-version-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px 10px 58px; }
+.tq-version-row + .tq-version-row { border-top: 1px dashed var(--border); }
+.tq-label { font-size: 13px; font-weight: 700; color: var(--text-2); min-width: 32px; font-variant-numeric: tabular-nums; }
+.tq-version-row .tq-version { color: var(--text); }
+@media (max-width: 480px) { .tq-version-row { padding-left: 14px; } }

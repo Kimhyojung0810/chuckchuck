@@ -1735,10 +1735,37 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return self._json(400, {"error": "bad_request", "message": "session_id 와 id 가 필요합니다."})
         return self._json(200, {"session_id": sid, "id": qid, "questions": STORE.find_questions(sid, qid)})
 
+    @staticmethod
+    def _deck_manifest() -> dict:
+        """
+        ppt/decks.json — #/test/qa 목록의 묶음·이름표. 폴더 이름은 부스 화면·검증 도구가 키로 쓰니 바꾸지 않고
+        보이는 이름만 여기서 단다 (2026-10-01: 「급속충전배터리열화A」 만으로는 어떤 발표 버전인지 안 보였다).
+        없거나 깨졌으면 빈 설명서 — 목록은 예전처럼 폴더 이름으로 뜬다.
+        """
+        try:
+            data = json.loads((DECKS_DIR / "decks.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {"groups": [], "decks": {}}
+        groups = [g for g in (data.get("groups") or []) if isinstance(g, dict) and g.get("id")]
+        decks = {unicodedata.normalize("NFC", str(k)): v for k, v in (data.get("decks") or {}).items() if isinstance(v, dict)}
+        return {"groups": groups, "decks": decks}
+
     def _handle_dev_decks(self):
         if not _dev_open():
             return self._json(404, {"error": "not found"})
-        return self._json(200, {"dir": str(DECKS_DIR), "decks": self._deck_entries()})
+        manifest = self._deck_manifest()
+        rows = self._deck_entries()
+        for row in rows:
+            meta = manifest["decks"].get(unicodedata.normalize("NFC", row["key"]), {})
+            row["group"] = str(meta.get("group") or ("held" if row["key"].startswith("_") else "other"))
+            row["title"] = str(meta.get("title") or row["name"])
+            row["version"] = str(meta.get("version") or "")
+            row["order"] = meta.get("order") if isinstance(meta.get("order"), (int, float)) else 999
+            # 같은 자료를 여러 버전으로 발표한 덱 — 화면이 한 카드로 묶는다 (부스 세트 A-1·A-2 …)
+            for key in ("topic", "topic_title", "label"):
+                if meta.get(key):
+                    row[key] = str(meta[key])
+        return self._json(200, {"dir": str(DECKS_DIR), "decks": rows, "groups": manifest["groups"]})
 
     def _handle_dev_deck_file(self, parsed):
         """?deck=<폴더 이름>&kind=deck|audio → 파일 그대로. ppt/ 밖으로는 못 나간다."""
