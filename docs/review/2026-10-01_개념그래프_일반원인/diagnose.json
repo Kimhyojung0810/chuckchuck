@@ -1,0 +1,574 @@
+{
+ "_held_health_glucose": {
+  "f06": {
+   "slides": 8,
+   "items": 16,
+   "question": 0,
+   "title_copy": 0,
+   "numeric": 1,
+   "no_desc": 3,
+   "long_name": 1
+  },
+  "f07": [
+   {
+    "nodes": 18,
+    "roots": 1,
+    "root": "혈당 관리에서 식사 순서의 중요성",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 5,
+    "title_childless": 0,
+    "misplaced": 2,
+    "core_slide_cover": 1.0,
+    "cross": 2
+   },
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "무엇을 먹느냐만큼 먹는 순서도 중요함",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 5,
+    "title_childless": 1,
+    "misplaced": 2,
+    "core_slide_cover": 1.0,
+    "cross": 12
+   },
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "식사 순서가 혈당 관리에 미치는 영향",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 5,
+    "title_childless": 0,
+    "misplaced": 3,
+    "core_slide_cover": 1.0,
+    "cross": 2
+   }
+  ]
+ },
+ "_held_hum_novel": {
+  "f06": {
+   "slides": 7,
+   "items": 13,
+   "question": 0,
+   "title_copy": 0,
+   "numeric": 0,
+   "no_desc": 9,
+   "long_name": 3
+  },
+  "f07": [
+   {
+    "nodes": 17,
+    "roots": 1,
+    "root": "한글 소설 확산의 주체는 작가나 출판사가 아니라 빌려 읽는 독자이다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 5,
+    "title_childless": 0,
+    "misplaced": 2,
+    "core_slide_cover": 1.0,
+    "cross": 7
+   },
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "한글 소설은 작가가 아니라 빌려 읽는 독자에 의해 퍼졌다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 5,
+    "title_childless": 0,
+    "misplaced": 2,
+    "core_slide_cover": 1.0,
+    "cross": 7
+   },
+   {
+    "nodes": 15,
+    "roots": 1,
+    "root": "소설을 퍼뜨린 것은 작가가 아니라 빌려 읽는 독자",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 5,
+    "title_childless": 0,
+    "misplaced": 2,
+    "core_slide_cover": 1.0,
+    "cross": 3
+   }
+  ]
+ },
+ "_held_ir_banchan": {
+  "f06": {
+   "slides": 8,
+   "items": 27,
+   "question": 0,
+   "title_copy": 0,
+   "numeric": 10,
+   "no_desc": 27,
+   "long_name": 2
+  },
+  "f07": [
+   {
+    "nodes": 35,
+    "roots": 4,
+    "root": "월 반복 매출 = 구독자 수 × 객단가 × 유지율",
+    "root_question": false,
+    "root_short": false,
+    "depth": 2,
+    "widest": 29,
+    "title_childless": 3,
+    "misplaced": 7,
+    "core_slide_cover": 1.0,
+    "cross": 31
+   },
+   {
+    "nodes": 32,
+    "roots": 4,
+    "root": "월 반복 매출 = 구독자 수 × 객단가 × 유지율",
+    "root_question": false,
+    "root_short": false,
+    "depth": 2,
+    "widest": 26,
+    "title_childless": 1,
+    "misplaced": 5,
+    "core_slide_cover": 1.0,
+    "cross": 19
+   },
+   {
+    "nodes": 25,
+    "roots": 2,
+    "root": "수요 증가",
+    "root_question": false,
+    "root_short": true,
+    "depth": 4,
+    "widest": 8,
+    "title_childless": 0,
+    "misplaced": 7,
+    "core_slide_cover": 1.0,
+    "cross": 9
+   }
+  ]
+ },
+ "_held_lib_reopen": {
+  "f06": {
+   "slides": 9,
+   "items": 22,
+   "question": 1,
+   "title_copy": 0,
+   "numeric": 5,
+   "no_desc": 4,
+   "long_name": 1
+  },
+  "f07": [
+   {
+    "nodes": 24,
+    "roots": 1,
+    "root": "야간 연장 개방과 자유열람실 확충으로 독서 경험을 개선해 연간 방문자 8만 명 회복을 목표로 한다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 6,
+    "title_childless": 0,
+    "misplaced": 5,
+    "core_slide_cover": 1.0,
+    "cross": 3
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "야간 연장 개방과 자유열람실 확충으로 독서 경험을 개선하면 연간 방문자 8만 명을 회복할 수 있다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 7,
+    "title_childless": 0,
+    "misplaced": 3,
+    "core_slide_cover": 0.88,
+    "cross": 5
+   },
+   {
+    "nodes": 20,
+    "roots": 2,
+    "root": "독서 경험",
+    "root_question": false,
+    "root_short": true,
+    "depth": 2,
+    "widest": 18,
+    "title_childless": 0,
+    "misplaced": 9,
+    "core_slide_cover": 1.0,
+    "cross": 5
+   }
+  ]
+ },
+ "_held_policy_jeonse": {
+  "f06": {
+   "slides": 8,
+   "items": 22,
+   "question": 0,
+   "title_copy": 0,
+   "numeric": 1,
+   "no_desc": 0,
+   "long_name": 0
+  },
+  "f07": [
+   {
+    "nodes": 13,
+    "roots": 1,
+    "root": "대학가 전세사기 문제를 사후 구제에서 사전 예방 체계로 전환하여 피해를 근본적으로 줄인다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 7,
+    "title_childless": 0,
+    "misplaced": 1,
+    "core_slide_cover": 1.0,
+    "cross": 3
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "대학가 전세사기 문제를 사후 구제에서 사전 예방 체계로 전환하여 피해를 근본적으로 차단한다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 8,
+    "title_childless": 0,
+    "misplaced": 2,
+    "core_slide_cover": 1.0,
+    "cross": 3
+   },
+   {
+    "nodes": 21,
+    "roots": 1,
+    "root": "대학가 전세사기 문제를 사후 구제에서 사전 예방 체계로 전환하여 예방 체계를 강화하는 것이 처벌 강화보다 중요하다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 11,
+    "title_childless": 0,
+    "misplaced": 6,
+    "core_slide_cover": 1.0,
+    "cross": 4
+   }
+  ]
+ },
+ "focus_notification": {
+  "f06": {
+   "slides": 12,
+   "items": 35,
+   "question": 0,
+   "title_copy": 1,
+   "numeric": 10,
+   "no_desc": 16,
+   "long_name": 21
+  },
+  "f07": [
+   {
+    "nodes": 13,
+    "roots": 1,
+    "root": "알림 확인 후 작업 맥락 복구 비용이 시간보다 크다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 11,
+    "title_childless": 0,
+    "misplaced": 0,
+    "core_slide_cover": 1.0,
+    "cross": 13
+   },
+   {
+    "nodes": 19,
+    "roots": 4,
+    "root": "알림 확인 후 작업 맥락 복구에 필요한 생각의 양이 진짜 손실이다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 10,
+    "title_childless": 0,
+    "misplaced": 0,
+    "core_slide_cover": 1.0,
+    "cross": 9
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "알림 확인은 시간을 훔치는 게 아니라 머릿속 흐름을 끊는다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 9,
+    "title_childless": 0,
+    "misplaced": 0,
+    "core_slide_cover": 0.9,
+    "cross": 5
+   }
+  ]
+ },
+ "급속충전배터리열화": {
+  "f06": {
+   "slides": 4,
+   "items": 12,
+   "question": 0,
+   "title_copy": 0,
+   "numeric": 1,
+   "no_desc": 0,
+   "long_name": 0
+  },
+  "f07": [
+   {
+    "nodes": 14,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 12,
+    "title_childless": 0,
+    "misplaced": 5,
+    "core_slide_cover": 0.67,
+    "cross": 11
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 2,
+    "widest": 15,
+    "title_childless": 0,
+    "misplaced": 0,
+    "core_slide_cover": 0.67,
+    "cross": 7
+   },
+   {
+    "nodes": 18,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 10,
+    "title_childless": 0,
+    "misplaced": 5,
+    "core_slide_cover": 0.67,
+    "cross": 11
+   }
+  ]
+ },
+ "미세플라스틱물벼룩번식": {
+  "f06": {
+   "slides": 4,
+   "items": 27,
+   "question": 2,
+   "title_copy": 3,
+   "numeric": 14,
+   "no_desc": 0,
+   "long_name": 8
+  },
+  "f07": [
+   {
+    "nodes": 14,
+    "roots": 1,
+    "root": "폴리스티렌 100 mg/L 농도에서 물벼룩 산자수가 환경 농도와의 간극이 해석에 제약을 준다.",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 8,
+    "title_childless": 0,
+    "misplaced": 6,
+    "core_slide_cover": 1.0,
+    "cross": 10
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "미세플라스틱은 물벼룩의 산자수 감소와 생존율 저하를 유발한다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 6,
+    "title_childless": 0,
+    "misplaced": 0,
+    "core_slide_cover": 1.0,
+    "cross": 12
+   },
+   {
+    "nodes": 21,
+    "roots": 1,
+    "root": "실험 농도는 실제 하천보다 백 배 이상 높다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 17,
+    "title_childless": 0,
+    "misplaced": 13,
+    "core_slide_cover": 1.0,
+    "cross": 4
+   }
+  ]
+ },
+ "배달앱별점인플레이션": {
+  "f06": {
+   "slides": 3,
+   "items": 17,
+   "question": 0,
+   "title_copy": 0,
+   "numeric": 4,
+   "no_desc": 17,
+   "long_name": 0
+  },
+  "f07": [
+   {
+    "nodes": 26,
+    "roots": 1,
+    "root": "리뷰 이벤트는 평점 인플레이션을 유발한다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 11,
+    "title_childless": 0,
+    "misplaced": 0,
+    "core_slide_cover": 1.0,
+    "cross": 5
+   },
+   {
+    "nodes": 8,
+    "roots": 1,
+    "root": "별점 인플레이션은 리뷰 이벤트로 인한 별점 구간별 리뷰 비중 집중 현상이다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 2,
+    "widest": 7,
+    "title_childless": 0,
+    "misplaced": 6,
+    "core_slide_cover": 1.0,
+    "cross": 4
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "별점 인플레이션은 리뷰 수집 방식의 결과로, 리뷰 이벤트와 별점 구간별 리뷰 비중 분석을 통해 확인되었다.",
+    "root_question": false,
+    "root_short": false,
+    "depth": 2,
+    "widest": 15,
+    "title_childless": 0,
+    "misplaced": 14,
+    "core_slide_cover": 1.0,
+    "cross": 6
+   }
+  ]
+ },
+ "수면발표": {
+  "f06": {
+   "slides": 8,
+   "items": 20,
+   "question": 0,
+   "title_copy": 2,
+   "numeric": 0,
+   "no_desc": 7,
+   "long_name": 0
+  },
+  "f07": [
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "수면의 질은 시간, 연속성, 규칙성의 곱으로 결정된다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 9,
+    "title_childless": 1,
+    "misplaced": 0,
+    "core_slide_cover": 1.0,
+    "cross": 0
+   },
+   {
+    "nodes": 27,
+    "roots": 1,
+    "root": "수면의 질은 시간, 연속성, 규칙성의 곱으로 결정된다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 4,
+    "widest": 7,
+    "title_childless": 2,
+    "misplaced": 5,
+    "core_slide_cover": 1.0,
+    "cross": 3
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "수면의 질은 시간, 연속성, 규칙성의 곱으로 결정된다",
+    "root_question": false,
+    "root_short": false,
+    "depth": 3,
+    "widest": 12,
+    "title_childless": 1,
+    "misplaced": 1,
+    "core_slide_cover": 1.0,
+    "cross": 6
+   }
+  ]
+ },
+ "수익률격차": {
+  "f06": {
+   "slides": 15,
+   "items": 56,
+   "question": 1,
+   "title_copy": 1,
+   "numeric": 19,
+   "no_desc": 32,
+   "long_name": 4
+  },
+  "f07": [
+   {
+    "nodes": 25,
+    "roots": 1,
+    "root": "개인 투자자는 왜 시장을 이기지 못하는가",
+    "root_question": true,
+    "root_short": false,
+    "depth": 4,
+    "widest": 6,
+    "title_childless": 0,
+    "misplaced": 2,
+    "core_slide_cover": 1.0,
+    "cross": 16
+   },
+   {
+    "nodes": 30,
+    "roots": 1,
+    "root": "개인 투자자는 왜 시장을 이기지 못하는가",
+    "root_question": true,
+    "root_short": false,
+    "depth": 4,
+    "widest": 11,
+    "title_childless": 0,
+    "misplaced": 1,
+    "core_slide_cover": 1.0,
+    "cross": 14
+   },
+   {
+    "nodes": 32,
+    "roots": 1,
+    "root": "개인 투자자는 왜 시장을 이기지 못하는가",
+    "root_question": true,
+    "root_short": false,
+    "depth": 4,
+    "widest": 20,
+    "title_childless": 1,
+    "misplaced": 6,
+    "core_slide_cover": 1.0,
+    "cross": 23
+   }
+  ]
+ }
+}
