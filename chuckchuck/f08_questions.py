@@ -1388,6 +1388,65 @@ def _hierarchy_of(graph: ConceptGraph | None, nodes: list[ConceptNode]) -> dict[
     }
 
 
+def _typed(graph: ConceptGraph | None) -> bool:
+    """종류 있는 그래프(F-07 2026-10-01~: 핵심 주장 → 개념 → 주장 층)인가. 옛 그래프는 깊이가 곧 위계라 기존 순서를 쓴다."""
+    return graph is not None and any(getattr(n, "kind", "") for n in graph.nodes)
+
+
+#: 자료 반복도 — 주장 노드가 그 장에 「나왔다」 고 볼 내용어 몫, 풀어 쓴 정도(하위 노드 수)를 셀 상한.
+_SALIENCE_CLAIM_SHARE = 0.6
+_SALIENCE_DESC_CAP = 2
+
+
+def _salience_of(graph: ConceptGraph, nodes: list[ConceptNode], slides: dict[int, str] | None) -> dict[str, int]:
+    """
+    노드마다 **자료가 그 말을 내세운 장 수** — 이름(주장은 내용어 60%)이 원문에 나온 장 ∪ 자기·자식 노드가 앉은 장.
+
+    층 그래프에서 깊이는 「개념이냐 주장이냐」 이지 중요도가 아니다. 깊이 순으로 줄 세우니 핵심 주장 바로 밑의 잎 개념
+    (「시장지수」「적립식」 — 차트 범례·표 칸)이 핵심 요인과 같은 순위에 서고 weight 가 순서를 정해, 수익률격차 후보 14개가
+    잎 개념으로 찼다 (10-02, labs/qcoach_bench: 「…사전에 정해둔 규칙이었다」 「…본인이 정한다」 같은 기둥 주장이 후보에 없었다).
+    사람이 덱만 보고 고른 핵심(key_concepts.json)의 근거도 「덱이 그 말을 몇 장에서 내세우는가」 다.
+    """
+    by_id = {n.id: n for n in graph.nodes}
+    kids: dict[str, list[ConceptNode]] = {}
+    for n in graph.nodes:
+        if n.parent_id in by_id:
+            kids.setdefault(n.parent_id, []).append(n)
+    # 파서가 붙인 차트 설명(「- Chart Type: … 보유 종목 수별 …」)은 자료가 한 말이 아니다 — 걷어낸 원문 줄로 센다
+    from ._graph_items import deck_lines
+    flat = {no: re.sub(r"\s+", "", " ".join(deck_lines(t or ""))).lower() for no, t in (slides or {}).items()}
+
+    def said_on(label: str) -> set[int]:
+        toks = [t for t in norm_tokens(label) if len(t) >= 2]
+        if not toks or not flat:
+            return set()
+        stems = [re.sub(r"(?:은|는|이|가|을|를|의|에|에서|으로|로|도|와|과)$", "", t) if len(t) > 2 else t for t in toks]
+        if len(toks) <= 3:
+            # 개념 이름은 구절 그대로 — 낱말이 장 여기저기 흩어져 있는 것(「수익」 … 「종목」)은 「수익 종목」 을 말한 게 아니다
+            phrase = re.sub(r"\s+", "", label).lower()
+            return {no for no, txt in flat.items() if phrase in txt or "".join(stems) in txt}
+        return {no for no, txt in flat.items() if sum(st in txt for st in stems) / len(stems) >= _SALIENCE_CLAIM_SHARE}
+
+    def below(n: ConceptNode, seen: set[str]) -> set[int]:
+        out = set(n.slide_nos)
+        for c in kids.get(n.id, []):
+            if c.id not in seen:
+                seen.add(c.id)
+                out |= below(c, seen)
+        return out
+    def descendants(n: ConceptNode) -> int:
+        seen, stack = set(), list(kids.get(n.id, []))
+        while stack:
+            c = stack.pop()
+            if c.id not in seen:
+                seen.add(c.id)
+                stack += kids.get(c.id, [])
+        return len(seen)
+    # 장 수 + 풀어 쓴 정도(자식·손자 수, 2 까지) — 차트 축 이름(「종목수」「평균 수익률」)은 여러 장에 반복돼도 자료가 풀어 쓴 개념이 아니다
+    return {n.id: len(said_on(n.label) | (below(n, {n.id}) if n.id in by_id else set(n.slide_nos)))
+            + (min(descendants(n), _SALIENCE_DESC_CAP) if n.id in by_id else 0) for n in nodes}
+
+
 def _ordered_candidates(
     graph: ConceptGraph,
     alignment: AlignmentDoc | None,
@@ -1426,12 +1485,27 @@ def _ordered_candidates(
     everyone = [n for n in (*graph.nodes, *extras) if n.id not in folded]
     hierarchy_of = _hierarchy_of(graph, everyone)
     rushed = _rushed_ids(pace, graph)
+    typed = _typed(graph)
+    salience = _salience_of(graph, everyone, slides) if typed else {}
+
+    def role_of(node: ConceptNode) -> int:
+        # 층 그래프: 두 장 이상에서 되풀이된 말은 요약(도입) 장에 앉아도 본론 — Executive Summary 의 기둥이 뒤로 밀리지 않게
+        rank = _role_rank_of(graph, node)
+        if typed and salience.get(node.id, 0) >= 2 and rank == _ROLE_RANK["intro"]:
+            return _ROLE_RANK["body"]
+        return rank
+
+    def tier_of(node: ConceptNode) -> tuple:
+        # 층 그래프는 깊이 대신 (핵심 주장 먼저, 자료 반복도 내림차순). 옛 그래프는 (깊이) 그대로
+        if typed:
+            return (0 if node.kind == "thesis" else 1, -salience.get(node.id, 0))
+        return (hierarchy_of[node.id][0],)
 
     def sort_key(node: ConceptNode) -> tuple:
         return (
             _SOURCE_RANK[source_of[node.id]],
-            _role_rank_of(graph, node),
-            hierarchy_of[node.id][0],
+            role_of(node),
+            *tier_of(node),
             node.id not in rushed,
             hierarchy_of[node.id][1],
             -node.weight,
@@ -1440,8 +1514,29 @@ def _ordered_candidates(
             node.id,
         )
 
-    ranked = sorted(everyone, key=sort_key)[:CANDIDATE_LIMIT]
+    ranked = sorted(everyone, key=sort_key)
+    if typed:
+        ranked = _interleave_kinds(ranked, lambda n: (_SOURCE_RANK[source_of[n.id]], role_of(n)))
+    ranked = ranked[:CANDIDATE_LIMIT]
     return [(node, source_of[node.id]) for node in ranked]
+
+
+def _interleave_kinds(ranked: list[ConceptNode], band) -> list[ConceptNode]:
+    """
+    같은 순위대(근거·구획이 같은 묶음) 안에서 개념과 주장을 번갈아 — 각자의 순서는 그대로, 핵심 주장은 맨 앞.
+    주장은 자료가 바꿔 말하며 되풀이해 반복도가 낮게 잡히고, 그러면 후보 창이 개념으로만 찬다 (10-02 수익률격차: 「성과 상위 그룹조차
+    지수에 못 미쳤다」 「…사전에 정해둔 규칙이었다」 가 후보에 없었다). 층 그래프의 질문은 개념(무엇)과 주장(무엇을 말하나)을 다 묻는다.
+    """
+    out: list[ConceptNode] = []
+    for _, grp in groupby(ranked, key=band):
+        grp = list(grp)
+        head = [n for n in grp if n.kind == "thesis"]
+        concepts = [n for n in grp if n.kind not in ("thesis", "claim")]
+        claims = [n for n in grp if n.kind == "claim"]
+        out += head
+        for i in range(max(len(concepts), len(claims))):
+            out += concepts[i:i + 1] + claims[i:i + 1]
+    return out
 
 
 def _fallback_severity(source: str, weight: float) -> int:
@@ -2215,6 +2310,10 @@ def _spread_adjacent(
         return ordered
 
     parent_of = {n.id: n.parent_id for n in graph.nodes}
+    if _typed(graph):
+        # 층 그래프는 핵심 주장 바로 밑이 발표의 갈래 전부다 — 그 형제를 한 덩어리로 치면 첫 갈래 하나만 남고 다 밀린다
+        roots = {n.id for n in graph.nodes if n.parent_id is None}
+        parent_of = {k: (v if v not in roots else None) for k, v in parent_of.items()}
     related: dict[str, set[str]] = {}
     for e in graph.relates_edges:
         related.setdefault(e.from_id, set()).add(e.to_id)
@@ -2291,6 +2390,16 @@ def _rerank(
     # 위계는 severity 위다 — 큰 개념부터 묻고 내려간다. severity 는 같은 깊이 안의
     # 서열을 정하고, 서브트리 범위는 severity 가 같을 때만 가른다.
     hierarchy_of = _hierarchy_of(graph, [node for node, _ in pairs])
+    if _typed(graph):
+        # 층 그래프: 후보 순서(근거 → 구획 → 자료 반복도 · 개념/주장 교차, `_ordered_candidates`)가 곧 위계 순서다. 옛 키(깊이 →
+        # severity)로 다시 줄 세우면 깊이가 「개념이냐 주장이냐」 일 뿐이라 반복도 순서가 지워진다 (10-02: 후보 순서를 고쳐도 질문 7개가
+        # 그대로였다). LLM severity 는 짐작이라 같은 자리일 때만 가른다 — 자리는 겹치지 않으니 사실상 쓰지 않는다
+        pos = {node.id: i for i, (node, _) in enumerate(pairs)}
+        ordered = sorted(marks, key=lambda m: (_SOURCE_RANK[m.source], pos.get(m.node_id, len(pos)), m.severity, m.node_id))
+        ordered = _spread_adjacent(ordered, graph, {m.node_id: (_SOURCE_RANK[m.source],) for m in marks})
+        for rank, mark in enumerate(ordered, start=1):
+            mark.rank = rank
+        return ordered
     ordered = sorted(
         marks,
         key=lambda m: (
