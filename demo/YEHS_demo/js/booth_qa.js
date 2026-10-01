@@ -705,7 +705,9 @@ async function bqPaintCover(d) {
     const pdf = await bqCoverPdf(sid);
     const page = await pdf.getPage(1);
     const base = page.getViewport({ scale: 1 });
-    const vp = page.getViewport({ scale: Math.min(2, 520 / base.width) });
+    // 표지 칸(최대 CSS 520px)을 화면 픽셀만큼 — 레티나에서 뭉개지지 않게 (10-02 사냥 3 ★1)
+    const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+    const vp = page.getViewport({ scale: Math.min(2 * dpr, (520 * dpr) / base.width) });
     canvas.width = Math.floor(vp.width);
     canvas.height = Math.floor(vp.height);
     await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;

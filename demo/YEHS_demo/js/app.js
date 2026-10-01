@@ -1740,6 +1740,8 @@ async function ensureShowcasePreviewPdf() {
   }
 }
 
+/** PDF 한 장을 그리는 canvas 비트맵의 긴 변 상한 (px) — 2400×1350×4B ≈ 13MB */
+const PDF_MAX_PX = 2400;
 async function renderPdfToCanvas(pageNo, canvas, { maxWidth = 960 } = {}) {
   if (!uploadedPdf || !canvas) return false;
   const pageCount = uploadedPdf.pageCount;
@@ -1761,7 +1763,11 @@ async function renderPdfToCanvas(pageNo, canvas, { maxWidth = 960 } = {}) {
   }
   if (token !== pdfRenderToken || stale()) return false;
   const unscaled = pdfPage.getViewport({ scale: 1 });
-  const scale = Math.min(2, maxWidth / unscaled.width);
+  // maxWidth 는 CSS 폭이다 — 비트맵은 화면 픽셀(devicePixelRatio, 2까지)만큼 그린다. 예전엔 CSS 폭 그대로 그려서
+  // 맥 레티나(DPR 2)에서 자료가 절반 해상도로 뭉개졌다 (10-02 버그 사냥 3 ★1). 큰 canvas 메모리는 긴 변 PDF_MAX_PX 로 묶는다.
+  // CSS 크기는 각 화면의 규칙(width 100% · max-width/height 100%)이 정한다
+  const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+  const scale = Math.min(2 * dpr, (maxWidth * dpr) / unscaled.width, PDF_MAX_PX / Math.max(unscaled.width, unscaled.height));
   const viewport = pdfPage.getViewport({ scale });
   const ctx = canvas.getContext('2d');
   canvas.width = Math.floor(viewport.width);
