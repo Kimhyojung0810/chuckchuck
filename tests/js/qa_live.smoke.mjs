@@ -851,10 +851,49 @@ test('결과 한 줄은 판정이 가리킨 다시 볼 장을 적는다 — 스�
   eq(api.liveResultRow({ revealed: true }).meta, '답만 보고 넘어갔어요', '옛 기록(lookSlides 없음)은 예전 그대로');
 });
 
+/* ── P0-A (10-02 버그 사냥) — 기다리는 사이 코칭이 새로 시작되면 늦게 온 판정은 버린다 ─────────────── */
+function staleJudgeRun(srcOverride = null) {
+  const { ctx, api, turns } = srcOverride ? (() => {
+    const t = [];
+    const sandbox = { console, qa: { live: null }, nf: null, pushTurn: (x) => t.push(x), saveSession: () => {}, loadSession: () => null,
+      escapeHtml: (s) => String(s), hasRealSlideImage: () => true };
+    const c = vm.createContext(sandbox);
+    vm.runInContext(QA_DOC_KEY_SRC, c);
+    vm.runInContext(srcOverride + EXPORT_LINE, c);
+    return { ctx: c, api: c.__api, turns: t };
+  })() : newContext();
+  let release;
+  ctx.window = { ChuckchuckBridge: { judgeQaAnswer: () => new Promise((r) => { release = r; }) } };
+  Object.assign(ctx, { $: () => null, $$: () => [], growStream: () => {}, scrollDown: () => {} });
+  const qs = [{ id: 'q1', node_id: 'c1', label: '첫 질문', question: '왜요?' }, { id: 'q2', node_id: 'c2', label: '둘째', question: '어떻게요?' }];
+  const oldL = liveState(api, qs);
+  ctx.qa.live = oldL;
+  const sent = ctx.submitLiveAnswer({ giveUp: true });
+  const fresh = liveState(api, qs);
+  ctx.qa.live = fresh;                     // 다음 방문객
+  const before = turns.length;
+  release({ verdict: 'good', score: 90, passed: true, mastered: true, close_reason: 'good', react: '[늦은 판정]', hints: [] });
+  return sent.then(() => ({ fresh, oldL, after: turns.slice(before) }));
+}
+
+test('P0-A 앞 사람의 늦은 판정이 다음 사람 질문을 닫지 않는다', async () => {
+  const { fresh, after } = await staleJudgeRun();
+  eq(fresh.qi, 0, '새 코칭의 질문 번호');
+  eq(fresh.results.length, 0, '새 코칭의 결과');
+  eq(after.length, 0, '늦은 판정 뒤 붙은 말풍선');
+});
+
+test('P0-A 가드를 빼면 위 시험이 깨진다 (자기검사)', async () => {
+  const GUARD = "    if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }\n    const m = LIVE_VERDICT";
+  if (!QA_LIVE_SRC.includes(GUARD)) throw new Error('submitLiveAnswer 의 늦은 판정 가드가 바뀌었어요 — 이 자기검사도 같이 고쳐요');
+  const { fresh } = await staleJudgeRun(QA_LIVE_SRC.replace(GUARD, '    const m = LIVE_VERDICT'));
+  if (fresh.qi === 0 && fresh.results.length === 0) throw new Error('가드 없이도 새 코칭이 멀쩡했어요 — 시험이 아무것도 안 지킨다');
+});
+
 let failed = 0;
 for (const c of cases) {
   try {
-    c.fn();
+    await c.fn();
     console.log(`  ok   ${c.name}`);
   } catch (err) {
     failed += 1;

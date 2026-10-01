@@ -1118,16 +1118,21 @@ function startDictationMic() {
 
 /** 실시간이 안 되는 브라우저용 — 녹음해 두었다가 멈출 때 서버 STT 로 넘긴다. */
 async function startRecordingMic() {
+  const L0 = qa.live;
   try {
-    liveMic = {
-      dictation: false,
-      session: await window.ChuckchuckBridge.startAnswerRecording({
+    const session = await window.ChuckchuckBridge.startAnswerRecording({
         onAutoStop: () => {
           micSay('녹음이 너무 길어져 자동으로 멈췄어요 — 받아쓰는 중입니다');
           stopLiveMic();
         },
-      }),
-    };
+      });
+    // 여는 사이 코칭이 새로 시작됐으면 녹음을 바로 닫는다 — 안 그러면 아무도 안 멈추는 녹음이 남는다 (P0-A)
+    if (qa.live !== L0) {
+      try { session.stop(); } catch (_) { /* 이미 멈춘 뒤 */ }
+      liveMicPending = '';
+      return;
+    }
+    liveMic = { dictation: false, session };
   } catch (err) {
     liveMicPending = '';
     // 권한 거부·미지원. 삼키면 사용자는 버튼이 왜 안 먹는지 알 수 없다.
@@ -1162,11 +1167,15 @@ async function stopLiveMic() {
 
   liveMicPending = 'transcribing';
   setMicBtn('transcribing', true);
+  const L0 = qa.live;
   try {
     const text = await window.ChuckchuckBridge.transcribeAnswer(await mic.session.stop(), { sessionId: (qa.live && qa.live.sessionId) || null });
+    // 받아쓰는 사이 코칭이 새로 시작됐으면 옛 사람의 말을 새 답 칸에 넣지 않는다 (P0-A)
+    if (qa.live !== L0) { liveMicPending = ''; return; }
     if (text) fillLiveAnswer(text);
     else micSay('말소리를 못 알아들었어요 — 다시 녹음하거나 타이핑으로 답해 주세요');
   } catch (err) {
+    if (qa.live !== L0) { liveMicPending = ''; return; }
     if (typeof boothQaOn === 'function' && boothQaOn()) {
       console.warn('[chuckchuck] booth transcribe', err);
       micSay('말소리를 받아쓰지 못했어요. 한 번 더 말하거나 글로 답해요');
@@ -1246,6 +1255,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       micSay('녹음 중이에요 — 마이크를 한 번 더 누르면 받아써서 칸에 담아요. 타이핑해서 보내도 돼요');
       return;
     }
+    // 마이크를 멈추는 사이 코칭이 새로 시작됐으면(부스 다음 방문객 등) 옛 답을 보내지 않는다 (10-02 버그 사냥 P0-A)
+    if (qa.live !== L) return;
   }
   // 여닫는 가장자리도 막는다 — 여는 중에 보내면 녹음이 아무도 안 멈추는 채
   // 남고, 받아쓰는 중에 보내면 받아쓴 문장이 재렌더에 지워진다.
@@ -1299,6 +1310,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       onWait: ({ left, reason }) => setCoachThinkingText(liveRetryWaitText(left, reason)),
       stillWanted: stillHere,
     });
+    // 기다리는 사이 코칭이 새로 시작됐으면(부스 Esc·자리 비움 리셋 뒤 다음 방문객) 옛 판정을 지금 화면에 쓰지 않는다 — 그 판정이
+    // 다음 사람 질문을 닫고 대화에 붙었다 (10-02 버그 사냥 P0-A). 아래의 모든 쓰기(pushTurn · finishLiveQuestion 이 qa.live 를 다시 읽는다)보다 먼저
+    if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
     // 이번 답이 「모르겠어요」 사다리의 되물음(둘 중 하나·빈칸)에 대한 답인가 — 바로 앞 응답이 그 단계였다 (liveRevealsHalf)
     const prevJudgement = L.lastJudgement;
@@ -1377,6 +1391,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       askAgain(v, v.round_no || L.turn, { skipMissing: shownMissing });
     }
   } catch (err) {
+    if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }   // 옛 방문객의 실패도 지금 화면에 안 쓴다 (P0-A)
     hideCoachThinking();
     // 「모르겠어요」도 판정을 타므로, 서버가 죽으면 이 질문에 갇힌다.
     // 아래 렌더에서 「답 보고 다시 말해보기」가 열려 서버 없이 다음 질문으로 간다.
@@ -1905,10 +1920,12 @@ function revealLiveAnswer() {
   setLiveBusy(true);
   showCoachThinking();
   liveFetchReveal(q).then((gist) => {
-    hideCoachThinking();
     L.busy = false;
+    // 새 코칭(다음 방문객)이면 그 화면의 「듣고 있어요」·버튼을 건드리지 않는다 (P0-A)
+    if (qa.live !== L || L.questions[L.qi] !== q) return;
+    hideCoachThinking();
     setLiveBusy(false);
-    if (qa.live !== L || L.questions[L.qi] !== q || L.retell) return;
+    if (L.retell) return;
     enterRetell(gist || v.summary_sentence, record);
     saveSession('qa-flow', qa);
     growStream();
