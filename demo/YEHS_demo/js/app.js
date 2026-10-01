@@ -692,27 +692,6 @@ function renderHome() {
       <div class="h-wall">${window.Playbill.wallHtml()}</div>
     </section>` : ''}
 
-    ${sampleOpen() ? `<section class="h-sec">
-      <div class="h-sec-head">
-        <h2>${isShowcaseDemo() ? '연습 기록' : '샘플 발표'}</h2><span>${DATA.sessions.length}건</span>
-      </div>
-      ${isShowcaseDemo() ? '' : '<p class="h-sec-note">열어 보라고 넣어 둔 발표예요. 실제 리포트와 같은 화면이 나와요.</p>'}
-      <table class="h-table">
-        <thead>
-          <tr><th>제목</th><th>상황</th><th class="num">슬라이드</th><th class="num">완성도</th><th></th></tr>
-        </thead>
-        <tbody>
-          ${DATA.sessions.map(s => `
-          <tr tabindex="0" role="link" data-go="#/report/${s.id}">
-            <td class="h-t-title">${escapeHtml(s.title)}${isShowcaseDemo() ? '' : '<span class="t-tag">샘플</span>'}</td>
-            <td class="h-t-occ">${escapeHtml(s.occasion)}</td>
-            <td class="num h-t-dim">${s.slides}</td>
-            <td class="num h-t-score">${s.score}</td>
-            <td class="h-t-go" aria-hidden="true">›</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </section>` : ''}
 
 `;
 
@@ -749,7 +728,6 @@ function nextBandHtml() {
         <p>자료에 있는 개념과 실제로 말한 것을 하나씩 대조해서, 설명이 빠진 곳을 짚어줘요.</p>
         <span class="h-start-act">
           <a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>자료 올리기</a>
-          ${sampleOpen() ? `<a class="h-start-alt" href="#/report/sample-investor">${isShowcaseDemo() ? '최근 리포트 보기 →' : '샘플 리포트 먼저 보기 →'}</a>` : ''}
         </span>
       </section>`;
   }
@@ -5084,9 +5062,27 @@ async function renderReport() {
         </p>
         <div class="step-actions">
           <a class="btn btn-primary" href="#/new">발표 연습 시작하기</a>
-          ${sampleOpen() ? `<a class="btn btn-text" href="#/report/sample-investor">${isShowcaseDemo() ? '리포트 보기' : '샘플 리포트 보기'}</a>` : ''}
         </div>
       </div>`;
+    return;
+  }
+  /* 내 발표가 없는 #/report 는 빈 화면이다 (10-01). 예전엔 DATA 샘플 리포트가 내 것처럼 통째로 떴다 —
+     서비스에서는 자기 자료로 만든 결과만 보여 준다. 팀 「샘플 데모로 계속하기」(nf.useSample)·시연 모드는 그대로 */
+  if (!reportId && !isLiveReportSession() && !(nf && nf.useSample) && !isShowcaseDemo()) {
+    app.className = 'narrow';
+    app.innerHTML = `
+      <div class="card empty-card">
+        ${emptyBirdHtml('solar', 'neutral')}
+        <h2 class="section-title">발표를 분석하면 리포트가 여기 생겨요</h2>
+        <p class="note" style="margin:8px 0 14px">
+          자료를 올리고 발표를 녹음하면, 자료에 있는 개념과 실제로 말한 것을 하나씩 대조해 보여 줘요.
+        </p>
+        <div class="step-actions">
+          <a class="btn btn-primary" href="#/new" data-fresh-practice>발표 연습 시작하기</a>
+          ${hasLastReport() ? '<a class="btn btn-text" href="#/report/last">저장해 둔 리포트 보기</a>' : ''}
+        </div>
+      </div>`;
+    wireFreshPracticeButtons(app);
     return;
   }
   if (reportId && !rSampleMode && reportId !== 'last' && DATA.reportProfiles[reportId]) {
