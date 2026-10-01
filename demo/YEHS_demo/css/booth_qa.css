@@ -412,3 +412,6 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
   .bq-build .bq-fail { padding: 12px 16px; }
   .bq-build .bq-cta { min-height: 52px; }
 }
+
+/* 자리 비움 알림은 위 가운데 — 아래 가운데는 화상판의 삐약이 · 「모르겠어요」 줄을 덮었다 (10-02 버그 사냥) */
+.bq .bq-toast { top: clamp(64px, 9vh, 96px); bottom: auto; }

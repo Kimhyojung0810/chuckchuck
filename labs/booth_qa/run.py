@@ -373,6 +373,7 @@ def run(args) -> Path:
             # Esc 두 번 — 발표 고르기에서 묻지 않고 처음으로 (스태프 키)
             page.goto(f"{args.base}/booth/{args.route}", wait_until="load")
             page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            page.wait_for_timeout(450)   # 화면이 바뀐 뒤 0.38초는 마우스 클릭을 안 받는다 (P1-1)
             page.click("#bqStart")
             page.wait_for_selector("#bqStage[data-screen='pick']", timeout=10000)
             page.keyboard.press("Escape")
@@ -878,6 +879,7 @@ def run_reload(args) -> Path:
             page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
             check("pick")
             page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            page.wait_for_timeout(450)   # 화면이 바뀐 뒤 0.38초는 마우스 클릭을 안 받는다 (P1-1)
             page.click("#bqStart")
             page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
             page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')
@@ -886,6 +888,7 @@ def run_reload(args) -> Path:
             check("prep_ready")
             # 다시 준비해서 질문 화면으로
             page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            page.wait_for_timeout(450)   # 화면이 바뀐 뒤 0.38초는 마우스 클릭을 안 받는다 (P1-1)
             page.click("#bqStart")
             page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
             page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')

@@ -59,6 +59,7 @@ function bqBusyNow() {
 
 function bqIdleTick() {
   const now = Date.now();
+  if (typeof bqCamCheckAlive === 'function') bqCamCheckAlive();
   if (bqBusyNow()) { bqOps.lastInput = now; return; }
   const cv = window.BoothCV ? BoothCV.snapshot() : null;
   const seeing = typeof bqCamLive === 'function' && bqCamLive() && cv && cv.status === 'ready';
@@ -91,7 +92,9 @@ function bqIdleWarn() {
     if (p) p.textContent = `아무도 없는 것 같아요. ${left}초 뒤 처음 화면으로 돌아가요`;
   };
   paint();
-  document.getElementById('bqIdleStay').addEventListener('click', bqTouch);
+  const stay = document.getElementById('bqIdleStay');
+  stay.addEventListener('click', bqTouch);
+  stay.focus({ preventScroll: true });
   bqOps.warnTimer = setInterval(() => {
     left -= 1;
     if (left <= 0) { bqDisarmIdle(); bqGoHome(); return; }
@@ -109,16 +112,20 @@ function bqIdleCancelWarn() {
 
 /* ─── 처음으로 — 스태프 키 · 확인 시트 ─────────────────────────────────────── */
 
-/** Esc 를 1.5초 안에 두 번 → 묻지 않고 처음으로 (스태프용). 한 번만 설치한다 */
+/**
+ * 스태프 키 — Shift+Esc 는 묻지 않고 바로 처음으로. Esc 를 1.5초 안에 두 번은 질문 도중이면 확인 시트(방문객이 연타해도 날아가지 않게),
+ * 그 밖의 화면(시작 · 고르기 · 준비 · 결과)에서는 바로 처음으로 (10-02 버그 사냥 P2-3). 한 번만 설치한다
+ */
 function bqInstallKeys() {
   if (bqOps.keysOn) return;
   bqOps.keysOn = true;
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !document.getElementById('bqStage')) return;
+    if (e.shiftKey) { bqOps.escAt = 0; const s = document.getElementById('bqSheet'); if (s) s.remove(); bqGoHome(); return; }
     const sheet = document.getElementById('bqSheet');
     if (sheet) { sheet.remove(); return; }
     const now = Date.now();
-    if (now - bqOps.escAt < BQ_ESC_GAP_MS) { bqOps.escAt = 0; bqGoHome(); return; }
+    if (now - bqOps.escAt < BQ_ESC_GAP_MS) { bqOps.escAt = 0; bqHomeClicked(); return; }
     bqOps.escAt = now;
   });
 }

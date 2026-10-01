@@ -64,6 +64,7 @@ const BOOTH_SAMPLE_QS = [
 const BOOTH_SKIM_MS = 3600;          // 훑어보기 한 장
 const BOOTH_FINALE_RETURN_SEC = 40;  // 마무리 뒤 처음 화면으로
 const BOOTH_PREP_POLL_MS = 400;
+const BQ_CLICK_SETTLE_MS = 380;      // 화면이 바뀐 뒤 이만큼은 마우스 클릭을 안 받는다 (연타가 새 화면을 누르지 않게)
 
 const bq = {
   screen: '',
@@ -139,8 +140,13 @@ function bqTrapBack() {
   if (!bq.backTrap) {
     bq.backTrap = true;
     window.addEventListener('popstate', () => {
-      if (!boothQaOn() || !bqIsBoothHash() || (history.state && history.state.bq)) return;
-      history.pushState({ bq: 1 }, '', location.href);
+      if (!boothQaOn() || (history.state && history.state.bq)) return;
+      if (bqIsBoothHash()) { history.pushState({ bq: 1 }, '', location.href); return; }
+      // 질문 화면에서 뒤로 가기(마우스 버튼 · 스와이프) — 확인 없이 처음 화면으로 리셋하던 것을 「처음 화면으로 갈까요?」 시트로 (10-02 P2-1)
+      if (location.hash === '#/qa' && bq.screen === 'qa') {
+        history.pushState({ bq: 1 }, '', location.href);
+        if (typeof bqHomeClicked === 'function') bqHomeClicked();
+      }
     });
   }
   if (!(history.state && history.state.bq)) history.pushState({ bq: 1 }, '', location.href);
@@ -170,6 +176,11 @@ function boothQaOnRoute(key) {
   if (!boothQaOn()) return;
   boothQaSet(false);
   bqCamStop();
+  bqStopMic();
+  // 부스 세션을 일반 앱에 남기지 않는다 — 홈에 「교수님과 하던 질문 코칭을 이어서 할까요?」 가 떴다 (10-02 버그 사냥 P2-2)
+  bq.prepToken += 1;
+  if (typeof resetQa === 'function') resetQa();
+  if (typeof resetNf === 'function') resetNf();
 }
 
 /** #/booth/qa · #/booth/call — 새 체험. 지난 사람의 발표·질문을 지우고 시작 화면을 연다 */
@@ -178,9 +189,12 @@ function renderBoothQa(variant = bqHashVariant() || 'stage') {
   if (typeof visionFlowSet === 'function') visionFlowSet(false);
   bq.variant = variant === 'call' ? 'call' : 'stage';
   bq.role = BOOTH_ROLES[0].aud;     // 역할도 다음 방문객에게 넘기지 않는다
+  // 덱 목록은 방문객마다 새로 받는다 — 탭에 영구히 남기면 파싱본이 만료돼도 죽은 덱만 맴돌았다 (10-02 P1-2). 표지 PDF 는 같은 세션이면 다시 쓴다(bqPruneCovers)
+  bq.decks = null;
   // 앞 방문객이 끈 카메라 · 죽은 실시간 받아쓰기를 다음 사람에게 넘기지 않는다 — 안 그러면 그날 내내 꺼진 채다 (10-01 점검)
   bq.cam.off = false;
   bq.cam.error = '';
+  bq.cam.denied = false;
   if (typeof liveDictationDead !== 'undefined') liveDictationDead = false;
   if (typeof bqInstallKeys === 'function') bqInstallKeys();
   boothQaSet(true, bq.variant);
@@ -214,7 +228,11 @@ function bqUnmount() {
   if (bq.dockWatch) { bq.dockWatch.disconnect(); bq.dockWatch = null; }
   if (typeof bqDisarmIdle === 'function') { bqDisarmIdle(); bqStopAutoEnd(); }
   const layer = document.getElementById('bqStage');
-  if (layer) layer.remove();
+  if (layer) {
+    // 보이는 video 가 살아 있는 스트림을 쥔 채 떼어지면 층이 통째로 메모리에 남았다 — 방문마다 DOM +800 (사냥 2 #3)
+    layer.querySelectorAll('video').forEach((v) => { try { v.pause(); } catch (_) { /* 이미 멈춤 */ } v.srcObject = null; });
+    layer.remove();
+  }
   document.body.classList.remove('bq-open');
 }
 
@@ -255,6 +273,12 @@ function bqMount(screen, html) {
   document.body.appendChild(layer);
   document.body.classList.add('bq-open');
   layer.querySelectorAll('[data-bq-home]').forEach((b) => b.addEventListener('click', bqHomeClicked));
+  // 화면이 바뀐 직후의 마우스 클릭은 앞 화면 버튼을 연타한 것이다 — 「체험 시작하기」 두 번째 클릭이 같은 자리의 첫 덱을 골랐다 (10-02 P1-1).
+  // 키보드(Enter · Space, detail 0)는 막지 않는다
+  bq.mountAt = performance.now();
+  layer.addEventListener('click', (e) => {
+    if (e.detail > 0 && performance.now() - bq.mountAt < BQ_CLICK_SETTLE_MS) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
   if (typeof bqArmIdle === 'function') bqArmIdle(layer, screen);
   bqCamEnsure();
   bqCamPaint();
@@ -295,7 +319,7 @@ function bqCamErrorText(err) {
 
 async function bqCamEnsure() {
   const cam = bq.cam;
-  if (cam.off) return null;
+  if (cam.off || cam.denied) return null;   // 거부를 받았으면 이 방문 동안은 화면마다 다시 묻지 않는다 (10-02 사냥 2 #11) — 「카메라 켜기」 로만 다시
   if (cam.stream && cam.stream.getVideoTracks().some((t) => t.readyState === 'live')) return cam.stream;
   if (cam.opening) return cam.opening;
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
@@ -308,18 +332,39 @@ async function bqCamEnsure() {
     video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
     audio: false,
   }).then((s) => {
+    // 권한을 묻는 사이 부스를 나갔거나 카메라를 껐으면 받은 스트림을 바로 닫는다 — 홈에서 카메라·판단이 돌았다 (사냥 2 #8)
+    if (!boothQaOn() || cam.off) { s.getTracks().forEach((t) => t.stop()); return null; }
     cam.stream = s;
     cam.error = '';
+    // 카메라를 뽑거나 다른 앱이 가져가면 트랙이 ended 가 된다 — 검은 화면에 「정면 0%」 가 남고, 사람이 있어도 30초 뒤 「아무도 없는 것 같아요」 가 떴다 (10-02 P1-4)
+    s.getVideoTracks().forEach((t) => t.addEventListener('ended', () => bqCamLost(s)));
     return s;
   }).catch((err) => {
     cam.stream = null;
     cam.error = bqCamErrorText(err);
+    if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) cam.denied = true;
     return null;
   }).finally(() => {
     cam.opening = null;
     bqCamPaint();
   });
   return cam.opening;
+}
+
+/** 카메라가 끊겼다 — 꺼짐 안내와 「카메라 켜기」 를 띄우고 판단을 멈춘다. 자리 비움은 카메라 없을 때 기준으로 센다 (bqCamLive 가 false) */
+function bqCamLost(s) {
+  const cam = bq.cam;
+  if (!s || cam.stream !== s) return;
+  cam.stream = null;
+  cam.error = '카메라 연결이 끊겼어요. 카메라를 다시 꽂거나 카메라를 쓰는 다른 앱을 닫고 「카메라 켜기」를 눌러요.';
+  if (window.BoothCV) BoothCV.unwatch();
+  bqCamPaint();
+}
+
+/** ended 사건이 안 오는 경우(스트림을 다른 쪽이 stop 등)도 있어 자리 비움 시계가 1초마다 살아 있는지 본다 */
+function bqCamCheckAlive() {
+  const s = bq.cam.stream;
+  if (s && !s.getVideoTracks().some((t) => t.readyState === 'live')) bqCamLost(s);
 }
 
 function bqCamStop() {
@@ -365,6 +410,8 @@ function bqCamPaint() {
   if (!live) {
     const hint = document.getElementById('bqHint');
     if (hint) hint.hidden = true;
+    const gaze = document.getElementById('bqGazeNow');
+    if (gaze) gaze.hidden = true;   // 꺼진 카메라의 「정면 0%」 를 남기지 않는다
     bqPaintFaceBox(null);
   }
   const note = document.getElementById('bqCamNote');
@@ -385,6 +432,7 @@ function bqCamToggle() {
   }
   bq.cam.off = false;
   bq.cam.error = '';
+  bq.cam.denied = false;   // 손으로 누른 것은 다시 묻는다
   bqCamPaint();
   bqCamEnsure();
 }
@@ -426,7 +474,7 @@ function bqOnCv(s) {
 function bqCvStatusText(s) {
   if (!bqCamLive()) return bq.cam.error ? '카메라 없이도 체험할 수 있어요' : '';
   if (s.status === 'loading') return '얼굴을 찾을 준비를 하고 있어요';
-  if (s.status === 'failed') return '카메라 없이도 체험할 수 있어요';
+  if (s.status === 'failed') return '얼굴 판단 없이 진행해요';   // 영상은 보이는데 「카메라 없이」 는 사실과 다르다 (사냥 2 #10)
   if (s.status !== 'ready') return '';
   if (s.present) return '반가워요! 앞에 서 있는 모습이 보여요';
   return bq.variant === 'call' ? '앞에 서면 삐약이가 인사해요' : '앞에 서면 병아리들이 인사해요';
@@ -539,7 +587,19 @@ async function bqLoadDecks() {
   const rows = body.decks || [];
   const byKey = new Map(rows.map((r) => [String(r.key || '').normalize('NFC'), r]));
   bq.decks = BOOTH_DECKS.map((d) => ({ ...d, row: byKey.get(d.key.normalize('NFC')) || null }));
+  bqPruneCovers(bq.decks);
   return bq.decks;
+}
+
+/** 목록에서 빠진(만료된) 세션의 표지 PDF 는 닫고 버린다 — 남은 덱의 것은 다시 쓴다(방문객마다 PDF 를 다시 받지 않게) */
+function bqPruneCovers(decks) {
+  const live = new Set(decks.map((d) => d.row && d.row.cached_session_id).filter(Boolean));
+  [...bq.covers.keys()].forEach((sid) => {
+    if (live.has(sid)) return;
+    const p = bq.covers.get(sid);
+    bq.covers.delete(sid);
+    if (p) p.then((pdf) => { try { pdf.destroy(); } catch (_) { /* 이미 닫힘 */ } }).catch(() => {});
+  });
 }
 
 function bqDeckReady(d) {
@@ -573,7 +633,10 @@ async function bqShowPick() {
   const box = $('#bqDecks');
   if (!ready.length) {
     box.innerHTML = `<div class="bq-fail"><b>지금 고를 수 있는 발표가 없어요</b>
-      <p>부스용 발표를 개발 화면 /test/qa 에서 한 번씩 열어 두면 여기에 나타나요.</p></div>`;
+      <p>부스용 발표를 개발 화면 /test/qa 에서 한 번씩 열어 두면 여기에 나타나요.</p>
+      <button type="button" class="bq-ghost" id="bqDeckRetry">다시 불러오기</button></div>`;
+    const retry = $('#bqDeckRetry');
+    if (retry) retry.addEventListener('click', () => { bq.decks = null; bqShowPick(); });
     return;
   }
   box.innerHTML = ready.map((d) => `
@@ -720,6 +783,9 @@ function bqPrepFailText(stage, raw) {
 }
 
 function bqPrepFail(message, d) {
+  // 준비가 멈췄으면 목록·이 덱 표지를 새로 받는다 — 파싱본이 만료됐을 수 있다 (10-02 P1-2)
+  bq.decks = null;
+  if (d && d.row && d.row.cached_session_id) bq.covers.delete(d.row.cached_session_id);
   const box = document.getElementById('bqPrepFail');
   if (!box) return;
   box.innerHTML = `<div class="bq-fail"><b>질문을 만들다 멈췄어요</b><p>${escapeHtml(message)}</p>
@@ -1025,6 +1091,7 @@ function bqQaSync() {
 function renderQaLiveBooth() {
   // 새로고침하면 bq 가 비어도 탭이 기억한 무대를 따른다
   bq.variant = boothQaVariant() || bq.variant;
+  bqTrapBack();   // 질문 화면에도 같은 주소 한 칸 — 뒤로 가기는 확인 시트로 (P2-1)
   if (bq.variant === 'call' && typeof renderQaLiveBoothCall === 'function') return renderQaLiveBoothCall();
   const no = bqQaSlideNo();
   bqMount('qa', `
