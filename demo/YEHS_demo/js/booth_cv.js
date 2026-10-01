@@ -156,6 +156,9 @@
   const FRAME_W = 320;          // 얼굴 찾기용 축소 폭. 부스 거리(1~2m)의 얼굴은 이 폭에서 40px 안팎이다
   const TICK_MS = 180;          // 약 5.5fps — 받아쓰기·판정과 같이 돌아도 통화가 안 끊기는 선
   const SLOW_TICK_MS = 400;     // 한 프레임이 오래 걸리는 노트북에서는 느리게
+  const STALL_MS = 3000;        // 워커가 이만큼 답이 없으면 그 장은 버린다
+  const STALL_RESTART = 3;      // 연달아 이만큼 멈추면 워커를 새로 띄운다 (하루 종일 도는 부스 — 조용히 멈추지 않게)
+  const RETRY_AFTER_MS = 60000; // 불러오기에 실패하면 이만큼 지나야 다시 받는다 (방문객마다 10MB 를 다시 받지 않게)
   const abs = (u) => new URL(u, root.location.href).href;
 
   const rt = {
@@ -171,12 +174,17 @@
     gaze: null,                 // 재는 중이면 { samples, frontal }
     canvas: null,
     lastCostMs: 0,
+    tickMs: TICK_MS,            // 화면마다 다르다 — 사람이 오는지만 보는 화면은 느리게 (watch 의 tickMs)
+    sentAt: 0,
+    stalls: 0,
+    failedAt: 0,
   };
 
   function onWorkerMessage(e) {
     const msg = e.data || {};
     if (msg.type === 'result') {
       rt.busy = false;
+      rt.stalls = 0;
       rt.lastCostMs = Number(msg.ms) || 0;
       if (msg.error) console.warn('[chuckchuck] booth cv frame', msg.error);
       if (!rt.video) return;
@@ -189,6 +197,7 @@
   function load() {
     if (rt.status === 'ready') return Promise.resolve(true);
     if (rt.loading) return rt.loading;
+    if (rt.status === 'failed' && Date.now() - rt.failedAt < RETRY_AFTER_MS) return Promise.resolve(false);
     if (typeof root.Worker !== 'function') {
       rt.status = 'failed';
       rt.error = '이 브라우저는 카메라 판단을 따로 돌리지 못해요';
@@ -217,6 +226,7 @@
       return true;
     }).catch((err) => {
       rt.status = 'failed';
+      rt.failedAt = Date.now();
       rt.error = String((err && err.message) || err);
       if (rt.worker) { rt.worker.terminate(); rt.worker = null; }
       console.warn('[chuckchuck] booth cv', rt.error);
@@ -241,16 +251,33 @@
     ctx.drawImage(v, 0, 0, FRAME_W, h);
     const img = ctx.getImageData(0, 0, FRAME_W, h);
     rt.busy = true;
+    rt.sentAt = Date.now();
     rt.worker.postMessage({ type: 'frame', w: FRAME_W, h, data: img.data.buffer }, [img.data.buffer]);
+  }
+
+  /** 워커가 답을 안 하면 busy 가 영원히 남아 판단이 조용히 멈춘다 — 그 장은 버리고, 거듭되면 워커를 새로 띄운다 */
+  function checkStall() {
+    if (!rt.busy || Date.now() - rt.sentAt < STALL_MS) return false;
+    rt.busy = false;
+    rt.stalls += 1;
+    if (rt.stalls < STALL_RESTART) return false;
+    console.warn('[chuckchuck] booth cv worker stalled — restarting');
+    if (rt.worker) rt.worker.terminate();
+    rt.worker = null;
+    rt.stalls = 0;
+    rt.status = 'idle';
+    load();
+    return true;
   }
 
   function tick() {
     rt.timer = 0;
     if (!rt.video || rt.status !== 'ready') return;
+    if (checkStall()) return;
     if (!document.hidden) {
       try { sendFrame(); } catch (err) { rt.busy = false; console.warn('[chuckchuck] booth cv frame', err); }
     }
-    schedule(document.hidden || rt.lastCostMs > 90 ? SLOW_TICK_MS : TICK_MS);
+    schedule(document.hidden || rt.lastCostMs > 90 ? Math.max(SLOW_TICK_MS, rt.tickMs) : rt.tickMs);
   }
 
   function schedule(ms) {
@@ -277,8 +304,12 @@
     };
   }
 
-  /** 이 video 를 보기 시작한다. 같은 video 면 아무것도 안 한다 */
-  function watch(video) {
+  /**
+   * 이 video 를 보기 시작한다. 같은 video 면 속도만 바꾼다.
+   * tickMs — 사람이 오는지만 보는 화면(시작·고르기)은 느리게, 구도 안내·정면 비율을 재는 질문 화면은 기본.
+   */
+  function watch(video, { tickMs = TICK_MS } = {}) {
+    rt.tickMs = Math.max(TICK_MS, Number(tickMs) || TICK_MS);
     if (rt.video === video) return;
     rt.video = video || null;
     rt.state = createCvState(Date.now());

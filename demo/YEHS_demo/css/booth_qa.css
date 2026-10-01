@@ -69,7 +69,7 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
   50% { box-shadow: 0 10px 30px rgba(14, 136, 80, .35), 0 0 0 14px rgba(63, 213, 153, 0); }
 }
 .bq-ghost {
-  display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px;
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px;
   border: 1px solid var(--bq-line); border-radius: var(--r-ctl); background: var(--bq-glass);
   color: #fff; font: inherit; font-size: 15px; font-weight: var(--w-med); cursor: pointer;
 }
@@ -327,4 +327,55 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .bq-cta.pulse, .bq-bubble.swap p, .bq-spot.enter, .bq-build-steps li[data-state="run"] i { animation: none; }
+}
+
+/* ── 부스 운영 장치 (js/booth_ops.js · 2026-10-01 점검) ───────────────────────── */
+/* 화면 읽기 전용 글 — 두 무대 · 모든 화면에서 쓴다 */
+.bq .bq-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.bq-cta-sm { min-height: 48px; padding: 0 22px; font-size: 17px; }
+
+/* 자리 비움 알림 — 아래 가운데, 무엇보다 위 */
+.bq-toast {
+  position: absolute; z-index: 20; left: 50%; bottom: clamp(16px, 4vh, 40px); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 18px; max-width: min(92vw, 720px); padding: 14px 16px 14px 24px;
+  border-radius: var(--r-print); background: rgba(10, 14, 20, .92); border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .4); color: #fff;
+}
+.bq-toast p { margin: 0; font-size: 18px; font-weight: var(--w-med); line-height: 1.45; }
+
+/* 처음으로 확인 시트 — 브라우저 confirm 대신 */
+.bq-sheet-wrap { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(0, 0, 0, .5); }
+.bq-sheet {
+  width: min(92vw, 440px); padding: 28px 26px 22px; border-radius: var(--r-print);
+  background: #fff; color: var(--text); box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+}
+.bq-sheet h2 { margin: 0 0 8px; font-size: 22px; font-weight: var(--w-bold); }
+.bq-sheet p { margin: 0 0 22px; color: var(--text-2, #52525B); font-size: 16px; }
+.bq-sheet-actions { display: flex; gap: 10px; }
+.bq-sheet-actions > * { flex: 1; }
+.bq-sheet .bq-ghost { color: var(--text); background: var(--fill, #F4F4F5); border-color: transparent; }
+.bq-sheet :focus-visible { outline: 2.5px solid var(--brand); outline-offset: 3px; }
+
+/* 첫 질문 앞 운영 안내 줄은 위 띠 이름표의 title 로 옮긴다 (booth_qa.js bqMoveLeadNote) — 점 하나로 남겨 둔다 */
+.bq .qa-stream > .qa-note-line:first-child { display: none; }
+.bq .bq-brand small[data-note="1"]::after {
+  content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%;
+  background: var(--mid, #B45309); vertical-align: middle;
+}
+
+/* 훑어보기 — 준비 안내 · 멈추기 */
+.bq-build-note { margin: -4px 0 4px; color: var(--bq-soft); font-size: 15px; }
+.bq-skim-bar #bqSkimPause { min-width: 104px; }
+
+/* 시작 화면 화상판 — 삐약이 한 마리 · 돌아가는 역할 낱말 */
+.bq-host-one figure { width: clamp(120px, 11vw, 168px); }
+.bq-role-word { color: var(--cyan); }
+.bq-mirror #bqCamToggle { margin-top: 8px; }
+.bq-mirror #bqCamToggle[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bq-toast, .bq-sheet { transition: none; }
 }

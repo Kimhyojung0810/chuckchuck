@@ -1153,7 +1153,12 @@ async function stopLiveMic() {
     if (text) fillLiveAnswer(text);
     else micSay('말소리를 못 알아들었어요 — 다시 녹음하거나 타이핑으로 답해 주세요');
   } catch (err) {
-    micSay(`받아쓰기에 실패했어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답해도 돼요`);
+    if (typeof boothQaOn === 'function' && boothQaOn()) {
+      console.warn('[chuckchuck] booth transcribe', err);
+      micSay('말소리를 받아쓰지 못했어요. 한 번 더 말하거나 글로 답해요');
+    } else {
+      micSay(`받아쓰기에 실패했어요: ${escapeHtml(err.message || String(err))} — 타이핑으로 답해도 돼요`);
+    }
   }
   liveMicPending = '';
   idle();
@@ -1621,6 +1626,18 @@ function liveJudgeFailure(err, giveUp = false) {
       text: '요청이 몰려서 판정을 아직 못 받았어요. 조금 뒤에 답을 다시 보내면 판정해요 — 이 질문은 넘긴 걸로 세지 않아요',
     };
   }
+  // 부스(/booth/qa · /booth/call)는 방문객 화면이다 — 업로드 화면으로 보내는 링크·원문 오류 대신 할 수 있는 일만 말한다.
+  // 판정을 다시 받는 흐름(judgeFailed · retryOnReconnect)은 앱과 같다
+  const booth = typeof boothQaOn === 'function' && boothQaOn();
+  if (booth && code !== 'server_unreachable') {
+    console.warn('[chuckchuck] booth judge failure', code, err);
+    return {
+      judgeFailed: true, retryOnReconnect: null, restore: !giveUp,
+      text: code === 'session_missing'
+        ? '자료 정보가 사라져서 판정하지 못했어요. 「처음으로」를 누르면 다시 시작할 수 있어요'
+        : '판정을 받지 못했어요. 답은 그대로 두었어요 — 다시 보내거나 「답 보고 다시 말해보기」로 넘어갈 수 있어요',
+    };
+  }
   return {
     judgeFailed: true,
     retryOnReconnect: code === 'server_unreachable' ? { giveUp } : null,
@@ -1936,7 +1953,10 @@ function closeRetell(text) {
     pushTurn({ who: 'me', kind: 'say', text: escapeHtml(said) });
     pushTurn({
       who: 'sys', kind: 'won',
-      text: `${escapeHtml(q.label)} — 한 번 말해 봤어요. 리포트에서 같이 다시 볼게요`,
+      // 부스는 기록을 남기지 않는다 — 「리포트에서」 는 거기서 거짓말이다
+      text: typeof boothQaOn === 'function' && boothQaOn()
+        ? `${escapeHtml(q.label)} — 한 번 말해 봤어요`
+        : `${escapeHtml(q.label)} — 한 번 말해 봤어요. 리포트에서 같이 다시 볼게요`,
     });
   } else {
     pushTurn({ who: 'sys', kind: 'lost', text: `${escapeHtml(q.label)} — 답만 보고 넘어갔어요` });

@@ -136,6 +136,11 @@ function renderBoothQa(variant = bqHashVariant() || 'stage') {
   if (typeof visionFlowSet === 'function') visionFlowSet(false);
   bq.variant = variant === 'call' ? 'call' : 'stage';
   bq.role = BOOTH_ROLES[0].aud;     // 역할도 다음 방문객에게 넘기지 않는다
+  // 앞 방문객이 끈 카메라 · 죽은 실시간 받아쓰기를 다음 사람에게 넘기지 않는다 — 안 그러면 그날 내내 꺼진 채다 (10-01 점검)
+  bq.cam.off = false;
+  bq.cam.error = '';
+  if (typeof liveDictationDead !== 'undefined') liveDictationDead = false;
+  if (typeof bqInstallKeys === 'function') bqInstallKeys();
   boothQaSet(true, bq.variant);
   bq.prepToken += 1;         // 준비 중이던 체험이 있으면 그 결과를 버린다
   bqStopMic();
@@ -164,6 +169,7 @@ function bqUnmount() {
   if (bq.inputObserver) { bq.inputObserver.disconnect(); bq.inputObserver = null; }
   if (bq.slideWatch) { bq.slideWatch.disconnect(); bq.slideWatch = null; }
   if (bq.dockWatch) { bq.dockWatch.disconnect(); bq.dockWatch = null; }
+  if (typeof bqDisarmIdle === 'function') { bqDisarmIdle(); bqStopAutoEnd(); }
   const layer = document.getElementById('bqStage');
   if (layer) layer.remove();
   document.body.classList.remove('bq-open');
@@ -176,10 +182,14 @@ const BQ_STEPS = [
   { key: 'finale', word: '결과' },
 ];
 
+function bqStepWord(s) {
+  return bq.variant === 'call' && s.key === 'pick' ? '발표·역할 고르기' : s.word;
+}
+
 function bqTopHtml(screen) {
   const at = BQ_STEPS.findIndex((s) => s.key === screen);
   const steps = at < 0 ? '' : `<ol class="bq-steps-top" aria-label="체험 단계">${BQ_STEPS.map((s, i) => `
-    <li class="${i < at ? 'done' : ''}${i === at ? ' on' : ''}"${i === at ? ' aria-current="step"' : ''}><i>${i < at ? '✓' : i + 1}</i>${s.word}</li>`).join('')}</ol>`;
+    <li class="${i < at ? 'done' : ''}${i === at ? ' on' : ''}"${i === at ? ' aria-current="step"' : ''}><i aria-hidden="true">${i < at ? '✓' : i + 1}</i>${bqStepWord(s)}${i < at ? '<span class="bq-sr"> · 마쳤어요</span>' : ''}</li>`).join('')}</ol>`;
   return `<header class="bq-top">
     <span class="bq-brand"><img src="assets/chuckchuck-app-icon-64.png?v=qk13" alt="">척척발표<small>${bq.variant === 'call' ? 'Q&amp;A 화상 체험' : 'Q&amp;A 체험'}</small></span>
     ${steps}
@@ -202,6 +212,7 @@ function bqMount(screen, html) {
   document.body.appendChild(layer);
   document.body.classList.add('bq-open');
   layer.querySelectorAll('[data-bq-home]').forEach((b) => b.addEventListener('click', bqHomeClicked));
+  if (typeof bqArmIdle === 'function') bqArmIdle(layer, screen);
   bqCamEnsure();
   bqCamPaint();
   return layer;
@@ -210,7 +221,7 @@ function bqMount(screen, html) {
 function bqHomeClicked() {
   const L = qa && qa.live;
   const midQa = bq.screen === 'qa' && L && !L.awaitEnd && L.qi < ((L.questions || []).length);
-  if (midQa && !window.confirm('처음 화면으로 갈까요? 지금까지 답한 내용은 남지 않아요.')) return;
+  if (midQa && typeof bqConfirmHome === 'function') { bqConfirmHome(); return; }
   bqGoHome();
 }
 
@@ -285,8 +296,11 @@ function bqCamPaint() {
     bq.video.srcObject = stream;
     if (stream) bq.video.play().catch(() => { /* muted 라 보통은 안 막힌다 */ });
   }
+  // 판단은 쓰는 화면에서만 돈다 — 시작·고르기·훑어보기는 사람이 있는지만(느리게), 질문 화면은 구도·정면 비율(기본),
+  // 마무리는 안 본다. 예전엔 카메라가 켜져 있으면 모든 화면에서 5.5fps 로 돌았다 (10-01 성능 점검)
   if (window.BoothCV) {
-    if (stream) BoothCV.watch(bq.video);
+    const need = stream && bq.screen !== 'finale';
+    if (need) BoothCV.watch(bq.video, { tickMs: bq.screen === 'qa' ? 180 : 400 });
     else BoothCV.unwatch();
   }
   document.querySelectorAll('#bqStage video[data-bq-cam]').forEach((v) => {
@@ -296,10 +310,18 @@ function bqCamPaint() {
     }
   });
   document.querySelectorAll('#bqStage [data-bq-cam-box]').forEach((box) => { box.dataset.camera = live ? 'on' : 'off'; });
+  // 카메라가 꺼지면 마지막 판단(구도 안내 · 얼굴 테두리)이 화면에 남지 않게 걷는다
+  if (!live) {
+    const hint = document.getElementById('bqHint');
+    if (hint) hint.hidden = true;
+    bqPaintFaceBox(null);
+  }
   const note = document.getElementById('bqCamNote');
   if (note) note.textContent = bq.cam.off ? '카메라를 껐어요' : (bq.cam.error || (bq.cam.opening ? '카메라를 여는 중이에요' : ''));
   const btn = document.getElementById('bqCamToggle');
   if (btn) btn.textContent = live ? '카메라 끄기' : '카메라 켜기';
+  // 시작 화면에는 꺼졌거나 못 열었을 때만 「카메라 켜기」 — 오류 문구가 가리키는 버튼이 그 화면에 있어야 한다
+  if (btn && bq.screen === 'attract') btn.hidden = live || (!bq.cam.off && !bq.cam.error);
   bqWireCv();
 }
 
@@ -323,33 +345,40 @@ function bqWireCv() {
   bq.cvUnsub = BoothCV.subscribe(bqOnCv);
 }
 
+/** 값이 바뀔 때만 쓴다 — 판단 결과는 1초에 5번 오고, 같은 글을 다시 쓰면 그때마다 스타일·화면 읽기가 다시 돈다 */
+function bqSet(el, prop, value) {
+  if (el && el[prop] !== value) el[prop] = value;
+}
+
 function bqOnCv(s) {
   const layer = document.getElementById('bqStage');
   if (!layer) return;
-  layer.dataset.present = s.present ? '1' : '0';
-  const status = document.getElementById('bqCvStatus');
-  if (status) status.textContent = bqCvStatusText(s);
+  const present = s.present ? '1' : '0';
+  if (layer.dataset.present !== present) layer.dataset.present = present;
+  bqSet(document.getElementById('bqCvStatus'), 'textContent', bqCvStatusText(s));
   if (bq.screen === 'attract' && s.arrived) bqGreet();
   const hint = document.getElementById('bqHint');
   if (hint) {
-    hint.textContent = s.hint || '';
-    hint.hidden = !s.hint;
+    bqSet(hint, 'textContent', s.hint || '');
+    bqSet(hint, 'hidden', !s.hint);
   }
   bqPaintFaceBox(s.face);
   const gaze = document.getElementById('bqGazeNow');
   if (gaze) {
     const pct = window.BoothCvLogic ? BoothCvLogic.gazePercent(s.gaze) : null;
-    gaze.textContent = pct === null ? '' : `정면 ${pct}%`;
-    gaze.hidden = pct === null;
+    bqSet(gaze, 'textContent', pct === null ? '' : `정면 ${pct}%`);
+    bqSet(gaze, 'hidden', pct === null);
+    if (pct !== null && gaze.getAttribute('aria-label') !== `얼굴이 정면으로 잡힌 시간 ${pct}%`) gaze.setAttribute('aria-label', `얼굴이 정면으로 잡힌 시간 ${pct}%`);
   }
 }
 
 function bqCvStatusText(s) {
   if (!bqCamLive()) return bq.cam.error ? '카메라 없이도 체험할 수 있어요' : '';
   if (s.status === 'loading') return '얼굴을 찾을 준비를 하고 있어요';
-  if (s.status === 'failed') return '카메라 판단 없이 진행해요';
+  if (s.status === 'failed') return '카메라 없이도 체험할 수 있어요';
   if (s.status !== 'ready') return '';
-  return s.present ? '반가워요! 앞에 서 있는 모습이 보여요' : '앞에 서면 병아리들이 인사해요';
+  if (s.present) return '반가워요! 앞에 서 있는 모습이 보여요';
+  return bq.variant === 'call' ? '앞에 서면 삐약이가 인사해요' : '앞에 서면 병아리들이 인사해요';
 }
 
 /** 얼굴 테두리 — 내 모습 창(거울처럼 뒤집어 보인다)에 맞춰 좌우를 뒤집는다 */
@@ -371,34 +400,40 @@ function bqShowAttract() {
     <div class="bq-attract">
       <section class="bq-hero">
         ${bq.variant === 'call' ? `<p class="bq-eyebrow">부스 Q&amp;A 화상 체험</p>
-        <h1>발표 자료를 읽은 삐약이가<br>교수님이 되어 물어봐요</h1>
-        <p class="bq-lead">교수님 · 심사위원 · 회사 상사 중에 역할을 골라 맡기고, 화상 통화처럼 카메라를 보며 질문 3개에 말로 답해 보세요. 3분이면 끝나요.</p>` : `<p class="bq-eyebrow">부스 Q&amp;A 체험</p>
+        <h1>발표 자료를 읽은 삐약이가<br><span id="bqRoleWord" class="bq-role-word">${escapeHtml(BOOTH_ROLES[0].aud)}</span>${escapeHtml(josa(BOOTH_ROLES[0].aud, '이', '가'))} 되어 물어봐요</h1>
+        <p class="bq-lead">교수님 · 심사위원 · 회사 상사 · 일반 청중 중 한 역할을 삐약이에게 맡기고, 화상 통화처럼 카메라를 보며 질문 3개에 말로 답해 봐요. 3분이면 끝나요.</p>` : `<p class="bq-eyebrow">부스 Q&amp;A 체험</p>
         <h1>발표 자료를 읽은 AI가<br>심사위원처럼 물어봐요</h1>
-        <p class="bq-lead">발표 하나를 고르고 질문 3개에 답해 보세요. 3분이면 끝나요.</p>`}
+        <p class="bq-lead">발표 하나를 고르고 질문 3개에 답해 봐요. 3분이면 끝나요.</p>`}
         <button type="button" class="bq-cta" id="bqStart">체험 시작하기</button>
         <ol class="bq-how">
-          <li><b>1</b><span>발표를 골라요</span></li>
-          <li><b>2</b><span>30초 동안 훑어봐요</span></li>
+          <li><b>1</b><span>${bq.variant === 'call' ? '발표와 역할을 골라요' : '발표를 골라요'}</span></li>
+          <li><b>2</b><span>질문이 준비되는 동안 훑어봐요</span></li>
           <li><b>3</b><span>질문 3개에 말로 답해요</span></li>
         </ol>
       </section>
       <aside class="bq-panel">
-        <div class="bq-bubble" id="bqGreet" aria-live="polite">
+        <div class="bq-bubble" id="bqGreet">
           <span class="bq-bubble-tag">예시 질문</span>
           <p id="bqGreetText">${escapeHtml(BOOTH_SAMPLE_QS[0])}</p>
         </div>
-        <div class="bq-judges">${BOOTH_JUDGES.map((j) => `
-          <figure>${bqBird(j.id)}<figcaption>${escapeHtml(j.name)}</figcaption></figure>`).join('')}</div>
+        ${bq.variant === 'call'
+    ? `<div class="bq-judges bq-host-one"><figure>${bqBird(BC_HOST_BIRD)}<figcaption>삐약이</figcaption></figure></div>`
+    : `<div class="bq-judges">${BOOTH_JUDGES.map((j) => `
+          <figure>${bqBird(j.id)}<figcaption>${escapeHtml(j.name)}</figcaption></figure>`).join('')}</div>`}
         <div class="bq-mirror" data-bq-cam-box data-camera="off">
           <video data-bq-cam autoplay muted playsinline></video>
           <p><b id="bqCvStatus"></b><span id="bqCamNote"></span></p>
+          <button type="button" class="bq-ghost" id="bqCamToggle" hidden>카메라 켜기</button>
         </div>
       </aside>
-      <p class="bq-privacy">카메라 영상은 이 컴퓨터 안에서만 봐요. 저장하거나 보내지 않아요.</p>
+      <p class="bq-privacy">카메라 영상은 이 컴퓨터에서만 보고 저장하지 않아요.${bq.variant === 'call' ? ' 말로 한 답은 글자로 바꾸고 판정하려고 서버로 보내요.' : ''}</p>
+      <p class="bq-sr" id="bqGreetLive" aria-live="polite"></p>
     </div>`);
-  $('#bqStart').addEventListener('click', bqShowPick);
+  $('#bqStart').addEventListener('click', () => { if (typeof bqCountVisit === 'function') bqCountVisit(); bqShowPick(); });
+  $('#bqCamToggle').addEventListener('click', bqCamToggle);
   bq.sampleIdx = 0;
   bq.timers.push(setInterval(bqRotateSample, 4200));
+  if (typeof bqArmReloadGuard === 'function') bqArmReloadGuard();
   if (window.BoothCV) bqOnCv(BoothCV.snapshot());
 }
 
@@ -412,6 +447,13 @@ function bqRotateSample() {
   void box.offsetWidth;   // 같은 애니메이션을 다시 태운다
   box.classList.add('swap');
   p.textContent = BOOTH_SAMPLE_QS[bq.sampleIdx];
+  // 화상판 제목의 역할 낱말도 같이 돈다 — 고를 수 있는 역할이 넷이라는 걸 보여 준다
+  const word = document.getElementById('bqRoleWord');
+  if (word) {
+    const role = BOOTH_ROLES[bq.sampleIdx % BOOTH_ROLES.length].aud;
+    word.textContent = role;
+    if (word.nextSibling) word.nextSibling.textContent = `${josa(role, '이', '가')} 되어 물어봐요`;
+  }
 }
 
 /** 사람이 다가오면 — 병아리들이 돌아보고 말풍선이 인사로 바뀐다. 몇 초 뒤 예시로 돌아간다 */
@@ -421,6 +463,9 @@ function bqGreet() {
   box.dataset.greeting = '1';
   box.querySelector('.bq-bubble-tag').textContent = '반가워요';
   document.getElementById('bqGreetText').textContent = '안녕하세요! 내 답을 자료와 맞춰 보는 질문, 받아 볼래요?';
+  // 돌아가는 예시는 읽지 않고(4초마다 읽으면 시끄럽다) 인사만 한 번 읽는다
+  const live = document.getElementById('bqGreetLive');
+  if (live) live.textContent = '안녕하세요! 내 답을 자료와 맞춰 보는 질문, 받아 볼래요?';
   document.querySelectorAll('#bqStage .bq-judges .bq-bird').forEach((b, i) => {
     b.dataset.mood = i % 2 ? 'excited' : 'happy';
   });
@@ -428,6 +473,7 @@ function bqGreet() {
   if (cta) cta.classList.add('pulse');
   bq.timers.push(setTimeout(() => {
     if (!document.getElementById('bqGreet')) return;
+    if (cta) cta.classList.remove('pulse');   // 계속 깜빡이면 시작 화면 내내 매 프레임 다시 그린다
     box.dataset.greeting = '';
     box.querySelector('.bq-bubble-tag').textContent = '예시 질문';
     document.querySelectorAll('#bqStage .bq-judges .bq-bird').forEach((b) => { b.dataset.mood = ''; });
@@ -458,7 +504,7 @@ async function bqShowPick() {
   bqMount('pick', `
     <div class="bq-pick">
       <h1 class="bq-h1">어떤 발표로 질문을 받아 볼까요?</h1>
-      <p class="bq-lead">고른 발표의 발표자가 됐다고 생각하고 답하면 돼요. 질문은 그 자료에서만 나와요.</p>
+      <p class="bq-lead">고른 발표의 발표자가 됐다고 생각하고 답하면 돼요. 질문은 고른 발표 자료와, 자료가 인용한 문헌에서 나와요.</p>
       ${bq.variant === 'call' ? bqRolesHtml() : ''}
       <div class="bq-decks" id="bqDecks"><p class="bq-wait">발표를 불러오고 있어요…</p></div>
       <p class="bq-foot" id="bqDeckFoot"></p>
@@ -492,7 +538,9 @@ async function bqShowPick() {
     </button>`).join('');
   const missing = decks.length - ready.length;
   const foot = $('#bqDeckFoot');
-  if (foot && missing) foot.textContent = `준비 안 된 발표 ${missing}개는 숨겼어요 (운영진: /test/qa 에서 한 번 열면 나타나요)`;
+  // 운영진 안내는 방문객 화면이 아니라 콘솔로 — 부스 전날 준비 절차(booth-qa-stage.md §4)가 같은 말을 한다
+  if (foot) foot.textContent = '';
+  if (missing) console.info(`[chuckchuck] booth: 파싱본 없는 덱 ${missing}개 숨김 — /test/qa 에서 한 번 열면 나타나요`);
   box.querySelectorAll('[data-deck]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const d = ready.find((x) => x.key === btn.dataset.deck);
@@ -502,21 +550,25 @@ async function bqShowPick() {
   ready.forEach((d) => bqPaintCover(d));
 }
 
-/** 화상 체험 — 삐약이에게 맡길 역할. 고른 역할은 질문 화면의 이름표가 된다 */
+/**
+ * 화상 체험 — 삐약이에게 맡길 역할. 고른 역할은 질문 화면의 이름표가 된다.
+ * 진짜 라디오다 — 화살표로 고르고 Tab 은 한 번만 멈춘다. 역할은 이름표에만 붙고 질문 내용은 안 바뀐다는 걸 같이 적는다(정직).
+ */
 function bqRolesHtml() {
-  return `<fieldset class="bq-roles">
+  return `<fieldset class="bq-roles" aria-describedby="bqRoleNote">
     <legend>삐약이에게 어떤 역할을 맡길까요?</legend>
-    <div class="bq-role-list" role="radiogroup">${BOOTH_ROLES.map((r) => `
-      <button type="button" class="bq-role" role="radio" data-role="${escapeHtml(r.aud)}" aria-checked="${r.aud === bq.role}">
+    <div class="bq-role-list">${BOOTH_ROLES.map((r) => `
+      <label class="bq-role" data-role="${escapeHtml(r.aud)}">
+        <input type="radio" name="bqRole" class="bq-sr" value="${escapeHtml(r.aud)}"${r.aud === bq.role ? ' checked' : ''}>
         <b>${escapeHtml(r.aud)}</b><small>${escapeHtml(r.where)}</small>
-      </button>`).join('')}</div>
+      </label>`).join('')}</div>
+    <p class="bq-role-note" id="bqRoleNote">삐약이가 이 역할의 이름표를 달고 물어요. 질문은 어느 역할이든 같은 발표 자료에서 나와요.</p>
   </fieldset>`;
 }
 
 function bqWireRoles() {
-  document.querySelectorAll('#bqStage .bq-role').forEach((btn) => btn.addEventListener('click', () => {
-    bq.role = btn.dataset.role;
-    document.querySelectorAll('#bqStage .bq-role').forEach((b) => b.setAttribute('aria-checked', String(b === btn)));
+  document.querySelectorAll('#bqStage input[name="bqRole"]').forEach((input) => input.addEventListener('change', () => {
+    if (input.checked) bq.role = input.value;
   }));
 }
 
@@ -527,7 +579,7 @@ function bqCoverPdf(sessionId) {
     const ready = typeof ccEnsurePdfjs === 'function' ? ccEnsurePdfjs() : Promise.resolve(!!window.pdfjsLib);
     const p = ready.then((ok) => {
       if (!ok) throw new Error('pdf.js 가 없어요');
-      return pdfjsLib.getDocument({ url }).promise;
+      return (typeof ccPdfOpen === 'function' ? ccPdfOpen({ url }) : pdfjsLib.getDocument({ url })).promise;
     });
     p.catch(() => bq.covers.delete(sessionId));
     bq.covers.set(sessionId, p);
@@ -575,13 +627,15 @@ function bqPrepHtml(d) {
           <button type="button" class="bq-ghost bq-round" data-skim="-1" aria-label="이전 슬라이드">‹</button>
           <span class="bq-skim-meta"><b id="bqSkimNo" class="num"></b><span id="bqSkimTitle"></span></span>
           <button type="button" class="bq-ghost bq-round" data-skim="1" aria-label="다음 슬라이드">›</button>
+          <button type="button" class="bq-ghost" id="bqSkimPause" aria-pressed="false">멈추기</button>
         </div>
-        <p class="bq-skim-tip">「${escapeHtml(d.title)}」의 발표자가 됐다고 생각하고 훑어보세요. 질문은 이 자료에서 나와요.</p>
+        <p class="bq-skim-tip">「${escapeHtml(d.title)}」의 발표자가 됐다고 생각하고 훑어봐요. 질문은 이 자료를 바탕으로 나와요.</p>
       </section>
       <aside class="bq-build">
-        <h2>질문을 만들고 있어요</h2>
+        <h2>${bq.variant === 'call' ? `${escapeHtml(bq.role)}${escapeHtml(josa(bq.role, '이', '가'))} 물어볼 질문을 고르고 있어요` : '질문을 만들고 있어요'}</h2>
+        <p class="bq-build-note">처음 여는 발표는 1분쯤 걸려요. 그동안 자료를 훑어봐요.</p>
         <ol class="bq-build-steps" id="bqBuildSteps">${BQ_PREP_STEPS.map((s) => `
-          <li data-step="${s.key}" data-state="wait"><i></i><span>${s.word}</span></li>`).join('')}</ol>
+          <li data-step="${s.key}" data-state="wait"><i aria-hidden="true"></i><span>${s.word}</span><span class="bq-sr" data-sr>기다리는 중이에요</span></li>`).join('')}</ol>
         <p class="bq-elapsed" id="bqElapsed">0초 지났어요</p>
         <div id="bqPrepFail"></div>
         <button type="button" class="bq-cta" id="bqGo" disabled>질문을 만들고 있어요…</button>
@@ -590,9 +644,16 @@ function bqPrepHtml(d) {
     </div>`;
 }
 
+const BQ_STEP_SR = { wait: '기다리는 중이에요', run: '하는 중이에요', done: '끝났어요', fail: '멈췄어요' };
+
 function bqSetStep(key, state) {
   const li = document.querySelector(`#bqBuildSteps [data-step="${key}"]`);
-  if (li && li.dataset.state !== state) li.dataset.state = state;
+  if (!li || li.dataset.state === state) return;
+  li.dataset.state = state;
+  const sr = li.querySelector('[data-sr]');
+  if (sr) sr.textContent = BQ_STEP_SR[state] || '';
+  if (state === 'run') li.setAttribute('aria-current', 'step');
+  else li.removeAttribute('aria-current');
 }
 
 function bqPrepFail(message, d) {
@@ -631,6 +692,15 @@ async function bqPrepare(d) {
   nf.fileName = d.row.deck;
   nf.sessionId = d.row.cached_session_id;
   if (typeof setUploadedPdf === 'function') setUploadedPdf(null);   // 앞 사람 덱의 PDF 가 남아 있으면 그 장이 그려진다
+  // 발표 고르기에서 표지를 그리려고 이미 연 문서를 그대로 쓴다 — 방문객마다 같은 PDF 를 다시 받고(홍콩 중계로 수 초)
+  // 문서를 새로 열면 메모리가 쌓인다 (10-01 성능 점검). shared 라 다음 방문객 때 닫히지 않는다. 못 열면 원래 길(ensureSlideDoc)
+  try {
+    const pdf = await bqCoverPdf(d.row.cached_session_id);
+    if (!alive()) return;
+    setUploadedPdf({ file: null, pdf, pageCount: pdf.numPages, shared: true });
+  } catch (err) {
+    console.warn('[chuckchuck] booth cover reuse', err);
+  }
 
   // 1. 파싱본 되살리기 — 미리보기 PDF 까지 메모리에 올린다 (#/replay · #/test/qa 와 같다)
   bqSetStep('doc', 'run');
@@ -638,7 +708,8 @@ async function bqPrepare(d) {
   if (!alive()) return;
   if (!doc) {
     bqSetStep('doc', 'fail');
-    bqPrepFail('지난 파싱본을 못 찾았어요. 운영진이 /test/qa 에서 이 발표를 한 번 열어 두면 돼요.', d);
+    console.warn('[chuckchuck] booth: 파싱본 없음 — 운영진이 /test/qa 에서 이 발표를 한 번 열어 두면 돼요', d.key);
+    bqPrepFail('이 발표는 지금 열 수 없어요. 「다른 발표 고르기」로 다른 발표를 골라요.', d);
     return;
   }
   applySlideDoc(doc, { keepDemoImages: false });
@@ -655,7 +726,8 @@ async function bqPrepare(d) {
   nf.step = 2;
   saveSession('new-flow', nf);
   if (!precompute || !precompute.graphP) {
-    bqPrepFail('자료를 분석하는 모듈을 부르지 못했어요. 새로고침하면 다시 불러와요.', d);
+    console.warn('[chuckchuck] booth: precompute 모듈 없음');
+    bqPrepFail('자료를 여는 데 문제가 생겼어요. 「다시 해 보기」를 눌러요.', d);
     return;
   }
   bqSetStep('concepts', 'run');
@@ -697,7 +769,7 @@ async function bqPrepare(d) {
       clearInterval(waitQ);
       bqSetStep('questions', 'done');
       go.disabled = false;
-      go.textContent = '질문 받으러 가기';
+      go.textContent = bq.variant === 'call' ? `${bq.role}${josa(bq.role, '과', '와')} 통화 시작하기` : '질문 받으러 가기';
       go.classList.add('pulse');
       go.focus();
       return;
@@ -729,12 +801,20 @@ function bqStartSkim() {
     if (ok && wait) wait.hidden = true;
   };
   const step = (dir) => { at = ((at - 1 + dir + total) % total) + 1; paint(); };
+  let paused = false;
   document.querySelectorAll('#bqStage [data-skim]').forEach((b) => b.addEventListener('click', () => {
     holdUntil = Date.now() + BOOTH_SKIM_MS * 2;
     step(Number(b.dataset.skim));
   }));
+  // 저절로 넘어가는 것은 멈출 수 있어야 한다 (WCAG 2.2.2) — 천천히 읽는 사람도 있다
+  const pause = document.getElementById('bqSkimPause');
+  if (pause) pause.addEventListener('click', () => {
+    paused = !paused;
+    pause.textContent = paused ? '다시 넘기기' : '멈추기';
+    pause.setAttribute('aria-pressed', String(paused));
+  });
   paint();
-  bq.timers.push(setInterval(() => { if (Date.now() >= holdUntil) step(1); }, BOOTH_SKIM_MS));
+  bq.timers.push(setInterval(() => { if (!paused && Date.now() >= holdUntil) step(1); }, BOOTH_SKIM_MS));
 }
 
 /* ─── S3 Q&A 무대 (#/qa · qa_live.js renderQaLive 가 부른다) ───────────────── */
@@ -752,7 +832,7 @@ function bqSpotHtml() {
   const n = L.questions.length;
   if (L.awaitEnd || L.qi >= n) {
     return `<p class="bq-spot-meta">질문 ${n}개를 모두 마쳤어요</p>
-      <p class="bq-spot-q">수고했어요! 아래 「결과 확인하기」를 누르면 오늘의 결과가 나와요.</p>`;
+      <p class="bq-spot-q">수고했어요! 「결과 확인하기」를 누르거나 잠시 기다리면 오늘의 결과가 나와요.</p>`;
   }
   const t = bqCurrentQuestionTurn();
   const q = L.questions[L.qi] || {};
@@ -781,18 +861,62 @@ function bqProgressHtml() {
   }).join('')}</ol>`;
 }
 
-function bqQaSlideNo() {
+/** 자료 창에 띄울 장과 까닭 — 판정·힌트가 짚은 장이 있으면 그 장 (booth_ops.js bqFocusSlide) */
+function bqQaFocus() {
+  if (typeof bqFocusSlide === 'function') return bqFocusSlide();
   const L = qa.live;
   const q = L && L.questions && L.questions[Math.min(L.qi, L.questions.length - 1)];
-  return Number(((q && q.slide_nos) || [])[0]) || 1;
+  return { no: Number(((q && q.slide_nos) || [])[0]) || 1, why: '질문이 가리키는' };
+}
+
+function bqQaSlideNo() {
+  return bqQaFocus().no;
 }
 
 /* 큰 슬라이드는 썸네일(240px)을 늘리면 부스 거리에서 뭉개진다 — 무대용 렌더(app.js paintDeckStage)로 크게 그린다 */
-function bqSlideHtml(no) {
+function bqSlideHtml(no, why = '질문이 가리키는') {
+  const title = String((nf.slideTitles || [])[no - 1] || '').trim();
+  const label = escapeHtml(`${no}장${title ? ` · ${title}` : ''}`);
   const pic = uploadedPdf
-    ? `<span class="bq-slide-pic"><canvas data-stage-page="${no}" aria-label="${no}번 슬라이드"></canvas></span>`
-    : `<span class="bq-slide-pic"><img src="${deckImageSrc(no)}" alt="${no}번 슬라이드"></span>`;
-  return `<figcaption>질문이 가리키는 <b>${no}장</b></figcaption>${pic}`;
+    ? `<span class="bq-slide-pic"><canvas data-stage-page="${no}" role="img" aria-label="${label}"></canvas></span>`
+    : `<span class="bq-slide-pic"><img src="${deckImageSrc(no)}" alt="${label}"></span>`;
+  return `<figcaption>${why} <b>${no}장</b></figcaption>${pic}`;
+}
+
+/** 자료 창을 지금 짚는 장으로 — 장이나 까닭이 바뀔 때만 다시 그린다. 두 무대가 같이 쓴다 */
+function bqSyncSlide() {
+  const slide = document.getElementById('bqSlide');
+  if (!slide) return;
+  const f = bqQaFocus();
+  const key = `${f.no}|${f.why}`;
+  if (slide.dataset.focus === key) return;
+  slide.dataset.focus = key;
+  slide.dataset.no = String(f.no);
+  slide.innerHTML = bqSlideHtml(f.no, f.why);
+  paintDeckStage(slide);
+}
+
+/** 진행 칩 — 바뀔 때만 다시 쓴다 */
+function bqSyncProg() {
+  const prog = document.getElementById('bqProg');
+  if (!prog) return;
+  const next = bqProgressHtml();
+  if (prog.dataset.html !== next) { prog.dataset.html = next; prog.innerHTML = next; }
+}
+
+/**
+ * 첫 질문 앞 안내 줄(「문헌 검색이 잠시 안 돼서 …」)은 방문객에게는 대화 한 칸을 통째로 차지하는 운영 정보다 —
+ * 화면에서는 숨기고(css) 같은 글을 위 띠 이름표의 title 과 콘솔로 옮긴다. 숨기기만 하지 않는다(정직).
+ */
+function bqMoveLeadNote() {
+  const first = document.querySelector('#stream > .qa-note-line:first-child');
+  const badge = document.querySelector('#bqStage .bq-brand small');
+  if (!first || !badge) return;
+  const text = first.textContent.trim();
+  if (badge.title === text) return;
+  badge.title = text;
+  badge.dataset.note = '1';
+  console.info('[chuckchuck] booth note', text);
 }
 
 /** 판정이 붙으면 심사위원 표정이 바뀐다. 판정 칩(색)은 스트림 쪽이 말하고, 표정은 거기에 얹는 층이다 */
@@ -819,15 +943,10 @@ function bqQaSync() {
       spot.classList.add('enter');
     }
   }
-  const prog = document.getElementById('bqProg');
-  if (prog) prog.innerHTML = bqProgressHtml();
-  const slide = document.getElementById('bqSlide');
-  const no = bqQaSlideNo();
-  if (slide && Number(slide.dataset.no) !== no) {
-    slide.dataset.no = String(no);
-    slide.innerHTML = bqSlideHtml(no);
-    paintDeckStage(slide);
-  }
+  bqSyncProg();
+  bqSyncSlide();
+  bqMoveLeadNote();
+  if (typeof bqArmAutoEnd === 'function') bqArmAutoEnd();
   const judge = document.querySelector('#bqStage .bq-judge .bq-bird');
   const thinking = !!document.getElementById('coachThinking');
   if (judge) {
@@ -855,7 +974,7 @@ function renderQaLiveBooth() {
         <div class="card qa-live-input bq-answer">${liveInputHtml()}</div>
       </section>
       <aside class="bq-side">
-        <figure class="bq-slide" id="bqSlide" data-no="${no}">${bqSlideHtml(no)}</figure>
+        <figure class="bq-slide" id="bqSlide" data-no="${no}"></figure>
         <div class="bq-self" data-bq-cam-box data-camera="off">
           <video data-bq-cam autoplay muted playsinline></video>
           <i class="bq-facebox" id="bqFace" hidden></i>
@@ -906,10 +1025,17 @@ function bqWatchSlide() {
   bq.slideWatch.observe(fig);
 }
 
-/** 부스는 코칭 기록을 남기지 않는다 — 「여기까지 하고 저장」 은 여기서 거짓말이다 */
+/**
+ * 부스는 코칭 기록을 남기지 않는다 — 「여기까지 하고 저장」 은 여기서 거짓말이다. 누르면 남은 질문이
+ * 「안 물음」 이 되므로 그걸 버튼이 말한다 (CTA 만 보고 결과가 예측돼야 한다).
+ */
 function bqRelabelInput() {
   const finish = document.getElementById('liveFinish');
-  if (finish && finish.textContent !== '여기까지 하고 결과 보기') finish.textContent = '여기까지 하고 결과 보기';
+  const word = '남은 질문 건너뛰고 결과 보기';
+  if (finish && finish.textContent !== word) finish.textContent = word;
+  const ta = document.getElementById('liveAnswer');
+  if (ta && ta.getAttribute('aria-label') !== '내 답') ta.setAttribute('aria-label', '내 답');
+  if (typeof bqArmAutoEnd === 'function') bqArmAutoEnd();
 }
 
 /* ─── S4 마무리 (qa_live.js qaLiveEnd 가 부른다) ──────────────────────────── */
@@ -939,19 +1065,24 @@ function boothQaFinale() {
     </li>`;
   }).join('');
   const happy = sum.self > 0;
+  const call = bq.variant === 'call';
+  const role = qa.aud || bq.role;
+  const birds = call
+    ? bqBird(BC_HOST_BIRD, happy ? 'happy' : 'curious')
+    : BOOTH_JUDGES.map((j, i) => bqBird(j.id, happy ? (i % 2 ? 'excited' : 'happy') : 'curious')).join('');
   bqMount('finale', `
     <div class="bq-finale">
       <section class="bq-fin-main">
-        <div class="bq-judges bq-judges-sm">${BOOTH_JUDGES.map((j, i) => bqBird(j.id, happy ? (i % 2 ? 'excited' : 'happy') : 'curious')).join('')}</div>
-        <p class="bq-eyebrow">체험을 마쳤어요</p>
+        <div class="bq-judges bq-judges-sm">${birds}</div>
+        <p class="bq-eyebrow">${call ? `${escapeHtml(role)}${escapeHtml(josa(role, '과', '와'))} 통화를 마쳤어요` : '체험을 마쳤어요'}</p>
         <h1 class="bq-fin-head">${sum.head}</h1>
         <ol class="bq-fin-list">${rows}</ol>
       </section>
       <aside class="bq-fin-side">
         ${pct === null ? '' : `<div class="bq-card bq-gaze">
-          <span>질문을 받는 동안 얼굴이 정면으로 잡힌 시간</span>
+          <span>${call ? '질문 받는 동안 카메라를 본 비율' : '질문을 받는 동안 얼굴이 정면으로 잡힌 시간'}</span>
           <b class="num">${pct}<small>%</small></b>
-          <p>카메라가 정면 얼굴을 찾은 순간의 비율이에요. 심사위원을 보고 답하면 올라가요.</p>
+          <p>카메라가 정면 얼굴을 찾은 순간의 비율이에요. ${call ? '카메라를 보고 답하면 올라가요.' : '심사위원을 보고 답하면 올라가요.'}</p>
         </div>`}
         <div class="bq-card bq-more">
           <b>내 발표 자료로도 해 볼 수 있어요</b>
@@ -959,6 +1090,7 @@ function boothQaFinale() {
         </div>
         <button type="button" class="bq-cta" data-bq-home>처음으로 돌아가기</button>
         <p class="bq-return" id="bqReturn"></p>
+        <p class="bq-sr" id="bqReturnLive" aria-live="polite"></p>
       </aside>
     </div>`);
   bqStartReturnCountdown();
@@ -985,5 +1117,8 @@ function bqStartReturnCountdown() {
     left -= 1;
     if (left <= 0) { bqGoHome(); return; }
     paint();
+    // 매초 읽으면 시끄럽다 — 10초 남았을 때 한 번만 알린다
+    const live = document.getElementById('bqReturnLive');
+    if (live && left === 10) live.textContent = '10초 뒤 처음 화면으로 가요. 화면을 누르면 더 볼 수 있어요';
   }, 1000));
 }

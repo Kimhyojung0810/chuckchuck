@@ -271,6 +271,36 @@ def run(args) -> Path:
                                    "stream_kinds": page.evaluate("[...document.querySelectorAll('#stream > *')].map(e => e.className.split(' ').slice(0, 3).join('.'))"),
                                    "prog": page.inner_text("#bqProg"), "finish_label": page.evaluate("(document.getElementById('liveFinish')||{}).textContent"),
                                    "gaze": page.evaluate("BoothCV.readGaze()")})
+            # ── 운영 장치 (10-01) — 처음으로 확인 시트 · 자리 비움 알림 ─────────────
+            ops = {}
+            page.click("#bqStage [data-bq-home]")
+            page.wait_for_timeout(300)
+            ops["sheet_open"] = page.evaluate("!!document.getElementById('bqSheet')")
+            ops["sheet_buttons"] = page.evaluate("[...document.querySelectorAll('#bqSheet button')].map(b => b.textContent.trim())")
+            shot("ops_sheet")
+            page.click("#bqSheet [data-sheet='close']")
+            page.wait_for_timeout(200)
+            ops["sheet_closed_still_qa"] = page.evaluate("!document.getElementById('bqSheet') && bq.screen === 'qa'")
+            page.evaluate("bqIdleWarn()")
+            page.wait_for_timeout(1300)
+            ops["idle_toast"] = page.evaluate("(document.getElementById('bqIdleText')||{}).textContent || ''")
+            shot("ops_idle")
+            page.click("#bqIdleStay")
+            page.wait_for_timeout(200)
+            ops["idle_cancelled"] = page.evaluate("!document.getElementById('bqIdleToast') && bq.screen === 'qa'")
+            ops["live_region"] = page.evaluate("(document.getElementById('bcLive')||{}).textContent || ''")[:200]
+            ops["answer_described"] = page.evaluate("(document.getElementById('liveAnswer')||{}).getAttribute?.('aria-describedby') || ''")
+            ops["focus_slide"] = page.evaluate("(document.querySelector('#bqSlide figcaption')||{}).textContent || ''")
+            ops["workers"] = len(page.workers)
+            page.click("#bqCamToggle")                       # 카메라 끄기 — 화상판은 자료 창이 커진다
+            page.wait_for_timeout(900)
+            ops["cam_off"] = page.evaluate("(document.querySelector('[data-bq-cam-box]')||{}).dataset?.camera || ''")
+            shot("ops_camoff")
+            page.click("#bqCamToggle")
+            page.wait_for_timeout(1200)
+            ops["cam_back"] = page.evaluate("(document.querySelector('[data-bq-cam-box]')||{}).dataset?.camera || ''")
+            report["ops"] = ops
+            print("  ops       ", json.dumps(ops, ensure_ascii=False)[:400])
             if "finale" not in want:
                 return out
 
@@ -299,6 +329,17 @@ def run(args) -> Path:
                                          "layer_gone": page.evaluate("!document.getElementById('bqStage')"),
                                          "cam_off": page.evaluate("!bq.cam.stream")}
             print("  leave     ", report["stages"]["leave"])
+            # Esc 두 번 — 발표 고르기에서 묻지 않고 처음으로 (스태프 키)
+            page.goto(f"{args.base}/booth/{args.route}", wait_until="load")
+            page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            page.click("#bqStart")
+            page.wait_for_selector("#bqStage[data-screen='pick']", timeout=10000)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(200)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(600)
+            report["stages"]["esc_reset"] = {"screen": page.evaluate("bq.screen"), "workers": len(page.workers)}
+            print("  esc       ", report["stages"]["esc_reset"])
         except Exception as e:  # 사진은 남긴다
             report["error"] = f"{type(e).__name__}: {e}"[:600]
             print("  실패:", report["error"])

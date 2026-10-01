@@ -797,10 +797,25 @@ const thumbCache = new Map();   // pageNo → dataURL (메모리만)
 const THUMB_WIDTH = 240;
 
 /** 원본 PDF 교체 창구. 캐시가 페이지 번호로만 키를 잡아서, 같이 안 비우면
-    자료를 바꿔도 이전 자료의 슬라이드가 그대로 보인다. */
+    자료를 바꿔도 이전 자료의 슬라이드가 그대로 보인다.
+    버리는 문서는 destroy 한다 — pdf.js 는 문서마다 쪽 캐시를 들고 있어서, 참조만 버리면 하루 종일 도는
+    부스(방문객마다 새 덱)에서 메모리가 쌓인다 (2026-10-01 실측 방문당 ~16MB). shared 는 다른 곳(부스 표지)이 계속 쓰는 문서다. */
 function setUploadedPdf(next) {
+  const prev = uploadedPdf;
   uploadedPdf = next;
   thumbCache.clear();
+  if (prev && prev.pdf && !prev.shared && !(next && next.pdf === prev.pdf)) {
+    prev.pdf.destroy().catch(() => { /* 이미 닫혔다 */ });
+  }
+}
+
+/**
+ * pdf.js 문서 열기 — 워커 하나를 같이 쓴다. worker 를 안 넘기면 getDocument 가 문서마다 **진짜 Web Worker 를
+ * 하나씩** 새로 띄우고 destroy 전까지 안 죽는다 (2026-10-01 실측: 표지만 그리는 방문 30번에 워커 31개 · +486MB).
+ */
+function ccPdfOpen(src) {
+  if (!window.__ccPdfWorker) window.__ccPdfWorker = new pdfjsLib.PDFWorker({ name: 'cc-pdf' });
+  return pdfjsLib.getDocument({ ...src, worker: window.__ccPdfWorker });
 }
 
 function onRehearsalKeydown(e) {
@@ -1496,7 +1511,9 @@ function startPrecompute() {
   if (!bridge || typeof bridge.extractConcepts !== 'function') return;
   if (!nfSlideDoc) return;                       // 자료 없이는 F-06 이 돌 게 없다
   const key = precomputeKey();
-  if (precompute && precompute.key === key) return;   // 이미 같은 조건으로 돌고 있다
+  // 이미 같은 조건으로 돌고 있거나 끝났다. 실패한 것은 다시 돌린다 — 안 그러면 같은 덱(부스)의 다음 방문객과
+  // 「다시 해 보기」가 거부된 graphP 를 그대로 받아 즉시 실패한다 (2026-10-01 점검)
+  if (precompute && precompute.key === key && !precompute.state.failed) return;
 
   const context = { situation: nf.occ || '', audience: nf.ctx || '', duration_min: nf.min };
   const slideDoc = nfSlideDoc;
@@ -1633,7 +1650,7 @@ async function loadUploadedPdf(file, nameHint = '') {
     return null;
   }
   const data = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const pdf = await ccPdfOpen({ data }).promise;
   setUploadedPdf({ file, pdf, pageCount: pdf.numPages });
   return uploadedPdf;
 }
@@ -1709,8 +1726,17 @@ async function renderPdfToCanvas(pageNo, canvas, { maxWidth = 960 } = {}) {
     try { pdfRenderTask.cancel(); } catch (_) { /* already done */ }
     pdfRenderTask = null;
   }
-  const pdfPage = await uploadedPdf.pdf.getPage(page);
-  if (token !== pdfRenderToken) return false;
+  // 그리는 사이 자료가 바뀌면 이전 문서는 닫힌다(setUploadedPdf → destroy) — 그때 나는 오류는 실패가 아니라 「그만 그린다」 다
+  const doc = uploadedPdf.pdf;
+  const stale = () => !uploadedPdf || uploadedPdf.pdf !== doc;
+  let pdfPage;
+  try {
+    pdfPage = await doc.getPage(page);
+  } catch (err) {
+    if (stale()) return false;
+    throw err;
+  }
+  if (token !== pdfRenderToken || stale()) return false;
   const unscaled = pdfPage.getViewport({ scale: 1 });
   const scale = Math.min(2, maxWidth / unscaled.width);
   const viewport = pdfPage.getViewport({ scale });
@@ -1721,7 +1747,7 @@ async function renderPdfToCanvas(pageNo, canvas, { maxWidth = 960 } = {}) {
   try {
     await pdfRenderTask.promise;
   } catch (err) {
-    if (err && err.name === 'RenderingCancelledException') return false;
+    if ((err && err.name === 'RenderingCancelledException') || stale()) return false;
     throw err;
   } finally {
     pdfRenderTask = null;
@@ -2116,8 +2142,8 @@ async function probeParsePreview(file, gen) {
   if (!(await ccEnsurePdfjs())) return;
   const alive = () => gen === parseGen && nf.gate === 'parsing';
   try {
-    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-    if (!alive()) return;
+    const pdf = await ccPdfOpen({ data: await file.arrayBuffer() }).promise;
+    if (!alive()) { pdf.destroy().catch(() => {}); return; }
     const page = await pdf.getPage(1);
     const base = page.getViewport({ scale: 1 });
     const vp = page.getViewport({ scale: 240 / base.width });
@@ -2125,8 +2151,9 @@ async function probeParsePreview(file, gen) {
     cv.width = Math.round(vp.width);
     cv.height = Math.round(vp.height);
     await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-    if (!alive()) return;
+    if (!alive()) { pdf.destroy().catch(() => {}); return; }
     parsePreview = { pages: pdf.numPages, thumb: cv.toDataURL('image/jpeg', 0.72) };
+    pdf.destroy().catch(() => {});   // 첫 장만 보려고 연 문서 — 남겨 두면 쪽 캐시가 그대로 남는다
     nfStep1();
   } catch (e) {
     console.warn('[chuckchuck] parse preview', e);   // 미리보기는 실패해도 파싱은 그대로 간다
@@ -8860,7 +8887,7 @@ function streamRow(it) {
         <span class="chip chip-sm ${cls}">${it.word}</span>
       </div>
       ${it.gist ? `<div class="qd-sec"><h4>이렇게 답하면 좋았어요</h4><p>${it.gist}</p></div>` : ''}
-      ${it.summary ? `<div class="qd-sec"><h4>총평에 적었어요</h4><p>${escapeHtml(it.summary)}</p></div>` : ''}
+      ${it.summary ? `<div class="qd-sec"><h4>${typeof boothQaOn === 'function' && boothQaOn() ? '정리했어요' : '총평에 적었어요'}</h4><p>${escapeHtml(it.summary)}</p></div>` : ''}
       <p class="qd-foot">${foot}</p>
     </div>`;
   }
