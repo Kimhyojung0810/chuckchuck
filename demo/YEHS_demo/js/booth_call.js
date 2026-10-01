@@ -236,12 +236,28 @@ function bcSync() {
   bcAnnounceNew(stream);
 }
 
-/** 「예상 질문 1/3 · 꼭 넘어야 해요」 의 앞머리는 이름표의 「질문 1 / 3」 과 겹친다 — 화면 글만 줄인다 (턴 데이터는 그대로) */
+/** 이 질문 줄이 질문의 첫 물음(머리말 「예상 질문 n/N」)인가 — 되묻기·「이제 내 말로」 와 가른다. 머리말을 줄이기 전에 한 번 적어 둔다 */
+function bcIsLead(row) {
+  if (!('lead' in row.dataset)) {
+    const meta = row.querySelector('.msg-meta');
+    row.dataset.lead = meta && /^예상 질문/.test(meta.textContent.trim()) ? '1' : '';
+  }
+  return row.dataset.lead === '1';
+}
+
+/**
+ * 「예상 질문 1/3 · 꼭 넘어야 해요」 — 앞머리는 이름표의 「질문 1 / 3」 과 겹치고, 중요도(꼭 넘어야 해요 · 보통이에요 · 가벼워요)는
+ * 부스 방문객에게 성적 기준처럼 읽힌다 (10-01 2차) — 둘 다 화면 글에서만 뗀다 (턴 데이터는 그대로). 남는 게 없으면 머리말 줄을 지운다.
+ */
 function bcTrimMeta(row) {
   const meta = row.querySelector('.msg-meta');
+  bcIsLead(row);
   if (!meta || meta.dataset.trimmed) return;
   meta.dataset.trimmed = '1';
-  const t = meta.textContent.replace(/^예상 질문 \d+\/\d+\s*·?\s*/, '').trim();
+  const t = meta.textContent
+    .replace(/^예상 질문 \d+\/\d+\s*·?\s*/, '')
+    .replace(/^(꼭 넘어야 해요|보통이에요|가벼워요)\s*·?\s*/, '')
+    .trim();
   if (t) meta.textContent = t;
   else meta.remove();
 }
@@ -278,22 +294,47 @@ function bcThinking(el) {
   }
 }
 
-/** 지난 질문까지의 말은 옅게 — 지금 질문과 그 뒤의 말(내 답 · 판정 · 힌트)만 또렷하다 */
+/**
+ * 지난 질문의 말은 작고 옅게 — 지금 질문의 첫 물음부터 그 뒤(내 답 · 판정 · 되묻기 · 힌트)는 또렷하다.
+ * 예전에는 마지막 질문 줄(되묻기 포함) 앞을 다 물려서, 되묻기가 붙는 순간 방금 받은 판정이 흐려졌다 (10-01 2차).
+ */
 function bcDimPast(stream) {
   const kids = [...stream.children];
-  let lastQ = -1;
-  kids.forEach((el, i) => { if (el.matches('.msg.ai.q')) lastQ = i; });
+  let lead = -1;
+  kids.forEach((el, i) => { if (el.matches('.msg.ai.q') && bcIsLead(el)) lead = i; });
   kids.forEach((el, i) => {
-    const past = i < lastQ;
+    const past = i < lead;
     if (el.classList.contains('is-past') !== past) el.classList.toggle('is-past', past);
   });
 }
 
-/** 새 말이 붙으면 맨 아래(삐약이 바로 위)로. 장 그림이 늦게 그려져 높이가 바뀌므로 한 번 더 내린다 */
+/**
+ * 새 말이 붙으면 맨 아래(삐약이 바로 위)로. 장 그림이 늦게 그려져 높이가 바뀌므로 한 번 더 내린다.
+ * 단 방금 받은 판정 말풍선의 윗머리는 화면 안에 남긴다 — 판정 뒤에 빠진 것 · 펼친 절반 · 되묻기가 한꺼번에 붙으면 대화 칸이 낮은 폰에서
+ * 판정이 위로 밀려 안 보였다 (10-01 2차). 그 뒤로 내 답이 붙었으면(다시 답하는 중) 그냥 맨 아래다.
+ */
 function bcStickBottom(stream) {
-  const down = () => { if (stream.isConnected) stream.scrollTop = stream.scrollHeight; };
+  const down = () => {
+    if (!stream.isConnected) return;
+    const max = stream.scrollHeight - stream.clientHeight;
+    const keep = bcFreshVerdict(stream);
+    if (!keep) { stream.scrollTop = max; return; }
+    const top = keep.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop - 6;
+    stream.scrollTop = Math.max(0, Math.min(max, top));
+  };
   requestAnimationFrame(down);
   setTimeout(down, 450);
+}
+
+/** 지금 질문에서 마지막 판정 말풍선 — 그 뒤에 내 말이 없을 때만 (= 방금 받은 판정) */
+function bcFreshVerdict(stream) {
+  const kids = [...stream.children];
+  for (let i = kids.length - 1; i >= 0; i -= 1) {
+    const el = kids[i];
+    if (el.matches('.msg.me, .is-past')) return null;
+    if (el.matches('.msg.ai.react')) return el;
+  }
+  return null;
 }
 
 /* ─── 화면 읽기 · 삐약이가 말하는 모습 ─────────────────────────────────────── */
@@ -306,14 +347,12 @@ function bcAnnounce(text, { alert = false } = {}) {
   requestAnimationFrame(() => { el.textContent = text; });
 }
 
-/** 한 줄을 읽을 말로 — 판정 칩 · 점수까지. 이 줄들은 한꺼번에 붙어서 마지막 줄만 읽으면 판정이 빠진다 */
+/** 한 줄을 읽을 말로 — 판정 칩까지. 이 줄들은 한꺼번에 붙어서 마지막 줄만 읽으면 판정이 빠진다. 점수는 화면에서 뺀 것과 같게 안 읽는다 */
 function bcRowSpeech(el) {
   const chip = el.querySelector('.react-head .chip, .qd-head .chip');
-  const score = el.querySelector('.msg-score');
   const body = el.querySelector('.msg-q') || el.querySelector('.msg-bubble > p') || el.querySelector('.qd-head b') || el.querySelector('.msg-bubble') || el;
   const parts = [];
   if (chip) parts.push(chip.textContent.trim());
-  if (score) parts.push(`완성도 ${score.textContent.trim()}`);
   parts.push(body.textContent.replace(/\s+/g, ' ').trim());
   return parts.filter(Boolean).join(' · ');
 }

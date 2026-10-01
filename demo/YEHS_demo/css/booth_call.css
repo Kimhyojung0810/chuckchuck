@@ -11,16 +11,17 @@
 
 .bq[data-variant="call"] {
   --lg-blur: blur(20px) saturate(1.7);
-  --lg-tint: rgba(16, 20, 30, .56);          /* 작은 표 · 버튼 — 흐림 없이 */
-  --lg-tint-text: rgba(16, 20, 30, .62);     /* 글이 있는 말풍선 · 삐약이 · 답 칸 */
+  --lg-tint: rgba(16, 20, 30, .64);          /* 작은 표 · 버튼 — 흐림 없이 */
+  --lg-tint-text: rgba(16, 20, 30, .68);     /* 글이 있는 말풍선 · 삐약이 · 답 칸 — 흰 벽 위에서도 흰 글자 5.5:1 (10-01 2차: .62 는 4.8:1) */
+  --lg-tint-past: rgba(16, 20, 30, .76);     /* 지난 말 — 흐림 · 빛 없이 납작하게, 글자는 옅게(.86) 해도 7:1 */
   --lg-tint-now: rgba(16, 20, 30, .70);      /* 지금 답할 질문 */
-  --lg-tint-me: rgba(21, 92, 70, .80);       /* 내 말 — 다크 그린(--navy 색조), 흰 글자 4.8:1 */
-  --lg-tint-mid: rgba(180, 83, 9, .92);      /* 내 말 · 절반 — --mid 색조 */
+  --lg-tint-me: rgba(21, 92, 70, .86);       /* 내 말 — 다크 그린(--navy 색조), 흰 벽 위 흰 글자 5.5:1 (.80 은 4.8:1) */
+  --lg-tint-mid: rgba(150, 68, 8, .94);      /* 내 말 · 절반 — --mid 색조를 한 단 어둡게 (180,83,9,.92 는 흰 벽 위 4.4:1) */
   --lg-tint-field: rgba(255, 255, 255, .12); /* 답 칸 안 글 입력 면 */
   --lg-edge: rgba(255, 255, 255, .30);
   --lg-sheen: linear-gradient(135deg, rgba(255, 255, 255, .08) 0%, rgba(255, 255, 255, .03) 40%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .04) 100%);
   --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .40), inset 0 -1px 0 rgba(255, 255, 255, .08), 0 10px 30px rgba(0, 0, 0, .22);
-  --lg-soft: rgba(255, 255, 255, .86);       /* 보조 글자 */
+  --lg-soft: rgba(255, 255, 255, .9);        /* 보조 글자 */
   --bc-gap: clamp(12px, 1.6vw, 24px);
   --bc-talk-w: min(36vw, 520px);
   --bc-focus: 0 0 0 3px #fff, 0 0 0 6px rgba(4, 48, 39, .95);   /* 밝은 영상 위에서도 보이는 두 겹 고리 */
@@ -151,10 +152,11 @@
   background: var(--no); box-shadow: 0 0 0 3px rgba(220, 38, 38, .3); vertical-align: middle; animation: bcRec 1.2s ease-in-out infinite;
 }
 .bc-host-text { min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 8px; row-gap: 2px; }
-.bc-host-text b { font-size: clamp(20px, 1.6vw, 24px); font-weight: var(--w-bold); letter-spacing: -.01em; }
-.bc-host-text small { color: var(--lg-soft); font-size: 13px; }
-.bc-host-text em { grid-column: 1 / -1; font-style: normal; color: #9ff3cf; font-size: 14px; font-weight: var(--w-bold); }
-.bc-say { grid-column: 1 / -1; color: var(--lg-soft); font-size: 15px; }
+.bc-host-text b { font-size: clamp(20px, 1.6vw, 26px); font-weight: var(--w-bold); letter-spacing: -.01em; }
+.bc-host-text small { color: var(--lg-soft); font-size: 14px; }
+.bc-host-text em { grid-column: 1 / -1; font-style: normal; color: #9ff3cf; font-size: clamp(14px, .95vw, 18px); font-weight: var(--w-bold); }
+/* 삐약이 줄 — 지금 무슨 일인지 · 진행 멘트. 2m 에서 읽히게 */
+.bc-say { grid-column: 1 / -1; color: #fff; font-size: clamp(15px, 1.05vw, 20px); line-height: 1.4; }
 
 /* ── 주고받은 말 — 삐약이 위로 쌓이는 기둥 ─────────────────────────────── */
 .bc-talk {
@@ -204,8 +206,11 @@
 .bq[data-variant="call"] .bc-stream .msg.ai.trap .msg-meta,
 .bq[data-variant="call"] .bc-stream .msg.ai.hint b { color: #ffd59a; }
 .bq[data-variant="call"] .bc-stream .msg-q { font-size: 17px; }
-.bq[data-variant="call"] .bc-stream .msg.ai.react .msg-bubble > p { font-size: 17px; }
-.bq[data-variant="call"] .bc-stream .react-head .chip { font-size: 14px; padding: 4px 12px; }
+/* 2m 거리 — 판정 칩 · 판정 문장은 1920 에서 22px (10-01 2차). 지난 말은 아래 .is-past 가 작게 */
+.bq[data-variant="call"] .bc-stream .msg.ai.react .msg-bubble > p { font-size: clamp(17px, 1.15vw, 22px); line-height: 1.5; }
+.bq[data-variant="call"] .bc-stream .react-head .chip { font-size: clamp(15px, 1.15vw, 22px); padding: .25em .7em; }
+/* 부스는 점수·중요도를 앞세우지 않는다 — 「35 완성도」 는 방문객에게 성적표로 읽혔다 (10-01 2차). 판정 칩(색 · 낱말)만 남긴다 */
+.bq[data-variant="call"] .bc-stream .react-head :is(.msg-score, small, .msg-delta) { display: none; }
 .bq[data-variant="call"] .bc-stream .msg-paper-link { color: #9ff3cf; }
 .bq[data-variant="call"] .bc-stream .msg-score { color: #fff; }
 .bq[data-variant="call"] .bc-stream .msg-delta.up { color: #9ff3cf; }
@@ -222,14 +227,24 @@
 .bq[data-variant="call"] .bc-stream .qa-ground ~ .qa-ground,
 .bq[data-variant="call"] .bc-stream .qa-ground small { display: none; }
 .bq[data-variant="call"] .bc-stream .qa-evidence {
-  color: #fff; background: rgba(255, 255, 255, .12); border-left-color: rgba(255, 255, 255, .6); font-size: 14px;
+  color: #fff; background: rgba(255, 255, 255, .12); border-left-color: rgba(255, 255, 255, .6); font-size: clamp(14px, .85vw, 16px);
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
 }
+/* 근거 머리 「자료 4장 · 빠진 것」 — 줄 위에 따로, 크게 */
 .bq[data-variant="call"] .bc-stream .qa-evidence span { color: var(--lg-soft); }
+.bq[data-variant="call"] .bc-stream .qa-ground > span { display: block; margin-bottom: 2px; color: #fff; font-size: clamp(14px, .95vw, 18px); font-weight: var(--w-bold); }
 
-/* 지난 질문까지의 말 — 흐림 없이, 조금 물러난다. 손으로 올리거나 키보드로 닿으면 다시 또렷하다 */
-.bq[data-variant="call"] .bc-stream > .is-past { opacity: .78; transition: opacity 240ms; }
-.bq[data-variant="call"] .bc-stream > .is-past:is(:hover, :focus-within) { opacity: 1; }
+/* 지난 질문의 말 — 흐림 · 빛 없이 납작하고 작게, 글자는 옅게 물러난다. 투명도(opacity)로 물리면 흰 벽 위 대비가 4:1 아래로 떨어져서
+   면은 오히려 진하게 두고 글자만 옅게 한다 (10-01 2차 · 7:1). 손으로 올리거나 키보드로 닿으면 다시 또렷하다 */
+.bq[data-variant="call"] .bc-stream > .is-past .msg-bubble,
+.bq[data-variant="call"] .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag, .qa-finale) {
+  background: var(--lg-tint-past); border-color: rgba(255, 255, 255, .16); box-shadow: none; text-shadow: none;
+  color: rgba(255, 255, 255, .86); font-size: 14px; line-height: 1.5; padding: 9px 14px;
+}
+.bq[data-variant="call"] .bc-stream > .is-past :is(.msg-q, .msg-bubble > p, .qa-done p) { font-size: 14px; font-weight: var(--w-med); color: inherit; }
+.bq[data-variant="call"] .bc-stream > .is-past :is(.msg-meta, .react-head .chip, .qa-evidence, .qa-evidence span, h4, .qd-foot) { font-size: 12px; }
+.bq[data-variant="call"] .bc-stream > .is-past:is(:hover, :focus-within) .msg-bubble,
+.bq[data-variant="call"] .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag):is(:hover, :focus-within) { color: #fff; }
 
 /* 지금 답할 질문 — 한 겹 더 진하고, 글씨는 크게 (부스 1.5m 거리) */
 .bq[data-variant="call"] .bc-stream .msg.is-now .msg-bubble {
@@ -335,7 +350,8 @@
   .bc-host-text b { font-size: 16px; }
   .bc-host-text em { grid-column: auto; font-size: 13px; }
   .bc-hint { top: 130px; left: var(--bc-gap); transform: none; font-size: 14px; white-space: normal; max-width: calc(100vw - 124px - var(--bc-gap) * 3); }
-  .bc-talk { top: 40%; bottom: calc(var(--bc-dock-h, 168px) + var(--bc-gap) + 8px); }
+  /* 대화 칸을 위로 넓힌다 — 40% 에서 시작하면 되묻기·빠진 것이 붙는 순간 방금 판정이 위로 밀려 안 보였다 (10-01 2차) */
+  .bc-talk { top: max(29%, 236px); bottom: calc(var(--bc-dock-h, 168px) + var(--bc-gap) + 8px); }
   .bq[data-variant="call"] .bc-stream .msg-bubble { font-size: 15px; }
   .bq[data-variant="call"] .bc-stream .msg.is-now .msg-q { font-size: 17px; }
   .bq[data-variant="call"] .bc-dock { left: var(--bc-gap); right: var(--bc-gap); padding: 10px 12px; border-radius: 20px; }
@@ -345,7 +361,45 @@
   .bq[data-variant="call"] .bc-dock .step-actions { margin-top: 8px; gap: 8px; }
   .bq[data-variant="call"] .bc-dock .step-actions-sub { margin-top: 0; gap: 0; }
   .bq[data-variant="call"] .bc-dock .step-actions-sub .btn { font-size: 13px; padding: 0 10px; }
+  /* 답 칸을 낮게 — 버튼 줄이 두 줄로 꺾이지 않게 */
+  .bq[data-variant="call"] .bc-dock .qa-input-label:not(.is-retell):not(.is-end) { display: none; }
+  .bq[data-variant="call"] .bc-dock textarea { height: 46px; font-size: 16px; }
+  .bq[data-variant="call"] .bc-dock .step-actions:not(.step-actions-sub) { flex-wrap: nowrap; }
+  .bq[data-variant="call"] .bc-dock .step-actions:not(.step-actions-sub) .btn { min-height: 44px; padding: 0 14px; font-size: 15px; white-space: nowrap; }
+  .bq[data-variant="call"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveMic:not(:disabled):not(.is-rec) { min-height: 46px; padding: 0 16px; font-size: 15px; }
+  .bq[data-variant="call"] .bc-stream .msg.ai.react .msg-bubble > p { font-size: 16px; }
+  .bq[data-variant="call"] .bc-stream .react-head .chip { font-size: 14px; }
   .bc-call:has(> .bc-self[data-camera="off"]) .bc-side { left: auto; width: 124px; }
   .bc-call:has(> .bc-self[data-camera="off"]) .bc-slide { max-width: none; }
   .bc-call:has(> .bc-self[data-camera="off"]) .bc-self-off { display: flex; top: 30%; }
+}
+
+/* ── 낮거나 좁은 노트북 화면(1366×768 · 1280×720 · 1280×800) — 답 칸을 오른쪽 기둥으로 ─────────────────────────────
+   아래 띠 답 칸(780px)이 얼굴 가운데를 덮고, 진행 칩이 「영상은 이 화면에만」 알약 위에 겹쳤다 (10-01 2차 점검).
+   왼쪽 기둥(삐약이 · 대화)과 오른쪽 기둥(카메라 알약 · 자료 창 · 진행 칩 · 답 칸)을 각각 화면 38% 안쪽에 세워 가운데를 비운다.
+   자료 창은 답 칸 · 진행 칩 위에서 멈추게 높이를 묶고 그 안에서 장 그림이 줄어든다(비율 그대로). 1440·1536·1920 은 그대로. */
+@media (min-width: 901px) and (max-width: 1400px), (min-width: 901px) and (max-height: 820px) {
+  .bq[data-variant="call"] { --bc-talk-w: min(34vw, 460px); --bc-gap: 16px; }
+  .bq[data-variant="call"] .bc-hint { top: 14px; padding: 8px 18px; font-size: 15px; }
+  .bq[data-variant="call"] .bc-side {
+    top: 72px; width: var(--bc-talk-w); gap: 8px;
+    bottom: calc(var(--bc-dock-h, 270px) + var(--bc-gap) + 60px);
+  }
+  .bq[data-variant="call"] .bc-side-row { flex: none; }
+  .bq[data-variant="call"] .bc-side .bc-pill { min-height: 40px; }
+  .bq[data-variant="call"] .bc-slide { flex: 0 1 auto; min-height: 0; }
+  .bq[data-variant="call"] .bc-slide .bq-slide-pic { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; }
+  .bq[data-variant="call"] .bc-slide .bq-slide-pic canvas,
+  .bq[data-variant="call"] .bc-slide .bq-slide-pic img { width: auto; height: auto; max-width: 100%; max-height: 100%; }
+  .bq[data-variant="call"] .bc-privacy { flex: none; }
+  .bq[data-variant="call"] .bc-prog .bq-prog li { min-height: 40px; padding-block: 4px; }
+  .bq[data-variant="call"] .bc-dock { left: auto; width: var(--bc-talk-w); max-width: none; padding: 12px 14px; }
+  .bq[data-variant="call"] .bc-dock .qa-input-label span { display: none; }
+  .bq[data-variant="call"] .bc-dock textarea { height: 64px; font-size: 17px; }
+  .bq[data-variant="call"] .bc-dock .step-actions-sub .btn { padding: 0 10px; font-size: 14px; }
+  .bc-host { min-height: 92px; }
+  .bc-talk { bottom: calc(var(--bc-gap) + 92px + 10px); top: 72px; }
+  /* 카메라를 끄면 자료 창이 가운데를 쓴다 — 오른쪽 기둥 답 칸 왼쪽까지만 */
+  .bc-call:has(> .bc-self[data-camera="off"]) .bc-side { right: calc(var(--bc-gap) * 2 + var(--bc-talk-w)); bottom: var(--bc-gap); }
+  .bc-call:has(> .bc-self[data-camera="off"]) .bc-slide { max-width: none; align-self: stretch; }
 }

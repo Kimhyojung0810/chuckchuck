@@ -88,7 +88,8 @@ LAYOUT_JS = """() => {
   return { layer: true, screen: L.dataset.screen, variant: L.dataset.variant, present: L.dataset.present, W: innerWidth, H: innerHeight,
     center_cover, phone_cover, overlaps, cam_on: camOn,
     // 아래로 잘린 버튼 — 화면(층) 밖으로 나간 눌러야 할 것
-    cut_off: [...L.querySelectorAll('button, .bq-deck-go')].filter((b) => b.offsetParent).filter((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && (r.bottom > innerHeight + 1 || r.right > innerWidth + 1); }).map((b) => (b.id || b.textContent.trim()).slice(0, 24)),
+    // 폰(≤900)은 화면이 스크롤로 이어져서 재지 않는다
+    cut_off: innerWidth <= 900 ? [] : [...L.querySelectorAll('button, .bq-deck-go')].filter((b) => b.offsetParent).filter((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && (r.bottom > innerHeight + 1 || r.right > innerWidth + 1); }).map((b) => (b.id || b.textContent.trim()).slice(0, 24)),
     host: r(L.querySelector('.bc-host')), talk: r(L.querySelector('.bc-talk')), dock: r(L.querySelector('.bc-dock')),
     now_q: r(L.querySelector('#stream .msg.is-now .msg-bubble')),
     glass: (() => { const g = L.querySelector('.bc-glass'); return g ? getComputedStyle(g).backdropFilter || getComputedStyle(g).webkitBackdropFilter : null; })(),
@@ -102,7 +103,7 @@ LAYOUT_JS = """() => {
     face_box: (() => { const f = document.getElementById('bqFace'); return f && !f.hidden ? r(f) : null; })(),
     hint: (document.getElementById('bqHint') || {}).textContent || '',
     // 방금 판정 말풍선이 대화 칸 안에 얼마나 보이나 (0~1) — 폰에서 되묻기에 밀려 위로 사라졌다 (10-01 점검)
-    react_visible: (() => { const st = document.getElementById('stream'); const rs = st ? st.querySelectorAll(':scope > .msg.ai.react') : [];
+    react_visible: (() => { const st = document.getElementById('stream'); const rs = st ? st.querySelectorAll(':scope > .msg.ai.react:not(.is-past)') : [];
       if (!rs.length) return null; const a = rs[rs.length - 1].getBoundingClientRect(); const c = st.getBoundingClientRect();
       const vis = Math.max(0, Math.min(a.bottom, c.bottom, innerHeight) - Math.max(a.top, c.top, 0)); return a.height ? Math.round(vis / a.height * 100) / 100 : null; })(),
     in_view: Object.fromEntries(['#bqStart', '#bqGo', '#liveSend', '#liveAnswer', '[data-bq-home]'].map((s) => [s, inView(s)])),
