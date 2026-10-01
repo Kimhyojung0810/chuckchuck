@@ -237,9 +237,17 @@ function bqBird(id, mood = '') {
 
 /* ─── 카메라 — 한 번 연 스트림을 체험 내내 쓴다 (다시 묻지 않게) ───────────────── */
 
+/**
+ * 카메라를 못 열었을 때 할 일. 「카메라 없이도 말로 답할 수 있어요」 는 옆 굵은 줄(bqCvStatusText · .bc-self-off)이 말하고, 여기서는 여는 길만.
+ * 권한이 막혔거나 까닭을 모를 때 「한 번 더 눌러요」 는 다시 눌러도 같은 답이 와서 막다른 길이었다 (10-01 2차) — 권한을 여는 자리를 가리킨다.
+ */
 function bqCamErrorText(err) {
-  if (typeof callCamErrorText === 'function') return callCamErrorText(err);
-  return '카메라를 열지 못했어요. 카메라 없이도 체험할 수 있어요.';
+  const name = (err && err.name) || '';
+  if (window.isSecureContext === false) return '카메라는 https 주소나 이 컴퓨터(127.0.0.1)에서만 열려요.';
+  if (!err) return '이 브라우저에서는 카메라를 열 수 없어요.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return '연결된 카메라가 없어요. 카메라를 꽂고 「카메라 켜기」를 눌러요.';
+  if (name === 'NotReadableError' || name === 'AbortError') return '다른 앱이 카메라를 쓰고 있어요. 그 앱을 닫고 「카메라 켜기」를 눌러요.';
+  return '카메라 권한이 막혀 있어요. 주소창 왼쪽 자물쇠를 눌러 카메라를 「허용」으로 바꾼 뒤 「카메라 켜기」를 눌러요.';
 }
 
 async function bqCamEnsure() {
@@ -400,8 +408,8 @@ function bqShowAttract() {
     <div class="bq-attract">
       <section class="bq-hero">
         ${bq.variant === 'call' ? `<p class="bq-eyebrow">부스 Q&amp;A 화상 체험</p>
-        <h1>발표 자료를 읽은 삐약이가<br><span id="bqRoleWord" class="bq-role-word">${escapeHtml(BOOTH_ROLES[0].aud)}</span>${escapeHtml(josa(BOOTH_ROLES[0].aud, '이', '가'))} 되어 물어봐요</h1>
-        <p class="bq-lead">교수님 · 심사위원 · 회사 상사 · 일반 청중 중 한 역할을 삐약이에게 맡기고, 화상 통화처럼 카메라를 보며 질문 3개에 말로 답해 봐요. 3분이면 끝나요.</p>` : `<p class="bq-eyebrow">부스 Q&amp;A 체험</p>
+        <h1><span id="bqRoleWord" class="bq-role-word">${escapeHtml(BOOTH_ROLES[0].aud)}</span> 역할을 맡은 삐약이와<br>화상 통화해 봐요</h1>
+        <p class="bq-lead">교수님 · 심사위원 · 회사 상사 · 일반 청중 중 하나를 골라 삐약이에게 이름표를 달아 주고, 화상 통화처럼 카메라를 보며 질문 3개에 말로 답해 봐요. 질문은 고른 발표 자료에서 나와요. 3분이면 끝나요.</p>` : `<p class="bq-eyebrow">부스 Q&amp;A 체험</p>
         <h1>발표 자료를 읽은 AI가<br>심사위원처럼 물어봐요</h1>
         <p class="bq-lead">발표 하나를 고르고 질문 3개에 답해 봐요. 3분이면 끝나요.</p>`}
         <button type="button" class="bq-cta" id="bqStart">체험 시작하기</button>
@@ -447,13 +455,9 @@ function bqRotateSample() {
   void box.offsetWidth;   // 같은 애니메이션을 다시 태운다
   box.classList.add('swap');
   p.textContent = BOOTH_SAMPLE_QS[bq.sampleIdx];
-  // 화상판 제목의 역할 낱말도 같이 돈다 — 고를 수 있는 역할이 넷이라는 걸 보여 준다
+  // 화상판 제목의 역할 낱말도 같이 돈다 — 고를 수 있는 역할이 넷이라는 걸 보여 준다 (뒷말 「역할을 맡은」 은 조사가 안 바뀐다)
   const word = document.getElementById('bqRoleWord');
-  if (word) {
-    const role = BOOTH_ROLES[bq.sampleIdx % BOOTH_ROLES.length].aud;
-    word.textContent = role;
-    if (word.nextSibling) word.nextSibling.textContent = `${josa(role, '이', '가')} 되어 물어봐요`;
-  }
+  if (word) word.textContent = BOOTH_ROLES[bq.sampleIdx % BOOTH_ROLES.length].aud;
 }
 
 /** 사람이 다가오면 — 병아리들이 돌아보고 말풍선이 인사로 바뀐다. 몇 초 뒤 예시로 돌아간다 */
@@ -632,7 +636,7 @@ function bqPrepHtml(d) {
         <p class="bq-skim-tip">「${escapeHtml(d.title)}」의 발표자가 됐다고 생각하고 훑어봐요. 질문은 이 자료를 바탕으로 나와요.</p>
       </section>
       <aside class="bq-build">
-        <h2>${bq.variant === 'call' ? `${escapeHtml(bq.role)}${escapeHtml(josa(bq.role, '이', '가'))} 물어볼 질문을 고르고 있어요` : '질문을 만들고 있어요'}</h2>
+        <h2>${bq.variant === 'call' ? '발표 자료에서 질문 3개를 고르고 있어요' : '질문을 만들고 있어요'}</h2>
         <p class="bq-build-note">처음 여는 발표는 1분쯤 걸려요. 그동안 자료를 훑어봐요.</p>
         <ol class="bq-build-steps" id="bqBuildSteps">${BQ_PREP_STEPS.map((s) => `
           <li data-step="${s.key}" data-state="wait"><i aria-hidden="true"></i><span>${s.word}</span><span class="bq-sr" data-sr>기다리는 중이에요</span></li>`).join('')}</ol>
@@ -654,6 +658,22 @@ function bqSetStep(key, state) {
   if (sr) sr.textContent = BQ_STEP_SR[state] || '';
   if (state === 'run') li.setAttribute('aria-current', 'step');
   else li.removeAttribute('aria-current');
+}
+
+/**
+ * 준비가 멈췄을 때 방문객에게 할 말 — 서버 원문(「upstream timeout」 같은)은 콘솔로 보내고 화면은 사람 말 + 다시 해 보기 (10-01 2차).
+ * 운영진은 콘솔·브리지 로그에서 원문을 본다.
+ */
+function bqPrepFailText(stage, raw) {
+  const text = String(raw || '');
+  console.warn(`[chuckchuck] booth prep ${stage} 실패:`, text);
+  const slow = /time\s*out|timed out|timeout|시간 초과|50[234]|upstream/i.test(text);
+  if (stage === 'graph') {
+    return slow ? '자료를 읽는 AI 가 늦게 답했어요. 「다시 해 보기」를 누르면 한 번 더 읽어요.'
+      : '자료를 정리하다 멈췄어요. 「다시 해 보기」를 누르면 한 번 더 해요.';
+  }
+  return slow ? '질문을 만드는 AI 가 늦게 답했어요. 「다시 해 보기」를 누르면 한 번 더 만들어요.'
+    : '질문을 만들지 못했어요. 「다시 해 보기」를 누르면 한 번 더 만들어요.';
 }
 
 function bqPrepFail(message, d) {
@@ -743,7 +763,7 @@ async function bqPrepare(d) {
     if (!alive()) return;
     const st = (precompute && precompute.state) || {};
     bqSetStep(st.conceptsReady ? 'graph' : 'concepts', 'fail');
-    bqPrepFail(humanErrorText(String((err && err.message) || err)), d);
+    bqPrepFail(bqPrepFailText('graph', (err && err.message) || err), d);
     return;
   }
   clearInterval(poll);
@@ -769,7 +789,8 @@ async function bqPrepare(d) {
       clearInterval(waitQ);
       bqSetStep('questions', 'done');
       go.disabled = false;
-      go.textContent = bq.variant === 'call' ? `${bq.role}${josa(bq.role, '과', '와')} 통화 시작하기` : '질문 받으러 가기';
+      // 역할은 이름표다 — 「교수님과 통화」 는 역할이 질문을 고른다는 약속으로 읽혔다 (10-01 2차). 역할극 느낌은 남긴다
+      go.textContent = bq.variant === 'call' ? `${bq.role} 역할의 삐약이와 통화 시작하기` : '질문 받으러 가기';
       go.classList.add('pulse');
       go.focus();
       return;
@@ -777,7 +798,7 @@ async function bqPrepare(d) {
     if (qaBuildFailed && !qaBuilding) {
       clearInterval(waitQ);
       bqSetStep('questions', 'fail');
-      bqPrepFail(qa.liveError || '질문 생성 요청이 실패했어요.', d);
+      bqPrepFail(bqPrepFailText('questions', qa.liveError), d);
     }
   }, BOOTH_PREP_POLL_MS);
   bq.timers.push(waitQ);
@@ -840,7 +861,8 @@ function bqSpotHtml() {
   // 되묻기(qa_live.js askAgain)도 question 말풍선으로 온다 — 지금 답할 말은 그것이라 카드에 올리고, 되묻기라고 밝힌다
   const follow = t && bqIsFollowUp(t);
   const choices = (t && t.choices) || [];
-  return `<p class="bq-spot-meta"><b>질문 ${L.qi + 1}</b><span>/ ${n}</span>${q.severity === 1 && !follow ? '<em>꼭 넘어야 해요</em>' : ''}${follow ? `<em class="is-follow">${t.meta || '한 번 더 물어요'}</em>` : ''}</p>
+  // 중요도(꼭 넘어야 해요)는 부스 방문객에게 성적 기준처럼 읽혀 뺀다 (10-01 2차 · 화상판과 같다)
+  return `<p class="bq-spot-meta"><b>질문 ${L.qi + 1}</b><span>/ ${n}</span>${follow ? `<em class="is-follow">${t.meta || '한 번 더 물어요'}</em>` : ''}</p>
     <p class="bq-spot-q">${t ? t.text : escapeHtml(q.question || '')}</p>
     ${choices.length ? `<div class="qa-choices bq-choices">${choices.map((c) => `<button type="button" class="qa-choice-chip">${c}</button>`).join('')}</div>` : ''}
     ${slides.length ? `<p class="bq-spot-basis">근거 자료 · ${slides.slice(0, 3).map((s) => `${s}장`).join(' · ')}</p>` : ''}`;
@@ -1060,7 +1082,7 @@ function boothQaFinale() {
     const row = liveResultRow(r);
     return `<li>
       <span class="bq-fin-no">${i + 1}</span>
-      <span class="bq-fin-q"><b>${escapeHtml(q.label || `질문 ${i + 1}`)}</b><small>${escapeHtml(oneLine(q.question))}</small></span>
+      <span class="bq-fin-q"><b>${escapeHtml(q.label || `질문 ${i + 1}`)}${q.trap ? '<em class="bq-fin-trap">함정 질문</em>' : ''}</b><small>${escapeHtml(oneLine(q.question))}</small></span>
       <span class="chip chip-sm ${row.cls}">${escapeHtml(row.chip)}</span>
     </li>`;
   }).join('');
@@ -1074,7 +1096,7 @@ function boothQaFinale() {
     <div class="bq-finale">
       <section class="bq-fin-main">
         <div class="bq-judges bq-judges-sm">${birds}</div>
-        <p class="bq-eyebrow">${call ? `${escapeHtml(role)}${escapeHtml(josa(role, '과', '와'))} 통화를 마쳤어요` : '체험을 마쳤어요'}</p>
+        <p class="bq-eyebrow">${call ? `${escapeHtml(role)} 역할의 삐약이와 통화를 마쳤어요` : '체험을 마쳤어요'}</p>
         <h1 class="bq-fin-head">${sum.head}</h1>
         <ol class="bq-fin-list">${rows}</ol>
       </section>

@@ -379,3 +379,36 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .bq-toast, .bq-sheet { transition: none; }
 }
+
+/* ── 10-01 2차 점검 ──────────────────────────────────────────────────────── */
+/* 부스는 점수를 앞세우지 않는다 — 「35 완성도」 가 방문객에게 성적표로 읽혔다. 판정 칩(색 · 낱말)만 남긴다 (화상판과 같다) */
+.bq .bq-feed .react-head :is(.msg-score, small, .msg-delta) { display: none; }
+
+/* 결과 줄 — 함정 질문 표지. 질문 글이 「자료에서 『…』라고 했는데」 로 자료 인용처럼 남아서, 그 줄이 함정이었다고만 밝힌다 */
+.bq-fin-trap {
+  display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: var(--r-pill); vertical-align: 2px;
+  font-style: normal; font-size: 12px; font-weight: var(--w-bold); color: #fde68a; background: rgba(245, 158, 11, .18); border: 1px solid rgba(253, 230, 138, .4);
+}
+
+/* 낮은 노트북 화면(1366×768 · 1280×720) — 발표 고르기 카드의 「이 발표로 질문 받기」 가 화면 아래로 잘렸다. 표지를 낮게, 머리를 촘촘하게 */
+@media (min-width: 901px) and (max-height: 860px) {
+  .bq-pick .bq-h1 { font-size: clamp(26px, 2.2vw, 34px); margin-bottom: 6px; }
+  .bq-pick .bq-lead { margin-bottom: 14px; font-size: 16px; }
+  .bq-pick .bq-roles { margin-bottom: 14px; }
+  .bq-pick .bq-roles legend { margin-bottom: 8px; }
+  .bq-pick .bq-role { min-height: 48px; padding-block: 6px; }
+  .bq-pick .bq-cover { aspect-ratio: auto; height: clamp(110px, 21vh, 190px); margin-bottom: 4px; }
+  .bq-pick .bq-cover canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* 낮아진 칸 안에 장 전체 (잘리지 않게) */
+  .bq-pick .bq-deck { padding: 12px 12px 14px; gap: 6px; }
+  .bq-pick .bq-deck-title { font-size: 18px; }
+  .bq-pick .bq-deck-go { padding-top: 2px; }
+  /* 훑어보기 — 장 그림이 칸을 밀어 넘기던 것(넘기기 버튼 · 「다른 발표 고르기」 가 화면 밖)을 칸 안에 가둔다 */
+  .bq-skim { gap: 10px; }
+  .bq-skim-frame canvas { position: absolute; inset: 0; margin: auto; }
+  .bq-skim-tip { font-size: 14px; }
+  .bq-build { gap: 10px; padding: 18px 20px; }
+  .bq-build-steps { gap: 8px; margin-top: 2px; }
+  .bq-build-steps li { font-size: 16px; }
+  .bq-build .bq-fail { padding: 12px 16px; }
+  .bq-build .bq-cta { min-height: 52px; }
+}
