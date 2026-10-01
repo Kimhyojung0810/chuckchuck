@@ -51,6 +51,7 @@ from demo.rate_limit import RateLimiter  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
+from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
@@ -1296,6 +1297,31 @@ def _capped(value, depth: int = 0):
     return str(value)[:CLIENT_TEXT_MAX]
 
 
+#: 정적 파일 해시·gzip 기억 (demo/static_assets.py). 첫 화면 파일을 오래 캐시해도 옛 판이 안 남게 한다.
+STATIC = AssetCache({"/": DEMO_DIR, "/sdk/": SDK_DIR})
+CDN_HTML_CACHE = "max-age=60, stale-while-revalidate=86400"
+
+
+def _minifier() -> Minifier:
+    """
+    공개 서비스(TUNNEL_HOSTNAME 이 있을 때)에서만 JS·CSS 주석·공백을 걷는다 — 개발 브리지(8800)는 원본 그대로라
+    개발자 도구에서 읽기 쉽다. DEMO_MINIFY=1/0 으로 강제. 바이너리는 ESBUILD_BIN · tools/bin/esbuild · PATH 순
+    (scripts/get_esbuild.sh 가 받는다). 없으면 원본을 보낸다.
+    """
+    flag = os.environ.get("DEMO_MINIFY", "").strip()
+    on = flag == "1" or (flag != "0" and bool(os.environ.get("TUNNEL_HOSTNAME", "").strip()))
+    if not on:
+        return Minifier(None)
+    cand = [os.environ.get("ESBUILD_BIN", "").strip(), str(ROOT / "tools" / "bin" / "esbuild"), shutil.which("esbuild") or ""]
+    binary = next((c for c in cand if c and os.path.isfile(c) and os.access(c, os.X_OK)), None)
+    if not binary:
+        sys.stderr.write("[bridge] esbuild 가 없어 JS·CSS 를 줄이지 않고 보내요 — scripts/get_esbuild.sh\n")
+    return Minifier(binary)
+
+
+MINIFY = _minifier()
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -1419,8 +1445,6 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return
         try:
             parsed = urlparse(self.path)
-            if parsed.path.startswith("/sdk/"):
-                return self._serve_sdk(parsed.path[len("/sdk/") :])
             if parsed.path == "/api/health":
                 return self._json(200, {"ok": True, "mock": _mock()})
             if parsed.path.rstrip("/") == "/auth":
@@ -1454,7 +1478,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return None
-            return super().do_GET()
+            return self._serve_static(parsed)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
         except Exception:  # noqa: BLE001
@@ -1469,11 +1493,15 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return
         try:
             parsed = urlparse(self.path)
-            if parsed.path.startswith("/sdk/"):
-                return self._serve_sdk(parsed.path[len("/sdk/") :], head_only=True)
-            return super().do_HEAD()
+            return self._serve_static(parsed, head_only=True)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
+        except Exception:  # noqa: BLE001 — HEAD 도 GET 처럼 연결을 끊지 않고 500 으로 답한다
+            traceback.print_exc()
+            try:
+                self.send_error(500)
+            except Exception:  # noqa: BLE001
+                return
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -1742,19 +1770,69 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         self.end_headers()
         self.wfile.write(data)
 
-    def _serve_sdk(self, rel: str, head_only: bool = False):
-        path = (SDK_DIR / rel).resolve()
-        if not str(path).startswith(str(SDK_DIR.resolve())) or not path.is_file():
+    def _serve_static(self, parsed, head_only: bool = False):
+        """
+        데모 화면 파일과 /sdk/ 모듈 (demo/static_assets.py). HTML·ES 모듈은 참조 주소에 내용 해시를 넣어 내고,
+        요청의 v 가 지금 해시와 같으면 1년 immutable, 아니면 no-cache + ETag.
+        폴더 주소에 / 가 없으면 SimpleHTTPRequestHandler 의 리다이렉트에 맡긴다.
+        """
+        url = parsed.path
+        path = STATIC.locate(url)
+        if path is not None and path.is_dir():
+            if not url.endswith("/"):
+                return super().do_HEAD() if head_only else super().do_GET()
+            url += "index.html"
+        got = STATIC.served(url)
+        if got is None:
             self.send_error(404)
+            return None
+        data, digest = got
+        path = STATIC.locate(url)
+        ctype = self.guess_type(str(path))
+        if ctype.startswith("text/") and "charset" not in ctype:
+            ctype += "; charset=utf-8"
+        suffix = path.suffix.lower()
+        if suffix in (".js", ".mjs", ".css"):
+            data = MINIFY(data, "css" if suffix == ".css" else "js", path.name)
+        extra = []
+        if suffix == ".html":
+            cache = REVALIDATE  # 입구는 늘 재검증 — 새 판의 해시 주소를 바로 물게
+            # Cloudflare 에게만: 60초 들고 있다가 그 뒤엔 가진 걸 먼저 내주며 뒤에서 새로 받는다. HTML 은 누구에게나
+            # 같아서(팀 여부는 /api/v1/team) 나눠 써도 되고, 첫 방문의 VM 왕복(0.2~1.8초)이 빠진다.
+            # Cloudflare 는 HTML 을 기본으로 저장하지 않아서 캐시 규칙을 켜야 쓰인다 (docs/DEPLOYMENT.md §10-5)
+            extra.append(("CDN-Cache-Control", CDN_HTML_CACHE))
+        else:
+            v = (parse_qs(parsed.query).get("v") or [""])[0]
+            cache = IMMUTABLE if v and v == digest else REVALIDATE
+        self._send_static_bytes(path, data, ctype, cache, head_only, extra)
+        return None
+
+    def _send_static_bytes(self, path: Path, data: bytes, ctype: str, cache: str, head_only: bool,
+                           extra: list[tuple[str, str]] = ()) -> None:
+        compressible = path.suffix.lower() in COMPRESSIBLE and len(data) >= MIN_GZIP_BYTES
+        gz = compressible and accepts_gzip(self.headers.get("Accept-Encoding") or "")
+        etag = f'"{content_digest(data)}{"-gz" if gz else ""}"'
+        headers = [("ETag", etag), ("Cache-Control", cache), *extra]
+        if compressible:
+            headers.append(("Vary", "Accept-Encoding"))
+        if etag_matches(self.headers.get("If-None-Match") or "", etag):
+            self.send_response(304)
+            for k, v in headers:
+                self.send_header(k, v)
+            self.end_headers()
             return
-        data = path.read_bytes()
+        body = STATIC.gzipped(path, data) if gz else data
         self.send_response(200)
-        self.send_header("Content-Type", "text/javascript; charset=utf-8")
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        if gz:
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header("Last-Modified", self.date_time_string(int(path.stat().st_mtime)))
+        for k, v in headers:
+            self.send_header(k, v)
         self.end_headers()
         if not head_only:
-            self.wfile.write(data)
+            self.wfile.write(body)
 
     def _handle_parse(self, raw: bytes):
         ctype = self.headers.get("Content-Type", "")
@@ -3325,9 +3403,17 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         self.end_headers()
         self.wfile.write(data)
 
+    def send_header(self, keyword, value):
+        if keyword.lower() == "cache-control":
+            self._cache_header_sent = True
+        super().send_header(keyword, value)
+
     def end_headers(self):
-        # 데모는 수정이 잦다. 캐시된 옛 app.js 가 새 흐름을 가리는 사고 방지
-        self.send_header("Cache-Control", "no-store")
+        # 캐시 규칙을 따로 정하지 않은 응답(API·오류·리다이렉트)은 저장하지 않는다.
+        # 정적 파일은 _serve_static 이 정한다 — 주소에 내용 해시가 있어 오래 캐시해도 옛 판이 안 남는다
+        if not getattr(self, "_cache_header_sent", False):
+            self.send_header("Cache-Control", "no-store")
+        self._cache_header_sent = False  # keep-alive 로 이어지는 다음 응답은 처음부터
         # CORS 는 허용 목록에 있는 origin 에만 연다. 브리지가 UI 를 같이 서빙하므로
         # 기본 경로는 같은 출처라 헤더가 아예 필요 없다 — '*' 는 브리지를 외부에
         # 노출했을 때 아무 페이지나 과금 API 를 부를 수 있게 하는 문이었다.

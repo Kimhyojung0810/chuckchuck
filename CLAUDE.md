@@ -68,6 +68,10 @@ IP 만 알면 아무나 눌러서 팀 계정으로 과금된다. 원격에서 �
 **`css/*.css` 나 `js/*.js` 를 고쳤으면 `index.html` 의 해당 `?v=` 를 같이 올린다.**
 안 올리면 브라우저가 옛 파일을 그대로 서빙해서 "고쳤는데 안 바뀐다"가 된다.
 
+브리지(8799·8800)로 볼 때는 이 값을 브리지가 **내용 해시로 바꿔서** 내준다 (2026-10-01, `demo/static_assets.py`) —
+해시가 맞는 파일만 1년 캐시하므로 올리는 걸 잊어도 옛 파일이 안 뜬다. 그래도 브리지 밖 정적 호스팅과 `chk gate` 를 위해 계속 올린다.
+첫 화면에 안 쓰는 파일(베타 화면·랜딩·모션·pdf.js)은 `index.html` 의 `<template id="lazyAssets">` 에 있다 (`js/lazy.js`).
+
 **⚠️ `?v=` 는 `index.html` 만이 아니다.** `f11_reveal.html`(분석 연출)은 index.html 이
 아니라 `js/app.js` 의 `showF11Reveal()` 안에 `f11_reveal.html?embed=1&v=…` 로 따로
 박혀 있다. **리빌을 고쳤으면 이 값도 같이 올린다** — index.html 만 올리면 연출은

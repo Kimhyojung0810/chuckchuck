@@ -377,6 +377,9 @@ function route() {
   // 여기서 지워질 일은 없고, 끝난 코칭 기록은 qa-history(localStorage)에 남아 있다.
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) { resetNf(); resetQa(); }
   if (BETA_ROUTES.has(key) && !ccTeam) { renderBetaLock(); return; }
+  // 이 화면의 코드를 아직 안 받았으면 받고 나서 다시 그린다 (js/lazy.js)
+  const lazy = lazyBundlesFor(key);
+  if (lazy.length && !lazy.every((b) => ccLazy.loaded(b))) { renderLazyWait(lazy); return; }
   (routes[key] || renderHome)();
   syncTopbar();
   syncSideNav(key);
@@ -902,6 +905,37 @@ let ccTeam = false;
 let ccTeamChecked = false;
 /* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 개발자 모드를 켠 브라우저에만 연다 */
 const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
+/* 첫 화면에 안 쓰는 화면 코드는 들어갈 때 받는다 (js/lazy.js · index.html 의 #lazyAssets).
+   공개 방문자는 베타 화면을 못 여니 beta 번들을 아예 안 받는다. 베타 흐름(통화·비전·부스)은
+   sessionStorage 표시로 #/new·#/qa 의 배치까지 바꾸므로, 표시가 켜진 채 새로 고치면 그 화면에서도 받는다.
+   키는 call_flow.js CALL_FLOW_KEY · vision_rehearsal.js VISION_FLOW_KEY · booth_qa.js BOOTH_QA_KEY 와 같아야 한다
+   (tests/js/lazy.smoke.mjs 가 대조한다). */
+const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], landing: ['landing'] };
+const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa'];
+function lazyFlowFlagOn() {
+  try { return LAZY_FLOW_FLAGS.some((k) => sessionStorage.getItem(k) === '1'); } catch (_) { return false; }
+}
+function lazyBundlesFor(key) {
+  if (!window.ccLazy) return [];
+  const out = (LAZY_ROUTE_BUNDLES[key] || []).slice();
+  if (!out.includes('beta') && lazyFlowFlagOn()) out.push('beta');
+  return out;
+}
+function renderLazyWait(bundles) {
+  const hash = location.hash;
+  app.className = 'narrow';
+  app.innerHTML = '<p class="note" role="status" style="padding:48px 0;text-align:center">화면을 불러오고 있어요…</p>';
+  ccLazy.loadAll(bundles).then((ok) => {
+    if (location.hash !== hash) return; // 그 사이 다른 화면으로 갔으면 그 화면의 route() 가 그린다
+    if (ok) { route(); return; }
+    app.innerHTML = stageAccidentHtml('화면 파일을 받지 못했어요. 새로 고치면 다시 받아요.', { title: '화면을 불러오지 못했어요' });
+  });
+}
+/** pdf.js 는 한가할 때 받는다 (js/lazy.js) — 쓰는 곳은 이걸 기다린다. 못 받으면 false */
+function ccEnsurePdfjs() {
+  if (window.pdfjsLib || !window.ccLazy) return Promise.resolve(!!window.pdfjsLib);
+  return ccLazy.load('pdf').then(() => !!window.pdfjsLib);
+}
 function renderBetaLock() {
   app.className = 'narrow';
   app.innerHTML = ccTeamChecked ? `
@@ -925,6 +959,8 @@ function loadTeamFlag() {
       const was = ccTeam;
       ccTeam = !!(j && j.team);
       ccTeamChecked = true;
+      // 팀 브라우저는 베타 화면으로 넘어갈 일이 있다 — 한가할 때 미리 받아 둔다
+      if (ccTeam && window.ccLazy) ccLazy.whenIdle(['beta']);
       const key = location.hash.replace(/^#\/?/, '').split('/')[0];
       if (BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
     })
@@ -1612,6 +1648,7 @@ async function loadUploadedPdf(file, nameHint = '') {
   const looksPdf = /\.pdf$/i.test(name)
     || (file && (file.type === 'application/pdf' || String(file.type || '').includes('pdf')));
   if (!file || !looksPdf) return null;
+  await ccEnsurePdfjs();
   if (!window.pdfjsLib) {
     console.warn('[chuckchuck] pdf.js 미로드');
     return null;
@@ -2096,7 +2133,8 @@ function clientSampleSlideDoc() {
  * 브라우저가 방금 연 사실이라 「먼저 열어 봤어요」라고 그대로 말한다.
  */
 async function probeParsePreview(file, gen) {
-  if (!file || !window.pdfjsLib || !/\.pdf$/i.test(file.name || '')) return;
+  if (!file || !/\.pdf$/i.test(file.name || '')) return;
+  if (!(await ccEnsurePdfjs())) return;
   const alive = () => gen === parseGen && nf.gate === 'parsing';
   try {
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
@@ -2466,7 +2504,8 @@ function nfStep3() {
   renderRecPanel();
   const openVision = $('#openVision');
   if (openVision) openVision.addEventListener('click', () => {
-    if (typeof renderVisionEntry === 'function') renderVisionEntry({ keepDeck: true });
+    const go = () => { if (typeof renderVisionEntry === 'function') renderVisionEntry({ keepDeck: true }); };
+    if (window.ccLazy) ccLazy.load('beta').then(go); else go();
   });
   bindRehearsalNav();
   syncRehearsalNav();
@@ -9886,3 +9925,5 @@ async function startReplay(sessionId, title, btn) {
 /* ── 시작 ── */
 route();
 loadTeamFlag();
+// 첫 화면이 뜬 뒤 한가할 때 — 모션·pdf.js (js/lazy.js). 받기 전에 쓰는 곳은 둘 다 없는 채로도 돈다
+if (window.ccLazy) ccLazy.whenIdle(['motion', 'pdf']);
