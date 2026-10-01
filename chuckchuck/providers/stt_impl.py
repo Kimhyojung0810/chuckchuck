@@ -104,9 +104,22 @@ def _bytes_per_sec(rate: int, channels: int) -> int:
     return rate * channels * 2          # 16-bit PCM
 
 
+def media_tool(name: str) -> str | None:
+    """ffmpeg·ffprobe 실행 파일 경로. PATH 에 없으면 ~/.local/bin 도 본다.
+
+    이 서버의 ffmpeg 은 ~/.local/bin 에 있는데 systemd 서비스 PATH 에는 그 폴더가 없다.
+    PATH 만 보면 8799 에서 WAF 우회가 통째로 꺼져 원본이 올라가 거부된다 (2026-10-01 실측: 5MB m4a).
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    local = Path.home() / ".local/bin" / name
+    return str(local) if local.is_file() and os.access(local, os.X_OK) else None
+
+
 def _ffprobe_duration(path: Path) -> float:
     out = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+        [media_tool("ffprobe") or "ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "default=nw=1:nk=1", str(path)],
         capture_output=True, text=True, timeout=60,
     )
@@ -117,7 +130,7 @@ def _ffprobe_duration(path: Path) -> float:
 
 
 def _to_wav(src: Path, dst: Path, rate: int, channels: int, pad_sec: float = 0.0) -> bool:
-    cmd = ["ffmpeg", "-v", "error", "-y", "-i", str(src)]
+    cmd = [media_tool("ffmpeg") or "ffmpeg", "-v", "error", "-y", "-i", str(src)]
     if pad_sec > 0:
         cmd += [
             "-f", "lavfi", "-t", f"{pad_sec + 1:.3f}",
@@ -144,7 +157,7 @@ def widen_for_waf(src: Path, out_dir: Path) -> Path | None:
     ffmpeg 이 없거나 어떤 이유로든 실패하면 None — 호출부는 원본을 그대로 올리고
     실패하면 실패로 보여준다. 조용히 다른 소리를 올리는 일은 만들지 않는다.
     """
-    if not shutil.which("ffmpeg"):
+    if not media_tool("ffmpeg"):
         return None
 
     # 1) 가장 가벼운 프로필로 먼저 뽑는다. 여기서 상한을 넘으면 그걸로 끝 (긴 녹음)

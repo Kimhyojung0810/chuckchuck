@@ -45,6 +45,7 @@ from chuckchuck import (  # noqa: E402
     transcribe,
 )
 from chuckchuck.contracts import ConceptDoc, ConceptGraph, HabitDoc, PaceDoc, SlideDoc, SlideMark, Transcript  # noqa: E402
+from chuckchuck.providers.stt_impl import media_tool  # noqa: E402
 
 from demo.learning_jobs import refresh_learning_assets  # noqa: E402
 from demo.rate_limit import RateLimiter  # noqa: E402
@@ -406,7 +407,7 @@ def _safe_audio_ext(raw: str | None) -> str:
 
 def _probe_audio_sec(path: Path) -> float:
     """ffprobe 로 재는 오디오 길이(초). ffprobe 가 없거나 실패하면 0 — 브라우저가 대신 잰다."""
-    exe = shutil.which("ffprobe") or str(Path.home() / ".local/bin/ffprobe")
+    exe = media_tool("ffprobe") or "ffprobe"
     if not Path(exe).exists():
         return 0.0
     try:
@@ -3510,7 +3511,7 @@ def main():
     print(settings.masked(), flush=True)
     print(f"  세션 보관: {DATA_DIR} · 개발 목록 경로={'열림' if DEV_ROUTES else '닫힘'}"
           f" · 팀 인증(/auth)={'켜짐' if TEAM_CODE else '꺼짐'}", flush=True)
-    if not _mock() and not shutil.which("ffmpeg"):
+    if not _mock() and not media_tool("ffmpeg"):
         # A.X 앞단 WAF 는 10MiB 미만 업로드를 검사하다 막을 수 있고, 그 우회(PCM WAV 로 키우기)는 ffmpeg 이 있어야 돈다.
         # 질문 코칭의 답변 녹음은 10초 안팎(수백 KB)이라 정확히 그 구간이다 — 조용히 넘어가면 부스에서 "받아쓰기 실패" 로 나타난다.
         print("  ⚠ ffmpeg 이 없어요. 10MB 미만 녹음(질문 코칭 답변)의 WAF 우회가 꺼져 받아쓰기가 실패할 수 있어요 — "
