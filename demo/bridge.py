@@ -1469,8 +1469,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             # 주소창에 /test/QA 라고 쳐도 열리게 — 앱은 해시 라우팅이라 경로를 해시로 돌려보낸다.
             # /temp 도 같다 — 통화 배치로 도는 전체 흐름(업로드→발표→질문 코칭)의 입구 (js/call_flow.js).
             # /vision 은 비전 리허설(js/vision_rehearsal.js). /booth/qa 는 Festa 부스 운영 중에 Q&A 세션을 보여 주는 무대
-            # (js/booth_qa.js) — 개발용 /test/qa 와 짝이다.
-            hash_route = {"/test/qa": "#/test/qa", "/temp": "#/temp", "/vision": "#/vision", "/booth/qa": "#/booth/qa"}.get(
+            # (js/booth_qa.js) — 개발용 /test/qa 와 짝이다. /booth/call 은 같은 부스 흐름의 화상 통화판(js/booth_call.js).
+            hash_route = {"/test/qa": "#/test/qa", "/temp": "#/temp", "/vision": "#/vision", "/booth/qa": "#/booth/qa", "/booth/call": "#/booth/call"}.get(
                 parsed.path.lower().rstrip("/")
             )
             if hash_route:

@@ -296,7 +296,8 @@ const routes = {
   // 비전 리허설 (#/vision) — 카메라 앞에 슬라이드와 삐약이 (js/vision_rehearsal.js)
   'vision': () => { if (typeof renderVisionEntry === 'function') renderVisionEntry(); },
   // 부스 Q&A 무대 (#/booth/qa · 주소창 /booth/qa) — Festa 부스 운영 중에 Q&A 세션을 보여 주는 전용 입구 (js/booth_qa.js)
-  'booth': () => (location.hash.replace(/^#\/?/, '').split('/')[1] === 'qa' && typeof renderBoothQa === 'function' ? renderBoothQa() : renderHome()),
+  // #/booth/qa 는 부스 Q&A 무대, #/booth/call 은 같은 흐름의 화상 통화판 (js/booth_qa.js · js/booth_call.js)
+  'booth': () => (typeof bqHashVariant === 'function' && bqHashVariant() && typeof renderBoothQa === 'function' ? renderBoothQa(bqHashVariant()) : renderHome()),
   // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
   'landing': () => window.renderLanding(),
   // 개념 그래프 3D 무대 (js/graph3d.js). 데모 경로 밖이라 여기가 죽어도 시연은 돈다.

@@ -8,6 +8,7 @@
 
     .venv/bin/python labs/booth_qa/run.py --base http://127.0.0.1:8802
     .venv/bin/python labs/booth_qa/run.py --base http://127.0.0.1:8802 --deck 수면발표 --until prep
+    .venv/bin/python labs/booth_qa/run.py --base http://127.0.0.1:8803 --route call --role 회사 상사   # 화상판 /booth/call
 
 결과: labs/booth_qa/out/<stamp>/*.png + report.json (단계 시간 · 카메라 판단 표본 · 배치 검사 · 콘솔 오류)
 실 LLM 과금이 난다 (개념·그래프·질문 3개 + 판정 1회). 브리지는 DEMO_DEV_ROUTES=1 이거나 /auth 쿠키가 있어야 목록이 열린다.
@@ -49,7 +50,16 @@ LAYOUT_JS = """() => {
   const inView = (sel) => { const el = document.querySelector(sel); if (!el) return null; const b = el.getBoundingClientRect();
     return b.top >= -1 && b.left >= -1 && b.bottom <= innerHeight + 1 && b.right <= innerWidth + 1; };
   const vids = [...document.querySelectorAll('#bqStage video[data-bq-cam]')];
-  return { layer: true, screen: L.dataset.screen, present: L.dataset.present, W: innerWidth, H: innerHeight,
+  // 화상판(/booth/call) — 얼굴 가운데(가로 38~62% · 세로 18~62%)를 덮는 글라스가 있는지
+  const cx0 = innerWidth * .38, cx1 = innerWidth * .62, cy0 = innerHeight * .18, cy1 = innerHeight * .62;
+  const covers = (el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > cx0 && b.left < cx1 && b.bottom > cy0 && b.top < cy1; };
+  const callParts = ['.bc-host', '.bc-dock', '.bc-side', '.bc-hint:not([hidden])', '.bc-prog', '#stream > *'];
+  const center_cover = L.dataset.variant === 'call' && L.dataset.screen === 'qa'
+    ? callParts.flatMap((sel) => [...L.querySelectorAll(sel)].filter(covers).map((el) => sel + (el.className ? '.' + String(el.className).split(' ')[0] : ''))) : null;
+  return { layer: true, screen: L.dataset.screen, variant: L.dataset.variant, present: L.dataset.present, W: innerWidth, H: innerHeight,
+    center_cover, host: r(L.querySelector('.bc-host')), talk: r(L.querySelector('.bc-talk')), dock: r(L.querySelector('.bc-dock')),
+    now_q: r(L.querySelector('#stream .msg.is-now .msg-bubble')),
+    glass: (() => { const g = L.querySelector('.bc-glass'); return g ? getComputedStyle(g).backdropFilter || getComputedStyle(g).webkitBackdropFilter : null; })(),
     // 넘침은 층 안의 스크롤 칸(.bq-body)에서 난다 — 층·문서만 보면 폰 폭 마무리 화면 넘침을 놓쳤다 (09-30)
     hscroll: document.documentElement.scrollWidth > innerWidth || L.scrollWidth > L.clientWidth
       || [...L.querySelectorAll('.bq-body')].some((b) => b.scrollWidth > b.clientWidth + 1),
@@ -158,7 +168,7 @@ def run(args) -> Path:
         try:
             # ── S0 시작 — 주소창 /booth/qa ─────────────────────────────
             t0 = time.time()
-            page.goto(f"{args.base}/booth/qa", wait_until="load")   # 카메라·판단 워커가 돌면 networkidle 이 안 온다
+            page.goto(f"{args.base}/booth/{args.route}", wait_until="load")   # 카메라·판단 워커가 돌면 networkidle 이 안 온다
             entry_hash = page.evaluate("location.hash")
             page.wait_for_selector("#bqStage #bqStart", timeout=20000)
             page.wait_for_function("window.BoothCV && ['ready','failed'].includes(BoothCV.status())", timeout=90000)
@@ -185,11 +195,14 @@ def run(args) -> Path:
             t0 = time.time()
             page.click("#bqStart")
             page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
+            if args.route == "call":
+                page.click(f'#bqStage .bq-role[data-role="{args.role}"]')
             page.wait_for_function("document.querySelectorAll('#bqStage .bq-cover.ready').length === document.querySelectorAll('#bqStage .bq-cover').length",
                                    timeout=60000)
             at_sizes("pick")
             decks = page.evaluate("[...document.querySelectorAll('#bqStage .bq-deck')].map(d => ({key: d.dataset.deck, kind: d.querySelector('.bq-deck-kind').textContent}))")
-            mark("pick", t0, {"decks": decks, "foot": page.evaluate("(document.getElementById('bqDeckFoot')||{}).textContent")})
+            mark("pick", t0, {"decks": decks, "foot": page.evaluate("(document.getElementById('bqDeckFoot')||{}).textContent"),
+                              "roles": page.evaluate("[...document.querySelectorAll('#bqStage .bq-role')].map(b => b.dataset.role + (b.getAttribute('aria-checked') === 'true' ? '*' : ''))")})
             if "prep" not in want:
                 return out
 
@@ -220,12 +233,18 @@ def run(args) -> Path:
             # ── S3 Q&A 무대 ────────────────────────────────────────────
             t0 = time.time()
             page.click("#bqGo")
-            page.wait_for_selector("#bqStage[data-screen='qa'] #bqSpot", timeout=20000)
+            call = args.route == "call"
+            page.wait_for_selector("#bqStage[data-screen='qa'] " + ("#stream .msg.q" if call else "#bqSpot"), timeout=20000)
             page.wait_for_timeout(2500)
             cv_sample("qa_center")
             at_sizes("qa_ask")
-            mark("qa", t0, {"hash": page.evaluate("location.hash"), "spot": page.inner_text("#bqSpot")[:200],
-                            "stream_q_hidden": page.evaluate("[...document.querySelectorAll('#stream .msg.q')].every(m => !m.offsetParent)")})
+            if call:
+                mark("qa", t0, {"hash": page.evaluate("location.hash"), "variant": page.evaluate("boothQaVariant()"),
+                                "host": page.inner_text("#bcHost")[:120], "aud": page.evaluate("qa.aud"),
+                                "now_q": page.evaluate("(document.querySelector('#stream .msg.is-now .msg-q')||{}).textContent || ''")[:200]})
+            else:
+                mark("qa", t0, {"hash": page.evaluate("location.hash"), "spot": page.inner_text("#bqSpot")[:200],
+                                "stream_q_hidden": page.evaluate("[...document.querySelectorAll('#stream .msg.q')].every(m => !m.offsetParent)")})
             # 구도 안내가 켜지는지 — 영상이 가장자리 얼굴로 넘어갈 때까지 기다린다
             hint_seen = ""
             deadline = time.time() + 14
@@ -245,10 +264,11 @@ def run(args) -> Path:
             shot("qa_judging")
             page.wait_for_function("qa.live && !qa.live.busy", timeout=180000)
             page.wait_for_timeout(1800)
-            at_sizes("qa_judged", sizes=((1920, 1080), (1440, 900)))
+            at_sizes("qa_judged", sizes=((1920, 1080), (1440, 900), (390, 844)) if call else ((1920, 1080), (1440, 900)))
             mark("qa_answer", t0, {"hint_seen": hint_seen,
                                    "judgement": page.evaluate("qa.live.lastJudgement ? {verdict: qa.live.lastJudgement.verdict, score: qa.live.lastJudgement.score} : null"),
-                                   "judge_mood": page.evaluate("(document.querySelector('#bqStage .bq-judge .bq-bird')||{}).dataset?.mood || ''"),
+                                   "judge_mood": page.evaluate("(document.querySelector('#bqStage .bq-judge .bq-bird, #bcHost .bq-bird')||{}).dataset?.mood || ''"),
+                                   "stream_kinds": page.evaluate("[...document.querySelectorAll('#stream > *')].map(e => e.className.split(' ').slice(0, 3).join('.'))"),
                                    "prog": page.inner_text("#bqProg"), "finish_label": page.evaluate("(document.getElementById('liveFinish')||{}).textContent"),
                                    "gaze": page.evaluate("BoothCV.readGaze()")})
             if "finale" not in want:
@@ -296,6 +316,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base", default="http://127.0.0.1:8799")
     ap.add_argument("--deck", default="수익률격차")
+    ap.add_argument("--route", choices=["qa", "call"], default="qa", help="qa = /booth/qa 무대 · call = /booth/call 화상판")
+    ap.add_argument("--role", default="교수님", help="call 일 때 발표 고르기에서 누를 역할 (BOOTH_ROLES 의 aud)")
     ap.add_argument("--until", choices=UNTIL, default="finale")
     ap.add_argument("--prep-timeout", type=int, default=240)
     args = ap.parse_args()

@@ -22,6 +22,23 @@
 
 const BOOTH_QA_KEY = 'cheokcheok:booth-qa';
 const BOOTH_QA_HASH = '#/booth/qa';
+/**
+ * 같은 부스 흐름의 화상 통화판 — 주소창 /booth/call (→ #/booth/call). 시작 · 발표 고르기 · 준비 · 마무리는 같고,
+ * 질문 화면만 내 얼굴이 정면 · 왼쪽 아래 삐약이가 역할을 맡아 묻고 · 대화가 글라스로 얹힌다 (js/booth_call.js).
+ * 2026-10-01 사용자: "부스를 위해서 만드는 전용 QA 페이지 … 왼쪽 하단에 삐약이가 나와서 QA 를 진행하고(교수님이건
+ * 어떤 역할이던 위임) 나는 정면에 … 내 대화와 삐약이 대화가 애플 liquid glass 처럼 은은하게 오버레이".
+ */
+const BOOTH_CALL_HASH = '#/booth/call';
+/**
+ * 삐약이가 맡는 역할. aud 는 qa.aud(app.js PERSONAS 의 이름)이고, 질문 코칭 화면에서도 **말풍선 이름표로만** 쓴다 —
+ * 질문·판정 요청에는 실리지 않으므로 역할에 따라 질문 내용이 바뀌지 않는다. 그래서 설명도 「누가 묻는 자리인지」 만 적는다.
+ */
+const BOOTH_ROLES = [
+  { aud: '교수님', where: '수업 발표 자리' },
+  { aud: '심사위원', where: '공모전 심사 자리' },
+  { aud: '회사 상사', where: '팀 보고 자리' },
+  { aud: '일반 청중', where: '처음 듣는 청중 앞' },
+];
 /** 질문 3개 트랙 (contracts.py QA_TRACK_LIMITS["5"]) — 부스 1회 체험 3~4분 (booth-operations §2) */
 const BOOTH_QA_TRACK = '5';
 /**
@@ -50,6 +67,8 @@ const BOOTH_PREP_POLL_MS = 400;
 
 const bq = {
   screen: '',
+  variant: 'stage',        // stage(/booth/qa) · call(/booth/call)
+  role: BOOTH_ROLES[0].aud,
   decks: null,
   deckError: '',
   covers: new Map(),       // session_id → Promise<pdf>
@@ -61,23 +80,44 @@ const bq = {
   observer: null,
   inputObserver: null,
   slideWatch: null,
+  dockWatch: null,         // 화상판 답 칸 높이 (booth_call.js)
   sampleIdx: 0,
 };
 
-function boothQaOn() {
-  try { return sessionStorage.getItem(BOOTH_QA_KEY) === '1'; } catch (_) { return false; }
+/** 부스 흐름이 켜져 있으면 'stage' 또는 'call', 아니면 '' — 탭 단위로 기억해 #/qa 로 넘어가도 어느 무대인지 안다 */
+function boothQaVariant() {
+  try {
+    const v = sessionStorage.getItem(BOOTH_QA_KEY);
+    if (v === 'call') return 'call';
+    return v === '1' ? 'stage' : '';
+  } catch (_) { return ''; }
 }
 
-function boothQaSet(on) {
+function boothQaOn() {
+  return !!boothQaVariant();
+}
+
+function boothQaSet(on, variant = 'stage') {
   try {
-    if (on) sessionStorage.setItem(BOOTH_QA_KEY, '1');
+    if (on) sessionStorage.setItem(BOOTH_QA_KEY, variant === 'call' ? 'call' : '1');
     else sessionStorage.removeItem(BOOTH_QA_KEY);
   } catch (_) { /* 사생활 모드 — 이번 화면만 */ }
 }
 
-function bqIsBoothHash() {
+/** 지금 주소의 부스 무대 — #/booth/qa → stage, #/booth/call → call, 그 밖이면 '' */
+function bqHashVariant() {
   const parts = location.hash.replace(/^#\/?/, '').split('/');
-  return parts[0] === 'booth' && parts[1] === 'qa';
+  if (parts[0] !== 'booth') return '';
+  if (parts[1] === 'qa') return 'stage';
+  return parts[1] === 'call' ? 'call' : '';
+}
+
+function bqIsBoothHash() {
+  return !!bqHashVariant();
+}
+
+function bqHomeHash() {
+  return bq.variant === 'call' ? BOOTH_CALL_HASH : BOOTH_QA_HASH;
 }
 
 /** route() 가 화면을 바꾸기 전에 부른다. 부스 흐름(#/booth/qa · #/qa)을 벗어나면 끄고 카메라도 닫는다 */
@@ -90,11 +130,13 @@ function boothQaOnRoute(key) {
   bqCamStop();
 }
 
-/** #/booth/qa — 새 체험. 지난 사람의 발표·질문을 지우고 시작 화면을 연다 */
-function renderBoothQa() {
+/** #/booth/qa · #/booth/call — 새 체험. 지난 사람의 발표·질문을 지우고 시작 화면을 연다 */
+function renderBoothQa(variant = bqHashVariant() || 'stage') {
   if (typeof callFlowSet === 'function') callFlowSet(false);
   if (typeof visionFlowSet === 'function') visionFlowSet(false);
-  boothQaSet(true);
+  bq.variant = variant === 'call' ? 'call' : 'stage';
+  bq.role = BOOTH_ROLES[0].aud;     // 역할도 다음 방문객에게 넘기지 않는다
+  boothQaSet(true, bq.variant);
   bq.prepToken += 1;         // 준비 중이던 체험이 있으면 그 결과를 버린다
   bqStopMic();
   resetNf();
@@ -107,7 +149,7 @@ function renderBoothQa() {
 /** 처음으로 — 해시가 이미 #/booth/qa 면 hashchange 가 안 뜨므로 직접 그린다 */
 function bqGoHome() {
   if (bqIsBoothHash()) { bqClearTimers(); renderBoothQa(); return; }
-  location.hash = BOOTH_QA_HASH;
+  location.hash = bqHomeHash();
 }
 
 /* ─── 층 ─────────────────────────────────────────────────────────────────── */
@@ -121,6 +163,7 @@ function bqUnmount() {
   if (bq.observer) { bq.observer.disconnect(); bq.observer = null; }
   if (bq.inputObserver) { bq.inputObserver.disconnect(); bq.inputObserver = null; }
   if (bq.slideWatch) { bq.slideWatch.disconnect(); bq.slideWatch = null; }
+  if (bq.dockWatch) { bq.dockWatch.disconnect(); bq.dockWatch = null; }
   const layer = document.getElementById('bqStage');
   if (layer) layer.remove();
   document.body.classList.remove('bq-open');
@@ -138,7 +181,7 @@ function bqTopHtml(screen) {
   const steps = at < 0 ? '' : `<ol class="bq-steps-top" aria-label="체험 단계">${BQ_STEPS.map((s, i) => `
     <li class="${i < at ? 'done' : ''}${i === at ? ' on' : ''}"${i === at ? ' aria-current="step"' : ''}><i>${i < at ? '✓' : i + 1}</i>${s.word}</li>`).join('')}</ol>`;
   return `<header class="bq-top">
-    <span class="bq-brand"><img src="assets/chuckchuck-app-icon-64.png?v=qk13" alt="">척척발표<small>Q&amp;A 체험</small></span>
+    <span class="bq-brand"><img src="assets/chuckchuck-app-icon-64.png?v=qk13" alt="">척척발표<small>${bq.variant === 'call' ? 'Q&amp;A 화상 체험' : 'Q&amp;A 체험'}</small></span>
     ${steps}
     <span class="bq-top-fill"></span>
     ${screen === 'attract' ? '' : '<button type="button" class="bq-ghost" data-bq-home>처음으로</button>'}
@@ -154,6 +197,7 @@ function bqMount(screen, html) {
   layer.id = 'bqStage';
   layer.className = 'bq';
   layer.dataset.screen = screen;
+  layer.dataset.variant = bq.variant;
   layer.innerHTML = `${bqTopHtml(screen)}<div class="bq-body">${html}</div>`;
   document.body.appendChild(layer);
   document.body.classList.add('bq-open');
@@ -326,9 +370,11 @@ function bqShowAttract() {
   bqMount('attract', `
     <div class="bq-attract">
       <section class="bq-hero">
-        <p class="bq-eyebrow">부스 Q&amp;A 체험</p>
+        ${bq.variant === 'call' ? `<p class="bq-eyebrow">부스 Q&amp;A 화상 체험</p>
+        <h1>발표 자료를 읽은 삐약이가<br>교수님이 되어 물어봐요</h1>
+        <p class="bq-lead">교수님 · 심사위원 · 회사 상사 중에 역할을 골라 맡기고, 화상 통화처럼 카메라를 보며 질문 3개에 말로 답해 보세요. 3분이면 끝나요.</p>` : `<p class="bq-eyebrow">부스 Q&amp;A 체험</p>
         <h1>발표 자료를 읽은 AI가<br>심사위원처럼 물어봐요</h1>
-        <p class="bq-lead">발표 하나를 고르고 질문 3개에 답해 보세요. 3분이면 끝나요.</p>
+        <p class="bq-lead">발표 하나를 고르고 질문 3개에 답해 보세요. 3분이면 끝나요.</p>`}
         <button type="button" class="bq-cta" id="bqStart">체험 시작하기</button>
         <ol class="bq-how">
           <li><b>1</b><span>발표를 골라요</span></li>
@@ -413,9 +459,11 @@ async function bqShowPick() {
     <div class="bq-pick">
       <h1 class="bq-h1">어떤 발표로 질문을 받아 볼까요?</h1>
       <p class="bq-lead">고른 발표의 발표자가 됐다고 생각하고 답하면 돼요. 질문은 그 자료에서만 나와요.</p>
+      ${bq.variant === 'call' ? bqRolesHtml() : ''}
       <div class="bq-decks" id="bqDecks"><p class="bq-wait">발표를 불러오고 있어요…</p></div>
       <p class="bq-foot" id="bqDeckFoot"></p>
     </div>`);
+  bqWireRoles();
   let decks;
   try {
     decks = await bqLoadDecks();
@@ -452,6 +500,24 @@ async function bqShowPick() {
     });
   });
   ready.forEach((d) => bqPaintCover(d));
+}
+
+/** 화상 체험 — 삐약이에게 맡길 역할. 고른 역할은 질문 화면의 이름표가 된다 */
+function bqRolesHtml() {
+  return `<fieldset class="bq-roles">
+    <legend>삐약이에게 어떤 역할을 맡길까요?</legend>
+    <div class="bq-role-list" role="radiogroup">${BOOTH_ROLES.map((r) => `
+      <button type="button" class="bq-role" role="radio" data-role="${escapeHtml(r.aud)}" aria-checked="${r.aud === bq.role}">
+        <b>${escapeHtml(r.aud)}</b><small>${escapeHtml(r.where)}</small>
+      </button>`).join('')}</div>
+  </fieldset>`;
+}
+
+function bqWireRoles() {
+  document.querySelectorAll('#bqStage .bq-role').forEach((btn) => btn.addEventListener('click', () => {
+    bq.role = btn.dataset.role;
+    document.querySelectorAll('#bqStage .bq-role').forEach((b) => b.setAttribute('aria-checked', String(b === btn)));
+  }));
 }
 
 function bqCoverPdf(sessionId) {
@@ -619,7 +685,8 @@ async function bqPrepare(d) {
 
   // 3. 질문 3개 — #/qa 로 가기 전에 여기서 만든다. 만드는 동안 사람은 슬라이드를 훑는다
   qa.mode = BOOTH_QA_TRACK;
-  qa.aud = '심사위원';        // 말풍선 아바타 「심」 — 무대의 심사위원과 같은 사람으로 보이게 (질문·판정 요청에는 안 실린다)
+  // 말풍선 아바타 이름 — 무대의 심사위원(화상판은 고른 역할)과 같은 사람으로 보이게 (질문·판정 요청에는 안 실린다)
+  qa.aud = bq.variant === 'call' ? bq.role : '심사위원';
   qa.started = true;
   saveSession('qa-flow', qa);
   bqSetStep('questions', 'run');
@@ -772,6 +839,9 @@ function bqQaSync() {
 }
 
 function renderQaLiveBooth() {
+  // 새로고침하면 bq 가 비어도 탭이 기억한 무대를 따른다
+  bq.variant = boothQaVariant() || bq.variant;
+  if (bq.variant === 'call' && typeof renderQaLiveBoothCall === 'function') return renderQaLiveBoothCall();
   const no = bqQaSlideNo();
   bqMount('qa', `
     <div class="bq-qa">
@@ -845,6 +915,7 @@ function bqRelabelInput() {
 /* ─── S4 마무리 (qa_live.js qaLiveEnd 가 부른다) ──────────────────────────── */
 
 function boothQaFinale() {
+  bq.variant = boothQaVariant() || bq.variant;
   bqStopMic();
   qa.ended = true;
   if (nf) { nf.completed = true; saveSession('new-flow', nf); }
