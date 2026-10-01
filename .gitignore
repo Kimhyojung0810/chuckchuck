@@ -89,3 +89,5 @@ docs/review/**/transcript_*.json
 docs/review/**/slidedoc_*.json
 labs/load_perf/out/
 tools/bin/
+# 덱 폴더의 참고/ (대본 PDF·타임스탬프 사진) — 팀 자료라 로컬에만. 목록은 이 하위 폴더를 안 읽는다 (2026-10-01)
+ppt/**/참고/

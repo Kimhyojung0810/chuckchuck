@@ -3243,3 +3243,19 @@ details.fold summary:active,
 .conn-banner.is-back { border: 1px solid var(--ok); }
 .conn-banner.is-back b { color: var(--ok); }
 .conn-retry { margin-left: auto; padding: 6px 12px; border: 0; border-radius: var(--r-ctl); background: var(--accent-weak); color: var(--accent); font: inherit; font-size: 13px; font-weight: var(--w-med); cursor: pointer; }
+
+/* #/test/qa — 덱 목록을 묶음별 한 줄 카드로 (2026-10-01) */
+.tq-group { display: grid; gap: 10px; margin-top: 28px; }
+.tq-group-title { font-size: 17px; font-weight: var(--w-bold, 700); color: var(--text); display: flex; align-items: center; gap: 8px; cursor: default; }
+details.tq-group > summary { cursor: pointer; list-style: revert; }
+.tq-count { font-size: 12px; font-weight: 600; color: var(--text-3); background: var(--canvas); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.tq-list { display: grid; gap: 8px; }
+.tq-deck { display: flex; align-items: center; gap: 14px; justify-content: space-between; flex-wrap: wrap;
+  padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-inner); }
+.tq-main { display: grid; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.tq-title { font-size: 15px; color: var(--text); }
+.tq-version { font-size: 13.5px; color: var(--text-2); }
+.tq-meta { font-size: 12px; color: var(--text-3); }
+.tq-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tq-actions .btn-sm { height: 36px; padding: 0 14px; }
+.tq-deck .test-deck-note { flex-basis: 100%; margin: 0; }

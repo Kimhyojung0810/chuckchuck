@@ -1,0 +1,26 @@
+{
+  "_설명": "#/test/qa 목록에 보일 묶음·이름표. key 는 ppt/ 아래 폴더 이름 그대로다 (부스 화면 booth_qa.js·labs/qa_verify 가 폴더 이름을 쓰니 폴더는 바꾸지 말고 여기만 고친다). 여기 없는 폴더는 「그 밖」 묶음에 폴더 이름으로 뜬다. ppt/README.md 참고.",
+  "groups": [
+    { "id": "booth", "title": "부스 시연 세트", "note": "주제 3개 × 발표 2버전. 같은 자료를 다르게 발표한 녹음이라, 버전마다 질문이 달라지는지 본다. 대본·타임스탬프는 각 폴더의 참고/ 에 있다." },
+    { "id": "demo", "title": "데모 발표", "note": "부스 화면(/booth/qa)에 뜨는 발표." },
+    { "id": "held", "title": "검증용 세트", "note": "Q&A 검증 도구(labs/qa_verify)가 쓰는 보류 덱. 폴더 이름을 바꾸지 않는다.", "folded": true }
+  ],
+  "decks": {
+    "급속충전배터리열화A": { "group": "booth", "order": 11, "title": "A-1 · 급속충전과 배터리 열화", "version": "전날 밤에 급하게 맞춘 버전" },
+    "급속충전배터리열화B": { "group": "booth", "order": 12, "title": "A-2 · 급속충전과 배터리 열화", "version": "앞에서 시간을 다 쓴 버전" },
+    "미세플라스틱물벼룩번식A": { "group": "booth", "order": 21, "title": "B-1 · 미세플라스틱과 물벼룩 번식", "version": "결과만 강조한 버전" },
+    "미세플라스틱물벼룩번식B": { "group": "booth", "order": 22, "title": "B-2 · 미세플라스틱과 물벼룩 번식", "version": "방법에 시간을 쓴 버전" },
+    "배달앱별점인플레이션A": { "group": "booth", "order": 31, "title": "C-1 · 배달앱 별점 인플레이션", "version": "가설 하나만 부풀린 버전" },
+    "배달앱별점인플레이션B": { "group": "booth", "order": 32, "title": "C-2 · 배달앱 별점 인플레이션", "version": "결론부터 말한 버전" },
+
+    "수면발표": { "group": "demo", "order": 1, "title": "분명 잤는데 왜 피곤할까?", "version": "수면 발표 · 핵심 4장을 50초로 줄인 데모 (녹음 = 클로바 전사)" },
+    "수익률격차": { "group": "demo", "order": 2, "title": "개인 투자자는 왜 시장을 이기지 못하는가", "version": "분석 보고 · 14분 녹음" },
+    "focus_notification": { "group": "demo", "order": 3, "title": "알림 하나 확인했을 뿐인데, 왜 다시 집중하기 어려울까?", "version": "연구 발표 · 자료만" },
+
+    "_held_health_glucose": { "group": "held", "order": 1, "title": "혈당 (건강)", "version": "녹음 = 클로바 전사" },
+    "_held_hum_novel": { "group": "held", "order": 2, "title": "소설 (인문)" },
+    "_held_ir_banchan": { "group": "held", "order": 3, "title": "반찬 사업 (IR)" },
+    "_held_lib_reopen": { "group": "held", "order": 4, "title": "도서관 재개관" },
+    "_held_policy_jeonse": { "group": "held", "order": 5, "title": "전세 정책" }
+  }
+}

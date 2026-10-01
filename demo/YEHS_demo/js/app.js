@@ -9663,16 +9663,17 @@ async function renderTestQa() {
   app.className = 'narrow';
   app.innerHTML = `<main>
     <h1 class="section-title">발표자료 폴더로 질문 코칭 해 보기</h1>
-    <p class="sub">서버의 <code>ppt/</code> 폴더에 있는 덱을 골라요. 파싱과 분석을 거쳐 질문 코칭 화면까지 바로 가요. 실제 API 를 쓰니 몇 분 걸려요.</p>
+    <p class="sub">서버 <code>ppt/</code> 폴더의 발표를 골라 질문 코칭까지 바로 가요. 「자료만」은 발표 자료로, 「녹음까지」는 녹음(또는 전사)까지 넣어서 질문을 만들어요. 발표 정보는 「${escapeHtml(TEST_DECK_OCC)}」 · ${nf.min || 10}분으로 두고, 실제 API 라 1~몇 분 걸려요.</p>
     <div id="deckList" class="stack">불러오고 있어요…</div>
   </main>`;
   const box = $('#deckList');
   let decks = [];
   let dir = '';
+  let body = {};
   try {
     const res = await fetch('/api/v1/dev/decks');
     if (res.status === 404) throw new Error('개발자 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
-    const body = (await res.json()) || {};
+    body = (await res.json()) || {};
     decks = body.decks || [];
     dir = body.dir || '';
   } catch (err) {
@@ -9683,27 +9684,45 @@ async function renderTestQa() {
     box.innerHTML = `<p class="sub">아직 덱이 없어요. <code>${escapeHtml(dir)}</code> 아래에 폴더를 만들고 PPTX·PDF 를 넣으면 여기에 보여요.</p>`;
     return;
   }
-  const mb = (n) => `${(n / 1024 / 1024).toFixed(1)}MB`;
-  const sec = (n) => (n > 0 ? `${Math.floor(n / 60)}분 ${Math.round(n % 60)}초` : '');
-  box.innerHTML = decks.map((d) => {
-    const marks = [
-      `<span class="chip chip-sm st-ok">${escapeHtml(d.deck)} · ${mb(d.deck_bytes)}</span>`,
-      d.audio
-        ? `<span class="chip chip-sm st-ok">녹음 ${escapeHtml(d.audio)}${d.audio_sec ? ' · ' + sec(d.audio_sec) : ''}</span>`
-        : '<span class="chip chip-sm st-om">녹음 없어요</span>',
-      d.cached_session_id
-        ? '<span class="chip chip-sm">지난 파싱본 있어요 · 파싱 건너뛰어요</span>'
-        : '<span class="chip chip-sm">처음이라 파싱부터 해요</span>',
-    ].join('');
-    return `<div class="qa-sum" data-deck="${escapeHtml(d.key)}">
-      <b class="qs-name">${escapeHtml(d.name)}</b>
-      <p class="qs-text">${marks}</p>
-      <div class="step-actions" style="justify-content:flex-start;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" data-run="deck" type="button">자료만으로 질문 코칭</button>
-        <button class="btn ${d.audio ? 'btn-secondary' : 'btn-tint'}" data-run="audio" type="button" ${d.audio ? '' : 'disabled'}>${d.audio ? '녹음까지 태워서 질문 코칭' : '녹음이 있어야 태울 수 있어요'}</button>
+  // 묶음·이름표는 ppt/decks.json 에서 온다 (브리지 _deck_manifest). 폴더 이름은 부스 화면·검증 도구의 키라 그대로 두고
+  // 보이는 이름만 바꾼다 — 2026-10-01 「급속충전배터리열화A」 만으로는 어떤 발표 버전인지 안 보였다.
+  const sec = (n) => (n > 0 ? `${Math.floor(n / 60)}분 ${String(Math.round(n % 60)).padStart(2, '0')}초` : '');
+  const groupsMeta = new Map((body.groups || []).map((g) => [g.id, g]));
+  const order = [...groupsMeta.keys(), 'other', 'held'].filter((v, i, a) => a.indexOf(v) === i);
+  const byGroup = new Map();
+  decks.forEach((d) => {
+    const g = d.group || 'other';
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(d);
+  });
+  const card = (d) => {
+    const kind = (d.deck.split('.').pop() || '').toUpperCase();
+    const isTranscript = /\(전사\)/.test(d.audio || '');
+    const meta = [
+      kind,
+      d.audio ? `${isTranscript ? '전사' : '녹음'} ${sec(d.audio_sec)}` : '녹음 없음',
+      d.cached_session_id ? '파싱본 있음' : '처음 파싱',
+    ].join(' · ');
+    return `<div class="tq-deck" data-deck="${escapeHtml(d.key)}">
+      <div class="tq-main">
+        <b class="tq-title">${escapeHtml(d.title || d.name)}</b>
+        ${d.version ? `<span class="tq-version">${escapeHtml(d.version)}</span>` : ''}
+        <span class="tq-meta">${escapeHtml(meta)}</span>
       </div>
-      <p class="note">발표 정보는 「${escapeHtml(TEST_DECK_OCC)}」 · ${nf.min || 10}분으로 두고 가요.</p>
+      <div class="tq-actions">
+        <button class="btn btn-sm btn-secondary" data-run="deck" type="button">자료만</button>
+        ${d.audio ? '<button class="btn btn-sm btn-primary" data-run="audio" type="button">녹음까지</button>' : ''}
+      </div>
     </div>`;
+  };
+  box.innerHTML = order.filter((g) => byGroup.has(g)).map((g) => {
+    const meta = groupsMeta.get(g) || { title: g === 'held' ? '보류' : '그 밖', note: '' };
+    const rows = byGroup.get(g).sort((a, b) => (a.order - b.order) || String(a.key).localeCompare(String(b.key)));
+    const head = `${escapeHtml(meta.title)} <span class="tq-count">${rows.length}</span>`;
+    const inner = `${meta.note ? `<p class="note">${escapeHtml(meta.note)}</p>` : ''}<div class="tq-list">${rows.map(card).join('')}</div>`;
+    return meta.folded
+      ? `<details class="tq-group"><summary class="tq-group-title">${head}</summary>${inner}</details>`
+      : `<section class="tq-group"><h2 class="tq-group-title">${head}</h2>${inner}</section>`;
   }).join('');
   box.querySelectorAll('[data-run]').forEach((btn) => {
     btn.addEventListener('click', () => {
