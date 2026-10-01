@@ -653,3 +653,13 @@
 /* 흐림은 비싸다(헤드리스 23fps vs 흐림 끔 60fps, 사냥 3) — 삐약이 쪽 말풍선은 지금 질문만 흐리고 나머지는 조금 더 진한 연한 면으로 */
 .bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"]:not(.is-now) .msg-bubble,
 .bq[data-variant="call"] .bc-call .bc-stream > .qa-done[data-side="ai"] { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(244, 252, 248, .8); }
+
+/* 자동 받아쓰기 — 「듣고 있어요」 를 크게, 자동 보내기 초읽기와 「보내지 않기」 (10-02 사용자 요청 1) */
+.bq[data-variant="call"] .bc-call .bc-draft-tag { font-size: clamp(14px, .95vw, 17px); }
+.bq[data-variant="call"] .bc-call .bc-draft-send { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; font-size: 14px; font-weight: var(--w-bold); color: #fff; }
+.bq[data-variant="call"] .bc-call .bc-draft-send[hidden] { display: none; }
+.bq[data-variant="call"] .bc-call .bc-draft-send button {
+  pointer-events: auto; min-height: 40px; padding: 0 16px; border-radius: var(--r-pill); font: inherit; font-size: 14px; cursor: pointer;
+  color: #fff; background: rgba(0, 0, 0, .32); border: 1px solid rgba(255, 255, 255, .55); text-shadow: none;
+}
+.bq[data-variant="call"] .bc-call .bc-draft-send button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }

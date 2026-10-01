@@ -50,11 +50,21 @@ function bqDisarmIdle() {
   bqIdleCancelWarn();
 }
 
-/** 지금 누가 체험 중인 게 분명한가 — 판정을 기다리거나, 마이크로 말하는 중이면 자리에 있다 */
+/** 받아쓰기 결과가 이만큼 안에 들어왔으면 사람이 말하고 있는 것이다 */
+const BQ_SPEAKING_MS = 20000;
+
+/**
+ * 지금 누가 체험 중인 게 분명한가 — 판정을 기다리거나, 최근에 받아쓰기 글이 들어왔으면 자리에 있다.
+ * 예전엔 마이크가 켜져 있기만 하면 바쁨이라 자리 비움이 영영 안 떴다 — 자동 받아쓰기가 들어오면 늘 켜져 있다 (10-02 사냥 2 #4).
+ * 녹음 길(서버 받아쓰기)은 글이 늦게 오므로 켜져 있는 동안 바쁨으로 본다
+ */
 function bqBusyNow() {
   const L = typeof qa !== 'undefined' && qa && qa.live;
   if (L && L.busy) return true;
-  return typeof liveMic !== 'undefined' && !!liveMic;
+  const mic = typeof liveMic !== 'undefined' && liveMic;
+  if (!mic) return false;
+  if (!mic.dictation) return true;
+  return !!mic.lastTextAt && Date.now() - mic.lastTextAt < BQ_SPEAKING_MS;
 }
 
 function bqIdleTick() {

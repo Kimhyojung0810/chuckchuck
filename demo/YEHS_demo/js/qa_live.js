@@ -1089,7 +1089,11 @@ function startDictationMic() {
     liveMic = {
       dictation: true,
       session: window.ChuckchuckBridge.startLiveDictation({
-        onText: ({ final, interim }) => paintLiveAnswer(pen, final + interim),
+        onText: ({ final, interim }) => {
+          // 부스 자동 보내기가 「말이 멈췄나」 를 본다 — 마지막 글이 언제 왔고 확정 전 조각이 남았는지 (booth_call.js bcAutoTick)
+          if (liveMic) { liveMic.lastTextAt = Date.now(); liveMic.interim = interim; liveMic.final = final; }
+          paintLiveAnswer(pen, final + interim);
+        },
         onError: (msg) => {
           // 오류가 나면 인식기는 거기서 끝난다. 버튼을 안 되돌리면 이미 죽은
           // 세션에 「받아쓰기 멈추기」가 남아 사용자가 헛클릭한다.
@@ -1142,6 +1146,19 @@ async function startRecordingMic() {
   }
   liveMicPending = '';
   setMicBtn('recording');
+}
+
+/**
+ * 질문이 바뀌거나(닫힘 · 다시 말하기 · 끝 카드) 할 때 마이크를 버린다 — 받아쓰지도 보내지도 않는다.
+ * 켜 둔 채 「답 보고 넘어가기」·건너뛰기를 하면 앞에서 한 말이 다음 질문 칸에 차오르고, 끝 카드에서도 계속 들었다 (10-02 사냥 2 #1)
+ */
+function dropLiveMic() {
+  const mic = liveMic;
+  if (!mic) return;
+  liveMic = null;
+  liveMicPending = '';
+  try { mic.session.stop(); } catch (_) { /* 이미 멈춤 */ }
+  setMicBtn('idle', !!(qa.live && qa.live.busy));
 }
 
 /** 마이크를 멈춘다. **어느 길이든 답을 보내지는 않는다.** */
@@ -1444,6 +1461,7 @@ function advanceLiveStream() {
  */
 function markLiveFinale() {
   const L = qa.live;
+  dropLiveMic();
   if (L.awaitEnd) return false;
   L.awaitEnd = true;
   pushTurn({ who: 'sys', kind: 'finale', text: `질문 ${L.questions.length}개를 모두 마쳤어요` });
@@ -1499,6 +1517,7 @@ function coachedRetell(q, v, answer) {
  */
 function enterRetell(model, record) {
   const L = qa.live;
+  dropLiveMic();
   // 서버가 길이 상한에서 자른 글이면 마지막 온전한 문장까지만 (문장 한가운데서 끊긴 모범답이 뜨지 않게)
   const text = liveWholeSentences(model)
     || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
@@ -1807,6 +1826,7 @@ function revealHalf(q, v) {
 
 function closeLiveQuestion(record) {
   const L = qa.live;
+  dropLiveMic();
   // hintLevel 은 본 사다리 칸의 끝(저절로 연 칸 포함 — 셋째 칸이면 도움으로 센다), hintUsed 는 사용자가 누른 칸 수 (L-05)
   L.results.push({
     ...record, turns: L.turn, hintLevel: L.hintLevel,

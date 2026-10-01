@@ -970,8 +970,22 @@ export function startLiveDictation({ onText, onError }) {
 
   let stopped = false;
   let settled = '';
+  // 바로바로 끝나는 고리 막기 — aborted 등으로 시작하자마자 끝나면 onend 가 다시 start 를 불러 2초에 388번 돌았다 (10-02 사냥 2 #5).
+  // 짧게 끝나면 다시 잇는 간격을 늘리고(0.3·0.6·1.2·2.4초), 다섯 번 이어지면 멈추고 오류로 알린다(호출부가 버튼·타이핑으로 떨어진다)
+  let startedAt = 0;
+  let quickEnds = 0;
+  const QUICK_END_MS = 1500;
+  const QUICK_END_MAX = 5;
+  const begin = () => {
+    if (stopped) return;
+    startedAt = Date.now();
+    try { rec.start(); } catch (_) { /* 이미 도는 중 — onend 가 다시 온다 */ }
+  };
 
   rec.onresult = (e) => {
+    // 멈춘 뒤 늦게 온 확정 조각은 버린다 — 비운 답 칸을 다시 채워 같은 답이 또 나갈 수 있었다 (사냥 2 #2)
+    if (stopped) return;
+    quickEnds = 0;
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const chunk = e.results[i][0].transcript;
@@ -992,8 +1006,17 @@ export function startLiveDictation({ onText, onError }) {
   rec.onend = () => {
     // 크롬은 조용하면 제풀에 끊는다. 사용자가 멈춘 게 아니면 다시 잇는다.
     if (stopped) return;
-    try { rec.start(); } catch (_) { /* 이미 도는 중 */ }
+    if (Date.now() - startedAt < QUICK_END_MS) quickEnds += 1;
+    else quickEnds = 0;
+    if (quickEnds >= QUICK_END_MAX) {
+      stopped = true;
+      onError('받아쓰기가 자꾸 끊겨요.');
+      return;
+    }
+    if (quickEnds) setTimeout(begin, 300 * 2 ** (quickEnds - 1));
+    else begin();
   };
+  startedAt = Date.now();
   rec.start();
 
   return {
