@@ -26,7 +26,11 @@ const BC_HOST_BIRD = 'solar';
 /** 화면 읽기가 읽을 줄 — 삐약이 쪽 말 · 안내 · 오류 · 질문 마무리 카드 */
 const BC_SAY_ROWS = ':scope > .msg.ai:not(.thinking), :scope > .qa-flag, :scope > .qa-note-line, :scope > .qa-done';
 
-const bc = { sayCount: 0, rowCount: 0, speakTimer: 0, thinkSince: 0, slowTimer: 0, dockH: 0, mounted: false, syncAt: 0, syncN: 0, syncLater: 0 };
+const bc = {
+  sayCount: 0, rowCount: 0, speakTimer: 0, thinkSince: 0, slowTimer: 0, dockH: 0, mounted: false,
+  syncAt: 0, syncN: 0, syncLater: 0,
+  mcQi: -1, mc: '', mcUntil: 0, mcTimer: 0,   // 삐약이 진행 멘트 (bcMcSync)
+};
 
 function bcRole() {
   return qa.aud || BOOTH_ROLES[0].aud;
@@ -44,10 +48,45 @@ function bcMicOn() {
   return typeof liveMic !== 'undefined' && !!liveMic;
 }
 
+/** 실패 표식인가 — 빨간 ✕ 줄(.qa-flag.lost)은 「답을 펼쳐 볼게요」·「답만 보고 넘어갔어요」 같은 진행 알림도 쓴다. 판정을 못 받은 줄만 */
+function bcIsFailRow(el) {
+  return !!el && el.matches('.qa-flag.lost') && /판정/.test(el.textContent) && /못|실패/.test(el.textContent);
+}
+
 /** 마지막 줄이 판정 실패 표식인가 — 그러면 삐약이가 다시 보내라고 말한다 */
 function bcLastFailed(stream) {
-  const last = stream.lastElementChild;
-  return !!last && last.matches('.qa-flag.lost');
+  return bcIsFailRow(stream.lastElementChild);
+}
+
+/** 삐약이 진행 멘트를 보여 주는 시간 — 들어올 때 인사 · 질문이 넘어갈 때 한 줄 (LLM 없이 정해 둔 말) */
+const BC_MC_MS = 6500;
+
+/** 질문 번호가 바뀌면 진행 멘트 한 줄. 처음 들어올 때는 인사 (새로고침으로 질문 중간에 다시 그리면 안 한다) */
+function bcMcLine() {
+  const L = qa.live;
+  const n = L.questions.length;
+  if (L.awaitEnd || L.qi >= n) return '';
+  if (L.qi === 0) {
+    if (L.turn || (L.results || []).length || (L.turns || []).length) return '';
+    const role = bcRole();
+    return `반가워요! 오늘은 제가 ${role}${josa(role, '이에요', '예요')}. 질문 ${n}개, 말로 편하게 답해요`;
+  }
+  if (L.qi === n - 1) return '좋아요, 마지막 질문이에요. 이것만 답하면 끝나요';
+  return `좋아요, ${L.qi + 1}번째 질문으로 넘어갈게요`;
+}
+
+function bcMcSync() {
+  const qi = qa.live.qi;
+  if (qi === bc.mcQi) return;
+  bc.mcQi = qi;
+  const line = bcMcLine();
+  bc.mc = line;
+  bc.mcUntil = line ? Date.now() + BC_MC_MS : 0;
+  clearTimeout(bc.mcTimer);
+  if (line) {
+    bcSpeak();
+    bc.mcTimer = setTimeout(() => { if (document.getElementById('bcHost')) bcSync(); }, BC_MC_MS + 60);
+  }
 }
 
 /** 삐약이 이름표 아래 한 줄 — 지금 무슨 일이 일어나는지. 판정 중 · 기다림 · 실패 · 마이크를 따로 말한다 */
@@ -61,6 +100,7 @@ function bcSayText(stream, thinking) {
   if (bcMicOn()) return '듣고 있어요 · 다 말했으면 「그만 말하기」를 눌러요';
   if (qa.live.awaitEnd) return '오늘 질문은 여기까지예요';
   if (bcLastFailed(stream)) return '판정을 못 받았어요. 답은 그대로 두었으니 다시 보내요';
+  if (bc.mc && Date.now() < bc.mcUntil) return bc.mc;
   return '답을 기다리고 있어요';
 }
 
@@ -109,6 +149,8 @@ function renderQaLiveBoothCall() {
   bc.thinkSince = 0;
   bc.dockH = 0;
   bc.mounted = false;
+  bc.mcQi = -1;
+  bc.mc = '';
   $('#bqCamToggle').addEventListener('click', bqCamToggle);
   if (window.BoothCV && !BoothCV.readGaze()) BoothCV.startGaze();
   bcSync();
@@ -201,6 +243,7 @@ function bcSync() {
   const thinking = document.getElementById('coachThinking');
 
   bqSet(document.getElementById('bcCount'), 'textContent', bcCounterText());
+  bcMcSync();
   bqSyncProg();
   bqSyncSlide();
   bqMoveLeadNote();
@@ -364,8 +407,14 @@ function bcAnnounceNew(stream) {
   if (rows.length <= bc.sayCount) { bc.sayCount = rows.length; return; }
   const fresh = rows.slice(bc.sayCount);
   bc.sayCount = rows.length;
-  const lost = fresh.filter((el) => el.matches('.qa-flag.lost'));
-  const said = fresh.filter((el) => !el.matches('.qa-flag.lost'));
+  // 경고(role=alert)는 판정을 못 받은 줄만 — 「답을 펼쳐 볼게요」 같은 진행 알림은 보통 읽기로
+  const lost = fresh.filter(bcIsFailRow);
+  const said = fresh.filter((el) => !bcIsFailRow(el));
+  // 판정·다음 질문이 새로 왔으면 지난 실패 경고는 끝난 일이다 — 남겨 두면 화면 읽기 사용자가 아직 실패 중인 줄 안다 (10-01 2차)
+  if (!lost.length && said.some((el) => el.matches('.msg.ai, .qa-done'))) {
+    const alert = document.getElementById('bcAlert');
+    if (alert && alert.textContent) alert.textContent = '';
+  }
   if (said.length) bcAnnounce(said.map(bcRowSpeech).join(' '));
   if (lost.length) bcAnnounce(lost.map((el) => el.textContent.trim()).join(' '), { alert: true });
   if (fresh.some((el) => el.matches('.msg.ai'))) bcSpeak();

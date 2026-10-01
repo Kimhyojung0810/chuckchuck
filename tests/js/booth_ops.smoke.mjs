@@ -43,6 +43,7 @@ function load(src, { qa, note = fakeNote() } = {}) {
     sessionStorage: { getItem: () => null, setItem: () => {} },
     location: { reload: () => {} },
     qaLiveEnd: () => { ctx.ended = (ctx.ended || 0) + 1; },
+    bqIsFollowUp: (t) => !String(t.meta || '').startsWith('예상 질문'),   // booth_qa.js 와 같은 규칙
   };
   vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'booth_ops.js' });
@@ -81,6 +82,30 @@ test('질문이 남았으면 초읽기를 안 건다', () => {
   ctx.bqArmAutoEnd();
   eq(timers.length, 0, '타이머 없음');
   eq(note.writes, 0, '안 씀');
+});
+
+const askQa = (q, turns = []) => ({
+  live: { awaitEnd: false, questions: [q], qi: 0 },
+  turns: [{ who: 'ai', kind: 'question', meta: '예상 질문 1/1 · 보통이에요' }, ...turns],
+});
+
+test('P2-1 자료 창 — 질문이 근거로 든 장(evidence_slide_no)이 먼저', () => {
+  const { ctx } = load(SRC, { qa: askQa({ slide_nos: [2, 4, 8], evidence_slide_no: 4 }) });
+  const f = ctx.bqFocusSlide();
+  eq(f.no, 4, '근거 장');
+  eq(f.why, '질문이 가리키는', '까닭');
+});
+
+test('근거 장이 없으면 표지(1장)보다 다른 장', () => {
+  eq(load(SRC, { qa: askQa({ slide_nos: [1, 3] }) }).ctx.bqFocusSlide().no, 3, '비표지');
+  eq(load(SRC, { qa: askQa({ slide_nos: [1] }) }).ctx.bqFocusSlide().no, 1, '표지뿐');
+});
+
+test('판정 근거가 장을 가리키면 그 장이 질문 장보다 먼저', () => {
+  const { ctx } = load(SRC, { qa: askQa({ slide_nos: [2], evidence_slide_no: 2 }, [{ who: 'me', kind: 'say' }, { who: 'ai', kind: 'react', groundSlides: [6] }]) });
+  const f = ctx.bqFocusSlide();
+  eq(f.no, 6, '판정 장');
+  eq(f.why, '판정이 가리키는', '까닭');
 });
 
 /* 자기검사 — 「바뀔 때만 쓴다」 를 빼면 첫 시험이 깨져야 한다 */

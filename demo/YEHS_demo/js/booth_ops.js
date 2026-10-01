@@ -218,7 +218,8 @@ function bqArmReloadGuard() {
 
 /**
  * 지금 질문에서 가장 최근에 짚은 장. 판정 근거(groundSlides)·힌트(slides)가 장을 가리키면 그 장, 아니면 질문 장.
- * 질문 장은 표지(1장)보다 다른 장을 먼저 고른다 — slide_nos[0] 이 표지인 경우가 많아 창이 늘 표지였다 (10-01 점검).
+ * 질문 장은 질문이 근거로 든 장(evidence_slide_no)이 먼저다 — slide_nos 의 첫 비표지 장을 고르면 「질문이 가리키는 5장」 인데
+ * 질문은 6장·9장 이야기인 일이 있었다 (10-01 2차). 근거 장이 없으면 표지(1장)보다 다른 장을 먼저 (10-01 1차).
  */
 function bqFocusSlide() {
   const L = qa.live;
@@ -230,6 +231,6 @@ function bqFocusSlide() {
   }
   const q = L && L.questions && L.questions[Math.min(L.qi, L.questions.length - 1)];
   const nos = ((q && q.slide_nos) || []).map(Number).filter(Boolean);
-  const pick = nos.find((n) => n !== 1) || nos[0] || 1;
+  const pick = Number(q && q.evidence_slide_no) || nos.find((n) => n !== 1) || nos[0] || 1;
   return { no: pick, why: '질문이 가리키는' };
 }

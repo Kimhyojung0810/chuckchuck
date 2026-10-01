@@ -642,7 +642,7 @@ def run_full(args) -> Path:
             R["questions"] = questions
             t0 = time.time()
             page.click("#bqGo")
-            page.wait_for_selector("#bqStage[data-screen='qa'] #stream .msg.q", timeout=20000)
+            page.wait_for_selector("#bqStage[data-screen='qa'] #stream .msg.q", timeout=20000, state="attached")   # 무대판은 질문 줄을 숨긴다
             page.evaluate(COUNT_JS)
             page.wait_for_timeout(2500)
             sweep("qa_ask1")
