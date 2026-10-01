@@ -107,7 +107,7 @@
 .bc-btn { cursor: pointer; }
 .bc-btn:active { transform: scale(.96); }
 .bq[data-variant="call"] .bc-slide {
-  background: var(--lg-sheen), var(--lg-tint-now);   /* 장 이름 줄이 흰 벽 위에서도 읽히게 한 단 진하게 */
+  background: var(--lg-sheen), rgba(16, 20, 30, .48);   /* 장 이름 줄이 흰 벽 위에서도 읽히게 한 단 진하게 */
   width: 100%; margin: 0; padding: 8px; border-radius: var(--r-inner); display: flex; flex-direction: column; gap: 6px;
   min-height: 0; aspect-ratio: auto;
 }
@@ -427,3 +427,200 @@
 .bq[data-variant="call"] .bc-dock textarea::placeholder { color: rgba(255, 255, 255, .78); }
 .bq[data-variant="call"] .bc-stream > .is-past.msg.me .msg-bubble { background: rgba(21, 92, 70, .78); }   /* 흐림 없는 지난 내 말 — 판이 대비를 낸다 */
 .bq[data-variant="call"] .bc-host { background: var(--lg-sheen), var(--lg-tint-now); }   /* 삐약이 줄(상태 · 진행 멘트)이 흰 벽 위에서도 4.5:1 */
+
+/* ══ 10-02 대화처럼 (사용자 요청 5·6·7) ═══════════════════════════════════════════════════════════
+   「채팅으로 올라오는 느낌이 아니다 · 삐약이는 판 없이 캐릭터만 · 카카오톡처럼 내 말과 상대 말 색이 다르게」
+   - 삐약이 말(질문 · 되묻기 · 판정 · 힌트) = 왼쪽, 연한 흰 글라스(살짝 초록) + 진한 글자. 꼬리는 이어 말한 마지막 말풍선에만 (data-tail)
+   - 내 말 = 오른쪽, 브랜드 초록 글라스 + 흰 글자 (카톡의 노란 자리). 받아쓰는 중이면 내 쪽 말풍선(#bcDraft)이 실시간으로 차오른다
+   - 지난 질문의 말은 작고 옅게, 지지난 질문의 말(.is-old)은 더 옅게 — 위로 밀리며 사라진다
+   - 대비: 연한 판 + 진한 글자는 흰 벽 · 어두운 방 모두 4.5:1 위(판 자체로), 초록 판 + 흰 글자는 흐림 뒤 어둡게 + 글자 테 */
+.bq[data-variant="call"] {
+  --bc-top: calc(var(--bc-gap) + 56px);        /* 위 띠(브랜드 알약 · 처음으로) 아래 */
+  --chat-ai: rgba(244, 252, 248, .7);          /* 삐약이 말 — 연한 흰 글라스, 살짝 초록 */
+  --chat-ai-now: rgba(246, 253, 249, .8);
+  --chat-ai-edge: rgba(63, 213, 153, .45);
+  --chat-ai-ink: #0d241b;
+  --chat-ai-soft: #2c4a3d;
+  --chat-me: rgba(5, 112, 74, .88);            /* 내 말 — 브랜드 초록(--brand 계열을 한 단 어둡게: 흰 글자 4.5:1) */
+  --chat-me-edge: rgba(120, 240, 190, .55);
+  --chat-blur: blur(16px) saturate(1.4);
+  --chat-blur-me: blur(16px) saturate(1.4) brightness(.75);
+}
+/* 위 띠 — 왼쪽 브랜드 알약과 오른쪽 「처음으로」 가 같은 안전 여백 (요청 6). 데스크톱 폭만 — 폰은 아래 폰 규칙 그대로 */
+.bq[data-variant="call"][data-screen="qa"] .bq-top { padding: var(--bc-gap) var(--bc-gap) 0; }
+.bq[data-variant="call"][data-screen="qa"] .bq-brand { padding: 6px 16px 6px 6px; gap: 10px; }
+.bq[data-variant="call"][data-screen="qa"] .bq-brand small { padding: 4px 12px; }
+@media (min-width: 901px) {
+  .bq[data-variant="call"] { --bc-gap: clamp(16px, 1.9vw, 32px); }   /* 화면 가장자리 안전 여백 — 위 띠 · 기둥 · 오른쪽 기둥이 같은 값 */
+  .bq[data-variant="call"] .bc-side { top: var(--bc-top); right: var(--bc-gap); }
+  .bq[data-variant="call"] .bc-talk { top: var(--bc-top); left: var(--bc-gap); }
+  .bq[data-variant="call"] .bc-hint { top: var(--bc-gap); }
+}
+
+/* ── 삐약이 — 판 없이 캐릭터만, 이름 · 질문 n/3 · 상태는 옆에 글자로 (글자 테로 읽힌다) ── */
+.bq[data-variant="call"] .bc-call .bc-host {
+  background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  left: var(--bc-gap); bottom: var(--bc-gap); min-height: 0; padding: 0; gap: 12px; align-items: flex-end;
+}
+.bq[data-variant="call"] .bc-call .bc-host-bird { width: clamp(84px, 7vw, 124px); filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .35)); }
+.bq[data-variant="call"] .bc-call .bc-host-text { padding-bottom: 6px; text-shadow: var(--lg-halo); }
+.bq[data-variant="call"] .bc-call .bc-host-text b { color: #fff; }
+.bq[data-variant="call"] .bc-call .bc-host-text b small { font-size: .62em; font-weight: var(--w-med); color: #fff; }
+.bq[data-variant="call"] .bc-call .bc-host[data-speaking="1"] { box-shadow: none; }
+.bq[data-variant="call"] .bc-call .bc-host[data-speaking="1"] .bc-host-bird { animation: bcBob 900ms var(--ease) 2; }
+@keyframes bcBob { 40% { transform: translateY(-6px) rotate(-3deg); } 70% { transform: translateY(0) rotate(1deg); } }
+
+/* ── 말풍선 — 편마다 색과 자리 ── */
+.bq[data-variant="call"] .bc-call .bc-stream { gap: 6px; }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-tail="1"] { margin-bottom: 6px; }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] .msg-bubble,
+.bq[data-variant="call"] .bc-call .bc-stream > .qa-done[data-side="ai"] {
+  position: relative; color: var(--chat-ai-ink); text-shadow: none;
+  background: var(--chat-ai); border: 1px solid var(--chat-ai-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 8px 24px rgba(0, 0, 0, .16);
+  -webkit-backdrop-filter: var(--chat-blur); backdrop-filter: var(--chat-blur);
+  border-radius: 20px; border-bottom-left-radius: 20px;
+}
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] :is(.msg-meta, .react-head small, .msg-papers, .qd-foot, h4, .msg-q, p) { color: inherit; text-shadow: none; }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] :is(.msg-meta, .qd-foot, h4) { color: var(--chat-ai-soft); }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"].msg.is-now .msg-meta { color: #04674a; }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] .msg.ai.hint b,
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.ai.hint[data-side="ai"] .msg-bubble b { color: #8a4b05; }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] .qa-evidence {
+  color: var(--chat-ai-ink); background: rgba(8, 184, 121, .1); border-left-color: rgba(8, 140, 92, .6);
+}
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] :is(.qa-evidence span, .qa-ground > span) { color: var(--chat-ai-soft); }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] .msg-paper-link { color: #04674a; }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.ai.thinking[data-side="ai"] .msg-bubble { color: var(--chat-ai-soft); }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.ai.thinking .dots b { background: #0d6b4b; }
+/* 지금 답할 질문 — 가장 크게(2m), 한 단 진하게 */
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.is-now .msg-bubble {
+  background: var(--chat-ai-now); border-color: rgba(8, 184, 121, .8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 0 0 2px rgba(8, 184, 121, .35), 0 12px 30px rgba(0, 0, 0, .2);
+}
+/* 꼬리 — 이어 말한 마지막 말풍선에만. 삐약이 쪽은 왼쪽 아래(캐릭터 쪽), 내 쪽은 오른쪽 아래 */
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"][data-tail="1"] .msg-bubble,
+.bq[data-variant="call"] .bc-call .bc-stream > .qa-done[data-side="ai"][data-tail="1"] { border-bottom-left-radius: 6px; }
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"][data-tail="1"] .msg-bubble::after {
+  content: ''; position: absolute; left: -7px; bottom: -1px; width: 14px; height: 14px;
+  background: inherit; border-left: 1px solid var(--chat-ai-edge); border-bottom: 1px solid var(--chat-ai-edge);
+  clip-path: polygon(0 100%, 100% 0, 100% 100%); border-bottom-left-radius: 2px;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+
+/* 내 말 — 오른쪽 초록 */
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.me .msg-bubble,
+.bq[data-variant="call"] .bc-call .bc-draft {
+  position: relative; color: #fff; text-shadow: var(--lg-halo);
+  background: var(--chat-me); border: 1px solid var(--chat-me-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 8px 24px rgba(0, 0, 0, .18);
+  -webkit-backdrop-filter: var(--chat-blur-me); backdrop-filter: var(--chat-blur-me);
+  border-radius: 20px;
+}
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.me.partial .msg-bubble { background: var(--chat-me); box-shadow: inset 0 -3px 0 var(--mid), 0 8px 24px rgba(0, 0, 0, .18); }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.me[data-tail="1"] .msg-bubble { border-bottom-right-radius: 6px; }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.me[data-tail="1"] .msg-bubble::after {
+  content: ''; position: absolute; right: -7px; bottom: -1px; width: 14px; height: 14px; background: inherit;
+  border-right: 1px solid var(--chat-me-edge); border-bottom: 1px solid var(--chat-me-edge);
+  clip-path: polygon(0 0, 0 100%, 100% 100%); -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* 받아쓰는 말 — 대화 기둥 맨 아래, 내 쪽 */
+.bq[data-variant="call"] .bc-call .bc-draft {
+  pointer-events: none; align-self: flex-end; max-width: 92%; margin: 8px 2px 2px auto; padding: 10px 16px 12px;
+  border-bottom-right-radius: 6px; font-size: clamp(16px, 1.05vw, 20px); line-height: 1.5;
+}
+.bq[data-variant="call"] .bc-call .bc-draft[hidden] { display: none; }
+.bq[data-variant="call"] .bc-call .bc-draft p { margin: 0; }
+.bq[data-variant="call"] .bc-call .bc-draft[data-empty="1"] p { color: rgba(255, 255, 255, .86); font-style: normal; }
+.bq[data-variant="call"] .bc-call .bc-draft-tag { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 13px; font-weight: var(--w-bold); color: #d9ffef; }
+.bq[data-variant="call"] .bc-call .bc-draft[data-mic="1"] .bc-draft-tag::before {
+  content: ''; width: 9px; height: 9px; border-radius: 50%; background: #ff6b6b; box-shadow: 0 0 0 3px rgba(255, 107, 107, .3); animation: bcRec 1.2s ease-in-out infinite;
+}
+
+/* 안내 · 실패 줄 — 가운데 작은 알약(카톡의 시스템 줄) */
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="sys"]:is(.qa-flag, .qa-note-line) { align-self: center; font-size: 13px; text-shadow: none; }
+.bq[data-variant="call"] .bc-call .bc-stream > .qa-finale { align-self: center; }
+
+/* 지난 말 — 작고 옅게(납작하게, 흐림 없이), 지지난 말은 더 옅게 사라진다 */
+.bq[data-variant="call"] .bc-call .bc-stream > .is-past[data-side="ai"] .msg-bubble,
+.bq[data-variant="call"] .bc-call .bc-stream > .qa-done.is-past[data-side="ai"] {
+  background: rgba(244, 252, 248, .66); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+  color: var(--chat-ai-ink); text-shadow: none; font-size: 14px;
+}
+.bq[data-variant="call"] .bc-call .bc-stream > .is-past.msg.me .msg-bubble {
+  background: rgba(5, 100, 66, .86); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; font-size: 14px;
+}
+.bq[data-variant="call"] .bc-call .bc-stream > .is-past { opacity: .9; transition: opacity 400ms; }
+.bq[data-variant="call"] .bc-call .bc-stream > .is-old { opacity: .45; }
+.bq[data-variant="call"] .bc-call .bc-stream > :is(.is-past, .is-old):is(:hover, :focus-within) { opacity: 1; }
+
+/* 새 말풍선 — 아래에서 짧게 올라온다 (편마다 옆에서 살짝) */
+.bq[data-variant="call"] .bc-call .bc-stream > [data-side="ai"] { transform-origin: left bottom; }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.me { transform-origin: right bottom; }
+
+/* ── 질문 목록 — 머리 한 줄 + 번호 · 주제 · 장 · 상태. 누르는 것이 아니라 목록이다 (요청 7) ── */
+.bq[data-variant="call"] .bc-call .bc-prog {
+  width: var(--bc-talk-w); max-width: min(var(--bc-talk-w), 420px); padding: 10px 12px; border-radius: var(--r-inner);
+  background: var(--lg-tint-flat); border: 1px solid var(--lg-edge); color: #fff;
+}
+.bq[data-variant="call"] .bc-call .bc-prog-h { margin: 0 0 6px; font-size: 13px; font-weight: var(--w-bold); color: rgba(255, 255, 255, .94); }
+.bq[data-variant="call"] .bc-call .bc-prog-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.bq[data-variant="call"] .bc-call .bc-prog-list li {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 30px;
+  padding: 2px 4px 2px 0; border-left: 3px solid transparent; padding-left: 6px; font-size: clamp(14px, .9vw, 16px);
+}
+.bq[data-variant="call"] .bc-call .bc-prog-no {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: var(--w-bold);
+  background: rgba(255, 255, 255, .16);
+}
+.bq[data-variant="call"] .bc-call .bc-prog-topic { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--w-med); }
+.bq[data-variant="call"] .bc-call .bc-prog-topic small { font-size: .86em; color: rgba(255, 255, 255, .86); font-weight: var(--w-body); }
+.bq[data-variant="call"] .bc-call .bc-prog-state { font-style: normal; font-size: 12px; font-weight: var(--w-bold); white-space: nowrap; padding: 2px 8px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .12); }
+.bq[data-variant="call"] .bc-call .bc-prog-list li[data-st="now"] { border-left-color: var(--cyan); }
+.bq[data-variant="call"] .bc-call .bc-prog-list li[data-st="now"] .bc-prog-no { background: var(--cyan); color: var(--navy-deep, #043027); }
+.bq[data-variant="call"] .bc-call .bc-prog-list li[data-st="wait"] { color: rgba(255, 255, 255, .9); }
+.bq[data-variant="call"] .bc-call .bc-prog-list li[data-st="st-ok"] { border-left-color: var(--ok); }
+.bq[data-variant="call"] .bc-call .bc-prog-list li[data-st="st-mid"] { border-left-color: var(--mid); }
+.bq[data-variant="call"] .bc-call .bc-prog-list li[data-st="st-no"] { border-left-color: var(--no); }
+.bq[data-variant="call"] .bc-call .bc-prog-list li[data-st="st-om"] { border-left-color: var(--om); }
+
+/* 자료 창은 질문 목록 · 답 칸 위에서 멈추고(그 안에서 장 그림이 줄어든다) — 모든 데스크톱 폭에서 */
+@media (min-width: 901px) {
+  .bq[data-variant="call"] .bc-side { bottom: calc(var(--bc-dock-h, 270px) + var(--bc-gap) + var(--bc-prog-h, 120px) + 16px); }
+  .bq[data-variant="call"] .bc-slide { flex: 0 1 auto; min-height: 0; }
+  .bq[data-variant="call"] .bc-slide .bq-slide-pic { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; }
+  .bq[data-variant="call"] .bc-slide .bq-slide-pic canvas,
+  .bq[data-variant="call"] .bc-slide .bq-slide-pic img { width: auto; height: auto; max-width: 100%; max-height: 100%; }
+  .bq[data-variant="call"] .bc-side-row, .bq[data-variant="call"] .bc-privacy { flex: none; }
+  .bq[data-variant="call"] .bc-call .bc-prog { right: var(--bc-gap); bottom: calc(var(--bc-dock-h, 270px) + var(--bc-gap) + 8px); }
+  .bq[data-variant="call"] .bc-talk { bottom: calc(var(--bc-gap) + var(--bc-host-h, 104px) + 12px); }
+}
+@media (min-width: 901px) and (max-width: 1400px), (min-width: 901px) and (max-height: 820px) {
+  .bq[data-variant="call"] { --bc-gap: clamp(16px, 1.9vw, 28px); }
+  .bq[data-variant="call"] .bc-call .bc-prog { width: var(--bc-talk-w); max-width: none; padding: 8px 10px; }
+  .bq[data-variant="call"] .bc-call .bc-prog-list li { min-height: 26px; }
+}
+/* 폰 — 삐약이 이름표는 위 왼쪽 그대로(판 없이), 질문 목록은 숨긴다(이름표의 「질문 n/3」 이 말한다) */
+@media (max-width: 900px) {
+  .bq[data-variant="call"] .bc-call .bc-host { top: 64px; bottom: auto; align-items: center; }
+  .bq[data-variant="call"] .bc-call .bc-host-bird { width: 52px; }
+  .bq[data-variant="call"] .bc-call .bc-host-text b small { display: none; }
+  .bq[data-variant="call"] .bc-call .bc-draft { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bq[data-variant="call"] .bc-call .bc-host[data-speaking="1"] .bc-host-bird,
+  .bq[data-variant="call"] .bc-call .bc-draft[data-mic="1"] .bc-draft-tag::before { animation: none; }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .bq[data-variant="call"] { --chat-ai: rgba(248, 253, 250, .96); --chat-ai-now: #fff; --chat-me: rgba(4, 96, 63, .97); }
+}
+/* 삐약이 옆 이름 · 상태 — 판(카드) 대신 글자 뒤 아주 옅은 그늘 한 겹. 흰 벽 앞에서도 흰 글자가 읽히게(글자 테만으로는 3:1) */
+.bq[data-variant="call"] .bc-call .bc-host-text {
+  padding: 10px 26px 12px 14px; margin-left: -6px; border-radius: 40px;
+  background: radial-gradient(120% 140% at 35% 55%, rgba(8, 12, 18, .66) 0%, rgba(8, 12, 18, .5) 55%, rgba(8, 12, 18, 0) 100%);
+}
+.bq[data-variant="call"] .bc-call .bc-say { font-weight: var(--w-med); }
+@media (max-width: 900px) {
+  .bq[data-variant="call"] .bc-slide { background: var(--lg-sheen), rgba(16, 20, 30, .5); }
+  .bq[data-variant="call"] .bc-call .bc-host-text { padding: 6px 16px 6px 10px; }
+}

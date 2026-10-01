@@ -30,7 +30,7 @@ const bc = {
   sayCount: 0, rowCount: 0, speakTimer: 0, thinkSince: 0, slowTimer: 0, dockH: 0, mounted: false,
   syncAt: 0, syncN: 0, syncLater: 0,
   mcQi: -1, mc: '', mcUntil: 0, mcTimer: 0,   // 삐약이 진행 멘트 (bcMcSync)
-  hostH: 0,
+  hostH: 0, progH: 0, draft: '',
 };
 
 function bcRole() {
@@ -128,18 +128,18 @@ function renderQaLiveBoothCall() {
       <section class="bc-talk" aria-label="삐약이와 주고받은 말">
         <div class="qa-stream bc-stream" id="stream" tabindex="0"
           aria-label="삐약이와 주고받은 말 · 위아래 화살표로 지난 말을 볼 수 있어요">${qa.turns.map(streamRow).join('')}</div>
+        <div class="bc-draft" id="bcDraft" hidden aria-hidden="true"><span class="bc-draft-tag"></span><p></p></div>
       </section>
 
-      <div class="bc-host bc-glass" id="bcHost">
+      <div class="bc-host" id="bcHost">
         <span class="bc-host-bird">${bqBird(BC_HOST_BIRD)}</span>
         <span class="bc-host-text">
-          <b>${escapeHtml(role)}</b>
-          <small>역할을 맡은 삐약이</small>
+          <b>${escapeHtml(role)}<small> 역할 삐약이</small></b>
           <em id="bcCount"></em>
           <span id="bqJudgeSay" class="bc-say"></span>
         </span>
       </div>
-      <div id="bqProg" class="bc-prog"></div>
+      <section id="bqProg" class="bc-prog" aria-label="자료에서 뽑은 질문 3개"></section>
 
       <div class="card qa-live-input bq-answer bc-dock bc-glass">${liveInputHtml()}</div>
       <p class="bq-sr" id="bcLive" role="status" aria-atomic="true"></p>
@@ -203,16 +203,23 @@ function bcWatchDock() {
   const stream = document.getElementById('stream');
   if (!dock || !window.ResizeObserver) return;
   const host = layer.querySelector('.bc-host');
+  const prog = layer.querySelector('.bc-prog');
   bq.dockWatch = new ResizeObserver((entries) => {
     const h = Math.round(dock.getBoundingClientRect().height);
     if (h !== bc.dockH) { bc.dockH = h; layer.style.setProperty('--bc-dock-h', `${h}px`); }
     // 삐약이 카드도 진행 멘트·큰 글자로 두 줄이 되면 높아진다 — 대화 기둥 밑동을 그 위로 (10-02 맥 1512×860: 지금 질문이 카드 뒤로 숨었다)
     const hh = host ? Math.round(host.getBoundingClientRect().height) : 0;
     if (hh && hh !== bc.hostH) { bc.hostH = hh; layer.style.setProperty('--bc-host-h', `${hh}px`); }
+    // 질문 목록(진행)도 이름 · 장 · 상태 줄이라 높이가 바뀐다 — 자료 창이 그 위에서 멈추게
+    const ph = prog ? Math.round(prog.getBoundingClientRect().height) : 0;
+    if (ph !== bc.progH) { bc.progH = ph; layer.style.setProperty('--bc-prog-h', `${ph}px`); }
     if (stream && entries.some((e) => e.target === stream)) bcStickBottom(stream);
   });
   bq.dockWatch.observe(dock);
   if (host) bq.dockWatch.observe(host);
+  if (prog) bq.dockWatch.observe(prog);
+  // 받아쓰는 글은 답 칸 value 로만 들어와 감시로 못 잡는다 — 질문 화면에 있는 동안 0.25초마다 내 쪽 말풍선에 옮긴다
+  bq.timers.push(setInterval(bcDraftSync, BC_DRAFT_MS));
   if (stream) bq.dockWatch.observe(stream);
 }
 
@@ -251,7 +258,7 @@ function bcSync() {
 
   bqSet(document.getElementById('bcCount'), 'textContent', bcCounterText());
   bcMcSync();
-  bqSyncProg();
+  bcSyncProg();
   bqSyncSlide();
   bqMoveLeadNote();
   bqArmAutoEnd();
@@ -264,6 +271,7 @@ function bcSync() {
   }
   bcLinkAnswer(now);
   bcDimPast(stream);
+  bcMarkSides(stream);
   bcThinking(thinking);
 
   const host = document.getElementById('bcHost');
@@ -437,4 +445,88 @@ function bcSpeak() {
   host.dataset.speaking = '1';
   clearTimeout(bc.speakTimer);
   bc.speakTimer = setTimeout(() => { if (host.isConnected) host.dataset.speaking = ''; }, BC_SPEAK_MS);
+}
+
+/* ─── 10-02 대화처럼 — 말풍선 편 · 꼬리 · 받아쓰는 말 · 질문 목록 ─────────────────────────── */
+
+/** 받아쓰는 말을 내 쪽 말풍선에 옮기는 간격 */
+const BC_DRAFT_MS = 250;
+
+/** 줄의 편 — 삐약이(ai) · 나(me) · 안내(sys). 질문 마무리 카드도 삐약이 쪽 정리다 */
+function bcSide(el) {
+  if (el.matches('.msg.me')) return 'me';
+  if (el.matches('.msg.ai, .qa-done')) return 'ai';
+  return 'sys';
+}
+
+/**
+ * 카카오톡처럼 — 같은 편이 이어 말하면 꼬리는 마지막 말풍선에만. 판 색은 편이 정한다(css data-side).
+ * 지지난 질문까지의 말은 「오래된 말」 로 더 옅게 (위로 밀리며 흐려진다).
+ */
+function bcMarkSides(stream) {
+  const kids = [...stream.children];
+  const leads = [];
+  kids.forEach((el, i) => { if (el.matches('.msg.ai.q') && bcIsLead(el)) leads.push(i); });
+  const oldBefore = leads.length >= 2 ? leads[leads.length - 2] : -1;
+  kids.forEach((el, i) => {
+    const side = bcSide(el);
+    if (el.dataset.side !== side) el.dataset.side = side;
+    const next = kids[i + 1];
+    const tail = !next || bcSide(next) !== side || el.matches('#coachThinking') ? '1' : '';
+    if ((el.dataset.tail || '') !== tail) el.dataset.tail = tail;
+    const old = i < oldBefore;
+    if (el.classList.contains('is-old') !== old) el.classList.toggle('is-old', old);
+  });
+}
+
+/** 받아쓰는 중이거나 쳐 둔 글 — 내 쪽 말풍선에 실시간으로 차오른다. 보낸 답은 스트림의 내 말풍선이 된다 */
+function bcDraftSync() {
+  const box = document.getElementById('bcDraft');
+  if (!box || !qa.live) return;
+  const ta = document.getElementById('liveAnswer');
+  const text = ta && !ta.disabled ? ta.value.trim() : '';
+  const mic = bcMicOn();
+  const show = !!text || mic;
+  if (box.hidden === show) box.hidden = !show;
+  const tag = mic ? '듣고 있어요' : '보내기 전이에요';
+  bqSet(box.querySelector('.bc-draft-tag'), 'textContent', tag);
+  const shown = text || (mic ? '말하면 여기에 글자로 적혀요' : '');
+  if (bc.draft !== shown) {
+    bc.draft = shown;
+    box.querySelector('p').textContent = shown;
+    box.dataset.empty = text ? '' : '1';
+  }
+  if ((box.dataset.mic || '') !== (mic ? '1' : '')) box.dataset.mic = mic ? '1' : '';
+}
+
+/**
+ * 오른쪽 질문 목록 — 「질문 1 · 질문 2」 만으로는 무엇을 나눈 건지 몰랐다 (10-02 사용자).
+ * 머리 한 줄 + 질문마다 번호 · 주제(질문 데이터의 label) · 근거 장 · 상태. 안 연 질문은 주제와 장만(질문 글은 안 보인다),
+ * 함정 여부는 드러내지 않는다. 누르는 것이 아니라 목록이다(버튼처럼 안 보이게).
+ */
+function bcProgHtml() {
+  const L = qa.live;
+  const rows = L.questions.map((q, i) => {
+    const r = (L.results || [])[i];
+    const row = r && typeof liveResultRow === 'function' ? liveResultRow(r) : null;
+    const now = !row && i === L.qi && !L.awaitEnd;
+    const state = row ? row.chip : (now ? '지금 묻는 중' : '아직');
+    const cls = row ? row.cls : (now ? 'now' : 'wait');
+    const slide = Number(q.evidence_slide_no) || ((q.slide_nos || []).map(Number).find((n) => n > 1)) || 0;
+    const topic = String(q.label || '').trim() || `질문 ${i + 1}`;
+    // 판정 색은 data-st 로 — 클래스 .st-ok 를 달면 app.css 의 판정 칩(밝은 면)이 줄 전체에 씌워진다
+    return `<li data-st="${cls}"${now ? ' aria-current="step"' : ''}>
+      <span class="bc-prog-no">${i + 1}</span>
+      <span class="bc-prog-topic">${escapeHtml(topic)}${slide ? `<small> · ${slide}장</small>` : ''}</span>
+      <em class="bc-prog-state">${escapeHtml(state)}</em>
+    </li>`;
+  }).join('');
+  return `<h3 class="bc-prog-h">자료에서 뽑은 질문 ${L.questions.length}개</h3><ol class="bc-prog-list">${rows}</ol>`;
+}
+
+function bcSyncProg() {
+  const prog = document.getElementById('bqProg');
+  if (!prog) return;
+  const next = bcProgHtml();
+  if (prog.dataset.html !== next) { prog.dataset.html = next; prog.innerHTML = next; }
 }

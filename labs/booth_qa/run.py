@@ -80,7 +80,10 @@ LAYOUT_JS = """() => {
   const phone_cover = isCallQa && camOn && innerWidth <= 900
     ? coverList((el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > px0 && b.left < px1 && b.bottom > py0 && b.top < py1; }) : null;
   // 겹침 — 진행 칩 · 사생활 알약 · 자료 창 · 답 칸이 서로 덮는지
-  const box = (sel) => { const el = L.querySelector(sel); if (!el || !el.offsetParent) return null; return el.getBoundingClientRect(); };
+  const box = (sel) => { const el = L.querySelector(sel); if (!el || !el.offsetParent) return null; const r = el.getBoundingClientRect();
+    const st = el.closest('#stream'); if (!st) return r;   // 대화 칸 안의 말은 칸이 보여 주는 만큼만
+    const c = st.getBoundingClientRect(); const top = Math.max(r.top, c.top), bottom = Math.min(r.bottom, c.bottom);
+    return bottom <= top ? null : { left: r.left, right: r.right, top, bottom }; };
   const hit2 = (a, b) => !!a && !!b && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
   const overlaps = isCallQa ? [['.bc-prog .bq-prog', '.bc-privacy'], ['.bc-prog .bq-prog', '#bqSlide'], ['.bc-dock', '#bqSlide'], ['.bc-dock', '.bc-privacy'],
     ['.bc-dock', '.bc-prog .bq-prog'], ['.bc-host', '.bc-dock'], ['.bc-talk', '.bc-dock'], ['.bc-hint:not([hidden])', '#bqSlide'],
@@ -477,7 +480,7 @@ def plain_cam(path: Path, rgb: tuple[int, int, int]) -> Path:
     return path
 
 
-GLASS_TEXT = ["#stream > .msg.is-now .msg-q", "#stream > .msg.ai.react:not(.is-past) .msg-bubble > p", "#stream > .msg.me:not(.is-past) .msg-bubble",
+GLASS_TEXT = [".bc-draft p", ".bc-prog-topic", "#stream > .msg.is-now .msg-q", "#stream > .msg.ai.react:not(.is-past) .msg-bubble > p", "#stream > .msg.me:not(.is-past) .msg-bubble",
               "#bqJudgeSay", "#bcHost .bc-host-text b", "#bqSlide figcaption", ".bc-dock .qa-input-label b", "#stream > .is-past .msg-bubble",
               "#stream > .qa-flag:not(.is-past)", ".bc-privacy"]
 
@@ -489,7 +492,11 @@ def glass_contrast(page, png: Path) -> dict:
     from PIL import Image
     dpr = page.evaluate("devicePixelRatio")
     boxes = page.evaluate("""(sels) => sels.map((s) => { const el = document.querySelector(s); if (!el || !el.offsetParent) return null;
-      const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })""", GLASS_TEXT)
+      let r = el.getBoundingClientRect(); const st = el.closest('#stream');
+      // 대화 칸 안의 말은 칸이 잘라 보이는 부분만 (위로 밀려 가려진 부분까지 재면 위 띠 · 영상이 섞인다)
+      if (st) { const c = st.getBoundingClientRect(); const top = Math.max(r.top, c.top), bot = Math.min(r.bottom, c.bottom);
+        if (bot - top < 16) return null; return [r.left, top, r.width, bot - top]; }
+      return [r.left, r.top, r.width, r.height]; })""", GLASS_TEXT)
     im = np.asarray(Image.open(png).convert("RGB")).astype(float) / 255
     lin = np.where(im <= 0.04045, im / 12.92, ((im + 0.055) / 1.055) ** 2.4)
     lum = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
@@ -502,7 +509,9 @@ def glass_contrast(page, png: Path) -> dict:
         crop = lum[max(0, y0):y1, max(0, x0):x1]
         if crop.size < 50:
             continue
-        core = crop >= max(0.6, np.percentile(crop, 97) * 0.92)
+        # 글자가 밝은지(어두운 판 · 흰 글자) 어두운지(연한 판 · 진한 글자) — 판 가운데 값으로 가른다
+        dark_text = float(np.median(crop)) > 0.35
+        core = crop <= min(0.08, np.percentile(crop, 3) * 1.5 + 0.01) if dark_text else crop >= max(0.6, np.percentile(crop, 97) * 0.92)
         if core.sum() < 10:
             continue
 
@@ -517,7 +526,7 @@ def glass_contrast(page, png: Path) -> dict:
         if ring.sum() < 10:
             continue
         lt = float(np.median(crop[core]))
-        lb = float(np.percentile(crop[ring], 75))
+        lb = float(np.percentile(crop[ring], 25 if dark_text else 75))   # 둘레의 글자 쪽에 가까운 값(보수적으로)
         out[sel] = round((max(lt, lb) + 0.05) / (min(lt, lb) + 0.05), 2)
     return out
 
