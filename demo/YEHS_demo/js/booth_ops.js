@@ -151,24 +151,33 @@ function bqConfirmHome() {
 
 /* ─── 마지막 질문 뒤 — 결과로 넘어가기 ──────────────────────────────────────── */
 
-/** 질문을 다 마친 자리(qa.live.awaitEnd)면 12초를 세고 결과 화면으로. 무대 sync 가 매번 부른다 */
+/**
+ * 질문을 다 마친 자리(qa.live.awaitEnd)면 12초를 세고 결과 화면으로. 무대 sync 가 매번 부른다.
+ * 끝 카드 초읽기 글은 **바뀔 때만** 쓴다 — 같은 글이어도 textContent 를 쓰면 글 마디가 갈려 MutationObserver 가 깨고,
+ * 화상판의 답 칸 감시가 다시 이 함수를 불러 탭이 멈췄다 (10-01 점검 P0: 1초에 수천 번 돌았다).
+ */
 function bqArmAutoEnd() {
   const L = qa && qa.live;
   if (!L || !L.awaitEnd) return;
   const note = document.querySelector('#bqStage .qa-end-note');
   if (bqOps.endTimer) {
-    if (note) note.textContent = `${bqOps.endLeft}초 뒤 결과를 보여 줘요`;
+    bqEndNote(note);
     return;
   }
   bqOps.endLeft = BQ_AUTO_END_SEC;
-  if (note) note.textContent = `${bqOps.endLeft}초 뒤 결과를 보여 줘요`;
+  bqEndNote(note);
   bqOps.endTimer = setInterval(() => {
     bqOps.endLeft -= 1;
     const n = document.querySelector('#bqStage .qa-end-note');
     if (!n || bq.screen !== 'qa') { bqStopAutoEnd(); return; }
     if (bqOps.endLeft <= 0) { bqStopAutoEnd(); qaLiveEnd(); return; }
-    n.textContent = `${bqOps.endLeft}초 뒤 결과를 보여 줘요`;
+    bqEndNote(n);
   }, 1000);
+}
+
+function bqEndNote(el) {
+  const text = `${bqOps.endLeft}초 뒤 결과를 보여 줘요`;
+  if (el && el.textContent !== text) el.textContent = text;
 }
 
 function bqStopAutoEnd() {

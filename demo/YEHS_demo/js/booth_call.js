@@ -26,7 +26,7 @@ const BC_HOST_BIRD = 'solar';
 /** 화면 읽기가 읽을 줄 — 삐약이 쪽 말 · 안내 · 오류 · 질문 마무리 카드 */
 const BC_SAY_ROWS = ':scope > .msg.ai:not(.thinking), :scope > .qa-flag, :scope > .qa-note-line, :scope > .qa-done';
 
-const bc = { sayCount: 0, rowCount: 0, speakTimer: 0, thinkSince: 0, slowTimer: 0, dockH: 0, mounted: false };
+const bc = { sayCount: 0, rowCount: 0, speakTimer: 0, thinkSince: 0, slowTimer: 0, dockH: 0, mounted: false, syncAt: 0, syncN: 0, syncLater: 0 };
 
 function bcRole() {
   return qa.aud || BOOTH_ROLES[0].aud;
@@ -114,8 +114,12 @@ function renderQaLiveBoothCall() {
   bcSync();
   const stream = $('#stream');
   if (stream) {
-    // 판정 기다림 글(남은 초)이 바뀌는 것도 따라가야 해서 글자 변화까지 본다
-    bq.observer = new MutationObserver(bcSync);
+    // 판정 기다림 글(남은 초)이 바뀌는 것도 따라가야 해서 글자 변화까지 본다.
+    // bcSync 가 스트림 안에 쓴 것(머리말 줄이기 · 기다림 글)으로 다시 깨지 않게 끝에 쌓인 기록을 버린다
+    bq.observer = new MutationObserver(() => {
+      bcSync();
+      if (bq.observer) bq.observer.takeRecords();
+    });
     bq.observer.observe(stream, { childList: true, subtree: true, characterData: true });
   }
   paintDeckThumbs(document.getElementById('bqStage'));
@@ -125,8 +129,15 @@ function renderQaLiveBoothCall() {
   wireLiveInput();
   const card = document.querySelector('#bqStage .bq-answer');
   if (card) {
-    // 입력 카드는 판정·힌트 때마다 통째로 바뀌고, 마이크 버튼은 aria-label 로 상태를 바꾼다 — 둘 다 따라간다
-    bq.inputObserver = new MutationObserver(() => { bqRelabelInput(); bcSync(); });
+    // 입력 카드는 판정·힌트 때마다 통째로 바뀌고(카드 바로 아래 자식), 마이크 버튼은 aria-label 로 상태를 바꾼다 — 그 둘만 따라간다.
+    // 카드 속 글자(끝 카드의 「12초 뒤 결과를 보여 줘요」 초읽기 등)에는 깨지 않는다 — 그 글을 쓰는 게 이 감시가 부르는
+    // bqArmAutoEnd 라서, 예전(subtree 전부)에는 마지막 질문을 닫는 순간 서로를 끝없이 불러 탭이 멈췄다 (10-01 점검 P0)
+    bq.inputObserver = new MutationObserver((records) => {
+      if (!records.some((r) => r.type === 'attributes' || r.target === card)) return;
+      bqRelabelInput();
+      bcSync();
+      if (bq.inputObserver) bq.inputObserver.takeRecords();   // 방금 우리가 쓴 것으로 다시 깨지 않게
+    });
     bq.inputObserver.observe(card, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label'] });
   }
   bqRelabelInput();
@@ -163,10 +174,30 @@ function bcNowQuestionRow(stream) {
   return rows.length ? rows[rows.length - 1] : null;
 }
 
+/**
+ * 고리 차단기 — 1초에 BC_SYNC_MAX 번을 넘게 불리면 그 1초는 더 돌지 않고, 끝에 한 번만 다시 맞춘다.
+ * 감시(MutationObserver)와 그 감시가 부르는 쓰기가 서로를 다시 깨우는 고리가 또 생겨도 탭이 멈추지 않게 (10-01 P0 방어).
+ * 평소에는 1초에 몇 번(새 줄 · 판정 기다림 초읽기)이라 닿지 않는다.
+ */
+const BC_SYNC_MAX = 60;
+function bcSyncAllowed() {
+  const now = Date.now();
+  if (now - bc.syncAt >= 1000) { bc.syncAt = now; bc.syncN = 0; }
+  bc.syncN += 1;
+  if (bc.syncN <= BC_SYNC_MAX) return true;
+  if (bc.syncN === BC_SYNC_MAX + 1) {
+    console.warn('[chuckchuck] booth call: 화면 맞추기가 1초에 너무 자주 불려 잠시 쉬어요 (감시 고리 의심)');
+    clearTimeout(bc.syncLater);
+    bc.syncLater = setTimeout(() => { bc.syncAt = 0; bcSync(); }, 1000);
+  }
+  return false;
+}
+
 /** 스트림이 자랄 때마다 — 번호 · 진행 칩 · 자료 장 · 삐약이 표정과 줄 · 지금 질문 강조 · 화면 읽기를 맞춘다 */
 function bcSync() {
   const stream = document.getElementById('stream');
   if (!stream || !qa.live) return;
+  if (!bcSyncAllowed()) return;
   const thinking = document.getElementById('coachThinking');
 
   bqSet(document.getElementById('bcCount'), 'textContent', bcCounterText());

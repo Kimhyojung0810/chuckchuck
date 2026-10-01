@@ -13,6 +13,23 @@
 결과: labs/booth_qa/out/<stamp>/*.png + report.json (단계 시간 · 카메라 판단 표본 · 배치 검사 · 콘솔 오류)
 실 LLM 과금이 난다 (개념·그래프·질문 3개 + 판정 1회). 브리지는 DEMO_DEV_ROUTES=1 이거나 /auth 쿠키가 있어야 목록이 열린다.
 libasound 가 없는 서버면 LD_LIBRARY_PATH=/tmp/pwlibs/usr/lib/x86_64-linux-gnu (labs/qa_call/README.md).
+
+── 끝까지 모드 (--full, 2026-10-01 점검 P0 뒤) ──────────────────────────────────────────────
+옛 실험실은 답 하나만 보내고 「남은 질문 건너뛰고 결과 보기」 로 나가서, 마지막 질문을 **닫는** 경로(끝 카드 · 12초 자동 결과)를
+한 번도 못 밟았다 — 그 자리에서 탭이 멈추는 무한 고리(bqArmAutoEnd ↔ 답 칸 감시)를 놓친 까닭이다. --full 은
+질문 3개를 끝까지 받고(질문마다 답 전략 --plan) → 끝 카드에서 고리 계측(bqArmAutoEnd · bcSync 호출 수, 멈춤 감지) →
+12초 자동 결과 → (--wait-home) 40초 자동 처음으로 까지 간다. 폭마다(--sizes) 배치 검사·사진을 남긴다.
+
+    # 실 API 한 번 — 개념·그래프·질문 응답을 --record 폴더에 남긴다
+    .venv/bin/python labs/booth_qa/run.py --full --route call --base http://127.0.0.1:8803 --record labs/booth_qa/out/rec_income
+    # 그 뒤로는 과금 없이 — 남긴 응답을 재생하고 판정은 가짜(--fake-judge)로, 화면만 본다
+    .venv/bin/python labs/booth_qa/run.py --full --route call --base http://127.0.0.1:8803 \
+        --replay labs/booth_qa/out/rec_income --fake-judge --viewport 1280x720 --plan good,stuck,partial --wait-home
+
+  --plan     질문마다 답 전략 (쉼표): good(골자) · partial(관람객 답 → 되묻기 → 골자) · stuck(모르겠어요 → 답 보고 넘어가기)
+             · trapyes(전제에 동의) · off(딴소리). 가짜 판정은 good → 바로 닫힘, partial → 한 번 되묻고 닫힘으로 답한다.
+  --fail     judge503(첫 판정 503) · judgeabort · questions500 · camdeny(카메라 권한 없음)
+  --fake-judge  /qa/judge 를 가짜 응답으로(과금 없음). 「모르겠어요」는 막힘 1·2·3단, reveal 은 가짜 골자.
 """
 from __future__ import annotations
 
@@ -54,10 +71,25 @@ LAYOUT_JS = """() => {
   const cx0 = innerWidth * .38, cx1 = innerWidth * .62, cy0 = innerHeight * .18, cy1 = innerHeight * .62;
   const covers = (el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > cx0 && b.left < cx1 && b.bottom > cy0 && b.top < cy1; };
   const callParts = ['.bc-host', '.bc-dock', '.bc-side', '.bc-hint:not([hidden])', '.bc-prog', '#stream > *'];
-  const center_cover = L.dataset.variant === 'call' && L.dataset.screen === 'qa'
-    ? callParts.flatMap((sel) => [...L.querySelectorAll(sel)].filter(covers).map((el) => sel + (el.className ? '.' + String(el.className).split(' ')[0] : ''))) : null;
+  // 카메라가 꺼지면 자료 창이 화면 공유처럼 가운데를 쓴다(의도) — 그때는 재지 않는다. 폰(≤900)은 얼굴이 위쪽 띠에 있어 따로 잰다(phone_cover)
+  const camOn = (L.querySelector('[data-bq-cam-box]') || {}).dataset?.camera === 'on';
+  const isCallQa = L.dataset.variant === 'call' && L.dataset.screen === 'qa';
+  const coverList = (fn) => callParts.flatMap((sel) => [...L.querySelectorAll(sel)].filter(fn).map((el) => sel + (el.className ? '.' + String(el.className).split(' ')[0] : '')));
+  const center_cover = isCallQa && camOn && innerWidth > 900 ? coverList(covers) : null;
+  const px0 = innerWidth * .34, px1 = innerWidth * .66, py0 = innerHeight * .08, py1 = innerHeight * .22;
+  const phone_cover = isCallQa && camOn && innerWidth <= 900
+    ? coverList((el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > px0 && b.left < px1 && b.bottom > py0 && b.top < py1; }) : null;
+  // 겹침 — 진행 칩 · 사생활 알약 · 자료 창 · 답 칸이 서로 덮는지
+  const box = (sel) => { const el = L.querySelector(sel); if (!el || !el.offsetParent) return null; return el.getBoundingClientRect(); };
+  const hit2 = (a, b) => !!a && !!b && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
+  const overlaps = isCallQa ? [['.bc-prog .bq-prog', '.bc-privacy'], ['.bc-prog .bq-prog', '#bqSlide'], ['.bc-dock', '#bqSlide'], ['.bc-dock', '.bc-privacy'],
+    ['.bc-dock', '.bc-prog .bq-prog'], ['.bc-host', '.bc-dock'], ['.bc-talk', '.bc-dock'], ['.bc-hint:not([hidden])', '#bqSlide']]
+    .filter(([a, b]) => hit2(box(a), box(b))).map(([a, b]) => `${a} × ${b}`) : null;
   return { layer: true, screen: L.dataset.screen, variant: L.dataset.variant, present: L.dataset.present, W: innerWidth, H: innerHeight,
-    center_cover, host: r(L.querySelector('.bc-host')), talk: r(L.querySelector('.bc-talk')), dock: r(L.querySelector('.bc-dock')),
+    center_cover, phone_cover, overlaps, cam_on: camOn,
+    // 아래로 잘린 버튼 — 화면(층) 밖으로 나간 눌러야 할 것
+    cut_off: [...L.querySelectorAll('button, .bq-deck-go')].filter((b) => b.offsetParent).filter((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && (r.bottom > innerHeight + 1 || r.right > innerWidth + 1); }).map((b) => (b.id || b.textContent.trim()).slice(0, 24)),
+    host: r(L.querySelector('.bc-host')), talk: r(L.querySelector('.bc-talk')), dock: r(L.querySelector('.bc-dock')),
     now_q: r(L.querySelector('#stream .msg.is-now .msg-bubble')),
     glass: (() => { const g = L.querySelector('.bc-glass'); return g ? getComputedStyle(g).backdropFilter || getComputedStyle(g).webkitBackdropFilter : null; })(),
     // 넘침은 층 안의 스크롤 칸(.bq-body)에서 난다 — 층·문서만 보면 폰 폭 마무리 화면 넘침을 놓쳤다 (09-30)
@@ -69,6 +101,10 @@ LAYOUT_JS = """() => {
     slide: r(document.getElementById('bqSlide')), self: r(document.querySelector('.bq-self')),
     face_box: (() => { const f = document.getElementById('bqFace'); return f && !f.hidden ? r(f) : null; })(),
     hint: (document.getElementById('bqHint') || {}).textContent || '',
+    // 방금 판정 말풍선이 대화 칸 안에 얼마나 보이나 (0~1) — 폰에서 되묻기에 밀려 위로 사라졌다 (10-01 점검)
+    react_visible: (() => { const st = document.getElementById('stream'); const rs = st ? st.querySelectorAll(':scope > .msg.ai.react') : [];
+      if (!rs.length) return null; const a = rs[rs.length - 1].getBoundingClientRect(); const c = st.getBoundingClientRect();
+      const vis = Math.max(0, Math.min(a.bottom, c.bottom, innerHeight) - Math.max(a.top, c.top, 0)); return a.height ? Math.round(vis / a.height * 100) / 100 : null; })(),
     in_view: Object.fromEntries(['#bqStart', '#bqGo', '#liveSend', '#liveAnswer', '[data-bq-home]'].map((s) => [s, inView(s)])),
     clickable: Object.fromEntries(['#bqStart', '#bqGo', '#liveSend', '#liveMic', '#liveFinish', '#bqCamToggle', '[data-bq-home]']
       .map((s) => [s, hit(s)])) };
@@ -353,6 +389,382 @@ def run(args) -> Path:
     return out
 
 
+# ── 끝까지 모드 (--full) ───────────────────────────────────────────────────────────────────────
+
+VISITOR = {
+    "수익률격차": "개인투자자는 정보가 부족하고 감정적으로 매매해서 그런 것 같아요.",
+    "수면발표": "잠을 오래 자도 수면의 질이 낮으면 피곤한 거라고 생각해요.",
+    "focus_notification": "알림 때문에 집중이 끊겨서 그런 것 같아요.",
+}
+OFF = "점심은 김치찌개가 맛있었어요. 오늘 날씨도 좋네요."
+RECORD_PATHS = {"/api/v1/concepts": "concepts.json", "/api/v1/graph": "graph.json", "/api/v1/questions": "questions.json"}
+
+# 고리 계측 — 원래 함수를 감싸 부른 수만 센다 (막지 않는다: 계측 없이도 멈추지 않아야 한다)
+COUNT_JS = """() => {
+  if (window.__bqCount) return;
+  window.__bqCount = { arm: 0, sync: 0, relabel: 0 };
+  const wrap = (name, key) => { const f = window[name]; if (typeof f !== 'function') return;
+    window[name] = function () { window.__bqCount[key] += 1; return f.apply(this, arguments); }; };
+  wrap('bqArmAutoEnd', 'arm'); wrap('bcSync', 'sync'); wrap('bqRelabelInput', 'relabel');
+}"""
+
+FONT_JS = """() => {
+  const fs = (sel) => { const el = document.querySelector(sel); if (!el || !el.offsetParent) return null;
+    const c = getComputedStyle(el); return { px: parseFloat(c.fontSize), text: (el.textContent || '').trim().slice(0, 40) }; };
+  return { now_q: fs('#stream .msg.is-now .msg-q'), chip: fs('#stream > :not(.is-past) .react-head .chip'),
+    react: fs('#stream > .msg.ai.react:not(.is-past) .msg-bubble > p'), ground_head: fs('#stream > :not(.is-past) .qa-ground > span'),
+    say: fs('#bqJudgeSay'), role: fs('#bcHost .bc-host-text b'), count: fs('#bcCount'),
+    past: fs('#stream > .is-past .msg-bubble'), past_q: fs('#stream > .is-past .msg-q') };
+}"""
+
+
+def _fake_judge_body(q: dict, kind: str, stage: str = "") -> dict:
+    """가짜 판정 응답 — 실 응답(10-01 점검 기록)의 모양 그대로. 글은 실험실 표시를 단다"""
+    slide = int((q.get("slide_nos") or [0])[0] or 0) or int(q.get("evidence_slide_no") or 0)
+    base = {"question_id": q.get("id"), "node_id": q.get("node_id"), "verdict": "unknown", "score": 0, "react": "",
+            "summary_sentence": f"{q.get('label', '')} — (실험실 가짜 판정) 정리 한 줄이에요.", "missing_points": [], "model": "fake",
+            "followup": "", "hints": q.get("hints") or ["자료를 떠올려 보세요.", "그 장을 같이 볼게요", "빈칸을 채워 보세요: ___"],
+            "coach_stage": "", "explanation": "", "round_no": 1, "probe_tier": "", "choices": [], "evidence_quote": "",
+            "evidence_slide_no": 0, "guard_reason": "", "guard": "", "grounds": [], "passed": False, "mastered": False,
+            "close_reason": "", "grounded_on_server": True, "grounded_on_deck": True, "degraded": [], "degraded_notes": []}
+    quote = "자료의 한 줄이에요 (실험실)"
+    if kind == "good":
+        return {**base, "verdict": "good", "score": 84, "passed": True, "mastered": True, "close_reason": "good",
+                "react": "핵심 근거를 자료 그대로 짚었어요. 숫자까지 정확해요. (실험실 가짜 판정)",
+                "grounds": [{"slide_no": slide or 2, "quote": quote, "role": "covered", "note": "이 줄이 답이에요.", "ref": "S2-1"}]}
+    if kind == "partial":
+        return {**base, "verdict": "partial", "score": 55, "probe_tier": "probe",
+                "react": "방향은 맞는데 자료가 든 근거가 아직 빠졌어요. 그 부분을 한 문장 더 말해 보세요. (실험실)",
+                "missing_points": ["자료가 든 근거"], "followup": "자료가 든 근거는 무엇이었나요? (실험실 되묻기)",
+                "grounds": [{"slide_no": slide or 2, "quote": quote, "role": "missing", "note": "아직 안 나온 것", "ref": "S2-1"}]}
+    if kind == "wrong":
+        return {**base, "verdict": "wrong", "score": 20, "probe_tier": "probe",
+                "react": "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요. (실험실)",
+                "followup": "자료가 실제로 말한 것은 무엇인가요? (실험실 되묻기)"}
+    # 막힘 사다리
+    if stage == "explain":
+        return {**base, "coach_stage": "explain", "react": "괜찮아요. 이번엔 답을 같이 볼게요.",
+                "explanation": "자료는 이렇게 설명해요 — 실험실 가짜 해설 한 문장이에요.", "evidence_quote": quote, "evidence_slide_no": slide}
+    if stage == "scaffold":
+        return {**base, "coach_stage": "scaffold", "react": "괜찮아요. 한 칸만 채우면 돼요.",
+                "followup": "빈칸을 채워 보세요: 자료는 ___ 라고 해요. — 'ㄱ' 인가요, 'ㄴ' 인가요?", "choices": ["ㄱ", "ㄴ"],
+                "evidence_quote": quote, "evidence_slide_no": slide}
+    return {**base, "coach_stage": "narrow", "react": f"괜찮아요. 여기서 같이 짚어 볼게요. 자료 {slide}장은 이렇게 말해요: «{quote}»",
+            "followup": f"자료 {slide}장은 «{quote}» 라고 해요. 이 장이 말하는 건 'ㄱ' 쪽인가요, 'ㄴ' 쪽인가요?", "choices": ["ㄱ", "ㄴ"],
+            "evidence_quote": quote, "evidence_slide_no": slide}
+
+
+def _replayer(body: str):
+    # 인자 하나짜리여야 한다 — playwright 는 인자가 둘인 처리기에 (route, request) 를 넘긴다
+    def handle(route):
+        route.fulfill(status=200, content_type="application/json", body=body)
+    return handle
+
+
+def install_routes(page, args, state: dict) -> None:
+    """실패 주입 · 기록 재생 · 가짜 판정. state 에 판정 호출 수와 받은 요청을 남긴다"""
+    fails = set(filter(None, (args.fail or "").split(",")))
+    rec = Path(args.replay) if args.replay else None
+    if "questions500" in fails:
+        page.route("**/api/v1/questions", lambda r: r.fulfill(status=500, content_type="application/json", body='{"error":"upstream timeout"}'))
+    elif rec:
+        for path, name in RECORD_PATHS.items():
+            f = rec / name
+            if f.exists():
+                page.route(f"**{path}", _replayer(f.read_text()))
+    if "decks500" in fails:
+        page.route("**/api/v1/dev/decks", lambda r: r.fulfill(status=500, body="{}"))
+    if not (args.fake_judge or "judge503" in fails or "judgeabort" in fails):
+        return
+    plan = (args.plan or "").split(",")
+
+    def judge(route):
+        state["judge_calls"] += 1
+        n = state["judge_calls"]
+        if "judge503" in fails and n == 1:
+            return route.fulfill(status=503, content_type="application/json", body='{"error":"LLM upstream 503"}')
+        if "judgeabort" in fails and n <= 2:
+            return route.abort("internetdisconnected")
+        if not args.fake_judge:
+            return route.continue_()
+        req = json.loads(route.request.post_data or "{}")
+        q = req.get("question") or {}
+        qid = req.get("question_id") or q.get("id") or "?"
+        if req.get("reveal"):
+            return route.fulfill(status=200, content_type="application/json",
+                                 body=json.dumps({"answer_gist": "자료가 말한 바로잡힌 사실이에요 (실험실 가짜 골자)."}, ensure_ascii=False))
+        order = state.setdefault("order", [])
+        if qid not in order:
+            order.append(qid)
+        strat = plan[order.index(qid)] if order.index(qid) < len(plan) else "stuck"
+        st = state.setdefault("per_q", {}).setdefault(qid, {"answers": 0, "give": 0})
+        time.sleep(0.6)   # 판정 기다림 말풍선이 한 번은 보이게
+        if req.get("give_up"):
+            st["give"] += 1
+            body = _fake_judge_body(q, "coach", ["narrow", "scaffold", "explain"][min(st["give"], 3) - 1])
+        else:
+            st["answers"] += 1
+            kind = "good"
+            if strat in ("partial", "trapyes", "off") and st["answers"] == 1:
+                kind = "wrong" if strat in ("trapyes", "off") else "partial"
+            body = _fake_judge_body(q, kind)
+        state["judge_log"].append({"qid": qid, "give_up": bool(req.get("give_up")), "verdict": body["verdict"], "stage": body["coach_stage"]})
+        return route.fulfill(status=200, content_type="application/json", body=json.dumps(body, ensure_ascii=False))
+    page.route("**/qa/judge", judge)
+
+
+def _answer_for(strat: str, q: dict, deck: str) -> tuple[str, str]:
+    """처음 답할 때 — (동작, 글)"""
+    if strat == "good":
+        if q.get("trap") or q.get("gist_withheld"):
+            return "type", "질문에 깔린 전제가 자료와 달라요. 자료에서는 그 반대로 말하고 있어요."
+        return "type", (q.get("answer_gist") or ANSWERS.get(deck, ANSWERS["수익률격차"]))
+    if strat == "partial":
+        return "type", VISITOR.get(deck, "자료의 핵심 때문인 것 같아요.")
+    if strat == "trapyes":
+        return "type", "네, 질문에서 말한 그대로예요. 그래서 그 결론이 나온 거예요."
+    if strat == "off":
+        return "type", OFF
+    return "stuck", ""
+
+
+def run_full(args) -> Path:
+    from playwright.sync_api import sync_playwright
+
+    out = OUT / (datetime.now().strftime("%Y%m%dT%H%M%S") + (f"_{args.tag}" if args.tag else ""))
+    out.mkdir(parents=True, exist_ok=True)
+    fails = set(filter(None, (args.fail or "").split(",")))
+    plan = (args.plan or "good,stuck,partial").split(",")
+    VW, VH = (int(x) for x in args.viewport.split("x"))
+    sizes = [tuple(int(x) for x in s.split("x")) for s in (args.sizes or "").split(",") if s]
+    cam = face_cam(OUT / "facecam.mjpeg")
+    R: dict = {"args": vars(args), "stages": {}, "layout": {}, "fonts": {}, "turns": [], "console": [], "requests": [],
+               "loop": {}, "texts": {}}
+    state: dict = {"judge_calls": 0, "judge_log": []}
+    n = {"i": 0}
+    t_start = time.time()
+    with sync_playwright() as p:
+        flags = ["--use-fake-device-for-media-stream", f"--use-file-for-fake-video-capture={cam}", "--autoplay-policy=no-user-gesture-required"]
+        if "camdeny" not in fails:
+            flags.insert(0, "--use-fake-ui-for-media-stream")
+        b = p.chromium.launch(args=flags)
+        ctx = b.new_context(viewport={"width": VW, "height": VH}, permissions=[] if "camdeny" in fails else ["camera", "microphone"],
+                            locale="ko-KR", is_mobile=VW < 600, has_touch=VW < 600)
+        page = ctx.new_page()
+
+        def shot(name: str) -> None:
+            n["i"] += 1
+            page.screenshot(path=str(out / f"{n['i']:02d}_{name}.png"))
+
+        def lay(tag: str) -> dict:
+            L = page.evaluate(LAYOUT_JS)
+            R["layout"][tag] = L
+            R["fonts"][tag] = page.evaluate(FONT_JS)
+            return L
+
+        def sweep(tag: str) -> None:
+            lay(f"{tag}_{VW}x{VH}")
+            shot(f"{tag}_{VW}x{VH}")
+            for w, h in sizes:
+                page.set_viewport_size({"width": w, "height": h})
+                page.wait_for_timeout(700)
+                lay(f"{tag}_{w}x{h}")
+                shot(f"{tag}_{w}x{h}")
+            if sizes:
+                page.set_viewport_size({"width": VW, "height": VH})
+                page.wait_for_timeout(500)
+
+        def mark(name: str, t0: float, extra: dict | None = None) -> None:
+            R["stages"][name] = {"sec": round(time.time() - t0, 1), **(extra or {})}
+            print(f"  {name:12s} {R['stages'][name]['sec']:6.1f}s  {json.dumps(extra or {}, ensure_ascii=False)[:260]}", flush=True)
+
+        def visible(sel: str) -> bool:
+            return page.evaluate(f"(()=>{{const b=document.querySelector({json.dumps(sel)}); return !!b && !!b.offsetParent && !b.disabled}})()")
+
+        page.on("console", lambda m: R["console"].append(f"{m.type}: {m.text}"[:300])
+                if m.type == "error" or (m.type == "warning" and "GL Driver" not in m.text) else None)
+        page.on("pageerror", lambda e: R["console"].append(f"pageerror: {e}"[:300]))
+        rec_dir = Path(args.record) if args.record else None
+
+        def on_resp(r):
+            if "/api/" not in r.url:
+                return
+            R["requests"].append({"path": r.url.split(args.base)[-1][:90], "status": r.status, "t": round(time.time() - t_start, 1)})
+            if rec_dir:
+                for path, name in RECORD_PATHS.items():
+                    if r.url.endswith(path) and r.status == 200:
+                        try:
+                            rec_dir.mkdir(parents=True, exist_ok=True)
+                            (rec_dir / name).write_bytes(r.body())
+                        except Exception as e:  # noqa: BLE001
+                            print("  기록 실패", name, e)
+        page.on("response", on_resp)
+        install_routes(page, args, state)
+        route = args.route
+        try:
+            t0 = time.time()
+            page.goto(f"{args.base}/booth/{route}", wait_until="load")
+            page.wait_for_selector("#bqStage #bqStart", timeout=20000)
+            try:
+                page.wait_for_function("window.BoothCV && ['ready','failed'].includes(BoothCV.status())", timeout=60000)
+            except Exception:  # noqa: BLE001
+                pass
+            page.wait_for_timeout(2500)
+            sweep("attract")
+            mark("attract", t0, {"cam_note": page.evaluate("(document.getElementById('bqCamNote')||{}).textContent||''"),
+                                 "h1": page.evaluate("(document.querySelector('#bqStage h1')||{}).textContent||''")})
+            t0 = time.time()
+            page.click("#bqStart")
+            page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
+            if route == "call":
+                page.click(f'#bqStage .bq-role[data-role="{args.role}"]')
+            try:
+                page.wait_for_function("[...document.querySelectorAll('#bqStage .bq-cover')].every(c => c.classList.contains('ready'))", timeout=40000)
+            except Exception:  # noqa: BLE001
+                pass
+            sweep("pick")
+            mark("pick", t0)
+            t0 = time.time()
+            page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')
+            page.wait_for_selector("#bqStage #bqSkimCanvas")
+            while time.time() - t0 < args.prep_timeout:
+                if page.evaluate("!document.getElementById('bqGo').disabled") or page.evaluate("!!document.querySelector('#bqPrepFail .bq-fail')"):
+                    break
+                page.wait_for_timeout(500)
+            sweep("prep")
+            R["texts"]["prep"] = page.evaluate("(document.querySelector('.bq-build')||{}).innerText||''")
+            mark("prep", t0, {"live": page.evaluate("qaLiveActive()"), "go": page.evaluate("(document.getElementById('bqGo')||{}).textContent||''"),
+                              "fail": page.evaluate("(document.getElementById('bqPrepFail')||{}).innerText||''")})
+            if not page.evaluate("qaLiveActive()"):
+                return out
+            questions = page.evaluate("qa.live.questions.map(q => ({id: q.id, label: q.label, trap: !!q.trap, answer_gist: q.answer_gist || '', gist_withheld: !!q.gist_withheld, slide_nos: q.slide_nos || [], evidence_slide_no: q.evidence_slide_no || 0}))")
+            R["questions"] = questions
+            t0 = time.time()
+            page.click("#bqGo")
+            page.wait_for_selector("#bqStage[data-screen='qa'] #stream .msg.q", timeout=20000)
+            page.evaluate(COUNT_JS)
+            page.wait_for_timeout(2500)
+            sweep("qa_ask1")
+            mark("qa_enter", t0, {"say": page.evaluate("(document.getElementById('bqJudgeSay')||{}).textContent||''"),
+                                  "slide": page.evaluate("(document.querySelector('#bqSlide figcaption')||{}).textContent||''")})
+            qi_prev, guard = -1, 0
+            clicks: dict[int, int] = {}
+            while guard < 16:
+                guard += 1
+                st = page.evaluate("({qi: qa.live.qi, n: qa.live.questions.length, end: !!qa.live.awaitEnd, retell: !!qa.live.retell, turn: qa.live.turn || 0, gave: (qa.live.turns||[]).filter(t => t.gaveUp).length})")
+                if st["end"] or st["qi"] >= st["n"]:
+                    break
+                qi = st["qi"]
+                q = questions[qi] if qi < len(questions) else {}
+                strat = plan[qi] if qi < len(plan) else "stuck"
+                if qi != qi_prev and qi > 0:
+                    page.wait_for_timeout(1200)
+                    sweep(f"qa_ask{qi + 1}")
+                    R["texts"][f"say_q{qi + 1}"] = page.evaluate("(document.getElementById('bqJudgeSay')||{}).textContent||''")
+                first = qi != qi_prev
+                qi_prev = qi
+                typed = sum(1 for t in R["turns"] if t["qi"] == qi + 1 and t["action"] == "type")
+                if st["retell"]:
+                    action, text = ("skipretell", "") if visible("#liveSkipRetell") else ("retell", "핵심은 자료에 나온 대로예요.")
+                elif first:
+                    action, text = _answer_for(strat, q, args.deck)
+                elif visible("#liveReveal") and (strat == "stuck" or typed >= 2):
+                    action, text = "reveal", ""
+                elif strat == "stuck" or typed >= 2 or not visible("#liveSend"):
+                    action, text = "stuck", ""   # 두 번 답해도 안 닫히면 막힘 사다리로 빠져나간다 (실 판정 과금을 묶어 둔다)
+                else:
+                    action, text = _answer_for("good", q, args.deck)
+                clicks[qi] = clicks.get(qi, 0) + 1
+                tj = time.time()
+                if action == "type" or action == "retell":
+                    page.fill("#liveAnswer", text)
+                    page.click("#liveSend")
+                elif action == "stuck":
+                    page.click("#liveStuck")
+                elif action == "reveal":
+                    page.click("#liveReveal")
+                elif action == "skipretell":
+                    page.click("#liveSkipRetell")
+                page.wait_for_timeout(500)
+                page.wait_for_function("qa.live && !qa.live.busy", timeout=150000)
+                page.wait_for_timeout(1200)
+                turn = {"qi": qi + 1, "strategy": strat, "action": action, "sec": round(time.time() - tj, 1),
+                        "say": page.evaluate("(document.getElementById('bqJudgeSay')||{}).textContent||''"),
+                        "alert": page.evaluate("(document.getElementById('bcAlert')||{}).textContent||''"),
+                        "buttons": page.evaluate("[...document.querySelectorAll('#bqStage .qa-live-input button')].filter(b=>b.offsetParent).map(b=>b.textContent.trim())"),
+                        "slide": page.evaluate("(document.querySelector('#bqSlide figcaption')||{}).textContent||''")}
+                R["turns"].append(turn)
+                print(f"  Q{qi + 1} {strat}/{action} {turn['sec']}s → {turn['buttons']}", flush=True)
+                if action in ("type", "stuck", "reveal"):
+                    tag = f"q{qi + 1}_{action}{clicks[qi]}"
+                    if args.sweep_each:
+                        sweep(tag)
+                    else:
+                        lay(tag)
+                        shot(tag)
+            R["clicks_per_question"] = {str(k + 1): v for k, v in clicks.items()}
+            # ── 끝 카드: 고리 계측 · 멈춤 감지 ──
+            c0 = page.evaluate("JSON.parse(JSON.stringify(window.__bqCount||{}))")
+            frozen = False
+            try:
+                page.wait_for_function("new Promise(r => requestAnimationFrame(() => r(true)))", timeout=5000)
+            except Exception:  # noqa: BLE001
+                frozen = True
+            page.wait_for_timeout(3000)
+            c1 = page.evaluate("JSON.parse(JSON.stringify(window.__bqCount||{}))") if not frozen else {}
+            R["loop"] = {"frozen": frozen, "before": c0, "after_3s": c1,
+                         "arm_per_3s": (c1.get("arm", 0) - c0.get("arm", 0)) if c1 else None,
+                         "sync_per_3s": (c1.get("sync", 0) - c0.get("sync", 0)) if c1 else None,
+                         "end_note": page.evaluate("(document.querySelector('#bqStage .qa-end-note')||{}).textContent||''") if not frozen else ''}
+            print("  loop", R["loop"], flush=True)
+            sweep("qa_end")
+            t0 = time.time()
+            page.wait_for_selector("#bqStage[data-screen='finale']", timeout=30000)
+            mark("auto_finale", t0, {"after_sec": round(time.time() - t0, 1)})
+            page.wait_for_timeout(1200)
+            sweep("finale")
+            R["texts"]["finale"] = page.evaluate("document.getElementById('bqStage').innerText")
+            if args.wait_home:
+                t0 = time.time()
+                page.wait_for_selector("#bqStage[data-screen='attract']", timeout=70000)
+                mark("auto_home", t0, {"after_sec": round(time.time() - t0, 1)})
+                shot("home_auto")
+        except Exception as e:  # noqa: BLE001
+            R["error"] = f"{type(e).__name__}: {e}"[:600]
+            print("  실패:", R["error"])
+            try:
+                shot("error")
+                R["error_text"] = page.evaluate("document.getElementById('bqStage') ? document.getElementById('bqStage').innerText.slice(0, 800) : ''")
+            except Exception:  # noqa: BLE001
+                pass
+        finally:
+            R["judge"] = state
+            R["total_sec"] = round(time.time() - t_start, 1)
+            R["llm_calls"] = sum(1 for x in R["requests"] if x["status"] == 200 and (x["path"].endswith(("/concepts", "/graph", "/questions")) or "/qa/judge" in x["path"])) - (state.get("judge_calls", 0) if args.fake_judge else 0)
+            (out / "report.json").write_text(json.dumps(R, ensure_ascii=False, indent=1))
+            b.close()
+    return out
+
+
+def summarize(out: Path) -> None:
+    R = json.loads((out / "report.json").read_text())
+    bad = []
+    for tag, L in R.get("layout", {}).items():
+        if not isinstance(L, dict) or not L.get("layer"):
+            continue
+        for k in ("center_cover", "overlaps", "cut_off"):
+            if L.get(k):
+                bad.append(f"{tag}: {k}={L[k]}")
+        if L.get("hscroll"):
+            bad.append(f"{tag}: 가로 넘침")
+    errs = [c for c in R.get("console", []) if c.startswith(("error", "pageerror"))]
+    print(f"배치 문제 {len(bad)}건 · 콘솔 오류 {len(errs)}건 · 고리 {R.get('loop')} · 질문별 누름 {R.get('clicks_per_question')}")
+    for x in bad[:40]:
+        print("  -", x)
+    for x in errs[:10]:
+        print("  !", x)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base", default="http://127.0.0.1:8799")
@@ -361,9 +773,25 @@ def main() -> int:
     ap.add_argument("--role", default="교수님", help="call 일 때 발표 고르기에서 누를 역할 (BOOTH_ROLES 의 aud)")
     ap.add_argument("--until", choices=UNTIL, default="finale")
     ap.add_argument("--prep-timeout", type=int, default=240)
+    ap.add_argument("--full", action="store_true", help="질문 3개 끝까지 → 끝 카드 고리 계측 → 12초 자동 결과 (위 설명)")
+    ap.add_argument("--plan", default="good,stuck,partial", help="--full: 질문마다 답 전략")
+    ap.add_argument("--viewport", default="1440x900", help="--full: 처음부터 이 크기로 돈다")
+    ap.add_argument("--sizes", default="", help="--full: 화면마다 더 찍을 크기 (예: 1920x1080,1366x768,390x844)")
+    ap.add_argument("--sweep-each", action="store_true", help="--full: 판정마다도 --sizes 로 찍는다")
+    ap.add_argument("--fail", default="", help="--full: judge503,judgeabort,questions500,decks500,camdeny")
+    ap.add_argument("--fake-judge", action="store_true", help="--full: /qa/judge 를 가짜 응답으로 (과금 없음)")
+    ap.add_argument("--record", default="", help="--full: 개념·그래프·질문 응답을 이 폴더에 남긴다")
+    ap.add_argument("--replay", default="", help="--full: --record 로 남긴 응답을 재생한다 (과금 없음)")
+    ap.add_argument("--wait-home", action="store_true", help="--full: 결과 화면에서 40초 자동 처음으로까지 기다린다")
+    ap.add_argument("--tag", default="")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
     t = time.time()
+    if args.full:
+        out = run_full(args)
+        print(f"끝 {time.time() - t:.0f}s → {out.relative_to(ROOT)}")
+        summarize(out)
+        return 0
     out = run(args)
     print(f"끝 {time.time() - t:.0f}s → {out.relative_to(ROOT)}")
     print(f"콘솔 오류 {len([c for c in json.loads((out / 'report.json').read_text())['console'] if c.startswith(('error', 'pageerror'))])}건")
