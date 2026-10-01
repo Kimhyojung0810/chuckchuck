@@ -484,7 +484,8 @@ def plain_cam(path: Path, rgb: tuple[int, int, int]) -> Path:
     return path
 
 
-GLASS_TEXT = [".bc-draft p", ".bc-prog-topic", "#stream > .msg.is-now .msg-q", "#stream > .msg.ai.react:not(.is-past) .msg-bubble > p", "#stream > .msg.me:not(.is-past) .msg-bubble",
+GLASS_TEXT = [".bc-draft p", ".bc-prog-topic", "#stream > .msg.ai.gist:not(.is-past) .msg-bubble > p", "#stream > .msg.ai.miss:not(.is-past) .msg-bubble",
+              "#stream > .msg.ai.hint:not(.is-past) .msg-bubble", "#stream > .msg.is-now .msg-q", "#stream > .msg.ai.react:not(.is-past) .msg-bubble > p", "#stream > .msg.me:not(.is-past) .msg-bubble",
               "#bqJudgeSay", "#bcHost .bc-host-text b", "#bqSlide figcaption", ".bc-dock .qa-input-label b", "#stream > .is-past .msg-bubble",
               "#stream > .qa-flag:not(.is-past)", ".bc-privacy"]
 

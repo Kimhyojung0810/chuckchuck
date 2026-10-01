@@ -531,7 +531,7 @@
 }
 .bq[data-variant="call"] .bc-call .bc-draft[hidden] { display: none; }
 .bq[data-variant="call"] .bc-call .bc-draft p { margin: 0; }
-.bq[data-variant="call"] .bc-call .bc-draft[data-empty="1"] p { color: rgba(255, 255, 255, .86); font-style: normal; }
+.bq[data-variant="call"] .bc-call .bc-draft[data-empty="1"] p { color: #fff; font-style: normal; }
 .bq[data-variant="call"] .bc-call .bc-draft-tag { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 13px; font-weight: var(--w-bold); color: #d9ffef; }
 .bq[data-variant="call"] .bc-call .bc-draft[data-mic="1"] .bc-draft-tag::before {
   content: ''; width: 9px; height: 9px; border-radius: 50%; background: #ff6b6b; box-shadow: 0 0 0 3px rgba(255, 107, 107, .3); animation: bcRec 1.2s ease-in-out infinite;
@@ -663,3 +663,10 @@
   color: #fff; background: rgba(0, 0, 0, .32); border: 1px solid rgba(255, 255, 255, .55); text-shadow: none;
 }
 .bq[data-variant="call"] .bc-call .bc-draft-send button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+/* 삐약이 쪽 말풍선 글자는 종류(빠진 것 · 펼친 답 · 힌트 · 되묻기 · 기다림)와 상관없이 진한 글자 — 앞 규칙들의 흰 글자(.gist · .miss · .hint · .thinking)를 이긴다 */
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.ai[data-side="ai"] .msg-bubble { color: var(--chat-ai-ink); text-shadow: none; }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.ai[data-side="ai"] .msg-bubble :is(.msg-meta, .react-head small) { color: var(--chat-ai-soft); }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.ai.thinking[data-side="ai"] .msg-bubble { color: var(--chat-ai-soft); }
+.bq[data-variant="call"] .bc-call .bc-stream > .msg.ai.gist[data-side="ai"] .msg-bubble { border-color: rgba(8, 140, 92, .55); }
+.bq[data-variant="call"] .bc-call .bc-draft { background: rgba(5, 104, 68, .92); }   /* 받아쓰는 말 — 내 말보다 한 단 진하게(역광 앞 안내 글 4.5:1) */
+.bq[data-variant="call"] .bc-privacy { background: rgba(16, 20, 30, .72); color: #fff; }
