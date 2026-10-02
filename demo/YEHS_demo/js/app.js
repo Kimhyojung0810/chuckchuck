@@ -399,6 +399,22 @@ function wireFreshPracticeButtons(root = document) {
 addEventListener('hashchange', () => {
   route();
 });
+/* 비동기로 그린 화면(리포트 등)의 버튼은 route() 끝의 wireFreshPracticeButtons 보다 늦게 생긴다 — 문서에서 한 번 더 받는다.
+   data-fresh-practice: 정말 처음부터 새 발표 연습 · data-qa-again: 같은 발표로 질문 코칭을 새로 (10-02 정리안 「막다른 길」) */
+document.addEventListener('click', (e) => {
+  const el = e.target.closest && e.target.closest('[data-fresh-practice], [data-qa-again]');
+  if (!el) return;
+  if (el.hasAttribute('data-fresh-practice')) {
+    if (el._freshBound) return;   // 직접 묶인 버튼은 그쪽이 처리한다
+    e.preventDefault();
+    startFreshPractice();
+    return;
+  }
+  e.preventDefault();
+  // 예전엔 href="#/qa" 만이라 끝난 코칭 결과로 되돌아갔다 — 코칭 상태만 비우고(자료·분석은 그대로) 새로 시작한다
+  resetQa();
+  if (location.hash === '#/qa') route(); else location.hash = '#/qa';
+});
 // 포트 연결이 다시 이어지면(conn_watch.js) 연결 끊김으로 실패한 판정을 다시 보낸다
 addEventListener('chuckchuck:reconnected', () => {
   if (typeof liveRetryAfterReconnect === 'function') liveRetryAfterReconnect();
@@ -645,7 +661,10 @@ function nextBandHtml() {
 
   const fix = nextFix();
   if (stage === 'failed' || !fix) {
-    return `<section class="h-start is-failed">${stageAccidentHtml(homeFailNote())}</section>`;
+    // 실패 카드에 다음 행동이 없으면 막다른 길이다 (10-02 정리안) — 자료부터 다시
+    return `<section class="h-start is-failed">${stageAccidentHtml(homeFailNote())}
+      <span class="h-start-act"><a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>다시 올리기</a></span>
+    </section>`;
   }
 
   const keep = fix.source === 'keep';
@@ -2189,11 +2208,13 @@ async function startParse({ file = null, fixture = false } = {}) {
     if (myGen !== parseGen) return;
     console.warn('[chuckchuck] parse', err);
     const rawMessage = err.message || String(err);
-    /* 시연 빌드는 분석 서버가 아예 없다 — 브리지 없음을 「새로고침 해주세요」로
-       안내하면 몇 번을 새로고침해도 같은 사고가 난다. 샘플 입구로 보낸다. */
+    /* 분석 서버가 없는 배포본이면 「새로고침 해주세요」로 안내해 봐야 같은 사고가 난다. 샘플 데모는 팀 브라우저에만
+       있으니(sampleOpen) 공개 방문자에게는 그 말을 하지 않는다 (10-02 정리안) */
     const noServer = /Unexpected token|not valid JSON|parse HTTP 40[45]/i.test(rawMessage);
     nf.parseError = noServer
-      ? '현재 배포본에는 실제 파일 분석 서버가 연결되지 않았어요. 샘플 데모로 전체 흐름을 먼저 확인해보세요.'
+      ? (sampleOpen()
+        ? '현재 배포본에는 실제 파일 분석 서버가 연결되지 않았어요. 샘플 데모로 전체 흐름을 먼저 확인해 보세요.'
+        : '지금은 자료를 분석하는 서버에 닿지 않아요. 잠시 뒤에 다시 올려 주세요.')
       : rawMessage;
     nf.gate = 'fail';
     nf._parseStartedAt = null;
@@ -6386,7 +6407,7 @@ function rSummary() {
           <p class="note" style="margin:8px 0 14px">녹음 없이 <b>${escapeHtml(meta.title)}</b> 자료만으로 질문 코칭을 했어요. 발표를 녹음하면 말한 내용과 자료를 같이 짚어 줘요.</p>
           <div class="step-actions">
             <a class="btn btn-primary" href="#/new">발표 녹음하러 가기</a>
-            <a class="btn btn-text" href="#/qa">질문 연습 다시 하기</a>
+            <a class="btn btn-text" href="#/qa" data-qa-again>질문 코칭 다시 하기</a>
           </div>
         </div>
         ${qaLog}`;
@@ -6506,8 +6527,8 @@ function rSummary() {
         ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어져요.'
         : '같은 자료로 한 번 더 연습하면 무엇이 달라졌는지 나란히 볼 수 있어요.'}</p>
       <div class="step-actions">
-        <a class="btn btn-primary" href="#/new">새 발표 연습</a>
-        <a class="btn btn-tint" href="#/qa" style="background:#fff">질문 연습 다시 하기</a>
+        <a class="btn btn-primary" href="#/new" data-fresh-practice>새 발표 연습</a>
+        <a class="btn btn-tint" href="#/qa" style="background:#fff" data-qa-again>질문 코칭 다시 하기</a>
       </div>
     </div>`;
   /* 개념별 판정 묶음은 next-card 아래에 있었다. 「새 발표 연습」 버튼이 페이지의
@@ -7183,7 +7204,7 @@ function jDetail(n, tree = DATA.tree) {
     ${n.why ? `<div class="drow"><b>판정 이유</b>${escapeHtml(n.why)}</div>` : ''}
     ${n.fix ? `<div class="fixbox"><b>이렇게 말해보세요</b><p>${escapeHtml(n.fix)}</p></div>` : ''}
     <div class="step-actions">
-      <a class="btn btn-tint btn-sm" href="#/qa">이 개념으로 질문 연습</a>
+      <a class="btn btn-tint btn-sm" href="#/qa">질문 코칭으로 가기</a>
     </div>`;
 }
 
@@ -9539,6 +9560,8 @@ async function renderTestQa() {
   try {
     const res = await fetch('/api/v1/dev/decks');
     if (res.status === 404) throw new Error('팀 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
+    // 5xx 의 오류 본문을 덱 목록으로 읽으면 「아직 덱이 없어요」 로 거짓말한다 — 못 받은 것은 못 받았다고
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     body = (await res.json()) || {};
     decks = body.decks || [];
     dir = body.dir || '';
@@ -9776,6 +9799,7 @@ async function renderReplay() {
   try {
     const res = await fetch('/api/v1/cached-takes');
     if (res.status === 404) throw new Error('팀 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     takes = ((await res.json()) || {}).takes || [];
   } catch (err) {
     // 실패를 성공처럼 보이게 두지 않는다 — 빈 목록과 못 불러온 것은 다른 일이다

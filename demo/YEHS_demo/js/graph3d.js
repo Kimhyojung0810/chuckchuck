@@ -414,7 +414,7 @@ function g3dInsightHtml(nodes, unjudged = false, guessed = 0) {
   if (!priority) return '<span class="g3d-diagnosis-label">이번 발표 진단</span><b>핵심 개념을 안정적으로 설명했어요</b><p>연결 개념을 질문으로 점검하면 더 단단해져요.</p>';
   return `<span class="g3d-diagnosis-label">가장 먼저 고칠 개념 · ${escapeHtml(priority.label)}</span>
     <b>다음 연습은 ‘${escapeHtml(priority.label)}’부터 시작하세요</b>
-    <a href="#/qa">바로 연습하기 <span>→</span></a>`;
+    <a href="#/qa">질문 코칭으로 가기 <span>→</span></a>`;
 }
 
 /** 무대 위 개념 카드. 설명 → 문제 → 행동의 순서로만 읽힌다. */
@@ -435,8 +435,8 @@ function g3dCardHtml(n, data) {
     <div class="g3d-drawer-section g3d-problem"><b>내 설명에서 부족한 점</b><ul><li>${note}</li></ul></div>
     <div class="g3d-drawer-section"><b>연결된 개념</b><div class="g3d-related">${links}</div></div>
     <div class="g3d-drawer-actions"><b>다음 행동</b>
-      <a class="g3d-practice${action ? ' is-primary' : ''}" href="#/qa">${action ? '이 개념부터 다시 연습하기' : '질문으로 더 단단하게 만들기'} <span>→</span></a>
-      <a class="g3d-practice is-secondary" href="#/qa">연결 개념까지 같이 연습하기 <span>→</span></a>
+      <!-- 질문 코칭은 개념을 골라 받지 않는다(질문 목록은 서버가 정한다) — 「이 개념부터」 라고 약속하지 않는다 (10-02) -->
+      <a class="g3d-practice${action ? ' is-primary' : ''}" href="#/qa">질문 코칭으로 가기 <span>→</span></a>
       <a class="g3d-report-link" href="#/report">전체 리포트로 돌아가기</a>
     </div>`;
 }

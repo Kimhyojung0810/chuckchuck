@@ -536,6 +536,9 @@ function visionWatchDock(layer) {
 
 function visionFlowLeaveClassic() {
   visionFlowSet(false);
+  // 비전 입구(renderVisionEntry)가 켠 통화 표시도 끈다 — 남기면 「일반 리허설」 을 골랐는데 질문 코칭이 통화 배치로 떴다 (10-02 정리안)
+  if (typeof callFlowSet === 'function') callFlowSet(false);
+  if (typeof callFlowUnmount === 'function') callFlowUnmount({ keepCam: false });
   visionFlowUnmount({ keepCam: false });
   if (location.hash === '#/new' || location.hash === '#/new/') route();
   else location.hash = '#/new';
