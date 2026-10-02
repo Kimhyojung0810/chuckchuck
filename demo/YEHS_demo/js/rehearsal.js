@@ -260,10 +260,15 @@ async function rhShowPick() {
     </div>`);
   document.getElementById('rhDeckRetry').addEventListener('click', () => { bq.decks = null; rhShowPick(); });
   let decks = null;
+  let why = '';
   try {
     decks = await bqLoadDecks();
   } catch (err) {
     console.warn('[chuckchuck] rehearsal decks', err);
+    // bqLoadDecks 가 까닭을 한국어로 말하면 그대로 — 팀 쿠키가 없어 404 면 「다시 불러오기」 를 아무리 눌러도 같아서 맴돌았다 (10-03 점검 F8)
+    const msg = String((err && err.message) || '');
+    if (msg.includes('/auth')) why = '팀 코드를 넣어야 발표 목록이 열려요. 주소창에 /auth 를 열어 팀 코드를 넣은 뒤 「다시 불러오기」를 눌러요.';
+    else if (/[가-힣]/.test(msg)) why = `${msg}. 「다시 불러오기」를 눌러요.`;
   }
   if (bq.screen !== 'pick' || !document.getElementById('bqDecks')) return;
   const ready = (decks || []).filter((d) => REHEARSAL_DECK_KEYS.includes(d.key) && bqDeckReady(d));
@@ -276,7 +281,7 @@ async function rhShowPick() {
       <span class="bq-deck-go">이 발표로 리허설하기</span>
     </button>`).join('');
   if (!ready.length) {
-    rhPickNote(decks ? '지금 고를 수 있는 발표가 없어요. 「다시 불러오기」를 눌러요.' : '발표 목록을 불러오지 못했어요. 「다시 불러오기」를 눌러요.');
+    rhPickNote(decks ? '지금 고를 수 있는 발표가 없어요. 「다시 불러오기」를 눌러요.' : (why || '발표 목록을 불러오지 못했어요. 「다시 불러오기」를 눌러요.'));
     document.getElementById('rhDeckRetry').hidden = false;
     if (decks) console.info('[chuckchuck] rehearsal: 파싱본이 있는 리허설 덱이 없어요 — /test/qa 에서 한 번 열면 나타나요', REHEARSAL_DECK_KEYS);
     return;
