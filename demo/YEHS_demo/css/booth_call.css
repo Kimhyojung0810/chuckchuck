@@ -127,9 +127,11 @@
 }
 .bc-call:has(> .bc-self[data-camera="off"]) .bc-side-row,
 .bc-call:has(> .bc-self[data-camera="off"]) .bc-privacy { align-self: flex-end; }
-/* 진행 칩 위에서 멈추게 — 16:9 장의 높이를 남은 세로 공간에 맞춘다 */
+/* 진행 칩 위에서 멈추게 — 16:9 장의 높이를 남은 세로 공간에 맞춘다. 남은 공간 = 화면 − 답 칸 − 위 질문 카드(--bc-ask-h) − 간격 둘 −
+   (칸 위 여백 12 · 카메라 알약 줄 54 · 진행 칩 줄 74 · 장 이름 줄 37). 예전 식(−290px)은 위 질문 카드 높이를 빼지 않아 1512×860 ·
+   1440×900 에서 장 아래쪽이 「질문 1 · 2」 칩 밑으로 30px 들어갔다 (10-03 점검 V7). 카메라를 켠 배치에는 안 걸린다 */
 .bc-call:has(> .bc-self[data-camera="off"]) .bc-slide {
-  max-width: min(760px, calc((100vh - var(--bc-dock-h, 168px) - 290px) * 16 / 9)); align-self: center;
+  max-width: min(760px, calc((100vh - var(--bc-dock-h, 168px) - var(--bc-ask-h, 0px) - 2 * var(--bc-gap) - 177px) * 16 / 9)); align-self: center;
 }
 /* 커진 자료 창이 그 자리를 쓴다 — 「카메라 켜기」 버튼이 상태를 말한다 */
 .bc-call:has(> .bc-self[data-camera="off"]) .bc-self-off,
