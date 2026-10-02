@@ -246,7 +246,23 @@ function renderRehearsalEntry() {
   // 기다림에서 「다른 발표 고르기」 로 오면 넘겨받은 카메라가 아직 열려 있다 — 고르기 화면은 카메라를 안 쓴다. 비전 리허설이 다시 연다
   if (typeof bqCamStop === 'function') bqCamStop();
   bq.decks = null;   // 덱 목록은 들어올 때마다 새로 — 파싱본이 만료됐을 수 있다
+  // 「어떤 발표인가요」 는 제 주소(#/rehearsal/occ)가 있다 — 뒤로 가기 · 새로고침이 고른 발표를 잃고 고르기(또는 홈)로 가지 않게 (10-03 점검 F7)
+  const sub = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
+  if (sub === 'occ') {
+    if (rhCanShowOcc()) {
+      rhShowOcc({ title: nf.rehearsalDeck.title });
+      ensureSlideDoc().catch(() => null);   // 새로고침이면 자료(선분석 재료)를 다시 받아 둔다
+      return;
+    }
+    history.replaceState(history.state, '', REHEARSAL_HASH);
+  }
   rhShowPick();
+}
+
+/** 발표를 골라 두었고 아직 발표하지 않았다 — 새로고침 · 뒤로 가기로 「어떤 발표인가요」 에 다시 설 수 있다 */
+function rhCanShowOcc() {
+  return !!(nf && nf.gate === 'done' && nf.rehearsalDeck && nf.rehearsalDeck.title && (Number(nf.step) || 0) <= 2
+    && !nf.completed && !nf.uploadedTake && !(Number(nf.sec) > 0) && !nf.pipelineStartedAt);
 }
 
 async function rhShowPick() {
@@ -356,7 +372,7 @@ async function rhPickDeck(d, btn) {
   }
   if (bq.screen !== 'pick') return;
   saveSession('new-flow', nf);
-  rhShowOcc(d);
+  location.hash = `${REHEARSAL_HASH}/occ`;   // renderRehearsalEntry 가 「어떤 발표인가요」 를 그린다
 }
 
 /* ─── 어떤 발표인가요 — 발표 상황 (일반 흐름 nfStep2 의 칸 · 문구 그대로) ───────────────── */
@@ -401,7 +417,7 @@ function rhShowOcc(d) {
     saveSession('new-flow', nf);
   }));
   document.getElementById('rhCtx').addEventListener('input', (e) => { nf.ctx = e.target.value; saveSession('new-flow', nf); });
-  document.getElementById('rhRepick').addEventListener('click', () => { bq.decks = null; rhShowPick(); });
+  document.getElementById('rhRepick').addEventListener('click', () => { location.hash = REHEARSAL_HASH; });
   document.getElementById('rhGoVision').addEventListener('click', () => {
     // nfStep2 「녹음하러 가기」가 하는 일 — 발표하는 동안 개념 · 그래프를 먼저 만든다
     startPrecompute();
