@@ -156,11 +156,14 @@ function bqTrapBack() {
   if (!(history.state && history.state.bq)) history.pushState({ bq: 1 }, '', location.href);
 }
 
-/** 지금 주소의 부스 무대 — #/booth/qa → stage, #/booth/call → call, 그 밖이면 '' */
+/**
+ * 지금 주소의 부스 무대 — #/booth/qa · #/booth/call 모두 call(글라스 화상판), 그 밖이면 ''.
+ * 10-02 사용자: 부스 QA 는 「화면 전체에 내 모습 + 정보는 리퀴드 글라스」 화상판이 기저다 — /booth/qa 가 옛 초록 무대판을 띄우지 않게.
+ */
 function bqHashVariant() {
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   if (parts[0] !== 'booth') return '';
-  if (parts[1] === 'qa') return 'stage';
+  if (parts[1] === 'qa') return 'call';
   return parts[1] === 'call' ? 'call' : '';
 }
 
