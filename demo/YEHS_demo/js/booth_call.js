@@ -24,7 +24,8 @@ const BC_SLOW_JUDGE_MS = 6000;
 /** 질문을 맡는 병아리 — /booth/qa 무대의 쏠라 심사위원과 같은 그림. 화상판에서는 이름을 「삐약이」 하나로 부른다 */
 const BC_HOST_BIRD = 'solar';
 /** 화면 읽기가 읽을 줄 — 삐약이 쪽 말 · 안내 · 오류 · 질문 마무리 카드 */
-const BC_SAY_ROWS = ':scope > .msg.ai:not(.thinking), :scope > .qa-flag, :scope > .qa-note-line, :scope > .qa-done';
+const BC_SAY_ROWS = [':scope > .msg.ai:not(.thinking)', ':scope > .qa-flag', ':scope > .qa-note-line', ':scope > .qa-done']
+  .map((sel) => `${sel}:not(.bc-wait):not(.bc-merged)`).join(', ');
 
 const bc = {
   sayCount: 0, rowCount: 0, speakTimer: 0, thinkSince: 0, slowTimer: 0, dockH: 0, mounted: false,
@@ -32,6 +33,7 @@ const bc = {
   mcQi: -1, mc: '', mcUntil: 0, mcTimer: 0,   // 삐약이 진행 멘트 (bcMcSync)
   hostH: 0, progH: 0, draft: '',
   autoMicKey: '', autoOffKey: '', sendOffKey: '', sendAt: 0,   // 자동 받아쓰기 · 자동 보내기 (bcAutoTick)
+  q: [], qTimer: 0, qL: null, paceReady: false, lastAiAt: 0,     // 삐약이 말풍선 차례로 띄우기 (bcPace)
 };
 
 function bcRole() {
@@ -140,6 +142,7 @@ function renderQaLiveBoothCall() {
       <section class="bc-talk" aria-label="삐약이와 주고받은 말">
         <div class="qa-stream bc-stream" id="stream" tabindex="0"
           aria-label="삐약이와 주고받은 말 · 위아래 화살표로 지난 말을 볼 수 있어요">${qa.turns.map(streamRow).join('')}</div>
+        <div class="bc-typing" id="bcTyping" hidden aria-hidden="true"><span><b></b><b></b><b></b></span></div>
         <div class="bc-draft" id="bcDraft" hidden><span class="bc-draft-tag" aria-hidden="true"></span><p aria-hidden="true"></p>
           <span class="bc-draft-send" hidden><span></span><button type="button" id="bcSendCancel">보내지 않기</button></span></div>
       </section>
@@ -170,6 +173,10 @@ function renderQaLiveBoothCall() {
   bc.autoOffKey = '';
   bc.sendOffKey = '';
   bc.sendAt = 0;
+  bcPaceDrop();
+  bc.paceReady = false;
+  bc.qL = qa.live;
+  bcPaceWire();
   $('#bqCamToggle').addEventListener('click', bqCamToggle);
   if (window.BoothCV && !BoothCV.readGaze()) BoothCV.startGaze();
   bcSync();
@@ -243,7 +250,7 @@ function bcWatchDock() {
 /** 지금 답할 질문(되묻기 포함) 말풍선 — 맨 마지막 질문 줄. 다 마쳤으면 없다 */
 function bcNowQuestionRow(stream) {
   if (qa.live.awaitEnd || qa.live.qi >= qa.live.questions.length) return null;
-  const rows = stream.querySelectorAll(':scope > .msg.ai.q');
+  const rows = [...stream.querySelectorAll(':scope > .msg.ai.q')].filter(bcShown);
   return rows.length ? rows[rows.length - 1] : null;
 }
 
@@ -279,6 +286,8 @@ function bcSync() {
   bqSyncSlide();
   bqMoveLeadNote();
   bqArmAutoEnd();
+  bcMerge(stream);
+  bcPace(stream);
 
   const now = bcNowQuestionRow(stream);
   stream.querySelectorAll(':scope > .is-now').forEach((el) => { if (el !== now) el.classList.remove('is-now'); });
@@ -375,7 +384,7 @@ function bcThinking(el) {
  * 예전에는 마지막 질문 줄(되묻기 포함) 앞을 다 물려서, 되묻기가 붙는 순간 방금 받은 판정이 흐려졌다 (10-01 2차).
  */
 function bcDimPast(stream) {
-  const kids = [...stream.children];
+  const kids = [...stream.children].filter(bcShown);
   let lead = -1;
   kids.forEach((el, i) => { if (el.matches('.msg.ai.q') && bcIsLead(el)) lead = i; });
   kids.forEach((el, i) => {
@@ -408,7 +417,7 @@ function bcStickBottom(stream) {
 
 /** 지금 질문에서 마지막 판정 말풍선 — 그 뒤에 내 말이 없을 때만 (= 방금 받은 판정) */
 function bcFreshVerdict(stream) {
-  const kids = [...stream.children];
+  const kids = [...stream.children].filter(bcShown);
   for (let i = kids.length - 1; i >= 0; i -= 1) {
     const el = kids[i];
     if (el.matches('.msg.me, .is-past')) return null;
@@ -434,6 +443,10 @@ function bcRowSpeech(el) {
   const parts = [];
   if (chip) parts.push(chip.textContent.trim());
   parts.push(body.textContent.replace(/\s+/g, ' ').trim());
+  // 판정 말풍선에 모은 「아직 안 나온 것」 도 같이 (bcMerge) — 따로 읽던 말풍선이 없어졌다
+  const miss = [...el.querySelectorAll('.bc-miss .chip')].map((c) => c.textContent.trim()).filter(Boolean);
+  if (miss.length) parts.push(`아직 안 나온 것: ${miss.join(', ')}`);
+  if (el.querySelector('.bc-gist')) parts.push('완성 답은 「완성 답 보기」를 누르면 펼쳐져요');
   return parts.filter(Boolean).join(' · ');
 }
 
@@ -483,7 +496,7 @@ function bcSide(el) {
  * 지지난 질문까지의 말은 「오래된 말」 로 더 옅게 (위로 밀리며 흐려진다).
  */
 function bcMarkSides(stream) {
-  const kids = [...stream.children];
+  const kids = [...stream.children].filter(bcShown);
   const leads = [];
   kids.forEach((el, i) => { if (el.matches('.msg.ai.q') && bcIsLead(el)) leads.push(i); });
   const oldBefore = leads.length >= 2 ? leads[leads.length - 2] : -1;
@@ -608,7 +621,9 @@ function bcAutoTick() {
     ta.dataset.bcAuto = '1';
     ta.addEventListener('input', () => { bc.sendOffKey = bcAskKey(); bcAutoCancelSend(); });   // 손으로 고치는 중 — 자동으로 안 보낸다
   }
-  if (!micOn && !hold && !L.busy && !pending && bc.autoOffKey !== key && ta && !ta.disabled && !ta.value.trim() && bcCanAutoListen()) {
+  // 삐약이 말풍선이 아직 차례로 뜨는 중이면 듣지 않는다 — 되묻기(다음에 답할 질문)가 나타난 뒤에 듣는다 (bcPace)
+  const pacing = bc.q.length > 0;
+  if (!micOn && !hold && !pacing && !L.busy && !pending && bc.autoOffKey !== key && ta && !ta.disabled && !ta.value.trim() && bcCanAutoListen()) {
     bc.autoMicKey = key;
     bc.sendOffKey = '';
     toggleLiveMic();
@@ -622,7 +637,7 @@ function bcAutoSend(key, micOn, ta) {
   const text = ta ? ta.value.trim() : '';
   const quiet = !!mic && mic.dictation && !!mic.lastTextAt && Date.now() - mic.lastTextAt >= BC_AUTO_SILENCE_MS
     && !String(mic.interim || '').trim() && !!String(mic.final || '').trim();
-  if (!mic || bc.sendOffKey === key || qa.live.busy || !text || !quiet) { bcAutoCancelSend(); return; }
+  if (!mic || bc.sendOffKey === key || qa.live.busy || bc.q.length || !text || !quiet) { bcAutoCancelSend(); return; }
   if (!bc.sendAt) {
     bc.sendAt = Date.now() + BC_AUTO_SEND_MS;
     bcAnnounce('곧 보내요. 더 말하면 이어서 받아요');
@@ -653,4 +668,179 @@ function bcAutoCancelSend() {
   bc.sendAt = 0;
   const row = document.querySelector('#bcDraft .bc-draft-send');
   if (row && !row.hidden) row.hidden = true;
+}
+
+/* ─── 10-02 판정 하나 = 말풍선 하나 · 말풍선은 차례로 ──────────────────────────────────────────────
+   사용자: 답을 보내면 판정 뒤에 「절반쯤」 · 「아직 안 나온 것」 · 「이렇게 말하면 완성이에요」 · 되묻기 네 개가 한꺼번에 와다다 올라온다.
+   - 판정에 딸린 조각(아직 안 나온 것 · 되묻기 도중 펼친 완성 답)은 판정 말풍선 안으로 모은다. 완성 답은 「완성 답 보기」 접힘
+     (revealHalf 가 펼치는 답은 사다리 단계가 아니라 partial 판정 때 보여 주는 덤이다 — 막힘 3단 해설 답은 그대로 따로 둔다)
+   - 한 번에 붙은 삐약이 말풍선은 실제 채팅처럼 하나씩 — 사이에 「입력 중」 점. 되묻기(다음에 답할 질문)는 맨 끝에, 그 뒤에 듣기 시작한다(bcAutoTick)
+   - 화면을 누르거나 키를 누르면 남은 말을 바로 다 보여 준다 · 움직임 줄이기면 간격 없이
+   - 화면에서만 숨기고 붙인다 — 스트림 줄 수는 그대로다(growStream 이 줄 수로 새 턴을 잇는다). 턴 데이터 · 판정 로직은 그대로 */
+const BC_PACE_MIN_MS = 600;
+const BC_PACE_MAX_MS = 900;
+
+/** 화면에 보이는 줄인가 — 차례를 기다리는 줄(.bc-wait) · 판정 말풍선에 모은 줄(.bc-merged)은 아니다 */
+function bcShown(el) {
+  return !el.classList.contains('bc-wait') && !el.classList.contains('bc-merged');
+}
+
+function bcReducedMotion() {
+  return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+/**
+ * 판정 말풍선 뒤에 바로 붙은 「아직 안 나온 것」 · 되묻기 도중 펼친 완성 답(gist.mid)을 그 판정 말풍선 안으로.
+ * 원래 줄은 화면에서만 숨긴다(.bc-merged). 다시 그리면(새로고침) 다시 모은다.
+ */
+function bcMerge(stream) {
+  let host = null;
+  for (const el of stream.children) {
+    if (el.id === 'coachThinking') continue;
+    if (el.matches('.msg.ai.react')) { host = el; continue; }
+    if (!host) continue;
+    if (el.matches('.msg.ai.miss') || el.matches('.msg.ai.gist.mid')) {
+      if (!el.classList.contains('bc-merged')) bcAbsorb(host, el);
+      continue;
+    }
+    host = null;   // 질문 · 내 말 · 힌트 · 정리 카드 — 판정 하나가 끝났다
+  }
+}
+
+function bcAbsorb(host, row) {
+  const bubble = host.querySelector('.msg-bubble');
+  if (!bubble) return;
+  row.classList.add('bc-merged');
+  const lead = bubble.querySelector(':scope > p');
+  const after = (node) => {
+    const anchor = bubble.querySelector(':scope > .bc-gist') || bubble.querySelector(':scope > .bc-miss') || lead;
+    if (anchor) anchor.after(node); else bubble.appendChild(node);
+  };
+  if (row.matches('.miss')) {
+    if (bubble.querySelector(':scope > .bc-miss')) return;
+    const chips = row.querySelector('.miss-chips');
+    const box = document.createElement('div');
+    box.className = 'bc-miss';
+    box.innerHTML = '<span class="bc-miss-h">아직 안 나온 것</span>';
+    if (chips) box.appendChild(chips.cloneNode(true));
+    // 「아직 안 나온 것」 은 판정 문장 바로 아래 — 완성 답 접힘보다 위
+    if (lead) lead.after(box); else bubble.prepend(box);
+    return;
+  }
+  if (bubble.querySelector(':scope > .bc-gist')) return;
+  const text = row.querySelector('.msg-bubble > p');
+  if (!text) return;
+  const det = document.createElement('details');
+  det.className = 'bc-gist';
+  det.innerHTML = '<summary>완성 답 보기</summary>';
+  const p = document.createElement('p');
+  p.innerHTML = text.innerHTML;   // streamRow 가 이미 escape 한 글
+  det.appendChild(p);
+  // 펼치면 높이가 바뀐다 — 펼친 글이 대화 칸 아래로 숨지 않게 그 끝을 보여 준다
+  det.addEventListener('toggle', () => { if (det.open) det.scrollIntoView({ block: 'nearest' }); });
+  after(det);
+}
+
+/** 새로 붙은 줄을 차례로 — 처음 그릴 때 있던 줄은 그대로 다 보인다 */
+function bcPace(stream) {
+  const fresh = [...stream.children].filter((el) => el.id !== 'coachThinking' && !el.dataset.bcSeen);
+  if (!fresh.length) return;
+  fresh.forEach((el) => { el.dataset.bcSeen = '1'; });
+  if (!bc.paceReady) { bc.paceReady = true; return; }
+  // 다른 방문객(새 코칭)이면 앞 대기열은 버린다 — 앞 사람의 말풍선이 다음 사람 화면에 뜨지 않게 (8c3fa86 과 같은 원칙)
+  if (bc.qL !== qa.live) { bcPaceDrop(); bc.qL = qa.live; }
+  // 내가 새로 답했으면(다음 판정이 온다) 남은 말은 바로 다 보여 주고 새로 센다
+  if (fresh.some((el) => el.matches('.msg.me'))) bcPaceFlush({ sync: false });
+  if (bcReducedMotion()) { bcPaceFlush({ sync: false }); return; }
+  let first = !bc.q.length && Date.now() - bc.lastAiAt >= BC_PACE_MIN_MS;
+  for (const el of fresh) {
+    if (el.classList.contains('bc-merged')) continue;
+    const ai = bcSide(el) === 'ai';
+    if (!bc.q.length && (!ai || first)) {
+      if (ai) { first = false; bc.lastAiAt = Date.now(); }
+      continue;   // 바로 보인다
+    }
+    el.classList.add('bc-wait');
+    bc.q.push(el);
+  }
+  bcPaceQuestionLast(stream);
+  if (bc.q.length && !bc.qTimer) {
+    bcTyping(true);
+    bc.qTimer = setTimeout(bcPaceNext, bcPaceGap());
+  }
+}
+
+/**
+ * 되묻기(다음에 답할 질문)는 맨 끝에 — 판정 뒤에 저절로 연 힌트가 질문 뒤에 붙으면 그 줄들을 질문 앞으로 옮긴다.
+ * 자리만 바꾼다(줄 수는 그대로). 새로 그리면 턴 순서로 돌아간다
+ */
+function bcPaceQuestionLast(stream) {
+  const qi = bc.q.findIndex((el) => el.matches('.msg.ai.q'));
+  if (qi < 0 || qi === bc.q.length - 1) return;
+  const ask = bc.q[qi];
+  const rest = bc.q.slice(qi + 1);
+  rest.forEach((el) => stream.insertBefore(el, ask));
+  bc.q = bc.q.slice(0, qi).concat(rest, [ask]);
+}
+
+/** 다음 말풍선까지 — 앞 말풍선이 길면 조금 더 (0.6~0.9초) */
+function bcPaceGap(prev) {
+  const len = prev ? (prev.textContent || '').length : 0;
+  return Math.round(Math.min(BC_PACE_MAX_MS, BC_PACE_MIN_MS + len * 2));
+}
+
+function bcReveal(el) {
+  el.classList.remove('bc-wait');
+  if (bcSide(el) === 'ai') bc.lastAiAt = Date.now();
+}
+
+function bcPaceNext() {
+  bc.qTimer = 0;
+  const stream = document.getElementById('stream');
+  if (!stream || bc.qL !== qa.live) { bcPaceDrop(); return; }
+  let el = bc.q.shift();
+  while (el && !el.isConnected) el = bc.q.shift();
+  if (el) bcReveal(el);
+  if (bc.q.length) bc.qTimer = setTimeout(bcPaceNext, bcPaceGap(el));
+  else bcTyping(false);
+  bcSync();
+  bcStickBottom(stream);
+}
+
+/** 남은 말을 바로 다 — 스킵 · 다음 답 · 움직임 줄이기 */
+function bcPaceFlush({ sync = true } = {}) {
+  clearTimeout(bc.qTimer);
+  bc.qTimer = 0;
+  const had = bc.q.length;
+  bc.q.forEach((el) => { if (el.isConnected) bcReveal(el); });
+  bc.q = [];
+  bcTyping(false);
+  if (had && sync) {
+    bcSync();
+    const stream = document.getElementById('stream');
+    if (stream) bcStickBottom(stream);
+  }
+}
+
+/** 대기열 버리기 — 화면이 바뀌었거나 다른 방문객이다. 줄은 이미 없거나 곧 새로 그려진다 */
+function bcPaceDrop() {
+  clearTimeout(bc.qTimer);
+  bc.qTimer = 0;
+  bc.q = [];
+  bcTyping(false);
+}
+
+/** 「삐약이가 입력 중」 점 세 개 — 대화 칸 바로 아래, 삐약이 쪽 */
+function bcTyping(on) {
+  const el = document.getElementById('bcTyping');
+  if (el && el.hidden === on) el.hidden = !on;
+}
+
+/** 누르거나 키를 누르면 남은 말을 바로 — 한 번만 건다(문서 전체). 그 누름은 원래 하던 일도 그대로 한다 */
+function bcPaceWire() {
+  if (bc.paceWired) return;
+  bc.paceWired = true;
+  const skip = () => { if (bc.q.length) bcPaceFlush(); };
+  document.addEventListener('pointerdown', skip, true);
+  document.addEventListener('keydown', skip, true);
 }

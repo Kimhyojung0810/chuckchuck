@@ -670,3 +670,39 @@
 .bq[data-variant="call"] .bc-call .bc-stream > .msg.ai.gist[data-side="ai"] .msg-bubble { border-color: rgba(8, 140, 92, .55); }
 .bq[data-variant="call"] .bc-call .bc-draft { background: rgba(5, 104, 68, .92); }   /* 받아쓰는 말 — 내 말보다 한 단 진하게(역광 앞 안내 글 4.5:1) */
 .bq[data-variant="call"] .bc-privacy { background: rgba(16, 20, 30, .72); color: #fff; }
+
+/* ── 10-02 판정 하나 = 말풍선 하나 · 말풍선은 차례로 (booth_call.js bcMerge · bcPace) ───────────────────────
+   차례를 기다리는 줄 · 판정 말풍선에 모은 줄은 화면에서만 숨긴다(줄은 남는다). 드러날 때 bcIn 이 다시 돈다 */
+.bq[data-variant="call"] .bc-stream > :is(.bc-wait, .bc-merged) { display: none !important; }
+/* 판정 말풍선 안 「아직 안 나온 것」 — 판정 문장 바로 아래 칩 줄. 칩 색(.st-mid)은 판정 색 그대로 */
+.bq[data-variant="call"] .bc-stream .bc-miss { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; }
+.bq[data-variant="call"] .bc-stream .bc-miss-h { flex: 0 0 100%; font-size: clamp(13px, .85vw, 16px); font-weight: var(--w-bold); color: var(--chat-ai-soft); }
+.bq[data-variant="call"] .bc-stream .bc-miss .miss-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bq[data-variant="call"] .bc-stream .bc-miss .chip { font-size: clamp(14px, 1vw, 18px); padding: .25em .75em; }
+/* 완성 답 — 접어 둔다. 누르면 펼친다 */
+.bq[data-variant="call"] .bc-stream .bc-gist { margin-top: 10px; }
+.bq[data-variant="call"] .bc-stream .bc-gist summary {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: var(--r-pill); cursor: pointer;
+  list-style: none; font-size: clamp(14px, .9vw, 16px); font-weight: var(--w-bold); color: #04674a;
+  background: rgba(8, 184, 121, .12); border: 1px solid rgba(8, 140, 92, .45);
+}
+.bq[data-variant="call"] .bc-stream .bc-gist summary::-webkit-details-marker { display: none; }
+.bq[data-variant="call"] .bc-stream .bc-gist summary::before { content: '▸'; transition: transform 160ms; }
+.bq[data-variant="call"] .bc-stream .bc-gist[open] summary::before { transform: rotate(90deg); }
+.bq[data-variant="call"] .bc-stream .bc-gist summary:focus-visible { outline: 3px solid #04674a; outline-offset: 2px; }
+.bq[data-variant="call"] .bc-stream .bc-gist p { margin: 8px 0 0; font-size: clamp(15px, 1vw, 18px); line-height: 1.55; color: var(--chat-ai-ink); }
+.bq[data-variant="call"] .bc-stream > .is-past .bc-gist summary { min-height: 32px; font-size: 12px; }
+/* 「삐약이가 입력 중」 — 대화 칸 맨 아래 삐약이 쪽 작은 말풍선, 점 세 개 */
+.bq[data-variant="call"] .bc-typing {
+  align-self: flex-start; margin: 4px 0 2px 2px; padding: 12px 16px; border-radius: 20px; border-bottom-left-radius: 6px;
+  background: rgba(244, 252, 248, .82); border: 1px solid var(--chat-ai-edge); box-shadow: 0 6px 18px rgba(0, 0, 0, .16);
+}
+.bq[data-variant="call"] .bc-typing[hidden] { display: none; }
+.bq[data-variant="call"] .bc-typing span { display: flex; gap: 6px; }
+.bq[data-variant="call"] .bc-typing b { width: 9px; height: 9px; border-radius: 50%; background: #0d6b4b; animation: bcDot 1s ease-in-out infinite; }
+.bq[data-variant="call"] .bc-typing b:nth-child(2) { animation-delay: .15s; }
+.bq[data-variant="call"] .bc-typing b:nth-child(3) { animation-delay: .3s; }
+@keyframes bcDot { 0%, 60%, 100% { opacity: .35; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) {
+  .bq[data-variant="call"] .bc-typing b { animation: none; opacity: .7; }
+}
