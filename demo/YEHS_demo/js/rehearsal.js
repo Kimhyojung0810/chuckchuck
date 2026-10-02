@@ -115,6 +115,9 @@ function rehearsalTeardown({ keepVision = false } = {}) {
   if (typeof bqStopMic === 'function') bqStopMic();
   if (typeof bqCamStop === 'function') bqCamStop();
   if (window.BoothCV) { try { BoothCV.stopGaze(); BoothCV.unwatch(); } catch (_) { /* 이미 멈춤 */ } }
+  // 화상판 자료 창의 감시 · 다시 그리기 함수가 떼어 낸 층(노드 ~680개)을 쥐고 있었다 — 다음 리허설까지 남았다 (10-03 점검 perf-6)
+  if (rhSlideWatch) { rhSlideWatch.disconnect(); rhSlideWatch = null; }
+  if (typeof visionSlideRepaint !== 'undefined') visionSlideRepaint = null;
 }
 
 /**
