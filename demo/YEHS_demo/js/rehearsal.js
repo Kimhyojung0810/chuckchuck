@@ -597,6 +597,10 @@ function rehearsalWaitSync() {
   if (!layer || layer.dataset.screen !== 'wait' || (layer.dataset.take || '') !== take) {
     rhHandCamera();
     rhCarryCamChoice();
+    // 화상판에서 뒤로 왔으면 자동 받아쓰기가 아직 듣고 있다 — 기다림에는 답 칸이 없어서 여기서 한 말이 다음 답 앞에 붙었다 (10-03 점검 perf-2).
+    // 화상판으로 돌아가면 자동 받아쓰기가 다시 켠다
+    if (typeof bcAutoCancelSend === 'function') { try { bcAutoCancelSend(); } catch (_) { /* 화상판이 없다 */ } }
+    if (typeof bqStopMic === 'function') bqStopMic();
     rhMount('wait', rhWaitHtml(), { keepApp: true }).dataset.take = take;
     // 질문이 이미 있는데 여기로 왔으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만
     bq.rhLiveAtMount = qaLiveActive();
