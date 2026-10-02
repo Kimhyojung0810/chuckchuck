@@ -719,8 +719,10 @@ function rehearsalWaitSync() {
     if (typeof bcAutoCancelSend === 'function') { try { bcAutoCancelSend(); } catch (_) { /* 화상판이 없다 */ } }
     if (typeof bqStopMic === 'function') bqStopMic();
     rhMount('wait', rhWaitHtml(), { keepApp: true }).dataset.take = take;
-    // 질문이 이미 있는데 여기로 왔으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만
-    bq.rhLiveAtMount = qaLiveActive();
+    // 화상판에 들어가 본 적이 있으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만.
+    // 질문이 있다는 것만으로는 아니다 — 들어가기 직전(「화상판으로 들어가요」 0.9초)에 새로고침하거나 기다림에서 뒤로 갔다 오면
+    // 답한 적 없는데 「답하던 질문으로 돌아가서」 · 「질문에 이어서 답하기」 가 떠 저절로 들어가지 않았다 (10-03 점검 F6)
+    bq.rhLiveAtMount = rhQaEntered();
     document.getElementById('rhSkipReport').addEventListener('click', rhGoReport);
     document.getElementById('rhResume').addEventListener('click', () => { location.hash = '#/qa'; });
     bqCamEnsure();
@@ -730,6 +732,13 @@ function rehearsalWaitSync() {
     bq.timers.push(setInterval(rhWaitTick, REHEARSAL_POLL_MS));
   }
   rhWaitTick();
+}
+
+/** 화상판에서 질문을 받아 본 적이 있는가 — 첫 질문을 띄우면(presentLiveQuestion) asked 가 0 이 된다 */
+function rhQaEntered() {
+  const L = qa && qa.live;
+  if (!qaLiveActive() || !L) return false;
+  return (Number(L.asked) >= 0) || (Number(L.qi) > 0) || (L.turns || []).length > 0 || (L.results || []).length > 0;
 }
 
 /**
@@ -831,9 +840,10 @@ function rhWaitTick() {
   const stopped = Object.values(st).includes('fail');
   const el = document.getElementById('bqElapsed');
   // 멈췄으면 시계도 멈춘다 — 「n초 지났어요」 · 「질문이 준비되면 바로 시작해요」 가 계속 가면 아직 기다리는 것처럼 보였다 (F5)
-  if (el && nf.pipelineStartedAt && !stopped) bqSet(el, 'textContent', `${Math.max(0, Math.round((Date.now() - nf.pipelineStartedAt) / 1000))}초 지났어요`);
+  // 질문이 준비됐으면 시계도 멈춘다 — 다 됐는데 「n초 지났어요」 가 계속 올라갔다 (F6)
+  if (el && nf.pipelineStartedAt && !stopped && !live) bqSet(el, 'textContent', `${Math.max(0, Math.round((Date.now() - nf.pipelineStartedAt) / 1000))}초 지났어요`);
   // 멈춘 시계(「0초 지났어요」)를 남기지 않는다 — 금방 실패하면 0초에 선 채로 보였다
-  bqSet(el, 'hidden', stopped);
+  bqSet(el, 'hidden', stopped || live);
   bqSet(document.getElementById('rhWaitNext'), 'hidden', stopped);
   bqSet(document.getElementById('rhWaitLive'), 'textContent', rhWaitNow(st));
   if (live && bq.rhLiveAtMount) {
