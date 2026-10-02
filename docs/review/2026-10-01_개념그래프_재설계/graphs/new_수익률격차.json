@@ -1,0 +1,2785 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "label": "격차는 종목 선택이 아니라 행동에서 만들어진다",
+   "slide_nos": [
+    1,
+    2
+   ],
+   "summary": "격차는 종목 선택이 아니라 행동에서 만들어진다 / 실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인",
+   "importance": "core",
+   "weight": 0.777,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.0683,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": true
+   },
+   "parent_id": null,
+   "depth": 1,
+   "kind": "thesis",
+   "evidence": [
+    "2026. 08",
+    "리서치팀",
+    "본 자료의 모든 수치는 발표 예시용 가상 데이터입니다",
+    "0.8%p",
+    "2.6%p",
+    "시장 예측 능력과 무관하게 조정 가능",
+    "※ 본 자료는 발표 예시용으로 작성된 가상 데이터이며, 특정 투자 판단의 근거로 사용될 수 없습니다.",
+    "Q & A: 개인 투자자는 왜 시장을 이기지 못하는가"
+   ]
+  },
+  {
+   "id": "gyeokchaneun-siljaehanda",
+   "label": "격차는 실재한다",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.425,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "gaein-pyeonggyuneun-jisu-daebi-yeon-4-8",
+   "label": "개인 평균은 지수 대비 연 4.8%p 낮음",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.446,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "ilbuui-silsuga-anin-jeonbanjeok-hyeonsan",
+   "label": "일부의 실수가 아닌 전반적 현상",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.425,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "wonineun-jongmoki-anida",
+   "label": "원인은 종목이 아니다",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.425,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "mueoteul-satneungaga-anira-eolmana-jaju",
+   "label": "무엇을 샀는가가 아니라, 얼마나 자주 사고팔았는가가 결과를 갈랐다",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.425,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "tongje-ganeunghan-byeonsuda",
+   "label": "통제 가능한 변수다",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.467,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "bindo-gigan-jongmoksu-biyongeun-bonini-g",
+   "label": "빈도·기간·종목수·비용은 본인이 결정",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.467,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "gyeokchaui-sangdang-bubuneun-jophil-su-i",
+   "label": "격차의 상당 부분은 좁힐 수 있음",
+   "slide_nos": [
+    2
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.425,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "label": "먼저 격차가 실제로 존재하는지 확인한다",
+   "slide_nos": [
+    3
+   ],
+   "summary": "현황 진단",
+   "importance": "core",
+   "weight": 0.711,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0802,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "2016–2025",
+    "9",
+    "8",
+    "6",
+    "4",
+    "-1"
+   ]
+  },
+  {
+   "id": "gyeokchaneun-siljero-jonjaehanda",
+   "label": "격차는 실제로 존재한다",
+   "slide_nos": [
+    3
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.58,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0802,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "gigwangwaui-chaineun-jakda",
+   "label": "기관과의 차이는 작다",
+   "slide_nos": [
+    3
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.601,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0802,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "seonggwa-sangwi-geurupjocha-jisue-mot-mi",
+   "label": "성과 상위 그룹조차 지수에 못 미쳤다",
+   "slide_nos": [
+    3
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.58,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0802,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "label": "연 4.8%p는 10년 뒤 원금 규모의 차이가 된다",
+   "slide_nos": [
+    4
+   ],
+   "summary": "복리 효과",
+   "importance": "core",
+   "weight": 0.746,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1008,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "1,000만원",
+    "10년",
+    "2300",
+    "1500",
+    "838만원",
+    "1년차 48만원",
+    "5년차 307만원",
+    "10년차 838만원"
+   ]
+  },
+  {
+   "id": "gyeokchaneun-bokriro-keojinda",
+   "label": "격차는 복리로 커진다",
+   "slide_nos": [
+    4
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.593,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1008,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "label": "다섯 요인 중 종목 선정 능력에 해당하는 항목은 하나도 없다",
+   "slide_nos": [
+    5
+   ],
+   "summary": "원인 구조",
+   "importance": "core",
+   "weight": 0.743,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0959,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "-1.8",
+    "-1.6",
+    "-1.4",
+    "-1.2",
+    "-0.9",
+    "-0.7",
+    "-0.6",
+    "-0.4",
+    "상위 2개가 전체의 58%"
+   ]
+  },
+  {
+   "id": "gwaing-maemaeneun-georae-biyongdo-hamkke",
+   "label": "과잉 매매는 거래 비용도 함께 증가",
+   "slide_nos": [
+    5
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.695,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0959,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "label": "과잉 매매 — 거래를 늘릴수록 성과가 낮아졌다",
+   "slide_nos": [
+    6
+   ],
+   "summary": "원인 상세",
+   "importance": "core",
+   "weight": 0.359,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae",
+   "depth": 5,
+   "kind": "claim",
+   "evidence": [
+    "50% 미만",
+    "50~150%",
+    "150~400%",
+    "400~1000%",
+    "1000% 초과",
+    "7",
+    "6",
+    "3",
+    "0",
+    "-4",
+    "판단 횟수 ↑ = 오판 총량 ↑"
+   ]
+  },
+  {
+   "id": "yeoe-eopneun-danjo-gamso",
+   "label": "예외 없는 단조 감소",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.185,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "gugan-gan-yeokjeoni-han-beondo-eopeum",
+   "label": "구간 간 역전이 한 번도 없음",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.185,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "hoedang-opanryuli-gatado-nujeokryangi-je",
+   "label": "회당 오판률이 같아도 누적량이 증가",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.185,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "maemae-bindoneun-silryeok-balhwi-gihoega",
+   "label": "매매 빈도는 실력 발휘 기회가 아니라 비용·오류 노출량을 결정한다",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.228,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "label": "타이밍 실패 — 단 며칠이 10년 수익을 결정한다",
+   "slide_nos": [
+    7
+   ],
+   "summary": "원인 상세",
+   "importance": "core",
+   "weight": 0.404,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "taiming-silpae",
+   "depth": 5,
+   "kind": "claim",
+   "evidence": [
+    "전 기간",
+    "상위5일 제외",
+    "상위10일 제외",
+    "상위20일 제외",
+    "상위30일 제외",
+    "9",
+    "6",
+    "4",
+    "2",
+    "-1",
+    "2,500일 중 20일 = 0.8%",
+    "이 20일을 놓치면 8.7% → 1.5%",
+    "불안해서 빠져 있는 구간과 정확히 겹침",
+    "팔 시점과 다시 살 시점 모두 필요"
+   ]
+  },
+  {
+   "id": "geupdeungileun-geuprak-jikhue-molrinda",
+   "label": "급등일은 급락 직후에 몰린다",
+   "slide_nos": [
+    7
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.209,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "harakeul-piharyeoneun-sidowa-sangseungeu",
+   "label": "하락을 피하려는 시도와 상승을 놓치는 결과는 같은 행동의 앞뒷면이다",
+   "slide_nos": [
+    7
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.188,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "label": "손실 회피 — 오른 종목은 팔고, 내린 종목은 남긴다",
+   "slide_nos": [
+    8
+   ],
+   "summary": "원인 상세",
+   "importance": "core",
+   "weight": 0.349,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi",
+   "depth": 5,
+   "kind": "claim",
+   "evidence": [
+    "52",
+    "187",
+    "3.6배"
+   ]
+  },
+  {
+   "id": "pandani-anira-gamgakui-munje",
+   "label": "판단이 아니라 감각의 문제",
+   "slide_nos": [
+    8
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.175,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "palji-aneumyeon-ajik-ilji-anatdaneun-gam",
+   "label": "팔지 않으면 아직 잃지 않았다는 감각이 유지됨",
+   "slide_nos": [
+    8
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.175,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "poteupolrioga-jadongeuro-nappajinda",
+   "label": "포트폴리오가 자동으로 나빠진다",
+   "slide_nos": [
+    8
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.175,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "maedo-gyuchiki-eopeumyeon-sigani-galsuro",
+   "label": "매도 규칙이 없으면 시간이 갈수록 부진한 종목만 남는 구조로 수렴한다",
+   "slide_nos": [
+    8
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.259,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "label": "집중 투자 — 종목 수가 적을수록 결과의 진폭이 커진다",
+   "slide_nos": [
+    9
+   ],
+   "summary": "원인 상세",
+   "importance": "core",
+   "weight": 0.429,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0906,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "jipjung-tuja",
+   "depth": 5,
+   "kind": "claim",
+   "evidence": [
+    "1종목: 상위 10% 70%, 평균 2%, 하위 10% -54%",
+    "2~3종목: 상위 10% 42%, 평균 3%, 하위 10% -30%",
+    "4~7종목: 상위 10% 28%, 평균 5%, 하위 10% -20%",
+    "8~15종목: 상위 10% 20%, 평균 7%, 하위 10% -10%",
+    "16 이상: 상위 10% 17%, 평균 8%, 하위 10% -5%",
+    "최고 성과 68% → 15%",
+    "최악 -54% → -6%",
+    "평균 1.2% → 6.3%"
+   ]
+  },
+  {
+   "id": "bunsani-julineun-geoteun-gidae-suiki-ani",
+   "label": "분산이 줄이는 것은 기대 수익이 아니라 결과의 진폭이다",
+   "slide_nos": [
+    9
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.213,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0906,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "bunsani-julineun-geoteun-pyeonggyun-suik",
+   "label": "분산이 줄이는 것은 평균 수익률이 아니라 결과의 진폭이다",
+   "slide_nos": [
+    9
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.234,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0906,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "label": "거래 비용 — 연 단위로는 작고 20년 단위로는 크다",
+   "slide_nos": [
+    10
+   ],
+   "summary": "원인 상세",
+   "importance": "core",
+   "weight": 0.392,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0991,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "georae-biyong",
+   "depth": 5,
+   "kind": "claim",
+   "evidence": [
+    "통제 가능한 항목 중 노력과 결과가 정비례하는 유일한 변수"
+   ]
+  },
+  {
+   "id": "yeongan-biyongryuleun-yeon-danwironeun-j",
+   "label": "연간 비용률은 연 단위로는 작고 20년 단위로는 크다",
+   "slide_nos": [
+    10
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.239,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0991,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "depth": 6,
+   "kind": "claim"
+  },
+  {
+   "id": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "label": "상위 그룹을 구분한 것은 판단력이 아니라 사전에 정해둔 규칙이었다",
+   "slide_nos": [
+    11
+   ],
+   "summary": "성공 요인",
+   "importance": "core",
+   "weight": 0.738,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0889,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "상위 25% vs 하위 25% 행동 지표",
+    "연 1.4회 vs 11.8회",
+    "상위 25% (하위 25% 행동 지표 비교)",
+    "하위 25% (상위 25% 행동 지표 비교)"
+   ]
+  },
+  {
+   "id": "se-ohae-modu-jisuui-nonrireul-gaebyeol-j",
+   "label": "세 오해 모두 지수의 논리를 개별 종목에 그대로 적용하면서 발생한다",
+   "slide_nos": [
+    12
+   ],
+   "summary": "오해와 사실",
+   "importance": "core",
+   "weight": 0.446,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0447,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "공부하면 시장을 이길 수 있다",
+    "분석 시간과 수익률의 상관은 약함",
+    "분석량이 많을수록 매매 빈도가 상승",
+    "분산하면 수익이 줄어든다",
+    "공부 → 확신 → 거래 증가로 효과 상쇄",
+    "손실은 버티면 언젠가 회복된다",
+    "개별 종목 원금 회복률 41%",
+    "지수의 회복 경향을 개별 종목에 적용한 오해",
+    "지수와 종목은 다른 성질의 자산",
+    "상위 10% 성과는 68% → 15%로 감소",
+    "평균은 1.2% → 6.3%로 상승",
+    "줄어드는 것은 기대값이 아닌 진폭",
+    "오해 (공부하면 시장을 이길 수 있다)",
+    "사실 (분석 시간과 수익률의 상관은 약함)"
+   ]
+  },
+  {
+   "id": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "label": "여섯 항목 모두 시장 상황과 무관하게 오늘 정할 수 있는 값이다",
+   "slide_nos": [
+    13
+   ],
+   "summary": "실행 체크리스트",
+   "importance": "core",
+   "weight": 0.425,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "통제 가능한 여섯 가지",
+    "연간 매매 횟수를 미리 정한다",
+    "매수 시점에 보유 기한을 함께 정한다",
+    "사후 판단의 개입을 줄인다",
+    "하단 진폭이 가장 크게 줄어드는 구간",
+    "손절·익절 기준을 미리 문서화한다",
+    "상위 그룹의 71%가 보유",
+    "수수료·세금 합산 1% 이하로 관리",
+    "결과가 가장 확실한 항목",
+    "왜 샀고 왜 팔았는지 남긴다",
+    "기록이 없으면 오류가 반복된다",
+    "여섯 항목 모두 시장 상황과 무관하게 오늘 정할 수 있는 값이다"
+   ]
+  },
+  {
+   "id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "label": "예측을 잘하는 것보다 덜 움직이는 것이 유리했다",
+   "slide_nos": [
+    14
+   ],
+   "summary": "CONCLUSION",
+   "importance": "core",
+   "weight": 0.443,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "무엇을 살까보다, 얼마나 자주 팔까가 결과를 갈랐다",
+    "전부는 아니어도 상당 부분 완전히 없앨 수는 없지만 의미 있는 개선은 가능하다"
+   ]
+  },
+  {
+   "id": "mueoteul-salkkaboda-eolmana-jaju-palkkag",
+   "label": "무엇을 살까보다, 얼마나 자주 팔까가 결과를 갈랐다",
+   "slide_nos": [
+    14
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.29,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "gyeokchareul-mandeun-daseot-yoin-jung-si",
+   "label": "격차를 만든 다섯 요인 중 시장 예측 능력에 해당하는 항목은 하나도 없었다",
+   "slide_nos": [
+    14
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.332,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "jeonbuneun-anieodo-sangdang-bubun-wanjeo",
+   "label": "전부는 아니어도 상당 부분 완전히 없앨 수는 없지만 의미 있는 개선은 가능하다",
+   "slide_nos": [
+    14
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.311,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "gaeseonui-chulbaljeomeun-deo-naeun-jongm",
+   "label": "개선의 출발점은 더 나은 종목을 찾는 것이 아니라 정해둔 규칙을 지키는 것이다",
+   "slide_nos": [
+    14
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.332,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "sijang-suikryul-gyeokcha",
+   "label": "시장 수익률 격차",
+   "slide_nos": [
+    1
+   ],
+   "summary": "개인 평균 수익률이 지수 대비 연 4.8%p 낮음",
+   "importance": "core",
+   "weight": 0.452,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0229,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "수익률 격차의 다섯 가지 원인"
+   ]
+  },
+  {
+   "id": "gaein-tujaja",
+   "label": "개인 투자자",
+   "slide_nos": [
+    1
+   ],
+   "summary": "개인 평균과 상위 25% 그룹",
+   "importance": "core",
+   "weight": 0.626,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0229,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": true
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "gigwan-tujaja",
+   "label": "기관 투자자",
+   "slide_nos": [
+    1,
+    3
+   ],
+   "summary": "연평균 7.9% 수익률",
+   "importance": "core",
+   "weight": 0.711,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1031,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "jongmok-seontaek-neungryeok",
+   "label": "종목 선택 능력",
+   "slide_nos": [
+    1
+   ],
+   "summary": "수익률과의 상관이 약함",
+   "importance": "core",
+   "weight": 0.452,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0229,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "maemae-hoejeonyul",
+   "label": "매매 회전율",
+   "slide_nos": [
+    1,
+    2
+   ],
+   "summary": "수익률과 뚜렷한 역상관",
+   "importance": "core",
+   "weight": 0.619,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.0683,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "매매 회전율은 수익률과 뚜렷한 역상관",
+    "최상위 회전율 구간 평균 -3.6%"
+   ]
+  },
+  {
+   "id": "tongje-ganeunghan-byeonsu",
+   "label": "통제 가능한 변수",
+   "slide_nos": [
+    1,
+    2
+   ],
+   "summary": "빈도·기간·종목수·비용은 본인이 결정",
+   "importance": "core",
+   "weight": 0.577,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.0683,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "gyeokchaui-siljae",
+   "label": "격차의 실재",
+   "slide_nos": [
+    2
+   ],
+   "summary": "개인 평균과 지수 간 연간 4.8%p 차이",
+   "importance": "core",
+   "weight": 0.467,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "sangwi-25-geurup",
+   "label": "상위 25% 그룹",
+   "slide_nos": [
+    2
+   ],
+   "summary": "개인 상위 25% 수익률",
+   "importance": "core",
+   "weight": 0.467,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "상위 25% 그룹도 지수를 2.6%p 하회"
+   ]
+  },
+  {
+   "id": "jongmok-seonjeong-neungryeok",
+   "label": "종목 선정 능력",
+   "slide_nos": [
+    2
+   ],
+   "summary": "수익률과의 상관이 약함",
+   "importance": "core",
+   "weight": 0.467,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0455,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "sijangjisu",
+   "label": "시장지수",
+   "slide_nos": [
+    3
+   ],
+   "summary": "연평균 8.7% 수익률",
+   "importance": "core",
+   "weight": 0.643,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0802,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "시장지수 8.7% vs 기관 7.9% — 0.8%p"
+   ]
+  },
+  {
+   "id": "gaein-pyeonggyun",
+   "label": "개인 평균",
+   "slide_nos": [
+    3
+   ],
+   "summary": "연평균 4.8%p 낮음",
+   "importance": "core",
+   "weight": 0.706,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0802,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "지수 대비 -4.8%p 개인 평균과 시장지수의 연간 격차",
+    "개인 상위25%도 지수를 2.6%p 하회",
+    "개인 상위25% (연평균 6.1% 수익률)",
+    "개인 하위25% (연평균 -1% 수익률)"
+   ]
+  },
+  {
+   "id": "yeonpyeonggyun-suikryul",
+   "label": "연평균 수익률",
+   "slide_nos": [
+    3,
+    7
+   ],
+   "summary": "2016–2025년 기간",
+   "importance": "core",
+   "weight": 0.794,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1663,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "최고 상승일 제외 시 연평균 수익률 (%)"
+   ]
+  },
+  {
+   "id": "nujeok-pyeonggaaek",
+   "label": "누적 평가액",
+   "slide_nos": [
+    4
+   ],
+   "summary": "1,000만원 투자 시 10년 후 평가액",
+   "importance": "core",
+   "weight": 0.635,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1008,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "yeon-8-7-suikryul",
+   "label": "연 8.7% 수익률",
+   "slide_nos": [
+    4
+   ],
+   "summary": "시장지수 수익률",
+   "importance": "core",
+   "weight": 0.657,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1008,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "yeon-3-9-suikryul",
+   "label": "연 3.9% 수익률",
+   "slide_nos": [
+    4
+   ],
+   "summary": "개인 평균 수익률",
+   "importance": "core",
+   "weight": 0.635,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1008,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gwaing-maemae",
+   "label": "과잉 매매",
+   "slide_nos": [
+    5,
+    6
+   ],
+   "summary": "거래를 늘릴수록 성과가 낮아짐",
+   "importance": "core",
+   "weight": 0.649,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1776,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "daseot-gaji-haengdong-yoin",
+   "depth": 4,
+   "kind": "concept",
+   "evidence": [
+    "과잉 매매와 타이밍 실패에 집중"
+   ]
+  },
+  {
+   "id": "taiming-silpae",
+   "label": "타이밍 실패",
+   "slide_nos": [
+    5,
+    7
+   ],
+   "summary": "단 며칠이 10년 수익을 결정",
+   "importance": "core",
+   "weight": 0.652,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.182,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "daseot-gaji-haengdong-yoin",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "georae-biyong",
+   "label": "거래 비용",
+   "slide_nos": [
+    5,
+    10
+   ],
+   "summary": "매매 시 발생하는 수수료·세금",
+   "importance": "core",
+   "weight": 0.682,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.195,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "daseot-gaji-haengdong-yoin",
+   "depth": 4,
+   "kind": "concept",
+   "evidence": [
+    "5년: 비용 0.2% 1550, 비용 1.0% 1500, 비용 2.5% 1350",
+    "10년: 비용 0.2% 2250, 비용 1.0% 2050, 비용 2.5% 1800",
+    "15년: 비용 0.2% 3250, 비용 1.0% 2900, 비용 2.5% 2400",
+    "20년: 비용 0.2% 4800, 비용 1.0% 4150, 비용 2.5% 3200",
+    "비용 0.2% vs 2.5% — 원금의 1.6배",
+    "비용 0.2% vs 2.5% (원금의 1.6배 차이)"
+   ]
+  },
+  {
+   "id": "jipjung-tuja",
+   "label": "집중 투자",
+   "slide_nos": [
+    5,
+    9
+   ],
+   "summary": "특정 종목에 과도하게 집중",
+   "importance": "core",
+   "weight": 0.655,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1866,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "daseot-gaji-haengdong-yoin",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "sonsil-hoepi",
+   "label": "손실 회피",
+   "slide_nos": [
+    5,
+    8
+   ],
+   "summary": "오른 종목은 팔고, 내린 종목은 남김",
+   "importance": "core",
+   "weight": 0.639,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1617,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "daseot-gaji-haengdong-yoin",
+   "depth": 4,
+   "kind": "concept"
+  },
+  {
+   "id": "daseot-gaji-haengdong-yoin",
+   "label": "다섯 가지 행동 요인",
+   "slide_nos": [
+    5
+   ],
+   "summary": "수익률 손실 기여도 (%p, 연간)",
+   "importance": "core",
+   "weight": 0.653,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0959,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "격차를 만든 다섯 가지 행동 요인"
+   ]
+  },
+  {
+   "id": "modu-eonje-ui-munje",
+   "label": "모두 '언제'의 문제",
+   "slide_nos": [
+    5
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.611,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0959,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "yoin-gan-sanghojakyong-jonjae",
+   "label": "요인 간 상호작용 존재",
+   "slide_nos": [
+    5
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.611,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0959,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "yeongan-hoejeonyul-gugan",
+   "label": "연간 회전율 구간",
+   "slide_nos": [
+    6
+   ],
+   "summary": "50% 미만, 50~150%, 150~400%, 400~1000%, 1000% 초과",
+   "importance": "core",
+   "weight": 0.249,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "depth": 6,
+   "kind": "concept",
+   "evidence": [
+    "연간 회전율 구간별 평균 수익률 (%)"
+   ]
+  },
+  {
+   "id": "pyeonggyun-suikryul",
+   "label": "평균 수익률",
+   "slide_nos": [
+    6
+   ],
+   "summary": "회전율 구간별 평균 수익률",
+   "importance": "core",
+   "weight": 0.354,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 8,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "biyongeun-hwakjeong-suikeun-bulhwaksil",
+   "label": "비용은 확정, 수익은 불확실",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.228,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0816,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "choego-sangseungil",
+   "label": "최고 상승일",
+   "slide_nos": [
+    7
+   ],
+   "summary": "상위 5일, 10일, 20일, 30일",
+   "importance": "core",
+   "weight": 0.252,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "du-beon-mathyeoya-seongrip",
+   "label": "두 번 맞혀야 성립",
+   "slide_nos": [
+    7
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.209,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0861,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "suik-jongmok",
+   "label": "수익 종목",
+   "slide_nos": [
+    8
+   ],
+   "summary": "평균 보유 기간 52일",
+   "importance": "core",
+   "weight": 0.217,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "depth": 6,
+   "kind": "concept",
+   "evidence": [
+    "오른 종목은 빠지고 내린 종목만 축적"
+   ]
+  },
+  {
+   "id": "sonsil-jongmok",
+   "label": "손실 종목",
+   "slide_nos": [
+    8
+   ],
+   "summary": "평균 보유 기간 187일",
+   "importance": "core",
+   "weight": 0.238,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "pyeonggyun-boyu-gigan",
+   "label": "평균 보유 기간",
+   "slide_nos": [
+    8
+   ],
+   "summary": "수익·손실 종목 비교",
+   "importance": "core",
+   "weight": 0.302,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0658,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "depth": 6,
+   "kind": "concept",
+   "evidence": [
+    "수익·손실 종목 평균 보유 기간 (일)"
+   ]
+  },
+  {
+   "id": "bunsan-tuja",
+   "label": "분산 투자",
+   "slide_nos": [
+    9
+   ],
+   "summary": "보유 종목 수가 많을수록 결과의 진폭이 줄어든다",
+   "importance": "core",
+   "weight": 0.234,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0906,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "gyeolgwa-jinpok",
+   "label": "결과 진폭",
+   "slide_nos": [
+    9
+   ],
+   "summary": "상위 그룹과 하위 그룹의 수익률 차이",
+   "importance": "core",
+   "weight": 0.276,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0906,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "yeon-suikryul-bunpo",
+   "label": "연 수익률 분포",
+   "slide_nos": [
+    9
+   ],
+   "summary": "보유 종목 수별 연 수익률 분포 (%)",
+   "importance": "core",
+   "weight": 0.234,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0906,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "depth": 6,
+   "kind": "concept",
+   "evidence": [
+    "보유 종목 수별 연 수익률 분포 (%)",
+    "상위 10% (보유 종목 수별 상위 10% 수익률)",
+    "하위 10% (보유 종목 수별 하위 10% 수익률)"
+   ]
+  },
+  {
+   "id": "biyongryul",
+   "label": "비용률",
+   "slide_nos": [
+    10
+   ],
+   "summary": "0.2%, 1.0%, 2.5%",
+   "importance": "core",
+   "weight": 0.302,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0991,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "depth": 6,
+   "kind": "concept"
+  },
+  {
+   "id": "20nyeon-hu-pyeonggaaek",
+   "label": "20년 후 평가액",
+   "slide_nos": [
+    10
+   ],
+   "summary": "연간 비용률에 따른 20년 후 평가액",
+   "importance": "core",
+   "weight": 0.26,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0991,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "depth": 6,
+   "kind": "concept",
+   "evidence": [
+    "연간 비용률별 20년 후 평가액 (만원)",
+    "20년 격차 1,617만원"
+   ]
+  },
+  {
+   "id": "hoejeonyul",
+   "label": "회전율",
+   "slide_nos": [
+    11,
+    13,
+    14
+   ],
+   "summary": "연 1.4회 vs 11.8회",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.1743,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 12,
+    "title_hit": false
+   },
+   "parent_id": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "회전율(회): 상위 25% 1, 하위 25% 12",
+    "회전율 8.4배 차이",
+    "회전율은 가장 강한 역상관 변수"
+   ]
+  },
+  {
+   "id": "boyu-gigan",
+   "label": "보유 기간",
+   "slide_nos": [
+    11,
+    14
+   ],
+   "summary": "매수 시점에 보유 기한을 함께 정한다",
+   "importance": "core",
+   "weight": 0.854,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1292,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 9,
+    "title_hit": false
+   },
+   "parent_id": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "보유(월): 상위 25% 19, 하위 25% 3",
+    "통제 가능한 변수부터 회전율·보유기간·종목수·비용은 시장과 무관하게 본인이 정한다"
+   ]
+  },
+  {
+   "id": "jongmok-su",
+   "label": "종목 수",
+   "slide_nos": [
+    11,
+    14
+   ],
+   "summary": "최소 8종목 이상으로 나눈다",
+   "importance": "core",
+   "weight": 0.833,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1292,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 8,
+    "title_hit": false
+   },
+   "parent_id": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "종목수: 상위 25% 12, 하위 25% 3",
+    "상하위 그룹을 가른 것은 종목 선정이 아닌 사전 기준이었다",
+    "개선의 출발점은 더 나은 종목을 찾는 것이 아니라 정해둔 규칙을 지키는 것이다"
+   ]
+  },
+  {
+   "id": "jeokripsik",
+   "label": "적립식",
+   "slide_nos": [
+    11
+   ],
+   "summary": "사전 설정의 유무가 가장 큰 격차",
+   "importance": "core",
+   "weight": 0.628,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0889,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "적립식(%): 상위 25% 68, 하위 25% 12"
+   ]
+  },
+  {
+   "id": "maedo-gyuchik",
+   "label": "매도 규칙",
+   "slide_nos": [
+    11
+   ],
+   "summary": "손절·익절 기준을 미리 문서화한다",
+   "importance": "core",
+   "weight": 0.712,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0889,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "매도규칙(%): 상위 25% 71, 하위 25% 18",
+    "매도규칙 71% vs 18%"
+   ]
+  },
+  {
+   "id": "maemae-bindo-sanghan",
+   "label": "매매 빈도 상한",
+   "slide_nos": [
+    13
+   ],
+   "summary": "연간 매매 횟수를 미리 정한다",
+   "importance": "core",
+   "weight": 0.335,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "매매 빈도 상한"
+   ]
+  },
+  {
+   "id": "choeso-boyu-gigan",
+   "label": "최소 보유 기간",
+   "slide_nos": [
+    13
+   ],
+   "summary": "매수 시점에 보유 기한을 함께 정한다",
+   "importance": "core",
+   "weight": 0.356,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "최소 보유 기간"
+   ]
+  },
+  {
+   "id": "jongmok-su-hahan",
+   "label": "종목 수 하한",
+   "slide_nos": [
+    13
+   ],
+   "summary": "최소 8종목 이상으로 나눈다",
+   "importance": "core",
+   "weight": 0.356,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "종목 수 하한",
+    "최소 8종목 이상으로 나눈다"
+   ]
+  },
+  {
+   "id": "maedo-gyuchik-sajeon-seoljeong",
+   "label": "매도 규칙 사전 설정",
+   "slide_nos": [
+    13
+   ],
+   "summary": "손절·익절 기준을 미리 문서화한다",
+   "importance": "core",
+   "weight": 0.399,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "매도 규칙 사전 설정"
+   ]
+  },
+  {
+   "id": "yeongan-chongbiyong-hwakin",
+   "label": "연간 총비용 확인",
+   "slide_nos": [
+    13
+   ],
+   "summary": "수수료·세금 합산 1% 이하로 관리",
+   "importance": "core",
+   "weight": 0.356,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "연간 총비용 확인"
+   ]
+  },
+  {
+   "id": "maemae-sayu-girok",
+   "label": "매매 사유 기록",
+   "slide_nos": [
+    13,
+    14
+   ],
+   "summary": "왜 샀고 왜 팔았는지 남긴다",
+   "importance": "core",
+   "weight": 0.436,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.0853,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "매매 사유 기록"
+   ]
+  },
+  {
+   "id": "yecheuk-neungryeok",
+   "label": "예측 능력",
+   "slide_nos": [
+    14
+   ],
+   "summary": "시장 예측 능력에 해당하는 항목은 하나도 없었다",
+   "importance": "core",
+   "weight": 0.353,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "결론: 예측을 잘하는 것보다 덜 움직이는 것이 유리했다",
+    "격차를 만든 다섯 요인 중 시장 예측 능력에 해당하는 항목은 하나도 없었다"
+   ]
+  },
+  {
+   "id": "gyuchik",
+   "label": "규칙",
+   "slide_nos": [
+    14
+   ],
+   "summary": "정해둔 규칙을 지키는 것",
+   "importance": "core",
+   "weight": 0.438,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 7,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "concept",
+   "evidence": [
+    "차이는 규칙의 유무에서"
+   ]
+  },
+  {
+   "id": "daseot-yoin",
+   "label": "다섯 요인",
+   "slide_nos": [
+    14
+   ],
+   "summary": "격차를 만든 다섯 요인",
+   "importance": "core",
+   "weight": 0.311,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "biyong",
+   "label": "비용",
+   "slide_nos": [
+    14
+   ],
+   "summary": "결과가 가장 확실한 항목",
+   "importance": "core",
+   "weight": 0.606,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0403,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 15,
+    "title_hit": false
+   },
+   "parent_id": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "depth": 3,
+   "kind": "concept"
+  }
+ ],
+ "edges": [
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae",
+   "to": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "kind": "parent"
+  },
+  {
+   "from": "taiming-silpae",
+   "to": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi",
+   "to": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung-tuja",
+   "to": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "kind": "parent"
+  },
+  {
+   "from": "georae-biyong",
+   "to": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "se-ohae-modu-jisuui-nonrireul-gaebyeol-j",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "gyeokchaneun-siljaehanda",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "gaein-pyeonggyuneun-jisu-daebi-yeon-4-8",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "ilbuui-silsuga-anin-jeonbanjeok-hyeonsan",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "wonineun-jongmoki-anida",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "mueoteul-satneungaga-anira-eolmana-jaju",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "tongje-ganeunghan-byeonsuda",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "bindo-gigan-jongmoksu-biyongeun-bonini-g",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "gyeokchaui-sangdang-bubuneun-jophil-su-i",
+   "kind": "parent"
+  },
+  {
+   "from": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "to": "gyeokchaneun-siljero-jonjaehanda",
+   "kind": "parent"
+  },
+  {
+   "from": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "to": "gigwangwaui-chaineun-jakda",
+   "kind": "parent"
+  },
+  {
+   "from": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "to": "seonggwa-sangwi-geurupjocha-jisue-mot-mi",
+   "kind": "parent"
+  },
+  {
+   "from": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "to": "gyeokchaneun-bokriro-keojinda",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "to": "gwaing-maemaeneun-georae-biyongdo-hamkke",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "to": "yeoe-eopneun-danjo-gamso",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "to": "gugan-gan-yeokjeoni-han-beondo-eopeum",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "to": "hoedang-opanryuli-gatado-nujeokryangi-je",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "to": "maemae-bindoneun-silryeok-balhwi-gihoega",
+   "kind": "parent"
+  },
+  {
+   "from": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "to": "geupdeungileun-geuprak-jikhue-molrinda",
+   "kind": "parent"
+  },
+  {
+   "from": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "to": "harakeul-piharyeoneun-sidowa-sangseungeu",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "to": "pandani-anira-gamgakui-munje",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "to": "palji-aneumyeon-ajik-ilji-anatdaneun-gam",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "to": "poteupolrioga-jadongeuro-nappajinda",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "to": "maedo-gyuchiki-eopeumyeon-sigani-galsuro",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "to": "bunsani-julineun-geoteun-gidae-suiki-ani",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "to": "bunsani-julineun-geoteun-pyeonggyun-suik",
+   "kind": "parent"
+  },
+  {
+   "from": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "to": "yeongan-biyongryuleun-yeon-danwironeun-j",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "mueoteul-salkkaboda-eolmana-jaju-palkkag",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "gyeokchareul-mandeun-daseot-yoin-jung-si",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "jeonbuneun-anieodo-sangdang-bubun-wanjeo",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "gaeseonui-chulbaljeomeun-deo-naeun-jongm",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "sijang-suikryul-gyeokcha",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "gaein-tujaja",
+   "kind": "parent"
+  },
+  {
+   "from": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "to": "gigwan-tujaja",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "jongmok-seontaek-neungryeok",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "maemae-hoejeonyul",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "tongje-ganeunghan-byeonsu",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "gyeokchaui-siljae",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "sangwi-25-geurup",
+   "kind": "parent"
+  },
+  {
+   "from": "gyeokchaneun-jongmok-seontaeki-anira-hae",
+   "to": "jongmok-seonjeong-neungryeok",
+   "kind": "parent"
+  },
+  {
+   "from": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "to": "sijangjisu",
+   "kind": "parent"
+  },
+  {
+   "from": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "to": "gaein-pyeonggyun",
+   "kind": "parent"
+  },
+  {
+   "from": "meonjeo-gyeokchaga-siljero-jonjaehaneunj",
+   "to": "yeonpyeonggyun-suikryul",
+   "kind": "parent"
+  },
+  {
+   "from": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "to": "nujeok-pyeonggaaek",
+   "kind": "parent"
+  },
+  {
+   "from": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "to": "yeon-8-7-suikryul",
+   "kind": "parent"
+  },
+  {
+   "from": "yeon-4-8-pneun-10nyeon-dwi-wongeum-gyumo",
+   "to": "yeon-3-9-suikryul",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-gaji-haengdong-yoin",
+   "to": "gwaing-maemae",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-gaji-haengdong-yoin",
+   "to": "taiming-silpae",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-gaji-haengdong-yoin",
+   "to": "georae-biyong",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-gaji-haengdong-yoin",
+   "to": "jipjung-tuja",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-gaji-haengdong-yoin",
+   "to": "sonsil-hoepi",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "to": "daseot-gaji-haengdong-yoin",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "to": "modu-eonje-ui-munje",
+   "kind": "parent"
+  },
+  {
+   "from": "daseot-yoin-jung-jongmok-seonjeong-neung",
+   "to": "yoin-gan-sanghojakyong-jonjae",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "to": "yeongan-hoejeonyul-gugan",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "to": "pyeonggyun-suikryul",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaing-maemae-georaereul-neulrilsurok-se",
+   "to": "biyongeun-hwakjeong-suikeun-bulhwaksil",
+   "kind": "parent"
+  },
+  {
+   "from": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "to": "choego-sangseungil",
+   "kind": "parent"
+  },
+  {
+   "from": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "to": "du-beon-mathyeoya-seongrip",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "to": "suik-jongmok",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "to": "sonsil-jongmok",
+   "kind": "parent"
+  },
+  {
+   "from": "sonsil-hoepi-oreun-jongmokeun-palgo-naer",
+   "to": "pyeonggyun-boyu-gigan",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "to": "bunsan-tuja",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "to": "gyeolgwa-jinpok",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung-tuja-jongmok-suga-jeokeulsurok-g",
+   "to": "yeon-suikryul-bunpo",
+   "kind": "parent"
+  },
+  {
+   "from": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "to": "biyongryul",
+   "kind": "parent"
+  },
+  {
+   "from": "georae-biyong-yeon-danwironeun-jakgo-20n",
+   "to": "20nyeon-hu-pyeonggaaek",
+   "kind": "parent"
+  },
+  {
+   "from": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "to": "hoejeonyul",
+   "kind": "parent"
+  },
+  {
+   "from": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "to": "boyu-gigan",
+   "kind": "parent"
+  },
+  {
+   "from": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "to": "jongmok-su",
+   "kind": "parent"
+  },
+  {
+   "from": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "to": "jeokripsik",
+   "kind": "parent"
+  },
+  {
+   "from": "sangwi-geurupeul-gubunhan-geoteun-pandan",
+   "to": "maedo-gyuchik",
+   "kind": "parent"
+  },
+  {
+   "from": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "to": "maemae-bindo-sanghan",
+   "kind": "parent"
+  },
+  {
+   "from": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "to": "choeso-boyu-gigan",
+   "kind": "parent"
+  },
+  {
+   "from": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "to": "jongmok-su-hahan",
+   "kind": "parent"
+  },
+  {
+   "from": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "to": "maedo-gyuchik-sajeon-seoljeong",
+   "kind": "parent"
+  },
+  {
+   "from": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "to": "yeongan-chongbiyong-hwakin",
+   "kind": "parent"
+  },
+  {
+   "from": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "to": "maemae-sayu-girok",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "yecheuk-neungryeok",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "gyuchik",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "daseot-yoin",
+   "kind": "parent"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "biyong",
+   "kind": "parent"
+  },
+  {
+   "from": "taiming-silpae-dan-myeochili-10nyeon-sui",
+   "to": "yeonpyeonggyun-suikryul",
+   "kind": "relates"
+  },
+  {
+   "from": "yeoseot-hangmok-modu-sijang-sanghwanggwa",
+   "to": "hoejeonyul",
+   "kind": "relates"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "hoejeonyul",
+   "kind": "relates"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "boyu-gigan",
+   "kind": "relates"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "jongmok-su",
+   "kind": "relates"
+  },
+  {
+   "from": "yecheukeul-jalhaneun-geotboda-deol-umjik",
+   "to": "maemae-sayu-girok",
+   "kind": "relates"
+  },
+  {
+   "from": "bunsani-julineun-geoteun-pyeonggyun-suik",
+   "to": "pyeonggyun-suikryul",
+   "kind": "relates"
+  }
+ ],
+ "sections": [
+  {
+   "name": "도입",
+   "slide_role": "intro",
+   "slide_nos": [
+    1,
+    2
+   ]
+  },
+  {
+   "name": "현황 진단",
+   "slide_role": "body",
+   "slide_nos": [
+    3,
+    4,
+    5
+   ]
+  },
+  {
+   "name": "원인 분석",
+   "slide_role": "body",
+   "slide_nos": [
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "성공 요인",
+   "slide_role": "body",
+   "slide_nos": [
+    11,
+    12
+   ]
+  },
+  {
+   "name": "실행 체크리스트",
+   "slide_role": "body",
+   "slide_nos": [
+    13
+   ]
+  },
+  {
+   "name": "결론",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    14
+   ]
+  },
+  {
+   "name": "Q&A",
+   "slide_role": "closing",
+   "slide_nos": [
+    15
+   ]
+  }
+ ],
+ "thesis": "gyeokchaneun-jongmok-seontaeki-anira-hae"
+}

@@ -67,6 +67,7 @@ exports/graph_eval/
 labs/qa_call/out/
 labs/qa_lab/out/
 labs/qa_bench/out/
+labs/qcoach_bench/out/
 
 # 덱 폴더(ppt/<덱>/) — 위 규칙대로 PDF 만 올린다. PPTX·녹음·클로바 전사·대본은 로컬에만 (2026-09-29, ppt/README.md)
 ppt/**/*.pptx

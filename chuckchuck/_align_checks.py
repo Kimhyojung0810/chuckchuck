@@ -405,6 +405,42 @@ def node_for(graph: ConceptGraph, slide_no: int, text: str, taken: set[str] | fr
     return max(cands, key=score)
 
 
+#: % 와 %p 는 받아쓰기·말에서 섞인다 (「0.8%」 라고 읽은 자료 「0.8%p」). 값 대조에서는 같은 단위로 본다.
+_PCT_UNITS = {"%", "%p", "p.p", "p.p.", "pct", "pp"}   # numbers() 는 % → pct · %p → pp 로 적는다
+
+
+def _units_match(a: str | None, b: str | None) -> bool:
+    return a == b or (a in _PCT_UNITS and b in _PCT_UNITS)
+
+
+def _said_on_slide(c: Conflict, deck: Deck) -> bool:
+    """
+    수 모순인데 오판으로 볼 근거가 분명한가. 10-01 수익률 녹음 오판 셋을 **그 꼴로만** 거른다 — 같은 장에 그 수가 있다는 것만으로는
+    거르지 않는다(자료 「A 30%, B 50%」 에 「A는 50%」 는 진짜 모순이다).
+    ① 같은 줄에 %↔%p 만 다른 같은 값: 「이 차이가 0.8% 8% 밖에」 ↔ 「8.7% vs 7.9% — 0.8%p」
+    ② 같은 장에 소수점만 빠진 값: 「26%p 밑돕니다」 ↔ 「상위 25% 그룹도 지수를 2.6%p 하회」 (받아쓰기가 소수점을 놓쳤다)
+    ③ 자료 쪽 값이 없다: 「나머지 4개는」 ↔ 견줄 자료 수 없음
+    """
+    if not c.deck_value:
+        return True
+    said = [n for n in (numbers(c.said) if c.said else numbers(c.claim)) if n.unit]
+    if not said:
+        return False
+    line_nums = numbers(c.deck_line)
+    for s in said:
+        for d in line_nums:
+            if (s.unit != d.unit and s.unit in _PCT_UNITS and d.unit in _PCT_UNITS
+                    and abs(s.value - d.value) <= 1e-9):
+                return True
+    slide_nums = [n for ln in deck.lines if ln.slide_no == c.slide_no for n in numbers(ln.text)]
+    for s in said:
+        for d in slide_nums:
+            if (_units_match(s.unit, d.unit) and d.decimals and not s.decimals
+                    and abs(s.value - d.value * 10 ** d.decimals) <= 1e-9):
+                return True
+    return False
+
+
 def contradictions(graph: ConceptGraph, utts: list[Utterance], deck: Deck) -> list[Contra]:
     """
     발화 문장마다 자료 원문과 숫자·방향을 견준다 (`_deck_claims.conflicts`). 받아쓰기 수 표기(「49퍼센트」)는 먼저 자료 표기로 바꾼다.
@@ -423,6 +459,8 @@ def contradictions(graph: ConceptGraph, utts: list[Utterance], deck: Deck) -> li
                 continue
             # 같은 말인지 따로 본다 — 비교 대조(relation 이 있다)는 주어·대상 두 쪽이 서로 맞아야만 어긋남을 내므로 이미 같은 비교다.
             if c.kind not in _NUMBER_KINDS and not c.relation and not _same_statement(c.claim, c.deck_line):
+                continue
+            if c.kind in _NUMBER_KINDS and _said_on_slide(c, deck):
                 continue
             precise = _precise_line(c, deck)
             deck_line = precise.text if precise is not None else c.deck_line

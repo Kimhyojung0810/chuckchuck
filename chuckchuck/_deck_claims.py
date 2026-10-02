@@ -429,6 +429,11 @@ _QTY_EVEN_RE = re.compile(rf"(?P<n>{_QTY_NUM})도\s*안\s*(?:하|해|한|했|할
 _QTY_ATMOST_RE = re.compile(rf"(?P<n>{_QTY_NUM})(?:을|를|은|는|도)?\s*(?:(?:안|못)\s*넘|넘지\s*(?:않|못))[가-힣]*")
 
 
+#: 「못 넘다」「넘지 못하다」「안 넘다」 는 넘는 쪽(up)이 아니라 못 미치는 쪽(down)이다 — 수 없는 문장도.
+#: 10-01 수익률 녹음: 「상위 그룹도 못 넘었다면」 이 자료 「상위 그룹조차 지수에 못 미쳤다」 와 방향이 반대로 잡혀 모순이 됐다.
+_NOT_EXCEED_RE = re.compile(r"(?:못|안)\s*넘(?=[가-힣])[가-힣]*|넘지\s*(?:못|않)[가-힣]*")
+
+
 def quantity_bounds(text: str) -> str:
     """수량의 한계를 「N 미만」「N 이하」 로 풀어 쓴다 — 부정 표지가 아니라 크기의 경계다 (`negated`·방향 대조가 먼저 거친다)."""
     t = _QTY_UNDER_RE.sub(lambda m: f"{m.group('n')} 미만", text or "")
@@ -1420,12 +1425,12 @@ def _polarity_one(clause: str, deck: Deck, question_stems: tuple[str, ...] = ())
     # 「X 가 아니라 Y」 는 X 를 버리고 Y 를 세우는 말이다 — 대조는 **Y 쪽만** 한다. X 쪽 낱말로 자료 줄과 짝지으면
     # 버린 명제가 자료와 반대라고 잡힌다 (09-30 실측 수익률 함정 Q3: 「38만원이 아니라 48만원」 이 55).
     # 수량의 한계(「N도 안 되는」 = N 미만)는 부정이 아니다 — 양쪽을 같은 말(「N 미만」)로 풀어 둔다 (09-30 녹음 감사 REC-03).
-    clause = quantity_bounds(_contrast_kept(clause))
+    clause = _NOT_EXCEED_RE.sub("못 미친", quantity_bounds(_contrast_kept(clause)))
     stems = [s for s in content_stems(clause, drop_units=True) if not direction(s)]
     line, hit = _best_line(stems, deck)
     if line is None or _quoted_by_question(line, question_stems):
         return []
-    line_text = quantity_bounds(line.text)
+    line_text = _NOT_EXCEED_RE.sub("못 미친", quantity_bounds(line.text))
     if _NON_ASSERTIVE_RE.search(line_text) or _NON_ASSERTIVE_RE.search(clause):
         return []
     line_stems = [s for s in content_stems(line_text, drop_units=True) if not direction(s)]

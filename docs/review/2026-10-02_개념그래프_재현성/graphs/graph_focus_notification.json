@@ -1,0 +1,1206 @@
+{
+ "file_name": "focus_notification_demo_designed.pptx",
+ "total_slides": 12,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "label": "알림은 시간을 훔치는 게 아니라, 머릿속 흐름을 끊는다.",
+   "slide_nos": [
+    1,
+    11
+   ],
+   "summary": "알림은 시간을 훔치는 게 아니라, 머릿속 흐름을 끊는다. / 알림은 시간을 훔치는 게 아니라 흐름을 끊는다",
+   "importance": "core",
+   "weight": 0.655,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.0341,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 9,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1,
+   "kind": "thesis",
+   "evidence": [
+    "작업 맥락",
+    "집중",
+    "4 그래서 해결은 의지보다 환경 설계에 가깝다",
+    "의지",
+    "환경 설계"
+   ]
+  },
+  {
+   "id": "sonsileun-hwamyeoneul-bon-siganboda-dasi",
+   "label": "손실은 화면을 본 시간보다, 다시 돌아오는 과정에서 커진다.",
+   "slide_nos": [
+    2
+   ],
+   "summary": "손실은 화면을 본 시간보다 , 다시 돌아오는 과정에서 커진다 .",
+   "importance": "core",
+   "weight": 0.696,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.02,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "알림 확인",
+    "집중 손실",
+    "주의가 튄다",
+    "확인",
+    "다른 정보로 이동",
+    "전환",
+    "하던 일이 멈춘다",
+    "맥락을 다시 찾는다",
+    "그래서 알림의 비용은 “초”가 아니라 “흐름”으로 봐야 한다."
+   ]
+  },
+  {
+   "id": "jipjungeun-siseon-i-anira-jakeop-maekrak",
+   "label": "집중은 “시선”이 아니라 “작업 맥락”이다",
+   "slide_nos": [
+    3
+   ],
+   "summary": "알림은 눈길만 빼앗는 것이 아니라 , 머릿속 작업 상태를 바꾼다 .",
+   "importance": "core",
+   "weight": 0.671,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1313,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 10,
+    "title_hit": false
+   },
+   "parent_id": "jakeop-maekrak",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "alrimeun-nungilman-ppaeatneun-geoti-anir",
+   "label": "알림은 눈길만 빼앗는 것이 아니라, 머릿속 작업 상태를 바꾼다.",
+   "slide_nos": [
+    3
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.722,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1313,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 7,
+    "title_hit": true
+   },
+   "parent_id": "alrim",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "haeksimeun-alrimeul-bon-sungan-boda-dasi",
+   "label": "핵심은 “알림을 본 순간”보다, 다시 원래 일로 돌아오는 과정이다.",
+   "slide_nos": [
+    4
+   ],
+   "summary": "알림이 집중을 끊는 4 단계",
+   "importance": "core",
+   "weight": 0.745,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.2099,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "알림이 집중을 끊는 4 단계",
+    "알림을 본 순간",
+    "주의 튐"
+   ]
+  },
+  {
+   "id": "alrimeun-hwakinhaji-anado-banghaedoenda",
+   "label": "알림은 확인하지 않아도 방해된다",
+   "slide_nos": [
+    5
+   ],
+   "summary": "알림은 확인하지 않아도 방해된다",
+   "importance": "core",
+   "weight": 0.844,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1327,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 8,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "Stothart et al. (2015)",
+    "알림은 확인하지 않아도 과제와 무관한 생각을 만들 수 있다."
+   ]
+  },
+  {
+   "id": "juuiga-pilyohan-gwaje-jung-hyudaepon-alr",
+   "label": "주의가 필요한 과제 중 휴대폰 알림을 받은 조건에서 과제 수행이 나빠지는 결과가 나타났다.",
+   "slide_nos": [
+    5
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.636,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1327,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 8,
+    "title_hit": false
+   },
+   "parent_id": "gwaje-suhaeng",
+   "depth": 3,
+   "kind": "claim",
+   "evidence": [
+    "주의가 필요한 과제 중 휴대폰 알림을 받은 조건에서 과제 수행이 나빠지는 결과가 나타났다 ."
+   ]
+  },
+  {
+   "id": "poni-boineun-geotmaneurodo-inji-jawoneul",
+   "label": "폰이 보이는 것만으로도 인지 자원을 쓴다",
+   "slide_nos": [
+    6
+   ],
+   "summary": "폰이 보이는 것만으로도 인지 자원을 쓴다",
+   "importance": "core",
+   "weight": 0.654,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1732,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "inji-jawon",
+   "depth": 3,
+   "kind": "claim"
+  },
+  {
+   "id": "alrimi-kkeojyeo-iteodo-gakkaun-seumateup",
+   "label": "알림이 꺼져 있어도, 가까운 스마트폰은 일부 주의를 차지할 수 있다.",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.761,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1732,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 8,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "알림이 꺼져 있어도 , 가까운 스마트폰은 일부 주의를 차지할 수 있다 ."
+   ]
+  },
+  {
+   "id": "haeksimeun-poneul-an-bwatda-ga-anira-pon",
+   "label": "핵심은 “폰을 안 봤다”가 아니라 “폰을 무시하는 데도 자원이 든다”는 점이다.",
+   "slide_nos": [
+    6
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.619,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1732,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim"
+  },
+  {
+   "id": "kkeutnaji-aneun-saenggakeun-jakeopeul-ba",
+   "label": "끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있다.",
+   "slide_nos": [
+    7
+   ],
+   "summary": "끝나지 않은 생각은 작업을 바꾼 뒤에도 일부 남아 있다 .",
+   "importance": "core",
+   "weight": 0.434,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0177,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 0,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "작업을 바꾼 뒤에도 이전 작업에 대한 생각이 남아 다음 수행을 방해하는 현상",
+    "Task A: 보고서 작성",
+    "Task A 복귀: 맥락 재구성"
+   ]
+  },
+  {
+   "id": "sonsileun-sigan-boda-heureum-eseo-keojin",
+   "label": "손실은 “시간”보다 “흐름”에서 커진다",
+   "slide_nos": [
+    8
+   ],
+   "summary": "손실은 “시간”보다 “흐름”에서 커진다",
+   "importance": "core",
+   "weight": 0.524,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0199,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "메시지를 보고",
+    "다시 앱을 닫는 시간",
+    "진짜 손실: 맥락 복구 (어디까지 읽었지?, 다음에 뭘 하려 했지?, 방금 떠올린 생각이 뭐였지?)",
+    "• 다음에 뭘 하려 했지 ?",
+    "• 방금 떠올린 생각이 뭐였지 ?",
+    "눈에 보이는 손실: 5 초",
+    "진짜 손실: 맥락 복구",
+    "손실: 알림 확인은 짧지만 , 작업 맥락 복구는 보이지 않는 비용"
+   ]
+  },
+  {
+   "id": "haeksimeun-alrimui-giliga-anira-bokguhae",
+   "label": "핵심은 알림의 길이가 아니라, 복구해야 하는 생각의 양이다.",
+   "slide_nos": [
+    8
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.439,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0199,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 6,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "작업 맥락 복구: 복구해야 하는 생각의 양"
+   ]
+  },
+  {
+   "id": "haegyeolchaekeun-deo-chamgi-ga-anira-deo",
+   "label": "해결책은 “더 참기”가 아니라 “덜 끊기게 만들기”",
+   "slide_nos": [
+    9
+   ],
+   "summary": "집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 한다",
+   "importance": "core",
+   "weight": 0.614,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1631,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "알림"
+   ]
+  },
+  {
+   "id": "jipjungeul-uijiui-munjega-anira-hwangyeo",
+   "label": "집중을 의지의 문제가 아니라 환경 설계의 문제로 바꿔야 한다",
+   "slide_nos": [
+    9
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.67,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1631,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 9,
+    "title_hit": true
+   },
+   "parent_id": "hwangyeong-seolgye",
+   "depth": 4,
+   "kind": "claim"
+  },
+  {
+   "id": "keun-gyeolsimboda-banghaega-deuleooneun",
+   "label": "큰 결심보다, 방해가 들어오는 경로를 하나씩 줄이는 게 낫다.",
+   "slide_nos": [
+    10
+   ],
+   "summary": "오늘 바로 바꿀 수 있는 집중 루틴",
+   "importance": "core",
+   "weight": 0.161,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.021,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "banghae-gyeongro",
+   "depth": 4,
+   "kind": "claim",
+   "evidence": [
+    "Before: 폰은 시야 밖으로",
+    "During: 메신저·메일은 닫기",
+    "During: 한 화면만 남기기",
+    "After: 다음 할 일을 적고 작업을 닫기",
+    "After: 전환 전 한 줄 메모는 '다시 돌아올 길'을 남기는 작은 장치다",
+    "알림",
+    "화면: 한 화면만 남기기",
+    "전환 전 메모: 다시 돌아올 길을 남기는 작은 장치"
+   ]
+  },
+  {
+   "id": "uriga-gwanrihaeya-hal-geoteun-seumateupo",
+   "label": "우리가 관리해야 할 것은 스마트폰 사용 시간이 아니라 집중이 끊기는 횟수다",
+   "slide_nos": [
+    11
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.475,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0215,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 8,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "우리가 관리해야 할 것은 스마트폰 사용 시간이 아니라 집중이 끊기는 횟수다",
+    "스마트폰 사용 시간"
+   ]
+  },
+  {
+   "id": "alrimeun-hwakinhaji-anado-juuireul-kkeul",
+   "label": "알림은 확인하지 않아도 주의를 끌 수 있다",
+   "slide_nos": [
+    11
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.353,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0215,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 7,
+    "title_hit": false
+   },
+   "parent_id": "alrim",
+   "depth": 3,
+   "kind": "claim",
+   "evidence": [
+    "1 알림은 확인하지 않아도 주의를 끌 수 있다"
+   ]
+  },
+  {
+   "id": "poni-gakkaulsurok-ilbu-inji-jawoni-sseui",
+   "label": "폰이 가까울수록 일부 인지 자원이 쓰일 수 있다",
+   "slide_nos": [
+    11
+   ],
+   "summary": "",
+   "importance": "core",
+   "weight": 0.265,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0215,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "inji-jawon",
+   "depth": 3,
+   "kind": "claim",
+   "evidence": [
+    "2 폰이 가까울수록 일부 인지 자원이 쓰일 수 있다"
+   ]
+  },
+  {
+   "id": "no-task-left-behind-examining-the-nature",
+   "label": "No task left behind? Examining the nature of fragmented work. CHI Extended Abstracts.",
+   "slide_nos": [
+    12
+   ],
+   "summary": "Leroy (2009)",
+   "importance": "support",
+   "weight": 0.119,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0771,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "Stothart, Mitchum & Yehnert (2015) The attentional cost of receiving a cell phone notification. Journal of Experimental Psychology: HPP. DOI: 10.1037/xhp0000100",
+    "Ward, Duke, Gneezy & Bos (2017) Brain Drain: The Mere Presence of One’s Own Smartphone Reduces Available Cognitive Capacity. DOI: 10.1086/691462",
+    "Why is it so hard to do my work? The challenge of attention residue when switching between work tasks. DOI: 10.1016/j.obhdp.2009.04.002",
+    "Leroy (2009)",
+    "Mark, Gonzalez & Harris (2005) DOI: 10.1016/j.obhdp.2009.04.002",
+    "Peng et al. (CHI 2021) No task left behind? Examining the nature of fragmented work. CHI Extended Abstracts.",
+    "Stothart, Mitchum & Yehnert (2015) DOI: 10.1037/xhp0000100",
+    "Ward, Duke, Gneezy & Bos (2017) DOI: 10.1086/691462",
+    "Stothart, Mitchum & Yehnert (2015) (Journal of Experimental Psychology: HPP)",
+    "Mark, Gonzalez & Harris (2005) (DOI: 10.1086/691462)"
+   ]
+  },
+  {
+   "id": "say-it-all-feedback-for-improving-non-vi",
+   "label": "Say It All: Feedback for Improving Non-Visual Presentation Accessibility.",
+   "slide_nos": [
+    12
+   ],
+   "summary": "",
+   "importance": "support",
+   "weight": 0.137,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0771,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "Say It All: Feedback for Improving Non-Visual Presentation Accessibility: CHI Extended Abstracts"
+   ]
+  },
+  {
+   "id": "alrim",
+   "label": "알림",
+   "slide_nos": [
+    1,
+    3,
+    11
+   ],
+   "summary": "눈길만 빼앗는 것이 아니라 머릿속 작업 상태를 바꾼다",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.1654,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 10,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "알림은 이 네 가지를 한 번에 흔든다 ."
+   ]
+  },
+  {
+   "id": "jipjung-sonsil",
+   "label": "집중 손실",
+   "slide_nos": [
+    2
+   ],
+   "summary": "하던 일이 멈추고 맥락을 다시 찾는 과정",
+   "importance": "core",
+   "weight": 0.699,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.02,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 9,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "알림 확인 → 집중 손실"
+   ]
+  },
+  {
+   "id": "maekrak-bokgu",
+   "label": "맥락 복구",
+   "slide_nos": [
+    2,
+    4
+   ],
+   "summary": "하던 일이 멈춘 후 맥락을 다시 찾는 과정",
+   "importance": "core",
+   "weight": 0.789,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.2299,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "하던 일이 멈춘다 → 복구 → 맥락을 다시 찾는다"
+   ]
+  },
+  {
+   "id": "jakeop-maekrak",
+   "label": "작업 맥락",
+   "slide_nos": [
+    3,
+    11
+   ],
+   "summary": "머릿속에 잠깐 올라와 있는 상태값",
+   "importance": "core",
+   "weight": 0.749,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1528,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "3 다시 집중하려면 작업 맥락을 복구해야 한다"
+   ]
+  },
+  {
+   "id": "mokpyo",
+   "label": "목표",
+   "slide_nos": [
+    3
+   ],
+   "summary": "지금 무엇을 끝내려 했는가",
+   "importance": "core",
+   "weight": 0.511,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1313,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "jakeop-maekrak",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "hyeonjae-dangye",
+   "label": "현재 단계",
+   "slide_nos": [
+    3
+   ],
+   "summary": "지금 어느 문장 · 문제를 보고 있었는가",
+   "importance": "core",
+   "weight": 0.511,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1313,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "jakeop-maekrak",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gyuchik",
+   "label": "규칙",
+   "slide_nos": [
+    3
+   ],
+   "summary": "해야 하는 조건과 기준은 무엇인가",
+   "importance": "core",
+   "weight": 0.511,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1313,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "jakeop-maekrak",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "imsi-gieok",
+   "label": "임시 기억",
+   "slide_nos": [
+    3
+   ],
+   "summary": "방금 떠올린 생각과 다음 행동",
+   "importance": "core",
+   "weight": 0.511,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1313,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "jakeop-maekrak",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "juui",
+   "label": "주의",
+   "slide_nos": [
+    5
+   ],
+   "summary": "주의가 필요한 과제",
+   "importance": "core",
+   "weight": 0.633,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1327,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "gwaje-suhaeng",
+   "label": "과제 수행",
+   "slide_nos": [
+    5
+   ],
+   "summary": "과제 수행이 나빠지는 결과",
+   "importance": "core",
+   "weight": 0.633,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1327,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "짧은 알림 자체가 과제와 무관한 생각을 만들 수 있다"
+   ]
+  },
+  {
+   "id": "inji-jawon",
+   "label": "인지 자원",
+   "slide_nos": [
+    6,
+    11
+   ],
+   "summary": "폰이 가까울수록 소모되는 정신적 자원",
+   "importance": "core",
+   "weight": 0.839,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1946,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "인지 과제 수행: 인지 과제 수행이 좋아지는 경향"
+   ]
+  },
+  {
+   "id": "seumateupon-wichi",
+   "label": "스마트폰 위치",
+   "slide_nos": [
+    6
+   ],
+   "summary": "책상 위, 가방·주머니, 다른 방",
+   "importance": "core",
+   "weight": 0.654,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1732,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "스마트폰 위치가 멀어질수록 인지 과제 수행이 좋아지는 경향"
+   ]
+  },
+  {
+   "id": "attention-residue",
+   "label": "attention residue",
+   "slide_nos": [
+    7
+   ],
+   "summary": "작업을 바꾼 뒤에도 이전 작업에 대한 생각이 남아 다음 수행을 방해하는 현상",
+   "importance": "core",
+   "weight": 0.366,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0177,
+    "has_visual": false,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "Attention residue"
+   ]
+  },
+  {
+   "id": "jipjung",
+   "label": "집중",
+   "slide_nos": [
+    9
+   ],
+   "summary": "의지의 문제가 아니라 환경 설계의 문제로 재정의",
+   "importance": "core",
+   "weight": 0.966,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1631,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 14,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "집중을 방해하는 알림·메시지·메일 등"
+   ]
+  },
+  {
+   "id": "hwangyeong-seolgye",
+   "label": "환경 설계",
+   "slide_nos": [
+    9
+   ],
+   "summary": "집중을 방해하는 요소를 줄이는 설계",
+   "importance": "core",
+   "weight": 0.685,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1631,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 4,
+    "title_hit": true
+   },
+   "parent_id": "jipjung",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "jipjung-rutin",
+   "label": "집중 루틴",
+   "slide_nos": [
+    10
+   ],
+   "summary": "오늘 바로 바꿀 수 있는 집중 방법",
+   "importance": "core",
+   "weight": 0.578,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.021,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 8,
+    "title_hit": true
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "During: 알림은 집중모드로"
+   ]
+  },
+  {
+   "id": "banghae-gyeongro",
+   "label": "방해 경로",
+   "slide_nos": [
+    10
+   ],
+   "summary": "집중을 방해하는 알림·메시지·메일 등",
+   "importance": "core",
+   "weight": 0.3,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.021,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "jipjung-rutin",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "jipjung-heureum",
+   "label": "집중 흐름",
+   "slide_nos": [
+    11
+   ],
+   "summary": "집중이 끊기는 횟수",
+   "importance": "core",
+   "weight": 0.425,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0215,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 11,
+    "title_hit": false
+   },
+   "parent_id": "alrim",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "chamgo-yeongu",
+   "label": "참고 연구",
+   "slide_nos": [
+    12
+   ],
+   "summary": "핵심 주장을 뒷받침하는 연구들",
+   "importance": "support",
+   "weight": 0.137,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.0771,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "Leroy (2009) (참고 연구)"
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "alrim",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "jipjung-sonsil",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "maekrak-bokgu",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "jakeop-maekrak",
+   "kind": "parent"
+  },
+  {
+   "from": "jakeop-maekrak",
+   "to": "mokpyo",
+   "kind": "parent"
+  },
+  {
+   "from": "jakeop-maekrak",
+   "to": "hyeonjae-dangye",
+   "kind": "parent"
+  },
+  {
+   "from": "jakeop-maekrak",
+   "to": "gyuchik",
+   "kind": "parent"
+  },
+  {
+   "from": "jakeop-maekrak",
+   "to": "imsi-gieok",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "juui",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "gwaje-suhaeng",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "inji-jawon",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "seumateupon-wichi",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "attention-residue",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "jipjung",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung",
+   "to": "hwangyeong-seolgye",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "jipjung-rutin",
+   "kind": "parent"
+  },
+  {
+   "from": "jipjung-rutin",
+   "to": "banghae-gyeongro",
+   "kind": "parent"
+  },
+  {
+   "from": "alrim",
+   "to": "jipjung-heureum",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "chamgo-yeongu",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "sonsileun-hwamyeoneul-bon-siganboda-dasi",
+   "kind": "parent"
+  },
+  {
+   "from": "jakeop-maekrak",
+   "to": "jipjungeun-siseon-i-anira-jakeop-maekrak",
+   "kind": "parent"
+  },
+  {
+   "from": "alrim",
+   "to": "alrimeun-nungilman-ppaeatneun-geoti-anir",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "haeksimeun-alrimeul-bon-sungan-boda-dasi",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "alrimeun-hwakinhaji-anado-banghaedoenda",
+   "kind": "parent"
+  },
+  {
+   "from": "gwaje-suhaeng",
+   "to": "juuiga-pilyohan-gwaje-jung-hyudaepon-alr",
+   "kind": "parent"
+  },
+  {
+   "from": "inji-jawon",
+   "to": "poni-boineun-geotmaneurodo-inji-jawoneul",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "alrimi-kkeojyeo-iteodo-gakkaun-seumateup",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "haeksimeun-poneul-an-bwatda-ga-anira-pon",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "kkeutnaji-aneun-saenggakeun-jakeopeul-ba",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "sonsileun-sigan-boda-heureum-eseo-keojin",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "haeksimeun-alrimui-giliga-anira-bokguhae",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "haegyeolchaekeun-deo-chamgi-ga-anira-deo",
+   "kind": "parent"
+  },
+  {
+   "from": "hwangyeong-seolgye",
+   "to": "jipjungeul-uijiui-munjega-anira-hwangyeo",
+   "kind": "parent"
+  },
+  {
+   "from": "banghae-gyeongro",
+   "to": "keun-gyeolsimboda-banghaega-deuleooneun",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "uriga-gwanrihaeya-hal-geoteun-seumateupo",
+   "kind": "parent"
+  },
+  {
+   "from": "alrim",
+   "to": "alrimeun-hwakinhaji-anado-juuireul-kkeul",
+   "kind": "parent"
+  },
+  {
+   "from": "inji-jawon",
+   "to": "poni-gakkaulsurok-ilbu-inji-jawoni-sseui",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "no-task-left-behind-examining-the-nature",
+   "kind": "parent"
+  },
+  {
+   "from": "alrimeun-siganeul-humchineun-ge-anira-me",
+   "to": "say-it-all-feedback-for-improving-non-vi",
+   "kind": "parent"
+  }
+ ],
+ "sections": [
+  {
+   "name": "도입",
+   "slide_role": "intro",
+   "slide_nos": [
+    1,
+    2
+   ]
+  },
+  {
+   "name": "본론",
+   "slide_role": "body",
+   "slide_nos": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ]
+  },
+  {
+   "name": "결론",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    12
+   ]
+  }
+ ],
+ "thesis": "alrimeun-siganeul-humchineun-ge-anira-me"
+}

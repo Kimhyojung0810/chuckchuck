@@ -1,0 +1,1927 @@
+{
+ "_held_health_glucose": {
+  "old": [
+   {
+    "nodes": 18,
+    "roots": 1,
+    "root": "혈당 관리에서 식사 순서의 중요성",
+    "root_question": false,
+    "root_claim": false,
+    "depth": 4,
+    "widest": 5,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.833,
+    "f06_items": 16,
+    "f06_lost": 11,
+    "lost_eg": [
+     "점심 후 졸림 시간",
+     "혈당 부하 = 혈당 지수 × 탄수화물 양 ÷ 100",
+     "혈당 상승 속도와 양 측정 지표",
+     "채소 → 단백질 → 탄수화물 순서"
+    ],
+    "evidence": 0,
+    "relates": 2,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "무엇을 먹느냐만큼 먹는 순서도 중요함",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 5,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.842,
+    "f06_items": 16,
+    "f06_lost": 5,
+    "lost_eg": [
+     "점심 후 졸림 시간",
+     "채소 → 단백질 → 탄수화물 순서",
+     "식사 순서 변경",
+     "채소 먼저 섭취 그룹"
+    ],
+    "evidence": 0,
+    "relates": 12,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "식사 순서가 혈당 관리에 미치는 영향",
+    "root_question": false,
+    "root_claim": false,
+    "depth": 4,
+    "widest": 5,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.895,
+    "f06_items": 16,
+    "f06_lost": 9,
+    "lost_eg": [
+     "점심 후 졸림 시간",
+     "혈당 부하 = 혈당 지수 × 탄수화물 양 ÷ 100",
+     "혈당 상승 속도와 양 측정 지표",
+     "채소 → 단백질 → 탄수화물 순서"
+    ],
+    "evidence": 0,
+    "relates": 2,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 28,
+    "roots": 1,
+    "root": "탄수화물 양보다 중요한 혈당 부하",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 12,
+    "figure_nodes": 0,
+    "title_generic_nodes": 4,
+    "label_grounded": 0.929,
+    "f06_items": 30,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 10,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 22
+    }
+   },
+   {
+    "nodes": 28,
+    "roots": 1,
+    "root": "탄수화물 양보다 중요한 혈당 부하",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 12,
+    "figure_nodes": 0,
+    "title_generic_nodes": 4,
+    "label_grounded": 0.929,
+    "f06_items": 30,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 10,
+    "relates": 2,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 22
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "탄수화물 양보다 중요한 혈당 부하",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 18,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 4,
+    "relates": 6,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 9
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "탄수화물 양보다 중요한 혈당 부하",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 18,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 4,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 9
+    }
+   }
+  ]
+ },
+ "_held_hum_novel": {
+  "old": [
+   {
+    "nodes": 17,
+    "roots": 1,
+    "root": "한글 소설 확산의 주체는 작가나 출판사가 아니라 빌려 읽는 독자이다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 5,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.824,
+    "f06_items": 13,
+    "f06_lost": 10,
+    "lost_eg": [
+     "세책 문화 = 필사본 × 대여 제도 × 여성 독자",
+     "청중 설문",
+     "상업 발달이 한글 소설 독자층을 넓힘",
+     "장시와 포구를 통한 사람과 물건 이동"
+    ],
+    "evidence": 0,
+    "relates": 7,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "한글 소설은 작가가 아니라 빌려 읽는 독자에 의해 퍼졌다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 5,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.947,
+    "f06_items": 13,
+    "f06_lost": 9,
+    "lost_eg": [
+     "세책 문화 = 필사본 × 대여 제도 × 여성 독자",
+     "상업 발달이 한글 소설 독자층을 넓힘",
+     "장시와 포구를 통한 사람과 물건 이동",
+     "세책 문화 = 필사본 × 대여 제도 × 여성 독자"
+    ],
+    "evidence": 0,
+    "relates": 7,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 15,
+    "roots": 1,
+    "root": "소설을 퍼뜨린 것은 작가가 아니라 빌려 읽는 독자",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 5,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.8,
+    "f06_items": 13,
+    "f06_lost": 9,
+    "lost_eg": [
+     "세책 문화 = 필사본 × 대여 제도 × 여성 독자",
+     "청중 설문",
+     "상업 발달이 한글 소설 독자층을 넓힘",
+     "장시와 포구를 통한 사람과 물건 이동"
+    ],
+    "evidence": 0,
+    "relates": 3,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 26,
+    "roots": 1,
+    "root": "소설을 퍼뜨린 것은 작가가 아니라 빌려 읽는 독자였다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.962,
+    "f06_items": 28,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 6,
+    "relates": 2,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 20
+    }
+   },
+   {
+    "nodes": 26,
+    "roots": 1,
+    "root": "소설을 퍼뜨린 것은 작가가 아니라 빌려 읽는 독자였다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.962,
+    "f06_items": 28,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 6,
+    "relates": 5,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 20
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "소설을 퍼뜨린 것은 작가가 아니라 빌려 읽는 독자였다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.85,
+    "f06_items": 21,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 11,
+    "relates": 1,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 14
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "소설을 퍼뜨린 것은 작가가 아니라 빌려 읽는 독자였다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.85,
+    "f06_items": 21,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 11,
+    "relates": 1,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 14
+    }
+   }
+  ]
+ },
+ "_held_ir_banchan": {
+  "old": [
+   {
+    "nodes": 35,
+    "roots": 4,
+    "root": "월 반복 매출 = 구독자 수 × 객단가 × 유지율",
+    "root_question": false,
+    "root_claim": false,
+    "depth": 2,
+    "widest": 29,
+    "figure_nodes": 2,
+    "title_generic_nodes": 3,
+    "label_grounded": 0.943,
+    "f06_items": 27,
+    "f06_lost": 4,
+    "lost_eg": [
+     "구독자 수보다 월 반복 매출 강조",
+     "재료 남는 1인 가구",
+     "반찬 구독 수요 증가",
+     "같은 아파트 단지 주문 묶음 배송"
+    ],
+    "evidence": 0,
+    "relates": 31,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 32,
+    "roots": 4,
+    "root": "월 반복 매출 = 구독자 수 × 객단가 × 유지율",
+    "root_question": false,
+    "root_claim": false,
+    "depth": 2,
+    "widest": 26,
+    "figure_nodes": 2,
+    "title_generic_nodes": 1,
+    "label_grounded": 1.0,
+    "f06_items": 27,
+    "f06_lost": 4,
+    "lost_eg": [
+     "구독자 수보다 월 반복 매출 강조",
+     "재료 남는 1인 가구",
+     "반찬 구독 수요 증가",
+     "공헌이익 감소"
+    ],
+    "evidence": 0,
+    "relates": 19,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 25,
+    "roots": 2,
+    "root": "수요 증가",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 8,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.96,
+    "f06_items": 27,
+    "f06_lost": 16,
+    "lost_eg": [
+     "동네 반찬 정기구독 서비스",
+     "구독자 수보다 월 반복 매출 강조",
+     "시드 라운드 투자 제안",
+     "1인 가구 증가"
+    ],
+    "evidence": 0,
+    "relates": 9,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 29,
+    "roots": 1,
+    "root": "구독자 수보다 중요한 월 반복 매출",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 3,
+    "label_grounded": 1.0,
+    "f06_items": 31,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 4,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 23
+    }
+   },
+   {
+    "nodes": 29,
+    "roots": 1,
+    "root": "구독자 수보다 중요한 월 반복 매출",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 3,
+    "label_grounded": 1.0,
+    "f06_items": 31,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 4,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 23
+    }
+   },
+   {
+    "nodes": 28,
+    "roots": 1,
+    "root": "구독자 수보다 중요한 월 반복 매출",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 30,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 4,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 22
+    }
+   },
+   {
+    "nodes": 28,
+    "roots": 1,
+    "root": "구독자 수보다 중요한 월 반복 매출",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 30,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 4,
+    "relates": 8,
+    "kinds": {
+     "thesis": 1,
+     "claim": 5,
+     "concept": 22
+    }
+   }
+  ]
+ },
+ "_held_lib_reopen": {
+  "old": [
+   {
+    "nodes": 24,
+    "roots": 1,
+    "root": "야간 연장 개방과 자유열람실 확충으로 독서 경험을 개선해 연간 방문자 8만 명 회복을 목표로 한다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 6,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.917,
+    "f06_items": 22,
+    "f06_lost": 11,
+    "lost_eg": [
+     "구립 해오름도서관",
+     "연간 방문자 감소",
+     "1인당 대출 권수 감소",
+     "스마트폰 사용 시간 증가"
+    ],
+    "evidence": 0,
+    "relates": 3,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "야간 연장 개방과 자유열람실 확충으로 독서 경험을 개선하면 연간 방문자 8만 명을 회복할 수 있다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 7,
+    "figure_nodes": 1,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.9,
+    "f06_items": 22,
+    "f06_lost": 12,
+    "lost_eg": [
+     "구립 해오름도서관",
+     "연간 방문자 감소",
+     "1인당 대출 권수 감소",
+     "스마트폰 사용 시간 증가"
+    ],
+    "evidence": 0,
+    "relates": 5,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 2,
+    "root": "독서 경험",
+    "root_question": false,
+    "root_claim": false,
+    "depth": 2,
+    "widest": 18,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.85,
+    "f06_items": 22,
+    "f06_lost": 12,
+    "lost_eg": [
+     "연간 방문자 감소",
+     "1인당 대출 권수 감소",
+     "스마트폰 사용 시간 증가",
+     "독서 경험 = 대출 권수 × 머문 시간 × 공간 만족도"
+    ],
+    "evidence": 0,
+    "relates": 5,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "대출 권수보다 더 중요한 것은 독서 경험입니다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.947,
+    "f06_items": 20,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 16,
+    "relates": 7,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 12
+    }
+   },
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "대출 권수보다 더 중요한 것은 독서 경험입니다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.947,
+    "f06_items": 20,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 16,
+    "relates": 7,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 12
+    }
+   },
+   {
+    "nodes": 30,
+    "roots": 1,
+    "root": "대출 권수보다 더 중요한 것은 독서 경험입니다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 5,
+    "widest": 15,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.933,
+    "f06_items": 33,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 11,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 23
+    }
+   },
+   {
+    "nodes": 30,
+    "roots": 1,
+    "root": "대출 권수보다 더 중요한 것은 독서 경험입니다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 17,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.933,
+    "f06_items": 33,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 11,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 23
+    }
+   }
+  ]
+ },
+ "_held_policy_jeonse": {
+  "old": [
+   {
+    "nodes": 13,
+    "roots": 1,
+    "root": "대학가 전세사기 문제를 사후 구제에서 사전 예방 체계로 전환하여 피해를 근본적으로 줄인다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.923,
+    "f06_items": 22,
+    "f06_lost": 12,
+    "lost_eg": [
+     "대학가 전세사기",
+     "사후 구제에서 사전 예방으로",
+     "처벌 강화보다 중요한 예방 체계",
+     "신축 빌라 시세 정보 부족"
+    ],
+    "evidence": 0,
+    "relates": 3,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "대학가 전세사기 문제를 사후 구제에서 사전 예방 체계로 전환하여 피해를 근본적으로 차단한다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 8,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.95,
+    "f06_items": 22,
+    "f06_lost": 5,
+    "lost_eg": [
+     "대학가 전세사기",
+     "사후 구제에서 사전 예방으로",
+     "처벌 강화보다 중요한 예방 체계",
+     "정보 비대칭 해소"
+    ],
+    "evidence": 0,
+    "relates": 3,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 21,
+    "roots": 1,
+    "root": "대학가 전세사기 문제를 사후 구제에서 사전 예방 체계로 전환하여 예방 체계를 강화하는 것이 처벌 강화보다 중요하다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.905,
+    "f06_items": 22,
+    "f06_lost": 7,
+    "lost_eg": [
+     "대학가 전세사기",
+     "사후 구제에서 사전 예방으로",
+     "처벌 강화보다 중요한 예방 체계",
+     "신축 빌라 시세 정보 부족"
+    ],
+    "evidence": 0,
+    "relates": 4,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 30,
+    "roots": 1,
+    "root": "처벌 강화보다 중요한 예방 체계",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 13,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 32,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 8,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 9,
+     "concept": 20
+    }
+   },
+   {
+    "nodes": 30,
+    "roots": 1,
+    "root": "처벌 강화보다 중요한 예방 체계",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 13,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 32,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 8,
+    "relates": 1,
+    "kinds": {
+     "thesis": 1,
+     "claim": 9,
+     "concept": 20
+    }
+   },
+   {
+    "nodes": 26,
+    "roots": 1,
+    "root": "처벌 강화보다 중요한 예방 체계",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 13,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 26,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 7,
+    "relates": 4,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 19
+    }
+   },
+   {
+    "nodes": 26,
+    "roots": 1,
+    "root": "처벌 강화보다 중요한 예방 체계",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 10,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 26,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 7,
+    "relates": 7,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 19
+    }
+   }
+  ]
+ },
+ "focus_notification": {
+  "old": [
+   {
+    "nodes": 13,
+    "roots": 1,
+    "root": "알림 확인 후 작업 맥락 복구 비용이 시간보다 크다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.923,
+    "f06_items": 35,
+    "f06_lost": 32,
+    "lost_eg": [
+     "알림은 시간을 훔치는 게 아니라 머릿속 흐름을 끊는다",
+     "알림을 확인했을 뿐인데 다시 집중하기 어려운 이유",
+     "알림은 눈길만 빼앗는 것이 아니라 머릿속 작업 상태를 바꾼다",
+     "알림의 비용은 초가 아니라 흐름으로 봐야 한다"
+    ],
+    "evidence": 0,
+    "relates": 13,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 19,
+    "roots": 4,
+    "root": "알림 확인 후 작업 맥락 복구에 필요한 생각의 양이 진짜 손실이다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 10,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 35,
+    "f06_lost": 33,
+    "lost_eg": [
+     "알림은 시간을 훔치는 게 아니라 머릿속 흐름을 끊는다",
+     "알림을 확인했을 뿐인데 다시 집중하기 어려운 이유",
+     "알림은 눈길만 빼앗는 것이 아니라 머릿속 작업 상태를 바꾼다",
+     "알림의 비용은 초가 아니라 흐름으로 봐야 한다"
+    ],
+    "evidence": 0,
+    "relates": 9,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "알림 확인은 시간을 훔치는 게 아니라 머릿속 흐름을 끊는다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.75,
+    "f06_items": 35,
+    "f06_lost": 33,
+    "lost_eg": [
+     "알림은 시간을 훔치는 게 아니라 머릿속 흐름을 끊는다",
+     "알림을 확인했을 뿐인데 다시 집중하기 어려운 이유",
+     "알림은 눈길만 빼앗는 것이 아니라 머릿속 작업 상태를 바꾼다",
+     "알림의 비용은 초가 아니라 흐름으로 봐야 한다"
+    ],
+    "evidence": 0,
+    "relates": 5,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 57,
+    "roots": 1,
+    "root": "알림은 시간을 훔치는 게 아니라, 머릿속 흐름을 끊는다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 14,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.982,
+    "f06_items": 71,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 35,
+    "relates": 8,
+    "kinds": {
+     "thesis": 1,
+     "claim": 23,
+     "concept": 33
+    }
+   },
+   {
+    "nodes": 57,
+    "roots": 1,
+    "root": "알림은 시간을 훔치는 게 아니라, 머릿속 흐름을 끊는다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 14,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.982,
+    "f06_items": 71,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 35,
+    "relates": 8,
+    "kinds": {
+     "thesis": 1,
+     "claim": 23,
+     "concept": 33
+    }
+   },
+   {
+    "nodes": 49,
+    "roots": 1,
+    "root": "알림은 시간을 훔치는 게 아니라 흐름을 끊는다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 17,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.98,
+    "f06_items": 49,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 10,
+    "relates": 4,
+    "kinds": {
+     "thesis": 1,
+     "claim": 20,
+     "concept": 28
+    }
+   },
+   {
+    "nodes": 49,
+    "roots": 1,
+    "root": "알림은 시간을 훔치는 게 아니라 흐름을 끊는다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 16,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.98,
+    "f06_items": 49,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 10,
+    "relates": 2,
+    "kinds": {
+     "thesis": 1,
+     "claim": 20,
+     "concept": 28
+    }
+   }
+  ]
+ },
+ "급속충전배터리열화": {
+  "old": [
+   {
+    "nodes": 14,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 12,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.857,
+    "f06_items": 12,
+    "f06_lost": 5,
+    "lost_eg": [
+     "발표 개요",
+     "실험 조건",
+     "실험 환경",
+     "용량 측정"
+    ],
+    "evidence": 0,
+    "relates": 11,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 2,
+    "widest": 15,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.812,
+    "f06_items": 12,
+    "f06_lost": 4,
+    "lost_eg": [
+     "발표 개요",
+     "실험 조건",
+     "실험 환경",
+     "용량 유지율 감소"
+    ],
+    "evidence": 0,
+    "relates": 7,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 18,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 10,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.944,
+    "f06_items": 12,
+    "f06_lost": 6,
+    "lost_eg": [
+     "발표 개요",
+     "실험 조건",
+     "실험 환경",
+     "용량 측정"
+    ],
+    "evidence": 0,
+    "relates": 11,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 22,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 6,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.955,
+    "f06_items": 24,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 45,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 3,
+     "concept": 18
+    }
+   },
+   {
+    "nodes": 22,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 6,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.955,
+    "f06_items": 24,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 45,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 3,
+     "concept": 18
+    }
+   },
+   {
+    "nodes": 29,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 10,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 30,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 32,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 8,
+     "concept": 20
+    }
+   },
+   {
+    "nodes": 29,
+    "roots": 1,
+    "root": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 10,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 30,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 32,
+    "relates": 2,
+    "kinds": {
+     "thesis": 1,
+     "claim": 8,
+     "concept": 20
+    }
+   }
+  ]
+ },
+ "미세플라스틱물벼룩번식": {
+  "old": [
+   {
+    "nodes": 14,
+    "roots": 1,
+    "root": "폴리스티렌 100 mg/L 농도에서 물벼룩 산자수가 환경 농도와의 간극이 해석에 제약을 준다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 8,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.786,
+    "f06_items": 27,
+    "f06_lost": 26,
+    "lost_eg": [
+     "미세플라스틱이 물벼룩 번식을 줄이는가",
+     "폴리스티렌 1 µm 입자 농도별 21일 만성 노출 실험",
+     "한지우",
+     "환경생명공학과 석사 1년차"
+    ],
+    "evidence": 0,
+    "relates": 10,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "미세플라스틱은 물벼룩의 산자수 감소와 생존율 저하를 유발한다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 6,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.8,
+    "f06_items": 27,
+    "f06_lost": 26,
+    "lost_eg": [
+     "미세플라스틱이 물벼룩 번식을 줄이는가",
+     "폴리스티렌 1 µm 입자 농도별 21일 만성 노출 실험",
+     "한지우",
+     "환경생명공학과 석사 1년차"
+    ],
+    "evidence": 0,
+    "relates": 12,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 21,
+    "roots": 1,
+    "root": "실험 농도는 실제 하천보다 백 배 이상 높다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 17,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.857,
+    "f06_items": 27,
+    "f06_lost": 24,
+    "lost_eg": [
+     "미세플라스틱이 물벼룩 번식을 줄이는가",
+     "폴리스티렌 1 µm 입자 농도별 21일 만성 노출 실험",
+     "한지우",
+     "환경생명공학과 석사 1년차"
+    ],
+    "evidence": 0,
+    "relates": 4,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "100 mg/L에서 산자수가 절반 아래로 떨어졌다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 20,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 19,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 13
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "100 mg/L에서 산자수가 절반 아래로 떨어졌다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 20,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 19,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 6,
+     "concept": 13
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "100 mg/L에서 산자수가 절반 아래로 떨어졌다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 6,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 16,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 17,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 3,
+     "concept": 12
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "100 mg/L에서 산자수가 절반 아래로 떨어졌다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 6,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 16,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 17,
+    "relates": 1,
+    "kinds": {
+     "thesis": 1,
+     "claim": 3,
+     "concept": 12
+    }
+   }
+  ]
+ },
+ "배달앱별점인플레이션": {
+  "old": [
+   {
+    "nodes": 26,
+    "roots": 1,
+    "root": "리뷰 이벤트는 평점 인플레이션을 유발한다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.923,
+    "f06_items": 17,
+    "f06_lost": 9,
+    "lost_eg": [
+     "배달앱 리뷰 데이터 분석",
+     "평점 인플레이션 원인 규명",
+     "수도권 매장 3,200곳 대상",
+     "리뷰 124,380건 수집"
+    ],
+    "evidence": 0,
+    "relates": 5,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 8,
+    "roots": 1,
+    "root": "별점 인플레이션은 리뷰 이벤트로 인한 별점 구간별 리뷰 비중 집중 현상이다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 2,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.75,
+    "f06_items": 17,
+    "f06_lost": 17,
+    "lost_eg": [
+     "배달앱 리뷰 데이터 분석",
+     "평점 인플레이션 원인 규명",
+     "2024년 1월~2025년 6월 기간",
+     "수도권 매장 3,200곳 대상"
+    ],
+    "evidence": 0,
+    "relates": 4,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "별점 인플레이션은 리뷰 수집 방식의 결과로, 리뷰 이벤트와 별점 구간별 리뷰 비중 분석을 통해 확인되었다.",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 2,
+    "widest": 15,
+    "figure_nodes": 1,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.875,
+    "f06_items": 17,
+    "f06_lost": 13,
+    "lost_eg": [
+     "평점 인플레이션 원인 규명",
+     "2024년 1월~2025년 6월 기간",
+     "수도권 매장 3,200곳 대상",
+     "리뷰 124,380건 수집"
+    ],
+    "evidence": 0,
+    "relates": 6,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.938,
+    "f06_items": 16,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 15,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 1,
+     "concept": 14
+    }
+   },
+   {
+    "nodes": 16,
+    "roots": 1,
+    "root": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 7,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 0.938,
+    "f06_items": 16,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 15,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 1,
+     "concept": 14
+    }
+   },
+   {
+    "nodes": 15,
+    "roots": 1,
+    "root": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 8,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 15,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 22,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 1,
+     "concept": 13
+    }
+   },
+   {
+    "nodes": 15,
+    "roots": 1,
+    "root": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 8,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 15,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 22,
+    "relates": 1,
+    "kinds": {
+     "thesis": 1,
+     "claim": 1,
+     "concept": 13
+    }
+   }
+  ]
+ },
+ "수면발표": {
+  "old": [
+   {
+    "nodes": 19,
+    "roots": 1,
+    "root": "수면의 질은 시간, 연속성, 규칙성의 곱으로 결정된다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 1,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.947,
+    "f06_items": 20,
+    "f06_lost": 15,
+    "lost_eg": [
+     "침대에 누운 시간과 회복한 시간의 차이",
+     "수면 주기",
+     "수면 단계",
+     "수면 연속성이 회복감에 미치는 영향"
+    ],
+    "evidence": 0,
+    "relates": 0,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 27,
+    "roots": 1,
+    "root": "수면의 질은 시간, 연속성, 규칙성의 곱으로 결정된다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 7,
+    "figure_nodes": 1,
+    "title_generic_nodes": 3,
+    "label_grounded": 0.926,
+    "f06_items": 20,
+    "f06_lost": 11,
+    "lost_eg": [
+     "침대에 누운 시간과 회복한 시간의 차이",
+     "수면 단계",
+     "수면 연속성이 회복감에 미치는 영향",
+     "깊은 수면"
+    ],
+    "evidence": 0,
+    "relates": 3,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 20,
+    "roots": 1,
+    "root": "수면의 질은 시간, 연속성, 규칙성의 곱으로 결정된다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 12,
+    "figure_nodes": 1,
+    "title_generic_nodes": 1,
+    "label_grounded": 0.9,
+    "f06_items": 20,
+    "f06_lost": 12,
+    "lost_eg": [
+     "침대에 누운 시간과 회복한 시간의 차이",
+     "수면 단계",
+     "수면 연속성이 회복감에 미치는 영향",
+     "두 단계 모두 필요한 완전한 회복"
+    ],
+    "evidence": 0,
+    "relates": 6,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 40,
+    "roots": 1,
+    "root": "수면 시간보다 중요한 수면의 질",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 1.0,
+    "f06_items": 44,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 14,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 15,
+     "concept": 24
+    }
+   },
+   {
+    "nodes": 40,
+    "roots": 1,
+    "root": "수면 시간보다 중요한 수면의 질",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 4,
+    "widest": 9,
+    "figure_nodes": 0,
+    "title_generic_nodes": 1,
+    "label_grounded": 1.0,
+    "f06_items": 44,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 14,
+    "relates": 6,
+    "kinds": {
+     "thesis": 1,
+     "claim": 15,
+     "concept": 24
+    }
+   },
+   {
+    "nodes": 45,
+    "roots": 1,
+    "root": "수면 시간보다 중요한 수면의 질",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 10,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 45,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 7,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 15,
+     "concept": 29
+    }
+   },
+   {
+    "nodes": 45,
+    "roots": 1,
+    "root": "수면 시간보다 중요한 수면의 질",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 3,
+    "widest": 10,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 45,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 7,
+    "relates": 0,
+    "kinds": {
+     "thesis": 1,
+     "claim": 15,
+     "concept": 29
+    }
+   }
+  ]
+ },
+ "수익률격차": {
+  "old": [
+   {
+    "nodes": 25,
+    "roots": 1,
+    "root": "개인 투자자는 왜 시장을 이기지 못하는가",
+    "root_question": true,
+    "root_claim": false,
+    "depth": 4,
+    "widest": 6,
+    "figure_nodes": 1,
+    "title_generic_nodes": 4,
+    "label_grounded": 1.0,
+    "f06_items": 56,
+    "f06_lost": 35,
+    "lost_eg": [
+     "개인 투자자 vs 시장지수 수익률 차이",
+     "상위 25% 그룹도 지수 하회",
+     "수익률 격차는 실재함",
+     "개인 평균 연 4.8%p 지수 대비 낮음"
+    ],
+    "evidence": 0,
+    "relates": 16,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 30,
+    "roots": 1,
+    "root": "개인 투자자는 왜 시장을 이기지 못하는가",
+    "root_question": true,
+    "root_claim": false,
+    "depth": 4,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 4,
+    "label_grounded": 0.967,
+    "f06_items": 56,
+    "f06_lost": 38,
+    "lost_eg": [
+     "개인 투자자 vs 시장지수 수익률 차이",
+     "상위 25% 그룹도 지수 하회",
+     "개인 평균 연 4.8%p 지수 대비 낮음",
+     "개인 상위 25%도 지수 2.6%p 하회"
+    ],
+    "evidence": 0,
+    "relates": 14,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   },
+   {
+    "nodes": 32,
+    "roots": 1,
+    "root": "개인 투자자는 왜 시장을 이기지 못하는가",
+    "root_question": true,
+    "root_claim": false,
+    "depth": 4,
+    "widest": 20,
+    "figure_nodes": 0,
+    "title_generic_nodes": 4,
+    "label_grounded": 0.969,
+    "f06_items": 56,
+    "f06_lost": 41,
+    "lost_eg": [
+     "개인 투자자 vs 시장지수 수익률 차이",
+     "개인 평균 연 4.8%p 지수 대비 낮음",
+     "개인 상위 25%도 지수 2.6%p 하회",
+     "종목 선정 능력과 수익률 상관 약함"
+    ],
+    "evidence": 0,
+    "relates": 23,
+    "kinds": {
+     "thesis": 0,
+     "claim": 0,
+     "concept": 0
+    }
+   }
+  ],
+  "new": [
+   {
+    "nodes": 94,
+    "roots": 1,
+    "root": "격차는 종목 선택이 아니라 행동에서 만들어진다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 6,
+    "widest": 23,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 109,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 147,
+    "relates": 7,
+    "kinds": {
+     "thesis": 1,
+     "claim": 42,
+     "concept": 51
+    }
+   },
+   {
+    "nodes": 94,
+    "roots": 1,
+    "root": "격차는 종목 선택이 아니라 행동에서 만들어진다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 6,
+    "widest": 23,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 109,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 147,
+    "relates": 7,
+    "kinds": {
+     "thesis": 1,
+     "claim": 42,
+     "concept": 51
+    }
+   },
+   {
+    "nodes": 93,
+    "roots": 1,
+    "root": "실력의 문제가 아니라 행동의 문제다 — 수익률 격차의 다섯 가지 원인",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 5,
+    "widest": 11,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 101,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 103,
+    "relates": 4,
+    "kinds": {
+     "thesis": 1,
+     "claim": 39,
+     "concept": 53
+    }
+   },
+   {
+    "nodes": 92,
+    "roots": 1,
+    "root": "격차는 종목 선택이 아니라 행동에서 만들어진다",
+    "root_question": false,
+    "root_claim": true,
+    "depth": 5,
+    "widest": 13,
+    "figure_nodes": 0,
+    "title_generic_nodes": 0,
+    "label_grounded": 1.0,
+    "f06_items": 101,
+    "f06_lost": 0,
+    "lost_eg": [],
+    "evidence": 103,
+    "relates": 3,
+    "kinds": {
+     "thesis": 1,
+     "claim": 38,
+     "concept": 53
+    }
+   }
+  ]
+ }
+}

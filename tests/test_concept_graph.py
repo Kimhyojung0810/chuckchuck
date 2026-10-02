@@ -5,6 +5,8 @@ SCHEMA.md 6-B 의 '보증' 항목이 여기 그대로 대응됩니다.
 LLM 은 전부 가짜라서 네트워크·API 키가 필요하지 않습니다.
 """
 
+import json
+
 import pytest
 
 from chuckchuck.contracts import (
@@ -997,3 +999,89 @@ def test_links_between_ancestor_and_descendant_are_dropped():
     """
     graph = graph_of(payload)
     assert [(e.from_id, e.to_id) for e in graph.relates_edges] == [("a1", "b")]
+
+
+def test_question_shaped_thesis_takes_the_claim_from_its_summary():
+    """주장 노드 이름이 질문이면 요약의 답으로 바꾼다 (2026-10-01 수익률격차 표지)."""
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "개인 투자자는 왜 시장을 이기지 못하는가", "slide_nos": [1],
+       "summary": "실력 문제가 아닌 행동 문제", "parent": null},
+      {"id": "a", "label": "과잉 매매", "slide_nos": [2], "summary": "거래를 늘릴수록 성과가 낮아졌다", "parent": "t"}
+    ], "edges": [], "sections": []}
+    """
+    t = graph_of(payload).node("t")
+    assert t.label == "실력 문제가 아닌 행동 문제"
+    assert t.summary.startswith("개인 투자자는 왜 시장을 이기지 못하는가")
+
+
+def test_claim_thesis_and_question_summary_are_left_alone():
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "잠은 시간보다 질이 중요하다", "slide_nos": [1], "summary": "수면 시간보다 중요한 수면의 질", "parent": null},
+      {"id": "q", "label": "왜 피곤할까?", "slide_nos": [2], "summary": "분명 잤는데 왜 피곤할까?", "parent": "t"}
+    ], "edges": [], "sections": []}
+    """
+    g = graph_of(payload)
+    assert g.node("t").label == "잠은 시간보다 질이 중요하다"
+    assert g.node("q").label == "왜 피곤할까?"
+
+
+def test_thesis_claim_field_names_the_claim_node_when_grounded():
+    """thesis_claim 이 자료 낱말로 된 평서문이면 주장 노드 이름이 된다. 지어낸 주장·질문은 받지 않는다."""
+    def payload(claim: str) -> str:
+        return json.dumps({"thesis": "t", "thesis_claim": claim, "nodes": [
+            {"id": "t", "label": "주제 1", "slide_nos": [1], "summary": "주제 1 설명", "parent": None},
+            {"id": "a", "label": "주제 2", "slide_nos": [2], "summary": "주제 2 설명", "parent": "t"},
+        ], "edges": [], "sections": []}, ensure_ascii=False)
+    assert graph_of(payload("주제 1 은 주제 2 로 설명된다")).node("t").label == "주제 1 은 주제 2 로 설명된다"
+    assert graph_of(payload("양자 컴퓨터가 금융을 바꾼다")).node("t").label == "주제 1"     # 자료에 없는 말
+    assert graph_of(payload("주제 1 은 왜 중요한가")).node("t").label == "주제 1"            # 질문
+
+
+def test_question_colon_answer_keeps_only_the_answer():
+    """「질문: 답」 한 줄이 이름이거나 thesis_claim 이면 답만 쓴다."""
+    payload = json.dumps({"thesis": "t", "thesis_claim": "개인 투자자는 왜 시장을 이기지 못하는가: 실력 문제가 아닌 행동 문제",
+                          "nodes": [{"id": "t", "label": "개인 투자자는 왜 시장을 이기지 못하는가: 실력 문제가 아닌 행동 문제",
+                                     "slide_nos": [1], "summary": "실력 문제가 아닌 행동 문제", "parent": None}],
+                          "edges": [], "sections": []}, ensure_ascii=False)
+    doc = ConceptDoc(file_name="s.pdf", total_slides=1, model="mock", slides=[SlideConcepts(
+        slide_no=1, title="개인 투자자는 왜 시장을 이기지 못하는가", topic="수익률 격차",
+        keywords=["행동 문제"], concepts=["개인 투자자는 왜 시장을 이기지 못하는가: 실력 문제가 아닌 행동 문제"], importance="core")])
+    assert graph_of(payload, doc=doc).node("t").label == "실력 문제가 아닌 행동 문제"
+
+
+def test_question_label_with_question_colon_answer_summary_takes_the_answer():
+    payload = """
+    {"thesis": "t", "nodes": [
+      {"id": "t", "label": "개인 투자자는 왜 시장을 이기지 못하는가", "slide_nos": [1],
+       "summary": "개인 투자자는 왜 시장을 이기지 못하는가: 실력 문제가 아닌 행동 문제", "parent": null}
+    ], "edges": [], "sections": []}
+    """
+    assert graph_of(payload).node("t").label == "실력 문제가 아닌 행동 문제"
+
+
+def test_long_claim_is_shortened_to_subject_and_last_clause():
+    from chuckchuck.f07_graph import _shorten_claim
+    long = ("AI 발표 코칭 서비스는 발표자료와 발화를 함께 분석해 핵심 개념 누락·설명 부족·논리 흐름을 진단하고, "
+            "취약 개념 기반 Q&A를 통해 발표자의 실질적인 이해와 설명 능력을 향상시킨다")
+    assert _shorten_claim(long) == "AI 발표 코칭 서비스는 취약 개념 기반 Q&A를 통해 발표자의 실질적인 이해와 설명 능력을 향상시킨다"
+    assert _shorten_claim("짧은 주장은 그대로 둔다") == "짧은 주장은 그대로 둔다"
+
+
+def test_childless_slide_title_node_gets_that_slides_items_as_children():
+    """장 제목 그대로인 노드가 자식 없이 끝나면 그 장 개념 목록 항목을 자식으로 단다. 이미 있는 이름은 건너뛴다."""
+    doc = ConceptDoc(file_name="s.pdf", total_slides=2, model="mock", slides=[
+        SlideConcepts(slide_no=1, title="행동이 문제다", topic="t", keywords=[], concepts=["행동이 문제다: 실력이 아니다"], importance="core"),
+        SlideConcepts(slide_no=2, title="실행 체크리스트", topic="t", keywords=[],
+                      concepts=["종목 수 하한: 8종목 이상", "연간 총비용: 1% 이하 관리", "회전율: 가장 강한 역상관 변수"],
+                      importance="core"),
+    ])
+    payload = json.dumps({"thesis": "t", "nodes": [
+        {"id": "t", "label": "행동이 문제다", "slide_nos": [1], "summary": "실력이 아니다", "parent": None},
+        {"id": "turn", "label": "회전율", "slide_nos": [2], "summary": "가장 강한 역상관 변수", "parent": "t"},
+        {"id": "ck", "label": "실행 체크리스트", "slide_nos": [2], "summary": "", "parent": "t"},
+    ], "edges": [], "sections": []}, ensure_ascii=False)
+    g = graph_of(payload, doc=doc)
+    kids = sorted(n.label for n in g.nodes if n.parent_id == "ck")
+    assert kids == ["연간 총비용", "종목 수 하한"]

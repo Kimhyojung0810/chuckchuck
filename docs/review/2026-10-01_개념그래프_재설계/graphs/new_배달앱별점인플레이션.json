@@ -1,0 +1,478 @@
+{
+ "file_name": "C_배달앱_별점인플레이션.pptx",
+ "total_slides": 3,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "label": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+   "slide_nos": [
+    3
+   ],
+   "summary": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.5196,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": true
+   },
+   "parent_id": null,
+   "depth": 1,
+   "kind": "thesis",
+   "evidence": [
+    "2024. 1.~2025. 6.",
+    "1점대 3%, 2점대 2%, 3점대 5%, 4.0~4.4 8%, 4.5~5.0 82%",
+    "한 플랫폼 데이터만 썼고, 이벤트 운영 여부는 리뷰 텍스트로 추정한 값이다 (정확도 91%)",
+    "인과가 아니라 연관으로 읽어야 한다"
+   ]
+  },
+  {
+   "id": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "label": "세 가설 가운데 리뷰 이벤트만 데이터로 지지됐다",
+   "slide_nos": [
+    2
+   ],
+   "summary": "세 가설 가운데 리뷰 이벤트만 데이터로 지지됐다",
+   "importance": "core",
+   "weight": 0.87,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3197,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "depth": 2,
+   "kind": "claim",
+   "evidence": [
+    "매장 고정효과를 넣어도 유지된다"
+   ]
+  },
+  {
+   "id": "ribyu-inpeulreisyeon",
+   "label": "리뷰 인플레이션",
+   "slide_nos": [
+    1
+   ],
+   "summary": "리뷰 평점이 비정상적으로 높아지는 현상",
+   "importance": "core",
+   "weight": 0.586,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1607,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "리뷰 124,380건"
+   ]
+  },
+  {
+   "id": "baedalaep-ribyu",
+   "label": "배달앱 리뷰",
+   "slide_nos": [
+    1
+   ],
+   "summary": "배달앱에 작성된 리뷰 데이터",
+   "importance": "core",
+   "weight": 0.5,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1607,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "ribyu-inpeulreisyeon",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "sudogwon-maejang",
+   "label": "수도권 매장",
+   "slide_nos": [
+    1
+   ],
+   "summary": "분석 대상 매장 위치",
+   "importance": "core",
+   "weight": 0.504,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1607,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "수도권 매장 3,200곳"
+   ]
+  },
+  {
+   "id": "ribyu-geonsu",
+   "label": "리뷰 건수",
+   "slide_nos": [
+    1
+   ],
+   "summary": "분석에 사용된 리뷰 수",
+   "importance": "core",
+   "weight": 0.545,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.1607,
+    "has_visual": false,
+    "position": "early",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "gaseol-a",
+   "label": "가설 A",
+   "slide_nos": [
+    2
+   ],
+   "summary": "매장 품질이 실제로 좋아졌다",
+   "importance": "core",
+   "weight": 0.658,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3197,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gaseol-b",
+   "label": "가설 B",
+   "slide_nos": [
+    2
+   ],
+   "summary": "리뷰 이벤트가 높은 별점을 산다",
+   "importance": "core",
+   "weight": 0.658,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3197,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "gaseol-c",
+   "label": "가설 C",
+   "slide_nos": [
+    2
+   ],
+   "summary": "불만족 고객은 리뷰를 쓰지 않는다",
+   "importance": "core",
+   "weight": 0.658,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3197,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "ribyu-ibenteu",
+   "label": "리뷰 이벤트",
+   "slide_nos": [
+    2
+   ],
+   "summary": "리뷰 작성 유도 이벤트",
+   "importance": "core",
+   "weight": 0.822,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3197,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": true
+   },
+   "parent_id": "gaseol-b",
+   "depth": 4,
+   "kind": "concept",
+   "evidence": [
+    "이벤트를 운영한 매장의 평균 별점이 +0.34점 높았다",
+    "2024. 1.~2025. 6. 수도권 매장 3,200곳의 리뷰 124,380건",
+    "이벤트 운영 여부는 리뷰 텍스트로 추정했다"
+   ]
+  },
+  {
+   "id": "jaejumunyul",
+   "label": "재주문율",
+   "slide_nos": [
+    2
+   ],
+   "summary": "같은 기간 재주문율 변화",
+   "importance": "core",
+   "weight": 0.613,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3197,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "gaseol-a",
+   "depth": 4,
+   "kind": "concept",
+   "evidence": [
+    "같은 기간 재주문율은 +0.6%p로 사실상 변화가 없었다"
+   ]
+  },
+  {
+   "id": "ribyu-jakseongryul",
+   "label": "리뷰 작성률",
+   "slide_nos": [
+    2
+   ],
+   "summary": "환불 요청 주문의 리뷰 작성률",
+   "importance": "core",
+   "weight": 0.654,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.3197,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "gaseol-c",
+   "depth": 4,
+   "kind": "concept",
+   "evidence": [
+    "환불을 요청한 주문의 리뷰 작성률은 11%로, 전체 평균 34%의 3분의 1 수준이었다"
+   ]
+  },
+  {
+   "id": "byeoljeom-guganbyeol-ribyu-bijung",
+   "label": "별점 구간별 리뷰 비중",
+   "slide_nos": [
+    3
+   ],
+   "summary": "별점 구간별 리뷰 비율",
+   "importance": "core",
+   "weight": 0.993,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.5196,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 5,
+    "title_hit": false
+   },
+   "parent_id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "별점 구간별 리뷰 비중",
+    "그림 1. 별점 구간별 리뷰 비중 (n = 124,380)"
+   ]
+  },
+  {
+   "id": "ribyu-sujip-bangsik",
+   "label": "리뷰 수집 방식",
+   "slide_nos": [
+    3
+   ],
+   "summary": "리뷰가 수집되는 방식",
+   "importance": "core",
+   "weight": 0.87,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.5196,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "byeoljeom-guganbyeol-ribyu-bijung",
+   "depth": 3,
+   "kind": "concept"
+  },
+  {
+   "id": "haengdong-jipyo",
+   "label": "행동 지표",
+   "slide_nos": [
+    3
+   ],
+   "summary": "평균 별점 대신 함께 노출할 지표",
+   "importance": "core",
+   "weight": 0.87,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.5196,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "depth": 2,
+   "kind": "concept"
+  },
+  {
+   "id": "ibenteu-maejang-pyosi",
+   "label": "이벤트 매장 표시",
+   "slide_nos": [
+    3
+   ],
+   "summary": "리뷰 이벤트 매장은 따로 표시해야 한다",
+   "importance": "core",
+   "weight": 0.829,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.5196,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 1,
+    "title_hit": false
+   },
+   "parent_id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "depth": 2,
+   "kind": "concept",
+   "evidence": [
+    "평균 별점 대신 환불·재주문 같은 행동 지표를 함께 노출하고, 리뷰 이벤트 매장은 따로 표시해야 한다"
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "to": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "kind": "parent"
+  },
+  {
+   "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "to": "ribyu-inpeulreisyeon",
+   "kind": "parent"
+  },
+  {
+   "from": "ribyu-inpeulreisyeon",
+   "to": "baedalaep-ribyu",
+   "kind": "parent"
+  },
+  {
+   "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "to": "sudogwon-maejang",
+   "kind": "parent"
+  },
+  {
+   "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "to": "ribyu-geonsu",
+   "kind": "parent"
+  },
+  {
+   "from": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "to": "gaseol-a",
+   "kind": "parent"
+  },
+  {
+   "from": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "to": "gaseol-b",
+   "kind": "parent"
+  },
+  {
+   "from": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+   "to": "gaseol-c",
+   "kind": "parent"
+  },
+  {
+   "from": "gaseol-b",
+   "to": "ribyu-ibenteu",
+   "kind": "parent"
+  },
+  {
+   "from": "gaseol-a",
+   "to": "jaejumunyul",
+   "kind": "parent"
+  },
+  {
+   "from": "gaseol-c",
+   "to": "ribyu-jakseongryul",
+   "kind": "parent"
+  },
+  {
+   "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "to": "byeoljeom-guganbyeol-ribyu-bijung",
+   "kind": "parent"
+  },
+  {
+   "from": "byeoljeom-guganbyeol-ribyu-bijung",
+   "to": "ribyu-sujip-bangsik",
+   "kind": "parent"
+  },
+  {
+   "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "to": "haengdong-jipyo",
+   "kind": "parent"
+  },
+  {
+   "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+   "to": "ibenteu-maejang-pyosi",
+   "kind": "parent"
+  }
+ ],
+ "sections": [
+  {
+   "name": "도입",
+   "slide_role": "intro",
+   "slide_nos": [
+    1
+   ]
+  },
+  {
+   "name": "본론",
+   "slide_role": "body",
+   "slide_nos": [
+    2,
+    3
+   ]
+  },
+  {
+   "name": "결론",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    3
+   ]
+  }
+ ],
+ "thesis": "4-7eun-pumjili-anira-ribyu-sujip-bangsik"
+}

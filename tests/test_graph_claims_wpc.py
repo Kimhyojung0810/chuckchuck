@@ -275,7 +275,7 @@ def test_GA3_반대_극성_대비는_남긴다():
 # ---------------------------------------------------------------------------
 
 def test_GA8_빠진_장은_다시_묻고_그래도_많이_빠지면_실패다():
-    sd = deck(*[(i, f"{i}장 제목\n본문 {i}") for i in range(1, 9)])
+    sd = deck(*[(i, f"{i}장 제목\n개념{i} 설명") for i in range(1, 9)])   # 개념 이름은 그 장 원문에 있어야 받는다 (10-02)
     full = {"slides": [{"slide_no": i, "title": f"{i}장", "topic": "t", "keywords": ["k"], "concepts": [f"개념{i}: 설명"]}
                        for i in range(1, 9)]}
     partial = {"slides": [x for x in full["slides"] if x["slide_no"] != 3]}
@@ -395,7 +395,7 @@ def test_GA18_글자로_쪼개진_키워드를_다시_붙인다():
         SlideConcepts(slide_no=1, title="t", topic="", keywords=list("재고, 배송"), concepts=["재고: 창고에 쌓인 물건"])])
     prompt = F7._build_user_prompt(cd, Context())
     assert "- [S1] 재고\n- [S1] 배송" in prompt and "- [S1] 재\n" not in prompt
-    sd = deck((1, "물류\n본문"))
+    sd = deck((1, "물류\n재고 설명"))
     doc = F6.extract_concepts(sd, llm=ScriptedLLM({"slides": [{"slide_no": 1, "keywords": "재고, 배송", "concepts": "재고: 설명"}]}))
     assert doc.slides[0].keywords == ["재고", "배송"] and doc.slides[0].concepts == ["재고: 설명"]
 

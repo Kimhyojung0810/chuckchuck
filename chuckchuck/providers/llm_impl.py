@@ -65,6 +65,8 @@ class MockLLM(LLMProvider):
         # 가짜 LLM 은 늘 JSON 만 낸다 — json_mode 는 받기만 하고 무시한다
         if "[TASK] concept-graph" in user:
             return self._mock_graph(user)
+        if "[TASK] concept-skeleton" in user:
+            return self._mock_skeleton(user)
         if "[TASK] audience-chatter" in user:
             return self._mock_chatter(user)
         if "[TASK] speech-alignment" in user:
@@ -179,8 +181,9 @@ class MockLLM(LLMProvider):
         items.append({"node_id": ids[-1], "verdict": "missing", "evidence": "", "note": ""})
 
         edges = []
-        if len(ids) >= 2:
-            edges.append({"from": ids[0], "to": ids[1], "cue": "그래서 이어서 설명하면"})
+        # 맨 앞 개념을 나머지 모두와 잇는다 — 그래프 모양(종류 있는 길은 핵심 주장 밑이 넓다)에 상관없이 문서 간선 하나쯤은 겹치게
+        for other in ids[1:]:
+            edges.append({"from": ids[0], "to": other, "cue": "그래서 이어서 설명하면"})
 
         extras = [{"label": "모의 추가 개념", "quote": "자료에 없는 보충 설명", "slide_no": 1}]
         return json.dumps(
@@ -408,6 +411,33 @@ class MockLLM(LLMProvider):
             },
             ensure_ascii=False,
         )
+
+    @staticmethod
+    def _mock_skeleton(user: str) -> str:
+        """
+        F-07 뼈대 판단(종류 있는 F-06 길) 가짜 응답. 첫 주장을 핵심 주장으로, 모든 장을 그 밑에,
+        서로 다른 두 장의 첫 항목을 근거 표현과 함께 한 번 잇는다 — 후처리 경로가 도는지만 본다.
+        """
+        ids = re.findall(r"^- ([ck])(\d+)\.(\d+) ", user, flags=re.M)
+        claims = [f"c{n}.{i}" for k, n, i in ids if k == "c"]
+        first_by_slide: dict[int, str] = {}
+        for k, n, i in ids:
+            first_by_slide.setdefault(int(n), f"{k}{n}.{i}")
+        nos = sorted(first_by_slide)
+        concept_ids = [f"k{n}.{i}" for k, n, i in ids if k == "k"]
+        links = []
+        if len(concept_ids) >= 2:              # 앞 두 장의 개념을 잇는다 — 장이 다르면 받아들여진다
+            m = re.search(rf"^- {re.escape(concept_ids[0])} \(개념\) ([^—\n\[]+)", user, flags=re.M)
+            links.append({"from": concept_ids[0], "to": concept_ids[1],
+                          "why": (m.group(1).strip() if m else "모의 연결")})   # 근거 표현은 자료 줄에서
+        return json.dumps({
+            "thesis_from": claims[0] if claims else None,
+            "thesis_claim": "",
+            "thesis_same": [],
+            "slides": [{"slide_no": n, "parent": "thesis"} for n in nos],
+            "links": links,
+            "sections": [{"name": "본론", "slide_role": "body", "slide_nos": nos}],
+        }, ensure_ascii=False)
 
     @staticmethod
     def _mock_graph(user: str) -> str:

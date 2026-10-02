@@ -27,6 +27,7 @@ import sys
 from . import _claim_rules as R
 from . import _deck_lines as DL
 from . import _graph_items as GI
+from . import _typed_graph as TG
 from ._claim_rules import mention_score as R_mention
 from ._json_text import extract_json_object
 from ._match import contains_tokens, label_tokens, norm_tokens
@@ -51,7 +52,9 @@ from .providers.llm_impl import get_llm
 MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_TOKENS", "8192"))
 MAX_CONCEPTS_PER_SLIDE = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_CONCEPTS", "6"))
 #: 계약상 얕은 그래프를 요구한다. 이보다 깊으면 상위로 끌어올린다.
-MAX_GRAPH_DEPTH = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_DEPTH", "3"))
+#: 2026-10-01: 3 → 4. 「주장 → 요인 묶음 → 요인 → 세부」(수익률격차: 다섯 가지 행동 요인 → 과잉 매매 → 회전율)가 3단에 막혀
+#: 세부가 요인과 형제로 올라왔다 (6회 중 6회 깊이 3, 세부 자리 틀림 2~12개).
+MAX_GRAPH_DEPTH = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_DEPTH", "4"))
 #: 프롬프트가 요구하는 최상위 개념 상한. 실측에서 13/28 이 루트로 떠서 후처리로 잡는다.
 MAX_ROOTS = int(os.environ.get("CHUCKCHUCK_GRAPH_MAX_ROOTS", "4"))
 
@@ -68,13 +71,48 @@ _IMPORTANCE_SCORE = {"core": 1.0, "support": 0.35}
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
+#: 질문 꼴 — 주장 노드 이름이 이렇게 끝나면 답이 아니라 물음이다 (「…는 왜 … 못하는가」 · 「…일까?」).
+_QUESTION_RE = re.compile(r"[?？]|(?:는가|은가|일까|ㄹ까|을까|할까|나요|까요)\s*$|^왜\s|\s왜\s")
+#: 주장 이름으로 쓸 길이. 넘으면 첫 마디(쉼표·대시·마침표)에서 자른다.
+CLAIM_LABEL_MAX = 40
+#: thesis_claim 으로 받는 최대 길이 — 모델이 40자 규칙을 넘겨 쓰기 일쑤라(10-01 소개 덱 70자대) 버리지 않고 받는다.
+CLAIM_ACCEPT_MAX = 80
+
+
+def _shorten_claim(text: str) -> str:
+    """
+    긴 주장을 「주어 + 마지막 마디」 로 줄인다. 모델이 쓴 낱말만 쓴다 — 새로 짓지 않는다.
+    (10-01 소개 덱: 「AI 발표 코칭 서비스는 …을 진단하고, 취약 개념 기반 Q&A로 … 능력을 향상시킨다」 100자 →
+     「AI 발표 코칭 서비스는 취약 개념 기반 Q&A로 … 능력을 향상시킨다」)
+    """
+    if len(text) <= CLAIM_ACCEPT_MAX:
+        return text
+    m = re.match(r"^(.{2,30}?(?:은|는|이|가))\s", text)
+    tail = re.split(r",\s", text)[-1].strip()
+    if m and tail and tail != text:
+        short = f"{m.group(1)} {tail}"
+        if len(short) <= CLAIM_ACCEPT_MAX:
+            return short
+    return text
+
+
+def _answer_part(text: str) -> str:
+    """「질문: 답」 꼴이면 답만 (F-06 이 표지를 「…는 왜 …못하는가: 실력 문제가 아닌 행동 문제」 로 뽑는다)."""
+    text = re.sub(r"\s+", " ", text or "").strip().strip('"「」')
+    if ":" in text:
+        left, right = text.split(":", 1)
+        if _QUESTION_RE.search(left.strip()) and right.strip():
+            return right.strip()
+    return text
+
 SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
 '개념 목록'을 받아, 발표 전체 기준의 개념 그래프와 구획을 만든다.
 
 가장 중요한 것 — 노드는 슬라이드가 아니라 '개념'이다:
 - 노드는 반드시 '개념 목록'의 항목에서 만든다.
-- 슬라이드 제목("자사 분석", "경쟁사 분석" 같은 것)을 노드 label 로 쓰지 마라.
-  그건 목차지 개념이 아니다.
+- 슬라이드 제목("자사 분석", "경쟁사 분석", "기대 효과", "향후 계획" 같은 것)을 노드 label 로 쓰지 마라.
+  그건 목차지 개념이 아니다. 그 장을 그래프에 담으려면 **그 장의 개념 목록 항목들**을 노드로 만든다
+  (「향후 계획」 노드 하나가 아니라, 그 장에 나열된 항목 하나하나).
 - 노드 개수가 슬라이드 개수와 같으면 슬라이드를 그대로 옮긴 것이므로 잘못 만든 것이다.
 - 같은 개념이 여러 [S번호]에 나오면 하나의 노드로 합치고 slide_nos 에 그 번호를 모두 적어라.
 - '개념명: 설명' 꼴이 아니라 **낱말만 있는 줄**(키워드)은, 그 낱말을 이미 다루는 개념 노드가 있으면
@@ -87,14 +125,21 @@ SYSTEM_PROMPT = """당신은 발표 구조 분석가다.
    하위 개념 하나에 상위 개념은 하나만.
 2. **parent 가 null 인 노드는 많아야 4개다.** 5개 이상이면 위계를 안 만든 것이므로 잘못 만든 것이다.
    개념 하나하나마다 "이건 어느 개념을 설명하거나 이루는가" 를 묻고, 그 답을 parent 에 적어라.
-3. 위계 깊이는 3단계를 넘기지 마라.
+3. 위계 깊이는 4단계를 넘기지 마라. 한 장에만 나오는 세부는 그 장을 대표하는 요소 밑으로 내려라
+   (예: 어느 원인의 상세 장에만 나오는 지표는 그 원인 밑). 목록에 없는 묶음 이름을 새로 짓지 마라.
 4. nodes 는 **위에서 아래 순서**로 적는다 — 주제 먼저, 그 자식들, 그 손자들. parent 에는 이미 적은 노드의 id 만 쓴다.
 
 위계는 이 순서로 만든다 — 위에서 아래로:
-A. 먼저 **발표의 주제(핵심 주장) 개념 하나**를 고른다. thesis 에 그 id 를 적는다.
-   주제는 설명 분량이 가장 많은 개념이 아니다. 표지·도입·요약·결론 장이나 공식·정의 한 줄처럼
-   **글이 짧은 장에 있는 경우가 많다.** "이 발표는 결국 무엇을 말하려는가" 에 대한 답이 주제다.
-   주제 개념은 parent 가 null 이다.
+A. 먼저 **발표의 핵심 주장 하나**를 노드로 세운다. thesis 에 그 id 를, thesis_claim 에 그 주장 한 문장을 적는다.
+   주장 노드는 parent 가 null 이다.
+   주장은 "이 발표는 결국 무엇을 말하려는가" 에 대한 **답 한 문장**이다. 분량이 가장 많은 개념이 아니다 —
+   표지 부제·요약 장 제목·결론 장·공식 한 줄처럼 **글이 짧은 곳에 있는 경우가 많다.**
+   - thesis_claim 과 주장 노드의 label 은 **짧은 평서문**(40자 이내)이다. 질문형 제목을 그대로 쓰지 않는다. 주제어 하나로 쓰지 않는다.
+     (X) "도시는 왜 더워지는가"  (X) "도시 열섬"  (O) "도시 숲은 열섬을 식힌다"
+   - 주장 노드에 한해 개념 목록의 설명 부분·「발표 흐름」의 장 제목·결론 장 문장에서 낱말을 가져와 label 을 쓸 수 있다.
+     **자료에 적힌 주장 문장(부제·요약 장 제목·결론 문장)을 가능한 그대로 옮긴다. 바꿔 말하지 마라** — 낱말을 섞어
+     새 문장을 지으면 뜻이 뒤집힌다 ("예측 능력은 격차의 원인이 아니다" → "예측을 잘해도 못 이긴다" 는 다른 주장이다).
+     자료에 없는 주장을 지어내지 마라. summary 에는 그 주장이 적힌 자료 문장을 그대로 옮긴다.
 B. 주제를 이루는 **요소**를 주제 밑에 단다. 주제가 "A = B × C × D" 같은 공식·정의면
    B·C·D 는 주제의 자식이다. 요소가 여러 장에 흩어져 나와도(설명 장·실천 장) 같은 부모다.
    **주제 바로 밑 자식은 3~6개다.** 7개 이상이면 요소와 세부를 섞은 것이다 — 목록에 있는
@@ -115,7 +160,7 @@ E. 주제와 관계없이 독립적으로 서는 큰 축이 정말 있을 때만
 그 밖:
 6. 자료에 없는 개념을 지어내지 마라. 주어진 개념 안에서만 묶어라.
 7. id 는 영소문자·숫자·하이픈만 쓴다. 짧고 의미 있게. 유일해야 한다.
-8. label 은 개념 이름만 짧게. summary 는 새 문장을 짓지 않는다 — 그 노드의 근거가 된 개념 목록 항목의
+8. label 은 개념 이름만 짧게 (핵심 주장 노드는 A 를 따른다 — 짧은 평서문). summary 는 새 문장을 짓지 않는다 — 그 노드의 근거가 된 개념 목록 항목의
    '개념명: 설명' 에서 설명 부분을 그대로 옮겨 적는다(여러 항목을 합친 노드면 그중 하나). 목록에 없는
    일반어(정신적·구조적·체계·에너지·요소·신호 같은 말)로 풀어 쓰지 마라. 자료의 낱말만 쓴다.
 9. sections 는 발표를 앞에서 뒤로 훑어 구획으로 나눈 것이다. 모든 장이 어딘가에 들어가야 한다.
@@ -126,9 +171,10 @@ E. 주제와 관계없이 독립적으로 서는 큰 축이 정말 있을 때만
 출력 스키마:
 {
   "thesis": "contrast",
+  "thesis_claim": "자료 낱말로 쓴 핵심 주장 한 문장",
   "nodes": [
-    { "id": "contrast", "label": "주제 개념", "slide_nos": [1, 4],
-      "summary": "한 줄 설명", "importance": "core", "parent": null },
+    { "id": "contrast", "label": "핵심 주장 한 문장", "slide_nos": [1, 4],
+      "summary": "그 주장이 적힌 자료 문장", "importance": "core", "parent": null },
     { "id": "joint", "label": "요소 개념", "slide_nos": [5, 6],
       "summary": "한 줄 설명", "importance": "core", "parent": "contrast" },
     { "id": "encoder", "label": "세부 개념", "slide_nos": [6],
@@ -227,7 +273,7 @@ def _build_user_prompt(doc: ConceptDoc, ctx: Context) -> str:
     parts += concept_lines
     parts += [
         "",
-        "## 발표 흐름 — sections 를 나눌 때만 참고한다 (노드로 쓰지 마라)",
+        "## 발표 흐름 — sections 를 나눌 때 참고한다. 노드로 쓰지 마라 (단 핵심 주장 노드의 문장은 여기서 가져와도 된다)",
         "",
     ]
     for s in doc.slides:
@@ -259,7 +305,9 @@ def _example_ids() -> set[str]:
 
 def _example_labels() -> set[str]:
     """지금 프롬프트 스키마 예시의 label 들 — 모델이 「주제 개념」 을 노드 이름으로 그대로 옮기기도 한다 (09-29 수익률격차 1회)."""
-    return set(re.findall(r'"label":\s*"([^"]+)"', SYSTEM_PROMPT))
+    # 예전 예시 이름도 자리표지로 본다 — 10-01 주장 노드 개편으로 예시가 「핵심 주장 한 문장」 이 됐지만,
+    # 「주제 개념」 을 옮긴 출력(09-29 실측)도 계속 걸러야 한다.
+    return set(re.findall(r'"label":\s*"([^"]+)"', SYSTEM_PROMPT)) | {"주제 개념"}
 
 
 def _positional_id(slug: str, examples: set[str]) -> bool:
@@ -718,11 +766,20 @@ def _assemble(
         if not any({e.from_id, e.to_id} == {former, thesis} for e in relates):
             relates.append(ConceptEdge(from_id=former, to_id=thesis, kind="relates"))
     _break_parent_cycles(parent_of)
+    _expand_title_nodes(nodes, parent_of, doc, thesis)
     relates += _clamp_depth(parent_of, [n.id for n in nodes], MAX_GRAPH_DEPTH)
 
     for node in nodes:
         node.parent_id = parent_of.get(node.id)
         node.depth = _depth_of(node.id, parent_of)
+
+    # 주장 노드는 답 한 문장이어야 한다. thesis 가 없으면 루트가 하나일 때 그 루트.
+    # ① 모델이 thesis_claim 을 따로 적었고 자료 낱말로 된 평서문이면 그걸 이름으로 ② 아니면 질문 꼴 이름을 요약의 답으로.
+    roots = [n for n in nodes if n.parent_id is None]
+    claim_node = next((n for n in nodes if n.id == thesis), None) or (roots[0] if len(roots) == 1 else None)
+    if claim_node is not None:
+        if not _apply_thesis_claim(claim_node, str(data.get("thesis_claim", "") or ""), doc):
+            _claim_label(claim_node)
 
     _apply_weights(nodes, doc, slide_doc)
 
@@ -850,6 +907,100 @@ def _dedupe_relates(edges: list[ConceptEdge]) -> list[ConceptEdge]:
             seen.add(key)
         out.append(e)
     return out
+
+
+def _expand_title_nodes(nodes: list[ConceptNode], parent_of: dict[str, str], doc: ConceptDoc, thesis: str | None) -> None:
+    """
+    장 제목을 그대로 이름으로 단 노드(「실행 체크리스트」「오해와 사실」)가 자식 없이 끝났으면, 그 장의 개념 목록 항목을 자식으로 단다 (제자리).
+
+    프롬프트로 막아도 6회 중 6회 2~3개씩 나왔다 (2026-10-01 수익률격차). 지우면 그 장이 그래프에서 통째로 빠지고,
+    그대로 두면 「실행 체크리스트란?」 같은 목차 질문이 된다. 그 장 항목(「종목 수 하한: 8종목 이상」 …)은 자료에 적힌 개념이라
+    지어내는 것이 없고, 1-2 대조에서 「발표에만 나온 개념」 으로 떨어지던 것들이다. 이름이 이미 그래프에 있는 항목은 건너뛴다.
+    """
+    norm = lambda t: re.sub(r"[\s·:\-—]+", "", (t or "").lower())
+    with_children = set(parent_of.values())
+    used = {n.id for n in nodes}
+    have = [set(w for w in label_tokens(n.label) if len(w) >= 2) for n in nodes]
+    added: list[ConceptNode] = []
+    for node in list(nodes):
+        if node.id == thesis or node.id in with_children:
+            continue
+        for slide in (s for s in doc.slides if s.title and norm(s.title) == norm(node.label)):
+            for item in slide.concepts[:MAX_CONCEPTS_PER_SLIDE]:
+                name, _, desc = str(item).partition(":")
+                name, desc = name.strip(), desc.strip()
+                toks = set(w for w in label_tokens(name) if len(w) >= 2)
+                if not name or norm(name) == norm(node.label) or not toks:
+                    continue
+                if any(len(toks & t) >= max(1, 0.6 * len(toks)) for t in have):
+                    continue
+                cid, k = _slug(name) or "item", 2
+                base = cid
+                while cid in used:
+                    cid, k = f"{base}-{k}", k + 1
+                used.add(cid)
+                have.append(toks)
+                added.append(ConceptNode(id=cid, label=name, slide_nos=[slide.slide_no], summary=desc,
+                                         importance=slide.importance if slide.importance in _IMPORTANCE_SCORE else "support"))
+                parent_of[cid] = node.id
+    nodes.extend(added)
+
+
+def _claim_label(node: ConceptNode) -> None:
+    """
+    핵심 주장 노드의 이름이 질문 꼴이면, 그 답이 적힌 요약으로 이름을 바꾼다 (제자리).
+
+    2026-10-01 수익률격차: F-06 이 표지를 「개인 투자자는 왜 시장을 이기지 못하는가: 실력 문제가 아닌 행동 문제」 로
+    뽑아 노드 이름이 질문, 주장은 요약에만 남았다 — 질문 코칭이 주장을 방어하게 하는 대신 제목을 되물었다.
+    요약도 질문이거나 비었으면 손대지 않는다 (지어낼 재료가 없다). 원래 질문은 요약 앞에 남긴다.
+    """
+    label, summary = (node.label or "").strip(), (node.summary or "").strip()
+    answer = _answer_part(label)
+    if answer != label and not _QUESTION_RE.search(answer):      # 이름 자체가 「질문: 답」 — 답만 남긴다
+        node.summary = " — ".join(x for x in (label, summary) if x)
+        node.label = answer
+        return
+    claim = _answer_part(summary)                              # 요약도 「질문: 답」 이면 답만 본다
+    if not _QUESTION_RE.search(label) or not claim or _QUESTION_RE.search(claim):
+        return
+    if len(claim) > CLAIM_LABEL_MAX:
+        cut = re.split(r"\s[—–-]\s|[.,;·]\s", claim)[0].strip()
+        claim = cut if 4 <= len(cut) <= CLAIM_LABEL_MAX else claim[:CLAIM_LABEL_MAX].rstrip()
+    node.summary = f"{label} — {summary}"
+    node.label = claim
+
+
+#: thesis_claim 낱말 중 자료(개념 목록·장 제목·주제)에 있어야 하는 비율. 아래면 지어낸 주장으로 보고 버린다.
+CLAIM_GROUNDED_MIN = 0.6
+
+
+def _apply_thesis_claim(node: ConceptNode, claim: str, doc: ConceptDoc) -> bool:
+    """
+    출력의 thesis_claim 을 주장 노드 이름으로 쓴다. 받으면 True.
+
+    노드 이름 규칙만으로는 3회 중 1~2회가 주제어(「수면의 질」 · 「AI 발표 코칭 서비스」)로 남았다 (2026-10-01) —
+    parent 칸처럼 칸을 따로 받는다. 질문 꼴·너무 긺·자료 낱말이 모자람(지어낸 주장)이면 받지 않는다.
+    """
+    claim = _shorten_claim(_answer_part(claim))
+    if not claim or len(claim) > CLAIM_ACCEPT_MAX or _QUESTION_RE.search(claim):
+        return False
+    words = [w for w in label_tokens(claim) if len(w) >= 2]      # 떨어진 조사·숫자 한 글자는 세지 않는다
+    if not words:
+        return False
+    deck_text = " ".join(
+        " ".join([s.title or "", s.topic or "", *s.concepts, *s.keywords]) for s in doc.slides
+    )
+    deck_words = norm_tokens(deck_text)
+    # 조사가 붙은 꼴(「행동에서」 · 「행동의」)도 같은 낱말로 본다 — 앞 두 글자 이상이 같으면 자료 낱말이다
+    def stem_hit(w: str) -> bool:
+        return any(len(d) >= 2 and (w.startswith(d[:2]) and (len(w) <= 2 or w[:2] == d[:2])) for d in deck_words)
+    grounded = sum(1 for w in words if stem_hit(w))
+    if grounded / len(words) < CLAIM_GROUNDED_MIN:
+        return False
+    if node.label.strip() != claim:
+        node.summary = " — ".join(x for x in (node.label.strip(), (node.summary or "").strip()) if x)
+        node.label = claim
+    return True
 
 
 def _subtree_reach(
@@ -1197,6 +1348,9 @@ def build_graph(
 
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
 
+    if TG.is_typed(doc):
+        return _build_typed(engine, doc, ctx, slide_doc)
+
     try:
         nodes, edges, sections, thesis = _call(engine, doc, ctx, slide_doc)
     except GraphError:
@@ -1239,6 +1393,27 @@ def build_graph(
     # 계약(contracts.ConceptGraph)에 칸이 생기면 싣는다 — 칸이 없는 지금도 그대로 돈다 (09-30 G-A17·G-A30).
     # thesis: 모델이 고른 발표 주제 노드 (F-08 theme 자리가 「가장 무거운 루트」 를 짐작하지 않게). 루트일 때만.
     _set_contract_field(graph, "thesis", thesis if thesis in {n.id for n in nodes if n.parent_id is None} else None)
+    _set_contract_field(graph, "degraded", degraded)
+    return graph
+
+
+def _build_typed(engine: LLMProvider, doc: ConceptDoc, ctx: Context, slide_doc: SlideDoc | None) -> ConceptGraph:
+    """
+    종류가 있는 F-06 (2026-10-01~) 의 길 — 노드는 자료에서 코드가, 뼈대 판단만 LLM 이 (`_typed_graph`).
+    루트는 늘 핵심 주장 하나라 루트 클램프가 필요 없고, 가지 간 연결은 자료가 밝힌 것만 받아 개수 보강(`_fill_links`)을 부르지 않는다.
+    뼈대 판단이 끝내 깨지면 모든 장을 핵심 주장 밑에 두고 degraded 에 「skeleton」 을 적는다.
+    """
+    degraded: list[str] = []
+    data = TG.call_structure(engine, doc, ctx, MAX_TOKENS)
+    if data is None:
+        degraded.append("skeleton")
+    nodes, edges, sections, thesis = TG.assemble(doc, data, slide_doc)
+    cov = TG.coverage(doc, nodes)
+    if cov["lost"]:
+        sys.stderr.write(f"[f07] 그래프에 없는 F-06 항목 {cov['lost']}/{cov['total']}: {cov['missing']}\n")
+    graph = ConceptGraph(file_name=doc.file_name, total_slides=doc.total_slides, nodes=nodes, edges=edges,
+                         sections=sections, model=engine.name)
+    _set_contract_field(graph, "thesis", thesis)
     _set_contract_field(graph, "degraded", degraded)
     return graph
 

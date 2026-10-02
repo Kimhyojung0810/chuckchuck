@@ -328,9 +328,16 @@ def _eligible_number(m: re.Match, text: str, label_spans) -> bool:
 _FORMULA_LINE_RE = re.compile(r"=.*[×✕*+÷/]")
 
 
+#: 수치 함정 사실 줄에 있어야 하는 괄호 밖 내용어 수 — 「80 회전율(회)」 처럼 축 이름에 숫자만 붙은 줄은 서술이 아니다.
+NUMBER_LINE_WORDS_MIN = 2
+
+
 def _number_from_line(row, idx, avoid: set[float]) -> TrapPremise | None:
     text = row.text
     if _FORMULA_LINE_RE.search(text):
+        return None
+    words = re.findall(r"[가-힣A-Za-z]{2,}", re.sub(r"[(（][^)）]*[)）]", " ", text))
+    if len(words) < NUMBER_LINE_WORDS_MIN:
         return None
     spans = grounding.label_spans(text, idx.labels)
     found = [m for m in _GEN_NUM_RE.finditer(text) if _eligible_number(m, text, spans)]
@@ -785,6 +792,22 @@ def _cover_slide(idx) -> int | None:
     return None if any(not r.table and _SENTENCE_END_RE.search(_clean(r.text)) for r in rows) else first
 
 
+def _emphasis(tp: TrapPremise, row, idx) -> int:
+    """
+    발표자가 **내세운** 사실인가 — 1점: 바꾼 값이 둘 이상의 장에 나오거나(「연 4.8%p」 2·4장), 사실 줄이 장 머리(제목·부제)다.
+    함정은 발표자가 당연히 알아야 할 사실을 뒤집어야 공정하다 — 한 장 구석의 값은 몰라도 흠이 아니다 (10-02 질문 코치).
+    """
+    if row.index < grounding.HEADING_ROWS and not row.table:
+        return 1
+    if tp.kind != "number":
+        return 0
+    cue = grounding.squash(tp.right[0]) if tp.right else ""
+    if not cue:
+        return 0
+    hit = sum(1 for no, rows in idx.rows.items() if any(cue in grounding.squash(r.text) for r in rows))
+    return 1 if hit >= 2 else 0
+
+
 def candidates(label: str, anchors: list[int], idx) -> list[Candidate]:
     """
     이 개념의 근거 장(anchors)에서 뒤집을 수 있는 자료 사실 전부 — 점수 높은 순.
@@ -817,7 +840,9 @@ def candidates(label: str, anchors: list[int], idx) -> list[Candidate]:
             if not tied:
                 continue
             if row.table:
-                if _chart_rounded(row, idx):
+                if _chart_rounded(row, idx) or no in getattr(idx, "chart_slides", set()):
+                    # 차트에서 읽어 낸 표의 칸 값(「거래 비용 | -0.4」)은 발표자가 외울 값이 아니다 — 0.1 바꾼 함정은 불공정하다 (10-02).
+                    # 같은 표로 만드는 순위 뒤집기(「가장 큰 요인은 …」)는 아래 extreme 이 맡는다 — 그건 발표의 요지다
                     continue
                 made = [_number_from_table_row(row, idx, avoid)]
             else:
@@ -828,7 +853,7 @@ def candidates(label: str, anchors: list[int], idx) -> list[Candidate]:
             for tp in made:
                 if tp is None or not verify(tp, idx):
                     continue
-                out.append(Candidate(tp, KIND_PRIORITY[tp.kind] + LABEL_BONUS, row.text))
+                out.append(Candidate(tp, KIND_PRIORITY[tp.kind] + LABEL_BONUS + _emphasis(tp, row, idx), row.text))
         for block in _numeric_tables(rows):
             tied = heading_tied or any(_tied(r.text, label, idx) for r in block) or _tied(block[0].header, label, idx)
             if not tied:

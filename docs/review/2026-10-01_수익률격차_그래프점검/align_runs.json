@@ -16,8 +16,8 @@
      "first_mention_sec": 2.927
     },
     "doc_weight": 0.441,
-    "evidence": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다 결론부터 말씀드리겠습니다.",
-    "note": "개인 투자자는 실력 문제가 아닌 행동 문제 설명",
+    "evidence": "아 안녕하세요 오늘 주제는 개인 투자자는 왜 시장을 이기지 못하는가입니다",
+    "note": "개인 투자자는 왜 시장을 이기지 못하는가 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -25,7 +25,7 @@
    },
    {
     "node_id": "gap",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.751,
     "speech_basis": {
      "speech_sec": 885.8,
@@ -35,16 +35,16 @@
      "first_mention_sec": null
     },
     "doc_weight": 1.0,
-    "evidence": "이 차이가 0.8% 8% 밖에 안 됩니다.",
-    "note": "발표에서는 0.8%라고 했는데 자료 3장은 8.7%예요",
-    "deck_quote": "기관과의 차이는 작다",
-    "deck_slide_no": 3,
-    "decided_by": "code",
-    "contra_kind": "number"
+    "evidence": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다.",
+    "note": "개인 평균 연 4.8%p 낮은 수익률, 10년 뒤 원금 규모 차이 84% 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "gap-real",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.142,
     "speech_basis": {
      "speech_sec": 167.58,
@@ -54,12 +54,12 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.374,
-    "evidence": "여전히 지수를 26% 포인트 밑돕니다.",
-    "note": "발표에서는 26%p라고 했는데 자료 2장은 4.8%p예요",
-    "deck_quote": "· 개인 평균은 지수 대비 연 4.8%p 낮음",
-    "deck_slide_no": 2,
-    "decided_by": "code",
-    "contra_kind": "number"
+    "evidence": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다.",
+    "note": "격차는 실재한다 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "gap-control",
@@ -74,7 +74,7 @@
     },
     "doc_weight": 0.519,
     "evidence": "매매 빈도나 보유 기간 같은 건 시장 시장을 마칠 필요 없이 본인이 정하는 값이거든요.",
-    "note": "통제 가능한 변수(빈도·기간·종목수·비용) 설명",
+    "note": "통제 가능한 변수 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -82,7 +82,7 @@
    },
    {
     "node_id": "gap-top",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.132,
     "speech_basis": {
      "speech_sec": 155.62,
@@ -92,12 +92,12 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.386,
-    "evidence": "상위 그룹도 못 넘었다면 개인 투자 방식 자체를 봐야 된다는 신호가 됩니다.",
-    "note": "자료 3장과 높고 낮은 방향이 반대예요",
-    "deck_quote": "성과 상위 그룹조차 지수에 못 미쳤다 — 개인 투자 방식 자체를 봐야 한다는 신호",
-    "deck_slide_no": 3,
-    "decided_by": "code",
-    "contra_kind": "direction"
+    "evidence": "어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다.",
+    "note": "성과 상위 그룹 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "gap-calc",
@@ -111,786 +111,7 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.401,
-    "evidence": "1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다. 체감이 안 되는 구간이죠. 5년 차에 307만원 10년 차에는 838만원까지 벌어집니다. 원금의 84%에 해당하는 금액입니다.",
-    "note": "10년 뒤 원금 규모 차이 84% 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "gap-calc-detail",
-    "verdict": "aligned",
-    "speech_weight": 0.03,
-    "speech_basis": {
-     "speech_sec": 35.91,
-     "time_share": 0.0405,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.285,
     "evidence": "1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다. 체감이 안 되는 구간이죠. 5년 차에 307만원 10년 차에는 838만원까지 벌어집니다.",
-    "note": "10년 누적 평가액 차이 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "gap-five",
-    "verdict": "contradiction",
-    "speech_weight": 0.122,
-    "speech_basis": {
-     "speech_sec": 143.64,
-     "time_share": 0.1622,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.423,
-    "evidence": "나머지 네 개는 결심이 필요하지만 오 번은 결심이 필요 없습니다.",
-    "note": "자료 5장과 수치가 달라요",
-    "deck_quote": "- 이 수평 막대 차트는 다섯 가지 행동 요인이 수익률에 미치는 연간 기여도를 %p 단위로 나타낸다. 가로축은 -1.8에서 0까지의 값을 표시하며, 막대는 오른쪽으로 길어지는 방향으로 배치된다. '과잉 매매'가 가장 긴 막대로 최대의 부정적 기여를 보이며, '거래 비용'이 가장 짧은 막대로 최소의 양의 기여를 의미한다. 나머지 세 요인(집중 투자, 손실 회피, 타이밍 실패)은 모두 음의 값을 기록해 모두 손실을 유발함을 보여준다.",
-    "deck_slide_no": 5,
-    "decided_by": "code",
-    "contra_kind": "number"
-   },
-   {
-    "node_id": "factor1",
-    "verdict": "aligned",
-    "speech_weight": 0.858,
-    "speech_basis": {
-     "speech_sec": 191.52,
-     "time_share": 0.2162,
-     "mention_count": 3,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 222.401
-    },
-    "doc_weight": 0.517,
-    "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "과잉 매매 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor2",
-    "verdict": "aligned",
-    "speech_weight": 0.684,
-    "speech_basis": {
-     "speech_sec": 215.46,
-     "time_share": 0.2432,
-     "mention_count": 2,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 223.403
-    },
-    "doc_weight": 0.495,
-    "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "타이밍 실패 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor3",
-    "verdict": "aligned",
-    "speech_weight": 0.79,
-    "speech_basis": {
-     "speech_sec": 209.48,
-     "time_share": 0.2365,
-     "mention_count": 2,
-     "mentioned_slide_count": 2,
-     "first_mention_sec": 224.767
-    },
-    "doc_weight": 0.442,
-    "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "손실 회피 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor4",
-    "verdict": "aligned",
-    "speech_weight": 1.0,
-    "speech_basis": {
-     "speech_sec": 227.43,
-     "time_share": 0.2568,
-     "mention_count": 3,
-     "mentioned_slide_count": 2,
-     "first_mention_sec": 225.809
-    },
-    "doc_weight": 0.392,
-    "evidence": "이게 집중 투자의 매력입니다. 그런데 같은 자리에서 빨강선은 마이너스 54% 입니다.",
-    "note": "집중 투자 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor5",
-    "verdict": "aligned",
-    "speech_weight": 0.975,
-    "speech_basis": {
-     "speech_sec": 263.34,
-     "time_share": 0.2973,
-     "mention_count": 3,
-     "mentioned_slide_count": 2,
-     "first_mention_sec": 227.053
-    },
-    "doc_weight": 0.487,
-    "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "거래 비용 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor1-detail",
-    "verdict": "aligned",
-    "speech_weight": 0.838,
-    "speech_basis": {
-     "speech_sec": 101.75,
-     "time_share": 0.1149,
-     "mention_count": 3,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 283.285
-    },
-    "doc_weight": 0.445,
-    "evidence": "가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
-    "note": "회전율 구간별 수익률 감소 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor2-detail",
-    "verdict": "aligned",
-    "speech_weight": 0.061,
-    "speech_basis": {
-     "speech_sec": 71.82,
-     "time_share": 0.0811,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.304,
-    "evidence": "10년이면 거래일이 대량 약 25001입니다. 그중 20일이면 전체 0.8% 예요. 백일 중 하루가 안 되는 날들이 10년 수익의 대부분을 만들었단 뜻입니다.",
-    "note": "최고 상승일 20일 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor2-detail2",
-    "verdict": "aligned",
-    "speech_weight": 0.59,
-    "speech_basis": {
-     "speech_sec": 71.82,
-     "time_share": 0.0811,
-     "mention_count": 1,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 396.998
-    },
-    "doc_weight": 0.304,
-    "evidence": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다.",
-    "note": "급등일과 급락 시점 관계 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor2-detail3",
-    "verdict": "aligned",
-    "speech_weight": 0.59,
-    "speech_basis": {
-     "speech_sec": 71.82,
-     "time_share": 0.0811,
-     "mention_count": 1,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 408.886
-    },
-    "doc_weight": 0.304,
-    "evidence": "하락을 피할려는 시도와 상승을 놓치는 결과는 같은 행동의 앞 뒷면입니다",
-    "note": "하락 시 팔 시점과 재매수 시점 모두 필요 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor3-detail",
-    "verdict": "aligned",
-    "speech_weight": 0.296,
-    "speech_basis": {
-     "speech_sec": 119.71,
-     "time_share": 0.1351,
-     "mention_count": 1,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": 66.489
-    },
-    "doc_weight": 0.417,
-    "evidence": "어 회전율 보유기간 종목수 비용 은 시장이 어떻든 본인이 정하는 값입니다",
-    "note": "보유 기간 3.6배 차이 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor3-detail2",
-    "verdict": "aligned",
-    "speech_weight": 0.585,
-    "speech_basis": {
-     "speech_sec": 65.84,
-     "time_share": 0.0743,
-     "mention_count": 1,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 473.459
-    },
-    "doc_weight": 0.298,
-    "evidence": "오른 종목은 계속 빠져나가고, 내린 종목은 계속 쌓입니다.",
-    "note": "포트폴리오 자동 악화 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor4-detail",
-    "verdict": "aligned",
-    "speech_weight": 0.071,
-    "speech_basis": {
-     "speech_sec": 83.79,
-     "time_share": 0.0946,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.305,
-    "evidence": "흔히 분산하면 수익이 줄어든다고 하는데 정확히 말하면 수익이 줄어드는 건 기대 수익이 아니라 결과의 진폭입니다. 최고점은 낮아지지만 평균은 올라갑니다.",
-    "note": "분산 투자 시 평균 수익률 상승 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "factor5-detail",
-    "verdict": "aligned",
-    "speech_weight": 0.59,
-    "speech_basis": {
-     "speech_sec": 71.82,
-     "time_share": 0.0811,
-     "mention_count": 1,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 581.28
-    },
-    "doc_weight": 0.285,
-    "evidence": "연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
-    "note": "비용률 0.2% vs 2.5% 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "misconception",
-    "verdict": "aligned",
-    "speech_weight": 0.056,
-    "speech_basis": {
-     "speech_sec": 65.83,
-     "time_share": 0.0743,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.246,
-    "evidence": "공부하면 이길 수 있다 데이터상으로는 분석에 쓴 시간과 수익률에 상관이 약했습니다 오히려 분석을 많이 한 쪽에서 매매가 잦아지는 경향이 나왔어요",
-    "note": "오해와 사실 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "checklist",
-    "verdict": "aligned",
-    "speech_weight": 0.056,
-    "speech_basis": {
-     "speech_sec": 65.84,
-     "time_share": 0.0743,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.246,
-    "evidence": "삼 번 종목 수 하한가 여덟 개 왜 하필 여덟 개냐면요. 아까 집중투자 그래프에서 빨간 순위 빨간 선이 가장 가파르게 올라가는 구간이 여기입니다 그 이상 늘려도 개선은 되지만 효과가 완만합니다",
-    "note": "실행 체크리스트 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   }
-  ],
-  "speech_edges": [
-   {
-    "from": "gap",
-    "to": "gap-control",
-    "cue": "매매 빈도나 보유 기간 같은 건 시장 시장을 마칠 필요 없이 본인이 정하는 값입니다",
-    "in_graph": true
-   },
-   {
-    "from": "gap-control",
-    "to": "factor1",
-    "cue": "매매를 많이 하는 건 실력을 발휘할 기회를 늘리는 게 아니라 비용과 오류에 노출되는 횟수를 늘리는 것에 가깝습니다",
-    "in_graph": false
-   },
-   {
-    "from": "factor1",
-    "to": "factor3",
-    "cue": "오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠",
-    "in_graph": false
-   },
-   {
-    "from": "factor3",
-    "to": "factor4",
-    "cue": "한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다. 분산에서는 절대 안 나오는 숫자죠",
-    "in_graph": false
-   },
-   {
-    "from": "factor4",
-    "to": "factor5",
-    "cue": "연 2점 5% 라고 하면 100만원 당 2만 5000원입니다",
-    "in_graph": false
-   },
-   {
-    "from": "factor5",
-    "to": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
-    "cue": "개인 투자자는 실력 문제가 아니라 행동에 문제다인데요",
-    "in_graph": false
-   },
-   {
-    "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
-    "to": "gap-five",
-    "cue": "바로 가령 가로막대입니다. 위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor1",
-    "cue": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor2",
-    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor3",
-    "cue": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor4",
-    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor5",
-    "cue": "다섯 번째 거래 비용입니다. 기여 도로는 가장 작은 항목인데 실무적으로는 제일 먼저 손댈 수 있는 항목이라 따로 보겠습니다",
-    "in_graph": true
-   },
-   {
-    "from": "factor1",
-    "to": "factor1-detail",
-    "cue": "가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다",
-    "in_graph": true
-   },
-   {
-    "from": "factor2",
-    "to": "factor2-detail",
-    "cue": "10년이면 거래일이 대량 약 25001입니다. 그중 20일이면 전체 0.8% 예요",
-    "in_graph": true
-   },
-   {
-    "from": "factor2",
-    "to": "factor2-detail2",
-    "cue": "급등일은 대체로 급락 직후에 몰려서 나옵니다",
-    "in_graph": true
-   },
-   {
-    "from": "factor2",
-    "to": "factor2-detail3",
-    "cue": "타이밍을 맞출려면 팔 시점과 다시 살 시점을 둘 다 맞춰야 되는데",
-    "in_graph": true
-   },
-   {
-    "from": "factor3",
-    "to": "factor3-detail",
-    "cue": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목",
-    "in_graph": true
-   },
-   {
-    "from": "factor3",
-    "to": "factor3-detail2",
-    "cue": "오른 종목은 계속 빠져나가고, 내린 종목은 계속 쌓입니다",
-    "in_graph": true
-   },
-   {
-    "from": "factor4",
-    "to": "factor4-detail",
-    "cue": "한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다. 분산에서는 절대 안 나오는 숫자죠",
-    "in_graph": true
-   },
-   {
-    "from": "factor5",
-    "to": "factor5-detail",
-    "cue": "연 2점 5% 라고 하면 100만원 당 2만 5000원입니다",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "gap-calc",
-    "cue": "그래서 시간을 넣어봤습니다. 왼쪽은 꺾은 선입니다. 1000만원을 넣고 10년을 뒀을 때 평가액이고 단위는 만원입니다",
-    "in_graph": false
-   },
-   {
-    "from": "gap-calc",
-    "to": "gap-calc-detail",
-    "cue": "1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다",
-    "in_graph": true
-   },
-   {
-    "from": "gap-calc",
-    "to": "factor4",
-    "cue": "한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다",
-    "in_graph": false
-   },
-   {
-    "from": "factor4",
-    "to": "gap-top",
-    "cue": "개인 중에서도 성과상이 25%인데 6.1%예요",
-    "in_graph": false
-   },
-   {
-    "from": "factor4",
-    "to": "gap-real",
-    "cue": "개인 평균은 지수 대비 연 4.8%p 낮음",
-    "in_graph": false
-   },
-   {
-    "from": "gap-top",
-    "to": "gap-real",
-    "cue": "개인 평균은 지수 대비 연 4.8%p 낮음",
-    "in_graph": false
-   },
-   {
-    "from": "factor1-detail",
-    "to": "factor3",
-    "cue": "오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠",
-    "in_graph": false
-   },
-   {
-    "from": "factor2-detail",
-    "to": "factor2-detail2",
-    "cue": "급등일은 대체로 급락 직후에 몰려서 나옵니다",
-    "in_graph": false
-   },
-   {
-    "from": "factor2-detail",
-    "to": "factor2-detail3",
-    "cue": "타이밍을 맞출려면 팔 시점과 다시 살 시점을 둘 다 맞춰야 되는데",
-    "in_graph": false
-   },
-   {
-    "from": "factor2-detail2",
-    "to": "factor2-detail3",
-    "cue": "타이밍을 맞출려면 팔 시점과 다시 살 시점을 둘 다 맞춰야 되는데",
-    "in_graph": false
-   },
-   {
-    "from": "factor4-detail",
-    "to": "factor5",
-    "cue": "연 2점 5% 라고 하면 100만원 당 2만 5000원입니다",
-    "in_graph": false
-   },
-   {
-    "from": "factor5-detail",
-    "to": "misconception",
-    "cue": "공부하면 이길 수 있다 데이터상으로는 분석에 쓴 시간과 수익률에 상관이 약했습니다",
-    "in_graph": false
-   },
-   {
-    "from": "misconception",
-    "to": "checklist",
-    "cue": "삼 번 종목 수 하한가 여덟 개 왜 하필 여덟 개냐면요",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "gap-top",
-    "cue": "개인 중에서도 성과상이 25%인데 6.1%예요",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "gap-real",
-    "cue": "개인 평균은 지수 대비 연 4.8%p 낮음",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "factor4",
-    "cue": "한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "factor5",
-    "cue": "연 2점 5% 라고 하면 100만원 당 2만 5000원입니다",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "gap-calc",
-    "cue": "그래서 시간을 넣어봤습니다. 왼쪽은 꺾은 선입니다. 1000만원을 넣고 10년을 뒀을 때 평가액이고 단위는 만원입니다",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "gap-calc-detail",
-    "cue": "1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "factor1",
-    "cue": "매매를 많이 하는 건 실력을 발휘할 기회를 늘리는 게 아니라 비용과 오류에 노출되는 횟수를 늘리는 것에 가깝습니다",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "factor2",
-    "cue": "10년이면 거래일이 대량 약 25001입니다. 그중 20일이면 전체 0.8% 예요",
-    "in_graph": false
-   },
-   {
-    "from": "checklist",
-    "to": "factor3",
-    "cue": "오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠",
-    "in_graph": false
-   },
-   {
-    "from": "gap-calc",
-    "to": "gap-top",
-    "cue": "개인 중에서도 성과상이 25%인데 6.1%예요",
-    "in_graph": false
-   },
-   {
-    "from": "gap-calc",
-    "to": "gap-real",
-    "cue": "개인 평균은 지수 대비 연 4.8%p 낮음",
-    "in_graph": false
-   },
-   {
-    "from": "gap-calc",
-    "to": "factor5",
-    "cue": "연 2점 5% 라고 하면 100만원 당 2만 5000원입니다",
-    "in_graph": false
-   }
-  ],
-  "extra_concepts": [
-   {
-    "label": "개인 투자자는 실력 문제가 아니라 행동에 문제다",
-    "quote": "개인 투자자는 실력 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
-    "slide_no": 2
-   },
-   {
-    "label": "매매를 많이 하는 건 실력을 발휘할 기회를 늘리는 게 아니라 비용과 오류에 노출되는 횟수를 늘리는 것에 가깝다",
-    "quote": "매매를 많이 하는 건 실력을 발휘할 기회를 늘리는 게 아니라 비용과 오류에 노출되는 횟수를 늘리는 것에 가깝습니다",
-    "slide_no": 5
-   },
-   {
-    "label": "오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다",
-    "quote": "오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠",
-    "slide_no": 8
-   },
-   {
-    "label": "종목 수 하한가 여덟 개",
-    "quote": "삼 번 종목 수 하한가 여덟 개 왜 하필 여덟 개냐면요",
-    "slide_no": 13
-   },
-   {
-    "label": "연간 총 비용 1% 이하",
-    "quote": "5번 연간 총 비용 1% 이하 이건 오늘 6개 중 유일하게 오후 오늘 오후에 확인 가능한 항목입니다",
-    "slide_no": 13
-   },
-   {
-    "label": "시장이 오르든 내리든 상관없이 오늘 정할 수 있는 값",
-    "quote": "여섯 개의 전부 공통점이 있습니다. 시장이 오르든 내리든 상관없이 오늘 정할 수 있는 값이라는 겁니다",
-    "slide_no": 13
-   },
-   {
-    "label": "무엇을 살까 보다 얼마나 자주 팔까가 결과를 갈랐다",
-    "quote": "무엇을 살까 보다 얼마나 자주 팔까가 결과를 갈랐습니다",
-    "slide_no": 14
-   },
-   {
-    "label": "규칙의 유무",
-    "quote": "차이는 규칙의 유무에 나왔습니다",
-    "slide_no": 14
-   },
-   {
-    "label": "정해진 규칙을 찾는 것",
-    "quote": "전부는 아니지만 상당 부분은 좁혀집니다 격차를 완전히 없앨 수는 없습니다 다만 오늘 본 6개만이라도 의미 있는 개선은 가능합니다 그래서 개선의 출발점은 더 나은 종목을 찾는 게 아니라 정해진 규칙을 찾는 것입니다",
-    "slide_no": 14
-   }
-  ],
-  "summary": {
-   "coverage": 0.766,
-   "rank_correlation": 0.607,
-   "edge_coverage": 0.444,
-   "verdict_counts": {
-    "aligned": 19,
-    "justified_skip": 0,
-    "missing": 0,
-    "contradiction": 4
-   },
-   "speech_total_sec": 885.8
-  },
-  "speech_match": "matched",
-  "speech_overlap": 0.4198,
-  "basis": "llm",
-  "skipped_slides": []
- },
- {
-  "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
-  "total_slides": 15,
-  "model": "solar",
-  "items": [
-   {
-    "node_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
-    "verdict": "aligned",
-    "speech_weight": 0.372,
-    "speech_basis": {
-     "speech_sec": 11.98,
-     "time_share": 0.0135,
-     "mention_count": 1,
-     "mentioned_slide_count": 1,
-     "first_mention_sec": 2.927
-    },
-    "doc_weight": 0.441,
-    "evidence": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
-    "note": "개인 투자자는 왜 시장을 이기지 못하는가 설명",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "gap",
-    "verdict": "contradiction",
-    "speech_weight": 0.751,
-    "speech_basis": {
-     "speech_sec": 885.8,
-     "time_share": 1.0,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 1.0,
-    "evidence": "이 차이가 0.8% 8% 밖에 안 됩니다.",
-    "note": "발표에서는 0.8%라고 했는데 자료 3장은 8.7%예요",
-    "deck_quote": "기관과의 차이는 작다",
-    "deck_slide_no": 3,
-    "decided_by": "code",
-    "contra_kind": "number"
-   },
-   {
-    "node_id": "gap-real",
-    "verdict": "contradiction",
-    "speech_weight": 0.142,
-    "speech_basis": {
-     "speech_sec": 167.58,
-     "time_share": 0.1892,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.374,
-    "evidence": "여전히 지수를 26% 포인트 밑돕니다.",
-    "note": "발표에서는 26%p라고 했는데 자료 2장은 4.8%p예요",
-    "deck_quote": "· 개인 평균은 지수 대비 연 4.8%p 낮음",
-    "deck_slide_no": 2,
-    "decided_by": "code",
-    "contra_kind": "number"
-   },
-   {
-    "node_id": "gap-control",
-    "verdict": "aligned",
-    "speech_weight": 0.398,
-    "speech_basis": {
-     "speech_sec": 239.4,
-     "time_share": 0.2703,
-     "mention_count": 1,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": 841.877
-    },
-    "doc_weight": 0.519,
-    "evidence": "세로축은 연평균 수익률 단위는 퍼센트고요. 왼쪽부터 시장 지수 기관, 개인 상위 25% 개인 평균 개인 하위 25% 순입니다. 여기서 파란 막대와 회색 막대를 먼저 비교해 주십시오 시장 지수와 기관 투자자입니다 이 차이가 0.8% 8% 밖에 안 됩니다.",
-    "note": "통제 가능한 변수임을 설명 · 이 문장의 0.8%는 자료 3장(8.7%)과 달라요",
-    "deck_quote": "",
-    "deck_slide_no": null,
-    "decided_by": "llm",
-    "contra_kind": ""
-   },
-   {
-    "node_id": "gap-top",
-    "verdict": "contradiction",
-    "speech_weight": 0.132,
-    "speech_basis": {
-     "speech_sec": 155.62,
-     "time_share": 0.1757,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.386,
-    "evidence": "상위 그룹도 못 넘었다면 개인 투자 방식 자체를 봐야 된다는 신호가 됩니다.",
-    "note": "자료 3장과 높고 낮은 방향이 반대예요",
-    "deck_quote": "성과 상위 그룹조차 지수에 못 미쳤다 — 개인 투자 방식 자체를 봐야 한다는 신호",
-    "deck_slide_no": 3,
-    "decided_by": "code",
-    "contra_kind": "direction"
-   },
-   {
-    "node_id": "gap-calc",
-    "verdict": "aligned",
-    "speech_weight": 0.076,
-    "speech_basis": {
-     "speech_sec": 89.77,
-     "time_share": 0.1013,
-     "mention_count": 0,
-     "mentioned_slide_count": 0,
-     "first_mention_sec": null
-    },
-    "doc_weight": 0.401,
-    "evidence": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다.",
     "note": "복리 효과 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -909,7 +130,7 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.285,
-    "evidence": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다.",
+    "evidence": "1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다. 체감이 안 되는 구간이죠. 5년 차에 307만원 10년 차에는 838만원까지 벌어집니다.",
     "note": "10년 누적 평가액 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -918,7 +139,7 @@
    },
    {
     "node_id": "gap-five",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.122,
     "speech_basis": {
      "speech_sec": 143.64,
@@ -928,12 +149,12 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.423,
-    "evidence": "나머지 네 개는 결심이 필요하지만 오 번은 결심이 필요 없습니다.",
-    "note": "자료 5장과 수치가 달라요",
-    "deck_quote": "- 이 수평 막대 차트는 다섯 가지 행동 요인이 수익률에 미치는 연간 기여도를 %p 단위로 나타낸다. 가로축은 -1.8에서 0까지의 값을 표시하며, 막대는 오른쪽으로 길어지는 방향으로 배치된다. '과잉 매매'가 가장 긴 막대로 최대의 부정적 기여를 보이며, '거래 비용'이 가장 짧은 막대로 최소의 양의 기여를 의미한다. 나머지 세 요인(집중 투자, 손실 회피, 타이밍 실패)은 모두 음의 값을 기록해 모두 손실을 유발함을 보여준다.",
-    "deck_slide_no": 5,
-    "decided_by": "code",
-    "contra_kind": "number"
+    "evidence": "오늘 발표해서 가장 반직관적인 지점이 여기입니다. 다만 한 가지 단서를 달겠습니다. 이 5개는 서로 완전히 독립적이지 않습니다.",
+    "note": "다섯 가지 행동 요인 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "factor1",
@@ -1004,7 +225,7 @@
      "first_mention_sec": 225.809
     },
     "doc_weight": 0.392,
-    "evidence": "이게 집중 투자의 매력입니다. 그런데 같은 자리에서 빨강선은 마이너스 54% 입니다. 그리고 노란선 평균은 1. 2% 로 전 구간에서 가장 낮습니다.",
+    "evidence": "집중 투자입니다 이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요",
     "note": "집중 투자 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -1042,7 +263,7 @@
      "first_mention_sec": 283.285
     },
     "doc_weight": 0.445,
-    "evidence": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
+    "evidence": "가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다.",
     "note": "회전율 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -1061,7 +282,7 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.304,
-    "evidence": "어 세로 축은 연평균 수익률입니다. 숫자 하나만 집겠습니다. 상위 21을 뺐을 때 수익률이 8.7% 에서 1.5% 로 떨어집니다. 10년이면 거래일이 대량 약 25001입니다. 그중 20일이면 전체 0.8% 예요. 백일 중 하루가 안 되는 날들이 10년 수익의 대부분을 만들었단 뜻입니다.",
+    "evidence": "그중 20일이면 전체 0.8% 예요. 백일 중 하루가 안 되는 날들이 10년 수익의 대부분을 만들었단 뜻입니다.",
     "note": "최고 상승일 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -1080,7 +301,7 @@
      "first_mention_sec": 396.998
     },
     "doc_weight": 0.304,
-    "evidence": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다. 그래서 결론이 이렇게 됩니다 하락을 피할려는 시도와 상승을 놓치는 결과는 같은 행동의 앞 뒷면입니다",
+    "evidence": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다.",
     "note": "급등일 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -1156,7 +377,7 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.305,
-    "evidence": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요 초록선은 상위 10%가 낸 성과 노란 선은 평균 빨간 선은 하위 10%입니다 먼저 왼쪽 끝을 보십시오. 한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다. 분산에서는 절대 안 나오는 숫자죠. 이게 집중 투자의 매력입니다. 그런데 같은 자리에서 빨강선은 마이너스 54% 입니다. 그리고 노란선 평균은 1. 2% 로 전 구간에서 가장 낮습니다. 이제 오른쪽으로 가보겠습니다 종목을 늘리면 초록선은 68에서 15로 내려옵니다 상당히 깎이죠 그런데 빨간 선은 마이너스 54에서 마이너스 육으로 훨씬 빠르게 올라옵니다 그 결과 평균은 1.2%에서 6.3%로 오히려 올라갑니다 여기서 정리할 게 하나 있습니다 흔히 분산하면 수익이 줄어든다고 하는데 정확히 말하면 수익이 줄어드는 건 기대 수익이 아니라 결과의 진폭입니다. 최고점은 낮아지지만 평균은 올라갑니다.",
+    "evidence": "줄어드는 건 진폭이지 평균이 아닙니다 3개를 놓고 보시면 공통점이 있습니다 전부 지수의 논리를 개별 종목의 논리에 그대로 적용하면서 생긴 오해입니다",
     "note": "분산 투자 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -1175,7 +396,679 @@
      "first_mention_sec": 581.28
     },
     "doc_weight": 0.285,
-    "evidence": "연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요. 단위는 만원입니다. 연 2점 5% 라고 하면 100만원 당 2만 5000원입니다. 한 해만 놓고 보면 그의 수익률 변동에 완전히 묻히는 수준이에요. 그래서 잘 인식이 안됩니다. 그런데 비용에는 수익과 다른 성질이 하나 있습니다. 시장이 빠진 해에도 똑같이 나갑니다 예외가 없어요 20년 뒤를 보면 4747만원과 3130만원 1617만원 차이입니다 원금에 1.6배죠",
+    "evidence": "연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
+    "note": "비용률 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "misconception",
+    "verdict": "aligned",
+    "speech_weight": 0.056,
+    "speech_basis": {
+     "speech_sec": 65.83,
+     "time_share": 0.0743,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.246,
+    "evidence": "첫 번째 공부하면 이길 수 있다 데이터상으로는 분석에 쓴 시간과 수익률에 상관이 약했습니다 오히려 분석을 많이 한 쪽에서 매매가 잦아지는 경향이 나왔어요",
+    "note": "오해와 사실 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "checklist",
+    "verdict": "aligned",
+    "speech_weight": 0.056,
+    "speech_basis": {
+     "speech_sec": 65.84,
+     "time_share": 0.0743,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.246,
+    "evidence": "삼 번 종목 수 하한가 여덟 개 왜 하필 여덟 개냐면요. 아까 집중투자 그래프에서 빨간 순위 빨간 선이 가장 가파르게 올라가는 구간이 여기입니다 그 이상 늘려도 개선은 되지만 효과가 완만합니다",
+    "note": "실행 체크리스트 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   }
+  ],
+  "speech_edges": [
+   {
+    "from": "gap",
+    "to": "gap-control",
+    "cue": "매매 빈도나 보유 기간 같은 건 시장 시장을 마칠 필요 없이 본인이 정하는 값입니다",
+    "in_graph": true
+   },
+   {
+    "from": "gap-control",
+    "to": "factor1",
+    "cue": "매매를 많이 하는 건 실력을 발휘할 기회를 늘리는 게 아니라 비용과 오류에 노출되는 횟수를 늘리는 것에 가깝습니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor1",
+    "to": "factor2",
+    "cue": "그 20일만 피해서 들어가 있으면 되지 않느냐 하실 텐데요",
+    "in_graph": false
+   },
+   {
+    "from": "factor2",
+    "to": "factor3",
+    "cue": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor3",
+    "to": "factor4",
+    "cue": "오른 종목은 계속 빠져나가고, 내린 종목은 계속 쌓입니다. 그러니까 가만히 두면 포트폴리오가 알아서 나빠지는 방향으로 정렬됩니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor4",
+    "to": "factor5",
+    "cue": "연 2점 5% 라고 하면 100만원 당 2만 5000원입니다. 한 해만 놓고 보면 그의 수익률 변동에 완전히 묻히는 수준입니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor5",
+    "to": "factor1-detail",
+    "cue": "매매를 많이 하는 건 실력을 발휘할 기회를 늘리는 게 아니라 비용과 오류에 노출되는 횟수를 늘리는 것에 가깝습니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor1-detail",
+    "to": "factor3",
+    "cue": "오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠 이건 판단을 잘못했다기보다 감각의 문제입니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor3",
+    "to": "gap-calc",
+    "cue": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다",
+    "in_graph": false
+   },
+   {
+    "from": "gap-calc",
+    "to": "factor4",
+    "cue": "선을 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요",
+    "in_graph": false
+   },
+   {
+    "from": "factor3",
+    "to": "gap-top",
+    "cue": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다",
+    "in_graph": false
+   },
+   {
+    "from": "gap-top",
+    "to": "gap-real",
+    "cue": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다",
+    "in_graph": false
+   },
+   {
+    "from": "gap-real",
+    "to": "factor4-detail",
+    "cue": "줄어드는 건 진폭이지 평균이 아닙니다 3개를 놓고 보시면 공통점이 있습니다 전부 지수의 논리를 개별 종목의 논리에 그대로 적용하면서 생긴 오해입니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor4-detail",
+    "to": "factor5-detail",
+    "cue": "연 2점 5% 라고 하면 100만원 당 2만 5000원입니다. 한 해만 놓고 보면 그의 수익률 변동에 완전히 묻히는 수준입니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor5-detail",
+    "to": "misconception",
+    "cue": "첫 번째 공부하면 이길 수 있다 데이터상으로는 분석에 쓴 시간과 수익률에 상관이 약했습니다 오히려 분석을 많이 한 쪽에서 매매가 잦아지는 경향이 나왔어요",
+    "in_graph": false
+   },
+   {
+    "from": "misconception",
+    "to": "checklist",
+    "cue": "삼 번 종목 수 하한가 여덟 개 왜 하필 여덟 개냐면요. 아까 집중투자 그래프에서 빨간 순위 빨간 선이 가장 가파르게 올라가는 구간이 여기입니다 그 이상 늘려도 개선은 되지만 효과가 완만합니다",
+    "in_graph": false
+   },
+   {
+    "from": "checklist",
+    "to": "gap-calc-detail",
+    "cue": "1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다. 체감이 안 되는 구간이죠. 5년 차에 307만원 10년 차에는 838만원까지 벌어집니다.",
+    "in_graph": false
+   },
+   {
+    "from": "gap-calc-detail",
+    "to": "factor1-detail",
+    "cue": "가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다.",
+    "in_graph": false
+   },
+   {
+    "from": "factor3",
+    "to": "factor2-detail",
+    "cue": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor2-detail",
+    "to": "factor2-detail2",
+    "cue": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor2-detail2",
+    "to": "factor2-detail3",
+    "cue": "타이밍을 맞출려면 팔 시점과 다시 살 시점을 둘 다 맞춰야 되는데 한 번 더 어려운 걸 두 번 해야 되는 셈이죠",
+    "in_graph": false
+   },
+   {
+    "from": "factor2-detail3",
+    "to": "factor3-detail2",
+    "cue": "오른 종목은 계속 빠져나가고, 내린 종목은 계속 쌓입니다. 그러니까 가만히 두면 포트폴리오가 알아서 나빠지는 방향으로 정렬됩니다",
+    "in_graph": false
+   },
+   {
+    "from": "factor3-detail2",
+    "to": "gap-top",
+    "cue": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다",
+    "in_graph": false
+   }
+  ],
+  "extra_concepts": [
+   {
+    "label": "부제가 어 실력에 문제가 아니라 행동에 문제다",
+    "quote": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
+    "slide_no": 2
+   },
+   {
+    "label": "카드 세 장",
+    "quote": "카드 세 장을 정리해뒀는데 읽으시는 동안 배경만 덧붙이겠습니다",
+    "slide_no": 2
+   },
+   {
+    "label": "배경",
+    "quote": "읽으시는 동안 배경만 덧붙이겠습니다",
+    "slide_no": 2
+   },
+   {
+    "label": "결론부터 말씀드리겠습니다",
+    "quote": "결론부터 말씀드리겠습니다",
+    "slide_no": 2
+   },
+   {
+    "label": "어 음",
+    "quote": "어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다",
+    "slide_no": 3
+   },
+   {
+    "label": "파란 막대와 회색 막대",
+    "quote": "파란 막대와 회색 막대를 먼저 비교해 주십시오 시장 지수와 기관 투자자입니다",
+    "slide_no": 3
+   },
+   {
+    "label": "빨간 막대",
+    "quote": "빨간 막대를 보시면 개인 평균이 3.9% 입니다",
+    "slide_no": 3
+   },
+   {
+    "label": "노란 막대",
+    "quote": "가운데 노란 막대입니다. 어 개인 중에서도 성과상이 25%인데 6.1%예요",
+    "slide_no": 3
+   },
+   {
+    "label": "파란 선",
+    "quote": "파란 선이 지수 빨간 선이 개인 평균입니다",
+    "slide_no": 4
+   },
+   {
+    "label": "빨간 선",
+    "quote": "빨간 선이 개인 평균입니다",
+    "slide_no": 4
+   },
+   {
+    "label": "꺾은 선",
+    "quote": "꺾은 선 세 개입니다. 연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요",
+    "slide_no": 10
+   },
+   {
+    "label": "단위는 만원입니다",
+    "quote": "단위는 만원입니다",
+    "slide_no": 10
+   },
+   {
+    "label": "오전은",
+    "quote": "오늘 오후에 확인 가능한 항목입니다",
+    "slide_no": 13
+   },
+   {
+    "label": "결심이 필요",
+    "quote": "나머지 네 개는 결심이 필요하지만 오 번은 결심이 필요 없습니다",
+    "slide_no": 13
+   }
+  ],
+  "summary": {
+   "coverage": 1.0,
+   "rank_correlation": 0.607,
+   "edge_coverage": 0.028,
+   "verdict_counts": {
+    "aligned": 23,
+    "justified_skip": 0,
+    "missing": 0,
+    "contradiction": 0
+   },
+   "speech_total_sec": 885.8
+  },
+  "speech_match": "matched",
+  "speech_overlap": 0.4198,
+  "basis": "llm",
+  "skipped_slides": []
+ },
+ {
+  "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+  "total_slides": 15,
+  "model": "solar",
+  "items": [
+   {
+    "node_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+    "verdict": "aligned",
+    "speech_weight": 0.372,
+    "speech_basis": {
+     "speech_sec": 11.98,
+     "time_share": 0.0135,
+     "mention_count": 1,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 2.927
+    },
+    "doc_weight": 0.441,
+    "evidence": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
+    "note": "행동 문제로 시장을 이기지 못한다는 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "gap",
+    "verdict": "aligned",
+    "speech_weight": 0.751,
+    "speech_basis": {
+     "speech_sec": 885.8,
+     "time_share": 1.0,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 1.0,
+    "evidence": "세로축은 연평균 수익률 단위는 퍼센트고요. 왼쪽부터 시장 지수 기관, 개인 상위 25% 개인 평균 개인 하위 25% 순입니다. 여기서 파란 막대와 회색 막대를 먼저 비교해 주십시오 시장 지수와 기관 투자자입니다 이 차이가 0.8% 8% 밖에 안 됩니다.",
+    "note": "개인 평균 연 4.8%p 낮은 수익률 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "gap-real",
+    "verdict": "aligned",
+    "speech_weight": 0.142,
+    "speech_basis": {
+     "speech_sec": 167.58,
+     "time_share": 0.1892,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.374,
+    "evidence": "세로축은 연평균 수익률 단위는 퍼센트고요. 왼쪽부터 시장 지수 기관, 개인 상위 25% 개인 평균 개인 하위 25% 순입니다. 여기서 파란 막대와 회색 막대를 먼저 비교해 주십시오 시장 지수와 기관 투자자입니다 이 차이가 0.8% 8% 밖에 안 됩니다.",
+    "note": "개인 평균 연 4.8%p 낮은 수익률 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "gap-control",
+    "verdict": "aligned",
+    "speech_weight": 0.398,
+    "speech_basis": {
+     "speech_sec": 239.4,
+     "time_share": 0.2703,
+     "mention_count": 1,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": 841.877
+    },
+    "doc_weight": 0.519,
+    "evidence": "세로축은 연평균 수익률 단위는 퍼센트고요. 왼쪽부터 시장 지수 기관, 개인 상위 25% 개인 평균 개인 하위 25% 순입니다. 여기서 파란 막대와 회색 막대를 먼저 비교해 주십시오 시장 지수와 기관 투자자입니다 이 차이가 0.8% 8% 밖에 안 됩니다.",
+    "note": "통제 가능한 변수임을 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "gap-top",
+    "verdict": "aligned",
+    "speech_weight": 0.132,
+    "speech_basis": {
+     "speech_sec": 155.62,
+     "time_share": 0.1757,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.386,
+    "evidence": "제가 오늘 가장 강조하고 싶은 건 가운데 노란 막대입니다. 어 개인 중에서도 성과상이 25%인데 6.1%예요. 개인 평균보다는 높지만 여전히 지수를 26% 포인트 밑돕니다. 이게 왜 중요하냐면요. 만약 하위 그룹만 마이너스였다면 일부가 미숙해서로 설명을 할 수 있는데, 상위 그룹도 못 넘었다면 개인 투자 방식 자체를 봐야 된다는 신호가 됩니다.",
+    "note": "성과 상위 그룹 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "gap-calc",
+    "verdict": "aligned",
+    "speech_weight": 0.076,
+    "speech_basis": {
+     "speech_sec": 89.77,
+     "time_share": 0.1013,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.401,
+    "evidence": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다.",
+    "note": "10년 뒤 원금 규모 차이 84% 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "gap-calc-detail",
+    "verdict": "aligned",
+    "speech_weight": 0.03,
+    "speech_basis": {
+     "speech_sec": 35.91,
+     "time_share": 0.0405,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.285,
+    "evidence": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다.",
+    "note": "10년 누적 평가액 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "gap-five",
+    "verdict": "aligned",
+    "speech_weight": 0.122,
+    "speech_basis": {
+     "speech_sec": 143.64,
+     "time_share": 0.1622,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.423,
+    "evidence": "이 5개는 서로 완전히 독립적이지 않습니다. 예를 들어 과잉 매매를 하면 거래 비용도 같이 늘어나죠? 합이 사 쩜 팔로 딱 맞는다고 해서 다섯 개를 고치면 정확히 4.8로 회복된다는 뜻은 아닙니다. 지금부터 이 다섯 개를 하나씩 보겠습니다. 첫 번째는 과잉 매매입니다.",
+    "note": "5가지 행동 요인 언급",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor1",
+    "verdict": "aligned",
+    "speech_weight": 0.858,
+    "speech_basis": {
+     "speech_sec": 191.52,
+     "time_share": 0.2162,
+     "mention_count": 3,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 222.401
+    },
+    "doc_weight": 0.517,
+    "evidence": "과잉 매매입니다. 자 막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
+    "note": "회전율 구간별 수익률 감소 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor2",
+    "verdict": "aligned",
+    "speech_weight": 0.684,
+    "speech_basis": {
+     "speech_sec": 215.46,
+     "time_share": 0.2432,
+     "mention_count": 2,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 223.403
+    },
+    "doc_weight": 0.495,
+    "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
+    "note": "최고 상승일 제외 시 수익률 감소 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor3",
+    "verdict": "aligned",
+    "speech_weight": 0.79,
+    "speech_basis": {
+     "speech_sec": 209.48,
+     "time_share": 0.2365,
+     "mention_count": 2,
+     "mentioned_slide_count": 2,
+     "first_mention_sec": 224.767
+    },
+    "doc_weight": 0.442,
+    "evidence": "세 번째는 손실 회피입니다 막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다 52일과 187일 3.6배 차이입니다 오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠",
+    "note": "손실 회피 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor4",
+    "verdict": "aligned",
+    "speech_weight": 1.0,
+    "speech_basis": {
+     "speech_sec": 227.43,
+     "time_share": 0.2568,
+     "mention_count": 3,
+     "mentioned_slide_count": 2,
+     "first_mention_sec": 225.809
+    },
+    "doc_weight": 0.392,
+    "evidence": "네 번째는 집중 투자입니다 이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요 초록선은 상위 10%가 낸 성과 노란 선은 평균 빨간 선은 하위 10%입니다 먼저 왼쪽 끝을 보십시오. 한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다. 분산에서는 절대 안 나오는 숫자죠.",
+    "note": "집중 투자 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor5",
+    "verdict": "aligned",
+    "speech_weight": 0.975,
+    "speech_basis": {
+     "speech_sec": 263.34,
+     "time_share": 0.2973,
+     "mention_count": 3,
+     "mentioned_slide_count": 2,
+     "first_mention_sec": 227.053
+    },
+    "doc_weight": 0.487,
+    "evidence": "다섯 번째 거래 비용입니다. 기여 도로는 가장 작은 항목인데 실무적으로는 제일 먼저 손댈 수 있는 항목이라 따로 보겠습니다. 꺾은 선 세 개입니다. 연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요. 단위는 만원입니다.",
+    "note": "비용률 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor1-detail",
+    "verdict": "aligned",
+    "speech_weight": 0.838,
+    "speech_basis": {
+     "speech_sec": 101.75,
+     "time_share": 0.1149,
+     "mention_count": 3,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 283.285
+    },
+    "doc_weight": 0.445,
+    "evidence": "가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
+    "note": "회전율 구간별 수익률 감소 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor2-detail",
+    "verdict": "aligned",
+    "speech_weight": 0.061,
+    "speech_basis": {
+     "speech_sec": 71.82,
+     "time_share": 0.0811,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.304,
+    "evidence": "두 번째는 타이밍입니다 막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다. 어 세로 축은 연평균 수익률입니다. 숫자 하나만 집겠습니다. 상위 21을 뺐을 때 수익률이 8.7% 에서 1.5% 로 떨어집니다. 10년이면 거래일이 대량 약 25001입니다. 그중 20일이면 전체 0.8% 예요.",
+    "note": "최고 상승일 20일 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor2-detail2",
+    "verdict": "aligned",
+    "speech_weight": 0.59,
+    "speech_basis": {
+     "speech_sec": 71.82,
+     "time_share": 0.0811,
+     "mention_count": 1,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 396.998
+    },
+    "doc_weight": 0.304,
+    "evidence": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다. 그래서 결론이 이렇게 됩니다 하락을 피할려는 시도와 상승을 놓치는 결과는 같은 행동의 앞 뒷면입니다",
+    "note": "급등일 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor2-detail3",
+    "verdict": "aligned",
+    "speech_weight": 0.59,
+    "speech_basis": {
+     "speech_sec": 71.82,
+     "time_share": 0.0811,
+     "mention_count": 1,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 408.886
+    },
+    "doc_weight": 0.304,
+    "evidence": "하락을 피할려는 시도와 상승을 놓치는 결과는 같은 행동의 앞 뒷면입니다",
+    "note": "하락 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor3-detail",
+    "verdict": "aligned",
+    "speech_weight": 0.296,
+    "speech_basis": {
+     "speech_sec": 119.71,
+     "time_share": 0.1351,
+     "mention_count": 1,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": 66.489
+    },
+    "doc_weight": 0.417,
+    "evidence": "어 회전율 보유기간 종목수 비용 은 시장이 어떻든 본인이 정하는 값입니다",
+    "note": "보유 기간 3.6배 차이 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor3-detail2",
+    "verdict": "aligned",
+    "speech_weight": 0.585,
+    "speech_basis": {
+     "speech_sec": 65.84,
+     "time_share": 0.0743,
+     "mention_count": 1,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 473.459
+    },
+    "doc_weight": 0.298,
+    "evidence": "세 번째는 손실 회피입니다 막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다 52일과 187일 3.6배 차이입니다 오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠",
+    "note": "포트폴리오 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor4-detail",
+    "verdict": "aligned",
+    "speech_weight": 0.071,
+    "speech_basis": {
+     "speech_sec": 83.79,
+     "time_share": 0.0946,
+     "mention_count": 0,
+     "mentioned_slide_count": 0,
+     "first_mention_sec": null
+    },
+    "doc_weight": 0.305,
+    "evidence": "네 번째는 집중 투자입니다 이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요 초록선은 상위 10%가 낸 성과 노란 선은 평균 빨간 선은 하위 10%입니다 먼저 왼쪽 끝을 보십시오. 한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다. 분산에서는 절대 안 나오는 숫자죠. 이게 집중 투자의 매력입니다. 그런데 같은 자리에서 빨강선은 마이너스 54% 입니다. 그리고 노란선 평균은 1. 2% 로 전 구간에서 가장 낮습니다. 이제 오른쪽으로 가보겠습니다 종목을 늘리면 초록선은 68에서 15로 내려옵니다 상당히 깎이죠 그런데 빨간 선은 마이너스 54에서 마이너스 육으로 훨씬 빠르게 올라옵니다 그 결과 평균은 1.2%에서 6.3%로 오히려 올라갑니다 여기서 정리할 게 하나 있습니다 흔히 분산하면 수익이 줄어든다고 하는데 정확히 말하면 수익이 줄어드는 건 기대 수익이 아니라 결과의 진폭입니다. 최고점은 낮아지지만 평균은 올라갑니다.",
+    "note": "분산 투자 시 평균 수익률 상승 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
+   },
+   {
+    "node_id": "factor5-detail",
+    "verdict": "aligned",
+    "speech_weight": 0.59,
+    "speech_basis": {
+     "speech_sec": 71.82,
+     "time_share": 0.0811,
+     "mention_count": 1,
+     "mentioned_slide_count": 1,
+     "first_mention_sec": 581.28
+    },
+    "doc_weight": 0.285,
+    "evidence": "연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요. 단위는 만원입니다. 연 2점 5% 라고 하면 100만원 당 2만 5000원입니다.",
     "note": "비용률 설명",
     "deck_quote": "",
     "deck_slide_no": null,
@@ -1225,140 +1118,116 @@
    {
     "from": "gap",
     "to": "gap-control",
-    "cue": "이 3가지를 지금부터 순서대로 확인하겠습니다",
+    "cue": "이 3가지를 지금부터 순서대로 확인하겠습니다. 먼저 격차가 실제로 있는지부터 봐야겠죠?",
     "in_graph": true
    },
    {
     "from": "gap-control",
     "to": "factor1",
-    "cue": "먼저 격차가 실제로 있는지부터 봐야겠죠?",
+    "cue": "첫 번째는 과잉 매매입니다.",
     "in_graph": false
-   },
-   {
-    "from": "factor1",
-    "to": "factor1-detail",
-    "cue": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다.",
-    "in_graph": true
    },
    {
     "from": "factor1",
     "to": "factor2",
-    "cue": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
+    "cue": "두 번째는 타이밍입니다.",
     "in_graph": false
    },
    {
     "from": "factor2",
-    "to": "factor2-detail",
-    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다.",
-    "in_graph": true
-   },
-   {
-    "from": "factor2",
-    "to": "factor2-detail2",
-    "cue": "그럼 그 20일만 피해서 들어가 있으면 되지 않느냐 하실 텐데요.",
-    "in_graph": true
-   },
-   {
-    "from": "factor2",
-    "to": "factor2-detail3",
-    "cue": "타이밍을 맞출려면 팔 시점과 다시 살 시점을 둘 다 맞춰야 되는데 한 번 더 어려운 걸 두 번 해야 되는 셈이죠",
-    "in_graph": true
+    "to": "factor3",
+    "cue": "세 번째는 손실 회피입니다.",
+    "in_graph": false
    },
    {
     "from": "factor3",
-    "to": "factor3-detail",
-    "cue": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다",
-    "in_graph": true
-   },
-   {
-    "from": "factor3",
-    "to": "factor3-detail2",
-    "cue": "오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠 이건 판단을 잘못했다기보다 감각의 문제입니다",
-    "in_graph": true
+    "to": "factor4",
+    "cue": "네 번째는 집중 투자입니다.",
+    "in_graph": false
    },
    {
     "from": "factor4",
-    "to": "factor4-detail",
-    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요",
-    "in_graph": true
-   },
-   {
-    "from": "factor5",
-    "to": "factor5-detail",
-    "cue": "꺾은 선 세 개입니다. 연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor1",
-    "cue": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다.",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor2",
-    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다.",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor3",
-    "cue": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
-    "to": "factor4",
-    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요",
-    "in_graph": true
-   },
-   {
-    "from": "gap-five",
     "to": "factor5",
-    "cue": "꺾은 선 세 개입니다. 연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
-    "in_graph": true
-   },
-   {
-    "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
-    "to": "gap",
-    "cue": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
-    "in_graph": true
-   },
-   {
-    "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
-    "to": "gap-five",
-    "cue": "이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
-    "in_graph": true
-   },
-   {
-    "from": "gap-top",
-    "to": "gap-real",
-    "cue": "개인 중에서도 성과상이 25%인데 6.1%예요. 개인 평균보다는 높지만 여전히 지수를 26% 포인트 밑돕니다. 이게 왜 중요하냐면요. 만약 하위 그룹만 마이너스였다면 일부가 미숙해서로 설명을 할 수 있는데, 상위 그룹도 못 넘었다면 개인 투자 방식 자체를 봐야 된다는 신호가 됩니다.",
+    "cue": "다섯 번째 거래 비용입니다.",
     "in_graph": false
    },
    {
-    "from": "gap-real",
-    "to": "factor4",
-    "cue": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다.",
+    "from": "factor5",
+    "to": "gap-five",
+    "cue": "이 5개는 서로 완전히 독립적이지 않습니다.",
+    "in_graph": true
+   },
+   {
+    "from": "gap-five",
+    "to": "factor1-detail",
+    "cue": "첫 번째는 과잉 매매입니다.",
+    "in_graph": true
+   },
+   {
+    "from": "factor1-detail",
+    "to": "factor3",
+    "cue": "세 번째는 손실 회피입니다.",
+    "in_graph": false
+   },
+   {
+    "from": "factor3",
+    "to": "gap-calc",
+    "cue": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다.",
     "in_graph": false
    },
    {
     "from": "gap-calc",
+    "to": "factor4",
+    "cue": "네 번째는 집중 투자입니다.",
+    "in_graph": false
+   },
+   {
+    "from": "factor5",
+    "to": "factor1-detail",
+    "cue": "과잉 매매를 하면 거래 비용도 같이 늘어나죠?",
+    "in_graph": false
+   },
+   {
+    "from": "factor1-detail",
+    "to": "factor3-detail",
+    "cue": "세 번째는 손실 회피입니다.",
+    "in_graph": false
+   },
+   {
+    "from": "factor3-detail",
     "to": "gap-calc-detail",
-    "cue": "왼쪽은 꺾은 선입니다. 1000만원을 넣고 10년을 뒀을 때 평가액이고 단위는 만원입니다. 파란 선이 지수 빨간 선이 개인 평균입니다.",
-    "in_graph": true
+    "cue": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다.",
+    "in_graph": false
+   },
+   {
+    "from": "gap-calc-detail",
+    "to": "factor4-detail",
+    "cue": "네 번째는 집중 투자입니다.",
+    "in_graph": false
    },
    {
     "from": "factor4-detail",
-    "to": "gap-calc-detail",
-    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요",
+    "to": "factor5-detail",
+    "cue": "다섯 번째 거래 비용입니다.",
+    "in_graph": false
+   },
+   {
+    "from": "factor5-detail",
+    "to": "misconception",
+    "cue": "자 여기까지 들으시면서도 그래도 하고 떠오르신 게 있을 겁니다 자주 나오는 세 가지를 정리했습니다",
     "in_graph": false
    },
    {
     "from": "misconception",
     "to": "checklist",
-    "cue": "자 여기까지 들으시면서도 그래도 하고 떠오르신 게 있을 겁니다 자주 나오는 세 가지를 정리했습니다",
+    "cue": "십 삼페이지입니다. 그럼 실제로 뭘 하면 되는지 여섯 가지로 정리했습니다.",
     "in_graph": false
+   },
+   {
+    "from": "checklist",
+    "to": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+    "cue": "오늘 본 5개 요인 중에 시장 예측 능력에 해당하는 항목은 하나도 없었습니다",
+    "in_graph": true
    }
   ],
   "extra_concepts": [
@@ -1369,19 +1238,19 @@
    },
    {
     "label": "결론",
-    "quote": "오늘 본 5개 요인 중에 시장 예측 능력에 해당하는 항목은 하나도 없었습니다",
+    "quote": "그래서 제목에 질문에 대한 답은 이렇게 됩니다 무엇을 살까 보다 얼마나 자주 팔까가 결과를 갈랐습니다",
     "slide_no": 14
    }
   ],
   "summary": {
-   "coverage": 0.766,
+   "coverage": 1.0,
    "rank_correlation": 0.607,
-   "edge_coverage": 0.472,
+   "edge_coverage": 0.111,
    "verdict_counts": {
-    "aligned": 19,
+    "aligned": 23,
     "justified_skip": 0,
     "missing": 0,
-    "contradiction": 4
+    "contradiction": 0
    },
    "speech_total_sec": 885.8
   },
@@ -1407,8 +1276,8 @@
      "first_mention_sec": 2.927
     },
     "doc_weight": 0.441,
-    "evidence": "오늘 주제는 개인 투자자는 왜 시장을 이기지 못하는가입니다",
-    "note": "개인 투자자는 실력 문제가 아닌 행동 문제로 시장을 이기지 못한다",
+    "evidence": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
+    "note": "개인 투자자는 실력 문제가 아닌 행동 문제로 시장을 이기지 못한다는 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1416,7 +1285,7 @@
    },
    {
     "node_id": "gap",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.751,
     "speech_basis": {
      "speech_sec": 885.8,
@@ -1426,16 +1295,16 @@
      "first_mention_sec": null
     },
     "doc_weight": 1.0,
-    "evidence": "이 차이가 0.8% 8% 밖에 안 됩니다.",
-    "note": "발표에서는 0.8%라고 했는데 자료 3장은 8.7%예요",
-    "deck_quote": "기관과의 차이는 작다",
-    "deck_slide_no": 3,
-    "decided_by": "code",
-    "contra_kind": "number"
+    "evidence": "세로축은 연평균 수익률 단위는 퍼센트고요. 왼쪽부터 시장 지수 기관, 개인 상위 25% 개인 평균 개인 하위 25% 순입니다. 여기서 파란 막대와 회색 막대를 먼저 비교해 주십시오 시장 지수와 기관 투자자입니다 이 차이가 0.8% 8% 밖에 안 됩니다.",
+    "note": "개인 평균 수익률이 시장 지수 대비 4.8%p 낮은 수익률 격차를 설명함",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "gap-real",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.142,
     "speech_basis": {
      "speech_sec": 167.58,
@@ -1445,12 +1314,12 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.374,
-    "evidence": "여전히 지수를 26% 포인트 밑돕니다.",
-    "note": "발표에서는 26%p라고 했는데 자료 2장은 4.8%p예요",
-    "deck_quote": "· 개인 평균은 지수 대비 연 4.8%p 낮음",
-    "deck_slide_no": 2,
-    "decided_by": "code",
-    "contra_kind": "number"
+    "evidence": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다. 몇몇이 잘못해서 평균이 내려간 게 아니라는 뜻이죠.",
+    "note": "개인 평균 수익률이 지수 대비 연 4.8%p 낮음 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "gap-control",
@@ -1464,8 +1333,8 @@
      "first_mention_sec": 841.877
     },
     "doc_weight": 0.519,
-    "evidence": "매매 빈도나 보유 기간 같은 건 시장 시장을 마칠 필요 없이 본인이 정하는 값이거든요.",
-    "note": "통제 가능한 변수: 빈도·기간·종목수·비용은 본인 결정 가능",
+    "evidence": "세로축은 연평균 수익률 단위는 퍼센트고요. 왼쪽부터 시장 지수 기관, 개인 상위 25% 개인 평균 개인 하위 25% 순입니다. 여기서 파란 막대와 회색 막대를 먼저 비교해 주십시오 시장 지수와 기관 투자자입니다 이 차이가 0.8% 8% 밖에 안 됩니다.",
+    "note": "격차의 실재성을 확인하고 통제 가능한 변수임을 언급함",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1473,7 +1342,7 @@
    },
    {
     "node_id": "gap-top",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.132,
     "speech_basis": {
      "speech_sec": 155.62,
@@ -1483,12 +1352,12 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.386,
-    "evidence": "상위 그룹도 못 넘었다면 개인 투자 방식 자체를 봐야 된다는 신호가 됩니다.",
-    "note": "자료 3장과 높고 낮은 방향이 반대예요",
-    "deck_quote": "성과 상위 그룹조차 지수에 못 미쳤다 — 개인 투자 방식 자체를 봐야 한다는 신호",
-    "deck_slide_no": 3,
-    "decided_by": "code",
-    "contra_kind": "direction"
+    "evidence": "개인 중에서도 성과상이 25%인데 6.1%예요. 개인 평균보다는 높지만 여전히 지수를 26% 포인트 밑돕니다. 이게 왜 중요하냐면요. 만약 하위 그룹만 마이너스였다면 일부가 미숙해서로 설명을 할 수 있는데, 상위 그룹도 못 넘었다면 개인 투자 방식 자체를 봐야 된다는 신호가 됩니다.",
+    "note": "성과 상위 그룹도 지수를 못 넘었다는 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "gap-calc",
@@ -1502,8 +1371,8 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.401,
-    "evidence": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다. 체감이 안 되는 구간이죠. 5년 차에 307만원 10년 차에는 838만원까지 벌어집니다.",
-    "note": "연 4.8%p는 10년 뒤 원금 규모의 차이가 된다",
+    "evidence": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다.",
+    "note": "10년 뒤 원금 규모 차이 84% 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1521,8 +1390,8 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.285,
-    "evidence": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다. 체감이 안 되는 구간이죠. 5년 차에 307만원 10년 차에는 838만원까지 벌어집니다.",
-    "note": "10년 누적 평가액: 1년차 48만원, 5년차 307만원, 10년차 838만원",
+    "evidence": "5년 차에 307만원 10년 차에는 838만원까지 벌어집니다. 원금의 84%에 해당하는 금액입니다.",
+    "note": "10년 누적 평가액 차이 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1530,7 +1399,7 @@
    },
    {
     "node_id": "gap-five",
-    "verdict": "contradiction",
+    "verdict": "aligned",
     "speech_weight": 0.122,
     "speech_basis": {
      "speech_sec": 143.64,
@@ -1540,12 +1409,12 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.423,
-    "evidence": "나머지 네 개는 결심이 필요하지만 오 번은 결심이 필요 없습니다.",
-    "note": "자료 5장과 수치가 달라요",
-    "deck_quote": "- 이 수평 막대 차트는 다섯 가지 행동 요인이 수익률에 미치는 연간 기여도를 %p 단위로 나타낸다. 가로축은 -1.8에서 0까지의 값을 표시하며, 막대는 오른쪽으로 길어지는 방향으로 배치된다. '과잉 매매'가 가장 긴 막대로 최대의 부정적 기여를 보이며, '거래 비용'이 가장 짧은 막대로 최소의 양의 기여를 의미한다. 나머지 세 요인(집중 투자, 손실 회피, 타이밍 실패)은 모두 음의 값을 기록해 모두 손실을 유발함을 보여준다.",
-    "deck_slide_no": 5,
-    "decided_by": "code",
-    "contra_kind": "number"
+    "evidence": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
+    "note": "다섯 가지 행동 요인 설명",
+    "deck_quote": "",
+    "deck_slide_no": null,
+    "decided_by": "llm",
+    "contra_kind": ""
    },
    {
     "node_id": "factor1",
@@ -1560,7 +1429,7 @@
     },
     "doc_weight": 0.517,
     "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "거래를 늘릴수록 성과가 낮아졌다, 회전율 구간별 평균 수익률 단조 감소",
+    "note": "회전율 구간에 따른 수익률 감소 경향 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1579,7 +1448,7 @@
     },
     "doc_weight": 0.495,
     "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "단 며칠이 10년 수익을 결정한다, 최고 상승일 제외 시 연평균 수익률 8.7%→1.5%",
+    "note": "최고 상승일 제외 시 수익률 감소 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1598,7 +1467,7 @@
     },
     "doc_weight": 0.442,
     "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "오른 종목은 팔고 내린 종목은 남긴다, 손실 종목을 3.6배 더 오래 보유",
+    "note": "수익 난 종목과 손실 난 종목의 보유 기간 차이 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1617,7 +1486,7 @@
     },
     "doc_weight": 0.392,
     "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "종목 수가 적을수록 결과의 진폭이 커진다, 분산 투자 시 평균 수익률 상승",
+    "note": "집중 투자 시 한 종목만 들고 있을 때 수익률 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1635,8 +1504,8 @@
      "first_mention_sec": 227.053
     },
     "doc_weight": 0.487,
-    "evidence": "위에서부터 과잉 매매 타이밍 실패 손실 회피 집중 투자 거래 비용이고요.",
-    "note": "연 단위로는 작지만 20년 단위로는 큰 격차 발생, 비용 0.2% vs 2.5%",
+    "evidence": "다섯 번째 거래 비용입니다. 기여 도로는 가장 작은 항목인데 실무적으로는 제일 먼저 손댈 수 있는 항목이라 따로 보겠습니다. 꺾은 선 세 개입니다. 연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
+    "note": "거래 비용 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1654,8 +1523,8 @@
      "first_mention_sec": 283.285
     },
     "doc_weight": 0.445,
-    "evidence": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
-    "note": "상위 25%는 연 1.4회, 하위 25%는 연 11.8회(8.4배 차이), 연간 총비용 1% 이하 관리",
+    "evidence": "가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다. 세로 축은 그 그룹의 평균 수익률 퍼센트입니다. 모양을 먼저 봐주십시오. 왼쪽에서 어 오른쪽으로 계속 내려갑니다",
+    "note": "회전율 구간별 수익률 감소 경향 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1673,8 +1542,8 @@
      "first_mention_sec": null
     },
     "doc_weight": 0.304,
-    "evidence": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다. 어 세로 축은 연평균 수익률입니다. 숫자 하나만 집겠습니다. 상위 21을 뺐을 때 수익률이 8.7% 에서 1.5% 로 떨어집니다.",
-    "note": "2,500일 중 20일=0.8%, 이 20일을 놓치면 8.7%→1.5%",
+    "evidence": "상위 21을 뺐을 때 수익률이 8.7% 에서 1.5% 로 떨어집니다.",
+    "note": "최고 상승일 제외 시 수익률 감소 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1692,8 +1561,8 @@
      "first_mention_sec": 396.998
     },
     "doc_weight": 0.304,
-    "evidence": "급등일은 대체로 급락 직후에 몰려서 나옵니다.",
-    "note": "급등일은 급락 직후에 몰린다, 불안을 피하려는 시도와 상승을 놓치는 결과는 같은 행동의 앞뒷면",
+    "evidence": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다.",
+    "note": "급등일이 급락 직후에 몰린다는 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1712,7 +1581,7 @@
     },
     "doc_weight": 0.304,
     "evidence": "하락을 피할려는 시도와 상승을 놓치는 결과는 같은 행동의 앞 뒷면입니다",
-    "note": "두 번 맞혀야 성립: 팔 시점과 다시 살 시점 모두 필요",
+    "note": "하락을 피하려는 시도와 상승을 놓치는 결과가 같은 행동의 앞뒷면임을 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1731,7 +1600,7 @@
     },
     "doc_weight": 0.417,
     "evidence": "어 회전율 보유기간 종목수 비용 은 시장이 어떻든 본인이 정하는 값입니다",
-    "note": "손실 종목을 더 오래 보유하는 정도: 3.6배, 매도 규칙이 없으면 시간이 갈수록 부진한 종목만 남는 구조",
+    "note": "수익 난 종목과 손실 난 종목의 보유 기간 차이 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1749,8 +1618,8 @@
      "first_mention_sec": 473.459
     },
     "doc_weight": 0.298,
-    "evidence": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다 52일과 187일 3.6배 차이입니다 오른 종목은 두 달 만에 팔고 내린 종목은 반 년 넘게 들고 있었다는 거죠",
-    "note": "포트폴리오가 자동으로 나빠진다: 오른 종목은 빠지고 내린 종목만 축적",
+    "evidence": "그러니까 가만히 두면 포트폴리오가 알아서 나빠지는 방향으로 정렬됩니다.",
+    "note": "포트폴리오가 자동으로 나빠지는 구조 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1769,7 +1638,7 @@
     },
     "doc_weight": 0.305,
     "evidence": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요 초록선은 상위 10%가 낸 성과 노란 선은 평균 빨간 선은 하위 10%입니다 먼저 왼쪽 끝을 보십시오. 한 종목만 들고 있었을 때 잘 된 사람은 68% 를 벌었습니다. 분산에서는 절대 안 나오는 숫자죠.",
-    "note": "분산할수록 오히려 평균 수익률이 개선됨, 상위 그룹 수익률 하락, 하위 그룹 수익률 상승",
+    "note": "집중 투자 시 한 종목만 들고 있을 때 수익률 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1788,7 +1657,7 @@
     },
     "doc_weight": 0.285,
     "evidence": "연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요. 단위는 만원입니다. 연 2점 5% 라고 하면 100만원 당 2만 5000원입니다.",
-    "note": "비용 0.2% vs 2.5%, 20년 후 평가액 차이 1,617만원",
+    "note": "비용률 0.2% vs 2.5% 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1807,7 +1676,7 @@
     },
     "doc_weight": 0.246,
     "evidence": "자 여기까지 들으시면서도 그래도 하고 떠오르신 게 있을 겁니다 자주 나오는 세 가지를 정리했습니다 첫 번째 공부하면 이길 수 있다 데이터상으로는 분석에 쓴 시간과 수익률에 상관이 약했습니다 오히려 분석을 많이 한 쪽에서 매매가 잦아지는 경향이 나왔어요",
-    "note": "공부와 시장 이기기, 손실 버티기, 분산 투자 오해",
+    "note": "공부에 대한 오해 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1826,7 +1695,7 @@
     },
     "doc_weight": 0.246,
     "evidence": "십 삼페이지입니다. 그럼 실제로 뭘 하면 되는지 여섯 가지로 정리했습니다. 각 항목 아래 화살표가 오늘 본 데이터 중 어디서 나온 건지 표시해뒀습니다. 전부 설명드리지는 않고 성격이 다른 두 개만 짓겠습니다. 삼 번 종목 수 하한가 여덟 개 왜 하필 여덟 개냐면요. 아까 집중투자 그래프에서 빨간 순위 빨간 선이 가장 가파르게 올라가는 구간이 여기입니다 그 이상 늘려도 개선은 되지만 효과가 완만합니다",
-    "note": "실행 체크리스트: 회전율, 최소 보유 기간, 종목 수 하한, 매도 규칙 사전 설정, 연간 총비용 확인, 매매 사유 기록",
+    "note": "실행 체크리스트 설명",
     "deck_quote": "",
     "deck_slide_no": null,
     "decided_by": "llm",
@@ -1837,20 +1706,44 @@
    {
     "from": "gap",
     "to": "gap-control",
-    "cue": "매매 빈도나 보유 기간 같은 건 시장 시장을 마칠 필요 없이 본인이 정하는 값이거든요.",
+    "cue": "이 3가지를 지금부터 순서대로 확인하겠습니다. 먼저 격차가 실제로 있는지부터 봐야겠죠?",
     "in_graph": true
    },
    {
     "from": "gap-control",
     "to": "factor1",
-    "cue": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다.",
+    "cue": "먼저 격차가 실제로 있는지부터 봐야겠죠?",
     "in_graph": false
    },
    {
     "from": "factor1",
+    "to": "factor1-detail",
+    "cue": "가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다.",
+    "in_graph": true
+   },
+   {
+    "from": "factor1",
     "to": "factor2",
-    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다.",
+    "cue": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다.",
     "in_graph": false
+   },
+   {
+    "from": "factor2",
+    "to": "factor2-detail",
+    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다.",
+    "in_graph": true
+   },
+   {
+    "from": "factor2",
+    "to": "factor2-detail2",
+    "cue": "급등일은 대체로 급락 직후에 몰려서 나옵니다. 시장이 무섭게 빠져서 일단 좀 빼놓자 하는 그 구간이 정확히 이십 일과 겹칩니다.",
+    "in_graph": true
+   },
+   {
+    "from": "factor2",
+    "to": "factor2-detail3",
+    "cue": "타이밍을 맞출려면 팔 시점과 다시 살 시점을 둘 다 맞춰야 되는데 한 번 더 어려운 걸 두 번 해야 되는 셈이죠",
+    "in_graph": true
    },
    {
     "from": "factor2",
@@ -1860,78 +1753,72 @@
    },
    {
     "from": "factor3",
+    "to": "factor3-detail",
+    "cue": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다",
+    "in_graph": true
+   },
+   {
+    "from": "factor3",
+    "to": "factor3-detail2",
+    "cue": "오른 종목은 계속 빠져나가고, 내린 종목은 계속 쌓입니다. 그러니까 가만히 두면 포트폴리오가 알아서 나빠지는 방향으로 정렬됩니다.",
+    "in_graph": true
+   },
+   {
+    "from": "factor3",
     "to": "factor4",
-    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요",
+    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다",
     "in_graph": false
    },
    {
     "from": "factor4",
+    "to": "factor4-detail",
+    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다",
+    "in_graph": true
+   },
+   {
+    "from": "factor4",
     "to": "factor5",
-    "cue": "꺾은 선 세 개입니다. 연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
+    "cue": "다섯 번째 거래 비용입니다. 기여 도로는 가장 작은 항목인데 실무적으로는 제일 먼저 손댈 수 있는 항목이라 따로 보겠습니다.",
     "in_graph": false
    },
    {
     "from": "factor5",
-    "to": "factor1-detail",
-    "cue": "막대 그래프인데요. 가로축이 연간 매매 회전율 구간입니다. 왼쪽으로 갈수록 적게 거래하고 오른쪽으로 갈수록 자주 거래한 그룹입니다.",
-    "in_graph": false
-   },
-   {
-    "from": "factor1-detail",
-    "to": "factor3-detail",
-    "cue": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다",
-    "in_graph": false
-   },
-   {
-    "from": "factor3-detail",
-    "to": "gap-calc",
-    "cue": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다.",
-    "in_graph": false
+    "to": "factor5-detail",
+    "cue": "연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
+    "in_graph": true
    },
    {
     "from": "gap-calc",
-    "to": "factor4-detail",
-    "cue": "이 슬라이드는 선이 3개라 조금 헷갈리실 수도 있는데 순서대로 보겠습니다 가로치기 보유 종목 수입니다 왼쪽이 어 한 종목 오른쪽으로 갈수록 여러 종목이고요",
-    "in_graph": false
-   },
-   {
-    "from": "factor4-detail",
-    "to": "factor2-detail",
-    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다.",
-    "in_graph": false
-   },
-   {
-    "from": "factor2-detail",
-    "to": "factor2-detail2",
-    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다.",
-    "in_graph": false
-   },
-   {
-    "from": "factor2-detail2",
-    "to": "factor2-detail3",
-    "cue": "막대 그래프를 보시면 왼쪽이 10년을 그냥 들고 있었을 때고요 오른쪽으로 갈수록 그 기간 중 가장 많이 오른 날들을 하나씩 빼본 경우라고 할 수 있습니다.",
-    "in_graph": false
-   },
-   {
-    "from": "factor2-detail3",
-    "to": "factor3-detail2",
-    "cue": "막대 2개만 있습니다 왼쪽 초록이 수익이 난 종목 오른쪽 빨강이 손실이 난 종목이고 세로 축은 평균 며칠을 들고 있었는집니다",
-    "in_graph": false
-   },
-   {
-    "from": "factor3-detail2",
     "to": "gap-calc-detail",
-    "cue": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다.",
+    "cue": "여기서 봐주실 건 선의 높이가 아니라 두 선 사이의 간격입니다. 1년 차에는 거의 붙어있습니다. 48만원 차이인데 이 정도면 그 해 시장이 좋았나 정도로 넘어갑니다. 체감이 안 되는 구간이죠. 5년 차에 307만원 10년 차에는 838만원까지 벌어집니다.",
+    "in_graph": true
+   },
+   {
+    "from": "gap-calc",
+    "to": "gap-top",
+    "cue": "개인 중에서도 성과상이 25%인데 6.1%예요. 개인 평균보다는 높지만 여전히 지수를 26% 포인트 밑돕니다.",
     "in_graph": false
    },
    {
-    "from": "gap-calc-detail",
-    "to": "factor5-detail",
-    "cue": "꺾은 선 세 개입니다. 연간 비용률이 0.21.02.5%일 때 20년 뒤 평가액이고요.",
+    "from": "gap-top",
+    "to": "gap-real",
+    "cue": "개인투자자 평균이 낮다는 것은 다들 예상하실 텐데요. 어 음 중요한 건 성과가 좋은 상위 25% 그룹조차 시장 지수를 못 넘었다는 점입니다.",
     "in_graph": false
    },
    {
-    "from": "factor5-detail",
+    "from": "gap-real",
+    "to": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+    "cue": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요 오늘 발표는 이 문장을 5개에 숫자로 증명하는 과정이라고 보시면 됩니다",
+    "in_graph": true
+   },
+   {
+    "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+    "to": "gap-five",
+    "cue": "이 3가지를 지금부터 순서대로 확인하겠습니다. 먼저 격차가 실제로 있는지부터 봐야겠죠?",
+    "in_graph": true
+   },
+   {
+    "from": "gap-five",
     "to": "misconception",
     "cue": "자 여기까지 들으시면서도 그래도 하고 떠오르신 게 있을 겁니다 자주 나오는 세 가지를 정리했습니다",
     "in_graph": false
@@ -1943,16 +1830,27 @@
     "in_graph": false
    }
   ],
-  "extra_concepts": [],
+  "extra_concepts": [
+   {
+    "label": "부제",
+    "quote": "부제가 어 실력에 문제가 아니라 행동에 문제다인데요",
+    "slide_no": 2
+   },
+   {
+    "label": "결론",
+    "quote": "오늘 본 5개 요인 중에 시장 예측 능력에 해당하는 항목은 하나도 없었습니다",
+    "slide_no": 14
+   }
+  ],
   "summary": {
-   "coverage": 0.766,
+   "coverage": 1.0,
    "rank_correlation": 0.607,
-   "edge_coverage": 0.028,
+   "edge_coverage": 0.333,
    "verdict_counts": {
-    "aligned": 19,
+    "aligned": 23,
     "justified_skip": 0,
     "missing": 0,
-    "contradiction": 4
+    "contradiction": 0
    },
    "speech_total_sec": 885.8
   },

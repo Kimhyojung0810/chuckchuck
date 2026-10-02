@@ -526,20 +526,20 @@ def test_same_triage_and_track_gives_identical_doc():
 
 def test_unknown_node_id_dropped_from_questions():
     doc = doc_of(questions_payload(
-        {"node_id": "nope", "question": "지어낸 질문"},
-        {"node_id": "c1", "question": "진짜 질문"},
+        {"node_id": "nope", "question": "지어낸 질문인가요?"},
+        {"node_id": "c1", "question": "진짜 질문인가요?"},
     ))
-    assert "지어낸 질문" not in [q.question for q in doc.questions]
-    assert doc.questions[0].question == "진짜 질문"
+    assert "지어낸 질문인가요?" not in [q.question for q in doc.questions]
+    assert doc.questions[0].question == "진짜 질문인가요?"
 
 
 def test_duplicate_node_id_first_wins_in_questions():
     doc = doc_of(questions_payload(
-        {"node_id": "c1", "question": "첫 번째"},
-        {"node_id": "c1", "question": "두 번째"},
+        {"node_id": "c1", "question": "첫 번째인가요?"},
+        {"node_id": "c1", "question": "두 번째인가요?"},
     ))
-    assert "두 번째" not in [q.question for q in doc.questions]
-    assert doc.questions[0].question == "첫 번째"
+    assert "두 번째인가요?" not in [q.question for q in doc.questions]
+    assert doc.questions[0].question == "첫 번째인가요?"
 
 
 def test_omitted_target_filled_with_deterministic_fallback():
@@ -847,7 +847,7 @@ def gist_of(doc: QuestionDoc, node_id: str) -> str:
 
 def test_llm_이_준_골자를_쓴다():
     doc = doc_of(questions_payload(
-        {"node_id": "c1", "question": "질문", "answer_gist": "20명 실측으로 평균 23초"}
+        {"node_id": "c1", "question": "질문인가요?", "answer_gist": "20명 실측으로 평균 23초"}
     ))
     assert gist_of(doc, "c1") == "20명 실측으로 평균 23초"
 
@@ -878,7 +878,7 @@ def test_골자도_길이_상한을_지킨다():
 
 def test_골자가_왕복해도_남는다():
     doc = doc_of(questions_payload(
-        {"node_id": "c1", "question": "질문", "answer_gist": "왕복 확인용 골자"}
+        {"node_id": "c1", "question": "질문인가요?", "answer_gist": "왕복 확인용 골자"}
     ))
     assert gist_of(QuestionDoc.from_dict(doc.to_dict()), "c1") == "왕복 확인용 골자"
 
@@ -952,6 +952,32 @@ def test_여러_구획에_걸치면_가장_앞선_구획으로_본다():
         ],
     )
     assert _role_rank_of(graph, node) == 0
+
+
+def test_핵심_주장은_표지_요약_장에_있어도_본론으로_본다():
+    """10-02 질문 코치 벤치: 「결론부터」 요약 장의 주장이 intro 로 밀려 후보 창에서 잘렸다."""
+    from chuckchuck.f08_questions import _role_rank_of
+
+    sections = [Section(name="도입", slide_role="intro", slide_nos=[1, 2]), Section(name="본론", slide_role="body", slide_nos=[3])]
+    thesis = ConceptNode(id="t", label="격차는 행동에서 만들어진다", slide_nos=[1, 2], weight=0.7, kind="thesis")
+    plain = ConceptNode(id="p", label="리서치팀", slide_nos=[1, 2], weight=0.7)
+    graph = ConceptGraph(file_name="t.pdf", total_slides=3, nodes=[thesis, plain], sections=sections)
+    assert _role_rank_of(graph, thesis) == 0
+    assert _role_rank_of(graph, plain) == 1          # 주장이 아닌 도입 개념은 예전대로 뒤
+
+
+def test_주장_노드의_함정은_전제_줄이_그_주장의_낱말을_불러야_한다():
+    """10-02 질문 코치 벤치: 주장 자리에 같은 장의 다른 수치(「상위 2개가 전체의 58%」)를 뒤집은 함정이 붙어 주장을 안 물었다."""
+    from chuckchuck.contracts import TrapPremise
+    from chuckchuck.f08_questions import _trap_owned
+
+    label = "다섯 요인 중 종목 선정 능력에 해당하는 항목은 하나도 없다"
+    other = TrapPremise(kind="number", premise="상위 2개가 전체의 46%", fact="상위 2개가 전체의 58%", slide_no=5)
+    own = TrapPremise(kind="negation", premise="종목 선정 능력에 해당하는 항목이 있다", fact="종목 선정 능력에 해당하는 항목은 하나도 없다",
+                      slide_no=5)
+    assert _trap_owned(label, other, [label]) is True                # 개념 노드 규칙(장 제목이 부른 줄)은 그대로
+    assert _trap_owned(label, other, [label], claim=True) is False
+    assert _trap_owned(label, own, [label], claim=True) is True
 
 
 def test_요약이_빈_개념은_같은_조건에서_뒤로_밀린다():
@@ -1884,3 +1910,55 @@ def test_같은_근거면_시간을_덜_쓴_장의_개념이_먼저다():
     pace = _pace({1: 60, 2: 60, 3: 60, 4: 10, 5: 60})                     # 4장만 크게 짧다
     ids = [m.node_id for m in make_triage(graph, alignment=alignment, pace=pace).marks]
     assert ids.index("leaf2") < ids.index("leaf1")
+
+
+def test_다른_대상_개념의_이름만_부르는_질문을_가려낸다():
+    """10-02 질문 코치 벤치: 「사전 규칙」 자리에 옆 자리 「예외 없는 단조 감소」 질문이 그대로 들어갔다."""
+    from chuckchuck.f08_questions import _names_other_target
+
+    rule = ConceptNode(id="r", label="사전에 정해둔 규칙", slide_nos=[11])
+    mono = ConceptNode(id="m", label="예외 없는 단조 감소", slide_nos=[6])
+    cost = ConceptNode(id="c", label="비용", slide_nos=[10])
+    by_id = {n.id: n for n in (rule, mono, cost)}
+    marks = [TriageMark(node_id=n) for n in by_id]
+    assert _names_other_target("예외 없는 단조 감소가 들어맞지 않는 경우도 있나요?", rule, marks, by_id)
+    assert not _names_other_target("사전에 정해둔 규칙은 어떤 기준인가요?", rule, marks, by_id)
+    # 다른 개념 이름이 이 개념 이름 안에 든 상위어면 남의 질문이 아니다
+    total = ConceptNode(id="t", label="연간 총비용", slide_nos=[13])
+    assert not _names_other_target("연간 총비용을 왜 1% 이하로 두나요?", total, [*marks, TriageMark(node_id="t")], {**by_id, "t": total})
+
+
+def test_물음도_요청도_아닌_문장은_질문으로_내보내지_않는다():
+    """10-02 질문 코치 벤치: 개념 요약이 question 칸에 그대로 와서 서술문이 질문으로 떴다."""
+    from chuckchuck.f08_questions import _fit_question
+
+    assert _fit_question("격차는 종목 선택이 아니라 행동에서 만들어진다 / 실력의 문제가 아니라 행동의 문제다") == ""
+    assert _fit_question("상위 그룹을 구분한 것은 판단력이 아니라 사전에 정해둔 규칙이었다") == ""
+    assert _fit_question("그 근거는 무엇인가요") == "그 근거는 무엇인가요?"
+    assert _fit_question("이 수치가 무엇을 보여 주는지 설명해 주세요.") == "이 수치가 무엇을 보여 주는지 설명해 주세요."
+
+
+def test_모범답의_절이_자료에_없으면_질문도_자료가_답하는_꼴로_맞춘다():
+    """10-02 질문 코치 벤치: LLM 질문은 그대로인데 골자만 근거 장 되읊기로 떨어져, 모범답대로 답해도 partial 에서 막혔다."""
+    payload = questions_payload({
+        "node_id": "c1", "question": "개념1에서 자료가 말하는 내용은 무엇인가요?",
+        "answer_gist": "국제 표준 기구가 권고한 지표라서 대기업들이 앞다퉈 도입했어요", "why": "도입 배경이 궁금해서",
+    })
+    q = next(x for x in doc_of(payload, slidedoc=make_slidedoc()).questions if x.node_id == "c1")
+    assert "question_follows_gist" in q.basis.checks
+    assert q.question == "개념1을 자료 1장에서 어떻게 설명했나요?"
+    assert "표준" not in q.answer_gist and q.why != "도입 배경이 궁금해서"
+    # 자료 글이 없으면 대조하지 않으므로 질문도 그대로다
+    assert next(x for x in doc_of(payload).questions if x.node_id == "c1").question == "개념1에서 자료가 말하는 내용은 무엇인가요?"
+
+
+def test_인용을_숨긴_근거_묶음도_모르겠어요_보기_쌍은_남긴다():
+    """10-02 질문 코치 벤치 D: 인용이 곧 답인 질문은 근거 칸 인용을 숨기는데, 보기 쌍까지 버려 「모르겠어요」 가 두 갈래 보기를 못 냈다."""
+    from chuckchuck._reason import ContrastChoice
+    from chuckchuck.f08_questions import _basis_of
+
+    line = "결론부터: 격차는 종목 선택이 아니라 행동에서 만들어진다"
+    choice = ContrastChoice("행동", "종목 선택", 2, line, "line")
+    b = _basis_of(TriageMark(node_id="t", rank=1), "theme", None, 2, line, [], contrast=choice, hide_quote=True)
+    assert b.contrast == ["행동", "종목 선택"]
+    assert b.contrast_quote is None and all(e.quote == "" for e in b.evidence)     # 줄 자체는 여전히 근거 칸으로 새지 않는다

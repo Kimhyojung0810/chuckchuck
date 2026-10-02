@@ -1,0 +1,391 @@
+{
+ "file_name": "[선정]개인투자자_수익률격차_분석_v2.pptx",
+ "total_slides": 15,
+ "model": "solar",
+ "nodes": [
+  {
+   "id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "label": "실력 문제가 아닌 행동 문제",
+   "slide_nos": [
+    1,
+    4,
+    14
+   ],
+   "summary": "개인 투자자는 왜 시장을 이기지 못하는가 — 개인 투자자는 왜 시장을 이기지 못하는가: 실력 문제가 아닌 행동 문제",
+   "importance": "core",
+   "weight": 0.967,
+   "weight_basis": {
+    "slide_count": 3,
+    "char_share": 0.164,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": null,
+   "depth": 1
+  },
+  {
+   "id": "return-gap",
+   "label": "수익률 격차",
+   "slide_nos": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "summary": "개인 평균은 지수 대비 연 4.8%p 낮음",
+   "importance": "core",
+   "weight": 1.0,
+   "weight_basis": {
+    "slide_count": 4,
+    "char_share": 0.2493,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "five-factors",
+   "label": "다섯 가지 행동 요인",
+   "slide_nos": [
+    5,
+    13
+   ],
+   "summary": "격차를 만든 다섯 가지 행동 요인",
+   "importance": "core",
+   "weight": 0.805,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.141,
+    "has_visual": true,
+    "position": "early",
+    "mention_count": 3,
+    "title_hit": false
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "overtrading",
+   "label": "과잉 매매",
+   "slide_nos": [
+    6,
+    13
+   ],
+   "summary": "거래를 늘릴수록 성과가 낮아졌다",
+   "importance": "core",
+   "weight": 0.9,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1267,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 5,
+    "title_hit": true
+   },
+   "parent_id": "five-factors",
+   "depth": 3
+  },
+  {
+   "id": "timing-failure",
+   "label": "타이밍 실패",
+   "slide_nos": [
+    7,
+    13
+   ],
+   "summary": "단 며칠이 10년 수익을 결정한다",
+   "importance": "core",
+   "weight": 0.851,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1311,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": true
+   },
+   "parent_id": "five-factors",
+   "depth": 3
+  },
+  {
+   "id": "loss-aversion",
+   "label": "손실 회피",
+   "slide_nos": [
+    8,
+    13
+   ],
+   "summary": "오른 종목은 팔고, 내린 종목은 남긴다",
+   "importance": "core",
+   "weight": 0.738,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1108,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": true
+   },
+   "parent_id": "five-factors",
+   "depth": 3
+  },
+  {
+   "id": "concentration",
+   "label": "집중 투자",
+   "slide_nos": [
+    9,
+    13
+   ],
+   "summary": "종목 수가 적을수록 결과의 진폭이 커진다",
+   "importance": "core",
+   "weight": 0.645,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1357,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 2,
+    "title_hit": false
+   },
+   "parent_id": "five-factors",
+   "depth": 3
+  },
+  {
+   "id": "trading-cost",
+   "label": "거래 비용",
+   "slide_nos": [
+    10,
+    13
+   ],
+   "summary": "연 단위로는 작지만 20년 단위로는 큰 격차 발생",
+   "importance": "core",
+   "weight": 0.752,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.1441,
+    "has_visual": true,
+    "position": "middle",
+    "mention_count": 4,
+    "title_hit": false
+   },
+   "parent_id": "five-factors",
+   "depth": 3
+  },
+  {
+   "id": "top-group",
+   "label": "상위 성과 그룹",
+   "slide_nos": [
+    11,
+    13
+   ],
+   "summary": "회전율, 보유기간, 종목수, 비용 모두 통제 가능",
+   "importance": "core",
+   "weight": 0.541,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.134,
+    "has_visual": true,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": false
+   },
+   "parent_id": "five-factors",
+   "depth": 3
+  },
+  {
+   "id": "misconception",
+   "label": "오해와 사실",
+   "slide_nos": [
+    12,
+    13
+   ],
+   "summary": "공부하면 시장을 이길 수 있다, 손실은 버티면 언젠가 회복된다, 분산하면 수익이 줄어든다",
+   "importance": "core",
+   "weight": 0.518,
+   "weight_basis": {
+    "slide_count": 2,
+    "char_share": 0.0898,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": true
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  },
+  {
+   "id": "checklist",
+   "label": "실행 체크리스트",
+   "slide_nos": [
+    13
+   ],
+   "summary": "통제 가능한 여섯 가지 실행 항목",
+   "importance": "core",
+   "weight": 0.451,
+   "weight_basis": {
+    "slide_count": 1,
+    "char_share": 0.045,
+    "has_visual": false,
+    "position": "late",
+    "mention_count": 0,
+    "title_hit": true
+   },
+   "parent_id": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "depth": 2
+  }
+ ],
+ "edges": [
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "return-gap",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "five-factors",
+   "kind": "parent"
+  },
+  {
+   "from": "five-factors",
+   "to": "overtrading",
+   "kind": "parent"
+  },
+  {
+   "from": "five-factors",
+   "to": "timing-failure",
+   "kind": "parent"
+  },
+  {
+   "from": "five-factors",
+   "to": "loss-aversion",
+   "kind": "parent"
+  },
+  {
+   "from": "five-factors",
+   "to": "concentration",
+   "kind": "parent"
+  },
+  {
+   "from": "five-factors",
+   "to": "trading-cost",
+   "kind": "parent"
+  },
+  {
+   "from": "five-factors",
+   "to": "top-group",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "misconception",
+   "kind": "parent"
+  },
+  {
+   "from": "gaein-tujajaneun-wae-sijangeul-igiji-mot",
+   "to": "checklist",
+   "kind": "parent"
+  },
+  {
+   "from": "return-gap",
+   "to": "five-factors",
+   "kind": "relates"
+  },
+  {
+   "from": "return-gap",
+   "to": "top-group",
+   "kind": "relates"
+  },
+  {
+   "from": "return-gap",
+   "to": "misconception",
+   "kind": "relates"
+  },
+  {
+   "from": "return-gap",
+   "to": "checklist",
+   "kind": "relates"
+  },
+  {
+   "from": "top-group",
+   "to": "overtrading",
+   "kind": "relates"
+  },
+  {
+   "from": "top-group",
+   "to": "timing-failure",
+   "kind": "relates"
+  },
+  {
+   "from": "top-group",
+   "to": "loss-aversion",
+   "kind": "relates"
+  },
+  {
+   "from": "top-group",
+   "to": "concentration",
+   "kind": "relates"
+  },
+  {
+   "from": "top-group",
+   "to": "trading-cost",
+   "kind": "relates"
+  }
+ ],
+ "sections": [
+  {
+   "name": "서론 — 문제 제기",
+   "slide_role": "intro",
+   "slide_nos": [
+    1,
+    2
+   ]
+  },
+  {
+   "name": "본론 — 현황 및 원인 분석",
+   "slide_role": "body",
+   "slide_nos": [
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ]
+  },
+  {
+   "name": "본론 — 성공 요인 및 오해",
+   "slide_role": "body",
+   "slide_nos": [
+    11,
+    12
+   ]
+  },
+  {
+   "name": "본론 — 실행 방안",
+   "slide_role": "body",
+   "slide_nos": [
+    13
+   ]
+  },
+  {
+   "name": "결론",
+   "slide_role": "conclusion",
+   "slide_nos": [
+    14
+   ]
+  },
+  {
+   "name": "마무리",
+   "slide_role": "closing",
+   "slide_nos": [
+    15
+   ]
+  }
+ ],
+ "thesis": "gaein-tujajaneun-wae-sijangeul-igiji-mot"
+}
