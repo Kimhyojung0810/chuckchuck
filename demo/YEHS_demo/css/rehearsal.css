@@ -109,7 +109,11 @@
   opacity: var(--vr-slide-alpha); border-radius: 10px; box-shadow: none;
   width: 100%; height: 100%; object-fit: contain; background: transparent;   /* 칸을 채운다 — 그린 폭이 칸보다 작으면 작은 장이 떠 있었다 */
 }
-.bq[data-flow="rehearsal"] .rh-slide .vr-slide-cap { padding: 6px 28px 6px 6px; }
+.bq[data-flow="rehearsal"] .rh-slide .vr-slide-cap { padding: 6px 46px 6px 6px; }
+/* 아이패드(손가락) — 화상판의 카메라 알약도 44px 누름 칸 (부스 노트북 배치는 그대로) */
+@media (pointer: coarse) {
+  .bq[data-flow="rehearsal"] .bc-side .bc-pill { min-height: 44px; }
+}
 .bq[data-flow="rehearsal"] .rh-cap-fill { flex: 1; }
 .bq[data-flow="rehearsal"] .rh-slide :is(.vr-drag, .vr-resize, .vr-alpha input):focus-visible {
   outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(4, 48, 39, .95);

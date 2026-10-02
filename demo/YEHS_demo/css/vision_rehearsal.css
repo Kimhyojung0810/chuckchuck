@@ -92,13 +92,15 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
 }
 .vr-slide-cap {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 28px 8px 8px;
+  padding: 8px 46px 8px 8px;   /* 오른쪽은 크기 모서리(44px 누름 칸) 자리 */
   border-top: 1px solid rgba(255, 255, 255, .45);
   background: rgba(255, 255, 255, .62);
   font-size: 14px;
 }
+/* 손가락 누름 칸은 44px — 보이는 크기(32 · 28 · 22px)와 조작줄 높이는 그대로 두고 칸만 넓힌다 (10-03 점검 V5, 아이패드).
+   음수 여백으로 넓힌 만큼 자리를 돌려준다 */
 .vr-drag {
-  flex: none; width: 32px; height: 32px; padding: 0;
+  flex: none; width: 44px; height: 44px; margin: -6px; padding: 0;
   border: 0; border-radius: 8px; background: transparent; color: #3d4a44;
   font-size: 16px; line-height: 1; cursor: grab; touch-action: none;
 }
@@ -114,20 +116,20 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   font-size: 12px; font-weight: 700; color: #3d4a44; cursor: default;
 }
 .vr-alpha input {
-  width: 84px; height: 28px; margin: 0; accent-color: #12815a; cursor: pointer;
+  width: 84px; height: 44px; margin: -8px 0; accent-color: #12815a; cursor: pointer;
 }
 @container (max-width: 460px) {
   .vr-alpha span { display: none; }
   .vr-alpha input { width: 64px; }
 }
 .vr-resize {
-  position: absolute; right: 2px; bottom: 2px; z-index: 2;
-  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px;
+  position: absolute; right: 0; bottom: 0; z-index: 2;
+  width: 44px; height: 44px; padding: 0; border: 0; border-radius: 6px;
   background: transparent; cursor: nwse-resize; touch-action: none;
 }
 .vr-resize::before {
   content: "";
-  position: absolute; right: 4px; bottom: 4px;
+  position: absolute; right: 6px; bottom: 6px;
   width: 9px; height: 9px;
   border-right: 2px solid rgba(28, 36, 48, .55);
   border-bottom: 2px solid rgba(28, 36, 48, .55);
@@ -175,7 +177,7 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   text-shadow: 0 2px 8px rgba(0, 0, 0, .5);
 }
 .vr-ear {
-  pointer-events: auto; margin-top: 8px; height: 40px; padding: 0 14px;
+  pointer-events: auto; margin-top: 8px; height: 44px; padding: 0 16px;
   border: 0; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1c2430;
   font-weight: 700; cursor: pointer;
 }
