@@ -309,6 +309,11 @@ async function rhPickDeck(d, btn) {
     bq.decks = null;
   };
   rhFreshPractice();
+  // 새 발표 — 지난 방문(부스 · 지난 리허설)에서 끈 카메라 · 오류를 넘기지 않는다
+  bq.cam.off = false;
+  bq.cam.error = '';
+  bq.cam.denied = false;
+  if (typeof visionCam !== 'undefined') { visionCam.off = false; visionCam.error = ''; }
   nf.occ = '';
   nf.ctx = '';
   nf.occTouched = false;
@@ -584,7 +589,7 @@ function rehearsalWaitSync() {
   const take = String(nf.pipelineStartedAt || '');
   if (!layer || layer.dataset.screen !== 'wait' || (layer.dataset.take || '') !== take) {
     rhHandCamera();
-    if (!bq.cam.stream) { bq.cam.off = false; bq.cam.error = ''; bq.cam.denied = false; }
+    rhCarryCamChoice();
     rhMount('wait', rhWaitHtml(), { keepApp: true }).dataset.take = take;
     // 질문이 이미 있는데 여기로 왔으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만
     bq.rhLiveAtMount = qaLiveActive();
@@ -607,6 +612,8 @@ function rhReleaseWaitLayer() {
   bq.rhEntering = false;
   bq.rhLiveAtMount = false;
   bq.screen = '';
+  // 화상판 쪽에서 꺼 둔 카메라는 비전 리허설에서도 꺼 둔다
+  if (bq.cam.off && typeof visionCam !== 'undefined') { visionCam.off = true; bq.cam.off = false; }
   const s = bq.cam.stream;
   if (s && typeof visionCam !== 'undefined' && !visionCam.stream && s.getVideoTracks().some((t) => t.readyState === 'live')) {
     bq.cam.stream = null;
@@ -616,6 +623,18 @@ function rhReleaseWaitLayer() {
   } else if (typeof bqCamStop === 'function') {
     bqCamStop();
   }
+}
+
+/**
+ * 비전 리허설에서 「카메라 끄기」 를 눌렀으면 기다림 · 화상판에서도 꺼 둔다 — 예전엔 넘겨받을 스트림이 없으면 off 를 풀고 새로 열어서
+ * 끈 카메라가 다시 켜졌다 (10-03 점검 F3). 끈 선택은 bq.cam.off 로 옮겨 그 뒤로는 화상판의 「카메라 켜기」 가 정한다.
+ * 끄지 않았는데 스트림이 없으면(비전에서 못 열었다 등) 지난 오류를 지우고 한 번 더 연다. 지난 방문의 off 는 발표를 고를 때 푼다(rhPickDeck)
+ */
+function rhCarryCamChoice() {
+  if (typeof visionCam !== 'undefined' && visionCam.off) { bq.cam.off = true; visionCam.off = false; }
+  if (bq.cam.stream || bq.cam.off) return;
+  bq.cam.error = '';
+  bq.cam.denied = false;
 }
 
 /** 비전 리허설이 연 카메라를 화상판 쪽으로 넘긴다 — 다시 묻지 않게 (app.js renderNew 가 리허설 탭이면 비전 카메라를 끄지 않고 둔다) */
@@ -746,7 +765,7 @@ function rhWaitFail(st, qaReady) {
 function renderQaLiveRehearsal() {
   bq.variant = 'call';
   if (typeof qaAudienceWord === 'function') qa.aud = qaAudienceWord();
-  if (!bq.cam.stream) { bq.cam.off = false; bq.cam.error = ''; bq.cam.denied = false; }
+  rhCarryCamChoice();
   if (window.BoothCV && typeof BoothCV.load === 'function') BoothCV.load();
   renderQaLiveBoothCall();
   const layer = document.getElementById('bqStage');
