@@ -83,6 +83,10 @@
    칸 자체는 누름을 통과시킨다(그 밑의 자료 창 손잡이가 잡히게) */
 .bq[data-flow="rehearsal"] .bc-side { z-index: 4; pointer-events: none; }
 .bq[data-flow="rehearsal"] :is(.bc-side-row > *, .bc-side > .bc-privacy) { pointer-events: auto; }
+/* 사생활 알약은 카메라 알약 줄 바로 아래로 올린다(자료 칸 위). 자료 창은 이 알약 아래에서만 움직인다(vision_rehearsal.js visionSlideClamp) —
+   알약이 칸 밑에 있으면 오른쪽 위로 옮긴 창의 불투명도 · 크기 손잡이를 알약이 덮어 눌리지 않았다 (10-03 점검 V2). 칸 높이 합은 그대로다 */
+.bq[data-flow="rehearsal"] .bc-side > .bc-side-row { order: -2; }
+.bq[data-flow="rehearsal"] .bc-side > .bc-privacy { order: -1; }
 
 /* 떠 있는 자료 창 — 겉은 vision_rehearsal.css .vr-slide 그대로(밝은 글라스). 속은 부스 자료 그림(#bqSlide) */
 .bq[data-flow="rehearsal"] .rh-slide { z-index: 3; min-width: 0; }

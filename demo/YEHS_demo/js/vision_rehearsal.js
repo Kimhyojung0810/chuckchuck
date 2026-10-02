@@ -450,7 +450,9 @@ function visionSlideClamp(box) {
   let top = 8;
   if (onCall) {
     const hostTop = host.getBoundingClientRect().top;
-    const marks = [...host.querySelectorAll('.bc-ask:not([hidden]), .bc-side-row, .bq-top')].map((el) => el.getBoundingClientRect().bottom - hostTop);
+    // 사생활 알약도 — 알약이 창의 손잡이(불투명도 · 크기)를 덮어 눌리지 않았다 (10-03 점검 V2). 숨은 알약(폰 폭 · 카메라 꺼짐)은 상자가 없다
+    const marks = [...host.querySelectorAll('.bc-ask:not([hidden]), .bc-side-row, .bq-top, .bc-privacy')]
+      .filter((el) => el.getClientRects().length).map((el) => el.getBoundingClientRect().bottom - hostTop);
     top = Math.max(8, ...marks) + 8;
   }
   const w = Math.max(240, Math.min(box.w, width - 16));
