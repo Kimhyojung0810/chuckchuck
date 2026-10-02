@@ -20,24 +20,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[1]))
-sys.path.insert(0, str(HERE))
-from prepare import FIX, _env  # noqa: E402
-from score import key_of, load_keys  # noqa: E402
+from common import OUT, key_of, load_env, load_fixtures, load_keys
 
 TRACK = "10"
 DUNNO = "(모르겠어요)"
-
-
-def _load():
-    read = lambda n: json.loads((FIX / f"{n}.json").read_text())  # noqa: E731
-    return read("graph"), read("slidedoc"), read("claims"), read("context")
+#: 지난 리허설을 이만큼 전으로 둔다 — F-25 는 시각으로 최신을 고를 뿐이라 값 자체는 상관없다
+HOUR = 3600
+GOOD = {"verdict": "good", "score": 90, "missing_points": [], "coach_stage": "", "close_reason": "good"}
 
 
 def session(inp: dict, memory=None) -> dict:
@@ -50,10 +42,10 @@ def session(inp: dict, memory=None) -> dict:
             "triage": [m.to_dict() for m in triage.marks]}
 
 
-def judge(inp: dict, q: dict, answer: str, *, give_up=False, history=None, memory=None) -> dict:
+def judge(inp: dict, q: dict, answer: str, *, give_up=False, history=None) -> dict:
     from chuckchuck import judge_answer
     j = judge_answer(q, answer, graph=inp["graph"], slidedoc=inp["slidedoc"], context=inp["ctx"], give_up=give_up,
-                     history=history, prior_answers=[], llm=inp["llm"], memory=memory)
+                     history=history, prior_answers=[], llm=inp["llm"])
     return {**j.to_dict(), "passed": j.passed, "mastered": j.mastered, "close_reason": j.close_reason}
 
 
@@ -63,66 +55,63 @@ def turn(q: dict, answer: str, j: dict, at: float, give_up=False) -> dict:
             "give_up": give_up, "judgement": {**j, "grounded_on_deck": True}, "question_source": "server"}
 
 
-def memory_of(inp: dict, turns: list[dict]):
+def next_rehearsal(inp: dict, turns: list[dict]) -> dict:
+    """지난 리허설 한 번(turns) → F-25 기억 → 그 기억을 실은 다음 리허설 질문 목록."""
     from chuckchuck import build_memory
-    reh = [{"session_id": "bench-past", "at": time.time() - 3600, "title": "수익률격차", "turns": turns}]
-    return build_memory(reh, file_name="bench", learner_key="learner:bench", graph=inp["graph"], slidedoc=inp["slidedoc"])
+    reh = [{"session_id": "bench-past", "at": time.time() - HOUR, "title": "수익률격차", "turns": turns}]
+    mem = build_memory(reh, file_name="bench", learner_key="learner:bench", graph=inp["graph"], slidedoc=inp["slidedoc"])
+    return {"memory": mem.to_dict(), "session2": session(inp, mem)}
 
 
-def scenario_b(inp, s1):
+def scenario_b(inp: dict, s1: dict) -> dict:
+    """정답 — 첫 질문에 모범답 그대로. 닫혔으면 다음 말은 다음 질문, 아니면 되물음."""
     q1, qs = s1["questions"][0], s1["questions"]
     j = judge(inp, q1, q1["answer_gist"])
     nxt = (qs[1] if len(qs) > 1 else None) if j["mastered"] else {"followup": j["followup"]}
-    mem = memory_of(inp, [turn(q1, q1["answer_gist"], j, time.time() - 3600)])
     return {"state": "첫 질문에 모범답으로 답함", "answer": q1["answer_gist"], "judgement": j, "next": nxt,
-            "memory": mem.to_dict(), "session2": session(inp, mem)}
+            **next_rehearsal(inp, [turn(q1, q1["answer_gist"], j, time.time() - HOUR)])}
 
 
-def scenario_c(inp, s1, keys):
+def scenario_c(inp: dict, s1: dict, keys: dict) -> dict:
+    """오답 — 첫 질문의 핵심 개념에 맞춰 미리 써 둔 오해 (핵심 밖이면 공통 오답)."""
     q1 = s1["questions"][0]
     k = key_of(q1["label"], keys)
     ans = next((c["wrong_answer"] for c in keys["concepts"] if c["id"] == k), keys["generic_wrong_answer"])
     j = judge(inp, q1, ans)
-    mem = memory_of(inp, [turn(q1, ans, j, time.time() - 3600)])
     return {"state": f"첫 질문에 오답 ({k or '핵심 밖'} 오해)", "answer": ans, "judgement": j,
             "next": {"followup": j["followup"]} if not j["mastered"] else None,
-            "memory": mem.to_dict(), "session2": session(inp, mem)}
+            **next_rehearsal(inp, [turn(q1, ans, j, time.time() - HOUR)])}
 
 
-def scenario_d(inp, s1):
+def scenario_d(inp: dict, s1: dict) -> dict:
+    """모르겠어요 두 번 — 두 번째는 첫 포기를 history 로 실어 코칭 단계가 올라가는지 본다."""
     q1 = s1["questions"][0]
     j1 = judge(inp, q1, DUNNO, give_up=True)
     hist = [{"question": q1["question"], "answer": DUNNO, "verdict": "unknown", "question_id": q1["id"], "gave_up": True}]
     j2 = judge(inp, q1, DUNNO, give_up=True, history=hist)
-    t0 = time.time() - 3600
-    mem = memory_of(inp, [turn(q1, DUNNO, j1, t0, True), turn(q1, DUNNO, j2, t0 + 30, True)])
+    t0 = time.time() - HOUR
     return {"state": "첫 질문에 모르겠어요 두 번", "judgement": j1, "judgement2": j2,
             "next": {"followup": j1["followup"], "choices": j1.get("choices")},
-            "memory": mem.to_dict(), "session2": session(inp, mem)}
+            **next_rehearsal(inp, [turn(q1, DUNNO, j1, t0, True), turn(q1, DUNNO, j2, t0 + 30, True)])}
 
 
-def scenario_e(inp, s1, keys):
-    """첫 세션 상위 3개 중 핵심 개념(K)을 겨냥한 질문을 지난번에 good 으로 닫았다. 없으면 첫 질문 하나."""
+def scenario_e(inp: dict, s1: dict, keys: dict) -> dict:
+    """이미 이해 — 첫 세션 상위 3개 중 핵심 개념(K) 질문을 지난번에 good 으로 닫았다. 없으면 첫 질문 하나."""
     top = s1["questions"][:3]
     cleared = [q for q in top if key_of(q["label"], keys)] or top[:1]
-    t0 = time.time() - 7200
-    good = {"verdict": "good", "score": 90, "missing_points": [], "coach_stage": "", "close_reason": "good"}
-    turns = [turn(q, q["answer_gist"], {**good, "node_id": q["node_id"]}, t0 + i * 60) for i, q in enumerate(cleared)]
-    mem = memory_of(inp, turns)
+    t0 = time.time() - 2 * HOUR
+    turns = [turn(q, q["answer_gist"], {**GOOD, "node_id": q["node_id"]}, t0 + i * 60) for i, q in enumerate(cleared)]
     return {"state": "지난 리허설에서 핵심 개념 " + ", ".join(q["label"] for q in cleared) + " 를 good 으로 닫음",
-            "cleared": [q["node_id"] for q in cleared], "memory": mem.to_dict(), "session2": session(inp, mem)}
+            "cleared": [q["node_id"] for q in cleared], **next_rehearsal(inp, turns)}
 
 
 def one_rep(inp: dict, keys: dict) -> dict:
+    """첫 세션(A) 하나를 만들고, 그 첫 질문으로 B~E 를 나란히 돌린다."""
     s1 = session(inp)
     with ThreadPoolExecutor(4) as ex:
-        fb = ex.submit(scenario_b, inp, s1)
-        fc = ex.submit(scenario_c, inp, s1, keys)
-        fd = ex.submit(scenario_d, inp, s1)
-        fe = ex.submit(scenario_e, inp, s1, keys)
-        out = {"A": {"state": "기억 없음 (처음 리허설)", "session1": s1},
-               "B": fb.result(), "C": fc.result(), "D": fd.result(), "E": fe.result()}
-    return out
+        futures = {"B": ex.submit(scenario_b, inp, s1), "C": ex.submit(scenario_c, inp, s1, keys),
+                   "D": ex.submit(scenario_d, inp, s1), "E": ex.submit(scenario_e, inp, s1, keys)}
+        return {"A": {"state": "기억 없음 (처음 리허설)", "session1": s1}, **{k: f.result() for k, f in futures.items()}}
 
 
 def main() -> None:
@@ -131,20 +120,19 @@ def main() -> None:
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--llm", default="solar")
     args = ap.parse_args()
-    _env()
-    g, sd, claims, ctx = _load()
-    inp = {"graph": g, "slidedoc": sd, "claims": claims, "ctx": ctx, "llm": args.llm}
+    load_env()
+    fx = load_fixtures()
+    inp = {"graph": fx["graph"], "slidedoc": fx["slidedoc"], "claims": fx["claims"], "ctx": fx["context"], "llm": args.llm}
     keys = load_keys()
-    out = HERE / "out" / args.tag
+    out = OUT / args.tag
     out.mkdir(parents=True, exist_ok=True)
     for r in range(args.reps):
         p = out / f"rep{r}.json"
         if p.exists():
-            print(f"skip {p}")
+            print(f"skip {p}")    # 이미 돈 회차는 건너뛴다 — --reps 를 늘려 이어 돌릴 수 있다
             continue
         t = time.time()
-        res = one_rep(inp, keys)
-        p.write_text(json.dumps(res, ensure_ascii=False, indent=1))
+        p.write_text(json.dumps(one_rep(inp, keys), ensure_ascii=False, indent=1))
         print(f"rep{r} {time.time() - t:.0f}s → {p}")
 
 
