@@ -142,3 +142,4 @@
   .bq[data-flow="rehearsal"] .rh-slide .vr-alpha { display: none; }
   .bq[data-flow="rehearsal"] .rh-cap-fill { font-size: 12px; }
 }
+.bq[data-flow="rehearsal"] .bq-fail .rh-rec-note:empty { display: none; }

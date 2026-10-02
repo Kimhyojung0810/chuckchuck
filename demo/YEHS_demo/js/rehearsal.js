@@ -558,6 +558,42 @@ function rehearsalVisionLeave(layer) {
   sheet.querySelector('[data-sheet="close"]').focus();
 }
 
+/**
+ * 분석이 멈춘 기다림에서 — 이 발표의 녹음으로 처음부터 다시 분석한다. 비전 리허설을 거치지 않는다 (10-03 점검 F4).
+ * 지난 테이크의 질문 · 반응은 #againTake 처럼 버린다. useUploadedRecording 이 새 테이크(pipelineStartedAt)로 기다림 층을 새로 세운다
+ */
+async function rhReanalyzeWithRecording(btn) {
+  const deck = nf.rehearsalDeck;
+  if (!deck || !deck.audio) return;
+  const note = document.getElementById('rhReRecNote');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '발표 녹음을 받고 있어요…';
+  let file;
+  try {
+    file = await fetchDeckFile(deck.key, 'audio', deck.audio);
+  } catch (err) {
+    console.warn('[chuckchuck] rehearsal deck audio', err);
+    btn.disabled = false;
+    btn.textContent = label;
+    if (note) note.textContent = '발표 녹음을 받지 못했어요. 한 번 더 눌러요.';
+    return;
+  }
+  if (bq.screen !== 'wait' || rhRouteKey() !== 'new') return;
+  try { sessionStorage.removeItem(RH_CUT_KEY); } catch (_) { /* ignore */ }
+  resetQa();
+  qa.mode = REHEARSAL_QA_TRACK;
+  saveSession('qa-flow', qa);
+  if (typeof chatterCache !== 'undefined') chatterCache = null;
+  if (typeof visionCoachStop === 'function') visionCoachStop();
+  if (typeof visionResetReactions === 'function') visionResetReactions();
+  nf.visionSeen = false;
+  nf.backstage = [];
+  nf._pipelineLog = [];
+  nf._stageActual = null;
+  await useUploadedRecording(file, { knownDurationSec: deck.audioSec });
+}
+
 /** 덱 녹음을 받아 이번 발표의 녹음으로 — 라이브 녹음 · 반응은 버린다(useUploadedRecording 이 녹음기를 멈춘다) */
 async function rhFinishWithRecording(sheet) {
   const deck = nf.rehearsalDeck;
@@ -599,7 +635,7 @@ function rhRouteKey() {
 }
 
 function rhWaitHtml() {
-  const title = (nf.rehearsalDeck && nf.rehearsalDeck.title) || String(nf.fileName || '').replace(/\.(pdf|pptx)$/i, '');
+  const title = rhWaitTitleText();
   return `
     <div class="bc-call rh-wait">
       <div class="bc-self" data-bq-cam-box data-camera="off">
@@ -611,7 +647,7 @@ function rhWaitHtml() {
           <span class="bc-host-bird">${bqBird(BC_HOST_BIRD, 'curious')}</span>
           <div>
             <h1 id="rhWaitTitle">발표를 듣고 질문 3개를 고르고 있어요</h1>
-            <p class="rh-wait-tip" id="rhWaitTip">${rhWaitTip(title)}</p>
+            <p class="rh-wait-tip" id="rhWaitTip">${escapeHtml(rhWaitTip(title))}</p>
           </div>
         </div>
         <ol class="bq-build-steps rh-wait-steps" id="bqBuildSteps">${RH_WAIT_STEPS.map((s) => `
@@ -625,13 +661,46 @@ function rhWaitHtml() {
     </div>`;
 }
 
-/** 녹음본으로 마쳤으면 그렇다고 말한다 — 카메라 반응이 없는 까닭도 (정직한 상태) */
-function rhWaitTip(title) {
+/**
+ * 제목 밑 한 줄(글자 그대로 — 그리는 쪽이 escape). 녹음본으로 마쳤으면 그렇다고 말한다 — 카메라 반응이 없는 까닭도 (정직한 상태).
+ * state: run(분석 중) · stopped(멈춤) — 멈췄는데 「분석하고 있어요」 가 제목 밑에 남아 서로 어긋났다 (10-03 점검 F4)
+ */
+function rhWaitTip(title, state = 'run') {
   const up = nf.uploadedTake;
   if (up) {
-    return `발표 녹음 「${escapeHtml(up.name)}」(${escapeHtml(rhClock(up.durationSec))})으로 분석하고 있어요. 카메라 앞 발표가 아니라서 삐약이 반응은 리포트에 없어요.`;
+    const rec = `발표 녹음 「${up.name}」(${rhClock(up.durationSec)})`;
+    if (state === 'stopped') return `${rec}으로 분석하다 멈췄어요.`;
+    return `${rec}으로 분석하고 있어요. 카메라 앞 발표가 아니라서 삐약이 반응은 리포트에 없어요.`;
   }
-  return `방금 한 ${title ? `「${escapeHtml(title)}」 ` : ''}발표를 받아쓰고 자료와 맞춰 봐요. 1~3분쯤 걸려요.`;
+  const talk = `방금 한 ${title ? `「${title}」 ` : ''}발표`;
+  if (state === 'stopped') return `${talk}를 분석하다 멈췄어요.`;
+  return `${talk}를 받아쓰고 자료와 맞춰 봐요. 1~3분쯤 걸려요.`;
+}
+
+function rhWaitTitleText() {
+  return (nf.rehearsalDeck && nf.rehearsalDeck.title) || String(nf.fileName || '').replace(/\.(pdf|pptx)$/i, '');
+}
+
+/**
+ * 새로고침 · 탭 닫기로 분석이 끊겼는가 — 페이지를 떠날 때 돌던 분석의 테이크(pipelineStartedAt)를 적어 둔다.
+ * 떠나는 순간 끊긴 요청이 'Failed to fetch' 로 저장돼서, 다시 열면 「연결이 끊겨서」 라고 거짓말을 했다 (10-03 점검 F4)
+ */
+const RH_CUT_KEY = 'cheokcheok:rehearsal-cut';
+function rhMarkCutOnLeave() {
+  try {
+    if (!rehearsalFlowOn() || !nf || nf.step !== 3 || !nf.pipelineStartedAt) return;
+    const phase = nf.pipelinePhase || '';
+    if (phase === 'done' || phase === 'partial') return;
+    if (phase === 'error' && !/fetch|network|abort/i.test(String(nf.pipelineError || ''))) return;
+    sessionStorage.setItem(RH_CUT_KEY, String(nf.pipelineStartedAt));
+  } catch (_) { /* 사생활 모드 — 예전 문구로 */ }
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('pagehide', rhMarkCutOnLeave);
+  window.addEventListener('beforeunload', rhMarkCutOnLeave);
+}
+function rhCutByReload() {
+  try { return !!nf.pipelineStartedAt && sessionStorage.getItem(RH_CUT_KEY) === String(nf.pipelineStartedAt); } catch (_) { return false; }
 }
 
 /** app.js nfStep4 가 그릴 때마다 부른다 — 층이 없으면 세우고, 있으면 줄 상태만 맞춘다 */
@@ -790,7 +859,11 @@ function rhWaitFail(st, qaReady) {
   box.dataset.key = key;
   if (skip) skip.hidden = !key;
   if (!key) { box.innerHTML = ''; return; }
-  bqSet(document.getElementById('rhWaitTitle'), 'textContent', key === 'questions' ? '질문을 만들다 멈췄어요' : '발표 분석이 멈췄어요');
+  const cut = key === 'pipeline' && rhCutByReload();
+  bqSet(document.getElementById('rhWaitTitle'), 'textContent',
+    key === 'questions' ? '질문을 만들다 멈췄어요' : (cut ? '새로고침해서 분석이 멈췄어요' : '발표 분석이 멈췄어요'));
+  bqSet(document.getElementById('rhWaitTip'), 'textContent',
+    key === 'questions' ? '발표 분석은 끝났고, 질문을 고르다 멈췄어요.' : rhWaitTip(rhWaitTitleText(), 'stopped'));
   if (key === 'questions') {
     console.warn('[chuckchuck] rehearsal questions', qa.liveError);
     box.innerHTML = `<div class="bq-fail"><p>「다시 만들기」를 누르면 한 번 더 만들어요. 리포트는 질문 없이도 볼 수 있어요.</p>
@@ -805,6 +878,7 @@ function rhWaitFail(st, qaReady) {
       box.innerHTML = '';
       if (skip) skip.hidden = true;
       bqSet(document.getElementById('rhWaitTitle'), 'textContent', '발표를 듣고 질문 3개를 고르고 있어요');
+      bqSet(document.getElementById('rhWaitTip'), 'textContent', rhWaitTip(rhWaitTitleText()));
       rhKickQuestions();
       rhWaitTick();
     });
@@ -816,8 +890,31 @@ function rhWaitFail(st, qaReady) {
   // 한 단계만 죽고 닫힌 분석('partial')은 「개념 추출 실패」 같은 내부 이름 대신 멈춘 줄을 사람 말로 (10-03 점검 F1)
   if ((nf.pipelinePhase || '') === 'partial') why = RH_WAIT_FAIL_WORD[RH_WAIT_STEPS.map((x) => x.key).find((k) => st[k] === 'fail')] || '';
   console.warn('[chuckchuck] rehearsal pipeline', nf.pipelineError || nf.pipelineDetail);
-  box.innerHTML = `<div class="bq-fail"><p>${escapeHtml(why || '분석을 마치지 못했어요')}. 「다시 발표하기」를 누르면 같은 자료로 다시 발표할 수 있어요.</p>
-    <button type="button" class="bq-ghost" id="rhAgain">다시 발표하기</button> <button type="button" class="bq-ghost" id="rhRepick">다른 발표 고르기</button></div>`;
+  // 녹음본으로 마친 발표는 발표하러 돌아갈 까닭이 없다 — 같은 녹음으로 곧장 다시 분석한다 (F4). 직접 발표한 테이크는 새로고침하면 남지 않는다
+  const deck = nf.rehearsalDeck;
+  const fromRec = !!nf.uploadedTake;
+  const canRec = !!(deck && deck.audio);
+  let lead;
+  if (cut) {
+    lead = fromRec
+      ? '화면을 새로 고치면 하던 분석이 멈춰요. 「이 녹음으로 다시 분석하기」를 누르면 같은 녹음으로 처음부터 분석해요.'
+      : '화면을 새로 고치면 하던 분석이 멈추고, 방금 한 발표 녹음은 남지 않아요. 「다시 발표하기」를 누르면 같은 자료로 다시 발표할 수 있어요.';
+  } else {
+    lead = `${why || '분석을 마치지 못했어요'}. ${fromRec && canRec
+      ? '「이 녹음으로 다시 분석하기」를 누르면 같은 녹음으로 한 번 더 분석해요.'
+      : '「다시 발표하기」를 누르면 같은 자료로 다시 발표할 수 있어요.'}`;
+  }
+  const reBtn = canRec
+    ? `<button type="button" class="bq-ghost" id="rhReRec">${fromRec ? '이 녹음으로 다시 분석하기' : '이 발표의 녹음으로 분석하기'}</button> `
+    : '';
+  const reOrder = fromRec
+    ? `${reBtn}<button type="button" class="bq-ghost" id="rhAgain">카메라 앞에서 발표하기</button>`
+    : `<button type="button" class="bq-ghost" id="rhAgain">다시 발표하기</button> ${reBtn}`;
+  box.innerHTML = `<div class="bq-fail"><p>${escapeHtml(lead)}</p>
+    ${reOrder} <button type="button" class="bq-ghost" id="rhRepick">다른 발표 고르기</button>
+    <p class="rh-rec-note" id="rhReRecNote" role="status"></p></div>`;
+  const reRec = document.getElementById('rhReRec');
+  if (reRec) reRec.addEventListener('click', () => rhReanalyzeWithRecording(reRec));
   // 자료는 그대로 두고 테이크만 버리는 길은 nfStep4 의 「다른 녹음으로 다시」와 같다 — 그 버튼을 그대로 누른다
   document.getElementById('rhAgain').addEventListener('click', () => {
     // 기다림 층을 먼저 걷는다 — #againTake 는 #app 만 다시 그려서, 이 층(1초 시계 · 넘겨받은 카메라)이 비전 리허설 밑에 남았고
