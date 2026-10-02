@@ -28,7 +28,7 @@ from chuckchuck import Context, SlideDoc, extract_concepts, parse_document
 from chuckchuck.contracts import ConceptDoc
 
 ROOT = Path(__file__).resolve().parents[1]
-PDF = ROOT / "demo" / "YEHS_demo" / "assets" / "samples" / "imu2clip_sample.pdf"
+PDF = ROOT / "fixtures" / "imu2clip_sample.pdf"
 PPTX = ROOT / "fixtures" / "live_sample.pptx"
 
 # examples/make_live_pptx_fixture.py 가 PPTX 본문에 심어 둔 희귀 문자열.

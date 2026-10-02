@@ -102,7 +102,6 @@
   -webkit-backdrop-filter: var(--lg-blur); backdrop-filter: var(--lg-blur);
   background: var(--lg-sheen), var(--lg-tint-text); border: 1px solid var(--lg-edge); box-shadow: var(--lg-shadow);
 }
-.bc-chip { background: var(--lg-tint); border: 1px solid var(--lg-edge); box-shadow: 0 4px 14px rgba(0, 0, 0, .18); }
 
 /* 내 모습 — 화면 전체, 거울처럼 */
 .bc-self { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 60% at 50% 45%, #1d2a33, #0b0f14); }

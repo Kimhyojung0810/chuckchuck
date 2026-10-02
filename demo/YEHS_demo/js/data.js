@@ -36,15 +36,6 @@ const DATA = {
         after: '오른 종목은 팔리고 내린 종목만 남으면, 포트폴리오가 시간이 갈수록 자동으로 나빠집니다.' } },
   },
 
-  sessions: [
-    { id:'sample-investor', title: '개인투자자 수익률 격차 분석', occasion: '학회·수업 발표', slides: 15, date: '오늘', nth: 2, score: 74, diff: 8, note: '상위 그룹 비교 설명 복원이 다음 과제' },
-    { id:'vla', title: 'Hierarchical VLA 논문 리뷰', occasion: '학회·수업 발표', slides:35, date: '1월 13일', nth: 1, score: 79, diff: 8, note: '실패 데이터의 역할 보완' },
-    { id:'pitch', title: '척척발표 서비스 피치', occasion: '대회·IR 피칭', slides:12, date: '1월 8일', nth: 3, score: 91, diff: 14, note: 'Q&A 5/5 통과' },
-    { id:'q2-report', title: '2분기 제품 성과 보고', occasion: '사내 보고', slides:14, date: '12월 28일', nth: 5, score: 87, diff: 11, note: '시간 배분 안정적' },
-    { id:'trend', title: '소비 트렌드 세미나', occasion: '학회·수업 발표', slides:18, date: '12월 21일', nth: 6, score: 68, diff: 7, note: '근거 발화 2곳 보완' },
-  ],
-  growth: { scores: [58, 62, 66, 71, 74], text: '최근 5회 완성도 58 → 74 · 설명 누락 5개 → 2개' },
-
   reportProfiles: {
     vla: {
       title:'Hierarchical VLA 논문 리뷰', occasion:'학회·수업 발표', slides:35, duration:'12분 06초', nth:1, score:79, diff:8,
@@ -336,21 +327,6 @@ const DATA = {
     '파는 기준이 “앞으로 오를까”가 아니라 “본전이 됐나”라면, 계좌에는 뭐가 남을까요?',
     '부진한 종목이 계좌에 쌓이면 — 포트폴리오에는 어떤 일이 생기죠?',
   ],
-
-  /* 개념이 해소될 때 스트림·세리머니에 실시간으로 적히는 총평 문장 */
-  qaSummaries: {
-    lossav: {
-      won: '발표에서는 손실 회피의 보유 기간 차이만 말했지만(4:56 · 8번 슬라이드), 대화에서 본전 기준 매매가 포트폴리오를 나쁘게 만드는 경로까지 자기 말로 설명했어요.',
-      review: '시간이 지난 뒤에도 손실 회피를 같은 논리로 다시 설명했어요. 최종 이해로 확정해요.',
-    },
-    timing: {
-      won: '발표에서 빠졌던 타이밍 실패(7번 슬라이드)를, 질문 뒤에는 “20일을 놓치면 8.7%→1.5%”와 급락 직후 겹침까지 연결해 설명했어요.',
-    },
-    rules: {
-      won: '자료와 어긋났던 종목 선정 결론(7:28 · 12번)을, 11번 표의 사전 규칙 차이로 바로잡았어요.',
-      lost: '자료와 어긋난 종목 선정 결론을 확인했고, 본인 선택으로 다음 발표에서 방어할 항목으로 남겼어요.',
-    },
-  },
 
   /* 채점표 v3 · 학회·수업(학교 프로젝트) 기준. 클러스터 평균은 session.dims 와 같다. */
   score: {

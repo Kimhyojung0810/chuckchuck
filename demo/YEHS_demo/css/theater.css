@@ -158,15 +158,6 @@
 
 /* F-13 막대 옆의 얼굴 — 누가 왜 이 점수를 줬는지 (§6).
    .dim-row 는 3열 그리드라 얼굴 열을 앞에 하나 더 붙여 준다 */
-.dim-row.has-face { grid-template-columns: 26px 76px 1fr 40px; }
-.dim-face {
-  width: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.dim-face .ch-chick { width: 26px; cursor: default; animation: none; }
-.dim-face .ch-figure { animation: none; }
 
 /* --------------------------------------------------------------------------
    등장 의식 (§1) — 조명이 내려가고 큐 사인

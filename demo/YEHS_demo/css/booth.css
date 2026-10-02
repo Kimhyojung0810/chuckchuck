@@ -76,30 +76,14 @@
 .booth-chip:empty { display: none; }
 .booth-question { margin-top: 12px; font-size: 20px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
 .booth-why { margin-top: 8px; color: var(--text-3); font-size: 14px; line-height: 1.5; }
-.booth-hints { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-ctl, 12px); background: var(--mid-bg); color: var(--mid); font-size: 14px; line-height: 1.5; }
-.booth-hints p + p { margin-top: 6px; }
-.booth-answer { margin-top: 16px; }
-.booth-answer textarea {
-  width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; font-family: inherit; line-height: 1.5;
-  border: 1.5px solid var(--border); border-radius: var(--r-ctl, 12px); background: var(--fill); color: var(--text); resize: vertical;
-}
-.booth-answer textarea:focus { outline: none; border-color: var(--accent); background: var(--surface); }
-.booth-busy { margin-top: 12px; color: var(--text-3); font-size: 14px; }
 
-.booth-result { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
-.booth-verdict { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .booth-pill { font-size: 13px; font-weight: 700; border-radius: 999px; padding: 4px 12px; }
 .booth-pill[data-v="good"] { background: var(--ok-bg); color: var(--ok); }
 .booth-pill[data-v="partial"] { background: var(--mid-bg); color: var(--mid); }
 .booth-pill[data-v="wrong"] { background: var(--no-bg); color: var(--no); }
 .booth-pill[data-v="unknown"] { background: var(--fill); color: var(--text-2); }
-.booth-react { font-size: 15px; font-weight: 600; }
-.booth-summary { margin-top: 10px; font-size: 15px; line-height: 1.55; }
 .booth-missing { margin: 10px 0 0; padding-left: 18px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
 .booth-missing:empty { display: none; }
-.booth-followup { margin-top: 10px; font-size: 15px; font-weight: 600; color: var(--navy); }
-.booth-explain { margin-top: 10px; padding: 12px 14px; border-radius: var(--r-ctl, 12px); background: var(--fill); font-size: 14px; line-height: 1.55; }
-.booth-followup:empty, .booth-explain:empty, .booth-summary:empty { display: none; }
 
 .booth-tally { list-style: none; padding: 0; margin: 14px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .booth-tally li { font-size: 13px; font-weight: 600; border-radius: 999px; padding: 6px 12px; background: var(--fill); color: var(--text-2); }
@@ -119,8 +103,6 @@
 .booth-consent { margin-top: 16px; line-height: 1.5; }
 
 /* 말해서 답하기 — 상태는 data-state 하나로 움직인다 (이름·색·점이 같이) */
-.booth-mic-note { margin-top: 8px; line-height: 1.5; }
-.booth-mic-note[hidden] { display: none; }
 .booth-mic::before {
   content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 999px;
   background: currentColor; opacity: .55; vertical-align: 1px;
@@ -134,9 +116,7 @@
 /* 손가락 기기 — 누를 곳을 키운다. 부스 태블릿·방문객 폰 */
 @media (pointer: coarse) {
   .booth .btn { min-height: 48px; }
-  .booth-answer-actions .btn { flex: 1 1 auto; }
-  .booth-answer-actions .booth-mic { flex-basis: 100%; }
-  .booth-stage-actions .btn { flex: 1 1 auto; }
+      .booth-stage-actions .btn { flex: 1 1 auto; }
   .booth-shot-del { width: 32px; height: 32px; font-size: 16px; }
 }
 

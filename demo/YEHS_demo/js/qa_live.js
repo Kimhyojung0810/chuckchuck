@@ -893,57 +893,6 @@ function liveRetryWaitText(secondsLeft, reason = 'rate') {
   return n > 0 ? `요청이 몰려서 잠깐 기다렸다 다시 보낼게요 · ${n}초` : '다시 보내는 중이에요';
 }
 
-/** 판정 직후의 학습 화면. 대화 로그 대신 변화 하나만 크게 보여 준다. */
-function renderLiveCheckpoint() {
-  const L = qa.live;
-  const C = L.checkpoint;
-  const q = L.questions[L.qi];
-  const v = C.verdict || {};
-  const passed = !!C.record.passed;
-  const score = Math.max(0, Math.min(100, Math.round(v.score || 0)));
-  const missing = (v.missing_points || []).filter(Boolean).slice(0, 2);
-  // explanation 이 먼저다 — 「모르겠어요」 2회로 받은 맞춤 해설인데, gist 를
-  // 앞세우면 F-08 폴백이 항상 차 있어 이 분기가 영영 죽는다. explanation 은
-  // explain 코칭에서만 채워지므로 일반 경로의 표시는 변하지 않는다.
-  const modelAnswer = liveRevealModel(q, v) || v.summary_sentence || '핵심 근거를 먼저 말하고, 자료의 수치나 사례로 뒷받침해 보세요.';
-  const nextLabel = L.qi + 1 >= L.questions.length ? '결과 확인하기' : `다음 질문으로 · ${L.qi + 2}/${L.questions.length}`;
-  app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 ${L.qi + 1}/${L.questions.length}</span></div>
-    <main class="qa-checkpoint">
-      <div class="qa-check-hero ${passed ? 'is-pass' : 'is-learn'}">
-        <span class="qa-check-icon">${passed ? '✓' : '↑'}</span>
-        <p>${passed ? '내 말로 지켜냈어요' : '이 한 조각만 챙기면 돼요'}</p>
-        <h1>${passed ? escapeHtml(q.label || '답변 완성') : escapeHtml(missing[0] || q.label || '핵심 근거 보완')}</h1>
-        ${score ? `<div class="qa-score-pill">답변 완성도 <b>${score}%</b></div>` : ''}
-      </div>
-      <section class="qa-compare-card">
-        <div class="qa-compare-row mine">
-          <span>내가 한 답</span>
-          <p>${escapeHtml(C.answer || '(답을 확인했어요)')}</p>
-        </div>
-        <div class="qa-compare-arrow" aria-hidden="true">↓</div>
-        <div class="qa-compare-row coach">
-          <span>${passed ? '기억할 한 문장' : '이렇게 말하면 완성'}</span>
-          <p>${escapeHtml(modelAnswer)}</p>
-        </div>
-        ${missing.length ? `<div class="qa-memory-chips">${missing.map((x) => `<span># ${escapeHtml(x)}</span>`).join('')}</div>` : ''}
-      </section>
-      <p class="qa-check-note">외우지 않아도 괜찮아요. 다음 질문에서 다시 꺼내게 해드려요.</p>
-      <div class="qa-check-actions">
-        <button class="btn btn-primary" id="liveNext" type="button">${nextLabel}</button>
-        ${passed ? '' : '<button class="btn btn-text" id="liveRetry" type="button">이 질문 한 번 더 답하기</button>'}
-      </div>
-    </main>`;
-  $('#liveNext').addEventListener('click', completeLiveCheckpoint);
-  const retry = $('#liveRetry');
-  if (retry) retry.addEventListener('click', () => {
-    L.checkpoint = null;
-    saveSession('qa-flow', qa);
-    renderQaLive();
-  });
-  window.scrollTo(0, 0);
-}
-
 function completeLiveCheckpoint() {
   const L = qa.live;
   if (!L || !L.checkpoint) return;

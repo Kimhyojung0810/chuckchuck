@@ -124,14 +124,7 @@ function g3dAttachLabels(stage, g, nodes, compact) {
 
 /**
  * 지금 세션의 그래프·정합. 없으면 null — 없는 그래프를 지어내지 않는다.
- *
- * 예외: **쇼케이스 모드에서는 예외다.** #/graph 는 부스에서 주소를 직접 쳐서
- * 들어가는 화면이라(§2 사이드바 주석), #/new 연습을 한 번도 안 돌린 첫 방문
- * 이면 pipelineOut 이 비어 있다 — 그러면 그냥 빈 화면이 뜬다(2026-08-12 실측:
- * "아직 보여줄 개념 그래프가 없어요"). SHOWCASE_DEMO 는 애초에 리포트·질문
- * 코칭도 전부 이 더미로 고정해서 보여주므로(app.js showcasePipelineStub), 여기도
- * 같은 더미를 쓰는 게 "없는 그래프를 지어내는" 게 아니라 이미 켜진 쇼케이스를
- * 이 화면에도 켜는 것이다.
+ * (예전 시연 쇼케이스 모드의 더미 그래프 예외는 모드와 함께 10/02 에 걷어 냈다.)
  */
 function graph3dSource() {
   const src = (typeof nf !== 'undefined' && nf && nf.pipelineOut)
@@ -139,13 +132,6 @@ function graph3dSource() {
   const out = src.pipelineOut || null;
   if (out && out.graph && Array.isArray(out.graph.nodes) && out.graph.nodes.length) {
     return { graph: out.graph, alignment: out.alignment || null };
-  }
-  if (typeof isShowcaseDemo === 'function' && isShowcaseDemo()
-    && typeof showcasePipelineStub === 'function') {
-    const stub = showcasePipelineStub();
-    if (stub && stub.graph && Array.isArray(stub.graph.nodes) && stub.graph.nodes.length) {
-      return { graph: stub.graph, alignment: stub.alignment || null };
-    }
   }
   return null;
 }

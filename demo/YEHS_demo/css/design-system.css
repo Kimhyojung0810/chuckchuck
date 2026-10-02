@@ -32,12 +32,6 @@ app.css 가 이미 1,500줄을 넘어 여기서 따로 관리합니다.
      (docs/design_improvement/02_tokens.md §2) */
 }
 
-/* 메타 라벨. 토스는 대문자 변환도, 넓은 자간도 쓰지 않는다 —
-   그건 잡지 편집 문법이지 앱 문법이 아니다. 크기와 색으로만 낮춘다. */
-.eyebrow {
-  font-size: 13px; font-weight: 600; color: var(--text-3);
-}
-
 /* ══ ① 다크 판정 헤드 — 이 화면의 유일한 다크 면 ══════════════
    main.wide 안에 있지만 전면폭으로 빠져나온다. */
 .verdict {
@@ -52,7 +46,6 @@ app.css 가 이미 1,500줄을 넘어 여기서 따로 관리합니다.
 /* 판정 헤드가 화면 첫 요소일 때만 main 의 상단 padding 을 상쇄한다.
    홈처럼 제목 뒤에 오는 경우까지 당기면 앞 요소를 덮는다. */
 main > .verdict:first-child { margin-top: -24px; }
-
 
 .verdict-inner { position: relative; z-index: 2; }
 .verdict-meta {
@@ -312,59 +305,14 @@ main > .verdict:first-child { margin-top: -24px; }
 }
 
 /* ══ 홈 판정 헤드 — 성장 추이가 화면의 앵커가 된다 ══════════════ */
-.home-verdict {
-  /* areaChartSvg 는 stroke·stop-color 를 인라인으로 var(--accent) 로 쓴다.
-     커스텀 프로퍼티만 이 스코프에서 바꾸면 차트 전체가 어두운 면에 맞게 따라온다. */
-  --accent: var(--cyan);
-  margin-top: var(--gap-item);
-  padding-top: 52px;
-}
-.home-verdict .verdict-grid { margin-top: 0; padding-bottom: 44px; align-items: center; }
-.home-verdict .verdict-score .of { font-size: 17px; }
-.home-verdict .verdict-score .prev { margin-top: 12px; font-size: 13px; }
-
-.home-verdict .hg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
-.home-verdict .hg-head .eyebrow { color: #9FC9B6; }
-.home-verdict .hg-head b { font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
-.home-verdict .growth-svg { width: 100%; height: auto; display: block; }
-.home-verdict .growth-val { fill: #fff; font-size: 13px; font-weight: 700; }
-.home-verdict .growth-dot-last { stroke: var(--navy-deep); }
-
-.home-verdict .hg-foot { display: flex; gap: 36px; margin-top: 14px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, .16); }
-.home-verdict .hg-foot strong { display: block; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
-.home-verdict .hg-foot small { display: block; margin-top: 2px; color: #9FC9B6; font-size: 12px; font-weight: 600; }
 
 /* ══ 블록 제목 — 구역의 시작을 알리는 최소 단위 ══════════════ */
-.block-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: var(--gap-item); }
-.block-head h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
-.block-head p { margin: 0; color: var(--text-3); font-size: 13px; font-weight: 500; }
-.block-head .btn { margin-left: auto; align-self: center; }
 
 /* ══ 홈 발표 목록 — 카드 더미 대신 표 리듬 ══════════════════════
    app.css 의 .sess-row 는 남겨두고 .sess-list 안에서만 덮어쓴다. */
-.home-list { margin-top: var(--gap-section); }
-.sess-list { border-top: 2px solid var(--text); }
-.sess-list .sess-row {
-  width: 100%; display: grid; grid-template-columns: 1fr auto 52px 16px;
-  gap: 18px; align-items: center; text-align: left;
-  padding: 20px 4px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
-  background: none; font: inherit; color: inherit; cursor: pointer;
-  transition: background .16s var(--ease);
-}
-.sess-list .sess-row + .sess-row { border-top: 0; }
-.sess-list .sess-row:hover { background: var(--paper); }
-.sess-list .sess-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
-.sess-list .sess-main { min-width: 0; }
-.sess-list .sess-main b { display: block; font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
-.sess-list .sess-main small { display: block; margin-top: 5px; color: var(--text-3); font-size: 13px; font-weight: 500; }
-.sess-list .sess-score { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
-.sess-list .sess-score i { font-style: normal; margin-left: 2px; font-size: 12px; font-weight: 600; color: var(--text-3); }
-.sess-list .sess-diff { text-align: right; font-size: 12px; font-weight: 700; color: var(--ok); }
-.sess-list .chev { color: #C9D5CE; font-size: 18px; font-weight: 500; text-align: right; }
 
 /* 홈의 보조 카드(플레이빌·게임)는 목록보다 위계를 낮춘다 */
 main.home .card { border-radius: var(--r-print); box-shadow: var(--shadow); }
-main.home .about-link { margin-top: var(--gap-section); }
 
 /* 제본된 리포트 — 리포트 화면의 카드만 인쇄된 지면처럼 모서리를 줄인다.
    main.wide 는 renderReport()·renderProfileReport() 에서만 붙으므로
@@ -391,13 +339,7 @@ main.wide .trophy-strip { border-radius: var(--r-print); }
   .verdict-dims .vd { flex: 1 1 84px; }
   .verdict-dims .vl { font-size: 18px; }
   .verdict-title { font-size: 19px; }
-  .home-verdict { padding-top: 32px; }
-  .home-verdict .hg-foot { gap: 22px; }
-  .sess-list .sess-row { grid-template-columns: 1fr auto; row-gap: 6px; }
-  .sess-list .sess-diff, .sess-list .chev { display: none; }
-  .block-head { flex-wrap: wrap; }
-  .block-head .btn { margin-left: 0; }
-}
+            }
 
 /* ══ 넓은 콘텐츠는 자기 안에서 스크롤한다 ══════════════════════
    페이지 본문이 가로로 밀리면 모든 카드가 같은 지점에서 잘린다.
@@ -634,84 +576,19 @@ main img, main canvas, main svg { max-width: 100%; }
      · 주 액션은 상단 바에 하나뿐 (화면 안에 CTA 를 또 두지 않는다).
    ══════════════════════════════════════════════════════════════════════════ */
 
-.t-head { margin: 4px 0 16px; }
-.t-head h1 { font-size: var(--t-h1); font-weight: 700; letter-spacing: -.024em; }
-
-/* 구역 띠 — 전면폭으로 빠져나가 화면을 가른다 */
-.t-band { height: 16px; margin: 20px calc(50% - calc(var(--vw) * 0.5) + var(--nav-w) / 2); background: var(--fill); }
-
-.t-card {
-  background: var(--surface); border-radius: var(--r-print);
-  border: 1px solid var(--border); padding: 16px;
-}
-.t-label { font-size: 13px; font-weight: 600; color: var(--text-3); }
-.t-caption { margin-top: 8px; font-size: 13px; color: var(--text-3); }
-
 /* 이 화면에서 큰 숫자는 이것 하나다 */
-.t-score { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; }
-.t-score strong { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
-.t-score .t-unit { font-size: 17px; font-weight: 600; color: var(--text-2); }
-.t-score .t-delta {
-  margin-left: auto; padding: 4px 10px; border-radius: var(--r-pill);
-  background: var(--brand-weak); color: var(--brand-strong);
-  font-size: 13px; font-weight: 700;
-}
-.t-spark { margin-top: 14px; }
-.t-spark svg { display: block; width: 100%; height: auto; }
 
 /* ListRow — 목록의 기본은 「테두리 없는 리스트」다 (06_saas_shift §2).
    상자에 담고 싶으면 .t-card 를 같이 붙인다. 그때만 좌우 여백이 생긴다.
    지난 발표를 상자에 넣었더니 5줄짜리 목록이 707px 짜리 빈 상자가 됐다 —
    행을 나누는 건 상자가 아니라 행 사이의 선이다 */
-.t-list { padding: 4px 0; }
-.t-card.t-list { padding: 4px 16px; }
-.t-row {
-  display: flex; align-items: center; gap: 12px;
-  /* 글자는 구역 제목과 같은 선에 두고, 손이 닿는 면만 좌우로 10px 넓힌다 */
-  width: calc(100% + 20px); margin-inline: -10px;
-  padding: 9px 10px; background: none; border: 0; border-radius: 0;
-  text-align: left; font: inherit; color: inherit; cursor: pointer;
-  transition: background .12s ease;
-}
-.t-row + .t-row { border-top: 1px solid var(--border); }
-.t-row:hover { background: var(--hover); }
-.t-row:active { opacity: .6; }
-.t-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 8px; }
-.t-row-main { flex: 1; min-width: 0; }
-.t-row-main b { display: block; font-size: var(--t-body); font-weight: 600; letter-spacing: -.01em; }
-.t-row-main small {
-  display: block; margin-top: 2px; font-size: var(--t-meta); color: var(--text-3);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.t-row-val { flex: none; font-size: var(--t-body); font-weight: 650; font-variant-numeric: tabular-nums; }
-.t-row-val i { font-style: normal; font-size: 13px; font-weight: 600; color: var(--text-3); margin-left: 1px; }
 .t-chev { flex: none; color: var(--text-3); font-size: 15px; line-height: 1; }
 
 /* 구역 제목 — 회색 띠 바로 아래 붙는다 */
-/* 구역 제목은 「읽는 문장」이 아니라 「칸 이름」이다. 본문보다 작고 흐리게
-   두면 목록이 앞으로 나온다 — 정보가 주인공이 되는 자리 */
-.t-sec-head {
-  margin: 0 0 10px; font-size: var(--t-meta); font-weight: 600;
-  letter-spacing: .02em; color: var(--text-3);
-}
 
 /* 이어하기 — 브랜드 색은 이 한 줄에만 쓴다 */
-.t-resume {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px; border-radius: var(--r-print);
-  background: var(--brand-weak); border: 1px solid #BBF7DE;
-}
-.t-resume-main { flex: 1; min-width: 0; }
-.t-resume-tag { display: block; font-size: 13px; font-weight: 700; color: var(--brand-strong); }
-.t-resume-main b { display: block; margin-top: 2px; font-size: 15px; font-weight: 600; }
-.t-resume .t-chev { color: var(--brand-strong); }
 
 /* 연습 기록 — 통계 타일 대신 한 줄 */
-.t-stats { display: flex; gap: 24px; }
-.t-stat b { display: block; font-size: 20px; font-weight: 700; }
-.t-stat small { display: block; margin-top: 2px; font-size: 13px; color: var(--text-3); }
-.t-bar { margin-top: 14px; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; }
-.t-bar i { display: block; height: 100%; border-radius: 3px; background: var(--brand); }
 
 /* ══ 앱 화면에 앉는 발표새 ══════════════════════════════════════════
    .ch-seat 은 객석 입장 연출용이라 opacity:0 · translateY(14px) 로 시작하고
@@ -735,36 +612,10 @@ main img, main canvas, main svg { max-width: 100%; }
    분석 완료(진단) · 실패(사고 안내). 크기가 같아야 화면이 안 흔들린다.
    .is-empty 안에서는 .t-crew 격자가 그대로 살아야 하므로 아래 규칙 대부분을
    :not(.is-empty) 로 좁힌다 */
-.t-next-card { position: relative; }
-.t-next-card:not(.is-empty) { padding-right: 40px; }
-.t-next-card:not(.is-empty)[data-go] { cursor: pointer; }
-.t-next-card > .t-chev { position: absolute; top: 20px; right: 18px; }
-.t-next-card[data-go]:hover { background: var(--hover); }
-.t-next-card[data-go]:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* 라벨 줄에 얼굴 하나. 「누가 찾았어요」라고 말하지 않는다 — 얼굴은 리포트에서
    그 축 옆에 앉는 것과 같은 것으로만 맞춘다 (SCORE_CHICK) */
-.t-next-card .t-label { display: flex; align-items: center; gap: 7px; }
-.t-next-who.ch-seat {
-  width: 28px; flex: none; opacity: 1; transform: none; filter: none; animation: none;
-}
-.t-next-head {
-  display: block; margin-top: 10px;
-  font-size: 18px; font-weight: 700; line-height: 1.45; letter-spacing: -.01em;
-  word-break: keep-all;
-}
-.t-next-act { margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: var(--text-2); word-break: keep-all; }
-.t-next-hint { margin: 8px 0 0; font-size: 13px; color: var(--text-3); }
 /* 실제로 한 말. 진단 옆에 근거가 있어야 판정이 주장이 아니라 관찰이 된다 */
-.t-next-ev {
-  margin: 10px 0 0; padding: 10px 12px;
-  border-radius: var(--r-ctl); background: var(--fill);
-  font-size: 13px; line-height: 1.6; color: var(--text-2);
-}
-.t-next-card.is-failed { padding: 20px; }
-.t-next-card.is-failed .accident { margin: 0; }
-/* 빈 상태의 꼬리말 — 진단이 아니라 예고다 */
-.t-next-card.is-empty .t-caption { margin-top: 14px; }
 
 /* 샘플 프로필 리포트의 안내 줄. .verdict-note 는 다크 면 위 앰버색이라
    밝은 .history-head 위에서 안 읽힌다 — 밝은 면용으로 따로 둔다 */
@@ -776,43 +627,15 @@ main img, main canvas, main svg { max-width: 100%; }
 .sample-note b { font-weight: 700; }
 
 /* 구역 제목 옆 부제. .section-title .soft 는 리포트 전용이라 홈에선 안 먹는다 */
-.t-sec-head .t-soft {
-  display: block; margin-top: 3px;
-  font-size: 13px; font-weight: 500; color: var(--text-3);
-}
-/* 「샘플」 배지. 우측 칸 목록은 overflow-y:auto 라 스크롤하면 구역 제목이
-   위로 사라진다 — 행 자체가 자기가 샘플이라고 말해야 한다 */
-.t-tag {
-  margin-left: 7px; padding: 2px 7px; border-radius: var(--r-pill);
-  background: var(--fill); color: var(--text-3);
-  font-size: 11px; font-weight: 600; vertical-align: 2px;
-}
 
 /* ── 네 모델 좌석 (빈 상태 안) ───────────────────────────────────
    설명하는 카드지 연출이 아니다. 캐릭터는 읽는 걸 돕는 크기까지만 쓴다 */
-.t-next-card .t-label { margin-bottom: 12px; }
-.t-crew { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; list-style: none; margin: 0; padding: 0; }
-.t-crew-one { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; }
-.t-crew-one b { font-size: var(--t-meta); font-weight: 650; }
-.t-crew-one small { font-size: 11px; line-height: 1.45; color: var(--text-3); overflow-wrap: break-word; }
-.t-crew-role {
-  padding: 1px 8px; border-radius: var(--r-pill); background: var(--fill);
-  font-size: 11px; font-weight: 600; color: var(--text-2);
-}
 /* 후원사는 텍스트로만 쓴다 — 로고 이미지를 넣지 않기로 했다 (04_screens.md 결정 1) */
-.t-crew-by { margin-top: 2px; font-size: 10px; font-weight: 600; color: var(--text-3); letter-spacing: .01em; }
 /* .ch-seat 은 객석 연출용이라 opacity:0 으로 시작해 .seated 를 기다린다.
    앱 화면에서 그대로 쓰면 새가 통째로 안 보인다 — 여기서 되돌린다
    (.verdict-bird · .empty-bird 와 같은 처리) */
-.t-crew-bird.ch-seat {
-  width: 34px; opacity: 1; transform: none; filter: none; animation: none;
-}
-@media (max-width: 720px) { .t-crew { grid-template-columns: repeat(2, 1fr); row-gap: 16px; } }
 /* 설명이 한 줄인 칸과 두 줄인 칸이 섞여 후원사 이름의 밑선이 어긋났다.
    칸을 같은 높이로 늘리고 후원사만 바닥에 붙인다 */
-.t-crew-one { height: 100%; }
-.t-crew-by { margin-top: auto; padding-top: 2px; }
-
 
 /* ══ 홈 — 도구의 홈은 카드 모음이 아니라 「할 일 한 줄 + 표」다 ═════════
    카드를 늘어놓으면 어디부터 볼지 정해지지 않는다. 면을 최소로 쓰고
@@ -846,8 +669,6 @@ main img, main canvas, main svg { max-width: 100%; }
 .h-start b { display: block; font-size: var(--t-card); font-weight: 650; letter-spacing: -.01em; }
 .h-start p { margin: 6px 0 0; font-size: var(--t-body); line-height: 1.6; color: var(--text-2); }
 .h-start-act { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
-.h-start-alt { font-size: var(--t-body); font-weight: 500; color: var(--text-2); text-decoration: none; }
-.h-start-alt:hover { color: var(--text); }
 .h-start.is-failed { padding: 16px; }
 .h-start.is-failed .accident { margin: 0; }
 
@@ -884,46 +705,13 @@ main img, main canvas, main svg { max-width: 100%; }
   letter-spacing: .02em; color: var(--text-3);
 }
 .h-sec-head span { font-size: var(--t-meta); color: var(--text-3); font-variant-numeric: tabular-nums; }
-.h-sec-note { margin: 8px 0 0; font-size: var(--t-meta); color: var(--text-3); }
 .h-wall { margin-top: 10px; }
 .h-wall .pb-wall { border: 0; padding: 0; background: none; }
 
 /* 표 — 목록을 카드에 담지 않는다. 열이 있어야 훑어진다 */
-.h-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-.h-table th {
-  padding: 10px 8px 8px; text-align: left;
-  font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: .02em;
-  border-bottom: 1px solid var(--border);
-}
-.h-table th.num, .h-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.h-table td {
-  padding: 10px 8px; border-bottom: 1px solid var(--border);
-  font-size: var(--t-body); color: var(--text-2); vertical-align: middle;
-}
-.h-table tbody tr { cursor: pointer; transition: background .12s ease; }
-.h-table tbody tr:hover td { background: var(--hover); }
-.h-table tbody tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
-.h-t-title { font-weight: 600; color: var(--text); }
-.h-t-occ, .h-t-dim { white-space: nowrap; }
-.h-t-score { font-weight: 650; color: var(--text); }
-.h-t-go { width: 18px; color: var(--text-3); text-align: right; }
-@media (max-width: 620px) {
-  .h-table .h-t-occ, .h-table thead th:nth-child(2),
-  .h-table .h-t-dim, .h-table thead th:nth-child(3) { display: none; }
-}
 
 /* 네 모델 — 4열 격자 카드가 홈의 절반을 먹어서 마스코트가 주인공이었다.
    한 줄로 눕히고 「판단하는 방식」으로 가는 길만 남긴다 */
-.h-crew {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-print);
-  text-decoration: none; color: inherit; background: var(--surface);
-}
-.h-crew:hover { background: var(--hover); }
-.h-crew-birds { display: flex; flex: none; }
 .h-crew-bird.ch-seat {
   width: 26px; margin-right: -7px; opacity: 1; transform: none; filter: none; animation: none;
 }
-.h-crew-txt { flex: 1; font-size: var(--t-meta); color: var(--text-2); }
-.h-crew-txt b { font-weight: 650; color: var(--text); }
-.h-crew-go { flex: none; font-size: var(--t-meta); font-weight: 600; color: var(--text-3); }
