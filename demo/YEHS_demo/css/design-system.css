@@ -596,6 +596,27 @@ main img, main canvas, main svg { max-width: 100%; }
 }
 .strat-keep small { display: block; margin-top: 8px; font-size: 12px; color: var(--text-3); }
 
+/* 유명한 구성 네 가지. 추천 하나만 펼치되 나머지 이름도 같이 보인다. */
+.strat-styles { margin: 0 0 16px; }
+.strat-styles ul {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px; margin: 0; padding: 0; list-style: none; border: 0;
+}
+.strat-style {
+  margin: 0; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-print);
+  background: var(--paper);
+}
+.strat-style.is-chosen {
+  border-color: var(--brand); background: var(--brand-weak);
+}
+.strat-style b { display: block; font-size: 14px; font-weight: 700; color: var(--text); }
+.strat-style span {
+  display: block; margin-top: 4px;
+  font-size: 13px; line-height: 1.55; color: var(--text-2);
+}
+.strat-style.is-chosen span { color: var(--navy); font-weight: 650; }
+
 /* 대안 — 카드가 아니라 목록. "이런 것도 있다" 이상으로 읽히면 안 된다. */
 .strat-alts { margin: 20px 0 0; padding: 0 4px; }
 .strat-alts-head {
@@ -614,6 +635,7 @@ main img, main canvas, main svg { max-width: 100%; }
 .strat-loading p { margin: 0; }
 
 @media (max-width: 640px) {
+  .strat-styles ul { grid-template-columns: 1fr; }
   .strat-type { font-size: 21px; }
   .strat-outline { padding-left: 16px; }
   .strat-block::before { left: -22px; }

@@ -179,11 +179,24 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   border: 0; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1c2430;
   font-weight: 700; cursor: pointer;
 }
-#vrCall .vr-bird[data-cue="listen"] .ch-eye-ball { transform: scale(1.12); }
-#vrCall .vr-bird[data-cue="listen"] .ch-chick { animation: vrNod .7s ease-in-out infinite; }
-@keyframes vrNod {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  50% { transform: translateY(6px) rotate(2deg); }
+#vrCall .vr-bird[data-cue="listen"] .ch-eye-ball { transform: scale(1.22); }
+#vrCall .vr-bird[data-cue="listen"] .ch-eye-hi { animation: vrSpark 1.6s ease-in-out infinite; }
+#vrCall .vr-bird[data-cue="listen"] .ch-eyes {
+  transform-box: fill-box; transform-origin: center;
+  animation: vrBlink 4.8s ease-in-out infinite;
+}
+#vrCall .vr-bird[data-cue="listen"] .ch-chick { animation: vrAttend 2.8s ease-in-out infinite; }
+@keyframes vrSpark {
+  0%, 100% { opacity: .7; transform: scale(1); }
+  40% { opacity: 1; transform: scale(1.45); }
+}
+@keyframes vrBlink {
+  0%, 86%, 100% { transform: scaleY(1); }
+  91%, 95% { transform: scaleY(.15); }
+}
+@keyframes vrAttend {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-4px) rotate(1.5deg); }
 }
 .vr-line {
   margin: 0 0 6px; padding: 8px 16px; border-radius: 999px;
@@ -312,6 +325,9 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   .vr-side { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
+  #vrCall .vr-bird[data-cue="listen"] .ch-eye-hi,
+  #vrCall .vr-bird[data-cue="listen"] .ch-eyes,
+  #vrCall .vr-bird[data-cue="listen"] .ch-chick,
   #vrCall .vr-bird[data-cue="fast"] .ch-chick,
   #vrCall .vr-bird[data-cue="slow"] .ch-eyes,
   #vrCall .vr-bird[data-cue="slow"] .ch-beak,
