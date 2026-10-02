@@ -71,6 +71,26 @@ test('분석이 실패하면 아직 안 끝난 첫 줄이 실패 — 받은 받�
   eq([s.rec, s.stt, s.align, s.flow], ['done', 'done', 'fail', 'wait'], '줄');
 });
 
+test('받아쓰기에서 멈추면 받아쓰기 줄이 실패 — 녹음이 있으면 녹음 정리 줄은 끝 (10-03 F5)', () => {
+  const s = R.rehearsalWaitStates({ phase: 'error', hasTake: true, lastPhase: 'stt' });
+  eq([s.rec, s.stt, s.align, s.flow], ['done', 'fail', 'wait', 'wait'], '줄');
+});
+
+test('받아쓰기 중 새로고침(실패 직전 단계를 모름)도 녹음이 있으면 받아쓰기 줄이 실패', () => {
+  const s = R.rehearsalWaitStates({ phase: 'error', hasTake: true });
+  eq([s.rec, s.stt], ['done', 'fail'], '줄');
+});
+
+test('녹음 정리(encoding)에서 멈췄으면 첫 줄이 실패 — 녹음이 있어도', () => {
+  const s = R.rehearsalWaitStates({ phase: 'error', hasTake: true, lastPhase: 'encoding' });
+  eq([s.rec, s.stt], ['fail', 'wait'], '줄');
+});
+
+test('정합에서 멈추면 정합 줄이 실패', () => {
+  const s = R.rehearsalWaitStates({ phase: 'error', hasTake: true, lastPhase: 'align', out: { transcript: { by_slide: [] } } });
+  eq([s.rec, s.stt, s.align, s.flow], ['done', 'done', 'fail', 'wait'], '줄');
+});
+
 test('질문 재료가 모인 뒤 실패(error 지만 qaReady)는 분석 실패가 아니다', () => {
   const s = R.rehearsalWaitStates({ phase: 'error', qaReady: true });
   eq(Object.values(s).includes('fail'), false, '실패 없음');
