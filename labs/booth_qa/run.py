@@ -631,6 +631,10 @@ def run_full(args) -> Path:
         b = p.chromium.launch(args=flags)
         ctx = b.new_context(viewport={"width": VW, "height": VH}, permissions=[] if "camdeny" in fails else ["camera", "microphone"],
                             locale="ko-KR", is_mobile=VW < 600, has_touch=VW < 600, device_scale_factor=args.dpr)
+        if args.css:
+            # 글라스 값 실험 — 파일의 CSS 를 문서 끝에 얹는다 (원본 CSS 는 그대로)
+            css = Path(args.css).read_text()
+            ctx.add_init_script("document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.id = 'labCss'; s.textContent = %s; document.head.appendChild(s); });" % json.dumps(css))
         page = ctx.new_page()
 
         def shot(name: str) -> None:
@@ -731,6 +735,8 @@ def run_full(args) -> Path:
             sweep("qa_ask1")
             mark("qa_enter", t0, {"say": page.evaluate("(document.getElementById('bqJudgeSay')||{}).textContent||''"),
                                   "slide": page.evaluate("(document.querySelector('#bqSlide figcaption')||{}).textContent||''")})
+            if args.until == "qa":   # --full --until qa — 첫 질문 화면까지만 (글라스 값 실험)
+                return out
             qi_prev, guard = -1, 0
             clicks: dict[int, int] = {}
             while guard < 16:
@@ -983,6 +989,7 @@ def main() -> int:
     ap.add_argument("--reload", action="store_true", help="단계마다 새로고침·뒤로 가기 — 일반 앱 화면으로 새는지 (10-02)")
     ap.add_argument("--old-js", default="", help="--reload: 이 파일들을 --old-rev 판으로 내 옛 코드를 재현 (예: js/booth_qa.js,js/app.js)")
     ap.add_argument("--old-rev", default="HEAD")
+    ap.add_argument("--css", default="", help="--full: 이 CSS 파일을 문서 끝에 얹어 찍는다 (글라스 값 실험 — 원본은 그대로)")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
