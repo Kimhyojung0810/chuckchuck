@@ -52,7 +52,7 @@ from demo.rate_limit import RateLimiter  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
-from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches  # noqa: E402
+from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches, normalize_url_path, static_access  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
@@ -1824,20 +1824,20 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         """
         데모 화면 파일과 /sdk/ 모듈 (demo/static_assets.py). HTML·ES 모듈은 참조 주소에 내용 해시를 넣어 내고,
         요청의 v 가 지금 해시와 같으면 1년 immutable, 아니면 no-cache + ETag.
-        폴더 주소에 / 가 없으면 SimpleHTTPRequestHandler 의 리다이렉트에 맡긴다.
+        허용 목록(static_access) 밖이면 404 — 폴더 주소도 `/`(→ index.html) 말고는 열지 않는다.
         """
         url = parsed.path
-        path = STATIC.locate(url)
-        if path is not None and path.is_dir():
-            if not url.endswith("/"):
-                return super().do_HEAD() if head_only else super().do_GET()
-            url += "index.html"
-        got = STATIC.served(url)
+        if normalize_url_path(url) == "/":
+            url = "/index.html"
+        # 허용 목록 밖은 마운트 안에 있어도 404 (demo/static_assets.py static_access) — 폴더 주소·내부 문서·시안·
+        # git 에 없는 파일이 공개 주소로 열리던 길을 막는다. 팀 전용(샘플 데모 자료)은 팀 브라우저에만.
+        level = static_access(url)
+        path = STATIC.locate_public(url, team=_dev_open())
+        got = STATIC.served(url) if path is not None and path.is_file() else None
         if got is None:
             self.send_error(404)
             return None
         data, digest = got
-        path = STATIC.locate(url)
         ctype = self.guess_type(str(path))
         if ctype.startswith("text/") and "charset" not in ctype:
             ctype += "; charset=utf-8"
@@ -1851,6 +1851,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             # 같아서(팀 여부는 /api/v1/team) 나눠 써도 되고, 첫 방문의 VM 왕복(0.2~1.8초)이 빠진다.
             # Cloudflare 는 HTML 을 기본으로 저장하지 않아서 캐시 규칙을 켜야 쓰인다 (docs/DEPLOYMENT.md §10-5)
             extra.append(("CDN-Cache-Control", CDN_HTML_CACHE))
+        elif level == "team":
+            cache = "private, no-store"  # 팀 전용 — Cloudflare 가 들고 있다가 공개 방문자에게 내주지 않게
         else:
             v = (parse_qs(parsed.query).get("v") or [""])[0]
             cache = IMMUTABLE if v and v == digest else REVALIDATE
