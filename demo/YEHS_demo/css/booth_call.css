@@ -450,3 +450,12 @@
 @media (max-width: 900px) {
   .bc-ask { display: none; }
 }
+
+/* 자동 받아쓰기 — 자동 보내기 초읽기 동안 삐약이 줄 아래 「보내지 않기」 (10-02 사용자 · 아이패드) */
+.bq[data-variant="call"] .bc-send-cancel {
+  grid-column: 1 / -1; justify-self: start; margin-top: 6px; min-height: 40px; padding: 0 16px; border-radius: var(--r-pill);
+  font: inherit; font-size: 14px; font-weight: var(--w-bold); color: #fff; cursor: pointer; text-shadow: none;
+  background: rgba(0, 0, 0, .32); border: 1px solid rgba(255, 255, 255, .55);
+}
+.bq[data-variant="call"] .bc-send-cancel[hidden] { display: none; }
+.bq[data-variant="call"] .bc-send-cancel:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }

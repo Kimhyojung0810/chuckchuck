@@ -31,6 +31,7 @@ const bc = {
   syncAt: 0, syncN: 0, syncLater: 0,
   mcQi: -1, mc: '', mcUntil: 0, mcTimer: 0,   // 삐약이 진행 멘트 (bcMcSync)
   hostH: 0, askH: -1,
+  autoMicKey: '', autoOffKey: '', sendOffKey: '', sendAt: 0, autoTimer: 0,   // 자동 받아쓰기 · 자동 보내기 (bcAutoTick)
 };
 
 function bcRole() {
@@ -79,6 +80,11 @@ function bcMcLine() {
 function bcMcSync() {
   const qi = qa.live.qi;
   if (qi === bc.mcQi) return;
+  // 질문이 바뀌면 앞 질문에 쓰다 만 글을 새 답 칸에 들고 오지 않는다 (ad4971a 사냥 2 #1)
+  if (bc.mcQi >= 0 && !qa.live.busy) {
+    const ta = document.getElementById('liveAnswer');
+    if (ta && ta.value) ta.value = '';
+  }
   bc.mcQi = qi;
   const line = bcMcLine();
   bc.mc = line;
@@ -98,7 +104,13 @@ function bcSayText(stream, thinking) {
     if (bc.thinkSince && Date.now() - bc.thinkSince >= BC_SLOW_JUDGE_MS) return '자료를 한 번 더 보고 있어요. 조금만 기다려요';
     return '답을 자료와 맞춰 보고 있어요';
   }
-  if (bcMicOn()) return '듣고 있어요 · 다 말했으면 「그만 말하기」를 눌러요';
+  // 들어올 때 인사 · 질문이 넘어갈 때 한 줄은 자동으로 켜진 마이크보다 먼저
+  if (bc.mc && Date.now() < bc.mcUntil && !bc.sendAt && !String(((document.getElementById('liveAnswer') || {}).value) || '').trim()) return bc.mc;
+  if (bcMicOn()) {
+    if (liveMic && !liveMic.dictation) return '녹음 중이에요 · 다 말했으면 「녹음 멈추고 받아쓰기」를 눌러요';
+    if (bc.sendAt) return `곧 보내요 · ${Math.max(0, Math.ceil((bc.sendAt - Date.now()) / 1000))}초 — 더 말하면 이어서 받아요`;
+    return '듣고 있어요 · 다 말하고 잠깐 멈추면 알아서 보내요';
+  }
   if (qa.live.awaitEnd) return '오늘 질문은 여기까지예요';
   if (bcLastFailed(stream)) return '판정을 못 받았어요. 답은 그대로 두었으니 다시 보내요';
   if (bc.mc && Date.now() < bc.mcUntil) return bc.mc;
@@ -140,6 +152,7 @@ function renderQaLiveBoothCall() {
           <small>역할을 맡은 삐약이</small>
           <em id="bcCount"></em>
           <span id="bqJudgeSay" class="bc-say"></span>
+          <button type="button" class="bc-send-cancel" id="bcSendCancel" hidden>보내지 않기</button>
         </span>
       </div>
       <div id="bqProg" class="bc-prog"></div>
@@ -156,6 +169,10 @@ function renderQaLiveBoothCall() {
   bc.mounted = false;
   bc.mcQi = -1;
   bc.mc = '';
+  bc.autoMicKey = ''; bc.autoOffKey = ''; bc.sendOffKey = ''; bc.sendAt = 0;
+  $('#bcSendCancel').addEventListener('click', () => { bc.sendOffKey = bcAskKey(); bcAutoCancelSend(); });
+  clearInterval(bc.autoTimer);
+  bc.autoTimer = setInterval(bcAutoLoop, BC_AUTO_TICK_MS);
   $('#bqCamToggle').addEventListener('click', bqCamToggle);
   if (window.BoothCV && !BoothCV.readGaze()) BoothCV.startGaze();
   bcSync();
@@ -456,4 +473,90 @@ function bcSpeak() {
   host.dataset.speaking = '1';
   clearTimeout(bc.speakTimer);
   bc.speakTimer = setTimeout(() => { if (host.isConnected) host.dataset.speaking = ''; }, BC_SPEAK_MS);
+}
+
+/* ─── 10-02 자동 받아쓰기 · 자동 보내기 (부스 화상판만, ad4971a 를 글라스 기저로 옮김) ─────────────────────────────
+   사용자(아이패드): 「말해서 답하기」 를 안 눌러도 질문이 뜨면 바로 듣고, 말을 멈추면 알아서 「이 답변 확인하기」 를 보낸다.
+   기존 받아쓰기(toggleLiveMic)와 보내기(submitLiveAnswer)를 그대로 부른다 — 질문 · 판정 요청은 그대로.
+   - 켜는 때: 질문(되묻기 · 다시 말하기 포함)이 떠 있고 답 칸이 비었고, 판정 중 · 끝 카드 · 자리 비움 알림 · 처음으로 시트 · 탭 숨김이 아닐 때.
+     물음마다 한 번 — 사람이 「그만 말하기」 로 끄면 그 물음에서는 다시 안 켠다
+   - 보내는 때: 확정된 글이 있고 확정 전 조각이 없고 마지막 글 뒤 2.2초 조용하면 3초 초읽기(삐약이 줄 + 「보내지 않기」).
+     더 말하면 초읽기를 접고, 타이핑하면 그 물음에서는 자동 보내기를 멈춘다
+   - 실시간 받아쓰기가 없는 브라우저 · 마이크 거부 · 망 오류(liveDictationDead)면 켜지 않는다 — 버튼 · 타이핑 그대로
+   받아쓴 글은 답 칸(textarea)의 값만 바뀌어 감시(MutationObserver)에 안 걸리므로 짧은 주기로 돈다 — 화상판이 사라지면 스스로 멈춘다 */
+const BC_AUTO_TICK_MS = 300;
+const BC_AUTO_SILENCE_MS = 2200;
+const BC_AUTO_SEND_MS = 3000;
+
+function bcAutoLoop() {
+  const host = document.getElementById('bcHost');
+  if (!host || !qa.live) { clearInterval(bc.autoTimer); bc.autoTimer = 0; return; }
+  bcAutoTick();
+  const stream = document.getElementById('stream');
+  if (stream) bqSet(document.getElementById('bqJudgeSay'), 'textContent', bcSayText(stream, !!document.getElementById('coachThinking')));
+  const mic = bcMicOn() ? 'on' : '';
+  if ((host.dataset.mic || '') !== mic) host.dataset.mic = mic;
+}
+
+function bcAskKey() {
+  const L = qa.live;
+  return `${L.qi}|${L.turn || 0}|${L.retell ? 1 : 0}|${(L.turns || []).length}`;
+}
+
+function bcCanAutoListen() {
+  const br = window.ChuckchuckBridge;
+  return typeof liveDictationDead !== 'undefined' && !liveDictationDead && window.isSecureContext !== false
+    && !!br && typeof br.hasLiveDictation === 'function' && br.hasLiveDictation();
+}
+
+function bcAutoTick() {
+  const L = qa.live;
+  if (!L || bq.screen !== 'qa' || bq.variant !== 'call') return;
+  const key = bcAskKey();
+  const micOn = bcMicOn();
+  const hold = L.awaitEnd || (typeof bqOps !== 'undefined' && bqOps.warnTimer) || !!document.getElementById('bqSheet') || document.hidden;
+  if (micOn && hold) {
+    // 끝 카드 · 자리 비움 · 시트 · 탭 숨김 — 듣지 않는다
+    bcAutoCancelSend();
+    if (typeof dropLiveMic === 'function') dropLiveMic();
+    bc.autoMicKey = '';
+    return;
+  }
+  const pending = typeof liveMicPending !== 'undefined' && liveMicPending;
+  // 내가 켠 마이크가 (보내기 · 질문 바뀜이 아니라) 꺼졌으면 사람이 끈 것 — 이 물음에서는 다시 안 켠다
+  if (bc.autoMicKey && bc.autoMicKey === key && !micOn && !pending && !L.busy) { bc.autoOffKey = key; bc.autoMicKey = ''; }
+  const ta = document.getElementById('liveAnswer');
+  if (ta && !ta.dataset.bcAuto) {
+    ta.dataset.bcAuto = '1';
+    ta.addEventListener('input', () => { bc.sendOffKey = bcAskKey(); bcAutoCancelSend(); });   // 손으로 고치는 중 — 자동으로 안 보낸다
+  }
+  if (!micOn && !hold && !L.busy && !pending && bc.autoOffKey !== key && ta && !ta.disabled && !ta.value.trim() && bcCanAutoListen()) {
+    bc.autoMicKey = key;
+    bc.sendOffKey = '';
+    toggleLiveMic();
+    return;
+  }
+  bcAutoSend(key, micOn, ta);
+}
+
+function bcAutoSend(key, micOn, ta) {
+  const mic = micOn ? liveMic : null;
+  const text = ta ? ta.value.trim() : '';
+  const quiet = !!mic && mic.dictation && !!mic.lastTextAt && Date.now() - mic.lastTextAt >= BC_AUTO_SILENCE_MS
+    && !String(mic.interim || '').trim() && !!String(mic.final || '').trim();
+  if (!mic || bc.sendOffKey === key || qa.live.busy || !text || !quiet) { bcAutoCancelSend(); return; }
+  if (!bc.sendAt) {
+    bc.sendAt = Date.now() + BC_AUTO_SEND_MS;
+    bcAnnounce('곧 보내요. 더 말하면 이어서 받아요');
+    bqSet(document.getElementById('bcSendCancel'), 'hidden', false);
+  }
+  if (Date.now() >= bc.sendAt) {
+    bcAutoCancelSend();
+    submitLiveAnswer();
+  }
+}
+
+function bcAutoCancelSend() {
+  bc.sendAt = 0;
+  bqSet(document.getElementById('bcSendCancel'), 'hidden', true);
 }
