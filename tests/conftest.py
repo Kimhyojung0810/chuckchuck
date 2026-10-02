@@ -6,3 +6,4 @@ import pytest
 def _single_vote(monkeypatch):
     monkeypatch.setenv("CHUCKCHUCK_CONCEPT_VOTES", "1")
     monkeypatch.setenv("CHUCKCHUCK_GRAPH_SKELETON_VOTES", "1")
+    monkeypatch.setenv("CHUCKCHUCK_GRAPH_SAME", "0")          # 같은 개념 묶기는 임베딩 API 를 부른다 — 테스트는 따로 켠다
