@@ -133,6 +133,8 @@ function rehearsalFlowOnRoute(key) {
 
 /** route() 가 그리기 직전에 — 리허설 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 리허설 자리로. true 면 route() 가 멈춘다 */
 function rehearsalGuard(key) {
+  // 끝난 리허설의 #/new 로 뒤로 오면(발표 고르기 → 한 번 더 뒤로) 일반 앱이 끝난 세션을 지우고 빈 새 연습을 그린다 — 발표 고르기로
+  if (key === 'new' && rehearsalFlowOn() && nf && nf.completed) { location.replace(REHEARSAL_HASH); return true; }
   if (key !== 'qa' || !rehearsalFlowOn()) return false;
   const to = rehearsalQaFallback({
     live: typeof qaLiveActive === 'function' && qaLiveActive(),
@@ -598,7 +600,7 @@ function rehearsalWaitSync() {
     rhMount('wait', rhWaitHtml(), { keepApp: true }).dataset.take = take;
     // 질문이 이미 있는데 여기로 왔으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만
     bq.rhLiveAtMount = qaLiveActive();
-    document.getElementById('rhSkipReport').addEventListener('click', () => { location.hash = '#/report'; });
+    document.getElementById('rhSkipReport').addEventListener('click', rhGoReport);
     document.getElementById('rhResume').addEventListener('click', () => { location.hash = '#/qa'; });
     bqCamEnsure();
     bqCamPaint();
@@ -844,5 +846,15 @@ function rehearsalQaDone() {
   if (typeof bqUnmount === 'function') bqUnmount();
   if (typeof bqClearTimers === 'function') bqClearTimers();
   rehearsalTeardown();
+  rhGoReport();
+}
+
+/**
+ * 리포트로 — 지금 칸(#/qa · 기다림의 #/new)을 #/rehearsal 로 바꿔 두고 리포트를 쌓는다. 리포트에서 뒤로 가면 발표 고르기다.
+ * 예전엔 뒤로 가면 리허설 표시가 꺼진 일반 #/qa 결과 카드가 떴고, 한 번 더 가면 #/new 가 끝난 세션을 지워 리포트가 비었다 (10-03 점검 F6).
+ * replaceState 는 hashchange 를 안 내므로 그 칸을 다시 그리지 않는다
+ */
+function rhGoReport() {
+  try { history.replaceState(history.state, '', REHEARSAL_HASH); } catch (_) { /* 못 바꾸면 예전처럼 */ }
   location.hash = '#/report';
 }

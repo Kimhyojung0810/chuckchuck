@@ -73,6 +73,7 @@ function countUp(el, to, ms = 800) {
   })(t0);
 }
 function animateViz(root = document) {
+  if (!root) return;   // 리포트를 다 그리기 전에 화면을 떠났다(뒤로 가기 등) — 그릴 곳이 없다
   $$('.fill-bar i[data-w]', root).forEach(i => i.style.width = i.dataset.w);
   $$('.ring-fg[data-off]', root).forEach(r => r.style.strokeDashoffset = r.dataset.off);
   $$('[data-count]', root).forEach(el => el.textContent = el.dataset.count);
