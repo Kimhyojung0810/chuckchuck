@@ -209,6 +209,9 @@
 .bq[data-variant="call"] .bc-stream .msg.ai.gist .msg-bubble,
 .bq[data-variant="call"] .bc-stream .msg.ai.thinking .msg-bubble { color: #fff; font-size: 16px; }
 .bq[data-variant="call"] .bc-stream .msg.ai.gist .msg-bubble { border-color: rgba(63, 213, 153, .55); }
+/* 「아직 안 나온 것」 — 작은 말풍선의 13px 머리말이 흰 벽 위 4.4:1 이었다 (10-03 점검 V4). 판을 지금 질문과 같은 한 단 진하게, 머리말은 흰색 */
+.bq[data-variant="call"] .bc-stream > .msg.ai.miss:not(.is-past) .msg-bubble { background: var(--lg-sheen), var(--lg-tint-now); }
+.bq[data-variant="call"] .bc-stream > .msg.ai.miss:not(.is-past) .msg-meta { color: #fff; }
 .bq[data-variant="call"] .bc-stream .msg.ai.thinking .msg-bubble { color: var(--lg-soft); }
 .bq[data-variant="call"] .bc-stream .msg.ai.thinking .dots b { background: #fff; }
 .bq[data-variant="call"] .bc-stream .msg-meta,
@@ -272,6 +275,9 @@
   color: #fff; border-radius: 22px; padding: 14px 18px;
   background: var(--lg-sheen), var(--lg-tint-text); border: 1px solid var(--lg-edge); box-shadow: var(--lg-shadow);
 }
+/* 마무리 알약(「질문 3개를 모두 마쳤어요」)은 흐림이 없는 작은 줄이다 — 옅은 판(.28)만으로는 흰 벽 위에서 1.8:1 이었다 (10-03 점검 V4).
+   흐림 없는 글 줄과 같은 진한 판을 쓴다(안내 줄 · 진행 칩과 같은 값). 큰 카드의 옅은 글라스는 그대로 */
+.bq[data-variant="call"] .bc-stream > .qa-finale:not(.is-past) { background: var(--lg-sheen), var(--lg-tint-flat); }
 .bq[data-variant="call"] .bc-stream .qa-done h4,
 .bq[data-variant="call"] .bc-stream .qd-foot,
 .bq[data-variant="call"] .bc-stream .qa-finale p { color: var(--lg-soft); }
