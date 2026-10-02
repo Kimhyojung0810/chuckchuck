@@ -4548,6 +4548,41 @@ function runClientSamplePipeline() {
   }, stage.delay));
 }
 
+/**
+ * 테이크(녹음 · 분석 · 질문)만 버리고 자료는 둔다 — nfStep4 「다른 녹음으로 다시」 와 #/vision 이 리허설을 마친 세션을 이어받을 때(vision_rehearsal.js).
+ * resetNf 와 다르다: 자료(nfSlideDoc · uploadedPdf)는 그대로, step 은 2(발표)로
+ */
+function discardTakeKeepDeck() {
+  stopLiveRehearsal();
+  showcasePipeGen += 1;
+  ccLastTake = null;
+  chatterCache = null;
+  chatterPending = null;
+  nf.mic = 'idle';
+  nf.sec = 0;
+  nf.marks = null;
+  nf.uploadedTake = null;
+  nf.log = [];
+  nf.visits = { 1: 1 };
+  nf.done = 0;
+  nf._pipelineStarted = false;
+  nf._samplePipelineStarted = false;
+  nf.pipelineOut = null;
+  nf.pipelineError = null;
+  nf.pipelinePhase = null;
+  nf.pipelineDetail = null;
+  nf.transcriptOk = false;
+  nf.conceptsOk = false;
+  nf.backstage = [];
+  nf._pipelineLog = [];
+  nf._stageActual = null;   // 남겨 두면 스텝 2·3 로 돌아간 화면에 지난 테이크의 칩이 뜬다
+  nf.step = 2;
+  // 질문 코칭은 버리는 테이크의 발화로 만든 것이라 같이 버린다 — 남겨 두면
+  // 새 녹음 분석이 끝나도 qaLiveActive() 가 참이라 지난 녹음의 질문이 그대로 나온다.
+  resetQa();
+  saveSession('new-flow', nf);
+}
+
 function nfStep4() {
   // 리허설 흐름이면 이 화면 위에 부스 「질문 준비」 모양의 기다림 층을 얹는다 — 파이프라인 · 타이머는 아래에서 그대로 돈다
   if (rhFlowOn()) setTimeout(() => { if (typeof rehearsalWaitSync === 'function') rehearsalWaitSync(); }, 0);
@@ -4624,34 +4659,7 @@ function nfStep4() {
   const again = $('#againTake');
   // 자료(nfSlideDoc·uploadedPdf)는 그대로 두고 테이크만 버린다 — resetNf 와 다르다
   if (again) again.addEventListener('click', () => {
-    stopLiveRehearsal();
-    showcasePipeGen += 1;
-    ccLastTake = null;
-    chatterCache = null;
-  chatterPending = null;
-    nf.mic = 'idle';
-    nf.sec = 0;
-    nf.marks = null;
-    nf.uploadedTake = null;
-    nf.log = [];
-    nf.visits = { 1: 1 };
-    nf.done = 0;
-    nf._pipelineStarted = false;
-    nf._samplePipelineStarted = false;
-    nf.pipelineOut = null;
-    nf.pipelineError = null;
-    nf.pipelinePhase = null;
-    nf.pipelineDetail = null;
-    nf.transcriptOk = false;
-    nf.conceptsOk = false;
-    nf.backstage = [];
-    nf._pipelineLog = [];
-    nf._stageActual = null;   // 남겨 두면 스텝 2·3 로 돌아간 화면에 지난 테이크의 칩이 뜬다
-    nf.step = 2;
-    // 질문 코칭은 버리는 테이크의 발화로 만든 것이라 같이 버린다 — 남겨 두면
-    // 새 녹음 분석이 끝나도 qaLiveActive() 가 참이라 지난 녹음의 질문이 그대로 나온다.
-    resetQa();
-    saveSession('new-flow', nf);
+    discardTakeKeepDeck();
     renderNew();
   });
 

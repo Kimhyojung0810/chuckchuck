@@ -55,6 +55,12 @@ function renderVisionEntry(opts = {}) {
     resetNf();
     resetQa();
     try { sessionStorage.removeItem('cheokcheok:chuckchuck-session'); } catch (_) { /* ignore */ }
+  } else if (nf.rehearsalDeck && (Number(nf.step) || 0) >= 3 && typeof discardTakeKeepDeck === 'function') {
+    // 리허설(#/rehearsal)에서 발표를 마치고 나온 세션 — 비전 리허설은 같은 자료로 새 발표부터. 그대로 이어받으면 리허설의 기다림 ·
+    // 질문이 리허설 표시 없이 일반 「질문 준비가 끝났어요」 페이지로 떴다 (10-03 점검 F7). 리허설 고르기 표시는 지운다
+    discardTakeKeepDeck();
+    nf.rehearsalDeck = null;
+    saveSession('new-flow', nf);
   } else if ((Number(nf.step) || 0) < 2) {
     nf.step = 2;
     saveSession('new-flow', nf);
