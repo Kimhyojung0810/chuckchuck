@@ -155,7 +155,6 @@ function bqConfirmHome() {
         <button type="button" class="bq-ghost" data-sheet="close">닫기</button>
         <button type="button" class="bq-cta bq-cta-sm" data-sheet="home">처음으로 갈게요</button>
       </div>
-      ${bq.variant === 'call' && bq.screen === 'qa' ? `<button type="button" class="bq-sheet-cam" data-sheet="cam">${bqCamLive() ? '카메라 끄고 이어서 하기' : '카메라 켜고 이어서 하기'}</button>` : ''}
     </div>`;
   layer.appendChild(sheet);
   // 시트가 떠 있는 동안 뒤 층은 inert — Tab 세 번이면 뒤 버튼으로 빠져나갔다 (사냥 3). 시트 안에서 Tab 이 돈다
@@ -175,8 +174,6 @@ function bqConfirmHome() {
     const act = e.target.closest('[data-sheet]');
     if (e.target === sheet || (act && act.dataset.sheet === 'close')) close();
     else if (act && act.dataset.sheet === 'home') { sheet.remove(); bqGoHome(); }
-    // 화상판은 질문 화면에서 카메라 버튼을 뺐다(10-02 UI 정합성) — 끄고 켜기는 이 시트와 스태프 키(Shift+C)로
-    else if (act && act.dataset.sheet === 'cam') { close(); bqCamToggle(); }
   });
   sheet.querySelector('[data-sheet="close"]').focus();
 }

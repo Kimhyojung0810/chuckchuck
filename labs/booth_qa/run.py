@@ -70,7 +70,7 @@ LAYOUT_JS = """() => {
   // 화상판(/booth/call) — 얼굴 가운데(가로 38~62% · 세로 18~62%)를 덮는 글라스가 있는지
   const cx0 = innerWidth * .38, cx1 = innerWidth * .62, cy0 = innerHeight * .18, cy1 = innerHeight * .62;
   const covers = (el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > cx0 && b.left < cx1 && b.bottom > cy0 && b.top < cy1; };
-  const callParts = ['.bc-host', '.bc-dock', '.bc-side', '.bc-hint:not([hidden])', '.bc-prog', '#stream > *', '.bc-banner', '.bc-slide', '.bc-mine-msg', '.bc-draft', '.bc-acts', '.bc-typing'];   // 10-02 배치(배너 · 오른쪽 내 말 · 알약)도 잰다
+  const callParts = ['.bc-host', '.bc-dock', '.bc-side', '.bc-hint:not([hidden])', '.bc-prog', '#stream > *'];
   // 카메라가 꺼지면 자료 창이 화면 공유처럼 가운데를 쓴다(의도) — 그때는 재지 않는다. 폰(≤900)은 얼굴이 위쪽 띠에 있어 따로 잰다(phone_cover)
   const camOn = (L.querySelector('[data-bq-cam-box]') || {}).dataset?.camera === 'on';
   const isCallQa = L.dataset.variant === 'call' && L.dataset.screen === 'qa';
@@ -87,10 +87,7 @@ LAYOUT_JS = """() => {
   const hit2 = (a, b) => !!a && !!b && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
   const overlaps = isCallQa ? [['.bc-prog .bq-prog', '.bc-privacy'], ['.bc-prog .bq-prog', '#bqSlide'], ['.bc-dock', '#bqSlide'], ['.bc-dock', '.bc-privacy'],
     ['.bc-dock', '.bc-prog .bq-prog'], ['.bc-host', '.bc-dock'], ['.bc-talk', '.bc-dock'], ['.bc-hint:not([hidden])', '#bqSlide'],
-    ['.bc-talk', '.bc-host'], ['#stream > .msg.is-now', '.bc-host'],
-    // 10-02 배치 — 배너가 위 띠 알약 · 양옆 기둥과, 왼쪽 대화가 오른쪽 기둥과, 아래 안내가 삐약이 · 알약과 겹치는지
-    ['.bc-banner', '.bq-brand'], ['.bc-banner', '.bq-top .bq-ghost'], ['.bc-banner', '.bc-talk'], ['.bc-banner', '.bc-right'],
-    ['.bc-talk', '.bc-right'], ['.bc-host', '.bc-right'], ['.bc-hint:not([hidden])', '.bc-host'], ['.bc-hint:not([hidden])', '.bc-right'], ['.bc-lock', '.bc-hint:not([hidden])']]
+    ['.bc-talk', '.bc-host'], ['#stream > .msg.is-now', '.bc-host']]
     .filter(([a, b]) => hit2(box(a), box(b))).map(([a, b]) => `${a} × ${b}`) : null;
   return { layer: true, screen: L.dataset.screen, variant: L.dataset.variant, present: L.dataset.present, W: innerWidth, H: innerHeight,
     center_cover, phone_cover, overlaps, cam_on: camOn,
@@ -490,10 +487,7 @@ def plain_cam(path: Path, rgb: tuple[int, int, int]) -> Path:
 GLASS_TEXT = [".bc-draft p", ".bc-prog-topic", "#stream > .msg.ai.gist:not(.is-past) .msg-bubble > p", "#stream > .msg.ai.miss:not(.is-past) .msg-bubble",
               "#stream > .msg.ai.hint:not(.is-past) .msg-bubble", "#stream > .msg.is-now .msg-q", "#stream > .msg.ai.react:not(.is-past) .msg-bubble > p", "#stream > .msg.me:not(.is-past) .msg-bubble",
               "#bqJudgeSay", "#bcHost .bc-host-text b", "#bqSlide figcaption", ".bc-dock .qa-input-label b", "#stream > .is-past .msg-bubble",
-              "#stream > .qa-flag:not(.is-past)", ".bc-privacy",
-              # 10-02 배치 — 배너 · 단계 · 둘째 말풍선 · 질문 한 줄 · 내 말 · 알약
-              "#bcBannerQ", "#bcBannerHead", ".bc-steps li[data-st='now']", ".bc-steps li[data-st='wait']", "#stream .bc-sub:not(.bc-wait) .bc-miss",
-              "#stream > .msg.ai.q.bc-q-on .bc-qline", ".bc-mine-msg:not(.is-past)", ".bc-mine-msg.is-past", ".bc-act", ".bc-hint:not([hidden])"]
+              "#stream > .qa-flag:not(.is-past)", ".bc-privacy"]
 
 
 def glass_contrast(page, png: Path) -> dict:
