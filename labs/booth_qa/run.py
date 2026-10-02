@@ -490,9 +490,11 @@ GLASS_TEXT = [".bc-draft p", ".bc-prog-topic", "#stream > .msg.ai.gist:not(.is-p
               "#stream > .qa-flag:not(.is-past)", ".bc-privacy", "#stream > .qa-finale:not(.is-past) b", "#stream > .qa-finale:not(.is-past) p"]
 
 
-def glass_contrast(page, png: Path) -> dict:
+def glass_contrast(page, png: Path, sels: list[str] | None = None) -> dict:
     """사진에서 글자 대비를 잰다 — 글자 심(밝은 픽셀)과 그 바로 둘레(2~4px 띠, 심 제외)의 밝은 쪽 75% 값.
-    판 · 흐림 · 글자 둘레 테를 다 거친 화면 그대로라, 「글자 쪽으로 읽힘을 지킨다」 가 실제로 4.5:1 을 넘는지 본다"""
+    판 · 흐림 · 글자 둘레 테를 다 거친 화면 그대로라, 「글자 쪽으로 읽힘을 지킨다」 가 실제로 4.5:1 을 넘는지 본다.
+    sels 를 주면 그 글자들을 잰다 (기본은 화상판 GLASS_TEXT — 리허설 실험실이 비전 리허설 글자를 넘긴다)"""
+    sels = list(sels or GLASS_TEXT)
     import numpy as np
     from PIL import Image
     dpr = page.evaluate("devicePixelRatio")
@@ -501,12 +503,12 @@ def glass_contrast(page, png: Path) -> dict:
       // 대화 칸 안의 말은 칸이 잘라 보이는 부분만 (위로 밀려 가려진 부분까지 재면 위 띠 · 영상이 섞인다)
       if (st) { const c = st.getBoundingClientRect(); const top = Math.max(r.top, c.top), bot = Math.min(r.bottom, c.bottom);
         if (bot - top < 16) return null; return [r.left, top, r.width, bot - top]; }
-      return [r.left, r.top, r.width, r.height]; })""", GLASS_TEXT)
+      return [r.left, r.top, r.width, r.height]; })""", sels)
     im = np.asarray(Image.open(png).convert("RGB")).astype(float) / 255
     lin = np.where(im <= 0.04045, im / 12.92, ((im + 0.055) / 1.055) ** 2.4)
     lum = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
     out = {}
-    for sel, bx in zip(GLASS_TEXT, boxes):
+    for sel, bx in zip(sels, boxes):
         if not bx or bx[2] < 4 or bx[3] < 4:
             continue
         x0, y0 = int(bx[0] * dpr), int(bx[1] * dpr)

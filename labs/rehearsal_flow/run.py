@@ -59,6 +59,9 @@ SPOKEN = {
     "수익률격차": "개인 투자자는 잦은 매매와 추격 매수 때문에 시장보다 수익률이 낮아요. 종목보다 거래 행동이 격차를 만들어요.",
     "배달앱별점인플레이션A": "별점이 4.7 근처에 몰리는 건 낮은 별점을 주기 부담스러워서 다들 높게 주기 때문이에요. 그래서 별점만으로는 가게 차이를 구별하기 어려워요.",
 }
+# 비전 리허설에서 잴 글자 — 카메라 위 이름표 · 위 알약 · 조작줄 · 자료 창 자막 (--cam white|dark)
+VISION_TEXT = ["#vrCall .vr-name", "#vrCall .vr-status", "#vrCall .vr-pill", "#vrCall .vr-rec .rec-copy > span", "#vrCall .vr-rec .rec-live",
+               "#vrCall .vr-rec .rec-clock", "#vrCall .vr-nav[data-slide-nav='1']", "#vrCall .vr-caption", "#vrCall .vr-hear"]
 RECORD_PATHS = {
     "/api/v1/transcribe": "transcribe.json", "/api/v1/concepts": "concepts.json", "/api/v1/graph": "graph.json",
     "/api/v1/alignment": "alignment.json", "/api/v1/flow": "flow.json", "/api/v1/pace": "pace.json",
@@ -255,8 +258,12 @@ def run(args) -> Path:
             n["i"] += 1
             png = out / f"{n['i']:02d}_{name}.png"
             page.screenshot(path=str(png))
-            if args.cam != "face" and page.evaluate("(document.getElementById('bqStage')||{dataset:{}}).dataset.screen === 'qa'"):
-                R["contrast"][name] = B.glass_contrast(page, png)
+            if args.cam != "face":
+                where = page.evaluate("document.getElementById('vrCall') ? 'vision' : (document.getElementById('bqStage')||{dataset:{}}).dataset.screen")
+                if where == "qa":
+                    R["contrast"][name] = B.glass_contrast(page, png)
+                elif where == "vision":   # 비전 리허설 글자도 같은 잣대로 (10-03 점검 V-R2-1 — 화상판만 재서 흰 벽 앞 삐약이 이름이 안 잡혔다)
+                    R["contrast"][name] = B.glass_contrast(page, png, VISION_TEXT)
             return png
 
         def lay(tag: str) -> dict:

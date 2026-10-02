@@ -6,9 +6,11 @@
   --vr-gap: 16px;
   --vr-top: 44px;
   --vr-dock: 76px;
-  --vr-glass: rgba(16, 20, 32, .56);
+  --vr-glass: rgba(16, 20, 32, .62);   /* .56 은 흰 벽 앞에서 판 위 흰 글자가 4.2~4.5:1 — 글자 판으로 쓰는 만큼만 진하게 (V-R2-1) */
   --vr-edge: rgba(255, 255, 255, .28);
   --vr-blur: blur(18px) saturate(1.6);
+  /* 글자 둘레의 은은한 그림자 테 — 화상판(booth_call.css --lg-halo)과 같은 값. 흰 벽 앞에서도 글자가 판 위에서 4.5:1 위 (10-03 점검 V-R2-1) */
+  --vr-halo: 0 0 1px rgba(0, 0, 0, .9), 0 0 2px rgba(0, 0, 0, .8), 0 1px 3px rgba(0, 0, 0, .6), 0 0 6px rgba(0, 0, 0, .45);
   position: fixed; inset: 0; z-index: 900;
   background: #0B1411; color: #fff;
   font-family: inherit; overflow: hidden;
@@ -136,7 +138,9 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
 }
 .vr-caption {
   margin: 0; min-height: 0; padding: 0 28px 8px 16px;
-  font-size: 13px; line-height: 1.4; color: var(--text-3, #5c6b64);
+  font-size: 13px; line-height: 1.4; color: #2b3833;   /* 연한 회색(#5c6b64)은 반투명 창 너머 삐약이 노랑 앞에서 3.6:1 이었다 */
+  /* 자막은 위 조작줄(.vr-slide-cap)과 같은 밝은 띠 위에 — 투명한 창 바탕만이면 어두운 방에서 진한 글자가 3.4:1 이었다 */
+  padding-top: 6px; background: rgba(255, 255, 255, .62);
 }
 .vr-caption:empty { display: none; }
 
@@ -168,17 +172,17 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
 #vrCall .ch-prop { display: none; }
 .vr-paws { position: absolute; left: 0; top: 0; width: 100%; height: auto; pointer-events: none; z-index: 2; }
 .vr-paw { opacity: 0; transform-box: fill-box; }
-.vr-name {
-  margin: -8px 0 0; font-size: 18px; font-weight: 800;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, .55);
+.vr-tag {
+  /* 이름 · 상태는 글라스 이름표 위에 — 카메라 바로 위에 흰 글자만 있으면 흰 벽 앞에서 1.1:1 로 사라졌다 (V-R2-1) */
+  margin: -8px 0 0; padding: 6px 16px 7px; border-radius: 16px; text-align: center;
+  text-shadow: var(--vr-halo);
 }
-.vr-status {
-  margin: 2px 0 0; font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .88);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, .5);
-}
+.vr-name { margin: 0; font-size: 18px; font-weight: 800; }
+.vr-status { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #fff; }
 .vr-ear {
   pointer-events: auto; margin-top: 8px; height: 44px; padding: 0 16px;
-  border: 0; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1c2430;
+  border: 1px solid rgba(28, 36, 48, .28); border-radius: 999px; background: rgba(255, 255, 255, .92); color: #1c2430;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .22);
   font-weight: 700; cursor: pointer;
 }
 #vrCall .vr-bird[data-cue="listen"] .ch-eye-ball { transform: scale(1.22); }
@@ -259,11 +263,12 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
 .vr-pill {
   display: inline-flex; align-items: center; height: 40px; padding: 0 14px;
   border-radius: 999px; font-size: 14px; font-weight: 700; white-space: nowrap;
+  text-shadow: var(--vr-halo);
 }
 .vr-top-fill { flex: 1; min-width: 0; }
 .vr-top-fill .pre-note {
   display: inline-flex; align-items: center; max-width: 100%; margin: 0; padding: 6px 12px;
-  border-radius: 999px; background: var(--vr-glass); color: rgba(255, 255, 255, .9); font-size: 13px;
+  border-radius: 999px; background: var(--vr-glass); color: #fff; font-size: 13px; text-shadow: var(--vr-halo);
 }
 .vr-call .btn.vr-glass {
   height: 44px; min-height: 44px; padding: 0 14px; border-radius: 999px;
@@ -277,7 +282,7 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   left: 50%; top: calc(var(--vr-top) + var(--vr-gap) + 8px);
   transform: translateX(-50%);
   margin: 0; max-width: min(520px, 70vw); padding: 8px 14px;
-  border-radius: 12px; font-size: 13px; line-height: 1.45; text-align: center;
+  border-radius: 12px; font-size: 13px; line-height: 1.45; text-align: center; text-shadow: var(--vr-halo);
 }
 .vr-hear[hidden] { display: none; }
 
@@ -289,18 +294,21 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
 }
 .vr-nav {
   flex: none; height: 44px; min-height: 44px; padding: 0 16px;
-  background: rgba(255, 255, 255, .12); color: #fff; border: 0; border-radius: 10px;
+  background: rgba(16, 20, 32, .45); color: #fff; border: 1px solid rgba(255, 255, 255, .22); border-radius: 10px;
+  text-shadow: var(--vr-halo);   /* 밝은 판(흰 .12)은 흰 벽 앞에서 「다음」 이 3.4:1 이었다 */
 }
-.vr-nav:hover { background: rgba(255, 255, 255, .2); }
+.vr-nav:hover { background: rgba(16, 20, 32, .6); }
 .vr-nav[hidden] { display: none; }
 .vr-rec {
   flex: 1; min-width: 0;
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
 }
-.vr-rec .rec-copy { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: rgba(255, 255, 255, .92); }
+.vr-rec .rec-copy { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: #fff; }
+.vr-rec :is(.rec-copy, .rec-live, .rec-clock, .mic-denied) { text-shadow: var(--vr-halo); }
 .vr-rec .rec-copy p { margin: 0; font-size: 12px; color: rgba(255, 255, 255, .72); }
 .vr-rec .rec-status, .vr-rec .rec-status > div { display: flex; align-items: center; gap: 10px; }
-.vr-rec .rec-live { color: #FF8A80; }
+.vr-rec .rec-live { color: #fff; }   /* 빨강은 점만 — 연분홍 글자는 회색 판 위에서 1.9:1 이었다 */
+.vr-rec .rec-live::before { background: #FF5A4E; box-shadow: 0 0 0 2px rgba(255, 255, 255, .85); }
 .vr-rec .rec-clock { font-size: 22px; color: #fff; }
 .vr-rec .meter i { background: var(--cyan, #3fd599); }
 .vr-rec .rec-log-fold { display: none; }

@@ -383,8 +383,8 @@ function visionBirdHtml() {
         <div class="ch-seat seated" data-mood="neutral">${chick}</div>
         ${visionPaws()}
       </div>
-      <p class="vr-name">삐약이</p>
-      <p class="vr-status" id="vrStatus">말하면 반응해요</p>
+      <div class="vr-tag vr-glass"><p class="vr-name">삐약이</p>
+      <p class="vr-status" id="vrStatus">말하면 반응해요</p></div>
       <button type="button" class="btn vr-ear" id="vrEar">다시 듣기</button>
     </div>`;
 }
