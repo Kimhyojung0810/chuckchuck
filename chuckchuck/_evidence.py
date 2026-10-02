@@ -351,6 +351,10 @@ OPTION_MARKED_MAX = 14
 #: 차트 축 눈금 줄 — 숫자(+단위) 셋 이상만 나란히 있는 줄 (「0% 10% 20% 30%」). 쪽 번호 꼴(`page_marker_rows`)은 따로 걸린다.
 _AXIS_LINE_RE = re.compile(r"^(?:[-−]?\d[\d,.]*\s*(?:%|%p|명|원|건|개|회|점|배|시간|분|초|년|월|일)?\s+){2,}[-−]?\d[\d,.]*\s*(?:%|%p|명|원|건|개|회|점|배|시간|분|초|년|월|일)?$")
 
+#: 글머리표 + 숫자뿐인 줄 — 차트 축 눈금 목록의 첫 줄(「- 80」 다음 줄부터 「70」「60」…)이 글머리표를 달고 남는다. 서술이 아니다
+#: (10-02 질문 코치: 「- 80」 이 다음 줄 「회전율(회)」 과 이어져 함정 사실 「80 회전율(회)」 이 됐다).
+_BULLET_NUMBER_RE = re.compile(r"^[-–•·▪]\s*[-−]?\d[\d,.]*\s*%?$")
+
 
 def is_question_line(line: str) -> bool:
     """줄이 물음(캡션 물음·설문 물음)인가 — 사실을 말하는 줄이 아니다."""
@@ -389,7 +393,7 @@ def noise_lines(raw_text: str) -> set[str]:
     i = 0
     while i < len(lines):
         s = lines[i].strip()
-        if s and (i in pages or _AXIS_LINE_RE.match(s) or filler(s)):
+        if s and (i in pages or _AXIS_LINE_RE.match(s) or _BULLET_NUMBER_RE.match(s) or filler(s)):
             out.add(s)
         if s and re.search(r"[?？]\s*[”\"'’」』)]*\s*$", s):
             block: list[str] = []

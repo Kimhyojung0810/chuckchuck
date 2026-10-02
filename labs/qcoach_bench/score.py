@@ -5,8 +5,11 @@
     .venv/bin/python labs/qcoach_bench/score.py baseline              # 한 태그 점수 + 기록표(records.md)
     .venv/bin/python labs/qcoach_bench/score.py baseline after        # 전후 비교표
 
-Priority   덱 원문으로 고른 핵심 개념 K1~K5(key_concepts.json)를 먼저 묻는가 — 첫 세션(A) 질문 목록
-           p_q1 첫 질문이 K · p_top3 상위 3개 중 K 몫 · p_tier1 상위 3개에 K1/K2 · p_cov 질문 7개가 덮는 K 수/5
+지표는 넷만 쓴다 (2026-10-02 사용자 지시 — Priority 는 질문 선택의 변화를 못 보여 줘서 아래 둘로 바꿨다):
+TopK       Top-K Coverage — 덱 원문으로 고른 핵심 개념 K1~K5(key_concepts.json) 중 첫 세션(A) 질문이 다룬 몫.
+           질문 하나는 핵심 개념 **하나**로만 센다(대상 노드 이름에 걸리는 K 중 번호가 앞선 것) — 핵심 주장 하나가 K1·K3 둘로 세지지 않게.
+Redundancy 같은 질문 목록에서 앞 질문과 겹치는 질문의 몫 (낮을수록 좋다) — 대상 노드가 같다 · 같은 K 다 ·
+           대상 이름 내용어가 절반 이상 겹친다(Jaccard ≥ 0.5) 중 하나면 겹친 것.
 Grounding  질문이 자료·그래프에 근거하는가 — 모든 세션의 모든 질문
            g_node 대상 노드가 그래프에 있음 · g_num 질문·모범답의 수가 전부 덱에 있음 · g_anchor 근거 장 본문의 내용어 2개 이상 ·
            g_target 질문이 대상 개념 이름을 부름 · g_vocab 덱에 없는 내용어 40% 이하 · g_quote 근거 인용이 그 장 원문 그대로
@@ -135,12 +138,27 @@ def gist_twin(a: dict, b: dict) -> bool:
     return bool(ta | tb) and len(ta & tb) / len(ta | tb) >= TWIN_MAX
 
 
-def priority(qs: list[dict], keys: dict) -> dict:
-    ks = [keys_of(q["label"], keys) for q in qs]
-    top3 = ks[:3]
-    return {"p_q1": float(bool(ks and ks[0])), "p_top3": sum(bool(k) for k in top3) / 3,
-            "p_tier1": float(any(k & {"K1", "K2"} for k in top3)),
-            "p_cov": len(set().union(*ks)) / len(keys["concepts"]) if ks else 0.0}
+REDUNDANT_JACCARD = 0.5
+AXES = ("topk", "redundancy", "grounding", "adaptivity")
+
+
+def topk_redundancy(qs: list[dict], keys: dict) -> tuple[dict, dict]:
+    """첫 세션 질문 목록 → (Top-K Coverage, Redundancy)."""
+    ks = [key_of(q["label"], keys) for q in qs]
+    cov = len({k for k in ks if k}) / len(keys["concepts"])
+    toks = [set(tokens(q["label"])) for q in qs]
+    dup = 0
+    for i, q in enumerate(qs):
+        for j in range(i):
+            same_node = q.get("node_id") and q.get("node_id") == qs[j].get("node_id")
+            same_key = ks[i] and ks[i] == ks[j]
+            a, b = toks[i], toks[j]
+            close = bool(a and b) and len(a & b) / len(a | b) >= REDUNDANT_JACCARD
+            if same_node or same_key or close:
+                dup += 1
+                break
+    return ({"covered": len({k for k in ks if k}), "score": cov},
+            {"redundant": dup, "score": dup / len(qs) if qs else 0.0})
 
 
 def adaptivity(rep: dict, keys: dict) -> dict:
@@ -185,7 +203,6 @@ def all_questions(rep: dict) -> list[dict]:
 
 
 def score_rep(rep: dict, keys: dict, deck: Deck) -> dict:
-    pr = priority(rep["A"]["session1"]["questions"], keys)
     gs = [grounding(q, deck) for q in all_questions(rep)]
     q1 = rep["A"]["session1"]["questions"][0]
     fus = [(rep["C"]["next"] or {}).get("followup") or "", rep["D"]["judgement"].get("followup") or ""]
@@ -197,7 +214,8 @@ def score_rep(rep: dict, keys: dict, deck: Deck) -> dict:
     g["diag_grounded_no_trap"] = st.mean(float(x["grounded"]) for x in plain) if plain else 0.0
     g["diag_traps_per_session"] = sum(bool(q.get("trap")) for q in all_questions(rep)) / 5
     per = {sc: st.mean(float(v) for v in c.values()) for sc, c in ad.items()}
-    return {"priority": {**pr, "score": st.mean(pr.values())},
+    tk, rd = topk_redundancy(rep["A"]["session1"]["questions"], keys)
+    return {"topk": tk, "redundancy": rd,
             "grounding": {**g, "score": g["grounded"]},
             "adaptivity": {**per, "score": st.mean(per.values()), "checks": ad},
             "_ground_rows": gs}
@@ -211,7 +229,7 @@ def summary(tag: str) -> dict:
     keys, deck = load_keys(), Deck()
     reps = [score_rep(r, keys, deck) for r in load_tag(tag)]
     agg = {}
-    for axis in ("priority", "grounding", "adaptivity"):
+    for axis in AXES:
         names = [k for k in reps[0][axis] if k != "checks"]
         agg[axis] = {k: st.mean(r[axis][k] for r in reps) for k in names}
     checks = {}
@@ -269,7 +287,7 @@ def main() -> None:
         (OUT / t / "records.md").write_text(records_md(t))
         (OUT / t / "summary.json").write_text(json.dumps(sums[t], ensure_ascii=False, indent=1))
     rows = []
-    for axis in ("priority", "grounding", "adaptivity"):
+    for axis in AXES:
         for k in sums[tags[0]][axis]:
             rows.append((f"{axis}.{k}", [sums[t][axis].get(k) for t in tags]))
     rows += [(f"check.{k}", [sums[t]["checks"].get(k) for t in tags]) for k in sums[tags[0]]["checks"]]

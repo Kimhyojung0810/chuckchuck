@@ -49,7 +49,16 @@ def test_rerank_keeps_candidate_order_on_typed_graph():
     marks = [TriageMark(node_id=n.id, severity=1 if n.id == "leaf" else 3, trap=False, angle="", source=src, rank=0,
                         doc_weight=n.weight) for n, src in pairs]
     out = [m.node_id for m in F8._rerank(marks, pairs, g)]
-    assert out == [n.id for n, _ in pairs]                       # LLM 이 잎에 「치명」 을 줘도 자료 구조 순서가 이긴다
+    assert out[:2] == ["t", "turn"]                              # LLM 이 잎에 「치명」 을 줘도 자료 구조 순서가 이긴다
+    assert out.index("leaf") > out.index("over")
+    assert out[-1] == "c6"                                       # 「과잉 매매」 를 물었으면 그 이름을 품은 주장은 맨 뒤 (같은 개념 두 번 X)
+
+
+def test_same_name_nodes_do_not_take_two_slots():
+    marks = [TriageMark(node_id=i, severity=2, trap=False, angle="", source="core_weight", rank=0, doc_weight=0.5)
+             for i in ("a", "b", "c")]
+    labels = {"a": "통제 가능한 변수", "b": "통제 가능한 변수부터", "c": "매도 규칙"}
+    assert [m.node_id for m in F8._spread_same_name(marks, labels)] == ["a", "c", "b"]
 
 
 def test_root_children_are_not_one_chunk_on_typed_graph():

@@ -1396,6 +1396,8 @@ def _typed(graph: ConceptGraph | None) -> bool:
 #: 자료 반복도 — 주장 노드가 그 장에 「나왔다」 고 볼 내용어 몫, 풀어 쓴 정도(하위 노드 수)를 셀 상한.
 _SALIENCE_CLAIM_SHARE = 0.6
 _SALIENCE_DESC_CAP = 2
+#: 요약·결론 장의 머리 말 — 장 맨 위 두 줄에서 찾는다.
+_SUMMARY_SLIDE_RE = re.compile(r"결론|요약|정리|핵심\s*요지|마무리|summary|conclusion|takeaway|key\s*point", re.I)
 
 
 def _salience_of(graph: ConceptGraph, nodes: list[ConceptNode], slides: dict[int, str] | None) -> dict[str, int]:
@@ -1414,7 +1416,12 @@ def _salience_of(graph: ConceptGraph, nodes: list[ConceptNode], slides: dict[int
             kids.setdefault(n.parent_id, []).append(n)
     # 파서가 붙인 차트 설명(「- Chart Type: … 보유 종목 수별 …」)은 자료가 한 말이 아니다 — 걷어낸 원문 줄로 센다
     from ._graph_items import deck_lines
-    flat = {no: re.sub(r"\s+", "", " ".join(deck_lines(t or ""))).lower() for no, t in (slides or {}).items()}
+    lines_of = {no: deck_lines(t or "") for no, t in (slides or {}).items()}
+    flat = {no: re.sub(r"\s+", "", " ".join(ls)).lower() for no, ls in lines_of.items()}
+    # 요약·결론 장 — 저자가 「결국 이것」 이라고 다시 올린 말이 발표의 기둥이다. 거기 나온 말은 한 장 더 친다 (10-02 질문 코치:
+    # 사람이 덱만 보고 고른 핵심 다섯 중 둘(사전 규칙 · 통제 가능한 변수)이 Executive Summary·Conclusion 에 있었는데 질문에 없었다)
+    summary_nos = {no for no, ls in lines_of.items() if ls and _SUMMARY_SLIDE_RE.search(" ".join(ls[:2]))}
+    summary_nos |= {no for s in graph.sections if s.slide_role == "conclusion" for no in s.slide_nos if no in flat}
 
     def said_on(label: str) -> set[int]:
         toks = [t for t in norm_tokens(label) if len(t) >= 2]
@@ -1443,8 +1450,13 @@ def _salience_of(graph: ConceptGraph, nodes: list[ConceptNode], slides: dict[int
                 stack += kids.get(c.id, [])
         return len(seen)
     # 장 수 + 풀어 쓴 정도(자식·손자 수, 2 까지) — 차트 축 이름(「종목수」「평균 수익률」)은 여러 장에 반복돼도 자료가 풀어 쓴 개념이 아니다
-    return {n.id: len(said_on(n.label) | (below(n, {n.id}) if n.id in by_id else set(n.slide_nos)))
-            + (min(descendants(n), _SALIENCE_DESC_CAP) if n.id in by_id else 0) for n in nodes}
+    out = {}
+    for n in nodes:
+        said = said_on(n.label)
+        out[n.id] = (len(said | (below(n, {n.id}) if n.id in by_id else set(n.slide_nos)))
+                     + len(said & summary_nos)
+                     + (min(descendants(n), _SALIENCE_DESC_CAP) if n.id in by_id else 0))
+    return out
 
 
 def _ordered_candidates(
@@ -1519,6 +1531,39 @@ def _ordered_candidates(
         ranked = _interleave_kinds(ranked, lambda n: (_SOURCE_RANK[source_of[n.id]], role_of(n)))
     ranked = ranked[:CANDIDATE_LIMIT]
     return [(node, source_of[node.id]) for node in ranked]
+
+
+#: 두 노드 이름이 「같은 말」 이라고 볼 내용어 겹침 몫 (짧은 쪽 기준).
+_SAME_NAME_SHARE = 0.6
+
+
+def _name_words(label: str) -> set[str]:
+    return {re.sub(r"(?:은|는|이|가|을|를|의|에|에서|으로|로|도|와|과|부터|까지)$", "", t) if len(t) > 2 else t
+            for t in norm_tokens(label) if len(t) >= 2}
+
+
+def _spread_same_name(ordered: list[TriageMark], label_of: dict[str, str]) -> list[TriageMark]:
+    """
+    앞서 뽑힌 질문과 이름 내용어가 60% 이상 겹치는 후보는 같은 근거 묶음의 맨 뒤로 (제외가 아니라 강등).
+    10-02 질문 코치 벤치: 「통제 가능한 변수」 「통제 가능한 변수부터」, 「매도규칙」 「매도 규칙 사전 설정」 처럼 같은 말이 장마다 따로 노드가 돼
+    질문 두 자리를 차지할 수 있었다 — 같은 개념을 두 번 묻는 사이 다른 핵심 개념이 질문 창 밖으로 밀린다.
+    모순·누락 근거는 면제한다 (_ADJACENCY_EXEMPT — 리포트가 이미 문제라고 말한 개념).
+    """
+    out: list[TriageMark] = []
+    for _, grp in groupby(ordered, key=lambda m: _SOURCE_RANK[m.source]):
+        kept, later = [], []
+        seen: list[set[str]] = []
+        for m in grp:
+            w = _name_words(label_of.get(m.node_id, ""))
+            clash = any(w and s and len(w & s) / min(len(w), len(s)) >= _SAME_NAME_SHARE for s in seen)
+            if clash and m.source not in _ADJACENCY_EXEMPT:
+                later.append(m)
+                continue
+            kept.append(m)
+            if w:
+                seen.append(w)
+        out += kept + later
+    return out
 
 
 def _interleave_kinds(ranked: list[ConceptNode], band) -> list[ConceptNode]:
@@ -2397,6 +2442,7 @@ def _rerank(
         pos = {node.id: i for i, (node, _) in enumerate(pairs)}
         ordered = sorted(marks, key=lambda m: (_SOURCE_RANK[m.source], pos.get(m.node_id, len(pos)), m.severity, m.node_id))
         ordered = _spread_adjacent(ordered, graph, {m.node_id: (_SOURCE_RANK[m.source],) for m in marks})
+        ordered = _spread_same_name(ordered, {node.id: node.label for node, _ in pairs})
         for rank, mark in enumerate(ordered, start=1):
             mark.rank = rank
         return ordered
@@ -2651,7 +2697,12 @@ def _drop_twin_questions(
     spare: list[Question] = []
     demoted: list[Question] = []
     for q in questions:
-        if q.basis is not None and "unanswerable_fallback" in (q.basis.checks or []):
+        # 주제(핵심 주장) 자리는 폴백 템플릿(「…을 자료 1, 2장에서 어떻게 설명했나요?」)으로 바뀌어도 **근거 자료 줄이 있으면** 자리를
+        # 지킨다 — 그 템플릿은 자료로 답할 수 있고, 밀리면 함정이 첫 질문이 된다 (10-02 질문 코치 벤치 6회 중 2회). 자료 줄이 없는 폴백은
+        # 여전히 뒤로 (WP-P2)
+        theme = (q.basis is not None and q.basis.slot == "theme"
+                 and any((getattr(e, "quote", "") or "").strip() for e in (q.basis.evidence or [])))
+        if q.basis is not None and "unanswerable_fallback" in (q.basis.checks or []) and not theme:
             demoted.append(q)
             continue
         # 함정 질문은 쌍둥이 비교에서 뺀다 (qa/trap). 함정 골자는 전제를 바로잡는 자료 줄이라 같은 장을 인용한 다른 골자와
@@ -2668,6 +2719,11 @@ def _drop_twin_questions(
     while len(kept) < limit and demoted:
         kept.append(demoted.pop(0))
 
+    # 함정은 첫 질문이 되지 않는다 — 첫 질문은 발표의 요지를 여는 자리다. 앞쪽의 함정 아닌 질문과 자리를 바꾼다
+    if kept and kept[0].trap:
+        k = next((i for i, q in enumerate(kept[:limit]) if not q.trap), None)
+        if k is not None:
+            kept.insert(0, kept.pop(k))
     keep_ids = {q.id for q in kept[:limit]}
     first_ids = {q.id for q in questions[:limit]}
     pushed = [q for q in questions[:limit] if q.id not in keep_ids and q.basis is not None
@@ -2924,6 +2980,11 @@ def _assign_traps(
             continue
         if any(m is mark for m in head):
             i = next(k for k, m in enumerate(head) if m is mark)
+        elif spent >= 1 and not waiting:
+            # 상한 밖 개념을 데려와 함정을 **더** 만들지는 않는다 — 함정 수(QA_TRACK_TRAPS)는 상한이지 할당량이 아니고, 데려온 함정은
+            # 상한 안의 정상 질문 한 자리를 빼앗는다 (10-02 질문 코치: 세 번째 함정 「거래 비용」 이 핵심 개념 「규칙」 자리를 가져갔다).
+            # 함정이 하나도 없을 때만 데려온다 — 5분 트랙 10덱 중 6덱 함정 0개였던 것(qa/trap)은 그대로 막는다
+            continue
         else:
             # 비킬 자리: 뒤에서부터, 주제·탐침·이미 고른 함정이 아닌 자리. 탐침은 자료 안의 진짜 긴장·빈틈이라 비키지 않는다.
             spots = [k for k in range(len(head) - 1, -1, -1)
@@ -3974,6 +4035,9 @@ def _fit_question(text: str, *, trap: bool = False, limit: int = QUESTION_MAX) -
     첫 응답 경로에는 없었다. 못 줄이면 "" — 호출자가 결정적 템플릿으로 보낸다 (잘린 문장보다 템플릿이 낫다).
     함정 질문은 문장을 버리지 않는다(거짓 전제가 앞 문장에 있을 수 있다) — 넘치면 바로 템플릿."""
     t = _question_mark((text or "").strip())
+    # 여는 따옴표 없이 닫는 따옴표로 시작한 인용(「종목수」가 …」 의 앞 「 가 떨어진 꼴)은 맨 앞에 여는 따옴표를 되붙인다 (10-02 벤치 3/210)
+    if t.count("」") > t.count("「") and t.find("」") < (t.find("「") if "「" in t else len(t)):
+        t = "「" + t
     # 물음도 요청도 아닌 문장은 질문이 아니다 — 10-02 질문 코치 벤치: LLM 이 개념 요약(「격차는 … 만들어진다 / 실력의 문제가 아니라 …」)을
     # question 칸에 그대로 보내 화면에 서술문이 질문으로 떴다. 길이만 볼 때는 이 검사가 넘칠 때만 돌았다.
     if t and not t.endswith(("?", "？")) and not _POLITE_END_RE.search(t):

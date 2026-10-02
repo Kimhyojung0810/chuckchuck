@@ -238,6 +238,8 @@ class DeckIndex:
     text: str = ""
     #: vocab 의 줄기(조사 뗀 꼴) — `known` 이 쓴다.
     vocab_stems: set[str] = field(default_factory=set)
+    #: 문서 변환기가 차트를 읽어 낸 장(「Chart Type:」) — 그 장의 표는 차트 막대 값이다 (`_traps.candidates`).
+    chart_slides: set[int] = field(default_factory=set)
 
     @property
     def labels(self) -> list[str]:
@@ -329,8 +331,9 @@ def build_index(slides: dict, nodes: list, transcript_text: str = "") -> DeckInd
             topic.add(label)
     text = " ".join(r.text for no in sorted(rows) for r in rows[no])
     vocab = set(words(text)) | set(words(transcript_text))
+    charts = {no for no, sl in slides.items() if re.search(r"Chart Type\s*:", getattr(sl, "raw_text", "") or "")}
     return DeckIndex(rows=rows, label_slides=label_slides, topic=topic, vocab=vocab, text=text,
-                     vocab_stems={stem(w) for w in vocab})
+                     vocab_stems={stem(w) for w in vocab}, chart_slides=charts)
 
 
 def known_in(word: str, stems: set[str]) -> bool:
