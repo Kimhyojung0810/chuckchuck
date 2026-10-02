@@ -580,8 +580,8 @@ function presentLiveQuestion() {
     papers: questionPapersHtml(q.papers),
     basis: why ? escapeHtml(why) : '',
     origin: questionOriginHtml(q),
-    // 👍/👎 — 「이 자료에서 나올 만한 질문이었나」. 이것이 질문 생성의 라벨이다.
-    fb: liveFeedbackHtml('question_vote', String(q.id), [['up', '👍 좋은 질문이에요'], ['down', '👎 이 질문은 별로예요']],
+    // 좋아요/별로예요 — 「이 자료에서 나올 만한 질문이었나」. 이것이 질문 생성의 라벨이다.
+    fb: liveFeedbackHtml('question_vote', String(q.id), [['up', '좋은 질문이에요'], ['down', '이 질문은 별로예요']],
       { question: q.question, node_id: q.node_id, slide_nos: q.slide_nos || [], trap: !!q.trap, source: q.source || '' }),
   });
 }
@@ -1010,7 +1010,7 @@ async function toggleLiveMic() {
   // http://10.x.x.x 같은 사내망 주소는 안 된다 — 그냥 두면 「시작하지 못했어요」만
   // 나와서 기능이 고장 난 줄 안다. 무엇을 해야 하는지 대신 말해 준다.
   if (window.isSecureContext === false) {
-    micSay('마이크는 https 주소에서만 열려요. 공개 데모 주소(https)나 이 컴퓨터의 127.0.0.1 로 접속해 주세요 — 타이핑은 지금도 됩니다');
+    micSay('마이크는 https 주소에서만 열려요. 공개 데모 주소(https)나 이 컴퓨터의 127.0.0.1 로 접속해 주세요 — 타이핑은 지금도 할 수 있어요');
     setMicBtn('idle');
     return;
   }
@@ -1075,7 +1075,7 @@ async function startRecordingMic() {
   try {
     const session = await window.ChuckchuckBridge.startAnswerRecording({
         onAutoStop: () => {
-          micSay('녹음이 너무 길어져 자동으로 멈췄어요 — 받아쓰는 중입니다');
+          micSay('녹음이 너무 길어져 자동으로 멈췄어요 — 받아쓰고 있어요');
           stopLiveMic();
         },
       });

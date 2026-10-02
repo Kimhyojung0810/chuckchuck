@@ -2002,7 +2002,7 @@ function nfStep1() {
         </div>` : ''}
       </div>
       <div class="step-actions">
-        <button class="btn btn-secondary" id="cancelParse">취소하고 다시 올리기</button>
+        <button class="btn btn-secondary" id="cancelParse">다른 파일 올리기</button>
         <button class="btn btn-primary" disabled>다음: 발표 정보 입력</button>
       </div>`;
     $('#cancelParse').addEventListener('click', () => {
@@ -3137,7 +3137,7 @@ function humanErrorText(msg) {
 }
 
 /* F-11 분석 리빌 — 리허설 종료 → 질문 준비 사이에 전체 화면으로 재생.
-   뒤에서는 파이프라인이 돌고, CTA(질문 코치 시작하기)를 누르면 걷힌다.
+   뒤에서는 파이프라인이 돌고, CTA(질문 코칭 시작하기)를 누르면 걷힌다.
 
    순서가 바뀌었다. 예전엔 graph 와 alignment 가 **둘 다** 와야 화면이 움직였고,
    그건 실 API 로 450초쯤이라 90초에 포기하는 대기 루프에 매번 걸렸다 — 개념그래프도
@@ -3155,7 +3155,7 @@ function showF11Reveal() {
     + 'display:flex;flex-direction:column;background:var(--canvas)';
   wrap.innerHTML =
     '<div id="f11Chrome" class="f11-chrome"></div>'
-    + '<iframe src="f11_reveal.html?embed=1&v=showcase7" title="발표 분석 과정" '
+    + '<iframe src="f11_reveal.html?embed=1&v=showcase8" title="발표 분석 과정" '
     + 'style="flex:1 1 auto;width:100%;min-height:0;border:0;display:block"></iframe>';
   document.body.appendChild(wrap);
   // 첫 틱을 기다리면 그동안 위가 비어 보인다. 붙이자마자 한 번 채운다.
@@ -4062,7 +4062,7 @@ function pipelineLoadingHtml(kind) {
      이 블록은 그 단계가 무엇을 기다리는지만 한 줄로 말한다.
      캐릭터는 얹는 층이다 (UI_REDESIGN §14 · 03_components.md §6). */
   const hint = kind === 'stt'
-    ? '말한 내용을 글로 옮기는 데 30초쯤 걸려요. 이 화면을 닫아도 뒤에서 계속 돌아갑니다.'
+    ? '말한 내용을 글로 옮기는 데 30초쯤 걸려요. 이 화면을 닫아도 뒤에서 계속 돌아가요.'
     : '자료의 개념을 정리하는 중이에요. 발표하는 동안 미리 돌려 뒀으면 금방 끝나요.';
 
   return `<div class="pipe-loading" data-pipe-kind="${kind}">
@@ -4150,7 +4150,7 @@ function backstageHtml() {
   return `
     <div class="bs-stage">
       <div class="bs-curtain" aria-hidden="true"><i></i><i></i></div>
-      <p class="bs-hint">막이 내려왔어요. 커튼 뒤에서 뭔가 상의하는 소리가 들립니다.</p>
+      <p class="bs-hint">막이 내려왔어요. 커튼 뒤에서 뭔가 상의하는 소리가 들려요.</p>
       <ul class="bs-lines" id="bsLines">${body}</ul>
     </div>`;
 }
@@ -4456,12 +4456,12 @@ function nfStep4() {
       <div class="step-actions">
         <button class="btn btn-secondary" type="button" data-fresh-practice>처음부터 다시</button>
         <button class="btn btn-secondary btn-sm" type="button" id="againTake">다른 녹음으로 다시</button>
-        <a class="btn btn-text btn-sm skip-qa" href="#/report">질문코치 건너뛰고 상세 리포트</a>
+        <a class="btn btn-text btn-sm skip-qa" href="#/report">질문 코칭 건너뛰고 상세 리포트</a>
         ${qaReady
           ? `<a class="btn btn-primary" href="#/qa">질문 코칭 시작하기</a>
              ${reportPending ? '<span class="note">상세 리포트는 뒤에서 마저 만들고 있어요.</span>' : ''}`
           : (nf.transcriptOk && conceptsError
-            ? `<span class="note">말한 내용까지는 옮겼어요. 개념 추출만 실패했습니다.</span>`
+            ? `<span class="note">말한 내용까지는 옮겼어요. 개념은 뽑지 못했어요.</span>`
             : '')}
       </div>
     </div>`;
@@ -6503,7 +6503,7 @@ function rSummary() {
          말했다. 여기는 마침표만 찍는다: 한 줄 안내와 버튼 둘. -->
     <div class="card next-card">
       <p>${live
-        ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.'
+        ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어져요.'
         : '같은 자료로 한 번 더 연습하면 무엇이 달라졌는지 나란히 볼 수 있어요.'}</p>
       <div class="step-actions">
         <a class="btn btn-primary" href="#/new">새 발표 연습</a>
@@ -9507,7 +9507,7 @@ function renderAbout() {
 
     <div class="about-cta">
       <p>읽어 보니 어떠세요? 이 방식으로 한 번 봐 드릴게요.</p>
-      <a class="btn btn-primary" href="#/new" data-fresh-practice>새 발표 연습하기</a>
+      <a class="btn btn-primary" href="#/new" data-fresh-practice>새 발표 연습</a>
     </div>`;
   wireFreshPracticeButtons(app);
 }
