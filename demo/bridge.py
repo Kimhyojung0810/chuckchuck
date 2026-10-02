@@ -221,9 +221,39 @@ AUTH_LIMITER = RateLimiter(limit=5, window_sec=60.0)
 _REQ = threading.local()
 
 
-def _team_token() -> str:
-    """쿠키에 싣는 값. 코드 자체는 싣지 않는다 — 코드를 바꾸면 이전 쿠키가 모두 풀린다."""
-    return hmac.new(TEAM_CODE.encode("utf-8"), b"chuckchuck-team-v1", hashlib.sha256).hexdigest()
+#: 발급 시각이 서버 시계보다 이만큼 앞서 있어도 받아 준다 (서버 두 대가 아니라 한 대라 거의 0 이지만 여유를 둔다)
+TEAM_CLOCK_SKEW = 300
+
+
+def _team_key() -> bytes:
+    """서명 열쇠. 팀 코드에서 끌어낸다 — 코드를 바꾸면 이전 쿠키가 모두 풀린다. 코드 자체는 쿠키에 싣지 않는다."""
+    return hmac.new(TEAM_CODE.encode("utf-8"), b"chuckchuck-team-v2", hashlib.sha256).digest()
+
+
+def _team_token(issued: int | None = None) -> str:
+    """
+    쿠키에 싣는 값 `v2.<발급 시각(초)>.<서명>`. 서버가 발급 시각을 보고 7일(TEAM_COOKIE_MAX_AGE)이 지나면 버린다.
+
+    왜 — 예전 값은 「코드의 지문」 하나라 발급 시각이 없어서, 한 번 새면 코드를 바꿀 때까지 영원히 유효했다
+    (브라우저의 Max-Age 는 브라우저가 지키는 약속일 뿐이다). 옛 형식(v1) 쿠키는 이제 통하지 않는다 — 다시 /auth.
+    """
+    ts = int(time.time()) if issued is None else int(issued)
+    sig = hmac.new(_team_key(), f"v2.{ts}".encode("ascii"), hashlib.sha256).hexdigest()
+    return f"v2.{ts}.{sig}"
+
+
+def _team_token_ok(tok: str, now: float | None = None) -> bool:
+    """서명이 맞고 발급한 지 7일 안인가. 코드가 비어 있으면 무엇도 통하지 않는다."""
+    if not TEAM_CODE or not tok:
+        return False
+    parts = tok.split(".")
+    if len(parts) != 3 or parts[0] != "v2" or not parts[1].isdigit() or len(parts[1]) > 12:
+        return False
+    ts = int(parts[1])
+    now = time.time() if now is None else now
+    if ts > now + TEAM_CLOCK_SKEW or now - ts > TEAM_COOKIE_MAX_AGE:
+        return False
+    return hmac.compare_digest(tok, _team_token(ts))
 
 
 def _dev_open() -> bool:
@@ -1390,13 +1420,40 @@ class Handler(SimpleHTTPRequestHandler):
         return ""
 
     def _team_ok(self) -> bool:
-        tok = self._cookie(TEAM_COOKIE)
-        return bool(TEAM_CODE and tok) and hmac.compare_digest(tok, _team_token())
+        return _team_token_ok(self._cookie(TEAM_COOKIE))
 
     def _https(self) -> bool:
-        """터널 뒤면 Cloudflare 가 붙인 헤더로 안다 — 로컬 http 에서 Secure 쿠키는 안 남는다."""
+        """
+        Secure 쿠키를 붙일 요청인가. 공개 도메인(Host 가 루프백이 아닌 허용 이름 — chuckchuck-present.com · ts.net)으로
+        온 요청은 늘 https 다: 바깥 입구가 Cloudflare 와 Tailscale Funnel 뿐이고 둘 다 https 로만 받는다.
+        예전엔 Cf-Visitor·X-Forwarded-Proto 가 있을 때만 붙였는데, Funnel 을 거쳐 오면 그 헤더가 없을 수 있다.
+        헤더는 보조로 계속 본다. 로컬 http(127.0.0.1)에서는 붙이지 않는다 — 붙이면 브라우저가 쿠키를 버린다.
+        """
+        host = _host_name(self.headers.get("Host") or "")
+        if host and host not in LOOPBACK_HOSTS and host in ALLOWED_HOSTS:
+            return True
         return "https" in (self.headers.get("Cf-Visitor") or "") or \
-            (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+            (self.headers.get("X-Forwarded-Proto") or "").lower() == "https" or \
+            bool((self.headers.get("Tailscale-Funnel-Request") or "").strip())
+
+    def _same_origin(self) -> bool:
+        """
+        폼 POST 가 우리 화면에서 왔는가 — Origin(없으면 Referer)의 호스트가 이 요청의 Host 이거나 우리 공개 이름이다.
+        Cloudflare 가 chuckchuck-present.com 을 ts.net 으로 넘기면 Host 와 Origin 이 달라서 허용 이름도 같이 본다.
+        둘 다 없으면 거절한다 — 요즘 브라우저는 폼 POST 에 Origin 을 늘 싣는다.
+        """
+        src = (self.headers.get("Origin") or "").strip()
+        if not src or src == "null":
+            src = (self.headers.get("Referer") or "").strip()
+        if not src:
+            return False
+        netloc = urlparse(src).netloc.strip().lower()
+        if not netloc:
+            return False
+        if netloc == (self.headers.get("Host") or "").strip().lower():
+            return True  # 포트까지 같아야 한다 — 같은 기계의 다른 포트(다른 앱)는 다른 출처다
+        origin_host = _host_name(netloc)
+        return origin_host in ALLOWED_HOSTS and origin_host not in LOOPBACK_HOSTS
 
     def _auth_page(self, code: int, *, team: bool, note: str = "", cookie: str | None = None):
         esc = lambda t: t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")  # noqa: E731
@@ -1450,6 +1507,11 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return self._json(404, {"error": "not found"})
         form = parse_qs(raw.decode("utf-8", "replace"))
         if (form.get("logout") or [""])[0]:
+            # 다른 사이트의 폼이 팀 모드를 끄지 못하게 (SameSite=Lax 는 최상위 POST 이동에 쿠키를 안 싣지만,
+            # 끄기는 쿠키 없이도 Set-Cookie 로 지우므로 출처를 따로 본다)
+            if not self._same_origin():
+                sys.stderr.write("[bridge] /auth 끄기 거절 (다른 출처)\n")
+                return self._auth_page(403, team=self._team_ok(), note="이 화면에서 끌 수 있어요.")
             return self._auth_page(200, team=False, note="개발자 모드를 껐어요.", cookie=self._team_cookie("", 0))
         key = self._client_key()
         if not AUTH_LIMITER.allow(key):

@@ -60,7 +60,8 @@ def test_코드가_맞으면_쿠키를_주고_코드_자체는_싣지_않는다(
     set_cookie = h.headers_out["Set-Cookie"]
     assert "HttpOnly" in set_cookie and "SameSite=Lax" in set_cookie
     assert CODE not in set_cookie
-    assert _cookie_value(h) == bridge._team_token()
+    tok = _cookie_value(h)
+    assert tok.startswith("v2.") and bridge._team_token_ok(tok)
 
 
 def test_코드가_틀리면_401_이고_쿠키가_없다(team):
@@ -119,8 +120,82 @@ def test_코드를_바꾸면_이전_쿠키가_풀린다(team, monkeypatch):
 
 
 def test_인증_풀기는_쿠키를_지운다(team):
-    h = _form("/auth", "logout=1")
-    assert "Max-Age=0" in h.headers_out["Set-Cookie"]
+    h = _form("/auth", "logout=1", headers={"Origin": "http://127.0.0.1:8799", "Host": "127.0.0.1:8799"})
+    assert h.status == 200 and "Max-Age=0" in h.headers_out["Set-Cookie"]
+
+
+# ─── 2026-10-02 보안 3건: 쿠키 7일 서버 검사 · 공개 도메인 Secure · 끄기 출처 확인 ──────────
+
+def test_쿠키는_발급_시각을_싣고_서버가_7일을_검사한다(team):
+    now = 1_800_000_000
+    fresh = bridge._team_token(now - 60)
+    assert bridge._team_token_ok(fresh, now=now)
+    almost = bridge._team_token(now - bridge.TEAM_COOKIE_MAX_AGE + 5)
+    assert bridge._team_token_ok(almost, now=now)
+    old = bridge._team_token(now - bridge.TEAM_COOKIE_MAX_AGE - 1)
+    assert not bridge._team_token_ok(old, now=now)
+    future = bridge._team_token(now + 3600)
+    assert not bridge._team_token_ok(future, now=now)
+
+
+def test_만료된_쿠키로는_팀_경로가_안_열린다(team, monkeypatch):
+    tok = bridge._team_token(int(bridge.time.time()) - bridge.TEAM_COOKIE_MAX_AGE - 10)
+    assert _get("/api/v1/team", cookie=tok).last == (200, {"team": False})
+    assert _get("/api/v1/cached-takes", cookie=tok).last[0] == 404
+
+
+def test_발급_시각을_고치면_서명이_안_맞는다(team):
+    tok = bridge._team_token()
+    _, ts, sig = tok.split(".")
+    forged = f"v2.{int(ts) + 86400}.{sig}"
+    assert not bridge._team_token_ok(forged)
+    assert _get("/api/v1/team", cookie=forged).last == (200, {"team": False})
+
+
+def test_옛_형식_v1_쿠키는_더_통하지_않는다(team):
+    import hashlib
+    import hmac
+    v1 = hmac.new(CODE.encode(), b"chuckchuck-team-v1", hashlib.sha256).hexdigest()
+    assert _get("/api/v1/team", cookie=v1).last == (200, {"team": False})
+
+
+@pytest.mark.parametrize("bad", ["", "v2", "v2.abc.def", "v2.1.2.3", "v1.123.abc", "v2.99999999999999.x"])
+def test_모양이_틀린_쿠키는_거절(team, bad):
+    assert not bridge._team_token_ok(bad)
+
+
+def test_공개_도메인으로_오면_헤더가_없어도_Secure(team, monkeypatch):
+    monkeypatch.setattr(bridge, "ALLOWED_HOSTS", frozenset({*bridge.LOOPBACK_HOSTS, "chuckchuck-present.com"}))
+    h = _form("/auth", f"code={CODE}", headers={"Host": "chuckchuck-present.com"})
+    assert "Secure" in h.headers_out["Set-Cookie"]
+    h = _form("/auth", f"code={CODE}", headers={"Host": "127.0.0.1:8799"})
+    assert "Secure" not in h.headers_out["Set-Cookie"]  # 로컬 http 에서 붙이면 브라우저가 쿠키를 버린다
+    h = _form("/auth", f"code={CODE}", headers={"Host": "127.0.0.1:8799", "X-Forwarded-Proto": "https"})
+    assert "Secure" in h.headers_out["Set-Cookie"]
+    h = _form("/auth", f"code={CODE}", headers={"Host": "127.0.0.1:8799", "Tailscale-Funnel-Request": "?1"})
+    assert "Secure" in h.headers_out["Set-Cookie"]
+
+
+@pytest.mark.parametrize("headers", [
+    {"Host": "127.0.0.1:8799"},                                             # 출처 정보 없음
+    {"Host": "127.0.0.1:8799", "Origin": "https://evil.example"},
+    {"Host": "127.0.0.1:8799", "Origin": "null"},
+    {"Host": "127.0.0.1:8799", "Origin": "http://127.0.0.1:9999"},           # 같은 기계의 다른 앱
+    {"Host": "127.0.0.1:8799", "Referer": "https://evil.example/page"},
+])
+def test_다른_출처의_끄기_POST_는_403_이고_쿠키를_안_건드린다(team, headers):
+    h = _form("/auth", "logout=1", headers=headers)
+    assert h.status == 403
+    assert "Set-Cookie" not in h.headers_out
+
+
+def test_같은_출처의_끄기는_Referer_나_공개_이름으로도_된다(team, monkeypatch):
+    h = _form("/auth", "logout=1", headers={"Host": "127.0.0.1:8799", "Referer": "http://127.0.0.1:8799/auth"})
+    assert h.status == 200 and "Max-Age=0" in h.headers_out["Set-Cookie"]
+    # Cloudflare 가 chuckchuck-present.com 을 ts.net 으로 넘기면 Host 와 Origin 이 다르다
+    monkeypatch.setattr(bridge, "ALLOWED_HOSTS", frozenset({*bridge.LOOPBACK_HOSTS, "chuckchuck-present.com", "x.ts.net"}))
+    h = _form("/auth", "logout=1", headers={"Host": "x.ts.net", "Origin": "https://chuckchuck-present.com"})
+    assert h.status == 200 and "Max-Age=0" in h.headers_out["Set-Cookie"]
 
 
 def test_공개_방문자는_샘플_받아쓰기를_못_받는다(team):
