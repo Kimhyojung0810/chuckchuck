@@ -3270,3 +3270,38 @@ details.tq-group > summary { cursor: pointer; list-style: revert; }
 .tq-label { font-size: 13px; font-weight: 700; color: var(--text-2); min-width: 32px; font-variant-numeric: tabular-nums; }
 .tq-version-row .tq-version { color: var(--text); }
 @media (max-width: 480px) { .tq-version-row { padding-left: 14px; } }
+
+/* ── 「팀 모드」 알약 (app.js syncTeamPill) — 팀 브라우저에서만 화면 위에 작게. 누르면 팀 도구 목록 · 끄기 ──
+   body 에 붙어 아트보드 배율을 타지 않는다. 데스크톱은 오른쪽 위 빈자리, 좁은 화면은 탑바 가운데 */
+.team-pill-wrap { position: fixed; top: 12px; right: 16px; z-index: 60; font-size: 13px; }
+.team-pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface);
+  color: var(--text-2); font: inherit; font-weight: var(--w-med); cursor: pointer;
+  box-shadow: 0 2px 8px rgba(24, 24, 27, .06);
+}
+.team-pill::before { content: ''; width: 6px; height: 6px; border-radius: var(--r-dot); background: var(--brand); }
+.team-pill:hover, .team-pill[aria-expanded="true"] { background: var(--fill); color: var(--text); }
+.team-menu {
+  position: absolute; top: 34px; right: 0; min-width: 200px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-print);
+  box-shadow: 0 8px 24px rgba(24, 24, 27, .10);
+}
+.team-menu[hidden] { display: none; }
+.team-menu-head { margin: 4px 8px 6px; color: var(--text-3); font-size: 12px; }
+.team-menu a, .team-menu-off {
+  display: block; width: 100%; box-sizing: border-box; padding: 8px; border: 0; border-radius: var(--r-inner);
+  background: none; color: var(--text); font: inherit; text-align: left; text-decoration: none; cursor: pointer;
+}
+.team-menu a:hover, .team-menu-off:hover { background: var(--hover); }
+.team-menu-off { margin-top: 4px; border-top: 1px solid var(--border); border-radius: 0 0 var(--r-inner) var(--r-inner); color: var(--text-2); }
+.team-menu-note { margin: 6px 8px 4px; color: var(--text-3); font-size: 12px; }
+/* 끄기 결과 — 중립 색 (오류가 아니라 사용자가 고른 일이다) */
+.team-toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 70;
+  padding: 10px 16px; border-radius: var(--r-pill); background: var(--text); color: var(--surface); font-size: 14px;
+}
+@media (max-width: 899px) {
+  .team-pill-wrap { top: 14px; right: auto; left: 50%; transform: translateX(-50%); }
+  .team-menu { right: auto; left: 50%; transform: translateX(-50%); }
+}

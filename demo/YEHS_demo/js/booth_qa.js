@@ -15,7 +15,7 @@
  * 질문 무대는 qa_live.js 의 같은 id(#stream · .qa-live-input · #liveAnswer …)를 새 배치에 놓는다.
  * 카메라 판단(사람이 다가옴 · 구도 · 정면 비율)은 booth_cv.js(OpenCV.js)가 한다.
  *
- * 공개 방문자에게는 잠긴다(app.js BETA_ROUTES). 부스 노트북은 /auth 로 개발자 모드를 한 번 켜 둔다.
+ * 공개 방문자에게는 잠긴다(app.js BETA_ROUTES). 부스 노트북은 /auth 로 팀 모드를 한 번 켜 둔다.
  * 부스용 덱은 **지난 파싱본이 있는 것만** 보여 준다 — 부스에서 파싱 몇 분을 기다리지 않게.
  * 클래식 스크립트라 app.js 전역(nf · qa · app · $ …)을 호출 시점에 찾는다.
  */
@@ -98,6 +98,7 @@ const bq = {
 const BOOTH_VARIANT_KEY = 'cheokcheok:booth-variant';
 
 function boothQaVariant() {
+  if (typeof ccBetaFlagsAllowed === 'function' && !ccBetaFlagsAllowed()) return '';  // 팀일 때만 (app.js)
   try {
     const v = sessionStorage.getItem(BOOTH_QA_KEY);
     if (v === 'call') return 'call';
@@ -585,7 +586,7 @@ function bqGreet() {
 async function bqLoadDecks() {
   if (bq.decks) return bq.decks;
   const res = await fetch('/api/v1/dev/decks', { credentials: 'same-origin' });
-  if (res.status === 404) throw new Error('부스 노트북에서 개발자 모드를 켜야 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
+  if (res.status === 404) throw new Error('부스 노트북에서 팀 모드를 켜야 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
   if (!res.ok) throw new Error(`발표 목록을 못 받았어요 (HTTP ${res.status})`);
   const body = (await res.json()) || {};
   const rows = body.decks || [];

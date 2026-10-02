@@ -379,6 +379,9 @@ function route() {
   // 그대로 보여준다. nf.completed 는 QA 를 끝내야 서므로 진행 중인 코칭이
   // 여기서 지워질 일은 없고, 끝난 코칭 기록은 qa-history(localStorage)에 남아 있다.
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) { resetNf(); resetQa(); }
+  syncTeamPill(key);
+  // 베타 경로에 들어갈 때마다 팀인지 다시 묻는다 (지금 값으로 먼저 그리고, 답이 달라지면 applyTeam 이 다시 그린다)
+  if (BETA_ROUTES.has(key)) teamRecheck();
   if (BETA_ROUTES.has(key) && !ccTeam) { renderBetaLock(); return; }
   // 이 화면의 코드를 아직 안 받았으면 받고 나서 다시 그린다 (js/lazy.js)
   const lazy = lazyBundlesFor(key);
@@ -899,8 +902,22 @@ function isShowcaseDemo() {
    기본은 닫힘 — 확인이 늦거나 실패해도 샘플이 새지 않는다. */
 let ccTeam = false;
 let ccTeamChecked = false;
-/* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 개발자 모드를 켠 브라우저에만 연다 */
+/* 팀 판정의 지금 상태 — 'unknown'(아직 안 물음) · 'ok' · 'no' · 'error'(못 물어봄). 잠금 화면이 「팀 전용」과 「확인하지 못했어요」를 가른다 */
+let ccTeamState = 'unknown';
+/* DEMO_DEV_ROUTES 브리지 — 코드 없이 팀이라 끌 수 없다 (알약 메뉴가 끄기 대신 안내를 보인다) */
+let ccTeamDev = false;
+/* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 팀 모드를 켠 브라우저에만 연다 */
 const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
+/* 팀 도구 목록 — 「팀 모드」 알약 메뉴와 /auth 화면(demo/bridge.py TEAM_TOOLS)이 같은 순서로 보인다
+   (tests/test_bridge_team_auth.py 가 두 목록의 해시를 대조한다) */
+const TEAM_TOOLS = [
+  ['#/booth/call', '부스 화상판'],
+  ['#/booth/qa', '부스 무대'],
+  ['#/test/qa', '질문 바로 받기'],
+  ['#/replay', '저장한 세션'],
+  ['#/vision', '실험 · 비전 리허설'],
+  ['#/temp', '실험 · 통화 배치'],
+];
 /* 첫 화면에 안 쓰는 화면 코드는 들어갈 때 받는다 (js/lazy.js · index.html 의 #lazyAssets).
    공개 방문자는 베타 화면을 못 여니 beta 번들을 아예 안 받는다. 베타 흐름(통화·비전·부스)은
    sessionStorage 표시로 #/new·#/qa 의 배치까지 바꾸므로, 표시가 켜진 채 새로 고치면 그 화면에서도 받는다.
@@ -908,7 +925,25 @@ const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
    (tests/js/lazy.smoke.mjs 가 대조한다). */
 const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], landing: ['landing'] };
 const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa'];
+/* 끌 때 같이 지우는 이 탭의 베타 표시 — 흐름 표시 셋 + 부스 무대 종류 + 마지막 팀 확인값 */
+const BETA_TAB_KEYS = [...LAZY_FLOW_FLAGS, 'cheokcheok:booth-variant', 'cheokcheok:team-ok'];
+/**
+ * 베타 흐름 표시(sessionStorage)를 읽어도 되는가 — 팀일 때만. 예전엔 팀 모드를 끈 뒤에도 표시가 남아 공개 화면이
+ * 통화 배치가 됐다 (10-02 정리안). 첫 판정이 오기 전에는 이 탭이 마지막으로 확인한 값을 믿는다 — 부스 탭이 #/qa 에서
+ * 새로 고칠 때 부스 파일을 먼저 받아야 해서다 (booth_qa.js boothQaGuard · da76f92). call_flow·vision·booth_qa 도 이걸 본다.
+ */
+function ccBetaFlagsAllowed() {
+  if (ccTeamChecked) return ccTeam;
+  return lastTeamOk();
+}
+function lastTeamOk() {
+  try { return sessionStorage.getItem(TEAM_OK_KEY) === '1'; } catch (_) { return false; }
+}
+function clearBetaTabFlags() {
+  try { BETA_TAB_KEYS.forEach((k) => sessionStorage.removeItem(k)); } catch (_) { /* 사생활 모드 */ }
+}
 function lazyFlowFlagOn() {
+  if (!ccBetaFlagsAllowed()) return false;
   // 부스 화상판의 옛 값 'call' 도 켜짐이다 — 그 탭에서 #/qa 를 새로 고치면 부스 파일 없이 일반 질문 코칭이 떴다 (10-02 · booth_qa.js boothQaSet)
   try { return LAZY_FLOW_FLAGS.some((k) => ['1', 'call'].includes(sessionStorage.getItem(k))); } catch (_) { return false; }
 }
@@ -933,18 +968,41 @@ function ccEnsurePdfjs() {
   if (window.pdfjsLib || !window.ccLazy) return Promise.resolve(!!window.pdfjsLib);
   return ccLazy.load('pdf').then(() => !!window.pdfjsLib);
 }
+/* 판정을 기다리며 그린 화면(잠금·「확인하고 있어요」)이 있으면 답이 온 뒤 다시 그린다 */
+let teamPendingRender = false;
+function authHrefFor(hash) {
+  const h = String(hash || '').split('?')[0];
+  return h && h !== '#' && h !== '#/' ? `/auth?next=${encodeURIComponent(h)}` : '/auth';
+}
 function renderBetaLock() {
   app.className = 'narrow';
-  app.innerHTML = ccTeamChecked ? `
+  teamPendingRender = true;
+  if (!ccTeamChecked) { app.innerHTML = '<p class="note" role="status">확인하고 있어요…</p>'; return; }
+  if (ccTeamState === 'error') {
+    app.innerHTML = `
+      <div class="card empty-card">
+        ${emptyBirdHtml('solar', 'neutral')}
+        <h2 class="section-title">팀 모드인지 확인하지 못했어요</h2>
+        <p class="note" style="margin:8px 0 14px">서버에 묻는 길이 잠깐 끊겼어요. 다시 시도하면 바로 열 수 있어요.</p>
+        <div class="step-actions">
+          <button type="button" class="btn btn-primary" id="teamRetry">다시 시도</button>
+          <a class="btn btn-text" href="#/">홈으로 가기</a>
+        </div>
+      </div>`;
+    const btn = $('#teamRetry');
+    if (btn) btn.addEventListener('click', () => { btn.disabled = true; btn.textContent = '확인하고 있어요…'; loadTeamFlag(); });
+    return;
+  }
+  app.innerHTML = `
     <div class="card empty-card">
       ${emptyBirdHtml('solar', 'neutral')}
-      <h2 class="section-title">개발자 모드에서 볼 수 있는 베타 화면이에요</h2>
-      <p class="note" style="margin:8px 0 14px">팀 코드를 넣으면 이 브라우저에서 베타 화면이 열려요.</p>
+      <h2 class="section-title">팀 전용 화면이에요</h2>
+      <p class="note" style="margin:8px 0 14px">팀 코드를 넣으면 이 브라우저에서 바로 이 화면으로 돌아와요.</p>
       <div class="step-actions">
-        <a class="btn btn-primary" href="/auth">개발자 모드 켜기</a>
+        <a class="btn btn-primary" href="${escapeHtml(authHrefFor(location.hash))}">팀 코드로 열기</a>
         <a class="btn btn-text" href="#/">홈으로 가기</a>
       </div>
-    </div>` : '<p class="note">확인하고 있어요…</p>';
+    </div>`;
 }
 function sampleOpen() {
   return ccTeam || isShowcaseDemo();
@@ -952,17 +1010,32 @@ function sampleOpen() {
 /* 마지막으로 확인한 팀 표시 — 새로고침 때 /api/v1/team 이 한 번 실패해도 부스 노트북이 베타 잠금에 갇히지 않게 (10-02 버그 사냥 P1-3) */
 const TEAM_OK_KEY = 'cheokcheok:team-ok';
 let teamRetryMs = 0;
+let teamRetryTimer = 0;
+let teamInFlight = null;
+let teamCheckedAt = 0;
+function applyTeam(team) {
+  const was = ccTeam;
+  const wasChecked = ccTeamChecked;
+  ccTeam = team;
+  ccTeamChecked = true;
+  // 팀이었다가 아니게 됐으면(쿠키 만료·다른 탭에서 끔) 이 탭의 베타 표시도 걷는다
+  if (was && !team) clearBetaTabFlags();
+  // 팀 브라우저는 베타 화면으로 넘어갈 일이 있다 — 한가할 때 미리 받아 둔다
+  if (ccTeam && window.ccLazy) ccLazy.whenIdle(['beta']);
+  syncTeamPill();
+  const key = location.hash.replace(/^#\/?/, '').split('/')[0];
+  const pending = teamPendingRender;
+  const changed = ccTeam !== was;
+  teamPendingRender = false;
+  // 같은 답이면 다시 그리지 않는다 — 베타 경로마다 다시 묻게 됐으니, 부스 화면이 판정마다 새로 그려지면 안 된다
+  if ((BETA_ROUTES.has(key) && (pending || changed || !wasChecked))
+      || (pending && key === 'report')
+      || (changed && (key === '' || key === 'report'))) route();
+}
 function loadTeamFlag() {
-  const applyTeam = (team) => {
-    const was = ccTeam;
-    ccTeam = team;
-    ccTeamChecked = true;
-    // 팀 브라우저는 베타 화면으로 넘어갈 일이 있다 — 한가할 때 미리 받아 둔다
-    if (ccTeam && window.ccLazy) ccLazy.whenIdle(['beta']);
-    const key = location.hash.replace(/^#\/?/, '').split('/')[0];
-    if (BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
-  };
-  return fetch('/api/v1/team', { credentials: 'same-origin' })
+  if (teamInFlight) return teamInFlight;
+  clearTimeout(teamRetryTimer);
+  teamInFlight = fetch('/api/v1/team', { credentials: 'same-origin', cache: 'no-store' })
     .then((r) => {
       if (!r.ok) throw new Error(`team ${r.status}`);
       return r.json();
@@ -970,18 +1043,98 @@ function loadTeamFlag() {
     .then((j) => {
       teamRetryMs = 0;
       const team = !!(j && j.team);
+      ccTeamDev = !!(j && j.dev);
+      ccTeamState = team ? 'ok' : 'no';
       try { if (team) sessionStorage.setItem(TEAM_OK_KEY, '1'); else sessionStorage.removeItem(TEAM_OK_KEY); } catch (_) { /* 사생활 모드 */ }
+      teamCheckedAt = Date.now();
+      teamInFlight = null;
       applyTeam(team);
     })
     .catch((err) => {
       // 서버가 「팀 아님」 이라고 답한 게 아니라 못 물어본 것이다 — 이 탭에서 마지막으로 확인한 값을 쓰고, 잠깐 뒤 다시 묻는다(2초부터 두 배, 30초까지)
-      let last = false;
-      try { last = sessionStorage.getItem(TEAM_OK_KEY) === '1'; } catch (_) { /* 사생활 모드 */ }
+      const last = lastTeamOk();
       console.warn('[chuckchuck] team check failed — retrying', err && err.message);
+      ccTeamState = 'error';
+      teamCheckedAt = Date.now();
+      teamInFlight = null;
       teamRetryMs = Math.min(30000, teamRetryMs ? teamRetryMs * 2 : 2000);
-      setTimeout(loadTeamFlag, teamRetryMs);
-      if (last || !ccTeamChecked) applyTeam(last || ccTeam);
+      teamRetryTimer = setTimeout(loadTeamFlag, teamRetryMs);
+      applyTeam(last || ccTeam);
     });
+  return teamInFlight;
+}
+/** 베타 경로에 들어갈 때마다 다시 묻는다 — 판정은 앱을 열 때 한 번이 아니다. 방금(2초 안) 물었으면 그 답을 쓴다 */
+function teamRecheck() {
+  if (teamInFlight || Date.now() - teamCheckedAt < 2000) return;
+  loadTeamFlag();
+}
+
+/* ── 「팀 모드」 알약 — 팀일 때만 화면 위에 작게. 누르면 팀 도구 목록 · 끄기 ──
+   body 에 붙인다(#app 안이면 데스크톱 아트보드 transform 에 같이 줄어든다). 부스 화면에서는 숨긴다 — 관람객이 보는 화면이다 */
+function syncTeamPill(key) {
+  const k = key != null ? key : location.hash.replace(/^#\/?/, '').split('/')[0];
+  let el = document.getElementById('teamPill');
+  const boothTab = k === 'booth' || (typeof boothQaOn === 'function' && boothQaOn());
+  const show = ccTeam && !boothTab;
+  if (!show) { if (el) el.remove(); return; }
+  if (el) return;
+  el = document.createElement('div');
+  el.id = 'teamPill';
+  el.className = 'team-pill-wrap';
+  const tools = TEAM_TOOLS.map(([h, name]) => `<a href="${h}" role="menuitem">${escapeHtml(name)}</a>`).join('');
+  el.innerHTML = `
+    <button type="button" class="team-pill" aria-haspopup="menu" aria-expanded="false">팀 모드</button>
+    <div class="team-menu" role="menu" hidden>
+      <p class="team-menu-head">팀 도구</p>
+      ${tools}
+      ${ccTeamDev
+        ? '<p class="team-menu-note">이 브리지는 개발용이라 늘 팀 모드예요.</p>'
+        : '<button type="button" class="team-menu-off" role="menuitem">팀 모드 끄기</button>'}
+    </div>`;
+  document.body.appendChild(el);
+  const btn = el.querySelector('.team-pill');
+  const menu = el.querySelector('.team-menu');
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+    btn.setAttribute('aria-expanded', String(!menu.hidden));
+  });
+  menu.addEventListener('click', (e) => { if (e.target.closest('a')) close(); });
+  document.addEventListener('click', (e) => { if (!el.contains(e.target)) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  const off = el.querySelector('.team-menu-off');
+  if (off) off.addEventListener('click', () => turnOffTeamMode(off));
+}
+/** 팀 모드 끄기 — 쿠키를 지우고(서버), 이 탭의 베타 표시를 모두 걷고, 홈으로 */
+function turnOffTeamMode(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '끄고 있어요…'; }
+  fetch('/auth', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'logout=1',
+  }).then((r) => {
+    if (!r.ok) throw new Error(`logout ${r.status}`);
+    clearBetaTabFlags();
+    if (typeof callFlowSet === 'function') callFlowSet(false);
+    if (typeof visionFlowSet === 'function') visionFlowSet(false);
+    if (typeof boothQaSet === 'function') boothQaSet(false);
+    ccTeamState = 'no';
+    teamCheckedAt = Date.now();
+    applyTeam(false);
+    if (location.hash === '#/' || location.hash === '') route(); else location.hash = '#/';
+    teamToast('팀 모드를 껐어요');
+  }).catch(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '팀 모드 끄기'; }
+    teamToast('팀 모드를 끄지 못했어요. 다시 눌러 주세요');
+  });
+}
+function teamToast(text) {
+  const t = document.createElement('div');
+  t.className = 'team-toast';
+  t.setAttribute('role', 'status');
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
 }
 function showcaseReportHref() {
   return SHOWCASE_REPORT_HASH;
@@ -5096,6 +5249,13 @@ async function renderReport() {
   /* 공개 방문자는 샘플 리포트(sample-*·DATA.reportProfiles)를 못 연다 — 자기 결과(#/report)와
      이 브라우저에 저장한 마지막 리포트(#/report/last)만 */
   if (reportId && reportId !== 'last' && !sampleOpen()) {
+    // 판정 전이면 기다린다 — 예전엔 팀이어도 샘플 리포트 직접 링크가 판정 전에 빈 #/report 로 바뀌었다 (10-02 정리안)
+    if (!ccTeamChecked) {
+      app.className = 'narrow';
+      app.innerHTML = '<p class="note" role="status">확인하고 있어요…</p>';
+      teamPendingRender = true;
+      return;
+    }
     location.replace('#/report');
     return;
   }
@@ -9745,7 +9905,7 @@ async function renderTestQa() {
   let body = {};
   try {
     const res = await fetch('/api/v1/dev/decks');
-    if (res.status === 404) throw new Error('개발자 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
+    if (res.status === 404) throw new Error('팀 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
     body = (await res.json()) || {};
     decks = body.decks || [];
     dir = body.dir || '';
@@ -9982,7 +10142,7 @@ async function renderReplay() {
   let takes = [];
   try {
     const res = await fetch('/api/v1/cached-takes');
-    if (res.status === 404) throw new Error('개발자 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
+    if (res.status === 404) throw new Error('팀 모드에서 열려요. 주소창에 /auth 를 열어 팀 코드를 넣어 주세요.');
     takes = ((await res.json()) || {}).takes || [];
   } catch (err) {
     // 실패를 성공처럼 보이게 두지 않는다 — 빈 목록과 못 불러온 것은 다른 일이다

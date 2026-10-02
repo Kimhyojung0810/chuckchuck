@@ -202,3 +202,87 @@ def test_공개_방문자는_샘플_받아쓰기를_못_받는다(team):
     h = FakeHandler("/api/v1/transcribe", headers=JSON, body=json.dumps({"fixture": True}).encode())
     h.do_POST()
     assert h.last[0] == 400 and h.last[1]["error"] == "fixture_disabled"
+
+
+# ─── 2026-10-02 auth 플로우: next 돌려보내기 · 돌아가는 문 · 도구 목록 · DEV_ROUTES 같은 판정 ─────────
+
+def test_코드가_맞고_next_가_있으면_가려던_화면으로_303(team):
+    h = _form("/auth", f"code={CODE}&next=%23%2Fbooth%2Fcall")
+    assert h.status == 303
+    assert h.headers_out["Location"] == "/index.html#/booth/call"
+    assert bridge._team_token_ok(_cookie_value(h))
+
+
+@pytest.mark.parametrize("nxt", [
+    "https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)", "#/../../etc",
+    "#/booth/call?x=//evil", "#/unknown", "#/test", "%23%2F" + "a" * 80, "#//evil.example",
+])
+def test_허용_목록_밖의_next_는_무시하고_도구_목록을_보인다(team, nxt):
+    from urllib.parse import quote
+    h = _form("/auth", f"code={CODE}&next={quote(nxt, safe='')}")
+    assert h.status == 200
+    assert "Location" not in h.headers_out
+    assert "팀 모드가 켜져 있어요" in h.html
+
+
+def test_next_는_해시만_받고_늘_index_html_뒤에_붙는다():
+    assert bridge._safe_next("#/booth/call") == "#/booth/call"
+    assert bridge._safe_next("#/Test/QA") == "#/test/qa"
+    assert bridge._safe_next("#/") == "#/"
+    assert bridge._safe_next("#/report/sample-investor") == "#/report/sample-investor"
+    for bad in ("", "/index.html#/", "http://x", "#/booth/call/../../x", "#/booth\n/call", "#/vision?a=1"):
+        assert bridge._safe_next(bad) == "", bad
+
+
+def test_틀린_코드면_next_를_폼에_그대로_품는다(team):
+    h = _form("/auth", "code=wrong&next=%23%2Ftest%2Fqa")
+    assert h.status == 401
+    assert 'name="next" value="#/test/qa"' in h.html
+
+
+def test_이미_팀이면_next_로_바로_보낸다(team):
+    tok = bridge._team_token()
+    h = CookieHandler("/auth?next=%23%2Fbooth%2Fqa", headers={"Cookie": f"{bridge.TEAM_COOKIE}={tok}"})
+    h.do_GET()
+    assert h.status == 303 and h.headers_out["Location"] == "/index.html#/booth/qa"
+
+
+def test_auth_화면에는_돌아가는_문이_있고_목록에_부스가_있고_샘플_거짓이_없다(team):
+    h = _get("/auth?next=%23%2Fvision")
+    assert "서비스로 돌아가기" in h.html and 'href="/index.html#/"' in h.html
+    assert 'name="next" value="#/vision"' in h.html
+    assert "개발자 모드" not in h.html
+    tok = bridge._team_token()
+    h = _get("/auth", cookie=tok)
+    for href in ("#/booth/call", "#/booth/qa", "#/test/qa", "#/replay", "#/vision", "#/temp"):
+        assert f'href="/index.html{href}"' in h.html, href
+    assert "샘플 발표·샘플 리포트가 보여요" not in h.html
+    assert "서비스로 돌아가기" in h.html and "팀 모드 끄기" in h.html
+
+
+def test_끄기_성공_문구는_중립_색이고_탭의_베타_표시를_지운다(team):
+    h = _form("/auth", "logout=1", headers={"Origin": "http://127.0.0.1:8799", "Host": "127.0.0.1:8799"})
+    assert '<p class="note" role="status">팀 모드를 껐어요' in h.html
+    assert 'class="err"' not in h.html
+    for k in ("cheokcheok:call-flow", "cheokcheok:vision-flow", "cheokcheok:booth-qa", "cheokcheok:team-ok"):
+        assert k in h.html
+
+
+def test_DEV_ROUTES_면_auth_와_team_API_가_같은_판정이다(real, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(bridge, "DEV_ROUTES", True)
+    monkeypatch.setattr(bridge, "TEAM_CODE", "")
+    assert _get("/api/v1/team").last == (200, {"team": True, "dev": True})
+    h = _get("/auth")
+    assert h.status == 200 and "팀 모드가 켜져 있어요" in h.html
+    assert "팀 모드 끄기" not in h.html and "DEMO_DEV_ROUTES=1" in h.html
+    h = CookieHandler("/auth?next=%23%2Ftest%2Fqa")
+    h.do_GET()
+    assert h.status == 303 and h.headers_out["Location"] == "/index.html#/test/qa"
+
+
+def test_팀_도구_목록은_앱의_알약_메뉴와_같다():
+    """js/app.js TEAM_TOOLS 와 브리지 TEAM_TOOLS 의 해시가 같은 순서여야 한다 — 한쪽만 고치면 두 목록이 달라진다."""
+    import re
+    src = (bridge.DEMO_DIR / "js" / "app.js").read_text(encoding="utf-8")
+    block = re.search(r"const TEAM_TOOLS = \[(.*?)\];", src, re.S).group(1)
+    assert re.findall(r"'(#/[a-z/]+)'", block) == [t[0] for t in bridge.TEAM_TOOLS]

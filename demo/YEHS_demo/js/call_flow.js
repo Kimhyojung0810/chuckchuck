@@ -23,6 +23,8 @@ let callObserver = null;
 let callDockWatch = null;
 
 function callFlowOn() {
+  // 베타 표시는 팀일 때만 읽는다 — 팀 모드를 끈 뒤 남은 표시로 공개 화면이 통화 배치가 되지 않게 (app.js ccBetaFlagsAllowed)
+  if (typeof ccBetaFlagsAllowed === 'function' && !ccBetaFlagsAllowed()) return false;
   try { return sessionStorage.getItem(CALL_FLOW_KEY) === '1'; } catch (_) { return false; }
 }
 

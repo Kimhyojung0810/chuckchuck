@@ -118,13 +118,14 @@ function loadBoothQa() {
   vm.runInContext(QA_SRC, ctx, { filename: 'booth_qa.js' });
   return { ctx, store };
 }
-/** app.js lazyFlowFlagOn 원본 그대로 — 부스 켜짐을 읽는 쪽 */
-function appFlagOn(store) {
-  const m = APP_SRC.match(/const LAZY_FLOW_FLAGS = (\[[^\]]*\]);\s*function lazyFlowFlagOn\(\) \{([\s\S]*?)\n\}/);
-  if (!m) throw new Error('app.js lazyFlowFlagOn 모양이 바뀌었어요 — 이 시험도 같이 고쳐요');
-  const ctx = { sessionStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null) } };
+/** app.js lazyFlowFlagOn 원본 그대로 — 부스 켜짐을 읽는 쪽. team 은 ccBetaFlagsAllowed() (베타 표시는 팀일 때만 읽는다 · 10-02) */
+function appFlagOn(store, team = true) {
+  const flags = APP_SRC.match(/const LAZY_FLOW_FLAGS = (\[[^\]]*\]);/);
+  const fn = APP_SRC.match(/function lazyFlowFlagOn\(\) \{([\s\S]*?)\n\}/);
+  if (!flags || !fn) throw new Error('app.js lazyFlowFlagOn 모양이 바뀌었어요 — 이 시험도 같이 고쳐요');
+  const ctx = { sessionStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null) }, ccBetaFlagsAllowed: () => team };
   vm.createContext(ctx);
-  return vm.runInContext(`const LAZY_FLOW_FLAGS = ${m[1]}; (function () {${m[2]}\n})()`, ctx);
+  return vm.runInContext(`const LAZY_FLOW_FLAGS = ${flags[1]}; (function () {${fn[1]}\n})()`, ctx);
 }
 
 test('화상판을 켜도 app.js 가 부스 켜짐으로 읽는다 — #/qa 새로고침이 일반 질문 코칭으로 새지 않게', () => {
@@ -138,6 +139,14 @@ test('화상판을 켜도 app.js 가 부스 켜짐으로 읽는다 — #/qa 새�
   ctx.boothQaSet(false);
   eq(ctx.boothQaVariant(), '', '꺼짐');
   eq(appFlagOn(store), false, 'app.js 도 꺼짐');
+});
+
+test('팀이 아니면(팀 모드를 끈 뒤) 남은 부스 표시를 읽지 않는다', () => {
+  const { ctx, store } = loadBoothQa();
+  ctx.boothQaSet(true, 'call');
+  eq(appFlagOn(store, false), false, 'app.js 가 부스 파일을 받지 않는다');
+  ctx.ccBetaFlagsAllowed = () => false;
+  eq(ctx.boothQaVariant(), '', '부스 무대도 꺼진 것으로 읽는다');
 });
 
 test('옛 탭의 값(\'call\')도 켜짐이다', () => {

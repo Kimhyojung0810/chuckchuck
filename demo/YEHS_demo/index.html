@@ -17,7 +17,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <!-- 서체 CSS·pdf.js 가 오는 CDN 에 미리 연결해 둔다 (DNS·TLS 를 첫 요청 전에) -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/app.css?v=ql12">
+<link rel="stylesheet" href="css/app.css?v=ql13">
 <!-- #/graph 3D 무대 전용. 데모 경로 밖 화면이라 app.css 를 안 건드리고 따로 둔다 -->
 <link rel="stylesheet" href="css/graph3d.css?v=qku2">
 <link rel="stylesheet" href="css/chatter.css?v=qkh">
@@ -110,13 +110,13 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <link rel="stylesheet" href="css/booth_qa.css?v=bq9" data-bundle="beta">
   <link rel="stylesheet" href="css/booth_call.css?v=bc15" data-bundle="beta">
   <!-- 통화 배치 흐름 #/temp (발표: 자료 정면 + 내 모습 작은 창 · Q&A: 내 모습 가운데). app.js 의 전역을 호출 시점에 찾는다 -->
-  <script src="js/call_flow.js?v=cf5" data-bundle="beta"></script>
+  <script src="js/call_flow.js?v=cf6" data-bundle="beta"></script>
   <script src="js/vision_cue.js?v=vr2" data-bundle="beta"></script>
-  <script src="js/vision_rehearsal.js?v=vr4" data-bundle="beta"></script>
+  <script src="js/vision_rehearsal.js?v=vr5" data-bundle="beta"></script>
   <!-- 부스 Q&A 무대 #/booth/qa — 카메라 판단(OpenCV.js 는 이 화면에서만 받는다) · 화면 흐름 -->
   <script src="js/booth_cv.js?v=bq3" data-bundle="beta"></script>
   <script src="js/booth_ops.js?v=bo7" data-bundle="beta"></script>
-  <script src="js/booth_qa.js?v=bq9" data-bundle="beta"></script>
+  <script src="js/booth_qa.js?v=bq10" data-bundle="beta"></script>
   <script src="js/booth_call.js?v=bc13" data-bundle="beta"></script>
   <!-- 랜딩(#/landing) — v2 는 마크업+CSS 만 쓴다. landing-motion·landing-workbench 는
        스크롤 하이재킹·히어로 목업용이라 v2 에서 뺐다 (파일은 되돌릴 수 있게 남겨 둠) -->
@@ -140,7 +140,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/qa_live.js?v=qlbc23"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv3"></script>
-<script src="js/app.js?v=qlbc33"></script>
+<script src="js/app.js?v=qlbc34"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkxbc8"></script>
 </body>

@@ -28,6 +28,7 @@ const visionCoach = {
 };
 
 function visionFlowOn() {
+  if (typeof ccBetaFlagsAllowed === 'function' && !ccBetaFlagsAllowed()) return false;  // 팀일 때만 (app.js)
   try { return sessionStorage.getItem(VISION_FLOW_KEY) === '1'; } catch (_) { return false; }
 }
 
