@@ -655,6 +655,7 @@ function rehearsalWaitSync() {
     bqCamEnsure();
     bqCamPaint();
     rhWatchCamAlive();
+    rhEnsureDeckPdf();   // 새로고침한 기다림이면 화상판 자료 창이 쓸 PDF 를 미리 받아 둔다 (F3)
     bq.timers.push(setInterval(rhWaitTick, REHEARSAL_POLL_MS));
   }
   rhWaitTick();
@@ -847,6 +848,39 @@ function renderQaLiveRehearsal() {
   rhWireExit(layer);
   rhFloatSlide(layer);
   rhWatchCamAlive();
+  // 새로고침한 뒤면 자료 PDF 가 없어 자료 창이 회색 자리표시(장 번호)만 그렸다 — 받아서 지금 장을 다시 그린다 (10-03 점검 F3)
+  if (!uploadedPdf) {
+    rhEnsureDeckPdf().then((pdf) => {
+      const slide = pdf && document.getElementById('bqSlide');
+      if (!slide || typeof bqSyncSlide !== 'function') return;
+      slide.dataset.focus = '';   // 같은 장이어도 다시 쓴다 — 자리표시 그림을 캔버스로
+      bqSyncSlide();
+    });
+  }
+}
+
+/**
+ * 자료 PDF 를 메모리에 — 새로고침하면 uploadedPdf 는 사라지고, 비전 리허설(nfStep3Vision)만 다시 받았다.
+ * 고를 때(rhPickDeck)와 같은 길(파싱본 미리보기 PDF), 안 되면 일반 앱의 미리보기 PDF
+ */
+let rhPdfLoading = null;
+function rhEnsureDeckPdf() {
+  if (uploadedPdf) return Promise.resolve(uploadedPdf);
+  if (rhPdfLoading) return rhPdfLoading;
+  const sid = nf && nf.sessionId;
+  rhPdfLoading = (async () => {
+    if (sid && typeof bqCoverPdf === 'function') {
+      try {
+        const pdf = await bqCoverPdf(sid);
+        if (!uploadedPdf && nf && nf.sessionId === sid) setUploadedPdf({ file: null, pdf, pageCount: pdf.numPages, shared: true });
+        if (uploadedPdf) return uploadedPdf;
+      } catch (err) {
+        console.warn('[chuckchuck] rehearsal deck pdf', err);
+      }
+    }
+    return typeof ensurePreviewPdf === 'function' ? ensurePreviewPdf(typeof nfSlideDoc !== 'undefined' ? nfSlideDoc : null) : null;
+  })().finally(() => { rhPdfLoading = null; });
+  return rhPdfLoading;
 }
 
 function rhFloatSlide(layer) {
