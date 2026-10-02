@@ -390,7 +390,7 @@ function visionBirdHtml() {
 }
 
 const VISION_SLIDE_KEY = 'cheokcheok:vision-slide';
-const visionSlide = { custom: false, x: 0, y: 0, w: 0, h: 0, opacity: 0.78 };
+const visionSlide = { custom: false, portrait: false, x: 0, y: 0, w: 0, h: 0, opacity: 0.78 };
 
 function visionSlideLoad() {
   try {
@@ -400,6 +400,7 @@ function visionSlideLoad() {
     if (typeof data.opacity === 'number') visionSlide.opacity = Math.min(1, Math.max(0.25, data.opacity));
     if (data.custom && [data.x, data.y, data.w, data.h].every((n) => typeof n === 'number')) {
       visionSlide.custom = true;
+      visionSlide.portrait = !!data.portrait;
       visionSlide.x = data.x;
       visionSlide.y = data.y;
       visionSlide.w = data.w;
@@ -416,6 +417,7 @@ function visionSlideSave() {
       y: visionSlide.y,
       w: visionSlide.w,
       h: visionSlide.h,
+      portrait: !!visionSlide.portrait,
       opacity: visionSlide.opacity,
     }));
   } catch (_) { /* 사생활 모드 — 이번 화면만 */ }
@@ -456,10 +458,28 @@ function visionSlideClamp(box) {
     top = Math.max(8, ...marks) + 8;
   }
   const w = Math.max(240, Math.min(box.w, width - 16));
-  const h = Math.max(180, Math.min(box.h, bottom - top));
   const x = onCall ? Math.min(Math.max(box.x, 8), width - w - 8) : Math.min(Math.max(box.x, 0), width - 72);
+  // 비전 리허설 — 위 띠의 단추(카메라 · 나가기 …)와 가로로 겹치는 자리면 그 아래에서 멈춘다. 예전엔 y=8 까지 올라가
+  // 단추들이 창 윗변을 덮었다 (10-03 점검 V6). 단추가 없는 가운데 위쪽은 그대로 쓸 수 있다
+  if (host && host.id === 'vrCall') {
+    const hr = host.getBoundingClientRect();
+    [...host.querySelectorAll('.vr-top > :not(.vr-top-fill), .vr-top-fill > *')].forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (!r.width || r.right - hr.left <= x || r.left - hr.left >= x + w) return;
+      top = Math.max(top, r.bottom - hr.top + 8);
+    });
+  }
+  const h = Math.max(180, Math.min(box.h, bottom - top));
   const y = Math.min(Math.max(box.y, top), Math.max(top, bottom - h));
   return { x, y, w, h };
+}
+
+/** 세로 화면(아이패드 세로 · 폰)인가 — 가로에서 옮겨 둔 자리 · 크기를 세로에 그대로 쓰면 대화 · 자료를 덮는다 */
+function visionSlidePortrait() {
+  const host = visionSlideHost();
+  const w = host ? host.clientWidth : window.innerWidth;
+  const h = host ? host.clientHeight : window.innerHeight;
+  return h > w;
 }
 
 function visionSlideRead(slide) {
@@ -474,7 +494,9 @@ function visionSlideApply(slide) {
   slide.style.setProperty('--vr-slide-alpha', String(visionSlide.opacity));
   const range = slide.querySelector('#vrSlideAlpha');
   if (range && document.activeElement !== range) range.value = String(Math.round(visionSlide.opacity * 100));
-  if (visionSlide.custom) {
+  // 옮겨 둔 자리는 그 자리를 정한 방향(가로 · 세로)에서만 쓴다 — 가로에서 옮긴 큰 창이 세로 화상판의 대화 말풍선을 덮었다 (10-03 점검 V6).
+  // 다른 방향이면 그 화면의 기본 자리(작은 창)에 선다. 저장은 그대로라 원래 방향으로 돌아가면 옮긴 자리로 돌아간다
+  if (visionSlide.custom && !!visionSlide.portrait === visionSlidePortrait()) {
     const box = visionSlideClamp(visionSlide);
     slide.style.left = `${box.x}px`;
     slide.style.top = `${box.y}px`;
@@ -488,10 +510,17 @@ function visionSlideApply(slide) {
   const sr = slot.getBoundingClientRect();
   const hr = host.getBoundingClientRect();
   if (sr.width < 8 || sr.height < 8) return;
+  let height = sr.height;
+  // 세로 비전 리허설의 기본 칸은 좁고 긴 기둥이다 — 창을 칸 높이대로 세우면 장(16:9)은 가운데 1/3 이고 나머지는 빈 흐림이 얼굴을 덮었다 (V6).
+  // 장 비율만큼만 세우고 칸 위에 붙인다
+  if (host.id === 'vrCall' && visionSlidePortrait()) {
+    const cap = slide.querySelector('.vr-slide-cap');
+    height = Math.min(sr.height, Math.round(sr.width * 9 / 16) + (cap ? cap.offsetHeight : 48) + 16);
+  }
   slide.style.left = `${sr.left - hr.left}px`;
   slide.style.top = `${sr.top - hr.top}px`;
   slide.style.width = `${sr.width}px`;
-  slide.style.height = `${sr.height}px`;
+  slide.style.height = `${height}px`;
 }
 
 /** 크기가 바뀐 뒤 장을 다시 그린다 — 비전 리허설은 지금 장, 화상판은 그쪽이 넘긴 함수 (visionSlideBind opts.repaint) */
@@ -504,6 +533,7 @@ function visionSlideRedraw() {
 function visionSlideCommit(slide, box, { repaint = false } = {}) {
   const next = visionSlideClamp(box);
   visionSlide.custom = true;
+  visionSlide.portrait = visionSlidePortrait();
   visionSlide.x = next.x;
   visionSlide.y = next.y;
   visionSlide.w = next.w;
@@ -537,6 +567,7 @@ function visionSlideBind(layer, { repaint = null } = {}) {
         : { x: start.x, y: start.y, w: start.w + dx, h: start.h + dy };
       const box = visionSlideClamp(next);
       visionSlide.custom = true;
+      visionSlide.portrait = visionSlidePortrait();
       visionSlide.x = box.x;
       visionSlide.y = box.y;
       visionSlide.w = box.w;
