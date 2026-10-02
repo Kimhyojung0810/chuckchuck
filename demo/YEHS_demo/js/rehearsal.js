@@ -236,6 +236,8 @@ function renderRehearsalEntry() {
   if (typeof callFlowSet === 'function') callFlowSet(false);
   if (typeof boothQaSet === 'function') boothQaSet(false);
   rehearsalFlowSet(true);
+  // 기다림에서 「다른 발표 고르기」 로 오면 넘겨받은 카메라가 아직 열려 있다 — 고르기 화면은 카메라를 안 쓴다. 비전 리허설이 다시 연다
+  if (typeof bqCamStop === 'function') bqCamStop();
   bq.decks = null;   // 덱 목록은 들어올 때마다 새로 — 파싱본이 만료됐을 수 있다
   rhShowPick();
 }
@@ -578,10 +580,12 @@ function rhWaitTip(title) {
 function rehearsalWaitSync() {
   if (!rehearsalFlowOn() || !nf || nf.step !== 3 || rhRouteKey() !== 'new') return;
   const layer = document.getElementById('bqStage');
-  if (!layer || layer.dataset.screen !== 'wait') {
+  // 다른 테이크(다시 발표하기)의 기다림이면 새로 세운다 — 남은 층의 제목 · 도움말 · rhLiveAtMount 는 지난 테이크 것이다
+  const take = String(nf.pipelineStartedAt || '');
+  if (!layer || layer.dataset.screen !== 'wait' || (layer.dataset.take || '') !== take) {
     rhHandCamera();
     if (!bq.cam.stream) { bq.cam.off = false; bq.cam.error = ''; bq.cam.denied = false; }
-    rhMount('wait', rhWaitHtml(), { keepApp: true });
+    rhMount('wait', rhWaitHtml(), { keepApp: true }).dataset.take = take;
     // 질문이 이미 있는데 여기로 왔으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만
     bq.rhLiveAtMount = qaLiveActive();
     document.getElementById('rhSkipReport').addEventListener('click', () => { location.hash = '#/report'; });
@@ -592,6 +596,26 @@ function rehearsalWaitSync() {
     bq.timers.push(setInterval(rhWaitTick, REHEARSAL_POLL_MS));
   }
   rhWaitTick();
+}
+
+/**
+ * 기다림 층을 걷는다 — 다시 발표하러 비전 리허설로 돌아갈 때. 넘겨받은 카메라는 비전 쪽으로 돌려준다(다시 묻지 않게 · 두 개를 열지 않게)
+ */
+function rhReleaseWaitLayer() {
+  if (typeof bqUnmount === 'function') bqUnmount();
+  if (typeof bqClearTimers === 'function') bqClearTimers();
+  bq.rhEntering = false;
+  bq.rhLiveAtMount = false;
+  bq.screen = '';
+  const s = bq.cam.stream;
+  if (s && typeof visionCam !== 'undefined' && !visionCam.stream && s.getVideoTracks().some((t) => t.readyState === 'live')) {
+    bq.cam.stream = null;
+    if (window.BoothCV) { try { BoothCV.unwatch(); } catch (_) { /* 이미 멈춤 */ } }
+    if (bq.video) bq.video.srcObject = null;
+    visionCam.stream = s;
+  } else if (typeof bqCamStop === 'function') {
+    bqCamStop();
+  }
 }
 
 /** 비전 리허설이 연 카메라를 화상판 쪽으로 넘긴다 — 다시 묻지 않게 (app.js renderNew 가 리허설 탭이면 비전 카메라를 끄지 않고 둔다) */
@@ -702,6 +726,9 @@ function rhWaitFail(st, qaReady) {
     <button type="button" class="bq-ghost" id="rhAgain">다시 발표하기</button> <button type="button" class="bq-ghost" id="rhRepick">다른 발표 고르기</button></div>`;
   // 자료는 그대로 두고 테이크만 버리는 길은 nfStep4 의 「다른 녹음으로 다시」와 같다 — 그 버튼을 그대로 누른다
   document.getElementById('rhAgain').addEventListener('click', () => {
+    // 기다림 층을 먼저 걷는다 — #againTake 는 #app 만 다시 그려서, 이 층(1초 시계 · 넘겨받은 카메라)이 비전 리허설 밑에 남았고
+    // 두 번째 기다림에서는 층을 새로 안 세워 「발표 분석이 멈췄어요」 가 그대로였다 (10-03 점검 F1)
+    rhReleaseWaitLayer();
     const again = document.getElementById('againTake');
     if (again) again.click();
   });
