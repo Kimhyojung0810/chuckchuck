@@ -63,7 +63,7 @@ RECORD_PATHS = {
     "/api/v1/transcribe": "transcribe.json", "/api/v1/concepts": "concepts.json", "/api/v1/graph": "graph.json",
     "/api/v1/alignment": "alignment.json", "/api/v1/flow": "flow.json", "/api/v1/pace": "pace.json",
     "/api/v1/habits": "habits.json", "/api/v1/rubric": "rubric.json", "/api/v1/report": "voice_report.json",
-    "/api/v1/questions": "questions.json",
+    "/api/v1/questions": "questions.json", "/api/v1/chatter": "chatter.json",
 }
 
 FAKE_SPEECH_JS = """
@@ -180,6 +180,11 @@ def install(page, args, state: dict) -> None:
                 page.route(f"**{path}", _slow_replayer(f.read_text(), args.replay_delay))
             else:
                 page.route(f"**{path}", B._replayer(f.read_text()))
+        # 객석 삐약이(/api/v1/chatter)는 기다림 화면이 재료가 모이자마자 부르는 실 LLM(모델 넷 · 라운드 둘)이다 — 재생 실행이 이것만
+        # 실제로 불러 과금이 났다 (10-03 수정 1회차에서 발견). 기록이 없으면 503 으로 막는다(리포트 객석은 결석으로 보인다)
+        if not (rec / "chatter.json").exists():
+            page.route("**/api/v1/chatter", lambda route: route.fulfill(
+                status=503, content_type="application/json", body='{"error":"lab_replay","message":"실험실 재생 — 객석 호출 막음"}'))
     if not args.fake_judge:
         return
 
