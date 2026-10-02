@@ -124,6 +124,17 @@
   outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(4, 48, 39, .95);
 }
 
+/* 카메라를 끈 화상판 — 부스는 자료 그림(.bc-slide)을 화면 공유처럼 키우되 진행 칩 위에서 멈추게 너비를 묶는다(booth_call.css).
+   리허설은 그 자리를 칸(.rh-slide-slot)이 정하고 그림은 떠 있는 창을 채우므로, 같은 너비 규칙을 칸에 건다. 안 그러면 넓은 화면(1512×860)에서
+   칸이 기둥 폭을 다 써서 창이 답 칸까지 덮었고, 창 안 그림은 부스 너비 규칙에 묶여 가는 띠로 줄었다 */
+.bq[data-flow="rehearsal"] .bc-call:has(> .bc-self[data-camera="off"]) .rh-slide-slot {
+  max-width: min(760px, calc((100vh - var(--bc-dock-h, 168px) - var(--bc-ask-h, 0px) - 2 * var(--bc-gap) - 190px) * 16 / 9)); align-self: center;
+}
+.bq[data-flow="rehearsal"] .bc-call:has(> .bc-self[data-camera="off"]) .rh-slide .bc-slide { max-width: none; align-self: stretch; }
+@media (min-width: 901px) and (max-width: 1400px), (min-width: 901px) and (max-height: 820px) {
+  .bq[data-flow="rehearsal"] .bc-call:has(> .bc-self[data-camera="off"]) .rh-slide-slot { max-width: none; align-self: stretch; }
+}
+
 /* 폰 폭 — 부스 화상판은 자료 창을 작게(124px) 둔다. 옮기기 손잡이만 남기고 불투명도는 접는다 */
 @media (max-width: 900px) {
   .bq[data-flow="rehearsal"] .rh-slide-slot { padding-bottom: 40px; }
