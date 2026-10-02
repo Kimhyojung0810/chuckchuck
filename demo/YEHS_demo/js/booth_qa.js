@@ -171,6 +171,14 @@ function bqIsBoothHash() {
   return !!bqHashVariant();
 }
 
+/**
+ * 리허설 흐름(#/rehearsal · js/rehearsal.js)이 이 층을 빌려 쓰는 중인가 — 질문 화면만 부스 화상판을 그대로 쓰고,
+ * 부스 운영(처음으로 · 자리 비움 · 마무리)은 돌지 않는다. 부스 탭에서는 늘 false 다 (들어올 때 서로 끈다).
+ */
+function bqRehearsal() {
+  return typeof rehearsalFlowOn === 'function' && rehearsalFlowOn();
+}
+
 function bqHomeHash() {
   return bq.variant === 'call' ? BOOTH_CALL_HASH : BOOTH_QA_HASH;
 }
@@ -255,6 +263,7 @@ function bqStepWord(s) {
 }
 
 function bqTopHtml(screen) {
+  if (bqRehearsal() && typeof rhTopHtml === 'function') return rhTopHtml(screen);
   const at = BQ_STEPS.findIndex((s) => s.key === screen);
   const steps = at < 0 ? '' : `<ol class="bq-steps-top" aria-label="체험 단계">${BQ_STEPS.map((s, i) => `
     <li class="${i < at ? 'done' : ''}${i === at ? ' on' : ''}"${i === at ? ' aria-current="step"' : ''}><i aria-hidden="true">${i < at ? '✓' : i + 1}</i>${bqStepWord(s)}${i < at ? '<span class="bq-sr"> · 마쳤어요</span>' : ''}</li>`).join('')}</ol>`;
@@ -276,6 +285,7 @@ function bqMount(screen, html) {
   layer.className = 'bq';
   layer.dataset.screen = screen;
   layer.dataset.variant = bq.variant;
+  if (bqRehearsal()) layer.dataset.flow = 'rehearsal';
   layer.innerHTML = `${bqTopHtml(screen)}<div class="bq-body">${html}</div>`;
   document.body.appendChild(layer);
   document.body.classList.add('bq-open');
@@ -340,7 +350,7 @@ async function bqCamEnsure() {
     audio: false,
   }).then((s) => {
     // 권한을 묻는 사이 부스를 나갔거나 카메라를 껐으면 받은 스트림을 바로 닫는다 — 홈에서 카메라·판단이 돌았다 (사냥 2 #8)
-    if (!boothQaOn() || cam.off) { s.getTracks().forEach((t) => t.stop()); return null; }
+    if (!(boothQaOn() || bqRehearsal()) || cam.off) { s.getTracks().forEach((t) => t.stop()); return null; }
     cam.stream = s;
     cam.error = '';
     // 카메라를 뽑거나 다른 앱이 가져가면 트랙이 ended 가 된다 — 검은 화면에 「정면 0%」 가 남고, 사람이 있어도 30초 뒤 「아무도 없는 것 같아요」 가 떴다 (10-02 P1-4)
@@ -1172,7 +1182,10 @@ function bqWatchSlide() {
  */
 function bqRelabelInput() {
   const finish = document.getElementById('liveFinish');
-  const word = '남은 질문 건너뛰고 결과 보기';
+  // 리허설은 결과가 상세 리포트다 — 버튼이 갈 곳을 말한다
+  const word = bqRehearsal() ? '남은 질문 건너뛰고 리포트 보기' : '남은 질문 건너뛰고 결과 보기';
+  const see = bqRehearsal() && document.getElementById('liveSeeResult');
+  if (see && see.textContent !== '리포트 보러 가기') see.textContent = '리포트 보러 가기';
   if (finish && finish.textContent !== word) finish.textContent = word;
   const ta = document.getElementById('liveAnswer');
   if (ta && ta.getAttribute('aria-label') !== '내 답') ta.setAttribute('aria-label', '내 답');

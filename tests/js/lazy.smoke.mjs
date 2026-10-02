@@ -52,7 +52,7 @@ function flagsInApp(appJs) {
 function flagsInFlows() {
   const pick = (file, name) => read(file).match(new RegExp(`const ${name} = '([^']+)'`))[1];
   return [pick('js/call_flow.js', 'CALL_FLOW_KEY'), pick('js/vision_rehearsal.js', 'VISION_FLOW_KEY'),
-    pick('js/booth_qa.js', 'BOOTH_QA_KEY')].sort();
+    pick('js/booth_qa.js', 'BOOTH_QA_KEY'), pick('js/rehearsal.js', 'REHEARSAL_FLOW_KEY')].sort();
 }
 
 function checkIndex(html) {

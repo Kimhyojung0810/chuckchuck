@@ -1,0 +1,108 @@
+/* 리허설 한 줄 흐름 (#/rehearsal · js/rehearsal.js) — 부스 층(#bqStage)을 빌려 쓰는 화면에만 붙는다: #bqStage[data-flow="rehearsal"].
+   부스(/booth/qa · /booth/call)에는 이 선택자가 안 걸린다 — 부스 화면은 이 파일이 있어도 없어도 같다.
+
+   · 발표 고르기 — 부스 덱 카드 + 「내 파일 올리기」 카드
+   · 질문 화상판 — 오른쪽 위 자료 창을 비전 리허설의 자료 창(vision_rehearsal.css .vr-slide: 밝은 글라스 · 옮기기 · 크기 · 불투명도)으로 꺼낸다.
+     옮긴 적이 없으면 부스 자료 창 자리(.rh-slide-slot)에 선다 */
+
+/* ── 발표 고르기 — 부스 시연 세트 셋 ─────────────────────────────────── */
+.bq[data-flow="rehearsal"] .bq-deck:disabled { cursor: progress; opacity: .7; transform: none; }
+.bq[data-flow="rehearsal"] .bq-foot:empty { display: none; }
+.bq[data-flow="rehearsal"] .bq-foot { color: #fff; font-size: 15px; }
+.bq[data-flow="rehearsal"] .bq-fail .bq-ghost + .bq-ghost { margin-left: 6px; }
+.bq[data-flow="rehearsal"] #rhDeckRetry[hidden] { display: none; }
+
+/* ── 어떤 발표인가요 — 발표 상황 (부스 역할 칸과 같은 라디오 모양) ─────────────── */
+.bq[data-flow="rehearsal"] .rh-occ { max-width: 920px; }
+.bq[data-flow="rehearsal"] .rh-ctx { display: flex; flex-direction: column; gap: 8px; margin: 0 0 28px; color: #fff; font-size: 16px; font-weight: var(--w-med); }
+.bq[data-flow="rehearsal"] .rh-ctx input {
+  min-height: 48px; padding: 0 16px; border-radius: var(--r-ctl); font: inherit; font-size: 16px; color: #fff;
+  background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .24);
+}
+.bq[data-flow="rehearsal"] .rh-ctx input::placeholder { color: rgba(255, 255, 255, .6); }
+.bq[data-flow="rehearsal"] .rh-occ-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+/* ── 비전 리허설 조작줄 — 「녹음본을 넣어서 발표 마치기」 · 리허설은 직접 녹음 파일을 안 받는다 ── */
+#vrCall[data-flow="rehearsal"] .rec-upload { display: none; }
+/* 두 끝내기를 나란히 가운데 — 녹음 칸(.vr-rec)은 본래 남는 폭을 다 먹어서 두 번째 버튼이 오른쪽 끝으로 밀렸다 */
+#vrCall[data-flow="rehearsal"] .vr-rec { flex: 0 1 auto; margin-left: auto; }
+#vrCall[data-flow="rehearsal"] .rh-rec-finish { margin-right: auto; }
+#vrCall .rh-rec-finish {
+  flex: none; height: 44px; min-height: 44px; padding: 0 16px; border-radius: 10px; white-space: nowrap;
+  background: rgba(255, 255, 255, .92); color: #1c2430; border: 0; font-weight: var(--w-bold);
+}
+#vrCall .rh-rec-finish:hover { background: #fff; }
+#vrCall .rh-rec-finish:focus-visible { outline: 2.5px solid var(--cyan, #3fd599); outline-offset: 2px; }
+#vrCall .rh-rec-sheet { position: absolute; z-index: 20; }
+#vrCall .rh-rec-sheet .bq-sheet p b { color: var(--text); }
+#vrCall .rh-rec-note:empty { display: none; }
+#vrCall .rh-rec-note { margin: -12px 0 16px; font-size: 14px; color: var(--text-2, #52525B); }
+@media (max-width: 800px) {
+  #vrCall .rh-rec-finish { padding: 0 10px; font-size: 13px; }
+}
+
+/* ── 분석 기다림 — 내 모습(화면 전체) 위 글라스 한 장. 화상판과 같은 위 띠 · 같은 글라스 ── */
+.bq[data-flow="rehearsal"][data-screen="wait"] { display: block; background: #0b0f14; }
+.bq[data-flow="rehearsal"][data-screen="wait"] .bq-top {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3; border-bottom: 0; background: none;
+}
+.bq[data-flow="rehearsal"][data-screen="wait"] .bq-steps-top { display: none; }
+.bq[data-flow="rehearsal"][data-screen="wait"] .bq-brand {
+  padding: 4px 12px 4px 4px; border-radius: var(--r-pill); background: var(--lg-tint); border: 1px solid var(--lg-edge);
+}
+.bq[data-flow="rehearsal"][data-screen="wait"] .bq-top .bq-ghost { background: var(--lg-tint); border: 1px solid var(--lg-edge); box-shadow: var(--lg-shadow); }
+.bq[data-flow="rehearsal"][data-screen="wait"] .bq-body { position: absolute; inset: 0; padding: 0; overflow: hidden; }
+.bq[data-flow="rehearsal"] .rh-wait-card {
+  position: absolute; z-index: 2; left: 50%; top: 84px; transform: translateX(-50%);
+  width: min(620px, calc(100vw - 32px)); padding: 20px 24px; border-radius: 26px; color: #fff;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.bq[data-flow="rehearsal"] .rh-wait-head { display: flex; align-items: center; gap: 14px; }
+.bq[data-flow="rehearsal"] .rh-wait-head .bc-host-bird { width: 72px; }
+.bq[data-flow="rehearsal"] .rh-wait-head h1 { margin: 0 0 4px; font-size: clamp(20px, 1.6vw, 24px); font-weight: var(--w-bold); line-height: 1.35; }
+.bq[data-flow="rehearsal"] .rh-wait-tip { margin: 0; color: var(--lg-soft); font-size: 15px; line-height: 1.5; }
+.bq[data-flow="rehearsal"] .rh-wait-steps { gap: 10px; margin: 0; }
+.bq[data-flow="rehearsal"] .rh-wait-steps li { font-size: 17px; color: rgba(255, 255, 255, .78); }
+.bq[data-flow="rehearsal"] .rh-wait-steps li[data-state="done"] { color: rgba(255, 255, 255, .9); }
+.bq[data-flow="rehearsal"] .rh-wait-steps li[data-state="run"] { color: #fff; font-weight: var(--w-bold); }
+.bq[data-flow="rehearsal"] .rh-wait-foot {
+  margin: 0; display: flex; justify-content: space-between; gap: 12px; color: var(--lg-soft); font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.bq[data-flow="rehearsal"] .rh-wait-card .bq-fail { padding: 14px 16px; }
+.bq[data-flow="rehearsal"] .rh-wait-card .bq-fail p { color: #fff; }
+.bq[data-flow="rehearsal"] .rh-wait-card > .bq-ghost { align-self: flex-start; }
+.bq[data-flow="rehearsal"] .rh-wait-card :is(#rhSkipReport, #rhResume)[hidden] { display: none; }
+
+/* ── 질문 화상판 — 자료 창 기본 자리 (부스 자료 창과 같은 칸: 16:9 장 + 위 장 이름 + 아래 조작줄) ── */
+/* 부스 자료 창과 같은 높이(16:9 장 + 장 이름 줄)로 둔다 — 더 크면 아래 「영상은 이 화면에만」 알약이 진행 칩 위로 밀려 겹쳤다.
+   떠 있는 창은 조작줄만큼 장 그림이 줄어든다(비율 그대로) */
+.bq[data-flow="rehearsal"] .rh-slide-slot { width: 100%; padding-bottom: 46px; pointer-events: none; }
+.bq[data-flow="rehearsal"] .rh-slide-slot > i { display: block; aspect-ratio: 16 / 9; }
+
+/* 떠 있는 자료 창 — 겉은 vision_rehearsal.css .vr-slide 그대로(밝은 글라스). 속은 부스 자료 그림(#bqSlide) */
+.bq[data-flow="rehearsal"] .rh-slide { z-index: 3; min-width: 0; }
+.bq[data-flow="rehearsal"] .rh-slide-body { flex: 1 1 auto; min-height: 0; display: flex; padding: 8px 8px 4px; }
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide { flex: 1 1 auto; min-width: 0; gap: 6px; }
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption {
+  order: 0; align-self: flex-start; max-width: 100%; padding: 2px 10px; border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .82); color: #2b3833; font-size: 13px; font-weight: var(--w-med); text-shadow: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption b { color: #0b6b4a; }
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic { place-items: center; }
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic canvas,
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic img {
+  opacity: var(--vr-slide-alpha); border-radius: 10px; box-shadow: none;
+}
+.bq[data-flow="rehearsal"] .rh-slide .vr-slide-cap { padding: 6px 28px 6px 6px; }
+.bq[data-flow="rehearsal"] .rh-cap-fill { flex: 1; }
+.bq[data-flow="rehearsal"] .rh-slide :is(.vr-drag, .vr-resize, .vr-alpha input):focus-visible {
+  outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(4, 48, 39, .95);
+}
+
+/* 폰 폭 — 부스 화상판은 자료 창을 작게(124px) 둔다. 옮기기 손잡이만 남기고 불투명도는 접는다 */
+@media (max-width: 900px) {
+  .bq[data-flow="rehearsal"] .rh-slide-slot { padding-bottom: 40px; }
+  .bq[data-flow="rehearsal"] .rh-slide .vr-alpha { display: none; }
+  .bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption { font-size: 12px; }
+}

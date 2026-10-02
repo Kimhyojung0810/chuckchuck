@@ -297,6 +297,8 @@ const routes = {
   'vision': () => { if (typeof renderVisionEntry === 'function') renderVisionEntry(); },
   // 부스 Q&A 무대 (#/booth/qa · 주소창 /booth/qa) — Festa 부스 운영 중에 Q&A 세션을 보여 주는 전용 입구 (js/booth_qa.js)
   // #/booth/qa 는 부스 Q&A 무대, #/booth/call 은 같은 흐름의 화상 통화판 (js/booth_qa.js · js/booth_call.js)
+  // 리허설 한 줄 흐름 (#/rehearsal · 주소창 /rehearsal) — 발표 고르기 → 비전 리허설 → 분석 → 글라스 화상판 질문 → 리포트 (js/rehearsal.js)
+  'rehearsal': () => { if (typeof renderRehearsalEntry === 'function') renderRehearsalEntry(); },
   'booth': () => (typeof bqHashVariant === 'function' && bqHashVariant() && typeof renderBoothQa === 'function' ? renderBoothQa(bqHashVariant()) : renderHome()),
   // 랜딩은 js/landing.js 가 window 에 붙인다. 호출 시점에 찾으므로 로드 순서를 타지 않는다.
   'landing': () => window.renderLanding(),
@@ -343,6 +345,11 @@ function stageAccidentHtml(message, { title = '죄송해요, 무대 장치가 �
     </div>`;
 }
 
+/** 리허설 흐름(js/rehearsal.js, 베타 번들)이 켜져 있나 — 파일이 아직 안 왔으면 꺼진 것 */
+function rhFlowOn() {
+  return typeof rehearsalFlowOn === 'function' && rehearsalFlowOn();
+}
+
 function dismissF11Reveal() {
   const wrap = document.getElementById('f11RevealWrap');
   if (!wrap) return;
@@ -360,6 +367,8 @@ function route() {
 
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   const key = parts[0];
+  // 리허설 흐름(js/rehearsal.js) — 비전 층이 카메라를 끄기 전에 화상판으로 넘겨받고, 흐름 밖으로 나가면 표시를 끈다
+  if (typeof rehearsalFlowOnRoute === 'function') rehearsalFlowOnRoute(key);
   // 통화 층(#cfCall)은 #app 밖에 떠 있어서 화면이 바뀌어도 안 지워진다 — 먼저 걷는다
   if (typeof callFlowOnRoute === 'function') callFlowOnRoute(key);
   if (typeof visionFlowOnRoute === 'function') visionFlowOnRoute(key);
@@ -367,6 +376,8 @@ function route() {
   if (typeof boothQaOnRoute === 'function') boothQaOnRoute(key);
   // 부스 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 부스 처음 화면으로 (booth_qa.js boothQaGuard · 10-02)
   if (typeof boothQaGuard === 'function' && boothQaGuard(key)) return;
+  // 리허설 탭도 같다 — #/qa 를 되살릴 수 없으면 리허설 자리로 (rehearsal.js rehearsalGuard)
+  if (typeof rehearsalGuard === 'function' && rehearsalGuard(key)) return;
   /* 샘플 모드는 renderReport() 안에서만 켜져서, 샘플 리포트를 보고 #/qa 로 나가면
      켜진 채로 남았다. reportOut() 이 이 값을 보고 결과를 가리므로 리포트를
      벗어나는 순간 꺼 준다 — 안 그러면 질문 코칭이 제 데이터를 못 읽는다 */
@@ -906,14 +917,14 @@ function isShowcaseDemo() {
 let ccTeam = false;
 let ccTeamChecked = false;
 /* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 개발자 모드를 켠 브라우저에만 연다 */
-const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
+const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth', 'rehearsal']);
 /* 첫 화면에 안 쓰는 화면 코드는 들어갈 때 받는다 (js/lazy.js · index.html 의 #lazyAssets).
    공개 방문자는 베타 화면을 못 여니 beta 번들을 아예 안 받는다. 베타 흐름(통화·비전·부스)은
    sessionStorage 표시로 #/new·#/qa 의 배치까지 바꾸므로, 표시가 켜진 채 새로 고치면 그 화면에서도 받는다.
-   키는 call_flow.js CALL_FLOW_KEY · vision_rehearsal.js VISION_FLOW_KEY · booth_qa.js BOOTH_QA_KEY 와 같아야 한다
+   키는 call_flow.js CALL_FLOW_KEY · vision_rehearsal.js VISION_FLOW_KEY · booth_qa.js BOOTH_QA_KEY · rehearsal.js REHEARSAL_FLOW_KEY 와 같아야 한다
    (tests/js/lazy.smoke.mjs 가 대조한다). */
-const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], landing: ['landing'] };
-const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa'];
+const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], rehearsal: ['beta'], landing: ['landing'] };
+const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa', 'cheokcheok:rehearsal-flow'];
 function lazyFlowFlagOn() {
   // 부스 화상판의 옛 값 'call' 도 켜짐이다 — 그 탭에서 #/qa 를 새로 고치면 부스 파일 없이 일반 질문 코칭이 떴다 (10-02 · booth_qa.js boothQaSet)
   try { return LAZY_FLOW_FLAGS.some((k) => ['1', 'call'].includes(sessionStorage.getItem(k))); } catch (_) { return false; }
@@ -1996,7 +2007,8 @@ function slidePlaceholder(n) {
 function renderNew() {
   if (typeof callFlowUnmount === 'function') callFlowUnmount({ keepCam: callFlowOn() });
   if (typeof visionFlowUnmount === 'function') {
-    visionFlowUnmount({ keepCam: typeof visionFlowOn === 'function' && visionFlowOn() && nf.step === 2 });
+    // 리허설 흐름은 분석 기다림(스텝 4)에서도 카메라를 쥐고 있다 — 내 모습 위 기다림 화면 · 화상판으로 넘긴다 (rehearsal.js rhHandCamera)
+    visionFlowUnmount({ keepCam: typeof visionFlowOn === 'function' && visionFlowOn() && (nf.step === 2 || (nf.step === 3 && rhFlowOn())) });
   }
   dropSampleDeckForRealSession();
   saveSession('new-flow', nf);
@@ -3042,7 +3054,8 @@ async function finishRecAndPrepare() {
      핵심 장면이다. 리빌은 CTA 를 눌러야 닫히고, autoAdvanceToQa 도 리빌이 떠 있는
      동안은 기다리므로 중간에 튕기지 않는다. 친구 쪽 샘플 데모(useSample)는
      쇼케이스가 꺼진 빌드에서만 스텝4 연출로 간다. */
-  if (!nf.useSample || isShowcaseDemo()) showF11Reveal();
+  // 리허설 흐름은 분석 연출 대신 부스 「질문 준비」 모양의 기다림 화면을 그린다 (rehearsal.js rehearsalWaitSync)
+  if ((!nf.useSample || isShowcaseDemo()) && !rhFlowOn()) showF11Reveal();
 }
 
 /**
@@ -3208,7 +3221,7 @@ async function useUploadedRecording(file, { knownDurationSec = 0 } = {}) {
 
   nf.step = 3;
   renderNew();
-  showF11Reveal();
+  if (!rhFlowOn()) showF11Reveal();
 }
 
 /**
@@ -4535,6 +4548,8 @@ function runClientSamplePipeline() {
 }
 
 function nfStep4() {
+  // 리허설 흐름이면 이 화면 위에 부스 「질문 준비」 모양의 기다림 층을 얹는다 — 파이프라인 · 타이머는 아래에서 그대로 돈다
+  if (rhFlowOn()) setTimeout(() => { if (typeof rehearsalWaitSync === 'function') rehearsalWaitSync(); }, 0);
   app.className = 'narrow';
   const sampleRun = !!(nf.useSample && ccLastTake);
   if (sampleRun && !['done', 'partial', 'error'].includes(nf.pipelinePhase || '')) pipelineRunLive = true;
@@ -4878,6 +4893,8 @@ function reportSessionMeta() {
     slides,
     duration,
     nth: 1,
+    // 라이브 녹음이 아니라 녹음 파일로 돌린 회차 — 머리줄에 그렇다고 남긴다 (리허설 「녹음본을 넣어서 발표 마치기」 · 녹음 올리기)
+    recording: (nf.uploadedTake && nf.uploadedTake.name) || '',
   };
 }
 
@@ -5186,6 +5203,7 @@ async function renderReport() {
     escapeHtml(s.occasion),
     s.slides ? `슬라이드 ${s.slides}개` : '',
     escapeHtml(s.duration),
+    s.recording ? `녹음 파일 「${escapeHtml(s.recording)}」로 분석했어요` : '',
     s.live ? '' : `${s.nth}번째 연습`,
   ].filter(Boolean);
   app.innerHTML = `
@@ -6705,6 +6723,8 @@ function rSummary() {
  */
 function autoAdvanceToQa() {
   if (!nf || nf._autoAdvancedFor === nf.pipelineStartedAt) return;
+  // 리허설 흐름은 기다림 화면이 질문까지 만든 뒤 「질문 받으러 가기」 로 넘어간다 — 질문 생성 중 화면(#/qa)으로 먼저 튀지 않게
+  if (rhFlowOn()) return;
   if (!pipelineQaReady()) return;
   nf._autoAdvancedFor = nf.pipelineStartedAt;
   const go = () => {

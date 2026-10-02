@@ -38,6 +38,8 @@ const BQ_IDLE_SCREENS = new Set(['pick', 'prep', 'qa']);
 
 function bqArmIdle(layer, screen) {
   bqDisarmIdle();
+  // 리허설 흐름(#/rehearsal)이 화상판을 빌려 쓰는 중이면 자리 비움 복귀는 없다 — 부스 노트북 장치다
+  if (typeof bqRehearsal === 'function' && bqRehearsal()) return;
   bqOps.lastInput = Date.now();
   bqOps.awaySince = 0;
   ['pointerdown', 'keydown', 'input', 'wheel'].forEach((ev) => layer.addEventListener(ev, bqTouch, { capture: true, passive: true }));
@@ -131,6 +133,7 @@ function bqInstallKeys() {
   bqOps.keysOn = true;
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !document.getElementById('bqStage')) return;
+    if (typeof bqRehearsal === 'function' && bqRehearsal()) return;   // 리허설 탭에는 스태프 키가 없다
     if (e.shiftKey) { bqOps.escAt = 0; const s = document.getElementById('bqSheet'); if (s) s.remove(); bqGoHome(); return; }
     const sheet = document.getElementById('bqSheet');
     if (sheet) { sheet.remove(); return; }
@@ -188,6 +191,8 @@ function bqConfirmHome() {
 function bqArmAutoEnd() {
   const L = qa && qa.live;
   if (!L || !L.awaitEnd) return;
+  // 리허설은 끝 카드에서 기다렸다가 「리포트 보러 가기」 로 — 12초 자동 결과는 부스 줄 세우기 장치다
+  if (typeof bqRehearsal === 'function' && bqRehearsal()) return;
   const note = document.querySelector('#bqStage .qa-end-note');
   if (bqOps.endTimer) {
     bqEndNote(note);

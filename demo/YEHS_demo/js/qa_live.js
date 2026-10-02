@@ -598,6 +598,8 @@ function renderQaLive() {
   qa.started = true;
   if (!L.awaitEnd) presentLiveQuestion();
   saveSession('qa-flow', qa);
+  // 리허설 흐름(#/rehearsal)은 부스 글라스 화상판에서 묻는다 — 질문 · 판정은 같다 (js/rehearsal.js)
+  if (typeof rehearsalFlowOn === 'function' && rehearsalFlowOn() && typeof renderQaLiveRehearsal === 'function') return renderQaLiveRehearsal();
   if (typeof callFlowOn === 'function' && callFlowOn()) return renderQaLiveCall();
   if (typeof boothQaOn === 'function' && boothQaOn()) return renderQaLiveBooth();
   app.innerHTML = `
@@ -2157,6 +2159,8 @@ function qaLiveEnd() {
   // 저장 성공 여부를 상단 라벨이 그대로 말한다 — 실패했는데 "저장됨" 이라고
   // 하면 사용자는 기록이 있는 줄 알고 떠난다 (§14 정직한 상태 유지).
   const historySaved = recordQaHistory();
+  // 리허설 흐름은 결과 카드 대신 상세 리포트로 바로 — 기록은 위에서 일반 앱과 똑같이 남겼다 (js/rehearsal.js)
+  if (typeof rehearsalFlowOn === 'function' && rehearsalFlowOn() && typeof rehearsalQaDone === 'function') { rehearsalQaDone(); return; }
   const L = qa.live;
   // 상세 리포트에 개념 판정(발화 분석)이 있는가 — 자료만 쓴 세션은 없다. 없으면 행 화살표도 안 단다 (09-30 L-03: 빈 리포트로 데려갔다)
   const speech = typeof qaReportHasJudge === 'function' ? qaReportHasJudge() : true;
