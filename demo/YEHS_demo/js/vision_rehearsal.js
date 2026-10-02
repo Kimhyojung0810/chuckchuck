@@ -396,7 +396,8 @@ function visionBirdHtml() {
 }
 
 const VISION_SLIDE_KEY = 'cheokcheok:vision-slide';
-const visionSlide = { custom: false, portrait: false, x: 0, y: 0, w: 0, h: 0, opacity: 0.78 };
+/** right · rx — 오른쪽 절반에 둔 창은 오른쪽 가장자리에서 잰 거리로 기억한다(화면 너비가 바뀌어도 오른쪽 기둥에 붙어 있게) */
+const visionSlide = { custom: false, portrait: false, x: 0, y: 0, w: 0, h: 0, right: false, rx: 0, opacity: 0.78 };
 
 function visionSlideLoad() {
   try {
@@ -409,6 +410,8 @@ function visionSlideLoad() {
       visionSlide.portrait = !!data.portrait;
       visionSlide.x = data.x;
       visionSlide.y = data.y;
+      visionSlide.right = !!data.right && typeof data.rx === 'number';
+      visionSlide.rx = Number(data.rx) || 0;
       visionSlide.w = data.w;
       visionSlide.h = data.h;
     }
@@ -423,6 +426,8 @@ function visionSlideSave() {
       y: visionSlide.y,
       w: visionSlide.w,
       h: visionSlide.h,
+      right: !!visionSlide.right,
+      rx: visionSlide.rx,
       portrait: !!visionSlide.portrait,
       opacity: visionSlide.opacity,
     }));
@@ -454,7 +459,9 @@ function visionSlideClamp(box) {
   const onCall = !!host && host.id === 'bqStage';
   let top = 8;
   const w = Math.max(240, Math.min(box.w, width - 16));
-  const x = onCall ? Math.min(Math.max(box.x, 8), width - w - 8) : Math.min(Math.max(box.x, 0), width - 72);
+  // 창 전체를 화면 안에 — 예전 비전 리허설은 width−72 까지 밀 수 있어서 오른쪽 위로 끌면 72px 만 남고 장 · 불투명도 · 크기 모서리가 화면 밖이었다.
+  // 화상판과 같은 규칙으로 맞춘다 (10-03 점검 V-R2-4)
+  const x = Math.min(Math.max(box.x, onCall ? 8 : 0), width - w - 8);
   if (onCall) {
     const hr = host.getBoundingClientRect();
     // 창과 가로로 겹치는 것만 막는다 — 위 · 아래 막는 것을 가로 자리와 상관없이 다 세서, 빈 왼쪽으로 옮겨도 창 높이가 오른쪽 칸(≈190px)에 묶였다 (V-R2-2)
@@ -506,7 +513,9 @@ function visionSlideApply(slide) {
   // 옮겨 둔 자리는 그 자리를 정한 방향(가로 · 세로)에서만 쓴다 — 가로에서 옮긴 큰 창이 세로 화상판의 대화 말풍선을 덮었다 (10-03 점검 V6).
   // 다른 방향이면 그 화면의 기본 자리(작은 창)에 선다. 저장은 그대로라 원래 방향으로 돌아가면 옮긴 자리로 돌아간다
   if (visionSlide.custom && !!visionSlide.portrait === visionSlidePortrait()) {
-    const box = visionSlideClamp(visionSlide);
+    // 오른쪽에 둔 창은 오른쪽 가장자리 기준으로 다시 세운다 — 저장은 px 라 발표 뒤 전체 화면(1512 → 1920)으로 바꾸면 화상판 가운데에 떠 있었다 (V-R2-4)
+    const hostW = (visionSlideHost() || {}).clientWidth || window.innerWidth;
+    const box = visionSlideClamp(visionSlide.right ? { ...visionSlide, x: hostW - visionSlide.rx - visionSlide.w } : visionSlide);
     slide.style.left = `${box.x}px`;
     slide.style.top = `${box.y}px`;
     slide.style.width = `${box.w}px`;
@@ -547,14 +556,21 @@ function visionSlideRedraw() {
   if (typeof paintRehearsalSlide === 'function' && typeof nf !== 'undefined') paintRehearsalSlide(nf.slide);
 }
 
-function visionSlideCommit(slide, box, { repaint = false } = {}) {
-  const next = visionSlideClamp(box);
+/** 옮긴 자리를 적는다 — 오른쪽 절반이면 오른쪽 가장자리에서 잰 거리(rx)도 (V-R2-4) */
+function visionSlideSetBox(box) {
+  const hostW = (visionSlideHost() || {}).clientWidth || window.innerWidth;
   visionSlide.custom = true;
   visionSlide.portrait = visionSlidePortrait();
-  visionSlide.x = next.x;
-  visionSlide.y = next.y;
-  visionSlide.w = next.w;
-  visionSlide.h = next.h;
+  visionSlide.x = box.x;
+  visionSlide.y = box.y;
+  visionSlide.w = box.w;
+  visionSlide.h = box.h;
+  visionSlide.right = box.x + box.w / 2 > hostW / 2;
+  visionSlide.rx = hostW - box.x - box.w;
+}
+
+function visionSlideCommit(slide, box, { repaint = false } = {}) {
+  visionSlideSetBox(visionSlideClamp(box));
   visionSlideApply(slide);
   visionSlideSave();
   if (repaint) visionSlideRedraw();
@@ -582,13 +598,7 @@ function visionSlideBind(layer, { repaint = null } = {}) {
       const next = mode === 'move'
         ? { x: start.x + dx, y: start.y + dy, w: start.w, h: start.h }
         : { x: start.x, y: start.y, w: start.w + dx, h: start.h + dy };
-      const box = visionSlideClamp(next);
-      visionSlide.custom = true;
-      visionSlide.portrait = visionSlidePortrait();
-      visionSlide.x = box.x;
-      visionSlide.y = box.y;
-      visionSlide.w = box.w;
-      visionSlide.h = box.h;
+      visionSlideSetBox(visionSlideClamp(next));
       visionSlideApply(slide);
     };
     const up = () => {
