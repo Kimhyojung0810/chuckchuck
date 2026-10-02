@@ -696,6 +696,15 @@ function rhFloatSlide(layer) {
     <button type="button" class="vr-resize" id="vrSlideResize" aria-label="발표 자료 크기 조절"></button>`;
   win.querySelector('.rh-slide-body').appendChild(fig);
   call.appendChild(win);
+  // 「질문이 가리키는 n장」 은 아래 조작줄의 빈 칸에 비춘다 — 장 그림이 창 높이를 다 쓰게. 장이 바뀌면 bqSyncSlide 가 그림 칸을 통째로 다시 쓴다
+  const capFill = win.querySelector('.rh-cap-fill');
+  const mirror = () => {
+    const cap = fig.querySelector('figcaption');
+    const html = cap ? cap.innerHTML : '';
+    if (capFill.innerHTML !== html) capFill.innerHTML = html;
+  };
+  mirror();
+  new MutationObserver(mirror).observe(fig, { childList: true });
   if (typeof visionSlideBind !== 'function') return;
   visionSlideBind(layer, { repaint: () => { if (fig.isConnected) paintDeckStage(fig); } });
   // 기본 자리(옮긴 적 없음)는 오른쪽 위 칸을 따라간다 — 위 질문 카드 높이가 정해지면 칸이 내려가므로 그때 다시 맞춘다

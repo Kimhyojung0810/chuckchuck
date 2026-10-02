@@ -76,7 +76,7 @@
 /* ── 질문 화상판 — 자료 창 기본 자리 (부스 자료 창과 같은 칸: 16:9 장 + 위 장 이름 + 아래 조작줄) ── */
 /* 부스 자료 창과 같은 높이(16:9 장 + 장 이름 줄)로 둔다 — 더 크면 아래 「영상은 이 화면에만」 알약이 진행 칩 위로 밀려 겹쳤다.
    떠 있는 창은 조작줄만큼 장 그림이 줄어든다(비율 그대로) */
-.bq[data-flow="rehearsal"] .rh-slide-slot { width: 100%; padding-bottom: 46px; pointer-events: none; }
+.bq[data-flow="rehearsal"] .rh-slide-slot { width: 100%; padding-bottom: 50px; pointer-events: none; }
 .bq[data-flow="rehearsal"] .rh-slide-slot > i { display: block; aspect-ratio: 16 / 9; }
 
 /* 오른쪽 위 칸(카메라 알약 · 사생활 알약)은 떠 있는 자료 창보다 위에 — 창을 옮겨 둔 자리가 「영상은 이 화면에만」 을 덮지 않게.
@@ -88,14 +88,14 @@
 .bq[data-flow="rehearsal"] .rh-slide { z-index: 3; min-width: 0; }
 .bq[data-flow="rehearsal"] .rh-slide-body { flex: 1 1 auto; min-height: 0; display: flex; padding: 8px 8px 4px; }
 .bq[data-flow="rehearsal"] .rh-slide .bq-slide { flex: 1 1 auto; min-width: 0; gap: 6px; }
-.bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption {
-  order: 0; align-self: flex-start; max-width: 100%; padding: 2px 10px; border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, .82); color: #2b3833; font-size: 13px; font-weight: var(--w-med); text-shadow: none;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+/* 「질문이 가리키는 n장」 은 아래 조작줄(옮기기 손잡이와 불투명도 사이 빈 칸)에 비춘다(rehearsal.js) — 장 그림이 창 높이를 다 쓴다.
+   그림 칸의 원래 줄은 화면에서만 숨긴다(같은 글이 조작줄에 있다) */
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption { display: none; }
+.bq[data-flow="rehearsal"] .rh-cap-fill {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #2b3833; font-size: 14px; font-weight: var(--w-med);
 }
-.bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption b { color: #0b6b4a; }
+.bq[data-flow="rehearsal"] .rh-cap-fill b { color: #0b6b4a; }
 .bq[data-flow="rehearsal"] .rh-slide .bq-slide { min-height: 0; overflow: hidden; }
-.bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption { flex: none; }
 /* 장 그림은 남은 칸 안에서만 — 가운데 맞춤 격자에 넘치는 캔버스가 위로도 넘쳐 장 이름 알약을 덮었다 (1180×820) */
 .bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic {
   flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
@@ -115,5 +115,5 @@
 @media (max-width: 900px) {
   .bq[data-flow="rehearsal"] .rh-slide-slot { padding-bottom: 40px; }
   .bq[data-flow="rehearsal"] .rh-slide .vr-alpha { display: none; }
-  .bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption { font-size: 12px; }
+  .bq[data-flow="rehearsal"] .rh-cap-fill { font-size: 12px; }
 }

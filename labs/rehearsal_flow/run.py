@@ -133,6 +133,8 @@ LAYOUT_JS = """() => {
     videos: [...document.querySelectorAll('#bqStage video, #vrCall video')].map((v) => ({ w: v.videoWidth, paused: v.paused, vis: getComputedStyle(v).visibility,
       tracks: v.srcObject ? v.srcObject.getVideoTracks().map((t) => `${t.readyState}:${t.enabled}:${t.muted}`) : null })),
     cam_box: (document.querySelector('#bqStage [data-bq-cam-box]') || {}).dataset?.camera || null,
+    slide_cap: (() => { const c = document.querySelector('#bqStage #vrSlide figcaption'); if (!c) return null; const p = c.offsetParent;
+      return { box: r(c), parent: p ? (p.id || p.className) : null, pos: getComputedStyle(c).position, fig: getComputedStyle(c.parentElement).position }; })(),
     clickable: Object.fromEntries(['#bqGo', '#liveSend', '#liveMic', '#liveFinish', '#bqCamToggle', '[data-rh-exit]', '#vrSlideDrag', '#vrSlideAlpha', '#recStart', '#recEnd']
       .map((s) => [s, hit(s)])) };
 }"""
