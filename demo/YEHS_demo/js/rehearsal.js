@@ -547,6 +547,7 @@ function rehearsalWaitSync() {
     document.getElementById('rhResume').addEventListener('click', () => { location.hash = '#/qa'; });
     bqCamEnsure();
     bqCamPaint();
+    rhWatchCamAlive();
     bq.timers.push(setInterval(rhWaitTick, REHEARSAL_POLL_MS));
   }
   rhWaitTick();
@@ -561,9 +562,25 @@ function rhHandCamera() {
     bq.cam.off = false;
     bq.cam.error = '';
     visionCam.stream = null;
+    // bqCamEnsure 가 연 스트림과 같이 — 카메라를 뽑거나 다른 앱이 가져가면 꺼짐 안내 · 「카메라 켜기」 로 바꾼다.
+    // 안 그러면 화상판이 검은 화면에 마지막 「정면 n%」 와 「카메라 끄기」 를 띄운 채 멈췄다 (10-03 점검 V1)
+    s.getVideoTracks().forEach((t) => t.addEventListener('ended', () => bqCamLost(s)));
   } else if (s && bq.cam.stream !== s) {
     visionCamStop();
   }
+}
+
+/**
+ * ended 사건 없이 멈춘 트랙(다른 쪽이 stop() 등)도 잡는다 — 부스는 자리 비움 시계가 1초마다 bqCamCheckAlive 를 부르지만
+ * 그 시계는 리허설 탭에서 돌지 않는다(booth_ops.js bqArmIdle). 리허설 층(기다림 · 화상판)이 있는 동안만 돌고 스스로 멈춘다
+ */
+let rhCamAliveTimer = 0;
+function rhWatchCamAlive() {
+  if (rhCamAliveTimer) return;
+  rhCamAliveTimer = setInterval(() => {
+    if (!document.querySelector('#bqStage[data-flow="rehearsal"]')) { clearInterval(rhCamAliveTimer); rhCamAliveTimer = 0; return; }
+    if (typeof bqCamCheckAlive === 'function') bqCamCheckAlive();
+  }, 1000);
 }
 
 /** 질문 재료(그래프 · 정합 · 흐름)가 모였으면 질문을 만든다 — 일반 앱 #/qa 와 같은 함수 · 같은 3개 트랙 */
@@ -668,6 +685,7 @@ function renderQaLiveRehearsal() {
   if (!layer) return;
   rhWireExit(layer);
   rhFloatSlide(layer);
+  rhWatchCamAlive();
 }
 
 function rhFloatSlide(layer) {
