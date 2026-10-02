@@ -238,6 +238,11 @@ function visionNoteReaction(cue) {
   visionPersistCues();
 }
 
+/** 값이 다를 때만 쓴다 — 코치가 40ms 마다 부르는데 매번 쓰면 초당 DOM 변경 100번 · 스타일 · 배치 계산이 두 배였다 (10-03 점검 perf-r2-3) */
+function visionSetIf(el, prop, value) {
+  if (el && el[prop] !== value) el[prop] = value;
+}
+
 function visionPaintCue(cue) {
   const bird = $('#vrBird');
   const line = $('#vrLine');
@@ -245,16 +250,14 @@ function visionPaintCue(cue) {
   const text = visionCueText(cue);
   const react = VISION_REACTS.has(cue);
   if (bird) {
-    bird.dataset.cue = cue || 'idle';
-    bird.setAttribute('aria-label', react ? `삐약이, ${text}` : '삐약이');
+    const c = cue || 'idle';
+    if (bird.dataset.cue !== c) bird.dataset.cue = c;
+    const label = react ? `삐약이, ${text}` : '삐약이';
+    if (bird.getAttribute('aria-label') !== label) bird.setAttribute('aria-label', label);
   }
-  if (line) {
-    line.hidden = !react;
-    line.textContent = react ? text : '';
-  }
-  if (status) {
-    status.textContent = cue === 'listen' ? '잘 듣고 있어요' : (react ? text : '말하면 반응해요');
-  }
+  visionSetIf(line, 'hidden', !react);
+  visionSetIf(line, 'textContent', react ? text : '');
+  visionSetIf(status, 'textContent', cue === 'listen' ? '잘 듣고 있어요' : (react ? text : '말하면 반응해요'));
   visionNoteReaction(cue || 'idle');
 }
 
@@ -298,11 +301,8 @@ function visionCoachSample() {
   const r = Cue.observeVision(visionCoach.meter, sample);
   visionCoach.meter = r.meter;
   visionPaintCue(r.cue);
-  const cap = $('#vrCaption');
-  if (cap) {
-    const heard = visionCoachText();
-    cap.textContent = heard ? heard.slice(-42) : '';
-  }
+  const heard = visionCoachText();
+  visionSetIf($('#vrCaption'), 'textContent', heard ? heard.slice(-42) : '');
 }
 
 async function visionOpenLevel() {
