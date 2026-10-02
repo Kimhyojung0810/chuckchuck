@@ -457,6 +457,47 @@ function rhConfirmRecording(layer) {
   sheet.querySelector('[data-sheet="use"]').focus();
 }
 
+/**
+ * 비전 리허설의 「나가기」 — 녹음 중이 아니면 바로 홈으로. 녹음 중이면 화면 안 시트(왼쪽 「닫기」)로 묻고, 나가면 테이크를 멈춘다.
+ * 예전엔 브라우저 확인 창(확인/취소)이었고, 확인해도 녹음기 · 마이크가 홈에서 계속 돌았다 (10-03 점검 V3 · perf-1)
+ */
+function rehearsalVisionLeave(layer) {
+  if (!nf || nf.mic !== 'on') { location.hash = '#/'; return; }
+  if (document.getElementById('rhLeaveSheet')) return;
+  const back = document.activeElement;
+  const sheet = document.createElement('div');
+  sheet.className = 'bq-sheet-wrap rh-rec-sheet';
+  sheet.id = 'rhLeaveSheet';
+  sheet.innerHTML = `<div class="bq-sheet" role="dialog" aria-modal="true" aria-labelledby="rhLeaveTitle" aria-describedby="rhLeaveBody">
+      <h2 id="rhLeaveTitle">발표를 녹음하고 있어요</h2>
+      <p id="rhLeaveBody">지금 나가면 이번 녹음은 남지 않아요. 계속 발표하려면 「닫기」를 눌러요.</p>
+      <div class="bq-sheet-actions">
+        <button type="button" class="bq-ghost" data-sheet="close">닫기</button>
+        <button type="button" class="bq-cta bq-cta-sm" data-sheet="leave">녹음 멈추고 나가기</button>
+      </div>
+    </div>`;
+  layer.appendChild(sheet);
+  const close = () => { sheet.remove(); if (back && back.focus) back.focus(); };
+  sheet.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { close(); return; }
+    if (e.key !== 'Tab') return;
+    const items = [...sheet.querySelectorAll('button')];
+    const i = items.indexOf(document.activeElement);
+    e.preventDefault();
+    items[(i + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+  });
+  sheet.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-sheet]');
+    if (e.target === sheet || (act && act.dataset.sheet === 'close')) close();
+    else if (act && act.dataset.sheet === 'leave') {
+      sheet.remove();
+      if (typeof visionStopTake === 'function') visionStopTake();
+      location.hash = '#/';
+    }
+  });
+  sheet.querySelector('[data-sheet="close"]').focus();
+}
+
 /** 덱 녹음을 받아 이번 발표의 녹음으로 — 라이브 녹음 · 반응은 버린다(useUploadedRecording 이 녹음기를 멈춘다) */
 async function rhFinishWithRecording(sheet) {
   const deck = nf.rehearsalDeck;

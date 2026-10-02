@@ -620,6 +620,16 @@ function visionWatchDock(layer) {
   visionDockWatch.observe(dock);
 }
 
+/** 녹음 중에 나가기로 했으면 이번 테이크를 멈춘다 — 안 그러면 홈에서도 녹음기 · 마이크가 돌았다 (10-03 점검 perf-1). resetNf 가 하는 멈춤과 같다 */
+function visionStopTake() {
+  if (typeof stopLiveRehearsal === 'function') stopLiveRehearsal();
+  if (typeof clearTimers === 'function') clearTimers();
+  if (typeof nf === 'undefined' || !nf) return;
+  nf.mic = 'idle';
+  nf.sec = 0;
+  if (typeof saveSession === 'function') saveSession('new-flow', nf);
+}
+
 function visionFlowLeaveClassic() {
   visionFlowSet(false);
   visionFlowUnmount({ keepCam: false });
@@ -648,6 +658,8 @@ function nfStep3Vision() {
       ? `<div id="slideCardWrap" class="vr-slide-doc">${slideCardHtml(nf.slide, titleAt(nf.slide - 1), bodies[nf.slide - 1])}</div>`
       : `<img id="slideImage" class="vr-slide-img" src="${activeImages()[nf.slide - 1] || ''}" alt="">`);
 
+  // 리허설 흐름(#/rehearsal)에는 일반 앱으로 빠지는 「일반 리허설」 이 없다 — 눌렀다가 리허설 표시만 켜진 채 일반 #/new 에 떨어졌다 (10-03 점검 V3 · F2)
+  const rehearsalTab = typeof rehearsalFlowOn === 'function' && rehearsalFlowOn();
   visionFlowUnmount({ keepCam: true });
   app.className = '';
   app.innerHTML = '';
@@ -686,7 +698,7 @@ function nfStep3Vision() {
       <span class="vr-pill vr-glass">비전 리허설</span>
       <span class="vr-top-fill">${precomputeNoteHtml()}</span>
       <button class="btn vr-glass" id="vrCamToggle" type="button">카메라 켜기</button>
-      <button class="btn vr-glass" id="vrClassic" type="button">일반 리허설</button>
+      ${rehearsalTab ? '' : '<button class="btn vr-glass" id="vrClassic" type="button">일반 리허설</button>'}
       <a class="btn vr-glass" href="#/" id="vrLeave">나가기</a>
     </header>
     <p class="vr-hear vr-glass" id="vrHear" hidden></p>
@@ -702,7 +714,11 @@ function nfStep3Vision() {
 
   const leave = $('#vrLeave');
   if (leave) leave.addEventListener('click', (e) => {
-    if (nf.mic === 'on' && !window.confirm('발표를 녹음하고 있어요. 나가면 이번 녹음은 남지 않아요. 나갈까요?')) e.preventDefault();
+    // 리허설 흐름은 브라우저 확인 창(확인/취소) 대신 화면 안 시트(닫기 / 녹음 멈추고 나가기) — js/rehearsal.js
+    if (rehearsalTab && typeof rehearsalVisionLeave === 'function') { e.preventDefault(); rehearsalVisionLeave(layer); return; }
+    if (nf.mic !== 'on') return;
+    if (!window.confirm('발표를 녹음하고 있어요. 나가면 이번 녹음은 남지 않아요. 나갈까요?')) { e.preventDefault(); return; }
+    visionStopTake();
   });
   const classic = $('#vrClassic');
   if (classic) classic.addEventListener('click', () => {
