@@ -79,6 +79,11 @@
 .bq[data-flow="rehearsal"] .rh-slide-slot { width: 100%; padding-bottom: 46px; pointer-events: none; }
 .bq[data-flow="rehearsal"] .rh-slide-slot > i { display: block; aspect-ratio: 16 / 9; }
 
+/* 오른쪽 위 칸(카메라 알약 · 사생활 알약)은 떠 있는 자료 창보다 위에 — 창을 옮겨 둔 자리가 「영상은 이 화면에만」 을 덮지 않게.
+   칸 자체는 누름을 통과시킨다(그 밑의 자료 창 손잡이가 잡히게) */
+.bq[data-flow="rehearsal"] .bc-side { z-index: 4; pointer-events: none; }
+.bq[data-flow="rehearsal"] :is(.bc-side-row > *, .bc-side > .bc-privacy) { pointer-events: auto; }
+
 /* 떠 있는 자료 창 — 겉은 vision_rehearsal.css .vr-slide 그대로(밝은 글라스). 속은 부스 자료 그림(#bqSlide) */
 .bq[data-flow="rehearsal"] .rh-slide { z-index: 3; min-width: 0; }
 .bq[data-flow="rehearsal"] .rh-slide-body { flex: 1 1 auto; min-height: 0; display: flex; padding: 8px 8px 4px; }
@@ -89,10 +94,16 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption b { color: #0b6b4a; }
-.bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic { place-items: center; }
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide { min-height: 0; overflow: hidden; }
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide figcaption { flex: none; }
+/* 장 그림은 남은 칸 안에서만 — 가운데 맞춤 격자에 넘치는 캔버스가 위로도 넘쳐 장 이름 알약을 덮었다 (1180×820) */
+.bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic {
+  flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
 .bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic canvas,
 .bq[data-flow="rehearsal"] .rh-slide .bq-slide-pic img {
   opacity: var(--vr-slide-alpha); border-radius: 10px; box-shadow: none;
+  width: 100%; height: 100%; object-fit: contain; background: transparent;   /* 칸을 채운다 — 그린 폭이 칸보다 작으면 작은 장이 떠 있었다 */
 }
 .bq[data-flow="rehearsal"] .rh-slide .vr-slide-cap { padding: 6px 28px 6px 6px; }
 .bq[data-flow="rehearsal"] .rh-cap-fill { flex: 1; }
