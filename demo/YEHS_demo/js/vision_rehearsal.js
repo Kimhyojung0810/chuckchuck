@@ -525,12 +525,20 @@ function visionSlideApply(slide) {
   if (host.id === 'vrCall' && visionSlidePortrait()) {
     const cap = slide.querySelector('.vr-slide-cap');
     height = Math.min(sr.height, Math.round(sr.width * 9 / 16) + (cap ? cap.offsetHeight : 48) + 16);
+  } else if (host.id === 'vrCall') {
+    // 가로도 같다 — 칸 높이대로 세우면 장(16:9)은 창의 절반이고 위아래 빈 흐림이 얼굴 · 방을 가렸다(1180 에서 521×638 창에 293px 장) (10-03 점검 V-R2-3).
+    // 말하는 동안 아래에 붙는 자막(두 줄 · .vr-caption) 자리를 미리 둔다 — 자막이 뜰 때 장이 줄며 튀지 않게
+    const cap = slide.querySelector('.vr-slide-cap');
+    height = Math.min(sr.height, Math.round(sr.width * 9 / 16) + (cap ? cap.offsetHeight : 48) + 16 + VISION_CAPTION_ROOM);
   }
   slide.style.left = `${sr.left - hr.left}px`;
   slide.style.top = `${sr.top - hr.top}px`;
   slide.style.width = `${sr.width}px`;
   slide.style.height = `${height}px`;
 }
+
+/** 가로 기본 자료 창이 자막 두 줄에 남겨 두는 높이(px) — .vr-caption 13px × 1.4 × 2 + 아래 여백 */
+const VISION_CAPTION_ROOM = 46;
 
 /** 크기가 바뀐 뒤 장을 다시 그린다 — 비전 리허설은 지금 장, 화상판은 그쪽이 넘긴 함수 (visionSlideBind opts.repaint) */
 let visionSlideRepaint = null;
