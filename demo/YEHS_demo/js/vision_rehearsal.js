@@ -444,21 +444,24 @@ function visionSlideClamp(box) {
   let bottom = dock && host
     ? dock.getBoundingClientRect().top - host.getBoundingClientRect().top - 8
     : height - 8;
-  // 화상판은 답 칸 위에 진행 칩이 한 줄 더 있다 — 그 위에서 멈춘다
-  const prog = host && host.id === 'bqStage' && host.querySelector('.bc-prog .bq-prog');
-  if (prog && prog.offsetParent) bottom = Math.min(bottom, prog.getBoundingClientRect().top - host.getBoundingClientRect().top - 8);
   // 화상판(리허설 질문)에서는 위 질문 카드 · 카메라 알약 줄 아래, 화면 안쪽에만 — 발표 때 위쪽에 둔 자리가 질문을 덮었다 (10-03 labs/rehearsal_flow)
   const onCall = !!host && host.id === 'bqStage';
   let top = 8;
-  if (onCall) {
-    const hostTop = host.getBoundingClientRect().top;
-    // 사생활 알약도 — 알약이 창의 손잡이(불투명도 · 크기)를 덮어 눌리지 않았다 (10-03 점검 V2). 숨은 알약(폰 폭 · 카메라 꺼짐)은 상자가 없다
-    const marks = [...host.querySelectorAll('.bc-ask:not([hidden]), .bc-side-row, .bq-top, .bc-privacy')]
-      .filter((el) => el.getClientRects().length).map((el) => el.getBoundingClientRect().bottom - hostTop);
-    top = Math.max(8, ...marks) + 8;
-  }
   const w = Math.max(240, Math.min(box.w, width - 16));
   const x = onCall ? Math.min(Math.max(box.x, 8), width - w - 8) : Math.min(Math.max(box.x, 0), width - 72);
+  if (onCall) {
+    const hr = host.getBoundingClientRect();
+    // 창과 가로로 겹치는 것만 막는다 — 위 · 아래 막는 것을 가로 자리와 상관없이 다 세서, 빈 왼쪽으로 옮겨도 창 높이가 오른쪽 칸(≈190px)에 묶였다 (V-R2-2)
+    const across = (r) => r.width > 0 && r.right - hr.left > x && r.left - hr.left < x + w;
+    // 사생활 알약도 — 알약이 창의 손잡이(불투명도 · 크기)를 덮어 눌리지 않았다 (10-03 점검 V2). 숨은 알약(폰 폭 · 카메라 꺼짐)은 상자가 없다
+    const marks = [...host.querySelectorAll('.bc-ask:not([hidden]), .bc-side-row, .bq-top, .bc-privacy')]
+      .filter((el) => el.getClientRects().length).map((el) => el.getBoundingClientRect()).filter(across).map((r) => r.bottom - hr.top);
+    top = Math.max(8, ...marks) + 8;
+    // 아래는 답 칸 · 진행 칩 · 질문하는 삐약이 카드 중 창과 가로로 겹치는 것의 위
+    const floors = [...host.querySelectorAll('.bc-dock, .bc-prog .bq-prog, #bcHost')]
+      .filter((el) => el.getClientRects().length).map((el) => el.getBoundingClientRect()).filter(across).map((r) => r.top - hr.top - 8);
+    bottom = Math.min(height - 8, ...floors);
+  }
   // 비전 리허설 — 위 띠의 단추(카메라 · 나가기 …)와 가로로 겹치는 자리면 그 아래에서 멈춘다. 예전엔 y=8 까지 올라가
   // 단추들이 창 윗변을 덮었다 (10-03 점검 V6). 단추가 없는 가운데 위쪽은 그대로 쓸 수 있다
   if (host && host.id === 'vrCall') {

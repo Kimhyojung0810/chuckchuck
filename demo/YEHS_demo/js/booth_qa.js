@@ -1182,8 +1182,9 @@ function bqWatchSlide() {
  */
 function bqRelabelInput() {
   const finish = document.getElementById('liveFinish');
-  // 리허설은 결과가 상세 리포트다 — 버튼이 갈 곳을 말한다
-  const word = bqRehearsal() ? '남은 질문 건너뛰고 리포트 보기' : '남은 질문 건너뛰고 결과 보기';
+  // 리허설은 결과가 상세 리포트다 — 버튼이 갈 곳을 말한다. 「…리포트 보기」 는 부스 문구보다 한 칸 길어서 아이패드 가로(1180)에서
+  // 답 칸 셋째 줄로 넘어갔고, 그 줄만큼(≈50px) 위 자료 창이 작아졌다 (10-03 점검 V-R2-2)
+  const word = bqRehearsal() ? '남은 질문 건너뛰고 리포트로' : '남은 질문 건너뛰고 결과 보기';
   const see = bqRehearsal() && document.getElementById('liveSeeResult');
   if (see && see.textContent !== '리포트 보러 가기') see.textContent = '리포트 보러 가기';
   if (finish && finish.textContent !== word) finish.textContent = word;

@@ -1008,9 +1008,10 @@ function rhFloatSlide(layer) {
   call.appendChild(win);
   // 「질문이 가리키는 n장」 은 아래 조작줄의 빈 칸에 비춘다 — 장 그림이 창 높이를 다 쓰게. 장이 바뀌면 bqSyncSlide 가 그림 칸을 통째로 다시 쓴다
   const capFill = win.querySelector('.rh-cap-fill');
+  // 앞말(「질문이 가리키는」)은 따로 감싼다 — 좁은 창(아이패드 세로 124px)에서는 접고 「n장」 만 남긴다. 예전엔 말줄임으로 「질문…」 만 보여 장 번호를 잃었다 (V-R2-2)
   const mirror = () => {
     const cap = fig.querySelector('figcaption');
-    const html = cap ? cap.innerHTML : '';
+    const html = cap ? cap.innerHTML.replace(/^([^<]+)(?=<b>)/, (m) => `<span class="rh-cap-why">${m}</span>`) : '';
     if (capFill.innerHTML !== html) capFill.innerHTML = html;
   };
   mirror();
