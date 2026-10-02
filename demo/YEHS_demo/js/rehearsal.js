@@ -45,6 +45,13 @@ const RH_WAIT_STEPS = [
   { key: 'questions', word: '질문 3개를 골라요' },
 ];
 const RH_STAGE_ORDER = ['encoding', 'stt', 'concepts', 'graph', 'align', 'flow'];
+/** 분석이 그 줄에서 멈췄을 때의 한 줄 */
+const RH_WAIT_FAIL_WORD = {
+  rec: '발표 녹음을 정리하다 멈췄어요',
+  stt: '내가 한 말을 받아쓰다 멈췄어요',
+  align: '자료와 내 말을 맞춰 보다 멈췄어요',
+  flow: '발표 흐름을 비교하다 멈췄어요',
+};
 
 /* ─── 순수 함수 (tests/js/rehearsal.smoke.mjs) ─────────────────────────────── */
 
@@ -57,6 +64,7 @@ function rehearsalLeaves(key) {
  * 분석 기다림의 다섯 줄 상태 — wait · run · done · fail.
  * 받은 산출물(받아쓰기 · 정합 · 흐름)이 있으면 그 줄은 끝난 것이다. 단계 이름만 믿지 않는다 — 새로고침으로 되살린 세션은 단계가 멈춰 있다.
  * 분석이 실패했으면(질문 재료가 다 모이기 전에) 아직 안 끝난 첫 줄이 실패다. 질문 줄은 질문 생성만 본다.
+ * 'partial'(어느 단계가 실패한 채 끝남)도 질문 재료가 모자라면 실패로 친다.
  * 실패(phase 'error')는 단계 이름이 없다 — 실패 직전 단계(lastPhase)로 어디서 멈췄는지 본다. 녹음(테이크)이 있으면(hasTake)
  * 녹음 정리에서 멈춘 게 아닌 한 첫 줄은 끝이다 — 받아쓰기 실패가 「발표 녹음을 정리해요」 실패로 보였다 (10-03 점검 F5)
  */
@@ -79,7 +87,9 @@ function rehearsalWaitStates({ phase = '', out = null, qaReady = false, question
   if (questionsReady) s.questions = 'done';
   else if (buildFailed && !building) s.questions = 'fail';
   else if (qaReady) s.questions = 'run';
-  if (phase === 'error' && !qaReady) {
+  // 'partial' 도 끝난 것이다(한 단계가 죽은 채로 파이프라인이 닫혔다) — 질문 재료가 다 안 모였으면 오지 않을 결과를 기다리지 않게
+  // 아직 안 끝난 첫 줄을 실패로. 예전엔 'error' 만 봐서 개념 · 그래프 · 정합 · 흐름 하나가 502 면 시계만 돌며 영영 기다렸다 (10-03 점검 F1)
+  if ((phase === 'error' || phase === 'partial') && !qaReady) {
     const first = ['rec', 'stt', 'align', 'flow'].find((k) => s[k] !== 'done');
     if (first) s[first] = 'fail';
   }
@@ -738,6 +748,8 @@ function rhWaitTick() {
   const el = document.getElementById('bqElapsed');
   // 멈췄으면 시계도 멈춘다 — 「n초 지났어요」 · 「질문이 준비되면 바로 시작해요」 가 계속 가면 아직 기다리는 것처럼 보였다 (F5)
   if (el && nf.pipelineStartedAt && !stopped) bqSet(el, 'textContent', `${Math.max(0, Math.round((Date.now() - nf.pipelineStartedAt) / 1000))}초 지났어요`);
+  // 멈춘 시계(「0초 지났어요」)를 남기지 않는다 — 금방 실패하면 0초에 선 채로 보였다
+  bqSet(el, 'hidden', stopped);
   bqSet(document.getElementById('rhWaitNext'), 'hidden', stopped);
   bqSet(document.getElementById('rhWaitLive'), 'textContent', rhWaitNow(st));
   if (live && bq.rhLiveAtMount) {
@@ -788,7 +800,9 @@ function rhWaitFail(st, qaReady) {
   let why = typeof humanErrorText === 'function' ? humanErrorText(nf.pipelineError || nf.pipelineDetail || '') : '';
   // 영어 원문(「Failed to fetch.」 등)은 화면에 안 낸다 — 원문은 콘솔에 남는다 (F5)
   if (!/[가-힣]/.test(why)) why = /fetch|network|abort/i.test(why) ? '연결이 끊겨서 분석을 마치지 못했어요' : '';
-  console.warn('[chuckchuck] rehearsal pipeline', nf.pipelineError);
+  // 한 단계만 죽고 닫힌 분석('partial')은 「개념 추출 실패」 같은 내부 이름 대신 멈춘 줄을 사람 말로 (10-03 점검 F1)
+  if ((nf.pipelinePhase || '') === 'partial') why = RH_WAIT_FAIL_WORD[RH_WAIT_STEPS.map((x) => x.key).find((k) => st[k] === 'fail')] || '';
+  console.warn('[chuckchuck] rehearsal pipeline', nf.pipelineError || nf.pipelineDetail);
   box.innerHTML = `<div class="bq-fail"><p>${escapeHtml(why || '분석을 마치지 못했어요')}. 「다시 발표하기」를 누르면 같은 자료로 다시 발표할 수 있어요.</p>
     <button type="button" class="bq-ghost" id="rhAgain">다시 발표하기</button> <button type="button" class="bq-ghost" id="rhRepick">다른 발표 고르기</button></div>`;
   // 자료는 그대로 두고 테이크만 버리는 길은 nfStep4 의 「다른 녹음으로 다시」와 같다 — 그 버튼을 그대로 누른다

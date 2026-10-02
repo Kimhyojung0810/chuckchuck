@@ -101,6 +101,18 @@ test('질문 생성 실패 — 만드는 중이면 아직 실패가 아니다', 
   eq(R.rehearsalWaitStates({ phase: 'done', qaReady: true, buildFailed: true, building: true }).questions, 'run', '다시 만드는 중');
 });
 
+test('한 단계만 죽고 닫힌 분석(partial)도 질문 재료가 모자라면 멈춘 것 — 개념 · 그래프 · 정합이면 맞춰 보기 줄, 흐름이면 흐름 줄 (F1)', () => {
+  const a = R.rehearsalWaitStates({ phase: 'partial', out: { transcript: { by_slide: [] } } });
+  eq([a.rec, a.stt, a.align, a.flow], ['done', 'done', 'fail', 'wait'], '정합 전');
+  const f = R.rehearsalWaitStates({ phase: 'partial', out: { transcript: {}, graph: {}, alignment: {} } });
+  eq([f.rec, f.stt, f.align, f.flow], ['done', 'done', 'done', 'fail'], '흐름');
+});
+
+test('partial 이어도 질문 재료가 다 모였으면(리포트 축만 실패) 멈춘 게 아니다', () => {
+  const s = R.rehearsalWaitStates({ phase: 'partial', qaReady: true });
+  eq(Object.values(s).includes('fail'), false, '실패 없음');
+});
+
 test('새로고침으로 단계가 멈춘 세션도 산출물로 판단한다 (phase 가 비어도 정합이 있으면 끝)', () => {
   const s = R.rehearsalWaitStates({ phase: '', out: { transcript: {}, alignment: {}, flow: {} } });
   eq([s.rec, s.stt, s.align, s.flow], ['done', 'done', 'done', 'done'], '줄');
