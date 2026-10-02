@@ -7125,13 +7125,12 @@ function deckHtml() {
       <figure class="deck-stage st-${st}">
         <div class="deck-stage-pic">
           ${stage}
-          ${deckChickOnSlide(n)}
         </div>
         <!-- 판정 이름(<em>${'${STATUS[st]}'}</em>)이 여기 또 있었다. 한 패널 안에서
              「언급만 함」이 세 번 나왔다 — 이 자막, 오른쪽 dp-top 의 칩, 그리고
              아래 순간 목록. 무대 테두리가 이미 판정 색(st-*)을 입고 있고, 판정을
              **말로** 하는 건 오른쪽 칩 하나면 된다. 자막은 몇 번째 장인지만 말한다. -->
-        <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}</figcaption>
+        <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}${deckChickOnSlide(n)}</figcaption>
       </figure>
       <div class="deck-panel">${panel}</div>
     </div>`;
