@@ -162,6 +162,12 @@ function visionCoachStop() {
   visionCoach.final = '';
   visionCoach.interim = '';
   visionCoach.note = '';
+  if (visionCoach.reaction) {
+    visionEnsureReactions();
+    visionReactions.push(visionCoach.reaction);
+    visionCoach.reaction = null;
+    visionPersistCues();
+  }
 }
 
 function visionFlowUnmount({ keepCam = false } = {}) {
@@ -178,12 +184,60 @@ function visionCueText(cue) {
   return copy[cue] || '';
 }
 
+const VISION_REACTS = new Set(['fast', 'slow', 'quiet', 'loud']);
+let visionReactions = [];
+let visionReactionsReady = false;
+
+function visionRecSec() {
+  if (typeof nf !== 'undefined' && nf && nf.mic === 'on') return Math.round((Number(nf.sec) || 0) * 10) / 10;
+  if (visionCoach.startedAt) return Math.round((performance.now() - visionCoach.startedAt) / 100) / 10;
+  return 0;
+}
+
+function visionEnsureReactions() {
+  if (visionReactionsReady) return;
+  visionReactionsReady = true;
+  if (typeof nf !== 'undefined' && nf && Array.isArray(nf.visionCues)) visionReactions = nf.visionCues.slice();
+}
+
+function visionPersistCues() {
+  const list = visionReactions.slice();
+  if (visionCoach.reaction) list.push(visionCoach.reaction);
+  if (typeof nf === 'undefined' || !nf) return;
+  nf.visionCues = list.slice(-80);
+  nf.visionSeen = true;
+  if (typeof saveSession === 'function') saveSession('new-flow', nf);
+}
+
+function visionResetReactions() {
+  visionReactions = [];
+  visionReactionsReady = true;
+  visionCoach.reaction = null;
+  if (typeof nf !== 'undefined' && nf) {
+    nf.visionCues = [];
+    if (typeof saveSession === 'function') saveSession('new-flow', nf);
+  }
+}
+
+/** 표정이 바뀐 순간만 남긴다. 그 순간의 말 끝을 같이 적어, 리포트가 「이 말에서 귀가 아팠다」고 보여 주게 한다. */
+function visionNoteReaction(cue) {
+  visionEnsureReactions();
+  const slide = (typeof nf !== 'undefined' && nf && Number(nf.slide)) || 1;
+  const react = VISION_REACTS.has(cue);
+  const open = visionCoach.reaction;
+  if (open && open.cue === cue && open.slide_no === slide) return;
+  if (open) visionReactions.push(open);
+  const heard = visionCoachText().slice(-48).trim();
+  visionCoach.reaction = react ? { slide_no: slide, sec: visionRecSec(), cue, text: heard } : null;
+  visionPersistCues();
+}
+
 function visionPaintCue(cue) {
   const bird = $('#vrBird');
   const line = $('#vrLine');
   const status = $('#vrStatus');
   const text = visionCueText(cue);
-  const react = cue === 'fast' || cue === 'slow' || cue === 'quiet' || cue === 'loud';
+  const react = VISION_REACTS.has(cue);
   if (bird) {
     bird.dataset.cue = cue || 'idle';
     bird.setAttribute('aria-label', react ? `삐약이, ${text}` : '삐약이');
@@ -193,8 +247,9 @@ function visionPaintCue(cue) {
     line.textContent = react ? text : '';
   }
   if (status) {
-    status.textContent = cue === 'listen' ? '듣고 있어요' : (react ? text : '말하면 반응해요');
+    status.textContent = cue === 'listen' ? '잘 듣고 있어요' : (react ? text : '말하면 반응해요');
   }
+  visionNoteReaction(cue || 'idle');
 }
 
 function visionPaintHear() {
@@ -282,6 +337,11 @@ function visionCoachStart() {
   visionArmEar();
   visionCoach.meter = Cue.createVisionMeter(performance.now());
   visionCoach.startedAt = performance.now();
+  visionEnsureReactions();
+  if (typeof nf !== 'undefined' && nf) {
+    nf.visionSeen = true;
+    if (typeof saveSession === 'function') saveSession('new-flow', nf);
+  }
   visionPaintCue('idle');
   const bridge = window.ChuckchuckBridge;
   if (bridge && bridge.hasLiveDictation && bridge.hasLiveDictation()) {
@@ -297,7 +357,7 @@ function visionCoachStart() {
     } catch (_) { /* 받아쓰기가 없어도 마이크 파동으로 속도를 본다 */ }
   }
   visionOpenLevel();
-  visionCoach.timer = setInterval(visionCoachSample, 80);
+  visionCoach.timer = setInterval(visionCoachSample, 40);
 }
 
 function visionPaws() {

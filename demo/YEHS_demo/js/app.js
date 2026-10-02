@@ -383,6 +383,12 @@ function route() {
   // 이 화면의 코드를 아직 안 받았으면 받고 나서 다시 그린다 (js/lazy.js)
   const lazy = lazyBundlesFor(key);
   if (lazy.length && !lazy.every((b) => ccLazy.loaded(b))) { renderLazyWait(lazy); return; }
+  /* 「내 발표」는 지난 발표 벽이다. 리포트를 보다가 여기로 오면 이번 회차를
+     벽에 붙여 둔다. 같은 테이크면 Playbill 이 갱신만 하므로 중복 티켓은 안 생긴다 */
+  if (!key) {
+    const pending = currentShow();
+    if (pending && pending.takeId) recordShow();
+  }
   (routes[key] || renderHome)();
   syncTopbar();
   syncSideNav(key);
@@ -393,8 +399,8 @@ function route() {
 /* 지금 어느 칸에 있는지 좌측 내비에 표시한다. 색만으로 말하지 않으려고
    aria-current 를 쓰고 CSS 가 그걸 따라간다 — 스크린리더도 같은 걸 읽는다.
    질문 코칭(#/qa)은 내비에 칸이 없다. 진행 중일 때만 의미가 있어서 링크로
-   두면 죽은 칸이 되고, 이어하기는 탑바가 이미 맡는다 — 그동안은 「연습하기」를
-   켜 둔다 (같은 발표 흐름 안이다) */
+   두면 죽은 칸이 되고, 이어하기는 탑바가 맡는다. 연습으로 가는 입구는
+   「새 발표 연습」 하나다 — 목록의 「연습하기」와 같은 곳이라 둘을 두지 않는다 */
 function syncSideNav(key) {
   /* 병아리 넷은 화면마다 바뀌지 않으니 사이드바에 한 번만 심는다.
      홈 본문에 있던 띠를 여기로 옮겼다 — 그 자리에선 화면마다 사라졌다 나타났고,
@@ -2855,6 +2861,8 @@ function showEntranceRitual() {
 
 async function startRec() {
   await showEntranceRitual();
+  if (typeof visionResetReactions === 'function') visionResetReactions();
+  else if (nf) nf.visionCues = [];
   const bridge = window.ChuckchuckBridge;
   if (bridge) {
     ccRuntime = bridge.attachRehearsalRuntime(nf, {
@@ -6970,6 +6978,60 @@ function bindDeckPanel() {
   if (go) go.addEventListener('click', () => goJudge(go.dataset.node));
 }
 
+const DECK_CHICK = {
+  listen: '잘 듣고 있어요',
+  fast: '우웅?',
+  slow: '하암~',
+  quiet: '잘 안 들려',
+  loud: '귀가 아파',
+};
+
+/** 이 장에서 가장 많이 나온 삐약이 표정. 기록이 없으면 null, 반응 없이 듣기만 했으면 listen. */
+function deckChickCue(slideNo) {
+  const all = (nf && Array.isArray(nf.visionCues)) ? nf.visionCues : [];
+  if (!all.length) return null;
+  const mine = all.filter((c) => Number(c.slide_no) === Number(slideNo) && DECK_CHICK[c.cue] && c.cue !== 'listen');
+  if (!mine.length) return 'listen';
+  const tally = {};
+  mine.forEach((c) => {
+    if (!tally[c.cue]) tally[c.cue] = { n: 0, sec: -1 };
+    tally[c.cue].n += 1;
+    tally[c.cue].sec = Math.max(tally[c.cue].sec, Number(c.sec) || 0);
+  });
+  return Object.keys(tally).sort((a, b) => tally[b].n - tally[a].n || tally[b].sec - tally[a].sec)[0];
+}
+
+function deckChickPaws() {
+  return `
+    <svg class="deck-paws" viewBox="0 0 100 100" aria-hidden="true">
+      <g class="deck-paw deck-paw-l">
+        <path d="M14 28c-5 3-6 11-2 14 3 2 7 0 8-4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2" stroke-linejoin="round"/>
+        <ellipse cx="20" cy="34" rx="7" ry="5.4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2"/>
+      </g>
+      <g class="deck-paw deck-paw-r">
+        <path d="M86 28c5 3 6 11 2 14-3 2-7 0-8-4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2" stroke-linejoin="round"/>
+        <ellipse cx="80" cy="34" rx="7" ry="5.4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2"/>
+      </g>
+    </svg>`;
+}
+
+/** 그 표정의 삐약이를 슬라이드 위에 올린다. 말은 패널에 있고, 얼굴은 장 위에 있다. */
+function deckChickOnSlide(slideNo) {
+  const cue = deckChickCue(slideNo);
+  if (!cue || !DECK_CHICK[cue]) return '';
+  const chick = (window.Chatter && window.Chatter.chickSvg) ? window.Chatter.chickSvg('solar') : '';
+  if (!chick) return '';
+  const line = DECK_CHICK[cue];
+  return `
+    <div class="deck-chick" data-cue="${escapeHtml(cue)}" aria-label="삐약이, ${escapeHtml(line)}">
+      <div class="deck-chick-body">
+        <div class="ch-seat seated" data-mood="neutral">${chick}</div>
+        ${deckChickPaws()}
+      </div>
+      <p class="deck-chick-line">${escapeHtml(line)}</p>
+    </div>`;
+}
+
 /* 선택된 슬라이드의 무대 + 그 장에서 있었던 일.
    실데이터 세션에서는 판정 트리·올린 자료만 본다 — DATA.* 샘플은 샘플 모드 전용이다. */
 function deckHtml() {
@@ -7040,7 +7102,10 @@ function deckHtml() {
   return `
     <div class="deck-main">
       <figure class="deck-stage st-${st}">
-        ${stage}
+        <div class="deck-stage-pic">
+          ${stage}
+          ${deckChickOnSlide(n)}
+        </div>
         <!-- 판정 이름(<em>${'${STATUS[st]}'}</em>)이 여기 또 있었다. 한 패널 안에서
              「언급만 함」이 세 번 나왔다 — 이 자막, 오른쪽 dp-top 의 칩, 그리고
              아래 순간 목록. 무대 테두리가 이미 판정 색(st-*)을 입고 있고, 판정을

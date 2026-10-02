@@ -17,12 +17,12 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <!-- 서체 CSS·pdf.js 가 오는 CDN 에 미리 연결해 둔다 (DNS·TLS 를 첫 요청 전에) -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/app.css?v=ql12">
+<link rel="stylesheet" href="css/app.css?v=ql14">
 <!-- #/graph 3D 무대 전용. 데모 경로 밖 화면이라 app.css 를 안 건드리고 따로 둔다 -->
 <link rel="stylesheet" href="css/graph3d.css?v=qku2">
 <link rel="stylesheet" href="css/chatter.css?v=qkh">
 <link rel="stylesheet" href="css/theater.css?v=qkh">
-<link rel="stylesheet" href="css/design-system.css?v=qkp7">
+<link rel="stylesheet" href="css/design-system.css?v=qlst">
 <!-- 아이패드 가로형 레이아웃. 앞의 규칙 위에 얹으므로 마지막에 둔다 -->
 <link rel="stylesheet" href="css/tablet.css?v=qkl2">
 <!-- 녹음 SDK 모듈 사슬(chuckchuck_bridge → /sdk/index.js → recorder·slide_marks·rehearsal → rehearsal-recorder)을
@@ -54,7 +54,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      --nav-w 가 0 이라 아무것도 안 바뀐다 -->
 <nav class="sidenav" aria-label="주요 메뉴">
   <a class="sidenav-brand" href="#/"><img class="brand-app-icon" src="assets/chuckchuck-app-icon-64.png?v=qk13" alt="">척척발표</a>
-  <a class="btn btn-primary sidenav-cta" href="#/new" data-fresh-practice>새 발표 연습</a>
+  <a class="btn btn-primary sidenav-cta" href="#/new" data-nav="new" data-fresh-practice>새 발표 연습</a>
   <!-- 아이콘은 이름 옆의 장식이 아니라 자리표다. 글자 셋만 세로로 세워 두면
        사이트맵처럼 읽히고, 지금 어디인지도 글자 무게로만 말하게 된다.
        선 아이콘 하나로 통일하고 색은 currentColor 로 받아 선택 상태를 따라간다 -->
@@ -62,9 +62,6 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
     <li><a href="#/" data-nav="">
       <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.6 12 3.8l8.5 6.8V20a1 1 0 0 1-1 1h-4.6v-6H9.1v6H4.5a1 1 0 0 1-1-1z"/></svg>
       <span>내 발표</span></a></li>
-    <li><a href="#/new" data-nav="new">
-      <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8a2.8 2.8 0 0 1 2.8 2.8v5.2a2.8 2.8 0 0 1-5.6 0V6.6A2.8 2.8 0 0 1 12 3.8z"/><path d="M5.6 11.4a6.4 6.4 0 0 0 12.8 0"/><path d="M12 18v2.6"/></svg>
-      <span>연습하기</span></a></li>
     <li><a href="#/report" data-nav="report">
       <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.2" width="16" height="17.6" rx="2.4"/><path d="M8.4 13.4v3.2M12 9.6v7M15.6 12.2v4.4"/></svg>
       <span>리포트</span></a></li>
@@ -106,13 +103,13 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      pdf     : 올린 PDF 를 브라우저에서 여는 pdf.js — 한가할 때 받고, 쓰는 곳은 ccEnsurePdfjs() 로 기다린다 -->
 <template id="lazyAssets">
   <link rel="stylesheet" href="css/call_flow.css?v=cf5" data-bundle="beta">
-  <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr3" data-bundle="beta">
+  <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr4" data-bundle="beta">
   <link rel="stylesheet" href="css/booth_qa.css?v=bq9" data-bundle="beta">
   <link rel="stylesheet" href="css/booth_call.css?v=bc18" data-bundle="beta">
   <!-- 통화 배치 흐름 #/temp (발표: 자료 정면 + 내 모습 작은 창 · Q&A: 내 모습 가운데). app.js 의 전역을 호출 시점에 찾는다 -->
   <script src="js/call_flow.js?v=cf5" data-bundle="beta"></script>
-  <script src="js/vision_cue.js?v=vr2" data-bundle="beta"></script>
-  <script src="js/vision_rehearsal.js?v=vr4" data-bundle="beta"></script>
+  <script src="js/vision_cue.js?v=vr4" data-bundle="beta"></script>
+  <script src="js/vision_rehearsal.js?v=vr7" data-bundle="beta"></script>
   <!-- 부스 Q&A 무대 #/booth/qa — 카메라 판단(OpenCV.js 는 이 화면에서만 받는다) · 화면 흐름 -->
   <script src="js/booth_cv.js?v=bq3" data-bundle="beta"></script>
   <script src="js/booth_ops.js?v=bo8" data-bundle="beta"></script>
@@ -134,13 +131,13 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/chatter.js?v=qkh2"></script>
 <script src="js/playbill.js?v=qkh"></script>
 <script src="js/qa-history.js?v=qkh"></script>
-<script src="js/report-strategy.js?v=qkp"></script>
+<script src="js/report-strategy.js?v=qlst"></script>
 <!-- 실전 QA(F-08·F-09) — app.js 에서 떼어냈다. 전역을 공유하므로 app.js 앞에 둔다 -->
 <script src="js/conn_watch.js?v=cw1"></script>
 <script src="js/qa_live.js?v=qlbc23"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv3"></script>
-<script src="js/app.js?v=qlbc33"></script>
+<script src="js/app.js?v=qlbc37"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkxbc8"></script>
 </body>
