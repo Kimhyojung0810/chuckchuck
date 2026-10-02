@@ -805,7 +805,8 @@ let rhCamAliveTimer = 0;
 function rhWatchCamAlive() {
   if (rhCamAliveTimer) return;
   rhCamAliveTimer = setInterval(() => {
-    if (!document.querySelector('#bqStage[data-flow="rehearsal"]')) { clearInterval(rhCamAliveTimer); rhCamAliveTimer = 0; return; }
+    // 기다림 · 화상판에서만 — 고르기 · 「어떤 발표인가요」 도 같은 층(#bqStage[data-flow=rehearsal])이라, 기다림에서 뒤로 가면 시계가 목록에서도 돌았다 (perf-r2-4)
+    if (!document.querySelector('#bqStage[data-flow="rehearsal"]:is([data-screen="wait"], [data-screen="qa"])')) { clearInterval(rhCamAliveTimer); rhCamAliveTimer = 0; return; }
     if (typeof bqCamCheckAlive === 'function') bqCamCheckAlive();
   }, 1000);
 }
