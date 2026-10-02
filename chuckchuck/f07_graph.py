@@ -1407,8 +1407,11 @@ def _build_typed(engine: LLMProvider, doc: ConceptDoc, ctx: Context, slide_doc: 
     data = TG.call_structure(engine, doc, ctx, MAX_TOKENS)
     if data is None:
         degraded.append("skeleton")
+    # 이름이 다른 같은 개념(임베딩 후보 → LLM 확인) — 실패해도 빈 목록, 그래프는 그대로
+    same = TG.call_same(engine, doc)
+    data = {**(data or {}), "same_keys": same}
     nodes, edges, sections, thesis = TG.assemble(doc, data, slide_doc)
-    cov = TG.coverage(doc, nodes)
+    cov = TG.coverage(doc, nodes, same)
     if cov["lost"]:
         sys.stderr.write(f"[f07] 그래프에 없는 F-06 항목 {cov['lost']}/{cov['total']}: {cov['missing']}\n")
     graph = ConceptGraph(file_name=doc.file_name, total_slides=doc.total_slides, nodes=nodes, edges=edges,

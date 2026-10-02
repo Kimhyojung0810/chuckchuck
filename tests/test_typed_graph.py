@@ -311,3 +311,22 @@ def test_f06_drops_evidence_and_descriptions_not_in_source():
                        "수익성을 가로막는 세 가지 문제", RAW[2])
     assert "공헌이익" in out["concepts"]                                   # 이름은 원문에 있다 — 설명만 비운다
     assert out["evidence"] == ["① 높은 배송비"]
+
+
+def test_differently_named_same_concept_is_merged(monkeypatch):
+    """10-02: 「매매 회전율」(2장) 「연간 회전율」(6장)이 따로 노드였다 — 임베딩 후보를 LLM 이 같다고 하면 한 노드."""
+    from chuckchuck.providers import embed_upstage
+    doc = ConceptDoc(file_name="d", total_slides=2, slides=[
+        SlideConcepts(slide_no=1, title="요약", topic="", concepts=["매매 회전율: 사고판 횟수"], raw_text="매매 회전율이 높다",
+                      title_kind="topic", claims=["매매 회전율이 높을수록 수익률이 낮다"]),
+        SlideConcepts(slide_no=2, title="상세", topic="", concepts=["연간 회전율", "보유 기간"], raw_text="연간 회전율 보유 기간",
+                      title_kind="topic", claims=["연간 회전율 구간별로 수익률이 단조 감소했다"])])
+    vec = {"매매 회전율: 사고판 횟수": [1, 0, 0], "연간 회전율": [0.95, 0.1, 0], "보유 기간": [0, 0, 1]}
+    monkeypatch.setattr(embed_upstage, "embed_texts", lambda texts, **_: [vec[t] for t in texts])
+    monkeypatch.setenv("CHUCKCHUCK_GRAPH_SAME", "1")
+    g = build_graph(doc, {}, llm=ScriptedLLM({"thesis_from": "c1.1", "pairs": [{"id": 0, "same": True}]}))
+    labels = [n.label for n in g.nodes if n.kind == "concept"]
+    assert ("매매 회전율" in labels) != ("연간 회전율" in labels) and "보유 기간" in labels   # 둘이 한 노드
+    merged = next(n for n in g.nodes if n.label in ("매매 회전율", "연간 회전율"))
+    assert merged.slide_nos == [1, 2]
+    assert TG.coverage(doc, g.nodes, [("매매회전율", "연간회전율")])["lost"] == 0
