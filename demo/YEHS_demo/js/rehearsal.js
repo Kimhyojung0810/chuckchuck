@@ -471,6 +471,9 @@ function rhClock(sec) {
  */
 function rehearsalVisionDock(layer) {
   layer.dataset.flow = 'rehearsal';
+  // 같은 흐름의 다른 화면(고르기 · 기다림 · 화상판)은 「발표 리허설」 — 비전 화면만 「비전 리허설」 이라 다른 기능처럼 보였다 (V-R2-5). /vision 은 그대로
+  const pill = layer.querySelector('.vr-top .vr-pill');
+  if (pill) pill.textContent = '발표 리허설';
   const deck = nf && nf.rehearsalDeck;
   const rec = layer.querySelector('#recPanel');
   if (!deck || !deck.audio || !rec) return;
@@ -665,17 +668,19 @@ function rhWaitHtml() {
 
 /**
  * 제목 밑 한 줄(글자 그대로 — 그리는 쪽이 escape). 녹음본으로 마쳤으면 그렇다고 말한다 — 카메라 반응이 없는 까닭도 (정직한 상태).
- * state: run(분석 중) · stopped(멈춤) — 멈췄는데 「분석하고 있어요」 가 제목 밑에 남아 서로 어긋났다 (10-03 점검 F4)
+ * state: run(분석 중) · ready(질문까지 준비됨) · stopped(멈춤) — 멈췄는데 「분석하고 있어요」 가 제목 밑에 남아 서로 어긋났다 (10-03 점검 F4)
  */
 function rhWaitTip(title, state = 'run') {
   const up = nf.uploadedTake;
   if (up) {
     const rec = `발표 녹음 「${up.name}」(${rhClock(up.durationSec)})`;
     if (state === 'stopped') return `${rec}으로 분석하다 멈췄어요.`;
+    if (state === 'ready') return `${rec}으로 분석했어요. 카메라 앞 발표가 아니라서 삐약이 반응은 리포트에 없어요.`;
     return `${rec}으로 분석하고 있어요. 카메라 앞 발표가 아니라서 삐약이 반응은 리포트에 없어요.`;
   }
   const talk = `방금 한 ${title ? `「${title}」 ` : ''}발표`;
   if (state === 'stopped') return `${talk}를 분석하다 멈췄어요.`;
+  if (state === 'ready') return `${talk}를 받아쓰고 자료와 맞춰 봤어요.`;
   return `${talk}를 받아쓰고 자료와 맞춰 봐요. 1~3분쯤 걸려요.`;
 }
 
@@ -855,6 +860,8 @@ function rhWaitTick() {
     // 질문이 준비됐다 — 누르지 않아도 화상판으로 (잠깐 「준비됐어요」 를 보여 주고)
     bq.rhEntering = true;
     bqSet(document.getElementById('rhWaitTitle'), 'textContent', '질문 3개를 준비했어요. 화상판으로 들어가요');
+    // 다 끝났는데 밑줄이 「…맞춰 봐요. 1~3분쯤 걸려요」 로 남아 제목과 어긋났다 (V-R2-5)
+    bqSet(document.getElementById('rhWaitTip'), 'textContent', rhWaitTip(rhWaitTitleText(), 'ready'));
     bq.timers.push(setTimeout(() => { bq.rhEntering = false; if (rhRouteKey() === 'new' && nf.step === 3) location.hash = '#/qa'; }, 900));
   }
   rhWaitFail(st, qaReady);
