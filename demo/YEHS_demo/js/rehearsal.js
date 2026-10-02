@@ -137,6 +137,12 @@ function rehearsalTeardown({ keepVision = false } = {}) {
  */
 function rehearsalFlowOnRoute(key) {
   if (!rehearsalFlowOn()) return;
+  // 녹음 중에 비전 리허설(#/new)을 떠나면 — 브라우저 · 아이패드 뒤로 가기, 주소 직접 입력 — 테이크를 멈춘다.
+  // 「나가기」 시트만 멈춰서, 뒤로 가기로는 발표 목록 · 홈 뒤에서 녹음기와 마이크가 표시 없이 계속 돌았다 (10-03 점검 F2)
+  if (key !== 'new' && typeof nf !== 'undefined' && nf && nf.mic === 'on' && typeof visionStopTake === 'function') {
+    visionStopTake();
+    rhTakeCut = true;   // 「어떤 발표인가요」 가 한 번 알린다
+  }
   if (rehearsalLeaves(key)) {
     rehearsalTeardown({ keepVision: key === 'vision' });
     return;
@@ -400,8 +406,13 @@ function rhAskerLine(word) {
   return `${word}${typeof josa === 'function' ? josa(word, '이', '가') : '이'} 물어요`;
 }
 
+/** 녹음 중에 뒤로 와서 테이크를 멈췄다 — 다음 「어떤 발표인가요」 가 한 번 말한다 */
+let rhTakeCut = false;
+
 function rhShowOcc(d) {
   const note = applyOccSuggestion();
+  const cut = rhTakeCut;
+  rhTakeCut = false;
   rhMount('occ', `
     <div class="bq-pick rh-occ">
       <p class="bq-eyebrow">${escapeHtml(d.title)}</p>
@@ -418,6 +429,7 @@ function rhShowOcc(d) {
       </fieldset>
       <label class="rh-ctx"><span>조금 더 설명해 주면 좋아요</span>
         <input type="text" id="rhCtx" value="${escapeHtml(nf.ctx || '')}" placeholder="예: 경영학 수업에서 교수님과 학생 30명 앞에서 발표해요"></label>
+      ${cut ? '<p class="bq-foot rh-cut-note" role="status">녹음하던 발표는 멈췄어요. 다시 발표하려면 「카메라 앞에서 발표하러 가기」를 눌러요.</p>' : ''}
       <div class="rh-occ-actions">
         <button type="button" class="bq-cta" id="rhGoVision">카메라 앞에서 발표하러 가기</button>
         <button type="button" class="bq-ghost" id="rhRepick">다른 발표 고르기</button>

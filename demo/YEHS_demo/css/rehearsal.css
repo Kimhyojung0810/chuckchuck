@@ -21,6 +21,7 @@
 }
 .bq[data-flow="rehearsal"] .rh-ctx input::placeholder { color: rgba(255, 255, 255, .6); }
 .bq[data-flow="rehearsal"] .rh-occ-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.bq[data-flow="rehearsal"] .rh-cut-note { margin: 0 0 14px; }
 
 /* ── 비전 리허설 조작줄 — 「녹음본을 넣어서 발표 마치기」 · 리허설은 직접 녹음 파일을 안 받는다 ── */
 #vrCall[data-flow="rehearsal"] .rec-upload { display: none; }
