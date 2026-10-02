@@ -179,6 +179,68 @@ def call_structure(engine: LLMProvider, doc: ConceptDoc, ctx: Context, max_token
     return vote_structure(got) if got else None
 
 
+#: 같은 개념 후보 — 임베딩 코사인 유사도 문턱, 한 번에 물을 쌍 수 상한.
+SAME_SIM_MIN = float(os.environ.get("CHUCKCHUCK_GRAPH_SAME_SIM", "0.7"))
+SAME_PAIRS_MAX = 40
+
+SAME_SYSTEM_PROMPT = """두 개념 이름이 이 발표에서 **같은 대상**을 가리키는지 판단한다 — 표기·단위·수식어만 다른 같은 지표·같은 개념이면 same: true.
+부분·종류·대조·원인·결과·나란한 다른 개념이면 same: false. 일반 지식을 써도 된다.
+반드시 JSON 객체만 출력: {"pairs": [{"id": 0, "same": true}]}"""
+
+
+def _cos(a: list[float], b: list[float]) -> float:
+    import math
+    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(x * x for x in b))
+    return sum(x * y for x, y in zip(a, b)) / (na * nb) if na and nb else 0.0
+
+
+def call_same(engine: LLMProvider, doc: ConceptDoc) -> list[tuple[str, str]]:
+    """
+    이름이 다른 같은 개념 — [(열쇠 A, 열쇠 B)]. 임베딩 유사도가 문턱 이상인 쌍만 LLM 에 「같은 대상인가」 를 묻고 과반이 같다면 묶는다.
+    10-02 실험(labs/embed_attention): 「매매 회전율」(2장) 「연간 회전율」(6장) 「회전율」(11·13장)이 따로 노드였다 — 이름 열쇠가 달라
+    합치지 못했다. 임베딩은 같은 말을 잘 모으지만 「상위 성과 그룹 ↔ 하위 성과 그룹」(0.90) 같은 대조도 모아서 LLM 확인을 둔다.
+    임베딩·키가 없거나(mock·테스트) 깨지면 [] — 그래프는 그대로 나온다.
+    """
+    if getattr(engine, "name", "") == "mock" or os.environ.get("CHUCKCHUCK_GRAPH_SAME", "1") == "0":
+        return []
+    from .providers.embed_upstage import embed_texts
+    seen: dict[str, str] = {}
+    for its in slide_items(doc).values():
+        for it in its:
+            if it.kind == "concept":
+                seen.setdefault(_key(it.label), f"{it.label}: {it.desc}" if it.desc else it.label)
+    keys = list(seen)
+    if len(keys) < 2:
+        return []
+    vecs = embed_texts([seen[k] for k in keys])
+    if not vecs:
+        return []
+    pairs = sorted(((i, j, _cos(vecs[i], vecs[j])) for i in range(len(keys)) for j in range(i + 1, len(keys))),
+                   key=lambda x: -x[2])
+    pairs = [p for p in pairs if p[2] >= SAME_SIM_MIN][:SAME_PAIRS_MAX]
+    if not pairs:
+        return []
+    user = "\n".join(f"- ({n}) {seen[keys[i]].partition(':')[0]} ‖ {seen[keys[j]].partition(':')[0]}" for n, (i, j, _) in enumerate(pairs))
+    n_votes = skeleton_votes(engine)
+    from concurrent.futures import ThreadPoolExecutor
+
+    def once(_):
+        try:
+            return extract_json_object(engine.complete(system=SAME_SYSTEM_PROMPT, user=user, temperature=TEMPERATURE,
+                                                       max_tokens=2048, json_mode=True))
+        except Exception as e:  # noqa: BLE001 — 보조 판단, 깨지면 그 표만 빠진다
+            sys.stderr.write(f"[f07] 같은 개념 판단 실패: {type(e).__name__}: {str(e)[:120]}\n")
+            return None
+    with ThreadPoolExecutor(max_workers=n_votes) as ex:
+        runs = [r for r in ex.map(once, range(n_votes)) if isinstance(r, dict)]
+    out = []
+    for n, (i, j, _) in enumerate(pairs):
+        yes = sum(1 for r in runs for x in (r.get("pairs") or []) if isinstance(x, dict) and x.get("id") == n and x.get("same") is True)
+        if runs and yes * 2 > len(runs):
+            out.append((keys[i], keys[j]))
+    return out
+
+
 def vote_structure(runs: list[dict]) -> dict:
     from collections import Counter
     need = len(runs) // 2 + 1
@@ -390,10 +452,21 @@ def assemble(
     # 3. 개념 노드 — 이름이 같으면 장을 넘어 하나. 집은 핵심 주장에 흡수되지 않은 첫 장(요약·결론 장보다 설명 장)
     occ: dict[str, list[Item]] = {}
     claim_keys = {_key(n.label) for n in nodes}
+    # 이름이 다른 같은 개념(`call_same`)은 한 열쇠로 — 먼저 나온 쪽 열쇠가 대표
+    canon: dict[str, str] = {}
+
+    def find(k: str) -> str:
+        while canon.get(k, k) != k:
+            k = canon[k]
+        return k
+    for a, b in data.get("same_keys") or []:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            canon[rb] = ra
     for its in items.values():
         for it in its:
             if it.kind == "concept":
-                occ.setdefault(_key(it.label) or it.key, []).append(it)
+                occ.setdefault(find(_key(it.label)) or it.key, []).append(it)
     concept_node: dict[str, ConceptNode] = {}
     home: dict[str, Item] = {}
     for ck, its in occ.items():
@@ -412,6 +485,9 @@ def assemble(
         home[n.id] = h
         for it in its:
             node_of_key[it.key] = n
+    for k in list(canon):
+        if find(k) in concept_node:
+            concept_node[k] = concept_node[find(k)]          # 묶인 이름으로 찾아도 대표 노드
 
     # 4. 장의 중심 개념 — 「X — 주장」 헤드라인의 X > 첫 주장이 이름을 부르는 개념 > 장 안 하위 개념을 가장 많이 거느린 개념 >
     #    뼈대 판단이 고른 부모(그 장 원문이 이름을 다 부를 때만). 그래프는 「핵심 주장 → 핵심 개념 → 하위 개념 → 주장 → 근거」 층으로 선다
@@ -637,12 +713,15 @@ def _default_sections(doc: ConceptDoc) -> list[Section]:
 # 누락 검사 — F-06 의 주장·개념·근거가 그래프 어딘가에 있는가
 # ---------------------------------------------------------------------------
 
-def coverage(doc: ConceptDoc, nodes: list[ConceptNode]) -> dict:
+def coverage(doc: ConceptDoc, nodes: list[ConceptNode], same: list | tuple = ()) -> dict:
     """
     F-06 항목 중 그래프에 없는 것. 주장·개념은 노드 이름(또는 핵심 주장의 출처 문장), 근거는 노드의 evidence.
     진행 칸의 줄은 핵심 주장의 evidence 에 있어야 한다.
     """
     labels = {_key(n.label) for n in nodes}
+    for a, b in same:                                  # 같은 개념으로 묶인 이름은 대표 노드 이름으로 들어 있다
+        if a in labels or b in labels:
+            labels |= {a, b}
     thesis_src = {_key(x) for n in nodes if n.kind == "thesis" for x in n.summary.split(" / ")}
     evid = {e for n in nodes for e in n.evidence}
 
