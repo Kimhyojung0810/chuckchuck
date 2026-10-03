@@ -23,28 +23,120 @@
 .bq[data-flow="rehearsal"] .rh-occ-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .bq[data-flow="rehearsal"] .rh-cut-note { margin: 0 0 14px; }
 
-/* ── 리허설 글라스 — 발표 중 자료 창(PPT 창)과 같은 투명도 (10-03 사용자: 「약간 어두운 glass」 → 「ppt 가 진행되는 그 투명도로」) ───
-   자료 창(vision_rehearsal.css .vr-slide)은 판을 34% 만 깔고(rgba 255 .34) 흐림 18px · 채도 1.5 만 준다 — 뒤를 어둡게 누르지 않는다.
-   화상판의 큰 칸(말풍선 · 삐약이 · 답 칸 · 지금 질문)과 비전 아래 조작줄도 같은 흐림 · 채도 · 34% 판으로 — 색만 어두운 판(흰 글자라서).
-   부스 화상판은 흐림 뒤를 brightness .74 · contrast .6 으로 눌러서(booth_call.css) 같은 34% 여도 거뭇하게 보였다 — 리허설은 누르지 않는다.
-   작은 알약 · 버튼(흐림 없는 판)은 그대로. 부스(/booth/qa · /booth/call) 값도 그대로.
-   읽힘은 글자 둘레 그림자 테(--lg-halo)로 지킨다 — 흰 벽 사진에서 글자 대비를 잰다 (labs/rehearsal_flow --cam white) */
+/* ── 리허설 글라스 = 발표 중 자료 창(PPT 창)과 같은 밝은 유리 · 검정 글자 (10-03 사용자) ─────────────────────────────
+   「약간 어두운 glass」 → 「ppt 가 진행되는 그 투명도로」 → 「ppt 슬라이드 배경이 검정 폰트를 쓰니 거기에 맞게」.
+   자료 창(vision_rehearsal.css .vr-slide)처럼 흰 판 34% · 흐림 18px · 채도 1.5 · 흰 테두리 · 위쪽 빛, 글자는 먹색.
+   다만 34% 흰 판만으로는 어두운 방에서 먹색 글자가 2.4:1 이다(자료 창도 그래서 장 이름 줄은 62% 띠를 깐다).
+   그래서 흐림 뒤 바탕을 들어 올린다 — contrast(.45) · brightness(1.4): 검은 방은 밝은 회색으로, 흰 벽은 그대로 흰색으로.
+   판은 34% 그대로라 겉보기는 자료 창과 같은 밝은 유리이고, 어떤 방이든 판 위 먹색 글자가 4.5:1 위다 (labs/rehearsal_flow --cam white · dark).
+   색 글자(민트 · 살구)는 밝은 판 위에서 안 읽혀서 짙은 초록 · 짙은 갈색으로. 판정 칩 · 내 말(초록) · 진행 칩 · 위 알약은 그대로.
+   부스(/booth/qa · /booth/call)는 booth_call.css 값 그대로 — 이 블록은 #bqStage[data-flow="rehearsal"] 과 리허설 비전 화면에만 걸린다 */
 .bq[data-variant="call"][data-flow="rehearsal"] {
-  --lg-blur: blur(18px) saturate(1.5);
-  --lg-tint-text: rgba(16, 20, 32, .34);
-  --lg-tint-now: rgba(16, 20, 32, .34);
-  --lg-halo: 0 0 1px rgba(0, 0, 0, .9), 0 0 2px rgba(0, 0, 0, .85), 0 1px 4px rgba(0, 0, 0, .7), 0 0 14px rgba(0, 0, 0, .5);
-  --lg-edge: rgba(255, 255, 255, .45);
+  --rl-ink: #18181B;          /* 본문 — app.css --text */
+  --rl-soft: #283330;         /* 보조 글자 — 가장 어두운 방에서도 4.5:1 (판 위 밝기 .33 기준) */
+  --rl-green: #0a3b24;        /* 민트 글자 대신 */
+  --rl-amber: #4d2d00;        /* 살구 글자 대신 */
+  --lg-blur: blur(18px) saturate(1.5) contrast(.45) brightness(1.4);
+  --lg-sheen: linear-gradient(135deg, rgba(255, 255, 255, .2) 0%, rgba(255, 255, 255, .05) 45%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .1) 100%);
+  --lg-tint-text: rgba(255, 255, 255, .34);
+  --lg-tint-now: rgba(255, 255, 255, .42);
+  --lg-tint-past: rgba(255, 255, 255, .82);   /* 지난 말은 흐림이 없다 — 판이 대비를 낸다 */
+  --lg-tint-field: rgba(255, 255, 255, .62);
+  --lg-tint-me: rgba(21, 92, 70, .9);
+  --lg-tint-mid: rgba(150, 68, 8, .92);
+  --lg-edge: rgba(255, 255, 255, .55);
+  --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 14px 36px rgba(0, 0, 0, .22);
+  --lg-halo: none;
 }
-#vrCall[data-flow="rehearsal"] {
-  --vr-halo: 0 0 1px rgba(0, 0, 0, .9), 0 0 2px rgba(0, 0, 0, .85), 0 1px 4px rgba(0, 0, 0, .7), 0 0 14px rgba(0, 0, 0, .5);
+/* 위 알약(브랜드 · 카메라 끄기 · 나가기)은 영상 위 진한 알약 그대로 — 글자 테도 그대로 */
+.bq[data-flow="rehearsal"]:is([data-screen="wait"], [data-screen="qa"]) .bq-top .bq-ghost {
+  text-shadow: 0 0 1px rgba(0, 0, 0, .85), 0 0 2px rgba(0, 0, 0, .7), 0 1px 3px rgba(0, 0, 0, .55);
 }
+.bq[data-flow="rehearsal"] :is(.bc-glass, .bc-stream .msg-bubble, .bc-stream .qa-done, .bc-stream .qa-finale, .bc-stream .qa-sum, .bc-dock textarea) { text-shadow: none; }
+
+/* 지금 질문 · 삐약이 */
+.bq[data-flow="rehearsal"] .bc-ask { border-color: rgba(255, 255, 255, .7); box-shadow: var(--lg-shadow), 0 0 0 1px rgba(14, 136, 80, .45); }
+.bq[data-flow="rehearsal"] .bc-ask p { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-host { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-host-text em { color: var(--rl-green); }
+.bq[data-flow="rehearsal"] .bc-host-text small { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .bc-say { color: var(--rl-ink); }
+
+/* 주고받은 말 */
+.bq[data-flow="rehearsal"] .bc-stream .msg-bubble,
+.bq[data-flow="rehearsal"] .bc-stream .msg.ai:is(.cut, .hint, .miss, .gist, .thinking) .msg-bubble { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-stream .msg.ai.thinking .msg-bubble { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .bc-stream .msg.ai.thinking .dots b { background: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-stream > .msg.ai.miss:not(.is-past) .msg-meta { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-stream :is(.msg-meta, .msg-papers, .react-head small, .msg-delta.dn) { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .bc-stream :is(.msg.ai.trap .msg-meta, .msg.ai.hint b) { color: var(--rl-amber); }
+.bq[data-flow="rehearsal"] .bc-stream :is(.msg-paper-link, .msg-delta.up, .msg.is-now .msg-meta) { color: var(--rl-green); }
+.bq[data-flow="rehearsal"] .bc-stream .msg-score { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-stream .msg.ai:is(.trap, .review) .msg-bubble { border-color: rgba(154, 91, 0, .55); }
+.bq[data-flow="rehearsal"] .bc-stream .msg.ai.gist .msg-bubble { border-color: rgba(14, 136, 80, .55); }
+.bq[data-flow="rehearsal"] .bc-stream .msg.is-now .msg-bubble { border-color: rgba(255, 255, 255, .7); box-shadow: var(--lg-shadow), 0 0 0 1px rgba(14, 136, 80, .45); }
+.bq[data-flow="rehearsal"] .bc-stream .qa-evidence { color: var(--rl-ink); background: rgba(0, 0, 0, .06); border-left-color: rgba(0, 0, 0, .4); }
+.bq[data-flow="rehearsal"] .bc-stream .qa-evidence span { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .bc-stream .qa-ground > span { color: var(--rl-ink); }
+/* 내 말은 초록 판 · 흰 글자 그대로 (판을 진하게 해서 들어 올린 바탕 위에서도 4.5:1) */
+.bq[data-flow="rehearsal"] .bc-stream .msg.me .msg-bubble { color: #fff; border-color: rgba(160, 255, 214, .55); }
+/* 지난 말 — 흐림 없는 밝은 판 · 먹색 글자 */
+.bq[data-flow="rehearsal"] .bc-stream > .is-past .msg-bubble,
+.bq[data-flow="rehearsal"] .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag, .qa-finale) {
+  color: var(--rl-ink); border-color: rgba(0, 0, 0, .08); text-shadow: none;
+}
+.bq[data-flow="rehearsal"] .bc-stream > .is-past:is(:hover, :focus-within) .msg-bubble,
+.bq[data-flow="rehearsal"] .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag):is(:hover, :focus-within) { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-stream > .is-past.msg.me .msg-bubble { color: #fff; background: rgba(21, 92, 70, .9); }
+/* 정리 카드 · 안내 줄 · 표식 */
+.bq[data-flow="rehearsal"] .bc-stream :is(.qa-done, .qa-finale, .qa-sum) { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-stream > .qa-finale:not(.is-past) { background: var(--lg-sheen), rgba(255, 255, 255, .82); }
+.bq[data-flow="rehearsal"] .bc-stream :is(.qa-done h4, .qd-foot, .qa-finale p) { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .bc-stream .qa-done p { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-stream :is(.qa-note-line, .qa-flag) { color: var(--rl-ink); background: rgba(255, 255, 255, .82); border-color: rgba(0, 0, 0, .1); }
+
+/* 답 칸 */
+.bq[data-flow="rehearsal"] .bc-dock,
+.bq[data-flow="rehearsal"] .bc-dock :is(.qa-input-label, .qa-input-label b) { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .bc-dock :is(.qa-input-label span, .qa-end-note, .btn-text) { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .bc-dock .btn-text:hover { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
+.bq[data-flow="rehearsal"] .bc-dock textarea { color: var(--rl-ink); border-color: rgba(0, 0, 0, .2); }
+.bq[data-flow="rehearsal"] .bc-dock textarea::placeholder { color: #3d4743; }
+.bq[data-flow="rehearsal"] .bc-dock textarea:focus-visible { border-color: var(--brand); }
+.bq[data-flow="rehearsal"] .bc-dock .btn-voice:not(.is-rec),
+.bq[data-flow="rehearsal"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveSend,
+.bq[data-flow="rehearsal"] .bc-dock :is(#liveReveal, #liveSkipRetell):not(:disabled),
+.bq[data-flow="rehearsal"] .bc-dock .btn:not(.btn-primary):not(.btn-text):not(.btn-voice) {
+  color: var(--rl-ink); background: rgba(255, 255, 255, .72); border: 1px solid rgba(0, 0, 0, .18);
+}
+/* 밝은 판 위에서는 흰 초점 테가 안 보인다 — 짙은 초록 테 */
+.bq[data-flow="rehearsal"] .bc-call :is(.bc-glass, .bc-stream, .bc-dock) :focus-visible { outline: 3px solid #064d2e; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(255, 255, 255, .9); }
+
+/* 분석 기다림 카드 — 같은 밝은 유리 */
+.bq[data-flow="rehearsal"] .rh-wait-card,
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-head h1 { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-tip,
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-foot { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li,
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="done"] { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="run"] { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="wait"] i { border-color: rgba(0, 0, 0, .3); }
+.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="run"] i { border-color: rgba(14, 136, 80, .25); border-top-color: var(--brand); }
+.bq[data-flow="rehearsal"] .rh-wait-card .bq-fail p { color: var(--rl-ink); }
+.bq[data-flow="rehearsal"] .rh-wait-card .bq-ghost { color: var(--rl-ink); background: rgba(255, 255, 255, .72); border-color: rgba(0, 0, 0, .18); }
+
+/* 비전 발표 아래 조작줄도 같은 밝은 유리 · 먹색 글자 — 「이전 · 다음」 은 진한 버튼 그대로 */
 #vrCall[data-flow="rehearsal"] .vr-dock {
-  -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
-  background: linear-gradient(135deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, .02) 40%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .03) 100%), rgba(16, 20, 32, .34);
-  border-color: rgba(255, 255, 255, .45); border-radius: 24px;
+  -webkit-backdrop-filter: blur(18px) saturate(1.5) contrast(.45) brightness(1.4); backdrop-filter: blur(18px) saturate(1.5) contrast(.45) brightness(1.4);
+  background: linear-gradient(135deg, rgba(255, 255, 255, .2) 0%, rgba(255, 255, 255, .05) 45%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .1) 100%), rgba(255, 255, 255, .34);
+  border-color: rgba(255, 255, 255, .55); border-radius: 24px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 14px 36px rgba(0, 0, 0, .22);
 }
-#vrCall[data-flow="rehearsal"] .vr-dock :is(.rec-status, .rec-copy) { text-shadow: var(--vr-halo); }
+#vrCall[data-flow="rehearsal"] .vr-rec :is(.rec-copy, .rec-live, .rec-clock, .mic-denied) { color: #18181B; text-shadow: none; }
+#vrCall[data-flow="rehearsal"] .vr-rec .rec-copy p { color: #283330; }
+#vrCall[data-flow="rehearsal"] .vr-rec .rec-live::before { box-shadow: none; }
+#vrCall[data-flow="rehearsal"] .vr-rec .meter i { background: var(--brand); }
+#vrCall[data-flow="rehearsal"] .rh-rec-finish { border: 1px solid rgba(0, 0, 0, .18); }
 
 /* ── 위 띠 — 비전 · 기다림 · 화상판이 같은 모양: 왼쪽 「척척발표 · 발표 리허설」 알약, 오른쪽 둥근 알약 버튼(카메라 끄기 · 나가기) ── */
 #vrCall .vr-pill.rh-brand {
@@ -217,3 +309,6 @@
 /* 「카메라 끄기」 를 위 띠로 옮겨서 오른쪽 기둥 첫 줄에는 「정면 n%」 칩만 남는다 — 칩은 얼굴을 찾은 뒤에야 뜬다.
    줄 높이를 칩 높이로 잡아 두지 않으면, 칩이 뜰 때 밑의 「영상은 이 화면에만」 이 44px 내려와 자리 잡은 자료 창 위를 덮었다 */
 .bq[data-flow="rehearsal"] .bc-side-row { min-height: 44px; }
+/* 「이전 · 다음」 — 밝은 조작줄 위 진한 버튼은 흰 벽 앞에서 흰 글자가 3.0:1 이었다. 답 칸의 보조 버튼과 같은 밝은 버튼 · 먹색 글자 */
+#vrCall[data-flow="rehearsal"] .vr-dock .vr-nav { color: #18181B; background: rgba(255, 255, 255, .72); border: 1px solid rgba(0, 0, 0, .18); text-shadow: none; }
+#vrCall[data-flow="rehearsal"] .vr-dock .vr-nav:hover { background: rgba(255, 255, 255, .9); }
