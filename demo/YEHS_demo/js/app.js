@@ -2764,7 +2764,9 @@ function renderRecPanel() {
         <div><span class="rec-live">발표 중</span><strong class="rec-clock" id="clock">${fmt(nf.sec)}</strong></div>
         <span class="meter" aria-label="마이크 입력 감지 중"><i></i><i></i><i></i><i></i><i></i></span>
       </div>
-      <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>
+      <button class="btn btn-primary" id="recEnd">${rhFlagSet() ? '발표 마치기' : '발표 마치고 질문 준비하기'}</button>
+      <!-- 리허설(#/rehearsal)은 옆의 「녹음 파일로 대신하기」 와 두 갈래라 짧게 「발표 마치기」 (10-03 사용자 · js/rehearsal.js rehearsalVisionDock).
+      -->
       <!-- 전환 기록은 종료 버튼 **뒤**에 둔다. 예전엔 버튼 위에 있었고, 펼치면 뜨는
            팝오버(position:absolute · z-index 5)가 바로 아래 「발표 마치고 질문 준비하기」를
            통째로 덮어 눌리지 않았다 (2026-09-23 사용자 제보). 이제 펼쳐도 제자리에서

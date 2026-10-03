@@ -23,7 +23,50 @@
 .bq[data-flow="rehearsal"] .rh-occ-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .bq[data-flow="rehearsal"] .rh-cut-note { margin: 0 0 14px; }
 
-/* ── 비전 리허설 조작줄 — 「녹음본을 넣어서 발표 마치기」 · 리허설은 직접 녹음 파일을 안 받는다 ── */
+/* ── 리허설 글라스 — 더 밝고 투명하게 (10-03 사용자: 「약간 어두운 glass 다, 투명도를 더 높여」) ─────────────────
+   리허설 화면(비전 발표 · 질문 준비 · 화상판)에만 건다 — 부스(/booth/qa · /booth/call)는 booth_call.css 값 그대로.
+   큰 칸(말풍선 · 삐약이 · 답 칸 · 아래 조작줄)의 판을 옅게(.28 → .22) · 흐림 뒤 어둡게 누르던 것을 덜(brightness .74 → .75) · 흐림도 덜(12 → 9px) 해서
+   뒤의 얼굴 · 방이 더 비친다. 작은 알약 · 버튼은 글자 판이라 그대로 — 옅게 하면 흰 벽 앞에서 3:1 아래로 떨어졌다.
+   읽힘은 판 대신 글자 둘레 그림자 테(--lg-halo)를 조금 넓혀서 지킨다 — 흰 벽 사진에서 글자 대비를 잰다 (labs/rehearsal_flow --cam white) */
+.bq[data-variant="call"][data-flow="rehearsal"] {
+  --lg-blur: blur(9px) saturate(1.9) contrast(.6) brightness(.75);
+  --lg-tint-text: rgba(16, 20, 32, .22);
+  --lg-tint-now: rgba(16, 20, 32, .26);
+  --lg-halo: 0 0 1px rgba(0, 0, 0, .9), 0 0 2px rgba(0, 0, 0, .85), 0 1px 4px rgba(0, 0, 0, .7), 0 0 14px rgba(0, 0, 0, .5);
+  --lg-edge: rgba(255, 255, 255, .38);
+}
+/* 비전 발표 화면 아래 조작줄도 화상판의 큰 칸(.bc-glass)과 같은 판 — 알약 · 버튼(.vr-glass)은 글자 판이라 예전 진하기 그대로 */
+#vrCall[data-flow="rehearsal"] {
+  --vr-halo: 0 0 1px rgba(0, 0, 0, .9), 0 0 2px rgba(0, 0, 0, .85), 0 1px 4px rgba(0, 0, 0, .7), 0 0 14px rgba(0, 0, 0, .5);
+}
+#vrCall[data-flow="rehearsal"] .vr-dock {
+  -webkit-backdrop-filter: blur(9px) saturate(1.9) contrast(.6) brightness(.75); backdrop-filter: blur(9px) saturate(1.9) contrast(.6) brightness(.75);
+  background: linear-gradient(135deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, .02) 40%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .03) 100%), rgba(16, 20, 32, .22);
+  border-color: rgba(255, 255, 255, .38); border-radius: 24px;
+}
+#vrCall[data-flow="rehearsal"] .vr-dock :is(.rec-status, .rec-copy) { text-shadow: var(--vr-halo); }
+
+/* ── 위 띠 — 비전 · 기다림 · 화상판이 같은 모양: 왼쪽 「척척발표 · 발표 리허설」 알약, 오른쪽 둥근 알약 버튼(카메라 끄기 · 나가기) ── */
+#vrCall .vr-pill.rh-brand {
+  gap: 10px; height: 40px; padding: 4px 12px 4px 4px; font-size: 18px; text-shadow: none;
+  background: var(--vr-glass); border: 1px solid var(--vr-edge); box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+#vrCall .vr-pill.rh-brand img { width: 30px; height: 30px; border-radius: var(--r-inner); }
+/* 「발표 리허설」 꼬리표 — 민트 글자 밑을 짙은 초록으로 (옅은 민트 면은 흰 벽 앞에서 3.2:1 이었다). 기다림 · 화상판 이름표도 같은 면 */
+#vrCall .vr-pill.rh-brand small,
+.bq[data-flow="rehearsal"] .bq-brand small {
+  font-size: 13px; font-weight: var(--w-med); color: var(--mint); padding: 3px 10px; border-radius: var(--r-pill); background: rgba(6, 46, 34, .72);
+}
+.bq[data-flow="rehearsal"]:is([data-screen="wait"], [data-screen="qa"]) .bq-top .bq-ghost {
+  height: 44px; min-height: 44px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: var(--w-bold); white-space: nowrap;
+  background: var(--lg-tint); border: 1px solid var(--lg-edge); box-shadow: var(--lg-shadow); text-shadow: var(--lg-halo);
+}
+.bq[data-flow="rehearsal"] .bq-top .rh-top-cam + [data-rh-exit] { margin-left: -12px; }
+/* 위 띠의 바깥 여백을 비전(--vr-gap 16px)과 같게 — 화면을 넘어갈 때 알약 · 버튼이 제자리에 있게 */
+.bq[data-flow="rehearsal"]:is([data-screen="wait"], [data-screen="qa"]) .bq-top { padding: 16px; }   /* 비전처럼 둘이 붙어 있게 (위 띠 간격 20px → 8px) */
+
+/* ── 비전 리허설 조작줄 — 「발표 마치기」 · 「녹음 파일로 대신하기」 두 갈래. 일반 「녹음 파일로 대신하기」(.rec-upload)는 이 버튼의 시트가 대신한다 ── */
 #vrCall[data-flow="rehearsal"] .rec-upload { display: none; }
 /* 두 끝내기를 나란히 가운데 — 녹음 칸(.vr-rec)은 본래 남는 폭을 다 먹어서 두 번째 버튼이 오른쪽 끝으로 밀렸다 */
 #vrCall[data-flow="rehearsal"] .vr-rec { flex: 0 1 auto; margin-left: auto; }
@@ -38,6 +81,10 @@
 #vrCall .rh-rec-sheet .bq-sheet p b { color: var(--text); }
 #vrCall .rh-rec-note:empty { display: none; }
 #vrCall .rh-rec-note { margin: -12px 0 16px; font-size: 14px; color: var(--text-2, #52525B); }
+/* 고를 것이 둘(이 발표의 녹음 · 내 파일)이면 — 기본(이 발표의 녹음)을 위 한 줄로 넓게, 그 밑에 「닫기」 · 「내 녹음 파일 고르기」.
+   세 개를 한 줄에 두면 440px 시트에서 초록 버튼 글자가 세 줄로 접혔다 */
+#vrCall .rh-rec-sheet .bq-sheet-actions:has([data-sheet="use"]) { display: grid; grid-template-columns: 1fr 1fr; }
+#vrCall .rh-rec-sheet .bq-sheet-actions [data-sheet="use"] { grid-column: 1 / -1; order: -1; }
 @media (max-width: 800px) {
   #vrCall .rh-rec-finish { padding: 0 10px; font-size: 13px; }
 }
@@ -151,3 +198,7 @@
   .bq[data-flow="rehearsal"] .rh-cap-fill { font-size: 12px; }
 }
 .bq[data-flow="rehearsal"] .bq-fail .rh-rec-note:empty { display: none; }
+
+/* 「카메라 끄기」 를 위 띠로 옮겨서 오른쪽 기둥 첫 줄에는 「정면 n%」 칩만 남는다 — 칩은 얼굴을 찾은 뒤에야 뜬다.
+   줄 높이를 칩 높이로 잡아 두지 않으면, 칩이 뜰 때 밑의 「영상은 이 화면에만」 이 44px 내려와 자리 잡은 자료 창 위를 덮었다 */
+.bq[data-flow="rehearsal"] .bc-side-row { min-height: 44px; }

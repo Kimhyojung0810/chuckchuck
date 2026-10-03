@@ -60,7 +60,7 @@ SPOKEN = {
     "배달앱별점인플레이션A": "별점이 4.7 근처에 몰리는 건 낮은 별점을 주기 부담스러워서 다들 높게 주기 때문이에요. 그래서 별점만으로는 가게 차이를 구별하기 어려워요.",
 }
 # 비전 리허설에서 잴 글자 — 카메라 위 이름표 · 위 알약 · 조작줄 · 자료 창 자막 (--cam white|dark)
-VISION_TEXT = ["#vrCall .vr-name", "#vrCall .vr-status", "#vrCall .vr-pill", "#vrCall .vr-rec .rec-copy > span", "#vrCall .vr-rec .rec-live",
+VISION_TEXT = ["#vrCall .vr-name", "#vrCall .vr-status", "#vrCall .vr-pill:not(.rh-brand)", "#vrCall .rh-brand > span", "#vrCall .rh-brand small", "#vrCall .vr-rec .rec-copy > span", "#vrCall .vr-rec .rec-live",
                "#vrCall .vr-rec .rec-clock", "#vrCall .vr-nav[data-slide-nav='1']", "#vrCall .vr-caption", "#vrCall .vr-hear"]
 RECORD_PATHS = {
     "/api/v1/transcribe": "transcribe.json", "/api/v1/concepts": "concepts.json", "/api/v1/graph": "graph.json",
@@ -340,7 +340,7 @@ def run(args) -> Path:
                 R["vision_slide_saved"] = page.evaluate("JSON.parse(sessionStorage.getItem('cheokcheok:vision-slide')||'null')")
             page.click("#recStart")
             page.wait_for_selector("#recEnd", timeout=30000)
-            if args.path == "rec-partial":
+            if args.path in ("rec-partial", "rec-file"):
                 page.wait_for_timeout(6000)
                 page.evaluate("(t) => window.__fakeSay(t)", VISION_SAYS[0])
                 page.wait_for_timeout(4000)
@@ -372,15 +372,22 @@ def run(args) -> Path:
             page.click("#recEnd")
 
         def finish_with_recording(live: bool) -> None:
-            # 「녹음본을 넣어서 발표 마치기」 → 시트(이 발표의 녹음 m:ss) → 분석
+            # 「녹음 파일로 대신하기」 → 시트(이 발표의 녹음 m:ss · 내 녹음 파일) → 분석
             t0 = time.time()
             page.click("#rhRecFinish")
-            page.wait_for_selector("#rhRecSheet [data-sheet='use']", timeout=5000)
+            page.wait_for_selector("#rhRecSheet [data-sheet='file']", timeout=5000)
             page.wait_for_timeout(400)
             lay("rec_sheet")
             shot("rec_sheet" + ("_after_live" if live else ""))
             sheet = page.evaluate("document.getElementById('rhRecSheet').innerText")
-            page.click("#rhRecSheet [data-sheet='use']")
+            if args.path == "rec-file":
+                # 내 녹음 파일 — 헤드리스 크로미움은 AAC(m4a) 길이를 못 읽어서 덱 녹음 앞 40초를 wav 로 바꿔 고른다 (재생 모드라 내용은 녹화 응답이 대신한다)
+                wav = out / "my_take.wav"
+                src = next((ROOT / "ppt" / args.deck).glob("*.m4a"))   # 파일 이름의 한글이 NFD 로 저장돼 있어 이름으로는 못 찾는다
+                subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-t", "40", "-i", str(src), "-ac", "1", "-ar", "16000", str(wav)], check=True)
+                page.set_input_files("#rhRecFile", str(wav))
+            else:
+                page.click("#rhRecSheet [data-sheet='use']")
             page.wait_for_selector("#bqStage[data-screen='wait']", timeout=90000)
             mark("rec_finish", t0, {"sheet": sheet[:300], "uploaded": page.evaluate("nf.uploadedTake"), "mic": page.evaluate("nf.mic"),
                                     "cues": page.evaluate("(nf.visionCues||[]).length"), "hash": page.evaluate("location.hash")})
@@ -724,8 +731,8 @@ def main() -> int:
     ap.add_argument("--replay-delay", type=float, default=8, help="--replay: 질문 생성 응답을 이 초만큼 늦춘다 (기다림 화면 사진)")
     ap.add_argument("--until", choices=["pick", "rehearse", "wait", "qa", "report"], default="report")
     ap.add_argument("--occ", default="", help="발표 상황 (OCC_LABEL 의 값, 예: 업무 보고 (상사 대상)) — 비우면 추정을 그대로, 추정이 없으면 수업")
-    ap.add_argument("--path", choices=["live", "rec", "rec-partial"], default="live",
-                    help="live = 발표 마치고 질문 준비하기 · rec = 녹음 없이 「녹음본을 넣어서 발표 마치기」 · rec-partial = 몇 초 녹음하다가 녹음본으로")
+    ap.add_argument("--path", choices=["live", "rec", "rec-partial", "rec-file"], default="live",
+                    help="live = 발표 마치기 · rec = 발표 없이 「녹음 파일로 대신하기」(이 발표의 녹음) · rec-partial = 몇 초 발표하다가 이 발표의 녹음으로 · rec-file = 몇 초 발표하다가 내 녹음 파일로")
     ap.add_argument("--reload", action="store_true")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()

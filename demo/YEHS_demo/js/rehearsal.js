@@ -7,7 +7,7 @@
  *   #/rehearsal              발표 고르기 (부스 시연 세트 셋)                     ← 이 파일이 그린다 (#bqStage 층, 부스 고르기와 같은 카드)
  *   #/rehearsal/occ          어떤 발표인가요                                      ← 이 파일
  *   #/rehearsal/new  step 2  비전 리허설                                        ← vision_rehearsal.js nfStep3Vision 그대로 (VISION_FLOW_KEY 를 켠다)
- *                            「발표 마치고 질문 준비하기」(라이브) · 「녹음본을 넣어서 발표 마치기」(이 발표의 녹음)
+ *                            「발표 마치기」(직접 한 발표) · 「녹음 파일로 대신하기」(이 발표의 녹음 · 내 녹음 파일)
  *   #/rehearsal/new  step 3  분석 기다림 — 부스 「질문 준비」 화면 모양            ← 이 파일 (뒤에서 app.js nfStep4 가 파이프라인을 그대로 돌린다)
  *   #/rehearsal/qa           글라스 화상판                                      ← booth_call.js renderQaLiveBoothCall 그대로 + 자료 창 옮기기
  *   #/rehearsal/report       상세 리포트                                        ← 질문을 마치면 바로 간다 (부스 마무리 · 40초 처음으로는 없다)
@@ -464,7 +464,7 @@ function rhShowOcc(d) {
   });
 }
 
-/* ─── 비전 리허설 — 「녹음본을 넣어서 발표 마치기」 ─────────────────────────────── */
+/* ─── 비전 리허설 — 두 갈래: 「발표 마치기」 · 「녹음 파일로 대신하기」 ─────────────────── */
 
 /** 2:19 처럼 */
 function rhClock(sec) {
@@ -473,44 +473,57 @@ function rhClock(sec) {
 }
 
 /**
- * vision_rehearsal.js nfStep3Vision 이 리허설 탭이면 부른다 — 조작줄의 「발표 마치고 질문 준비하기」 옆에 두 번째 끝내기를 둔다.
- * 10-03 사용자: 발표하고 싶지 않은 사람은 이 발표의 녹음으로 마친다. 녹음을 안 눌렀어도 · 카메라 · 마이크가 꺼져 있어도 된다.
+ * vision_rehearsal.js nfStep3Vision 이 리허설 탭이면 부른다 — 조작줄에 두 갈래를 나란히 둔다.
+ * 10-03 사용자: 발표를 시작하면 「발표 마치기」(직접 한 발표) 와 「녹음 파일로 대신하기」 두 갈래. Q&A 로 태우는 녹음은
+ * 내가 방금 한 발표일 수도, 녹음 파일(이 발표에 딸린 녹음 · 내가 고른 파일)일 수도 있다. 시작 전에도 녹음 파일로 대신할 수 있다
+ * (발표하고 싶지 않은 사람). 녹음을 안 눌렀어도 · 카메라 · 마이크가 꺼져 있어도 된다.
  * 녹음 길은 새로 만들지 않는다 — #/test/qa 의 덱 녹음 받기(fetchDeckFile) + 일반 앱의 녹음 올리기(useUploadedRecording) 그대로.
- * 리허설은 직접 파일 올리기를 안 받는다 — 비전 조작줄의 「녹음 파일 올리기」는 이 탭에서 숨긴다(CSS).
+ * 일반 조작줄의 「녹음 파일로 대신하기」(.rec-upload)는 이 탭에서 숨긴다(CSS) — 같은 일을 이 버튼의 시트가 한다.
  */
 function rehearsalVisionDock(layer) {
   layer.dataset.flow = 'rehearsal';
-  // 같은 흐름의 다른 화면(고르기 · 기다림 · 화상판)은 「발표 리허설」 — 비전 화면만 「비전 리허설」 이라 다른 기능처럼 보였다 (V-R2-5). /vision 은 그대로
+  // 왼쪽 위 이름표를 고르기 · 기다림 · 화상판과 같은 「척척발표 · 발표 리허설」 알약으로 — 비전만 글자 알약이라 다른 기능처럼 보였다 (V-R2-5 · 10-03 사용자 통일감). /vision 은 그대로
   const pill = layer.querySelector('.vr-top .vr-pill');
-  if (pill) pill.textContent = '발표 리허설';
-  const deck = nf && nf.rehearsalDeck;
+  if (pill) {
+    pill.classList.add('rh-brand');
+    pill.innerHTML = '<img src="assets/chuckchuck-app-icon-64.png?v=qk13" alt=""><span>척척발표</span><small>발표 리허설</small>';
+  }
   const rec = layer.querySelector('#recPanel');
-  if (!deck || !deck.audio || !rec) return;
+  if (!rec) return;
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn rh-rec-finish';
   btn.id = 'rhRecFinish';
-  btn.textContent = '녹음본을 넣어서 발표 마치기';
+  btn.textContent = '녹음 파일로 대신하기';
   rec.after(btn);
   btn.addEventListener('click', () => rhConfirmRecording(layer));
 }
 
+/** 녹음 파일 확장자 — 일반 앱 recUploadHtml 과 같다 */
+const RH_REC_ACCEPT = 'audio/*,.webm,.m4a,.mp4,.mp3,.wav,.ogg';
+
+/**
+ * 「녹음 파일로 대신하기」 시트 — 이 발표에 딸린 녹음(있으면 기본) 또는 내 녹음 파일. 어느 쪽이든 그 녹음으로 분석하고 질문 3개를 준비한다
+ */
 function rhConfirmRecording(layer) {
   if (document.getElementById('rhRecSheet')) return;
   const deck = nf.rehearsalDeck;
-  const clock = rhClock(deck.audioSec);
+  const hasDeckRec = !!(deck && deck.audio);
+  const clock = hasDeckRec ? rhClock(deck.audioSec) : '';
   const live = nf.mic === 'on' || (Number(nf.sec) || 0) > 0;
   const back = document.activeElement;
   const sheet = document.createElement('div');
   sheet.className = 'bq-sheet-wrap rh-rec-sheet';
   sheet.id = 'rhRecSheet';
   sheet.innerHTML = `<div class="bq-sheet" role="dialog" aria-modal="true" aria-labelledby="rhRecTitle" aria-describedby="rhRecBody">
-      <h2 id="rhRecTitle">이 발표의 녹음으로 마칠까요?</h2>
-      <p id="rhRecBody">발표하지 않아도 준비된 발표 녹음(${clock})으로 분석하고 질문 3개를 준비해요.${live ? ' <b>지금까지 녹음한 내 발표는 쓰지 않고 이 녹음으로 바꿔요.</b>' : ''} 카메라 반응(삐약이)은 리포트에 남지 않아요.</p>
+      <h2 id="rhRecTitle">녹음 파일로 대신할까요?</h2>
+      <p id="rhRecBody">${hasDeckRec ? `이 발표에 딸린 녹음(${clock})이나 내 녹음 파일로` : '내 녹음 파일로'} 분석하고 질문 3개를 준비해요.${live ? ' <b>지금까지 녹음한 내 발표는 쓰지 않고 이 녹음으로 바꿔요.</b>' : ''} 카메라 반응(삐약이)은 리포트에 남지 않아요.</p>
       <p class="rh-rec-note" id="rhRecNote" role="status"></p>
+      <input type="file" id="rhRecFile" accept="${RH_REC_ACCEPT}" hidden>
       <div class="bq-sheet-actions">
         <button type="button" class="bq-ghost" data-sheet="close">닫기</button>
-        <button type="button" class="bq-cta bq-cta-sm" data-sheet="use">이 발표의 녹음(${clock})으로 마칠게요</button>
+        <button type="button" class="${hasDeckRec ? 'bq-ghost' : 'bq-cta bq-cta-sm'}" data-sheet="file">내 녹음 파일 고르기</button>
+        ${hasDeckRec ? `<button type="button" class="bq-cta bq-cta-sm" data-sheet="use">이 발표의 녹음(${clock}) 쓰기</button>` : ''}
       </div>
     </div>`;
   layer.appendChild(sheet);
@@ -527,8 +540,14 @@ function rhConfirmRecording(layer) {
     const act = e.target.closest('[data-sheet]');
     if (e.target === sheet || (act && act.dataset.sheet === 'close')) close();
     else if (act && act.dataset.sheet === 'use') rhFinishWithRecording(sheet);
+    else if (act && act.dataset.sheet === 'file') sheet.querySelector('#rhRecFile').click();
   });
-  sheet.querySelector('[data-sheet="use"]').focus();
+  sheet.querySelector('#rhRecFile').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';   // 같은 파일을 다시 고를 수 있게
+    if (f) rhFinishWithFile(sheet, f);
+  });
+  sheet.querySelector('[data-sheet="use"], [data-sheet="file"]').focus();
 }
 
 /**
@@ -625,6 +644,27 @@ async function rhFinishWithRecording(sheet) {
     return;
   }
   if (!sheet.isConnected) return;
+  await rhFinishWithFile(sheet, file, deck.audioSec);
+}
+
+/**
+ * 녹음 파일(덱 녹음 · 내 파일)로 이번 발표를 마친다.
+ * 내 파일은 시트를 닫기 전에 형식 · 크기 · 길이를 본다 — useUploadedRecording 의 실패 문구는 일반 조작줄 칸(#recUploadNote)에 쓰이는데
+ * 리허설은 그 칸을 숨겨서, 잘못된 파일을 고르면 아무 말 없이 발표 화면으로 돌아왔다
+ */
+async function rhFinishWithFile(sheet, file, knownDurationSec = 0) {
+  if (!(knownDurationSec > 0)) {
+    const note = sheet.querySelector('#rhRecNote');
+    const say = (msg) => { if (note) note.textContent = msg; };
+    if (!(AUDIO_EXT_RE.test(file.name) || /^audio\//i.test(file.type || ''))) { say('오디오 파일만 쓸 수 있어요. (webm · m4a · mp3 · wav · ogg)'); return; }
+    if (file.size > MAX_AUDIO_BYTES) { say(`파일이 ${(file.size / 1024 / 1024).toFixed(1)}MB 예요. 최대 ${MAX_AUDIO_MB}MB까지 쓸 수 있어요.`); return; }
+    say(`${file.name} 길이를 읽고 있어요…`);
+    let sec = 0;
+    try { sec = await audioDurationSec(file); } catch (err) { console.warn('[chuckchuck] rehearsal file duration', err); }
+    if (!sheet.isConnected) return;
+    if (!(Number.isFinite(sec) && sec > 0)) { say('녹음 길이를 읽지 못했어요. m4a · mp3 · wav 파일로 다시 골라 주세요.'); return; }
+    knownDurationSec = sec;
+  }
   // 라이브로 말한 동안 쌓인 삐약이 반응은 이 녹음의 것이 아니다 — 리포트가 녹음 위에 반응을 얹지 않게 비운다
   if (typeof visionCoachStop === 'function') visionCoachStop();
   if (typeof visionResetReactions === 'function') visionResetReactions();
@@ -633,7 +673,7 @@ async function rhFinishWithRecording(sheet) {
   if (typeof clearTimers === 'function') clearTimers();
   nf.mic = 'idle';
   sheet.remove();
-  await useUploadedRecording(file, { knownDurationSec: deck.audioSec });
+  await useUploadedRecording(file, { knownDurationSec });
 }
 
 /* ─── #/rehearsal/new step 3 분석 기다림 — 내 모습 위 글라스 한 장 ────────────────────────── */
@@ -974,6 +1014,7 @@ function renderQaLiveRehearsal() {
   const layer = document.getElementById('bqStage');
   if (!layer) return;
   rhWireExit(layer);
+  rhCamToTop(layer);
   rhFloatSlide(layer);
   rhWatchCamAlive();
   // 새로고침한 뒤면 자료 PDF 가 없어 자료 창이 회색 자리표시(장 번호)만 그렸다 — 받아서 지금 장을 다시 그린다 (10-03 점검 F3)
@@ -1009,6 +1050,18 @@ function rhEnsureDeckPdf() {
     return typeof ensurePreviewPdf === 'function' ? ensurePreviewPdf(typeof nfSlideDoc !== 'undefined' ? nfSlideDoc : null) : null;
   })().finally(() => { rhPdfLoading = null; });
   return rhPdfLoading;
+}
+
+/**
+ * 「카메라 끄기」 를 위 띠 「나가기」 옆으로 — 비전 리허설과 같은 자리 · 같은 알약 (10-03 사용자: vision 과 Q&A 의 통일감).
+ * 부스 화상판은 오른쪽 기둥(자료 창 위)에 둔다 — 이 이동은 리허설에만. id 가 같아서 bqCamPaint 가 글자를 그대로 바꾼다
+ */
+function rhCamToTop(layer) {
+  const cam = layer.querySelector('#bqCamToggle');
+  const exit = layer.querySelector('.bq-top [data-rh-exit]');
+  if (!cam || !exit) return;
+  cam.className = 'bq-ghost rh-top-cam';
+  exit.before(cam);
 }
 
 function rhFloatSlide(layer) {
