@@ -351,6 +351,39 @@ function rhFlowOn() {
   return typeof rehearsalFlowOn === 'function' && rehearsalFlowOn();
 }
 
+/* 리허설 흐름의 화면 주소 (10-03 사용자) — 흐름 도중 주소가 #/new · #/qa · #/report 로 빠지지 않고 /rehearsal 아래로 이어진다.
+   #/rehearsal/new · qa · report 는 일반 #/new · #/qa · #/report 화면을 그대로 그린다. #/rehearsal · #/rehearsal/occ 는 리허설 제 화면(js/rehearsal.js).
+   이 파일이 들고 있는 까닭 — 새로고침하면 route() 가 rehearsal.js(베타 번들)를 받기 전에 주소부터 읽는다 */
+const RH_SCREENS = ['new', 'qa', 'report'];
+const RH_FLOW_FLAG = 'cheokcheok:rehearsal-flow';   // rehearsal.js REHEARSAL_FLOW_KEY 와 같아야 한다 (LAZY_FLOW_FLAGS 도)
+
+/** 주소가 리허설 흐름 안인가 — #/rehearsal 로 시작하면 */
+function inRehearsalHash(hash = location.hash) {
+  return /^#\/?rehearsal(\/|$)/.test(String(hash || ''));
+}
+
+/** 그릴 화면의 마디 — #/rehearsal/qa 는 ['qa'], #/report/last 는 ['report', 'last'] */
+function routeParts(hash = location.hash) {
+  const parts = String(hash || '').replace(/^#\/?/, '').split('/');
+  return parts[0] === 'rehearsal' && RH_SCREENS.includes(parts[1]) ? parts.slice(1) : parts;
+}
+
+/** 그 화면의 주소 — 리허설 흐름이면 /rehearsal 아래. 화면을 옮기는 코드는 이걸 쓴다 (흐름 밖이면 예전 그대로 #/qa) */
+function screenHash(sub) {
+  return rhFlagSet() && RH_SCREENS.includes(sub) ? `#/rehearsal/${sub}` : `#/${sub}`;
+}
+
+/** 지금 그 화면(하위 주소 없이)에 있나 — #/new · #/new/ · #/rehearsal/new */
+function onScreen(sub) {
+  const p = routeParts();
+  return p[0] === sub && !p[1];
+}
+
+/** 리허설 표시 — rehearsalFlowOn() 과 같은 값. rehearsal.js 를 받기 전에도 읽는다 */
+function rhFlagSet() {
+  try { return sessionStorage.getItem(RH_FLOW_FLAG) === '1'; } catch (_) { return false; }
+}
+
 function dismissF11Reveal() {
   const wrap = document.getElementById('f11RevealWrap');
   if (!wrap) return;
@@ -361,13 +394,15 @@ function route() {
   clearTimers();
   unbindRehearsalNav();
   // 분석 오버레이가 남아 있으면 #/qa 가 흰 화면처럼 가려진다
-  {
-    const parts0 = location.hash.replace(/^#\/?/, '').split('/');
-    if (parts0[0] !== 'new') dismissF11Reveal();
-  }
-
-  const parts = location.hash.replace(/^#\/?/, '').split('/');
+  const parts = routeParts();
   const key = parts[0];
+  if (key !== 'new') dismissF11Reveal();
+  const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
+  // #/rehearsal/<화면> 으로 바로 오거나 새로 고치면 리허설 표시를 켠다 — 베타 번들(rehearsal.js)을 받고 그 화면을 흐름 배치로 그리려고.
+  // 잠금(공개 방문자)은 아래에서 따로 막는다 — 팀 확인 전이면 표시만 켜지고 잠금 화면이 뜬다
+  if (inRehearsalHash() && ccTeam) {
+    try { sessionStorage.setItem(RH_FLOW_FLAG, '1'); } catch (_) { /* 사생활 모드 */ }
+  }
   // 리허설 흐름(js/rehearsal.js) — 비전 층이 카메라를 끄기 전에 화상판으로 넘겨받고, 흐름 밖으로 나가면 표시를 끈다
   if (typeof rehearsalFlowOnRoute === 'function') rehearsalFlowOnRoute(key);
   // 통화 층(#cfCall)은 #app 밖에 떠 있어서 화면이 바뀌어도 안 지워진다 — 먼저 걷는다
@@ -391,7 +426,7 @@ function route() {
   // 그대로 보여준다. nf.completed 는 QA 를 끝내야 서므로 진행 중인 코칭이
   // 여기서 지워질 일은 없고, 끝난 코칭 기록은 qa-history(localStorage)에 남아 있다.
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) { resetNf(); resetQa(); }
-  if (BETA_ROUTES.has(key) && !ccTeam) { renderBetaLock(); return; }
+  if ((BETA_ROUTES.has(key) || BETA_ROUTES.has(rawKey)) && !ccTeam) { renderBetaLock(); return; }
   // 이 화면의 코드를 아직 안 받았으면 받고 나서 다시 그린다 (js/lazy.js)
   const lazy = lazyBundlesFor(key);
   if (lazy.length && !lazy.every((b) => ccLazy.loaded(b))) { renderLazyWait(lazy); return; }
@@ -977,8 +1012,9 @@ function loadTeamFlag() {
     ccTeamChecked = true;
     // 팀 브라우저는 베타 화면으로 넘어갈 일이 있다 — 한가할 때 미리 받아 둔다
     if (ccTeam && window.ccLazy) ccLazy.whenIdle(['beta']);
-    const key = location.hash.replace(/^#\/?/, '').split('/')[0];
-    if (BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
+    const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
+    const key = routeParts()[0];
+    if (BETA_ROUTES.has(rawKey) || BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
   };
   return fetch('/api/v1/team', { credentials: 'same-origin' })
     .then((r) => {
@@ -3368,7 +3404,7 @@ function showF11Reveal() {
         wrap.remove();
         /* 질문 코칭은 그래프·정합·흐름만 있으면 열린다. 예전엔 phase 가 'done' 이라야
            넘어갔는데, 그건 채점·속도·습관·리포트까지 끝난 시점이라 4분을 더 세웠다. */
-        if (pipelineQaReady()) location.hash = '#/qa';
+        if (pipelineQaReady()) location.hash = screenHash('qa');
       }, 450);
     }
   };
@@ -4430,7 +4466,7 @@ function refreshStep4IfVisible() {
   // '#' 뒤 어디서든 '/' 하나만 있으면 참이라 #/qa·#/report·홈까지 전부 통과했다 —
   // 파이프라인 후반부 완료 틱이 질문 코칭 화면을 스텝4로 덮어썼고, 해시는 이미
   // #/qa 라 「질문 코칭 시작하기」(href="#/qa")를 눌러도 아무 일도 안 일어났다.
-  const key = (location.hash || '#/').replace(/^#\/?/, '').split('/')[0];
+  const key = routeParts()[0];
   if (key === 'new' && nf.step === 3) nfStep4();
 }
 
@@ -5120,7 +5156,7 @@ async function renderReport() {
      진입점 여덟 곳이 이 형태를 쓴다. 예전엔 기본값이 'imu2clip' 이라 샘플
      행과 실측이 같은 주소를 나눠 쓰고 있었다: 자료를 한 번이라도 올리면
      라벨은 샘플인데 열면 내 발표 리포트가 떴다 */
-  let reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
+  let reportId = routeParts()[1] || '';
   /* 시연 모드에서는 빈 #/report 도 쇼케이스 더미로 보낸다 — 올린 PPT 와
      무관하게 같은 결과 화면이 떠야 발표 플로우가 안 깨진다. */
   if (!reportId && isShowcaseDemo()) {
@@ -6329,7 +6365,7 @@ function wireSendoff() {
     const el = e.target.closest('a[href="#/new"], a[href="#/"], a[href="#/landing"], [data-fresh-practice]');
     if (!el || el === sendoffPassthrough) return;
     // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
-    if (!/^#\/?report/.test(location.hash || '')) return;
+    if (routeParts()[0] !== 'report') return;
     // 들어본 적 없는 발표(샘플 화면)를 배웅하면 트로피 문장이 거짓말이 된다
     if (!realTrophy() && !realSummary()) return;
     e.preventDefault();
@@ -6386,7 +6422,7 @@ const QA_LOG_CHIP = {
  */
 function qaHistoryRecord() {
   const H = window.QaHistory;
-  const hashId = location.hash.replace(/^#\/?/, '').split('/')[1];
+  const hashId = routeParts()[1];
   if (hashId === 'last') return H.get((H.list()[0] || {}).id);
   if (hashId === 'sample-investor') return H.get('investor');
   if (hashId) return H.get(hashId);
@@ -6740,8 +6776,8 @@ function autoAdvanceToQa() {
     // 리빌이 닫힐 때까지 기다린다 — 연출이 끝나야 다음 화면이 의미가 있다
     if (document.getElementById('f11RevealWrap')) return setTimeout(go, 600);
     // 그 사이 다른 화면으로 갔으면 손대지 않는다
-    if (!location.hash.startsWith('#/new')) return;
-    location.hash = '#/qa';
+    if (routeParts()[0] !== 'new') return;
+    location.hash = screenHash('qa');
   };
   // 「끝났어요」를 한 박자 보여주고 넘어간다. 즉시 바꾸면 무슨 일이 일어난 건지
   // 모른 채 화면만 갈린다. 시연은 연출을 더 오래 보여 준다.
@@ -6963,12 +6999,12 @@ async function openAudience() {
     window.Chatter.show(chatterCache, {
       nodeSlides: nodeSlides,
       onRef: (id) => {
-        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        if (routeParts()[0] !== 'report') location.hash = screenHash('report');
         goJudge(id);
       },
       onClose: () => {
         // 객석 나가기 / 리포트에서 자세히 보기 → 리포트 화면이 보여야 한다
-        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        if (routeParts()[0] !== 'report') location.hash = screenHash('report');
         else if (typeof renderReport === 'function') {
           // 오버레이에 가려졌던 리포트를 다시 그리진 않고, 스크롤만 복구
           document.body.style.overflow = '';
@@ -8534,7 +8570,7 @@ const QA_BRIDGE_MAX_TRIES = 25;   // 약 3초
 let qaBridgeTries = 0;
 
 function onQaRoute() {
-  return location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa';
+  return routeParts()[0] === 'qa';
 }
 
 function qaNoticeHtml() {
@@ -8676,7 +8712,7 @@ function ensureLiveQuestions() {
     if (buildToken !== qaBuildToken) return;   // 새 요청이 「생성 중」 을 쥐고 있다 — 옛 요청이 풀지 않는다
     qaBuilding = false;
     saveSession('qa-flow', qa);
-    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa') renderQa();
+    if (onQaRoute()) renderQa();
   });
   return true;
 }

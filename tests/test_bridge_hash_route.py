@@ -17,6 +17,13 @@ def test_screen_paths_go_to_hash_routes():
     assert hash_route_for("/vision/", _nothing) == "#/vision"
 
 
+def test_rehearsal_flow_screens_stay_under_rehearsal():
+    # 10-03 사용자: 리허설 흐름의 화면은 주소창에서도 /rehearsal 아래 — 앱이 #/rehearsal/<화면> 을 그 화면으로 그린다 (app.js routeParts)
+    for sub in ("new", "qa", "report", "occ"):
+        assert hash_route_for(f"/rehearsal/{sub}", _nothing) == f"#/rehearsal/{sub}"
+        assert hash_route_for(f"/rehearsal/{sub}/", STATIC.locate) == f"#/rehearsal/{sub}"
+
+
 def test_case_is_folded_like_the_old_table():
     assert hash_route_for("/test/QA", _nothing) == "#/test/qa"
 

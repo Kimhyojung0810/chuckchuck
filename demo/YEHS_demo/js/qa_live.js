@@ -2228,7 +2228,7 @@ function qaLiveEnd() {
         : '<p class="note">첫 질문에 답하면 여기에 쌓여요.</p>'}
     </div>
     <div class="cere-actions">
-      <a class="btn btn-primary" href="#/report">상세 리포트 보기</a>
+      <a class="btn btn-primary" href="${typeof screenHash === 'function' ? screenHash('report') : '#/report'}">상세 리포트 보기</a>
       <button class="btn btn-text" id="liveAgain" type="button">같은 질문으로 다시</button>
       <a class="btn btn-text" href="#/">홈으로</a>
     </div>`;
@@ -2247,7 +2247,7 @@ function qaLiveEnd() {
 
   $$('.qres-row:not(.is-flat)').forEach((el) => el.addEventListener('click', () => {
     const node = el.dataset.node || '';
-    location.hash = '#/report';
+    location.hash = typeof screenHash === 'function' ? screenHash('report') : '#/report';
     if (node && typeof window.goJudge === 'function') {
       requestAnimationFrame(() => window.goJudge(node));
     }

@@ -1,6 +1,6 @@
 """
 리허설 한 줄 흐름 실험실 — 주소창 /rehearsal 로 들어가 발표 고르기 → 비전 리허설(가짜 카메라 · 가짜 마이크로 몇 장 발표) →
-분석 기다림(부스 「질문 준비」 모양) → 글라스 화상판(자동 받아쓰기로 답) → 상세 리포트(#/report) 까지 헤드리스 크롬으로 한 번 태운다.
+분석 기다림(부스 「질문 준비」 모양) → 글라스 화상판(자동 받아쓰기로 답) → 상세 리포트(#/rehearsal/report) 까지 헤드리스 크롬으로 한 번 태운다.
 
 이 서버엔 웹캠 · 마이크가 없다. 카메라는 부스 실험실의 얼굴 영상(labs/booth_qa face_cam), 마이크는 고른 덱의 실제 발표 녹음을
 앞에서 잘라 쓴다(ffmpeg). 받아쓰기(Web Speech)는 크롬 헤드리스에 없어서 가짜 webkitSpeechRecognition 을 심는다 —
@@ -252,6 +252,16 @@ def run(args) -> Path:
                         except Exception as e:  # noqa: BLE001
                             print("  기록 실패", name, e)
         page.on("response", on_resp)
+        # 지나간 주소 — 흐름 안에서 #/rehearsal 밖(#/new · #/qa · #/report)으로 빠지면 summarize 가 잡는다 (10-03 사용자)
+        R["hash_trail"] = []
+
+        def on_nav(frame):
+            if frame != page.main_frame:
+                return
+            h = "#" + frame.url.split("#", 1)[1] if "#" in frame.url else ""
+            if not R["hash_trail"] or R["hash_trail"][-1] != h:
+                R["hash_trail"].append(h)
+        page.on("framenavigated", on_nav)
         install(page, args, state)
 
         def shot(name: str) -> Path:
@@ -387,7 +397,7 @@ def run(args) -> Path:
                 if not steps_seen or steps_seen[-1][1] != st:
                     steps_seen.append((round(time.time() - t0, 1), st))
                     print("   ", steps_seen[-1], flush=True)
-                if page.evaluate("location.hash === '#/qa'") or "fail" in st.values():
+                if page.evaluate("location.hash === '#/rehearsal/qa'") or "fail" in st.values():
                     break
                 if all(v == "done" for v in st.values()) and "wait_ready" not in R["layout"]:
                     lay("wait_ready")
@@ -397,7 +407,7 @@ def run(args) -> Path:
                               "phase": page.evaluate("nf.pipelinePhase"), "reveal": page.evaluate("!!document.getElementById('f11RevealWrap')"),
                               "fail": page.evaluate("(document.getElementById('bqPrepFail')||{}).innerText || ''"),
                               "n_questions": page.evaluate("qa.live ? qa.live.questions.length : 0"), "hash": page.evaluate("location.hash")})
-            if args.until == "wait" or page.evaluate("location.hash !== '#/qa'"):
+            if args.until == "wait" or page.evaluate("location.hash !== '#/rehearsal/qa'"):
                 raise _Until()
 
             # ── 4. 글라스 화상판 (기다림에서 저절로 들어온다) ───────────────────────
@@ -477,9 +487,9 @@ def run(args) -> Path:
             # ── 5. 리포트 ────────────────────────────────────────────────
             t0 = time.time()
             page.wait_for_timeout(13000)   # 부스라면 12초 뒤 마무리 화면으로 넘어간다 — 리허설은 그대로 있어야 한다
-            stayed = page.evaluate("location.hash === '#/qa' && !!document.querySelector('#bqStage[data-screen=qa]')")
+            stayed = page.evaluate("location.hash === '#/rehearsal/qa' && !!document.querySelector('#bqStage[data-screen=qa]')")
             page.click("#liveSeeResult")
-            page.wait_for_function("location.hash.startsWith('#/report')", timeout=20000)
+            page.wait_for_function("location.hash.startsWith('#/rehearsal/report')", timeout=20000)
             page.wait_for_timeout(3000)
             sweep("report")
             mark("report", t0, {"stayed_on_end_card_13s": stayed, "hash": page.evaluate("location.hash"), "flags": page.evaluate(FLAGS_JS),
@@ -566,6 +576,10 @@ def run_reload(args) -> Path:
             c = page.evaluate(RELOAD_JS)
             c["expect"] = expect
             c["ok"] = (expect in (c["layer"] or "")) if expect and expect != "vision" else (c["vision"] if expect == "vision" else True)
+            # 흐름 안 화면은 주소도 #/rehearsal 아래여야 한다 — 예전엔 #/new · #/qa 로 빠졌다 (10-03 사용자)
+            if expect.startswith(("rehearsal", "vision")):
+                c["hash_ok"] = str(c.get("hash") or "").startswith("#/rehearsal")
+                c["ok"] = c["ok"] and c["hash_ok"]
             R["checks"][tag] = c
             page.screenshot(path=str(out / f"{len(R['checks']):02d}_{tag}.png"))
             print(f"  {tag:24s} {'✓' if c['ok'] else '✗'} {json.dumps(c, ensure_ascii=False)[:230]}", flush=True)
@@ -597,10 +611,10 @@ def run_reload(args) -> Path:
             page.wait_for_selector("#bqStage[data-screen='wait']", timeout=60000)
             page.wait_for_timeout(1500)
             check("wait_reload", expect="rehearsal:")   # 새로고침이면 파이프라인이 끊긴다 — 기다림(재료가 모였으면 곧 화상판)이나 화상판이어야 한다
-            page.wait_for_function("location.hash === '#/qa' || !!(document.getElementById('rhResume') && !document.getElementById('rhResume').hidden)",
+            page.wait_for_function("location.hash === '#/rehearsal/qa' || !!(document.getElementById('rhResume') && !document.getElementById('rhResume').hidden)",
                                    timeout=args.wait_timeout * 1000)
-            R["checks"]["wait_reload_then"] = {"auto_entered": page.evaluate("location.hash === '#/qa'")}
-            if page.evaluate("location.hash !== '#/qa'"):
+            R["checks"]["wait_reload_then"] = {"auto_entered": page.evaluate("location.hash === '#/rehearsal/qa'")}
+            if page.evaluate("location.hash !== '#/rehearsal/qa'"):
                 page.click("#rhResume")
             page.wait_for_selector("#bqStage[data-screen='qa']", timeout=30000)
             page.fill("#liveAnswer", SPOKEN.get(args.deck, "자료의 핵심은 이렇습니다."))
@@ -616,13 +630,16 @@ def run_reload(args) -> Path:
             page.keyboard.press("Escape")
             page.wait_for_timeout(600)
             R["checks"]["esc_twice"] = {"sheet": page.evaluate("!!document.getElementById('bqSheet')"), "hash": page.evaluate("location.hash"),
-                                        "ok": page.evaluate("!document.getElementById('bqSheet') && location.hash === '#/qa'")}
+                                        "ok": page.evaluate("!document.getElementById('bqSheet') && location.hash === '#/rehearsal/qa'")}
             print("  esc_twice              ", R["checks"]["esc_twice"], flush=True)
             # 질문 상태를 잃은 채 새로고침 — 일반 질문 코칭(트랙 고르기)이 아니라 리허설 자리로
             page.evaluate("sessionStorage.removeItem('cheokcheok:qa-flow')")
             check("qa_state_lost", expect="rehearsal:wait")
+            # 주소창 /rehearsal/qa 로 바로 들어와도(브리지 302 → #/rehearsal/qa) 리허설 화상판 (10-03 사용자: 주소는 /rehearsal 아래)
+            page.goto(f"{args.base}/rehearsal/qa", wait_until="load")
+            c = check("qa_direct_path", reload=False, expect="rehearsal:")
+            c["ok"] = c["ok"] and c["hash"] in ("#/rehearsal/qa", "#/rehearsal/new")
             # 나가기 — 시트 → 홈. 표시가 다 꺼져야 한다
-            page.goto(f"{args.base}/#/qa", wait_until="load")
             page.wait_for_timeout(2500)
             if page.query_selector("#bqStage [data-rh-exit]"):
                 page.click("#bqStage [data-rh-exit]")
@@ -674,6 +691,13 @@ def summarize(out: Path) -> None:
         print(f"글자 대비(사진) {len(allv)}곳 · 최저 {min(v for *_, v in allv) if allv else '-'} · 4.5 아래 {len(low)}곳")
         for x in low[:12]:
             print("  ▽", x)
+    trail = R.get("hash_trail") or []
+    if trail:
+        # 리포트에 닿기 전까지(그 뒤는 일부러 흐름 밖 #/qa · 부스로 나가 본다) 주소가 늘 #/rehearsal 아래였나
+        upto = next((i for i, h in enumerate(trail) if h.startswith("#/rehearsal/report")), len(trail) - 1)
+        leaked = [h for h in trail[:upto + 1] if h and not h.startswith("#/rehearsal")]
+        print(f"지나간 주소 {' → '.join(trail[:upto + 1])}")
+        print(f"흐름 밖으로 빠진 주소 {len(leaked)}개 {leaked}")
     print(f"배치 문제 {len(bad)}건 · 콘솔 오류 {len(errs)}건 · 판정 {R.get('judge', {}).get('judge_calls')}번 · 오류 {R.get('error', '-')}")
     for x in bad[:30]:
         print("  -", x)

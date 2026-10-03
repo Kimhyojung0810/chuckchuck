@@ -16,6 +16,14 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'demo/YEHS_demo/js/rehearsal.js'), 'utf8');
+const APP = readFileSync(path.join(ROOT, 'demo/YEHS_demo/js/app.js'), 'utf8');
+/** app.js 의 리허설 주소 함수 묶음(RH_SCREENS ~ rhFlagSet) — app.js 는 통째로 못 올려서 그 토막만 원본에서 잘라 온다 */
+function appRouteSrc(app = APP) {
+  const from = app.indexOf('const RH_SCREENS');
+  const to = app.indexOf('function dismissF11Reveal');
+  if (from < 0 || to < from) throw new Error('app.js 에서 리허설 주소 함수를 못 찾았어요');
+  return app.slice(from, to);
+}
 
 function load(src) {
   const store = new Map();
@@ -34,9 +42,44 @@ const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw n
 
 const { ctx: R, store } = load(SRC);
 
-test('흐름 안 주소는 rehearsal · new · qa 셋 — 그 밖(홈 · 리포트 · 부스 · 비전 · 통화)은 벗어난 것', () => {
-  ['rehearsal', 'new', 'qa'].forEach((k) => eq(R.rehearsalLeaves(k), false, k));
-  ['', 'report', 'booth', 'vision', 'temp', 'test', 'replay', 'about', 'landing', 'graph'].forEach((k) => eq(R.rehearsalLeaves(k), true, k || '(홈)'));
+test('흐름 안 주소는 #/rehearsal 아래 전부 — 그 밖(일반 #/new · #/qa · #/report · 홈 · 부스 · 비전 · 통화)은 벗어난 것 (10-03 사용자)', () => {
+  ['#/rehearsal', '#/rehearsal/', '#/rehearsal/occ', '#/rehearsal/new', '#/rehearsal/qa', '#/rehearsal/report', '#rehearsal/qa']
+    .forEach((h) => eq(R.rehearsalLeaves(h), false, h));
+  ['', '#/', '#/new', '#/qa', '#/report', '#/booth/qa', '#/booth/call', '#/vision', '#/temp', '#/test/qa', '#/rehearsals', '#/new/rehearsal']
+    .forEach((h) => eq(R.rehearsalLeaves(h), true, h || '(빈 주소)'));
+});
+
+test('흐름 안 화면 주소 — rhHash 는 늘 #/rehearsal 아래', () => {
+  eq(R.rhHash(), '#/rehearsal', '고르기');
+  eq(['new', 'qa', 'report', 'occ'].map((s) => R.rhHash(s)), ['#/rehearsal/new', '#/rehearsal/qa', '#/rehearsal/report', '#/rehearsal/occ'], '화면');
+});
+
+test('app.js routeParts — #/rehearsal/<화면> 은 그 화면을 그리고, 나머지 주소는 예전 그대로', () => {
+  const store = new Map();
+  const A = { location: { hash: '' }, sessionStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null) } };
+  vm.createContext(A);
+  vm.runInContext(`${appRouteSrc()}\nfunction rhFlowOn() { return false; }`, A, { filename: 'app.js(리허설 주소)' });
+  eq(A.routeParts('#/rehearsal/new'), ['new'], 'new');
+  eq(A.routeParts('#/rehearsal/qa'), ['qa'], 'qa');
+  eq(A.routeParts('#/rehearsal/report'), ['report'], 'report');
+  eq(A.routeParts('#/rehearsal'), ['rehearsal'], '고르기');
+  eq(A.routeParts('#/rehearsal/occ'), ['rehearsal', 'occ'], '어떤 발표인가요는 리허설 제 화면');
+  eq(A.routeParts('#/report/last'), ['report', 'last'], '일반 리포트 하위 주소');
+  eq(A.routeParts('#/new/reset'), ['new', 'reset'], '일반 초기화');
+  eq(A.routeParts('#/booth/qa'), ['booth', 'qa'], '부스는 그대로');
+  // 화면을 옮기는 주소 — 리허설 표시가 켜져 있을 때만 /rehearsal 아래
+  eq(['new', 'qa', 'report'].map((s) => A.screenHash(s)), ['#/new', '#/qa', '#/report'], '흐름 밖');
+  store.set('cheokcheok:rehearsal-flow', '1');
+  eq(['new', 'qa', 'report'].map((s) => A.screenHash(s)), ['#/rehearsal/new', '#/rehearsal/qa', '#/rehearsal/report'], '흐름 안');
+  A.location.hash = '#/rehearsal/new';
+  eq([A.onScreen('new'), A.onScreen('qa')], [true, false], '지금 화면');
+  A.location.hash = '#/new/';
+  eq(A.onScreen('new'), true, '#/new/ 도 같은 화면');
+});
+
+test('app.js 와 rehearsal.js 가 같은 리허설 표시 키를 쓴다', () => {
+  const key = (APP.match(/const RH_FLOW_FLAG = '([^']+)'/) || [])[1];
+  eq(key, R.REHEARSAL_FLOW_KEY || SRC.match(/const REHEARSAL_FLOW_KEY = '([^']+)'/)[1], '키');
 });
 
 test('켜짐 표시 — 켜고 끄면 키가 남지 않는다 (app.js LAZY_FLOW_FLAGS 가 「1」 로 읽는다)', () => {
@@ -118,17 +161,19 @@ test('새로고침으로 단계가 멈춘 세션도 산출물로 판단한다 (p
   eq([s.rec, s.stt, s.align, s.flow], ['done', 'done', 'done', 'done'], '줄');
 });
 
-test('#/qa 를 되살릴 수 없으면 — 자료가 있으면 #/new, 없으면 발표 고르기. 질문이 살아 있으면 그대로', () => {
+test('#/rehearsal/qa 를 되살릴 수 없으면 — 자료가 있으면 #/rehearsal/new, 없으면 발표 고르기. 질문이 살아 있으면 그대로', () => {
   eq(R.rehearsalQaFallback({ live: true }), null, '살아 있음');
   eq(R.rehearsalQaFallback({ ended: true }), null, '끝난 기록');
-  eq(R.rehearsalQaFallback({ hasDeck: true }), '#/new', '자료 있음');
+  eq(R.rehearsalQaFallback({ hasDeck: true }), '#/rehearsal/new', '자료 있음');
   eq(R.rehearsalQaFallback({}), '#/rehearsal', '빈 탭');
 });
 
-test('하네스 자가 검사 — 흐름 안 주소 목록이 바뀌면 첫 케이스가 잡는다', () => {
-  const broken = load(SRC.replace("const REHEARSAL_KEEP = ['rehearsal', 'new', 'qa'];", "const REHEARSAL_KEEP = ['rehearsal', 'new', 'qa', 'report'];")).ctx;
+test('하네스 자가 검사 — 벗어남 판단이 예전(화면 이름)으로 돌아가면 첫 케이스가 잡는다', () => {
+  const at = SRC.indexOf('function rehearsalLeaves(hash) {');
+  if (at < 0) throw new Error('rehearsalLeaves 를 못 찾았어요');
+  const broken = load(SRC.replace(/function rehearsalLeaves\(hash\) \{[^}]*\}/, "function rehearsalLeaves(hash) { return !/^#\\/?(rehearsal|new|qa)(\\/|$)/.test(String(hash || '')); }")).ctx;
   let caught = false;
-  try { eq(broken.rehearsalLeaves('report'), true, 'report'); } catch (_) { caught = true; }
+  try { eq(broken.rehearsalLeaves('#/qa'), true, '#/qa'); } catch (_) { caught = true; }
   if (!caught) throw new Error('망가뜨린 원본을 못 잡았어요 — 하네스가 원본을 안 읽고 있어요');
 });
 

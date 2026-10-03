@@ -4,15 +4,20 @@
  * 2026-10-03 사용자: 발표 고르기 → 비전 리허설(카메라 앞 발표) → 분석 기다림 → 부스 글라스 화상판에서 질문 답하기 → 리포트를
  * 한 주소에서 끊김 없이. 부스(/booth/qa · /booth/call)는 지금 그대로 둔다 — 이 파일은 있는 화면들을 잇기만 한다.
  *
- *   #/rehearsal          발표 고르기 (부스 시연 세트 셋)                         ← 이 파일이 그린다 (#bqStage 층, 부스 고르기와 같은 카드)
- *   #/new  step 2        비전 리허설                                            ← vision_rehearsal.js nfStep3Vision 그대로 (VISION_FLOW_KEY 를 켠다)
- *                        「발표 마치고 질문 준비하기」(라이브) · 「녹음본을 넣어서 발표 마치기」(이 발표의 녹음)
- *   #/new  step 3        분석 기다림 — 부스 「질문 준비」 화면 모양                ← 이 파일 (뒤에서 app.js nfStep4 가 파이프라인을 그대로 돌린다)
- *   #/qa                 글라스 화상판                                          ← booth_call.js renderQaLiveBoothCall 그대로 + 자료 창 옮기기
- *   #/report             상세 리포트                                            ← 질문을 마치면 바로 간다 (부스 마무리 · 40초 처음으로는 없다)
+ *   #/rehearsal              발표 고르기 (부스 시연 세트 셋)                     ← 이 파일이 그린다 (#bqStage 층, 부스 고르기와 같은 카드)
+ *   #/rehearsal/occ          어떤 발표인가요                                      ← 이 파일
+ *   #/rehearsal/new  step 2  비전 리허설                                        ← vision_rehearsal.js nfStep3Vision 그대로 (VISION_FLOW_KEY 를 켠다)
+ *                            「발표 마치고 질문 준비하기」(라이브) · 「녹음본을 넣어서 발표 마치기」(이 발표의 녹음)
+ *   #/rehearsal/new  step 3  분석 기다림 — 부스 「질문 준비」 화면 모양            ← 이 파일 (뒤에서 app.js nfStep4 가 파이프라인을 그대로 돌린다)
+ *   #/rehearsal/qa           글라스 화상판                                      ← booth_call.js renderQaLiveBoothCall 그대로 + 자료 창 옮기기
+ *   #/rehearsal/report       상세 리포트                                        ← 질문을 마치면 바로 간다 (부스 마무리 · 40초 처음으로는 없다)
  *
- * 켜짐은 탭 단위(sessionStorage REHEARSAL_FLOW_KEY). 위 세 주소(rehearsal · new · qa) 밖으로 나가면 이 표시와 이 흐름이 켠
- * 비전 표시를 같이 끈다 — 남겨 두면 다음 #/new · #/qa 가 리허설 배치로 뜬다. 리포트에 닿을 때도 끈다(흐름이 끝났다).
+ * 주소는 처음부터 끝까지 #/rehearsal 아래다 (10-03 사용자 — 예전엔 #/new · #/qa · #/report 로 빠졌다). #/rehearsal/<화면> 은
+ * 일반 #/new · #/qa · #/report 화면을 그대로 그린다 (app.js routeParts). 화면을 옮길 때는 rhHash() 로 이 아래 주소를 만든다.
+ *
+ * 켜짐은 탭 단위(sessionStorage REHEARSAL_FLOW_KEY). #/rehearsal 아래로 바로 오거나 새로 고치면 켜고(app.js route()),
+ * 그 밖(#/new · #/qa · 홈 …)으로 나가면 이 표시와 이 흐름이 켠 비전 표시를 같이 끈다 — 남겨 두면 다음 #/new · #/qa 가 리허설 배치로 뜬다.
+ * 리포트(#/rehearsal/report)에 닿으면 카메라 · 마이크 · 판단은 끄고 표시만 남긴다 — 새로 고쳐도 리허설 리포트 주소 그대로.
  * 부스 운영 장치(자리 비움 · Esc · 마무리 초읽기 · 뒤로 가기 덫 · 자동 결과)는 이 표시가 켜져 있으면 돌지 않는다 (booth_ops.js · booth_qa.js).
  *
  * 질문 · 판정 로직은 건드리지 않는다. 질문은 리허설 녹음의 분석(받아쓰기 · 정합 · 흐름)으로 일반 앱과 같은 함수(ensureLiveQuestions)가 만든다.
@@ -21,8 +26,6 @@
 
 const REHEARSAL_FLOW_KEY = 'cheokcheok:rehearsal-flow';
 const REHEARSAL_HASH = '#/rehearsal';
-/** 이 주소들 안에 있으면 리허설 흐름이다 — 그 밖으로 나가면 끈다 */
-const REHEARSAL_KEEP = ['rehearsal', 'new', 'qa'];
 /** 질문 3개 트랙 — 부스와 같은 길이 (contracts.py QA_TRACK_LIMITS["5"]) */
 const REHEARSAL_QA_TRACK = '5';
 const REHEARSAL_POLL_MS = 500;
@@ -55,9 +58,14 @@ const RH_WAIT_FAIL_WORD = {
 
 /* ─── 순수 함수 (tests/js/rehearsal.smoke.mjs) ─────────────────────────────── */
 
-/** 이 화면으로 가면 리허설 흐름을 벗어난 것인가 */
-function rehearsalLeaves(key) {
-  return !REHEARSAL_KEEP.includes(String(key || ''));
+/** 이 주소로 가면 리허설 흐름을 벗어난 것인가 — #/rehearsal 아래가 아니면 (#/new · #/qa · #/report 도 벗어난 것) */
+function rehearsalLeaves(hash) {
+  return !/^#\/?rehearsal(\/|$)/.test(String(hash || ''));
+}
+
+/** 흐름 안 화면의 주소 — rhHash('qa') = '#/rehearsal/qa', rhHash() = '#/rehearsal' */
+function rhHash(sub = '') {
+  return sub ? `${REHEARSAL_HASH}/${sub}` : REHEARSAL_HASH;
 }
 
 /**
@@ -98,11 +106,11 @@ function rehearsalWaitStates({ phase = '', out = null, qaReady = false, question
 
 /**
  * #/qa 를 되살릴 수 없을 때 어디로 — 질문이 살아 있거나 끝난 기록이 있으면 그대로(null),
- * 자료가 있으면 리허설 · 분석 자리(#/new), 아무것도 없으면 발표 고르기. 일반 질문 코칭(트랙 고르기)으로 새지 않게.
+ * 자료가 있으면 리허설 · 분석 자리(#/rehearsal/new), 아무것도 없으면 발표 고르기. 일반 질문 코칭(트랙 고르기)으로 새지 않게.
  */
 function rehearsalQaFallback({ live = false, ended = false, hasDeck = false } = {}) {
   if (live || ended) return null;
-  return hasDeck ? '#/new' : REHEARSAL_HASH;
+  return hasDeck ? rhHash('new') : REHEARSAL_HASH;
 }
 
 /* ─── 켜짐 ──────────────────────────────────────────────────────────────── */
@@ -118,9 +126,9 @@ function rehearsalFlowSet(on) {
   } catch (_) { /* 사생활 모드 — 이번 화면만 */ }
 }
 
-/** 리허설이 켠 것을 모두 끈다 — 표시 둘 · 화상판 카메라 · 마이크 · 정면 판단 */
-function rehearsalTeardown({ keepVision = false } = {}) {
-  rehearsalFlowSet(false);
+/** 리허설이 켠 것을 모두 끈다 — 표시 둘 · 화상판 카메라 · 마이크 · 정면 판단. 리포트는 리허설 표시만 남긴다(keepFlow) */
+function rehearsalTeardown({ keepVision = false, keepFlow = false } = {}) {
+  if (!keepFlow) rehearsalFlowSet(false);
   if (!keepVision && typeof visionFlowSet === 'function') visionFlowSet(false);
   if (typeof bqStopMic === 'function') bqStopMic();
   if (typeof bqCamStop === 'function') bqCamStop();
@@ -133,28 +141,30 @@ function rehearsalTeardown({ keepVision = false } = {}) {
 }
 
 /**
- * route() 가 화면을 바꾸기 전에 부른다 (비전 · 통화 층을 걷기 전에 — 카메라를 넘겨받으려고).
- * - #/qa 로 갈 때: 비전 리허설이 연 카메라를 화상판에 넘긴다(다시 묻지 않게). 질문을 아직 안 시작했으면 3개 트랙으로 시작해 둔다
- * - 흐름 밖으로 나갈 때: 표시 · 카메라를 끈다
+ * route() 가 화면을 바꾸기 전에 부른다 (비전 · 통화 층을 걷기 전에 — 카메라를 넘겨받으려고). key 는 그릴 화면(app.js routeParts).
+ * - #/rehearsal/qa 로 갈 때: 비전 리허설이 연 카메라를 화상판에 넘긴다(다시 묻지 않게). 질문을 아직 안 시작했으면 3개 트랙으로 시작해 둔다
+ * - #/rehearsal/report: 카메라 · 마이크를 끄고 표시만 남긴다
+ * - 흐름 밖(#/rehearsal 아래가 아닌 주소)으로 나갈 때: 표시 · 카메라를 끈다
  */
-function rehearsalFlowOnRoute(key) {
+function rehearsalFlowOnRoute(key, hash = location.hash) {
   if (!rehearsalFlowOn()) return;
-  // 녹음 중에 비전 리허설(#/new)을 떠나면 — 브라우저 · 아이패드 뒤로 가기, 주소 직접 입력 — 테이크를 멈춘다.
+  // 녹음 중에 비전 리허설(#/rehearsal/new)을 떠나면 — 브라우저 · 아이패드 뒤로 가기, 주소 직접 입력 — 테이크를 멈춘다.
   // 「나가기」 시트만 멈춰서, 뒤로 가기로는 발표 목록 · 홈 뒤에서 녹음기와 마이크가 표시 없이 계속 돌았다 (10-03 점검 F2)
-  if (key !== 'new' && typeof nf !== 'undefined' && nf && nf.mic === 'on' && typeof visionStopTake === 'function') {
+  if ((key !== 'new' || rehearsalLeaves(hash)) && typeof nf !== 'undefined' && nf && nf.mic === 'on' && typeof visionStopTake === 'function') {
     visionStopTake();
     rhTakeCut = true;   // 「어떤 발표인가요」 가 한 번 알린다
   }
-  if (rehearsalLeaves(key)) {
+  if (rehearsalLeaves(hash)) {
     rehearsalTeardown({ keepVision: key === 'vision' });
     return;
   }
+  if (key === 'report') { rehearsalTeardown({ keepFlow: true }); return; }
   if (key === 'qa') rhHandCamera();
 }
 
-/** route() 가 그리기 직전에 — 리허설 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 리허설 자리로. true 면 route() 가 멈춘다 */
+/** route() 가 그리기 직전에 — 리허설 탭에서 #/rehearsal/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 리허설 자리로. true 면 route() 가 멈춘다 */
 function rehearsalGuard(key) {
-  // 끝난 리허설의 #/new 로 뒤로 오면(발표 고르기 → 한 번 더 뒤로) 일반 앱이 끝난 세션을 지우고 빈 새 연습을 그린다 — 발표 고르기로
+  // 끝난 리허설의 #/rehearsal/new 로 뒤로 오면(발표 고르기 → 한 번 더 뒤로) 일반 앱이 끝난 세션을 지우고 빈 새 연습을 그린다 — 발표 고르기로
   if (key === 'new' && rehearsalFlowOn() && nf && nf.completed) { location.replace(REHEARSAL_HASH); return true; }
   if (key !== 'qa' || !rehearsalFlowOn()) return false;
   const to = rehearsalQaFallback({
@@ -269,14 +279,13 @@ function renderRehearsalEntry() {
   bq.decks = null;   // 덱 목록은 들어올 때마다 새로 — 파싱본이 만료됐을 수 있다
   // 「어떤 발표인가요」 는 제 주소(#/rehearsal/occ)가 있다 — 뒤로 가기 · 새로고침이 고른 발표를 잃고 고르기(또는 홈)로 가지 않게 (10-03 점검 F7)
   const sub = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
-  if (sub === 'occ') {
-    if (rhCanShowOcc()) {
-      rhShowOcc({ title: nf.rehearsalDeck.title });
-      ensureSlideDoc().catch(() => null);   // 새로고침이면 자료(선분석 재료)를 다시 받아 둔다
-      return;
-    }
-    history.replaceState(history.state, '', REHEARSAL_HASH);
+  if (sub === 'occ' && rhCanShowOcc()) {
+    rhShowOcc({ title: nf.rehearsalDeck.title });
+    ensureSlideDoc().catch(() => null);   // 새로고침이면 자료(선분석 재료)를 다시 받아 둔다
+    return;
   }
+  // 그릴 수 없는 「어떤 발표인가요」 · 모르는 하위 주소(#/rehearsal/xyz)는 발표 고르기 주소로 고쳐 둔다
+  if (sub) history.replaceState(history.state, '', REHEARSAL_HASH);
   rhShowPick();
 }
 
@@ -451,7 +460,7 @@ function rhShowOcc(d) {
     nf.step = 2;
     saveSession('new-flow', nf);
     if (typeof visionFlowSet === 'function') visionFlowSet(true);
-    location.hash = '#/new';
+    location.hash = rhHash('new');
   });
 }
 
@@ -627,7 +636,7 @@ async function rhFinishWithRecording(sheet) {
   await useUploadedRecording(file, { knownDurationSec: deck.audioSec });
 }
 
-/* ─── #/new step 3 분석 기다림 — 내 모습 위 글라스 한 장 ────────────────────────── */
+/* ─── #/rehearsal/new step 3 분석 기다림 — 내 모습 위 글라스 한 장 ────────────────────────── */
 
 /*
  * 10-03 사용자: 발표를 마치면(어느 끝내기든) 부스 앞 화면(시작 · 발표 고르기 · 역할 · 「통화 시작하기」)은 하나도 없이
@@ -635,8 +644,10 @@ async function rhFinishWithRecording(sheet) {
  * 진행을 정직하게 보여 주고, 질문이 준비되면 누르지 않아도 화상판으로 들어간다. 역할은 묻지 않고 기본(교수님).
  */
 
+/** 지금 그리는 화면 — #/rehearsal/new 면 'new'. 흐름 밖 주소(#/new)는 '' — 흐름이 아니니 기다림 · 자동 진입이 손대지 않는다 */
 function rhRouteKey() {
-  return location.hash.replace(/^#\/?/, '').split('/')[0];
+  if (rehearsalLeaves(location.hash)) return '';
+  return location.hash.replace(/^#\/?/, '').split('/')[1] || 'rehearsal';
 }
 
 function rhWaitHtml() {
@@ -729,7 +740,7 @@ function rehearsalWaitSync() {
     // 답한 적 없는데 「답하던 질문으로 돌아가서」 · 「질문에 이어서 답하기」 가 떠 저절로 들어가지 않았다 (10-03 점검 F6)
     bq.rhLiveAtMount = rhQaEntered();
     document.getElementById('rhSkipReport').addEventListener('click', rhGoReport);
-    document.getElementById('rhResume').addEventListener('click', () => { location.hash = '#/qa'; });
+    document.getElementById('rhResume').addEventListener('click', () => { location.hash = rhHash('qa'); });
     bqCamEnsure();
     bqCamPaint();
     rhWatchCamAlive();
@@ -863,7 +874,7 @@ function rhWaitTick() {
     bqSet(document.getElementById('rhWaitTitle'), 'textContent', '질문 3개를 준비했어요. 화상판으로 들어가요');
     // 다 끝났는데 밑줄이 「…맞춰 봐요. 1~3분쯤 걸려요」 로 남아 제목과 어긋났다 (V-R2-5)
     bqSet(document.getElementById('rhWaitTip'), 'textContent', rhWaitTip(rhWaitTitleText(), 'ready'));
-    bq.timers.push(setTimeout(() => { bq.rhEntering = false; if (rhRouteKey() === 'new' && nf.step === 3) location.hash = '#/qa'; }, 900));
+    bq.timers.push(setTimeout(() => { bq.rhEntering = false; if (rhRouteKey() === 'new' && nf.step === 3) location.hash = rhHash('qa'); }, 900));
   }
   rhWaitFail(st, qaReady);
 }
@@ -947,7 +958,7 @@ function rhWaitFail(st, qaReady) {
   if (skip) skip.hidden = !qaReady && !(nf.pipelineOut && nf.pipelineOut.graph);
 }
 
-/* ─── #/qa 글라스 화상판 ──────────────────────────────────────────────── */
+/* ─── #/rehearsal/qa 글라스 화상판 ──────────────────────────────────────────────── */
 
 /**
  * qa_live.js renderQaLive 가 리허설 탭이면 부른다. 화상판은 부스 그대로(booth_call.js renderQaLiveBoothCall) 그리고,
@@ -1056,11 +1067,11 @@ function rehearsalQaDone() {
 }
 
 /**
- * 리포트로 — 지금 칸(#/qa · 기다림의 #/new)을 #/rehearsal 로 바꿔 두고 리포트를 쌓는다. 리포트에서 뒤로 가면 발표 고르기다.
+ * 리포트로 — 지금 칸(#/rehearsal/qa · 기다림의 #/rehearsal/new)을 #/rehearsal 로 바꿔 두고 #/rehearsal/report 를 쌓는다. 리포트에서 뒤로 가면 발표 고르기다.
  * 예전엔 뒤로 가면 리허설 표시가 꺼진 일반 #/qa 결과 카드가 떴고, 한 번 더 가면 #/new 가 끝난 세션을 지워 리포트가 비었다 (10-03 점검 F6).
  * replaceState 는 hashchange 를 안 내므로 그 칸을 다시 그리지 않는다
  */
 function rhGoReport() {
   try { history.replaceState(history.state, '', REHEARSAL_HASH); } catch (_) { /* 못 바꾸면 예전처럼 */ }
-  location.hash = '#/report';
+  location.hash = rhHash('report');
 }

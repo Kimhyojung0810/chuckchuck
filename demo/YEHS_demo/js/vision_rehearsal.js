@@ -65,8 +65,8 @@ function renderVisionEntry(opts = {}) {
     nf.step = 2;
     saveSession('new-flow', nf);
   }
-  if (location.hash === '#/new' || location.hash === '#/new/') route();
-  else location.replace('#/new');
+  if (onScreen('new')) route();
+  else location.replace(screenHash('new'));
 }
 
 function visionFlowOnRoute(key) {
@@ -691,8 +691,8 @@ function visionStopTake() {
 function visionFlowLeaveClassic() {
   visionFlowSet(false);
   visionFlowUnmount({ keepCam: false });
-  if (location.hash === '#/new' || location.hash === '#/new/') route();
-  else location.hash = '#/new';
+  if (onScreen('new')) route();
+  else location.hash = screenHash('new');
 }
 
 function nfStep3Vision() {

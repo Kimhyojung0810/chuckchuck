@@ -825,7 +825,7 @@ async function bqPrepare(d) {
   bqMount('prep', bqPrepHtml(d));
   $('#bqRepick').addEventListener('click', () => { bq.prepToken += 1; bqShowPick(); });
   const go = $('#bqGo');
-  go.addEventListener('click', () => { if (!go.disabled) location.hash = '#/qa'; });
+  go.addEventListener('click', () => { if (!go.disabled) location.hash = screenHash('qa'); });
   const startedAt = Date.now();
   bq.timers.push(setInterval(() => {
     const el = document.getElementById('bqElapsed');
