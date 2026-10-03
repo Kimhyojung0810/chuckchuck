@@ -387,7 +387,8 @@ def run(args) -> Path:
                 subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-t", "40", "-i", str(src), "-ac", "1", "-ar", "16000", str(wav)], check=True)
                 page.set_input_files("#rhRecFile", str(wav))
             else:
-                page.click("#rhRecSheet [data-sheet='use']")
+                # 같은 자료를 다르게 발표한 녹음이 둘이면 --take 번째(0 = 1번 녹음)
+                page.click(f"#rhRecSheet [data-sheet='use'][data-take='{args.take}']")
             page.wait_for_selector("#bqStage[data-screen='wait']", timeout=90000)
             mark("rec_finish", t0, {"sheet": sheet[:300], "uploaded": page.evaluate("nf.uploadedTake"), "mic": page.evaluate("nf.mic"),
                                     "cues": page.evaluate("(nf.visionCues||[]).length"), "hash": page.evaluate("location.hash")})
@@ -733,6 +734,7 @@ def main() -> int:
     ap.add_argument("--occ", default="", help="발표 상황 (OCC_LABEL 의 값, 예: 업무 보고 (상사 대상)) — 비우면 추정을 그대로, 추정이 없으면 수업")
     ap.add_argument("--path", choices=["live", "rec", "rec-partial", "rec-file"], default="live",
                     help="live = 발표 마치기 · rec = 발표 없이 「녹음 파일로 대신하기」(이 발표의 녹음) · rec-partial = 몇 초 발표하다가 이 발표의 녹음으로 · rec-file = 몇 초 발표하다가 내 녹음 파일로")
+    ap.add_argument("--take", type=int, default=0, help="녹음 파일로 대신할 때 고를 녹음 (0 = 1번, 1 = 2번 — 부스 세트는 주제마다 둘)")
     ap.add_argument("--reload", action="store_true")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()

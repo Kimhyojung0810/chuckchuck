@@ -23,26 +23,26 @@
 .bq[data-flow="rehearsal"] .rh-occ-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .bq[data-flow="rehearsal"] .rh-cut-note { margin: 0 0 14px; }
 
-/* ── 리허설 글라스 — 더 밝고 투명하게 (10-03 사용자: 「약간 어두운 glass 다, 투명도를 더 높여」) ─────────────────
-   리허설 화면(비전 발표 · 질문 준비 · 화상판)에만 건다 — 부스(/booth/qa · /booth/call)는 booth_call.css 값 그대로.
-   큰 칸(말풍선 · 삐약이 · 답 칸 · 아래 조작줄)의 판을 옅게(.28 → .22) · 흐림 뒤 어둡게 누르던 것을 덜(brightness .74 → .75) · 흐림도 덜(12 → 9px) 해서
-   뒤의 얼굴 · 방이 더 비친다. 작은 알약 · 버튼은 글자 판이라 그대로 — 옅게 하면 흰 벽 앞에서 3:1 아래로 떨어졌다.
-   읽힘은 판 대신 글자 둘레 그림자 테(--lg-halo)를 조금 넓혀서 지킨다 — 흰 벽 사진에서 글자 대비를 잰다 (labs/rehearsal_flow --cam white) */
+/* ── 리허설 글라스 — 발표 중 자료 창(PPT 창)과 같은 투명도 (10-03 사용자: 「약간 어두운 glass」 → 「ppt 가 진행되는 그 투명도로」) ───
+   자료 창(vision_rehearsal.css .vr-slide)은 판을 34% 만 깔고(rgba 255 .34) 흐림 18px · 채도 1.5 만 준다 — 뒤를 어둡게 누르지 않는다.
+   화상판의 큰 칸(말풍선 · 삐약이 · 답 칸 · 지금 질문)과 비전 아래 조작줄도 같은 흐림 · 채도 · 34% 판으로 — 색만 어두운 판(흰 글자라서).
+   부스 화상판은 흐림 뒤를 brightness .74 · contrast .6 으로 눌러서(booth_call.css) 같은 34% 여도 거뭇하게 보였다 — 리허설은 누르지 않는다.
+   작은 알약 · 버튼(흐림 없는 판)은 그대로. 부스(/booth/qa · /booth/call) 값도 그대로.
+   읽힘은 글자 둘레 그림자 테(--lg-halo)로 지킨다 — 흰 벽 사진에서 글자 대비를 잰다 (labs/rehearsal_flow --cam white) */
 .bq[data-variant="call"][data-flow="rehearsal"] {
-  --lg-blur: blur(9px) saturate(1.9) contrast(.6) brightness(.75);
-  --lg-tint-text: rgba(16, 20, 32, .22);
-  --lg-tint-now: rgba(16, 20, 32, .26);
+  --lg-blur: blur(18px) saturate(1.5);
+  --lg-tint-text: rgba(16, 20, 32, .34);
+  --lg-tint-now: rgba(16, 20, 32, .34);
   --lg-halo: 0 0 1px rgba(0, 0, 0, .9), 0 0 2px rgba(0, 0, 0, .85), 0 1px 4px rgba(0, 0, 0, .7), 0 0 14px rgba(0, 0, 0, .5);
-  --lg-edge: rgba(255, 255, 255, .38);
+  --lg-edge: rgba(255, 255, 255, .45);
 }
-/* 비전 발표 화면 아래 조작줄도 화상판의 큰 칸(.bc-glass)과 같은 판 — 알약 · 버튼(.vr-glass)은 글자 판이라 예전 진하기 그대로 */
 #vrCall[data-flow="rehearsal"] {
   --vr-halo: 0 0 1px rgba(0, 0, 0, .9), 0 0 2px rgba(0, 0, 0, .85), 0 1px 4px rgba(0, 0, 0, .7), 0 0 14px rgba(0, 0, 0, .5);
 }
 #vrCall[data-flow="rehearsal"] .vr-dock {
-  -webkit-backdrop-filter: blur(9px) saturate(1.9) contrast(.6) brightness(.75); backdrop-filter: blur(9px) saturate(1.9) contrast(.6) brightness(.75);
-  background: linear-gradient(135deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, .02) 40%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .03) 100%), rgba(16, 20, 32, .22);
-  border-color: rgba(255, 255, 255, .38); border-radius: 24px;
+  -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+  background: linear-gradient(135deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, .02) 40%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .03) 100%), rgba(16, 20, 32, .34);
+  border-color: rgba(255, 255, 255, .45); border-radius: 24px;
 }
 #vrCall[data-flow="rehearsal"] .vr-dock :is(.rec-status, .rec-copy) { text-shadow: var(--vr-halo); }
 
@@ -85,6 +85,21 @@
    세 개를 한 줄에 두면 440px 시트에서 초록 버튼 글자가 세 줄로 접혔다 */
 #vrCall .rh-rec-sheet .bq-sheet-actions:has([data-sheet="use"]) { display: grid; grid-template-columns: 1fr 1fr; }
 #vrCall .rh-rec-sheet .bq-sheet-actions [data-sheet="use"] { grid-column: 1 / -1; order: -1; }
+/* 같은 자료를 다르게 발표한 녹음 둘 — 카드처럼 눌러 고른다. 이름 · 버전 · 길이 한 줄, 무엇이 다른지 한 줄 */
+#vrCall .rh-rec-sheet .bq-sheet { width: min(92vw, 520px); }
+#vrCall .rh-takes { display: flex; flex-direction: column; gap: 10px; margin: 0 0 18px; }
+#vrCall .rh-take {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 14px 16px;
+  border: 1px solid rgba(24, 24, 27, .18); border-radius: var(--r-ctl); background: #fff; color: var(--text); text-align: left;
+  font: inherit; cursor: pointer; transition: border-color 160ms, background 160ms;
+}
+#vrCall .rh-take:hover { border-color: var(--brand); background: rgba(8, 184, 121, .06); }
+#vrCall .rh-take:focus-visible { outline: 2.5px solid var(--brand); outline-offset: 2px; }
+#vrCall .rh-take:disabled { opacity: .6; cursor: progress; }
+#vrCall .rh-take-head { display: flex; align-items: baseline; gap: 4px; width: 100%; font-size: 16px; color: var(--text); }
+#vrCall .rh-take-head b { font-weight: var(--w-bold); }
+#vrCall .rh-take-len { margin-left: auto; color: var(--text-2, #52525B); font-size: 14px; font-variant-numeric: tabular-nums; }
+#vrCall .rh-take-note { font-size: 14px; line-height: 1.5; color: var(--text-2, #52525B); }
 @media (max-width: 800px) {
   #vrCall .rh-rec-finish { padding: 0 10px; font-size: 13px; }
 }

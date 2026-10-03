@@ -377,8 +377,9 @@ async function rhPickDeck(d, btn) {
   nf.occTouched = false;
   nf.fileName = d.row.deck;
   nf.sessionId = d.row.cached_session_id;
-  // 「녹음본을 넣어서 발표 마치기」가 쓸 이 발표의 녹음 — 새로고침해도 남게 nf 에 적는다
+  // 「녹음 파일로 대신하기」가 쓸 이 발표의 녹음 — 새로고침해도 남게 nf 에 적는다. 같은 자료를 다르게 발표한 녹음(1 · 2번)을 다 담는다
   nf.rehearsalDeck = { key: d.row.key, title: d.title, audio: d.row.audio || '', audioSec: Number(d.row.audio_sec) || 0 };
+  nf.rehearsalDeck.takes = await rhDeckTakes(d.row);
   if (typeof setUploadedPdf === 'function') setUploadedPdf(null);
   try {
     const pdf = await bqCoverPdf(d.row.cached_session_id);
@@ -473,6 +474,48 @@ function rhClock(sec) {
 }
 
 /**
+ * 같은 자료를 다르게 발표한 녹음 — 부스 시연 세트는 주제마다 둘(1번 · 2번, ppt/decks.json topic · label · version).
+ * 10-03 사용자: 둘 다 고를 수 있게, 무엇이 다른지 한 줄씩. 한 줄은 각 녹음의 대본(ppt/<덱>/참고/*_대본_*.pdf)의
+ * 「척척발표가 찾아낸 것」 을 줄인 것이다 — 들으면 무엇이 다르게 들리는지만, 정답(어디가 틀렸는지)은 다 말하지 않는다.
+ */
+const RH_TAKE_NOTES = {
+  'A-1': '네 장을 고르게 짚지만 실험 조건 하나를 빼먹고, 결과를 실제 사용 권고까지 넓혀요.',
+  'A-2': '실험 설계를 길게 설명하느라 결과는 숫자 하나, 한계는 한 문장으로 지나가요.',
+  'B-1': '결과를 힘줘 말하지만 실험 조건은 짧게 넘기고, 결론을 지금의 하천까지 넓혀요.',
+  'B-2': '방법을 꼼꼼히 설명하고 결과는 양 끝 숫자 두 개만 말한 뒤, 다음 단계 없이 끝나요.',
+  'C-1': '가설 셋 중 하나에 절반 넘게 쓰고, 나머지 가설과 한계는 한 문장씩으로 넘겨요.',
+  'C-2': '결론(평점 제도를 바꿔야 한다)을 먼저 꺼내고, 근거는 그 뒤에 짧게 붙여요.',
+};
+
+/** 이 덱과 같은 주제의 녹음들 — [{ key, label, version, note, audio, audioSec }]. 목록을 못 받으면 이 덱의 녹음 하나 */
+async function rhDeckTakes(row) {
+  const own = row && row.audio ? [{ key: row.key, label: row.label || '', version: row.version || '', audio: row.audio, audioSec: Number(row.audio_sec) || 0 }] : [];
+  if (!row || !row.topic) return rhNoteTakes(own);
+  try {
+    const res = await fetch('/api/v1/dev/decks', { credentials: 'same-origin' });
+    if (!res.ok) return rhNoteTakes(own);
+    const rows = ((await res.json()) || {}).decks || [];
+    const takes = rows.filter((r) => r.topic === row.topic && r.audio)
+      .map((r) => ({ key: r.key, label: r.label || '', version: r.version || '', audio: r.audio, audioSec: Number(r.audio_sec) || 0 }))
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    return rhNoteTakes(takes.length ? takes : own);
+  } catch (err) {
+    console.warn('[chuckchuck] rehearsal takes', err);
+    return rhNoteTakes(own);
+  }
+}
+function rhNoteTakes(takes) {
+  return takes.map((t) => ({ ...t, note: RH_TAKE_NOTES[t.label] || '' }));
+}
+
+/** 고를 수 있는 녹음 — 예전 세션(takes 없이 저장)이면 이 덱의 녹음 하나 */
+function rhTakesOf(deck) {
+  if (!deck) return [];
+  if (Array.isArray(deck.takes) && deck.takes.length) return deck.takes;
+  return deck.audio ? [{ key: deck.key, label: '', version: '', note: '', audio: deck.audio, audioSec: deck.audioSec }] : [];
+}
+
+/**
  * vision_rehearsal.js nfStep3Vision 이 리허설 탭이면 부른다 — 조작줄에 두 갈래를 나란히 둔다.
  * 10-03 사용자: 발표를 시작하면 「발표 마치기」(직접 한 발표) 와 「녹음 파일로 대신하기」 두 갈래. Q&A 로 태우는 녹음은
  * 내가 방금 한 발표일 수도, 녹음 파일(이 발표에 딸린 녹음 · 내가 고른 파일)일 수도 있다. 시작 전에도 녹음 파일로 대신할 수 있다
@@ -507,23 +550,28 @@ const RH_REC_ACCEPT = 'audio/*,.webm,.m4a,.mp4,.mp3,.wav,.ogg';
  */
 function rhConfirmRecording(layer) {
   if (document.getElementById('rhRecSheet')) return;
-  const deck = nf.rehearsalDeck;
-  const hasDeckRec = !!(deck && deck.audio);
-  const clock = hasDeckRec ? rhClock(deck.audioSec) : '';
+  const takes = rhTakesOf(nf.rehearsalDeck);
+  const hasDeckRec = takes.length > 0;
   const live = nf.mic === 'on' || (Number(nf.sec) || 0) > 0;
+  const lead = takes.length > 1 ? `같은 자료를 다르게 발표한 녹음이 ${takes.length}개 있어요. 고른 녹음으로` : (hasDeckRec ? `이 발표에 딸린 녹음(${rhClock(takes[0].audioSec)})이나 내 녹음 파일로` : '내 녹음 파일로');
   const back = document.activeElement;
   const sheet = document.createElement('div');
   sheet.className = 'bq-sheet-wrap rh-rec-sheet';
   sheet.id = 'rhRecSheet';
   sheet.innerHTML = `<div class="bq-sheet" role="dialog" aria-modal="true" aria-labelledby="rhRecTitle" aria-describedby="rhRecBody">
       <h2 id="rhRecTitle">녹음 파일로 대신할까요?</h2>
-      <p id="rhRecBody">${hasDeckRec ? `이 발표에 딸린 녹음(${clock})이나 내 녹음 파일로` : '내 녹음 파일로'} 분석하고 질문 3개를 준비해요.${live ? ' <b>지금까지 녹음한 내 발표는 쓰지 않고 이 녹음으로 바꿔요.</b>' : ''} 카메라 반응(삐약이)은 리포트에 남지 않아요.</p>
+      <p id="rhRecBody">${lead} 분석하고 질문 3개를 준비해요.${live ? ' <b>지금까지 녹음한 내 발표는 쓰지 않고 이 녹음으로 바꿔요.</b>' : ''} 카메라 반응(삐약이)은 리포트에 남지 않아요.</p>
       <p class="rh-rec-note" id="rhRecNote" role="status"></p>
       <input type="file" id="rhRecFile" accept="${RH_REC_ACCEPT}" hidden>
+      ${takes.length > 1 ? `<div class="rh-takes" role="group" aria-label="이 발표의 녹음">${takes.map((t, i) => `
+        <button type="button" class="rh-take" data-sheet="use" data-take="${i}">
+          <span class="rh-take-head"><b>${escapeHtml(t.label || `녹음 ${i + 1}`)}</b>${t.version ? ` · ${escapeHtml(t.version)}` : ''}<span class="rh-take-len">${rhClock(t.audioSec)}</span></span>
+          ${t.note ? `<span class="rh-take-note">${escapeHtml(t.note)}</span>` : ''}
+        </button>`).join('')}</div>` : ''}
       <div class="bq-sheet-actions">
         <button type="button" class="bq-ghost" data-sheet="close">닫기</button>
-        <button type="button" class="${hasDeckRec ? 'bq-ghost' : 'bq-cta bq-cta-sm'}" data-sheet="file">내 녹음 파일 고르기</button>
-        ${hasDeckRec ? `<button type="button" class="bq-cta bq-cta-sm" data-sheet="use">이 발표의 녹음(${clock}) 쓰기</button>` : ''}
+        <button type="button" class="${takes.length === 1 ? 'bq-ghost' : 'bq-cta bq-cta-sm'}" data-sheet="file">내 녹음 파일 고르기</button>
+        ${takes.length === 1 ? `<button type="button" class="bq-cta bq-cta-sm" data-sheet="use" data-take="0">이 발표의 녹음(${rhClock(takes[0].audioSec)}) 쓰기</button>` : ''}
       </div>
     </div>`;
   layer.appendChild(sheet);
@@ -539,7 +587,7 @@ function rhConfirmRecording(layer) {
   sheet.addEventListener('click', (e) => {
     const act = e.target.closest('[data-sheet]');
     if (e.target === sheet || (act && act.dataset.sheet === 'close')) close();
-    else if (act && act.dataset.sheet === 'use') rhFinishWithRecording(sheet);
+    else if (act && act.dataset.sheet === 'use') rhFinishWithRecording(sheet, takes[Number(act.dataset.take) || 0]);
     else if (act && act.dataset.sheet === 'file') sheet.querySelector('#rhRecFile').click();
   });
   sheet.querySelector('#rhRecFile').addEventListener('change', (e) => {
@@ -596,8 +644,9 @@ function rehearsalVisionLeave(layer) {
  * 지난 테이크의 질문 · 반응은 #againTake 처럼 버린다. useUploadedRecording 이 새 테이크(pipelineStartedAt)로 기다림 층을 새로 세운다
  */
 async function rhReanalyzeWithRecording(btn) {
-  const deck = nf.rehearsalDeck;
-  if (!deck || !deck.audio) return;
+  const takes = rhTakesOf(nf.rehearsalDeck);
+  const deck = takes.find((t) => t.key === nf.rehearsalDeck.lastTake) || takes[0];
+  if (!deck) return;
   const note = document.getElementById('rhReRecNote');
   const label = btn.textContent;
   btn.disabled = true;
@@ -627,9 +676,10 @@ async function rhReanalyzeWithRecording(btn) {
   await useUploadedRecording(file, { knownDurationSec: deck.audioSec });
 }
 
-/** 덱 녹음을 받아 이번 발표의 녹음으로 — 라이브 녹음 · 반응은 버린다(useUploadedRecording 이 녹음기를 멈춘다) */
-async function rhFinishWithRecording(sheet) {
-  const deck = nf.rehearsalDeck;
+/** 고른 덱 녹음을 받아 이번 발표의 녹음으로 — 라이브 녹음 · 반응은 버린다(useUploadedRecording 이 녹음기를 멈춘다) */
+async function rhFinishWithRecording(sheet, take) {
+  const deck = take;
+  if (!deck) return;
   const note = sheet.querySelector('#rhRecNote');
   const buttons = [...sheet.querySelectorAll('button')];
   buttons.forEach((b) => { b.disabled = true; });
@@ -644,6 +694,7 @@ async function rhFinishWithRecording(sheet) {
     return;
   }
   if (!sheet.isConnected) return;
+  nf.rehearsalDeck.lastTake = take.key;   // 분석이 멈추면 「이 녹음으로 다시 분석하기」 가 같은 녹음을 쓴다
   await rhFinishWithFile(sheet, file, deck.audioSec);
 }
 
