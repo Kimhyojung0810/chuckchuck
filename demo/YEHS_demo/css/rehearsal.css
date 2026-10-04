@@ -168,6 +168,9 @@
   background: rgba(255, 255, 255, .92); color: #1c2430; border: 0; font-weight: var(--w-bold);
 }
 #vrCall .rh-rec-finish:hover { background: #fff; }
+/* 마지막 장까지 넘기기 전에는 누를 수 없다 (10-04) — 흐리게, 손가락 대신 금지 표시 */
+#vrCall .rh-rec-finish:disabled { opacity: .45; cursor: not-allowed; }
+#vrCall .rh-rec-finish:disabled:hover { background: rgba(255, 255, 255, .92); }
 #vrCall .rh-rec-finish:focus-visible { outline: 2.5px solid var(--cyan, #3fd599); outline-offset: 2px; }
 #vrCall .rh-rec-sheet { position: absolute; z-index: 20; }
 #vrCall .rh-rec-sheet .bq-sheet p b { color: var(--text); }

@@ -2617,6 +2617,7 @@ function syncRehearsalNav() {
   const last = rehearsalCount();
   $$('[data-slide-nav="-1"]').forEach((button) => { button.hidden = current <= 1; });
   $$('[data-slide-nav="1"]').forEach((button) => { button.hidden = current >= last; });
+  if (typeof rhSyncRecFinish === 'function') rhSyncRecFinish();   // 리허설: 마지막 장까지 넘겨야 「녹음 파일로 대신하기」 (js/rehearsal.js)
 }
 
 function moveSlideTo(next) {

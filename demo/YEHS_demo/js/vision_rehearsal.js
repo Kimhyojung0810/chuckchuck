@@ -60,6 +60,7 @@ function renderVisionEntry(opts = {}) {
     // 질문이 리허설 표시 없이 일반 「질문 준비가 끝났어요」 페이지로 떴다 (10-03 점검 F7). 리허설 고르기 표시는 지운다
     discardTakeKeepDeck();
     nf.rehearsalDeck = null;
+    nf.rhReachedEnd = false;
     saveSession('new-flow', nf);
   } else if ((Number(nf.step) || 0) < 2) {
     nf.step = 2;

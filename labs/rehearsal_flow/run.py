@@ -374,6 +374,14 @@ def run(args) -> Path:
         def finish_with_recording(live: bool) -> None:
             # 「녹음 파일로 대신하기」 → 시트(이 발표의 녹음 m:ss · 내 녹음 파일) → 분석
             t0 = time.time()
+            # 10-04: 자료를 마지막 장까지 넘겨야 누를 수 있다 — 그 전엔 잠겨 있는지 보고, 끝까지 넘긴 뒤 풀리는지 본다
+            last = page.evaluate("rehearsalCount()")
+            gate = {"slide_before": page.evaluate("Number(nf.slide)"), "last": last,
+                    "locked_before": page.evaluate("document.getElementById('rhRecFinish').disabled")}
+            while page.evaluate("Number(nf.slide)") < last and page.is_visible('.vr-dock [data-slide-nav="1"]'):
+                page.click('.vr-dock [data-slide-nav="1"]')
+                page.wait_for_timeout(250)
+            gate["open_at_last"] = not page.evaluate("document.getElementById('rhRecFinish').disabled")
             page.click("#rhRecFinish")
             page.wait_for_selector("#rhRecSheet [data-sheet='file']", timeout=5000)
             page.wait_for_timeout(400)
@@ -390,7 +398,7 @@ def run(args) -> Path:
                 # 같은 자료를 다르게 발표한 녹음이 둘이면 --take 번째(0 = 1번 녹음)
                 page.click(f"#rhRecSheet [data-sheet='use'][data-take='{args.take}']")
             page.wait_for_selector("#bqStage[data-screen='wait']", timeout=90000)
-            mark("rec_finish", t0, {"sheet": sheet[:300], "uploaded": page.evaluate("nf.uploadedTake"), "mic": page.evaluate("nf.mic"),
+            mark("rec_finish", t0, {"gate": gate, "sheet": sheet[:300], "uploaded": page.evaluate("nf.uploadedTake"), "mic": page.evaluate("nf.mic"),
                                     "cues": page.evaluate("(nf.visionCues||[]).length"), "hash": page.evaluate("location.hash")})
 
         def wait_and_qa() -> None:

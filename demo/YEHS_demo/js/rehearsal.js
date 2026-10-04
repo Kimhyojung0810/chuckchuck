@@ -379,6 +379,7 @@ async function rhPickDeck(d, btn) {
   nf.sessionId = d.row.cached_session_id;
   // 「녹음 파일로 대신하기」가 쓸 이 발표의 녹음 — 새로고침해도 남게 nf 에 적는다. 같은 자료를 다르게 발표한 녹음(1 · 2번)을 다 담는다
   nf.rehearsalDeck = { key: d.row.key, title: d.title, audio: d.row.audio || '', audioSec: Number(d.row.audio_sec) || 0 };
+  nf.rhReachedEnd = false;          // 새 자료 — 다시 마지막 장까지 넘겨야 녹음으로 대신할 수 있다
   nf.rehearsalDeck.takes = await rhDeckTakes(d.row);
   if (typeof setUploadedPdf === 'function') setUploadedPdf(null);
   try {
@@ -520,6 +521,7 @@ function rhTakesOf(deck) {
  * 10-03 사용자: 발표를 시작하면 「발표 마치기」(직접 한 발표) 와 「녹음 파일로 대신하기」 두 갈래. Q&A 로 태우는 녹음은
  * 내가 방금 한 발표일 수도, 녹음 파일(이 발표에 딸린 녹음 · 내가 고른 파일)일 수도 있다. 시작 전에도 녹음 파일로 대신할 수 있다
  * (발표하고 싶지 않은 사람). 녹음을 안 눌렀어도 · 카메라 · 마이크가 꺼져 있어도 된다.
+ * 10-04 사용자: 단 자료를 **마지막 장까지 넘긴 뒤에만** 누를 수 있다 (`rhSyncRecFinish`).
  * 녹음 길은 새로 만들지 않는다 — #/test/qa 의 덱 녹음 받기(fetchDeckFile) + 일반 앱의 녹음 올리기(useUploadedRecording) 그대로.
  * 일반 조작줄의 「녹음 파일로 대신하기」(.rec-upload)는 이 탭에서 숨긴다(CSS) — 같은 일을 이 버튼의 시트가 한다.
  */
@@ -539,7 +541,23 @@ function rehearsalVisionDock(layer) {
   btn.id = 'rhRecFinish';
   btn.textContent = '녹음 파일로 대신하기';
   rec.after(btn);
-  btn.addEventListener('click', () => rhConfirmRecording(layer));
+  btn.addEventListener('click', () => { if (!btn.disabled) rhConfirmRecording(layer); });
+  rhSyncRecFinish();
+}
+
+/**
+ * 「녹음 파일로 대신하기」는 자료를 **마지막 장까지 넘겼을 때만** 누른다 (10-04 사용자) — 자료를 한 번 다 훑은 뒤에 녹음으로 넘어가게.
+ * 장을 넘길 때마다 app.js syncRehearsalNav 가 부른다. 한 번 끝까지 갔으면 앞으로 돌아가도 열어 둔다 (nf.rhReachedEnd — 새로고침에도 남는다).
+ */
+function rhSyncRecFinish() {
+  const btn = document.getElementById('rhRecFinish');
+  if (!btn || typeof nf === 'undefined') return;
+  const last = typeof rehearsalCount === 'function' ? rehearsalCount() : 1;
+  if ((Number(nf.slide) || 1) >= last) nf.rhReachedEnd = true;
+  const open = !!nf.rhReachedEnd;
+  btn.disabled = !open;
+  btn.setAttribute('aria-disabled', String(!open));
+  btn.title = open ? '' : `마지막 슬라이드(${last}장)까지 넘기면 누를 수 있어요`;
 }
 
 /** 녹음 파일 확장자 — 일반 앱 recUploadHtml 과 같다 */
