@@ -46,6 +46,7 @@ FastAPI 서버는 `/api/v1/*` 계약이 스펙대로 동작하는지 pytest로 �
 | `DEMO_HOST` | `127.0.0.1` | **실 API 모드에서 루프백이 아니면 브리지가 시작을 거부한다** (2026-09-23 부터, 전에는 경고만). IP만 알면 아무나 눌러 팀 계정으로 과금된다 |
 | `DEMO_REQUIRE_ACCESS` | `0` | `1` 이면 `Cf-Access-Jwt-Assertion` 헤더 없는 요청을 전부 403 (정적 파일 포함). 터널로 열 때만 켠다 (§10-2) |
 | `TUNNEL_HOSTNAME` · `DEMO_ALLOWED_HOSTS` | 비어 있음 | Host 헤더 허용 목록에 더한다 (기본 `127.0.0.1`·`localhost`·`::1`). 터널 호스트명은 반드시 넣는다 |
+| `DEMO_EDGE_SECRET` · `DEMO_EDGE_LOCK` · `DEMO_PAID_*` · `DEMO_IP_RPM` · `DEMO_BAN_*` · `DEMO_MAX_CONNECTIONS` … | §10-6 | 트래픽 급증·공격 대응(방패). 비밀은 `.env` 에만 |
 | `DEMO_JSON_MAX_MB` | `2` | JSON 본문 상한(MB). 산출물 묶음 경로는 3배, 녹음·업로드는 30MB 원본 기준 |
 | `SERVER_PORT`/`SERVER_HOST` | 8000 / `127.0.0.1` | FastAPI(`server/`) 전용, 데모와 별개 |
 | 로컬 믿:음 서빙 포트 | 8010 | `serve_midm.py --port 8010`, `MIDM_BASE_URL=http://127.0.0.1:8010/v1`로 연결 |
@@ -185,6 +186,7 @@ CLI 로 직접 만들고 싶으면 `demo/run_tunnel.sh` 머리말의 절차(`clo
 - **요청 제한의 IP**: 터널을 거친 요청은 전부 127.0.0.1 에서 온다. 브리지 `_client_key` 가
   루프백 요청에 한해 `CF-Connecting-IP` 를 읽어 사람마다 따로 센다. 이게 없으면 심사위원
   전원이 30회/분 한 통을 나눠 써서 세 명째부터 429 가 난다.
+  Funnel 도 루프백이라 이 헤더를 그대로 믿으면 위조로 상한을 피한다 — 2026-10-05 부터는 §10-6 의 규칙으로만 믿는다.
 - **CORS 불필요**: 화면과 API 가 같은 오리진(브리지)이라 `DEMO_ALLOWED_ORIGINS` 도
   `js/config.js` 의 `CHUCKCHUCK_API_BASE` 도 그대로 비워 둔다.
 - **첫 요청 지연**: LoRA 가 있는 머신은 예열(CLAUDE.md §2)을 시연 전에 해 둔다.
@@ -275,6 +277,118 @@ Tailscale 정책 파일에서 홍콩 DERP 를 빼 도쿄로 붙이는 건 왕복
 **재는 법**: `.venv/bin/python labs/load_perf/run.py --base https://chuckchuck-present.com --runs 3`
 (로컬 비교는 `--base http://127.0.0.1:8800 --latency 200`). 이 VM 에서 자기 공개 도메인으로 가는 값은 흔들리니
 여러 번 재서 중앙값을 본다.
+
+### 10-6. 트래픽 급증·공격 대응 (2026-10-05, AI Festa 전날)
+
+공개 사이트는 로그인 없이 과금 경로(파싱·STT·LLM)를 연다. 막아야 할 것은 셋이다 — **① 갑자기 몰린 사람**(부스 QR),
+**② 크레딧을 태우려는 스크립트**, **③ 사이트를 멈추려는 홍수·느린 연결**. 원칙은 하나다:
+**팀 쿠키(/auth)를 가진 브라우저와 VM 안에서 곧장 온 요청은 막지 않는다** — 부스 노트북이 방문자에게 밀리면 안 된다.
+
+```
+방문자 ─▶ Cloudflare (DDoS 흡수·캐시·Rate Limit·챌린지, X-Edge-Auth 를 붙인다)
+          ─▶ Funnel(ts.net) ─▶ 127.0.0.1:8799 브리지 ─ 방패: 연결 상한·시한 → 차단 목록·감옥·홍수 제한·원본 잠금
+                                                           → (과금 경로) 점검 깃발 → 분당 상한 → 동시 실행 칸 → 시간당 천장
+공격자 ─▶ ts.net 으로 바로 ────────▲  (Cloudflare 를 안 거친다 — 원본 잠금이 이걸 403 으로 끊는다)
+```
+
+**층마다 하는 일** (`demo/shield.py` 부품, `demo/bridge.py` 배선, 회귀 `tests/test_bridge_shield.py`)
+
+| 층 | 하는 일 | 환경변수 (기본값) |
+|---|---|---|
+| 방문자 IP | Funnel 도 루프백으로 들어와서, 예전엔 ts.net 으로 바로 와 `CF-Connecting-IP` 를 바꿔 보내면 IP 상한이 다 풀렸다. 이제 `X-Forwarded-For` **마지막 칸**(Funnel 이 적는 TCP 상대)이 Cloudflare 주소대일 때만 그 헤더를 믿고(그 값은 Cloudflare 가 덮어써서 못 고른다), 아니면 마지막 칸이 그 사람이다. `X-Edge-Auth` 가 맞으면 Cloudflare 를 거친 것이 확실하다 (원본 잠금의 근거). Cloudflare 서버·설비 IP 로 잡힌 칸은 여러 사람이 섞여 있어 홍수 제한·감옥에 안 넣는다 | `DEMO_EDGE_SECRET` (없음, **.env 에만**) · `DEMO_CF_RANGES` (Cloudflare 목록에 더할 주소대) |
+| 원본 잠금 | 비밀 머리글 없는 공개 요청(= ts.net 직접) 403. **팀 쿠키와 `/auth` 는 연다** — 도메인이 죽으면 부스 노트북이 ts.net/auth 로 들어온다. 비밀이 비어 있으면 켜지지 않는다 | `DEMO_EDGE_LOCK` (0) |
+| 연결 | 동시 연결 상한을 넘으면 스레드를 만들지 않고 바로 503. recv·send 한 번 30초, 머리글 전체 15초, keep-alive 대기 120초(Funnel 의 Go 유휴 정리 90초보다 길게), 본문은 크기÷8KB/s. 머리글을 한 줄씩 늦게 보내는 연결(slowloris)은 감시 스레드가 끊는다 | `DEMO_MAX_CONNECTIONS` (256) · `DEMO_LISTEN_BACKLOG` (128) · `DEMO_SOCKET_TIMEOUT` (30) · `DEMO_HEADER_TIMEOUT` (15) · `DEMO_KEEPALIVE_SEC` (120) · `DEMO_MIN_BODY_KBPS` (8) |
+| 홍수 제한 | **모든** 요청에 IP 당 분당 상한 (IPv6 는 /64 로 묶는다). 정적 파일은 Cloudflare 가 받으므로 원본엔 HTML·API 만 온다 — 행사장 와이파이처럼 수십 명이 IP 하나를 나눠 써도 안 걸리게 넉넉히 | `DEMO_IP_RPM` (600) |
+| 감옥 | 막힌(429) 횟수가 창 안에 문턱을 넘으면 그 IP 를 가둔다 — 본문도 안 읽고 429. 문턱이 높은 이유: 행사장 IP 를 가두면 행사장 전체가 10분 막힌다 | `DEMO_BAN_STRIKES` (300) · `DEMO_BAN_WINDOW_SEC` (60) · `DEMO_BAN_SEC` (600) |
+| 차단 목록 | 손으로 막는 IP·주소대. 파일을 고치면 2초 안에 다시 읽는다 (재시작 없음) | `DEMO_BLOCKLIST_FILE` (`var/blocklist.txt`) |
+| 점검 깃발 | 파일이 있으면 공개 요청의 과금 경로가 503 「지금 잠시 점검 중이에요」. 화면·정적 파일·팀은 그대로 | `DEMO_LOCKDOWN_FILE` (`var/lockdown`) |
+| 동시 실행 칸 | 과금 경로를 한꺼번에 몇 개까지 돌리나. 다 차면 8초 기다렸다 503 `busy` (+`Retry-After`). 공개 요청은 `칸 - 팀 몫` 까지만 — 팀 몫은 부스 전용으로 늘 비어 있다. 응답에 `rate_limited:true` 가 실려 질문 코칭 판정은 알아서 기다렸다 다시 보내고 「넘긴 질문」 으로 세지 않는다 | `DEMO_PAID_CONCURRENCY` (12) · `DEMO_TEAM_RESERVED` (4) · `DEMO_PAID_QUEUE_SEC` (8) · `DEMO_PAID_RETRY_SEC` (5) |
+| 시간당 천장 | 공개 요청의 과금 호출을 한 시간에 몇 번까지 (F-25 기억은 빼고). 넘으면 503 `budget_exceeded` | `DEMO_PAID_PER_HOUR` (1500, 0=끔) |
+| 기존 | 세션 분당 30 · IP 분당 180(PaidLimiter) · `/auth` 분당 5 · 본문 상한 · Host 허용 목록 — 그대로. 요청 제한 표는 이제 오래된 키를 지운다 (세션 id 를 바꿔 가며 두드려도 안 자란다) | `DEMO_RATE_LIMIT_PER_MIN` · `DEMO_RATE_LIMIT_IP_PER_MIN` |
+
+**보는 법** — 팀 쿠키 브라우저에서 `https://chuckchuck-present.com/api/v1/ops/shield`, VM 에서는
+`curl -s http://127.0.0.1:8799/api/v1/ops/shield | python3 -m json.tool` (그 밖은 404). 과금 동시 실행·대기,
+최근 5분 429·503(`recent_5min`), 감옥(`bans.active`), 차단 목록·점검 깃발 상태, 공개 시간당 사용량(`spend`),
+연결 수·끊은 느린 연결(`connections`), 최근 공개 요청 20개가 **어느 길로 왔는지**(`edge.recent`: `via`·`xff_last`·`edge_auth`).
+로그는 `journalctl -u chuckchuck-bridge -f | grep shield` — 같은 종류는 10초에 한 줄로 묶이고, 방패가 막은 요청은 접근 로그를 안 남긴다.
+접근 로그의 주소는 이제 127.0.0.1 이 아니라 방문자 IP 다.
+
+**Funnel 이 붙이는 머리글 — 아직 실측 전이다.** tailscaled 1.102 소스(ipn/ipnlocal/serve.go)대로라면 Funnel 은
+`X-Forwarded-For` 를 자기에게 TCP 를 건 상대로 **덮어쓰고**(앞에 있던 값은 버린다) `Tailscale-Funnel-Request: ?1` 을 붙인다.
+그러면 도메인 경유 요청의 마지막 칸은 Cloudflare 서버(`via=cf`), ts.net 직접 요청은 공격자 자신(`via=xff`)이다.
+배포 뒤 `edge.recent` 에서 도메인으로 연 내 요청이 `via=cf`, ts.net 으로 연 요청이 `via=xff` 인지 **꼭 본다**.
+둘 다 `legacy` 면 Funnel 이 X-Forwarded-For 를 안 붙이는 것이다 — 예전처럼 동작할 뿐 막히지는 않지만, 그때는 아래 비밀 머리글이 유일한 방어다.
+
+#### Cloudflare 대시보드에서 할 것 (Free 요금제, 사람 몫)
+
+1. **비밀 머리글** — 먼저 VM 에서 값을 만든다: `python3 -c 'import secrets;print(secrets.token_urlsafe(32))'`.
+   저장소 `.env` 에 `DEMO_EDGE_SECRET=<값>` 한 줄 (문서·채팅·커밋에 적지 않는다).
+   대시보드 → chuckchuck-present.com → **Rules → Transform Rules → Modify Request Header → Create rule** →
+   이름 `edge-auth` · 조건 **All incoming requests** · **Set static** · Header name `X-Edge-Auth` · Value `<값>` → Deploy.
+   브리지를 재시작한 뒤 도메인으로 한 번 열고 `edge.recent` 의 `edge_auth` 가 `ok`, `via` 가 `edge` 인지 본다.
+   **확인이 끝나면** drop-in 에 `DEMO_EDGE_LOCK=1` 을 넣고 다시 재시작 → `curl -s -o /dev/null -w '%{http_code}\n' https://chuckchuck-present.tail79d9bc.ts.net/` 가 `403`,
+   도메인은 `200` 이어야 한다. 비밀을 바꿀 때는 .env 와 규칙을 같이 바꾸고 재시작한다 (사이에 몇 초 공개 요청이 403).
+2. **Rate Limiting 규칙 한 개** (Free 는 1개 · 10초 창 · 차단 10초) — **Security → WAF → Rate limiting rules → Create** →
+   이름 `api-burst` · 조건 `URI Path` **starts with** `/api/` · 기준 IP · **100 requests / 10 seconds** · Action **Block** · 10초.
+   브리지의 홍수 제한(분당 600 = 10초 100)과 같은 높이를 Cloudflare 앞에서 먼저 끊는다 — 원본까지 안 온다.
+   (ts.net 직접 요청에는 안 걸린다 — 그건 원본 잠금 몫이다.)
+3. **Bot Fight Mode** — **Security → Bots → Bot Fight Mode: On**. 명백한 봇에 챌린지를 건다. 대신 `scripts/warm_edge.py`·
+   `labs/load_perf` 처럼 도메인을 부르는 스크립트도 막힐 수 있다 — 막히면 그 동안만 끈다 (Free 는 예외 규칙이 없다).
+4. **Security Level** — **Security → Settings → Security Level: Medium** (평소). 공격 중에는 High.
+5. **I'm Under Attack 모드 = 비상 스위치** — **Overview → Quick Actions → Under Attack Mode**. 모든 방문자가 첫 화면에서
+   몇 초짜리 브라우저 확인을 거친다. 통과한 브라우저는 쿠키(`cf_clearance`)로 API 도 그대로 쓴다. 스크립트는 다 막힌다.
+6. **IP Access Rules · 나라 챌린지** — **Security → WAF → Tools → IP Access Rules** 에서 IP·대역·ASN·나라 단위로 Block/Challenge.
+   해외 홍수면 Custom rule 하나(Free 5개): `(ip.geoip.country ne "KR")` → **Managed Challenge**. 부스 방문자는 한국이다.
+7. **L3/L4 DDoS 는 할 것 없다** — Cloudflare 가 무료로 자동 흡수한다(HTTP DDoS 관리 규칙도 기본 켜짐). **단 ts.net 원본은 Cloudflare 밖이다.**
+   ts.net 이름은 Funnel 의 TLS 인증서 때문에 공개 인증서 로그(crt.sh)에 남아 누구나 찾는다. `DEMO_EDGE_LOCK=1` 이 없으면
+   ts.net 으로 온 요청은 Cloudflare 의 어떤 규칙에도 안 걸린다 — 잠금을 켜도 Funnel·DERP 대역폭은 쓰이지만 브리지는 403 한 줄로 끝낸다.
+
+#### 비상 시 순서
+
+```bash
+# 0) 지금 무엇이 막히고 있나
+curl -s http://127.0.0.1:8799/api/v1/ops/shield | python3 -m json.tool | head -60
+journalctl -u chuckchuck-bridge -f | grep shield
+# 1) Cloudflare → Under Attack Mode 켜기 (대시보드 · 위 5번). 해외면 나라 챌린지 (6번)
+# 2) 공개 과금을 멈춘다 — 화면은 그대로 열리고 팀 쿠키(부스)는 계속 쓴다. 재시작 필요 없음 (1초 안에 반영)
+touch /home/yehschuck/project/chuckchuck/var/lockdown
+# 3) 특정 IP·대역 차단 — 2초 안에 반영. 같은 대역은 Cloudflare IP Access Rules 에도 넣는다
+echo '198.51.100.0/24   # 10-06 14:10 홍수' >> /home/yehschuck/project/chuckchuck/var/blocklist.txt
+# 4) ts.net 으로 바로 오는 공격이면 원본 잠금(DEMO_EDGE_LOCK=1)이 켜져 있는지 — 아니면 넣고 재시작
+# 되돌리기: Under Attack 끄기 · rm var/lockdown · blocklist.txt 에서 줄 지우기
+rm /home/yehschuck/project/chuckchuck/var/lockdown
+```
+`sudo tailscale funnel --bg off` 는 **마지막 수단**이다 — 도메인도 Funnel 을 거치므로 사이트 전체가 꺼진다.
+
+#### systemd drop-in 예시 (`shield.conf`) — 기본값과 같으니 바꿀 값만 넣어도 된다
+
+```ini
+# /etc/systemd/system/chuckchuck-bridge.service.d/shield.conf
+# 트래픽 급증·공격 대응 (docs/DEPLOYMENT.md §10-6). 비밀 머리글 값(DEMO_EDGE_SECRET)은 여기 말고 저장소 .env 에.
+[Service]
+Environment=DEMO_PAID_CONCURRENCY=12
+Environment=DEMO_TEAM_RESERVED=4
+Environment=DEMO_PAID_QUEUE_SEC=8
+Environment=DEMO_PAID_PER_HOUR=1500
+Environment=DEMO_IP_RPM=600
+Environment=DEMO_BAN_STRIKES=300
+Environment=DEMO_BAN_SEC=600
+Environment=DEMO_MAX_CONNECTIONS=256
+Environment=DEMO_SOCKET_TIMEOUT=30
+# Transform Rule 을 넣고 edge.recent 에서 edge_auth=ok 를 본 **뒤에** 켠다 — 먼저 켜면 도메인 방문자가 전부 403
+#Environment=DEMO_EDGE_LOCK=1
+```
+`sudo systemctl daemon-reload && sudo systemctl restart chuckchuck-bridge` · 부팅 로그의 `방패:` · `원본 잠금:` 두 줄로 값을 확인한다.
+
+**실측 (2026-10-05, 8821 mock 브리지 · 키 없음 · 과금 0)** — 과금 경로(`/api/v1/concepts`, mock 3.1초)에 공개 200개를 동시에:
+200 이 24개(칸 8 × 3바퀴), 나머지 176개는 ~8초 뒤 503 busy. 그 사이 1초 뒤에 온 팀 요청 4개는 전부 기다림 없이 3.1초에 200.
+같은 동안 정적 GET p50 34ms(평소와 같다). 빈 연결 300개: 256개까지 받고 44개는 즉시 503, 받은 것도 15초(머리글 시한)에 끊김.
+slowloris 50개(5초마다 머리글 한 줄): 전부 ~16초에 끊김, 정적 GET 그대로. ts.net 직접 홍수(CF-Connecting-IP 를 매번 위조, 1500회):
+600회 뒤 429, 위반 300번째에 감옥 — 다른 방문자·같은 IP 의 팀 쿠키는 200.
+
+**값을 고르는 기준** — 칸 12(공개 8)는 분석 하나가 1~3칸을 몇 분씩 쓰는 것 기준으로 공개 분석 서너 개가 동시에 돈다.
+외부 API 가 버티는 만큼 늘린다 (`busy_503` 가 자주 보이고 `paid.peak` 이 칸 수에 붙어 있으면 늘릴 때다).
+시간당 1500 은 공개 세션 하나(분석 ~10콜 + 질문 코칭 ~20콜) 기준 시간당 50 세션 남짓이다.
 
 ## 9. 개발 환경 (참고)
 
