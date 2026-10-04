@@ -245,11 +245,13 @@ EDGE_SECRET = os.environ.get("DEMO_EDGE_SECRET", "").strip()
 #: 1 이면 비밀 머리글 없는 공개 요청(= ts.net 주소로 바로 온 요청)을 403 으로 막는다. 팀 쿠키와 /auth 는 연다 —
 #: 도메인이 죽었을 때 부스 노트북이 ts.net 으로 /auth 를 거쳐 들어올 길이다. 비밀이 없으면 켜지지 않는다 (전부 막힌다).
 EDGE_LOCK = _env_flag("DEMO_EDGE_LOCK") and bool(EDGE_SECRET)
+#: 원본 잠금에서도 여는 경로 — 쿠키를 받는 /auth, 바깥 상태 확인용 /api/health (과금·데이터 없음)
+EDGE_LOCK_OPEN = frozenset({"/auth", "/api/health"})
 
 #: 과금 경로를 **동시에** 몇 개까지 돌리나 · 그중 팀 몫으로 비워 두는 칸 · 칸이 빌 때까지 기다리는 초 · 503 의 다시 시도 안내(초).
-PAID_CONCURRENCY = shield.env_int("DEMO_PAID_CONCURRENCY", 12)
+PAID_CONCURRENCY = shield.env_int("DEMO_PAID_CONCURRENCY", 16)
 TEAM_RESERVED = shield.env_int("DEMO_TEAM_RESERVED", 4)
-PAID_QUEUE_SEC = shield.env_float("DEMO_PAID_QUEUE_SEC", 8.0)
+PAID_QUEUE_SEC = shield.env_float("DEMO_PAID_QUEUE_SEC", 10.0)
 PAID_RETRY_SEC = shield.env_int("DEMO_PAID_RETRY_SEC", 5)
 GATE = shield.PaidGate(capacity=PAID_CONCURRENCY, reserved=TEAM_RESERVED)
 
@@ -260,7 +262,7 @@ SPEND = RateLimiter(limit=PAID_PER_HOUR, window_sec=3600.0)
 SPEND_EXEMPT = frozenset({"/api/v1/memory"})
 
 #: 모든 요청의 IP(칸)당 분당 상한. 정적 파일은 대부분 Cloudflare 가 받아서 원본엔 HTML·API 만 온다 — 넉넉히.
-IP_RPM = shield.env_int("DEMO_IP_RPM", 600)
+IP_RPM = shield.env_int("DEMO_IP_RPM", 1200)
 FLOOD = shield.FloodLimiter(limit=IP_RPM, window_sec=60.0)
 #: 창(DEMO_BAN_WINDOW_SEC) 안에 막힌(429) 횟수가 이만큼이면 DEMO_BAN_SEC 동안 가둔다. 0 이면 안 가둔다.
 BAN_STRIKES = shield.env_int("DEMO_BAN_STRIKES", 300)
@@ -277,8 +279,13 @@ LOCKDOWN = shield.FlagFile(os.environ.get("DEMO_LOCKDOWN_FILE", "").strip() or (
 SOCKET_TIMEOUT = shield.env_float("DEMO_SOCKET_TIMEOUT", 30.0)
 KEEPALIVE_SEC = shield.env_float("DEMO_KEEPALIVE_SEC", 120.0)
 HEADER_TIMEOUT = shield.env_float("DEMO_HEADER_TIMEOUT", 15.0)
-#: 본문은 크기에 따라 — SOCKET_TIMEOUT + 크기 ÷ 이 속도(KB/s). 40MB 녹음도 8KB/s 면 ~85분 안에 다 와야 한다.
-MIN_BODY_KBPS = shield.env_float("DEMO_MIN_BODY_KBPS", 8.0)
+#: 본문은 크기에 따라 — SOCKET_TIMEOUT + 크기 ÷ 이 속도(KB/s). 40MB 녹음도 32KB/s 면 ~22분 안에 다 와야 한다 (실측 회선 ~330KB/s).
+MIN_BODY_KBPS = shield.env_float("DEMO_MIN_BODY_KBPS", 32.0)
+#: 한 IP(칸)가 동시에 올리는 큰 본문(1MB 넘는 녹음·자료) 수. 느린 업로드 수백 개로 연결 상한을 채우는 공격을 막는다.
+IP_UPLOADS = shield.env_int("DEMO_IP_UPLOADS", 4)
+BIG_BODY_BYTES = 1024 * 1024
+_UPLOADS: dict[str, int] = {}
+_UPLOADS_LOCK = threading.Lock()
 #: 동시에 붙잡는 연결(=스레드) 상한과 listen 대기열. 넘치면 스레드를 만들지 않고 바로 503 을 쓰고 닫는다.
 MAX_CONNECTIONS = shield.env_int("DEMO_MAX_CONNECTIONS", 256)
 LISTEN_BACKLOG = shield.env_int("DEMO_LISTEN_BACKLOG", 128)
@@ -1452,6 +1459,7 @@ class Handler(SimpleHTTPRequestHandler):
     def handle_one_request(self):
         first = not getattr(self, "_served", False)
         self._served = True
+        self._req_gen = getattr(self, "_req_gen", 0) + 1
         self._quiet = False
         self._extra_headers = []
         self._client_ip = None
@@ -1486,6 +1494,35 @@ class Handler(SimpleHTTPRequestHandler):
         finally:
             WATCHDOG.unwatch(self)
 
+    def _read_big_body(self, length: int) -> bytes | None:
+        """1MB 넘는 공개 본문 — IP(칸)당 동시에 IP_UPLOADS 개까지만 받는다. 넘으면 읽지 않고 429 로 닫는다 (None)."""
+        bucket = shield.ip_bucket(self._client_key())
+        with _UPLOADS_LOCK:
+            n = _UPLOADS.get(bucket, 0)
+            if n >= IP_UPLOADS:
+                full = True
+            else:
+                full = False
+                _UPLOADS[bucket] = n + 1
+        if full:
+            EVENTS.add("upload_429")
+            SHIELD_LOG.write("uploads", f"동시 업로드 상한 {IP_UPLOADS} — {bucket}")
+            self._quiet = True
+            self.close_connection = True
+            self._add_header("Retry-After", "10")
+            self._json(429, {"error": "rate_limited", "rate_limited": True, "scope": "uploads", "retry_after": 10,
+                             "message": "올리는 중인 파일이 많아요. 10초 뒤에 다시 시도해 주세요."})
+            return None
+        try:
+            return self._read_body(length)
+        finally:
+            with _UPLOADS_LOCK:
+                left = _UPLOADS.get(bucket, 1) - 1
+                if left > 0:
+                    _UPLOADS[bucket] = left
+                else:
+                    _UPLOADS.pop(bucket, None)
+
     def _gate(self) -> bool:
         """
         모든 요청의 첫 관문. 통과 못 하면 응답을 보내고 False.
@@ -1513,7 +1550,13 @@ class Handler(SimpleHTTPRequestHandler):
         _REQ.trusted = _REQ.team or self._local
         try:
             return self._shield_gate()
+        except OSError:
+            # 막는 답을 쓰다 상대가 끊었다 — 통과가 아니라 끝이다
+            self.close_connection = True
+            return False
         except Exception as e:  # noqa: BLE001 — 방패의 버그로 사이트가 멈추면 안 된다. 열어 두고(fail-open) 알린다
+            if getattr(self, "_quiet", False):
+                return False  # 이미 막는 답을 쓰기 시작했다 — 통과시키면 막힌 요청이 처리된다
             SHIELD_LOG.write("shield_error", f"방패 오류 — 이번 요청은 통과시킴: {e!r}")
             return True
 
@@ -1538,7 +1581,7 @@ class Handler(SimpleHTTPRequestHandler):
             EVENTS.add("blocked")
             SHIELD_LOG.write("blocked", f"차단 목록 {ip} {self.command} {path[:80]}")
             return self._shield_reply(403, {"error": "forbidden"})
-        counted = shield.attributable(ip)  # Cloudflare 서버·설비 IP 는 여러 사람이 섞인 칸 — 홍수 제한·감옥에 안 넣는다
+        counted = self._counted()
         left = JAIL.remaining(bucket) if counted else 0
         if left:
             EVENTS.add("jailed")
@@ -1554,14 +1597,30 @@ class Handler(SimpleHTTPRequestHandler):
                                             "retry_after": wait,
                                             "message": f"요청이 너무 잦아요. {wait}초 뒤에 다시 시도해 주세요."},
                                       retry_after=wait)
-        if EDGE_LOCK and not shield.edge_ok(self.headers, EDGE_SECRET) and path.rstrip("/") != "/auth":
+        if EDGE_LOCK and not shield.edge_ok(self.headers, EDGE_SECRET) and path.rstrip("/") not in EDGE_LOCK_OPEN:
             EVENTS.add("edge_locked")
             SHIELD_LOG.write("edge_lock", f"원본 잠금 — 비밀 머리글 없는 요청 {ip} {self.command} {path[:80]}")
             return self._shield_reply(403, {"error": "forbidden"})
         return True
 
+    def _counted(self) -> bool:
+        """
+        이 요청의 IP 칸을 홍수 제한·IP 천장에 세도 되나. Cloudflare 서버·설비 IP 는 여러 사람이 섞인 칸이라 안 센다
+        (세면 그 뒤의 방문자 전원이 같이 막힌다). 단 비밀을 정했는데 비밀 없이 Cloudflare 주소에서 온 것(`xff`)은
+        WARP·Worker 로 ts.net 에 바로 온 것이라 그 출구 IP 를 센다.
+        """
+        ip = self._client_key()
+        if shield.attributable(ip):
+            return True
+        return bool(EDGE_SECRET) and getattr(self, "_client_via", "") == "xff" and shield.parse_ip(ip) not in shield.INFRA_NETS
+
     def _strike(self, bucket: str) -> None:
-        """막힌 요청 하나 = 위반 하나. 쌓이면 감옥 (shield.Jail)."""
+        """막힌 요청 하나 = 위반 하나. 쌓이면 감옥 (shield.Jail).
+
+        `cf`·`legacy` 로 센 칸(CF-Connecting-IP 를 믿은 칸)은 가두지 않는다 — 비밀이 없으면 WARP 로 ts.net 에 와서 그 값을
+        행사장 IP 로 꾸며 행사장을 가두게 할 수 있다. 분당 상한(429)은 그대로 건다. 비밀을 정하면(`edge`) 감옥도 켜진다."""
+        if getattr(self, "_client_via", "") in ("cf", "legacy"):
+            return
         if JAIL.strike(bucket):
             EVENTS.add("ban")
             SHIELD_LOG.write("ban", f"감옥 {bucket} {JAIL.ban_sec:.0f}초 — 막혀도 계속 두드림 "
@@ -1599,7 +1658,10 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError, OSError):
             pass
         self.close_connection = True
-        self._json(code, payload)
+        try:
+            self._json(code, payload)
+        except OSError:
+            pass  # 상대가 이미 끊었다 — 그래도 막은 것이다 (False)
         return False
 
     # ── 팀 인증 (/auth) ─────────────────────────────────────────────────────────
@@ -1615,7 +1677,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _team_ok(self) -> bool:
         tok = self._cookie(TEAM_COOKIE)
-        return bool(TEAM_CODE and tok) and hmac.compare_digest(tok, _team_token())
+        # 바이트로 비교한다 — str 끼리면 ASCII 가 아닌 쿠키 값에서 TypeError 가 나 요청이 방패 앞에서 터진다
+        return bool(TEAM_CODE and tok) and hmac.compare_digest(tok.encode("utf-8", "replace"), _team_token().encode("ascii"))
 
     def _https(self) -> bool:
         """터널 뒤면 Cloudflare 가 붙인 헤더로 안다 — 로컬 http 에서 Secure 쿠키는 안 남는다."""
@@ -1811,7 +1874,12 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 return self._handle_auth_post(self._read_body(min(length, 4096)))
             if parsed.path != "/api/v1/parse" and "application/json" not in ctype:
                 return self._json(415, {"error": "json_required", "message": "Content-Type: application/json 으로 보내 주세요."})
-            raw = self._read_body(length)
+            if length > BIG_BODY_BYTES and not getattr(_REQ, "trusted", False) and IP_UPLOADS > 0:
+                raw = self._read_big_body(length)
+                if raw is None:
+                    return None
+            else:
+                raw = self._read_body(length)
             if getattr(self, "_reaped", None):
                 return None  # 본문이 시한 안에 다 오지 않았다 — 감시가 이미 연결을 끊었다
 
@@ -1849,8 +1917,6 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             self._add_header("Retry-After", str(limited.get("retry_after") or 1))
             return self._json(429, limited)
         ok, waited = GATE.acquire(trusted, PAID_QUEUE_SEC)
-        if waited >= 0.05:
-            EVENTS.add("queued")
         if not ok:
             EVENTS.add("busy_503")
             snap = GATE.snapshot()
@@ -1858,6 +1924,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                                      f"→ 503 busy {parsed.path}")
             return self._busy_reply()
         try:
+            if waited >= 0.05:
+                EVENTS.add("queued")
             if not trusted and PAID_PER_HOUR > 0 and parsed.path not in SPEND_EXEMPT and not SPEND.allow("public"):
                 wait = max(60, SPEND.retry_after("public"))
                 EVENTS.add("budget_503")
@@ -2998,14 +3066,17 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
     def _rate_limited(self, path: str, raw: bytes) -> dict | None:
         """과금 경로 요청 제한 → 막으면 429 본문, 통과면 None. IP 천장을 먼저 보고, 그다음 세션 칸 (H-15)."""
         client = "ip:" + self._client_key()
-        if not LIMITER.allow(client):
+        # IP 천장은 사람으로 셀 수 있는 칸에만 — 팀(부스 노트북)은 행사장 와이파이의 방문자와 IP 를 나눠 써도 안 걸리고,
+        # Cloudflare 서버·설비 IP 로 잡힌 공개 칸(여러 사람이 섞임)은 천장 대신 세션 칸만 센다. VM 안 요청은 예전처럼 센다 (방패 2026-10-05)
+        ceiling = not getattr(_REQ, "team", False) and (getattr(self, "_local", False) or self._counted())
+        if ceiling and not LIMITER.allow(client):
             key, scope = client, "ip"
         else:
             key = self._rate_bucket(path, raw)
             if LIMITER.allow(key):
                 return None
             scope = "session" if key.startswith("session:") else "ip"
-        if not getattr(_REQ, "trusted", False) and shield.attributable(self._client_key()):
+        if not getattr(_REQ, "trusted", False) and self._counted():
             self._strike(shield.ip_bucket(self._client_key()))  # 막혀도 계속 보내면 감옥 (방패)
         wait = LIMITER.retry_after(key)
         sys.stderr.write(f"[bridge] 요청 제한 {path} scope={scope} retry_after={wait}\n")

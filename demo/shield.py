@@ -48,6 +48,9 @@ INFRA_RANGES = (
     "::1/128", "fc00::/7", "fe80::/10", "fd7a:115c:a1e0::/48",
 )
 LOOPBACK_NAMES = frozenset({"127.0.0.1", "localhost", "::1", ""})
+#: 이 중 하나라도 있으면 VM 안에서 곧장 온 요청이 아니다 (is_local_direct)
+_PROXY_TRACES = ("X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "Forwarded", "Via", "X-Real-IP",
+                 "CF-Connecting-IP", "CF-Ray", "Tailscale-Funnel-Request", "X-Edge-Auth")
 
 
 def parse_ip(raw) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
@@ -104,6 +107,24 @@ def ip_bucket(key: str) -> str:
     return str(ip)
 
 
+def header_last(headers, name: str) -> str:
+    """같은 머리글이 여러 줄이면 **마지막** 줄 — 앞줄은 요청자가 넣은 것일 수 있다 (프록시는 뒤에 붙이거나 덮어쓴다)."""
+    get_all = getattr(headers, "get_all", None)
+    if get_all is not None:
+        vals = get_all(name) or []
+        return str(vals[-1]) if vals else ""
+    return str(headers.get(name) or "")
+
+
+def header_single(headers, name: str) -> str:
+    """한 줄이어야 하는 머리글(CF-Connecting-IP). 여러 줄이면 위조로 보고 빈 값."""
+    get_all = getattr(headers, "get_all", None)
+    if get_all is not None:
+        vals = get_all(name) or []
+        return str(vals[0]) if len(vals) == 1 else ""
+    return str(headers.get(name) or "")
+
+
 def last_hop(xff: str) -> str:
     """X-Forwarded-For 의 **마지막** 칸 — 바로 앞 프록시(Funnel)가 적은 것. 앞쪽 칸은 요청자가 마음대로 적을 수 있다.
     Funnel 은 이 헤더를 덮어쓰지만(append 가 아니라 set), 덧붙이는 프록시여도 마지막 칸은 그 프록시가 본 상대다."""
@@ -128,10 +149,10 @@ def resolve_client(peer, headers, secret: str = "") -> tuple[str, str]:
 
     - 루프백이 아닌 소켓(mock 모드 LAN) → 소켓 주소 그대로 (`peer`). 헤더는 위조일 수 있어 안 읽는다.
     - DEMO_EDGE_SECRET 이 있고 X-Edge-Auth 가 맞다 → Cloudflare 가 붙인 것이 확실하다 → CF-Connecting-IP (`edge`).
-    - X-Forwarded-For 마지막 칸(Funnel 이 적은 TCP 상대)이 Cloudflare 주소대 → CF-Connecting-IP (`cf`). 그 값은 Cloudflare 가
-      덮어써서 요청자가 못 고른다. 비밀이 있어도 여기서는 믿는다 — 비밀을 .env 에 넣고 대시보드 규칙을 아직 안 넣은 사이에
-      도메인 방문자 전원이 Cloudflare 서버 몇 대의 IP 로 묶여 홍수 제한·감옥에 같이 걸리는 사고를 막는다.
-      (남의 Cloudflare 계정을 거쳐 오는 요청은 원본 잠금이 끊는다.)
+    - X-Forwarded-For 마지막 칸(Funnel 이 적은 TCP 상대)이 Cloudflare 주소대이고 비밀을 아직 안 정했다 → CF-Connecting-IP (`cf`).
+      우리 도메인을 거쳤다면 Cloudflare 가 덮어쓴 값이다. 단 WARP(Cloudflare VPN)·Worker 로 ts.net 에 바로 와도 TCP 상대가
+      Cloudflare 주소라 이 값을 위조할 수 있다 — 그래서 `cf` 로 센 칸은 감옥에 넣지 않고(bridge), 비밀을 정하면 아래처럼 안 믿는다.
+      **대시보드 규칙(X-Edge-Auth)을 먼저 넣고 비밀을 정한다** (§10-6) — 반대 순서면 그 사이 도메인 방문자가 Cloudflare 서버 IP 몇 개로 묶인다.
     - 마지막 칸이 공인 IP 인데 Cloudflare 가 아니다 → ts.net 으로 바로 온 사람이다. 그 사람이 적은 CF-Connecting-IP 는
       위조다 — 마지막 칸이 그 사람이다 (`xff`). **예전 구멍(헤더를 바꿔 가며 IP 상한 피하기)이 여기서 닫힌다.**
     - X-Forwarded-For 가 없거나 마지막 칸이 우리 설비(루프백·사설·Tailscale) → 예전 그대로 CF-Connecting-IP 를 믿는다
@@ -142,15 +163,17 @@ def resolve_client(peer, headers, secret: str = "") -> tuple[str, str]:
         return (str(peer or "unknown")[:64] or "unknown"), "peer"
     if not peer_ip.is_loopback:
         return str(peer_ip), "peer"
-    cf = parse_ip(headers.get("CF-Connecting-IP"))
-    hop = parse_ip(last_hop(headers.get("X-Forwarded-For") or ""))
+    cf = parse_ip(header_single(headers, "CF-Connecting-IP"))
+    hop = parse_ip(last_hop(header_last(headers, "X-Forwarded-For")))
     if secret and edge_ok(headers, secret):
         if cf is not None:
             return str(cf), "edge"
         return str(hop or peer_ip), "edge"
     if hop is not None and hop in CF_NETS:
-        if cf is not None:
+        if cf is not None and not secret:
             return str(cf), "cf"
+        # 비밀을 정했는데 안 맞는다 — 우리 도메인이 아니라 남의 Cloudflare(WARP·Worker)를 거쳐 ts.net 으로 온 것일 수 있다.
+        # 그 경로는 CF-Connecting-IP 를 마음대로 적을 수 있으니 TCP 상대(Cloudflare 출구 IP)로 센다 (bridge 는 이 칸도 센다).
         return str(hop), "xff"
     if hop is not None and hop not in INFRA_NETS:
         return str(hop), "xff"
@@ -179,8 +202,11 @@ def is_local_direct(peer, headers) -> bool:
     ip = parse_ip(peer)
     if ip is None or not ip.is_loopback:
         return False
-    if (headers.get("X-Forwarded-For") or "").strip() or (headers.get("CF-Connecting-IP") or "").strip():
-        return False
+    # 프록시를 거친 흔적이 하나라도 있으면 바깥이다 — Funnel(Go)은 X-Forwarded-For·Host·Proto 를 붙인다. 하나를 지우는 꼼수가
+    # 있더라도 나머지가 남는다 (Go 프록시가 빈 Host 를 127.0.0.1:8799 로 채워도 이 흔적들은 남는다).
+    for name in _PROXY_TRACES:
+        if (headers.get(name) or "").strip():
+            return False
     host = (headers.get("Host") or "").strip().lower()
     if host.startswith("["):
         host = host[1:].split("]", 1)[0]
@@ -476,7 +502,7 @@ class Watchdog:
     def __init__(self, *, tick: float = 1.0, clock=time.monotonic) -> None:
         self._clock = clock
         self._lock = threading.Lock()
-        self._items: dict[int, tuple[object, float, str]] = {}
+        self._items: dict[int, tuple[object, float, str, object]] = {}
         self.tick = tick
         self.reaped = 0
         self.reaped_by_phase: dict[str, int] = {}
@@ -486,7 +512,8 @@ class Watchdog:
         if seconds <= 0:
             return self.unwatch(handler)
         with self._lock:
-            self._items[id(handler)] = (handler, self._clock() + seconds, phase)
+            # 요청 번호(_req_gen)를 같이 적는다 — 끊으러 갔을 때 그 연결이 이미 다음 요청으로 넘어갔으면 건드리지 않는다
+            self._items[id(handler)] = (handler, self._clock() + seconds, phase, getattr(handler, "_req_gen", None))
 
     def unwatch(self, handler) -> None:
         with self._lock:
@@ -495,10 +522,12 @@ class Watchdog:
     def sweep(self) -> int:
         now = self._clock()
         with self._lock:
-            due = [(k, h, ph) for k, (h, t, ph) in self._items.items() if t <= now]
-            for k, _, _ in due:
+            due = [(k, h, ph, gen) for k, (h, t, ph, gen) in self._items.items() if t <= now]
+            for k, _, _, _ in due:
                 del self._items[k]
-        for _, h, ph in due:
+        for _, h, ph, gen in due:
+            if getattr(h, "_req_gen", None) != gen:
+                continue
             try:
                 h._reaped = ph
                 h.close_connection = True

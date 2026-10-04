@@ -63,9 +63,9 @@ def test_비밀을_정하면_머리글이_맞을_때만_CF_Connecting_IP_를_믿
     secret = "s3cret-value"
     ok = shield.resolve_client("127.0.0.1", H(X_Forwarded_For=CF_EDGE, CF_Connecting_IP=VISITOR, X_Edge_Auth=secret), secret)
     assert ok == (VISITOR, "edge")
-    # 비밀이 틀려도 Cloudflare 를 거쳐 왔으면 방문자 IP — 대시보드 규칙을 넣기 전에 비밀부터 정해도 방문자가 한 칸에 안 묶인다
+    # 비밀이 틀리면 남의 Cloudflare(WARP·Worker)로 ts.net 에 바로 온 것일 수 있다 — CF-Connecting-IP 대신 그 출구 IP
     bad = shield.resolve_client("127.0.0.1", H(X_Forwarded_For=CF_EDGE, CF_Connecting_IP=VISITOR, X_Edge_Auth="nope"), secret)
-    assert bad == (VISITOR, "cf")
+    assert bad == (CF_EDGE, "xff")
     # Cloudflare 를 거쳤는데 CF-Connecting-IP 가 없으면 그 서버 IP — 그런 칸은 홍수 제한·감옥에 안 넣는다
     assert shield.resolve_client("127.0.0.1", H(X_Forwarded_For=CF_EDGE), secret) == (CF_EDGE, "xff")
     assert not shield.attributable(CF_EDGE) and not shield.attributable("100.100.1.1") and shield.attributable(VISITOR)
@@ -245,8 +245,15 @@ def test_칸_밖_경로는_칸을_안_쓴다(sh):
 # ─── 4. 홍수 제한 · 감옥 · 차단 목록 ──────────────────────────────────────────
 
 
+def edged(ip: str, **extra) -> dict:
+    """비밀 머리글이 맞는 도메인 경유 요청 (via=edge)."""
+    return {**public(ip), "X-Edge-Auth": "edge-secret", **extra}
+
+
 def test_분당_상한을_넘기면_429_계속_두드리면_감옥_시간이_지나면_풀린다(sh, monkeypatch):
     clock, _, _ = sh
+    monkeypatch.setattr(bridge, "EDGE_SECRET", "edge-secret")
+    public = edged  # 이 시험 안의 public(...) 은 비밀 머리글이 맞는 요청(via=edge) — 감옥은 믿을 수 있는 칸에만 걸린다
     monkeypatch.setattr(bridge, "FLOOD", shield.FloodLimiter(limit=5, clock=clock))
     monkeypatch.setattr(bridge, "JAIL", shield.Jail(strikes=3, window_sec=60, ban_sec=600, clock=clock))
     codes = [get("/api/v1/team", public(ATTACKER)).last for _ in range(12)]
@@ -276,6 +283,8 @@ def test_감옥_단위_시계(sh):
 
 def test_과금_429_도_감옥_점수로_센다(sh, monkeypatch):
     clock, _, _ = sh
+    monkeypatch.setattr(bridge, "EDGE_SECRET", "edge-secret")
+    public = edged  # 같은 이유 (via=edge)
     monkeypatch.setattr(bridge, "LIMITER", bridge.PaidLimiter(limit=1, ip_limit=100, clock=clock))
     monkeypatch.setattr(bridge, "JAIL", shield.Jail(strikes=2, window_sec=60, ban_sec=600, clock=clock))
     results = [post("/api/v1/questions", public(ATTACKER)).last[0] for _ in range(5)]
@@ -509,3 +518,100 @@ def test_방패가_터지면_막지_않고_통과시킨다(sh, monkeypatch):
 
     monkeypatch.setattr(bridge, "BLOCKLIST", Broken())
     assert get("/api/v1/team", public()).last[0] == 200
+
+
+def test_비밀이_없을_때_CF_Connecting_IP_로_센_칸은_429_만_주고_가두지_않는다(sh, monkeypatch):
+    # WARP 로 ts.net 에 와서 CF-Connecting-IP 를 행사장 IP 로 꾸며 행사장을 가두게 하는 길을 막는다
+    clock, _, _ = sh
+    monkeypatch.setattr(bridge, "FLOOD", shield.FloodLimiter(limit=2, clock=clock))
+    monkeypatch.setattr(bridge, "JAIL", shield.Jail(strikes=1, window_sec=60, ban_sec=600, clock=clock))
+    codes = [get("/api/v1/team", public(VISITOR)).last[0] for _ in range(10)]
+    assert codes[:2] == [200, 200] and set(codes[2:]) == {429}
+    assert bridge.JAIL.remaining(VISITOR) == 0
+
+
+def test_비밀을_정하면_비밀_없이_Cloudflare_주소에서_온_칸도_센다(sh, monkeypatch):
+    clock, _, _ = sh
+    monkeypatch.setattr(bridge, "EDGE_SECRET", "edge-secret")
+    monkeypatch.setattr(bridge, "FLOOD", shield.FloodLimiter(limit=2, clock=clock))
+    codes = [get("/api/v1/team", {"X-Forwarded-For": "162.159.1.1", "CF-Connecting-IP": f"9.9.9.{i}"}).last[0] for i in range(5)]
+    assert codes == [200, 200, 429, 429, 429]
+
+
+def test_ASCII_가_아닌_쿠키도_요청을_터뜨리지_않는다(sh):
+    h = FakeHandler("/api/v1/team", headers={**public(), "Cookie": f"{bridge.TEAM_COOKIE}=한글값"})
+    h.do_GET()
+    assert h.last == (200, {"team": False})
+
+
+def test_X_Forwarded_For_가_여러_줄이면_마지막_줄을_본다():
+    from email.message import Message
+
+    m = Message()
+    m["X-Forwarded-For"] = CF_EDGE            # 요청자가 넣은 줄
+    m["X-Forwarded-For"] = ATTACKER           # 프록시가 붙인 줄
+    m["CF-Connecting-IP"] = VISITOR
+    assert shield.resolve_client("127.0.0.1", m) == (ATTACKER, "xff")
+    m2 = Message()
+    m2["X-Forwarded-For"] = CF_EDGE
+    m2["CF-Connecting-IP"] = "1.1.1.1"
+    m2["CF-Connecting-IP"] = VISITOR           # 두 줄 = 위조 → 안 믿는다
+    assert shield.resolve_client("127.0.0.1", m2) == (CF_EDGE, "xff")
+
+
+@pytest.mark.parametrize("trace", ["X-Forwarded-Proto", "X-Forwarded-Host", "Tailscale-Funnel-Request", "Via", "Forwarded"])
+def test_프록시_흔적이_있으면_VM_안_요청이_아니다(trace):
+    assert shield.is_local_direct("127.0.0.1", {"Host": "127.0.0.1:8799"})
+    assert not shield.is_local_direct("127.0.0.1", {"Host": "127.0.0.1:8799", trace: "x"})
+
+
+def test_원본_잠금에서도_health_는_열린다(sh, monkeypatch):
+    monkeypatch.setattr(bridge, "EDGE_SECRET", "edge-secret")
+    monkeypatch.setattr(bridge, "EDGE_LOCK", True)
+    assert get("/api/health", {"X-Forwarded-For": ATTACKER}).last[0] == 200
+
+
+def test_막는_답을_쓰다_끊겨도_통과시키지_않는다(sh, monkeypatch):
+    _, _, tmp = sh
+    (tmp / "blocklist.txt").write_text(ATTACKER + "\n")
+
+    class Reset(FakeHandler):
+        def _json(self, code, payload):
+            raise ConnectionResetError
+
+    h = Reset("/api/v1/team", headers={"X-Forwarded-For": ATTACKER})
+    assert h._gate() is False
+
+
+def test_팀은_IP_천장에_안_걸린다(sh, monkeypatch):
+    clock, _, _ = sh
+    monkeypatch.setattr(bridge, "LIMITER", bridge.PaidLimiter(limit=100, ip_limit=1, clock=clock))
+    assert post("/api/v1/questions", public(VISITOR)).last[0] == 200
+    assert post("/api/v1/questions", public(VISITOR)).last[0] == 429           # 같은 행사장 IP 의 방문자
+    assert post("/api/v1/questions", {**public(VISITOR), "Cookie": team_cookie()}).last[0] == 200
+
+
+def test_한_IP_의_동시_큰_업로드는_상한까지만(sh, monkeypatch):
+    monkeypatch.setattr(bridge, "IP_UPLOADS", 1)
+    monkeypatch.setattr(bridge, "_UPLOADS", {ATTACKER: 1})                   # 이미 하나가 올리는 중
+    big = b"x" * (bridge.BIG_BODY_BYTES + 10)
+    h = FakeHandler("/api/v1/parse", headers={"X-Forwarded-For": ATTACKER, "Content-Type": "multipart/form-data"}, body=big)
+    h.command = "POST"
+    h.do_POST()
+    assert h.last[0] == 429 and h.last[1]["scope"] == "uploads"
+    monkeypatch.setattr(bridge, "_UPLOADS", {})
+    h = FakeHandler("/api/v1/parse", headers={"X-Forwarded-For": ATTACKER, "Content-Type": "multipart/form-data"}, body=big)
+    h.do_POST()
+    assert h.last[0] == 200 and bridge._UPLOADS == {}                        # 다 읽으면 칸을 돌려준다
+
+
+def test_감시는_다음_요청으로_넘어간_연결을_건드리지_않는다():
+    clock = Clock()
+    wd = shield.Watchdog(clock=clock)
+    h = FakeHandler("/")
+    h._req_gen = 1
+    wd.watch(h, 1, "headers")
+    h._req_gen = 2                                                           # 그새 다음 요청
+    clock.t += 2
+    wd.sweep()
+    assert not getattr(h, "_reaped", None)
