@@ -93,10 +93,33 @@ def test_코드가_비어_있으면_auth_가_닫힌다(real, monkeypatch):  # no
 
 
 def test_공개_방문자는_이미_있는_데이터를_못_연다(team):
-    for path in ("/api/v1/cached-takes", "/api/v1/dev/decks"):
+    for path in ("/api/v1/cached-takes",):
         assert _get(path).last[0] == 404, path
         assert _get(path, cookie="forged").last[0] == 404, path
     assert _get("/api/v1/team").last == (200, {"team": False})
+
+
+def _fake_decks(monkeypatch):
+    rows = [{"key": "배달A", "name": "배달A", "deck": "d.pdf", "audio": "a.m4a", "clova_txt": ""},
+            {"key": "_held_x", "name": "_held_x", "deck": "x.pdf", "audio": "", "clova_txt": ""},
+            {"key": "수익률격차", "name": "수익률격차", "deck": "s.pdf", "audio": "s.m4a", "clova_txt": ""}]
+    manifest = {"groups": [{"id": "booth"}, {"id": "demo"}, {"id": "held"}],
+                "decks": {"배달A": {"group": "booth"}, "_held_x": {"group": "held"}, "수익률격차": {"group": "demo"}}}
+    monkeypatch.setattr(bridge.Handler, "_deck_entries", staticmethod(lambda: [dict(r) for r in rows]))
+    monkeypatch.setattr(bridge.Handler, "_deck_manifest", staticmethod(lambda: manifest))
+
+
+def test_발표_리허설_덱은_인증_없이_열리고_나머지는_팀_뒤다(team, monkeypatch):
+    """10-04 사용자: 「rehearsal 은 auth 제외」 — 부스 시연 세트(group booth)만 공개, 보류·데모 덱과 서버 경로는 팀 뒤."""
+    _fake_decks(monkeypatch)
+    h = _get("/api/v1/dev/decks")
+    status, body = h.last
+    assert status == 200 and [r["key"] for r in body["decks"]] == ["배달A"] and "dir" not in body
+    assert _get("/api/v1/dev/decks/file?deck=_held_x&kind=deck").last[0] == 404
+    assert _get("/api/v1/dev/decks/file?deck=수익률격차&kind=audio").last[0] == 404
+    tok = _cookie_value(_form("/auth", f"code={CODE}"))
+    status, body = _get("/api/v1/dev/decks", cookie=tok).last
+    assert status == 200 and len(body["decks"]) == 3 and "dir" in body
 
 
 def test_팀_쿠키가_있으면_개발용_경로가_열린다(team):

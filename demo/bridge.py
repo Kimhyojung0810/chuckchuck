@@ -1750,11 +1750,21 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         decks = {unicodedata.normalize("NFC", str(k)): v for k, v in (data.get("decks") or {}).items() if isinstance(v, dict)}
         return {"groups": groups, "decks": decks}
 
+    def _public_deck(self, key: str, manifest: dict | None = None) -> bool:
+        """
+        팀 인증 없이 내주는 덱인가 — 부스 시연 세트(ppt/decks.json 의 group "booth")만. 발표 리허설(#/rehearsal)은 공개 화면이라
+        (10-04 사용자: 「rehearsal 은 auth 제외」) 그 덱 셋과 녹음을 쓰게 한다. 검증용 보류 덱 · 데모 덱 · 목록 경로는 그대로 팀 뒤다.
+        """
+        manifest = manifest or self._deck_manifest()
+        meta = manifest["decks"].get(unicodedata.normalize("NFC", key or ""), {})
+        return meta.get("group") == "booth"
+
     def _handle_dev_decks(self):
-        if not _dev_open():
-            return self._json(404, {"error": "not found"})
         manifest = self._deck_manifest()
+        team = _dev_open()
         rows = self._deck_entries()
+        if not team:
+            rows = [r for r in rows if self._public_deck(r["key"], manifest)]
         for row in rows:
             meta = manifest["decks"].get(unicodedata.normalize("NFC", row["key"]), {})
             row["group"] = str(meta.get("group") or ("held" if row["key"].startswith("_") else "other"))
@@ -1765,17 +1775,19 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             for key in ("topic", "topic_title", "label"):
                 if meta.get(key):
                     row[key] = str(meta[key])
+        if not team:   # 공개 응답엔 서버 경로 · 다른 묶음 이름을 싣지 않는다
+            return self._json(200, {"decks": rows, "groups": [g for g in manifest["groups"] if g.get("id") == "booth"]})
         return self._json(200, {"dir": str(DECKS_DIR), "decks": rows, "groups": manifest["groups"]})
 
     def _handle_dev_deck_file(self, parsed):
         """?deck=<폴더 이름>&kind=deck|audio → 파일 그대로. ppt/ 밖으로는 못 나간다."""
         from urllib.parse import parse_qs
 
-        if not _dev_open():
-            return self._json(404, {"error": "not found"})
         qs = parse_qs(parsed.query or "")
         key = (qs.get("deck") or [""])[0]
         kind = (qs.get("kind") or ["deck"])[0]
+        if not _dev_open() and not self._public_deck(key):
+            return self._json(404, {"error": "not found"})
         row = next((r for r in self._deck_entries() if r["key"] == key), None)
         if row is None:
             return self._json(404, {"error": "no_deck", "message": "그 이름의 발표자료 폴더가 없어요."})

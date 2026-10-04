@@ -953,7 +953,8 @@ function isShowcaseDemo() {
 let ccTeam = false;
 let ccTeamChecked = false;
 /* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 개발자 모드를 켠 브라우저에만 연다 */
-const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth', 'rehearsal']);
+/* 발표 리허설(#/rehearsal)은 공개 화면이다 (10-04 사용자 — 서버도 부스 시연 덱 셋만 인증 없이 내준다, bridge _public_deck) */
+const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
 /* 첫 화면에 안 쓰는 화면 코드는 들어갈 때 받는다 (js/lazy.js · index.html 의 #lazyAssets).
    공개 방문자는 베타 화면을 못 여니 beta 번들을 아예 안 받는다. 베타 흐름(통화·비전·부스)은
    sessionStorage 표시로 #/new·#/qa 의 배치까지 바꾸므로, 표시가 켜진 채 새로 고치면 그 화면에서도 받는다.
