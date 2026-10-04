@@ -25,12 +25,18 @@ from collections import defaultdict, deque
 class RateLimiter:
     """고정 창(sliding window) 카운터. 키(보통 클라이언트 IP)마다 따로 센다."""
 
-    def __init__(self, *, limit: int, window_sec: float = 60.0, clock=time.monotonic) -> None:
+    def __init__(self, *, limit: int, window_sec: float = 60.0, clock=time.monotonic,
+                 max_keys: int = 100_000) -> None:
         self.limit = limit
         self.window = window_sec
         self._clock = clock
         self._lock = threading.Lock()
         self._hits: dict[str, deque] = defaultdict(deque)
+        # 키가 끝없이 자라지 않게 (2026-10-05 방패). 세션 칸은 세션 id 로 센다 — id 를 바꿔 가며 두드리면 예전엔
+        # 키가 요청 수만큼 쌓이고 지워지지 않았다. 창 하나마다 빈 키·창 밖 키를 걷고, 그래도 max_keys 를 넘으면
+        # 가장 오래 조용했던 절반을 버린다 (버려진 키는 0 부터 다시 센다 — 막는 쪽으로 틀리지 않는다).
+        self.max_keys = max_keys
+        self._next_prune = clock() + window_sec
 
     def allow(self, key: str) -> bool:
         """이번 요청을 통과시킬지. 통과시키면 카운트한다."""
@@ -38,6 +44,8 @@ class RateLimiter:
             return True
         now = self._clock()
         with self._lock:
+            if now >= self._next_prune or len(self._hits) > self.max_keys:
+                self._prune(now)
             hits = self._hits[key]
             while hits and now - hits[0] > self.window:
                 hits.popleft()
@@ -55,3 +63,23 @@ class RateLimiter:
             if not hits:
                 return 0
             return max(1, int(self.window - (self._clock() - hits[0]) + 0.999))
+
+    def count(self, key: str) -> int:
+        """지금 창 안에 든 횟수 (관측용 — 세지 않는다)."""
+        now = self._clock()
+        with self._lock:
+            hits = self._hits.get(key)
+            return sum(1 for t in hits if now - t <= self.window) if hits else 0
+
+    def _prune(self, now: float) -> None:
+        """창 밖으로 나간 기록만 남은 키를 지운다. 잠금을 쥔 채 부른다 — 키 수만 개라도 수 밀리초다."""
+        for key in [k for k, d in self._hits.items() if not d or now - d[-1] > self.window]:
+            del self._hits[key]
+        if len(self._hits) > self.max_keys:
+            keep = sorted(self._hits.items(), key=lambda kv: kv[1][-1], reverse=True)[: self.max_keys // 2]
+            self._hits = defaultdict(deque, keep)
+        self._next_prune = now + self.window
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._hits)
