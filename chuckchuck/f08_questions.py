@@ -3404,6 +3404,42 @@ def josa(word: str, with_batchim: str, without: str) -> str:
     return _probe_josa(word, with_batchim, without)
 
 
+def _claim_like(node: ConceptNode) -> bool:
+    """이름이 문장인 노드 — 층 그래프의 주장·핵심 주장, 또는 옛 그래프에서 문장으로 끝나는 이름."""
+    return getattr(node, "kind", "") in ("claim", "thesis") or _is_sentence((node.label or "").strip())
+
+
+def _quoted(label: str) -> str:
+    """「주장 문장」 — 끝 문장부호는 뗀다 (「…줄였습니다.」 → 「…줄였습니다」)."""
+    return "「" + re.sub(r"[.!。\s]+$", "", (label or "").strip()) + "」"
+
+
+def _q_josa(label: str, with_batchim: str, without: str) -> str:
+    """인용 뒤 조사 — 따옴표 **안** 마지막 소리로 고른다. 「…결과다」 → 「…결과다」는, 「…한다」 → 「…한다」를."""
+    q = _quoted(label)
+    return q + josa(q[1:-1], with_batchim, without)[len(q) - 2:]
+
+
+def _claim_fallback(node: ConceptNode, mark: TriageMark, where: str, skip: SkippedSlide | None) -> str:
+    """
+    주장 문장 노드의 폴백 질문 — 문장을 「」 로 감싸 조사를 맞추고, 장의 「핵심을 한 문장으로」 대신 **그 주장의 근거**를 묻는다.
+    10-06 부스 덱 점검: 「2C 충전은 … 깎았다는 발표에서 짧게 지나갔어요. 자료 3장의 핵심을 한 문장으로 말하면 무엇인가요?」 ·
+    「4.7은 품질이 아니라 리뷰 수집 방식의 결과다는 …」 · 「… 표시해야 한다를 자료 3장에서 어떻게 설명했나요?」 — 문장 뒤에 조사를 붙여
+    비문이 됐고, 핵심 문장을 보여 주며 핵심을 말하라고 해 물을 것이 없었다.
+    """
+    if mark.source == "contradiction":
+        return f"{_q_josa(node.label, '은', '는')} 발표에서 한 설명이 자료와 조금 달랐어요. {where} 기준으로 다시 설명해 주세요."
+    if mark.source == "skipped_slide" and skip is not None:
+        return f"발표에서 {skip.slide_no}장은 넘어갔는데, 그 장의 {_q_josa(node.label, '을', '를')} 뒷받침하는 근거를 설명해 주세요."
+    if mark.source in ("missing", "skipped_slide"):
+        return f"{where}의 {_q_josa(node.label, '을', '를')} 발표에서는 다루지 않았어요. 이 주장의 근거는 무엇인가요?"
+    if mark.source == "under_spoken":
+        return f"{_q_josa(node.label, '은', '는')} 발표에서 짧게 지나갔어요. 이 주장을 받치는 근거를 {where}에서 들어 설명해 주세요."
+    if mark.source == "justified_skip":
+        return f"{_q_josa(node.label, '은', '는')} 발표에서 생략했는데, 누가 근거를 물으면 어떻게 답할 건가요?"
+    return f"{_q_josa(node.label, '을', '를')} {josa(where, '은', '는')} 어떤 근거로 뒷받침하나요?"
+
+
 def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssue | None, nos_all: list[int],
                        skip: SkippedSlide | None = None) -> str:
     """
@@ -3416,6 +3452,8 @@ def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssu
     label = node.label
     shown = nos_all[:HINT_SLIDE_MAX]
     where = f"자료 {', '.join(str(n) for n in shown)}장" if shown else "자료"
+    if _claim_like(node):
+        return _claim_fallback(node, mark, where, skip)
     if mark.source == "contradiction":
         return f"{josa(label, '은', '는')} 발표에서 한 설명이 자료와 조금 달랐어요. {where} 기준으로 다시 설명해 주세요."
     if mark.source == "skipped_slide" and skip is not None:
