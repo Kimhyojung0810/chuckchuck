@@ -111,6 +111,32 @@ def is_meta_line(line: str) -> bool:
     return graded and target and imperative
 
 
+#: 표지 머리줄(소속 · 행사 · 날짜) — 「배터리공학과 에너지저장연구실 · 랩 미팅 중간 발표 · 2026. 10. 6.」
+_BYLINE_DATE_RE = re.compile(r"20\d{2}\.\d{1,2}\.\d{1,2}")
+_BYLINE_WORD_RE = re.compile(r"학과|연구실|연구소|교수|발표자|랩미팅|세미나|학술대회|학회|워크숍|심포지엄|지도교수|석사|박사|학번")
+
+
+def is_byline(line: str) -> bool:
+    """
+    표지의 소속 · 행사 · 날짜 줄이나 글자를 한 칸씩 띄운 장식 머리줄인가 — 발표의 **주장이 아니다**.
+
+    10-05 부스 덱: 파서가 표지 맨 위의 작은 머리줄 「배 터 리 공 학 과 에 너 지 저 장 연 구 실 · 랩 미 팅 중 간 발 표 · 2 0 2 6 . 1 0 . 6 .」 을
+    heading 으로, 진짜 제목 「급속충전은 배터리를 얼마나 깎는가」 를 paragraph 로 읽었다. F-06 이 그 줄을 주장으로 뽑고 F-07 이 핵심 주장으로 세워
+    부스 첫 질문이 「배 터 리 공 학 과 … 를 자료 1장에서 어떻게 설명했나요?」 가 됐다(미세플라스틱 덱도 같다).
+    꼴로만 가른다: ① 낱말 여섯 개 이상 중 70% 넘게 한 글자(자간 띄운 장식) ② 날짜(2026.10.6) + 소속 · 행사 낱말 또는 「·」 나열.
+    """
+    t = unicodedata.normalize("NFKC", line or "").strip()
+    if not t:
+        return False
+    toks = t.split()
+    if len(toks) >= 6 and sum(1 for w in toks if len(w) == 1) / len(toks) > 0.7:
+        return True
+    squashed = re.sub(r"\s+", "", t)
+    if _BYLINE_DATE_RE.search(squashed) and (_BYLINE_WORD_RE.search(squashed) or "·" in t):
+        return True
+    return False
+
+
 def names_grade_target(line: str) -> bool:
     """
     줄에 채점의 대상·결과 말(답변·응답·정답·good·N점·만점·높게)이 있는가 — `is_meta_line` 의 「채점 대상」 과 같은 잣대.
