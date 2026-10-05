@@ -378,7 +378,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   };
 
   report('encoding', '오디오 준비 중');
-  const audio_base64 = blob ? await blobToBase64(blob) : null;
+  // 부스 덱 녹음은 서버 ppt/ 에 있다 — 받은 파일을 base64 로 되올리지 않고 덱 이름만 보낸다 (공개 링크에서 업로드 왕복이 대기의 대부분이었다, 10-06)
+  const deckAudio = blob && blob.deckAudio ? String(blob.deckAudio) : '';
+  const audio_base64 = blob && !deckAudio ? await blobToBase64(blob) : null;
   const ext = audioExt({ fileName, mimeType });
 
   report('stt', reuse ? '저장해 둔 받아쓰기를 불러오는 중' : 'A.X 모델로 음성을 글로 바꾸는 중');
@@ -390,6 +392,7 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       session_id: sessionId || null,
       marks: marks || [],
       audio_base64,
+      deck_audio: deckAudio || undefined,
       ext,
       // 화면을 고쳐 가며 볼 때 매번 다시 말하지 않기 위한 길 (#/replay).
       // 저장본이 없으면 서버가 404 로 말한다 — 조용히 실 STT 로 흐르지 않는다.

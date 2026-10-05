@@ -59,3 +59,19 @@ def test_letter_spaced_line_is_not_gist():
 
     assert _letter_spaced("경 영 정 보 학 과 서 비 스 데 이 터 연 구 실")
     assert not _letter_spaced("배달앱 리뷰 12만 건으로 본 평점 인플레이션의 원인")
+
+
+def test_deck_audio_by_name_only_public_booth_decks(monkeypatch):
+    """받아쓰기가 이름으로 부르는 덱 녹음 — 공개(팀 아님)에서는 부스 덱만, 경로 탈출은 None"""
+    import demo.bridge as bridge
+
+    monkeypatch.setattr(bridge, "_dev_open", lambda: False)
+    h = bridge.Handler.__new__(bridge.Handler)
+    assert h._deck_audio_bytes("../../.env") is None
+    assert h._deck_audio_bytes("") is None
+    booth = [r["key"] for r in h._deck_entries() if h._public_deck(r["key"]) and r.get("audio")]
+    held = [r["key"] for r in h._deck_entries() if not h._public_deck(r["key"]) and r.get("audio")]
+    if booth:
+        assert h._deck_audio_bytes(booth[0])
+    if held:
+        assert h._deck_audio_bytes(held[0]) is None

@@ -2191,6 +2191,26 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             return self._json(200, {"decks": rows, "groups": [g for g in manifest["groups"] if g.get("id") == "booth"]})
         return self._json(200, {"dir": str(DECKS_DIR), "decks": rows, "groups": manifest["groups"]})
 
+    def _deck_audio_bytes(self, key) -> bytes | None:
+        """받아쓰기 요청이 이름으로 부른 덱 녹음의 바이트 — /api/v1/dev/decks/file?kind=audio 와 같은 문(공개는 부스 덱만).
+        표식 박힌 무음 WAV(클로바 전사 덱)는 그 길 그대로 만든다. 못 찾으면 None."""
+        key = unicodedata.normalize("NFC", str(key or ""))
+        if not key or (not _dev_open() and not self._public_deck(key)):
+            return None
+        row = next((r for r in self._deck_entries() if r["key"] == key), None)
+        if row is None or not row.get("audio"):
+            return None
+        if row.get("clova_txt"):
+            return clova_transcript.marked_silence(key, float(row["audio_sec"] or 0))
+        base = DECKS_DIR / key
+        path = (base / row["audio"]).resolve() if base.is_dir() else None
+        if path is None or DECKS_DIR.resolve() not in path.parents:
+            return None
+        try:
+            return path.read_bytes()
+        except OSError:
+            return None
+
     def _handle_dev_deck_file(self, parsed):
         """?deck=<폴더 이름>&kind=deck|audio → 파일 그대로. ppt/ 밖으로는 못 나간다."""
         from urllib.parse import parse_qs
@@ -2938,12 +2958,15 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         audio_b64 = body.get("audio_base64")
         audio_path: str | None = None
         clova_out: dict | None = None
-        if audio_b64:
+        deck_audio = self._deck_audio_bytes(body.get("deck_audio")) if body.get("deck_audio") and not audio_b64 else None
+        if body.get("deck_audio") and not audio_b64 and deck_audio is None:
+            return self._json(404, {"error": "no_deck_audio", "message": "그 발표 녹음을 찾지 못했어요. 다시 골라 주세요."})
+        if audio_b64 or deck_audio is not None:
             import base64
             import binascii
 
             try:
-                audio_bytes = base64.b64decode(audio_b64, validate=False)
+                audio_bytes = deck_audio if deck_audio is not None else base64.b64decode(audio_b64, validate=False)
             except (binascii.Error, ValueError, TypeError):
                 return self._json(400, {"error": "bad_audio", "message": "녹음 데이터를 읽지 못했어요. 다시 녹음해 주세요."})
             if len(audio_bytes) > MAX_UPLOAD_BYTES:
@@ -2987,7 +3010,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
 
         try:
             stt_key = None
-            if not clova_out and audio_b64 and not _mock():
+            if not clova_out and (audio_b64 or deck_audio is not None) and not _mock():
                 stt_key = _stage_key("f05", _stage_version("transcribe"), hashlib.sha256(audio_bytes).hexdigest(), ext,
                                      [m.to_dict() for m in marks], provider or os.environ.get("STT_PROVIDER", ""))
             cached_tr = _stage_cache_get("transcribe", stt_key) if stt_key else None

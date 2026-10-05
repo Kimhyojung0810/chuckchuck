@@ -9985,7 +9985,10 @@ async function fetchDeckFile(key, kind, name) {
     throw new Error(msg);
   }
   const blob = await res.blob();
-  return new File([blob], name, { type: blob.type || '' });
+  const file = new File([blob], name, { type: blob.type || '' });
+  // 서버에 이미 있는 덱 녹음 — 받아쓰기 요청이 5MB 를 다시 올리지 않고 이름만 보낸다 (chuckchuck_bridge.js runPreparePipeline · 10-06)
+  if (kind === 'audio') file.deckAudio = key;
+  return file;
 }
 
 /**
