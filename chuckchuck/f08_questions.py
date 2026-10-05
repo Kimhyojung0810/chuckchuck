@@ -3462,7 +3462,9 @@ def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssu
     if mark.source in ("missing", "skipped_slide"):
         return f"{where}에 있는 {josa(label, '을', '를')} 발표에서는 다루지 않았어요. 이 발표에서 {josa(label, '은', '는')} 어떤 역할을 하나요?"
     if mark.source == "under_spoken":
-        return f"{josa(label, '은', '는')} 발표에서 짧게 지나갔어요. {where}의 핵심을 한 문장으로 말하면 무엇인가요?"
+        # 장의 「핵심」 이 아니라 **이 개념**을 묻는다 — 「온도는 … 자료 2장의 핵심을 한 문장으로」 는 장 낭독이 됐다 (10-06 부스 녹음 6개).
+        # 골자는 근거 장에서 이 개념을 받치는 줄이라(`_evidence_gist`) 이 물음의 답이 된다
+        return f"{josa(label, '은', '는')} 발표에서 짧게 지나갔어요. {where}에서 {josa(label, '이', '가')} 무엇을 보여 주는지 한 문장으로 말해 볼래요?"
     if mark.source == "weak_flow" and flow_issue is not None and flow_issue.kind == "order_jump":
         return f"{josa(label, '을', '를')} 자료와 다른 순서로 설명했는데, 그렇게 한 이유가 있나요?"
     if mark.source == "weak_flow":
@@ -4311,7 +4313,7 @@ def _evidence_gist(
     texts = [(no, by_no[no].raw_text or "") for no in anchors if no in by_no]
     # 문장 조각(「수면 주기가 자주 끊기면」 — 연결 어미로 끝난 줄)은 골자의 한 줄이 못 된다 — 넉넉히 뽑아 거른다
     ranked = ranked_quotes(node.label, node.summary, texts, question, k=EVIDENCE_GIST_LINES + 3, labels=labels)
-    found = [(no, q) for no, q in ranked if q and not _HINT_FRAGMENT_END_RE.search(q)
+    found = [(no, q) for no, q in ranked if q and not _HINT_FRAGMENT_END_RE.search(q) and not _letter_spaced(q)
              and (usable is None or usable(q))][:EVIDENCE_GIST_LINES]
     if not found or (usable is not None and not any(_content_line(q) for _, q in found)):
         return ""          # 장 제목만 남았으면 답이 아니다 — 호출자가 「답할 재료가 없다」 로 본다 (WP-P2)
@@ -4325,6 +4327,14 @@ def _evidence_gist(
     where = ", ".join(str(n) for n in nos)
     lead = "질문의 전제와 달리, 자료는 이렇게 말해요 — " if trap else "자료는 이렇게 말해요 — "
     return _clip(f"{lead}{body} ({where}장)")
+
+
+def _letter_spaced(line: str) -> bool:
+    """글자마다 띄운 장식 줄인가 — 표지의 소속 「경 영 정 보 학 과 서 비 스 데 이 터 연 구 실」 이 정답 골자에 실렸다 (10-06 부스 체험).
+    한 글자 낱말이 다섯 개 이상이고 낱말의 70% 이상이면 장식 줄이다."""
+    words = (line or "").split()
+    singles = sum(1 for w in words if len(w) == 1 and "가" <= w <= "힣")
+    return singles >= 5 and singles >= 0.7 * len(words)
 
 
 #: 제목이 아니라 **내용**을 말하는 줄로 볼 길이 (띄어쓰기 뺀 글자) — 문장·수치·표 행이 아니어도 이만큼이면 주장이 든 줄이다.
@@ -5567,6 +5577,12 @@ def build_questions(
     greet = [m for m in known if _GREETING_LABEL_RE.search(by_id[m.node_id].label or "")]
     if greet and len(greet) < len(known):
         known = [m for m in known if m not in greet]
+    # 표지에만 앉은 개념의 누락·덜 말함(「자료 1장에 있는 수도권 매장을 발표에서는 다루지 않았어요 … 어떤 역할」 · 「배달앱 리뷰 …」)은
+    # 물을 거리가 아니다 — 표지의 소속·데이터 출처·주제 낱말이다 (10-06 부스 녹음 6개). 다른 후보가 있을 때만 뺀다.
+    cover = [m for m in known if m.source in _ONE_PER_SLIDE_SOURCES and not m.node_id.startswith("extra:")
+             and _role_rank_of(graph, by_id[m.node_id]) == _ROLE_RANK["cover"]]
+    if cover and len(cover) < len(known):
+        known = [m for m in known if m not in cover]
     if not known:
         raise QuestionError(
             "QaTriage 에 이 그래프의 개념이 없습니다. "

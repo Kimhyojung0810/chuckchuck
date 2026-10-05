@@ -756,13 +756,19 @@ function liveWeakAnswer(q) {
   if (liveContradiction(q)) return '발표에서 말한 게 맞아요. 제가 기억하기로는 그랬어요.';
   const parts = (q.answer_gist_parts || []).map((t) => String(t || '').trim()).filter(Boolean);
   if (parts.length >= 2) return `음… ${parts[0].replace(/[.。]$/, '')}. 나머지는 잘 기억이 안 나요.`;
-  const gist = liveWholeSentences(String(q.answer_gist || '').trim());
+  // 자료 줄로 조립한 골자(「자료는 이렇게 말해요 — A · B (3장)」)는 머리말 · 장 목록을 떼고 말로
+  const gist = liveWholeSentences(String(q.answer_gist || '').trim())
+    .replace(/^(?:질문의 전제와 달리,\s*|자료는 이렇게 말해요\s*—\s*)+/, '').replace(/\s*\([\d,\s]+장\)\s*$/, '');
   // 첫 문장 — 「4.7점」 의 점은 문장 끝이 아니다 (끝 부호 뒤에 빈칸이나 글 끝이 와야 끝)
   const first = (gist.match(/^.*?[.!?。](?=\s|$)/) || [gist])[0].trim();
   if (first) {
-    const vague = first.replace(LIVE_TRY_NUM_RE, '어느 정도').replace(/어느 정도(?:\s*(?:에서|부터|까지|와|과|,|~|-|→|대비)?\s*어느 정도)+/g, '어느 정도').replace(/\s{2,}/g, ' ').trim();
+    // 단위 없는 수가 주어 · 목적어로 선 자리(「4.7은 …」)는 흐리면 말이 안 된다 — 그대로 둔다
+    const vague = first.replace(LIVE_TRY_NUM_RE, (m, at, all) => (/^[\d.,]+$/.test(m) && /^[은는이가을를]/.test(all.slice(at + m.length)) ? m : '어느 정도')).replace(/어느 정도(?:\s*(?:에서|부터|까지|와|과|,|~|-|→|대비)?\s*어느 정도)+/g, '어느 정도').replace(/\s{2,}/g, ' ').trim();
     if (vague !== first) return `음… ${/[.!?。]$/.test(vague) ? vague : `${vague}.`} 정확한 숫자는 기억이 안 나요.`;
   }
+  // 숫자가 없으면 앞 절만 — 이유 · 둘째 근거를 빼먹은 답 (「…상승해야 하는데, 실제로는 변화가 없었기 때문이에요」 → 앞 절)
+  const head = (first || gist).split(/,\s+|\s+·\s+|\s+—\s+|(?<=는데|지만|으며|이고|하고)\s+/)[0].trim();
+  if (head && head.length >= 6 && head.length < (first || gist).length - 4) return `음… ${head.replace(/[.。]$/, '')}… 그다음은 잘 기억이 안 나요.`;
   return '음… 자료에 나온 그대로예요. 자세히는 잘 기억이 안 나요.';
 }
 
