@@ -75,7 +75,7 @@
 .bq[data-flow="rehearsal"] .bc-stream .msg.ai:is(.trap, .review) .msg-bubble { border-color: rgba(154, 91, 0, .55); }
 .bq[data-flow="rehearsal"] .bc-stream .msg.ai.gist .msg-bubble { border-color: rgba(14, 136, 80, .55); }
 .bq[data-flow="rehearsal"] .bc-stream .msg.is-now .msg-bubble { border-color: rgba(255, 255, 255, .7); box-shadow: var(--lg-shadow), 0 0 0 1px rgba(14, 136, 80, .45); }
-.bq[data-flow="rehearsal"] .bc-stream .qa-evidence { color: var(--rl-ink); background: rgba(0, 0, 0, .06); border-left-color: rgba(0, 0, 0, .4); }
+.bq[data-flow="rehearsal"] .bc-stream .qa-evidence { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
 .bq[data-flow="rehearsal"] .bc-stream .qa-evidence span { color: var(--rl-soft); }
 .bq[data-flow="rehearsal"] .bc-stream .qa-ground > span { color: var(--rl-ink); }
 /* 내 말은 초록 판 · 흰 글자 그대로 (판을 진하게 해서 들어 올린 바탕 위에서도 4.5:1) */

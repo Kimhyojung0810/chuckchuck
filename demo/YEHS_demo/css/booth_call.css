@@ -243,7 +243,7 @@
 .bq[data-variant="call"] .bc-stream .qa-ground ~ .qa-ground,
 .bq[data-variant="call"] .bc-stream .qa-ground small { display: none; }
 .bq[data-variant="call"] .bc-stream .qa-evidence {
-  color: #fff; background: rgba(255, 255, 255, .12); border-left-color: rgba(255, 255, 255, .6); font-size: clamp(14px, .85vw, 16px);
+  color: #fff; background: rgba(255, 255, 255, .12); font-size: clamp(14px, .85vw, 16px);
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
 }
 /* 근거 머리 「자료 4장 · 빠진 것」 — 줄 위에 따로, 크게 */

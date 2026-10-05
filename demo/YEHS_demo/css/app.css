@@ -1446,15 +1446,20 @@ details.fold .fold-body { padding: 0 24px 20px; }
 /* 힌트가 부르는 장을 조그맣게 같이 띄운다 — 장 번호만 부르면 그 장에 뭐가 있는지
    아는 사람에게만 힌트다. 말풍선 안이라 작게 두고, 넘치면 가로로 민다. */
 /* 코칭 자료 인용 카드 · 둘 중 하나 선택 칩 (2026-09-10) */
-.qa-evidence { margin: 8px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); border-radius: var(--r-ctl); background: var(--accent-weak); font-size: 14px; line-height: 1.55; color: var(--text); }
+.qa-evidence { margin: 8px 0 0; padding: 10px 12px; border-radius: var(--r-ctl); background: var(--accent-weak); font-size: 14px; line-height: 1.55; color: var(--text); }
 .qa-evidence span { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 700; color: var(--text-3); }
 /* 판정 근거 줄 (2026-10-01) — 판정이 기댄 자료 줄. 역할 색은 판정 색 그대로(짚은 것 ok · 빠진 것 mid · 다시 볼 곳 no) */
 .qa-grounds { margin-top: 10px; display: grid; gap: 6px; }
 .qa-grounds-h { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: .02em; }
 .qa-grounds .qa-evidence { margin: 0; }
-.qa-ground.is-covered { border-left-color: var(--ok); background: var(--ok-bg); }
-.qa-ground.is-missing { border-left-color: var(--mid); background: var(--mid-bg); }
-.qa-ground.is-conflict { border-left-color: var(--no); background: var(--no-bg); }
+/* 왼쪽 굵은 선 대신 이름표 앞 점 — 옆 선 + 둥근 카드는 흔한 AI 생성 UI 꼴로 읽혔다 (10-06 사용자). 판정 색은 점이 그대로 진다 */
+.qa-ground > span::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 6px 1px 0; border-radius: var(--r-dot, 50%); vertical-align: middle; background: currentColor; }
+.qa-ground.is-covered { background: var(--ok-bg); }
+.qa-ground.is-covered > span::before { background: var(--ok); }
+.qa-ground.is-missing { background: var(--mid-bg); }
+.qa-ground.is-missing > span::before { background: var(--mid); }
+.qa-ground.is-conflict { background: var(--no-bg); }
+.qa-ground.is-conflict > span::before { background: var(--no); }
 .qa-ground small { display: block; margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--text-2, var(--text)); }
 .qa-grounds .hint-slides { margin-top: 2px; }
 .qa-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -1660,9 +1665,8 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .qa-done {
   align-self: stretch; margin: 6px 0; padding: 14px 16px 12px;
   border: 1px solid var(--border); border-radius: var(--r-inner);
-  background: var(--surface); border-left: 3px solid var(--ok);
+  background: var(--surface);
 }
-.qa-done.is-lost { border-left-color: var(--no); }
 .qa-done .qd-head { display: flex; align-items: center; gap: 8px; }
 .qa-done .qd-head i {
   width: 18px; height: 18px; flex: none; border-radius: 50%; background: var(--ok);
