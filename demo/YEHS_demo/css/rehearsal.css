@@ -315,3 +315,14 @@
 /* 「이전 · 다음」 — 밝은 조작줄 위 진한 버튼은 흰 벽 앞에서 흰 글자가 3.0:1 이었다. 답 칸의 보조 버튼과 같은 밝은 버튼 · 먹색 글자 */
 #vrCall[data-flow="rehearsal"] .vr-dock .vr-nav { color: #18181B; background: rgba(255, 255, 255, .72); border: 1px solid rgba(0, 0, 0, .18); text-shadow: none; }
 #vrCall[data-flow="rehearsal"] .vr-dock .vr-nav:hover { background: rgba(255, 255, 255, .9); }
+
+/* 리포트 자리 비움 알림 (rehearsal.js rhReportIdleTick) — 아래 가운데, 무엇보다 위. 부스 .bq-toast 와 같은 모양 */
+.rh-idle-toast {
+  position: fixed; z-index: 1000; left: 50%; bottom: clamp(16px, 4vh, 40px); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 18px; max-width: min(92vw, 720px); padding: 14px 16px 14px 24px;
+  border-radius: var(--r-print, 10px); background: rgba(10, 14, 20, .92); border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .4); color: #fff;
+}
+.rh-idle-toast p { margin: 0; font-size: 17px; line-height: 1.45; }
+.rh-idle-toast .btn { flex: none; min-height: 44px; }
+@media (max-width: 520px) { .rh-idle-toast { flex-direction: column; align-items: stretch; gap: 10px; text-align: center; } }

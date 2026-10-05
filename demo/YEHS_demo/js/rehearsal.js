@@ -147,6 +147,7 @@ function rehearsalTeardown({ keepVision = false, keepFlow = false } = {}) {
  * - 흐름 밖(#/rehearsal 아래가 아닌 주소)으로 나갈 때: 표시 · 카메라를 끈다
  */
 function rehearsalFlowOnRoute(key, hash = location.hash) {
+  rhReportIdleDisarm();
   if (!rehearsalFlowOn()) return;
   // 녹음 중에 비전 리허설(#/rehearsal/new)을 떠나면 — 브라우저 · 아이패드 뒤로 가기, 주소 직접 입력 — 테이크를 멈춘다.
   // 「나가기」 시트만 멈춰서, 뒤로 가기로는 발표 목록 · 홈 뒤에서 녹음기와 마이크가 표시 없이 계속 돌았다 (10-03 점검 F2)
@@ -158,8 +159,62 @@ function rehearsalFlowOnRoute(key, hash = location.hash) {
     rehearsalTeardown({ keepVision: key === 'vision' });
     return;
   }
-  if (key === 'report') { rehearsalTeardown({ keepFlow: true }); return; }
+  if (key === 'report') { rehearsalTeardown({ keepFlow: true }); rhReportIdleArm(); return; }
   if (key === 'qa') rhHandCamera();
+}
+
+/* ─── 리포트 자리 비움 → 발표 고르기 (10-05 사용자) ───────────────────────────
+   리포트에서 아무 조작이 없으면 처음(#/rehearsal)으로 돌아간다 — 부스에서 다음 사람이 앞사람 리포트 앞에 서지 않게.
+   조용히 RH_REPORT_IDLE_MS 가 지나면 알림을 띄우고 RH_REPORT_WARN_SEC 를 센다(합쳐 1분). 누르기 · 키 · 스크롤 · 터치 하나면 처음부터 다시 센다.
+   location.replace 라 뒤로 가기로 리포트에 다시 오지 않는다(리포트 칸 앞은 rhGoReport 가 #/rehearsal 로 바꿔 둔 칸이다). */
+const RH_REPORT_IDLE_MS = 45000;
+const RH_REPORT_WARN_SEC = 15;
+const RH_REPORT_INPUTS = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'];
+const rhIdle = { last: 0, tick: 0, left: 0 };
+
+function rhReportIdleArm() {
+  rhReportIdleDisarm();
+  rhIdle.last = Date.now();
+  RH_REPORT_INPUTS.forEach((ev) => document.addEventListener(ev, rhReportTouch, { capture: true, passive: true }));
+  rhIdle.tick = setInterval(rhReportIdleTick, 1000);
+}
+
+function rhReportIdleDisarm() {
+  if (rhIdle.tick) clearInterval(rhIdle.tick);
+  rhIdle.tick = 0;
+  RH_REPORT_INPUTS.forEach((ev) => document.removeEventListener(ev, rhReportTouch, { capture: true }));
+  const box = document.getElementById('rhIdleToast');
+  if (box) box.remove();
+}
+
+function rhReportTouch() {
+  rhIdle.last = Date.now();
+  const box = document.getElementById('rhIdleToast');
+  if (box) box.remove();
+}
+
+function rhReportIdleTick() {
+  // 다른 탭에 가 있으면 세지 않는다 — 돌아왔을 때 이미 넘어가 있으면 당황스럽다
+  if (document.hidden) { rhIdle.last = Date.now(); return; }
+  const left = Math.ceil((rhIdle.last + RH_REPORT_IDLE_MS + RH_REPORT_WARN_SEC * 1000 - Date.now()) / 1000);
+  if (left <= 0) {
+    rhReportIdleDisarm();
+    location.replace(REHEARSAL_HASH);
+    return;
+  }
+  if (left > RH_REPORT_WARN_SEC) return;
+  let box = document.getElementById('rhIdleToast');
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'rh-idle-toast';
+    box.id = 'rhIdleToast';
+    box.setAttribute('role', 'alertdialog');
+    box.setAttribute('aria-labelledby', 'rhIdleText');
+    box.innerHTML = '<p id="rhIdleText"></p><button type="button" class="btn" id="rhIdleStay">계속 볼게요</button>';
+    document.body.appendChild(box);
+    box.querySelector('#rhIdleStay').focus({ preventScroll: true });
+  }
+  box.querySelector('#rhIdleText').textContent = `${left}초 뒤 처음 화면(발표 고르기)으로 돌아가요`;
 }
 
 /** route() 가 그리기 직전에 — 리허설 탭에서 #/rehearsal/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 리허설 자리로. true 면 route() 가 멈춘다 */
