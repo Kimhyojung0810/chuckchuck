@@ -539,3 +539,20 @@ def test_문장으로_안_닫힌_react_조각과_골자를_읽어_준_react_는_
     v2 = judge_answer(q, "주문이 좀 빨라졌어요 손님들이 좋아해요", slidedoc=CAFE,
                       llm=ScriptedLLM(judged(verdict="partial", score=60, react="답변에서")))
     assert v2.react != "답변에서" and v2.react.strip()
+
+
+def test_큰_수를_끝자리_0_으로_둥글려_말한_것은_같은_값이다():
+    """10-05 부스 리허설 — 자료 「리뷰 124,380건」 을 「124000건」 이라 말했는데 「자료와 숫자가 다르다」 모순 질문 1번이 됐다."""
+    from chuckchuck._deck_claims import numbers
+
+    def cv(a, b):
+        x, y = numbers(a)[-1], numbers(b)[-1]
+        return x.close_value(y) and y.close_value(x)
+
+    assert cv("124,380건", "124000건")
+    assert cv("124,380건", "12만 건")
+    assert cv("3,200곳", "3200곳")
+    assert not cv("124,380건", "13만 건")      # 둥글린 자리보다 멀다
+    assert not cv("124,380건", "125,000건")    # 천 자리로 둥글리면 124,000 이다
+    assert not cv("1,400명", "1,000명")        # 5% 넘게 다르면 틀린 것
+    assert not cv("82%", "80%")                # 작은 수는 정밀도가 곧 내용

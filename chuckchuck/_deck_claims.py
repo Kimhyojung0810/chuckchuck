@@ -146,10 +146,33 @@ class Num:
             return False
         if abs(self.value - other.value) <= 1e-9:
             return True
+        if _spoken_round(self, other) or _spoken_round(other, self):
+            return True
         if self.decimals == other.decimals:
             return False
         prec = min(self.decimals, other.decimals)
         return abs(self.value - other.value) <= 0.5 * 10 ** -prec + 1e-9
+
+
+#: 큰 수를 말로 둥글게 부른 것으로 볼 하한·허용 오차. 10-05 부스 리허설: 자료 「리뷰 124,380건」 을 「124000건」 이라 말했는데
+#: 모순 질문 1번(「자료와 숫자가 다르다」)이 됐다. 발표자는 큰 수를 끝자리 0 으로 둥글려 말한다 — 「12만 건」 도 같다.
+#: 작은 수(82% ↔ 80%)는 정밀도가 곧 내용이라 그대로 다른 값이다. 5% 넘게 다르면(1,400 ↔ 1,000) 둥글린 게 아니라 틀린 것이다.
+ROUND_MIN_VALUE = 1000
+ROUND_MAX_REL = 0.05
+
+
+def _spoken_round(rounded: Num, exact: Num) -> bool:
+    """rounded 가 exact 를 끝자리 0 으로 둥글린 값인가 — 124,380 → 124,000 · 120,000(12만). 정수 · 1000 이상 · 5% 안에서만."""
+    if rounded.decimals or abs(exact.value) < ROUND_MIN_VALUE or rounded.value == 0:
+        return False
+    r = int(round(abs(rounded.value)))
+    zeros = len(str(r)) - len(str(r).rstrip("0"))
+    if zeros == 0:
+        return False
+    step = 10 ** zeros
+    if abs(abs(exact.value) - r) > step / 2 + 1e-9:
+        return False
+    return abs(abs(exact.value) - r) <= ROUND_MAX_REL * abs(exact.value) and rounded.negative == exact.negative
 
 
 #: 「1, 2, 3장」「4~7장」 — 나열 전체가 장 번호다. 마지막 숫자에만 「장」 이 붙어 앞 숫자가 사실 숫자로 잡힌다.
