@@ -3895,9 +3895,27 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         self.end_headers()
 
 
+def _deck_shas() -> dict[str, dict]:
+    """저장소 ppt/ 덱 원본 sha256 → 그 덱 줄(Handler._deck_entries). A·B 버전처럼 바이트가 같은 자료는 한 줄로 모인다."""
+    out: dict[str, dict] = {}
+    for row in Handler._deck_entries():
+        try:
+            sha = hashlib.sha256(_deck_path(row).read_bytes()).hexdigest()
+        except OSError:
+            continue
+        out.setdefault(sha, row)
+    return out
+
+
+def _deck_path(row: dict) -> Path:
+    base = DECKS_DIR / row["key"]
+    return base / row["deck"] if base.is_dir() else base
+
+
 def _prune_once() -> None:
     try:
-        gone = ARCHIVE.prune()
+        # 시연 덱 파싱본은 남긴다 — 하루 청소가 지우면 /rehearsal · /booth/qa 발표 목록이 빈다 (10-05)
+        gone = ARCHIVE.prune(keep_sha256=_deck_shas().keys())
     except Exception as e:  # noqa: BLE001 — 청소 실패로 브리지를 죽이지 않는다
         sys.stderr.write(f"[bridge] 만료 세션 정리 실패: {e}\n")
         return
@@ -3919,6 +3937,43 @@ def _refresh_learning_once() -> None:
                      f"또래 표 {r['norm_sessions']}건/{r['norm_rows']}줄\n")
 
 
+#: 서버가 뜰 때 파싱본이 없으면 미리 파싱해 두는 덱 묶음(ppt/decks.json group). 0/빈 값이면 끈다.
+WARM_DECK_GROUPS = frozenset(g.strip() for g in os.environ.get("DEMO_WARM_DECK_GROUPS", "booth,demo").split(",") if g.strip())
+
+
+def _warm_decks_once(port: int) -> None:
+    """
+    부스 · 데모 덱 중 파싱본이 없는 것을 이 브리지의 /api/v1/parse 로 올려 둔다 (10-05).
+
+    발표 고르기 화면(rehearsal.js · booth_qa.js bqDeckReady)은 파싱본(cached_session_id)이 있는 덱만 보여 준다. 예전엔 누가
+    #/test/qa 에서 한 번 열어야 생겼고, 청소가 지우면 아무도 모른 채 목록이 비었다. 같은 파일은 단계 캐시가 받아 Upstage 를
+    다시 부르지 않을 수도 있다. 실패해도 브리지는 그대로 — 로그만 남긴다.
+    """
+    import urllib.request
+
+    if _mock() or not WARM_DECK_GROUPS:
+        return
+    groups = Handler._deck_manifest()["decks"]
+    for sha, row in _deck_shas().items():
+        meta = groups.get(unicodedata.normalize("NFC", row["key"]), {})
+        if meta.get("group") not in WARM_DECK_GROUPS or ARCHIVE.find_by_sha256(sha):
+            continue
+        path = _deck_path(row)
+        boundary = "chuckchuck-warm-" + sha[:16]
+        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"{path.name}\"\r\n"
+                f"Content-Type: application/octet-stream\r\n\r\n").encode() + path.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/parse", data=body, method="POST",
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        t0 = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=300) as res:
+                res.read()
+            ok = ARCHIVE.find_by_sha256(sha)
+            sys.stderr.write(f"[bridge] 시연 덱 미리 파싱 {row['key']} → {ok or '세션 없음'} ({time.monotonic() - t0:.1f}초)\n")
+        except Exception as e:  # noqa: BLE001 — 미리 파싱 실패로 브리지를 죽이지 않는다
+            sys.stderr.write(f"[bridge] 시연 덱 미리 파싱 실패 {row['key']}: {e}\n")
+
+
 def _start_prune_loop() -> None:
     """시작할 때 한 번, 그 뒤 하루에 한 번. About 화면의 「1년 뒤 지워요」를 이 스레드가 지키고,
     지운 뒤의 동의 세션으로 학습 자산을 다시 만든다 (지운 세션이 묶음에 남지 않게 순서가 중요하다)."""
@@ -3926,6 +3981,7 @@ def _start_prune_loop() -> None:
         while True:
             _prune_once()
             _refresh_learning_once()
+            _warm_decks_once(settings.demo_port)
             time.sleep(PRUNE_INTERVAL_SEC)
     threading.Thread(target=loop, name="archive-prune", daemon=True).start()
 
@@ -4058,8 +4114,9 @@ def main():
         # 질문 코칭의 답변 녹음은 10초 안팎(수백 KB)이라 정확히 그 구간이다 — 조용히 넘어가면 부스에서 "받아쓰기 실패" 로 나타난다.
         print("  ⚠ ffmpeg 이 없어요. 10MB 미만 녹음(질문 코칭 답변)의 WAF 우회가 꺼져 받아쓰기가 실패할 수 있어요 — "
               "`sudo apt-get install ffmpeg` (docs/DEPLOYMENT.md §STT)", flush=True)
-    _start_prune_loop()
+    # 소켓을 먼저 묶는다 — 청소 스레드의 시연 덱 미리 파싱(_warm_decks_once)이 이 서버에 요청을 보낸다
     server = ReusableThreadingHTTPServer((host, port), Handler)
+    _start_prune_loop()
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
