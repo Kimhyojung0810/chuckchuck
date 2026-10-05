@@ -746,6 +746,10 @@ STAGE_ENTRY_MODULES: dict[str, tuple[str, ...]] = {
     "questions": ("chuckchuck.f08_questions", "chuckchuck.f26_claims", "chuckchuck.f24_papers", "chuckchuck.f25_memory"),
     "judge": ("chuckchuck.f09_judge",),                  # judge_answer
     "chatter": ("chuckchuck.f12_chatter",),              # build_chatter — 디스크 캐시 (세션 id + 재료 해시, 09-30 REC-19)
+    # 부스는 덱 3개 × 녹음 2개로 정해져 있다 (10-06 사용자: 「새로운 ppt 없으니 로딩 시간 줄일 수 있는 게 많다」).
+    # 같은 녹음 → 같은 받아쓰기 → 같은 정합 · 질문이 되도록 받아쓰기와 정합도 내용 해시로 디스크에 둔다
+    "transcribe": ("chuckchuck.f05_stt",),               # transcribe — 디스크 캐시 (녹음 sha256 + 장 표시 + 제공자)
+    "alignment": ("chuckchuck.f11_align",),              # align_speech — 디스크 캐시 (그래프 · 받아쓰기 · 본문 · 상황)
 }
 
 
@@ -913,7 +917,17 @@ QUESTIONS_INFLIGHT_WAIT_SEC = 150
 
 
 def _questions_ready(q_key: str):
-    return STORE.get_triage(q_key)
+    """만든 질문 — 메모리에 없으면 디스크(정상 재료로 만든 것만 남는다). 재시작해도 부스 덱 질문을 다시 안 만든다 (10-06)."""
+    got = STORE.get_triage(q_key)
+    if got is None:
+        got = _stage_cache_get("questions", _questions_disk_key(q_key))
+        if got is not None:
+            STORE.set_triage(q_key, got)
+    return got
+
+
+def _questions_disk_key(q_key: str) -> str:
+    return hashlib.sha1(q_key.encode("utf-8")).hexdigest()[:20]
 
 
 def _claim_questions(q_key: str) -> threading.Event | None:
@@ -2624,6 +2638,15 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             f"slides={graph.total_slides} slide_doc={slidedoc is not None} marks_match={speech_match} mock={_mock()}\n"
         )
         _fake_delay("/api/v1/alignment")
+        # 입력이 같으면 결과도 같다 — 부스의 같은 덱 · 같은 녹음은 두 번째부터 LLM 을 안 부른다 (계약 모양으로 센다, 세션 id 는 안 넣는다)
+        al_key = None if _mock() else _stage_key(
+            "f11", _stage_version("alignment"), _llm_identity(llm), graph.to_dict(), transcript.to_dict(), ctx.to_dict(),
+            slidedoc, speech_match)
+        cached_al = _stage_cache_get("alignment", al_key) if al_key else None
+        if cached_al is not None:
+            sys.stderr.write(f"[bridge] F-11 alignment 캐시 적중 {al_key}\n")
+            self._archive(body, "alignment_doc", cached_al)
+            return self._json(200, cached_al)
         alignment = align_speech(graph, transcript, ctx, llm=llm, slide_doc=slidedoc, speech_match=speech_match)
         s = alignment.summary
         sys.stderr.write(
@@ -2632,6 +2655,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             f"skipped={[x.slide_no for x in alignment.skipped_slides]}\n"
         )
         payload = alignment.to_dict()
+        if al_key and alignment.basis == "llm":   # LLM 이 판정을 비운 짐작(fallback)은 굳히지 않는다 — 다음엔 다시 부른다
+            _stage_cache_put("alignment", al_key, payload)
         self._archive(body, "alignment_doc", payload)
         return self._json(200, payload)
 
@@ -2961,7 +2986,18 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             Path(audio_path).write_text("", encoding="utf-8")
 
         try:
-            t = Transcript.from_dict(clova_out) if clova_out else transcribe(audio_path, marks, provider=provider)
+            stt_key = None
+            if not clova_out and audio_b64 and not _mock():
+                stt_key = _stage_key("f05", _stage_version("transcribe"), hashlib.sha256(audio_bytes).hexdigest(), ext,
+                                     [m.to_dict() for m in marks], provider or os.environ.get("STT_PROVIDER", ""))
+            cached_tr = _stage_cache_get("transcribe", stt_key) if stt_key else None
+            if cached_tr is not None:
+                sys.stderr.write(f"[bridge] F-05 transcribe 캐시 적중 {stt_key}\n")
+                t = Transcript.from_dict(cached_tr)
+            else:
+                t = Transcript.from_dict(clova_out) if clova_out else transcribe(audio_path, marks, provider=provider)
+                if stt_key and t.words:
+                    _stage_cache_put("transcribe", stt_key, t.to_dict())
             out = t.to_dict()
 
             # 업로드본에는 슬라이드 전환 기록이 없어 프런트가 균등 분할 marks 를
@@ -3347,7 +3383,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         degraded: list[str] = []
         t0 = time.monotonic()
         sid = _session_id_of(body)
-        want_papers = body.get("papers") is not False
+        # 부스 덱은 자료가 인용한 문헌이 없고, 학술 검색은 막히면 6초를 기다린 뒤 「폴백」 표시를 남겨 질문 캐시를 2분짜리로 만든다 — 건너뛴다
+        want_papers = body.get("papers") is not False and not _booth_session(sid)
         # 주장은 본문이 있어야 인용을 원문과 대조할 수 있다 — 본문이 없으면 안 만든다 (slide_doc_missing 이 따로 알린다)
         want_claims = body.get("claims") is not False and bool(slidedoc)
         # 열쇠에 세션을 안 넣는다 — 메모리 캐시(papers:·claims:)가 원래 세션과 무관하게 입력으로 걸려 있다.
@@ -3476,6 +3513,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         # 폴백 재료로 만든 묶음은 짧게만 든다 — 미리 만들기 → 시작 한 쌍은 나눠 쓰고, 그 뒤 요청은 재료부터 다시 시도한다 (B-03)
         transient = [c for c in degraded if c in TRANSIENT_DEGRADED]
         STORE.set_triage(q_key, payload, ttl=FALLBACK_TTL_SEC if transient else None)
+        if not transient and not degraded:
+            _stage_cache_put("questions", _questions_disk_key(q_key), payload)
         # 색인·보관은 서버 사본(전제·기대 답 포함) — 채점 기준이다. 화면으로는 함정의 사실 칸을 뺀 사본만 (WP-J2).
         self._index_questions(body, track, payload)
         self._archive(body, "question_doc", payload)
@@ -3919,6 +3958,25 @@ def _deck_shas() -> dict[str, dict]:
             continue
         out.setdefault(sha, row)
     return out
+
+
+_BOOTH_SHAS: dict = {"at": 0.0, "shas": frozenset()}
+BOOTH_SHAS_TTL_SEC = 600
+
+
+def _booth_session(sid: str | None) -> bool:
+    """이 세션의 자료가 부스 시연 세트(ppt/decks.json group "booth")의 덱 원본인가 — 올린 파일 sha256 으로 본다.
+    부스는 고정 덱 · 고정 녹음이라 문헌 검색을 기다릴 까닭이 없다 (10-06 사용자: 「부스용은 새로운 ppt 없으니 로딩 시간 줄이기」)."""
+    if not sid:
+        return False
+    now = time.monotonic()
+    if now - _BOOTH_SHAS["at"] > BOOTH_SHAS_TTL_SEC:
+        manifest = Handler._deck_manifest()
+        shas = frozenset(sha for sha, row in _deck_shas().items()
+                         if (manifest["decks"].get(unicodedata.normalize("NFC", row["key"])) or {}).get("group") == "booth")
+        _BOOTH_SHAS.update(at=now, shas=shas)
+    rec = ARCHIVE.manifest(sid)
+    return bool(rec and rec.upload_sha256 and rec.upload_sha256 in _BOOTH_SHAS["shas"])
 
 
 def _deck_path(row: dict) -> Path:
