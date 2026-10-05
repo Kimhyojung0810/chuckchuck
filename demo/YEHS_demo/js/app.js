@@ -384,6 +384,24 @@ function rhFlagSet() {
   try { return sessionStorage.getItem(RH_FLOW_FLAG) === '1'; } catch (_) { return false; }
 }
 
+/** 글자마다 띄운 장식 줄인가 — 표지 머리줄 「환 경 생 명 공 학 과 · 연 구 실 세 미 나 · 2 0 2 6 …」 (f08 _letter_spaced 와 같은 잣대) */
+function letterSpacedLine(line) {
+  const words = String(line || '').trim().split(/\s+/).filter(Boolean);
+  const singles = words.filter((w) => w.length === 1 && /[가-힣0-9]/.test(w)).length;
+  return singles >= 5 && singles >= 0.7 * words.length;
+}
+
+/** 장 제목 — 파서가 표지의 띄어 쓴 머리줄을 제목으로 잡았으면 본문에서 그다음 줄(진짜 제목)을 쓴다 (10-06 리허설 자료 창) */
+function slideTitleOf(s) {
+  const t = String((s && s.title) || '').trim();
+  const lines = String((s && s.raw_text) || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  // 표지처럼 첫 줄이 띄어 쓴 머리줄이면 그 바로 다음 줄이 제목이다 — 파서는 이때 발표자 이름(「이준호」)을 제목으로 잡기도 했다
+  const kicker = lines.length > 1 && letterSpacedLine(lines[0]);
+  if (t && !letterSpacedLine(t) && !kicker) return t;
+  const next = lines.find((l) => !letterSpacedLine(l) && !/^[!|-]/.test(l));
+  return next || t || `${(s && s.slide_no) || ''}번 슬라이드`;
+}
+
 function dismissF11Reveal() {
   const wrap = document.getElementById('f11RevealWrap');
   if (!wrap) return;
@@ -2015,7 +2033,7 @@ function applySlideDoc(doc, { keepDemoImages = false } = {}) {
     file_name: doc.file_name || nf.fileName,
     total_slides: doc.total_slides || ((doc.slides || []).length) || 0,
   };
-  nf.slideTitles = (doc.slides || []).map((s) => s.title || `${s.slide_no}번 슬라이드`);
+  nf.slideTitles = (doc.slides || []).map(slideTitleOf);
   nf.slideBodies = (doc.slides || []).map(slideBodyFromSlide);
   nf.sparseSlides = (doc.slides || []).filter((s) => s.text_sparse).map((s) => s.slide_no);
   // 화면에는 원본 슬라이드(pdf.js 렌더)를 그린다. 파싱된 본문(slideBodies)은 F-06~11

@@ -675,7 +675,7 @@ function liveInputHtml() {
   }
   const hints = liveHints();
   return `
-    <div class="qa-input-label"><b>내 말로 답해보세요</b><span>한 문장만 말해도 괜찮아요</span></div>
+    <div class="qa-input-label"><b>내 말로 답해 보세요</b><span>한 문장만 말해도 괜찮아요</span></div>
     <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
       placeholder="예: 이 방법의 핵심은 …이에요"></textarea>
     <div class="step-actions">
@@ -712,9 +712,9 @@ function liveTryHtml(booth, busy) {
   const dis = busy ? 'disabled' : '';
   return `
     <div class="qa-try" id="liveTry">
-      <span class="qa-try-label">내용을 몰라도 해 볼 수 있어요</span>
+      <span class="qa-try-label">발표 내용을 몰라도 괜찮아요</span>
       <button class="btn btn-text qa-try-btn" id="liveTryModel" type="button" aria-expanded="false" aria-controls="liveTryPanel" ${dis}>정답 보기</button>
-      <button class="btn btn-text qa-try-btn" id="liveTryWeak" type="button" ${dis}>엉성하게 답해 보기</button>
+      <button class="btn btn-text qa-try-btn" id="liveTryWeak" type="button" ${dis}>대충 답해 보기</button>
     </div>
     <div class="qa-try-panel" id="liveTryPanel" hidden>
       <p class="qa-try-model" id="liveTryText"></p>
@@ -806,7 +806,7 @@ function wireLiveTry() {
     if (liveTryQuestion() !== q) return;
     out.dataset.qid = String(liveTryKey());
     out.dataset.answer = text;
-    out.textContent = text || '이 질문은 정답 글이 없어요 — 「엉성하게 답해 보기」 로 해 보세요';
+    out.textContent = text || '이 질문은 정답을 보여 줄 수 없어요. 「대충 답해 보기」로 해 보세요.';
     const send = $('#liveTrySend');
     if (send) send.hidden = !text;
   });

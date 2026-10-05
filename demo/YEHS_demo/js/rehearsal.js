@@ -354,7 +354,7 @@ async function rhShowPick() {
   rhMount('pick', `
     <div class="bq-pick">
       <h1 class="bq-h1">어떤 발표로 리허설할까요?</h1>
-      <p class="bq-lead">카메라 앞에서 발표하면 삐약이가 말 빠르기와 크기에 반응해요. 발표가 끝나면 내가 한 말과 자료를 맞춰 본 질문 3개에 답하고, 리포트로 이어져요. 발표하기 어려우면 이 발표의 녹음으로 마쳐도 돼요.</p>
+      <p class="bq-lead">발표를 마치면 삐약이가 질문 3개를 해요. 직접 발표하기 어려우면 준비된 녹음으로 해 볼 수 있어요.</p>
       <div class="bq-decks" id="bqDecks"><p class="bq-wait">발표를 불러오고 있어요…</p></div>
       <p class="bq-foot" id="bqDeckFoot" role="status"></p>
       <button type="button" class="bq-ghost" id="rhDeckRetry" hidden>다시 불러오기</button>
@@ -535,13 +535,26 @@ function rhClock(sec) {
  * 「척척발표가 찾아낸 것」 을 줄인 것이다 — 들으면 무엇이 다르게 들리는지만, 정답(어디가 틀렸는지)은 다 말하지 않는다.
  */
 const RH_TAKE_NOTES = {
-  'A-1': '네 장을 고르게 짚지만 실험 조건 하나를 빼먹고, 결과를 실제 사용 권고까지 넓혀요.',
-  'A-2': '실험 설계를 길게 설명하느라 결과는 숫자 하나, 한계는 한 문장으로 지나가요.',
-  'B-1': '결과를 힘줘 말하지만 실험 조건은 짧게 넘기고, 결론을 지금의 하천까지 넓혀요.',
-  'B-2': '방법을 꼼꼼히 설명하고 결과는 양 끝 숫자 두 개만 말한 뒤, 다음 단계 없이 끝나요.',
-  'C-1': '가설 셋 중 하나에 절반 넘게 쓰고, 나머지 가설과 한계는 한 문장씩으로 넘겨요.',
-  'C-2': '결론(평점 제도를 바꿔야 한다)을 먼저 꺼내고, 근거는 그 뒤에 짧게 붙여요.',
+  'A-1': '네 장을 고르게 짚어요. 다만 실험 조건 하나를 빼먹어요.',
+  'A-2': '실험 설계를 길게 설명해요. 결과와 한계는 짧게 지나가요.',
+  'B-1': '결과를 힘줘 말해요. 실험 조건은 짧게 넘겨요.',
+  'B-2': '방법을 꼼꼼히 설명해요. 결과는 숫자 두 개만 말해요.',
+  'C-1': '가설 하나에 시간을 많이 써요. 나머지는 한 문장씩 넘겨요.',
+  'C-2': '결론부터 꺼내요. 근거는 뒤에 짧게 붙여요.',
 };
+
+/** 녹음 이름 — 「B-1」 같은 코드 대신 어떤 발표인지 (10-06 사용자: 「A-1, A-2 이런 것도 와닿지 않음」). version 「결과만 강조한 버전」 → 「결과만 강조한 발표」 */
+function rhTakeName(t, i) {
+  const v = String((t && t.version) || '').trim();
+  return v ? v.replace(/\s*버전$/, ' 발표') : `${i + 1}번 녹음`;
+}
+
+/** 2분 40초 처럼 — 화면에 보이는 길이 */
+function rhLength(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  const m = Math.floor(s / 60);
+  return m ? `${m}분${s % 60 ? ` ${s % 60}초` : ''}` : `${s}초`;
+}
 
 /** 이 덱과 같은 주제의 녹음들 — [{ key, label, version, note, audio, audioSec }]. 목록을 못 받으면 이 덱의 녹음 하나 */
 async function rhDeckTakes(row) {
@@ -594,7 +607,7 @@ function rehearsalVisionDock(layer) {
   btn.type = 'button';
   btn.className = 'btn rh-rec-finish';
   btn.id = 'rhRecFinish';
-  btn.textContent = '녹음 파일로 대신하기';
+  btn.textContent = '녹음으로 대신하기';
   rec.after(btn);
   btn.addEventListener('click', () => { if (!btn.disabled) rhConfirmRecording(layer); });
   rhSyncRecFinish();
@@ -612,7 +625,12 @@ function rhSyncRecFinish() {
   const open = !!nf.rhReachedEnd;
   btn.disabled = !open;
   btn.setAttribute('aria-disabled', String(!open));
-  btn.title = open ? '' : `마지막 슬라이드(${last}장)까지 넘기면 누를 수 있어요`;
+  btn.title = open ? '' : `마지막 장(${last}장)까지 넘기면 누를 수 있어요`;
+  // 잠긴 까닭을 화면에 — title 은 터치 화면(부스)에서 안 보인다. 녹음 전 안내 줄만 바꾼다 (녹음 중 글은 건드리지 않는다)
+  const copy = document.querySelector('#recPanel .rec-copy span');
+  const READY = '준비되면 시작해요';
+  const LOCKED = '마지막 장까지 넘기면 녹음으로 대신할 수 있어요';
+  if (copy && (copy.textContent === READY || copy.textContent === LOCKED)) copy.textContent = open ? READY : LOCKED;
 }
 
 /** 녹음 파일 확장자 — 일반 앱 recUploadHtml 과 같다 */
@@ -626,25 +644,26 @@ function rhConfirmRecording(layer) {
   const takes = rhTakesOf(nf.rehearsalDeck);
   const hasDeckRec = takes.length > 0;
   const live = nf.mic === 'on' || (Number(nf.sec) || 0) > 0;
-  const lead = takes.length > 1 ? `같은 자료를 다르게 발표한 녹음이 ${takes.length}개 있어요. 고른 녹음으로` : (hasDeckRec ? `이 발표에 딸린 녹음(${rhClock(takes[0].audioSec)})이나 내 녹음 파일로` : '내 녹음 파일로');
+  const lead = takes.length > 1 ? `같은 자료를 ${['', '한', '두', '세', '네'][takes.length] || takes.length} 가지로 발표한 녹음이 있어요. 하나를 고르면 그 발표를 듣고 질문 3개를 준비해요.`
+    : (hasDeckRec ? '준비된 녹음이나 내 녹음 파일을 듣고 질문 3개를 준비해요.' : '내 녹음 파일을 듣고 질문 3개를 준비해요.');
   const back = document.activeElement;
   const sheet = document.createElement('div');
   sheet.className = 'bq-sheet-wrap rh-rec-sheet';
   sheet.id = 'rhRecSheet';
   sheet.innerHTML = `<div class="bq-sheet" role="dialog" aria-modal="true" aria-labelledby="rhRecTitle" aria-describedby="rhRecBody">
-      <h2 id="rhRecTitle">녹음 파일로 대신할까요?</h2>
-      <p id="rhRecBody">${lead} 분석하고 질문 3개를 준비해요.${live ? ' <b>지금까지 녹음한 내 발표는 쓰지 않고 이 녹음으로 바꿔요.</b>' : ''} 카메라 반응(삐약이)은 리포트에 남지 않아요.</p>
+      <h2 id="rhRecTitle">${takes.length > 1 ? '어떤 발표를 들려줄까요?' : '녹음으로 대신할까요?'}</h2>
+      <p id="rhRecBody">${lead}${live ? ' <b>지금까지 녹음한 내 발표는 쓰지 않아요.</b>' : ''}</p>
       <p class="rh-rec-note" id="rhRecNote" role="status"></p>
       <input type="file" id="rhRecFile" accept="${RH_REC_ACCEPT}" hidden>
       ${takes.length > 1 ? `<div class="rh-takes" role="group" aria-label="이 발표의 녹음">${takes.map((t, i) => `
         <button type="button" class="rh-take" data-sheet="use" data-take="${i}">
-          <span class="rh-take-head"><b>${escapeHtml(t.label || `녹음 ${i + 1}`)}</b>${t.version ? ` · ${escapeHtml(t.version)}` : ''}<span class="rh-take-len">${rhClock(t.audioSec)}</span></span>
+          <span class="rh-take-head"><b>${escapeHtml(rhTakeName(t, i))}</b><span class="rh-take-len">${rhLength(t.audioSec)}</span></span>
           ${t.note ? `<span class="rh-take-note">${escapeHtml(t.note)}</span>` : ''}
         </button>`).join('')}</div>` : ''}
       <div class="bq-sheet-actions">
         <button type="button" class="bq-ghost" data-sheet="close">닫기</button>
-        <button type="button" class="${takes.length === 1 ? 'bq-ghost' : 'bq-cta bq-cta-sm'}" data-sheet="file">내 녹음 파일 고르기</button>
-        ${takes.length === 1 ? `<button type="button" class="bq-cta bq-cta-sm" data-sheet="use" data-take="0">이 발표의 녹음(${rhClock(takes[0].audioSec)}) 쓰기</button>` : ''}
+        <button type="button" class="bq-ghost" data-sheet="file">내 녹음 파일 올리기</button>
+        ${takes.length === 1 ? `<button type="button" class="bq-cta bq-cta-sm" data-sheet="use" data-take="0">이 녹음으로 하기 (${rhLength(takes[0].audioSec)})</button>` : ''}
       </div>
     </div>`;
   layer.appendChild(sheet);
@@ -848,10 +867,13 @@ function rhWaitHtml() {
 function rhWaitTip(title, state = 'run') {
   const up = nf.uploadedTake;
   if (up) {
-    const rec = `발표 녹음 「${up.name}」(${rhClock(up.durationSec)})`;
-    if (state === 'stopped') return `${rec}으로 분석하다 멈췄어요.`;
-    if (state === 'ready') return `${rec}으로 분석했어요. 카메라 앞 발표가 아니라서 삐약이 반응은 리포트에 없어요.`;
-    return `${rec}으로 분석하고 있어요. 카메라 앞 발표가 아니라서 삐약이 반응은 리포트에 없어요.`;
+    // 준비된 녹음이면 파일 이름(「B-1 녹음.m4a」) 대신 어떤 발표인지 (10-06)
+    const takes = rhTakesOf(nf.rehearsalDeck);
+    const i = takes.findIndex((t) => t.audio === up.name);
+    const rec = i >= 0 ? `「${rhTakeName(takes[i], i)}」 녹음` : `내 녹음(${up.name})`;
+    if (state === 'stopped') return `${rec}을 분석하다 멈췄어요.`;
+    if (state === 'ready') return `${rec}을 듣고 질문을 준비했어요. 삐약이 반응은 리포트에 남지 않아요.`;
+    return `${rec}을 듣고 질문을 준비하고 있어요. 삐약이 반응은 리포트에 남지 않아요.`;
   }
   const talk = `방금 한 ${title ? `「${title}」 ` : ''}발표`;
   if (state === 'stopped') return `${talk}를 분석하다 멈췄어요.`;
