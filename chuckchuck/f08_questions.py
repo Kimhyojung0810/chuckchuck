@@ -72,6 +72,7 @@ from ._probe_stance import (
     shown_in_question,
     template_gist,
 )
+from ._deck_claims import content_stems as deck_stems
 from ._deck_claims import numbers as deck_numbers
 from ._speech import josa_of, to_haeyo, ungrounded_numbers
 from ._spoken import defer_cue, skip_cue, spoken_numbers
@@ -955,7 +956,31 @@ def _contra_asked(question: str, item: AlignmentItem) -> bool:
     if not question or _contra_leaks(question, item):
         return False
     slide_ok = not item.deck_slide_no or bool(re.search(rf"(?<!\d){item.deck_slide_no}\s*장", question))
-    return slide_ok and bool(_RECONCILE_RE.search(question)) and bool(_RECONCILE_ASK_RE.search(question))
+    if not (slide_ok and _RECONCILE_RE.search(question) and _RECONCILE_ASK_RE.search(question)):
+        return False
+    # 「…라고 했는데」 로 발표자의 말을 옮겼으면 그 말이 **어긋난 그 말**이어야 한다 — 10-06 미세플라스틱: 어긋난 말은 「NOEC는 0.1mg」
+    # 인데 LLM 이 그 장 제목을 옮겨 「100 mg/L에서 산자수가 절반 아래로 떨어졌다고 했는데 … 어느 쪽이 맞나요」 로 물었다(무엇이 다른지 모른다).
+    # 옮긴 말이 없는 질문(「자료 2장과 어떤 차이가 있나요?」)은 예전대로 둔다.
+    quoted = _QUOTED_SAID_RE.search(question)
+    if quoted:
+        said = _said_clause(item.evidence, numeric=_contra_numeric(item))
+        said_stems, q_stems = set(_said_words(said)), _said_words(quoted.group(1))
+        said_vals = deck_numbers(spoken_numbers(said))
+        shares = any(t in said_stems for t in q_stems) or any(
+            a.close_value(x) for a in deck_numbers(spoken_numbers(quoted.group(1))) for x in said_vals)
+        if said and not shares:
+            return False
+    return True
+
+
+def _said_words(text: str) -> list[str]:
+    """옮긴 말 대조용 낱말 — 단위 조각(mg · L · km 같은 짧은 로마자)과 조사만 남은 조각(에서)은 뺀다. 그런 것은 어느 말에나 겹친다."""
+    return [t for t in deck_stems(text, drop_units=True)
+            if not re.fullmatch(r"[A-Za-z]{1,3}", t) and not re.fullmatch(r"(?:에서|에는|에게|으로|부터|까지)+", t)]
+
+
+#: 질문이 발표자의 말을 옮긴 자리 — 「X 라고/다고 했는데」 의 X (따옴표가 있으면 그 안).
+_QUOTED_SAID_RE = re.compile(r"[“\"「]?([^“”\"「」]{2,80}?)[”\"」]?\s*(?:이?라고|다고)\s*(?:했|말했|하셨|말씀)")
 
 
 def _contra_where(item: AlignmentItem) -> str:

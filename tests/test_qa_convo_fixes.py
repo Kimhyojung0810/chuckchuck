@@ -580,3 +580,15 @@ def test_조사만_남은_조각은_수의_주인이_아니고_단위_조각은_
     found = conflicts(spoken_numbers("NOEC는 0.1mg 퍼 리터로 나왔습니다."), d)
     assert [(c.kind, c.said) for c in found] == [("number", "0.1mg")]
     assert spoken_numbers("영향이 나타난 10m그램은") == "영향이 나타난 10mg은"
+
+
+def test_수치_모순_질문은_발표에서_한_값을_실어야_LLM_문장을_쓴다():
+    """10-06 미세플라스틱 — 어긋난 말은 「NOEC는 0.1mg」 인데 LLM 이 장 제목으로 「… 어느 쪽이 맞나요」 를 물어 무엇이 다른지 몰랐다."""
+    from chuckchuck.contracts import AlignmentItem
+    from chuckchuck.f08_questions import _contra_asked
+
+    it = AlignmentItem(node_id="x", verdict="contradiction", speech_weight=0, speech_basis=None, doc_weight=0,
+                       evidence="NOEC는 0.1mg 퍼 리터로 나왔습니다.", note="", deck_quote="NOEC = 1 mg/L",
+                       deck_slide_no=3, decided_by="code", contra_kind="number")
+    assert not _contra_asked("100 mg/L에서 산자수가 절반 아래로 떨어졌다고 했는데, 자료 3장과 발표에서 한 말 중 어느 쪽이 맞는지 확인해 주세요.", it)
+    assert _contra_asked("발표에서 NOEC를 0.1mg/L라고 했는데, 자료 3장과 다른데 어느 쪽이 맞나요?", it)
