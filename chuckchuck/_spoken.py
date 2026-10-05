@@ -506,11 +506,38 @@ def _mg_sub(m: re.Match) -> str:
     return f"{m.group(1)}mg/L" if re.search(r"(?:퍼|per)", m.group(0)) else f"{m.group(1)}mg"
 
 
+#: 숫자 + 자릿수 말이 둘 이상 이어진 한 수 — 「12만 4천」「12만 4380」「1억 2천만」「3억 5000」. 받아쓰기는 큰 수를 이렇게 적는데
+#: 예전엔 「12만」 과 「4천」 두 수로 쪼개 읽어 자료 「124,380건」 과 「4000건」 을 대조했다 — 모순 질문 「124,000건과 124,380건 중 어느 쪽이
+#: 맞나요」 가 나왔다 (10-06 사용자). 첫 덩이는 억·만으로 끝나야 한다(「3천 5백」 같은 작은 수는 _MIXED_THOUSAND_RE 몫).
+#: 돈(「1억 2천만 원」)은 빼다 — 자료 쪽 대조가 만원·억원을 한 단위로 읽어서(_MIXED_WON_RE) 맞춰 둔 길이 따로 있다.
+_MIXED_BIG_RE = re.compile(
+    r"(?<![\d.,])(\d+(?:\.\d+)?\s?(?:억|만)(?:\s?\d+(?:\.\d+)?\s?(?:천만|백만|억|만|천|백)?)+)(?![\d.])(?!\s?원)")
+_MIXED_PART_RE = re.compile(r"(\d+(?:\.\d+)?)\s?(천만|백만|억|만|천|백)?")
+_BIG = {"억": 1e8, "천만": 1e7, "백만": 1e6, "만": 1e4}
+_SMALL = {"천": 1e3, "백": 1e2}
+
+
+def _mixed_big_sub(m: re.Match) -> str:
+    total, small = 0.0, 0.0
+    for num, unit in _MIXED_PART_RE.findall(m.group(1)):
+        v = float(num)
+        if unit in _BIG:
+            total += (small + v) * _BIG[unit]
+            small = 0.0
+        elif unit in _SMALL:
+            small += v * _SMALL[unit]
+        else:
+            small += v
+    total += small
+    return f"{total:.0f}" if abs(total - round(total)) < 1e-6 else f"{total:g}"
+
+
 def spoken_numbers(text: str) -> str:
     """받아쓰기의 말로 적은 수·퍼센트를 자료 표기로 — 「이십구 퍼센트」→「29%」, 「3 퍼센트 포인트」→「3%p」, 「열 명」→「10명」."""
     t = _SINO_DECIMAL_RE.sub(_sino_decimal_sub, text or "")
     t = _SINO_RE.sub(_sino_sub, t)
     t = _NATIVE_RE.sub(_native_sub, t)
+    t = _MIXED_BIG_RE.sub(_mixed_big_sub, t)
     t = _HALF_TIMES_RE.sub(lambda m: f"{m.group(1)}.5배", t)
     t = _MIXED_THOUSAND_RE.sub(lambda m: f"{float(m.group(1)) * 1000:g}{m.group(2)}", t)
     t = _MIXED_WON_RE.sub(r"\1\2원", t)
