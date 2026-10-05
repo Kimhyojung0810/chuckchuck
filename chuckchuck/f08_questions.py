@@ -2810,6 +2810,26 @@ def _front_first(
     return lead, [m for m in ordered if m not in lead], tuple(left)
 
 
+#: 숫자만 바꾼 함정(「리뷰 124,380건」 → 「155,480건」)을 낼지. 10-05 부스 리허설 사용자: 「숫자만 다르다고 하는 질문 · 너무 미시적인
+#: 부분을 묻는 건 에반데」 — 숫자 하나를 외웠는지가 아니라 주장의 순서 · 방향 · 맞다 아니다를 뒤집는 함정만 남긴다 (order · extreme ·
+#: direction · negation). 그 개념에 숫자 말고 뒤집을 거리가 없으면 함정 없이 보통 질문이 된다.
+TRAP_NUMBERS = False
+
+#: 요소 · 약점 자리에서 먼저 볼 개념 종류 (contracts.NODE_KINDS). 10-05 부스 리허설(배달앱 덱): 그래프가 주제 하나 밑에
+#: 주장 1 · 용어 11 로 납작했고, 요소 자리가 깊이 2 아무거나 순위로 골라 「재주문율」 같은 용어 하나짜리 질문이 됐다 — 사용자
+#: 「전반적으로 너무 미시적」. 주장(claim)이 그 자리에 맞으면 용어(concept)보다 먼저 세운다. 주장이 없으면 예전 그대로다.
+_SLOT_CLAIM_KINDS = ("claim",)
+
+
+def _claim_first(
+    slot: str, rest: list[TriageMark], depth_of: dict[str, int], stalled: set[str], kind_of: dict[str, str] | None,
+) -> TriageMark | None:
+    """그 자리에 맞는 개념 가운데 주장(claim) — 순위 순으로 첫째. kind 를 모르면 None (예전 순서)."""
+    if not kind_of:
+        return None
+    return next((m for m in rest if kind_of.get(m.node_id) in _SLOT_CLAIM_KINDS and _slot_fits(slot, m, depth_of, stalled)), None)
+
+
 def _mixed_order(
     ordered: list[TriageMark],
     track: str,
@@ -2817,6 +2837,7 @@ def _mixed_order(
     stalled: set[str],
     slots_out: dict[str, str] | None = None,
     front: list[str] | None = None,
+    kind_of: dict[str, str] | None = None,
 ) -> list[TriageMark]:
     """배합대로 앞자리를 채우고, 나머지는 원래 순위대로 뒤에 붙인다. depth 를 모르면 순위 그대로.
 
@@ -2835,6 +2856,7 @@ def _mixed_order(
             pick = _theme_pick(rest, depth_of, stalled)
         else:
             pick = next((m for m in rest if _slot_prefers(slot, m, depth_of, stalled)), None) \
+                or _claim_first(slot, rest, depth_of, stalled, kind_of) \
                 or next((m for m in rest if _slot_fits(slot, m, depth_of, stalled)), None)
         if pick is not None and slots_out is not None:
             slots_out[pick.node_id] = slot
@@ -2857,6 +2879,7 @@ def _pick_marks(
     slots_out: dict[str, str] | None = None,
     front: list[str] | None = None,
     cleared: set[str] | None = None,
+    kind_of: dict[str, str] | None = None,
 ) -> tuple[list[TriageMark], list[str]]:
     """
     트랙 상한만큼 배합(QA_TRACK_MIX)대로 고르고, 함정 개수를 트랙 허용치로 깎는다.
@@ -2872,7 +2895,7 @@ def _pick_marks(
     ranked = sorted(marks, key=lambda m: (m.rank, m.node_id))
     # 이해한 개념은 배합에 넣지 않는다 — 깊이로 주제·요소 자리를, 근거(탐침)로 약점 자리를 맡을 수 있어서다 (벤치 E: 탐침 개념이 약점 자리로 다시 3번째)
     ordered = _mixed_order(
-        [m for m in ranked if m.node_id not in cleared], track, depth_of, stalled or set(), slots_out, front
+        [m for m in ranked if m.node_id not in cleared], track, depth_of, stalled or set(), slots_out, front, kind_of
     ) + [m for m in ranked if m.node_id in cleared]
     limit = QA_TRACK_LIMITS[track]
     take = limit + _twin_slack(limit)
@@ -2953,7 +2976,8 @@ def _assign_traps(
             continue
         if node.parent_id is None or (node.depth or 0) <= 1:
             continue
-        cands = traps.candidates(node.label, _anchor_nos(node, by_no), idx)
+        cands = [c for c in traps.candidates(node.label, _anchor_nos(node, by_no), idx)
+                 if TRAP_NUMBERS or c.premise.kind != "number"]
         if not cands:
             continue
         key = (pos >= limit, -(cands[0].score + (1 if node.depth == 2 else 0)), not mark.trap, mark.rank)
@@ -5504,7 +5528,8 @@ def build_questions(
     # 지난 리허설에서 못 넘긴 개념도 맨 앞에 선다 (모순 다음) — triage 가 앞으로 당겨도 주제 자리가 루트를 먼저 세워
     # 3번째로 밀렸다. triage 머리말의 약속(「지난번에 막혔으면 이번엔 먼저 물어본다」)을 배합에서도 지킨다.
     front += [m.node_id for m in sorted(known, key=lambda m: m.rank) if m.node_id in stalled and m.node_id not in front]
-    marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of, front=front, cleared=cleared)
+    kind_of = {n.id: getattr(n, "kind", "") for n in graph.nodes}
+    marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of, front=front, cleared=cleared, kind_of=kind_of)
     deferred += [nid for nid in set_aside if nid not in deferred]
     # 탐침은 근거가 그 탐침인 개념에만 묶는다 — 모순·누락처럼 더 앞선 근거로 뽑힌 개념까지 탐침으로 끌면 근거가 섞인다.
     probe_of = {m.node_id: probe_of[m.node_id] for m in marks
