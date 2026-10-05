@@ -682,6 +682,7 @@ function liveInputHtml() {
       <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${liveSendLabel()}</button>
       ${micBtnHTML(L.busy)}
     </div>
+    ${liveTryHtml(booth, L.busy)}
     <div class="step-actions step-actions-sub">
       <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>${stuckLabel()}</button>
       ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
@@ -695,6 +696,119 @@ function liveInputHtml() {
  * 부스 체험은 3분이라, 막힌 질문 하나를 넘기는 데 「모르겠어요」 세 번 + 「건너뛰고 다음 질문」 네 번을 눌러야 했다 (10-01 2차 점검).
  * 사다리(막힘 1·2·3단)·판정 요청은 그대로다 — 이미 있는 출구 버튼을 더 일찍 보일 뿐이다. 앱 화면(#/qa)은 그대로 liveStalled 만 본다.
  */
+/**
+ * 부스 체험 줄 — 자료 내용을 모르는 사람도 질문 → 답 → 판정 → 되묻기 고리를 겪어 보게 (10-06 사용자:
+ * 「모르는 사람도 QA 할 수 있도록 정답보기」 · 「잘 못했을 때 얼마나 치밀하게 하는지 이걸 느껴야」).
+ * - 정답 보기: 이 질문이 기대하는 답의 골자를 펼친다 → 「이 답으로 보내기」 로 그대로 보내 판정을 받는다
+ * - 엉성하게 답해 보기: 골자에서 숫자를 흐리거나 반만 말한 답(함정이면 틀린 전제를 받아들이는 답)을 보내 코치가 어떻게 파고드는지 본다
+ * 부스(/booth/qa · /booth/call)와 리허설 화상판(#/rehearsal/qa)에만. 판정 · 사다리는 그대로다 — 보낼 글을 대신 채울 뿐이다.
+ */
+function liveTryOn(booth) {
+  return !!booth || (typeof rhFlowOn === 'function' && rhFlowOn());
+}
+
+function liveTryHtml(booth, busy) {
+  if (!liveTryOn(booth)) return '';
+  const dis = busy ? 'disabled' : '';
+  return `
+    <div class="qa-try" id="liveTry">
+      <span class="qa-try-label">내용을 몰라도 해 볼 수 있어요</span>
+      <button class="btn btn-text qa-try-btn" id="liveTryModel" type="button" aria-expanded="false" aria-controls="liveTryPanel" ${dis}>정답 보기</button>
+      <button class="btn btn-text qa-try-btn" id="liveTryWeak" type="button" ${dis}>엉성하게 답해 보기</button>
+    </div>
+    <div class="qa-try-panel" id="liveTryPanel" hidden>
+      <p class="qa-try-model" id="liveTryText"></p>
+      <button class="btn btn-text qa-try-btn" id="liveTrySend" type="button" ${dis}>이 답으로 보내기</button>
+    </div>`;
+}
+
+/** 지금 답할 질문 — 되물음이 떠 있어도 기대 답의 골자는 원래 질문의 것이다 */
+function liveTryQuestion() {
+  const L = qa.live;
+  return L && L.questions ? L.questions[L.qi] : null;
+}
+
+/** 함정 질문인가 — 질문 사본에 골자가 없거나 틀린 전제가 깔려 있다 */
+function liveTryIsTrap(q) {
+  return !!(q && (q.trap || q.trap_premise || q.gist_withheld));
+}
+
+/** 정답 칸에 보일 글 — 함정은 서버에서 받아 온다(liveFetchReveal). 없으면 '' */
+async function liveTryModelText(q) {
+  if (!q) return '';
+  const local = liveWholeSentences(q.answer_gist || '');
+  if (local && !q.gist_withheld) return local;
+  return liveWholeSentences(await liveFetchReveal(q)) || local;
+}
+
+/** 숫자와 단위를 흐린다 — 「0.34점 낮았다」 → 「꽤 낮았다」 */
+const LIVE_TRY_NUM_RE = /(?<![\d.,])(?:약\s*)?\d[\d,.]*(?:\s*(?:%p|%|mg\/L|만|천|억))?(?:\s*(?:배|건|명|개|회|점|일|주|시간|분|초|년|개월|달|원|사이클|cycle|번))?(?![\d.,]|\s*장)/g;
+
+/**
+ * 엉성한 답 — 판정이 「반쯤 맞음」 으로 보고 되묻도록 기대 답을 흐린다.
+ * 함정: 틀린 전제를 그대로 받아들인다. 요소가 둘 이상인 질문: 첫 요소만. 숫자가 있으면: 숫자를 흐린다.
+ * 그 밖: 골자 없이 얼버무린다.
+ */
+function liveWeakAnswer(q) {
+  if (!q) return '';
+  if (liveTryIsTrap(q)) return '네, 말씀하신 그대로예요. 자료에도 그렇게 나와 있어요.';
+  // 발표 말과 자료 수치가 어긋난 질문 — 발표에서 한 말을 고집한다 (골자는 「자료 3장은 … 바로잡아야 해요」 같은 해설이라 흐릴 게 아니다)
+  if (liveContradiction(q)) return '발표에서 말한 게 맞아요. 제가 기억하기로는 그랬어요.';
+  const parts = (q.answer_gist_parts || []).map((t) => String(t || '').trim()).filter(Boolean);
+  if (parts.length >= 2) return `음… ${parts[0].replace(/[.。]$/, '')}. 나머지는 잘 기억이 안 나요.`;
+  const gist = liveWholeSentences(String(q.answer_gist || '').trim());
+  // 첫 문장 — 「4.7점」 의 점은 문장 끝이 아니다 (끝 부호 뒤에 빈칸이나 글 끝이 와야 끝)
+  const first = (gist.match(/^.*?[.!?。](?=\s|$)/) || [gist])[0].trim();
+  if (first) {
+    const vague = first.replace(LIVE_TRY_NUM_RE, '어느 정도').replace(/어느 정도(?:\s*(?:에서|부터|까지|와|과|,|~|-|→|대비)?\s*어느 정도)+/g, '어느 정도').replace(/\s{2,}/g, ' ').trim();
+    if (vague !== first) return `음… ${/[.!?。]$/.test(vague) ? vague : `${vague}.`} 정확한 숫자는 기억이 안 나요.`;
+  }
+  return '음… 자료에 나온 그대로예요. 자세히는 잘 기억이 안 나요.';
+}
+
+/** 체험 줄이 채운 글을 그대로 보낸다 — 켜 둔 마이크는 받아쓴 글이 칸을 덮지 않게 먼저 버린다 */
+function liveTrySubmit(text) {
+  const L = qa.live;
+  const ta = $('#liveAnswer');
+  if (!L || L.busy || !ta || !text) return;
+  if (typeof dropLiveMic === 'function') dropLiveMic();
+  ta.value = text;
+  submitLiveAnswer();
+}
+
+function wireLiveTry() {
+  const model = $('#liveTryModel');
+  if (!model) return;
+  model.addEventListener('click', async () => {
+    const panel = $('#liveTryPanel');
+    const out = $('#liveTryText');
+    if (!panel || !out) return;
+    const open = panel.hidden;
+    panel.hidden = !open;
+    model.setAttribute('aria-expanded', String(open));
+    model.textContent = open ? '정답 접기' : '정답 보기';
+    if (!open || out.dataset.qid === String(liveTryKey())) return;
+    const q = liveTryQuestion();
+    out.textContent = '정답을 불러오고 있어요';
+    const text = await liveTryModelText(q);
+    if (liveTryQuestion() !== q) return;
+    out.dataset.qid = String(liveTryKey());
+    out.dataset.answer = text;
+    out.textContent = text || '이 질문은 정답 글이 없어요 — 「엉성하게 답해 보기」 로 해 보세요';
+    const send = $('#liveTrySend');
+    if (send) send.hidden = !text;
+  });
+  const send = $('#liveTrySend');
+  if (send) send.addEventListener('click', () => liveTrySubmit(($('#liveTryText') || {}).dataset?.answer || ''));
+  const weak = $('#liveTryWeak');
+  if (weak) weak.addEventListener('click', () => liveTrySubmit(liveWeakAnswer(liveTryQuestion())));
+}
+
+function liveTryKey() {
+  const L = qa.live;
+  return L ? `${L.qi}|${L.turn || 0}` : '';
+}
+
 function liveBoothExit(booth) {
   const L = qa.live;
   return !!booth && !L.retell && (L.turns || []).some((t) => t.gaveUp);
@@ -740,6 +854,7 @@ function wireLiveInput() {
   on('#liveSkipRetell', () => closeRetell(''));
   on('#liveFinish', () => finishLiveQaEarly());
   on('#liveSeeResult', () => { qaLiveEnd(); window.scrollTo(0, 0); });
+  wireLiveTry();
   // 힌트는 말풍선으로 붙고(growStream), 버튼은 남은 칸 수에 맞춰 다시 그려진다
   on('#liveHint', () => { if (openNextHint()) { growStream(); refreshLiveChrome(); } });
 

@@ -326,3 +326,11 @@
 .rh-idle-toast p { margin: 0; font-size: 17px; line-height: 1.45; }
 .rh-idle-toast .btn { flex: none; min-height: 44px; }
 @media (max-width: 520px) { .rh-idle-toast { flex-direction: column; align-items: stretch; gap: 10px; text-align: center; } }
+
+/* 체험 줄 — 리허설 화상판은 밝은 글라스라 진한 글자 (qa_live.js liveTryHtml · 10-06) */
+.bq[data-flow="rehearsal"] .bc-dock .qa-try { border-top-color: rgba(0, 0, 0, .14); }
+.bq[data-flow="rehearsal"] .bc-dock .qa-try-label { color: var(--rl-soft); }
+.bq[data-flow="rehearsal"] .bc-dock .qa-try-btn { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
+.bq[data-flow="rehearsal"] .bc-dock .qa-try-btn:hover { background: rgba(0, 0, 0, .1); }
+.bq[data-flow="rehearsal"] .bc-dock .qa-try-panel { background: rgba(255, 255, 255, .72); border-color: rgba(0, 0, 0, .12); }
+.bq[data-flow="rehearsal"] .bc-dock .qa-try-model { color: var(--rl-ink); }

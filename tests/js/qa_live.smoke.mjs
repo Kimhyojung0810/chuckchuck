@@ -34,7 +34,7 @@ const APP_SRC = readFileSync(path.join(JS_DIR, 'app.js'), 'utf8');
    조용히 통과해 버린다. */
 const EXPORT_LINE = `
 ;globalThis.__api = {
-  qaLiveActive, newLiveState, liveStalled, hintSlideNos,
+  qaLiveActive, newLiveState, liveStalled, hintSlideNos, liveWeakAnswer,
   liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
   liveScoredAnswers, stuckLabelFor, coachMeta, coachReactText,
   paperHref, attachQuestionPapers, linkCitedText, questionPapersHtml,
@@ -888,6 +888,21 @@ test('P0-A 가드를 빼면 위 시험이 깨진다 (자기검사)', async () =>
   if (!QA_LIVE_SRC.includes(GUARD)) throw new Error('submitLiveAnswer 의 늦은 판정 가드가 바뀌었어요 — 이 자기검사도 같이 고쳐요');
   const { fresh } = await staleJudgeRun(QA_LIVE_SRC.replace(GUARD, '    const m = LIVE_VERDICT'));
   if (fresh.qi === 0 && fresh.results.length === 0) throw new Error('가드 없이도 새 코칭이 멀쩡했어요 — 시험이 아무것도 안 지킨다');
+});
+
+test('부스 체험 「엉성하게 답해 보기」 — 숫자를 흐리고 · 요소는 첫 것만 · 함정은 전제를 받아들인다 (10-06)', () => {
+  const { liveWeakAnswer } = newContext().api;
+  const a = liveWeakAnswer({ answer_gist: '평균 별점은 4.7점이지만 재주문율은 0.34 낮았다. 그래서 별점으로 구별이 안 된다.' });
+  if (/\d/.test(a) || !a.includes('재주문율은 어느 정도 낮았다.')) throw new Error(a);
+  const b = liveWeakAnswer({ answer_gist: 'x', answer_gist_parts: ['충전 속도가 빠를수록 열화가 빨랐다', '온도가 원인이다'] });
+  if (!b.includes('열화가 빨랐다') || b.includes('온도')) throw new Error(b);
+  const c = liveWeakAnswer({ trap: true, answer_gist: '' });
+  if (!c.startsWith('네,')) throw new Error(c);
+  if (!liveWeakAnswer({ answer_gist: '리뷰 이벤트가 별점을 끌어올렸다.' })) throw new Error('빈 답');
+  const d = liveWeakAnswer({ basis: { source: 'contradiction' }, answer_gist: '자료 3장은 “NOEC = 1 mg/L”라고 해요.' });
+  if (!d.startsWith('발표에서 말한')) throw new Error(d);
+  const e = liveWeakAnswer({ answer_gist: '자료 12장은 생존율 90%를 보여 준다.' });
+  if (!e.includes('자료 12장은') || e.includes('90')) throw new Error(e);
 });
 
 let failed = 0;

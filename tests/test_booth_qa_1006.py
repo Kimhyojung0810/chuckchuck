@@ -40,3 +40,15 @@ def test_주장_문장은_따옴표로_감싸_조사를_맞추고_근거를_묻�
     q = _q("평균 별점 대신 … 따로 표시해야 한다", "core_weight")
     assert "표시해야 한다」를" in q and "한다를" not in q.replace("」를", "")
     assert _q("온도", "under_spoken", kind="concept").startswith("온도는 ")   # 개념 이름은 예전 그대로
+
+
+def test_static_hides_team_docs(tmp_path):
+    """화면 폴더의 팀 문서(.md) · 손으로 둔 sample-deck.pdf 는 공개 사이트에서 404 (10-02 서비스 플로우 정리안)"""
+    from demo.bridge import _static_hidden
+
+    for name, hidden in [("MVP_SPEC.md", True), ("sample-deck.pdf", True), (".env", True),
+                         ("index.html", False), ("app.js", False), ("voice_report_live.json", False)]:
+        p = tmp_path / name
+        p.write_text("x")
+        assert _static_hidden(p) is hidden, name
+    assert _static_hidden(tmp_path) is False

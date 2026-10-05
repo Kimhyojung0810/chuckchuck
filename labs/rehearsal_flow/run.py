@@ -456,6 +456,36 @@ def run(args) -> Path:
                 if st["retell"]:
                     page.click("#liveSkipRetell") if page.is_visible("#liveSkipRetell") else page.click("#liveSend")
                     action = "skipretell"
+                elif args.answer == "try" and first:
+                    # 체험 줄 — 엉성하게 답해 보기 → 코치의 되묻기 → 정답 보기 → 이 답으로 보내기 (qa_live.js liveTryHtml · 10-06)
+                    page.wait_for_selector("#liveTryWeak:not([disabled])", timeout=20000)
+                    page.click("#liveTryWeak")
+                    page.wait_for_timeout(400)
+                    page.wait_for_function("qa.live && !qa.live.busy", timeout=180000)
+                    page.wait_for_timeout(1200)
+                    weak = {"sent": page.evaluate("(qa.turns||[]).filter(t=>t.who==='me').slice(-1).map(t=>t.text)[0]||''"),
+                            "verdict": page.evaluate("qa.live.lastJudgement ? qa.live.lastJudgement.verdict : null"),
+                            "followup": page.evaluate("qa.live.lastJudgement ? (qa.live.lastJudgement.followup||'') : ''"),
+                            "coach": page.evaluate("[...document.querySelectorAll('#stream .msg.ai')].slice(-2).map(e=>e.innerText.trim().slice(0,240))")}
+                    print(f"  Q{qi + 1} weak → {weak['verdict']} | {weak['sent'][:80]} | {weak['followup'][:120]}", flush=True)
+                    if qi == 0:
+                        shot("try_weak_judged")
+                    R.setdefault("try", []).append({"qi": qi + 1, "weak": weak})
+                    if page.evaluate("qa.live.qi === %d && !qa.live.awaitEnd && !qa.live.retell" % qi) and page.is_visible("#liveTryModel"):
+                        page.click("#liveTryModel")
+                        page.wait_for_function("(document.getElementById('liveTryText')||{}).dataset && document.getElementById('liveTryText').dataset.qid", timeout=20000)
+                        model = page.evaluate("document.getElementById('liveTryText').textContent")
+                        if qi == 0:
+                            shot("try_model_open")
+                        R["try"][-1]["model"] = model
+                        if page.is_visible("#liveTrySend"):
+                            page.click("#liveTrySend")
+                            page.wait_for_timeout(400)
+                            page.wait_for_function("qa.live && !qa.live.busy", timeout=180000)
+                            last = page.evaluate("(qa.live.results||[]).slice(-1)[0] || null")
+                            R["try"][-1]["model_result"] = last
+                            print(f"  Q{qi + 1} model → {json.dumps(last, ensure_ascii=False)[:200]}", flush=True)
+                    action = "try"
                 elif args.answer == "dictate" and first:
                     # 자동 받아쓰기 — 마이크가 저절로 켜지기를 기다렸다 말한다. 멈추면 2.2초 + 초읽기 3초 뒤 자동으로 보낸다
                     page.wait_for_function("window.__fakeListening() > 0", timeout=15000)
@@ -732,7 +762,7 @@ def main() -> int:
     ap.add_argument("--dpr", type=float, default=2)
     ap.add_argument("--sizes", default="1180x820", help="단계마다 더 찍을 크기 (아이패드 가로)")
     ap.add_argument("--cam", default="face", help="face · white · dark (white/dark 면 화상판 글자 대비를 잰다)")
-    ap.add_argument("--answer", choices=["dictate", "type"], default="dictate")
+    ap.add_argument("--answer", choices=["dictate", "type", "try"], default="dictate")
     ap.add_argument("--no-move-slide", dest="move_slide", action="store_false", help="발표 중 자료 창을 옮기지 않는다 (화상판 기본 자리 확인)")
     ap.add_argument("--record", default="")
     ap.add_argument("--replay", default="")

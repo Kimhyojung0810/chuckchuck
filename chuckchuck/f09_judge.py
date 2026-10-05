@@ -110,6 +110,7 @@ from ._probe_stance import (
     template_gist,
 )
 from . import _reason as RS
+from ._claim_rules import is_sentence as _is_claim_sentence
 from ._contra import is_contra, leaks as contra_leaks, revealed as contra_revealed, sides_of as contra_sides
 from ._contra import contra_brief, contra_scaffold, table_support, take_of
 from ._evidence import _noun_like, _stem as _ev_stem, anchor_slides, clean_slide_text, mask_gist, neighbor_lines, term_in
@@ -2063,6 +2064,14 @@ def _followup(
 
     label = question.label or "이 개념"
     where = _where_slide(question)
+    # 모순 질문(발표 말 ↔ 자료 수치)이 초점을 놓친 답을 받으면 질문의 노드 이름이 아니라 두 쪽을 견주게 한다 — 노드는 그 수치가 앉은
+    # 장의 주장 문장이라 「100 mg/L에서 산자수가 절반 아래로 떨어졌다에 대한 질문이에요」 가 NOEC 를 물은 질문에 나갔다 (10-06 부스 체험)
+    csides = contra_sides(question)
+    if csides is not None and guard in ("off_topic", "focus_miss", "echo"):
+        return _clip(_CONTRA_SAID_FOLLOWUP[csides.numeric].format(where=csides.where))
+    # 주장 문장 이름은 인용해 끼운다 — 「…떨어졌다에 대한」 이 아니라 「「…떨어졌다」에 대한」
+    if _is_claim_sentence(label):
+        label = f"「{label.rstrip('.。 ')}」"
     # 탐침 질문(단정의 경계·근거 없는 인과·긴장)의 되물음은 **탐침이 묻는 것**이어야 한다 — 09-30 라이브 스모크: 단정 탐침에
     # 「자료 6장을 다시 보면, 야간 연장 개방에 대해 뭐라고 하나요?」 가 나가 따져 보라는 그 단정을 다시 말하게 했다.
     probe = probe_of(question)

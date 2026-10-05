@@ -455,3 +455,10 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
   .bq-pick .bq-deck-title { font-size: clamp(17px, 1.25vw, 21px); }
   .bq-pick .bq-deck-go { padding-top: 2px; }
 }
+
+/* 체험 줄 — 내용을 몰라도 정답을 보거나 일부러 엉성하게 답해 판정 · 되묻기를 겪어 본다 (qa_live.js liveTryHtml · 10-06) */
+.qa-try { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(23, 38, 31, .16); }
+.qa-try-label { font-size: 13px; color: var(--sub, #4D5E56); margin-right: 4px; }
+.qa-try-btn { min-height: 40px; font-weight: var(--w-bold, 700); color: var(--navy, #155C46); }
+.qa-try-panel { margin-top: 6px; padding: 10px 12px; border-radius: var(--r-ctl, 12px); background: rgba(8, 184, 121, .08); }
+.qa-try-model { margin: 0 0 4px; font-size: 16px; line-height: 1.55; white-space: pre-line; }

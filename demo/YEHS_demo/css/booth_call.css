@@ -471,3 +471,11 @@
 }
 .bq[data-variant="call"] .bc-send-cancel[hidden] { display: none; }
 .bq[data-variant="call"] .bc-send-cancel:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* 체험 줄 — 글라스 답 칸 위 (qa_live.js liveTryHtml) */
+.bq[data-variant="call"] .bc-dock .qa-try { border-top-color: rgba(255, 255, 255, .22); }
+.bq[data-variant="call"] .bc-dock .qa-try-label { color: var(--lg-soft); }
+.bq[data-variant="call"] .bc-dock .qa-try-btn { color: #fff; background: rgba(255, 255, 255, .12); border-radius: var(--r-pill); }
+.bq[data-variant="call"] .bc-dock .qa-try-btn:hover { background: rgba(255, 255, 255, .2); }
+.bq[data-variant="call"] .bc-dock .qa-try-panel { background: var(--lg-tint-field); border: 1px solid rgba(255, 255, 255, .26); }
+.bq[data-variant="call"] .bc-dock .qa-try-model { color: #fff; }

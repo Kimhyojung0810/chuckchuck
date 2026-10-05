@@ -1425,6 +1425,17 @@ def hash_route_for(url_path: str, locate) -> str | None:
         return None
     return "#" + path.lower()
 
+#: 화면 폴더에 같이 놓인 팀 문서 · 손으로 둔 파일은 공개 사이트에 내지 않는다 (10-02 서비스 플로우 정리안 — MVP_SPEC.md ·
+#: UI_POLISH_TODO.md · UX_ITERATION_LOG.md · sample-deck.pdf 가 chuckchuck-present.com 에서 200 이었다). 지우지 않고 막기만 한다.
+_STATIC_HIDDEN_SUFFIXES = {".md"}
+_STATIC_HIDDEN_NAMES = {"sample-deck.pdf"}
+
+
+def _static_hidden(path: Path) -> bool:
+    return path.is_file() and (path.suffix.lower() in _STATIC_HIDDEN_SUFFIXES or path.name in _STATIC_HIDDEN_NAMES
+                               or path.name.startswith("."))
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
@@ -2227,6 +2238,9 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         """
         url = parsed.path
         path = STATIC.locate(url)
+        if path is not None and _static_hidden(path):
+            self.send_error(404)
+            return None
         if path is not None and path.is_dir():
             if not url.endswith("/"):
                 return super().do_HEAD() if head_only else super().do_GET()
