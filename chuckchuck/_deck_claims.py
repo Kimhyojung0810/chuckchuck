@@ -784,14 +784,30 @@ def _negated_subject(clause: str, num: Num, owner_text: str) -> bool:
     return negated(window) and not negated(owner_text)
 
 
+#: 조사만 남은 조각(「100mg에서는」 에서 단위를 걷으면 「에서는」) — 수의 주인이 아니다. 10-06 부스 미세플라스틱 녹음: 「100mg에서는 40일까지」
+#: (받아쓰기가 「41까지」 를 잘못 적음)의 주인이 「에서는」 이 되어, 「에서」 가 든 자료 줄 「21일간 마리당 총 산자수」 와 어긋났다는 모순 질문이 됐다.
+_PARTICLE_ONLY_RE = re.compile(r"(?:에서|에게|에는|에도|으로|로는|로|부터|까지|에|의|은|는|이|가|을|를|와|과|도|만|이나|나)+")
+
+
+#: 앞 절을 끝내는 연결 어미 — 그 앞 낱말은 이 수의 주인이 아니다 (「차이가 없다가 10mg에서 67로」 의 「차이」).
+_CLAUSE_LINK_RE = re.compile(r"(?:다가|는데|은데|지만|으나|면서|으며|이며|하며|하고|이고)\s")
+
+
+def _content_only(stems: list[str]) -> list[str]:
+    return [s for s in stems if not _PARTICLE_ONLY_RE.fullmatch(s)]
+
+
 def _terms_around(clause: str, num: Num, deck: Deck) -> tuple[list[str], list[str]]:
     """숫자 앞 세 낱말·뒤 두 낱말 중 **자료에 있는** 줄기. 앞은 다른 숫자를 넘지 않는다."""
     before_text = clause[: num.start]
     prev = [n for n in numbers(before_text)]
     if prev:
         before_text = before_text[prev[-1].end:]
-    before = [s for s in content_stems(before_text)[-3:] if _has(deck.stems, s)]
-    after = [s for s in content_stems(clause[num.end:])[:2] if _has(deck.stems, s)]
+    links = list(_CLAUSE_LINK_RE.finditer(before_text))
+    if links:
+        before_text = before_text[links[-1].end():]
+    before = [s for s in _content_only(content_stems(before_text, drop_units=True))[-3:] if _has(deck.stems, s)]
+    after = [s for s in _content_only(content_stems(clause[num.end:]))[:2] if _has(deck.stems, s)]
     return before, after
 
 
@@ -820,7 +836,8 @@ def _number_conflicts(clause: str, deck: Deck, sentence: str = "") -> list[Confl
             continue
         # 자료와 같은 짝인지는 **절 전체**로 본다 — 「전체 4.8%p 격차의 58%」 처럼 한 절에 숫자가 여럿이면
         # 숫자 바로 앞 낱말이 다른 숫자의 것일 수 있다. 짝이 하나라도 맞으면 어긋남으로 보지 않는다(놓치는 쪽이 안전하다).
-        near = before + after + [s for s in content_stems(clause) if _has(deck.stems, s)]
+        # 수에 붙은 단위 조각(「0.1mg」 의 mg)은 짝 단서가 아니다 — 「mg/L」 가 든 아무 줄과 짝이 맞는다고 보아 「NOEC는 0.1mg」(자료 1 mg/L)을 놓쳤다 (10-06)
+        near = before + after + [s for s in _content_only(content_stems(clause, drop_units=True)) if _has(deck.stems, s)]
         if any(any(_has(r.stems, t) for t in near) for r in holders):
             continue
         # 행 이름이 숫자 구간(「50% 미만 | 7」)이면 표 제목·머리 행이 그 값의 주인을 말한다 — 절이 그 표의 **다른 행**을 부르지
@@ -951,13 +968,13 @@ def _subject_before(clause: str, idx: int, nums: list[Num], deck: Deck) -> tuple
     start = nums[idx - 1].end if idx > 0 else 0
     # 수에 붙은 글자(「87.96조원」 의 조원 · 「2학년」 의 학년)는 주인이 아니라 단위 조각이다 — 주인으로 삼으면 같은 단위를 쓴
     # 아무 줄이 주인이 된다(09-30 quick 가드 감사: 「33조원 87.96조원이라고 하고, 32조원 …」 이 「조원의 수치」 로 4장과 어긋남).
-    got = [s for s in content_stems(clause[start:num.start], drop_units=True)[-3:] if _has(deck.stems, s)]
+    got = [s for s in _content_only(content_stems(clause[start:num.start], drop_units=True))[-3:] if _has(deck.stems, s)]
     if got or idx == 0:
         return got, -1
     prev = nums[idx - 1]
     if re.fullmatch(r"\s*(?:이|가|은|는|의|에서|에)?\s*", clause[prev.end:num.start]) and deck.has_number(prev):
         start2 = nums[idx - 2].end if idx > 1 else 0
-        return [s for s in content_stems(clause[start2:prev.start], drop_units=True)[-3:] if _has(deck.stems, s)], idx - 1
+        return [s for s in _content_only(content_stems(clause[start2:prev.start], drop_units=True))[-3:] if _has(deck.stems, s)], idx - 1
     return [], -1
 
 

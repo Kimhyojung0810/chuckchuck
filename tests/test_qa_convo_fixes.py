@@ -567,3 +567,16 @@ def test_표지의_소속_행사_날짜_줄은_주장이_아니다():
     assert not is_byline("2024. 1. ~ 2025. 6. · 수도권 매장 3,200곳 리뷰 124,380건")
     assert not is_byline("충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다")
     assert not is_byline("A 그룹 B 그룹 C 그룹 모두 같다")
+
+
+def test_조사만_남은_조각은_수의_주인이_아니고_단위_조각은_짝_단서가_아니다():
+    """10-06 부스 미세플라스틱 녹음 — 「100mg에서는 40일까지」 가 「에서는」 을 주인으로 21일간 줄과 어긋났고(오판),
+    「NOEC는 0.1mg 퍼 리터」(자료 NOEC = 1 mg/L)는 mg 가 든 다른 줄과 짝이 맞는다고 놓쳤다."""
+    from chuckchuck._spoken import spoken_numbers
+    d = deck_of(slide(3, "100 mg/L에서 산자수가 절반 아래로 떨어졌다\n21일간 마리당 총 산자수\n"
+                         "농도(대조군, 0.1, 1, 10, 100)별 마리당 총 산자수\n그림 2. Dunnett 검정 결과다.\nNOEC = 1 mg/L\n"
+                         "대조군과 유의한 차이가 나타나지 않은 가장 높은 농도다."))
+    assert conflicts(spoken_numbers("0.1에서 85로 거의 차이가 없다가 10mg에서 67로 꺾이고 100mg에서는 40일까지 떨어집니다"), d) == []
+    found = conflicts(spoken_numbers("NOEC는 0.1mg 퍼 리터로 나왔습니다."), d)
+    assert [(c.kind, c.said) for c in found] == [("number", "0.1mg")]
+    assert spoken_numbers("영향이 나타난 10m그램은") == "영향이 나타난 10mg은"

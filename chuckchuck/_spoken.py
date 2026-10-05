@@ -497,6 +497,15 @@ def _native_sub(m: re.Match) -> str:
     return f"{value}{unit}"
 
 
+#: 받아쓰기가 말로 적은 농도 단위 — 「10m그램」「0.1 밀리그램 퍼 리터」「100mg퍼 L」 → 「10mg」「0.1mg/L」「100mg/L」 (10-06 부스 미세플라스틱 녹음).
+#: 「10m그램」 은 10 m(미터)로 읽혀 자료 「10 mg/L」 과 단위가 다른 어긋남이 됐다.
+_MG_WORD_RE = re.compile(r"(\d)\s*(?:m\s?그램|밀리\s?그램|미리\s?그램|mg)(?:\s*(?:퍼|per)\s*(?:리터|[Ll](?![A-Za-z])))?")
+
+
+def _mg_sub(m: re.Match) -> str:
+    return f"{m.group(1)}mg/L" if re.search(r"(?:퍼|per)", m.group(0)) else f"{m.group(1)}mg"
+
+
 def spoken_numbers(text: str) -> str:
     """받아쓰기의 말로 적은 수·퍼센트를 자료 표기로 — 「이십구 퍼센트」→「29%」, 「3 퍼센트 포인트」→「3%p」, 「열 명」→「10명」."""
     t = _SINO_DECIMAL_RE.sub(_sino_decimal_sub, text or "")
@@ -507,4 +516,5 @@ def spoken_numbers(text: str) -> str:
     t = _MIXED_WON_RE.sub(r"\1\2원", t)
     t = _PCT_POINT_RE.sub(r"\1%p", t)
     t = _PCT_WORD_RE.sub(r"\1%", t)
+    t = _MG_WORD_RE.sub(_mg_sub, t)
     return _PRO_RE.sub(r"\1%", t)
