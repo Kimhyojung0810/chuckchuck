@@ -761,6 +761,12 @@ function liveWeakAnswer(q) {
     .replace(/^(?:질문의 전제와 달리,\s*|자료는 이렇게 말해요\s*—\s*)+/, '').replace(/\s*\([\d,\s]+장\)\s*$/, '');
   // 첫 문장 — 「4.7점」 의 점은 문장 끝이 아니다 (끝 부호 뒤에 빈칸이나 글 끝이 와야 끝)
   const first = (gist.match(/^.*?[.!?。](?=\s|$)/) || [gist])[0].trim();
+  // 숫자가 줄지어 선 조건 나열(「수온 20 ± 1 °C, 광주기 16:8시간, …」)은 다 흐리면 「어느 정도」 만 남는다 — 첫 덩어리만 말한다
+  const many = (first.match(/\d[\d,.]*/g) || []).length >= 3;
+  if (many) {
+    const lead = first.split(/,\s+|\s+·\s+/)[0].replace(LIVE_TRY_NUM_RE, '어느 정도').replace(/\s*[±~:–-]\s*어느 정도/g, '').replace(/\s*°C/g, '').trim();
+    if (lead && lead !== first) return `음… ${lead.replace(/[.。]$/, '')}… 정확한 숫자랑 나머지는 기억이 안 나요.`;
+  }
   if (first) {
     // 단위 없는 수가 주어 · 목적어로 선 자리(「4.7은 …」)는 흐리면 말이 안 된다 — 그대로 둔다
     const vague = first.replace(LIVE_TRY_NUM_RE, (m, at, all) => (/^[\d.,]+$/.test(m) && /^[은는이가을를]/.test(all.slice(at + m.length)) ? m : '어느 정도')).replace(/어느 정도(?:\s*(?:에서|부터|까지|와|과|,|~|-|→|대비)?\s*어느 정도)+/g, '어느 정도').replace(/\s{2,}/g, ' ').trim();
