@@ -157,8 +157,8 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
   position: relative; display: grid; place-items: center; aspect-ratio: 16 / 9; margin-bottom: 8px;
   border-radius: var(--r-inner); background: #fff; overflow: hidden;
 }
-.bq-cover canvas { width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 240ms; }
-.bq-cover.ready canvas { opacity: 1; }
+.bq-cover canvas, .bq-cover img { width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 240ms; }
+.bq-cover.ready canvas, .bq-cover.ready img { opacity: 1; }
 .bq-cover i { position: absolute; font-style: normal; font-size: 13px; color: var(--text-3, #71717A); }
 .bq-cover.ready i { display: none; }
 .bq-deck-kind { color: var(--cyan); font-size: 14px; font-weight: var(--w-med); }
@@ -398,7 +398,7 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
   .bq-pick .bq-roles legend { margin-bottom: 8px; }
   .bq-pick .bq-role { min-height: 48px; padding-block: 6px; }
   .bq-pick .bq-cover { aspect-ratio: auto; height: clamp(110px, 21vh, 190px); margin-bottom: 4px; }
-  .bq-pick .bq-cover canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* 낮아진 칸 안에 장 전체 (잘리지 않게) */
+  .bq-pick .bq-cover canvas, .bq-pick .bq-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }   /* 낮아진 칸 안에 장 전체 (잘리지 않게) */
   .bq-pick .bq-deck { padding: 12px 12px 14px; gap: 6px; }
   .bq-pick .bq-deck-title { font-size: 18px; }
   .bq-pick .bq-deck-go { padding-top: 2px; }
@@ -450,7 +450,7 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
 @media (min-width: 901px) {
   .bq-pick .bq-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 1.2vw, 20px); }
   .bq-pick .bq-cover { aspect-ratio: auto; height: clamp(92px, 14.5vh, 170px); margin-bottom: 2px; }
-  .bq-pick .bq-cover canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .bq-pick .bq-cover canvas, .bq-pick .bq-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .bq-pick .bq-deck { padding: 12px 12px 14px; gap: 4px; }
   .bq-pick .bq-deck-title { font-size: clamp(17px, 1.25vw, 21px); }
   .bq-pick .bq-deck-go { padding-top: 2px; }

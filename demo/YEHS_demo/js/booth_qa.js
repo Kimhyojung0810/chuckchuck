@@ -54,6 +54,20 @@ const BOOTH_DECKS = [
   { key: '미세플라스틱물벼룩번식A', title: '미세플라스틱은 물벼룩의 번식을 줄이는가', kind: '연구실 세미나' },
   { key: '배달앱별점인플레이션A', title: '별점은 왜 4.7에 몰리는가', kind: '학술대회 발표 리허설' },
 ];
+// <deck-covers> scripts/render_deck_covers.py 가 다시 쓴다 — 손으로 고치지 말고 스크립트를 다시 돌린다
+/** 덱 고르기 카드의 표지 그림(미리보기 PDF 1장). 없는 덱만 pdf.js 로 그린다 — iPad 에서 pdf.js 표지가 안 떴다 (10-06) */
+const BOOTH_DECK_COVERS = {
+  "급속충전배터리열화A": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4 },
+  "급속충전배터리열화B": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4 },
+  "배달앱별점인플레이션A": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3 },
+  "배달앱별점인플레이션B": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3 },
+  "focus_notification": { src: 'assets/deck-covers/focus-notification.webp?v=h188c76ddb0', w: 800, h: 450, pages: 12 },
+  "수익률격차": { src: 'assets/deck-covers/investor-gap.webp?v=h36769deaf0', w: 800, h: 450, pages: 15 },
+  "미세플라스틱물벼룩번식A": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4 },
+  "미세플라스틱물벼룩번식B": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4 },
+  "수면발표": { src: 'assets/deck-covers/sleep.webp?v=h9effdef157', w: 800, h: 450, pages: 8 },
+};
+// </deck-covers>
 /** 심사위원단 — 척척발표가 쓰는 모델 넷의 병아리 (chatter.js) */
 const BOOTH_JUDGES = [
   { id: 'solar', name: '쏠라' }, { id: 'midm', name: '믿:음' },
@@ -658,8 +672,7 @@ async function bqShowPick() {
   }
   box.innerHTML = ready.map((d) => `
     <button type="button" class="bq-deck" data-deck="${escapeHtml(d.key)}">
-      <span class="bq-cover"><canvas data-cover="${escapeHtml(d.row.cached_session_id)}"></canvas><i>표지를 불러오고 있어요</i></span>
-      <span class="bq-deck-kind" data-pages="${escapeHtml(d.row.cached_session_id)}">${escapeHtml(d.kind)}</span>
+      ${bqCoverHtml(d)}
       <b class="bq-deck-title">${escapeHtml(d.title)}</b>
       <span class="bq-deck-go">이 발표로 질문 받기</span>
     </button>`).join('');
@@ -714,10 +727,55 @@ function bqCoverPdf(sessionId) {
   return bq.covers.get(sessionId);
 }
 
+/** 이 덱의 표지 그림(assets/deck-covers, scripts/render_deck_covers.py) — 없으면 null 이고 pdf.js 로 그린다 */
+function bqStaticCover(d) {
+  const key = String((d && d.key) || '').normalize('NFC');
+  return Object.prototype.hasOwnProperty.call(BOOTH_DECK_COVERS, key) ? BOOTH_DECK_COVERS[key] : null;
+}
+
+/**
+ * 덱 카드의 표지 칸 + 종류 줄 (/booth/qa · /rehearsal 같은 마크업). 표지 그림이 있으면 <img> 로 바로 —
+ * iPad Safari 에서 pdf.js 로 그린 표지가 안 떴다 (10-06). 그림이 없는 덱만 예전처럼 <canvas> 에 pdf.js 로 그린다
+ */
+function bqCoverHtml(d) {
+  const sid = escapeHtml(d.row.cached_session_id);
+  const cover = bqStaticCover(d);
+  const kind = cover && cover.pages ? `${d.kind} · ${cover.pages}장` : d.kind;
+  const face = cover
+    ? `<img src="${escapeHtml(cover.src)}" width="${Number(cover.w) || 800}" height="${Number(cover.h) || 450}" alt="${escapeHtml(d.title)} 발표 자료 첫 장" loading="eager" decoding="async" data-cover-img="${sid}">`
+    : `<canvas data-cover="${sid}"></canvas>`;
+  return `<span class="bq-cover">${face}<i>표지를 불러오고 있어요</i></span>
+      <span class="bq-deck-kind" data-pages="${sid}">${escapeHtml(kind)}</span>`;
+}
+
 async function bqPaintCover(d) {
   const sid = d.row.cached_session_id;
+  const img = document.querySelector(`#bqStage img[data-cover-img="${CSS.escape(sid)}"]`);
+  if (img) {
+    const shown = () => { if (img.isConnected) img.parentElement.classList.add('ready'); };
+    if (img.complete && img.naturalWidth) shown();
+    else {
+      img.addEventListener('load', shown, { once: true });
+      // 그림을 못 받으면 예전 길 — 칸을 canvas 로 바꿔 pdf.js 로 그린다
+      img.addEventListener('error', () => {
+        if (!img.isConnected) return;
+        console.warn('[chuckchuck] booth cover image', img.src);
+        const canvas = document.createElement('canvas');
+        canvas.dataset.cover = sid;
+        img.replaceWith(canvas);
+        bqPaintCoverPdf(d, canvas);
+      }, { once: true });
+    }
+    // 고르면 바로 쓰는 자료 PDF 는 예전처럼 미리 열어 둔다(bqPrepare · rhPickDeck 가 다시 쓴다). 못 열어도 표지는 그림이라 상관없다
+    bqCoverPdf(sid).catch(() => {});
+    return;
+  }
   const canvas = document.querySelector(`#bqStage canvas[data-cover="${CSS.escape(sid)}"]`);
-  if (!canvas) return;
+  if (canvas) await bqPaintCoverPdf(d, canvas);
+}
+
+async function bqPaintCoverPdf(d, canvas) {
+  const sid = d.row.cached_session_id;
   try {
     const pdf = await bqCoverPdf(sid);
     const page = await pdf.getPage(1);

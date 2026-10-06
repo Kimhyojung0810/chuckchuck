@@ -376,8 +376,7 @@ async function rhShowPick() {
   const box = document.getElementById('bqDecks');
   box.innerHTML = ready.map((d) => `
     <button type="button" class="bq-deck" data-deck="${escapeHtml(d.key)}">
-      <span class="bq-cover"><canvas data-cover="${escapeHtml(d.row.cached_session_id)}"></canvas><i>표지를 불러오고 있어요</i></span>
-      <span class="bq-deck-kind" data-pages="${escapeHtml(d.row.cached_session_id)}">${escapeHtml(d.kind)}</span>
+      ${bqCoverHtml(d)}
       <b class="bq-deck-title">${escapeHtml(d.title)}</b>
       <span class="bq-deck-go">이 발표로 리허설하기</span>
     </button>`).join('');
