@@ -30,8 +30,8 @@
    그래서 흐림 뒤 바탕을 들어 올린다 — contrast(.45) · brightness(1.4): 검은 방은 밝은 회색으로, 흰 벽은 그대로 흰색으로.
    판은 34% 그대로라 겉보기는 자료 창과 같은 밝은 유리이고, 어떤 방이든 판 위 먹색 글자가 4.5:1 위다 (labs/rehearsal_flow --cam white · dark).
    색 글자(민트 · 살구)는 밝은 판 위에서 안 읽혀서 짙은 초록 · 짙은 갈색으로. 판정 칩 · 내 말(초록) · 진행 칩 · 위 알약은 그대로.
-   부스(/booth/qa · /booth/call)는 booth_call.css 값 그대로 — 이 블록은 #bqStage[data-flow="rehearsal"] 과 리허설 비전 화면에만 걸린다 */
-.bq[data-variant="call"][data-flow="rehearsal"] {
+   10-06 사용자: 「rehearsal 에 기반한 UI 를 booth/qa 에도」 — 이 블록은 부스 화상판(/booth/qa · /booth/call, data-variant="call")에도 같이 걸린다 */
+:is(:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]), .bq[data-variant="call"]) {
   --rl-ink: #18181B;          /* 본문 — app.css --text */
   --rl-soft: #283330;         /* 보조 글자 — 가장 어두운 방에서도 4.5:1 (판 위 밝기 .33 기준) */
   --rl-green: #0a3b24;        /* 민트 글자 대신 */
@@ -49,81 +49,81 @@
   --lg-halo: none;
 }
 /* 위 알약(브랜드 · 카메라 끄기 · 나가기)은 영상 위 진한 알약 그대로 — 글자 테도 그대로 */
-.bq[data-flow="rehearsal"]:is([data-screen="wait"], [data-screen="qa"]) .bq-top .bq-ghost {
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]):is([data-screen="wait"], [data-screen="qa"]) .bq-top .bq-ghost {
   text-shadow: 0 0 1px rgba(0, 0, 0, .85), 0 0 2px rgba(0, 0, 0, .7), 0 1px 3px rgba(0, 0, 0, .55);
 }
-.bq[data-flow="rehearsal"] :is(.bc-glass, .bc-stream .msg-bubble, .bc-stream .qa-done, .bc-stream .qa-finale, .bc-stream .qa-sum, .bc-dock textarea) { text-shadow: none; }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) :is(.bc-glass, .bc-stream .msg-bubble, .bc-stream .qa-done, .bc-stream .qa-finale, .bc-stream .qa-sum, .bc-dock textarea) { text-shadow: none; }
 
 /* 지금 질문 · 삐약이 */
-.bq[data-flow="rehearsal"] .bc-ask { border-color: rgba(255, 255, 255, .7); box-shadow: var(--lg-shadow), 0 0 0 1px rgba(14, 136, 80, .45); }
-.bq[data-flow="rehearsal"] .bc-ask p { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-host { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-host-text em { color: var(--rl-green); }
-.bq[data-flow="rehearsal"] .bc-host-text small { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .bc-say { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-ask { border-color: rgba(255, 255, 255, .7); box-shadow: var(--lg-shadow), 0 0 0 1px rgba(14, 136, 80, .45); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-ask p { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-host { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-host-text em { color: var(--rl-green); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-host-text small { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-say { color: var(--rl-ink); }
 
 /* 주고받은 말 */
-.bq[data-flow="rehearsal"] .bc-stream .msg-bubble,
-.bq[data-flow="rehearsal"] .bc-stream .msg.ai:is(.cut, .hint, .miss, .gist, .thinking) .msg-bubble { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-stream .msg.ai.thinking .msg-bubble { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .bc-stream .msg.ai.thinking .dots b { background: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-stream > .msg.ai.miss:not(.is-past) .msg-meta { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-stream :is(.msg-meta, .msg-papers, .react-head small, .msg-delta.dn) { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .bc-stream :is(.msg.ai.trap .msg-meta, .msg.ai.hint b) { color: var(--rl-amber); }
-.bq[data-flow="rehearsal"] .bc-stream :is(.msg-paper-link, .msg-delta.up, .msg.is-now .msg-meta) { color: var(--rl-green); }
-.bq[data-flow="rehearsal"] .bc-stream .msg-score { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-stream .msg.ai:is(.trap, .review) .msg-bubble { border-color: rgba(154, 91, 0, .55); }
-.bq[data-flow="rehearsal"] .bc-stream .msg.ai.gist .msg-bubble { border-color: rgba(14, 136, 80, .55); }
-.bq[data-flow="rehearsal"] .bc-stream .msg.is-now .msg-bubble { border-color: rgba(255, 255, 255, .7); box-shadow: var(--lg-shadow), 0 0 0 1px rgba(14, 136, 80, .45); }
-.bq[data-flow="rehearsal"] .bc-stream .qa-evidence { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
-.bq[data-flow="rehearsal"] .bc-stream .qa-evidence span { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .bc-stream .qa-ground > span { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg-bubble,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg.ai:is(.cut, .hint, .miss, .gist, .thinking) .msg-bubble { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg.ai.thinking .msg-bubble { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg.ai.thinking .dots b { background: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream > .msg.ai.miss:not(.is-past) .msg-meta { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream :is(.msg-meta, .msg-papers, .react-head small, .msg-delta.dn) { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream :is(.msg.ai.trap .msg-meta, .msg.ai.hint b) { color: var(--rl-amber); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream :is(.msg-paper-link, .msg-delta.up, .msg.is-now .msg-meta) { color: var(--rl-green); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg-score { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg.ai:is(.trap, .review) .msg-bubble { border-color: rgba(154, 91, 0, .55); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg.ai.gist .msg-bubble { border-color: rgba(14, 136, 80, .55); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg.is-now .msg-bubble { border-color: rgba(255, 255, 255, .7); box-shadow: var(--lg-shadow), 0 0 0 1px rgba(14, 136, 80, .45); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .qa-evidence { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .qa-evidence span { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .qa-ground > span { color: var(--rl-ink); }
 /* 내 말은 초록 판 · 흰 글자 그대로 (판을 진하게 해서 들어 올린 바탕 위에서도 4.5:1) */
-.bq[data-flow="rehearsal"] .bc-stream .msg.me .msg-bubble { color: #fff; border-color: rgba(160, 255, 214, .55); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .msg.me .msg-bubble { color: #fff; border-color: rgba(160, 255, 214, .55); }
 /* 지난 말 — 흐림 없는 밝은 판 · 먹색 글자 */
-.bq[data-flow="rehearsal"] .bc-stream > .is-past .msg-bubble,
-.bq[data-flow="rehearsal"] .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag, .qa-finale) {
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream > .is-past .msg-bubble,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag, .qa-finale) {
   color: var(--rl-ink); border-color: rgba(0, 0, 0, .08); text-shadow: none;
 }
-.bq[data-flow="rehearsal"] .bc-stream > .is-past:is(:hover, :focus-within) .msg-bubble,
-.bq[data-flow="rehearsal"] .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag):is(:hover, :focus-within) { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-stream > .is-past.msg.me .msg-bubble { color: #fff; background: rgba(21, 92, 70, .9); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream > .is-past:is(:hover, :focus-within) .msg-bubble,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream > .is-past:is(.qa-done, .qa-note-line, .qa-flag):is(:hover, :focus-within) { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream > .is-past.msg.me .msg-bubble { color: #fff; background: rgba(21, 92, 70, .9); }
 /* 정리 카드 · 안내 줄 · 표식 */
-.bq[data-flow="rehearsal"] .bc-stream :is(.qa-done, .qa-finale, .qa-sum) { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-stream > .qa-finale:not(.is-past) { background: var(--lg-sheen), rgba(255, 255, 255, .82); }
-.bq[data-flow="rehearsal"] .bc-stream :is(.qa-done h4, .qd-foot, .qa-finale p) { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .bc-stream .qa-done p { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-stream :is(.qa-note-line, .qa-flag) { color: var(--rl-ink); background: rgba(255, 255, 255, .82); border-color: rgba(0, 0, 0, .1); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream :is(.qa-done, .qa-finale, .qa-sum) { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream > .qa-finale:not(.is-past) { background: var(--lg-sheen), rgba(255, 255, 255, .82); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream :is(.qa-done h4, .qd-foot, .qa-finale p) { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream .qa-done p { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-stream :is(.qa-note-line, .qa-flag) { color: var(--rl-ink); background: rgba(255, 255, 255, .82); border-color: rgba(0, 0, 0, .1); }
 
 /* 답 칸 */
-.bq[data-flow="rehearsal"] .bc-dock,
-.bq[data-flow="rehearsal"] .bc-dock :is(.qa-input-label, .qa-input-label b) { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .bc-dock :is(.qa-input-label span, .qa-end-note, .btn-text) { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .bc-dock .btn-text:hover { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
-.bq[data-flow="rehearsal"] .bc-dock textarea { color: var(--rl-ink); border-color: rgba(0, 0, 0, .2); }
-.bq[data-flow="rehearsal"] .bc-dock textarea::placeholder { color: #3d4743; }
-.bq[data-flow="rehearsal"] .bc-dock textarea:focus-visible { border-color: var(--brand); }
-.bq[data-flow="rehearsal"] .bc-dock .btn-voice:not(.is-rec),
-.bq[data-flow="rehearsal"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveSend,
-.bq[data-flow="rehearsal"] .bc-dock :is(#liveReveal, #liveSkipRetell):not(:disabled),
-.bq[data-flow="rehearsal"] .bc-dock .btn:not(.btn-primary):not(.btn-text):not(.btn-voice) {
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock :is(.qa-input-label, .qa-input-label b) { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock :is(.qa-input-label span, .qa-end-note, .btn-text) { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock .btn-text:hover { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock textarea { color: var(--rl-ink); border-color: rgba(0, 0, 0, .2); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock textarea::placeholder { color: #3d4743; }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock textarea:focus-visible { border-color: var(--brand); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock .btn-voice:not(.is-rec),
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock:has(#liveAnswer:placeholder-shown) #liveSend,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock :is(#liveReveal, #liveSkipRetell):not(:disabled),
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-dock .btn:not(.btn-primary):not(.btn-text):not(.btn-voice) {
   color: var(--rl-ink); background: rgba(255, 255, 255, .72); border: 1px solid rgba(0, 0, 0, .18);
 }
 /* 밝은 판 위에서는 흰 초점 테가 안 보인다 — 짙은 초록 테 */
-.bq[data-flow="rehearsal"] .bc-call :is(.bc-glass, .bc-stream, .bc-dock) :focus-visible { outline: 3px solid #064d2e; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(255, 255, 255, .9); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .bc-call :is(.bc-glass, .bc-stream, .bc-dock) :focus-visible { outline: 3px solid #064d2e; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(255, 255, 255, .9); }
 
 /* 분석 기다림 카드 — 같은 밝은 유리 */
-.bq[data-flow="rehearsal"] .rh-wait-card,
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-head h1 { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-tip,
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-foot { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li,
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="done"] { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="run"] { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="wait"] i { border-color: rgba(0, 0, 0, .3); }
-.bq[data-flow="rehearsal"] .rh-wait-card .rh-wait-steps li[data-state="run"] i { border-color: rgba(14, 136, 80, .25); border-top-color: var(--brand); }
-.bq[data-flow="rehearsal"] .rh-wait-card .bq-fail p { color: var(--rl-ink); }
-.bq[data-flow="rehearsal"] .rh-wait-card .bq-ghost { color: var(--rl-ink); background: rgba(255, 255, 255, .72); border-color: rgba(0, 0, 0, .18); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-head h1 { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-tip,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-foot { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-steps li,
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-steps li[data-state="done"] { color: var(--rl-soft); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-steps li[data-state="run"] { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-steps li[data-state="wait"] i { border-color: rgba(0, 0, 0, .3); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .rh-wait-steps li[data-state="run"] i { border-color: rgba(14, 136, 80, .25); border-top-color: var(--brand); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .bq-fail p { color: var(--rl-ink); }
+:is(.bq[data-flow="rehearsal"], .bq[data-variant="call"]) .rh-wait-card .bq-ghost { color: var(--rl-ink); background: rgba(255, 255, 255, .72); border-color: rgba(0, 0, 0, .18); }
 
 /* 비전 발표 아래 조작줄도 같은 밝은 유리 · 먹색 글자 — 「이전 · 다음」 은 진한 버튼 그대로 */
 #vrCall[data-flow="rehearsal"] .vr-dock {
@@ -328,9 +328,16 @@
 @media (max-width: 520px) { .rh-idle-toast { flex-direction: column; align-items: stretch; gap: 10px; text-align: center; } }
 
 /* 체험 줄 — 리허설 화상판은 밝은 글라스라 진한 글자 (qa_live.js liveTryHtml · 10-06) */
-.bq[data-flow="rehearsal"] .bc-dock .qa-try { border-top-color: rgba(0, 0, 0, .14); }
-.bq[data-flow="rehearsal"] .bc-dock .qa-try-label { color: var(--rl-soft); }
-.bq[data-flow="rehearsal"] .bc-dock .qa-try-btn { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
-.bq[data-flow="rehearsal"] .bc-dock .qa-try-btn:hover { background: rgba(0, 0, 0, .1); }
-.bq[data-flow="rehearsal"] .bc-dock .qa-try-panel { background: rgba(255, 255, 255, .72); border-color: rgba(0, 0, 0, .12); }
-.bq[data-flow="rehearsal"] .bc-dock .qa-try-model { color: var(--rl-ink); }
+.bq:is([data-flow="rehearsal"], [data-variant="call"]) .bc-dock .qa-try { border-top-color: rgba(0, 0, 0, .14); }
+.bq:is([data-flow="rehearsal"], [data-variant="call"]) .bc-dock .qa-try-label { color: var(--rl-soft); }
+.bq:is([data-flow="rehearsal"], [data-variant="call"]) .bc-dock .qa-try-btn { color: var(--rl-ink); background: rgba(0, 0, 0, .06); }
+.bq:is([data-flow="rehearsal"], [data-variant="call"]) .bc-dock .qa-try-btn:hover { background: rgba(0, 0, 0, .1); }
+.bq:is([data-flow="rehearsal"], [data-variant="call"]) .bc-dock .qa-try-panel { background: rgba(255, 255, 255, .72); border-color: rgba(0, 0, 0, .12); }
+.bq:is([data-flow="rehearsal"], [data-variant="call"]) .bc-dock .qa-try-model { color: var(--rl-ink); }
+
+/* 부스 화상판 자료 창 이름표 — 밝은 유리 위라 먹색 (10-06, 위 밝은 유리 블록을 부스에도 건 뒤) */
+.bq[data-variant="call"] .bc-slide figcaption,
+.bq[data-variant="call"] .bc-slide figcaption b { color: var(--rl-ink); }
+.bq[data-variant="call"] .bc-slide figcaption b { color: var(--rl-green); }
+/* 질문 줄바꿈은 어절 단위로 — 「…결과다」 / 「를 자료 3장은」 처럼 조사가 줄 머리로 넘어갔다 */
+.bq[data-variant="call"] .bc-ask p { word-break: keep-all; overflow-wrap: anywhere; }
