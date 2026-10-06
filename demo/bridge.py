@@ -1602,6 +1602,10 @@ class Handler(SimpleHTTPRequestHandler):
         ip = self._client_key()
         bucket = shield.ip_bucket(ip)
         path = urlparse(self.path).path
+        if shield.bot_verdict(self.headers.get("User-Agent"), path, self.command):
+            EVENTS.add("bot")
+            SHIELD_LOG.write("bot", f"봇 {ip} {self.command} {path[:80]} ua={(self.headers.get('User-Agent') or '')[:60]!r}")
+            return self._shield_reply(403, {"error": "forbidden"})
         if BLOCKLIST.blocked(ip):
             EVENTS.add("blocked")
             SHIELD_LOG.write("blocked", f"차단 목록 {ip} {self.command} {path[:80]}")

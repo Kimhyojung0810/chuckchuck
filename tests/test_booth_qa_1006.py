@@ -75,3 +75,21 @@ def test_deck_audio_by_name_only_public_booth_decks(monkeypatch):
         assert h._deck_audio_bytes(booth[0])
     if held:
         assert h._deck_audio_bytes(held[0]) is None
+
+
+def test_bot_verdict_blocks_bots_not_browsers():
+    """10-06 사용자 「외부 트래픽 허용, 봇만 막기」 — 나라가 아니라 UA 로. 링크 미리보기는 화면 주소만, robots.txt 는 누구나"""
+    from demo.shield import bot_verdict
+
+    safari = "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+    chrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36"
+    headless = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/129.0 Safari/537.36"
+    for ua in (safari, chrome, headless, "chuckchuck-warm-edge/1"):
+        assert bot_verdict(ua, "/api/v1/questions", "POST") == "", ua
+    for ua in ("", None, "python-requests/2.31", "curl/8.5.0", "Mozilla/5.0 (compatible; GPTBot/1.0)",
+               "Mozilla/5.0 (compatible; Googlebot/2.1)", "Go-http-client/1.1", "sqlmap/1.7"):
+        assert bot_verdict(ua, "/", "GET") == "bot", ua
+    kakao = "facebookexternalhit/1.1 kakaotalk-scrap/1.0"
+    assert bot_verdict(kakao, "/rehearsal", "GET") == ""
+    assert bot_verdict(kakao, "/api/v1/parse", "POST") == "bot"
+    assert bot_verdict("curl/8.5.0", "/robots.txt", "GET") == ""

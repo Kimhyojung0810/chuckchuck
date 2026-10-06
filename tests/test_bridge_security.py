@@ -35,6 +35,9 @@ class FakeHandler(bridge.Handler):
         self.headers = Message()
         for k, v in (headers or {}).items():
             self.headers[k] = v
+        # 브라우저처럼 — 방패가 빈 UA 를 봇으로 막는다 (10-06). 봇 시험은 User-Agent 를 직접 준다
+        if "User-Agent" not in self.headers:
+            self.headers["User-Agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
         if body and "Content-Length" not in (headers or {}):
             self.headers["Content-Length"] = str(len(body))
         self.rfile = io.BytesIO(body)

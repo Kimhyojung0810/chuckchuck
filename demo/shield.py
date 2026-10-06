@@ -638,3 +638,34 @@ def env_float(name: str, default: float) -> float:
     except ValueError:
         sys.stderr.write(f"[shield] {name} 값이 숫자가 아니라 기본값 {default} 을 쓴다\n")
         return default
+
+
+# ─── 봇 (2026-10-06) ───────────────────────────────────────────────────────────
+# 사용자 「외부 트래픽도 허용은 시켜줘, 봇들만 막고」. 나라로 막지 않는다 — 브라우저가 아닌 수집기 · 스크립트 · 취약점 탐색기를 입구에서 끊는다.
+# 링크 미리보기(카카오톡 · 슬랙 · 페이스북 …)는 공유한 링크의 카드를 그리는 것이라 화면 주소(GET, /api 밖)만 열어 둔다.
+# 헤드리스 크롬은 막지 않는다 — 우리 실험실(labs/*)이 공개 도메인을 그 이름으로 연다. VM 안 요청 · 팀 쿠키는 여기까지 오지 않는다.
+import re as _re
+
+BOT_UA_RE = _re.compile(
+    r"bot\b|bot/|crawl|spider|slurp|scrapy|python-requests|python-urllib|aiohttp|httpx|go-http-client|"
+    r"\bcurl/|\bwget/|libwww|java/|okhttp|apache-httpclient|node-fetch|axios/|phantomjs|"
+    r"gptbot|claudebot|anthropic-ai|ccbot|bytespider|petalbot|ahrefs|semrush|mj12|dotbot|dataforseo|"
+    r"masscan|zgrab|nmap|nikto|sqlmap|nuclei|censys|expanse",
+    _re.IGNORECASE,
+)
+PREVIEW_UA_RE = _re.compile(
+    r"kakaotalk-scrap|facebookexternalhit|slackbot|twitterbot|discordbot|telegrambot|linkedinbot|whatsapp|line/",
+    _re.IGNORECASE,
+)
+
+
+def bot_verdict(user_agent: str | None, path: str, method: str) -> str:
+    """'' 이면 통과, 'bot' 이면 막는다. 머리글이 없거나 빈 UA 도 봇이다 (브라우저는 늘 보낸다). robots.txt 는 누구에게나 연다."""
+    if path == "/robots.txt":
+        return ""
+    ua = (user_agent or "").strip()
+    if not ua:
+        return "bot"
+    if PREVIEW_UA_RE.search(ua):
+        return "" if method in ("GET", "HEAD") and not path.startswith("/api/") else "bot"
+    return "bot" if BOT_UA_RE.search(ua) else ""

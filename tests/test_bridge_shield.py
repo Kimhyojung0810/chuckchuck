@@ -615,3 +615,12 @@ def test_감시는_다음_요청으로_넘어간_연결을_건드리지_않는�
     clock.t += 2
     wd.sweep()
     assert not getattr(h, "_reaped", None)
+
+
+def test_봇은_입구에서_막고_브라우저_팀_VM_안은_연다(sh):
+    """10-06 「외부 트래픽 허용, 봇만 막기」 — 공개 요청의 UA 가 봇이면 403. 팀 쿠키 · VM 안 요청은 판정 전에 지난다"""
+    assert get("/api/v1/team", {**public(), "User-Agent": "python-requests/2.31"}).last == (403, {"error": "forbidden"})
+    assert get("/api/v1/team", {**public(), "User-Agent": ""}).last == (403, {"error": "forbidden"})
+    assert get("/api/v1/team", public()).last[0] == 200
+    assert get("/api/v1/team", {**public(), "User-Agent": "curl/8.5", "Cookie": team_cookie()}).last[0] == 200
+    assert get("/api/v1/team", {"User-Agent": "curl/8.5"}).last[0] == 200
