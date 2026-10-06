@@ -2042,6 +2042,9 @@ function applySlideDoc(doc, { keepDemoImages = false } = {}) {
   nf.slideImages = nf.slideTitles.map((t, i) => (
     (keepDemoImages && DATA.slideImages[i]) || slidePlaceholder(i + 1)
   ));
+  // 부스 덱이면 미리 찍은 장 그림(assets/deck-slides)으로 — iPad 에서 pdf.js 렌더가 안 떴다 (10-06, js/booth_qa.js)
+  const staticPages = typeof bqStaticSlidesFor === 'function' ? bqStaticSlidesFor(doc) : null;
+  if (staticPages) nf.slideImages = staticPages;
   nf.slide = 1;
   nf.visits = { 1: 1 };
   nf.log = [];
@@ -2553,10 +2556,14 @@ function nfStep3() {
   if (nf.slide > nPages) nf.slide = nPages;
   const titles = activeTitles();
   const titleAt = (i) => titles[i] || `${i + 1}번 슬라이드`;
-  const usePdf = !!uploadedPdf;
+  const staticSrc = staticSlideSrc(nf.slide);
+  const usePdf = !!uploadedPdf && !staticSrc;
+  const deckPics = usePdf || !!staticSrc;   // 필름 · 무대를 그림으로 (pdf.js 또는 미리 찍은 그림)
   const bodies = activeBodies();
 
-  const stageInner = usePdf
+  const stageInner = staticSrc
+    ? `<img id="slideImage" src="${staticSrc}" alt="">`
+    : usePdf
     ? `<canvas id="slidePdfCanvas" class="slide-pdf-canvas" aria-label="원본 PDF 슬라이드"></canvas>
        <div id="slideCardWrap" class="slide-doc-wrap" style="display:none"></div>`
     : (bodies && bodies.length
@@ -2570,11 +2577,11 @@ function nfStep3() {
     const on = i + 1 === nf.slide ? 'on' : '';
     const no = i + 1;
     const title = escapeHtml(String(titleAt(i)).slice(0, 28));
-    if (!usePdf) {
+    if (!deckPics) {
       return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드"><span class="film-no">${no}</span><span class="film-title">${title}</span></button>`;
     }
     return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드">
-      <img class="film-thumb" data-thumb-page="${no}" src="${slidePlaceholder(no)}" alt="">
+      <img class="film-thumb" data-thumb-page="${no}" src="${staticSlideSrc(no) || slidePlaceholder(no)}" alt="">
       <span class="film-cap"><span class="film-no">${no}</span><span class="film-title">${title}</span></span>
     </button>`;
   }).join('');
@@ -2598,7 +2605,7 @@ function nfStep3() {
         <div class="sf" id="stagefront" aria-hidden="true"></div>
       </aside>
       <div class="card viewer presentation-viewer">
-        <div class="viewer-stage ${usePdf ? 'has-pdf' : 'has-slide-doc'}">
+        <div class="viewer-stage ${deckPics ? 'has-pdf' : 'has-slide-doc'}">
           ${stageInner}
           <button type="button" class="stage-nav stage-prev" data-slide-nav="-1" aria-label="이전 슬라이드">‹</button>
           <button type="button" class="stage-nav stage-next" data-slide-nav="1" aria-label="다음 슬라이드">›</button>
@@ -2606,7 +2613,7 @@ function nfStep3() {
         <div class="viewer-caption">
           <strong id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</strong>
         </div>
-        <div class="slide-film ${usePdf ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
+        <div class="slide-film ${deckPics ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
       </div>
     </div>
     <p class="privacy-note">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB · 슬라이드 구간은 길이를 균등하게 나눠 채워요</p>`;
@@ -5561,6 +5568,12 @@ function deckTitle(no, live = isLiveReportSession()) {
 }
 
 /** 장 이미지. PDF 렌더가 붙기 전/불가능할 때도 남의 자료를 보여주지 않는다 (CLAUDE.md §2). */
+/** 이 장의 미리 찍은 그림 주소(부스 덱, assets/deck-slides) — 있으면 pdf.js 보다 먼저 쓴다. 없으면 '' */
+function staticSlideSrc(no) {
+  const src = ((nf && nf.slideImages) || [])[(Number(no) || 0) - 1];
+  return typeof src === 'string' && src.startsWith('assets/deck-slides/') ? src : '';
+}
+
 function deckImageSrc(no, live = isLiveReportSession()) {
   const own = (nf && nf.slideImages) || [];
   if (live) return own[no - 1] || slidePlaceholder(no);
@@ -5656,7 +5669,7 @@ async function paintDeckThumbs(root = document) {
   const slots = [...root.querySelectorAll('img[data-thumb-page]')];
   for (const img of slots) {
     const no = Number(img.dataset.thumbPage);
-    if (!no) continue;
+    if (!no || (img.getAttribute('src') || '').startsWith('assets/deck-slides/')) continue;   // 미리 찍은 그림이 이미 있다
     const url = await slideThumb(no);
     if (url && img.isConnected) img.src = url;
   }

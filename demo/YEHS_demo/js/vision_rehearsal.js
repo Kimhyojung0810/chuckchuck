@@ -710,7 +710,11 @@ function nfStep3Vision() {
   const titles = activeTitles();
   const titleAt = (i) => titles[i] || `${i + 1}번 슬라이드`;
   const bodies = activeBodies();
-  const stageInner = uploadedPdf
+  // 부스 덱은 미리 찍은 장 그림(assets/deck-slides)부터 — iPad 에서 pdf.js 렌더가 안 떴다 (10-06). moveSlideTo 가 #slideImage 를 바꾼다
+  const staticSrc = typeof staticSlideSrc === 'function' ? staticSlideSrc(nf.slide) : '';
+  const stageInner = staticSrc
+    ? `<img id="slideImage" class="vr-slide-img" src="${staticSrc}" alt="">`
+    : uploadedPdf
     ? `<canvas id="slidePdfCanvas" class="vr-slide-canvas" aria-label="원본 PDF 슬라이드"></canvas>
        <div id="slideCardWrap" class="vr-slide-doc" style="display:none"></div>`
     : (bodies && bodies.length

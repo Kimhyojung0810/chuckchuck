@@ -57,15 +57,76 @@ const BOOTH_DECKS = [
 // <deck-covers> scripts/render_deck_covers.py 가 다시 쓴다 — 손으로 고치지 말고 스크립트를 다시 돌린다
 /** 덱 고르기 카드의 표지 그림(미리보기 PDF 1장). 없는 덱만 pdf.js 로 그린다 — iPad 에서 pdf.js 표지가 안 떴다 (10-06) */
 const BOOTH_DECK_COVERS = {
-  "급속충전배터리열화A": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4 },
-  "급속충전배터리열화B": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4 },
-  "배달앱별점인플레이션A": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3 },
-  "배달앱별점인플레이션B": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3 },
-  "focus_notification": { src: 'assets/deck-covers/focus-notification.webp?v=h188c76ddb0', w: 800, h: 450, pages: 12 },
-  "수익률격차": { src: 'assets/deck-covers/investor-gap.webp?v=h36769deaf0', w: 800, h: 450, pages: 15 },
-  "미세플라스틱물벼룩번식A": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4 },
-  "미세플라스틱물벼룩번식B": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4 },
-  "수면발표": { src: 'assets/deck-covers/sleep.webp?v=h9effdef157', w: 800, h: 450, pages: 8 },
+  "급속충전배터리열화A": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4, slides: 'battery-fastcharge' },
+  "급속충전배터리열화B": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4, slides: 'battery-fastcharge' },
+  "배달앱별점인플레이션A": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3, slides: 'delivery-rating' },
+  "배달앱별점인플레이션B": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3, slides: 'delivery-rating' },
+  "focus_notification": { src: 'assets/deck-covers/focus-notification.webp?v=h188c76ddb0', w: 800, h: 450, pages: 12, slides: 'focus-notification' },
+  "수익률격차": { src: 'assets/deck-covers/investor-gap.webp?v=h36769deaf0', w: 800, h: 450, pages: 15, slides: 'investor-gap' },
+  "미세플라스틱물벼룩번식A": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4, slides: 'microplastic-daphnia' },
+  "미세플라스틱물벼룩번식B": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4, slides: 'microplastic-daphnia' },
+  "수면발표": { src: 'assets/deck-covers/sleep.webp?v=h9effdef157', w: 800, h: 450, pages: 8, slides: 'sleep' },
+};
+/** 장마다 미리 찍은 그림 — 파싱본의 파일 이름 · 장 수 · 1장 제목이 같을 때만 쓴다 (bqStaticSlidesFor). 없으면 pdf.js */
+const BOOTH_DECK_SLIDES = {
+  "battery-fastcharge": { file: "A_급속충전_배터리열화.pptx", first: "배 터 리 공 학 과 에 너 지 저 장 연 구 실 · 랩 미 팅 중 간 발 표 · 2 0 2 6 . 1 0 . 6 .", w: 960, h: 540, pages: [
+    'assets/deck-slides/battery-fastcharge/1.webp?v=hab238fc6bd',
+    'assets/deck-slides/battery-fastcharge/2.webp?v=hdec101030b',
+    'assets/deck-slides/battery-fastcharge/3.webp?v=h00b42334af',
+    'assets/deck-slides/battery-fastcharge/4.webp?v=h52785616fe',
+  ] },
+  "delivery-rating": { file: "C_배달앱_별점인플레이션.pptx", first: "이준호", w: 960, h: 540, pages: [
+    'assets/deck-slides/delivery-rating/1.webp?v=hdc4164f90b',
+    'assets/deck-slides/delivery-rating/2.webp?v=h21a7e51685',
+    'assets/deck-slides/delivery-rating/3.webp?v=h43ad7587a7',
+  ] },
+  "focus-notification": { file: "focus_notification_demo_designed.pdf", first: "척척발표 데모 용 10분 발표", w: 960, h: 540, pages: [
+    'assets/deck-slides/focus-notification/1.webp?v=h2353f15b62',
+    'assets/deck-slides/focus-notification/2.webp?v=h408001383b',
+    'assets/deck-slides/focus-notification/3.webp?v=h99daf2186d',
+    'assets/deck-slides/focus-notification/4.webp?v=he81bf9bdb4',
+    'assets/deck-slides/focus-notification/5.webp?v=he0d9420c17',
+    'assets/deck-slides/focus-notification/6.webp?v=h9dfb4f2960',
+    'assets/deck-slides/focus-notification/7.webp?v=hb88f50e70a',
+    'assets/deck-slides/focus-notification/8.webp?v=h3e0132887c',
+    'assets/deck-slides/focus-notification/9.webp?v=ha53d78de9e',
+    'assets/deck-slides/focus-notification/10.webp?v=h6c4b6e0d71',
+    'assets/deck-slides/focus-notification/11.webp?v=h3c2fbcf916',
+    'assets/deck-slides/focus-notification/12.webp?v=h5ecd213bff',
+  ] },
+  "investor-gap": { file: "[선정]개인투자자_수익률격차_분석_v2.pptx", first: "", w: 960, h: 540, pages: [
+    'assets/deck-slides/investor-gap/1.webp?v=hc144b94b2f',
+    'assets/deck-slides/investor-gap/2.webp?v=h5a1b52645e',
+    'assets/deck-slides/investor-gap/3.webp?v=hd85d2c0642',
+    'assets/deck-slides/investor-gap/4.webp?v=hc8da759e82',
+    'assets/deck-slides/investor-gap/5.webp?v=h698b28f4da',
+    'assets/deck-slides/investor-gap/6.webp?v=h973c6d27a1',
+    'assets/deck-slides/investor-gap/7.webp?v=h7086a53729',
+    'assets/deck-slides/investor-gap/8.webp?v=h7ad63057b8',
+    'assets/deck-slides/investor-gap/9.webp?v=h763f4aeff7',
+    'assets/deck-slides/investor-gap/10.webp?v=h9a43b00152',
+    'assets/deck-slides/investor-gap/11.webp?v=hb0725fd6a0',
+    'assets/deck-slides/investor-gap/12.webp?v=h6e82002f71',
+    'assets/deck-slides/investor-gap/13.webp?v=hffac1ca6af',
+    'assets/deck-slides/investor-gap/14.webp?v=hc9f8ccc0ab',
+    'assets/deck-slides/investor-gap/15.webp?v=h6c0a805d97',
+  ] },
+  "microplastic-daphnia": { file: "B_미세플라스틱_물벼룩번식.pptx", first: "환 경 생 명 공 학 과 수 생 독 성 연 구 실 · 연 구 실 세 미 나 · 2 0 2 6 . 1 0 . 6 .", w: 960, h: 540, pages: [
+    'assets/deck-slides/microplastic-daphnia/1.webp?v=hf42cb6287d',
+    'assets/deck-slides/microplastic-daphnia/2.webp?v=h09edea937f',
+    'assets/deck-slides/microplastic-daphnia/3.webp?v=h1fb6d5cf19',
+    'assets/deck-slides/microplastic-daphnia/4.webp?v=ha6248f1e15',
+  ] },
+  "sleep": { file: "척척발표_수면발표_정상슬라이드.pptx", first: "", w: 960, h: 540, pages: [
+    'assets/deck-slides/sleep/1.webp?v=h52d04f5ad0',
+    'assets/deck-slides/sleep/2.webp?v=h212905dd60',
+    'assets/deck-slides/sleep/3.webp?v=h701e4bce86',
+    'assets/deck-slides/sleep/4.webp?v=hfc025b1713',
+    'assets/deck-slides/sleep/5.webp?v=hf3620a9df0',
+    'assets/deck-slides/sleep/6.webp?v=h149b74d1ac',
+    'assets/deck-slides/sleep/7.webp?v=h6435def1ca',
+    'assets/deck-slides/sleep/8.webp?v=hb87de3644a',
+  ] },
 };
 // </deck-covers>
 /** 심사위원단 — 척척발표가 쓰는 모델 넷의 병아리 (chatter.js) */
@@ -727,6 +788,21 @@ function bqCoverPdf(sessionId) {
   return bq.covers.get(sessionId);
 }
 
+/**
+ * 이 파싱본에 맞는 장 그림 목록(assets/deck-slides) — 파일 이름 · 장 수 · 1장 제목(띄어쓰기 무시)이 다 같을 때만.
+ * applySlideDoc 이 nf.slideImages 로 쓴다. 맞는 게 없으면 null 이고 화면은 예전처럼 pdf.js 로 그린다 (iPad 10-06)
+ */
+function bqStaticSlidesFor(doc) {
+  if (!doc) return null;
+  const norm = (v) => String(v || '').normalize('NFC').replace(/\s+/g, '');
+  const slides = doc.slides || [];
+  const file = norm(doc.file_name);
+  const first = norm(slides[0] && slides[0].title);
+  const hit = Object.values(BOOTH_DECK_SLIDES).find((d) => norm(d.file) === file
+    && d.pages.length === slides.length && norm(d.first) === first);
+  return hit ? hit.pages.slice() : null;
+}
+
 /** 이 덱의 표지 그림(assets/deck-covers, scripts/render_deck_covers.py) — 없으면 null 이고 pdf.js 로 그린다 */
 function bqStaticCover(d) {
   const key = String((d && d.key) || '').normalize('NFC');
@@ -809,7 +885,7 @@ function bqPrepHtml(d) {
   return `
     <div class="bq-prep">
       <section class="bq-skim">
-        <div class="bq-skim-frame"><canvas id="bqSkimCanvas" aria-label="발표 슬라이드"></canvas><i id="bqSkimWait">슬라이드를 펼치고 있어요</i></div>
+        <div class="bq-skim-frame"><canvas id="bqSkimCanvas" aria-label="발표 슬라이드"></canvas><img id="bqSkimImg" alt="" width="960" height="540" hidden><i id="bqSkimWait">슬라이드를 펼치고 있어요</i></div>
         <div class="bq-skim-bar">
           <button type="button" class="bq-ghost bq-round" data-skim="-1" aria-label="이전 슬라이드">‹</button>
           <span class="bq-skim-meta"><b id="bqSkimNo" class="num"></b><span id="bqSkimTitle"></span></span>
@@ -1002,9 +1078,23 @@ function bqStartSkim() {
     const title = document.getElementById('bqSkimTitle');
     if (no) no.textContent = `${at} / ${total}`;
     if (title) title.textContent = ((nf.slideTitles || [])[at - 1] || '').trim();
+    const wait = document.getElementById('bqSkimWait');
+    // 미리 찍은 장 그림이 있으면 <img> 로 (iPad 에서 pdf.js 가 안 그려졌다 10-06), 없으면 예전처럼 pdf.js
+    const img = document.getElementById('bqSkimImg');
+    const src = staticSlideSrc(at);
+    if (img && src) {
+      img.alt = `${at}장${title && title.textContent ? ` · ${title.textContent}` : ''}`;
+      if (img.getAttribute('src') !== src) {
+        img.onload = () => { if (wait) wait.hidden = true; };
+        img.src = src;
+      }
+      img.hidden = false;
+      canvas.hidden = true;
+      if (img.complete && img.naturalWidth && wait) wait.hidden = true;
+      return;
+    }
     if (!uploadedPdf) return;
     const ok = await renderPdfToCanvas(at, canvas, { maxWidth: 1200 });
-    const wait = document.getElementById('bqSkimWait');
     if (ok && wait) wait.hidden = true;
   };
   const step = (dir) => { at = ((at - 1 + dir + total) % total) + 1; paint(); };
@@ -1085,7 +1175,8 @@ function bqQaSlideNo() {
 function bqSlideHtml(no, why = '질문이 가리키는') {
   const title = String((nf.slideTitles || [])[no - 1] || '').trim();
   const label = escapeHtml(`${no}장${title ? ` · ${title}` : ''}`);
-  const pic = uploadedPdf
+  // 미리 찍은 장 그림이 있으면 그것부터 (iPad 에서 pdf.js 가 안 그려졌다 10-06) — 없을 때만 pdf.js 캔버스
+  const pic = uploadedPdf && !staticSlideSrc(no)
     ? `<span class="bq-slide-pic"><canvas data-stage-page="${no}" role="img" aria-label="${label}"></canvas></span>`
     : `<span class="bq-slide-pic"><img src="${deckImageSrc(no)}" alt="${label}"></span>`;
   return `<figcaption>${why} <b>${no}장</b></figcaption>${pic}`;

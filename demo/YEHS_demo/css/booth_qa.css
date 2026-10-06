@@ -175,7 +175,7 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
   position: relative; flex: 1; min-height: 0; display: grid; place-items: center;
   border-radius: var(--r-print); background: rgba(255, 255, 255, .04); border: 1px solid var(--bq-line); overflow: hidden;
 }
-.bq-skim-frame canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; background: #fff; box-shadow: 0 16px 44px rgba(0, 0, 0, .4); }
+.bq-skim-frame canvas, .bq-skim-frame img { max-width: 100%; max-height: 100%; width: auto; height: auto; background: #fff; box-shadow: 0 16px 44px rgba(0, 0, 0, .4); }
 .bq-skim-frame i { position: absolute; font-style: normal; color: var(--bq-soft); }
 .bq-skim-bar { display: flex; align-items: center; gap: 14px; }
 .bq-skim-meta { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 12px; font-size: 17px; }
@@ -404,7 +404,7 @@ body.bq-open .sidenav, body.bq-open .topbar { visibility: hidden; }
   .bq-pick .bq-deck-go { padding-top: 2px; }
   /* 훑어보기 — 장 그림이 칸을 밀어 넘기던 것(넘기기 버튼 · 「다른 발표 고르기」 가 화면 밖)을 칸 안에 가둔다 */
   .bq-skim { gap: 10px; }
-  .bq-skim-frame canvas { position: absolute; inset: 0; margin: auto; }
+  .bq-skim-frame canvas, .bq-skim-frame img { position: absolute; inset: 0; margin: auto; }
   .bq-skim-tip { font-size: 14px; }
   .bq-build { gap: 10px; padding: 18px 20px; }
   .bq-build-steps { gap: 8px; margin-top: 2px; }
