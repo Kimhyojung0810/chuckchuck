@@ -742,7 +742,18 @@ async function liveTryModelText(q) {
 }
 
 /** 숫자와 단위를 흐린다 — 「0.34점 낮았다」 → 「꽤 낮았다」 */
-const LIVE_TRY_NUM_RE = /(?<![\d.,])(?:약\s*)?\d[\d,.]*(?:\s*(?:%p|%|mg\/L|만|천|억))?(?:\s*(?:배|건|명|개|회|점|일|주|시간|분|초|년|개월|달|원|사이클|cycle|번))?(?![\d.,]|\s*장)/g;
+const LIVE_TRY_NUM_RE = /(?<![\d.,])(?:약\s*)?\d[\d,.]*(?:\s*(?:%p|%|mg\/L|만|천|억))?(?:\s*(?:배|건|명|개|회|점|일|주|시간|분|초|년|개월|달|원|사이클|cycle|번))?(?![\d.,A-Za-z]|\s*장)/g;
+
+/** 흐린 말 다듬기 — 분수(「4분의 1」)는 통째로, 「어느 정도」 뒤 조사는 받침 없는 꼴로(을→를 · 이→가 · 은→는 · 과→와) */
+function liveTryBlur(text) {
+  return String(text || '')
+    .replace(/\d+\s*분의\s*\d+/g, '어느 정도')
+    .replace(LIVE_TRY_NUM_RE, (m, at, all) => (/^[\d.,]+$/.test(m) && /^[은는이가을를]/.test(all.slice(at + m.length)) ? m : '어느 정도'))
+    .replace(/어느 정도\s*(?:℃|°C|°)/g, '어느 정도')
+    .replace(/어느 정도(?:\s*(?:에서|부터|까지|와|과|,|~|-|→|대비|의)?\s*어느 정도)+/g, '어느 정도')
+    .replace(/어느 정도(을|이|은|과)(?![가-힣])/g, (m, j) => `어느 정도${{ 을: '를', 이: '가', 은: '는', 과: '와' }[j]}`)
+    .replace(/\s{2,}/g, ' ').trim();
+}
 
 /**
  * 엉성한 답 — 판정이 「반쯤 맞음」 으로 보고 되묻도록 기대 답을 흐린다.
@@ -764,12 +775,11 @@ function liveWeakAnswer(q) {
   // 숫자가 줄지어 선 조건 나열(「수온 20 ± 1 °C, 광주기 16:8시간, …」)은 다 흐리면 「어느 정도」 만 남는다 — 첫 덩어리만 말한다
   const many = (first.match(/\d[\d,.]*/g) || []).length >= 3;
   if (many) {
-    const lead = first.split(/,\s+|\s+·\s+/)[0].replace(LIVE_TRY_NUM_RE, '어느 정도').replace(/\s*[±~:–-]\s*어느 정도/g, '').replace(/\s*°C/g, '').trim();
+    const lead = liveTryBlur(first.split(/,\s+|\s+·\s+/)[0]).replace(/\s*[±~:–-]\s*어느 정도/g, '').replace(/\s*°C/g, '').trim();
     if (lead && lead !== first) return `음… ${lead.replace(/[.。]$/, '')}… 정확한 숫자랑 나머지는 기억이 안 나요.`;
   }
   if (first) {
-    // 단위 없는 수가 주어 · 목적어로 선 자리(「4.7은 …」)는 흐리면 말이 안 된다 — 그대로 둔다
-    const vague = first.replace(LIVE_TRY_NUM_RE, (m, at, all) => (/^[\d.,]+$/.test(m) && /^[은는이가을를]/.test(all.slice(at + m.length)) ? m : '어느 정도')).replace(/어느 정도(?:\s*(?:에서|부터|까지|와|과|,|~|-|→|대비)?\s*어느 정도)+/g, '어느 정도').replace(/\s{2,}/g, ' ').trim();
+    const vague = liveTryBlur(first);
     if (vague !== first) return `음… ${/[.!?。]$/.test(vague) ? vague : `${vague}.`} 정확한 숫자는 기억이 안 나요.`;
   }
   // 숫자가 없으면 앞 절만 — 이유 · 둘째 근거를 빼먹은 답 (「…상승해야 하는데, 실제로는 변화가 없었기 때문이에요」 → 앞 절)
