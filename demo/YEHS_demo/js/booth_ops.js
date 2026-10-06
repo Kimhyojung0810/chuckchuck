@@ -69,9 +69,14 @@ function bqBusyNow() {
   return !!mic.lastTextAt && Date.now() - mic.lastTextAt < BQ_SPEAKING_MS;
 }
 
+/** 자리 비움 자동 복귀 — 10-06 사용자: 「사람 인식 못 했을 때 자동으로 꺼지는 기능 없애줘」. 끄면 카메라 확인만 돈다.
+ *  스태프용 Esc 두 번 · 「처음으로」 · 마지막 질문 뒤 결과 화면 넘김은 그대로다 */
+const BQ_IDLE_AUTO_HOME = false;
+
 function bqIdleTick() {
   const now = Date.now();
   if (typeof bqCamCheckAlive === 'function') bqCamCheckAlive();
+  if (!BQ_IDLE_AUTO_HOME) return;
   if (bqBusyNow()) { bqOps.lastInput = now; return; }
   const cv = window.BoothCV ? BoothCV.snapshot() : null;
   const seeing = typeof bqCamLive === 'function' && bqCamLive() && cv && cv.status === 'ready';
