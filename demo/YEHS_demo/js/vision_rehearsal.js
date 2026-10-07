@@ -546,6 +546,30 @@ function visionSlideApply(slide) {
   slide.style.height = `${height}px`;
 }
 
+/**
+ * 자료 창을 손가락으로 옆으로 밀어 장을 넘긴다 — 왼쪽으로 밀면 다음 장, 오른쪽으로 밀면 앞 장 (10-07 사용자 「모바일에서도 ppt 넘기기 제대로」).
+ * 손가락(터치 · 펜)만 본다. 마우스 끌기는 옮기기 손잡이(⠿) 몫이다. 가로로 40px 넘게, 세로보다 확실히 가로로 밀었을 때만 넘긴다
+ */
+function visionSlideSwipe(layer) {
+  const stage = layer.querySelector('#vrSlide .vr-slide-stage');
+  if (!stage) return;
+  let start = null;
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || e.target.closest('button')) { start = null; return; }
+    start = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  });
+  const end = (e) => {
+    if (!start || e.pointerId !== start.id) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    start = null;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    if (typeof moveSlide === 'function') moveSlide(dx < 0 ? 1 : -1);
+  };
+  stage.addEventListener('pointerup', end);
+  stage.addEventListener('pointercancel', () => { start = null; });
+}
+
 /** 가로 기본 자료 창이 자막 두 줄에 남겨 두는 높이(px) — .vr-caption 13px × 1.4 × 2 + 아래 여백 */
 const VISION_CAPTION_ROOM = 46;
 
@@ -773,6 +797,7 @@ function nfStep3Vision() {
   document.body.classList.add('vr-open');
   visionWatchDock(layer);
   visionSlideBind(layer);
+  visionSlideSwipe(layer);
 
   const leave = $('#vrLeave');
   if (leave) leave.addEventListener('click', (e) => {

@@ -331,9 +331,56 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   .vr-alpha span { display: none; }
   .vr-line { font-size: 20px; }
   .vr-top-fill { display: none; }
+  .vr-top #vrCamToggle { margin-left: auto; }   /* 채우개(.vr-top-fill)를 접었으니 카메라 · 나가기를 오른쪽 끝으로 */
   .vr-call .btn.vr-glass { padding: 0 10px; font-size: 13px; }
   .vr-side { display: none; }
 }
+/* 조작줄의 「이전 · 다음」 은 첫 장 · 마지막 장에서도 자리를 지킨다 — 사라지면 「발표 시작하기」 · 「녹음으로 대신하기」 가 장마다 옆으로 밀려
+   폰에서 누르려던 버튼이 손가락 밑에서 도망갔다 (10-07 사용자 「모바일에서도 ppt 넘기기 제대로」). 자료 위 ‹ › 는 그대로 숨긴다 */
+#vrCall .vr-dock .vr-nav[hidden] { display: inline-flex; visibility: hidden; }
+/* 자료 창은 손가락으로 옆으로 밀어 넘긴다 (visionSlideSwipe) — 세로 스크롤 몸짓은 브라우저에 그대로 */
+#vrCall .vr-slide-stage { touch-action: pan-y; }
+
+/* 폰 세로 — 자료를 화면 폭 그대로 맨 위에 두고, 그 밑 왼쪽은 내 얼굴 · 오른쪽은 삐약이. 예전엔 자료가 화면 절반(174px)이라 글자를 못 읽었다 (10-07).
+   조작줄은 두 줄 — 위 「이전 · 발표 시작/마치기 · 다음」, 아래 「녹음으로 대신하기」 를 폭 가득 */
+@media (max-width: 800px) and (orientation: portrait) {
+  .vr-call { --vr-dock: 132px; }
+  .vr-fore {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: calc((100vw - 2 * var(--vr-gap)) * 9 / 16 + 72px) minmax(0, 1fr);
+  }
+  .vr-slide-slot { grid-column: 1 / -1; grid-row: 1; }
+  .vr-gap { display: none; }
+  /* 삐약이는 자료 밑 맨 아래에 한 줄로 눕힌다 — 삐약이 · 이름표 · 다시 듣기. 세로로 쌓으면 아이폰 SE(375×667)에서 남는 칸(≈150px)을 넘어
+     자료 창 밑으로 숨었다. 위의 빈 자리로는 내 얼굴이 보인다 */
+  .vr-bird {
+    grid-column: 1 / -1; grid-row: 2;
+    flex-direction: row; flex-wrap: wrap; align-items: flex-end; align-content: flex-end; justify-content: flex-end; gap: 4px 10px;
+  }
+  .vr-line { flex: 0 0 100%; order: -1; margin: 0; text-align: center; font-size: 18px; padding: 6px 12px; }
+  .vr-chickbox { width: min(26vw, 18vh); }
+  .vr-tag { margin: 0 0 6px; padding: 5px 12px 6px; }
+  .vr-name { font-size: 15px; }
+  .vr-status { font-size: 13px; }
+  .vr-ear { margin: 0 0 6px; height: 40px; padding: 0 14px; }
+  .vr-side { display: block; width: 36px; height: 52px; font-size: 24px; }
+  .vr-side-prev { left: 6px; }
+  .vr-side-next { right: 6px; }
+  #vrCall .vr-dock {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  }
+  #vrCall .vr-dock > [data-slide-nav="-1"] { grid-column: 1; grid-row: 1; }
+  #vrCall .vr-dock > .vr-rec { grid-column: 2; grid-row: 1; gap: 6px 10px; }
+  #vrCall .vr-dock > [data-slide-nav="1"] { grid-column: 3; grid-row: 1; }
+  #vrCall .vr-dock > .rh-rec-finish { grid-column: 1 / -1; grid-row: 2; width: 100%; }
+  .vr-rec .rec-copy { align-items: center; text-align: center; font-size: 13px; }
+}
+/* 폰 가로 — 키가 낮아(≈390px) 삐약이가 위 띠(카메라 끄기 · 나가기) 밑으로 올라가 머리가 가렸다. 삐약이를 줄인다 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .vr-chickbox { width: min(30vh, 100%); }
+  .vr-ear { height: 36px; margin-top: 4px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #vrCall .vr-bird[data-cue="listen"] .ch-eye-hi,
   #vrCall .vr-bird[data-cue="listen"] .ch-eyes,

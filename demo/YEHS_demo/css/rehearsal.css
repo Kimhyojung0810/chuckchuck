@@ -341,3 +341,14 @@
 .bq[data-variant="call"] .bc-slide figcaption b { color: var(--rl-green); }
 /* 질문 줄바꿈은 어절 단위로 — 「…결과다」 / 「를 자료 3장은」 처럼 조사가 줄 머리로 넘어갔다 */
 .bq[data-variant="call"] .bc-ask p { word-break: keep-all; overflow-wrap: anywhere; }
+
+/* 폰 세로 조작줄(vision_rehearsal.css 의 두 줄 격자) — 가로에서 두 끝내기를 가운데로 모으던 auto 여백이 격자 칸을 비틀지 않게 */
+@media (max-width: 800px) and (orientation: portrait) {
+  #vrCall[data-flow="rehearsal"] .vr-dock > .vr-rec { margin: 0; }
+  #vrCall[data-flow="rehearsal"] .vr-dock > .rh-rec-finish { margin: 0; }
+}
+/* 좁은 폰(≤400px) — 위 띠의 「나가기」 가 오른쪽 끝에 걸렸다(375px). 「발표 리허설」 꼬리표를 접고 알약을 줄인다 */
+@media (max-width: 400px) {
+  #vrCall .vr-pill.rh-brand small { display: none; }
+  #vrCall .vr-pill.rh-brand { font-size: 16px; }
+}
