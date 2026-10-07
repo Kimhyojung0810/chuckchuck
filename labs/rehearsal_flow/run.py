@@ -374,14 +374,9 @@ def run(args) -> Path:
         def finish_with_recording(live: bool) -> None:
             # 「녹음 파일로 대신하기」 → 시트(이 발표의 녹음 m:ss · 내 녹음 파일) → 분석
             t0 = time.time()
-            # 10-04: 자료를 마지막 장까지 넘겨야 누를 수 있다 — 그 전엔 잠겨 있는지 보고, 끝까지 넘긴 뒤 풀리는지 본다
-            last = page.evaluate("rehearsalCount()")
-            gate = {"slide_before": page.evaluate("Number(nf.slide)"), "last": last,
-                    "locked_before": page.evaluate("document.getElementById('rhRecFinish').disabled")}
-            while page.evaluate("Number(nf.slide)") < last and page.is_visible('.vr-dock [data-slide-nav="1"]'):
-                page.click('.vr-dock [data-slide-nav="1"]')
-                page.wait_for_timeout(250)
-            gate["open_at_last"] = not page.evaluate("document.getElementById('rhRecFinish').disabled")
+            # 10-07: 발표 화면에 들어오자마자 누를 수 있다 (예전 10-04 는 마지막 장까지 넘겨야 열렸다) — 넘기지 않고 바로 연다
+            gate = {"slide_before": page.evaluate("Number(nf.slide)"), "last": page.evaluate("rehearsalCount()"),
+                    "open_now": not page.evaluate("document.getElementById('rhRecFinish').disabled")}
             page.click("#rhRecFinish")
             page.wait_for_selector("#rhRecSheet [data-sheet='file']", timeout=5000)
             page.wait_for_timeout(400)
