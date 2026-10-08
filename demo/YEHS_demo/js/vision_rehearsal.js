@@ -1098,6 +1098,7 @@ function nfStep3Vision() {
   syncRehearsalNav();
   paintRehearsalSlide(nf.slide);
   startPrecomputeNoteTimer();
-  if (nf.mic === 'on' && !ccRuntime) startRecClock();
+  // SDK 없는 mock 녹음만 — 예전엔 renderNew 와 여기서 둘 다 걸어 새로 고친 뒤 시계가 두 배로 갔다 (10-08)
+  if (nf.mic === 'on' && !ccRuntime && !window.ChuckchuckBridge) startRecClock();
   visionCoachStart();
 }

@@ -844,9 +844,21 @@ function nextBandHtml() {
 
 /* ══ 새 발표 연습 ══ */
 let nf = loadSession('new-flow') || {};
+/* 새로 고침은 녹음기를 살리지 못한다 — MediaRecorder · 마이크는 페이지와 같이 죽는다. 저장된 mic 'on' 을 그대로 두면 녹음기 없이
+   「발표 중」 시계만(두 배 빠르게) 돌고, 「발표 마치기」 뒤 분석이 영영 시작되지 않은 채 기다림 화면에 멈췄다 (10-08).
+   멈춘 것으로 되돌리고, 녹음 칸이 한 번 그렇다고 말한다 (renderRecPanel) */
+let nfRecCutByReload = false;
 /* 마이크를 여는 중인가 (startRec) — 그 사이 「발표 시작하기」 를 또 누르면 녹음기가 둘 생겼다. 앞의 것은 아무도 멈추지 않아
    나간 뒤에도 마이크가 켜져 있었고, 두 녹음기의 시계가 번갈아 nf.sec 를 썼다 (10-08) */
 let recStarting = false;
+if (nf && nf.mic === 'on') {
+  nf.mic = 'idle';
+  nf.sec = 0;
+  nf.log = [];
+  nf.visits = { [Number(nf.slide) || 1]: 1 };
+  nfRecCutByReload = true;
+  saveSession('new-flow', nf);
+}
 /** F-01 결과 (sessionStorage 밖, 메모리만) */
 let nfSlideDoc = null;
 /** F-03/F-04 마지막 테이크 */
@@ -2652,7 +2664,8 @@ function nfStep3() {
   // 무대가 먼저다. 필름 썸네일은 그 뒤에 순차로 채워진다(캐시라 두 번째부터는 즉시)
   if (usePdf) paintDeckThumbs(app);
   startPrecomputeNoteTimer();
-  if (nf.mic === 'on' && !ccRuntime) startRecClock();
+  // SDK 없는 mock 녹음만 화면 시계를 다시 건다 — SDK 가 있으면 시계는 녹음기 몫이다(없으면 녹음도 없다)
+  if (nf.mic === 'on' && !ccRuntime && !window.ChuckchuckBridge) startRecClock();
   wireFreshPracticeButtons(app);
 }
 
@@ -2796,7 +2809,7 @@ function renderRecPanel() {
        세워지므로 길을 안 열어 주면 이미 끝난 분석으로 다시 갈 수가 없다 */
     const hasTake = !!(nf.pipelineOut || nf.pipelineError);
     p.innerHTML = `
-      <div class="rec-copy"><span>${nf.useSample ? '샘플 발표를 직접 녹음해보세요' : '준비되면 시작해요'}</span>${nf.useSample ? '<p>녹음은 실제로 진행되고, 분석 결과만 준비된 샘플을 사용해요.</p>' : ''}</div>
+      <div class="rec-copy"><span>${nf.useSample ? '샘플 발표를 직접 녹음해보세요' : '준비되면 시작해요'}</span>${nf.useSample ? '<p>녹음은 실제로 진행되고, 분석 결과만 준비된 샘플을 사용해요.</p>' : ''}${nfRecCutByReload ? '<p class="rec-cut-note" role="status">새로 고치면 녹음이 이어지지 않아요. 「발표 시작하기」를 누르면 처음부터 다시 녹음해요.</p>' : ''}</div>
       ${hasTake ? '<button class="btn btn-secondary" id="recResume">아까 발표로 질문 준비하기</button>' : ''}
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
       ${nf.useSample ? '<button class="btn btn-text btn-sm" id="sampleNoMic">마이크 없이 분석 화면만 보기</button>' : ''}
@@ -2984,6 +2997,7 @@ function markRecStarting(on) {
 
 async function startRec() {
   if (recStarting || (nf && nf.mic === 'on')) return;
+  nfRecCutByReload = false;
   markRecStarting(true);
   try {
     await showEntranceRitual();

@@ -1344,6 +1344,14 @@ function rhWaitTick() {
     questionsReady: live, buildFailed: !!qaBuildFailed, building: !!qaBuilding,
     hasTake: !!(nf.uploadedTake || Number(nf.sec) > 0 || (typeof ccLastTake !== 'undefined' && ccLastTake)), lastPhase: (layer && layer.dataset.lastPhase) || '',
   });
+  // 분석을 시작할 테이크도 단계도 없다 — 녹음기 없이 마친 발표(예전 새로 고침 뒤)는 아무것도 오지 않는데 다섯 줄이
+  // 「기다리는 중이에요」 로 영영 서 있었다 (10-08). 멈췄다고 보이고 「다시 발표하기」 를 연다
+  const orphan = !phase && !nf.pipelineStartedAt && !nf.pipelineOut && !nf.uploadedTake && !qaReady && !live
+    && !(typeof ccLastTake !== 'undefined' && ccLastTake);
+  if (orphan) {
+    st.rec = 'fail';
+    if (!nf.pipelineError) nf.pipelineError = '녹음이 남지 않아서 분석을 시작하지 못했어요';
+  }
   Object.entries(st).forEach(([k, v]) => bqSetStep(k, v));
   const stopped = Object.values(st).includes('fail');
   const el = document.getElementById('bqElapsed');
