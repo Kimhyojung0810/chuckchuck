@@ -310,6 +310,12 @@ def _dev_open() -> bool:
     return DEV_ROUTES or bool(getattr(_REQ, "team", False))
 
 
+def _transcript_reuse_open() -> bool:
+    """저장된 받아쓰기를 돌려주는가 — 개발 경로가 열렸거나(팀 · DEMO_DEV_ROUTES) 이 VM 안에서 곧장 온 요청(실험실 · 운영 curl).
+    세션 id 는 공개 덱 목록에 실려 나가므로 열쇠가 못 된다 (10-08 보안 점검)."""
+    return _dev_open() or bool(getattr(_REQ, "trusted", False))
+
+
 def _host_name(raw: str) -> str:
     """Host 헤더에서 포트를 뗀 이름. `[::1]:8799` 도 처리한다."""
     h = (raw or "").strip().lower()
@@ -2148,7 +2154,13 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         return self._json(200, doc)
 
     def _handle_cached_transcript(self, parsed):
-        """세션에 남긴 받아쓰기 (재녹음·재과금 없이 이어서). 규칙은 위와 같다."""
+        """세션에 남긴 받아쓰기 (재녹음·재과금 없이 이어서). 규칙은 위와 같다.
+
+        **팀 브라우저 · 이 VM 안의 요청만 연다** (10-08). 공개 /api/v1/dev/decks 가 부스 덱의 세션 id 를 싣고, 그 id 는
+        누가 같은 덱을 다시 올리면 그 사람의 세션으로 바뀐다 — id 만 알면 남의 리허설 받아쓰기를 읽을 수 있었다.
+        공개 화면(#/rehearsal · /booth/qa · /booth/call)은 이 길을 쓰지 않는다 (#/replay 는 팀 전용)."""
+        if not _transcript_reuse_open():
+            return self._json(404, {"error": "not found"})
         sid = self._query_session_id(parsed)
         doc = ARCHIVE.read_artifact(sid, "transcript") if sid else None
         if doc is None:
@@ -3019,6 +3031,9 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         # 말하지 않기 위한 길이다 (2026-08-08 사용자 요청). 없으면 404 로 분명히
         # 알린다. 조용히 실 STT 로 흘리면 아낀 줄 알았던 과금이 그대로 나간다.
         if body.get("reuse"):
+            # 저장된 받아쓰기를 돌려주는 길이라 /api/v1/cached-transcript 와 같은 문을 쓴다 (팀 · 이 VM 만, 10-08)
+            if not _transcript_reuse_open():
+                return self._json(404, {"error": "no_cache", "message": "이 발표로 저장된 받아쓰기가 없어요. 한 번은 실제로 말해야 남아요."})
             sid = _session_id_of(body)
             saved = ARCHIVE.read_artifact(sid, "transcript") if sid else None
             if saved is None:

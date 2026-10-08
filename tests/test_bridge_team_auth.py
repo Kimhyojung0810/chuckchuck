@@ -150,3 +150,30 @@ def test_공개_방문자는_샘플_받아쓰기를_못_받는다(team):
     h = FakeHandler("/api/v1/transcribe", headers=JSON, body=json.dumps({"fixture": True}).encode())
     h.do_POST()
     assert h.last[0] == 400 and h.last[1]["error"] == "fixture_disabled"
+
+
+def test_저장된_받아쓰기는_공개_방문자가_세션_id_로_못_읽는다(team):
+    """10-08 보안 점검: 공개 /api/v1/dev/decks 가 부스 덱의 세션 id 를 싣고, 같은 덱을 다시 올리면 그 id 가 올린 사람의
+    세션으로 바뀐다 — id 만으로 남의 리허설 받아쓰기를 읽었다. 팀 브라우저 · 이 VM 안의 요청만 연다."""
+    from tests.test_bridge_security import _open
+
+    sid = _open(team, consent=False, learner="visitor_a")
+    team.put_artifact(sid, "transcript", {"full_text": "남의 발표 받아쓰기", "by_slide": []})
+    public = {"X-Forwarded-For": "203.0.113.9"}   # Funnel 이 붙이는 흔적 — 바깥 요청
+
+    def get(cookie=""):
+        h = CookieHandler(f"/api/v1/cached-transcript?session_id={sid}",
+                          headers={**public, **({"Cookie": f"{bridge.TEAM_COOKIE}={cookie}"} if cookie else {})})
+        h.do_GET()
+        return h.last
+
+    assert get()[0] == 404
+    reuse = FakeHandler("/api/v1/transcribe", headers={**JSON, **public},
+                        body=json.dumps({"reuse": True, "session_id": sid}).encode())
+    reuse.do_POST()
+    assert reuse.last[0] == 404 and "남의" not in json.dumps(reuse.last[1], ensure_ascii=False)
+    tok = _cookie_value(_form("/auth", f"code={CODE}"))
+    assert get(tok) == (200, {"full_text": "남의 발표 받아쓰기", "by_slide": []})
+    local = CookieHandler(f"/api/v1/cached-transcript?session_id={sid}")   # 이 VM 안에서 곧장(실험실 · 운영 curl)
+    local.do_GET()
+    assert local.last[0] == 200
