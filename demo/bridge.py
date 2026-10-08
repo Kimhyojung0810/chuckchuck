@@ -1604,9 +1604,15 @@ class Handler(SimpleHTTPRequestHandler):
         if MIN_BODY_KBPS > 0:
             WATCHDOG.watch(self, SOCKET_TIMEOUT + length / (MIN_BODY_KBPS * 1024), "body")
         try:
-            return self.rfile.read(length)
+            data = self.rfile.read(length)
         finally:
             WATCHDOG.unwatch(self)
+        # 끝까지 못 받았다 — 업로드 중에 「다른 파일 고르기」 · 새로고침으로 끊긴 연결이다. 예전엔 잘린 파일을 그대로
+        # 파서(Upstage, 과금)에 넘기고 세션까지 남겼다 (10-08). 연결이 끊긴 것으로 다룬다 (do_POST 가 조용히 닫는다)
+        if len(data) < length:
+            self.close_connection = True
+            raise ConnectionAbortedError(f"본문이 덜 왔어요 {len(data)}/{length}")
+        return data
 
     def _read_big_body(self, length: int) -> bytes | None:
         """1MB 넘는 공개 본문 — IP(칸)당 동시에 IP_UPLOADS 개까지만 받는다. 넘으면 읽지 않고 429 로 닫는다 (None)."""

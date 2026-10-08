@@ -409,3 +409,18 @@ def test_transcribe_는_질문_코칭_답변을_세션_발표_받아쓰기로_�
     assert archived == []
     _post("/api/v1/transcribe", {"session_id": "20260930T015107Z_abcdef12", "audio_base64": audio, "marks": []})
     assert archived == [("transcript", None)]
+
+
+def test_덜_온_업로드는_파서에_넘기지_않는다(real, monkeypatch):
+    """10-08: 업로드 중 「다른 파일 고르기」 · 새로고침으로 끊긴 연결의 잘린 PDF 가 Upstage(과금)로 가고 세션이 남았다."""
+    called = []
+    monkeypatch.setattr(bridge.Handler, "_handle_paid", lambda self, parsed, raw: called.append(len(raw)))
+    monkeypatch.setattr(bridge.Handler, "_route_post", lambda self, parsed, raw: called.append(len(raw)))
+    body = b"--x\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.pdf\"\r\n\r\n%PDF-1.4 " + b"0" * 500
+    h = FakeHandler("/api/v1/parse", headers={"Content-Type": "multipart/form-data; boundary=x",
+                                               "Content-Length": str(len(body) + 4000)}, body=body)
+    h.do_POST()
+    assert called == [] and h.sent == [] and h.close_connection is True
+    whole = FakeHandler("/api/v1/parse", headers={"Content-Type": "multipart/form-data; boundary=x"}, body=body)
+    whole.do_POST()
+    assert called == [len(body)]
