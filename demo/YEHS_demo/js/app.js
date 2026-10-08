@@ -844,6 +844,9 @@ function nextBandHtml() {
 
 /* ══ 새 발표 연습 ══ */
 let nf = loadSession('new-flow') || {};
+/* 마이크를 여는 중인가 (startRec) — 그 사이 「발표 시작하기」 를 또 누르면 녹음기가 둘 생겼다. 앞의 것은 아무도 멈추지 않아
+   나간 뒤에도 마이크가 켜져 있었고, 두 녹음기의 시계가 번갈아 nf.sec 를 썼다 (10-08) */
+let recStarting = false;
 /** F-01 결과 (sessionStorage 밖, 메모리만) */
 let nfSlideDoc = null;
 /** F-03/F-04 마지막 테이크 */
@@ -2799,6 +2802,7 @@ function renderRecPanel() {
       ${nf.useSample ? '<button class="btn btn-text btn-sm" id="sampleNoMic">마이크 없이 분석 화면만 보기</button>' : ''}
       ${recUploadHtml()}`;
     $('#recStart').addEventListener('click', startRec);
+    if (recStarting) markRecStarting(true);
     if (hasTake) {
       $('#recResume').addEventListener('click', () => { nf.step = 3; renderNew(); });
     }
@@ -2969,25 +2973,58 @@ function showEntranceRitual() {
 
 /* chuckchuck SDK 런타임 (F-03/F-04). bridge 모듈 로드 전엔 null. */
 
+function markRecStarting(on) {
+  recStarting = on;
+  const btn = document.getElementById('recStart');
+  if (!btn) return;
+  btn.disabled = on;
+  btn.setAttribute('aria-busy', on ? 'true' : 'false');
+  btn.textContent = on ? '마이크를 여는 중이에요' : '발표 시작하기';
+}
+
 async function startRec() {
-  await showEntranceRitual();
+  if (recStarting || (nf && nf.mic === 'on')) return;
+  markRecStarting(true);
+  try {
+    await showEntranceRitual();
+  } catch (_) { /* 연출이 실패해도 녹음은 연다 */ }
   if (typeof visionResetReactions === 'function') visionResetReactions();
   else if (nf) nf.visionCues = [];
   const bridge = window.ChuckchuckBridge;
   if (bridge) {
-    ccRuntime = bridge.attachRehearsalRuntime(nf, {
+    stopLiveRehearsal();   // 혹시 남은 녹음기는 먼저 멈춘다 — 참조를 덮어쓰면 멈출 길을 잃는다
+    const startSlide = Number(nf.slide) || 1;
+    const rt = bridge.attachRehearsalRuntime(nf, {
       totalSlides: rehearsalCount(),
       onLevel: audienceOnLevel,
       onTick: (sec) => {
+        if (ccRuntime !== rt) return;   // 버려진 녹음기의 시계는 화면을 쓰지 않는다
         nf.sec = Math.floor(sec);
         const c = $('#clock'); if (c) c.textContent = fmt(nf.sec);
         audienceOnTick();
       },
     });
-    ccRuntime.start(nf.slide).then(() => {
+    ccRuntime = rt;
+    rt.start(startSlide).then(() => {
+      markRecStarting(false);
+      if (ccRuntime !== rt) {
+        // 마이크를 여는 사이 나갔다(나가기 · 뒤로 가기) — 열린 마이크를 바로 닫는다
+        try { Promise.resolve(rt.finish()).catch(() => {}); } catch (_) { /* 이미 멈춤 */ }
+        if (nf.mic === 'on') { nf.mic = 'idle'; nf.sec = 0; }
+        return;
+      }
+      // 마이크를 여는 사이 넘긴 장 — 화면은 넘어갔는데 녹음은 첫 장에 머물러, 그 장에서 한 말이 앞 장 몫이 됐다 (10-08).
+      // 0.3초도 안 머문 첫 장 구간은 녹음기가 버린다(rehearsal-recorder _closeSlide)
+      const now = Number(nf.slide) || 1;
+      if (now !== startSlide) {
+        rt.goTo(now);
+        nf.log = [{ txt: `00:00 → ${now}번 슬라이드`, re: false }];
+      }
       renderRecPanel();
       saveSession('new-flow', nf);
     }).catch(() => {
+      markRecStarting(false);
+      if (ccRuntime !== rt) return;
       nf.mic = 'denied';
       ccRuntime = null;
       renderRecPanel();
@@ -2995,6 +3032,7 @@ async function startRec() {
     });
     return;
   }
+  markRecStarting(false);
   // SDK 없을 때 데모 mock 폴백
   nf.mic = 'on'; nf.sec = 0;
   nf.visits = { [nf.slide]: 1 };
