@@ -802,6 +802,7 @@ function nextBandHtml() {
         <p>자료에 있는 개념과 실제로 말한 것을 하나씩 대조해서, 설명이 빠진 곳을 짚어줘요.</p>
         <span class="h-start-act">
           <a class="btn btn-primary btn-sm" href="#/new" data-fresh-practice>자료 올리기</a>
+          <a class="btn btn-secondary btn-sm" href="#/rehearsal">카메라 앞에서 리허설하기</a>
         </span>
       </section>`;
   }

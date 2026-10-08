@@ -62,6 +62,10 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
     <li><a href="#/" data-nav="">
       <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.6 12 3.8l8.5 6.8V20a1 1 0 0 1-1 1h-4.6v-6H9.1v6H4.5a1 1 0 0 1-1-1z"/></svg>
       <span>내 발표</span></a></li>
+    <!-- 카메라 앞 리허설(#/rehearsal) — 자료를 올리고 카메라 앞에서 발표 → 질문 3개 → 리포트 (10-08 공개 사이트 편입) -->
+    <li><a href="#/rehearsal" data-nav="rehearsal">
+      <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="6.4" width="12.6" height="11.2" rx="2.4"/><path d="m15.8 10.4 5-2.8v8.8l-5-2.8"/></svg>
+      <span>카메라 앞 리허설</span></a></li>
     <li><a href="#/report" data-nav="report">
       <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.2" width="16" height="17.6" rx="2.4"/><path d="M8.4 13.4v3.2M12 9.6v7M15.6 12.2v4.4"/></svg>
       <span>리포트</span></a></li>
@@ -140,7 +144,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/qa_live.js?v=qlbc32"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv3"></script>
-<script src="js/app.js?v=qlbc56"></script>
+<script src="js/app.js?v=qlbc57"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkxbc11"></script>
 </body>
