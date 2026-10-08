@@ -308,6 +308,43 @@ def test_delete_는_있든_없든_204_이고_보관소와_메모리를_같이_�
     assert h.last[0] == 404                      # 경로 모양 자체가 다르면 404
 
 
+def test_공개_방문자의_delete_는_시연_덱_파싱본을_지우지_않는다(archive, monkeypatch):
+    """10-08: 공개 /dev/decks 가 내주는 시연 덱 cached_session_id 로 아무나 DELETE → 부스 · 리허설 덱이 죽던 구멍."""
+    import hashlib
+    deck = b"%PDF-booth-deck"
+    sha = hashlib.sha256(deck).hexdigest()
+    monkeypatch.setattr(bridge, "_deck_shas", lambda: {sha: {"key": "booth"}})
+    monkeypatch.setitem(bridge._DECK_SHAS, "at", 0.0)
+
+    def public_gate(self):
+        bridge._REQ.team = False
+        bridge._REQ.trusted = False
+        return True
+    monkeypatch.setattr(FakeHandler, "_gate", public_gate)
+
+    booth = archive.new_id()
+    archive.open(booth, consent=False, file_name="d.pdf", ext=".pdf", upload=deck, sha256=sha)
+    mine = archive.new_id()
+    archive.open(mine, consent=False, file_name="m.pdf", ext=".pdf", upload=b"%PDF-mine", sha256="ab" * 32)
+
+    h = FakeHandler(f"/api/v1/sessions/{booth}")
+    h.do_DELETE()
+    assert h.status == 204 and archive.manifest(booth) is not None     # 응답은 같고 덱은 남는다
+
+    h = FakeHandler(f"/api/v1/sessions/{mine}")
+    h.do_DELETE()
+    assert h.status == 204 and archive.manifest(mine) is None          # 내 기록 지우기는 그대로
+
+    def team_gate(self):
+        bridge._REQ.team = True
+        bridge._REQ.trusted = True
+        return True
+    monkeypatch.setattr(FakeHandler, "_gate", team_gate)
+    h = FakeHandler(f"/api/v1/sessions/{booth}")
+    h.do_DELETE()
+    assert h.status == 204 and archive.manifest(booth) is None         # 팀 브라우저는 지울 수 있다
+
+
 def test_feedback_은_동의_세션에만_쌓이고_계약이_거른다(archive):
     sid = archive.new_id()
     archive.open(sid, consent=True, file_name="a.pdf", ext=".pdf", upload=b"%PDF")

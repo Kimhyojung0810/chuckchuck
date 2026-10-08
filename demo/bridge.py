@@ -3295,6 +3295,11 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             if not (parsed.path.startswith("/api/v1/sessions/") and parsed.path.count("/") == 4):
                 return self._json(404, {"error": "not found"})
             sid = self._path_session_id(parsed.path)
+            if sid and not getattr(_REQ, "trusted", False) and _deck_session(sid):
+                # 저장소 ppt/ 덱의 파싱본은 팀 시연 자료다 — 방문자가 지우면 /booth/qa · /rehearsal 목록에서 그 덱이 죽는다 (10-08).
+                # 응답은 똑같이 204 (있든 없든 204 와 같은 까닭)
+                sys.stderr.write(f"[bridge] session delete 막음(시연 덱) sid={sid}\n")
+                sid = None
             if sid:
                 removed = ARCHIVE.delete(sid)
                 STORE.forget(sid)
@@ -4028,6 +4033,21 @@ def _deck_shas() -> dict[str, dict]:
 
 _BOOTH_SHAS: dict = {"at": 0.0, "shas": frozenset()}
 BOOTH_SHAS_TTL_SEC = 600
+
+
+_DECK_SHAS: dict = {"at": 0.0, "shas": frozenset()}
+
+
+def _deck_session(sid: str | None) -> bool:
+    """이 세션의 자료가 저장소 ppt/ 덱(부스 · 리허설 시연 · 팀 자료) 원본인가 — 올린 파일 sha256 으로 본다.
+    하루 청소(_prune_once)가 남기는 것과 같은 집합이다."""
+    if not sid:
+        return False
+    now = time.monotonic()
+    if now - _DECK_SHAS["at"] > BOOTH_SHAS_TTL_SEC:
+        _DECK_SHAS.update(at=now, shas=frozenset(_deck_shas().keys()))
+    rec = ARCHIVE.manifest(sid)
+    return bool(rec and rec.upload_sha256 and rec.upload_sha256 in _DECK_SHAS["shas"])
 
 
 def _booth_session(sid: str | None) -> bool:
