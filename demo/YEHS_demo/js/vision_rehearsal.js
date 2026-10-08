@@ -879,8 +879,11 @@ function visionSlideBind(layer, { repaint = null } = {}) {
       visionSlideSetBox(visionSlideClamp(next));
       visionSlideApply(slide);
     };
+    const handle = e.currentTarget;
     const up = () => {
       slide.classList.remove('is-drag', 'is-resize');
+      // 마우스로 끈 뒤 손잡이에 초점이 남으면 클리커의 화살표가 창을 옮겼다 (10-08) — 초점을 놓아 장 넘기기로 돌려준다
+      if (handle && document.activeElement === handle) handle.blur();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       visionSlideSave();
@@ -902,6 +905,7 @@ function visionSlideBind(layer, { repaint = null } = {}) {
       const step = e.shiftKey ? 48 : 16;
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
       e.preventDefault();
+      e.stopPropagation(); // 창만 옮긴다 — 문서의 장 넘기기(onRehearsalKeydown)까지 가면 한 번에 둘 다 했다 (10-08)
       const start = visionSlideRead(slide);
       if (e.key === 'ArrowLeft') start.x -= step;
       if (e.key === 'ArrowRight') start.x += step;
@@ -916,6 +920,7 @@ function visionSlideBind(layer, { repaint = null } = {}) {
       const step = e.shiftKey ? 48 : 16;
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
       e.preventDefault();
+      e.stopPropagation(); // 창만 옮긴다 — 문서의 장 넘기기(onRehearsalKeydown)까지 가면 한 번에 둘 다 했다 (10-08)
       const start = visionSlideRead(slide);
       if (e.key === 'ArrowLeft') start.w -= step;
       if (e.key === 'ArrowRight') start.w += step;
@@ -932,6 +937,8 @@ function visionSlideBind(layer, { repaint = null } = {}) {
       slide.style.setProperty('--vr-slide-alpha', String(visionSlide.opacity));
     });
     alpha.addEventListener('change', visionSlideSave);
+    // 손으로 맞춘 뒤엔 초점을 놓는다 — 남으면 클리커 키가 막대로 갔다 (10-08)
+    alpha.addEventListener('pointerup', () => alpha.blur());
   }
 }
 

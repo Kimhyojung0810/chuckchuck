@@ -895,6 +895,14 @@ function ccPdfOpen(src) {
 function onRehearsalKeydown(e) {
   if (nf.step !== 2) return;
   const tag = (e.target && e.target.tagName) || '';
+  // 자료 창의 불투명도 막대(#vrSlideAlpha)에 초점이 남아도 클리커의 PageUp/PageDown 은 장을 넘긴다 — 예전엔 막대가 키를 먹어
+  // 불투명도만 바뀌고 장이 안 넘어갔다 (10-08). 화살표는 막대 몫으로 둔다(키보드로 일부러 막대에 간 사람)
+  const onAlpha = tag === 'INPUT' && e.target.type === 'range' && !!e.target.closest('#vrSlide');
+  if (onAlpha && (e.key === 'PageUp' || e.key === 'PageDown')) {
+    e.preventDefault();
+    moveSlide(e.key === 'PageUp' ? -1 : 1);
+    return;
+  }
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   // 시트(나가기 · 녹음 고르기)가 떠 있으면 장을 넘기지 않는다 — 시트 뒤에서 몰래 넘어갔다
   if (document.querySelector('#vrCall .bq-sheet-wrap')) return;
