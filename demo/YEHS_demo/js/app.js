@@ -5338,6 +5338,12 @@ async function renderReport() {
     renderProfileReport(DATA.reportProfiles[reportId]);
     return;
   }
+  /* 새로고침한 리포트 — 원본 PDF(uploadedPdf)는 메모리에만 있어 사라졌고, 이 화면은 그것을 다시 받지 않아 「슬라이드로 보는 발표」 가
+     번호 자리표시자 · 빈 썸네일로 남았다 (10-08). 세션 id 는 sessionStorage 에 있으니 서버 미리보기 PDF 를 받아 둔 뒤 그린다.
+     느린 연결에서 화면이 오래 비지 않게 잠깐만 기다린다 — 넘기면 전처럼 자리표시자다 */
+  if (!uploadedPdf && !rSampleMode && isLiveReportSession() && nf.sessionId) {
+    await Promise.race([ensurePreviewPdf(typeof nfSlideDoc !== 'undefined' ? nfSlideDoc : null), new Promise((r) => setTimeout(r, 5000))]);
+  }
   app.className = 'wide';
   // 객석 수다는 70초쯤 걸린다. 여기서부터 받아 두면 요약·판정을 보는 동안 채워진다
   prefetchChatter();
