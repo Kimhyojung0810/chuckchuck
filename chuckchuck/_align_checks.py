@@ -15,6 +15,8 @@ F-11 정합 판정의 **결정적 대조** — LLM 판정 뒤에 코드가 발�
 
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass
 
 from ._deck_claims import Conflict, Deck, DeckLine, clauses, conflict_family, conflicts, content_stems, num_label, numbers
@@ -441,6 +443,32 @@ def _said_on_slide(c: Conflict, deck: Deck) -> bool:
     return False
 
 
+_DIGITS_RE = re.compile(r"\d[\d.,]*")
+
+
+def stt_digit_echo(said: str, deck_value: str) -> bool:
+    """
+    받아쓰기가 숫자 하나를 **겹쳐** 적은 꼴인가 — 자료 「0.34점」 을 「0.334점」 으로(「영 점 삼 사」 의 삼이 두 번). 발화 쪽 숫자에서
+    **이웃한 같은 숫자 하나**를 빼면 자료 숫자가 될 때만. 10-06 부스 녹음(배달 C-2): 이걸 모순으로 잡아 「자료 2장의 수치와 달라요. 어느 쪽이
+    맞나요?」 가 첫 질문이 됐다. 「0.34 ↔ 0.4」 처럼 겹친 숫자가 없는 차이는 진짜 틀린 말이라 그대로 둔다.
+    """
+    a = _DIGITS_RE.search(said or "")
+    b = _DIGITS_RE.search(deck_value or "")
+    if not a or not b:
+        return False
+    x, y = a.group(0).replace(",", ""), b.group(0).replace(",", "")
+    if len(x) != len(y) + 1:
+        return False
+    if not any(x[i] == x[i + 1] and x[:i] + x[i + 1:] == y for i in range(len(x) - 1)):
+        return False
+    try:
+        fx, fy = float(x), float(y)
+    except ValueError:
+        return False
+    # 값이 10% 안에서만 — 「1100명 ↔ 110명」 은 0 하나가 겹친 꼴이어도 열 배 차이라 진짜 틀린 말일 수 있다
+    return fy != 0 and abs(fx - fy) <= 0.1 * abs(fy)
+
+
 def contradictions(graph: ConceptGraph, utts: list[Utterance], deck: Deck) -> list[Contra]:
     """
     발화 문장마다 자료 원문과 숫자·방향을 견준다 (`_deck_claims.conflicts`). 받아쓰기 수 표기(「49퍼센트」)는 먼저 자료 표기로 바꾼다.
@@ -464,10 +492,12 @@ def contradictions(graph: ConceptGraph, utts: list[Utterance], deck: Deck) -> li
                 continue
             precise = _precise_line(c, deck)
             deck_line = precise.text if precise is not None else c.deck_line
+            said, deck_said = _number_pair(c.claim, deck_line, c) if c.kind in _NUMBER_KINDS else ("", "")
+            if said and deck_said and stt_digit_echo(said, deck_said):
+                continue                        # 받아쓰기가 숫자 하나를 겹쳐 적은 것 — 발표자가 틀린 게 아니다
             node = node_for(graph, c.slide_no, f"{deck_line} {c.claim}", taken)
             if node is None:
                 continue
-            said, deck_said = _number_pair(c.claim, deck_line, c) if c.kind in _NUMBER_KINDS else ("", "")
             taken.add(node.id)
             out.append(Contra(node.id, u, c.kind, c.slide_no, deck_line, said, deck_said, c.relation,
                               clause_quote(u.text, c.claim)))

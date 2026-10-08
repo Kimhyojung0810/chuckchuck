@@ -94,25 +94,28 @@ test('큰 소리 한 점은 귀를 막지 않는다', () => {
   eq(V.desiredCue([{ t: 0, level: 0.9 }], 0), 'idle');
 });
 
-function wave(every, low, high, until) {
-  const step = 80;
+function pulses(period, width, low, high, until, step = 40) {
   const events = [];
-  for (let t = 0, i = 0; t <= until; t += step, i += 1) {
-    events.push({ t, level: i % every === 0 ? high : low });
+  for (let t = 0; t <= until; t += step) {
+    events.push({ t, level: (t % period) < width ? high : low });
   }
   return V.desiredCue(events, until);
 }
 
 test('받아쓰기 없이 말이 빠르면 우웅', () => {
-  eq(wave(2, 0.05, 0.12, 1600), 'fast');
+  eq(pulses(130, 80, 0.05, 0.12, 1600), 'fast');
+});
+
+test('받아쓰기 없이 권장 속도면 듣기만 한다', () => {
+  eq(pulses(200, 80, 0.05, 0.12, 2400), 'listen');
 });
 
 test('받아쓰기 없이 말이 느리면 하품', () => {
-  eq(wave(10, 0.05, 0.12, 3200), 'slow');
+  eq(pulses(480, 80, 0.05, 0.12, 3200), 'slow');
 });
 
 test('작게 오르내리면 잘 안 들려', () => {
-  eq(wave(2, 0.004, 0.018, 1600), 'quiet');
+  eq(pulses(200, 80, 0.004, 0.018, 1600), 'quiet');
 });
 
 test('반응은 잠깐 유지된다 — 우웅 직후 재료가 사라져도 바로 풀리지 않는다', () => {

@@ -47,3 +47,15 @@ def test_진짜_반대_방향은_계속_잡는다():
     deck = _deck("종목 선정 능력과 수익률의 상관은 약함")
     said = spoken_numbers("종목 선정 능력과 수익률의 상관이 강하게 나왔고")
     assert [c for c in conflicts(said, deck) if c.kind == "direction"]
+
+
+def test_받아쓰기의_12만_4천_건은_자료_124380건과_같은_값이다():
+    """10-06 사용자: 「124,000건과 124,380건 중 어느 쪽이 맞나요」 — 받아쓰기 「12만 4천 건」 을 12 와 4000 두 수로 쪼개 읽어 모순이 됐다."""
+    from chuckchuck._deck_claims import numbers
+    from chuckchuck._spoken import spoken_numbers
+    deck = numbers("리뷰 124,380건")[0]
+    for said in ("리뷰 12만 4천 건", "약 12만 4천여 건의 리뷰", "12만 4380건"):
+        got = numbers(spoken_numbers(said))
+        assert len(got) == 1 and got[0].close_value(deck), (said, got)
+    assert not numbers(spoken_numbers("리뷰 3만 2천 건"))[0].close_value(deck)     # 크게 다른 수는 그대로 다르다
+    assert spoken_numbers("30만 원") == "30만원"                                    # 돈은 예전 길 그대로

@@ -39,7 +39,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from chuckchuck.contracts import (
@@ -361,14 +361,20 @@ class SessionArchive:
             if self.safe_id(rec.session_id) and mpath.parent.name == rec.session_id:
                 yield mpath.parent, rec
 
-    def prune(self, now: float | None = None) -> list[str]:
+    def prune(self, now: float | None = None, keep_sha256: Iterable[str] = ()) -> list[str]:
         """
         만료 세션을 지운다. 동의 없음 → cache_ttl, 동의 → retention (About 화면의 약속),
         stage_cache 는 mtime 으로 stage_ttl. 지운 id 를 돌려주니 로그에 남길 것.
+
+        keep_sha256 — 원본이 이 sha256 인 세션은 지우지 않는다. 저장소 ppt/ 의 시연 덱(팀 자료라 방문자 개인 정보가 아니다)
+        파싱본이다: 10-05 하루 청소가 부스 덱 파싱본까지 지워 /rehearsal · /booth/qa 의 발표 목록이 통째로 비었다.
         """
         now = self._clock() if now is None else now
+        keep = frozenset(keep_sha256)
         gone: list[str] = []
         for p, rec in list(self._manifests()):
+            if keep and rec.upload_sha256 in keep:
+                continue
             limit = self._retention if rec.consent_learning else self._cache_ttl
             if now - rec.updated_at > limit:
                 if self.delete(rec.session_id):

@@ -598,6 +598,8 @@ function renderQaLive() {
   qa.started = true;
   if (!L.awaitEnd) presentLiveQuestion();
   saveSession('qa-flow', qa);
+  // 리허설 흐름(#/rehearsal)은 부스 글라스 화상판에서 묻는다 — 질문 · 판정은 같다 (js/rehearsal.js)
+  if (typeof rehearsalFlowOn === 'function' && rehearsalFlowOn() && typeof renderQaLiveRehearsal === 'function') return renderQaLiveRehearsal();
   if (typeof callFlowOn === 'function' && callFlowOn()) return renderQaLiveCall();
   if (typeof boothQaOn === 'function' && boothQaOn()) return renderQaLiveBooth();
   app.innerHTML = `
@@ -673,13 +675,14 @@ function liveInputHtml() {
   }
   const hints = liveHints();
   return `
-    <div class="qa-input-label"><b>내 말로 답해보세요</b><span>한 문장만 말해도 괜찮아요</span></div>
+    <div class="qa-input-label"><b>내 말로 답해 보세요</b><span>한 문장만 말해도 괜찮아요</span></div>
     <textarea id="liveAnswer" rows="3" ${L.busy ? 'disabled' : ''}
       placeholder="예: 이 방법의 핵심은 …이에요"></textarea>
     <div class="step-actions">
       <button class="btn btn-primary" id="liveSend" type="button" ${L.busy ? 'disabled' : ''}>${liveSendLabel()}</button>
       ${micBtnHTML(L.busy)}
     </div>
+    ${liveTryHtml(booth, L.busy)}
     <div class="step-actions step-actions-sub">
       <button class="btn btn-text" id="liveStuck" type="button" ${L.busy ? 'disabled' : ''}>${stuckLabel()}</button>
       ${hints.length > L.hintLevel ? `<button class="btn btn-text" id="liveHint" type="button" ${L.busy ? 'disabled' : ''}>힌트 ${L.hintLevel + 1}단계 보기</button>` : ''}
@@ -693,6 +696,143 @@ function liveInputHtml() {
  * 부스 체험은 3분이라, 막힌 질문 하나를 넘기는 데 「모르겠어요」 세 번 + 「건너뛰고 다음 질문」 네 번을 눌러야 했다 (10-01 2차 점검).
  * 사다리(막힘 1·2·3단)·판정 요청은 그대로다 — 이미 있는 출구 버튼을 더 일찍 보일 뿐이다. 앱 화면(#/qa)은 그대로 liveStalled 만 본다.
  */
+/**
+ * 부스 체험 줄 — 자료 내용을 모르는 사람도 질문 → 답 → 판정 → 되묻기 고리를 겪어 보게 (10-06 사용자:
+ * 「모르는 사람도 QA 할 수 있도록 정답보기」 · 「잘 못했을 때 얼마나 치밀하게 하는지 이걸 느껴야」).
+ * - 정답 보기: 이 질문이 기대하는 답의 골자를 펼친다 → 「이 답으로 보내기」 로 그대로 보내 판정을 받는다
+ * - 엉성하게 답해 보기: 골자에서 숫자를 흐리거나 반만 말한 답(함정이면 틀린 전제를 받아들이는 답)을 보내 코치가 어떻게 파고드는지 본다
+ * 부스(/booth/qa · /booth/call)와 리허설 화상판(#/rehearsal/qa)에만. 판정 · 사다리는 그대로다 — 보낼 글을 대신 채울 뿐이다.
+ */
+function liveTryOn(booth) {
+  return !!booth || (typeof rhFlowOn === 'function' && rhFlowOn());
+}
+
+function liveTryHtml(booth, busy) {
+  if (!liveTryOn(booth)) return '';
+  const dis = busy ? 'disabled' : '';
+  return `
+    <div class="qa-try" id="liveTry">
+      <span class="qa-try-label">발표 내용을 몰라도 괜찮아요</span>
+      <button class="btn btn-text qa-try-btn" id="liveTryModel" type="button" aria-expanded="false" aria-controls="liveTryPanel" ${dis}>정답 보기</button>
+      <button class="btn btn-text qa-try-btn" id="liveTryWeak" type="button" ${dis}>대충 답해 보기</button>
+    </div>
+    <div class="qa-try-panel" id="liveTryPanel" hidden>
+      <p class="qa-try-model" id="liveTryText"></p>
+      <button class="btn btn-text qa-try-btn" id="liveTrySend" type="button" ${dis}>이 답으로 보내기</button>
+    </div>`;
+}
+
+/** 지금 답할 질문 — 되물음이 떠 있어도 기대 답의 골자는 원래 질문의 것이다 */
+function liveTryQuestion() {
+  const L = qa.live;
+  return L && L.questions ? L.questions[L.qi] : null;
+}
+
+/** 함정 질문인가 — 질문 사본에 골자가 없거나 틀린 전제가 깔려 있다 */
+function liveTryIsTrap(q) {
+  return !!(q && (q.trap || q.trap_premise || q.gist_withheld));
+}
+
+/** 정답 칸에 보일 글 — 함정은 서버에서 받아 온다(liveFetchReveal). 없으면 '' */
+async function liveTryModelText(q) {
+  if (!q) return '';
+  const local = liveWholeSentences(q.answer_gist || '');
+  if (local && !q.gist_withheld) return local;
+  return liveWholeSentences(await liveFetchReveal(q)) || local;
+}
+
+/** 숫자와 단위를 흐린다 — 「0.34점 낮았다」 → 「꽤 낮았다」 */
+const LIVE_TRY_NUM_RE = /(?<![\d.,])(?:약\s*)?\d[\d,.]*(?:\s*(?:%p|%|mg\/L|만|천|억))?(?:\s*(?:배|건|명|개|곳|회|점|일|주|시간|분|초|년|개월|달|원|사이클|cycle|번))?(?![\d.,A-Za-z]|\s*장)/g;
+
+/** 흐린 말 다듬기 — 분수(「4분의 1」)는 통째로, 「어느 정도」 뒤 조사는 받침 없는 꼴로(을→를 · 이→가 · 은→는 · 과→와) */
+function liveTryBlur(text) {
+  return String(text || '')
+    .replace(/\d+\s*분의\s*\d+/g, '어느 정도')
+    .replace(LIVE_TRY_NUM_RE, (m, at, all) => (/^[\d.,]+$/.test(m) && /^[은는이가을를]/.test(all.slice(at + m.length)) ? m : '어느 정도'))
+    .replace(/어느 정도\s*(?:℃|°C|°)/g, '어느 정도')
+    .replace(/어느 정도(?:\s*(?:에서|부터|까지|와|과|,|~|-|→|대비|의)?\s*어느 정도)+/g, '어느 정도')
+    .replace(/[+±−-]\s*어느 정도/g, '어느 정도')
+    .replace(/어느 정도으로/g, '어느 정도로')
+    .replace(/어느 정도(을|이|은|과)(?![가-힣])/g, (m, j) => `어느 정도${{ 을: '를', 이: '가', 은: '는', 과: '와' }[j]}`)
+    .replace(/\s{2,}/g, ' ').trim();
+}
+
+/**
+ * 엉성한 답 — 판정이 「반쯤 맞음」 으로 보고 되묻도록 기대 답을 흐린다.
+ * 함정: 틀린 전제를 그대로 받아들인다. 요소가 둘 이상인 질문: 첫 요소만. 숫자가 있으면: 숫자를 흐린다.
+ * 그 밖: 골자 없이 얼버무린다.
+ */
+function liveWeakAnswer(q) {
+  if (!q) return '';
+  if (liveTryIsTrap(q)) return '네, 말씀하신 그대로예요. 자료에도 그렇게 나와 있어요.';
+  // 발표 말과 자료 수치가 어긋난 질문 — 발표에서 한 말을 고집한다 (골자는 「자료 3장은 … 바로잡아야 해요」 같은 해설이라 흐릴 게 아니다)
+  if (liveContradiction(q)) return '발표에서 말한 게 맞아요. 제가 기억하기로는 그랬어요.';
+  const parts = (q.answer_gist_parts || []).map((t) => String(t || '').trim()).filter(Boolean);
+  if (parts.length >= 2) return `음… ${parts[0].replace(/[.。]$/, '')}. 나머지는 잘 기억이 안 나요.`;
+  // 자료 줄로 조립한 골자(「자료는 이렇게 말해요 — A · B (3장)」)는 머리말 · 장 목록을 떼고 말로
+  const gist = liveWholeSentences(String(q.answer_gist || '').trim())
+    .replace(/^(?:질문의 전제와 달리,\s*|자료는 이렇게 말해요\s*—\s*)+/, '').replace(/\s*\([\d,\s]+장\)\s*$/, '');
+  // 첫 문장 — 「4.7점」 의 점은 문장 끝이 아니다 (끝 부호 뒤에 빈칸이나 글 끝이 와야 끝)
+  const first = (gist.match(/^.*?[.!?。](?=\s|$)/) || [gist])[0].trim();
+  // 숫자가 줄지어 선 조건 나열(「수온 20 ± 1 °C, 광주기 16:8시간, …」)은 다 흐리면 「어느 정도」 만 남는다 — 첫 덩어리만 말한다
+  const many = (first.match(/\d[\d,.]*/g) || []).length >= 3;
+  if (many) {
+    const lead = liveTryBlur(first.split(/,\s+|\s+·\s+/)[0]).replace(/\s*[±~:–-]\s*어느 정도/g, '').replace(/\s*°C/g, '').trim();
+    if (lead && lead !== first) return `음… ${lead.replace(/[.。]$/, '')}… 정확한 숫자랑 나머지는 기억이 안 나요.`;
+  }
+  if (first) {
+    const vague = liveTryBlur(first);
+    if (vague !== first) return `음… ${/[.!?。]$/.test(vague) ? vague : `${vague}.`} 정확한 숫자는 기억이 안 나요.`;
+  }
+  // 숫자가 없으면 앞 절만 — 이유 · 둘째 근거를 빼먹은 답 (「…상승해야 하는데, 실제로는 변화가 없었기 때문이에요」 → 앞 절)
+  const head = (first || gist).split(/,\s+|\s+·\s+|\s+—\s+|(?<=는데|지만|으며|이고|하고)\s+/)[0].trim();
+  if (head && head.length >= 6 && head.length < (first || gist).length - 4) return `음… ${head.replace(/[.。]$/, '')}… 그다음은 잘 기억이 안 나요.`;
+  return '음… 자료에 나온 그대로예요. 자세히는 잘 기억이 안 나요.';
+}
+
+/** 체험 줄이 채운 글을 그대로 보낸다 — 켜 둔 마이크는 받아쓴 글이 칸을 덮지 않게 먼저 버린다 */
+function liveTrySubmit(text) {
+  const L = qa.live;
+  const ta = $('#liveAnswer');
+  if (!L || L.busy || !ta || !text) return;
+  if (typeof dropLiveMic === 'function') dropLiveMic();
+  ta.value = text;
+  submitLiveAnswer();
+}
+
+function wireLiveTry() {
+  const model = $('#liveTryModel');
+  if (!model) return;
+  model.addEventListener('click', async () => {
+    const panel = $('#liveTryPanel');
+    const out = $('#liveTryText');
+    if (!panel || !out) return;
+    const open = panel.hidden;
+    panel.hidden = !open;
+    model.setAttribute('aria-expanded', String(open));
+    model.textContent = open ? '정답 접기' : '정답 보기';
+    if (!open || out.dataset.qid === String(liveTryKey())) return;
+    const q = liveTryQuestion();
+    out.textContent = '정답을 불러오고 있어요';
+    const text = await liveTryModelText(q);
+    if (liveTryQuestion() !== q) return;
+    out.dataset.qid = String(liveTryKey());
+    out.dataset.answer = text;
+    out.textContent = text || '이 질문은 정답을 보여 줄 수 없어요. 「대충 답해 보기」로 해 보세요.';
+    const send = $('#liveTrySend');
+    if (send) send.hidden = !text;
+  });
+  const send = $('#liveTrySend');
+  if (send) send.addEventListener('click', () => liveTrySubmit(($('#liveTryText') || {}).dataset?.answer || ''));
+  const weak = $('#liveTryWeak');
+  if (weak) weak.addEventListener('click', () => liveTrySubmit(liveWeakAnswer(liveTryQuestion())));
+}
+
+function liveTryKey() {
+  const L = qa.live;
+  return L ? `${L.qi}|${L.turn || 0}` : '';
+}
+
 function liveBoothExit(booth) {
   const L = qa.live;
   return !!booth && !L.retell && (L.turns || []).some((t) => t.gaveUp);
@@ -738,6 +878,7 @@ function wireLiveInput() {
   on('#liveSkipRetell', () => closeRetell(''));
   on('#liveFinish', () => finishLiveQaEarly());
   on('#liveSeeResult', () => { qaLiveEnd(); window.scrollTo(0, 0); });
+  wireLiveTry();
   // 힌트는 말풍선으로 붙고(growStream), 버튼은 남은 칸 수에 맞춰 다시 그려진다
   on('#liveHint', () => { if (openNextHint()) { growStream(); refreshLiveChrome(); } });
 
@@ -2106,6 +2247,8 @@ function qaLiveEnd() {
   // 저장 성공 여부를 상단 라벨이 그대로 말한다 — 실패했는데 "저장됨" 이라고
   // 하면 사용자는 기록이 있는 줄 알고 떠난다 (§14 정직한 상태 유지).
   const historySaved = recordQaHistory();
+  // 리허설 흐름은 결과 카드 대신 상세 리포트로 바로 — 기록은 위에서 일반 앱과 똑같이 남겼다 (js/rehearsal.js)
+  if (typeof rehearsalFlowOn === 'function' && rehearsalFlowOn() && typeof rehearsalQaDone === 'function') { rehearsalQaDone(); return; }
   const L = qa.live;
   // 상세 리포트에 개념 판정(발화 분석)이 있는가 — 자료만 쓴 세션은 없다. 없으면 행 화살표도 안 단다 (09-30 L-03: 빈 리포트로 데려갔다)
   const speech = typeof qaReportHasJudge === 'function' ? qaReportHasJudge() : true;
@@ -2173,7 +2316,7 @@ function qaLiveEnd() {
         : '<p class="note">첫 질문에 답하면 여기에 쌓여요.</p>'}
     </div>
     <div class="cere-actions">
-      <a class="btn btn-primary" href="#/report">상세 리포트 보기</a>
+      <a class="btn btn-primary" href="${typeof screenHash === 'function' ? screenHash('report') : '#/report'}">상세 리포트 보기</a>
       <button class="btn btn-text" id="liveAgain" type="button">같은 질문으로 다시</button>
       <a class="btn btn-text" href="#/">홈으로</a>
     </div>`;
@@ -2192,7 +2335,7 @@ function qaLiveEnd() {
 
   $$('.qres-row:not(.is-flat)').forEach((el) => el.addEventListener('click', () => {
     const node = el.dataset.node || '';
-    location.hash = '#/report';
+    location.hash = typeof screenHash === 'function' ? screenHash('report') : '#/report';
     if (node && typeof window.goJudge === 'function') {
       requestAnimationFrame(() => window.goJudge(node));
     }

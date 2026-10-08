@@ -54,6 +54,81 @@ const BOOTH_DECKS = [
   { key: '미세플라스틱물벼룩번식A', title: '미세플라스틱은 물벼룩의 번식을 줄이는가', kind: '연구실 세미나' },
   { key: '배달앱별점인플레이션A', title: '별점은 왜 4.7에 몰리는가', kind: '학술대회 발표 리허설' },
 ];
+// <deck-covers> scripts/render_deck_covers.py 가 다시 쓴다 — 손으로 고치지 말고 스크립트를 다시 돌린다
+/** 덱 고르기 카드의 표지 그림(미리보기 PDF 1장). 없는 덱만 pdf.js 로 그린다 — iPad 에서 pdf.js 표지가 안 떴다 (10-06) */
+const BOOTH_DECK_COVERS = {
+  "급속충전배터리열화A": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4, slides: 'battery-fastcharge' },
+  "급속충전배터리열화B": { src: 'assets/deck-covers/battery-fastcharge.webp?v=hda2b1aef4b', w: 800, h: 450, pages: 4, slides: 'battery-fastcharge' },
+  "배달앱별점인플레이션A": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3, slides: 'delivery-rating' },
+  "배달앱별점인플레이션B": { src: 'assets/deck-covers/delivery-rating.webp?v=h895b1a2780', w: 800, h: 450, pages: 3, slides: 'delivery-rating' },
+  "focus_notification": { src: 'assets/deck-covers/focus-notification.webp?v=h188c76ddb0', w: 800, h: 450, pages: 12, slides: 'focus-notification' },
+  "수익률격차": { src: 'assets/deck-covers/investor-gap.webp?v=h36769deaf0', w: 800, h: 450, pages: 15, slides: 'investor-gap' },
+  "미세플라스틱물벼룩번식A": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4, slides: 'microplastic-daphnia' },
+  "미세플라스틱물벼룩번식B": { src: 'assets/deck-covers/microplastic-daphnia.webp?v=h8863114af9', w: 800, h: 450, pages: 4, slides: 'microplastic-daphnia' },
+  "수면발표": { src: 'assets/deck-covers/sleep.webp?v=h9effdef157', w: 800, h: 450, pages: 8, slides: 'sleep' },
+};
+/** 장마다 미리 찍은 그림 — 파싱본의 파일 이름 · 장 수 · 1장 제목이 같을 때만 쓴다 (bqStaticSlidesFor). 없으면 pdf.js */
+const BOOTH_DECK_SLIDES = {
+  "battery-fastcharge": { file: "A_급속충전_배터리열화.pptx", first: "배 터 리 공 학 과 에 너 지 저 장 연 구 실 · 랩 미 팅 중 간 발 표 · 2 0 2 6 . 1 0 . 6 .", w: 960, h: 540, pages: [
+    'assets/deck-slides/battery-fastcharge/1.webp?v=hab238fc6bd',
+    'assets/deck-slides/battery-fastcharge/2.webp?v=hdec101030b',
+    'assets/deck-slides/battery-fastcharge/3.webp?v=h00b42334af',
+    'assets/deck-slides/battery-fastcharge/4.webp?v=h52785616fe',
+  ] },
+  "delivery-rating": { file: "C_배달앱_별점인플레이션.pptx", first: "이준호", w: 960, h: 540, pages: [
+    'assets/deck-slides/delivery-rating/1.webp?v=hdc4164f90b',
+    'assets/deck-slides/delivery-rating/2.webp?v=h21a7e51685',
+    'assets/deck-slides/delivery-rating/3.webp?v=h43ad7587a7',
+  ] },
+  "focus-notification": { file: "focus_notification_demo_designed.pdf", first: "척척발표 데모 용 10분 발표", w: 960, h: 540, pages: [
+    'assets/deck-slides/focus-notification/1.webp?v=h2353f15b62',
+    'assets/deck-slides/focus-notification/2.webp?v=h408001383b',
+    'assets/deck-slides/focus-notification/3.webp?v=h99daf2186d',
+    'assets/deck-slides/focus-notification/4.webp?v=he81bf9bdb4',
+    'assets/deck-slides/focus-notification/5.webp?v=he0d9420c17',
+    'assets/deck-slides/focus-notification/6.webp?v=h9dfb4f2960',
+    'assets/deck-slides/focus-notification/7.webp?v=hb88f50e70a',
+    'assets/deck-slides/focus-notification/8.webp?v=h3e0132887c',
+    'assets/deck-slides/focus-notification/9.webp?v=ha53d78de9e',
+    'assets/deck-slides/focus-notification/10.webp?v=h6c4b6e0d71',
+    'assets/deck-slides/focus-notification/11.webp?v=h3c2fbcf916',
+    'assets/deck-slides/focus-notification/12.webp?v=h5ecd213bff',
+  ] },
+  "investor-gap": { file: "[선정]개인투자자_수익률격차_분석_v2.pptx", first: "", w: 960, h: 540, pages: [
+    'assets/deck-slides/investor-gap/1.webp?v=hc144b94b2f',
+    'assets/deck-slides/investor-gap/2.webp?v=h5a1b52645e',
+    'assets/deck-slides/investor-gap/3.webp?v=hd85d2c0642',
+    'assets/deck-slides/investor-gap/4.webp?v=hc8da759e82',
+    'assets/deck-slides/investor-gap/5.webp?v=h698b28f4da',
+    'assets/deck-slides/investor-gap/6.webp?v=h973c6d27a1',
+    'assets/deck-slides/investor-gap/7.webp?v=h7086a53729',
+    'assets/deck-slides/investor-gap/8.webp?v=h7ad63057b8',
+    'assets/deck-slides/investor-gap/9.webp?v=h763f4aeff7',
+    'assets/deck-slides/investor-gap/10.webp?v=h9a43b00152',
+    'assets/deck-slides/investor-gap/11.webp?v=hb0725fd6a0',
+    'assets/deck-slides/investor-gap/12.webp?v=h6e82002f71',
+    'assets/deck-slides/investor-gap/13.webp?v=hffac1ca6af',
+    'assets/deck-slides/investor-gap/14.webp?v=hc9f8ccc0ab',
+    'assets/deck-slides/investor-gap/15.webp?v=h6c0a805d97',
+  ] },
+  "microplastic-daphnia": { file: "B_미세플라스틱_물벼룩번식.pptx", first: "환 경 생 명 공 학 과 수 생 독 성 연 구 실 · 연 구 실 세 미 나 · 2 0 2 6 . 1 0 . 6 .", w: 960, h: 540, pages: [
+    'assets/deck-slides/microplastic-daphnia/1.webp?v=hf42cb6287d',
+    'assets/deck-slides/microplastic-daphnia/2.webp?v=h09edea937f',
+    'assets/deck-slides/microplastic-daphnia/3.webp?v=h1fb6d5cf19',
+    'assets/deck-slides/microplastic-daphnia/4.webp?v=ha6248f1e15',
+  ] },
+  "sleep": { file: "척척발표_수면발표_정상슬라이드.pptx", first: "", w: 960, h: 540, pages: [
+    'assets/deck-slides/sleep/1.webp?v=h52d04f5ad0',
+    'assets/deck-slides/sleep/2.webp?v=h212905dd60',
+    'assets/deck-slides/sleep/3.webp?v=h701e4bce86',
+    'assets/deck-slides/sleep/4.webp?v=hfc025b1713',
+    'assets/deck-slides/sleep/5.webp?v=hf3620a9df0',
+    'assets/deck-slides/sleep/6.webp?v=h149b74d1ac',
+    'assets/deck-slides/sleep/7.webp?v=h6435def1ca',
+    'assets/deck-slides/sleep/8.webp?v=hb87de3644a',
+  ] },
+};
+// </deck-covers>
 /** 심사위원단 — 척척발표가 쓰는 모델 넷의 병아리 (chatter.js) */
 const BOOTH_JUDGES = [
   { id: 'solar', name: '쏠라' }, { id: 'midm', name: '믿:음' },
@@ -157,16 +232,27 @@ function bqTrapBack() {
   if (!(history.state && history.state.bq)) history.pushState({ bq: 1 }, '', location.href);
 }
 
-/** 지금 주소의 부스 무대 — #/booth/qa → stage, #/booth/call → call, 그 밖이면 '' */
+/**
+ * 지금 주소의 부스 무대 — #/booth/qa · #/booth/call 모두 call(글라스 화상판), 그 밖이면 ''.
+ * 10-02 사용자: 부스 QA 는 「화면 전체에 내 모습 + 정보는 리퀴드 글라스」 화상판이 기저다 — /booth/qa 가 옛 초록 무대판을 띄우지 않게.
+ */
 function bqHashVariant() {
   const parts = location.hash.replace(/^#\/?/, '').split('/');
   if (parts[0] !== 'booth') return '';
-  if (parts[1] === 'qa') return 'stage';
+  if (parts[1] === 'qa') return 'call';
   return parts[1] === 'call' ? 'call' : '';
 }
 
 function bqIsBoothHash() {
   return !!bqHashVariant();
+}
+
+/**
+ * 리허설 흐름(#/rehearsal · js/rehearsal.js)이 이 층을 빌려 쓰는 중인가 — 질문 화면만 부스 화상판을 그대로 쓰고,
+ * 부스 운영(처음으로 · 자리 비움 · 마무리)은 돌지 않는다. 부스 탭에서는 늘 false 다 (들어올 때 서로 끈다).
+ */
+function bqRehearsal() {
+  return typeof rehearsalFlowOn === 'function' && rehearsalFlowOn();
 }
 
 function bqHomeHash() {
@@ -253,6 +339,7 @@ function bqStepWord(s) {
 }
 
 function bqTopHtml(screen) {
+  if (bqRehearsal() && typeof rhTopHtml === 'function') return rhTopHtml(screen);
   const at = BQ_STEPS.findIndex((s) => s.key === screen);
   const steps = at < 0 ? '' : `<ol class="bq-steps-top" aria-label="체험 단계">${BQ_STEPS.map((s, i) => `
     <li class="${i < at ? 'done' : ''}${i === at ? ' on' : ''}"${i === at ? ' aria-current="step"' : ''}><i aria-hidden="true">${i < at ? '✓' : i + 1}</i>${bqStepWord(s)}${i < at ? '<span class="bq-sr"> · 마쳤어요</span>' : ''}</li>`).join('')}</ol>`;
@@ -274,6 +361,7 @@ function bqMount(screen, html) {
   layer.className = 'bq';
   layer.dataset.screen = screen;
   layer.dataset.variant = bq.variant;
+  if (bqRehearsal()) layer.dataset.flow = 'rehearsal';
   layer.innerHTML = `${bqTopHtml(screen)}<div class="bq-body">${html}</div>`;
   document.body.appendChild(layer);
   document.body.classList.add('bq-open');
@@ -338,7 +426,7 @@ async function bqCamEnsure() {
     audio: false,
   }).then((s) => {
     // 권한을 묻는 사이 부스를 나갔거나 카메라를 껐으면 받은 스트림을 바로 닫는다 — 홈에서 카메라·판단이 돌았다 (사냥 2 #8)
-    if (!boothQaOn() || cam.off) { s.getTracks().forEach((t) => t.stop()); return null; }
+    if (!(boothQaOn() || bqRehearsal()) || cam.off) { s.getTracks().forEach((t) => t.stop()); return null; }
     cam.stream = s;
     cam.error = '';
     // 카메라를 뽑거나 다른 앱이 가져가면 트랙이 ended 가 된다 — 검은 화면에 「정면 0%」 가 남고, 사람이 있어도 30초 뒤 「아무도 없는 것 같아요」 가 떴다 (10-02 P1-4)
@@ -646,8 +734,7 @@ async function bqShowPick() {
   }
   box.innerHTML = ready.map((d) => `
     <button type="button" class="bq-deck" data-deck="${escapeHtml(d.key)}">
-      <span class="bq-cover"><canvas data-cover="${escapeHtml(d.row.cached_session_id)}"></canvas><i>표지를 불러오고 있어요</i></span>
-      <span class="bq-deck-kind" data-pages="${escapeHtml(d.row.cached_session_id)}">${escapeHtml(d.kind)}</span>
+      ${bqCoverHtml(d)}
       <b class="bq-deck-title">${escapeHtml(d.title)}</b>
       <span class="bq-deck-go">이 발표로 질문 받기</span>
     </button>`).join('');
@@ -702,10 +789,70 @@ function bqCoverPdf(sessionId) {
   return bq.covers.get(sessionId);
 }
 
+/**
+ * 이 파싱본에 맞는 장 그림 목록(assets/deck-slides) — 파일 이름 · 장 수 · 1장 제목(띄어쓰기 무시)이 다 같을 때만.
+ * applySlideDoc 이 nf.slideImages 로 쓴다. 맞는 게 없으면 null 이고 화면은 예전처럼 pdf.js 로 그린다 (iPad 10-06)
+ */
+function bqStaticSlidesFor(doc) {
+  if (!doc) return null;
+  const norm = (v) => String(v || '').normalize('NFC').replace(/\s+/g, '');
+  const slides = doc.slides || [];
+  const file = norm(doc.file_name);
+  const first = norm(slides[0] && slides[0].title);
+  const hit = Object.values(BOOTH_DECK_SLIDES).find((d) => norm(d.file) === file
+    && d.pages.length === slides.length && norm(d.first) === first);
+  return hit ? hit.pages.slice() : null;
+}
+
+/** 이 덱의 표지 그림(assets/deck-covers, scripts/render_deck_covers.py) — 없으면 null 이고 pdf.js 로 그린다 */
+function bqStaticCover(d) {
+  const key = String((d && d.key) || '').normalize('NFC');
+  return Object.prototype.hasOwnProperty.call(BOOTH_DECK_COVERS, key) ? BOOTH_DECK_COVERS[key] : null;
+}
+
+/**
+ * 덱 카드의 표지 칸 + 종류 줄 (/booth/qa · /rehearsal 같은 마크업). 표지 그림이 있으면 <img> 로 바로 —
+ * iPad Safari 에서 pdf.js 로 그린 표지가 안 떴다 (10-06). 그림이 없는 덱만 예전처럼 <canvas> 에 pdf.js 로 그린다
+ */
+function bqCoverHtml(d) {
+  const sid = escapeHtml(d.row.cached_session_id);
+  const cover = bqStaticCover(d);
+  const kind = cover && cover.pages ? `${d.kind} · ${cover.pages}장` : d.kind;
+  const face = cover
+    ? `<img src="${escapeHtml(cover.src)}" width="${Number(cover.w) || 800}" height="${Number(cover.h) || 450}" alt="${escapeHtml(d.title)} 발표 자료 첫 장" loading="eager" decoding="async" data-cover-img="${sid}">`
+    : `<canvas data-cover="${sid}"></canvas>`;
+  return `<span class="bq-cover">${face}<i>표지를 불러오고 있어요</i></span>
+      <span class="bq-deck-kind" data-pages="${sid}">${escapeHtml(kind)}</span>`;
+}
+
 async function bqPaintCover(d) {
   const sid = d.row.cached_session_id;
+  const img = document.querySelector(`#bqStage img[data-cover-img="${CSS.escape(sid)}"]`);
+  if (img) {
+    const shown = () => { if (img.isConnected) img.parentElement.classList.add('ready'); };
+    if (img.complete && img.naturalWidth) shown();
+    else {
+      img.addEventListener('load', shown, { once: true });
+      // 그림을 못 받으면 예전 길 — 칸을 canvas 로 바꿔 pdf.js 로 그린다
+      img.addEventListener('error', () => {
+        if (!img.isConnected) return;
+        console.warn('[chuckchuck] booth cover image', img.src);
+        const canvas = document.createElement('canvas');
+        canvas.dataset.cover = sid;
+        img.replaceWith(canvas);
+        bqPaintCoverPdf(d, canvas);
+      }, { once: true });
+    }
+    // 고르면 바로 쓰는 자료 PDF 는 예전처럼 미리 열어 둔다(bqPrepare · rhPickDeck 가 다시 쓴다). 못 열어도 표지는 그림이라 상관없다
+    bqCoverPdf(sid).catch(() => {});
+    return;
+  }
   const canvas = document.querySelector(`#bqStage canvas[data-cover="${CSS.escape(sid)}"]`);
-  if (!canvas) return;
+  if (canvas) await bqPaintCoverPdf(d, canvas);
+}
+
+async function bqPaintCoverPdf(d, canvas) {
+  const sid = d.row.cached_session_id;
   try {
     const pdf = await bqCoverPdf(sid);
     const page = await pdf.getPage(1);
@@ -739,7 +886,7 @@ function bqPrepHtml(d) {
   return `
     <div class="bq-prep">
       <section class="bq-skim">
-        <div class="bq-skim-frame"><canvas id="bqSkimCanvas" aria-label="발표 슬라이드"></canvas><i id="bqSkimWait">슬라이드를 펼치고 있어요</i></div>
+        <div class="bq-skim-frame"><canvas id="bqSkimCanvas" aria-label="발표 슬라이드"></canvas><img id="bqSkimImg" alt="" width="960" height="540" hidden><i id="bqSkimWait">슬라이드를 펼치고 있어요</i></div>
         <div class="bq-skim-bar">
           <button type="button" class="bq-ghost bq-round" data-skim="-1" aria-label="이전 슬라이드">‹</button>
           <span class="bq-skim-meta"><b id="bqSkimNo" class="num"></b><span id="bqSkimTitle"></span></span>
@@ -813,7 +960,7 @@ async function bqPrepare(d) {
   bqMount('prep', bqPrepHtml(d));
   $('#bqRepick').addEventListener('click', () => { bq.prepToken += 1; bqShowPick(); });
   const go = $('#bqGo');
-  go.addEventListener('click', () => { if (!go.disabled) location.hash = '#/qa'; });
+  go.addEventListener('click', () => { if (!go.disabled) location.hash = screenHash('qa'); });
   const startedAt = Date.now();
   bq.timers.push(setInterval(() => {
     const el = document.getElementById('bqElapsed');
@@ -932,9 +1079,23 @@ function bqStartSkim() {
     const title = document.getElementById('bqSkimTitle');
     if (no) no.textContent = `${at} / ${total}`;
     if (title) title.textContent = ((nf.slideTitles || [])[at - 1] || '').trim();
+    const wait = document.getElementById('bqSkimWait');
+    // 미리 찍은 장 그림이 있으면 <img> 로 (iPad 에서 pdf.js 가 안 그려졌다 10-06), 없으면 예전처럼 pdf.js
+    const img = document.getElementById('bqSkimImg');
+    const src = staticSlideSrc(at);
+    if (img && src) {
+      img.alt = `${at}장${title && title.textContent ? ` · ${title.textContent}` : ''}`;
+      if (img.getAttribute('src') !== src) {
+        img.onload = () => { if (wait) wait.hidden = true; };
+        img.src = src;
+      }
+      img.hidden = false;
+      canvas.hidden = true;
+      if (img.complete && img.naturalWidth && wait) wait.hidden = true;
+      return;
+    }
     if (!uploadedPdf) return;
     const ok = await renderPdfToCanvas(at, canvas, { maxWidth: 1200 });
-    const wait = document.getElementById('bqSkimWait');
     if (ok && wait) wait.hidden = true;
   };
   const step = (dir) => { at = ((at - 1 + dir + total) % total) + 1; paint(); };
@@ -1015,7 +1176,8 @@ function bqQaSlideNo() {
 function bqSlideHtml(no, why = '질문이 가리키는') {
   const title = String((nf.slideTitles || [])[no - 1] || '').trim();
   const label = escapeHtml(`${no}장${title ? ` · ${title}` : ''}`);
-  const pic = uploadedPdf
+  // 미리 찍은 장 그림이 있으면 그것부터 (iPad 에서 pdf.js 가 안 그려졌다 10-06) — 없을 때만 pdf.js 캔버스
+  const pic = uploadedPdf && !staticSlideSrc(no)
     ? `<span class="bq-slide-pic"><canvas data-stage-page="${no}" role="img" aria-label="${label}"></canvas></span>`
     : `<span class="bq-slide-pic"><img src="${deckImageSrc(no)}" alt="${label}"></span>`;
   return `<figcaption>${why} <b>${no}장</b></figcaption>${pic}`;
@@ -1170,7 +1332,11 @@ function bqWatchSlide() {
  */
 function bqRelabelInput() {
   const finish = document.getElementById('liveFinish');
-  const word = '남은 질문 건너뛰고 결과 보기';
+  // 리허설은 결과가 상세 리포트다 — 버튼이 갈 곳을 말한다. 「…리포트 보기」 는 부스 문구보다 한 칸 길어서 아이패드 가로(1180)에서
+  // 답 칸 셋째 줄로 넘어갔고, 그 줄만큼(≈50px) 위 자료 창이 작아졌다 (10-03 점검 V-R2-2)
+  const word = bqRehearsal() ? '남은 질문 건너뛰고 리포트로' : '남은 질문 건너뛰고 결과 보기';
+  const see = bqRehearsal() && document.getElementById('liveSeeResult');
+  if (see && see.textContent !== '리포트 보러 가기') see.textContent = '리포트 보러 가기';
   if (finish && finish.textContent !== word) finish.textContent = word;
   const ta = document.getElementById('liveAnswer');
   if (ta && ta.getAttribute('aria-label') !== '내 답') ta.setAttribute('aria-label', '내 답');

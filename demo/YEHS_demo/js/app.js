@@ -73,6 +73,7 @@ function countUp(el, to, ms = 800) {
   })(t0);
 }
 function animateViz(root = document) {
+  if (!root) return;   // 리포트를 다 그리기 전에 화면을 떠났다(뒤로 가기 등) — 그릴 곳이 없다
   $$('.fill-bar i[data-w]', root).forEach(i => i.style.width = i.dataset.w);
   $$('.ring-fg[data-off]', root).forEach(r => r.style.strokeDashoffset = r.dataset.off);
   $$('[data-count]', root).forEach(el => el.textContent = el.dataset.count);
@@ -258,6 +259,8 @@ const routes = {
   'vision': () => { if (typeof renderVisionEntry === 'function') renderVisionEntry(); },
   // 부스 Q&A 무대 (#/booth/qa · 주소창 /booth/qa) — Festa 부스 운영 중에 Q&A 세션을 보여 주는 전용 입구 (js/booth_qa.js)
   // #/booth/qa 는 부스 Q&A 무대, #/booth/call 은 같은 흐름의 화상 통화판 (js/booth_qa.js · js/booth_call.js)
+  // 리허설 한 줄 흐름 (#/rehearsal · 주소창 /rehearsal) — 발표 고르기 → 비전 리허설 → 분석 → 글라스 화상판 질문 → 리포트 (js/rehearsal.js)
+  'rehearsal': () => { if (typeof renderRehearsalEntry === 'function') renderRehearsalEntry(); },
   'booth': () => (typeof bqHashVariant === 'function' && bqHashVariant() && typeof renderBoothQa === 'function' ? renderBoothQa(bqHashVariant()) : renderHome()),
   // 개념 그래프 3D 무대 (js/graph3d.js). 데모 경로 밖이라 여기가 죽어도 시연은 돈다.
   'graph': () => window.renderGraph3D(),
@@ -302,6 +305,62 @@ function stageAccidentHtml(message, { title = '죄송해요, 무대 장치가 �
     </div>`;
 }
 
+/** 리허설 흐름(js/rehearsal.js, 베타 번들)이 켜져 있나 — 파일이 아직 안 왔으면 꺼진 것 */
+function rhFlowOn() {
+  return typeof rehearsalFlowOn === 'function' && rehearsalFlowOn();
+}
+
+/* 리허설 흐름의 화면 주소 (10-03 사용자) — 흐름 도중 주소가 #/new · #/qa · #/report 로 빠지지 않고 /rehearsal 아래로 이어진다.
+   #/rehearsal/new · qa · report 는 일반 #/new · #/qa · #/report 화면을 그대로 그린다. #/rehearsal · #/rehearsal/occ 는 리허설 제 화면(js/rehearsal.js).
+   이 파일이 들고 있는 까닭 — 새로고침하면 route() 가 rehearsal.js(베타 번들)를 받기 전에 주소부터 읽는다 */
+const RH_SCREENS = ['new', 'qa', 'report'];
+const RH_FLOW_FLAG = 'cheokcheok:rehearsal-flow';   // rehearsal.js REHEARSAL_FLOW_KEY 와 같아야 한다 (LAZY_FLOW_FLAGS 도)
+
+/** 주소가 리허설 흐름 안인가 — #/rehearsal 로 시작하면 */
+function inRehearsalHash(hash = location.hash) {
+  return /^#\/?rehearsal(\/|$)/.test(String(hash || ''));
+}
+
+/** 그릴 화면의 마디 — #/rehearsal/qa 는 ['qa'], #/report/last 는 ['report', 'last'] */
+function routeParts(hash = location.hash) {
+  const parts = String(hash || '').replace(/^#\/?/, '').split('/');
+  return parts[0] === 'rehearsal' && RH_SCREENS.includes(parts[1]) ? parts.slice(1) : parts;
+}
+
+/** 그 화면의 주소 — 리허설 흐름이면 /rehearsal 아래. 화면을 옮기는 코드는 이걸 쓴다 (흐름 밖이면 예전 그대로 #/qa) */
+function screenHash(sub) {
+  return rhFlagSet() && RH_SCREENS.includes(sub) ? `#/rehearsal/${sub}` : `#/${sub}`;
+}
+
+/** 지금 그 화면(하위 주소 없이)에 있나 — #/new · #/new/ · #/rehearsal/new */
+function onScreen(sub) {
+  const p = routeParts();
+  return p[0] === sub && !p[1];
+}
+
+/** 리허설 표시 — rehearsalFlowOn() 과 같은 값. rehearsal.js 를 받기 전에도 읽는다 */
+function rhFlagSet() {
+  try { return sessionStorage.getItem(RH_FLOW_FLAG) === '1'; } catch (_) { return false; }
+}
+
+/** 글자마다 띄운 장식 줄인가 — 표지 머리줄 「환 경 생 명 공 학 과 · 연 구 실 세 미 나 · 2 0 2 6 …」 (f08 _letter_spaced 와 같은 잣대) */
+function letterSpacedLine(line) {
+  const words = String(line || '').trim().split(/\s+/).filter(Boolean);
+  const singles = words.filter((w) => w.length === 1 && /[가-힣0-9]/.test(w)).length;
+  return singles >= 5 && singles >= 0.7 * words.length;
+}
+
+/** 장 제목 — 파서가 표지의 띄어 쓴 머리줄을 제목으로 잡았으면 본문에서 그다음 줄(진짜 제목)을 쓴다 (10-06 리허설 자료 창) */
+function slideTitleOf(s) {
+  const t = String((s && s.title) || '').trim();
+  const lines = String((s && s.raw_text) || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  // 표지처럼 첫 줄이 띄어 쓴 머리줄이면 그 바로 다음 줄이 제목이다 — 파서는 이때 발표자 이름(「이준호」)을 제목으로 잡기도 했다
+  const kicker = lines.length > 1 && letterSpacedLine(lines[0]);
+  if (t && !letterSpacedLine(t) && !kicker) return t;
+  const next = lines.find((l) => !letterSpacedLine(l) && !/^[!|-]/.test(l));
+  return next || t || `${(s && s.slide_no) || ''}번 슬라이드`;
+}
+
 function dismissF11Reveal() {
   const wrap = document.getElementById('f11RevealWrap');
   if (!wrap) return;
@@ -312,13 +371,17 @@ function route() {
   clearTimers();
   unbindRehearsalNav();
   // 분석 오버레이가 남아 있으면 #/qa 가 흰 화면처럼 가려진다
-  {
-    const parts0 = location.hash.replace(/^#\/?/, '').split('/');
-    if (parts0[0] !== 'new') dismissF11Reveal();
-  }
-
-  const parts = location.hash.replace(/^#\/?/, '').split('/');
+  const parts = routeParts();
   const key = parts[0];
+  if (key !== 'new') dismissF11Reveal();
+  const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
+  // #/rehearsal/<화면> 으로 바로 오거나 새로 고치면 리허설 표시를 켠다 — 베타 번들(rehearsal.js)을 받고 그 화면을 흐름 배치로 그리려고.
+  // 잠금(공개 방문자)은 아래에서 따로 막는다 — 팀 확인 전이면 표시만 켜지고 잠금 화면이 뜬다
+  if (inRehearsalHash() && ccTeam) {
+    try { sessionStorage.setItem(RH_FLOW_FLAG, '1'); } catch (_) { /* 사생활 모드 */ }
+  }
+  // 리허설 흐름(js/rehearsal.js) — 비전 층이 카메라를 끄기 전에 화상판으로 넘겨받고, 흐름 밖으로 나가면 표시를 끈다
+  if (typeof rehearsalFlowOnRoute === 'function') rehearsalFlowOnRoute(key);
   // 통화 층(#cfCall)은 #app 밖에 떠 있어서 화면이 바뀌어도 안 지워진다 — 먼저 걷는다
   if (typeof callFlowOnRoute === 'function') callFlowOnRoute(key);
   if (typeof visionFlowOnRoute === 'function') visionFlowOnRoute(key);
@@ -326,6 +389,8 @@ function route() {
   if (typeof boothQaOnRoute === 'function') boothQaOnRoute(key);
   // 부스 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 부스 처음 화면으로 (booth_qa.js boothQaGuard · 10-02)
   if (typeof boothQaGuard === 'function' && boothQaGuard(key)) return;
+  // 리허설 탭도 같다 — #/qa 를 되살릴 수 없으면 리허설 자리로 (rehearsal.js rehearsalGuard)
+  if (typeof rehearsalGuard === 'function' && rehearsalGuard(key)) return;
   /* 샘플 모드는 renderReport() 안에서만 켜져서, 샘플 리포트를 보고 #/qa 로 나가면
      켜진 채로 남았다. reportOut() 이 이 값을 보고 결과를 가리므로 리포트를
      벗어나는 순간 꺼 준다 — 안 그러면 질문 코칭이 제 데이터를 못 읽는다 */
@@ -340,11 +405,17 @@ function route() {
   if (key === 'new' && (parts[1] === 'reset' || nf.completed)) { resetNf(); resetQa(); }
   syncTeamPill(key);
   // 베타 경로에 들어갈 때마다 팀인지 다시 묻는다 (지금 값으로 먼저 그리고, 답이 달라지면 applyTeam 이 다시 그린다)
-  if (BETA_ROUTES.has(key)) teamRecheck();
-  if (BETA_ROUTES.has(key) && !ccTeam) { renderBetaLock(); return; }
+  if (BETA_ROUTES.has(key) || BETA_ROUTES.has(rawKey)) teamRecheck();
+  if ((BETA_ROUTES.has(key) || BETA_ROUTES.has(rawKey)) && !ccTeam) { renderBetaLock(); return; }
   // 이 화면의 코드를 아직 안 받았으면 받고 나서 다시 그린다 (js/lazy.js)
   const lazy = lazyBundlesFor(key);
   if (lazy.length && !lazy.every((b) => ccLazy.loaded(b))) { renderLazyWait(lazy); return; }
+  /* 「내 발표」는 지난 발표 벽이다. 리포트를 보다가 여기로 오면 이번 회차를
+     벽에 붙여 둔다. 같은 테이크면 Playbill 이 갱신만 하므로 중복 티켓은 안 생긴다 */
+  if (!key) {
+    const pending = currentShow();
+    if (pending && pending.takeId) recordShow();
+  }
   (routes[key] || renderHome)();
   syncTopbar();
   syncSideNav(key);
@@ -355,8 +426,8 @@ function route() {
 /* 지금 어느 칸에 있는지 좌측 내비에 표시한다. 색만으로 말하지 않으려고
    aria-current 를 쓰고 CSS 가 그걸 따라간다 — 스크린리더도 같은 걸 읽는다.
    질문 코칭(#/qa)은 내비에 칸이 없다. 진행 중일 때만 의미가 있어서 링크로
-   두면 죽은 칸이 되고, 이어하기는 탑바가 이미 맡는다 — 그동안은 「연습하기」를
-   켜 둔다 (같은 발표 흐름 안이다) */
+   두면 죽은 칸이 되고, 이어하기는 탑바가 맡는다. 연습으로 가는 입구는
+   「새 발표 연습」 하나다 — 목록의 「연습하기」와 같은 곳이라 둘을 두지 않는다 */
 function syncSideNav(key) {
   /* 병아리 넷은 화면마다 바뀌지 않으니 사이드바에 한 번만 심는다.
      홈 본문에 있던 띠를 여기로 옮겼다 — 그 자리에선 화면마다 사라졌다 나타났고,
@@ -805,6 +876,7 @@ let ccTeamState = 'unknown';
 /* DEMO_DEV_ROUTES 브리지 — 코드 없이 팀이라 끌 수 없다 (알약 메뉴가 끄기 대신 안내를 보인다) */
 let ccTeamDev = false;
 /* 베타 화면 — 공개 방문자에게는 잠그고, /auth 에서 팀 모드를 켠 브라우저에만 연다 */
+/* 발표 리허설(#/rehearsal)은 공개 화면이다 (10-04 사용자 — 서버도 부스 시연 덱 셋만 인증 없이 내준다, bridge _public_deck) */
 const BETA_ROUTES = new Set(['vision', 'temp', 'test', 'replay', 'booth']);
 /* 팀 도구 목록 — 「팀 모드」 알약 메뉴와 /auth 화면(demo/bridge.py TEAM_TOOLS)이 같은 순서로 보인다
    (tests/test_bridge_team_auth.py 가 두 목록의 해시를 대조한다) */
@@ -819,18 +891,20 @@ const TEAM_TOOLS = [
 /* 첫 화면에 안 쓰는 화면 코드는 들어갈 때 받는다 (js/lazy.js · index.html 의 #lazyAssets).
    공개 방문자는 베타 화면을 못 여니 beta 번들을 아예 안 받는다. 베타 흐름(통화·비전·부스)은
    sessionStorage 표시로 #/new·#/qa 의 배치까지 바꾸므로, 표시가 켜진 채 새로 고치면 그 화면에서도 받는다.
-   키는 call_flow.js CALL_FLOW_KEY · vision_rehearsal.js VISION_FLOW_KEY · booth_qa.js BOOTH_QA_KEY 와 같아야 한다
+   키는 call_flow.js CALL_FLOW_KEY · vision_rehearsal.js VISION_FLOW_KEY · booth_qa.js BOOTH_QA_KEY · rehearsal.js REHEARSAL_FLOW_KEY 와 같아야 한다
    (tests/js/lazy.smoke.mjs 가 대조한다). */
-const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'] };
-const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa'];
-/* 끌 때 같이 지우는 이 탭의 베타 표시 — 흐름 표시 셋 + 부스 무대 종류 + 마지막 팀 확인값 */
-const BETA_TAB_KEYS = [...LAZY_FLOW_FLAGS, 'cheokcheok:booth-variant', 'cheokcheok:team-ok'];
+const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], rehearsal: ['beta'] };
+const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa', 'cheokcheok:rehearsal-flow'];
+/* 끌 때 같이 지우는 이 탭의 베타 표시 — 팀 흐름 표시 셋 + 부스 무대 종류 + 마지막 팀 확인값. 리허설 표시는 공개 흐름이라 남긴다 */
+const BETA_TAB_KEYS = [...LAZY_FLOW_FLAGS.filter((k) => k !== RH_FLOW_FLAG), 'cheokcheok:booth-variant', 'cheokcheok:team-ok'];
 /**
  * 베타 흐름 표시(sessionStorage)를 읽어도 되는가 — 팀일 때만. 예전엔 팀 모드를 끈 뒤에도 표시가 남아 공개 화면이
  * 통화 배치가 됐다 (10-02 정리안). 첫 판정이 오기 전에는 이 탭이 마지막으로 확인한 값을 믿는다 — 부스 탭이 #/qa 에서
  * 새로 고칠 때 부스 파일을 먼저 받아야 해서다 (booth_qa.js boothQaGuard · da76f92). call_flow·vision·booth_qa 도 이걸 본다.
+ * 발표 리허설(#/rehearsal)은 공개 흐름인데 비전·화상판 표시를 같이 켠다 (rehearsal.js) — 리허설 표시가 서 있으면 팀이 아니어도 읽는다.
  */
 function ccBetaFlagsAllowed() {
+  if (rhFlagSet()) return true;
   if (ccTeamChecked) return ccTeam;
   return lastTeamOk();
 }
@@ -921,12 +995,13 @@ function applyTeam(team) {
   // 팀 브라우저는 베타 화면으로 넘어갈 일이 있다 — 한가할 때 미리 받아 둔다
   if (ccTeam && window.ccLazy) ccLazy.whenIdle(['beta']);
   syncTeamPill();
-  const key = location.hash.replace(/^#\/?/, '').split('/')[0];
+  const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
+  const key = routeParts()[0];
   const pending = teamPendingRender;
   const changed = ccTeam !== was;
   teamPendingRender = false;
   // 같은 답이면 다시 그리지 않는다 — 베타 경로마다 다시 묻게 됐으니, 부스 화면이 판정마다 새로 그려지면 안 된다
-  if ((BETA_ROUTES.has(key) && (pending || changed || !wasChecked))
+  if (((BETA_ROUTES.has(key) || BETA_ROUTES.has(rawKey)) && (pending || changed || !wasChecked))
       || (pending && key === 'report')
       || (changed && (key === '' || key === 'report'))) route();
 }
@@ -1909,7 +1984,7 @@ function applySlideDoc(doc, { keepDemoImages = false } = {}) {
     file_name: doc.file_name || nf.fileName,
     total_slides: doc.total_slides || ((doc.slides || []).length) || 0,
   };
-  nf.slideTitles = (doc.slides || []).map((s) => s.title || `${s.slide_no}번 슬라이드`);
+  nf.slideTitles = (doc.slides || []).map(slideTitleOf);
   nf.slideBodies = (doc.slides || []).map(slideBodyFromSlide);
   nf.sparseSlides = (doc.slides || []).filter((s) => s.text_sparse).map((s) => s.slide_no);
   // 화면에는 원본 슬라이드(pdf.js 렌더)를 그린다. 파싱된 본문(slideBodies)은 F-06~11
@@ -1918,6 +1993,9 @@ function applySlideDoc(doc, { keepDemoImages = false } = {}) {
   nf.slideImages = nf.slideTitles.map((t, i) => (
     (keepDemoImages && DATA.slideImages[i]) || slidePlaceholder(i + 1)
   ));
+  // 부스 덱이면 미리 찍은 장 그림(assets/deck-slides)으로 — iPad 에서 pdf.js 렌더가 안 떴다 (10-06, js/booth_qa.js)
+  const staticPages = typeof bqStaticSlidesFor === 'function' ? bqStaticSlidesFor(doc) : null;
+  if (staticPages) nf.slideImages = staticPages;
   nf.slide = 1;
   nf.visits = { 1: 1 };
   nf.log = [];
@@ -1939,7 +2017,8 @@ function slidePlaceholder(n) {
 function renderNew() {
   if (typeof callFlowUnmount === 'function') callFlowUnmount({ keepCam: callFlowOn() });
   if (typeof visionFlowUnmount === 'function') {
-    visionFlowUnmount({ keepCam: typeof visionFlowOn === 'function' && visionFlowOn() && nf.step === 2 });
+    // 리허설 흐름은 분석 기다림(스텝 4)에서도 카메라를 쥐고 있다 — 내 모습 위 기다림 화면 · 화상판으로 넘긴다 (rehearsal.js rhHandCamera)
+    visionFlowUnmount({ keepCam: typeof visionFlowOn === 'function' && visionFlowOn() && (nf.step === 2 || (nf.step === 3 && rhFlowOn())) });
   }
   dropSampleDeckForRealSession();
   saveSession('new-flow', nf);
@@ -2429,10 +2508,14 @@ function nfStep3() {
   if (nf.slide > nPages) nf.slide = nPages;
   const titles = activeTitles();
   const titleAt = (i) => titles[i] || `${i + 1}번 슬라이드`;
-  const usePdf = !!uploadedPdf;
+  const staticSrc = staticSlideSrc(nf.slide);
+  const usePdf = !!uploadedPdf && !staticSrc;
+  const deckPics = usePdf || !!staticSrc;   // 필름 · 무대를 그림으로 (pdf.js 또는 미리 찍은 그림)
   const bodies = activeBodies();
 
-  const stageInner = usePdf
+  const stageInner = staticSrc
+    ? `<img id="slideImage" src="${staticSrc}" alt="">`
+    : usePdf
     ? `<canvas id="slidePdfCanvas" class="slide-pdf-canvas" aria-label="원본 PDF 슬라이드"></canvas>
        <div id="slideCardWrap" class="slide-doc-wrap" style="display:none"></div>`
     : (bodies && bodies.length
@@ -2446,11 +2529,11 @@ function nfStep3() {
     const on = i + 1 === nf.slide ? 'on' : '';
     const no = i + 1;
     const title = escapeHtml(String(titleAt(i)).slice(0, 28));
-    if (!usePdf) {
+    if (!deckPics) {
       return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드"><span class="film-no">${no}</span><span class="film-title">${title}</span></button>`;
     }
     return `<button type="button" class="${on}" data-slide="${no}" aria-label="${no}번 슬라이드">
-      <img class="film-thumb" data-thumb-page="${no}" src="${slidePlaceholder(no)}" alt="">
+      <img class="film-thumb" data-thumb-page="${no}" src="${staticSlideSrc(no) || slidePlaceholder(no)}" alt="">
       <span class="film-cap"><span class="film-no">${no}</span><span class="film-title">${title}</span></span>
     </button>`;
   }).join('');
@@ -2474,7 +2557,7 @@ function nfStep3() {
         <div class="sf" id="stagefront" aria-hidden="true"></div>
       </aside>
       <div class="card viewer presentation-viewer">
-        <div class="viewer-stage ${usePdf ? 'has-pdf' : 'has-slide-doc'}">
+        <div class="viewer-stage ${deckPics ? 'has-pdf' : 'has-slide-doc'}">
           ${stageInner}
           <button type="button" class="stage-nav stage-prev" data-slide-nav="-1" aria-label="이전 슬라이드">‹</button>
           <button type="button" class="stage-nav stage-next" data-slide-nav="1" aria-label="다음 슬라이드">›</button>
@@ -2482,7 +2565,7 @@ function nfStep3() {
         <div class="viewer-caption">
           <strong id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</strong>
         </div>
-        <div class="slide-film ${usePdf ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
+        <div class="slide-film ${deckPics ? 'slide-film-deck' : 'slide-film-text'}" id="slideFilm">${film}</div>
       </div>
     </div>
     <p class="privacy-note">m4a · mp3 · wav · webm · 최대 ${MAX_AUDIO_MB}MB · 슬라이드 구간은 길이를 균등하게 나눠 채워요</p>`;
@@ -2512,6 +2595,7 @@ function syncRehearsalNav() {
   const last = rehearsalCount();
   $$('[data-slide-nav="-1"]').forEach((button) => { button.hidden = current <= 1; });
   $$('[data-slide-nav="1"]').forEach((button) => { button.hidden = current >= last; });
+  if (typeof rhSyncRecFinish === 'function') rhSyncRecFinish();   // 리허설: 마지막 장까지 넘겨야 「녹음 파일로 대신하기」 (js/rehearsal.js)
 }
 
 function moveSlideTo(next) {
@@ -2633,7 +2717,7 @@ function renderRecPanel() {
        세워지므로 길을 안 열어 주면 이미 끝난 분석으로 다시 갈 수가 없다 */
     const hasTake = !!(nf.pipelineOut || nf.pipelineError);
     p.innerHTML = `
-      <div class="rec-copy"><span>${nf.useSample ? '샘플 발표를 직접 녹음해보세요' : '준비되면 시작하세요'}</span>${nf.useSample ? '<p>녹음은 실제로 진행되고, 분석 결과만 준비된 샘플을 사용해요.</p>' : ''}</div>
+      <div class="rec-copy"><span>${nf.useSample ? '샘플 발표를 직접 녹음해보세요' : '준비되면 시작해요'}</span>${nf.useSample ? '<p>녹음은 실제로 진행되고, 분석 결과만 준비된 샘플을 사용해요.</p>' : ''}</div>
       ${hasTake ? '<button class="btn btn-secondary" id="recResume">아까 발표로 질문 준비하기</button>' : ''}
       <button class="btn btn-primary" id="recStart">발표 시작하기</button>
       ${nf.useSample ? '<button class="btn btn-text btn-sm" id="sampleNoMic">마이크 없이 분석 화면만 보기</button>' : ''}
@@ -2659,7 +2743,9 @@ function renderRecPanel() {
         <div><span class="rec-live">발표 중</span><strong class="rec-clock" id="clock">${fmt(nf.sec)}</strong></div>
         <span class="meter" aria-label="마이크 입력 감지 중"><i></i><i></i><i></i><i></i><i></i></span>
       </div>
-      <button class="btn btn-primary" id="recEnd">발표 마치고 질문 준비하기</button>
+      <button class="btn btn-primary" id="recEnd">${rhFlagSet() ? '발표 마치기' : '발표 마치고 질문 준비하기'}</button>
+      <!-- 리허설(#/rehearsal)은 옆의 「녹음 파일로 대신하기」 와 두 갈래라 짧게 「발표 마치기」 (10-03 사용자 · js/rehearsal.js rehearsalVisionDock).
+      -->
       <!-- 전환 기록은 종료 버튼 **뒤**에 둔다. 예전엔 버튼 위에 있었고, 펼치면 뜨는
            팝오버(position:absolute · z-index 5)가 바로 아래 「발표 마치고 질문 준비하기」를
            통째로 덮어 눌리지 않았다 (2026-09-23 사용자 제보). 이제 펼쳐도 제자리에서
@@ -2805,6 +2891,8 @@ function showEntranceRitual() {
 
 async function startRec() {
   await showEntranceRitual();
+  if (typeof visionResetReactions === 'function') visionResetReactions();
+  else if (nf) nf.visionCues = [];
   const bridge = window.ChuckchuckBridge;
   if (bridge) {
     ccRuntime = bridge.attachRehearsalRuntime(nf, {
@@ -2969,9 +3057,7 @@ async function finishRecAndPrepare() {
   await showCurtainCall(slides, curtainSec);
   nf.step = 3;
   renderNew();
-  /* F-11 리빌을 띄운다 — 개념 그래프에 판정 도장이 찍히는 연출. 리빌은 CTA 를 눌러야 닫히고,
-     autoAdvanceToQa 도 리빌이 떠 있는 동안은 기다리므로 중간에 튕기지 않는다. 샘플 데모(useSample)는 스텝4 연출로 간다. */
-  if (!nf.useSample) showF11Reveal();
+  if (!nf.useSample && !rhFlowOn()) showF11Reveal();
 }
 
 /**
@@ -3137,7 +3223,7 @@ async function useUploadedRecording(file, { knownDurationSec = 0 } = {}) {
 
   nf.step = 3;
   renderNew();
-  showF11Reveal();
+  if (!rhFlowOn()) showF11Reveal();
 }
 
 /**
@@ -3283,7 +3369,7 @@ function showF11Reveal() {
         wrap.remove();
         /* 질문 코칭은 그래프·정합·흐름만 있으면 열린다. 예전엔 phase 가 'done' 이라야
            넘어갔는데, 그건 채점·속도·습관·리포트까지 끝난 시점이라 4분을 더 세웠다. */
-        if (pipelineQaReady()) location.hash = '#/qa';
+        if (pipelineQaReady()) location.hash = screenHash('qa');
       }, 450);
     }
   };
@@ -4310,7 +4396,7 @@ function refreshStep4IfVisible() {
   // '#' 뒤 어디서든 '/' 하나만 있으면 참이라 #/qa·#/report·홈까지 전부 통과했다 —
   // 파이프라인 후반부 완료 틱이 질문 코칭 화면을 스텝4로 덮어썼고, 해시는 이미
   // #/qa 라 「질문 코칭 시작하기」(href="#/qa")를 눌러도 아무 일도 안 일어났다.
-  const key = (location.hash || '#/').replace(/^#\/?/, '').split('/')[0];
+  const key = routeParts()[0];
   if (key === 'new' && nf.step === 3) nfStep4();
 }
 
@@ -4428,7 +4514,43 @@ function runClientSamplePipeline() {
   }, stage.delay));
 }
 
+/**
+ * 테이크(녹음 · 분석 · 질문)만 버리고 자료는 둔다 — nfStep4 「다른 녹음으로 다시」 와 #/vision 이 리허설을 마친 세션을 이어받을 때(vision_rehearsal.js).
+ * resetNf 와 다르다: 자료(nfSlideDoc · uploadedPdf)는 그대로, step 은 2(발표)로
+ */
+function discardTakeKeepDeck() {
+  stopLiveRehearsal();
+  ccLastTake = null;
+  chatterCache = null;
+  chatterPending = null;
+  nf.mic = 'idle';
+  nf.sec = 0;
+  nf.marks = null;
+  nf.uploadedTake = null;
+  nf.log = [];
+  nf.visits = { 1: 1 };
+  nf.done = 0;
+  nf._pipelineStarted = false;
+  nf._samplePipelineStarted = false;
+  nf.pipelineOut = null;
+  nf.pipelineError = null;
+  nf.pipelinePhase = null;
+  nf.pipelineDetail = null;
+  nf.transcriptOk = false;
+  nf.conceptsOk = false;
+  nf.backstage = [];
+  nf._pipelineLog = [];
+  nf._stageActual = null;   // 남겨 두면 스텝 2·3 로 돌아간 화면에 지난 테이크의 칩이 뜬다
+  nf.step = 2;
+  // 질문 코칭은 버리는 테이크의 발화로 만든 것이라 같이 버린다 — 남겨 두면
+  // 새 녹음 분석이 끝나도 qaLiveActive() 가 참이라 지난 녹음의 질문이 그대로 나온다.
+  resetQa();
+  saveSession('new-flow', nf);
+}
+
 function nfStep4() {
+  // 리허설 흐름이면 이 화면 위에 부스 「질문 준비」 모양의 기다림 층을 얹는다 — 파이프라인 · 타이머는 아래에서 그대로 돈다
+  if (rhFlowOn()) setTimeout(() => { if (typeof rehearsalWaitSync === 'function') rehearsalWaitSync(); }, 0);
   app.className = 'narrow';
   const sampleRun = !!(nf.useSample && ccLastTake);
   if (sampleRun && !['done', 'partial', 'error'].includes(nf.pipelinePhase || '')) pipelineRunLive = true;
@@ -4502,33 +4624,7 @@ function nfStep4() {
   const again = $('#againTake');
   // 자료(nfSlideDoc·uploadedPdf)는 그대로 두고 테이크만 버린다 — resetNf 와 다르다
   if (again) again.addEventListener('click', () => {
-    stopLiveRehearsal();
-    ccLastTake = null;
-    chatterCache = null;
-  chatterPending = null;
-    nf.mic = 'idle';
-    nf.sec = 0;
-    nf.marks = null;
-    nf.uploadedTake = null;
-    nf.log = [];
-    nf.visits = { 1: 1 };
-    nf.done = 0;
-    nf._pipelineStarted = false;
-    nf._samplePipelineStarted = false;
-    nf.pipelineOut = null;
-    nf.pipelineError = null;
-    nf.pipelinePhase = null;
-    nf.pipelineDetail = null;
-    nf.transcriptOk = false;
-    nf.conceptsOk = false;
-    nf.backstage = [];
-    nf._pipelineLog = [];
-    nf._stageActual = null;   // 남겨 두면 스텝 2·3 로 돌아간 화면에 지난 테이크의 칩이 뜬다
-    nf.step = 2;
-    // 질문 코칭은 버리는 테이크의 발화로 만든 것이라 같이 버린다 — 남겨 두면
-    // 새 녹음 분석이 끝나도 qaLiveActive() 가 참이라 지난 녹음의 질문이 그대로 나온다.
-    resetQa();
-    saveSession('new-flow', nf);
+    discardTakeKeepDeck();
     renderNew();
   });
 
@@ -4767,6 +4863,8 @@ function reportSessionMeta() {
     slides,
     duration,
     nth: 1,
+    // 라이브 녹음이 아니라 녹음 파일로 돌린 회차 — 머리줄에 그렇다고 남긴다 (리허설 「녹음본을 넣어서 발표 마치기」 · 녹음 올리기)
+    recording: (nf.uploadedTake && nf.uploadedTake.name) || '',
   };
 }
 
@@ -4983,7 +5081,7 @@ async function renderReport() {
      진입점 여덟 곳이 이 형태를 쓴다. 예전엔 기본값이 'imu2clip' 이라 샘플
      행과 실측이 같은 주소를 나눠 쓰고 있었다: 자료를 한 번이라도 올리면
      라벨은 샘플인데 열면 내 발표 리포트가 떴다 */
-  let reportId = location.hash.replace(/^#\/?/, '').split('/')[1] || '';
+  let reportId = routeParts()[1] || '';
   /* 공개 방문자는 샘플 리포트(sample-*·DATA.reportProfiles)를 못 연다 — 자기 결과(#/report)와
      이 브라우저에 저장한 마지막 리포트(#/report/last)만 */
   if (reportId && reportId !== 'last' && !sampleOpen()) {
@@ -5076,6 +5174,7 @@ async function renderReport() {
     escapeHtml(s.occasion),
     s.slides ? `슬라이드 ${s.slides}개` : '',
     escapeHtml(s.duration),
+    s.recording ? `녹음 파일 「${escapeHtml(s.recording)}」로 분석했어요` : '',
     s.live ? '' : `${s.nth}번째 연습`,
   ].filter(Boolean);
   app.innerHTML = `
@@ -5366,6 +5465,12 @@ function deckTitle(no, live = isLiveReportSession()) {
 }
 
 /** 장 이미지. PDF 렌더가 붙기 전/불가능할 때도 남의 자료를 보여주지 않는다 (CLAUDE.md §2). */
+/** 이 장의 미리 찍은 그림 주소(부스 덱, assets/deck-slides) — 있으면 pdf.js 보다 먼저 쓴다. 없으면 '' */
+function staticSlideSrc(no) {
+  const src = ((nf && nf.slideImages) || [])[(Number(no) || 0) - 1];
+  return typeof src === 'string' && src.startsWith('assets/deck-slides/') ? src : '';
+}
+
 function deckImageSrc(no, live = isLiveReportSession()) {
   const own = (nf && nf.slideImages) || [];
   if (live) return own[no - 1] || slidePlaceholder(no);
@@ -5461,7 +5566,7 @@ async function paintDeckThumbs(root = document) {
   const slots = [...root.querySelectorAll('img[data-thumb-page]')];
   for (const img of slots) {
     const no = Number(img.dataset.thumbPage);
-    if (!no) continue;
+    if (!no || (img.getAttribute('src') || '').startsWith('assets/deck-slides/')) continue;   // 미리 찍은 그림이 이미 있다
     const url = await slideThumb(no);
     if (url && img.isConnected) img.src = url;
   }
@@ -6192,7 +6297,7 @@ function wireSendoff() {
     const el = e.target.closest('a[href="#/new"], a[href="#/"], a[href="#/landing"], [data-fresh-practice]');
     if (!el || el === sendoffPassthrough) return;
     // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
-    if (!/^#\/?report/.test(location.hash || '')) return;
+    if (routeParts()[0] !== 'report') return;
     // 들어본 적 없는 발표(샘플 화면)를 배웅하면 트로피 문장이 거짓말이 된다
     if (!realTrophy() && !realSummary()) return;
     e.preventDefault();
@@ -6249,7 +6354,7 @@ const QA_LOG_CHIP = {
  */
 function qaHistoryRecord() {
   const H = window.QaHistory;
-  const hashId = location.hash.replace(/^#\/?/, '').split('/')[1];
+  const hashId = routeParts()[1];
   if (hashId === 'last') return H.get((H.list()[0] || {}).id);
   if (hashId === 'sample-investor') return H.get('investor');
   if (hashId) return H.get(hashId);
@@ -6595,14 +6700,16 @@ function rSummary() {
  */
 function autoAdvanceToQa() {
   if (!nf || nf._autoAdvancedFor === nf.pipelineStartedAt) return;
+  // 리허설 흐름은 기다림 화면이 질문까지 만든 뒤 「질문 받으러 가기」 로 넘어간다 — 질문 생성 중 화면(#/qa)으로 먼저 튀지 않게
+  if (rhFlowOn()) return;
   if (!pipelineQaReady()) return;
   nf._autoAdvancedFor = nf.pipelineStartedAt;
   const go = () => {
     // 리빌이 닫힐 때까지 기다린다 — 연출이 끝나야 다음 화면이 의미가 있다
     if (document.getElementById('f11RevealWrap')) return setTimeout(go, 600);
     // 그 사이 다른 화면으로 갔으면 손대지 않는다
-    if (!location.hash.startsWith('#/new')) return;
-    location.hash = '#/qa';
+    if (routeParts()[0] !== 'new') return;
+    location.hash = screenHash('qa');
   };
   // 「끝났어요」를 한 박자 보여주고 넘어간다. 즉시 바꾸면 무슨 일이 일어난 건지
   // 모른 채 화면만 갈린다.
@@ -6807,12 +6914,12 @@ async function openAudience() {
     window.Chatter.show(chatterCache, {
       nodeSlides: nodeSlides,
       onRef: (id) => {
-        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        if (routeParts()[0] !== 'report') location.hash = screenHash('report');
         goJudge(id);
       },
       onClose: () => {
         // 객석 나가기 / 리포트에서 자세히 보기 → 리포트 화면이 보여야 한다
-        if (!/^#\/?report/.test(location.hash || '')) location.hash = '#/report';
+        if (routeParts()[0] !== 'report') location.hash = screenHash('report');
         else if (typeof renderReport === 'function') {
           // 오버레이에 가려졌던 리포트를 다시 그리진 않고, 스크롤만 복구
           document.body.style.overflow = '';
@@ -6849,6 +6956,60 @@ function selectDeckSlide(n) {
 function bindDeckPanel() {
   const go = $('#deckJudgeGo');
   if (go) go.addEventListener('click', () => goJudge(go.dataset.node));
+}
+
+const DECK_CHICK = {
+  listen: '잘 듣고 있어요',
+  fast: '우웅?',
+  slow: '하암~',
+  quiet: '잘 안 들려',
+  loud: '귀가 아파',
+};
+
+/** 이 장에서 가장 많이 나온 삐약이 표정. 기록이 없으면 null, 반응 없이 듣기만 했으면 listen. */
+function deckChickCue(slideNo) {
+  const all = (nf && Array.isArray(nf.visionCues)) ? nf.visionCues : [];
+  if (!all.length) return null;
+  const mine = all.filter((c) => Number(c.slide_no) === Number(slideNo) && DECK_CHICK[c.cue] && c.cue !== 'listen');
+  if (!mine.length) return 'listen';
+  const tally = {};
+  mine.forEach((c) => {
+    if (!tally[c.cue]) tally[c.cue] = { n: 0, sec: -1 };
+    tally[c.cue].n += 1;
+    tally[c.cue].sec = Math.max(tally[c.cue].sec, Number(c.sec) || 0);
+  });
+  return Object.keys(tally).sort((a, b) => tally[b].n - tally[a].n || tally[b].sec - tally[a].sec)[0];
+}
+
+function deckChickPaws() {
+  return `
+    <svg class="deck-paws" viewBox="0 0 100 100" aria-hidden="true">
+      <g class="deck-paw deck-paw-l">
+        <path d="M14 28c-5 3-6 11-2 14 3 2 7 0 8-4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2" stroke-linejoin="round"/>
+        <ellipse cx="20" cy="34" rx="7" ry="5.4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2"/>
+      </g>
+      <g class="deck-paw deck-paw-r">
+        <path d="M86 28c5 3 6 11 2 14-3 2-7 0-8-4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2" stroke-linejoin="round"/>
+        <ellipse cx="80" cy="34" rx="7" ry="5.4" fill="var(--chick-body)" stroke="var(--chick-line)" stroke-width="2"/>
+      </g>
+    </svg>`;
+}
+
+/** 그 표정의 삐약이를 슬라이드 위에 올린다. 말은 패널에 있고, 얼굴은 장 위에 있다. */
+function deckChickOnSlide(slideNo) {
+  const cue = deckChickCue(slideNo);
+  if (!cue || !DECK_CHICK[cue]) return '';
+  const chick = (window.Chatter && window.Chatter.chickSvg) ? window.Chatter.chickSvg('solar') : '';
+  if (!chick) return '';
+  const line = DECK_CHICK[cue];
+  return `
+    <div class="deck-chick" data-cue="${escapeHtml(cue)}" aria-label="삐약이, ${escapeHtml(line)}">
+      <div class="deck-chick-body">
+        <div class="ch-seat seated" data-mood="neutral">${chick}</div>
+        ${deckChickPaws()}
+      </div>
+      <p class="deck-chick-line">${escapeHtml(line)}</p>
+    </div>`;
 }
 
 /* 선택된 슬라이드의 무대 + 그 장에서 있었던 일.
@@ -6921,12 +7082,14 @@ function deckHtml() {
   return `
     <div class="deck-main">
       <figure class="deck-stage st-${st}">
-        ${stage}
+        <div class="deck-stage-pic">
+          ${stage}
+        </div>
         <!-- 판정 이름(<em>${'${STATUS[st]}'}</em>)이 여기 또 있었다. 한 패널 안에서
              「언급만 함」이 세 번 나왔다 — 이 자막, 오른쪽 dp-top 의 칩, 그리고
              아래 순간 목록. 무대 테두리가 이미 판정 색(st-*)을 입고 있고, 판정을
              **말로** 하는 건 오른쪽 칩 하나면 된다. 자막은 몇 번째 장인지만 말한다. -->
-        <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}</figcaption>
+        <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}${deckChickOnSlide(n)}</figcaption>
       </figure>
       <div class="deck-panel">${panel}</div>
     </div>`;
@@ -8292,7 +8455,7 @@ const QA_BRIDGE_MAX_TRIES = 25;   // 약 3초
 let qaBridgeTries = 0;
 
 function onQaRoute() {
-  return location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa';
+  return routeParts()[0] === 'qa';
 }
 
 function qaNoticeHtml() {
@@ -8429,7 +8592,7 @@ function ensureLiveQuestions() {
     if (buildToken !== qaBuildToken) return;   // 새 요청이 「생성 중」 을 쥐고 있다 — 옛 요청이 풀지 않는다
     qaBuilding = false;
     saveSession('qa-flow', qa);
-    if (location.hash.replace(/^#\/?/, '').split('/')[0] === 'qa') renderQa();
+    if (onQaRoute()) renderQa();
   });
   return true;
 }
@@ -9668,7 +9831,10 @@ async function fetchDeckFile(key, kind, name) {
     throw new Error(msg);
   }
   const blob = await res.blob();
-  return new File([blob], name, { type: blob.type || '' });
+  const file = new File([blob], name, { type: blob.type || '' });
+  // 서버에 이미 있는 덱 녹음 — 받아쓰기 요청이 5MB 를 다시 올리지 않고 이름만 보낸다 (chuckchuck_bridge.js runPreparePipeline · 10-06)
+  if (kind === 'audio') file.deckAudio = key;
+  return file;
 }
 
 /**

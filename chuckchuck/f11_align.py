@@ -625,9 +625,52 @@ def _normalize_speech_edges(raw_edges: list[dict], graph: ConceptGraph) -> list[
     return out
 
 
-def _normalize_extras(raw_extras: list[dict], graph: ConceptGraph) -> list[ExtraConcept]:
-    """그래프에 이미 있는 개념·빈 label 은 버린다. slide_no 는 범위 검증."""
+_CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
+_JUNG = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"
+_JONG = " ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ"
+
+
+def _jamo(text: str) -> str:
+    out = []
+    for ch in re.sub(r"\s+", "", text or "").lower():
+        code = ord(ch) - 0xAC00
+        if 0 <= code < 11172:
+            out += [_CHO[code // 588], _JUNG[(code % 588) // 28]] + ([_JONG[code % 28]] if code % 28 else [])
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _edit(a: str, b: str, cap: int) -> int:
+    if abs(len(a) - len(b)) > cap:
+        return cap + 1
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb))
+        prev = cur
+    return prev[-1]
+
+
+def stt_variant(label: str, vocab: list[str]) -> bool:
+    """
+    「발표에만 나온 개념」 이 사실은 자료 낱말을 받아쓰기가 비슷한 소리로 적은 것인가 — 자모로 풀어 편집 거리 2 이하 · 20% 이하.
+    10-06 부스 녹음(배달 C-1): 「재주문율」 이 「잼 주문율」 로 받아써져 「잼 주문율은 자료에 없는데 발표에서 꺼냈어요」 질문이 됐다.
+    """
+    j = _jamo(label)
+    if len(j) < 4:
+        return False
+    cap = min(2, max(1, int(len(j) * 0.2)))
+    return any(_edit(j, _jamo(v), cap) <= cap for v in vocab if v and abs(len(_jamo(v)) - len(j)) <= cap)
+
+
+def _normalize_extras(raw_extras: list[dict], graph: ConceptGraph, deck_text: str = "") -> list[ExtraConcept]:
+    """그래프에 이미 있는 개념·빈 label · 자료 낱말의 받아쓰기 변형(`stt_variant`)은 버린다. slide_no 는 범위 검증."""
     node_token_lists = [label_tokens(n.label) for n in graph.nodes]
+    words = re.findall(r"[가-힣A-Za-z0-9]+", deck_text or "")
+    words += [re.sub(r"(?:은|는|이|가|을|를|의|로|으로|에|에서|도|와|과)$", "", w) for w in words if len(w) > 2]
+    vocab = [n.label for n in graph.nodes] + words + [a + b for a, b in zip(words, words[1:])]
 
     out: list[ExtraConcept] = []
     seen: list[list[str]] = []
@@ -643,6 +686,8 @@ def _normalize_extras(raw_extras: list[dict], graph: ConceptGraph) -> list[Extra
             continue  # 이미 그래프에 있는 개념 — LLM 이 '새 개념'으로 착각한 것
         if any(contains_tokens(s, tokens) or contains_tokens(tokens, s) for s in seen):
             continue
+        if stt_variant(label, vocab):
+            continue  # 자료 낱말을 받아쓰기가 비슷한 소리로 적은 것 — 발표자가 꺼낸 새 개념이 아니다
         seen.append(tokens)
 
         slide_no = raw.get("slide_no")
@@ -877,7 +922,8 @@ def align_speech(
         [e for e in (data.get("speech_edges") or []) if isinstance(e, dict)], graph
     )
     extras = _normalize_extras(
-        [c for c in (data.get("extra_concepts") or []) if isinstance(c, dict)], graph
+        [c for c in (data.get("extra_concepts") or []) if isinstance(c, dict)], graph,
+        " ".join(s.raw_text or "" for s in slide_doc.slides) if slide_doc is not None else "",
     )
 
     return AlignmentDoc(

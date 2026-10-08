@@ -92,6 +92,8 @@ SYSTEM_PROMPT = """당신은 발표 구성 코치다.
   이름은 구성 방식을 가리키는 수식어일 뿐이다.
 - 모든 문장은 "당신의 발표를 이렇게 바꾸면" 관점으로 쓴다.
 - type 에는 큰따옴표 안의 이름만 그대로 넣는다. 괄호 설명이나 수식을 덧붙이지 않는다.
+- 사용자 메시지에 「추천 유형」이 있으면 chosen.type 은 그 이름만 쓴다.
+  시간·판정·발화로 이미 고른 결과이므로 다른 유형으로 바꾸지 않는다.
 - 실제 발화가 하나라도 주어졌으면 그 중 가장 강한 문장 하나를 골라 keep 에 반드시 넣는다.
   글자 하나 바꾸지 말고 그대로 옮긴다. 발화가 아예 없을 때만 keep 을 생략한다.
 - 고른 이유(why)는 이 발표의 구체적인 수치를 근거로 한두 문장으로 쓴다.
@@ -204,6 +206,175 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
 
 
+def _parse_amount(raw: Any) -> tuple[str | None, float | None]:
+    """'2:24' · '18%' · '90' 을 (단위, 값) 으로. 못 읽으면 (None, None)."""
+    text = str(raw or "").strip()
+    if not text or text == "?":
+        return None, None
+    if text.endswith("%"):
+        try:
+            return "pct", float(text[:-1])
+        except ValueError:
+            return None, None
+    parts = text.split(":")
+    try:
+        if len(parts) == 2:
+            return "sec", float(int(parts[0]) * 60 + int(parts[1]))
+        if len(parts) == 3:
+            return "sec", float(int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2]))
+        return "num", float(text)
+    except ValueError:
+        return None, None
+
+
+def _fmt_amount(unit: str | None, value: float | None) -> str:
+    if unit == "pct" and value is not None:
+        return f"{int(round(value))}%"
+    if unit == "sec" and value is not None:
+        whole = int(round(value))
+        return f"{whole // 60}:{whole % 60:02d}"
+    if value is None:
+        return "?"
+    return str(value)
+
+
+def _verdict_kind(raw: Any) -> str:
+    """판정 문자열을 gap / weak / ok 로. 클라이언트는 한글, 테스트는 영문이다."""
+    text = str(raw or "").strip()
+    key = text.lower()
+    if text in {"안 나옴", "자료와 모순", "모순", "누락"} or key in {
+        "missing", "no", "contradiction", "ct",
+    }:
+        return "gap"
+    if text in {"언급만 함", "설명 부족"} or key in {"partial", "mid"}:
+        return "weak"
+    if text in {"설명함", "정당한 생략"} or key in {
+        "aligned", "ok", "justified_skip", "om",
+    }:
+        return "ok"
+    return ""
+
+
+def recommend_type(analysis: dict) -> dict[str, Any]:
+    """
+    이 발표 지표로 네 구성 중 하나를 고른다.
+
+    각 유형이 보는 지표는 STRATEGY_TYPES 의 reads 와 같다.
+      베이조스 — 앞부분이 권장보다 길거나, 끝이 권장보다 짧다
+      머스크   — 안 나온 개념, 자료와 어긋난 개념
+      저커버그 — 발화에 구체적인 장면이 있다
+      잡스     — 시간은 고른데 개념이 갈라져 있거나, 어느 신호도 없다
+
+    반환: {"type", "scores", "because"}
+    """
+    scores = {name: 0 for name in STRATEGY_TYPES}
+    reasons: dict[str, str] = {name: "" for name in STRATEGY_TYPES}
+
+    concepts = [c for c in (analysis.get("concepts") or []) if isinstance(c, dict)]
+    times = [t for t in (analysis.get("time_alloc") or []) if isinstance(t, dict)]
+    quotes = [
+        q for q in (analysis.get("quotes") or [])
+        if isinstance(q, dict) and str(q.get("text") or "").strip()
+    ]
+    gaps = [c for c in concepts if _verdict_kind(c.get("verdict")) == "gap"]
+    weaks = [c for c in concepts if _verdict_kind(c.get("verdict")) == "weak"]
+    oks = [c for c in concepts if _verdict_kind(c.get("verdict")) == "ok"]
+
+    if gaps:
+        scores["머스크식 전제 축적형"] += 2 * len(gaps)
+        head = str(gaps[0].get("label") or "빠진 개념")
+        extra = f" 외 {len(gaps) - 1}개" if len(gaps) > 1 else ""
+        reasons["머스크식 전제 축적형"] = (
+            f"「{head}」{extra} 개념이 발표에서 비거나 자료와 어긋나서, "
+            "그 전제를 먼저 쌓는 구성이 맞아요."
+        )
+    if oks and (weaks or gaps):
+        scores["잡스식 축 고정형"] += 2
+        spine = str(oks[0].get("label") or "중심 주장")
+        reasons["잡스식 축 고정형"] = (
+            f"「{spine}」 개념은 나왔는데 나머지가 느슨해서, "
+            "그 주장 하나에 장을 묶는 구성이 맞아요."
+        )
+
+    parsed: list[tuple[dict, str, float, float]] = []
+    for row in times:
+        rec_u, rec_v = _parse_amount(row.get("recommended"))
+        act_u, act_v = _parse_amount(row.get("actual"))
+        if rec_u and rec_u == act_u and rec_v and rec_v > 0 and act_v is not None and act_v >= 0:
+            parsed.append((row, rec_u, rec_v, act_v))
+
+    if parsed:
+        first, unit0, rec0, act0 = parsed[0]
+        place = str(first.get("label") or "도입")
+        if act0 >= rec0 * 1.5:
+            scores["베이조스식 결론 선행형"] += 3
+            reasons["베이조스식 결론 선행형"] = (
+                f"앞부분 {place}에 권장 {_fmt_amount(unit0, rec0)}보다 "
+                f"{_fmt_amount(unit0, act0)}를 써서, 결론을 먼저 말하는 구성이 맞아요."
+            )
+        elif act0 > rec0 * 1.15:
+            scores["베이조스식 결론 선행형"] += 2
+            reasons["베이조스식 결론 선행형"] = (
+                f"「{place}」 구간이 권장보다 길어서, 결론을 앞에 두는 구성이 맞아요."
+            )
+        if len(parsed) >= 2:
+            last, unitn, recn, actn = parsed[-1]
+            if actn <= recn * 0.6:
+                scores["베이조스식 결론 선행형"] += 2
+                if not reasons["베이조스식 결론 선행형"]:
+                    end = str(last.get("label") or "마무리")
+                    reasons["베이조스식 결론 선행형"] = (
+                        f"「{end}」 구간은 권장 {_fmt_amount(unitn, recn)} 중 "
+                        f"{_fmt_amount(unitn, actn)}만 써서, "
+                        "결론을 앞에 두고 근거를 뒤에 붙이는 구성이 맞아요."
+                    )
+        ratios = [act / rec for _, _, rec, act in parsed]
+        if concepts and max(ratios) < 1.5 and min(ratios) > 0.6:
+            scores["잡스식 축 고정형"] += 2
+            if not reasons["잡스식 축 고정형"]:
+                reasons["잡스식 축 고정형"] = (
+                    "시간 배분은 크게 안 치우쳤는데 장이 여러 갈래라, "
+                    "주장 하나로 묶는 구성이 맞아요."
+                )
+        if len(parsed) >= 3:
+            mid = parsed[1:-1]
+            peak = max(mid, key=lambda item: item[3])
+            if peak[3] > act0 and peak[3] >= parsed[-1][3]:
+                scores["잡스식 축 고정형"] += 2
+                if not reasons["잡스식 축 고정형"]:
+                    mid_name = str(peak[0].get("label") or "구간")
+                    reasons["잡스식 축 고정형"] = (
+                        f"가운데 {mid_name}에 시간을 가장 많이 써서, "
+                        "그 주장을 축으로 고정하는 구성이 맞아요."
+                    )
+
+    scene_words = ("어느", "그날", "그때", "사용자", "고객", "동료", "팀원", "한 사람", "예를 들면")
+    if any(any(word in str(q.get("text") or "") for word in scene_words) for q in quotes):
+        scores["저커버그식 사용자 서사형"] += 3
+        reasons["저커버그식 사용자 서사형"] = (
+            "말한 내용에 구체적인 장면이 있어서, "
+            "그 장면에서 시작해 다시 그 장면으로 닫는 구성이 맞아요."
+        )
+
+    if all(value == 0 for value in scores.values()):
+        scores["잡스식 축 고정형"] = 1
+        reasons["잡스식 축 고정형"] = (
+            "시간이나 개념 판정이 한쪽으로 치우치지 않아서, "
+            "주장 하나를 축으로 묶는 구성을 기본으로 골랐어요."
+        )
+
+    # 동점이면 손볼 곳이 더 분명한 쪽. 잡스는 신호가 없을 때의 기본값이라 맨 뒤다.
+    order = (
+        "베이조스식 결론 선행형",
+        "머스크식 전제 축적형",
+        "저커버그식 사용자 서사형",
+        "잡스식 축 고정형",
+    )
+    best = max(scores.values())
+    name = next(item for item in order if scores[item] == best)
+    return {"type": name, "scores": scores, "because": reasons[name]}
+
+
 def _build_user_prompt(analysis: dict) -> str:
     # 이름을 따옴표로 감싸고 메타데이터를 뒤로 뺀다. 한 줄에 붙여 놓으면
     # 모델이 "(핵심 위치: throughline)" 까지 이름의 일부로 옮겨 적는다.
@@ -241,7 +412,13 @@ def _build_user_prompt(analysis: dict) -> str:
         MAX_SLIDE_CHARS,
     )
     # [TASK] 머리표는 MockLLM 이 어떤 가짜 응답을 낼지 고르는 표식이다.
+    # 추천 유형 줄은 MockLLM 이 그대로 따른다. 실모델도 이 이름을 바꾸지 못한다.
+    rec = recommend_type(analysis)
     return f"""[TASK] presentation-strategy
+
+추천 유형: "{rec['type']}"
+추천 근거: {rec['because']}
+chosen.type 에는 위 추천 유형만 넣어라.
 
 고를 수 있는 구성 유형:
 {types_desc}
@@ -263,7 +440,7 @@ def _build_user_prompt(analysis: dict) -> str:
 실제 발화 (keep.quote 는 반드시 이 안에서 고른다)
 {quotes or '  (없음)'}
 
-가장 잘 맞는 유형 하나를 고르고, 그 유형대로 다시 짠 구간 순서표(outline)를 4~7개로 만들어줘.
+추천 유형대로 다시 짠 구간 순서표(outline)를 4~7개로 만들어줘.
 왜 바꿔야 하는지(gains)도 2~3개 써줘 — 근거(evidence)는 위 입력의 실제 시각·수치·개념에서만 가져와.
 나머지 유형 중 둘은 alternatives 로 한 줄씩만 설명해줘."""
 
@@ -473,11 +650,12 @@ def suggest_strategy(
       time_alloc [{slide, label, recommended, actual}]
       quotes     [{at, text}]
 
-    반환: {"chosen": {...}, "alternatives": [...]}
+    반환: {"chosen": {...}, "alternatives": [...], "recommendation": {"type", "scores", "because"}}
     """
     if not isinstance(analysis, dict) or not analysis:
         raise StrategyError("분석 결과가 비어 있어 구성을 제안할 수 없습니다.")
 
+    recommendation = recommend_type(analysis)
     engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
     raw = engine.complete(
         system=SYSTEM_PROMPT,
@@ -485,4 +663,6 @@ def suggest_strategy(
         temperature=0.3,
         max_tokens=MAX_TOKENS,
     )
-    return _validate(_extract_json(raw), analysis)
+    data = _validate(_extract_json(raw), analysis)
+    data["recommendation"] = recommendation
+    return data

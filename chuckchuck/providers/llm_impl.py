@@ -377,12 +377,21 @@ class MockLLM(LLMProvider):
                                     user.split("슬라이드 목록", 1)[-1].split("개념별 판정")[0],
                                     re.M)]
         half = max(1, len(nos) // 2)
+        # 유형은 f20 이 발표 지표로 이미 고른다. 목은 그 이름을 따른다.
+        picked = re.search(r'추천 유형:\s*"([^"]+)"', user)
+        because = re.search(r"추천 근거:\s*(.+)", user)
         overran = actual > recommended >= 0
+        type_name = picked.group(1) if picked else (
+            "베이조스식 결론 선행형" if overran else "잡스식 축 고정형"
+        )
         chosen = {
-            "type": "베이조스식 결론 선행형" if overran else "잡스식 축 고정형",
+            "type": type_name,
             "why": (
-                f"모의 근거 — {slide} 에 권장보다 오래 머물렀어요."
-                if overran else "모의 근거 — 주장 하나로 묶을 여지가 있어요."
+                because.group(1).strip()
+                if because else (
+                    f"모의 근거 — {slide} 에 권장보다 오래 머물렀어요."
+                    if overran else "모의 근거 — 주장 하나로 묶을 여지가 있어요."
+                )
             ),
             "outline": [
                 {"role": "한 문장 선언", "from": "0:00", "to": "0:40",
@@ -405,9 +414,15 @@ class MockLLM(LLMProvider):
             {
                 "chosen": chosen,
                 "alternatives": [
-                    {"type": "머스크식 전제 축적형", "one_line": "모의 대안 — 수치부터 쌓아요."},
-                    {"type": "저커버그식 사용자 서사형", "one_line": "모의 대안 — 한 장면에서 시작해요."},
-                ],
+                    {"type": name, "one_line": line}
+                    for name, line in (
+                        ("잡스식 축 고정형", "모의 대안 — 주장 하나로 묶어요."),
+                        ("베이조스식 결론 선행형", "모의 대안 — 결론을 먼저 말해요."),
+                        ("머스크식 전제 축적형", "모의 대안 — 수치부터 쌓아요."),
+                        ("저커버그식 사용자 서사형", "모의 대안 — 한 장면에서 시작해요."),
+                    )
+                    if name != type_name
+                ][:2],
             },
             ensure_ascii=False,
         )

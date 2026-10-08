@@ -15,9 +15,10 @@
     fastCpm: 350 * 1.15,
     slowCpm: 300 * 0.85,
     quietLevel: 0.03,
-    loudLevel: 0.14,
-    fastPerSec: 3.6,
-    slowPerSec: 2.05,
+    loudLevel: 0.22,
+    fastPerSec: 7.4,
+    slowPerSec: 3.2,
+    minOnsetGap: 110,
     windowMs: 8000,
     paceMs: 3200,
     levelMs: 700,
@@ -26,15 +27,15 @@
     minSpeakMs: 2200,
     minLevelN: 3,
     quietGrow: 6,
-    sustainMs: 280,
-    loudSustainMs: 180,
-    holdMs: 1100,
+    sustainMs: 1100,
+    loudSustainMs: 700,
+    holdMs: 500,
     keepMs: 12000,
   };
 
   const CUE_COPY = {
     idle: '',
-    listen: '듣고 있어요',
+    listen: '잘 듣고 있어요',
     fast: '우웅?',
     slow: '하암~',
     quiet: '잘 안 들려',
@@ -93,8 +94,14 @@
    * 파동이 없으면 null — 조용한 방을 느린 말로 보지 않는다.
    */
   function syllablePace(events, now, cfg) {
-    const win = events.filter((e) => now - e.t <= cfg.paceMs && e.level !== undefined);
-    if (win.length < 6) return null;
+    const raw = events.filter((e) => now - e.t <= cfg.paceMs && e.level !== undefined);
+    if (raw.length < 6) return null;
+    const win = raw.map((e, i) => {
+      const a = Math.max(0, i - 1);
+      let sum = 0;
+      for (let j = a; j <= i; j++) sum += raw[j].level;
+      return { t: e.t, level: sum / (i - a + 1) };
+    });
     const xs = win.map((e) => e.level).sort((a, b) => a - b);
     const floor = xs[Math.floor(xs.length * 0.2)];
     const peak = xs[Math.floor(xs.length * 0.9)];
@@ -104,15 +111,29 @@
     const rise = peak - floor;
     const hiCut = floor + rise * 0.55;
     const loCut = floor + rise * 0.35;
+    const gap = cfg.minOnsetGap;
     let onsets = 0;
     let armed = true;
+    let lastOnset = -1e9;
     for (let i = 0; i < win.length; i++) {
       const lv = win[i].level;
-      if (lv >= hiCut && armed) { onsets += 1; armed = false; }
-      else if (lv < loCut) armed = true;
+      if (lv >= hiCut && armed && win[i].t - lastOnset >= gap) {
+        onsets += 1;
+        armed = false;
+        lastOnset = win[i].t;
+      } else if (lv < loCut) armed = true;
     }
     if (onsets < 2) return null;
     return { onsets, perSec: onsets / (span / 1000), mean: avg(win.map((e) => e.level)) };
+  }
+
+  function livelySpeech(events, now, cfg) {
+    const lv = events.filter((e) => now - e.t <= cfg.levelMs && e.level !== undefined);
+    if (lv.length < cfg.minLevelN) return false;
+    const mean = avg(lv.map((e) => e.level));
+    if (mean < cfg.quietLevel || mean >= cfg.loudLevel) return false;
+    const peak = Math.max(...lv.map((e) => e.level));
+    return peak >= mean + 0.012;
   }
 
   function desiredCue(events, now, cfg = VISION) {
@@ -126,7 +147,7 @@
     if (syl && syl.perSec >= cfg.fastPerSec) return 'fast';
     if (rate && rate.cpm < cfg.slowCpm) return 'slow';
     if (syl && syl.perSec <= cfg.slowPerSec) return 'slow';
-    if (rate || grew || syl) return 'listen';
+    if (rate || grew || syl || livelySpeech(events, now, cfg)) return 'listen';
     return 'idle';
   }
 

@@ -38,6 +38,8 @@ const BQ_IDLE_SCREENS = new Set(['pick', 'prep', 'qa']);
 
 function bqArmIdle(layer, screen) {
   bqDisarmIdle();
+  // 리허설 흐름(#/rehearsal)이 화상판을 빌려 쓰는 중이면 자리 비움 복귀는 없다 — 부스 노트북 장치다
+  if (typeof bqRehearsal === 'function' && bqRehearsal()) return;
   bqOps.lastInput = Date.now();
   bqOps.awaySince = 0;
   ['pointerdown', 'keydown', 'input', 'wheel'].forEach((ev) => layer.addEventListener(ev, bqTouch, { capture: true, passive: true }));
@@ -67,9 +69,14 @@ function bqBusyNow() {
   return !!mic.lastTextAt && Date.now() - mic.lastTextAt < BQ_SPEAKING_MS;
 }
 
+/** 자리 비움 자동 복귀 — 10-06 사용자: 「사람 인식 못 했을 때 자동으로 꺼지는 기능 없애줘」. 끄면 카메라 확인만 돈다.
+ *  스태프용 Esc 두 번 · 「처음으로」 · 마지막 질문 뒤 결과 화면 넘김은 그대로다 */
+const BQ_IDLE_AUTO_HOME = false;
+
 function bqIdleTick() {
   const now = Date.now();
   if (typeof bqCamCheckAlive === 'function') bqCamCheckAlive();
+  if (!BQ_IDLE_AUTO_HOME) return;
   if (bqBusyNow()) { bqOps.lastInput = now; return; }
   const cv = window.BoothCV ? BoothCV.snapshot() : null;
   const seeing = typeof bqCamLive === 'function' && bqCamLive() && cv && cv.status === 'ready';
@@ -131,6 +138,7 @@ function bqInstallKeys() {
   bqOps.keysOn = true;
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !document.getElementById('bqStage')) return;
+    if (typeof bqRehearsal === 'function' && bqRehearsal()) return;   // 리허설 탭에는 스태프 키가 없다
     if (e.shiftKey) { bqOps.escAt = 0; const s = document.getElementById('bqSheet'); if (s) s.remove(); bqGoHome(); return; }
     const sheet = document.getElementById('bqSheet');
     if (sheet) { sheet.remove(); return; }
@@ -155,7 +163,6 @@ function bqConfirmHome() {
         <button type="button" class="bq-ghost" data-sheet="close">닫기</button>
         <button type="button" class="bq-cta bq-cta-sm" data-sheet="home">처음으로 갈게요</button>
       </div>
-      ${bq.variant === 'call' && bq.screen === 'qa' ? `<button type="button" class="bq-sheet-cam" data-sheet="cam">${bqCamLive() ? '카메라 끄고 이어서 하기' : '카메라 켜고 이어서 하기'}</button>` : ''}
     </div>`;
   layer.appendChild(sheet);
   // 시트가 떠 있는 동안 뒤 층은 inert — Tab 세 번이면 뒤 버튼으로 빠져나갔다 (사냥 3). 시트 안에서 Tab 이 돈다
@@ -175,8 +182,6 @@ function bqConfirmHome() {
     const act = e.target.closest('[data-sheet]');
     if (e.target === sheet || (act && act.dataset.sheet === 'close')) close();
     else if (act && act.dataset.sheet === 'home') { sheet.remove(); bqGoHome(); }
-    // 화상판은 질문 화면에서 카메라 버튼을 뺐다(10-02 UI 정합성) — 끄고 켜기는 이 시트와 스태프 키(Shift+C)로
-    else if (act && act.dataset.sheet === 'cam') { close(); bqCamToggle(); }
   });
   sheet.querySelector('[data-sheet="close"]').focus();
 }
@@ -191,6 +196,8 @@ function bqConfirmHome() {
 function bqArmAutoEnd() {
   const L = qa && qa.live;
   if (!L || !L.awaitEnd) return;
+  // 리허설은 끝 카드에서 기다렸다가 「리포트 보러 가기」 로 — 12초 자동 결과는 부스 줄 세우기 장치다
+  if (typeof bqRehearsal === 'function' && bqRehearsal()) return;
   const note = document.querySelector('#bqStage .qa-end-note');
   if (bqOps.endTimer) {
     bqEndNote(note);

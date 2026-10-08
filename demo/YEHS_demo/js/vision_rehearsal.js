@@ -56,12 +56,19 @@ function renderVisionEntry(opts = {}) {
     resetNf();
     resetQa();
     try { sessionStorage.removeItem('cheokcheok:chuckchuck-session'); } catch (_) { /* ignore */ }
+  } else if (nf.rehearsalDeck && (Number(nf.step) || 0) >= 3 && typeof discardTakeKeepDeck === 'function') {
+    // 리허설(#/rehearsal)에서 발표를 마치고 나온 세션 — 비전 리허설은 같은 자료로 새 발표부터. 그대로 이어받으면 리허설의 기다림 ·
+    // 질문이 리허설 표시 없이 일반 「질문 준비가 끝났어요」 페이지로 떴다 (10-03 점검 F7). 리허설 고르기 표시는 지운다
+    discardTakeKeepDeck();
+    nf.rehearsalDeck = null;
+    nf.rhReachedEnd = false;
+    saveSession('new-flow', nf);
   } else if ((Number(nf.step) || 0) < 2) {
     nf.step = 2;
     saveSession('new-flow', nf);
   }
-  if (location.hash === '#/new' || location.hash === '#/new/') route();
-  else location.replace('#/new');
+  if (onScreen('new')) route();
+  else location.replace(screenHash('new'));
 }
 
 function visionFlowOnRoute(key) {
@@ -163,6 +170,12 @@ function visionCoachStop() {
   visionCoach.final = '';
   visionCoach.interim = '';
   visionCoach.note = '';
+  if (visionCoach.reaction) {
+    visionEnsureReactions();
+    visionReactions.push(visionCoach.reaction);
+    visionCoach.reaction = null;
+    visionPersistCues();
+  }
 }
 
 function visionFlowUnmount({ keepCam = false } = {}) {
@@ -179,23 +192,75 @@ function visionCueText(cue) {
   return copy[cue] || '';
 }
 
+const VISION_REACTS = new Set(['fast', 'slow', 'quiet', 'loud']);
+let visionReactions = [];
+let visionReactionsReady = false;
+
+function visionRecSec() {
+  if (typeof nf !== 'undefined' && nf && nf.mic === 'on') return Math.round((Number(nf.sec) || 0) * 10) / 10;
+  if (visionCoach.startedAt) return Math.round((performance.now() - visionCoach.startedAt) / 100) / 10;
+  return 0;
+}
+
+function visionEnsureReactions() {
+  if (visionReactionsReady) return;
+  visionReactionsReady = true;
+  if (typeof nf !== 'undefined' && nf && Array.isArray(nf.visionCues)) visionReactions = nf.visionCues.slice();
+}
+
+function visionPersistCues() {
+  const list = visionReactions.slice();
+  if (visionCoach.reaction) list.push(visionCoach.reaction);
+  if (typeof nf === 'undefined' || !nf) return;
+  nf.visionCues = list.slice(-80);
+  nf.visionSeen = true;
+  if (typeof saveSession === 'function') saveSession('new-flow', nf);
+}
+
+function visionResetReactions() {
+  visionReactions = [];
+  visionReactionsReady = true;
+  visionCoach.reaction = null;
+  if (typeof nf !== 'undefined' && nf) {
+    nf.visionCues = [];
+    if (typeof saveSession === 'function') saveSession('new-flow', nf);
+  }
+}
+
+/** 표정이 바뀐 순간만 남긴다. 그 순간의 말 끝을 같이 적어, 리포트가 「이 말에서 귀가 아팠다」고 보여 주게 한다. */
+function visionNoteReaction(cue) {
+  visionEnsureReactions();
+  const slide = (typeof nf !== 'undefined' && nf && Number(nf.slide)) || 1;
+  const react = VISION_REACTS.has(cue);
+  const open = visionCoach.reaction;
+  if (open && open.cue === cue && open.slide_no === slide) return;
+  if (open) visionReactions.push(open);
+  const heard = visionCoachText().slice(-48).trim();
+  visionCoach.reaction = react ? { slide_no: slide, sec: visionRecSec(), cue, text: heard } : null;
+  visionPersistCues();
+}
+
+/** 값이 다를 때만 쓴다 — 코치가 40ms 마다 부르는데 매번 쓰면 초당 DOM 변경 100번 · 스타일 · 배치 계산이 두 배였다 (10-03 점검 perf-r2-3) */
+function visionSetIf(el, prop, value) {
+  if (el && el[prop] !== value) el[prop] = value;
+}
+
 function visionPaintCue(cue) {
   const bird = $('#vrBird');
   const line = $('#vrLine');
   const status = $('#vrStatus');
   const text = visionCueText(cue);
-  const react = cue === 'fast' || cue === 'slow' || cue === 'quiet' || cue === 'loud';
+  const react = VISION_REACTS.has(cue);
   if (bird) {
-    bird.dataset.cue = cue || 'idle';
-    bird.setAttribute('aria-label', react ? `삐약이, ${text}` : '삐약이');
+    const c = cue || 'idle';
+    if (bird.dataset.cue !== c) bird.dataset.cue = c;
+    const label = react ? `삐약이, ${text}` : '삐약이';
+    if (bird.getAttribute('aria-label') !== label) bird.setAttribute('aria-label', label);
   }
-  if (line) {
-    line.hidden = !react;
-    line.textContent = react ? text : '';
-  }
-  if (status) {
-    status.textContent = cue === 'listen' ? '듣고 있어요' : (react ? text : '말하면 반응해요');
-  }
+  visionSetIf(line, 'hidden', !react);
+  visionSetIf(line, 'textContent', react ? text : '');
+  visionSetIf(status, 'textContent', cue === 'listen' ? '잘 듣고 있어요' : (react ? text : '말하면 반응해요'));
+  visionNoteReaction(cue || 'idle');
 }
 
 function visionPaintHear() {
@@ -238,11 +303,8 @@ function visionCoachSample() {
   const r = Cue.observeVision(visionCoach.meter, sample);
   visionCoach.meter = r.meter;
   visionPaintCue(r.cue);
-  const cap = $('#vrCaption');
-  if (cap) {
-    const heard = visionCoachText();
-    cap.textContent = heard ? heard.slice(-42) : '';
-  }
+  const heard = visionCoachText();
+  visionSetIf($('#vrCaption'), 'textContent', heard ? heard.slice(-42) : '');
 }
 
 async function visionOpenLevel() {
@@ -283,6 +345,11 @@ function visionCoachStart() {
   visionArmEar();
   visionCoach.meter = Cue.createVisionMeter(performance.now());
   visionCoach.startedAt = performance.now();
+  visionEnsureReactions();
+  if (typeof nf !== 'undefined' && nf) {
+    nf.visionSeen = true;
+    if (typeof saveSession === 'function') saveSession('new-flow', nf);
+  }
   visionPaintCue('idle');
   const bridge = window.ChuckchuckBridge;
   if (bridge && bridge.hasLiveDictation && bridge.hasLiveDictation()) {
@@ -298,7 +365,7 @@ function visionCoachStart() {
     } catch (_) { /* 받아쓰기가 없어도 마이크 파동으로 속도를 본다 */ }
   }
   visionOpenLevel();
-  visionCoach.timer = setInterval(visionCoachSample, 80);
+  visionCoach.timer = setInterval(visionCoachSample, 40);
 }
 
 function visionPaws() {
@@ -324,14 +391,15 @@ function visionBirdHtml() {
         <div class="ch-seat seated" data-mood="neutral">${chick}</div>
         ${visionPaws()}
       </div>
-      <p class="vr-name">삐약이</p>
-      <p class="vr-status" id="vrStatus">말하면 반응해요</p>
+      <div class="vr-tag vr-glass"><p class="vr-name">삐약이</p>
+      <p class="vr-status" id="vrStatus">말하면 반응해요</p></div>
       <button type="button" class="btn vr-ear" id="vrEar">다시 듣기</button>
     </div>`;
 }
 
 const VISION_SLIDE_KEY = 'cheokcheok:vision-slide';
-const visionSlide = { custom: false, x: 0, y: 0, w: 0, h: 0, opacity: 0.78 };
+/** right · rx — 오른쪽 절반에 둔 창은 오른쪽 가장자리에서 잰 거리로 기억한다(화면 너비가 바뀌어도 오른쪽 기둥에 붙어 있게) */
+const visionSlide = { custom: false, portrait: false, x: 0, y: 0, w: 0, h: 0, right: false, rx: 0, opacity: 0.78 };
 
 function visionSlideLoad() {
   try {
@@ -341,8 +409,11 @@ function visionSlideLoad() {
     if (typeof data.opacity === 'number') visionSlide.opacity = Math.min(1, Math.max(0.25, data.opacity));
     if (data.custom && [data.x, data.y, data.w, data.h].every((n) => typeof n === 'number')) {
       visionSlide.custom = true;
+      visionSlide.portrait = !!data.portrait;
       visionSlide.x = data.x;
       visionSlide.y = data.y;
+      visionSlide.right = !!data.right && typeof data.rx === 'number';
+      visionSlide.rx = Number(data.rx) || 0;
       visionSlide.w = data.w;
       visionSlide.h = data.h;
     }
@@ -357,9 +428,20 @@ function visionSlideSave() {
       y: visionSlide.y,
       w: visionSlide.w,
       h: visionSlide.h,
+      right: !!visionSlide.right,
+      rx: visionSlide.rx,
+      portrait: !!visionSlide.portrait,
       opacity: visionSlide.opacity,
     }));
   } catch (_) { /* 사생활 모드 — 이번 화면만 */ }
+}
+
+/**
+ * 자료 창이 떠 있는 층 — 비전 리허설(#vrCall), 아니면 리허설 흐름의 질문 화상판(#bqStage[data-flow="rehearsal"], js/rehearsal.js).
+ * 화상판에서는 답 칸(.bc-dock)이 조작줄 자리다. 둘 다 창 전체를 덮는 층이라 저장한 자리(px)를 그대로 쓴다.
+ */
+function visionSlideHost() {
+  return document.getElementById('vrCall') || document.querySelector('#bqStage[data-flow="rehearsal"]');
 }
 
 /**
@@ -368,23 +450,58 @@ function visionSlideSave() {
  * 손잡이가 조작줄 밑으로 숨어서 다시 못 잡았다 (09-30 labs/vision_flow).
  */
 function visionSlideClamp(box) {
-  const host = document.getElementById('vrCall');
+  const host = visionSlideHost();
   const width = host ? host.clientWidth : window.innerWidth;
   const height = host ? host.clientHeight : window.innerHeight;
-  const dock = host && host.querySelector('.vr-dock');
-  const bottom = dock && host
+  const dock = host && host.querySelector('.vr-dock, .bc-dock');
+  let bottom = dock && host
     ? dock.getBoundingClientRect().top - host.getBoundingClientRect().top - 8
     : height - 8;
-  const top = 8;
+  // 화상판(리허설 질문)에서는 위 질문 카드 · 카메라 알약 줄 아래, 화면 안쪽에만 — 발표 때 위쪽에 둔 자리가 질문을 덮었다 (10-03 labs/rehearsal_flow)
+  const onCall = !!host && host.id === 'bqStage';
+  let top = 8;
   const w = Math.max(240, Math.min(box.w, width - 16));
+  // 창 전체를 화면 안에 — 예전 비전 리허설은 width−72 까지 밀 수 있어서 오른쪽 위로 끌면 72px 만 남고 장 · 불투명도 · 크기 모서리가 화면 밖이었다.
+  // 화상판과 같은 규칙으로 맞춘다 (10-03 점검 V-R2-4)
+  const x = Math.min(Math.max(box.x, onCall ? 8 : 0), width - w - 8);
+  if (onCall) {
+    const hr = host.getBoundingClientRect();
+    // 창과 가로로 겹치는 것만 막는다 — 위 · 아래 막는 것을 가로 자리와 상관없이 다 세서, 빈 왼쪽으로 옮겨도 창 높이가 오른쪽 칸(≈190px)에 묶였다 (V-R2-2)
+    const across = (r) => r.width > 0 && r.right - hr.left > x && r.left - hr.left < x + w;
+    // 사생활 알약도 — 알약이 창의 손잡이(불투명도 · 크기)를 덮어 눌리지 않았다 (10-03 점검 V2). 숨은 알약(폰 폭 · 카메라 꺼짐)은 상자가 없다
+    const marks = [...host.querySelectorAll('.bc-ask:not([hidden]), .bc-side-row, .bq-top, .bc-privacy')]
+      .filter((el) => el.getClientRects().length).map((el) => el.getBoundingClientRect()).filter(across).map((r) => r.bottom - hr.top);
+    top = Math.max(8, ...marks) + 8;
+    // 아래는 답 칸 · 진행 칩 · 질문하는 삐약이 카드 중 창과 가로로 겹치는 것의 위
+    const floors = [...host.querySelectorAll('.bc-dock, .bc-prog .bq-prog, #bcHost')]
+      .filter((el) => el.getClientRects().length).map((el) => el.getBoundingClientRect()).filter(across).map((r) => r.top - hr.top - 8);
+    bottom = Math.min(height - 8, ...floors);
+  }
+  // 비전 리허설 — 위 띠의 단추(카메라 · 나가기 …)와 가로로 겹치는 자리면 그 아래에서 멈춘다. 예전엔 y=8 까지 올라가
+  // 단추들이 창 윗변을 덮었다 (10-03 점검 V6). 단추가 없는 가운데 위쪽은 그대로 쓸 수 있다
+  if (host && host.id === 'vrCall') {
+    const hr = host.getBoundingClientRect();
+    [...host.querySelectorAll('.vr-top > :not(.vr-top-fill), .vr-top-fill > *')].forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (!r.width || r.right - hr.left <= x || r.left - hr.left >= x + w) return;
+      top = Math.max(top, r.bottom - hr.top + 8);
+    });
+  }
   const h = Math.max(180, Math.min(box.h, bottom - top));
-  const x = Math.min(Math.max(box.x, 0), width - 72);
   const y = Math.min(Math.max(box.y, top), Math.max(top, bottom - h));
   return { x, y, w, h };
 }
 
+/** 세로 화면(아이패드 세로 · 폰)인가 — 가로에서 옮겨 둔 자리 · 크기를 세로에 그대로 쓰면 대화 · 자료를 덮는다 */
+function visionSlidePortrait() {
+  const host = visionSlideHost();
+  const w = host ? host.clientWidth : window.innerWidth;
+  const h = host ? host.clientHeight : window.innerHeight;
+  return h > w;
+}
+
 function visionSlideRead(slide) {
-  const host = document.getElementById('vrCall');
+  const host = visionSlideHost();
   const sr = slide.getBoundingClientRect();
   const hr = host ? host.getBoundingClientRect() : { left: 0, top: 0 };
   return { x: sr.left - hr.left, y: sr.top - hr.top, w: sr.width, h: sr.height };
@@ -395,39 +512,74 @@ function visionSlideApply(slide) {
   slide.style.setProperty('--vr-slide-alpha', String(visionSlide.opacity));
   const range = slide.querySelector('#vrSlideAlpha');
   if (range && document.activeElement !== range) range.value = String(Math.round(visionSlide.opacity * 100));
-  if (visionSlide.custom) {
-    const box = visionSlideClamp(visionSlide);
+  // 옮겨 둔 자리는 그 자리를 정한 방향(가로 · 세로)에서만 쓴다 — 가로에서 옮긴 큰 창이 세로 화상판의 대화 말풍선을 덮었다 (10-03 점검 V6).
+  // 다른 방향이면 그 화면의 기본 자리(작은 창)에 선다. 저장은 그대로라 원래 방향으로 돌아가면 옮긴 자리로 돌아간다
+  if (visionSlide.custom && !!visionSlide.portrait === visionSlidePortrait()) {
+    // 오른쪽에 둔 창은 오른쪽 가장자리 기준으로 다시 세운다 — 저장은 px 라 발표 뒤 전체 화면(1512 → 1920)으로 바꾸면 화상판 가운데에 떠 있었다 (V-R2-4)
+    const hostW = (visionSlideHost() || {}).clientWidth || window.innerWidth;
+    const box = visionSlideClamp(visionSlide.right ? { ...visionSlide, x: hostW - visionSlide.rx - visionSlide.w } : visionSlide);
     slide.style.left = `${box.x}px`;
     slide.style.top = `${box.y}px`;
     slide.style.width = `${box.w}px`;
     slide.style.height = `${box.h}px`;
     return;
   }
-  const slot = document.querySelector('#vrCall .vr-slide-slot');
-  const host = document.getElementById('vrCall');
+  const host = visionSlideHost();
+  const slot = host && host.querySelector('.vr-slide-slot');
   if (!slot || !host) return;
   const sr = slot.getBoundingClientRect();
   const hr = host.getBoundingClientRect();
   if (sr.width < 8 || sr.height < 8) return;
+  let height = sr.height;
+  // 세로 비전 리허설의 기본 칸은 좁고 긴 기둥이다 — 창을 칸 높이대로 세우면 장(16:9)은 가운데 1/3 이고 나머지는 빈 흐림이 얼굴을 덮었다 (V6).
+  // 장 비율만큼만 세우고 칸 위에 붙인다
+  if (host.id === 'vrCall' && visionSlidePortrait()) {
+    const cap = slide.querySelector('.vr-slide-cap');
+    height = Math.min(sr.height, Math.round(sr.width * 9 / 16) + (cap ? cap.offsetHeight : 48) + 16);
+  } else if (host.id === 'vrCall') {
+    // 가로도 같다 — 칸 높이대로 세우면 장(16:9)은 창의 절반이고 위아래 빈 흐림이 얼굴 · 방을 가렸다(1180 에서 521×638 창에 293px 장) (10-03 점검 V-R2-3).
+    // 말하는 동안 아래에 붙는 자막(두 줄 · .vr-caption) 자리를 미리 둔다 — 자막이 뜰 때 장이 줄며 튀지 않게
+    const cap = slide.querySelector('.vr-slide-cap');
+    height = Math.min(sr.height, Math.round(sr.width * 9 / 16) + (cap ? cap.offsetHeight : 48) + 16 + VISION_CAPTION_ROOM);
+  }
   slide.style.left = `${sr.left - hr.left}px`;
   slide.style.top = `${sr.top - hr.top}px`;
   slide.style.width = `${sr.width}px`;
-  slide.style.height = `${sr.height}px`;
+  slide.style.height = `${height}px`;
+}
+
+/** 가로 기본 자료 창이 자막 두 줄에 남겨 두는 높이(px) — .vr-caption 13px × 1.4 × 2 + 아래 여백 */
+const VISION_CAPTION_ROOM = 46;
+
+/** 크기가 바뀐 뒤 장을 다시 그린다 — 비전 리허설은 지금 장, 화상판은 그쪽이 넘긴 함수 (visionSlideBind opts.repaint) */
+let visionSlideRepaint = null;
+function visionSlideRedraw() {
+  if (visionSlideRepaint) { visionSlideRepaint(); return; }
+  if (typeof paintRehearsalSlide === 'function' && typeof nf !== 'undefined') paintRehearsalSlide(nf.slide);
+}
+
+/** 옮긴 자리를 적는다 — 오른쪽 절반이면 오른쪽 가장자리에서 잰 거리(rx)도 (V-R2-4) */
+function visionSlideSetBox(box) {
+  const hostW = (visionSlideHost() || {}).clientWidth || window.innerWidth;
+  visionSlide.custom = true;
+  visionSlide.portrait = visionSlidePortrait();
+  visionSlide.x = box.x;
+  visionSlide.y = box.y;
+  visionSlide.w = box.w;
+  visionSlide.h = box.h;
+  visionSlide.right = box.x + box.w / 2 > hostW / 2;
+  visionSlide.rx = hostW - box.x - box.w;
 }
 
 function visionSlideCommit(slide, box, { repaint = false } = {}) {
-  const next = visionSlideClamp(box);
-  visionSlide.custom = true;
-  visionSlide.x = next.x;
-  visionSlide.y = next.y;
-  visionSlide.w = next.w;
-  visionSlide.h = next.h;
+  visionSlideSetBox(visionSlideClamp(box));
   visionSlideApply(slide);
   visionSlideSave();
-  if (repaint && typeof paintRehearsalSlide === 'function' && typeof nf !== 'undefined') paintRehearsalSlide(nf.slide);
+  if (repaint) visionSlideRedraw();
 }
 
-function visionSlideBind(layer) {
+function visionSlideBind(layer, { repaint = null } = {}) {
+  visionSlideRepaint = repaint;
   visionSlideLoad();
   const slide = layer.querySelector('#vrSlide');
   if (!slide) return;
@@ -448,12 +600,7 @@ function visionSlideBind(layer) {
       const next = mode === 'move'
         ? { x: start.x + dx, y: start.y + dy, w: start.w, h: start.h }
         : { x: start.x, y: start.y, w: start.w + dx, h: start.h + dy };
-      const box = visionSlideClamp(next);
-      visionSlide.custom = true;
-      visionSlide.x = box.x;
-      visionSlide.y = box.y;
-      visionSlide.w = box.w;
-      visionSlide.h = box.h;
+      visionSlideSetBox(visionSlideClamp(next));
       visionSlideApply(slide);
     };
     const up = () => {
@@ -461,9 +608,7 @@ function visionSlideBind(layer) {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       visionSlideSave();
-      if (mode === 'resize' && typeof paintRehearsalSlide === 'function' && typeof nf !== 'undefined') {
-        paintRehearsalSlide(nf.slide);
-      }
+      if (mode === 'resize') visionSlideRedraw();
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -475,7 +620,7 @@ function visionSlideBind(layer) {
       visionSlide.custom = false;
       visionSlideSave();
       visionSlideApply(slide);
-      if (typeof paintRehearsalSlide === 'function' && typeof nf !== 'undefined') paintRehearsalSlide(nf.slide);
+      visionSlideRedraw();
     });
     grip.addEventListener('keydown', (e) => {
       const step = e.shiftKey ? 48 : 16;
@@ -515,7 +660,8 @@ function visionSlideBind(layer) {
 }
 
 window.addEventListener('resize', () => {
-  const slide = document.querySelector('#vrCall #vrSlide');
+  const host = visionSlideHost();
+  const slide = host && host.querySelector('#vrSlide');
   if (slide) visionSlideApply(slide);
 });
 
@@ -534,14 +680,24 @@ function visionWatchDock(layer) {
   visionDockWatch.observe(dock);
 }
 
+/** 녹음 중에 나가기로 했으면 이번 테이크를 멈춘다 — 안 그러면 홈에서도 녹음기 · 마이크가 돌았다 (10-03 점검 perf-1). resetNf 가 하는 멈춤과 같다 */
+function visionStopTake() {
+  if (typeof stopLiveRehearsal === 'function') stopLiveRehearsal();
+  if (typeof clearTimers === 'function') clearTimers();
+  if (typeof nf === 'undefined' || !nf) return;
+  nf.mic = 'idle';
+  nf.sec = 0;
+  if (typeof saveSession === 'function') saveSession('new-flow', nf);
+}
+
 function visionFlowLeaveClassic() {
   visionFlowSet(false);
   // 비전 입구(renderVisionEntry)가 켠 통화 표시도 끈다 — 남기면 「일반 리허설」 을 골랐는데 질문 코칭이 통화 배치로 떴다 (10-02 정리안)
   if (typeof callFlowSet === 'function') callFlowSet(false);
   if (typeof callFlowUnmount === 'function') callFlowUnmount({ keepCam: false });
   visionFlowUnmount({ keepCam: false });
-  if (location.hash === '#/new' || location.hash === '#/new/') route();
-  else location.hash = '#/new';
+  if (onScreen('new')) route();
+  else location.hash = screenHash('new');
 }
 
 function nfStep3Vision() {
@@ -558,13 +714,19 @@ function nfStep3Vision() {
   const titles = activeTitles();
   const titleAt = (i) => titles[i] || `${i + 1}번 슬라이드`;
   const bodies = activeBodies();
-  const stageInner = uploadedPdf
+  // 부스 덱은 미리 찍은 장 그림(assets/deck-slides)부터 — iPad 에서 pdf.js 렌더가 안 떴다 (10-06). moveSlideTo 가 #slideImage 를 바꾼다
+  const staticSrc = typeof staticSlideSrc === 'function' ? staticSlideSrc(nf.slide) : '';
+  const stageInner = staticSrc
+    ? `<img id="slideImage" class="vr-slide-img" src="${staticSrc}" alt="">`
+    : uploadedPdf
     ? `<canvas id="slidePdfCanvas" class="vr-slide-canvas" aria-label="원본 PDF 슬라이드"></canvas>
        <div id="slideCardWrap" class="vr-slide-doc" style="display:none"></div>`
     : (bodies && bodies.length
       ? `<div id="slideCardWrap" class="vr-slide-doc">${slideCardHtml(nf.slide, titleAt(nf.slide - 1), bodies[nf.slide - 1])}</div>`
       : `<img id="slideImage" class="vr-slide-img" src="${activeImages()[nf.slide - 1] || ''}" alt="">`);
 
+  // 리허설 흐름(#/rehearsal)에는 일반 앱으로 빠지는 「일반 리허설」 이 없다 — 눌렀다가 리허설 표시만 켜진 채 일반 #/new 에 떨어졌다 (10-03 점검 V3 · F2)
+  const rehearsalTab = typeof rehearsalFlowOn === 'function' && rehearsalFlowOn();
   visionFlowUnmount({ keepCam: true });
   app.className = '';
   app.innerHTML = '';
@@ -603,7 +765,7 @@ function nfStep3Vision() {
       <span class="vr-pill vr-glass">비전 리허설</span>
       <span class="vr-top-fill">${precomputeNoteHtml()}</span>
       <button class="btn vr-glass" id="vrCamToggle" type="button">카메라 켜기</button>
-      <button class="btn vr-glass" id="vrClassic" type="button">일반 리허설</button>
+      ${rehearsalTab ? '' : '<button class="btn vr-glass" id="vrClassic" type="button">일반 리허설</button>'}
       <a class="btn vr-glass" href="#/" id="vrLeave">나가기</a>
     </header>
     <p class="vr-hear vr-glass" id="vrHear" hidden></p>
@@ -619,7 +781,11 @@ function nfStep3Vision() {
 
   const leave = $('#vrLeave');
   if (leave) leave.addEventListener('click', (e) => {
-    if (nf.mic === 'on' && !window.confirm('발표를 녹음하고 있어요. 나가면 이번 녹음은 남지 않아요. 나갈까요?')) e.preventDefault();
+    // 리허설 흐름은 브라우저 확인 창(확인/취소) 대신 화면 안 시트(닫기 / 녹음 멈추고 나가기) — js/rehearsal.js
+    if (rehearsalTab && typeof rehearsalVisionLeave === 'function') { e.preventDefault(); rehearsalVisionLeave(layer); return; }
+    if (nf.mic !== 'on') return;
+    if (!window.confirm('발표를 녹음하고 있어요. 나가면 이번 녹음은 남지 않아요. 나갈까요?')) { e.preventDefault(); return; }
+    visionStopTake();
   });
   const classic = $('#vrClassic');
   if (classic) classic.addEventListener('click', () => {
@@ -635,6 +801,8 @@ function nfStep3Vision() {
   visionCamPaint();
   visionCamEnsure();
   renderRecPanel();
+  // 리허설 흐름(#/rehearsal)이면 「발표 마치고 질문 준비하기」 옆에 「녹음본을 넣어서 발표 마치기」 (js/rehearsal.js)
+  if (typeof rehearsalFlowOn === 'function' && rehearsalFlowOn() && typeof rehearsalVisionDock === 'function') rehearsalVisionDock(layer);
   bindRehearsalNav();
   syncRehearsalNav();
   paintRehearsalSlide(nf.slide);

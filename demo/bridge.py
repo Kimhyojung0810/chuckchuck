@@ -5,6 +5,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import hmac
 import inspect
@@ -21,6 +22,7 @@ import tempfile
 import traceback
 import unicodedata
 import zipfile
+from collections import deque
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -49,6 +51,7 @@ from chuckchuck.providers.stt_impl import media_tool  # noqa: E402
 
 from demo.learning_jobs import refresh_learning_assets  # noqa: E402
 from demo.rate_limit import RateLimiter  # noqa: E402
+from demo import shield  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
@@ -225,9 +228,12 @@ _REQ = threading.local()
 TEAM_CLOCK_SKEW = 300
 
 
-def _team_key() -> bytes:
-    """서명 열쇠. 팀 코드에서 끌어낸다 — 코드를 바꾸면 이전 쿠키가 모두 풀린다. 코드 자체는 쿠키에 싣지 않는다."""
-    return hmac.new(TEAM_CODE.encode("utf-8"), b"chuckchuck-team-v2", hashlib.sha256).digest()
+@functools.lru_cache(maxsize=64)
+def _team_sig(code: str, ts: int) -> str:
+    """서명. 열쇠는 팀 코드에서 끌어낸다 — 코드를 바꾸면 이전 쿠키가 모두 풀린다. 코드 자체는 쿠키에 싣지 않는다."""
+    # 방패(2026-10-05)가 **모든 요청**에서 팀인지 본다 — 같은 쿠키(같은 발급 시각)면 HMAC 을 한 번만 계산한다
+    key = hmac.new(code.encode("utf-8"), b"chuckchuck-team-v2", hashlib.sha256).digest()
+    return hmac.new(key, f"v2.{ts}".encode("ascii"), hashlib.sha256).hexdigest()
 
 
 def _team_token(issued: int | None = None) -> str:
@@ -238,8 +244,7 @@ def _team_token(issued: int | None = None) -> str:
     (브라우저의 Max-Age 는 브라우저가 지키는 약속일 뿐이다). 옛 형식(v1) 쿠키는 이제 통하지 않는다 — 다시 /auth.
     """
     ts = int(time.time()) if issued is None else int(issued)
-    sig = hmac.new(_team_key(), f"v2.{ts}".encode("ascii"), hashlib.sha256).hexdigest()
-    return f"v2.{ts}.{sig}"
+    return f"v2.{ts}.{_team_sig(TEAM_CODE, ts)}"
 
 
 def _team_token_ok(tok: str, now: float | None = None) -> bool:
@@ -247,13 +252,15 @@ def _team_token_ok(tok: str, now: float | None = None) -> bool:
     if not TEAM_CODE or not tok:
         return False
     parts = tok.split(".")
-    if len(parts) != 3 or parts[0] != "v2" or not parts[1].isdigit() or len(parts[1]) > 12:
+    # isascii — str.isdigit 은 「²」 같은 글자도 숫자라 하고 int() 가 터진다
+    if len(parts) != 3 or parts[0] != "v2" or not (parts[1].isascii() and parts[1].isdigit()) or len(parts[1]) > 12:
         return False
     ts = int(parts[1])
     now = time.time() if now is None else now
     if ts > now + TEAM_CLOCK_SKEW or now - ts > TEAM_COOKIE_MAX_AGE:
         return False
-    return hmac.compare_digest(tok, _team_token(ts))
+    # 바이트로 비교한다 — str 끼리면 ASCII 가 아닌 쿠키 값에서 TypeError 가 나 요청이 방패 앞에서 터진다
+    return hmac.compare_digest(tok.encode("utf-8", "replace"), _team_token(ts).encode("ascii"))
 
 
 #: 팀 도구 목록 — /auth 화면과 앱의 「팀 모드」 알약 메뉴(js/app.js TEAM_TOOLS)가 같은 것을 보인다. (해시, 이름, 설명)
@@ -277,6 +284,74 @@ def _safe_next(raw: str) -> str:
         return ""
     v = v.lower()
     return v if _NEXT_ROUTE.match(v) else ""
+
+
+# ─── 방패 — 트래픽 급증·공격 대응 (2026-10-05, AI Festa 부스 전날) ─────────────────────
+# 부품은 demo/shield.py, 운영 절차는 docs/DEPLOYMENT.md §10-6. 모든 값은 환경변수로 바꾼다 (systemd drop-in shield.conf).
+# 원칙: **팀 쿠키 요청과 이 VM 안에서 곧장 온 요청은 막지 않는다** — 부스 노트북이 공개 방문자에게 밀려나면 안 된다.
+
+#: Cloudflare 가 붙이는 비밀 머리글(X-Edge-Auth)의 값. 대시보드 Transform Rule 로 넣는다 — 값은 .env 에만 둔다.
+#: 있으면 이 머리글이 맞는 요청만 CF-Connecting-IP 를 믿는다 (shield.resolve_client).
+EDGE_SECRET = os.environ.get("DEMO_EDGE_SECRET", "").strip()
+#: 1 이면 비밀 머리글 없는 공개 요청(= ts.net 주소로 바로 온 요청)을 403 으로 막는다. 팀 쿠키와 /auth 는 연다 —
+#: 도메인이 죽었을 때 부스 노트북이 ts.net 으로 /auth 를 거쳐 들어올 길이다. 비밀이 없으면 켜지지 않는다 (전부 막힌다).
+EDGE_LOCK = _env_flag("DEMO_EDGE_LOCK") and bool(EDGE_SECRET)
+#: 원본 잠금에서도 여는 경로 — 쿠키를 받는 /auth, 바깥 상태 확인용 /api/health (과금·데이터 없음)
+EDGE_LOCK_OPEN = frozenset({"/auth", "/api/health"})
+
+#: 과금 경로를 **동시에** 몇 개까지 돌리나 · 그중 팀 몫으로 비워 두는 칸 · 칸이 빌 때까지 기다리는 초 · 503 의 다시 시도 안내(초).
+PAID_CONCURRENCY = shield.env_int("DEMO_PAID_CONCURRENCY", 16)
+TEAM_RESERVED = shield.env_int("DEMO_TEAM_RESERVED", 4)
+PAID_QUEUE_SEC = shield.env_float("DEMO_PAID_QUEUE_SEC", 10.0)
+PAID_RETRY_SEC = shield.env_int("DEMO_PAID_RETRY_SEC", 5)
+GATE = shield.PaidGate(capacity=PAID_CONCURRENCY, reserved=TEAM_RESERVED)
+
+#: 공개(팀 아님) 과금 호출의 시간당 천장 — 크레딧 지갑을 지키는 마지막 줄. 0 이면 끈다.
+PAID_PER_HOUR = shield.env_int("DEMO_PAID_PER_HOUR", 1500)
+SPEND = RateLimiter(limit=PAID_PER_HOUR, window_sec=3600.0)
+#: 시간당 천장에 세지 않는 과금 경로 — F-25 기억은 외부 호출이 없다 (디스크만 훑는다, 분당 상한은 그대로)
+SPEND_EXEMPT = frozenset({"/api/v1/memory"})
+
+#: 모든 요청의 IP(칸)당 분당 상한. 정적 파일은 대부분 Cloudflare 가 받아서 원본엔 HTML·API 만 온다 — 넉넉히.
+IP_RPM = shield.env_int("DEMO_IP_RPM", 1200)
+FLOOD = shield.FloodLimiter(limit=IP_RPM, window_sec=60.0)
+#: 창(DEMO_BAN_WINDOW_SEC) 안에 막힌(429) 횟수가 이만큼이면 DEMO_BAN_SEC 동안 가둔다. 0 이면 안 가둔다.
+BAN_STRIKES = shield.env_int("DEMO_BAN_STRIKES", 300)
+JAIL = shield.Jail(strikes=BAN_STRIKES, window_sec=shield.env_float("DEMO_BAN_WINDOW_SEC", 60.0),
+                   ban_sec=shield.env_float("DEMO_BAN_SEC", 600.0))
+
+#: 손으로 막는 IP·주소대 목록, 점검 깃발 — 둘 다 파일이라 재시작 없이 켜고 끈다.
+_VAR = ROOT / "var"
+BLOCKLIST = shield.Blocklist(os.environ.get("DEMO_BLOCKLIST_FILE", "").strip() or (_VAR / "blocklist.txt"))
+LOCKDOWN = shield.FlagFile(os.environ.get("DEMO_LOCKDOWN_FILE", "").strip() or (_VAR / "lockdown"))
+
+#: 연결 단계별 시한 (초). SOCKET_TIMEOUT 은 recv·send **한 번**의 시한, 나머지는 단계 **전체**의 시한이다 (shield.Watchdog).
+#: KEEPALIVE 는 다음 요청을 기다리는 시간 — Funnel(Go) 의 유휴 연결 정리(90초)보다 길게 둬서 우리가 먼저 끊는 경합을 피한다.
+SOCKET_TIMEOUT = shield.env_float("DEMO_SOCKET_TIMEOUT", 30.0)
+KEEPALIVE_SEC = shield.env_float("DEMO_KEEPALIVE_SEC", 120.0)
+HEADER_TIMEOUT = shield.env_float("DEMO_HEADER_TIMEOUT", 15.0)
+#: 본문은 크기에 따라 — SOCKET_TIMEOUT + 크기 ÷ 이 속도(KB/s). 40MB 녹음도 32KB/s 면 ~22분 안에 다 와야 한다 (실측 회선 ~330KB/s).
+MIN_BODY_KBPS = shield.env_float("DEMO_MIN_BODY_KBPS", 32.0)
+#: 한 IP(칸)가 동시에 올리는 큰 본문(1MB 넘는 녹음·자료) 수. 느린 업로드 수백 개로 연결 상한을 채우는 공격을 막는다.
+IP_UPLOADS = shield.env_int("DEMO_IP_UPLOADS", 4)
+BIG_BODY_BYTES = 1024 * 1024
+_UPLOADS: dict[str, int] = {}
+_UPLOADS_LOCK = threading.Lock()
+#: 동시에 붙잡는 연결(=스레드) 상한과 listen 대기열. 넘치면 스레드를 만들지 않고 바로 503 을 쓰고 닫는다.
+MAX_CONNECTIONS = shield.env_int("DEMO_MAX_CONNECTIONS", 256)
+LISTEN_BACKLOG = shield.env_int("DEMO_LISTEN_BACKLOG", 128)
+
+WATCHDOG = shield.Watchdog()
+EVENTS = shield.EventCounter()
+SHIELD_LOG = shield.LogThrottle(every=10.0)
+#: 최근 공개 요청 20개가 어느 길로 왔나 (via·X-Forwarded-For 마지막 칸·비밀 머리글 유무) — /api/v1/ops/shield 가 보여 준다.
+#: 비밀 머리글 **값**은 남기지 않는다 (ok·bad·none 만).
+EDGE_SAMPLES: deque = deque(maxlen=20)
+
+
+def _paid_path(path: str) -> bool:
+    """과금 경로인가 — PAID_PATHS + 세션 경로의 판정(/api/v1/sessions/{id}/qa/judge)."""
+    return path in PAID_PATHS or (path.endswith("/qa/judge") and "/api/v1/sessions/" in path)
 
 
 def _dev_open() -> bool:
@@ -722,6 +797,10 @@ STAGE_ENTRY_MODULES: dict[str, tuple[str, ...]] = {
     "questions": ("chuckchuck.f08_questions", "chuckchuck.f26_claims", "chuckchuck.f24_papers", "chuckchuck.f25_memory"),
     "judge": ("chuckchuck.f09_judge",),                  # judge_answer
     "chatter": ("chuckchuck.f12_chatter",),              # build_chatter — 디스크 캐시 (세션 id + 재료 해시, 09-30 REC-19)
+    # 부스는 덱 3개 × 녹음 2개로 정해져 있다 (10-06 사용자: 「새로운 ppt 없으니 로딩 시간 줄일 수 있는 게 많다」).
+    # 같은 녹음 → 같은 받아쓰기 → 같은 정합 · 질문이 되도록 받아쓰기와 정합도 내용 해시로 디스크에 둔다
+    "transcribe": ("chuckchuck.f05_stt",),               # transcribe — 디스크 캐시 (녹음 sha256 + 장 표시 + 제공자)
+    "alignment": ("chuckchuck.f11_align",),              # align_speech — 디스크 캐시 (그래프 · 받아쓰기 · 본문 · 상황)
 }
 
 
@@ -889,7 +968,17 @@ QUESTIONS_INFLIGHT_WAIT_SEC = 150
 
 
 def _questions_ready(q_key: str):
-    return STORE.get_triage(q_key)
+    """만든 질문 — 메모리에 없으면 디스크(정상 재료로 만든 것만 남는다). 재시작해도 부스 덱 질문을 다시 안 만든다 (10-06)."""
+    got = STORE.get_triage(q_key)
+    if got is None:
+        got = _stage_cache_get("questions", _questions_disk_key(q_key))
+        if got is not None:
+            STORE.set_triage(q_key, got)
+    return got
+
+
+def _questions_disk_key(q_key: str) -> str:
+    return hashlib.sha1(q_key.encode("utf-8")).hexdigest()[:20]
 
 
 def _claim_questions(q_key: str) -> threading.Event | None:
@@ -1401,15 +1490,114 @@ def hash_route_for(url_path: str, locate) -> str | None:
         return None
     return "#" + path.lower()
 
+#: 화면 폴더에 같이 놓인 팀 문서 · 손으로 둔 파일은 공개 사이트에 내지 않는다 (10-02 서비스 플로우 정리안 — MVP_SPEC.md ·
+#: UI_POLISH_TODO.md · UX_ITERATION_LOG.md · sample-deck.pdf 가 chuckchuck-present.com 에서 200 이었다). 지우지 않고 막기만 한다.
+_STATIC_HIDDEN_SUFFIXES = {".md"}
+_STATIC_HIDDEN_NAMES = {"sample-deck.pdf"}
+
+
+def _static_hidden(path: Path) -> bool:
+    return path.is_file() and (path.suffix.lower() in _STATIC_HIDDEN_SUFFIXES or path.name in _STATIC_HIDDEN_NAMES
+                               or path.name.startswith("."))
+
+
 class Handler(SimpleHTTPRequestHandler):
     # 큰 PDF 파싱 중에도 다른 요청(정적 파일)이 안 막히게
     protocol_version = "HTTP/1.1"
+    #: recv·send 한 번의 시한 (StreamRequestHandler.setup 이 소켓에 건다). 없으면 응답을 안 읽는 연결이 스레드를 영원히 붙잡는다.
+    timeout = SOCKET_TIMEOUT or None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(DEMO_DIR), **kwargs)
 
     def log_message(self, fmt: str, *args) -> None:
         sys.stderr.write("%s - - [%s] %s\n" % (self.address_string(), self.log_date_time_string(), fmt % args))
+
+    def address_string(self) -> str:
+        # 접근 로그에 127.0.0.1(Funnel) 대신 실제 방문자 IP — 공격 IP 를 로그에서 바로 찾게 (방패 2026-10-05)
+        return getattr(self, "_client_ip", None) or super().address_string()
+
+    def log_request(self, code="-", size="-") -> None:
+        if getattr(self, "_quiet", False):
+            return  # 방패가 막은 요청은 한 줄씩 남기지 않는다 — 홍수 중에 로그가 디스크를 채운다 (SHIELD_LOG 가 10초에 한 줄)
+        super().log_request(code, size)
+
+    def log_error(self, fmt: str, *args) -> None:
+        if fmt.startswith("Request timed out"):
+            SHIELD_LOG.write("timeout", "소켓 시한 초과로 연결을 닫았어요")
+            return
+        super().log_error(fmt, *args)
+
+    # ── 연결 단계별 시한 (방패 2026-10-05) ──────────────────────────────────────
+    # 요청 줄을 기다리는 동안 → 첫 요청은 HEADER_TIMEOUT, keep-alive 다음 요청은 KEEPALIVE_SEC.
+    # 요청 줄이 오면(parse_request) → 머리글 전체가 HEADER_TIMEOUT 안에. _gate 에 닿으면 감시를 푼다 (본문은 do_POST 가 따로).
+
+    def handle_one_request(self):
+        first = not getattr(self, "_served", False)
+        self._served = True
+        self._req_gen = getattr(self, "_req_gen", 0) + 1
+        self._quiet = False
+        self._extra_headers = []
+        self._client_ip = None
+        self._reaped = None
+        wait = HEADER_TIMEOUT if first else KEEPALIVE_SEC
+        try:
+            self.connection.settimeout(wait or None)
+        except (OSError, AttributeError):
+            pass
+        WATCHDOG.watch(self, wait, "idle")
+        try:
+            return super().handle_one_request()
+        finally:
+            WATCHDOG.unwatch(self)
+
+    def parse_request(self):
+        try:
+            self.connection.settimeout(SOCKET_TIMEOUT or None)
+        except (OSError, AttributeError):
+            pass
+        WATCHDOG.watch(self, HEADER_TIMEOUT, "headers")
+        return super().parse_request()
+
+    def _read_body(self, length: int) -> bytes:
+        """본문을 읽는다 — 크기에 맞춘 전체 시한을 건다 (한 바이트씩 흘려보내는 연결이 스레드를 붙잡지 않게)."""
+        if length <= 0:
+            return b""
+        if MIN_BODY_KBPS > 0:
+            WATCHDOG.watch(self, SOCKET_TIMEOUT + length / (MIN_BODY_KBPS * 1024), "body")
+        try:
+            return self.rfile.read(length)
+        finally:
+            WATCHDOG.unwatch(self)
+
+    def _read_big_body(self, length: int) -> bytes | None:
+        """1MB 넘는 공개 본문 — IP(칸)당 동시에 IP_UPLOADS 개까지만 받는다. 넘으면 읽지 않고 429 로 닫는다 (None)."""
+        bucket = shield.ip_bucket(self._client_key())
+        with _UPLOADS_LOCK:
+            n = _UPLOADS.get(bucket, 0)
+            if n >= IP_UPLOADS:
+                full = True
+            else:
+                full = False
+                _UPLOADS[bucket] = n + 1
+        if full:
+            EVENTS.add("upload_429")
+            SHIELD_LOG.write("uploads", f"동시 업로드 상한 {IP_UPLOADS} — {bucket}")
+            self._quiet = True
+            self.close_connection = True
+            self._add_header("Retry-After", "10")
+            self._json(429, {"error": "rate_limited", "rate_limited": True, "scope": "uploads", "retry_after": 10,
+                             "message": "올리는 중인 파일이 많아요. 10초 뒤에 다시 시도해 주세요."})
+            return None
+        try:
+            return self._read_body(length)
+        finally:
+            with _UPLOADS_LOCK:
+                left = _UPLOADS.get(bucket, 1) - 1
+                if left > 0:
+                    _UPLOADS[bucket] = left
+                else:
+                    _UPLOADS.pop(bucket, None)
 
     def _gate(self) -> bool:
         """
@@ -1419,6 +1607,11 @@ class Handler(SimpleHTTPRequestHandler):
            DEMO_HOST 가 와일드카드(mock 모드에서만 가능)면 LAN IP 로 접속하므로 건너뛴다.
         ② DEMO_REQUIRE_ACCESS=1 이면 Cloudflare Access 헤더가 없는 요청을 정적 파일까지 403.
         """
+        if getattr(self, "_reaped", None):
+            # 감시(Watchdog)가 시한을 넘긴 연결을 끊었다 — 반쯤 받은 머리글로 요청을 처리하지 않는다
+            self.close_connection = True
+            return False
+        WATCHDOG.unwatch(self)
         host = _host_name(self.headers.get("Host") or "")
         wildcard = settings.demo_host in ("0.0.0.0", "::", "")
         if host and not wildcard and host not in ALLOWED_HOSTS and host != settings.demo_host.lower():
@@ -1429,7 +1622,127 @@ class Handler(SimpleHTTPRequestHandler):
             self._json(403, {"error": "access_required", "message": "로그인한 뒤에 열 수 있어요."})
             return False
         _REQ.team = self._team_ok()
+        self._local = shield.is_local_direct(self._peer(), self.headers)
+        _REQ.trusted = _REQ.team or self._local
+        try:
+            return self._shield_gate()
+        except OSError:
+            # 막는 답을 쓰다 상대가 끊었다 — 통과가 아니라 끝이다
+            self.close_connection = True
+            return False
+        except Exception as e:  # noqa: BLE001 — 방패의 버그로 사이트가 멈추면 안 된다. 열어 두고(fail-open) 알린다
+            if getattr(self, "_quiet", False):
+                return False  # 이미 막는 답을 쓰기 시작했다 — 통과시키면 막힌 요청이 처리된다
+            SHIELD_LOG.write("shield_error", f"방패 오류 — 이번 요청은 통과시킴: {e!r}")
+            return True
+
+    # ── 방패 첫 줄 (2026-10-05) ────────────────────────────────────────────────
+    # 차단 목록 → 감옥 → 전체 홍수 제한 → 원본 잠금. 팀 쿠키·VM 안 요청은 건너뛴다. 막으면 본문을 읽지 않고 짧게 답한다.
+
+    def _peer(self) -> str:
+        try:
+            return str(self.client_address[0])
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _shield_gate(self) -> bool:
+        if not self._local:
+            self._note_edge()
+        if _REQ.trusted:
+            return True
+        ip = self._client_key()
+        bucket = shield.ip_bucket(ip)
+        path = urlparse(self.path).path
+        if shield.bot_verdict(self.headers.get("User-Agent"), path, self.command):
+            EVENTS.add("bot")
+            SHIELD_LOG.write("bot", f"봇 {ip} {self.command} {path[:80]} ua={(self.headers.get('User-Agent') or '')[:60]!r}")
+            return self._shield_reply(403, {"error": "forbidden"})
+        if BLOCKLIST.blocked(ip):
+            EVENTS.add("blocked")
+            SHIELD_LOG.write("blocked", f"차단 목록 {ip} {self.command} {path[:80]}")
+            return self._shield_reply(403, {"error": "forbidden"})
+        counted = self._counted()
+        left = JAIL.remaining(bucket) if counted else 0
+        if left:
+            EVENTS.add("jailed")
+            return self._shield_reply(429, {"error": "banned", "rate_limited": True, "retry_after": left,
+                                            "message": f"요청이 너무 많아 잠시 막았어요. {left}초 뒤에 다시 시도해 주세요."},
+                                      retry_after=left)
+        if counted and not FLOOD.allow(bucket):
+            wait = FLOOD.retry_after(bucket)
+            EVENTS.add("flood_429")
+            self._strike(bucket)
+            SHIELD_LOG.write("flood", f"홍수 제한 {bucket} (분당 {IP_RPM}) {self.command} {path[:80]}")
+            return self._shield_reply(429, {"error": "rate_limited", "rate_limited": True, "scope": "flood",
+                                            "retry_after": wait,
+                                            "message": f"요청이 너무 잦아요. {wait}초 뒤에 다시 시도해 주세요."},
+                                      retry_after=wait)
+        if EDGE_LOCK and not shield.edge_ok(self.headers, EDGE_SECRET) and path.rstrip("/") not in EDGE_LOCK_OPEN:
+            EVENTS.add("edge_locked")
+            SHIELD_LOG.write("edge_lock", f"원본 잠금 — 비밀 머리글 없는 요청 {ip} {self.command} {path[:80]}")
+            return self._shield_reply(403, {"error": "forbidden"})
         return True
+
+    def _counted(self) -> bool:
+        """
+        이 요청의 IP 칸을 홍수 제한·IP 천장에 세도 되나. Cloudflare 서버·설비 IP 는 여러 사람이 섞인 칸이라 안 센다
+        (세면 그 뒤의 방문자 전원이 같이 막힌다). 단 비밀을 정했는데 비밀 없이 Cloudflare 주소에서 온 것(`xff`)은
+        WARP·Worker 로 ts.net 에 바로 온 것이라 그 출구 IP 를 센다.
+        """
+        ip = self._client_key()
+        if shield.attributable(ip):
+            return True
+        return bool(EDGE_SECRET) and getattr(self, "_client_via", "") == "xff" and shield.parse_ip(ip) not in shield.INFRA_NETS
+
+    def _strike(self, bucket: str) -> None:
+        """막힌 요청 하나 = 위반 하나. 쌓이면 감옥 (shield.Jail).
+
+        `cf`·`legacy` 로 센 칸(CF-Connecting-IP 를 믿은 칸)은 가두지 않는다 — 비밀이 없으면 WARP 로 ts.net 에 와서 그 값을
+        행사장 IP 로 꾸며 행사장을 가두게 할 수 있다. 분당 상한(429)은 그대로 건다. 비밀을 정하면(`edge`) 감옥도 켜진다."""
+        if getattr(self, "_client_via", "") in ("cf", "legacy"):
+            return
+        if JAIL.strike(bucket):
+            EVENTS.add("ban")
+            SHIELD_LOG.write("ban", f"감옥 {bucket} {JAIL.ban_sec:.0f}초 — 막혀도 계속 두드림 "
+                                    f"({JAIL.window:.0f}초에 {BAN_STRIKES}번)")
+
+    def _note_edge(self) -> None:
+        """도메인·ts.net 요청이 어떤 길로 왔는지 센다 — 배포 뒤 /api/v1/ops/shield 로 Funnel 동작을 눈으로 확인하는 자리."""
+        self._client_key()
+        via = getattr(self, "_client_via", "?")
+        EVENTS.add("via_" + via)
+        EDGE_SAMPLES.append({
+            "at": round(time.time(), 1), "via": via, "client": self._client_ip,
+            "xff_last": shield.last_hop(self.headers.get("X-Forwarded-For") or "")[:64],
+            "cf_ip": bool((self.headers.get("CF-Connecting-IP") or "").strip()),
+            "edge_auth": ("ok" if shield.edge_ok(self.headers, EDGE_SECRET)
+                          else "bad" if (self.headers.get("X-Edge-Auth") or "").strip() else "none"),
+            "funnel": bool(self.headers.get("Tailscale-Funnel-Request")),
+            "host": _host_name(self.headers.get("Host") or "")[:80],
+        })
+
+    def _add_header(self, k: str, v: str) -> None:
+        if getattr(self, "_extra_headers", None) is None:
+            self._extra_headers = []
+        self._extra_headers.append((k, v))
+
+    def _shield_reply(self, code: int, payload: dict, retry_after: int | None = None) -> bool:
+        """방패가 막은 요청의 짧은 답. 접근 로그를 남기지 않고, 작은 본문만 비워 읽고(큰 건 그냥) 연결을 닫는다."""
+        self._quiet = True
+        if retry_after:
+            self._add_header("Retry-After", str(int(retry_after)))
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            if 0 < n <= 64 * 1024:
+                self._read_body(n)  # 안 읽고 닫으면 커널이 RST 를 보내 상대가 답 대신 연결 오류를 본다
+        except (ValueError, OSError):
+            pass
+        self.close_connection = True
+        try:
+            self._json(code, payload)
+        except OSError:
+            pass  # 상대가 이미 끊었다 — 그래도 막은 것이다 (False)
+        return False
 
     # ── 팀 인증 (/auth) ─────────────────────────────────────────────────────────
     # 공개 사이트(chuckchuck-present.com)는 로그인 없이 누구나 자기 자료로 쓴다. 팀이 쓰는 개발용 경로만
@@ -1584,6 +1897,41 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._redirect_next(nxt, cookie)
         return self._auth_page(200, team=True, cookie=cookie)
 
+    def _handle_ops_shield(self):
+        """
+        GET /api/v1/ops/shield — 방패 상태 (팀 쿠키 또는 이 VM 안에서만. 나머지는 404 — 있다는 것도 알리지 않는다).
+
+        부스 중에 「지금 막히는 게 있나」 를 한눈에 본다: 과금 동시 실행·대기, 최근 5분 429·503, 감옥, 차단 목록,
+        점검 깃발, 시간당 사용량, 연결 수, 그리고 최근 공개 요청이 어느 길(via)로 왔는지. VM 에서는
+        `curl -s http://127.0.0.1:8799/api/v1/ops/shield | python3 -m json.tool`.
+        """
+        if not getattr(_REQ, "trusted", False):
+            return self._json(404, {"error": "not found"})
+        srv = getattr(self, "server", None)
+        return self._json(200, {
+            "at": round(time.time(), 1),
+            "paid": {**GATE.snapshot(), "queue_sec": PAID_QUEUE_SEC, "retry_sec": PAID_RETRY_SEC},
+            "spend": {"per_hour_limit": PAID_PER_HOUR, "public_last_hour": SPEND.count("public"),
+                      "exempt": sorted(SPEND_EXEMPT)},
+            "recent_5min": EVENTS.recent(300),
+            "totals": dict(EVENTS.totals),
+            "bans": {"active": JAIL.active(), "count": len(JAIL), "total": JAIL.total_bans,
+                     "strikes": BAN_STRIKES, "window_sec": JAIL.window, "ban_sec": JAIL.ban_sec},
+            "blocklist": {"file": str(BLOCKLIST.path), "entries": len(BLOCKLIST)},
+            "lockdown": {"on": LOCKDOWN.on(), "file": str(LOCKDOWN.path)},
+            "edge": {"secret_set": bool(EDGE_SECRET), "lock": EDGE_LOCK, "recent": list(EDGE_SAMPLES)},
+            "flood": {"ip_rpm": IP_RPM, "keys": len(FLOOD)},
+            "limiter_keys": {"paid_session": len(LIMITER.session), "paid_ip": len(LIMITER.ip)}
+            if isinstance(LIMITER, PaidLimiter) else {},
+            "connections": {
+                "active": getattr(srv, "active_connections", None), "peak": getattr(srv, "peak_connections", None),
+                "refused": getattr(srv, "refused_connections", None), "max": MAX_CONNECTIONS,
+                "watched": len(WATCHDOG), "reaped": WATCHDOG.reaped, "reaped_by_phase": dict(WATCHDOG.reaped_by_phase),
+                "timeouts": {"socket": SOCKET_TIMEOUT, "keepalive": KEEPALIVE_SEC, "header": HEADER_TIMEOUT,
+                             "min_body_kbps": MIN_BODY_KBPS},
+            },
+        })
+
     def list_directory(self, path):  # noqa: D102 — 정적 서빙의 디렉터리 목록은 끈다 (MVP_SPEC·로그·실측 JSON 이 보였다)
         self.send_error(404)
         return None
@@ -1600,6 +1948,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             if parsed.path == "/api/v1/team":
                 # dev: DEMO_DEV_ROUTES 브리지라 코드 없이 팀이고 끌 수 없다 — 앱의 「팀 모드」 알약이 끄기 대신 그 안내를 보인다
                 return self._json(200, {"team": _dev_open(), **({"dev": True} if DEV_ROUTES else {})})
+            if parsed.path == "/api/v1/ops/shield":
+                return self._handle_ops_shield()
             if parsed.path == "/api/v1/cached-slidedoc":
                 return self._handle_cached_slidedoc(parsed)
             if parsed.path == "/api/v1/cached-transcript":
@@ -1670,84 +2020,147 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             # /auth 는 HTML 폼이라 JSON 이 아니다. 교차 출처 폼 제출로 할 수 있는 건 코드 맞히기뿐이고
             # 그건 AUTH_LIMITER 가 막는다 (쿠키는 SameSite=Lax 라 남의 사이트에서 로그인시켜도 쓸모가 없다).
             if parsed.path.rstrip("/") == "/auth":
-                return self._handle_auth_post(self.rfile.read(min(length, 4096)) if length else b"")
+                return self._handle_auth_post(self._read_body(min(length, 4096)))
             if parsed.path != "/api/v1/parse" and "application/json" not in ctype:
                 return self._json(415, {"error": "json_required", "message": "Content-Type: application/json 으로 보내 주세요."})
-            raw = self.rfile.read(length) if length else b""
+            if length > BIG_BODY_BYTES and not getattr(_REQ, "trusted", False) and IP_UPLOADS > 0:
+                raw = self._read_big_body(length)
+                if raw is None:
+                    return None
+            else:
+                raw = self._read_body(length)
+            if getattr(self, "_reaped", None):
+                return None  # 본문이 시한 안에 다 오지 않았다 — 감시가 이미 연결을 끊었다
 
-            # 과금 경로는 세션마다 분당 상한 + IP 천장을 건다 (PaidLimiter). 본문을 다 읽은 뒤에 막는다 —
-            # 안 읽고 끊으면 클라이언트가 응답 대신 연결 오류를 본다.
-            if parsed.path in PAID_PATHS or (parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path):
-                limited = self._rate_limited(parsed.path, raw)
-                if limited is not None:
-                    return self._json(429, limited)
-
-            if parsed.path == "/api/v1/session/artifacts":
-                return self._handle_session_artifacts(raw)
-            if parsed.path.endswith("/feedback") and parsed.path.startswith("/api/v1/sessions/"):
-                return self._handle_feedback(parsed.path, raw)
-            if parsed.path == "/api/v1/parse":
-                return self._handle_parse(raw)
-            if parsed.path == "/api/v1/suggest-context":
-                return self._handle_suggest_context(raw)
-            if parsed.path == "/api/v1/deck-gaps":
-                return self._handle_deck_gaps(raw)
-            if parsed.path == "/api/v1/concepts":
-                return self._handle_concepts(raw)
-            if parsed.path == "/api/v1/transcribe":
-                return self._handle_transcribe(raw)
-            if parsed.path == "/api/v1/graph":
-                return self._handle_graph(raw)
-            if parsed.path == "/api/v1/alignment":
-                return self._handle_alignment(raw)
-            if parsed.path == "/api/v1/flow":
-                return self._handle_flow(raw)
-            if parsed.path == "/api/v1/chatter":
-                return self._handle_chatter(raw)
-            if parsed.path == "/api/v1/score":
-                return self._handle_score(raw)
-            if parsed.path == "/api/v1/rubric":
-                return self._handle_rubric(raw)
-            if parsed.path == "/api/v1/pace":
-                return self._handle_pace(raw)
-            if parsed.path == "/api/v1/habits":
-                return self._handle_habits(raw)
-            if parsed.path == "/api/v1/report":
-                return self._handle_report(raw)
-            if parsed.path == "/api/v1/questions":
-                return self._handle_questions(raw)
-            if parsed.path == "/api/v1/memory":
-                return self._handle_memory(raw)
-            if parsed.path == "/api/v1/papers":
-                return self._handle_papers(raw)
-            if parsed.path == "/api/v1/papers/search":
-                return self._handle_papers_search(raw)
-            if parsed.path == "/api/v1/claims":
-                return self._handle_claims(raw)
-            if parsed.path == "/api/v1/strategy":
-                return self._handle_strategy(raw)
-            # F-09: /api/v1/sessions/{id}/qa/judge — 채점 기준은 서버가 만든 질문, 없으면 body.question (표시를 달고)
-            if parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path:
-                return self._handle_qa_judge(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
-            if parsed.path == "/api/v1/qa/judge":
-                return self._handle_qa_judge(raw)
-            return self._json(404, {"error": "not found"})
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            # 과금 경로는 점검 깃발 → 세션/IP 분당 상한 → 동시 실행 칸 → 시간당 천장을 거친다 (_handle_paid).
+            # 본문을 다 읽은 뒤에 막는다 — 안 읽고 끊으면 클라이언트가 응답 대신 연결 오류를 본다.
+            if _paid_path(parsed.path):
+                return self._handle_paid(parsed, raw)
+            return self._route_post(parsed, raw)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
             sys.stderr.write(f"[bridge] client disconnected during {parsed.path}\n")
             return
         except Exception as e:  # noqa: BLE001 — 데모 브리지
-            # 상세(벤더 응답 본문·서버 경로)는 stderr 에만. 응답에는 사용자가 고칠 수 있는 사실만 싣는다.
-            traceback.print_exc()
-            # 외부 AI·검색이 죽은 것은 우리 버그(500)가 아니라 「잠시 뒤 다시」 다 — 502/503 으로 가른다 (J25)
-            upstream = _upstream_error(e)
-            try:
-                if upstream is not None:
-                    sys.stderr.write(f"[bridge] {parsed.path} 외부 호출 실패 → {upstream[0]} {upstream[1]['error']}\n")
-                    self._json(*upstream)
-                else:
-                    self._json(500, {"error": type(e).__name__, "message": _public_message(e)})
-            except Exception:  # noqa: BLE001
-                return
+            return self._post_failed(parsed, e)
+
+    def _handle_paid(self, parsed, raw: bytes):
+        """
+        과금 경로의 관문 (방패 2026-10-05). 순서가 중요하다 — 싼 검사부터, 돈이 나가는 건 마지막에.
+
+        ① 점검 깃발(var/lockdown) — 공개 요청은 503 maintenance. 팀·VM 안 요청은 통과.
+        ② 세션/IP 분당 상한(PaidLimiter, 예전 그대로) — 429. 위반은 감옥 점수로도 센다.
+        ③ 동시 실행 칸(GATE) — PAID_QUEUE_SEC 기다려도 안 나면 503 busy. 팀은 예약 칸까지 쓴다.
+        ④ 공개 요청의 시간당 천장(SPEND) — 503 budget_exceeded. 칸을 얻은 뒤에 세서, 실제로 도는 호출만 센다.
+        칸은 **어떤 예외가 나도** finally 에서 돌려준다 — 새면 칸이 하나씩 줄어 결국 모두가 busy 를 본다.
+        """
+        trusted = bool(getattr(_REQ, "trusted", False))
+        if not trusted and LOCKDOWN.on():
+            EVENTS.add("lockdown_503")
+            SHIELD_LOG.write("lockdown", f"점검 깃발({LOCKDOWN.path.name}) — 공개 과금 요청을 503 으로 돌려보냄 {parsed.path}")
+            self._add_header("Retry-After", "60")
+            return self._json(503, {"error": "maintenance", "maintenance": True, "retry_after": 60,
+                                    "message": "지금 잠시 점검 중이에요. 조금 뒤에 다시 시도해 주세요."})
+        limited = self._rate_limited(parsed.path, raw)
+        if limited is not None:
+            EVENTS.add("paid_429")
+            self._add_header("Retry-After", str(limited.get("retry_after") or 1))
+            return self._json(429, limited)
+        ok, waited = GATE.acquire(trusted, PAID_QUEUE_SEC)
+        if not ok:
+            EVENTS.add("busy_503")
+            snap = GATE.snapshot()
+            SHIELD_LOG.write("busy", f"동시 실행 칸이 다 찼어요 ({snap['inflight']}/{snap['capacity']}, 팀 몫 {snap['reserved_team']}) "
+                                     f"→ 503 busy {parsed.path}")
+            return self._busy_reply()
+        try:
+            if waited >= 0.05:
+                EVENTS.add("queued")
+            if not trusted and PAID_PER_HOUR > 0 and parsed.path not in SPEND_EXEMPT and not SPEND.allow("public"):
+                wait = max(60, SPEND.retry_after("public"))
+                EVENTS.add("budget_503")
+                SHIELD_LOG.write("budget", f"시간당 천장 {PAID_PER_HOUR}회 도달 — 공개 과금 요청을 503 으로 돌려보냄 {parsed.path}")
+                self._add_header("Retry-After", str(wait))
+                return self._json(503, {"error": "budget_exceeded", "busy": True, "retry_after": wait,
+                                        "message": f"지금 이용이 많아 잠시 쉬어 가요. {-(-wait // 60)}분쯤 뒤에 다시 시도해 주세요."})
+            EVENTS.add("paid_ok")
+            return self._route_post(parsed, raw)
+        finally:
+            GATE.release(trusted)
+
+    def _busy_reply(self):
+        """동시 실행 칸이 다 찼을 때. rate_limited=True 를 같이 실어 프론트의 판정 재시도(judgeRetryPlan)가 그대로 기다렸다
+        다시 보내고, 「넘긴 질문」 으로 세지 않게 한다 (liveJudgeFailure). 다른 화면은 message 를 그대로 띄운다."""
+        n = PAID_RETRY_SEC
+        self._add_header("Retry-After", str(n))
+        return self._json(503, {"error": "busy", "busy": True, "rate_limited": True, "scope": "busy", "retry_after": n,
+                                "message": f"지금 사용자가 많아요. {n}초 뒤에 다시 시도해 주세요."})
+
+    def _route_post(self, parsed, raw: bytes):
+        """POST 경로 → 핸들러. 관문(do_POST·_handle_paid)을 다 지난 요청만 온다."""
+        if parsed.path == "/api/v1/session/artifacts":
+            return self._handle_session_artifacts(raw)
+        if parsed.path.endswith("/feedback") and parsed.path.startswith("/api/v1/sessions/"):
+            return self._handle_feedback(parsed.path, raw)
+        if parsed.path == "/api/v1/parse":
+            return self._handle_parse(raw)
+        if parsed.path == "/api/v1/suggest-context":
+            return self._handle_suggest_context(raw)
+        if parsed.path == "/api/v1/deck-gaps":
+            return self._handle_deck_gaps(raw)
+        if parsed.path == "/api/v1/concepts":
+            return self._handle_concepts(raw)
+        if parsed.path == "/api/v1/transcribe":
+            return self._handle_transcribe(raw)
+        if parsed.path == "/api/v1/graph":
+            return self._handle_graph(raw)
+        if parsed.path == "/api/v1/alignment":
+            return self._handle_alignment(raw)
+        if parsed.path == "/api/v1/flow":
+            return self._handle_flow(raw)
+        if parsed.path == "/api/v1/chatter":
+            return self._handle_chatter(raw)
+        if parsed.path == "/api/v1/score":
+            return self._handle_score(raw)
+        if parsed.path == "/api/v1/rubric":
+            return self._handle_rubric(raw)
+        if parsed.path == "/api/v1/pace":
+            return self._handle_pace(raw)
+        if parsed.path == "/api/v1/habits":
+            return self._handle_habits(raw)
+        if parsed.path == "/api/v1/report":
+            return self._handle_report(raw)
+        if parsed.path == "/api/v1/questions":
+            return self._handle_questions(raw)
+        if parsed.path == "/api/v1/memory":
+            return self._handle_memory(raw)
+        if parsed.path == "/api/v1/papers":
+            return self._handle_papers(raw)
+        if parsed.path == "/api/v1/papers/search":
+            return self._handle_papers_search(raw)
+        if parsed.path == "/api/v1/claims":
+            return self._handle_claims(raw)
+        if parsed.path == "/api/v1/strategy":
+            return self._handle_strategy(raw)
+        # F-09: /api/v1/sessions/{id}/qa/judge — 채점 기준은 서버가 만든 질문, 없으면 body.question (표시를 달고)
+        if parsed.path.endswith("/qa/judge") and "/api/v1/sessions/" in parsed.path:
+            return self._handle_qa_judge(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
+        if parsed.path == "/api/v1/qa/judge":
+            return self._handle_qa_judge(raw)
+        return self._json(404, {"error": "not found"})
+
+    def _post_failed(self, parsed, e: Exception):
+        # 상세(벤더 응답 본문·서버 경로)는 stderr 에만. 응답에는 사용자가 고칠 수 있는 사실만 싣는다.
+        traceback.print_exc()
+        # 외부 AI·검색이 죽은 것은 우리 버그(500)가 아니라 「잠시 뒤 다시」 다 — 502/503 으로 가른다 (J25)
+        upstream = _upstream_error(e)
+        try:
+            if upstream is not None:
+                sys.stderr.write(f"[bridge] {parsed.path} 외부 호출 실패 → {upstream[0]} {upstream[1]['error']}\n")
+                self._json(*upstream)
+            else:
+                self._json(500, {"error": type(e).__name__, "message": _public_message(e)})
+        except Exception:  # noqa: BLE001
+            return
 
     @staticmethod
     def _query_session_id(parsed) -> str:
@@ -1873,11 +2286,21 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         decks = {unicodedata.normalize("NFC", str(k)): v for k, v in (data.get("decks") or {}).items() if isinstance(v, dict)}
         return {"groups": groups, "decks": decks}
 
+    def _public_deck(self, key: str, manifest: dict | None = None) -> bool:
+        """
+        팀 인증 없이 내주는 덱인가 — 부스 시연 세트(ppt/decks.json 의 group "booth")만. 발표 리허설(#/rehearsal)은 공개 화면이라
+        (10-04 사용자: 「rehearsal 은 auth 제외」) 그 덱 셋과 녹음을 쓰게 한다. 검증용 보류 덱 · 데모 덱 · 목록 경로는 그대로 팀 뒤다.
+        """
+        manifest = manifest or self._deck_manifest()
+        meta = manifest["decks"].get(unicodedata.normalize("NFC", key or ""), {})
+        return meta.get("group") == "booth"
+
     def _handle_dev_decks(self):
-        if not _dev_open():
-            return self._json(404, {"error": "not found"})
         manifest = self._deck_manifest()
+        team = _dev_open()
         rows = self._deck_entries()
+        if not team:
+            rows = [r for r in rows if self._public_deck(r["key"], manifest)]
         for row in rows:
             meta = manifest["decks"].get(unicodedata.normalize("NFC", row["key"]), {})
             row["group"] = str(meta.get("group") or ("held" if row["key"].startswith("_") else "other"))
@@ -1888,17 +2311,39 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             for key in ("topic", "topic_title", "label"):
                 if meta.get(key):
                     row[key] = str(meta[key])
+        if not team:   # 공개 응답엔 서버 경로 · 다른 묶음 이름을 싣지 않는다
+            return self._json(200, {"decks": rows, "groups": [g for g in manifest["groups"] if g.get("id") == "booth"]})
         return self._json(200, {"dir": str(DECKS_DIR), "decks": rows, "groups": manifest["groups"]})
+
+    def _deck_audio_bytes(self, key) -> bytes | None:
+        """받아쓰기 요청이 이름으로 부른 덱 녹음의 바이트 — /api/v1/dev/decks/file?kind=audio 와 같은 문(공개는 부스 덱만).
+        표식 박힌 무음 WAV(클로바 전사 덱)는 그 길 그대로 만든다. 못 찾으면 None."""
+        key = unicodedata.normalize("NFC", str(key or ""))
+        if not key or (not _dev_open() and not self._public_deck(key)):
+            return None
+        row = next((r for r in self._deck_entries() if r["key"] == key), None)
+        if row is None or not row.get("audio"):
+            return None
+        if row.get("clova_txt"):
+            return clova_transcript.marked_silence(key, float(row["audio_sec"] or 0))
+        base = DECKS_DIR / key
+        path = (base / row["audio"]).resolve() if base.is_dir() else None
+        if path is None or DECKS_DIR.resolve() not in path.parents:
+            return None
+        try:
+            return path.read_bytes()
+        except OSError:
+            return None
 
     def _handle_dev_deck_file(self, parsed):
         """?deck=<폴더 이름>&kind=deck|audio → 파일 그대로. ppt/ 밖으로는 못 나간다."""
         from urllib.parse import parse_qs
 
-        if not _dev_open():
-            return self._json(404, {"error": "not found"})
         qs = parse_qs(parsed.query or "")
         key = (qs.get("deck") or [""])[0]
         kind = (qs.get("kind") or ["deck"])[0]
+        if not _dev_open() and not self._public_deck(key):
+            return self._json(404, {"error": "not found"})
         row = next((r for r in self._deck_entries() if r["key"] == key), None)
         if row is None:
             return self._json(404, {"error": "no_deck", "message": "그 이름의 발표자료 폴더가 없어요."})
@@ -1957,6 +2402,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         level = static_access(url)
         path = STATIC.locate_public(url, team=_dev_open())
         got = STATIC.served(url) if path is not None and path.is_file() else None
+        if path is not None and _static_hidden(path):
+            path = got = None  # 허용 목록을 통과해도 손으로 둔 문서·점 파일은 한 번 더 막는다
         if got is None:
             self.send_error(404)
             return None
@@ -2336,6 +2783,15 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             f"slides={graph.total_slides} slide_doc={slidedoc is not None} marks_match={speech_match} mock={_mock()}\n"
         )
         _fake_delay("/api/v1/alignment")
+        # 입력이 같으면 결과도 같다 — 부스의 같은 덱 · 같은 녹음은 두 번째부터 LLM 을 안 부른다 (계약 모양으로 센다, 세션 id 는 안 넣는다)
+        al_key = None if _mock() else _stage_key(
+            "f11", _stage_version("alignment"), _llm_identity(llm), graph.to_dict(), transcript.to_dict(), ctx.to_dict(),
+            slidedoc, speech_match)
+        cached_al = _stage_cache_get("alignment", al_key) if al_key else None
+        if cached_al is not None:
+            sys.stderr.write(f"[bridge] F-11 alignment 캐시 적중 {al_key}\n")
+            self._archive(body, "alignment_doc", cached_al)
+            return self._json(200, cached_al)
         alignment = align_speech(graph, transcript, ctx, llm=llm, slide_doc=slidedoc, speech_match=speech_match)
         s = alignment.summary
         sys.stderr.write(
@@ -2344,6 +2800,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             f"skipped={[x.slide_no for x in alignment.skipped_slides]}\n"
         )
         payload = alignment.to_dict()
+        if al_key and alignment.basis == "llm":   # LLM 이 판정을 비운 짐작(fallback)은 굳히지 않는다 — 다음엔 다시 부른다
+            _stage_cache_put("alignment", al_key, payload)
         self._archive(body, "alignment_doc", payload)
         return self._json(200, payload)
 
@@ -2625,12 +3083,15 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         audio_b64 = body.get("audio_base64")
         audio_path: str | None = None
         clova_out: dict | None = None
-        if audio_b64:
+        deck_audio = self._deck_audio_bytes(body.get("deck_audio")) if body.get("deck_audio") and not audio_b64 else None
+        if body.get("deck_audio") and not audio_b64 and deck_audio is None:
+            return self._json(404, {"error": "no_deck_audio", "message": "그 발표 녹음을 찾지 못했어요. 다시 골라 주세요."})
+        if audio_b64 or deck_audio is not None:
             import base64
             import binascii
 
             try:
-                audio_bytes = base64.b64decode(audio_b64, validate=False)
+                audio_bytes = deck_audio if deck_audio is not None else base64.b64decode(audio_b64, validate=False)
             except (binascii.Error, ValueError, TypeError):
                 return self._json(400, {"error": "bad_audio", "message": "녹음 데이터를 읽지 못했어요. 다시 녹음해 주세요."})
             if len(audio_bytes) > MAX_UPLOAD_BYTES:
@@ -2673,7 +3134,18 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             Path(audio_path).write_text("", encoding="utf-8")
 
         try:
-            t = Transcript.from_dict(clova_out) if clova_out else transcribe(audio_path, marks, provider=provider)
+            stt_key = None
+            if not clova_out and (audio_b64 or deck_audio is not None) and not _mock():
+                stt_key = _stage_key("f05", _stage_version("transcribe"), hashlib.sha256(audio_bytes).hexdigest(), ext,
+                                     [m.to_dict() for m in marks], provider or os.environ.get("STT_PROVIDER", ""))
+            cached_tr = _stage_cache_get("transcribe", stt_key) if stt_key else None
+            if cached_tr is not None:
+                sys.stderr.write(f"[bridge] F-05 transcribe 캐시 적중 {stt_key}\n")
+                t = Transcript.from_dict(cached_tr)
+            else:
+                t = Transcript.from_dict(clova_out) if clova_out else transcribe(audio_path, marks, provider=provider)
+                if stt_key and t.words:
+                    _stage_cache_put("transcribe", stt_key, t.to_dict())
             out = t.to_dict()
 
             # 업로드본에는 슬라이드 전환 기록이 없어 프런트가 균등 분할 marks 를
@@ -2745,16 +3217,22 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         심사위원 전원이 30회/분 한 통을 나눠 쓰고 세 명째부터 429 가 난다.
         **루프백에서 온 요청에 한해** 터널이 붙인 CF-Connecting-IP 를 믿는다.
         바깥에서 온 요청의 헤더는 위조일 수 있어 안 읽는다 (DEMO_HOST=0.0.0.0 금지와 같은 이유).
+
+        2026-10-05 방패: Funnel 도 루프백으로 들어와서, ts.net 주소로 바로 와 CF-Connecting-IP 를 바꿔 가며 보내면
+        IP 상한이 다 풀렸다. 이제 X-Forwarded-For 마지막 칸(Funnel 이 적는 TCP 상대)이 Cloudflare 일 때만, 그리고
+        DEMO_EDGE_SECRET 을 정했으면 X-Edge-Auth 가 맞을 때만 그 헤더를 믿는다 — 규칙 전체는 shield.resolve_client.
+        요청마다 한 번만 계산한다 (keep-alive 다음 요청은 handle_one_request 가 비운다).
         """
+        cached = getattr(self, "_client_ip", None)
+        if cached:
+            return cached
         try:
-            addr = str(self.client_address[0])
+            peer = self.client_address[0]
         except Exception:  # noqa: BLE001
             return "unknown"
-        if addr in ("127.0.0.1", "::1"):
-            forwarded = (self.headers.get("CF-Connecting-IP") or "").strip()
-            if forwarded:
-                return forwarded
-        return addr
+        ip, via = shield.resolve_client(peer, self.headers, EDGE_SECRET)
+        self._client_ip, self._client_via = ip, via
+        return ip
 
     def _rate_bucket(self, path: str, raw: bytes) -> str:
         """
@@ -2786,13 +3264,18 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
     def _rate_limited(self, path: str, raw: bytes) -> dict | None:
         """과금 경로 요청 제한 → 막으면 429 본문, 통과면 None. IP 천장을 먼저 보고, 그다음 세션 칸 (H-15)."""
         client = "ip:" + self._client_key()
-        if not LIMITER.allow(client):
+        # IP 천장은 사람으로 셀 수 있는 칸에만 — 팀(부스 노트북)은 행사장 와이파이의 방문자와 IP 를 나눠 써도 안 걸리고,
+        # Cloudflare 서버·설비 IP 로 잡힌 공개 칸(여러 사람이 섞임)은 천장 대신 세션 칸만 센다. VM 안 요청은 예전처럼 센다 (방패 2026-10-05)
+        ceiling = not getattr(_REQ, "team", False) and (getattr(self, "_local", False) or self._counted())
+        if ceiling and not LIMITER.allow(client):
             key, scope = client, "ip"
         else:
             key = self._rate_bucket(path, raw)
             if LIMITER.allow(key):
                 return None
             scope = "session" if key.startswith("session:") else "ip"
+        if not getattr(_REQ, "trusted", False) and self._counted():
+            self._strike(shield.ip_bucket(self._client_key()))  # 막혀도 계속 보내면 감옥 (방패)
         wait = LIMITER.retry_after(key)
         sys.stderr.write(f"[bridge] 요청 제한 {path} scope={scope} retry_after={wait}\n")
         # error·message·retry_after 는 예전 그대로 (프론트 qaApi 가 error→code, message 를 띄운다). rate_limited·scope 는
@@ -3048,7 +3531,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         degraded: list[str] = []
         t0 = time.monotonic()
         sid = _session_id_of(body)
-        want_papers = body.get("papers") is not False
+        # 부스 덱은 자료가 인용한 문헌이 없고, 학술 검색은 막히면 6초를 기다린 뒤 「폴백」 표시를 남겨 질문 캐시를 2분짜리로 만든다 — 건너뛴다
+        want_papers = body.get("papers") is not False and not _booth_session(sid)
         # 주장은 본문이 있어야 인용을 원문과 대조할 수 있다 — 본문이 없으면 안 만든다 (slide_doc_missing 이 따로 알린다)
         want_claims = body.get("claims") is not False and bool(slidedoc)
         # 열쇠에 세션을 안 넣는다 — 메모리 캐시(papers:·claims:)가 원래 세션과 무관하게 입력으로 걸려 있다.
@@ -3177,6 +3661,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         # 폴백 재료로 만든 묶음은 짧게만 든다 — 미리 만들기 → 시작 한 쌍은 나눠 쓰고, 그 뒤 요청은 재료부터 다시 시도한다 (B-03)
         transient = [c for c in degraded if c in TRANSIENT_DEGRADED]
         STORE.set_triage(q_key, payload, ttl=FALLBACK_TTL_SEC if transient else None)
+        if not transient and not degraded:
+            _stage_cache_put("questions", _questions_disk_key(q_key), payload)
         # 색인·보관은 서버 사본(전제·기대 답 포함) — 채점 기준이다. 화면으로는 함정의 사실 칸을 뺀 사본만 (WP-J2).
         self._index_questions(body, track, payload)
         self._archive(body, "question_doc", payload)
@@ -3584,6 +4070,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         super().send_header(keyword, value)
 
     def end_headers(self):
+        for k, v in getattr(self, "_extra_headers", None) or ():
+            self.send_header(k, v)  # Retry-After 등 방패가 얹는 머리글 (_add_header)
+        self._extra_headers = []
         # 캐시 규칙을 따로 정하지 않은 응답(API·오류·리다이렉트)은 저장하지 않는다.
         # 정적 파일은 _serve_static 이 정한다 — 주소에 내용 해시가 있어 오래 캐시해도 옛 판이 안 남는다
         if not getattr(self, "_cache_header_sent", False):
@@ -3607,9 +4096,46 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self.end_headers()
 
 
+def _deck_shas() -> dict[str, dict]:
+    """저장소 ppt/ 덱 원본 sha256 → 그 덱 줄(Handler._deck_entries). A·B 버전처럼 바이트가 같은 자료는 한 줄로 모인다."""
+    out: dict[str, dict] = {}
+    for row in Handler._deck_entries():
+        try:
+            sha = hashlib.sha256(_deck_path(row).read_bytes()).hexdigest()
+        except OSError:
+            continue
+        out.setdefault(sha, row)
+    return out
+
+
+_BOOTH_SHAS: dict = {"at": 0.0, "shas": frozenset()}
+BOOTH_SHAS_TTL_SEC = 600
+
+
+def _booth_session(sid: str | None) -> bool:
+    """이 세션의 자료가 부스 시연 세트(ppt/decks.json group "booth")의 덱 원본인가 — 올린 파일 sha256 으로 본다.
+    부스는 고정 덱 · 고정 녹음이라 문헌 검색을 기다릴 까닭이 없다 (10-06 사용자: 「부스용은 새로운 ppt 없으니 로딩 시간 줄이기」)."""
+    if not sid:
+        return False
+    now = time.monotonic()
+    if now - _BOOTH_SHAS["at"] > BOOTH_SHAS_TTL_SEC:
+        manifest = Handler._deck_manifest()
+        shas = frozenset(sha for sha, row in _deck_shas().items()
+                         if (manifest["decks"].get(unicodedata.normalize("NFC", row["key"])) or {}).get("group") == "booth")
+        _BOOTH_SHAS.update(at=now, shas=shas)
+    rec = ARCHIVE.manifest(sid)
+    return bool(rec and rec.upload_sha256 and rec.upload_sha256 in _BOOTH_SHAS["shas"])
+
+
+def _deck_path(row: dict) -> Path:
+    base = DECKS_DIR / row["key"]
+    return base / row["deck"] if base.is_dir() else base
+
+
 def _prune_once() -> None:
     try:
-        gone = ARCHIVE.prune()
+        # 시연 덱 파싱본은 남긴다 — 하루 청소가 지우면 /rehearsal · /booth/qa 발표 목록이 빈다 (10-05)
+        gone = ARCHIVE.prune(keep_sha256=_deck_shas().keys())
     except Exception as e:  # noqa: BLE001 — 청소 실패로 브리지를 죽이지 않는다
         sys.stderr.write(f"[bridge] 만료 세션 정리 실패: {e}\n")
         return
@@ -3631,6 +4157,43 @@ def _refresh_learning_once() -> None:
                      f"또래 표 {r['norm_sessions']}건/{r['norm_rows']}줄\n")
 
 
+#: 서버가 뜰 때 파싱본이 없으면 미리 파싱해 두는 덱 묶음(ppt/decks.json group). 0/빈 값이면 끈다.
+WARM_DECK_GROUPS = frozenset(g.strip() for g in os.environ.get("DEMO_WARM_DECK_GROUPS", "booth,demo").split(",") if g.strip())
+
+
+def _warm_decks_once(port: int) -> None:
+    """
+    부스 · 데모 덱 중 파싱본이 없는 것을 이 브리지의 /api/v1/parse 로 올려 둔다 (10-05).
+
+    발표 고르기 화면(rehearsal.js · booth_qa.js bqDeckReady)은 파싱본(cached_session_id)이 있는 덱만 보여 준다. 예전엔 누가
+    #/test/qa 에서 한 번 열어야 생겼고, 청소가 지우면 아무도 모른 채 목록이 비었다. 같은 파일은 단계 캐시가 받아 Upstage 를
+    다시 부르지 않을 수도 있다. 실패해도 브리지는 그대로 — 로그만 남긴다.
+    """
+    import urllib.request
+
+    if _mock() or not WARM_DECK_GROUPS:
+        return
+    groups = Handler._deck_manifest()["decks"]
+    for sha, row in _deck_shas().items():
+        meta = groups.get(unicodedata.normalize("NFC", row["key"]), {})
+        if meta.get("group") not in WARM_DECK_GROUPS or ARCHIVE.find_by_sha256(sha):
+            continue
+        path = _deck_path(row)
+        boundary = "chuckchuck-warm-" + sha[:16]
+        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; filename=\"{path.name}\"\r\n"
+                f"Content-Type: application/octet-stream\r\n\r\n").encode() + path.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/parse", data=body, method="POST",
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        t0 = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=300) as res:
+                res.read()
+            ok = ARCHIVE.find_by_sha256(sha)
+            sys.stderr.write(f"[bridge] 시연 덱 미리 파싱 {row['key']} → {ok or '세션 없음'} ({time.monotonic() - t0:.1f}초)\n")
+        except Exception as e:  # noqa: BLE001 — 미리 파싱 실패로 브리지를 죽이지 않는다
+            sys.stderr.write(f"[bridge] 시연 덱 미리 파싱 실패 {row['key']}: {e}\n")
+
+
 def _start_prune_loop() -> None:
     """시작할 때 한 번, 그 뒤 하루에 한 번. About 화면의 「1년 뒤 지워요」를 이 스레드가 지키고,
     지운 뒤의 동의 세션으로 학습 자산을 다시 만든다 (지운 세션이 묶음에 남지 않게 순서가 중요하다)."""
@@ -3638,13 +4201,86 @@ def _start_prune_loop() -> None:
         while True:
             _prune_once()
             _refresh_learning_once()
+            _warm_decks_once(settings.demo_port)
             time.sleep(PRUNE_INTERVAL_SEC)
     threading.Thread(target=loop, name="archive-prune", daemon=True).start()
 
 
+def _busy_raw(retry: int) -> bytes:
+    """연결 상한을 넘었을 때 핸들러 스레드 없이 바로 쓰는 응답 — 요청을 읽지도 않는다 (방패)."""
+    body = json.dumps({"error": "busy", "busy": True, "rate_limited": True, "scope": "connections",
+                       "retry_after": retry, "message": f"지금 사용자가 많아요. {retry}초 뒤에 다시 시도해 주세요."},
+                      ensure_ascii=False).encode("utf-8")
+    head = (f"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json; charset=utf-8\r\n"
+            f"Retry-After: {retry}\r\nCache-Control: no-store\r\nConnection: close\r\n"
+            f"Content-Length: {len(body)}\r\n\r\n").encode("ascii")
+    return head + body
+
+
 class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    """
+    요청 하나 = 스레드 하나(ThreadingHTTPServer) + 방패의 연결 상한 (2026-10-05).
+
+    예전엔 연결이 오는 대로 스레드를 만들었다 — 느린 연결 수천 개면 스레드 수천 개다. 이제 동시에 붙잡는 연결이
+    max_connections 를 넘으면 스레드를 만들지 않고 짧은 503 을 쓰고 바로 닫는다. listen 대기열(request_queue_size)은
+    기본 5 라 순간 몰림에 SYN 이 버려졌다 — 넉넉히 둔다. 느린 연결 감시(WATCHDOG)도 여기서 켠다.
+    """
+
     allow_reuse_address = True
     daemon_threads = True
+    request_queue_size = max(5, LISTEN_BACKLOG)
+
+    def __init__(self, *args, max_connections: int | None = None, **kwargs) -> None:
+        self.max_connections = MAX_CONNECTIONS if max_connections is None else max_connections
+        self._conn_lock = threading.Lock()
+        self.active_connections = 0
+        self.peak_connections = 0
+        self.refused_connections = 0
+        super().__init__(*args, **kwargs)
+        WATCHDOG.start()
+
+    def process_request(self, request, client_address):
+        with self._conn_lock:
+            full = 0 < self.max_connections <= self.active_connections
+            if full:
+                self.refused_connections += 1
+            else:
+                self.active_connections += 1
+                self.peak_connections = max(self.peak_connections, self.active_connections)
+        if full:
+            EVENTS.add("conn_refused")
+            SHIELD_LOG.write("conn_full", f"연결 상한 {self.max_connections} — 새 연결을 503 으로 돌려보냄")
+            return self._refuse(request)
+        try:
+            return super().process_request(request, client_address)
+        except BaseException:
+            self._release_conn()  # 스레드를 못 만들었다 — 센 것을 되돌린다 (BaseServer 가 소켓을 닫는다)
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            return super().process_request_thread(request, client_address)
+        finally:
+            self._release_conn()
+
+    def _release_conn(self) -> None:
+        with self._conn_lock:
+            self.active_connections = max(0, self.active_connections - 1)
+
+    def _refuse(self, request) -> None:
+        try:
+            request.setblocking(False)
+            request.send(_busy_raw(PAID_RETRY_SEC))
+        except OSError:
+            pass
+        self.shutdown_request(request)
+
+    def handle_error(self, request, client_address):
+        # 끊긴 연결·시한 초과는 버그가 아니다 — 추적을 통째로 찍지 않고 10초에 한 줄
+        if isinstance(sys.exc_info()[1], OSError):
+            SHIELD_LOG.write("conn_error", f"연결 오류 {type(sys.exc_info()[1]).__name__}")
+            return
+        super().handle_error(request, client_address)
 
 
 def bind_refusal(host: str, mock: bool) -> str:
@@ -3677,6 +4313,14 @@ def main():
     print(f"  요청 제한: 세션당 {PAID_RATE_LIMIT}회/분 · IP 천장 {PAID_RATE_LIMIT_IP}회/분 (0=끔) · "
           f"CORS 허용={sorted(ALLOWED_ORIGINS) or '없음(같은 출처만)'}", flush=True)
     print(f"  Access 헤더 필수={'예' if REQUIRE_ACCESS else '아니오'} · Host 허용={sorted(ALLOWED_HOSTS)}", flush=True)
+    print(f"  방패: 과금 동시 {PAID_CONCURRENCY}(팀 몫 {GATE.reserved}, 대기 {PAID_QUEUE_SEC:g}초) · 공개 시간당 {PAID_PER_HOUR or '무제한'} · "
+          f"IP 분당 {IP_RPM or '무제한'} · 감옥 {BAN_STRIKES}번/{JAIL.window:g}초→{JAIL.ban_sec:g}초 · 연결 {MAX_CONNECTIONS} · "
+          f"시한 recv {SOCKET_TIMEOUT:g}/머리글 {HEADER_TIMEOUT:g}/유휴 {KEEPALIVE_SEC:g}초", flush=True)
+    print(f"  원본 잠금: 비밀 머리글 {'있음' if EDGE_SECRET else '없음'} · 잠금 {'켜짐' if EDGE_LOCK else '꺼짐'}"
+          f" · 차단 목록 {BLOCKLIST.path} · 점검 깃발 {LOCKDOWN.path}"
+          f"{' (지금 켜짐)' if LOCKDOWN.on() else ''}", flush=True)
+    if _env_flag("DEMO_EDGE_LOCK") and not EDGE_SECRET:
+        print("  ⚠ DEMO_EDGE_LOCK=1 인데 DEMO_EDGE_SECRET 이 비어 있어요 — 잠그면 전부 막히므로 잠금을 켜지 않았어요.", flush=True)
     if host not in LOOPBACK_HOSTS:
         print(
             f"  ⚠ {host} 로 열려 있습니다 (mock 모드라 허용). 같은 망의 누구든 접속할 수 있어요.",
@@ -3690,8 +4334,9 @@ def main():
         # 질문 코칭의 답변 녹음은 10초 안팎(수백 KB)이라 정확히 그 구간이다 — 조용히 넘어가면 부스에서 "받아쓰기 실패" 로 나타난다.
         print("  ⚠ ffmpeg 이 없어요. 10MB 미만 녹음(질문 코칭 답변)의 WAF 우회가 꺼져 받아쓰기가 실패할 수 있어요 — "
               "`sudo apt-get install ffmpeg` (docs/DEPLOYMENT.md §STT)", flush=True)
-    _start_prune_loop()
+    # 소켓을 먼저 묶는다 — 청소 스레드의 시연 덱 미리 파싱(_warm_decks_once)이 이 서버에 요청을 보낸다
     server = ReusableThreadingHTTPServer((host, port), Handler)
+    _start_prune_loop()
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:

@@ -27,6 +27,9 @@ WEB = bridge.DEMO_DIR
     "/js/vendor/opencv.js", "/js/vendor/haarcascade_frontalface_default.xml",
     "/assets/chuckchuck-app-icon-64.png", "/sdk/index.js", "/sdk/rehearsal-recorder.js",
     "/css/./app.css", "/js/../css/app.css",
+    # 10-02 뒤 main 에 생긴 것 — 방패의 robots.txt · PDF 보기 · /rehearsal 시연 덱 표지와 장 그림
+    "/robots.txt", "/js/vendor/pdfjs/pdf.min.js", "/js/vendor/pdfjs/pdf.worker.min.js",
+    "/assets/deck-covers/battery-fastcharge.webp", "/assets/deck-slides/battery-fastcharge/1.webp",
 ])
 def test_앱이_쓰는_종류는_공개다(url):
     assert static_access(url) == "public", url
@@ -144,5 +147,5 @@ def test_공개로_여는_실제_파일에는_git_밖_파일이나_문서가_없
             continue
         rel = "/" + p.relative_to(WEB).as_posix()
         if static_access(rel) == "public":
-            assert p.suffix.lower() in {".html", ".css", ".js", ".mjs", ".png", ".ico", ".svg", ".webp", ".xml", ".wasm"}, rel
+            assert p.suffix.lower() in {".html", ".css", ".js", ".mjs", ".png", ".ico", ".svg", ".webp", ".xml", ".wasm", ".txt"}, rel
             assert not rel.endswith(".md")

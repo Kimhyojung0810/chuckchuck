@@ -325,12 +325,31 @@
     return () => rt.listeners.delete(fn);
   }
 
+  /**
+   * 워커(OpenCV)를 내린다 — 다음 load() 가 다시 띄운다(캐시에서 ≈1초). 부스는 하루 종일 쓰므로 부르지 않는다.
+   * 리허설은 질문 화상판에서만 정면 비율을 재고 끝나면 부른다 — 안 그러면 리포트에서도 워커가 「ready」 로 남아 메모리 ≈60MB 를 쥐었다
+   * (10-03 점검 perf-r2-1). 불러오는 중이면 다 받은 뒤에 내린다(그 사이 다시 watch 했으면 두고)
+   */
+  function dispose() {
+    if (rt.loading) { rt.loading.then(() => { if (!rt.video) dispose(); }); return; }
+    if (rt.timer) { clearTimeout(rt.timer); rt.timer = 0; }
+    if (rt.worker) { rt.worker.terminate(); rt.worker = null; }
+    rt.video = null;
+    rt.gaze = null;
+    rt.canvas = null;
+    rt.busy = false;
+    rt.stalls = 0;
+    rt.state = createCvState(0);
+    if (rt.status === 'ready') rt.status = 'idle';
+    emit();
+  }
+
   function startGaze() { rt.gaze = createGazeStats(); }
   function readGaze() { return rt.gaze ? { ...rt.gaze } : null; }
   function stopGaze() { const g = readGaze(); rt.gaze = null; return g; }
 
   root.BoothCV = {
-    load, watch, unwatch, subscribe,
+    load, watch, unwatch, subscribe, dispose,
     startGaze, readGaze, stopGaze,
     status: () => rt.status,
     snapshot,

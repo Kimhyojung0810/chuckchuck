@@ -1,9 +1,9 @@
 /*
 리포트 '연습 도구 › 발표 구성' 화면입니다. (F-20)
 
-이 발표를 어떤 순서로 다시 짜면 좋을지 LLM 에게 묻고, 1순위 하나만 펼쳐서
-보여줍니다. 나머지는 "다른 방법도 있어요" 한 줄로만 남깁니다 — 넷을 나란히
-늘어놓으면 고르라는 화면이 되지, 제안하는 화면이 못 됩니다.
+이 발표를 어떤 순서로 다시 짜면 좋을지 LLM 에게 묻고, 가장 맞는 구성의
+순서표는 펼쳐서 보여줍니다. 유명한 구성 네 가지(잡스·베이조스·머스크·저커버그)는
+항상 위에 나란히 둡니다. 서버가 대안을 비워도 이름이 사라지지 않습니다.
 
 유형 이름에 실존 인물이 들어가지만 그 사람의 말을 옮기지 않습니다. 이름은
 구성 방식을 가리키는 수식어이고, 모든 문장은 "당신의 발표를 이렇게 바꾸면"
@@ -18,7 +18,7 @@ window.ReportStrategy = (function () {
 
   /* 말투 규칙을 프롬프트에 넣은 날 키를 올렸다 (2026-08-07). 카드 본문은 서버가
      채우므로, 키를 그대로 두면 예전 말투로 받아 둔 제안이 계속 나온다. */
-  const CACHE_KEY = 'cheokcheok:strategy2';
+  const CACHE_KEY = 'cheokcheok:strategy3';
   const ENDPOINT = '/api/v1/strategy';
 
   /** 핵심을 어디에 두는 구성인가 — 서버가 유형 표에서 채워 준 값을 사람 말로. */
@@ -211,14 +211,36 @@ window.ReportStrategy = (function () {
       </div>`;
   }
 
-  function altsHtml(alternatives) {
-    if (!alternatives || !alternatives.length) return '';
+  /* f20_strategy.STRATEGY_TYPES 와 같은 네 구성. 화면은 서버가 고른 하나만
+     펼치되, 나머지 이름도 기획대로 항상 보여 준다. one_line 이 오면 그 문장을 쓰고
+     없으면 구성 방식 한 줄을 쓴다. */
+  const STYLE_BOOK = [
+    { type: '잡스식 축 고정형', line: '주장 하나를 세우고, 나머지 장이 전부 그 주장을 받치게 해요.' },
+    { type: '베이조스식 결론 선행형', line: '결론과 청중에게 무슨 뜻인지를 먼저 말하고, 근거는 뒤에 붙여요.' },
+    { type: '머스크식 전제 축적형', line: '누구나 동의할 전제와 수치부터 쌓아서, 결론이 따라 나오게 해요.' },
+    { type: '저커버그식 사용자 서사형', line: '한 사람의 구체적인 장면에서 시작해, 마지막에 그 장면을 다시 불러요.' },
+  ];
+
+  function stylesHtml(chosenType, alternatives, recommendation) {
+    const altLine = {};
+    (alternatives || []).forEach((a) => {
+      if (a && a.type && a.one_line) altLine[a.type] = a.one_line;
+    });
+    const picked = (recommendation && recommendation.type) || chosenType;
+    const because = (recommendation && recommendation.because) || '';
     return `
-      <div class="strat-alts">
-        <p class="strat-alts-head">다른 방법도 있어요</p>
+      <div class="strat-styles">
+        <p class="strat-alts-head">이 발표를 보고 고른 구성</p>
         <ul>
-          ${alternatives.map(a => `
-          <li><b>${esc(a.type)}</b> — ${esc(a.one_line)}</li>`).join('')}
+          ${STYLE_BOOK.map((s) => {
+            const on = s.type === picked;
+            const line = on ? (because || '이 발표에 맞춘 순서예요.') : (altLine[s.type] || s.line);
+            return `
+          <li class="strat-style${on ? ' is-chosen' : ''}">
+            <b>${esc(s.type)}</b>
+            <span>${esc(line)}</span>
+          </li>`;
+          }).join('')}
         </ul>
       </div>`;
   }
@@ -233,6 +255,7 @@ window.ReportStrategy = (function () {
       if (s.no != null && sec != null) spentBySlide[s.no] = sec;
     });
     return `
+      ${stylesHtml(c.type, data.alternatives, data.recommendation)}
       <div class="card strat-card">
         <div class="strat-head">
           <span class="strat-badge">${esc(climax.label)}</span>
@@ -245,7 +268,6 @@ window.ReportStrategy = (function () {
         ${outlineHtml(c.outline, spentBySlide)}
         ${keepHtml(c.keep)}
       </div>
-      ${altsHtml(data.alternatives)}
       <p class="note strat-disclaim">
         유형에 붙은 사람 이름은 <b>구성 방식을 가리키는 말</b>이에요.
         그 사람이 한 말을 옮기거나 지어내지 않아요. 제안은 전부 이 발표의 실제 시간과 발화에서 나와요.

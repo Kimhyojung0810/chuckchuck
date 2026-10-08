@@ -72,6 +72,7 @@ from ._probe_stance import (
     shown_in_question,
     template_gist,
 )
+from ._deck_claims import content_stems as deck_stems
 from ._deck_claims import numbers as deck_numbers
 from ._speech import josa_of, to_haeyo, ungrounded_numbers
 from ._spoken import defer_cue, skip_cue, spoken_numbers
@@ -955,7 +956,31 @@ def _contra_asked(question: str, item: AlignmentItem) -> bool:
     if not question or _contra_leaks(question, item):
         return False
     slide_ok = not item.deck_slide_no or bool(re.search(rf"(?<!\d){item.deck_slide_no}\s*장", question))
-    return slide_ok and bool(_RECONCILE_RE.search(question)) and bool(_RECONCILE_ASK_RE.search(question))
+    if not (slide_ok and _RECONCILE_RE.search(question) and _RECONCILE_ASK_RE.search(question)):
+        return False
+    # 「…라고 했는데」 로 발표자의 말을 옮겼으면 그 말이 **어긋난 그 말**이어야 한다 — 10-06 미세플라스틱: 어긋난 말은 「NOEC는 0.1mg」
+    # 인데 LLM 이 그 장 제목을 옮겨 「100 mg/L에서 산자수가 절반 아래로 떨어졌다고 했는데 … 어느 쪽이 맞나요」 로 물었다(무엇이 다른지 모른다).
+    # 옮긴 말이 없는 질문(「자료 2장과 어떤 차이가 있나요?」)은 예전대로 둔다.
+    quoted = _QUOTED_SAID_RE.search(question)
+    if quoted:
+        said = _said_clause(item.evidence, numeric=_contra_numeric(item))
+        said_stems, q_stems = set(_said_words(said)), _said_words(quoted.group(1))
+        said_vals = deck_numbers(spoken_numbers(said))
+        shares = any(t in said_stems for t in q_stems) or any(
+            a.close_value(x) for a in deck_numbers(spoken_numbers(quoted.group(1))) for x in said_vals)
+        if said and not shares:
+            return False
+    return True
+
+
+def _said_words(text: str) -> list[str]:
+    """옮긴 말 대조용 낱말 — 단위 조각(mg · L · km 같은 짧은 로마자)과 조사만 남은 조각(에서)은 뺀다. 그런 것은 어느 말에나 겹친다."""
+    return [t for t in deck_stems(text, drop_units=True)
+            if not re.fullmatch(r"[A-Za-z]{1,3}", t) and not re.fullmatch(r"(?:에서|에는|에게|으로|부터|까지)+", t)]
+
+
+#: 질문이 발표자의 말을 옮긴 자리 — 「X 라고/다고 했는데」 의 X (따옴표가 있으면 그 안).
+_QUOTED_SAID_RE = re.compile(r"[“\"「]?([^“”\"「」]{2,80}?)[”\"」]?\s*(?:이?라고|다고)\s*(?:했|말했|하셨|말씀)")
 
 
 def _contra_where(item: AlignmentItem) -> str:
@@ -2810,6 +2835,26 @@ def _front_first(
     return lead, [m for m in ordered if m not in lead], tuple(left)
 
 
+#: 숫자만 바꾼 함정(「리뷰 124,380건」 → 「155,480건」)을 낼지. 10-05 부스 리허설 사용자: 「숫자만 다르다고 하는 질문 · 너무 미시적인
+#: 부분을 묻는 건 에반데」 — 숫자 하나를 외웠는지가 아니라 주장의 순서 · 방향 · 맞다 아니다를 뒤집는 함정만 남긴다 (order · extreme ·
+#: direction · negation). 그 개념에 숫자 말고 뒤집을 거리가 없으면 함정 없이 보통 질문이 된다.
+TRAP_NUMBERS = False
+
+#: 요소 · 약점 자리에서 먼저 볼 개념 종류 (contracts.NODE_KINDS). 10-05 부스 리허설(배달앱 덱): 그래프가 주제 하나 밑에
+#: 주장 1 · 용어 11 로 납작했고, 요소 자리가 깊이 2 아무거나 순위로 골라 「재주문율」 같은 용어 하나짜리 질문이 됐다 — 사용자
+#: 「전반적으로 너무 미시적」. 주장(claim)이 그 자리에 맞으면 용어(concept)보다 먼저 세운다. 주장이 없으면 예전 그대로다.
+_SLOT_CLAIM_KINDS = ("claim",)
+
+
+def _claim_first(
+    slot: str, rest: list[TriageMark], depth_of: dict[str, int], stalled: set[str], kind_of: dict[str, str] | None,
+) -> TriageMark | None:
+    """그 자리에 맞는 개념 가운데 주장(claim) — 순위 순으로 첫째. kind 를 모르면 None (예전 순서)."""
+    if not kind_of:
+        return None
+    return next((m for m in rest if kind_of.get(m.node_id) in _SLOT_CLAIM_KINDS and _slot_fits(slot, m, depth_of, stalled)), None)
+
+
 def _mixed_order(
     ordered: list[TriageMark],
     track: str,
@@ -2817,6 +2862,7 @@ def _mixed_order(
     stalled: set[str],
     slots_out: dict[str, str] | None = None,
     front: list[str] | None = None,
+    kind_of: dict[str, str] | None = None,
 ) -> list[TriageMark]:
     """배합대로 앞자리를 채우고, 나머지는 원래 순위대로 뒤에 붙인다. depth 를 모르면 순위 그대로.
 
@@ -2835,6 +2881,7 @@ def _mixed_order(
             pick = _theme_pick(rest, depth_of, stalled)
         else:
             pick = next((m for m in rest if _slot_prefers(slot, m, depth_of, stalled)), None) \
+                or _claim_first(slot, rest, depth_of, stalled, kind_of) \
                 or next((m for m in rest if _slot_fits(slot, m, depth_of, stalled)), None)
         if pick is not None and slots_out is not None:
             slots_out[pick.node_id] = slot
@@ -2857,6 +2904,7 @@ def _pick_marks(
     slots_out: dict[str, str] | None = None,
     front: list[str] | None = None,
     cleared: set[str] | None = None,
+    kind_of: dict[str, str] | None = None,
 ) -> tuple[list[TriageMark], list[str]]:
     """
     트랙 상한만큼 배합(QA_TRACK_MIX)대로 고르고, 함정 개수를 트랙 허용치로 깎는다.
@@ -2872,7 +2920,7 @@ def _pick_marks(
     ranked = sorted(marks, key=lambda m: (m.rank, m.node_id))
     # 이해한 개념은 배합에 넣지 않는다 — 깊이로 주제·요소 자리를, 근거(탐침)로 약점 자리를 맡을 수 있어서다 (벤치 E: 탐침 개념이 약점 자리로 다시 3번째)
     ordered = _mixed_order(
-        [m for m in ranked if m.node_id not in cleared], track, depth_of, stalled or set(), slots_out, front
+        [m for m in ranked if m.node_id not in cleared], track, depth_of, stalled or set(), slots_out, front, kind_of
     ) + [m for m in ranked if m.node_id in cleared]
     limit = QA_TRACK_LIMITS[track]
     take = limit + _twin_slack(limit)
@@ -2953,7 +3001,8 @@ def _assign_traps(
             continue
         if node.parent_id is None or (node.depth or 0) <= 1:
             continue
-        cands = traps.candidates(node.label, _anchor_nos(node, by_no), idx)
+        cands = [c for c in traps.candidates(node.label, _anchor_nos(node, by_no), idx)
+                 if TRAP_NUMBERS or c.premise.kind != "number"]
         if not cands:
             continue
         key = (pos >= limit, -(cands[0].score + (1 if node.depth == 2 else 0)), not mark.trap, mark.rank)
@@ -3355,6 +3404,42 @@ def josa(word: str, with_batchim: str, without: str) -> str:
     return _probe_josa(word, with_batchim, without)
 
 
+def _claim_like(node: ConceptNode) -> bool:
+    """이름이 문장인 노드 — 층 그래프의 주장·핵심 주장, 또는 옛 그래프에서 문장으로 끝나는 이름."""
+    return getattr(node, "kind", "") in ("claim", "thesis") or _is_sentence((node.label or "").strip())
+
+
+def _quoted(label: str) -> str:
+    """「주장 문장」 — 끝 문장부호는 뗀다 (「…줄였습니다.」 → 「…줄였습니다」)."""
+    return "「" + re.sub(r"[.!。\s]+$", "", (label or "").strip()) + "」"
+
+
+def _q_josa(label: str, with_batchim: str, without: str) -> str:
+    """인용 뒤 조사 — 따옴표 **안** 마지막 소리로 고른다. 「…결과다」 → 「…결과다」는, 「…한다」 → 「…한다」를."""
+    q = _quoted(label)
+    return q + josa(q[1:-1], with_batchim, without)[len(q) - 2:]
+
+
+def _claim_fallback(node: ConceptNode, mark: TriageMark, where: str, skip: SkippedSlide | None) -> str:
+    """
+    주장 문장 노드의 폴백 질문 — 문장을 「」 로 감싸 조사를 맞추고, 장의 「핵심을 한 문장으로」 대신 **그 주장의 근거**를 묻는다.
+    10-06 부스 덱 점검: 「2C 충전은 … 깎았다는 발표에서 짧게 지나갔어요. 자료 3장의 핵심을 한 문장으로 말하면 무엇인가요?」 ·
+    「4.7은 품질이 아니라 리뷰 수집 방식의 결과다는 …」 · 「… 표시해야 한다를 자료 3장에서 어떻게 설명했나요?」 — 문장 뒤에 조사를 붙여
+    비문이 됐고, 핵심 문장을 보여 주며 핵심을 말하라고 해 물을 것이 없었다.
+    """
+    if mark.source == "contradiction":
+        return f"{_q_josa(node.label, '은', '는')} 발표에서 한 설명이 자료와 조금 달랐어요. {where} 기준으로 다시 설명해 주세요."
+    if mark.source == "skipped_slide" and skip is not None:
+        return f"발표에서 {skip.slide_no}장은 넘어갔는데, 그 장의 {_q_josa(node.label, '을', '를')} 뒷받침하는 근거를 설명해 주세요."
+    if mark.source in ("missing", "skipped_slide"):
+        return f"{where}의 {_q_josa(node.label, '을', '를')} 발표에서는 다루지 않았어요. 이 주장의 근거는 무엇인가요?"
+    if mark.source == "under_spoken":
+        return f"{_q_josa(node.label, '은', '는')} 발표에서 짧게 지나갔어요. 이 주장을 받치는 근거를 {where}에서 들어 설명해 주세요."
+    if mark.source == "justified_skip":
+        return f"{_q_josa(node.label, '은', '는')} 발표에서 생략했는데, 누가 근거를 물으면 어떻게 답할 건가요?"
+    return f"{_q_josa(node.label, '을', '를')} {josa(where, '은', '는')} 어떤 근거로 뒷받침하나요?"
+
+
 def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssue | None, nos_all: list[int],
                        skip: SkippedSlide | None = None) -> str:
     """
@@ -3367,6 +3452,8 @@ def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssu
     label = node.label
     shown = nos_all[:HINT_SLIDE_MAX]
     where = f"자료 {', '.join(str(n) for n in shown)}장" if shown else "자료"
+    if _claim_like(node):
+        return _claim_fallback(node, mark, where, skip)
     if mark.source == "contradiction":
         return f"{josa(label, '은', '는')} 발표에서 한 설명이 자료와 조금 달랐어요. {where} 기준으로 다시 설명해 주세요."
     if mark.source == "skipped_slide" and skip is not None:
@@ -3375,7 +3462,9 @@ def _fallback_question(node: ConceptNode, mark: TriageMark, flow_issue: FlowIssu
     if mark.source in ("missing", "skipped_slide"):
         return f"{where}에 있는 {josa(label, '을', '를')} 발표에서는 다루지 않았어요. 이 발표에서 {josa(label, '은', '는')} 어떤 역할을 하나요?"
     if mark.source == "under_spoken":
-        return f"{josa(label, '은', '는')} 발표에서 짧게 지나갔어요. {where}의 핵심을 한 문장으로 말하면 무엇인가요?"
+        # 장의 「핵심」 이 아니라 **이 개념**을 묻는다 — 「온도는 … 자료 2장의 핵심을 한 문장으로」 는 장 낭독이 됐다 (10-06 부스 녹음 6개).
+        # 골자는 근거 장에서 이 개념을 받치는 줄이라(`_evidence_gist`) 이 물음의 답이 된다
+        return f"{josa(label, '은', '는')} 발표에서 짧게 지나갔어요. {where}에서 {josa(label, '이', '가')} 무엇을 보여 주는지 한 문장으로 말해 볼래요?"
     if mark.source == "weak_flow" and flow_issue is not None and flow_issue.kind == "order_jump":
         return f"{josa(label, '을', '를')} 자료와 다른 순서로 설명했는데, 그렇게 한 이유가 있나요?"
     if mark.source == "weak_flow":
@@ -4224,7 +4313,7 @@ def _evidence_gist(
     texts = [(no, by_no[no].raw_text or "") for no in anchors if no in by_no]
     # 문장 조각(「수면 주기가 자주 끊기면」 — 연결 어미로 끝난 줄)은 골자의 한 줄이 못 된다 — 넉넉히 뽑아 거른다
     ranked = ranked_quotes(node.label, node.summary, texts, question, k=EVIDENCE_GIST_LINES + 3, labels=labels)
-    found = [(no, q) for no, q in ranked if q and not _HINT_FRAGMENT_END_RE.search(q)
+    found = [(no, q) for no, q in ranked if q and not _HINT_FRAGMENT_END_RE.search(q) and not _letter_spaced(q)
              and (usable is None or usable(q))][:EVIDENCE_GIST_LINES]
     if not found or (usable is not None and not any(_content_line(q) for _, q in found)):
         return ""          # 장 제목만 남았으면 답이 아니다 — 호출자가 「답할 재료가 없다」 로 본다 (WP-P2)
@@ -4238,6 +4327,14 @@ def _evidence_gist(
     where = ", ".join(str(n) for n in nos)
     lead = "질문의 전제와 달리, 자료는 이렇게 말해요 — " if trap else "자료는 이렇게 말해요 — "
     return _clip(f"{lead}{body} ({where}장)")
+
+
+def _letter_spaced(line: str) -> bool:
+    """글자마다 띄운 장식 줄인가 — 표지의 소속 「경 영 정 보 학 과 서 비 스 데 이 터 연 구 실」 이 정답 골자에 실렸다 (10-06 부스 체험).
+    한 글자 낱말이 다섯 개 이상이고 낱말의 70% 이상이면 장식 줄이다."""
+    words = (line or "").split()
+    singles = sum(1 for w in words if len(w) == 1 and "가" <= w <= "힣")
+    return singles >= 5 and singles >= 0.7 * len(words)
 
 
 #: 제목이 아니라 **내용**을 말하는 줄로 볼 길이 (띄어쓰기 뺀 글자) — 문장·수치·표 행이 아니어도 이만큼이면 주장이 든 줄이다.
@@ -5480,6 +5577,12 @@ def build_questions(
     greet = [m for m in known if _GREETING_LABEL_RE.search(by_id[m.node_id].label or "")]
     if greet and len(greet) < len(known):
         known = [m for m in known if m not in greet]
+    # 표지에만 앉은 개념의 누락·덜 말함(「자료 1장에 있는 수도권 매장을 발표에서는 다루지 않았어요 … 어떤 역할」 · 「배달앱 리뷰 …」)은
+    # 물을 거리가 아니다 — 표지의 소속·데이터 출처·주제 낱말이다 (10-06 부스 녹음 6개). 다른 후보가 있을 때만 뺀다.
+    cover = [m for m in known if m.source in _ONE_PER_SLIDE_SOURCES and not m.node_id.startswith("extra:")
+             and _role_rank_of(graph, by_id[m.node_id]) == _ROLE_RANK["cover"]]
+    if cover and len(cover) < len(known):
+        known = [m for m in known if m not in cover]
     if not known:
         raise QuestionError(
             "QaTriage 에 이 그래프의 개념이 없습니다. "
@@ -5504,7 +5607,8 @@ def build_questions(
     # 지난 리허설에서 못 넘긴 개념도 맨 앞에 선다 (모순 다음) — triage 가 앞으로 당겨도 주제 자리가 루트를 먼저 세워
     # 3번째로 밀렸다. triage 머리말의 약속(「지난번에 막혔으면 이번엔 먼저 물어본다」)을 배합에서도 지킨다.
     front += [m.node_id for m in sorted(known, key=lambda m: m.rank) if m.node_id in stalled and m.node_id not in front]
-    marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of, front=front, cleared=cleared)
+    kind_of = {n.id: getattr(n, "kind", "") for n in graph.nodes}
+    marks, deferred = _pick_marks(known, track, depth_of, stalled, slot_of, front=front, cleared=cleared, kind_of=kind_of)
     deferred += [nid for nid in set_aside if nid not in deferred]
     # 탐침은 근거가 그 탐침인 개념에만 묶는다 — 모순·누락처럼 더 앞선 근거로 뽑힌 개념까지 탐침으로 끌면 근거가 섞인다.
     probe_of = {m.node_id: probe_of[m.node_id] for m in marks

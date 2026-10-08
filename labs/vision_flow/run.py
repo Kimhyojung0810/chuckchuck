@@ -122,6 +122,12 @@ def run(args) -> Path:
         b = p.chromium.launch(args=flags)
         ctx = b.new_context(viewport={"width": 1440, "height": 900}, permissions=["camera", "microphone"])
         page = ctx.new_page()
+        if args.replay:
+            # 선분석(개념 · 그래프) 응답을 다른 실험실이 남긴 기록으로 재생한다 — 과금 없이 (예: labs/booth_qa/out/rec_focus)
+            for path, name in (("/api/v1/concepts", "concepts.json"), ("/api/v1/graph", "graph.json")):
+                f = Path(args.replay) / name
+                if f.exists():
+                    page.route(f"**{path}", _replayer(f.read_text()))
         page.on("console", lambda m: report["console"].append(f"{m.type}: {m.text}"[:300])
                 if m.type == "error" or (m.type == "warning" and "GL Driver" not in m.text) else None)
         page.on("pageerror", lambda e: report["console"].append(f"pageerror: {e}"[:300]))
@@ -242,10 +248,17 @@ def run(args) -> Path:
     return out
 
 
+def _replayer(body: str):
+    def handle(route):
+        route.fulfill(status=200, content_type="application/json", body=body)
+    return handle
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--base", default="http://127.0.0.1:8799")
     ap.add_argument("--deck", default="focus_notification")
+    ap.add_argument("--replay", default="", help="개념 · 그래프 응답 기록 폴더 (labs/booth_qa/out/rec_focus) — 과금 없이")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
     t = time.time()

@@ -6,9 +6,18 @@
 
 ```bash
 .venv/bin/python labs/qcoach_bench/prepare.py                       # 입력 얼리기 (한 번, 실 과금)
-.venv/bin/python labs/qcoach_bench/run.py --tag <이름> --reps 3      # 시나리오 A~E 실행 (실 과금, 1회 ≈ 3분)
+.venv/bin/python labs/qcoach_bench/run.py --tag <이름> --reps 6      # 시나리오 A~E 실행 (실 과금, 1회 ≈ 1분 · 이미 돈 회차는 건너뜀)
 .venv/bin/python labs/qcoach_bench/score.py baseline <이름>         # 전후 비교표 + out/<이름>/records.md
 ```
+
+| 파일 | 하는 일 |
+|---|---|
+| `prepare.py` | 입력(덱 본문·그래프·주장·맥락)을 `out/fixtures/` 에 한 번 얼린다 |
+| `run.py` | 시나리오 A~E 를 실제 코치 함수로 돌려 `out/<태그>/rep<N>.json` 에 남긴다 |
+| `score.py` | 네 지표 채점·전후 비교표 (LLM 없음) |
+| `records.py` | 질문마다 대상 노드·선택 이유·사용자 상태·질문을 `out/<태그>/records.md` 로 |
+| `common.py` · `textrules.py` | 경로·`.env`·핵심 개념 읽기 / 낱말·수치 규칙 |
+| `key_concepts.json` | 덱 원문으로 고른 핵심 개념 5개 · 별칭 · 시나리오 C 오답 |
 
 ## 입력 — 왜 얼리나
 

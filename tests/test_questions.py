@@ -455,6 +455,20 @@ def test_track_limit_respected(track):
     assert len(doc.questions) == QA_TRACK_LIMITS[track]
 
 
+def test_수치만_바꾼_함정은_기본으로_내지_않는다(monkeypatch):
+    """10-05 부스 리허설 — 「리뷰 124,380건」 을 「155,480건」 으로 바꾼 함정이 「너무 미시적」 이었다. 숫자 말고 뒤집을 거리가 없으면 함정 0개."""
+    from chuckchuck import f08_questions
+    from chuckchuck.contracts import Slide, SlideBlock, SlideDoc
+    monkeypatch.setattr(f08_questions, "TRAP_NUMBERS", False)
+    graph = make_graph(20)
+    triage = triage_of(marks_payload(*[{"node_id": n.id, "trap": True} for n in graph.nodes]), graph=graph)
+    deck = SlideDoc(file_name="sample.pdf", total_slides=20, slides=[
+        Slide(slide_no=i, title=f"{i}장", blocks=[SlideBlock(category="paragraph", text=f"개념{i}의 비율은 {100 + i}명입니다")])
+        for i in range(1, 21)])
+    doc = doc_of(questions_payload(), graph=graph, triage=triage, track="10", slidedoc=deck)
+    assert sum(q.trap for q in doc.questions) == 0
+
+
 @pytest.mark.parametrize("track", sorted(QA_TRACK_TRAPS))
 def test_trap_budget_respected(track):
     """LLM 이 전부 함정이라고 해도 트랙 허용치를 넘지 않는다. 1분 트랙은 0개.

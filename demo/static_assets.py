@@ -48,11 +48,12 @@ _EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|//)", re.I)
 #: 새 종류의 파일을 화면에서 쓰게 되면 여기에 더한다 (tests/test_static_allowlist.py 가 앱이 쓰는 경로를 대조한다).
 _NAME = r"[A-Za-z0-9_.-]+"
 _PUBLIC_PATH = re.compile(rf"""^/(?:
-      index\.html | f11_reveal\.html | booth\.html | favicon\.ico
+      index\.html | f11_reveal\.html | booth\.html | favicon\.ico | robots\.txt
     | css/{_NAME}\.css
     | js/{_NAME}\.m?js
-    | js/vendor/{_NAME}\.(?:m?js|wasm|xml)
+    | js/vendor/(?:{_NAME}/)?{_NAME}\.(?:m?js|wasm|xml)
     | assets/{_NAME}\.(?:png|svg|ico|webp)
+    | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
     | sdk/{_NAME}\.m?js
 )$""", re.X)
 #: 팀 샘플 데모만 쓰는 파일 — /auth 를 거친 팀 브라우저(또는 DEV_ROUTES 브리지)에만 연다. 공개 방문자에게는 404.

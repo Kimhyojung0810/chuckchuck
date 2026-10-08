@@ -1237,15 +1237,20 @@ details.fold .fold-body { padding: 0 24px 20px; }
 /* 힌트가 부르는 장을 조그맣게 같이 띄운다 — 장 번호만 부르면 그 장에 뭐가 있는지
    아는 사람에게만 힌트다. 말풍선 안이라 작게 두고, 넘치면 가로로 민다. */
 /* 코칭 자료 인용 카드 · 둘 중 하나 선택 칩 (2026-09-10) */
-.qa-evidence { margin: 8px 0 0; padding: 10px 12px; border-left: 3px solid var(--accent); border-radius: var(--r-ctl); background: var(--accent-weak); font-size: 14px; line-height: 1.55; color: var(--text); }
+.qa-evidence { margin: 8px 0 0; padding: 10px 12px; border-radius: var(--r-ctl); background: var(--accent-weak); font-size: 14px; line-height: 1.55; color: var(--text); }
 .qa-evidence span { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 700; color: var(--text-3); }
 /* 판정 근거 줄 (2026-10-01) — 판정이 기댄 자료 줄. 역할 색은 판정 색 그대로(짚은 것 ok · 빠진 것 mid · 다시 볼 곳 no) */
 .qa-grounds { margin-top: 10px; display: grid; gap: 6px; }
 .qa-grounds-h { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: .02em; }
 .qa-grounds .qa-evidence { margin: 0; }
-.qa-ground.is-covered { border-left-color: var(--ok); background: var(--ok-bg); }
-.qa-ground.is-missing { border-left-color: var(--mid); background: var(--mid-bg); }
-.qa-ground.is-conflict { border-left-color: var(--no); background: var(--no-bg); }
+/* 왼쪽 굵은 선 대신 이름표 앞 점 — 옆 선 + 둥근 카드는 흔한 AI 생성 UI 꼴로 읽혔다 (10-06 사용자). 판정 색은 점이 그대로 진다 */
+.qa-ground > span::before { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 6px 1px 0; border-radius: var(--r-dot, 50%); vertical-align: middle; background: currentColor; }
+.qa-ground.is-covered { background: var(--ok-bg); }
+.qa-ground.is-covered > span::before { background: var(--ok); }
+.qa-ground.is-missing { background: var(--mid-bg); }
+.qa-ground.is-missing > span::before { background: var(--mid); }
+.qa-ground.is-conflict { background: var(--no-bg); }
+.qa-ground.is-conflict > span::before { background: var(--no); }
 .qa-ground small { display: block; margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--text-2, var(--text)); }
 .qa-grounds .hint-slides { margin-top: 2px; }
 .qa-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -1385,9 +1390,8 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .qa-done {
   align-self: stretch; margin: 6px 0; padding: 14px 16px 12px;
   border: 1px solid var(--border); border-radius: var(--r-inner);
-  background: var(--surface); border-left: 3px solid var(--ok);
+  background: var(--surface);
 }
-.qa-done.is-lost { border-left-color: var(--no); }
 .qa-done .qd-head { display: flex; align-items: center; gap: 8px; }
 .qa-done .qd-head i {
   width: 18px; height: 18px; flex: none; border-radius: 50%; background: var(--ok);
@@ -1762,7 +1766,50 @@ details.fold .fold-body { padding: 0 24px 20px; }
 
 /* ── 리포트: 슬라이드 덱 뷰 ── */
 .deck-main { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; align-items: start; }
-.deck-stage { margin: 0; border: 2px solid var(--border); border-radius: var(--r-print); overflow: hidden; }
+.deck-stage { position: relative; margin: 0; border: 2px solid var(--border); border-radius: var(--r-print); overflow: hidden; }
+.deck-stage-pic { position: relative; }
+/* 삐약이 반응은 장 그림 위가 아니라 아래 자막 줄 오른쪽에 — 장 위 오른쪽 아래에 앉으면 리포트가 짚는 숫자(자료 상자)를 가렸다
+   (10-03 점검 V8 · CLAUDE.md §3-4 연출이 데이터를 가리면 연출을 버린다) */
+.deck-chick {
+  margin-left: auto; flex: none; display: flex; flex-direction: row; align-items: center; gap: 6px;
+  pointer-events: none; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .16));
+}
+.deck-chick-body { position: relative; width: 44px; }
+.deck-chick .ch-seat { width: 100%; opacity: 1; filter: none; transform: none; animation: none; }
+.deck-chick .ch-chick { width: 100%; }
+.deck-chick .ch-prop { display: none; }
+.deck-paws { position: absolute; left: 0; top: 0; width: 100%; height: auto; z-index: 2; pointer-events: none; }
+.deck-paw { opacity: 0; }
+.deck-chick-line {
+  margin: 0; padding: 3px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, .94); color: #1c2430;
+  font-size: 12px; font-weight: 800; line-height: 1.3; white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .18);
+}
+.deck-chick[data-cue="listen"] .ch-eye-ball { transform: scale(1.22); }
+.deck-chick[data-cue="listen"] .ch-eye-hi { animation: deckSpark 1.6s ease-in-out infinite; }
+.deck-chick[data-cue="listen"] .ch-eyes { transform-box: fill-box; transform-origin: center; animation: deckBlink 4.8s ease-in-out infinite; }
+.deck-chick[data-cue="listen"] .ch-chick { animation: deckAttend 2.8s ease-in-out infinite; }
+.deck-chick[data-cue="fast"] .ch-eye-ball { transform: scale(1.35); }
+.deck-chick[data-cue="fast"] .ch-mark { opacity: 1; }
+.deck-chick[data-cue="fast"] .ch-blush { opacity: .95; }
+.deck-chick[data-cue="fast"] .ch-chick { animation: deckShiver .34s ease-in-out infinite; }
+.deck-chick[data-cue="slow"] .ch-eyes { animation: deckYawn 2.4s ease-in-out infinite; }
+.deck-chick[data-cue="slow"] .ch-beak { transform-box: fill-box; transform-origin: center top; animation: deckBeak 2.4s ease-in-out infinite; }
+.deck-chick[data-cue="slow"] .ch-head { transform: rotate(8deg); }
+.deck-chick[data-cue="quiet"] .deck-paw-l { opacity: 1; }
+.deck-chick[data-cue="quiet"] .ch-figure { animation: deckLean 1.8s ease-in-out infinite; }
+.deck-chick[data-cue="quiet"] .ch-head { transform: rotate(-10deg); }
+.deck-chick[data-cue="loud"] .deck-paw { opacity: 1; }
+.deck-chick[data-cue="loud"] .ch-eyes { transform: scaleY(.28); animation: none; }
+.deck-chick[data-cue="loud"] .ch-figure { transform: translateY(6px) scale(.96); animation: none; }
+@keyframes deckSpark { 0%, 100% { opacity: .7; transform: scale(1); } 40% { opacity: 1; transform: scale(1.45); } }
+@keyframes deckBlink { 0%, 86%, 100% { transform: scaleY(1); } 91%, 95% { transform: scaleY(.15); } }
+@keyframes deckAttend { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-4px) rotate(1.5deg); } }
+@keyframes deckShiver { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-4px) rotate(-3deg); } 75% { transform: translateX(4px) rotate(3deg); } }
+@keyframes deckYawn { 0%, 100% { transform: scaleY(.62); } 35%, 68% { transform: scaleY(.1); } }
+@keyframes deckBeak { 0%, 100% { transform: scale(1, 1); } 35%, 68% { transform: scale(1.15, 2.3); } }
+@keyframes deckLean { 0%, 100% { transform: translate(-2px, 2px) rotate(-3deg); } 50% { transform: translate(-8px, 6px) rotate(-6deg); } }
 .deck-stage img, .deck-stage canvas { width: 100%; height: auto; display: block; }
 .deck-stage figcaption { display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 12px; font-weight: 500; color: var(--text-2); background: var(--fill); }
 .deck-stage figcaption .num { color: var(--text-3); }
@@ -1780,6 +1827,18 @@ details.fold .fold-body { padding: 0 24px 20px; }
 .dp-fix b { display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 3px; }
 .dp-fix p { font-size: 14px; color: var(--text); }
 .deck-panel .btn { margin-top: 12px; }
+.dp-chicks { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dp-chick {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px;
+  margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--fill);
+  font-size: 14px; line-height: 1.45;
+}
+.dp-chick time { color: var(--text-3); font-weight: 700; }
+.dp-chick b { font-weight: 800; }
+.dp-chick[data-cue="loud"] b, .dp-chick[data-cue="fast"] b { color: var(--no, #c4473a); }
+.dp-chick[data-cue="slow"] b, .dp-chick[data-cue="quiet"] b { color: var(--text-2); }
+.dp-chick-said { flex-basis: 100%; color: var(--text-2); font-size: 13px; }
+.dp-chick-none { margin: 4px 0 0; font-size: 14px; color: var(--text-3); }
 .dp-none { font-size: 14px; color: var(--text-3); }
 .dp-moments { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 /* align-items:center 였다. 라벨이 두 줄로 접히면 시각·칩이 두 줄의 **가운데**에

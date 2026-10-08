@@ -18,6 +18,7 @@ from chuckchuck.f20_strategy import (
     MAX_QUOTE_CHARS,
     STRATEGY_TYPES,
     _build_user_prompt,
+    recommend_type,
     suggest_strategy,
 )
 from chuckchuck.providers.llm_base import LLMProvider
@@ -424,3 +425,61 @@ def test_missing_gains_yield_empty_list(analysis):
     """구버전 응답(gains 없음)도 화면이 빈 배열로 안전하게 받는다."""
     out = run(analysis, payload_of())
     assert out["chosen"]["gains"] == []
+
+
+# ---------------------------------------------------------------------------
+# 추천 — 네 구성 중 하나는 발표 지표로 고른다. 모델이 고르는 게 아니다.
+# ---------------------------------------------------------------------------
+
+def test_opening_overrun_recommends_conclusion_first(analysis):
+    rec = recommend_type(analysis)
+    assert rec["type"] == "베이조스식 결론 선행형"
+    assert "2:24" in rec["because"]
+    assert rec["scores"]["베이조스식 결론 선행형"] > rec["scores"]["잡스식 축 고정형"]
+
+
+def test_missing_concepts_recommend_premise_stack():
+    rec = recommend_type({
+        "title": "전제가 빈 발표",
+        "concepts": [
+            {"label": "측정 단위", "verdict": "missing"},
+            {"label": "비교 기준", "verdict": "안 나옴"},
+        ],
+        "time_alloc": [
+            {"slide": "S01", "label": "도입", "recommended": "1:00", "actual": "1:00"},
+            {"slide": "S02", "label": "본론", "recommended": "4:00", "actual": "4:00"},
+        ],
+    })
+    assert rec["type"] == "머스크식 전제 축적형"
+    assert "측정 단위" in rec["because"]
+
+
+def test_a_concrete_scene_recommends_user_story():
+    rec = recommend_type({
+        "title": "장면이 있는 발표",
+        "concepts": [{"label": "알림", "verdict": "aligned"}],
+        "quotes": [{"at": "00:20", "text": "어느 날 사용자가 알림을 끄고 나서야 알았습니다"}],
+        "time_alloc": [
+            {"slide": "S01", "label": "도입", "recommended": "1:00", "actual": "1:00"},
+        ],
+    })
+    assert rec["type"] == "저커버그식 사용자 서사형"
+
+
+def test_no_signal_recommends_one_axis():
+    rec = recommend_type({"title": "제목뿐인 발표"})
+    assert rec["type"] == "잡스식 축 고정형"
+    assert rec["scores"]["잡스식 축 고정형"] == 1
+
+
+def test_prompt_locks_the_recommended_type(analysis):
+    prompt = _build_user_prompt(analysis)
+    assert '추천 유형: "베이조스식 결론 선행형"' in prompt
+    assert "2:24" in prompt.split("추천 근거", 1)[1].split("chosen.type", 1)[0]
+
+
+def test_suggestion_carries_the_recommendation(analysis):
+    out = suggest_strategy(analysis, llm=MockLLM())
+    assert out["recommendation"]["type"] == "베이조스식 결론 선행형"
+    assert out["chosen"]["type"] == out["recommendation"]["type"]
+    assert set(out["recommendation"]["scores"]) == set(STRATEGY_TYPES)

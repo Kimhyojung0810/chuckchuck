@@ -70,7 +70,7 @@ LAYOUT_JS = """() => {
   // 화상판(/booth/call) — 얼굴 가운데(가로 38~62% · 세로 18~62%)를 덮는 글라스가 있는지
   const cx0 = innerWidth * .38, cx1 = innerWidth * .62, cy0 = innerHeight * .18, cy1 = innerHeight * .62;
   const covers = (el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > cx0 && b.left < cx1 && b.bottom > cy0 && b.top < cy1; };
-  const callParts = ['.bc-host', '.bc-dock', '.bc-side', '.bc-hint:not([hidden])', '.bc-prog', '#stream > *', '.bc-banner', '.bc-slide', '.bc-mine-msg', '.bc-draft', '.bc-acts', '.bc-typing'];   // 10-02 배치(배너 · 오른쪽 내 말 · 알약)도 잰다
+  const callParts = ['.bc-host', '.bc-dock', '.bc-side', '.bc-hint:not([hidden])', '.bc-prog', '#stream > *'];
   // 카메라가 꺼지면 자료 창이 화면 공유처럼 가운데를 쓴다(의도) — 그때는 재지 않는다. 폰(≤900)은 얼굴이 위쪽 띠에 있어 따로 잰다(phone_cover)
   const camOn = (L.querySelector('[data-bq-cam-box]') || {}).dataset?.camera === 'on';
   const isCallQa = L.dataset.variant === 'call' && L.dataset.screen === 'qa';
@@ -87,10 +87,7 @@ LAYOUT_JS = """() => {
   const hit2 = (a, b) => !!a && !!b && a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
   const overlaps = isCallQa ? [['.bc-prog .bq-prog', '.bc-privacy'], ['.bc-prog .bq-prog', '#bqSlide'], ['.bc-dock', '#bqSlide'], ['.bc-dock', '.bc-privacy'],
     ['.bc-dock', '.bc-prog .bq-prog'], ['.bc-host', '.bc-dock'], ['.bc-talk', '.bc-dock'], ['.bc-hint:not([hidden])', '#bqSlide'],
-    ['.bc-talk', '.bc-host'], ['#stream > .msg.is-now', '.bc-host'],
-    // 10-02 배치 — 배너가 위 띠 알약 · 양옆 기둥과, 왼쪽 대화가 오른쪽 기둥과, 아래 안내가 삐약이 · 알약과 겹치는지
-    ['.bc-banner', '.bq-brand'], ['.bc-banner', '.bq-top .bq-ghost'], ['.bc-banner', '.bc-talk'], ['.bc-banner', '.bc-right'],
-    ['.bc-talk', '.bc-right'], ['.bc-host', '.bc-right'], ['.bc-hint:not([hidden])', '.bc-host'], ['.bc-hint:not([hidden])', '.bc-right'], ['.bc-lock', '.bc-hint:not([hidden])']]
+    ['.bc-talk', '.bc-host'], ['#stream > .msg.is-now', '.bc-host']]
     .filter(([a, b]) => hit2(box(a), box(b))).map(([a, b]) => `${a} × ${b}`) : null;
   return { layer: true, screen: L.dataset.screen, variant: L.dataset.variant, present: L.dataset.present, W: innerWidth, H: innerHeight,
     center_cover, phone_cover, overlaps, cam_on: camOn,
@@ -487,18 +484,17 @@ def plain_cam(path: Path, rgb: tuple[int, int, int]) -> Path:
     return path
 
 
-GLASS_TEXT = [".bc-draft p", ".bc-prog-topic", "#stream > .msg.ai.gist:not(.is-past) .msg-bubble > p", "#stream > .msg.ai.miss:not(.is-past) .msg-bubble",
+GLASS_TEXT = [".bc-draft p", ".bc-prog-topic", "#stream > .msg.ai.gist:not(.is-past) .msg-bubble > p", "#stream > .msg.ai.miss:not(.is-past) .msg-meta",
               "#stream > .msg.ai.hint:not(.is-past) .msg-bubble", "#stream > .msg.is-now .msg-q", "#stream > .msg.ai.react:not(.is-past) .msg-bubble > p", "#stream > .msg.me:not(.is-past) .msg-bubble",
               "#bqJudgeSay", "#bcHost .bc-host-text b", "#bqSlide figcaption", ".bc-dock .qa-input-label b", "#stream > .is-past .msg-bubble",
-              "#stream > .qa-flag:not(.is-past)", ".bc-privacy",
-              # 10-02 배치 — 배너 · 단계 · 둘째 말풍선 · 질문 한 줄 · 내 말 · 알약
-              "#bcBannerQ", "#bcBannerHead", ".bc-steps li[data-st='now']", ".bc-steps li[data-st='wait']", "#stream .bc-sub:not(.bc-wait) .bc-miss",
-              "#stream > .msg.ai.q.bc-q-on .bc-qline", ".bc-mine-msg:not(.is-past)", ".bc-mine-msg.is-past", ".bc-act", ".bc-hint:not([hidden])"]
+              "#stream > .qa-flag:not(.is-past)", ".bc-privacy", "#stream > .qa-finale:not(.is-past) b", "#stream > .qa-finale:not(.is-past) p"]
 
 
-def glass_contrast(page, png: Path) -> dict:
+def glass_contrast(page, png: Path, sels: list[str] | None = None) -> dict:
     """사진에서 글자 대비를 잰다 — 글자 심(밝은 픽셀)과 그 바로 둘레(2~4px 띠, 심 제외)의 밝은 쪽 75% 값.
-    판 · 흐림 · 글자 둘레 테를 다 거친 화면 그대로라, 「글자 쪽으로 읽힘을 지킨다」 가 실제로 4.5:1 을 넘는지 본다"""
+    판 · 흐림 · 글자 둘레 테를 다 거친 화면 그대로라, 「글자 쪽으로 읽힘을 지킨다」 가 실제로 4.5:1 을 넘는지 본다.
+    sels 를 주면 그 글자들을 잰다 (기본은 화상판 GLASS_TEXT — 리허설 실험실이 비전 리허설 글자를 넘긴다)"""
+    sels = list(sels or GLASS_TEXT)
     import numpy as np
     from PIL import Image
     dpr = page.evaluate("devicePixelRatio")
@@ -507,12 +503,12 @@ def glass_contrast(page, png: Path) -> dict:
       // 대화 칸 안의 말은 칸이 잘라 보이는 부분만 (위로 밀려 가려진 부분까지 재면 위 띠 · 영상이 섞인다)
       if (st) { const c = st.getBoundingClientRect(); const top = Math.max(r.top, c.top), bot = Math.min(r.bottom, c.bottom);
         if (bot - top < 16) return null; return [r.left, top, r.width, bot - top]; }
-      return [r.left, r.top, r.width, r.height]; })""", GLASS_TEXT)
+      return [r.left, r.top, r.width, r.height]; })""", sels)
     im = np.asarray(Image.open(png).convert("RGB")).astype(float) / 255
     lin = np.where(im <= 0.04045, im / 12.92, ((im + 0.055) / 1.055) ** 2.4)
     lum = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
     out = {}
-    for sel, bx in zip(GLASS_TEXT, boxes):
+    for sel, bx in zip(sels, boxes):
         if not bx or bx[2] < 4 or bx[3] < 4:
             continue
         x0, y0 = int(bx[0] * dpr), int(bx[1] * dpr)
@@ -637,6 +633,10 @@ def run_full(args) -> Path:
         b = p.chromium.launch(args=flags)
         ctx = b.new_context(viewport={"width": VW, "height": VH}, permissions=[] if "camdeny" in fails else ["camera", "microphone"],
                             locale="ko-KR", is_mobile=VW < 600, has_touch=VW < 600, device_scale_factor=args.dpr)
+        if args.css:
+            # 글라스 값 실험 — 파일의 CSS 를 문서 끝에 얹는다 (원본 CSS 는 그대로)
+            css = Path(args.css).read_text()
+            ctx.add_init_script("document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.id = 'labCss'; s.textContent = %s; document.head.appendChild(s); });" % json.dumps(css))
         page = ctx.new_page()
 
         def shot(name: str) -> None:
@@ -737,6 +737,8 @@ def run_full(args) -> Path:
             sweep("qa_ask1")
             mark("qa_enter", t0, {"say": page.evaluate("(document.getElementById('bqJudgeSay')||{}).textContent||''"),
                                   "slide": page.evaluate("(document.querySelector('#bqSlide figcaption')||{}).textContent||''")})
+            if args.until == "qa":   # --full --until qa — 첫 질문 화면까지만 (글라스 값 실험)
+                return out
             qi_prev, guard = -1, 0
             clicks: dict[int, int] = {}
             while guard < 16:
@@ -989,6 +991,7 @@ def main() -> int:
     ap.add_argument("--reload", action="store_true", help="단계마다 새로고침·뒤로 가기 — 일반 앱 화면으로 새는지 (10-02)")
     ap.add_argument("--old-js", default="", help="--reload: 이 파일들을 --old-rev 판으로 내 옛 코드를 재현 (예: js/booth_qa.js,js/app.js)")
     ap.add_argument("--old-rev", default="HEAD")
+    ap.add_argument("--css", default="", help="--full: 이 CSS 파일을 문서 끝에 얹어 찍는다 (글라스 값 실험 — 원본은 그대로)")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")

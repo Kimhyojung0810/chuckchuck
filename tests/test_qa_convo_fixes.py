@@ -539,3 +539,56 @@ def test_문장으로_안_닫힌_react_조각과_골자를_읽어_준_react_는_
     v2 = judge_answer(q, "주문이 좀 빨라졌어요 손님들이 좋아해요", slidedoc=CAFE,
                       llm=ScriptedLLM(judged(verdict="partial", score=60, react="답변에서")))
     assert v2.react != "답변에서" and v2.react.strip()
+
+
+def test_큰_수를_끝자리_0_으로_둥글려_말한_것은_같은_값이다():
+    """10-05 부스 리허설 — 자료 「리뷰 124,380건」 을 「124000건」 이라 말했는데 「자료와 숫자가 다르다」 모순 질문 1번이 됐다."""
+    from chuckchuck._deck_claims import numbers
+
+    def cv(a, b):
+        x, y = numbers(a)[-1], numbers(b)[-1]
+        return x.close_value(y) and y.close_value(x)
+
+    assert cv("124,380건", "124000건")
+    assert cv("124,380건", "12만 건")
+    assert cv("3,200곳", "3200곳")
+    assert not cv("124,380건", "13만 건")      # 둥글린 자리보다 멀다
+    assert not cv("124,380건", "125,000건")    # 천 자리로 둥글리면 124,000 이다
+    assert not cv("1,400명", "1,000명")        # 5% 넘게 다르면 틀린 것
+    assert not cv("82%", "80%")                # 작은 수는 정밀도가 곧 내용
+
+
+def test_표지의_소속_행사_날짜_줄은_주장이_아니다():
+    """10-05 부스 덱 — 표지 머리줄이 핵심 주장이 되어 첫 질문이 「배 터 리 공 학 과 … 를 어떻게 설명했나요?」 였다."""
+    from chuckchuck._deck_lines import is_byline
+
+    assert is_byline("배 터 리 공 학 과 에 너 지 저 장 연 구 실 · 랩 미 팅 중 간 발 표 · 2 0 2 6. 1 0. 6.")
+    assert is_byline("2026. 10. 6. 경영학회 추계 학술대회")
+    assert not is_byline("2024. 1. ~ 2025. 6. · 수도권 매장 3,200곳 리뷰 124,380건")
+    assert not is_byline("충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다")
+    assert not is_byline("A 그룹 B 그룹 C 그룹 모두 같다")
+
+
+def test_조사만_남은_조각은_수의_주인이_아니고_단위_조각은_짝_단서가_아니다():
+    """10-06 부스 미세플라스틱 녹음 — 「100mg에서는 40일까지」 가 「에서는」 을 주인으로 21일간 줄과 어긋났고(오판),
+    「NOEC는 0.1mg 퍼 리터」(자료 NOEC = 1 mg/L)는 mg 가 든 다른 줄과 짝이 맞는다고 놓쳤다."""
+    from chuckchuck._spoken import spoken_numbers
+    d = deck_of(slide(3, "100 mg/L에서 산자수가 절반 아래로 떨어졌다\n21일간 마리당 총 산자수\n"
+                         "농도(대조군, 0.1, 1, 10, 100)별 마리당 총 산자수\n그림 2. Dunnett 검정 결과다.\nNOEC = 1 mg/L\n"
+                         "대조군과 유의한 차이가 나타나지 않은 가장 높은 농도다."))
+    assert conflicts(spoken_numbers("0.1에서 85로 거의 차이가 없다가 10mg에서 67로 꺾이고 100mg에서는 40일까지 떨어집니다"), d) == []
+    found = conflicts(spoken_numbers("NOEC는 0.1mg 퍼 리터로 나왔습니다."), d)
+    assert [(c.kind, c.said) for c in found] == [("number", "0.1mg")]
+    assert spoken_numbers("영향이 나타난 10m그램은") == "영향이 나타난 10mg은"
+
+
+def test_수치_모순_질문은_발표에서_한_값을_실어야_LLM_문장을_쓴다():
+    """10-06 미세플라스틱 — 어긋난 말은 「NOEC는 0.1mg」 인데 LLM 이 장 제목으로 「… 어느 쪽이 맞나요」 를 물어 무엇이 다른지 몰랐다."""
+    from chuckchuck.contracts import AlignmentItem
+    from chuckchuck.f08_questions import _contra_asked
+
+    it = AlignmentItem(node_id="x", verdict="contradiction", speech_weight=0, speech_basis=None, doc_weight=0,
+                       evidence="NOEC는 0.1mg 퍼 리터로 나왔습니다.", note="", deck_quote="NOEC = 1 mg/L",
+                       deck_slide_no=3, decided_by="code", contra_kind="number")
+    assert not _contra_asked("100 mg/L에서 산자수가 절반 아래로 떨어졌다고 했는데, 자료 3장과 발표에서 한 말 중 어느 쪽이 맞는지 확인해 주세요.", it)
+    assert _contra_asked("발표에서 NOEC를 0.1mg/L라고 했는데, 자료 3장과 다른데 어느 쪽이 맞나요?", it)

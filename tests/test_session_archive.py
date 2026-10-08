@@ -181,6 +181,18 @@ def test_prune_은_캐시_TTL_과_보관_기간을_따로_센다(archive, clock)
     assert archive.prune() == [kept]
 
 
+def test_prune_은_시연_덱_파싱본을_남긴다(archive, clock):
+    """10-05 — 하루 청소가 부스 덱 파싱본까지 지워 /rehearsal 발표 목록이 비었다. 저장소 덱 sha 는 keep 으로 넘긴다."""
+    import hashlib
+    sha = hashlib.sha256(b"%PDF-1.4 booth deck").hexdigest()
+    pinned = archive.new_id()
+    assert archive.open(pinned, consent=False, file_name="부스.pdf", ext=".pdf", upload=None, sha256=sha) is not None
+    visitor = _open(archive, consent=False)
+    clock.t = T0 + 25 * 3600
+    assert archive.prune(keep_sha256={sha}) == [visitor]
+    assert archive.manifest(pinned) is not None
+
+
 def test_iter_consented_는_날짜순으로_동의_세션만_준다(archive, clock):
     clock.t = T0 + 2 * 86400
     later = _open(archive, consent=True)

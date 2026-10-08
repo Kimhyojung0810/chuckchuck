@@ -149,6 +149,21 @@ test('팀이 아니면(팀 모드를 끈 뒤) 남은 부스 표시를 읽지 않
   eq(ctx.boothQaVariant(), '', '부스 무대도 꺼진 것으로 읽는다');
 });
 
+/* 발표 리허설(#/rehearsal)은 공개 흐름인데 비전·화상판 표시를 같이 켠다 — 팀이 아니어도 그 표시는 읽어야 한다 (10-02 정리 × 10-04 공개 합치기) */
+function appBetaAllowed({ rh, team, checked = true, last = false }) {
+  const fn = APP_SRC.match(/function ccBetaFlagsAllowed\(\) \{([\s\S]*?)\n\}/);
+  if (!fn) throw new Error('app.js ccBetaFlagsAllowed 모양이 바뀌었어요 — 이 시험도 같이 고쳐요');
+  const ctx = { rhFlagSet: () => rh, ccTeamChecked: checked, ccTeam: team, lastTeamOk: () => last };
+  vm.createContext(ctx);
+  return vm.runInContext(`(function () {${fn[1]}\n})()`, ctx);
+}
+test('리허설 표시가 서 있으면 팀이 아니어도 베타 표시를 읽는다 — 공개 /rehearsal 의 비전 리허설', () => {
+  eq(appBetaAllowed({ rh: true, team: false }), true, '공개 리허설');
+  eq(appBetaAllowed({ rh: false, team: false }), false, '리허설 밖 공개 방문자');
+  eq(appBetaAllowed({ rh: false, team: true }), true, '팀');
+  eq(appBetaAllowed({ rh: false, team: false, checked: false, last: true }), true, '첫 판정 전엔 마지막 확인값');
+});
+
 test('옛 탭의 값(\'call\')도 켜짐이다', () => {
   const { ctx, store } = loadBoothQa();
   store.set('cheokcheok:booth-qa', 'call');
