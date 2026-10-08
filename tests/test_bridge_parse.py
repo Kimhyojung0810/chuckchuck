@@ -250,7 +250,10 @@ def test_cached_slidedoc_은_id_로만_찾고_최신본으로_대체하지_않�
         assert h.last[0] == 404, q
 
 
-def test_cached_transcript_과_preview_도_같은_규칙(archive):
+def test_cached_transcript_과_preview_도_같은_규칙(archive, monkeypatch):
+    # 저장된 받아쓰기는 팀 · VM 안 요청만 읽는다 (10-08) — 여기선 VM 안 요청으로 부른다. 안 정하면 앞 시험이 남긴
+    # 스레드 값(_REQ.trusted)에 따라 결과가 바뀐다
+    monkeypatch.setattr(bridge._REQ, "trusted", True, raising=False)
     sid = archive.new_id()
     archive.open(sid, consent=False, file_name="a.pdf", ext=".pdf", upload=None)
     h = FakeHandler()
