@@ -1845,14 +1845,17 @@ async function renderPdfToCanvas(pageNo, canvas, { maxWidth = 960 } = {}) {
   const ctx = canvas.getContext('2d');
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
-  pdfRenderTask = pdfPage.render({ canvasContext: ctx, viewport });
+  const task = pdfPage.render({ canvasContext: ctx, viewport });
+  pdfRenderTask = task;
   try {
-    await pdfRenderTask.promise;
+    await task.promise;
   } catch (err) {
     if ((err && err.name === 'RenderingCancelledException') || stale()) return false;
     throw err;
   } finally {
-    pdfRenderTask = null;
+    // 내 것일 때만 비운다 — 취소된 앞 장의 finally 가 뒤 장의 task 를 지워, 그다음 장이 뒤 장을 못 멈추고 같은 canvas 에 겹쳐 그리다
+    // pdf.js 가 「같은 canvas 에 render 둘」 로 거절했다(번호는 넘어갔는데 그림은 앞 장)
+    if (pdfRenderTask === task) pdfRenderTask = null;
   }
   return token === pdfRenderToken;
 }
