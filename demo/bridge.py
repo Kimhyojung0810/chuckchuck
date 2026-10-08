@@ -405,6 +405,9 @@ _PUBLIC_PARSE_REWRITE = (
      "비밀번호가 걸린 PDF예요. 비밀번호를 풀고 다시 저장해서 올려 주세요."),
     (re.compile(r"아무 내용도 읽지 못했습니다"),
      "자료에서 글자를 찾지 못했어요. 글자가 들어 있는 자료로 올려 주세요."),
+    # Upstage 422 invalid_document — 「잠시 뒤 다시」 면 같은 깨진 파일을 또 보내 외부 호출만 늘었다 (10-08)
+    (re.compile(r"invalid_document|damaged|corrupt", re.I),
+     "파일이 손상돼서 열 수 없어요. 원본에서 PDF로 다시 저장해서 올려 주세요."),
 )
 
 

@@ -631,17 +631,20 @@ function rhUpStop(gen, msg) {
 
 /** 기다리는 동안 브라우저가 같은 PDF 를 먼저 열어 본다 — 몇 장인지 · 첫 장 모습 (app.js probeParsePreview 와 같은 일).
  *  서버가 어차피 거절할 자료(비밀번호 PDF · 100장 넘음)면 끝까지 보내지 않고 그 자리에서 멈춘다 (10-08) */
-async function rhUpPeek(file, gen) {
-  if (!/\.pdf$/i.test(file.name || '') || typeof ccEnsurePdfjs !== 'function') return;
+async function rhUpPeek(file, gen, opened = () => {}) {
+  // opened(멈췄나) — 문서를 열어 보낼지 정한 순간 한 번. rhUploadDeck 이 이걸 (잠깐) 기다린 뒤 보낸다
+  if (!/\.pdf$/i.test(file.name || '') || typeof ccEnsurePdfjs !== 'function') { opened(false); return; }
   try {
-    if (!(await ccEnsurePdfjs())) return;
+    if (!(await ccEnsurePdfjs())) { opened(false); return; }
     const pdf = await ccPdfOpen({ data: await file.arrayBuffer() }).promise;
     if (pdf.numPages > RH_UP_MAX_PAGES) {
       const n = pdf.numPages;
       pdf.destroy().catch(() => {});
       rhUpStop(gen, `${n}장이에요. 지금은 ${RH_UP_MAX_PAGES}장까지 올릴 수 있어요. 나눠서 올려 주세요`);
+      opened(true);
       return;
     }
+    opened(false);
     const page = await pdf.getPage(1);
     const base = page.getViewport({ scale: 1 });
     const vp = page.getViewport({ scale: 240 / base.width });
@@ -659,11 +662,23 @@ async function rhUpPeek(file, gen) {
     // 비밀번호가 걸린 PDF 는 서버도 못 읽는다 — 보내지 않고 고칠 길을 말한다. 예전엔 경고만 남기고 올려 「잠시 뒤 다시」 를 봤다
     if (err && err.name === 'PasswordException') {
       rhUpStop(gen, '비밀번호가 걸린 PDF예요. 비밀번호를 풀고 다시 저장해서 올려 주세요');
+      opened(true);
       return;
     }
+    // pdf.js 가 못 여는 PDF 는 리허설 화면도 장을 못 그린다 — 보내지 않는다. 예전엔 서버가 Upstage 에 보내(422) 「잠시 뒤 다시」 를
+    // 보였고, 같은 파일로 다시 올릴 때마다 외부 호출이 또 나갔다 (10-08)
+    if (err && err.name === 'InvalidPDFException') {
+      rhUpStop(gen, '파일이 손상돼서 열 수 없어요. 원본에서 PDF로 다시 저장해서 올려 주세요');
+      opened(true);
+      return;
+    }
+    opened(false);
     console.warn('[chuckchuck] rehearsal upload peek', err);   // 미리보기는 실패해도 올리기는 그대로 간다
   }
 }
+
+/** 미리 열어 보기를 보내기 전에 기다리는 최대 시간 — 첫 방문엔 pdf.js 를 받느라 늦을 수 있어, 넘으면 그냥 보낸다(열어 보기는 이어서 돈다) */
+const RH_UP_PEEK_WAIT_MS = 2500;
 
 async function rhUploadDeck(file, consent) {
   rhUpConsentPick = !!consent;   // 이번에 보낸 그대로 — 실패해 다시 그려도 상자가 바뀌지 않는다
@@ -673,7 +688,13 @@ async function rhUploadDeck(file, consent) {
   if (why) { Object.assign(rhUp, { state: 'fail', error: why }); rhUpPaint(); return; }
   Object.assign(rhUp, { state: 'busy', name: file.name, pct: 0, phase: 'send', startedAt: Date.now() });
   rhUpPaint();
-  rhUpPeek(file, gen);
+  // 깨진 PDF · 비밀번호 PDF · 100장 넘는 PDF 는 서버(Upstage, 과금)에 보내기 **전에** 멈춘다. 예전엔 열어 보기와 보내기가 같이 출발해
+  // 작은 파일은 열어 보기가 멈추기 전에 이미 다 가서 파싱이 돌았다 (10-08)
+  const stopped = await new Promise((resolve) => {
+    rhUpPeek(file, gen, resolve);
+    setTimeout(() => resolve(false), RH_UP_PEEK_WAIT_MS);
+  });
+  if (stopped || gen !== rhUpGen || rhUp.state !== 'busy') return;
   // 아직 이 올리기 화면에 있는가 — bq.screen 만 보면 「나가기」 · 뒤로 가기 · 홈으로 떠나도 'pick' 이 남아, 파싱이 끝나면
   // 홈에 있던 사람을 #/rehearsal/occ 로 끌고 왔다 (10-08). 주소와 올리기 상자를 같이 본다
   const alive = () => gen === rhUpGen && bq.screen === 'pick' && rhOnUploadRoute() && !!document.getElementById('rhUpBox');

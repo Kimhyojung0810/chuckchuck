@@ -384,6 +384,9 @@ def test_다시_해도_안_되는_파서_오류는_고칠_길을_말하고_벤�
     blank = bridge._public_message(ParseError(
         "자료에서 아무 내용도 읽지 못했습니다. 스캔 이미지 PDF라면 ocr=force 로 다시 시도하거나 텍스트가 살아있는 파일로 올려주세요."))
     assert blank.startswith("자료에서 글자를 찾지 못했어요") and "ocr" not in blank
+    broken = bridge._public_message(ParseError(
+        'Document Parse 오류 422: {"error":{"code":"invalid_document","message":"The document is damaged or corrupted and cannot be opened."}}'))
+    assert broken.startswith("파일이 손상돼서 열 수 없어요") and "invalid_document" not in broken
     assert bridge._public_message(RuntimeError("password /srv/x")) == bridge.GENERIC_ERROR_MESSAGE   # 파서 오류만
 
 
