@@ -115,6 +115,8 @@ def sh(real, monkeypatch, tmp_path):  # noqa: F811
     monkeypatch.setattr(bridge, "PAID_QUEUE_SEC", 0.05)
     monkeypatch.setattr(bridge, "SPEND", RateLimiter(limit=1000, window_sec=3600, clock=clock))
     monkeypatch.setattr(bridge, "PAID_PER_HOUR", 1000)
+    monkeypatch.setattr(bridge, "SPEND_IP", RateLimiter(limit=1000, window_sec=3600, clock=clock))
+    monkeypatch.setattr(bridge, "PAID_PER_HOUR_IP", 1000)
     monkeypatch.setattr(bridge, "BLOCKLIST", shield.Blocklist(tmp_path / "blocklist.txt", check_every=0))
     monkeypatch.setattr(bridge, "LOCKDOWN", shield.FlagFile(tmp_path / "lockdown", check_every=0))
     monkeypatch.setattr(bridge, "EVENTS", shield.EventCounter(clock=clock))
@@ -332,6 +334,24 @@ def test_시간당_천장을_넘으면_공개만_503(sh, monkeypatch):
     assert post("/api/v1/questions", {**public(), "Cookie": team_cookie()}).last[0] == 200
     clock.t += 3601
     assert post("/api/v1/questions", public("203.0.113.9")).last[0] == 200
+
+
+def test_IP_하나는_시간당_천장을_혼자_다_쓰지_못한다(sh, monkeypatch):
+    """10-08 보안 점검: 분당 IP 천장(180)에 맞춰 보내면 한 IP 가 8분 만에 공개 천장 1500 을 다 써 다른 방문객 전원이 503 이었다."""
+    clock, _, _ = sh
+    monkeypatch.setattr(bridge, "SPEND", RateLimiter(limit=4, window_sec=3600, clock=clock))
+    monkeypatch.setattr(bridge, "SPEND_IP", RateLimiter(limit=2, window_sec=3600, clock=clock))
+    monkeypatch.setattr(bridge, "PAID_PER_HOUR_IP", 2)
+    assert [post("/api/v1/questions", public(ATTACKER)).last[0] for _ in range(2)] == [200, 200]
+    h = post("/api/v1/questions", public(ATTACKER))
+    assert h.last[0] == 503 and h.last[1]["error"] == "budget_exceeded" and h.last[1]["scope"] == "ip"
+    assert bridge.SPEND.count("public") == 2                                     # 막힌 요청은 모두의 몫을 깎지 않는다
+    assert [post("/api/v1/questions", public(f"203.0.113.{i}")).last[0] for i in range(2)] == [200, 200]   # 다른 방문객은 남은 몫
+    assert post("/api/v1/questions", {**public(ATTACKER), "Cookie": team_cookie()}).last[0] == 200        # 팀은 세지 않는다
+    assert post("/api/v1/questions", public("203.0.113.50")).last[1]["error"] == "budget_exceeded"        # 전체 천장(4)
+    assert bridge.SPEND_IP.count("ip:203.0.113.50") == 0                         # 전체 천장에 걸린 것은 IP 칸에서 되돌린다
+    clock.t += 3601
+    assert post("/api/v1/questions", public(ATTACKER)).last[0] == 200
 
 
 def test_본문이_틀려_돌려보낸_요청은_시간당_천장을_쓰지_않는다(sh, monkeypatch):

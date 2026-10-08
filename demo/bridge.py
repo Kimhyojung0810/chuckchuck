@@ -258,6 +258,11 @@ GATE = shield.PaidGate(capacity=PAID_CONCURRENCY, reserved=TEAM_RESERVED)
 #: 공개(팀 아님) 과금 호출의 시간당 천장 — 크레딧 지갑을 지키는 마지막 줄. 0 이면 끈다.
 PAID_PER_HOUR = shield.env_int("DEMO_PAID_PER_HOUR", 1500)
 SPEND = RateLimiter(limit=PAID_PER_HOUR, window_sec=3600.0)
+#: 공개 칸(사람으로 셀 수 있는 IP) 하나의 시간당 천장 — 기본은 전체 천장의 절반. 0 이면 끈다 (10-08 보안 점검).
+#: 분당 IP 천장(180)만으로는 한 IP 가 8분 만에 전체 1500 을 다 써서, 남은 한 시간 동안 다른 공개 방문객 전원이 503 을 봤다.
+#: 절반이면 행사장 와이파이(NAT) 하나 뒤의 방문객이 시간당 리허설 스무 번 넘게 돌려도 안 걸리고, 다른 사람 몫은 늘 남는다.
+PAID_PER_HOUR_IP = shield.env_int("DEMO_PAID_PER_HOUR_IP", PAID_PER_HOUR // 2)
+SPEND_IP = RateLimiter(limit=PAID_PER_HOUR_IP, window_sec=3600.0)
 #: 외부 호출 전에 본문 검사로 돌려보내는 응답 — 시간당 천장에서 되돌린다 (_handle_paid)
 SPEND_REFUND_STATUS = frozenset({400, 404, 409, 413, 415})
 #: 시간당 천장에 세지 않는 과금 경로 — F-25 기억은 외부 호출이 없다 (디스크만 훑는다, 분당 상한은 그대로)
@@ -1877,6 +1882,7 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             "at": round(time.time(), 1),
             "paid": {**GATE.snapshot(), "queue_sec": PAID_QUEUE_SEC, "retry_sec": PAID_RETRY_SEC},
             "spend": {"per_hour_limit": PAID_PER_HOUR, "public_last_hour": SPEND.count("public"),
+                      "per_ip_hour_limit": PAID_PER_HOUR_IP,
                       "exempt": sorted(SPEND_EXEMPT)},
             "recent_5min": EVENTS.recent(300),
             "totals": dict(EVENTS.totals),
@@ -2040,7 +2046,19 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             if waited >= 0.05:
                 EVENTS.add("queued")
             counted = not trusted and PAID_PER_HOUR > 0 and parsed.path not in SPEND_EXEMPT
+            # IP 하나가 공개 천장을 혼자 다 쓰지 못하게 — 사람으로 셀 수 있는 칸만(Cloudflare 설비 IP 는 여러 사람이 섞여 안 센다).
+            # 전체 천장보다 먼저 본다: IP 천장에 걸린 요청이 모두의 몫을 깎지 않게
+            ip_key = ("ip:" + shield.ip_bucket(self._client_key())) if counted and PAID_PER_HOUR_IP > 0 and self._counted() else ""
+            if ip_key and not SPEND_IP.allow(ip_key):
+                wait = max(60, SPEND_IP.retry_after(ip_key))
+                EVENTS.add("budget_ip_503")
+                SHIELD_LOG.write("budget", f"IP 하나의 시간당 천장 {PAID_PER_HOUR_IP}회 도달 — 그 IP 의 공개 과금 요청을 503 으로 돌려보냄 {parsed.path}")
+                self._add_header("Retry-After", str(wait))
+                return self._json(503, {"error": "budget_exceeded", "busy": True, "scope": "ip", "retry_after": wait,
+                                        "message": f"지금 이용이 많아 잠시 쉬어 가요. {-(-wait // 60)}분쯤 뒤에 다시 시도해 주세요."})
             if counted and not SPEND.allow("public"):
+                if ip_key:
+                    SPEND_IP.refund(ip_key)
                 wait = max(60, SPEND.retry_after("public"))
                 EVENTS.add("budget_503")
                 SHIELD_LOG.write("budget", f"시간당 천장 {PAID_PER_HOUR}회 도달 — 공개 과금 요청을 503 으로 돌려보냄 {parsed.path}")
@@ -2057,6 +2075,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 # · 422(받아쓰기를 한 뒤의 no_speech)는 이미 돈이 나갔으니 그대로 센다.
                 if counted and getattr(self, "_sent_status", None) in SPEND_REFUND_STATUS:
                     SPEND.refund("public")
+                    if ip_key:
+                        SPEND_IP.refund(ip_key)
         finally:
             GATE.release(trusted)
 
