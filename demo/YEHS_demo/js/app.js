@@ -417,8 +417,8 @@ function route() {
   if (key !== 'new') dismissF11Reveal();
   const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
   // #/rehearsal/<화면> 으로 바로 오거나 새로 고치면 리허설 표시를 켠다 — 베타 번들(rehearsal.js)을 받고 그 화면을 흐름 배치로 그리려고.
-  // 잠금(공개 방문자)은 아래에서 따로 막는다 — 팀 확인 전이면 표시만 켜지고 잠금 화면이 뜬다
-  if (inRehearsalHash() && ccTeam) {
+  // 리허설은 공개 화면이다(bc611da) — 팀만 켜던 옛 조건 때문에 공개 방문자가 새 탭에서 #/rehearsal/new · qa · report 를 열면 일반 화면이 떴다 (10-08 점검)
+  if (inRehearsalHash()) {
     try { sessionStorage.setItem(RH_FLOW_FLAG, '1'); } catch (_) { /* 사생활 모드 */ }
   }
   // 리허설 흐름(js/rehearsal.js) — 비전 층이 카메라를 끄기 전에 화상판으로 넘겨받고, 흐름 밖으로 나가면 표시를 끈다
@@ -1038,6 +1038,8 @@ function loadTeamFlag() {
     const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
     const key = routeParts()[0];
     if (BETA_ROUTES.has(rawKey) || BETA_ROUTES.has(key) || (ccTeam !== was && (key === '' || key === 'report'))) route();
+    // 리허설 첫 화면 — 공개 기본(내 자료 올리기)으로 그렸는데 팀이면 시연 고르기로 (js/rehearsal.js)
+    else if (ccTeam !== was && typeof rehearsalTeamChanged === 'function') rehearsalTeamChanged();
   };
   return fetch('/api/v1/team', { credentials: 'same-origin' })
     .then((r) => {

@@ -229,7 +229,29 @@ export async function fetchMemory(sessionId) {
   return data;
 }
 
-export async function parseDocument({ file = null, fixture = false, consent = false } = {}) {
+/**
+ * multipart 를 XHR 로 올린다 — 보낸 만큼(onProgress {sent, total})을 알려 준다. fetch 는 올리는 진행을 모른다.
+ * 폰 · 느린 회선에서 30MB 자료가 「읽는 중」 막대만 도는 동안 실제로는 아직 보내는 중이었다 (10-08 /rehearsal 내 자료 올리기).
+ * 돌려주는 값은 { status, data } — 본문이 JSON 이 아니면(Cloudflare 413 · 502 쪽지) data 는 null 이다
+ */
+function postFormWithProgress(url, fd, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress({ sent: e.loaded, total: e.total, done: false }); };
+    xhr.upload.onload = () => onProgress({ sent: 1, total: 1, done: true });
+    xhr.onload = () => {
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (_) { data = null; }
+      resolve({ status: xhr.status, data });
+    };
+    xhr.onerror = () => reject(new Error('network error'));
+    xhr.onabort = () => reject(new Error('upload aborted'));
+    xhr.send(fd);
+  });
+}
+
+export async function parseDocument({ file = null, fixture = false, consent = false, onProgress = null } = {}) {
   let res;
   if (fixture || !file) {
     res = await fetch(apiBase() + '/api/v1/parse', {
@@ -245,7 +267,17 @@ export async function parseDocument({ file = null, fixture = false, consent = fa
     const learner = learnerId();
     if (learner) params.set('learner', learner);
     const q = params.toString() ? '?' + params.toString() : '';
-    res = await fetch(apiBase() + '/api/v1/parse' + q, { method: 'POST', body: fd });
+    if (typeof onProgress === 'function') {
+      const { status, data } = await postFormWithProgress(apiBase() + '/api/v1/parse' + q, fd, onProgress);
+      if (status < 200 || status >= 300 || !data || data.error) {
+        const err = new Error((data && (data.message || data.error)) || `parse HTTP ${status}`);
+        err.status = status;
+        throw err;
+      }
+      res = { ok: true, json: async () => data };
+    } else {
+      res = await fetch(apiBase() + '/api/v1/parse' + q, { method: 'POST', body: fd });
+    }
   }
   const data = await res.json();
   if (!res.ok || data.error) {

@@ -12,6 +12,60 @@
 .bq[data-flow="rehearsal"] .bq-fail .bq-ghost + .bq-ghost { margin-left: 6px; }
 .bq[data-flow="rehearsal"] #rhDeckRetry[hidden] { display: none; }
 
+/* ── 내 자료 올리기 — 공개 방문자의 첫 화면 (10-08, js/rehearsal.js rhShowUpload) ───────────────── */
+.bq[data-flow="rehearsal"] .rh-up { max-width: 720px; }
+.bq[data-flow="rehearsal"] .rh-up.is-over .rh-up-pick { border-color: var(--cyan); background: rgba(63, 213, 153, .1); }
+.bq[data-flow="rehearsal"] .rh-up-box { display: flex; flex-direction: column; gap: 14px; margin: 0 0 28px; }
+.bq[data-flow="rehearsal"] .rh-up-pick {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 176px; padding: 24px 16px; border: 2px dashed rgba(255, 255, 255, .34); border-radius: var(--r-print);
+  background: rgba(255, 255, 255, .05); color: #fff; font: inherit; cursor: pointer;
+  touch-action: manipulation; transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.bq[data-flow="rehearsal"] .rh-up-pick:hover { background: rgba(255, 255, 255, .09); border-color: rgba(255, 255, 255, .55); }
+.bq[data-flow="rehearsal"] .rh-up-pick svg { width: 40px; height: 40px; color: var(--cyan); }
+.bq[data-flow="rehearsal"] .rh-up-pick b {
+  display: inline-flex; align-items: center; min-height: 52px; margin-top: 6px; padding: 0 28px; border-radius: var(--r-ctl);
+  background: var(--brand); font-size: 18px; font-weight: var(--w-bold);
+}
+.bq[data-flow="rehearsal"] .rh-up-pick small { color: var(--bq-soft); font-size: 14px; }
+.bq[data-flow="rehearsal"] .rh-up-consent { display: flex; align-items: flex-start; gap: 10px; color: var(--bq-soft); font-size: 14px; line-height: 1.5; cursor: pointer; }
+.bq[data-flow="rehearsal"] .rh-up-consent input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--brand); }
+.bq[data-flow="rehearsal"] .rh-up-consent small { display: block; color: var(--bq-dim); font-size: 13px; }
+.bq[data-flow="rehearsal"] .rh-up-err {
+  margin: 0; padding: 12px 16px; border-radius: var(--r-ctl); background: rgba(255, 255, 255, .92); color: #18181B;
+  font-size: 15px; font-weight: var(--w-med); line-height: 1.5;
+}
+.bq[data-flow="rehearsal"] .rh-up-busy {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center;
+  padding: 20px; border: 1px solid var(--bq-line); border-radius: var(--r-print); background: rgba(255, 255, 255, .06);
+}
+.bq[data-flow="rehearsal"] .rh-up-busy > .bq-ghost { grid-column: 1 / -1; justify-self: start; }
+.bq[data-flow="rehearsal"] .rh-up-thumb { display: block; width: 120px; aspect-ratio: 16 / 9; border-radius: 8px; background: #fff; object-fit: contain; }
+.bq[data-flow="rehearsal"] .rh-up-thumb-ph { background: rgba(255, 255, 255, .12); }
+.bq[data-flow="rehearsal"] .rh-up-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+.bq[data-flow="rehearsal"] .rh-up-busy-copy p { margin: 4px 0 0; color: var(--bq-soft); font-size: 15px; }
+.bq[data-flow="rehearsal"] .rh-up-busy-copy .rh-up-hint { color: var(--bq-dim); font-size: 13px; line-height: 1.5; }
+.bq[data-flow="rehearsal"] .rh-up-bar { position: relative; height: 6px; margin: 10px 0 0; border-radius: var(--r-pill); background: rgba(255, 255, 255, .14); overflow: hidden; }
+.bq[data-flow="rehearsal"] .rh-up-bar i { display: block; height: 100%; border-radius: inherit; background: var(--cyan); transition: width 200ms linear; }
+.bq[data-flow="rehearsal"] .rh-up-bar.is-run i { width: 40% !important; animation: rhUpRun 1.4s ease-in-out infinite; }
+@keyframes rhUpRun { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .bq[data-flow="rehearsal"] .rh-up-bar.is-run i { animation: none; width: 100% !important; opacity: .6; } }
+.bq[data-flow="rehearsal"] .rh-up-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 20px; padding: 0; list-style: none; }
+.bq[data-flow="rehearsal"] .rh-up-how li { display: flex; gap: 10px; align-items: flex-start; color: #fff; font-size: 15px; font-weight: var(--w-med); line-height: 1.4; }
+.bq[data-flow="rehearsal"] .rh-up-how b {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: var(--r-dot);
+  background: rgba(63, 213, 153, .18); color: var(--cyan); font-size: 14px;
+}
+.bq[data-flow="rehearsal"] .rh-up-how small { display: block; margin-top: 2px; color: var(--bq-dim); font-size: 13px; font-weight: var(--w-body); }
+.bq[data-flow="rehearsal"] .rh-up-demo { margin-top: 4px; }
+@media (max-width: 640px) {
+  .bq[data-flow="rehearsal"] .rh-up-how { grid-template-columns: 1fr; gap: 10px; }
+  .bq[data-flow="rehearsal"] .rh-up-pick { min-height: 156px; }
+  .bq[data-flow="rehearsal"] .rh-up-busy { grid-template-columns: 1fr; }
+  .bq[data-flow="rehearsal"] .rh-up-thumb { width: 100%; max-width: 280px; }
+}
+
 /* ── 어떤 발표인가요 — 발표 상황 (부스 역할 칸과 같은 라디오 모양) ─────────────── */
 .bq[data-flow="rehearsal"] .rh-occ { max-width: 920px; }
 .bq[data-flow="rehearsal"] .rh-ctx { display: flex; flex-direction: column; gap: 8px; margin: 0 0 28px; color: #fff; font-size: 16px; font-weight: var(--w-med); }

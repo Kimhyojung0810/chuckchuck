@@ -339,9 +339,26 @@ function renderRehearsalEntry() {
     ensureSlideDoc().catch(() => null);   // 새로고침이면 자료(선분석 재료)를 다시 받아 둔다
     return;
   }
+  // 내 자료 올리기 — 공개 방문자는 #/rehearsal 이 곧 올리기다(시연 덱이 없다). 팀은 고르기 화면의 「내 자료 올리기」로 온다 (10-08 사용자)
+  if (sub === 'upload' || !rehearsalDemoOn()) {
+    if (sub && sub !== 'upload') history.replaceState(history.state, '', REHEARSAL_HASH);
+    rhShowUpload();
+    return;
+  }
   // 그릴 수 없는 「어떤 발표인가요」 · 모르는 하위 주소(#/rehearsal/xyz)는 발표 고르기 주소로 고쳐 둔다
   if (sub) history.replaceState(history.state, '', REHEARSAL_HASH);
   rhShowPick();
+}
+
+/**
+ * 팀 표시(/api/v1/team)는 화면을 그린 뒤에 온다 — 공개 기본(올리기)으로 그렸는데 팀이면 시연 고르기로 다시 그린다 (app.js loadTeamFlag).
+ * 올리는 중이거나 고르기 화면이 아니면 그대로 둔다
+ */
+function rehearsalTeamChanged() {
+  if (!rehearsalFlowOn() || bq.screen !== 'pick' || rhUp.state === 'busy') return;
+  if (!document.querySelector('#bqStage[data-flow="rehearsal"]')) return;
+  if ((location.hash.replace(/^#\/?/, '').split('/')[1] || '') !== '') return;
+  renderRehearsalEntry();
 }
 
 /** 발표를 골라 두었고 아직 발표하지 않았다 — 새로고침 · 뒤로 가기로 「어떤 발표인가요」 에 다시 설 수 있다 */
@@ -358,8 +375,10 @@ async function rhShowPick() {
       <div class="bq-decks" id="bqDecks"><p class="bq-wait">발표를 불러오고 있어요…</p></div>
       <p class="bq-foot" id="bqDeckFoot" role="status"></p>
       <button type="button" class="bq-ghost" id="rhDeckRetry" hidden>다시 불러오기</button>
+      <button type="button" class="bq-ghost rh-up-demo" id="rhOwnDeck">내 자료 올리기</button>
     </div>`);
   document.getElementById('rhDeckRetry').addEventListener('click', () => { bq.decks = null; rhShowPick(); });
+  document.getElementById('rhOwnDeck').addEventListener('click', () => { location.hash = rhHash('upload'); });
   let decks = null;
   let why = '';
   try {
@@ -406,6 +425,254 @@ function rhFreshPractice() {
   saveSession('qa-flow', qa);
   try { sessionStorage.removeItem('cheokcheok:chuckchuck-session'); } catch (_) { /* ignore */ }
   if (typeof visionResetReactions === 'function') visionResetReactions();
+}
+
+/* ─── 내 자료 올리기 — 공개 방문자의 첫 화면 (10-08 사용자) ─────────────────────────────
+   chuckchuck-present.com 의 리허설은 방문자가 **자기 자료**로만 한다. 부스 시연 덱 · 덱 녹음 · 정답 보기는 팀 브라우저(/auth)와
+   오프라인 부스에서만 연다 (rehearsalDemoOn). 올리기는 일반 앱 startParse 와 같은 길(F-01 parseDocument → applySlideDoc → 원본 PDF)이고,
+   화면만 이 층(#bqStage)에 그린다 — startParse 는 #/new 의 #nf 칸에 그려서 여기서 못 쓴다. */
+
+/** 부스 시연 장치(시연 덱 고르기 · 덱 녹음으로 대신하기 · 정답 보기 · 대충 답해 보기)를 여는가 — 팀 브라우저 · 오프라인 부스만 */
+function rehearsalDemoOn() {
+  if (typeof rhOffline === 'function' && rhOffline()) return true;
+  return typeof ccTeam !== 'undefined' && !!ccTeam;
+}
+
+/** 다른 자료로 — 공개는 「다른 자료 올리기」, 팀은 「다른 발표 고르기」 */
+function rhRepickWord() {
+  return rehearsalDemoOn() && !rhOwnDeckOn() ? '다른 발표 고르기' : '다른 자료 올리기';
+}
+/** 지금 발표가 내가 올린 자료인가 */
+function rhOwnDeckOn() {
+  return !!(typeof nf !== 'undefined' && nf && nf.rehearsalDeck && nf.rehearsalDeck.own);
+}
+/** 「다른 자료 올리기」 · 「다른 발표 고르기」 가 가는 곳 */
+function rhRepick() {
+  location.hash = rehearsalDemoOn() && rhOwnDeckOn() ? rhHash('upload') : REHEARSAL_HASH;
+}
+
+/** 올릴 수 있는 자료 — 서버(bridge MAX_UPLOAD_BYTES · F-01 MAX_SLIDES)와 같은 한도. 안 되면 그 까닭(해요체), 되면 '' */
+const RH_UP_MAX_MB = 30;
+function rhUploadCheck(file) {
+  if (!file) return '파일을 고르지 못했어요. 한 번 더 골라 주세요.';
+  if (!/\.(pdf|pptx)$/i.test(file.name || '')) {
+    return /\.(ppt|key|hwp|docx?)$/i.test(file.name || '')
+      ? 'PDF나 PPTX로 저장한 파일을 올려 주세요. 파워포인트 · 키노트에서 「PDF로 내보내기」를 하면 돼요.'
+      : 'PDF나 PPTX 파일을 올려 주세요.';
+  }
+  if (file.size > RH_UP_MAX_MB * 1024 * 1024) return `${RH_UP_MAX_MB}MB보다 작은 파일을 올려 주세요. 지금 파일은 ${Math.ceil(file.size / 1024 / 1024)}MB예요.`;
+  if (!file.size) return '빈 파일이에요. 다른 파일을 골라 주세요.';
+  return '';
+}
+
+/** 올리기 실패를 사람 말로 — 서버가 한국어로 말하면 그대로, 아니면 상태 번호로 */
+function rhUploadErrText(err) {
+  const msg = String((err && err.message) || '');
+  const status = Number(err && err.status) || 0;
+  if (status === 413) return `${RH_UP_MAX_MB}MB보다 작은 파일, 100장 이하의 자료를 올려 주세요.`;
+  if (status === 429 || status === 503) return '지금 자료를 읽는 사람이 많아요. 1분쯤 뒤에 다시 올려 주세요.';
+  if (/[가-힣]/.test(msg)) return msg.replace(/\.$/, '');
+  if (/network|fetch|abort|timeout/i.test(msg)) return '인터넷 연결이 끊겨서 자료를 다 못 보냈어요. 연결을 확인하고 다시 올려 주세요.';
+  return '자료를 읽지 못했어요. 다른 파일로 다시 올려 주세요.';
+}
+
+/** 「자료를 읽었어요」 다음 화면의 제목 — 파일 이름에서 확장자만 뗀다 (내가 붙인 이름이 제일 알아보기 쉽다) */
+function rhOwnDeckTitle(file, doc) {
+  const name = String((file && file.name) || (doc && doc.file_name) || '').replace(/\.(pdf|pptx)$/i, '').trim();
+  return name || '내 발표 자료';
+}
+
+let rhUpGen = 0;
+/** 올리는 중인 상태 — 화면을 다시 그려도(팀 표시가 늦게 와도) 이어 그린다 */
+const rhUp = { state: 'idle', name: '', pct: 0, phase: '', startedAt: 0, pages: 0, thumb: '', error: '', timer: 0 };
+
+function rhUpReset() {
+  rhUpGen += 1;
+  if (rhUp.timer) clearInterval(rhUp.timer);
+  Object.assign(rhUp, { state: 'idle', name: '', pct: 0, phase: '', startedAt: 0, pages: 0, thumb: '', error: '', timer: 0 });
+}
+
+function rhShowUpload() {
+  const team = rehearsalDemoOn();
+  rhMount('pick', `
+    <div class="bq-pick rh-up">
+      <h1 class="bq-h1">발표 자료를 올려 주세요</h1>
+      <p class="bq-lead">자료를 넘기며 카메라 앞에서 발표하면, 삐약이가 듣고 질문 3개를 해요. 답까지 마치면 리포트를 드려요.</p>
+      <div class="rh-up-box" id="rhUpBox"></div>
+      <ol class="rh-up-how" aria-label="이렇게 진행돼요">
+        <li><b>1</b><span>자료를 넘기며 발표해요<small>카메라 · 마이크를 써요</small></span></li>
+        <li><b>2</b><span>삐약이가 질문 3개를 해요<small>말로 답하거나 글로 써요</small></span></li>
+        <li><b>3</b><span>리포트를 받아요<small>자료와 내 말이 어디서 어긋났는지</small></span></li>
+      </ol>
+      ${team ? '<button type="button" class="bq-ghost rh-up-demo" id="rhUpDemo">시연 발표 고르기</button>' : ''}
+    </div>`);
+  const demo = document.getElementById('rhUpDemo');
+  if (demo) demo.addEventListener('click', () => { rhUpReset(); location.hash = REHEARSAL_HASH; });
+  rhUpPaint();
+}
+
+function rhUpPaint() {
+  const box = document.getElementById('rhUpBox');
+  if (!box) return;
+  if (rhUp.timer) { clearInterval(rhUp.timer); rhUp.timer = 0; }
+  if (rhUp.state === 'busy') {
+    const sec = Math.max(0, Math.floor((Date.now() - rhUp.startedAt) / 1000));
+    const sending = rhUp.phase === 'send';
+    box.innerHTML = `
+      <div class="rh-up-busy" role="status" aria-live="polite">
+        ${rhUp.thumb ? `<img class="rh-up-thumb" src="${rhUp.thumb}" alt="">` : '<span class="rh-up-thumb rh-up-thumb-ph" aria-hidden="true"></span>'}
+        <div class="rh-up-busy-copy">
+          <b class="rh-up-name">${escapeHtml(rhUp.name)}</b>
+          <p id="rhUpStage">${sending ? `자료를 보내고 있어요 · <span class="num">${rhUp.pct}%</span>` : `자료를 읽고 있어요 · <span class="num" id="rhUpSec">${sec}</span>초`}</p>
+          <div class="rh-up-bar${sending ? '' : ' is-run'}"><i style="width:${sending ? rhUp.pct : 100}%"></i></div>
+          <p class="rh-up-hint">${rhUp.pages ? `${rhUp.pages}장짜리 자료예요. ` : ''}보통 30초에서 2분쯤 걸려요. 이 화면을 켜 둔 채 기다려 주세요.</p>
+        </div>
+        <button type="button" class="bq-ghost" id="rhUpCancel">다른 파일 고르기</button>
+      </div>`;
+    document.getElementById('rhUpCancel').addEventListener('click', () => { rhUpReset(); rhUpPaint(); });
+    if (!sending) {
+      rhUp.timer = setInterval(() => {
+        const el = document.getElementById('rhUpSec');
+        if (!el) { clearInterval(rhUp.timer); rhUp.timer = 0; return; }
+        el.textContent = String(Math.max(0, Math.floor((Date.now() - rhUp.startedAt) / 1000)));
+      }, 1000);
+    }
+    return;
+  }
+  const failed = rhUp.state === 'fail';
+  box.innerHTML = `
+    ${failed ? `<p class="rh-up-err" role="alert">${escapeHtml(rhUp.error)}</p>` : ''}
+    <button type="button" class="rh-up-pick" id="rhUpPick">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg>
+      <b>${failed ? '다른 파일 고르기' : '발표 자료 고르기'}</b>
+      <small>PDF · PPTX · ${RH_UP_MAX_MB}MB · 100장까지</small>
+    </button>
+    <input type="file" id="rhUpFile" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden>
+    <label class="rh-up-consent">
+      <input type="checkbox" id="rhUpConsent"${nf && nf.consentLearning ? ' checked' : ''}>
+      <span>이 자료와 발표 기록을 척척발표가 나아지는 데 써도 좋아요<small>켜면 최대 1년 보관해요. 끄면 분석이 끝난 뒤 하루 안에 지워요.</small></span>
+    </label>`;
+  const input = document.getElementById('rhUpFile');
+  document.getElementById('rhUpPick').addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const f = input.files && input.files[0];
+    input.value = '';   // 같은 파일을 다시 고를 수 있게
+    if (f) rhUploadDeck(f, !!(document.getElementById('rhUpConsent') || {}).checked);
+  });
+  // 컴퓨터에서는 화면에 끌어다 놓아도 된다
+  const drop = box.closest('.rh-up');
+  if (drop && !drop.dataset.dropWired) {
+    drop.dataset.dropWired = '1';
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('is-over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('is-over');
+      const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f && rhUp.state !== 'busy') rhUploadDeck(f, !!(document.getElementById('rhUpConsent') || {}).checked);
+    });
+  }
+}
+
+/** 기다리는 동안 브라우저가 같은 PDF 를 먼저 열어 본다 — 몇 장인지 · 첫 장 모습 (app.js probeParsePreview 와 같은 일) */
+async function rhUpPeek(file, gen) {
+  if (!/\.pdf$/i.test(file.name || '') || typeof ccEnsurePdfjs !== 'function') return;
+  try {
+    if (!(await ccEnsurePdfjs())) return;
+    const pdf = await ccPdfOpen({ data: await file.arrayBuffer() }).promise;
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: 240 / base.width });
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(vp.width);
+    cv.height = Math.round(vp.height);
+    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+    const pages = pdf.numPages;
+    pdf.destroy().catch(() => {});
+    if (gen !== rhUpGen || rhUp.state !== 'busy') return;
+    rhUp.pages = pages;
+    rhUp.thumb = cv.toDataURL('image/jpeg', 0.72);
+    rhUpPaint();
+  } catch (err) {
+    console.warn('[chuckchuck] rehearsal upload peek', err);   // 미리보기는 실패해도 올리기는 그대로 간다
+  }
+}
+
+async function rhUploadDeck(file, consent) {
+  const why = rhUploadCheck(file);
+  rhUpReset();
+  const gen = rhUpGen;
+  if (why) { Object.assign(rhUp, { state: 'fail', error: why }); rhUpPaint(); return; }
+  Object.assign(rhUp, { state: 'busy', name: file.name, pct: 0, phase: 'send', startedAt: Date.now() });
+  rhUpPaint();
+  rhUpPeek(file, gen);
+  const alive = () => gen === rhUpGen && bq.screen === 'pick';
+  const fail = (msg) => {
+    if (!alive()) return;
+    rhUpReset();
+    Object.assign(rhUp, { state: 'fail', error: msg });
+    rhUpPaint();
+  };
+  const br = window.ChuckchuckBridge;
+  if (!br || typeof br.parseDocument !== 'function') { fail('화면을 다 불러오지 못했어요. 새로 고친 뒤 다시 올려 주세요.'); return; }
+  rhFreshPractice();
+  if (typeof visionCam !== 'undefined') { visionCam.off = false; visionCam.error = ''; }
+  if (typeof bq !== 'undefined' && bq.cam) { bq.cam.off = false; bq.cam.error = ''; bq.cam.denied = false; }
+  nf.consentLearning = !!consent;
+  nf.fileName = file.name;
+  let doc;
+  try {
+    doc = await br.parseDocument({
+      file,
+      consent: !!consent,
+      onProgress: ({ sent, total, done }) => {
+        if (!alive()) return;
+        const pct = done ? 100 : Math.min(99, Math.round((sent / Math.max(1, total)) * 100));
+        const phase = done ? 'read' : 'send';
+        if (phase === rhUp.phase && pct === rhUp.pct) return;
+        const restart = phase !== rhUp.phase;
+        rhUp.pct = pct;
+        rhUp.phase = phase;
+        if (restart) { rhUp.startedAt = Date.now(); rhUpPaint(); return; }
+        const stage = document.getElementById('rhUpStage');
+        const bar = document.querySelector('#rhUpBox .rh-up-bar i');
+        if (stage) stage.innerHTML = `자료를 보내고 있어요 · <span class="num">${pct}%</span>`;
+        if (bar) bar.style.width = `${pct}%`;
+      },
+    });
+  } catch (err) {
+    console.warn('[chuckchuck] rehearsal upload', err);
+    fail(rhUploadErrText(err));
+    return;
+  }
+  if (!alive()) return;
+  nf.sessionId = doc.session_id || null;
+  applySlideDoc(doc, { keepDemoImages: false });
+  nf.fileName = doc.file_name || file.name;
+  nf.rehearsalDeck = { key: '', title: rhOwnDeckTitle(file, doc), own: true, takes: [] };
+  // 발표 화면은 원본 PDF 를 그린다 — PDF 는 고른 파일 그대로, PPTX 는 서버가 바꾼 미리보기 PDF (일반 앱 startParse 와 같다)
+  if (typeof setUploadedPdf === 'function') setUploadedPdf(null);
+  try {
+    if (/\.pdf$/i.test(file.name || '')) await loadUploadedPdf(file);
+    else {
+      await ensurePreviewPdf(doc);
+      if (uploadedPdf) nf.previewPdf = doc.preview_pdf || previewPdfUrlFor(doc);
+    }
+  } catch (err) {
+    console.warn('[chuckchuck] rehearsal upload pdf', err);   // 그림이 없어도 장 제목 · 본문 카드로 발표할 수 있다
+  }
+  if (!alive()) return;
+  nf.gate = 'done';
+  nf.step = 1;
+  nf.suggest = null;
+  nf.occTouched = false;
+  if (typeof br.suggestContext === 'function') {
+    try { nf.suggest = await br.suggestContext(doc); } catch (err) { console.warn('[chuckchuck] rehearsal suggest', err); }
+  }
+  if (!alive()) return;
+  rhUpReset();
+  saveSession('new-flow', nf);
+  location.hash = `${REHEARSAL_HASH}/occ`;
 }
 
 /** 덱 — 지난 파싱본을 되살려 곧바로 비전 리허설로 (#/test/qa startTestDeck · 부스 bqPrepare 와 같은 길, 발표 정보 화면은 건너뛴다) */
@@ -498,7 +765,7 @@ function rhShowOcc(d) {
       ${cut ? '<p class="bq-foot rh-cut-note" role="status">녹음하던 발표는 멈췄어요. 다시 발표하려면 「카메라 앞에서 발표하러 가기」를 눌러요.</p>' : ''}
       <div class="rh-occ-actions">
         <button type="button" class="bq-cta" id="rhGoVision">카메라 앞에서 발표하러 가기</button>
-        <button type="button" class="bq-ghost" id="rhRepick">다른 발표 고르기</button>
+        <button type="button" class="bq-ghost" id="rhRepick">${rhRepickWord()}</button>
       </div>
     </div>`);
   document.querySelectorAll('#bqStage input[name="rhOcc"]').forEach((input) => input.addEventListener('change', () => {
@@ -508,7 +775,7 @@ function rhShowOcc(d) {
     saveSession('new-flow', nf);
   }));
   document.getElementById('rhCtx').addEventListener('input', (e) => { nf.ctx = e.target.value; saveSession('new-flow', nf); });
-  document.getElementById('rhRepick').addEventListener('click', () => { location.hash = REHEARSAL_HASH; });
+  document.getElementById('rhRepick').addEventListener('click', rhRepick);
   document.getElementById('rhGoVision').addEventListener('click', () => {
     // nfStep2 「녹음하러 가기」가 하는 일 — 발표하는 동안 개념 · 그래프를 먼저 만든다
     startPrecompute();
@@ -601,6 +868,8 @@ function rehearsalVisionDock(layer) {
   }
   const rec = layer.querySelector('#recPanel');
   if (!rec) return;
+  // 「녹음으로 대신하기」(시연 덱의 녹음 · 내 녹음 파일)는 시연 장치다 — 공개 방문자는 직접 발표한다 (10-08 사용자)
+  if (!rehearsalDemoOn()) return;
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'btn rh-rec-finish';
@@ -1120,7 +1389,7 @@ function rhWaitFail(st, qaReady) {
     ? `${reBtn}<button type="button" class="bq-ghost" id="rhAgain">카메라 앞에서 발표하기</button>`
     : `<button type="button" class="bq-ghost" id="rhAgain">다시 발표하기</button> ${reBtn}`;
   box.innerHTML = `<div class="bq-fail"><p>${escapeHtml(lead)}</p>
-    ${reOrder} <button type="button" class="bq-ghost" id="rhRepick">다른 발표 고르기</button>
+    ${reOrder} <button type="button" class="bq-ghost" id="rhRepick">${rhRepickWord()}</button>
     <p class="rh-rec-note" id="rhReRecNote" role="status"></p></div>`;
   const reRec = document.getElementById('rhReRec');
   if (reRec) reRec.addEventListener('click', () => rhReanalyzeWithRecording(reRec));
@@ -1132,7 +1401,7 @@ function rhWaitFail(st, qaReady) {
     const again = document.getElementById('againTake');
     if (again) again.click();
   });
-  document.getElementById('rhRepick').addEventListener('click', () => { location.hash = REHEARSAL_HASH; });
+  document.getElementById('rhRepick').addEventListener('click', rhRepick);
   if (skip) skip.hidden = !qaReady && !(nf.pipelineOut && nf.pipelineOut.graph);
 }
 

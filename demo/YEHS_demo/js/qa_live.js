@@ -704,7 +704,8 @@ function liveInputHtml() {
  * 부스(/booth/qa · /booth/call)와 리허설 화상판(#/rehearsal/qa)에만. 판정 · 사다리는 그대로다 — 보낼 글을 대신 채울 뿐이다.
  */
 function liveTryOn(booth) {
-  return !!booth || (typeof rhFlowOn === 'function' && rhFlowOn());
+  // 리허설 화상판은 시연 장치가 열린 탭(팀 · 오프라인 부스)만 — 공개 방문자는 자기 자료로 직접 답한다 (10-08 사용자)
+  return !!booth || (typeof rhFlowOn === 'function' && rhFlowOn() && typeof rehearsalDemoOn === 'function' && rehearsalDemoOn());
 }
 
 function liveTryHtml(booth, busy) {
