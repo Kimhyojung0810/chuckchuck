@@ -230,6 +230,8 @@ function rhReportIdleTick() {
 function rehearsalGuard(key) {
   // 끝난 리허설의 #/rehearsal/new 로 뒤로 오면(발표 고르기 → 한 번 더 뒤로) 일반 앱이 끝난 세션을 지우고 빈 새 연습을 그린다 — 발표 고르기로
   if (key === 'new' && rehearsalFlowOn() && nf && nf.completed) { location.replace(REHEARSAL_HASH); return true; }
+  // 자료 없이 #/rehearsal/new 를 바로 열면(새 탭 · 주소 입력) 일반 앱의 4단계 올리기가 리허설 주소 밑에 떴다 — 리허설 올리기로 (10-08)
+  if (key === 'new' && rehearsalFlowOn() && !(nf && (nf.gate === 'done' || nf.sessionId))) { location.replace(REHEARSAL_HASH); return true; }
   if (key !== 'qa' || !rehearsalFlowOn()) return false;
   const to = rehearsalQaFallback({
     live: typeof qaLiveActive === 'function' && qaLiveActive(),

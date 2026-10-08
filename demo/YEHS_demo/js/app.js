@@ -5306,7 +5306,7 @@ async function renderReport() {
           발표 분석을 한 번 끝내면 그 결과가 여기 남아요. 그 뒤로는 이 주소로 바로 열 수 있어요.
         </p>
         <div class="step-actions">
-          <a class="btn btn-primary" href="#/new">발표 연습 시작하기</a>
+          <a class="btn btn-primary" href="${rhFlagSet() ? '#/rehearsal' : '#/new'}">발표 연습 시작하기</a>
         </div>
       </div>`;
     return;
@@ -5314,6 +5314,8 @@ async function renderReport() {
   /* 내 발표가 없는 #/report 는 빈 화면이다 (10-01). 예전엔 DATA 샘플 리포트가 내 것처럼 통째로 떴다 —
      서비스에서는 자기 자료로 만든 결과만 보여 준다. 팀 「샘플 데모로 계속하기」(nf.useSample)·시연 모드는 그대로 */
   if (!reportId && !isLiveReportSession() && !(nf && nf.useSample) && !isShowcaseDemo()) {
+    // 리허설 흐름(새 탭에서 연 #/rehearsal/report)이면 버튼도 리허설 안으로 — #/new 는 일반 4단계 올리기라 흐름 표시가 꺼졌다 (10-08)
+    const rh = rhFlagSet();
     app.className = 'narrow';
     app.innerHTML = `
       <div class="card empty-card">
@@ -5323,8 +5325,8 @@ async function renderReport() {
           자료를 올리고 발표를 녹음하면, 자료에 있는 개념과 실제로 말한 것을 하나씩 대조해 보여 줘요.
         </p>
         <div class="step-actions">
-          <a class="btn btn-primary" href="#/new" data-fresh-practice>발표 연습 시작하기</a>
-          ${hasLastReport() ? '<a class="btn btn-text" href="#/report/last">저장해 둔 리포트 보기</a>' : ''}
+          <a class="btn btn-primary" href="${rh ? '#/rehearsal' : '#/new'}"${rh ? '' : ' data-fresh-practice'}>발표 연습 시작하기</a>
+          ${hasLastReport() ? `<a class="btn btn-text" href="${rh ? '#/rehearsal/report/last' : '#/report/last'}">저장해 둔 리포트 보기</a>` : ''}
         </div>
       </div>`;
     wireFreshPracticeButtons(app);
