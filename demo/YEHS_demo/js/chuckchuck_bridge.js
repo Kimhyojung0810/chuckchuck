@@ -278,6 +278,7 @@ export async function parseDocument({ file = null, fixture = false, consent = fa
       if (status < 200 || status >= 300 || !data || data.error) {
         const err = new Error((data && (data.message || data.error)) || `parse HTTP ${status}`);
         err.status = status;
+        err.code = (data && data.error) || '';   // 같은 415 라도 까닭이 다르다 (locked_office · unsupported_type)
         throw err;
       }
       res = { ok: true, json: async () => data };

@@ -497,6 +497,8 @@ function rhUploadErrText(err) {
   if (status === 413) return korean ? msg.replace(/\.$/, '') : `${RH_UP_MAX_MB}MB보다 작은 파일, 100장 이하의 자료를 올려 주세요.`;
   if (status === 429 || status === 503) return korean ? msg.replace(/\.$/, '') : '지금 자료를 읽는 사람이 많아요. 1분쯤 뒤에 다시 올려 주세요.';
   // 415 의 서버 문구는 부스 화면 캡처(PNG · JPG)까지 말한다 — 이 화면은 PDF · PPTX 만 받는다. 확장자는 맞는데 내용이 아닌 경우다
+  // 잠긴 Office 파일(비밀번호 · DRM · 예전 .ppt)은 다시 저장해도 그대로다 — 서버 문구가 고칠 길을 말한다 (10-08)
+  if (status === 415 && err && err.code === 'locked_office' && korean) return msg.replace(/\.$/, '');
   if (status === 415) return '파일이 손상됐거나 PDF · PPTX가 아니에요. 다시 저장해서 올려 주세요';
   if (korean) return msg.replace(/\.$/, '');
   if (/network|fetch|abort|timeout/i.test(msg)) return '인터넷 연결이 끊겨서 자료를 다 못 보냈어요. 연결을 확인하고 다시 올려 주세요.';

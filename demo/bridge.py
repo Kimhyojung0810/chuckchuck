@@ -624,6 +624,11 @@ def _multipart_files(raw: bytes, boundary: bytes) -> list[tuple[str, bytes]]:
     return files
 
 
+#: OLE 복합 문서(CFB) 머리 — 암호를 건 Office 파일(EncryptedPackage) · 사내 보안(DRM) 포장 · 예전 .ppt
+CFB_MAGIC = bytes.fromhex("D0CF11E0A1B11AE1")
+LOCKED_OFFICE_MESSAGE = "비밀번호나 보안(DRM)이 걸렸거나 예전 형식(.ppt)인 파일이에요. 잠금을 풀거나 PDF로 내보내서 올려 주세요."
+
+
 def _sniff_document(data: bytes) -> str | None:
     """
     업로드 내용으로 형식을 판별한다. 확장자는 사용자가 붙인 이름일 뿐이다.
@@ -2495,6 +2500,10 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         # 확장자가 아니라 내용으로 판별한다. 아니면 디스크에 쓰지 않는다.
         exts = [_sniff_document(b) for _, b in uploads]
         if any(e is None for e in exts):
+            # 비밀번호 · 보안(DRM)이 걸린 PPTX 와 예전 .ppt 는 OLE(CFB) 상자다 — 「손상됐거나 PDF·PPTX 가 아니에요 · 다시 저장」 을 들으면
+            # 다시 저장해도 잠금이 그대로라 같은 자리를 돈다 (10-08). 따로 알린다
+            if any(b.startswith(CFB_MAGIC) for _, b in uploads):
+                return self._json(415, {"error": "locked_office", "message": LOCKED_OFFICE_MESSAGE})
             return self._json(415, {"error": "unsupported_type", "message": "PDF·PPTX·PNG·JPG 파일만 올릴 수 있어요."})
         # 여러 장은 화면 캡처(이미지)만 — 문서 두 개를 한 자료로 섞는 길은 열지 않는다.
         if len(uploads) > 1 and any(e not in IMAGE_EXTS for e in exts):

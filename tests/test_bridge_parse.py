@@ -119,6 +119,17 @@ def _fake_parse(monkeypatch) -> None:
     monkeypatch.setattr(bridge, "parse_document", parse)
 
 
+def test_잠긴_Office_파일은_다시_저장하라고_하지_않고_잠금을_말한다(archive):
+    """10-08: 비밀번호 · DRM PPTX(OLE/CFB 상자)가 「손상됐거나 PDF·PPTX 가 아니에요 · 다시 저장」 을 받아 같은 자리를 돌았다."""
+    cfb = bytes.fromhex("D0CF11E0A1B11AE1") + b"\x00" * 64 + "EncryptedPackage".encode("utf-16-le")
+    body, ctype = _multipart("잠긴발표.pptx", cfb)
+    h = FakeHandler("/api/v1/parse", ctype)
+    h._handle_parse(body)
+    code, payload = h.last
+    assert code == 415 and payload["error"] == "locked_office" and "PDF로 내보내서" in payload["message"]
+    assert not archive.sessions_dir.exists()
+
+
 def test_개명한_실행파일은_디스크에_닿기_전에_거절한다(archive):
     body, ctype = _multipart("악성.pdf", b"MZ\x90\x00 not a pdf")
     h = FakeHandler("/api/v1/parse", ctype)
