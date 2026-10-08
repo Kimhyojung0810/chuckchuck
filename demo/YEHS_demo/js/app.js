@@ -4712,6 +4712,8 @@ function discardTakeKeepDeck() {
   nf.marks = null;
   nf.uploadedTake = null;
   nf.log = [];
+  // 새 테이크는 첫 장부터 — 예전엔 장을 그대로 둬서 「다시 발표하기」 가 마지막 장(3 / 3)에서 시작했다 (10-08). visits 와도 맞춘다
+  nf.slide = 1;
   nf.visits = { 1: 1 };
   nf.done = 0;
   nf._pipelineStarted = false;
