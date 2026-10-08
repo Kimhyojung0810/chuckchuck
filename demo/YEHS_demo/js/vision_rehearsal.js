@@ -307,6 +307,14 @@ function visionCoachSample() {
   visionSetIf($('#vrCaption'), 'textContent', heard ? heard.slice(-42) : '');
 }
 
+function visionMicErrorText(err) {
+  const name = (err && err.name) || '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return '마이크 권한이 막혀 있어요. 주소창 왼쪽 권한에서 마이크를 허용해 주세요.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return '연결된 마이크가 없어요. 마이크를 꽂고 「다시 듣기」를 눌러요.';
+  if (name === 'NotReadableError' || name === 'AbortError') return '다른 앱이 마이크를 쓰고 있어요. 그 앱을 닫고 「다시 듣기」를 눌러요.';
+  return '마이크를 열지 못해서 삐약이가 내 말을 못 들어요. 「다시 듣기」를 눌러요.';
+}
+
 async function visionOpenLevel() {
   if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return;
   visionArmEar();
@@ -328,8 +336,9 @@ async function visionOpenLevel() {
     if (ac.state !== 'running') ac.resume().catch(() => {});
     visionCoach.note = '';
     visionPaintHear();
-  } catch (_) {
-    visionCoach.note = '마이크를 열지 못해서 삐약이가 말을 못 봐요. 「다시 듣기」를 눌러요.';
+  } catch (err) {
+    // 권한을 막았으면 「다시 듣기」 로는 안 열린다 — 카메라 안내(visionCamErrorText)처럼 까닭별로 고칠 길을 말한다 (10-08)
+    visionCoach.note = visionMicErrorText(err);
     visionPaintHear();
   }
 }
