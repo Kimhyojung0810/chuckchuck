@@ -895,6 +895,42 @@ function rhSyncRecFinish() {
   if (copy && copy.textContent === '마지막 장까지 넘기면 녹음으로 대신할 수 있어요') copy.textContent = '준비되면 시작해요';
 }
 
+/**
+ * 너무 짧은 발표를 마치려 하면 한 번 묻는다 (10-08). 10-07 공개 방문의 분석 셋 중 둘이 13초쯤의 자료와 상관없는 녹음이었고,
+ * 그래도 말하기 · 채점 리포트가 다 나왔다 — 13초로는 질문 3개와 리포트가 의미가 없다. 막지 않는다: 「이대로 마치기」 를 누르면 그대로 간다.
+ * 처리했으면(시트를 띄웠으면) true — 부른 쪽은 마치지 않는다
+ */
+const RH_MIN_TAKE_SEC = 30;
+function rhGuardShortTake(finish) {
+  if (!rehearsalFlowOn() || !nf || nf.mic !== 'on') return false;
+  const sec = Number(nf.sec) || 0;
+  if (sec >= RH_MIN_TAKE_SEC) return false;
+  const layer = document.getElementById('vrCall');
+  if (!layer || document.getElementById('rhShortSheet')) return !!layer;
+  const back = document.activeElement;
+  const sheet = document.createElement('div');
+  sheet.className = 'bq-sheet-wrap rh-rec-sheet';
+  sheet.id = 'rhShortSheet';
+  sheet.innerHTML = `<div class="bq-sheet" role="dialog" aria-modal="true" aria-labelledby="rhShortTitle" aria-describedby="rhShortBody">
+      <h2 id="rhShortTitle">발표가 아직 짧아요</h2>
+      <p id="rhShortBody">지금 ${sec}초예요. 삐약이가 내 발표로 질문을 만들려면 ${RH_MIN_TAKE_SEC}초 넘게, 자료를 넘기며 말해 주는 게 좋아요. 이어서 발표하려면 「닫기」를 눌러요.</p>
+      <div class="bq-sheet-actions">
+        <button type="button" class="bq-ghost" data-sheet="keep">닫기</button>
+        <button type="button" class="bq-cta bq-cta-sm" data-sheet="finish">이대로 마치기</button>
+      </div>
+    </div>`;
+  layer.appendChild(sheet);
+  const close = () => { sheet.remove(); if (back && back.focus) back.focus(); };
+  sheet.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  sheet.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-sheet]');
+    if (e.target === sheet || (act && act.dataset.sheet === 'keep')) close();
+    else if (act && act.dataset.sheet === 'finish') { sheet.remove(); finish(); }
+  });
+  sheet.querySelector('[data-sheet="keep"]').focus();
+  return true;
+}
+
 /** 녹음 파일 확장자 — 일반 앱 recUploadHtml 과 같다 */
 const RH_REC_ACCEPT = 'audio/*,.webm,.m4a,.mp4,.mp3,.wav,.ogg';
 

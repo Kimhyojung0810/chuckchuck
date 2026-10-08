@@ -2820,7 +2820,11 @@ function renderRecPanel() {
       <details class="rec-log-fold"><summary>슬라이드 전환 <b id="recSwitchCount">${slideSwitchCount()}</b>회 기록</summary><div class="trans-log" id="tlog">
         ${(nf.log || []).map(l => `<span class="${l.re ? 're' : ''}">${l.txt}</span>`).join('')}
       </div></details>`;
-    $('#recEnd').addEventListener('click', finishRecAndPrepare);
+    // 리허설 흐름은 너무 짧은 발표를 마치기 전에 한 번 묻는다 (js/rehearsal.js rhGuardShortTake) — 다른 화면은 그대로
+    $('#recEnd').addEventListener('click', () => {
+      if (typeof rhGuardShortTake === 'function' && rhGuardShortTake(finishRecAndPrepare)) return;
+      finishRecAndPrepare();
+    });
     audienceMount();   // 무대에 올랐으면 객석에도 넷이 앉아 있어야 한다
   }
 }
