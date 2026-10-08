@@ -1486,6 +1486,10 @@ function rhWaitFail(st, qaReady) {
     return;
   }
   let why = typeof humanErrorText === 'function' ? humanErrorText(nf.pipelineError || nf.pipelineDetail || '') : '';
+  // 받아쓰기 서버 문구는 질문 답(「…타이핑으로 답해 주세요」)에 맞춘 것이다 — 발표에는 타이핑 길이 없다 (10-08)
+  const sttWhy = { no_speech: '발표 녹음에서 말소리를 찾지 못했어요. 마이크 가까이에서 다시 발표해 주세요',
+    stt_failed: '받아쓰기가 이번엔 안 됐어요. 잠시 뒤 다시 발표해 주세요' }[(nf.pipelinePhase === 'error' && nf.pipelineErrorCode) || ''];
+  if (sttWhy) why = sttWhy;
   // 영어 원문(「Failed to fetch.」 등)은 화면에 안 낸다 — 원문은 콘솔에 남는다 (F5)
   if (!/[가-힣]/.test(why)) why = /fetch|network|abort/i.test(why) ? '연결이 끊겨서 분석을 마치지 못했어요' : '';
   // 한 단계만 죽고 닫힌 분석('partial')은 「개념 추출 실패」 같은 내부 이름 대신 멈춘 줄을 사람 말로 (10-03 점검 F1)
@@ -1501,7 +1505,7 @@ function rhWaitFail(st, qaReady) {
       ? '화면을 새로 고치면 하던 분석이 멈춰요. 「이 녹음으로 다시 분석하기」를 누르면 같은 녹음으로 처음부터 분석해요.'
       : '화면을 새로 고치면 하던 분석이 멈추고, 방금 한 발표 녹음은 남지 않아요. 「다시 발표하기」를 누르면 같은 자료로 다시 발표할 수 있어요.';
   } else {
-    lead = `${why || '분석을 마치지 못했어요'}. ${fromRec && canRec
+    lead = `${String(why || '분석을 마치지 못했어요').replace(/[.\s]+$/, '')}. ${fromRec && canRec
       ? '「이 녹음으로 다시 분석하기」를 누르면 같은 녹음으로 한 번 더 분석해요.'
       : '「다시 발표하기」를 누르면 같은 자료로 다시 발표할 수 있어요.'}`;
   }

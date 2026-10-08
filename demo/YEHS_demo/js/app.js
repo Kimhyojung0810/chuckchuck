@@ -4938,6 +4938,7 @@ function nfStep4() {
     }).catch((err) => {
       console.warn('[chuckchuck] prepare pipeline', err);
       nf.pipelineError = err.message || String(err);
+      nf.pipelineErrorCode = (err && err.code) || '';
       nf.pipelinePhase = 'error';
       nf.pipelineDetail = nf.pipelineError;
       // 부분 결과가 있으면 유지

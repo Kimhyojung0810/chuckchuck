@@ -445,7 +445,9 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
   });
   const transcript = await readJson(sttRes, '받아쓰기');
   if (!sttRes.ok || transcript.error) {
-    throw new Error(transcript.message || transcript.error || `transcribe HTTP ${sttRes.status}`);
+    const e = new Error(transcript.message || transcript.error || `transcribe HTTP ${sttRes.status}`);
+    e.code = transcript.error || '';   // no_speech · stt_failed — 화면마다 제 말로 바꿔 말한다(리허설 기다림 rhWaitFail)
+    throw e;
   }
   /* 추정값인지 균등 분할인지 숨기지 않는다 — 진행 로그에 그대로 남긴다 */
   const markNote = transcript.marks_reason ? ` · ${transcript.marks_reason}` : '';
