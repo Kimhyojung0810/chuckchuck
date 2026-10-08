@@ -920,7 +920,14 @@ function rhGuardShortTake(finish) {
       </div>
     </div>`;
   layer.appendChild(sheet);
-  const close = () => { sheet.remove(); if (back && back.focus) back.focus(); };
+  // 닫으면 초점을 「발표 마치기」 가 아니라 「다음」 에 둔다 — 「다음 장」 으로 쓰는 Space 가 마치기 버튼을 눌러 발표가 끝났다 (10-08)
+  const close = () => {
+    sheet.remove();
+    const next = layer.querySelector('.vr-nav[data-slide-nav="1"]');
+    const to = back && back.id === 'recEnd' ? next : back;
+    if (to && to.focus) to.focus();
+    else if (back && back.blur) back.blur();
+  };
   sheet.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   sheet.addEventListener('click', (e) => {
     const act = e.target.closest('[data-sheet]');
