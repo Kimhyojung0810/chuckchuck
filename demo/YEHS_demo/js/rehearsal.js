@@ -501,6 +501,9 @@ function rhUploadErrText(err) {
   if (status === 415 && err && err.code === 'locked_office' && korean) return msg.replace(/\.$/, '');
   if (status === 415) return '파일이 손상됐거나 PDF · PPTX가 아니에요. 다시 저장해서 올려 주세요';
   if (korean) return msg.replace(/\.$/, '');
+  // 우리 서버가 아니라 그 앞(Cloudflare · 터널)이 끊은 것 — 502 · 504 · 524(100초 넘김) · 530 은 한국어 본문 없이 HTML 로 온다.
+  // 「다른 파일로」 라고 하면 멀쩡한 파일을 탓한다. 서버는 대개 끝까지 읽어 캐시에 남기므로 같은 파일을 다시 올리면 바로 된다 (10-08)
+  if (status >= 500) return '연결이 잠깐 끊겼어요. 같은 파일을 다시 올려 주세요.';
   if (/network|fetch|abort|timeout/i.test(msg)) return '인터넷 연결이 끊겨서 자료를 다 못 보냈어요. 연결을 확인하고 다시 올려 주세요.';
   return '자료를 읽지 못했어요. 다른 파일로 다시 올려 주세요.';
 }
