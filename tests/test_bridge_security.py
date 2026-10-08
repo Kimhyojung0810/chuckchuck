@@ -376,6 +376,17 @@ def test_500_문구는_사용자가_고칠_수_있는_파서_오류만_싣고_�
     assert bridge._public_message(RuntimeError("/home/x/secret")) == bridge.GENERIC_ERROR_MESSAGE
 
 
+def test_다시_해도_안_되는_파서_오류는_고칠_길을_말하고_벤더_본문은_싣지_않는다():
+    """10-08: 비밀번호 PDF · 글자 없는 PDF 가 「잠시 뒤 다시」 를 받아 같은 파일로 재시도(과금)했다."""
+    locked = bridge._public_message(ParseError(
+        'Document Parse 오류 400: {"error":{"code":"invalid_document","message":"The document is protected by a password."}}'))
+    assert locked.startswith("비밀번호가 걸린 PDF예요") and "invalid_document" not in locked
+    blank = bridge._public_message(ParseError(
+        "자료에서 아무 내용도 읽지 못했습니다. 스캔 이미지 PDF라면 ocr=force 로 다시 시도하거나 텍스트가 살아있는 파일로 올려주세요."))
+    assert blank.startswith("자료에서 글자를 찾지 못했어요") and "ocr" not in blank
+    assert bridge._public_message(RuntimeError("password /srv/x")) == bridge.GENERIC_ERROR_MESSAGE   # 파서 오류만
+
+
 def test_키는_앞뒤_글자_없이_길이만_찍는다():
     from chuckchuck.config import Settings
 

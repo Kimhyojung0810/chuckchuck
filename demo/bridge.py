@@ -387,6 +387,16 @@ _PUBLIC_PARSE_ERROR = re.compile(r"^\d+장입니다|^파일이 [\d.]+MB|지원�
 GENERIC_ERROR_MESSAGE = "요청을 처리하지 못했어요. 잠시 뒤 다시 해 주세요."
 
 
+#: 다시 해도 안 되는 파서 오류 → 고칠 길을 말하는 공개 문구 (10-08). 「잠시 뒤 다시」 는 같은 파일로 재시도(과금)만 부른다.
+#: 벤더 본문은 싣지 않는다 — 패턴으로 알아보고 우리 문장으로 바꾼다
+_PUBLIC_PARSE_REWRITE = (
+    (re.compile(r"protected by a password|password", re.I),
+     "비밀번호가 걸린 PDF예요. 비밀번호를 풀고 다시 저장해서 올려 주세요."),
+    (re.compile(r"아무 내용도 읽지 못했습니다"),
+     "자료에서 글자를 찾지 못했어요. 글자가 들어 있는 자료로 올려 주세요."),
+)
+
+
 def _public_message(e: Exception) -> str:
     """응답에 싣는 오류 문구. 벤더 응답 본문·서버 경로가 섞일 수 있어 기본은 일반 문구다 — 상세는 stderr."""
     from chuckchuck.contracts import ParseError
@@ -394,6 +404,10 @@ def _public_message(e: Exception) -> str:
     msg = str(e)
     if isinstance(e, ParseError) and _PUBLIC_PARSE_ERROR.search(msg):
         return re.sub(r"\s*\([^)]*\)", "", msg).strip()
+    if isinstance(e, ParseError):
+        for pat, public in _PUBLIC_PARSE_REWRITE:
+            if pat.search(msg):
+                return public
     return GENERIC_ERROR_MESSAGE
 
 
