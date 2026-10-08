@@ -1424,10 +1424,15 @@ function rhWaitTick() {
   bqSet(el, 'hidden', stopped || live);
   bqSet(document.getElementById('rhWaitNext'), 'hidden', stopped);
   bqSet(document.getElementById('rhWaitLive'), 'textContent', rhWaitNow(st));
-  if (live && bq.rhLiveAtMount) {
+  // 「나가기」 시트가 떠 있으면 고르는 중이다 — 저절로 화상판(마이크가 듣는 곳)으로 끌고 가지 않고 「질문에 이어서 답하기」 를 연다.
+  // 예전엔 시트가 사라지며 첫 질문 · 자동 받아쓰기가 켜져, 나갈지 고르며 한 말이 답으로 갔다 (10-08)
+  const deciding = !!document.getElementById('bqSheet');
+  if (live && (bq.rhLiveAtMount || deciding)) {
     bqSet(document.getElementById('rhResume'), 'hidden', false);
     bqSet(document.getElementById('rhWaitTitle'), 'textContent', '질문 3개를 준비해 뒀어요');
-    bqSet(document.getElementById('rhWaitTip'), 'textContent', '답하던 질문으로 돌아가서 이어서 답할 수 있어요.');
+    bqSet(document.getElementById('rhWaitTip'), 'textContent', bq.rhLiveAtMount
+      ? '답하던 질문으로 돌아가서 이어서 답할 수 있어요.'
+      : '「질문에 이어서 답하기」를 누르면 첫 질문부터 답해요.');
     bqSet(document.getElementById('rhWaitNext'), 'textContent', '');
   } else if (live && !bq.rhEntering) {
     // 질문이 준비됐다 — 누르지 않아도 화상판으로 (잠깐 「준비됐어요」 를 보여 주고)
@@ -1435,7 +1440,11 @@ function rhWaitTick() {
     bqSet(document.getElementById('rhWaitTitle'), 'textContent', '질문 3개를 준비했어요. 화상판으로 들어가요');
     // 다 끝났는데 밑줄이 「…맞춰 봐요. 1~3분쯤 걸려요」 로 남아 제목과 어긋났다 (V-R2-5)
     bqSet(document.getElementById('rhWaitTip'), 'textContent', rhWaitTip(rhWaitTitleText(), 'ready'));
-    bq.timers.push(setTimeout(() => { bq.rhEntering = false; if (rhRouteKey() === 'new' && nf.step === 3) location.hash = rhHash('qa'); }, 900));
+    bq.timers.push(setTimeout(() => {
+      bq.rhEntering = false;
+      if (document.getElementById('bqSheet')) { rhWaitTick(); return; }   // 그 사이 「나가기」 를 눌렀다 — 「닫기」 하면 그때 들어간다
+      if (rhRouteKey() === 'new' && nf.step === 3) location.hash = rhHash('qa');
+    }, 900));
   }
   rhWaitFail(st, qaReady);
 }
