@@ -513,6 +513,9 @@ body #vrCall.vr-call .vr-dock .vr-nav[hidden] { display: inline-flex; visibility
   body #vrCall.vr-call .vr-top {
     top: var(--vr-pad); left: calc(var(--vr-sl) + var(--vr-slide-w) + var(--vr-pad)); right: var(--vr-sr); gap: 6px; justify-content: flex-end;
   }
+  /* 선분석 안내(「발표하는 동안 자료를 먼저 읽고 있어요」 · 「자료를 미리 읽다가 멈췄어요 …」)는 폰 세로처럼 접는다 — 801px 넘는 폰 가로
+     (844×390 · 915×412)에서는 오른쪽 좁은 칸에 3~6줄 동그라미로 끼어 삐약이 머리를 덮었다 (10-08). call_flow.css 의 같은 자리도 숨긴다 */
+  body #vrCall.vr-call .vr-top-fill { display: none; }
   body #vrCall.vr-call .vr-top .vr-pill { display: none; }
   body #vrCall.vr-call .vr-top #vrCamToggle { margin-left: 0; }
   body #vrCall.vr-call .vr-top .btn.vr-glass { height: 40px; min-height: 40px; padding: 0 12px; font-size: 13px; }
