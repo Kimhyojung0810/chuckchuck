@@ -283,6 +283,10 @@ function rhMount(screen, html, { keepApp = false } = {}) {
     app.className = '';
     app.innerHTML = '';
   }
+  // 기다림은 분석이 도는 일반 앱 화면(#app)을 밑에 둔 채 덮는다 — 가려진 단추가 Tab · 화면 읽기에 잡혀, 안 보이는
+  // 「처음부터 다시」 에서 Enter 하면 테이크와 분석이 날아가고 #/new 로 빠졌다 (10-08). 덮는 동안 #app 을 비활성(inert)으로 둔다.
+  // 층을 걷을 때(bqUnmount) 푼다
+  if (keepApp) { app.inert = true; app.setAttribute('aria-hidden', 'true'); }
   const layer = document.createElement('div');
   layer.id = 'bqStage';
   layer.className = 'bq';

@@ -324,6 +324,9 @@ function bqUnmount() {
     layer.remove();
   }
   document.body.classList.remove('bq-open');
+  // 리허설 기다림(rhMount keepApp)이 덮는 동안 비활성으로 둔 #app 을 되살린다
+  const appEl = document.getElementById('app');
+  if (appEl && appEl.inert) { appEl.inert = false; appEl.removeAttribute('aria-hidden'); }
 }
 
 const BQ_STEPS = [
