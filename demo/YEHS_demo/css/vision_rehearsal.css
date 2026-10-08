@@ -446,7 +446,9 @@ body #vrCall.vr-call .vr-dock .vr-nav[hidden] { display: inline-flex; visibility
     top: calc(var(--vr-st) + 44px + 10px); left: var(--vr-pad); right: var(--vr-pad);
     bottom: calc(var(--vr-dock) + var(--vr-sb) + 10px);
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: min(calc((100vw - 2 * var(--vr-pad)) * 9 / 16 + 52px), 70%) minmax(0, 1fr);
+    /* 자료 칸 높이는 자료의 실제 비율(--vr-page-ar = 첫 장 높이/너비, vision_rehearsal.js visionPdfAspect)로 — 16:9 로 묶여 A4 세로
+       자료가 147×208 띠로 줄고 그 아래가 비었다 (10-08). 모르면 16:9 */
+    grid-template-rows: min(calc((100vw - 2 * var(--vr-pad)) * var(--vr-page-ar, .5625) + 52px), 70%) minmax(0, 1fr);
     gap: 10px;
   }
   body #vrCall.vr-call .vr-slide-slot { grid-column: 1; grid-row: 1; }
@@ -494,7 +496,7 @@ body #vrCall.vr-call .vr-dock .vr-nav[hidden] { display: inline-flex; visibility
     --vr-sl: max(10px, env(safe-area-inset-left, 0px));
     --vr-sr: max(10px, env(safe-area-inset-right, 0px));
     --vr-sb: max(8px, env(safe-area-inset-bottom, 0px));
-    --vr-slide-w: min(64vw, calc((100dvh - 2 * var(--vr-pad) - 48px) * 16 / 9));
+    --vr-slide-w: min(64vw, calc((100dvh - 2 * var(--vr-pad) - 48px) / var(--vr-page-ar, .5625)));
     bottom: auto; height: 100vh; height: 100dvh;
   }
   body #vrCall.vr-call .vr-fore {

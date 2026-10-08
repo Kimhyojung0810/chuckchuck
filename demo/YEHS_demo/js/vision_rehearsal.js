@@ -818,11 +818,35 @@ function visionPdfPaint(page) {
   img.alt = `${page}번 슬라이드`;
 }
 
+/** 자료의 비율(첫 장 높이/너비)을 발표 화면에 알린다 — 폰 세로 · 가로의 자료 칸이 그 비율로 선다(CSS --vr-page-ar).
+ *  A4 세로 자료가 16:9 칸에 갇혀 작게 보였다 (10-08). 장마다 바꾸지 않는다(넘길 때 칸이 출렁이지 않게) */
+const visionPdfAr = { doc: null, ar: 0 };
+function visionPdfAspect(doc) {
+  const apply = () => {
+    const host = document.getElementById('vrCall');
+    if (!host || !visionPdfAr.ar) return;
+    const val = visionPdfAr.ar.toFixed(4);
+    if (host.style.getPropertyValue('--vr-page-ar') === val) return;
+    host.style.setProperty('--vr-page-ar', val);
+    visionSlideApply(host.querySelector('#vrSlide'));
+  };
+  if (visionPdfAr.doc === doc) { apply(); return; }
+  visionPdfAr.doc = doc;
+  visionPdfAr.ar = 0;
+  doc.getPage(1).then((p) => {
+    const v = p.getViewport({ scale: 1 });
+    if (!(v.width > 0) || visionPdfAr.doc !== doc) return;
+    visionPdfAr.ar = Math.min(1.6, Math.max(0.4, v.height / v.width));
+    apply();
+  }).catch(() => { /* 비율을 몰라도 16:9 칸으로 그린다 */ });
+}
+
 /** 이 장을 보인다 — 그려 둔 그림이면 곧바로, 아니면 번호 판을 먼저 보이고 맨 앞에 줄 세운다. 이어서 앞뒤 장을 미리 그린다 */
 function visionPdfShow(page) {
   const doc = uploadedPdf && uploadedPdf.pdf;
   if (!doc) return;
   const width = visionPdfWidth();
+  visionPdfAspect(doc);
   if (visionPdf.doc !== doc || width > visionPdf.width) {
     // 다른 자료이거나 창이 커졌다(돌려서 가로가 됐다) — 새로 그린다. 작아질 때는 큰 그림을 그대로 쓴다
     const keep = visionPdf.doc === doc ? visionPdf.urls : null;
