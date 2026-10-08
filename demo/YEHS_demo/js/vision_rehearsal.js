@@ -178,6 +178,8 @@ function visionCoachStop() {
 
 function visionFlowUnmount({ keepCam = false } = {}) {
   visionCoachStop();
+  if (typeof visionWakeSync === 'function') { visionWake.want = false; visionWakeSync(false); }
+  if (typeof visionViewportCover === 'function') visionViewportCover(false);
   if (visionDockWatch) { visionDockWatch.disconnect(); visionDockWatch = null; }
   const layer = document.getElementById('vrCall');
   if (layer) layer.remove();
@@ -510,6 +512,20 @@ function visionSlideApply(slide) {
   slide.style.setProperty('--vr-slide-alpha', String(visionSlide.opacity));
   const range = slide.querySelector('#vrSlideAlpha');
   if (range && document.activeElement !== range) range.value = String(Math.round(visionSlide.opacity * 100));
+  // 폰 · 태블릿 세로 · 폰 가로의 발표 화면 — 자료는 늘 제자리(격자 칸 그대로)에 크게. 옮긴 자리 · 크기는 쓰지 않는다(손잡이도 접는다, CSS)
+  const compactHost = visionSlideHost();
+  if (compactHost && compactHost.id === 'vrCall' && visionCompact()) {
+    const cslot = compactHost.querySelector('.vr-slide-slot');
+    if (!cslot) return;
+    const cr = cslot.getBoundingClientRect();
+    const hr = compactHost.getBoundingClientRect();
+    if (cr.width < 8 || cr.height < 8) return;
+    slide.style.left = `${cr.left - hr.left}px`;
+    slide.style.top = `${cr.top - hr.top}px`;
+    slide.style.width = `${cr.width}px`;
+    slide.style.height = `${cr.height}px`;
+    return;
+  }
   // 옮겨 둔 자리는 그 자리를 정한 방향(가로 · 세로)에서만 쓴다 — 가로에서 옮긴 큰 창이 세로 화상판의 대화 말풍선을 덮었다 (10-03 점검 V6).
   // 다른 방향이면 그 화면의 기본 자리(작은 창)에 선다. 저장은 그대로라 원래 방향으로 돌아가면 옮긴 자리로 돌아간다
   if (visionSlide.custom && !!visionSlide.portrait === visionSlidePortrait()) {
@@ -546,28 +562,266 @@ function visionSlideApply(slide) {
   slide.style.height = `${height}px`;
 }
 
-/**
- * 자료 창을 손가락으로 옆으로 밀어 장을 넘긴다 — 왼쪽으로 밀면 다음 장, 오른쪽으로 밀면 앞 장 (10-07 사용자 「모바일에서도 ppt 넘기기 제대로」).
- * 손가락(터치 · 펜)만 본다. 마우스 끌기는 옮기기 손잡이(⠿) 몫이다. 가로로 40px 넘게, 세로보다 확실히 가로로 밀었을 때만 넘긴다
- */
-function visionSlideSwipe(layer) {
+/* ─── 발표 중 장 넘기기 — 폰 · 태블릿 (10-08 사용자 「발표하는 와중에 ppt 슬라이드 넘기는 거 모바일 화면에서 가시화 및 어떻게 잘 설정」) ───
+   넘기는 길은 셋이고 모두 moveSlide 하나로 모인다(전환 시각 기록 · 분석 입력이 같다):
+     1) 자료를 옆으로 민다 — 왼쪽으로 밀면 다음 장
+     2) 자료의 오른쪽 1/3 을 누르면 다음 장, 왼쪽 1/3 은 앞 장 (가운데는 아무 일 없음)
+     3) 아래 「이전 · 다음」 큰 버튼 · 키보드(→ ← PageDown PageUp Space · 발표용 클리커)
+   누를 때마다 곧바로 보인다 — 장이 옆으로 넘어가는 움직임 · 장 번호 · 진행 막대. 첫 장 · 마지막 장에서 더 갈 곳이 없으면 그렇다고 말한다.
+   예전엔 자료 창에서 pointerdown/up 만 보고 touch-action 이 pan-y 라, 손가락이 조금만 세로로 흔들려도 브라우저가 몸짓을 가져가
+   pointercancel 로 끝나 아무 일도 안 일어났다(조용한 실패). 이제 자료 칸은 touch-action: none — 몸짓은 전부 이 코드가 받는다 */
+
+/** 폰 세로 · 태블릿 세로 · 폰 가로 — 자료를 크게 고정하고 옮기기 · 크기 · 불투명도를 접는 배치 (vision_rehearsal.css 와 같은 조건) */
+const VISION_COMPACT_Q = '(orientation: portrait) and (max-width: 1100px), (orientation: landscape) and (max-height: 560px)';
+function visionCompact() {
+  return !!(window.matchMedia && window.matchMedia(VISION_COMPACT_Q).matches);
+}
+
+const VISION_HINT_KEY = 'cheokcheok:vr-turn-hint';
+/** 밀기로 볼 최소 가로 이동(px) · 누르기로 볼 최대 이동(px) · 누르기 최대 시간(ms) */
+const VISION_SWIPE_MIN = 36;
+const VISION_TAP_MAX = 12;
+const VISION_TAP_MS = 600;
+
+function visionSlideGestures(layer) {
   const stage = layer.querySelector('#vrSlide .vr-slide-stage');
   if (!stage) return;
   let start = null;
   stage.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' || e.target.closest('button')) { start = null; return; }
-    start = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    if (e.button != null && e.button > 0) return;
+    if (e.target.closest('button, a, input')) { start = null; return; }
+    start = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), type: e.pointerType };
+    try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 이미 놓였다 */ }
   });
-  const end = (e) => {
+  stage.addEventListener('pointerup', (e) => {
     if (!start || e.pointerId !== start.id) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
+    const s = start;
     start = null;
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-    if (typeof moveSlide === 'function') moveSlide(dx < 0 ? 1 : -1);
-  };
-  stage.addEventListener('pointerup', end);
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    // 1) 밀기 — 가로가 세로보다 확실히 클 때만 (마우스 끌기는 옮기기 손잡이 몫이라 손가락 · 펜만)
+    if (s.type !== 'mouse' && Math.abs(dx) >= VISION_SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      visionTurn(dx < 0 ? 1 : -1, 'swipe');
+      return;
+    }
+    // 2) 누르기 — 자료의 왼쪽 · 오른쪽 1/3
+    if (Math.abs(dx) <= VISION_TAP_MAX && Math.abs(dy) <= VISION_TAP_MAX && performance.now() - s.t <= VISION_TAP_MS) {
+      const r = stage.getBoundingClientRect();
+      const at = (e.clientX - r.left) / Math.max(1, r.width);
+      if (at >= 2 / 3) visionTurn(1, 'tap');
+      else if (at <= 1 / 3) visionTurn(-1, 'tap');
+    }
+  });
   stage.addEventListener('pointercancel', () => { start = null; });
+  // 자료 그림을 끌면 브라우저가 그림 끌기(드래그 앤 드롭)를 시작해 몸짓을 빼앗았다 — 막는다
+  stage.addEventListener('dragstart', (e) => e.preventDefault());
+}
+
+function visionTurn(d, how) {
+  if (typeof moveSlide === 'function') moveSlide(d);
+  if (how) visionHintDone();
+}
+function visionHintDone() {
+  const hint = document.getElementById('vrTurnHint');
+  if (hint) hint.remove();
+  try { localStorage.setItem(VISION_HINT_KEY, '1'); } catch (_) { /* 사생활 모드 — 이번만 */ }
+}
+
+/** 첫 발표의 첫 장에서 한 번 — 「밀거나 눌러서 넘겨요」. 한 번 넘기면 사라지고 다시 안 뜬다 */
+function visionTurnHint(layer) {
+  let seen = false;
+  try { seen = localStorage.getItem(VISION_HINT_KEY) === '1'; } catch (_) { seen = false; }
+  if (seen || (Number(nf.slide) || 1) !== 1 || rehearsalCount() < 2) return;
+  const stage = layer.querySelector('#vrSlide .vr-slide-stage');
+  if (!stage) return;
+  const coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const hint = document.createElement('p');
+  hint.className = 'vr-turn-hint';
+  hint.id = 'vrTurnHint';
+  hint.setAttribute('role', 'note');
+  hint.innerHTML = coarse
+    ? '<span aria-hidden="true">‹</span>밀거나 양옆을 눌러서 넘겨요<span aria-hidden="true">›</span>'
+    : '<span aria-hidden="true">‹</span>자료 양옆을 누르거나 ← → 키로 넘겨요<span aria-hidden="true">›</span>';
+  stage.appendChild(hint);
+}
+
+/** 진행 막대 · 장 번호를 지금 장에 맞춘다 */
+function visionSyncProgress() {
+  const n = Math.max(1, rehearsalCount());
+  const at = Math.min(n, Math.max(1, Number(nf.slide) || 1));
+  const bar = document.querySelector('#vrCall .vr-prog i');
+  if (bar) bar.style.width = `${(at / n) * 100}%`;
+  const prog = document.querySelector('#vrCall .vr-prog');
+  if (prog) prog.setAttribute('aria-valuenow', String(at));
+}
+
+/** app.js moveSlideTo 가 장을 바꾼 뒤 부른다 — 넘어가는 움직임 · 장 번호 깜빡임 · 진행 막대 */
+function visionSlideTurned(next, prev) {
+  const layer = document.getElementById('vrCall');
+  if (!layer) return;
+  visionSyncProgress();
+  if (next !== 1) visionHintDone();
+  const stage = layer.querySelector('#vrSlide .vr-slide-stage');
+  const no = layer.querySelector('#slideNo');
+  [stage, no].forEach((el) => {
+    if (!el) return;
+    el.classList.remove('is-turn-next', 'is-turn-prev', 'is-edge');
+    void el.offsetWidth;   // 같은 움직임을 연달아 다시 튼다
+    el.classList.add(next > prev ? 'is-turn-next' : 'is-turn-prev');
+  });
+}
+
+/** 첫 장에서 앞으로 · 마지막 장에서 다음으로 — 아무 일 없는 것처럼 보이지 않게 흔들고 한 줄 말한다 */
+let visionEdgeTimer = 0;
+function visionSlideEdge(d) {
+  const layer = document.getElementById('vrCall');
+  if (!layer) return;
+  const stage = layer.querySelector('#vrSlide .vr-slide-stage');
+  if (stage) {
+    stage.classList.remove('is-turn-next', 'is-turn-prev', 'is-edge');
+    void stage.offsetWidth;
+    stage.classList.add('is-edge');
+  }
+  let tip = layer.querySelector('#vrEdgeTip');
+  if (!tip && stage) {
+    tip = document.createElement('p');
+    tip.id = 'vrEdgeTip';
+    tip.className = 'vr-edge-tip';
+    tip.setAttribute('role', 'status');
+    stage.appendChild(tip);
+  }
+  if (tip) {
+    tip.textContent = d > 0 ? '마지막 장이에요. 다 말했으면 「발표 마치기」를 눌러요' : '첫 장이에요';
+    tip.hidden = false;
+    clearTimeout(visionEdgeTimer);
+    visionEdgeTimer = setTimeout(() => { tip.hidden = true; }, 2200);
+  }
+}
+
+/* ─── 올린 PDF 의 장을 그림으로 — 발표 화면은 <img> 하나에 미리 그려 둔 장을 갈아 끼운다 ───────────────
+   예전엔 장을 넘길 때마다 같은 canvas 에 pdf.js 로 다시 그렸다. 빨리 넘기면 그리던 장을 취소하고 다음 장을 그리는 사이
+   화면이 앞 장에 머물렀고(번호만 바뀜), 폰에서는 큰 canvas 를 매번 새로 잡아 느렸다. 이제 지금 장을 먼저 그리고 이어서 다음 · 앞 장을
+   미리 그려 둔다 — 넘기면 곧바로 바뀐다. 아직 못 그린 장이면 장 번호 판을 먼저 보이고, 그리는 대로 채운다(누른 것은 버리지 않는다) */
+const visionPdf = { doc: null, urls: new Map(), queue: [], busy: false, width: 0 };
+
+function visionPdfReset() {
+  visionPdf.urls.forEach((u) => URL.revokeObjectURL(u));
+  visionPdf.urls = new Map();
+  visionPdf.queue = [];
+  visionPdf.doc = null;
+  visionPdf.width = 0;
+}
+
+function visionPdfWidth() {
+  const stage = document.querySelector('#vrSlide .vr-slide-stage');
+  const css = Math.max(480, (stage && stage.clientWidth) || 960);
+  const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+  return Math.min(1600, Math.round(css * dpr / 160) * 160);   // 160px 단위로 묶어서 조금 바뀌었다고 다 다시 그리지 않는다
+}
+
+async function visionPdfRender(page) {
+  const doc = uploadedPdf && uploadedPdf.pdf;
+  if (!doc) return null;
+  const pdfPage = await doc.getPage(page);
+  const base = pdfPage.getViewport({ scale: 1 });
+  const viewport = pdfPage.getViewport({ scale: visionPdf.width / base.width });
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(viewport.width);
+  canvas.height = Math.floor(viewport.height);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await pdfPage.render({ canvasContext: ctx, viewport }).promise;
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  canvas.width = 0;   // 큰 비트맵을 바로 놓는다 — iOS 는 canvas 메모리 상한이 낮다
+  canvas.height = 0;
+  return blob ? URL.createObjectURL(blob) : null;
+}
+
+async function visionPdfPump() {
+  if (visionPdf.busy) return;
+  visionPdf.busy = true;
+  try {
+    while (visionPdf.queue.length) {
+      const doc = uploadedPdf && uploadedPdf.pdf;
+      if (!doc || doc !== visionPdf.doc || !document.getElementById('vrCall')) { visionPdf.queue = []; break; }
+      const page = visionPdf.queue.shift();
+      if (visionPdf.urls.has(page)) continue;
+      let url = null;
+      try { url = await visionPdfRender(page); } catch (err) { console.warn('[chuckchuck] vision pdf page', page, err); }
+      if (!url) continue;
+      if (doc !== (uploadedPdf && uploadedPdf.pdf)) { URL.revokeObjectURL(url); break; }
+      visionPdf.urls.set(page, url);
+      if (Number(nf.slide) === page) visionPdfPaint(page);
+    }
+  } finally {
+    visionPdf.busy = false;
+  }
+}
+
+function visionPdfPaint(page) {
+  const img = document.querySelector('#vrCall #slideImage[data-pdf]');
+  if (!img) return;
+  const url = visionPdf.urls.get(page);
+  const src = url || slidePlaceholder(page);
+  if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+  img.classList.toggle('is-loading', !url);
+  img.alt = `${page}번 슬라이드`;
+}
+
+/** 이 장을 보인다 — 그려 둔 그림이면 곧바로, 아니면 번호 판을 먼저 보이고 맨 앞에 줄 세운다. 이어서 앞뒤 장을 미리 그린다 */
+function visionPdfShow(page) {
+  const doc = uploadedPdf && uploadedPdf.pdf;
+  if (!doc) return;
+  const width = visionPdfWidth();
+  if (visionPdf.doc !== doc || width > visionPdf.width) {
+    // 다른 자료이거나 창이 커졌다(돌려서 가로가 됐다) — 새로 그린다. 작아질 때는 큰 그림을 그대로 쓴다
+    const keep = visionPdf.doc === doc ? visionPdf.urls : null;
+    if (!keep) visionPdfReset();
+    else { keep.forEach((u) => URL.revokeObjectURL(u)); visionPdf.urls = new Map(); }
+    visionPdf.doc = doc;
+    visionPdf.width = width;
+  }
+  visionPdfPaint(page);
+  const n = uploadedPdf.pageCount || doc.numPages || 1;
+  const want = [page, page + 1, page - 1, page + 2, page + 3].filter((p) => p >= 1 && p <= n && !visionPdf.urls.has(p));
+  visionPdf.queue = [...want, ...visionPdf.queue.filter((p) => !want.includes(p))].slice(0, 8);
+  visionPdfPump();
+}
+
+/* ─── 발표하는 동안 화면이 꺼지지 않게 (Wake Lock) ───────────────────────────── */
+const visionWake = { lock: null, want: false };
+async function visionWakeSync(on) {
+  visionWake.want = !!on && !!document.getElementById('vrCall');
+  if (!('wakeLock' in navigator)) return;
+  if (visionWake.want && !visionWake.lock && document.visibilityState === 'visible') {
+    try {
+      visionWake.lock = await navigator.wakeLock.request('screen');
+      visionWake.lock.addEventListener('release', () => { visionWake.lock = null; });
+    } catch (_) { visionWake.lock = null; /* 배터리 절약 모드 등 — 막히면 그대로 */ }
+  } else if (!visionWake.want && visionWake.lock) {
+    const lock = visionWake.lock;
+    visionWake.lock = null;
+    lock.release().catch(() => {});
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  // 탭을 잠깐 떠났다 오면 브라우저가 잠금을 풀어 둔다 — 아직 발표 중이면 다시 건다
+  if (document.visibilityState === 'visible' && visionWake.want) visionWakeSync(true);
+});
+
+/* ─── 폰 화면 끝까지 쓰기 — 발표 화면이 떠 있는 동안만 viewport-fit=cover (아이폰 홈 막대 · 노치 안쪽 여백은 env(safe-area-inset-*)) ─── */
+let visionViewportWas = null;
+function visionViewportCover(on) {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) return;
+  if (on) {
+    if (visionViewportWas === null) visionViewportWas = meta.getAttribute('content') || '';
+    if (!/viewport-fit=cover/.test(visionViewportWas)) meta.setAttribute('content', `${visionViewportWas}, viewport-fit=cover`);
+  } else if (visionViewportWas !== null) {
+    meta.setAttribute('content', visionViewportWas);
+    visionViewportWas = null;
+  }
 }
 
 /** 가로 기본 자료 창이 자막 두 줄에 남겨 두는 높이(px) — .vr-caption 13px × 1.4 × 2 + 아래 여백 */
@@ -681,10 +935,16 @@ function visionSlideBind(layer, { repaint = null } = {}) {
   }
 }
 
+let visionResizeTimer = 0;
 window.addEventListener('resize', () => {
   const host = visionSlideHost();
   const slide = host && host.querySelector('#vrSlide');
   if (slide) visionSlideApply(slide);
+  // 돌려서 자료 칸이 커졌으면 장 그림을 더 크게 다시 그린다 — 지금 장 · 녹음은 그대로
+  clearTimeout(visionResizeTimer);
+  visionResizeTimer = setTimeout(() => {
+    if (document.querySelector('#vrCall #slideImage[data-pdf]') && typeof nf !== 'undefined') visionPdfShow(Number(nf.slide) || 1);
+  }, 250);
 });
 
 /* 조작줄 높이는 녹음 상태·창 폭에 따라 바뀐다(폰에서는 두 줄). 잰 값을 --vr-dock 에 넣어야
@@ -736,10 +996,10 @@ function nfStep3Vision() {
   // 부스 덱은 미리 찍은 장 그림(assets/deck-slides)부터 — iPad 에서 pdf.js 렌더가 안 떴다 (10-06). moveSlideTo 가 #slideImage 를 바꾼다
   const staticSrc = typeof staticSlideSrc === 'function' ? staticSlideSrc(nf.slide) : '';
   const stageInner = staticSrc
-    ? `<img id="slideImage" class="vr-slide-img" src="${staticSrc}" alt="">`
+    ? `<img id="slideImage" class="vr-slide-img" src="${staticSrc}" alt="" draggable="false">`
     : uploadedPdf
-    ? `<canvas id="slidePdfCanvas" class="vr-slide-canvas" aria-label="원본 PDF 슬라이드"></canvas>
-       <div id="slideCardWrap" class="vr-slide-doc" style="display:none"></div>`
+    // 올린 PDF 는 미리 그린 장 그림을 갈아 끼운다 (visionPdfShow) — 같은 canvas 에 장마다 다시 그리면 빨리 넘길 때 앞 장에 머물렀다
+    ? `<img id="slideImage" class="vr-slide-img" data-pdf="1" src="${slidePlaceholder(nf.slide)}" alt="${nf.slide}번 슬라이드" draggable="false">`
     : (bodies && bodies.length
       ? `<div id="slideCardWrap" class="vr-slide-doc">${slideCardHtml(nf.slide, titleAt(nf.slide - 1), bodies[nf.slide - 1])}</div>`
       : `<img id="slideImage" class="vr-slide-img" src="${activeImages()[nf.slide - 1] || ''}" alt="">`);
@@ -771,12 +1031,13 @@ function nfStep3Vision() {
       <footer class="vr-slide-cap">
         <button type="button" class="vr-drag" id="vrSlideDrag" aria-label="발표 자료 옮기기" title="끌어서 옮기기. 두 번 누르면 원래 자리">⠿</button>
         <strong id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</strong>
-        <span id="slideNo" class="num">${nf.slide} / ${nPages}</span>
+        <span id="slideNo" class="num" aria-live="polite">${nf.slide} / ${nPages}</span>
         <label class="vr-alpha">
           <span>불투명도</span>
           <input id="vrSlideAlpha" type="range" min="25" max="100" value="78" aria-label="발표 자료 불투명도">
         </label>
       </footer>
+      <div class="vr-prog" role="progressbar" aria-label="발표 진행" aria-valuemin="1" aria-valuemax="${nPages}" aria-valuenow="${nf.slide}"><i></i></div>
       <p class="vr-caption" id="vrCaption" aria-live="off"></p>
       <button type="button" class="vr-resize" id="vrSlideResize" aria-label="발표 자료 크기 조절"></button>
     </section>
@@ -797,7 +1058,10 @@ function nfStep3Vision() {
   document.body.classList.add('vr-open');
   visionWatchDock(layer);
   visionSlideBind(layer);
-  visionSlideSwipe(layer);
+  visionSlideGestures(layer);
+  visionTurnHint(layer);
+  visionSyncProgress();
+  visionViewportCover(true);
 
   const leave = $('#vrLeave');
   if (leave) leave.addEventListener('click', (e) => {

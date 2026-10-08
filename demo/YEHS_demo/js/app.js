@@ -895,10 +895,14 @@ function onRehearsalKeydown(e) {
   if (nf.step !== 2) return;
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-  if (e.key === 'ArrowLeft') {
+  // 시트(나가기 · 녹음 고르기)가 떠 있으면 장을 넘기지 않는다 — 시트 뒤에서 몰래 넘어갔다
+  if (document.querySelector('#vrCall .bq-sheet-wrap')) return;
+  // 발표용 클리커 · 블루투스 키보드는 PageDown/PageUp 을 보낸다. Space 는 버튼 · 링크에 초점이 있으면 그 버튼 몫이다
+  const onControl = !!(e.target && e.target.closest && e.target.closest('button, a, [role="button"]'));
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
     e.preventDefault();
     moveSlide(-1);
-  } else if (e.key === 'ArrowRight') {
+  } else if (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !onControl && document.getElementById('vrCall'))) {
     e.preventDefault();
     moveSlide(1);
   }
@@ -1861,6 +1865,8 @@ async function renderPdfToCanvas(pageNo, canvas, { maxWidth = 960 } = {}) {
 }
 
 async function paintRehearsalSlide(pageNo) {
+  // 비전 리허설의 올린 PDF — 미리 그린 장 그림을 갈아 끼운다 (vision_rehearsal.js visionPdfShow)
+  if ($('#slideImage[data-pdf]') && typeof visionPdfShow === 'function') { visionPdfShow(pageNo); return; }
   const canvas = $('#slidePdfCanvas');
   const fallback = $('#slideCardWrap');
   if (canvas && uploadedPdf) {
@@ -2638,7 +2644,11 @@ function nfStep3() {
 
 function moveSlide(d) {
   const n = rehearsalCount();
-  moveSlideTo(Math.min(n, Math.max(1, (Number(nf.slide) || 1) + Number(d || 0))));
+  const cur = Number(nf.slide) || 1;
+  const next = Math.min(n, Math.max(1, cur + Number(d || 0)));
+  // 첫 장 · 마지막 장에서 더 갈 곳이 없으면 비전 화면이 그렇다고 보인다 — 눌렀는데 아무 일도 없는 것처럼 보이지 않게 (vision_rehearsal.js)
+  if (next === cur && Number(d || 0) && typeof visionSlideEdge === 'function') visionSlideEdge(Number(d));
+  moveSlideTo(next);
 }
 
 function syncRehearsalNav() {
@@ -2662,6 +2672,7 @@ function moveSlideTo(next) {
     const titles = activeTitles();
     const bodies = activeBodies();
     const titleAt = (i) => titles[i] || `${i + 1}번 슬라이드`;
+    const prevSlide = Number(nf.slide) || 1;
     nf.slide = next;
     saveSession('new-flow', nf);
     const no = $('#slideNo'); if (no) no.textContent = `${next} / ${nPages}`;
@@ -2675,8 +2686,9 @@ function moveSlideTo(next) {
     if (wrap && wrap.style.display !== 'none' && bodies) {
       wrap.innerHTML = slideCardHtml(next, titleAt(next - 1), bodies[next - 1] || '');
     }
+    if (typeof visionSlideTurned === 'function') visionSlideTurned(next, prevSlide);
     const image = $('#slideImage');
-    if (image) {
+    if (image && !image.dataset.pdf) {   // data-pdf 는 paintRehearsalSlide → visionPdfShow 가 채운다
       const images = activeImages();
       image.src = images[next - 1] || '';
       image.alt = `${next}번 슬라이드 · ${titleAt(next - 1)}`;
@@ -2760,6 +2772,8 @@ function bindRecUpload() {
 }
 
 function renderRecPanel() {
+  // 발표하는 동안 화면이 꺼지지 않게 — 비전 리허설에서만 (vision_rehearsal.js visionWakeSync)
+  if (typeof visionWakeSync === 'function') visionWakeSync(nf.mic === 'on');
   const p = $('#recPanel'); if (!p) return;
   p.classList.toggle('is-live', nf.mic === 'on');
   refreshStepBar(); // 녹음 중에는 지나온 단계 버튼을 닫는다

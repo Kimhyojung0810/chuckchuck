@@ -381,6 +381,162 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   .vr-ear { height: 36px; margin-top: 4px; }
 }
 
+/* ═══ 발표 중 장 넘기기 — 폰 · 태블릿 (10-08 사용자 「발표하는 와중에 ppt 슬라이드 넘기는 거 모바일 화면에서 가시화 및 어떻게 잘 설정」) ═══
+   한 화면의 주인공은 자료다. 자료는 늘 같은 자리에 크게(옮기기 · 크기 · 불투명도 손잡이는 접는다), 지금 몇 번째 장인지 · 얼마나 왔는지 늘 보이고,
+   넘기는 버튼은 엄지가 닿는 맨 아래에 크게(56px) 둔다. 「발표 마치기」 는 넘기기 줄과 떨어진 위 줄에 작게 — 넘기려다 발표를 끝내지 않게.
+   자료를 밀거나 양옆 1/3 을 눌러도 넘어간다(js visionSlideGestures). 넘길 때마다 장이 옆으로 들어오고 장 번호가 깜빡인다. */
+
+/* 모든 크기 — 진행 막대는 자료 바로 밑, 장 이름 줄 위 */
+#vrCall .vr-slide-stage { order: 0; }
+#vrCall .vr-prog { order: 1; flex: none; height: 4px; background: rgba(28, 36, 48, .12); }
+#vrCall .vr-prog i { display: block; height: 100%; width: 0; background: var(--brand, #08B879); transition: width 220ms var(--ease, ease); }
+#vrCall .vr-slide-cap { order: 2; }
+#vrCall .vr-caption { order: 3; }
+/* 자료 칸의 몸짓은 전부 이 화면이 받는다 — 브라우저가 가로 · 세로 끌기를 가져가 pointercancel 로 끝나던 것 (위 pan-y 를 덮는다) */
+#vrCall .vr-slide-stage { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#vrCall .vr-slide-stage img { -webkit-user-drag: none; pointer-events: none; }
+#vrCall { touch-action: manipulation; overscroll-behavior: contain; }   /* 두 번 눌러 확대 없음 — 「다음」 을 빨리 두 번 누르면 iOS 가 두 번째를 확대로 먹었다 */
+html:has(body.vr-open), body.vr-open { overscroll-behavior: none; }   /* 당겨서 새로 고침 · 고무줄 끌림이 발표 중에 화면을 흔들지 않게 */
+/* 첫 장 · 마지막 장의 「이전 · 다음」 은 숨기지 않고 흐리게 — 누르면 「첫 장이에요」 · 「마지막 장이에요」 를 말한다 (조용히 아무 일 없음 대신) */
+body #vrCall.vr-call .vr-dock .vr-nav[hidden] { display: inline-flex; visibility: visible; opacity: .45; }
+
+/* 넘기는 순간 — 장이 넘어간 쪽에서 들어온다 · 장 번호가 깜빡인다 · 끝에서는 살짝 흔들린다 */
+@keyframes vrTurnNext { from { transform: translateX(32px); opacity: .3; } to { transform: none; opacity: var(--vr-slide-alpha, 1); } }
+@keyframes vrTurnPrev { from { transform: translateX(-32px); opacity: .3; } to { transform: none; opacity: var(--vr-slide-alpha, 1); } }
+@keyframes vrEdge { 0%, 100% { transform: none; } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+@keyframes vrNoPop { 0% { transform: scale(1.35); color: var(--brand-strong, #0E8850); } 100% { transform: none; } }
+#vrCall .vr-slide-stage.is-turn-next > :is(img, canvas, .vr-slide-doc) { animation: vrTurnNext 220ms cubic-bezier(.22, 1, .36, 1); }
+#vrCall .vr-slide-stage.is-turn-prev > :is(img, canvas, .vr-slide-doc) { animation: vrTurnPrev 220ms cubic-bezier(.22, 1, .36, 1); }
+#vrCall .vr-slide-stage.is-edge > :is(img, canvas, .vr-slide-doc) { animation: vrEdge 260ms ease-in-out; }
+#vrCall #slideNo { display: inline-block; transform-origin: center; }
+#vrCall #slideNo:is(.is-turn-next, .is-turn-prev) { animation: vrNoPop 320ms ease-out; }
+#vrCall .vr-slide-img.is-loading { animation: vrLoad 1.2s ease-in-out infinite; }
+@keyframes vrLoad { 50% { opacity: .55; } }
+
+/* 처음 한 번 — 「밀거나 양옆을 눌러서 넘겨요」 · 끝에서 — 「마지막 장이에요」 */
+#vrCall .vr-turn-hint, #vrCall .vr-edge-tip {
+  position: absolute; left: 50%; bottom: 12px; z-index: 3; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); margin: 0; padding: 8px 14px;
+  border-radius: var(--r-pill, 999px); background: rgba(16, 20, 32, .82); color: #fff;
+  font-size: 14px; font-weight: 700; line-height: 1.35; text-align: center; white-space: nowrap; pointer-events: none;
+}
+#vrCall .vr-turn-hint span { font-size: 20px; line-height: 1; color: var(--cyan, #3fd599); }
+#vrCall .vr-turn-hint { animation: vrHint 1.8s ease-in-out infinite; }
+@keyframes vrHint { 50% { box-shadow: 0 0 0 6px rgba(63, 213, 153, .25); } }
+#vrCall .vr-edge-tip[hidden] { display: none; }
+
+/* 손가락으로 쓰는 화면(아이패드 가로 포함) — 넘기기 버튼을 손가락 크기로 */
+@media (pointer: coarse) {
+  body #vrCall.vr-call .vr-dock .vr-nav { min-height: 52px; height: 52px; padding: 0 22px; font-size: 16px; font-weight: 700; }
+}
+
+/* ── 폰 세로 · 아이패드 세로 ───────────────────────────────────────────── */
+@media (orientation: portrait) and (max-width: 1100px) {
+  body #vrCall.vr-call {
+    --vr-pad: 12px;
+    --vr-st: max(12px, env(safe-area-inset-top, 0px));
+    --vr-sb: max(10px, env(safe-area-inset-bottom, 0px));
+    bottom: auto; height: 100vh; height: 100dvh;
+  }
+  body #vrCall.vr-call .vr-top { top: var(--vr-st); left: var(--vr-pad); right: var(--vr-pad); }
+  body #vrCall.vr-call .vr-fore {
+    top: calc(var(--vr-st) + 44px + 10px); left: var(--vr-pad); right: var(--vr-pad);
+    bottom: calc(var(--vr-dock) + var(--vr-sb) + 10px);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: min(calc((100vw - 2 * var(--vr-pad)) * 9 / 16 + 52px), 70%) minmax(0, 1fr);
+    gap: 10px;
+  }
+  body #vrCall.vr-call .vr-slide-slot { grid-column: 1; grid-row: 1; }
+  body #vrCall.vr-call .vr-gap { display: none; }
+  body #vrCall.vr-call .vr-bird { grid-column: 1; grid-row: 2; }
+  body #vrCall.vr-call .vr-chickbox { width: min(24vw, 15vh, 180px); }
+  /* 자료 창 — 불투명하게(카메라가 글자 뒤로 비치지 않게), 손잡이는 접고 장 이름 · 장 번호만 */
+  body #vrCall.vr-call .vr-slide { --vr-slide-alpha: 1 !important; border-radius: 16px; }
+  body #vrCall.vr-call :is(.vr-drag, .vr-alpha, .vr-resize, .vr-side, .vr-caption) { display: none; }
+  body #vrCall.vr-call .vr-slide-cap { padding: 8px 14px; min-height: 44px; }
+  body #vrCall.vr-call .vr-slide-cap strong { font-size: 15px; }
+  body #vrCall.vr-call #slideNo { font-size: 17px; font-weight: 800; color: #18181B; }
+  /* 조작줄 — 위 줄: 녹음 상태 · 시작/마치기, 아래 줄: 이전 · 다음 (엄지 자리) */
+  body #vrCall.vr-call .vr-dock {
+    left: var(--vr-pad); right: var(--vr-pad); bottom: var(--vr-sb);
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); grid-template-areas: "rec rec" "alt alt" "prev next";
+    gap: 8px; padding: 10px; align-items: stretch;
+  }
+  body #vrCall.vr-call .vr-dock > [data-slide-nav="-1"] { grid-area: prev; }
+  body #vrCall.vr-call .vr-dock > [data-slide-nav="1"] { grid-area: next; }
+  body #vrCall.vr-call .vr-dock > .vr-rec { grid-area: rec; flex-wrap: nowrap; justify-content: space-between; margin: 0; }
+  body #vrCall.vr-call .vr-dock > .rh-rec-finish { grid-area: alt; width: 100%; margin: 0; }
+  body #vrCall.vr-call .vr-dock .vr-nav { width: 100%; height: 56px; min-height: 56px; font-size: 17px; font-weight: 800; gap: 6px; justify-content: center; }
+  body #vrCall.vr-call .vr-dock [data-slide-nav="-1"]::before { content: "‹"; font-size: 24px; line-height: 1; }
+  body #vrCall.vr-call .vr-dock [data-slide-nav="1"]::after { content: "›"; font-size: 24px; line-height: 1; }
+  body #vrCall.vr-call .vr-dock [data-slide-nav="1"] { background: #fff; color: #18181B; border-color: rgba(0, 0, 0, .12); box-shadow: 0 4px 14px rgba(0, 0, 0, .14); }
+  body #vrCall.vr-call .vr-rec .rec-copy { align-items: flex-start; text-align: left; font-size: 14px; }
+  body #vrCall.vr-call .vr-rec .rec-copy p { display: none; }
+  body #vrCall.vr-call .vr-rec .rec-status > div { gap: 8px; }
+  body #vrCall.vr-call .vr-rec .rec-clock { font-size: 20px; }
+  body #vrCall.vr-call .vr-rec #recStart { min-height: 48px; padding: 0 20px; font-size: 16px; }
+  /* 발표 중의 「발표 마치기」 는 작게 · 흰 단추 — 넘기려던 손가락이 발표를 끝내지 않게 */
+  body #vrCall.vr-call .vr-rec #recEnd { min-height: 44px; padding: 0 16px; font-size: 15px; background: rgba(255, 255, 255, .92); color: #18181B; border: 1px solid rgba(0, 0, 0, .16); box-shadow: none; }
+}
+/* 아이패드 세로 — 자리가 넉넉하니 삐약이를 조금 더 크게 */
+@media (orientation: portrait) and (min-width: 700px) and (max-width: 1100px) {
+  body #vrCall.vr-call .vr-chickbox { width: min(22vw, 20vh, 240px); }
+  body #vrCall.vr-call .vr-slide-cap strong { font-size: 17px; }
+}
+
+/* ── 폰 가로 — 자료는 왼쪽에 키 가득, 오른쪽 기둥에 위 단추 · 삐약이 · 조작줄 ───────────── */
+@media (orientation: landscape) and (max-height: 560px) {
+  body #vrCall.vr-call {
+    --vr-pad: 10px;
+    --vr-sl: max(10px, env(safe-area-inset-left, 0px));
+    --vr-sr: max(10px, env(safe-area-inset-right, 0px));
+    --vr-sb: max(8px, env(safe-area-inset-bottom, 0px));
+    --vr-slide-w: min(64vw, calc((100dvh - 2 * var(--vr-pad) - 48px) * 16 / 9));
+    bottom: auto; height: 100vh; height: 100dvh;
+  }
+  body #vrCall.vr-call .vr-fore {
+    top: var(--vr-pad); bottom: var(--vr-sb); left: var(--vr-sl); right: var(--vr-sr);
+    grid-template-columns: var(--vr-slide-w) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: var(--vr-pad);
+  }
+  body #vrCall.vr-call .vr-slide-slot { grid-column: 1; grid-row: 1; }
+  body #vrCall.vr-call .vr-gap { display: none; }
+  body #vrCall.vr-call .vr-bird {
+    grid-column: 2; grid-row: 1; flex-direction: row; align-items: center; justify-content: center; gap: 6px;
+    padding: 52px 0 calc(var(--vr-dock) + 6px);
+  }
+  body #vrCall.vr-call .vr-bird :is(.vr-tag, .vr-ear) { display: none; }
+  body #vrCall.vr-call .vr-line { font-size: 15px; padding: 4px 10px; margin: 0; order: 2; }
+  body #vrCall.vr-call .vr-chickbox { width: min(22vh, 90px); }
+  body #vrCall.vr-call .vr-top {
+    top: var(--vr-pad); left: calc(var(--vr-sl) + var(--vr-slide-w) + var(--vr-pad)); right: var(--vr-sr); gap: 6px; justify-content: flex-end;
+  }
+  body #vrCall.vr-call .vr-top .vr-pill { display: none; }
+  body #vrCall.vr-call .vr-top #vrCamToggle { margin-left: 0; }
+  body #vrCall.vr-call .vr-top .btn.vr-glass { height: 40px; min-height: 40px; padding: 0 12px; font-size: 13px; }
+  body #vrCall.vr-call .vr-hear { left: auto; right: var(--vr-sr); transform: none; top: 58px; max-width: calc(100vw - var(--vr-slide-w) - 3 * var(--vr-pad)); }
+  body #vrCall.vr-call .vr-slide { --vr-slide-alpha: 1 !important; border-radius: 14px; }
+  body #vrCall.vr-call :is(.vr-drag, .vr-alpha, .vr-resize, .vr-side, .vr-caption) { display: none; }
+  body #vrCall.vr-call .vr-slide-cap { padding: 6px 12px; min-height: 40px; }
+  body #vrCall.vr-call #slideNo { font-size: 16px; font-weight: 800; color: #18181B; }
+  body #vrCall.vr-call .vr-dock {
+    left: calc(var(--vr-sl) + var(--vr-slide-w) + var(--vr-pad)); right: var(--vr-sr); bottom: var(--vr-sb);
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "rec rec" "alt alt" "prev next";
+    gap: 6px; padding: 8px; border-radius: 18px;
+  }
+  body #vrCall.vr-call .vr-dock > [data-slide-nav="-1"] { grid-area: prev; }
+  body #vrCall.vr-call .vr-dock > [data-slide-nav="1"] { grid-area: next; }
+  body #vrCall.vr-call .vr-dock > .vr-rec { grid-area: rec; flex-wrap: nowrap; justify-content: space-between; gap: 6px; margin: 0; }
+  body #vrCall.vr-call .vr-dock > .rh-rec-finish { grid-area: alt; width: 100%; margin: 0; height: 40px; min-height: 40px; }
+  body #vrCall.vr-call .vr-dock .vr-nav { width: 100%; height: 52px; min-height: 52px; padding: 0 8px; font-size: 16px; font-weight: 800; }
+  body #vrCall.vr-call .vr-dock [data-slide-nav="1"] { background: #fff; color: #18181B; }
+  body #vrCall.vr-call .vr-rec .rec-copy { display: none; }
+  body #vrCall.vr-call .vr-rec #recStart { width: 100%; min-height: 44px; padding: 0 10px; font-size: 15px; }
+  body #vrCall.vr-call .vr-rec .meter { display: none; }
+  body #vrCall.vr-call .vr-rec .rec-live { font-size: 0; }
+  body #vrCall.vr-call .vr-rec .rec-clock { font-size: 18px; }
+  body #vrCall.vr-call .vr-rec #recEnd { min-height: 40px; padding: 0 12px; font-size: 14px; background: rgba(255, 255, 255, .92); color: #18181B; border: 1px solid rgba(0, 0, 0, .16); box-shadow: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #vrCall .vr-bird[data-cue="listen"] .ch-eye-hi,
   #vrCall .vr-bird[data-cue="listen"] .ch-eyes,
@@ -392,4 +548,6 @@ body.vr-open .sidenav, body.vr-open .topbar { visibility: hidden; }
   #vrCall .vr-bird[data-cue="slow"] .ch-eyes { transform: scaleY(.2); }
   #vrCall .vr-bird[data-cue="slow"] .ch-beak { transform: scale(1.1, 2); }
   .vr-call .btn:active { transform: none; }
+  #vrCall .vr-slide-stage:is(.is-turn-next, .is-turn-prev, .is-edge) > :is(img, canvas, .vr-slide-doc), #vrCall .vr-turn-hint, #vrCall .vr-slide-img.is-loading { animation: none; }
+  #vrCall #slideNo:is(.is-turn-next, .is-turn-prev) { animation: none; color: var(--brand-strong, #0E8850); }
 }
