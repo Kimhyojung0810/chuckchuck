@@ -120,7 +120,9 @@ LAYOUT_JS = """() => {
     .forEach((k) => { flags[k.split(':')[1]] = sessionStorage.getItem(k); });
   return { hash: location.hash, W: innerWidth, H: innerHeight, layer: !!L, screen: L ? L.dataset.screen : null, flow: L ? L.dataset.flow || '' : null,
     variant: L ? L.dataset.variant : null, vision: !!document.getElementById('vrCall'), flags,
-    hscroll: document.documentElement.scrollWidth > innerWidth || (!!L && L.scrollWidth > L.clientWidth)
+    hscroll: document.documentElement.scrollWidth > innerWidth || (!!L && L.scrollWidth > L.clientWidth),
+    wide: [...document.querySelectorAll('#bqStage *, #vrCall *')].filter((e) => { const b = e.getBoundingClientRect(); return b.width && b.right > innerWidth + 1 && getComputedStyle(e).position !== 'fixed'; })
+      .slice(0, 8).map((e) => (e.id ? '#' + e.id : e.tagName.toLowerCase() + '.' + String(e.className || '').split(' ')[0]) + '@' + Math.round(e.getBoundingClientRect().right))
       || [...document.querySelectorAll('#bqStage .bq-body')].some((b) => b.scrollWidth > b.clientWidth + 1),
     overlaps: pairs.filter(([a, b]) => over(a, b)).map(([a, b]) => `${a} × ${b}`),
     cut_off: innerWidth <= 900 || !L ? [] : [...L.querySelectorAll('button')].filter((b) => b.offsetParent).filter((b) => { const q = b.getBoundingClientRect();
@@ -149,14 +151,15 @@ class _Until(Exception):
     """--until 에서 멈춘다"""
 
 
-def deck_audio(deck: str, sec: int) -> Path | None:
+def deck_audio(deck: str, sec: int, src: Path | None = None) -> Path | None:
     name = DECK_AUDIO.get(deck)
-    src = ROOT / "ppt" / deck / name if name else None
+    if src is None:
+        src = ROOT / "ppt" / deck / name if name else None
     ff = B.__dict__.get("find_ffmpeg")
     ff = (ff() if ff else None) or next((str(p) for p in [Path.home() / ".local/bin/ffmpeg"] if p.exists()), None)
     if not src or not src.exists() or not ff:
         return None
-    dst = OUT / f"{deck}_{sec}s.wav"
+    dst = OUT / f"{deck}_{src.stem}_{sec}s.wav"
     if not dst.exists():
         OUT.mkdir(parents=True, exist_ok=True)
         subprocess.run([ff, "-y", "-loglevel", "error", "-t", str(sec), "-i", str(src), "-ac", "1", "-ar", "48000", "-sample_fmt", "s16", str(dst)], check=True)
@@ -217,7 +220,7 @@ def run(args) -> Path:
         cam = B.plain_cam(B.OUT / "whitecam.mjpeg", (246, 246, 242))
     elif args.cam == "dark":
         cam = B.plain_cam(B.OUT / "darkcam.mjpeg", (22, 24, 28))
-    audio = deck_audio(args.deck, args.rec_sec + 30)
+    audio = deck_audio(args.deck, args.rec_sec + 30, Path(args.audio) if args.audio else None)
     R: dict = {"args": vars(args), "audio": str(audio) if audio else None, "stages": {}, "layout": {}, "console": [], "requests": [],
                "contrast": {}, "turns": [], "flags": {}}
     state: dict = {"judge_calls": 0, "judge_log": []}
@@ -232,8 +235,12 @@ def run(args) -> Path:
             flags.append(f"--use-file-for-fake-audio-capture={audio}")
         b = p.chromium.launch(args=flags)
         ctx = b.new_context(viewport={"width": VW, "height": VH}, device_scale_factor=args.dpr, locale="ko-KR",
-                            permissions=["camera", "microphone"])
+                            permissions=["camera", "microphone"], is_mobile=args.mobile, has_touch=args.mobile)
         ctx.add_init_script(FAKE_SPEECH_JS)
+        if args.no_chatter:
+            # 객석 삐약이(실 LLM 넷)는 막는다 — 리포트 객석은 결석으로 보인다 (과금 절약)
+            ctx.route("**/api/v1/chatter", lambda route: route.fulfill(
+                status=503, content_type="application/json", body='{"error":"lab_no_chatter","message":"실험실 — 객석 호출 막음"}'))
         page = ctx.new_page()
         page.on("console", lambda m: R["console"].append(f"{m.type}: {m.text}"[:300])
                 if m.type == "error" or (m.type == "warning" and "GL Driver" not in m.text) else None)
@@ -300,7 +307,13 @@ def run(args) -> Path:
         def rehearse() -> None:
             # ── 2. 비전 리허설 ────────────────────────────────────────────
             t0 = time.time()
-            page.click(f"#bqStage .bq-deck[data-deck='{args.deck}']")
+            if args.upload:
+                # 공개 방문자 — 내 자료 올리기 (10-08: 공개 리허설은 시연 덱 없이 올린 자료로만)
+                page.set_input_files("#rhUpFile", args.upload)
+                page.wait_for_timeout(1200)
+                shot("upload_busy")
+            else:
+                page.click(f"#bqStage .bq-deck[data-deck='{args.deck}']")
             # 어떤 발표인가요 — 추정(F-23)이 골라 둔 상황이 있으면 그대로, 없으면 --occ 를 누른다
             page.wait_for_selector("#bqStage[data-screen='occ'] #rhGoVision", timeout=60000)
             page.wait_for_timeout(600)
@@ -550,7 +563,7 @@ def run(args) -> Path:
             # ── 1. 발표 고르기 ─────────────────────────────────────────────
             t0 = time.time()
             page.goto(f"{args.base}/rehearsal", wait_until="load")
-            page.wait_for_selector("#bqStage[data-flow='rehearsal'][data-screen='pick'] .bq-deck[data-deck]", timeout=30000)
+            page.wait_for_selector("#bqStage[data-flow='rehearsal'][data-screen='pick'] " + ("#rhUpPick" if args.upload else ".bq-deck[data-deck]"), timeout=30000)
             try:
                 page.wait_for_function("[...document.querySelectorAll('#bqStage .bq-cover canvas')].every(c => c.parentElement.classList.contains('ready'))", timeout=40000)
             except Exception:  # noqa: BLE001
@@ -596,7 +609,7 @@ def run_reload(args) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     VW, VH = (int(x) for x in args.viewport.split("x"))
     cam = B.face_cam(B.OUT / "facecam.mjpeg")
-    audio = deck_audio(args.deck, args.rec_sec + 30)
+    audio = deck_audio(args.deck, args.rec_sec + 30, Path(args.audio) if args.audio else None)
     R: dict = {"args": vars(args), "checks": {}, "console": []}
     state: dict = {"judge_calls": 0, "judge_log": []}
     with sync_playwright() as p:
@@ -724,7 +737,7 @@ def summarize(out: Path) -> None:
             if L.get(k):
                 bad.append(f"{tag}: {k}={L[k]}")
         if L.get("hscroll"):
-            bad.append(f"{tag}: 가로 넘침")
+            bad.append(f"{tag}: 가로 넘침 {L.get('wide') or ''}")
     errs = [c for c in R.get("console", []) if c.startswith(("error", "pageerror"))]
     if R.get("contrast"):
         allv = [(t, s, v) for t, d in R["contrast"].items() for s, v in d.items()]
@@ -770,6 +783,10 @@ def main() -> int:
     ap.add_argument("--take", type=int, default=0, help="녹음 파일로 대신할 때 고를 녹음 (0 = 1번, 1 = 2번 — 부스 세트는 주제마다 둘)")
     ap.add_argument("--reload", action="store_true")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--upload", default="", help="공개 방문자처럼 이 자료(PDF · PPTX)를 올려서 시작한다 (시연 덱 대신)")
+    ap.add_argument("--audio", default="", help="가짜 마이크로 흘릴 녹음 파일 (기본: ppt/<덱>/ 의 녹음)")
+    ap.add_argument("--mobile", action="store_true", help="폰처럼 — is_mobile · has_touch")
+    ap.add_argument("--no-chatter", action="store_true", help="객석 삐약이(/api/v1/chatter, 실 LLM 넷)를 막는다")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
     t = time.time()
