@@ -168,7 +168,9 @@ function rehearsalFlowOnRoute(key, hash = location.hash) {
     rehearsalTeardown({ keepVision: key === 'vision' });
     return;
   }
-  if (key === 'report') { rehearsalTeardown({ keepFlow: true }); rhReportIdleArm(); return; }
+  // 자리 비움 되돌리기는 부스(팀 브라우저 · 오프라인 부스)만 — 공개 방문객은 자기 리포트를 읽다가 1분 손을 안 대면
+  // 올리기 화면으로 밀려나고 기록에서도 리포트가 빠졌다 (10-08)
+  if (key === 'report') { rehearsalTeardown({ keepFlow: true }); if (rehearsalDemoOn()) rhReportIdleArm(); else rhReportIdleDisarm(); return; }
   if (key === 'qa') rhHandCamera();
 }
 
@@ -223,7 +225,7 @@ function rhReportIdleTick() {
     document.body.appendChild(box);
     box.querySelector('#rhIdleStay').focus({ preventScroll: true });
   }
-  box.querySelector('#rhIdleText').textContent = `${left}초 뒤 처음 화면(발표 고르기)으로 돌아가요`;
+  box.querySelector('#rhIdleText').textContent = `${left}초 뒤 처음 화면(${rhStepWord(RH_STEPS[0])})으로 돌아가요`;
 }
 
 /** route() 가 그리기 직전에 — 리허설 탭에서 #/rehearsal/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 리허설 자리로. true 면 route() 가 멈춘다 */
