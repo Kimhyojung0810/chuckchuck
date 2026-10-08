@@ -620,8 +620,15 @@ def _multipart_files(raw: bytes, boundary: bytes) -> list[tuple[str, bytes]]:
         if content.endswith(b"\r\n"):
             content = content[:-2]
         m = re.search(r'filename="([^"]+)"', header.decode(errors="ignore"))
-        files.append((m.group(1) if m else "upload.pdf", content))
+        files.append((_form_filename(m.group(1)) if m else "upload.pdf", content))
     return files
+
+
+def _form_filename(name: str) -> str:
+    """브라우저가 multipart filename 에 적은 이름을 사람이 붙인 이름으로 되돌린다. HTML 표준대로 크롬 · 사파리는 큰따옴표를
+    %22, 줄바꿈을 %0A · %0D 로 적는다 — 그대로 두면 「내 발표 "최종".pdf」 가 기록 제목에 「%22최종%22」 로 남았다 (10-08).
+    `%` 자체는 적지 않으므로 전체 unquote 는 하지 않는다 (진짜 「100%.pdf」 를 망친다). 줄바꿈은 빈칸으로."""
+    return re.sub(r"%0[aAdD]", " ", name.replace("%22", '"')).strip() or "upload.pdf"
 
 
 #: OLE 복합 문서(CFB) 머리 — 암호를 건 Office 파일(EncryptedPackage) · 사내 보안(DRM) 포장 · 예전 .ppt

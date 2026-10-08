@@ -119,6 +119,15 @@ def _fake_parse(monkeypatch) -> None:
     monkeypatch.setattr(bridge, "parse_document", parse)
 
 
+def test_파일_이름의_큰따옴표는_브라우저가_적은_퍼센트를_되돌린다():
+    """10-08: 크롬이 filename 의 " 를 %22 로 적어 기록 제목에 「%22최종%22」 가 남았다. 진짜 % 는 그대로."""
+    raw = ('--x\r\nContent-Disposition: form-data; name="document"; filename="내 발표 🎤 %22최종%22 (2).pdf"\r\n'
+           '\r\n%PDF-1.4 a\r\n--x\r\nContent-Disposition: form-data; name="document"; filename="100%.pdf"\r\n'
+           '\r\n%PDF-1.4 b\r\n--x--\r\n').encode("utf-8")
+    assert [n for n, _ in bridge._multipart_files(raw, b"x")] == ['내 발표 🎤 "최종" (2).pdf', "100%.pdf"]
+    assert bridge._form_filename("a%0Ab.pdf") == "a b.pdf"
+
+
 def test_잠긴_Office_파일은_다시_저장하라고_하지_않고_잠금을_말한다(archive):
     """10-08: 비밀번호 · DRM PPTX(OLE/CFB 상자)가 「손상됐거나 PDF·PPTX 가 아니에요 · 다시 저장」 을 받아 같은 자리를 돌았다."""
     cfb = bytes.fromhex("D0CF11E0A1B11AE1") + b"\x00" * 64 + "EncryptedPackage".encode("utf-16-le")
