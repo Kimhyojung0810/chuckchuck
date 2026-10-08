@@ -370,7 +370,7 @@ export async function buildGraph({ concepts, slideDoc, context, sessionId = null
  *   "없음"으로 읽고 같은 호출을 한 번 더 결제했을 것이다. await 하면 진행 중인 호출에 붙는다.
  *   reject 되면 조용히 원래 경로로 되돌아간다.
  */
-export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null, reuse = false, sessionId = null }) {
+export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null, reuse = false, sessionId = null, marksSource = '' }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -401,6 +401,8 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
       // 자료를 같이 보내면 서버가 발화 내용으로 슬라이드 구간을 되짚는다 (F-04 파생).
       // 업로드본은 전환 기록이 없어 marks 가 균등 분할이라, 그대로 두면 어긋난다.
       slidedoc: slideDoc || null,
+      // 'live' = 발표하며 넘긴 실제 전환 기록 — 서버가 추정으로 덮지 않는다. 'even' = 업로드 녹음의 균등 분할 (10-08)
+      marks_source: marksSource || undefined,
     }),
   });
   const transcript = await readJson(sttRes, '받아쓰기');

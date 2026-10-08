@@ -4774,6 +4774,8 @@ function nfStep4() {
     // slideDoc 이 없으면 F-06 이후가 통째로 안 돈다. 캐시에서 먼저 되살린다.
     ensureSlideDoc().then((slideDoc) => window.ChuckchuckBridge.runPreparePipeline({
       marks: ccLastTake.marks,
+      // 직접 발표한 테이크면 실제 전환 기록 — 서버가 F-04 추정으로 덮지 않게 알린다. 녹음 파일로 대신했으면 균등 분할
+      marksSource: nf.uploadedTake ? 'even' : 'live',
       blob: ccLastTake._blob,
       mimeType: ccLastTake.mimeType,
       fileName: ccLastTake.fileName || '',

@@ -469,6 +469,68 @@ def prior_answers_from(body: dict) -> list[str]:
     return [str(a) for a in (body.get("prior_answers") or []) if str(a).strip()]
 
 
+def _marks_look_even(marks: list, n_slides: int) -> bool:
+    """프런트가 업로드본에 합성하는 균등 분할(evenSlideMarks)처럼 생겼나 — 1..n 장을 한 번씩, 길이가 모두 같다.
+    직접 발표하며 넘긴 기록은 이렇게 고르게 나오지 않는다."""
+    if n_slides < 2 or len(marks) != n_slides:
+        return False
+    if [m.slide_no for m in marks] != list(range(1, n_slides + 1)) or any(int(m.visit or 1) != 1 for m in marks):
+        return False
+    spans = [float(m.end_sec) - float(m.start_sec) for m in marks]
+    head = spans[:-1] or spans   # 끝 장은 반올림 · 남는 꼬리를 먹는다
+    return max(head) - min(head) <= max(0.6, 0.03 * max(head))
+
+
+def _marks_are_live(marks: list, n_slides: int, source) -> bool:
+    """이 marks 가 발표하며 넘긴 실제 기록인가. 프런트가 marks_source 로 말하면 그 말을, 없으면(옛 화면) 모양으로 가린다."""
+    src = str(source or "").strip().lower()
+    if src == "live":
+        return True
+    if src in {"even", "upload", "synthetic"}:
+        return False
+    return bool(marks) and not _marks_look_even(marks, n_slides)
+
+
+def _resegment_transcript(out: dict, t, slidedoc, marks: list, source=None) -> None:
+    """
+    F-04 파생 — 업로드 녹음(균등 분할 marks)이면 발화 내용으로 슬라이드 구간을 되짚어 out 의 by_slide · marks 를 바꾼다.
+
+    직접 발표한 녹음(실제 전환 기록)은 **바꾸지 않는다** (10-08). 예전엔 자료만 같이 오면 무조건 추정값으로 덮어서,
+    폰에서 열심히 넘긴 전환 시각이 내용 추정으로 바뀌었다 — 분석 · 질문이 「몇 번 장을 보며 무엇을 말했나」 를 추정 위에서 읽었다.
+    그래도 「아예 다른 발표」 판정(match)은 실제 기록에도 쓸모가 있어 그대로 계산해 알린다. 과금 호출은 없다.
+    """
+    if not slidedoc or not t.words:
+        return
+    from chuckchuck.contracts import SlideDoc
+    from chuckchuck.f04_infer_marks import infer_slide_marks
+    from chuckchuck.f05_stt import split_by_slide
+
+    doc = SlideDoc.from_dict(slidedoc) if isinstance(slidedoc, dict) else slidedoc
+    got = infer_slide_marks(doc, t.words, t.duration_sec)
+    live = _marks_are_live(marks, len(doc.slides), source)
+    out["marks_source"] = "live" if live else "even"
+    out["marks_confidence"] = got.confidence
+    # 「구간을 못 맞췄다」 와 「아예 다른 파일」 은 다른 사실이다 — 화면이 후자를 경고로 세우려면 판정값이 필요하다
+    out["marks_match"] = got.match
+    if live:
+        out["marks_estimated"] = False
+        out["marks_reason"] = (
+            "녹음이 이 발표 자료와 다른 내용으로 보여요. 다른 발표를 했는지 확인해 주세요. 슬라이드 구간은 발표하며 넘긴 기록 그대로예요."
+            if got.match == "unrelated" else "발표하며 넘긴 기록대로 슬라이드 구간을 나눴어요."
+        )
+    else:
+        if got.estimated:
+            out["by_slide"] = [s.to_dict() for s in split_by_slide(t.words, got.marks)]
+            out["marks"] = [m.to_dict() for m in got.marks]
+        # 추정했든 물러섰든 사실대로 알린다 — 화면이 「추정값」을 표시해야 한다
+        out["marks_estimated"] = got.estimated
+        out["marks_reason"] = got.reason
+    sys.stderr.write(
+        f"[bridge] F-04 구간 source={out['marks_source']} estimated={out['marks_estimated']} "
+        f"match={got.match} confidence={got.confidence}\n"
+    )
+
+
 def _safe_audio_ext(raw: str | None) -> str:
     """
     클라이언트가 준 확장자를 임시 파일 suffix 로 쓰기 전에 좁힌다.
@@ -3027,32 +3089,9 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                     _stage_cache_put("transcribe", stt_key, t.to_dict())
             out = t.to_dict()
 
-            # 업로드본에는 슬라이드 전환 기록이 없어 프런트가 균등 분할 marks 를
-            # 보낸다. 그대로 두면 엉뚱한 발화가 엉뚱한 슬라이드에 붙는다.
-            # 자료를 같이 받았으면 발화 내용으로 구간을 되짚는다 (F-04 파생).
-            # STT 는 이미 끝났으므로 재분할만 한다 — 과금 호출이 늘지 않는다.
-            slidedoc = body.get("slidedoc")
-            if slidedoc and t.words:
-                from chuckchuck.contracts import SlideDoc
-                from chuckchuck.f04_infer_marks import infer_slide_marks
-                from chuckchuck.f05_stt import split_by_slide
-
-                doc = SlideDoc.from_dict(slidedoc) if isinstance(slidedoc, dict) else slidedoc
-                got = infer_slide_marks(doc, t.words, t.duration_sec)
-                if got.estimated:
-                    out["by_slide"] = [s.to_dict() for s in split_by_slide(t.words, got.marks)]
-                    out["marks"] = [m.to_dict() for m in got.marks]
-                # 추정했든 물러섰든 사실대로 알린다 — 화면이 「추정값」을 표시해야 한다
-                out["marks_estimated"] = got.estimated
-                out["marks_confidence"] = got.confidence
-                out["marks_reason"] = got.reason
-                # "구간을 못 맞췄다" 와 "아예 다른 파일을 올렸다" 는 다른 사실이다.
-                # 화면이 후자를 경고로 세우려면 문장이 아니라 판정값이 필요하다.
-                out["marks_match"] = got.match
-                sys.stderr.write(
-                    f"[bridge] F-04 구간 추정 estimated={got.estimated} "
-                    f"confidence={got.confidence}\n"
-                )
+            # 업로드본에는 슬라이드 전환 기록이 없어 프런트가 균등 분할 marks 를 보낸다 — 자료를 같이 받았으면
+            # 발화 내용으로 구간을 되짚는다 (F-04 파생, 과금 없음). 직접 발표한 녹음의 실제 전환 기록은 덮지 않는다 (_resegment_transcript).
+            _resegment_transcript(out, t, body.get("slidedoc"), marks, body.get("marks_source"))
             # 재분할까지 끝난 뒤에 저장한다 — 저장본을 그대로 다시 쓸 때 화면이
             # 방금 본 것과 같아야 한다. mock 결과는 남기지 않는다 (남의 자료를
             # 내 녹음으로 착각하게 만드는 것과 같은 종류의 거짓이다).
