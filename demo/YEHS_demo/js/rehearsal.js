@@ -1326,6 +1326,9 @@ function rehearsalWaitSync() {
     // 화상판으로 돌아가면 자동 받아쓰기가 다시 켠다
     if (typeof bcAutoCancelSend === 'function') { try { bcAutoCancelSend(); } catch (_) { /* 화상판이 없다 */ } }
     if (typeof bqStopMic === 'function') bqStopMic();
+    // 「화상판으로 들어가요」 0.9초 사이에 뒤로 갔다 오면 그 타이머는 rhMount 의 bqClearTimers 로 지워져 rhEntering 이 true 로 남았고,
+    // 다시 세운 기다림이 저절로 들어가지도 「질문에 이어서 답하기」 를 띄우지도 않아 「나가기」 만 남았다 (10-08). 새 층은 새로 센다
+    bq.rhEntering = false;
     rhMount('wait', rhWaitHtml(), { keepApp: true }).dataset.take = take;
     // 화상판에 들어가 본 적이 있으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만.
     // 질문이 있다는 것만으로는 아니다 — 들어가기 직전(「화상판으로 들어가요」 0.9초)에 새로고침하거나 기다림에서 뒤로 갔다 오면
