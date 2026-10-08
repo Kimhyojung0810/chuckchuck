@@ -620,13 +620,15 @@ function visionSlideGestures(layer) {
   stage.addEventListener('pointerdown', (e) => {
     if (e.isPrimary) { down.clear(); multi = false; }   // 새 몸짓의 첫 손가락 — 놓친 pointerup 이 남긴 것을 비운다
     down.add(e.pointerId);
-    try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 이미 놓였다 */ }
+    // 단추(‹ › · 손잡이) 위에서 누른 것은 붙잡지 않는다 — 붙잡으면 크롬이 click 을 단추가 아니라 판(stage)에 보내
+    // 마우스 · 트랙패드로 ‹ › 를 눌러도 장이 안 넘어갔다 (10-08, 52ab369 꼬집기 수정의 회귀)
+    const onCtl = !!(e.target.closest && e.target.closest('button, a, input'));
+    if (!onCtl) { try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 이미 놓였다 */ } }
     if (down.size > 1) { multi = true; start = null; return; }
     if (multi) return;
     if (e.button != null && e.button > 0) return;
-    if (e.target.closest('button, a, input')) { start = null; return; }
+    if (onCtl) { start = null; return; }
     start = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), type: e.pointerType };
-    try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 이미 놓였다 */ }
   });
   stage.addEventListener('pointerup', (e) => {
     lift(e);
