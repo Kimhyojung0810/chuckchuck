@@ -609,13 +609,27 @@ function visionSlideGestures(layer) {
   const stage = layer.querySelector('#vrSlide .vr-slide-stage');
   if (!stage) return;
   let start = null;
+  // 지금 눌린 손가락들 — 두 손가락(확대하려는 꼬집기)이 한 번이라도 닿은 몸짓은 다 뗄 때까지 장을 넘기지 않는다.
+  // 예전엔 두 번째 손가락이 첫 손가락 자리를 덮어 그 손가락의 가로 이동이 밀기로 읽혀 장이 넘어갔다 (10-08)
+  const down = new Set();
+  let multi = false;
+  const lift = (e) => {
+    down.delete(e.pointerId);
+    if (!down.size) multi = false;
+  };
   stage.addEventListener('pointerdown', (e) => {
+    if (e.isPrimary) { down.clear(); multi = false; }   // 새 몸짓의 첫 손가락 — 놓친 pointerup 이 남긴 것을 비운다
+    down.add(e.pointerId);
+    try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 이미 놓였다 */ }
+    if (down.size > 1) { multi = true; start = null; return; }
+    if (multi) return;
     if (e.button != null && e.button > 0) return;
     if (e.target.closest('button, a, input')) { start = null; return; }
     start = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), type: e.pointerType };
     try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 이미 놓였다 */ }
   });
   stage.addEventListener('pointerup', (e) => {
+    lift(e);
     if (!start || e.pointerId !== start.id) return;
     const s = start;
     start = null;
@@ -634,7 +648,7 @@ function visionSlideGestures(layer) {
       else if (at <= 1 / 3) visionTurn(-1, 'tap');
     }
   });
-  stage.addEventListener('pointercancel', () => { start = null; });
+  stage.addEventListener('pointercancel', (e) => { lift(e); start = null; });
   // 자료 그림을 끌면 브라우저가 그림 끌기(드래그 앤 드롭)를 시작해 몸짓을 빼앗았다 — 막는다
   stage.addEventListener('dragstart', (e) => e.preventDefault());
 }
