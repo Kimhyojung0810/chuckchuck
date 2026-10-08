@@ -99,6 +99,9 @@ async function visionCamEnsure() {
   }).then((s) => {
     visionCam.stream = s;
     visionCam.error = '';
+    // 카메라를 뽑거나 다른 앱이 가져가면 트랙이 끝난다 — 화상판(bqCamLost)처럼 「카메라 켜기」 로 바꾸고 까닭을 말한다.
+    // 예전엔 검은 화면에 「카메라 끄기」 가 그대로였고, 다시 켜려면 두 번 눌러야 했다 (10-08)
+    s.getVideoTracks().forEach((t) => t.addEventListener('ended', () => visionCamLost(s)));
     return s;
   }).catch((err) => {
     visionCam.stream = null;
@@ -111,6 +114,14 @@ async function visionCamEnsure() {
   return visionCam.opening;
 }
 
+function visionCamLost(s) {
+  if (visionCam.stream !== s || visionCam.off) return;
+  s.getTracks().forEach((t) => t.stop());
+  visionCam.stream = null;
+  visionCam.error = '카메라 연결이 끊겼어요. 카메라를 다시 꽂고 「카메라 켜기」를 눌러요.';
+  visionCamPaint();
+}
+
 function visionCamStop() {
   if (visionCam.stream) visionCam.stream.getTracks().forEach((t) => t.stop());
   visionCam.stream = null;
@@ -121,7 +132,8 @@ function visionCamPaint() {
   const self = $('#vrSelf');
   const note = $('#vrSelfNote');
   const btn = $('#vrCamToggle');
-  const live = !!visionCam.stream && !visionCam.off;
+  // 끝난 트랙(ended 사건 없이 멈춘 것 포함)은 켜진 것이 아니다
+  const live = !!visionCam.stream && !visionCam.off && visionCam.stream.getVideoTracks().some((t) => t.readyState === 'live');
   if (video && video.srcObject !== (live ? visionCam.stream : null)) {
     video.srcObject = live ? visionCam.stream : null;
     if (live) video.play().catch(() => {});
@@ -139,7 +151,8 @@ function visionCamPaint() {
 }
 
 function visionCamToggle() {
-  if (visionCam.stream && !visionCam.off) {
+  const live = !!visionCam.stream && visionCam.stream.getVideoTracks().some((t) => t.readyState === 'live');
+  if (live && !visionCam.off) {
     visionCam.off = true;
     visionCamStop();
     visionCamPaint();
