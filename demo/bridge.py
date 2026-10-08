@@ -258,6 +258,8 @@ GATE = shield.PaidGate(capacity=PAID_CONCURRENCY, reserved=TEAM_RESERVED)
 #: 공개(팀 아님) 과금 호출의 시간당 천장 — 크레딧 지갑을 지키는 마지막 줄. 0 이면 끈다.
 PAID_PER_HOUR = shield.env_int("DEMO_PAID_PER_HOUR", 1500)
 SPEND = RateLimiter(limit=PAID_PER_HOUR, window_sec=3600.0)
+#: 외부 호출 전에 본문 검사로 돌려보내는 응답 — 시간당 천장에서 되돌린다 (_handle_paid)
+SPEND_REFUND_STATUS = frozenset({400, 404, 409, 413, 415})
 #: 시간당 천장에 세지 않는 과금 경로 — F-25 기억은 외부 호출이 없다 (디스크만 훑는다, 분당 상한은 그대로)
 SPEND_EXEMPT = frozenset({"/api/v1/memory"})
 
@@ -2017,7 +2019,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         try:
             if waited >= 0.05:
                 EVENTS.add("queued")
-            if not trusted and PAID_PER_HOUR > 0 and parsed.path not in SPEND_EXEMPT and not SPEND.allow("public"):
+            counted = not trusted and PAID_PER_HOUR > 0 and parsed.path not in SPEND_EXEMPT
+            if counted and not SPEND.allow("public"):
                 wait = max(60, SPEND.retry_after("public"))
                 EVENTS.add("budget_503")
                 SHIELD_LOG.write("budget", f"시간당 천장 {PAID_PER_HOUR}회 도달 — 공개 과금 요청을 503 으로 돌려보냄 {parsed.path}")
@@ -2025,7 +2028,15 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
                 return self._json(503, {"error": "budget_exceeded", "busy": True, "retry_after": wait,
                                         "message": f"지금 이용이 많아 잠시 쉬어 가요. {-(-wait // 60)}분쯤 뒤에 다시 시도해 주세요."})
             EVENTS.add("paid_ok")
-            return self._route_post(parsed, raw)
+            self._sent_status = None
+            try:
+                return self._route_post(parsed, raw)
+            finally:
+                # 본문 검사에서 돌려보낸 요청(빈 {} 의 400 · 너무 큰 파일 413 …)은 외부 호출을 하지 않았다 — 천장에서 되돌린다.
+                # 안 그러면 싼 잘못된 요청 몇 번으로 모든 방문자의 시간당 천장이 바닥난다 (10-08). 502/503(외부 실패)
+                # · 422(받아쓰기를 한 뒤의 no_speech)는 이미 돈이 나갔으니 그대로 센다.
+                if counted and getattr(self, "_sent_status", None) in SPEND_REFUND_STATUS:
+                    SPEND.refund("public")
         finally:
             GATE.release(trusted)
 
@@ -3986,6 +3997,10 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(data)
+
+    def send_response(self, code, message=None):
+        self._sent_status = code
+        super().send_response(code, message)
 
     def send_header(self, keyword, value):
         if keyword.lower() == "cache-control":

@@ -334,6 +334,22 @@ def test_시간당_천장을_넘으면_공개만_503(sh, monkeypatch):
     assert post("/api/v1/questions", public("203.0.113.9")).last[0] == 200
 
 
+def test_본문이_틀려_돌려보낸_요청은_시간당_천장을_쓰지_않는다(sh, monkeypatch):
+    """10-08: 빈 {} 의 400 다섯 번으로 공개 천장(5)이 바닥나 다른 방문자의 판정까지 503 이던 것."""
+    clock, _, _ = sh
+    monkeypatch.setattr(bridge, "SPEND", RateLimiter(limit=2, window_sec=3600, clock=clock))
+
+    def route(self, parsed, raw):
+        self._sent_status = 400 if json.loads(raw or b"{}") == {} else 200   # 실제 _json → send_response 가 남기는 값
+        return self._json(self._sent_status, {"ok": self._sent_status == 200})
+    monkeypatch.setattr(bridge.Handler, "_route_post", route)
+
+    assert [post("/api/v1/chatter", public(ATTACKER)).last[0] for _ in range(5)] == [400] * 5
+    ok = {"graph": {"nodes": []}}
+    assert [post("/api/v1/qa/judge", public(f"203.0.113.{i}"), ok).last[0] for i in range(2)] == [200, 200]
+    assert post("/api/v1/qa/judge", public("203.0.113.9"), ok).last[1]["error"] == "budget_exceeded"   # 진짜 일만 센다
+
+
 # ─── 6. 표가 끝없이 자라지 않는다 ─────────────────────────────────────────────
 
 

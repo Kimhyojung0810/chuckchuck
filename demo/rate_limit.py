@@ -54,6 +54,15 @@ class RateLimiter:
             hits.append(now)
             return True
 
+    def refund(self, key: str) -> None:
+        """방금 센 한 번을 되돌린다 — 통과시켰지만 실제로는 일을 하지 않은 요청(본문이 틀려 4xx 로 돌려보낸 것)."""
+        if self.limit <= 0:
+            return
+        with self._lock:
+            hits = self._hits.get(key)
+            if hits:
+                hits.pop()
+
     def retry_after(self, key: str) -> int:
         """다음 요청까지 남은 초. 429 응답의 안내 문구에 쓴다."""
         if self.limit <= 0:
