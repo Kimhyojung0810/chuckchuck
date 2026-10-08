@@ -84,9 +84,11 @@ export const MIC_LABEL = {
   transcribing: '받아쓰는 중',
 };
 
-/** 받아쓰기 붓의 시작점. 이미 쳐 놓은 글은 기준선으로 잡아 둔다. */
+/** 받아쓰기 붓의 시작점. 이미 쳐 놓은 글은 기준선으로 잡아 둔다.
+ *  painted 를 지금 입력창 값으로 시작한다 — null 로 두면 첫 조각이 오기 전에 친 글을 손댄 것으로 못 보고 첫 조각이 지웠다 (10-08).
+ *  said 는 마지막으로 그린 받아쓰기의 길이, from 은 기준선을 다시 잡은 때의 said(그 앞의 말은 이미 입력창에 들어 있다). */
 export function newPen(current) {
-  return { base: (current || '').trim(), painted: null };
+  return { base: (current || '').trim(), painted: current || '', from: 0, said: 0 };
 }
 
 /**
@@ -95,14 +97,18 @@ export function newPen(current) {
  * 중간 결과가 올 때마다 입력창을 통째로 다시 쓰므로, 우리가 마지막으로 쓴 값(painted)과
  * 지금 값(current)이 다르면 그 사이에 사용자가 타이핑한 것이다 — 그 글자를 새 기준선으로
  * 삼는다. 안 그러면 말하는 도중에 친 글이 다음 조각에 지워진다.
+ * spoken 은 마이크를 켠 뒤 말한 것 전부라, 기준선을 다시 잡으면 이미 입력창에 들어간 앞말(from 까지)은 빼고 잇는다 —
+ * 안 빼면 고친 뒤 다음 조각에 앞말이 한 번 더 붙었다 (10-08).
  * 붓은 바꾸지 않고 새 붓을 돌려준다.
  */
 export function paintDictation(pen, current, spoken) {
   let base = pen.base;
-  if (pen.painted !== null && current !== pen.painted) base = (current || '').trim();
-  const said = (spoken || '').trim();
+  let from = pen.from || 0;
+  if (current !== pen.painted) { base = (current || '').trim(); from = pen.said || 0; }
+  const raw = spoken || '';
+  const said = raw.slice(from).trim();
   const value = base && said ? `${base} ${said}` : (base || said);
-  return { pen: { base, painted: value }, value };
+  return { pen: { base, painted: value, from, said: raw.length }, value };
 }
 
 /** 받아쓴 문장을 기존 글 뒤에 잇는다. 채워만 주고 보내지는 않는다. */

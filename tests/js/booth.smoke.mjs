@@ -113,14 +113,24 @@ test('받아쓰기: 이미 쳐 놓은 글 뒤에 말이 붙고, 중간 결과는
 test('받아쓰기: 말하는 도중 사용자가 친 글자는 지우지 않는다 (새 기준선)', () => {
   let r = L.paintDictation(L.newPen(''), '', '안녕');
   eq(r.value, '안녕');
-  // 사용자가 입력창을 손댔다 — painted 와 다르다
+  // 사용자가 입력창을 손댔다 — painted 와 다르다. 이미 입력창에 들어간 앞말(「안녕」)은 다시 붙이지 않는다
   r = L.paintDictation(r.pen, '안녕하세요 (수정)', '안녕 저는');
-  eq(r.value, '안녕하세요 (수정) 안녕 저는');
+  eq(r.value, '안녕하세요 (수정) 저는');
+});
+test('받아쓰기: 첫 조각 전에 친 글은 안 지우고, 친 글 → 말 → 친 글 → 말이 겹치지 않는다 (10-08)', () => {
+  let pen = L.newPen('');
+  let r = L.paintDictation(pen, 'typed first', 'spoken A one');
+  eq(r.value, 'typed first spoken A one');
+  r = L.paintDictation(r.pen, `${r.value} typed X`, 'spoken A one spoken B two');
+  eq(r.value, 'typed first spoken A one typed X spoken B two');
+  // 손대지 않으면 중간 결과는 통째로 다시 그린다
+  r = L.paintDictation(r.pen, r.value, 'spoken A one spoken B two three');
+  eq(r.value, 'typed first spoken A one typed X spoken B two three');
 });
 test('받아쓰기: 붓은 바꾸지 않는다 (새 붓을 돌려준다)', () => {
   const pen = L.newPen('a');
   L.paintDictation(pen, 'a', 'b');
-  eq(pen, { base: 'a', painted: null });
+  eq(pen, { base: 'a', painted: 'a', from: 0, said: 0 });
 });
 test('서버 STT 결과는 기존 글 뒤에 잇고, 빈 결과는 아무것도 안 바꾼다', () => {
   eq(L.appendTranscript('앞', '뒤'), '앞 뒤');
@@ -542,7 +552,7 @@ test('질문·자막: 질문은 {text, tag, scene} 로 담기고 자막은 그�
 /* ── 하네스가 진짜로 회귀를 잡는지 ─────────────────────────────────────────── */
 /* 고치기 전 붓(기준선을 한 번만 잡던 것)으로 같은 시험을 돌려서 반드시 깨지는지 본다.
    안 깨지면 위의 「사용자가 친 글자」 시험은 아무것도 지키고 있지 않은 것이다. */
-const GUARD_LINE = "if (pen.painted !== null && current !== pen.painted) base = (current || '').trim();";
+const GUARD_LINE = "if (current !== pen.painted) { base = (current || '').trim(); from = pen.said || 0; }";
 test('고치기 전 붓으로 돌리면 「사용자가 친 글자」 시험이 깨진다', async () => {
   const src = readFileSync(LOGIC_PATH, 'utf8');
   if (!src.includes(GUARD_LINE)) throw new Error(`paintDictation 이 바뀌었어요. 이 자기검사도 같이 고쳐야 해요: ${GUARD_LINE}`);
@@ -550,7 +560,7 @@ test('고치기 전 붓으로 돌리면 「사용자가 친 글자」 시험이 
   const B = await importSource(broken);
   let r = B.paintDictation(B.newPen(''), '', '안녕');
   r = B.paintDictation(r.pen, '안녕하세요 (수정)', '안녕 저는');
-  if (r.value === '안녕하세요 (수정) 안녕 저는') throw new Error('깨진 붓이 통과했어요 — 시험이 아무것도 안 지킨다');
+  if (r.value === '안녕하세요 (수정) 저는') throw new Error('깨진 붓이 통과했어요 — 시험이 아무것도 안 지킨다');
 });
 /* H-11 자기검사 — 총평을 늘 붙이던 옛 규칙으로 되돌리면 「오답 풍선에 모범답이 없다」 시험이 깨져야 한다 */
 const SUMMARY_LINE = "const showSummary = closed || stage === 'explain';";

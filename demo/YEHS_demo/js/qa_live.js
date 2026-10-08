@@ -1225,8 +1225,10 @@ function startDictationMic() {
 
      기준선을 시작할 때 한 번만 잡으면 **말하는 도중에 타이핑한 글자**가 다음
      중간 결과에 지워진다. 우리가 마지막으로 쓴 값을 같이 들고 있다가, 입력창이
-     그것과 다르면 사용자가 손댄 것으로 보고 기준선을 다시 잡는다. */
-  const pen = { base: ((ta && ta.value) || '').trim(), painted: null };
+     그것과 다르면 사용자가 손댄 것으로 보고 기준선을 다시 잡는다.
+     painted 를 지금 값으로 시작한다 — null 이면 마이크가 저절로 켜진 뒤 첫 조각 전에 친 답을 못 알아보고 첫 조각이 지웠다 (10-08).
+     순수 부분은 booth_logic.js paintDictation 과 같다 (tests/js/booth.smoke.mjs). */
+  const pen = { base: ((ta && ta.value) || '').trim(), painted: (ta && ta.value) || '', from: 0, said: 0 };
   try {
     liveMic = {
       dictation: true,
@@ -1355,12 +1357,17 @@ function paintLiveAnswer(pen, spoken) {
   if (!ta) return;
   // 우리가 마지막으로 쓴 값과 다르면 그 사이에 사용자가 타이핑한 것이다.
   // 그 글자를 새 기준선으로 삼는다 — 안 그러면 말하는 도중에 친 글이 지워진다.
-  if (pen.painted !== null && ta.value !== pen.painted) {
+  // spoken 은 마이크를 켠 뒤 말한 것 전부다 — 기준선에 이미 들어간 앞말(pen.from 까지)은 빼고 잇는다 (안 빼면 두 번 붙었다, 10-08)
+  if (ta.value !== pen.painted) {
     pen.base = ta.value.trim();
+    pen.from = pen.said || 0;
   }
-  const next = pen.base && spoken ? `${pen.base} ${spoken}` : (pen.base || spoken);
+  const raw = spoken || '';
+  const said = raw.slice(pen.from || 0).trim();
+  const next = pen.base && said ? `${pen.base} ${said}` : (pen.base || said);
   ta.value = next;
   pen.painted = next;
+  pen.said = raw.length;
   ta.scrollTop = ta.scrollHeight;
 }
 
