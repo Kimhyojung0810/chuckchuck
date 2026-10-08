@@ -738,11 +738,15 @@ function visionSlideEdge(d) {
    예전엔 장을 넘길 때마다 같은 canvas 에 pdf.js 로 다시 그렸다. 빨리 넘기면 그리던 장을 취소하고 다음 장을 그리는 사이
    화면이 앞 장에 머물렀고(번호만 바뀜), 폰에서는 큰 canvas 를 매번 새로 잡아 느렸다. 이제 지금 장을 먼저 그리고 이어서 다음 · 앞 장을
    미리 그려 둔다 — 넘기면 곧바로 바뀐다. 아직 못 그린 장이면 장 번호 판을 먼저 보이고, 그리는 대로 채운다(누른 것은 버리지 않는다) */
-const visionPdf = { doc: null, urls: new Map(), queue: [], busy: false, width: 0 };
+// stale — 창이 커지기 전(작은 폭)에 그린 그림. 새 폭으로 다시 그릴 때까지 그것을 보인다 — 예전엔 돌리는 순간 다 버려 장 번호 판이
+// 잠깐(폰에선 1초 가까이) 떴다 (10-08)
+const visionPdf = { doc: null, urls: new Map(), stale: new Map(), queue: [], busy: false, width: 0 };
 
 function visionPdfReset() {
   visionPdf.urls.forEach((u) => URL.revokeObjectURL(u));
+  visionPdf.stale.forEach((u) => URL.revokeObjectURL(u));
   visionPdf.urls = new Map();
+  visionPdf.stale = new Map();
   visionPdf.queue = [];
   visionPdf.doc = null;
   visionPdf.width = 0;
@@ -755,12 +759,12 @@ function visionPdfWidth() {
   return Math.min(1600, Math.round(css * dpr / 160) * 160);   // 160px 단위로 묶어서 조금 바뀌었다고 다 다시 그리지 않는다
 }
 
-async function visionPdfRender(page) {
+async function visionPdfRender(page, width) {
   const doc = uploadedPdf && uploadedPdf.pdf;
   if (!doc) return null;
   const pdfPage = await doc.getPage(page);
   const base = pdfPage.getViewport({ scale: 1 });
-  const viewport = pdfPage.getViewport({ scale: visionPdf.width / base.width });
+  const viewport = pdfPage.getViewport({ scale: width / base.width });
   const canvas = document.createElement('canvas');
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
@@ -784,10 +788,19 @@ async function visionPdfPump() {
       const page = visionPdf.queue.shift();
       if (visionPdf.urls.has(page)) continue;
       let url = null;
-      try { url = await visionPdfRender(page); } catch (err) { console.warn('[chuckchuck] vision pdf page', page, err); }
+      const width = visionPdf.width;   // 그리기 시작한 폭 — 그리는 사이 창이 커졌으면 이 그림은 작다
+      try { url = await visionPdfRender(page, width); } catch (err) { console.warn('[chuckchuck] vision pdf page', page, err); }
       if (!url) continue;
       if (doc !== (uploadedPdf && uploadedPdf.pdf)) { URL.revokeObjectURL(url); break; }
+      if (width !== visionPdf.width) {
+        // 작은 그림이 새 폭의 자리에 박혀 그 장만 흐릿하게 남았다 — 버리고 다시 줄 세운다
+        URL.revokeObjectURL(url);
+        if (!visionPdf.queue.includes(page)) visionPdf.queue.unshift(page);
+        continue;
+      }
       visionPdf.urls.set(page, url);
+      const old = visionPdf.stale.get(page);
+      if (old) { visionPdf.stale.delete(page); URL.revokeObjectURL(old); }
       if (Number(nf.slide) === page) visionPdfPaint(page);
     }
   } finally {
@@ -798,7 +811,7 @@ async function visionPdfPump() {
 function visionPdfPaint(page) {
   const img = document.querySelector('#vrCall #slideImage[data-pdf]');
   if (!img) return;
-  const url = visionPdf.urls.get(page);
+  const url = visionPdf.urls.get(page) || visionPdf.stale.get(page);
   const src = url || slidePlaceholder(page);
   if (img.getAttribute('src') !== src) img.setAttribute('src', src);
   img.classList.toggle('is-loading', !url);
@@ -814,7 +827,11 @@ function visionPdfShow(page) {
     // 다른 자료이거나 창이 커졌다(돌려서 가로가 됐다) — 새로 그린다. 작아질 때는 큰 그림을 그대로 쓴다
     const keep = visionPdf.doc === doc ? visionPdf.urls : null;
     if (!keep) visionPdfReset();
-    else { keep.forEach((u) => URL.revokeObjectURL(u)); visionPdf.urls = new Map(); }
+    else {
+      // 지금 그림은 새 그림이 올 때까지 보이도록 stale 로 옮긴다(그 전 stale 은 이 그림보다 작으니 놓는다)
+      keep.forEach((u, p) => { const old = visionPdf.stale.get(p); if (old) URL.revokeObjectURL(old); visionPdf.stale.set(p, u); });
+      visionPdf.urls = new Map();
+    }
     visionPdf.doc = doc;
     visionPdf.width = width;
   }
