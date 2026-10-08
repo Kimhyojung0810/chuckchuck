@@ -243,10 +243,17 @@ function rehearsalGuard(key) {
 
 /* ─── 층 — 부스 층(#bqStage)과 같은 모양 ────────────────────────────────── */
 
+/** 첫 단계 이름 — 공개 방문자 · 내 자료로 하는 팀은 고를 발표가 없고 자료를 올린다 (10-08: 공개 화면이 「발표 고르기」 였다) */
+function rhStepWord(step) {
+  if (step.key !== 'pick') return step.word;
+  const upload = !rehearsalDemoOn() || rhOwnDeckOn() || /^#\/?rehearsal\/upload/.test(location.hash || '');
+  return upload ? '자료 올리기' : step.word;
+}
+
 function rhStepsHtml(screen) {
   const at = RH_STEPS.findIndex((s) => s.key === (screen === 'occ' ? 'pick' : screen));
   return `<ol class="bq-steps-top" aria-label="리허설 단계">${RH_STEPS.map((s, i) => `
-    <li class="${i < at ? 'done' : ''}${i === at ? ' on' : ''}"${i === at ? ' aria-current="step"' : ''}><i aria-hidden="true">${i < at ? '✓' : i + 1}</i>${s.word}${i < at ? '<span class="bq-sr"> · 마쳤어요</span>' : ''}</li>`).join('')}</ol>`;
+    <li class="${i < at ? 'done' : ''}${i === at ? ' on' : ''}"${i === at ? ' aria-current="step"' : ''}><i aria-hidden="true">${i < at ? '✓' : i + 1}</i>${rhStepWord(s)}${i < at ? '<span class="bq-sr"> · 마쳤어요</span>' : ''}</li>`).join('')}</ol>`;
 }
 
 /** 위 띠 — booth_qa.js bqTopHtml 이 리허설 탭이면 이걸 쓴다. 오른쪽은 「처음으로」(부스 리셋) 대신 「나가기」 */
