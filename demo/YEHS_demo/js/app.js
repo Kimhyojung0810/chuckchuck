@@ -6822,11 +6822,15 @@ function rSummary() {
          무엇을 고칠지는 기둥의 「여기부터 보세요」와 위의 두 덩어리가 이미
          말했다. 여기는 마침표만 찍는다: 한 줄 안내와 버튼 둘. -->
     <div class="card next-card">
-      <p>${live
-        ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어집니다.'
-        : '같은 자료로 한 번 더 연습하면 무엇이 달라졌는지 나란히 볼 수 있어요.'}</p>
+      <p>${rhFlagSet()
+        ? '이 리포트는 방금 올린 자료와 카메라 앞 발표 · 질문 답을 분석한 결과예요.'
+        : live
+          ? '이 리포트는 방금 올린 자료와 발표 분석 결과예요. 질문 코칭을 건너뛰어도 같은 분석이 이어져요.'
+          : '같은 자료로 한 번 더 연습하면 무엇이 달라졌는지 나란히 볼 수 있어요.'}</p>
       <div class="step-actions">
-        <a class="btn btn-primary" href="#/new">새 발표 연습</a>
+        <!-- 리허설(#/rehearsal/report)의 「새 발표 연습」 은 리허설 올리기로 — #/new 는 일반 4단계 올리기라 카메라 리허설 밖으로 나갔다 (10-08).
+             「질문 연습 다시 하기」 를 어디로 보낼지는 팀이 정한다(지금은 그대로 #/qa) -->
+        <a class="btn btn-primary" href="${rhFlagSet() ? '#/rehearsal' : '#/new'}">새 발표 연습</a>
         <a class="btn btn-tint" href="#/qa" style="background:#fff">질문 연습 다시 하기</a>
       </div>
     </div>`;
