@@ -471,6 +471,8 @@ function rhRepick() {
 
 /** 올릴 수 있는 자료 — 서버(bridge MAX_UPLOAD_BYTES · F-01 MAX_SLIDES)와 같은 한도. 안 되면 그 까닭(해요체), 되면 '' */
 const RH_UP_MAX_MB = 30;
+/** 자료 읽기가 이만큼(초) 넘으면 「평소보다 오래 걸려요」 */
+const RH_UP_SLOW_SEC = 120;
 function rhUploadCheck(file) {
   if (!file) return '파일을 고르지 못했어요. 한 번 더 골라 주세요.';
   if (!/\.(pdf|pptx)$/i.test(file.name || '')) {
@@ -567,7 +569,14 @@ function rhUpPaint() {
       rhUp.timer = setInterval(() => {
         const el = document.getElementById('rhUpSec');
         if (!el) { clearInterval(rhUp.timer); rhUp.timer = 0; return; }
-        el.textContent = String(Math.max(0, Math.floor((Date.now() - rhUp.startedAt) / 1000)));
+        const sec = Math.max(0, Math.floor((Date.now() - rhUp.startedAt) / 1000));
+        el.textContent = String(sec);
+        // 「보통 30초에서 2분」 을 넘겼으면 그렇다고 말하고 멈출 길을 알린다 — 예전엔 5분이 넘어도 같은 안내였다 (10-08)
+        const hint = document.querySelector('#rhUpBox .rh-up-hint');
+        if (sec >= RH_UP_SLOW_SEC && hint && !hint.dataset.slow) {
+          hint.dataset.slow = '1';
+          hint.textContent = '평소보다 오래 걸려요. 계속 기다려도 되고, 「다른 파일 고르기」를 누르면 멈출 수 있어요.';
+        }
       }, 1000);
     }
     return;
