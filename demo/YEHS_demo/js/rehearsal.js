@@ -478,9 +478,14 @@ function rhUploadCheck(file) {
 function rhUploadErrText(err) {
   const msg = String((err && err.message) || '');
   const status = Number(err && err.status) || 0;
-  if (status === 413) return `${RH_UP_MAX_MB}MB보다 작은 파일, 100장 이하의 자료를 올려 주세요.`;
-  if (status === 429 || status === 503) return '지금 자료를 읽는 사람이 많아요. 1분쯤 뒤에 다시 올려 주세요.';
-  if (/[가-힣]/.test(msg)) return msg.replace(/\.$/, '');
+  const korean = /[가-힣]/.test(msg);
+  // 413 · 429 · 503 은 서버의 한국어 문구가 까닭과 기다릴 시간을 정확히 말한다(「101장이에요 …」 · 「10초 뒤에 …」 · 「점검 중이에요」).
+  // 예전엔 고정 문구로 덮어 12KB 자료에도 「30MB보다 작은 파일」, 점검에도 「사람이 많아요 · 1분」 이 떴다 (10-08). 고정 문구는 대비책
+  if (status === 413) return korean ? msg.replace(/\.$/, '') : `${RH_UP_MAX_MB}MB보다 작은 파일, 100장 이하의 자료를 올려 주세요.`;
+  if (status === 429 || status === 503) return korean ? msg.replace(/\.$/, '') : '지금 자료를 읽는 사람이 많아요. 1분쯤 뒤에 다시 올려 주세요.';
+  // 415 의 서버 문구는 부스 화면 캡처(PNG · JPG)까지 말한다 — 이 화면은 PDF · PPTX 만 받는다. 확장자는 맞는데 내용이 아닌 경우다
+  if (status === 415) return '파일이 손상됐거나 PDF · PPTX가 아니에요. 다시 저장해서 올려 주세요';
+  if (korean) return msg.replace(/\.$/, '');
   if (/network|fetch|abort|timeout/i.test(msg)) return '인터넷 연결이 끊겨서 자료를 다 못 보냈어요. 연결을 확인하고 다시 올려 주세요.';
   return '자료를 읽지 못했어요. 다른 파일로 다시 올려 주세요.';
 }
@@ -595,12 +600,28 @@ function rhUpPaint() {
   }
 }
 
-/** 기다리는 동안 브라우저가 같은 PDF 를 먼저 열어 본다 — 몇 장인지 · 첫 장 모습 (app.js probeParsePreview 와 같은 일) */
+/** 올리기를 멈추고 까닭을 띄운다 — 브라우저가 먼저 안 사실(비밀번호 · 100장 넘음)로. 그 사이 다른 업로드가 시작됐으면 아무것도 안 한다 */
+const RH_UP_MAX_PAGES = 100;
+function rhUpStop(gen, msg) {
+  if (gen !== rhUpGen || rhUp.state !== 'busy') return;
+  rhUpReset();   // 보내던 업로드도 멈춘다
+  Object.assign(rhUp, { state: 'fail', error: msg });
+  rhUpPaint();
+}
+
+/** 기다리는 동안 브라우저가 같은 PDF 를 먼저 열어 본다 — 몇 장인지 · 첫 장 모습 (app.js probeParsePreview 와 같은 일).
+ *  서버가 어차피 거절할 자료(비밀번호 PDF · 100장 넘음)면 끝까지 보내지 않고 그 자리에서 멈춘다 (10-08) */
 async function rhUpPeek(file, gen) {
   if (!/\.pdf$/i.test(file.name || '') || typeof ccEnsurePdfjs !== 'function') return;
   try {
     if (!(await ccEnsurePdfjs())) return;
     const pdf = await ccPdfOpen({ data: await file.arrayBuffer() }).promise;
+    if (pdf.numPages > RH_UP_MAX_PAGES) {
+      const n = pdf.numPages;
+      pdf.destroy().catch(() => {});
+      rhUpStop(gen, `${n}장이에요. 지금은 ${RH_UP_MAX_PAGES}장까지 올릴 수 있어요. 나눠서 올려 주세요`);
+      return;
+    }
     const page = await pdf.getPage(1);
     const base = page.getViewport({ scale: 1 });
     const vp = page.getViewport({ scale: 240 / base.width });
@@ -615,6 +636,11 @@ async function rhUpPeek(file, gen) {
     rhUp.thumb = cv.toDataURL('image/jpeg', 0.72);
     rhUpPaint();
   } catch (err) {
+    // 비밀번호가 걸린 PDF 는 서버도 못 읽는다 — 보내지 않고 고칠 길을 말한다. 예전엔 경고만 남기고 올려 「잠시 뒤 다시」 를 봤다
+    if (err && err.name === 'PasswordException') {
+      rhUpStop(gen, '비밀번호가 걸린 PDF예요. 비밀번호를 풀고 다시 저장해서 올려 주세요');
+      return;
+    }
     console.warn('[chuckchuck] rehearsal upload peek', err);   // 미리보기는 실패해도 올리기는 그대로 간다
   }
 }
