@@ -234,9 +234,15 @@ export async function fetchMemory(sessionId) {
  * 폰 · 느린 회선에서 30MB 자료가 「읽는 중」 막대만 도는 동안 실제로는 아직 보내는 중이었다 (10-08 /rehearsal 내 자료 올리기).
  * 돌려주는 값은 { status, data } — 본문이 JSON 이 아니면(Cloudflare 413 · 502 쪽지) data 는 null 이다
  */
-function postFormWithProgress(url, fd, onProgress) {
+function postFormWithProgress(url, fd, onProgress, signal = null) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    // 「다른 파일 고르기」 · 화면을 떠나면 보내던 것을 멈춘다 — 예전엔 화면만 지우고 30MB 를 끝까지 보냈고, 서버는 그걸 읽어
+    // 보관 · 미리보기까지 만들었으며, 버린 업로드가 IP 당 동시 업로드 4칸을 다 물어 다음 업로드가 429 였다 (10-08)
+    if (signal) {
+      if (signal.aborted) { const e = new Error('upload aborted'); e.name = 'AbortError'; reject(e); return; }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    }
     xhr.open('POST', url);
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress({ sent: e.loaded, total: e.total, done: false }); };
     xhr.upload.onload = () => onProgress({ sent: 1, total: 1, done: true });
@@ -246,12 +252,12 @@ function postFormWithProgress(url, fd, onProgress) {
       resolve({ status: xhr.status, data });
     };
     xhr.onerror = () => reject(new Error('network error'));
-    xhr.onabort = () => reject(new Error('upload aborted'));
+    xhr.onabort = () => { const e = new Error('upload aborted'); e.name = 'AbortError'; reject(e); };
     xhr.send(fd);
   });
 }
 
-export async function parseDocument({ file = null, fixture = false, consent = false, onProgress = null } = {}) {
+export async function parseDocument({ file = null, fixture = false, consent = false, onProgress = null, signal = null } = {}) {
   let res;
   if (fixture || !file) {
     res = await fetch(apiBase() + '/api/v1/parse', {
@@ -268,7 +274,7 @@ export async function parseDocument({ file = null, fixture = false, consent = fa
     if (learner) params.set('learner', learner);
     const q = params.toString() ? '?' + params.toString() : '';
     if (typeof onProgress === 'function') {
-      const { status, data } = await postFormWithProgress(apiBase() + '/api/v1/parse' + q, fd, onProgress);
+      const { status, data } = await postFormWithProgress(apiBase() + '/api/v1/parse' + q, fd, onProgress, signal);
       if (status < 200 || status >= 300 || !data || data.error) {
         const err = new Error((data && (data.message || data.error)) || `parse HTTP ${status}`);
         err.status = status;
@@ -276,7 +282,7 @@ export async function parseDocument({ file = null, fixture = false, consent = fa
       }
       res = { ok: true, json: async () => data };
     } else {
-      res = await fetch(apiBase() + '/api/v1/parse' + q, { method: 'POST', body: fd });
+      res = await fetch(apiBase() + '/api/v1/parse' + q, { method: 'POST', body: fd, signal: signal || undefined });
     }
   }
   const data = await res.json();

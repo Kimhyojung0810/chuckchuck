@@ -28,7 +28,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <!-- 녹음 SDK 모듈 사슬(chuckchuck_bridge → /sdk/index.js → recorder·slide_marks·rehearsal → rehearsal-recorder)을
      처음부터 나란히 받는다. 안 그러면 한 단을 받아야 다음 단을 알아서 공개 경로의 왕복(~0.2초)이 세 번 줄을 선다.
      브리지가 ?v= 를 내용 해시로 바꿔 넣어 모듈 안의 import 주소와 같아진다 (demo/static_assets.py) -->
-<link rel="modulepreload" href="js/chuckchuck_bridge.js?v=qkxbc11">
+<link rel="modulepreload" href="js/chuckchuck_bridge.js?v=qkxbc12">
 <link rel="modulepreload" href="/sdk/index.js?v=s1">
 <link rel="modulepreload" href="/sdk/recorder.js?v=s1">
 <link rel="modulepreload" href="/sdk/slide_marks.js?v=s1">
@@ -121,7 +121,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <script src="js/booth_qa.js?v=bq15" data-bundle="beta"></script>
   <script src="js/booth_call.js?v=bc18" data-bundle="beta"></script>
   <!-- 리허설 한 줄 흐름 #/rehearsal — 고르기 → 비전 리허설 → 분석 기다림 → 글라스 화상판 → 리포트. 위 파일들의 전역을 호출 시점에 찾는다 -->
-  <script src="js/rehearsal.js?v=rh35" data-bundle="beta"></script>
+  <script src="js/rehearsal.js?v=rh36" data-bundle="beta"></script>
   <!-- 랜딩(#/landing) — v2 는 마크업+CSS 만 쓴다. landing-motion·landing-workbench 는
        스크롤 하이재킹·히어로 목업용이라 v2 에서 뺐다 (파일은 되돌릴 수 있게 남겨 둠) -->
   <link rel="stylesheet" href="css/landing-v2.css?v=qkh" data-bundle="landing">
@@ -146,6 +146,6 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/graph3d.js?v=qkv3"></script>
 <script src="js/app.js?v=qlbc60"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
-<script type="module" src="js/chuckchuck_bridge.js?v=qkxbc11"></script>
+<script type="module" src="js/chuckchuck_bridge.js?v=qkxbc12"></script>
 </body>
 </html>

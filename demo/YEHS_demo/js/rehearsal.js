@@ -484,7 +484,7 @@ function rhOwnDeckTitle(file, doc) {
 
 let rhUpGen = 0;
 /** 올리는 중인 상태 — 화면을 다시 그려도(팀 표시가 늦게 와도) 이어 그린다 */
-const rhUp = { state: 'idle', name: '', pct: 0, phase: '', startedAt: 0, pages: 0, thumb: '', error: '', timer: 0 };
+const rhUp = { state: 'idle', name: '', pct: 0, phase: '', startedAt: 0, pages: 0, thumb: '', error: '', timer: 0, ctrl: null };
 
 /* 「척척발표가 나아지는 데 써도 좋아요」 를 이 화면에서 사람이 고른 값 — null 이면 아직 안 만졌다(지난 업로드의 동의를 보여 준다).
    예전엔 다시 그릴 때마다 nf.consentLearning 에서 읽어, 끈 뒤 파일이 거절되면(.key · 30MB 넘음 · 빈 파일) 다시 켜진 채
@@ -497,7 +497,9 @@ function rhUpConsentOn() {
 function rhUpReset() {
   rhUpGen += 1;
   if (rhUp.timer) clearInterval(rhUp.timer);
-  Object.assign(rhUp, { state: 'idle', name: '', pct: 0, phase: '', startedAt: 0, pages: 0, thumb: '', error: '', timer: 0 });
+  // 보내던 업로드는 멈춘다(chuckchuck_bridge postFormWithProgress) — 화면만 지우면 파일을 끝까지 보냈다
+  if (rhUp.ctrl) { try { rhUp.ctrl.abort(); } catch (_) { /* 이미 끝남 */ } }
+  Object.assign(rhUp, { state: 'idle', name: '', pct: 0, phase: '', startedAt: 0, pages: 0, thumb: '', error: '', timer: 0, ctrl: null });
 }
 
 function rhShowUpload() {
@@ -632,10 +634,13 @@ async function rhUploadDeck(file, consent) {
   nf.consentLearning = !!consent;
   nf.fileName = file.name;
   let doc;
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  rhUp.ctrl = ctrl;
   try {
     doc = await br.parseDocument({
       file,
       consent: !!consent,
+      signal: ctrl ? ctrl.signal : null,
       onProgress: ({ sent, total, done }) => {
         if (!alive()) return;
         const pct = done ? 100 : Math.min(99, Math.round((sent / Math.max(1, total)) * 100));
@@ -652,10 +657,12 @@ async function rhUploadDeck(file, consent) {
       },
     });
   } catch (err) {
+    if (err && err.name === 'AbortError') return;   // 사람이 멈췄다(다른 파일 고르기 · 화면 떠남) — 알릴 것이 없다
     console.warn('[chuckchuck] rehearsal upload', err);
     fail(rhUploadErrText(err));
     return;
   }
+  if (rhUp.ctrl === ctrl) rhUp.ctrl = null;
   if (!alive()) return;
   nf.sessionId = doc.session_id || null;
   applySlideDoc(doc, { keepDemoImages: false });
