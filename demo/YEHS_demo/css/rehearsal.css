@@ -62,7 +62,8 @@
 @media (max-width: 640px) {
   .bq[data-flow="rehearsal"] .rh-up-how { grid-template-columns: 1fr; gap: 10px; }
   .bq[data-flow="rehearsal"] .rh-up-pick { min-height: 156px; }
-  .bq[data-flow="rehearsal"] .rh-up-busy { grid-template-columns: 1fr; }
+  /* minmax(0, …) — 1fr(=minmax(auto, 1fr))이면 줄바꿈 없는 긴 파일 이름이 칸을 613px 로 키워 진행 막대 · 안내가 화면 밖으로 나갔다 (10-08) */
+  .bq[data-flow="rehearsal"] .rh-up-busy { grid-template-columns: minmax(0, 1fr); }
   .bq[data-flow="rehearsal"] .rh-up-thumb { width: 100%; max-width: 280px; }
 }
 
