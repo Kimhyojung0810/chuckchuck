@@ -1619,9 +1619,11 @@ async function beginShowcasePipeline() {
    보관하는 건 promise 라 sessionStorage 에 못 넣는다 — 새로고침하면 버리고 원래 경로로 간다. */
 let precompute = null;   // { key, conceptsP, graphP, startedAt, state }
 
-/** 이 조합이 바뀌면 먼저 뽑아 둔 개념은 다른 발표의 것이다. context 가 개념 중요도를 바꾼다 */
+/** 이 조합이 바뀌면 먼저 뽑아 둔 개념은 다른 발표의 것이다. context 가 개념 중요도를 바꾼다.
+ *  세션(자료를 읽을 때마다 새로 받는다)도 넣는다 — 이름이 같은 다른 파일(고쳐서 다시 내보낸 발표.pdf)을 같은 탭에서
+ *  다시 올리면 예전 덱의 개념 · 그래프를 그대로 물어 분석 · 리포트가 옛 자료를 말했다 (10-08). 부스 덱은 세션이 같아 그대로 이어 쓴다 */
 function precomputeKey() {
-  return [nf.fileName || '', nf.occ || '', nf.ctx || '', nf.min || ''].join('|');
+  return [nf.sessionId || '', nf.fileName || '', nf.occ || '', nf.ctx || '', nf.min || ''].join('|');
 }
 
 /**
