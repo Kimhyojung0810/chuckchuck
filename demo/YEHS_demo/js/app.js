@@ -909,6 +909,12 @@ function ccPdfOpen(src) {
 
 function onRehearsalKeydown(e) {
   if (nf.step !== 2) return;
+  // 발표용 클리커(로지텍 R400 · R800 …)의 「슬라이드쇼」 단추는 F5 · Shift+F5 를 보낸다 — 녹음 화면에서 누르면 페이지가 새로 고쳐져
+  // 테이크가 통째로 사라졌다 (10-08). 리허설 화면에서는 이 키를 먹는다. 일부러 새로 고치는 Ctrl/⌘+R 은 아래 beforeunload 가 묻는다
+  if (e.key === 'F5' && !e.ctrlKey && !e.metaKey && document.getElementById('vrCall')) {
+    e.preventDefault();
+    return;
+  }
   const tag = (e.target && e.target.tagName) || '';
   // 자료 창의 불투명도 막대(#vrSlideAlpha)에 초점이 남아도 클리커의 PageUp/PageDown 은 장을 넘긴다 — 예전엔 막대가 키를 먹어
   // 불투명도만 바뀌고 장이 안 넘어갔다 (10-08). 화살표는 막대 몫으로 둔다(키보드로 일부러 막대에 간 사람)
@@ -953,6 +959,14 @@ function bindRehearsalNav() {
   window.addEventListener('keydown', onRehearsalKeydown);
   document.addEventListener('click', onRehearsalClick, true);
 }
+
+/* 녹음 중에 새로 고치거나 탭을 닫으면 녹음기 · 마이크가 페이지와 같이 죽어 테이크가 사라진다 (아래 nfRecCutByReload 는 그 뒤에 알릴 뿐).
+   녹음 중일 때만 브라우저가 한 번 묻게 한다 — 다크패턴이 아니라 되돌릴 수 없는 손실 앞의 확인이다 (10-08) */
+window.addEventListener('beforeunload', (e) => {
+  if (typeof nf === 'undefined' || !nf || nf.mic !== 'on') return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 function unbindRehearsalNav() {
   if (!rehearsalNavBound) return;
