@@ -486,6 +486,14 @@ let rhUpGen = 0;
 /** 올리는 중인 상태 — 화면을 다시 그려도(팀 표시가 늦게 와도) 이어 그린다 */
 const rhUp = { state: 'idle', name: '', pct: 0, phase: '', startedAt: 0, pages: 0, thumb: '', error: '', timer: 0 };
 
+/* 「척척발표가 나아지는 데 써도 좋아요」 를 이 화면에서 사람이 고른 값 — null 이면 아직 안 만졌다(지난 업로드의 동의를 보여 준다).
+   예전엔 다시 그릴 때마다 nf.consentLearning 에서 읽어, 끈 뒤 파일이 거절되면(.key · 30MB 넘음 · 빈 파일) 다시 켜진 채
+   다음 업로드가 consent_learning=1 로 나갔다 (10-08) */
+let rhUpConsentPick = null;
+function rhUpConsentOn() {
+  return rhUpConsentPick === null ? !!(typeof nf !== 'undefined' && nf && nf.consentLearning) : rhUpConsentPick;
+}
+
 function rhUpReset() {
   rhUpGen += 1;
   if (rhUp.timer) clearInterval(rhUp.timer);
@@ -549,10 +557,12 @@ function rhUpPaint() {
     </button>
     <input type="file" id="rhUpFile" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" hidden>
     <label class="rh-up-consent">
-      <input type="checkbox" id="rhUpConsent"${nf && nf.consentLearning ? ' checked' : ''}>
+      <input type="checkbox" id="rhUpConsent"${rhUpConsentOn() ? ' checked' : ''}>
       <span>이 자료와 발표 기록을 척척발표가 나아지는 데 써도 좋아요<small>켜면 최대 1년 보관해요. 끄면 분석이 끝난 뒤 하루 안에 지워요.</small></span>
     </label>`;
   const input = document.getElementById('rhUpFile');
+  const consentBox = document.getElementById('rhUpConsent');
+  consentBox.addEventListener('change', () => { rhUpConsentPick = consentBox.checked; });
   document.getElementById('rhUpPick').addEventListener('click', () => input.click());
   input.addEventListener('change', () => {
     const f = input.files && input.files[0];
@@ -599,6 +609,7 @@ async function rhUpPeek(file, gen) {
 }
 
 async function rhUploadDeck(file, consent) {
+  rhUpConsentPick = !!consent;   // 이번에 보낸 그대로 — 실패해 다시 그려도 상자가 바뀌지 않는다
   const why = rhUploadCheck(file);
   rhUpReset();
   const gen = rhUpGen;
