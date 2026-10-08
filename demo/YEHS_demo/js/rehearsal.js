@@ -763,6 +763,7 @@ function rhShowOcc(d) {
       <label class="rh-ctx"><span>조금 더 설명해 주면 좋아요</span>
         <input type="text" id="rhCtx" value="${escapeHtml(nf.ctx || '')}" placeholder="예: 경영학 수업에서 교수님과 학생 30명 앞에서 발표해요"></label>
       ${cut ? '<p class="bq-foot rh-cut-note" role="status">녹음하던 발표는 멈췄어요. 다시 발표하려면 「카메라 앞에서 발표하러 가기」를 눌러요.</p>' : ''}
+      <p class="bq-foot rh-perm-note">다음 화면에서 카메라와 마이크를 물어봐요. 허용해야 삐약이가 듣고 질문할 수 있어요. 영상은 이 화면에만 보이고, 목소리는 분석하려고 녹음해요.</p>
       <div class="rh-occ-actions">
         <button type="button" class="bq-cta" id="rhGoVision">카메라 앞에서 발표하러 가기</button>
         <button type="button" class="bq-ghost" id="rhRepick">${rhRepickWord()}</button>

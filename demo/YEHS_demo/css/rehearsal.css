@@ -406,3 +406,37 @@
   #vrCall .vr-pill.rh-brand small { display: none; }
   #vrCall .vr-pill.rh-brand { font-size: 16px; }
 }
+
+/* ── 폰에서 질문 답하기 · 분석 기다림 (10-08 공개 리허설 점검) ─────────────────────────────────────────────
+   375 · 390 · 412px 폭에서 위 띠의 「나가기」 가 화면 밖(445px)으로 밀려 나갈 길이 안 보였다 — 「발표 리허설」 꼬리표를 접고 띠 여백을 줄인다 */
+@media (max-width: 480px) {
+  .bq[data-flow="rehearsal"] .bq-top { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .bq[data-flow="rehearsal"] .bq-brand small { display: none; }
+  .bq[data-flow="rehearsal"] .bq-brand { font-size: 16px; gap: 8px; }
+  .bq[data-flow="rehearsal"]:is([data-screen="wait"], [data-screen="qa"]) .bq-top .bq-ghost { padding: 0 12px; font-size: 13px; }
+  .bq[data-flow="rehearsal"] .bq-top .rh-top-cam + [data-rh-exit] { margin-left: 0; }
+}
+/* 폰 가로(키 ≤560px) — 폰 세로 배치(대화 칸이 화면 29% 아래에서 시작)를 그대로 쓰면 키 390px 에서 답 칸이 질문을 통째로 덮었다.
+   왼쪽 기둥: 삐약이 이름표 · 주고받은 말(질문 포함). 오른쪽 기둥: 카메라 알약 · 자료 창 · 답 칸 */
+@media (orientation: landscape) and (max-height: 560px) {
+  .bq[data-flow="rehearsal"][data-variant="call"] { --bc-gap: 10px; --bc-talk-w: calc(52vw - 15px); }
+  .bq[data-flow="rehearsal"] .bq-top { padding: 8px 10px; }
+  .bq[data-flow="rehearsal"] .bc-host { top: 58px; bottom: auto; left: var(--bc-gap); width: auto; max-width: var(--bc-talk-w); min-height: 0; }
+  .bq[data-flow="rehearsal"] .bc-talk { top: 116px; bottom: var(--bc-gap); left: var(--bc-gap); width: var(--bc-talk-w); }
+  .bq[data-flow="rehearsal"][data-variant="call"] .bc-dock { left: auto; right: var(--bc-gap); width: calc(48vw - 15px); max-width: none; bottom: var(--bc-gap); }
+  .bq[data-flow="rehearsal"] .bc-side { top: 58px; right: var(--bc-gap); width: calc(48vw - 15px); bottom: calc(var(--bc-dock-h, 150px) + var(--bc-gap) * 2); }
+  .bq[data-flow="rehearsal"] .bc-hint { top: 58px; left: auto; right: var(--bc-gap); max-width: calc(48vw - 15px); }
+  /* 자료 창은 키가 낮아 손잡이 줄이 장 그림 자리를 먹었다 — 손잡이는 접고 「질문이 가리키는 n장」 만 */
+  .bq[data-flow="rehearsal"] #vrSlide :is(.vr-drag, .vr-alpha, .vr-resize) { display: none; }
+  .bq[data-flow="rehearsal"] #vrSlide .vr-slide-cap { min-height: 0; padding: 4px 10px; font-size: 13px; }
+}
+
+/* 「어떤 발표인가요」 — 폰에서 「카메라 앞에서 발표하러 가기」 가 첫 화면 밖(아래)에 있었다. 아래에 붙여 둔다 */
+.bq[data-flow="rehearsal"] .rh-perm-note { margin: 0 0 14px; color: var(--bq-soft); font-size: 14px; line-height: 1.5; }
+@media (max-width: 640px) {
+  .bq[data-flow="rehearsal"] .rh-occ-actions {
+    position: sticky; bottom: calc(-1 * var(--bq-pad)); z-index: 2; margin: 0 calc(-1 * var(--bq-pad)); padding: 14px var(--bq-pad) max(14px, env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(2, 26, 21, 0) 0%, var(--bq-bg-2, #021a15) 28%);
+  }
+  .bq[data-flow="rehearsal"] .rh-occ-actions .bq-cta { flex: 1 1 100%; min-height: 56px; }
+}
