@@ -146,8 +146,17 @@ function rehearsalTeardown({ keepVision = false, keepFlow = false } = {}) {
  * - #/rehearsal/report: 카메라 · 마이크를 끄고 표시만 남긴다
  * - 흐름 밖(#/rehearsal 아래가 아닌 주소)으로 나갈 때: 표시 · 카메라를 끈다
  */
+/** 지금 주소가 리허설 올리기 화면(#/rehearsal · #/rehearsal/upload)인가 */
+function rhOnUploadRoute(hash = location.hash) {
+  if (rehearsalLeaves(hash)) return false;
+  const sub = String(hash).replace(/^#\/?/, '').split('/')[1] || '';
+  return sub === '' || sub === 'upload';
+}
+
 function rehearsalFlowOnRoute(key, hash = location.hash) {
   rhReportIdleDisarm();
+  // 올리는 중에 올리기 화면을 떠나면 보내던 것을 멈춘다 — 끝난 뒤 떠난 사람을 「어떤 발표인가요」 로 끌고 오지 않게 (10-08)
+  if (rhUp.state === 'busy' && !rhOnUploadRoute(hash)) rhUpReset();
   if (!rehearsalFlowOn()) return;
   // 녹음 중에 비전 리허설(#/rehearsal/new)을 떠나면 — 브라우저 · 아이패드 뒤로 가기, 주소 직접 입력 — 테이크를 멈춘다.
   // 「나가기」 시트만 멈춰서, 뒤로 가기로는 발표 목록 · 홈 뒤에서 녹음기와 마이크가 표시 없이 계속 돌았다 (10-03 점검 F2)
@@ -619,7 +628,9 @@ async function rhUploadDeck(file, consent) {
   Object.assign(rhUp, { state: 'busy', name: file.name, pct: 0, phase: 'send', startedAt: Date.now() });
   rhUpPaint();
   rhUpPeek(file, gen);
-  const alive = () => gen === rhUpGen && bq.screen === 'pick';
+  // 아직 이 올리기 화면에 있는가 — bq.screen 만 보면 「나가기」 · 뒤로 가기 · 홈으로 떠나도 'pick' 이 남아, 파싱이 끝나면
+  // 홈에 있던 사람을 #/rehearsal/occ 로 끌고 왔다 (10-08). 주소와 올리기 상자를 같이 본다
+  const alive = () => gen === rhUpGen && bq.screen === 'pick' && rhOnUploadRoute() && !!document.getElementById('rhUpBox');
   const fail = (msg) => {
     if (!alive()) return;
     rhUpReset();
