@@ -690,7 +690,9 @@ main img, main canvas, main svg { max-width: 100%; }
 }
 .h-start b { display: block; font-size: var(--t-card); font-weight: 650; letter-spacing: -.01em; }
 .h-start p { margin: 6px 0 0; font-size: var(--t-body); line-height: 1.6; color: var(--text-2); }
-.h-start-act { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+/* 버튼 글은 한 줄 — 360 폭에서 「자료 / 올리기」 · 「카메라 앞에서 / 리허설하기」 가 두 줄로 접혔다. 자리가 모자라면 둘째 버튼이 아랫줄로 (10-12 점검) */
+.h-start-act { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; }
+.h-start-act .btn { white-space: nowrap; }
 .h-start.is-failed { padding: 16px; }
 .h-start.is-failed .accident { margin: 0; }
 
