@@ -17,7 +17,7 @@
 }
 body.cf-open { overflow: hidden; }
 /* 데스크톱 아트보드(tablet.css)는 body 를 transform 으로 줄여서 fixed 가 창이 아니라 판에 붙는다.
-   통화는 창을 통째로 쓰므로 층이 떠 있는 동안만 판을 푼다 — 랜딩(body:has(main.landing))과 같은 방법 */
+   통화는 창을 통째로 쓰므로 층이 떠 있는 동안만 판을 푼다 */
 @media (min-width: 900px) {
   body.cf-open {
     position: static; width: auto; height: auto; min-height: 0;

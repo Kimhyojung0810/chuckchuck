@@ -94,7 +94,8 @@ test('app.js 가 부르는 베타 화면이 모두 LAZY_ROUTE_BUNDLES 에 있다
   const app = read('js/app.js');
   const m = app.match(/const LAZY_ROUTE_BUNDLES = \{([^}]*)\}/);
   ok(m, 'LAZY_ROUTE_BUNDLES 없음');
-  ['temp', 'vision', 'booth', 'landing'].forEach((k) => ok(new RegExp(`\\b${k}:`).test(m[1]), `${k} 빠짐`));
+  ['temp', 'vision', 'booth'].forEach((k) => ok(new RegExp(`\\b${k}:`).test(m[1]), `${k} 빠짐`));
+  ok(!/\blanding:/.test(m[1]), '옛 랜딩 번들은 지웠어요 (10-02)');
 });
 
 /* ── ⑤ lazy.js 를 가짜 DOM 에 올린다 ─────────────────────────────────────── */

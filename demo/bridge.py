@@ -55,7 +55,7 @@ from demo import shield  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
-from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches  # noqa: E402
+from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches, normalize_url_path, static_access  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
@@ -224,15 +224,66 @@ AUTH_LIMITER = RateLimiter(limit=5, window_sec=60.0)
 _REQ = threading.local()
 
 
-def _team_token() -> str:
-    """쿠키에 싣는 값. 코드 자체는 싣지 않는다 — 코드를 바꾸면 이전 쿠키가 모두 풀린다."""
-    return _team_token_for(TEAM_CODE)
+#: 발급 시각이 서버 시계보다 이만큼 앞서 있어도 받아 준다 (서버 두 대가 아니라 한 대라 거의 0 이지만 여유를 둔다)
+TEAM_CLOCK_SKEW = 300
 
 
-@functools.lru_cache(maxsize=4)
-def _team_token_for(code: str) -> str:
-    # 방패(2026-10-05)가 **모든 요청**에서 팀인지 본다 — 요청마다 HMAC 을 새로 계산하지 않게 코드별로 한 번만
-    return hmac.new(code.encode("utf-8"), b"chuckchuck-team-v1", hashlib.sha256).hexdigest()
+@functools.lru_cache(maxsize=64)
+def _team_sig(code: str, ts: int) -> str:
+    """서명. 열쇠는 팀 코드에서 끌어낸다 — 코드를 바꾸면 이전 쿠키가 모두 풀린다. 코드 자체는 쿠키에 싣지 않는다."""
+    # 방패(2026-10-05)가 **모든 요청**에서 팀인지 본다 — 같은 쿠키(같은 발급 시각)면 HMAC 을 한 번만 계산한다
+    key = hmac.new(code.encode("utf-8"), b"chuckchuck-team-v2", hashlib.sha256).digest()
+    return hmac.new(key, f"v2.{ts}".encode("ascii"), hashlib.sha256).hexdigest()
+
+
+def _team_token(issued: int | None = None) -> str:
+    """
+    쿠키에 싣는 값 `v2.<발급 시각(초)>.<서명>`. 서버가 발급 시각을 보고 7일(TEAM_COOKIE_MAX_AGE)이 지나면 버린다.
+
+    왜 — 예전 값은 「코드의 지문」 하나라 발급 시각이 없어서, 한 번 새면 코드를 바꿀 때까지 영원히 유효했다
+    (브라우저의 Max-Age 는 브라우저가 지키는 약속일 뿐이다). 옛 형식(v1) 쿠키는 이제 통하지 않는다 — 다시 /auth.
+    """
+    ts = int(time.time()) if issued is None else int(issued)
+    return f"v2.{ts}.{_team_sig(TEAM_CODE, ts)}"
+
+
+def _team_token_ok(tok: str, now: float | None = None) -> bool:
+    """서명이 맞고 발급한 지 7일 안인가. 코드가 비어 있으면 무엇도 통하지 않는다."""
+    if not TEAM_CODE or not tok:
+        return False
+    parts = tok.split(".")
+    # isascii — str.isdigit 은 「²」 같은 글자도 숫자라 하고 int() 가 터진다
+    if len(parts) != 3 or parts[0] != "v2" or not (parts[1].isascii() and parts[1].isdigit()) or len(parts[1]) > 12:
+        return False
+    ts = int(parts[1])
+    now = time.time() if now is None else now
+    if ts > now + TEAM_CLOCK_SKEW or now - ts > TEAM_COOKIE_MAX_AGE:
+        return False
+    # 바이트로 비교한다 — str 끼리면 ASCII 가 아닌 쿠키 값에서 TypeError 가 나 요청이 방패 앞에서 터진다
+    return hmac.compare_digest(tok.encode("utf-8", "replace"), _team_token(ts).encode("ascii"))
+
+
+#: 팀 도구 목록 — /auth 화면과 앱의 「팀 모드」 알약 메뉴(js/app.js TEAM_TOOLS)가 같은 것을 보인다. (해시, 이름, 설명)
+TEAM_TOOLS = (
+    ("#/booth/call", "부스 화상판", "/booth/call — Festa 부스 Q&A 화상 통화 체험"),
+    ("#/booth/qa", "부스 무대", "/booth/qa — 부스 Q&A 무대 (예비)"),
+    ("#/test/qa", "질문 바로 받기", "/test/qa — ppt/ 덱을 골라 질문 코칭으로 바로"),
+    ("#/replay", "저장한 세션", "/replay — 저장한 발표로 다시 이어서"),
+    ("#/vision", "실험 · 비전 리허설", "/vision — 카메라 앞에서 슬라이드와 삐약이를 보며 발표"),
+    ("#/temp", "실험 · 통화 배치", "/temp — 통화 배치로 도는 전체 흐름"),
+)
+#: /auth?next= 로 돌려보낼 수 있는 앱 안 화면 (열린 리다이렉트 금지 — 이 목록의 해시만, 늘 /index.html 뒤에 붙인다)
+_NEXT_ROUTE = re.compile(r"^#/(?:|new|qa|report|report/last|report/sample-[a-z0-9-]{1,40}|graph|about"
+                         r"|vision|temp|test/qa|replay|booth/qa|booth/call)$")
+
+
+def _safe_next(raw: str) -> str:
+    """next 값이 허용 목록의 앱 해시면 그대로, 아니면 빈 문자열. 대소문자는 앱 해시 규칙대로 소문자로."""
+    v = (raw or "").strip()
+    if len(v) > 64:
+        return ""
+    v = v.lower()
+    return v if _NEXT_ROUTE.match(v) else ""
 
 
 # ─── 방패 — 트래픽 급증·공격 대응 (2026-10-05, AI Festa 부스 전날) ─────────────────────
@@ -1815,78 +1866,146 @@ class Handler(SimpleHTTPRequestHandler):
         return ""
 
     def _team_ok(self) -> bool:
-        tok = self._cookie(TEAM_COOKIE)
-        # 바이트로 비교한다 — str 끼리면 ASCII 가 아닌 쿠키 값에서 TypeError 가 나 요청이 방패 앞에서 터진다
-        return bool(TEAM_CODE and tok) and hmac.compare_digest(tok.encode("utf-8", "replace"), _team_token().encode("ascii"))
+        return _team_token_ok(self._cookie(TEAM_COOKIE))
 
     def _https(self) -> bool:
-        """터널 뒤면 Cloudflare 가 붙인 헤더로 안다 — 로컬 http 에서 Secure 쿠키는 안 남는다."""
+        """
+        Secure 쿠키를 붙일 요청인가. 공개 도메인(Host 가 루프백이 아닌 허용 이름 — chuckchuck-present.com · ts.net)으로
+        온 요청은 늘 https 다: 바깥 입구가 Cloudflare 와 Tailscale Funnel 뿐이고 둘 다 https 로만 받는다.
+        예전엔 Cf-Visitor·X-Forwarded-Proto 가 있을 때만 붙였는데, Funnel 을 거쳐 오면 그 헤더가 없을 수 있다.
+        헤더는 보조로 계속 본다. 로컬 http(127.0.0.1)에서는 붙이지 않는다 — 붙이면 브라우저가 쿠키를 버린다.
+        """
+        host = _host_name(self.headers.get("Host") or "")
+        if host and host not in LOOPBACK_HOSTS and host in ALLOWED_HOSTS:
+            return True
         return "https" in (self.headers.get("Cf-Visitor") or "") or \
-            (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+            (self.headers.get("X-Forwarded-Proto") or "").lower() == "https" or \
+            bool((self.headers.get("Tailscale-Funnel-Request") or "").strip())
 
-    def _auth_page(self, code: int, *, team: bool, note: str = "", cookie: str | None = None):
-        esc = lambda t: t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")  # noqa: E731
+    def _same_origin(self) -> bool:
+        """
+        폼 POST 가 우리 화면에서 왔는가 — Origin(없으면 Referer)의 호스트가 이 요청의 Host 이거나 우리 공개 이름이다.
+        Cloudflare 가 chuckchuck-present.com 을 ts.net 으로 넘기면 Host 와 Origin 이 달라서 허용 이름도 같이 본다.
+        둘 다 없으면 거절한다 — 요즘 브라우저는 폼 POST 에 Origin 을 늘 싣는다.
+        """
+        src = (self.headers.get("Origin") or "").strip()
+        if not src or src == "null":
+            src = (self.headers.get("Referer") or "").strip()
+        if not src:
+            return False
+        netloc = urlparse(src).netloc.strip().lower()
+        if not netloc:
+            return False
+        if netloc == (self.headers.get("Host") or "").strip().lower():
+            return True  # 포트까지 같아야 한다 — 같은 기계의 다른 포트(다른 앱)는 다른 출처다
+        origin_host = _host_name(netloc)
+        return origin_host in ALLOWED_HOSTS and origin_host not in LOOPBACK_HOSTS
+
+    def _auth_page(self, code: int, *, team: bool, note: str = "", note_kind: str = "err", nxt: str = "",
+                   cookie: str | None = None, cleared: bool = False):
+        """
+        /auth 화면. 코드 입력(+ 가려던 화면 next) · 팀 도구 목록 · 끄기 · 「서비스로 돌아가기」.
+        팀 도구 목록은 앱의 「팀 모드」 알약 메뉴(js/app.js TEAM_TOOLS)와 같은 순서·이름이다.
+        cleared 면 끈 직후 — 이 탭의 베타 표시(sessionStorage)를 지우는 짧은 스크립트를 싣는다.
+        """
+        esc = lambda t: t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")  # noqa: E731
+        note_html = f'<p class="{"err" if note_kind == "err" else "note"}" role="status">{esc(note)}</p>' if note else ""
         if team:
-            body = """<p class="ok">개발자 모드가 켜져 있어요. 이 브라우저에서 베타 화면이 열려요.</p>
-<ul><li><a href="/index.html#/vision">#/vision — 얼굴과 삐약이를 보며 발표하는 비전 리허설</a></li>
-<li><a href="/index.html#/temp">#/temp — 통화 배치로 도는 전체 흐름</a></li>
-<li><a href="/index.html#/test/qa">#/test/qa — ppt/ 덱으로 질문 코칭</a></li>
-<li><a href="/index.html#/replay">#/replay — 저장된 세션 다시 보기</a></li>
-<li><a href="/index.html#/">홈 — 샘플 발표·샘플 리포트가 보여요</a></li></ul>
-<form method="post" action="/auth"><input type="hidden" name="logout" value="1"><button class="ghost">개발자 모드 끄기</button></form>"""
+            tools = "".join(f'<li><a href="/index.html{h}">{esc(name)}</a><span>{esc(desc)}</span></li>' for h, name, desc in TEAM_TOOLS)
+            off = ('<p class="note">이 브리지는 DEMO_DEV_ROUTES=1 로 떠 있어서 코드 없이도 팀 모드예요. 여기서는 끌 수 없어요.</p>'
+                   if DEV_ROUTES else
+                   '<form method="post" action="/auth"><input type="hidden" name="logout" value="1">'
+                   '<button class="ghost">팀 모드 끄기</button></form>')
+            body = f"""<p class="ok">팀 모드가 켜져 있어요. 이 브라우저에서 팀 도구가 열려요.</p>{note_html}
+<ul class="tools">{tools}</ul>{off}"""
         else:
-            body = f"""<form method="post" action="/auth">
+            hidden_next = f'<input type="hidden" name="next" value="{esc(nxt)}">' if nxt else ""
+            body = f"""{note_html}<form method="post" action="/auth">
 <label for="code">팀 코드</label>
-<input id="code" name="code" type="password" autocomplete="current-password" autofocus required>
-<button>개발자 모드 켜기</button></form>{f'<p class="err">{esc(note)}</p>' if note else ''}"""
+<input id="code" name="code" type="password" autocomplete="current-password" autofocus required>{hidden_next}
+<button>팀 모드 켜기</button></form>"""
+        clear_js = ("<script>try{['cheokcheok:call-flow','cheokcheok:vision-flow','cheokcheok:booth-qa',"
+                    "'cheokcheok:booth-variant','cheokcheok:team-ok'].forEach(function(k){sessionStorage.removeItem(k)})}"
+                    "catch(e){}</script>") if cleared else ""
         html = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>개발자 모드 · 척척발표</title><style>
+<title>팀 모드 · 척척발표</title><style>
 body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f5f1;color:#1d1d1b;
 font-family:"Pretendard",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif}}
-main{{width:min(360px,calc(100vw - 32px));background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 6px 24px #0000000f}}
+main{{box-sizing:border-box;width:min(400px,calc(100vw - 32px));background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 6px 24px #0000000f}}
 h1{{font-size:20px;margin:0 0 4px}} .sub{{margin:0 0 20px;color:#6b6b66;font-size:14px}}
 label{{display:block;font-size:13px;color:#6b6b66;margin-bottom:6px}}
 input{{width:100%;box-sizing:border-box;font-size:16px;padding:12px;border:1px solid #d9d7d0;border-radius:10px}}
 button{{margin-top:12px;width:100%;padding:12px;font-size:15px;font-weight:600;border:0;border-radius:10px;background:#0f8a55;color:#fff;cursor:pointer}}
-button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:14px}} .ok{{color:#0f8a55}}
-ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
-</style></head><body><main><h1>개발자 모드</h1><p class="sub">척척발표 팀이 쓰는 베타 화면을 여는 곳이에요.</p>
-{body}</main></body></html>""".encode("utf-8")
+button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:14px}} .note{{color:#55554f;font-size:14px}} .ok{{color:#0f8a55}}
+.tools{{list-style:none;padding:0;margin:12px 0}} .tools li{{padding:8px 0;border-top:1px solid #eeede8}}
+.tools a{{color:#0f8a55;font-weight:600;text-decoration:none}} .tools span{{display:block;color:#6b6b66;font-size:13px;margin-top:2px}}
+.back{{display:block;margin-top:18px;text-align:center;color:#55554f;font-size:14px}}
+</style></head><body><main><h1>팀 모드</h1><p class="sub">척척발표 팀이 쓰는 도구를 여는 곳이에요.</p>
+{body}<a class="back" href="/index.html#/">서비스로 돌아가기</a></main>{clear_js}</body></html>""".encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(html)))
         self.send_header("X-Robots-Tag", "noindex")
+        self.send_header("Cache-Control", "no-store")
         if cookie is not None:
             self.send_header("Set-Cookie", cookie)
         self.end_headers()
         self.wfile.write(html)
 
+    def _redirect_next(self, nxt: str, cookie: str | None = None):
+        """코드가 맞으면 가려던 앱 화면으로 (303 — 새로 고쳐도 폼을 다시 보내지 않게)."""
+        self.send_response(303)
+        self.send_header("Location", "/index.html" + nxt)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        if cookie is not None:
+            self.send_header("Set-Cookie", cookie)
+        self.end_headers()
+
     def _team_cookie(self, value: str, max_age: int) -> str:
         return (f"{TEAM_COOKIE}={value}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax"
                 + ("; Secure" if self._https() else ""))
 
-    def _handle_auth_get(self):
-        if not TEAM_CODE:
+    def _handle_auth_get(self, parsed=None):
+        # DEV_ROUTES=1 이면 /api/v1/team 과 같은 판정(_dev_open)을 쓴다 — 예전엔 API 는 팀으로 보는데 이 화면은 「켜기」 폼이었다
+        if not TEAM_CODE and not DEV_ROUTES:
             return self._json(404, {"error": "not found"})
-        return self._auth_page(200, team=self._team_ok())
+        nxt = _safe_next((parse_qs(parsed.query).get("next") or [""])[0] if parsed else "")
+        if _dev_open() and nxt:
+            return self._redirect_next(nxt)
+        return self._auth_page(200, team=_dev_open(), nxt=nxt)
 
     def _handle_auth_post(self, raw: bytes):
-        if not TEAM_CODE:
+        if not TEAM_CODE and not DEV_ROUTES:
             return self._json(404, {"error": "not found"})
         form = parse_qs(raw.decode("utf-8", "replace"))
+        nxt = _safe_next((form.get("next") or [""])[0])
         if (form.get("logout") or [""])[0]:
-            return self._auth_page(200, team=False, note="개발자 모드를 껐어요.", cookie=self._team_cookie("", 0))
+            # 다른 사이트의 폼이 팀 모드를 끄지 못하게 (SameSite=Lax 는 최상위 POST 이동에 쿠키를 안 싣지만,
+            # 끄기는 쿠키 없이도 Set-Cookie 로 지우므로 출처를 따로 본다)
+            if not self._same_origin():
+                sys.stderr.write("[bridge] /auth 끄기 거절 (다른 출처)\n")
+                return self._auth_page(403, team=_dev_open(), note="이 화면에서 끌 수 있어요.")
+            if DEV_ROUTES:
+                return self._auth_page(200, team=True)
+            return self._auth_page(200, team=False, note="팀 모드를 껐어요. 이 탭의 베타 화면 표시도 지웠어요.",
+                                   note_kind="note", cookie=self._team_cookie("", 0), cleared=True)
+        if not TEAM_CODE:
+            return self._auth_page(200, team=_dev_open())
         key = self._client_key()
         if not AUTH_LIMITER.allow(key):
             wait = AUTH_LIMITER.retry_after(key)
-            return self._auth_page(429, team=False, note=f"너무 많이 시도했어요. {wait}초 뒤에 다시 해 주세요.")
+            return self._auth_page(429, team=False, nxt=nxt, note=f"너무 많이 시도했어요. {wait}초 뒤에 다시 해 주세요.")
         code = (form.get("code") or [""])[0].strip()
         if not hmac.compare_digest(code.encode("utf-8"), TEAM_CODE.encode("utf-8")):
             sys.stderr.write("[bridge] /auth 실패\n")
-            return self._auth_page(401, team=False, note="코드가 맞지 않아요.")
+            return self._auth_page(401, team=False, nxt=nxt, note="코드가 맞지 않아요. 다시 넣어 주세요.")
         sys.stderr.write("[bridge] /auth 성공\n")
-        return self._auth_page(200, team=True, cookie=self._team_cookie(_team_token(), TEAM_COOKIE_MAX_AGE))
+        cookie = self._team_cookie(_team_token(), TEAM_COOKIE_MAX_AGE)
+        if nxt:
+            return self._redirect_next(nxt, cookie)
+        return self._auth_page(200, team=True, cookie=cookie)
 
     def _handle_ops_shield(self):
         """
@@ -1936,9 +2055,10 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             if parsed.path == "/api/health":
                 return self._json(200, {"ok": True, "mock": _mock()})
             if parsed.path.rstrip("/") == "/auth":
-                return self._handle_auth_get()
+                return self._handle_auth_get(parsed)
             if parsed.path == "/api/v1/team":
-                return self._json(200, {"team": _dev_open()})
+                # dev: DEMO_DEV_ROUTES 브리지라 코드 없이 팀이고 끌 수 없다 — 앱의 「팀 모드」 알약이 끄기 대신 그 안내를 보인다
+                return self._json(200, {"team": _dev_open(), **({"dev": True} if DEV_ROUTES else {})})
             if parsed.path == "/api/v1/ops/shield":
                 return self._handle_ops_shield()
             if parsed.path == "/api/v1/cached-slidedoc":
@@ -2412,23 +2532,22 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
         """
         데모 화면 파일과 /sdk/ 모듈 (demo/static_assets.py). HTML·ES 모듈은 참조 주소에 내용 해시를 넣어 내고,
         요청의 v 가 지금 해시와 같으면 1년 immutable, 아니면 no-cache + ETag.
-        폴더 주소에 / 가 없으면 SimpleHTTPRequestHandler 의 리다이렉트에 맡긴다.
+        허용 목록(static_access) 밖이면 404 — 폴더 주소도 `/`(→ index.html) 말고는 열지 않는다.
         """
         url = parsed.path
-        path = STATIC.locate(url)
+        if normalize_url_path(url) == "/":
+            url = "/index.html"
+        # 허용 목록 밖은 마운트 안에 있어도 404 (demo/static_assets.py static_access) — 폴더 주소·내부 문서·시안·
+        # git 에 없는 파일이 공개 주소로 열리던 길을 막는다. 팀 전용(샘플 데모 자료)은 팀 브라우저에만.
+        level = static_access(url)
+        path = STATIC.locate_public(url, team=_dev_open())
+        got = STATIC.served(url) if path is not None and path.is_file() else None
         if path is not None and _static_hidden(path):
-            self.send_error(404)
-            return None
-        if path is not None and path.is_dir():
-            if not url.endswith("/"):
-                return super().do_HEAD() if head_only else super().do_GET()
-            url += "index.html"
-        got = STATIC.served(url)
+            path = got = None  # 허용 목록을 통과해도 손으로 둔 문서·점 파일은 한 번 더 막는다
         if got is None:
             self.send_error(404)
             return None
         data, digest = got
-        path = STATIC.locate(url)
         ctype = self.guess_type(str(path))
         if ctype.startswith("text/") and "charset" not in ctype:
             ctype += "; charset=utf-8"
@@ -2442,6 +2561,8 @@ ul{{padding-left:18px;line-height:1.9}} a{{color:#0f8a55}}
             # 같아서(팀 여부는 /api/v1/team) 나눠 써도 되고, 첫 방문의 VM 왕복(0.2~1.8초)이 빠진다.
             # Cloudflare 는 HTML 을 기본으로 저장하지 않아서 캐시 규칙을 켜야 쓰인다 (docs/DEPLOYMENT.md §10-5)
             extra.append(("CDN-Cache-Control", CDN_HTML_CACHE))
+        elif level == "team":
+            cache = "private, no-store"  # 팀 전용 — Cloudflare 가 들고 있다가 공개 방문자에게 내주지 않게
         else:
             v = (parse_qs(parsed.query).get("v") or [""])[0]
             cache = IMMUTABLE if v and v == digest else REVALIDATE

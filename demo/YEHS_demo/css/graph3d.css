@@ -15,11 +15,6 @@
   display: flex; align-items: center; gap: 18px;
   padding: 16px 22px; flex: 0 0 auto;
 }
-.g3d-back {
-  color: var(--text-3, #5b6b64); font-size: 14px; font-weight: 600; text-decoration: none;
-  padding: 6px 10px; border-radius: var(--r-ctl, 12px);
-}
-.g3d-back:hover { background: var(--accent-weak, #E9F7EF); }
 /* 위 설명 글씨가 개미만하다는 지적(2026-08-12 사용자) — 제목·부제를 눈에 띄게 키운다 */
 .g3d-title b { display: block; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
 .g3d-title span { display: block; margin-top: 3px; font-size: 14px; color: var(--text-2, #38493f); font-weight: 500; }
@@ -85,14 +80,6 @@
 /* 요약 칩들과 한 줄에 뒤섞여 있으면 이 발표에서 제일 먼저 봐야 할 한 문장이
    눈에 안 들어온다는 지적(2026-08-12 사용자: 직관적으로 안 와닿는다) —
    칩과 분리해서 그 자체로 배너처럼 보이게 한다. 판정 색은 안 바꾼다(불변) */
-.g3d-lead {
-  display: block; flex-basis: 100%; margin-top: 4px; padding: 10px 14px;
-  border-radius: var(--r-inner, 16px); font-weight: 600; font-size: 15px; line-height: 1.5;
-}
-.g3d-lead-warn { background: var(--no-bg); border: 1px solid color-mix(in srgb, var(--no) 45%, transparent); color: var(--text, #10201a); }
-.g3d-lead-warn b { color: var(--no); font-weight: 800; }
-.g3d-lead-ok { background: var(--ok-bg); border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent); color: var(--text, #10201a); }
-.g3d-lead-ok b { color: var(--ok); font-weight: 800; }
 .g3d-sum-pending { color: var(--text-3, #5b6b64); font-weight: 600; }
 /* 리포트 카드 안에서는 밝은 면 위라 색을 뒤집는다 */
 .rep-graph .g3d-summary { padding: 8px 0 0; }
@@ -109,13 +96,6 @@
 }
 
 /* 범례도 위 요약과 같은 지적을 받았다 — 12px → 14px, 점도 눈에 띄게 키운다 */
-.g3d-legend {
-  flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
-  padding: 14px 22px 18px; font-size: 14px; font-weight: 600; color: var(--text-2, #38493f);
-}
-.g3d-legend span { display: inline-flex; align-items: center; gap: 7px; }
-.g3d-legend i { width: 11px; height: 11px; border-radius: 50%; }
-.g3d-hint { color: var(--text-3, #5b6b64); font-weight: 500; font-size: 13px; }
 
 /* 개념 카드. 무대를 가리지 않게 오른쪽에 붙이고, 좁은 화면에서는 아래로 내린다 */
 .g3d-card {
@@ -128,9 +108,6 @@
 .g3d-card[hidden] { display: none; }
 .g3d-card h3 { margin: 2px 0 8px; font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
 .g3d-verdict { font-size: 13px; font-weight: 700; }
-.g3d-sum { margin: 0 0 8px; font-size: 14.5px; line-height: 1.55; color: var(--text-2, #38493f); word-break: keep-all; }
-.g3d-note { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--text-3, #5b6b64); word-break: keep-all; }
-.g3d-slides { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--text-3, #5b6b64); }
 .g3d-close {
   position: absolute; right: 10px; top: 10px; width: 26px; height: 26px;
   border: 0; border-radius: 50%; cursor: pointer;
@@ -158,8 +135,7 @@
 
 @media (max-width: 720px) {
   .g3d-card { right: 12px; left: 12px; width: auto; top: auto; bottom: 84px; }
-  .g3d-legend { gap: 12px; font-size: 12.5px; }
-}
+  }
 
 /* 이웃 강조. 누른 개념과 이어진 것만 남기고 나머지는 죽인다 — 지우지 않고
    흐리게만 둔다. 사라지면 「연결이 없다」로 읽힌다. */
@@ -175,7 +151,6 @@
    「이 아직 말로 안 나왔어요」가 따로 놀았다. */
 .qb-graph .g3d-summary { padding: 0; }
 .qb-graph .g3d-clip { flex: 1 0 100%; font-size: 12.5px; }
-
 
 /* 2026-08-12 product-first graph redesign */
 .g3d-wrap { background: #fafaf8; overflow: hidden; }
@@ -210,13 +185,6 @@
 }
 .g3d-label::before,.g3d-label::after { display: none; }
 .g3d-label i { width: 6px; height: 6px; }
-.g3d-legend {
-  position: absolute; z-index: 4; right: 20px; top: 164px; display: flex; gap: 7px;
-  padding: 9px 11px; border: 1px solid rgba(16,32,26,.08); border-radius: 12px;
-  background: rgba(255,255,255,.88); box-shadow: 0 2px 10px rgba(16,32,26,.06);
-  backdrop-filter: blur(8px); font-size: 11px; color: var(--text-3);
-}
-.g3d-legend b { color: var(--text-2); margin-right: 3px; }
 .g3d-card {
   top: 176px; right: 22px; width: 320px; max-height: calc(100vh - 198px); overflow: auto;
   padding: 20px; border-radius: 16px; background: rgba(255,255,255,.96);
@@ -240,9 +208,7 @@
   .g3d-summary { grid-column: 1; grid-row: auto; overflow-x: auto; }
   .g3d-title p { font-size: 15px; }
   .g3d-insight { grid-column: 1; }
-  .g3d-legend { top: 190px; }
-}
-
+  }
 
 /* 2차: 그래프 탐색과 수정 행동이 중심인 split view */
 .g3d-top {
@@ -328,7 +294,6 @@
   .g3d-filters { max-width: calc(100% - 24px); }
 }
 
-
 /* 3차 polish: 선택은 크기가 아니라 링, 조작은 태그가 아니라 컨트롤로 읽힌다. */
 .g3d-insight { grid-template-columns: 1fr auto; padding-block: 10px; }
 .g3d-insight > b { font-size: 15px; }
@@ -381,7 +346,6 @@
   .g3d-view-option { border-left: 0; padding-left: 0; }
 }
 
-
 /* 상태 필터의 active 색은 판정 색과 동일해야 한다. */
 .g3d-filters [data-g3d-filter="aligned"].is-active {
   background: var(--ok); border-color: var(--ok); color: #fff;
@@ -400,7 +364,6 @@
   box-shadow: 0 2px 7px color-mix(in srgb, var(--om) 24%, transparent);
 }
 .g3d-filters [data-g3d-filter].is-active > i { background: currentColor; }
-
 
 /* 선택 관계의 3단계: 선택 100%, 직접 연결 88%, 배경 27%. */
 .g3d-label.is-connected {

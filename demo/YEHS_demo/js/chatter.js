@@ -280,7 +280,7 @@ ${props(speaker)}
           <span class="ch-door-slit"></span>
         </div>
         <b>무대 뒤 복도</b>
-        <span>문틈으로 웅성거리는 소리가 새어 나온다</span>
+        <span>문틈으로 웅성거리는 소리가 새어 나와요</span>
       </div>`;
   }
 

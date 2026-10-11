@@ -43,6 +43,45 @@ _IMPORT = re.compile(r"""^(\s*(?:import|export)\b[^;'"]*?)(['"])([^'"?#]+)(?:\?v
 _EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|//)", re.I)
 
 
+#: 공개 정적 서빙 허용 목록 (2026-10-02 정리안 「막기」). 예전엔 demo/YEHS_demo 폴더를 통째로 열어서 내부 문서(*.md)·
+#: 실제 받아쓰기와 서버 경로가 든 data/*.json·git 에 없는 PDF 까지 공개 주소로 열렸다. 이제 앱이 실제로 받는 것만 연다.
+#: 새 종류의 파일을 화면에서 쓰게 되면 여기에 더한다 (tests/test_static_allowlist.py 가 앱이 쓰는 경로를 대조한다).
+_NAME = r"[A-Za-z0-9_.-]+"
+_PUBLIC_PATH = re.compile(rf"""^/(?:
+      index\.html | f11_reveal\.html | booth\.html | favicon\.ico | robots\.txt
+    | css/{_NAME}\.css
+    | js/{_NAME}\.m?js
+    | js/vendor/(?:{_NAME}/)?{_NAME}\.(?:m?js|wasm|xml)
+    | assets/{_NAME}\.(?:png|svg|ico|webp)
+    | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
+    | sdk/{_NAME}\.m?js
+)$""", re.X)
+#: 팀 샘플 데모만 쓰는 파일 — /auth 를 거친 팀 브라우저(또는 DEV_ROUTES 브리지)에만 연다. 공개 방문자에게는 404.
+_TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf)$")
+
+
+def normalize_url_path(url_path: str) -> str | None:
+    """URL 경로를 locate 와 같은 규칙으로 편다 (%xx 풀기 · . / .. 접기). NUL 이 섞이면 None."""
+    decoded = unquote(url_path or "/")
+    if "\x00" in decoded or "\x00" in (url_path or ""):
+        return None
+    return posixpath.normpath("/" + decoded.lstrip("/"))
+
+
+def static_access(url_path: str) -> str | None:
+    """이 정적 경로를 누구에게 여는가 — 'public' · 'team' · None(아무에게도 안 연다 → 404). `/` 는 index.html 이다."""
+    norm = normalize_url_path(url_path)
+    if norm is None:
+        return None
+    if norm == "/":
+        return "public"
+    if _PUBLIC_PATH.match(norm):
+        return "public"
+    if _TEAM_PATH.match(norm):
+        return "team"
+    return None
+
+
 def content_digest(data: bytes) -> str:
     return HASH_PREFIX + hashlib.sha1(data).hexdigest()[:10]
 
@@ -79,6 +118,16 @@ class AssetCache:
                     return None
                 return p if p.exists() else None
         return None
+
+    def locate_public(self, url_path: str, *, team: bool = False) -> Path | None:
+        """
+        허용 목록(static_access)을 통과한 경로만 locate. 브리지가 정적 파일을 내줄 때 쓴다 — 마운트 안에 있어도
+        목록 밖(*.md · 시안 HTML · git 에 없는 파일 …)이면 None(→ 404). team 이면 팀 전용 파일도 연다.
+        """
+        level = static_access(url_path)
+        if level is None or (level == "team" and not team):
+            return None
+        return self.locate(url_path)
 
     @staticmethod
     def join(base_url_dir: str, ref: str) -> str | None:
