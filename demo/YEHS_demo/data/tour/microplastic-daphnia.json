@@ -1,0 +1,610 @@
+{
+  "schema": "chuckchuck.tour",
+  "version": 1,
+  "id": "microplastic-daphnia",
+  "source": {
+    "kind": "recorded",
+    "recorded_at": "2026-10-11",
+    "note": "부스 덱 B-1 녹음을 실 API 브리지(labs/tour_capture)로 한 번 태운 응답. 받아쓰기 skt-ax · 판정 solar · 5분 코칭 질문."
+  },
+  "deck": {
+    "id": "microplastic-daphnia",
+    "title": "환 경 생 명 공 학 과 수 생 독 성 연 구 실…",
+    "subtitle": "미세플라스틱은 물벼룩의 번식을 줄이는가",
+    "cover": "assets/deck-covers/microplastic-daphnia.webp",
+    "slides": [
+      {
+        "no": 1,
+        "image": "assets/deck-slides/microplastic-daphnia/1.webp",
+        "title": "환 경 생 명 공 학 과 수 생 독 성 연 구 실…"
+      },
+      {
+        "no": 2,
+        "image": "assets/deck-slides/microplastic-daphnia/2.webp",
+        "title": "농도만 다르게 하고 나머지 사육 조건은 모두 고정했다"
+      },
+      {
+        "no": 3,
+        "image": "assets/deck-slides/microplastic-daphnia/3.webp",
+        "title": "100 mg/L에서 산자수가 절반 아래로 떨어졌다"
+      },
+      {
+        "no": 4,
+        "image": "assets/deck-slides/microplastic-daphnia/4.webp",
+        "title": "실험 농도는 실제 하천보다 백 배 이상 높다"
+      }
+    ]
+  },
+  "present": {
+    "duration_sec": 159.9,
+    "slides": [
+      {
+        "slide_no": 1,
+        "start_sec": 0.0,
+        "end_sec": 17.76
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 17.76,
+        "end_sec": 59.71
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 59.71,
+        "end_sec": 114.8
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 114.8,
+        "end_sec": 159.83
+      }
+    ],
+    "transcript": [
+      {
+        "slide_no": 1,
+        "start_sec": 1.03,
+        "end_sec": 5.82,
+        "text": "안녕하세요 환경생명공학과 석사 1년차 한지우입니다."
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 6.53,
+        "end_sec": 15.51,
+        "text": "미세플라스틱이 물벼룩 번식에 어떤 영향을 주는지 발표하겠습니다 미세플라스틱이 해롭다는 얘기는 많은데 농도가"
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 15.55,
+        "end_sec": 18.59,
+        "text": "얼마일 때 실제로 영향이 나타나는지를"
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 18.63,
+        "end_sec": 26.71,
+        "text": "숫자로 정리한 건 많지 않습니다 그래서 농도를 5 단계로 나누어 21일 동안 키워봤습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 28.8,
+        "end_sec": 30.22,
+        "text": "설계는 이렇습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 31.03,
+        "end_sec": 43.87,
+        "text": "폴리스틸엔 일 마이크로비터 입자들 00.11 100mg퍼 L 다섯 농도로 나눴고 영이 대조군입니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 44.57,
+        "end_sec": 50.67,
+        "text": "군당 48마리씩 총 240마리를 썼습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 50.71,
+        "end_sec": 56.16,
+        "text": "부와 24시간 이내 유색만 골라 개체별로 따로 키웠고요."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 57.26,
+        "end_sec": 59.71,
+        "text": "조건은 다 똑같이 맞췄습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 59.75,
+        "end_sec": 63.57,
+        "text": "그렇게 21일 동안 산자수를 셌습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 65.91,
+        "end_sec": 67.19,
+        "text": "결과입니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 67.23,
+        "end_sec": 80.77,
+        "text": "대조군이 마리당 92마리를 낳았는데 0.1에서 89일에서 85로 거의 차이가 없다가 10mg에서 67로"
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 80.81,
+        "end_sec": 92.78,
+        "text": "꺾이고 100mg에서는 40일까지 떨어집니다 대조군의 절반이 안 됩니다 NOEC는 0.1mg 퍼 리터로"
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 92.82,
+        "end_sec": 94.35,
+        "text": "나왔습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 94.39,
+        "end_sec": 98.8,
+        "text": "생존율은 전 군에서 90%를 넘었습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 99.54,
+        "end_sec": 106.45,
+        "text": "죽어서 산자수가 준 거 준 것이 아니라 살아있는 개체가 덜 나았다는 뜻입니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 107.34,
+        "end_sec": 114.8,
+        "text": "그러니까 지금 하천에 있는 미세 플라스틱이 이미 수생싱 생물의 번식을 위협하고 있다는 얘기가 됩니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 116.94,
+        "end_sec": 119.11,
+        "text": "한계도 말씀드리겠습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 119.15,
+        "end_sec": 122.97,
+        "text": "첫째 실험 농도가 실제 하천보다 높습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 123.62,
+        "end_sec": 133.72,
+        "text": "국내 하천 실측치는 영점 영영 일에서 0.1mg 수준인데, 영향이 나타난 10m그램은 그보다 훨씬 높습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 134.42,
+        "end_sec": 137.88,
+        "text": "둘째 입자를 한 종류만 썼습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 137.92,
+        "end_sec": 144.06,
+        "text": "실제 밀 미세 플라스틱은 크기도 형상도 재질도 섞여 있습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 144.78,
+        "end_sec": 155.25,
+        "text": "다음 단계로는 환경 농도에 가까운 0.01에서 일 밀리그램 구간에서 세대간 실험을 하고 형상과 재질이 다른"
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 155.29,
+        "end_sec": 157.86,
+        "text": "입자로 비교군도 추가할 계획입니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 158.44,
+        "end_sec": 159.83,
+        "text": "감사합니다"
+      }
+    ],
+    "coaching_chips": [
+      {
+        "at_sec": 4.0,
+        "slide_no": 1,
+        "kind": "listen",
+        "text": "잘 듣고 있어요"
+      },
+      {
+        "at_sec": 45.0,
+        "slide_no": 2,
+        "kind": "slow",
+        "text": "조금 느려요"
+      },
+      {
+        "at_sec": 75.0,
+        "slide_no": 3,
+        "kind": "fast",
+        "text": "조금 빨라요"
+      },
+      {
+        "at_sec": 107.3,
+        "slide_no": 3,
+        "kind": "filler",
+        "text": "「그러니까」가 들렸어요"
+      },
+      {
+        "at_sec": 138.1,
+        "slide_no": 4,
+        "kind": "time",
+        "text": "이 장이 길어요"
+      },
+      {
+        "at_sec": 155.0,
+        "slide_no": 4,
+        "kind": "slow",
+        "text": "조금 느려요"
+      }
+    ]
+  },
+  "analysis": {
+    "summary": "청중 맞춤 설명이 부족하고, 강조점과 출처 표기가 빠져서 전달력이 떨어졌어요. 0.1mg와 자료 3장의 1mg가 달라서 점수가 깎였어요.",
+    "level": "practice",
+    "slide_times": [
+      {
+        "slide_no": 1,
+        "sec": 17.8,
+        "level": "fair",
+        "note": null
+      },
+      {
+        "slide_no": 2,
+        "sec": 41.4,
+        "level": "fair",
+        "note": "권장 시간보다 짧았어요"
+      },
+      {
+        "slide_no": 3,
+        "sec": 53.3,
+        "level": "good",
+        "note": null
+      },
+      {
+        "slide_no": 4,
+        "sec": 47.4,
+        "level": "practice",
+        "note": "권장 시간보다 길었어요"
+      }
+    ],
+    "pace": {
+      "cpm": 237.3,
+      "level": "practice",
+      "note": "권장(300~350자/분)보다 느려요"
+    },
+    "fillers": {
+      "count": 1,
+      "per_min": 0.4,
+      "top": [
+        {
+          "word": "그러니까",
+          "count": 1
+        }
+      ],
+      "level": "good"
+    },
+    "claim_graph": {
+      "summary": "자료의 핵심 개념 12개 가운데 10개를 발표에서 말했어요. 자료와 어긋나게 말한 곳이 1곳 있어요.",
+      "root": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+      "nodes": [
+        {
+          "id": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "label": "100 mg/L에서 산자수가 절반 아래로 떨어졌다",
+          "kind": "claim",
+          "status": "contradiction",
+          "slide_no": 3
+        },
+        {
+          "id": "nochul-seolgye",
+          "label": "노출 설계",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "sanjasu",
+          "label": "산자수",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 3
+        },
+        {
+          "id": "dunnett-geomjeong",
+          "label": "Dunnett 검정",
+          "kind": "concept",
+          "status": "missing",
+          "slide_no": 3
+        },
+        {
+          "id": "noec",
+          "label": "NOEC",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 3
+        },
+        {
+          "id": "sayuk-jogeon",
+          "label": "사육 조건",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "nongdogun",
+          "label": "농도군",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "silheom-nongdo",
+          "label": "실험 농도",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 4
+        },
+        {
+          "id": "hwangyeong-nongdo",
+          "label": "환경 농도",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 4
+        },
+        {
+          "id": "nongdoman-dareuge-hago-nameoji-sayuk-jog",
+          "label": "농도만 다르게 하고 나머지 사육 조건은 모두 고정했다",
+          "kind": "reason",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "silheom-nongdoneun-silje-hacheonboda-bae",
+          "label": "실험 농도는 실제 하천보다 백 배 이상 높다",
+          "kind": "reason",
+          "status": "aligned",
+          "slide_no": 4
+        },
+        {
+          "id": "ipja-jongryu",
+          "label": "입자 종류",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 4
+        }
+      ],
+      "edges": [
+        {
+          "from": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "to": "nochul-seolgye"
+        },
+        {
+          "from": "nochul-seolgye",
+          "to": "nongdogun"
+        },
+        {
+          "from": "nochul-seolgye",
+          "to": "sayuk-jogeon"
+        },
+        {
+          "from": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "to": "sanjasu"
+        },
+        {
+          "from": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "to": "noec"
+        },
+        {
+          "from": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "to": "dunnett-geomjeong"
+        },
+        {
+          "from": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "to": "hwangyeong-nongdo"
+        },
+        {
+          "from": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "to": "silheom-nongdo"
+        },
+        {
+          "from": "100-mg-leseo-sanjasuga-jeolban-araero-tt",
+          "to": "ipja-jongryu"
+        },
+        {
+          "from": "sayuk-jogeon",
+          "to": "nongdoman-dareuge-hago-nameoji-sayuk-jog"
+        },
+        {
+          "from": "silheom-nongdo",
+          "to": "silheom-nongdoneun-silje-hacheonboda-bae"
+        }
+      ]
+    }
+  },
+  "qa": {
+    "asker": "교수님",
+    "questions": [
+      {
+        "id": "q01-100-mg-leseo-sanjasuga-jeolban-araer",
+        "slide_no": 3,
+        "question": "발표에서 “NOEC는 0.1mg 퍼 리터로 나왔습니다”라고 했는데, 자료 3장의 수치와 달라요. 어느 쪽이 맞나요?",
+        "answers": {
+          "good": {
+            "text": "자료 3장은 “NOEC = 1 mg/L”라고 해요. 발표에서 한 “NOEC는 0.1mg 퍼 리터로 나왔습니다”는 이 수치로 바로잡아야 해요.",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "NOEC 값을 정확히 1 mg/L로 바로잡았어요.",
+            "grounds": [
+              {
+                "slide_no": 3,
+                "ref": "S3-11",
+                "quote": "NOEC = 1 mg/L",
+                "role": "covered",
+                "note": "0.1 mg/L 대신 1 mg/L로 바로잡은 것이 자료와 일치해 정답이 돼요."
+              }
+            ]
+          },
+          "rough": {
+            "text": "발표에서 말한 게 맞아요. 제가 기억하기로는 그랬어요.",
+            "verdict": "wrong",
+            "level": "practice",
+            "feedback": "발표에서 한 말을 다시 골랐어요.",
+            "grounds": []
+          }
+        }
+      },
+      {
+        "id": "q02-dunnett-geomjeong",
+        "slide_no": 3,
+        "question": "Dunnett 검정이 어떻게 NOEC를 도출했는지 설명해 주세요",
+        "answers": {
+          "good": {
+            "text": "Dunnett 검정을 통해 10·100 mg/L에서 p < .05로 유의한 차이가 나타났고, 대조군과 유의한 차이가 없는 가장 높은 농도인 1 mg/L을 NOEC로 도출했어요",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "Dunnett 검정을 통해 10·100 mg/L에서 p < .05로 유의한 차이가 나타났고…",
+            "grounds": [
+              {
+                "slide_no": 3,
+                "ref": "S3-10",
+                "quote": "그림 2. 농도별 마리당 총 산자수. Dunnett 검정, 10·100 mg/L에서 p <.05.",
+                "role": "covered",
+                "note": "Dunnett 검정의 유의성 판단 기준에 대한 답이 돼요."
+              },
+              {
+                "slide_no": 3,
+                "ref": "S3-12",
+                "quote": "대조군과 유의한 차이가 나타나지 않은 가장 높은 농도다. 그 위 구간부터 영향이 확인된다.",
+                "role": "covered",
+                "note": "NOEC 도출 기준에 대한 답이 돼요."
+              }
+            ]
+          },
+          "rough": {
+            "text": "음… Dunnett 검정을 통해 어느 정도·어느 정도에서 p < .05로 유의한 차이가 나타났고… 정확한 숫자랑 나머지는 기억이 안 나요.",
+            "verdict": "partial",
+            "level": "fair",
+            "feedback": "NOEC를 1 mg/L로 도출한 근거는 빠뜨렸네요.",
+            "grounds": [
+              {
+                "slide_no": 3,
+                "ref": "S3-10",
+                "quote": "그림 2. 농도별 마리당 총 산자수. Dunnett 검정, 10·100 mg/L에서 p <.05.",
+                "role": "covered",
+                "note": "질문이 묻는 Dunnett 검정의 유의수준 결과에 답이 돼요."
+              },
+              {
+                "slide_no": 3,
+                "ref": "S3-12",
+                "quote": "대조군과 유의한 차이가 나타나지 않은 가장 높은 농도다. 그 위 구간부터 영향이 확인된다.",
+                "role": "missing",
+                "note": "NOEC 도출 근거를 빠뜨린 결정적 결손이에요."
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "q06-silheom-nongdo",
+        "slide_no": 4,
+        "question": "자료에서 「실제 하천은 실험 농도보다 백 배 이상 높다」라고 했는데, 왜 그런지 설명해 주세요.",
+        "answers": {
+          "good": {
+            "text": "질문의 전제와 달리, 자료 4장은 「실험 농도는 실제 하천보다 백 배 이상 높다」라고 해요.",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "질문의 전제를 정확히 바로잡았어요.",
+            "grounds": [
+              {
+                "slide_no": 4,
+                "ref": "S4-1",
+                "quote": "실험 농도는 실제 하천보다 백 배 이상 높다",
+                "role": "covered",
+                "note": "질문이 묻는 전제를 바로잡는 데 직접적인 근거가 돼요."
+              }
+            ]
+          },
+          "rough": {
+            "text": "네, 말씀하신 그대로예요. 자료에도 그렇게 나와 있어요.",
+            "verdict": "wrong",
+            "level": "practice",
+            "feedback": "질문의 전제부터 확인해 보세요 — 자료는 그렇게 말하지 않아요.",
+            "grounds": []
+          }
+        }
+      }
+    ]
+  },
+  "report": {
+    "headline": "청중 맞춤 설명이 부족하고, 강조점과 출처 표기가 빠져서 전달력이…",
+    "items": [
+      {
+        "id": "content",
+        "label": "내용 충실도",
+        "level": "good",
+        "note": "자료에 없는 내용을 덧붙이지 않았어요"
+      },
+      {
+        "id": "logic",
+        "label": "논리 구조",
+        "level": "good",
+        "note": "생존율과 산자수 감소의 관계를 명확히 설명하여 모순 없이 결론을 도출함"
+      },
+      {
+        "id": "audience",
+        "label": "목적·청중 적합성",
+        "level": "practice",
+        "note": "청중(교수 대상)의 전문성에 비해 설명이 지나치게 단순하고…"
+      },
+      {
+        "id": "clarity",
+        "label": "언어적 명료성",
+        "level": "fair",
+        "note": "구조 신호어를 2종류 썼어요 (열거, 인과)"
+      },
+      {
+        "id": "delivery",
+        "label": "음성적 전달",
+        "level": "fair",
+        "note": "평균 237자/분이고, 1개 슬라이드에서 속도가 크게 흔들렸어요"
+      },
+      {
+        "id": "visual",
+        "label": "시각자료 활용",
+        "level": "fair",
+        "note": "근거 자료 4장 중 4장에 출처가 없어요 (1, 2, 3, 4번)"
+      },
+      {
+        "id": "time",
+        "label": "시간 관리",
+        "level": "fair",
+        "note": "2개 구간 중 1개가 비중이 어긋났어요 (보조 장+57% 초과)"
+      }
+    ],
+    "next_steps": [
+      {
+        "text": "청중이 교수라는 걸 기억하고, 미세플라스틱 농도가 실제 하천보다 백 배 이상 높다는 점을 숫자로 정확히…",
+        "slide_no": null
+      },
+      {
+        "text": "실험 농도와 실제 하천 농도를 비교하는 문장을 추가하고…",
+        "slide_no": null
+      },
+      {
+        "text": "핵심 슬라이드 2번에 예시나 한 문장을 더 넣어 권장 시간 67초 중 41초만 쓰는 부분을 늘려 보세요.",
+        "slide_no": 2
+      }
+    ]
+  }
+}

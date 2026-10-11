@@ -25,7 +25,10 @@ WEB = bridge.DEMO_DIR
 DOCS = ROOT / "docs" / "booth-mobile"
 TOUR_SCHEMA = json.loads((DOCS / "tour.schema.json").read_text(encoding="utf-8"))
 TEAM_SCHEMA = json.loads((DOCS / "team.schema.json").read_text(encoding="utf-8"))
-TOUR_FILES = sorted((WEB / "data" / "tour").glob("*.json"))
+INDEX_SCHEMA = json.loads((DOCS / "tour-index.schema.json").read_text(encoding="utf-8"))
+#: data/tour/index.json 은 투어가 아니라 투어 **목록**이다 (tour-index.schema.json, 10-11 lab/tour-fixtures) — 투어 검사에서 뺀다
+INDEX_FILE = WEB / "data" / "tour" / "index.json"
+TOUR_FILES = sorted(p for p in (WEB / "data" / "tour").glob("*.json") if p.name != INDEX_FILE.name)
 TEAM_FILE = WEB / "data" / "team.json"
 
 
@@ -206,6 +209,25 @@ def test_예시가_아닌_투어는_녹화본이라고_적는다():
         assert (t["source"]["kind"] == "example") == path.stem.startswith("_"), path.name
 
 
+def test_투어_목록은_계약을_지키고_투어_파일과_맞는다():
+    """index.json 이 있으면: 스키마 · 기본 덱 · 각 id 의 투어 파일 · 제목/장 수/길이/질문 수가 투어 파일과 같은지 · 예시는 안 싣는다."""
+    if not INDEX_FILE.is_file():
+        pytest.skip("data/tour/index.json 이 아직 없다")
+    idx = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
+    assert check(idx, INDEX_SCHEMA, INDEX_SCHEMA) == []
+    ids = [row["id"] for row in idx["tours"]]
+    assert len(set(ids)) == len(ids)
+    assert (idx["default"] in ids) if ids else idx["default"] is None
+    recorded = {p.stem for p in TOUR_FILES if not p.stem.startswith("_")}
+    assert set(ids) == recorded, "목록과 녹화 투어 파일이 어긋난다 — labs/tour_capture/build.py 로 같이 만든다"
+    for row in idx["tours"]:
+        t = json.loads((WEB / "data" / "tour" / f"{row['id']}.json").read_text(encoding="utf-8"))
+        assert (row["title"], row["subtitle"], row["cover"]) == (t["deck"]["title"], t["deck"].get("subtitle"), t["deck"]["cover"]), row["id"]
+        assert row["slides"] == len(t["deck"]["slides"]) and row["questions"] == len(t["qa"]["questions"]), row["id"]
+        assert row["duration_sec"] == t["present"]["duration_sec"] and row["recorded_at"] == t["source"]["recorded_at"], row["id"]
+        assert _asset_ok(row["cover"]) == []
+
+
 def test_팀_카드는_계약을_지킨다():
     team = json.loads(TEAM_FILE.read_text(encoding="utf-8"))
     assert check(team, TEAM_SCHEMA, TEAM_SCHEMA) == []
@@ -222,7 +244,7 @@ def test_팀_카드에_지어낸_한마디가_없다():
 
 # ─── 공개 허용 목록 · 주소 ──────────────────────────────────────────────────
 
-@pytest.mark.parametrize("url", ["/data/team.json", "/data/tour/_example.json", "/data/tour/delivery-rating.json",
+@pytest.mark.parametrize("url", ["/data/team.json", "/data/tour/_example.json", "/data/tour/delivery-rating.json", "/data/tour/index.json",
                                  "/assets/team/hyojung.webp", "/assets/team/a.jpg"])
 def test_부스_모바일_데이터는_공개다(url):
     assert static_access(url) == "public", url

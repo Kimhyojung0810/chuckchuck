@@ -1,0 +1,521 @@
+{
+  "schema": "chuckchuck.tour",
+  "version": 1,
+  "id": "delivery-rating",
+  "source": {
+    "kind": "recorded",
+    "recorded_at": "2026-10-11",
+    "note": "부스 덱 C-1 녹음을 실 API 브리지(labs/tour_capture)로 한 번 태운 응답. 받아쓰기 skt-ax · 판정 solar · 5분 코칭 질문. 뺀 질문: q12 잘 답한 답 good · 엉성한 답 good"
+  },
+  "deck": {
+    "id": "delivery-rating",
+    "title": "별점은 왜 4.7에 몰리는가",
+    "subtitle": "배달앱 리뷰 12만 건으로 본 평점 인플레이션의 원인",
+    "cover": "assets/deck-covers/delivery-rating.webp",
+    "slides": [
+      {
+        "no": 1,
+        "image": "assets/deck-slides/delivery-rating/1.webp",
+        "title": "별점은 왜 4.7에 몰리는가"
+      },
+      {
+        "no": 2,
+        "image": "assets/deck-slides/delivery-rating/2.webp",
+        "title": "세 가설 가운데 리뷰 이벤트만 데이터로 지지됐다"
+      },
+      {
+        "no": 3,
+        "image": "assets/deck-slides/delivery-rating/3.webp",
+        "title": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다"
+      }
+    ]
+  },
+  "present": {
+    "duration_sec": 139.8,
+    "slides": [
+      {
+        "slide_no": 1,
+        "start_sec": 0.0,
+        "end_sec": 12.03
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 12.03,
+        "end_sec": 108.64
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 108.64,
+        "end_sec": 139.71
+      }
+    ],
+    "transcript": [
+      {
+        "slide_no": 1,
+        "start_sec": 1.43,
+        "end_sec": 6.89,
+        "text": "안녕하세요 경영정보학과 석사 2년차 이준호입니다."
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 6.93,
+        "end_sec": 12.03,
+        "text": "별점은 왜 4.7에 몰리는가를 발표하겠습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 12.07,
+        "end_sec": 15.84,
+        "text": "배달 앱에서 매장 고르실 때 별점 보시잖아요."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 16.22,
+        "end_sec": 19.82,
+        "text": "그런데 보시면 거의 다 4.5점 이상입니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 20.24,
+        "end_sec": 30.82,
+        "text": "2024년 1월부터 작년 6월까지 수도권 매장 3200곳에 리뷰 124000건을 모아 분포를 그려봤더니"
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 30.86,
+        "end_sec": 36.59,
+        "text": "4.5점 이상 구간에만 82%가 몰려 있었습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 36.63,
+        "end_sec": 42.44,
+        "text": "왜 이렇게 됐는지 설명 세 가지를 세워놓고 하나씩 검증해 있습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 44.66,
+        "end_sec": 48.42,
+        "text": "첫 번째 가설, 매장 품질이 실제로 좋아졌다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 48.95,
+        "end_sec": 53.31,
+        "text": "이건 기각됐습니다 두 번째가 핵심인데요."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 53.35,
+        "end_sec": 55.24,
+        "text": "리뷰 이벤트입니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 55.28,
+        "end_sec": 59.99,
+        "text": "서비스 음료 드릴 테니 별 5개에 사진 리뷰 부탁드린다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 60.03,
+        "end_sec": 60.67,
+        "text": "이런 거예요."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 62.0,
+        "end_sec": 71.07,
+        "text": "이벤트를 운영하는 매장과 안 하는 매장을 갈라서 봤더니 평균 별점이 0.5점이나 가까이 차이가 났습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 71.72,
+        "end_sec": 81.17,
+        "text": "영점 5점이면 4.2에서 4.7로 가는 건데 소비자 입장에서는 완전히 다른 매장으로 보입니다 원래 잘하는"
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 81.21,
+        "end_sec": 92.19,
+        "text": "매장이 이벤트도 더하는 것 아니냐 싶어서 매장 고정 효과를 매장 고정 효과를 넣어봤는데 차이는 유지됐습니다"
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 92.23,
+        "end_sec": 100.34,
+        "text": "그러니까 별점이 음식 품질이 아니라 마케팅이 마케팅 예산을 반영하고 있다는 얘기가 됩니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 101.44,
+        "end_sec": 108.64,
+        "text": "세 번째는 불만족한 공개 고객이 리뷰를 아예 안 쓴다는 건데 이것도 어느 정도 맞았습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 111.77,
+        "end_sec": 119.72,
+        "text": "결론입니다 4.7이라는 숫자는 음식이 좋아서 나온 게 아니라 리뷰를 어떻게 모았느냐의 결과입니다"
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 120.65,
+        "end_sec": 123.08,
+        "text": "그래서 저희 제어는 두 가지인데요."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 123.52,
+        "end_sec": 133.14,
+        "text": "평균 별점만 크게 보여주지 말고 환불율이나 잼 주문율 같은 행동 지표를 함께 노출하자는 것 그리고 리뷰"
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 133.18,
+        "end_sec": 139.71,
+        "text": "이벤트를 운영하는 매장은 따로 표시하자는 것입니다 이상입니다"
+      }
+    ],
+    "coaching_chips": [
+      {
+        "at_sec": 4.4,
+        "slide_no": 1,
+        "kind": "listen",
+        "text": "잘 듣고 있어요"
+      },
+      {
+        "at_sec": 35.4,
+        "slide_no": 2,
+        "kind": "slow",
+        "text": "조금 느려요"
+      },
+      {
+        "at_sec": 72.0,
+        "slide_no": 2,
+        "kind": "time",
+        "text": "이 장이 길어요"
+      },
+      {
+        "at_sec": 92.2,
+        "slide_no": 2,
+        "kind": "filler",
+        "text": "「그러니까」가 들렸어요"
+      },
+      {
+        "at_sec": 107.4,
+        "slide_no": 2,
+        "kind": "slow",
+        "text": "조금 느려요"
+      }
+    ]
+  },
+  "analysis": {
+    "summary": "핵심 슬라이드에 시간을 더 넣고, 출처와 근거를 꼭 표시해보세요.",
+    "level": "fair",
+    "slide_times": [
+      {
+        "slide_no": 1,
+        "sec": 11.6,
+        "level": "practice",
+        "note": "권장 시간보다 짧았어요"
+      },
+      {
+        "slide_no": 2,
+        "sec": 93.1,
+        "level": "practice",
+        "note": "권장 시간보다 길었어요"
+      },
+      {
+        "slide_no": 3,
+        "sec": 34.9,
+        "level": "practice",
+        "note": "권장 시간보다 짧았어요"
+      }
+    ],
+    "pace": {
+      "cpm": 253.4,
+      "level": "practice",
+      "note": "권장(300~350자/분)보다 느려요"
+    },
+    "fillers": {
+      "count": 1,
+      "per_min": 0.4,
+      "top": [
+        {
+          "word": "그러니까",
+          "count": 1
+        }
+      ],
+      "level": "good"
+    },
+    "claim_graph": {
+      "summary": "자료의 핵심 개념 13개 가운데 11개를 발표에서 말했어요. 핵심 주장은 말하지 않은 것으로 봤어요.",
+      "root": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+      "nodes": [
+        {
+          "id": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "label": "4.7은 품질이 아니라 리뷰 수집 방식의 결과다",
+          "kind": "claim",
+          "status": "missing",
+          "slide_no": 3
+        },
+        {
+          "id": "ribyu-ibenteu",
+          "label": "리뷰 이벤트",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "ribyu-sujip-bangsik",
+          "label": "리뷰 수집 방식",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 3
+        },
+        {
+          "id": "pyeonggyun-byeoljeom-daesin-hwanbul-jaej",
+          "label": "평균 별점 대신 환불·재주문 같은 행동 지표를 함께…",
+          "kind": "reason",
+          "status": "aligned",
+          "slide_no": 3
+        },
+        {
+          "id": "haengdong-jipyo",
+          "label": "행동 지표",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 3
+        },
+        {
+          "id": "jaejumunyul",
+          "label": "재주문율",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo",
+          "label": "세 가설 가운데 리뷰 이벤트만 데이터로 지지됐다",
+          "kind": "reason",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "ribyu-ibenteuga-nopeun-byeoljeomeul-sand",
+          "label": "리뷰 이벤트가 높은 별점을 산다",
+          "kind": "reason",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "bulmanjok-gogaekeun-ribyureul-sseuji-ann",
+          "label": "불만족 고객은 리뷰를 쓰지 않는다",
+          "kind": "reason",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "maejang-gojeonghyogwa",
+          "label": "매장 고정효과",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "baedalaep-ribyu",
+          "label": "배달앱 리뷰",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 1
+        },
+        {
+          "id": "pyeongjeom-inpeulreisyeon",
+          "label": "평점 인플레이션",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 1
+        }
+      ],
+      "edges": [
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "baedalaep-ribyu"
+        },
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "pyeongjeom-inpeulreisyeon"
+        },
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "ribyu-ibenteu"
+        },
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "maejang-gojeonghyogwa"
+        },
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "jaejumunyul"
+        },
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "haengdong-jipyo"
+        },
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "ribyu-sujip-bangsik"
+        },
+        {
+          "from": "ribyu-ibenteu",
+          "to": "se-gaseol-gaunde-ribyu-ibenteuman-deiteo"
+        },
+        {
+          "from": "ribyu-ibenteu",
+          "to": "ribyu-ibenteuga-nopeun-byeoljeomeul-sand"
+        },
+        {
+          "from": "4-7eun-pumjili-anira-ribyu-sujip-bangsik",
+          "to": "bulmanjok-gogaekeun-ribyureul-sseuji-ann"
+        },
+        {
+          "from": "ribyu-ibenteu",
+          "to": "pyeonggyun-byeoljeom-daesin-hwanbul-jaej"
+        }
+      ]
+    }
+  },
+  "qa": {
+    "asker": "교수님",
+    "questions": [
+      {
+        "id": "q01-4-7eun-pumjili-anira-ribyu-sujip-ban",
+        "slide_no": 3,
+        "question": "4.7이라는 수치가 리뷰 수집 방식의 결과라는 주장의 근거는 무엇인가요?",
+        "answers": {
+          "good": {
+            "text": "별점 구간별 리뷰 비중이 1점대 3%, 2점대 2%, 3점대 5%, 4.0~4.4점 8%, 4.5~5.0점 82%로 4.5점 이상 구간에 82%가 몰려 있어 4.7이 품질이 아니라 리뷰 수집 방식의 결과임을 뒷받침해요",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "별점 구간별 리뷰 비중 데이터를 정확히 인용하여 4.7이 리뷰 수집 방식의 결과임을 잘 설명했어요.",
+            "grounds": [
+              {
+                "slide_no": 3,
+                "ref": "S3-13",
+                "quote": "그림 1. 별점 구간별 리뷰 비중 (n = 124,380). 4.5점 이상 구간에 82%가 몰려 있다.",
+                "role": "covered",
+                "note": "4.7이 리뷰 수집 방식의 결과임을 뒷받침하는 근거가 돼요."
+              }
+            ]
+          },
+          "rough": {
+            "text": "음… 별점 구간별 리뷰 비중이 어느 정도대 어느 정도… 정확한 숫자랑 나머지는 기억이 안 나요.",
+            "verdict": "partial",
+            "level": "fair",
+            "feedback": "별점 구간별 리뷰 비중에 대한 언급은 했지만, 구체적인 수치와 그 의미를 설명하지 않아 아쉬워요.",
+            "grounds": [
+              {
+                "slide_no": 3,
+                "ref": "S3-18",
+                "quote": "- 별점 구간별 리뷰 비중을 보여주는 세로 막대 차트이다. 가로축은 '1점대', '2점대', '3점대', '4.0~4.4'…",
+                "role": "missing",
+                "note": "별점 구간별 리뷰 비중 분포를 보여주는 차트 설명으로…"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "q03-baedalaep-ribyu",
+        "slide_no": 1,
+        "question": "발표에서 사용된 리뷰 데이터는 총 몇 건인가요?",
+        "answers": {
+          "good": {
+            "text": "2024년 1월부터 2025년 6월까지 수도권 매장 3,200곳의 리뷰 124,380건을 사용했어요",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "네, 그 설명이면 충분해요.",
+            "grounds": [
+              {
+                "slide_no": 1,
+                "ref": "S1-6",
+                "quote": "리뷰 124,380건",
+                "role": "covered",
+                "note": "리뷰 124,380건이라는 수치를 제시하므로, 질문이 묻는 리뷰 데이터 건수에 대한 답이 돼요"
+              }
+            ]
+          },
+          "rough": {
+            "text": "음… 어느 정도월부터 어느 정도월까지 수도권 매장 어느 정도의 리뷰 어느 정도를 사용했어요… 정확한 숫자랑 나머지는 기억이 안 나요.",
+            "verdict": "partial",
+            "level": "fair",
+            "feedback": "리뷰 데이터의 총 건수를 정확히 몇 건이라고 했는지 다시 한 번 말해 줄래요?",
+            "grounds": []
+          }
+        }
+      }
+    ]
+  },
+  "report": {
+    "headline": "핵심 슬라이드에 시간을 더 넣고, 출처와 근거를 꼭 표시해보세요.",
+    "items": [
+      {
+        "id": "content",
+        "label": "내용 충실도",
+        "level": "good",
+        "note": "자료와 어긋나게 말한 곳이 없어요"
+      },
+      {
+        "id": "logic",
+        "label": "논리 구조",
+        "level": "good",
+        "note": "도입부에서 발표 목적과 핵심 주장이 명확히 제시되었다."
+      },
+      {
+        "id": "audience",
+        "label": "목적·청중 적합성",
+        "level": "good",
+        "note": "정보 전달과 설득 목적을 명확히 구분해 행동 지표 노출과 리뷰 이벤트 매장 표시라는 구체적 제어 방안을…"
+      },
+      {
+        "id": "clarity",
+        "label": "언어적 명료성",
+        "level": "fair",
+        "note": "구조 신호어를 2종류 썼어요 (열거, 인과)"
+      },
+      {
+        "id": "delivery",
+        "label": "음성적 전달",
+        "level": "good",
+        "note": "말이 끊긴 긴 정적이 없었어요 (5초 기준)"
+      },
+      {
+        "id": "visual",
+        "label": "시각자료 활용",
+        "level": "fair",
+        "note": "근거 자료 3장 중 3장에 출처가 없어요 (1, 2, 3번)"
+      },
+      {
+        "id": "time",
+        "label": "시간 관리",
+        "level": "practice",
+        "note": "핵심 슬라이드 3장이 권장 시간과 평균 67% 어긋나요 (2번이 +47초)"
+      }
+    ],
+    "next_steps": [
+      {
+        "text": "핵심 슬라이드 1번에 예시나 한 문장을 더 넣어 보세요.",
+        "slide_no": 1
+      },
+      {
+        "text": "핵심 슬라이드 3번에 불필요한 글자를 줄여서 읽기 쉽게 해보세요.",
+        "slide_no": 3
+      },
+      {
+        "text": "모든 슬라이드에 출처와 근거를 꼭 적어 보세요.",
+        "slide_no": null
+      }
+    ]
+  }
+}

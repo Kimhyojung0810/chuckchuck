@@ -1,0 +1,551 @@
+{
+  "schema": "chuckchuck.tour",
+  "version": 1,
+  "id": "battery-fastcharge",
+  "source": {
+    "kind": "recorded",
+    "recorded_at": "2026-10-11",
+    "note": "부스 덱 A-1 녹음을 실 API 브리지(labs/tour_capture)로 한 번 태운 응답. 받아쓰기 skt-ax · 판정 solar · 5분 코칭 질문. 뺀 질문: q03 골자 오답(질문은 25 °C · 76% 인데 45 °C · 64% 줄을 답으로 잡음); q01 잘 답한 답 partial · 엉성한 답 wrong"
+  },
+  "deck": {
+    "id": "battery-fastcharge",
+    "title": "배 터 리 공 학 과 에 너 지 저 장 연 구 실…",
+    "subtitle": "급속충전은 배터리를 얼마나 깎는가",
+    "cover": "assets/deck-covers/battery-fastcharge.webp",
+    "slides": [
+      {
+        "no": 1,
+        "image": "assets/deck-slides/battery-fastcharge/1.webp",
+        "title": "배 터 리 공 학 과 에 너 지 저 장 연 구 실…"
+      },
+      {
+        "no": 2,
+        "image": "assets/deck-slides/battery-fastcharge/2.webp",
+        "title": "충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다"
+      },
+      {
+        "no": 3,
+        "image": "assets/deck-slides/battery-fastcharge/3.webp",
+        "title": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다"
+      },
+      {
+        "no": 4,
+        "image": "assets/deck-slides/battery-fastcharge/4.webp",
+        "title": "가속 조건에서 나온 값이라 실사용과는 다르다"
+      }
+    ]
+  },
+  "present": {
+    "duration_sec": 155.3,
+    "slides": [
+      {
+        "slide_no": 1,
+        "start_sec": 0.0,
+        "end_sec": 35.82
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 35.82,
+        "end_sec": 67.25
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 67.25,
+        "end_sec": 109.09
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 109.09,
+        "end_sec": 155.23
+      }
+    ],
+    "transcript": [
+      {
+        "slide_no": 1,
+        "start_sec": 1.07,
+        "end_sec": 5.61,
+        "text": "안녕하세요 배터리 공학과 석사 2년 차 정민서입니다."
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 6.17,
+        "end_sec": 13.07,
+        "text": "급속 충전이 배터리 수명을 얼마나 깎는지 중간 결과를 말씀드리겠습니다."
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 13.11,
+        "end_sec": 18.08,
+        "text": "빨리 충전하면 배터리가 빨리 닳는다는 얘기는 많은데요."
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 18.12,
+        "end_sec": 23.13,
+        "text": "얼마나 닳는지를 숫자로 보여주는 자료는 찾기 어려웠습니다."
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 23.17,
+        "end_sec": 27.87,
+        "text": "그래서 상용 셀을 직접 500 사이클 돌려받습니다"
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 31.08,
+        "end_sec": 33.56,
+        "text": "설계부터 말씀드리겠습니다."
+      },
+      {
+        "slide_no": 1,
+        "start_sec": 33.6,
+        "end_sec": 35.85,
+        "text": "상용 엔엠씨 파우치 셀"
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 35.89,
+        "end_sec": 45.1,
+        "text": "24개를 충전 속도 0.5c 1c 이씨 세조권으로 나눠서 군당 4개씩 배정했습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 45.14,
+        "end_sec": 47.47,
+        "text": "나머지는 전부 묶었습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 47.51,
+        "end_sec": 56.98,
+        "text": "방전은 어느 조건이든 일 씨로 고정했고, 컷오프는 4.2 볼트에서 2.8 볼트, 충방전 사이에 30분씩"
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 57.02,
+        "end_sec": 58.39,
+        "text": "쉬겠습니다."
+      },
+      {
+        "slide_no": 2,
+        "start_sec": 58.43,
+        "end_sec": 67.25,
+        "text": "측정은 50 사이클마다 0.2 씨로, 용량을 확인해서 초기 용량 대비 유지율로 환산했습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 70.32,
+        "end_sec": 79.35,
+        "text": "결과입니다 0.5c로 천천히 충전한 셀은 500 사이크를 돌고도 93%가 남았습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 79.39,
+        "end_sec": 85.48,
+        "text": "일 씨는 89%, 이 씨는 76%까지 떨어집니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 86.55,
+        "end_sec": 95.0,
+        "text": "0.5c와 이 씨 사이가 17% 포인트 차이니까 충전 속도만 바꿔도 이만큼 벌어집니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 95.04,
+        "end_sec": 99.97,
+        "text": "제일 안 좋았던 조건은 60% 정도까지 내려갔고요."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 100.85,
+        "end_sec": 105.15,
+        "text": "그러니까, 급속 충전은 배터리를 확실히 깎습니다."
+      },
+      {
+        "slide_no": 3,
+        "start_sec": 105.19,
+        "end_sec": 109.09,
+        "text": "급한 게 아니면 완속으로 충전하시는 편이 낫습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 112.2,
+        "end_sec": 113.65,
+        "text": "한계도 있습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 113.69,
+        "end_sec": 116.72,
+        "text": "첫째, 방전심도 100% 조건입니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 117.36,
+        "end_sec": 127.15,
+        "text": "매 사이클, 셀을 완전히 비웠다는 뜻인데, 실사형은 보통 20~80% 사이로 오가니까 이보다 덜 가혹합니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 128.04,
+        "end_sec": 131.97,
+        "text": "둘째 열화 원인을 분해하지 못했습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 132.01,
+        "end_sec": 140.62,
+        "text": "SEI가 자란 건지 리튬이 석출된 건지 보려면 새를 뜯어봐야 하는데 이번에는 용량만 쟀습니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 141.44,
+        "end_sec": 152.47,
+        "text": "다음 단계로는 12월에 이씨군 셀 두 개를 해체해 SEM으로 관찰하고 방전심도 80% 조건도 추가할"
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 152.51,
+        "end_sec": 153.35,
+        "text": "계획입니다."
+      },
+      {
+        "slide_no": 4,
+        "start_sec": 153.89,
+        "end_sec": 155.23,
+        "text": "이상입니다."
+      }
+    ],
+    "coaching_chips": [
+      {
+        "at_sec": 4.1,
+        "slide_no": 1,
+        "kind": "listen",
+        "text": "잘 듣고 있어요"
+      },
+      {
+        "at_sec": 23.3,
+        "slide_no": 1,
+        "kind": "time",
+        "text": "이 장이 길어요"
+      },
+      {
+        "at_sec": 41.1,
+        "slide_no": 2,
+        "kind": "slow",
+        "text": "조금 느려요"
+      },
+      {
+        "at_sec": 73.1,
+        "slide_no": 3,
+        "kind": "slow",
+        "text": "조금 느려요"
+      },
+      {
+        "at_sec": 100.9,
+        "slide_no": 3,
+        "kind": "filler",
+        "text": "「그러니까」가 들렸어요"
+      },
+      {
+        "at_sec": 132.4,
+        "slide_no": 4,
+        "kind": "time",
+        "text": "이 장이 길어요"
+      }
+    ]
+  },
+  "analysis": {
+    "summary": "간투어가 한 번 있었지만 전반적으로 자료가 잘 맞았고, 핵심 슬라이드에 시간을 더 넣어 보세요.",
+    "level": "fair",
+    "slide_times": [
+      {
+        "slide_no": 1,
+        "sec": 35.8,
+        "level": "practice",
+        "note": "권장 시간보다 길었어요"
+      },
+      {
+        "slide_no": 2,
+        "sec": 29.9,
+        "level": "practice",
+        "note": "권장 시간보다 짧았어요"
+      },
+      {
+        "slide_no": 3,
+        "sec": 41.8,
+        "level": "fair",
+        "note": "권장 시간보다 짧았어요"
+      },
+      {
+        "slide_no": 4,
+        "sec": 47.8,
+        "level": "practice",
+        "note": "권장 시간보다 길었어요"
+      }
+    ],
+    "pace": {
+      "cpm": 243.5,
+      "level": "practice",
+      "note": "권장(300~350자/분)보다 느려요"
+    },
+    "fillers": {
+      "count": 1,
+      "per_min": 0.4,
+      "top": [
+        {
+          "word": "그러니까",
+          "count": 1
+        }
+      ],
+      "level": "good"
+    },
+    "claim_graph": {
+      "summary": "자료의 핵심 개념 22개 가운데 14개를 발표에서 말했어요. 핵심 주장은 말하지 않은 것으로 봤어요.",
+      "root": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+      "nodes": [
+        {
+          "id": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "label": "2C 충전은 500 사이클에서 용량의 4분의 1을…",
+          "kind": "claim",
+          "status": "missing",
+          "slide_no": 3
+        },
+        {
+          "id": "ondo",
+          "label": "온도",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "gateun-2ceseo-hangonjoreul-25-ceseo-45-c",
+          "label": "같은 2C에서 항온조를 25 °C에서 45 °C로…",
+          "kind": "reason",
+          "status": "missing",
+          "slide_no": 3
+        },
+        {
+          "id": "chungjeon-sokdo",
+          "label": "충전 속도",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "2c-chungjeon",
+          "label": "2C 충전",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 3
+        },
+        {
+          "id": "bangjeon-1c",
+          "label": "방전 1C",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "keotopeu-4-2-v-2-8-v",
+          "label": "컷오프 4.2 V / 2.8 V",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "yongryang-yujiyul",
+          "label": "용량 유지율",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 3
+        },
+        {
+          "id": "eopgye-sumyeong-gijun",
+          "label": "업계 수명 기준",
+          "kind": "concept",
+          "status": "missing",
+          "slide_no": 3
+        },
+        {
+          "id": "dongil-roteu",
+          "label": "동일 로트",
+          "kind": "concept",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "chungjeon-sokdowa-ondoman-bakkugo-nameoj",
+          "label": "충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다",
+          "kind": "reason",
+          "status": "aligned",
+          "slide_no": 2
+        },
+        {
+          "id": "yeoseot-gun-gaunde-yuilhage-eopgye-sumye",
+          "label": "여섯 군 가운데 유일하게 업계 수명 기준인 80%를…",
+          "kind": "reason",
+          "status": "missing",
+          "slide_no": 3
+        }
+      ],
+      "edges": [
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "chungjeon-sokdo"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "ondo"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "bangjeon-1c"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "keotopeu-4-2-v-2-8-v"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "dongil-roteu"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "yongryang-yujiyul"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "eopgye-sumyeong-gijun"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "2c-chungjeon"
+        },
+        {
+          "from": "chungjeon-sokdo",
+          "to": "chungjeon-sokdowa-ondoman-bakkugo-nameoj"
+        },
+        {
+          "from": "eopgye-sumyeong-gijun",
+          "to": "yeoseot-gun-gaunde-yuilhage-eopgye-sumye"
+        },
+        {
+          "from": "2c-chungjeoneun-500-saikeuleseo-yongryan",
+          "to": "gateun-2ceseo-hangonjoreul-25-ceseo-45-c"
+        }
+      ]
+    }
+  },
+  "qa": {
+    "asker": "교수님",
+    "questions": [
+      {
+        "id": "q05-chungjeon-sokdowa-ondoman-bakkugo-na",
+        "slide_no": 2,
+        "question": "충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다고 했는데, 구체적으로 어떤 조건들을 동일하게 유지했나요?",
+        "answers": {
+          "good": {
+            "text": "방전 속도는 1C로 고정했고, 컷오프는 4.2 V에서 2.8 V, 충방전 사이 휴지는 30분, 측정은 50 사이클마다 0.2C로 용량을 확인했어요.",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "방전 속도 1C 고정, 컷오프 4.2V/2.8V, 충방전 사이 휴지 30분, 측정 주기 50사이클마다 0.2C로 용량 확인까지 정확히 설명했어요.",
+            "grounds": [
+              {
+                "slide_no": 2,
+                "ref": "S2-8",
+                "quote": "3 충방전 사이 휴지 30분",
+                "role": "covered",
+                "note": "질문이 묻는 '나머지 조건 중 휴지 시간'에 대한 답이 돼요."
+              },
+              {
+                "slide_no": 2,
+                "ref": "S2-10",
+                "quote": "측정 50 사이클마다 0.2C로 용량을 확인하고, 초기 용량 대비 유지율(SOH)로 환산해 보고한다.",
+                "role": "covered",
+                "note": "'측정 방법'에 대한 답이 돼요."
+              }
+            ]
+          },
+          "rough": {
+            "text": "음… 방전 속도는 1C로 고정했고… 정확한 숫자랑 나머지는 기억이 안 나요.",
+            "verdict": "partial",
+            "level": "fair",
+            "feedback": "방전 속도는 1C로 고정했다는 부분은 정확해요.",
+            "grounds": [
+              {
+                "slide_no": 2,
+                "ref": "S2-7",
+                "quote": "2 컷오프 4.2 V / 2.8 V",
+                "role": "missing",
+                "note": "컷오프 전압 4.2 V와 2.8 V의 설정은 자료 2장에 기록되어 있어, 이 부분이 빠졌어요."
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "report": {
+    "headline": "간투어가 한 번 있었지만 전반적으로 자료가 잘 맞았고…",
+    "items": [
+      {
+        "id": "content",
+        "label": "내용 충실도",
+        "level": "fair",
+        "note": "자료에 없는 이야기를 18개 덧붙였어요 (급속 충전이 배터리 수명을 얼마나 깎는지, 중간 결과…"
+      },
+      {
+        "id": "logic",
+        "label": "논리 구조",
+        "level": "good",
+        "note": "도입부에서 발표 목적과 핵심 주장을 명확히 제시했으며…"
+      },
+      {
+        "id": "audience",
+        "label": "목적·청중 적합성",
+        "level": "good",
+        "note": "배터리 수명 감소라는 핵심 메시지를 명확히 강조하여 발표 목적(정보 전달 및 설득)에 부합했습니다."
+      },
+      {
+        "id": "clarity",
+        "label": "언어적 명료성",
+        "level": "fair",
+        "note": "구조 신호어를 2종류 썼어요 (열거, 인과)"
+      },
+      {
+        "id": "delivery",
+        "label": "음성적 전달",
+        "level": "good",
+        "note": "말이 끊긴 긴 정적이 없었어요 (5초 기준)"
+      },
+      {
+        "id": "visual",
+        "label": "시각자료 활용",
+        "level": "practice",
+        "note": "근거 자료 4장 중 4장에 출처가 없어요 (1, 2, 3, 4번)"
+      },
+      {
+        "id": "time",
+        "label": "시간 관리",
+        "level": "practice",
+        "note": "2개 구간 중 2개가 비중이 어긋났어요 (핵심 장-38% 부족, 보조 장+108% 초과)"
+      }
+    ],
+    "next_steps": [
+      {
+        "text": "자료에 없는 이야기를 빼고, 근거 자료 4장 모두에 출처를 적어 보세요.",
+        "slide_no": null
+      },
+      {
+        "text": "핵심 슬라이드(2번, 3번)에 예시나 한 문장을 더 넣어 권장 시간(67초)에 가깝게 말해 보세요.",
+        "slide_no": 2
+      },
+      {
+        "text": "말 속도를 300~350자/분 수준으로 올려서 권장보다 빠르게 말해 보세요.",
+        "slide_no": null
+      }
+    ]
+  }
+}

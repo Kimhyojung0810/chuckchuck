@@ -50,11 +50,33 @@
 
 숫자(`cpm`, `per_min`, `sec`)는 보조로만 쓴다. 판정 점수(score)는 계약에 넣지 않았다 — 화면이 점수를 그리지 않게.
 
+## 목록 — `data/tour/index.json`
+
+원본은 [`tour-index.schema.json`](tour-index.schema.json). `#/tour/deck` 이 덱 고르기 카드와 기본 덱을 투어 파일을 다 받지 않고 그린다.
+
+```json
+{ "schema": "chuckchuck.tour-index", "version": 1, "default": "delivery-rating",
+  "tours": [{ "id": "delivery-rating", "label": "C-1", "title": "별점은 왜 4.7에 몰리는가", "subtitle": "…",
+              "cover": "assets/deck-covers/delivery-rating.webp", "slides": 3, "duration_sec": 139.8, "questions": 2, "recorded_at": "2026-10-11" }] }
+```
+
+- `tours` 차례가 보여 줄 차례다. `default` 는 처음 열 투어(주 덱 = 부스 C-1 배달앱 별점). 형식 예시(`_example`)는 싣지 않는다.
+- 제목 · 부제 · 표지 · 장 수 · 길이 · 질문 수 · 녹화 날짜는 각 투어 파일과 같아야 한다(테스트가 본다). 손으로 고치지 말고 `build.py` 로 같이 만든다.
+
 ## 녹화본 만들기
 
-실 API 로 한 번 돌린 응답(예: `labs/rehearsal_flow/run.py --record <폴더>`)에서 받아쓰기 · 판정 · grounds 를 이 모양으로 옮긴다.
-글자 수 상한은 폰 한 줄에 맞춘 것이라, 긴 응답은 옮길 때 줄인다(뜻은 바꾸지 않는다). 옮긴 뒤 `pytest tests/test_booth_mobile_contract.py`.
+[`labs/tour_capture/`](../../labs/tour_capture/README.md) — 부스 덱 녹음을 실 API 브리지(8983)로 한 번 태워(`capture.py`) 응답을 남기고,
+`build.py` 가 이 모양으로 옮긴다(과금 없음). 옮기는 규칙:
+
+- 값은 녹화 응답에서만 온다. 글자 수 상한에 맞춰 줄일 때는 문장 · 절 경계에서 자르고 「…」 (뜻은 바꾸지 않는다).
+- 3단계 말: 채점 평균 85↑ `good` · 70↑ `fair` · 그 아래 `practice`. 말 속도 300~350자/분 `good`, 255~402 `fair`(vision_cue 문턱). 군더더기 분당 2번↓ `good` · 5번↓ `fair`.
+- 장 넘김은 받아쓰기 재분할 구간 그대로, 문장 한가운데면 6초 안의 문장 끝으로 옮긴다. 코칭 칩은 잰 신호(첫 말 · 말버릇 구간 · 권장보다 긴 장 · 8초 창 말 속도)만 — 음량 칩은 만들지 않는다.
+- 답 판정: 「잘 답한 답」 = 부스 「정답 보기」 글(질문 골자, 함정은 서버 reveal), 「엉성한 답」 = 「대충 답해 보기」 글(`qa_live.js liveWeakAnswer` 원본). 질문마다 판정 두 번.
+  `good` 이 good 이 아니거나 `rough` 가 good 인 질문, 사람이 자료와 대조해 정답이 틀린 걸 찾은 질문(`build.py EXCLUDE`)은 빼고 `source.note` 에 적는다.
+- 판정기의 알려진 오류는 **지우기만** 한다: 엉성한 답에서 답에 없는 숫자 줄을 「짚은 것」 으로 한 근거 · 답이 말한 숫자 줄을 「빠진 것」 으로 한 근거 · 답에 없는 숫자를 들어 칭찬한 반응 문장(→ 다음 문장이나 되묻기).
+- 세션 id · 경로 · 메일 · 키 모양 글은 거르고, 남으면 만들기가 실패한다.
 
 ## 바뀜
 
 - v1 (2026-10-11) — 처음.
+- v1 + 목록(2026-10-11, lab/tour-fixtures-1011) — `index.json`(tour-index.schema.json) 추가. 투어 파일 모양은 그대로.

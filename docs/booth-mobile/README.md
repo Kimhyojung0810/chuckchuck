@@ -16,11 +16,13 @@
 | 경계 | 원본(기계 검사) | 사람용 설명 | 데이터 파일 | 쓰는 쪽 |
 |---|---|---|---|---|
 | 투어 녹화 데이터 | [`tour.schema.json`](tour.schema.json) | [`tour-schema.md`](tour-schema.md) | `demo/YEHS_demo/data/tour/<id>.json` (`_example.json` = 형식 예시) | `#/tour/*` 화면 |
+| 투어 목록 | [`tour-index.schema.json`](tour-index.schema.json) | [`tour-schema.md`](tour-schema.md) §목록 | `demo/YEHS_demo/data/tour/index.json` | `#/tour/deck` 덱 고르기 · 기본 덱 |
 | 팀 카드 | [`team.schema.json`](team.schema.json) | [`team-schema.md`](team-schema.md) | `demo/YEHS_demo/data/team.json` | `/hi` 화면 |
 
 - **스키마가 원본이다.** 문서·예시·화면 코드가 스키마와 어긋나면 스키마를 기준으로 고친다.
 - 검사: `python -m pytest tests/test_booth_mobile_contract.py -q` — 스키마 + 짝 맞춤(장 번호·그림 파일·공개 여부·시각 차례·그래프 끝점·「잘 답한 답」=good).
-  `data/tour/` 에 파일을 넣으면 따로 등록하지 않아도 이 테스트가 집어 검사한다.
+  `data/tour/` 에 파일을 넣으면 따로 등록하지 않아도 이 테스트가 집어 검사한다(`index.json` 은 목록 스키마로 따로).
+- 녹화 투어 만들기 · 다시 만들기: [`labs/tour_capture/README.md`](../../labs/tour_capture/README.md) — `tests/test_tour_capture.py` 가 변환 규칙을 본다.
 - 공개 서빙: `demo/static_assets.py` `_PUBLIC_PATH` 에 `data/team.json` · `data/tour/<이름>.json` · `assets/team/<이름>.(webp|png|jpg)` 을 열었다.
   다른 `data/*.json` 은 그대로 팀 전용이다. 새 종류의 파일을 쓰면 여기부터 연다(안 열면 공개 사이트에서 404).
 - 주소: 브리지 `hash_route_for` 가 `/hi` → `/index.html#/hi`, `/tour/deck` → `#/tour/deck` 로 보낸다(서버 수정 없음). 앱 `route()` 에 `hi` · `tour` 를 더하는 건 화면 담당.
