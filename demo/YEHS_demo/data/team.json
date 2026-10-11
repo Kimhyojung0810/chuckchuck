@@ -1,0 +1,83 @@
+{
+  "schema": "chuckchuck.team",
+  "version": 1,
+  "team_name": "척척발표",
+  "project_line": "발표 자료와 실제로 말한 것을 맞춰 보는 AI 리허설 코치",
+  "contest": "AI 루키 2026 결선",
+  "members": [
+    {
+      "id": "hyojung",
+      "name": "효정",
+      "role": "Vision 조사·개발",
+      "headline": "척척발표의 첫 뼈대와 화면을 세웠어요",
+      "did": [
+        "자료 읽기부터 개념 뽑기까지 첫 모듈(F-01~F-06) 공개",
+        "홈·리포트·질문 코칭 화면을 토스 규칙으로 다시 짜기",
+        "분석 결과 저장으로 부스 두 번째 체험 대기 줄이기"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    },
+    {
+      "id": "hyeonseok",
+      "name": "현석",
+      "role": "Vision 조사·개발",
+      "headline": "발표 내용을 개념 그래프로 읽는 길을 만들었어요",
+      "did": [
+        "자료를 개념 그래프로 바꾸는 F-07",
+        "말한 것과 자료를 맞춰 보는 정합 판정(F-11)과 분석 연출",
+        "병아리 객석이 반응하는 척척극장 화면"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    },
+    {
+      "id": "seokhoon",
+      "name": "석훈",
+      "role": "기능·UX 보완",
+      "headline": "예상 질문과 답 판정, 질문 코칭을 만들었어요",
+      "did": [
+        "예상 질문 만들기와 답변 판정(F-08·F-09)",
+        "분석 단계를 잇는 서버 연결과 질문 시간 고르기",
+        "딥그린 디자인 시스템 옮겨 오기"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    },
+    {
+      "id": "seonho",
+      "name": "선호",
+      "role": "부스·운영 기획",
+      "headline": "AI Festa 부스 운영과 화면 다듬기를 맡았어요",
+      "did": [
+        "척척발표 앱 아이콘 적용",
+        "아이패드 리허설 화면과 시간 비교 다듬기",
+        "설치 없이 보는 샘플 데모 흐름"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    },
+    {
+      "id": "jongwon",
+      "name": "종원",
+      "role": "발표 데이터 수집",
+      "headline": "척척발표가 배울 발표 데이터를 모았어요",
+      "did": [
+        "분석과 검증에 쓸 발표 데이터 모으기",
+        "모은 발표 자료와 녹음 정리하기"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    }
+  ]
+}
