@@ -348,7 +348,12 @@
   whenSeen($('what'), () => funnel('intro'));
   const explore = $('explore-btn');
   // 페이지가 #/tour 로 바뀌기 직전 — funnel.js 가 keepalive fetch 라 대개 간다
-  if (explore) explore.addEventListener('click', () => funnel('explore'));
+  // 새로 들어가는 투어는 처음부터 — 같은 탭에 지난 투어의 답 · 판정(cheokcheok:tour)이 남아 있으면 질문 화면에 앞사람 결과가 펼쳐진 채
+  // 나왔다(부스 폰 한 대를 여러 방문객에게 건넨다, 10-12 점검). 투어 안에서 새로 고친 이어 보기는 그대로다(이 버튼을 안 거친다)
+  if (explore) explore.addEventListener('click', () => {
+    funnel('explore');
+    try { sessionStorage.removeItem('cheokcheok:tour'); } catch (_) { /* 사생활 모드 — 지울 것도 없다 */ }
+  });
   $('team-retry').addEventListener('click', loadTeam);
   loadTeam();
   if (INAPP) inappSheet();
