@@ -305,8 +305,16 @@ function rhWireExit(layer) {
 }
 
 /** 나가기 — 발표 고르기에서는 바로, 그 뒤로는 화면 안 시트(왼쪽 「닫기」). 한 것은 이 브라우저에 남는다 */
+/** 부스 투어 끝 화면의 「내 자료로 직접 해 보기」 로 왔다는 표시 (js/tour.js openRehearsal 이 남긴다) */
+const RH_FROM_TOUR_KEY = 'cheokcheok:from-tour';
 function rhExitClicked() {
-  if (bq.screen === 'pick' || bq.screen === 'occ') { location.hash = '#/'; return; }
+  if (bq.screen === 'pick' || bq.screen === 'occ') {
+    // 투어에서 왔으면 투어 끝 화면으로 — 앱 홈 「내 발표」 는 부스 방문객에게 낯선 곳이다 (10-12 점검)
+    let fromTour = false;
+    try { fromTour = sessionStorage.getItem(RH_FROM_TOUR_KEY) === '1'; sessionStorage.removeItem(RH_FROM_TOUR_KEY); } catch (_) { /* 사생활 모드 */ }
+    location.hash = fromTour ? '#/tour/done' : '#/';
+    return;
+  }
   const layer = document.getElementById('bqStage');
   if (!layer || document.getElementById('bqSheet')) return;
   const back = document.activeElement;

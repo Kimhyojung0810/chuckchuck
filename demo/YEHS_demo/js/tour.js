@@ -353,9 +353,15 @@
     here: '여기서 계속 열기',
   };
 
+  /** 리허설 첫 화면의 「나가기」 가 앱 홈 대신 투어 끝 화면으로 오게 남기는 표시 (js/rehearsal.js rhExitClicked) */
+  function markFromTour() {
+    try { sessionStorage.setItem('cheokcheok:from-tour', '1'); } catch (_) { /* 사생활 모드 — 나가기는 홈으로 */ }
+  }
+
   function openRehearsal() {
     const ua = navigator.userAgent || '';
     funnel('try_real');
+    markFromTour();
     if (!L.inAppKind(ua)) { location.hash = '#/rehearsal'; return; }
     funnel('inapp_notice');
     const url = `${location.origin}/rehearsal`;
