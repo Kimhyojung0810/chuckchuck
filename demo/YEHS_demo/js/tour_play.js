@@ -3,7 +3,7 @@
  *
  * 모두 녹화 데이터(data/tour/<id>.json, docs/booth-mobile/tour-schema.md)만 그린다. 서버에 묻지 않는다.
  *  · 발표: 장 그림 + 넘기기(밀기 · 좌우 1/3 누르기 · ‹ › 버튼 · 막대 끌기) + 녹화된 넘김 시각대로 자동 재생(2배속).
- *          받아쓴 말이 자막으로, 코칭 칩이 at_sec 에 「지금 여기서 AI 가 이렇게 봐요」 로 뜬다.
+ *          받아쓴 말이 자막으로, 코칭 칩이 at_sec 에 「지금 여기서 AI가 이렇게 봐요」 로 뜬다.
  *  · 분석: 처음 한 번만 1.5초 연출(건너뛰기 가능) → 요약 · 장별 시간 · 말 속도 · 군더더기 · 주장 구조.
  *  · 질문: 삐약이가 묻고 → 「잘 답한 답」·「엉성한 답」 중 하나 → 판정 카드와 근거 줄(몇 장 몇 번째 줄 · 이유) → 다음 질문.
  *  · 리포트: 3단계 말 평가 + 다음 연습.
@@ -62,7 +62,7 @@
           <div class="tp-coach" data-coach>
             ${c.chick('neutral', 'tp-coach-chick')}
             <div class="tp-coach-text" aria-live="polite">
-              <p class="tp-eyebrow">지금 여기서 AI 가 이렇게 봐요</p>
+              <p class="tp-eyebrow">지금 여기서 AI가 이렇게 봐요</p>
               <b class="tp-chip" data-chip>발표를 듣고 있어요</b>
               <small data-looks></small>
             </div>
@@ -72,7 +72,7 @@
             <span class="tp-cap-label">받아쓴 말</span>
             <p data-caption>&nbsp;</p>
           </div>
-          <p class="tp-hint">자료를 옆으로 밀거나 ‹ › 를 눌러 장을 넘겨요</p>
+          <p class="tp-hint">자료를 옆으로 밀거나 ‹ ›를 눌러 장을 넘겨요</p>
           ${c.honestNote(c.tour)}
         </section>`,
       foot: `<div class="tour-foot-row">
@@ -393,7 +393,7 @@
               ${groundsHtml(c, ans)}
             </article>` : `
             ${slide ? `<figure class="tqa-slide"><img src="${c.esc(slide.image)}" alt="${slide.no}장 · ${c.esc(slide.title)}" data-fallback="${slide.no}장 · ${c.esc(slide.title)}" decoding="async"></figure>` : ''}
-            <p class="tqa-prompt">어떤 답을 들어 볼까요? 고른 답을 AI 가 판정해요.</p>`}
+            <p class="tqa-prompt">어떤 답을 들어 볼까요? 고른 답을 AI가 판정해요.</p>`}
         </section>`,
       foot: pick
         ? `<div class="tour-foot-row">

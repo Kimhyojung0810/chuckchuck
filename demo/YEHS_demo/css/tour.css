@@ -146,7 +146,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
   width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--r-dot); background: var(--brand-weak); color: var(--navy); font-size: 14px; font-weight: var(--w-bold);
 }
-.tour-steps b { display: block; font-size: 16px; font-weight: var(--w-bold); }
+.tour-steps b { display: block; font-size: 16px; font-weight: var(--w-bold); text-wrap: balance; }
 .tour-steps small { display: block; margin-top: 2px; font-size: 13.5px; color: var(--text-3); text-wrap: pretty; }
 
 /* ── 자료 고르기 ────────────────────────────────────────────── */
@@ -162,7 +162,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-deck-cover { width: 104px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r-inner); background: var(--fill); outline: 1px solid rgba(0, 0, 0, .1); outline-offset: -1px; }
 .tour-deck-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .tour-deck-text b { font-size: 16px; line-height: 1.35; font-weight: var(--w-bold); text-wrap: balance; }
-.tour-deck-text small { font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.tour-deck-text small { font-size: 13px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 .tour-deck-text em { margin-top: 2px; font-style: normal; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .tour-decks + .tour-h2 { margin-top: 24px; }
 .tour-strip {
@@ -173,7 +173,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-strip::-webkit-scrollbar { display: none; }
 .tour-strip-item { flex: 0 0 78%; margin: 0; scroll-snap-align: start; }
 .tour-strip-item img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--r-inner); background: #fff; outline: 1px solid rgba(0, 0, 0, .1); outline-offset: -1px; }
-.tour-strip-item figcaption { display: flex; gap: 6px; margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.tour-strip-item figcaption { display: flex; gap: 6px; margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
 .tour-strip-item figcaption b { color: var(--brand-strong); font-variant-numeric: tabular-nums; }
 
 /* ── 발표 ───────────────────────────────────────────────────── */
@@ -246,7 +246,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tp-cap-label { font-size: 12px; color: rgba(255, 255, 255, .62); }
 .tp-caption p { margin: 4px 0 0; font-size: 16px; line-height: 1.55; color: #fff; text-wrap: pretty; }
 .tp-caption p.is-empty { font-size: 14px; color: rgba(255, 255, 255, .62); }
-.tp-hint { margin: 12px 0 0; text-align: center; font-size: 13px; color: rgba(255, 255, 255, .62); }
+.tp-hint { margin: 12px 0 0; text-align: center; font-size: 13px; color: rgba(255, 255, 255, .62); text-wrap: balance; }
 .tour-foot .tp-play { flex: 0 0 36%; }
 .tour-foot [data-next].is-ready { box-shadow: 0 0 0 3px rgba(63, 213, 153, .35); }
 
@@ -345,7 +345,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tr-items { margin: 0; padding: 0; list-style: none; }
 .tr-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
 .tr-item:first-child { border-top: 0; padding-top: 2px; }
-.tr-item b { display: block; font-size: 15px; font-weight: var(--w-bold); }
+.tr-item b { display: block; font-size: 15px; font-weight: var(--w-bold); text-wrap: balance; }
 .tr-item small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
 .tr-next { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
 .tr-next li { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: start; }
@@ -356,7 +356,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 /* ── 끝 · 실패 ──────────────────────────────────────────────── */
 .tour-center { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 28px; }
 .tour-center .tour-sub { max-width: 32ch; }
-.tour-done-list { margin: 20px 0 0; padding: 14px 16px; list-style: none; display: grid; gap: 8px; border-radius: var(--r-print); background: var(--fill); text-align: left; font-size: 14px; color: var(--text-2); }
+.tour-done-list { text-wrap: pretty; margin: 20px 0 0; padding: 14px 16px; list-style: none; display: grid; gap: 8px; border-radius: var(--r-print); background: var(--fill); text-align: left; font-size: 14px; color: var(--text-2); }
 .tour-done-list li::before { content: '✓'; margin-right: 8px; color: var(--ok); font-weight: var(--w-bold); }
 
 /* ── 바텀 시트 ──────────────────────────────────────────────── */
