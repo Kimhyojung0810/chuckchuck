@@ -99,7 +99,8 @@
    *  · 다른 화면은 투어 안에서 쌓은 기록이면 브라우저 뒤로, 바로 들어왔으면 앞 화면으로 바꿔 간다.
    * @returns {{kind:'history'}|{kind:'hi'}|{kind:'screen',screen:string,q:number}}
    */
-  function backAction({ screen, q = 0, tourIn = false, fromHi = false }) {
+  function backAction({ screen, q = 0, tourIn = false, fromHi = false, overlay = '' }) {
+    if (overlay) return { kind: 'overlay' };   // 크게 보기 · 바깥 브라우저 시트 — 층이 쌓은 기록 하나를 되돌려 층만 닫는다 (10-12 2차 layout-touch-a11y-r2-1)
     if (screen === 'intro' || !SCREENS.includes(screen)) return !tourIn && fromHi ? { kind: 'history' } : { kind: 'hi' };
     if (tourIn) return { kind: 'history' };
     const prev = prevScreen(screen, q);
@@ -110,6 +111,44 @@
   function restartAction(depth) {
     const d = Number(depth) || 0;
     return d > 0 ? { kind: 'go', delta: -d } : { kind: 'replace' };
+  }
+
+  /**
+   * 팀 소개로(위 띠 X · 「팀 소개로 돌아가기」) — /hi 바로 뒤 기록에서 시작한 사슬(state.hi)이면 쌓은 깊이 + 1 만큼 되돌아가 그 /hi 기록으로,
+   * 아니면 /hi 로 바꿔 간다. document.referrer 는 index.html 문서 내내 /hi 로 남아서, 리허설 「나가기」 가 쌓은 기록(state=null)의
+   * 앞(#/rehearsal)을 /hi 로 믿고 되돌아갔다 (10-12 2차 flow-regression-inapp-r2-1).
+   * @returns {{kind:'go',delta:number}|{kind:'replace'}}
+   */
+  function closeAction(state) {
+    const st = state && typeof state === 'object' ? state : {};
+    if (!st.hi) return { kind: 'replace' };
+    return { kind: 'go', delta: -((Number(st.depth) || 0) + 1) };
+  }
+
+  /**
+   * /hi 에서 막 넘어온 첫 기록에 남길 표시 — 표시가 아직 없고(state=null) · 같은 출처 /hi 에서 · 새로 연 것(navigate)일 때만 { hi, depth:0 }.
+   * 새로 고침 · 뒤로 온 기록은 referrer 가 그대로 /hi 라 믿을 수 없다. index.html 머리 스크립트가 같은 규칙을 쓴다.
+   */
+  function hiEntryState(state, referrer, origin, navType) {
+    if (state != null || navType !== 'navigate' || !cameFromHi(referrer, origin)) return null;
+    return { hi: true, depth: 0 };
+  }
+
+  /** 질문 번호를 있는 질문 안으로 — #/tour/qa/9 는 마지막 질문 (flow-regression-inapp-r2-5) */
+  function clampQ(q, count) {
+    const n = Math.max(0, (Number(count) || 0) - 1);
+    return Math.min(n, Math.max(0, Math.floor(Number(q) || 0)));
+  }
+
+  /**
+   * 숫자와 단위 · 부등호 사이 띄어쓰기를 줄이 안 바뀌는 칸(U+00A0)으로 — 「1 / mg/L」 · 「p < / .05」 처럼 줄 끝에서 갈라졌다
+   * (10-12 2차 layout-touch-a11y-r2-9). 녹화 글은 그대로 두고 그릴 때만 바꾼다.
+   */
+  const UNIT_RE = /(\d)\s+(mg\/L|µg\/L|mL|°C|℃|V\b|A\b|mAh|Wh|%p?|자\/분|C\b|cm|mm|kg|g\b|건|명|개)/g;
+  function keepUnits(text) {
+    return String(text == null ? '' : text)
+      .replace(/\bp\s+([<>=≤≥])\s+(\.?\d)/g, 'p\u00a0$1\u00a0$2')
+      .replace(UNIT_RE, '$1\u00a0$2');
   }
 
   /** document.referrer 가 같은 출처의 /hi · /hi/<id> 인가 */
@@ -323,7 +362,7 @@
 
   const api = {
     STEPS, SCREENS, LEVEL_WORD, LEVEL_TONE, VERDICT, GROUND_ROLE, GRAPH_STATUS, CHIP_KIND, CHIP_HOLD_SEC,
-    parseTourHash, tourHash, stepIndex, prevScreen, backAction, restartAction, cameFromHi,
+    parseTourHash, tourHash, stepIndex, prevScreen, backAction, restartAction, cameFromHi, closeAction, hiEntryState, clampQ, keepUnits,
     tourProblem, indexIds, slideAt, slideStart, captionAt, chipAt, stepSlide,
     durationText, clock, graphRows, graphCounts, paceGauge, paceWord,
     inAppKind, platformOf, externalOpenUrl, eventPayload, funnelStep, refText,

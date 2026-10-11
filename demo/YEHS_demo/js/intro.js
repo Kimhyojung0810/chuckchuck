@@ -303,12 +303,20 @@
     copyBtn.hidden = !external;
     tip.hidden = external;
 
-    const close = () => {
+    // 시트를 열면 기록을 하나 쌓는다(state.overlay) — 폰 뒤로는 시트만 닫는다. 기록 없이 열었더니 뒤로가 /hi 를 떠났고,
+    // QR 로 처음 들어온 방문객이면 앞 기록이 없어 인앱 웹뷰가 통째로 닫혔다 (10-12 2차 layout-touch-a11y-r2-1)
+    const hide = () => {
+      if (scrim.hidden) return;
       scrim.hidden = true;
       document.body.style.overflow = '';
       document.removeEventListener('keydown', onKey);
       if (opener) opener.focus();
     };
+    const close = () => {
+      if (history.state && history.state.overlay === 'sheet') history.back();   // popstate 가 hide()
+      else hide();
+    };
+    window.addEventListener('popstate', () => { if (!(history.state && history.state.overlay === 'sheet')) hide(); });
     const onKey = (e) => {
       if (e.key === 'Escape') { close(); return; }
       if (e.key !== 'Tab') return;
@@ -322,6 +330,7 @@
       funnel('inapp_notice');
       opener = from;
       hint.hidden = true;
+      if (!(history.state && history.state.overlay === 'sheet')) history.pushState(Object.assign({}, history.state || {}, { overlay: 'sheet' }), '');
       scrim.hidden = false;
       document.body.style.overflow = 'hidden';
       document.addEventListener('keydown', onKey);
@@ -352,7 +361,24 @@
     document.querySelectorAll('[data-needs-camera]').forEach((a) => {
       a.addEventListener('click', (e) => { e.preventDefault(); open(a); });
     });
+    // 「여기서 계속 열기」 — 시트가 쌓은 기록을 리허설로 바꿔 쓴다. 리허설 「나가기」(history.back)가 시트 없는 /hi 로 돌아온다
+    $('inapp-anyway').addEventListener('click', (e) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
+      e.preventDefault();
+      markFromHi();
+      location.replace($('inapp-anyway').href);
+    });
   }
+
+  // ── 리허설 「나가기」 가 돌아올 곳 (js/rehearsal.js rhExitTarget) ─────────────
+  // /hi 에서 리허설로 가면 'hi' 를 적는다. /hi 를 열 때마다 지난 표시를 지운다 — 투어에서 리허설에 들렀다 돌아온 방문객이
+  // 「바로 내 자료로 해 보기」 로 다시 가면 남은 투어 표시 때문에 나가기가 투어 끝 화면으로 갔다 (10-12 2차 flow-regression-inapp-r2-3)
+  const RH_FROM_KEY = 'cheokcheok:rh-from';
+  function markFromHi() {
+    try { sessionStorage.setItem(RH_FROM_KEY, 'hi'); } catch (_) { /* 사생활 모드 — 나가기는 기록으로만 */ }
+  }
+  try { sessionStorage.removeItem(RH_FROM_KEY); sessionStorage.removeItem('cheokcheok:from-tour'); } catch (_) { /* 사생활 모드 */ }
+  if (!INAPP) document.querySelectorAll('[data-needs-camera]').forEach((a) => a.addEventListener('click', markFromHi));
 
   // ── 시작 ────────────────────────────────────────────────────────────────
   funnel('hi');

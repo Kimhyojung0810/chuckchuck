@@ -64,6 +64,16 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      받는 동안(느린 4G 에서 2.5초) 앱 머리만 보이다가 방문객이 「새 발표 연습」 을 눌러 카메라 흐름으로 빠졌다 (10-12 점검).
      투어 층이 뜨면(js/tour.js) · 투어 밖으로 가면(app.js route) 걷는다 */
   if (/^#\/?tour(?:[/?]|$)/.test(location.hash)) document.documentElement.classList.add('tour-boot');
+  /* /hi 에서 막 넘어온 첫 기록에 표시(state.hi)를 남긴다 — 투어 「팀 소개로」 · 리허설 「나가기」 가 이 표시가 있는 사슬에서만 되돌아가 /hi 기록으로 간다.
+     referrer 는 이 문서 내내 /hi 로 남아, 다른 기록(리허설 나가기가 쌓은 것)의 앞도 /hi 로 믿었다 (10-12 2차 flow-regression-inapp-r2-1).
+     새로 고침 · 뒤로 온 기록은 건드리지 않는다. 같은 규칙: js/tour_logic.js hiEntryState (tests/js/tour.smoke.mjs) */
+  try {
+    const nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    const m = String(document.referrer || '').match(/^(https?:\/\/[^/]+)(\/[^?#]*)/i);
+    if (history.state == null && nav.type === 'navigate' && m && m[1] === location.origin && /^\/hi(?:\/[a-z0-9-]{1,24})?\/?$/i.test(m[2])) {
+      history.replaceState({ hi: true, depth: 0 }, '');
+    }
+  } catch (_) { /* 기록 표시는 덤 — 없으면 「팀 소개로」 가 /hi 로 바꿔 간다 */ }
 </script>
 <style>
   html.tour-boot .sidenav, html.tour-boot .topbar, html.tour-boot #app { display: none !important; }
@@ -155,12 +165,12 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <script src="js/booth_qa.js?v=bq17" data-bundle="beta"></script>
   <script src="js/booth_call.js?v=bc18" data-bundle="beta"></script>
   <!-- 리허설 한 줄 흐름 #/rehearsal — 고르기 → 비전 리허설 → 분석 기다림 → 글라스 화상판 → 리포트. 위 파일들의 전역을 호출 시점에 찾는다 -->
-  <script src="js/rehearsal.js?v=rh50" data-bundle="beta"></script>
+  <script src="js/rehearsal.js?v=rh51" data-bundle="beta"></script>
   <!-- 부스 모바일 체험 투어 #/tour/* — 녹화 응답 재생(API · 카메라 0). 순수 판단 → 셸 · 시작/자료/끝 → 발표 · 분석 · 질문 · 리포트 순서 -->
   <link rel="stylesheet" href="css/tour.css?v=tr8" data-bundle="tour">
   <script src="js/funnel.js?v=fn2" data-bundle="tour"></script>
-  <script src="js/tour_logic.js?v=tr4" data-bundle="tour"></script>
-  <script src="js/tour.js?v=tr11" data-bundle="tour"></script>
+  <script src="js/tour_logic.js?v=tr5" data-bundle="tour"></script>
+  <script src="js/tour.js?v=tr12" data-bundle="tour"></script>
   <script src="js/tour_play.js?v=tr6" data-bundle="tour"></script>
   <!-- Motion(구 Motion One) IIFE. 부스 네트워크를 믿지 않으므로 CDN 이 아니라 로컬로 둔다 -->
   <script src="js/vendor/motion.min.js?v=qkh" data-bundle="motion"></script>

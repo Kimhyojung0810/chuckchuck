@@ -231,6 +231,42 @@ test('/hi 에서 왔나 — 같은 출처의 /hi · /hi/<id> 만', () => {
   eq(T.cameFromHi('', 'https://a.com'), false);
 });
 
+// 팀 소개로 — flow-regression-inapp-r2-1 (10-12 2차 점검): 리허설 「나가기」 가 쌓은 기록(state=null)에서 history.go(-1) 하면
+// /hi 가 아니라 앞 기록(#/rehearsal)으로 갔다. /hi 바로 뒤 기록에서 시작한 사슬(state.hi)일 때만 되돌아가고, 아니면 /hi 로 바꿔 간다
+test('팀 소개로: /hi 바로 뒤에서 시작한 기록 사슬이면 쌓은 만큼 되돌아가고, 아니면 /hi 로 바꿔 간다', () => {
+  eq(T.closeAction({ hi: true, depth: 0 }), { kind: 'go', delta: -1 });
+  eq(T.closeAction({ hi: true, tourIn: true, depth: 7 }), { kind: 'go', delta: -8 });
+  eq(T.closeAction(null), { kind: 'replace' }, '기록 표시가 없으면(리허설 나가기 · 바로 들어옴) 앞 기록을 /hi 로 믿지 않는다');
+  eq(T.closeAction({ tourIn: true, depth: 3 }), { kind: 'replace' }, '/hi 에서 오지 않은 투어 사슬');
+});
+test('/hi 바로 뒤 기록 표시: 같은 출처 /hi 에서 막 넘어온 첫 열기(navigate)만 — 새로 고침 · 뒤로 온 기록은 안 바꾼다', () => {
+  eq(T.hiEntryState(null, 'https://a.com/hi', 'https://a.com', 'navigate'), { hi: true, depth: 0 });
+  eq(T.hiEntryState(null, 'https://a.com/hi', 'https://a.com', 'reload'), null);
+  eq(T.hiEntryState({ tourIn: true, depth: 2 }, 'https://a.com/hi', 'https://a.com', 'navigate'), null);
+  eq(T.hiEntryState(null, 'https://a.com/', 'https://a.com', 'navigate'), null);
+});
+// 층(크게 보기 · 바깥 브라우저 시트) — layout-touch-a11y-r2-1 · flow-regression-inapp-r2-6: 층이 떠 있으면 뒤로는 층만 닫는다
+test('뒤로: 층이 떠 있으면 층만 닫는다(기록 하나) — 화면은 그대로', () => {
+  eq(T.backAction({ screen: 'present', q: 0, tourIn: true, fromHi: true, overlay: 'zoom' }), { kind: 'overlay' });
+  eq(T.backAction({ screen: 'done', q: 0, tourIn: false, fromHi: false, overlay: 'sheet' }), { kind: 'overlay' });
+});
+// 질문 번호 — flow-regression-inapp-r2-5: #/tour/qa/9 는 마지막 질문으로 주소까지 맞춘다
+test('질문 번호: 범위 밖이면 마지막 질문 · 음수는 첫 질문', () => {
+  eq(T.clampQ(8, 2), 1);
+  eq(T.clampQ(1, 2), 1);
+  eq(T.clampQ(-3, 2), 0);
+  eq(T.clampQ(0, 0), 0);
+});
+// 숫자와 단위 — layout-touch-a11y-r2-9: 「1 / mg/L」 · 「p < / .05」 가 줄 끝에서 갈라졌다
+test('숫자 · 단위 · 부등호 사이 띄어쓰기는 줄이 안 바뀌는 칸으로', () => {
+  const NB = ' ';
+  eq(T.keepUnits('농도인 1 mg/L을 넘으면'), `농도인 1${NB}mg/L을 넘으면`);
+  eq(T.keepUnits('p < .05로 유의'), `p${NB}<${NB}.05로 유의`);
+  eq(T.keepUnits('25 °C에서 45 °C로'), `25${NB}°C에서 45${NB}°C로`);
+  eq(T.keepUnits('4.2 V까지 80 %를'), `4.2${NB}V까지 80${NB}%를`);
+  eq(T.keepUnits('3장 18번째 줄'), '3장 18번째 줄', '단위가 아닌 띄어쓰기는 그대로');
+});
+
 test('하네스 자기 검사 — 장 경계를 하나 밀어 놓은 파일을 넣으면 잡는다', () => {
   const broken = load(SRC.replace('if (t >= s.start_sec) cur = s.slide_no;', 'if (t > s.start_sec) cur = s.slide_no;'));
   const failed = suite(broken).filter((c) => { try { c.fn(); return false; } catch (_) { return true; } });

@@ -181,7 +181,13 @@ def run_device(browser, base: str, width: int, ua_kind: str, deck: str, out: Pat
         screen("intro")
         rep["checks"]["explore_url"] = page.evaluate("location.pathname + location.hash")
         shot("tour_intro", 400, long=True)
-        tap("[data-next]")
+        # 주 버튼 두 번 빠르게(300ms) — 다음 화면 주 버튼이 같은 자리라 화면을 건너뛰었다 (10-12 2차 flow-regression-inapp-r2-2)
+        bb = page.locator("#tourStage [data-tour-foot] .tour-cta").first.bounding_box()
+        page.touchscreen.tap(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
+        page.wait_for_timeout(300)
+        page.touchscreen.tap(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
+        page.wait_for_timeout(700)
+        rep["checks"]["double_tap_screen"] = page.evaluate("(document.getElementById('tourStage') || {}).dataset?.screen")
         screen("deck")
         if deck:
             page.locator(f"input[name='tourDeck'][value='{deck}']").first.evaluate("(r) => r.closest('label').click()")
@@ -226,14 +232,22 @@ def run_device(browser, base: str, width: int, ua_kind: str, deck: str, out: Pat
             rep["checks"]["inapp_sheet"] = page.locator(".tour-sheet[role='dialog']").count() == 1
             page.keyboard.press("Escape")
             page.wait_for_timeout(400)
+            # 시트가 떠 있을 때 폰 뒤로는 시트만 닫는다 — 끝 화면을 잃고 리포트로 갔다 (10-12 2차 flow-regression-inapp-r2-6)
+            tap("[data-real]", 600)
+            page.go_back()
+            page.wait_for_timeout(600)
+            rep["checks"]["sheet_back"] = page.evaluate(
+                "({url: location.hash, sheet: !!document.querySelector('.tour-sheet-wrap')})")
         else:
             page.wait_for_function("location.hash.startsWith('#/rehearsal')", timeout=8000)
             page.wait_for_timeout(900)
             rep["checks"]["real_url"] = page.evaluate("location.pathname + location.hash")
             rep["checks"]["tour_layer_gone"] = page.locator("#tourStage").count() == 0
             shot("rehearsal_landing", 300)
-            page.go_back()
+            # 리허설 첫 화면 「나가기」 → 끝 화면, 그 뒤 「팀 소개로 돌아가기」 가 /hi 로 가야 한다 — 리허설로 되돌아갔다 (10-12 2차 r2-1)
+            tap("[data-rh-exit]", 0)
             screen("done")
+            rep["checks"]["rh_exit_url"] = page.evaluate("location.pathname + location.hash")
         # ── 끝: 팀 소개로 돌아가기 ──
         tap("[data-back-team]", 0)
         page.wait_for_url("**/hi", timeout=10000)
@@ -372,6 +386,12 @@ def problems(rep: dict) -> list[str]:
         out.append(f"팀 소개로 돌아가기가 /hi 로 안 감: {c['back_team_url']}")
     if "hash_hi_redirect" in c and c["hash_hi_redirect"] != "/hi":
         out.append(f"#/hi 가 /hi 로 안 감: {c['hash_hi_redirect']}")
+    if "double_tap_screen" in c and c["double_tap_screen"] != "deck":
+        out.append(f"주 버튼 두 번 누르기가 화면을 건너뜀: {c['double_tap_screen']}")
+    if "rh_exit_url" in c and c["rh_exit_url"] != "/index.html#/tour/done":
+        out.append(f"리허설 나가기가 끝 화면으로 안 감: {c['rh_exit_url']}")
+    if c.get("sheet_back") and (c["sheet_back"]["sheet"] or c["sheet_back"]["url"] != "#/tour/done"):
+        out.append(f"시트에서 폰 뒤로가 끝 화면을 떠남: {c['sheet_back']}")
     if c.get("inapp_sheet") is False:
         out.append("인앱 UA 인데 바깥 브라우저 안내 시트가 안 뜸")
     return out

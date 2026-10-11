@@ -209,35 +209,39 @@
   let lastScreen = null;
   let leaveHook = null;
 
-  /** 앞으로 — 투어 안에서 쌓은 기록임을 표시해 두고(history.state.tourIn · depth), 뒤로 버튼이 그걸 보고 history.back() 한다 */
+  const histState = () => (history.state && typeof history.state === 'object' ? history.state : {});
+
+  /**
+   * 앞으로 — 투어 안에서 쌓은 기록임을 표시해 두고(history.state.tourIn · depth), 뒤로 버튼이 그걸 보고 history.back() 한다.
+   * hi 는 「이 사슬이 /hi 바로 뒤 기록에서 시작했다」 는 표시 — index.html 머리 스크립트가 첫 기록에 남기고 여기서 이어 준다
+   */
   function go(screen, q = 0, { replace = false } = {}) {
     const hash = L.tourHash(screen, q);
     if (location.hash === hash) { render(); return; }
-    const cur = history.state || {};
-    if (replace) history.replaceState({ tourIn: !!cur.tourIn, depth: Number(cur.depth) || 0 }, '', hash);
-    else history.pushState({ tourIn: true, depth: (Number(cur.depth) || 0) + 1 }, '', hash);
+    const cur = histState();
+    const depth = Number(cur.depth) || 0;
+    if (replace) history.replaceState({ tourIn: !!cur.tourIn, depth, hi: !!cur.hi }, '', hash);
+    else history.pushState({ tourIn: true, depth: depth + 1, hi: !!cur.hi }, '', hash);
     if (typeof window.route === 'function') window.route(); else render();
   }
 
-  /** /hi 에서 막 들어온 투어인가 — 그 첫 기록 바로 앞이 /hi 다 */
-  function fromHi() {
-    return history.length > 1 && L.cameFromHi(document.referrer, location.origin);
-  }
-
-  /** 팀 소개로 — /hi 에서 왔으면 쌓은 투어 기록만큼 되돌아가 그 /hi 기록으로, 아니면 /hi 로 바꿔 간다(기록을 늘리지 않는다) */
+  /** 팀 소개로 — 판단은 TourLogic.closeAction. /hi 바로 뒤에서 시작한 사슬이면 쌓은 만큼 되돌아가 그 /hi 기록으로,
+   *  아니면 /hi 로 바꿔 간다(기록을 늘리지 않는다). referrer 는 문서 내내 /hi 라 믿지 않는다 (10-12 2차 flow-regression-inapp-r2-1) */
   function closeToHi() {
-    const depth = Number(history.state && history.state.depth) || 0;
-    if (fromHi() && !(history.state && history.state.tourIn && !depth)) history.go(-(depth + 1));
+    const act = L.closeAction(history.state);
+    if (act.kind === 'go') history.go(act.delta);
     else location.replace('/hi');
   }
 
-  /** 뒤로 — 판단은 TourLogic.backAction (시작 안내의 앞은 팀 소개 · 기록을 하나 더 쌓지 않는다) */
+  /** 뒤로 — 판단은 TourLogic.backAction (층이 떠 있으면 층만 · 시작 안내의 앞은 팀 소개 · 기록을 하나 더 쌓지 않는다) */
   function goBack() {
     const cur = L.parseTourHash(location.hash) || { screen: 'intro', q: 0 };
-    const act = L.backAction({ screen: cur.screen, q: cur.q, tourIn: !!(history.state && history.state.tourIn), fromHi: fromHi() });
-    if (act.kind === 'history') history.back();
+    const st = histState();
+    const act = L.backAction({ screen: cur.screen, q: cur.q, tourIn: !!st.tourIn, fromHi: !!st.hi, overlay: overlayOpen() });
+    if (act.kind === 'overlay') dismissOverlay();
+    else if (act.kind === 'history') history.back();
     else if (act.kind === 'screen') go(act.screen, act.q, { replace: true });
-    else location.replace('/hi');
+    else closeToHi();
   }
 
   /** 앱 route() 가 투어 밖으로 나갈 때 부른다 — 층 · 타이머를 걷고 사이드바를 돌려놓는다 */
@@ -355,16 +359,28 @@
     here: '여기서 계속 열기',
   };
 
-  /** 리허설 첫 화면의 「나가기」 가 앱 홈 대신 투어 끝 화면으로 오게 남기는 표시 (js/rehearsal.js rhExitClicked) */
-  function markFromTour() {
-    try { sessionStorage.setItem('cheokcheok:from-tour', '1'); } catch (_) { /* 사생활 모드 — 나가기는 홈으로 */ }
+  /**
+   * 리허설 첫 화면의 「나가기」 가 앱 홈 대신 투어 끝 화면으로 오게 — 리허설 기록에 rhFrom:'tour' 를 남기고(나가기가 history.back() 으로
+   * 끝 화면 기록에 돌아온다), 기록이 바뀐 뒤(#/rehearsal/occ)를 위해 이 탭에 'tour' 도 적는다 (js/rehearsal.js rhExitClicked).
+   * location.hash = … 로 가면 state=null 기록이 쌓여, 나가기 뒤 「팀 소개로」 가 리허설로 되돌아갔다 (10-12 2차 flow-regression-inapp-r2-1).
+   * 바깥 브라우저로 여는 길은 이 탭과 상관없어 표시하지 않는다 — 실제로 여기서 들어갈 때만 (flow-regression-inapp-r2-6)
+   */
+  const RH_FROM_KEY = 'cheokcheok:rh-from';
+  function enterRehearsal() {
+    try { sessionStorage.setItem(RH_FROM_KEY, 'tour'); } catch (_) { /* 사생활 모드 — 나가기는 기록으로만 */ }
+    const cur = histState();
+    const onSheet = cur.overlay === 'sheet';
+    const st = { rhFrom: 'tour', hi: !!cur.hi, depth: (Number(cur.depth) || 0) + (onSheet ? 0 : 1) };
+    // 시트가 쌓은 기록은 리허설 기록으로 바꿔 쓴다 — 리허설에서 뒤로 가면 시트 없는 끝 화면
+    if (onSheet) { closeSheet(false); history.replaceState(st, '', '#/rehearsal'); }
+    else history.pushState(st, '', '#/rehearsal');
+    if (typeof window.route === 'function') window.route(); else location.hash = '#/rehearsal';
   }
 
   function openRehearsal() {
     const ua = navigator.userAgent || '';
     funnel('try_real');
-    markFromTour();
-    if (!L.inAppKind(ua)) { location.hash = '#/rehearsal'; return; }
+    if (!L.inAppKind(ua)) { enterRehearsal(); return; }
     funnel('inapp_notice');
     const url = `${location.origin}/rehearsal`;
     const ext = L.externalOpenUrl(url, ua);
@@ -387,10 +403,37 @@
           copy.textContent = ok ? '주소를 복사했어요' : '주소를 길게 눌러 복사해요';
           announce(copy.textContent);
         });
-        sheet.querySelector('[data-here]').addEventListener('click', () => { closeSheet(); location.hash = '#/rehearsal'; });
+        sheet.querySelector('[data-here]').addEventListener('click', () => enterRehearsal());
       },
     });
   }
+
+  /* ── 층(바텀 시트 · 크게 보기)과 뒤로 가기 ──────────────────────
+   * 층을 열면 기록을 하나 쌓는다(state.overlay). 폰 뒤로 · 위 띠 ‹ 는 그 기록만 되돌려 층만 닫고 화면은 그대로 둔다.
+   * 기록 없이 열었더니 크게 보기에서 뒤로를 누르면 발표 화면을 건너 자료 고르기로, 시트에서는 끝 화면을 잃고 리포트로 갔다
+   * (10-12 2차 layout-touch-a11y-r2-1 · flow-regression-inapp-r2-6). 닫기 버튼 · Esc · 바깥 누르기도 history.back() 으로 닫아 기록을 맞춘다.
+   * 화면이 바뀌며 걷는 길(render · teardown 의 closeSheet(false) · closeZoom(false))은 기록을 건드리지 않는다 */
+  function overlayOpen() {
+    const el = document.getElementById('tourStage');
+    if (!el) return '';
+    return el.querySelector('.tour-zoom') ? 'zoom' : (el.querySelector('.tour-sheet-wrap') ? 'sheet' : '');
+  }
+  function pushOverlay(kind) {
+    const cur = histState();
+    if (cur.overlay) history.replaceState(Object.assign({}, cur, { overlay: kind }), '');
+    else history.pushState(Object.assign({}, cur, { overlay: kind, depth: (Number(cur.depth) || 0) + 1 }), '');
+  }
+  /** 사용자가 층을 닫는다 — 층이 쌓은 기록이면 되돌리고(popstate 가 닫는다), 아니면 바로 닫는다 */
+  function dismissOverlay() {
+    if (histState().overlay) { history.back(); return; }
+    closeSheet();
+    closeZoom();
+  }
+  window.addEventListener('popstate', () => {
+    const want = histState().overlay || '';
+    if (want !== 'sheet') closeSheet();
+    if (want !== 'zoom') closeZoom();
+  });
 
   /* ── 바텀 시트 — 사용자가 누른 뒤에만 연다(진입 즉시 시트 금지 · CLAUDE.md §3-1) ── */
 
@@ -399,6 +442,7 @@
     const el = layer();
     closeSheet(false);
     sheetFrom = document.activeElement;
+    pushOverlay('sheet');
     const wrap = document.createElement('div');
     wrap.className = 'tour-sheet-wrap';
     wrap.innerHTML = `
@@ -413,7 +457,7 @@
       </section>`;
     el.appendChild(wrap);
     el.classList.add('has-sheet');
-    wrap.querySelectorAll('[data-sheet-close]').forEach((b) => b.addEventListener('click', () => closeSheet()));
+    wrap.querySelectorAll('[data-sheet-close]').forEach((b) => b.addEventListener('click', dismissOverlay));
     wrap.addEventListener('keydown', sheetKeys);
     const sheet = wrap.querySelector('.tour-sheet');
     if (typeof mount === 'function') mount(sheet);
@@ -422,7 +466,7 @@
   }
 
   function sheetKeys(e) {
-    if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); dismissOverlay(); return; }
     if (e.key !== 'Tab') return;
     const items = Array.from(e.currentTarget.querySelectorAll('.tour-sheet a, .tour-sheet button'));
     if (!items.length) return;
@@ -449,6 +493,7 @@
     const el = layer();
     closeZoom(false);
     zoomFrom = document.activeElement;
+    pushOverlay('zoom');
     const wrap = document.createElement('div');
     wrap.className = 'tour-zoom';
     wrap.setAttribute('role', 'dialog');
@@ -468,9 +513,9 @@
       size.textContent = big ? '화면에 맞추기' : '2배로 보기';
       size.setAttribute('aria-pressed', big ? 'true' : 'false');
     });
-    wrap.querySelector('[data-zoom-close]').addEventListener('click', () => closeZoom());
+    wrap.querySelector('[data-zoom-close]').addEventListener('click', dismissOverlay);
     wrap.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeZoom(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); dismissOverlay(); }
     });
     requestAnimationFrame(() => wrap.querySelector('[data-zoom-close]').focus({ preventScroll: true }));
   }

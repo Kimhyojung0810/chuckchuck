@@ -305,14 +305,31 @@ function rhWireExit(layer) {
 }
 
 /** 나가기 — 발표 고르기에서는 바로, 그 뒤로는 화면 안 시트(왼쪽 「닫기」). 한 것은 이 브라우저에 남는다 */
-/** 부스 투어 끝 화면의 「내 자료로 직접 해 보기」 로 왔다는 표시 (js/tour.js openRehearsal 이 남긴다) */
-const RH_FROM_TOUR_KEY = 'cheokcheok:from-tour';
+/** 부스에서 어디로부터 왔나 — 'tour'(투어 끝 화면 「내 자료로 직접 해 보기」, js/tour.js enterRehearsal) · 'hi'(/hi 「바로 내 자료로 해 보기」, js/intro.js) */
+const RH_FROM_KEY = 'cheokcheok:rh-from';
+/**
+ * 첫 화면 「나가기」 가 갈 곳 — 온 곳으로 되돌아간다. 앱 홈 「내 발표」 는 부스 방문객에게 낯선 곳이다 (10-12 점검).
+ *  · 들어온 그 기록이면(투어가 남긴 rhFrom · /hi 바로 뒤 기록 hi) history.back() — 끝 화면 · /hi 기록이 제 상태(state)로 돌아온다.
+ *    location.hash = '#/tour/done' 은 state 없는 기록을 하나 더 쌓아, 그 끝 화면의 「팀 소개로」 · X · 「처음부터 다시」 뒤 ‹ 가
+ *    모두 리허설로 되돌아갔다 (10-12 2차 flow-regression-inapp-r2-1).
+ *  · 기록이 바뀌었으면(#/rehearsal/occ) 이 탭의 표시대로 바꿔 간다(replace — 기록을 늘리지 않는다). /hi 에서 왔으면 /hi 로
+ *    (예전엔 표시가 투어만 알아 /hi 에서 온 방문객이 앱 홈으로, 남은 투어 표시면 투어 끝 화면으로 갔다 — flow-regression-inapp-r2-3)
+ */
+function rhExitTarget() {
+  let from = '';
+  try { from = sessionStorage.getItem(RH_FROM_KEY) || ''; sessionStorage.removeItem(RH_FROM_KEY); } catch (_) { /* 사생활 모드 */ }
+  const st = history.state && typeof history.state === 'object' ? history.state : {};
+  if (st.rhFrom === 'tour' || (st.hi && !(Number(st.depth) > 0))) return { kind: 'back' };
+  if (from === 'tour') return { kind: 'replace', to: '#/tour/done' };
+  if (from === 'hi') return { kind: 'replace', to: '/hi' };
+  return { kind: 'home' };
+}
 function rhExitClicked() {
   if (bq.screen === 'pick' || bq.screen === 'occ') {
-    // 투어에서 왔으면 투어 끝 화면으로 — 앱 홈 「내 발표」 는 부스 방문객에게 낯선 곳이다 (10-12 점검)
-    let fromTour = false;
-    try { fromTour = sessionStorage.getItem(RH_FROM_TOUR_KEY) === '1'; sessionStorage.removeItem(RH_FROM_TOUR_KEY); } catch (_) { /* 사생활 모드 */ }
-    location.hash = fromTour ? '#/tour/done' : '#/';
+    const act = rhExitTarget();
+    if (act.kind === 'back') history.back();
+    else if (act.kind === 'replace') location.replace(act.to);
+    else location.hash = '#/';
     return;
   }
   const layer = document.getElementById('bqStage');
