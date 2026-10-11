@@ -62,6 +62,23 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
 _TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf)$")
 
 
+#: 화면 JS 가 `?v=` 없이 받는 공개 파일 — 부스 /hi · #/tour 의 팀 카드 · 녹화 투어 · 팀 사진 · 덱 그림 (2026-10-11).
+#: 주소에 내용 해시가 없어 브라우저엔 no-cache 로 주지만, Cloudflare 에는 HTML 처럼 잠깐(CDN-Cache-Control) 맡긴다 —
+#: 부스에서 폰 수십 대가 같은 투어를 열 때 덱 그림·JSON 이 매번 원본(DERP 홍콩 경유 ~330KB/s)까지 오지 않게.
+#: 바뀐 판은 60초 안에 퍼지고(뒤에서 새로 받는다), 급하면 Cloudflare 에서 그 주소만 Purge. JSON 은 Cloudflare 가 기본으로 저장하지
+#: 않아서 캐시 규칙이 있어야 쓰인다 (docs/booth-mobile/DEPLOY.md). 팀 전용 data/*.json 은 여기에 없다 — 늘 private, no-store.
+EDGE_SHORT_PATH = re.compile(rf"""^/(?:
+      data/team\.json | data/tour/{_NAME}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
+    | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
+)$""", re.X)
+
+
+def edge_short(url_path: str) -> bool:
+    """이 공개 파일을 Cloudflare 에 잠깐 맡기나 (해시 주소가 아닐 때). 정규화한 경로로 본다."""
+    norm = normalize_url_path(url_path)
+    return norm is not None and bool(EDGE_SHORT_PATH.match(norm))
+
+
 def normalize_url_path(url_path: str) -> str | None:
     """URL 경로를 locate 와 같은 규칙으로 편다 (%xx 풀기 · . / .. 접기). NUL 이 섞이면 None."""
     decoded = unquote(url_path or "/")

@@ -213,3 +213,42 @@ def test_hi_는_원본까지_오고_접근_로그에_남는다(tour):
     else:
         assert h.header("Cache-Control") in ("no-cache", "no-store")
     assert not getattr(h, "_quiet", False)  # 접근 로그 줄(GET /hi …)이 남는다 — booth_funnel 이 이 줄로 /hi 진입을 센다
+
+
+# ─── 4. 투어 파일은 Cloudflare 에 잠깐 맡긴다 ────────────────────────────────
+
+from tests.test_static_assets import RawHandler  # noqa: E402
+
+
+def _raw_get(path: str) -> tuple[int, dict]:
+    h = RawHandler(path)
+    h.do_GET()
+    status, hdrs, _ = h.response()
+    return status, hdrs
+
+
+@pytest.mark.parametrize("path", [
+    "/data/team.json", "/data/tour/_example.json",
+    "/assets/deck-slides/battery-fastcharge/1.webp", "/assets/deck-covers/battery-fastcharge.webp",
+])
+def test_화면이_v_없이_받는_투어_파일은_브라우저는_재검증_Cloudflare_는_60초(real, monkeypatch, path):  # noqa: F811
+    monkeypatch.setattr(bridge, "ALLOWED_HOSTS", set())
+    status, hdrs = _raw_get(path)
+    assert status == 200, path
+    assert hdrs["cache-control"] == "no-cache" and hdrs.get("etag")
+    assert hdrs.get("cdn-cache-control") == bridge.CDN_HTML_CACHE
+
+
+def test_해시_주소는_그대로_1년이고_팀_전용과_다른_파일엔_안_붙인다(real, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(bridge, "ALLOWED_HOSTS", set())
+    digest = bridge.STATIC.served("/data/tour/_example.json")[1]
+    _, hdrs = _raw_get(f"/data/tour/_example.json?v={digest}")
+    assert hdrs["cache-control"] == bridge.IMMUTABLE and "cdn-cache-control" not in hdrs
+    _, hdrs = _raw_get("/js/app.js")
+    assert "cdn-cache-control" not in hdrs
+    # 팀 전용 data/*.json — 공개 방문자에게 404, Cloudflare 에 맡길 일이 없다
+    status, hdrs = _raw_get("/data/voice_report_live.json")
+    assert status == 404 and "cdn-cache-control" not in hdrs
+    from demo.static_assets import edge_short
+    assert not edge_short("/data/voice_report_live.json") and not edge_short("/data/tour/../voice_report_live.json")
+    assert edge_short("/data/tour/battery-fastcharge.json") and edge_short("/assets/team/hyojung.webp")

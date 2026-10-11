@@ -56,7 +56,7 @@ from demo import tour_events  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
-from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches, normalize_url_path, static_access  # noqa: E402
+from demo.static_assets import IMMUTABLE, REVALIDATE, COMPRESSIBLE, MIN_GZIP_BYTES, AssetCache, Minifier, accepts_gzip, content_digest, etag_matches, normalize_url_path, static_access, edge_short  # noqa: E402
 
 
 #: 세션 아티팩트 + triage 캐시. 프로세스 메모리라 재시작하면 사라진다 —
@@ -2603,6 +2603,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         else:
             v = (parse_qs(parsed.query).get("v") or [""])[0]
             cache = IMMUTABLE if v and v == digest else REVALIDATE
+            if cache == REVALIDATE and edge_short(url):
+                # 부스 투어 데이터·덱 그림은 화면이 ?v= 없이 받는다 — Cloudflare 에만 60초 맡긴다 (static_assets.EDGE_SHORT_PATH)
+                extra.append(("CDN-Cache-Control", CDN_HTML_CACHE))
         self._send_static_bytes(path, data, ctype, cache, head_only, extra)
         return None
 
