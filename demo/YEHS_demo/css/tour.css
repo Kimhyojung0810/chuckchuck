@@ -96,6 +96,8 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-foot[hidden] { display: none; }
 .tour-foot-row { display: flex; gap: 8px; }
 .tour-foot-row > * { flex: 1 1 0; min-width: 0; }
+/* 둘째 줄 버튼 둘은 한 줄로 — 360px 에서 「팀 소개로 돌아가기」 가 두 줄로 접혔다 (10-12 통합 캡처) */
+.tour-foot-row > .tour-cta { font-size: 15px; padding: 0 10px; white-space: nowrap; }
 
 .tour-cta {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;

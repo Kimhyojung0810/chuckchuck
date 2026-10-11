@@ -398,10 +398,13 @@ main {
 }
 .icon-btn:active:not(:disabled), .btn-next:active, .btn-ghost:active, .btn-solid:active { transform: scale(.97); }
 
-.dots { flex: 1; display: flex; justify-content: center; }
-/* 점은 8px 지만 누르는 자리는 32×44 — 다섯 명이면 160px, 360px 폭에서도 버튼과 안 겹친다 */
+/* 점은 8px 지만 누르는 자리는 44×44 (부스 모바일 규칙 · 10-12 통합 캡처에서 32×44 를 잡음).
+   다섯 명이면 220px 라 360px 폭에서 이전·다음 버튼 사이에 안 들어간다 — 점 줄을 버튼 위 한 줄로 따로 둔다 */
+.pager { flex-wrap: wrap; row-gap: 4px; }
+.dots { order: -1; flex: 1 0 100%; display: flex; justify-content: center; }
+.pager .btn-next { flex: 1 1 auto; }
 .dot {
-  width: 32px; height: 44px;
+  width: 44px; height: 44px;
   display: grid; place-items: center;
   padding: 0; border: 0; background: none; cursor: pointer;
 }
@@ -413,8 +416,8 @@ main {
   transition: width 200ms var(--ease), background-color 200ms ease;
 }
 .dot[aria-current="true"]::before { width: 20px; background: var(--brand); }
-/* 사람이 7명 이상이면 점 줄이 좁아지므로 점 자리를 줄인다 */
-.dots[data-many] .dot { width: 22px; }
+/* 사람이 7명 이상이면 한 줄(320px)에 들어가게 점 자리를 조금 줄인다 — 8명까지 40px */
+.dots[data-many] .dot { width: 40px; }
 
 /* ── 4) 마무리 ─────────────────────────────────────────────────────────── */
 .outro { padding-top: 56px; }
