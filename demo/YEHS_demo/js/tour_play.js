@@ -331,10 +331,14 @@
         const ov = root.querySelector('[data-reveal]');
         if (!ov) return null;
         root.classList.add('is-revealing');
+        // 연출이 덮고 있는 동안 아래 「예상 질문 받기」 는 누름을 받지 않는다 — 발표 화면 「분석 보기」 를 두 번 누르면 분석을 못 보고 질문으로 갔다 (r2-2)
+        const foot = root.querySelector('[data-tour-foot]');
+        if (foot) foot.inert = true;
         const done = () => {
           if (!ov.isConnected) return;
           c.save({ revealed: true });
           root.classList.remove('is-revealing');
+          if (foot && Shell().settleFoot) Shell().settleFoot(foot, 400); else if (foot) foot.inert = false;
           ov.classList.add('is-out');
           setTimeout(() => ov.remove(), c.reduced() ? 0 : 220);
           const h = root.querySelector('h1');
@@ -342,7 +346,7 @@
         };
         ov.querySelector('[data-skip]').addEventListener('click', done);
         const timer = setTimeout(done, c.reduced() ? 300 : REVEAL_MS);
-        return () => { clearTimeout(timer); root.classList.remove('is-revealing'); };
+        return () => { clearTimeout(timer); root.classList.remove('is-revealing'); if (foot) foot.inert = false; };
       },
     };
   };

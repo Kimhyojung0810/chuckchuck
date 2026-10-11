@@ -94,6 +94,8 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 }
 .tour[data-tone="dark"] .tour-foot { background: rgba(11, 21, 18, .92); }
 .tour-foot[hidden] { display: none; }
+/* 화면이 막 바뀐 동안(js/tour.js settleFoot) — inert 를 모르는 옛 브라우저도 두 번째 누름을 흘려보낸다. 모양은 그대로 */
+.tour-foot.is-settling { pointer-events: none; }
 .tour-foot-row { display: flex; gap: 8px; }
 .tour-foot-row > * { flex: 1 1 0; min-width: 0; }
 /* 둘째 줄 버튼 둘은 한 줄로 — 360px 에서 「팀 소개로 돌아가기」 가 두 줄로 접혔다 (10-12 통합 캡처) */

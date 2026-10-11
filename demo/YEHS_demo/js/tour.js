@@ -282,6 +282,23 @@
     };
   }
 
+  /**
+   * 화면이 바뀐 직후 잠깐 아래 버튼 줄이 누름을 받지 않는다 — 다음 화면 주 버튼이 같은 자리에 곧바로 그려져, 두 번 빠르게 누르면
+   * (touch-action:manipulation 이라 두 번 다 click) 자료 · 발표 화면을 건너뛰고, 리포트에서는 끝 화면을 건너 리허설로 나갔다
+   * (10-12 2차 flow-regression-inapp-r2-2, 300 · 500ms 간격 재현). 사람이 새 화면을 읽고 누르는 데는 이보다 오래 걸린다
+   */
+  const FOOT_SETTLE_MS = 600;
+  let settleTimer = 0;
+  function settleFoot(foot, ms = FOOT_SETTLE_MS) {
+    clearTimeout(settleTimer);
+    foot.classList.add('is-settling');
+    foot.inert = true;
+    settleTimer = setTimeout(() => {
+      foot.classList.remove('is-settling');
+      if (!foot.closest('.is-revealing')) foot.inert = false;   // 분석 연출이 덮고 있으면 연출이 끝날 때 푼다(tour_play.js)
+    }, ms);
+  }
+
   function paint(el, at, view) {
     const body = el.querySelector('[data-tour-body]');
     const foot = el.querySelector('[data-tour-foot]');
@@ -294,9 +311,12 @@
     el.dataset.dir = from < 0 || from === to ? 'none' : (to > from ? 'fwd' : 'back');
     el.querySelector('[data-tour-progress]').innerHTML = progressHtml(at.screen);
     body.innerHTML = view.html;
+    const footChanged = foot.dataset.html !== (view.foot || '');   // 같은 화면에서 버튼만 바뀐 것도(질문 답 고르기) — 두 번째 누름이 「다음 질문」 에 닿았다
+    foot.dataset.html = view.foot || '';
     foot.innerHTML = view.foot || '';
     foot.hidden = !view.foot;
     body.scrollTop = 0;
+    if (view.foot && (from !== to || footChanged)) settleFoot(foot);
     lastScreen = key;
     if (typeof view.mount === 'function') leaveHook = view.mount(el) || null;
     // 화면이 바뀌면 제목으로 초점을 옮긴다 — 화면 읽기 프로그램이 새 화면을 처음부터 읽게(스크롤은 그대로)
@@ -636,5 +656,5 @@
     if (key !== 'tour') teardown();
   };
   /** tour_play.js 가 쓰는 것 */
-  window.TourShell = { announce, render };
+  window.TourShell = { announce, render, settleFoot };
 })();
