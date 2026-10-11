@@ -147,5 +147,8 @@ def test_공개로_여는_실제_파일에는_git_밖_파일이나_문서가_없
             continue
         rel = "/" + p.relative_to(WEB).as_posix()
         if static_access(rel) == "public":
+            # 부스 모바일 계약 파일(docs/booth-mobile/ — 팀 카드 · 녹화 투어 · 팀 사진)만 .json · .jpg 를 연다 (2026-10-11)
+            if re.fullmatch(r"/data/team\.json|/data/tour/[A-Za-z0-9_.-]+\.json|/assets/team/[A-Za-z0-9_.-]+\.(?:webp|png|jpg)", rel):
+                continue
             assert p.suffix.lower() in {".html", ".css", ".js", ".mjs", ".png", ".ico", ".svg", ".webp", ".xml", ".wasm", ".txt"}, rel
             assert not rel.endswith(".md")

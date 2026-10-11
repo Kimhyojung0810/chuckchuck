@@ -55,7 +55,9 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
     | assets/{_NAME}\.(?:png|svg|ico|webp)
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
     | sdk/{_NAME}\.m?js
+    | data/team\.json | data/tour/{_NAME}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
 )$""", re.X)
+#: ↑ 마지막 줄은 부스 모바일 /hi · #/tour (2026-10-11, docs/booth-mobile/) — 팀 카드 · 녹화 투어 · 팀 사진. 다른 data/*.json 은 그대로 팀 전용.
 #: 팀 샘플 데모만 쓰는 파일 — /auth 를 거친 팀 브라우저(또는 DEV_ROUTES 브리지)에만 연다. 공개 방문자에게는 404.
 _TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf)$")
 
