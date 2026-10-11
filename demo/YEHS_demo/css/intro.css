@@ -241,6 +241,9 @@ main {
 .card {
   flex: 0 0 calc(100% - 28px);
   max-width: 400px;
+  /* flex 항목은 min-width:auto 라 띄어쓰기 없는 긴 영문 덩어리(파일 이름 · 기술 나열)만큼 카드가 넓어졌다 — 다음 카드 미리보기가
+     사라지고 글이 오른쪽에서 잘렸다(10-12 점검, 360 폭에서 286 → 392px). 0 으로 풀고 글 칸은 아무 데서나 줄을 바꾼다 */
+  min-width: 0;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   display: flex;
@@ -279,6 +282,7 @@ main {
   filter: drop-shadow(0 1px 1px rgba(24, 24, 27, .12));
 }
 .who { min-width: 0; }
+.name, .role, .headline, .did li, .quote, .links a { overflow-wrap: anywhere; }
 .name { font-size: 22px; line-height: 1.3; font-weight: var(--w-bold); letter-spacing: -.02em; }
 .role {
   display: inline-block;

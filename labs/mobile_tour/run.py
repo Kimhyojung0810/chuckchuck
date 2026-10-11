@@ -263,11 +263,12 @@ LONG_TOKENS = {
 
 CARD_JS = """() => { const W = innerWidth; const dock = document.querySelector('.dock');
   const dt = dock ? dock.getBoundingClientRect().top : innerHeight;
+  // 폭은 offsetWidth — 지금 카드 말고는 scale(.98) 이라 getBoundingClientRect 로 재면 다 좁게 나온다
   return Array.from(document.querySelectorAll('.card[data-id]')).map((c) => {
     const r = c.getBoundingClientRect();
     const clipped = Array.from(c.querySelectorAll('*')).some((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === 'visible' && e.getBoundingClientRect().right > r.right + 1);
     const cnt = c.querySelector('.card-count'); const cr = cnt ? cnt.getBoundingClientRect() : null;
-    return { id: c.dataset.id, w: Math.round(r.width), h: Math.round(r.height), vw: W, vh: innerHeight, clipped,
+    return { id: c.dataset.id, w: c.offsetWidth, h: c.offsetHeight, vw: W, vh: innerHeight, clipped,
              active: c.hasAttribute('data-active'), count_bottom: cr ? Math.round(cr.bottom) : null, dock_top: Math.round(dt) };
   }); }"""
 
@@ -290,8 +291,9 @@ def run_stress(browser, base: str, width: int, out: Path) -> dict:
         body = json.dumps(team, ensure_ascii=False)
         page.route("**/data/team.json", lambda r: r.fulfill(status=200, content_type="application/json", body=body))
         page.goto(f"{base}/hi", wait_until="networkidle")
-        page.evaluate("document.getElementById('team').scrollIntoView({block:'start'})")
         page.wait_for_selector(".card[data-active]", timeout=10000)
+        page.evaluate("document.getElementById('team').scrollIntoView({block:'start', behavior:'instant'})")
+        page.wait_for_timeout(300)
         res["cards_long"] = page.evaluate(CARD_JS)
         page.screenshot(path=str(d / "01_team_long.png"))
         page.unroute("**/data/team.json")
