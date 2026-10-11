@@ -128,9 +128,16 @@ def test_엉성한_답의_근거없는_칭찬은_건너뛰고_되묻기로_갈�
     assert B.feedback_text(judge, "음… 어느 정도의 리뷰를 썼어요") == "총 건수를 다시 말해 줄래요?"
 
 
-def test_답이_말한_숫자로_칭찬하면_그대로_싣는다():
-    judge = {"verdict": "partial", "react": "방전 1C 고정은 정확해요. 그런데 나머지가 빠졌어요.", "followup": "x"}
-    assert B.feedback_text(judge, "방전은 1C로 고정했어요") == "방전 1C 고정은 정확해요."
+def test_답이_말한_숫자로_칭찬하면_그대로_싣고_다음_문장의_고칠_점까지_싣는다():
+    """10-12 2차 r2-3 — 한 문장만 실어서 칭찬만 남고 빠진 것이 안 보였다. 두 문장까지, 이음말은 다듬는다."""
+    judge = {"verdict": "partial", "react": "방전 1C 고정은 정확해요. 그런데 나머지가 빠졌어요. 셋째 문장이에요.", "followup": "x"}
+    assert B.feedback_text(judge, "방전은 1C로 고정했어요") == "방전 1C 고정은 정확해요. 나머지가 빠졌어요."
+
+
+def test_피드백은_되묻는_문장을_빼고_자르지_않는다():
+    long = "검정 결과를 " + "아주 " * 40 + "정확히 말했어요."
+    judge = {"verdict": "good", "react": f"{long} 다른 근거도 말해 줄래요?"}
+    assert B.feedback_text(judge, "답") == long
 
 
 def test_반응의_이음말과_겹친_자료를_다듬는다():
@@ -313,7 +320,8 @@ def test_다듬은_문구는_원문_앞부분이_같을_때만_쓴다():
 def test_정해진_모양_문구는_숫자를_그대로_두고_용어만_바꾼다():
     assert B.plain_terms("핵심 슬라이드 3장이 권장 시간과 평균 67% 어긋나요 (2번이 +47초)") == \
         "핵심 장 3개가 권장 시간과 평균 67% 어긋나요 (2장은 47초 더 썼어요)"
-    assert B.plain_terms("근거 자료 4장 중 4장에 출처가 없어요 (1, 2, 3, 4번)") == "근거 자료 4개 장 중 4개 장에 출처가 없어요 (1, 2, 3, 4장)"
+    assert B.plain_terms("근거 자료 4장 중 4장에 출처가 없어요 (1, 2, 3, 4번)") == "모든 장(1~4장)에 출처가 없어요"
+    assert B.plain_terms("근거 자료 4장 중 3장에 출처가 없어요 (1, 2, 4번)") == "근거 자료 4개 장 중 3개 장에 출처가 없어요 (1, 2, 4장)"
     assert B.plain_terms("분당 간투어 0.4번") == "분당 군더더기 말 0.4번"
     assert B.report_note("x", "content", "자료에 없는 이야기를 18개 덧붙였어요 (급속 충전이 배터리 수명을 얼마나 깎는지, 중간 결과, 상용 셀을 직접 500 사이클 돌려받습니다)") == \
         "자료에 없는 이야기를 18개 덧붙였어요"
@@ -347,3 +355,75 @@ def test_녹화본이_있으면_다시_만들어도_같은_파일이다():
     if not any(B.REC_DIR.glob("*.json")):
         pytest.skip("녹화본(labs/tour_capture/out/recordings) 이 이 머신에 없다 — capture.py 를 돌린 머신에서만 본다")
     assert B.main(["--check"]) == 0
+
+
+# ─── 10-12 2차 점검 — 잘림 · 판정 피드백 · 리포트 모순 · 공개 메모 ─────────────
+
+def _strings(value, path="$"):
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield from _strings(v, f"{path}.{k}")
+    elif isinstance(value, list):
+        for i, v in enumerate(value):
+            yield from _strings(v, f"{path}[{i}]")
+    elif isinstance(value, str):
+        yield path, value
+
+
+ANSWER_TEXT = re.compile(r"\.answers\.(good|rough)\.text$")
+
+
+@pytest.mark.parametrize("path", RECORDED, ids=lambda p: p.name)
+def test_녹화_투어_글은_사람_답_말고는_잘리지_않는다(path):
+    """layout-touch-a11y-r2-4 · perf-security-copy-r2-7 — 핵심 주장 이름 · 판정 문장 · 근거 인용이 「…」 로 잘린 채 실렸다.
+    줄이는 건 화면(CSS 줄 수 제한 · 펼치기)이 한다. 사람 답의 「…」 는 머뭇거림이라 뺀다."""
+    t = json.loads(path.read_text(encoding="utf-8"))
+    cut = [f"{p}: {v[-40:]}" for p, v in _strings(t) if v.rstrip().endswith(("…", "...")) and not ANSWER_TEXT.search(p)]
+    assert cut == []
+
+
+@pytest.mark.parametrize("path", RECORDED, ids=lambda p: p.name)
+def test_녹화_투어_판정_피드백은_답을_되풀이하지_않고_되묻지_않는다(path):
+    """perf-security-copy-r2-3 — 피드백이 답 첫 줄을 옮기다 잘리거나, 되묻는 질문이 피드백 자리에 들어갔다."""
+    t = json.loads(path.read_text(encoding="utf-8"))
+    errs = []
+    for q in t["qa"]["questions"]:
+        for kind, a in q["answers"].items():
+            fb = a["feedback"].strip()
+            if fb.endswith(("?", "…")):
+                errs.append(f"{q['id']}:{kind}: {fb}")
+            if fb[:30] and fb[:30] in a["text"]:
+                errs.append(f"{q['id']}:{kind}: 답을 되풀이 — {fb}")
+            if a["verdict"] != "good" and not re.search(r"빠|말해|말하지|다시|아쉬|확인|견줘|못|않", fb):
+                errs.append(f"{q['id']}:{kind}: 좋지 않은 답인데 빠진 것 · 고칠 점이 없다 — {fb}")
+    assert errs == []
+
+
+#: 리포트 제목 · 연습 문장이 항목 판정과 부딪히는 말 — {말: 그 말이 참이려면 「좋아요」 여야 할 항목}
+CLAIMS = {"자료와 잘 맞": "content", "잘 맞았": "content", "빠르기가 좋": "delivery"}
+
+
+@pytest.mark.parametrize("path", RECORDED, ids=lambda p: p.name)
+def test_녹화_투어_리포트는_한_화면_안에서_부딪히지_않는다(path):
+    """perf-security-copy-r2-2 — 제목 「자료와 잘 맞았어요」 아래 「자료에 없는 이야기 18개 · 보통」, 「목소리와 빠르기 · 좋아요」 인데 분석은
+    말 속도 「느려요 · 더 연습」, 연습 3 은 「권장보다 빠르게」."""
+    t = json.loads(path.read_text(encoding="utf-8"))
+    r, a = t["report"], t["analysis"]
+    level = {i["id"]: i["level"] for i in r["items"]}
+    rank = {"good": 0, "fair": 1, "practice": 2}
+    texts = [r["headline"]] + [s["text"] for s in r["next_steps"]] + [a["summary"]]
+    errs = [f"{phrase} ↔ {item}={level.get(item)} : {txt}" for txt in texts for phrase, item in CLAIMS.items()
+            if phrase in txt and level.get(item, "good") != "good"]
+    if "delivery" in level:
+        if rank[level["delivery"]] < rank[a["pace"]["level"]]:
+            errs.append(f"목소리와 빠르기 {level['delivery']} 가 분석 말 속도 {a['pace']['level']} 보다 좋다")
+    errs += [f"권장을 넘으라는 말: {s}" for s in texts if "권장보다 빠르게" in s or "권장보다 느리게" in s]
+    errs += [f"번역투: {i['note']}" for i in r["items"] if re.search(r"(\d+)개 장 중 \1개 장", i["note"])]
+    assert errs == []
+
+
+@pytest.mark.parametrize("path", RECORDED, ids=lambda p: p.name)
+def test_공개_투어_메모에는_검수_내용이_없다(path):
+    """perf-security-copy-r2-9 — source.note 에 「뺀 질문 · 판정 모델이 틀린 이유 · 모델 이름」 이 공개 주소로 나갔다."""
+    note = json.loads(path.read_text(encoding="utf-8"))["source"]["note"]
+    assert not re.search(r"뺀 질문|오답|solar|skt|판정 |받아쓰기 |labs/", note), note

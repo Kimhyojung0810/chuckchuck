@@ -30,6 +30,7 @@ ROOT = HERE.parents[1]
 REC_DIR = HERE / "out" / "recordings"
 TOUR_DIR = ROOT / "demo" / "YEHS_demo" / "data" / "tour"
 ASSETS = ROOT / "demo" / "YEHS_demo"
+REVIEW_NOTES = HERE / "review_notes.json"   # 공개 안 함 — 뺀 질문 · 모델 (예전엔 공개 source.note 에 실렸다)
 
 #: 투어 덱 차례(index.json) — 첫째가 기본 덱. 부스 덱 C · A · B.
 ORDER = ["delivery-rating", "battery-fastcharge", "microplastic-daphnia"]
@@ -84,6 +85,16 @@ def clip(text: str, limit: int) -> str:
             cut = head[: cuts[-1]].rstrip(" ,·—/;")
             return cut if re.search(r"[.!?。]$", cut) else cut + "…"
     return head.rstrip() + "…"
+
+
+def whole(text: str, limit: int = 240) -> str:
+    """글을 자르지 않는다 — 화면이 줄 수 제한 · 펼치기로 접는다 (10-12 2차 layout-touch-a11y-r2-4: 핵심 주장 이름 · 판정 문장 · 근거 인용이
+    「…」 로 잘린 채 실렸다). 터무니없이 긴 글(limit 넘음)만 문장 끝에서 끊고, 문장 끝이 없으면 그대로 둔다(「…」 를 붙이지 않는다)."""
+    t = scrub(text)
+    if len(t) <= limit:
+        return t
+    ends = [m.end() for m in re.finditer(r"[.!?。](?=\s)", t[:limit])]
+    return t[: ends[-1]].strip() if ends else t
 
 
 def sentences(text: str) -> list[str]:
@@ -310,7 +321,7 @@ def claim_graph(graph: dict, alignment: dict) -> dict:
     root = graph.get("thesis") or (nodes[0]["id"] if nodes else "")
     ranked = sorted(nodes, key=lambda n: (n["id"] != root, -(n.get("weight") or 0)))[:NODE_MAX]
     keep = {n["id"] for n in ranked}
-    out_nodes = [{"id": re.sub(r"[^a-z0-9_-]", "-", n["id"].lower())[:60], "src": n["id"], "label": clip(n.get("label") or n["id"], 30),
+    out_nodes = [{"id": re.sub(r"[^a-z0-9_-]", "-", n["id"].lower())[:60], "src": n["id"], "label": whole(n.get("label") or n["id"]),
                   "kind": KIND_MAP.get(n.get("kind") or "", "concept"),
                   "status": verdict.get(n["id"]) if verdict.get(n["id"]) in ("aligned", "justified_skip", "missing", "contradiction") else "missing",
                   "slide_no": (n.get("slide_nos") or [None])[0]} for n in ranked]
@@ -360,18 +371,27 @@ _PRAISE = re.compile(r"정확|맞아요|맞게|맞습니다|잘 (?:설명|짚|�
 _LEAD = re.compile(r"^(?:그런데|하지만|다만|그러나)\s*,?\s*")
 
 
+FEEDBACK_SENTENCES = 2
+
+
 def feedback_text(judge: dict, answer: str) -> str:  # noqa: C901
-    """판정 반응의 첫 문장(90자). 좋지 않은 판정에서 답에 없는 숫자를 들어 칭찬한 문장은 건너뛴다 — 없으면 되묻기(followup)."""
+    """
+    판정 반응 앞 두 문장 — 무엇이 맞고 빠졌는지에 이어 판정기가 말한 고칠 점까지 (10-12 2차 perf-security-copy-r2-3: 한 문장 90자에서
+    잘려 이유 · 고칠 점이 빠졌다). 좋지 않은 판정에서 답에 없는 숫자를 들어 칭찬한 문장은 건너뛰고, 되묻는 문장(?)은 피드백이 아니라 뺀다.
+    남는 문장이 없으면 되묻기(followup) — 그마저 질문이면 사람이 다듬은 문장(CURATED 「fb:…」)이 갈음한다.
+    """
     said = numbers(answer)
-    picked = ""
+    picked: list[str] = []
     for s in sentences(tidy(judge.get("react") or "")):
         if judge.get("verdict") != "good" and _PRAISE.search(s) and numbers(s) - said:
             continue
-        picked = _LEAD.sub("", s)
-        break
-    if not picked:
-        picked = tidy(judge.get("followup") or judge.get("summary_sentence") or "")
-    return clip(picked, 90) or "판정을 받았어요."
+        if s.rstrip().endswith("?"):
+            continue
+        picked.append(_LEAD.sub("", s))
+        if len(picked) >= FEEDBACK_SENTENCES:
+            break
+    text = " ".join(picked) or tidy(judge.get("followup") or judge.get("summary_sentence") or "")
+    return whole(text) or "판정을 받았어요."
 
 
 def tidy(text: str) -> str:
@@ -380,13 +400,23 @@ def tidy(text: str) -> str:
 
 
 def note_text(note: str) -> str:
-    """근거 설명 60자 — 길면 「…하므로, <결론>」 의 결론 절만 (왜 근거인지가 거기 있다). 그래도 길면 앞에서 자른다."""
+    """근거 설명 — 길면(60자 넘음) 「…하므로, <결론>」 의 결론 절만 (왜 근거인지가 거기 있다). 결론 절이 없으면 자르지 않는다(r2-4)."""
     t = re.sub(r"^이 줄은\s*", "", tidy(note))
     if len(t) > 60:
         tail = re.split(r"(?:므로|으며|하여|어서|아서),\s+", t)[-1].strip()
         if 8 <= len(tail) <= 60 and tail != t:
             return tail
-    return clip(t, 60)
+    return whole(t)
+
+
+def quote_text(quote: str) -> str:
+    """근거 인용 — 자르지 않는다. 판정기가 이미 「…」 로 자른 인용이면 마지막 온전한 문장까지만 (「가장 높은 '4.5…」 처럼 끊긴 꼬리를 싣지 않는다)."""
+    t = whole(quote)
+    if t.endswith(("…", "...")):
+        ends = [m.end() for m in re.finditer(r"[.!?。](?=\s)", t)]
+        if ends:
+            t = t[: ends[-1]].strip()
+    return t
 
 
 def grounds_view(judge: dict, answer: str) -> list[dict]:
@@ -401,16 +431,19 @@ def grounds_view(judge: dict, answer: str) -> list[dict]:
                 continue   # 답이 말하지 않은 숫자 줄을 「짚은 것」 으로 보이지 않는다
             if g.get("role") == "missing" and nums <= said:
                 continue   # 답이 그대로 말한 줄을 「빠진 것」 으로 보이지 않는다
-        out.append({"slide_no": int(g["slide_no"]), "ref": g["ref"], "quote": clip(g.get("quote") or "", 80),
+        out.append({"slide_no": int(g["slide_no"]), "ref": g["ref"], "quote": quote_text(g.get("quote") or ""),
                     "role": g.get("role") if g.get("role") in ("covered", "missing", "conflict") else "missing",
                     "note": note_text(g.get("note") or "")})
     return out[:3]
 
 
-def answer_view(judge: dict, text: str) -> dict:
+def answer_view(judge: dict, text: str, deck: str = "", slot: str = "") -> dict:
     verdict = judge.get("verdict") if judge.get("verdict") in VERDICT_LEVEL else "unknown"
+    fb = feedback_text(judge, text)
+    if slot:
+        fb = curated(deck, slot, scrub(judge.get("react") or ""), fallback=fb)
     return {"text": clip(text, 200), "verdict": verdict, "level": VERDICT_LEVEL[verdict],
-            "feedback": feedback_text(judge, text), "grounds": grounds_view(judge, text)}
+            "feedback": fb, "grounds": grounds_view(judge, text)}
 
 
 def qa_section(rec: dict, have: set[int]) -> tuple[dict, list[str]]:
@@ -431,8 +464,10 @@ def qa_section(rec: dict, have: set[int]) -> tuple[dict, list[str]]:
             dropped.append(f"{short} 잘 답한 답 {good.get('verdict')} · 엉성한 답 {rough.get('verdict')}")
             continue
         sn = q.get("evidence_slide_no") or (q.get("slide_nos") or [1])[0]
+        deck = rec.get("tour_deck_id") or ""
         questions.append({"id": qid, "slide_no": int(sn) if int(sn) in have else min(have), "question": clip(q.get("question") or "", 120),
-                          "answers": {"good": answer_view(good, row["good_text"]), "rough": answer_view(rough, row["rough_text"])}})
+                          "answers": {"good": answer_view(good, row["good_text"], deck, f"fb:{short}:good"),
+                                      "rough": answer_view(rough, row["rough_text"], deck, f"fb:{short}:rough")}})
     asker = ASKER_BY_SITUATION.get(rec.get("situation") or "", "질문자")
     return {"asker": asker, "questions": questions[:5]}, dropped
 
@@ -471,6 +506,9 @@ TERM_RULES: list[tuple[re.Pattern, object]] = [
     (re.compile(r"(\d+)개 슬라이드"), r"\1개 장"),
     (re.compile(r"슬라이드"), "장"),
     (re.compile(r"해보세요"), "해 보세요"),
+    (re.compile(r"표시해보세요"), "표시해 보세요"),
+    # 「근거 자료 4개 장 중 4개 장에 출처가 없어요 (1, 2, 3, 4장)」 — 번역투라 「모든 장(1~4장)에」 로 (10-12 2차 perf-security-copy-r2-6)
+    (re.compile(r"근거 자료 (\d+)개 장 중 \1개 장에 출처가 없어요\s*\((\d+)(?:, \d+)*, (\d+)장\)"), r"모든 장(\2~\3장)에 출처가 없어요"),
 ]
 
 
@@ -488,18 +526,34 @@ CURATED: dict[tuple[str, str], tuple[str, str]] = {
     ("delivery-rating", "item:audience"): ("정보 전달과 설득 목적을 명확히 구분해", "행동 지표 노출 같은 구체적인 해결 방안을 강조했어요"),
     ("battery-fastcharge", "item:logic"): ("도입부에서 발표 목적과 핵심 주장을", "도입에서 발표 주제와 목적을 분명히 밝혔어요"),
     ("battery-fastcharge", "item:audience"): ("배터리 수명 감소라는 핵심 메시지를", "배터리 수명이 줄어든다는 핵심 메시지를 분명히 강조했어요"),
-    ("battery-fastcharge", "one_liner"): ("간투어가 한 번 있었지만", "군더더기 말이 한 번 있었지만 자료와 잘 맞았어요. 핵심 장에 시간을 더 넣어 보세요."),
+    # 「전반적으로 자료가 잘 맞았고」 는 같은 리포트의 「자료와 맞게 말했나 · 보통 · 자료에 없는 이야기 18개」 와 부딪혔다 (10-12 2차 r2-2)
+    ("battery-fastcharge", "one_liner"): ("간투어가 한 번 있었지만", "군더더기 말은 한 번뿐이었어요. 핵심 장에 시간을 더 넣고, 자료에 없는 이야기는 줄여 보세요."),
+    ("battery-fastcharge", "headline"): ("간투어가 한 번 있었지만", "핵심 장에 시간을 더 넣고, 자료에 없는 이야기는 줄여 보세요"),
+    # 「권장보다 빠르게」 는 권장 범위를 넘으라는 뜻이 됐다 (r2-2)
+    ("battery-fastcharge", "step:2"): ("말 속도를 300~350자/분 수준으로", "말 속도를 1분에 300~350자까지 올려 보세요."),
     ("microplastic-daphnia", "item:logic"): ("생존율과 산자수 감소의 관계를", "생존율과 새끼 수가 함께 줄어든 관계를 모순 없이 설명했어요"),
     ("microplastic-daphnia", "item:audience"): ("청중(교수 대상)의 전문성에 비해", "교수 청중의 전문성에 비해 설명이 너무 단순했어요"),
-    ("microplastic-daphnia", "headline"): ("청중 맞춤 설명이 부족하고", "청중에 맞춘 설명과 출처 표기를 더해 봐요"),
+    ("microplastic-daphnia", "headline"): ("청중 맞춤 설명이 부족하고", "청중에 맞춘 설명과 출처 표기를 더해 보세요"),
     ("microplastic-daphnia", "step:0"): ("청중이 교수라는 걸 기억하고", "실험 농도가 실제 하천보다 백 배 넘게 높다는 점을 숫자로 말해 보세요."),
     ("microplastic-daphnia", "step:1"): ("실험 농도와 실제 하천 농도를 비교하는", "실험 농도와 실제 하천 농도를 견주고, 출처가 없는 장 4개에 근거를 적어 보세요."),
+    # 「권장 시간 67초 중 41초만 쓰는 부분을 늘려 보세요」 — 번역투 · 너무 길다 (r2-6). 67 − 41 = 26
+    ("microplastic-daphnia", "step:2"): ("핵심 슬라이드 2번에 예시나 한 문장을", "2장에 예시를 하나 더 넣어 26초쯤 더 말해 보세요 (권장 67초 · 지금 41초)"),
+    # 질문 판정 피드백 「fb:<질문 앞마디>:<good|rough>」 — 원문은 판정 반응(react). 판정 · 근거 줄에 있는 것만 쓴다 (10-12 2차 r2-3)
+    # 숫자를 하나도 못 댄 답에 「…정확히 말했어요」 칭찬과 되묻기만 남았다 → 빠진 것 + 자료 1장 근거 줄(S1-6 「리뷰 124,380건」)
+    ("delivery-rating", "fb:q03:rough"): ("2024년 1월부터 2025년 6월까지", "기간 · 매장 수 · 리뷰 건수를 하나도 말하지 못했어요. 자료 1장은 「리뷰 124,380건」 이라고 적어요 — 그 숫자를 말해 보세요."),
+    # 칭찬 한 문장뿐이었다 → 맞은 것 + 판정이 되물은 빠진 조건(컷오프 · 휴지 · 측정 주기, 근거 줄 S2-7)
+    ("battery-fastcharge", "fb:q05:rough"): ("방전 속도는 1C로 고정했다는", "방전 속도 1C 는 맞아요. 자료 2장의 컷오프(4.2 V / 2.8 V) · 휴지 30분 · 측정 주기는 빠졌어요 — 함께 말해 보세요."),
+    # 답 첫 줄을 그대로 옮겼다 → 무엇을 잘했는지(검정 결과 + NOEC 정하는 기준, 근거 줄 S3-10 · S3-12)
+    ("microplastic-daphnia", "fb:q02:good"): ("Dunnett 검정을 통해 10·100 mg/L에서", "검정 결과와 NOEC 를 정하는 기준(대조군과 차이가 없는 가장 높은 농도)을 둘 다 자료 3장대로 말했어요."),
 }
 
 
-def curated(deck: str, slot: str, text: str) -> str:
+def curated(deck: str, slot: str, text: str, fallback: str | None = None) -> str:
+    """사람이 다듬은 문장 — 원문(text)이 정해 둔 앞부분으로 시작할 때만. 아니면 fallback(없으면 원문)."""
     prefix, fixed = CURATED.get((deck, slot), ("", ""))
-    return fixed if prefix and text.startswith(prefix) else text
+    if prefix and text.startswith(prefix):
+        return fixed
+    return text if fallback is None else fallback
 
 
 def report_note(deck: str, key: str, raw: str) -> str:
@@ -511,6 +565,23 @@ def report_note(deck: str, key: str, raw: str) -> str:
 
 
 # ─── 리포트 ─────────────────────────────────────────────────────────────────
+
+_RANK = {"good": 0, "fair": 1, "practice": 2}
+
+
+def delivery_with_pace(level: str, note: str, pace: dict) -> tuple[str, str]:
+    """
+    리포트 「목소리와 빠르기」 에 분석의 말 속도 판정을 같이 넣는다 — 둘 중 나쁜 쪽. 말 속도가 권장 밖이면 한 줄은 「느려요 · 1분에 N자」 를 먼저.
+    채점기는 정적 · 음량만 보고 「좋아요 · 긴 정적이 없었어요」 라고 했는데, 바로 앞 분석은 말 속도 「느려요 · 더 연습」 이었다 (10-12 2차 r2-2 · r2-6).
+    """
+    cpm = float(pace.get("avg_chars_per_min") or 0)
+    pl = pace_level(cpm)
+    if pl == "good":
+        return level, note
+    lo, hi = PACE_GOOD
+    word = "느려요" if cpm < lo else "빨라요"
+    worse = pl if _RANK[pl] > _RANK.get(level, 0) else level
+    return worse, f"말이 {word} · 1분에 {round(cpm)}자예요 (권장 {lo}~{hi}자)"
 
 def report_section(rec: dict, have: set[int]) -> dict:
     rubric, report = rec["rubric"], rec["report"]
@@ -525,8 +596,11 @@ def report_section(rec: dict, have: set[int]) -> dict:
         pick = (max if level == "good" else min)(scored, key=lambda it: it.get("score") or 0) if scored else {}
         note = pick.get("evidence") if pick.get("source") == "det" else (pick.get("note") or pick.get("evidence") or "")
         key = str(c.get("key") or "item")
+        note = report_note(deck, key, note or "")
+        if key == "delivery":
+            level, note = delivery_with_pace(level, note, rec["pace"])
         items.append({"id": re.sub(r"[^a-z0-9_-]", "-", key)[:30], "label": LABEL_PLAIN.get(key) or clip(c.get("name") or "", 14),
-                      "level": level, "note": report_note(deck, key, note or "")})
+                      "level": level, "note": note})
     steps = []
     for i, a in enumerate((report.get("actions") or [])[:3]):
         m = re.search(r"(\d+)\s*번", a)
@@ -547,13 +621,11 @@ def build_tour(rec: dict) -> dict:
     have = {s["no"] for s in deck["slides"]}
     present = present_section(rec["transcript"], rec["habits"], rec["pace"])
     qa, dropped = qa_section(rec, have)
-    note = (f"부스 덱 {LABELS.get(deck_id, deck_id)} 녹음을 실 API 브리지(labs/tour_capture)로 한 번 태운 응답. "
-            f"받아쓰기 {rec['transcript'].get('provider') or '?'} · 판정 {rec['questions_doc'].get('model') or '?'} · 5분 코칭 질문.")
-    if dropped:
-        note += " 뺀 질문: " + "; ".join(dropped)
+    # 공개 파일의 메모는 한 줄만 — 뺀 질문 · 판정기 오답 이유 · 모델 이름은 검수 메모(review_note, labs 쪽 파일)로 (10-12 2차 r2-9)
+    note = f"부스 덱 {LABELS.get(deck_id, deck_id)} 녹음을 실제 서버로 한 번 태운 응답이에요."
     tour = {
         "schema": "chuckchuck.tour", "version": 1, "id": deck_id,
-        "source": {"kind": "recorded", "recorded_at": rec.get("recorded_at"), "note": clip(note, 200)},
+        "source": {"kind": "recorded", "recorded_at": rec.get("recorded_at"), "note": note},
         "deck": deck, "present": present, "analysis": analysis_section(rec, present["duration_sec"]),
         "qa": qa, "report": report_section(rec, have),
     }
@@ -561,6 +633,14 @@ def build_tour(rec: dict) -> dict:
     if leaks:
         raise ValueError(f"{deck_id}: 공개 파일에 내보내면 안 되는 글이 남았어요 — {leaks[:3]}")
     return tour
+
+
+def review_note(rec: dict) -> dict:
+    """검수 메모 — 공개하지 않는다(labs/tour_capture/review_notes.json). 어떻게 만들었고 무엇을 뺐는지 사람이 본다."""
+    _, dropped = qa_section(rec, {s["no"] for s in deck_section(rec["tour_deck_id"], rec["slide_doc"])["slides"]})
+    return {"recorded_at": rec.get("recorded_at"), "label": LABELS.get(rec["tour_deck_id"], rec["tour_deck_id"]),
+            "how": "실 API 브리지(labs/tour_capture/capture.py)로 한 번 태운 응답 · 5분 코칭 질문",
+            "transcribe": rec["transcript"].get("provider"), "judge": rec["questions_doc"].get("model"), "dropped": dropped}
 
 
 def forbidden_hits(value, path: str = "$") -> list[str]:
@@ -597,9 +677,11 @@ def main(argv: list[str] | None = None) -> int:
     if not recs:
         print(f"녹화본이 없어요 — 먼저 capture.py 를 돌려요 ({rec_dir})", file=sys.stderr)
         return 1
-    tours = [build_tour(json.loads(p.read_text(encoding="utf-8"))) for p in recs]
+    raw = [json.loads(p.read_text(encoding="utf-8")) for p in recs]
+    tours = [build_tour(r) for r in raw]
     files = {TOUR_DIR / f"{t['id']}.json": dump(t) for t in tours}
     files[TOUR_DIR / "index.json"] = dump(build_index(tours))
+    files[REVIEW_NOTES] = dump({r["tour_deck_id"]: review_note(r) for r in sorted(raw, key=lambda r: r["tour_deck_id"])})
     stale = [p for p, text in files.items() if not p.is_file() or p.read_text(encoding="utf-8") != text]
     if args.check:
         for p in stale:

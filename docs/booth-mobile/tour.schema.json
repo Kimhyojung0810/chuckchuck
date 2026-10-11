@@ -165,7 +165,7 @@
                 "required": ["id", "label", "kind", "status", "slide_no"],
                 "properties": {
                   "id": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
-                  "label": { "type": "string", "minLength": 1, "maxLength": 30 },
+                  "label": { "type": "string", "minLength": 1, "maxLength": 120, "description": "자르지 않은 이름. 화면이 루트는 다 보이고, 나머지는 두 줄로 접었다가 누르면 편다 (10-12 2차)." },
                   "kind": { "enum": ["claim", "reason", "evidence", "concept"] },
                   "status": { "enum": ["aligned", "justified_skip", "missing", "contradiction"] },
                   "slide_no": { "type": ["integer", "null"], "minimum": 1 }
@@ -273,7 +273,7 @@
         "text": { "type": "string", "minLength": 1, "maxLength": 200 },
         "verdict": { "enum": ["good", "partial", "wrong", "unknown"], "description": "F-09 판정 enum(chuckchuck/f09_judge.py) 그대로." },
         "level": { "$ref": "#/$defs/level" },
-        "feedback": { "type": "string", "minLength": 1, "maxLength": 90 },
+        "feedback": { "type": "string", "minLength": 1, "maxLength": 240, "description": "무엇이 맞고 빠졌는지 + 고칠 점, 두 문장까지. 「…」 로 자르지 않는다 (10-12 2차)." },
         "grounds": {
           "type": "array", "maxItems": 3,
           "description": "판정 근거 줄. 서버 grounds(chuckchuck/_judge_grounds.py JudgeGround)와 같은 이름 — 녹화 응답을 그대로 옮겨 담을 수 있게.",
@@ -284,9 +284,9 @@
             "properties": {
               "slide_no": { "$ref": "#/$defs/slideNo" },
               "ref": { "type": "string", "pattern": "^S\\d+-\\d+$", "description": "장-줄 번호 (S4-2 = 4장 둘째 줄)." },
-              "quote": { "type": "string", "minLength": 1, "maxLength": 80, "description": "자료 줄 그대로." },
+              "quote": { "type": "string", "minLength": 1, "maxLength": 240, "description": "자료 줄 그대로. 화면이 세 줄로 접었다가 누르면 편다." },
               "role": { "enum": ["covered", "missing", "conflict"], "description": "짚은 것 · 빠진 것 · 다시 볼 곳 (js/qa_live.js LIVE_GROUND_ROLE)." },
-              "note": { "type": "string", "maxLength": 60, "description": "왜 이 줄이 근거인지." }
+              "note": { "type": "string", "maxLength": 240, "description": "왜 이 줄이 근거인지." }
             }
           }
         }

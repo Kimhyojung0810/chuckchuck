@@ -5,7 +5,7 @@
   "source": {
     "kind": "recorded",
     "recorded_at": "2026-10-11",
-    "note": "부스 덱 A-1 녹음을 실 API 브리지(labs/tour_capture)로 한 번 태운 응답. 받아쓰기 skt-ax · 판정 solar · 5분 코칭 질문. 뺀 질문: q03 골자 오답(질문은 25 °C · 76% 인데 45 °C · 64% 줄을 답으로 잡음); q01 잘 답한 답 partial · 엉성한 답 wrong"
+    "note": "부스 덱 A-1 녹음을 실제 서버로 한 번 태운 응답이에요."
   },
   "deck": {
     "id": "battery-fastcharge",
@@ -257,7 +257,7 @@
     ]
   },
   "analysis": {
-    "summary": "군더더기 말이 한 번 있었지만 자료와 잘 맞았어요. 핵심 장에 시간을 더 넣어 보세요.",
+    "summary": "군더더기 말은 한 번뿐이었어요. 핵심 장에 시간을 더 넣고, 자료에 없는 이야기는 줄여 보세요.",
     "level": "fair",
     "slide_times": [
       {
@@ -307,7 +307,7 @@
       "nodes": [
         {
           "id": "2c-chungjeoneun-500-saikeuleseo-yongryan",
-          "label": "2C 충전은 500 사이클에서 용량의 4분의 1을…",
+          "label": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다",
           "kind": "claim",
           "status": "missing",
           "slide_no": 3
@@ -321,7 +321,7 @@
         },
         {
           "id": "gateun-2ceseo-hangonjoreul-25-ceseo-45-c",
-          "label": "같은 2C에서 항온조를 25 °C에서 45 °C로…",
+          "label": "같은 2C에서 항온조를 25 °C에서 45 °C로 바꾼 것만으로 유지율이 더 떨어졌다",
           "kind": "reason",
           "status": "missing",
           "slide_no": 3
@@ -384,7 +384,7 @@
         },
         {
           "id": "yeoseot-gun-gaunde-yuilhage-eopgye-sumye",
-          "label": "여섯 군 가운데 유일하게 업계 수명 기준인 80%를…",
+          "label": "여섯 군 가운데 유일하게 업계 수명 기준인 80%를 크게 밑돌았다",
           "kind": "reason",
           "status": "missing",
           "slide_no": 3
@@ -472,7 +472,7 @@
             "text": "음… 방전 속도는 1C로 고정했고… 정확한 숫자랑 나머지는 기억이 안 나요.",
             "verdict": "partial",
             "level": "fair",
-            "feedback": "방전 속도는 1C로 고정했다는 부분은 정확해요.",
+            "feedback": "방전 속도 1C 는 맞아요. 자료 2장의 컷오프(4.2 V / 2.8 V) · 휴지 30분 · 측정 주기는 빠졌어요 — 함께 말해 보세요.",
             "grounds": [
               {
                 "slide_no": 2,
@@ -488,7 +488,7 @@
     ]
   },
   "report": {
-    "headline": "군더더기 말이 한 번 있었지만 자료와 잘 맞았어요.",
+    "headline": "핵심 장에 시간을 더 넣고, 자료에 없는 이야기는 줄여 보세요",
     "items": [
       {
         "id": "content",
@@ -517,14 +517,14 @@
       {
         "id": "delivery",
         "label": "목소리와 빠르기",
-        "level": "good",
-        "note": "말이 끊긴 긴 정적이 없었어요 (5초 기준)"
+        "level": "practice",
+        "note": "말이 느려요 · 1분에 244자예요 (권장 300~350자)"
       },
       {
         "id": "visual",
         "label": "자료 화면",
         "level": "practice",
-        "note": "근거 자료 4개 장 중 4개 장에 출처가 없어요 (1, 2, 3, 4장)"
+        "note": "모든 장(1~4장)에 출처가 없어요"
       },
       {
         "id": "time",
@@ -543,7 +543,7 @@
         "slide_no": 2
       },
       {
-        "text": "말 속도를 300~350자/분 수준으로 올려서 권장보다 빠르게 말해 보세요.",
+        "text": "말 속도를 1분에 300~350자까지 올려 보세요.",
         "slide_no": null
       }
     ]

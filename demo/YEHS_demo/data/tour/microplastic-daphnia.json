@@ -5,7 +5,7 @@
   "source": {
     "kind": "recorded",
     "recorded_at": "2026-10-11",
-    "note": "부스 덱 B-1 녹음을 실 API 브리지(labs/tour_capture)로 한 번 태운 응답. 받아쓰기 skt-ax · 판정 solar · 5분 코칭 질문."
+    "note": "부스 덱 B-1 녹음을 실제 서버로 한 번 태운 응답이에요."
   },
   "deck": {
     "id": "microplastic-daphnia",
@@ -444,7 +444,7 @@
             "text": "자료 3장은 “NOEC = 1 mg/L”라고 해요. 발표에서 한 “NOEC는 0.1mg 퍼 리터로 나왔습니다”는 이 수치로 바로잡아야 해요.",
             "verdict": "good",
             "level": "good",
-            "feedback": "NOEC 값을 정확히 1 mg/L로 바로잡았어요.",
+            "feedback": "NOEC 값을 정확히 1 mg/L로 바로잡았어요. 자료 3장의 수치와 일치하네요.",
             "grounds": [
               {
                 "slide_no": 3,
@@ -459,7 +459,7 @@
             "text": "발표에서 말한 게 맞아요. 제가 기억하기로는 그랬어요.",
             "verdict": "wrong",
             "level": "practice",
-            "feedback": "발표에서 한 말을 다시 골랐어요.",
+            "feedback": "발표에서 한 말을 다시 골랐어요. 자료 3장에는 다르게 적혀 있어요 — 그 장을 다시 보고 견줘 보세요.",
             "grounds": []
           }
         }
@@ -473,7 +473,7 @@
             "text": "Dunnett 검정을 통해 10·100 mg/L에서 p < .05로 유의한 차이가 나타났고, 대조군과 유의한 차이가 없는 가장 높은 농도인 1 mg/L을 NOEC로 도출했어요",
             "verdict": "good",
             "level": "good",
-            "feedback": "Dunnett 검정을 통해 10·100 mg/L에서 p < .05로 유의한 차이가 나타났고…",
+            "feedback": "검정 결과와 NOEC 를 정하는 기준(대조군과 차이가 없는 가장 높은 농도)을 둘 다 자료 3장대로 말했어요.",
             "grounds": [
               {
                 "slide_no": 3,
@@ -524,7 +524,7 @@
             "text": "질문의 전제와 달리, 자료 4장은 「실험 농도는 실제 하천보다 백 배 이상 높다」라고 해요.",
             "verdict": "good",
             "level": "good",
-            "feedback": "질문의 전제를 정확히 바로잡았어요.",
+            "feedback": "질문의 전제를 정확히 바로잡았어요. 자료 4장의 내용을 정확히 인용하여 실험 농도가 실제 하천보다 백 배 이상 높다는 점을 명확히 설명했어요.",
             "grounds": [
               {
                 "slide_no": 4,
@@ -547,7 +547,7 @@
     ]
   },
   "report": {
-    "headline": "청중에 맞춘 설명과 출처 표기를 더해 봐요",
+    "headline": "청중에 맞춘 설명과 출처 표기를 더해 보세요",
     "items": [
       {
         "id": "content",
@@ -576,14 +576,14 @@
       {
         "id": "delivery",
         "label": "목소리와 빠르기",
-        "level": "fair",
-        "note": "평균 237자/분이고, 1개 장에서 속도가 크게 흔들렸어요"
+        "level": "practice",
+        "note": "말이 느려요 · 1분에 237자예요 (권장 300~350자)"
       },
       {
         "id": "visual",
         "label": "자료 화면",
         "level": "fair",
-        "note": "근거 자료 4개 장 중 4개 장에 출처가 없어요 (1, 2, 3, 4장)"
+        "note": "모든 장(1~4장)에 출처가 없어요"
       },
       {
         "id": "time",
@@ -602,7 +602,7 @@
         "slide_no": null
       },
       {
-        "text": "핵심 장인 2장에 예시나 한 문장을 더 넣어 권장 시간 67초 중 41초만 쓰는 부분을 늘려 보세요.",
+        "text": "2장에 예시를 하나 더 넣어 26초쯤 더 말해 보세요 (권장 67초 · 지금 41초)",
         "slide_no": 2
       }
     ]

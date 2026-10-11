@@ -28,11 +28,11 @@
 
 **`analysis`** — `summary`(≤90자), `level`, `slide_times[{slide_no, sec, level, note?}]`,
 `pace{cpm, level, note}`(자/분, 권장 300~350), `fillers{count, per_min, top[{word, count}], level}`,
-`claim_graph{summary, root, nodes[{id, label≤30, kind, status, slide_no|null}], edges[{from, to}]}`.
+`claim_graph{summary, root, nodes[{id, label≤120(자르지 않는다 · 화면이 접는다), kind, status, slide_no|null}], edges[{from, to}]}`.
 노드 `kind`: `claim`(루트=주장 문장) · `reason` · `evidence` · `concept`. `status`: `aligned` · `justified_skip` · `missing` · `contradiction` (판정 색과 짝). 노드 12개까지.
 
 **`qa`** — `asker`(질문하는 역할 이름표, 교수님 등), `questions[{id, slide_no, question≤120, answers{good, rough}}]` (1~5개).
-답 하나: `text`, `verdict`(`good|partial|wrong|unknown`), `level`, `feedback≤90`, `grounds[≤3]`.
+답 하나: `text`, `verdict`(`good|partial|wrong|unknown`), `level`, `feedback≤240`(두 문장까지 · 자르지 않는다), `grounds[≤3]`.
 근거 줄: `{slide_no, ref:"S<장>-<줄>", quote(자료 줄 그대로), role:"covered|missing|conflict", note(왜 근거인지)}` — 서버 판정 응답의
 `grounds`(`chuckchuck/_judge_grounds.py`)와 같은 이름이라 녹화 응답을 그대로 옮겨 담을 수 있다. 화면 글자는 `js/qa_live.js` 의
 `LIVE_GROUND_ROLE`(짚은 것 · 빠진 것 · 다시 볼 곳)을 쓴다.
