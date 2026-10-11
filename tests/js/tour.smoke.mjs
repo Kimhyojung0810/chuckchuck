@@ -186,6 +186,15 @@ function suite(T) {
 
 suite(T).forEach((c) => test(c.name, c.fn));
 
+// 분석 말 속도 — 3단계 말이 먼저, 숫자는 정수로 보조 줄 (layout-touch-a11y-r1-6 · perf-security-copy-r1-7)
+test('말 속도 말: 권장 300~350 안이면 알맞아요, 밖이면 단계에 따라 「조금」', () => {
+  eq(T.paceWord(253.4, 'practice'), '느려요');
+  eq(T.paceWord(280, 'fair'), '조금 느려요');
+  eq(T.paceWord(320, 'good'), '알맞아요');
+  eq(T.paceWord(370, 'fair'), '조금 빨라요');
+  eq(T.paceWord(420, 'practice'), '빨라요');
+});
+
 // 뒤로 버튼 — layout-touch-a11y-r1-3 · flow-regression-inapp-r1-3 (10-12 점검)
 test('뒤로: 시작 안내에서 /hi 로 왔으면 브라우저 뒤로 — 기록을 하나 더 쌓지 않는다(뒤로 가기 고리)', () => {
   eq(T.backAction({ screen: 'intro', q: 0, tourIn: false, fromHi: true }), { kind: 'history' });

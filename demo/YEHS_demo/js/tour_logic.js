@@ -42,7 +42,7 @@
     missing: { word: '아직', long: '아직 설명하지 않았어요', tone: 'no' },
     contradiction: { word: '다르게', long: '자료와 다르게 말했어요', tone: 'ct' },
   };
-  /** 코칭 칩 종류 → 삐약이 표정 · 「AI 가 지금 보는 것」 한 줄 */
+  /** 코칭 칩 종류 → 삐약이 표정 · 「AI가 지금 보는 것」 한 줄 */
   const CHIP_KIND = {
     listen: { mood: 'happy', looks: '발표를 듣고 있어요' },
     fast: { mood: 'curious', looks: '말 속도를 재고 있어요' },
@@ -253,6 +253,14 @@
     return { at: f(Number(cpm) || 0), lo: f(300), hi: f(350) };
   }
 
+  /** 말 속도를 말로 — 권장(300~350자/분) 안이면 「알맞아요」, 밖이면 단계(fair → 「조금」)에 따라 느려요 · 빨라요. 숫자는 보조 줄로 내린다 */
+  function paceWord(cpm, level) {
+    const v = Number(cpm) || 0;
+    if (v >= 300 && v <= 350) return '알맞아요';
+    const soft = level !== 'practice' ? '조금 ' : '';
+    return soft + (v < 300 ? '느려요' : '빨라요');
+  }
+
   /**
    * 카메라·마이크를 못 쓰는 앱 안 브라우저인가 — 카카오톡 · 네이버 · 인스타 · 페이스북 · 라인 · 다음 · 에브리타임 · 안드로이드 웹뷰.
    * @returns {''|'kakao'|'naver'|'instagram'|'facebook'|'line'|'other'}
@@ -317,7 +325,7 @@
     STEPS, SCREENS, LEVEL_WORD, LEVEL_TONE, VERDICT, GROUND_ROLE, GRAPH_STATUS, CHIP_KIND, CHIP_HOLD_SEC,
     parseTourHash, tourHash, stepIndex, prevScreen, backAction, restartAction, cameFromHi,
     tourProblem, indexIds, slideAt, slideStart, captionAt, chipAt, stepSlide,
-    durationText, clock, graphRows, graphCounts, paceGauge,
+    durationText, clock, graphRows, graphCounts, paceGauge, paceWord,
     inAppKind, platformOf, externalOpenUrl, eventPayload, funnelStep, refText,
   };
   root.TourLogic = api;

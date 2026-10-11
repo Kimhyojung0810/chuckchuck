@@ -274,13 +274,13 @@
 
           <article class="tour-card">
             <header><h2 class="tour-h2">말 속도</h2>${c.levelChip(a.pace.level)}</header>
-            <p class="ta-big"><b>${a.pace.cpm}</b>자/분</p>
+            <p class="ta-big ta-big-word"><b>${L.paceWord(a.pace.cpm, a.pace.level)}</b></p>
+            <p class="ta-sub">1분에 ${Math.round(a.pace.cpm)}자를 말했어요</p>
             <div class="ta-gauge" aria-hidden="true">
               <span class="ta-band" style="left:${g.lo * 100}%;width:${(g.hi - g.lo) * 100}%"></span>
               <span class="ta-pin" style="left:${g.at * 100}%"></span>
             </div>
             <div class="ta-gauge-scale" aria-hidden="true"><span>느려요</span><span>권장 300~350</span><span>빨라요</span></div>
-            <p class="ta-line">${c.esc(a.pace.note)}</p>
           </article>
 
           <article class="tour-card">
