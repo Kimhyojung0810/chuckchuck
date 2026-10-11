@@ -271,6 +271,54 @@ def test_녹화_투어의_그래프_요약_숫자는_범례와_같다(path):
     assert (f"어긋나게 말한 곳이 {bad}곳" in g["summary"]) == bool(bad), g["summary"]
 
 
+#: 해요체 한 문장 — 「…요」 로 끝나고 뒤에 마침표 · 괄호 보충만 온다 (한다체 「…다.」 · 합쇼체 「…습니다.」 · 음슴체 「…함」 이 아니다)
+HAEYO = re.compile(r"요[.!]?(\s*\([^()]*\))?$")
+JARGON_LABELS = {"목적·청중 적합성", "언어적 명료성", "음성적 전달", "시각자료 활용", "내용 충실도", "논리 구조", "시간 관리"}
+
+
+def report_voice_problems(t: dict) -> list[str]:
+    errs = []
+    r = t["report"]
+    lines = [("headline", r["headline"])] + [(f"item:{i['id']}", i["note"]) for i in r["items"] if i["note"]] + \
+            [(f"step:{k}", s["text"]) for k, s in enumerate(r["next_steps"])] + [("analysis.summary", t["analysis"]["summary"])]
+    for where, text in lines:
+        if "…" in text:
+            errs.append(f"{where}: 「…」 로 잘렸다 — {text}")
+        if not HAEYO.search(text):
+            errs.append(f"{where}: 해요체가 아니다 — {text}")
+        if "간투어" in text or "슬라이드" in text:
+            errs.append(f"{where}: 용어(군더더기 말 · 장)가 다르다 — {text}")
+    errs += [f"label: 명사+명사 한자어 {i['label']}" for i in r["items"] if i["label"] in JARGON_LABELS]
+    g = t["analysis"]["claim_graph"]
+    root = next((n for n in g["nodes"] if n["id"] == g["root"]), None)
+    if root and root["status"] == "missing":
+        errs += [f"item:{i['id']}: 분석은 핵심 주장을 안 말했다는데 리포트는 제시했다고 한다 — {i['note']}"
+                 for i in r["items"] if "핵심 주장" in i["note"]]
+    return errs
+
+
+@pytest.mark.parametrize("path", RECORDED, ids=lambda p: p.name)
+def test_녹화_투어_리포트는_해요체_한_문장이고_분석과_어긋나지_않는다(path):
+    """perf-security-copy-r1-4 · layout-touch-a11y-r1-4 — 해요체 · 한다체 · 합쇼체 · 음슴체가 섞이고 「…」 로 잘렸다."""
+    assert report_voice_problems(json.loads(path.read_text(encoding="utf-8"))) == []
+
+
+def test_다듬은_문구는_원문_앞부분이_같을_때만_쓴다():
+    deck, slot = "delivery-rating", "item:logic"
+    prefix, fixed = B.CURATED[(deck, slot)]
+    assert B.curated(deck, slot, prefix + " 뒤는 무엇이든") == fixed
+    assert B.curated(deck, slot, "다시 녹화해서 바뀐 원문") == "다시 녹화해서 바뀐 원문"
+
+
+def test_정해진_모양_문구는_숫자를_그대로_두고_용어만_바꾼다():
+    assert B.plain_terms("핵심 슬라이드 3장이 권장 시간과 평균 67% 어긋나요 (2번이 +47초)") == \
+        "핵심 장 3개가 권장 시간과 평균 67% 어긋나요 (2장은 47초 더 썼어요)"
+    assert B.plain_terms("근거 자료 4장 중 4장에 출처가 없어요 (1, 2, 3, 4번)") == "근거 자료 4개 장 중 4개 장에 출처가 없어요 (1, 2, 3, 4장)"
+    assert B.plain_terms("분당 간투어 0.4번") == "분당 군더더기 말 0.4번"
+    assert B.report_note("x", "content", "자료에 없는 이야기를 18개 덧붙였어요 (급속 충전이 배터리 수명을 얼마나 깎는지, 중간 결과, 상용 셀을 직접 500 사이클 돌려받습니다)") == \
+        "자료에 없는 이야기를 18개 덧붙였어요"
+
+
 def test_목록은_정한_차례와_기본_덱을_쓴다():
     a = B.build_tour(_recording())
     b = copy.deepcopy(a)

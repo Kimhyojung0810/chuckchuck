@@ -6,6 +6,8 @@
 
 옮기는 규칙 (전부 이 파일의 순수 함수 — tests/test_tour_capture.py 가 본다)
 - **값은 녹화 응답에서만 온다.** 글을 새로 짓지 않는다. 화면 한 줄 상한에 맞춰 줄일 때는 문장 · 절 경계에서 자르고(뜻은 그대로) 「…」 를 붙인다.
+  예외 하나 — 리포트 · 분석 요약 문구는 용어를 맞추고(장 번호 「N장」 · 「군더더기 말」), LLM 문장은 사람이 녹화본을 읽고 해요체 한 문장으로
+  다듬은 CURATED 만 쓴다(원문 앞부분이 같을 때만). 숫자 · 판정 단계는 바꾸지 않는다 (10-12 점검).
 - 숫자는 3단계 말로: 채점 평균 85 이상 good · 70 이상 fair · 그 아래 practice. 말 속도 300~350자/분 good. 군더더기 분당 2번 이하 good.
 - 판정 비교가 성립하는 질문만 싣는다: 「잘 답한 답」 이 good, 「엉성한 답」 이 good 이 아닌 것. 빠진 질문은 source.note 에 적는다.
 - 판정기의 알려진 오류를 화면에 옮기지 않는다(지우기만 한다, 바꿔 쓰지 않는다):
@@ -340,7 +342,7 @@ def analysis_section(rec: dict, duration: float) -> dict:
     count = int(habits.get("filler_cnt") or len(fil))
     per_min = round(count / (duration / 60), 1) if duration else 0.0
     return {
-        "summary": clip(report.get("one_liner") or "", 90) or "발표를 분석했어요.",
+        "summary": clip(plain_terms(curated(rec.get("tour_deck_id") or "", "one_liner", report.get("one_liner") or "")), 90) or "발표를 분석했어요.",
         "level": three_level(float(rubric.get("score") or 0)),
         "slide_times": [{"slide_no": int(p["slide_no"]), "sec": round(float(p.get("actual_sec") or 0), 1), "level": slide_level(p),
                          "note": SLIDE_NOTE.get(p.get("status") or "")} for p in pace.get("slides") or []],
@@ -435,10 +437,84 @@ def qa_section(rec: dict, have: set[int]) -> tuple[dict, list[str]]:
     return {"asker": asker, "questions": questions[:5]}, dropped
 
 
+# ─── 리포트 문구 다듬기 ──────────────────────────────────────────────────────
+# 10-12 점검(perf-security-copy-r1-4 · layout-touch-a11y-r1-4): 리포트 평가 문구가 해요체 · 한다체 · 합쇼체 · 음슴체로 섞이고,
+# 60자에서 「…」 로 잘리고, 항목 이름이 「언어적 명료성」 같은 명사+명사 한자어였다(CLAUDE.md §3-1). 분석 화면은 「핵심 주장은
+# 말하지 않은 것으로 봤어요」 인데 리포트는 「핵심 주장이 명확히 제시」 라고 해서 한 화면 건너 서로 어긋났다.
+# 규칙은 둘이다. (1) 정해진 모양의 문구(채점기 det 문장)는 용어만 바꾼다 — 숫자 · 뜻은 그대로. (2) LLM 문장은 사람이 녹화본을 읽고
+# 해요체 한 문장으로 다듬은 것만 쓴다(EXCLUDE 와 같은 사람 검수). 원문 앞부분이 같을 때만 바꾸므로, 다시 녹화해 원문이 바뀌면 원문이 남는다.
+
+#: 묶음 key → 풀어 쓴 항목 이름 (14자 이하)
+LABEL_PLAIN = {
+    "content": "자료와 맞게 말했나", "logic": "흐름이 이어지나", "audience": "듣는 사람에게 맞나", "clarity": "말이 또렷한가",
+    "delivery": "목소리와 빠르기", "visual": "자료 화면", "time": "시간 나누기",
+}
+
+
+def _signed_sec(m: re.Match) -> str:
+    return f"({m.group(1)}장은 {m.group(3)}초 {'더' if m.group(2) == '+' else '덜'} 썼어요)"
+
+
+#: 용어 맞추기 — 장 번호는 「N장」, 개수는 「N개 장」, 간투어는 「군더더기 말」 (perf-security-copy-r1-7). 차례가 중요하다(좁은 것 먼저)
+TERM_RULES: list[tuple[re.Pattern, object]] = [
+    (re.compile(r"간투어"), "군더더기 말"),
+    (re.compile(r"구조 신호어를 (\d+)종류"), r"흐름을 알리는 말을 \1종류"),
+    (re.compile(r"\((\d+)번이 ([+-])(\d+)초\)"), _signed_sec),
+    (re.compile(r"핵심 슬라이드\s*\((\d+)번, (\d+)번\)"), r"핵심 장(\1장 · \2장)"),
+    (re.compile(r"핵심 슬라이드 (\d+)장이"), r"핵심 장 \1개가"),
+    (re.compile(r"핵심 슬라이드 (\d+)번"), r"핵심 장인 \1장"),
+    (re.compile(r"근거 자료 (\d+)장 중 (\d+)장에"), r"근거 자료 \1개 장 중 \2개 장에"),
+    (re.compile(r"근거 자료 (\d+)장 모두"), r"근거 자료 \1개 장 모두"),
+    (re.compile(r"출처가 없는 슬라이드 (\d+)장"), r"출처가 없는 장 \1개"),
+    (re.compile(r"\(([\d, ]+)번\)"), r"(\1장)"),
+    (re.compile(r"(핵심|보조) 장([+-])(\d+)%"), r"\1 장 \3%"),
+    (re.compile(r"(\d+)개 슬라이드"), r"\1개 장"),
+    (re.compile(r"슬라이드"), "장"),
+    (re.compile(r"해보세요"), "해 보세요"),
+]
+
+
+def plain_terms(text: str) -> str:
+    for pat, rep in TERM_RULES:
+        text = pat.sub(rep, text)
+    return text
+
+
+#: 사람이 녹화본을 읽고 다듬은 문구 — {(투어 id, 칸): (원문 앞부분, 다듬은 문장)}. 원문 앞부분이 다르면(다시 녹화) 적용하지 않는다.
+#: 칸: "one_liner"(분석 요약 · 리포트 제목), "headline"(리포트 제목만, 40자), "item:<묶음 key>", "step:<차례>".
+CURATED: dict[tuple[str, str], tuple[str, str]] = {
+    # 분석 화면이 「핵심 주장은 말하지 않은 것으로 봤어요」 — 도입에서 밝힌 것은 주제(「…를 발표하겠습니다」)라 그만큼만 적는다
+    ("delivery-rating", "item:logic"): ("도입부에서 발표 목적과 핵심 주장이", "도입에서 발표 주제와 목적을 분명히 밝혔어요"),
+    ("delivery-rating", "item:audience"): ("정보 전달과 설득 목적을 명확히 구분해", "행동 지표 노출 같은 구체적인 해결 방안을 강조했어요"),
+    ("battery-fastcharge", "item:logic"): ("도입부에서 발표 목적과 핵심 주장을", "도입에서 발표 주제와 목적을 분명히 밝혔어요"),
+    ("battery-fastcharge", "item:audience"): ("배터리 수명 감소라는 핵심 메시지를", "배터리 수명이 줄어든다는 핵심 메시지를 분명히 강조했어요"),
+    ("battery-fastcharge", "one_liner"): ("간투어가 한 번 있었지만", "군더더기 말이 한 번 있었지만 자료와 잘 맞았어요. 핵심 장에 시간을 더 넣어 보세요."),
+    ("microplastic-daphnia", "item:logic"): ("생존율과 산자수 감소의 관계를", "생존율과 새끼 수가 함께 줄어든 관계를 모순 없이 설명했어요"),
+    ("microplastic-daphnia", "item:audience"): ("청중(교수 대상)의 전문성에 비해", "교수 청중의 전문성에 비해 설명이 너무 단순했어요"),
+    ("microplastic-daphnia", "headline"): ("청중 맞춤 설명이 부족하고", "청중에 맞춘 설명과 출처 표기를 더해 봐요"),
+    ("microplastic-daphnia", "step:0"): ("청중이 교수라는 걸 기억하고", "실험 농도가 실제 하천보다 백 배 넘게 높다는 점을 숫자로 말해 보세요."),
+    ("microplastic-daphnia", "step:1"): ("실험 농도와 실제 하천 농도를 비교하는", "실험 농도와 실제 하천 농도를 견주고, 출처가 없는 장 4개에 근거를 적어 보세요."),
+}
+
+
+def curated(deck: str, slot: str, text: str) -> str:
+    prefix, fixed = CURATED.get((deck, slot), ("", ""))
+    return fixed if prefix and text.startswith(prefix) else text
+
+
+def report_note(deck: str, key: str, raw: str) -> str:
+    """리포트 한 줄(60자) — 다듬은 문장이 있으면 그것, 아니면 용어만 맞춘다. 길면 괄호 속 예시부터 뺀다(가운데서 「…」 로 잘리지 않게)."""
+    t = plain_terms(curated(deck, f"item:{key}", scrub(raw)))
+    if len(t) > 60:
+        t = re.sub(r"\s*\([^)]*\)\s*$", "", t)
+    return clip(t, 60)
+
+
 # ─── 리포트 ─────────────────────────────────────────────────────────────────
 
 def report_section(rec: dict, have: set[int]) -> dict:
     rubric, report = rec["rubric"], rec["report"]
+    deck = rec.get("tour_deck_id") or ""
     by_no = {it["no"]: it for it in rubric.get("items") or []}
     items = []
     for c in rubric.get("clusters") or []:
@@ -448,14 +524,18 @@ def report_section(rec: dict, have: set[int]) -> dict:
         scored = [by_no[n] for n in c.get("item_nos") or [] if n in by_no and by_no[n].get("status") == "scored"]
         pick = (max if level == "good" else min)(scored, key=lambda it: it.get("score") or 0) if scored else {}
         note = pick.get("evidence") if pick.get("source") == "det" else (pick.get("note") or pick.get("evidence") or "")
-        items.append({"id": re.sub(r"[^a-z0-9_-]", "-", str(c.get("key") or "item"))[:30], "label": clip(c.get("name") or "", 14),
-                      "level": level, "note": clip(note or "", 60)})
+        key = str(c.get("key") or "item")
+        items.append({"id": re.sub(r"[^a-z0-9_-]", "-", key)[:30], "label": LABEL_PLAIN.get(key) or clip(c.get("name") or "", 14),
+                      "level": level, "note": report_note(deck, key, note or "")})
     steps = []
-    for a in (report.get("actions") or [])[:3]:
+    for i, a in enumerate((report.get("actions") or [])[:3]):
         m = re.search(r"(\d+)\s*번", a)
         n = int(m.group(1)) if m and int(m.group(1)) in have else None
-        steps.append({"text": clip(a, 60), "slide_no": n})
-    return {"headline": clip(report.get("one_liner") or "발표를 분석했어요", 40), "items": items[:8],
+        steps.append({"text": clip(plain_terms(curated(deck, f"step:{i}", a)), 60), "slide_no": n})
+    one = report.get("one_liner") or "발표를 분석했어요"
+    head = curated(deck, "headline", one)
+    head = plain_terms(curated(deck, "one_liner", one) if head == one else head)
+    return {"headline": clip(head, 40), "items": items[:8],
             "next_steps": steps or [{"text": "다시 한 번 발표해 봐요", "slide_no": None}]}
 
 
