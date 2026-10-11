@@ -1,0 +1,178 @@
+{
+  "schema": "chuckchuck.tour",
+  "version": 1,
+  "id": "_example",
+  "source": {
+    "kind": "example",
+    "recorded_at": null,
+    "note": "형식 설명용 예시. 자료 글은 부스 덱 C(배달앱 별점 인플레이션) 장 그림에서 옮겼고, 발화·판정·시각은 모양을 보이려고 쓴 값이다. 실제 투어는 녹화 응답으로 data/tour/<id>.json 을 새로 만든다."
+  },
+  "deck": {
+    "id": "delivery-rating",
+    "title": "별점은 왜 4.7 에 몰리는가",
+    "subtitle": "배달앱 리뷰 12만 건으로 본 평점 인플레이션",
+    "cover": "assets/deck-covers/delivery-rating.webp",
+    "slides": [
+      { "no": 1, "image": "assets/deck-slides/delivery-rating/1.webp", "title": "별점은 왜 4.7 에 몰리는가" },
+      { "no": 2, "image": "assets/deck-slides/delivery-rating/2.webp", "title": "세 가설 가운데 리뷰 이벤트만 지지됐다" },
+      { "no": 3, "image": "assets/deck-slides/delivery-rating/3.webp", "title": "4.7 은 리뷰 수집 방식의 결과다" }
+    ]
+  },
+  "present": {
+    "duration_sec": 96,
+    "slides": [
+      { "slide_no": 1, "start_sec": 0, "end_sec": 22 },
+      { "slide_no": 2, "start_sec": 22, "end_sec": 70 },
+      { "slide_no": 3, "start_sec": 70, "end_sec": 96 }
+    ],
+    "transcript": [
+      { "slide_no": 1, "start_sec": 0, "end_sec": 9, "text": "배달앱 별점은 왜 4.7 근처에 몰려 있을까요?" },
+      { "slide_no": 1, "start_sec": 9, "end_sec": 22, "text": "수도권 매장 3,200곳, 리뷰 12만 건을 살펴봤어요." },
+      { "slide_no": 2, "start_sec": 22, "end_sec": 38, "text": "음, 가설은 세 개였는데요, 품질이 좋아졌다는 가설은 기각됐어요." },
+      { "slide_no": 2, "start_sec": 38, "end_sec": 56, "text": "리뷰 이벤트를 하는 매장은 평균 별점이 0.34점 높았어요." },
+      { "slide_no": 2, "start_sec": 56, "end_sec": 70, "text": "그러니까 이벤트가 높은 별점을 산다고 볼 수 있어요." },
+      { "slide_no": 3, "start_sec": 70, "end_sec": 84, "text": "4.5점 이상에 리뷰의 82%가 몰려 있어요." },
+      { "slide_no": 3, "start_sec": 84, "end_sec": 96, "text": "그래서 별점만 보지 말고 재주문 같은 지표도 같이 봐야 해요." }
+    ],
+    "coaching_chips": [
+      { "at_sec": 6, "slide_no": 1, "kind": "listen", "text": "잘 듣고 있어요" },
+      { "at_sec": 24, "slide_no": 2, "kind": "filler", "text": "「음」이 들렸어요" },
+      { "at_sec": 46, "slide_no": 2, "kind": "fast", "text": "조금 빨라요" },
+      { "at_sec": 66, "slide_no": 2, "kind": "time", "text": "이 장이 길어요" },
+      { "at_sec": 90, "slide_no": 3, "kind": "listen", "text": "마무리 좋아요" }
+    ]
+  },
+  "analysis": {
+    "summary": "주장은 분명했어요. 다만 불만족 고객 가설(C)을 말하지 않고 넘어갔어요.",
+    "level": "fair",
+    "slide_times": [
+      { "slide_no": 1, "sec": 22, "level": "good", "note": null },
+      { "slide_no": 2, "sec": 48, "level": "practice", "note": "가설 C 를 빼고도 가장 길었어요" },
+      { "slide_no": 3, "sec": 26, "level": "good", "note": null }
+    ],
+    "pace": { "cpm": 372, "level": "fair", "note": "권장(300~350자/분)보다 조금 빨라요" },
+    "fillers": {
+      "count": 3,
+      "per_min": 1.9,
+      "top": [ { "word": "음", "count": 2 }, { "word": "그러니까", "count": 1 } ],
+      "level": "good"
+    },
+    "claim_graph": {
+      "summary": "결론을 받치는 가설 셋 가운데 둘만 말했어요.",
+      "root": "claim",
+      "nodes": [
+        { "id": "claim", "label": "4.7 은 리뷰 수집 방식의 결과", "kind": "claim", "status": "aligned", "slide_no": 3 },
+        { "id": "hyp_a", "label": "가설 A 품질 개선 — 기각", "kind": "reason", "status": "aligned", "slide_no": 2 },
+        { "id": "hyp_b", "label": "가설 B 리뷰 이벤트 — 지지", "kind": "reason", "status": "aligned", "slide_no": 2 },
+        { "id": "hyp_c", "label": "가설 C 불만족 고객 침묵", "kind": "reason", "status": "missing", "slide_no": 2 },
+        { "id": "ev_reorder", "label": "재주문율 +0.6%p", "kind": "evidence", "status": "missing", "slide_no": 2 },
+        { "id": "ev_event", "label": "이벤트 매장 별점 +0.34", "kind": "evidence", "status": "aligned", "slide_no": 2 },
+        { "id": "ev_dist", "label": "4.5 이상 82%", "kind": "evidence", "status": "aligned", "slide_no": 3 }
+      ],
+      "edges": [
+        { "from": "claim", "to": "hyp_a" },
+        { "from": "claim", "to": "hyp_b" },
+        { "from": "claim", "to": "hyp_c" },
+        { "from": "hyp_a", "to": "ev_reorder" },
+        { "from": "hyp_b", "to": "ev_event" },
+        { "from": "claim", "to": "ev_dist" }
+      ]
+    }
+  },
+  "qa": {
+    "asker": "교수님",
+    "questions": [
+      {
+        "id": "q1",
+        "slide_no": 2,
+        "question": "품질이 좋아졌다는 가설은 무엇을 근거로 기각했나요?",
+        "answers": {
+          "good": {
+            "text": "같은 기간 재주문율이 0.6%p 로 거의 그대로였어요. 품질이 올랐다면 재주문율도 함께 올라야 해서 기각했어요.",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "기각 근거(재주문율)와 왜 근거가 되는지까지 말했어요.",
+            "grounds": [
+              { "slide_no": 2, "ref": "S2-3", "quote": "같은 기간 재주문율은 +0.6%p 로 사실상 변화가 없었다", "role": "covered", "note": "기각의 근거 수치를 짚었어요" }
+            ]
+          },
+          "rough": {
+            "text": "데이터를 보니까 품질은 별로 안 좋아졌어요.",
+            "verdict": "wrong",
+            "level": "practice",
+            "feedback": "무엇을 보고 그렇게 판단했는지가 빠졌어요.",
+            "grounds": [
+              { "slide_no": 2, "ref": "S2-3", "quote": "같은 기간 재주문율은 +0.6%p 로 사실상 변화가 없었다", "role": "missing", "note": "재주문율이라는 근거를 말하지 않았어요" }
+            ]
+          }
+        }
+      },
+      {
+        "id": "q2",
+        "slide_no": 3,
+        "question": "이벤트가 별점을 올린다고 했는데, 인과라고 봐도 되나요?",
+        "answers": {
+          "good": {
+            "text": "인과라고 하긴 어려워요. 한 플랫폼 데이터이고 이벤트 여부도 리뷰 글로 추정해서, 연관으로 읽어야 해요.",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "자료의 한계 칸을 그대로 짚어 과한 주장을 피했어요.",
+            "grounds": [
+              { "slide_no": 3, "ref": "S3-5", "quote": "인과가 아니라 연관으로 읽어야 한다", "role": "covered", "note": "한계를 정확히 말했어요" }
+            ]
+          },
+          "rough": {
+            "text": "네, 이벤트 매장이 0.34점 높으니까 이벤트 때문이에요.",
+            "verdict": "partial",
+            "level": "practice",
+            "feedback": "수치는 맞지만, 자료가 말한 한계와 어긋나요.",
+            "grounds": [
+              { "slide_no": 2, "ref": "S2-5", "quote": "이벤트를 운영한 매장의 평균 별점이 +0.34 점 높았다", "role": "covered", "note": "수치는 맞게 말했어요" },
+              { "slide_no": 3, "ref": "S3-5", "quote": "인과가 아니라 연관으로 읽어야 한다", "role": "conflict", "note": "자료는 인과로 읽지 말라고 해요" }
+            ]
+          }
+        }
+      },
+      {
+        "id": "q3",
+        "slide_no": 2,
+        "question": "불만족 고객이 리뷰를 안 쓴다는 가설은 어떻게 됐나요?",
+        "answers": {
+          "good": {
+            "text": "부분 지지됐어요. 환불을 요청한 주문은 리뷰 작성률이 11%로, 전체 평균 34%의 3분의 1이었어요.",
+            "verdict": "good",
+            "level": "good",
+            "feedback": "발표 때 빠진 가설 C 를 수치와 함께 채웠어요.",
+            "grounds": [
+              { "slide_no": 2, "ref": "S2-7", "quote": "환불을 요청한 주문의 리뷰 작성률은 11% 로, 전체 평균 34% 의 3분의 1 수준이었다", "role": "covered", "note": "빠졌던 가설의 근거를 채웠어요" }
+            ]
+          },
+          "rough": {
+            "text": "그건 잘 기억이 안 나요.",
+            "verdict": "unknown",
+            "level": "practice",
+            "feedback": "2장 표의 세 번째 줄을 다시 보면 답할 수 있어요.",
+            "grounds": [
+              { "slide_no": 2, "ref": "S2-7", "quote": "환불을 요청한 주문의 리뷰 작성률은 11% 로, 전체 평균 34% 의 3분의 1 수준이었다", "role": "missing", "note": "이 줄이 답이에요" }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "report": {
+    "headline": "주장은 또렷해요. 빠진 가설 하나만 채우면 돼요",
+    "items": [
+      { "id": "structure", "label": "주장 구조", "level": "fair", "note": "가설 셋 가운데 둘만 말했어요" },
+      { "id": "time", "label": "시간 배분", "level": "practice", "note": "2장에 절반을 썼어요" },
+      { "id": "pace", "label": "말 속도", "level": "fair", "note": "조금 빨라요" },
+      { "id": "fillers", "label": "군더더기", "level": "good", "note": "1분에 2번 정도로 적어요" },
+      { "id": "qa", "label": "질문 답변", "level": "good", "note": "근거 수치를 들어 답했어요" }
+    ],
+    "next_steps": [
+      { "text": "2장에서 가설 C(불만족 고객) 를 한 문장으로 말해요", "slide_no": 2 },
+      { "text": "결론 장에서 「연관이지 인과는 아니에요」 를 먼저 말해요", "slide_no": 3 },
+      { "text": "말 속도를 조금 늦춰 1분 40초 안에 끝내 봐요", "slide_no": null }
+    ]
+  }
+}
