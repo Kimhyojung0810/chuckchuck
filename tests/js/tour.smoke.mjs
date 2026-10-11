@@ -186,6 +186,16 @@ function suite(T) {
 
 suite(T).forEach((c) => test(c.name, c.fn));
 
+// 투어 화면 글 — 용어 · 소요 시간 (perf-security-copy-r1-7): 장(슬라이드 아님) · 군더더기 말(간투어 아님) · 「2~3분」 · 「AI가」
+test('투어 화면 글은 장 · 군더더기 말 · 2~3분 · AI가 로 맞춘다', () => {
+  for (const f of ['js/tour.js', 'js/tour_play.js']) {
+    const src = readFileSync(path.join(WEB, f), 'utf8').split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+    ok(!/슬라이드|간투어/.test(src), `${f}: 화면 글에 「슬라이드」 · 「간투어」 가 남았어요`);
+    ok(!/AI 가 |› 를/.test(src), `${f}: 조사 앞 띄어쓰기(「AI 가」 · 「› 를」)`);
+  }
+  ok(/2~3분이면 끝나요/.test(readFileSync(path.join(WEB, 'js/tour.js'), 'utf8')), '시작 안내 소요 시간은 2~3분 (2배속 발표만 70~80초, 전체 2~3분)');
+});
+
 // 분석 말 속도 — 3단계 말이 먼저, 숫자는 정수로 보조 줄 (layout-touch-a11y-r1-6 · perf-security-copy-r1-7)
 test('말 속도 말: 권장 300~350 안이면 알맞아요, 밖이면 단계에 따라 「조금」', () => {
   eq(T.paceWord(253.4, 'practice'), '느려요');

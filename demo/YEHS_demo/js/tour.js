@@ -446,7 +446,7 @@
         ${chick('neutral', 'is-lg')}
         <p class="tour-eyebrow">척척발표 둘러보기</p>
         <h1 class="tour-h1">발표 한 편을<br>AI 코치와 따라가 봐요</h1>
-        <p class="tour-sub">미리 녹화한 발표로 2분이면 끝나요. 카메라·마이크는 켜지 않아요.</p>
+        <p class="tour-sub">미리 녹화한 발표로 2~3분이면 끝나요. 카메라·마이크는 켜지 않아요.</p>
         <ol class="tour-steps">
           ${L.STEPS.map((s, i) => `<li><span class="tour-steps-n">${i + 1}</span><div><b>${esc(INTRO_LINES[s.id][0])}</b><small>${esc(INTRO_LINES[s.id][1])}</small></div></li>`).join('')}
         </ol>
@@ -456,7 +456,7 @@
   });
 
   const INTRO_LINES = {
-    deck: ['자료 고르기', '발표할 슬라이드를 골라요'],
+    deck: ['자료 고르기', '발표할 자료를 골라요'],
     present: ['발표 보기', 'AI가 발표를 들으며 보는 것을 따라가요'],
     analysis: ['분석 보기', '시간 · 말 속도 · 빠진 내용을 짚어요'],
     qa: ['예상 질문 받기', '잘한 답과 엉성한 답을 비교해요'],
