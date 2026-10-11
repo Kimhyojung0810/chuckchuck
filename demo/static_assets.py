@@ -48,6 +48,8 @@ _EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|//)", re.I)
 #: 실제 받아쓰기와 서버 경로가 든 data/*.json·git 에 없는 PDF 까지 공개 주소로 열렸다. 이제 앱이 실제로 받는 것만 연다.
 #: 새 종류의 파일을 화면에서 쓰게 되면 여기에 더한다 (tests/test_static_allowlist.py 가 앱이 쓰는 경로를 대조한다).
 _NAME = r"[A-Za-z0-9_.-]+"
+#: 투어 파일 이름 — 밑줄로 시작하는 것(_example: 모양을 보이려고 지은 발화 · 판정)은 공개하지 않는다 (10-12 2차 perf-security-copy-r2-9)
+_TOUR = r"[A-Za-z0-9][A-Za-z0-9_.-]*"
 _PUBLIC_PATH = re.compile(rf"""^/(?:
       index\.html | f11_reveal\.html | booth\.html | intro\.html | favicon\.ico | robots\.txt
     | css/{_NAME}\.css
@@ -56,7 +58,7 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
     | assets/{_NAME}\.(?:png|svg|ico|webp)
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
     | sdk/{_NAME}\.m?js
-    | data/team\.json | data/tour/{_NAME}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
+    | data/team\.json | data/tour/{_TOUR}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
 )$""", re.X)
 #: ↑ 마지막 줄은 부스 모바일 /hi · #/tour (2026-10-11, docs/booth-mobile/) — 팀 카드 · 녹화 투어 · 팀 사진. 다른 data/*.json 은 그대로 팀 전용.
 #:   intro.html 은 /hi 랜딩 본체 (브리지가 /hi · /hi/<id> 에서 이 파일을 그대로 준다 — bridge.standalone_page_for).
@@ -70,7 +72,7 @@ _TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf)$
 #: 바뀐 판은 60초 안에 퍼지고(뒤에서 새로 받는다), 급하면 Cloudflare 에서 그 주소만 Purge. JSON 은 Cloudflare 가 기본으로 저장하지
 #: 않아서 캐시 규칙이 있어야 쓰인다 (docs/booth-mobile/DEPLOY.md). 팀 전용 data/*.json 은 여기에 없다 — 늘 private, no-store.
 EDGE_SHORT_PATH = re.compile(rf"""^/(?:
-      data/team\.json | data/tour/{_NAME}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
+      data/team\.json | data/tour/{_TOUR}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
 )$""", re.X)
 

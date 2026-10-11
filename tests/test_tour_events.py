@@ -264,7 +264,7 @@ def _raw_get(path: str) -> tuple[int, dict]:
 
 
 @pytest.mark.parametrize("path", [
-    "/data/team.json", "/data/tour/_example.json",
+    "/data/team.json", "/data/tour/delivery-rating.json",
     "/assets/deck-slides/battery-fastcharge/1.webp", "/assets/deck-covers/battery-fastcharge.webp",
 ])
 def test_화면이_v_없이_받는_투어_파일은_브라우저는_재검증_Cloudflare_는_60초(real, monkeypatch, path):  # noqa: F811
@@ -277,8 +277,8 @@ def test_화면이_v_없이_받는_투어_파일은_브라우저는_재검증_Cl
 
 def test_해시_주소는_그대로_1년이고_팀_전용과_다른_파일엔_안_붙인다(real, monkeypatch):  # noqa: F811
     monkeypatch.setattr(bridge, "ALLOWED_HOSTS", set())
-    digest = bridge.STATIC.served("/data/tour/_example.json")[1]
-    _, hdrs = _raw_get(f"/data/tour/_example.json?v={digest}")
+    digest = bridge.STATIC.served("/data/tour/delivery-rating.json")[1]
+    _, hdrs = _raw_get(f"/data/tour/delivery-rating.json?v={digest}")
     assert hdrs["cache-control"] == bridge.IMMUTABLE and "cdn-cache-control" not in hdrs
     _, hdrs = _raw_get("/js/app.js")
     assert "cdn-cache-control" not in hdrs

@@ -299,10 +299,23 @@ def test_투어_주소를_공유해도_미리보기가_뜬다():
 
 # ─── 공개 허용 목록 · 주소 ──────────────────────────────────────────────────
 
-@pytest.mark.parametrize("url", ["/data/team.json", "/data/tour/_example.json", "/data/tour/delivery-rating.json", "/data/tour/index.json",
+@pytest.mark.parametrize("url", ["/data/team.json", "/data/tour/delivery-rating.json", "/data/tour/index.json",
                                  "/assets/team/hyojung.webp", "/assets/team/a.jpg"])
 def test_부스_모바일_데이터는_공개다(url):
     assert static_access(url) == "public", url
+
+
+def test_형식_예시_투어는_공개하지_않는다():
+    """perf-security-copy-r2-9 (10-12 2차) — 밑줄로 시작하는 투어 파일(_example · 모양을 보이려고 지은 발화 · 판정)은 공개 주소로 안 연다."""
+    assert static_access("/data/tour/_example.json") is None
+
+
+def test_투어는_목록을_못_받아도_형식_예시로_바꿔_보이지_않는다():
+    """flow-regression-inapp-r2-4 (10-12 2차) — index.json 이 한 번 실패하면 지은 값(_example)을 녹화처럼 탭 내내 보였다.
+    다시 받아 보고, 그래도 안 되면 오류 화면(다시 불러오기)으로 간다."""
+    src = (WEB / "js" / "tour.js").read_text(encoding="utf-8")
+    code = "\n".join(l for l in src.splitlines() if not l.strip().startswith(("*", "//", "/*")))
+    assert "_example" not in code
 
 
 @pytest.mark.parametrize("url,level", [
@@ -319,7 +332,7 @@ def test_공개_방문자가_팀_카드와_투어를_받는다(monkeypatch):
     monkeypatch.setattr(bridge, "ALLOWED_HOSTS", set())
     monkeypatch.setattr(bridge, "DEV_ROUTES", False)
     monkeypatch.setattr(bridge, "TEAM_CODE", "")
-    for url in ("/data/team.json", "/data/tour/_example.json"):
+    for url in ("/data/team.json", "/data/tour/delivery-rating.json"):
         h = RawHandler(url)
         h.do_GET()
         status, _, body = h.response()

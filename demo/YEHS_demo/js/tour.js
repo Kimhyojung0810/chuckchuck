@@ -75,19 +75,25 @@
     return r.json();
   }
 
-  /** index.json 이 있으면 그 목록, 없으면 _example.json 하나. 계약에 안 맞는 파일은 빼고, 하나도 없으면 실패 */
+  const RETRY_MS = 700;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  /** 한 번 실패하면 잠깐 뒤 한 번 더 — 부스 와이파이가 잠깐 끊기는 일이 잦다 */
+  async function getJsonRetry(path) {
+    try { return await getJson(path); } catch (_) { await wait(RETRY_MS); return getJson(path); }
+  }
+
+  /**
+   * index.json 의 목록대로 녹화 투어를 받는다. 계약에 안 맞는 파일은 빼고, 하나도 없으면 실패(오류 화면 · 다시 불러오기).
+   * 예전엔 index.json 이 한 번 실패하면 형식 예시(_example — 모양을 보이려고 지은 발화 · 판정)로 조용히 바꿔, 녹화처럼 탭 내내 보였다
+   * (10-12 2차 flow-regression-inapp-r2-4). 실패는 실패로 보여 준다(CLAUDE.md §4) — 다시 불러오면 처음부터 받는다
+   */
   async function fetchTours() {
-    let tours = [];
-    let idx = null;
-    try { idx = await getJson(`${DATA_DIR}index.json`); } catch (_) { idx = null; }
-    if (idx) {
-      const { ids, inline } = L.indexIds(idx);
-      if (inline) tours = [inline];
-      else tours = (await Promise.all(ids.map((id) => getJson(`${DATA_DIR}${id}.json`).catch(() => null)))).filter(Boolean);
-    }
-    if (!tours.filter((t) => !L.tourProblem(t)).length) tours = [await getJson(`${DATA_DIR}_example.json`)];
+    const idx = await getJsonRetry(`${DATA_DIR}index.json`);
+    const { ids, inline } = L.indexIds(idx);
+    const tours = inline ? [inline]
+      : (await Promise.all(ids.map((id) => getJsonRetry(`${DATA_DIR}${id}.json`).catch(() => null)))).filter(Boolean);
     const good = tours.filter((t) => !L.tourProblem(t));
-    if (!good.length) throw new Error(L.tourProblem(tours[0]) || '투어 파일이 없어요');
+    if (!good.length) throw new Error((tours[0] && L.tourProblem(tours[0])) || '투어 파일을 받지 못했어요');
     return good;
   }
 

@@ -39,7 +39,7 @@ def test_주소창_투어_주소는_해시_화면으로_간다(path, expect):
     assert bridge.hash_route_for(path, bridge.STATIC.locate) == expect
 
 
-@pytest.mark.parametrize("rel", TOUR_FILES + ["data/tour/_example.json"])
+@pytest.mark.parametrize("rel", TOUR_FILES + ["data/tour/index.json", "data/tour/delivery-rating.json"])
 def test_투어_파일은_공개다(rel):
     assert (WEB / rel).is_file(), f"{rel} 가 없어요"
     assert static_access("/" + rel) == "public", f"/{rel} 가 공개가 아니면 공개 사이트에서 404 다"
