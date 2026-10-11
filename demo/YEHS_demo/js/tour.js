@@ -343,6 +343,16 @@
 
   /* ── 실제 흐름으로 — 인앱 브라우저면 바깥 브라우저 안내 ──────── */
 
+  /**
+   * 바깥 브라우저 안내 문구 — /hi(intro.html · intro.js)의 같은 시트와 글자까지 같게 둔다(tests/test_booth_mobile_contract.py 가 대조).
+   * iOS 메뉴 자리는 앱마다 다르다(카톡 오른쪽 아래 · 인스타 오른쪽 위 …, 실기기 미확인) — 자리를 말하지 않고 「메뉴(···)」 로만 (10-12 점검)
+   */
+  const INAPP_COPY = {
+    title: 'Safari나 Chrome에서 열면 돼요',
+    iosTip: '앱 메뉴(<b>···</b>)에서 <b>Safari로 열기</b>를 고르거나, 주소를 복사해 Safari에 붙여 넣어요.',
+    here: '여기서 계속 열기',
+  };
+
   function openRehearsal() {
     const ua = navigator.userAgent || '';
     funnel('try_real');
@@ -352,14 +362,14 @@
     const ext = L.externalOpenUrl(url, ua);
     const ios = L.platformOf(ua) === 'ios';
     openSheet({
-      title: 'Safari나 Chrome에서 열면 돼요',
+      title: INAPP_COPY.title,
       body: `<p>지금 보는 앱 안의 브라우저에서는 카메라와 마이크를 쓸 수 없어요. 직접 해 보기는 카메라 앞에서 발표하는 화면이에요.</p>
-             ${ios && !ext ? '<p class="tour-sheet-tip">오른쪽 아래 <b>···</b> 를 눌러 <b>Safari로 열기</b>를 고르거나, 주소를 복사해 Safari에 붙여 넣어요.</p>' : ''}
+             ${ios && !ext ? `<p class="tour-sheet-tip">${INAPP_COPY.iosTip}</p>` : ''}
              <p class="tour-sheet-url"><span>주소</span><b>${esc(url.replace(/^https?:\/\//, ''))}</b></p>`,
       actions: [
         ext ? `<a class="tour-cta" href="${esc(ext)}">${L.inAppKind(ua) === 'kakao' ? '다른 브라우저로 열기' : 'Chrome으로 열기'}</a>` : '',
         `<button class="tour-cta${ext ? ' is-sub' : ''}" type="button" data-copy="${esc(url)}">주소 복사하기</button>`,
-        '<button class="tour-cta is-text" type="button" data-here>여기서 계속 열기</button>',
+        `<button class="tour-cta is-text" type="button" data-here>${INAPP_COPY.here}</button>`,
       ].join(''),
       mount(sheet) {
         const copy = sheet.querySelector('[data-copy]');
