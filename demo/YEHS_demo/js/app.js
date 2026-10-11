@@ -398,7 +398,7 @@ function route() {
   // 투어 층(#tourStage)도 #app 밖이다 — 투어 밖으로 나가면 걷는다 (js/tour.js)
   if (typeof tourOnRoute === 'function') tourOnRoute(key);
   // 투어로 들어올 때 index.html 이 앱 셸을 가려 둔 표시 — 투어 밖이면(번들을 받기 전에 나가도) 걷고, 한가할 때 받을 것을 받는다
-  if (key !== 'tour') { document.documentElement.classList.remove('tour-boot'); kickIdleBundles(); }
+  if (key !== 'tour') { document.documentElement.classList.remove('tour-boot', 'tour-boot-fail'); kickIdleBundles(); }
   // 부스 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 부스 처음 화면으로 (booth_qa.js boothQaGuard · 10-02)
   if (typeof boothQaGuard === 'function' && boothQaGuard(key)) return;
   // 리허설 탭도 같다 — #/qa 를 되살릴 수 없으면 리허설 자리로 (rehearsal.js rehearsalGuard)
@@ -994,8 +994,30 @@ function renderLazyWait(bundles) {
   ccLazy.loadAll(bundles).then((ok) => {
     if (location.hash !== hash) return; // 그 사이 다른 화면으로 갔으면 그 화면의 route() 가 그린다
     if (ok) { route(); return; }
+    if (bundles.includes('tour')) { renderTourLoadFail(); return; }
     app.innerHTML = stageAccidentHtml('화면 파일을 받지 못했어요. 새로 고치면 다시 받아요.', { title: '화면을 불러오지 못했어요' });
   });
+}
+/**
+ * 투어 번들(js/tour.js …)을 못 받았을 때 — 부스 와이파이가 흔들리면 생긴다. 앱 일반 오류 카드(「무대감독」 배지 · 「새 발표 연습」 탑바)만
+ * 남고 다시 받을 길도 팀 소개로 갈 길도 없었다(10-12 점검). 앱 셸은 계속 숨기고 투어 말로 「다시 불러오기」 · 「팀 소개로 돌아가기」.
+ * index.html 의 tour-boot(「체험을 준비하고 있어요…」)는 걷는다 — 안 걷으면 그 문구가 영영 남는다.
+ */
+function renderTourLoadFail() {
+  const root = document.documentElement;
+  root.classList.remove('tour-boot');
+  root.classList.add('tour-boot-fail');
+  app.className = 'narrow';
+  app.innerHTML = `
+    <section class="tour-load-fail" role="alert">
+      <h1>체험을 불러오지 못했어요</h1>
+      <p>잠깐 연결이 끊겼을 수 있어요. 다시 불러오면 처음부터 볼 수 있어요.</p>
+      <button class="btn btn-primary" type="button" data-tour-reload>다시 불러오기</button>
+      <a class="btn" href="/hi">팀 소개로 돌아가기</a>
+    </section>`;
+  const again = app.querySelector('[data-tour-reload]');
+  again.addEventListener('click', () => { root.classList.remove('tour-boot-fail'); root.classList.add('tour-boot'); route(); });
+  again.focus({ preventScroll: true });
 }
 /** pdf.js 는 한가할 때 받는다 (js/lazy.js) — 쓰는 곳은 이걸 기다린다. 못 받으면 false */
 function ccEnsurePdfjs() {

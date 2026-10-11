@@ -306,7 +306,7 @@
     if (at.alias) { history.replaceState(history.state, '', L.tourHash(at.screen, at.q)); }
     const el = layer();
     document.body.classList.add('tour-open');
-    document.documentElement.classList.remove('tour-boot');   // index.html 이 앱 셸을 가려 둔 표시 — 이제 투어 층이 덮는다
+    document.documentElement.classList.remove('tour-boot', 'tour-boot-fail');   // index.html 이 앱 셸을 가려 둔 표시 — 이제 투어 층이 덮는다
     if (leaveHook) { try { leaveHook(); } catch (_) { /* 앞 화면 정리 실패는 무시 */ } leaveHook = null; }
     closeSheet(false);
     const seq = ++renderSeq;
