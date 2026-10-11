@@ -23,7 +23,10 @@
   `data/tour/` 에 파일을 넣으면 따로 등록하지 않아도 이 테스트가 집어 검사한다.
 - 공개 서빙: `demo/static_assets.py` `_PUBLIC_PATH` 에 `data/team.json` · `data/tour/<이름>.json` · `assets/team/<이름>.(webp|png|jpg)` 을 열었다.
   다른 `data/*.json` 은 그대로 팀 전용이다. 새 종류의 파일을 쓰면 여기부터 연다(안 열면 공개 사이트에서 404).
-- 주소: 브리지 `hash_route_for` 가 `/hi` → `/index.html#/hi`, `/tour/deck` → `#/tour/deck` 로 보낸다(서버 수정 없음). 앱 `route()` 에 `hi` · `tour` 를 더하는 건 화면 담당.
+- 주소: `/hi` · `/hi/<id>` 는 해시 앱이 아니라 **따로 선 정적 랜딩** `intro.html`(+ `css/intro.css` · `js/intro.js`) 이다 — 브리지 `standalone_page_for` 가 그 자리에서 준다(302 없음, app.js 를 안 받아 폰 첫 화면이 가볍다).
+  `/tour/deck` 은 그대로 `hash_route_for` 가 `#/tour/deck` 로 보낸다. 앱 `route()` 에 `tour` 를 더하는 건 화면 담당이고, 투어의 「팀 소개로 돌아가기」 는 **`/hi`**(해시 아님) 로 건다.
+  앱 안에서 `#/hi` 로 들어오면 `location.replace('/hi')` 로 넘기면 된다.
+- `/hi` 확인: `labs/intro_flow/run.py --base http://127.0.0.1:<포트>` — 폰 4폭 캡처 · 가로 스크롤 · 카톡 인앱 안내 · team.json 실패 · JS 꺼짐.
 
 ## 바꾸는 순서 (contract-first)
 
