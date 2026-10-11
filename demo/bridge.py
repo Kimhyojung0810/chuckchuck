@@ -1548,7 +1548,8 @@ def _capped(value, depth: int = 0):
 
 
 #: 정적 파일 해시·gzip 기억 (demo/static_assets.py). 첫 화면 파일을 오래 캐시해도 옛 판이 안 남게 한다.
-STATIC = AssetCache({"/": DEMO_DIR, "/sdk/": SDK_DIR})
+#: render_ttl — 바꿔 쓴 HTML·모듈을 몇 초 나눠 쓴다 (QR 로 폰 수십 대가 한꺼번에 올 때 HTML 이 줄 서지 않게, 2026-10-11). 0 이면 끈다.
+STATIC = AssetCache({"/": DEMO_DIR, "/sdk/": SDK_DIR}, render_ttl=shield.env_float("DEMO_STATIC_RENDER_TTL", 2.0))
 CDN_HTML_CACHE = "max-age=60, stale-while-revalidate=86400"
 
 
