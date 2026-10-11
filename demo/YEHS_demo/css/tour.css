@@ -119,7 +119,8 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-cta.is-choice:active { background: rgba(63, 213, 153, .2); }
 
 /* ── 글자 ───────────────────────────────────────────────────── */
-.tour-eyebrow { margin: 12px 0 0; font-size: 13px; font-weight: var(--w-bold); color: var(--brand); }
+/* 작은 초록 글자는 --brand-strong(캔버스 4.51:1) — --brand 는 4.32:1 로 모자란다(/hi intro.css 와 같은 규칙, 10-12 점검) */
+.tour-eyebrow { margin: 12px 0 0; font-size: 13px; font-weight: var(--w-bold); color: var(--brand-strong); }
 .tour-h1 { margin: 6px 0 8px; font-size: 24px; line-height: 1.38; font-weight: var(--w-bold); letter-spacing: -.02em; text-wrap: balance; outline: none; }
 .tour-sub { margin: 0; font-size: 15px; line-height: 1.6; color: var(--tour-ink-2); text-wrap: pretty; }
 .tour-h2 { margin: 0; font-size: 16px; font-weight: var(--w-bold); letter-spacing: -.01em; }
@@ -143,7 +144,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-steps li { display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: center; padding: 10px 0; }
 .tour-steps-n {
   width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: var(--r-dot); background: var(--brand-weak); color: var(--brand); font-size: 14px; font-weight: var(--w-bold);
+  border-radius: var(--r-dot); background: var(--brand-weak); color: var(--navy); font-size: 14px; font-weight: var(--w-bold);
 }
 .tour-steps b { display: block; font-size: 16px; font-weight: var(--w-bold); }
 .tour-steps small { display: block; margin-top: 2px; font-size: 13.5px; color: var(--text-3); text-wrap: pretty; }
@@ -173,7 +174,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-strip-item { flex: 0 0 78%; margin: 0; scroll-snap-align: start; }
 .tour-strip-item img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--r-inner); background: #fff; outline: 1px solid rgba(0, 0, 0, .1); outline-offset: -1px; }
 .tour-strip-item figcaption { display: flex; gap: 6px; margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--text-2); }
-.tour-strip-item figcaption b { color: var(--brand); font-variant-numeric: tabular-nums; }
+.tour-strip-item figcaption b { color: var(--brand-strong); font-variant-numeric: tabular-nums; }
 
 /* ── 발표 ───────────────────────────────────────────────────── */
 .tp-stage {
@@ -344,7 +345,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tr-item small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
 .tr-next { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
 .tr-next li { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: start; }
-.tr-n { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-dot); background: var(--brand-weak); color: var(--brand); font-size: 13px; font-weight: var(--w-bold); }
+.tr-n { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-dot); background: var(--brand-weak); color: var(--navy); font-size: 13px; font-weight: var(--w-bold); }
 .tr-next p { margin: 2px 0 0; font-size: 15px; line-height: 1.5; text-wrap: pretty; }
 .tr-slide { background: var(--fill); color: var(--text-2); }
 
