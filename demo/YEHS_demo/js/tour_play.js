@@ -72,7 +72,8 @@
             <span class="tp-cap-label">받아쓴 말</span>
             <p data-caption>&nbsp;</p>
           </div>
-          <p class="tp-hint">자료를 옆으로 밀거나 ‹ ›를 눌러 장을 넘겨요</p>
+          <p class="tp-hint">자료를 옆으로 밀거나 ‹ ›를 눌러 장을 넘겨요. 가운데를 누르면 크게 봐요</p>
+          <button class="tour-cta is-text tp-zoom" type="button" data-zoom>자료 크게 보기</button>
           ${c.honestNote(c.tour)}
         </section>`,
       foot: `<div class="tour-foot-row">
@@ -189,7 +190,14 @@
       stage.classList.add(dir > 0 ? 'is-edge-fwd' : 'is-edge-back');
     }
 
-    bindSwipe(stage, turn);
+    const zoomCur = () => {
+      const s = d.slides.find((x) => x.no === shownNo);
+      if (!s || !root.querySelector('img.tp-slide.is-cur')) return;   // 그림을 못 받은 장(제목 카드)은 키울 것이 없다
+      if (playing) play(false);
+      c.openZoom(s.image, `${s.no}장 · ${s.title}`);
+    };
+    bindSwipe(stage, turn, zoomCur);
+    root.querySelector('[data-zoom]').addEventListener('click', zoomCur);
     root.querySelectorAll('[data-turn]').forEach((b) => b.addEventListener('click', () => turn(Number(b.dataset.turn))));
     seek.addEventListener('input', () => { t = Number(seek.value) || 0; update(); });
     seek.addEventListener('change', () => persist(true));
@@ -213,8 +221,8 @@
     };
   }
 
-  /** 자료 칸 몸짓 — 밀기 · 좌우 1/3 누르기. 두 손가락(꼬집기)이 한 번이라도 닿으면 다 뗄 때까지 안 넘긴다 */
-  function bindSwipe(stage, turn) {
+  /** 자료 칸 몸짓 — 밀기 · 좌우 1/3 누르기 · 가운데 누르기(크게 보기). 두 손가락(꼬집기)이 한 번이라도 닿으면 다 뗄 때까지 안 넘긴다 */
+  function bindSwipe(stage, turn, onMiddle) {
     let start = null;
     const down = new Set();
     let multi = false;
@@ -240,6 +248,7 @@
         const at = (e.clientX - r.left) / Math.max(1, r.width);
         if (at >= 2 / 3) turn(1);
         else if (at <= 1 / 3) turn(-1);
+        else if (onMiddle) onMiddle();
       }
     });
     stage.addEventListener('pointercancel', (e) => { lift(e); start = null; });
@@ -392,7 +401,7 @@
               <p class="tqa-feedback">${c.esc(ans.feedback)}</p>
               ${groundsHtml(c, ans)}
             </article>` : `
-            ${slide ? `<figure class="tqa-slide"><img src="${c.esc(slide.image)}" alt="${slide.no}장 · ${c.esc(slide.title)}" data-fallback="${slide.no}장 · ${c.esc(slide.title)}" decoding="async"></figure>` : ''}
+            ${slide ? `<figure class="tqa-slide"><button class="tqa-slide-btn" type="button" data-zoom aria-label="${slide.no}장 크게 보기"><img src="${c.esc(slide.image)}" alt="${slide.no}장 · ${c.esc(slide.title)}" data-fallback="${slide.no}장 · ${c.esc(slide.title)}" decoding="async"></button><figcaption>누르면 크게 봐요</figcaption></figure>` : ''}
             <p class="tqa-prompt">어떤 답을 들어 볼까요? 고른 답을 AI가 판정해요.</p>`}
         </section>`,
       foot: pick
@@ -412,6 +421,8 @@
         }));
         const next = root.querySelector('[data-next]');
         if (next) next.addEventListener('click', () => (last ? c.go('report') : c.go('qa', qi + 1)));
+        const zoom = root.querySelector('[data-zoom]');
+        if (zoom && slide) zoom.addEventListener('click', () => { if (zoom.querySelector('img')) c.openZoom(slide.image, `${slide.no}장 · ${slide.title}`); });
         // 방금 고른 답이면 판정 카드가 보이게 내리고, 판정을 읽어 준다
         if (pick && c.state.qaJust === q.id) {
           c.save({ qaJust: '' });

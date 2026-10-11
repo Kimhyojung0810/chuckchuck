@@ -244,6 +244,7 @@
   function teardown() {
     if (leaveHook) { try { leaveHook(); } catch (_) { /* 다음 화면이 그린다 */ } leaveHook = null; }
     closeSheet(false);
+    closeZoom(false);
     const el = document.getElementById('tourStage');
     if (el) el.remove();
     viewportCover(false);
@@ -255,7 +256,7 @@
 
   function ctxFor(tours, tour, at) {
     return {
-      L, tours, tour, at, save, go, esc, chick, levelChip, honestNote, reduced, openSheet, restart, openRehearsal,
+      L, tours, tour, at, save, go, esc, chick, levelChip, honestNote, reduced, openSheet, restart, openRehearsal, openZoom,
       get state() { return state; },   // save() 가 새 객체로 갈아 끼우므로 늘 지금 값을 읽는다
     };
   }
@@ -309,6 +310,7 @@
     document.documentElement.classList.remove('tour-boot', 'tour-boot-fail');   // index.html 이 앱 셸을 가려 둔 표시 — 이제 투어 층이 덮는다
     if (leaveHook) { try { leaveHook(); } catch (_) { /* 앞 화면 정리 실패는 무시 */ } leaveHook = null; }
     closeSheet(false);
+    closeZoom(false);
     const seq = ++renderSeq;
     if (!el.dataset.screen) {
       el.dataset.tone = 'light';
@@ -437,6 +439,47 @@
     el.classList.remove('has-sheet');
     if (restoreFocus && sheetFrom && sheetFrom.focus) sheetFrom.focus({ preventScroll: true });
     sheetFrom = null;
+  }
+
+  /* ── 자료 크게 보기 — 960px 그림을 폰 폭(335px)에 줄이면 표 · 그래프 글자가 3~6px 라 못 읽었다 (10-12 점검) ── */
+
+  let zoomFrom = null;
+  /** 장 그림 한 장을 화면 가득 — 처음엔 폭 맞춤, 「2배로 보기」 로 키워 밀어서 본다. 두 손가락 확대도 막지 않는다 */
+  function openZoom(src, label) {
+    const el = layer();
+    closeZoom(false);
+    zoomFrom = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'tour-zoom';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-label', `${label} 크게 보기`);
+    wrap.innerHTML = `
+      <div class="tour-zoom-bar">
+        <span class="tour-zoom-title">${esc(label)}</span>
+        <button class="tour-zoom-btn" type="button" data-zoom-size aria-pressed="false">2배로 보기</button>
+        <button class="tour-icon tour-zoom-close" type="button" data-zoom-close aria-label="크게 보기 닫기">${ICON.close}</button>
+      </div>
+      <div class="tour-zoom-pane" tabindex="0"><img src="${esc(src)}" alt="${esc(label)}" draggable="false"></div>`;
+    el.appendChild(wrap);
+    const size = wrap.querySelector('[data-zoom-size]');
+    size.addEventListener('click', () => {
+      const big = wrap.classList.toggle('is-big');
+      size.textContent = big ? '화면에 맞추기' : '2배로 보기';
+      size.setAttribute('aria-pressed', big ? 'true' : 'false');
+    });
+    wrap.querySelector('[data-zoom-close]').addEventListener('click', () => closeZoom());
+    wrap.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeZoom(); }
+    });
+    requestAnimationFrame(() => wrap.querySelector('[data-zoom-close]').focus({ preventScroll: true }));
+  }
+  function closeZoom(restoreFocus = true) {
+    const wrap = document.querySelector('#tourStage .tour-zoom');
+    if (!wrap) return;
+    wrap.remove();
+    if (restoreFocus && zoomFrom && zoomFrom.focus) zoomFrom.focus({ preventScroll: true });
+    zoomFrom = null;
   }
 
   function announce(text) {
