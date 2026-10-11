@@ -1576,6 +1576,19 @@ _NOT_SCREEN_PREFIXES = ("/api/", "/sdk/", "/auth")
 _SCREEN_PATH = re.compile(r"^(/[A-Za-z0-9_-]+)+$")
 
 
+#: 해시 앱이 아니라 따로 선 정적 페이지로 주는 주소 — /hi(·/hi/<팀원 id>) 는 결선 부스 QR 랜딩 intro.html 이다 (2026-10-11,
+#: docs/booth-mobile/). index.html 을 거치면 app.js·app.css 를 다 받아야 첫 화면이 그려져서, 폰 첫 방문이 무거워진다.
+_STANDALONE_PAGES = ((re.compile(r"^/hi(?:/[a-z0-9-]{1,24})?/?$", re.I), "/intro.html"),)
+
+
+def standalone_page_for(url_path: str) -> str | None:
+    """주소창 경로 → 그 자리에서 내줄 정적 HTML 파일 경로. 해당 없으면 None (그다음 hash_route_for 가 본다)."""
+    for pattern, page in _STANDALONE_PAGES:
+        if pattern.match(url_path or ""):
+            return page
+    return None
+
+
 def hash_route_for(url_path: str, locate) -> str | None:
     """
     주소창 경로 → 앱 해시 주소(``#/booth/call``). 화면 주소가 아니면 None.
@@ -2078,6 +2091,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             # 주소창의 화면 주소(/booth/call · /test/QA · /temp …)는 앱의 해시 주소로 자동으로 돌려보낸다 — 앱이 해시 라우팅이라.
             # 예전엔 고정 표(/test/qa · /temp · /vision · /booth/qa)라 새 화면을 만들 때마다 여기를 고치고 8799 를 재시작해야 했고,
             # 그걸 빠뜨리면 404 가 났다 (2026-10-01 /booth/call). 이제 파일이 아닌 주소면 다 해시로 간다 — 앱이 모르는 화면은 홈이 그린다.
+            page = standalone_page_for(parsed.path)
+            if page:
+                return self._serve_static(parsed._replace(path=page))
             hash_route = hash_route_for(parsed.path, STATIC.locate)
             if hash_route:
                 self.send_response(302)
@@ -2100,7 +2116,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return
         try:
             parsed = urlparse(self.path)
-            return self._serve_static(parsed, head_only=True)
+            page = standalone_page_for(parsed.path)
+            return self._serve_static(parsed._replace(path=page) if page else parsed, head_only=True)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
         except Exception:  # noqa: BLE001 — HEAD 도 GET 처럼 연결을 끊지 않고 500 으로 답한다

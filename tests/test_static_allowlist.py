@@ -22,7 +22,7 @@ WEB = bridge.DEMO_DIR
 # ─── 순수 함수 ──────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("url", [
-    "/", "/index.html", "/f11_reveal.html", "/booth.html", "/favicon.ico",
+    "/", "/index.html", "/f11_reveal.html", "/booth.html", "/intro.html", "/favicon.ico",
     "/css/app.css", "/js/app.js", "/js/booth_cv_worker.js", "/js/vendor/motion.min.js",
     "/js/vendor/opencv.js", "/js/vendor/haarcascade_frontalface_default.xml",
     "/assets/chuckchuck-app-icon-64.png", "/sdk/index.js", "/sdk/rehearsal-recorder.js",
@@ -119,7 +119,7 @@ def _local(ref: str) -> bool:
     return not re.match(r"^(?:[a-z]+:|//|#)", ref) and not ref.startswith("/api/")
 
 
-@pytest.mark.parametrize("page", ["index.html", "booth.html", "f11_reveal.html"])
+@pytest.mark.parametrize("page", ["index.html", "booth.html", "f11_reveal.html", "intro.html"])
 def test_HTML_이_참조하는_로컬_파일은_모두_공개다(page):
     html = (WEB / page).read_text(encoding="utf-8")
     refs = [r for r in _REF.findall(html) if _local(r)]

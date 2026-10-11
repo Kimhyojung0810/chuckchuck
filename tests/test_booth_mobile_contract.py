@@ -275,10 +275,35 @@ def test_공개_방문자가_팀_카드와_투어를_받는다(monkeypatch):
     assert h.response()[0] == 404
 
 
-@pytest.mark.parametrize("path,expect", [("/hi", "#/hi"), ("/HI", "#/hi"), ("/hi/hyojung", "#/hi/hyojung"),
-                                         ("/tour", "#/tour"), ("/tour/deck", "#/tour/deck"), ("/tour/report", "#/tour/report")])
-def test_주소창_hi_tour_는_해시_화면으로_간다(path, expect):
+@pytest.mark.parametrize("path,expect", [("/tour", "#/tour"), ("/tour/deck", "#/tour/deck"), ("/tour/report", "#/tour/report")])
+def test_주소창_tour_는_해시_화면으로_간다(path, expect):
     assert bridge.hash_route_for(path, bridge.STATIC.locate) == expect
+
+
+@pytest.mark.parametrize("path,expect", [("/hi", "/intro.html"), ("/HI", "/intro.html"), ("/hi/", "/intro.html"),
+                                         ("/hi/hyojung", "/intro.html"), ("/hi/a/b", None), ("/hi/x.json", None),
+                                         ("/hire", None), ("/tour", None)])
+def test_주소창_hi_는_해시_앱이_아니라_랜딩_페이지다(path, expect):
+    """/hi 는 app.js 를 안 싣는 가벼운 랜딩(intro.html) — 302 로 #/hi 에 보내지 않고 그 자리에서 준다 (2026-10-11)."""
+    assert bridge.standalone_page_for(path) == expect
+
+
+@pytest.mark.parametrize("url", ["/hi", "/hi/seokhoon"])
+def test_공개_방문자가_hi_에서_랜딩을_받는다(monkeypatch, url):
+    monkeypatch.setattr(bridge, "REQUIRE_ACCESS", False)
+    monkeypatch.setattr(bridge, "ALLOWED_HOSTS", set())
+    monkeypatch.setattr(bridge, "DEV_ROUTES", False)
+    monkeypatch.setattr(bridge, "TEAM_CODE", "")
+    h = RawHandler(url)
+    h.do_GET()
+    status, _, body = h.response()
+    assert status == 200, url
+    html = body.decode("utf-8")
+    assert "척척발표를 만든 사람들" in html and 'href="/index.html#/tour"' in html
+    # 주소가 /hi/<id> 이기도 해서 로컬 참조는 / 로 시작해야 한다 (상대 경로면 /hi/css/… 로 샌다)
+    for ref in re.findall(r'(?:href|src)="([^"#]+)"', html):
+        if not re.match(r"^(?:https?:)?//", ref):
+            assert ref.startswith("/"), ref
 
 
 # ─── 검사기가 진짜로 잡는가 ───────────────────────────────────────────────
