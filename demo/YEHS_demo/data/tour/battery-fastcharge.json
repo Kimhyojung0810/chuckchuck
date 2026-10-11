@@ -9,14 +9,14 @@
   },
   "deck": {
     "id": "battery-fastcharge",
-    "title": "배 터 리 공 학 과 에 너 지 저 장 연 구 실…",
-    "subtitle": "급속충전은 배터리를 얼마나 깎는가",
+    "title": "급속충전은 배터리를 얼마나 깎는가",
+    "subtitle": "충전 속도와 온도에 따른 리튬이온 셀 용량 열화 비교",
     "cover": "assets/deck-covers/battery-fastcharge.webp",
     "slides": [
       {
         "no": 1,
         "image": "assets/deck-slides/battery-fastcharge/1.webp",
-        "title": "배 터 리 공 학 과 에 너 지 저 장 연 구 실…"
+        "title": "급속충전은 배터리를 얼마나 깎는가"
       },
       {
         "no": 2,

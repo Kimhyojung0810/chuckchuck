@@ -17,8 +17,8 @@
     {
       "id": "battery-fastcharge",
       "label": "A-1",
-      "title": "배 터 리 공 학 과 에 너 지 저 장 연 구 실…",
-      "subtitle": "급속충전은 배터리를 얼마나 깎는가",
+      "title": "급속충전은 배터리를 얼마나 깎는가",
+      "subtitle": "충전 속도와 온도에 따른 리튬이온 셀 용량 열화 비교",
       "cover": "assets/deck-covers/battery-fastcharge.webp",
       "slides": 4,
       "duration_sec": 155.3,
@@ -28,8 +28,8 @@
     {
       "id": "microplastic-daphnia",
       "label": "B-1",
-      "title": "환 경 생 명 공 학 과 수 생 독 성 연 구 실…",
-      "subtitle": "미세플라스틱은 물벼룩의 번식을 줄이는가",
+      "title": "미세플라스틱은 물벼룩의 번식을 줄이는가",
+      "subtitle": "폴리스티렌 1 µm 입자 농도별 21일 만성 노출 실험",
       "cover": "assets/deck-covers/microplastic-daphnia.webp",
       "slides": 4,
       "duration_sec": 159.9,

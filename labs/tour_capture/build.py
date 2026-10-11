@@ -102,16 +102,24 @@ def three_level(score: float, good: float = 85, fair: float = 70) -> str:
 _KICKER = re.compile(r"^(?:\S\s){3,}\S$")   # 「가 설 과 검 증」 처럼 한 글자씩 띄운 머리말
 
 
+def letter_spaced(line: str) -> bool:
+    """글자마다 띄운 장식 줄인가 — 표지 머리줄 「배 터 리 공 학 과 … · 2 0 2 6 . 1 0 . 6 .」.
+    「·」 가 섞여 _KICKER 정규식을 빠져나가서 A-1 · B-1 투어 제목이 머리줄이 됐다(10-12 통합 캡처). app.js letterSpacedLine 과 같은 잣대."""
+    words = (line or "").split()
+    singles = sum(1 for w in words if len(w) == 1 and re.match(r"[가-힣0-9]", w))
+    return bool(_KICKER.match(line or "")) or (singles >= 5 and singles >= 0.7 * len(words))
+
+
 def slide_headline(slide: dict) -> str:
     """장 제목 — 파서 제목이 8자 이상이면 그것, 아니면 본문 첫 문단(머리말 · 표 · 그림 빼고, 8자 이상 한 줄)."""
     title = scrub(slide.get("title") or "")
-    if len(title) >= 8:
+    if len(title) >= 8 and not letter_spaced(title):
         return title
     for b in slide.get("blocks") or []:
         text = scrub(b.get("text") or "")
         if b.get("category") not in ("paragraph", "heading1", "heading2") or "\n" in (b.get("text") or "") or "|" in text:
             continue
-        if len(text) >= 8 and not _KICKER.match(text):
+        if len(text) >= 8 and not letter_spaced(text):
             return text
     return title or f"{slide.get('slide_no')}장"
 
@@ -498,10 +506,13 @@ def dump(obj: dict) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="녹화본 → data/tour/<덱>.json + index.json")
     ap.add_argument("--check", action="store_true", help="쓰지 않고 지금 파일과 같은지만 본다")
+    ap.add_argument("--rec-dir", type=Path, default=REC_DIR,
+                    help="녹화본 폴더 (기본 labs/tour_capture/out/recordings) — 다른 worktree 에서 녹화했으면 그 폴더를 읽기만 한다")
     args = ap.parse_args(argv)
-    recs = sorted(REC_DIR.glob("*.json"))
+    rec_dir = args.rec_dir
+    recs = sorted(rec_dir.glob("*.json"))
     if not recs:
-        print(f"녹화본이 없어요 — 먼저 capture.py 를 돌려요 ({REC_DIR})", file=sys.stderr)
+        print(f"녹화본이 없어요 — 먼저 capture.py 를 돌려요 ({rec_dir})", file=sys.stderr)
         return 1
     tours = [build_tour(json.loads(p.read_text(encoding="utf-8"))) for p in recs]
     files = {TOUR_DIR / f"{t['id']}.json": dump(t) for t in tours}
