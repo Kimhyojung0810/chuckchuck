@@ -85,6 +85,7 @@ ppt/**/*.mp4
 labs/test_qa/out/
 labs/temp_flow/out/
 labs/vision_flow/out/
+labs/booth_load/out/
 labs/booth_qa/out/
 labs/rehearsal_flow/out/
 # 투어 녹화 원본 — 덱 본문 · 발표 전사 · 세션 보관소. 공개 파일(data/tour)만 커밋한다 (2026-10-11)

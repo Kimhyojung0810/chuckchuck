@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -63,6 +64,23 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
 _TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf)$")
 
 
+#: 화면 JS 가 `?v=` 없이 받는 공개 파일 — 부스 /hi · #/tour 의 팀 카드 · 녹화 투어 · 팀 사진 · 덱 그림 (2026-10-11).
+#: 주소에 내용 해시가 없어 브라우저엔 no-cache 로 주지만, Cloudflare 에는 HTML 처럼 잠깐(CDN-Cache-Control) 맡긴다 —
+#: 부스에서 폰 수십 대가 같은 투어를 열 때 덱 그림·JSON 이 매번 원본(DERP 홍콩 경유 ~330KB/s)까지 오지 않게.
+#: 바뀐 판은 60초 안에 퍼지고(뒤에서 새로 받는다), 급하면 Cloudflare 에서 그 주소만 Purge. JSON 은 Cloudflare 가 기본으로 저장하지
+#: 않아서 캐시 규칙이 있어야 쓰인다 (docs/booth-mobile/DEPLOY.md). 팀 전용 data/*.json 은 여기에 없다 — 늘 private, no-store.
+EDGE_SHORT_PATH = re.compile(rf"""^/(?:
+      data/team\.json | data/tour/{_NAME}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
+    | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
+)$""", re.X)
+
+
+def edge_short(url_path: str) -> bool:
+    """이 공개 파일을 Cloudflare 에 잠깐 맡기나 (해시 주소가 아닐 때). 정규화한 경로로 본다."""
+    norm = normalize_url_path(url_path)
+    return norm is not None and bool(EDGE_SHORT_PATH.match(norm))
+
+
 def normalize_url_path(url_path: str) -> str | None:
     """URL 경로를 locate 와 같은 규칙으로 편다 (%xx 풀기 · . / .. 접기). NUL 이 섞이면 None."""
     decoded = unquote(url_path or "/")
@@ -96,10 +114,21 @@ class AssetCache:
     import 한 파일이 바뀌었는지까지 기억으로 따지는 것보다 싸고 틀릴 일이 없다.
     """
 
-    def __init__(self, mounts: dict[str, Path]) -> None:
+    #: 바꿔 쓴 HTML·모듈을 이만큼(초) 기억하는 칸 수 상한 — 주소를 여러 모양으로 바꿔 보내도 기억이 끝없이 자라지 않게
+    RENDER_MEMO_MAX = 512
+
+    def __init__(self, mounts: dict[str, Path], *, render_ttl: float = 0.0) -> None:
         self.mounts = sorted(((p if p.endswith("/") else p + "/", Path(d).resolve()) for p, d in mounts.items()),
                              key=lambda m: -len(m[0]))
         self._lock = threading.Lock()
+        # HTML·JS 의 내줄 본문 짧은 기억 (2026-10-11 부스 QR 벤치). index.html 한 장을 바꿔 쓰는 데 모듈 사슬을 다 훑어 ~34ms 가
+        # 들고 GIL 로 줄을 선다 — 폰 50 대가 한꺼번에 들어오면 HTML p95 가 3.7초였다. 몇 초만 같은 결과를 나눠 쓴다.
+        # 0 이면 끈다(테스트·기본). 파일을 고친 뒤 이 초만큼은 옛 해시가 나갈 수 있다 — 해시가 틀린 요청은 no-cache 라 옛 판이 굳지 않는다.
+        self.render_ttl = render_ttl
+        self._rendered: dict[str, tuple[float, tuple[bytes, str]]] = {}
+        # 한 번에 하나만 바꿔 쓴다(single-flight) — 기억이 빈 순간 폰 50 대가 동시에 오면 50 번 다 훑던 것을 한 번으로.
+        # 바깥 호출(_stack 빈 것)만 잡는다. 안쪽(모듈 사슬)은 memo_key 가 None 이라 이 자물쇠를 다시 잡지 않는다 — 교착 없음.
+        self._render_lock = threading.Lock()
         self._raw: dict[tuple, tuple[str, str]] = {}  # (원본 해시, 'html'·'module'·'')
         self._gz: dict[tuple, bytes] = {}
 
@@ -209,6 +238,32 @@ class AssetCache:
 
     def served(self, url_path: str, _stack: frozenset = frozenset()) -> tuple[bytes, str] | None:
         """내줄 본문과 그 해시. 파일이 아니면 None."""
+        memo_key = normalize_url_path(url_path) if self.render_ttl > 0 and not _stack else None
+        if memo_key is not None:
+            with self._lock:
+                hit = self._rendered.get(memo_key)
+            if hit is not None and hit[0] > time.monotonic():
+                return hit[1]
+            if self._maybe_rewrites_url(url_path):
+                with self._render_lock:
+                    with self._lock:
+                        hit = self._rendered.get(memo_key)
+                    if hit is not None and hit[0] > time.monotonic():
+                        return hit[1]  # 기다리는 사이 앞사람이 만들어 뒀다
+                    result = self._served(url_path, _stack)
+                    if result is not None:
+                        with self._lock:
+                            if len(self._rendered) >= self.RENDER_MEMO_MAX:
+                                self._rendered.clear()
+                            self._rendered[memo_key] = (time.monotonic() + self.render_ttl, result)
+                    return result
+        return self._served(url_path, _stack)
+
+    def _maybe_rewrites_url(self, url_path: str) -> bool:
+        path = self.locate(url_path)
+        return path is not None and path.is_file() and self._maybe_rewrites(path)
+
+    def _served(self, url_path: str, _stack: frozenset) -> tuple[bytes, str] | None:
         path = self.locate(url_path)
         if path is None or not path.is_file():
             return None

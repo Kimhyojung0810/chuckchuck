@@ -280,3 +280,69 @@ def test_NUL_이_섞인_주소는_500_이_아니라_404(served_site, url):
     h = RawHandler(url, command="HEAD")
     h.do_HEAD()
     assert h.response()[0] == 404
+
+
+# ─── 바꿔 쓴 HTML 의 짧은 기억 (2026-10-11 부스 QR 벤치) ─────────────────────
+
+
+def test_render_ttl_안에서는_같은_결과를_나눠_쓰고_지나면_새_해시(site, monkeypatch):
+    import demo.static_assets as sa
+
+    root, _ = site
+    now = [1000.0]
+    monkeypatch.setattr(sa.time, "monotonic", lambda: now[0])
+    c = AssetCache({"/": root / "web", "/sdk/": root / "sdk"}, render_ttl=2.0)
+    first = c.served("/index.html")
+    (root / "web" / "js" / "app.js").write_text("function route(){ /* 고침 */ }\nroute();\n")
+    assert c.served("/index.html") is first            # 2초 안 — 다시 훑지 않는다
+    assert c.served("/./index.html") is first          # 같은 파일의 다른 주소 모양도 한 칸
+    now[0] += 2.5
+    after = c.served("/index.html")
+    assert _v(after[0].decode(), "js/app.js") != _v(first[0].decode(), "js/app.js")
+    # HTML·JS 만 기억한다 — css·그림(큰 덱 그림 포함)은 메모리에 쌓지 않는다
+    c.served("/css/app.css")
+    assert "/css/app.css" not in c._rendered
+    c.served("/js/app.js")
+    assert "/js/app.js" in c._rendered
+
+
+def test_render_기억은_동시에_와도_한_번만_훑는다(site, monkeypatch):
+    import threading
+
+    root, _ = site
+    c = AssetCache({"/": root / "web", "/sdk/": root / "sdk"}, render_ttl=60.0)
+    calls = []
+    real = c._served
+
+    def counted(url_path, _stack):
+        calls.append(url_path)
+        return real(url_path, _stack)
+
+    monkeypatch.setattr(c, "_served", counted)
+    go = threading.Event()
+    out = []
+    threads = [threading.Thread(target=lambda: (go.wait(), out.append(c.served("/index.html")))) for _ in range(20)]
+    for t in threads:
+        t.start()
+    go.set()
+    for t in threads:
+        t.join()
+    assert calls.count("/index.html") == 1 and len({id(x) for x in out}) == 1
+
+
+def test_render_기억은_칸_수_상한을_넘지_않는다(site):
+    root, _ = site
+    c = AssetCache({"/": root / "web", "/sdk/": root / "sdk"}, render_ttl=60.0)
+    c.RENDER_MEMO_MAX = 3
+    for i in range(10):
+        (root / "web" / f"p{i}.html").write_text('<script src="js/app.js?v=q1"></script>\n')
+        c.served(f"/p{i}.html")
+        assert len(c._rendered) <= 3
+    assert "/p9.html" in c._rendered
+
+
+def test_기본은_끔_테스트와_다른_곳에서_만든_AssetCache_는_예전과_같다(site):
+    _, c = site
+    assert c.render_ttl == 0
+    c.served("/index.html")
+    assert c._rendered == {}

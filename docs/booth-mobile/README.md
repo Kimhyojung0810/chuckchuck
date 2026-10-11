@@ -18,6 +18,7 @@
 | 투어 녹화 데이터 | [`tour.schema.json`](tour.schema.json) | [`tour-schema.md`](tour-schema.md) | `demo/YEHS_demo/data/tour/<id>.json` (`_example.json` = 형식 예시) | `#/tour/*` 화면 |
 | 투어 목록 | [`tour-index.schema.json`](tour-index.schema.json) | [`tour-schema.md`](tour-schema.md) §목록 | `demo/YEHS_demo/data/tour/index.json` | `#/tour/deck` 덱 고르기 · 기본 덱 |
 | 팀 카드 | [`team.schema.json`](team.schema.json) | [`team-schema.md`](team-schema.md) | `demo/YEHS_demo/data/team.json` | `/hi` 화면 |
+| 퍼널 신호 | `demo/tour_events.py` `STEPS` | [`funnel-events.md`](funnel-events.md) | (저장 안 함 — 서버 로그 한 줄) | `/hi` · `#/tour/*` → `js/funnel.js` `ccFunnel()`, 집계 `scripts/booth_funnel.py` |
 
 - **스키마가 원본이다.** 문서·예시·화면 코드가 스키마와 어긋나면 스키마를 기준으로 고친다.
 - 검사: `python -m pytest tests/test_booth_mobile_contract.py -q` — 스키마 + 짝 맞춤(장 번호·그림 파일·공개 여부·시각 차례·그래프 끝점·「잘 답한 답」=good).
@@ -42,3 +43,8 @@
 - 판정 낱말은 새로 짓지 않는다 — 그래프 상태는 정합 판정 enum(`aligned|justified_skip|missing|contradiction`), 답 판정은 F-09 enum(`good|partial|wrong|unknown`), 근거 역할은 `covered|missing|conflict`. 판정 색 5종과 짝이다.
 - **정직 표시**: `source.kind=example` 이면 화면에 예시라고 적는다. 녹화본도 「미리 녹화한 체험이에요」 를 남긴다(CLAUDE.md §3-4 「샘플 표시는 정직하게」).
 - 팀 카드의 `did` 는 저장소 이력 등 확인할 수 있는 사실만, `quote` 는 본인이 준 말만. 모르면 `draft:true`.
+
+## 운영 (QR · 퍼널 · 배포)
+
+- QR 은 `https://chuckchuck-present.com/hi` 하나 — 꼬리표(`?src=`)를 붙이지 않는다(Cloudflare 캐시 열쇠가 갈린다). `/hi` 진입은 서버 로그로 센다.
+- 배포·당일 퍼널 보기·캐시 확인: [`DEPLOY.md`](DEPLOY.md).
