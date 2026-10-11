@@ -224,6 +224,9 @@ main {
 .track {
   position: relative;          /* 카드 offsetLeft 를 트랙 기준으로 */
   display: flex;
+  /* 카드 높이는 제 내용만큼 — stretch 면 가장 긴 카드에 맞춰 늘어나 짧은 카드는 아래가 120~300px 비고,
+     아이폰 SE(375x667)에서는 「2 / 5」 가 아래 고정 버튼 뒤로 숨었다 (10-12 점검) */
+  align-items: flex-start;
   gap: 12px;
   overflow-x: auto;
   overflow-y: hidden;
