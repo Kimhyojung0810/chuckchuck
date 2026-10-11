@@ -61,8 +61,9 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-#: IP(칸)당 분당 신호 수. 한 사람의 투어 한 바퀴가 신호 12개 남짓 — 행사장 와이파이 하나 뒤의 폰 20대가 동시에 돌아도 안 걸린다.
-TOUR_EVENT_RPM = _env_int("DEMO_TOUR_EVENT_RPM", 240)
+#: IP(칸)당 분당 신호 수. 한 사람의 투어 한 바퀴가 신호 11~13개 — 행사장 와이파이(NAT) 하나 뒤에서 폰 50대가 같은 1분에 돌아도
+#: (labs/booth_load --same-ip: 550개) 안 걸린다. 한 IP 가 꽉 채워도 로그는 초당 10줄이다.
+TOUR_EVENT_RPM = _env_int("DEMO_TOUR_EVENT_RPM", 600)
 #: 서버 전체 분당 신호 수 — 봇넷이 IP 를 바꿔 가며 보내도 로그가 분당 이 줄 수를 못 넘는다. 부스 최고(10/7 10분에 13명)의 수백 배.
 TOUR_EVENT_GLOBAL_RPM = _env_int("DEMO_TOUR_EVENT_GLOBAL_RPM", 6000)
 
