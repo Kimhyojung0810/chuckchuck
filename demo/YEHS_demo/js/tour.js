@@ -354,6 +354,11 @@
     if (seq !== renderSeq) return;   // 그 사이 다른 단계로 갔다
     const tour = currentTour(tours);
     if (!state.deck && tour) save({ deck: tour.id });
+    // 없는 질문 번호(#/tour/qa/9)는 마지막 질문으로 — 주소까지 맞춘다. 화면만 맞추면 ‹ 를 일곱 번 눌러야 같은 질문을 벗어났다 (r2-5)
+    if (at.screen === 'qa' && tour) {
+      const q = L.clampQ(at.q, tour.qa.questions.length);
+      if (q !== at.q) { at.q = q; history.replaceState(history.state, '', L.tourHash('qa', q)); }
+    }
     const fn = Screens[at.screen] || Screens.intro;
     let view;
     try { view = fn(ctxFor(tours, tour, at)); } catch (e) {
