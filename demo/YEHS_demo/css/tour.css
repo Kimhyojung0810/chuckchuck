@@ -226,9 +226,9 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tp-seek::-moz-range-progress { height: 4px; border-radius: var(--r-pill); background: var(--cyan); }
 .tp-seek::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: var(--r-dot); background: #fff; }
 .tp-seek:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; border-radius: var(--r-pill); }
-.tp-clock { display: block; margin-top: -8px; text-align: center; font-size: 12px; color: rgba(255, 255, 255, .7); font-variant-numeric: tabular-nums; }
+.tp-clock { display: block; margin-top: -8px; text-align: center; font-size: 13px; color: rgba(255, 255, 255, .7); font-variant-numeric: tabular-nums; }
 .tp-clock b { color: #fff; font-weight: var(--w-bold); }
-.tp-clock small { margin-left: 4px; padding: 1px 6px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .12); font-size: 11px; }
+.tp-clock small { margin-left: 4px; padding: 1px 6px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .12); font-size: 12.5px; }
 
 .tp-coach {
   display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
@@ -276,6 +276,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .ta-big { margin: 0; font-size: 14px; color: var(--text-3); }
 .ta-big b { margin-right: 2px; font-size: 28px; font-weight: var(--w-display); color: var(--text); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 /* 말 속도는 3단계 말이 주인공, 숫자는 정수로 보조 줄 (10-12 점검 — 「253.4 자/분」 이 가장 큰 글씨였다) */
+.ta-big small { font-size: 13px; }   /* 「· 1분에 0.4번」 이 11.67px 였다 (r2-7) */
 .ta-big-word b { font-size: 24px; font-weight: var(--w-bold); }
 .ta-sub { margin: 2px 0 0; font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .ta-gauge { position: relative; height: 10px; margin-top: 12px; border-radius: var(--r-pill); background: var(--fill); }
@@ -293,6 +294,13 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
   padding: 10px 0 10px calc(var(--depth, 0) * 16px); border-top: 1px solid var(--line);
 }
 .ta-node-label { font-size: 14px; line-height: 1.45; text-wrap: pretty; }
+/* 접힌 글 — 두 줄(근거 인용은 세 줄)까지, 누르면 편다 (js/tour_play.js bindClamps, 10-12 2차 r2-4) */
+.is-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.tqa-quote.is-clamp { -webkit-line-clamp: 3; }
+.is-clamp.is-open, .is-clamp.is-fit { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.is-clamp[role="button"] { cursor: pointer; }
+.ta-node-label.is-clamp[role="button"] { padding: 2px 0; }
+.is-clamp:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
 .ta-node.is-root .ta-node-label { font-weight: var(--w-bold); }
 .ta-node-st { padding: 2px 8px; border-radius: var(--r-pill); font-size: 12px; font-weight: var(--w-med); white-space: nowrap; }
 
@@ -343,7 +351,8 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tqa-verdict-h { margin-right: 2px; font-size: 13px; font-weight: var(--w-bold); color: var(--text-3); }
 .tqa-feedback { margin: 8px 0 0; font-size: 15px; line-height: 1.55; text-wrap: pretty; }
 .tqa-grounds .qa-evidence { font-size: 14px; }
-.tqa-grounds .qa-ground > span { font-size: 12px; }
+.tqa-grounds .qa-ground > span { font-size: 13px; color: var(--text-2); }   /* 12px · #71717A 가 노란 칸 위 4.48:1 이었다 (r2-7) */
+.tqa-grounds .qa-grounds-h { font-size: 13px; }   /* 11px (r2-7) */
 .tour.is-answered .tqa-me, .tour-qa .tqa-me { animation: tqIn 280ms var(--ease) both; }
 .tour-qa .tqa-verdict { animation: tqIn 300ms var(--ease) 90ms both; }
 @keyframes tqIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

@@ -267,6 +267,12 @@ test('숫자 · 단위 · 부등호 사이 띄어쓰기는 줄이 안 바뀌는 
   eq(T.keepUnits('3장 18번째 줄'), '3장 18번째 줄', '단위가 아닌 띄어쓰기는 그대로');
 });
 
+// 질문 판정 배지 — perf-security-copy-r2-3: 「부분 인정」+「보통」 두 배지가 같은 말을 두 번 하고, 미방어 같은 내부 이름이 보였다
+test('투어 질문 판정은 3단계 말 하나만 보인다(내부 판정 이름은 그리지 않는다)', () => {
+  const src = readFileSync(path.join(WEB, 'js/tour_play.js'), 'utf8');
+  ok(!/\$\{v\.word\}|VERDICT\[/.test(src), 'tour_play.js 가 내부 판정 이름(설득 완료 · 부분 인정 · 미방어)을 그려요');
+});
+
 test('하네스 자기 검사 — 장 경계를 하나 밀어 놓은 파일을 넣으면 잡는다', () => {
   const broken = load(SRC.replace('if (t >= s.start_sec) cur = s.slide_no;', 'if (t > s.start_sec) cur = s.slide_no;'));
   const failed = suite(broken).filter((c) => { try { c.fn(); return false; } catch (_) { return true; } });

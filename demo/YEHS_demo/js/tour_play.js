@@ -16,6 +16,8 @@
   const Screens = (window.TourScreens = window.TourScreens || {});
   const L = window.TourLogic;
   const Shell = () => window.TourShell || { announce() {}, render() {} };
+  /** 녹화 글을 그릴 때 — 이스케이프하고, 숫자와 단위 사이는 줄이 안 바뀌게(「1 / mg/L」 · 「p < / .05」 가 갈라졌다, 10-12 2차 r2-9) */
+  const txt = (c, s) => c.esc(L.keepUnits(s));
 
   const PLAY_SPEED = 2;          // 녹화 1초 = 화면 0.5초 — 1분 36초 발표가 48초에 끝나 전체 투어가 2~3분 안에 든다
   const SWIPE_MIN = 36;          // 밀기로 볼 최소 가로 이동(px)
@@ -299,6 +301,24 @@
     stage.addEventListener('dragstart', (e) => e.preventDefault());
   }
 
+  /** 접힌 글(.is-clamp, 줄 수 제한) — 정말 넘칠 때만 누를 수 있는 것(role=button)이 되어 누르면 편다/접는다. 안 넘치면 그냥 글 */
+  function bindClamps(root) {
+    root.querySelectorAll('[data-clamp]').forEach((b) => {
+      const toggle = () => {
+        const open = b.classList.toggle('is-open');
+        b.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      requestAnimationFrame(() => {
+        if (b.scrollHeight <= b.clientHeight + 1) { b.classList.add('is-fit'); return; }
+        b.setAttribute('role', 'button');
+        b.setAttribute('aria-expanded', 'false');
+        b.tabIndex = 0;
+        b.addEventListener('click', toggle);
+        b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      });
+    });
+  }
+
   /* ── 분석 ─────────────────────────────────────────────────── */
 
   Screens.analysis = (c) => {
@@ -318,11 +338,14 @@
     const counts = L.graphCounts(graph);
     const legend = Object.keys(L.GRAPH_STATUS).filter((k) => counts[k])
       .map((k) => `<span class="ta-key"><i class="dot st-${L.GRAPH_STATUS[k].tone}"></i>${L.GRAPH_STATUS[k].word} ${counts[k]}</span>`).join('');
+    // 루트(핵심 주장)는 다 보이고, 나머지는 두 줄로 접었다가 누르면 편다 — 데이터에서 「…」 로 잘려 펼 길이 없었다 (10-12 2차 r2-4 · copy r2-7)
     const rows = L.graphRows(graph).map(({ node, depth }) => {
       const st = L.GRAPH_STATUS[node.status] || L.GRAPH_STATUS.aligned;
+      const label = `${txt(c, node.label)}<span class="sr-only"> — ${st.long}</span>`;
       return `<li class="ta-node${depth === 0 ? ' is-root' : ''}" style="--depth:${depth}">
           <i class="dot st-${st.tone}" aria-hidden="true"></i>
-          <span class="ta-node-label">${c.esc(node.label)}<span class="sr-only"> — ${st.long}</span></span>
+          ${depth === 0 ? `<span class="ta-node-label">${label}</span>`
+            : `<span class="ta-node-label is-clamp" data-clamp>${label}</span>`}
           <span class="ta-node-st st-${st.tone}" aria-hidden="true">${st.word}</span>
         </li>`;
     }).join('');
@@ -372,6 +395,7 @@
       foot: '<button class="tour-cta" type="button" data-next>예상 질문 받기</button>',
       mount(root) {
         root.querySelector('[data-next]').addEventListener('click', () => c.go('qa'));
+        bindClamps(root);
         const ov = root.querySelector('[data-reveal]');
         if (!ov) return null;
         root.classList.add('is-revealing');
@@ -406,8 +430,8 @@
         <p class="qa-grounds-h">근거 — 자료의 이 줄을 봤어요</p>
         ${gs.map((g) => `<div class="qa-evidence qa-ground is-${g.role}">
             <span>${L.GROUND_ROLE[g.role]} · ${c.esc(L.refText(g.ref, g.slide_no))}</span>
-            「${c.esc(g.quote)}」
-            ${g.note ? `<small>${c.esc(g.note)}</small>` : ''}
+            <div class="tqa-quote is-clamp" data-clamp>「${txt(c, g.quote)}」</div>
+            ${g.note ? `<small>${txt(c, g.note)}</small>` : ''}
           </div>`).join('')}
       </div>`;
   }
@@ -419,7 +443,6 @@
     const picks = c.state.picks || {};
     const pick = picks[q.id] === 'good' || picks[q.id] === 'rough' ? picks[q.id] : '';
     const ans = pick ? q.answers[pick] : null;
-    const v = ans ? (L.VERDICT[ans.verdict] || L.VERDICT.unknown) : null;
     const slide = c.tour.deck.slides.find((s) => s.no === q.slide_no);
     const last = qi === qs.length - 1;
     const asker = c.tour.qa.asker || '삐약이';
@@ -438,15 +461,14 @@
           ${pick ? `
             <div class="tqa-me" data-answer>
               <small>내 답 · ${ANSWER_LABEL[pick]}</small>
-              <p>${c.esc(ans.text)}</p>
+              <p>${txt(c, ans.text)}</p>
             </div>
             <article class="tqa-verdict" data-verdict>
               <header>
-                <span class="tqa-verdict-h">판정</span>
-                <span class="chip chip-sm st-${v.tone}">${v.word}</span>
+                <span class="tqa-verdict-h" tabindex="-1" data-verdict-h>AI 판정</span>
                 ${c.levelChip(ans.level)}
               </header>
-              <p class="tqa-feedback">${c.esc(ans.feedback)}</p>
+              <p class="tqa-feedback">${txt(c, ans.feedback)}</p>
               ${groundsHtml(c, ans)}
             </article>` : `
             ${slide ? `<figure class="tqa-slide"><button class="tqa-slide-btn" type="button" data-zoom aria-label="${slide.no}장 크게 보기"><img src="${c.esc(slide.image)}" alt="${slide.no}장 · ${c.esc(slide.title)}" data-fallback="${slide.no}장 · ${c.esc(slide.title)}" decoding="async"></button><figcaption>누르면 크게 봐요</figcaption></figure>` : ''}
@@ -470,6 +492,7 @@
         const next = root.querySelector('[data-next]');
         if (next) next.addEventListener('click', () => (last ? c.go('report') : c.go('qa', qi + 1)));
         const zoom = root.querySelector('[data-zoom]');
+        bindClamps(root);
         if (zoom && slide) zoom.addEventListener('click', () => { if (zoom.querySelector('img')) c.openZoom(slide.image, `${slide.no}장 · ${slide.title}`); });
         // 방금 고른 답이면 판정 카드가 보이게 내리고, 판정을 읽어 준다
         if (pick && c.state.qaJust === q.id) {
@@ -477,7 +500,10 @@
           root.classList.add('is-answered');
           const card = root.querySelector('[data-answer]');
           requestAnimationFrame(() => card && card.scrollIntoView({ block: 'start', behavior: c.reduced() ? 'auto' : 'smooth' }));
-          Shell().announce(`판정 ${v.word}. ${ans.feedback}`);
+          // 고른 버튼이 다시 그려지며 사라져 포커스가 body 로 떨어졌다 — 판정 카드 머리로 옮긴다 (10-12 2차 layout-touch-a11y-r2-6)
+          const head = root.querySelector('[data-verdict-h]');
+          if (head) { try { head.focus({ preventScroll: true }); } catch (_) { /* 옛 브라우저 */ } }
+          Shell().announce(`판정 ${L.LEVEL_WORD[ans.level] || ''}. ${ans.feedback}`);
         }
         return null;
       },
