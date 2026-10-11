@@ -186,6 +186,11 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
 .tp-track { position: absolute; inset: 0; }
+/* 폰을 가로로 돌리면 자료 칸(16:9 · 폭 가득)이 본문 높이를 다 차지해 타임라인 · 코치 · 받아쓴 말에 못 닿았다 — 높이를 화면의 55%로 묶고
+   가운데에 둔다 (10-12 2차 layout-touch-a11y-r2-2) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .tp-stage { max-width: calc(55dvh * 16 / 9); margin-left: auto; margin-right: auto; }
+}
 .tp-slide {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none;
   opacity: 0; transform: translateX(28px);

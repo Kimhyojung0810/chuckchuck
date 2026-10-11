@@ -196,7 +196,7 @@
       if (playing) play(false);
       c.openZoom(s.image, `${s.no}장 · ${s.title}`);
     };
-    bindSwipe(stage, turn, zoomCur);
+    bindSwipe(stage, turn, zoomCur, root.querySelector('[data-tour-body]'));
     root.querySelector('[data-zoom]').addEventListener('click', zoomCur);
     root.querySelectorAll('[data-turn]').forEach((b) => b.addEventListener('click', () => turn(Number(b.dataset.turn))));
     seek.addEventListener('input', () => { t = Number(seek.value) || 0; update(); });
@@ -221,9 +221,36 @@
     };
   }
 
-  /** 자료 칸 몸짓 — 밀기 · 좌우 1/3 누르기 · 가운데 누르기(크게 보기). 두 손가락(꼬집기)이 한 번이라도 닿으면 다 뗄 때까지 안 넘긴다 */
-  function bindSwipe(stage, turn, onMiddle) {
+  const SCROLL_LOCK_PX = 8;       // 세로로 이만큼 먼저 움직이면 장 넘기기가 아니라 본문 스크롤
+  const FLING_DECAY = 0.93;      // 손을 뗀 뒤 관성 — 한 프레임마다 남는 속도
+  const FLING_MIN = 0.02;        // px/ms 아래면 멈춘다
+  const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  /**
+   * 자료 칸 몸짓 — 밀기 · 좌우 1/3 누르기 · 가운데 누르기(크게 보기). 두 손가락(꼬집기)이 한 번이라도 닿으면 다 뗄 때까지 안 넘긴다.
+   * 자료 칸은 touch-action:none(10-08 pan-y → pointercancel 교훈)이라 브라우저가 세로 스크롤도 안 한다. 그래서 세로가 먼저 우세하면
+   * 몸짓을 본문 스크롤로 넘겨 코드가 scrollTop 을 옮긴다 — 아이폰 SE 에서 자료 칸을 밀면 90px 가 안 내려가고, 가로 화면에서는
+   * 자료 칸이 본문 높이를 다 차지해 아래 칸에 못 닿았다 (10-12 2차 layout-touch-a11y-r2-2)
+   */
+  function bindSwipe(stage, turn, onMiddle, scroller) {
     let start = null;
+    let fling = 0;
+    const stopFling = () => { if (fling) cancelAnimationFrame(fling); fling = 0; };
+    const flingFrom = (v) => {   // v: px/ms, 위로 밀면 양수(본문이 내려간다)
+      stopFling();
+      let last = performance.now();
+      const step = (now) => {
+        const dt = Math.min(32, now - last);
+        last = now;
+        v *= Math.pow(FLING_DECAY, dt / 16);
+        if (!scroller || Math.abs(v) < FLING_MIN) { fling = 0; return; }
+        const before = scroller.scrollTop;
+        scroller.scrollTop += v * dt;
+        if (scroller.scrollTop === before) { fling = 0; return; }   // 끝에 닿았다
+        fling = requestAnimationFrame(step);
+      };
+      fling = requestAnimationFrame(step);
+    };
     const down = new Set();
     let multi = false;
     const lift = (e) => { down.delete(e.pointerId); if (!down.size) multi = false; };
@@ -234,13 +261,30 @@
       if (!onCtl) { try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 이미 놓였다 */ } }
       if (down.size > 1) { multi = true; start = null; return; }
       if (multi || onCtl || (e.button != null && e.button > 0)) { start = null; return; }
-      start = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now(), type: e.pointerType };
+      stopFling();
+      start = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now(), type: e.pointerType, scroll: false, lastY: e.clientY, lastAt: performance.now(), v: 0 };
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (!start || e.pointerId !== start.id || !scroller) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (!start.scroll) {
+        if (Math.abs(dy) < SCROLL_LOCK_PX || Math.abs(dy) <= Math.abs(dx) * 1.2) return;
+        start.scroll = true;   // 이 몸짓은 이제 스크롤 — 손을 떼도 장을 넘기거나 크게 보기를 열지 않는다
+      }
+      const now = performance.now();
+      const step = start.lastY - e.clientY;
+      scroller.scrollTop += step;
+      const dt = Math.max(1, now - start.lastAt);
+      start.v = start.v * 0.6 + (step / dt) * 0.4;
+      start.lastY = e.clientY;
+      start.lastAt = now;
     });
     stage.addEventListener('pointerup', (e) => {
       lift(e);
       if (!start || e.pointerId !== start.id) return;
       const s = start;
       start = null;
+      if (s.scroll) { if (!reducedMotion() && performance.now() - s.lastAt < 80) flingFrom(s.v); return; }
       const dx = e.clientX - s.x, dy = e.clientY - s.y;
       if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.2) { turn(dx < 0 ? 1 : -1); return; }
       if (Math.abs(dx) <= TAP_MAX && Math.abs(dy) <= TAP_MAX && performance.now() - s.at <= TAP_MS) {
