@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import re
 from pathlib import Path
 
@@ -240,6 +241,35 @@ def test_팀_카드에_지어낸_한마디가_없다():
     for m in team["members"]:
         if m["draft"]:
             assert m["quote"] is None, m["id"]
+
+
+#: 방문객에게 안 보일 내부 말 — 모듈 번호(F-07 …) · 「토스 규칙」 (perf-security-copy-r1-6, 8/7 「모듈 코드를 사람 말로」 규칙)
+_INTERNAL = re.compile(r"\b[A-Z]{1,3}-\d{1,3}\b|토스")
+
+
+def team_text_problems(team: dict) -> list[str]:
+    errs = []
+    for m in team["members"]:
+        for where, text in [("role", m["role"]), ("headline", m["headline"]), *((f"did[{i}]", d) for i, d in enumerate(m["did"]))]:
+            if _INTERNAL.search(text):
+                errs.append(f"{m['id']}.{where}: 내부 말 — {text}")
+    return errs
+
+
+def test_팀_카드에_내부_모듈_번호와_내부_말이_없다():
+    assert team_text_problems(json.loads(TEAM_FILE.read_text(encoding="utf-8"))) == []
+
+
+def test_내부_말_검사기는_모듈_번호를_잡는다():
+    team = {"members": [{"id": "a", "role": "개발", "headline": "x", "did": ["자료를 그래프로 바꾸는 F-07", "토스 규칙으로 다시 짜기"]}]}
+    assert len(team_text_problems(team)) == 2
+
+
+@pytest.mark.skipif(os.environ.get("DEMO_RELEASE") != "1", reason="배포 직전(DEMO_RELEASE=1)에만 — 평소엔 팀원이 채우는 중이다")
+def test_배포_전에는_모든_팀_카드를_본인이_확인했다():
+    """perf-security-copy-r1-5 — 다섯 장 모두 draft:true 인 채로 배포를 막는 장치가 없었다. DEPLOY.md §1 이 DEMO_RELEASE=1 로 부른다."""
+    team = json.loads(TEAM_FILE.read_text(encoding="utf-8"))
+    assert [m["id"] for m in team["members"] if m["draft"]] == [], "본인 확인 전 카드 — 확인하면 draft 를 false 로"
 
 
 # ─── 공개 허용 목록 · 주소 ──────────────────────────────────────────────────
