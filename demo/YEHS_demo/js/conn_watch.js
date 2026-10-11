@@ -56,11 +56,24 @@ function connBanner() {
   return el;
 }
 
+/** 부스 투어(#/tour/*) — 서버 없이 녹화만 재생하므로 끊겨도 알릴 일이 없다. 배너가 진행 막대 · 단계 이름을 가렸다 (10-12 2차 perf-security-copy-r2-4) */
+function connOnTour() {
+  return /^#\/?tour(?:[/?]|$)/.test((typeof location !== 'undefined' && location.hash) || '');
+}
+
+/** 팀 브라우저(/auth · DEV_ROUTES, app.js ccTeam)인가 — 포트 연결 안내는 원격 서버를 보는 팀에게만 뜻이 있다 */
+function connIsTeam() {
+  try { return typeof ccTeam !== 'undefined' && !!ccTeam; } catch (_) { return false; }
+}
+
 function connShowDown() {
   const el = connBanner();
   el.className = 'conn-banner is-down';
+  const how = connIsTeam()
+    ? '포트 연결(VS Code Ports·SSH 터널)을 다시 이으면 자동으로 이어서 해요'
+    : '인터넷 연결을 확인해 주세요. 다시 이어지면 자동으로 이어서 해요';
   el.innerHTML = `<b>서버와 연결이 끊겼어요</b>
-    <span>포트 연결(VS Code Ports·SSH 터널)을 다시 이으면 자동으로 이어서 해요</span>
+    <span>${how}</span>
     <button type="button" class="conn-retry">지금 확인하기</button>`;
   el.querySelector('.conn-retry').addEventListener('click', () => connCheck());
 }
@@ -79,6 +92,7 @@ function connSchedule() {
 
 /** 끊겼다고 알린다. 이미 끊긴 상태면 배너만 유지한다 */
 function connMarkDown() {
+  if (connOnTour()) return connSchedule();
   if (!connState.down) {
     connState.down = true;
     connShowDown();
@@ -100,6 +114,7 @@ function connMarkUp() {
 async function connCheck() {
   // 탭이 숨어 있으면 두드리지 않는다 — 돌아오면 visibilitychange 가 바로 다시 본다
   if (document.hidden) return connSchedule();
+  if (connOnTour()) return connSchedule();   // 투어 동안은 두드리지도 않는다 — 폰 수십 대의 15초 health 도 덜어 낸다
   const ok = await connProbe();
   if (ok === null) return connSchedule();
   if (ok) connMarkUp();
@@ -112,6 +127,14 @@ function connStart() {
   connState.started = true;
   window.addEventListener('offline', connMarkDown);
   window.addEventListener('online', () => connCheck());
+  // 끊김 배너가 떠 있는 채로 투어에 들어가면 걷는다 — 투어를 나가면 다음 확인이 다시 판단한다
+  window.addEventListener('hashchange', () => {
+    if (!connOnTour()) return;
+    const el = document.getElementById('connBanner');
+    if (el) el.remove();
+    connState.down = false;
+    connState.misses = 0;
+  });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) connCheck(); });
   connSchedule();
 }
