@@ -18,6 +18,7 @@ PY=/home/yehschuck/project/chuckchuck/.venv/bin/python      # torch · Pillow �
 $PY labs/tour_capture/capture.py --decks 배달앱별점인플레이션A 급속충전배터리열화A 미세플라스틱물벼룩번식A --port 8983 --budget 80
 # 2) 투어 파일
 $PY labs/tour_capture/build.py
+#    다른 worktree 에서 녹화했으면 그 녹화본을 읽기만 한다:  $PY labs/tour_capture/build.py --rec-dir <그 worktree>/labs/tour_capture/out/recordings
 # 3) 검사
 $PY -m pytest tests/test_tour_capture.py tests/test_booth_mobile_contract.py -q
 $PY labs/tour_capture/build.py --check      # 녹화본으로 다시 만들면 커밋된 파일과 같은가 (0 = 같다)

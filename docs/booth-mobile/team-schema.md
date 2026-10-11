@@ -21,7 +21,7 @@
 | `links` | 0~3개 `{label≤12, url:https://…}` | 선택 |
 | `draft` | bool | `true`=본인 확인 전. 화면엔 안 보이지만, 결선 전 전원 `false` 로 |
 
-사진을 넣을 때: `demo/YEHS_demo/assets/team/<id>.webp`(정사각, 400px 안팎) 를 넣고 `photo` 를 채운다. 공개 허용 목록은 이미 열려 있다.
+사진을 넣을 때: `demo/YEHS_demo/assets/team/<id>.webp`(정사각, 400px 안팎, 60KB 이하 — 화면에선 64px 원) 를 넣고 `photo` 를 채운다. 공개 허용 목록은 이미 열려 있다.
 테스트가 파일이 있는지·공개인지 본다.
 
 ## 지금 초안의 출처 (2026-10-11)
