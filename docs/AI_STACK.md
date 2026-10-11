@@ -25,7 +25,7 @@
 | 백엔드 | 모델 | 제공사 | 접속 방식 |
 |---|---|---|---|
 | `solar` (기본) | Solar Pro 3 (`solar-pro3`) | Upstage | OpenAI 호환, `UPSTAGE_SOLAR_BASE_URL` |
-| `ax` | A.X-K1 | SKT (adot.ai) | OpenAI 호환, `AX_BASE_URL`, Bearer 인증 |
+| `ax` | A.X-K2 (`AX_MODEL`) | SKT (adot.ai) | OpenAI 호환, `AX_BASE_URL`, Bearer 인증 |
 | `midm` | Mi:dm 2.0 (`K-intelligence/Midm-2.0-Base-Instruct`) | KT | Friendli dedicated 엔드포인트 또는 로컬 서빙 |
 | `exaone` | EXAONE | LG AI연구원 | Friendli dedicated 엔드포인트 |
 
@@ -34,6 +34,11 @@
 
 **F-12 청중 수다는 예외적으로 4개를 동시에 쓴다** — 국내 LLM 4개(믿:음/쏠라/엑사원/에이닷)가
 각자 성격을 가진 캐릭터로 등장해 서로 다른 관점의 코멘트를 낸다 (`chuckchuck/f12_chatter.py`).
+
+> 2026-10-10: SKT 가 A.X 서빙 모델을 K1 → K2 로 바꿨다. 엔드포인트·키는 그대로고 `AX_MODEL=A.X-K2` 만 바꾼다 —
+> 예전 이름이면 `401: API-KEY cannot be used for this serving model`. 공개 서비스는 `REASONING_FALLBACK=ax` 라
+> Solar 가 실패할 때 이 이름이 틀리면 예비 경로까지 죽는다. 운영팀 실측 TTFT: 입력 8K 1.2초 · 32K 4.6초 · 64K 10초 ·
+> 128K 25초 · 250K 72초 — 대화형 호출은 입력을 짧게 두거나 `stream=True`.
 
 > 2026-08-11: KT 믿:음 Friendli dedicated 엔드포인트가 종료(HTTP 410)됐다. 로컬 GPU에
 > 22GB 가중치를 올려 `serve_midm.py`로 대체 서빙 중 (`MIDM_BASE_URL=http://127.0.0.1:8010/v1`).

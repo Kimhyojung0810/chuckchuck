@@ -82,7 +82,7 @@ class Settings:
 
     ax_api_key: str = ""
     ax_base_url: str = "https://awf-gw.adot.ai/v1"
-    ax_model: str = "A.X-K1"
+    ax_model: str = "A.X-K2"
 
     # LLM=Bearer, STT=X-API-Key (같은 awf_ 키라도 헤더가 다름)
     ax_stt_api_key: str = ""
@@ -132,7 +132,7 @@ class Settings:
 
             ax_api_key=e("AX_API_KEY", ""),
             ax_base_url=e("AX_BASE_URL", cls.ax_base_url),
-            ax_model=e("AX_MODEL", "A.X-K1"),
+            ax_model=e("AX_MODEL", "A.X-K2"),
 
             ax_stt_api_key=e("AX_STT_API_KEY", "") or e("AX_API_KEY", ""),
             ax_stt_base_url=e("AX_STT_BASE_URL", cls.ax_stt_base_url),
