@@ -150,10 +150,39 @@
       <footer class="tour-foot" data-tour-foot></footer>
       <p class="tour-live" aria-live="polite" data-tour-live></p>`;
     document.body.appendChild(el);
+    el.addEventListener('error', imgFailed, true);   // 그림 error 는 거품이 안 올라온다 — 잡기 단계에서 받는다
     el.querySelector('[data-tour-back]').addEventListener('click', goBack);
     // 「팀 소개로 돌아가기」(끝 화면 · 오류 화면) — 페이지가 /hi 로 바뀌기 직전이라 keepalive 로 간다
     el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-back-team]')) funnel('back_team'); });
     return el;
+  }
+
+  /**
+   * 장 그림 · 표지를 못 받으면(부스 와이파이 끊김 · 막힘) 깨진 그림 아이콘 대신 장 제목 카드로 바꾼다.
+   * 한 번은 다시 받아 본다. 투어 흐름은 그대로 — JSON 실패는 오류 화면이지만 그림 하나로 체험을 멈추지 않는다.
+   * 바꿀 글은 <img data-fallback="3장 · 제목">. 자리(클래스 · data-no)는 그대로 넘겨서 발표 장 넘기기가 계속 돈다.
+   */
+  const IMG_RETRY_MS = 800;
+  function imgFailed(e) {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG' || img.dataset.fallback == null) return;
+    if (!img.dataset.retried) {
+      img.dataset.retried = '1';
+      const src = img.getAttribute('src') || '';
+      if (src) setTimeout(() => { if (img.isConnected) img.src = src + (src.includes('?') ? '&' : '?') + 'retry=1'; }, IMG_RETRY_MS);
+      return;
+    }
+    const box = document.createElement('div');
+    box.className = `${img.className} tour-img-fallback`;
+    for (const k of Object.keys(img.dataset)) if (k !== 'fallback' && k !== 'retried') box.dataset[k] = img.dataset[k];
+    const hidden = img.getAttribute('aria-hidden');
+    if (hidden) box.setAttribute('aria-hidden', hidden);
+    box.setAttribute('role', 'img');
+    box.setAttribute('aria-label', img.getAttribute('alt') || img.dataset.fallback || '그림');
+    const t = document.createElement('span');
+    t.textContent = img.dataset.fallback || '그림을 불러오지 못했어요';
+    box.appendChild(t);
+    img.replaceWith(box);
   }
 
   function progressHtml(screen) {
@@ -406,7 +435,7 @@
       const on = t.id === c.tour.id;
       return `<label class="tour-deck${on ? ' is-on' : ''}">
           <input type="radio" name="tourDeck" value="${esc(t.id)}"${on ? ' checked' : ''}>
-          <img class="tour-deck-cover" src="${esc(t.deck.cover || (t.deck.slides[0] || {}).image || '')}" alt="" loading="lazy" decoding="async">
+          <img class="tour-deck-cover" src="${esc(t.deck.cover || (t.deck.slides[0] || {}).image || '')}" alt="" data-fallback="표지" loading="lazy" decoding="async">
           <span class="tour-deck-text">
             <b>${esc(t.deck.title)}</b>
             ${t.deck.subtitle ? `<small>${esc(t.deck.subtitle)}</small>` : ''}
@@ -416,7 +445,7 @@
     }).join('');
     const strip = c.tour.deck.slides.map((s) => `
         <figure class="tour-strip-item">
-          <img src="${esc(s.image)}" alt="${s.no}장 · ${esc(s.title)}" loading="lazy" decoding="async">
+          <img src="${esc(s.image)}" alt="${s.no}장 · ${esc(s.title)}" data-fallback="${s.no}장 · ${esc(s.title)}" loading="lazy" decoding="async">
           <figcaption><b>${s.no}</b>${esc(s.title)}</figcaption>
         </figure>`).join('');
     return {

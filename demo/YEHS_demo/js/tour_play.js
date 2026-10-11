@@ -32,7 +32,7 @@
   Screens.present = (c) => {
     const p = c.tour.present, d = c.tour.deck, dur = p.duration_sec;
     const slides = d.slides.map((s) => `
-        <img class="tp-slide" data-no="${s.no}" src="${c.esc(s.image)}" alt="${s.no}장 · ${c.esc(s.title)}" draggable="false" decoding="async">`).join('');
+        <img class="tp-slide" data-no="${s.no}" src="${c.esc(s.image)}" alt="${s.no}장 · ${c.esc(s.title)}" data-fallback="${s.no}장 · ${c.esc(s.title)}" draggable="false" decoding="async">`).join('');
     const ticks = p.slides.slice(1).map((s) => `<i class="tp-tick" style="left:${(s.start_sec / dur) * 100}%"></i>`).join('');
     const marks = (p.coaching_chips || []).map((ch) => `<i class="tp-mark" data-at="${ch.at_sec}" style="left:${(ch.at_sec / dur) * 100}%"></i>`).join('');
     return {
@@ -379,7 +379,7 @@
               <p class="tqa-feedback">${c.esc(ans.feedback)}</p>
               ${groundsHtml(c, ans)}
             </article>` : `
-            ${slide ? `<figure class="tqa-slide"><img src="${c.esc(slide.image)}" alt="${slide.no}장 · ${c.esc(slide.title)}" decoding="async"></figure>` : ''}
+            ${slide ? `<figure class="tqa-slide"><img src="${c.esc(slide.image)}" alt="${slide.no}장 · ${c.esc(slide.title)}" data-fallback="${slide.no}장 · ${c.esc(slide.title)}" decoding="async"></figure>` : ''}
             <p class="tqa-prompt">어떤 답을 들어 볼까요? 고른 답을 AI 가 판정해요.</p>`}
         </section>`,
       foot: pick

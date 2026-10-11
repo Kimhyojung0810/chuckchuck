@@ -376,6 +376,16 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-sheet .tour-cta.is-text { color: var(--text-2); }
 .tour-sheet .tour-cta.is-sub { background: var(--fill); color: var(--text); }
 
+/* ── 그림을 못 받았을 때 — 깨진 그림 대신 장 제목 카드(js/tour.js imgFailed) ── */
+.tour-img-fallback {
+  display: flex; align-items: center; justify-content: center; padding: 12px;
+  aspect-ratio: 16 / 9; background: var(--fill); color: var(--text-2);
+  font-size: 15px; line-height: 1.45; font-weight: var(--w-med); text-align: center; text-wrap: balance; overflow-wrap: anywhere;
+}
+.tour-img-fallback.tp-slide { aspect-ratio: auto; }
+.tour-img-fallback.tour-deck-cover { padding: 6px; font-size: 12px; color: var(--text-3); }
+.tqa-slide .tour-img-fallback, .tour-strip-item .tour-img-fallback { border-radius: var(--r-inner); }
+
 /* ── 움직임 줄이기 ──────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .tour-screen, .tour[data-dir="back"] .tour-screen, .tp-coach.is-pop, .ta-bar i, .ta-reveal-chick, .ta-reveal-steps li,
