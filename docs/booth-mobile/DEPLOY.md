@@ -28,7 +28,13 @@ QR(https://chuckchuck-present.com/hi) ─▶ Cloudflare ─▶ Funnel(ts.net) �
 ! cd /home/yehschuck/project/wt-booth-mobile && git status --short && git log --oneline -5
 ! cd /home/yehschuck/project/wt-booth-mobile && PATH=/home/yehschuck/project/chuckchuck/.venv/bin:$PATH python3 scripts/chk gate --scope worktree
 ! cd /home/yehschuck/project/wt-booth-mobile && node tests/js/funnel.smoke.mjs
+! cd /home/yehschuck/project/wt-booth-mobile && DEMO_RELEASE=1 .venv/bin/python -m pytest tests/test_booth_mobile_contract.py -q -k 배포
 ```
+
+- **팀 카드 본인 확인** — 마지막 줄이 실패하면 `data/team.json` 에 `draft: true` 카드가 남은 것이다. 본인에게 카드(이름 · 역할 · 한 줄 · 만든 것)를
+  보여 주고 확인받은 뒤 `draft` 를 `false` 로. 확인 못 한 사람은 사실만 남긴다(예: 「발표 데이터 수집을 맡았어요」) — 실제 사람의 말로 읽힌다.
+  저장소 커밋으로 확인할 수 없는 문장(예: 「척척발표가 배울 데이터」 — 학습에 쓰였을 때만)은 쓰지 않는다 (10-12 점검 perf-security-copy-r1-5).
+- **`DEMO_EDGE_SECRET` 이 systemd 유닛에 있는가** — 없으면 도메인 경로에서 CF-Connecting-IP 를 바꿔 퍼널 신호 상한을 채울 수 있다(funnel-events.md §상한).
 
 실험 브리지(8800 또는 배정 포트)에 띄워 폰 50대 벤치 — 과금 경로가 0 이 아니면 실패로 끝난다:
 
