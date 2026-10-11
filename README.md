@@ -38,7 +38,7 @@
 
 ## LLM 선택
 
-국내 LLM 써도 된다. 기본은 환경변수 `REASONING_BACKEND=solar`(Upstage Solar). A.X-K1·믿음·엑사원도 `get_llm("ax"|"midm"|"exaone")` 로 갈아끼울 수 있다. F-06은 JSON 구조 추출이라 Solar/A.X 모두 충분하다.
+국내 LLM 써도 된다. 기본은 환경변수 `REASONING_BACKEND=solar`(Upstage Solar). A.X-K2·믿음·엑사원도 `get_llm("ax"|"midm"|"exaone")` 로 갈아끼울 수 있다. F-06은 JSON 구조 추출이라 Solar/A.X 모두 충분하다.
 
 ## STT (확정)
 

@@ -617,13 +617,13 @@ class SolarLLM(OpenAICompatLLM):
 
 
 class AxLLM(OpenAICompatLLM):
-    """SKT A.X-K1."""
+    """SKT A.X-K2 (2026-10-10 K1 서빙 종료 — 예전 이름이면 401)."""
 
     def __init__(self, api_key: str | None = None, model: str | None = None):
         super().__init__(
             api_key=api_key or os.environ.get("AX_API_KEY", ""),
             base_url=os.environ.get("AX_BASE_URL", "https://awf-gw.adot.ai/v1"),
-            model=model or os.environ.get("AX_MODEL", "A.X-K1"),
+            model=model or os.environ.get("AX_MODEL", "A.X-K2"),
             name="ax",
         )
 
