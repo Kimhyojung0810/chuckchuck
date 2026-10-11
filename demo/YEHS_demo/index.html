@@ -16,7 +16,9 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <link rel="apple-touch-icon" sizes="180x180" href="assets/chuckchuck-app-icon-180.png?v=qk13">
 <!-- 서체 CSS·pdf.js 가 오는 CDN 에 미리 연결해 둔다 (DNS·TLS 를 첫 요청 전에) -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다(그 전엔 시스템 서체) — 느린 4G 에서 투어 첫 화면이 이 CSS 를 기다렸다 (10-12 점검). intro.html 과 같은 주소 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
 <link rel="stylesheet" href="css/app.css?v=ql17">
 <!-- #/graph 3D 무대 전용. 데모 경로 밖 화면이라 app.css 를 안 건드리고 따로 둔다 -->
 <link rel="stylesheet" href="css/graph3d.css?v=qku3">
@@ -45,7 +47,20 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
     syncArtboard();
     window.addEventListener('resize', syncArtboard, { passive: true });
   })();
+  /* #/tour(부스 QR 체험)로 들어오면 앱 셸(「새 발표 연습」 탑바)을 그리지 않고 「체험을 준비하고 있어요…」 부터 — app.js · 투어 번들을
+     받는 동안(느린 4G 에서 2.5초) 앱 머리만 보이다가 방문객이 「새 발표 연습」 을 눌러 카메라 흐름으로 빠졌다 (10-12 점검).
+     투어 층이 뜨면(js/tour.js) · 투어 밖으로 가면(app.js route) 걷는다 */
+  if (/^#\/?tour(?:[/?]|$)/.test(location.hash)) document.documentElement.classList.add('tour-boot');
 </script>
+<style>
+  html.tour-boot .sidenav, html.tour-boot .topbar, html.tour-boot #app { display: none !important; }
+  html.tour-boot body { background: #FAFAF9; }
+  html.tour-boot body::after {
+    content: "체험을 준비하고 있어요…"; position: fixed; inset: 0; z-index: 59;
+    display: flex; align-items: center; justify-content: center;
+    color: #71717A; font: 500 15px/1.5 "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  }
+</style>
 </head>
 <body>
 
@@ -126,7 +141,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <link rel="stylesheet" href="css/tour.css?v=tr3" data-bundle="tour">
   <script src="js/funnel.js?v=fn2" data-bundle="tour"></script>
   <script src="js/tour_logic.js?v=tr2" data-bundle="tour"></script>
-  <script src="js/tour.js?v=tr3" data-bundle="tour"></script>
+  <script src="js/tour.js?v=tr4" data-bundle="tour"></script>
   <script src="js/tour_play.js?v=tr2" data-bundle="tour"></script>
   <!-- Motion(구 Motion One) IIFE. 부스 네트워크를 믿지 않으므로 CDN 이 아니라 로컬로 둔다 -->
   <script src="js/vendor/motion.min.js?v=qkh" data-bundle="motion"></script>
@@ -146,7 +161,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/qa_live.js?v=qlbc34"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv4"></script>
-<script src="js/app.js?v=qlbc70"></script>
+<script src="js/app.js?v=qlbc71"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkxbc14"></script>
 </body>

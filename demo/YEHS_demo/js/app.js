@@ -397,6 +397,8 @@ function route() {
   if (typeof boothQaOnRoute === 'function') boothQaOnRoute(key);
   // 투어 층(#tourStage)도 #app 밖이다 — 투어 밖으로 나가면 걷는다 (js/tour.js)
   if (typeof tourOnRoute === 'function') tourOnRoute(key);
+  // 투어로 들어올 때 index.html 이 앱 셸을 가려 둔 표시 — 투어 밖이면(번들을 받기 전에 나가도) 걷고, 한가할 때 받을 것을 받는다
+  if (key !== 'tour') { document.documentElement.classList.remove('tour-boot'); kickIdleBundles(); }
   // 부스 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 부스 처음 화면으로 (booth_qa.js boothQaGuard · 10-02)
   if (typeof boothQaGuard === 'function' && boothQaGuard(key)) return;
   // 리허설 탭도 같다 — #/qa 를 되살릴 수 없으면 리허설 자리로 (rehearsal.js rehearsalGuard)
@@ -946,6 +948,14 @@ const TEAM_TOOLS = [
    키는 call_flow.js CALL_FLOW_KEY · vision_rehearsal.js VISION_FLOW_KEY · booth_qa.js BOOTH_QA_KEY · rehearsal.js REHEARSAL_FLOW_KEY 와 같아야 한다
    (tests/js/lazy.smoke.mjs 가 대조한다). */
 const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], rehearsal: ['beta'], tour: ['tour'] };
+/* 한가할 때 받는 모션 · pdf.js — 투어(#/tour, 폰 · 느린 망) 동안은 받지 않는다: 투어 방문객에게 pdf.min.js 107KB · motion 47KB 를
+   먼저 받게 해 첫 화면이 늦었다 (10-12 점검). 투어 밖 화면에 처음 들어갈 때 한 번 건다 */
+let idleBundlesKicked = false;
+function kickIdleBundles() {
+  if (idleBundlesKicked || !window.ccLazy) return;
+  idleBundlesKicked = true;
+  ccLazy.whenIdle(['motion', 'pdf']);
+}
 const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa', 'cheokcheok:rehearsal-flow'];
 /* 끌 때 같이 지우는 이 탭의 베타 표시 — 팀 흐름 표시 셋 + 부스 무대 종류 + 마지막 팀 확인값. 리허설 표시는 공개 흐름이라 남긴다 */
 const BETA_TAB_KEYS = [...LAZY_FLOW_FLAGS.filter((k) => k !== RH_FLOW_FLAG), 'cheokcheok:booth-variant', 'cheokcheok:team-ok'];
@@ -10160,5 +10170,4 @@ async function startReplay(sessionId, title, btn) {
 /* ── 시작 ── */
 route();
 loadTeamFlag();
-// 첫 화면이 뜬 뒤 한가할 때 — 모션·pdf.js (js/lazy.js). 받기 전에 쓰는 곳은 둘 다 없는 채로도 돈다
-if (window.ccLazy) ccLazy.whenIdle(['motion', 'pdf']);
+// 첫 화면이 뜬 뒤 한가할 때 — 모션·pdf.js (js/lazy.js). 받기 전에 쓰는 곳은 둘 다 없는 채로도 돈다. 투어면 route() 가 미룬다(kickIdleBundles)
