@@ -97,6 +97,67 @@ check('단계 목록이 서버(demo/tour_events.py STEPS)와 같다', () => {
   eq(f.STEPS, server);
 });
 
+// perf-security-copy-r1-1 — 응답 전에 markSent 를 해서 429 로 떨어진 단계를 그 탭에서 다시 안 보냈다
+const asyncChecks = [];
+function checkAsync(name, fn) { asyncChecks.push([name, fn]); }
+const tick = () => new Promise((r) => setImmediate(r));
+
+function loadWith(responses) {
+  const calls = [];
+  const timers = [];
+  const window = {};
+  Object.defineProperty(window, 'sessionStorage', { get() { return storage; } });
+  const storage = memoryStorage();
+  const ctx = {
+    window, JSON, Math, Number, String, Promise, Date: { now: () => 1_000_000 },
+    setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    fetch: (url, init) => {
+      calls.push(JSON.parse(init.body));
+      const r = responses.shift() || { ok: true, status: 204 };
+      return r === 'reject' ? Promise.reject(new Error('offline')) : Promise.resolve(r);
+    },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(SRC, ctx);
+  return { f: window.ccFunnel, calls, timers };
+}
+const res429 = (sec) => ({ ok: false, status: 429, headers: { get: (k) => (k.toLowerCase() === 'retry-after' ? String(sec) : null) } });
+
+checkAsync('429 면 Retry-After 뒤에 한 번 더 보낸다', async () => {
+  const { f, calls, timers } = loadWith([res429(3)]);
+  f('hi');
+  await tick();
+  eq(timers.map((t) => t.ms), [3000], 'Retry-After 초만큼 기다린다');
+  timers[0].fn();
+  await tick();
+  eq(calls.map((c) => c.step), ['hi', 'hi']);
+  eq(f('hi'), false, '두 번째가 닿았으니 다시 안 보낸다');
+});
+
+checkAsync('다시 보내도 429 거나 망이 끊기면 보낸 표시를 지운다 — 다음에 그 단계를 부르면 다시 간다', async () => {
+  const a = loadWith([res429(2), res429(2)]);
+  a.f('team');
+  await tick(); a.timers[0].fn(); await tick();
+  eq(a.timers.length, 1, '다시 보내기는 한 번뿐');
+  eq(a.f('team'), true);
+  const b = loadWith(['reject']);
+  b.f('intro');
+  await tick();
+  eq(b.f('intro'), true, '망 실패 뒤에는 다시 보낸다');
+  const c = loadWith([{ ok: false, status: 400 }]);
+  c.f('intro');
+  await tick();
+  eq(c.f('intro'), false, '400(본문이 틀림)은 다시 보내도 같으니 지우지 않는다');
+});
+
+checkAsync('Retry-After 가 너무 길면(60초 넘게) 기다리지 않고 표시만 지운다', async () => {
+  const { f, timers } = loadWith([res429(300)]);
+  f('hi');
+  await tick();
+  eq(timers.length, 0);
+  eq(f('hi'), true);
+});
+
 // 하네스 자기 검사 — 한 번만 보내는 규칙을 깨뜨린 사본은 잡혀야 한다
 check('하네스가 회귀를 잡는다 (중복 보내기 사본)', () => {
   const broken = SRC.replace('if (alreadySent(key)) return false;', '');
@@ -107,6 +168,10 @@ check('하네스가 회귀를 잡는다 (중복 보내기 사본)', () => {
   window.ccFunnel('hi'); window.ccFunnel('hi');
   if (calls.length !== 2) throw new Error('사본이 원본처럼 동작한다 — 하네스가 아무것도 못 잡는다');
 });
+
+for (const [name, fn] of asyncChecks) {
+  try { await fn(); console.log(`ok   ${name}`); } catch (e) { failed++; console.log(`FAIL ${name}\n     ${e.message}`); }
+}
 
 if (failed) { console.log(`\n${failed} 실패`); process.exit(1); }
 console.log('\nfunnel.smoke 통과');

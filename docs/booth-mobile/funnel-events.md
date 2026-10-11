@@ -29,7 +29,8 @@ Content-Type: application/json
 
 - 다른 열쇠가 하나라도 있으면 400. 본문 512바이트 넘으면 413. `Content-Type: application/json` 아니면 415.
 - 성공 **204**(본문 없음). 틀린 본문 400 `{"error":"bad_event","reason":"bad_step|bad_deck|bad_t|bad_keys|bad_json|bad_body"}`.
-- 상한을 넘으면 429 `{"scope":"tour_ip"|"tour_global","retry_after":n}` + `Retry-After`. 화면은 무시한다(신호는 덤).
+- 상한을 넘으면 429 `{"scope":"tour_ip"|"tour_global","retry_after":n}` + `Retry-After`. 화면(js/funnel.js)은 `Retry-After` 가 60초 이하면
+  그 뒤에 한 번 더 보내고, 그래도 안 되거나 망이 끊기면 「보냈다」 표시를 지워 다음에 그 단계를 부를 때 다시 보낸다(10-12).
 - 공개 — 팀 쿠키 불필요. 과금 관문(점검 깃발·분당 상한·동시 칸·시간당 천장)을 **안 거친다** (외부 호출 0).
 
 ## 단계 (`step`) — 화면 차례
@@ -80,7 +81,14 @@ window.ccFunnel && window.ccFunnel('tour_deck', { deck: tour.id });
 | 칸 | 기본 | 환경변수 |
 |---|---|---|
 | IP(칸)당 분당 | 600 | `DEMO_TOUR_EVENT_RPM` |
-| 서버 전체 분당 | 6000 | `DEMO_TOUR_EVENT_GLOBAL_RPM` |
+| 서버 전체 분당 — (IP 칸, 단계) 첫 신호 | 3000 | `DEMO_TOUR_EVENT_FIRST_RPM` |
+| 서버 전체 분당 — 같은 쌍의 반복 | 3000 | `DEMO_TOUR_EVENT_GLOBAL_RPM` |
+
+- 전체 칸을 둘로 나눈 까닭(10-12 점검): 한 칸(6000)이었을 때 IP 11개가 같은 단계를 560번씩 되풀이하면 3초 만에 전체 상한이 차서
+  1분 내내 **진짜 방문객의 신호가 모두 429** 였다. 이제 반복이 반복 칸을 채워도 새 방문객의 첫 신호는 첫 신호 칸으로 들어온다.
+  첫 신호 칸이 차면 반복 칸으로 넘어간다. 로그 줄 상한은 두 칸의 합(분당 6000)이다.
+- 남은 길: `DEMO_EDGE_SECRET` 이 꺼져 있으면 도메인 경로(via=cf)로 CF-Connecting-IP 를 바꿔 가며 첫 신호만 쏟을 수 있다 —
+  **결선 전에 `DEMO_EDGE_SECRET` 을 켠다** (DEPLOY.md).
 
 - 투어 한 바퀴가 신호 11~13개 — 행사장 와이파이(NAT) 하나 뒤의 폰 50대가 같은 1분에 돌아도(550개) IP 칸에 안 걸린다.
   어차피 집계는 IP 단위라, 같은 IP 뒤 방문자는 표에서 1로 센다(IP ≠ 사람).

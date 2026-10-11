@@ -9,7 +9,11 @@ API 를 하나도 안 부르고, 화면 파일은 Cloudflare 캐시라 원본 �
 막는 것 (공개 · 로그인 없음 · 팀 쿠키 불필요)
 - 본문: 512바이트 이하 JSON 객체, 열쇠는 step · deck · t 만. step 은 허용 목록, deck 은 투어 id 모양, t 는 0~86400 초.
   값이 모두 허용 목록·정규식을 통과해야 로그에 쓴다 → 줄바꿈·따옴표로 로그 줄을 꾸미는 길(log injection)이 없다.
-- 속도: IP(칸)당 분당 TOUR_EVENT_RPM · 서버 전체 분당 TOUR_EVENT_GLOBAL_RPM. 넘으면 429 를 주되 로그는 10초에 한 줄.
+- 속도: IP(칸)당 분당 TOUR_EVENT_RPM · 서버 전체 분당 두 칸. 넘으면 429 를 주되 로그는 10초에 한 줄.
+  전체 칸은 둘로 나눈다(10-12 점검 perf-security-copy-r1-1): (IP 칸, 단계) 의 **첫 신호**는 TOUR_EVENT_FIRST_RPM 칸,
+  같은 쌍의 **반복**은 TOUR_EVENT_GLOBAL_RPM 칸. 한 칸이었을 때는 IP 11개가 같은 단계를 560번씩 되풀이해 전체 상한을
+  1분 내내 채우면 진짜 방문객 신호가 모두 429 로 버려졌다(퍼널 측정이 통째로 빈다). 첫 신호 칸이 차면 반복 칸으로 넘어간다.
+  CF-Connecting-IP 를 바꿔 가며 첫 신호만 쏟는 길(DEMO_EDGE_SECRET 꺼짐)은 두 칸의 합에서 멈춘다 — 결선 전에 EDGE_SECRET 을 켠다.
   IP 는 bridge `_client_key`(= shield.resolve_client) 로 센다 — CF-Connecting-IP 를 바꿔 보내도 칸이 안 갈린다(10/5 구멍).
   사람으로 셀 수 없는 칸(Cloudflare 서버·설비 IP)은 IP 칸 대신 전체 칸만 센다 — 섞인 칸을 막으면 그 뒤 방문자가 다 막힌다.
 - 감옥(Jail)에는 넣지 않는다 — 행사장 와이파이 하나 뒤의 폰 수십 대가 같은 IP 다. 홍수는 방패 첫 줄(FLOOD)이 이미 센다.
@@ -64,8 +68,11 @@ def _env_int(name: str, default: int) -> int:
 #: IP(칸)당 분당 신호 수. 한 사람의 투어 한 바퀴가 신호 11~13개 — 행사장 와이파이(NAT) 하나 뒤에서 폰 50대가 같은 1분에 돌아도
 #: (labs/booth_load --same-ip: 550개) 안 걸린다. 한 IP 가 꽉 채워도 로그는 초당 10줄이다.
 TOUR_EVENT_RPM = _env_int("DEMO_TOUR_EVENT_RPM", 600)
-#: 서버 전체 분당 신호 수 — 봇넷이 IP 를 바꿔 가며 보내도 로그가 분당 이 줄 수를 못 넘는다. 부스 최고(10/7 10분에 13명)의 수백 배.
-TOUR_EVENT_GLOBAL_RPM = _env_int("DEMO_TOUR_EVENT_GLOBAL_RPM", 6000)
+#: 서버 전체 분당 **반복** 신호 수 — 같은 (IP 칸, 단계) 를 되풀이한 신호. 행사장 NAT 하나 뒤 폰 50대가 같은 1분에 돌아도 540개 남짓.
+TOUR_EVENT_GLOBAL_RPM = _env_int("DEMO_TOUR_EVENT_GLOBAL_RPM", 3000)
+#: 서버 전체 분당 **첫** 신호 수 — (IP 칸, 단계) 마다 창 안 첫 번째. 한 사람 한 바퀴가 11~13개라 분당 새 방문자 230명분.
+#: 두 칸의 합(6000)이 로그 줄 상한이다 — 봇넷이 IP 를 바꿔 가며 보내도 분당 이 줄 수를 못 넘는다. 부스 최고(10/7 10분에 13명)의 수백 배.
+TOUR_EVENT_FIRST_RPM = _env_int("DEMO_TOUR_EVENT_FIRST_RPM", 3000)
 
 
 class TourEventError(ValueError):
@@ -109,17 +116,26 @@ def log_fields(ev: dict) -> str:
 
 
 class TourEventLimiter:
-    """IP(칸)당 · 전체 분당 상한 두 층. 둘 다 demo.rate_limit.RateLimiter(오래된 키를 지운다)."""
+    """IP(칸)당 · 전체 분당 상한. 전체는 첫 신호 칸과 반복 칸 둘. 모두 demo.rate_limit.RateLimiter(오래된 키를 지운다)."""
 
     def __init__(self, *, per_ip: int = TOUR_EVENT_RPM, global_limit: int = TOUR_EVENT_GLOBAL_RPM,
-                 window_sec: float = 60.0, clock=time.monotonic) -> None:
+                 first_limit: int = TOUR_EVENT_FIRST_RPM, window_sec: float = 60.0, clock=time.monotonic) -> None:
         self.per_ip = RateLimiter(limit=per_ip, window_sec=window_sec, clock=clock, max_keys=50_000)
         self.total = RateLimiter(limit=global_limit, window_sec=window_sec, clock=clock, max_keys=4)
+        self.first_total = RateLimiter(limit=first_limit, window_sec=window_sec, clock=clock, max_keys=4)
+        #: (IP 칸, 단계) 를 이 창에서 봤는가 — limit=1 이라 처음 한 번만 allow 가 참이다. 키 상한은 IP 칸 × 단계 13개
+        self.seen = RateLimiter(limit=1, window_sec=window_sec, clock=clock, max_keys=50_000 * 4)
 
-    def allow(self, bucket: str | None) -> tuple[bool, str, int]:
-        """(통과?, 막힌 층 'ip'|'global'|'', 다시 시도까지 초). bucket=None 이면 IP 층을 건너뛴다(섞인 칸)."""
+    def allow(self, bucket: str | None, step: str | None = None) -> tuple[bool, str, int]:
+        """(통과?, 막힌 층 'ip'|'global'|'', 다시 시도까지 초).
+
+        bucket=None 이면 IP 층을 건너뛰고(섞인 칸) 반복 칸만 센다. step 이 없으면(본문이 틀림) 반복으로 센다.
+        """
         if bucket is not None and not self.per_ip.allow(bucket):
             return False, "ip", self.per_ip.retry_after(bucket)
+        if bucket is not None and step and self.seen.allow(f"{bucket}\x00{step}"):
+            if self.first_total.allow("all"):
+                return True, "", 0
         if not self.total.allow("all"):
             if bucket is not None:
                 self.per_ip.refund(bucket)

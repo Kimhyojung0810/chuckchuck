@@ -2316,7 +2316,12 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         # 사람으로 셀 수 없는 칸(Cloudflare 서버·설비)과 팀·VM 안 요청은 IP 칸을 건너뛰고 전체 칸만 센다.
         trusted = bool(getattr(_REQ, "trusted", False))
         bucket = shield.ip_bucket(self._client_key()) if (not trusted and self._counted()) else None
-        ok, scope, wait = tour_events.LIMITER.allow(bucket)
+        # 본문은 먼저 읽기만 한다 — 단계를 알아야 (IP 칸, 단계) 첫 신호인지 가른다(perf-security-copy-r1-1). 틀려도 상한은 먼저 센다
+        try:
+            ev, bad = tour_events.parse_event(raw), None
+        except tour_events.TourEventError as e:
+            ev, bad = None, e
+        ok, scope, wait = tour_events.LIMITER.allow(bucket, ev["step"] if ev else None)
         if not ok:
             EVENTS.add("tour_429")
             SHIELD_LOG.write("tour", f"퍼널 신호 상한({scope}) — {bucket or '전체'}")
@@ -2324,11 +2329,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             self._add_header("Retry-After", str(max(1, wait)))
             return self._json(429, {"error": "rate_limited", "rate_limited": True, "scope": "tour_" + scope,
                                     "retry_after": max(1, wait)})
-        # 상한을 본문 검사보다 먼저 센다 — 틀린 본문을 쏟아부어 400 접근 로그로 디스크를 채우는 길도 같은 상한에 걸린다
-        try:
-            ev = tour_events.parse_event(raw)
-        except tour_events.TourEventError as e:
-            return self._json(400, {"error": "bad_event", "reason": e.code})
+        # 상한을 400 보다 먼저 센다 — 틀린 본문을 쏟아부어 400 접근 로그로 디스크를 채우는 길도 같은 상한에 걸린다
+        if bad is not None:
+            return self._json(400, {"error": "bad_event", "reason": bad.code})
         self.log_message("%s", tour_events.log_fields(ev))
         EVENTS.add("tour_ok")  # /api/v1/ops/shield 의 recent_5min 에서 부스 신호가 들어오는지 바로 본다
         self._quiet = True

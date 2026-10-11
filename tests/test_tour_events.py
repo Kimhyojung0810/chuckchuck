@@ -190,6 +190,42 @@ def test_전체_칸에_막히면_IP_칸을_되돌린다():
     assert lim.allow("a")[0] is True
 
 
+def test_반복_신호가_전체_칸을_채워도_새_방문자의_첫_신호는_받는다():
+    """perf-security-copy-r1-1 — IP 11개가 같은 단계를 되풀이해 전체 상한을 1분 내내 채우자 진짜 방문객 신호가 다 429 였다.
+    (IP 칸, 단계) 의 첫 신호는 반복과 다른 칸(first)에서 센다. 반복은 전체 칸에서만."""
+    clock = Clock()
+    lim = tour_events.TourEventLimiter(per_ip=100, global_limit=5, first_limit=50, clock=clock)
+    attackers = [f"45.33.{i}.7" for i in range(3)]
+    results = [lim.allow(ip, "tour_deck")[0] for _ in range(10) for ip in attackers]
+    assert results.count(True) == 3 + 5          # 첫 신호 셋(first 칸) + 반복 다섯(전체 칸)
+    assert lim.allow("52.79.10.20", "hi") == (True, "", 0)          # 새 방문자 첫 단계
+    assert lim.allow("52.79.10.20", "tour_deck") == (True, "", 0)   # 같은 방문자의 다음 단계도 첫 신호
+    assert lim.allow("52.79.10.20", "hi")[:2] == (False, "global")  # 같은 단계를 되풀이하면 반복이라 막힌다
+    assert lim.per_ip.count("52.79.10.20") == 2                     # 막힌 한 번은 IP 칸에서 빠졌다
+
+
+def test_첫_신호_칸도_상한이_있다():
+    """CF-Connecting-IP 를 바꿔 가며(DEMO_EDGE_SECRET 꺼짐) 첫 신호만 쏟아도 로그 줄은 first + 전체 상한을 못 넘는다."""
+    clock = Clock()
+    lim = tour_events.TourEventLimiter(per_ip=100, global_limit=2, first_limit=4, clock=clock)
+    ok = [lim.allow(f"10.0.{i}.1", "hi")[0] for i in range(10)]
+    assert ok.count(True) == 4 + 2               # first 칸 4 가 차면 전체 칸으로 넘어가 2 더
+    assert lim.allow("10.9.9.9", "hi")[:2] == (False, "global")
+    clock.t += 61
+    assert lim.allow("10.9.9.9", "hi")[0] is True
+
+
+def test_반복_신호_폭주_중에도_새_방문자의_첫_신호는_204(tour, monkeypatch):
+    monkeypatch.setattr(tour_events, "LIMITER", tour_events.TourEventLimiter(per_ip=100, global_limit=6, first_limit=50, clock=tour))
+    codes = [_send({"step": "tour_deck"}, via_cf(f"45.33.{i}.7")).status or 0 for _ in range(6) for i in range(3)]
+    assert codes.count(204) == 3 + 6
+    h = _send({"step": "tour_deck"}, via_cf("45.33.0.7"))
+    assert h.last[0] == 429 and h.last[1]["scope"] == "tour_global"
+    assert _send({"step": "hi"}, via_cf("52.79.10.20")).status == 204
+    # 틀린 본문도 여전히 상한에 먼저 걸린다 — 400 접근 로그로 디스크를 채우는 길이 없다
+    assert _send({"step": "nope"}, via_cf("45.33.1.7")).last[0] == 429
+
+
 def test_차단_목록_IP_는_신호도_못_보낸다(tour, monkeypatch, tmp_path):
     f = tmp_path / "blocklist.txt"
     f.write_text(f"{VISITOR}\n")

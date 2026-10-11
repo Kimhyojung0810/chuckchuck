@@ -129,7 +129,7 @@ VM 에서 머리글 (2~3초 걸린다):
 |---|---|
 | 배포 뒤 화면이 깨졌다 | `! git -C /home/yehschuck/project/chuckchuck reset --hard $(cat /tmp/main_before_booth) && sudo systemctl restart chuckchuck-bridge` (main 을 배포 전 자리로 — 그 사이 main 에 다른 커밋이 없을 때만) → Cloudflare Purge Everything |
 | 팀원 폰에 옛 투어·팀 카드가 보인다 | 0절 Browser Cache TTL 확인 → 그 주소 Custom Purge → 폰에서 새 탭 |
-| 신호 줄이 너무 많다(봇) | `/api/v1/ops/shield` 에서 IP 확인 → `var/blocklist.txt` 에 한 줄(2초 안에 반영). 전체 상한은 drop-in `DEMO_TOUR_EVENT_GLOBAL_RPM` |
+| 신호 줄이 너무 많다(봇) | `/api/v1/ops/shield` 에서 IP 확인 → `var/blocklist.txt` 에 한 줄(2초 안에 반영). 전체 상한은 drop-in `DEMO_TOUR_EVENT_GLOBAL_RPM`(반복) · `DEMO_TOUR_EVENT_FIRST_RPM`(첫 신호). IP 를 바꿔 가며 오면 `DEMO_EDGE_SECRET` 이 켜져 있는지부터 (funnel-events.md §상한) |
 | 표에 /hi 만 있고 다음 단계가 0 | 화면이 `ccFunnel()` 을 안 부르거나 `js/funnel.js` 를 안 실었다 — 폰 브라우저 콘솔 또는 `grep -n ccFunnel demo/YEHS_demo/js/*.js` |
 | 공격·폭주 | DEPLOYMENT.md §10-6 「비상 시 순서」 그대로 (Under Attack → `var/lockdown` → 차단 목록). 투어는 과금이 없어 점검 깃발을 켜도 계속 돈다 |
 
