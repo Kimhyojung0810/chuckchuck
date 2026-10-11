@@ -254,8 +254,99 @@ def run_device(browser, base: str, width: int, ua_kind: str, deck: str, out: Pat
     return rep
 
 
+#: 팀 카드 칸 길이 내성 — 팀원이 직접 채울 칸이라 띄어쓰기 없는 긴 영문 덩어리(파일 이름 · 기술 나열)가 들어올 수 있다 (10-12 점검)
+LONG_TOKENS = {
+    "did": "MediaPipe·OpenCV·WebRTC·Whisper로 영상 분석",
+    "headline": "vision_rehearsal.js·booth_overlay_state.js 정리",
+    "name": "SuperLongEnglishTokenWithoutAnySpacesAtAllAnywhere",
+}
+
+CARD_JS = """() => { const W = innerWidth; const dock = document.querySelector('.dock');
+  const dt = dock ? dock.getBoundingClientRect().top : innerHeight;
+  return Array.from(document.querySelectorAll('.card[data-id]')).map((c) => {
+    const r = c.getBoundingClientRect();
+    const clipped = Array.from(c.querySelectorAll('*')).some((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === 'visible' && e.getBoundingClientRect().right > r.right + 1);
+    const cnt = c.querySelector('.card-count'); const cr = cnt ? cnt.getBoundingClientRect() : null;
+    return { id: c.dataset.id, w: Math.round(r.width), h: Math.round(r.height), vw: W, vh: innerHeight, clipped,
+             active: c.hasAttribute('data-active'), count_bottom: cr ? Math.round(cr.bottom) : null, dock_top: Math.round(dt) };
+  }); }"""
+
+
+def run_stress(browser, base: str, width: int, out: Path) -> dict:
+    """줄을 벗어난 데이터 · 끊긴 망에서 버티는가 — 팀 카드 긴 덩어리 · 장 그림을 못 받을 때 대체 화면."""
+    h, dpr, plat = DEVICES[width]
+    ctx = browser.new_context(viewport={"width": width, "height": h}, device_scale_factor=dpr, is_mobile=True,
+                              has_touch=True, user_agent=UA_BASE[plat], locale="ko-KR")
+    page = ctx.new_page()
+    d = out / f"stress_{width}"
+    d.mkdir(parents=True, exist_ok=True)
+    res: dict = {}
+    try:
+        team = json.loads((HERE.parents[1] / "demo" / "YEHS_demo" / "data" / "team.json").read_text(encoding="utf-8"))
+        normal = len(team["members"])
+        team["members"][0]["did"] = [LONG_TOKENS["did"], *team["members"][0]["did"][1:]]
+        team["members"][1]["headline"] = LONG_TOKENS["headline"]
+        team["members"][min(2, normal - 1)]["name"] = LONG_TOKENS["name"]
+        body = json.dumps(team, ensure_ascii=False)
+        page.route("**/data/team.json", lambda r: r.fulfill(status=200, content_type="application/json", body=body))
+        page.goto(f"{base}/hi", wait_until="networkidle")
+        page.evaluate("document.getElementById('team').scrollIntoView({block:'start'})")
+        page.wait_for_selector(".card[data-active]", timeout=10000)
+        res["cards_long"] = page.evaluate(CARD_JS)
+        page.screenshot(path=str(d / "01_team_long.png"))
+        page.unroute("**/data/team.json")
+        # 낮은 화면에서 짧은 카드의 「n / 5」 가 아래 고정 버튼 뒤에 숨는가 — 둘째 카드(짧은 카드)로 넘겨서 본다
+        page.goto(f"{base}/hi", wait_until="networkidle")
+        page.evaluate("document.getElementById('team').scrollIntoView({block:'start'})")
+        page.wait_for_selector(".card[data-active]", timeout=10000)
+        page.locator("#team-next").tap()
+        page.wait_for_timeout(600)
+        page.evaluate("document.getElementById('team').scrollIntoView({block:'start', behavior:'instant'})")
+        page.wait_for_timeout(300)
+        res["cards_plain"] = page.evaluate(CARD_JS)
+        page.screenshot(path=str(d / "02_team_second.png"))
+        # 장 그림 · 표지를 못 받으면 — 깨진 그림 아이콘 대신 장 제목 카드
+        page.route("**/assets/deck-slides/**", lambda r: r.abort())
+        page.route("**/assets/deck-covers/**", lambda r: r.abort())
+        broken_js = """() => Array.from(document.querySelectorAll('#tourStage img')).filter((i) => {
+            const r = i.getBoundingClientRect(); return r.width > 0 && getComputedStyle(i).visibility !== 'hidden' && i.complete && !i.naturalWidth; }).length"""
+        res["img_fail"] = {}
+        for name in ("deck", "present", "qa"):
+            page.goto(f"{base}/index.html#/tour/{name}", wait_until="load")
+            page.wait_for_selector(f"#tourStage[data-screen='{name}']", timeout=15000)
+            page.wait_for_timeout(1200)
+            res["img_fail"][name] = {"broken_visible": page.evaluate(broken_js),
+                                     "fallback": page.locator("#tourStage .tour-img-fallback").count()}
+            page.screenshot(path=str(d / f"1{len(res['img_fail'])}_imgfail_{name}.png"))
+    except Exception as e:   # noqa: BLE001
+        res["error"] = f"{type(e).__name__}: {e}"[:300]
+    ctx.close()
+    return res
+
+
+def stress_problems(res: dict) -> list[str]:
+    out: list[str] = []
+    if res.get("error"):
+        out.append(f"버팀 검사 멈춤: {res['error']}")
+    cards = res.get("cards_long") or []
+    if cards:
+        base_w = min(c["w"] for c in cards)
+        for c in cards:
+            if c["w"] > base_w + 1 or c["clipped"]:
+                out.append(f"팀 카드 {c['id']}: 긴 덩어리로 카드가 넓어지거나 잘림 (폭 {c['w']} · 보통 {base_w} · 화면 {c['vw']})")
+    for c in res.get("cards_plain") or []:
+        # 화면 안에 들어왔는데(아래 끝이 창 높이 안) 고정 버튼 띠와 겹치면 가려진 것이다
+        if c["active"] and c["count_bottom"] is not None and c["dock_top"] < c["count_bottom"] <= c["vh"]:
+            out.append(f"팀 카드 {c['id']}: 「n / N」 이 아래 고정 버튼 뒤에 가려짐 ({c['count_bottom']} > {c['dock_top']})")
+    for name, v in (res.get("img_fail") or {}).items():
+        if v["broken_visible"] or not v["fallback"]:
+            out.append(f"그림 못 받은 {name}: 깨진 그림 {v['broken_visible']}개 · 대체 카드 {v['fallback']}개")
+    return out
+
+
 def problems(rep: dict) -> list[str]:
     out: list[str] = []
+    out += stress_problems(rep.get("stress") or {})
     if rep.get("error"):
         out.append(f"멈춤: {rep['error']}")
     for tag, s in rep["steps"].items():
@@ -292,6 +383,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ua", default="", choices=["", *INAPP_SUFFIX], help="인앱 브라우저 UA (기본: 폭마다 안드로이드 크롬 · iOS 사파리)")
     ap.add_argument("--deck", default="", help="자료 화면에서 고를 투어 id (기본: index.json 의 default)")
     ap.add_argument("--full", action="store_true", help="모든 화면의 본문 전체 높이 사진도 찍는다")
+    ap.add_argument("--no-stress", action="store_true", help="버팀 검사(긴 팀 카드 · 그림 못 받기)를 건너뛴다")
     args = ap.parse_args(argv)
 
     from playwright.sync_api import sync_playwright
@@ -307,6 +399,8 @@ def main(argv: list[str] | None = None) -> int:
         browser = p.chromium.launch(env=env)
         for w in [int(x) for x in args.widths.split(",") if x]:
             report["devices"][str(w)] = run_device(browser, base, w, args.ua, args.deck, out, args.full)
+            if not args.no_stress:
+                report["devices"][str(w)]["stress"] = run_stress(browser, base, w, out)
         browser.close()
     for rep in report["devices"].values():
         rep["problems"] = problems(rep)
