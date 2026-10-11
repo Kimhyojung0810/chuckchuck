@@ -22,7 +22,8 @@ WEB = ROOT / "demo" / "YEHS_demo"
 APP_JS = (WEB / "js" / "app.js").read_text(encoding="utf-8")
 INDEX = (WEB / "index.html").read_text(encoding="utf-8")
 
-TOUR_FILES = ["js/tour_logic.js", "js/tour.js", "js/tour_play.js", "css/tour.css"]
+# js/funnel.js — 퍼널 신호 ccFunnel (ops/booth-qr-1011). 투어 셸이 단계마다 부른다 (10-12 통합)
+TOUR_FILES = ["js/funnel.js", "js/tour_logic.js", "js/tour.js", "js/tour_play.js", "css/tour.css"]
 
 
 @pytest.mark.parametrize("path, expect", [
@@ -62,5 +63,5 @@ def test_투어_번들을_받는다():
     listed = re.findall(r'(?:src|href)="([^"?]+)\?v=[^"]*" data-bundle="tour"', tpl)
     assert sorted(listed) == sorted(TOUR_FILES), f"tour 번들 파일이 달라요: {listed}"
     scripts = [x for x in listed if x.endswith(".js")]
-    # 적은 차례대로 실행된다(lazy.js async=false) — 셸은 TourLogic 을, 화면은 셸의 TourScreens 를 쓴다
-    assert scripts == ["js/tour_logic.js", "js/tour.js", "js/tour_play.js"], scripts
+    # 적은 차례대로 실행된다(lazy.js async=false) — 셸은 TourLogic · ccFunnel 을, 화면은 셸의 TourScreens 를 쓴다
+    assert scripts == ["js/funnel.js", "js/tour_logic.js", "js/tour.js", "js/tour_play.js"], scripts

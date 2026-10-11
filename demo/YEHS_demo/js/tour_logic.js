@@ -273,6 +273,15 @@
   }
 
   /** 퍼널 신호 한 건 — {step, deck, t}. t 는 이 방문자가 투어를 시작한 뒤 지난 초(정수) */
+  /**
+   * 투어 화면 → 퍼널 신호 이름 (docs/booth-mobile/funnel-events.md, demo/tour_events.py STEPS).
+   * 시작 안내(intro)는 /hi 의 「소개 카드」(intro) 와 이름이 겹쳐 세지 않고, 끝(done)은 리포트까지 본 것과 같아 따로 안 센다.
+   */
+  const FUNNEL_STEP = { deck: 'tour_deck', present: 'tour_present', analysis: 'tour_analysis', qa: 'tour_qa', report: 'tour_report' };
+  function funnelStep(screen) {
+    return Object.prototype.hasOwnProperty.call(FUNNEL_STEP, screen) ? FUNNEL_STEP[screen] : '';
+  }
+
   function eventPayload(step, deck, startedAt, now) {
     const t = startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : 0;
     return { step: String(step), deck: String(deck || ''), t };
@@ -283,7 +292,7 @@
     parseTourHash, tourHash, stepIndex, prevScreen,
     tourProblem, indexIds, slideAt, slideStart, captionAt, chipAt, stepSlide,
     durationText, clock, graphRows, graphCounts, paceGauge,
-    inAppKind, platformOf, externalOpenUrl, eventPayload, refText,
+    inAppKind, platformOf, externalOpenUrl, eventPayload, funnelStep, refText,
   };
   root.TourLogic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

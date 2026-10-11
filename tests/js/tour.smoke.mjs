@@ -163,6 +163,24 @@ function suite(T) {
     eq(T.eventPayload('qa', '_example', 1000, 61_400), { step: 'qa', deck: '_example', t: 60 });
     eq(T.eventPayload('deck', '', 0, 5000).t, 0);
   });
+  t('퍼널 이름: 투어 화면 → 계약 이름(tour_*) — 서버 허용 목록(demo/tour_events.py STEPS) 밖 이름은 400 이라 안 세어진다', (T) => {
+    eq(T.funnelStep('deck'), 'tour_deck');
+    eq(T.funnelStep('present'), 'tour_present');
+    eq(T.funnelStep('analysis'), 'tour_analysis');
+    eq(T.funnelStep('qa'), 'tour_qa');
+    eq(T.funnelStep('report'), 'tour_report');
+    eq(T.funnelStep('intro'), '', '시작 안내는 /hi 의 intro 와 겹치지 않게 안 센다');
+    eq(T.funnelStep('done'), '');
+    eq(T.funnelStep('toString'), '', '객체 원형 이름이 새지 않는다');
+    const py = readFileSync(path.join(ROOT, 'demo/tour_events.py'), 'utf8');
+    const block = py.slice(py.indexOf('STEPS: tuple'), py.indexOf('STEP_SET'));
+    const server = [...block.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
+    ok(server.length >= 10, `서버 STEPS 를 못 읽었어요: ${server}`);
+    for (const sc of T.SCREENS) {
+      const st = T.funnelStep(sc);
+      ok(!st || server.includes(st), `${sc} → ${st} 가 서버 STEPS 에 없어요`);
+    }
+  });
   return out;
 }
 

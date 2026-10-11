@@ -8,6 +8,20 @@
 (() => {
   'use strict';
 
+  // ── 부스 퍼널 신호 (js/funnel.js · docs/booth-mobile/funnel-events.md) — 없거나 실패해도 화면은 그대로 ──
+  function funnel(step) {
+    try { if (typeof window.ccFunnel === 'function') window.ccFunnel(step); } catch (_) { /* 신호는 덤 */ }
+  }
+  /** 그 칸이 화면에 3할쯤 보였을 때 한 번. IntersectionObserver 가 없는 옛 브라우저면 바로 */
+  function whenSeen(node, fn) {
+    if (!node) return;
+    if (!('IntersectionObserver' in window)) { fn(); return; }
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) { io.disconnect(); fn(); }
+    }, { threshold: 0.3 });
+    io.observe(node);
+  }
+
   const TEAM_URL = '/data/team.json';
   const FETCH_TIMEOUT_MS = 8000;
   const ID_RE = /^[a-z0-9-]{1,24}$/;
@@ -172,6 +186,7 @@
       next.textContent = i === n - 1 ? '처음으로' : '다음 사람';
       next.setAttribute('aria-label', i === n - 1 ? `처음 사람 보기, ${members[0].name}` : `다음 사람 보기, ${members[i + 1].name}`);
       if (announce) status.textContent = `${n}명 중 ${i + 1}번째, ${members[i].name}`;
+      if (n > 1 && i === n - 1) funnel('team_end');
     }
 
     function go(i, announce) {
@@ -204,6 +219,7 @@
       if (to >= 0 && to < n) go(to, true);
     });
 
+    whenSeen(track, () => funnel('team'));
     mark(0, false);
     return { goTo: (id) => {
       const k = members.findIndex((m) => m.id === id);
@@ -297,6 +313,7 @@
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     };
     const open = (from) => {
+      funnel('inapp_notice');
       opener = from;
       hint.hidden = true;
       scrim.hidden = false;
@@ -327,6 +344,11 @@
   }
 
   // ── 시작 ────────────────────────────────────────────────────────────────
+  funnel('hi');
+  whenSeen($('what'), () => funnel('intro'));
+  const explore = $('explore-btn');
+  // 페이지가 #/tour 로 바뀌기 직전 — funnel.js 가 keepalive fetch 라 대개 간다
+  if (explore) explore.addEventListener('click', () => funnel('explore'));
   $('team-retry').addEventListener('click', loadTeam);
   loadTeam();
   if (INAPP) inappSheet();

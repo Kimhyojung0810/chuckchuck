@@ -19,8 +19,7 @@
   const L = window.TourLogic;
   const STATE_KEY = 'cheokcheok:tour';
   const DATA_DIR = 'data/tour/';
-  const EVENT_PATH = '/api/v1/tour/event';
-  const Screens = (window.TourScreens = window.TourScreens || {});
+    const Screens = (window.TourScreens = window.TourScreens || {});
 
   /* ── 작은 도구 ─────────────────────────────────────────────── */
 
@@ -104,19 +103,17 @@
 
   /* ── 퍼널 신호 ─────────────────────────────────────────────── */
 
-  /** 단계에 처음 들어올 때 한 번 — POST /api/v1/tour/event {step, deck, t}. 실패해도 화면은 그대로(sendBeacon) */
-  function signal(step, deck) {
-    const sent = state.sent || {};
-    if (sent[step]) return;
-    const started = state.started || Date.now();
-    save({ started, sent: Object.assign({}, sent, { [step]: 1 }) });
-    try {
-      const body = JSON.stringify(L.eventPayload(step, deck, started, Date.now()));
-      const url = `${window.CHUCKCHUCK_API_BASE || ''}${EVENT_PATH}`;
-      const blob = new Blob([body], { type: 'application/json' });
-      if (navigator.sendBeacon && navigator.sendBeacon(url, blob)) return;
-      fetch(url, { method: 'POST', body, headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(() => {});
-    } catch (_) { /* 신호는 덤이다 */ }
+  /**
+   * 퍼널 신호 — js/funnel.js 의 window.ccFunnel(step, {deck}) 로 보낸다 (POST /api/v1/tour/event, 계약 docs/booth-mobile/funnel-events.md).
+   * 화면 이름(deck·present…)은 계약 이름(tour_deck·tour_present…)으로 바꾼다. 같은 탭에서 같은 단계는 ccFunnel 이 한 번만 보낸다.
+   * funnel.js 가 안 왔으면(옛 캐시·차단) 조용히 넘긴다 — 신호는 덤이다.
+   */
+  function funnel(step, deck) {
+    try { if (step && typeof window.ccFunnel === 'function') window.ccFunnel(step, deck ? { deck } : undefined); } catch (_) { /* 신호는 덤 */ }
+  }
+  function signal(screen, deck) {
+    if (!state.started) save({ started: Date.now() });
+    funnel(L.funnelStep(screen), deck);
   }
 
   /* ── 층 · 띠 ───────────────────────────────────────────────── */
@@ -147,13 +144,15 @@
       <header class="tour-top">
         <button class="tour-icon" type="button" data-tour-back aria-label="뒤로 가기">${ICON.back}</button>
         <div class="tour-progress" data-tour-progress></div>
-        <a class="tour-icon" href="#/hi" data-tour-close aria-label="체험 닫고 팀 소개로 가기">${ICON.close}</a>
+        <a class="tour-icon" href="/hi" data-tour-close aria-label="체험 닫고 팀 소개로 가기">${ICON.close}</a>
       </header>
       <main class="tour-body" data-tour-body tabindex="-1"></main>
       <footer class="tour-foot" data-tour-foot></footer>
       <p class="tour-live" aria-live="polite" data-tour-live></p>`;
     document.body.appendChild(el);
     el.querySelector('[data-tour-back]').addEventListener('click', goBack);
+    // 「팀 소개로 돌아가기」(끝 화면 · 오류 화면) — 페이지가 /hi 로 바뀌기 직전이라 keepalive 로 간다
+    el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-back-team]')) funnel('back_team'); });
     return el;
   }
 
@@ -188,7 +187,7 @@
     if (history.state && history.state.tourIn) { history.back(); return; }
     const cur = L.parseTourHash(location.hash) || { screen: 'intro', q: 0 };
     const prev = L.prevScreen(cur.screen, cur.q);
-    if (!prev) { location.hash = '#/hi'; return; }
+    if (!prev) { location.href = '/hi'; return; }
     go(prev.screen, prev.q, { replace: true });
   }
 
@@ -222,7 +221,7 @@
           <p class="tour-cause">${esc(msg)}</p>
         </section>`,
       foot: `<button class="tour-cta" type="button" data-tour-retry>다시 불러오기</button>
-             <a class="tour-cta is-sub" href="#/hi">팀 소개로 돌아가기</a>`,
+             <a class="tour-cta is-sub" href="/hi" data-back-team>팀 소개로 돌아가기</a>`,
       mount(root) {
         root.querySelector('[data-tour-retry]').addEventListener('click', () => { loading = null; render(); });
       },
@@ -292,7 +291,9 @@
 
   function openRehearsal() {
     const ua = navigator.userAgent || '';
+    funnel('try_real');
     if (!L.inAppKind(ua)) { location.hash = '#/rehearsal'; return; }
+    funnel('inapp_notice');
     const url = `${location.origin}/rehearsal`;
     const ext = L.externalOpenUrl(url, ua);
     const ios = L.platformOf(ua) === 'ios';
@@ -455,7 +456,7 @@
       </section>`,
     foot: `<button class="tour-cta" type="button" data-real>내 자료로 직접 해 보기</button>
            <div class="tour-foot-row">
-             <a class="tour-cta is-sub" href="#/hi">팀 소개로 돌아가기</a>
+             <a class="tour-cta is-sub" href="/hi" data-back-team>팀 소개로 돌아가기</a>
              <button class="tour-cta is-sub" type="button" data-again>처음부터 다시</button>
            </div>`,
     mount(root) {

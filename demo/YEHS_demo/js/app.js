@@ -377,6 +377,12 @@ function route() {
   const key = parts[0];
   if (key !== 'new') dismissF11Reveal();
   const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
+  // #/hi · #/hi/<id> — 팀 소개는 앱 화면이 아니라 /hi 랜딩(intro.html, 브리지가 그 자리에서 준다)이다. 옛 링크·뒤로 가기로 와도 그쪽으로 (2026-10-12 부스 모바일 통합)
+  if (rawKey === 'hi') {
+    const id = (location.hash.match(/^#\/?hi\/([a-z0-9-]{1,24})\/?$/i) || [])[1];
+    location.replace(id ? `/hi/${id.toLowerCase()}` : '/hi');
+    return;
+  }
   // #/rehearsal/<화면> 으로 바로 오거나 새로 고치면 리허설 표시를 켠다 — 베타 번들(rehearsal.js)을 받고 그 화면을 흐름 배치로 그리려고.
   // 리허설은 공개 화면이다(bc611da) — 팀만 켜던 옛 조건 때문에 공개 방문자가 새 탭에서 #/rehearsal/new · qa · report 를 열면 일반 화면이 떴다 (10-08 점검)
   if (inRehearsalHash()) {
