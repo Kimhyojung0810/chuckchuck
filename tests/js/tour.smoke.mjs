@@ -186,6 +186,32 @@ function suite(T) {
 
 suite(T).forEach((c) => test(c.name, c.fn));
 
+// 뒤로 버튼 — layout-touch-a11y-r1-3 · flow-regression-inapp-r1-3 (10-12 점검)
+test('뒤로: 시작 안내에서 /hi 로 왔으면 브라우저 뒤로 — 기록을 하나 더 쌓지 않는다(뒤로 가기 고리)', () => {
+  eq(T.backAction({ screen: 'intro', q: 0, tourIn: false, fromHi: true }), { kind: 'history' });
+  eq(T.backAction({ screen: 'intro', q: 0, tourIn: false, fromHi: false }), { kind: 'hi' }, '바로 들어왔으면 /hi 로 바꿔 간다(replace)');
+});
+test('뒤로: 시작 안내의 앞은 언제나 팀 소개 — 처음부터 다시(기록 깊이 있음) 뒤에도 끝 화면으로 안 간다', () => {
+  eq(T.backAction({ screen: 'intro', q: 0, tourIn: true, fromHi: true }), { kind: 'hi' });
+});
+test('뒤로: 투어 안에서 쌓은 기록이면 브라우저 뒤로, 바로 들어왔으면 앞 화면으로 바꿔 간다', () => {
+  eq(T.backAction({ screen: 'qa', q: 1, tourIn: true, fromHi: true }), { kind: 'history' });
+  eq(T.backAction({ screen: 'qa', q: 1, tourIn: false, fromHi: false }), { kind: 'screen', screen: 'qa', q: 0 });
+  eq(T.backAction({ screen: 'deck', q: 0, tourIn: false, fromHi: false }), { kind: 'screen', screen: 'intro', q: 0 });
+});
+test('처음부터 다시: 쌓은 깊이만큼 되돌아가 첫 시작 안내 기록으로 — 깊이를 모르면 시작 안내로 바꿔 간다', () => {
+  eq(T.restartAction(6), { kind: 'go', delta: -6 });
+  eq(T.restartAction(0), { kind: 'replace' });
+  eq(T.restartAction(undefined), { kind: 'replace' });
+});
+test('/hi 에서 왔나 — 같은 출처의 /hi · /hi/<id> 만', () => {
+  eq(T.cameFromHi('https://a.com/hi', 'https://a.com'), true);
+  eq(T.cameFromHi('https://a.com/hi/hyojung', 'https://a.com'), true);
+  eq(T.cameFromHi('https://evil.com/hi', 'https://a.com'), false);
+  eq(T.cameFromHi('https://a.com/hire', 'https://a.com'), false);
+  eq(T.cameFromHi('', 'https://a.com'), false);
+});
+
 test('하네스 자기 검사 — 장 경계를 하나 밀어 놓은 파일을 넣으면 잡는다', () => {
   const broken = load(SRC.replace('if (t >= s.start_sec) cur = s.slide_no;', 'if (t > s.start_sec) cur = s.slide_no;'));
   const failed = suite(broken).filter((c) => { try { c.fn(); return false; } catch (_) { return true; } });

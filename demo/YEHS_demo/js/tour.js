@@ -152,8 +152,15 @@
     document.body.appendChild(el);
     el.addEventListener('error', imgFailed, true);   // 그림 error 는 거품이 안 올라온다 — 잡기 단계에서 받는다
     el.querySelector('[data-tour-back]').addEventListener('click', goBack);
-    // 「팀 소개로 돌아가기」(끝 화면 · 오류 화면) — 페이지가 /hi 로 바뀌기 직전이라 keepalive 로 간다
-    el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-back-team]')) funnel('back_team'); });
+    // 「팀 소개로 돌아가기」(끝 화면 · 오류 화면) · 위 띠 X — 페이지가 /hi 로 바뀌기 직전이라 신호는 keepalive 로 간다.
+    // 링크(href=/hi)를 그대로 따라가면 기록이 하나 더 쌓여 그다음 폰 뒤로가 투어로 돌아왔다 — /hi 기록으로 되돌아가거나 바꿔 간다
+    el.addEventListener('click', (e) => {
+      const a = e.target.closest && e.target.closest('[data-back-team], [data-tour-close]');
+      if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
+      if (a.hasAttribute('data-back-team')) funnel('back_team');
+      e.preventDefault();
+      closeToHi();
+    });
     return el;
   }
 
@@ -202,22 +209,35 @@
   let lastScreen = null;
   let leaveHook = null;
 
-  /** 앞으로 — 투어 안에서 쌓은 기록임을 표시해 두고(history.state.tourIn), 뒤로 버튼이 그걸 보고 history.back() 한다 */
+  /** 앞으로 — 투어 안에서 쌓은 기록임을 표시해 두고(history.state.tourIn · depth), 뒤로 버튼이 그걸 보고 history.back() 한다 */
   function go(screen, q = 0, { replace = false } = {}) {
     const hash = L.tourHash(screen, q);
     if (location.hash === hash) { render(); return; }
-    if (replace) history.replaceState({ tourIn: !!(history.state && history.state.tourIn) }, '', hash);
-    else history.pushState({ tourIn: true }, '', hash);
+    const cur = history.state || {};
+    if (replace) history.replaceState({ tourIn: !!cur.tourIn, depth: Number(cur.depth) || 0 }, '', hash);
+    else history.pushState({ tourIn: true, depth: (Number(cur.depth) || 0) + 1 }, '', hash);
     if (typeof window.route === 'function') window.route(); else render();
   }
 
-  /** 뒤로 — 투어 안에서 왔으면 브라우저 뒤로(기록과 같게), 바로 들어왔으면 앞 화면으로. 시작 안내의 앞은 팀 소개 */
+  /** /hi 에서 막 들어온 투어인가 — 그 첫 기록 바로 앞이 /hi 다 */
+  function fromHi() {
+    return history.length > 1 && L.cameFromHi(document.referrer, location.origin);
+  }
+
+  /** 팀 소개로 — /hi 에서 왔으면 쌓은 투어 기록만큼 되돌아가 그 /hi 기록으로, 아니면 /hi 로 바꿔 간다(기록을 늘리지 않는다) */
+  function closeToHi() {
+    const depth = Number(history.state && history.state.depth) || 0;
+    if (fromHi() && !(history.state && history.state.tourIn && !depth)) history.go(-(depth + 1));
+    else location.replace('/hi');
+  }
+
+  /** 뒤로 — 판단은 TourLogic.backAction (시작 안내의 앞은 팀 소개 · 기록을 하나 더 쌓지 않는다) */
   function goBack() {
-    if (history.state && history.state.tourIn) { history.back(); return; }
     const cur = L.parseTourHash(location.hash) || { screen: 'intro', q: 0 };
-    const prev = L.prevScreen(cur.screen, cur.q);
-    if (!prev) { location.href = '/hi'; return; }
-    go(prev.screen, prev.q, { replace: true });
+    const act = L.backAction({ screen: cur.screen, q: cur.q, tourIn: !!(history.state && history.state.tourIn), fromHi: fromHi() });
+    if (act.kind === 'history') history.back();
+    else if (act.kind === 'screen') go(act.screen, act.q, { replace: true });
+    else location.replace('/hi');
   }
 
   /** 앱 route() 가 투어 밖으로 나갈 때 부른다 — 층 · 타이머를 걷고 사이드바를 돌려놓는다 */
@@ -312,9 +332,13 @@
     signal(at.screen, tour && tour.id);
   }
 
+  /** 처음부터 다시 — 상태를 지우고 첫 시작 안내 기록으로 되돌아간다(그 앞은 팀 소개). 끝 · 리포트 기록 위에 시작 안내를 또 쌓으면
+   *  시작 안내의 ‹ 가 끝 화면 → 리포트로 갔다 (10-12 점검 flow-regression-inapp-r1-3) */
   function restart() {
     resetState();
-    go('intro');
+    const act = L.restartAction(history.state && history.state.depth);
+    if (act.kind === 'go') history.go(act.delta);
+    else go('intro', 0, { replace: true });
   }
 
   /* ── 실제 흐름으로 — 인앱 브라우저면 바깥 브라우저 안내 ──────── */

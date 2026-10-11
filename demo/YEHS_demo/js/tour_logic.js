@@ -92,6 +92,32 @@
     return { screen: prev, q: 0 };
   }
 
+  /**
+   * 위 띠 「‹」 가 할 일 (10-12 점검 layout-touch-a11y-r1-3 · flow-regression-inapp-r1-3).
+   *  · 시작 안내의 앞은 언제나 팀 소개. /hi 에서 막 들어온 첫 기록이면 브라우저 뒤로(기록을 하나 더 쌓으면 그다음 폰 뒤로가 투어로
+   *    돌아오는 고리가 됐다), 아니면 /hi 로 바꿔 간다(replace). 투어 안에서 쌓은 시작 안내(처음부터 다시)도 뒤로 가 끝 화면이 나오지 않게 /hi.
+   *  · 다른 화면은 투어 안에서 쌓은 기록이면 브라우저 뒤로, 바로 들어왔으면 앞 화면으로 바꿔 간다.
+   * @returns {{kind:'history'}|{kind:'hi'}|{kind:'screen',screen:string,q:number}}
+   */
+  function backAction({ screen, q = 0, tourIn = false, fromHi = false }) {
+    if (screen === 'intro' || !SCREENS.includes(screen)) return !tourIn && fromHi ? { kind: 'history' } : { kind: 'hi' };
+    if (tourIn) return { kind: 'history' };
+    const prev = prevScreen(screen, q);
+    return prev ? { kind: 'screen', screen: prev.screen, q: prev.q } : { kind: 'hi' };
+  }
+
+  /** 처음부터 다시 — 투어 안에서 쌓은 깊이(history.state.depth)만큼 되돌아가 첫 시작 안내 기록으로. 모르면 시작 안내로 바꿔 간다 */
+  function restartAction(depth) {
+    const d = Number(depth) || 0;
+    return d > 0 ? { kind: 'go', delta: -d } : { kind: 'replace' };
+  }
+
+  /** document.referrer 가 같은 출처의 /hi · /hi/<id> 인가 */
+  function cameFromHi(referrer, origin) {
+    const m = String(referrer || '').match(/^(https?:\/\/[^/]+)(\/[^?#]*)/i);
+    return !!m && m[1] === origin && /^\/hi(?:\/[a-z0-9-]{1,24})?\/?$/i.test(m[2]);
+  }
+
   /* ── 녹화 데이터 ─────────────────────────────────────────────── */
 
   const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
@@ -289,7 +315,7 @@
 
   const api = {
     STEPS, SCREENS, LEVEL_WORD, LEVEL_TONE, VERDICT, GROUND_ROLE, GRAPH_STATUS, CHIP_KIND, CHIP_HOLD_SEC,
-    parseTourHash, tourHash, stepIndex, prevScreen,
+    parseTourHash, tourHash, stepIndex, prevScreen, backAction, restartAction, cameFromHi,
     tourProblem, indexIds, slideAt, slideStart, captionAt, chipAt, stepSlide,
     durationText, clock, graphRows, graphCounts, paceGauge,
     inAppKind, platformOf, externalOpenUrl, eventPayload, funnelStep, refText,
