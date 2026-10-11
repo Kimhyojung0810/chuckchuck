@@ -286,6 +286,17 @@ def test_바깥_브라우저_안내_시트는_hi_와_투어가_같은_말과_순
     assert order == sorted(order), "주 버튼 → 주소 복사 → 여기서 계속 열기 → 닫기"
 
 
+def test_투어_주소를_공유해도_미리보기가_뜬다():
+    """perf-security-copy-r1-8 — 투어 링크(/index.html#/tour)를 카톡으로 보내면 index.html 에 설명 · 그림이 없어 빈 미리보기였다."""
+    index = (WEB / "index.html").read_text(encoding="utf-8")
+    intro = (WEB / "intro.html").read_text(encoding="utf-8")
+    meta = lambda html, prop: (re.search(rf'<meta (?:property|name)="{re.escape(prop)}" content="([^"]+)"', html) or [None, None])[1]  # noqa: E731
+    for prop in ("og:image", "og:site_name", "og:locale"):
+        assert meta(index, prop) and meta(index, prop) == meta(intro, prop), prop
+    assert meta(index, "description") and meta(index, "og:title") and meta(index, "og:description")
+    assert meta(index, "og:image").startswith("https://"), "미리보기 그림은 절대 주소여야 뜬다"
+
+
 # ─── 공개 허용 목록 · 주소 ──────────────────────────────────────────────────
 
 @pytest.mark.parametrize("url", ["/data/team.json", "/data/tour/_example.json", "/data/tour/delivery-rating.json", "/data/tour/index.json",
