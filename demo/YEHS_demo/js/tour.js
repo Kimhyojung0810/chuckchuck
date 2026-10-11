@@ -518,42 +518,72 @@
 
   /* ── 자료 크게 보기 — 960px 그림을 폰 폭(335px)에 줄이면 표 · 그래프 글자가 3~6px 라 못 읽었다 (10-12 점검) ── */
 
+  /** 크게 보기 그림 — 가로 1920px 판(<n>-2x.webp, labs/tour_capture/render_zoom.py). 960px 를 2배로 늘리면 DPR 3 폰에서 글자가 번졌다 (r2-3) */
+  function zoomSrc(src) {
+    return String(src || '').replace(/(\/deck-slides\/[^/?#]+\/\d+)\.webp(\?.*)?$/, '$1-2x.webp');
+  }
+
   let zoomFrom = null;
-  /** 장 그림 한 장을 화면 가득 — 처음엔 폭 맞춤, 「2배로 보기」 로 키워 밀어서 본다. 두 손가락 확대도 막지 않는다 */
+  let zoomInert = [];
+  /**
+   * 장 그림 한 장을 화면 가득. 세로 폰은 처음부터 「2배로 보기」 로 연다 — 폭 맞춤은 화면 안 자료 칸보다 1.1배만 커서 키운 보람이 없고
+   * 화면 70%가 빈 검은 칸이었다(r2-3). 2배일 때는 그림을 세로 가운데에 두고, 오른쪽 가장자리를 흐리게 + 「옆으로 밀어 봐요」.
+   * 열려 있는 동안 뒤 화면(위 띠 · 본문 · 아래 버튼)은 inert, Tab 은 층 안에서만 돈다(aria-modal, r2-5). 두 손가락 확대도 막지 않는다
+   */
   function openZoom(src, label) {
     const el = layer();
     closeZoom(false);
     zoomFrom = document.activeElement;
     pushOverlay('zoom');
+    const startBig = window.innerHeight > window.innerWidth;
     const wrap = document.createElement('div');
-    wrap.className = 'tour-zoom';
+    wrap.className = `tour-zoom${startBig ? ' is-big' : ''}`;
     wrap.setAttribute('role', 'dialog');
     wrap.setAttribute('aria-modal', 'true');
     wrap.setAttribute('aria-label', `${label} 크게 보기`);
     wrap.innerHTML = `
       <div class="tour-zoom-bar">
         <span class="tour-zoom-title">${esc(label)}</span>
-        <button class="tour-zoom-btn" type="button" data-zoom-size aria-pressed="false">2배로 보기</button>
+        <button class="tour-zoom-btn" type="button" data-zoom-size aria-pressed="${startBig}">${startBig ? '화면에 맞추기' : '2배로 보기'}</button>
         <button class="tour-icon tour-zoom-close" type="button" data-zoom-close aria-label="크게 보기 닫기">${ICON.close}</button>
       </div>
-      <div class="tour-zoom-pane" tabindex="0"><img src="${esc(src)}" alt="${esc(label)}" draggable="false"></div>`;
+      <p class="tour-zoom-hint" aria-hidden="true">옆으로 밀어 봐요</p>
+      <div class="tour-zoom-pane" tabindex="0" aria-label="${esc(label)} 그림 — 옆으로 밀어서 봐요"><img src="${esc(zoomSrc(src))}" alt="${esc(label)}" draggable="false"></div>`;
     el.appendChild(wrap);
+    const img = wrap.querySelector('img');
+    img.addEventListener('error', () => { if (img.getAttribute('src') !== src) img.src = src; }, { once: true });   // 큰 판이 없으면 화면 그림으로
+    const pane = wrap.querySelector('.tour-zoom-pane');
+    const edge = () => wrap.classList.toggle('is-end', pane.scrollLeft + pane.clientWidth >= pane.scrollWidth - 2);
+    pane.addEventListener('scroll', () => { edge(); if (pane.scrollLeft > 8) wrap.classList.add('is-moved'); }, { passive: true });
     const size = wrap.querySelector('[data-zoom-size]');
     size.addEventListener('click', () => {
       const big = wrap.classList.toggle('is-big');
       size.textContent = big ? '화면에 맞추기' : '2배로 보기';
       size.setAttribute('aria-pressed', big ? 'true' : 'false');
+      requestAnimationFrame(edge);
     });
     wrap.querySelector('[data-zoom-close]').addEventListener('click', dismissOverlay);
     wrap.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); dismissOverlay(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); dismissOverlay(); return; }
+      if (e.key !== 'Tab') return;
+      const items = [size, wrap.querySelector('[data-zoom-close]'), pane];
+      const i = items.indexOf(document.activeElement);
+      const j = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i < 0 || i === items.length - 1 ? 0 : i + 1);
+      e.preventDefault();
+      items[j].focus({ preventScroll: true });
     });
-    requestAnimationFrame(() => wrap.querySelector('[data-zoom-close]').focus({ preventScroll: true }));
+    // 뒤 화면을 비활성으로 — 이미 비활성인 것(아래 버튼 잠깐 잠금)은 건드리지 않고, 닫을 때 우리가 건 것만 푼다
+    zoomInert = ['.tour-top', '[data-tour-body]', '[data-tour-foot]'].map((q) => el.querySelector(q)).filter((n) => n && !n.inert);
+    zoomInert.forEach((n) => { n.inert = true; });
+    img.addEventListener('load', edge);
+    requestAnimationFrame(() => { edge(); wrap.querySelector('[data-zoom-close]').focus({ preventScroll: true }); });
   }
   function closeZoom(restoreFocus = true) {
     const wrap = document.querySelector('#tourStage .tour-zoom');
     if (!wrap) return;
     wrap.remove();
+    zoomInert.forEach((n) => { n.inert = false; });
+    zoomInert = [];
     if (restoreFocus && zoomFrom && zoomFrom.focus) zoomFrom.focus({ preventScroll: true });
     zoomFrom = null;
   }

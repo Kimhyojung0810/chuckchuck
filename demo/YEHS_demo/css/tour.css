@@ -409,9 +409,18 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
   flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; display: flex; align-items: center;
   padding: 0 0 calc(env(safe-area-inset-bottom) + 12px); touch-action: pan-x pan-y pinch-zoom; outline: none;
 }
-.tour-zoom-pane img { display: block; width: 100%; height: auto; margin: auto; background: #fff; }
-.tour-zoom.is-big .tour-zoom-pane { align-items: flex-start; }
-.tour-zoom.is-big .tour-zoom-pane img { width: 200%; max-width: none; margin: 0; }
+.tour-zoom-pane img { display: block; flex: none; width: 100%; height: auto; margin: auto; background: #fff; }
+/* 2배 — 그림은 세로 가운데(위에 붙어 아래 절반이 비었다), 오른쪽 가장자리를 흐려 「더 있다」 를 보인다 (10-12 2차 r2-3) */
+.tour-zoom.is-big .tour-zoom-pane img { width: 200%; max-width: none; margin: auto 0; }
+.tour-zoom-hint { display: none; margin: 0; padding: 0 16px 6px; font-size: 13px; color: rgba(255, 255, 255, .72); }
+.tour-zoom.is-big .tour-zoom-hint { display: block; }
+.tour-zoom.is-big.is-moved .tour-zoom-hint { visibility: hidden; }
+.tour-zoom::after {
+  content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 32px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(11, 21, 18, 0), rgba(11, 21, 18, .85));
+  opacity: 0; transition: opacity 160ms ease-out;
+}
+.tour-zoom.is-big:not(.is-end)::after { opacity: 1; }
 
 /* ── 그림을 못 받았을 때 — 깨진 그림 대신 장 제목 카드(js/tour.js imgFailed) ── */
 .tour-img-fallback {
