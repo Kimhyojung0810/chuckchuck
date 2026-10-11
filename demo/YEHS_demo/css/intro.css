@@ -85,9 +85,10 @@ main {
 }
 
 /* ── 1) 히어로 ─────────────────────────────────────────────────────────── */
-/* 화면을 꽉 채우지 않고 아래 구역 머리(≈56px)를 살짝 보여 준다 — 「아래로 더 있다」 를 글 없이 말한다 */
+/* 화면을 꽉 채우지 않고 아래 구역 머리를 살짝 보여 준다 — 「아래로 더 있다」 를 글 없이 말한다.
+   눈썹 한 줄(56px)만 보이면 「발표 한 번이면」 이 고정 버튼 바로 위 10px 에 붙어 버튼 이름표처럼 읽혔다 — 구역 제목 첫 줄까지 보인다 (10-12 2차 r2-10) */
 .hero {
-  min-height: calc(100svh - var(--dock-h) - var(--safe-b) - 56px);
+  min-height: calc(100svh - var(--dock-h) - var(--safe-b) - 104px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -261,6 +262,12 @@ main {
   transition-timing-function: var(--ease);
 }
 .carousel[data-state="ready"] .card:not([data-active]) { opacity: .55; transform: scale(.98); }
+/* 옆 카드 미리보기는 지금 카드 높이까지만, 아래는 흐리게 — 더 긴 카드의 빈 흰 판이 지금 카드보다 70px 아래까지 남았다 (r2-10, js/intro.js --active-h) */
+.carousel[data-state="ready"] .track[style*="--active-h"] .card:not([data-active]) {
+  max-height: var(--active-h); overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+}
 
 .card-head { display: flex; align-items: center; gap: 14px; }
 .avatar {
@@ -291,7 +298,8 @@ main {
   display: inline-block;
   margin-top: 4px;
   padding: 3px 10px;
-  border-radius: var(--r-pill);
+  /* 한 줄(≈22px)이면 반지름 12px 가 알약과 같고, 스키마가 허용하는 16자 역할이 두 줄로 접히면 둥근 덩어리 대신 둥근 네모가 된다 (r2-8) */
+  border-radius: var(--r-ctl);
   background: var(--fill);
   color: var(--text-2);
   font-size: 13px;
@@ -463,8 +471,9 @@ main {
   position: fixed;
   left: 0; right: 0; bottom: 0;
   z-index: 10;
-  padding: 12px max(var(--gutter), env(safe-area-inset-right, 0px)) calc(12px + var(--safe-b)) max(var(--gutter), env(safe-area-inset-left, 0px));
-  background: linear-gradient(to bottom, rgba(250, 250, 249, 0), var(--canvas) 28%);
+  /* 위 24px 는 바탕색으로 흐려지는 띠 — 아래로 지나가는 글이 버튼에 딱 붙어 보이지 않게 (r2-10) */
+  padding: 24px max(var(--gutter), env(safe-area-inset-right, 0px)) calc(12px + var(--safe-b)) max(var(--gutter), env(safe-area-inset-left, 0px));
+  background: linear-gradient(to bottom, rgba(250, 250, 249, 0), var(--canvas) 40%);
 }
 .btn-primary {
   display: flex; align-items: center; justify-content: center;

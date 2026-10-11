@@ -86,26 +86,29 @@
   }
 
   // ── 카드 ────────────────────────────────────────────────────────────────
+  // 병아리 배지는 사진이 있든 없든 같은 자리에 — 사진 카드만 배지가 빠져 다섯 장의 모양이 갈렸다 (10-12 2차 layout-touch-a11y-r2-8)
+  function chickBadge() {
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const chick = document.createElementNS(svgNs, 'svg');
+    chick.setAttribute('class', 'chick');
+    chick.setAttribute('viewBox', '0 0 100 100');
+    const use = document.createElementNS(svgNs, 'use');
+    use.setAttribute('href', '#chick');
+    chick.appendChild(use);
+    return chick;
+  }
+
   function avatar(m, i) {
     const box = el('div', 'avatar');
     box.style.setProperty('--av', AVATAR_TINTS[i % AVATAR_TINTS.length]);
     box.setAttribute('aria-hidden', 'true');
-    const initial = () => {
-      box.textContent = Array.from(m.name)[0] || '';
-      const svgNs = 'http://www.w3.org/2000/svg';
-      const chick = document.createElementNS(svgNs, 'svg');
-      chick.setAttribute('class', 'chick');
-      chick.setAttribute('viewBox', '0 0 100 100');
-      const use = document.createElementNS(svgNs, 'use');
-      use.setAttribute('href', '#chick');
-      chick.appendChild(use);
-      box.appendChild(chick);
-    };
-    if (!m.photo) { initial(); return box; }
+    const initial = () => document.createTextNode(Array.from(m.name)[0] || '');
+    const badge = chickBadge();
+    if (!m.photo) { box.append(initial(), badge); return box; }
     const img = el('img');
     Object.assign(img, { src: m.photo, alt: '', width: 64, height: 64, loading: 'lazy', decoding: 'async' });
-    img.addEventListener('error', () => { img.remove(); initial(); }, { once: true });
-    box.appendChild(img);
+    img.addEventListener('error', () => img.replaceWith(initial()), { once: true });
+    box.append(img, badge);
     return box;
   }
 
@@ -177,10 +180,15 @@
     let active = -1;
     const padLeft = () => parseFloat(getComputedStyle(track).scrollPaddingLeft) || 0;
 
+    // 옆 카드 미리보기를 지금 카드 높이로 묶는다(css .track --active-h) — 카드 높이는 제 내용만큼이라 긴 카드가 옆에서 빈 판으로 남았다
+    const fitPeek = () => { if (active >= 0) track.style.setProperty('--active-h', `${cards[active].offsetHeight}px`); };
+    window.addEventListener('resize', fitPeek, { passive: true });
+
     function mark(i, announce) {
       if (i === active) return;
       active = i;
       cards.forEach((c, k) => c.toggleAttribute('data-active', k === i));
+      fitPeek();
       dots.forEach((d, k) => d.setAttribute('aria-current', k === i ? 'true' : 'false'));
       prev.disabled = i === 0;
       next.textContent = i === n - 1 ? '처음으로' : '다음 사람';
