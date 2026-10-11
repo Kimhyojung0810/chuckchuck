@@ -52,6 +52,7 @@ from chuckchuck.providers.stt_impl import media_tool  # noqa: E402
 from demo.learning_jobs import refresh_learning_assets  # noqa: E402
 from demo.rate_limit import RateLimiter  # noqa: E402
 from demo import shield  # noqa: E402
+from demo import tour_events  # noqa: E402
 from demo.session_archive import SessionArchive, git_sha  # noqa: E402
 from demo.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from demo import clova_transcript  # noqa: E402
@@ -189,6 +190,8 @@ PRIOR_ANSWERS_MAX = 10
 
 
 def _body_limit(path: str) -> int:
+    if path == tour_events.PATH:
+        return tour_events.BODY_MAX  # 부스 퍼널 신호 — {step, deck, t} 70바이트 남짓 (demo/tour_events.py)
     if path in BIG_BODY_PATHS:
         return MAX_BODY_BYTES
     if path in BUNDLE_PATHS or path.endswith("/qa/judge"):
@@ -2122,7 +2125,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             if length > limit:
                 return self._json(413, {
                     "error": "too_large",
-                    "message": f"최대 {limit // (1024 * 1024)}MB까지 보낼 수 있어요.",
+                    "message": (f"최대 {limit // (1024 * 1024)}MB까지 보낼 수 있어요." if limit >= 1024 * 1024
+                                else f"최대 {limit}바이트까지 보낼 수 있어요."),
                 })
             # JSON 경로는 Content-Type 이 application/json 이어야 한다. 그래야 다른 사이트가 보낸
             # 교차 출처 요청에 preflight 가 붙어 막힌다 (text/plain·form 은 preflight 없이 날아온다).
@@ -2231,6 +2235,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _route_post(self, parsed, raw: bytes):
         """POST 경로 → 핸들러. 관문(do_POST·_handle_paid)을 다 지난 요청만 온다."""
+        if parsed.path == tour_events.PATH:
+            return self._handle_tour_event(raw)
         if parsed.path == "/api/v1/session/artifacts":
             return self._handle_session_artifacts(raw)
         if parsed.path.endswith("/feedback") and parsed.path.startswith("/api/v1/sessions/"):
@@ -2281,6 +2287,37 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if parsed.path == "/api/v1/qa/judge":
             return self._handle_qa_judge(raw)
         return self._json(404, {"error": "not found"})
+
+    def _handle_tour_event(self, raw: bytes):
+        """
+        부스 퍼널 신호 (2026-10-11, demo/tour_events.py · docs/booth-mobile/funnel-events.md). 저장하지 않고 한 줄만 남긴다 —
+        `<방문자 IP> - - [날짜] tour step=… deck=… t=…` (접근 로그와 같은 머리라 journalctl 에서 같이 센다).
+        성공한 신호는 접근 로그 줄을 따로 남기지 않는다(같은 정보가 두 줄이 되지 않게). 공개 — 팀 쿠키 불필요, 과금 없음.
+        """
+        # IP 칸은 _client_key(= shield.resolve_client) — CF-Connecting-IP 를 바꿔 보내도 칸이 안 갈린다 (10/5).
+        # 사람으로 셀 수 없는 칸(Cloudflare 서버·설비)과 팀·VM 안 요청은 IP 칸을 건너뛰고 전체 칸만 센다.
+        trusted = bool(getattr(_REQ, "trusted", False))
+        bucket = shield.ip_bucket(self._client_key()) if (not trusted and self._counted()) else None
+        ok, scope, wait = tour_events.LIMITER.allow(bucket)
+        if not ok:
+            EVENTS.add("tour_429")
+            SHIELD_LOG.write("tour", f"퍼널 신호 상한({scope}) — {bucket or '전체'}")
+            self._quiet = True
+            self._add_header("Retry-After", str(max(1, wait)))
+            return self._json(429, {"error": "rate_limited", "rate_limited": True, "scope": "tour_" + scope,
+                                    "retry_after": max(1, wait)})
+        # 상한을 본문 검사보다 먼저 센다 — 틀린 본문을 쏟아부어 400 접근 로그로 디스크를 채우는 길도 같은 상한에 걸린다
+        try:
+            ev = tour_events.parse_event(raw)
+        except tour_events.TourEventError as e:
+            return self._json(400, {"error": "bad_event", "reason": e.code})
+        self.log_message("%s", tour_events.log_fields(ev))
+        EVENTS.add("tour_ok")  # /api/v1/ops/shield 의 recent_5min 에서 부스 신호가 들어오는지 바로 본다
+        self._quiet = True
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return None
 
     def _post_failed(self, parsed, e: Exception):
         # 상세(벤더 응답 본문·서버 경로)는 stderr 에만. 응답에는 사용자가 고칠 수 있는 사실만 싣는다.
