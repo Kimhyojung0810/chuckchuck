@@ -272,6 +272,20 @@ def test_배포_전에는_모든_팀_카드를_본인이_확인했다():
     assert [m["id"] for m in team["members"] if m["draft"]] == [], "본인 확인 전 카드 — 확인하면 draft 를 false 로"
 
 
+def test_바깥_브라우저_안내_시트는_hi_와_투어가_같은_말과_순서다():
+    """layout-touch-a11y-r1-9 — 한 방문객이 두 시트를 다 본다. 제목 · 「여기서 계속 열기」 · iOS 안내 · 버튼 순서(주 버튼 → 주소 복사 → 계속 열기 → 닫기)."""
+    tour_js = (WEB / "js" / "tour.js").read_text(encoding="utf-8")
+    intro = (WEB / "intro.html").read_text(encoding="utf-8")
+    copy = dict(re.findall(r"^\s+(title|iosTip|here): '([^']+)',$", tour_js[tour_js.index("const INAPP_COPY"):], re.M)[:3])
+    assert set(copy) == {"title", "iosTip", "here"}, copy
+    sheet = intro[intro.index('id="inapp"'):]
+    assert f">{copy['title']}<" in sheet
+    assert f">{copy['here']}<" in sheet
+    assert copy["iosTip"] in sheet
+    order = [sheet.index(x) for x in ('id="inapp-open"', 'id="inapp-copy"', 'id="inapp-anyway"', 'id="inapp-close"')]
+    assert order == sorted(order), "주 버튼 → 주소 복사 → 여기서 계속 열기 → 닫기"
+
+
 # ─── 공개 허용 목록 · 주소 ──────────────────────────────────────────────────
 
 @pytest.mark.parametrize("url", ["/data/team.json", "/data/tour/_example.json", "/data/tour/delivery-rating.json", "/data/tour/index.json",

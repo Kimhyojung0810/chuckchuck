@@ -35,9 +35,9 @@
 <!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다 (그 전엔 시스템 서체). 앱(index.html)과 같은 주소라 투어로 넘어가면 캐시를 그대로 쓴다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i4">
+<link rel="stylesheet" href="/css/intro.css?v=i5">
 <script src="/js/funnel.js?v=fn2" defer></script>
-<script src="/js/intro.js?v=i3" defer></script>
+<script src="/js/intro.js?v=i4" defer></script>
 </head>
 <body>
 <!-- 병아리 아바타 한 장을 여러 카드가 같이 쓴다 (사진이 없을 때) -->
@@ -154,15 +154,19 @@
 
 <!-- 인앱 브라우저(카카오톡·네이버·인스타)에서 카메라가 필요한 실제 흐름으로 갈 때만 뜬다. 진입 즉시 뜨지 않는다 -->
 <div class="sheet-scrim" id="inapp" hidden>
+  <!-- 투어 끝 화면의 같은 시트(js/tour.js INAPP_COPY · openRehearsal)와 제목 · 버튼 순서 · 문구가 같다 — 한 방문객이 둘 다 본다 (10-12 점검) -->
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="inapp-title" aria-describedby="inapp-desc" tabindex="-1">
-    <h2 id="inapp-title" class="sheet-title">Safari나 Chrome에서 열어 주세요</h2>
+    <span class="sheet-grip" aria-hidden="true"></span>
+    <h2 id="inapp-title" class="sheet-title">Safari나 Chrome에서 열면 돼요</h2>
     <p id="inapp-desc" class="sheet-text">내 자료로 해 보려면 카메라와 마이크가 필요해요. 둘은 Safari나 Chrome에서 켤 수 있어요. 둘러보기는 <span id="inapp-app">이 앱</span>에서도 끝까지 할 수 있어요.</p>
-    <p class="sheet-hint" id="inapp-hint" hidden></p>
+    <p class="sheet-hint sheet-tip" id="inapp-tip" hidden>앱 메뉴(<b>···</b>)에서 <b>Safari로 열기</b>를 고르거나, 주소를 복사해 Safari에 붙여 넣어요.</p>
+    <p class="sheet-hint" id="inapp-hint" role="status" hidden></p>
     <div class="sheet-actions">
-      <button type="button" class="btn-ghost" id="inapp-close">닫기</button>
       <button type="button" class="btn-solid" id="inapp-open">주소 복사하기</button>
+      <button type="button" class="btn-ghost" id="inapp-copy" hidden>주소 복사하기</button>
+      <a class="sheet-anyway" id="inapp-anyway" href="/index.html#/rehearsal">여기서 계속 열기</a>
+      <button type="button" class="sheet-anyway" id="inapp-close">닫기</button>
     </div>
-    <a class="sheet-anyway" id="inapp-anyway" href="/index.html#/rehearsal">여기서 그대로 열기</a>
   </div>
 </div>
 </body>

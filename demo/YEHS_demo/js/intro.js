@@ -288,14 +288,20 @@
     const scrim = $('inapp');
     const sheet = scrim.querySelector('.sheet');
     const openBtn = $('inapp-open');
+    const copyBtn = $('inapp-copy');
     const hint = $('inapp-hint');
+    const tip = $('inapp-tip');
     // 해시(#)가 든 주소는 Android intent 문법과 부딪힌다 — 브리지가 /rehearsal 을 #/rehearsal 로 보내 준다
     const target = location.origin + '/rehearsal';
     let opener = null;
 
     $('inapp-app').textContent = INAPP[1];
+    // 바깥으로 여는 길이 있으면(카톡 스킴 · 안드로이드 크롬 intent) 주 버튼이 그 길, 주소 복사는 둘째 줄. 없으면(iOS 인앱) 주 버튼이 주소 복사 + 메뉴 안내
+    const external = isKakao || isAndroid;
     if (isKakao) openBtn.textContent = '다른 브라우저로 열기';
     else if (isAndroid) openBtn.textContent = 'Chrome으로 열기';
+    copyBtn.hidden = !external;
+    tip.hidden = external;
 
     const close = () => {
       scrim.hidden = true;
@@ -306,7 +312,7 @@
     const onKey = (e) => {
       if (e.key === 'Escape') { close(); return; }
       if (e.key !== 'Tab') return;
-      const f = Array.from(sheet.querySelectorAll('button, a[href]'));
+      const f = Array.from(sheet.querySelectorAll('button, a[href]')).filter((b) => !b.hidden);
       const first = f[0];
       const last = f[f.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -330,13 +336,18 @@
         location.href = 'intent://' + target.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
         return;
       }
+      copyAddress(openBtn);
+    });
+    copyBtn.addEventListener('click', () => copyAddress(copyBtn));
+    function copyAddress(btn) {
       copyText(target).then((ok) => {
+        btn.textContent = ok ? '주소를 복사했어요' : '주소 복사하기';
         hint.textContent = ok
-          ? '주소를 복사했어요. Safari를 열고 주소창에 붙여 넣어 주세요.'
-          : `복사하지 못했어요. 오른쪽 위 메뉴에서 「다른 브라우저로 열기」를 눌러 주세요.`;
+          ? '주소를 복사했어요. Safari나 Chrome을 열고 주소창에 붙여 넣어요.'
+          : '복사하지 못했어요. 앱 메뉴(···)에서 Safari로 열기를 골라요.';
         hint.hidden = false;
       });
-    });
+    }
 
     document.querySelectorAll('[data-needs-camera]').forEach((a) => {
       a.addEventListener('click', (e) => { e.preventDefault(); open(a); });

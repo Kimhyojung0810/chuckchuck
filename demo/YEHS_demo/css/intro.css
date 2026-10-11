@@ -503,14 +503,17 @@ main {
 .sheet-title { font-size: 20px; font-weight: var(--w-bold); line-height: 1.4; letter-spacing: -.02em; }
 .sheet-text { margin-top: 8px; color: var(--text-2); font-size: 15px; text-wrap: pretty; }
 .sheet-hint { margin-top: 10px; padding: 10px 12px; border-radius: var(--r-inner); background: var(--fill); font-size: 14px; color: var(--text); }
-.sheet-actions { margin-top: 20px; display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; }
+/* 버튼은 세로로 — 주 버튼 → 주소 복사 → 여기서 계속 열기 → 닫기 (투어 끝 화면 시트와 같은 순서, 10-12 점검) */
+.sheet-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+.sheet-grip { display: block; width: 36px; height: 4px; margin: -10px auto 14px; border-radius: var(--r-pill); background: var(--border); }
+.sheet-tip b { font-weight: var(--w-bold); }
 .btn-ghost { padding: 0 16px; border: 0; background: var(--fill); color: var(--text); }
 .btn-solid { padding: 0 16px; border: 0; background: var(--brand); color: #fff; height: 52px; }
 .sheet-actions .btn-ghost { height: 52px; }
 .sheet-anyway {
   display: flex; align-items: center; justify-content: center;
-  min-height: 44px; margin-top: 4px;
-  color: var(--text-3); font-size: 14px;
+  min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--text-2); font: inherit; font-size: 15px; font-weight: var(--w-med); text-decoration: none;
 }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
