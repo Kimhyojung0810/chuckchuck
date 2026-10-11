@@ -24,6 +24,7 @@ kill "$(cat /tmp/b.pid)"
 | `--ua` | `kakao` · `naver` · `instagram` — 인앱 UA. 끝 화면 「내 자료로 직접 해 보기」 가 바깥 브라우저 안내 시트를 띄우는지 본다 |
 | `--deck` | 자료 화면에서 고를 투어 id. 없으면 `index.json` 의 `default` |
 | `--full` | 모든 화면의 본문 전체 높이 사진도. 없어도 긴 화면(시작 · 자료 · 분석 · 질문 판정 · 리포트)은 `_full.png` 를 찍는다 |
+| `--no-stress` | 버팀 검사를 건너뛴다. 기본은 폭마다 한 번 더 연다(`stress_<폭>/`): team.json 을 바꿔치기해 띄어쓰기 없는 긴 영문 덩어리를 넣은 팀 카드 폭 · 둘째 카드의 「n / N」 이 아래 고정 버튼에 가리는지 · 장 그림과 표지를 막았을 때 깨진 그림 대신 「N장 · 제목」 카드가 있는지 (10-12 점검) |
 
 크롬 헤드리스가 `libasound.so.2` 없이 못 뜨는 이 VM 에서는 `/tmp/pwlibs/usr/lib/x86_64-linux-gnu`(있으면)를 `LD_LIBRARY_PATH` 에 붙여 띄운다(`PW_LIBS` 로 바꿈).
 
