@@ -26,6 +26,12 @@
 
   /* ── 발표 ─────────────────────────────────────────────────── */
 
+  /** 코칭 칩이 없을 때 코치 카드 — [큰 줄, 작은 줄] */
+  const IDLE_CHIP = {
+    listen: ['발표를 듣고 있어요', '말 속도 · 군더더기 · 장마다 쓴 시간을 같이 봐요'],
+    paused: ['잠깐 멈췄어요', '이어 보기를 누르면 계속 들어요'],
+    end: ['발표를 다 들었어요', '분석 보기를 누르면 결과가 나와요'],
+  };
   const ARROW_L = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.6 5.4 8 12l6.6 6.6"/></svg>';
   const ARROW_R = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 5.4 16 12l-6.6 6.6"/></svg>';
 
@@ -106,7 +112,9 @@
       const { live, seen, total } = L.chipAt(p, t);
       root.querySelectorAll('.tp-mark').forEach((m) => m.classList.toggle('is-seen', Number(m.dataset.at) <= t));
       $('[data-chip-count]').textContent = total ? `${seen}/${total}` : '';
-      const key = live ? `${live.at_sec}:${live.kind}` : '';
+      // 칩이 없을 때는 지금 상태를 정직하게 — 멈췄는데 「발표를 듣고 있어요」 로 남아 있었다 (10-12 점검)
+      const idle = live ? '' : (t >= dur ? 'end' : (playing ? 'listen' : 'paused'));
+      const key = live ? `${live.at_sec}:${live.kind}` : idle;
       if (key === liveKey) return;
       liveKey = key;
       const coach = $('[data-coach]');
@@ -114,8 +122,8 @@
       coach.classList.toggle('is-live', !!live);
       coach.dataset.kind = live ? live.kind : '';
       coach.querySelector('.ch-seat').dataset.mood = kind ? kind.mood : 'neutral';
-      $('[data-chip]').textContent = live ? live.text : '발표를 듣고 있어요';
-      $('[data-looks]').textContent = kind ? kind.looks : '말 속도 · 군더더기 · 장마다 쓴 시간을 같이 봐요';
+      $('[data-chip]').textContent = live ? live.text : IDLE_CHIP[idle][0];
+      $('[data-looks]').textContent = kind ? kind.looks : IDLE_CHIP[idle][1];
       if (live && !c.reduced()) { coach.classList.remove('is-pop'); void coach.offsetWidth; coach.classList.add('is-pop'); }
     }
 
@@ -124,7 +132,12 @@
       const cap = L.captionAt(p, t);
       const capEl = $('[data-caption]');
       const text = cap ? cap.text : '';
-      if (capEl.dataset.text !== text) { capEl.dataset.text = text; capEl.textContent = text || ' '; }
+      // 받아쓴 말이 없으면 빈 상자 대신 회색 한 줄 — 멈추고 장을 넘기면 빈 칸만 보였다
+      if (capEl.dataset.text !== text) {
+        capEl.dataset.text = text;
+        capEl.textContent = text || '이 장에서는 아직 말하지 않았어요';
+        capEl.classList.toggle('is-empty', !text);
+      }
       showChip();
       seek.value = String(t);
       seek.style.setProperty('--p', `${(t / dur) * 100}%`);
