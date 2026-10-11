@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -240,6 +241,34 @@ def test_그래프_노드는_12개까지_루트를_먼저_남긴다():
     g = B.claim_graph(rec["graph"], rec["alignment"])
     assert len(g["nodes"]) == B.NODE_MAX and g["nodes"][0]["id"] == "root"
     assert all(e["from"] in {n["id"] for n in g["nodes"]} and e["to"] in {n["id"] for n in g["nodes"]} for e in g["edges"])
+
+
+def test_그래프_요약_숫자는_보여_준_노드와_같다():
+    """perf-security-copy-r1-3 — 요약은 원본 그래프 전체(22개 중 14개)로, 범례는 자른 12개(잘 설명함 8 · 아직 4)로 세서 한 카드 안 숫자가 달랐다."""
+    rec = _recording()
+    rec["graph"]["nodes"] += [{"id": f"n{i}", "label": f"개념 {i}", "kind": "concept", "slide_nos": [1], "weight": i / 100} for i in range(20)]
+    rec["alignment"]["items"] += [{"node_id": f"n{i}", "verdict": "aligned" if i % 2 else "missing"} for i in range(20)]
+    rec["alignment"]["summary"]["verdict_counts"] = {"aligned": 11, "missing": 11}
+    g = B.claim_graph(rec["graph"], rec["alignment"])
+    shown, said = graph_summary_numbers(g["summary"])
+    assert shown == len(g["nodes"]) == B.NODE_MAX
+    assert said == sum(n["status"] in ("aligned", "justified_skip") for n in g["nodes"])
+
+
+def graph_summary_numbers(summary: str) -> tuple[int, int]:
+    m = re.search(r"(\d+)개 가운데 (\d+)개", summary)
+    assert m, summary
+    return int(m.group(1)), int(m.group(2))
+
+
+@pytest.mark.parametrize("path", RECORDED, ids=lambda p: p.name)
+def test_녹화_투어의_그래프_요약_숫자는_범례와_같다(path):
+    g = json.loads(path.read_text(encoding="utf-8"))["analysis"]["claim_graph"]
+    shown, said = graph_summary_numbers(g["summary"])
+    assert shown == len(g["nodes"]), g["summary"]
+    assert said == sum(n["status"] in ("aligned", "justified_skip") for n in g["nodes"]), g["summary"]
+    bad = sum(n["status"] == "contradiction" for n in g["nodes"])
+    assert (f"어긋나게 말한 곳이 {bad}곳" in g["summary"]) == bool(bad), g["summary"]
 
 
 def test_목록은_정한_차례와_기본_덱을_쓴다():

@@ -315,11 +315,14 @@ def claim_graph(graph: dict, alignment: dict) -> dict:
     ids = {n["src"]: n["id"] for n in out_nodes}
     edges = [{"from": ids[e["from"]], "to": ids[e["to"]]} for e in graph.get("edges") or []
              if e.get("from") in keep and e.get("to") in keep and e["from"] != e["to"]]
-    counts = (alignment.get("summary") or {}).get("verdict_counts") or {}
-    total = sum(counts.values()) or len(nodes)
-    said = counts.get("aligned", 0) + counts.get("justified_skip", 0)
-    summary = f"자료의 핵심 개념 {total}개 가운데 {said}개를 발표에서 말했어요."
-    if counts.get("contradiction"):
+    # 요약 숫자는 **보여 주는 노드**로 센다 — 원본 전체(22개 중 14개)로 세면 바로 아래 범례(12개: 잘 설명함 8 · 아직 4)와
+    # 한 카드 안에서 숫자가 달랐다(10-12 점검, CLAUDE.md §3-4 숫자는 신성하다). 잘랐으면 「중요한」 을 붙여 일부임을 밝힌다.
+    counts = Counter(n["status"] for n in out_nodes)
+    shown = len(out_nodes)
+    said = counts["aligned"] + counts["justified_skip"]
+    which = "중요한 개념" if len(nodes) > shown else "자료의 핵심 개념"
+    summary = f"{which} {shown}개 가운데 {said}개를 발표에서 말했어요."
+    if counts["contradiction"]:
         summary += f" 자료와 어긋나게 말한 곳이 {counts['contradiction']}곳 있어요."
     root_status = next((n["status"] for n in out_nodes if n["src"] == root), "")
     if root_status == "missing":
