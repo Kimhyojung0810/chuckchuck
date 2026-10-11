@@ -264,6 +264,8 @@ const routes = {
   'booth': () => (typeof bqHashVariant === 'function' && bqHashVariant() && typeof renderBoothQa === 'function' ? renderBoothQa(bqHashVariant()) : renderHome()),
   // 개념 그래프 3D 무대 (js/graph3d.js). 데모 경로 밖이라 여기가 죽어도 시연은 돈다.
   'graph': () => window.renderGraph3D(),
+  // 부스 모바일 체험 투어 (#/tour/* · 주소창 /tour) — 녹화 응답만 재생, 공개 화면 (js/tour.js · docs/booth-mobile/)
+  'tour': () => { if (typeof renderTour === 'function') renderTour(); },
 };
 
 /** 진행 중 세션을 버리고 새 연습 시작 */
@@ -387,6 +389,8 @@ function route() {
   if (typeof visionFlowOnRoute === 'function') visionFlowOnRoute(key);
   // 부스 Q&A 층(#bqStage)도 #app 밖이다 — 같은 이유로 먼저 걷는다. 부스 흐름을 벗어나면 카메라까지 끈다
   if (typeof boothQaOnRoute === 'function') boothQaOnRoute(key);
+  // 투어 층(#tourStage)도 #app 밖이다 — 투어 밖으로 나가면 걷는다 (js/tour.js)
+  if (typeof tourOnRoute === 'function') tourOnRoute(key);
   // 부스 탭에서 #/qa 를 되살릴 수 없으면 일반 질문 코칭 대신 부스 처음 화면으로 (booth_qa.js boothQaGuard · 10-02)
   if (typeof boothQaGuard === 'function' && boothQaGuard(key)) return;
   // 리허설 탭도 같다 — #/qa 를 되살릴 수 없으면 리허설 자리로 (rehearsal.js rehearsalGuard)
@@ -935,7 +939,7 @@ const TEAM_TOOLS = [
    sessionStorage 표시로 #/new·#/qa 의 배치까지 바꾸므로, 표시가 켜진 채 새로 고치면 그 화면에서도 받는다.
    키는 call_flow.js CALL_FLOW_KEY · vision_rehearsal.js VISION_FLOW_KEY · booth_qa.js BOOTH_QA_KEY · rehearsal.js REHEARSAL_FLOW_KEY 와 같아야 한다
    (tests/js/lazy.smoke.mjs 가 대조한다). */
-const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], rehearsal: ['beta'] };
+const LAZY_ROUTE_BUNDLES = { temp: ['beta'], vision: ['beta'], booth: ['beta'], rehearsal: ['beta'], tour: ['tour'] };
 const LAZY_FLOW_FLAGS = ['cheokcheok:call-flow', 'cheokcheok:vision-flow', 'cheokcheok:booth-qa', 'cheokcheok:rehearsal-flow'];
 /* 끌 때 같이 지우는 이 탭의 베타 표시 — 팀 흐름 표시 셋 + 부스 무대 종류 + 마지막 팀 확인값. 리허설 표시는 공개 흐름이라 남긴다 */
 const BETA_TAB_KEYS = [...LAZY_FLOW_FLAGS.filter((k) => k !== RH_FLOW_FLAG), 'cheokcheok:booth-variant', 'cheokcheok:team-ok'];

@@ -103,7 +103,8 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      beta    : 팀 코드로 여는 베타 화면(#/temp·#/vision·#/booth/qa)과 그 흐름이 켜진 채 새로 고친 #/new·#/qa
                app.js 의 LAZY_FLOW_FLAGS 가 이 파일들의 sessionStorage 키와 같아야 한다 (tests/js/lazy.smoke.mjs)
      motion  : 분석 타임라인·피드의 스프링 등장 모션 — 첫 화면이 뜬 뒤 한가할 때. 없어도 화면은 그대로 뜬다
-     pdf     : 올린 PDF 를 브라우저에서 여는 pdf.js — 한가할 때 받고, 쓰는 곳은 ccEnsurePdfjs() 로 기다린다 -->
+     pdf     : 올린 PDF 를 브라우저에서 여는 pdf.js — 한가할 때 받고, 쓰는 곳은 ccEnsurePdfjs() 로 기다린다
+     tour    : 부스 모바일 체험 투어 #/tour/* (공개) — 팀 번들(beta)과 따로 받아 폰 첫 방문이 가볍다 -->
 <template id="lazyAssets">
   <link rel="stylesheet" href="css/call_flow.css?v=cf6" data-bundle="beta">
   <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr13" data-bundle="beta">
@@ -121,6 +122,11 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <script src="js/booth_call.js?v=bc18" data-bundle="beta"></script>
   <!-- 리허설 한 줄 흐름 #/rehearsal — 고르기 → 비전 리허설 → 분석 기다림 → 글라스 화상판 → 리포트. 위 파일들의 전역을 호출 시점에 찾는다 -->
   <script src="js/rehearsal.js?v=rh49" data-bundle="beta"></script>
+  <!-- 부스 모바일 체험 투어 #/tour/* — 녹화 응답 재생(API · 카메라 0). 순수 판단 → 셸 · 시작/자료/끝 → 발표 · 분석 · 질문 · 리포트 순서 -->
+  <link rel="stylesheet" href="css/tour.css?v=tr1" data-bundle="tour">
+  <script src="js/tour_logic.js?v=tr1" data-bundle="tour"></script>
+  <script src="js/tour.js?v=tr1" data-bundle="tour"></script>
+  <script src="js/tour_play.js?v=tr1" data-bundle="tour"></script>
   <!-- Motion(구 Motion One) IIFE. 부스 네트워크를 믿지 않으므로 CDN 이 아니라 로컬로 둔다 -->
   <script src="js/vendor/motion.min.js?v=qkh" data-bundle="motion"></script>
   <script src="js/vendor/pdfjs/pdf.min.js?v=pl3111" data-bundle="pdf"
@@ -139,7 +145,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/qa_live.js?v=qlbc34"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv4"></script>
-<script src="js/app.js?v=qlbc68"></script>
+<script src="js/app.js?v=qlbc69"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkxbc14"></script>
 </body>
