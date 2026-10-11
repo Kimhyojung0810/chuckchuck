@@ -273,6 +273,18 @@ test('투어 질문 판정은 3단계 말 하나만 보인다(내부 판정 이�
   ok(!/\$\{v\.word\}|VERDICT\[/.test(src), 'tour_play.js 가 내부 판정 이름(설득 완료 · 부분 인정 · 미방어)을 그려요');
 });
 
+// 용어 — perf-security-copy-r2-8 · r2-5: 같은 단계를 /hi 「리허설」 · 투어 「발표」, 투어 이름을 「살펴보기」 · 「둘러보기」 로 불렀다.
+// 덱 화면 주 버튼 「이 자료로 발표해 볼게요」 는 방문객이 직접 발표(마이크)하는 것처럼 들렸다(실제로는 녹화를 본다)
+test('단계 이름은 자료 · 발표 · 분석 · 질문 · 리포트, 투어 이름은 「살펴보기」 하나', () => {
+  const tour = readFileSync(path.join(WEB, 'js/tour.js'), 'utf8');
+  const play = readFileSync(path.join(WEB, 'js/tour_play.js'), 'utf8');
+  const hi = readFileSync(path.join(WEB, 'intro.html'), 'utf8');
+  ok(!/둘러보기/.test(tour + hi), '「둘러보기」 가 남았어요 — 「살펴보기」 로');
+  ok(/<li>자료<\/li><li>발표<\/li><li>분석<\/li><li>질문<\/li><li>리포트<\/li>/.test(hi), '/hi 체험 순서가 투어 단계 막대와 달라요');
+  ok(!/발표해 볼게요/.test(tour) && /이 자료로 발표 보기/.test(tour), '덱 화면 주 버튼은 「이 자료로 발표 보기」');
+  ok(!/군더더기 ·/.test(play), '코치 카드는 「군더더기 말」');
+});
+
 test('하네스 자기 검사 — 장 경계를 하나 밀어 놓은 파일을 넣으면 잡는다', () => {
   const broken = load(SRC.replace('if (t >= s.start_sec) cur = s.slide_no;', 'if (t > s.start_sec) cur = s.slide_no;'));
   const failed = suite(broken).filter((c) => { try { c.fn(); return false; } catch (_) { return true; } });

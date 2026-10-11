@@ -6,7 +6,7 @@
 
 | 화면 | 읽는 칸 | 하는 일 |
 |---|---|---|
-| `#/tour/deck` | `deck` | 표지·장 그림 넘겨 보기. 「이 자료로 발표해 볼게요」 |
+| `#/tour/deck` | `deck` | 표지·장 그림 넘겨 보기. 「이 자료로 발표 보기」 |
 | `#/tour/present` | `deck.slides` · `present` | `present.slides` 시각에 장을 넘기고, `transcript` 를 자막처럼, `coaching_chips` 를 `at_sec` 에 띄운다. 건너뛰기 가능 |
 | `#/tour/analysis` | `analysis` | 한 줄 요약 → 장별 시간 → 말 속도 · 군더더기 → 핵심 주장 그래프 요약 |
 | `#/tour/qa` | `qa` | 질문마다 「잘 답한 답」·「엉성한 답」 중 하나를 눌러 판정과 근거 줄을 비교 |

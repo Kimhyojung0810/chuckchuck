@@ -599,14 +599,14 @@
     tone: 'light',
     html: `<section class="tour-screen tour-intro">
         ${chick('neutral', 'is-lg')}
-        <p class="tour-eyebrow">척척발표 둘러보기</p>
+        <p class="tour-eyebrow">척척발표 살펴보기</p>
         <h1 class="tour-h1">발표 한 편을<br>AI 코치와 따라가 봐요</h1>
         <p class="tour-sub">미리 녹화한 발표로 2~3분이면 끝나요. 카메라·마이크는 켜지 않아요.</p>
         <ol class="tour-steps">
           ${L.STEPS.map((s, i) => `<li><span class="tour-steps-n">${i + 1}</span><div><b>${esc(INTRO_LINES[s.id][0])}</b><small>${esc(INTRO_LINES[s.id][1])}</small></div></li>`).join('')}
         </ol>
       </section>`,
-    foot: '<button class="tour-cta" type="button" data-next>둘러보기 시작</button>',
+    foot: '<button class="tour-cta" type="button" data-next>살펴보기 시작</button>',
     mount(root) { root.querySelector('[data-next]').addEventListener('click', () => c.go('deck')); },
   });
 
@@ -648,7 +648,7 @@
           <div class="tour-strip" tabindex="0" role="group" aria-label="${esc(c.tour.deck.title)} 장 미리 보기">${strip}</div>
           ${c.honestNote(c.tour)}
         </section>`,
-      foot: '<button class="tour-cta" type="button" data-next>이 자료로 발표해 볼게요</button>',
+      foot: '<button class="tour-cta" type="button" data-next>이 자료로 발표 보기</button>',
       mount(root) {
         root.querySelectorAll('input[name="tourDeck"]').forEach((r) => r.addEventListener('change', () => {
           if (r.value === c.state.deck) return;
