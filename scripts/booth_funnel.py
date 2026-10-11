@@ -41,8 +41,12 @@ LABELS = {
 _MONTHS = {m: i for i, m in enumerate(("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), start=1)}
 
-#: `<IP> - - [11/Oct/2026 14:02:03] <나머지>` — http.server 접근 로그 머리. journalctl 의 「Oct 11 … python3[123]: 」 앞머리는 건너뛴다
-_LINE = re.compile(r"(?:^|\s)(?P<ip>[0-9A-Fa-f:.]{2,45}) - - \[(?P<d>\d{2})/(?P<mon>[A-Z][a-z]{2})/(?P<y>\d{4}) "
+#: `<IP> - - [11/Oct/2026 14:02:03] <나머지>` — http.server 접근 로그 머리. **줄 맨 앞**(또는 journalctl 의
+#: 「Nov 03 14:01:00 vm python3[123]: 」 · 「2026-11-03T14:01:00+0900 vm python3[123]: 」 앞머리 바로 뒤)에서만 읽는다 —
+#: 줄 가운데서 찾으면, 깨진 요청 줄을 그대로 옮겨 적는 오류 로그(`code 400, message Bad request syntax ('… 1.2.3.4 - - [..] tour step=…')`)
+#: 로 누구나 가짜 신호 줄을 끼워 넣을 수 있다.
+_LINE = re.compile(r"^(?:(?:[A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d|\d{4}-\d\d-\d\dT[\d:.+-]+) \S+ [^\s\[]+\[\d+\]: )?"
+                   r"(?P<ip>[0-9A-Fa-f:.]{2,45}) - - \[(?P<d>\d{2})/(?P<mon>[A-Z][a-z]{2})/(?P<y>\d{4}) "
                    r"(?P<hms>\d{2}:\d{2}:\d{2})\] (?P<rest>.*)$")
 _ACCESS = re.compile(r'^"(?P<method>[A-Z]{3,7}) (?P<target>\S+) HTTP/\d(?:\.\d)?" (?P<code>\d{3})')
 _TOUR = re.compile(r"^tour step=(?P<step>[a-z_]{1,20}) deck=(?P<deck>\S{1,41}) t=(?P<t>\S{1,6})\s*$")
@@ -75,7 +79,7 @@ def _path_of(target: str) -> str:
 
 def parse_line(line: str) -> Hit | None:
     """로그 한 줄 → Hit. 접근 로그·신호 줄이 아니면 None."""
-    m = _LINE.search(line.rstrip("\n"))
+    m = _LINE.match(line.rstrip("\n"))
     if not m or m["mon"] not in _MONTHS:
         return None
     try:

@@ -145,3 +145,15 @@ def test_브리지_신호_줄을_그대로_읽는다():
 def test_집계_단계는_서버_허용_목록과_같다():
     assert set(bf.FUNNEL) - {"upload"} | set(bf.SIDE) == set(tour_events.STEPS)
     assert set(bf.LABELS) >= set(bf.FUNNEL) | set(bf.SIDE)
+
+
+def test_줄_가운데에_끼운_가짜_신호는_세지_않는다():
+    # http.server 는 깨진 요청 줄을 오류 로그에 그대로 옮긴다 — 그 안에 접근 로그 모양을 넣어도 줄 맨 앞이 아니면 무시
+    forged = ("Nov 03 14:30:00 vm python3[4242]: 203.0.113.9 - - [03/Nov/2026 14:30:00] code 400, message Bad request "
+              "syntax ('GET 9.9.9.9 - - [03/Nov/2026 14:30:00] tour step=try_real deck=- t=1')")
+    forged2 = ("203.0.113.9 - - [03/Nov/2026 14:30:00] code 400, message Bad request syntax "
+               "('x 9.9.9.9 - - [03/Nov/2026 14:30:00] \"GET /hi HTTP/1.1\" 302 -')")
+    assert bf.parse_line(forged) is None and bf.parse_line(forged2) is None
+    # journalctl -o short-iso 앞머리도 읽는다
+    iso = "2026-11-03T14:30:00+0900 vm python3[4242]: 211.234.10.1 - - [03/Nov/2026 14:30:00] tour step=team deck=- t=3"
+    assert bf.parse_line(iso).kind == "team"
