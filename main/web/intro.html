@@ -31,13 +31,12 @@
 <meta name="twitter:description" content="말한 걸 자료와 맞춰 보고, 나올 질문까지 미리 물어봐 주는 AI 발표 리허설 코치예요.">
 <meta name="twitter:image" content="https://chuckchuck-present.com/assets/chuckchuck-app-icon-512.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"척척발표","url":"https://chuckchuck-present.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web","inLanguage":"ko","description":"발표 자료와 실제로 말한 것을 맞춰 보고, 나올 만한 질문까지 미리 물어봐 주는 AI 발표 리허설 코치"}</script>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다 (그 전엔 시스템 서체). 앱(index.html)과 같은 주소라 투어로 넘어가면 캐시를 그대로 쓴다 -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i12">
+<!-- 서체는 /hi 에 나오는 글자만 담은 woff2 한 장을 우리 서버에서 (10-13, etc/scripts/subset_hi_font.py). 예전 CDN 조각 14개 362KB 가 전송량의 83% 였다.
+     preload 주소는 intro.css @font-face 와 같아야 한다(?v= 도 같은 값 — 스크립트가 맞춘다). 글꼴 preload 는 crossorigin 이 있어야 그 요청을 다시 쓴다 -->
+<link rel="preload" href="/assets/fonts/cc-hi-sans.woff2?v=h548c45fdda" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/intro.css?v=i15">
 <script src="/js/funnel.js?v=fn2" defer></script>
-<script src="/js/intro.js?v=i9" defer></script>
+<script src="/js/intro.js?v=i10" defer></script>
 </head>
 <body>
 <!-- 병아리 배지 한 장을 팀원 줄마다 같이 쓴다 -->
@@ -61,7 +60,10 @@
         <!-- 삐약이는 봉을 뺀 그림(assets/chuckchuck-mascot-nowand-256.png, etc/scripts/mascot_nowand.py) + 그 위 SVG 봉.
              멈춰 있을 땐 앱 아이콘에 그려진 봉과 같은 자리 · 굵기 · 색이다(512 칸 좌표: 손 477,341 → 끝 400,92) — 첫 연출에서 봉이 길어져 한 바퀴 돈다 -->
         <span class="hero-face">
-          <img class="hero-icon" src="/assets/chuckchuck-mascot-nowand-256.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
+          <picture>
+            <source srcset="/assets/chuckchuck-mascot-nowand-256.webp?v=i1" type="image/webp">
+            <img class="hero-icon" src="/assets/chuckchuck-mascot-nowand-256.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
+          </picture>
           <svg class="wand" viewBox="0 0 512 512" focusable="false">
             <g class="w-spin">
               <g class="w-trail" fill="none" stroke="#F0B429" stroke-linecap="round">
@@ -83,6 +85,8 @@
       </span>
       <p class="hero-bubble">이 숫자, 근거가 뭐예요?</p>
     </div>
+    <!-- 위 그림은 통째로 aria-hidden — 말풍선 속 질문은 이 페이지가 무엇을 해 주는지 보여 주는 말이라 화면 읽기에도 들려준다 -->
+    <p class="sr-only">삐약이가 묻는 말: 「이 숫자, 근거가 뭐예요?」</p>
     <p class="fly-caption" aria-hidden="true">척척, 발표 채점~!</p>
     <!-- 첫 그림 전에 삐약이가 지금 자리에서 화면 가운데까지 얼마나 떨어져 있는지 재 둔다 — css .fly 연출이 거기서 출발해 제자리로 날아온다.
          맨 위에서 처음 열 때만 (/hi/<id>·#팀 으로 바로 내려가는 길, 움직임 줄이기, 스크립트 꺼짐이면 연출 없이 그대로).
@@ -92,8 +96,10 @@
       (function () {
         try {
           var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0] || {}).type;
+          // 「봤음」 은 연출을 실제로 틀 때만 적는다 — /hi/<id> · #팀 으로 바로 내려가 건너뛴 방문에도 적었더니
+          // 같은 탭에서 맨 위 /hi 를 열어도 연출이 안 나왔다 (10-13). 연출 도중 넘긴 것도 본 것으로 친다
           var seen = false;
-          try { seen = sessionStorage.getItem('cheokcheok:hi-intro') === '1'; sessionStorage.setItem('cheokcheok:hi-intro', '1'); } catch (_) { /* 사생활 모드 */ }
+          try { seen = sessionStorage.getItem('cheokcheok:hi-intro') === '1'; } catch (_) { /* 사생활 모드 */ }
           if (seen || nav === 'back_forward' || matchMedia('(prefers-reduced-motion: reduce)').matches || scrollY > 0
               || /^\/hi\/./.test(location.pathname) || location.hash) return;
           var m = document.querySelector('.hero-mascot');
@@ -106,6 +112,14 @@
           d.style.setProperty('--hand', Math.round(hand) + 'px');
           d.style.setProperty('--fy', Math.round(innerHeight * 0.42 - (r.top + r.height / 2)) + 'px');
           d.classList.add('fly');
+          try { sessionStorage.setItem('cheokcheok:hi-intro', '1'); } catch (_) { /* 사생활 모드 — 매번 튼다 */ }
+          // 연출 도중 스크롤 · 탭 · 키를 누르면 바로 끝 그림으로 — 그대로 두면 삐약이는 문서와 같이 위로 밀려 나가고
+          // 캡션(position: fixed)만 1초 가까이 빈 화면(글은 아직 투명)에 떠 있었다 (10-13 점검). 모든 연출은 건너뛸 수 있다(CLAUDE.md §3-4)
+          var evs = ['wheel', 'touchmove', 'pointerdown', 'keydown', 'scroll'];
+          var off = function () { evs.forEach(function (t) { removeEventListener(t, skip, true); }); };
+          var skip = function () { off(); d.classList.remove('fly'); d.classList.add('fly-skip'); };
+          evs.forEach(function (t) { addEventListener(t, skip, { capture: true, passive: true }); });
+          setTimeout(off, 1700);
         } catch (_) { /* 연출은 덤 */ }
       })();
     </script>
@@ -126,7 +140,7 @@
       <li class="feat rv">
         <div class="feat-visual" role="img" aria-label="발표 자료 아래 객석에서 병아리 청중이 듣고 있는 화면">
           <div class="mock-stage">
-            <img class="mock-slide" src="/assets/deck-covers/delivery-rating.webp" width="800" height="450" alt="" loading="lazy" decoding="async">
+            <img class="mock-slide" src="/assets/deck-covers/delivery-rating.webp?v=i1" width="800" height="450" alt="" loading="lazy" decoding="async">
             <span class="mock-pill mock-live"><i></i>발표 중</span>
             <span class="mock-pill mock-page">1 / 3장</span>
           </div>
@@ -206,14 +220,14 @@
     </div>
 
     <div class="team-box" data-state="loading">
-      <ul class="team-list" id="team-list" aria-label="팀원">
+      <ul class="team-list" id="team-list" aria-label="팀원" aria-busy="true">
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
       </ul>
-      <div class="team-error" id="team-error" hidden>
+      <div class="team-error" id="team-error" role="alert" hidden>
         <p>팀 소개를 불러오지 못했어요. 연결을 확인하고 다시 불러와 주세요.</p>
         <button type="button" class="btn-ghost" id="team-retry">다시 불러오기</button>
       </div>
@@ -240,9 +254,20 @@
 </main>
 
 <!-- 아래 고정 주 버튼 — 스크롤 위치와 상관없이 항상 엄지 닿는 곳에 있다 (safe-area 반영) -->
-<div class="dock">
+<nav class="dock" aria-label="체험 시작">
   <a class="btn-primary" id="explore-btn" href="/index.html#/tour">척척발표 살펴보기</a>
-</div>
+</nav>
+
+<!-- 투어 첫 화면 자산 — js/intro.js prefetchTour() 가 /hi 를 다 그린 뒤 한가할 때 rel=prefetch 로 미리 받는다. template 이라 여기선 아무것도 안 받는다.
+     ?v= 는 index.html 과 같은 값으로 둔다(브리지는 둘 다 내용 해시로 바꿔 넣어 저절로 맞는다 · etc/tests/test_intro_prefetch.py 가 대조한다) -->
+<template id="tour-prefetch">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link href="/css/app.css?v=ql17"><link href="/css/graph3d.css?v=qku3"><link href="/css/chatter.css?v=qkh"><link href="/css/theater.css?v=qkh2">
+  <link href="/css/design-system.css?v=qlst3"><link href="/css/tablet.css?v=qkl3"><link href="/css/tour.css?v=tr12">
+  <script src="/js/lazy.js?v=lz1"></script><script src="/js/config.js?v=qkh"></script><script src="/js/data.js?v=qkn3"></script>
+  <script src="/js/app.js?v=qlbc73"></script><script src="/js/tour_logic.js?v=tr5"></script><script src="/js/tour.js?v=tr18"></script>
+  <script src="/js/tour_play.js?v=tr10"></script>
+</template>
 
 <!-- 인앱 브라우저(카카오톡·네이버·인스타)에서 카메라가 필요한 실제 흐름으로 갈 때만 뜬다. 진입 즉시 뜨지 않는다 -->
 <div class="sheet-scrim" id="inapp" hidden>
@@ -252,7 +277,7 @@
     <h2 id="inapp-title" class="sheet-title">Safari나 Chrome에서 열면 돼요</h2>
     <p id="inapp-desc" class="sheet-text">내 자료로 해 보려면 카메라와 마이크가 필요해요. 둘은 Safari나 Chrome에서 켤 수 있어요. 살펴보기는 <span id="inapp-app">이 앱</span>에서도 끝까지 할 수 있어요.</p>
     <p class="sheet-hint sheet-tip" id="inapp-tip" hidden>앱 메뉴(<b>···</b>)에서 <b>Safari로 열기</b>를 고르거나, 주소를 복사해 Safari에 붙여 넣어요.</p>
-    <p class="sheet-hint" id="inapp-hint" role="status" hidden></p>
+    <p class="sheet-hint" id="inapp-hint" role="status"></p>
     <div class="sheet-actions">
       <button type="button" class="btn-solid" id="inapp-open">주소 복사하기</button>
       <button type="button" class="btn-ghost" id="inapp-copy" hidden>주소 복사하기</button>

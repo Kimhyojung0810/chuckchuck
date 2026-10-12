@@ -29,11 +29,10 @@
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
 <meta property="og:image:alt" content="척척발표 병아리 앱 아이콘">
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i12">
-<link rel="stylesheet" href="/css/intro_stage.css?v=s1">
+<!-- 서체는 /hi 와 같은 자체 서브셋(CC Hi Sans, etc/scripts/subset_hi_font.py — /hi/stage 글자도 담는다). 주소 · ?v= 는 intro.css @font-face 와 같다 -->
+<link rel="preload" href="/assets/fonts/cc-hi-sans.woff2?v=h548c45fdda" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/intro.css?v=i15">
+<link rel="stylesheet" href="/css/intro_stage.css?v=s2">
 <!-- 첫 연출은 이 탭에서 한 번만 · 맨 위에서 처음 열 때만 · 움직임 줄이기면 없음 (/hi 의 .fly 와 같은 규칙, 10-12 지표 노트 P0).
      제목 · 주 버튼은 연출과 상관없이 처음부터 보인다 — 연출은 그래프 · 칩 · 삐약이만 -->
 <script>
@@ -41,16 +40,18 @@
     try {
       var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0] || {}).type;
       var seen = false;
-      try { seen = sessionStorage.getItem('cheokcheok:hi-stage-intro') === '1'; sessionStorage.setItem('cheokcheok:hi-stage-intro', '1'); } catch (_) { /* 사생활 모드 */ }
+      try { seen = sessionStorage.getItem('cheokcheok:hi-stage-intro') === '1'; } catch (_) { /* 사생활 모드 */ }
       if (seen || nav === 'back_forward' || matchMedia('(prefers-reduced-motion: reduce)').matches || scrollY > 0 || location.hash) return;
       document.documentElement.classList.add('stage-play');
+      // 「봤음」 은 연출을 실제로 틀 때만 적는다 (/hi 10-13 수정과 같은 규칙)
+      try { sessionStorage.setItem('cheokcheok:hi-stage-intro', '1'); } catch (_) { /* 사생활 모드 — 매번 튼다 */ }
     } catch (_) { /* 연출은 덤 */ }
   })();
 </script>
 <script src="/js/funnel.js?v=fn2" defer></script>
-<script src="/js/intro.js?v=i9" defer></script>
+<script src="/js/intro.js?v=i10" defer></script>
 <script src="/js/booth_scan_draw.js?v=s1" defer></script>
-<script src="/js/intro_stage.js?v=s1" defer></script>
+<script src="/js/intro_stage.js?v=s2" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -94,7 +95,7 @@
       <div class="judge">
         <p class="judge-bubble" id="judge-bubble">이 숫자,<br>근거가 뭐예요?</p>
         <span class="judge-face" aria-hidden="true">
-          <img class="judge-icon" src="/assets/chuckchuck-mascot-nowand-256.png?v=i1" width="64" height="64" alt="" decoding="async">
+          <picture><source srcset="/assets/chuckchuck-mascot-nowand-256.webp?v=i1" type="image/webp"><img class="judge-icon" src="/assets/chuckchuck-mascot-nowand-256.png?v=i1" width="64" height="64" alt="" decoding="async"></picture>
           <svg class="wand judge-wand" viewBox="0 0 512 512" focusable="false">
               <g class="w-spin">
                 <g class="w-trail" fill="none" stroke="#F0B429" stroke-linecap="round">
@@ -143,7 +144,7 @@
       <li class="feat rv">
         <div class="feat-visual" role="img" aria-label="발표 자료 아래 객석에서 병아리 청중이 듣고 있는 화면">
           <div class="mock-stage">
-            <img class="mock-slide" src="/assets/deck-covers/delivery-rating.webp" width="800" height="450" alt="" loading="lazy" decoding="async">
+            <img class="mock-slide" src="/assets/deck-covers/delivery-rating.webp?v=i1" width="800" height="450" alt="" loading="lazy" decoding="async">
             <span class="mock-pill mock-live"><i></i>발표 중</span>
             <span class="mock-pill mock-page">1 / 3장</span>
           </div>
@@ -223,14 +224,14 @@
     </div>
 
     <div class="team-box" data-state="loading">
-      <ul class="team-list" id="team-list" aria-label="팀원">
+      <ul class="team-list" id="team-list" aria-label="팀원" aria-busy="true">
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
         <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
       </ul>
-      <div class="team-error" id="team-error" hidden>
+      <div class="team-error" id="team-error" role="alert" hidden>
         <p>팀 소개를 불러오지 못했어요. 연결을 확인하고 다시 불러와 주세요.</p>
         <button type="button" class="btn-ghost" id="team-retry">다시 불러오기</button>
       </div>
@@ -257,9 +258,20 @@
 </main>
 
 <!-- 아래 고정 주 버튼 — 스크롤 위치와 상관없이 항상 엄지 닿는 곳에 있다 (safe-area 반영) -->
-<nav class="dock" aria-label="척척발표 둘러보기">
+<nav class="dock" aria-label="체험 시작">
   <a class="btn-primary" id="explore-btn" href="/index.html#/tour">척척발표 살펴보기</a>
 </nav>
+
+<!-- 투어 첫 화면 자산 — js/intro.js prefetchTour() 가 /hi 를 다 그린 뒤 한가할 때 rel=prefetch 로 미리 받는다. template 이라 여기선 아무것도 안 받는다.
+     ?v= 는 index.html 과 같은 값으로 둔다(브리지는 둘 다 내용 해시로 바꿔 넣어 저절로 맞는다 · etc/tests/test_intro_prefetch.py 가 대조한다) -->
+<template id="tour-prefetch">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link href="/css/app.css?v=ql17"><link href="/css/graph3d.css?v=qku3"><link href="/css/chatter.css?v=qkh"><link href="/css/theater.css?v=qkh2">
+  <link href="/css/design-system.css?v=qlst3"><link href="/css/tablet.css?v=qkl3"><link href="/css/tour.css?v=tr12">
+  <script src="/js/lazy.js?v=lz1"></script><script src="/js/config.js?v=qkh"></script><script src="/js/data.js?v=qkn3"></script>
+  <script src="/js/app.js?v=qlbc73"></script><script src="/js/tour_logic.js?v=tr5"></script><script src="/js/tour.js?v=tr18"></script>
+  <script src="/js/tour_play.js?v=tr10"></script>
+</template>
 
 <!-- 인앱 브라우저(카카오톡·네이버·인스타)에서 카메라가 필요한 실제 흐름으로 갈 때만 뜬다. 진입 즉시 뜨지 않는다 -->
 <div class="sheet-scrim" id="inapp" hidden>
@@ -269,7 +281,7 @@
     <h2 id="inapp-title" class="sheet-title">Safari나 Chrome에서 열면 돼요</h2>
     <p id="inapp-desc" class="sheet-text">내 자료로 해 보려면 카메라와 마이크가 필요해요. 둘은 Safari나 Chrome에서 켤 수 있어요. 살펴보기는 <span id="inapp-app">이 앱</span>에서도 끝까지 할 수 있어요.</p>
     <p class="sheet-hint sheet-tip" id="inapp-tip" hidden>앱 메뉴(<b>···</b>)에서 <b>Safari로 열기</b>를 고르거나, 주소를 복사해 Safari에 붙여 넣어요.</p>
-    <p class="sheet-hint" id="inapp-hint" role="status" hidden></p>
+    <p class="sheet-hint" id="inapp-hint" role="status"></p>
     <div class="sheet-actions">
       <button type="button" class="btn-solid" id="inapp-open">주소 복사하기</button>
       <button type="button" class="btn-ghost" id="inapp-copy" hidden>주소 복사하기</button>

@@ -154,5 +154,5 @@ def test_공개로_여는_실제_파일에는_git_밖_파일이나_문서가_없
             # 부스 스캔 화면의 MediaPipe 모델 사본(etc/scripts/get_mediapipe.sh, git 밖)만 .task 를 연다 (2026-10-12)
             if re.fullmatch(r"/js/vendor/mediapipe/[A-Za-z0-9_.-]+\.task", rel):
                 continue
-            assert p.suffix.lower() in {".html", ".css", ".js", ".mjs", ".png", ".ico", ".svg", ".webp", ".xml", ".wasm", ".txt"}, rel
+            assert p.suffix.lower() in {".html", ".css", ".js", ".mjs", ".png", ".ico", ".svg", ".webp", ".xml", ".wasm", ".txt", ".woff2"}, rel
             assert not rel.endswith(".md")

@@ -10,7 +10,6 @@
  *       스크립트가 늦게 와도 연출이 밀리지 않는다. 탭 · 「연출 건너뛰기」 면 끝 상태로.
  *   (3) 근거 펼치기 — 사람(또는 칩)을 누르면 그 장면의 자료 몇 장 · 어느 문장. 값은 녹화 투어(data/tour/delivery-rating.json)에서 읽는다.
  *   (4) 스크롤하면 그래프만 흐려지기(--lift, 배경은 CSS 그라데이션으로 흰 본문에 이어진다) · 주 버튼 띠 색 · theme-color — 스크롤은 붙잡지 않는다(passive).
- *   (5) 시트가 열리면 무대 · main · dock 에 inert (intro.js 는 그대로 두고 #inapp 의 hidden 만 지켜본다).
  * 지킬 것 — 감정 추정 없음. 시선을 자리로 나누지 않음(시선 무리는 아예 빛내지 않는다). 데이터는 textContent 로만.
  */
 (() => {
@@ -315,14 +314,6 @@
   }
   addEventListener('scroll', onScroll, { passive: true });
   onScroll();
-
-  // ── 시트가 열리면 뒤를 inert — 스크린리더 · 탭 키가 시트 밖으로 새지 않게 ──
-  const sheet = $('inapp');
-  if (sheet && 'MutationObserver' in window) {
-    const behind = [stage, document.querySelector('main'), document.querySelector('.dock')].filter(Boolean);
-    const sync = () => behind.forEach((n) => n.toggleAttribute('inert', !sheet.hidden));
-    new MutationObserver(sync).observe(sheet, { attributes: true, attributeFilter: ['hidden'] });
-  }
 
   start();
   // 근거 문장은 녹화 투어 파일에서 — 첫 그림이 끝난 뒤 받는다(투어로 넘어가면 같은 파일을 캐시로 쓴다)

@@ -111,6 +111,7 @@
     const list = $('team-list');
     const rows = team.members.map(row);
     list.replaceChildren(...rows);
+    list.setAttribute('aria-busy', 'false');
     document.querySelector('.team-box').dataset.state = 'ready';
     whenSeen(list, () => funnel('team'));
     // 예전 「마지막 카드까지 넘김」 자리 — 이제는 마지막 줄이 화면에 보였을 때
@@ -135,6 +136,7 @@
   async function loadTeam() {
     const root = document.querySelector('.team-box');
     root.dataset.state = 'loading';
+    $('team-list').setAttribute('aria-busy', 'true');
     $('team-error').hidden = true;
     try {
       const team = await fetchTeam();
@@ -146,7 +148,8 @@
       if (r) r.scrollIntoView({ block: 'start' });
     } catch (err) {
       root.dataset.state = 'error';
-      $('team-error').hidden = false;
+      $('team-list').setAttribute('aria-busy', 'false');
+      $('team-error').hidden = false;   // role="alert" — 보이는 순간 읽어 준다
     }
   }
 
@@ -199,9 +202,12 @@
 
     // 시트를 열면 기록을 하나 쌓는다(state.overlay) — 폰 뒤로는 시트만 닫는다. 기록 없이 열었더니 뒤로가 /hi 를 떠났고,
     // QR 로 처음 들어온 방문객이면 앞 기록이 없어 인앱 웹뷰가 통째로 닫혔다 (10-12 2차 layout-touch-a11y-r2-1)
+    // 시트가 떠 있는 동안 뒤 화면(건너뛰기 링크 · 본문 · 아래 고정 버튼)은 inert — Tab · 화면 읽기가 시트 밖으로 못 나간다(직접 짠 Tab 가두기 대신, 10-13)
+    const behind = () => Array.from(document.body.children).filter((n) => n !== scrim && n.tagName !== 'SCRIPT');
     const hide = () => {
       if (scrim.hidden) return;
       scrim.hidden = true;
+      behind().forEach((n) => { n.inert = false; });
       document.body.style.overflow = '';
       document.removeEventListener('keydown', onKey);
       if (opener) opener.focus();
@@ -211,21 +217,14 @@
       else hide();
     };
     window.addEventListener('popstate', () => { if (!(history.state && history.state.overlay === 'sheet')) hide(); });
-    const onKey = (e) => {
-      if (e.key === 'Escape') { close(); return; }
-      if (e.key !== 'Tab') return;
-      const f = Array.from(sheet.querySelectorAll('button, a[href]')).filter((b) => !b.hidden);
-      const first = f[0];
-      const last = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
     const open = (from) => {
       funnel('inapp_notice');
       opener = from;
-      hint.hidden = true;
+      hint.textContent = '';   // role="status" 는 늘 문서에 두고 글만 바꾼다(:empty 면 안 보임) — hidden 을 풀며 넣은 글은 읽지 않는 화면 읽기가 있다
       if (!(history.state && history.state.overlay === 'sheet')) history.pushState(Object.assign({}, history.state || {}, { overlay: 'sheet' }), '');
       scrim.hidden = false;
+      behind().forEach((n) => { n.inert = true; });
       document.body.style.overflow = 'hidden';
       document.addEventListener('keydown', onKey);
       sheet.focus();
@@ -248,7 +247,6 @@
         hint.textContent = ok
           ? '주소를 복사했어요. Safari나 Chrome을 열고 주소창에 붙여 넣어요.'
           : '복사하지 못했어요. 앱 메뉴(···)에서 Safari로 열기를 골라요.';
-        hint.hidden = false;
       });
     }
 
@@ -301,6 +299,25 @@
     addEventListener('scroll', onScroll, { passive: true });
     addEventListener('resize', onScroll, { passive: true });
   }
+
+  // ── 투어 첫 화면 미리 받기 ───────────────────────────────────────────────
+  // 「척척발표 살펴보기」 를 누르면 index.html 이 app.css · app.js · 투어 묶음을 처음부터 받았다. /hi 를 다 그린 뒤 한가할 때 미리 받아 둔다.
+  // 주소는 intro.html <template id="tour-prefetch"> 에서 읽는다 — HTML 안이라 브리지가 ?v= 를 index.html 과 같은 내용 해시로 바꿔 준다
+  // (JS 문자열은 안 바꿔 줘서 캐시가 어긋난다). 데이터 절약 · 2G 면 받지 않는다
+  function prefetchTour() {
+    const tpl = $('tour-prefetch');
+    const conn = navigator.connection;
+    if (!tpl || !tpl.content || (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || '')))) return;
+    tpl.content.querySelectorAll('[href], [src]').forEach((n) => {
+      const l = document.createElement('link');
+      l.rel = 'prefetch';
+      l.href = n.getAttribute('href') || n.getAttribute('src');
+      document.head.appendChild(l);
+    });
+  }
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
+  if (document.readyState === 'complete') idle(prefetchTour, { timeout: 4000 });
+  else addEventListener('load', () => idle(prefetchTour, { timeout: 4000 }), { once: true });
 
   // ── 시작 ────────────────────────────────────────────────────────────────
   reveal();

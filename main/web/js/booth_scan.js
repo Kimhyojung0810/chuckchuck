@@ -30,7 +30,7 @@
   const query = new URLSearchParams(location.search);
 
   const S = {
-    cam: 'boot', model: 'boot', W: 0, H: 0, dpr: 1,
+    cam: 'boot', model: 'boot', W: 0, H: 0, dpr: 1, shift: 0,
     tracks: [], nextId: 1,
     particles: L.makeParticles(PARTICLES, rng), idleAlpha: 1,
     signals: L.makeSignals(), sig: null,
@@ -135,22 +135,32 @@
   }
 
   // ── 워커 ───────────────────────────────────────────────────────────────────────────────
+  // 모델 받기가 멈춘 채 끝나지 않을 때(부스 와이파이가 붙잡힘 — import · fetch 가 영영 안 끝난다) 「읽을 준비를 하고 있어요」 에
+  // 갇히지 않게 — 이 시간 안에 ready 가 안 오면 실패로 보고 다시 받는다. 실측 준비 1.6~3초(10-13 실험실), 첫 받기 여유를 크게
+  const LOAD_TIMEOUT_MS = 120000;
+  let loadTimer = 0;
   function startWorker() {
+    clearTimeout(loadTimer);
+    let w;
     try {
-      S.worker = new Worker(WORKER_URL, { type: 'module' });
+      w = new Worker(WORKER_URL, { type: 'module' });
     } catch (_) {
       return modelFailed();
     }
+    S.worker = w;
     S.model = 'loading';
     S.busy = false;
-    S.worker.onmessage = (e) => onWorker(e.data || {});
-    S.worker.onerror = () => modelFailed();
+    // 지난 워커가 늦게 보낸 소식(실패 · 오류)은 무시한다 — 한 번 실패에 다시 받기가 두 번 걸려 워커가 둘 도는 일이 없게
+    w.onmessage = (e) => { if (S.worker === w) onWorker(e.data || {}); };
+    w.onerror = () => { if (S.worker === w) modelFailed(); };
+    loadTimer = setTimeout(() => { if (S.worker === w && S.model === 'loading') modelFailed(); }, LOAD_TIMEOUT_MS);
     S.worker.postMessage({
       type: 'init', base: VENDOR_BASE, pickFace: L.PICK_FACE, pickPose: L.PICK_POSE,
       people: L.MAX_PEOPLE, delegate: query.has('cpu') ? 'CPU' : '',
     });
   }
   function modelFailed() {
+    clearTimeout(loadTimer);
     S.model = 'failed';
     try { if (S.worker) S.worker.terminate(); } catch (_) { /* 이미 끝남 */ }
     S.worker = null;
@@ -244,9 +254,24 @@
   }
 
   // ── 그리기 고리 ─────────────────────────────────────────────────────────────────────────
+  /**
+   * 무대(캠) 가운데를 오른쪽 「읽는 것」 기둥 왼쪽 빈 곳의 가운데로 민다 (CSS px, 0 이하). 화면 가운데에 깔면 1280 노트북에서
+   * 오른쪽에 선 사람의 얼굴 그래프가 판 밑에 통째로 가렸다 (10-12 알려진 문제). 민 만큼 왼쪽 끝이 잘리고 오른쪽 끝은 기둥 밑으로 간다 —
+   * 가리는 폭이 양쪽으로 반씩 나뉘어 가운데 선 사람은 늘 빈 곳 가운데에 온다. 세로 화면 · 기둥이 안 보이면 0.
+   */
+  function stageShift() {
+    const side = document.querySelector('.bs-side');
+    if (!side || window.innerWidth <= window.innerHeight) return 0;
+    const left = side.getBoundingClientRect().left;
+    if (!(left > 0 && left < window.innerWidth)) return 0;
+    return Math.min(0, Math.round(left / 2 - window.innerWidth / 2));
+  }
+
   function resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(window.innerWidth * dpr), H = Math.round(window.innerHeight * dpr);
+    const shift = stageShift();
+    if (shift !== S.shift) { S.shift = shift; document.body.style.setProperty('--stage-x', shift + 'px'); }
     if (W === S.W && H === S.H) return;
     el.canvas.width = W; el.canvas.height = H;
     S.W = W; S.H = H; S.dpr = dpr;
@@ -302,7 +327,7 @@
     resize();
     sendFrame(now);
     const v = el.video;
-    const map = L.coverMap(v.videoWidth || 16, v.videoHeight || 9, S.W, S.H, true);
+    const map = L.coverMap(v.videoWidth || 16, v.videoHeight || 9, S.W, S.H, true, S.shift * S.dpr);
     S.particles = L.driftParticles(S.particles, dt, now / 1000);
     // 카메라가 빠지면 결과가 더 안 온다 — 남은 그래프를 놓친 것으로 돌려 흩어 보낸다
     if (S.cam !== 'on') S.tracks.forEach((tr) => { tr.missed = L.MISS_MAX; });

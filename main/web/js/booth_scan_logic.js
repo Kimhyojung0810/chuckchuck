@@ -106,15 +106,17 @@
    * 영상(vw×vh)의 정규 좌표(0~1) → 화면(W×H) 픽셀. 넘친 쪽은 양옆(또는 위아래)이 똑같이 잘린다.
    * eval_lab_draw.js 는 contain 을 가정한다 — 거기 식을 그대로 가져오면 넓은 화면에서 점이 얼굴 옆으로 밀린다.
    */
-  function coverMap(vw, vh, W, H, mirror) {
+  function coverMap(vw, vh, W, H, mirror, shiftX) {
     const ok = vw > 0 && vh > 0 && W > 0 && H > 0;
     const s = ok ? Math.max(W / vw, H / vh) : 1;
     const dw = vw * s, dh = vh * s;
     const ox = (W - dw) / 2, oy = (H - dh) / 2;
     const flip = mirror !== false;
+    // shiftX — 영상 요소를 통째로 옆으로 민 만큼(화면 px, css translateX). 오른쪽 「읽는 것」 기둥을 피해 무대 가운데를 왼쪽 빈 곳 가운데로
+    const sx = Number(shiftX) || 0;
     return {
-      s, ox, oy, dw, dh,
-      x: (nx) => { const X = ox + nx * dw; return flip ? W - X : X; },
+      s, ox, oy, dw, dh, sx,
+      x: (nx) => { const X = ox + nx * dw; return (flip ? W - X : X) + sx; },
       y: (ny) => oy + ny * dh,
     };
   }

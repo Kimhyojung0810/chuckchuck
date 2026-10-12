@@ -28,7 +28,7 @@ CHECK = """() => {
   return { vw: innerWidth, title: r('#hero-title'), verdicts: r('.verdicts'), judge: r('.judge'), bubble: r('.judge-bubble'), dock: r('.dock'),
            titleBelowFold: (r('#hero-title') || [0,0,0,0])[3] > innerHeight - 76,
            bubbleOverVerdicts: inter(r('.judge-bubble'), r('.verdicts')), smallTaps: taps,
-           live: document.getElementById('stage-fig').classList.contains('fig-live'),
+           live: !!document.querySelector('.fig-live'),
            cpm: (document.querySelector('[data-f=cpm]') || {}).textContent, docW: document.documentElement.scrollWidth };
 }"""
 
@@ -36,11 +36,21 @@ CHECK = """() => {
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://127.0.0.1:9044")
+    ap.add_argument("--path", default="/hi/stage", help="/hi 도 같은 세트로 찍을 수 있다")
+    ap.add_argument("--axe", default="", help="axe.min.js 경로 — 주면 첫 화면 · 시트 열림에서 axe 위반을 센다")
     a = ap.parse_args()
-    out = HERE / "out" / datetime.now().strftime("%Y%m%dT%H%M%S")
+    out = HERE / "out" / (datetime.now().strftime("%Y%m%dT%H%M%S") + a.path.replace("/", "_"))
     out.mkdir(parents=True, exist_ok=True)
     rep: dict = {"errors": []}
-    url = a.base + "/hi/stage"
+    url = a.base + a.path
+    axe_src = Path(a.axe).read_text(encoding="utf-8") if a.axe else ""
+
+    def axe(pg, name):
+        if not axe_src:
+            return
+        pg.add_script_tag(content=axe_src)
+        v = pg.evaluate("async () => (await axe.run(document, {resultTypes: ['violations']})).violations.map(v => ({id: v.id, impact: v.impact, n: v.nodes.length, t: v.nodes.slice(0,3).map(n => n.target.join(' '))}))")
+        rep.setdefault("axe", {})[name] = v
     with sync_playwright() as p:
         b = p.chromium.launch(args=FLAGS)
 
@@ -66,11 +76,14 @@ def main() -> None:
         at(pg, 4200)
         pg.screenshot(path=str(out / "first_390.png"))
         rep["390"] = pg.evaluate(CHECK)
-        pg.click("#fig-hit", position={"x": 120, "y": 120})
-        pg.wait_for_timeout(500)
-        pg.screenshot(path=str(out / "ground_390.png"))
-        rep["ground"] = pg.evaluate("() => ({ open: !document.getElementById('ground').hidden, k: document.getElementById('ground-k').textContent, main: document.getElementById('ground-main').textContent })")
-        pg.keyboard.press("Escape")
+        axe(pg, "first_390")
+        if pg.query_selector("#fig-hit"):
+            pg.click("#fig-hit", position={"x": 60, "y": 200})
+            pg.wait_for_timeout(500)
+            pg.screenshot(path=str(out / "ground_390.png"))
+            rep["ground"] = pg.evaluate("() => ({ open: !document.getElementById('ground').hidden, k: document.getElementById('ground-k').textContent, main: document.getElementById('ground-main').textContent })")
+            axe(pg, "ground_390")
+            pg.keyboard.press("Escape")
         pg.evaluate("scrollTo(0, innerHeight * 0.6)")
         pg.wait_for_timeout(500)
         pg.screenshot(path=str(out / "scroll_mid_390.png"))
@@ -79,6 +92,21 @@ def main() -> None:
         pg.screenshot(path=str(out / "scroll_what_390.png"))
         pg.screenshot(path=str(out / "full_390.png"), full_page=True)
         pg.context.close()
+
+        # 인앱 브라우저(카카오톡) — 「내 자료로 직접 해 보기」 를 누르면 시트가 뜨고 뒤는 inert
+        ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True,
+                            user_agent=UA + " KAKAOTALK 10.8.0")
+        pg = ctx.new_page()
+        pg.on("console", lambda m: m.type == "error" and rep["errors"].append(m.text[:200]))
+        pg.on("pageerror", lambda e: rep["errors"].append("pageerror: " + str(e)[:200]))
+        pg.goto(url, wait_until="networkidle")
+        at(pg, 4200)
+        pg.click("#own-link-1")
+        pg.wait_for_timeout(500)
+        pg.screenshot(path=str(out / "inapp_sheet_390.png"))
+        rep["inapp"] = pg.evaluate("() => ({ open: !document.getElementById('inapp').hidden, inert: [...document.body.children].filter(n => n.inert).map(n => n.className || n.tagName) })")
+        axe(pg, "inapp_sheet_390")
+        ctx.close()
 
         pg = page(390, 844, reduce=True)
         pg.goto(url, wait_until="networkidle")

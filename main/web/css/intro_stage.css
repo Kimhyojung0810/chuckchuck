@@ -2,7 +2,7 @@
    방향: 진초록 무대(스튜디오 입구) 위에서 사람이 그래프로 읽히고 판정이 붙는다 → 스크롤하면 흰 본문으로 밝아진다(wt-design 「무대와 대본」과 이어짐).
    색: 무대 --brand-ink · 노드 --brand-vivid · 간선 --brand-tint 반투명 · 버튼은 --brand. 판정 칩은 intro.css 의 .chip.st-*(app.css 판정 색과 같은 값) 그대로.
    금색은 무대 조명(위쪽 옅은 빛)에만. 움직임은 transform · opacity 만. */
-/* 서체가 늦게 붙을 때(시스템 서체 → Pretendard) 제목 글줄이 몇 px 내려앉는 것(CLS)을 막는다 — 대체 서체의 위아래 높이를 Pretendard(950/-250)에 맞춘다.
+/* 서체가 늦게 붙을 때(시스템 서체 → CC Hi Sans, preload 해도 4G 에선 첫 그림보다 늦을 수 있다) 제목 글줄이 몇 px 내려앉는 것(CLS)을 막는다 — 대체 서체의 위아래 높이를 Pretendard(950/-250)에 맞춘다.
    /hi 는 연출 중에 제목이 투명이라 안 보였는데, 여기는 제목이 첫 그림부터 보인다 */
 @font-face {
   font-family: "Pretendard Fallback";
@@ -10,7 +10,7 @@
   ascent-override: 95%; descent-override: 25%; line-gap-override: 0%;
 }
 :root {
-  --font: "Pretendard Variable", "Pretendard", "Pretendard Fallback", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --font: "CC Hi Sans", "Pretendard Fallback", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
   --stage: var(--brand-ink);          /* #066339 — 흰 글자 7.36:1 */
   --stage-deep: #04492A;              /* 무대 바닥 그늘 — 같은 색상각에서 어둡게 */
   --stage-text-2: rgba(255, 255, 255, .82);   /* 무대 위 둘째 글자 — 5.4:1 */
