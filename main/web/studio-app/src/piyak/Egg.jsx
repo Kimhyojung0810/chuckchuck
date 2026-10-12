@@ -1,9 +1,12 @@
 /* 삐약이가 태어나기 전 — 알 · 금 간 알 · 알 깨기(위 껍데기를 들고 빼꼼). 삐약이와 같은 그림체 · 같은 초록 외곽선 (Shell.jsx).
-   알은 가끔 혼자 들썩이고(금 간 알은 더 자주 · 더 크게), 누르면 흔들린다. 알 깨기에서는 틈 사이 눈이 커서를 본다 */
+   알은 가끔 혼자 들썩이고(금 간 알은 더 자주 · 더 크게), 누르면 흔들린다.
+   알 · 금 간 알은 Live Orb 처럼 (10-13 사용자: 「알일 때 이거 할 수 있겠다」 — 21st.dev live-orb, 커서를 따라가는 캡슐 눈 두 개 달린 구):
+   껍데기 너머로 캡슐 눈이 비쳐 커서를 보고, 속에서 노란 빛이 숨 쉬듯 일렁이다가 목소리(readLevel)에 맞춰 밝아지고 볼록해진다.
+   알 깨기에서는 틈 사이 점 눈이 커서를 본다 */
 import { useEffect, useId, useRef } from 'react'
-import { motion, useMotionValue, useSpring, useTransform, useReducedMotion, animate } from 'motion/react'
+import { motion, useMotionValue, useSpring, useTransform, useAnimationFrame, useReducedMotion, animate } from 'motion/react'
 import { useGaze, Sprout } from './Piyak.jsx'
-import { ShellDefs, ShellPiece } from './Shell.jsx'
+import { ShellDefs, ShellPiece, EGG } from './Shell.jsx'
 
 const WOBBLE = {
   egg: { every: [4200, 3000], deg: 5 },     // [최소 간격, 더하는 간격(ms)], 기울기(°)
@@ -11,9 +14,27 @@ const WOBBLE = {
   peek: { every: [3200, 2400], deg: 4 },
 }
 const EYE_SPRING = { stiffness: 260, damping: 20, mass: 0.6 }
+const ORB_GAZE = 1.5           // 캡슐 눈은 껍데기 안쪽이라 점 눈보다 크게 움직인다
+/** 금이 가는 길 — crack(0..1) 만큼 그려진다. 왼쪽 위에서 시작해 알을 가로지른다 */
+const CRACK = 'M24 47l6 4 5-5 6 5 5-5 6 5 5-5 6 5 5-4 5 3'
 
-/** stage: egg · crack · peek */
-export function Egg({ stage = 'egg', onPoke, label = '삐약이 알' }) {
+/** 목소리 0..1 — 빨리 오르고 천천히 내려온다 */
+function useLevel(readLevel) {
+  const level = useMotionValue(0)
+  const s = useRef(0)
+  useAnimationFrame(() => {
+    const raw = readLevel ? Math.max(0, Math.min(1, readLevel() || 0)) : 0
+    s.current += (raw - s.current) * (raw > s.current ? 0.4 : 0.1)
+    if (Math.abs(s.current - level.get()) > 0.002) level.set(s.current)
+  })
+  return level
+}
+
+/**
+ * stage: egg · crack · peek
+ * readLevel: () => 0..1 목소리 크기 (없으면 숨쉬기만) · crack: 금 간 알의 금 길이 0..1 (없으면 반쯤)
+ */
+export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '삐약이 알' }) {
   const reduced = useReducedMotion()
   const box = useRef(null)
   const id = `pxe${useId().replace(/:/g, '')}`
@@ -25,7 +46,24 @@ export function Egg({ stage = 'egg', onPoke, label = '삐약이 알' }) {
   const { gx: gazeX, gy: gazeY } = useGaze(box, !reduced)
   const gx = useSpring(gazeX, EYE_SPRING)
   const gy = useSpring(gazeY, EYE_SPRING)
+  const ox = useTransform(gx, (v) => v * ORB_GAZE)
+  const oy = useTransform(gy, (v) => v * ORB_GAZE)
   const blink = useMotionValue(1)
+
+  // Live Orb — 속빛은 숨 쉬듯(breath) 일렁이고 목소리(level)에 밝아진다. 알은 옆으로만 볼록 (세로로 늘지 않는다)
+  const level = useLevel(readLevel)
+  const breath = useMotionValue(0)
+  useEffect(() => {
+    if (reduced) return undefined
+    const a = animate(breath, [0, 1, 0], { duration: 3.2, repeat: Infinity, ease: 'easeInOut' })
+    return () => a.stop()
+  }, [reduced, breath])
+  const glowOpacity = useTransform([breath, level], ([b, l]) => 0.3 + 0.18 * b + 0.5 * l)
+  const glowScale = useTransform([breath, level], ([b, l]) => 0.86 + 0.08 * b + 0.3 * l)
+  const puffX = useTransform(level, (l) => 1 + (reduced ? 0.01 : 0.06) * l)
+  const puffY = useTransform(level, (l) => 1 + (reduced ? 0 : 0.01) * l)
+  const haloOpacity = useTransform(level, (l) => 0.12 + 0.55 * l)
+  const haloScale = useTransform(level, (l) => 0.9 + 0.3 * l)
 
   /** 들썩 — 좌우로 기울었다 돌아오고 살짝 뜬다 */
   const wobble = (deg) => {
@@ -41,13 +79,13 @@ export function Egg({ stage = 'egg', onPoke, label = '삐약이 알' }) {
     return () => clearTimeout(t)
   }, [stage, reduced])   // wobble 은 매번 같은 일을 한다
 
-  // 알 깨기 — 위 껍데기가 들렸다 내려앉았다 (빼꼼), 틈 사이 눈은 가끔 깜빡
+  // 눈 깜빡임 (캡슐 눈 · 점 눈 모두), 알 깨기는 위 껍데기가 들렸다 내려앉았다 (빼꼼)
   useEffect(() => {
-    if (stage !== 'peek') { lid.set(0); return undefined }
-    const a = reduced ? (lid.set(1), null) : animate(lid, [0.75, 1, 0.85, 1], { duration: 2.4, repeat: Infinity, ease: 'easeInOut' })
     let t = 0
-    const next = () => { t = setTimeout(() => { animate(blink, [1, 0.12, 1], { duration: 0.22 }); next() }, 2200 + Math.random() * 3000) }
+    const next = () => { t = setTimeout(() => { animate(blink, [1, 0.12, 1], { duration: 0.22 }); next() }, 2400 + Math.random() * 3200) }
     next()
+    if (stage !== 'peek') { lid.set(0); return () => clearTimeout(t) }
+    const a = reduced ? (lid.set(1), null) : animate(lid, [0.75, 1, 0.85, 1], { duration: 2.4, repeat: Infinity, ease: 'easeInOut' })
     return () => { a?.stop(); clearTimeout(t) }
   }, [stage, reduced, lid, blink])
 
@@ -57,7 +95,18 @@ export function Egg({ stage = 'egg', onPoke, label = '삐약이 알' }) {
   return (
     <button type="button" className="px-chick px-egg-btn" data-stage={stage} aria-label={`${label} — 누르면 흔들려요`} onClick={poke}>
       <svg ref={box} viewBox="-10 -14 120 118" aria-hidden="true" focusable="false">
-        <defs><ShellDefs id={id} /></defs>
+        <defs>
+          <ShellDefs id={id} />
+          <radialGradient id={`${id}-glow`}>
+            <stop offset="0" stopColor="var(--px-body)" stopOpacity="1" />
+            <stop offset=".6" stopColor="var(--px-body)" stopOpacity=".45" />
+            <stop offset="1" stopColor="var(--px-body)" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        {!peek && (
+          <motion.ellipse className="px-orb-halo" cx="50" cy="56" rx="44" ry="44" fill={`url(#${id}-glow)`}
+            style={{ opacity: haloOpacity, scale: haloScale, originX: 0.5, originY: 0.5 }} />
+        )}
         <ellipse className="px-shadow" cx="50" cy="91.5" rx="22" ry="3" />
         <motion.g style={{ y: hop }}>
           <motion.g style={{ rotate: tilt, originX: 0.5, originY: 1 }}>
@@ -80,10 +129,27 @@ export function Egg({ stage = 'egg', onPoke, label = '삐약이 알' }) {
                 </motion.g>
               </>
             ) : (
-              <>
-                <ShellPiece id={id} part="whole" crack={stage === 'crack'} />
+              <motion.g style={{ scaleX: puffX, scaleY: puffY, originX: 0.5, originY: 1 }}>
+                <ShellPiece id={id} part="whole" />
+                {/* 껍데기 너머 — 속빛과 캡슐 눈 (알 모양 안에서만) */}
+                <g clipPath={`url(#${id}-egg)`}>
+                  <motion.ellipse className="px-orb-glow" cx="50" cy="58" rx="26" ry="28" fill={`url(#${id}-glow)`}
+                    style={{ opacity: glowOpacity, scale: glowScale, originX: 0.5, originY: 0.5 }} />
+                  <motion.g style={{ x: ox, y: oy }}>
+                    <motion.g className="px-orb-eyes" style={{ scaleY: blink, originX: 0.5, originY: 0.5 }}>
+                      <rect x="37.2" y="47" width="5.6" height="11" rx="2.8" />
+                      <rect x="57.2" y="47" width="5.6" height="11" rx="2.8" />
+                    </motion.g>
+                  </motion.g>
+                </g>
+                <path className="px-egg-line" d={EGG} />
+                {stage === 'crack' && (
+                  <motion.path className="px-crack" d={CRACK} clipPath={`url(#${id}-egg)`}
+                    initial={false} animate={{ pathLength: Math.max(0.12, Math.min(1, crack)) }}
+                    transition={{ type: 'spring', stiffness: 60, damping: 14 }} />
+                )}
                 <Sprout scale={0.8} y={14} />
-              </>
+              </motion.g>
             )}
           </motion.g>
         </motion.g>

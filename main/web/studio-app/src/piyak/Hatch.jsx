@@ -17,8 +17,11 @@ export const STAGES = [
 const POP = { type: 'spring', stiffness: 420, damping: 18 }
 const POKE_MS = 1200
 
-/** stage: STAGES 의 key · play: true 면 지금 단계부터 끝까지 넘긴다 · onStage(key): 단계가 바뀔 때 */
-export function Hatch({ stage = 'egg', play = false, onStage, onDone }) {
+/**
+ * stage: STAGES 의 key · play: true 면 지금 단계부터 끝까지 넘긴다 · onStage(key): 단계가 바뀔 때
+ * line: 단계 문구 대신 쓸 말 · egg: 알 단계에 넘길 것(readLevel · crack) · piyak: 병아리 단계에 넘길 것(levelRef · listening …)
+ */
+export function Hatch({ stage = 'egg', play = false, onStage, onDone, line, egg, piyak }) {
   const reduced = useReducedMotion()
   const [poked, setPoked] = useState(false)
   const timer = useRef(0)
@@ -50,12 +53,12 @@ export function Hatch({ stage = 'egg', play = false, onStage, onDone }) {
             exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 1.08 }}
             transition={reduced ? { duration: 0.2 } : POP}>
             {s.piyak
-              ? <Piyak {...s.piyak} mood={mood} onPoke={onPoke} label={s.name} />
-              : <Egg stage={s.key} onPoke={onPoke} label={s.name} />}
+              ? <Piyak {...piyak} {...s.piyak} mood={mood} onPoke={onPoke} label={s.name} />
+              : <Egg {...egg} stage={s.key} onPoke={onPoke} label={s.name} />}
           </motion.div>
         </AnimatePresence>
       </div>
-      <p className="px-line" aria-live="polite">{s.line}</p>
+      <p className="px-line" aria-live="polite">{line || s.line}</p>
     </div>
   )
 }

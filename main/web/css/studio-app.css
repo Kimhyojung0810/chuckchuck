@@ -168,6 +168,13 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 /* 자라는 이야기 (Hatch.jsx) — 단계가 바뀌어도 자리가 그대로이게 그림 칸 크기를 고정한다 */
 .px-hatch__art { display: grid; width: var(--px-size); aspect-ratio: 120 / 118; }
 .px-hatch__frame { grid-area: 1 / 1; display: grid; place-items: end center; }
+/* 알 — Live Orb: 껍데기 너머 캡슐 눈 · 속빛 */
+.px-egg-line { fill: none; stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-orb-eyes rect { fill: #2A332D; opacity: .85; }
+.px-orb-halo, .px-orb-glow { pointer-events: none; }
+/* 정거장마다 자라는 삐약이 (Companion.jsx) */
+.px-companion { display: grid; justify-items: center; gap: var(--sp-2); }
+.px-companion .px-stage { --px-size: 150px; }
 
 /* 눈 · 표정 — 평소엔 또렷한 눈동자, mood 가 표정 곡선 · 감정 표시를 켠다 (chatter.css 와 같은 규칙) */
 .px-eye-ball { fill: #2F3B33; transform-origin: center; transition: transform .25s ease, opacity .18s; }

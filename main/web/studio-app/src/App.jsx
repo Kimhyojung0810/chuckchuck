@@ -12,7 +12,8 @@ import { Station } from './scene/Station.jsx'
 import { useMicLevel } from './media.js'
 import { AppFrame, CoverCard } from './ui/Frame.jsx'
 import { PresentDock } from './ui/PresentDock.jsx'
-import { PiyakStage } from './piyak/PiyakStage.jsx'
+import { Companion } from './piyak/Companion.jsx'
+import { rmsToVolume } from './voice/signal.js'
 
 function useViewport() {
   const read = () => ({ w: innerWidth, h: innerHeight, phone: innerWidth < 720 })
@@ -77,11 +78,19 @@ export default function App() {
   const H = Math.round(Math.min(760, vp.h * (vp.phone ? 0.8 : 0.74)))
   const rect = { left: Math.round((vp.w - W) / 2), top: Math.round((vp.h - H) / 2), width: W, height: H }
 
+  /** ② 발표 음량 — 비전 리허설이 이미 재는 값 (PresentDock 과 같다 · 마이크를 더 열지 않는다) */
+  const readAppLevel = useCallback(() => {
+    const f = frameApi.current?.win()?.visionReadLevel
+    const r = typeof f === 'function' ? f() : null
+    return r === null || r === undefined ? 0 : rmsToVolume(r)
+  }, [])
+
   const stations = STATIONS.map((s, k) => {
     const panels = [{ id: 'w', x: 0, y: 0, w: W, h: H, children: <CoverCard no={k + 1} name={s.name} line={s.line} /> }]
-    // ① 작업실의 삐약이(쏠라) — 창 왼쪽에 서서 맞이한다. 누르면 반기고, 마이크를 켜면 말에 따라 움직인다
-    if (k === 0 && !vp.phone) panels.push({ id: 'piyak', x: -(W / 2 + 118), y: H / 2 - 140, w: 210, h: 300, glass: false, bare: true,
-      children: <PiyakStage mic={mic} className="sx-piyak" /> })
+    // 창 왼쪽에 선 삐약이 — 흐름을 따라 자란다 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx).
+    // ② ~ ④ 는 세트 삐약이(창 아래 모서리)와 겹치지 않게 조금 위에
+    if (!vp.phone) panels.push({ id: 'piyak', x: -(W / 2 + 118), y: k === 0 ? H / 2 - 140 : H / 2 - 250, w: 210, h: 300, glass: false, bare: true,
+      children: <Companion k={k} active={k === at} mic={mic} readAppLevel={readAppLevel} /> })
     return panels
   })
 
