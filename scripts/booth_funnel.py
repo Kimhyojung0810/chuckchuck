@@ -34,7 +34,7 @@ FUNNEL = ("hi", "team", "explore", "tour_deck", "tour_present", "tour_analysis",
 #: 퍼널 밖 곁가지 신호 (--all 로 같이 본다) — demo/tour_events.py STEPS 와 맞춘다
 SIDE = ("intro", "team_end", "inapp_notice", "back_team")
 LABELS = {
-    "hi": "/hi", "intro": "소개", "team": "팀 카드", "team_end": "팀 끝", "explore": "살펴보기",
+    "hi": "/hi", "intro": "소개", "team": "팀 소개", "team_end": "팀 끝", "explore": "살펴보기",
     "tour_deck": "덱", "tour_present": "발표", "tour_analysis": "분석", "tour_qa": "Q&A", "tour_report": "리포트",
     "try_real": "직접 해 보기", "upload": "자료 올림", "inapp_notice": "인앱 안내", "back_team": "팀으로",
 }

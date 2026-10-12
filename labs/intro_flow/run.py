@@ -47,9 +47,8 @@ MEASURE = """() => {
     hscroll: de.scrollWidth > innerWidth + 1, scrollWidth: de.scrollWidth, innerWidth,
     dock: { top: Math.round(dock.top), bottom: Math.round(dock.bottom), h: Math.round(dock.height), vh: innerHeight },
     heroBottom: Math.round(document.querySelector('.hero-lead').getBoundingClientRect().bottom),
-    cards: document.querySelectorAll('.card:not(.card-skeleton)').length,
-    active: document.querySelector('.card[data-active]')?.dataset.id || null,
-    current: document.querySelector('.dot[aria-current="true"]')?.getAttribute('aria-label') || null,
+    rows: document.querySelectorAll('.team-row[data-id]').length,
+    active: document.querySelector('.team-row[data-active]')?.dataset.id || null,
     small,
   };
 }"""
@@ -77,24 +76,19 @@ def run(base: str, out: Path) -> dict:
             page.locator("#team").scroll_into_view_if_needed()
             page.evaluate("document.getElementById('team').scrollIntoView({block:'start'})")
             page.wait_for_timeout(500)
-            page.screenshot(path=str(out / f"{tag}_2_card1.png"))
-            # 「다음 사람」 버튼으로 마지막 카드까지
-            n = page.locator(".card:not(.card-skeleton)").count()
-            for _ in range(max(0, n - 1)):
-                page.locator("#team-next").tap()
-                page.wait_for_timeout(450)
+            page.screenshot(path=str(out / f"{tag}_2_team.png"))
+            # 팀 소개는 한 사람 한 줄 목록(10-12) — 넘기기 없이 목록 전체가 한 화면에 보이는가
+            page.wait_for_selector(".team-row[data-id]", timeout=10000)
+            page.evaluate("document.querySelector('.team-list').scrollIntoView({block:'start'})")
+            page.wait_for_timeout(300)
             last = page.evaluate(MEASURE)
-            page.screenshot(path=str(out / f"{tag}_3_card_last.png"))
-            # 손가락 스와이프(가로 스크롤)로 첫 카드로 돌아가는지 — 터치 스크롤 대신 scrollLeft 로 흉내 낸다
-            page.evaluate("document.getElementById('team-track').scrollTo({left:0})")
-            page.wait_for_timeout(500)
-            swiped = page.evaluate(MEASURE)
+            page.screenshot(path=str(out / f"{tag}_3_team_list.png"))
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(400)
             page.screenshot(path=str(out / f"{tag}_4_bottom.png"))
             page.screenshot(path=str(out / f"{tag}_5_full.png"), full_page=True)
             report["devices"].append({
-                "device": tag, "dpr": dpr, "first": first, "after_next": last, "after_swipe_back": swiped,
+                "device": tag, "dpr": dpr, "first": first, "team_list": last,
                 "bytes_total": sum(s for _, s in sizes), "bytes": sizes, "console": errs,
             })
             ctx.close()
@@ -154,8 +148,7 @@ def main() -> None:
     out = OUT / datetime.now().strftime("%m%d_%H%M%S")
     rep = run(args.base, out)
     for d in rep["devices"]:
-        print(d["device"], "hscroll", d["first"]["hscroll"], "dock", d["first"]["dock"], "cards", d["first"]["cards"],
-              "last", d["after_next"]["active"], "back", d["after_swipe_back"]["active"],
+        print(d["device"], "hscroll", d["first"]["hscroll"], "dock", d["first"]["dock"], "rows", d["team_list"]["rows"],
               "bytes", d["bytes_total"], "console", d["console"][:3], "small", d["first"]["small"][:6])
     print("kakao", {k: v for k, v in rep["kakao"].items() if k != "deeplink"}, "deeplink active", rep["kakao"]["deeplink"]["active"])
     print("team_fail", rep["team_fail"])

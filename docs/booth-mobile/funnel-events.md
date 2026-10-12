@@ -40,7 +40,7 @@ Content-Type: application/json
 | `hi` | `/hi` 랜딩 | 첫 화면이 그려졌을 때 |
 | `intro` | `/hi` | 척척발표 소개 카드를 봤을 때 |
 | `team` | `/hi` | 팀원 카드 **첫 장**이 보였을 때 |
-| `team_end` | `/hi` | 팀원 카드 **마지막 장**까지 넘겼을 때 |
+| `team_end` | `/hi` | 팀 소개 목록의 **마지막 줄**이 화면에 보였을 때 (10-12 카드 넘기기 → 한 줄 목록) |
 | `explore` | `/hi` | 「척척발표 살펴보기」 를 눌렀을 때 (페이지가 바뀌기 직전 — keepalive 라 간다) |
 | `tour_deck` · `tour_present` · `tour_analysis` · `tour_qa` · `tour_report` | `#/tour/*` | 그 화면에 들어왔을 때 (`deck` 를 같이) |
 | `try_real` | `#/tour/report` | 「내 자료로 직접 해 보기」 를 눌렀을 때 |

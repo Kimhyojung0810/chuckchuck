@@ -35,12 +35,12 @@
 <!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다 (그 전엔 시스템 서체). 앱(index.html)과 같은 주소라 투어로 넘어가면 캐시를 그대로 쓴다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i6">
+<link rel="stylesheet" href="/css/intro.css?v=i7">
 <script src="/js/funnel.js?v=fn2" defer></script>
-<script src="/js/intro.js?v=i6" defer></script>
+<script src="/js/intro.js?v=i7" defer></script>
 </head>
 <body>
-<!-- 병아리 아바타 한 장을 여러 카드가 같이 쓴다 (사진이 없을 때) -->
+<!-- 병아리 배지 한 장을 팀원 줄마다 같이 쓴다 -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <symbol id="chick" viewBox="0 0 100 100">
     <path d="M50 9C30 9 16 24 16 45c0 13 5 22 9 28 5 7 14 13 25 13s20-6 25-13c4-6 9-15 9-28C84 24 70 9 50 9z" fill="#FFD96A" stroke="#0E8850" stroke-width="4" stroke-linejoin="round"/>
@@ -57,8 +57,11 @@
   <!-- 1) 히어로 — 3초 안에 읽히는 한 줄 + 문제 + 앱 아이콘. JS 없이 그려진다 -->
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-art" aria-hidden="true">
-      <img class="hero-icon" src="/assets/chuckchuck-app-icon-180.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
-      <p class="hero-bubble">이 숫자, 근거가 뭐예요?</p>
+      <span class="hero-mascot">
+        <img class="hero-icon" src="/assets/chuckchuck-app-icon-180.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
+        <i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i>
+      </span>
+      <p class="hero-bubble"><span class="bubble-magic">척척, 발표 채점~!</span><span class="bubble-q">이 숫자, 근거가 뭐예요?</span></p>
     </div>
     <p class="eyebrow">AI 발표 리허설 코치</p>
     <h1 id="hero-title" class="hero-title">발표 연습,<br>척척발표랑 같이 해요</h1>
@@ -102,32 +105,25 @@
     </ol>
   </section>
 
-  <!-- 3) 팀 소개 — data/team.json 을 읽어 한 명씩 카드를 그린다. 카드 수 = members 길이 -->
+  <!-- 3) 팀 소개 — data/team.json 을 읽어 한 사람 한 줄로 그린다. 줄 수 = members 길이 -->
   <section id="team" class="block team" aria-labelledby="team-title">
     <p class="eyebrow" id="team-contest">AI 루키 2026 결선</p>
     <h2 id="team-title" class="block-title">척척발표를 만든 사람들</h2>
-    <p class="block-lead" id="team-lead">함께 만든 사람들을 한 명씩 소개할게요.</p>
+    <p class="block-lead" id="team-lead">함께 만든 사람들을 소개할게요.</p>
 
-    <div class="carousel" data-state="loading">
-      <div class="pager" id="team-pager" hidden>
-        <button type="button" class="icon-btn" id="team-prev" aria-label="이전 사람" aria-controls="team-track">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-        </button>
-        <div class="dots" id="team-dots" role="group" aria-label="팀원 고르기"></div>
-        <button type="button" class="btn-next" id="team-next" aria-controls="team-track">다음 사람</button>
-      </div>
-      <div class="track" id="team-track" tabindex="0" role="region" aria-roledescription="카드 넘기기" aria-label="팀원 소개, 왼쪽 오른쪽 화살표로 넘겨요">
-        <div class="card card-skeleton" aria-hidden="true">
-          <span class="sk sk-avatar"></span><span class="sk sk-line w60"></span><span class="sk sk-line w40"></span>
-          <span class="sk sk-line"></span><span class="sk sk-line w80"></span>
-        </div>
-      </div>
+    <div class="team-box" data-state="loading">
+      <ul class="team-list" id="team-list" aria-label="팀원">
+        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+      </ul>
       <div class="team-error" id="team-error" hidden>
         <p>팀 소개를 불러오지 못했어요. 연결을 확인하고 다시 불러와 주세요.</p>
         <button type="button" class="btn-ghost" id="team-retry">다시 불러오기</button>
       </div>
       <noscript><p class="team-error">팀 소개는 자바스크립트를 켜면 볼 수 있어요.</p></noscript>
-      <p class="sr-only" id="team-status" aria-live="polite" aria-atomic="true"></p>
     </div>
   </section>
 
