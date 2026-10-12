@@ -9,7 +9,7 @@
  *   (2) 첫 연출 시간표 — 0.3초 점 · 0.8초 선 · 1.6초부터 칩 · 3.0초 레이저. 시계는 performance.now()(페이지 열린 때부터)라
  *       스크립트가 늦게 와도 연출이 밀리지 않는다. 탭 · 「연출 건너뛰기」 면 끝 상태로.
  *   (3) 근거 펼치기 — 사람(또는 칩)을 누르면 그 장면의 자료 몇 장 · 어느 문장. 값은 녹화 투어(data/tour/delivery-rating.json)에서 읽는다.
- *   (4) 스크롤하면 무대가 밝아지기(--lift) · 주 버튼 띠 색 · theme-color — 스크롤은 붙잡지 않는다(passive).
+ *   (4) 스크롤하면 그래프만 흐려지기(--lift, 배경은 CSS 그라데이션으로 흰 본문에 이어진다) · 주 버튼 띠 색 · theme-color — 스크롤은 붙잡지 않는다(passive).
  *   (5) 시트가 열리면 무대 · main · dock 에 inert (intro.js 는 그대로 두고 #inapp 의 hidden 만 지켜본다).
  * 지킬 것 — 감정 추정 없음. 시선을 자리로 나누지 않음(시선 무리는 아예 빛내지 않는다). 데이터는 textContent 로만.
  */
@@ -20,7 +20,7 @@
   const TOUR_URL = '/data/tour/delivery-rating.json';
   const T_DOTS = 300, T_LINES = 800, T_CHIPS = [1600, 2000, 2400], T_LASER = 2800, T_DONE = 3400;
   const DPR_MAX = 2;
-  const LIFT_MAX = 0.55;
+  const LIFT_MAX = 0.85;
   /** 칩 ↔ 그래프 무리 · 기준점 (pose.json anchors) — 시선(gaze) 무리는 쓰지 않는다 */
   const MOMENT = {
     pace: { group: 'voice', anchor: 'voice' },
@@ -140,11 +140,14 @@
     W = Math.round(r.width * u); H = Math.round(r.height * u);
     canvas.width = W; canvas.height = H;
   }
-  /** pose 상자 → 캔버스 픽셀. SVG(viewBox · xMidYMax meet)와 같은 식이라 정지 그림과 겹친다 */
+  /** pose 상자 → 캔버스 픽셀. 사람은 칩 칸 왼쪽(.fig-hit 자리)에 선다 — 그 안의 SVG(viewBox · xMinYMax meet)와 같은 식이라 정지 그림과 겹친다.
+   *  캔버스는 그림 자리 전체라 손짓으로 뻗은 팔 · 칩으로 가는 선 · 레이저는 칸 밖으로도 그려진다 */
   function fit() {
     const [bw, bh] = pose.box;
-    const s = Math.min(W / bw, H / bh);
-    return { s, x0: (W - bw * s) / 2, y0: H - bh * s };
+    const fr = fig.getBoundingClientRect(), hr = hit.getBoundingClientRect();
+    const rx = (hr.left - fr.left) * u, ry = (hr.top - fr.top) * u, rw = hr.width * u, rh = hr.height * u;
+    const s = Math.min(rw / bw, rh / bh);
+    return { s, x0: rx, y0: ry + rh - bh * s };   // xMinYMax — 왼쪽 · 아래 맞춤
   }
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -302,9 +305,10 @@
     requestAnimationFrame(() => {
       sQueued = false;
       const h = stage.offsetHeight || 1;
-      const p = Math.min(1, Math.max(0, (scrollY - h * 0.25) / (h * 0.6)));   // 무대 4분의 1을 지난 뒤부터 밝아진다
+      const p = Math.min(1, Math.max(0, (scrollY - h * 0.25) / (h * 0.6)));   // 무대 4분의 1을 지난 뒤부터 그래프가 흐려진다
       stage.style.setProperty('--lift', (reduce ? 0 : p * LIFT_MAX).toFixed(3));
-      const past = scrollY > h - 120;
+      // 무대 바닥이 아래 고정 버튼 띠 위로 올라가면 띠를 흰색으로 — 흰 구역 위에 진초록 띠가 남지 않게
+      const past = stage.getBoundingClientRect().bottom < innerHeight - 48;
       root.classList.toggle('past-stage', past);
       if (theme) theme.setAttribute('content', past ? '#FFFFFF' : '#066339');
     });

@@ -16,7 +16,7 @@
   --stage-text-2: rgba(255, 255, 255, .82);   /* 무대 위 둘째 글자 — 5.4:1 */
   --stage-light: rgba(240, 180, 41, .16);     /* 무대 조명(금색) — 장식 전용 */
   --laser: #E85C4A;                   /* 봉 끝 구슬과 같은 색 — 앱 아이콘의 그 빨강 */
-  --fig-h: clamp(236px, 48svh, 470px);
+  --col-w: min(176px, 45%);   /* 오른쪽 칩 · 삐약이 칸 폭 — 사람은 그 왼쪽에 선다 */
   --lift: 0;
 }
 
@@ -30,21 +30,15 @@
   color: #fff;
   background:
     radial-gradient(120% 60% at 30% -10%, var(--stage-light), transparent 60%),
-    linear-gradient(to bottom, var(--stage) 0%, var(--stage) 72%, var(--stage-deep) 100%);
+    linear-gradient(to bottom, var(--stage) 0%, var(--stage) 60%, var(--stage-deep) calc(100% - 120px), var(--page) 100%);
   /* 첫 화면을 무대로 채운다 — 아래 고정 주 버튼이 무대 위에 얹히고, 둘째 링크가 버튼 밑에 숨지 않게 그만큼 띄운다 */
   min-height: 100svh;
   padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) calc(var(--dock-h) + var(--safe-b) + 16px) max(16px, env(safe-area-inset-left, 0px));
   overflow: hidden;
 }
-/* 스크롤하면 무대가 흰 본문 쪽으로 밝아진다 — intro_stage.js 가 --lift(0~0.55)만 바꾼다. 스크롤을 붙잡지 않는다 */
-.stage::after {
-  content: "";
-  position: absolute; inset: 0;
-  background: var(--page);
-  opacity: var(--lift);
-  pointer-events: none;
-  z-index: 5;
-}
+/* 무대 바닥은 흰 본문으로 이어지는 그라데이션 — 첫 화면에서는 아래 고정 버튼 띠 밑이라 안 보이고, 스크롤하면 끊김 없이 흰 구역이 된다.
+   스크롤하는 동안엔 배경을 바래게 하지 않고 그래프만 흐려진다(intro_stage.js 가 --lift 0~0.85) — 스크롤은 붙잡지 않는다 */
+.stage { display: flex; flex-direction: column; }
 .stage-top {
   max-width: 1120px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -78,12 +72,16 @@ html.stage-play .stage-skip { display: inline-flex; align-items: center; animati
 /* 그림 자리 — 높이를 미리 잡아 둔다(CLS 0). 사람은 아래 맞춤 · 가운데, 칩은 오른쪽 위 빈자리, 삐약이는 오른쪽 아래 */
 .stage-fig {
   position: relative;
+  width: 100%;
   max-width: 1120px;
-  height: var(--fig-h);
+  flex: 1 1 auto;            /* 남는 높이를 그림이 다 쓴다 — 둘째 링크와 주 버튼 사이가 비지 않게 */
+  min-height: 248px;
+  max-height: 620px;
   margin: 4px auto 0;
 }
 .fig-hit {
-  position: absolute; inset: 0;
+  /* 사람 자리 — 왼쪽 맞춤. 칩 칸과 조금 겹쳐도 된다: 칩은 머리 옆 · 어깨선 위에 있고, 들어 올린 팔이 칩 쪽을 가리킨다 */
+  position: absolute; left: 0; top: 0; bottom: 0; right: calc(var(--col-w) * .6);
   z-index: 1;
   padding: 0; border: 0; background: none; color: inherit;
   border-radius: var(--r-stage);
@@ -91,12 +89,15 @@ html.stage-play .stage-skip { display: inline-flex; align-items: center; animati
 }
 .fig-svg, .fig-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .fig-canvas { z-index: 2; pointer-events: none; }
+.fig-svg, .fig-canvas { opacity: calc(1 - var(--lift)); }
+.fig-svg { overflow: visible; }
 /* 캔버스가 첫 그림을 그리면 정지 그림을 걷는다 */
 .fig-live .fig-svg { visibility: hidden; }
 
 .verdicts {
-  position: absolute; right: 0; top: 4px; z-index: 3;
-  width: min(176px, 45%);
+  position: absolute; right: 0; top: 4px; bottom: 0; z-index: 3;
+  width: var(--col-w);
+  display: flex; flex-direction: column;
 }
 .v-list { display: grid; gap: 8px; }
 .vchip {
@@ -125,24 +126,24 @@ html.stage-play .stage-skip { display: inline-flex; align-items: center; animati
 .rec-note { height: 2.8em; display: flex; align-items: flex-end; justify-content: flex-end; margin-bottom: 8px; color: var(--stage-text-2); font-size: 12px; line-height: 1.4; text-align: right; text-wrap: balance; }
 
 .judge {
-  position: absolute; right: 0; bottom: 0; z-index: 3;
-  display: flex; align-items: flex-end; gap: 6px;
+  margin-top: auto; padding-top: 10px;   /* 칩 아래 · 칸 바닥 — 봉이 위의 「말 빠르기」 칩을 겨눈다 */
+  display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px;
   pointer-events: none;
 }
-.judge-face { position: relative; flex: none; width: 64px; height: 64px; }
-.judge-icon { width: 64px; height: 64px; filter: drop-shadow(0 6px 10px rgba(2, 40, 22, .35)); }
-.judge-wand { width: 64px; height: 64px; }
+.judge-face { position: relative; flex: none; width: 52px; height: 52px; }
+.judge-icon { width: 52px; height: 52px; filter: drop-shadow(0 6px 10px rgba(2, 40, 22, .35)); }
+.judge-wand { width: 52px; height: 52px; }
 .judge-bubble {
   position: relative;
-  margin-bottom: 14px;
-  width: 168px;   /* 고정 폭 — 서체가 바뀌어도 삐약이 자리가 그대로(CLS 0) */
+  flex: 1 1 auto; min-width: 0;   /* 칸 폭을 나눠 쓴다 — 서체가 바뀌어도 삐약이 자리가 그대로(CLS 0) */
+  margin-bottom: 10px;
   padding: 9px 12px;
   border-radius: var(--r-float) var(--r-float) 4px var(--r-float);
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 8px 20px rgba(2, 40, 22, .28);
-  font-size: 14px; font-weight: var(--w-bold); line-height: 1.35;
-  text-wrap: balance;
+  font-size: 12px; font-weight: var(--w-bold); line-height: 1.35;
+  white-space: nowrap;   /* 두 줄 고정(<br>) — 서체가 바뀌어도 줄 수가 같아 칸 높이가 그대로(CLS 0) */
 }
 
 /* 근거 — 그림 아래쪽에 떠오르는 흰 카드. 그림 자리 안에서만 움직여 아래 내용을 밀지 않는다 */
@@ -238,27 +239,27 @@ html.stage-done .stage * { animation: none !important; }
   .vchip { padding: 6px 10px 7px; gap: 2px; }
   .v-k { font-size: 12px; }
   .rec-note { margin-bottom: 6px; font-size: 11px; }
-  .judge-face, .judge-icon, .judge-wand { width: 56px; height: 56px; }
+  .judge { padding-top: 6px; }
+  .judge-face, .judge-icon, .judge-wand { width: 48px; height: 48px; }
+  .judge-bubble { font-size: 11px; padding: 6px 8px; margin-bottom: 6px; }
 }
 
 /* ── 넓은 화면 ─────────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
-  :root { --fig-h: clamp(320px, 52svh, 500px); }
-  .verdicts { width: 200px; }
+  :root { --col-w: 200px; }
   .stage-copy { max-width: 600px; }
 }
 /* 데스크톱 — 그림 왼쪽 · 글 오른쪽. 무대가 첫 화면을 채운다 */
 @media (min-width: 960px) {
-  :root { --fig-h: min(600px, calc(100svh - 200px)); }
+  :root { --col-w: 220px; }
   .stage { padding-left: 40px; padding-right: 40px; padding-bottom: 72px; }
   .stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "top top" "fig copy"; column-gap: 56px; align-items: center; justify-content: center; }
   .stage-top { grid-area: top; width: 100%; max-width: none; }
-  .stage-fig { grid-area: fig; width: 100%; margin: 16px 0 0; }
+  .stage-fig { grid-area: fig; width: 100%; height: min(600px, calc(100svh - 200px)); margin: 16px 0 0; }
   .stage-copy { grid-area: copy; margin: 0; max-width: 460px; }
   .stage-title { font-size: 56px; }
   .stage-lead { font-size: 20px; }
-  .verdicts { width: 220px; }
-  .judge-bubble { width: 200px; font-size: 15px; }
+  .judge-bubble { font-size: 14px; }
   #what { padding-top: 120px; }
 }
 
