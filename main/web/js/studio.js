@@ -30,7 +30,7 @@
   const stations = [...document.querySelectorAll('.station')];
   const walls = [...document.querySelectorAll('.room-wall')];
   const pools = [...document.querySelectorAll('.room-pool')];
-  const steps = [...document.querySelectorAll('.hud__step')];
+  const steps = [...document.querySelectorAll('.hud .ds-step')];
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const state = { at: 0, yaw: 0, busy: false };
