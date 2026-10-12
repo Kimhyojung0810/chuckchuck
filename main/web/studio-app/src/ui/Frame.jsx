@@ -43,10 +43,17 @@ export function AppFrame({ rect, onStation, api }) {
   const sync = () => {
     const win = frame.current?.contentWindow
     if (!win) return
+    let path
+    try { path = win.location.pathname } catch (_) { return }
+    // 처음 빈 문서(about:blank)의 load 는 건너뛴다 — 거기서 상대 주소('#/rehearsal')로 바꾸면 부모 주소(/studio)로 풀려
+    // 스튜디오가 iframe 안에 또 떴다 (10-13 사용자 「화면이 겹쳐 보인다」)
+    if (win.location.href === 'about:blank') return
+    const onApp = /^\/(index\.html)?$/.test(path)
+    if (!onApp) { win.location.replace(new URL(APP_START, location.origin).href); return }   // 앱이 아닌 문서가 실렸으면 앱으로
     const hash = win.location.hash
     const k = stationOfHash(hash)
-    if (k < 0) {   // 앱의 「나가기」 · 홈 → 스튜디오는 처음 정거장(앱도 리허설 첫 화면으로)
-      win.location.replace(APP_START.replace('/index.html', ''))
+    if (k < 0) {   // 앱의 「나가기」 · 홈 → 스튜디오는 처음 정거장(앱도 리허설 첫 화면으로) — 늘 절대 주소로
+      win.location.replace(new URL(APP_START, location.origin).href)
       return
     }
     stack.current = trackHash(stack.current, hash)
@@ -88,7 +95,7 @@ export function AppFrame({ rect, onStation, api }) {
   const onLoad = () => {
     const win = frame.current?.contentWindow
     const doc = frame.current?.contentDocument
-    if (!win || !doc) return
+    if (!win || !doc || win.location.href === 'about:blank') return
     const st = doc.createElement('style')
     st.textContent = FRAME_CSS
     doc.head.appendChild(st)
