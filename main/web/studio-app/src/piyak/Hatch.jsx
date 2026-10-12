@@ -7,7 +7,7 @@ import { Egg } from './Egg.jsx'
 
 export const STAGES = [
   { key: 'egg', name: '알', line: '알 속에서 꿈틀대요', hold: 1800 },
-  { key: 'crack', name: '금 간 알', line: '톡톡 — 금이 갔어요', hold: 2400 },
+  { key: 'crack', name: '금 간 알', line: '지지직 — 금이 가요', hold: 3800 },
   { key: 'peek', name: '알 깨기', line: '빼꼼, 밖이 궁금해요', hold: 2600 },
   { key: 'pants', name: '껍데기 바지', line: '삐약! 나왔어요', hold: 2200, piyak: { shell: 'pants', mood: 'excited' } },
   { key: 'cap', name: '껍데기 모자', line: '껍데기는 모자로 써요', hold: 2200, piyak: { shell: 'cap', mood: 'happy' } },

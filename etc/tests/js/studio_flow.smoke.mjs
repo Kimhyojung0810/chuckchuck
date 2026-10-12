@@ -33,9 +33,11 @@ check('#/rehearsals 는 흐름이 아니다', K.stationOfHash('#/rehearsals') ==
 check('① → 는 다음', K.keyAction({ key: 'ArrowRight', station: 0 }) === 'next');
 check('③ Enter 는 다음', K.keyAction({ key: 'Enter', station: 2 }) === 'next');
 check('← 는 이전', K.keyAction({ key: 'ArrowLeft', station: 3 }) === 'back');
-check('② 발표 → 는 앱(클리커)', K.keyAction({ key: 'ArrowRight', station: 1 }) === null);
-check('② 발표 Enter 는 앱', K.keyAction({ key: 'Enter', station: 1 }) === null);
-check('② 발표 ← 는 앱', K.keyAction({ key: 'ArrowLeft', station: 1 }) === null);
+check('② 발표 · 앱 안 초점 → 는 앱(클리커)', K.keyAction({ key: 'ArrowRight', station: 1, inApp: true }) === null);
+check('② 발표 · 앱 안 초점 ← 는 앱', K.keyAction({ key: 'ArrowLeft', station: 1, inApp: true }) === null);
+check('② 발표 · 바깥 초점 → 는 앱의 다음 장', K.keyAction({ key: 'ArrowRight', station: 1 }) === 'slideNext');
+check('② 발표 · 바깥 초점 PageUp 은 앞 장', K.keyAction({ key: 'PageUp', station: 1 }) === 'slidePrev');
+check('② 발표 Enter 는 맡기지 않는다', K.keyAction({ key: 'Enter', station: 1 }) === null);
 check('글 입력 중이면 그 칸의 것', K.keyAction({ key: 'Enter', station: 2, typing: true }) === null);
 check('버튼에 초점이면 Enter 는 그 버튼', K.keyAction({ key: 'Enter', station: 0, onControl: true }) === null);
 check('버튼에 초점이어도 → 는 다음', K.keyAction({ key: 'ArrowRight', station: 0, onControl: true }) === 'next');
@@ -54,7 +56,7 @@ check('바로 앞 주소로 오면 덜어낸다(뒤로 가기)', st.length === 1
 
 // 하네스 자가 검사 — ② 에서 방향키를 가로채는 잘못된 규칙을 실제로 잡아내는가
 const broken = ({ key }) => (key === 'ArrowRight' ? 'next' : null);
-check('하네스가 회귀를 잡는다', broken({ key: 'ArrowRight', station: 1 }) !== K.keyAction({ key: 'ArrowRight', station: 1 }));
+check('하네스가 회귀를 잡는다', broken({ key: 'ArrowRight', station: 1, inApp: true }) !== K.keyAction({ key: 'ArrowRight', station: 1, inApp: true }));
 
 if (failed) { console.log(`\n${failed} failed`); process.exit(1); }
 console.log('\nstudio_flow: all ok');

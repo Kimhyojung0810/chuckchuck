@@ -72,6 +72,37 @@ function Workshop({ W, H, world }) {
 }
 
 /* ② 무대 — 양옆 초록 막 · 위 막 · 무대 바닥 끝선 · 위에서 떨어지는 빛 기둥, 객석 삐약이 넷 */
+function StageWide({ L, world }) {
+  const u = world
+  const top = L.top, floor = L.floor, half = L.total / 2
+  const ch = (floor - top + 420) * u
+  const geo = useMemo(() => curtainGeometry(200 * u, ch), [u, ch])
+  const val = useMemo(() => curtainGeometry((L.total + 520) * u, 80 * u), [L.total, u])
+  // 앞줄 관중 — 큰 반응 삐약이(왼쪽) 와 자라는 삐약이(오른쪽) 사이에 셋
+  const from = L.listener.x + L.listener.w / 2 + 30
+  const to = L.app.x + L.app.w / 2 - 230
+  const feet = L.dockTop - 8
+  const h = Math.round(L.seat * 0.62)
+  const seats = [0, 1, 2].map((i) => from + ((to - from) * (i + 0.5)) / 3)
+  const who = [['ax', 'neutral'], ['midm', 'excited'], ['exaone', 'happy']]
+  return (
+    <group>
+      {[-1, 1].map((side) => (
+        <mesh key={side} geometry={geo} position={[side * (half + 90) * u, -((top + floor) / 2) * u, -0.35]}>
+          <meshStandardMaterial color="#0B5A3C" roughness={0.78} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      <mesh geometry={val} position={[0, -(top - 40) * u, -0.3]}>
+        <meshStandardMaterial color="#09503A" roughness={0.8} side={THREE.DoubleSide} />
+      </mesh>
+      <Box at={[0, -(floor + 10) * u, 0.05]} size={[(L.total + 160) * u, 3 * u, 0.03]} color="#0f1a15" emissive="#3fd599" emissiveIntensity={0.6} />
+      {seats.map((x, i) => (
+        <Chick key={i} name={who[i][0]} mood={who[i][1]} at={[x, -feet, 0.12]} h={h - (i % 2) * 10} world={u} flip={i === 2} tilt={(i - 1) * 0.04} />
+      ))}
+    </group>
+  )
+}
+
 function Stage({ W, H, world }) {
   const u = world
   const cw = 200 * u, ch = (H + 380) * u
@@ -94,6 +125,18 @@ function Stage({ W, H, world }) {
       <Chick name="midm" mood="excited" at={[-(W / 2 + 152), -(H / 2 + 34), 0.14]} h={92} world={u} tilt={0.05} />
       <Chick name="exaone" mood="happy" at={[W / 2 + 62, -(H / 2 + 20), 0.12]} h={104} world={u} flip />
       <Chick name="solar" mood="excited" at={[W / 2 + 152, -(H / 2 + 34), 0.14]} h={92} world={u} flip tilt={-0.05} />
+    </group>
+  )
+}
+
+/* ③ 심사석(넓은 화면) — 앱 창 아래 긴 책상. 심사위원은 왼쪽 앞 큰 삐약이(ui/AppMirror Judge)가 맡는다 */
+function JudgesWide({ L, world }) {
+  const u = world
+  const top = L.app.y + L.app.h / 2 + 10
+  return (
+    <group>
+      <Box at={[L.app.x * u, -(top + 36) * u, 0.2]} size={[(L.app.w + 120) * u, 72 * u, 0.12]} color="#0c1210" rough={0.7} />
+      <Box at={[L.app.x * u, -top * u, 0.2]} size={[(L.app.w + 130) * u, 3 * u, 0.06]} color="#0e1512" rough={0.8} />
     </group>
   )
 }
@@ -146,10 +189,12 @@ function Study({ W, H, world }) {
 const SETS = [Workshop, Stage, JudgesDesk, Study]
 
 /** 정거장 k 의 세트 — W·H 는 창 크기(px), world 는 1px 의 m */
-export function StationSet({ k, W, H, world }) {
-  const C = SETS[k]
+export function StationSet({ k, W, H, L, world }) {
   // 텍스처가 늦게 들어와도 다시 그리게 한 번 깨운다
   const [, kick] = useState(0)
   useEffect(() => { const id = setTimeout(() => kick(1), 400); return () => clearTimeout(id) }, [])
+  if (k === 1 && L && L.screen) return <StageWide L={L} world={world} />
+  if (k === 2 && L && L.judge) return <JudgesWide L={L} world={world} />
+  const C = SETS[k]
   return C ? <C W={W} H={H} world={world} /> : null
 }

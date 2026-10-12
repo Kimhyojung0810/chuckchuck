@@ -3,7 +3,7 @@
    알 · 금 간 알은 Live Orb 처럼 (10-13 사용자: 「알일 때 이거 할 수 있겠다」 — 21st.dev live-orb, 커서를 따라가는 캡슐 눈 두 개 달린 구):
    껍데기 너머로 캡슐 눈이 비쳐 커서를 보고, 속에서 노란 빛이 숨 쉬듯 일렁이다가 목소리(readLevel)에 맞춰 밝아지고 볼록해진다.
    알 깨기에서는 틈 사이 점 눈이 커서를 본다 */
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform, useAnimationFrame, useReducedMotion, animate } from 'motion/react'
 import { useGaze, Sprout } from './Piyak.jsx'
 import { ShellDefs, ShellPiece, EGG } from './Shell.jsx'
@@ -23,8 +23,68 @@ const ORB_SPRING = { stiffness: 320, damping: 34, mass: 0.6 }
 const ORB_PACE = { reach: 0.25, idle: 900, glance: [700, 1100], front: 0.25, stay: true }
 const WRAP = 0.3               // 가장자리에서 이만큼 좁아진다
 const ORB_X = 4.2 * ORB_GAZE   // 눈이 갈 수 있는 끝 (GAZE_X × ORB_GAZE)
-/** 금이 가는 길 — crack(0..1) 만큼 그려진다. 눈 아래를 가로지른다 (10-13 사용자: 「눈 아래에서 금 가는 게 좋을듯」) */
-const CRACK = 'M21 66l6 4 5-5 6 5 5-5 6 5 5-5 6 5 5-5 6 4 5-3'
+/* 금 — 눈 아래를 가로지르는 지그재그 (10-13 사용자: 「눈 아래에서」 · 「진짜 지지직」 · 「테두리랑 닿아 있어야 자연스럽다」).
+   알 테두리 바깥(x 11)에서 시작해 알 모양으로 잘라 그리니, 금이 테두리에서 시작하고 끝까지 가면 반대쪽 테두리에 닿는다.
+   crack(0..1) 을 마디 수로 바꿔 한 마디씩 끊어지며 간다 — 새 마디가 생길 때마다 알이 파르르, 끝이 번쩍, 부스러기가 튄다.
+   가만히 있어도 가끔 지직거린다(CRACKLE). 마디 몇 곳에서 잔금이 갈라진다(TWIGS) */
+const CRACK_Y = [64, 69, 63.5, 68.5, 63, 68, 64, 69, 63.5, 68, 64, 68.5, 63.5, 67.5]
+const CRACK_PTS = CRACK_Y.map((y, i) => [11 + i * 6.2, y])
+const CRACK_N = CRACK_PTS.length - 1
+const TWIGS = { 4: [2.2, -5], 8: [1.4, 5.2], 11: [2.4, -4.6] }   // 마디 번호 → 잔금 방향
+const CRACKLE = [1300, 1700]
+const crackPath = (k) => 'M' + CRACK_PTS.slice(0, k + 1).map(([x, y]) => `${x} ${y}`).join('L')
+const segPath = (k) => { const [a, b] = [CRACK_PTS[k - 1], CRACK_PTS[k]]; return `M${a[0]} ${a[1]}L${b[0]} ${b[1]}` }
+
+/** 금 간 알의 금 — 지지직. onTick(): 알을 파르르 떨게 한다 */
+function Crack({ id, amount, reduced, onTick }) {
+  const k = Math.max(1, Math.min(CRACK_N, Math.round(amount * CRACK_N)))
+  const [ticks, setTicks] = useState([])     // 번쩍 · 부스러기 — 지직할 때마다 하나
+  const seq = useRef(0)
+  const prevK = useRef(k)
+  const tick = (at) => {
+    onTick?.()
+    if (reduced) return
+    const n = ++seq.current
+    setTicks((t) => [...t.slice(-3), { n, at }])
+    setTimeout(() => setTicks((t) => t.filter((x) => x.n !== n)), 650)
+  }
+  // 새 마디가 생기면 지직
+  useEffect(() => { if (k > prevK.current) tick(k); prevK.current = k }, [k])
+  // 가만히 있어도 가끔 지직 (끝에서)
+  useEffect(() => {
+    let t = 0
+    const next = () => { t = setTimeout(() => { tick(prevK.current); next() }, CRACKLE[0] + Math.random() * CRACKLE[1]) }
+    next()
+    return () => clearTimeout(t)
+  }, [reduced])
+  const line = { fill: 'none', stroke: 'var(--px-line)', strokeLinecap: 'round', strokeLinejoin: 'round' }
+  return (
+    <g clipPath={`url(#${id}-egg)`}>
+      <path d={crackPath(k)} {...line} strokeWidth="2.2" />
+      {Object.entries(TWIGS).filter(([v]) => Number(v) <= k).map(([v, [dx, dy]]) => {
+        const [x, y] = CRACK_PTS[v]
+        return <motion.path key={v} d={`M${x} ${y}l${dx} ${dy}`} {...line} strokeWidth="1.5"
+          initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.18 }} />
+      })}
+      {ticks.map(({ n, at }) => {
+        const [x, y] = CRACK_PTS[at]
+        return (
+          <g key={n}>
+            {/* 끝이 번쩍 — 방금 갈라진 마디가 굵었다 가늘어진다 */}
+            <motion.path d={segPath(at)} {...line} initial={{ strokeWidth: 4.2, opacity: 1 }} animate={{ strokeWidth: 2.2, opacity: 0 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }} />
+            {/* 부스러기 셋 — 끝에서 튀어 나갔다 사라진다 */}
+            {[[-4, -6, 1.1], [3, -7.5, 0.9], [5, -3, 0.8]].map(([dx, dy, r], j) => (
+              <motion.circle key={j} cx={x} cy={y} r={r} fill="var(--px-egg)" stroke="var(--px-line)" strokeWidth=".7"
+                initial={{ x: 0, y: 0, opacity: 1 }} animate={{ x: dx, y: dy, opacity: 0 }}
+                transition={{ duration: 0.5, ease: 'easeOut', delay: j * 0.03 }} />
+            ))}
+          </g>
+        )
+      })}
+    </g>
+  )
+}
 
 /** 목소리 0..1 — 빨리 오르고 천천히 내려온다 */
 function useLevel(readLevel) {
@@ -97,6 +157,12 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
     return () => { a?.stop(); clearTimeout(t) }
   }, [stage, reduced, lid, blink])
 
+  /** 지직 — 알이 짧게 파르르 */
+  const shiver = () => {
+    if (reduced) return
+    animate(tilt, [tilt.get(), -1.6, 1.4, -0.9, 0.5, 0], { duration: 0.2, ease: 'linear' })
+  }
+
   const poke = () => { onPoke?.(); wobble((WOBBLE[stage] || WOBBLE.egg).deg + 4) }
   const peek = stage === 'peek'
 
@@ -151,11 +217,7 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
                   </motion.g>
                 </g>
                 <path className="px-egg-line" d={EGG} />
-                {stage === 'crack' && (
-                  <motion.path className="px-crack" d={CRACK} clipPath={`url(#${id}-egg)`}
-                    initial={false} animate={{ pathLength: Math.max(0.12, Math.min(1, crack)) }}
-                    transition={{ type: 'spring', stiffness: 60, damping: 14 }} />
-                )}
+                {stage === 'crack' && <Crack id={id} amount={crack} reduced={reduced} onTick={shiver} />}
                 <Sprout scale={0.8} y={14} />
               </motion.g>
             )}

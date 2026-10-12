@@ -14,6 +14,8 @@ import { AppFrame, CoverCard } from './ui/Frame.jsx'
 import { PresentDock } from './ui/PresentDock.jsx'
 import { Companion } from './piyak/Companion.jsx'
 import { rmsToVolume } from './voice/signal.js'
+import { stationLayout, appRect } from './layout.js'
+import { useAppMirror, pressApp, StageScreen, Listener, Judge } from './ui/AppMirror.jsx'
 
 function useViewport() {
   const read = () => ({ w: innerWidth, h: innerHeight, phone: innerWidth < 720 })
@@ -72,11 +74,13 @@ export default function App() {
     rig.drag = 0
   }
 
-  // ── 정면 창 = 실제 앱 자리 (CSS px). 3D 창도 같은 크기라 멈추면 정확히 겹친다 ──
-  // 양옆 · 아래에 세트와 삐약이가 설 자리를 남긴다 (데스크톱 폭 66% · 높이 74%)
-  const W = Math.round(Math.min(1120, vp.w * (vp.phone ? 0.94 : 0.66)))
-  const H = Math.round(Math.min(760, vp.h * (vp.phone ? 0.8 : 0.74)))
-  const rect = { left: Math.round((vp.w - W) / 2), top: Math.round((vp.h - H) / 2), width: W, height: H }
+  // ── 정거장마다 정면 배치 (layout.js) — 앱 창 자리는 지금 정거장 것. 3D 창도 같은 자리라 멈추면 정확히 겹친다 ──
+  const Ls = STATIONS.map((_, k) => stationLayout(k, vp))
+  const rect = appRect(Ls[at], vp)
+  const W = Ls[0].app.w, H = Ls[0].app.h
+  // ② · ③ 은 앱 안의 자료 · 반응 삐약이 · 진행 삐약이를 무대로 꺼낸다 (ui/AppMirror.jsx)
+  const mirror = useAppMirror(frameApi, vp.phone ? null : at === 1 ? 'present' : at === 2 ? 'qa' : null)
+  const slideNav = (d) => pressApp(frameApi, `#vrCall .vr-dock [data-slide-nav="${d}"]`)
 
   /** ② 발표 음량 — 비전 리허설이 이미 재는 값 (PresentDock 과 같다 · 마이크를 더 열지 않는다) */
   const readAppLevel = useCallback(() => {
@@ -86,11 +90,22 @@ export default function App() {
   }, [])
 
   const stations = STATIONS.map((s, k) => {
-    const panels = [{ id: 'w', x: 0, y: 0, w: W, h: H, children: <CoverCard no={k + 1} name={s.name} line={s.line} /> }]
-    // 창 왼쪽에 선 삐약이 — 흐름을 따라 자란다 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx).
-    // ② ~ ④ 는 세트 삐약이(창 아래 모서리)와 겹치지 않게 조금 위에
-    if (!vp.phone) panels.push({ id: 'piyak', x: -(W / 2 + 118), y: k === 0 ? H / 2 - 140 : H / 2 - 250, w: 210, h: 300, glass: false, bare: true,
-      children: <Companion k={k} active={k === at} mic={mic} readAppLevel={readAppLevel} /> })
+    const L = Ls[k]
+    const panels = [{ id: 'w', x: L.app.x, y: L.app.y, w: L.app.w, h: L.app.h, children: <CoverCard no={k + 1} name={s.name} line={s.line} /> }]
+    if (L.screen) panels.push({ id: 'screen', ...L.screen, glass: false, radius: 18,
+      children: <StageScreen slide={k === at && mirror ? mirror.slide : null} onNav={slideNav} /> })
+    if (L.listener) panels.push({ id: 'listener', ...L.listener, glass: false, bare: true,
+      children: <Listener bird={k === at && mirror ? mirror.bird : null} size={L.seat} onEar={() => pressApp(frameApi, '#vrEar')} /> })
+    if (L.judge) panels.push({ id: 'judge', ...L.judge, glass: false, bare: true,
+      children: <Judge judge={k === at ? mirror : null} size={L.seat} onCancel={() => pressApp(frameApi, '#bcSendCancel')} /> })
+    // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
+    if (!vp.phone) {
+      const at2 = k === 1 && L.dock ? { x: L.app.x + L.app.w / 2 - 105, y: L.dock.top - vp.h / 2 - 160 }
+        : k === 2 && L.judge ? { x: L.judge.x, y: L.judge.y - L.judge.h / 2 - 150 }
+        : { x: L.app.x - (L.app.w / 2 + 118), y: k === 0 ? L.app.h / 2 - 140 : L.app.h / 2 - 250 }
+      panels.push({ id: 'piyak', x: Math.round(at2.x), y: Math.round(at2.y), w: 210, h: 300, glass: false, bare: true,
+        children: <Companion k={k} active={k === at} mic={mic} readAppLevel={readAppLevel} /> })
+    }
     return panels
   })
 
@@ -99,11 +114,11 @@ export default function App() {
       <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.45 }}
         camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
         <color attach="background" args={['#040605']} />
-        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} />
+        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} Ls={Ls} />
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
       <AppFrame rect={rect} onStation={go} api={frameApi} />
-      <PresentDock api={frameApi} rect={rect} on={at === 1 && !vp.phone} />
+      <PresentDock api={frameApi} box={Ls[1].dock || { left: rect.left, width: rect.width, top: rect.top + rect.height + 14 }} on={at === 1 && !vp.phone} />
 
       <header className="hud">
         <span className="hud__brand"><img src="assets/chuckchuck-app-icon-64.png" alt="" /><span>척척발표</span></span>
@@ -115,13 +130,13 @@ export default function App() {
         </ol>
         <span className="hud__end"><a className="hud__exit" href="/">나가기</a></span>
       </header>
-      <p className="hud__note ds-mono">→ · Enter 다음 · ← 이전 · 빈 곳을 좌우로 끌면 둘러봐요</p>
+      {(at === 0 || at === 3) && <p className="hud__note ds-mono">→ · Enter 다음 · ← 이전 · 빈 곳을 좌우로 끌면 둘러봐요</p>}
       <p className="ds-sr" ref={live} aria-live="polite" />
     </div>
   )
 }
 
-function Scene({ stations, at, quality, portal, W, H }) {
+function Scene({ stations, at, quality, portal, W, H, Ls }) {
   const coveRef = useRef([])
   return (
     <>
@@ -130,7 +145,7 @@ function Scene({ stations, at, quality, portal, W, H }) {
       <Room coveRef={coveRef} quality={quality} />
       <GlassPass />
       {stations.map((panels, k) => (
-        <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={W} H={H} />
+        <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={W} H={H} L={Ls[k]} />
       ))}
     </>
   )

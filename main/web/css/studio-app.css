@@ -246,3 +246,55 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 .sx-dock__wave { flex: 0 1 220px; min-width: 80px; color: var(--ink-3); }
 .sx-dock :focus-visible { outline: none; box-shadow: var(--focus); }
 @media (prefers-reduced-motion: reduce) { .sx-dock { transition: none; } }
+
+/* ── 10-13 ② 무대 스크린 · 앞줄 관중 / ③ 심사위원 (ui/AppMirror.jsx · layout.js) ──
+   사용자: 「PPT 너무 작다 · 배경을 적극적으로 · 크다 작다 하는 삐약이는 관중으로 · 질의응답도 비슷하게」 */
+.sx-screen { position: absolute; inset: 0; display: flex; flex-direction: column; border-radius: inherit; overflow: hidden;
+  background: #050706; border: 1px solid rgba(232, 242, 236, .16); box-shadow: 0 0 0 6px rgba(5, 7, 6, .9), 0 40px 90px -30px rgba(0, 0, 0, .9); }
+.sx-screen__stage { position: relative; flex: 1; min-height: 0; background: #fff; display: flex; align-items: center; justify-content: center; }
+.sx-screen__img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
+.sx-screen__doc { width: 100%; height: 100%; overflow: hidden; padding: 4% 5%; color: #1c2430; font-size: 20px; }
+.sx-screen__empty { margin: 0; color: #5c6b64; font-size: 16px; }
+.sx-screen__sub { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; max-width: 86%; margin: 0; padding: 6px 14px; border-radius: 10px;
+  background: rgba(5, 7, 6, .72); color: #fff; font-size: 17px; line-height: 1.45; text-align: center; word-break: keep-all; }
+.sx-screen__side { position: absolute; top: 50%; translate: 0 -50%; width: 34px; height: 56px; border: 0; border-radius: 10px;
+  background: rgba(5, 7, 6, .35); color: #fff; font-size: 22px; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.sx-screen__side.is-prev { left: 10px; } .sx-screen__side.is-next { right: 10px; }
+.sx-screen__stage:hover .sx-screen__side, .sx-screen__side:focus-visible { opacity: 1; }
+.sx-screen__cap { flex: none; height: 44px; display: flex; align-items: center; gap: 14px; padding: 0 16px; color: var(--ink); font-size: 15px; }
+.sx-screen__cap strong { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 700; }
+.sx-screen__no { flex: none; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 15px; }
+.sx-screen__prog { flex: none; width: 120px; height: 4px; border-radius: 2px; background: rgba(232, 242, 236, .16); overflow: hidden; }
+.sx-screen__prog i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+
+.sx-bubble { position: relative; margin: 0; padding: 12px 18px; border-radius: 18px; background: rgba(232, 242, 236, .1); color: var(--ink-2);
+  border: 1px solid rgba(232, 242, 236, .18); font-size: 17px; line-height: 1.45; word-break: keep-all; max-width: 22em; }
+.sx-bubble.is-said { background: #F3F7F4; color: #0b100d; border-color: #F3F7F4; font-size: 21px; font-weight: 700; }
+.sx-bubble::before { content: ''; position: absolute; left: -9px; bottom: 18px; border: 9px solid transparent; border-left: 0; border-right-color: inherit; }
+.sx-bubble.is-said::before { border-right-color: #F3F7F4; }
+.sx-bubble--down::before { left: 34px; bottom: -9px; border: 9px solid transparent; border-bottom: 0; border-top-color: #F3F7F4; }
+
+.sx-listener { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 6px; }
+.sx-listener__chick { flex: none; height: var(--seat); width: auto; filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .55)); transform-origin: 50% 100%; animation: sxPop .45s cubic-bezier(.3, 1.5, .5, 1); }
+.sx-listener[data-cue="fast"] .sx-listener__chick, .sx-listener[data-cue="loud"] .sx-listener__chick { animation: sxPop .45s cubic-bezier(.3, 1.5, .5, 1), sxWiggle .5s .45s ease-in-out 2; }
+.sx-listener__talk { display: grid; gap: 8px; justify-items: start; padding-bottom: calc(var(--seat) * .35); }
+.sx-listener__name { color: var(--ink-3); font-size: 13px; }
+.sx-listener__ear { height: 32px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(232, 242, 236, .22); background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+@keyframes sxPop { from { transform: scale(.86) translateY(8px); } to { transform: none; } }
+@keyframes sxWiggle { 50% { transform: rotate(-4deg); } }
+
+.sx-judge { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 10px; }
+.sx-judge__talk { display: grid; gap: 8px; justify-items: start; }
+.sx-judge__count { color: var(--accent); font-family: var(--font-mono, ui-monospace); font-size: 14px; letter-spacing: .06em; }
+.sx-judge__cancel { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(232, 242, 236, .3); background: rgba(15, 20, 17, .7); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.sx-judge__seat { position: relative; display: flex; align-items: flex-end; gap: 8px; }
+.sx-judge__chick { height: var(--seat); width: auto; filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .55)); }
+.sx-judge__voice { display: inline-flex; width: 86px; height: 86px; align-items: center; justify-content: center; margin-bottom: calc(var(--seat) * .3); }
+.sx-judge__voice[data-voice=""] { visibility: hidden; }
+.sx-judge__name { color: var(--ink-2); font-size: 14px; } .sx-judge__name b { color: var(--ink); font-size: 18px; margin-right: 6px; }
+@media (prefers-reduced-motion: reduce) { .sx-listener__chick { animation: none !important; } .sx-screen__prog i { transition: none; } }
+
+/* ② 조작줄 위계 — 장 넘기기(양 끝)를 가장 크게, 녹음 전에는 「발표 시작하기」 가 주인공 */
+.sx-dock { height: 64px; }
+.sx-dock__nav { height: 48px; min-width: 132px; font-size: 17px; }
+.sx-dock__btn.is-primary { height: 44px; padding: 0 22px; font-size: 16px; }

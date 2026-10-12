@@ -72,13 +72,20 @@ export function AppFrame({ rect, onStation, api }) {
       return true
     }
     if (what === 'back' && stack.current.length > 1) { win.history.back(); return true }
+    if (what === 'slideNext' || what === 'slidePrev') {
+      const b = doc.querySelector(`#vrCall .vr-dock [data-slide-nav="${what === 'slideNext' ? 1 : -1}"]`)
+      if (!b || b.disabled) return false
+      b.click()
+      return true
+    }
     return false
   }
 
   /** 키 하나 — 바깥(스튜디오)과 iframe 안이 같은 규칙 (SPACE §7) */
-  const onKey = (e, active) => {
+  const onKey = (e, active, inApp = false) => {
     if (e.defaultPrevented) return
     const what = keyAction({
+      inApp,
       key: e.key,
       station: station.current,
       typing: typingIn(active),
@@ -112,7 +119,7 @@ export function AppFrame({ rect, onStation, api }) {
     doc.head.appendChild(fit)
     win.addEventListener('resize', refit)
     win.addEventListener('hashchange', sync)
-    doc.addEventListener('keydown', (e) => onKey(e, doc.activeElement))
+    doc.addEventListener('keydown', (e) => onKey(e, doc.activeElement, true))
     stack.current = []
     sync()
   }

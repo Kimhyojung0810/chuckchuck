@@ -66,10 +66,10 @@ function Clock({ live, sec }) {
 
 /**
  * @param api   AppFrame 이 내준 { doc(), win() }
- * @param rect  정면 창 자리 — 조작줄은 그 바로 아래
+ * @param box   조작줄 자리 { left, width, top } — ② 는 화면 맨 아래 스크린 · 카메라 폭 (layout.js)
  * @param on    지금 ② 발표 정거장인가
  */
-export function PresentDock({ api, rect, on }) {
+export function PresentDock({ api, box, on }) {
   const [dock, setDock] = useState(null)
   const items = useRef([])
   const wrap = useRef(null)
@@ -124,7 +124,7 @@ export function PresentDock({ api, rect, on }) {
 
   return (
     <div ref={wrap} className="sx-dock" role="toolbar" aria-label="발표 조작"
-      style={{ left: rect.left, width: rect.width, top: rect.top + rect.height + 14 }}>
+      style={{ left: box.left, width: box.width, top: box.top }}>
       {prev >= 0 && <button type="button" className="sx-dock__nav" onClick={press(prev)} disabled={dock.items[prev].disabled}>
         <span aria-hidden="true">‹</span> 이전</button>}
       <div className="sx-dock__mid">
