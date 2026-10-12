@@ -120,15 +120,22 @@ main {
 }
 /* 삐약이(앱 아이콘)가 들어오며 마법봉을 한 번 휘두르고, 봉 끝에서 반짝이가 튄다 — 접속할 때 한 번만 (10-12 사용자) */
 .hero-mascot { position: relative; flex: none; width: 88px; height: 88px; animation: mascot-in 460ms var(--ease) both; }
+/* 얼굴(봉 뺀 그림 + SVG 봉)을 한 몸으로 — 연출이 없을 땐 봉을 쥔 오른쪽 아래를 축으로 한 번 흔든다 */
+.hero-face {
+  position: absolute; inset: 0;
+  transform-origin: 82% 86%;
+  animation: wand-swing 900ms ease-in-out 520ms both;
+}
 .hero-icon {
   display: block;
   width: 88px; height: 88px;
   /* 그림 자체가 둥근 모서리(투명) — box-shadow 는 네모로 깔리니 그림 모양을 따르는 drop-shadow */
   filter: drop-shadow(0 8px 14px rgba(6, 78, 59, .16)) drop-shadow(0 1px 1px rgba(24, 24, 27, .08));
-  /* 봉을 쥔 오른쪽 아래를 축으로 돈다 */
-  transform-origin: 82% 86%;
-  animation: wand-swing 900ms ease-in-out 520ms both;
 }
+/* 마법봉 — 앱 아이콘의 512 칸 좌표 그대로. 손(477,341)이 돌림 · 늘림의 축이다. 넘치는 봉 · 꼬리는 그대로 보인다 */
+.wand { position: absolute; inset: 0; width: 88px; height: 88px; overflow: visible; pointer-events: none; }
+.w-spin, .w-stick { transform-box: view-box; transform-origin: 477px 341px; }
+.w-trail { opacity: 0; }
 @keyframes mascot-in {
   from { opacity: 0; transform: translateY(10px) scale(.7); }
   to   { opacity: 1; transform: none; }
@@ -183,32 +190,59 @@ main {
 }
 
 /* ── 첫 방문 연출 (html.fly — intro.html 안의 짧은 스크립트가 켠다) ─────────────────────
-   삐약이가 화면 가운데에 크게 나와 → 마법봉을 휘두르고 「척척, 발표 채점~!」 → 제 자리(아이콘 칸)로 날아가 앉는다 (10-12 사용자).
-   10-12 지표(~/meetings/리서치/2026-10-12_랜딩_지표_색상분석.md P0): 예전엔 제목 · 주 버튼이 2.1~2.5초 숨어 있었다(목표 ≤ 1.0초).
-   그래서 순서는 그대로 두고 1.0초로 줄였다 — 0.1초 등장 · 0.33초까지 가운데서 봉 휘두르기 · 0.33~1.0초 날아가 앉기.
-   글은 0.16초부터 떠올라 0.46초에 다 보이고(캡션은 흰 이름표라 글 위에서도 읽힌다), 주 버튼은 처음부터 보인다. 이 탭에서 한 번만 */
+   10-12 사용자: 마법봉이 주인공이게 — 봉이 길게 늘어나 손을 축으로 한 바퀴 돈다.
+   한 줄 시간표(1.6초, 모두 0초에 같이 시작해 % 로 맞춘다):
+     0~0.1초 삐약이 가운데 등장(2배) → 0.1~0.25 봉이 2배로 늘어남 → 0.25~0.75 한 바퀴(끝에서 반짝 꼬리) →
+     0.75~0.9 봉이 원래 길이로 → 0.8~1.36 「척척, 발표 채점~!」 · 봉 끝 반짝이 → 1.1~1.6 아이콘 자리로 날아가 앉음.
+   글은 날기 시작할 때(1.1초) 떠올라 1.4초에 다 보이고, 주 버튼은 처음부터 보인다 — 지표 노트 목표(제목 ≤ 1.0초)보다
+   늦지만 사용자 요청(봉 연출)이 이긴다(10-12). transform · opacity 만 움직인다. 이 탭에서 한 번만 */
 .fly-caption { display: none; }
 html.fly .hero-mascot {
   z-index: 30;
-  animation: mascot-fly 1000ms both;
+  animation: mascot-fly 1600ms both;
 }
 @keyframes mascot-fly {
   0%   { opacity: 0; transform: translate(var(--fx, 0), var(--fy, 0)) scale(1.3); animation-timing-function: var(--ease); }
-  10%  { opacity: 1; transform: translate(var(--fx, 0), var(--fy, 0)) scale(2.2); }
-  33%  { opacity: 1; transform: translate(var(--fx, 0), var(--fy, 0)) scale(2.2); animation-timing-function: cubic-bezier(.65, 0, .25, 1); }
+  6%   { opacity: 1; transform: translate(var(--fx, 0), var(--fy, 0)) scale(2); }
+  69%  { opacity: 1; transform: translate(var(--fx, 0), var(--fy, 0)) scale(2); animation-timing-function: cubic-bezier(.65, 0, .25, 1); }
   100% { opacity: 1; transform: none; }
 }
-html.fly .hero-icon { animation-duration: 600ms; animation-delay: 60ms; }
-html.fly .spark { animation-delay: 200ms; }
-html.fly .spark:nth-child(3) { animation-delay: 230ms; }
-html.fly .spark:nth-child(4) { animation-delay: 250ms; }
-html.fly .spark:nth-child(5) { animation-delay: 215ms; }
-html.fly .spark:nth-child(6) { animation-delay: 265ms; }
-/* 글이 떠오르는 동안에도 캡션이 읽히게 흰 이름표에 얹는다 */
+html.fly .hero-face { animation: none; }
+/* 봉 늘리기: 봉 방향(위에서 왼쪽으로 17.18°)을 세로로 돌려 세로로만 늘이고 다시 돌린다 — 굵기는 그대로 */
+html.fly .w-stick { animation: w-stretch 1600ms both; }
+@keyframes w-stretch {
+  0%, 6.25% { transform: rotate(-17.18deg) scaleY(1) rotate(17.18deg); animation-timing-function: cubic-bezier(.2, .8, .3, 1); }
+  15.6%, 46.9% { transform: rotate(-17.18deg) scaleY(2) rotate(17.18deg); animation-timing-function: cubic-bezier(.5, 0, .3, 1); }
+  56.25%, 100% { transform: rotate(-17.18deg) scaleY(1) rotate(17.18deg); }
+}
+/* 봉 끝 구슬은 늘어난 만큼 봉 방향으로 (손 → 끝 = -77, -249) */
+html.fly .w-tip { animation: w-tip 1600ms both; }
+@keyframes w-tip {
+  0%, 6.25% { transform: none; animation-timing-function: cubic-bezier(.2, .8, .3, 1); }
+  15.6%, 46.9% { transform: translate(-77px, -249px); animation-timing-function: cubic-bezier(.5, 0, .3, 1); }
+  56.25%, 100% { transform: none; }
+}
+html.fly .w-spin { animation: w-spin 1600ms both; }
+@keyframes w-spin {
+  0%, 15.6% { transform: rotate(0); animation-timing-function: cubic-bezier(.45, 0, .25, 1); }
+  46.9%, 100% { transform: rotate(360deg); }
+}
+html.fly .w-trail { animation: w-trail 1600ms both; }
+@keyframes w-trail {
+  0%, 17% { opacity: 0; }
+  22%, 42% { opacity: 1; }
+  47%, 100% { opacity: 0; }
+}
+html.fly .spark { animation-delay: 880ms; }
+html.fly .spark:nth-child(3) { animation-delay: 920ms; }
+html.fly .spark:nth-child(4) { animation-delay: 950ms; }
+html.fly .spark:nth-child(5) { animation-delay: 900ms; }
+html.fly .spark:nth-child(6) { animation-delay: 980ms; }
+/* 글이 떠오르는 동안에도 캡션이 읽히게 흰 이름표에 얹는다. 가로는 삐약이 밑(손이 가운데라 삐약이는 --hand 만큼 왼쪽) */
 html.fly .fly-caption {
   display: block;
   position: fixed;
-  left: 50%;
+  left: calc(50% - var(--hand, 0px));
   top: calc(42% + 112px);
   z-index: 30;
   padding: 6px 16px;
@@ -221,20 +255,20 @@ html.fly .fly-caption {
   font-weight: var(--w-display);
   letter-spacing: -.02em;
   pointer-events: none;
-  animation: caption-show 600ms var(--ease) 40ms both;
+  animation: caption-show 560ms var(--ease) 800ms both;
 }
 @keyframes caption-show {
   0%   { opacity: 0; transform: translate(-50%, 8px) scale(.94); }
   20%  { opacity: 1; transform: translate(-50%, 0); }
-  72%  { opacity: 1; transform: translate(-50%, 0); }
+  75%  { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 /* 나머지는 삐약이가 날기 시작할 때 함께 */
 html.fly .hero > :not(.hero-art):not(.fly-caption):not(script),
 html.fly main > :not(.hero) {
-  animation: content-in 300ms var(--ease) 160ms both;
+  animation: content-in 300ms var(--ease) 1100ms both;
 }
-html.fly .hero-bubble { animation-delay: 950ms; }
+html.fly .hero-bubble { animation-delay: 1600ms; }
 @keyframes content-in {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
@@ -242,7 +276,7 @@ html.fly .hero-bubble { animation-delay: 950ms; }
 
 /* 움직임을 줄인 기기 — 연출 없이 처음부터 그대로 */
 @media (prefers-reduced-motion: reduce) {
-  .hero-mascot, .hero-icon, .hero-bubble { animation: none; }
+  .hero-mascot, .hero-face, .hero-bubble { animation: none; }
   .spark { display: none; }
 }
 .hero .eyebrow { margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
