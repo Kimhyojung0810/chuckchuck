@@ -105,7 +105,7 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 
 /* ── 삐약이 (studio-app/src/piyak) — 객석 발표새와 같은 색. 몸 · 외곽선 · 얼굴 색은 캐릭터 고유색이라 무대 색이 바뀌어도 그대로 ── */
 .px-stage {
-  --px-body: #FFD96A; --px-line: #356B59; --px-mint: #9ADBC0; --px-beak: #F0A93C; --px-blush: #F7B6A8;
+  --px-body: #FFD96A; --px-hen: #FFFBF2; --px-egg: #FFF7E6; --px-egg-spot: #F1E2C2; --px-comb: #F2686B; --px-line: #356B59; --px-mint: #9ADBC0; --px-beak: #F0A93C; --px-blush: #F7B6A8;
   --px-size: min(300px, 36vh);
   display: grid; justify-items: center; align-content: center; gap: var(--sp-3); text-align: center; min-width: 0;
 }
@@ -157,6 +157,17 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 .px-rosette .px-star { fill: var(--px-body); stroke: var(--px-line); stroke-width: .7; }
 .px-phones .px-band { fill: none; stroke: var(--px-line); stroke-width: 3.4; stroke-linecap: round; }
 .px-phones rect.px-cup { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 2; }
+/* 알 · 껍데기 (Egg.jsx · Shell.jsx) · 닭 */
+.px-egg { fill: var(--px-egg); stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-egg-spot { fill: var(--px-egg-spot); }
+.px-crack, .px-zig { fill: none; stroke: var(--px-line); stroke-linecap: round; stroke-linejoin: round; }
+.px-crack { stroke-width: 2; }
+.px-zig { stroke-width: 2.6; }
+.px-comb { fill: var(--px-comb); stroke: var(--px-line); stroke-width: 2.2; stroke-linejoin: round; }
+.px-hen-feet { fill: none; stroke: var(--px-beak); stroke-width: 2.4; stroke-linecap: round; }
+/* 자라는 이야기 (Hatch.jsx) — 단계가 바뀌어도 자리가 그대로이게 그림 칸 크기를 고정한다 */
+.px-hatch__art { display: grid; width: var(--px-size); aspect-ratio: 120 / 118; }
+.px-hatch__frame { grid-area: 1 / 1; display: grid; place-items: end center; }
 
 /* 눈 · 표정 — 평소엔 또렷한 눈동자, mood 가 표정 곡선 · 감정 표시를 켠다 (chatter.css 와 같은 규칙) */
 .px-eye-ball { fill: #2F3B33; transform-origin: center; transition: transform .25s ease, opacity .18s; }

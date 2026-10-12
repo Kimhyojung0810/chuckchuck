@@ -7,6 +7,7 @@
 import { useEffect, useId, useRef } from 'react'
 import { motion, useMotionValue, useMotionValueEvent, useSpring, useTransform, useAnimationFrame, useReducedMotion, animate } from 'motion/react'
 import { gaze, voiceK, voiceLift, GAZE_X, GAZE_Y } from './logic.js'
+import { ShellDefs, ShellPants, ShellCap } from './Shell.jsx'
 
 /**
  * 움직임 크기 — 단위는 viewBox(100). turn 은 -1(왼쪽)..1(오른쪽), pitch 는 -1(위)..1(아래) 에 곱한다.
@@ -72,8 +73,19 @@ function Eye({ cx, gx, gy, sx }) {
   )
 }
 
+/** 새싹 — 삐약이 머리 위 (알일 때는 알 꼭대기). y: 줄기 밑동 */
+export function Sprout({ y = 18, scale = 1 }) {
+  return (
+    <g className="px-tuft" transform={`translate(50 ${y}) scale(${scale}) translate(-50 -18)`}>
+      <path d="M50 18V14" fill="none" strokeWidth="1.8" strokeLinecap="round" />
+      <path className="px-mint" d="M50 14.4c-.9-2.8-3.4-3.9-5.6-3 .5 2.4 2.7 3.6 5.6 3z" />
+      <path className="px-mint" d="M50 14.4c.9-2.8 3.4-3.9 5.6-3-.5 2.4-2.7 3.6-5.6 3z" />
+    </g>
+  )
+}
+
 /** 커서를 본다. 커서가 멈추거나(마우스) 손가락을 떼면(터치) 혼자 이쪽저쪽 두리번거린다 */
-function useGaze(target, wander) {
+export function useGaze(target, wander) {
   const gx = useMotionValue(0)
   const gy = useMotionValue(0)
   useEffect(() => {
@@ -199,17 +211,21 @@ function HeadProp({ who }) {
 
 /**
  * who: solar(기본) · ax · midm · exaone — 소품만 다르고 몸은 하나
+ * form: chick(기본) · hen(다 자란 닭 — 크림색 몸 · 빨간 볏 · 꼬리깃 · 소품 없음)
+ * shell: 없음 · pants(아래 껍데기를 입은 갓 깬 병아리) · cap(위 껍데기를 쓴 병아리) — 알 단계는 Egg.jsx
  * mood: neutral · happy · curious · excited · grumpy
  * levelRef: 마이크 RMS 를 담은 ref (media.js useMicLevel 의 level) · listening: 마이크가 켜져 있는가
  * onPoke: 눌렀을 때 · onHover(bool): 커서가 올라갔을 때
  */
-export function Piyak({ who = 'solar', mood = 'neutral', levelRef, listening = false, onPoke, onHover, label = '삐약이', preset = 'cute' }) {
+export function Piyak({ who = 'solar', form = 'chick', shell, mood = 'neutral', levelRef, listening = false, onPoke, onHover, label = '삐약이', preset = 'cute' }) {
   const AMP = PRESETS[preset] || PRESETS.cute
   const reduced = useReducedMotion()
   const box = useRef(null)
   const ids = useId().replace(/:/g, '')
   const glowId = `pxg${ids}`
   const clipId = `pxc${ids}`
+  const shellId = `pxs${ids}`
+  const hen = form === 'hen'
 
   const { gx: gazeX, gy: gazeY } = useGaze(box, !reduced)
   const gx = useSpring(gazeX, EYE_SPRING)
@@ -311,7 +327,8 @@ export function Piyak({ who = 'solar', mood = 'neutral', levelRef, listening = f
   }, [AMP.idleHop, reduced])
 
   return (
-    <button type="button" className="px-chick" data-preset={preset} data-mood={mood} data-listening={listening ? '1' : undefined}
+    <button type="button" className="px-chick" data-preset={preset} data-mood={mood} data-form={form} data-listening={listening ? '1' : undefined}
+      style={hen ? { '--px-body': 'var(--px-hen)' } : undefined}
       aria-label={`${label} — 누르면 인사해요`} onClick={poke}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover?.(true) }}
       onPointerLeave={() => onHover?.(false)}>
@@ -324,6 +341,7 @@ export function Piyak({ who = 'solar', mood = 'neutral', levelRef, listening = f
           </radialGradient>
           {/* 얼굴 · 배가 보이는 곳 = 몸 윤곽 — 옆으로 돌면 윤곽 너머로 넘어간다 */}
           <clipPath id={clipId}><path d={TORSO} /></clipPath>
+          {shell && <ShellDefs id={shellId} />}
         </defs>
         <motion.circle className="px-glow" cx="50" cy="52" r="58" fill={`url(#${glowId})`}
           style={{ opacity: glowOpacity, scale: glowScale, originX: 0.5, originY: 0.5 }} />
@@ -334,9 +352,17 @@ export function Piyak({ who = 'solar', mood = 'neutral', levelRef, listening = f
             <motion.g style={{ scaleX: sx, scaleY: sy, originX: 0.5, originY: 1 }}>
               <g className="px-breath">
                 <motion.g className="px-legs" style={{ x: legX }}>
-                  <ellipse className="px-leg-l" cx="41" cy="88.6" rx="3.4" ry="2" />
-                  <ellipse className="px-leg-r" cx="59" cy="88.6" rx="3.4" ry="2" />
+                  {hen ? (
+                    <path className="px-hen-feet" d="M37 90.4h8M41 86.5v3.9M55 90.4h8M59 86.5v3.9" />
+                  ) : (
+                    <>
+                      <ellipse className="px-leg-l" cx="41" cy="88.6" rx="3.4" ry="2" />
+                      <ellipse className="px-leg-r" cx="59" cy="88.6" rx="3.4" ry="2" />
+                    </>
+                  )}
                 </motion.g>
+                {/* 닭 꼬리깃 — 몸 뒤 오른쪽 */}
+                {hen && <path className="px-fill px-w24" d="M85 50c6-8 14-8 16-3-3 1-5 3-6 6 4-1 7 1 7 4-4 0-7 2-9 5z" />}
 
                 <motion.g style={{ scaleX: torsoSx, originX: 0.5, originY: 0.5 }}>
                   <path className="px-body" d={TORSO} />
@@ -361,20 +387,27 @@ export function Piyak({ who = 'solar', mood = 'neutral', levelRef, listening = f
                   style={{ x: wingX, rotate: wingL, scale: wingLS, originX: 1, originY: 0 }} />
                 <motion.path className="px-fill px-w24" d="M87.4 58.5c5.4.4 8.4 4.4 7.6 8.6-4.4.8-8-1.2-9.2-4.4z"
                   style={{ x: wingX, rotate: wingR, scale: wingRS, originX: 0, originY: 0 }} />
+                {/* 갓 깬 병아리 — 아래 껍데기를 바지처럼 입었다 */}
+                {shell === 'pants' && <ShellPants id={shellId} />}
 
-                <motion.g className="px-tuft" style={{ x: tuftX, y: tuftY }}>
-                  <path d="M50 18V14" fill="none" strokeWidth="1.8" strokeLinecap="round" />
-                  <path className="px-mint" d="M50 14.4c-.9-2.8-3.4-3.9-5.6-3 .5 2.4 2.7 3.6 5.6 3z" />
-                  <path className="px-mint" d="M50 14.4c.9-2.8 3.4-3.9 5.6-3-.5 2.4-2.7 3.6-5.6 3z" />
+                <motion.g style={{ x: tuftX, y: tuftY }}>
+                  {/* 닭은 새싹 자리에 빨간 볏, 껍데기 모자를 쓰면 새싹은 모자 밑 */}
+                  {hen ? <path className="px-comb" d="M38 19c-2-6 3-10 7-7 1-6 9-6 10 0 4-3 9 1 7 7-6 2-18 2-24 0z" />
+                    : shell !== 'cap' && <Sprout />}
+                  {shell === 'cap' && <ShellCap id={shellId} />}
                 </motion.g>
 
                 {/* 들고 있는 소품 — 몸 옆에 끼거나(슬라이드 · 형광펜) 가슴에 단다(로제트). 얼굴 · 볼을 가리지 않는다 */}
-                <motion.g style={{ x: propX, y: bellyY }}>
-                  <HeldProp who={who} />
-                </motion.g>
-                <motion.g style={{ x: tuftX, y: tuftY }}>
-                  <HeadProp who={who} />
-                </motion.g>
+                {!hen && (
+                  <>
+                    <motion.g style={{ x: propX, y: bellyY }}>
+                      <HeldProp who={who} />
+                    </motion.g>
+                    <motion.g style={{ x: tuftX, y: tuftY }}>
+                      <HeadProp who={who} />
+                    </motion.g>
+                  </>
+                )}
 
                 <g className="px-emote" transform="translate(3 4)">
                   <path className="px-heart" d="M78 13c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z" />
