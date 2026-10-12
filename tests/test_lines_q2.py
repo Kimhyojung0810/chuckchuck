@@ -22,17 +22,17 @@ from email.message import Message
 import pytest
 
 import demo.bridge as bridge
-from engine import _claim_rules as R
-from engine import _deck_lines as DL
-from engine import _evidence as E
-from engine import _grounding as G
-from engine import _probes as P
-from engine import _reason as RS
-from engine import build_questions
-from engine import f06_concepts as F06
-from engine import f07_graph as F07
-from engine._claim_quote import slide_lines
-from engine.contracts import (
+from pipeline import _claim_rules as R
+from pipeline import _deck_lines as DL
+from pipeline import _evidence as E
+from pipeline import _grounding as G
+from pipeline import _probes as P
+from pipeline import _reason as RS
+from pipeline import build_questions
+from pipeline import f06_concepts as F06
+from pipeline import f07_graph as F07
+from pipeline._claim_quote import slide_lines
+from pipeline.contracts import (
     Claim,
     ClaimDoc,
     ClaimQuote,
@@ -45,7 +45,7 @@ from engine.contracts import (
     SlideDoc,
     TriageMark,
 )
-from engine.providers.llm_base import LLMProvider
+from pipeline.providers.llm_base import LLMProvider
 from demo.session_archive import SessionArchive
 
 

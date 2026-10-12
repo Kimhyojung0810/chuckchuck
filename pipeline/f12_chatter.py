@@ -2,7 +2,7 @@
 [삐약 청중석] 국내 LLM 4개가 병아리 청중을 연기하며 발표에 대해 떠드는 모듈입니다.
 ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc.
 
-    from engine.f12_chatter import build_chatter
+    from pipeline.f12_chatter import build_chatter
     chatter = build_chatter(graph, alignment, flow)
 
 설계 두 줄:

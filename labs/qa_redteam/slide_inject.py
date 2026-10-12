@@ -21,9 +21,9 @@ for i, lines in enumerate(SLIDES, 1):
                          "alignment": None, "text_sparse": False, "image_only": False, "raw_text": raw})
 d = OUT / "decks" / "inject"
 ctx = {"situation": "school_project", "duration_min": 5}
-from engine import build_graph, build_questions, extract_concepts, judge_answer, triage_questions
-from engine.contracts import SlideDoc
-from engine.f26_claims import build_claims
+from pipeline import build_graph, build_questions, extract_concepts, judge_answer, triage_questions
+from pipeline.contracts import SlideDoc
+from pipeline.f26_claims import build_claims
 
 if not (d / "questions_t5.json").exists():
     s = SlideDoc.from_dict(sd)

@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from engine import Context, analyze_pace, compose_report, extract_habits
-from engine.contracts import ConceptDoc, RubricScore, Transcript
-from engine.providers.llm_base import LLMProvider
+from pipeline import Context, analyze_pace, compose_report, extract_habits
+from pipeline.contracts import ConceptDoc, RubricScore, Transcript
+from pipeline.providers.llm_base import LLMProvider
 
 ROOT = Path(__file__).resolve().parent.parent
 

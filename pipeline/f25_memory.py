@@ -2,7 +2,7 @@
 [F-25] 리허설 기억 — 같은 사람이 같은 발표를 다시 연습할 때, 지난 답변 과정을 되짚어 다음 Q&A 를 더 낫게 만드는 모듈입니다.
 지난 세션들의 qa_turns 기록(+ConceptGraph) → MemoryDoc.  MemoryDoc + 이번 ConceptGraph → {node_id: ConceptMemory}.
 
-    from engine.f25_memory import build_memory, link_memory
+    from pipeline.f25_memory import build_memory, link_memory
     memory = build_memory(rehearsals, file_name="deck.pdf", learner_key="learner:ab12")   # 세션에 한 번
     memory = build_memory(rehearsals, ..., graph=graph, slidedoc=slidedoc)                 # 이번 발표를 알면 더 좁힌다
     by_node = link_memory(memory, graph)                                                    # 이번 그래프의 노드에 잇기

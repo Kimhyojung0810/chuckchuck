@@ -34,12 +34,12 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(HERE))
 
-from engine.config import load_dotenv  # noqa: E402
+from pipeline.config import load_dotenv  # noqa: E402
 
 load_dotenv()
 
 import metrics as M  # noqa: E402
-from engine.providers.llm_base import LLMProvider  # noqa: E402
+from pipeline.providers.llm_base import LLMProvider  # noqa: E402
 
 OUT = HERE / "out"
 CORPUS = HERE / "corpus"
@@ -56,18 +56,18 @@ RECORDING_DEFAULT = ("health_glucose", "sleep")
 
 #: 단계 → 그 단계 산출물을 바꾸는 모듈 (소스 해시가 캐시 키에 들어간다)
 STAGE_MODULES = {
-    "slides": ["engine/f01_parse.py"],
-    "concepts": ["engine/f06_concepts.py", "engine/_deck_lines.py", "engine/_claim_rules.py"],
-    "graph": ["engine/f07_graph.py", "engine/_graph_items.py", "engine/_deck_lines.py", "engine/_claim_rules.py",
-              "engine/_evidence.py", "engine/_match.py"],
-    "claims": ["engine/f26_claims.py", "engine/_reason.py", "engine/_claim_quote.py", "engine/_claim_rules.py",
-               "engine/_deck_lines.py", "engine/_graph_items.py", "engine/_evidence.py", "engine/_match.py"],
-    "triage": ["engine/f08_questions.py", "engine/_probes.py", "engine/_claim_rules.py", "engine/_match.py"],
-    "questions": ["engine/f08_questions.py", "engine/_reason.py", "engine/_probes.py", "engine/_claim_rules.py", "engine/_grounding.py", "engine/_probe_stance.py",
-                  "engine/_evidence.py", "engine/_traps.py", "engine/_speech.py", "engine/_match.py"],
-    "align": ["engine/f11_align.py", "engine/f11_flow.py"],
-    "judge": ["engine/f09_judge.py", "engine/_reason.py", "engine/f08_questions.py", "engine/_traps.py", "engine/_deck_claims.py", "engine/_probe_stance.py",
-              "engine/_judge_post.py", "engine/_judge_guard.py", "engine/_speech.py", "engine/_match.py"],
+    "slides": ["pipeline/f01_parse.py"],
+    "concepts": ["pipeline/f06_concepts.py", "pipeline/_deck_lines.py", "pipeline/_claim_rules.py"],
+    "graph": ["pipeline/f07_graph.py", "pipeline/_graph_items.py", "pipeline/_deck_lines.py", "pipeline/_claim_rules.py",
+              "pipeline/_evidence.py", "pipeline/_match.py"],
+    "claims": ["pipeline/f26_claims.py", "pipeline/_reason.py", "pipeline/_claim_quote.py", "pipeline/_claim_rules.py",
+               "pipeline/_deck_lines.py", "pipeline/_graph_items.py", "pipeline/_evidence.py", "pipeline/_match.py"],
+    "triage": ["pipeline/f08_questions.py", "pipeline/_probes.py", "pipeline/_claim_rules.py", "pipeline/_match.py"],
+    "questions": ["pipeline/f08_questions.py", "pipeline/_reason.py", "pipeline/_probes.py", "pipeline/_claim_rules.py", "pipeline/_grounding.py", "pipeline/_probe_stance.py",
+                  "pipeline/_evidence.py", "pipeline/_traps.py", "pipeline/_speech.py", "pipeline/_match.py"],
+    "align": ["pipeline/f11_align.py", "pipeline/f11_flow.py"],
+    "judge": ["pipeline/f09_judge.py", "pipeline/_reason.py", "pipeline/f08_questions.py", "pipeline/_traps.py", "pipeline/_deck_claims.py", "pipeline/_probe_stance.py",
+              "pipeline/_judge_post.py", "pipeline/_judge_guard.py", "pipeline/_speech.py", "pipeline/_match.py"],
 }
 STAGE_ORDER = ["slides", "concepts", "graph", "claims", "triage", "questions", "judge", "stability", "recording"]
 
@@ -122,7 +122,7 @@ class Counted(LLMProvider):
 
 
 def engine(deck: str, stage: str) -> Counted:
-    from engine.providers.llm_impl import get_llm
+    from pipeline.providers.llm_impl import get_llm
 
     return Counted(get_llm(None), deck, stage)
 
@@ -268,7 +268,7 @@ def stage_slides(run: DeckRun) -> dict:
         got = run.cached("slides", "slide_doc.json", key)
         if got is not None:
             return got
-        from engine.f01_parse import parse_document
+        from pipeline.f01_parse import parse_document
 
         t0, c0 = time.time(), BUDGET.used
         sd = parse_document(spec["pptx"]).to_dict()
@@ -284,7 +284,7 @@ def stage_slides(run: DeckRun) -> dict:
         if got is None:
             raise FileNotFoundError(f"{run.name}: slidedoc 이 없어요 ({src})")
         return got
-    from engine.contracts import SlideDoc
+    from pipeline.contracts import SlideDoc
 
     sd = SlideDoc.from_dict(read_json(src)).to_dict()
     key = h("json", sd)
@@ -298,8 +298,8 @@ def stage_concepts(run: DeckRun, sd: dict) -> dict:
     got = run.cached("concepts", "concept_doc.json", key)
     if got is not None:
         return got
-    from engine import extract_concepts
-    from engine.contracts import Context, SlideDoc
+    from pipeline import extract_concepts
+    from pipeline.contracts import Context, SlideDoc
 
     t0, c0 = time.time(), BUDGET.used
     cd = extract_concepts(SlideDoc.from_dict(sd), Context.from_dict(run.spec["context"]), llm=engine(run.name, "concepts"))
@@ -314,8 +314,8 @@ def stage_graph(run: DeckRun, sd: dict, cd: dict) -> dict:
     got = run.cached("graph", "graph.json", key)
     if got is not None:
         return got
-    from engine import build_graph
-    from engine.contracts import ConceptDoc, Context, SlideDoc
+    from pipeline import build_graph
+    from pipeline.contracts import ConceptDoc, Context, SlideDoc
 
     t0, c0 = time.time(), BUDGET.used
     g = build_graph(ConceptDoc.from_dict(cd), Context.from_dict(run.spec["context"]), slide_doc=SlideDoc.from_dict(sd),
@@ -331,7 +331,7 @@ def stage_claims(run: DeckRun, sd: dict, graph: dict) -> dict:
     got = run.cached("claims", "claims.json", key)
     if got is not None:
         return got
-    from engine.f26_claims import build_claims
+    from pipeline.f26_claims import build_claims
 
     t0, c0 = time.time(), BUDGET.used
     c = build_claims(graph, sd, llm=Replay(run.name, "claims", run.dir / "claims_llm.json"))
@@ -347,7 +347,7 @@ def stage_triage(run: DeckRun, graph: dict, claims: dict, tag: str = "triage", f
     key = h(run.out_hash("graph.json"), run.out_hash("claims.json"), run.spec["context"], src_hash("triage"), *extra, tag)
     if not force and STAGE_ORDER.index("triage") < run.fresh_idx and run.keys.get(tag) == key and (run.dir / fname).exists():
         return read_json(run.dir / fname)
-    from engine import triage_questions
+    from pipeline import triage_questions
 
     t0, c0 = time.time(), BUDGET.used
     t = triage_questions(graph, alignment, flow, run.spec["context"], transcript=transcript, claims=claims,
@@ -367,7 +367,7 @@ def stage_questions(run: DeckRun, sd: dict, graph: dict, claims: dict, triage: d
     stage_key = f"{tag}:t{track}"
     if STAGE_ORDER.index("questions") < run.fresh_idx and run.keys.get(stage_key) == key and (run.dir / fname).exists():
         return read_json(run.dir / fname)
-    from engine import build_questions
+    from pipeline import build_questions
 
     t0, c0 = time.time(), BUDGET.used
     # 질문 LLM 응답도 얼린다(Replay) — 코드 쪽 후처리(골자·함정 규칙)만 고쳤으면 프롬프트가 같아 다시 부르지 않는다 (qa/loop2).
@@ -384,7 +384,7 @@ def stage_questions(run: DeckRun, sd: dict, graph: dict, claims: dict, triage: d
 
 
 def ladders_of(qdoc: dict) -> dict[str, list[str]]:
-    from engine.f08_questions import build_hint_ladder
+    from pipeline.f08_questions import build_hint_ladder
 
     return {q["id"]: build_hint_ladder(q) for q in qdoc.get("questions") or []}
 
@@ -434,7 +434,7 @@ def gen_answers(samples: dict[str, list[tuple[str, dict]]], force: bool) -> dict
             if key not in cache:
                 todo.append((key, q))
     if todo:
-        from engine._json_text import extract_json_object
+        from pipeline._json_text import extract_json_object
 
         user = "\n\n".join(f"key: {k}\n질문: {q['question']}\n골자: {q.get('answer_gist', '')}" for k, q in todo)
         raw = engine("*", "answers").complete(system=ANSWER_SYSTEM, user=user, temperature=0.4, max_tokens=4000, json_mode=True)
@@ -448,7 +448,7 @@ def gen_answers(samples: dict[str, list[tuple[str, dict]]], force: bool) -> dict
 
 
 def stage_judge(run: DeckRun, sd: dict, graph: dict, qdoc: dict, answers: dict[str, dict]) -> list[dict]:
-    from engine import judge_answer
+    from pipeline import judge_answer
 
     fname = "judge.json"
     key = h(run.out_hash("questions_t5.json"), src_hash("judge"), answers)
@@ -495,13 +495,13 @@ def stage_recording(run: DeckRun, sd: dict, graph: dict, claims: dict) -> dict |
     key = h(run.out_hash("graph.json"), transcript, src_hash("align"))
     alignment = read_json(run.dir / "alignment.json") if run.keys.get("align") == key and STAGE_ORDER.index("recording") < run.fresh_idx else None
     if alignment is None:
-        from engine.f11_align import align_speech
+        from pipeline.f11_align import align_speech
 
         t0 = time.time()
         alignment = align_speech(graph, transcript, run.spec["context"], llm=engine(run.name, "align")).to_dict()
         note(f"  [{run.name}] F-11 대조 {time.time() - t0:.1f}s")
         run.save("align", "alignment.json", key, alignment)
-    from engine.f11_flow import build_flow_diff
+    from pipeline.f11_flow import build_flow_diff
 
     flow = build_flow_diff(graph, alignment).to_dict()
     write_json(run.dir / "flow.json", flow)
@@ -520,7 +520,7 @@ def stage_stability(run: DeckRun, sd: dict, graph: dict, claims: dict, base_q5: 
         if run.keys.get(f"stab{i}") == key and (run.dir / fq).exists() and STAGE_ORDER.index("stability") < run.fresh_idx:
             runs.append(read_json(run.dir / fq))
             continue
-        from engine import build_questions, triage_questions
+        from pipeline import build_questions, triage_questions
 
         t = triage_questions(graph, None, None, run.spec["context"], claims=claims, llm=engine(run.name, f"stab_triage{i}"))
         write_json(run.dir / f"stability/triage_run{i}.json", t.to_dict())
@@ -549,16 +549,16 @@ def parse_fidelity(run: DeckRun, sd: dict) -> dict | None:
 
 
 def deck_text(sd: dict) -> str:
-    from engine.contracts import SlideDoc
-    from engine.f09_judge import _deck_text
+    from pipeline.contracts import SlideDoc
+    from pipeline.f09_judge import _deck_text
 
     return _deck_text(SlideDoc.from_dict(sd))
 
 
 def scaffold_choices(qd: dict, sd: dict, graph: dict) -> list[dict]:
     """발판 단계(LLM 없음)의 빈칸 선택지 둘 — 모든 질문에 대해 지금 코드로 다시 만든다."""
-    from engine.contracts import ConceptGraph, Question
-    from engine.f09_judge import _scaffold_judgement
+    from pipeline.contracts import ConceptGraph, Question
+    from pipeline.f09_judge import _scaffold_judgement
 
     deck = deck_text(sd)
     g = ConceptGraph.from_dict(graph)
@@ -578,8 +578,8 @@ def collect(run: DeckRun, tracks: list[str]) -> dict:
     if not (sd and graph and claims and triage):
         return {"name": run.name, "incomplete": True}
     truth = run.spec.get("truth")
-    from engine.contracts import ClaimDoc, ConceptGraph
-    from engine._probes import derive_probes
+    from pipeline.contracts import ClaimDoc, ConceptGraph
+    from pipeline._probes import derive_probes
 
     # 탐침은 결정적이다 — 캐시된 triage 가 아니라 **지금 코드**로 다시 찾는다 (규칙을 고친 뒤 LLM 없이 다시 잰다)
     probes = [p.to_dict() for p in derive_probes(ConceptGraph.from_dict(graph), ClaimDoc.from_dict(claims))]
@@ -701,10 +701,10 @@ def run_claims(runs: list[DeckRun]) -> dict:
     프롬프트가 바뀌었으면 부른다), 탐침은 결정적으로. 1차 심사·질문(F-08)은 돌리지 않는다 — 주장 쪽을 고쳤을 때 F-08 LLM 을
     덱마다 세 번씩 부르지 않고 재기 위해서다 (09-30 WP-C). 결과: out/claims_report.json, 머리 숫자는 held-out · tuned 로 나눈다.
     """
-    from engine import build_graph
-    from engine._probes import derive_probes
-    from engine.contracts import ClaimDoc, ConceptDoc, ConceptGraph, Context, SlideDoc
-    from engine.f26_claims import build_claims
+    from pipeline import build_graph
+    from pipeline._probes import derive_probes
+    from pipeline.contracts import ClaimDoc, ConceptDoc, ConceptGraph, Context, SlideDoc
+    from pipeline.f26_claims import build_claims
 
     rows: dict = {}
     for run in runs:

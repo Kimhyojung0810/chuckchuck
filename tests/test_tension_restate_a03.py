@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import json
 
-from engine import judge_answer
-from engine._probe_stance import RESTATE_REACT, restates_line
-from engine.contracts import ClaimQuote, Probe, Question, QuestionBasis, Slide, SlideBlock, SlideDoc, qa_passed
-from engine.providers.llm_base import LLMProvider
+from pipeline import judge_answer
+from pipeline._probe_stance import RESTATE_REACT, restates_line
+from pipeline.contracts import ClaimQuote, Probe, Question, QuestionBasis, Slide, SlideBlock, SlideDoc, qa_passed
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

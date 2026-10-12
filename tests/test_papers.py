@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from engine._evidence import citation_lines, find_citations
-from engine.contracts import (
+from pipeline._evidence import citation_lines, find_citations
+from pipeline.contracts import (
     ConceptGraph,
     ConceptNode,
     PaperDoc,
@@ -20,17 +20,17 @@ from engine.contracts import (
     SlideDoc,
     TriageMark,
 )
-from engine.f08_questions import (
+from pipeline.f08_questions import (
     CITE_SYSTEM_PROMPT,
     PAPER_SYSTEM_ADDENDUM,
     QUESTION_SYSTEM_PROMPT,
     _build_question_prompt,
     build_questions,
 )
-from engine.f24_papers import build_papers, search_papers
-from engine.providers.llm_base import LLMProvider
-from engine.providers.scholar_base import ScholarProvider
-from engine.providers.scholar_impl import OpenAlexScholar, _abstract_from_inverted, coverage, get_scholar
+from pipeline.f24_papers import build_papers, search_papers
+from pipeline.providers.llm_base import LLMProvider
+from pipeline.providers.scholar_base import ScholarProvider
+from pipeline.providers.scholar_impl import OpenAlexScholar, _abstract_from_inverted, coverage, get_scholar
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +196,7 @@ def test_openalex_응답을_PaperRef_로_바꾸고_품질순으로_정렬한다(
         calls["url"], calls["params"] = url, params
         return Res()
 
-    monkeypatch.setattr("engine.providers.scholar_impl.requests.get", fake_get)
+    monkeypatch.setattr("pipeline.providers.scholar_impl.requests.get", fake_get)
     refs = OpenAlexScholar(mailto="team@example.com").search("notification attention", limit=2)
     assert calls["url"].endswith("/works")
     assert calls["params"]["mailto"] == "team@example.com"
@@ -213,7 +213,7 @@ def test_openalex_오류는_PaperError(monkeypatch):
         status_code = 503
         text = "down"
 
-    monkeypatch.setattr("engine.providers.scholar_impl.requests.get", lambda *a, **k: Res())
+    monkeypatch.setattr("pipeline.providers.scholar_impl.requests.get", lambda *a, **k: Res())
     with pytest.raises(PaperError):
         OpenAlexScholar().search("x")
 
@@ -344,7 +344,7 @@ def triage() -> QaTriage:
 def test_papers_없으면_프롬프트와_시스템_프롬프트가_예전과_같다():
     g = make_graph()
     by_id = {n.id: n for n in g.nodes}
-    from engine.contracts import Context
+    from pipeline.contracts import Context
     a = _build_question_prompt(g, triage().marks, by_id, None, None, Context())
     b = _build_question_prompt(g, triage().marks, by_id, None, None, Context(), papers=None)
     c = _build_question_prompt(g, triage().marks, by_id, None, None, Context(), papers=PaperDoc(file_name="x"))
@@ -407,7 +407,7 @@ def test_papers_없이는_인용_검사를_하지_않는다():
 # ---------------------------------------------------------------------------
 
 def test_clean_query_는_와일드카드와_따옴표를_지운다():
-    from engine.providers.scholar_impl import clean_query
+    from pipeline.providers.scholar_impl import clean_query
     assert clean_query('Why is it so hard? "attention" residue: work*') == "Why is it so hard attention residue work"
 
 
@@ -433,7 +433,7 @@ def test_낱말_겹침이_낮은_고피인용_논문은_뒤로_간다(monkeypatc
         def json(self):
             return payload
 
-    monkeypatch.setattr("engine.providers.scholar_impl.requests.get", lambda *a, **k: Res())
+    monkeypatch.setattr("pipeline.providers.scholar_impl.requests.get", lambda *a, **k: Res())
     refs = OpenAlexScholar().search("attention residue task switching", limit=1)
     assert refs[0].title.startswith("Attention residue")
 
@@ -455,7 +455,7 @@ def test_resolve_는_DOI_가_있으면_DOI_로_조회한다(monkeypatch):
         calls.append(url)
         return Res()
 
-    monkeypatch.setattr("engine.providers.scholar_impl.requests.get", fake_get)
+    monkeypatch.setattr("pipeline.providers.scholar_impl.requests.get", fake_get)
     hit = OpenAlexScholar().resolve("whatever", "10.1037/xhp0000100")
     assert calls == ["https://api.openalex.org/works/https://doi.org/10.1037/xhp0000100"]
     assert hit[0].abstract == "Notifications" and hit[0].cited_by == 400
@@ -477,7 +477,7 @@ def test_resolve_는_DOI_없으면_제목_필터로_찾고_404_는_빈_목록(mo
             return Res(200, {"results": []})
         return Res(404, {})
 
-    monkeypatch.setattr("engine.providers.scholar_impl.requests.get", fake_get)
+    monkeypatch.setattr("pipeline.providers.scholar_impl.requests.get", fake_get)
     assert OpenAlexScholar().resolve("Why is it so hard to do my work?", "") == []
     assert "title.search:Why is it so hard to do my work" in seen["params"]["filter"]
     assert OpenAlexScholar().resolve("x", "10.0/missing") == []
@@ -503,7 +503,7 @@ def test_build_papers_는_DOI_있는_자료_인용을_resolve_로_되찾는다()
 
 def test_번역_응답은_id_와_표기만_다른_이름으로만_받고_순서로는_붙이지_않는다():
     # 09-30 G-A32: 예전엔 id·label 이 안 맞는 줄을 **순서**로 붙였다 — LLM 이 순서를 바꾸면 다른 개념의 검색어가 붙었다.
-    from engine.f24_papers import _translate_queries
+    from pipeline.f24_papers import _translate_queries
     llm = ScriptedLLM({"paper-queries": {"queries": [
         {"node_id": "c1", "label": "알림 주의 비용", "query": "notification attention cost"},   # 예시 id 를 베낌 · 이름은 조사만 다르다
         {"node_id": "c2", "query": "attention residue"},                                     # id 도 이름도 없다 → 버린다
@@ -558,8 +558,8 @@ def test_문헌이_있는데_인용_0_이면_그_질문만_qa_cite_로_한_번_�
 
 
 def test_qa_cite_결과의_제목_조각과_끝에_덧붙인_인용은_떼고_길거나_반말이면_원문을_지킨다():
-    from engine.contracts import QA_TEXT_MAX
-    from engine.f08_questions import _clean_rewritten
+    from pipeline.contracts import QA_TEXT_MAX
+    from pipeline.f08_questions import _clean_rewritten
 
     assert _clean_rewritten("메커니즘은 무엇인가요? Stothart et al. (2015) «The attentional cost …»") == "메커니즘은 무엇인가요?"
     assert _clean_rewritten("어떤 영향을 주나요? Leroy (2009)") == "어떤 영향을 주나요?"
@@ -685,7 +685,7 @@ def test_첫_응답의_인용_주장을_뗄_수_없으면_템플릿으로_간다
 
 
 def test_claims_presenter_cited_는_deck_문헌이면_거짓이다():
-    from engine.f08_questions import _claims_presenter_cited
+    from pipeline.f08_questions import _claims_presenter_cited
     pd = papers_doc()
     assert _claims_presenter_cited("Leroy (2009)를 인용했는데 왜 그런가요?", pd)
     assert not _claims_presenter_cited("3장에서 인용한 Stothart et al. (2015)는 무엇을 쟀나요?", pd)
@@ -817,7 +817,7 @@ def test_1분_트랙은_문헌을_싣지_않는다():
 
 
 def test_한_문헌은_두_질문에_붙지_않는다():
-    from engine.f08_questions import _plan_papers
+    from pipeline.f08_questions import _plan_papers
     g = make_graph()
     marks = triage().marks
     by_id = {n.id: n for n in g.nodes}

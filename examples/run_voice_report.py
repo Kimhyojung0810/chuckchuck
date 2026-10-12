@@ -19,11 +19,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from engine.config import load_dotenv
+from pipeline.config import load_dotenv
 
 load_dotenv()
 
-from engine import (  # noqa: E402
+from pipeline import (  # noqa: E402
     Context,
     analyze_pace,
     compose_report,
@@ -32,7 +32,7 @@ from engine import (  # noqa: E402
     parse_document,
     transcribe,
 )
-from engine.contracts import ConceptDoc, SlideMark, Transcript  # noqa: E402
+from pipeline.contracts import ConceptDoc, SlideMark, Transcript  # noqa: E402
 
 
 def _marks_from_transcript(t: Transcript) -> list[SlideMark]:

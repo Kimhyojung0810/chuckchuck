@@ -21,7 +21,7 @@ import json
 import time
 from pathlib import Path
 
-from engine.contracts import Context, PeerNorm
+from pipeline.contracts import Context, PeerNorm
 
 #: 지표 이름과 "클수록 좋은가". 리포트 카피가 방향을 틀리면 칭찬과 지적이 뒤바뀐다.
 METRICS: dict[str, bool] = {

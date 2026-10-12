@@ -13,9 +13,9 @@ from email.message import Message
 
 import pytest
 
-import engine
+import pipeline
 import demo.bridge as bridge
-from engine.contracts import QaTriage, QuestionDoc
+from pipeline.contracts import QaTriage, QuestionDoc
 from demo.session_store import SessionStore
 
 
@@ -49,8 +49,8 @@ def builds(monkeypatch):
             gate["ev"].wait(5)
         return QuestionDoc(file_name="deck.pdf", track=track, model=f"fake-{len(calls)}")
 
-    monkeypatch.setattr(engine, "build_questions", fake_build)
-    monkeypatch.setattr(engine, "triage_questions", lambda *a, **k: QaTriage(file_name="deck.pdf"))
+    monkeypatch.setattr(pipeline, "build_questions", fake_build)
+    monkeypatch.setattr(pipeline, "triage_questions", lambda *a, **k: QaTriage(file_name="deck.pdf"))
     monkeypatch.setattr(bridge, "STORE", SessionStore())
     monkeypatch.setattr(bridge.Handler, "_papers_for", lambda self, *a: None)
     monkeypatch.setattr(bridge.Handler, "_memory_for", lambda self, *a: None)
@@ -98,7 +98,7 @@ def test_만드는_중이면_기다렸다가_그_결과를_쓴다(builds):
 
 def test_문헌_검색_결과가_달라도_같은_요청으로_알아본다(builds, monkeypatch):
     # 09-29 실측: 미리 만들기와 실제 요청이 동시에 문헌을 찾아 4편·3편으로 갈렸고, 문헌을 지문에 넣었던 탓에 둘 다 LLM 을 불렀다
-    from engine.contracts import PaperDoc, PaperRef
+    from pipeline.contracts import PaperDoc, PaperRef
     n = {"i": 0}
 
     def papers(self, *a):

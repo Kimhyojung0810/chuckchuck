@@ -6,25 +6,25 @@
 
 | ID | 모듈 | I/O | 기술 | API |
 |----|------|-----|------|-----|
-| F-01 | `engine/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
+| F-01 | `pipeline/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
 | F-03·04 | `sdk/rehearsal-recorder.js` | 마이크+슬라이드 → audio + `SlideMark[]` | 브라우저 (통합 SDK) | — (브라우저) |
 | F-03 | `sdk/recorder.js` | 마이크 → audio blob | MediaRecorder (분리) | — (브라우저) |
 | F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) | — (브라우저) |
-| F-05 | `engine/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
-| F-06 | `engine/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
-| F-07 | `engine/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
-| F-08 | `engine/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
-| F-09 | `engine/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
-| F-11 | `engine/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
-| F-11 파생 | `engine/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
-| F-12 | `engine/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
-| F-13 | `engine/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
-| **F-14** | `engine/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
-| F-17 | `engine/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
-| F-18 | `engine/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
-| F-19 | `engine/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
+| F-05 | `pipeline/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
+| F-06 | `pipeline/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
+| F-07 | `pipeline/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
+| F-08 | `pipeline/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
+| F-09 | `pipeline/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
+| F-11 | `pipeline/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
+| F-11 파생 | `pipeline/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
+| F-12 | `pipeline/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
+| F-13 | `pipeline/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
+| **F-14** | `pipeline/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
+| F-17 | `pipeline/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
+| F-18 | `pipeline/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
+| F-19 | `pipeline/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
-공통 계약은 `engine/contracts.py` 하나다. 설정은 `engine/config.py` (`settings.masked()`).
+공통 계약은 `pipeline/contracts.py` 하나다. 설정은 `pipeline/config.py` (`settings.masked()`).
 
 설계 문서(`docs/`)는 2026-10-12 폴더 정리로 지웠다 — git 기록에 남아 있다 (`git log --diff-filter=D -- docs/`).
 
@@ -50,9 +50,9 @@
 실측(2026-07): 단어별 timestamp **있음** → F-17 진행 가능. 재확인:
 
 ```bash
-python -m engine.probe_ax_stt 샘플녹음.wav
-python -c "from engine.providers import health_check; print(health_check())"
-python -c "from engine.config import settings; print(settings.masked())"
+python -m pipeline.probe_ax_stt 샘플녹음.wav
+python -c "from pipeline.providers import health_check; print(health_check())"
+python -c "from pipeline.config import settings; print(settings.masked())"
 ```
 
 전문용어 인식률을 위해 `keywords=`(발표자료 키워드) 를 넘길 수 있다.
@@ -250,7 +250,7 @@ ECC_DISABLED_HOOKS=pre:bash:gateguard-fact-force claude
 ## 모듈 사용 예
 
 ```python
-from engine import parse_document, extract_concepts, transcribe, Context
+from pipeline import parse_document, extract_concepts, transcribe, Context
 
 doc = parse_document("발표.pdf")                 # F-01
 concepts = extract_concepts(                     # F-06
@@ -281,7 +281,7 @@ const { blob } = await rec.stop();
 ## 디렉터리
 
 ```
-engine/
+pipeline/
   contracts.py          # 유일한 결합점
   f01_parse.py
   f05_stt.py

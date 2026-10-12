@@ -32,7 +32,7 @@ DECK_WORDS = {
     "링글": ["링글", "RINGLE", "Ringle"],
 }
 
-TARGETS = ["engine", "demo/bridge.py", "server"]
+TARGETS = ["pipeline", "demo/bridge.py", "server"]
 
 
 def _docstring_lines(src: str) -> set[int]:

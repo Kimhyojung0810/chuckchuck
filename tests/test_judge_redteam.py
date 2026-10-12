@@ -11,10 +11,10 @@ import unicodedata
 
 import pytest
 
-from engine import _traps as traps
-from engine import coach_stuck, judge_answer
-from engine._deck_claims import build_deck, clauses, conflicts, direction
-from engine._judge_guard import (
+from pipeline import _traps as traps
+from pipeline import coach_stuck, judge_answer
+from pipeline._deck_claims import build_deck, clauses, conflicts, direction
+from pipeline._judge_guard import (
     absence_or_dispute,
     distinct_answers,
     echoes_question,
@@ -30,11 +30,11 @@ from engine._judge_guard import (
     repeats,
     sanitize_slidedoc,
 )
-from engine._judge_post import to_noun_phrase
-from engine._match import fold_text, norm_tokens
-from engine._probe_stance import restates_line
-from engine._speech import plain_to_haeyo, to_haeyo
-from engine.contracts import (
+from pipeline._judge_post import to_noun_phrase
+from pipeline._match import fold_text, norm_tokens
+from pipeline._probe_stance import restates_line
+from pipeline._speech import plain_to_haeyo, to_haeyo
+from pipeline.contracts import (
     ClaimQuote,
     ConceptEdge,
     ConceptGraph,
@@ -48,7 +48,7 @@ from engine.contracts import (
     SlideDoc,
     TrapPremise,
 )
-from engine.f09_judge import (
+from pipeline.f09_judge import (
     JUDGE_TEMPERATURE,
     _clamp_score,
     _engine_id,
@@ -59,7 +59,7 @@ from engine.f09_judge import (
     clear_judge_cache,
     looks_stuck,
 )
-from engine.providers.llm_base import LLMProvider
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

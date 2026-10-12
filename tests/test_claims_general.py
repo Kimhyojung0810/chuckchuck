@@ -17,10 +17,10 @@ import json
 import re
 from pathlib import Path
 
-from engine import _claim_rules as R
-from engine._probes import derive_probes, probe_question
-from engine.contracts import Claim, ClaimDoc, ClaimQuote, ConceptGraph, ConceptNode, Slide, SlideBlock, SlideDoc
-from engine.f26_claims import (
+from pipeline import _claim_rules as R
+from pipeline._probes import derive_probes, probe_question
+from pipeline.contracts import Claim, ClaimDoc, ClaimQuote, ConceptGraph, ConceptNode, Slide, SlideBlock, SlideDoc
+from pipeline.f26_claims import (
     SYSTEM_PROMPT,
     build_claims,
     line_support,
@@ -33,7 +33,7 @@ from engine.f26_claims import (
     validate_claims,
     verify_quote,
 )
-from engine.providers.llm_base import LLMProvider
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

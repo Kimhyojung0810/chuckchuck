@@ -24,8 +24,8 @@ from pathlib import Path
 
 import pytest
 
-from engine import Context, SlideDoc, extract_concepts, parse_document
-from engine.contracts import ConceptDoc
+from pipeline import Context, SlideDoc, extract_concepts, parse_document
+from pipeline.contracts import ConceptDoc
 
 ROOT = Path(__file__).resolve().parents[1]
 PDF = ROOT / "fixtures" / "imu2clip_sample.pdf"
@@ -35,7 +35,7 @@ PPTX = ROOT / "fixtures" / "live_sample.pptx"
 # DocParse 가 실제로 그 파일을 읽었을 때만 응답에 존재할 수 있다.
 PPTX_SENTINEL = "ZEPHYRLOCK-7742"
 
-# MockLLM(engine/providers/llm_impl.py)이 내는 고정 문구들.
+# MockLLM(pipeline/providers/llm_impl.py)이 내는 고정 문구들.
 # 실제 LLM 응답에 이 문구가 섞일 확률은 사실상 0 이다.
 MOCK_SIGNATURES = (
     "슬라이드 핵심 한 줄",

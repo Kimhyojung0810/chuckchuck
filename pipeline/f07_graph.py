@@ -14,7 +14,7 @@ thesis 칸에 적힌 이름 풀기, 자료의 식·목록 항목 중 노드가 �
 (docs/review/2026-09-29_QA_근거검증/graph_ab.md), 예시 낱말만 중립으로 바꾼 안도 잣대를 고치고 표본을 늘린 2차 A/B 의
 사전 판정 규칙을 못 넘었습니다 (graph_ab2.md, SYSTEM_PROMPT 아래 주석).
 
-    from engine.f07_graph import build_graph
+    from pipeline.f07_graph import build_graph
     graph = build_graph(concept_doc, context, slide_doc=slide_doc, llm="solar")
 """
 

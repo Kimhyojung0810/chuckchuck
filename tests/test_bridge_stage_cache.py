@@ -19,11 +19,11 @@ from pathlib import Path
 
 import pytest
 
-import engine
+import pipeline
 import demo.bridge as bridge
-from engine.contracts import ConceptDoc, ConceptGraph, Context, SlideDoc
+from pipeline.contracts import ConceptDoc, ConceptGraph, Context, SlideDoc
 
-PKG = Path(engine.__file__).resolve().parent
+PKG = Path(pipeline.__file__).resolve().parent
 ROOT = PKG.parent
 LIVE = ROOT / "fixtures" / "live_qa_run.json"
 
@@ -40,7 +40,7 @@ def file_of(module: str) -> Path:
 
 # 브리지의 ast 걷기와 **다른 방법**으로 센다 — 줄 단위 정규식. 들여쓴 줄(함수 안 import)도 잡는다.
 FROM_RE = re.compile(r"^\s*from\s+(\.*)([\w.]*)\s+import\s+\(?([^#\n]*)", re.M)
-IMPORT_RE = re.compile(r"^\s*import\s+(engine[\w.]*)", re.M)
+IMPORT_RE = re.compile(r"^\s*import\s+(pipeline[\w.]*)", re.M)
 
 
 def regex_imports(module: str) -> set[str]:
@@ -55,7 +55,7 @@ def regex_imports(module: str) -> set[str]:
             target = ".".join([*base, mod] if mod else base)
         else:
             target = mod
-        if not target.startswith("engine"):
+        if not target.startswith("pipeline"):
             continue
         for name in re.findall(r"[A-Za-z_]\w*", names.split(" as ")[0] if not mod else names):
             if file_of(f"{target}.{name}").is_file():
@@ -85,20 +85,20 @@ def test_단계_키는_진입_모듈이_import_하는_모듈을_전부_담는다
     assert not missing, f"{stage} 키에 빠진 모듈: {sorted(missing)}"
     # 예전에 빠졌던 것들이 실제로 들어 있는지 (감사 G-A4/A5)
     if stage == "claims":
-        assert {"engine._claim_rules", "engine._claim_quote", "engine._evidence",
-                "engine._match"} <= bridge.STAGE_MODULES["claims"]
+        assert {"pipeline._claim_rules", "pipeline._claim_quote", "pipeline._evidence",
+                "pipeline._match"} <= bridge.STAGE_MODULES["claims"]
     if stage == "graph":
-        assert {"engine._graph_items", "engine._claim_rules", "engine._match"} <= bridge.STAGE_MODULES["graph"]
+        assert {"pipeline._graph_items", "pipeline._claim_rules", "pipeline._match"} <= bridge.STAGE_MODULES["graph"]
     if stage == "triage":
-        assert {"engine._grounding", "engine._probes", "engine._probe_stance", "engine._traps",
-                "engine._reason", "engine._evidence", "engine._speech"} <= bridge.STAGE_MODULES["triage"]
+        assert {"pipeline._grounding", "pipeline._probes", "pipeline._probe_stance", "pipeline._traps",
+                "pipeline._reason", "pipeline._evidence", "pipeline._speech"} <= bridge.STAGE_MODULES["triage"]
 
 
 def test_함수_안의_지연_import_도_닫힘에_든다():
     # f09 는 _deck_claims 를 위에서도 부르지만, _probe_stance 는 함수 안에서 `from ._deck_claims import clauses` 를 한다
-    src = file_of("engine._probe_stance").read_text(encoding="utf-8")
+    src = file_of("pipeline._probe_stance").read_text(encoding="utf-8")
     assert re.search(r"^\s+from \._deck_claims import clauses", src, re.M), "전제: 지연 import 가 있어야 이 검사가 의미 있다"
-    assert "engine._deck_claims" in bridge.STAGE_MODULES["triage"]
+    assert "pipeline._deck_claims" in bridge.STAGE_MODULES["triage"]
 
 
 @pytest.fixture(scope="module")
@@ -128,16 +128,16 @@ def executed_modules(fn) -> set[str]:
 def test_가짜_LLM_으로_돌려서_실행된_모듈이_전부_키에_있다(live):
     ctx = Context.from_dict({"situation": "school_project", "duration_min": 5})
     runs = {
-        "concepts": lambda: engine.extract_concepts(SlideDoc.from_dict(live["slide_doc"]), ctx, llm="mock"),
-        "graph": lambda: engine.build_graph(ConceptDoc.from_dict(live["concept_doc"]), ctx,
+        "concepts": lambda: pipeline.extract_concepts(SlideDoc.from_dict(live["slide_doc"]), ctx, llm="mock"),
+        "graph": lambda: pipeline.build_graph(ConceptDoc.from_dict(live["concept_doc"]), ctx,
                                                 slide_doc=SlideDoc.from_dict(live["slide_doc"]), llm="mock"),
-        "claims": lambda: engine.build_claims(live["concept_graph"], live["slide_doc"], llm="mock"),
-        "papers": lambda: engine.build_papers(live["concept_graph"], live["slide_doc"], scholar="none"),
-        "triage": lambda: engine.triage_questions(live["concept_graph"], live["alignment_doc"], live["flow_diff"],
+        "claims": lambda: pipeline.build_claims(live["concept_graph"], live["slide_doc"], llm="mock"),
+        "papers": lambda: pipeline.build_papers(live["concept_graph"], live["slide_doc"], scholar="none"),
+        "triage": lambda: pipeline.triage_questions(live["concept_graph"], live["alignment_doc"], live["flow_diff"],
                                                       ctx, llm="mock"),
-        "questions": lambda: engine.build_questions(live["concept_graph"], live["qa_triage"], track="10",
+        "questions": lambda: pipeline.build_questions(live["concept_graph"], live["qa_triage"], track="10",
                                                         slidedoc=live["slide_doc"], context=ctx, llm="mock"),
-        "judge": lambda: engine.judge_answer(live["question_doc"]["questions"][0], "핵심은 정렬이에요",
+        "judge": lambda: pipeline.judge_answer(live["question_doc"]["questions"][0], "핵심은 정렬이에요",
                                                  graph=live["concept_graph"], slidedoc=live["slide_doc"], llm="mock"),
     }
     for stage, run in runs.items():
@@ -150,9 +150,9 @@ def test_가짜_LLM_으로_돌려서_실행된_모듈이_전부_키에_있다(li
 
 def test_브리지가_부르는_진입_함수는_단계_진입_모듈에_있다():
     entry = {
-        "concepts": bridge.extract_concepts, "graph": bridge.build_graph, "claims": engine.build_claims,
-        "papers": engine.build_papers, "memory": engine.build_memory, "triage": engine.triage_questions,
-        "questions": engine.build_questions, "judge": engine.judge_answer,
+        "concepts": bridge.extract_concepts, "graph": bridge.build_graph, "claims": pipeline.build_claims,
+        "papers": pipeline.build_papers, "memory": pipeline.build_memory, "triage": pipeline.triage_questions,
+        "questions": pipeline.build_questions, "judge": pipeline.judge_answer,
     }
     for stage, fn in entry.items():
         assert fn.__module__ in bridge.STAGE_ENTRY_MODULES[stage], (stage, fn.__module__)
@@ -174,13 +174,13 @@ def test_코드_판은_요청_때_디스크를_읽지_않는다(monkeypatch):
 
 def test_도는_중에_소스가_바뀌면_알리되_키는_옛_코드_판_그대로(monkeypatch, capsys):
     stage_before = bridge._stage_version("graph")
-    monkeypatch.setattr(bridge, "SOURCE_HASHES", {**bridge.SOURCE_HASHES, "engine._match": "000000000000"})
+    monkeypatch.setattr(bridge, "SOURCE_HASHES", {**bridge.SOURCE_HASHES, "pipeline._match": "000000000000"})
     monkeypatch.setitem(bridge._DRIFT_STATE, "checked_at", 0.0)
     monkeypatch.setitem(bridge._DRIFT_STATE, "warned", set())
 
     assert bridge._stage_version("graph") == stage_before
     err = capsys.readouterr().err
-    assert "engine._match 소스가 브리지를 띄운 뒤 바뀌었어요" in err
+    assert "pipeline._match 소스가 브리지를 띄운 뒤 바뀌었어요" in err
 
 
 def test_시작_때_읽은_소스로_판을_세고_나중의_수정은_새로_읽을_때만_보인다(tmp_path):
@@ -241,7 +241,7 @@ def test_그래프_캐시는_match_를_고친_다음_판에서_안_맞는다(tmp
     H()._handle_graph(raw)
     assert len(calls) == 1                                           # 같은 판 → 캐시
 
-    bumped = {**bridge.SOURCE_HASHES, "engine._match": "fffffffffff0"}   # 다음에 띄울 때 _match 가 바뀌었다
+    bumped = {**bridge.SOURCE_HASHES, "pipeline._match": "fffffffffff0"}   # 다음에 띄울 때 _match 가 바뀌었다
     monkeypatch.setitem(bridge.STAGE_VERSIONS, "graph", bridge._version_of(bridge.STAGE_MODULES["graph"], bumped))
     H()._handle_graph(raw)
     assert len(calls) == 2
@@ -265,5 +265,5 @@ def test_단계_캐시_쓰기는_반쪽_파일을_남기지_않는다(tmp_path, 
 
 def test_ConceptGraph_계약이_키에_든다():
     # 출력 모양(to_dict)을 정하는 contracts 도 코드 판이다 — 새 필드가 생기면 옛 캐시는 그 필드가 없다
-    assert ConceptGraph.__module__ == "engine.contracts"
-    assert all("engine.contracts" in mods for mods in bridge.STAGE_MODULES.values())
+    assert ConceptGraph.__module__ == "pipeline.contracts"
+    assert all("pipeline.contracts" in mods for mods in bridge.STAGE_MODULES.values())

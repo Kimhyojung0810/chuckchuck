@@ -50,7 +50,7 @@ def test_secret_patterns_catch_real_key_shapes_only():
 
 
 def test_stale_assets_requires_bump_only_for_touched_referenced_files():
-    files = ["demo/YEHS_demo/css/app.css", "demo/YEHS_demo/js/app.js", "demo/YEHS_demo/js/landing.js", "engine/x.py"]
+    files = ["demo/YEHS_demo/css/app.css", "demo/YEHS_demo/js/app.js", "demo/YEHS_demo/js/landing.js", "pipeline/x.py"]
     # 아무것도 안 올림 → app.css·app.js 둘 다 걸린다. landing.js 는 index.html 이 안 물어서 제외
     stale = gate.stale_assets(files, INDEX, INDEX, APP_JS, APP_JS)
     assert [s.split(" ")[0] for s in stale] == ["css/app.css", "js/app.js"]

@@ -49,15 +49,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from engine.config import load_dotenv  # noqa: E402
+from pipeline.config import load_dotenv  # noqa: E402
 
 load_dotenv()
 
-from engine import build_papers, build_questions, judge_answer, triage_questions  # noqa: E402
-from engine._evidence import clean_slide_text, find_citations  # noqa: E402
-from engine._json_text import extract_json_object  # noqa: E402
-from engine._match import norm_tokens  # noqa: E402
-from engine.contracts import (  # noqa: E402
+from pipeline import build_papers, build_questions, judge_answer, triage_questions  # noqa: E402
+from pipeline._evidence import clean_slide_text, find_citations  # noqa: E402
+from pipeline._json_text import extract_json_object  # noqa: E402
+from pipeline._match import norm_tokens  # noqa: E402
+from pipeline.contracts import (  # noqa: E402
     ConceptGraph,
     Context,
     JudgeError,
@@ -67,8 +67,8 @@ from engine.contracts import (  # noqa: E402
     SlideDoc,
     Transcript,
 )
-from engine.providers.llm_base import LLMProvider  # noqa: E402
-from engine.providers.llm_impl import get_llm  # noqa: E402
+from pipeline.providers.llm_base import LLMProvider  # noqa: E402
+from pipeline.providers.llm_impl import get_llm  # noqa: E402
 
 #: 그래프·정합·발화·심사가 한 벌로 든 실행 기록. F-06·F-07·F-11 은 다시 돌리지 않는다.
 RUN_FIXTURE = ROOT / "fixtures" / "live_qa_run.json"

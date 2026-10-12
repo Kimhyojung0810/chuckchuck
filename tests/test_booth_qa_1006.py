@@ -3,10 +3,10 @@
 """
 import re
 
-from engine import f08_questions as F
-from engine._align_checks import stt_digit_echo
-from engine.contracts import ConceptNode, TriageMark
-from engine.f11_align import stt_variant
+from pipeline import f08_questions as F
+from pipeline._align_checks import stt_digit_echo
+from pipeline.contracts import ConceptNode, TriageMark
+from pipeline.f11_align import stt_variant
 
 
 def test_받아쓰기가_숫자를_겹쳐_적은_것은_모순이_아니다():
@@ -55,7 +55,7 @@ def test_static_hides_team_docs(tmp_path):
 
 
 def test_letter_spaced_line_is_not_gist():
-    from engine.f08_questions import _letter_spaced
+    from pipeline.f08_questions import _letter_spaced
 
     assert _letter_spaced("경 영 정 보 학 과 서 비 스 데 이 터 연 구 실")
     assert not _letter_spaced("배달앱 리뷰 12만 건으로 본 평점 인플레이션의 원인")

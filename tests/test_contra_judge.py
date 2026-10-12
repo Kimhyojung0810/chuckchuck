@@ -15,11 +15,11 @@ from dataclasses import replace
 
 import pytest
 
-from engine import coach_stuck, judge_answer
-from engine._contra import leaks, sides_of, table_support, take_of
-from engine._deck_claims import deck_from_slidedoc
-from engine._probe_stance import stance_of, stance_pick, stance_prompt
-from engine.contracts import (
+from pipeline import coach_stuck, judge_answer
+from pipeline._contra import leaks, sides_of, table_support, take_of
+from pipeline._deck_claims import deck_from_slidedoc
+from pipeline._probe_stance import stance_of, stance_pick, stance_prompt
+from pipeline.contracts import (
     PROBE_STANCES,
     QaJudgement,
     QaTurn,
@@ -29,8 +29,8 @@ from engine.contracts import (
     SlideBlock,
     SlideDoc,
 )
-from engine.f09_judge import _narrow_followup, _scaffold_judgement, clear_judge_cache
-from engine.providers.llm_base import LLMProvider
+from pipeline.f09_judge import _narrow_followup, _scaffold_judgement, clear_judge_cache
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

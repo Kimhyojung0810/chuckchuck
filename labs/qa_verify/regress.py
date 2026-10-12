@@ -93,7 +93,7 @@ def _raw(slide: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def check_units_no_midword_start(doc: dict, args: dict) -> tuple[str, str, dict]:
-    from engine._evidence import best_quote, slide_units
+    from pipeline._evidence import best_quote, slide_units
 
     wraps, bad = [], []
     for s in doc.get("slides") or []:
@@ -120,7 +120,7 @@ def check_units_no_midword_start(doc: dict, args: dict) -> tuple[str, str, dict]
 
 
 def check_best_quote_slide(doc: dict, args: dict) -> tuple[str, str, dict]:
-    from engine._evidence import best_quote
+    from pipeline._evidence import best_quote
 
     texts = [(int(s["slide_no"]), _raw(s)) for s in doc.get("slides") or []]
     no, quote = best_quote(args.get("label", ""), args.get("summary", ""), texts, args.get("question", ""))
@@ -135,21 +135,21 @@ def check_best_quote_slide(doc: dict, args: dict) -> tuple[str, str, dict]:
 
 
 def _question(label: str, question: str, gist: str, quote: str, slide_no: int):
-    from engine.contracts import Question
+    from pipeline.contracts import Question
 
     return Question(id="qv-case", node_id="qv-node", label=label, question=question or f"{label}는 무엇인가요?",
                     answer_gist=gist, evidence_slide_no=slide_no, evidence_quote=quote)
 
 
 def _narrow(q, deck_text: str) -> list[str]:
-    from engine.f09_judge import _narrow_followup
+    from pipeline.f09_judge import _narrow_followup
 
     _, choices = _narrow_followup({}, q, None, deck_text)
     return [str(c) for c in choices]
 
 
 def check_contrast_choice(doc: dict, args: dict) -> tuple[str, str, dict]:
-    from engine._evidence import mask_gist
+    from pipeline._evidence import mask_gist
 
     deck_text = " ".join(_raw(s).replace("\n", " ") for s in doc.get("slides") or [])
     quote, affirmed, negated = args["quote"], args["affirmed"], args["negated"]
@@ -188,7 +188,7 @@ def check_contrast_choice(doc: dict, args: dict) -> tuple[str, str, dict]:
 
 
 def make_scripted(payload: dict):
-    from engine.providers.llm_base import LLMProvider
+    from pipeline.providers.llm_base import LLMProvider
 
     class Scripted(LLMProvider):
         name = "scripted"
@@ -204,7 +204,7 @@ def make_scripted(payload: dict):
 
 
 def _call_build(graph, triage, doc, llm, *, track: str = "1", claims=None):
-    from engine import build_questions
+    from pipeline import build_questions
 
     kw = {"track": track, "slidedoc": doc, "llm": llm}
     if "claims" in inspect.signature(build_questions).parameters:
@@ -213,7 +213,7 @@ def _call_build(graph, triage, doc, llm, *, track: str = "1", claims=None):
 
 
 def _graph_of(doc: dict, args: dict):
-    from engine.contracts import ConceptEdge, ConceptGraph, ConceptNode
+    from pipeline.contracts import ConceptEdge, ConceptGraph, ConceptNode
 
     nodes = [ConceptNode(id=n["id"], label=n["label"], slide_nos=list(n.get("slide_nos") or []), summary=n.get("summary", ""),
                          weight=float(n.get("weight", 0.5)), depth=int(n.get("depth", 2)), parent_id=n.get("parent_id"))
@@ -227,8 +227,8 @@ def _rule_claims(graph, doc: dict, extra: list[dict] | None = None):
     대상 F-26 의 **규칙 주장** (LLM 없이) — 탐침을 묶을 재료. extra 는 LLM 이 냈을 주장을 사례 데이터로 더한 것
     ({kind, subject_id, object_ids, slide_no, quote} — quote 는 그 장 원문 한 줄 그대로).
     """
-    from engine.contracts import Claim, ClaimDoc, ClaimQuote
-    from engine.f26_claims import build_claims
+    from pipeline.contracts import Claim, ClaimDoc, ClaimQuote
+    from pipeline.f26_claims import build_claims
 
     doc_ = build_claims(graph, doc, llm="none")
     more = [Claim(id=f"x{i}", kind=c["kind"], subject_id=c["subject_id"], object_ids=list(c.get("object_ids") or []),
@@ -241,7 +241,7 @@ def _slides_text(doc: dict) -> dict[int, str]:
 
 
 def check_probe_absolute(doc: dict, args: dict) -> tuple[str, str, dict]:
-    from engine._probes import derive_probes, probe_code_gist
+    from pipeline._probes import derive_probes, probe_code_gist
 
     graph = _graph_of(doc, args)
     slides = _slides_text(doc)
@@ -312,7 +312,7 @@ def self_contradicting(question: str) -> str:
 
 
 def check_f08_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
-    from engine.contracts import QaTriage, TriageMark
+    from pipeline.contracts import QaTriage, TriageMark
 
     graph = _graph_of(doc, args)
     marks = args.get("marks") or [[args["node_id"], "core_weight"]]
@@ -373,7 +373,7 @@ def check_f08_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
 
 def _recording_inputs(doc: dict, args: dict):
     """녹음 모드 입력 — 정합(판정·건너뛴 장)과 받아쓰기. 사례 데이터의 dict 를 대상 계약의 from_dict 로 읽는다(필드가 늘어도 돈다)."""
-    from engine.contracts import AlignmentDoc, SlideDoc, Transcript
+    from pipeline.contracts import AlignmentDoc, SlideDoc, Transcript
 
     total = len(doc.get("slides") or [])
     speech = {int(k): v for k, v in (args.get("speech") or {}).items()}
@@ -397,8 +397,8 @@ def check_f08_recording(doc: dict, args: dict) -> tuple[str, str, dict]:
             slide_questions_max {slide, max}(근거 장이 그 장 하나인 질문 수) · no_trap_on_slides · trap_count_max · trap_count_min ·
             node_absent · node_present · slot_of {node: slot}
     """
-    from engine import build_questions, triage_questions
-    from engine.providers.llm_base import LLMProvider
+    from pipeline import build_questions, triage_questions
+    from pipeline.providers.llm_base import LLMProvider
 
     questions = [{"node_id": q["node_id"], "question": q["question"], "answer_gist": q.get("gist", ""),
                   **({"hint": q["hint"]} if q.get("hint") else {})} for q in args.get("questions") or []]
@@ -411,7 +411,7 @@ def check_f08_recording(doc: dict, args: dict) -> tuple[str, str, dict]:
                 return json.dumps({"marks": []})
             return json.dumps({"questions": questions}, ensure_ascii=False)
 
-    import engine.f08_questions as F08
+    import pipeline.f08_questions as F08
 
     graph = _graph_of(doc, args)
     alignment, transcript, slidedoc = _recording_inputs(doc, args)
@@ -484,7 +484,7 @@ def check_f08_recording(doc: dict, args: dict) -> tuple[str, str, dict]:
 
 def _talk(segments: list[dict]):
     """[{slide_no, text}] → 장마다 20초씩인 Transcript (낱말 시각 없음)."""
-    from engine.contracts import SlideSpeech, Transcript
+    from pipeline.contracts import SlideSpeech, Transcript
 
     by_slide = [SlideSpeech(int(x["slide_no"]), 1, 20.0 * i, 20.0 * (i + 1), x["text"]) for i, x in enumerate(segments)]
     return Transcript(full_text=" ".join(x["text"] for x in segments), by_slide=by_slide, provider="case",
@@ -496,10 +496,10 @@ def check_align_contra(doc: dict, args: dict) -> tuple[str, str, dict]:
     args.said: [{slide_no, text, expect: "none" | {family, slide}}] — 문장마다 한 구간으로 놓고 대상 F-11 코드 대조를 돌린다.
     그래프는 장마다 개념 하나(+ 뿌리) — LLM 이 없으니 코드 대조만 본다.
     """
-    from engine._align_checks import contradictions
-    from engine._deck_claims import deck_from_slidedoc
-    from engine._spoken import utterances
-    from engine.contracts import ConceptGraph, ConceptNode, SlideDoc
+    from pipeline._align_checks import contradictions
+    from pipeline._deck_claims import deck_from_slidedoc
+    from pipeline._spoken import utterances
+    from pipeline.contracts import ConceptGraph, ConceptNode, SlideDoc
 
     sd = SlideDoc.from_dict(doc)
     deck = deck_from_slidedoc(sd)
@@ -528,9 +528,9 @@ def check_evidence_verified(doc: dict, args: dict) -> tuple[str, str, dict]:
     args.talk: [{slide_no, text}] · node: {id, label, slide_nos, summary} · quote: LLM 인용 ·
     expect: {forbid: [녹음에 없는 조각], contains: [남아야 할 조각], empty: bool}.
     """
-    from engine._align_checks import resolve_evidence
-    from engine._spoken import utterances
-    from engine.contracts import ConceptNode
+    from pipeline._align_checks import resolve_evidence
+    from pipeline._spoken import utterances
+    from pipeline.contracts import ConceptNode
 
     n = args["node"]
     node = ConceptNode(id=n["id"], label=n["label"], slide_nos=list(n.get("slide_nos") or []), summary=n.get("summary", ""))
@@ -549,7 +549,7 @@ def check_evidence_verified(doc: dict, args: dict) -> tuple[str, str, dict]:
 
 def _judge_graph_of(args: dict, doc: dict):
     """args.nodes(있으면)로 그래프 — f08_scripted 와 같은 꼴. 없으면 None."""
-    from engine.contracts import ConceptEdge, ConceptGraph, ConceptNode
+    from pipeline.contracts import ConceptEdge, ConceptGraph, ConceptNode
 
     if not args.get("nodes"):
         return None
@@ -561,7 +561,7 @@ def _judge_graph_of(args: dict, doc: dict):
 
 
 def _forbid_llm():
-    from engine.providers.llm_base import LLMProvider
+    from pipeline.providers.llm_base import LLMProvider
 
     class Forbid(LLMProvider):
         name = "forbid"
@@ -579,8 +579,8 @@ def check_judge_scripted(doc: dict, args: dict) -> tuple[str, str, dict]:
     expect: verdict_in · score_min · score_max · passed · guard_in · same_across ·
             missing_forbid_regex · followup_forbid_regex · react_forbid_regex · hints_forbid_regex
     """
-    from engine import judge_answer
-    from engine.f09_judge import clear_judge_cache
+    from pipeline import judge_answer
+    from pipeline.f09_judge import clear_judge_cache
 
     graph = _judge_graph_of(args, doc)
     payloads = [args["llm"], *(args.get("llm_variants") or [])]
@@ -628,11 +628,11 @@ def check_stuck_ladder(doc: dict, args: dict) -> tuple[str, str, dict]:
             blank_not_in_question(발판·힌트 빈칸의 가린 말이 질문에 없다 — 잣대가 원문으로 되찾는다) · hint_forbid_regex ·
             coach_react_forbid_regex(args.llm_coach — 실측의 코칭 LLM 응답을 대본으로 넣은 「모르겠어요」 1단 react 에 걸리면 안 되는 말)
     """
-    from engine.contracts import Question
-    from engine.f08_questions import build_hint_ladder
-    from engine.f09_judge import _deck_text, _narrow_followup, _scaffold_judgement, clear_judge_cache
-    from engine.contracts import SlideDoc
-    from engine import judge_answer
+    from pipeline.contracts import Question
+    from pipeline.f08_questions import build_hint_ladder
+    from pipeline.f09_judge import _deck_text, _narrow_followup, _scaffold_judgement, clear_judge_cache
+    from pipeline.contracts import SlideDoc
+    from pipeline import judge_answer
 
     from . import replay as RP
 
@@ -685,7 +685,7 @@ def check_stuck_ladder(doc: dict, args: dict) -> tuple[str, str, dict]:
                 problems.append(f"칩 「{c['answer']}」 되물음이 /{pat}/ 에 걸림")
     coach = {}
     if args.get("llm_coach"):
-        from engine import coach_stuck
+        from pipeline import coach_stuck
 
         clear_judge_cache()
         cj = coach_stuck(qd, slidedoc=doc, graph=graph, llm=make_scripted(args["llm_coach"])).to_dict()

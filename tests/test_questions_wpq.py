@@ -13,13 +13,13 @@ import json
 
 import pytest
 
-import engine.f08_questions as f08
-from engine import _evidence as E
-from engine import _grounding as G
-from engine import _probes as P
-from engine import _reason as RS
-from engine import build_questions
-from engine.contracts import (
+import pipeline.f08_questions as f08
+from pipeline import _evidence as E
+from pipeline import _grounding as G
+from pipeline import _probes as P
+from pipeline import _reason as RS
+from pipeline import build_questions
+from pipeline.contracts import (
     Claim,
     ClaimDoc,
     ClaimQuote,
@@ -38,8 +38,8 @@ from engine.contracts import (
     TrapPremise,
     TriageMark,
 )
-from engine.f08_questions import build_hint_ladder
-from engine.providers.llm_base import LLMProvider
+from pipeline.f08_questions import build_hint_ladder
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

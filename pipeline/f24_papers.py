@@ -2,7 +2,7 @@
 [F-24] 교수가 읽고 온 논문 — 자료가 인용한 문헌 + 실재 논문 검색으로 질문의 근거를 만드는 모듈입니다.
 SlideDoc(+ConceptGraph) → PaperDoc.  자유 질문 문자열 → PaperDoc.
 
-    from engine.f24_papers import build_papers, search_papers
+    from pipeline.f24_papers import build_papers, search_papers
     papers = build_papers(graph, slidedoc, scholar="openalex", llm="solar")   # 세션에 한 번
     doc = build_questions(graph, triage, track="5", papers=papers, ...)       # F-08 이 인용
     hits = search_papers("알림이 주의에 미치는 비용", scholar="openalex", llm="solar")  # 자유 검색

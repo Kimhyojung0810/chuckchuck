@@ -132,7 +132,7 @@ def fill(attack, q, a):
 
 
 def judge(deck, q, ans, prior, history, stage):
-    from engine import judge_answer
+    from pipeline import judge_answer
     d = OUT / "decks" / deck
     j = judge_answer(q, ans, graph=rj(d / "graph.json"), context=rj(d / "context.json"), slidedoc=rj(d / "slide_doc.json"),
                      prior_answers=prior, history=history, llm=Counted(stage))

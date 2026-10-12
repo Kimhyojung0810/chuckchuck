@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-import engine.f01_parse as f01
-from engine.contracts import ParseError, SlideDoc
+import pipeline.f01_parse as f01
+from pipeline.contracts import ParseError, SlideDoc
 
 FIX = Path(__file__).resolve().parent.parent / "fixtures"
 

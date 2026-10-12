@@ -1,5 +1,5 @@
 """
-함정 질문의 **화면 사본** — 두 서버(demo/bridge.py · server/app.py)가 같은 규칙(`engine._client_payload`)으로 내보내는지 (qa/tidy).
+함정 질문의 **화면 사본** — 두 서버(demo/bridge.py · server/app.py)가 같은 규칙(`pipeline._client_payload`)으로 내보내는지 (qa/tidy).
 
 09-30 WP-J2 가 브리지에서 함정의 전제(trap_premise)·기대 답(answer_gist·answer_gist_parts)을 화면 사본에서 뺐는데, 같은 계약의
 FastAPI 서버는 세 칸을 그대로 내보냈다 — 서버를 붙인 화면은 개발자 도구 한 번이면 정답이었다. 규칙을 한곳으로 옮기고 두 서버를 본다:
@@ -18,10 +18,10 @@ from collections import OrderedDict
 import pytest
 from fastapi.testclient import TestClient
 
-import engine
+import pipeline
 import demo.bridge as bridge
-from engine import _client_payload as CP
-from engine.contracts import QaJudgement, QaTriage, Question, QuestionDoc, TrapPremise
+from pipeline import _client_payload as CP
+from pipeline.contracts import QaJudgement, QaTriage, Question, QuestionDoc, TrapPremise
 from server import app as server_app
 from server import jobs
 from server.store import QUESTION_DOC, store
@@ -121,7 +121,7 @@ def client(monkeypatch):
     monkeypatch.setattr(server_app, "judge_answer", fake_judge)
     monkeypatch.setattr(jobs, "build_questions", fake_build)
     monkeypatch.setattr(jobs, "triage_questions", lambda *a, **k: QaTriage(file_name="pool.pdf"))
-    monkeypatch.setattr(engine, "build_papers", lambda *a, **k: None)
+    monkeypatch.setattr(pipeline, "build_papers", lambda *a, **k: None)
     monkeypatch.setattr(server_app, "_FLAT_TRAPS", OrderedDict(), raising=False)   # 테스트마다 비운다
     return TestClient(server_app.app), seen
 

@@ -41,13 +41,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from engine.config import load_dotenv  # noqa: E402
+from pipeline.config import load_dotenv  # noqa: E402
 
 load_dotenv()
 
-from engine._evidence import clean_slide_text  # noqa: E402
-from engine._match import norm_tokens  # noqa: E402
-from engine.contracts import AlignmentDoc, ConceptGraph, Context, SlideDoc, Transcript  # noqa: E402
+from pipeline._evidence import clean_slide_text  # noqa: E402
+from pipeline._match import norm_tokens  # noqa: E402
+from pipeline.contracts import AlignmentDoc, ConceptGraph, Context, SlideDoc, Transcript  # noqa: E402
 
 RUN_FIXTURE = ROOT / "fixtures" / "live_qa_run.json"
 OUT_DIR = ROOT / "exports" / "graph_eval"
@@ -222,8 +222,8 @@ def rebuild(art: dict, llm_name: str | None, stage: str = "all") -> tuple[dict, 
 
     F-11 가설을 잴 때 그래프까지 다시 만들면 노드가 달라져 정합 지표가 그 잡음을 탄다 (2026-09-12 G1 실측).
     가설이 건드리는 단계만 다시 돌리는 것이 자다."""
-    from engine import align_speech, build_graph, extract_concepts
-    from engine.providers.llm_impl import get_llm
+    from pipeline import align_speech, build_graph, extract_concepts
+    from pipeline.providers.llm_impl import get_llm
     qa_eval_spec = importlib.util.spec_from_file_location("qa_eval", ROOT / "examples" / "qa_eval.py")
     qa_eval = importlib.util.module_from_spec(qa_eval_spec)
     qa_eval_spec.loader.exec_module(qa_eval)

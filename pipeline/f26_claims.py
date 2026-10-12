@@ -2,7 +2,7 @@
 [F-26] 주장 그래프 — 개념 사이의 **주장**을 자료 원문 인용과 함께 뽑는 모듈입니다.
 ConceptGraph + SlideDoc → ClaimDoc.
 
-    from engine.f26_claims import build_claims
+    from pipeline.f26_claims import build_claims
     claims = build_claims(graph, slidedoc, llm="solar")                 # 세션에 한 번
     triage = triage_questions(graph, ..., claims=claims.to_dict())      # F-08 이 탐침을 찾는다
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from engine.contracts import (
+from pipeline.contracts import (
     ConceptDoc,
     Context,
     HabitDoc,
@@ -23,9 +23,9 @@ from engine.contracts import (
     Transcript,
     Word,
 )
-from engine.f17_pace import analyze_pace
-from engine.f19_report import _checked, _facts_block, _humanize, compose_report
-from engine.providers.llm_base import LLMProvider
+from pipeline.f17_pace import analyze_pace
+from pipeline.f19_report import _checked, _facts_block, _humanize, compose_report
+from pipeline.providers.llm_base import LLMProvider
 
 # ---------------------------------------------------------------------------
 # 재료

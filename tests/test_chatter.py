@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from engine.contracts import (
+from pipeline.contracts import (
     CHATTER_MOODS,
     CHATTER_SPEAKERS,
     AlignmentDoc,
@@ -25,15 +25,15 @@ from engine.contracts import (
     SpeechBasis,
     SpeechEdge,
 )
-from engine.f11_flow import build_flow_diff
-from engine.f12_chatter import (
+from pipeline.f11_flow import build_flow_diff
+from pipeline.f12_chatter import (
     MAX_TURNS,
     SMALLTALK_RATIO,
     allowed_refs,
     build_chatter,
     pick_talking_points,
 )
-from engine.providers.llm_impl import MockLLM
+from pipeline.providers.llm_impl import MockLLM
 
 
 # ---------------------------------------------------------------------------

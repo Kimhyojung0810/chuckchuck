@@ -19,9 +19,9 @@ from email.message import Message
 import pytest
 import requests
 
-import engine
+import pipeline
 import demo.bridge as bridge
-from engine.contracts import (
+from pipeline.contracts import (
     ClaimQuote,
     ConceptError,
     QaJudgement,
@@ -119,7 +119,7 @@ def env(tmp_path, monkeypatch):
                            verdict="wrong" if trapped else "good", score=0 if trapped else 80,
                            react="그 부분은 자료와 맞지 않아요." if trapped else "네, 그 설명이면 충분해요.")
 
-    monkeypatch.setattr(engine, "judge_answer", fake_judge)
+    monkeypatch.setattr(pipeline, "judge_answer", fake_judge)
     return archive, seen
 
 
@@ -270,8 +270,8 @@ def test_질문_생성이_남긴_질문으로_판정한다_캐시로_돌려줘�
     sid = open_session(archive)
     stored = trap_question()
 
-    monkeypatch.setattr(engine, "triage_questions", lambda *a, **k: QaTriage(file_name="yield.pdf"))
-    monkeypatch.setattr(engine, "build_questions",
+    monkeypatch.setattr(pipeline, "triage_questions", lambda *a, **k: QaTriage(file_name="yield.pdf"))
+    monkeypatch.setattr(pipeline, "build_questions",
                         lambda graph, triage, *, track, **_: QuestionDoc(file_name="yield.pdf", track=track, model="fake",
                                                                           questions=[Question.from_dict(stored)]))
     monkeypatch.setattr(bridge.Handler, "_papers_for", lambda self, *a: None)
@@ -406,7 +406,7 @@ def test_판정_중_외부_LLM_이_죽으면_502_503_JSON(env, monkeypatch, exc,
     def boom(*a, **k):
         raise exc
 
-    monkeypatch.setattr(engine, "judge_answer", boom)
+    monkeypatch.setattr(pipeline, "judge_answer", boom)
     got, body = judge(sid, trap_question())
     assert (got, body["error"]) == (code, error)
     assert "vendor" not in body["message"] and "secret" not in json.dumps(body, ensure_ascii=False)
@@ -423,7 +423,7 @@ def test_ConceptError_의_원인이_시간_초과면_시간_초과로_알린다(
         except requests.ReadTimeout as e:
             raise ConceptError("[ax] LLM 연결 실패 (2회): ReadTimeout") from e
 
-    monkeypatch.setattr(engine, "judge_answer", boom)
+    monkeypatch.setattr(pipeline, "judge_answer", boom)
     assert judge(sid, trap_question())[1]["error"] == "upstream_timeout"
 
 
@@ -435,7 +435,7 @@ def test_우리_버그는_그대로_500(env, monkeypatch):
     def boom(*a, **k):
         raise KeyError("oops")
 
-    monkeypatch.setattr(engine, "judge_answer", boom)
+    monkeypatch.setattr(pipeline, "judge_answer", boom)
     code, body = judge(sid, trap_question())
     assert code == 500 and body["message"] == bridge.GENERIC_ERROR_MESSAGE
 
@@ -447,7 +447,7 @@ def test_질문_생성_중_LLM_연결이_끊겨도_503(env, monkeypatch):
     def boom(*a, **k):
         raise ConceptError("[solar] LLM 연결 실패 (2회): ConnectionError")
 
-    monkeypatch.setattr(engine, "triage_questions", boom)
+    monkeypatch.setattr(pipeline, "triage_questions", boom)
     monkeypatch.setattr(bridge.Handler, "_papers_for", lambda self, *a: None)
     monkeypatch.setattr(bridge.Handler, "_claims_for", lambda self, *a: None)
     code, body = post("/api/v1/questions", {"session_id": sid, "graph": GRAPH, "track": "10", "context": {}})
@@ -487,11 +487,11 @@ def test_기억은_이번_발표의_그래프와_자료로_좁혀_만든다(env,
 
     def fake_build(rehearsals, **kw):
         seen.update(kw)
-        from engine.contracts import MemoryDoc
+        from pipeline.contracts import MemoryDoc
         return MemoryDoc(learner_key="learner-x")
 
     monkeypatch.setattr(archive, "rehearsals_for", fake_rehearsals)
-    monkeypatch.setattr("engine.build_memory", fake_build)
+    monkeypatch.setattr("pipeline.build_memory", fake_build)
     post("/api/v1/memory", {"session_id": sid})
     assert seen.get("graph") and seen["graph"].get("nodes") == GRAPH.get("nodes")
     assert seen.get("slidedoc") is not None

@@ -153,7 +153,7 @@ def label_natural(label: str, quotes: list[str]) -> bool:
     F-08 은 LLM 질문이 탐침 개념 이름을 다 불러야 받는다. 이름이 자료에 없는 말(「전세사기 완전 소멸」)이면
     LLM 이 그 말을 안 쓰고, 코드가 템플릿으로 떨어진다 — 템플릿 폴백률의 앞쪽 원인을 따로 잰다.
     """
-    from engine._claim_rules import mention_score
+    from pipeline._claim_rules import mention_score
 
     text = " ".join(quotes)
     return bool(label) and mention_score(label, text) >= 1.0
@@ -237,7 +237,7 @@ def recites(question: str, raw: dict[int, str]) -> str:
 
 
 def _undercut(text: str) -> str:
-    from engine.f08_questions import _self_undercut
+    from pipeline.f08_questions import _self_undercut
     return _self_undercut(text)
 
 

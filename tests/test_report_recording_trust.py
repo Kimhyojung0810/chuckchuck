@@ -16,7 +16,7 @@ from email.message import Message
 import pytest
 
 import demo.bridge as bridge
-from engine.contracts import (
+from pipeline.contracts import (
     AlignmentDoc,
     ConceptDoc,
     Context,
@@ -28,10 +28,10 @@ from engine.contracts import (
     Transcript,
     Word,
 )
-from engine.f14_rubric import score_rubric
-from engine.f17_pace import analyze_pace
-from engine.f19_report import compose_report
-from engine.providers.llm_base import LLMProvider
+from pipeline.f14_rubric import score_rubric
+from pipeline.f17_pace import analyze_pace
+from pipeline.f19_report import compose_report
+from pipeline.providers.llm_base import LLMProvider
 
 # ---------------------------------------------------------------------------
 # 재료

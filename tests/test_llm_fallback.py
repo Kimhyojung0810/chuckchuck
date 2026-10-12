@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import pytest
 
-import engine.providers.llm_impl as impl
-from engine.contracts import ConceptError
-from engine.providers.llm_base import LLMProvider
+import pipeline.providers.llm_impl as impl
+from pipeline.contracts import ConceptError
+from pipeline.providers.llm_base import LLMProvider
 
 
 class _Fake(LLMProvider):

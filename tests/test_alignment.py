@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from engine.f11_align import MENTION_MIN
-from engine.contracts import (
+from pipeline.f11_align import MENTION_MIN
+from pipeline.contracts import (
     ALIGN_VERDICTS,
     AlignError,
     AlignmentDoc,
@@ -21,8 +21,8 @@ from engine.contracts import (
     Transcript,
     Word,
 )
-from engine.f11_align import align_speech
-from engine.providers.llm_base import LLMProvider
+from pipeline.f11_align import align_speech
+from pipeline.providers.llm_base import LLMProvider
 
 
 # ---------------------------------------------------------------------------

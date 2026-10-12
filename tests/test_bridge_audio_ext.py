@@ -99,7 +99,7 @@ def test_빈_인식_결과는_장애가_아니라_말소리_없음으로_알린�
     import io, json
     from email.message import Message
     import demo.bridge as bridge
-    from engine.contracts import STTError
+    from pipeline.contracts import STTError
 
     class H(bridge.Handler):
         def __init__(self):  # noqa: D107

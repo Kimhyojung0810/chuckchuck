@@ -15,10 +15,10 @@ F-08 질문 생성 — 2026-09-29 근거검증 기준선(docs/review/2026-09-29_
 import inspect
 import json
 
-from engine import _grounding as grounding
-from engine import build_questions
-from engine._evidence import best_quote
-from engine.contracts import (
+from pipeline import _grounding as grounding
+from pipeline import build_questions
+from pipeline._evidence import best_quote
+from pipeline.contracts import (
     ConceptEdge,
     ConceptGraph,
     ConceptNode,
@@ -31,7 +31,7 @@ from engine.contracts import (
     Transcript,
     TriageMark,
 )
-from engine.f08_questions import (
+from pipeline.f08_questions import (
     CITE_SYSTEM_PROMPT,
     PAPER_SYSTEM_ADDENDUM,
     PROBE_SYSTEM_ADDENDUM,
@@ -42,8 +42,8 @@ from engine.f08_questions import (
     _polite_statement,
     _speech_quote,
 )
-from engine.f24_papers import _above_floor
-from engine.providers.llm_base import LLMProvider
+from pipeline.f24_papers import _above_floor
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -128,7 +128,7 @@ def triage(graph: ConceptGraph, *marks: tuple[str, bool]) -> QaTriage:
 def ask(graph, deck, marks, questions, **kw):
     """함정은 코드가 트랙 허용치만큼 고른다 (qa/trap). 함정이 아닌 동작을 보는 테스트(표시가 전부 False)는 허용치를 0 으로
     둬서 함정 선택이 끼어들지 않게 한다 — 실제로는 triage 표시와 상관없이 전제를 만들 수 있는 개념이 함정이 된다."""
-    import engine.f08_questions as f08
+    import pipeline.f08_questions as f08
     saved = f08.QA_TRACK_TRAPS
     if not any(trap for _, trap in marks):
         f08.QA_TRACK_TRAPS = {k: 0 for k in saved}
@@ -362,7 +362,7 @@ def test_수량_낱말만_겹친_논문은_관련성_바닥에서_떨어진다()
 
 
 def test_논문_절을_뗀_질문의_골자에_논문_이야기가_남지_않는다():
-    from engine.f08_questions import _strip_paper_claim
+    from pipeline.f08_questions import _strip_paper_claim
     ref = _scholar("s01", "Alvaredo", 2013, "The Top 1 Percent", nodes=("top25",))
     raw = {"node_id": "top25",
            "question": "Alvaredo et al. (2013)는 구조적 요인을 봤는데, 상위 25% 개인 투자자의 격차는 어떤 행동으로 설명되나요?",
@@ -473,8 +473,8 @@ def test_근거_검사_규칙에_발표_낱말이_없다():
 
 def test_탐침_개념은_변별_낱말로도_부른_것으로_친다():
     """벤치 §요약: held-out 라벨은 길고 합성어라 통째 대조가 떨어져 탐침 질문 69% 가 템플릿으로 갔다."""
-    from engine.contracts import Probe
-    from engine.f08_questions import _probe_mentions
+    from pipeline.contracts import Probe
+    from pipeline.f08_questions import _probe_mentions
     probe = Probe(kind="tension", node_ids=["a", "b"])
     labels = {"a": "혈당 스파이크 영향", "b": "식사 순서"}
     assert _probe_mentions("혈당 스파이크 영향과 식사 순서는 어떤 관계인가요?", probe, labels) == "all"
@@ -485,7 +485,7 @@ def test_탐침_개념은_변별_낱말로도_부른_것으로_친다():
 
 
 def test_탐침_질문은_함정이_아니다():
-    from engine.contracts import Claim, ClaimDoc, ClaimQuote
+    from pipeline.contracts import Claim, ClaimDoc, ClaimQuote
     claims = ClaimDoc(file_name="sleep.pdf", claims=[
         Claim(id="c1", kind="compare", subject_id="root", object_ids=["time"], text="수면 시간보다 중요한 수면의 질",
               evidence=[ClaimQuote(slide_no=1, quote="수면 시간보다 중요한 수면의 질")]),
@@ -528,7 +528,7 @@ def test_자료_밖_숫자가_든_각도는_프롬프트에_싣지_않는다():
 
 
 def test_차트_설명_영문은_인용_후보가_아니다():
-    from engine._evidence import clean_slide_text
+    from pipeline._evidence import clean_slide_text
     raw = ("실적 추이\n![image](/i)\n- Chart Type: bar chart\n- A red line connects the top of the \"법인세차감순이익\" bar.\n"
            "영업이익은 전년보다 늘었다\n- We propose a new model")
     text = clean_slide_text(raw)
@@ -536,14 +536,14 @@ def test_차트_설명_영문은_인용_후보가_아니다():
 
 
 def test_명사구로_끝난_물음은_무엇인가요로_맺는다():
-    from engine.f08_questions import _polite_question
+    from pipeline.f08_questions import _polite_question
     assert _polite_question("재무 건전성에 미치는 영향은") == "재무 건전성에 미치는 영향은 무엇인가요?"
     assert _polite_question("그 차이의 근거는?") == "그 차이의 근거는 무엇인가요?"
     assert _polite_question("왜 그런가요?") == "왜 그런가요?"
 
 
 def test_문헌_검색어_프롬프트에_실측_덱_예시가_없다():
-    from engine.f24_papers import QUERY_SYSTEM_PROMPT
+    from pipeline.f24_papers import QUERY_SYSTEM_PROMPT
     assert not [w for w in ("알림", "notification", "집중", *DECK_WORDS) if w in QUERY_SYSTEM_PROMPT]
     assert "Stothart" not in QUESTION_SYSTEM_PROMPT + PAPER_SYSTEM_ADDENDUM + CITE_SYSTEM_PROMPT
 
@@ -566,7 +566,7 @@ def test_개조식_끝과_보예요도_해요체로():
 
 def test_서지_정보_없는_자료_인용은_질문에_붙이지_않는다():
     """09-29 held-out(링글): 본문 낱말을 인용으로 읽은 「Skills (2019)」 가 「Skills (2019)는 … 근거는 무엇인가요?」 가 됐다."""
-    from engine.f08_questions import _plan_papers
+    from pipeline.f08_questions import _plan_papers
     bare = PaperRef(id="d01", kind="deck", authors=["Skills"], year=2019, slide_no=3, node_ids=["institution"])
     titled = PaperRef(id="d02", kind="deck", authors=["Barber"], year=2000, slide_no=3, title="Trading is hazardous",
                       node_ids=["institution"])
@@ -581,6 +581,6 @@ def test_서지_정보_없는_자료_인용은_질문에_붙이지_않는다():
 
 def test_간접_물음으로_끝난_질문은_설명해_주세요로_맺는다():
     """09-29 held-out(IR 덱): 「…실제 운영 모델과 어떻게 연결되는지」 가 끝맺음 없이 나갔다."""
-    from engine.f08_questions import _polite_question
+    from pipeline.f08_questions import _polite_question
     assert _polite_question("실제 운영 모델과 어떻게 연결되는지") == "실제 운영 모델과 어떻게 연결되는지 설명해 주세요."
     assert _polite_question("어떤 차이가 있는지?") == "어떤 차이가 있는지 설명해 주세요."

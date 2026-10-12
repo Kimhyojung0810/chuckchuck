@@ -7,7 +7,7 @@ regression-guard 에이전트가 전부 이 파일을 부른다.
 
     scripts/chk gate                       # HEAD 대비 바뀐 전부 (worktree)
     scripts/chk gate --scope staged        # 인덱스에 올라간 것만 (pre-commit 훅이 쓴다)
-    scripts/chk gate --allow engine/f08_questions.py engine/f09_judge.py   # 범위 검사 (루프용)
+    scripts/chk gate --allow pipeline/f08_questions.py pipeline/f09_judge.py   # 범위 검사 (루프용)
     scripts/chk gate --json                # 에이전트가 읽는 구조
 """
 
@@ -35,7 +35,7 @@ SECRET_PATTERNS = [
 ]
 ENV_FILE = re.compile(r"(^|/)\.env(\.|$)(?!example$)")
 # 범위 검사가 보는 폴더 (regression-guard 규칙). examples/docs/scripts/.claude 는 사람이 루프 중에도 고친다.
-SCOPED_DIRS = ("engine/", "tests/", "fixtures/", "demo/", ".env")
+SCOPED_DIRS = ("pipeline/", "tests/", "fixtures/", "demo/", ".env")
 SUMMARY_RE = re.compile(r"(?:(\d+) passed)?.*?(?:(\d+) failed)?.*?(?:(\d+) errors?)?")
 
 

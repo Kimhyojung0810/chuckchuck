@@ -18,7 +18,7 @@ if (!cfg.stamp || !/^\d{8}-\d{4}$/.test(String(cfg.stamp))) {
 }
 cfg.maxVariants = Math.min(Number(cfg.maxVariants) || 3, 5)   // 과금 상한: 한 번에 최대 5변형
 const benchFlags = ''
-const EDITABLE = ['engine/f06_concepts.py', 'engine/f07_graph.py', 'engine/f11_align.py']
+const EDITABLE = ['pipeline/f06_concepts.py', 'pipeline/f07_graph.py', 'pipeline/f11_align.py']
 const EDITABLE_STR = EDITABLE.join(' ')
 
 const BENCH = {

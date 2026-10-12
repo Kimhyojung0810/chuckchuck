@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import pytest
 
-from engine.contracts import (
+from pipeline.contracts import (
     AlignmentDoc,
     AlignmentItem,
     AlignmentSummary,
     FlowDiff,
 )
-from engine.f13_score import (
+from pipeline.f13_score import (
     MAX_CONTRADICTION_PENALTY,
     score_presentation,
 )

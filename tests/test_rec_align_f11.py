@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import json
 
-from engine._align_checks import resolve_evidence
-from engine._spoken import utterances
-from engine.contracts import (
+from pipeline._align_checks import resolve_evidence
+from pipeline._spoken import utterances
+from pipeline.contracts import (
     AlignmentItem,
     ConceptGraph,
     ConceptNode,
@@ -26,8 +26,8 @@ from engine.contracts import (
     Transcript,
     Word,
 )
-from engine.f11_align import align_speech
-from engine.providers.llm_base import LLMProvider
+from pipeline.f11_align import align_speech
+from pipeline.providers.llm_base import LLMProvider
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +175,7 @@ def test_verbatim_and_paraphrased_quotes_keep_their_old_behaviour():
 
 def test_number_contradiction_without_a_value_pair_says_numbers_differ(monkeypatch):
     """값 한 쌍을 못 뽑은 수치 어긋남에 「방향이 반대」 라고 쓰지 않는다 — 수치를 잘못 말한 발표에 거짓 설명이 된다."""
-    from engine import _align_checks as chk
+    from pipeline import _align_checks as chk
 
     utts = utterances(LAUNDRY_TALK)
     said = next(u for u in utts if "이십사" in u.text)

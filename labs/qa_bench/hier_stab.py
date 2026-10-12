@@ -29,8 +29,8 @@ import math
 from collections import defaultdict
 from itertools import combinations
 
-from engine import _claim_rules as R
-from engine import _graph_items as GI
+from pipeline import _claim_rules as R
+from pipeline import _graph_items as GI
 
 #: ② 비슷한 이름으로 짝지을 문턱 — `head_match` 는 두 쪽 변별 낱말이 서로 덮는 비율의 작은 값 (「대출 권수」↔「도서관 대출 권수」 0.67).
 NEAR_MIN = 0.6

@@ -5,7 +5,7 @@ Upstage 출력 모양(이미지 마크다운 + <figcaption> 블록 + HTML)을 �
 이 정제가 무너지면 개념당 400자 예산이 다시 캡션으로 채워진다 (2026-09-10 실측 70%).
 """
 
-from engine._evidence import clean_slide_text, markup_ratio
+from pipeline._evidence import clean_slide_text, markup_ratio
 
 UPSTAGE_LIKE = (
     "집중은 “시선”이 아니라 “작업 맥락”이다\n"

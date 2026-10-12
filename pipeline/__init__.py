@@ -1,6 +1,6 @@
 """
-이 폴더(engine)의 출입구 파일입니다.
-밖에서 `from engine import parse_document`처럼 쓸 수 있게
+이 폴더(pipeline)의 출입구 파일입니다.
+밖에서 `from pipeline import parse_document`처럼 쓸 수 있게
 주요 함수·타입을 모아 내보내 줍니다.
 """
 

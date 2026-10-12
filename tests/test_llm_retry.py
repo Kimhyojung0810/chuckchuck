@@ -4,8 +4,8 @@ from __future__ import annotations
 import pytest
 import requests
 
-import engine.providers.llm_impl as impl
-from engine.contracts import ConceptError
+import pipeline.providers.llm_impl as impl
+from pipeline.contracts import ConceptError
 
 
 class _Res:

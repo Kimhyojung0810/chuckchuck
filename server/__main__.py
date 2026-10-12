@@ -11,7 +11,7 @@ import os
 
 import uvicorn
 
-from engine import settings
+from pipeline import settings
 
 
 def main() -> None:

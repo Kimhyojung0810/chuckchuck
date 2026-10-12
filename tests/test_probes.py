@@ -10,7 +10,7 @@
 
 import json
 
-from engine.contracts import (
+from pipeline.contracts import (
     Claim,
     ClaimDoc,
     ClaimQuote,
@@ -25,14 +25,14 @@ from engine.contracts import (
     SlideBlock,
     SlideDoc,
 )
-from engine.f08_questions import (
+from pipeline.f08_questions import (
     _build_question_prompt,
     _pick_marks,
     build_questions,
     derive_probes,
     triage_questions,
 )
-from engine.providers.llm_base import LLMProvider
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -281,7 +281,7 @@ def test_LLM_이_비워도_탐침_템플릿이다_종류별_문장():
 
 
 def test_단정과_형제_우선순위_템플릿():
-    from engine._probes import probe_question
+    from pipeline._probes import probe_question
     probes = {p.kind: p for p in derive_probes(GRAPH, CLAIMS)}
     labels = {n.id: n.label for n in GRAPH.nodes}
     by = {n.id: n for n in GRAPH.nodes}
@@ -353,7 +353,7 @@ def test_근거_묶음은_직렬화로_왕복한다():
 def test_프롬프트_함수는_탐침을_안_주면_글자까지_같다():
     triage = triage_questions(GRAPH, llm=ScriptedLLM())
     by_id = {n.id: n for n in GRAPH.nodes}
-    from engine.contracts import Context
+    from pipeline.contracts import Context
     a = _build_question_prompt(GRAPH, triage.marks[:3], by_id, None, None, Context())
     b = _build_question_prompt(GRAPH, triage.marks[:3], by_id, None, None, Context(), probe_of={})
     assert a == b and "탐침" not in a

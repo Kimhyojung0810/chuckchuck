@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from engine import _graph_items as GI
-from engine.contracts import (
+from pipeline import _graph_items as GI
+from pipeline.contracts import (
     ConceptDoc,
     ConceptGraph,
     ConceptNode,
@@ -19,14 +19,14 @@ from engine.contracts import (
     SlideConcepts,
     SlideDoc,
 )
-from engine.f07_graph import MAX_GRAPH_DEPTH, build_graph
-from engine.f26_claims import _resolve_id, build_claims
-from engine.providers.llm_base import LLMProvider
+from pipeline.f07_graph import MAX_GRAPH_DEPTH, build_graph
+from pipeline.f26_claims import _resolve_id, build_claims
+from pipeline.providers.llm_base import LLMProvider
 
 
 @pytest.fixture(autouse=True)
 def _no_links_backfill(monkeypatch):
-    from engine import f07_graph
+    from pipeline import f07_graph
     monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.0)
 
 
@@ -227,7 +227,7 @@ def test_unresolved_formula_lhs_is_added_under_the_thesis():
 
 
 def test_added_node_cap_skips_whole_groups(monkeypatch):
-    from engine import _graph_items
+    from pipeline import _graph_items
     monkeypatch.setattr(_graph_items, "MAX_ADDED", 1)
     g, _, _ = _factory_graph()
     labels = {n.label for n in g.nodes}
@@ -297,7 +297,7 @@ def test_thesis_written_as_a_label_is_resolved_to_its_node():
 
 
 def test_thesis_label_matching_nothing_stays_unresolved():
-    from engine.f07_graph import _thesis_by_label
+    from pipeline.f07_graph import _thesis_by_label
     nodes = [ConceptNode(id="a", label="응답 속도"), ConceptNode(id="b", label="환불 정책")]
     assert _thesis_by_label("탄소 중립 전환", nodes, {}) is None
     assert _thesis_by_label("환불 정책", nodes, {}) == "b"

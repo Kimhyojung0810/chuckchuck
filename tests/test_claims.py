@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from engine.contracts import (
+from pipeline.contracts import (
     ClaimDoc,
     ConceptGraph,
     ConceptNode,
@@ -17,7 +17,7 @@ from engine.contracts import (
     SlideBlock,
     SlideDoc,
 )
-from engine.f26_claims import (
+from pipeline.f26_claims import (
     build_claims,
     has_support,
     resolve_label,
@@ -26,7 +26,7 @@ from engine.f26_claims import (
     slide_lines,
     verify_quote,
 )
-from engine.providers.llm_base import LLMProvider
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -236,9 +236,9 @@ def test_ClaimDoc_왕복():
 import io  # noqa: E402
 from email.message import Message  # noqa: E402
 
-import engine  # noqa: E402
+import pipeline  # noqa: E402
 import demo.bridge as bridge  # noqa: E402
-from engine.contracts import QaTriage, QuestionDoc  # noqa: E402
+from pipeline.contracts import QaTriage, QuestionDoc  # noqa: E402
 from demo.session_store import SessionStore  # noqa: E402
 
 
@@ -270,9 +270,9 @@ def wired(monkeypatch):
         seen["claims_calls"] += 1
         return build_claims(graph, slidedoc, llm="none")
 
-    monkeypatch.setattr(engine, "triage_questions", triage_with_claims)
-    monkeypatch.setattr(engine, "build_questions", build_with_claims)
-    monkeypatch.setattr(engine, "build_claims", fake_build_claims)
+    monkeypatch.setattr(pipeline, "triage_questions", triage_with_claims)
+    monkeypatch.setattr(pipeline, "build_questions", build_with_claims)
+    monkeypatch.setattr(pipeline, "build_claims", fake_build_claims)
     monkeypatch.setattr(bridge, "STORE", SessionStore())
     monkeypatch.setattr(bridge, "STAGE_CACHE_ON", False)
     monkeypatch.setattr(bridge.ARCHIVE, "read_artifact", lambda sid, kind: DECK.to_dict() if kind == "slide_doc" else None)
@@ -304,7 +304,7 @@ def test_claims_false_면_끈다(wired):
 
 
 def test_F08_이_claims_를_모르면_싣지_않는다(wired, monkeypatch):
-    monkeypatch.setattr(engine, "build_questions",
+    monkeypatch.setattr(pipeline, "build_questions",
                         lambda graph, triage, *, track, **_: QuestionDoc(file_name="x", track=track, model="old"))
     assert ask()[0] == 200                                          # **_ 가짜에는 claims 를 싣지 않는다 (TypeError 없음)
     assert bridge._claims_kw(lambda *, track: None, ClaimDoc(file_name="x")) == {}
@@ -313,5 +313,5 @@ def test_F08_이_claims_를_모르면_싣지_않는다(wired, monkeypatch):
 def test_주장이_죽어도_질문은_나온다(wired, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("x")
-    monkeypatch.setattr(engine, "build_claims", boom)
+    monkeypatch.setattr(pipeline, "build_claims", boom)
     assert ask()[0] == 200 and wired["build"] == [None]

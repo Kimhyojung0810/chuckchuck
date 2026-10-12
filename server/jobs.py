@@ -18,7 +18,7 @@ import queue
 import threading
 from pathlib import Path
 
-from engine import (
+from pipeline import (
     ChuckchuckError,
     Context,
     align_speech,
@@ -31,7 +31,7 @@ from engine import (
     transcribe,
     triage_questions,
 )
-from engine.contracts import (
+from pipeline.contracts import (
     QA_TRACK_FALLBACK,
     QA_TRACKS,
     AlignmentDoc,
@@ -300,7 +300,7 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
     # F-24 문헌 — 세션에 한 번 만들어 보관하고 트랙이 바뀌어도 재사용한다 (외부 검색은 한 번).
     papers_raw = artifacts.get(PAPER_DOC)
     if not papers_raw:
-        from engine import build_papers
+        from pipeline import build_papers
         _progress(job_id, "papers", "자료가 인용한 문헌과 관련 논문을 찾는 중")
         try:
             papers = build_papers(graph, artifacts.get(SLIDE_DOC), scholar="none" if settings.mock_external else None, llm=llm)
@@ -325,7 +325,7 @@ def _handle_questions(job_id: str, session_id: str, params: dict) -> dict:
     )
 
     # 힌트 사다리를 얹는다 — 브리지·동기 라우트와 같은 응답이어야 한다.
-    from engine.f08_questions import with_hint_ladders
+    from pipeline.f08_questions import with_hint_ladders
     payload = with_hint_ladders(doc.to_dict(), doc.questions)
     store.put_artifact(session_id, QUESTION_DOC, payload)
     _progress(job_id, "questions_done", f"예상 질문 {len(doc.questions)}개")

@@ -8,7 +8,7 @@ ConceptGraph + Transcript → AlignmentDoc.
 - LLM 은 4-class 판정·근거 인용·발화 간선·발화 전용 개념만 맡습니다.
   이때 노드 목록을 후보 앵커로 줘서 node_id 로 조인해 돌려받습니다 (조건화 추출).
 
-    from engine.f11_align import align_speech
+    from pipeline.f11_align import align_speech
     alignment = align_speech(graph, transcript, context, llm="solar", slide_doc=slide_doc)
 
 09-30 held-out 감사(C-06·C-07·G-A22) 뒤로 LLM 판정 다음에 코드 대조 네 겹을 더 한다 (`_align_checks`):

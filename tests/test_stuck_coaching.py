@@ -13,9 +13,9 @@ import json
 
 import pytest
 
-from engine.contracts import QA_COACH_STAGES, QaJudgement, QaTurn, Question
-from engine.f09_judge import coach_stuck, judge_answer, looks_stuck
-from engine.providers.llm_base import LLMProvider
+from pipeline.contracts import QA_COACH_STAGES, QaJudgement, QaTurn, Question
+from pipeline.f09_judge import coach_stuck, judge_answer, looks_stuck
+from pipeline.providers.llm_base import LLMProvider
 
 
 def make_question(**kwargs) -> Question:

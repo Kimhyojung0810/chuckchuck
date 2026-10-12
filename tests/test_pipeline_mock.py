@@ -5,8 +5,8 @@ mock으로 SlideDoc·개념추출·STT 파이프라인이 깨지지 않는지 �
 import json
 from pathlib import Path
 
-from engine import Context, align_speech, build_graph, extract_concepts, transcribe
-from engine.contracts import SlideDoc, SlideMark
+from pipeline import Context, align_speech, build_graph, extract_concepts, transcribe
+from pipeline.contracts import SlideDoc, SlideMark
 
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -11,10 +11,10 @@ import json
 
 import pytest
 
-from engine import _graph_items as GI
-from engine import f07_graph as F7
-from engine.contracts import ConceptDoc, Slide, SlideBlock, SlideConcepts, SlideDoc
-from engine.providers.llm_base import LLMProvider
+from pipeline import _graph_items as GI
+from pipeline import f07_graph as F7
+from pipeline.contracts import ConceptDoc, Slide, SlideBlock, SlideConcepts, SlideDoc
+from pipeline.providers.llm_base import LLMProvider
 
 
 @pytest.fixture(autouse=True)

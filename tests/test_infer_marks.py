@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from engine.contracts import Slide, SlideDoc, Word
-from engine.f04_infer_marks import (
+from pipeline.contracts import Slide, SlideDoc, Word
+from pipeline.f04_infer_marks import (
     MIN_CONFIDENCE,
     even_slide_marks,
     infer_slide_marks,

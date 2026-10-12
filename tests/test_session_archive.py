@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from engine.contracts import FeedbackEvent, SessionRecord
+from pipeline.contracts import FeedbackEvent, SessionRecord
 from demo.session_archive import MAX_STREAM_LINES, SessionArchive
 
 T0 = 1_757_500_000.0  # 2025-09-10 근처 UTC

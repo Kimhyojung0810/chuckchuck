@@ -15,9 +15,9 @@ import time
 
 import pytest
 
-from engine.contracts import ConceptError, Context, Slide, SlideBlock, SlideDoc
-from engine.f06_concepts import extract_concepts
-from engine.providers.llm_base import LLMProvider
+from pipeline.contracts import ConceptError, Context, Slide, SlideBlock, SlideDoc
+from pipeline.f06_concepts import extract_concepts
+from pipeline.providers.llm_base import LLMProvider
 
 
 def make_doc(n_slides: int) -> SlideDoc:

@@ -1,7 +1,7 @@
 """
 학술 검색 provider 구현체입니다 — 키 없이 바로 쓰는 통로 5개와, 여럿을 합치는 MultiScholar.
 
-    from engine.providers.scholar_impl import get_scholar
+    from pipeline.providers.scholar_impl import get_scholar
     refs = get_scholar("openalex").search("smartphone notification attention cost", limit=3)
     refs = get_scholar("openalex,semanticscholar,arxiv").search("dense retrieval", limit=5)   # 합쳐서 품질순
 

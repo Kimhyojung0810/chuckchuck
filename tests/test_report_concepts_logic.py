@@ -15,16 +15,16 @@ from pathlib import Path
 
 import pytest
 
-from engine._evidence import clean_slide_text
-from engine.contracts import (
+from pipeline._evidence import clean_slide_text
+from pipeline.contracts import (
     ConceptError, Context, HabitDoc, PaceDoc, RubricClusterScore, RubricItemScore,
     RubricScore, Slide, SlideBlock, SlideDoc, SlideHabits, SlidePace, SlideSpeech, Transcript,
 )
-from engine.f06_concepts import (
+from pipeline.f06_concepts import (
     MAX_SLIDE_CHARS, _build_user_prompt, _call_batch, _clip, _extract_json, extract_concepts,
 )
-from engine.f19_report import _facts_block, _fallback_report, _parse_json, compose_report
-from engine.providers.llm_base import LLMProvider
+from pipeline.f19_report import _facts_block, _fallback_report, _parse_json, compose_report
+from pipeline.providers.llm_base import LLMProvider
 
 ROOT = Path(__file__).resolve().parents[1]
 BUG = pytest.mark.xfail

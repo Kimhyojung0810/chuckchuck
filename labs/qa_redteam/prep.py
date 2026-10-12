@@ -15,7 +15,7 @@ for deck in sys.argv[1:]:
     for f, v in (("slide_doc.json", sd), ("graph.json", graph), ("claims.json", claims), ("triage.json", triage)):
         wj(d / f, v)
     wj(d / "context.json", ctx)
-    from engine import build_questions
+    from pipeline import build_questions
     doc = build_questions(graph, triage, track="10", slidedoc=sd, context=ctx, claims=claims, llm=Counted(f"q:{deck}"))
     wj(d / "questions_t10.json", doc.to_dict())
     print(deck, len(doc.questions))

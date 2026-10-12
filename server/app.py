@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from engine import (
+from pipeline import (
     ChuckchuckError,
     Context,
     align_speech,
@@ -41,8 +41,8 @@ from engine import (
     transcribe,
     triage_questions,
 )
-from engine._client_payload import client_judgement, client_questions, reveal_fields, withheld
-from engine.contracts import (
+from pipeline._client_payload import client_judgement, client_questions, reveal_fields, withheld
+from pipeline.contracts import (
     QA_TRACK_FALLBACK,
     QA_TRACKS,
     AlignmentDoc,
@@ -68,7 +68,7 @@ from .store import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-SDK_DIR = ROOT / "engine" / "sdk"
+SDK_DIR = ROOT / "pipeline" / "sdk"
 DEMO_DIR = ROOT / "demo" / "YEHS_demo"
 UPLOAD_DIR = ROOT / "var" / "uploads"
 
@@ -598,7 +598,7 @@ async def flat_questions(payload: dict):
     want_papers = payload.get("papers") is not False
 
     def run() -> QuestionDoc:
-        from engine import build_papers
+        from pipeline import build_papers
         papers = None
         if want_papers:
             try:
@@ -626,7 +626,7 @@ async def flat_questions(payload: dict):
     # 힌트 사다리를 얹는다 — 브리지만 얹으면 이 라우트로 직결한 화면은 힌트가
     # 1칸으로 무너지고 「답 보고 넘어가기」가 조기에 열린다 (qa_live liveStalled).
     # 함정의 전제·기대 답은 뺀 화면 사본으로 낸다 (브리지와 같은 규칙 — `client_questions`). 원본은 판정이 되찾게 남긴다.
-    from engine.f08_questions import with_hint_ladders
+    from pipeline.f08_questions import with_hint_ladders
     payload = with_hint_ladders(doc.to_dict(), doc.questions)
     _remember_flat_traps(payload)
     return client_questions(payload)
@@ -635,8 +635,8 @@ async def flat_questions(payload: dict):
 @app.post("/api/v1/papers/search")
 async def flat_papers_search(payload: dict):
     """F-24 · {query, limit?} → PaperDoc. 자유 질문에 대한 논문 검색 (품질 순). mock 이면 검색 안 함."""
-    from engine import search_papers
-    from engine.contracts import PAPER_SEARCH_MAX
+    from pipeline import search_papers
+    from pipeline.contracts import PAPER_SEARCH_MAX
 
     query = str(payload.get("query") or "").strip()
     if not query:
@@ -655,7 +655,7 @@ async def flat_papers_search(payload: dict):
 @app.post("/api/v1/papers")
 async def flat_papers(payload: dict):
     """F-24 · {graph, slide_doc?} → PaperDoc. 자료가 인용한 문헌 + 개념별 검색 논문."""
-    from engine import build_papers
+    from pipeline import build_papers
 
     if not payload.get("graph"):
         raise HTTPException(400, {"error": "bad_request", "message": "graph 가 필요합니다."})

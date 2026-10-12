@@ -58,7 +58,7 @@ def agg(rows: list[dict], track: str) -> dict[str, str]:
         s_ = tj_kind.setdefault(x["kind"], [0, 0])
         s_[0] += 1 if x["ok"] else 0
         s_[1] += 1
-    from engine.contracts import QA_TRACK_TRAPS
+    from pipeline.contracts import QA_TRACK_TRAPS
     claim_truth = [r for r in rows if "planted" in r["claims"]]
     return {
         "덱": str(len(rows)),

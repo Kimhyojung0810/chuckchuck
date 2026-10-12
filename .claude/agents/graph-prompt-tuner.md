@@ -9,9 +9,9 @@ model: inherit
 
 ## 고쳐도 되는 곳
 
-- `engine/f06_concepts.py` — 개념 추출 SYSTEM_PROMPT · 배치 크기 · 발화 보완 규칙
-- `engine/f07_graph.py` — 위계·간선 SYSTEM_PROMPT · weight 계산 상수
-- `engine/f11_align.py` — 4-class 판정 SYSTEM_PROMPT · 근거 인용 규칙 · 발췌 길이 상수
+- `pipeline/f06_concepts.py` — 개념 추출 SYSTEM_PROMPT · 배치 크기 · 발화 보완 규칙
+- `pipeline/f07_graph.py` — 위계·간선 SYSTEM_PROMPT · weight 계산 상수
+- `pipeline/f11_align.py` — 4-class 판정 SYSTEM_PROMPT · 근거 인용 규칙 · 발췌 길이 상수
 
 ## 절대 고치지 않는 곳
 
@@ -26,6 +26,6 @@ model: inherit
 ## 절차
 
 1. 대상 파일의 SYSTEM_PROMPT 와 주변 함수를 읽는다. 이미 반영돼 있으면 `applied: false`.
-2. 그 한 가지만 Edit. `git diff --stat engine/` 로 범위 확인.
+2. 그 한 가지만 Edit. `git diff --stat pipeline/` 로 범위 확인.
 3. `.venv/bin/python -m pytest tests/ -q -p no:cacheprovider`. 빨간 게 있으면 `git checkout -- <파일>` 후 `applied: false`.
 4. 돌려주는 것: `applied` · 고친 파일 · 무엇을 왜 두 문장.

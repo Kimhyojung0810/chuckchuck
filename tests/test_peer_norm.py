@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from engine.contracts import PeerNorm
-from engine.f22_peer_norm import (
+from pipeline.contracts import PeerNorm
+from pipeline.f22_peer_norm import (
     MIN_N,
     NOT_ENOUGH,
     bucket_key,

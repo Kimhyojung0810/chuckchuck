@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 import demo.bridge as bridge
-from engine.contracts import ParseError, STTError
+from pipeline.contracts import ParseError, STTError
 from demo.session_archive import SessionArchive
 from demo.session_store import SessionStore
 
@@ -128,7 +128,7 @@ def test_transcribe_는_실_모드에서_본문_provider_를_무시한다(real, 
 
 
 def test_AxSTT_의_파일_없음_오류에_경로가_없다(monkeypatch):
-    from engine.providers.stt_impl import AxSTT
+    from pipeline.providers.stt_impl import AxSTT
 
     stt = AxSTT.__new__(AxSTT)
     with pytest.raises(STTError) as ei:
@@ -302,7 +302,7 @@ def test_장수_세기는_pypdf_와_pptx_와_근사치를_쓴다(monkeypatch):
 
 
 def test_판정_답변이_너무_길면_413_이고_LLM_을_부르지_않는다(real, monkeypatch):
-    monkeypatch.setattr("engine.judge_answer", lambda *a, **k: pytest.fail("판정 LLM 이 불렸다"))
+    monkeypatch.setattr("pipeline.judge_answer", lambda *a, **k: pytest.fail("판정 LLM 이 불렸다"))
     h = _post("/api/v1/qa/judge", {"question": {"id": "q1", "question": "왜요?"},
                                    "answer": "가" * (bridge.ANSWER_MAX_CHARS + 1)})
     assert h.last[0] == 413
@@ -391,7 +391,7 @@ def test_다시_해도_안_되는_파서_오류는_고칠_길을_말하고_벤�
 
 
 def test_키는_앞뒤_글자_없이_길이만_찍는다():
-    from engine.config import Settings
+    from pipeline.config import Settings
 
     # 가짜 키를 문자 그대로 적으면 scripts/chk gate 의 비밀키 검사(up_ + 16자)에 걸린다 — 이어 붙여 만든다
     fake_key = "up_" + "ABCDEFGHIJKLMNOP1234"
@@ -402,7 +402,7 @@ def test_키는_앞뒤_글자_없이_길이만_찍는다():
 
 def test_transcribe_는_질문_코칭_답변을_세션_발표_받아쓰기로_보관하지_않는다(real, monkeypatch):
     # 09-30 qa/front: 답변 한 마디가 그 세션의 transcript 를 덮으면 새로고침 복구·기억이 답변을 발표로 읽는다
-    from engine.contracts import Transcript
+    from pipeline.contracts import Transcript
     archived = []
     monkeypatch.setattr(bridge.Handler, "_archive", lambda self, body, kind, payload: archived.append((kind, body.get("purpose"))))
     monkeypatch.setattr(bridge, "transcribe", lambda path, marks, provider=None: Transcript.from_dict(

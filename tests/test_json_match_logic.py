@@ -15,8 +15,8 @@ import logging
 
 import pytest
 
-from engine._json_text import extract_json_object, repair_json_text
-from engine._match import (
+from pipeline._json_text import extract_json_object, repair_json_text
+from pipeline._match import (
     MIN_MATCH_LEN,
     contains_tokens,
     count_occurrences,

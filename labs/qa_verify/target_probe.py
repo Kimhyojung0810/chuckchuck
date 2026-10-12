@@ -30,9 +30,9 @@ def _bootstrap() -> tuple[Path, Path]:
     repo = Path(os.environ.get("QA_VERIFY_REPO") or harness_root).resolve()
     sys.path[:] = [p for p in sys.path if Path(p or ".").resolve() != here]
     sys.path.insert(0, str(repo))
-    import engine  # noqa: F401 — 대상 패키지를 먼저 올린다
+    import pipeline  # noqa: F401 — 대상 패키지를 먼저 올린다
 
-    got = Path(engine.__file__).resolve().parents[1]
+    got = Path(pipeline.__file__).resolve().parents[1]
     if got != repo:
         raise SystemExit(f"대상이 아닌 chuckchuck 을 올렸어요: {got} ≠ {repo}")
     sys.path.insert(0, str(harness_root))
@@ -51,7 +51,7 @@ def target_helpers(graph: dict | None = None) -> P.Helpers:
     """대상에 있는 함수로 페르소나 도우미를 채운다 — 없는 것은 비워 둔다(페르소나가 제 규칙으로)."""
     h = P.Helpers()
     try:
-        from engine import _evidence as E
+        from pipeline import _evidence as E
 
         h.slide_units = E.slide_units
         if hasattr(E, "ranked_quotes"):
@@ -59,7 +59,7 @@ def target_helpers(graph: dict | None = None) -> P.Helpers:
     except ImportError:
         pass
     try:
-        from engine import _reason as RS
+        from pipeline import _reason as RS
 
         h.asks_reason = RS.asks_reason
 
@@ -77,9 +77,9 @@ def target_helpers(graph: dict | None = None) -> P.Helpers:
     except ImportError:
         pass
     try:
-        from engine import _grounding as G
-        from engine import _traps as TR
-        from engine.contracts import ConceptGraph, SlideDoc
+        from pipeline import _grounding as G
+        from pipeline import _traps as TR
+        from pipeline.contracts import ConceptGraph, SlideDoc
 
         nodes = ConceptGraph.from_dict(graph).nodes if graph else []
 
@@ -97,12 +97,12 @@ def target_helpers(graph: dict | None = None) -> P.Helpers:
 
 def cmd_info(_: dict) -> dict:
     found = {}
-    for mod, names in (("engine._evidence", ("slide_units", "ranked_quotes", "best_quote", "mask_gist")),
-                       ("engine._reason", ("evidence", "check_gist", "choice_pair", "contrast_choice")),
-                       ("engine._traps", ("candidates", "premise_stance", "leaks_fact")),
-                       ("engine._grounding", ("gist_problems", "direction_conflicts")),
-                       ("engine.f09_judge", ("judge_answer", "_narrow_followup", "_scaffold_judgement")),
-                       ("engine.f08_questions", ("build_questions", "build_hint_ladder", "_undercut_question"))):
+    for mod, names in (("pipeline._evidence", ("slide_units", "ranked_quotes", "best_quote", "mask_gist")),
+                       ("pipeline._reason", ("evidence", "check_gist", "choice_pair", "contrast_choice")),
+                       ("pipeline._traps", ("candidates", "premise_stance", "leaks_fact")),
+                       ("pipeline._grounding", ("gist_problems", "direction_conflicts")),
+                       ("pipeline.f09_judge", ("judge_answer", "_narrow_followup", "_scaffold_judgement")),
+                       ("pipeline.f08_questions", ("build_questions", "build_hint_ladder", "_undercut_question"))):
         try:
             m = __import__(mod, fromlist=["x"])
             found[mod] = [n for n in names if hasattr(m, n)]
@@ -158,7 +158,7 @@ def cmd_judge(inp: dict) -> dict:
     """items: [{"key","question","rounds":[답…],"slide_doc","graph","context","give_up"?}] → 라운드마다 판정 dict (실 LLM)."""
     calls = Path(inp["calls"])
     llm_guard.install("count", calls, int(inp["budget"]), stage=inp.get("stage", "judge"))
-    from engine import judge_answer
+    from pipeline import judge_answer
 
     rows = []
     for item in inp["items"]:

@@ -34,7 +34,7 @@ jobs:
           mkdir -p _site
           cp -R demo/YEHS_demo/. _site/
           mkdir -p _site/sdk
-          cp -R engine/sdk/. _site/sdk/
+          cp -R pipeline/sdk/. _site/sdk/
 
           # The demo bridge imports /sdk/index.js when served from the Python bridge.
           # GitHub Pages hosts this project under /chuckchuck/, so rewrite only the

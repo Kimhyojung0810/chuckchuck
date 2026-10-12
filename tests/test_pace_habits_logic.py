@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from engine.contracts import (
+from pipeline.contracts import (
     ConceptDoc,
     Context,
     HabitError,
@@ -26,8 +26,8 @@ from engine.contracts import (
     Transcript,
     Word,
 )
-from engine.f17_pace import analyze_pace, count_chars, count_syllables
-from engine.f18_habits import PAUSE_SEC, _heuristic_spans, extract_habits
+from pipeline.f17_pace import analyze_pace, count_chars, count_syllables
+from pipeline.f18_habits import PAUSE_SEC, _heuristic_spans, extract_habits
 
 # ---------------------------------------------------------------------------
 # 빌더
@@ -385,25 +385,25 @@ def test_habits_lora_stub_fallback_and_merge(monkeypatch):
     """실 _lora_tagger 는 절대 import 하지 않는다 — sys.modules 스텁으로 폴백·병합 분기만 밟는다."""
     t = habit_two_slides()
     stub = types.SimpleNamespace(adapter_available=lambda: False, tag_spans=lambda tr: [])
-    monkeypatch.setitem(sys.modules, "engine._lora_tagger", stub)
+    monkeypatch.setitem(sys.modules, "pipeline._lora_tagger", stub)
     monkeypatch.delenv("HABIT_PROVIDER", raising=False)
     assert extract_habits(t).provider == "heuristic(lora-fallback)"
     # 어댑터 있음 + REP 만 반환 → FIL·PAUSE 는 heuristic 보강, REP 는 LoRA 것만
     rep = HabitSpan(kind="REP", text="지도 지도", start_sec=1.3, end_sec=2.0, slide_no=1)
     stub2 = types.SimpleNamespace(adapter_available=lambda: True, tag_spans=lambda tr: [rep])
-    monkeypatch.setitem(sys.modules, "engine._lora_tagger", stub2)
+    monkeypatch.setitem(sys.modules, "pipeline._lora_tagger", stub2)
     d = extract_habits(t, provider="lora")
     assert d.provider == "lora"
     assert (d.repeat_cnt, d.filler_cnt, d.pause_cnt) == (1, 3, 1)
     # LoRA 가 FIL 만 주면 REP·PAUSE 를 heuristic 으로 보강
     fil = HabitSpan(kind="FIL", text="음…", start_sec=0, end_sec=0.3, slide_no=1)
-    monkeypatch.setitem(sys.modules, "engine._lora_tagger",
+    monkeypatch.setitem(sys.modules, "pipeline._lora_tagger",
                         types.SimpleNamespace(adapter_available=lambda: True, tag_spans=lambda tr: [fil]))
     d2 = extract_habits(t, provider="lora")
     assert (d2.filler_cnt, d2.pause_cnt) == (1, 1) and d2.repeat_cnt >= 1
     # tag_spans 예외 · import 실패(None 스텁) → heuristic 폴백
     for bad in (types.SimpleNamespace(adapter_available=lambda: True, tag_spans=lambda tr: 1 / 0), None):
-        monkeypatch.setitem(sys.modules, "engine._lora_tagger", bad)
+        monkeypatch.setitem(sys.modules, "pipeline._lora_tagger", bad)
         assert extract_habits(t, provider="lora").provider == "heuristic(lora-fallback)"
 
 

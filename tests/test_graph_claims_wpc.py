@@ -13,15 +13,15 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from engine import _claim_rules as R
-from engine import _deck_lines as DL
-from engine import _graph_items as GI
-from engine import f06_concepts as F6
-from engine import f07_graph as F7
-from engine import f26_claims as F26
-from engine._claim_quote import has_support, line_support, locate_quote, slide_lines
-from engine._probes import derive_probes
-from engine.contracts import (
+from pipeline import _claim_rules as R
+from pipeline import _deck_lines as DL
+from pipeline import _graph_items as GI
+from pipeline import f06_concepts as F6
+from pipeline import f07_graph as F7
+from pipeline import f26_claims as F26
+from pipeline._claim_quote import has_support, line_support, locate_quote, slide_lines
+from pipeline._probes import derive_probes
+from pipeline.contracts import (
     Claim,
     ClaimQuote,
     ConceptDoc,
@@ -34,7 +34,7 @@ from engine.contracts import (
     SlideConcepts,
     SlideDoc,
 )
-from engine.providers.llm_base import LLMProvider
+from pipeline.providers.llm_base import LLMProvider
 
 # ---------------------------------------------------------------------------
 # 헬퍼
@@ -667,7 +667,7 @@ def test_F06_프롬프트와_울타리_규칙에_튜닝_덱_낱말이_없다():
 # ---------------------------------------------------------------------------
 
 def test_WPQ_F26_은_F08_과_같은_이음으로_식을_읽는다():
-    from engine._evidence import join_formula
+    from pipeline._evidence import join_formula
     raw = "고객 만족을 이루는 것\n고객 만족 = 대기 시간 × 친절도 ×\n얼마나 기다렸나\n다시 오고 싶은가\n메뉴 다양성 얼마나\n골랐는가"
     labels = ["고객 만족", "대기 시간", "친절도", "메뉴 다양성"]
     ours = slide_lines(raw, labels)

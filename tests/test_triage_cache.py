@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from engine.contracts import ConceptGraph
+from pipeline.contracts import ConceptGraph
 from server import jobs
 from server.store import CONCEPT_DOC, CONCEPT_GRAPH, QA_TRIAGE, store
 

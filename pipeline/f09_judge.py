@@ -5,7 +5,7 @@ Question + 답변(+선택 history·ConceptGraph·AlignmentDoc) → QaJudgement.
 F-08 과 짝입니다. F-08 이 "무엇을 물을지" 를 결정적으로 정했다면,
 여기서는 "그 답이 개념을 실제로 방어했는가" 를 4-class 로 판정합니다.
 
-    from engine.f09_judge import judge_answer
+    from pipeline.f09_judge import judge_answer
     judgement = judge_answer(question, "제 답변은...", history=turns, llm="solar")
 
 판정 자체는 LLM 이 하지만 **계약은 코드가 지킵니다** — verdict 는 enum 안,

@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from engine.contracts import (
+from pipeline.contracts import (
     QA_MAX_ROUNDS,
     QA_VERDICT_SCORES,
     QA_VERDICTS,
@@ -25,8 +25,8 @@ from engine.contracts import (
     SlideSpeech,
     Transcript,
 )
-from engine.f09_judge import _HONORIFIC_RE, judge_answer
-from engine.providers.llm_base import LLMProvider
+from pipeline.f09_judge import _HONORIFIC_RE, judge_answer
+from pipeline.providers.llm_base import LLMProvider
 
 GOOD_ANSWER = "두 벡터를 같은 공간에 놓고 대조 손실로 정렬합니다"
 
@@ -379,7 +379,7 @@ def test_qaturn_objects_accepted():
 
 
 def test_history_trimmed_to_recent_turns():
-    from engine.f09_judge import HISTORY_TURNS
+    from pipeline.f09_judge import HISTORY_TURNS
 
     llm = ScriptedLLM(payload(verdict="good"))
     turns = [
@@ -441,7 +441,7 @@ def test_prompt_includes_slide_speech():
 
 
 def test_speech_excerpt_clipped():
-    from engine.f09_judge import SPEECH_EXCERPT_MAX
+    from pipeline.f09_judge import SPEECH_EXCERPT_MAX
 
     llm = ScriptedLLM(payload(verdict="good"))
     judge_answer(
@@ -506,7 +506,7 @@ def test_system_prompt_does_not_blame_length_for_unknown():
     unknown 정의가 '너무 짧거나' 를 이유로 들면 규칙 1(짧아도 맞으면 good)과
     프롬프트 안에서 충돌하고, 모델이 길이 쪽 정의를 이긴다.
     """
-    from engine.f09_judge import SYSTEM_PROMPT
+    from pipeline.f09_judge import SYSTEM_PROMPT
 
     assert "너무 짧거나" not in SYSTEM_PROMPT
     assert "선택형" in SYSTEM_PROMPT  # 맞는 선택 자체가 완전한 답이라는 규칙
@@ -620,7 +620,7 @@ def test_빈_답변도_후속_질문을_받는다():
 
 
 def test_후속_질문도_길이_상한을_지킨다():
-    from engine.contracts import QA_TEXT_MAX
+    from pipeline.contracts import QA_TEXT_MAX
 
     judgement = judge_of(payload(verdict="partial", followup="긴 질문 " * 200))
     assert len(judgement.followup) <= QA_TEXT_MAX
@@ -682,7 +682,7 @@ def test_누적_답변이_없으면_이번_답변만_실린다():
 
 
 def test_누적_답변은_상한까지만_실린다():
-    from engine.f09_judge import PRIOR_ANSWERS_MAX
+    from pipeline.f09_judge import PRIOR_ANSWERS_MAX
 
     llm = ScriptedLLM(payload(verdict="good"))
     priors = [f"앞선답{i}" for i in range(PRIOR_ANSWERS_MAX + 3)]
@@ -713,8 +713,8 @@ def test_누적이_있어도_빈_이번_답변은_LLM_을_안_부른다():
 # ---------------------------------------------------------------------------
 
 def test_점수_밴드가_요지만_맞은_구간을_분리한다():
-    from engine.contracts import QA_PASS_SCORE
-    from engine.f09_judge import SYSTEM_PROMPT
+    from pipeline.contracts import QA_PASS_SCORE
+    from pipeline.f09_judge import SYSTEM_PROMPT
 
     assert "70~79" in SYSTEM_PROMPT, "요지가 맞을 때 통과 가능한 구간이 명시돼야 한다"
     assert f"{QA_PASS_SCORE}점 이상" in SYSTEM_PROMPT, \
@@ -722,7 +722,7 @@ def test_점수_밴드가_요지만_맞은_구간을_분리한다():
 
 
 def test_결손은_통과를_막는_하나만_요구한다():
-    from engine.f09_judge import SYSTEM_PROMPT
+    from pipeline.f09_judge import SYSTEM_PROMPT
 
     assert "하나만" in SYSTEM_PROMPT
 
@@ -851,7 +851,7 @@ def test_mastered_는_요청_바디로_뒤집을_수_없다():
 
 def test_partial_반응이_절반이라고_깎지_않는다():
     """요지를 맞힌 사람에게 '절반' 은 과소평가로 읽힌다."""
-    from engine.f09_judge import _REACT_BY_VERDICT
+    from pipeline.f09_judge import _REACT_BY_VERDICT
 
     assert "절반" not in _REACT_BY_VERDICT["partial"]
 
@@ -886,8 +886,8 @@ def test_prompt_omits_hint_block_when_none_shown():
 # 실 LLM 이 지키지 않았다. 여기서 검사하는 것은 **코드가 되돌리는가** 하나다.
 # ---------------------------------------------------------------------------
 
-from engine.contracts import QA_PASS_SCORE, qa_mastered   # noqa: E402
-from engine.f09_judge import (                            # noqa: E402
+from pipeline.contracts import QA_PASS_SCORE, qa_mastered   # noqa: E402
+from pipeline.f09_judge import (                            # noqa: E402
     GIST_MISS_SCORE_MAX,
     _REACT_BY_VERDICT as _REACT_FALLBACK,
 )
@@ -1039,7 +1039,7 @@ def test_prompt_omits_the_checklist_for_single_element_questions():
 # 것은 «과녁과 넓이를 코드가 정하는가» 다.
 # ---------------------------------------------------------------------------
 
-from engine.f09_judge import (                              # noqa: E402
+from pipeline.f09_judge import (                              # noqa: E402
     GIVE_UP_REMAINDER_MIN,
     partial_giveup_topic,
 )
@@ -1133,7 +1133,7 @@ def test_prompt_omits_the_giveup_block_for_a_plain_answer():
 # «되묻기와 자신 없는 답을 가르는가» 다 — 오탐이 제일 위험하다.
 # ---------------------------------------------------------------------------
 
-from engine.f09_judge import ASKS_BACK_MAX_CHARS, asks_back   # noqa: E402
+from pipeline.f09_judge import ASKS_BACK_MAX_CHARS, asks_back   # noqa: E402
 
 
 def test_asking_about_the_question_is_a_question_not_an_answer():

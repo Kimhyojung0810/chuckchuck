@@ -18,10 +18,10 @@ import textwrap
 
 import pytest
 
-import engine.f08_questions as f08
-import engine.f12_chatter as f12
-from engine import build_questions, score_presentation, triage_questions
-from engine.contracts import (
+import pipeline.f08_questions as f08
+import pipeline.f12_chatter as f12
+from pipeline import build_questions, score_presentation, triage_questions
+from pipeline.contracts import (
     QA_SOURCES,
     AlignmentDoc,
     AlignmentItem,
@@ -44,9 +44,9 @@ from engine.contracts import (
     Transcript,
     Word,
 )
-from engine.f05_stt import _sentence_end, split_by_slide
-from engine.f19_report import _fallback_report, compose_report
-from engine.providers.llm_base import LLMProvider
+from pipeline.f05_stt import _sentence_end, split_by_slide
+from pipeline.f19_report import _fallback_report, compose_report
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -176,7 +176,7 @@ def test_확인된_모순은_맨_앞_질문이고_자료_쪽_값을_말하지_�
 
 
 def test_모순_질문의_힌트_사다리는_어긋난_값만_가린다():
-    from engine.f08_questions import build_hint_ladder
+    from pipeline.f08_questions import build_hint_ladder
     first = ev_build("5")[0].questions[0]
     ladder = build_hint_ladder(first)
     assert ladder == ["자료 4장의 수치를 발표에서 한 말과 나란히 놓고 견줘 보세요",
@@ -367,7 +367,7 @@ def test_새_규칙과_문장_틀에_발표_낱말이_없다():
 
 
 def f05_rules() -> str:
-    import engine.f05_stt as f05
+    import pipeline.f05_stt as f05
     return " ".join(r.pattern for r in (f05._PUNCT_END_RE, f05._ENDING_RE, f05._CONTINUES_RE, f05._NIKKA_RE, f05._EUM_RE,
                                         f05._JOINED_NEXT_RE))
 

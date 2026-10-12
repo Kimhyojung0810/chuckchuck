@@ -10,7 +10,7 @@ import pytest
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
-from engine.contracts import ConceptGraph, ConceptNode  # noqa: E402
+from pipeline.contracts import ConceptGraph, ConceptNode  # noqa: E402
 from server.app import app  # noqa: E402
 
 

@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from engine.f22_peer_norm import MIN_N  # noqa: E402
+from pipeline.f22_peer_norm import MIN_N  # noqa: E402
 from demo.learning_jobs import build_norm_table  # noqa: E402
 from demo.session_archive import SessionArchive  # noqa: E402
 

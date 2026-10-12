@@ -19,7 +19,7 @@ def main() -> None:
     repo = Path(os.environ["QA_VERIFY_REPO"]).resolve()
     sys.path[:] = [p for p in sys.path if Path(p or ".").resolve() != here]
     sys.path.insert(0, str(repo))
-    import engine  # noqa: F401 — 대상 패키지
+    import pipeline  # noqa: F401 — 대상 패키지
 
     sys.path.insert(0, str(here.parents[1]))
     from labs.qa_verify import llm_guard

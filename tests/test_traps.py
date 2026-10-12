@@ -11,10 +11,10 @@
 import inspect
 import json
 
-from engine import _grounding as grounding
-from engine import _traps as traps
-from engine import build_questions, judge_answer
-from engine.contracts import (
+from pipeline import _grounding as grounding
+from pipeline import _traps as traps
+from pipeline import build_questions, judge_answer
+from pipeline.contracts import (
     ConceptEdge,
     ConceptGraph,
     ConceptNode,
@@ -26,9 +26,9 @@ from engine.contracts import (
     TrapPremise,
     TriageMark,
 )
-from engine.f08_questions import QUESTION_SYSTEM_PROMPT, build_hint_ladder
-from engine.f09_judge import _TRAP_AGREED_REACT
-from engine.providers.llm_base import LLMProvider
+from pipeline.f08_questions import QUESTION_SYSTEM_PROMPT, build_hint_ladder
+from pipeline.f09_judge import _TRAP_AGREED_REACT
+from pipeline.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

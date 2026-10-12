@@ -13,7 +13,7 @@ from demo.session_store import SessionStore, fingerprint
 
 def _question(**over):
     """힌트 사다리 검사용 질문 하나. F-08 이 실제로 채우는 필드만 채운다."""
-    from engine.contracts import Question
+    from pipeline.contracts import Question
 
     base = dict(
         id="q1",

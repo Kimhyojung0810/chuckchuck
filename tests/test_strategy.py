@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from engine.contracts import StrategyError
-from engine.f20_strategy import (
+from pipeline.contracts import StrategyError
+from pipeline.f20_strategy import (
     MAX_CONCEPT_CHARS,
     MAX_QUOTE_CHARS,
     STRATEGY_TYPES,
@@ -21,8 +21,8 @@ from engine.f20_strategy import (
     recommend_type,
     suggest_strategy,
 )
-from engine.providers.llm_base import LLMProvider
-from engine.providers.llm_impl import MockLLM
+from pipeline.providers.llm_base import LLMProvider
+from pipeline.providers.llm_impl import MockLLM
 
 # ---------------------------------------------------------------------------
 # 헬퍼
@@ -290,7 +290,7 @@ def test_non_numeric_parentheses_survive(analysis):
 
 
 def test_outline_is_capped(analysis):
-    from engine.f20_strategy import MAX_BLOCKS
+    from pipeline.f20_strategy import MAX_BLOCKS
     many = [{"role": f"구간{i}", "what": f"내용{i}", "slides": [2]} for i in range(20)]
     assert len(run(analysis, payload_of(outline=many))["chosen"]["outline"]) == MAX_BLOCKS
 

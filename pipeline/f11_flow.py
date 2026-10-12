@@ -6,7 +6,7 @@ ConceptGraph + AlignmentDoc → FlowDiff. LLM 호출이 없는 순수 함수입�
 분산이 두 배가 되어 diff 가 노이즈를 측정합니다). 이미 F-11 이 결정적으로 계산한
 신호(first_mention_sec·mention_count·speech_edges)만 재배열합니다.
 
-    from engine.f11_flow import build_flow_diff
+    from pipeline.f11_flow import build_flow_diff
     flow = build_flow_diff(graph, alignment)
 
 판정 3종 (MVP 스펙 '논리 흐름' 탭):

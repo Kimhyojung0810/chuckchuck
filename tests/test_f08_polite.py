@@ -4,7 +4,7 @@
 프롬프트 규칙 5 는 있었지만 지켜지지 않았다. 화면 말투(CLAUDE.md §3-1)는 코드가 지킨다."""
 import pytest
 
-from engine.f08_questions import _polite_question
+from pipeline.f08_questions import _polite_question
 
 
 @pytest.mark.parametrize("raw, expected", [
@@ -48,7 +48,7 @@ def test_only_the_ending_changes():
 # _plain_speech — 문장 가운데 높임 (2026-09-24 실측: "인용하셨는데 … 판단하신 근거는")
 # ---------------------------------------------------------------------------
 
-from engine.f08_questions import _plain_speech  # noqa: E402
+from pipeline.f08_questions import _plain_speech  # noqa: E402
 
 
 @pytest.mark.parametrize("raw, expected", [

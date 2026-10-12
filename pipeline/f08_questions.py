@@ -10,7 +10,7 @@ LLM 을 두 번 부릅니다. 개념의 **중요도**는 F-07 weight·F-11 verdi
 "이게 심사위원한테 실제로 찔릴 질문인가 · 함정을 팔 수 있나" 는 코드가 모릅니다.
 그 판단만 1차(triage)에 맡기고, 2차는 문장 생성만 맡깁니다.
 
-    from engine.f08_questions import triage_questions, build_questions
+    from pipeline.f08_questions import triage_questions, build_questions
     triage = triage_questions(graph, alignment, flow, context, llm="solar")
     doc = build_questions(graph, triage, track="5", alignment=alignment, llm="solar")
 
