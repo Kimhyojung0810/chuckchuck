@@ -151,7 +151,7 @@ export function AppFrame({ rect, onStation, api, onFit }) {
     let raf = 0
     let shown = null
     const tick = () => {
-      const show = rig.settled && !rig.dragging
+      const show = rig.settled && !rig.dragging && !(rig.hold && station.current === 3)   // 채점 연출을 붙잡는 동안 질의응답 화면은 숨긴다
       if (show !== shown && wrap.current) {
         shown = show
         wrap.current.classList.toggle('is-shown', show)

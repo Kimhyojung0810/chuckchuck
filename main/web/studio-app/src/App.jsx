@@ -41,10 +41,17 @@ export default function App() {
   const onFit = useCallback((v) => setFitH((h) => (h === v || (h && v && Math.abs(h - v) < 6) ? h : v)), [])
 
   /** 앱이 그 단계 화면으로 넘어갔다 → 곡선이 미끄러진다 (시점은 그대로) */
+  const holdTimer = useRef(0)
   const go = useCallback((to) => {
     to = Math.max(0, Math.min(STATIONS.length - 1, to))
     rig.drag = 0
     if (to === rig.at) return
+    // ③ 발표 채점 연출이 도는 중이면 질의응답으로 가는 것을 끝날 때까지(최대 10초) 미룬다 — 앱은 질문이 준비되면 0.9초 뒤 넘어간다
+    if (rig.at === 2 && to === 3 && rig.hold) {
+      if (!holdTimer.current) holdTimer.current = Date.now()
+      if (Date.now() - holdTimer.current < 10000) return
+    }
+    holdTimer.current = 0
     rig.at = to
     setAt(to)
     document.title = `척척발표 — ${STATIONS[to].name}`
@@ -88,6 +95,11 @@ export default function App() {
   // ② · ③ 은 앱 안의 자료 · 반응 삐약이 · 진행 삐약이를 무대로 꺼낸다 (ui/AppMirror.jsx)
   const mirror = useAppMirror(frameApi, at === 2 ? 'wait' : vp.phone ? null : at === 1 ? 'present' : at === 3 ? 'qa' : null)
   const slideNav = (d) => pressApp(frameApi, `#vrCall .vr-dock [data-slide-nav="${d}"]`)
+  // 채점판은 앱이 기다림 층을 걷어도(질의응답으로 넘어가도) 마지막 결과를 붙든다 — 연출을 끝까지 보여 주려고
+  const lastWait = useRef(null)
+  if (at === 2 && mirror) lastWait.current = mirror
+  if (at === 1 || at === 0) lastWait.current = null
+  const scoreData = at === 2 ? (mirror || lastWait.current) : null
 
   /** ② 발표 음량 — 비전 리허설이 이미 재는 값 (PresentDock 과 같다 · 마이크를 더 열지 않는다) */
   const readAppLevel = useCallback(() => {
@@ -103,7 +115,7 @@ export default function App() {
       children: <Listener bird={k === at && mirror ? mirror.bird : null} size={L.seat} onEar={() => pressApp(frameApi, '#vrEar')} /> })
     // ③ 발표 채점 — 개념 그래프 채점판이 주인공 (앱의 실제 그래프 · 판정만)
     if (L.graph) panels.push({ id: 'graph', ...L.graph, radius: 28,
-      children: <ScoreBoard data={k === at ? mirror : null} w={L.graph.w} h={L.graph.h} /> })
+      children: <ScoreBoard data={k === at ? scoreData : null} w={L.graph.w} h={L.graph.h} /> })
     if (L.judge) panels.push({ id: 'judge', ...L.judge, glass: false, bare: true,
       children: <Judge judge={k === at ? mirror : null} size={L.seat} onCancel={() => pressApp(frameApi, '#bcSendCancel')} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에

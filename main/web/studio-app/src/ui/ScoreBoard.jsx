@@ -5,6 +5,7 @@
    3) 판정(alignment)이 오면 → 개념마다 판정 도장이 하나씩 찍히고(다룸 · 빠뜨림 · 어긋남 · 넘어가도 됨 · 판정 안 함),
       셈과 실제 커버리지(summary.coverage)가 올라간다. 숫자는 만들지 않는다 */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { rig } from '../rig.js'
 import { pickNodes, rootOf, bfsOrder, radialLayout, verdictOf, tally, phaseLine, shortLabel, VERDICT_WORD } from './scoreModel.js'
 
 const SCAN_MS = 420
@@ -59,6 +60,8 @@ export function ScoreBoard({ data, w, h }) {
 
   // 1) 펼치기 — 그래프가 바뀌면 처음부터
   const [shown, setShown] = useState(0)
+  const shownRef = useRef(0)
+  shownRef.current = shown
   useEffect(() => {
     if (!order.length) { setShown(0); return undefined }
     if (reduced) { setShown(order.length); return undefined }
@@ -87,9 +90,11 @@ export function ScoreBoard({ data, w, h }) {
     setStamped(0)
     let i = 0
     let iv = 0
+    // 도장 전체를 ~5초 안에(개념이 많으면 빠르게, 하나에 140~260ms). 펼치기가 남았으면 그만큼 기다린다
+    const step = Math.max(140, Math.min(STAMP_MS, Math.round(5000 / order.length)))
     const start = setTimeout(() => {
-      iv = setInterval(() => { i += 1; setStamped(i); if (i >= order.length) clearInterval(iv) }, STAMP_MS)
-    }, 90 * order.length + 300)   // 펼치기가 끝난 뒤에 찍는다
+      iv = setInterval(() => { i += 1; setStamped(i); if (i >= order.length) clearInterval(iv) }, step)
+    }, 90 * Math.max(0, order.length - shownRef.current) + 300)
     return () => { clearTimeout(start); clearInterval(iv) }
   }, [alignment, order, reduced])
 
@@ -108,6 +113,14 @@ export function ScoreBoard({ data, w, h }) {
     return ok[0] || null
   }, [alignment, order, verdicts, items, byId])
   const nowId = alignment ? (done && featured ? featured : stampedIds[stampedIds.length - 1]) : scan >= 0 ? order[scan] : null
+  // 판정이 온 뒤 도장 · 게이지가 다 돌 때까지 스튜디오가 다음 정거장(질의응답)으로 미끄러지지 않게 붙잡는다
+  useEffect(() => {
+    if (!alignment || !order.length) { rig.hold = false; return undefined }
+    if (!done) { rig.hold = true; return undefined }
+    const id = setTimeout(() => { rig.hold = false }, 1800)   // 게이지가 차오르고 요약을 읽을 틈
+    return () => clearTimeout(id)
+  }, [alignment, order, done])
+  useEffect(() => () => { rig.hold = false }, [])
   const nowNode = nowId ? byId.get(nowId) : null
   // 도장이 다 찍힌 뒤에 「채점했어요」 · 커버리지가 올라간다 — 숫자가 도장보다 먼저 뜨지 않게
   const line = alignment && !done ? '개념마다 판정을 매기고 있어요' : phaseLine({ phase: data && data.phase, steps, hasGraph: !!graph, hasAlign: !!alignment })
