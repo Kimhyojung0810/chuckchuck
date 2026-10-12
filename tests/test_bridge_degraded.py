@@ -20,9 +20,9 @@ from email.message import Message
 
 import pytest
 
-import chuckchuck
+import engine
 import demo.bridge as bridge
-from chuckchuck.contracts import ClaimDoc, PaperDoc, PaperRef, QaTriage, QuestionDoc
+from engine.contracts import ClaimDoc, PaperDoc, PaperRef, QaTriage, QuestionDoc
 from demo.session_archive import SessionArchive
 from demo.session_store import CACHE_KIND_CAPS, MAX_TRIAGE, SessionStore
 
@@ -117,8 +117,8 @@ def f08(monkeypatch):
         seen["claims"].append(claims)
         return QuestionDoc(file_name="sleep.pdf", track=track, model="fake")
 
-    monkeypatch.setattr(chuckchuck, "triage_questions", triage)
-    monkeypatch.setattr(chuckchuck, "build_questions", build)
+    monkeypatch.setattr(engine, "triage_questions", triage)
+    monkeypatch.setattr(engine, "build_questions", build)
     return seen
 
 
@@ -133,7 +133,7 @@ def ask(sid: str, track: str = "10", **extra) -> tuple[int, dict]:
 def test_규칙_주장은_디스크에_안_남기고_짧게만_든다(env, monkeypatch):
     archive, clock = env
     calls: list[int] = []
-    monkeypatch.setattr(chuckchuck, "build_claims",
+    monkeypatch.setattr(engine, "build_claims",
                         lambda graph, slidedoc, *, llm=None, **_: calls.append(1) or ClaimDoc(file_name="s", model="rule"))
     h = FakeHandler()
 
@@ -149,7 +149,7 @@ def test_규칙_주장은_디스크에_안_남기고_짧게만_든다(env, monke
 def test_LLM_주장은_디스크에_남고_오래_든다(env, monkeypatch):
     archive, clock = env
     calls: list[int] = []
-    monkeypatch.setattr(chuckchuck, "build_claims",
+    monkeypatch.setattr(engine, "build_claims",
                         lambda graph, slidedoc, *, llm=None, **_: calls.append(1) or ClaimDoc(file_name="s", model="solar"))
     h = FakeHandler()
     h._claims_for({}, GRAPH, SLIDE_DOC, None)
@@ -160,7 +160,7 @@ def test_LLM_주장은_디스크에_남고_오래_든다(env, monkeypatch):
 
 def test_주장_캐시는_세션_표시가_붙은_본문도_같은_자료로_본다(env, monkeypatch):
     calls: list[int] = []
-    monkeypatch.setattr(chuckchuck, "build_claims",
+    monkeypatch.setattr(engine, "build_claims",
                         lambda graph, slidedoc, *, llm=None, **_: calls.append(1) or ClaimDoc(file_name="s", model="solar"))
     monkeypatch.setattr(bridge, "STORE", SessionStore())
     FakeHandler()._claims_for({}, GRAPH, {**SLIDE_DOC, "session_id": "20260930T000000Z_aaaaaaaa"}, None)
@@ -183,7 +183,7 @@ def test_검색이_실패한_문헌은_보관하지_않고_통로를_잠시_쉰�
             return PaperDoc(file_name="s", refs=[DECK_REF], provider="none", note="검색 꺼짐")
         return PaperDoc(file_name="s", refs=[DECK_REF], provider="openalex", note="openalex 검색 실패: 429 Too Many Requests")
 
-    monkeypatch.setattr(chuckchuck, "build_papers", fake_papers)
+    monkeypatch.setattr(engine, "build_papers", fake_papers)
     first = FakeHandler()._papers_for({"session_id": sid}, GRAPH, SLIDE_DOC, None)
     assert bridge._papers_degraded(first) == "papers_unavailable"
     assert archive.read_artifact(sid, "paper_doc") is None          # 보관본은 다음 요청이 그대로 다시 쓴다 — 남기지 않는다
@@ -197,7 +197,7 @@ def test_검색이_실패한_문헌은_보관하지_않고_통로를_잠시_쉰�
 def test_일부만_실패한_문헌은_부분_폴백이고_통로는_쉬지_않는다(env, monkeypatch):
     archive, _ = env
     sid = open_session(archive)
-    monkeypatch.setattr(chuckchuck, "build_papers", lambda *a, **k: PaperDoc(
+    monkeypatch.setattr(engine, "build_papers", lambda *a, **k: PaperDoc(
         file_name="s", refs=[DECK_REF, SCHOLAR_REF], provider="arxiv", note="arxiv 검색 실패: 429"))
     got = FakeHandler()._papers_for({"session_id": sid}, GRAPH, SLIDE_DOC, None)
     assert bridge._papers_degraded(got) == "papers_partial"
@@ -208,7 +208,7 @@ def test_보관된_문헌은_같은_그래프로_만든_것만_다시_쓴다(env
     archive, _ = env
     sid = open_session(archive)
     calls: list = []
-    monkeypatch.setattr(chuckchuck, "build_papers", lambda graph, *a, **k: calls.append(graph) or PaperDoc(
+    monkeypatch.setattr(engine, "build_papers", lambda graph, *a, **k: calls.append(graph) or PaperDoc(
         file_name="s", refs=[DECK_REF, SCHOLAR_REF], provider="openalex", note=""))
 
     FakeHandler()._papers_for({"session_id": sid}, GRAPH, SLIDE_DOC, None)
@@ -227,7 +227,7 @@ def test_그래프_지문이_없는_옛_보관본은_다시_만든다(env, monke
     sid = open_session(archive)
     archive.put_artifact(sid, "paper_doc", PaperDoc(file_name="s", refs=[DECK_REF], provider="openalex").to_dict())
     calls: list = []
-    monkeypatch.setattr(chuckchuck, "build_papers", lambda *a, **k: calls.append(1) or PaperDoc(
+    monkeypatch.setattr(engine, "build_papers", lambda *a, **k: calls.append(1) or PaperDoc(
         file_name="s", refs=[DECK_REF], provider="openalex"))
     FakeHandler()._papers_for({"session_id": sid}, GRAPH, SLIDE_DOC, None)
     assert calls == [1]
@@ -385,10 +385,10 @@ def test_두_트랙을_동시에_미리_만들어도_주장_문헌_1차_심사�
         n["build"] += 1
         return QuestionDoc(file_name="s", track=track, model="fake")
 
-    monkeypatch.setattr(chuckchuck, "build_claims", claims)
-    monkeypatch.setattr(chuckchuck, "build_papers", papers)
-    monkeypatch.setattr(chuckchuck, "triage_questions", triage)
-    monkeypatch.setattr(chuckchuck, "build_questions", build)
+    monkeypatch.setattr(engine, "build_claims", claims)
+    monkeypatch.setattr(engine, "build_papers", papers)
+    monkeypatch.setattr(engine, "triage_questions", triage)
+    monkeypatch.setattr(engine, "build_questions", build)
     monkeypatch.setattr(bridge, "PAPERS_DEADLINE_SEC", 5.0)
 
     results: list = []
@@ -408,13 +408,13 @@ def test_트랙을_차례로_바꿔도_마지막_질문_만들기만_다시_한�
     archive, _ = env
     sid = open_session(archive)
     n = {"claims": 0, "papers": 0, "triage": 0, "build": 0}
-    monkeypatch.setattr(chuckchuck, "build_claims",
+    monkeypatch.setattr(engine, "build_claims",
                         lambda *a, **k: n.__setitem__("claims", n["claims"] + 1) or ClaimDoc(file_name="s", model="solar"))
-    monkeypatch.setattr(chuckchuck, "build_papers", lambda *a, **k: n.__setitem__("papers", n["papers"] + 1) or PaperDoc(
+    monkeypatch.setattr(engine, "build_papers", lambda *a, **k: n.__setitem__("papers", n["papers"] + 1) or PaperDoc(
         file_name="s", refs=[DECK_REF, SCHOLAR_REF], provider="openalex"))
-    monkeypatch.setattr(chuckchuck, "triage_questions",
+    monkeypatch.setattr(engine, "triage_questions",
                         lambda *a, **k: n.__setitem__("triage", n["triage"] + 1) or QaTriage(file_name="s"))
-    monkeypatch.setattr(chuckchuck, "build_questions", lambda graph, tri, *, track, **_: n.__setitem__(
+    monkeypatch.setattr(engine, "build_questions", lambda graph, tri, *, track, **_: n.__setitem__(
         "build", n["build"] + 1) or QuestionDoc(file_name="s", track=track, model="fake"))
 
     for track in ("10", "5", "1"):
@@ -456,7 +456,7 @@ def _multipart(filename: str, data: bytes) -> tuple[bytes, str]:
 
 
 def test_같은_파일을_다시_올리면_파서를_다시_안_부른다(env, monkeypatch):
-    from chuckchuck.contracts import SlideDoc
+    from engine.contracts import SlideDoc
 
     parsed: list[str] = []
     monkeypatch.setattr(bridge, "parse_document", lambda path: parsed.append(path) or SlideDoc.from_dict(SLIDE_DOC))

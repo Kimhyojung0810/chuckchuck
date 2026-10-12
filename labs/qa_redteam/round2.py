@@ -40,7 +40,7 @@ P = [
 ]
 
 rows = []
-from chuckchuck import judge_answer
+from engine import judge_answer
 for attack, deck, qno, answers in P:
     qs, sd, g, ctx = load(deck)
     q = qs[qno - 1]

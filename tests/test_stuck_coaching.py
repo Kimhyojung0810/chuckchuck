@@ -13,9 +13,9 @@ import json
 
 import pytest
 
-from chuckchuck.contracts import QA_COACH_STAGES, QaJudgement, QaTurn, Question
-from chuckchuck.f09_judge import coach_stuck, judge_answer, looks_stuck
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.contracts import QA_COACH_STAGES, QaJudgement, QaTurn, Question
+from engine.f09_judge import coach_stuck, judge_answer, looks_stuck
+from engine.providers.llm_base import LLMProvider
 
 
 def make_question(**kwargs) -> Question:

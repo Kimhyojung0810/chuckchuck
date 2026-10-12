@@ -22,14 +22,14 @@ from pathlib import Path
 import pytest
 import requests
 
-from chuckchuck import _deck_lines as DL
-from chuckchuck import _evidence as E
-from chuckchuck._claim_quote import slide_lines
-from chuckchuck._graph_items import deck_lines as graph_deck_lines
-from chuckchuck.contracts import PaperError as PaperErrorLike
-from chuckchuck.providers import scholar_impl as si
-from chuckchuck.providers.scholar_base import ScholarCallError
-from chuckchuck.providers.scholar_impl import OpenAlexScholar, get_scholar
+from engine import _deck_lines as DL
+from engine import _evidence as E
+from engine._claim_quote import slide_lines
+from engine._graph_items import deck_lines as graph_deck_lines
+from engine.contracts import PaperError as PaperErrorLike
+from engine.providers import scholar_impl as si
+from engine.providers.scholar_base import ScholarCallError
+from engine.providers.scholar_impl import OpenAlexScholar, get_scholar
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -186,7 +186,7 @@ def fake_get(monkeypatch, res):
             raise res
         return res
 
-    monkeypatch.setattr("chuckchuck.providers.scholar_impl.requests.get", _get)
+    monkeypatch.setattr("engine.providers.scholar_impl.requests.get", _get)
     return calls
 
 
@@ -426,7 +426,7 @@ CONTEST_INJECTED = [
 
 @pytest.mark.parametrize("line", CONTEST_CONTENT)
 def test_3_채점을_다루는_발표_줄은_어느_쪽에서도_지시문이_아니다(line):
-    from chuckchuck._judge_guard import meta_line as judge_meta_line
+    from engine._judge_guard import meta_line as judge_meta_line
     assert not E.is_meta_instruction(line)          # 질문 쪽 (`clean_slide_text`)
     assert not judge_meta_line(line)                # 판정 쪽 (WP-J2 — 같은 잣대)
     assert not DL.is_meta_line(line)                # 주장·그래프 쪽 입구
@@ -434,7 +434,7 @@ def test_3_채점을_다루는_발표_줄은_어느_쪽에서도_지시문이_�
 
 @pytest.mark.parametrize("line", CONTEST_INJECTED)
 def test_3_명령_줄은_질문과_판정_쪽_재료에서_빠진다(line):
-    from chuckchuck._judge_guard import meta_line as judge_meta_line
+    from engine._judge_guard import meta_line as judge_meta_line
     assert E.is_meta_instruction(line) and judge_meta_line(line)
 
 
@@ -445,9 +445,9 @@ def test_3_주장_그래프_쪽_입구도_역할_표지와_채점_명령은_뺀�
 
 
 def test_3_지어낸_덱_한_장을_세_쪽이_같은_내용으로_읽고_쪽_번호는_버린다():
-    from chuckchuck._deck_claims import build_deck
-    from chuckchuck._judge_guard import sanitize_slidedoc
-    from chuckchuck.contracts import Slide, SlideBlock, SlideDoc
+    from engine._deck_claims import build_deck
+    from engine._judge_guard import sanitize_slidedoc
+    from engine.contracts import Slide, SlideBlock, SlideDoc
 
     content = CONTEST_CONTENT[:7]
     raw = "\n".join(["마을 요리 경연 운영", *content, *CONTEST_INJECTED, "3 / 12"])

@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     QA_SEVERITIES,
     QA_TEXT_MAX,
     QA_TRACK_LIMITS,
@@ -31,7 +31,7 @@ from chuckchuck.contracts import (
     Transcript,
     TriageMark,
 )
-from chuckchuck.f08_questions import (
+from engine.f08_questions import (
     QA_TWIN_GIST_MAX,
     _drop_twin_questions,
     _gist_overlap,
@@ -39,7 +39,7 @@ from chuckchuck.f08_questions import (
     build_questions,
     triage_questions,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 
 # ---------------------------------------------------------------------------
@@ -457,8 +457,8 @@ def test_track_limit_respected(track):
 
 def test_수치만_바꾼_함정은_기본으로_내지_않는다(monkeypatch):
     """10-05 부스 리허설 — 「리뷰 124,380건」 을 「155,480건」 으로 바꾼 함정이 「너무 미시적」 이었다. 숫자 말고 뒤집을 거리가 없으면 함정 0개."""
-    from chuckchuck import f08_questions
-    from chuckchuck.contracts import Slide, SlideBlock, SlideDoc
+    from engine import f08_questions
+    from engine.contracts import Slide, SlideBlock, SlideDoc
     monkeypatch.setattr(f08_questions, "TRAP_NUMBERS", False)
     graph = make_graph(20)
     triage = triage_of(marks_payload(*[{"node_id": n.id, "trap": True} for n in graph.nodes]), graph=graph)
@@ -473,7 +473,7 @@ def test_수치만_바꾼_함정은_기본으로_내지_않는다(monkeypatch):
 def test_trap_budget_respected(track):
     """LLM 이 전부 함정이라고 해도 트랙 허용치를 넘지 않는다. 1분 트랙은 0개.
     함정 전제는 코드가 자료 줄에서 만든다 (qa/trap) — 자료를 줘야 함정이 생기고, 안 주면 0개다."""
-    from chuckchuck.contracts import Slide, SlideBlock, SlideDoc
+    from engine.contracts import Slide, SlideBlock, SlideDoc
     graph = make_graph(20)
     triage = triage_of(
         marks_payload(*[{"node_id": n.id, "trap": True} for n in graph.nodes]),
@@ -725,7 +725,7 @@ def test_demoted_second_parent_reaches_the_prompt():
     그렇게 보존된 정보가 질문 프롬프트까지 실제로 도달하는지 본다 —
     도달하지 않으면 '정보를 보존한다' 가 말뿐이 된다.
     """
-    from chuckchuck.f07_graph import build_graph
+    from engine.f07_graph import build_graph
 
     payload = json.dumps({
         "nodes": [
@@ -754,7 +754,7 @@ def test_demoted_second_parent_reaches_the_prompt():
 
 def test_neighbors_capped_with_visible_count():
     """이웃이 상한을 넘으면 조용히 자르지 않고 '외 N개' 로 알린다."""
-    from chuckchuck.f08_questions import NEIGHBOR_MAX
+    from engine.f08_questions import NEIGHBOR_MAX
 
     n = NEIGHBOR_MAX + 3
     nodes = [ConceptNode(id="hub", label="허브", slide_nos=[1], weight=1.0)]
@@ -792,7 +792,7 @@ def test_question_prompt_carries_path_and_speech():
 
 
 def test_speech_excerpt_clipped():
-    from chuckchuck.f08_questions import SPEECH_EXCERPT_MAX
+    from engine.f08_questions import SPEECH_EXCERPT_MAX
 
     transcript = Transcript(
         full_text="",
@@ -899,7 +899,7 @@ def test_골자가_왕복해도_남는다():
 
 def test_골자_요청이_프롬프트_스키마에_들어간다():
     """출력 스키마에 없으면 LLM 이 낼 이유가 없다."""
-    from chuckchuck.f08_questions import QUESTION_SYSTEM_PROMPT
+    from engine.f08_questions import QUESTION_SYSTEM_PROMPT
 
     assert "answer_gist" in QUESTION_SYSTEM_PROMPT
 
@@ -955,7 +955,7 @@ def test_구획이_없으면_전부_본론으로_보고_weight_순이다():
 
 def test_여러_구획에_걸치면_가장_앞선_구획으로_본다():
     """한 장이라도 본론에서 다뤘으면 물어볼 거리가 있다."""
-    from chuckchuck.f08_questions import _role_rank_of
+    from engine.f08_questions import _role_rank_of
 
     node = ConceptNode(id="x", label="x", slide_nos=[1, 2], weight=1.0)
     graph = ConceptGraph(
@@ -970,7 +970,7 @@ def test_여러_구획에_걸치면_가장_앞선_구획으로_본다():
 
 def test_핵심_주장은_표지_요약_장에_있어도_본론으로_본다():
     """10-02 질문 코치 벤치: 「결론부터」 요약 장의 주장이 intro 로 밀려 후보 창에서 잘렸다."""
-    from chuckchuck.f08_questions import _role_rank_of
+    from engine.f08_questions import _role_rank_of
 
     sections = [Section(name="도입", slide_role="intro", slide_nos=[1, 2]), Section(name="본론", slide_role="body", slide_nos=[3])]
     thesis = ConceptNode(id="t", label="격차는 행동에서 만들어진다", slide_nos=[1, 2], weight=0.7, kind="thesis")
@@ -982,8 +982,8 @@ def test_핵심_주장은_표지_요약_장에_있어도_본론으로_본다():
 
 def test_주장_노드의_함정은_전제_줄이_그_주장의_낱말을_불러야_한다():
     """10-02 질문 코치 벤치: 주장 자리에 같은 장의 다른 수치(「상위 2개가 전체의 58%」)를 뒤집은 함정이 붙어 주장을 안 물었다."""
-    from chuckchuck.contracts import TrapPremise
-    from chuckchuck.f08_questions import _trap_owned
+    from engine.contracts import TrapPremise
+    from engine.f08_questions import _trap_owned
 
     label = "다섯 요인 중 종목 선정 능력에 해당하는 항목은 하나도 없다"
     other = TrapPremise(kind="number", premise="상위 2개가 전체의 46%", fact="상위 2개가 전체의 58%", slide_no=5)
@@ -1070,7 +1070,7 @@ def test_중요한데_설명이_짧았던_개념은_under_spoken():
 
 
 def test_격차가_임계_이하면_under_spoken_이_아니다():
-    from chuckchuck.contracts import QA_UNDER_SPOKEN_GAP
+    from engine.contracts import QA_UNDER_SPOKEN_GAP
 
     graph = make_graph()
     # doc_weight 는 make_graph 에서 c2=0.99. 임계보다 조금 덜 벌린다.
@@ -1247,7 +1247,7 @@ def test_발화에만_나온_개념도_질문_후보가_된다():
 
 def test_합성_노드는_접두사로_그래프_노드와_구분된다():
     """리포트가 이 접두사로 개념 판정과 발화 개념을 갈라 본다."""
-    from chuckchuck.f08_questions import EXTRA_ID_PREFIX
+    from engine.f08_questions import EXTRA_ID_PREFIX
 
     graph = make_graph()
     alignment = make_alignment({}, graph, extras=[("온도", "인용", None)])
@@ -1279,7 +1279,7 @@ def test_발화_개념은_자료_비중보다_앞이다():
 
 
 def test_발화_개념은_상한까지만_올라온다():
-    from chuckchuck.contracts import QA_EXTRA_MAX
+    from engine.contracts import QA_EXTRA_MAX
 
     graph = make_graph()
     alignment = make_alignment(
@@ -1300,7 +1300,7 @@ def test_빈_라벨과_중복_발화_개념은_버려진다():
 
 def test_발화_개념은_인용을_요약으로_들고_온다():
     """질문 문장을 쓸 재료다. 비면 사전식 정의 질문밖에 안 나온다."""
-    from chuckchuck.f08_questions import _extra_nodes
+    from engine.f08_questions import _extra_nodes
 
     alignment = make_alignment({}, make_graph(), extras=[("온도", "온도를 낮추면…", 4)])
     node = _extra_nodes(alignment)[0]
@@ -1319,8 +1319,8 @@ def test_정합_문서가_없으면_발화_개념도_없다():
 
 def test_fallback_hint_truncates_long_slide_list():
     """12장을 다 나열하면 좁혀 주기는커녕 아무 정보도 없다 — 2단(_hint_scope)과 같은 절단."""
-    from chuckchuck.contracts import ConceptNode, TriageMark
-    from chuckchuck.f08_questions import HINT_SLIDE_MAX, _fallback_text
+    from engine.contracts import ConceptNode, TriageMark
+    from engine.f08_questions import HINT_SLIDE_MAX, _fallback_text
 
     node = ConceptNode(id="c1", label="개념", slide_nos=list(range(1, 13)),
                        summary="요약", weight=1.0, parent_id=None, depth=1)
@@ -1332,8 +1332,8 @@ def test_fallback_hint_truncates_long_slide_list():
 
 def test_trap_fallback_gist_corrects_the_premise():
     """trap 질문의 정답은 전제를 바로잡는 것 — 요약만 돌려주면 질문과 어긋난다."""
-    from chuckchuck.contracts import ConceptNode
-    from chuckchuck.f08_questions import _fallback_gist
+    from engine.contracts import ConceptNode
+    from engine.f08_questions import _fallback_gist
 
     node = ConceptNode(id="c1", label="개념", slide_nos=[3], summary="자료 요약",
                        weight=1.0, parent_id=None, depth=1)
@@ -1383,7 +1383,7 @@ def test_question_asking_about_our_arrangement_falls_back():
 
 def test_material_words_that_look_like_scaffold_survive():
     """자료가 실제로 쓰는 말('정렬'·'경로')까지 막으면 안 된다 — 인용 꼴만 잡는다."""
-    from chuckchuck.f08_questions import _cites_scaffold
+    from engine.f08_questions import _cites_scaffold
 
     assert not _cites_scaffold("정렬 방식이 표현 학습에 어떤 영향을 주나요?")
     assert not _cites_scaffold("최단 경로 알고리즘을 왜 골랐나요?")
@@ -1467,7 +1467,7 @@ def test_missing_severity_follows_doc_weight():
     개념을 안 말한 것도 핵심을 안 말한 것과 같은 등급이었다 — 질문 코치가
     사소한 개념부터 캐물었다.
     """
-    from chuckchuck.f08_questions import _fallback_severity, MINOR_WEIGHT
+    from engine.f08_questions import _fallback_severity, MINOR_WEIGHT
 
     assert _fallback_severity("missing", 0.9) == 1                   # 자료의 핵심
     assert _fallback_severity("missing", MINOR_WEIGHT - 0.01) == 2   # 자료가 스친 개념
@@ -1480,8 +1480,8 @@ def test_missing_severity_follows_doc_weight():
 # A · 골자 요소 쪼개기 — F-09 가 요소별로 채점할 체크리스트를 여기서 만든다
 # ---------------------------------------------------------------------------
 
-from chuckchuck.contracts import QA_GIST_PARTS_MAX               # noqa: E402
-from chuckchuck.f08_questions import QUESTION_SYSTEM_PROMPT      # noqa: E402
+from engine.contracts import QA_GIST_PARTS_MAX               # noqa: E402
+from engine.f08_questions import QUESTION_SYSTEM_PROMPT      # noqa: E402
 
 
 def _first(doc: QuestionDoc):
@@ -1580,7 +1580,7 @@ def test_llm_parts_on_a_single_ask_question_are_dropped():
 def test_arrangement_angle_from_triage_is_dropped():
     """벤치 캐시 yield_gap: 1차 심사가 프롬프트 예시 각도 「왜 다른 정렬 방식 대신 이걸 골랐는지」 를 14개 개념 모두에 베꼈고,
     질문 LLM 이 그대로 「…왜 다른 정렬 방식 대신 이걸 골랐는지 설명해 주세요.」 를 썼다 (질문 규칙 3-1 위반)."""
-    from chuckchuck.f08_questions import TRIAGE_SYSTEM_PROMPT, _usable_angle
+    from engine.f08_questions import TRIAGE_SYSTEM_PROMPT, _usable_angle
 
     assert _usable_angle("왜 다른 정렬 방식 대신 이걸 골랐는지") == ""
     assert _usable_angle("왜 이렇게 분류했는지") == ""
@@ -1607,8 +1607,8 @@ def test_arrangement_angle_from_triage_is_dropped():
 # 여기서 검사하는 것은 «근거 장 본문만 · 상한 안에서 · 안 주면 예전 그대로» 다.
 # ---------------------------------------------------------------------------
 
-from chuckchuck.contracts import Slide, SlideBlock, SlideDoc      # noqa: E402
-from chuckchuck import f08_questions as f08                       # noqa: E402
+from engine.contracts import Slide, SlideBlock, SlideDoc      # noqa: E402
+from engine import f08_questions as f08                       # noqa: E402
 
 
 def make_slidedoc(n: int = 3) -> SlideDoc:
@@ -1742,7 +1742,7 @@ def test_korean_conjunctive_endings_split_the_gist():
     로 와서 하나도 안 갈렸다 — 질문은 둘을 묻는다고 잡히는데 요소가 안 생겨서
     백스톱이 통째로 죽어 있었다.
     """
-    from chuckchuck.f08_questions import _split_gist_parts
+    from engine.f08_questions import _split_gist_parts
 
     parts = _split_gist_parts("카페인이 가장 큰 요인이며, 이는 각성이 오래 가기 때문입니다")
     assert len(parts) == 2
@@ -1751,7 +1751,7 @@ def test_korean_conjunctive_endings_split_the_gist():
 
 def test_a_bare_comma_still_does_not_split_a_single_element_gist():
     """한 요소 안의 수식절까지 자르면 하나를 물은 질문이 둘로 둔갑한다."""
-    from chuckchuck.f08_questions import _split_gist_parts
+    from engine.f08_questions import _split_gist_parts
 
     assert _split_gist_parts("신체가 회복되고, 초반에 몰려 있는 깊은 수면") == []
 
@@ -1823,7 +1823,7 @@ def test_자식이_뽑혀도_부모는_밀리지_않고_형제는_층_안에서_
 
 def test_후보_창은_위에서부터_찬다(monkeypatch):
     """CANDIDATE_LIMIT 가 좁아도 루트가 weight 에 밀려 triage 전에 잘리지 않는다."""
-    from chuckchuck import f08_questions as f08
+    from engine import f08_questions as f08
     monkeypatch.setattr(f08, "CANDIDATE_LIMIT", 2)
     ids = _ids(_tree_graph())
     assert ids == ["root", "other"]
@@ -1831,7 +1831,7 @@ def test_후보_창은_위에서부터_찬다(monkeypatch):
 
 def test_발표자를_3인칭으로_부르지_않는다():
     """질문은 발표자 본인에게 하는 말이다 (2026-09-28 실측: 「…발표자는 어떻게 설명했나요?」)."""
-    from chuckchuck.f08_questions import _second_person
+    from engine.f08_questions import _second_person
     assert _second_person("이 공식을 발표자는 어떻게 설명했나요?") == "이 공식을 어떻게 설명했나요?"
     assert _second_person("발표자가 제시한 기준은 무엇인가요?") == "발표에서 제시한 기준은 무엇인가요?"
     # 「발표자」 가 자료의 개념이면 그대로 둔다 — 뒤에 발표 행위 동사가 없다
@@ -1846,7 +1846,7 @@ def test_발표자를_3인칭으로_부르지_않는다():
 # ---------------------------------------------------------------------------
 
 def _mix(graph, track, **kw):
-    from chuckchuck.f08_questions import _pick_marks
+    from engine.f08_questions import _pick_marks
     depth_of = {n.id: n.depth for n in graph.nodes}
     picked, _ = _pick_marks(make_triage(graph, **kw).marks, track, depth_of, kw.get("stalled"))
     return [m.node_id for m in picked][: {"1": 1, "5": 3, "10": 7}[track]]
@@ -1873,7 +1873,7 @@ def test_1분은_주제_하나다():
 
 
 def test_깊이를_모르면_예전처럼_순위대로다():
-    from chuckchuck.f08_questions import _pick_marks
+    from engine.f08_questions import _pick_marks
     graph = _tree_graph()
     marks = make_triage(graph).marks
     picked, _ = _pick_marks(marks, "5")
@@ -1885,7 +1885,7 @@ def test_깊이를_모르면_예전처럼_순위대로다():
 # ---------------------------------------------------------------------------
 
 def _pace(actual: dict[int, float], weight: dict[int, float] | None = None):
-    from chuckchuck.contracts import PaceDoc, SlidePace
+    from engine.contracts import PaceDoc, SlidePace
     return PaceDoc(slides=[
         SlidePace(slide_no=no, importance_weight=(weight or {}).get(no, 1.0),
                   importance="core" if (weight or {}).get(no, 1.0) >= 1.0 else "support",
@@ -1903,7 +1903,7 @@ def test_시간을_크게_덜_쓴_장의_개념은_덜_말함이_된다():
 
 
 def test_결론_장이_짧은_것은_약점이_아니다():
-    from chuckchuck.f08_questions import _rushed_slides
+    from engine.f08_questions import _rushed_slides
     graph = _tree_graph()
     graph.sections = [Section(name="본론", slide_role="body", slide_nos=[1, 2, 3, 4]),
                       Section(name="결론", slide_role="conclusion", slide_nos=[5])]
@@ -1911,7 +1911,7 @@ def test_결론_장이_짧은_것은_약점이_아니다():
 
 
 def test_덜_중요한_장이_짧은_것은_약점이_아니다():
-    from chuckchuck.f08_questions import _rushed_slides
+    from engine.f08_questions import _rushed_slides
     graph = _tree_graph()
     pace = _pace({1: 60, 2: 5, 3: 60, 4: 60, 5: 60}, weight={2: 0.35})
     assert _rushed_slides(pace, graph) == {}
@@ -1928,7 +1928,7 @@ def test_같은_근거면_시간을_덜_쓴_장의_개념이_먼저다():
 
 def test_다른_대상_개념의_이름만_부르는_질문을_가려낸다():
     """10-02 질문 코치 벤치: 「사전 규칙」 자리에 옆 자리 「예외 없는 단조 감소」 질문이 그대로 들어갔다."""
-    from chuckchuck.f08_questions import _names_other_target
+    from engine.f08_questions import _names_other_target
 
     rule = ConceptNode(id="r", label="사전에 정해둔 규칙", slide_nos=[11])
     mono = ConceptNode(id="m", label="예외 없는 단조 감소", slide_nos=[6])
@@ -1944,7 +1944,7 @@ def test_다른_대상_개념의_이름만_부르는_질문을_가려낸다():
 
 def test_물음도_요청도_아닌_문장은_질문으로_내보내지_않는다():
     """10-02 질문 코치 벤치: 개념 요약이 question 칸에 그대로 와서 서술문이 질문으로 떴다."""
-    from chuckchuck.f08_questions import _fit_question
+    from engine.f08_questions import _fit_question
 
     assert _fit_question("격차는 종목 선택이 아니라 행동에서 만들어진다 / 실력의 문제가 아니라 행동의 문제다") == ""
     assert _fit_question("상위 그룹을 구분한 것은 판단력이 아니라 사전에 정해둔 규칙이었다") == ""
@@ -1968,8 +1968,8 @@ def test_모범답의_절이_자료에_없으면_질문도_자료가_답하는_�
 
 def test_인용을_숨긴_근거_묶음도_모르겠어요_보기_쌍은_남긴다():
     """10-02 질문 코치 벤치 D: 인용이 곧 답인 질문은 근거 칸 인용을 숨기는데, 보기 쌍까지 버려 「모르겠어요」 가 두 갈래 보기를 못 냈다."""
-    from chuckchuck._reason import ContrastChoice
-    from chuckchuck.f08_questions import _basis_of
+    from engine._reason import ContrastChoice
+    from engine.f08_questions import _basis_of
 
     line = "결론부터: 격차는 종목 선택이 아니라 행동에서 만들어진다"
     choice = ContrastChoice("행동", "종목 선택", 2, line, "line")

@@ -17,16 +17,16 @@ import json
 
 import pytest
 
-from chuckchuck import rubric_v3
-from chuckchuck.contracts import RubricItemScore, RubricScore, Transcript, Word
-from chuckchuck.f13_score import PresentationScore, ScoreComponent
-from chuckchuck.f14_rubric import (
+from engine import rubric_v3
+from engine.contracts import RubricItemScore, RubricScore, Transcript, Word
+from engine.f13_score import PresentationScore, ScoreComponent
+from engine.f14_rubric import (
     _aggregate,
     _normalize_llm,
     from_legacy_score,
     score_rubric,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 SITUATIONS = tuple(rubric_v3.SITUATIONS)
 
@@ -84,7 +84,7 @@ def test_39개_항목이_전부_정의됐다():
 
 
 def test_결정_채점기가_채점표의_det_항목과_정확히_맞는다():
-    from chuckchuck._rubric_det import DET_SCORERS
+    from engine._rubric_det import DET_SCORERS
 
     assert {i.no for i in rubric_v3.ITEMS if i.source == "det"} == set(DET_SCORERS)
 

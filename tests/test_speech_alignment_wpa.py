@@ -18,9 +18,9 @@ import json
 
 import pytest
 
-from chuckchuck._rubric_det import Evidence, faults, score_item
-from chuckchuck._spoken import skip_cue, spoken_numbers, split_sentences, utterances
-from chuckchuck.contracts import (
+from engine._rubric_det import Evidence, faults, score_item
+from engine._spoken import skip_cue, spoken_numbers, split_sentences, utterances
+from engine.contracts import (
     AlignmentDoc,
     ConceptDoc,
     ConceptGraph,
@@ -37,11 +37,11 @@ from chuckchuck.contracts import (
     Transcript,
     Word,
 )
-from chuckchuck.f11_align import align_speech
-from chuckchuck.f14_rubric import CAP_FIRST, CAP_STEP, score_rubric
-from chuckchuck.f17_pace import analyze_pace
-from chuckchuck.f19_report import compose_report
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f11_align import align_speech
+from engine.f14_rubric import CAP_FIRST, CAP_STEP, score_rubric
+from engine.f17_pace import analyze_pace
+from engine.f19_report import compose_report
+from engine.providers.llm_base import LLMProvider
 
 # ---------------------------------------------------------------------------
 # 재료
@@ -435,7 +435,7 @@ def test_unrelated_talk_rubric_skips_speech_items_and_report_does_not_praise_con
         assert got.item(no).status == "unmeasured" and "발표가 아니라서" in got.item(no).note, no
     assert {i.no for i in got.items if i.status == "scored"} <= {34, 35, 36, 37, 38, 39}   # 남는 건 자료만 보는 항목
     # 녹음으로 재는 것을 빼면 자료 항목만 남아 점수가 오른다 — 「이 자료의 발표」 로는 가장 낮은 상한 (09-30: 38 → 81 「A」 였다)
-    from chuckchuck.f14_rubric import CAP_FLOOR
+    from engine.f14_rubric import CAP_FLOOR
     assert got.cap == CAP_FLOOR and got.score <= CAP_FLOOR and [f.kind for f in got.faults] == ["unrelated_speech"]
     assert "다른 발표" in got.note and "말하기 습관만 봤" not in got.note
 
@@ -453,7 +453,7 @@ def test_unrelated_talk_rubric_skips_speech_items_and_report_does_not_praise_con
                               ensure_ascii=False)
 
     llm = Praise()
-    rep = compose_report(PaceDoc(), __import__("chuckchuck").contracts.HabitDoc(), rubric=got, llm=llm)
+    rep = compose_report(PaceDoc(), __import__("engine").contracts.HabitDoc(), rubric=got, llm=llm)
     assert llm.calls == 0                               # 할 말이 「다시 올려 달라」 뿐이라 LLM 을 부르지 않는다
     assert "다른 발표" in rep.one_liner and "꼼꼼히" not in rep.one_liner
     assert rep.strengths == []                          # 「말 속도가 일정해요」 도 이 발표의 값이 아니다
@@ -462,7 +462,7 @@ def test_unrelated_talk_rubric_skips_speech_items_and_report_does_not_praise_con
     assert "재지 않았어요" in rep.pace_summary and "자/분" not in rep.pace_summary
     assert "보지 않았어요" in rep.habit_summary
     # 채점표가 폴백이라 결함 칸이 비어도 정합을 같이 보내면 알아본다
-    assert compose_report(PaceDoc(), __import__("chuckchuck").contracts.HabitDoc(), rubric=RubricScore(score=12),
+    assert compose_report(PaceDoc(), __import__("engine").contracts.HabitDoc(), rubric=RubricScore(score=12),
                           alignment=doc, llm=llm).strengths == [] and llm.calls == 0
 
 
@@ -477,7 +477,7 @@ def test_report_leads_with_faults_and_drops_consistency_praise():
             return json.dumps({"one_liner": "핵심은 잘 전달했어요", "strengths": ["발표 내용이 자료와 일치해요", "목소리가 또렷해요"],
                                "weaknesses": ["속도가 조금 빨라요"], "actions": ["천천히 말해 보세요"]}, ensure_ascii=False)
 
-    from chuckchuck.contracts import HabitDoc
+    from engine.contracts import HabitDoc
     rep = compose_report(PaceDoc(), HabitDoc(), rubric=got, llm=Rosy())
     assert rep.one_liner.startswith("자료와 다르게 말한 곳이") and "3장" in rep.one_liner
     assert rep.strengths == ["목소리가 또렷해요"]
@@ -490,7 +490,7 @@ def _half_length_pace() -> PaceDoc:
     """목표 10분에 5분만 — 네 장 모두 권장의 딱 절반씩 (나눈 모양은 완벽)."""
     slides = [SlidePace(slide_no=i, importance="core", actual_sec=75.0, recommended_sec=150.0, delta_sec=-75.0,
                         status="short") for i in range(1, 5)]
-    from chuckchuck.contracts import SectionAlloc
+    from engine.contracts import SectionAlloc
     sections = [SectionAlloc("핵심 장", [1, 2, 3, 4], recommended_sec=600.0, actual_sec=300.0, status="short")]
     return PaceDoc(target_sec=600.0, actual_sec=300.0, slides=slides, sections=sections)
 
@@ -566,8 +566,8 @@ def test_utterances_stay_inside_segments_and_take_times_from_words():
 # --- 흐름(FlowDiff) 도 같은 말을 한다 -------------------------------------------------
 
 def test_flow_is_empty_for_unrelated_talk():
-    from chuckchuck.contracts import ConceptEdge
-    from chuckchuck.f11_flow import build_flow_diff
+    from engine.contracts import ConceptEdge
+    from engine.f11_flow import build_flow_diff
     g = ConceptGraph("deck.pptx", 4, nodes=LIB_G.nodes,
                      edges=[ConceptEdge("visitors", "night", "parent"), ConceptEdge("reading", "space", "relates")])
     sents = split_sentences(SLEEP_WORDS)
@@ -579,8 +579,8 @@ def test_flow_is_empty_for_unrelated_talk():
 
 
 def test_flow_does_not_blame_missing_links_on_llm_failure():
-    from chuckchuck.contracts import ConceptEdge
-    from chuckchuck.f11_flow import build_flow_diff
+    from engine.contracts import ConceptEdge
+    from engine.f11_flow import build_flow_diff
     g = ConceptGraph("deck.pptx", 4, nodes=LIB_G.nodes, edges=[ConceptEdge("visitors", "reading", "relates")])
     t = talk((1, "연간 방문자가 줄었어요."), (2, "독서 경험이 중요해요."), (3, "야간 개방을 했어요."), (4, "공간을 바꿔요."))
     doc = align_speech(g, t, llm=LLM([]), slide_doc=LIB)

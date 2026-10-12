@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from chuckchuck import Context, analyze_pace, compose_report, extract_habits
-from chuckchuck.contracts import ConceptDoc, RubricScore, Transcript
-from chuckchuck.providers.llm_base import LLMProvider
+from engine import Context, analyze_pace, compose_report, extract_habits
+from engine.contracts import ConceptDoc, RubricScore, Transcript
+from engine.providers.llm_base import LLMProvider
 
 ROOT = Path(__file__).resolve().parent.parent
 

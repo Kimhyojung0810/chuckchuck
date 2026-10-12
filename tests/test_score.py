@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import pytest
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     AlignmentDoc,
     AlignmentItem,
     AlignmentSummary,
     FlowDiff,
 )
-from chuckchuck.f13_score import (
+from engine.f13_score import (
     MAX_CONTRADICTION_PENALTY,
     score_presentation,
 )

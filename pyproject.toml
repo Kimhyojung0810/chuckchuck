@@ -4,13 +4,13 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "chuckchuck"
+name = "engine"
 version = "0.1.0"
 description = "척척발표 마이크로 모듈 (F-01/F-03/F-04/F-05/F-06)"
 requires-python = ">=3.10"
 dependencies = ["requests>=2.31.0"]
 
-# 코어(chuckchuck/)는 requests 하나로 돈다. 서버는 그 위의 선택 계층이라 분리한다.
+# 코어(engine/)는 requests 하나로 돈다. 서버는 그 위의 선택 계층이라 분리한다.
 # 전체 개발 환경은 requirements.txt 가 한 번에 깔아 준다.
 [project.optional-dependencies]
 server = [

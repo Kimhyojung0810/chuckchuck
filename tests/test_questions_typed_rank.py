@@ -3,8 +3,8 @@
 옛 실패: 핵심 주장 바로 밑 잎 개념(차트 범례 「시장지수」 「적립식」)이 핵심 요인과 같은 깊이라 weight 순으로 후보 창을 채웠고,
 기둥 주장(「…사전에 정해둔 규칙이었다」)은 후보에도 없었다. 후보 순서를 고쳐도 `_rerank` 가 옛 키(깊이 → severity)로 되돌렸다.
 """
-from chuckchuck import f08_questions as F8
-from chuckchuck.contracts import ConceptGraph, ConceptNode, ConceptEdge, Section, TriageMark
+from engine import f08_questions as F8
+from engine.contracts import ConceptGraph, ConceptNode, ConceptEdge, Section, TriageMark
 
 
 def _n(i, label, kind, parent, slides, w=0.5):

@@ -42,7 +42,7 @@ import time
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     MEMORY_SESSIONS_MAX,
     SESSION_ARTIFACT_KINDS,
     SESSION_CACHE_KINDS,

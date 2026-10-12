@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import json
 
-from chuckchuck import _typed_graph as TG
-from chuckchuck.contracts import ConceptDoc, SlideConcepts, SlideDoc, Transcript
-from chuckchuck.f06_concepts import _typed_slide, headline, is_claim_sentence
-from chuckchuck.f07_graph import build_graph
-from chuckchuck.providers.llm_base import LLMProvider
+from engine import _typed_graph as TG
+from engine.contracts import ConceptDoc, SlideConcepts, SlideDoc, Transcript
+from engine.f06_concepts import _typed_slide, headline, is_claim_sentence
+from engine.f07_graph import build_graph
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -245,7 +245,7 @@ def test_old_untyped_doc_is_not_typed():
 
 
 def test_claim_nodes_are_counted_as_mentioned_by_sentence():
-    from chuckchuck.f11_align import _speech_bases
+    from engine.f11_align import _speech_bases
     g, _ = _graph({"thesis_from": "c1.1"})
     tr = Transcript.from_dict({"full_text": "세 가지 문제가 모두 공헌이익을 깎아요. 그래서 묶음 배송을 했습니다.",
                                "by_slide": [{"slide_no": 2, "start_sec": 0, "end_sec": 5,
@@ -263,7 +263,7 @@ def _sc(concepts, claims, of=None, evidence=()):
 
 
 def test_vote_keeps_majority_nodes_and_moves_minority_to_evidence():
-    from chuckchuck.f06_concepts import vote_slides
+    from engine.f06_concepts import vote_slides
     runs = [[_sc(["별점 구간: 구간", "리뷰 비중: 비중"], ["4.7은 품질이 아니라 수집 방식의 결과다"], {"리뷰 비중": "별점 구간"})],
             [_sc(["별점 구간: 구간", "리뷰 비중"], ["4.7은 품질이 아니라 수집 방식의 결과다", "덧붙인 주장이다"], {"리뷰 비중": "별점 구간"})],
             [_sc(["별점 구간별 리뷰 비중: 한 덩어리"], ["4.7은 품질이 아니라 수집 방식의 결과다"])]]
@@ -285,7 +285,7 @@ def test_vote_structure_takes_majority_thesis_and_links():
 
 
 def test_extract_concepts_votes_three_times_in_parallel(monkeypatch):
-    from chuckchuck import f06_concepts as F6
+    from engine import f06_concepts as F6
     monkeypatch.setenv("CHUCKCHUCK_CONCEPT_VOTES", "3")
     replies = iter([{"slides": [{"slide_no": 1, "concepts": ["공헌이익: 이익", "배송비"]}]},
                     {"slides": [{"slide_no": 1, "concepts": ["공헌이익: 이익"]}]},
@@ -315,7 +315,7 @@ def test_f06_drops_evidence_and_descriptions_not_in_source():
 
 def test_differently_named_same_concept_is_merged(monkeypatch):
     """10-02: 「매매 회전율」(2장) 「연간 회전율」(6장)이 따로 노드였다 — 임베딩 후보를 LLM 이 같다고 하면 한 노드."""
-    from chuckchuck.providers import embed_upstage
+    from engine.providers import embed_upstage
     doc = ConceptDoc(file_name="d", total_slides=2, slides=[
         SlideConcepts(slide_no=1, title="요약", topic="", concepts=["매매 회전율: 사고판 횟수"], raw_text="매매 회전율이 높다",
                       title_kind="topic", claims=["매매 회전율이 높을수록 수익률이 낮다"]),

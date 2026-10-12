@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     ConceptDoc,
     Context,
     HabitDoc,
@@ -23,9 +23,9 @@ from chuckchuck.contracts import (
     Transcript,
     Word,
 )
-from chuckchuck.f17_pace import analyze_pace
-from chuckchuck.f19_report import _checked, _facts_block, _humanize, compose_report
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f17_pace import analyze_pace
+from engine.f19_report import _checked, _facts_block, _humanize, compose_report
+from engine.providers.llm_base import LLMProvider
 
 # ---------------------------------------------------------------------------
 # 재료

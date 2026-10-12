@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     ConceptGraph,
     ConceptNode,
     Context,
@@ -16,10 +16,10 @@ from chuckchuck.contracts import (
     TriageMark,
     memory_key,
 )
-from chuckchuck.f08_questions import MEMORY_SYSTEM_ADDENDUM, QUESTION_SYSTEM_PROMPT, _build_question_prompt, _stalled_first, build_questions
-from chuckchuck.f09_judge import _build_user_prompt, coach_stuck, judge_answer
-from chuckchuck.f25_memory import build_memory, link_memory
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f08_questions import MEMORY_SYSTEM_ADDENDUM, QUESTION_SYSTEM_PROMPT, _build_question_prompt, _stalled_first, build_questions
+from engine.f09_judge import _build_user_prompt, coach_stuck, judge_answer
+from engine.f25_memory import build_memory, link_memory
+from engine.providers.llm_base import LLMProvider
 from demo.session_archive import SessionArchive
 
 
@@ -275,7 +275,7 @@ def test_memory_doc_은_동의한_세션의_아티팩트로만_남는다(archive
 
 
 def test_이름_잇기는_조사_하나_차이를_넘고_다른_개념은_안_잇는다():
-    from chuckchuck.contracts import memory_similarity
+    from engine.contracts import memory_similarity
     assert memory_similarity(memory_key("알림의 주의 비용"), memory_key("알림 주의 비용")) >= 0.6
     assert memory_similarity(memory_key("Attention residue"), memory_key("attention residue task")) >= 0.6
     assert memory_similarity(memory_key("환경 설계"), memory_key("환경 요인")) < 0.6
@@ -284,7 +284,7 @@ def test_이름_잇기는_조사_하나_차이를_넘고_다른_개념은_안_�
 
 def test_good_으로_닫은_루트는_주제_자리를_맡지_않고_뒤로_간다():
     """10-02 질문 코치 벤치 시나리오 E: 주제 자리가 깊이만 보고 이미 이해한 루트를 또 첫 질문으로 세웠다."""
-    from chuckchuck.f08_questions import _pick_marks
+    from engine.f08_questions import _pick_marks
 
     ms = [TriageMark(node_id=n, rank=i, source="core_weight") for i, n in enumerate(["root", "a", "b", "c"], start=1)]
     depth = {"root": 1, "a": 2, "b": 2, "c": 3}

@@ -112,7 +112,7 @@ def run(argv: list[str]) -> int:
     ap.add_argument("--out", type=Path, help="출력 경로(.svg). 같은 이름의 .md 도 만든다")
     ns = ap.parse_args(argv)
     kind = "graph" if ns.graph else "qa"
-    ledger = C.ROOT / ("docs/GRAPH_BENCH_LEDGER.md" if ns.graph else "docs/QA_BENCH_LEDGER.md")
+    ledger = C.ROOT / ("exports/ledgers/GRAPH_BENCH_LEDGER.md" if ns.graph else "exports/ledgers/QA_BENCH_LEDGER.md")
     rows = parse_rows(ledger.read_text(encoding="utf-8"))
     metrics = [m.strip() for m in ns.metrics.split(",")] if ns.metrics else DEFAULT_METRICS[kind]
     out = ns.out or C.ROOT / "exports/ledger_chart" / f"{kind}_{dt.date.today():%Y%m%d}.svg"

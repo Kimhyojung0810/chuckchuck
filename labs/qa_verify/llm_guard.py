@@ -34,14 +34,14 @@ def count_calls(path: Path | None) -> int:
 
 
 def _caller() -> str:
-    """이 호출을 부른 기능 모듈 (chuckchuck.fXX · demo.bridge · 하네스) — 기록용."""
+    """이 호출을 부른 기능 모듈 (engine.fXX · demo.bridge · 하네스) — 기록용."""
     f = sys._getframe(2)
     seen = []
     while f is not None:
         mod = f.f_globals.get("__name__", "")
-        if mod.startswith(("chuckchuck.f", "chuckchuck._", "demo.", "labs.")) and "providers" not in mod:
+        if mod.startswith(("engine.f", "engine._", "demo.", "labs.")) and "providers" not in mod:
             seen.append(f"{mod}.{f.f_code.co_name}")
-            if mod.startswith("chuckchuck.f") or mod.startswith("labs."):
+            if mod.startswith("engine.f") or mod.startswith("labs."):
                 break
         f = f.f_back
     return seen[-1] if seen else "?"
@@ -52,7 +52,7 @@ def install(mode: str, calls_path: str | Path | None = None, budget: int | None 
     mode: "forbid" | "count". 감싼 클래스 이름 목록을 돌려준다.
     count 면 calls_path 에 호출마다 {"ts","stage","caller","sec","err"} 한 줄. budget 을 넘으면 부르기 **전에** BudgetExceeded.
     """
-    from chuckchuck.providers import llm_base, llm_impl
+    from engine.providers import llm_base, llm_impl
 
     path = Path(calls_path) if calls_path else None
     wrapped = []

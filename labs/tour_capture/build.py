@@ -1,5 +1,5 @@
 """
-녹화본 → 투어 파일 — labs/tour_capture/out/recordings/<덱>.json 을 docs/booth-mobile/tour.schema.json 모양으로 옮긴다 (과금 · 브리지 없음).
+녹화본 → 투어 파일 — labs/tour_capture/out/recordings/<덱>.json 을 demo/schema/booth-mobile/tour.schema.json 모양으로 옮긴다 (과금 · 브리지 없음).
 
     /home/yehschuck/project/chuckchuck/.venv/bin/python labs/tour_capture/build.py            # 녹화본 전부 → data/tour/<덱>.json + index.json
     /home/yehschuck/project/chuckchuck/.venv/bin/python labs/tour_capture/build.py --check    # 쓰지 않고 지금 파일과 같은지만 (다시 만들 수 있는가)

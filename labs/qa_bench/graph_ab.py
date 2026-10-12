@@ -34,10 +34,10 @@ sys.path.insert(0, str(HERE))
 
 import run as B  # noqa: E402 — load_dotenv·예산·호출 기록을 그대로 쓴다
 import metrics as M  # noqa: E402
-from chuckchuck import _graph_items as GI  # noqa: E402
-from chuckchuck._claim_rules import same_concept  # noqa: E402
-from chuckchuck.contracts import ConceptDoc, ConceptGraph, Context, SlideDoc  # noqa: E402
-from chuckchuck.providers.llm_base import LLMProvider  # noqa: E402
+from engine import _graph_items as GI  # noqa: E402
+from engine._claim_rules import same_concept  # noqa: E402
+from engine.contracts import ConceptDoc, ConceptGraph, Context, SlideDoc  # noqa: E402
+from engine.providers.llm_base import LLMProvider  # noqa: E402
 
 AB = B.OUT / "_graph_ab"
 BASE_REV = "ecf9a16"
@@ -62,8 +62,8 @@ def _load(name: str, path: Path):
 def _base_module(stem: str):
     AB.mkdir(parents=True, exist_ok=True)
     path = AB / f"_base_{stem}.py"
-    path.write_bytes(subprocess.check_output(["git", "show", f"{BASE_REV}:chuckchuck/{stem}.py"], cwd=ROOT))
-    return _load(f"chuckchuck._ab_base_{stem}", path)
+    path.write_bytes(subprocess.check_output(["git", "show", f"{BASE_REV}:engine/{stem}.py"], cwd=ROOT))
+    return _load(f"engine._ab_base_{stem}", path)
 
 
 def c_prompt(prompt: str) -> str:
@@ -78,12 +78,12 @@ def c_prompt(prompt: str) -> str:
 
 def modules() -> dict[str, tuple]:
     f07_base, f26_base = _base_module("f07_graph"), _base_module("f26_claims")
-    f07_path, f26_path = ROOT / "chuckchuck" / "f07_graph.py", ROOT / "chuckchuck" / "f26_claims.py"
-    p0 = _load("chuckchuck._ab_new_f07_p0", f07_path)
+    f07_path, f26_path = ROOT / "engine" / "f07_graph.py", ROOT / "engine" / "f26_claims.py"
+    p0 = _load("engine._ab_new_f07_p0", f07_path)
     p0.SYSTEM_PROMPT = f07_base.SYSTEM_PROMPT
-    p1 = _load("chuckchuck._ab_new_f07_p1", f07_path)
+    p1 = _load("engine._ab_new_f07_p1", f07_path)
     p1.SYSTEM_PROMPT = c_prompt(f07_base.SYSTEM_PROMPT)
-    f26_new = _load("chuckchuck._ab_new_f26", f26_path)
+    f26_new = _load("engine._ab_new_f26", f26_path)
     return {"base": (f07_base, f26_base), "abd": (p0, f26_new), "abcd": (p1, f26_new)}
 
 
@@ -261,7 +261,7 @@ def stability(a: dict, b: dict) -> dict:
 
 
 def downstream(claims: dict, g: dict, sd: dict, truth: dict | None) -> dict:
-    from chuckchuck._probes import derive_probes
+    from engine._probes import derive_probes
 
     cm = M.claim_metrics(claims, sd, truth)
     probes = [p.to_dict() for p in derive_probes(ConceptGraph.from_dict(g), claims)]

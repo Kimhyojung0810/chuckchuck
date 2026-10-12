@@ -29,9 +29,9 @@ sys.path.insert(0, str(HERE))
 
 import run as B  # noqa: E402  (run.py 가 sys.path·.env 를 맞춘다)
 
-from chuckchuck import _grounding as grounding  # noqa: E402
-from chuckchuck import _traps as traps  # noqa: E402
-from chuckchuck.contracts import QA_TRACK_TRAPS, Question, SlideDoc, ConceptGraph  # noqa: E402
+from engine import _grounding as grounding  # noqa: E402
+from engine import _traps as traps  # noqa: E402
+from engine.contracts import QA_TRACK_TRAPS, Question, SlideDoc, ConceptGraph  # noqa: E402
 
 OUT = B.OUT / "traps_run.json"
 
@@ -77,7 +77,7 @@ def run_questions(run: B.DeckRun, track: str) -> dict | None:
     sd, graph, claims, triage = (B.read_json(d / f) for f in ("slide_doc.json", "graph.json", "claims.json", "triage.json"))
     if not (sd and graph and triage):
         return None
-    from chuckchuck import build_questions
+    from engine import build_questions
 
     t0 = time.time()
     doc = build_questions(graph, triage, track=track, slidedoc=sd, context=run.spec["context"], claims=claims,
@@ -92,8 +92,8 @@ KINDS = ("gist", "agree", "offtopic")
 
 def judge_one(run: B.DeckRun, q: dict, track: str, kinds: tuple[str, ...] = KINDS) -> list[dict]:
     """함정 질문 하나에 탐침 셋 — 골자 그대로(통과해야) · 전제 동의(통과 못 해야) · 무관한 답(wrong 이어야)."""
-    from chuckchuck import judge_answer
-    from chuckchuck.f09_judge import _TRAP_AGREED_REACT
+    from engine import judge_answer
+    from engine.f09_judge import _TRAP_AGREED_REACT
 
     d = run.dir
     sd, graph = B.read_json(d / "slide_doc.json"), B.read_json(d / "graph.json")

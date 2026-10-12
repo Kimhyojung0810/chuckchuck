@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from chuckchuck.contracts import SlideMark, Transcript
-from chuckchuck.f04_infer_marks import even_slide_marks
-from chuckchuck.f05_stt import split_by_slide
+from engine.contracts import SlideMark, Transcript
+from engine.f04_infer_marks import even_slide_marks
+from engine.f05_stt import split_by_slide
 from demo.bridge import _marks_are_live, _marks_look_even, _resegment_transcript
 from tests.test_infer_marks import DOC, speak
 

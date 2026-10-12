@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import json
 
-from chuckchuck import judge_answer
-from chuckchuck._probe_stance import RESTATE_REACT, restates_line
-from chuckchuck.contracts import ClaimQuote, Probe, Question, QuestionBasis, Slide, SlideBlock, SlideDoc, qa_passed
-from chuckchuck.providers.llm_base import LLMProvider
+from engine import judge_answer
+from engine._probe_stance import RESTATE_REACT, restates_line
+from engine.contracts import ClaimQuote, Probe, Question, QuestionBasis, Slide, SlideBlock, SlideDoc, qa_passed
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

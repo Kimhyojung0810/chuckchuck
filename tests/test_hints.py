@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from chuckchuck.contracts import QA_TEXT_MAX, QaJudgement, Question
-from chuckchuck.f08_questions import build_hint_ladder
+from engine.contracts import QA_TEXT_MAX, QaJudgement, Question
+from engine.f08_questions import build_hint_ladder
 
 
 def make_question(**kwargs) -> Question:

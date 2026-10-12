@@ -23,7 +23,7 @@ from tests.test_static_assets import RawHandler
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = bridge.DEMO_DIR
-DOCS = ROOT / "docs" / "booth-mobile"
+DOCS = ROOT / "demo" / "schema" / "booth-mobile"
 TOUR_SCHEMA = json.loads((DOCS / "tour.schema.json").read_text(encoding="utf-8"))
 TEAM_SCHEMA = json.loads((DOCS / "team.schema.json").read_text(encoding="utf-8"))
 INDEX_SCHEMA = json.loads((DOCS / "tour-index.schema.json").read_text(encoding="utf-8"))

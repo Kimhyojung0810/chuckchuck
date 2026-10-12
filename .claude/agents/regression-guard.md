@@ -14,7 +14,7 @@ model: inherit
 
 ```bash
 scripts/chk gate --scope worktree --json                      # 허용 목록 없이
-scripts/chk gate --scope worktree --json --allow chuckchuck/f08_questions.py chuckchuck/f09_judge.py   # 루프의 범위 검사
+scripts/chk gate --scope worktree --json --allow engine/f08_questions.py engine/f09_judge.py   # 루프의 범위 검사
 ```
 
 JSON 의 `ok` 와 `checks[]`(name · status · detail · lines) 를 그대로 옮긴다. 검사 항목:
@@ -23,7 +23,7 @@ JSON 의 `ok` 와 `checks[]`(name · status · detail · lines) 를 그대로 �
 2. **프론트 스모크** — `demo/YEHS_demo/js/*.js` 가 diff 에 있을 때만 `node tests/js/qa_live.smoke.mjs`.
 3. **캐시 버전** — css/js 가 바뀌면 `index.html` 의 그 자산 `?v=` 가 HEAD 와 달라야 한다. `f11_reveal.html` 이 바뀌면 `app.js` 의 리빌 `v=`.
 4. **비밀키** — diff 의 추가 줄에서 키 앞머리(up_·awf_·flp_·sk-·AKIA)·Bearer·`*_KEY=긴값`. `.env` 가 대상에 있으면 실패.
-5. **범위** — `--allow` 를 받았으면 `chuckchuck/ tests/ fixtures/ demo/ .env` 아래의 변경이 그 안에 있어야 한다.
+5. **범위** — `--allow` 를 받았으면 `engine/ tests/ fixtures/ demo/ .env` 아래의 변경이 그 안에 있어야 한다.
    **코드 폴더 밖(`examples/`·`docs/`·`scripts/`·`.claude/`)의 변경은 범위 검사에서 뺀다** —
    루프가 도는 동안 사람이 문서·측정 도구를 고칠 수 있어야 한다 (2026-09-12: 그 때문에 루프 중 작업이 막혔다). 단 `tests/` 는 검사한다 — 튜너가 테스트를 고쳐 통과시키는 걸 막는 게 이 검사의 이유다.
 

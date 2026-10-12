@@ -9,10 +9,10 @@ import json
 
 import pytest
 
-from chuckchuck.contracts import PaperError, PaperRef
-from chuckchuck.providers import scholar_impl as si
-from chuckchuck.providers.scholar_base import ScholarProvider
-from chuckchuck.providers.scholar_impl import (
+from engine.contracts import PaperError, PaperRef
+from engine.providers import scholar_impl as si
+from engine.providers.scholar_base import ScholarProvider
+from engine.providers.scholar_impl import (
     ArxivScholar,
     CrossrefScholar,
     EuropePmcScholar,
@@ -55,7 +55,7 @@ def fake_get(monkeypatch, responses):
         calls.append({"url": url, "params": params or {}, "headers": headers or {}, **kw})
         return queue.pop(0) if len(queue) > 1 else queue[0]
 
-    monkeypatch.setattr("chuckchuck.providers.scholar_impl.requests.get", _get)
+    monkeypatch.setattr("engine.providers.scholar_impl.requests.get", _get)
     return calls
 
 
@@ -97,7 +97,7 @@ def test_semanticscholar_는_초록을_먼저_쓰고_없을_때만_TLDR_을_쓴�
 
 def test_429_는_한_번_쉬고_다시_묻고_두_번째도_429_면_PaperError(monkeypatch):
     slept = []
-    monkeypatch.setattr("chuckchuck.providers.scholar_impl.time.sleep", lambda s: slept.append(s))
+    monkeypatch.setattr("engine.providers.scholar_impl.time.sleep", lambda s: slept.append(s))
     ok = {"data": [{"title": "Attention residue task switching", "year": 2018, "authors": [{"name": "S Leroy"}]}]}
     calls = fake_get(monkeypatch, [Res(429, text="slow down", headers={"Retry-After": "2"}), Res(payload=ok)])
     refs = SemanticScholarScholar().search("attention residue task switching", limit=1)

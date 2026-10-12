@@ -17,7 +17,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent.parent))
 sys.path.insert(0, str(HERE))
 
-from chuckchuck.config import load_dotenv  # noqa: E402
+from engine.config import load_dotenv  # noqa: E402
 
 load_dotenv()
 
@@ -26,9 +26,9 @@ import run as RN  # noqa: E402
 
 
 def build_question(name: str, truth_reason: dict):
-    from chuckchuck import build_questions
-    from chuckchuck.contracts import ConceptGraph, QaTriage, TriageMark
-    from chuckchuck.providers.llm_base import LLMProvider
+    from engine import build_questions
+    from engine.contracts import ConceptGraph, QaTriage, TriageMark
+    from engine.providers.llm_base import LLMProvider
 
     d = RN.OUT / name
     sd = RN.read_json(d / "slide_doc.json")
@@ -53,8 +53,8 @@ def build_question(name: str, truth_reason: dict):
 
 
 def main() -> int:
-    from chuckchuck import judge_answer
-    from chuckchuck.contracts import qa_passed
+    from engine import judge_answer
+    from engine.contracts import qa_passed
 
     rows = []
     for name, truth in RM.load_truths().items():

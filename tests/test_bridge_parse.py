@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 import pytest
 
 import demo.bridge as bridge
-from chuckchuck.contracts import SlideDoc
+from engine.contracts import SlideDoc
 from demo.session_archive import SessionArchive
 
 ROOT = Path(__file__).resolve().parent.parent

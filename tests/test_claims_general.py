@@ -17,10 +17,10 @@ import json
 import re
 from pathlib import Path
 
-from chuckchuck import _claim_rules as R
-from chuckchuck._probes import derive_probes, probe_question
-from chuckchuck.contracts import Claim, ClaimDoc, ClaimQuote, ConceptGraph, ConceptNode, Slide, SlideBlock, SlideDoc
-from chuckchuck.f26_claims import (
+from engine import _claim_rules as R
+from engine._probes import derive_probes, probe_question
+from engine.contracts import Claim, ClaimDoc, ClaimQuote, ConceptGraph, ConceptNode, Slide, SlideBlock, SlideDoc
+from engine.f26_claims import (
     SYSTEM_PROMPT,
     build_claims,
     line_support,
@@ -33,7 +33,7 @@ from chuckchuck.f26_claims import (
     validate_claims,
     verify_quote,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

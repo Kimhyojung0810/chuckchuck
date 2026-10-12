@@ -12,10 +12,10 @@ sys.path.insert(0, str(ROOT))
 OUT = HERE / "out"
 FROZEN = Path("/home/yehschuck/project/wt-qa-final/labs/qa_bench/out")
 
-from chuckchuck.config import load_dotenv  # noqa: E402
+from engine.config import load_dotenv  # noqa: E402
 
 load_dotenv()
-from chuckchuck.providers.llm_base import LLMProvider  # noqa: E402
+from engine.providers.llm_base import LLMProvider  # noqa: E402
 
 LIMIT = 150
 
@@ -31,7 +31,7 @@ class BudgetExceeded(RuntimeError):
 
 class Counted(LLMProvider):
     def __init__(self, stage: str):
-        from chuckchuck.providers.llm_impl import get_llm
+        from engine.providers.llm_impl import get_llm
         self.inner = get_llm(None)
         self.stage = stage
         self.name = getattr(self.inner, "name", "unknown")

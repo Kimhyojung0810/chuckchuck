@@ -4,8 +4,8 @@ from __future__ import annotations
 import pytest
 import requests
 
-import chuckchuck.providers.llm_impl as impl
-from chuckchuck.contracts import ConceptError
+import engine.providers.llm_impl as impl
+from engine.contracts import ConceptError
 
 
 class _Res:

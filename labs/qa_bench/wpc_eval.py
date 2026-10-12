@@ -39,15 +39,15 @@ VARIANTS = ("bench", "audit", "audit_re", "ab_s0", "ab_s1", "p5")
 def _boot(code_root: Path):
     """대상 코드의 chuckchuck 을 **먼저** 올린다 — run.py 가 sys.path 앞에 이 작업 트리를 넣어도 이미 올린 패키지를 쓴다."""
     sys.path.insert(0, str(code_root))
-    import chuckchuck  # noqa: F401
+    import engine  # noqa: F401
 
-    got = Path(chuckchuck.__file__).resolve()
+    got = Path(engine.__file__).resolve()
     if code_root.resolve() not in got.parents:
         raise SystemExit(f"대상 코드가 아니라 {got} 를 올렸어요")
     sys.path.insert(1, str(HERE))
     import run as B  # noqa: E402
     import metrics as M  # noqa: E402
-    from chuckchuck.providers.llm_base import LLMProvider
+    from engine.providers.llm_base import LLMProvider
 
     # 가짜 제공자는 **대상 코드의** LLMProvider 여야 한다 — build_graph 가 isinstance 로 가른다
     global _Store, _Fixed, _Claims, _LiveStore
@@ -58,7 +58,7 @@ def _boot(code_root: Path):
 
 def _base_f07(base_root: Path):
     """기준 f07 의 프롬프트 두 개 — 얼린 F-07 응답의 열쇠(system·user)를 맞춘다."""
-    spec = importlib.util.spec_from_file_location("chuckchuck._wpc_base_f07", base_root / "chuckchuck" / "f07_graph.py")
+    spec = importlib.util.spec_from_file_location("engine._wpc_base_f07", base_root / "engine" / "f07_graph.py")
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
@@ -134,8 +134,8 @@ class _Claims:
 
 def _graphs(B, deck: str, spec: dict, variants: list[str], base_prompts) -> dict[str, dict]:
     """변형 이름 → 그래프 dict. 만들 재료가 없는 변형은 빠진다."""
-    from chuckchuck import f07_graph as F7
-    from chuckchuck.contracts import ConceptDoc, Context, SlideDoc
+    from engine import f07_graph as F7
+    from engine.contracts import ConceptDoc, Context, SlideDoc
 
     out: dict[str, dict] = {}
     d = B.OUT / deck
@@ -180,9 +180,9 @@ def _formula_pieces_ok(q: str, raw: str, M) -> bool:
 
 
 def _measure(B, M, deck: str, spec: dict, g: dict, sd: dict, llm_claims) -> dict:
-    from chuckchuck._probes import derive_probes
-    from chuckchuck.contracts import ClaimDoc, ConceptGraph
-    from chuckchuck.f26_claims import build_claims
+    from engine._probes import derive_probes
+    from engine.contracts import ClaimDoc, ConceptGraph
+    from engine.f26_claims import build_claims
 
     truth = spec.get("truth")
     rows = {}
@@ -341,7 +341,7 @@ class _LiveStore:
 
 
 def _label_key(label: str) -> str:
-    from chuckchuck import _graph_items as GI
+    from engine import _graph_items as GI
     return GI.label_keys(label)[1]
 
 
@@ -373,8 +373,8 @@ def cmd_prompt_ab(ns) -> int:
     B.BUDGET.limit = ns.budget
     specs = B.load_decks(B.DEFAULT_REPO, set())
     base_prompts = _base_f07(Path(ns.base_root))
-    from chuckchuck import f07_graph as F7
-    from chuckchuck.contracts import ConceptDoc, Context, SlideDoc
+    from engine import f07_graph as F7
+    from engine.contracts import ConceptDoc, Context, SlideDoc
 
     rows: dict = {}
     for deck in ns.decks.split(","):

@@ -28,7 +28,7 @@ TRAP_STEPS = (("trap_correct", "pass"), ("trap_agree", "fail"))
 
 
 def make_permissive(q: dict):
-    from chuckchuck.providers.llm_base import LLMProvider
+    from engine.providers.llm_base import LLMProvider
 
     parts = q.get("answer_gist_parts") or []
     judge = {"verdict": "good", "score": 85, "react": PERMISSIVE_REACT, "summary_sentence": "핵심을 자기 말로 설명했어요.",
@@ -45,7 +45,7 @@ def make_permissive(q: dict):
 
 
 def _judge(q: dict, answer: str, env: dict, *, prior=None, history=None, give_up=False) -> dict:
-    from chuckchuck import judge_answer
+    from engine import judge_answer
 
     j = judge_answer(q, answer, graph=env["graph"], context=env["context"], slidedoc=env["slide_doc"],
                      prior_answers=list(prior or []), history=list(history or []), give_up=give_up,

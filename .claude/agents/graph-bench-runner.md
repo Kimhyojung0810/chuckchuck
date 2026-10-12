@@ -12,4 +12,4 @@ model: inherit
 3. 결과 파일 `exports/graph_eval/<시각>_<tag>.json` 의 `summary` 에서 한 줄: 노드·간선 · 장 커버리지 · 이름 근거 · 요약 근거 · 고립 · 끊긴 간선 · 중복 쌍 · (정합) 인용∈발화 · 거짓 누락 · 거짓 정합 · 커버리지.
 4. 비교했으면 리포트 경로(`exports/graph_eval/reports/*.md`)도 돌려준다.
 
-하지 않는 일: `chuckchuck/`·`fixtures/`·`.env` 수정, mock 실행, 실패 시 재시도(과금), 숫자를 "좋아 보인다" 로 요약.
+하지 않는 일: `engine/`·`fixtures/`·`.env` 수정, mock 실행, 실패 시 재시도(과금), 숫자를 "좋아 보인다" 로 요약.

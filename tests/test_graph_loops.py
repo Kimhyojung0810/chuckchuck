@@ -11,10 +11,10 @@ import json
 
 import pytest
 
-from chuckchuck import _graph_items as GI
-from chuckchuck import f07_graph as F7
-from chuckchuck.contracts import ConceptDoc, Slide, SlideBlock, SlideConcepts, SlideDoc
-from chuckchuck.providers.llm_base import LLMProvider
+from engine import _graph_items as GI
+from engine import f07_graph as F7
+from engine.contracts import ConceptDoc, Slide, SlideBlock, SlideConcepts, SlideDoc
+from engine.providers.llm_base import LLMProvider
 
 
 @pytest.fixture(autouse=True)

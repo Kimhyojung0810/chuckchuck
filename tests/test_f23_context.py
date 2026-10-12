@@ -6,8 +6,8 @@ import json
 import pytest
 
 import demo.bridge as bridge
-from chuckchuck.contracts import ContextSuggestion, SlideDoc
-from chuckchuck.f23_context import suggest_context
+from engine.contracts import ContextSuggestion, SlideDoc
+from engine.f23_context import suggest_context
 
 
 def _doc(*slides):
@@ -65,7 +65,7 @@ def test_bridge_route_returns_suggestion_without_llm():
 
 
 def test_deck_gaps_marks_missing_expectations_for_work_report():
-    from chuckchuck.f23_context import deck_gaps
+    from engine.f23_context import deck_gaps
     doc = _doc(("3분기 실적 보고", "목표 대비 진행률 80%"),
                ("이슈", "지연 원인은 인력 부족"),
                ("요청 사항", "예산 승인 필요"))
@@ -79,7 +79,7 @@ def test_deck_gaps_marks_missing_expectations_for_work_report():
 
 
 def test_deck_gaps_unknown_situation_is_empty():
-    from chuckchuck.f23_context import deck_gaps
+    from engine.f23_context import deck_gaps
     assert deck_gaps(_doc(("a", "b")), "")["items"] == []
 
 

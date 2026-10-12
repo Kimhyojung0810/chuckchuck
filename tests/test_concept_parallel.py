@@ -15,9 +15,9 @@ import time
 
 import pytest
 
-from chuckchuck.contracts import ConceptError, Context, Slide, SlideBlock, SlideDoc
-from chuckchuck.f06_concepts import extract_concepts
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.contracts import ConceptError, Context, Slide, SlideBlock, SlideDoc
+from engine.f06_concepts import extract_concepts
+from engine.providers.llm_base import LLMProvider
 
 
 def make_doc(n_slides: int) -> SlideDoc:

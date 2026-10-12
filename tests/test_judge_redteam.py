@@ -11,10 +11,10 @@ import unicodedata
 
 import pytest
 
-from chuckchuck import _traps as traps
-from chuckchuck import coach_stuck, judge_answer
-from chuckchuck._deck_claims import build_deck, clauses, conflicts, direction
-from chuckchuck._judge_guard import (
+from engine import _traps as traps
+from engine import coach_stuck, judge_answer
+from engine._deck_claims import build_deck, clauses, conflicts, direction
+from engine._judge_guard import (
     absence_or_dispute,
     distinct_answers,
     echoes_question,
@@ -30,11 +30,11 @@ from chuckchuck._judge_guard import (
     repeats,
     sanitize_slidedoc,
 )
-from chuckchuck._judge_post import to_noun_phrase
-from chuckchuck._match import fold_text, norm_tokens
-from chuckchuck._probe_stance import restates_line
-from chuckchuck._speech import plain_to_haeyo, to_haeyo
-from chuckchuck.contracts import (
+from engine._judge_post import to_noun_phrase
+from engine._match import fold_text, norm_tokens
+from engine._probe_stance import restates_line
+from engine._speech import plain_to_haeyo, to_haeyo
+from engine.contracts import (
     ClaimQuote,
     ConceptEdge,
     ConceptGraph,
@@ -48,7 +48,7 @@ from chuckchuck.contracts import (
     SlideDoc,
     TrapPremise,
 )
-from chuckchuck.f09_judge import (
+from engine.f09_judge import (
     JUDGE_TEMPERATURE,
     _clamp_score,
     _engine_id,
@@ -59,7 +59,7 @@ from chuckchuck.f09_judge import (
     clear_judge_cache,
     looks_stuck,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

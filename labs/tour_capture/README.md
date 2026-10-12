@@ -1,7 +1,7 @@
 # labs/tour_capture — 모바일 체험 투어 녹화 (2026-10-11)
 
 결선 부스 QR → `/hi` → `#/tour/*` 가 재생하는 **녹화된 실제 응답**을 만든다. 투어는 이 파일만 읽고 API 를 부르지 않는다.
-계약: [`docs/booth-mobile/tour-schema.md`](../../docs/booth-mobile/tour-schema.md) · [`tour.schema.json`](../../docs/booth-mobile/tour.schema.json) · [`tour-index.schema.json`](../../docs/booth-mobile/tour-index.schema.json).
+계약: [`docs/booth-mobile/tour-schema.md`](../../docs/booth-mobile/tour-schema.md) · [`tour.schema.json`](../../demo/schema/booth-mobile/tour.schema.json) · [`tour-index.schema.json`](../../demo/schema/booth-mobile/tour-index.schema.json).
 
 ```
 capture.py  ─ 실 API 브리지(8983)로 덱마다 한 흐름 ─▶ out/recordings/<덱>.json   (과금 · 로컬에만, git 무시)

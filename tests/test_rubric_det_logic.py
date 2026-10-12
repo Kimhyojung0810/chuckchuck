@@ -15,9 +15,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from chuckchuck import _rubric_det as det
-from chuckchuck._rubric_det import DET_SCORERS, Evidence, score_item
-from chuckchuck.contracts import (
+from engine import _rubric_det as det
+from engine._rubric_det import DET_SCORERS, Evidence, score_item
+from engine.contracts import (
     AlignmentDoc, AlignmentItem, AlignmentSummary, ConceptGraph, ConceptNode, ExtraConcept,
     HabitDoc, HabitSpan, PaceDoc, Section, SectionAlloc, Slide, SlideBlock, SlideDoc,
     SlideHabits, SlidePace, SlideSpeech, Transcript, Word,

@@ -11,9 +11,9 @@
 import json
 from dataclasses import replace
 
-from chuckchuck import _reason as RS
-from chuckchuck import build_questions, judge_answer
-from chuckchuck.contracts import (
+from engine import _reason as RS
+from engine import build_questions, judge_answer
+from engine.contracts import (
     ClaimQuote,
     ConceptEdge,
     ConceptGraph,
@@ -27,9 +27,9 @@ from chuckchuck.contracts import (
     TriageMark,
     qa_passed,
 )
-from chuckchuck.f09_judge import _narrow_followup, _reason_missed, _scaffold_judgement
-from chuckchuck.f26_claims import build_claims, rule_contrast, rule_correlation
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f09_judge import _narrow_followup, _reason_missed, _scaffold_judgement
+from engine.f26_claims import build_claims, rule_contrast, rule_correlation
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -348,7 +348,7 @@ def test_회귀_부스_덱_2장_배경과_이유를_가르고_보기는_행동_�
 # ---------------------------------------------------------------------------
 
 def _idx(no: int, text: str):
-    from chuckchuck import _grounding as G
+    from engine import _grounding as G
     return G, G.build_index({no: slide(no, text)}, [])
 
 

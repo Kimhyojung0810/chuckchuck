@@ -1,10 +1,10 @@
-"""chuckchuck/_speech.py — 합쇼체→해요체(to_haeyo) · 지어낸 숫자(ungrounded_numbers).
+"""engine/_speech.py — 합쇼체→해요체(to_haeyo) · 지어낸 숫자(ungrounded_numbers).
 
 2026-09-26 실험대 실측(solar): 판정 총평·코칭 해설·골자가 매번 「~했습니다」 였고(CLAUDE.md §3-1 해요체 규칙),
 숫자가 하나도 없는 자료에 골자가 "정확도 70~80%"·"전환율 15%" 를 썼다. 말투도 근거도 코드가 지킨다."""
 import pytest
 
-from chuckchuck._speech import to_haeyo, ungrounded_numbers
+from engine._speech import to_haeyo, ungrounded_numbers
 
 
 @pytest.mark.parametrize("raw, expected", [

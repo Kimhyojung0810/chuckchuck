@@ -1,5 +1,5 @@
 """
-판정 근거 줄 (2026-10-01 · qa/judge-grounds) — LLM 은 자료 줄 **번호**만, 줄 글은 코드가 되찾는다 (`chuckchuck/_judge_grounds.py`).
+판정 근거 줄 (2026-10-01 · qa/judge-grounds) — LLM 은 자료 줄 **번호**만, 줄 글은 코드가 되찾는다 (`engine/_judge_grounds.py`).
 
 사용자 보고: 「자료에서 제시한 '시간 × 연속성 × 규칙성'…」 이라는 반응이 몇 장 어느 줄에서 왔는지, 왜 그 줄이 답인지가 안 보였다.
 """
@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import json
 
-from chuckchuck import judge_answer
-from chuckchuck._client_payload import client_grounds, client_judgement
-from chuckchuck._deck_claims import build_deck
-from chuckchuck._judge_grounds import (
+from engine import judge_answer
+from engine._client_payload import client_grounds, client_judgement
+from engine._deck_claims import build_deck
+from engine._judge_grounds import (
     DROP_COVERED_GUARDS,
     cite_slides,
     finalize_grounds,
@@ -19,7 +19,7 @@ from chuckchuck._judge_grounds import (
     parse_grounds,
     resolve_grounds,
 )
-from chuckchuck.contracts import (
+from engine.contracts import (
     QA_GROUNDS_MAX,
     JudgeGround,
     QaJudgement,
@@ -29,7 +29,7 @@ from chuckchuck.contracts import (
     SlideDoc,
     TrapPremise,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -81,7 +81,7 @@ def judged(**kw) -> dict:
 
 def sleep_index():
     deck = build_deck((s.slide_no, s.raw_text) for s in SLEEP.slides)
-    from chuckchuck._evidence import clean_slide_text
+    from engine._evidence import clean_slide_text
     return deck, index_lines(deck, {s.slide_no: clean_slide_text(s.raw_text) for s in SLEEP.slides})
 
 
@@ -349,7 +349,7 @@ def test_번호를_잘못_센_근거는_설명이_가리키는_줄로_고친다(
 
 
 def test_설명의_명사형_끝은_해요체로_푼다():
-    from chuckchuck._judge_grounds import note_haeyo
+    from engine._judge_grounds import note_haeyo
     assert note_haeyo("세 요소의 곱셈 관계를 정의함") == "세 요소의 곱셈 관계를 정의해요."
     assert note_haeyo("이 식을 명시해야 함.") == "이 식을 명시해야 해요."
     assert note_haeyo("시간은 요소임") == "시간은 요소예요." and note_haeyo("이 줄이 핵심임") == "이 줄이 핵심이에요."

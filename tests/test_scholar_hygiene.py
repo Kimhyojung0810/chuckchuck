@@ -16,8 +16,8 @@ import json
 
 import pytest
 
-from chuckchuck.providers import scholar_impl as si
-from chuckchuck.providers.scholar_base import ScholarCallError
+from engine.providers import scholar_impl as si
+from engine.providers.scholar_base import ScholarCallError
 
 FAKE_S2 = "s2-fake-1111"
 FAKE_MAIL = "lab@example.org"

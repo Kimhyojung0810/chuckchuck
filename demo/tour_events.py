@@ -52,7 +52,7 @@ STEPS: tuple[str, ...] = (
     "back_team",      # 「팀 소개로 돌아가기」 를 눌렀다
 )
 STEP_SET = frozenset(STEPS)
-#: 투어 녹화 id 모양 — docs/booth-mobile/tour.schema.json 의 id(파일 이름)와 같은 글자. `_example` 같은 예시도 받는다.
+#: 투어 녹화 id 모양 — demo/schema/booth-mobile/tour.schema.json 의 id(파일 이름)와 같은 글자. `_example` 같은 예시도 받는다.
 DECK_RE = re.compile(r"^_?[a-z0-9][a-z0-9-]{0,39}$")
 T_MAX = 86400.0
 _KEYS = frozenset({"step", "deck", "t"})

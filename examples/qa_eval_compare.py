@@ -29,7 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "exports" / "qa_eval"
 REPORT_DIR = OUT_DIR / "reports"
-LEDGER = ROOT / "docs" / "QA_BENCH_LEDGER.md"
+LEDGER = ROOT / "exports" / "ledgers" / "QA_BENCH_LEDGER.md"
 
 #: (summary 경로, 좋아지는 방향, 잡음 폭). 잡음 폭 안의 변화는 "같다" 로 본다.
 #: LLM 출력은 매번 조금씩 다르므로 소수 지표에 폭을 둔다. 개수·비율 지표는 0 — 하나라도 달라지면 신호다.

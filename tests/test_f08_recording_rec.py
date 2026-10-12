@@ -19,9 +19,9 @@ import textwrap
 
 import pytest
 
-import chuckchuck.f08_questions as f08
-from chuckchuck import build_questions, triage_questions
-from chuckchuck.contracts import (
+import engine.f08_questions as f08
+from engine import build_questions, triage_questions
+from engine.contracts import (
     AlignmentDoc,
     AlignmentItem,
     ConceptEdge,
@@ -38,7 +38,7 @@ from chuckchuck.contracts import (
     Transcript,
     TriageMark,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -498,8 +498,8 @@ def test_녹음에_있는_말은_발표자에게_붙인_그대로_둔다():
 def test_옮긴_말_끝의_서술어_조각은_녹음과_글자가_달라도_녹음에_있는_말이다():
     # 발표자는 「…높아진 거예요」 라고 했다 — 질문의 「높아졌다고」 의 「높아졌」 은 서술어라 명사로 세지 않는다
     # (예전: 「녹음에 없는 말」 이 되어 모순 질문이 정해진 문장으로 떨어졌다)
-    from chuckchuck._deck_claims import numbers
-    from chuckchuck._spoken import spoken_numbers
+    from engine._deck_claims import numbers
+    from engine._spoken import spoken_numbers
     said = "초급반은 좋아졌어요. 완주율이 60퍼센트에서 85퍼센트로 높아진 거예요."
     heard = (numbers(spoken_numbers(said)), f08._stems_of(said))
     asked = "완주율이 85%로 높아졌다고 했는데, 무엇이 달라졌나요?"

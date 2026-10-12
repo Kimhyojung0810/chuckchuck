@@ -18,12 +18,12 @@ import json
 
 import pytest
 
-import chuckchuck.f08_questions as f08
-from chuckchuck import _claim_rules as R
-from chuckchuck import _probes as P
-from chuckchuck import build_questions
-from chuckchuck._probe_stance import restates_line
-from chuckchuck.contracts import (
+import engine.f08_questions as f08
+from engine import _claim_rules as R
+from engine import _probes as P
+from engine import build_questions
+from engine._probe_stance import restates_line
+from engine.contracts import (
     Claim,
     ClaimDoc,
     ClaimQuote,
@@ -37,8 +37,8 @@ from chuckchuck.contracts import (
     SlideDoc,
     TriageMark,
 )
-from chuckchuck.f26_claims import build_claims
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f26_claims import build_claims
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -436,7 +436,7 @@ def test_하네스_두_물음_잣대(question, two):
 # ===========================================================================
 
 def _contra():
-    from chuckchuck.contracts import AlignmentItem
+    from engine.contracts import AlignmentItem
     return AlignmentItem(node_id="keep", verdict="contradiction", evidence="그리고 출석 유지율이 구십 퍼센트로 올랐어요.",
                          deck_quote="출석 유지율이 72%로 올랐습니다", deck_slide_no=2, decided_by="code")
 
@@ -471,7 +471,7 @@ RAIN = {
 
 
 def rain_idx(extra: dict[int, str] | None = None):
-    from chuckchuck import _grounding as G
+    from engine import _grounding as G
     slides = {**RAIN, **(extra or {})}
     deck = {n: slide(n, t) for n, t in slides.items()}
     nodes = [node(f"r{i}", lab, [1, 2, 3, 4]) for i, lab in enumerate(["빗물 저금통", "지붕 면적", "강수량", "저장 용량", "수돗물 사용량"])]

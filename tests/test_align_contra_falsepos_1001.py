@@ -1,9 +1,9 @@
 """10-01 수익률격차 녹음 — 「틀리게 말함」 오판 넷을 거르고, 진짜 모순은 그대로 잡는다 (_align_checks · _deck_claims)."""
 
-from chuckchuck import _align_checks as chk
-from chuckchuck._deck_claims import Conflict, conflicts, deck_from_slidedoc
-from chuckchuck._spoken import spoken_numbers
-from chuckchuck.contracts import Slide, SlideBlock, SlideDoc
+from engine import _align_checks as chk
+from engine._deck_claims import Conflict, conflicts, deck_from_slidedoc
+from engine._spoken import spoken_numbers
+from engine.contracts import Slide, SlideBlock, SlideDoc
 
 
 def _deck(*texts):
@@ -51,8 +51,8 @@ def test_진짜_반대_방향은_계속_잡는다():
 
 def test_받아쓰기의_12만_4천_건은_자료_124380건과_같은_값이다():
     """10-06 사용자: 「124,000건과 124,380건 중 어느 쪽이 맞나요」 — 받아쓰기 「12만 4천 건」 을 12 와 4000 두 수로 쪼개 읽어 모순이 됐다."""
-    from chuckchuck._deck_claims import numbers
-    from chuckchuck._spoken import spoken_numbers
+    from engine._deck_claims import numbers
+    from engine._spoken import spoken_numbers
     deck = numbers("리뷰 124,380건")[0]
     for said in ("리뷰 12만 4천 건", "약 12만 4천여 건의 리뷰", "12만 4380건"):
         got = numbers(spoken_numbers(said))

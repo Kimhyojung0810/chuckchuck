@@ -15,11 +15,11 @@ from dataclasses import replace
 
 import pytest
 
-from chuckchuck import coach_stuck, judge_answer
-from chuckchuck._contra import leaks, sides_of, table_support, take_of
-from chuckchuck._deck_claims import deck_from_slidedoc
-from chuckchuck._probe_stance import stance_of, stance_pick, stance_prompt
-from chuckchuck.contracts import (
+from engine import coach_stuck, judge_answer
+from engine._contra import leaks, sides_of, table_support, take_of
+from engine._deck_claims import deck_from_slidedoc
+from engine._probe_stance import stance_of, stance_pick, stance_prompt
+from engine.contracts import (
     PROBE_STANCES,
     QaJudgement,
     QaTurn,
@@ -29,8 +29,8 @@ from chuckchuck.contracts import (
     SlideBlock,
     SlideDoc,
 )
-from chuckchuck.f09_judge import _narrow_followup, _scaffold_judgement, clear_judge_cache
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f09_judge import _narrow_followup, _scaffold_judgement, clear_judge_cache
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

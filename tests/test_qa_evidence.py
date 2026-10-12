@@ -10,9 +10,9 @@
 import json
 import re
 
-from chuckchuck import build_questions, judge_answer
-from chuckchuck._evidence import anchor_slides, neighbor_lines, section_line
-from chuckchuck.contracts import (
+from engine import build_questions, judge_answer
+from engine._evidence import anchor_slides, neighbor_lines, section_line
+from engine.contracts import (
     ConceptEdge,
     ConceptGraph,
     ConceptNode,
@@ -24,7 +24,7 @@ from chuckchuck.contracts import (
     SlideDoc,
     TriageMark,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -321,7 +321,7 @@ def test_모르겠어요_버튼은_답이_비어_있어도_코칭으로_간다()
 
 
 def test_결정적_후속_질문에_띄어_붙은_조사와_시겠어요_가_없다():
-    from chuckchuck.f09_judge import _FOLLOWUP_BY_POINT, _FOLLOWUP_GENERIC
+    from engine.f09_judge import _FOLLOWUP_BY_POINT, _FOLLOWUP_GENERIC
     for tpl in (_FOLLOWUP_BY_POINT.format(point="인지 자원"), _FOLLOWUP_GENERIC.format(label="인지 자원")):
         assert " 를 " not in tpl and " 에 " not in tpl
         assert "시겠어요" not in tpl and "보시나요" not in tpl
@@ -331,9 +331,9 @@ def test_결정적_후속_질문에_띄어_붙은_조사와_시겠어요_가_없
 # 「모르겠어요」 사다리 — 인용·빈칸·3단
 # ---------------------------------------------------------------------------
 
-from chuckchuck import build_hint_ladder, coach_stuck
-from chuckchuck._evidence import mask_gist, quote_for
-from chuckchuck.contracts import QaTurn
+from engine import build_hint_ladder, coach_stuck
+from engine._evidence import mask_gist, quote_for
+from engine.contracts import QaTurn
 
 
 def test_인용은_개념_이름이_든_문장을_그대로_옮긴다():
@@ -383,7 +383,7 @@ def test_빈칸_재료가_없으면_빈_값():
 
 
 def test_F08_이_인용과_발화를_질문에_저장한다():
-    from chuckchuck.contracts import Transcript
+    from engine.contracts import Transcript
     words = [{"text": w, "start_sec": i, "end_sec": i + 1}
              for i, w in enumerate(["5초만", "봤는데", "왜", "오래", "남을까요"])]
     tr = Transcript.from_dict({"full_text": "5초만 봤는데 왜 오래 남을까요", "words": words,
@@ -460,7 +460,7 @@ def test_3단_해설에는_출처가_붙는다():
 
 
 def test_판정_직렬화에_선택지와_인용이_실린다():
-    from chuckchuck.contracts import QaJudgement
+    from engine.contracts import QaJudgement
     j = QaJudgement(question_id="q", choices=["a", "b"], evidence_quote="인용", evidence_slide_no=3)
     d = j.to_dict()
     assert d["choices"] == ["a", "b"] and d["evidence_slide_no"] == 3
@@ -473,8 +473,8 @@ def test_판정_직렬화에_선택지와_인용이_실린다():
 # 09-29 수면 발표 — 힌트가 1장 설문 보기를 붙여 보여 주고, 주제 질문이 자기모순이던 것
 # ---------------------------------------------------------------------------
 
-from chuckchuck._evidence import best_quote, slide_units
-from chuckchuck.f08_questions import _undercut_question
+from engine._evidence import best_quote, slide_units
+from engine.f08_questions import _undercut_question
 
 SLEEP_S1 = ("01 / 08\n수면의 질\n분명 잤는데\n왜 피곤할까?\n수면 시간보다 중요한 수면의 질\n“어젯밤 몇 시간 잤나요?”\n"
             "5시간 미만\n5–7시간\n7시간 이상\n잠을 오래 잤다고 반드시 개운한 것은 아닙니다.")
@@ -523,7 +523,7 @@ def test_폭에서_꺾인_OCR_줄은_잇고_앞_장_꼬리_조각은_인용으�
 
 def test_모르겠어요_보기는_인용이_세운_대비_쌍이고_세는_단위는_쓰지_않는다():
     # 09-29 부스 실측: 「격차는 종목 선택이 아니라 행동에서」 에 보기가 '가지'·'종목' 으로 나왔다 (둘 다 틀린 보기)
-    from chuckchuck._evidence import mask_gist
+    from engine._evidence import mask_gist
     quote = "결론부터: 매출 차이는 메뉴 구성이 아니라 회전율에서 만들어진다"
     gist = "평균 매출이 상권 대비 낮고, 메뉴 구성과 매출의 상관은 약하며 회전율이 매출과 뚜렷하게 연결돼요"
     _, answer, distractor = mask_gist(gist, "매출 차이", ["다섯 가지 원인", "좌석 수"], quote=quote)
@@ -533,5 +533,5 @@ def test_모르겠어요_보기는_인용이_세운_대비_쌍이고_세는_단�
                                       quote="재방문을 줄이는 것은 가격이 아닌 대기 시간이다")
     assert answer != "가격" and distractor != "가지"
     # 물음꼴·부사 대비는 보기감이 아니다
-    from chuckchuck._evidence import _contrast_pair
+    from engine._evidence import _contrast_pair
     assert _contrast_pair("무엇을 샀는가가 아니라, 얼마나 자주 사고팔았는가가 결과를 갈랐다") == ("", "")

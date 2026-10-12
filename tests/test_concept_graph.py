@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     EDGE_KINDS,
     SLIDE_ROLES,
     ConceptDoc,
@@ -20,8 +20,8 @@ from chuckchuck.contracts import (
     SlideConcepts,
     SlideDoc,
 )
-from chuckchuck.f07_graph import MAX_GRAPH_DEPTH, MAX_ROOTS, build_graph
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f07_graph import MAX_GRAPH_DEPTH, MAX_ROOTS, build_graph
+from engine.providers.llm_base import LLMProvider
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ from chuckchuck.providers.llm_base import LLMProvider
 @pytest.fixture(autouse=True)
 def _no_links_backfill(monkeypatch):
     """이 파일의 호출 횟수·재시도 테스트는 F-07 본 호출만 센다. 연결 보강 호출(_fill_links)은 아래 전용 테스트가 켠다."""
-    from chuckchuck import f07_graph
+    from engine import f07_graph
     monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.0)
 
 
@@ -940,7 +940,7 @@ def test_node_links_field_becomes_relates_and_skips_parent_pairs():
 
 def test_scarce_links_trigger_one_backfill_call(monkeypatch):
     """가지를 넘는 연결이 모자라면 트리만 보여 주고 연결을 한 번 더 묻는다. 부모-자식·없는 id·중복은 버린다."""
-    from chuckchuck import f07_graph
+    from engine import f07_graph
     monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.17)
     tree = """
     {"thesis": "t", "nodes": [
@@ -958,7 +958,7 @@ def test_scarce_links_trigger_one_backfill_call(monkeypatch):
 
 
 def test_enough_links_skip_the_backfill_call(monkeypatch):
-    from chuckchuck import f07_graph
+    from engine import f07_graph
     monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.17)
     tree = """
     {"thesis": "t", "nodes": [
@@ -974,7 +974,7 @@ def test_enough_links_skip_the_backfill_call(monkeypatch):
 
 
 def test_broken_backfill_keeps_the_graph(monkeypatch):
-    from chuckchuck import f07_graph
+    from engine import f07_graph
     monkeypatch.setattr(f07_graph, "MIN_CROSS_RATIO", 0.17)
     tree = """
     {"thesis": "t", "nodes": [
@@ -1062,7 +1062,7 @@ def test_question_label_with_question_colon_answer_summary_takes_the_answer():
 
 
 def test_long_claim_is_shortened_to_subject_and_last_clause():
-    from chuckchuck.f07_graph import _shorten_claim
+    from engine.f07_graph import _shorten_claim
     long = ("AI 발표 코칭 서비스는 발표자료와 발화를 함께 분석해 핵심 개념 누락·설명 부족·논리 흐름을 진단하고, "
             "취약 개념 기반 Q&A를 통해 발표자의 실질적인 이해와 설명 능력을 향상시킨다")
     assert _shorten_claim(long) == "AI 발표 코칭 서비스는 취약 개념 기반 Q&A를 통해 발표자의 실질적인 이해와 설명 능력을 향상시킨다"

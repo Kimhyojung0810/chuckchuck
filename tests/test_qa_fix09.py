@@ -13,12 +13,12 @@ F-09 판정·막힘 코칭 회귀 테스트 — 2026-09-29 두 덱 기준선(doc
 
 import json
 
-from chuckchuck import coach_stuck, judge_answer
-from chuckchuck._deck_claims import build_deck, conflicts, explicit_agreement, states_reference, support
-from chuckchuck._evidence import _negated_in, mask_gist
-from chuckchuck.contracts import ConceptEdge, ConceptGraph, ConceptNode, Question, Slide, SlideBlock, SlideDoc
-from chuckchuck.f09_judge import _HONORIFIC_RE, _plain
-from chuckchuck.providers.llm_base import LLMProvider
+from engine import coach_stuck, judge_answer
+from engine._deck_claims import build_deck, conflicts, explicit_agreement, states_reference, support
+from engine._evidence import _negated_in, mask_gist
+from engine.contracts import ConceptEdge, ConceptGraph, ConceptNode, Question, Slide, SlideBlock, SlideDoc
+from engine.f09_judge import _HONORIFIC_RE, _plain
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -179,7 +179,7 @@ def test_진짜_함정을_바로잡은_답은_LLM_이_false_라고_해도_내리
 def test_골자가_전제를_안_바로잡는_함정_표시는_가드를_켜지_않는다():
     """09-29 벤치 held-out: 함정 질문 21/21 의 골자가 전제를 안 바로잡았다 — 거짓 전제가 없는 질문이다.
     그런 질문에서 「바로잡지 않았다」 는 흠이 아니고, 등급은 LLM 판정과 다른 가드가 정한다."""
-    from chuckchuck._deck_claims import gist_corrects_premise
+    from engine._deck_claims import gist_corrects_premise
     assert not gist_corrects_premise(Q_CONTRAST.answer_gist, Q_CONTRAST.question)
     assert gist_corrects_premise(Q_TRUE_TRAP.answer_gist, Q_TRUE_TRAP.question)
     # 질문에도 있는 부정(「맞지 않을」)은 바로잡는 말로 세지 않는다
@@ -203,7 +203,7 @@ def test_기대_답_사실_판별은_질문_낱말_되읊기를_세지_않는다
 def test_판정_프롬프트는_함정_표시가_틀릴_수_있다고_알린다():
     llm = ScriptedLLM(judged())
     judge_answer(Q_CONTRAST, Q_CONTRAST.answer_gist, graph=GAP_GRAPH, slidedoc=GAP, llm=llm)
-    from chuckchuck.f09_judge import SYSTEM_PROMPT
+    from engine.f09_judge import SYSTEM_PROMPT
     assert "틀릴 수 있다" in SYSTEM_PROMPT and "premise_corrected 는 null" in SYSTEM_PROMPT
     assert "함정 질문인가: 예" in llm.prompts[0]
 
@@ -475,14 +475,14 @@ def test_판정이_스스로_반대_명제를_들고_통과를_주면_막는다(
 
 def test_답을_평하는_부정은_반대_명제로_세지_않는다():
     """벤치 yield_gap: react 「…예시가 구체적으로 제시되지 않았어요」 는 답에 대한 평이지 명제가 아니다."""
-    from chuckchuck._deck_claims import opposes
+    from engine._deck_claims import opposes
     assert opposes("1,000만원 투자 시 누적 평가액 예시에서 연평균 수익률이 누적 수익을 결정한다는 점을 경계로 삼는다",
                    "1,000만원 투자 시 누적 평가액 예시가 구체적으로 제시되지 않았어요") == ""
 
 
 def test_높임을_먼저_풀고_해요체로_바꾼다():
     """재실행: 「정확히 말씀하셨습니다」 가 해요체 변환 뒤 높임만 풀려 「말했습니다」 로 화면에 나갔다."""
-    from chuckchuck.f09_judge import _haeyo_data
+    from engine.f09_judge import _haeyo_data
     assert _haeyo_data({"react": "정확히 말씀하셨습니다."})["react"] == "정확히 말했어요."
     assert _haeyo_data({"react": "추가로 설명해 주시면 좋겠습니다."})["react"] == "추가로 설명해 주면 좋겠어요."
     assert _HONORIFIC_RE.search("잠깐, 발표자님. 자료를 볼게요")

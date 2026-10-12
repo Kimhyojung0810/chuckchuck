@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import pytest
 
-from chuckchuck import _deck_lines as DL
-from chuckchuck import _evidence as E
-from chuckchuck import _graph_items as GI
-from chuckchuck._claim_quote import slide_lines
+from engine import _deck_lines as DL
+from engine import _evidence as E
+from engine import _graph_items as GI
+from engine._claim_quote import slide_lines
 
 # ===========================================================================
 # 1. 목록 항목의 캡션 조각 — 어디에 있든

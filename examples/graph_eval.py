@@ -41,13 +41,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from chuckchuck.config import load_dotenv  # noqa: E402
+from engine.config import load_dotenv  # noqa: E402
 
 load_dotenv()
 
-from chuckchuck._evidence import clean_slide_text  # noqa: E402
-from chuckchuck._match import norm_tokens  # noqa: E402
-from chuckchuck.contracts import AlignmentDoc, ConceptGraph, Context, SlideDoc, Transcript  # noqa: E402
+from engine._evidence import clean_slide_text  # noqa: E402
+from engine._match import norm_tokens  # noqa: E402
+from engine.contracts import AlignmentDoc, ConceptGraph, Context, SlideDoc, Transcript  # noqa: E402
 
 RUN_FIXTURE = ROOT / "fixtures" / "live_qa_run.json"
 OUT_DIR = ROOT / "exports" / "graph_eval"
@@ -222,8 +222,8 @@ def rebuild(art: dict, llm_name: str | None, stage: str = "all") -> tuple[dict, 
 
     F-11 가설을 잴 때 그래프까지 다시 만들면 노드가 달라져 정합 지표가 그 잡음을 탄다 (2026-09-12 G1 실측).
     가설이 건드리는 단계만 다시 돌리는 것이 자다."""
-    from chuckchuck import align_speech, build_graph, extract_concepts
-    from chuckchuck.providers.llm_impl import get_llm
+    from engine import align_speech, build_graph, extract_concepts
+    from engine.providers.llm_impl import get_llm
     qa_eval_spec = importlib.util.spec_from_file_location("qa_eval", ROOT / "examples" / "qa_eval.py")
     qa_eval = importlib.util.module_from_spec(qa_eval_spec)
     qa_eval_spec.loader.exec_module(qa_eval)
@@ -330,7 +330,7 @@ def main() -> int:
     ap.add_argument("--tag", default="")
     ap.add_argument("--compare", default=None, help="이 tag 의 최신 결과와 비교해 VERDICT 를 찍는다")
     ap.add_argument("--compare-only", action="store_true", help="새로 재지 않고 --compare 와 --tag 의 최신 결과만 비교한다")
-    ap.add_argument("--ledger", action="store_true", help="docs/GRAPH_BENCH_LEDGER.md 에 한 줄 붙인다")
+    ap.add_argument("--ledger", action="store_true", help="exports/ledgers/GRAPH_BENCH_LEDGER.md 에 한 줄 붙인다")
     ap.add_argument("--note", default="", help="장부 메모 (가설 이름 등)")
     args = ap.parse_args()
 
@@ -364,7 +364,7 @@ def main() -> int:
         rp.write_text(md, encoding="utf-8")
         print("\n" + md + f"리포트: {rp.relative_to(ROOT)}")
         if args.ledger:
-            cmp.LEDGER = ROOT / "docs" / "GRAPH_BENCH_LEDGER.md"
+            cmp.LEDGER = ROOT / "exports" / "ledgers" / "GRAPH_BENCH_LEDGER.md"
             cmp.append_ledger(result, before_p.stem, after_p.stem, args.note)
             print(f"장부: {cmp.LEDGER.relative_to(ROOT)}")
         print(f"VERDICT: {result['verdict']}")

@@ -46,7 +46,7 @@ class ReplayMiss(RuntimeError):
 
 
 def make_replay_only(store: dict, hasher):
-    from chuckchuck.providers.llm_base import LLMProvider
+    from engine.providers.llm_base import LLMProvider
 
     class ReplayOnly(LLMProvider):
         name = "replay"
@@ -71,8 +71,8 @@ def make_refresher(store: dict, hasher, path: Path):
     얼린 응답이 있으면 그것, 없으면 **실제 제공자**를 불러 같은 해시로 더해 두는 겉감 (refresh 전용 — quick 은 쓰지 않는다).
     실제 제공자는 대상의 `get_llm(None)` 이다 — 호출 세기·예산은 `llm_guard.install("count", …)` 가 그 클래스에 씌운다.
     """
-    from chuckchuck.providers.llm_base import LLMProvider
-    from chuckchuck.providers.llm_impl import get_llm
+    from engine.providers.llm_base import LLMProvider
+    from engine.providers.llm_impl import get_llm
 
     class Refresher(LLMProvider):
         name = "refresh"
@@ -101,7 +101,7 @@ def make_refresher(store: dict, hasher, path: Path):
 
 
 def _replay_f08(B, run, sd, graph, claims, triage, track, ctx, llm=None):
-    from chuckchuck import build_questions
+    from engine import build_questions
 
     store = C.read_json(run.dir / f"questions_llm_t{track}.json") or {}
     if not store and llm is None:
@@ -269,9 +269,9 @@ def blank_metrics(cache: Path, names: list[str], tracks: tuple[str, ...]) -> tup
     빈칸 규칙 (09-30 WP-J3) — 두 사다리(「모르겠어요」 발판 · 힌트 사다리의 빈칸 칸)가 **질문이 이미 보여 준 말**을 가리는 몫. 함정 질문은 뺀다
     (질문이 틀린 전제를 보여 주는 것이 그 질문이다 — 빈칸은 바로잡을 값이다). 가린 말은 원문(골자·인용·사실 줄·자료)에 보기를 넣어 되찾는다.
     """
-    from chuckchuck.contracts import ConceptGraph, Question, SlideDoc
-    from chuckchuck.f08_questions import build_hint_ladder
-    from chuckchuck.f09_judge import _deck_text, _scaffold_judgement
+    from engine.contracts import ConceptGraph, Question, SlideDoc
+    from engine.f08_questions import build_hint_ladder
+    from engine.f09_judge import _deck_text, _scaffold_judgement
 
     scaf_hit = scaf_n = hint_hit = hint_n = 0
     scaf_ex: list[str] = []
@@ -334,8 +334,8 @@ def gist_self_metrics(cache: Path, names: list[str], tracks: tuple[str, ...],
     `judge_answer` 를 돌려 good 이 아니면 걸린 것으로 센다. 자리 표시 골자는 뺀다. 목표 0 — 우리가 「이렇게 말하면 완성이에요」 로 보여 주는
     문장을 우리 가드가 떨구면 그 가드가 틀린 것이다.
     """
-    from chuckchuck import judge_answer
-    from chuckchuck import f09_judge as F9
+    from engine import judge_answer
+    from engine import f09_judge as F9
 
     from . import guard_audit as GA
 
@@ -365,8 +365,8 @@ def gist_self_metrics(cache: Path, names: list[str], tracks: tuple[str, ...],
 
 
 def reason_metrics(RM, cache: Path, names: list[str], tracks: tuple[str, ...]) -> tuple[dict[str, dict], list[str]]:
-    from chuckchuck.contracts import ConceptGraph, SlideDoc
-    from chuckchuck.f09_judge import _deck_text
+    from engine.contracts import ConceptGraph, SlideDoc
+    from engine.f09_judge import _deck_text
 
     truths = RM.load_truths()
     valid = total = 0

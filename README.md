@@ -6,30 +6,27 @@
 
 | ID | 모듈 | I/O | 기술 | API |
 |----|------|-----|------|-----|
-| F-01 | `chuckchuck/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
+| F-01 | `engine/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
 | F-03·04 | `sdk/rehearsal-recorder.js` | 마이크+슬라이드 → audio + `SlideMark[]` | 브라우저 (통합 SDK) | — (브라우저) |
 | F-03 | `sdk/recorder.js` | 마이크 → audio blob | MediaRecorder (분리) | — (브라우저) |
 | F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) | — (브라우저) |
-| F-05 | `chuckchuck/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
-| F-06 | `chuckchuck/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
-| F-07 | `chuckchuck/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
-| F-08 | `chuckchuck/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
-| F-09 | `chuckchuck/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
-| F-11 | `chuckchuck/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
-| F-11 파생 | `chuckchuck/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
-| F-12 | `chuckchuck/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
-| F-13 | `chuckchuck/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
-| **F-14** | `chuckchuck/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
-| F-17 | `chuckchuck/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
-| F-18 | `chuckchuck/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
-| F-19 | `chuckchuck/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
+| F-05 | `engine/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
+| F-06 | `engine/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
+| F-07 | `engine/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
+| F-08 | `engine/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
+| F-09 | `engine/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
+| F-11 | `engine/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
+| F-11 파생 | `engine/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
+| F-12 | `engine/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
+| F-13 | `engine/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
+| **F-14** | `engine/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
+| F-17 | `engine/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
+| F-18 | `engine/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
+| F-19 | `engine/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
-공통 계약은 `chuckchuck/contracts.py` 하나다. 설정은 `chuckchuck/config.py` (`settings.masked()`).
+공통 계약은 `engine/contracts.py` 하나다. 설정은 `engine/config.py` (`settings.masked()`).
 
-**모델 개발 정책 (1-Pager):** [`docs/DEV_POLICY.md`](docs/DEV_POLICY.md) — 모듈 독립 · API/SDK 규격.  
-**API / SDK 템플릿:** [`docs/API_SDK_TEMPLATE.md`](docs/API_SDK_TEMPLATE.md) · [`docs/templates/`](docs/templates/) — 새 모듈 복사해서 시작.  
-**Document Parse 후처리:** [`docs/DOCUMENT_PARSE_POSTPROCESS.md`](docs/DOCUMENT_PARSE_POSTPROCESS.md) — SlideDoc / ConceptDoc 합의안.  
-**스키마 공유 문서:** [`docs/SCHEMA.md`](docs/SCHEMA.md) — 벤더 원본 vs 후처리 계약.
+설계 문서(`docs/`)는 2026-10-12 폴더 정리로 지웠다 — git 기록에 남아 있다 (`git log --diff-filter=D -- docs/`).
 
 ## 보안
 
@@ -53,9 +50,9 @@
 실측(2026-07): 단어별 timestamp **있음** → F-17 진행 가능. 재확인:
 
 ```bash
-python -m chuckchuck.probe_ax_stt 샘플녹음.wav
-python -c "from chuckchuck.providers import health_check; print(health_check())"
-python -c "from chuckchuck.config import settings; print(settings.masked())"
+python -m engine.probe_ax_stt 샘플녹음.wav
+python -c "from engine.providers import health_check; print(health_check())"
+python -c "from engine.config import settings; print(settings.masked())"
 ```
 
 전문용어 인식률을 위해 `keywords=`(발표자료 키워드) 를 넘길 수 있다.
@@ -159,8 +156,7 @@ PDF·녹음 없이, 발표 자료를 **카메라로 찍거나** 자료가 열린
 질문 단계는 **통화 화면**이다 — 내 모습(웹캠) 위로 병아리 상대가 묻고, 내 말이 자막으로 채워지고, 판정이 말풍선으로 온다.
 자동 대화(기본 켬)는 말을 멈추면 3초 카운트다운 뒤 보낸다 (자막을 누르면 멈추고 고친다). 「소리 켜기」면 상대가 읽어 준다 (기본 무음). 캡처 한 장이 슬라이드 한 장이다 (여러 장은 올린 순서대로 번호).
 실측: 폰 사진 2장 → 질문까지 약 19초, 판정 2초 (Solar). 「작은 창으로 띄우기」는 Chrome 116+ 의 Document Picture-in-Picture 다.
-설계·실측은 [`docs/plan/booth-screen-qa.plan.md`](docs/plan/booth-screen-qa.plan.md), 부스에서 어떻게 돌릴지는
-[`docs/plan/booth-operations.plan.md`](docs/plan/booth-operations.plan.md). 프론트 순수 함수는 `node tests/js/booth.smoke.mjs`,
+프론트 순수 함수는 `node tests/js/booth.smoke.mjs`,
 통화 화면을 브라우저 없이 단계별로 찍어 보는 실험실은 [`labs/qa_call/`](labs/qa_call/README.md) (`python labs/qa_call/run.py all`).
 질문 생성·판정만 골라 되돌려 보는 실험대는 [`labs/qa_lab/`](labs/qa_lab/README.md) (`snapshot → questions → judge --probe → check`, 브라우저 없음).
 
@@ -254,7 +250,7 @@ ECC_DISABLED_HOOKS=pre:bash:gateguard-fact-force claude
 ## 모듈 사용 예
 
 ```python
-from chuckchuck import parse_document, extract_concepts, transcribe, Context
+from engine import parse_document, extract_concepts, transcribe, Context
 
 doc = parse_document("발표.pdf")                 # F-01
 concepts = extract_concepts(                     # F-06
@@ -285,7 +281,7 @@ const { blob } = await rec.stop();
 ## 디렉터리
 
 ```
-chuckchuck/
+engine/
   contracts.py          # 유일한 결합점
   f01_parse.py
   f05_stt.py

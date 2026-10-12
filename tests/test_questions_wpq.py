@@ -13,13 +13,13 @@ import json
 
 import pytest
 
-import chuckchuck.f08_questions as f08
-from chuckchuck import _evidence as E
-from chuckchuck import _grounding as G
-from chuckchuck import _probes as P
-from chuckchuck import _reason as RS
-from chuckchuck import build_questions
-from chuckchuck.contracts import (
+import engine.f08_questions as f08
+from engine import _evidence as E
+from engine import _grounding as G
+from engine import _probes as P
+from engine import _reason as RS
+from engine import build_questions
+from engine.contracts import (
     Claim,
     ClaimDoc,
     ClaimQuote,
@@ -38,8 +38,8 @@ from chuckchuck.contracts import (
     TrapPremise,
     TriageMark,
 )
-from chuckchuck.f08_questions import build_hint_ladder
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f08_questions import build_hint_ladder
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

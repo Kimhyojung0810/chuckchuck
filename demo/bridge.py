@@ -29,13 +29,13 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 DEMO_DIR = ROOT / "demo" / "YEHS_demo"
-SDK_DIR = ROOT / "chuckchuck" / "sdk"
+SDK_DIR = ROOT / "engine" / "sdk"
 
 sys.path.insert(0, str(ROOT))
 
-from chuckchuck.config import settings  # noqa: E402
+from engine.config import settings  # noqa: E402
 
-from chuckchuck import (  # noqa: E402
+from engine import (  # noqa: E402
     Context,
     analyze_pace,
     build_graph,
@@ -46,8 +46,8 @@ from chuckchuck import (  # noqa: E402
     parse_document,
     transcribe,
 )
-from chuckchuck.contracts import ConceptDoc, ConceptGraph, HabitDoc, PaceDoc, SlideDoc, SlideMark, Transcript  # noqa: E402
-from chuckchuck.providers.stt_impl import media_tool  # noqa: E402
+from engine.contracts import ConceptDoc, ConceptGraph, HabitDoc, PaceDoc, SlideDoc, SlideMark, Transcript  # noqa: E402
+from engine.providers.stt_impl import media_tool  # noqa: E402
 
 from demo.learning_jobs import refresh_learning_assets  # noqa: E402
 from demo.rate_limit import RateLimiter  # noqa: E402
@@ -469,7 +469,7 @@ _PUBLIC_PARSE_REWRITE = (
 
 def _public_message(e: Exception) -> str:
     """응답에 싣는 오류 문구. 벤더 응답 본문·서버 경로가 섞일 수 있어 기본은 일반 문구다 — 상세는 stderr."""
-    from chuckchuck.contracts import ParseError
+    from engine.contracts import ParseError
 
     msg = str(e)
     if isinstance(e, ParseError) and _PUBLIC_PARSE_ERROR.search(msg):
@@ -485,7 +485,7 @@ PAPER_QUERY_MAX_CHARS = 300
 
 
 def _max_slides() -> int:
-    from chuckchuck.f01_parse import MAX_SLIDES
+    from engine.f01_parse import MAX_SLIDES
 
     return MAX_SLIDES
 
@@ -540,7 +540,7 @@ DEFAULT_AUDIO_EXT = ".webm"
 
 # f08 로 옮겼다 (FastAPI 라우트도 같은 사다리를 실어야 해서 단일 출처화).
 # 테스트·기존 코드가 demo.bridge 에서 import 하므로 재수출로 남긴다.
-from chuckchuck.f08_questions import with_hint_ladders  # noqa: E402, F401
+from engine.f08_questions import with_hint_ladders  # noqa: E402, F401
 
 
 def prior_answers_from(body: dict) -> list[str]:
@@ -587,9 +587,9 @@ def _resegment_transcript(out: dict, t, slidedoc, marks: list, source=None) -> N
     """
     if not slidedoc or not t.words:
         return
-    from chuckchuck.contracts import SlideDoc
-    from chuckchuck.f04_infer_marks import infer_slide_marks
-    from chuckchuck.f05_stt import split_by_slide
+    from engine.contracts import SlideDoc
+    from engine.f04_infer_marks import infer_slide_marks
+    from engine.f05_stt import split_by_slide
 
     doc = SlideDoc.from_dict(slidedoc) if isinstance(slidedoc, dict) else slidedoc
     got = infer_slide_marks(doc, t.words, t.duration_sec)
@@ -729,7 +729,7 @@ def _optional_alignment(body: dict):
     /pace·/report 본문의 정합(선택). 녹음이 이 자료의 발표인지만 읽는다 (09-30 REC-10) — 없거나 모양이 깨졌으면 None.
     예전엔 이 칸이 없었던 요청이라, 곁다리 칸 하나가 깨졌다고 속도·리포트까지 500 으로 죽이지 않는다. 깨진 건 로그로 남긴다.
     """
-    from chuckchuck.contracts import AlignmentDoc
+    from engine.contracts import AlignmentDoc
 
     raw = body.get("alignment")
     if not isinstance(raw, dict):
@@ -890,26 +890,26 @@ def _stage_dir() -> Path:
 #     키 자리를 **메모리에 올라 있는 옛 코드**의 결과가 채우고, 재시작한 새 코드가 그 옛 결과를 제 것인 줄 알고 쓴다.
 #     → 소스는 브리지가 뜰 때(= 모듈을 올린 직후) 한 번만 읽어 둔다. 키는 언제나 지금 돌고 있는 코드의 판이다.
 
-import chuckchuck as _chuckchuck_pkg  # noqa: E402
+import engine as _chuckchuck_pkg  # noqa: E402
 
 #: 단계 → 그 단계의 출력을 만드는 진입 모듈. 키에 넣을 모듈 목록은 여기서 import 를 따라가 모은다.
 #: 새 단계 캐시를 만들면 여기에 한 줄 — tests/test_bridge_stage_cache.py 가 진입 함수가 이 모듈에 있는지 검사한다.
 STAGE_ENTRY_MODULES: dict[str, tuple[str, ...]] = {
-    "parse": ("chuckchuck.f01_parse",),                  # parse_document·merge_slidedocs — 디스크 캐시 (올린 파일 sha256)
-    "concepts": ("chuckchuck.f06_concepts",),            # extract_concepts — 디스크 캐시
-    "graph": ("chuckchuck.f07_graph",),                  # build_graph — 디스크 캐시
-    "claims": ("chuckchuck.f26_claims",),                # build_claims — 디스크 캐시
-    "papers": ("chuckchuck.f24_papers",),                # build_papers — 보관소
-    "memory": ("chuckchuck.f25_memory",),                # build_memory
-    "triage": ("chuckchuck.f08_questions",),             # triage_questions
+    "parse": ("engine.f01_parse",),                  # parse_document·merge_slidedocs — 디스크 캐시 (올린 파일 sha256)
+    "concepts": ("engine.f06_concepts",),            # extract_concepts — 디스크 캐시
+    "graph": ("engine.f07_graph",),                  # build_graph — 디스크 캐시
+    "claims": ("engine.f26_claims",),                # build_claims — 디스크 캐시
+    "papers": ("engine.f24_papers",),                # build_papers — 보관소
+    "memory": ("engine.f25_memory",),                # build_memory
+    "triage": ("engine.f08_questions",),             # triage_questions
     # 질문 묶음은 주장·문헌·기억을 재료로 먹는다 — 그 모듈이 바뀌어도 옛 질문을 안 쓴다
-    "questions": ("chuckchuck.f08_questions", "chuckchuck.f26_claims", "chuckchuck.f24_papers", "chuckchuck.f25_memory"),
-    "judge": ("chuckchuck.f09_judge",),                  # judge_answer
-    "chatter": ("chuckchuck.f12_chatter",),              # build_chatter — 디스크 캐시 (세션 id + 재료 해시, 09-30 REC-19)
+    "questions": ("engine.f08_questions", "engine.f26_claims", "engine.f24_papers", "engine.f25_memory"),
+    "judge": ("engine.f09_judge",),                  # judge_answer
+    "chatter": ("engine.f12_chatter",),              # build_chatter — 디스크 캐시 (세션 id + 재료 해시, 09-30 REC-19)
     # 부스는 덱 3개 × 녹음 2개로 정해져 있다 (10-06 사용자: 「새로운 ppt 없으니 로딩 시간 줄일 수 있는 게 많다」).
     # 같은 녹음 → 같은 받아쓰기 → 같은 정합 · 질문이 되도록 받아쓰기와 정합도 내용 해시로 디스크에 둔다
-    "transcribe": ("chuckchuck.f05_stt",),               # transcribe — 디스크 캐시 (녹음 sha256 + 장 표시 + 제공자)
-    "alignment": ("chuckchuck.f11_align",),              # align_speech — 디스크 캐시 (그래프 · 받아쓰기 · 본문 · 상황)
+    "transcribe": ("engine.f05_stt",),               # transcribe — 디스크 캐시 (녹음 sha256 + 장 표시 + 제공자)
+    "alignment": ("engine.f11_align",),              # align_speech — 디스크 캐시 (그래프 · 받아쓰기 · 본문 · 상황)
 }
 
 
@@ -1178,7 +1178,7 @@ def _chatter_key(sid: str, body: dict) -> str:
 
     재료가 하나라도 바뀌면(다시 분석) 새 키다. 세션 id 가 없으면(옛 화면) 재료만으로 — 같은 재료면 같은 수다를 돌려줘도 된다.
     """
-    from chuckchuck.contracts import AlignmentDoc, FlowDiff
+    from engine.contracts import AlignmentDoc, FlowDiff
 
     return _stage_key(
         "chatter", _stage_version("chatter"), sid or "",
@@ -1224,9 +1224,9 @@ def _slidedoc_kw(fn, slidedoc) -> dict:
     return {"slidedoc": slidedoc} if "slidedoc" in params else {}
 
 
-# 함정 질문의 화면 사본 규칙(뺄 칸 · 언제 다시 실을지)은 FastAPI 서버와 같은 것을 쓴다 — `chuckchuck._client_payload`.
+# 함정 질문의 화면 사본 규칙(뺄 칸 · 언제 다시 실을지)은 FastAPI 서버와 같은 것을 쓴다 — `engine._client_payload`.
 # 09-30 WP-J2 에 여기서 먼저 넣었는데 server/app.py 는 사실 칸을 그대로 내보냈다. 규칙이 두 벌이면 두 서버가 다시 갈라진다.
-from chuckchuck._client_payload import (  # noqa: E402
+from engine._client_payload import (  # noqa: E402
     TRAP_WITHHELD,  # noqa: F401 — 예전처럼 bridge.TRAP_WITHHELD 로도 읽힌다 (labs/qa_verify 가 이름을 말한다)
     client_judgement,
     client_questions,
@@ -1406,7 +1406,7 @@ def _papers_degraded(papers) -> str:
 
 def _deck_only_papers(graph_raw: dict, slidedoc, note: str):
     """검색 없이 자료가 인용한 문헌만 (scholar=none — LLM·네트워크 0). 이마저 안 되면 None."""
-    from chuckchuck import build_papers
+    from engine import build_papers
 
     try:
         doc = build_papers(graph_raw, slidedoc, scholar="none")
@@ -1445,7 +1445,7 @@ def _upstream_error(e: BaseException) -> tuple[int, dict] | None:
     """
     import requests
 
-    from chuckchuck.contracts import ConceptError, PaperError
+    from engine.contracts import ConceptError, PaperError
 
     seen: list[BaseException] = []
     x: BaseException | None = e
@@ -1483,7 +1483,7 @@ def _analysis_failure(e: BaseException) -> tuple[int, dict] | None:
     처리하지 못했어요」·502 「AI 서버가 오류로 답했어요」 로만 보여서 무엇이 안 됐는지 알 수 없었다. 프론트(`extractConcepts`·
     `buildGraph`)는 상태와 무관하게 message 를 그대로 띄운다. 모르는 실패면 None — 일반 처리(`_upstream_error`·500)로 간다.
     """
-    from chuckchuck.contracts import ConceptError, GraphError
+    from engine.contracts import ConceptError, GraphError
 
     upstream = _upstream_error(e)
     if upstream is not None and upstream[0] == 503:
@@ -2826,7 +2826,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
     @staticmethod
     def _parse_cache_key(uploads: list[tuple[str, bytes]], exts: list[str | None]) -> str:
         """파싱 캐시 열쇠 — 올린 파일들의 sha256(순서대로)·형식 + 파서 설정(모델·모드·OCR·출력·좌표) + F-01 코드 판."""
-        from chuckchuck import f01_parse as F01
+        from engine import f01_parse as F01
 
         return _stage_key(
             "f01", _stage_version("parse"), [hashlib.sha256(b).hexdigest() for _, b in uploads], list(exts),
@@ -2836,7 +2836,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
     def _handle_suggest_context(self, raw: bytes):
         """[F-23] 자료만 보고 발표 상황을 추정한다. 결정론·호출 0 — 과금 경로가 아니다.
         화면은 이 값으로 #/new 폼을 미리 채우기만 하고, 사용자가 고른 값이 이긴다."""
-        from chuckchuck.f23_context import suggest_context
+        from engine.f23_context import suggest_context
 
         body = json.loads(raw or b"{}")
         if not body.get("slide_doc"):
@@ -2845,7 +2845,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_deck_gaps(self, raw: bytes):
         """[F-23 · 내용 제안] 이 청중이 기대하는데 자료에 없는 것. 결정론·호출 0. 상황이 없으면 F-23 추정값을 쓴다."""
-        from chuckchuck.f23_context import deck_gaps, suggest_context
+        from engine.f23_context import deck_gaps, suggest_context
 
         body = json.loads(raw or b"{}")
         if not body.get("slide_doc"):
@@ -2859,7 +2859,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         return self._json(200, deck_gaps(body["slide_doc"], situation))
 
     def _handle_concepts(self, raw: bytes):
-        from chuckchuck.contracts import Transcript
+        from engine.contracts import Transcript
 
         body = json.loads(raw or b"{}")
         doc = SlideDoc.from_dict(body["slide_doc"])
@@ -2915,8 +2915,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_strategy(self, raw: bytes):
         """F-20 · 분석 결과 → 발표 구성 제안 하나 + 대안 요약."""
-        from chuckchuck.contracts import StrategyError
-        from chuckchuck.f20_strategy import suggest_strategy
+        from engine.contracts import StrategyError
+        from engine.f20_strategy import suggest_strategy
 
         body = json.loads(raw or b"{}")
         analysis = body.get("analysis")
@@ -2999,8 +2999,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_alignment(self, raw: bytes):
         """F-11 · ConceptGraph + Transcript(+선택 Context) → AlignmentDoc."""
-        from chuckchuck import align_speech
-        from chuckchuck.contracts import ConceptGraph, Transcript
+        from engine import align_speech
+        from engine.contracts import ConceptGraph, Transcript
 
         body = json.loads(raw or b"{}")
         if not body.get("graph") or not body.get("transcript"):
@@ -3051,7 +3051,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_flow(self, raw: bytes):
         """F-11 파생 · ConceptGraph + AlignmentDoc → FlowDiff. LLM 호출 없음."""
-        from chuckchuck import build_flow_diff
+        from engine import build_flow_diff
 
         body = json.loads(raw or b"{}")
         if not body.get("graph") or not body.get("alignment"):
@@ -3080,7 +3080,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         최대 8콜)을 다시 불렀다: 감사 LLM 230콜 중 101콜이 객석, 그중 약 55콜이 이미 분석한 세션의 재렌더였다.
         못 온 병아리가 있으면(LLM 실패 — absent) 캐시에 두지 않는다. 대타 대사를 성공처럼 굳히면 다음에 열어도 계속 결석이다.
         """
-        from chuckchuck import build_chatter
+        from engine import build_chatter
 
         body = json.loads(raw or b"{}")
         missing = [k for k in ("graph", "alignment", "flow") if not body.get(k)]
@@ -3126,8 +3126,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_score(self, raw: bytes):
         """F-13 · AlignmentDoc(+선택 FlowDiff) → 0~100 점. LLM 호출 없음."""
-        from chuckchuck import score_presentation
-        from chuckchuck.contracts import AlignmentDoc, FlowDiff
+        from engine import score_presentation
+        from engine.contracts import AlignmentDoc, FlowDiff
 
         body = json.loads(raw or b"{}")
         if not body.get("alignment"):
@@ -3151,8 +3151,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         **바디가 전부 optional 이다.** 없는 자료에 기대는 항목만 '못 쟀다'가 되고
         나머지는 정상 채점된다 — 부스에서 앞 단계 하나가 죽어도 점수는 뜬다.
         """
-        from chuckchuck import from_legacy_score, score_presentation, score_rubric
-        from chuckchuck.contracts import AlignmentDoc, FlowDiff
+        from engine import from_legacy_score, score_presentation, score_rubric
+        from engine.contracts import AlignmentDoc, FlowDiff
 
         body = json.loads(raw or b"{}")
         llm = _pick_llm(body)
@@ -3195,7 +3195,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_pace(self, raw: bytes):
         """F-17 · Transcript(+ConceptDoc/Context/AlignmentDoc) → PaceDoc. LLM 없음."""
-        from chuckchuck.contracts import Transcript
+        from engine.contracts import Transcript
 
         body = json.loads(raw or b"{}")
         if not body.get("transcript"):
@@ -3224,7 +3224,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_habits(self, raw: bytes):
         """F-18 · Transcript → HabitDoc."""
-        from chuckchuck.contracts import Transcript
+        from engine.contracts import Transcript
 
         body = json.loads(raw or b"{}")
         if not body.get("transcript"):
@@ -3408,7 +3408,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 self._archive(body, "transcript", out)
             return self._json(200, out)
         except Exception as e:  # noqa: BLE001
-            from chuckchuck.contracts import STTError
+            from engine.contracts import STTError
 
             msg = str(e) or e.__class__.__name__
             sys.stderr.write(f"[bridge] F-05 transcribe failed: {msg}\n")
@@ -3568,7 +3568,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         사용자가 누른 👍/👎·「이 판정은 아닌 것 같아요」·「이건 반복이 아니에요」.
         이것만이 라벨이다. 동의 세션에만 쌓이고, 종류·값·길이는 계약이 거른다.
         """
-        from chuckchuck.contracts import FeedbackEvent
+        from engine.contracts import FeedbackEvent
 
         sid = self._path_session_id(path)
         if not sid:
@@ -3642,7 +3642,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_questions(self, raw: bytes):
         """F-08 · {graph, alignment?, flow?, transcript?, context, track} → QuestionDoc."""
-        from chuckchuck.contracts import (
+        from engine.contracts import (
             QA_TRACK_FALLBACK,
             QA_TRACKS,
             AlignmentDoc,
@@ -3823,7 +3823,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         본문(slidedoc)을 넘긴다 (09-30 WP-J2, WP-Q 요청) — 탐침을 덱 전체의 해결 줄로 검증하고(`_probes.validate_probes`), 녹음이 자료와
         다른 발표면 녹음·정합을 버린다(`speech_matches_deck`). 예전엔 build_questions 만 본문을 받아 1차 심사는 탐침을 덱 없이 골랐다.
         """
-        from chuckchuck import triage_questions
+        from engine import triage_questions
 
         triage = STORE.get_triage(cache_key)
         if triage is not None:
@@ -3845,8 +3845,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _build_questions_payload(self, q_key, graph, alignment, flow, transcript, ctx, track, llm, body, found,
                                  slidedoc, papers, memory, pace, cache_key, claims=None, degraded=None):
-        from chuckchuck import build_questions
-        from chuckchuck.contracts import QuestionError
+        from engine import build_questions
+        from engine.contracts import QuestionError
 
         degraded = list(degraded or [])
         try:
@@ -3905,7 +3905,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         만든 기억은 이 세션의 memory_doc 아티팩트로 남긴다 (동의 세션만 저장된다). 실패해도 None — 기억은 있으면 좋은 재료다.
         단 실패는 「지난 리허설 없음」 과 다르게 남긴다 (MEMORY_FAILED_MARK, 짧게) — 질문 응답의 degraded 가 읽는다 (B-03).
         """
-        from chuckchuck import build_memory
+        from engine import build_memory
 
         sid = _session_id_of(body)
         if not sid or _mock():
@@ -3946,7 +3946,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_memory(self, raw: bytes):
         """F-25 · {session_id} → MemoryDoc. 지난 리허설이 없으면 빈 문서(note 에 사유). 화면이 「지난번보다」 를 그릴 때."""
-        from chuckchuck.contracts import MemoryDoc
+        from engine.contracts import MemoryDoc
 
         body = json.loads(raw or b"{}")
         if not _session_id_of(body):
@@ -3973,8 +3973,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         짧게만 든다 — 보관본은 다음 요청이 그대로 다시 써서 세션 끝까지 빈 문헌이었다. ③ 실패한 통로는 잠시 쉰다
         (PAPERS_NEGATIVE_TTL_SEC) — 그동안은 부르지 않고 자료 인용만 쓴다 (note 로 알린다).
         """
-        from chuckchuck import build_papers
-        from chuckchuck.contracts import PaperDoc
+        from engine import build_papers
+        from engine.contracts import PaperDoc
 
         if not graph_raw:
             return None
@@ -4027,8 +4027,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         09-30 전엔 메모리에 6시간 담겨, 다음 요청이 LLM 을 다시 불러 볼 기회가 세션 끝까지 없었다 (B-03).
         실패해도 None — 주장은 질문의 재료지 필수가 아니다 (질문 응답의 degraded 가 알린다).
         """
-        from chuckchuck import build_claims
-        from chuckchuck.contracts import ClaimDoc
+        from engine import build_claims
+        from engine.contracts import ClaimDoc
 
         if not graph_raw or not slidedoc:
             return None
@@ -4090,8 +4090,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
 
     def _handle_papers_search(self, raw: bytes):
         """F-24 · {query, limit?} → PaperDoc. 자유 질문에 대한 논문 검색 (품질 순)."""
-        from chuckchuck import search_papers
-        from chuckchuck.contracts import PAPER_SEARCH_MAX
+        from engine import search_papers
+        from engine.contracts import PAPER_SEARCH_MAX
 
         body = json.loads(raw or b"{}")
         query = str(body.get("query") or "").strip()
@@ -4127,8 +4127,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         응답에는 판정과 함께 grounded_on_server · grounded_on_deck(자료 본문 대조 여부) · degraded · degraded_notes 가 실린다.
         세션 id 는 본문이 먼저, 없으면 경로(/sessions/{id}/qa/judge)의 것. 발급 모양 또는 'flat' 만 받는다 (B-06).
         """
-        from chuckchuck import judge_answer
-        from chuckchuck.contracts import (
+        from engine import judge_answer
+        from engine.contracts import (
             AlignmentDoc,
             ConceptGraph,
             JudgeError,
@@ -4262,7 +4262,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         같은 id 가 트랙마다 있으면(트랙끼리 triage 를 나눠 써 id 가 같다) **문장이 같은 판**을 고른다. 'flat' 은 모두가 나눠 쓰는
         자리라 다른 덱의 같은 id(q01-c1 …)가 있을 수 있다 — flat 에서는 문장까지 같을 때만 서버 판을 쓴다.
         """
-        from chuckchuck.contracts import Question
+        from engine.contracts import Question
 
         client_text = str((qraw or {}).get("question") or "").strip()
         src = "server"

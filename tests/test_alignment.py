@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from chuckchuck.f11_align import MENTION_MIN
-from chuckchuck.contracts import (
+from engine.f11_align import MENTION_MIN
+from engine.contracts import (
     ALIGN_VERDICTS,
     AlignError,
     AlignmentDoc,
@@ -21,8 +21,8 @@ from chuckchuck.contracts import (
     Transcript,
     Word,
 )
-from chuckchuck.f11_align import align_speech
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f11_align import align_speech
+from engine.providers.llm_base import LLMProvider
 
 
 # ---------------------------------------------------------------------------

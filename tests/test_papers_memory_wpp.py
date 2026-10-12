@@ -18,8 +18,8 @@ import time
 
 import pytest
 
-from chuckchuck._deck_claims import deck_from_slidedoc
-from chuckchuck.contracts import (
+from engine._deck_claims import deck_from_slidedoc
+from engine.contracts import (
     ConceptGraph,
     ConceptMemory,
     ConceptNode,
@@ -33,11 +33,11 @@ from chuckchuck.contracts import (
     memory_key,
     memory_similarity,
 )
-from chuckchuck.f24_papers import QUERY_SYSTEM_PROMPT, _korean_floor, _profile_of, _query_floor, _translate_queries, build_papers
-from chuckchuck.f25_memory import build_memory, point_on_deck
-from chuckchuck.providers import scholar_impl as si
-from chuckchuck.providers.llm_base import LLMProvider
-from chuckchuck.providers.scholar_base import ScholarCallError, ScholarProvider, SearchHits, deadline_scope
+from engine.f24_papers import QUERY_SYSTEM_PROMPT, _korean_floor, _profile_of, _query_floor, _translate_queries, build_papers
+from engine.f25_memory import build_memory, point_on_deck
+from engine.providers import scholar_impl as si
+from engine.providers.llm_base import LLMProvider
+from engine.providers.scholar_base import ScholarCallError, ScholarProvider, SearchHits, deadline_scope
 
 
 # ---------------------------------------------------------------------------
@@ -278,8 +278,8 @@ def test_이번_그래프에_이어지는_묶음은_하나로_합친다():
 def test_판정은_다른_발표의_같은_이름_기억으로_코칭_단계를_바꾸지_않는다():
     # 09-30 리뷰 HIGH: f09 는 그래프로 못 이은 노드를 이름(concept)으로 다시 찾는다 — 자전거 발표에서 포기한 「비용」 이
     # 도서관 발표의 「비용」 질문을 발판(scaffold)부터 시작하게 했다. 이번 발표에 맞춰 거르지 않은 기억은 이름만으로 안 준다.
-    from chuckchuck.contracts import Question
-    from chuckchuck.f09_judge import coach_stuck
+    from engine.contracts import Question
+    from engine.f09_judge import coach_stuck
 
     bike = build_memory([session("bike1", 100.0, turn("비용", "unknown", 0, give_up=True, at=101),
                                  turn("대여소 부족", "partial", 50, at=102), turn("이용 요금", "partial", 50, at=103))])
@@ -290,7 +290,7 @@ def test_판정은_다른_발표의_같은_이름_기억으로_코칭_단계를_
 
 
 def test_빈_이름끼리는_잇지_않고_자기_이름의_표기_변형은_다른_이름으로_세지_않는다():
-    from chuckchuck.contracts import memory_presentation_fit
+    from engine.contracts import memory_presentation_fit
     m = MemoryDoc.from_dict({"concepts": [{"key": "", "label": "…", "attempts": 1}]})
     assert m.by_node(ConceptGraph(file_name="x", total_slides=1, nodes=[ConceptNode(id="dots", label="---")])) == {}
     # 「비용」 과 「비용의」 만 물은 발표는 한 개념만 물은 것이다
@@ -659,7 +659,7 @@ def test_이상한_통로가_있어도_문헌_만들기는_예외를_던지지_�
     doc = build_papers(g, None, scholar=Odd(), llm=NoLLM())
     rows = {r["node_id"]: r["state"] for r in doc.status if r["kind"] == "concept"}
     assert rows == {"lat": "empty", "hal": "error"} and "검색 실패" in doc.note
-    from chuckchuck.f24_papers import search_papers
+    from engine.f24_papers import search_papers
     assert search_papers("Answer hallucination rate", scholar=Odd()).refs == []
 
 def test_PaperDoc_status_는_왕복하고_옛_문서는_빈_목록이다():

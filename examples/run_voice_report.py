@@ -19,11 +19,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from chuckchuck.config import load_dotenv
+from engine.config import load_dotenv
 
 load_dotenv()
 
-from chuckchuck import (  # noqa: E402
+from engine import (  # noqa: E402
     Context,
     analyze_pace,
     compose_report,
@@ -32,7 +32,7 @@ from chuckchuck import (  # noqa: E402
     parse_document,
     transcribe,
 )
-from chuckchuck.contracts import ConceptDoc, SlideMark, Transcript  # noqa: E402
+from engine.contracts import ConceptDoc, SlideMark, Transcript  # noqa: E402
 
 
 def _marks_from_transcript(t: Transcript) -> list[SlideMark]:

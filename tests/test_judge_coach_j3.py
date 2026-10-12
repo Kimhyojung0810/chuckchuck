@@ -17,11 +17,11 @@ from dataclasses import replace
 
 import pytest
 
-from chuckchuck import coach_stuck, judge_answer
-from chuckchuck._judge_guard import covers_gist
-from chuckchuck._judge_post import critique_beyond_deck, critique_of_praised, mechanism_beyond, sentences
-from chuckchuck._deck_claims import deck_from_slidedoc
-from chuckchuck._probe_stance import (
+from engine import coach_stuck, judge_answer
+from engine._judge_guard import covers_gist
+from engine._judge_post import critique_beyond_deck, critique_of_praised, mechanism_beyond, sentences
+from engine._deck_claims import deck_from_slidedoc
+from engine._probe_stance import (
     RESTATE_FOLLOWUP,
     demands_gap,
     plans_gap,
@@ -33,7 +33,7 @@ from chuckchuck._probe_stance import (
     stance_pick,
     stance_prompt,
 )
-from chuckchuck.contracts import (
+from engine.contracts import (
     PROBE_KINDS,
     PROBE_STANCES,
     QA_SOURCES,
@@ -50,15 +50,15 @@ from chuckchuck.contracts import (
     SlideDoc,
     TrapPremise,
 )
-from chuckchuck.f08_questions import build_hint_ladder
-from chuckchuck.f09_judge import (
+from engine.f08_questions import build_hint_ladder
+from engine.f09_judge import (
     _FLIPPED_REACT,
     _narrow_followup,
     _scaffold_judgement,
     clear_judge_cache,
     gist_self_check,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -493,7 +493,7 @@ def test_자료에_없는_원리_설명을_요구하는_결손과_되물음은_�
 
 
 def test_근거_질문에_자료의_결론_줄만_옮긴_답은_통과하지_못한다():
-    from chuckchuck.contracts import QuestionBasis as QB
+    from engine.contracts import QuestionBasis as QB
 
     q = Question(id="q-reason", node_id="revisit", label="재방문율", slide_nos=[1, 2], evidence_slide_no=1,
                  evidence_quote="결론부터: 손님은 가격이 아니라 기다림 때문에 떠난다",
@@ -523,8 +523,8 @@ ABS_P2_NONE = ("「유기농 밀가루만 쓰면 모든 손님이 만족합니�
 
 def test_조건_절로_옮긴_단정_골자도_두_사다리가_조건_낱말을_가리고_단정의_말은_안_가린다():
     # 09-30 standard 4124984 혈당 Q1: 새 골자에서 발판이 따지는 단정 인용의 「완전히」 를 가렸다 — 조건 절을 가려야 한다
-    from chuckchuck._probe_stance import limit_of
-    from chuckchuck.f09_judge import _stance_next
+    from engine._probe_stance import limit_of
+    from engine.f09_judge import _stance_next
 
     q = replace(ABS_Q, answer_gist=ABS_P2_HEDGE)
     assert limit_of(q) == (6, "동네마다 입맛이 다를 수 있어요.", False)
@@ -543,8 +543,8 @@ def test_조건_절로_옮긴_단정_골자도_두_사다리가_조건_낱말을
 
 
 def test_조건이_없다는_단정_골자는_보완_다짐을_조건으로_읽지_않고_입장_빈칸으로():
-    from chuckchuck._probe_stance import limit_of
-    from chuckchuck.f09_judge import _stance_next
+    from engine._probe_stance import limit_of
+    from engine.f09_judge import _stance_next
 
     q = replace(ABS_Q, answer_gist=ABS_P2_NONE)
     assert limit_of(q) == (0, "", False)                    # 「어떤 조건에서 그런지 정해서 보완할게요」 는 조건이 아니다
@@ -570,7 +570,7 @@ def test_모르겠어요_react_는_코드_문장이라_하지_않은_말을_칭�
 
 
 def test_판정_프롬프트는_단정_탐침을_예외_경계_말로_설명하지_않는다():
-    from chuckchuck._probe_stance import probe_brief
+    from engine._probe_stance import probe_brief
 
     brief = probe_brief(ABS_Q)
     assert "예외" not in brief and "경계" not in brief and "조건" in brief

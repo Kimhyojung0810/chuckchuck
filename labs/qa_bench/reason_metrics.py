@@ -138,9 +138,9 @@ def _negated_side(line: str, term: str) -> bool:
 
 
 def choice_row(q: dict, graph, deck_text: str, lines: list[str]) -> dict:
-    from chuckchuck.contracts import Question
-    from chuckchuck.f09_judge import _distractor_pool, _narrow_followup
-    from chuckchuck._evidence import mask_gist
+    from engine.contracts import Question
+    from engine.f09_judge import _distractor_pool, _narrow_followup
+    from engine._evidence import mask_gist
 
     qq = Question.from_dict(q)
     followup, choices = _narrow_followup({}, qq, graph, deck_text)
@@ -174,10 +174,10 @@ def choice_row(q: dict, graph, deck_text: str, lines: list[str]) -> dict:
 
 def planted_row(name: str, sd: dict, graph: dict, claims: dict | None, truth_reason: dict) -> dict:
     """정답 근거 질문 + 배경·이유를 섞은 골자를 ScriptedLLM 으로 F-08 에 넣는다 (LLM 없음)."""
-    from chuckchuck import build_questions
-    from chuckchuck.contracts import ConceptGraph, QaTriage, SlideDoc, TriageMark
-    from chuckchuck.f09_judge import _deck_text, _narrow_followup
-    from chuckchuck.providers.llm_base import LLMProvider
+    from engine import build_questions
+    from engine.contracts import ConceptGraph, QaTriage, SlideDoc, TriageMark
+    from engine.f09_judge import _deck_text, _narrow_followup
+    from engine.providers.llm_base import LLMProvider
 
     g = ConceptGraph.from_dict(graph)
     conc = truth_reason["conclusion"]
@@ -292,8 +292,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--json", required=True)
     ns = ap.parse_args(argv)
     sys.path.insert(0, ns.code_root)
-    from chuckchuck.contracts import ConceptGraph, SlideDoc
-    from chuckchuck.f09_judge import _deck_text
+    from engine.contracts import ConceptGraph, SlideDoc
+    from engine.f09_judge import _deck_text
 
     truths = load_truths()
     result = {}

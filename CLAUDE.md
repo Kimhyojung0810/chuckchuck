@@ -113,7 +113,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 - 브랜드 딥그린 `--brand:#08B879`, 다크 면 `--navy:#155C46`, 크림 배경 `--canvas:#FFFDF7`
 - 판정 색 5종(`--ok/--mid/--no/--ct/--om`)은 **불변**. 의미가 붙어 있어서 바꾸면 리포트가 거짓말이 된다.
 - radius(`--r-print:20px`/`--r-inner:16px`/`--r-ctl:12px`/`--r-pill`/`--r-dot`) · weight 4단(`--w-body/--w-med/--w-bold/--w-display`) 밖의 값은 쓰지 않는다.
-- **캐릭터 시각 스펙은 [`docs/design_improvement/`](docs/design_improvement/README.md) 가 원본이다** (UI_REDESIGN §9·§10 의 수치를 대체). 연출·카피 규율(§11~§14)은 그대로.
+- 캐릭터 시각 스펙·연출 규율 문서(`docs/`)는 2026-10-12 폴더 정리로 지웠다 — 필요하면 git 기록에서 꺼낸다 (`git log --diff-filter=D -- docs/`).
 - 서체는 Pretendard 하나.
 - 토큰 표가 문서와 어긋나면 **코드가 맞고 문서를 고친다** ([`MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) §디자인 토큰).
 
@@ -123,7 +123,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 
 - **앱 화면**(`#/`, `#/new`, `#/qa`, `#/report`) → [`MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) §3 절제 규율.
   히어로·마케팅 카피·장식 이모지·glassmorphism·스크롤 하이재킹 금지. 한 화면의 주인공은 하나.
-- **객석·극장 화면**(`theater.css`, `chatter.js`, 병아리 연출) → [`docs/UI_REDESIGN.md`](docs/UI_REDESIGN.md).
+- **객석·극장 화면**(`theater.css`, `chatter.js`, 병아리 연출) → 척척극장 연출 규율 (옛 `docs/UI_REDESIGN.md`, git 기록).
   단 §14 「토스의 규율」이 위에 있다: 숫자는 신성하고, 판정 색은 안 건드리고, 모든 연출은 스킵 가능하고,
   진행률·오류 원인·샘플 표시는 정직하게 남기고, 소리는 기본 무음이다.
 - **연출이 데이터를 가리면 연출을 버린다.** 병아리는 얹는 층이지 가리는 층이 아니다.
@@ -167,7 +167,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 - **`python -m pytest tests/ -q` 는 초록으로 유지한다.** 2026-09-13 기준 **830 passed · 7 skipped** 가 기준선이다 (`scripts/chk_lib/common.py PYTEST_MIN`).
   순수 함수 모듈(`test_flow_diff.py`·`test_score.py`)과 `test_voice_report.py` 가 파이프라인 회귀를 잡아 준다.
   새 기능에 테스트를 안 붙이는 건 괜찮지만, 있는 걸 깨고 넘어가지 않는다.
-- **모듈 계약**([`docs/DEV_POLICY.md`](docs/DEV_POLICY.md) §4). 모듈끼리 import 하지 않고, 교환은 `contracts.py` 타입으로만.
+- **모듈 계약** (옛 `docs/DEV_POLICY.md` §4). 모듈끼리 import 하지 않고, 교환은 `contracts.py` 타입으로만.
   이걸 깨면 아끼는 시간보다 물어뜯기는 시간이 크다.
 - **분석이 실패하면 실패로 보여준다.** 샘플 그래프로 위장하지 않는다 — 심사 때 들킨다.
 
@@ -176,13 +176,5 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 | 문서 | 내용 |
 |---|---|
 | [`README.md`](README.md) | 설치·실행·손으로 눌러보는 체크리스트 |
-| [`docs/DEV_POLICY.md`](docs/DEV_POLICY.md) | 모듈 독립·API/SDK 계약 (F-01~F-20 맵) |
-| [`docs/SCHEMA.md`](docs/SCHEMA.md) · `chuckchuck/contracts.py` | 스키마 단일 출처 |
 | [`demo/YEHS_demo/MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) | 화면 스펙·정보 구조·디자인 토큰 |
-| [`docs/UI_REDESIGN.md`](docs/UI_REDESIGN.md) | 척척극장 연출 규율 |
-| [`docs/ANALYSIS_WAIT_REDESIGN.md`](docs/ANALYSIS_WAIT_REDESIGN.md) | 발표 종료 → 질문 코칭 대기 구간 재설계 (선분석·진행률·리빌) |
-| [`docs/FAILURE_QUESTIONS.md`](docs/FAILURE_QUESTIONS.md) | 결과가 나쁠 때 순서대로 던지는 진단 질문표 (측정 유효성 → 단계별 → 환경) |
-| [`docs/ROADMAP_AUTONOMOUS.md`](docs/ROADMAP_AUTONOMOUS.md) | 자율 개발 헌장 — 세 갈래(데이터·QA 하네스·뉘앙스 UI) 순서, 매 세션 절차, 하지 않는 것 |
 | `scripts/chk --help` | 개발 도구 — `gate`(문지기) · `bump`(`?v=`) · `doctor`(이 머신 점검) · `warmup`(브리지 예열) · `brief`(세션 브리핑, `/continue`) · `ledger-chart`(결선 그래프). README §개발 도구 |
-| [`docs/AUTONOMOUS_LOOP.md`](docs/AUTONOMOUS_LOOP.md) | Q&A 프롬프트 자율 개선 루프 (`/improve-qa`) — 벤치마크가 채택을 정한다. 실 LLM 과금 |
-| [`docs/회의록/`](docs/회의록/README.md) | 팀 회의록 · 살아 있는 할 일 목록 · 마일스톤 달력 (Festa 10/6~8 · 결선 11/18) |

@@ -16,7 +16,7 @@ import shutil
 from collections import Counter
 from pathlib import Path
 
-from chuckchuck.f22_peer_norm import MIN_N, bucket_key, build_norms, save_norms, session_metrics
+from engine.f22_peer_norm import MIN_N, bucket_key, build_norms, save_norms, session_metrics
 from demo.session_archive import SessionArchive
 
 #: 번들이 되려면 이 둘은 있어야 한다. 질문 생성이 그래프 위에서 돈다.

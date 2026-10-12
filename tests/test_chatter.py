@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     CHATTER_MOODS,
     CHATTER_SPEAKERS,
     AlignmentDoc,
@@ -25,15 +25,15 @@ from chuckchuck.contracts import (
     SpeechBasis,
     SpeechEdge,
 )
-from chuckchuck.f11_flow import build_flow_diff
-from chuckchuck.f12_chatter import (
+from engine.f11_flow import build_flow_diff
+from engine.f12_chatter import (
     MAX_TURNS,
     SMALLTALK_RATIO,
     allowed_refs,
     build_chatter,
     pick_talking_points,
 )
-from chuckchuck.providers.llm_impl import MockLLM
+from engine.providers.llm_impl import MockLLM
 
 
 # ---------------------------------------------------------------------------

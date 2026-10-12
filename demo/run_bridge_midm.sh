@@ -31,7 +31,7 @@ if [[ ! -x "$MIDM_PY" ]]; then
 fi
 
 # .env 는 bash source 하지 않는다 (주석·특수문자 때문에 깨질 수 있음).
-# demo.bridge → chuckchuck.config.load_dotenv() 가 키를 읽는다.
+# demo.bridge → engine.config.load_dotenv() 가 키를 읽는다.
 # 여기선 LoRA/포트만 셸에서 확실히 고정한다.
 export MOCK_EXTERNAL_APIS="${MOCK_EXTERNAL_APIS:-false}"
 export HABIT_PROVIDER="${HABIT_PROVIDER:-lora}"

@@ -2,8 +2,8 @@
 슬라이드 marks와 단어 시각으로 발화를 나누는 로직(unit test)입니다.
 """
 
-from chuckchuck.contracts import SlideMark, Word
-from chuckchuck.f05_stt import split_by_slide
+from engine.contracts import SlideMark, Word
+from engine.f05_stt import split_by_slide
 
 
 def test_split_assigns_words_to_marks():

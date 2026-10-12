@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-import chuckchuck.f01_parse as f01
-from chuckchuck.contracts import ParseError, SlideDoc
+import engine.f01_parse as f01
+from engine.contracts import ParseError, SlideDoc
 
 FIX = Path(__file__).resolve().parent.parent / "fixtures"
 

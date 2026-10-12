@@ -16,7 +16,7 @@ from email.message import Message
 import pytest
 
 import demo.bridge as bridge
-from chuckchuck.contracts import (
+from engine.contracts import (
     AlignmentDoc,
     ConceptDoc,
     Context,
@@ -28,10 +28,10 @@ from chuckchuck.contracts import (
     Transcript,
     Word,
 )
-from chuckchuck.f14_rubric import score_rubric
-from chuckchuck.f17_pace import analyze_pace
-from chuckchuck.f19_report import compose_report
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f14_rubric import score_rubric
+from engine.f17_pace import analyze_pace
+from engine.f19_report import compose_report
+from engine.providers.llm_base import LLMProvider
 
 # ---------------------------------------------------------------------------
 # 재료

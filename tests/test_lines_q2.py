@@ -22,17 +22,17 @@ from email.message import Message
 import pytest
 
 import demo.bridge as bridge
-from chuckchuck import _claim_rules as R
-from chuckchuck import _deck_lines as DL
-from chuckchuck import _evidence as E
-from chuckchuck import _grounding as G
-from chuckchuck import _probes as P
-from chuckchuck import _reason as RS
-from chuckchuck import build_questions
-from chuckchuck import f06_concepts as F06
-from chuckchuck import f07_graph as F07
-from chuckchuck._claim_quote import slide_lines
-from chuckchuck.contracts import (
+from engine import _claim_rules as R
+from engine import _deck_lines as DL
+from engine import _evidence as E
+from engine import _grounding as G
+from engine import _probes as P
+from engine import _reason as RS
+from engine import build_questions
+from engine import f06_concepts as F06
+from engine import f07_graph as F07
+from engine._claim_quote import slide_lines
+from engine.contracts import (
     Claim,
     ClaimDoc,
     ClaimQuote,
@@ -45,7 +45,7 @@ from chuckchuck.contracts import (
     SlideDoc,
     TriageMark,
 )
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.providers.llm_base import LLMProvider
 from demo.session_archive import SessionArchive
 
 

@@ -10,12 +10,12 @@ import json
 
 import pytest
 
-from chuckchuck import _grounding as grounding
-from chuckchuck import _traps as traps
-from chuckchuck import build_hint_ladder, coach_stuck, judge_answer
-from chuckchuck._deck_claims import Num, build_deck, conflicts, direction, negated, numbers, opposes
-from chuckchuck._evidence import _noun_like
-from chuckchuck._judge_post import (
+from engine import _grounding as grounding
+from engine import _traps as traps
+from engine import build_hint_ladder, coach_stuck, judge_answer
+from engine._deck_claims import Num, build_deck, conflicts, direction, negated, numbers, opposes
+from engine._evidence import _noun_like
+from engine._judge_post import (
     beyond_deck_terms,
     cap_length,
     clean_points,
@@ -27,8 +27,8 @@ from chuckchuck._judge_post import (
     scrub,
     to_noun_phrase,
 )
-from chuckchuck._speech import plain_to_haeyo, to_haeyo
-from chuckchuck.contracts import (
+from engine._speech import plain_to_haeyo, to_haeyo
+from engine.contracts import (
     QA_MAX_ROUNDS,
     ConceptEdge,
     ConceptGraph,
@@ -42,8 +42,8 @@ from chuckchuck.contracts import (
     qa_mastered,
     qa_passed,
 )
-from chuckchuck.f09_judge import _HONORIFIC_RE, _llm_choice_ok, _plain, asks_back, looks_stuck
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f09_judge import _HONORIFIC_RE, _llm_choice_ok, _plain, asks_back, looks_stuck
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -543,7 +543,7 @@ def test_문장으로_안_닫힌_react_조각과_골자를_읽어_준_react_는_
 
 def test_큰_수를_끝자리_0_으로_둥글려_말한_것은_같은_값이다():
     """10-05 부스 리허설 — 자료 「리뷰 124,380건」 을 「124000건」 이라 말했는데 「자료와 숫자가 다르다」 모순 질문 1번이 됐다."""
-    from chuckchuck._deck_claims import numbers
+    from engine._deck_claims import numbers
 
     def cv(a, b):
         x, y = numbers(a)[-1], numbers(b)[-1]
@@ -560,7 +560,7 @@ def test_큰_수를_끝자리_0_으로_둥글려_말한_것은_같은_값이다(
 
 def test_표지의_소속_행사_날짜_줄은_주장이_아니다():
     """10-05 부스 덱 — 표지 머리줄이 핵심 주장이 되어 첫 질문이 「배 터 리 공 학 과 … 를 어떻게 설명했나요?」 였다."""
-    from chuckchuck._deck_lines import is_byline
+    from engine._deck_lines import is_byline
 
     assert is_byline("배 터 리 공 학 과 에 너 지 저 장 연 구 실 · 랩 미 팅 중 간 발 표 · 2 0 2 6. 1 0. 6.")
     assert is_byline("2026. 10. 6. 경영학회 추계 학술대회")
@@ -572,7 +572,7 @@ def test_표지의_소속_행사_날짜_줄은_주장이_아니다():
 def test_조사만_남은_조각은_수의_주인이_아니고_단위_조각은_짝_단서가_아니다():
     """10-06 부스 미세플라스틱 녹음 — 「100mg에서는 40일까지」 가 「에서는」 을 주인으로 21일간 줄과 어긋났고(오판),
     「NOEC는 0.1mg 퍼 리터」(자료 NOEC = 1 mg/L)는 mg 가 든 다른 줄과 짝이 맞는다고 놓쳤다."""
-    from chuckchuck._spoken import spoken_numbers
+    from engine._spoken import spoken_numbers
     d = deck_of(slide(3, "100 mg/L에서 산자수가 절반 아래로 떨어졌다\n21일간 마리당 총 산자수\n"
                          "농도(대조군, 0.1, 1, 10, 100)별 마리당 총 산자수\n그림 2. Dunnett 검정 결과다.\nNOEC = 1 mg/L\n"
                          "대조군과 유의한 차이가 나타나지 않은 가장 높은 농도다."))
@@ -584,8 +584,8 @@ def test_조사만_남은_조각은_수의_주인이_아니고_단위_조각은_
 
 def test_수치_모순_질문은_발표에서_한_값을_실어야_LLM_문장을_쓴다():
     """10-06 미세플라스틱 — 어긋난 말은 「NOEC는 0.1mg」 인데 LLM 이 장 제목으로 「… 어느 쪽이 맞나요」 를 물어 무엇이 다른지 몰랐다."""
-    from chuckchuck.contracts import AlignmentItem
-    from chuckchuck.f08_questions import _contra_asked
+    from engine.contracts import AlignmentItem
+    from engine.f08_questions import _contra_asked
 
     it = AlignmentItem(node_id="x", verdict="contradiction", speech_weight=0, speech_basis=None, doc_weight=0,
                        evidence="NOEC는 0.1mg 퍼 리터로 나왔습니다.", note="", deck_quote="NOEC = 1 mg/L",

@@ -1,6 +1,6 @@
 # 파이썬 패키지 의존성 목록입니다. pip install -r requirements.txt 로 설치합니다.
 
-# 코어 모듈 (chuckchuck/)
+# 코어 모듈 (engine/)
 requests>=2.31.0
 
 # 서버 (server/) — 프론트가 실제로 붙는 런타임이다. 빠지면 `python -m server` 가

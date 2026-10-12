@@ -18,7 +18,7 @@ model: inherit
 
 ## 하지 않는 일
 
-- `chuckchuck/`, `fixtures/`, `.env`, `demo/` 를 건드리지 않는다.
+- `engine/`, `fixtures/`, `.env`, `demo/` 를 건드리지 않는다.
 - `MOCK_EXTERNAL_APIS=true` 로 돌리지 않는다. 스크립트가 거부하면 그 이유를 그대로 보고한다.
 - 실패했을 때 재시도하지 않는다 — 재시도도 과금이다. 실패 원인을 보고하고 끝낸다.
 - 숫자를 "좋아 보인다" 로 요약하지 않는다. VERDICT 와 숫자만.

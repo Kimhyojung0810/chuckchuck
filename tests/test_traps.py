@@ -11,10 +11,10 @@
 import inspect
 import json
 
-from chuckchuck import _grounding as grounding
-from chuckchuck import _traps as traps
-from chuckchuck import build_questions, judge_answer
-from chuckchuck.contracts import (
+from engine import _grounding as grounding
+from engine import _traps as traps
+from engine import build_questions, judge_answer
+from engine.contracts import (
     ConceptEdge,
     ConceptGraph,
     ConceptNode,
@@ -26,9 +26,9 @@ from chuckchuck.contracts import (
     TrapPremise,
     TriageMark,
 )
-from chuckchuck.f08_questions import QUESTION_SYSTEM_PROMPT, build_hint_ladder
-from chuckchuck.f09_judge import _TRAP_AGREED_REACT
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f08_questions import QUESTION_SYSTEM_PROMPT, build_hint_ladder
+from engine.f09_judge import _TRAP_AGREED_REACT
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):

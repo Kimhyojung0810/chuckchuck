@@ -16,14 +16,14 @@ QA 두 번째 자가 루프 (qa/loop2, 2026-09-29) — P5 최종 평가(docs/rev
 import inspect
 import json
 
-from chuckchuck import _grounding as grounding
-from chuckchuck import _probe_stance as stance
-from chuckchuck import _probes as probes_mod
-from chuckchuck import _traps as traps
-from chuckchuck import coach_stuck, judge_answer
-from chuckchuck._evidence import slide_units, strip_chart_descriptions
-from chuckchuck._probes import derive_probes
-from chuckchuck.contracts import (
+from engine import _grounding as grounding
+from engine import _probe_stance as stance
+from engine import _probes as probes_mod
+from engine import _traps as traps
+from engine import coach_stuck, judge_answer
+from engine._evidence import slide_units, strip_chart_descriptions
+from engine._probes import derive_probes
+from engine.contracts import (
     Claim,
     ClaimDoc,
     ClaimQuote,
@@ -39,9 +39,9 @@ from chuckchuck.contracts import (
     TrapPremise,
     qa_passed,
 )
-from chuckchuck.f08_questions import _polite_statement, _slide_tags
-from chuckchuck.f26_claims import build_claims
-from chuckchuck.providers.llm_base import LLMProvider
+from engine.f08_questions import _polite_statement, _slide_tags
+from engine.f26_claims import build_claims
+from engine.providers.llm_base import LLMProvider
 
 
 class ScriptedLLM(LLMProvider):
@@ -358,8 +358,8 @@ def test_골자의_한다체_과거형도_해요체로():
 
 
 def test_목록으로_온_골자는_문장으로_잇는다():
-    from chuckchuck import build_questions
-    from chuckchuck.contracts import QaTriage, TriageMark
+    from engine import build_questions
+    from engine.contracts import QaTriage, TriageMark
     triage = QaTriage(file_name="shop.pdf", marks=[TriageMark(node_id="pilot", rank=1, source="core_weight", severity=1, doc_weight=1.0)])
     llm = ScriptedLLM({"questions": [{"node_id": "pilot", "question": "시범 운영에서 대기 시간은 어떻게 바뀌었나요?",
                                       "answer_gist": ["평균 대기가 21분에서 8분으로 줄었다", "반품률도 9%에서 4%로 낮아졌다"]}]})

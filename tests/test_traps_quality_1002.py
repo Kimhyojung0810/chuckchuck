@@ -2,10 +2,10 @@
 함정 질문 품질 (2026-10-02 질문 코치 벤치) — 함정은 발표자가 당연히 알아야 할 사실을 뒤집어야 공정하다.
 옛 실패: 차트 축 눈금 「- 80」 + 축 이름 「회전율(회)」 이 사실 「80 회전율(회)」 이 됐고, 차트에서 읽은 표 값 -0.4 를 -0.5 로 바꿨다.
 """
-from chuckchuck import _grounding as G
-from chuckchuck import _traps as T
-from chuckchuck._evidence import noise_lines
-from chuckchuck.contracts import ConceptNode, Slide, SlideBlock
+from engine import _grounding as G
+from engine import _traps as T
+from engine._evidence import noise_lines
+from engine.contracts import ConceptNode, Slide, SlideBlock
 
 CHART = ("성공 요인\n상위 25% vs 하위 25% 행동 지표\n![image](/image/placeholder)\n- Chart Type: bar\n- 막대 그래프입니다.\n"
          "- 80\n70\n60\n0\n회전율(회)\n보유(월)\n|  | 회전율(회) | 보유(월) |\n| --- | --- | --- |\n| 상위 25% | 1 | 19 |\n"

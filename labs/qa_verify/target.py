@@ -57,8 +57,8 @@ class Target:
     @classmethod
     def open(cls, repo: str | Path) -> "Target":
         root = Path(repo).expanduser().resolve()
-        if not (root / "chuckchuck" / "__init__.py").exists():
-            raise SystemExit(f"--repo 가 척척발표 저장소가 아니에요 (chuckchuck/ 없음): {root}")
+        if not (root / "engine" / "__init__.py").exists():
+            raise SystemExit(f"--repo 가 척척발표 저장소가 아니에요 (engine/ 없음): {root}")
         py = root / ".venv" / "bin" / "python"
         t = cls(repo=root, python=str(py) if py.exists() else (C.HARNESS_ROOT / ".venv" / "bin" / "python").as_posix())
         t.sha = C.run(["git", "-C", str(root), "rev-parse", "HEAD"]).stdout.strip()

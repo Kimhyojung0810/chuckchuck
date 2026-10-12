@@ -18,7 +18,7 @@ from . import common as C
 
 MEETING = C.ROOT / "docs/회의록/README.md"
 WORKLOG = C.ROOT / "docs/WORKLOG.md"
-LEDGERS = {"QA": C.ROOT / "docs/QA_BENCH_LEDGER.md", "그래프": C.ROOT / "docs/GRAPH_BENCH_LEDGER.md"}
+LEDGERS = {"QA": C.ROOT / "exports/ledgers/QA_BENCH_LEDGER.md", "그래프": C.ROOT / "exports/ledgers/GRAPH_BENCH_LEDGER.md"}
 FESTA_FREEZE = dt.date(2026, 10, 1)
 FESTA_END = dt.date(2026, 10, 8)
 DATE_RE = re.compile(r"(2026-\d{2}-\d{2})")

@@ -18,7 +18,7 @@ if (!cfg.stamp || !/^\d{8}-\d{4}$/.test(String(cfg.stamp))) {
 }
 cfg.maxVariants = Math.min(Number(cfg.maxVariants) || 3, 5)   // 과금 상한: 한 번에 최대 5변형
 const benchFlags = ''
-const EDITABLE = ['chuckchuck/f06_concepts.py', 'chuckchuck/f07_graph.py', 'chuckchuck/f11_align.py']
+const EDITABLE = ['engine/f06_concepts.py', 'engine/f07_graph.py', 'engine/f11_align.py']
 const EDITABLE_STR = EDITABLE.join(' ')
 
 const BENCH = {
@@ -92,7 +92,7 @@ const hyp = await agent(
 - 기준선 결과: exports/graph_eval/*_${baseTag}.json 의 summary 와 artifacts.concept_graph (다시 만든 노드·간선 원문) · artifacts.alignment_doc
 - 프롬프트 원본: ${EDITABLE_STR} (SYSTEM_PROMPT 와 컨텍스트 조립 함수)
 - 설계 원칙: docs/PROMPT_DESIGN.md §1
-- 장부: docs/GRAPH_BENCH_LEDGER.md (있으면) — REGRESSED 로 끝난 가설을 되풀이하지 않는다
+- 장부: exports/ledgers/GRAPH_BENCH_LEDGER.md (있으면) — REGRESSED 로 끝난 가설을 되풀이하지 않는다
 - 지표 뜻: examples/graph_eval.py 머리 주석 (slide_coverage·label_grounded·summary_grounding·orphan·dangling·dup·evidence_found·false_missing/aligned)
 - 이전 모델 비교: docs/MODEL_BENCH_F07.md (노드 5개짜리 그래프가 왜 못 쓰는지)
 
@@ -189,7 +189,7 @@ const report = await agent(
 `docs/WORKLOG.md 맨 위(작성 규칙 주석 아래, 첫 "## " 절 위)에 이번 루프 기록을 한 절 추가한다. 한다체.
 제목: "## ${cfg.stamp.slice(0, 4)}-${cfg.stamp.slice(4, 6)}-${cfg.stamp.slice(6, 8)} — 개념 그래프·정합 프롬프트 자율 루프 (improve-graph, ${cfg.stamp})"
 내용: 기준선 ${baseTag} 숫자 한 줄 → 표(가설 id · 제목 · 판정 · 핵심 델타) → 채택된 것이 있으면 커밋 해시,
-없으면 "채택 없음 — 다음에 볼 가설" 한 줄. 장부 docs/GRAPH_BENCH_LEDGER.md 와 리포트 폴더를 링크한다.
+없으면 "채택 없음 — 다음에 볼 가설" 한 줄. 장부 exports/ledgers/GRAPH_BENCH_LEDGER.md 와 리포트 폴더를 링크한다.
 자료: ${JSON.stringify({ baseline: base.summary, accepted, variants: ledger })}
 WORKLOG.md 만 고치고, 커밋은 하지 않는다. 끝나면 ok 와 추가한 절의 첫 줄을 돌려준다.`,
   { phase: 'Report', label: 'worklog', schema: DONE, effort: 'low' })

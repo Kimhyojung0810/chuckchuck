@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from chuckchuck.contracts import (
+from engine.contracts import (
     FLOW_ISSUE_KINDS,
     AlignError,
     AlignmentDoc,
@@ -24,7 +24,7 @@ from chuckchuck.contracts import (
     SpeechEdge,
     Transcript,
 )
-from chuckchuck.f11_flow import build_flow_diff
+from engine.f11_flow import build_flow_diff
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -342,8 +342,8 @@ def test_fixture_transcript_schema_roundtrip():
 
 def test_fixture_scenario_end_to_end_mock_pipeline():
     """완료 기준: mock 파이프라인 + fixture 로 플로우 피드백 3종이 전부 검출된다."""
-    from chuckchuck import Context, align_speech, build_graph, extract_concepts
-    from chuckchuck.contracts import SlideDoc
+    from engine import Context, align_speech, build_graph, extract_concepts
+    from engine.contracts import SlideDoc
 
     slide_doc = SlideDoc.from_dict(json.loads(
         (ROOT / "fixtures" / "sample_slidedoc.json").read_text(encoding="utf-8")

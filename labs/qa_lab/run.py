@@ -32,7 +32,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(HERE))
 
-from chuckchuck.config import load_dotenv  # noqa: E402
+from engine.config import load_dotenv  # noqa: E402
 
 load_dotenv()
 
@@ -178,8 +178,8 @@ def cmd_snapshot(ns: argparse.Namespace) -> int:
         graph = post(ns.bridge, "/api/v1/graph", {"concept_doc": concept_doc, "slide_doc": slide_doc, "context": context, "session_id": sid})
         note(f"graph(브리지) {time.time() - t0:.1f}s · nodes={len(graph.get('nodes') or [])}")
     else:
-        from chuckchuck import build_graph, extract_concepts
-        from chuckchuck.contracts import Context, SlideDoc
+        from engine import build_graph, extract_concepts
+        from engine.contracts import Context, SlideDoc
 
         sd = SlideDoc.from_dict(slide_doc)
         ctx = Context.from_dict(context)
@@ -226,8 +226,8 @@ def cmd_questions(ns: argparse.Namespace) -> int:
             note("주의: session_id 가 없어 브리지가 자료 본문 없이 질문을 만들었어요 (본문=-).")
         note(f"questions(브리지) {time.time() - t0:.1f}s · model={doc.get('model')} · 인용 문헌 {len(doc.get('papers') or [])}")
     else:
-        from chuckchuck import build_papers, build_questions, triage_questions
-        from chuckchuck.contracts import ConceptGraph, Context, PaperDoc, QaTriage, SlideDoc
+        from engine import build_papers, build_questions, triage_questions
+        from engine.contracts import ConceptGraph, Context, PaperDoc, QaTriage, SlideDoc
 
         g = ConceptGraph.from_dict(graph)
         sd = SlideDoc.from_dict(slide_doc)
@@ -298,7 +298,7 @@ def judge_one(ns: argparse.Namespace, b: dict, q: dict, answer: str, *, prior: l
                 "question": q, "give_up": give_up, "prior_answers": prior, "hints_shown": [],
                 "graph": b["graph"], "context": meta.get("context") or {}}
         return post(ns.bridge, f"/api/v1/sessions/{sid}/qa/judge", body)
-    from chuckchuck import judge_answer
+    from engine import judge_answer
 
     j = judge_answer(q, answer, graph=b["graph"], context=meta.get("context") or {}, slidedoc=b["slide_doc"],
                      prior_answers=prior, history=history, give_up=give_up)

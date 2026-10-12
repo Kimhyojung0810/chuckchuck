@@ -11,9 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from chuckchuck import Context, extract_concepts, transcribe
-from chuckchuck.contracts import SlideDoc
-from chuckchuck.providers import compare_table
+from engine import Context, extract_concepts, transcribe
+from engine.contracts import SlideDoc
+from engine.providers import compare_table
 
 
 def main():

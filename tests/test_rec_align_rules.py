@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import pytest
 
-from chuckchuck._compare import comparison_relation, read_comparison
-from chuckchuck._deck_claims import (
+from engine._compare import comparison_relation, read_comparison
+from engine._deck_claims import (
     build_deck,
     conflict_family,
     conflicts,
@@ -33,7 +33,7 @@ from chuckchuck._deck_claims import (
     quantity_bounds,
     signed_directions,
 )
-from chuckchuck._spoken import skip_cue, spoken_numbers
+from engine._spoken import skip_cue, spoken_numbers
 
 
 def deck_of(*slides: str):
@@ -282,7 +282,7 @@ def test_humble_explain_forms_are_skip_cues():
 
 
 def test_quoted_words_do_not_end_clauses_and_quoted_adnominals_join_the_noun():
-    from chuckchuck._deck_claims import clauses
+    from engine._deck_claims import clauses
     line = "'시끄럽다' 민원이 '조용하다' 민원보다 3배 많았습니다."
     assert clauses(line) == [line.rstrip(".")]
     noise = deck_of("야간 소음 민원\n" + line)
@@ -329,7 +329,7 @@ def test_part_of_whole_pairs_follow_the_row():
 
 
 def test_skip_target_by_slide_shape_and_previous_sentence():
-    from chuckchuck._spoken import Utterance, skip_targets
+    from engine._spoken import Utterance, skip_targets
     texts = {3: "대기 현황\n평일 34분", 4: "대기 시간 계산\n대기 시간 = 도착 간격 ×\n해설 시간 ÷ 해설사 수", 5: "개선안\n예약제",
              6: "하반기 계획\n해설사 2명 증원\n야간 해설 시범", 7: "정리\n감사합니다"}
     cue = Utterance(5, 5, 0, "여기 계산식이 있는데요, 이 부분은 오늘 따로 설명드리지 않겠습니다.", skip=True)

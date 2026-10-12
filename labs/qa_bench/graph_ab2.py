@@ -47,10 +47,10 @@ sys.path.insert(0, str(HERE))
 import run as B  # noqa: E402 — load_dotenv·덱 목록·해시·파일 도구
 import metrics as M  # noqa: E402
 import hier_stab as H  # noqa: E402
-from chuckchuck import _deck_lines as DL  # noqa: E402
-from chuckchuck import _graph_items as GI  # noqa: E402
-from chuckchuck.contracts import ClaimDoc, ConceptDoc, ConceptGraph, Context, SlideDoc  # noqa: E402
-from chuckchuck.providers.llm_base import LLMProvider  # noqa: E402
+from engine import _deck_lines as DL  # noqa: E402
+from engine import _graph_items as GI  # noqa: E402
+from engine.contracts import ClaimDoc, ConceptDoc, ConceptGraph, Context, SlideDoc  # noqa: E402
+from engine.providers.llm_base import LLMProvider  # noqa: E402
 
 AB2 = B.OUT / "_graph_ab2"
 LEGACY = B.OUT / "_graph_ab"
@@ -162,7 +162,7 @@ def main_prompt(current: str) -> str:
 
 def arm_module(arm: str):
     """갈래마다 f07 을 따로 올린다 — 모듈 전역(SYSTEM_PROMPT)을 바꿔도 다른 갈래와 섞이지 않는다. 예시 id·이름 거르기도 따라간다."""
-    mod = _load(f"chuckchuck._ab2_{arm}_f07", ROOT / "chuckchuck" / "f07_graph.py")
+    mod = _load(f"engine._ab2_{arm}_f07", ROOT / "engine" / "f07_graph.py")
     mod.SYSTEM_PROMPT = PROMPTS[arm](main_prompt(mod.SYSTEM_PROMPT))
     if arm == "F":
         orig = mod._build_user_prompt
@@ -214,7 +214,7 @@ class Solar(LLMProvider):
 
     def complete(self, *, system: str, user: str, temperature: float = 0.2, max_tokens: int = 4096,
                  json_mode: bool = False) -> str:
-        from chuckchuck.providers.llm_impl import get_llm
+        from engine.providers.llm_impl import get_llm
 
         with _BUDGET_LOCK:
             if B.BUDGET.used >= B.BUDGET.limit:
@@ -310,8 +310,8 @@ def build_sample(deck: str, arm: str, k: int, mods: dict, specs: dict, live: boo
 
 def downstream(g: dict, sd: dict, truth: dict | None) -> dict:
     """규칙 경로(0콜) 주장·탐침 — 탐침은 제품 경로처럼 자료 원문과 함께(`slides`), 벤치 옛 경로(원문 없이)도 같이 센다."""
-    from chuckchuck._probes import derive_probes
-    from chuckchuck.f26_claims import build_claims
+    from engine._probes import derive_probes
+    from engine.f26_claims import build_claims
 
     claims = build_claims(g, sd, llm="none").to_dict()
     graph = ConceptGraph.from_dict(g)
@@ -559,7 +559,7 @@ def cmd_validate(ns, specs) -> int:
     import graph_ab as GA
 
     mods = {"base": arm_module("base")}
-    mods["C"] = _load("chuckchuck._ab2_C_f07", ROOT / "chuckchuck" / "f07_graph.py")
+    mods["C"] = _load("engine._ab2_C_f07", ROOT / "engine" / "f07_graph.py")
     mods["C"].SYSTEM_PROMPT = GA.c_prompt(mods["C"].SYSTEM_PROMPT)
     rng = random.Random(930)
     out: dict = {"legacy": {}, "wpc": {}}

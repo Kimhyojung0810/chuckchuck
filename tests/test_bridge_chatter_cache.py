@@ -14,9 +14,9 @@ from email.message import Message
 
 import pytest
 
-import chuckchuck
+import engine
 import demo.bridge as bridge
-from chuckchuck.contracts import AlignmentDoc, ChatterDoc, ChatterTurn, ConceptGraph, ConceptNode, FlowDiff
+from engine.contracts import AlignmentDoc, ChatterDoc, ChatterTurn, ConceptGraph, ConceptNode, FlowDiff
 
 GUESSED = AlignmentDoc(file_name="deck.pptx", total_slides=3, model="scripted", basis="fallback")
 MATCHED = AlignmentDoc(file_name="deck.pptx", total_slides=3, model="scripted")
@@ -54,7 +54,7 @@ def chatter_calls(tmp_path, monkeypatch, no_archive):
         return ChatterDoc(file_name="deck.pptx", total_slides=3, absent=list(state["absent"]),
                           turns=[ChatterTurn(speaker="solar", text=f"{len(calls)}번째 수다")])
 
-    monkeypatch.setattr(chuckchuck, "build_chatter", fake)
+    monkeypatch.setattr(engine, "build_chatter", fake)
     monkeypatch.setattr(bridge, "_CHATTER_PARTIAL", {})
     monkeypatch.setattr(bridge, "STAGE_CACHE_ON", True)
     monkeypatch.setattr(bridge, "STAGE_CACHE_DIR", tmp_path / "stage")
@@ -104,5 +104,5 @@ def test_chatter_right_after_a_partial_build_reuses_it_with_the_absence_shown(ch
 
 
 def test_chatter_stage_key_follows_its_code():
-    assert "chuckchuck.f12_chatter" in bridge.STAGE_MODULES["chatter"]
-    assert chuckchuck.build_chatter.__module__ in bridge.STAGE_ENTRY_MODULES["chatter"]
+    assert "engine.f12_chatter" in bridge.STAGE_MODULES["chatter"]
+    assert engine.build_chatter.__module__ in bridge.STAGE_ENTRY_MODULES["chatter"]

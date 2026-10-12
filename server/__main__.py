@@ -11,7 +11,7 @@ import os
 
 import uvicorn
 
-from chuckchuck import settings
+from engine import settings
 
 
 def main() -> None:
