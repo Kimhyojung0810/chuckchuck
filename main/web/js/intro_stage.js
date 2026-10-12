@@ -307,7 +307,8 @@
       const p = Math.min(1, Math.max(0, (scrollY - h * 0.25) / (h * 0.6)));   // 무대 4분의 1을 지난 뒤부터 그래프가 흐려진다
       stage.style.setProperty('--lift', (reduce ? 0 : p * LIFT_MAX).toFixed(3));
       // 무대 바닥이 아래 고정 버튼 띠 위로 올라가면 띠를 흰색으로 — 흰 구역 위에 진초록 띠가 남지 않게
-      const past = stage.getBoundingClientRect().bottom < innerHeight - 48;
+      // 바닥의 흰빛 구간(--stage-fade 120px)이 띠 밑으로 들어오는 순간 바꾼다 — 진초록 띠가 흰빛 위에 겹쳐 탁해지지 않게
+      const past = stage.getBoundingClientRect().bottom - 120 < innerHeight - 48;
       root.classList.toggle('past-stage', past);
       if (theme) theme.setAttribute('content', past ? '#FFFFFF' : '#066339');
     });

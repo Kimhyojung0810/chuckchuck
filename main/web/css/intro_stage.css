@@ -30,10 +30,12 @@
   color: #fff;
   background:
     radial-gradient(120% 60% at 30% -10%, var(--stage-light), transparent 60%),
-    linear-gradient(to bottom, var(--stage) 0%, var(--stage) 60%, var(--stage-deep) calc(100% - 120px), var(--page) 100%);
+    linear-gradient(to bottom, var(--stage) 0%, var(--stage) 60%, var(--stage-deep) calc(100% - var(--stage-fade)), var(--page) 100%);
   /* 첫 화면을 무대로 채운다 — 아래 고정 주 버튼이 무대 위에 얹히고, 둘째 링크가 버튼 밑에 숨지 않게 그만큼 띄운다 */
-  min-height: 100svh;
-  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) calc(var(--dock-h) + var(--safe-b) + 16px) max(16px, env(safe-area-inset-left, 0px));
+  /* 흰 본문으로 바래는 바닥 120px 는 첫 화면 밖에 둔다 — 안에 두면 고정 버튼 띠 뒤로 흰빛이 비쳐 탁한 띠가 생긴다 */
+  --stage-fade: 120px;
+  min-height: calc(100svh + var(--stage-fade));
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) calc(var(--dock-h) + var(--safe-b) + 16px + var(--stage-fade)) max(16px, env(safe-area-inset-left, 0px));
   overflow: hidden;
 }
 /* 무대 바닥은 흰 본문으로 이어지는 그라데이션 — 첫 화면에서는 아래 고정 버튼 띠 밑이라 안 보이고, 스크롤하면 끊김 없이 흰 구역이 된다.
@@ -252,7 +254,7 @@ html.stage-done .stage * { animation: none !important; }
 /* 데스크톱 — 그림 왼쪽 · 글 오른쪽. 무대가 첫 화면을 채운다 */
 @media (min-width: 960px) {
   :root { --col-w: 220px; }
-  .stage { padding-left: 40px; padding-right: 40px; padding-bottom: 72px; }
+  .stage { padding-left: 40px; padding-right: 40px; padding-bottom: calc(72px + var(--stage-fade)); }
   .stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "top top" "fig copy"; column-gap: 56px; align-items: center; justify-content: center; }
   .stage-top { grid-area: top; width: 100%; max-width: none; }
   .stage-fig { grid-area: fig; width: 100%; height: min(600px, calc(100svh - 200px)); margin: 16px 0 0; }
