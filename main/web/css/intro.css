@@ -274,6 +274,10 @@ html.fly .hero-bubble { animation-delay: 1600ms; }
   to   { opacity: 1; transform: none; }
 }
 
+/* 첫 연출을 도중에 건너뜀(intro.html — 스크롤 · 탭 · 키) — 등장 · 봉 흔들기를 다시 틀지 않고 끝 그림 그대로 */
+html.fly-skip .hero-mascot, html.fly-skip .hero-face, html.fly-skip .hero-bubble { animation: none; }
+html.fly-skip .spark { display: none; }
+
 /* 움직임을 줄인 기기 — 연출 없이 처음부터 그대로 */
 @media (prefers-reduced-motion: reduce) {
   .hero-mascot, .hero-face, .hero-bubble { animation: none; }
