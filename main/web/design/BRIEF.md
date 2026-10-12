@@ -90,3 +90,7 @@ YUYA Film Studio (https://www.awwwards.com/sites/yuya-film-studio) — 공간을
 4. 3D 공간에 2D 화면을 띄울 때 **liquid-glass-js** 를 적극적으로. → DESIGN_SYSTEM §4-2 (CLAUDE.md 의 유리 금지는 스튜디오 창에 한해 풀었다)
 5. 음성 인터랙션에 **shadergradient** — 요즘 스타트업처럼. → DESIGN_SYSTEM §6-10
 6. **React 가 필요하면 적극적으로 쓴다.** → SPACE §5: 공간을 React Three Fiber(three.js)로 다시 만든다
+
+### 2026-10-13
+
+7. **리포트 화면은 기존 것을 넣는다.** → SPACE §6-1 (④ 정거장 창 안에 지금 앱의 리포트 화면)

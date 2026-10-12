@@ -28,6 +28,7 @@ export default function App() {
   const mic = useMicLevel()
   const live = useRef(null)
   const quality = useRef(1)
+  const [reportSeen, setReportSeen] = useState(false)   // 리포트 iframe 은 처음 갈 때 불러온다 (지금 앱 전체를 싣는다)
   const htmlLayer = useRef(null)   // drei Html 이 붙을 고정 층 — 첫 Html 이 붙을 자리를 못 찾고 사라지던 것을 막는다
 
   /** 정거장으로 — dir +1 오른쪽 · −1 왼쪽 · 0 최단(두 칸이면 오른쪽 180°) */
@@ -41,6 +42,7 @@ export default function App() {
     rig.at = to
     rig.peek = 0
     setAt(to)
+    if (to === 3) setReportSeen(true)
     if (push) history.pushState({ at: to }, '', '#' + STATIONS[to].key)
     document.title = `척척발표 — ${STATIONS[to].name} (시제품)`
     if (live.current) live.current.textContent = `${to + 1}단계 ${STATIONS[to].name}(으)로 왔어요`
@@ -91,6 +93,7 @@ export default function App() {
   const barW = Math.round(Math.min(860, camW - pad * 2)), barH = vp.phone ? 132 : 80
   const qW = Math.round(Math.min(900, camW - pad * 2)), qH = vp.phone ? 150 : 128
   const aH = vp.phone ? 230 : 150
+  const repW = Math.round(Math.min(1280, vp.w * (vp.phone ? 0.94 : 0.84))), repH = Math.round(Math.min(840, vp.h * (vp.phone ? 0.8 : 0.8)))
 
   const present = cam.state === 'on'
     ? [
@@ -109,7 +112,7 @@ export default function App() {
     { panels: [{ id: 'w', x: 0, y: 0, w: winW, h: winH, children: <UploadWindow onNext={next} /> }] },
     { panels: present, behind: <CameraScreen video={cam.video} widthPx={camW} heightPx={camHh} /> },
     { panels: qa, behind: <CameraScreen video={cam.video} widthPx={camW} heightPx={camHh} /> },
-    { panels: [{ id: 'w', x: 0, y: 0, w: winW, h: winH, paper: true, children: <ReportWindow onNext={next} /> }] },
+    { panels: [{ id: 'w', x: 0, y: 0, w: repW, h: repH, paper: true, children: <ReportWindow onNext={next} load={reportSeen || at === 3} /> }] },
   ]
 
   return (
