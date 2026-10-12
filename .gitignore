@@ -103,3 +103,4 @@ labs/intro_flow/out/
 # MediaPipe 런타임·모델 (scripts/get_mediapipe.sh 로 받는다, 합 ~29MB) — lab/eval-1008 과 같은 줄
 demo/YEHS_demo/js/vendor/mediapipe/
 labs/booth_scan/out/
+labs/intro_metrics/out/

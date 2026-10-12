@@ -9,7 +9,7 @@
 <title>척척발표 — AI 발표 리허설 코치 | 팀 소개</title>
 <meta name="description" content="척척발표는 발표 자료와 실제로 말한 것을 맞춰 보고, 나올 만한 질문까지 미리 물어봐 주는 AI 발표 리허설 코치예요. 만든 사람들을 소개하고, 폰에서 바로 체험해 볼 수 있어요.">
 <link rel="canonical" href="https://chuckchuck-present.com/hi">
-<meta name="theme-color" content="#FAFAF9">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="color-scheme" content="light">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="/favicon.ico?v=i1">
@@ -35,9 +35,9 @@
 <!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다 (그 전엔 시스템 서체). 앱(index.html)과 같은 주소라 투어로 넘어가면 캐시를 그대로 쓴다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i8">
+<link rel="stylesheet" href="/css/intro.css?v=i11">
 <script src="/js/funnel.js?v=fn2" defer></script>
-<script src="/js/intro.js?v=i7" defer></script>
+<script src="/js/intro.js?v=i9" defer></script>
 </head>
 <body>
 <!-- 병아리 배지 한 장을 팀원 줄마다 같이 쓴다 -->
@@ -65,11 +65,17 @@
     </div>
     <p class="fly-caption" aria-hidden="true">척척, 발표 채점~!</p>
     <!-- 첫 그림 전에 삐약이가 지금 자리에서 화면 가운데까지 얼마나 떨어져 있는지 재 둔다 — css .fly 연출이 거기서 출발해 제자리로 날아온다.
-         맨 위에서 처음 열 때만 (/hi/<id>·#팀 으로 바로 내려가는 길, 움직임 줄이기, 스크립트 꺼짐이면 연출 없이 그대로) -->
+         맨 위에서 처음 열 때만 (/hi/<id>·#팀 으로 바로 내려가는 길, 움직임 줄이기, 스크립트 꺼짐이면 연출 없이 그대로).
+         이 탭에서 한 번만(투어 끝 「팀 소개로 돌아가기」 · 뒤로 가기 · 새로 고침은 연출 없이) — 돌아온 자리가 아래쪽이면 빈 화면에 캡션만 떴고,
+         돌아올 때마다 기다려야 했다 (10-12 지표 노트 P0). 저장소를 못 쓰는 사생활 모드면 그냥 튼다 -->
     <script>
       (function () {
         try {
-          if (matchMedia('(prefers-reduced-motion: reduce)').matches || scrollY > 0 || /^\/hi\/./.test(location.pathname) || location.hash) return;
+          var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0] || {}).type;
+          var seen = false;
+          try { seen = sessionStorage.getItem('cheokcheok:hi-intro') === '1'; sessionStorage.setItem('cheokcheok:hi-intro', '1'); } catch (_) { /* 사생활 모드 */ }
+          if (seen || nav === 'back_forward' || matchMedia('(prefers-reduced-motion: reduce)').matches || scrollY > 0
+              || /^\/hi\/./.test(location.pathname) || location.hash) return;
           var r = document.querySelector('.hero-mascot').getBoundingClientRect();
           var d = document.documentElement;
           d.style.setProperty('--fx', Math.round(innerWidth / 2 - (r.left + r.width / 2)) + 'px');
@@ -78,53 +84,101 @@
         } catch (_) { /* 연출은 덤 */ }
       })();
     </script>
-    <p class="eyebrow">AI 발표 리허설 코치</p>
+    <!-- 첫 화면의 신뢰 신호 하나 — 사실(team.json contest)만, 작게 (지표 노트 #15) -->
+    <p class="eyebrow">AI 발표 리허설 코치<span class="sr-only"> · </span><span class="hero-badge" id="hero-contest">AI 루키 2026 결선</span></p>
     <h1 id="hero-title" class="hero-title">발표 연습,<br>척척발표랑 같이 해요</h1>
-    <p class="hero-lead">혼자 연습하면 뭘 고칠지 모르고, 질문은 늘 두렵죠. 척척발표가 듣고, 짚고, 미리 물어봐 줘요.</p>
+    <p class="hero-lead">말한 걸 자료와 맞춰 보고, 나올 질문까지 미리 물어봐 줘요.</p>
     <a class="text-link" id="own-link-1" href="/index.html#/rehearsal" data-needs-camera>바로 내 자료로 해 보기</a>
   </section>
 
-  <!-- 2) 무엇을 해 주나 — 발표 한 번이 리포트가 되기까지 네 단계 -->
+  <!-- 2) 무엇을 해 주나 — 한 단계에 한 메시지 · 한 그림. 그림 속 글과 숫자는 녹화 투어(data/tour/delivery-rating.json)에 실제로 나온 값만 쓴다 -->
   <section id="what" class="block" aria-labelledby="what-title">
-    <p class="eyebrow">발표 한 번이면</p>
-    <h2 id="what-title" class="block-title">네 단계로 도와줘요</h2>
-    <ol class="steps">
-      <li class="step">
-        <span class="step-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
-        <div>
-          <h3 class="step-title"><span class="step-no">1</span>발표 리허설</h3>
-          <p class="step-text">자료를 넘기며 말하면, 병아리 청중이 빠르기에 맞춰 반응해요.</p>
+    <div class="block-head rv">
+      <p class="eyebrow">발표 한 번이면</p>
+      <h2 id="what-title" class="block-title">네 단계로 도와줘요</h2>
+    </div>
+    <ol class="feats">
+      <li class="feat rv">
+        <div class="feat-visual" role="img" aria-label="발표 자료 아래 객석에서 병아리 청중이 듣고 있는 화면">
+          <div class="mock-stage">
+            <img class="mock-slide" src="/assets/deck-covers/delivery-rating.webp" width="800" height="450" alt="" loading="lazy" decoding="async">
+            <span class="mock-pill mock-live"><i></i>발표 중</span>
+            <span class="mock-pill mock-page">1 / 3장</span>
+          </div>
+          <div class="mock-seats">
+            <svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg>
+          </div>
+        </div>
+        <div class="feat-body">
+          <p class="feat-label"><span class="feat-no">1</span>발표 리허설</p>
+          <h3 class="feat-title">자료를 넘기며 말하면<br>병아리 청중이 들어요</h3>
+          <p class="feat-text">말하는 빠르기에 맞춰 객석의 병아리가 반응해요.</p>
         </div>
       </li>
-      <li class="step">
-        <span class="step-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h16M4 18h7"/><circle cx="18" cy="6" r="2"/></svg></span>
-        <div>
-          <h3 class="step-title"><span class="step-no">2</span>자료와 맞춰 보기</h3>
-          <p class="step-text">빠뜨린 내용, 자료와 다르게 말한 곳을 장마다 짚어 줘요.</p>
+      <li class="feat rv">
+        <div class="feat-visual" role="img" aria-label="자료의 중요한 개념 12개 가운데 11개를 말했고, 3장의 핵심 주장 하나를 말하지 않았다고 알려 주는 화면">
+          <div class="mock-card">
+            <p class="mock-k">자료와 맞춰 봤어요</p>
+            <p class="mock-big"><b>11</b><span>/ 12</span> 개념을 말했어요</p>
+            <span class="mock-bar"><i></i></span>
+            <ul class="mock-tags"><li>리뷰 이벤트</li><li>재주문율</li><li>행동 지표</li></ul>
+            <div class="mock-miss">
+              <span class="chip st-om">말하지 않았어요 · 3장</span>
+              <p>4.7은 품질이 아니라 리뷰 수집 방식의 결과다</p>
+            </div>
+          </div>
+        </div>
+        <div class="feat-body">
+          <p class="feat-label"><span class="feat-no">2</span>자료와 맞춰 보기</p>
+          <h3 class="feat-title">빠뜨린 말을<br>장마다 짚어 줘요</h3>
+          <p class="feat-text">자료에 있는데 말하지 않은 내용, 자료와 다르게 말한 곳을 찾아요.</p>
         </div>
       </li>
-      <li class="step">
-        <span class="step-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/><path d="M10 9.2a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9"/></svg></span>
-        <div>
-          <h3 class="step-title"><span class="step-no">3</span>예상 질문 연습</h3>
-          <p class="step-text">발표 내용으로 나올 만한 질문을 묻고, 내 답을 근거와 함께 봐 줘요.</p>
+      <li class="feat rv">
+        <div class="feat-visual" role="img" aria-label="교수님 역할이 근거를 묻고, 답이 자료 3장의 문장에 기대 좋아요를 받은 화면">
+          <div class="mock-card mock-qa">
+            <p class="mock-asker"><svg class="mock-chick" viewBox="0 0 100 100"><use href="#chick"/></svg>교수님이 물어요</p>
+            <p class="mock-q">4.7이라는 수치가 리뷰 수집 방식의 결과라는 주장의 근거는 무엇인가요?</p>
+            <div class="mock-answer">
+              <span class="chip st-ok">좋아요</span>
+              <p class="mock-ground"><b>자료 3장</b>「4.5점 이상 구간에 82%가 몰려 있다」</p>
+            </div>
+          </div>
+        </div>
+        <div class="feat-body">
+          <p class="feat-label"><span class="feat-no">3</span>예상 질문 연습</p>
+          <h3 class="feat-title">나올 만한 질문을<br>미리 물어봐요</h3>
+          <p class="feat-text">내 답이 자료의 어느 줄에 기대는지 근거와 함께 보여 줘요.</p>
         </div>
       </li>
-      <li class="step">
-        <span class="step-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg></span>
-        <div>
-          <h3 class="step-title"><span class="step-no">4</span>리포트</h3>
-          <p class="step-text">고칠 곳을 「좋아요 · 보통 · 더 연습」 세 단계로 한 장에 모아 줘요.</p>
+      <li class="feat rv">
+        <div class="feat-visual" role="img" aria-label="자료와 맞게 말했나 좋아요, 말이 또렷한가 보통, 목소리와 빠르기 더 연습으로 정리한 리포트 화면">
+          <div class="mock-card mock-report">
+            <p class="mock-k">리포트</p>
+            <ul class="mock-rows">
+              <li><span>자료와 맞게 말했나</span><span class="chip st-ok">좋아요</span></li>
+              <li><span>말이 또렷한가</span><span class="chip st-mid">보통</span></li>
+              <li><span>목소리와 빠르기</span><span class="chip st-no">더 연습</span><small>1분에 253자예요 · 권장 300~350자</small></li>
+            </ul>
+          </div>
+        </div>
+        <div class="feat-body">
+          <p class="feat-label"><span class="feat-no">4</span>리포트</p>
+          <h3 class="feat-title">고칠 곳을<br>한 장에 모아 줘요</h3>
+          <p class="feat-text">「좋아요 · 보통 · 더 연습」 세 단계 말로 보여 주고, 다음에 할 일도 적어 줘요.</p>
         </div>
       </li>
     </ol>
+    <p class="feats-note rv">그림 속 내용은 미리 녹화한 체험 「별점은 왜 4.7에 몰리는가」 발표에서 실제로 나온 결과예요.</p>
   </section>
 
   <!-- 3) 팀 소개 — data/team.json 을 읽어 한 사람 한 줄로 그린다. 줄 수 = members 길이 -->
   <section id="team" class="block team" aria-labelledby="team-title">
-    <p class="eyebrow" id="team-contest">AI 루키 2026 결선</p>
-    <h2 id="team-title" class="block-title">척척발표를 만든 사람들</h2>
-    <p class="block-lead" id="team-lead">함께 만든 사람들을 소개할게요.</p>
+    <div class="block-head rv">
+      <p class="eyebrow" id="team-contest">AI 루키 2026 결선</p>
+      <h2 id="team-title" class="block-title">척척발표를 만든 사람들</h2>
+      <p class="block-lead" id="team-lead">함께 만든 사람들을 소개할게요.</p>
+    </div>
 
     <div class="team-box" data-state="loading">
       <ul class="team-list" id="team-list" aria-label="팀원">
@@ -142,14 +196,16 @@
     </div>
   </section>
 
-  <!-- 4) 마무리 — 투어로 넘기는 이유를 한 번 더 -->
+  <!-- 4) 마무리 — 투어로 넘기는 이유를 한 번 더. 페이지에서 브랜드 초록 면은 여기 한 곳만 -->
   <section class="block outro" aria-labelledby="outro-title">
-    <h2 id="outro-title" class="block-title">직접 눌러 보면 더 잘 보여요</h2>
-    <p class="block-lead">미리 녹화한 체험이라 카메라·마이크 없이 볼 수 있어요.</p>
-    <ol class="tour-path" aria-label="체험 순서">
-      <li>자료</li><li>발표</li><li>분석</li><li>질문</li><li>리포트</li>
-    </ol>
-    <a class="text-link" id="own-link-2" href="/index.html#/rehearsal" data-needs-camera>바로 내 자료로 해 보기</a>
+    <div class="outro-panel rv">
+      <h2 id="outro-title" class="outro-title">직접 눌러 보면<br>더 잘 보여요</h2>
+      <p class="outro-lead">미리 녹화한 체험이라 <span class="nowrap">카메라·마이크</span> 없이 볼 수 있어요.</p>
+      <ol class="tour-path" aria-label="체험 순서">
+        <li>자료</li><li>발표</li><li>분석</li><li>질문</li><li>리포트</li>
+      </ol>
+      <a class="text-link" id="own-link-2" href="/index.html#/rehearsal" data-needs-camera>바로 내 자료로 해 보기</a>
+    </div>
   </section>
 
   <footer class="foot">

@@ -70,7 +70,8 @@ def run(base: str, out: Path) -> dict:
             page.on("pageerror", lambda e: errs.append(f"pageerror: {e}"[:200]))
             page.on("requestfinished", lambda r: sizes.append((r.url[-70:], r.sizes()["responseBodySize"])))
             page.goto(f"{base}/hi", wait_until="networkidle")
-            page.wait_for_timeout(900)
+            # 첫 방문 연출(삐약이 날아와 앉기 · 약 2.1초)이 끝난 뒤의 첫 화면을 찍는다 — 900ms 에선 글이 아직 숨어 있었다
+            page.wait_for_timeout(2600)
             first = page.evaluate(MEASURE)
             page.screenshot(path=str(out / f"{tag}_1_first.png"))
             page.locator("#team").scroll_into_view_if_needed()
@@ -123,7 +124,7 @@ def run(base: str, out: Path) -> dict:
         page.route("**/data/team.json*", lambda r: r.fulfill(status=500, body="x"))
         page.goto(f"{base}/hi", wait_until="networkidle")
         page.evaluate("document.getElementById('team').scrollIntoView({block:'start'})")
-        page.wait_for_timeout(400)
+        page.wait_for_timeout(2600)   # 첫 방문 연출이 끝나야 글이 보인다
         report["team_fail"] = page.evaluate("({err: !document.getElementById('team-error').hidden,"
                                             " dock: !!document.querySelector('.dock .btn-primary').offsetParent})")
         page.screenshot(path=str(out / "fail_team_json.png"))

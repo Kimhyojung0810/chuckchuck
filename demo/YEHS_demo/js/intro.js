@@ -138,7 +138,7 @@
     $('team-error').hidden = true;
     try {
       const team = await fetchTeam();
-      if (team.contest) { $('team-contest').textContent = team.contest; $('foot-contest').textContent = team.contest; }
+      if (team.contest) { ['team-contest', 'foot-contest', 'hero-contest'].forEach((id) => { $(id).textContent = team.contest; }); }
       $('team-lead').textContent = `${team.members.length}명이 함께 만들었어요.`;
       const c = teamList(team);
       const id = wantedId();
@@ -274,7 +274,36 @@
   try { sessionStorage.removeItem(RH_FROM_KEY); sessionStorage.removeItem('cheokcheok:from-tour'); } catch (_) { /* 사생활 모드 */ }
   if (!INAPP) document.querySelectorAll('[data-needs-camera]').forEach((a) => a.addEventListener('click', markFromHi));
 
+  // ── 스크롤에 맞춰 한 번 떠오르기 (.rv) ─────────────────────────────────
+  // 화면 아래 12% 선을 넘으면 .in 을 붙인다. 위로 건너뛴 칸(/hi/<id> · 건너뛰기 링크 · 빠른 스크롤)도 같이 켠다 —
+  // IntersectionObserver 는 건너뛴 칸에 알려 주지 않아서 스크롤 위치로 직접 본다. 지금 화면 안의 칸은 숨기기 전에 먼저 켠다(깜박임 없음).
+  // 움직임 줄이기 · 옛 브라우저면 아무것도 숨기지 않는다.
+  function reveal() {
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !('requestAnimationFrame' in window)) return;
+    let pending = Array.from(document.querySelectorAll('.rv'));
+    const check = () => {
+      const line = innerHeight * 0.88;
+      pending = pending.filter((n) => {
+        if (n.getBoundingClientRect().top < line) { n.classList.add('in'); return false; }
+        return true;
+      });
+      if (!pending.length) { removeEventListener('scroll', onScroll); removeEventListener('resize', onScroll); }
+    };
+    let queued = false;
+    const onScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; check(); });
+    };
+    check();
+    document.documentElement.classList.add('rv-on');
+    addEventListener('scroll', onScroll, { passive: true });
+    addEventListener('resize', onScroll, { passive: true });
+  }
+
   // ── 시작 ────────────────────────────────────────────────────────────────
+  reveal();
   funnel('hi');
   whenSeen($('what'), () => funnel('intro'));
   const explore = $('explore-btn');

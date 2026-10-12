@@ -164,7 +164,7 @@ def run_device(browser, base: str, width: int, ua_kind: str, deck: str, out: Pat
     try:
         # ── /hi 랜딩 ──
         page.goto(f"{base}/hi", wait_until="networkidle")
-        shot("hi_first", 700)
+        shot("hi_first", 2600)   # 첫 방문 연출(약 2.1초)이 끝난 뒤
         page.evaluate("document.getElementById('team').scrollIntoView({block:'start'})")
         page.wait_for_selector(".team-row[data-id]", timeout=10000)
         # 팀 소개는 한 사람 한 줄 목록(10-12) — 넘기기 없이 한 장으로
