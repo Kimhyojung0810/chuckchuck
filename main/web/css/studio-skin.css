@@ -90,8 +90,17 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-bar i { background: var
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-how b { background: rgba(240, 240, 233, .08); color: var(--sx-ink-2); }
 
 /* ── 분석 기다림 (독립 장면 — 스튜디오가 정거장 「분석」 으로 띄운다) — 실제 파이프라인 단계만 ── */
+/* 스튜디오에서는 이 창이 「실제 진행 단계」 작은 판이다 — 채점판(개념 그래프)은 스튜디오가 옆에 크게 그린다. 카메라는 감추고 카드가 창을 채운다 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] { background: transparent; }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .bc-self { background: var(--sx-bg); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .bc-self { display: none; }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .bq-top { padding: 12px 14px; justify-content: flex-end; }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-card {
+  position: absolute; left: 14px; right: 14px; top: 60px; bottom: 14px; transform: none; width: auto; overflow: auto;
+  padding: 18px 18px; border-radius: 18px; gap: 12px;
+}
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-head .bc-host-bird { display: none; }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-head h1 { font-size: 18px; }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-steps li { font-size: 15px; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 40%), var(--sx-sub);
   border: 1px solid var(--sx-edge); color: var(--sx-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 30px 60px -30px rgba(0, 0, 0, .7);

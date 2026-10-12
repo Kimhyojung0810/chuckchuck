@@ -3,7 +3,7 @@
    「Q&A 는 웹캠 중심 + 떠 있는 목소리」 「분석은 독립 장면」 「리포트는 읽기 우선」
    0 자료 올리기  내용 크기 창(가운데)
    1 발표        웹캠(앱 창)을 위에 넓게 · 그 위 작은 PPT 창(PiP) · 아래 앞줄 관중 · 맨 아래 조작줄
-   2 분석        가운데 중간 창 — 둘레에 분석 요소(슬라이드 · 목소리 · 내 말 · 개념)가 떠 있다(scene/Sets)
+   2 발표 채점    오른쪽 크게 개념 그래프 채점판(ui/ScoreBoard) · 왼쪽 작은 창에 앱의 실제 진행 단계
    3 질의응답     웹캠(앱 창) 가운데에서 오른쪽으로 조금 · 왼쪽 앞에 심사위원 삐약이(목소리 구)
    4 리포트      크게 — 읽기 우선 */
 
@@ -50,9 +50,16 @@ function present(vp, big = false) {
   }
 }
 
-/** ③ 분석 — 가운데 중간 창, 둘레는 분석 요소가 떠 있을 자리 */
+/** ③ 발표 채점 — 개념 그래프가 주인공(오른쪽 크게, ui/ScoreBoard), 앱의 실제 진행 단계는 왼쪽 작은 창 */
 function analysis(vp) {
-  return single(vp, 0.5, 0.6, 820, 560)
+  const w = Math.round(Math.min(400, vp.w * 0.28))
+  const h = Math.round(Math.min(560, vp.h * 0.64))
+  const left = -vp.w / 2 + EDGE + 32
+  const app = { x: Math.round(left + w / 2), y: Math.round(HUD / 4 - 20), w, h }
+  const gx0 = left + w + 28, gx1 = vp.w / 2 - EDGE - 32
+  const gy0 = -vp.h / 2 + HUD + 16, gy1 = vp.h / 2 - EDGE - 24
+  const graph = { x: Math.round((gx0 + gx1) / 2), y: Math.round((gy0 + gy1) / 2), w: Math.round(gx1 - gx0), h: Math.round(gy1 - gy0) }
+  return { app, graph }
 }
 
 /** ④ 질의응답 — 웹캠 중심(오른쪽으로 조금), 왼쪽 앞에 심사위원 */

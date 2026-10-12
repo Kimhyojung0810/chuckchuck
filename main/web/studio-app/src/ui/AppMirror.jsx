@@ -60,13 +60,30 @@ function readJudge(doc) {
 }
 
 /** 분석 기다림 — 실제 파이프라인 단계(rec · stt · align · flow · questions)의 상태만 (rehearsal.js RH_WAIT_STEPS) */
+const WAIT_PEEK = `(()=>{ try {
+  const o = (typeof nf !== 'undefined' && nf && nf.pipelineOut) || {};
+  const pre = (typeof precompute !== 'undefined' && precompute && precompute.state && precompute.state.graph) || null;
+  return { graph: o.graph || pre || null, alignment: o.alignment || null, flow: o.flow || null, phase: (typeof nf !== 'undefined' && nf && nf.pipelinePhase) || '' };
+} catch (e) { return null } })()`
+
 function readWait(doc) {
   const stage = doc.querySelector('#bqStage[data-screen="wait"]')
   if (!stage) return null
   const steps = {}
   stage.querySelectorAll('.rh-wait-steps li[data-step]').forEach((li) => { steps[li.dataset.step] = li.dataset.state || 'wait' })
-  return { steps, title: text(doc.getElementById('rhWaitTitle')) }
+  // 개념 그래프 · 판정 · 흐름은 앱 전역(nf.pipelineOut · precompute)에 있다 — 같은 출처라 iframe 안에서 읽는다(쓰지 않는다)
+  let peek = null
+  try { peek = doc.defaultView.eval(WAIT_PEEK) } catch (_) { peek = null }
+  return { steps, title: text(doc.getElementById('rhWaitTitle')), ...(peek || {}) }
 }
+
+/* 큰 객체(그래프 · 판정)는 문자열로 비교하지 않는다 — 참조가 바뀌면 바뀐 것(앱은 갱신마다 새 객체를 만든다) */
+const refIds = new WeakMap()
+let refSeq = 0
+const refKey = (o) => { if (!o || typeof o !== 'object') return '-'; if (!refIds.has(o)) refIds.set(o, ++refSeq); return refIds.get(o) }
+const stateKey = (mode, s) => (mode === 'wait' && s
+  ? JSON.stringify([s.steps, s.title, s.phase, refKey(s.graph), refKey(s.alignment), refKey(s.flow)])
+  : JSON.stringify(s))
 
 /** 앱을 6번/초 읽는다 — 바뀌었을 때만 다시 그린다. mode: 'present' | 'qa' | null */
 export function useAppMirror(api, mode) {
@@ -81,7 +98,7 @@ export function useAppMirror(api, mode) {
       const s = mode === 'present' ? readPresent(doc) : mode === 'qa' ? readJudge(doc) : mode === 'wait' ? readWait(doc) : null
       doc.documentElement.classList.toggle('sx-stage', mode === 'present' && !!s)
       doc.documentElement.classList.toggle('sx-judge', mode === 'qa' && !!s)
-      const key = JSON.stringify(s)
+      const key = stateKey(mode, s)
       if (key !== last) { last = key; setState(s) }
     }
     tick()

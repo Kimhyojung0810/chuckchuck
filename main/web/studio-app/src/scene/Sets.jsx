@@ -1,7 +1,6 @@
 /* 정거장마다 무대 세트와 삐약이 (SPACE §2-2, 10-13 사용자). 창과 함께 곡선을 미끄러진다 — 정거장 묶음(Station) 안에 놓인다.
    좌표: 창 가운데 원점, x 오른쪽 · y 위 (px → world 로 바꿔 놓는다), z 는 m (앞 +). 창(앱 화면) 자리는 비워 둔다 — 소품은 창 밖에만. */
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 
 /* 삐약이 그림(SVG)을 큰 캔버스에 한 번 그려 텍스처로 — 3D 안에서도 선명하게. 같은 그림은 한 번만 */
@@ -180,91 +179,18 @@ function Study({ W, H, world }) {
   )
 }
 
-/* ③ 분석 — 창 둘레에 분석 요소 넷이 떠 있다. 앱의 실제 단계 상태(rec · stt · align · flow · questions)로만 켜진다 — 숫자 진행률은 만들지 않는다 */
-const ANALYSIS_CARDS = [
-  { key: 'voice', label: '목소리', sub: '녹음을 정리하고 받아써요', steps: ['rec', 'stt'], at: [-1, -1] },
-  { key: 'align', label: '자료와 내 말', sub: '장마다 한 말을 맞춰 봐요', steps: ['align'], at: [1, -1] },
-  { key: 'flow', label: '발표 흐름', sub: '자료의 흐름과 비교해요', steps: ['flow'], at: [-1, 1] },
-  { key: 'ask', label: '질문', sub: '빠뜨린 개념으로 질문 3개', steps: ['questions'], at: [1, 1] },
-]
-const STATE_WORD = { wait: '기다려요', run: '하고 있어요', done: '마쳤어요', fail: '멈췄어요' }
+/* ③ 발표 채점 — 세트 없음: 개념 그래프 채점판(ui/ScoreBoard)이 주인공이라 방은 조용히 */
+const Scoring = () => null
 
-function cardState(steps, keys) {
-  if (!steps) return 'wait'
-  const st = keys.map((k) => steps[k] || 'wait')
-  if (st.includes('fail')) return 'fail'
-  if (st.every((x) => x === 'done')) return 'done'
-  if (st.some((x) => x === 'run' || x === 'done')) return 'run'
-  return 'wait'
-}
-
-/** 카드 그림 — 캔버스에 그려 텍스처로 (상태가 바뀔 때만 다시 그린다) */
-function useCardTexture(card, state) {
-  const tex = useMemo(() => {
-    const c = document.createElement('canvas'); c.width = 520; c.height = 300
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4
-    return t
-  }, [])
-  useEffect(() => {
-    const c = tex.image, g = c.getContext('2d')
-    g.clearRect(0, 0, c.width, c.height)
-    const r = 36
-    g.beginPath(); g.roundRect ? g.roundRect(4, 4, c.width - 8, c.height - 8, r) : g.rect(4, 4, c.width - 8, c.height - 8)
-    g.fillStyle = state === 'run' ? 'rgba(52, 74, 64, .92)' : 'rgba(34, 39, 36, .86)'; g.fill()
-    g.lineWidth = 3; g.strokeStyle = state === 'run' ? 'rgba(111, 181, 154, .75)' : state === 'done' ? 'rgba(111, 181, 154, .35)' : 'rgba(240, 240, 233, .14)'; g.stroke()
-    const font = '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif'
-    g.fillStyle = state === 'wait' ? '#8A938C' : '#F0F0E9'; g.font = `600 46px ${font}`; g.fillText(card.label, 40, 104)
-    g.fillStyle = '#A4ADA6'; g.font = `400 28px ${font}`; g.fillText(card.sub, 40, 156)
-    g.beginPath(); g.arc(52, 232, 10, 0, Math.PI * 2)
-    g.fillStyle = state === 'fail' ? '#E5484D' : state === 'wait' ? 'rgba(240, 240, 233, .25)' : '#6FB59A'; g.fill()
-    g.fillStyle = state === 'wait' ? '#8A938C' : '#F0F0E9'; g.font = `500 30px ${font}`; g.fillText(STATE_WORD[state], 76, 243)
-    tex.needsUpdate = true
-  }, [tex, card, state])
-  return tex
-}
-
-function AnalysisCard({ card, state, W, H, world, phase }) {
-  const tex = useCardTexture(card, state)
-  const ref = useRef()
-  const u = world
-  const w = 260, h = 150
-  const x = card.at[0] * (W / 2 + 30 + w / 2), y = -card.at[1] * (H / 2 - h / 2 - 10)
-  useFrame((st) => {
-    if (!ref.current) return
-    const t = st.clock.elapsedTime
-    // 떠 있는 물건 — 아주 느리게 오르내린다(멈춘 화면이 아니라 공간). 하고 있는 카드는 조금 앞으로
-    ref.current.position.y = (y + Math.sin(t * 0.6 + phase) * 5) * u
-    const z = state === 'run' ? 0.18 : 0.06
-    ref.current.position.z += (z - ref.current.position.z) * 0.06
-  })
-  return (
-    <mesh ref={ref} position={[x * u, y * u, 0.06]} rotation={[0, -card.at[0] * 0.12, 0]}>
-      <planeGeometry args={[w * u, h * u]} />
-      <meshBasicMaterial map={tex} transparent toneMapped={false} depthWrite={false} />
-    </mesh>
-  )
-}
-
-function Analysis({ W, H, world, info }) {
-  const steps = info && info.steps
-  return (
-    <group>
-      {ANALYSIS_CARDS.map((card, i) => (
-        <AnalysisCard key={card.key} card={card} state={cardState(steps, card.steps)} W={W} H={H} world={world} phase={i * 1.7} />
-      ))}
-    </group>
-  )
-}
-
-const SETS = [Workshop, Stage, Analysis, JudgesDesk, Study]
+const SETS = [Workshop, Stage, Scoring, JudgesDesk, Study]
 
 /** 정거장 k 의 세트 — W·H 는 창 크기(px), world 는 1px 의 m */
-export function StationSet({ k, W, H, L, info, world }) {
+export function StationSet({ k, W, H, L, world }) {
   // 텍스처가 늦게 들어와도 다시 그리게 한 번 깨운다
   const [, kick] = useState(0)
   useEffect(() => { const id = setTimeout(() => kick(1), 400); return () => clearTimeout(id) }, [])
   if (k === 1 && L && L.overlay) return <StageWide L={L} world={world} />
   if (k === 3 && L && L.judge) return <JudgesWide L={L} world={world} />
   const C = SETS[k]
-  return C ? <C W={W} H={H} world={world} info={info} /> : null
+  return C ? <C W={W} H={H} world={world} /> : null
 }

@@ -10,7 +10,7 @@ export const FOV_PHONE = 62
 export const STATIONS = [
   { key: 'upload',  name: '자료 올리기', line: '발표 자료를 올리고, 어떤 발표인지 골라요' },
   { key: 'present', name: '발표',       line: '카메라 앞에서 발표해요 — 삐약이들이 들어요' },
-  { key: 'analysis', name: '분석',      line: '말과 자료를 맞춰 보고 질문을 골라요' },
+  { key: 'analysis', name: '발표 채점',  line: '내 말을 자료의 개념과 맞춰 채점해요' },
   { key: 'qa',      name: '질의응답',    line: '심사위원 삐약이들의 질문에 답해요' },
   { key: 'report',  name: '리포트',      line: '발표와 답을 돌아봐요' },
 ]

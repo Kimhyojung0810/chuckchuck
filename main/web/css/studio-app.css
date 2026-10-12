@@ -243,8 +243,104 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 .sx-judge__voice[data-voice=""] { visibility: hidden; }
 .sx-judge__name { color: var(--ink-3); font-size: 13px; } .sx-judge__name b { color: var(--ink); font-size: 16px; font-weight: 600; margin-right: 6px; }
 
+/* ── ③ 발표 채점판 (ui/ScoreBoard.jsx) — 개념 그래프가 주인공. 판정 색 5종은 앱과 같은 값(불변), 그 밖은 중성 ── */
+.sx-score { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 22px 24px 18px; color: var(--ink);
+  --v-ok: #0A8F68; --v-no: #DC2626; --v-ct: #9333EA; --v-om: #8A6A15; --v-na: #5B6660; }
+.sx-score__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.sx-score__eyebrow { display: inline-block; color: var(--accent); font-size: 12px; font-weight: 600; letter-spacing: .14em; margin-bottom: 6px; }
+.sx-score__title { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.015em; line-height: 1.35; color: var(--ink); }
+.sx-score__meter { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; column-gap: 12px; align-items: center; justify-items: end; text-align: right; }
+.sx-score__meter > .sx-gauge { grid-row: 1 / span 2; }
+.sx-score__meter strong { font-size: 52px; line-height: 1; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sx-score__meter strong small { font-size: 22px; margin-left: 2px; color: var(--ink-2); font-weight: 600; }
+.sx-score__meter strong.is-wait { color: var(--ink-3); font-weight: 400; }
+.sx-score__meter span { color: var(--ink-3); font-size: 12px; }
+.sx-score[data-done="1"] .sx-score__meter strong { color: var(--accent); transition: color .6s; }
+.sx-score__stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.sx-score__svg { display: block; overflow: visible; }
+.sx-score__empty { display: inline-flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 15px; }
+.sx-score__spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(111, 181, 154, .25); border-top-color: var(--accent); animation: sxSpin 1s linear infinite; }
+@keyframes sxSpin { to { transform: rotate(360deg); } }
+
+.sx-score__edge { stroke: rgba(240, 240, 233, .16); stroke-width: 1.5; stroke-dasharray: 400; stroke-dashoffset: 400; animation: sxDraw .7s ease-out forwards; }
+.sx-score__edge.is-lit { stroke: rgba(111, 181, 154, .55); stroke-width: 2; transition: stroke .4s; }
+@keyframes sxDraw { to { stroke-dashoffset: 0; } }
+
+.sx-node { animation: sxNodeIn .45s cubic-bezier(.2, .9, .3, 1.2) both; transform-box: fill-box; }
+@keyframes sxNodeIn { from { opacity: 0; } to { opacity: 1; } }
+.sx-node__dot { fill: #2A302C; stroke: rgba(240, 240, 233, .28); stroke-width: 1.5; transition: fill .35s, stroke .35s; }
+.sx-node.is-root .sx-node__dot { fill: #344A40; stroke: rgba(111, 181, 154, .6); stroke-width: 2; }
+/* 개념 이름 · 판정 표시 — HTML 층(3D 변환 안의 SVG 글자는 크롬이 네모 덩어리로 그렸다) */
+.sx-score__labels { position: absolute; left: 50%; top: 50%; translate: -50% -50%; pointer-events: none; }
+.sx-tag { position: absolute; width: 0; height: 0; }
+.sx-tag__mark { position: absolute; left: 0; top: 0; translate: -50% -50%; color: #fff; font-style: normal; font-size: 12px; font-weight: 700; line-height: 1;
+  animation: sxStampMark .35s cubic-bezier(.3, 1.6, .5, 1) both; }
+.sx-tag.is-root .sx-tag__mark { font-size: 16px; }
+.sx-tag__label { position: absolute; left: 0; top: calc(var(--r) + 6px); translate: -50% 0; white-space: nowrap; font-style: normal;
+  color: var(--ink-2); font-size: 12px; text-shadow: 0 1px 3px rgba(17, 21, 18, .9), 0 0 2px rgba(17, 21, 18, .9); }
+.sx-tag.is-root .sx-tag__label { color: var(--ink); font-size: 14px; font-weight: 600; }
+.sx-tag.is-now .sx-tag__label { color: var(--ink); font-weight: 600; }
+/* 찾는 중 — 색 없이 고리만(결과처럼 보이지 않게) */
+.sx-node.is-scan .sx-node__dot { stroke: var(--ink); stroke-width: 2; }
+.sx-node__ping { fill: none; stroke: rgba(240, 240, 233, .5); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: sxPing .42s ease-out; }
+@keyframes sxPing { from { opacity: .9; transform: scale(.6); } to { opacity: 0; transform: scale(1.25); } }
+/* 도장 — 판정 색으로 채우고 한 번 퍼진다 */
+.sx-node.is-stamped .sx-node__dot { stroke: rgba(255, 255, 255, .5); }
+.sx-node.is-ok .sx-node__dot { fill: var(--v-ok); } .sx-node.is-no .sx-node__dot { fill: var(--v-no); }
+.sx-node.is-ct .sx-node__dot { fill: var(--v-ct); } .sx-node.is-om .sx-node__dot { fill: var(--v-om); }
+.sx-node.is-na .sx-node__dot { fill: var(--v-na); }
+@keyframes sxStampMark { from { opacity: 0; scale: 1.8; } to { opacity: 1; scale: 1; } }
+.sx-node__burst { fill: none; stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: sxBurst .6s ease-out forwards; }
+.sx-node.is-ok .sx-node__burst { stroke: var(--v-ok); } .sx-node.is-no .sx-node__burst { stroke: var(--v-no); }
+.sx-node.is-ct .sx-node__burst { stroke: var(--v-ct); } .sx-node.is-om .sx-node__burst { stroke: var(--v-om); } .sx-node.is-na .sx-node__burst { stroke: var(--v-na); }
+@keyframes sxBurst { from { opacity: .9; transform: scale(.8); } to { opacity: 0; transform: scale(2.1); } }
+
+.sx-score__foot { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+/* 지금 판정 — 개념 + 내가 한 말 인용이 한 장씩 미끄러져 나온다 */
+.sx-score__now { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; row-gap: 4px; align-items: center; min-height: 52px;
+  animation: sxNowIn .32s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes sxNowIn { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+.sx-score__verdict { grid-row: 1 / span 2; align-self: start; padding: 3px 10px; border-radius: 999px; background: rgba(240, 240, 233, .08); color: var(--ink-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.sx-score__verdict.is-ok { background: rgba(10, 143, 104, .22); color: #8FE0C2; } .sx-score__verdict.is-no { background: rgba(220, 38, 38, .2); color: #F6A3A3; }
+.sx-score__verdict.is-ct { background: rgba(147, 51, 234, .22); color: #D3B0F7; } .sx-score__verdict.is-om { background: rgba(138, 106, 21, .3); color: #E6CF8F; }
+.sx-score__verdict.is-na { background: rgba(240, 240, 233, .08); color: var(--ink-3); }
+.sx-score__concept { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink); font-size: 15px; font-weight: 600; }
+.sx-score__concept.is-dim { color: var(--ink-3); font-weight: 400; }
+.sx-score__said { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.sx-score__said small { flex: none; color: var(--ink-3); font-size: 12px; }
+.sx-score__quote { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-2); font-size: 14px; quotes: '“' '”'; }
+.sx-score__quote.is-dim { color: var(--ink-3); quotes: none; font-size: 13px; }
+.sx-bump { display: inline-block; animation: sxBump .35s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes sxBump { from { scale: 1.6; color: var(--ink); } to { scale: 1; } }
+.sx-score__sum { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.5; animation: sxNowIn .5s .2s both; }
+.sx-score__sum b { color: var(--ink); }
+/* 커버리지 게이지 — 판정 중엔 중성, 끝나면 에메랄드로 */
+.sx-gauge__track { fill: none; stroke: rgba(240, 240, 233, .08); stroke-width: 6; }
+.sx-gauge__fill { fill: none; stroke: rgba(240, 240, 233, .45); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .3s ease-out, stroke .6s; }
+.sx-gauge.is-final .sx-gauge__fill { stroke: var(--accent); transition: stroke-dashoffset 1.4s cubic-bezier(.2, .8, .3, 1), stroke .6s; }
+/* 찾는 중 빛줄기 — 뿌리에서 그 개념까지 */
+.sx-score__beam { stroke: rgba(240, 240, 233, .55); stroke-width: 1.5; stroke-dasharray: 6 8; animation: sxBeam .42s linear; }
+@keyframes sxBeam { from { stroke-dashoffset: 40; opacity: .2; } 30% { opacity: 1; } to { stroke-dashoffset: 0; opacity: 0; } }
+/* 다룸 불꽃 — 여섯 갈래 */
+.sx-tag__spark { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.sx-tag__spark s { position: absolute; left: -1px; top: -1px; width: 2px; height: 7px; border-radius: 1px; background: #8FE0C2;
+  transform-origin: 1px 1px; rotate: var(--a); translate: 0 calc(-1 * (var(--r) + 6px)); animation: sxSpark .5s ease-out forwards; }
+@keyframes sxSpark { from { opacity: 1; scale: 1 .4; } to { opacity: 0; scale: 1 1; translate: 0 calc(-1 * (var(--r) + 18px)); } }
+.sx-score__tally { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.sx-score__tally li { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 6px; border-radius: 999px;
+  background: var(--glass-chip); border: 1px solid var(--glass-edge); color: var(--ink-2); font-size: 13px; }
+.sx-score__tally li i { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font-style: normal; font-size: 11px; font-weight: 700; }
+.sx-score__tally li.is-ok i { background: var(--v-ok); } .sx-score__tally li.is-no i { background: var(--v-no); }
+.sx-score__tally li.is-ct i { background: var(--v-ct); } .sx-score__tally li.is-om i { background: var(--v-om); } .sx-score__tally li.is-na i { background: var(--v-na); }
+.sx-score__tally li b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.sx-score__tally li.is-wait { padding: 0 12px; color: var(--ink-3); }
+
 @media (prefers-reduced-motion: reduce) {
   .sx-app, .sx-app.is-shown, .sx-dock, .sx-screen { transition: none; }
   .sx-listener__chick { animation: none !important; }
   .sx-screen__prog i { transition: none; }
+  .sx-node, .sx-tag__mark, .sx-node__burst, .sx-node__ping, .sx-score__edge, .sx-score__spin, .sx-score__now, .sx-bump, .sx-score__sum, .sx-score__beam, .sx-tag__spark s { animation: none !important; }
+  .sx-tag__spark { display: none; }
+  .sx-gauge__fill { transition: none !important; }
+  .sx-score__edge { stroke-dashoffset: 0; }
 }

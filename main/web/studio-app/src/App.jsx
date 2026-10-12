@@ -16,6 +16,7 @@ import { Companion } from './piyak/Companion.jsx'
 import { rmsToVolume } from './voice/signal.js'
 import { stationLayout, appRect } from './layout.js'
 import { useAppMirror, pressApp, SlideOverlay, Listener, Judge } from './ui/AppMirror.jsx'
+import { ScoreBoard } from './ui/ScoreBoard.jsx'
 
 function useViewport() {
   const read = () => ({ w: innerWidth, h: innerHeight, phone: innerWidth < 720 })
@@ -100,12 +101,15 @@ export default function App() {
     const panels = [{ id: 'w', x: L.app.x, y: L.app.y, w: L.app.w, h: L.app.h, children: <CoverCard no={k + 1} name={s.name} line={s.line} /> }]
     if (L.listener) panels.push({ id: 'listener', ...L.listener, glass: false, bare: true,
       children: <Listener bird={k === at && mirror ? mirror.bird : null} size={L.seat} onEar={() => pressApp(frameApi, '#vrEar')} /> })
+    // ③ 발표 채점 — 개념 그래프 채점판이 주인공 (앱의 실제 그래프 · 판정만)
+    if (L.graph) panels.push({ id: 'graph', ...L.graph, radius: 28,
+      children: <ScoreBoard data={k === at ? mirror : null} w={L.graph.w} h={L.graph.h} /> })
     if (L.judge) panels.push({ id: 'judge', ...L.judge, glass: false, bare: true,
       children: <Judge judge={k === at ? mirror : null} size={L.seat} onCancel={() => pressApp(frameApi, '#bcSendCancel')} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
     // ② 발표는 웹캠 · 앞줄 관중이 주인공이라 자라는 삐약이는 쉰다(v3 — 메인 콘텐츠와 경쟁하지 않게)
     if (!vp.phone && k !== 1) {
-      const at2 = k === 2 ? { x: 0, y: L.app.y + L.app.h / 2 + 130 }                                             // 분석 — 창 아래 가운데(둘레 카드와 겹치지 않게)
+      const at2 = k === 2 ? { x: L.app.x, y: L.app.y + L.app.h / 2 + 120 }                                       // 발표 채점 — 진행 창 아래
         : k === 3 && L.judge ? { x: L.judge.x, y: L.judge.y - L.judge.h / 2 - 150 }
         : { x: L.app.x - (L.app.w / 2 + 130), y: L.app.y + L.app.h / 2 - 150 }
       // 화면 밖으로 잘리지 않게 (리포트처럼 창이 넓으면 옆 자리가 좁다)
@@ -121,7 +125,7 @@ export default function App() {
       <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.45 }}
         camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
         <color attach="background" args={['#0B0D0C']} />
-        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} Ls={Ls} info={at === 2 ? mirror : null} />
+        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} Ls={Ls} />
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
       <AppFrame rect={rect} onStation={go} api={frameApi} onFit={onFit} />
@@ -147,7 +151,7 @@ export default function App() {
   )
 }
 
-function Scene({ stations, at, quality, portal, W, H, Ls, info }) {
+function Scene({ stations, at, quality, portal, W, H, Ls }) {
   const coveRef = useRef([])
   return (
     <>
@@ -156,7 +160,7 @@ function Scene({ stations, at, quality, portal, W, H, Ls, info }) {
       <Room coveRef={coveRef} quality={quality} />
       <GlassPass />
       {stations.map((panels, k) => (
-        <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={Ls[k].app.w} H={Ls[k].app.h} L={Ls[k]} info={k === at ? info : null} />
+        <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={Ls[k].app.w} H={Ls[k].app.h} L={Ls[k]} />
       ))}
     </>
   )
