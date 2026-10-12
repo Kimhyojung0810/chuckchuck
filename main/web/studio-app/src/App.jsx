@@ -1,0 +1,156 @@
+/* 가상 발표 스튜디오 — 1차-2 (React Three Fiber). design/SPACE.md v2 */
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { STATIONS, FOV, FOV_PHONE, EYE, PEEK_MAX, PEEK_GO, mod4 } from './config.js'
+import { rig } from './rig.js'
+import { Room } from './scene/Room.jsx'
+import { Lights } from './scene/Lights.jsx'
+import { CameraRig } from './scene/CameraRig.jsx'
+import { GlassPass } from './scene/Glass.jsx'
+import { Station } from './scene/Station.jsx'
+import { CameraScreen } from './scene/CameraScreen.jsx'
+import { useCamera, useMicLevel } from './media.js'
+import { UploadWindow, CameraPrompt, SlideWindow, PresentBar, QuestionWindow, AnswerWindow, ReportWindow } from './ui/Panels.jsx'
+
+const indexOfHash = () => Math.max(0, STATIONS.findIndex((s) => s.key === location.hash.slice(1)))
+
+function useViewport() {
+  const read = () => ({ w: innerWidth, h: innerHeight, phone: innerWidth < 720 })
+  const [vp, setVp] = useState(read)
+  useEffect(() => { const on = () => setVp(read()); addEventListener('resize', on); return () => removeEventListener('resize', on) }, [])
+  return vp
+}
+
+export default function App() {
+  const vp = useViewport()
+  const [at, setAt] = useState(() => { const i = indexOfHash(); rig.at = i; rig.yawTarget = i * 90; rig.yaw = i * 90; return i })
+  const cam = useCamera()
+  const mic = useMicLevel()
+  const live = useRef(null)
+  const quality = useRef(1)
+  const htmlLayer = useRef(null)   // drei Html 이 붙을 고정 층 — 첫 Html 이 붙을 자리를 못 찾고 사라지던 것을 막는다
+
+  /** 정거장으로 — dir +1 오른쪽 · −1 왼쪽 · 0 최단(두 칸이면 오른쪽 180°) */
+  const go = useCallback((to, { dir = 0, push = true } = {}) => {
+    const from = rig.at
+    to = mod4(to)
+    let turns = dir || mod4(to - from)
+    if (!dir) turns = turns === 3 ? -1 : turns
+    if (!turns && to === from) { rig.peek = 0; return }
+    rig.yawTarget += turns * 90
+    rig.at = to
+    rig.peek = 0
+    setAt(to)
+    if (push) history.pushState({ at: to }, '', '#' + STATIONS[to].key)
+    document.title = `척척발표 — ${STATIONS[to].name} (시제품)`
+    if (live.current) live.current.textContent = `${to + 1}단계 ${STATIONS[to].name}(으)로 왔어요`
+    setTimeout(() => document.getElementById(`t-${STATIONS[to].key}`)?.focus({ preventScroll: true }), rig.reduced ? 0 : 1400)
+  }, [])
+  const next = useCallback(() => go(rig.at + 1, { dir: +1 }), [go])
+  // 실험실 · 헤드리스용 — 상태를 읽고, 전환 중간 자세로 멈춰 찍는다
+  useEffect(() => { window.studioDebug = { rig, go } }, [go])
+
+  useEffect(() => {
+    history.replaceState({ at: rig.at }, '', '#' + STATIONS[rig.at].key)
+    const onPop = (e) => go(e.state && Number.isInteger(e.state.at) ? e.state.at : indexOfHash(), { push: false })
+    addEventListener('popstate', onPop)
+    return () => removeEventListener('popstate', onPop)
+  }, [go])
+
+  // ── 마우스: 시선 따라오기 · 빈 공간 끌어서 둘러보기 (SPACE §7) ──
+  const drag = useRef(null)
+  const onPointerMove = (e) => {
+    if (e.pointerType === 'mouse') { rig.lookX = (e.clientX / vp.w) * 2 - 1; rig.lookY = (e.clientY / vp.h) * 2 - 1 }
+    const d = drag.current
+    if (!d) return
+    const dx = e.clientX - d.x
+    rig.peek = Math.max(-PEEK_MAX, Math.min(PEEK_MAX, -dx * (90 / vp.w) * 1.4))
+  }
+  const onPointerDown = (e) => {
+    if (e.target.tagName !== 'CANVAS') return          // 창 위는 창 안 조작이 먼저
+    drag.current = { x: e.clientX }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  }
+  const onPointerUp = () => {
+    if (!drag.current) return
+    drag.current = null
+    const p = rig.peek
+    if (p > PEEK_GO) go(rig.at + 1, { dir: +1 })
+    else if (p < -PEEK_GO) go(rig.at - 1, { dir: -1 })
+    else rig.peek = 0
+  }
+
+  // ── 창 크기 (CSS px) ──
+  const winW = Math.round(Math.min(1080, vp.w * (vp.phone ? 0.92 : 0.74)))
+  const winH = Math.round(Math.min(660, vp.h * (vp.phone ? 0.74 : 0.7)))
+  const camH = Math.round(vp.h * (vp.phone ? 0.62 : 0.84))
+  const camW = Math.round(Math.min(camH * 16 / 9, vp.w * 0.96))
+  const camHh = Math.round(Math.min(camH, camW * 9 / 16))
+  const pad = vp.phone ? 12 : 24
+  const slideW = Math.round(Math.min(380, camW * 0.3)), slideH = Math.round(slideW * 0.5625 + 58)
+  const barW = Math.round(Math.min(860, camW - pad * 2)), barH = vp.phone ? 132 : 80
+  const qW = Math.round(Math.min(900, camW - pad * 2)), qH = vp.phone ? 150 : 128
+  const aH = vp.phone ? 230 : 150
+
+  const present = cam.state === 'on'
+    ? [
+        { id: 'slide', x: -camW / 2 + slideW / 2 + pad, y: -camHh / 2 + slideH / 2 + pad, w: slideW, h: slideH, radius: 18, tint: 0.68, children: <SlideWindow /> },
+        { id: 'bar', x: 0, y: camHh / 2 - barH / 2 - pad, w: barW, h: barH, radius: 22, tint: 0.68, children: <PresentBar mic={mic} onNext={next} /> },
+      ]
+    : [{ id: 'prompt', x: 0, y: 0, w: Math.min(520, vp.w * 0.86), h: 230, radius: 24, children: <CameraPrompt cam={cam} titleId="t-present" /> }]
+  const qa = cam.state === 'on'
+    ? [
+        { id: 'q', x: 0, y: -camHh / 2 + qH / 2 + pad, w: qW, h: qH, radius: 22, tint: 0.7, children: <QuestionWindow /> },
+        { id: 'a', x: 0, y: camHh / 2 - aH / 2 - pad, w: qW, h: aH, radius: 22, tint: 0.7, children: <AnswerWindow mic={mic} onNext={next} /> },
+      ]
+    : [{ id: 'prompt', x: 0, y: 0, w: Math.min(520, vp.w * 0.86), h: 230, radius: 24, children: <CameraPrompt cam={cam} titleId="t-qa" /> }]
+
+  const stations = [
+    { panels: [{ id: 'w', x: 0, y: 0, w: winW, h: winH, children: <UploadWindow onNext={next} /> }] },
+    { panels: present, behind: <CameraScreen video={cam.video} widthPx={camW} heightPx={camHh} /> },
+    { panels: qa, behind: <CameraScreen video={cam.video} widthPx={camW} heightPx={camHh} /> },
+    { panels: [{ id: 'w', x: 0, y: 0, w: winW, h: winH, paper: true, children: <ReportWindow onNext={next} /> }] },
+  ]
+
+  return (
+    <div className="sx-root ds-root" onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+      <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.45 }}
+        camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
+        <color attach="background" args={['#050504']} />
+        <Scene stations={stations} at={at} go={go} quality={quality.current} portal={htmlLayer} />
+      </Canvas>
+      <div className="sx-html" ref={htmlLayer} />
+
+      <header className="hud">
+        <span className="hud__brand"><img src="assets/chuckchuck-app-icon-64.png" alt="" /><span>척척발표</span></span>
+        <ol className="hud__steps" aria-label="단계">
+          {STATIONS.map((s, i) => (
+            <li key={s.key}><button className="ds-step" type="button" aria-current={i === at ? 'step' : undefined} onClick={() => go(i)}>
+              <span className="ds-mono">0{i + 1}</span><span className="hud__step-name">{s.name}</span></button></li>
+          ))}
+        </ol>
+        <span className="hud__end">
+          {cam.state === 'on' && <button className="hud__exit" type="button" onClick={cam.stop}>카메라 끄기</button>}
+          <a className="hud__exit" href="/#/home">나가기</a>
+        </span>
+      </header>
+      <p className="hud__note ds-mono">시제품 — 빈 곳을 끌면 둘러볼 수 있어요. 분석은 연결하지 않았어요.</p>
+      <p className="ds-sr" ref={live} aria-live="polite" />
+    </div>
+  )
+}
+
+function Scene({ stations, at, go, quality, portal }) {
+  const coveRef = useRef([])
+  return (
+    <>
+      <CameraRig />
+      <Lights coveRef={coveRef} />
+      <Room coveRef={coveRef} quality={quality} />
+      <GlassPass />
+      {stations.map((s, k) => (
+        <Station key={k} k={k} active={k === at} onEnter={go} panels={s.panels} behind={s.behind} portal={portal} />
+      ))}
+    </>
+  )
+}

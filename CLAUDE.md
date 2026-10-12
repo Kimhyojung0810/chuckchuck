@@ -123,6 +123,7 @@ grep -n 'f11_reveal.html?embed' main/web/js/app.js      # 리빌 값 — 위와 
 
 - **앱 화면**(`#/`, `#/new`, `#/qa`, `#/report`) → [`MVP_SPEC.md`](main/web/MVP_SPEC.md) §3 절제 규율.
   히어로·마케팅 카피·장식 이모지·glassmorphism·스크롤 하이재킹 금지. 한 화면의 주인공은 하나.
+  **예외 (2026-10-12 사용자, 디자인 개편):** 가상 발표 스튜디오(`/studio`)의 떠 있는 창은 liquid-glass 유리를 쓴다 — 글자 뒤에는 대비를 지키는 색 막(tint)을 깐다 (`main/web/design/DESIGN_SYSTEM.md` §4-2).
 - **객석·극장 화면**(`theater.css`, `chatter.js`, 병아리 연출) → 척척극장 연출 규율 (옛 `docs/UI_REDESIGN.md`, git 기록).
   단 §14 「토스의 규율」이 위에 있다: 숫자는 신성하고, 판정 색은 안 건드리고, 모든 연출은 스킵 가능하고,
   진행률·오류 원인·샘플 표시는 정직하게 남기고, 소리는 기본 무음이다.

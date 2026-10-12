@@ -99,3 +99,6 @@ etc/labs/intro_flow/out/
 main/web/js/vendor/mediapipe/
 etc/labs/booth_scan/out/
 etc/labs/intro_metrics/out/
+
+# 가상 발표 스튜디오 React 앱 — 의존성은 npm install 로 (빌드 결과 main/web/js/studio-app.js 만 올린다)
+main/web/studio-app/node_modules/

@@ -18,6 +18,7 @@
 2. **끝날 때** PLAN.md 체크리스트를 고치고 기록에 한 줄을 남긴다 — 날짜 · 한 일 · 확인한 방법 · 남은 것.
 3. 방향이 바뀌면 코드보다 문서를 먼저 고친다 (BRIEF → SPACE/DESIGN_SYSTEM → PLAN).
 4. **발표 · 질의응답의 카메라 사용은 절대 바꾸지 않는다** (BRIEF §3). 카메라를 여는 코드(`vision_rehearsal.js` · `booth_qa.js` · `booth_call.js` · `booth_cv*.js` · `call_flow.js`)는 건드리지 않고, 새 공간은 그 화면을 **감싸기만** 한다.
-5. CLAUDE.md §3 토스 규율(해요체 · 「닫기」 · 다크패턴 금지 · 유리 효과 금지 · 히어로 금지)은 그대로다.
+5. CLAUDE.md §3 토스 규율(해요체 · 「닫기」 · 다크패턴 금지 · 히어로 금지)은 그대로다. 유리는 스튜디오 떠 있는 창에만 — liquid-glass 예외 (CLAUDE.md §3-4, 10-12 사용자).
 6. 화면은 헤드리스로 확인한다 — 데스크톱(1440×900) · 폰(390×844) · 움직임 줄이기 켬. Playwright 는 `LD_LIBRARY_PATH=$HOME/.local/lib/pwlibs`.
 7. 커밋 전 `etc/scripts/chk gate` (css/js 를 고쳤으면 `etc/scripts/chk bump`).
+8. 스튜디오(React) 원본은 `main/web/studio-app/src/` — 고친 뒤 `cd main/web/studio-app && npm install && npm run build` 로 `js/studio-app.js` 를 다시 만들어 함께 커밋한다 (`node_modules` 는 올리지 않는다). Node 는 `~/.local/bin`.
