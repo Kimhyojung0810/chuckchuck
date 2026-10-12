@@ -42,9 +42,20 @@ const order = M.bfsOrder(all, 'T');
 check('너비 우선 — 뿌리가 먼저', order[0] === 'T');
 check('너비 우선 — 무거운 자식이 먼저', order.indexOf('A') < order.indexOf('B'));
 check('끊긴 나무도 빠지지 않는다', order.includes('X') && order.length === all.length);
-const pos = M.radialLayout(all, 'T', 800, 500);
+const links = all.filter((n) => n.parent).map((n) => ({ from: n.parent, to: n.id, kind: 'parent' }));
+const pos = M.forceLayout(all, 'T', links, 800, 500);
 check('뿌리는 가운데', pos.get('T').x === 0 && pos.get('T').y === 0);
-check('깊을수록 바깥', Math.hypot(pos.get('A1').x, pos.get('A1').y) > Math.hypot(pos.get('A').x, pos.get('A').y));
+check('판 밖으로 나가지 않는다', [...pos.values()].every((p) => (p.x / (800 * 0.46)) ** 2 + (p.y / (500 * 0.44)) ** 2 <= 1.0001));
+const pos2 = M.forceLayout(all, 'T', links, 800, 500);
+check('같은 그래프면 같은 배치', [...pos.keys()].every((id) => pos.get(id).x === pos2.get(id).x && pos.get(id).y === pos2.get(id).y));
+check('깊이 — 부모를 따라 센다', pos.get('A1').depth === 2 && pos.get('T').depth === 0);
+const co = M.cooccurEdges([{ id: 'p', weight: 1, slide_nos: [1] }, { id: 'q', weight: .5, slide_nos: [1] }, { id: 'r', weight: .2, slide_nos: [2] }]);
+check('같은 장 개념끼리만 잇는다', co.length === 1 && co[0].kind === 'slide');
+const secs = M.sectionsOf({ sections: [{ name: '도입', slide_nos: [1] }, { name: '결과', slide_nos: [2, 3] }] }, [{ id: 'a', slide_nos: [3, 1] }, { id: 'b', slide_nos: [2] }]);
+check('섹션 — 처음 나온 장으로 묶는다', secs.find((x) => x.name === '도입').ids.includes('a') && secs.find((x) => x.name === '결과').ids.includes('b'));
+const st = M.sectionStat(['a', 'b', 'c'], new Map([['a', 'ok'], ['b', 'na'], ['c', 'no']]), new Set(['a', 'b', 'c']));
+check('섹션 비율 — 판정 안 함은 빼고 다룸 비율', st.judged === 2 && st.ok === 1 && st.pct === 50);
+check('섹션 비율 — 판정한 게 없으면 null', M.sectionStat(['a'], new Map(), new Set()).pct === null);
 
 // 판정 — 앱과 같은 규칙
 const al = { basis: 'llm', speech_match: 'matched', items: [

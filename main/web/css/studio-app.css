@@ -256,27 +256,45 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 .sx-score__meter strong.is-wait { color: var(--ink-3); font-weight: 400; }
 .sx-score__meter span { color: var(--ink-3); font-size: 12px; }
 .sx-score[data-done="1"] .sx-score__meter strong { color: var(--accent); transition: color .6s; }
-.sx-score__stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.sx-score__stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.sx-score__stage > .sx-score__empty { margin: auto; }
 .sx-score__svg { display: block; overflow: visible; }
 .sx-score__empty { display: inline-flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 15px; }
 .sx-score__spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(111, 181, 154, .25); border-top-color: var(--accent); animation: sxSpin 1s linear infinite; }
 @keyframes sxSpin { to { transform: rotate(360deg); } }
 
-.sx-score__edge { stroke: rgba(240, 240, 233, .16); stroke-width: 1.5; stroke-dasharray: 400; stroke-dashoffset: 400; animation: sxDraw .7s ease-out forwards; }
-.sx-score__edge.is-lit { stroke: rgba(111, 181, 154, .55); stroke-width: 2; transition: stroke .4s; }
+.sx-score__edge { stroke: rgba(240, 240, 233, .16); stroke-width: 1; stroke-dasharray: 400; stroke-dashoffset: 400; animation: sxDraw .7s ease-out forwards; }
+.sx-score__edge.is-parent { stroke: rgba(240, 240, 233, .2); stroke-width: 1.2; }
+.sx-score__edge.is-relates { stroke: rgba(240, 240, 233, .14); }
+.sx-score__edge.is-slide { stroke: rgba(240, 240, 233, .09); stroke-dasharray: 2 4; stroke-dashoffset: 0; animation: sxFade .9s ease-out both; }   /* 같은 장 — 옅은 점선 */
+.sx-score__edge.is-lit { stroke: rgba(111, 181, 154, .6); stroke-width: 1.6; transition: stroke .4s; }
+.sx-score__edge.is-speech { stroke: rgba(130, 194, 169, .85); stroke-width: 1.8; stroke-dasharray: 600; stroke-dashoffset: 600; animation: sxDraw 1s cubic-bezier(.2, .8, .3, 1) forwards; animation-delay: calc(var(--i) * 60ms + .3s); }
+@keyframes sxFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sxDraw { to { stroke-dashoffset: 0; } }
 
 .sx-node { animation: sxNodeIn .45s cubic-bezier(.2, .9, .3, 1.2) both; transform-box: fill-box; }
 @keyframes sxNodeIn { from { opacity: 0; } to { opacity: 1; } }
 .sx-node__dot { fill: #2A302C; stroke: rgba(240, 240, 233, .28); stroke-width: 1.5; transition: fill .35s, stroke .35s; }
 .sx-node.is-root .sx-node__dot { fill: #344A40; stroke: rgba(111, 181, 154, .6); stroke-width: 2; }
+/* 끝 순간 — 채점이 다 끝나면 「다룸」 개념들이 판 위로 살짝 떠오르며 빛나고, 아래에 그림자가 생긴다(뿌리에서 바깥으로 차례로) */
+.sx-node__shadow { fill: rgba(0, 0, 0, .55); opacity: 0; transform-box: fill-box; transform-origin: center; }
+.sx-node__body { transform-box: fill-box; transform-origin: center; }
+.sx-score[data-done="1"] .sx-node.is-ok .sx-node__body { animation: sxLift .6s cubic-bezier(.2, .9, .3, 1.15) both; animation-delay: calc(var(--i) * 35ms + .1s); }
+.sx-score[data-done="1"] .sx-node.is-ok .sx-node__shadow { animation: sxShadow .6s ease-out both; animation-delay: calc(var(--i) * 35ms + .1s); }
+.sx-score[data-done="1"] .sx-node.is-ok .sx-node__dot { filter: drop-shadow(0 0 7px rgba(10, 143, 104, .65)); transition: filter .6s; }
+.sx-score[data-done="1"] .sx-tag.is-ok { animation: sxLiftTag .6s cubic-bezier(.2, .9, .3, 1.15) both; animation-delay: calc(var(--i) * 35ms + .1s); }
+@keyframes sxLift { from { transform: translateY(0) scale(1); } 60% { transform: translateY(-7px) scale(1.1); } to { transform: translateY(-5px) scale(1.05); } }
+@keyframes sxShadow { from { opacity: 0; transform: scale(.6); } to { opacity: .55; transform: scale(1); } }
+@keyframes sxLiftTag { from { translate: 0 0; } 60% { translate: 0 -7px; } to { translate: 0 -5px; } }
+
 /* 개념 이름 · 판정 표시 — HTML 층(3D 변환 안의 SVG 글자는 크롬이 네모 덩어리로 그렸다) */
-.sx-score__labels { position: absolute; left: 50%; top: 50%; translate: -50% -50%; pointer-events: none; }
+.sx-score__graph { position: relative; flex: none; }
+.sx-score__labels { position: absolute; inset: 0; pointer-events: none; }
 .sx-tag { position: absolute; width: 0; height: 0; }
 .sx-tag__mark { position: absolute; left: 0; top: 0; translate: -50% -50%; color: #fff; font-style: normal; font-size: 12px; font-weight: 700; line-height: 1;
   animation: sxStampMark .35s cubic-bezier(.3, 1.6, .5, 1) both; }
 .sx-tag.is-root .sx-tag__mark { font-size: 16px; }
-.sx-tag__label { position: absolute; left: 0; top: calc(var(--r) + 6px); translate: -50% 0; white-space: nowrap; font-style: normal;
+.sx-tag__label { position: absolute; left: calc(var(--r) + 5px); top: 0; translate: 0 -50%; white-space: nowrap; font-style: normal;   /* InfraNodus 처럼 점 오른쪽 */
   color: var(--ink-2); font-size: 12px; text-shadow: 0 1px 3px rgba(17, 21, 18, .9), 0 0 2px rgba(17, 21, 18, .9); }
 .sx-tag.is-root .sx-tag__label { color: var(--ink); font-size: 14px; font-weight: 600; }
 .sx-tag.is-now .sx-tag__label { color: var(--ink); font-weight: 600; }
@@ -326,6 +344,24 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 .sx-tag__spark s { position: absolute; left: -1px; top: -1px; width: 2px; height: 7px; border-radius: 1px; background: #8FE0C2;
   transform-origin: 1px 1px; rotate: var(--a); translate: 0 calc(-1 * (var(--r) + 6px)); animation: sxSpark .5s ease-out forwards; }
 @keyframes sxSpark { from { opacity: 1; scale: 1 .4; } to { opacity: 0; scale: 1 1; translate: 0 calc(-1 * (var(--r) + 18px)); } }
+.sx-score__side { flex: none; align-self: stretch; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px;
+  background: var(--glass-chip); border: 1px solid var(--glass-edge); overflow: hidden; }
+.sx-score__side h3 { margin: 4px 0 0; color: var(--ink-3); font-size: 11px; font-weight: 600; letter-spacing: .12em; }
+.sx-sec { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.sx-sec li { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+.sx-sec__name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink); font-size: 13px; }
+.sx-sec__pct { color: var(--ink); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sx-sec li.is-wait .sx-sec__pct { color: var(--ink-3); font-weight: 400; }
+.sx-sec__bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: rgba(240, 240, 233, .08); overflow: hidden; }
+.sx-sec__bar i { display: block; height: 100%; background: var(--accent); transition: width .4s ease-out; }
+.sx-sec__meta { grid-column: 1 / -1; color: var(--ink-3); font-size: 11px; }
+.sx-heavy { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.sx-heavy li { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 12px; min-width: 0; }
+.sx-heavy li span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sx-heavy li i { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(240, 240, 233, .08); color: #fff; font-style: normal; font-size: 10px; font-weight: 700; }
+.sx-heavy li.is-ok i { background: var(--v-ok); } .sx-heavy li.is-no i { background: var(--v-no); } .sx-heavy li.is-ct i { background: var(--v-ct); }
+.sx-heavy li.is-om i { background: var(--v-om); } .sx-heavy li.is-na i { background: var(--v-na); }
+.sx-heavy li[class] span { color: var(--ink); }
 .sx-score__tally { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .sx-score__tally li { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px 0 6px; border-radius: 999px;
   background: var(--glass-chip); border: 1px solid var(--glass-edge); color: var(--ink-2); font-size: 13px; }
@@ -339,7 +375,10 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
   .sx-app, .sx-app.is-shown, .sx-dock, .sx-screen { transition: none; }
   .sx-listener__chick { animation: none !important; }
   .sx-screen__prog i { transition: none; }
-  .sx-node, .sx-tag__mark, .sx-node__burst, .sx-node__ping, .sx-score__edge, .sx-score__spin, .sx-score__now, .sx-bump, .sx-score__sum, .sx-score__beam, .sx-tag__spark s { animation: none !important; }
+  .sx-node, .sx-tag__mark, .sx-node__burst, .sx-node__ping, .sx-score__edge, .sx-score__spin, .sx-score__now, .sx-bump, .sx-score__sum, .sx-score__beam, .sx-tag__spark s,
+  .sx-node__body, .sx-node__shadow, .sx-tag { animation: none !important; }
+  .sx-score__edge.is-speech { stroke-dashoffset: 0; }
+  .sx-sec__bar i { transition: none; }
   .sx-tag__spark { display: none; }
   .sx-gauge__fill { transition: none !important; }
   .sx-score__edge { stroke-dashoffset: 0; }

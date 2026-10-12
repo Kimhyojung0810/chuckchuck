@@ -115,7 +115,7 @@ export default function App() {
       children: <Listener bird={k === at && mirror ? mirror.bird : null} size={L.seat} onEar={() => pressApp(frameApi, '#vrEar')} /> })
     // ③ 발표 채점 — 개념 그래프 채점판이 주인공 (앱의 실제 그래프 · 판정만)
     if (L.graph) panels.push({ id: 'graph', ...L.graph, radius: 28,
-      children: <ScoreBoard data={k === at ? scoreData : null} w={L.graph.w} h={L.graph.h} /> })
+      children: <ScoreBoard data={k === at ? scoreData : null} w={L.graph.w} h={L.graph.h} k={k} /> })
     if (L.judge) panels.push({ id: 'judge', ...L.judge, glass: false, bare: true,
       children: <Judge judge={k === at ? mirror : null} size={L.seat} onCancel={() => pressApp(frameApi, '#bcSendCancel')} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
