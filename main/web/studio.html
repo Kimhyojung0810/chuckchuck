@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>척척발표 — 가상 발표 스튜디오 (시제품)</title>
+<!-- 1차 시제품 (design/SPACE.md · design/PLAN.md). 팀 전용 /studio — 기존 앱 · 카메라 코드와 떨어져 있다 -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime&family=Cormorant+Garamond:wght@500&display=swap">
+<link rel="stylesheet" href="css/studio.css?v=st7">
+</head>
+<body>
+
+<header class="hud">
+  <span class="hud__brand"><img src="assets/chuckchuck-app-icon-64.png" alt=""><span>척척발표</span></span>
+  <ol class="hud__steps" aria-label="단계">
+    <li><button class="hud__step" type="button" data-go="0"><span class="w-mono">01</span><span class="hud__step-name">자료 올리기</span></button></li>
+    <li><button class="hud__step" type="button" data-go="1"><span class="w-mono">02</span><span class="hud__step-name">발표</span></button></li>
+    <li><button class="hud__step" type="button" data-go="2"><span class="w-mono">03</span><span class="hud__step-name">질의응답</span></button></li>
+    <li><button class="hud__step" type="button" data-go="3"><span class="w-mono">04</span><span class="hud__step-name">리포트</span></button></li>
+  </ol>
+  <span class="hud__end"><a class="hud__exit" href="/#/home">나가기</a></span>
+</header>
+
+<main class="studio" id="studio">
+  <div class="studio-world" id="world">
+    <div class="room-ceiling" aria-hidden="true"></div>
+    <div class="room-floor" aria-hidden="true"></div>
+    <div class="room-wall room-wall--l" style="--at:0" data-at="0" aria-hidden="true"></div>
+    <div class="room-wall room-wall--r" style="--at:0" data-at="0" aria-hidden="true"></div>
+    <div class="room-wall room-wall--l" style="--at:1" data-at="1" aria-hidden="true"></div>
+    <div class="room-wall room-wall--r" style="--at:1" data-at="1" aria-hidden="true"></div>
+    <div class="room-wall room-wall--l" style="--at:2" data-at="2" aria-hidden="true"></div>
+    <div class="room-wall room-wall--r" style="--at:2" data-at="2" aria-hidden="true"></div>
+    <div class="room-wall room-wall--l" style="--at:3" data-at="3" aria-hidden="true"></div>
+    <div class="room-wall room-wall--r" style="--at:3" data-at="3" aria-hidden="true"></div>
+    <div class="room-pool" style="--at:0" data-at="0" aria-hidden="true"></div>
+    <div class="room-pool" style="--at:1" data-at="1" aria-hidden="true"></div>
+    <div class="room-pool" style="--at:2" data-at="2" aria-hidden="true"></div>
+    <div class="room-pool" style="--at:3" data-at="3" aria-hidden="true"></div>
+
+    <!-- ① 자료 올리기 -->
+    <section class="station" style="--at:0" data-station="upload" aria-labelledby="t-upload">
+      <div class="station__window">
+        <div class="win-head"><span class="win-head__no">01</span><span class="win-head__name">자료 올리기</span></div>
+        <div class="win-body">
+          <h1 class="w-title" id="t-upload" tabindex="-1">발표 자료를 올려 주세요</h1>
+          <p class="w-lede">자료를 넘기며 카메라 앞에서 발표하면, 말한 내용과 자료를 맞대어 빠뜨린 곳을 찾고 예상 질문을 준비해요.</p>
+          <div class="w-drop">
+            <button class="w-btn" type="button">발표 자료 고르기</button>
+            <div class="w-file"><span class="w-file__name">수면발표.pdf</span><span class="w-mono">PDF · 12장 · 4.2MB</span></div>
+          </div>
+          <dl class="w-meta">
+            <dt>발표 시간</dt><dd>5분 <span class="w-mono">/ 장당 약 25초</span></dd>
+            <dt>질문</dt><dd>3개 <span class="w-mono">/ 답까지 마치면 리포트</span></dd>
+          </dl>
+          <div class="w-check"><span class="w-check__box" aria-hidden="true"></span><span>이 자료와 발표 기록을 척척발표가 나아지는 데 써도 좋아요</span></div>
+        </div>
+        <div class="win-foot">
+          <span class="w-mono">자료를 읽었어요 · 12장</span>
+          <span class="win-foot__end"><button class="w-btn w-btn--primary" type="button" data-next>발표하러 가기 <span class="w-btn__arrow">→</span></button></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ② 발표 — 카메라는 지금 화면 그대로 들어온다 (여기서는 자리표시만, 카메라를 열지 않는다) -->
+    <section class="station" style="--at:1" data-station="present" aria-labelledby="t-present">
+      <div class="station__window">
+        <div class="win-head">
+          <span class="win-head__no">02</span><span class="win-head__name">발표</span>
+          <span class="win-head__end"><span class="w-status">녹음하고 있어요</span><span class="w-mono">02:41</span></span>
+        </div>
+        <div class="win-body win-body--fill">
+          <h2 class="sr-only" id="t-present" tabindex="-1">발표하고 있어요</h2>
+            <div class="w-slide">
+              <div class="w-mono" style="color:#6b675f">p.03</div>
+              <div class="w-slide__title">수면이 부족하면 판단력은 어떻게 흐려질까</div>
+              <div class="w-slide__line" style="width:82%"></div>
+              <div class="w-slide__line" style="width:64%"></div>
+              <div class="w-slide__line" style="width:71%"></div>
+              <div class="w-cam" aria-label="카메라 자리">카메라<br>지금 화면 그대로</div>
+            </div>
+        </div>
+        <div class="win-foot">
+          <span class="w-pager"><button type="button" aria-label="이전 장">‹</button><span class="w-mono">3 / 12</span><button type="button" aria-label="다음 장">›</button></span>
+          <span class="win-foot__end"><button class="w-btn w-btn--primary" type="button" data-next>녹음 끝내고 질문 받기 <span class="w-btn__arrow">→</span></button></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ③ 질의응답 -->
+    <section class="station" style="--at:2" data-station="qa" aria-labelledby="t-qa">
+      <div class="station__window">
+        <div class="win-head">
+          <span class="win-head__no">03</span><span class="win-head__name">질의응답</span>
+          <span class="win-head__end"><span class="w-qnav" aria-label="질문 1 / 3"><span class="is-now"></span><span></span><span></span></span></span>
+        </div>
+        <div class="win-body">
+          <h2 class="w-title" id="t-qa" tabindex="-1">첫 번째 질문이에요</h2>
+          <div class="w-q">
+            <span class="w-label">심사위원 · 자료 7장</span>
+            <p class="w-q__text">7장에서 「수면이 6시간 아래면 판단 실수가 두 배」 라고 했는데, 이 수치는 어떤 연구에서 나왔나요?</p>
+          </div>
+          <label class="sr-only" for="answer">내 답</label>
+          <textarea class="w-answer" id="answer" placeholder="말로 답하거나 여기에 적어요"></textarea>
+        </div>
+        <div class="win-foot">
+          <button class="w-btn w-btn--quiet" type="button">힌트 보기</button>
+          <span class="win-foot__end"><button class="w-btn w-btn--primary" type="button" data-next>답 보내고 리포트 보기 <span class="w-btn__arrow">→</span></button></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ④ 리포트 — 읽는 것은 종이에 -->
+    <section class="station station--paper" style="--at:3" data-station="report" aria-labelledby="t-report">
+      <div class="station__window">
+        <div class="win-head"><span class="win-head__no">04</span><span class="win-head__name">리포트</span><span class="win-head__end"><span class="w-mono">수면발표.pdf · 4분 52초</span></span></div>
+        <div class="win-body">
+          <div class="w-report">
+            <div class="w-score">
+              <span class="w-label">발표 준비도</span>
+              <span class="w-score__num">78</span>
+              <span class="w-mono">100점 만점</span>
+            </div>
+            <div>
+              <h2 class="w-title" id="t-report" tabindex="-1" style="font-size:22px;margin-bottom:14px">자료는 잘 따라갔고, 근거 두 군데를 말로 빠뜨렸어요</h2>
+              <div class="w-rows">
+                <div class="w-row"><span class="w-mono">p.03</span><span>수면 부족과 판단력</span><span class="w-verdict w-verdict--ok">맞아요</span></div>
+                <div class="w-row"><span class="w-mono">p.07</span><span>6시간 기준의 출처</span><span class="w-verdict w-verdict--om">빠뜨렸어요</span></div>
+                <div class="w-row"><span class="w-mono">p.09</span><span>실험 설계의 한계</span><span class="w-verdict w-verdict--mid">일부만</span></div>
+                <div class="w-row"><span class="w-mono">Q1</span><span>수치의 출처를 묻는 질문</span><span class="w-verdict w-verdict--no">다시 답해 봐요</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="win-foot">
+          <span class="w-mono">질문 3개 중 2개 답함</span>
+          <span class="win-foot__end"><button class="w-btn w-btn--primary" type="button" data-next>새 리허설 시작하기 <span class="w-btn__arrow">→</span></button></span>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<p class="hud__note w-mono">시제품 — 화면 이동만 확인해요. 분석 · 카메라는 아직 연결하지 않았어요.</p>
+<p class="sr-only" id="live" aria-live="polite"></p>
+
+<script src="js/studio.js?v=st6"></script>
+</body>
+</html>
