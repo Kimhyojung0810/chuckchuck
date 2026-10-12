@@ -51,7 +51,7 @@ _NAME = r"[A-Za-z0-9_.-]+"
 #: 투어 파일 이름 — 밑줄로 시작하는 것(_example: 모양을 보이려고 지은 발화 · 판정)은 공개하지 않는다 (10-12 2차 perf-security-copy-r2-9)
 _TOUR = r"[A-Za-z0-9][A-Za-z0-9_.-]*"
 _PUBLIC_PATH = re.compile(rf"""^/(?:
-      index\.html | f11_reveal\.html | booth\.html | intro\.html | favicon\.ico | robots\.txt
+      index\.html | f11_reveal\.html | booth\.html | intro\.html | intro_stage\.html | favicon\.ico | robots\.txt
     | css/{_NAME}\.css
     | js/{_NAME}\.m?js
     | js/vendor/(?:{_NAME}/)?{_NAME}\.(?:m?js|wasm|xml)
@@ -59,9 +59,10 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
     | assets/{_NAME}\.(?:png|svg|ico|webp)
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
     | sdk/{_NAME}\.m?js
-    | data/team\.json | data/tour/{_TOUR}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
+    | data/team\.json | data/tour/{_TOUR}\.json | data/hi_stage/{_NAME}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
 )$""", re.X)
 #: ↑ 마지막 줄은 부스 모바일 /hi · #/tour (2026-10-11, docs/booth-mobile/) — 팀 카드 · 녹화 투어 · 팀 사진. 다른 data/*.json 은 그대로 팀 전용.
+#:   intro_stage.html · data/hi_stage/*.json 은 /hi/stage 시안 A(2026-10-13) — 사람 그래프 움직임 좌표.
 #:   intro.html 은 /hi 랜딩 본체 (브리지가 /hi · /hi/<id> 에서 이 파일을 그대로 준다 — bridge.standalone_page_for).
 #:   js/vendor/mediapipe/ 는 부스 스캔 화면(/booth/scan)의 MediaPipe 런타임·모델 (etc/scripts/get_mediapipe.sh 로 받는다, git 밖) —
 #:   받아 둔 서버에서만 있고, 없으면 404 라 워커가 jsDelivr · Google 모델 저장소로 간다. 공개 오픈소스 파일이라 공개로 둔다.
