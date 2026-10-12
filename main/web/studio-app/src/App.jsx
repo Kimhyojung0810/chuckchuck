@@ -24,6 +24,9 @@ function useViewport() {
   return vp
 }
 
+// 자라는 삐약이의 단계 — 정거장 다섯(분석이 늘었다)에 그림 넷: ① 알 · ② ③ 금 간 알 · ④ 깨고 나옴 · ⑤ 모자
+const COMPANION_STAGE = [0, 1, 1, 2, 3]
+
 export default function App() {
   const vp = useViewport()
   const [at, setAt] = useState(0)
@@ -32,6 +35,9 @@ export default function App() {
   const quality = useRef(1)
   const htmlLayer = useRef(null)   // drei Html 이 붙을 고정 층 — 첫 Html 이 붙을 자리를 못 찾고 사라지던 것을 막는다
   const frameApi = useRef(null)
+  const [fitH, setFitH] = useState(null)        // ① 업로드 창 = 내용 높이 (Frame onFit)
+  const [bigSlide, setBigSlide] = useState(false) // ② PPT 창 크게
+  const onFit = useCallback((v) => setFitH((h) => (h === v || (h && v && Math.abs(h - v) < 6) ? h : v)), [])
 
   /** 앱이 그 단계 화면으로 넘어갔다 → 곡선이 미끄러진다 (시점은 그대로) */
   const go = useCallback((to) => {
@@ -75,11 +81,11 @@ export default function App() {
   }
 
   // ── 정거장마다 정면 배치 (layout.js) — 앱 창 자리는 지금 정거장 것. 3D 창도 같은 자리라 멈추면 정확히 겹친다 ──
-  const Ls = STATIONS.map((_, k) => stationLayout(k, vp))
+  const Ls = STATIONS.map((_, k) => stationLayout(k, vp, { fitH, bigSlide }))
   const rect = appRect(Ls[at], vp)
   const W = Ls[0].app.w, H = Ls[0].app.h
   // ② · ③ 은 앱 안의 자료 · 반응 삐약이 · 진행 삐약이를 무대로 꺼낸다 (ui/AppMirror.jsx)
-  const mirror = useAppMirror(frameApi, vp.phone ? null : at === 1 ? 'present' : at === 2 ? 'qa' : null)
+  const mirror = useAppMirror(frameApi, at === 2 ? 'wait' : vp.phone ? null : at === 1 ? 'present' : at === 3 ? 'qa' : null)
   const slideNav = (d) => pressApp(frameApi, `#vrCall .vr-dock [data-slide-nav="${d}"]`)
 
   /** ② 발표 음량 — 비전 리허설이 이미 재는 값 (PresentDock 과 같다 · 마이크를 더 열지 않는다) */
@@ -97,12 +103,15 @@ export default function App() {
     if (L.judge) panels.push({ id: 'judge', ...L.judge, glass: false, bare: true,
       children: <Judge judge={k === at ? mirror : null} size={L.seat} onCancel={() => pressApp(frameApi, '#bcSendCancel')} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
-    if (!vp.phone) {
-      const at2 = k === 1 && L.dock ? { x: L.app.x + L.app.w / 2 - 105, y: L.dock.top - vp.h / 2 - 70 }   // 알 그림이 칸 위쪽이라 카메라에 가리지 않게 내린다
-        : k === 2 && L.judge ? { x: L.judge.x, y: L.judge.y - L.judge.h / 2 - 150 }
-        : { x: L.app.x - (L.app.w / 2 + 118), y: k === 0 ? L.app.h / 2 - 140 : L.app.h / 2 - 250 }
-      panels.push({ id: 'piyak', x: Math.round(at2.x), y: Math.round(at2.y), w: 210, h: 300, glass: false, bare: true,
-        children: <Companion k={k} active={k === at} mic={mic} readAppLevel={readAppLevel} /> })
+    // ② 발표는 웹캠 · 앞줄 관중이 주인공이라 자라는 삐약이는 쉰다(v3 — 메인 콘텐츠와 경쟁하지 않게)
+    if (!vp.phone && k !== 1) {
+      const at2 = k === 2 ? { x: 0, y: L.app.y + L.app.h / 2 + 130 }                                             // 분석 — 창 아래 가운데(둘레 카드와 겹치지 않게)
+        : k === 3 && L.judge ? { x: L.judge.x, y: L.judge.y - L.judge.h / 2 - 150 }
+        : { x: L.app.x - (L.app.w / 2 + 130), y: L.app.y + L.app.h / 2 - 150 }
+      // 화면 밖으로 잘리지 않게 (리포트처럼 창이 넓으면 옆 자리가 좁다)
+      const px = Math.max(-vp.w / 2 + 112, Math.min(vp.w / 2 - 112, at2.x))
+      panels.push({ id: 'piyak', x: Math.round(px), y: Math.round(at2.y), w: 210, h: 300, glass: false, bare: true,
+        children: <Companion k={COMPANION_STAGE[k]} active={k === at} mic={mic} readAppLevel={readAppLevel} /> })
     }
     return panels
   })
@@ -111,13 +120,13 @@ export default function App() {
     <div className="sx-root ds-root" onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
       <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.45 }}
         camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
-        <color attach="background" args={['#040605']} />
-        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} Ls={Ls} />
+        <color attach="background" args={['#0B0D0C']} />
+        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} Ls={Ls} info={at === 2 ? mirror : null} />
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
-      <AppFrame rect={rect} onStation={go} api={frameApi} />
+      <AppFrame rect={rect} onStation={go} api={frameApi} onFit={onFit} />
       {at === 1 && Ls[1].overlay && mirror && mirror.slide && (
-        <SlideOverlay slide={mirror.slide} onNav={slideNav}
+        <SlideOverlay slide={mirror.slide} onNav={slideNav} big={bigSlide} onToggle={() => setBigSlide((b) => !b)}
           box={{ left: rect.left + Ls[1].overlay.left, top: rect.top + Ls[1].overlay.top, w: Ls[1].overlay.w, h: Ls[1].overlay.h }} />
       )}
       <PresentDock api={frameApi} box={Ls[1].dock || { left: rect.left, width: rect.width, top: rect.top + rect.height + 14 }} on={at === 1 && !vp.phone} />
@@ -132,13 +141,13 @@ export default function App() {
         </ol>
         <span className="hud__end"><a className="hud__exit" href="/">나가기</a></span>
       </header>
-      {(at === 0 || at === 3) && <p className="hud__note ds-mono">→ · Enter 다음 · ← 이전 · 빈 곳을 좌우로 끌면 둘러봐요</p>}
+      {(at === 0 || at === 4) && <p className="hud__note ds-mono">→ · Enter 다음 · ← 이전 · 빈 곳을 좌우로 끌면 둘러봐요</p>}
       <p className="ds-sr" ref={live} aria-live="polite" />
     </div>
   )
 }
 
-function Scene({ stations, at, quality, portal, W, H, Ls }) {
+function Scene({ stations, at, quality, portal, W, H, Ls, info }) {
   const coveRef = useRef([])
   return (
     <>
@@ -147,7 +156,7 @@ function Scene({ stations, at, quality, portal, W, H, Ls }) {
       <Room coveRef={coveRef} quality={quality} />
       <GlassPass />
       {stations.map((panels, k) => (
-        <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={W} H={H} L={Ls[k]} />
+        <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={Ls[k].app.w} H={Ls[k].app.h} L={Ls[k]} info={k === at ? info : null} />
       ))}
     </>
   )

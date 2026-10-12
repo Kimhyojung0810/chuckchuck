@@ -8,7 +8,7 @@ import { pickVolume } from './signal.js'
  * @param active   녹음 중인가 — 아니면 파형이 잦아들고 점선만 남는다
  * @param read     () => 0..1 | null
  */
-export function Waveform({ active, read, height = 36, barWidth = 3, barGap = 2, barRadius = 1.5, barColor = '#3fd599',
+export function Waveform({ active, read, height = 36, barWidth = 3, barGap = 2, barRadius = 1.5, barColor = '#6FB59A',
   baseBarHeight = 3, historySize = 120, updateRate = 30, fadeEdges = true, fadeWidth = 24, label = '마이크 파형', className = '' }) {
   const canvasRef = useRef(null)
   const boxRef = useRef(null)

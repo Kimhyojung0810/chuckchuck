@@ -2,13 +2,13 @@
 import { Orb } from 'orb-ui'
 import { GradientOrb } from './GradientOrb.jsx'
 
-// 초록 계열 (app.css: --brand #0E8850 · --cyan #3fd599 · --mint #aeefd5 · --navy #064E3B)
+// v3 (10-13 리뉴얼): 차분한 에메랄드 #6FB59A 가 「듣는 중」, 생각 · 말은 따뜻한 아이보리 쪽 — 상태를 색 세기로 가른다
 const BAR_COLORS = {
-  idle: '#7d8a83',
-  connecting: '#aeefd5',
-  listening: '#3fd599',
-  thinking: '#aeefd5',
-  speaking: '#aeefd5',
+  idle: '#6B746E',
+  connecting: '#A4ADA6',
+  listening: '#6FB59A',
+  thinking: '#A4ADA6',
+  speaking: '#D8E6DD',
   error: '#ff8a7a',
 }
 
@@ -24,7 +24,7 @@ export const BARS_THEME = {
 // 밝은 유리 판(리허설 흐름의 하단 독) 위 — 민트는 흰 바탕에서 안 보여서 브랜드 초록 (흰 바탕 4.5:1)
 export const BARS_THEME_LIGHT = {
   ...BARS_THEME,
-  appearance: { colors: { ...BAR_COLORS, idle: '#9aa59f', listening: '#0e8850', thinking: '#0a6e48', speaking: '#0a6e48' } },
+  appearance: { colors: { ...BAR_COLORS, idle: '#9aa59f', listening: '#3E7A63', thinking: '#5B6660', speaking: '#3E7A63' } },
 }
 
 /** 내 목소리 — 마이크 음량에 따라 다섯 막대. tone: 'dark'(어두운 판) | 'light'(밝은 판) */

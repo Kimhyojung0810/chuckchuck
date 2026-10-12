@@ -99,8 +99,8 @@ function hexRgb(hex) {
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
 }
 
-// 척척 초록 — 원본은 파랑 · 보라 · 주황
-export const ORB_COLORS = ['#3fd599', '#0e8850', '#aeefd5']
+// 척척 v3 — 차분한 에메랄드 · 깊은 세이지 · 따뜻한 아이보리 (원본은 파랑 · 보라 · 주황)
+export const ORB_COLORS = ['#6FB59A', '#344A40', '#E6E2D6']
 
 function compile(gl, type, src) {
   const sh = gl.createShader(type)

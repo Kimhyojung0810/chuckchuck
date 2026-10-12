@@ -1,36 +1,47 @@
-/* 정거장마다 정면에 무엇을 어디에 — 순수 계산 (CSS px, 화면 가운데가 원점, x 오른쪽 · y 아래로 +). SPACE §2-3
-   10-13 사용자: 「발표할 때 PPT 너무 작다 · 배경을 적극적으로 · 내 말 듣고 크다 작다 하는 삐약이는 관중으로 · 질의응답도 비슷하게」
-   ① ④  앱 창 하나(가운데)
-   ②    카메라(앱 창)를 위에 넓게 + 그 위에 겹친 큰 자료 창 · 아래 앞줄에 큰 관중 삐약이(말 빠르기 · 크기 반응) · 맨 아래 조작줄
-   ③    앱 창(질문 · 답 · 카메라)을 오른쪽으로 · 왼쪽 앞에 큰 심사위원 삐약이(질문하고 생각하고 말한다) */
+/* 정거장마다 정면에 무엇을 어디에 — 순수 계산 (CSS px, 화면 가운데가 원점, x 오른쪽 · y 아래로 +). SPACE §2-3 · DESIGN_SYSTEM v3-5
+   10-13 리뉴얼: 「업로드 창은 내용 크기 — 배경이 둘레로 드러나게」 「발표는 웹캠이 가장 크고 PPT 는 작은 PiP」
+   「Q&A 는 웹캠 중심 + 떠 있는 목소리」 「분석은 독립 장면」 「리포트는 읽기 우선」
+   0 자료 올리기  내용 크기 창(가운데)
+   1 발표        웹캠(앱 창)을 위에 넓게 · 그 위 작은 PPT 창(PiP) · 아래 앞줄 관중 · 맨 아래 조작줄
+   2 분석        가운데 중간 창 — 둘레에 분석 요소(슬라이드 · 목소리 · 내 말 · 개념)가 떠 있다(scene/Sets)
+   3 질의응답     웹캠(앱 창) 가운데에서 오른쪽으로 조금 · 왼쪽 앞에 심사위원 삐약이(목소리 구)
+   4 리포트      크게 — 읽기 우선 */
 
 const HUD = 56          // 위 HUD 높이
 const DOCK = 64         // ② 조작줄 높이 (css .sx-dock)
 const EDGE = 16         // 화면 가장자리 여백
 
-/** 가운데 창 하나 (① ④ · 폰은 모든 정거장) */
-function single(vp) {
-  const w = Math.round(Math.min(1120, vp.w * (vp.phone ? 0.94 : 0.66)))
-  const h = Math.round(Math.min(760, vp.h * (vp.phone ? 0.8 : 0.74)))
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+
+/** 가운데 창 하나 */
+function single(vp, fw, fh, maxW, maxH) {
+  const w = Math.round(Math.min(maxW, vp.w * (vp.phone ? 0.94 : fw)))
+  const h = Math.round(Math.min(maxH, vp.h * (vp.phone ? 0.8 : fh)))
   return { app: { x: 0, y: 0, w, h } }
 }
 
-/** ② 발표 — 카메라(앱 창)를 위에 가로로 넓게, 발표 자료는 그 카메라 위에 겹친다(왼쪽 큰 유리 창). 아래는 관중석 · 조작줄.
- *  10-13 사용자: 「발표 자료를 사람 카메라에 overlay 해야 해」 (나란히 둔 무대 스크린은 되돌렸다) · 「PPT 너무 작다」 */
-function present(vp) {
+/** ① 자료 올리기 — 내용 높이(fitH)에 맞춘다. 모르면 기본 크기 */
+function upload(vp, fitH) {
+  const w = Math.round(Math.min(860, vp.w * (vp.phone ? 0.94 : 0.58)))
+  const maxH = vp.h * (vp.phone ? 0.8 : 0.78)
+  const h = Math.round(fitH ? clamp(fitH, 280, maxH) : Math.min(560, maxH))
+  return { app: { x: 0, y: Math.round(HUD / 4), w, h } }
+}
+
+/** ② 발표 — 웹캠이 가장 크다. PPT 는 그 위 작은 떠 있는 창(PiP, 「크게」 로 넓힌다). 아래 앞줄 관중 · 조작줄 */
+function present(vp, big = false) {
   const dockTop = vp.h / 2 - EDGE - DOCK
-  const top = -vp.h / 2 + HUD + 14
-  const seat = Math.round(Math.max(130, Math.min(200, vp.h * 0.2)))
-  const floor = dockTop - seat - 18                      // 카메라 아래 끝 — 그 아래가 앞줄 관중
+  const top = -vp.h / 2 + HUD + 12
+  const seat = Math.round(clamp(vp.h * 0.15, 110, 150))
+  const floor = dockTop - seat - 14                      // 웹캠 아래 끝 — 그 아래가 앞줄 관중
   const hc = Math.round(floor - top)
-  const wc = Math.round(Math.min(vp.w * 0.92, hc * 2.4))
+  const wc = Math.round(Math.min(vp.w * 0.92, hc * 2.2))
   const app = { x: 0, y: Math.round(top + hc / 2), w: wc, h: hc }
-  // 카메라 위 자료 창 — 카메라 폭의 44%(얼굴은 가운데라 왼쪽에), 16:9 + 제목 띠, 세로 가운데
-  const cap = 40
-  let ow = Math.round(wc * 0.44)
+  const cap = 38
+  let ow = Math.round(wc * (big ? 0.46 : 0.3))
   let oh = Math.round(ow * 9 / 16) + cap
-  if (oh > hc - 36) { oh = hc - 36; ow = Math.round((oh - cap) * 16 / 9) }
-  const overlay = { left: 18, top: Math.round((hc - oh) / 2), w: ow, h: oh }   // 카메라 창 안 좌표
+  if (oh > hc - 40) { oh = hc - 40; ow = Math.round((oh - cap) * 16 / 9) }
+  const overlay = { left: 20, top: 20, w: ow, h: oh }   // 웹캠 창 안 좌표 — 왼쪽 위(얼굴은 가운데)
   const left = -wc / 2
   const listener = { x: Math.round(left + seat * 1.3), y: Math.round(dockTop - 10 - seat / 2), w: Math.round(seat * 2.6), h: seat }
   return {
@@ -39,25 +50,36 @@ function present(vp) {
   }
 }
 
-/** ③ 질의응답 — 앱 창을 오른쪽으로, 왼쪽 앞에 심사위원 */
+/** ③ 분석 — 가운데 중간 창, 둘레는 분석 요소가 떠 있을 자리 */
+function analysis(vp) {
+  return single(vp, 0.5, 0.6, 820, 560)
+}
+
+/** ④ 질의응답 — 웹캠 중심(오른쪽으로 조금), 왼쪽 앞에 심사위원 */
 function qa(vp) {
-  const w = Math.round(Math.min(1080, vp.w * 0.6))
-  const h = Math.round(Math.min(760, vp.h * 0.76))
-  const room = vp.w / 2 - w / 2                          // 창 양옆 남는 폭(가운데일 때)
-  const shift = Math.round(Math.min(room - EDGE, vp.w * 0.11))
-  const app = { x: shift, y: 0, w, h }
-  const seat = Math.round(Math.min(260, vp.h * 0.3))
+  const w = Math.round(Math.min(1120, vp.w * 0.64))
+  const h = Math.round(Math.min(780, vp.h * 0.8))
+  const room = vp.w / 2 - w / 2
+  const shift = Math.round(Math.min(room - EDGE, vp.w * 0.09))
+  const app = { x: shift, y: Math.round(HUD / 4), w, h }
+  const seat = Math.round(Math.min(220, vp.h * 0.26))
   const jh = Math.round(seat * 1.9)
-  // 아래 끝을 화면 아래 여백에 맞춘다 — 이름 줄이 화면 밖으로 잘렸다
-  const judge = { x: Math.round(-vp.w / 2 + EDGE + seat * 0.75), y: Math.round(vp.h / 2 - EDGE - 12 - jh / 2), w: Math.round(seat * 1.5), h: jh }
+  const judge = { x: Math.round(-vp.w / 2 + EDGE + seat * 0.7), y: Math.round(vp.h / 2 - EDGE - 12 - jh / 2), w: Math.round(seat * 1.4), h: jh }
   return { app, judge, seat }
 }
 
-export function stationLayout(k, vp) {
-  if (vp.phone) return single(vp)
-  if (k === 1) return present(vp)
-  if (k === 2) return qa(vp)
-  return single(vp)
+/**
+ * @param k   정거장 (keys.js ST)
+ * @param vp  { w, h, phone }
+ * @param opt { fitH: 업로드 내용 높이, bigSlide: PPT 창 크게 }
+ */
+export function stationLayout(k, vp, opt = {}) {
+  if (k === 0) return upload(vp, opt.fitH)
+  if (vp.phone) return single(vp, 0.94, 0.8, 1120, 760)
+  if (k === 1) return present(vp, opt.bigSlide)
+  if (k === 2) return analysis(vp)
+  if (k === 3) return qa(vp)
+  return single(vp, 0.72, 0.8, 1240, 860)
 }
 
 /** 화면 좌표의 앱 창 자리 (iframe 이 멈췄을 때 정확히 겹칠 자리) */

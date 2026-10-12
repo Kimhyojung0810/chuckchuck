@@ -107,3 +107,4 @@ YUYA Film Studio (https://www.awwwards.com/sites/yuya-film-studio) — 공간을
 15. **실제 구현된 화면으로 발표 · 질의응답까지 되게.** → SPACE §6: 지금 앱의 리허설 흐름(`#/rehearsal` → `/new` → `/qa` → `/report`)을 그대로 띄우고, 앱의 주소가 정거장을 정한다 — 앱 코드 · 카메라 코드 무변경
 16. **우리 색은 초록. 노란색(금색) → 초록.** → DESIGN_SYSTEM §2: 앱 `app.css` 의 브랜드 초록(`--brand #0E8850` · `--navy #064E3B` · `--cyan #3fd599` · `--mint #aeefd5`)
 17. **키보드 방향키 · 엔터로 조작.** → SPACE §7
+18. **리뉴얼 브리프 (10-13)** — Spatial · Calm · Warm · Refined · Immersive. 따뜻한 차콜(#111512) 바탕 · 초록은 5% 서명색(#6FB59A) · 스모크 유리 세 단계 · 업로드 창은 내용 크기 · 발표는 웹캠이 가장 크고 PPT 는 작은 PiP · Q&A 는 떠 있는 목소리 구 · 분석은 독립 장면(실제 진행만) · 리포트는 읽기 우선 → DESIGN_SYSTEM v3 · SPACE §2-3

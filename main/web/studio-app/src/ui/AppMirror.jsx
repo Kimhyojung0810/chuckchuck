@@ -59,6 +59,15 @@ function readJudge(doc) {
   }
 }
 
+/** 분석 기다림 — 실제 파이프라인 단계(rec · stt · align · flow · questions)의 상태만 (rehearsal.js RH_WAIT_STEPS) */
+function readWait(doc) {
+  const stage = doc.querySelector('#bqStage[data-screen="wait"]')
+  if (!stage) return null
+  const steps = {}
+  stage.querySelectorAll('.rh-wait-steps li[data-step]').forEach((li) => { steps[li.dataset.step] = li.dataset.state || 'wait' })
+  return { steps, title: text(doc.getElementById('rhWaitTitle')) }
+}
+
 /** 앱을 6번/초 읽는다 — 바뀌었을 때만 다시 그린다. mode: 'present' | 'qa' | null */
 export function useAppMirror(api, mode) {
   const [state, setState] = useState(null)
@@ -69,7 +78,7 @@ export function useAppMirror(api, mode) {
       const doc = api.current?.doc()
       if (!doc || !doc.documentElement) return
       if (doc !== styled) { const st = doc.createElement('style'); st.textContent = MIRROR_CSS; doc.head.appendChild(st); styled = doc }
-      const s = mode === 'present' ? readPresent(doc) : mode === 'qa' ? readJudge(doc) : null
+      const s = mode === 'present' ? readPresent(doc) : mode === 'qa' ? readJudge(doc) : mode === 'wait' ? readWait(doc) : null
       doc.documentElement.classList.toggle('sx-stage', mode === 'present' && !!s)
       doc.documentElement.classList.toggle('sx-judge', mode === 'qa' && !!s)
       const key = JSON.stringify(s)
@@ -89,9 +98,9 @@ export function useAppMirror(api, mode) {
 /** 숨긴 앱 단추 누르기 */
 export const pressApp = (api, sel) => { const el = api.current?.doc()?.querySelector(sel); if (el && !el.disabled) el.click() }
 
-/* ── ② 카메라 위 자료 창 — 지금 장을 크게 (10-13 사용자: 「발표 자료를 사람 카메라에 overlay」 · 「PPT 너무 작다」).
+/* ── ② 웹캠 위 PPT — 작은 떠 있는 창(PiP), 「크게」 로 넓힌다 (10-13 사용자: 「발표 자료를 사람 카메라에 overlay」 · 리뉴얼 「웹캠이 가장 크고 PPT 는 PiP」).
    앱의 자료 창과 같은 밝은 유리 판. iframe(카메라) 위 고정 층이라 곡선이 멈췄을 때만 보인다 ── */
-export function SlideOverlay({ slide, box, onNav }) {
+export function SlideOverlay({ slide, box, onNav, big, onToggle }) {
   const ref = useRef(null)
   useEffect(() => {
     let raf = 0, was = null
@@ -116,6 +125,7 @@ export function SlideOverlay({ slide, box, onNav }) {
         <strong>{slide ? slide.title : ''}</strong>
         <span className="sx-screen__no">{slide ? slide.no : ''}</span>
         <span className="sx-screen__prog" aria-hidden="true"><i style={{ width: (slide && slide.prog) || '0%' }} /></span>
+        <button type="button" className="sx-screen__size" onClick={onToggle} aria-pressed={!!big}>{big ? '작게' : '크게'}</button>
       </div>
       {slide && slide.caption && <p className="sx-screen__sub">{slide.caption}</p>}
     </div>

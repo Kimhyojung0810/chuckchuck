@@ -1,4 +1,4 @@
-/* 정거장별 조명 — 같은 방에 빛만 바뀐다 (SPACE §3). 초록기 도는 흰빛만 (10-13 사용자: 금빛 → 초록) */
+/* 정거장별 조명 — 같은 방에 빛만 바뀐다 (SPACE §3). 따뜻한 중성 빛 (10-13 리뉴얼 — 초록은 빛이 아니라 서명색) */
 import { useRef, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -19,7 +19,7 @@ export function Lights({ coveRef }) {
     o.position.set(x, 1.5, z)
     return o
   }), [])
-  if (!scene.fog) scene.fog = new THREE.Fog('#040605', 9, LIGHT[0].fog)
+  if (!scene.fog) scene.fog = new THREE.Fog('#0B0D0C', 9, LIGHT[0].fog)
 
   useFrame((_, dt) => {
     const L = LIGHT[rig.at]
@@ -39,14 +39,14 @@ export function Lights({ coveRef }) {
       s.angle = THREE.MathUtils.lerp(0.6, L.angle, cur.k[k])
     })
     const cv = cur.cove * (0.6 + 0.4 * rig.motion)
-    coveRef.current.forEach((m) => m && m.color.setRGB(0.42 * cv + 0.03, 0.5 * cv + 0.04, 0.45 * cv + 0.035))
+    coveRef.current.forEach((m) => m && m.color.setRGB(0.5 * cv + 0.04, 0.48 * cv + 0.04, 0.44 * cv + 0.035))
     scene.fog.far = cur.fog
   })
 
   return (
     <>
       <ambientLight ref={amb} intensity={0.5} />
-      <hemisphereLight args={['#6d7a72', '#151b18', 1.2]} />
+      <hemisphereLight args={['#7a776f', '#141614', 1.1]} />
       {[0, 1, 2, 3].map((k) => {
         const [x, z] = toward(stationAngle(k), 2.4)
         return (

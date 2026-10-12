@@ -103,7 +103,8 @@ const frag = /* glsl */ `
     vec3 tint = mix(uTint * 1.25, uTint * 0.85, coord.y);
     vec3 col = mix(color.rgb, tint, uTintOpacity);
     // 테두리 빛줄 — 유리 가장자리가 빛을 받는다
-    col += vec3(1.0, 0.96, 0.9) * rimIntensity * 0.10;
+    col += vec3(1.0, 0.97, 0.92) * rimIntensity * 0.08;
+    col += vec3(1.0) * 0.05 * (1.0 - smoothstep(0.0, 0.38, coord.y));   // 위쪽 빛 반사 (v3-2 sheen)
     gl_FragColor = vec4(col, uOpacity * aa);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -120,7 +121,7 @@ export function GlassPanel({ widthPx, heightPx, radius = 24, world, paper = fals
     uniforms: {
       uScene: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uTexel: { value: new THREE.Vector2(1, 1) },
       uSize: { value: new THREE.Vector2(widthPx, heightPx) }, uRadius: { value: radius },
-      uTint: { value: new THREE.Color(paper ? '#F4F0E8' : '#0d1310') }, uTintOpacity: { value: tint ?? (paper ? 0.8 : 0.55) },
+      uTint: { value: new THREE.Color(paper ? '#F4F0E8' : '#222724') }, uTintOpacity: { value: tint ?? (paper ? 0.8 : 0.72) },
       uOpacity: { value: 1 }, uBlur: { value: 7 },
       uEdgeIntensity: { value: 0.008 }, uRimIntensity: { value: 0.05 }, uBaseIntensity: { value: 0.006 },
       uEdgeDistance: { value: 0.15 }, uRimDistance: { value: 0.8 }, uBaseDistance: { value: 0.1 },

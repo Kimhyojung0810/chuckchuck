@@ -3,7 +3,7 @@
    3D 위 고정 2D 층에 두고, 곡선이 멈췄을 때만 정면 창 자리에 정확히 겹쳐 보인다(창이 1:1 이라). 움직이는 동안은 3D 표지가 보인다. */
 import { useEffect, useRef } from 'react'
 import { rig } from '../rig.js'
-import { stationOfHash, keyAction, trackHash } from './keys.js'
+import { stationOf, keyAction, trackHash, ST } from './keys.js'
 
 export const APP_START = '/index.html#/rehearsal'
 
@@ -15,6 +15,9 @@ const FRAME_CSS = `
   .bq-top .bq-brand, .bq-top .bq-steps-top, .vr-top .vr-pill { display: none !important; }
 `
 const PRIMARY = '.bq-cta, .btn-primary'
+// 스튜디오 안에서만 앱에 입히는 옷 (css/studio-skin.css — 바탕 투명 · 초록 5% · 중성 면)
+const SKIN_HREF = '/css/studio-skin.css?v=sk6'
+const FIT_PAD = 72   // 업로드 장면 창 = 내용(.bq-pick) 높이 + 위아래 여백(studio-skin .bq-body 36px ×2)
 
 function visible(el) {
   if (!el || el.disabled || el.closest('[inert], [hidden], [aria-hidden="true"]')) return false
@@ -32,8 +35,9 @@ function typingIn(el) {
  * @param rect   { left, top, width, height } — 정면 창 자리(CSS px)
  * @param onStation (k) => void — 앱이 다른 정거장의 화면으로 넘어갔다
  * @param api    ref — { next(), back() } 를 바깥 키 처리에 내준다
+ * @param onFit  (h | null) => void — 업로드 장면이면 내용 높이(창을 내용에 맞춘다), 아니면 null
  */
-export function AppFrame({ rect, onStation, api }) {
+export function AppFrame({ rect, onStation, api, onFit }) {
   const frame = useRef(null)
   const wrap = useRef(null)
   const stack = useRef([])
@@ -51,7 +55,9 @@ export function AppFrame({ rect, onStation, api }) {
     const onApp = /^\/(index\.html)?$/.test(path)
     if (!onApp) { win.location.replace(new URL(APP_START, location.origin).href); return }   // 앱이 아닌 문서가 실렸으면 앱으로
     const hash = win.location.hash
-    const k = stationOfHash(hash)
+    const doc = win.document
+    // 분석 기다림은 발표와 같은 주소라 떠 있는 층으로 가른다 (#bqStage[data-screen=wait])
+    const k = stationOf({ hash, wait: !!doc.querySelector('#bqStage[data-screen="wait"]') })
     if (k < 0) {   // 앱의 「나가기」 · 홈 → 스튜디오는 처음 정거장(앱도 리허설 첫 화면으로) — 늘 절대 주소로
       win.location.replace(new URL(APP_START, location.origin).href)
       return
@@ -59,7 +65,18 @@ export function AppFrame({ rect, onStation, api }) {
     stack.current = trackHash(stack.current, hash)
     station.current = k
     onStation(k)
+    // 업로드 장면은 창을 내용 크기에 맞춘다 (v3 — 큰 창이 공간을 가리지 않게)
+    if (onFit) {
+      const pick = k === ST.upload ? doc.querySelector('#bqStage[data-flow="rehearsal"] .bq-pick') : null
+      onFit(pick ? Math.ceil(pick.getBoundingClientRect().height + FIT_PAD) : null)
+    }
   }
+
+  // 층(분석 기다림) · 내용 높이는 주소 없이 바뀐다 — 3번/초 다시 본다
+  useEffect(() => {
+    const id = setInterval(() => { try { if (frame.current?.contentWindow?.location.href !== 'about:blank') sync() } catch (_) { /* 다른 문서 */ } }, 330)
+    return () => clearInterval(id)
+  })
 
   const act = (what) => {
     const win = frame.current?.contentWindow
@@ -109,6 +126,11 @@ export function AppFrame({ rect, onStation, api }) {
     const st = doc.createElement('style')
     st.textContent = FRAME_CSS
     doc.head.appendChild(st)
+    doc.documentElement.classList.add('sx-studio')
+    const skin = doc.createElement('link')
+    skin.rel = 'stylesheet'
+    skin.href = SKIN_HREF
+    doc.head.appendChild(skin)
     // 1336×1024 판을 창 크기에 맞춘다 — 폭에 맞추고, 판 높이도 틀 높이에 맞춰 위아래가 잘리지 않게(안쪽 스크롤)
     const fit = doc.createElement('style')
     const refit = () => {

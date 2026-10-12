@@ -21,17 +21,20 @@ function check(name, ok) {
 // 주소 → 정거장
 check('#/rehearsal → ①', K.stationOfHash('#/rehearsal') === 0);
 check('#/rehearsal/occ → ①', K.stationOfHash('#/rehearsal/occ') === 0);
-check('#/rehearsal/new → ②', K.stationOfHash('#/rehearsal/new') === 1);
-check('#/rehearsal/qa → ③', K.stationOfHash('#/rehearsal/qa') === 2);
-check('#/rehearsal/report → ④', K.stationOfHash('#/rehearsal/report') === 3);
-check('#/report/last → ④', K.stationOfHash('#/report/last') === 3);
+check('#/rehearsal/new → ② 발표', K.stationOfHash('#/rehearsal/new') === 1);
+check('발표 주소라도 분석 기다림 층이면 ③ 분석', K.stationOf({ hash: '#/rehearsal/new', wait: true }) === 2);
+check('기다림 층이 없으면 ② 발표', K.stationOf({ hash: '#/rehearsal/new', wait: false }) === 1);
+check('질문 주소는 층과 무관', K.stationOf({ hash: '#/rehearsal/qa', wait: true }) === 3);
+check('#/rehearsal/qa → ④ 질의응답', K.stationOfHash('#/rehearsal/qa') === 3);
+check('#/rehearsal/report → ⑤ 리포트', K.stationOfHash('#/rehearsal/report') === 4);
+check('#/report/last → ⑤ 리포트', K.stationOfHash('#/report/last') === 4);
 check('#/home → 흐름 밖', K.stationOfHash('#/home') === -1);
 check('빈 주소 → 흐름 밖', K.stationOfHash('') === -1);
 check('#/rehearsals 는 흐름이 아니다', K.stationOfHash('#/rehearsals') === -1);
 
 // 키
 check('① → 는 다음', K.keyAction({ key: 'ArrowRight', station: 0 }) === 'next');
-check('③ Enter 는 다음', K.keyAction({ key: 'Enter', station: 2 }) === 'next');
+check('④ Enter 는 다음', K.keyAction({ key: 'Enter', station: 3 }) === 'next');
 check('← 는 이전', K.keyAction({ key: 'ArrowLeft', station: 3 }) === 'back');
 check('② 발표 · 앱 안 초점 → 는 앱(클리커)', K.keyAction({ key: 'ArrowRight', station: 1, inApp: true }) === null);
 check('② 발표 · 앱 안 초점 ← 는 앱', K.keyAction({ key: 'ArrowLeft', station: 1, inApp: true }) === null);

@@ -1,34 +1,51 @@
 /* ════════════════════════════════════════════════════════════════════════
-   척척발표 디자인 시스템 v2 「가상 발표 스튜디오」 — 토큰과 창 안 부품
+   척척발표 디자인 시스템 v3 「조용한 공간형 발표 스튜디오」 — 토큰과 창 안 부품 (10-13 리뉴얼: 따뜻한 차콜 · 초록 5% · 스모크 유리)
    규칙 · 쓰는 법: main/web/design/DESIGN_SYSTEM.md · 견본: /design_kit.html (팀 전용)
    방(3D)은 css/studio.css. 이름은 전부 ds- — 옛 app.css 클래스와 섞이지 않게.
    유리(backdrop blur) · filter 를 쓰지 않는다 (토스 규율 · 성능). 창 안에는 그림자를 쓰지 않는다.
    ════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── 창(무대) ── */
-  --stage: #090C0A;
-  --stage-1: #0F1411;
-  --stage-2: #161C18;
-  --win-bg: rgb(15 20 17 / .94);
-  --win-line: rgba(232, 242, 236, .12);
-  --line: rgba(232, 242, 236, .10);
-  --line-strong: rgba(232, 242, 236, .25);
-  --card-line: rgba(232, 242, 236, .08);
+  /* ── 바탕 · 면 (v3 — 따뜻한 차콜, DESIGN_SYSTEM v3-1) ── */
+  --bg: #111512;
+  --surface: #222724;
+  --sage: #344A40;
+  --border: #3A403B;
+  --stage: #111512;
+  --stage-1: #181D19;
+  --stage-2: #222724;
+  --win-bg: rgb(34 39 36 / .72);
+  --win-line: rgba(240, 240, 233, .10);
+  --line: rgba(240, 240, 233, .09);
+  --line-strong: rgba(240, 240, 233, .20);
+  --card-line: rgba(240, 240, 233, .07);
 
-  /* ── 글자 · 초록 · 상태 (10-13 사용자: 우리 색은 초록 — app.css 의 --brand · --cyan 과 같은 값) ── */
-  --ink: #EEF3EF;
-  --ink-2: #ADB7B1;
-  --ink-3: #87918B;
-  --ink-off: rgba(232, 242, 236, .32);
-  --brand: #0E8850;          /* 주 버튼 면 — 흰 글자 4.51:1 */
-  --brand-hi: #0A8459;
-  --on-brand: #FFFFFF;
-  --accent: #3fd599;         /* 무대(어두운 면) 위 표시 — 번호 · 점 · 진행 · 초점 */
-  --accent-wash: rgba(63, 213, 153, .10);
+  /* ── 글자 · 초록 · 상태 — 초록은 서명색(면적 5%): 주 버튼 면 · 지금 단계 · 진행 · 마이크 · AI 상태에만 ── */
+  --ink: #F0F0E9;
+  --ink-2: #A4ADA6;
+  --ink-3: #8A938C;
+  --ink-off: rgba(240, 240, 233, .32);
+  --brand: #6FB59A;          /* 주 버튼 면 — 위 글자 --on-brand 7.7:1 */
+  --brand-hi: #82C2A9;
+  --on-brand: #111512;
+  --accent: #6FB59A;         /* 어두운 면 위 표시 — 배경 7.7:1 */
+  --accent-wash: rgba(111, 181, 154, .10);
   --live: #7FB37A;
   --rec: #E5484D;
   --warn: #E2B04A;
+
+  /* ── 소재 — 스모크 유리 세 단계 (DESIGN_SYSTEM v3-2) ── */
+  --glass-main: rgb(34 39 36 / .72);
+  --glass-sub: rgb(34 39 36 / .62);
+  --glass-chip: rgb(17 21 18 / .55);
+  --glass-edge: rgba(240, 240, 233, .10);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, 0) 38%);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .08);
+  --blur-main: blur(24px) saturate(1.2);
+  --blur-sub: blur(18px) saturate(1.15);
+  --blur-chip: blur(12px);
+  --shadow-main: 0 40px 80px -40px rgba(0, 0, 0, .65), 0 2px 6px rgba(0, 0, 0, .18);
+  --shadow-sub: 0 20px 40px -20px rgba(0, 0, 0, .6);
 
   /* ── 종이 ── */
   --paper: #F3F7F4;
@@ -45,14 +62,11 @@
   --ct: #9333EA;   --ct-bg: #F6EDFD;
   --om: #8A6A15;   --om-bg: #F7F1DE;
 
-  /* ── 방 재질 (studio.css 가 쓴다) ── */
-  --room-void: #050504;
-  --room-plaster: #24221E;
-  --room-plaster-top: #0D0C0B;
-  --room-plaster-bottom: #0C0B0A;
-  --room-floor: #121110;
-  --room-ceiling: #0B0B0A;
-  --room-corner: rgba(0, 0, 0, .62);
+  /* ── 방 재질 (v3: 조용한 따뜻한 어둠, 초록 빛 없음 — 3D 는 studio-app/src/scene 이 같은 값을 쓴다) ── */
+  --room-void: #0B0D0C;
+  --room-wall: #171B18;
+  --room-floor: #0E110F;
+  --room-light: #EEE9DF;
 
   /* ── 글 ── */
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;

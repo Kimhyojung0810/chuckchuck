@@ -22,7 +22,7 @@ const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b
  * panels: [{ id, x, y, w, h, radius, paper, tint, glass, bare, children }] — x·y 는 창 가운데에서의 CSS px (오른쪽 · 아래로 +)
  * 다른 정거장의 창은 표지라 누를 것이 없다(inert) — 실제 화면은 앱이 정한다 (SPACE §6). W·H 는 세트를 놓을 창 크기
  */
-export function Station({ k, active, panels, portal, W, H, L }) {
+export function Station({ k, active, panels, portal, W, H, L, info }) {
   const world = useWorldPerPx()
   const group = useRef()
   const op = useRef(active ? 1 : 0.45)
@@ -45,16 +45,19 @@ export function Station({ k, active, panels, portal, W, H, L }) {
     if (setRef.current) setRef.current.visible = Math.abs(rel) < 0.7
     const off = Math.abs(ang)
     op.current = (1 - 0.55 * Math.min(1, Math.abs(rel))) * (1 - smoothstep(HIDE_DOM - 22, HIDE_DOM, off))
-    htmlRefs.current.forEach((el) => {
+    // 지금 정거장의 표지는 실제 앱이 덮는 동안 감춘다 — v3 앱 문서는 바탕이 투명이라 표지 글자가 비쳤다
+    const live = active && rig.settled && !rig.dragging
+    htmlRefs.current.forEach((el, i) => {
       if (!el) return
       el.style.opacity = op.current.toFixed(3)
       el.style.visibility = op.current < 0.02 ? 'hidden' : 'visible'
+      if (panels[i] && panels[i].id === 'w') el.classList.toggle('is-live-cover', live)
     })
   })
 
   return (
     <group ref={group}>
-      <group ref={setRef}><StationSet k={k} W={W} H={H} L={L} world={world} /></group>
+      <group ref={setRef}><StationSet k={k} W={W} H={H} L={L} info={info} world={world} /></group>
       {panels.map((p, i) => (
         <group key={p.id} position={[p.x * world, -p.y * world, i * 0.002]}>
           {p.glass !== false && <GlassPanel widthPx={p.w} heightPx={p.h} radius={p.radius ?? 24} world={world} paper={p.paper} tint={p.tint} opacityRef={op} />}

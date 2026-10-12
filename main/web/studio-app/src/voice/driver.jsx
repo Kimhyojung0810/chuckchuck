@@ -48,7 +48,7 @@ function mountWave(el, { read = null, tone = 'dark', label, height = 32 } = {}) 
     const own = meter.read()
     return own === null ? null : rmsToVolume(own)
   }
-  root.render(<Waveform active read={level} height={height} barColor={tone === 'light' ? '#0e8850' : '#3fd599'} label={label || '마이크 파형'} />)
+  root.render(<Waveform active read={level} height={height} barColor={tone === 'light' ? '#3E7A63' : '#6FB59A'} label={label || '마이크 파형'} />)
   let dead = false
   const destroy = () => { if (dead) return; dead = true; clearInterval(watch); meter.close(); root.unmount() }
   const watch = setInterval(() => { if (!el.isConnected) destroy() }, 1000)   // 앱이 자리를 다시 그리면 스스로 정리

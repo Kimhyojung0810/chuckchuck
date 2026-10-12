@@ -1,13 +1,23 @@
 /* 스튜디오 ↔ 앱 흐름 — 순수 함수 (etc/tests/js/studio_flow.smoke.mjs 가 브라우저 없이 검사한다). SPACE §6 · §7 */
 
-/** 앱 주소 → 정거장 (0 자료 올리기 · 1 발표 · 2 질의응답 · 3 리포트). 흐름 밖(#/home · #/)이면 -1 */
+/** 정거장 번호 — 0 자료 올리기 · 1 발표 · 2 분석 · 3 질의응답 · 4 리포트 (config.STATIONS 와 같은 순서) */
+export const ST = { upload: 0, present: 1, analysis: 2, qa: 3, report: 4 }
+
+/** 앱 주소 → 정거장. 흐름 밖(#/home · #/)이면 -1. 분석 기다림은 발표와 같은 주소(#/rehearsal/new)라 stationOf 가 화면으로 가른다 */
 export function stationOfHash(hash) {
   const h = String(hash || '').replace(/^#\/?/, '')
-  if (/^rehearsal\/(new|wait)(\/|$)/.test(h)) return 1
-  if (/^rehearsal\/qa(\/|$)/.test(h)) return 2
-  if (/^(rehearsal\/)?report(\/|$)/.test(h)) return 3
-  if (/^rehearsal(\/|$)/.test(h)) return 0
+  if (/^rehearsal\/(new|wait)(\/|$)/.test(h)) return ST.present
+  if (/^rehearsal\/qa(\/|$)/.test(h)) return ST.qa
+  if (/^(rehearsal\/)?report(\/|$)/.test(h)) return ST.report
+  if (/^rehearsal(\/|$)/.test(h)) return ST.upload
   return -1
+}
+
+/** 주소 + 지금 떠 있는 층 → 정거장. wait: 분석 기다림 층(#bqStage[data-screen=wait])이 떠 있나 */
+export function stationOf({ hash, wait = false }) {
+  const k = stationOfHash(hash)
+  if (k === ST.present && wait) return ST.analysis
+  return k
 }
 
 /**
@@ -21,7 +31,7 @@ export function keyAction({ key, station, typing = false, onControl = false, mod
   if (mod || typing) return null
   // ② 발표: 앱 안에 초점이 있으면 앱이 직접 넘긴다(클리커 · 키보드). 스튜디오(바깥)에 초점이 있으면 넘김을 앱에 건넨다 —
   // 10-13 사용자 「발표 시작하면 넘길 수 있게」: 바깥 조작줄을 누른 뒤엔 방향키가 앱에 닿지 않았다
-  if (station === 1) {
+  if (station === ST.present) {
     if (inApp) return null
     if (key === 'ArrowRight' || key === 'PageDown') return 'slideNext'
     if (key === 'ArrowLeft' || key === 'PageUp') return 'slidePrev'

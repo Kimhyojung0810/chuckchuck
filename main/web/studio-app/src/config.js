@@ -10,16 +10,19 @@ export const FOV_PHONE = 62
 export const STATIONS = [
   { key: 'upload',  name: '자료 올리기', line: '발표 자료를 올리고, 어떤 발표인지 골라요' },
   { key: 'present', name: '발표',       line: '카메라 앞에서 발표해요 — 삐약이들이 들어요' },
+  { key: 'analysis', name: '분석',      line: '말과 자료를 맞춰 보고 질문을 골라요' },
   { key: 'qa',      name: '질의응답',    line: '심사위원 삐약이들의 질문에 답해요' },
   { key: 'report',  name: '리포트',      line: '발표와 답을 돌아봐요' },
 ]
 
-/* 정거장별 조명 (SPACE §3) — 초록기 도는 흰빛만 (10-13 사용자: 우리 색은 초록). spot: 정면 스포트(cd) · 각(rad), cove: 빛 띠 밝기, amb: 방 전체, fog: 안개 끝(m) */
+/* 정거장별 조명 (SPACE §3 · DESIGN_SYSTEM v3-3) — 따뜻한 중성 빛만(10-13 리뉴얼: 초록 빛 없음, 조용한 스튜디오).
+   spot: 정면 스포트(cd) · 각(rad), cove: 빛 띠 밝기, amb: 방 전체, fog: 안개 끝(m) */
 export const LIGHT = [
-  { color: '#E6EBE5', spot: 260, angle: .62, cove: 1.0, amb: 1.6, fog: 24 },
-  { color: '#D3F0E2', spot: 420, angle: .5, cove: .12, amb: .6, fog: 14 },
-  { color: '#E2ECE5', spot: 300, angle: .5, cove: .5, amb: 1.1, fog: 18 },
-  { color: '#F1F4EF', spot: 300, angle: .78, cove: 1.0, amb: 2.1, fog: 28 },
+  { color: '#EEE9DF', spot: 220, angle: .7, cove: .8, amb: 1.4, fog: 22 },
+  { color: '#E9E4D8', spot: 260, angle: .55, cove: .35, amb: .9, fog: 16 },
+  { color: '#EDE8DD', spot: 200, angle: .75, cove: .7, amb: 1.2, fog: 20 },
+  { color: '#ECE6DA', spot: 240, angle: .6, cove: .5, amb: 1.1, fog: 18 },
+  { color: '#F2EFE8', spot: 240, angle: .8, cove: .9, amb: 1.7, fog: 26 },
 ]
 
 /* SPACE v3 — 시점은 고정, 창이 곡선 위를 미끄러진다 (Horizon OS 방식) */

@@ -1,106 +1,56 @@
-/* 가상 발표 스튜디오 (React Three Fiber) — 캔버스 · 창 껍데기 · HUD 배치. 부품은 ds.css (design/DESIGN_SYSTEM.md) */
+/* 조용한 공간형 발표 스튜디오 (React Three Fiber) — 캔버스 · 창 껍데기 · HUD. 토큰 · 부품은 ds.css (design/DESIGN_SYSTEM.md v3) */
 html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hidden; }
 #studio-root, .sx-root { position: fixed; inset: 0; }
-.sx-root { touch-action: none; user-select: none; }
+.sx-root { touch-action: none; user-select: none; font-family: var(--font-sans); color: var(--ink); }
 .sx-canvas { position: absolute !important; inset: 0; cursor: grab; }
 .sx-canvas:active { cursor: grabbing; }
-
-/* 창 껍데기 — 유리(WebGL)가 뒤에 있다. DOM 은 투명 + 옅은 막 하나 (글자 대비, DESIGN_SYSTEM §4-2) */
-.sx-panel {
-  position: relative;
-  overflow: hidden;
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--fs-body);
-  line-height: 1.65;
-  word-break: keep-all;
-  background: rgb(18 18 16 / .28);
-  border: 1px solid rgba(232, 242, 236, .16);
-  box-shadow: 0 1px 0 rgba(232, 242, 236, .1) inset, 0 40px 100px -30px rgba(0, 0, 0, .7);
-  user-select: text;
-  -webkit-font-smoothing: antialiased;
-}
-.sx-panel--paper { background: rgb(244 240 232 / .42); border-color: rgba(26, 25, 21, .1); color: var(--paper-ink); }
-.sx-panel.is-away { cursor: pointer; }
-.sx-panel * { box-sizing: border-box; }
-/* 유리 위 창은 자기 면을 그리지 않는다 — 유리가 면이다 */
-.sx-panel .ds-window { background: transparent; border: 0; box-shadow: none; border-radius: inherit; }
-.sx-fill { position: absolute; inset: 0; }
-.sx-center .ds-window__body { display: grid; gap: 14px; }
-
-/* ② 자료 창 안의 슬라이드 자리 */
-.sx-slide { height: 100%; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 10px; background: #F7F5F0; color: #1A1915; padding: 7% 8%; display: grid; align-content: start; gap: 6%; }
-.sx-slide__title { font-size: 15px; font-weight: 700; line-height: 1.3; }
-.sx-slide__line { height: 6px; border-radius: 3px; background: #D9D4C9; }
-
-/* ② 조작 줄 · ③ 답 창 */
-.sx-bar { position: absolute; inset: 0; display: flex; align-items: center; gap: 16px; padding: 0 16px 0 14px; }
-.sx-bar__state { display: grid; gap: 2px; min-width: 0; }
-.sx-answer { position: absolute; inset: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto; gap: 10px 18px; align-items: center; padding: 14px 18px; }
-.sx-answer__main { display: grid; gap: 8px; min-width: 0; }
-.sx-answer__main .ds-textarea { min-height: 64px; background: rgb(18 18 16 / .35); }
-.sx-answer__actions { grid-column: 2; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
-.sx-answer .sx-orb { grid-row: 1 / span 2; }
-.sx-orb { position: relative; flex: none; border-radius: 50%; overflow: hidden; }
-.sx-orb--still { background: radial-gradient(circle at 40% 35%, #aeefd5, #0E8850 45%, #064E3B 100%); transform: scale(calc(.9 + var(--k, 0) * .15)); }
-.sx-report { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
-
-/* ── HUD — 3D 밖 2D ── */
-.hud { position: fixed; inset: 0 0 auto 0; z-index: 40; display: flex; align-items: center; gap: 20px; height: 56px; padding: 0 24px;
-  background: linear-gradient(to bottom, rgba(4, 6, 5, .8), rgba(4, 6, 5, 0)); pointer-events: none; }
-.hud > * { pointer-events: auto; }
-.hud__brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: var(--ink); }
-.hud__brand img { width: 26px; height: 26px; border-radius: 7px; }
-.hud__steps { flex: 1; display: flex; justify-content: center; gap: 6px; list-style: none; margin: 0; padding: 0; }
-.hud__end { display: inline-flex; gap: 8px; }
-.hud__exit { padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(232, 242, 236, .22); background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
-.hud__exit:hover { color: var(--ink); }
-.hud__note { position: fixed; left: 24px; bottom: 16px; z-index: 40; margin: 0; pointer-events: none; }
-
-@media (max-width: 720px) {
-  .hud { padding: 0 12px; gap: 8px; }
-  .hud__brand span { display: none; }
-  .hud .ds-step { padding: 6px 8px; font-size: 12px; }
-  .hud .ds-step .hud__step-name { display: none; }
-  .hud .ds-step[aria-current="step"] .hud__step-name { display: inline; }
-  .hud__note { left: 12px; right: 12px; bottom: 8px; font-size: 10px; }
-  .sx-bar { flex-wrap: wrap; padding: 12px; align-content: center; }
-  .sx-answer__actions { grid-column: 1 / -1; }
-  .sx-report { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-}
 
 /* drei Html 이 붙는 층 — 캔버스와 같은 자리, 빈 곳은 아래(캔버스)로 지나간다 */
 .sx-html { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 
-/* ④ 리포트 — 지금 앱의 리포트 화면을 담는 틀 */
-.sx-frame-wrap { flex: 1; min-height: 0; position: relative; }
-.sx-frame { width: 100%; height: 100%; border: 0; display: block; background: transparent; color-scheme: light; }
-
-/* ── ② ③ 카메라 창 — 카메라가 중심 (SPACE v3 §6) ── */
-.sx-panel--solid { background: #0b100d; }
-.sx-stage { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: #0b100d; }
-.sx-mirror { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-/* 영상 위 작은 창 — 영상은 WebGL 밖이라 CSS 유리(흐림 + 막 + 테두리 빛) */
-.sx-float {
-  position: absolute;
-  border-radius: 20px;
-  overflow: hidden;
-  background: rgb(15 20 17 / .5);
-  border: 1px solid rgba(232, 242, 236, .22);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 18px 50px -18px rgba(0, 0, 0, .7);
-  -webkit-backdrop-filter: blur(22px) saturate(1.4);
-  backdrop-filter: blur(22px) saturate(1.4);
+/* 창 껍데기(3D 안 DOM) — 유리(WebGL)가 뒤에서 면이 된다. DOM 은 아주 옅은 막 + 얇은 테 + 위 가장자리 빛 (v3-2 주 창) */
+.sx-panel {
+  position: relative; overflow: hidden; color: var(--ink);
+  font-family: var(--font-sans); font-size: var(--fs-body); line-height: 1.6; word-break: keep-all;
+  background: var(--glass-sheen), rgb(34 39 36 / .18);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-rim), var(--shadow-main);
+  user-select: text; -webkit-font-smoothing: antialiased;
 }
-.sx-float .ds-window { background: transparent; border: 0; box-shadow: none; border-radius: inherit; }
-.sx-float--slide { left: 22px; top: 22px; width: min(380px, 30%); aspect-ratio: 380 / 272; }
-.sx-float--bar { left: 50%; bottom: 22px; translate: -50% 0; width: min(860px, calc(100% - 44px)); height: 80px; border-radius: 22px; }
-.sx-float--q { left: 50%; top: 22px; translate: -50% 0; width: min(900px, calc(100% - 44px)); height: 128px; }
-.sx-float--a { left: 50%; bottom: 22px; translate: -50% 0; width: min(900px, calc(100% - 44px)); height: 196px; }
+.sx-panel--paper { background: rgb(244 240 232 / .42); border-color: rgba(26, 25, 21, .1); color: var(--paper-ink); }
+.sx-panel--bare { background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
+.sx-panel.is-away { cursor: default; }
+.sx-panel.is-live-cover { opacity: 0 !important; }   /* 지금 정거장의 표지는 실제 앱이 덮는 동안 감춘다(앱 바탕이 투명이라 비친다) */
+.sx-panel * { box-sizing: border-box; }
+.sx-panel .ds-window { background: transparent; border: 0; box-shadow: none; border-radius: inherit; }
+.sx-fill { position: absolute; inset: 0; }
+
+/* ── HUD — 작고 정교한 단계 표시 (v3-5) ── */
+.hud { position: fixed; inset: 0 0 auto 0; z-index: 40; display: flex; align-items: center; gap: 20px; height: 56px; padding: 0 24px;
+  background: linear-gradient(to bottom, rgba(11, 13, 12, .78), rgba(11, 13, 12, 0)); pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.hud__brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; color: var(--ink); letter-spacing: -.01em; }
+.hud__brand img { width: 24px; height: 24px; border-radius: 7px; }
+.hud__steps { flex: 1; display: flex; justify-content: center; gap: 2px; list-style: none; margin: 0; padding: 0; }
+.hud .ds-step { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border: 0; border-radius: 999px;
+  background: none; color: var(--ink-3); font-size: 13px; font-weight: 500; transition: color .2s, background-color .2s; }
+.hud .ds-step .ds-mono { font-size: 11px; letter-spacing: .06em; color: inherit; opacity: .8; }
+.hud .ds-step[aria-current="step"] { color: var(--ink); background: rgb(34 39 36 / .62); box-shadow: inset 0 0 0 1px var(--glass-edge); font-weight: 600; }
+.hud .ds-step[aria-current="step"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.hud .ds-step[aria-current="step"] .ds-mono { display: none; }
+.hud__end { display: inline-flex; gap: 8px; }
+.hud__exit { height: 30px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; border: 1px solid var(--glass-edge);
+  background: rgb(17 21 18 / .45); color: var(--ink-2); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; transition: color .15s, border-color .15s; }
+.hud__exit:hover { color: var(--ink); border-color: rgba(240, 240, 233, .2); }
+.hud__note { position: fixed; left: 24px; bottom: 16px; z-index: 40; margin: 0; pointer-events: none; color: var(--ink-3); font-size: 11px; }
+
 @media (max-width: 720px) {
-  .sx-float--slide { left: 12px; top: 12px; width: 46%; }
-  .sx-float--bar { bottom: 12px; height: auto; min-height: 120px; }
-  .sx-float--q { top: auto; bottom: 254px; height: 150px; }
-  .sx-float--a { bottom: 12px; height: 250px; }
+  .hud { padding: 0 12px; gap: 8px; }
+  .hud__brand span { display: none; }
+  .hud .ds-step { padding: 0 8px; font-size: 12px; }
+  .hud .ds-step .hud__step-name { display: none; }
+  .hud .ds-step[aria-current="step"] .hud__step-name { display: inline; }
+  .hud__note { left: 12px; right: 12px; bottom: 8px; font-size: 10px; }
 }
 
 /* ── 삐약이 (studio-app/src/piyak) — 객석 발표새와 같은 색. 몸 · 외곽선 · 얼굴 색은 캐릭터 고유색이라 무대 색이 바뀌어도 그대로 ── */
@@ -200,103 +150,101 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
   .px-emote > * { transition: opacity .2s; transform: none; }
 }
 
-/* ── 10-13 실제 앱 — 정면 창 자리에 지금 앱의 리허설 흐름 (SPACE §6 · ui/Frame.jsx) ──
-   3D 창과 같은 크기 · 같은 자리라 곡선이 멈추면 정확히 겹친다. 움직이는 동안은 숨고 3D 표지가 보인다(opacity 만 — 카메라 · 녹음은 그대로 돈다) */
-.sx-app { position: fixed; z-index: 30; border-radius: 24px; overflow: hidden; opacity: 0; pointer-events: none;
-  transition: opacity .2s ease; box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .8), 0 0 0 1px rgba(232, 242, 236, .1); background: #06120d; }
+/* ── 실제 앱 — 정면 창 자리에 지금 앱의 리허설 흐름 (SPACE §6 · ui/Frame.jsx) ──
+   v3: 앱 문서는 바탕이 투명하고(css/studio-skin.css), 소재는 뒤의 3D 유리가 깐다. 곡선이 멈췄을 때만 보인다(opacity 만 — 카메라 · 녹음은 그대로) */
+.sx-app { position: fixed; z-index: 30; border-radius: var(--r-window); overflow: hidden; opacity: 0; pointer-events: none;
+  transition: opacity .18s ease;   /* 자리 · 크기는 숨어 있는 동안 바뀐다 — 그것까지 움직이면 투명도 전환이 얽혀 0 에 머물렀다 */
+  box-shadow: 0 0 0 1px var(--glass-edge), var(--shadow-main); background: transparent; }
+.sx-app::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: var(--glass-rim); }
 .sx-app.is-shown { opacity: 1; pointer-events: auto; transition-duration: .35s; }
-.sx-app__frame { display: block; width: 100%; height: 100%; border: 0; background: #06120d; color-scheme: dark; }
-@media (prefers-reduced-motion: reduce) { .sx-app, .sx-app.is-shown { transition: none; } }
+/* color-scheme 은 앱 문서와 같아야 한다 — 다르면 크롬이 iframe 바탕을 불투명하게 칠한다(흰 판이 떴다) */
+.sx-app__frame { display: block; width: 100%; height: 100%; border: 0; background: transparent; color-scheme: normal; }
 
-/* 다른 정거장의 표지 — 번호 · 이름 · 한 줄 */
+/* 다른 정거장의 표지 — 번호 · 이름 · 한 줄 (움직이는 동안만 보인다) */
 .sx-cover { justify-content: center; }
-.sx-cover__body { display: grid; justify-items: center; gap: 14px; padding: 40px; text-align: center; }
-.sx-cover .ds-window__no { font-size: 15px; letter-spacing: .2em; }
-.sx-cover__name { margin: 0; font-size: clamp(40px, 5vw, 72px); font-weight: 700; letter-spacing: -.02em; color: var(--ink); word-break: keep-all; }
-.sx-cover__line { margin: 0; font-size: 18px; color: var(--ink-2); word-break: keep-all; }
-.sx-cover__now { margin: 8px 0 0; color: var(--ink-3); }
+.sx-cover__body { display: grid; justify-items: center; gap: 12px; padding: 40px; text-align: center; }
+.sx-cover .ds-window__no { font-size: 12px; letter-spacing: .24em; color: var(--accent); }
+.sx-cover__name { margin: 0; font-size: clamp(34px, 4vw, 56px); font-weight: 650; letter-spacing: -.02em; color: var(--ink); word-break: keep-all; }
+.sx-cover__line { margin: 0; font-size: 16px; color: var(--ink-2); word-break: keep-all; }
 
-/* 유리 · 바탕 없는 칸 — 세트 위 삐약이 */
-.sx-panel--bare { background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
-.sx-piyak { --px-size: 150px; }
-
-/* ── 10-13 ② 발표 조작줄 — 앱의 하단 조작줄을 정면 창 아래로 꺼냈다 (ui/PresentDock.jsx) ──
-   위계: 양 끝 「이전 · 다음」 이 장 넘기기의 주인공(다음이 더 또렷), 가운데 녹음 시계(밀리초) · 흐르는 파형 · 마치기(초록 면 하나) */
-.sx-dock { position: fixed; z-index: 31; display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 8px;
-  border-radius: 20px; background: rgb(15 20 17 / .78); border: 1px solid rgba(232, 242, 236, .14);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
-  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .7); opacity: 0; pointer-events: none; transition: opacity .2s; }
-.sx-dock.is-shown { opacity: 1; pointer-events: auto; transition-duration: .35s; }
-.sx-dock__mid { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
-.sx-dock__nav { flex: none; height: 44px; min-width: 104px; padding: 0 18px; border-radius: 14px; font: inherit; font-size: 16px; font-weight: 700;
-  border: 1px solid rgba(232, 242, 236, .22); background: transparent; color: var(--ink); cursor: pointer; }
-.sx-dock__nav.is-next { background: #EEF3EF; border-color: #EEF3EF; color: #0b100d; }
-.sx-dock__nav:hover:not(:disabled) { border-color: rgba(232, 242, 236, .5); }
-.sx-dock__nav.is-next:hover:not(:disabled) { background: #fff; }
-.sx-dock__nav span { font-size: 20px; line-height: 1; }
-.sx-dock__nav:disabled, .sx-dock__btn:disabled { opacity: .4; cursor: default; }
-.sx-dock__btn { flex: none; height: 40px; padding: 0 16px; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 600;
-  border: 1px solid rgba(232, 242, 236, .22); background: transparent; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
-.sx-dock__btn.is-primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 700; }
-.sx-dock__btn.is-primary:hover:not(:disabled) { background: var(--brand-hi); }
-.sx-dock__rec { flex: none; display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; white-space: nowrap; }
-.sx-dock__rec i { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 0 3px rgba(229, 72, 77, .25); }
-.sx-dock__clock { font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 700; color: var(--ink); letter-spacing: .01em; min-width: 9.2ch; }
-.sx-dock__note { color: var(--ink-2); font-size: 14px; white-space: nowrap; }
-.sx-dock__wave { flex: 0 1 220px; min-width: 80px; color: var(--ink-3); }
-.sx-dock :focus-visible { outline: none; box-shadow: var(--focus); }
-@media (prefers-reduced-motion: reduce) { .sx-dock { transition: none; } }
-
-/* ── 10-13 ② 카메라 위 자료 창 · 앞줄 관중 / ③ 심사위원 (ui/AppMirror.jsx · layout.js) ──
-   사용자: 「PPT 너무 작다 · 배경을 적극적으로 · 크다 작다 하는 삐약이는 관중으로 · 질의응답도 비슷하게」 */
-.sx-screen { position: fixed; z-index: 32; display: flex; flex-direction: column; border-radius: 18px; overflow: hidden;
-  background: rgba(255, 255, 255, .34); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, .55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 22px 50px rgba(0, 0, 0, .3);
+/* ── ② 발표 조작줄 (ui/PresentDock.jsx) — 보조 창 소재. 버튼은 중성 면, 초록 면은 주 버튼 하나(발표 시작 · 마치기) ── */
+.sx-dock { position: fixed; z-index: 31; display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 8px;
+  border-radius: 20px; background: var(--glass-sheen), var(--glass-sub); border: 1px solid var(--glass-edge);
+  -webkit-backdrop-filter: var(--blur-sub); backdrop-filter: var(--blur-sub); box-shadow: var(--glass-rim), var(--shadow-sub);
   opacity: 0; pointer-events: none; transition: opacity .2s; }
-.sx-screen.is-shown { opacity: 1; pointer-events: auto; transition-duration: .35s; }
+.sx-dock.is-shown { opacity: 1; pointer-events: auto; transition-duration: .35s; }
+.sx-dock__mid { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; }
+.sx-dock__nav { flex: none; height: 48px; min-width: 128px; padding: 0 18px; border-radius: 14px; font: inherit; font-size: 16px; font-weight: 600;
+  border: 1px solid var(--border); background: rgba(240, 240, 233, .04); color: var(--ink-2); cursor: pointer; transition: background-color .15s, color .15s, border-color .15s; }
+.sx-dock__nav.is-next { background: rgba(240, 240, 233, .1); border-color: rgba(240, 240, 233, .18); color: var(--ink); }
+.sx-dock__nav:hover:not(:disabled) { background: rgba(240, 240, 233, .14); color: var(--ink); }
+.sx-dock__nav span { font-size: 19px; line-height: 1; }
+.sx-dock__nav:disabled, .sx-dock__btn:disabled { opacity: .4; cursor: default; }
+.sx-dock__btn { flex: none; height: 40px; padding: 0 16px; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 500;
+  border: 1px solid var(--border); background: transparent; color: var(--ink-2); cursor: pointer; white-space: nowrap; transition: background-color .15s, color .15s; }
+.sx-dock__btn:hover:not(:disabled) { background: rgba(240, 240, 233, .06); color: var(--ink); }
+.sx-dock__btn.is-primary { height: 44px; padding: 0 22px; background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-size: 15px; font-weight: 650; }
+.sx-dock__btn.is-primary:hover:not(:disabled) { background: var(--brand-hi); border-color: var(--brand-hi); color: var(--on-brand); }
+.sx-dock__rec { flex: none; display: inline-flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: 13px; white-space: nowrap; }
+.sx-dock__rec i { width: 7px; height: 7px; border-radius: 50%; background: var(--rec); }
+.sx-dock__clock { font-variant-numeric: tabular-nums; font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: .01em; min-width: 9.2ch; }
+.sx-dock__note { color: var(--ink-3); font-size: 13px; white-space: nowrap; }
+.sx-dock__wave { flex: 0 1 200px; min-width: 80px; color: var(--ink-3); }
+.sx-dock :focus-visible { outline: none; box-shadow: var(--focus); }
+
+/* ── ② 카메라 위 PPT — 작은 떠 있는 창(PiP, 보조 창 소재). 「크게」 로 넓힐 수 있다 (ui/AppMirror.jsx) ── */
+.sx-screen { position: fixed; z-index: 32; display: flex; flex-direction: column; border-radius: 18px; overflow: hidden;
+  background: var(--glass-sub); border: 1px solid var(--glass-edge); -webkit-backdrop-filter: var(--blur-sub); backdrop-filter: var(--blur-sub);
+  box-shadow: var(--glass-rim), var(--shadow-sub); opacity: 0; pointer-events: none;
+  transition: opacity .2s, width .35s var(--turn-ease); }
+.sx-screen.is-shown { opacity: 1; pointer-events: auto; transition-duration: .35s, .35s; }
 .sx-screen__stage { position: relative; flex: none; aspect-ratio: 16 / 9; width: 100%; background: #fff; display: flex; align-items: center; justify-content: center; }
 .sx-screen__img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
-.sx-screen__doc { width: 100%; height: 100%; overflow: hidden; padding: 4% 5%; color: #1c2430; font-size: 20px; }
-.sx-screen__empty { margin: 0; color: #5c6b64; font-size: 16px; }
-.sx-screen__sub { flex: none; margin: 0; padding: 4px 16px 8px; background: rgba(255, 255, 255, .62); color: #2b3833; font-size: 14px; line-height: 1.4; word-break: keep-all; }
-.sx-screen__side { position: absolute; top: 50%; translate: 0 -50%; width: 34px; height: 56px; border: 0; border-radius: 10px;
-  background: rgba(5, 7, 6, .35); color: #fff; font-size: 22px; cursor: pointer; opacity: 0; transition: opacity .15s; }
-.sx-screen__side.is-prev { left: 10px; } .sx-screen__side.is-next { right: 10px; }
+.sx-screen__doc { width: 100%; height: 100%; overflow: hidden; padding: 4% 5%; color: #1c2430; font-size: 18px; }
+.sx-screen__empty { margin: 0; color: #5c6b64; font-size: 15px; }
+.sx-screen__side { position: absolute; top: 50%; translate: 0 -50%; width: 30px; height: 48px; border: 0; border-radius: 10px;
+  background: rgba(17, 21, 18, .45); color: #fff; font-size: 20px; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.sx-screen__side.is-prev { left: 8px; } .sx-screen__side.is-next { right: 8px; }
 .sx-screen__stage:hover .sx-screen__side, .sx-screen__side:focus-visible { opacity: 1; }
-.sx-screen__cap { flex: none; height: 40px; display: flex; align-items: center; gap: 14px; padding: 0 16px; color: #1c2430; font-size: 15px; background: rgba(255, 255, 255, .62); border-top: 1px solid rgba(255, 255, 255, .45); }
-.sx-screen__cap strong { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 700; }
-.sx-screen__no { flex: none; font-variant-numeric: tabular-nums; color: #3b4a44; font-size: 15px; }
-.sx-screen__prog { flex: none; width: 110px; height: 4px; border-radius: 2px; background: rgba(6, 78, 59, .14); overflow: hidden; }
-.sx-screen__prog i { display: block; height: 100%; background: var(--brand); transition: width .3s; }
+.sx-screen__cap { flex: none; height: 38px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 14px; color: var(--ink); font-size: 13px; }
+.sx-screen__cap strong { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+.sx-screen__no { flex: none; font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: 13px; }
+.sx-screen__prog { flex: none; width: 72px; height: 3px; border-radius: 2px; background: rgba(240, 240, 233, .12); overflow: hidden; }
+.sx-screen__prog i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.sx-screen__size { flex: none; height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--glass-edge); background: none; color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+.sx-screen__size:hover { color: var(--ink); }
+.sx-screen__sub { flex: none; margin: 0; padding: 0 14px 10px; color: var(--ink-2); font-size: 13px; line-height: 1.45; word-break: keep-all; }
 
-.sx-bubble { position: relative; margin: 0; padding: 12px 18px; border-radius: 18px; background: rgba(232, 242, 236, .1); color: var(--ink-2);
-  border: 1px solid rgba(232, 242, 236, .18); font-size: 17px; line-height: 1.45; word-break: keep-all; max-width: 22em; }
-.sx-bubble.is-said { background: #F3F7F4; color: #0b100d; border-color: #F3F7F4; font-size: 21px; font-weight: 700; }
-.sx-bubble::before { content: ''; position: absolute; left: -9px; bottom: 18px; border: 9px solid transparent; border-left: 0; border-right-color: inherit; }
-.sx-bubble.is-said::before { border-right-color: #F3F7F4; }
-.sx-bubble--down::before { left: 34px; bottom: -9px; border: 9px solid transparent; border-bottom: 0; border-top-color: #F3F7F4; }
+/* ── 말풍선 · 앞줄 관중(②) · 심사위원(③) — 작은 표시 소재, 따뜻한 아이보리 말 ── */
+.sx-bubble { position: relative; margin: 0; padding: 11px 16px; border-radius: 16px; background: var(--glass-chip); color: var(--ink-2);
+  border: 1px solid var(--glass-edge); -webkit-backdrop-filter: var(--blur-chip); backdrop-filter: var(--blur-chip);
+  font-size: 15px; line-height: 1.45; word-break: keep-all; max-width: 22em; }
+.sx-bubble.is-said { background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: 18px; font-weight: 650; }
+.sx-bubble::before { content: ''; position: absolute; left: -8px; bottom: 16px; border: 8px solid transparent; border-left: 0; border-right-color: rgba(240, 240, 233, .1); }
+.sx-bubble.is-said::before { border-right-color: var(--ink); }
+.sx-bubble--down::before { left: 30px; bottom: -8px; border: 8px solid transparent; border-bottom: 0; border-top-color: var(--ink); }
 
 .sx-listener { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 6px; }
-.sx-listener__chick { flex: none; height: var(--seat); width: auto; filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .55)); transform-origin: 50% 100%; animation: sxPop .45s cubic-bezier(.3, 1.5, .5, 1); }
-.sx-listener[data-cue="fast"] .sx-listener__chick, .sx-listener[data-cue="loud"] .sx-listener__chick { animation: sxPop .45s cubic-bezier(.3, 1.5, .5, 1), sxWiggle .5s .45s ease-in-out 2; }
-.sx-listener__talk { display: grid; gap: 8px; justify-items: start; padding-bottom: calc(var(--seat) * .35); }
-.sx-listener__name { color: var(--ink-3); font-size: 13px; }
-.sx-listener__ear { height: 32px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(232, 242, 236, .22); background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
-@keyframes sxPop { from { transform: scale(.86) translateY(8px); } to { transform: none; } }
-@keyframes sxWiggle { 50% { transform: rotate(-4deg); } }
+.sx-listener__chick { flex: none; height: var(--seat); width: auto; filter: drop-shadow(0 16px 20px rgba(0, 0, 0, .5)); transform-origin: 50% 100%; animation: sxPop .45s cubic-bezier(.3, 1.3, .5, 1); }
+.sx-listener[data-cue="fast"] .sx-listener__chick, .sx-listener[data-cue="loud"] .sx-listener__chick { animation: sxPop .45s cubic-bezier(.3, 1.3, .5, 1), sxWiggle .5s .45s ease-in-out 2; }
+.sx-listener__talk { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-bottom: calc(var(--seat) * .22); }   /* 한 줄 — 웹캠 아래 좁은 앞줄에 들어가게 */
+.sx-listener__name { display: none; }   /* 누구인지는 aria 로 — 앞줄이 좁다 */
+.sx-listener__ear { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-chip); color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+@keyframes sxPop { from { transform: scale(.9) translateY(6px); } to { transform: none; } }
+@keyframes sxWiggle { 50% { transform: rotate(-3deg); } }
 
 .sx-judge { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 10px; }
 .sx-judge__talk { display: grid; gap: 8px; justify-items: start; }
-.sx-judge__count { color: var(--accent); font-family: var(--font-mono, ui-monospace); font-size: 14px; letter-spacing: .06em; }
-.sx-judge__cancel { height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(232, 242, 236, .3); background: rgba(15, 20, 17, .7); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.sx-judge__count { color: var(--accent); font-size: 12px; font-weight: 600; letter-spacing: .08em; }
+.sx-judge__cancel { height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-chip); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .sx-judge__seat { position: relative; display: flex; align-items: flex-end; gap: 8px; }
-.sx-judge__chick { height: var(--seat); width: auto; filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .55)); }
+.sx-judge__chick { height: var(--seat); width: auto; filter: drop-shadow(0 16px 20px rgba(0, 0, 0, .5)); }
 .sx-judge__voice { display: inline-flex; width: 86px; height: 86px; align-items: center; justify-content: center; margin-bottom: calc(var(--seat) * .3); }
 .sx-judge__voice[data-voice=""] { visibility: hidden; }
-.sx-judge__name { color: var(--ink-2); font-size: 14px; } .sx-judge__name b { color: var(--ink); font-size: 18px; margin-right: 6px; }
-@media (prefers-reduced-motion: reduce) { .sx-listener__chick { animation: none !important; } .sx-screen__prog i, .sx-screen { transition: none; } }
+.sx-judge__name { color: var(--ink-3); font-size: 13px; } .sx-judge__name b { color: var(--ink); font-size: 16px; font-weight: 600; margin-right: 6px; }
 
-/* ② 조작줄 위계 — 장 넘기기(양 끝)를 가장 크게, 녹음 전에는 「발표 시작하기」 가 주인공 */
-.sx-dock { height: 64px; }
-.sx-dock__nav { height: 48px; min-width: 132px; font-size: 17px; }
-.sx-dock__btn.is-primary { height: 44px; padding: 0 22px; font-size: 16px; }
+@media (prefers-reduced-motion: reduce) {
+  .sx-app, .sx-app.is-shown, .sx-dock, .sx-screen { transition: none; }
+  .sx-listener__chick { animation: none !important; }
+  .sx-screen__prog i { transition: none; }
+}
