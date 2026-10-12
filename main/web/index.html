@@ -154,19 +154,21 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      tour    : 부스 모바일 체험 투어 #/tour/* (공개) — 팀 번들(beta)과 따로 받아 폰 첫 방문이 가볍다 -->
 <template id="lazyAssets">
   <link rel="stylesheet" href="css/call_flow.css?v=cf6" data-bundle="beta">
-  <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr13" data-bundle="beta">
+  <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr14" data-bundle="beta">
   <link rel="stylesheet" href="css/booth_qa.css?v=bq12" data-bundle="beta">
-  <link rel="stylesheet" href="css/booth_call.css?v=bc23" data-bundle="beta">
+  <link rel="stylesheet" href="css/booth_call.css?v=bc24" data-bundle="beta">
   <link rel="stylesheet" href="css/rehearsal.css?v=rh24" data-bundle="beta">
   <!-- 통화 배치 흐름 #/temp (발표: 자료 정면 + 내 모습 작은 창 · Q&A: 내 모습 가운데). app.js 의 전역을 호출 시점에 찾는다 -->
   <script src="js/call_flow.js?v=cf7" data-bundle="beta"></script>
+  <!-- 음성 시각화 window.ChuckVoice — 발표 하단 Bars(orb-ui) · Q&A 삐약이 구(GradientOrb)/Bars. 원본 studio-app/src/voice, npm run build (10-13) -->
+  <script src="js/voice-viz.js?v=vv1" data-bundle="beta"></script>
   <script src="js/vision_cue.js?v=vr4" data-bundle="beta"></script>
   <script src="js/vision_rehearsal.js?v=vr33" data-bundle="beta"></script>
   <!-- 부스 Q&A 무대 #/booth/qa — 카메라 판단(OpenCV.js 는 이 화면에서만 받는다) · 화면 흐름 -->
   <script src="js/booth_cv.js?v=bq4" data-bundle="beta"></script>
   <script src="js/booth_ops.js?v=bo10" data-bundle="beta"></script>
   <script src="js/booth_qa.js?v=bq17" data-bundle="beta"></script>
-  <script src="js/booth_call.js?v=bc18" data-bundle="beta"></script>
+  <script src="js/booth_call.js?v=bc19" data-bundle="beta"></script>
   <!-- 리허설 한 줄 흐름 #/rehearsal — 고르기 → 비전 리허설 → 분석 기다림 → 글라스 화상판 → 리포트. 위 파일들의 전역을 호출 시점에 찾는다 -->
   <script src="js/rehearsal.js?v=rh52" data-bundle="beta"></script>
   <!-- 부스 모바일 체험 투어 #/tour/* — 녹화 응답 재생(API · 카메라 0). 순수 판단 → 셸 · 시작/자료/끝 → 발표 · 분석 · 질문 · 리포트 순서 -->
@@ -193,7 +195,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/qa_live.js?v=qlbc35"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv4"></script>
-<script src="js/app.js?v=qlbc73"></script>
+<script src="js/app.js?v=qlbc74"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkxbc14"></script>
 </body>

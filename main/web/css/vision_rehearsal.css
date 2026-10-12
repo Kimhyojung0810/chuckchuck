@@ -559,3 +559,7 @@ body #vrCall.vr-call .vr-dock .vr-nav[hidden] { display: inline-flex; visibility
   #vrCall .vr-slide-stage:is(.is-turn-next, .is-turn-prev, .is-edge) > :is(img, canvas, .vr-slide-doc), #vrCall .vr-turn-hint, #vrCall .vr-slide-img.is-loading { animation: none; }
   #vrCall #slideNo:is(.is-turn-next, .is-turn-prev) { animation: none; color: var(--brand-strong, #0E8850); }
 }
+
+/* 10-13 하단 마이크 표시 = orb-ui Bars (js/voice-viz.js · app.js recVoiceMount) — 진짜 마이크 음량. 옛 물결 막대 자리(20px 줄)에 맞춘다 */
+.vr-rec .meter.meter-voice { width: 34px; height: 28px; margin-left: 4px; align-items: center; justify-content: center; overflow: visible; }
+.vr-rec .meter.meter-voice .cv-orb { flex: none; }

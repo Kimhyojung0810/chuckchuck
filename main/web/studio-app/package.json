@@ -13,6 +13,8 @@
     "@shadergradient/react": "2.4.20",
     "camera-controls": "3.1.2",
     "maath": "0.10.8",
+    "motion": "13.4.6",
+    "orb-ui": "0.10.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "0.186.1",
