@@ -151,6 +151,12 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 .px-beak { fill: var(--px-beak); stroke: var(--px-line); stroke-width: 1.3; }
 .px-prop rect { stroke: var(--px-line); stroke-width: 2; }
 .px-prop rect.px-mint { fill: var(--px-mint); stroke: none; }
+.px-prop .px-cap { fill: var(--px-beak); }
+.px-prop .px-tip { fill: #F7E9B8; stroke: var(--px-line); stroke-width: 1.5; stroke-linejoin: round; }
+.px-rosette :is(.px-ribbon, .px-medal) { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 1.6; stroke-linejoin: round; }
+.px-rosette .px-star { fill: var(--px-body); stroke: var(--px-line); stroke-width: .7; }
+.px-phones .px-band { fill: none; stroke: var(--px-line); stroke-width: 3.4; stroke-linecap: round; }
+.px-phones rect.px-cup { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 2; }
 
 /* 눈 · 표정 — 평소엔 또렷한 눈동자, mood 가 표정 곡선 · 감정 표시를 켠다 (chatter.css 와 같은 규칙) */
 .px-eye-ball { fill: #2F3B33; transform-origin: center; transition: transform .25s ease, opacity .18s; }

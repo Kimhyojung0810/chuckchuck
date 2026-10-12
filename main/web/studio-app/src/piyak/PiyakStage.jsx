@@ -40,7 +40,7 @@ function useLoud(levelRef, on) {
   return loud
 }
 
-export function PiyakStage({ mic, mood: fixed, className = '', preset }) {
+export function PiyakStage({ mic, mood: fixed, className = '', preset, who }) {
   const [poked, setPoked] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [micError, setMicError] = useState(false)
@@ -65,7 +65,7 @@ export function PiyakStage({ mic, mood: fixed, className = '', preset }) {
 
   return (
     <div className={`px-stage ${className}`}>
-      <Piyak mood={mood} levelRef={mic?.level} listening={listening} onPoke={onPoke} onHover={setHovered} preset={preset} />
+      <Piyak mood={mood} levelRef={mic?.level} listening={listening} onPoke={onPoke} onHover={setHovered} preset={preset} who={who} />
       <p className="px-line" aria-live="polite">{line}</p>
       {mic && (
         <div className="px-mic">

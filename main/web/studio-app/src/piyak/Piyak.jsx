@@ -151,11 +151,59 @@ function useVoice(levelRef, listening) {
 }
 
 /**
+ * 넷의 소품 — 그 병아리가 파이프라인에서 실제로 한 일 (etc/bench/results/chicks/README.md).
+ * 쏠라 겹친 슬라이드(자료 통독) · 엑씨 헤드폰(발표를 귀로) · 믿음 형광펜(자료와 발화 대조) · 엑사원 별 로제트(잘 맞은 대목 인정)
+ */
+export const WHO = ['solar', 'ax', 'midm', 'exaone']
+function HeldProp({ who }) {
+  if (who === 'midm') {
+    return (
+      <g className="px-prop" transform="translate(85 56) rotate(28)">
+        <rect x="0" y="0" width="8.5" height="17" rx="3.4" fill="#FFE14D" />
+        <rect x="0" y="0" width="8.5" height="5.6" rx="2.8" className="px-cap" />
+        <path className="px-tip" d="M.9 17h6.7l-3.35 4.6z" />
+      </g>
+    )
+  }
+  if (who === 'exaone') {
+    return (
+      <g className="px-prop px-rosette" transform="translate(0 3.5)">
+        <path className="px-ribbon" d="M46.6 77.5l-2.4 5 3.4-.8 1.6 3 2-5.3z" />
+        <path className="px-ribbon" d="M53.4 77.5l2.4 5-3.4-.8-1.6 3-2-5.3z" />
+        <circle cx="50" cy="71.5" r="7" className="px-medal" />
+        <circle cx="50" cy="71.5" r="4.4" fill="#FFFFFF" stroke="none" />
+        <path className="px-star" d="M50 68.3l1.05 2.1 2.35.35-1.7 1.65.4 2.35-2.1-1.1-2.1 1.1.4-2.35-1.7-1.65 2.35-.35z" />
+      </g>
+    )
+  }
+  if (who === 'ax') return null   // 헤드폰은 머리에 — 아래 HeadProp
+  return (
+    <g className="px-prop" transform="translate(84 66) rotate(12)">
+      <rect x="0" y="0" width="15" height="11" rx="2.2" fill="#F2FBF6" />
+      <rect x="-2.6" y="2.6" width="15" height="11" rx="2.2" fill="#FFFFFF" />
+      <rect x="-.4" y="4.8" width="4.8" height="2.8" rx=".9" className="px-mint" stroke="none" />
+    </g>
+  )
+}
+/** 엑씨의 헤드폰 — 머리띠가 새싹 뒤로 지나고, 컵이 몸 밖으로 나와 어두운 무대에서도 엑씨로 읽힌다 */
+function HeadProp({ who }) {
+  if (who !== 'ax') return null
+  return (
+    <g className="px-prop px-phones">
+      <path className="px-band" d="M13.5 50a36.5 39 0 0 1 73 0" />
+      <rect x="6.5" y="42" width="12" height="17" rx="5.5" className="px-cup" />
+      <rect x="81.5" y="42" width="12" height="17" rx="5.5" className="px-cup" />
+    </g>
+  )
+}
+
+/**
+ * who: solar(기본) · ax · midm · exaone — 소품만 다르고 몸은 하나
  * mood: neutral · happy · curious · excited · grumpy
  * levelRef: 마이크 RMS 를 담은 ref (media.js useMicLevel 의 level) · listening: 마이크가 켜져 있는가
  * onPoke: 눌렀을 때 · onHover(bool): 커서가 올라갔을 때
  */
-export function Piyak({ mood = 'neutral', levelRef, listening = false, onPoke, onHover, label = '삐약이', preset = 'cute' }) {
+export function Piyak({ who = 'solar', mood = 'neutral', levelRef, listening = false, onPoke, onHover, label = '삐약이', preset = 'cute' }) {
   const AMP = PRESETS[preset] || PRESETS.cute
   const reduced = useReducedMotion()
   const box = useRef(null)
@@ -320,13 +368,12 @@ export function Piyak({ mood = 'neutral', levelRef, listening = false, onPoke, o
                   <path className="px-mint" d="M50 14.4c.9-2.8 3.4-3.9 5.6-3-.5 2.4-2.7 3.6-5.6 3z" />
                 </motion.g>
 
-                {/* 쏠라의 소품 — 겹친 슬라이드 두 장 (자료를 통독한 병아리). 몸 옆에 끼고 있어서 얼굴 · 볼을 가리지 않는다 */}
+                {/* 들고 있는 소품 — 몸 옆에 끼거나(슬라이드 · 형광펜) 가슴에 단다(로제트). 얼굴 · 볼을 가리지 않는다 */}
                 <motion.g style={{ x: propX, y: bellyY }}>
-                  <g className="px-prop" transform="translate(84 66) rotate(12)">
-                    <rect x="0" y="0" width="15" height="11" rx="2.2" fill="#F2FBF6" />
-                    <rect x="-2.6" y="2.6" width="15" height="11" rx="2.2" fill="#FFFFFF" />
-                    <rect x="-.4" y="4.8" width="4.8" height="2.8" rx=".9" className="px-mint" stroke="none" />
-                  </g>
+                  <HeldProp who={who} />
+                </motion.g>
+                <motion.g style={{ x: tuftX, y: tuftY }}>
+                  <HeadProp who={who} />
                 </motion.g>
 
                 <g className="px-emote" transform="translate(3 4)">
