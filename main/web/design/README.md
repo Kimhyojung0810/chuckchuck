@@ -22,3 +22,7 @@
 6. 화면은 헤드리스로 확인한다 — 데스크톱(1440×900) · 폰(390×844) · 움직임 줄이기 켬. Playwright 는 `LD_LIBRARY_PATH=$HOME/.local/lib/pwlibs`.
 7. 커밋 전 `etc/scripts/chk gate` (css/js 를 고쳤으면 `etc/scripts/chk bump`).
 8. 스튜디오(React) 원본은 `main/web/studio-app/src/` — 고친 뒤 `cd main/web/studio-app && npm install && npm run build` 로 `js/studio-app.js` 를 다시 만들어 함께 커밋한다 (`node_modules` 는 올리지 않는다). Node 는 `~/.local/bin`.
+9. **시연 데이터(덱 PPT · 녹음 · 파싱본)는 git 밖이다.** 이 작업 공간에서 리허설 덱 셋(급속충전 · 미세플라스틱 · 배달앱 별점)을 고르려면
+   원본 저장소에서 복사한다 — 덱 폴더 `~/project/chuckchuck/main/decks/*` → `main/decks/`, 파싱본(10-05 고정본)
+   `~/project/chuckchuck/var/data/sessions/2026/10/05/20261005T1402{01,12,23}Z_*` → `var/data/sessions/2026/10/05/`.
+   파싱본이 있어야 Upstage 파싱(과금) 없이 바로 뜬다. 확인: `curl -s localhost:8810/api/v1/dev/decks` 의 `cached_session_id`.
