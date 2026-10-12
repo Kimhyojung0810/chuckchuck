@@ -112,7 +112,7 @@ def accent_ratio(png: bytes) -> float:
 
 def tokens(page) -> dict:
     return page.evaluate("""() => { const s = getComputedStyle(document.documentElement);
-      const o = {}; for (const k of ['--brand','--brand-strong','--brand-weak','--navy','--canvas','--surface','--text-2','--text-3'])
+      const o = {}; for (const k of ['--brand','--brand-strong','--brand-weak','--brand-ink','--brand-tint','--mint','--navy','--canvas','--surface','--text-2','--text-3'])
         o[k] = s.getPropertyValue(k).trim(); return o; }""")
 
 

@@ -35,7 +35,7 @@
 <!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다 (그 전엔 시스템 서체). 앱(index.html)과 같은 주소라 투어로 넘어가면 캐시를 그대로 쓴다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i11">
+<link rel="stylesheet" href="/css/intro.css?v=i12">
 <script src="/js/funnel.js?v=fn2" defer></script>
 <script src="/js/intro.js?v=i9" defer></script>
 </head>
@@ -58,7 +58,27 @@
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-art" aria-hidden="true">
       <span class="hero-mascot">
-        <img class="hero-icon" src="/assets/chuckchuck-app-icon-180.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
+        <!-- 삐약이는 봉을 뺀 그림(assets/chuckchuck-mascot-nowand-256.png, scripts/mascot_nowand.py) + 그 위 SVG 봉.
+             멈춰 있을 땐 앱 아이콘에 그려진 봉과 같은 자리 · 굵기 · 색이다(512 칸 좌표: 손 477,341 → 끝 400,92) — 첫 연출에서 봉이 길어져 한 바퀴 돈다 -->
+        <span class="hero-face">
+          <img class="hero-icon" src="/assets/chuckchuck-mascot-nowand-256.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
+          <svg class="wand" viewBox="0 0 512 512" focusable="false">
+            <g class="w-spin">
+              <g class="w-trail" fill="none" stroke="#F0B429" stroke-linecap="round">
+                <path d="M-43.6 315.4A521.3 521.3 0 0 1 323 -157" stroke-width="14" opacity=".22"/>
+                <path d="M29.3 74A521.3 521.3 0 0 1 323 -157" stroke-width="18" opacity=".4"/>
+                <path d="M162 -74.3A521.3 521.3 0 0 1 323 -157" stroke-width="22" opacity=".75"/>
+              </g>
+              <line class="w-stick" x1="477" y1="341" x2="400" y2="92" stroke="#356B59" stroke-width="8" stroke-linecap="round"/>
+              <g class="w-tip">
+                <circle cx="400" cy="92" r="27" fill="#E85C4A" opacity=".07"/>
+                <circle cx="400" cy="92" r="19" fill="#E85C4A" opacity=".18"/>
+                <circle cx="400" cy="92" r="11" fill="#E85C4A"/>
+                <circle cx="396" cy="87" r="4" fill="#F18171"/>
+              </g>
+            </g>
+          </svg>
+        </span>
         <i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i>
       </span>
       <p class="hero-bubble">이 숫자, 근거가 뭐예요?</p>
@@ -76,9 +96,14 @@
           try { seen = sessionStorage.getItem('cheokcheok:hi-intro') === '1'; sessionStorage.setItem('cheokcheok:hi-intro', '1'); } catch (_) { /* 사생활 모드 */ }
           if (seen || nav === 'back_forward' || matchMedia('(prefers-reduced-motion: reduce)').matches || scrollY > 0
               || /^\/hi\/./.test(location.pathname) || location.hash) return;
-          var r = document.querySelector('.hero-mascot').getBoundingClientRect();
+          var m = document.querySelector('.hero-mascot');
+          var r = m.getBoundingClientRect();
           var d = document.documentElement;
-          d.style.setProperty('--fx', Math.round(innerWidth / 2 - (r.left + r.width / 2)) + 'px');
+          // 가운데선 2배로 커지고, 봉이 손(512 칸 x 477)을 축으로 돈다 — 손이 화면 가운데 오게 그만큼 왼쪽으로 (긴 봉이 360 폭 안에서 돈다).
+          // 폭은 offsetWidth — 이 순간 등장 애니메이션(scale .7)이 걸려 있어 getBoundingClientRect 폭은 작게 나온다
+          var hand = m.offsetWidth * (477 - 256) / 512 * 2;
+          d.style.setProperty('--fx', Math.round(innerWidth / 2 - hand - (r.left + r.width / 2)) + 'px');
+          d.style.setProperty('--hand', Math.round(hand) + 'px');
           d.style.setProperty('--fy', Math.round(innerHeight * 0.42 - (r.top + r.height / 2)) + 'px');
           d.classList.add('fly');
         } catch (_) { /* 연출은 덤 */ }
