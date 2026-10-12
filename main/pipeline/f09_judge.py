@@ -568,6 +568,7 @@ verdict 는 다음 넷 중 하나다:
   "summary_sentence": "<이 개념에 대한 총평 한 문장>",
   "missing_points": ["<답변에서 빠진 포인트>"],
   "followup": "<빠진 지점을 겨냥한 후속 질문 한 문장. 충분하면 빈 문자열>",
+  "claim": "<이번 답변에서 사용자가 실제로 말한 핵심 한 마디 — 자료 줄이 아니라 **사용자 답변 원문에서** 낱말 그대로 옮긴 짧은 구절(40자 안). 흐릿하거나 틀린 말이어도 자료대로 고치지 말고 사용자가 한 말 그대로. 답이 비었거나 모르겠다는 말뿐이면 빈 문자열>",
   "covered_parts": [true, false],
   "premise_corrected": true,
   "grounds": [{"ref": "<자료 줄 번호>", "role": "covered | missing | conflict 중 하나", "note": "<이 줄이 이 질문에 왜 답이 되는지 한 문장>"}]
@@ -1430,6 +1431,74 @@ def _answered_coach(question: Question, turns: list[QaTurn]) -> bool:
     return bool(mine) and bool(mine[-1].gave_up)
 
 
+_CLAIM_MAX = 60
+_CLAIM_STRIP_RE = re.compile(r"[\s\W_]+", re.UNICODE)
+
+
+#: 답 문장 나누기 — 마침표 · 물음 · 느낌표 · 줄바꿈 (쉼표로는 안 나눈다: 「A 고, B 예요」 는 한 발언이다)
+_CLAIM_SPLIT_RE = re.compile(r"(?<=[.!?。…])\s+|\n+")
+#: 긴 문장(상한 넘음)은 마디로 — 쉼표 · 이음 끝(「…며 · …지만 · …는데」) 뒤에서. 「고 · 만 · 서」 는 낱말 끝(「십여만 건」)과 헷갈려 안 쓴다
+_CLAIM_CLAUSE_RE = re.compile(r"[,，]\s*|(?:며|지만|는데)\s+")
+
+
+def _clauses(sent: str) -> list[str]:
+    out, at = [], 0
+    for m in _CLAIM_CLAUSE_RE.finditer(sent):
+        out.append(sent[at:m.end()].strip(" ,，"))
+        at = m.end()
+    out.append(sent[at:].strip(" ,，"))
+    return [x for x in out if x]
+#: LLM 이 옮긴 구절이 원문에 없을 때, 원문 문장과 이만큼(글자 두 개 묶음 겹침) 닮아야 그 문장으로 바꿔 단다
+_CLAIM_NEAR_MIN = 0.26
+#: 발언 앞 군말(「음…」 「어,」) — 칩에 싣지 않는다
+_CLAIM_FILLER_RE = re.compile(r"^(?:음+|어+|아+|네)(?:\s*[…\.,，~]+\s*|\s+)")
+
+
+def _bigrams(t: str) -> set[str]:
+    return {t[i:i + 2] for i in range(len(t) - 1)}
+
+
+def _logged_claim(raw, answer: str) -> str:
+    """_answer_claim + 버린 발언은 로그로 — 칩이 왜 안 떴는지 화면 밖에서 볼 수 있게 (발언 원문은 앞 30자만)"""
+    claim = _answer_claim(raw, answer)
+    if raw and not claim:
+        sys.stderr.write(f"[f09] claim 버림 — 답 원문에 없는 구절: {str(raw)[:30]!r}\n")
+    return claim
+
+
+def _answer_claim(raw, answer: str) -> str:
+    """
+    「핵심 발언」 은 **답 원문에 실제로 있는 말**만 돌려준다 (2026-10-13 Q&A 생각 엮기). 화면은 빈 발언을 그리지 않는다.
+
+    1. LLM 이 옮긴 구절이 원문의 부분 문자열이면(띄어쓰기 · 문장부호 무시) 그대로.
+    2. 아니면 — LLM 이 자료 줄의 말로 바꿔 썼다(10-13 실측: 자료 줄을 같이 받으면 「이벤트를 운영한 매장의 평균 별점이 +0.34점 높았다」 처럼
+       자료 쪽 문장을 썼다) — 원문 문장 가운데 그 구절과 가장 닮은 문장을 **원문 그대로** 단다. 닮은 문장이 없으면 빈 문자열.
+       지어낸 말은 어느 길로도 나가지 않는다 — 나가는 글자는 언제나 사용자가 한 말이다.
+    """
+    claim = str(raw or "").strip().strip('"\'“”‘’「」『』')
+    answer = str(answer or "").strip()
+    if not claim or not answer:
+        return ""
+    c = _CLAIM_STRIP_RE.sub("", claim)
+    a = _CLAIM_STRIP_RE.sub("", answer)
+    if len(claim) <= _CLAIM_MAX and len(c) >= 4 and c in a:
+        return claim
+    want = _bigrams(c)
+    best, best_score = "", 0.0
+    pieces: list[str] = []
+    for sent in (x.strip() for x in _CLAIM_SPLIT_RE.split(answer)):
+        pieces.extend([sent] if len(sent) <= _CLAIM_MAX else _clauses(sent))
+    for sent in pieces:
+        sc = _CLAIM_STRIP_RE.sub("", sent)
+        if len(sc) < 4 or len(sent) > _CLAIM_MAX or not want:
+            continue
+        got = _bigrams(sc)
+        score = len(want & got) / max(1, min(len(want), len(got)))
+        if score > best_score:
+            best, best_score = sent, score
+    return _CLAIM_FILLER_RE.sub("", best).strip() if best_score >= _CLAIM_NEAR_MIN else ""
+
+
 def _normalize(
     data: dict,
     question: Question,
@@ -1935,6 +2004,7 @@ def _normalize(
         # 좁히는 것은 followup 의 모양뿐이라 그 인자만 따로 받는다.
         probe_tier="" if mastered else qa_probe_tier(round_no),
         followup=followup,
+        claim=_logged_claim(data.get("claim"), answer),
         guard_reason=guard_reason,
         guard_blocked=guard_blocked,
         guard=final_guard,

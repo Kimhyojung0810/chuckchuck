@@ -362,8 +362,8 @@ EDGE_SAMPLES: deque = deque(maxlen=20)
 
 
 def _paid_path(path: str) -> bool:
-    """과금 경로인가 — PAID_PATHS + 세션 경로의 판정(/api/v1/sessions/{id}/qa/judge)."""
-    return path in PAID_PATHS or (path.endswith("/qa/judge") and "/api/v1/sessions/" in path)
+    """과금 경로인가 — PAID_PATHS + 세션 경로의 판정(/api/v1/sessions/{id}/qa/judge) · 관점 바꾸기(…/qa/reframe, LLM 1콜)."""
+    return path in PAID_PATHS or ((path.endswith("/qa/judge") or path.endswith("/qa/reframe")) and "/api/v1/sessions/" in path)
 
 
 def _dev_open() -> bool:
@@ -2327,6 +2327,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._handle_qa_judge(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         if parsed.path == "/api/v1/qa/judge":
             return self._handle_qa_judge(raw)
+        # 「다른 주제로 → 같은 주제, 다른 관점」 (2026-10-13) — 서버 색인의 질문을 같은 개념 · 다른 관점으로 다시 쓴다
+        if parsed.path.endswith("/qa/reframe") and "/api/v1/sessions/" in parsed.path:
+            return self._handle_qa_reframe(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         return self._json(404, {"error": "not found"})
 
     def _handle_tour_event(self, raw: bytes):
@@ -4261,6 +4264,47 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         elif not on_server and _session_id_of(body):
             sys.stderr.write(f"[bridge] F-09 판정 기록 안 함 — 서버가 만든 질문이 아님 (q={question.id})\n")
         return self._json(200, payload)
+
+    def _handle_qa_reframe(self, raw: bytes, path_sid: str = ""):
+        """
+        {session_id?, question_id, question?, perspective} → {question} — 같은 개념을 관점만 바꾼 질문 (pipeline.f09_reframe).
+
+        원래 질문은 **서버 색인의 것**만 쓴다(본문 질문으로는 만들지 않는다 — 채점 기준을 본문이 정하게 두지 않는 R4 와 같은 까닭).
+        새 질문은 이 세션의 질문 색인에 트랙 `reframe:{id}` 로 올린다 — 그래야 `/qa/judge` 가 이 질문(새 기대 답 요지)으로 채점한다.
+        화면에는 `client_questions` 사본을 준다(함정은 관점을 안 바꾸므로 보통 그대로다).
+        """
+        from pipeline.contracts import Question  # noqa: F401  (형 힌트 · from_dict 는 _resolve_question 이)
+        from pipeline.f09_reframe import PERSPECTIVES, ReframeError, reframe_question
+
+        body = json.loads(raw or b"{}")
+        raw_sid = body.get("session_id") if body.get("session_id") is not None else (path_sid or None)
+        store_sid = _store_sid(raw_sid)
+        if not store_sid or store_sid == FLAT_SESSION_ID:
+            return self._json(400, {"error": "bad_request", "message": "세션이 있어야 관점을 바꿀 수 있어요."})
+        perspective = str(body.get("perspective") or "")
+        if perspective not in PERSPECTIVES:
+            return self._json(400, {"error": "bad_request", "message": "관점은 " + " · ".join(PERSPECTIVES) + " 중 하나예요."})
+        body = {**body, "session_id": store_sid}
+        qraw = body.get("question") if isinstance(body.get("question"), dict) else None
+        qid = str(body.get("question_id") or (qraw or {}).get("id") or "")
+        try:
+            question, qsrc = self._resolve_question(store_sid, _session_id_of(body), qid, qraw)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return self._json(400, {"error": "bad_request", "message": "질문 형식이 맞지 않아요."})
+        if question is None or qsrc not in ("server", "archive", "mismatch"):
+            return self._json(409, {"error": "question_unverified", "message": "서버가 만든 질문만 관점을 바꿀 수 있어요."})
+        try:
+            fresh = reframe_question(question, perspective, slidedoc=ARCHIVE.read_artifact(_session_id_of(body), "slide_doc"),
+                                     llm=_pick_llm(body))
+        except ReframeError as e:
+            sys.stderr.write(f"[bridge] F-09 reframe 실패 q={question.id} 관점={perspective}: {e}\n")
+            return self._json(422, {"error": "reframe_failed", "message": "이 관점으로는 자료에서 물을 거리를 못 찾았어요. 다른 관점을 골라 주세요."})
+        payload = {"questions": [fresh.to_dict()]}
+        STORE.remember_questions(store_sid, f"reframe:{fresh.id}", payload)
+        STORE.put_questions(store_sid, f"reframe:{fresh.id}", payload)
+        sys.stderr.write(f"[bridge] F-09 reframe q={question.id} → {fresh.id}\n")
+        return self._json(200, {"question": client_questions(payload)["questions"][0], "perspective": perspective,
+                                "perspective_name": PERSPECTIVES[perspective][0]})
 
     def _resolve_question(self, store_sid: str, archive_sid: str, qid: str, qraw: dict | None):
         """

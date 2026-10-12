@@ -44,6 +44,7 @@ const EXPORT_LINE = `
   liveResultRow, liveResultSummary, liveRetryWaitText, closeLiveQuestion, finishLiveQaEarly, presentLiveQuestion,
   liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion, liveRevealsHalf,
   liveEntryNotes, liveContradiction, liveGroundsView, liveGroundSlides,
+  liveRankConceptSwitch, liveSkipQuestion, liveSwitchConcept, liveSwitchPerspective, liveCanSwitch, liveStreak,
 };`;
 
 /**
@@ -903,6 +904,73 @@ test('부스 체험 「엉성하게 답해 보기」 — 숫자를 흐리고 · 
   if (!d.startsWith('발표에서 말한')) throw new Error(d);
   const e = liveWeakAnswer({ answer_gist: '자료 12장은 생존율 90%를 보여 준다.' });
   if (!e.includes('자료 12장은') || e.includes('90')) throw new Error(e);
+});
+
+/* ── 10-13 생각 엮기 — 다른 주제로 · 건너뛰기 ─────────────────────────────── */
+function weaveContext(extra = {}) {
+  const c = newContext(extra);
+  c.ctx.advanceLiveStream = () => {};
+  c.ctx.dropLiveMic = () => {};
+  c.ctx.setLiveBusy = () => {};
+  c.ctx.showCoachThinking = () => {};
+  c.ctx.hideCoachThinking = () => {};
+  c.ctx.setCoachThinkingText = () => {};
+  c.ctx.growStream = () => {};
+  c.ctx.window = {};
+  return c;
+}
+test('건너뛰기 — 기록에는 남고 실패 · 헤드라인 분모로 안 센다', () => {
+  const { ctx, api, turns } = weaveContext();
+  ctx.qa.live = liveState(api, [{ id: 'q1', label: 'A', question: 'a?' }, { id: 'q2', label: 'B', question: 'b?' }], {
+    turn: 1, turns: [{ question: 'a?', answer: '첫 답', verdict: 'partial', score: 55, claim: '첫 답' }],
+  });
+  eq(api.liveSkipQuestion(), true);
+  const r = ctx.qa.live.results[0];
+  eq([r.setAside, r.answer, r.answers, ctx.qa.live.qi], ['skip', '첫 답', 1, 1]);
+  eq(r.trail, [{ q: 'a?', claim: '첫 답' }], '생각의 흔적은 닫혀도 남는다');
+  eq(api.liveResultRow(r).chip, '건너뜀');
+  eq(api.liveResultSummary(ctx.qa.live.results).asked, 0, '분모에서 뺀다');
+  eq(turns[turns.length - 1].kind, 'switch');
+});
+test('건너뛴 질문은 연속을 끊지 않는다', () => {
+  const { ctx, api } = weaveContext();
+  ctx.qa.live = liveState(api, [{ id: 'a' }, { id: 'b' }, { id: 'c' }], {
+    qi: 2, results: [{ id: 'a', verdict: 'good', mastered: true }, { id: 'b', verdict: 'skipped', skipped: true, setAside: 'skip' }],
+  });
+  eq(api.liveStreak(), 1);
+});
+test('다른 개념 순서 — 안 물은 개념만, 어긋남 → 빠뜨림 → 무게', () => {
+  const { api } = newContext();
+  const pool = [{ node_id: 'x' }, { node_id: 'm' }, { node_id: 'c' }, { node_id: 'h' }, { node_id: 'asked' }, { node_id: 'm' }];
+  const sig = new Map([['x', { weight: .2 }], ['m', { verdict: 'missing', weight: .3 }], ['c', { verdict: 'contradiction', weight: .1 }], ['h', { weight: .9 }]]);
+  eq(api.liveRankConceptSwitch(pool, ['asked'], sig).map((q) => q.node_id), ['c', 'm', 'h', 'x']);
+});
+test('다른 개념으로 — 뒤에 있던 안 물은 개념을 지금 자리로 옮기고 인덱스를 맞춘다', async () => {
+  const { ctx, api, turns } = weaveContext({ nf: { pipelineOut: { graph: { nodes: [{ id: 'n3', weight: .9 }, { id: 'n2', weight: .1 }] } } } });
+  const qs = [{ id: 'q1', node_id: 'n1', label: 'A' }, { id: 'q2', node_id: 'n2', label: 'B' }, { id: 'q3', node_id: 'n3', label: 'C' }];
+  ctx.qa.live = liveState(api, qs);
+  const pick = await api.liveSwitchConcept();
+  eq(pick.id, 'q3', '무거운 개념');
+  eq(ctx.qa.live.questions.map((q) => q.id), ['q1', 'q3', 'q2']);
+  eq([ctx.qa.live.qi, ctx.qa.live.results.length, ctx.qa.live.results[0].setAside, ctx.qa.live.results[0].switchedTo], [1, 1, 'concept', 'C']);
+  eq(turns[turns.length - 1].how, 'concept');
+});
+test('같은 주제, 다른 관점 — 서버 질문을 지금 자리에 넣는다 · 실패하면 지금 질문 그대로', async () => {
+  const { ctx, api } = weaveContext();
+  let sent = null;
+  ctx.window = { ChuckchuckBridge: { reframeQaQuestion: async (sid, body) => { sent = body; return { question: { id: 'q1~counter', node_id: 'n1', label: 'A', question: '반례는?' }, perspective: 'counter', perspective_name: '반례' }; } } };
+  ctx.qa.live = liveState(api, [{ id: 'q1', node_id: 'n1', label: 'A', question: 'a?' }, { id: 'q2', node_id: 'n2' }]);
+  const next = await api.liveSwitchPerspective('counter');
+  eq([sent.questionId, sent.perspective], ['q1', 'counter']);
+  eq([next.perspectiveName, ctx.qa.live.questions.map((q) => q.id), ctx.qa.live.qi], ['반례', ['q1', 'q1~counter', 'q2'], 1]);
+  eq(ctx.qa.live.busy, false, '잠금을 푼다');
+  const b = weaveContext();
+  b.ctx.window = { ChuckchuckBridge: { reframeQaQuestion: async () => { throw new Error('422'); } } };
+  b.ctx.qa.live = liveState(b.api, [{ id: 'q1', node_id: 'n1', label: 'A' }]);
+  eq(await b.api.liveSwitchPerspective('example'), null);
+  eq([b.ctx.qa.live.qi, b.ctx.qa.live.results.length, b.ctx.qa.live.busy], [0, 0, false], '실패하면 질문이 그대로');
+  b.ctx.qa.live.questions[0].trap = true;
+  eq(await b.api.liveSwitchPerspective('example'), null, '함정 질문은 바꾸지 않는다');
 });
 
 let failed = 0;

@@ -15,7 +15,7 @@ import { PresentDock } from './ui/PresentDock.jsx'
 import { Companion } from './piyak/Companion.jsx'
 import { rmsToVolume } from './voice/signal.js'
 import { stationLayout, appRect } from './layout.js'
-import { useAppMirror, pressApp, SlideOverlay, Listener, Judge } from './ui/AppMirror.jsx'
+import { useAppMirror, pressApp, SlideOverlay, Listener } from './ui/AppMirror.jsx'
 import { ScoreBoard } from './ui/ScoreBoard.jsx'
 
 function useViewport() {
@@ -93,7 +93,8 @@ export default function App() {
   const rect = appRect(Ls[at], vp)
   const W = Ls[0].app.w, H = Ls[0].app.h
   // ② · ③ 은 앱 안의 자료 · 반응 삐약이 · 진행 삐약이를 무대로 꺼낸다 (ui/AppMirror.jsx)
-  const mirror = useAppMirror(frameApi, at === 2 ? 'wait' : vp.phone ? null : at === 1 ? 'present' : at === 3 ? 'qa' : null)
+  // ④ 질의응답은 비추지 않는다 — 삐약이 · 목소리 구가 앱 안 질문 카드에 앉는다 (10-13 생각 엮기 · js/qa_weave.js)
+  const mirror = useAppMirror(frameApi, at === 2 ? 'wait' : vp.phone ? null : at === 1 ? 'present' : null)
   const slideNav = (d) => pressApp(frameApi, `#vrCall .vr-dock [data-slide-nav="${d}"]`)
   // 채점판은 앱이 기다림 층을 걷어도(질의응답으로 넘어가도) 마지막 결과를 붙든다 — 연출을 끝까지 보여 주려고
   const lastWait = useRef(null)
@@ -116,13 +117,10 @@ export default function App() {
     // ③ 발표 채점 — 개념 그래프 채점판이 주인공 (앱의 실제 그래프 · 판정만)
     if (L.graph) panels.push({ id: 'graph', ...L.graph, radius: 28,
       children: <ScoreBoard data={k === at ? scoreData : null} w={L.graph.w} h={L.graph.h} k={k} /> })
-    if (L.judge) panels.push({ id: 'judge', ...L.judge, glass: false, bare: true,
-      children: <Judge judge={k === at ? mirror : null} size={L.seat} onCancel={() => pressApp(frameApi, '#bcSendCancel')} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
-    // ② 발표는 웹캠 · 앞줄 관중이 주인공이라 자라는 삐약이는 쉰다(v3 — 메인 콘텐츠와 경쟁하지 않게)
-    if (!vp.phone && k !== 1) {
+    // ② 발표는 웹캠 · 앞줄 관중이 주인공이라 자라는 삐약이는 쉰다(v3 — 메인 콘텐츠와 경쟁하지 않게). ④ 질의응답도 — 웹캠이 화면을 채운다
+    if (!vp.phone && k !== 1 && k !== 3) {
       const at2 = k === 2 ? { x: L.app.x, y: L.app.y + L.app.h / 2 + 120 }                                       // 발표 채점 — 진행 창 아래
-        : k === 3 && L.judge ? { x: L.judge.x, y: L.judge.y - L.judge.h / 2 - 150 }
         : { x: L.app.x - (L.app.w / 2 + 130), y: L.app.y + L.app.h / 2 - 150 }
       // 화면 밖으로 잘리지 않게 (리포트처럼 창이 넓으면 옆 자리가 좁다)
       const px = Math.max(-vp.w / 2 + 112, Math.min(vp.w / 2 - 112, at2.x))

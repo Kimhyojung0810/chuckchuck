@@ -240,6 +240,7 @@ function liveStreak() {
   let n = 0;
   // 스스로 설명한 것만 잇는다 — 힌트 셋째 칸·코칭·3라운드 출구로 닫힌 것도 연속을 끊는다 (09-30 C-09, liveBucket)
   for (let i = rs.length - 1; i >= 0; i--) {
+    if (rs[i] && rs[i].setAside) continue;   // 내가 고른 「다른 주제로」·「건너뛰기」 는 연속을 끊지도 잇지도 않는다 (10-13)
     if (liveBucket(rs[i]) !== 'self') break;
     n += 1;
   }
@@ -575,7 +576,7 @@ function presentLiveQuestion() {
     who: 'ai',
     // 함정도 다른 질문과 같은 말풍선이다 — 예전 'claim'(주황 테두리)은 그 자체로 함정임을 알려 줬다 (09-30 B-01·H-07)
     kind: 'question',
-    meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · ${SEVERITY_LINE[q.severity] || '보통이에요'}`,
+    meta: `예상 질문 ${L.qi + 1}/${L.questions.length} · ${q.perspectiveName ? `같은 주제 · ${q.perspectiveName} 관점` : (SEVERITY_LINE[q.severity] || '보통이에요')}`,
     text: linkCitedText(q.question, q.papers),
     papers: questionPapersHtml(q.papers),
     basis: why ? escapeHtml(why) : '',
@@ -1096,6 +1097,190 @@ function finishLiveQaEarly() {
   qaLiveEnd();
 }
 
+/* ─── 다른 주제로 · 건너뛰기 (2026-10-13 생각 엮기 — design/QA_WEAVE.md §3) ─────────────────────────────
+   지금 질문을 「내려놓고」(setAside) 다른 질문으로 간다. 내려놓은 질문은 결과 · 리포트에 기록으로 남지만 실패 · 약한 개념으로 세지 않는다 —
+   내가 고른 길이지 못 답한 게 아니다. 새 질문은 지금 자리 바로 뒤에 넣는다(questions · results 는 같은 인덱스로 맞물린다). */
+
+/** 내려놓은 까닭별 결과 칩 */
+const LIVE_ASIDE_CHIP = { skip: '건너뜀', concept: '다른 개념으로', perspective: '관점 바꿈' };
+
+function liveAsideMeta(r) {
+  const said = r.answers ? `답 ${r.answers}번 하고 ` : '';
+  if (r.setAside === 'concept') return `${said}${r.switchedTo ? `「${r.switchedTo}」 로` : '다른 개념으로'} 넘어갔어요`;
+  if (r.setAside === 'perspective') return `${said}${r.switchedTo ? `${r.switchedTo} 관점으로` : '다른 관점으로'} 다시 물었어요`;
+  return `${said}건너뛰었어요 · 실패로 세지 않아요`;
+}
+
+/** 「다른 주제로」 를 지금 쓸 수 있나 — 판정 · 새 질문을 기다리는 중이거나 다 마쳤으면 아니다 */
+function liveCanSwitch() {
+  const L = qa.live;
+  return !!L && !L.busy && !L.awaitEnd && !qa.ended && L.qi < L.questions.length;
+}
+
+/** 지금 질문을 내려놓는다 — 마지막으로 한 답은 기록에 같이 남긴다 */
+function liveSetAside(how, extra = {}) {
+  const L = qa.live;
+  const q = L.questions[L.qi];
+  const scored = (L.turns || []).filter((t) => !t.gaveUp && !t.clarify);
+  const last = scored[scored.length - 1] || null;
+  closeLiveQuestion({
+    id: q.id, label: q.label, question: q.question, answer: last ? last.answer : '',
+    verdict: 'skipped', score: last ? (last.score || 0) : 0, passed: false, mastered: false,
+    skipped: true, setAside: how, answers: scored.length, summary: '', ...extra,
+  });
+}
+
+/** 내려놓고 다음으로 — 새 질문(있으면)은 지금 자리에 넣는다. 같은 질문이 뒤에 이미 있으면 옮겨 온다(두 번 묻지 않게) */
+function liveSwitchTo(how, next, line, extra = {}) {
+  const L = qa.live;
+  liveSetAside(how, extra);
+  if (next) {
+    const at = L.questions.indexOf(next);
+    if (at >= L.qi) L.questions.splice(at, 1);
+    L.questions.splice(L.qi, 0, next);
+  }
+  pushTurn({ who: 'sys', kind: 'switch', how, text: line });
+  saveSession('qa-flow', qa);
+  advanceLiveStream();
+}
+
+/** C — 이 질문 건너뛰기 */
+function liveSkipQuestion() {
+  if (!liveCanSwitch()) return false;
+  const q = qa.live.questions[qa.live.qi];
+  liveSwitchTo('skip', null, `${escapeHtml(q.label || '이 질문')} — 건너뛰었어요. 기록에는 남고 실패로 세지 않아요`);
+  return true;
+}
+
+/**
+ * 다른 핵심 개념 후보 순서 (순수) — 아직 안 물은 개념만, 자료와 어긋남 → 한 번도 안 나옴 → 나머지, 같은 칸에선 개념 무게 순.
+ * signals: node_id → { verdict, weight }. 판정하지 않은(짐작 · 다른 발표 녹음) 개념은 verdict 없이 무게로만 선다.
+ */
+const LIVE_SWITCH_RANK = { contradiction: 2, missing: 1 };
+function liveRankConceptSwitch(pool, askedNodes, signals) {
+  const seen = new Set(askedNodes || []);
+  const out = [];
+  (pool || []).forEach((q, i) => {
+    const node = q && (q.node_id || q.concept);
+    if (!node || seen.has(node)) return;
+    seen.add(node);
+    const sg = (signals && signals.get ? signals.get(node) : null) || {};
+    out.push({ q, i, rank: LIVE_SWITCH_RANK[sg.verdict] || 0, weight: Number(sg.weight) || 0 });
+  });
+  out.sort((a, b) => (b.rank - a.rank) || (b.weight - a.weight) || (a.i - b.i));
+  return out.map((x) => x.q);
+}
+
+/** 개념별 신호 — 발표 채점(정합)의 어긋남 · 빠뜨림과 개념 무게. 짐작으로 채운 판정은 신호로 안 쓴다 */
+function liveConceptSignals() {
+  const out = (typeof nf !== 'undefined' && nf && nf.pipelineOut) || {};
+  const m = new Map();
+  ((out.graph && out.graph.nodes) || []).forEach((n) => m.set(n.id, { weight: n.weight || 0 }));
+  const al = out.alignment;
+  const judged = al && al.speech_match !== 'unrelated';
+  ((judged && al.items) || []).forEach((it) => {
+    if (!it || !it.node_id || it.decided_by === 'fallback') return;
+    m.set(it.node_id, { ...(m.get(it.node_id) || {}), verdict: it.verdict });
+  });
+  return m;
+}
+
+/**
+ * 다른 개념 질문 묶음 — 트랙 10(개념이 다른 질문 최대 7개, 서버 질문 색인에 올라 판정이 그대로 된다).
+ * 같은 재료로 다시 부르면 브리지 캐시가 그대로 준다. 메뉴를 열 때 미리 불러 두고(liveWarmConceptPool), 고를 때 기다린다.
+ */
+let liveConceptLoad = null;   // { L, promise } — 저장되는 qa.live 에 Promise 를 두지 않는다(새로고침 복원 때 {} 가 된다)
+function liveWarmConceptPool() {
+  const L = qa.live;
+  if (!L || Array.isArray(L.conceptPool)) return null;
+  if (liveConceptLoad && liveConceptLoad.L === L) return liveConceptLoad.promise;
+  const bridge = window.ChuckchuckBridge;
+  const out = typeof nf !== 'undefined' && nf && nf.pipelineOut;
+  if (!bridge || !bridge.buildQuestions || !out || !out.graph || typeof liveQuestionArgs !== 'function') return null;
+  const promise = bridge.buildQuestions(liveQuestionArgs(out, '10'))
+    .then((doc) => {
+      const qs = (doc && doc.questions) || [];
+      L.conceptPool = typeof attachQuestionPapers === 'function' ? attachQuestionPapers(qs, doc.papers) : qs;
+      return L.conceptPool;
+    })
+    .catch((err) => { console.warn('[chuckchuck] 다른 개념 질문을 못 받았어요', err); L.conceptPool = []; return []; })
+    .finally(() => { if (liveConceptLoad && liveConceptLoad.L === L) liveConceptLoad = null; });
+  liveConceptLoad = { L, promise };
+  return promise;
+}
+
+/** 지금 고르면 갈 다른 개념 질문 — 아직 안 물은 남은 질문과 트랙 10 묶음에서 */
+function livePickConcept() {
+  const L = qa.live;
+  const asked = L.questions.slice(0, L.qi + 1).map((q) => q.node_id || q.concept).filter(Boolean);
+  const pool = [...L.questions.slice(L.qi + 1), ...(L.conceptPool || [])];
+  return liveRankConceptSwitch(pool, asked, liveConceptSignals())[0] || null;
+}
+
+/** 새 질문을 기다리는 동안 — 답 칸을 잠그고 삐약이 자리에 무엇을 하는지 적는다 */
+async function liveSwitchWait(L, text, work) {
+  L.busy = true;
+  L.switching = text;
+  setLiveBusy(true);
+  showCoachThinking();
+  setCoachThinkingText(text);
+  try {
+    return await work();
+  } finally {
+    L.busy = false;
+    L.switching = '';
+    if (qa.live === L) { hideCoachThinking(); setLiveBusy(false); }
+  }
+}
+
+/** A — 다른 핵심 개념으로 (남은 질문 + 트랙 10 묶음에서 livePickConcept 순서로) */
+async function liveSwitchConcept() {
+  if (!liveCanSwitch()) return null;
+  const L = qa.live;
+  const cur = L.questions[L.qi];
+  // 남은 질문에 안 물은 개념이 있으면 바로 간다(묶음은 뒤에서 받아 둔다). 없으면 묶음을 기다린다
+  const loading = liveWarmConceptPool();
+  let pick = livePickConcept();
+  if (!pick && loading) {
+    await liveSwitchWait(L, '아직 안 다룬 개념을 고르고 있어요', () => loading);
+    if (qa.live !== L || L.questions[L.qi] !== cur) return null;
+    pick = livePickConcept();
+  }
+  if (!pick) {
+    pushTurn({ who: 'sys', kind: 'note', text: '더 물어볼 다른 개념이 없어요. 지금 질문을 이어 가거나 건너뛸 수 있어요' });
+    growStream();
+    return null;
+  }
+  liveSwitchTo('concept', pick, `다른 개념으로 넘어가요 — ${escapeHtml(pick.label || '')}`, { switchedTo: pick.label || '' });
+  return pick;
+}
+
+/** B — 같은 개념, 다른 관점 (서버 /qa/reframe — LLM 한 번, 자료 줄에 기대어). 함정 질문은 바꾸지 않는다 */
+async function liveSwitchPerspective(perspective) {
+  if (!liveCanSwitch()) return null;
+  const L = qa.live;
+  const cur = L.questions[L.qi];
+  const bridge = window.ChuckchuckBridge;
+  if (cur.trap || !bridge || !bridge.reframeQaQuestion) return null;
+  let res = null;
+  try {
+    res = await liveSwitchWait(L, '같은 주제를 다른 관점으로 묻고 있어요',
+      () => bridge.reframeQaQuestion(L.sessionId, { questionId: cur.id, question: cur, perspective }));
+  } catch (err) {
+    console.warn('[chuckchuck] 관점 바꾸기 실패', err);
+    if (qa.live === L) {
+      pushTurn({ who: 'sys', kind: 'note', text: '관점을 바꾼 질문을 만들지 못했어요. 지금 질문에 이어서 답하거나 다른 관점을 골라요' });
+      growStream();
+    }
+    return null;
+  }
+  if (qa.live !== L || L.questions[L.qi] !== cur || !res || !res.question) return null;
+  const name = res.perspective_name || '';
+  const next = { ...res.question, perspective: res.perspective, perspectiveName: name, reframeOf: cur.id, papers: cur.papers };
+  liveSwitchTo('perspective', next, `같은 주제를 ${escapeHtml(name)} 관점으로 다시 물어요`, { switchedTo: name });
+  return next;
+}
+
 /**
  * 마이크 쪽 알림. 전체를 다시 그리면 사용자가 쳐 놓은 답이 날아가므로,
  * 말풍선만 붙이고 화면은 건드리지 않는다.
@@ -1438,6 +1623,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       question: askedNow, questionId: q.id, answer,
       verdict: v.verdict, score: v.score || 0, gaveUp: giveUp,
       clarify: v.coach_stage === 'clarify',
+      // 이번 답에서 내가 실제로 한 핵심 발언 — 서버가 답 원문에 있는 구절인지 확인한 것만 온다(f09 _answer_claim). 꼬리질문이 이 발언에서 이어진다 (10-13 생각 엮기)
+      claim: v.claim || '',
     });
     L.lastJudgement = v;
     // 판정 사다리가 지금 들고 있는 것보다 짧지 않으면 그걸로 갈아탄다. **짧아지면 안 버린다** —
@@ -1467,6 +1654,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
         who: 'ai', kind: 'react', verdict: (!v.coach_stage && v.passed && v.verdict === 'partial') ? 'full' : m.react,
         text: escapeHtml(v.coach_stage ? coachReactText(v.react, quote) : v.react),
         score: v.score || 0, before,
+        claim: v.claim ? escapeHtml(v.claim) : '',
         // 자료 인용 카드 재료 — 코칭 응답에만 실린다. 옛 세션 턴에는 없다.
         quote: v.coach_stage && quote ? escapeHtml(quote) : '',
         quoteSlide: v.coach_stage ? (v.evidence_slide_no || 0) : 0,
@@ -1929,6 +2117,8 @@ function closeLiveQuestion(record) {
   L.results.push({
     ...record, turns: L.turn, hintLevel: L.hintLevel,
     hintUsed: Math.max(0, (L.hintLevel || 0) - (L.hintAuto || 0)),
+    // 생각의 흔적 (10-13 qa_weave.js) — 이 질문에서 물은 말과 그때 내 핵심 발언. 다음 질문으로 넘어가도 왼쪽 실에 남는다
+    trail: (L.turns || []).filter((t) => !t.gaveUp && !t.clarify).slice(-4).map((t) => ({ q: t.question || '', claim: t.claim || '' })),
   });
   L.qi++;
   L.turn = 0;
@@ -2200,6 +2390,7 @@ function liveResultRowBase(r, bucket) {
     return { bucket, chip: '도움 받아 닫힘', cls: 'st-mid', meta: why.slice(0, 2).join(' · ') };
   }
   if (bucket === 'retold') return { bucket, chip: '답 보고 다시 말함', cls: 'st-om', meta: '답을 보고 내 말로 다시 말했어요' };
+  if (r.setAside) return { bucket, chip: LIVE_ASIDE_CHIP[r.setAside] || '건너뜀', cls: 'st-om', meta: liveAsideMeta(r) };
   if (r.unasked) return { bucket, chip: '안 물음', cls: 'st-om', meta: '묻기 전에 마쳤어요' };
   if (r.stopped) return { bucket, chip: '멈춤', cls: 'st-om', meta: `답 ${r.answers || r.turns || 1}번 하고 멈췄어요` };
   if (r.revealed) return { bucket, chip: '답만 봄', cls: 'st-om', meta: '답만 보고 넘어갔어요' };
@@ -2211,7 +2402,8 @@ function liveResultRowBase(r, bucket) {
  * 「근거 발화와 함께 짚어 줄게요」 는 그때만 약속한다).
  */
 function liveResultSummary(results, { speech = true, unrelated = false } = {}) {
-  const rs = results || [];
+  // 내가 고른 「다른 주제로」·「건너뛰기」 는 실패도 넘김도 아니다 — 헤드라인 분모 · 묶음 수에서 뺀다 (10-13, 행은 리포트에 남는다)
+  const rs = (results || []).filter((r) => !r.setAside);
   const count = { self: 0, helped: 0, retold: 0, skipped: 0 };
   rs.forEach((r) => { count[liveBucket(r)] += 1; });
   const asked = rs.filter((r) => !r.unasked).length;

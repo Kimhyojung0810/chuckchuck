@@ -73,6 +73,12 @@ function bcMcLine() {
     const role = bcRole();
     return `반가워요! 오늘은 제가 ${role}${josa(role, '이에요', '예요')}. 질문 ${n}개, 말로 편하게 답해요`;
   }
+  // 「다른 주제로」 로 넘어왔으면 어떻게 넘어왔는지를 말한다 (qa_live.js liveSwitchTo, 10-13)
+  const prev = (L.results || [])[L.qi - 1];
+  const q = L.questions[L.qi] || {};
+  if (prev && prev.setAside === 'perspective') return `좋아요, 같은 주제를 ${q.perspectiveName || '다른'} 관점으로 물어볼게요`;
+  if (prev && prev.setAside === 'concept') return '좋아요, 아직 안 다룬 개념으로 가 볼게요';
+  if (prev && prev.setAside === 'skip') return '알겠어요, 그 질문은 건너뛸게요';
   if (L.qi === n - 1) return '좋아요, 마지막 질문이에요. 이것만 답하면 끝나요';
   return `좋아요, ${L.qi + 1}번째 질문으로 넘어갈게요`;
 }
@@ -98,6 +104,8 @@ function bcMcSync() {
 
 /** 삐약이 이름표 아래 한 줄 — 지금 무슨 일이 일어나는지. 판정 중 · 기다림 · 실패 · 마이크를 따로 말한다 */
 function bcSayText(stream, thinking) {
+  // 「다른 주제로」 새 질문을 기다리는 중 — 판정이 아니다 (qa_live.js liveSwitchWait, 10-13)
+  if (qa.live && qa.live.switching) return qa.live.switching;
   if (thinking) {
     const wait = (document.querySelector('#coachThinking .thinking-text') || {}).textContent || '';
     if (/요청이 몰려|AI 서버가|한 번 더 보내/.test(wait)) return wait;      // 기다렸다 다시 보내는 중 — 남은 초를 그대로
@@ -313,6 +321,8 @@ function bcSync() {
     bcStickBottom(stream);
   }
   bcAnnounceNew(stream);
+  // 리허설 Q&A 「생각 엮기」 층 — 흔적 · 내 발언 · 빛줄기 · 다른 주제로 (js/qa_weave.js, 10-13)
+  if (typeof qwSync === 'function') qwSync();
 }
 
 /** 위 가운데 질문 카드 — 대화 기둥의 지금 질문 말풍선을 그대로 비춘다 (기둥 쪽은 CSS 가 숨긴다) */
@@ -377,7 +387,7 @@ function bcThinking(el) {
   if (span && span.textContent === '듣고 있어요') span.textContent = '답을 자료와 맞춰 보고 있어요';
   if (!bc.thinkSince) {
     bc.thinkSince = Date.now();
-    bcAnnounce('답을 자료와 맞춰 보고 있어요');
+    bcAnnounce((qa.live && qa.live.switching) || '답을 자료와 맞춰 보고 있어요');
     clearTimeout(bc.slowTimer);
     bc.slowTimer = setTimeout(() => { if (document.getElementById('coachThinking')) bcSync(); }, BC_SLOW_JUDGE_MS + 50);
   }

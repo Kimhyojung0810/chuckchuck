@@ -253,6 +253,8 @@ def run(args) -> Path:
             if rec_dir and r.status == 200:
                 for path, name in RECORD_PATHS.items():
                     if r.url.split("?")[0].endswith(path):
+                        if path == "/api/v1/questions" and '"track":"10"' in (r.request.post_data or "").replace(" ", ""):
+                            name = "questions_10.json"   # 「다른 개념」 묶음(--weave) — 화상판 질문 기록을 덮지 않게
                         try:
                             rec_dir.mkdir(parents=True, exist_ok=True)
                             (rec_dir / name).write_bytes(r.body())
@@ -409,6 +411,116 @@ def run(args) -> Path:
             mark("rec_finish", t0, {"gate": gate, "sheet": sheet[:300], "uploaded": page.evaluate("nf.uploadedTake"), "mic": page.evaluate("nf.mic"),
                                     "cues": page.evaluate("(nf.visionCues||[]).length"), "hash": page.evaluate("location.hash")})
 
+        WEAVE_JS = """() => { const $ = (s) => document.querySelector(s); const vis = (el) => !!el && !el.hidden && !!el.offsetParent;
+          const L = qa.live; const r = (el) => el ? (({left, top, width, height}) => ({left: Math.round(left), top: Math.round(top), w: Math.round(width), h: Math.round(height)}))(el.getBoundingClientRect()) : null;
+          return { qi: L.qi, n: L.questions.length, label: (L.questions[L.qi]||{}).label || '', ask: ($('#bcAskQ')||{}).textContent || '',
+            meta: ($('.qw-ask-meta')||{}).textContent || '', whisper: vis($('#qwWhisper')) ? $('#qwWhisper').textContent : '',
+            claim: vis($('#qwClaim')) ? $('#qwClaimQ').textContent : '', beam: ($('#qwBeam')||{dataset:{}}).dataset.on === '1',
+            beam_d: (($('#qwBeam .qw-beam-path')||{getAttribute:()=>''}).getAttribute('d')||'').slice(0, 80),
+            knots: [...document.querySelectorAll('#qwKnots > li')].map((li) => li.className.replace('qw-knot ', '') + ' | ' + li.querySelector('.qw-knot-label').textContent.trim() + ' | ' + [...li.querySelectorAll('.qw-said li')].map((x) => x.textContent).join(' / ')),
+            dock_html: (($('.bc-dock')||{}).outerHTML||'').replace(/\\s+/g, ' ').slice(0, 1600), say: ($('#bqJudgeSay')||{}).textContent || '', me: ((qa.turns||[]).filter((t) => t.who === 'me').slice(-1)[0] || {}).text || '', talk_hidden: !vis($('.bc-talk')) || getComputedStyle($('.bc-talk')).display === 'none',
+            judgement: L.lastJudgement ? { verdict: L.lastJudgement.verdict, claim: L.lastJudgement.claim || '', followup: L.lastJudgement.followup || '', coach: L.lastJudgement.coach_stage || '' } : null,
+            results: (L.results||[]).map((x) => ({ id: x.id, setAside: x.setAside || '', to: x.switchedTo || '', verdict: x.verdict, trail: x.trail })),
+            rect: { cam: r($('.bc-self')), ask: r($('#bcAsk')), claim: r($('#qwClaim')), thread: r($('.qw-thread')), dock: r($('.bc-dock')), sw: r($('#qwSwitch')), state: r($('#qwState')) } }; }"""
+
+        def wv(tag: str) -> dict:
+            st = page.evaluate(WEAVE_JS)
+            R.setdefault("weave", {})[tag] = st
+            print(f"  weave {tag:16s} qi={st['qi']}/{st['n']} claim={st['claim'][:40]!r} beam={st['beam']} meta={st['meta'][:50]!r}", flush=True)
+            return st
+
+        def weak_answer() -> None:
+            # 반쯤만 맞힌 답 — 엉성한 답의 첫 문장만 (통째로 보내면 바로 닫혀 꼬리질문이 안 나온다)
+            text = page.evaluate("((liveWeakAnswer(qa.live.questions[qa.live.qi]) || '').split(/(?<=[.!?。])\\s+/)[0]) || '자료에 나온 내용이 핵심이라고 생각해요.'")
+            if page.evaluate("typeof liveMic !== 'undefined' && !!liveMic"):
+                page.evaluate("dropLiveMic()")
+            page.fill("#liveAnswer", text)
+            page.click("#liveSend")
+            page.wait_for_timeout(400)
+            page.wait_for_function("qa.live && !qa.live.busy", timeout=180000)
+            page.wait_for_timeout(1800)
+
+        def menu(choice: str, chip: str = "") -> float:
+            page.click("#qwSwitch")
+            page.wait_for_selector("#qwMenu:not([hidden])", timeout=5000)
+            page.wait_for_timeout(500)
+            if choice == "perspective":
+                page.click("#qwMenu [data-qw='perspective']")
+                page.wait_for_selector("#qwPersp:not([hidden])", timeout=3000)
+                page.wait_for_timeout(300)
+                shot("weave_menu_persp")
+                qi = page.evaluate("qa.live.qi")
+                t = time.time()
+                page.click(f"#qwPersp [data-qw-p='{chip}']")
+            else:
+                if choice == "concept":
+                    shot("weave_menu")
+                qi = page.evaluate("qa.live.qi")
+                t = time.time()
+                page.click(f"#qwMenu [data-qw='{choice}']")
+            page.wait_for_timeout(150)
+            if page.evaluate("!!qa.live.switching"):
+                shot(f"weave_{choice}_wait")
+            page.wait_for_function("qa.live && !qa.live.busy && !qa.live.switching", timeout=240000)
+            if page.evaluate(f"qa.live.qi === {qi}"):
+                print(f"  weave {choice}: 질문이 그대로예요 —", page.evaluate("[...document.querySelectorAll('#stream .qa-note-line')].slice(-1).map(e=>e.textContent)[0]||''"), flush=True)
+            sec = round(time.time() - t, 1)
+            page.wait_for_timeout(300)
+            shot(f"weave_{choice}_topic")
+            page.wait_for_timeout(1400)
+            return sec
+
+        def weave() -> None:
+            t0 = time.time()
+            wv("enter")
+            dbg = os.environ.get("WEAVE_DOCK_DBG")
+            if dbg:
+                print(json.dumps(page.evaluate(Path(dbg).read_text()), ensure_ascii=False, indent=1))
+                raise _Until()
+            # 1. 엉성한 답 → 판정(실 API) → 내 발언 칩 · 빛줄기 · 꼬리질문 (바로 닫히면 다음 질문에서 다시 — 세 번까지)
+            for _ in range(3):
+                qi0 = page.evaluate("qa.live.qi")
+                weak_answer()
+                if page.evaluate(f"qa.live.qi === {qi0} && !!(qa.live.lastJudgement && qa.live.lastJudgement.followup)"):
+                    break
+            st = wv("answer1")
+            shot("weave_claim")
+            for w, h in sizes:
+                page.set_viewport_size({"width": w, "height": h}); page.wait_for_timeout(900)
+                wv(f"answer1_{w}x{h}"); shot(f"weave_claim_{w}x{h}")
+            if sizes:
+                page.set_viewport_size({"width": VW, "height": VH}); page.wait_for_timeout(600)
+            # 마디 펼치기 · 도움 · 기록
+            page.click("#qwKnots > li:last-child .qw-knot-btn"); page.wait_for_timeout(300); shot("weave_knot_open")
+            page.click("#qwKnots > li:last-child .qw-knot-btn")
+            page.click("#qwHelp"); page.wait_for_timeout(600); shot("weave_help_open"); page.click("#qwHelp"); page.wait_for_timeout(300)
+            # 2. 같은 주제, 다른 관점 (실 /qa/reframe)
+            sec_b = menu("perspective", "example")
+            st = wv("perspective")
+            # 3. 그 질문에 답 → 내 발언
+            weak_answer()
+            wv("answer2")
+            shot("weave_claim2")
+            # 4. 다른 핵심 개념으로
+            sec_a = menu("concept")
+            wv("concept")
+            # 5. 건너뛰기
+            sec_c = menu("skip")
+            wv("skip")
+            shot("weave_after_skip")
+            mark("weave", t0, {"sec_perspective": sec_b, "sec_concept": sec_a, "sec_skip": sec_c,
+                               "pool": page.evaluate("Array.isArray(qa.live.conceptPool) ? qa.live.conceptPool.length : null")})
+            # 6. 여기서 마치기 → 리포트 · 기록
+            page.evaluate("finishLiveQaEarly()")
+            page.wait_for_function("location.hash.startsWith('#/rehearsal/report')", timeout=30000)
+            page.wait_for_timeout(3000)
+            hist = page.evaluate("(() => { const all = JSON.parse(localStorage.getItem('cheokcheok:qa-history')||'{}'); return all[qa.live.sessionId] || null; })()")
+            R["weave_history"] = hist
+            rec = hist or {}
+            beats = rec.get("beats") or []
+            print("  history weak:", rec.get("weak"), "| total:", rec.get("total"), "| beats:", [(b.get("label"), b.get("bucket"), b.get("setAside")) for b in beats], flush=True)
+            shot("weave_report")
+
         def wait_and_qa() -> None:
             # ── 3. 분석 기다림 ───────────────────────────────────────────
             t0 = time.time()
@@ -447,6 +559,9 @@ def run(args) -> Path:
                                   "host": page.evaluate("(document.querySelector('#bcHost .bc-host-text b')||{}).textContent||''"), "rec_listen": page.evaluate("window.__fakeListening()")})
             questions = page.evaluate("qa.live.questions.map(q => ({id: q.id, label: q.label, trap: !!q.trap, gist: q.answer_gist || ''}))")
             R["questions"] = questions
+            if args.weave:
+                weave()
+                return
             guard, qi_prev = 0, -1
             while guard < 14:
                 guard += 1
@@ -787,6 +902,7 @@ def main() -> int:
     ap.add_argument("--audio", default="", help="가짜 마이크로 흘릴 녹음 파일 (기본: main/decks/<덱>/ 의 녹음)")
     ap.add_argument("--mobile", action="store_true", help="폰처럼 — is_mobile · has_touch")
     ap.add_argument("--no-chatter", action="store_true", help="객석 삐약이(/api/v1/chatter, 실 LLM 넷)를 막는다")
+    ap.add_argument("--weave", action="store_true", help="Q&A 생각 엮기(10-13) — 엉성한 답 → 내 발언 · 꼬리질문 → 관점 바꾸기 → 다른 개념 → 건너뛰기 → 리포트 기록")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
     t = time.time()

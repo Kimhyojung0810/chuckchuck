@@ -2811,6 +2811,9 @@ class QaJudgement:
     #: 정답 계열에 못 미칠 때 되물을 후속 질문. 원래 질문을 반복하지 않고
     #: 빠진 지점을 겨냥한다. 통과한 답에는 빈 문자열이다.
     followup: str = ""
+    #: 이번 답에서 사용자가 실제로 한 핵심 발언 — 답 원문에서 그대로 옮긴 짧은 구절(f09 `_answer_claim` 이 원문에 있는지 확인).
+    #: 화면이 「내 발언 → 꼬리질문」 을 잇는 근거다 (2026-10-13 Q&A 생각 엮기). 원문에 없거나 답이 비면 빈 문자열 — 지어내지 않는다.
+    claim: str = ""
     #: 힌트 사다리 (방향 → 범위 → 근접). f08_questions.build_hint_ladder 가 만든다.
     #: 판정에 함께 실어 보내 프론트가 추가 왕복 없이 즉시 보여 줄 수 있게 한다.
     hints: list[str] = field(default_factory=list)
@@ -2882,6 +2885,7 @@ class QaJudgement:
             "missing_points": list(self.missing_points),
             "model": self.model,
             "followup": self.followup,
+            "claim": self.claim,
             "hints": list(self.hints),
             "coach_stage": self.coach_stage,
             "explanation": self.explanation,
@@ -2923,6 +2927,7 @@ class QaJudgement:
             missing_points=[str(x) for x in d.get("missing_points", [])],
             model=d.get("model", ""),
             followup=str(d.get("followup", "") or ""),
+            claim=str(d.get("claim", "") or ""),
             hints=[str(x) for x in d.get("hints", [])],
             coach_stage=coach_stage if coach_stage in QA_COACH_STAGES else "",
             explanation=str(d.get("explanation", "") or ""),

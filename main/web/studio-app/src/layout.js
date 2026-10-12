@@ -4,7 +4,7 @@
    0 자료 올리기  내용 크기 창(가운데)
    1 발표        웹캠(앱 창)을 위에 넓게 · 그 위 작은 PPT 창(PiP) · 아래 앞줄 관중 · 맨 아래 조작줄
    2 발표 채점    오른쪽 크게 개념 그래프 채점판(ui/ScoreBoard) · 왼쪽 작은 창에 앱의 실제 진행 단계
-   3 질의응답     웹캠(앱 창) 가운데에서 오른쪽으로 조금 · 왼쪽 앞에 심사위원 삐약이(목소리 구)
+   3 질의응답     웹캠(앱 창)이 화면의 약 80% — 삐약이 · 질문 · 생각의 흔적은 앱 안 한 겹(10-13 생각 엮기)
    4 리포트      크게 — 읽기 우선 */
 
 const HUD = 56          // 위 HUD 높이
@@ -62,17 +62,15 @@ function analysis(vp) {
   return { app, graph }
 }
 
-/** ④ 질의응답 — 웹캠 중심(오른쪽으로 조금), 왼쪽 앞에 심사위원 */
+/**
+ * ④ 질의응답 — 웹캠이 무대 (10-13 Q&A 「생각 엮기」 브리프: 화면의 75~85%, 질문이 바뀌어도 크기 그대로).
+ * 삐약이 · 목소리 구 · 질문 · 흔적 · 「다른 주제로」 는 앱 안 한 겹(js/qa_weave.js)이 맡는다 — 바깥 심사위원 자리는 없다.
+ */
 function qa(vp) {
-  const w = Math.round(Math.min(1120, vp.w * 0.64))
-  const h = Math.round(Math.min(780, vp.h * 0.8))
-  const room = vp.w / 2 - w / 2
-  const shift = Math.round(Math.min(room - EDGE, vp.w * 0.09))
-  const app = { x: shift, y: Math.round(HUD / 4), w, h }
-  const seat = Math.round(Math.min(220, vp.h * 0.26))
-  const jh = Math.round(seat * 1.9)
-  const judge = { x: Math.round(-vp.w / 2 + EDGE + seat * 0.7), y: Math.round(vp.h / 2 - EDGE - 12 - jh / 2), w: Math.round(seat * 1.4), h: jh }
-  return { app, judge, seat }
+  const w = Math.round(vp.w * 0.9)
+  const h = Math.round(Math.min(vp.h * 0.88, vp.h - HUD - 8 - EDGE))
+  const app = { x: 0, y: Math.round(-vp.h / 2 + HUD + 8 + h / 2), w, h }
+  return { app }
 }
 
 /**
