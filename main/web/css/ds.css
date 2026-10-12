@@ -7,35 +7,36 @@
 
 :root {
   /* ── 창(무대) ── */
-  --stage: #0B0B0A;
-  --stage-1: #121210;
-  --stage-2: #1A1916;
-  --win-bg: rgb(18 18 16 / .94);
-  --win-line: rgba(242, 237, 228, .12);
-  --line: rgba(242, 237, 228, .10);
-  --line-strong: rgba(242, 237, 228, .25);
-  --card-line: rgba(242, 237, 228, .08);
+  --stage: #090C0A;
+  --stage-1: #0F1411;
+  --stage-2: #161C18;
+  --win-bg: rgb(15 20 17 / .94);
+  --win-line: rgba(232, 242, 236, .12);
+  --line: rgba(232, 242, 236, .10);
+  --line-strong: rgba(232, 242, 236, .25);
+  --card-line: rgba(232, 242, 236, .08);
 
-  /* ── 글자 · 금색 · 상태 ── */
-  --ink: #F2EDE4;
-  --ink-2: #B1AEA7;
-  --ink-3: #8A8782;
-  --ink-off: rgba(242, 237, 228, .32);
-  --gold: #C9A96E;
-  --gold-hi: #D9BE88;
-  --gold-wash: rgba(201, 169, 110, .10);
-  --on-gold: #0B0B0A;
+  /* ── 글자 · 초록 · 상태 (10-13 사용자: 우리 색은 초록 — app.css 의 --brand · --cyan 과 같은 값) ── */
+  --ink: #EEF3EF;
+  --ink-2: #ADB7B1;
+  --ink-3: #87918B;
+  --ink-off: rgba(232, 242, 236, .32);
+  --brand: #0E8850;          /* 주 버튼 면 — 흰 글자 4.51:1 */
+  --brand-hi: #0A8459;
+  --on-brand: #FFFFFF;
+  --accent: #3fd599;         /* 무대(어두운 면) 위 표시 — 번호 · 점 · 진행 · 초점 */
+  --accent-wash: rgba(63, 213, 153, .10);
   --live: #7FB37A;
   --rec: #E5484D;
   --warn: #E2B04A;
 
   /* ── 종이 ── */
-  --paper: #F4F0E8;
-  --paper-hi: #FBF9F4;
+  --paper: #F3F7F4;
+  --paper-hi: #FAFCFA;
   --paper-line: rgba(26, 25, 21, .12);
   --paper-ink: #1A1915;
   --paper-ink-2: #5B5953;
-  --paper-gold: #76592A;
+  --paper-accent: #064E3B;   /* 종이 위 표시 · 링크 — 8.5:1 */
 
   /* ── 판정 5종 — 불변 (CLAUDE.md §3-3) ── */
   --ok: #0A8F68;   --ok-bg: #E9F7EF;
@@ -93,7 +94,7 @@
   --turn-ease: cubic-bezier(.65, 0, .35, 1);
   --dur-1: .25s;
   --dur-2: .4s;
-  --focus: 0 0 0 2px var(--stage), 0 0 0 4px var(--gold);
+  --focus: 0 0 0 2px var(--stage), 0 0 0 4px var(--accent);
 }
 
 @media (max-width: 720px) {
@@ -147,7 +148,7 @@
 }
 .ds-window__head { border-bottom: 1px solid var(--line); }
 .ds-window__foot { border-top: 1px solid var(--line); gap: var(--sp-4); }
-.ds-window__no { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--gold); letter-spacing: .08em; }
+.ds-window__no { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--accent); letter-spacing: .08em; }
 .ds-window__name { font-size: var(--fs-caption); font-weight: var(--w-bold); letter-spacing: .14em; color: var(--ink-2); }
 .ds-window__end { margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-3); }
 .ds-window__body {
@@ -164,10 +165,10 @@
 /* 종이 창 — 안의 토큰을 종이용으로 바꿔 같은 부품을 그대로 쓴다 */
 .ds-window--paper, .ds-paper {
   --ink: var(--paper-ink); --ink-2: var(--paper-ink-2); --ink-3: var(--paper-ink-2);
-  --gold: var(--paper-gold); --gold-hi: #5f4720; --gold-wash: rgba(118, 89, 42, .08); --on-gold: var(--paper);
+  --accent: var(--paper-accent); --accent-wash: rgba(6, 78, 59, .08);
   --line: var(--paper-line); --line-strong: rgba(26, 25, 21, .28); --card-line: var(--paper-line);
   --stage-2: var(--paper-hi);
-  --focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--paper-gold);
+  --focus: 0 0 0 2px var(--paper), 0 0 0 4px var(--paper-accent);
 }
 .ds-window--paper { background: var(--paper); border-color: rgba(26, 25, 21, .08); color: var(--paper-ink); }
 .ds-paper { background: var(--paper); color: var(--paper-ink); border-radius: var(--r-card); padding: var(--sp-6); }
@@ -191,8 +192,8 @@
 .ds-btn:hover { border-color: var(--ink-2); }
 .ds-btn__arrow { font-family: var(--font-mono); transition: transform var(--dur-1); }
 .ds-btn:hover .ds-btn__arrow { transform: translateX(3px); }
-.ds-btn--primary { background: var(--gold); border-color: var(--gold); color: var(--on-gold); }
-.ds-btn--primary:hover { background: var(--gold-hi); border-color: var(--gold-hi); }
+.ds-btn--primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.ds-btn--primary:hover { background: var(--brand-hi); border-color: var(--brand-hi); }
 .ds-window--paper .ds-btn--primary, .ds-paper .ds-btn--primary { background: var(--paper-ink); border-color: var(--paper-ink); color: var(--paper); }
 .ds-window--paper .ds-btn--primary:hover, .ds-paper .ds-btn--primary:hover { background: #2C2A24; border-color: #2C2A24; }
 .ds-btn--quiet { border-color: transparent; color: var(--ink-2); padding-inline: var(--sp-2); }
@@ -209,7 +210,7 @@
   border: 1px dashed var(--line-strong); border-radius: var(--r-card);
   transition: border-color var(--dur-1), background var(--dur-1);
 }
-.ds-drop.is-over { border-color: var(--gold); background: var(--gold-wash); }
+.ds-drop.is-over { border-color: var(--accent); background: var(--accent-wash); }
 .ds-file { display: grid; gap: 2px; min-width: 0; }
 .ds-file__name { font-weight: var(--w-bold); overflow-wrap: anywhere; }
 
@@ -223,7 +224,7 @@
 .ds-textarea { min-height: 110px; padding: 16px 18px; resize: none; }
 .ds-input::placeholder, .ds-textarea::placeholder { color: var(--ink-3); }
 .ds-input:hover, .ds-textarea:hover { border-color: var(--ink-3); }
-.ds-root .ds-input:focus-visible, .ds-root .ds-textarea:focus-visible { border-color: var(--gold); box-shadow: none; }
+.ds-root .ds-input:focus-visible, .ds-root .ds-textarea:focus-visible { border-color: var(--accent); box-shadow: none; }
 .ds-field { display: grid; gap: var(--sp-2); }
 .ds-field__help { font-size: var(--fs-caption); color: var(--ink-3); margin: 0; }
 .ds-field__error { font-size: var(--fs-caption); color: var(--warn); margin: 0; }
@@ -234,8 +235,8 @@
   border: 1px solid var(--line-strong); border-radius: 5px; background: transparent;
   display: grid; place-items: center; cursor: pointer;
 }
-.ds-check input:checked { background: var(--gold); border-color: var(--gold); }
-.ds-check input:checked::after { content: ""; width: 8px; height: 4px; border-left: 2px solid var(--on-gold); border-bottom: 2px solid var(--on-gold); translate: 0 -1px; rotate: -45deg; }
+.ds-check input:checked { background: var(--brand); border-color: var(--brand); }
+.ds-check input:checked::after { content: ""; width: 8px; height: 4px; border-left: 2px solid var(--on-brand); border-bottom: 2px solid var(--on-brand); translate: 0 -1px; rotate: -45deg; }
 
 /* ── 카드 · 표 ───────────────────────────────────────────────────────── */
 .ds-card { padding: var(--sp-6) 26px; border-radius: var(--r-card); background: var(--stage-2); border: 1px solid var(--card-line); display: grid; gap: 10px; }
@@ -259,12 +260,12 @@
 
 .ds-dots { display: flex; gap: var(--sp-2); }
 .ds-dots > span { width: 28px; height: 4px; border-radius: 2px; background: rgba(242, 237, 228, .18); }
-.ds-dots > span.is-now { background: var(--gold); }
-.ds-dots > span.is-done { background: rgba(201, 169, 110, .45); }
+.ds-dots > span.is-now { background: var(--accent); }
+.ds-dots > span.is-done { background: rgba(63, 213, 153, .45); }
 
 .ds-progress { display: grid; gap: var(--sp-2); }
 .ds-progress__bar { height: 2px; border-radius: 1px; background: var(--line-strong); position: relative; overflow: hidden; }
-.ds-progress__bar > i { position: absolute; inset: 0 auto 0 0; width: var(--value, 0%); background: var(--gold); transition: width var(--dur-2) ease; }
+.ds-progress__bar > i { position: absolute; inset: 0 auto 0 0; width: var(--value, 0%); background: var(--accent); transition: width var(--dur-2) ease; }
 .ds-progress__meta { display: flex; justify-content: space-between; gap: var(--sp-4); }
 
 .ds-pager { display: inline-flex; align-items: center; gap: 10px; }
@@ -289,7 +290,7 @@
 .ds-toast {
   display: inline-flex; align-items: center; gap: var(--sp-4);
   padding: var(--sp-3) var(--sp-4);
-  background: var(--stage-1); border: 1px solid var(--line-strong); border-left: 2px solid var(--gold); border-radius: var(--r-ctl);
+  background: var(--stage-1); border: 1px solid var(--line-strong); border-left: 2px solid var(--accent); border-radius: var(--r-ctl);
   font-size: 14px; color: var(--ink);
   animation: ds-in var(--dur-2) ease both;
 }
@@ -309,8 +310,8 @@
 }
 .ds-step:hover { color: var(--ink-2); }
 .ds-step .ds-mono { color: inherit; }
-.ds-step[aria-current="step"] { color: var(--ink); border-color: rgba(201, 169, 110, .55); font-weight: var(--w-bold); }
-.ds-step[aria-current="step"] .ds-mono { color: var(--gold); }
+.ds-step[aria-current="step"] { color: var(--ink); border-color: rgba(63, 213, 153, .55); font-weight: var(--w-bold); }
+.ds-step[aria-current="step"] .ds-mono { color: var(--accent); }
 
 @keyframes ds-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes ds-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }

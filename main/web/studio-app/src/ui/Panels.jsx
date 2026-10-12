@@ -1,14 +1,18 @@
 /* 정거장 창 내용 — ds.css 부품 (DESIGN_SYSTEM §6). 시제품 자리표시 내용이고, 3차에서 지금 앱 화면으로 바뀐다 */
 import { useEffect, useRef } from 'react'
 import { VoiceOrb } from './VoiceOrb.jsx'
+import { PiyakStage } from '../piyak/PiyakStage.jsx'
 
 const Arrow = () => <span className="ds-btn__arrow">→</span>
 
-export function UploadWindow({ onNext }) {
+/** ① 자료 올리기 — 왼쪽(폰은 위)에 삐약이가 크게 서서 맞이한다 (10-13 사용자). 삐약이는 창과 떨어진 부품이라 세트로 옮길 수 있다 */
+export function UploadWindow({ onNext, mic }) {
   return (
     <div className="ds-window sx-fill">
       <div className="ds-window__head"><span className="ds-window__no">01</span><span className="ds-window__name">자료 올리기</span></div>
-      <div className="ds-window__body">
+      <div className="ds-window__body px-upload">
+        <PiyakStage mic={mic} className="px-upload__hero" />
+        <div className="px-upload__form">
         <h1 className="ds-title" id="t-upload" tabIndex={-1}>발표 자료를 올려 주세요</h1>
         <p className="ds-lede">자료를 넘기며 카메라 앞에서 발표하면, 말한 내용과 자료를 맞대어 빠뜨린 곳을 찾고 예상 질문을 준비해요.</p>
         <div className="ds-drop">
@@ -20,6 +24,7 @@ export function UploadWindow({ onNext }) {
           <dt>질문</dt><dd>3개 <span className="ds-mono">/ 답까지 마치면 리포트</span></dd>
         </dl>
         <label className="ds-check"><input type="checkbox" defaultChecked /> <span>이 자료와 발표 기록을 척척발표가 나아지는 데 써도 좋아요</span></label>
+        </div>
       </div>
       <div className="ds-window__foot">
         <span className="ds-mono">자료를 읽었어요 · 12장</span>

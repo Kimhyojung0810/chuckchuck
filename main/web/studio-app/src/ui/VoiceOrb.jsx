@@ -21,7 +21,7 @@ export function VoiceOrb({ levelRef, size = 96, speaking = false }) {
     <div className="sx-orb" style={{ width: size, height: size }} aria-hidden="true">
       <ShaderGradientCanvas style={{ position: 'absolute', inset: 0 }} pixelDensity={1} fov={40} lazyLoad={false} pointerEvents="none">
         <ShaderGradient control="props" type="waterPlane" animate="on"
-          color1="#C9A96E" color2="#E8D2A6" color3="#5B4A2E"
+          color1="#0E8850" color2="#aeefd5" color3="#064E3B"
           uStrength={1.2 + k * 2.4} uSpeed={0.18 + k * 0.7} uDensity={1.4} uFrequency={5.5} uAmplitude={0}
           cDistance={2.2} cPolarAngle={90} cAzimuthAngle={180} cameraZoom={1} positionX={0} positionY={0} positionZ={0}
           rotationX={0} rotationY={0} rotationZ={0} lightType="3d" brightness={1.25} grain="off" />

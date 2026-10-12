@@ -120,7 +120,7 @@ export function GlassPanel({ widthPx, heightPx, radius = 24, world, paper = fals
     uniforms: {
       uScene: { value: null }, uRes: { value: new THREE.Vector2(1, 1) }, uTexel: { value: new THREE.Vector2(1, 1) },
       uSize: { value: new THREE.Vector2(widthPx, heightPx) }, uRadius: { value: radius },
-      uTint: { value: new THREE.Color(paper ? '#F4F0E8' : '#121210') }, uTintOpacity: { value: tint ?? (paper ? 0.8 : 0.55) },
+      uTint: { value: new THREE.Color(paper ? '#F4F0E8' : '#0d1310') }, uTintOpacity: { value: tint ?? (paper ? 0.8 : 0.55) },
       uOpacity: { value: 1 }, uBlur: { value: 7 },
       uEdgeIntensity: { value: 0.008 }, uRimIntensity: { value: 0.05 }, uBaseIntensity: { value: 0.006 },
       uEdgeDistance: { value: 0.15 }, uRimDistance: { value: 0.8 }, uBaseDistance: { value: 0.1 },

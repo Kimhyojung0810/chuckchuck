@@ -6,6 +6,7 @@ import { Html } from '@react-three/drei'
 import { DIST, EYE, SPACING, HIDE_DOM, deg, toward } from '../config.js'
 import { rig } from '../rig.js'
 import { GlassPanel } from './Glass.jsx'
+import { StationSet } from './Sets.jsx'
 
 /** 화면 1px 이 창 거리(DIST)에서 몇 m 인가 */
 export function useWorldPerPx() {
@@ -18,13 +19,15 @@ const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b
 
 /**
  * 곡선 위의 창 하나 (SPACE v3 §2). 매 프레임 (k − f) 로 각도 · 크기 · 흐림을 정한다 — 시점은 그대로, 창이 미끄러진다.
- * panels: [{ id, x, y, w, h, radius, paper, tint, glass, children }] — x·y 는 창 가운데에서의 CSS px (오른쪽 · 아래로 +)
+ * panels: [{ id, x, y, w, h, radius, paper, tint, glass, bare, children }] — x·y 는 창 가운데에서의 CSS px (오른쪽 · 아래로 +)
+ * 다른 정거장의 창은 표지라 누를 것이 없다(inert) — 실제 화면은 앱이 정한다 (SPACE §6). W·H 는 세트를 놓을 창 크기
  */
-export function Station({ k, active, onEnter, panels, portal }) {
+export function Station({ k, active, panels, portal, W, H }) {
   const world = useWorldPerPx()
   const group = useRef()
   const op = useRef(active ? 1 : 0.45)
   const htmlRefs = useRef([])
+  const setRef = useRef()
 
   useFrame(() => {
     const rel = k - rig.f
@@ -38,6 +41,8 @@ export function Station({ k, active, onEnter, panels, portal }) {
       g.rotation.set(0, -deg(ang), 0)
       g.scale.setScalar((1 - 0.1 * Math.min(1, Math.abs(rel))) * (1 - 0.06 * m))
     }
+    // 세트는 제 창이 정면 가까이 올 때만 — 이웃 정거장의 소품 · 삐약이가 화면 가장자리에 몰려 어수선했다
+    if (setRef.current) setRef.current.visible = Math.abs(rel) < 0.7
     const off = Math.abs(ang)
     op.current = (1 - 0.55 * Math.min(1, Math.abs(rel))) * (1 - smoothstep(HIDE_DOM - 22, HIDE_DOM, off))
     htmlRefs.current.forEach((el) => {
@@ -49,15 +54,15 @@ export function Station({ k, active, onEnter, panels, portal }) {
 
   return (
     <group ref={group}>
+      <group ref={setRef}><StationSet k={k} W={W} H={H} world={world} /></group>
       {panels.map((p, i) => (
         <group key={p.id} position={[p.x * world, -p.y * world, i * 0.002]}>
           {p.glass !== false && <GlassPanel widthPx={p.w} heightPx={p.h} radius={p.radius ?? 24} world={world} paper={p.paper} tint={p.tint} opacityRef={op} />}
           <Html transform portal={portal} distanceFactor={400 * world} zIndexRange={[20, 0]} style={{ pointerEvents: 'auto' }}>
             <div ref={(el) => { htmlRefs.current[i] = el }}
-              className={`sx-panel${p.paper ? ' sx-panel--paper' : ''}${p.glass === false ? ' sx-panel--solid' : ''}${active ? '' : ' is-away'}`}
+              className={`sx-panel${p.paper ? ' sx-panel--paper' : ''}${p.glass === false ? ' sx-panel--solid' : ''}${p.bare ? ' sx-panel--bare' : ''}${active ? '' : ' is-away'}`}
               style={{ width: p.w, height: p.h, borderRadius: p.radius ?? 24 }}
-              inert={!active}
-              onClickCapture={active ? undefined : (e) => { e.preventDefault(); e.stopPropagation(); onEnter(k) }}>
+              inert={!active}>
               {p.children}
             </div>
           </Html>
