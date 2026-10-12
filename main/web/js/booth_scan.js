@@ -30,7 +30,7 @@
   const query = new URLSearchParams(location.search);
 
   const S = {
-    cam: 'boot', model: 'boot', W: 0, H: 0, dpr: 1,
+    cam: 'boot', model: 'boot', W: 0, H: 0, dpr: 1, shift: 0,
     tracks: [], nextId: 1,
     particles: L.makeParticles(PARTICLES, rng), idleAlpha: 1,
     signals: L.makeSignals(), sig: null,
@@ -244,9 +244,24 @@
   }
 
   // ── 그리기 고리 ─────────────────────────────────────────────────────────────────────────
+  /**
+   * 무대(캠) 가운데를 오른쪽 「읽는 것」 기둥 왼쪽 빈 곳의 가운데로 민다 (CSS px, 0 이하). 화면 가운데에 깔면 1280 노트북에서
+   * 오른쪽에 선 사람의 얼굴 그래프가 판 밑에 통째로 가렸다 (10-12 알려진 문제). 민 만큼 왼쪽 끝이 잘리고 오른쪽 끝은 기둥 밑으로 간다 —
+   * 가리는 폭이 양쪽으로 반씩 나뉘어 가운데 선 사람은 늘 빈 곳 가운데에 온다. 세로 화면 · 기둥이 안 보이면 0.
+   */
+  function stageShift() {
+    const side = document.querySelector('.bs-side');
+    if (!side || window.innerWidth <= window.innerHeight) return 0;
+    const left = side.getBoundingClientRect().left;
+    if (!(left > 0 && left < window.innerWidth)) return 0;
+    return Math.min(0, Math.round(left / 2 - window.innerWidth / 2));
+  }
+
   function resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(window.innerWidth * dpr), H = Math.round(window.innerHeight * dpr);
+    const shift = stageShift();
+    if (shift !== S.shift) { S.shift = shift; document.body.style.setProperty('--stage-x', shift + 'px'); }
     if (W === S.W && H === S.H) return;
     el.canvas.width = W; el.canvas.height = H;
     S.W = W; S.H = H; S.dpr = dpr;
@@ -302,7 +317,7 @@
     resize();
     sendFrame(now);
     const v = el.video;
-    const map = L.coverMap(v.videoWidth || 16, v.videoHeight || 9, S.W, S.H, true);
+    const map = L.coverMap(v.videoWidth || 16, v.videoHeight || 9, S.W, S.H, true, S.shift * S.dpr);
     S.particles = L.driftParticles(S.particles, dt, now / 1000);
     // 카메라가 빠지면 결과가 더 안 온다 — 남은 그래프를 놓친 것으로 돌려 흩어 보낸다
     if (S.cam !== 'on') S.tracks.forEach((tr) => { tr.missed = L.MISS_MAX; });
