@@ -176,5 +176,6 @@ grep -n 'f11_reveal.html?embed' main/web/js/app.js      # 리빌 값 — 위와 
 | 문서 | 내용 |
 |---|---|
 | [`README.md`](README.md) | 설치·실행·손으로 눌러보는 체크리스트 |
+| [`main/web/DESIGN_SYSTEM.md`](main/web/DESIGN_SYSTEM.md) | **디자인 개편 기준(「무대와 대본」, 2026-10-12)** — 색·글·공간·움직임·부품·화면별 적용·옛→새 토큰 표. 개편 중엔 §3-3 토큰보다 이 문서가 먼저 |
 | [`main/web/MVP_SPEC.md`](main/web/MVP_SPEC.md) | 화면 스펙·정보 구조·디자인 토큰 |
 | `etc/scripts/chk --help` | 개발 도구 — `gate`(문지기) · `bump`(`?v=`) · `doctor`(이 머신 점검) · `warmup`(브리지 예열) · `brief`(세션 브리핑, `/continue`) · `ledger-chart`(결선 그래프). README §개발 도구 |

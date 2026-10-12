@@ -1,0 +1,1737 @@
+{
+  "url": "https://yuyafilmstudio.dev/",
+  "extractedAt": "2026-10-12T13:45:03.939Z",
+  "meta": {
+    "snapshotId": "4f625fbe-3e4f-45d8-884b-60f6868c8210",
+    "httpStatus": 200,
+    "dembrandtVersion": "0.39.2",
+    "schemaVersion": "1.19.0",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "context": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "deviceScaleFactor": 1,
+      "isMobile": false,
+      "hasTouch": false,
+      "colorScheme": "light",
+      "reducedMotion": "no-preference",
+      "forcedColors": "none",
+      "locale": "en-US",
+      "timezoneId": "America/New_York",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
+    },
+    "fontsReady": true,
+    "requestedUrl": "https://yuyafilmstudio.dev/",
+    "contentLength": 4026,
+    "flags": {
+      "slow": true
+    }
+  },
+  "siteName": null,
+  "logo": null,
+  "logoInstances": [],
+  "favicons": [
+    {
+      "type": "icon",
+      "url": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230b0b0a'/%3E%3Cpath d='M16 18l16 16 16-16M32 34v14' stroke='%23c9a96e' stroke-width='5' fill='none'/%3E%3C/svg%3E",
+      "sizes": null
+    }
+  ],
+  "manifest": {
+    "themeColor": "#0b0b0a"
+  },
+  "colors": {
+    "semantic": {
+      "background": "rgb(11, 11, 10)",
+      "text": "rgb(242, 237, 228)",
+      "primary": "rgb(201, 169, 110)"
+    },
+    "semanticEvidence": {
+      "primary": {
+        "decision": "elected",
+        "rule": "token",
+        "reason": "most used chromatic colour, declared as a custom property",
+        "tokens": [
+          "--gold"
+        ],
+        "alternates": []
+      }
+    },
+    "palette": [
+      {
+        "color": "rgb(242, 237, 228)",
+        "normalized": "#f2ede4",
+        "count": 70,
+        "confidence": "high",
+        "sources": [
+          "bf-top",
+          "bf-controls",
+          "bf-map"
+        ],
+        "tokens": [
+          "--paper"
+        ],
+        "lch": "lch(93.957% 5.058 83.091)",
+        "oklch": "oklch(94.7519% 0.01315 82.402)",
+        "role": "neutral",
+        "onColor": "#000000",
+        "hover": "#cec9c2",
+        "variantOf": "primary"
+      },
+      {
+        "color": "rgb(201, 169, 110)",
+        "normalized": "#c9a96e",
+        "count": 15,
+        "confidence": "high",
+        "sources": [
+          "btn-enter"
+        ],
+        "tokens": [
+          "--gold"
+        ],
+        "lch": "lch(71.135% 35.544 79.667)",
+        "oklch": "oklch(74.9897% 0.08545 82.077)",
+        "role": "accent",
+        "onColor": "#000000",
+        "hover": "#ab905e",
+        "variantOf": "primary"
+      },
+      {
+        "color": "rgb(11, 11, 10)",
+        "normalized": "#0b0b0a",
+        "count": 2,
+        "confidence": "high",
+        "sources": [
+          "manifest:theme_color"
+        ],
+        "tokens": [
+          "--ink"
+        ],
+        "lch": "lch(3.006% 0.406 105.006)",
+        "oklch": "oklch(14.9142% 0.0021 106.652)",
+        "role": "surface",
+        "onColor": "#ffffff",
+        "hover": "#0d0d0c"
+      },
+      {
+        "color": "rgb(16, 16, 16)",
+        "normalized": "#101010",
+        "count": 1,
+        "confidence": "medium",
+        "sources": [
+          "hover/focus"
+        ]
+      }
+    ],
+    "cssVariables": {
+      "--paper": {
+        "value": "#f2ede4",
+        "hex": "#f2ede4",
+        "lch": "lch(93.957% 5.058 83.091)",
+        "oklch": "oklch(94.7519% 0.01315 82.402)",
+        "scope": "root"
+      },
+      "--gold": {
+        "value": "#c9a96e",
+        "hex": "#c9a96e",
+        "lch": "lch(71.135% 35.544 79.667)",
+        "oklch": "oklch(74.9897% 0.08545 82.077)",
+        "scope": "root"
+      },
+      "--muted": {
+        "value": "#a39e94",
+        "hex": "#a39e94",
+        "lch": "lch(65.323% 5.963 84.753)",
+        "oklch": "oklch(70.0561% 0.01545 84.591)",
+        "scope": "root"
+      },
+      "--gold-dim": {
+        "value": "#8c7650",
+        "hex": "#8c7650",
+        "lch": "lch(51.047% 24.766 78.811)",
+        "oklch": "oklch(57.7175% 0.06015 80.739)",
+        "scope": "root"
+      },
+      "--rec": {
+        "value": "#e0402f",
+        "hex": "#e0402f",
+        "lch": "lch(52.326% 78.016 37.622)",
+        "oklch": "oklch(60.5386% 0.19944 29.953)",
+        "scope": "root"
+      },
+      "--ink": {
+        "value": "#0b0b0a",
+        "hex": "#0b0b0a",
+        "lch": "lch(3.006% 0.406 105.006)",
+        "oklch": "oklch(14.9142% 0.0021 106.652)",
+        "scope": "root"
+      }
+    },
+    "detected": [
+      {
+        "color": "rgb(242, 237, 228)",
+        "normalized": "#f2ede4",
+        "count": 70,
+        "usageFrac": 0.7954545454545454,
+        "areaFrac": 0,
+        "confidence": "high",
+        "sources": [
+          "bf-top",
+          "bf-controls",
+          "bf-map",
+          "bf-foot"
+        ],
+        "isToken": true
+      },
+      {
+        "color": "rgb(201, 169, 110)",
+        "normalized": "#c9a96e",
+        "count": 15,
+        "usageFrac": 0.17045454545454544,
+        "areaFrac": 0.00002170066155672348,
+        "confidence": "high",
+        "sources": [
+          "btn-enter"
+        ],
+        "isToken": true
+      },
+      {
+        "color": "rgb(11, 11, 10)",
+        "normalized": "#0b0b0a",
+        "count": 2,
+        "usageFrac": 0.022727272727272728,
+        "areaFrac": 0.999966484533818,
+        "confidence": "medium",
+        "sources": [],
+        "isToken": true
+      },
+      {
+        "color": "rgb(127, 179, 122)",
+        "normalized": "#7fb37a",
+        "count": 1,
+        "usageFrac": 0.011363636363636364,
+        "areaFrac": 0.000011814804625327228,
+        "confidence": "low",
+        "sources": [],
+        "isToken": false
+      }
+    ],
+    "occurrences": [
+      {
+        "hex": "#f2ede4",
+        "paints": "text",
+        "slot": null,
+        "count": 42,
+        "area": 0,
+        "cssVar": "--paper",
+        "state": null
+      },
+      {
+        "hex": "#f2ede4",
+        "paints": "border",
+        "slot": null,
+        "count": 28,
+        "area": 0,
+        "cssVar": "--paper",
+        "state": null
+      },
+      {
+        "hex": "#c9a96e",
+        "paints": "text",
+        "slot": null,
+        "count": 12,
+        "area": 0,
+        "cssVar": "--gold",
+        "state": null
+      },
+      {
+        "hex": "#0b0b0a",
+        "paints": "fill",
+        "slot": null,
+        "count": 2,
+        "area": 4147200,
+        "cssVar": "--ink",
+        "state": null
+      },
+      {
+        "hex": "#c9a96e",
+        "paints": "border",
+        "slot": null,
+        "count": 2,
+        "area": 0,
+        "cssVar": "--gold",
+        "state": null
+      },
+      {
+        "hex": "#7fb37a",
+        "paints": "fill",
+        "slot": null,
+        "count": 1,
+        "area": 49,
+        "cssVar": null,
+        "state": null
+      },
+      {
+        "hex": "#c9a96e",
+        "paints": "fill",
+        "slot": null,
+        "count": 1,
+        "area": 90,
+        "cssVar": "--gold",
+        "state": null
+      }
+    ]
+  },
+  "typography": {
+    "styles": [
+      {
+        "context": "heading-1",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "44px (2.75rem)",
+        "weight": 500,
+        "lineHeight": "1.06",
+        "spacing": "5.28px",
+        "transform": null
+      },
+      {
+        "context": "heading-2",
+        "count": 2,
+        "family": "Cormorant Garamond",
+        "fallbacks": "Baskerville, Georgia",
+        "size": "38px (2.38rem)",
+        "weight": 400,
+        "lineHeight": "1.05",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "text",
+        "count": 1,
+        "family": "Cormorant Garamond",
+        "fallbacks": "Baskerville, Georgia",
+        "size": "30px (1.88rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-2",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "22px (1.38rem)",
+        "weight": 500,
+        "lineHeight": null,
+        "spacing": "7.92px",
+        "transform": null
+      },
+      {
+        "context": "text",
+        "count": 1,
+        "family": "Cormorant Garamond",
+        "fallbacks": "Baskerville, Georgia",
+        "size": "21px (1.31rem)",
+        "weight": 400,
+        "lineHeight": "1.38",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "body",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "16px (1.00rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 3,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "13.3333px (0.83rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "body",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "13px (0.81rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.52px",
+        "transform": null
+      },
+      {
+        "context": "text",
+        "count": 6,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "13px (0.81rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "1.04px",
+        "transform": null
+      },
+      {
+        "context": "body",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "13px (0.81rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "body",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "12.5px (0.78rem)",
+        "weight": 500,
+        "lineHeight": null,
+        "spacing": "2.25px",
+        "transform": null
+      },
+      {
+        "context": "mono",
+        "count": 7,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "12px (0.75rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "0.72px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "12px (0.75rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "0.72px",
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 4,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "12px (0.75rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "12px (0.75rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "3.84px",
+        "transform": "uppercase"
+      },
+      {
+        "context": "ui",
+        "count": 3,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "12px (0.75rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.72px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "12px (0.75rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.72px",
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "12px (0.75rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "2.4px",
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "11.5px (0.72rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "3.91px",
+        "transform": "uppercase"
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "11.5px (0.72rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "3.91px",
+        "transform": "uppercase"
+      },
+      {
+        "context": "caption",
+        "count": 3,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "11px (0.69rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 3,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "11px (0.69rem)",
+        "weight": 400,
+        "lineHeight": "1.55",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "mono",
+        "count": 21,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "11px (0.69rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "0.44px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 3,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "11px (0.69rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.44px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 4,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "10.5px (0.66rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.63px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 5,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10.5px (0.66rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10px (0.63rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "3.6px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "3px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "1.2px",
+        "transform": null
+      },
+      {
+        "context": "mono",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10px (0.63rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "2px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 7,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.4px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "1.2px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 7,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "mono",
+        "count": 3,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10px (0.63rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "0.4px",
+        "transform": null
+      },
+      {
+        "context": "mono",
+        "count": 3,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 4,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "2.2px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 4,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.8px",
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9.5px (0.59rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "2.47px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9.5px (0.59rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "2.47px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9.5px (0.59rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "2.85px",
+        "transform": null
+      },
+      {
+        "context": "heading-2",
+        "count": 3,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9.5px (0.59rem)",
+        "weight": 500,
+        "lineHeight": null,
+        "spacing": "3.04px",
+        "transform": null
+      },
+      {
+        "context": "mono",
+        "count": 14,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9.5px (0.59rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "0.38px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Courier Prime",
+        "fallbacks": "Courier New",
+        "size": "9.5px (0.59rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "0.57px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9.5px (0.59rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "2.66px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9px (0.56rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "2.34px",
+        "transform": null
+      },
+      {
+        "context": "ui",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9px (0.56rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "2.34px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9px (0.56rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "2.34px",
+        "transform": null
+      },
+      {
+        "context": "mono",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "9px (0.56rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "0.36px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "8.5px (0.53rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "2.04px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "8.5px (0.53rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "2.38px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 1,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "8.5px (0.53rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "1.53px",
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "8.5px (0.53rem)",
+        "weight": 400,
+        "lineHeight": null,
+        "spacing": "1.19px",
+        "transform": "uppercase"
+      },
+      {
+        "context": "mono",
+        "count": 2,
+        "family": "Inter",
+        "fallbacks": "Helvetica Neue, Arial",
+        "size": "8.5px (0.53rem)",
+        "weight": 600,
+        "lineHeight": null,
+        "spacing": "0.34px",
+        "transform": "uppercase"
+      }
+    ],
+    "sources": {
+      "googleFonts": [],
+      "adobeFonts": false,
+      "variableFonts": false,
+      "customFonts": [
+        "Cormorant Garamond",
+        "Courier Prime",
+        "Inter"
+      ],
+      "fontDisplay": "swap",
+      "urls": [
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-400-italic-AH1vqu4S.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-400-italic-D3GtrbRZ.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-400-normal-CVFrM67f.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-400-normal-DD2KOZkl.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-500-normal-CyAY5ZLS.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-500-normal-DkJXBcIH.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-ext-400-italic-BEGvmv_3.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-ext-400-italic-C_Uk1MUY.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-ext-400-normal-DLdKLAvx.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-ext-400-normal-W3Dto7M0.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-ext-500-normal-Yta7XZ9C.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-cyrillic-ext-500-normal-lsPpqi9g.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-400-italic-BLh7T8o8.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-400-italic-Dc_OZ8oc.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-400-normal-B-1hWBU7.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-400-normal-B7YtguxJ.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-500-normal-BsRWmXhO.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-500-normal-zIXX3Q-H.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-ext-400-italic-BdEzgT7i.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-ext-400-italic-CQvLaSWn.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-ext-400-normal-Drx2k2n9.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-ext-400-normal-uvC0WHQr.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-ext-500-normal-CH1kM7og.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-latin-ext-500-normal-DYeaGGzO.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-vietnamese-400-italic-BoXDRTEW.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-vietnamese-400-italic-CJpMwFnN.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-vietnamese-400-normal-4uxlocMh.woff",
+        "https://yuyafilmstudio.dev/cormorant-garamond-vietnamese-400-normal-6K-YXo6g.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-vietnamese-500-normal-BZGLGj12.woff2",
+        "https://yuyafilmstudio.dev/cormorant-garamond-vietnamese-500-normal-DqXqCC0q.woff",
+        "https://yuyafilmstudio.dev/courier-prime-latin-400-normal-BAlbUm6l.woff",
+        "https://yuyafilmstudio.dev/courier-prime-latin-400-normal-BbyBr73r.woff2",
+        "https://yuyafilmstudio.dev/courier-prime-latin-700-normal-CVvp4Sof.woff",
+        "https://yuyafilmstudio.dev/courier-prime-latin-700-normal-D1YCjmaD.woff2",
+        "https://yuyafilmstudio.dev/courier-prime-latin-ext-400-normal-B-EsvyE4.woff2",
+        "https://yuyafilmstudio.dev/courier-prime-latin-ext-400-normal-CKOCNFvK.woff",
+        "https://yuyafilmstudio.dev/courier-prime-latin-ext-700-normal-BIFoAzHx.woff",
+        "https://yuyafilmstudio.dev/courier-prime-latin-ext-700-normal-ByMJlNdM.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-300-normal-BnqRxXuy.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-300-normal-LR1W_oT8.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-400-normal-HOLc17fK.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-400-normal-obahsSVq.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-500-normal-BasfLYem.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-500-normal-CxZf_p3X.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-600-normal-4D_pXhcN.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-600-normal-CWCymEST.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-300-normal-CgCALhwJ.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-300-normal-RId2JxDB.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-400-normal-DQukG94-.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-500-normal-B0yAr1jD.woff2",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-500-normal-BmqWE9Dz.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-600-normal-Bcila6Z-.woff",
+        "https://yuyafilmstudio.dev/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-300-normal-BrhSP0vQ.woff",
+        "https://yuyafilmstudio.dev/inter-greek-300-normal-DmGD3g_f.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-400-normal-B4URO6DV.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-400-normal-q2sYcFCs.woff",
+        "https://yuyafilmstudio.dev/inter-greek-500-normal-BIZE56-Y.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-500-normal-Xzm54t5V.woff",
+        "https://yuyafilmstudio.dev/inter-greek-600-normal-BZpKdvQh.woff",
+        "https://yuyafilmstudio.dev/inter-greek-600-normal-plRanbMR.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-ext-300-normal-DLbbeei1.woff",
+        "https://yuyafilmstudio.dev/inter-greek-ext-300-normal-l2DDyC6M.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-ext-400-normal-DGGRlc-M.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-ext-400-normal-KugGGMne.woff",
+        "https://yuyafilmstudio.dev/inter-greek-ext-500-normal-2j5mBUwD.woff",
+        "https://yuyafilmstudio.dev/inter-greek-ext-500-normal-C4iEst2y.woff2",
+        "https://yuyafilmstudio.dev/inter-greek-ext-600-normal-B8X0CLgF.woff",
+        "https://yuyafilmstudio.dev/inter-greek-ext-600-normal-DRtmH8MT.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-300-normal-BVlfKGgI.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-300-normal-i8F0SvXL.woff",
+        "https://yuyafilmstudio.dev/inter-latin-400-normal-C38fXH4l.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-400-normal-CyCys3Eg.woff",
+        "https://yuyafilmstudio.dev/inter-latin-500-normal-BL9OpVg8.woff",
+        "https://yuyafilmstudio.dev/inter-latin-500-normal-Cerq10X2.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-600-normal-CiBQ2DWP.woff",
+        "https://yuyafilmstudio.dev/inter-latin-600-normal-LgqL8muc.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-ext-300-normal-CPgO9Ksf.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-ext-300-normal-Dp1L8vcn.woff",
+        "https://yuyafilmstudio.dev/inter-latin-ext-400-normal-77YHD8bZ.woff",
+        "https://yuyafilmstudio.dev/inter-latin-ext-400-normal-C1nco2VV.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-ext-500-normal-BxGbmqWO.woff",
+        "https://yuyafilmstudio.dev/inter-latin-ext-500-normal-CV4jyFjo.woff2",
+        "https://yuyafilmstudio.dev/inter-latin-ext-600-normal-CIVaiw4L.woff",
+        "https://yuyafilmstudio.dev/inter-latin-ext-600-normal-D2bJ5OIk.woff2",
+        "https://yuyafilmstudio.dev/inter-vietnamese-300-normal-Bdr24Bqb.woff2",
+        "https://yuyafilmstudio.dev/inter-vietnamese-300-normal-DDGmYYdT.woff",
+        "https://yuyafilmstudio.dev/inter-vietnamese-400-normal-Bbgyi5SW.woff",
+        "https://yuyafilmstudio.dev/inter-vietnamese-400-normal-DMkecbls.woff2",
+        "https://yuyafilmstudio.dev/inter-vietnamese-500-normal-DOriooB6.woff2",
+        "https://yuyafilmstudio.dev/inter-vietnamese-500-normal-mJboJaSs.woff",
+        "https://yuyafilmstudio.dev/inter-vietnamese-600-normal-BuLX-rYi.woff",
+        "https://yuyafilmstudio.dev/inter-vietnamese-600-normal-Cc8MFFhd.woff2"
+      ],
+      "selfHostedFonts": [
+        "cormorant-garamond-latin-400-normal-B-1hWBU7.woff2",
+        "cormorant-garamond-latin-500-normal-BsRWmXhO.woff2",
+        "courier-prime-latin-400-normal-BbyBr73r.woff2",
+        "courier-prime-latin-700-normal-D1YCjmaD.woff2",
+        "inter-latin-400-normal-C38fXH4l.woff2",
+        "inter-latin-500-normal-Cerq10X2.woff2",
+        "inter-latin-600-normal-LgqL8muc.woff2"
+      ]
+    }
+  },
+  "spacing": {
+    "scaleType": "custom",
+    "commonValues": [
+      {
+        "px": "1px",
+        "display": "1px",
+        "rem": "0.06rem",
+        "count": 33,
+        "numericValue": 1
+      },
+      {
+        "px": "2px",
+        "display": "2px",
+        "rem": "0.13rem",
+        "count": 42,
+        "numericValue": 2
+      },
+      {
+        "px": "3px",
+        "display": "3px",
+        "rem": "0.19rem",
+        "count": 11,
+        "numericValue": 3
+      },
+      {
+        "px": "4px",
+        "display": "4px",
+        "rem": "0.25rem",
+        "count": 7,
+        "numericValue": 4
+      },
+      {
+        "px": "5px",
+        "display": "5px",
+        "rem": "0.31rem",
+        "count": 7,
+        "numericValue": 5
+      },
+      {
+        "px": "6px",
+        "display": "6px",
+        "rem": "0.38rem",
+        "count": 5,
+        "numericValue": 6
+      },
+      {
+        "px": "7px",
+        "display": "7px",
+        "rem": "0.44rem",
+        "count": 7,
+        "numericValue": 7
+      },
+      {
+        "px": "8px",
+        "display": "8px",
+        "rem": "0.50rem",
+        "count": 24,
+        "numericValue": 8
+      },
+      {
+        "px": "9px",
+        "display": "9px",
+        "rem": "0.56rem",
+        "count": 36,
+        "numericValue": 9
+      },
+      {
+        "px": "10px",
+        "display": "10px",
+        "rem": "0.63rem",
+        "count": 17,
+        "numericValue": 10
+      },
+      {
+        "px": "11px",
+        "display": "11px",
+        "rem": "0.69rem",
+        "count": 4,
+        "numericValue": 11
+      },
+      {
+        "px": "12px",
+        "display": "12px",
+        "rem": "0.75rem",
+        "count": 5,
+        "numericValue": 12
+      },
+      {
+        "px": "13px",
+        "display": "13px",
+        "rem": "0.81rem",
+        "count": 2,
+        "numericValue": 13
+      },
+      {
+        "px": "14px",
+        "display": "14px",
+        "rem": "0.88rem",
+        "count": 7,
+        "numericValue": 14
+      },
+      {
+        "px": "16px",
+        "display": "16px",
+        "rem": "1.00rem",
+        "count": 2,
+        "numericValue": 16
+      },
+      {
+        "px": "18px",
+        "display": "18px",
+        "rem": "1.13rem",
+        "count": 4,
+        "numericValue": 18
+      },
+      {
+        "px": "22px",
+        "display": "22px",
+        "rem": "1.38rem",
+        "count": 5,
+        "numericValue": 22
+      },
+      {
+        "px": "28px",
+        "display": "28px",
+        "rem": "1.75rem",
+        "count": 2,
+        "numericValue": 28
+      },
+      {
+        "px": "34px",
+        "display": "34px",
+        "rem": "2.13rem",
+        "count": 8,
+        "numericValue": 34
+      },
+      {
+        "px": "48px",
+        "display": "48px",
+        "rem": "3.00rem",
+        "count": 2,
+        "numericValue": 48
+      }
+    ]
+  },
+  "borderRadius": {
+    "values": [
+      {
+        "value": "3px",
+        "count": 42,
+        "elements": [
+          "kbd"
+        ],
+        "confidence": "high",
+        "numericValue": 3
+      },
+      {
+        "value": "4px",
+        "count": 10,
+        "elements": [
+          "kbd",
+          "span"
+        ],
+        "confidence": "medium",
+        "numericValue": 4
+      },
+      {
+        "value": "50%",
+        "count": 17,
+        "elements": [
+          "i",
+          "div",
+          "span",
+          "button"
+        ],
+        "confidence": "high",
+        "numericValue": 50
+      }
+    ]
+  },
+  "borders": {
+    "combinations": [
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.35)",
+        "count": 40,
+        "elements": [
+          "kbd"
+        ],
+        "confidence": "high"
+      },
+      {
+        "width": "1px 0px 0px",
+        "style": "solid none none",
+        "color": "rgba(242, 237, 228, 0.1)",
+        "count": 11,
+        "elements": [
+          "dt",
+          "dd",
+          "footer",
+          "div"
+        ],
+        "confidence": "high"
+      },
+      {
+        "width": "1px 1px 2px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.28)",
+        "count": 10,
+        "elements": [
+          "kbd",
+          "span"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "width": "1px",
+        "style": "dashed",
+        "color": "rgba(242, 237, 228, 0.25)",
+        "count": 7,
+        "elements": [
+          "span"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgb(201, 169, 110)",
+        "count": 4,
+        "elements": [
+          "i",
+          "button"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(255, 255, 255, 0.25)",
+        "count": 4,
+        "elements": [
+          "button"
+        ],
+        "confidence": "medium"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.55)",
+        "count": 3,
+        "elements": [
+          "i",
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 0px 1px",
+        "style": "none none solid",
+        "color": "rgba(242, 237, 228, 0.5)",
+        "count": 3,
+        "elements": [
+          "h2"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px 1px 1px 2px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.12)",
+        "count": 3,
+        "elements": [
+          "button"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 1px 0px 0px",
+        "style": "none solid none none",
+        "color": "rgba(242, 237, 228, 0.6)",
+        "count": 3,
+        "elements": [
+          "button"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.2)",
+        "count": 3,
+        "elements": [
+          "button"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 0px 0px 1px",
+        "style": "none none none solid",
+        "color": "rgb(242, 237, 228)",
+        "count": 2,
+        "elements": [
+          "section"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.28)",
+        "count": 2,
+        "elements": [
+          "kbd"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.14)",
+        "count": 2,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.12)",
+        "count": 2,
+        "elements": [
+          "button",
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 0px 1px",
+        "style": "none none solid",
+        "color": "rgba(242, 237, 228, 0.6)",
+        "count": 2,
+        "elements": [
+          "header"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.3)",
+        "count": 2,
+        "elements": [
+          "video",
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px 0px",
+        "style": "solid none",
+        "color": "rgba(242, 237, 228, 0.22)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 0px 1px",
+        "style": "none none solid",
+        "color": "rgba(242, 237, 228, 0.62)",
+        "count": 1,
+        "elements": [
+          "header"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(201, 169, 110, 0.9)",
+        "count": 1,
+        "elements": [
+          "button"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.22)",
+        "count": 1,
+        "elements": [
+          "button"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(201, 169, 110, 0.45)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px 1px 1px 2px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.14)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.1)",
+        "count": 1,
+        "elements": [
+          "aside"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.16)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "2px 0px 0px 2px",
+        "style": "solid",
+        "color": "rgba(255, 255, 255, 0.85)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "2px 2px 0px 0px",
+        "style": "solid",
+        "color": "rgba(255, 255, 255, 0.85)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 0px 2px 2px",
+        "style": "solid",
+        "color": "rgba(255, 255, 255, 0.85)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 2px 2px 0px",
+        "style": "solid",
+        "color": "rgba(255, 255, 255, 0.85)",
+        "count": 1,
+        "elements": [
+          "div"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px 0px",
+        "style": "solid none",
+        "color": "rgba(242, 237, 228, 0.14)",
+        "count": 1,
+        "elements": [
+          "canvas"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.5)",
+        "count": 1,
+        "elements": [
+          "i"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "1px 0px 0px",
+        "style": "dotted none none",
+        "color": "rgb(201, 169, 110)",
+        "count": 1,
+        "elements": [
+          "i"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "2px 0px 0px 2px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.9)",
+        "count": 1,
+        "elements": [
+          "i"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "2px 2px 0px 0px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.9)",
+        "count": 1,
+        "elements": [
+          "i"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 0px 2px 2px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.9)",
+        "count": 1,
+        "elements": [
+          "i"
+        ],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 2px 2px 0px",
+        "style": "solid",
+        "color": "rgba(242, 237, 228, 0.9)",
+        "count": 1,
+        "elements": [
+          "i"
+        ],
+        "confidence": "low"
+      }
+    ]
+  },
+  "shadows": [
+    {
+      "shadow": "rgba(127, 179, 122, 0.14) 0px 0px 0px 3px",
+      "count": 1,
+      "confidence": "low"
+    },
+    {
+      "shadow": "rgba(201, 169, 110, 0.55) 0px 0px 6px 0px",
+      "count": 1,
+      "confidence": "low"
+    },
+    {
+      "shadow": "rgba(7, 7, 7, 0.8) 0px 0px 0px 3840px",
+      "count": 1,
+      "confidence": "low"
+    },
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 9999px inset",
+      "count": 1,
+      "confidence": "low"
+    }
+  ],
+  "gradients": [
+    {
+      "gradient": "linear-gradient(rgba(242, 237, 228, 0.07), rgba(242, 237, 228, 0.02))",
+      "type": "linear",
+      "stopColors": [
+        "rgba(242, 237, 228, 0.07)",
+        "rgba(242, 237, 228, 0.02)"
+      ],
+      "count": 12
+    },
+    {
+      "gradient": "radial-gradient(120% 90% at 70% 10%, rgba(30, 25, 18, 0.62), rgba(9, 9, 8, 0.86) 62%)",
+      "type": "radial",
+      "stopColors": [
+        "rgba(30, 25, 18, 0.62)",
+        "rgba(9, 9, 8, 0.86)"
+      ],
+      "count": 1
+    }
+  ],
+  "motion": {
+    "durations": [
+      {
+        "value": "0.25s",
+        "ms": 250,
+        "count": 3
+      },
+      {
+        "value": "0.3s",
+        "ms": 300,
+        "count": 3
+      },
+      {
+        "value": "0.4s",
+        "ms": 400,
+        "count": 1
+      },
+      {
+        "value": "0.6s",
+        "ms": 600,
+        "count": 1
+      },
+      {
+        "value": "0.8s",
+        "ms": 800,
+        "count": 1
+      },
+      {
+        "value": "1.6s",
+        "ms": 1600,
+        "count": 1
+      }
+    ],
+    "easings": [
+      {
+        "value": "ease",
+        "type": "ease",
+        "count": 11
+      }
+    ],
+    "animations": [
+      {
+        "name": "bf-in",
+        "duration": "1.4s",
+        "easing": "cubic-bezier(0.2",
+        "count": 1,
+        "contexts": [
+          "other"
+        ]
+      },
+      {
+        "name": "bf-pulse",
+        "duration": "2.8s",
+        "easing": "ease-in-out",
+        "count": 1,
+        "contexts": [
+          "other"
+        ]
+      }
+    ],
+    "contexts": {
+      "button": {
+        "count": 2,
+        "durations": [
+          "0.3s",
+          "0.25s"
+        ],
+        "easing": "ease",
+        "easingType": "ease",
+        "props": [
+          "color",
+          "background",
+          "opacity",
+          "border-color"
+        ]
+      }
+    },
+    "interactiveDeltas": []
+  },
+  "components": {
+    "buttons": [
+      {
+        "states": {
+          "default": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "color": "rgb(242, 237, 228)",
+            "padding": "18px 22px",
+            "borderRadius": "0px",
+            "border": "1px solid rgba(201, 169, 110, 0.9)",
+            "fontSize": "11.5px",
+            "fontWeight": "600"
+          }
+        },
+        "fontWeight": "600",
+        "fontSize": "11.5px",
+        "text": "ENTER YUYA FILM STUDIO",
+        "confidence": "high"
+      },
+      {
+        "states": {
+          "default": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "color": "rgba(242, 237, 228, 0.55)",
+            "padding": "6px 10px",
+            "borderRadius": "0px",
+            "border": "1px solid rgba(242, 237, 228, 0.22)",
+            "fontSize": "9.5px",
+            "fontWeight": "600"
+          }
+        },
+        "fontWeight": "600",
+        "fontSize": "9.5px",
+        "text": "AUDIOOFF",
+        "confidence": "high"
+      }
+    ],
+    "inputs": {
+      "text": [],
+      "checkbox": [],
+      "radio": [],
+      "select": []
+    },
+    "links": [],
+    "badges": {
+      "all": [],
+      "byVariant": {
+        "error": [],
+        "warning": [],
+        "success": [],
+        "info": [],
+        "neutral": []
+      }
+    }
+  },
+  "breakpoints": [
+    {
+      "px": "640px"
+    },
+    {
+      "px": "720px"
+    },
+    {
+      "px": "900px"
+    },
+    {
+      "px": "1000px"
+    }
+  ],
+  "iconSystem": [],
+  "frameworks": []
+}
